@@ -54,6 +54,11 @@ npm run loja:dev                                 # http://localhost:3000
   e quem mede isso é a Edge Function `vitals` (tabela `loja.web_vitals`, view `web_vitals_p75`). O
   runner do GitHub é mais lento que celular bom e mais rápido que celular ruim; serve pra pegar
   regressão, não pra dizer a verdade sobre o cliente.
+- **As funções rodam em `iad1` (Virgínia), fixado em `vercel.json`.** Parece errado pra uma loja
+  brasileira e não é: a função passa a vida esperando o Medusa, que está no Railway US East com o
+  Postgres da Supabase ao lado. Aproximá-la do usuário (`gru1`) a afastaria do banco, que é o que ela
+  mais espera. A vitrine, que é o que o usuário realmente carrega, sai do cache no PoP de São Paulo e
+  não depende disso. O raciocínio completo está no README da raiz.
 - **URLs em português e minúsculas, para sempre.** `/produtos/<handle>` e `/<categoria>` — o Medusa
   só guarda o handle (validado no admin), o caminho é desta app.
 

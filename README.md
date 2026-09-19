@@ -43,9 +43,31 @@ Supabase Pro (recomendado desde o dia 1 pelo backup diário) e o Railway (paga o
 Suba este repositório. Dois ramos: `main` (produção) e `staging`. Pull request roda o CI; merge em
 `staging` publica staging; merge `staging → main` é a "promoção" pra produção.
 
+> ### Uma regra antes de criar qualquer conta: região
+>
+> **Medusa e Postgres ficam na mesma região, sempre.** Uma requisição do Medusa dispara dezenas de
+> queries SQL; com servidor e banco em continentes diferentes, cada `add to cart` vira segundos. Isso
+> não é ajuste fino, é a diferença entre funcionar e não funcionar.
+>
+> O Railway só tem quatro regiões — Califórnia, Virgínia, Amsterdã e Singapura — e nenhuma na América
+> do Sul. Então tudo que é dinâmico mora no **norte da Virgínia**: Supabase `us-east-1`, Railway
+> `US East`, e as funções da Vercel no padrão `iad1` (já fixado em `apps/loja/vercel.json`). Os três
+> ficam na mesma região metropolitana, a milissegundos um do outro.
+>
+> O que o usuário brasileiro sente: **nada na vitrine**, que é servida do cache no PoP de São Paulo —
+> é ali que moram o SEO e o Core Web Vitals. O custo cai só no dinâmico: carrinho e checkout pagam uma
+> travessia de ~120 ms, e as APIs brasileiras que o Medusa chama (Frenet, Pagar.me, Bling) ganham
+> +120 ms cada — a cotação de frete é a que mais dói, porque está no caminho do checkout.
+>
+> Isso foi escolhido pra ser **medido, não adivinhado**: a Edge Function `vitals` e os eventos de
+> funil do checkout dizem, com um mês de dados reais, se essa latência custa conversão. Se custar, o
+> caminho é mover o backend pra São Paulo (Fly.io `gru` ou Cloud Run `southamerica-east1`) com a
+> Supabase em `sa-east-1` — migra o backend, não a arquitetura.
+
 ### 2. Supabase
 
-1. Novo projeto na região **South America (São Paulo)**. Guarde a senha do banco.
+1. Novo projeto na região **East US (North Virginia)** — `us-east-1`, pelo motivo acima, não São
+   Paulo. Guarde a senha do banco.
 2. **Project Settings → Database → Connection string → Session pooler** (porta **5432**). É essa URL
    que vai no Railway, com `?ssl_mode=disable` no fim (ver `apps/backend/.env.example`).
    O modo transação (6543) não funciona com o Medusa.
@@ -56,7 +78,8 @@ Suba este repositório. Dois ramos: `main` (produção) e `staging`. Pull reques
 ### 3. Railway
 
 Um projeto, três serviços, todos apontando pro **mesmo repositório com Root Directory na raiz** (é um
-monorepo npm: o `package-lock.json` fica na raiz).
+monorepo npm: o `package-lock.json` fica na raiz). Em cada serviço, Settings → Deploy → **Region:
+`US East (Virginia)`** — a mesma da Supabase.
 
 | Serviço         | Config-as-code (Settings → Config-as-code → caminho) | Variáveis próprias                           |
 | --------------- | ---------------------------------------------------- | -------------------------------------------- |
@@ -83,10 +106,13 @@ Variáveis comuns aos dois serviços Medusa (copie de `apps/backend/.env.example
 2. Variáveis (copie de `apps/loja/.env.example`) em _Production_ e _Preview_: `NEXT_PUBLIC_SITE_URL`,
    `MEDUSA_BACKEND_URL`, `NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY`, `NEXT_PUBLIC_SUPABASE_REF`,
    `REVALIDAR_SEGREDO`, `NEXT_PUBLIC_LOJA_ATUAL_URL` e, quando quiser medir, `NEXT_PUBLIC_GA4_ID`.
-3. Ramo de produção: `main`. Em **Domains**, deixe o domínio final cadastrado mas **não aponte o DNS
+3. Região das funções: **não mexa**. O `apps/loja/vercel.json` fixa `iad1`, que é a mesma região do
+   Railway e da Supabase. Trocar pra `gru1` (São Paulo) parece melhor e é pior: afasta a função do
+   banco, que é o que ela mais espera.
+4. Ramo de produção: `main`. Em **Domains**, deixe o domínio final cadastrado mas **não aponte o DNS
    ainda** — isso é a Fase 6. Até lá a loja nova vive em `SEUPROJETO.vercel.app`, com `noindex`
    automático fora de produção.
-4. Adicione `https://SEUPROJETO.vercel.app` (e o domínio final) em `STORE_CORS` e `AUTH_CORS` no Railway.
+5. Adicione `https://SEUPROJETO.vercel.app` (e o domínio final) em `STORE_CORS` e `AUTH_CORS` no Railway.
 
 ### 5. Cloudflare
 
