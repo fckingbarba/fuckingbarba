@@ -31,6 +31,9 @@ também em Admin → Settings → Publishable API Keys. Ela vai no `.env` do Nex
   Postgres do Supabase com SSL, imagens no Supabase Storage (S3).
 - `src/migration-scripts/dados-iniciais.ts` — loja em BRL, região Brasil, canal "Loja online", chave
   publicável, estoque, zona de entrega e as categorias `barba`, `cabelo`, `kits`. Sem produto de exemplo.
+- `src/scripts/produtos-iniciais.ts` — cinco produtos **reais** da loja atual, com foto, preço e um
+  trecho da descrição, pra vitrine e PDP terem contra o que ser desenhadas. Não é a migração do
+  catálogo (isso é a fase 2). Roda quantas vezes quiser: handle que já existe é pulado.
 - `src/api/middlewares.ts` — todo `handle` (slug) de produto e categoria é validado e gerado sem acento:
   é o que vira a URL `/produtos/oleo-para-barba`.
 - `src/subscribers/pagamento-capturado.ts` — o ponto onde a fase 5 liga NF-e, e-mail e conversões.
@@ -45,6 +48,16 @@ npm run typecheck    # tsc sem emitir
 npm run lint
 npm run db:migrate   # migrações + migration-scripts pendentes
 npm run user -- --email x --password y
+npm run produtos     # os cinco produtos iniciais (idempotente)
 ```
+
+No Railway, o mesmo script roda a partir do build, pelo shell do `medusa-server`:
+
+```bash
+cd apps/backend/.medusa/server && npx medusa exec ./src/scripts/produtos-iniciais.js
+```
+
+Ele exige `S3_BUCKET` configurado quando `NODE_ENV=production` — sem isso as fotos iriam pro disco
+do container e sumiriam no deploy seguinte, com os produtos ainda apontando pra elas.
 
 Documentação: https://docs.medusajs.com

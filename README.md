@@ -98,6 +98,9 @@ Variáveis comuns aos dois serviços Medusa (copie de `apps/backend/.env.example
 - Primeiro usuário do admin: Settings → Deployments → shell do `medusa-server`, ou localmente apontando
   `DATABASE_URL` pro Supabase: `cd apps/backend && npx medusa user --email … --password …`.
 - A chave publicável da loja: Admin → Settings → Publishable API Keys.
+- Cinco produtos pra loja não nascer vazia (opcional, e só depois das variáveis `S3_*`): no shell do
+  `medusa-server`, `cd apps/backend/.medusa/server && npx medusa exec ./src/scripts/produtos-iniciais.js`.
+  São produtos reais da loja atual, com foto e preço; a migração do catálogo inteiro é a fase 2.
 
 ### 4. Vercel
 

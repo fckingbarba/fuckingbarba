@@ -58,3 +58,6 @@ Thumbs.db
 # Python das ferramentas de porte
 __pycache__/
 *.pyc
+
+# Redis rodando direto na raiz (fora do docker compose)
+dump.rdb

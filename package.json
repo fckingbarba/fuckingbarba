@@ -16,6 +16,7 @@
     "backend:build": "turbo build --filter=@fuckingbarba/backend",
     "backend:migrate": "npm run db:migrate -w @fuckingbarba/backend",
     "backend:user": "npm run user -w @fuckingbarba/backend --",
+    "backend:produtos": "npm run produtos -w @fuckingbarba/backend",
     "loja:dev": "turbo dev --filter=@fuckingbarba/loja",
     "loja:build": "turbo build --filter=@fuckingbarba/loja"
   },
