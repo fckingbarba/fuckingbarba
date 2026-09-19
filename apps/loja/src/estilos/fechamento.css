@@ -1,0 +1,158 @@
+/*
+  A última chamada, no fim da home. A foto é fundo: o degradê escuro por cima
+  (`::before`) é o que garante contraste do texto branco — sem ele a leitura
+  depende da foto, e foto a gente troca.
+*/
+
+/* Entrelinha padrão do navegador, como no protótipo: o preflight do
+   Tailwind põe 1.5 na raiz e isso empurra tudo que não declara a sua. */
+.fechamento {
+  line-height: normal;
+}
+.fechamento,
+.fechamento * {
+  border-radius: 0;
+  box-sizing: border-box;
+}
+.fechamento {
+  position: relative;
+  isolation: isolate;
+  font-family: var(--font-sans);
+  color: #ffffff;
+  overflow: hidden;
+  padding: clamp(46px, 6vw, 84px) clamp(18px, 4vw, 40px) clamp(38px, 5vw, 64px);
+}
+.fechamento__foto {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+}
+.fechamento__foto img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.fechamento::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(
+      100deg,
+      rgba(4, 8, 6, 0.93) 0%,
+      rgba(4, 8, 6, 0.82) 38%,
+      rgba(4, 8, 6, 0.42) 72%,
+      rgba(4, 8, 6, 0.3) 100%
+    );
+}
+.fechamento__tape {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 9px;
+  z-index: 1;
+  background: repeating-linear-gradient(
+      -45deg,
+      #000 0 14px,
+      var(--color-amarelo) 14px 28px
+    );
+}
+.fechamento__wrap {
+  position: relative;
+  max-width: 1320px;
+  margin: 0 auto;
+}
+.fechamento__miolo {
+  max-width: 660px;
+}
+.fechamento__kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 14px;
+  padding: 6px 14px 6px 11px;
+  background: var(--color-amarelo);
+  color: var(--color-tinta);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 0 100%);
+}
+.fechamento__kicker svg {
+  width: 12px;
+  height: 12px;
+  fill: var(--color-tinta);
+}
+.fechamento__titulo {
+  margin: 0 0 24px;
+  padding-left: 16px;
+  border-left: 5px solid var(--color-amarelo);
+  font-size: clamp(1.5rem, 3.6vw, 2.7rem);
+  font-weight: 800;
+  line-height: 1.12;
+  letter-spacing: -0.015em;
+  text-transform: uppercase;
+}
+.fechamento .btn {
+  background: var(--color-amarelo);
+  border-color: var(--color-amarelo);
+  color: var(--color-tinta);
+  font-size: clamp(0.88rem, 1.5vw, 1rem);
+  padding: 16px 30px;
+  box-shadow: 7px 7px 0 0 #4fe0b9;
+}
+.fechamento .btn:hover,
+.fechamento .btn:focus-visible {
+  box-shadow: 11px 11px 0 0 #4fe0b9;
+}
+.fechamento .btn:active {
+  box-shadow: 2px 2px 0 0 #4fe0b9;
+}
+.fechamento__garantias {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 28px;
+  margin: clamp(26px, 3.5vw, 38px) 0 0;
+  padding: clamp(18px, 2.4vw, 24px) 0 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.22);
+  max-width: 900px;
+}
+.fechamento__garantias li {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 0.83rem;
+  font-weight: 700;
+  color: #e9edf0;
+}
+.fechamento__garantias svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  fill: #4fe0b9;
+}
+@media (max-width: 720px) {
+  .fechamento::before {
+    background: linear-gradient(
+        180deg,
+        rgba(4, 8, 6, 0.9) 0%,
+        rgba(4, 8, 6, 0.86) 55%,
+        rgba(4, 8, 6, 0.6) 100%
+      );
+  }
+  .fechamento__garantias {
+    gap: 9px 0;
+    flex-direction: column;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fechamento * {
+    transition: none !important;
+    animation: none !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -1,8 +1,10 @@
 import Link from "next/link"
 import { AltaPerformance } from "@/components/home/alta-performance"
 import { Banner } from "@/components/home/banner"
+import { Fechamento } from "@/components/home/fechamento"
 import { Colecao } from "@/components/home/colecao"
 import { Ofertas } from "@/components/home/ofertas"
+import { Sobre } from "@/components/home/sobre"
 import { Trustbar } from "@/components/home/trustbar"
 import { Vitrine } from "@/components/home/vitrine"
 import { Raio } from "@/components/icones"
@@ -15,9 +17,10 @@ import { site } from "@/lib/site"
  * ponta a ponta da tela e segura o próprio limite de largura por dentro
  * (1320px, como no protótipo). Centralizar aqui estreitaria o banner.
  *
- * Já no lugar: banner, vantagens, ofertas, coleção, Alta Performance e a
- * grade de produtos.
- * Faltam: prova social (depende de depoimento real), sobre e fechamento.
+ * Já no lugar: banner, vantagens, ofertas, coleção, Alta Performance,
+ * grade de produtos, a história da marca e a última chamada.
+ * Falta a prova social — a estrutura entra vazia e acende quando houver
+ * depoimento de cliente de verdade.
  */
 export default function Inicio() {
   return (
@@ -28,6 +31,8 @@ export default function Inicio() {
       <Colecao />
       <AltaPerformance />
       <Vitrine />
+      <Sobre />
+      <Fechamento />
 
       <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
         <p className="mb-4 inline-flex items-center gap-2 text-sm font-extrabold uppercase tracking-[0.18em] text-tinta">
