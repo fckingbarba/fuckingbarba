@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next"
 import { Inter } from "next/font/google"
 import { Tags } from "@/components/analytics/tags"
+import { SimboloEstrela } from "@/components/estrelas"
 import { Anuncio } from "@/components/layout/anuncio"
 import { Cabecalho } from "@/components/layout/cabecalho"
 import { Rodape } from "@/components/layout/rodape"
@@ -51,6 +52,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         </a>
         {/* A carcaça é a mesma em toda página: esteira, cabeçalho, rodapé.
             Cada página entrega o próprio <main id="conteudo">. */}
+        {/* O desenho da estrela, uma vez por página: as avaliações
+            referenciam por <use> em vez de repetir o path dez vezes cada. */}
+        <SimboloEstrela />
         <Anuncio />
         <Cabecalho />
         {children}

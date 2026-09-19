@@ -1,9 +1,11 @@
 import Link from "next/link"
 import { AltaPerformance } from "@/components/home/alta-performance"
+import { Amam } from "@/components/home/amam"
 import { Banner } from "@/components/home/banner"
 import { Fechamento } from "@/components/home/fechamento"
 import { Colecao } from "@/components/home/colecao"
 import { Ofertas } from "@/components/home/ofertas"
+import { Provas } from "@/components/home/provas"
 import { Sobre } from "@/components/home/sobre"
 import { Trustbar } from "@/components/home/trustbar"
 import { Vitrine } from "@/components/home/vitrine"
@@ -19,8 +21,8 @@ import { site } from "@/lib/site"
  *
  * Já no lugar: banner, vantagens, ofertas, coleção, Alta Performance,
  * grade de produtos, a história da marca e a última chamada.
- * Falta a prova social — a estrutura entra vazia e acende quando houver
- * depoimento de cliente de verdade.
+ * A prova social está montada e vazia: acende sozinha quando houver
+ * depoimento de cliente em conteudo/depoimentos.ts.
  */
 export default function Inicio() {
   return (
@@ -30,6 +32,8 @@ export default function Inicio() {
       <Ofertas />
       <Colecao />
       <AltaPerformance />
+      <Provas />
+      <Amam />
       <Vitrine />
       <Sobre />
       <Fechamento />

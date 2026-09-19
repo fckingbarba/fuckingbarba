@@ -199,6 +199,18 @@ export function precosDe(
   }
 }
 
+/**
+ * Índice handle → produto, pra quem precisa cruzar uma lista de conteúdo com
+ * o catálogo. Produto sem handle fica de fora: entrar no mapa com chave
+ * `undefined` faria `get(undefined)` devolver um produto qualquer, que é o
+ * tipo de bug que só aparece na tela do cliente.
+ */
+export function porHandle(
+  produtos: HttpTypes.StoreProduct[]
+): Map<string, HttpTypes.StoreProduct> {
+  return new Map(produtos.flatMap((p) => (p.handle ? [[p.handle, p] as const] : [])))
+}
+
 /** Preço em reais já formatado, ou null quando o produto não tem preço. */
 export function precoDe(produto: HttpTypes.StoreProduct): string | null {
   const precos = precosDe(produto)

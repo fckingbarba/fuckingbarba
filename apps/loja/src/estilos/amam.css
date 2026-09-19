@@ -1,0 +1,123 @@
+/*
+  A esteira de avaliações. Mesmo movimento da faixa de avisos: duas filas
+  idênticas correndo -50%, e para quando sai da tela.
+*/
+
+/* Entrelinha padrão do navegador, como no protótipo: o preflight do
+   Tailwind põe 1.5 na raiz e isso empurra tudo que não declara a sua. */
+.amam {
+  line-height: normal;
+}
+.amam,
+.amam * {
+  border-radius: 0;
+  box-sizing: border-box;
+}
+.amam {
+  position: relative;
+  background: var(--color-amarelo);
+  color: var(--color-tinta);
+  font-family: var(--font-sans);
+  padding: clamp(30px, 3.6vw, 46px) 0 clamp(24px, 3vw, 36px);
+  overflow: hidden;
+}
+.amam::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 9px;
+  background: repeating-linear-gradient(
+      -45deg,
+      var(--color-tinta) 0 14px,
+      #ffffff 14px 28px
+    );
+}
+.amam__topo {
+  max-width: 1320px;
+  margin: 0 auto clamp(22px, 3vw, 32px);
+  padding: 0 clamp(16px, 3vw, 30px);
+  text-align: center;
+}
+.amam__titulo {
+  margin: 0 0 10px;
+  font-size: clamp(1.4rem, 3.2vw, 2.3rem);
+  font-weight: 800;
+  line-height: 1.1;
+  text-transform: uppercase;
+  font-style: italic;
+}
+.amam__nota {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin: 0;
+  padding: 7px 15px;
+  background: var(--color-tinta);
+  color: #ffffff;
+  font-size: 0.86rem;
+  font-weight: 700;
+  clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px);
+}
+.amam__nota b {
+  font-weight: 800;
+  font-size: 1.05rem;
+}
+.amam__nota .estrelas svg {
+  width: 15px;
+  height: 15px;
+  fill: rgba(255, 255, 255, 0.28);
+}
+.amam__nota .estrelas__cheias svg {
+  fill: var(--color-amarelo);
+}
+.amam__esteiras {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.amam__esteira {
+  display: flex;
+  width: max-content;
+  gap: 14px;
+  animation: amamCorre 46s linear infinite;
+}
+.amam__esteira--volta {
+  animation-duration: 58s;
+  animation-direction: reverse;
+}
+@keyframes amamCorre{
+    to { transform: translateX(-50%); }
+  }
+.amam__esteiras:hover .amam__esteira {
+  animation-play-state: paused;
+}
+.amam__fila {
+  display: flex;
+  gap: 14px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .amam__esteiras {
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .amam__esteiras::-webkit-scrollbar {
+    display: none;
+  }
+}
+.amam__esteira {
+  will-change: transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  .amam__esteira {
+    transition: none !important;
+    animation: none !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -28,6 +28,7 @@ export function useCarrossel() {
   const [noInicio, setNoInicio] = useState(true)
   const [noFim, setNoFim] = useState(false)
   const [barra, setBarra] = useState({ largura: 0, deslocamento: 0 })
+  const [atual, setAtual] = useState(0)
 
   const sincronizar = useCallback(() => {
     const el = trilho.current
@@ -40,6 +41,20 @@ export function useCarrossel() {
     setNoFim(el.scrollLeft >= sobra - 2)
     const fatia = (el.clientWidth / el.scrollWidth) * 100
     setBarra({ largura: fatia, deslocamento: (el.scrollLeft / sobra) * (100 - fatia) })
+
+    // Qual item está mais perto da borda esquerda — é ele que as bolinhas
+    // marcam como atual.
+    const base = el.getBoundingClientRect().left
+    let perto = 0
+    let menor = Infinity
+    for (let i = 0; i < el.children.length; i++) {
+      const d = Math.abs(el.children[i].getBoundingClientRect().left - base)
+      if (d < menor) {
+        menor = d
+        perto = i
+      }
+    }
+    setAtual(perto)
   }, [])
 
   useEffect(() => {
@@ -66,5 +81,14 @@ export function useCarrossel() {
     el.scrollBy({ left: sentido * largura * cabem, behavior: "smooth" })
   }, [])
 
-  return { trilho, rola, noInicio, noFim, barra, andar }
+  /** Rola até um item específico — é o que as bolinhas usam. */
+  const irPara = useCallback((i: number) => {
+    const el = trilho.current
+    const alvo = el?.children[i]
+    if (!el || !alvo) return
+    const deslocamento = alvo.getBoundingClientRect().left - el.getBoundingClientRect().left
+    el.scrollTo({ left: el.scrollLeft + deslocamento, behavior: "smooth" })
+  }, [])
+
+  return { trilho, rola, noInicio, noFim, barra, atual, andar, irPara }
 }
