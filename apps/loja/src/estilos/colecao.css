@@ -1,0 +1,143 @@
+/*
+  Faixa "Alta Performance": um carrossel de cards de produto.
+
+  O trilho já rola no arraste e no toque sem JavaScript nenhum — as setas e a
+  barra de progresso são acréscimo. Se o script não carregar, a seção
+  continua inteira e utilizável, só sem os botões.
+*/
+
+/* Entrelinha padrão do navegador, como no protótipo: o preflight do
+   Tailwind põe 1.5 na raiz e isso empurra tudo que não declara a sua. */
+.colecao {
+  line-height: normal;
+}
+.colecao,
+.colecao * {
+  border-radius: 0;
+}
+.colecao {
+  position: relative;
+  background: #ffffff;
+  color: var(--color-tinta);
+  font-family: var(--font-sans);
+  padding: clamp(34px, 4vw, 52px) clamp(16px, 3vw, 30px) clamp(28px, 3.5vw, 44px);
+}
+.colecao::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 9px;
+  background: repeating-linear-gradient(
+      -45deg,
+      var(--color-tinta) 0 14px,
+      var(--color-amarelo) 14px 28px
+    );
+}
+.colecao__wrap {
+  max-width: 1320px;
+  margin: 0 auto;
+}
+.colecao__topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 18px 30px;
+  margin-bottom: clamp(20px, 3vw, 28px);
+}
+.colecao__titulo {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: clamp(1.15rem, 2.2vw, 1.55rem);
+  font-weight: 800;
+  text-transform: uppercase;
+  font-style: italic;
+  line-height: 1.15;
+}
+.colecao__titulo svg {
+  width: 19px;
+  height: 19px;
+  fill: var(--color-amarelo-escuro);
+  flex-shrink: 0;
+}
+.colecao__navs {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+  justify-content: flex-end;
+}
+.colecao__navs[hidden] {
+  display: none;
+}
+.colecao__nav {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: #ffffff;
+  color: var(--color-tinta);
+  border: 2px solid var(--color-tinta);
+  cursor: pointer;
+  clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px);
+  transition: background 0.15s ease, color 0.15s ease, opacity 0.15s ease;
+}
+.colecao__nav svg {
+  width: 17px;
+  height: 17px;
+  fill: currentColor;
+}
+.colecao__nav:hover:not(:disabled) {
+  background: var(--color-tinta);
+  color: #ffffff;
+}
+.colecao__nav:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+.colecao__track {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  padding: 6px 0 12px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.colecao__track::-webkit-scrollbar {
+  display: none;
+}
+.colecao__track:focus-visible {
+  outline: 3px solid var(--color-tinta);
+  outline-offset: 4px;
+}
+.colecao__rodape {
+  display: flex;
+  justify-content: center;
+  margin-top: clamp(20px, 3vw, 28px);
+}
+@media (max-width: 760px) {
+  .colecao__topo {
+    flex-direction: column;
+  }
+  .colecao__navs {
+    justify-content: flex-start;
+    margin-top: 4px;
+  }
+}
+.colecao * {
+  box-sizing: border-box;
+}
+@media (prefers-reduced-motion: reduce) {
+  .colecao * {
+    transition: none !important;
+    animation: none !important;
+    scroll-behavior: auto !important;
+  }
+}

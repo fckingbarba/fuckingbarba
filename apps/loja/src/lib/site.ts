@@ -63,7 +63,15 @@ export const contato = {
  * que o checkout não cumpre é reclamação certa.
  */
 export const formasDePagamento = ["Pix", "Boleto"] as const
-export const parcelamento = "3x sem juros"
+export const PARCELAS_SEM_JUROS = 3
+export const parcelamento = `${PARCELAS_SEM_JUROS}x sem juros`
+
+/**
+ * Menor parcela que faz sentido oferecer, em reais. Abaixo disso o card do
+ * produto mostra só o preço à vista — parcelar R$ 3,30 não ajuda ninguém e
+ * as operadoras costumam recusar.
+ */
+export const PARCELA_MINIMA = 5
 
 export const redes = [
   { nome: "Instagram", url: site.instagram },

@@ -68,6 +68,34 @@ export function Sacola(props: Props) {
   )
 }
 
+/** Carrinho de supermercado — o do botão "Comprar" no card de produto. */
+export function Carrinho(props: Props) {
+  return (
+    <Icone {...props}>
+      <path d="M1.4 2.6h3.9l3.5 13.9h11.3v2.2H7.1L3.6 4.8H1.4z" />
+      <path d="M6.1 6.4h13.6l2.5 2.5-2 5.6H9.5L8.1 13z" />
+      <path d="M9 19.3h2.3v2.3l-.9.9H8.1v-2.3z" />
+      <path d="M17.6 19.3h2.3v2.3l-.9.9h-2.3v-2.3z" />
+    </Icone>
+  )
+}
+
+export function SetaEsquerda(props: Props) {
+  return (
+    <Icone {...props}>
+      <path d="M15.4 3.6h1.6l1.6 1.6-6.8 6.8 6.8 6.8-1.6 1.6h-1.6L6.6 12z" />
+    </Icone>
+  )
+}
+
+export function SetaDireita(props: Props) {
+  return (
+    <Icone {...props}>
+      <path d="M8.6 3.6H7L5.4 5.2 12.2 12l-6.8 6.8L7 20.4h1.6L17.4 12z" />
+    </Icone>
+  )
+}
+
 export function Fechar(props: Props) {
   return (
     <Icone {...props}>
