@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { Banner } from "@/components/home/banner"
+import { Ofertas } from "@/components/home/ofertas"
 import { Trustbar } from "@/components/home/trustbar"
 import { Raio } from "@/components/icones"
 import { site } from "@/lib/site"
@@ -11,15 +12,15 @@ import { site } from "@/lib/site"
  * ponta a ponta da tela e segura o próprio limite de largura por dentro
  * (1320px, como no protótipo). Centralizar aqui estreitaria o banner.
  *
- * Já no lugar: banner e barra de vantagens.
- * Faltam: ofertas, coleção, benefícios, prova social, vitrine, sobre e
- * fechamento — nessa ordem.
+ * Já no lugar: banner, barra de vantagens e ofertas relâmpago.
+ * Faltam: coleção, benefícios, prova social, vitrine, sobre e fechamento.
  */
 export default function Inicio() {
   return (
     <main id="conteudo" className="flex-1">
       <Banner />
       <Trustbar />
+      <Ofertas />
 
       <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
         <p className="mb-4 inline-flex items-center gap-2 text-sm font-extrabold uppercase tracking-[0.18em] text-tinta">

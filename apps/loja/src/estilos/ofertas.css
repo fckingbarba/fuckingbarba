@@ -1,0 +1,238 @@
+/*
+  Ofertas relâmpago: a caixa preta com o contador.
+
+  A seção só existe quando há promoção com data de fim no catálogo — quem
+  decide isso é o admin do Medusa, não uma constante aqui. Ver o componente e
+  a rota /store/promocao no backend.
+*/
+
+/* Entrelinha padrão do navegador, como no protótipo: o preflight do
+   Tailwind põe 1.5 na raiz e isso empurra tudo que não declara a sua. */
+.offers {
+  line-height: normal;
+}
+.offers,
+.offers * {
+  border-radius: 0;
+}
+.offers {
+  background: #000000;
+  padding: clamp(28px, 4vw, 46px) clamp(14px, 3vw, 30px) clamp(24px, 3.5vw, 38px);
+  font-family: var(--font-sans);
+}
+.offers__box {
+  position: relative;
+  max-width: 1320px;
+  margin: 0 auto;
+  border: 2px solid #4fe0b9;
+  padding: clamp(24px, 3vw, 32px) clamp(18px, 3vw, 34px) clamp(22px, 3vw, 28px);
+  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z" fill="%234fe0b9" fill-opacity="0.09"/></svg>');
+  background-repeat: no-repeat;
+  background-position: right 40px center;
+  background-size: auto 170%;
+}
+.offers__box::before,
+.offers__box::after {
+  content: "";
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  border: 2px solid #ffffff;
+}
+.offers__box::before {
+  top: -2px;
+  left: -2px;
+  border-right: none;
+  border-bottom: none;
+}
+.offers__box::after {
+  bottom: -2px;
+  right: -2px;
+  border-left: none;
+  border-top: none;
+}
+.offers__tag {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--color-amarelo);
+  color: #12181f;
+  font-size: 0.74rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  padding: 7px 16px;
+  white-space: nowrap;
+}
+.offers__tag svg {
+  width: 11px;
+  height: 11px;
+  fill: #12181f;
+}
+.offers__inner {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: clamp(18px, 3vw, 32px);
+}
+.offers__main {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: clamp(18px, 3vw, 40px);
+}
+.offers__copy {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.offers__bolt {
+  width: 32px;
+  height: 32px;
+  fill: #4fe0b9;
+  flex-shrink: 0;
+}
+.offers__headline {
+  margin: 0;
+  font-size: clamp(1.05rem, 2.1vw, 1.5rem);
+  font-weight: 800;
+  color: #ffffff;
+  text-transform: uppercase;
+  line-height: 1.15;
+}
+.offers__timer {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+}
+.offers__unit {
+  min-width: 78px;
+  padding: 12px 11px 9px;
+  background: #4fe0b9;
+  color: #08110d;
+  text-align: center;
+  clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px);
+  transition: background 0.3s ease;
+}
+.offers__num {
+  display: block;
+  font-size: 2.05rem;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.offers__num.is-tick {
+  animation: offersTick 0.35s ease;
+}
+@keyframes offersTick{
+    0%   { transform: scale(1); }
+    35%  { transform: scale(1.16); }
+    100% { transform: scale(1); }
+  }
+.offers__unit-label {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(8, 17, 13, 0.78);
+}
+.offers__timer.is-urgente .offers__unit {
+  background: var(--color-amarelo);
+  animation: offersPulso 1.6s ease-in-out infinite;
+}
+.offers__timer.is-urgente .offers__unit:nth-child(2) {
+  animation-delay: 0.12s;
+}
+.offers__timer.is-urgente .offers__unit:nth-child(3) {
+  animation-delay: 0.24s;
+}
+@keyframes offersPulso{
+    0%, 100% { filter: drop-shadow(0 0 0 rgba(255, 216, 77, 0)); }
+    50%      { filter: drop-shadow(0 0 7px rgba(255, 216, 77, 0.95)); }
+  }
+.offers__aviso {
+  display: none;
+  margin: 10px 0 0;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-amarelo);
+  text-align: center;
+}
+.offers__timer.is-urgente ~ .offers__aviso {
+  display: block;
+}
+.offers__action {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 9px;
+}
+.offers__note {
+  margin: 0;
+  font-size: 0.72rem;
+  color: #8d959e;
+}
+.offers .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+@media (max-width: 980px) {
+  .offers__inner {
+    flex-direction: column;
+    text-align: center;
+  }
+  .offers__main {
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+  }
+  .offers__copy {
+    flex-direction: column;
+    align-items: center;
+    gap: 9px;
+  }
+  .offers__timer {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .offers__action {
+    align-items: center;
+  }
+}
+@media (max-width: 420px) {
+  .offers__unit {
+    min-width: 58px;
+    padding: 8px 6px 7px;
+  }
+  .offers__num {
+    font-size: 1.4rem;
+  }
+}
+.offers * {
+  box-sizing: border-box;
+}
+@media (prefers-reduced-motion: reduce) {
+  .offers * {
+    transition: none !important;
+    animation: none !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -30,6 +30,7 @@ export const TAGS = {
   categorias: "categorias",
   categoria: (handle: string) => `categoria:${handle}`,
   regioes: "regioes",
+  promocao: "promocao",
 } as const
 
 /** Campos que a vitrine precisa; o resto fica no servidor. */
@@ -52,6 +53,35 @@ export async function regiaoBrasil(): Promise<HttpTypes.StoreRegion | null> {
     return regions.find((r) => r.currency_code === "brl") ?? regions[0] ?? null
   } catch (e) {
     aviso(e, "regiões")
+    return null
+  }
+}
+
+export type Promocao = { titulo: string; termina_em: string }
+
+/**
+ * A promoção com prazo que está valendo, se houver.
+ *
+ * Vem de uma rota própria do Medusa (`/store/promocao`), porque a API de
+ * produto devolve o preço promocional mas não diz até quando ele vale — e é a
+ * data que o contador da vitrine precisa. Escrever essa data no código da
+ * loja seria mais rápido e criaria a chance de o relógio zerar com o desconto
+ * ainda valendo, ou o contrário. Aqui ela sai de onde o desconto mora.
+ *
+ * Cache curto: é o único dado da home que fica errado *por passagem de
+ * tempo*, e não por alguém ter mudado algo no admin — então não dá pra
+ * confiar só na invalidação por tag.
+ */
+export async function buscarPromocao(): Promise<Promocao | null> {
+  "use cache"
+  cacheTag(TAGS.promocao)
+  cacheLife("minutes")
+  if (!sdk) return null
+  try {
+    const { promocao } = await sdk.client.fetch<{ promocao: Promocao | null }>("/store/promocao")
+    return promocao ?? null
+  } catch (e) {
+    aviso(e, "promoção")
     return null
   }
 }
