@@ -34,10 +34,13 @@ export async function Colecao() {
             </h2>
           }
         >
-          {produtos.map((produto, i) => (
-            // Os dois primeiros cards estão na primeira tela em telas largas;
-            // o resto entra rolando e pode esperar.
-            <CartaoProduto key={produto.id} produto={produto} prioridade={i < 2} />
+          {/* Nenhum card com `prioridade`: esta faixa fica bem abaixo da
+              dobra, depois do banner, das vantagens e das ofertas. Marcar as
+              primeiras fotos como prioritárias aqui não adianta a primeira
+              tela — faz elas disputarem banda justamente com a foto do
+              banner, que é o maior elemento visível e o que o Google mede. */}
+          {produtos.map((produto) => (
+            <CartaoProduto key={produto.id} produto={produto} />
           ))}
         </ColecaoCarrossel>
 

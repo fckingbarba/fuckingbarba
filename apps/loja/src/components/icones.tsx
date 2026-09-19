@@ -104,6 +104,37 @@ export function Fechar(props: Props) {
   )
 }
 
+/** Frasco — abre o card "O Produto". */
+export function Frasco(props: Props) {
+  return (
+    <Icone {...props}>
+      <path d="M8.6 2.2h6.8v2.6h-1.2v5.4l5.2 8.8-1.4 2.4H6l-1.4-2.4 5.2-8.8V4.8H8.6z" />
+    </Icone>
+  )
+}
+
+/** Cronômetro — abre o card "Modo de Uso". */
+export function Cronometro(props: Props) {
+  return (
+    <Icone {...props}>
+      <path
+        fillRule="evenodd"
+        d="M9.6 1.4h4.8v2.4H9.6zM8.4 4.4h7.2l5 5v7.2l-5 5H8.4l-5-5V9.4zm2.4 3.2h2.4v5.2l3.6 2.2-1.2 2-4.8-2.9z"
+      />
+    </Icone>
+  )
+}
+
+/** Linha subindo — abre o card "O Resultado". */
+export function Curva(props: Props) {
+  return (
+    <Icone {...props}>
+      <path d="M1.6 15.4 9 8h1.4l3.3 3.3 4.8-4.8 2.2 2.2-6 6h-1.4L9.7 11.4l-5.9 5.9z" />
+      <path d="M15 3.6h6.4V10h-2.8V6.4H15z" />
+    </Icone>
+  )
+}
+
 export function SetaTopo(props: Props) {
   return (
     <Icone {...props}>

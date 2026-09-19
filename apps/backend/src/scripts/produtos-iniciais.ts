@@ -14,7 +14,7 @@ import {
 } from "@medusajs/medusa/core-flows"
 
 /**
- * Cinco produtos de verdade, pra loja nova sair do vazio.
+ * Seis produtos de verdade, pra loja nova sair do vazio.
  *
  *   npm run backend:produtos          (local)
  *   npx medusa exec ./src/scripts/produtos-iniciais.js   (no Railway, de .medusa/server)
@@ -27,8 +27,9 @@ import {
  *
  * NÃO é a migração do catálogo. Aquela é a fase 2: sai da exportação da
  * Nuvemshop, traz os quinze produtos com descrição inteira, todas as fotos,
- * variações, peso conferido e o mapa de 301. Aqui são cinco, escolhidos pra
- * cobrir as três categorias e o caso do kit.
+ * variações, peso conferido e o mapa de 301. Aqui são seis, escolhidos pra
+ * cobrir as três categorias, o caso do kit e os produtos que a home cita
+ * pelo nome na seção "Alta Performance".
  *
  * Roda quantas vezes quiser: produto cujo handle já existe é pulado.
  *
@@ -118,6 +119,25 @@ const CATALOGO: Produto[] = [
     fotos: [
       `${CDN}/fuckingbarba-product-shampoo-1-05b06665e46dfb530417662571787890-1024-1024.webp`,
       `${CDN}/fb-6-1-ce1836cfe274a759d617691997839145-1024-1024.webp`,
+    ],
+  },
+  {
+    handle: "fator-de-crescimento-para-barba",
+    titulo: "Fator de Crescimento para Barba 30ml",
+    subtitulo: "Crescimento, densidade e preenchimento",
+    descricao:
+      "MAIS CRESCIMENTO. MAIS VOLUME. MAIS PRESENÇA. Se a sua barba falha, cresce irregular ou " +
+      "simplesmente não evolui, o Fator de Crescimento da FuckingBarba foi feito para mudar " +
+      "isso. É um tratamento de uso diário que atua direto na pele, estimulando o crescimento " +
+      "dos fios e criando o ambiente ideal para uma barba mais cheia e uniforme.",
+    sku: "FBFCB01",
+    categoria: "barba",
+    preco: 79.9,
+    precoDe: 133.2,
+    pesoGramas: 95,
+    fotos: [
+      `${CDN}/produto-1cf784554239cc00b617755907983101-1024-1024.webp`,
+      `${CDN}/pdp-1000x1000-22670c28eafa37f5ea17755696867196-1024-1024.webp`,
     ],
   },
   {
@@ -230,7 +250,7 @@ export default async function produtosIniciais({ container }: ExecArgs) {
   const aCriar = CATALOGO.filter((p) => !jaExiste.has(p.handle))
 
   if (!aCriar.length) {
-    logger.info("[produtos] os cinco já estão lá, nada a fazer")
+    logger.info("[produtos] todos já estão lá, nada a fazer")
     return
   }
 

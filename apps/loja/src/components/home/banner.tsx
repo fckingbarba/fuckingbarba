@@ -57,7 +57,11 @@ export async function Banner() {
           width={600}
           height={600}
           priority
-          sizes="(max-width: 780px) 60vw, 50vw"
+          // A caixa da foto é metade do banner (720px no desktop), mas com
+          // `contain` numa imagem quadrada só 450px ficam visíveis — o resto
+          // é o branco dos lados. Pedir 720 era pedir 60% de bytes a mais
+          // pra pintar exatamente o mesmo pixel.
+          sizes="(max-width: 860px) 300px, 450px"
         />
       </div>
     </section>
