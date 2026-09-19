@@ -84,6 +84,50 @@ export function SetaTopo(props: Props) {
   )
 }
 
+export function Caminhao(props: Props) {
+  return (
+    <Icone {...props}>
+      <path d="M1.4 4.6h11.4l1.6 1.6v9.6h-2.2l-1.4-1.4H6.9l-1.4 1.4H1.4z" />
+      <path d="M15.2 8.4h4.1l3.3 4v3.4h-1.3l-1.4-1.4h-3.3l-1.4 1.4v-7.4z" />
+      <path d="M6.9 16h2.3v2.3l-.9.9H6v-2.3z" />
+      <path d="M17.1 16h2.3v2.3l-.9.9h-2.3v-2.3z" />
+    </Icone>
+  )
+}
+
+export function Cartao(props: Props) {
+  return (
+    <Icone {...props}>
+      <path
+        fillRule="evenodd"
+        d="M2 4.8h18.6L22 6.2v11.6l-1.4 1.4H3.4L2 17.8V6.2zm0 3.8v2.2h20V8.6zm2.8 5.2v2.2h5.2v-2.2z"
+      />
+    </Icone>
+  )
+}
+
+export function Escudo(props: Props) {
+  return (
+    <Icone {...props}>
+      <path
+        fillRule="evenodd"
+        d="M4.6 3.9 12 1.6l7.4 2.3 1.4 1.4v4.8l-2 4.9L12 22.4l-6.8-7.4-2-4.9V5.3zm6.2 2.9h2.4v6.6h-2.4zm0 8.2h2.4v2.4h-2.4z"
+      />
+    </Icone>
+  )
+}
+
+export function EscudoCerto(props: Props) {
+  return (
+    <Icone {...props}>
+      <path
+        fillRule="evenodd"
+        d="M4.6 3.9 12 1.6l7.4 2.3 1.4 1.4v4.8l-2 4.9L12 22.4l-6.8-7.4-2-4.9V5.3zM7.3 11.5l1.5-1.5h1.5l1.7 1.7 3.8-3.8h1.5l1.5 1.5-6.8 6.8z"
+      />
+    </Icone>
+  )
+}
+
 export function WhatsApp(props: Props) {
   return (
     <Icone {...props}>

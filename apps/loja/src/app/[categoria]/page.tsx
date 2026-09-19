@@ -76,8 +76,13 @@ async function Categoria({ params }: Pick<Props, "params">) {
         </p>
       ) : (
         <ul className="mt-10 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-          {produtos.map((p) => {
+          {produtos.map((p, i) => {
             const preco = precoDe(p)
+            // As quatro primeiras fotos entram sem lazy: numa grade de
+            // categoria é uma delas que costuma ser o maior elemento da
+            // primeira tela, e adiar justamente ela é adiar o LCP. Quatro
+            // cobre a primeira fileira no desktop e as duas do celular.
+            const primeiras = i < 4
             return (
               <li key={p.id}>
                 <Link
@@ -91,6 +96,7 @@ async function Categoria({ params }: Pick<Props, "params">) {
                         alt={p.title}
                         width={600}
                         height={600}
+                        priority={primeiras}
                         sizes="(min-width: 1024px) 25vw, (min-width: 768px) 33vw, 50vw"
                         className="aspect-square h-auto w-full bg-cinza object-contain"
                       />

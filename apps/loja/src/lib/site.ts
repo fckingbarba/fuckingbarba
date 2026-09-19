@@ -36,14 +36,14 @@ export const site = {
 } as const
 
 /**
- * PROVISÓRIO — piso do frete grátis, em centavos.
+ * PROVISÓRIO — piso do frete grátis, em reais.
  *
  * Aparece na esteira de avisos, no pé do menu e (na fase 3) na barra de
  * progresso da sacola. Hoje é constante porque ainda não existe a promoção no
  * Medusa; na fase 5 vira regra de lá e este valor sai daqui, senão um dia a
  * loja cobra R$ 129,90 e o site continua prometendo R$ 149,90.
  */
-export const FRETE_GRATIS_ACIMA_DE = 14990
+export const FRETE_GRATIS_ACIMA_DE = 149.9
 
 /**
  * Atendimento. Os valores abaixo são de exemplo e precisam virar os reais

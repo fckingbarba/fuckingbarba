@@ -2,6 +2,7 @@ import "server-only"
 import Medusa from "@medusajs/js-sdk"
 import type { HttpTypes } from "@medusajs/types"
 import { cacheLife, cacheTag } from "next/cache"
+import { emReais } from "./formato"
 
 /**
  * Único ponto de contato com o Medusa. Regras:
@@ -139,15 +140,36 @@ export async function buscarProdutoPorHandle(
   }
 }
 
-/** Preço em reais formatado, a partir do menor preço calculado das variantes. */
-export function precoDe(produto: HttpTypes.StoreProduct): string | null {
-  const valores = (produto.variants ?? [])
-    .map((v) => v.calculated_price?.calculated_amount)
-    .filter((n): n is number => typeof n === "number")
-  if (!valores.length) return null
-  return formatarReais(Math.min(...valores))
+/**
+ * Os dois preços de um produto, em reais: o que se paga e o cheio riscado.
+ *
+ * `cheio` só existe quando há promoção valendo — é o `original_price` que o
+ * Medusa devolve quando a variação está numa lista de preço do tipo "sale".
+ * Sem promoção ele vem igual ao atual, e aqui vira `null`: riscar um preço
+ * igual ao que se paga é mentira de vitrine.
+ */
+export function precosDe(
+  produto: HttpTypes.StoreProduct
+): { atual: number; cheio: number | null } | null {
+  const variantes = (produto.variants ?? []).filter(
+    (v) => typeof v.calculated_price?.calculated_amount === "number"
+  )
+  if (!variantes.length) return null
+
+  const maisBarata = variantes.reduce((a, b) =>
+    a.calculated_price!.calculated_amount! <= b.calculated_price!.calculated_amount! ? a : b
+  )
+  const preco = maisBarata.calculated_price!
+  const atual = preco.calculated_amount!
+  const original = preco.original_amount
+  return {
+    atual,
+    cheio: typeof original === "number" && original > atual ? original : null,
+  }
 }
 
-export function formatarReais(valor: number): string {
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(valor)
+/** Preço em reais já formatado, ou null quando o produto não tem preço. */
+export function precoDe(produto: HttpTypes.StoreProduct): string | null {
+  const precos = precosDe(produto)
+  return precos ? emReais(precos.atual) : null
 }

@@ -1,0 +1,149 @@
+/*
+  A barra preta de vantagens, logo abaixo do banner: frete, parcelamento,
+  segurança e garantia. Quatro colunas no desktop, duas no celular.
+*/
+
+/* Entrelinha padrão do navegador, como no protótipo: o preflight do
+   Tailwind põe 1.5 na raiz e isso empurra tudo que não declara a sua. */
+.trustbar {
+  line-height: normal;
+}
+.trustbar,
+.trustbar * {
+  border-radius: 0;
+}
+.trustbar {
+  position: relative;
+  background: #070a09;
+  border-bottom: 1px solid rgba(79, 224, 185, 0.22);
+  padding: 25px clamp(14px, 3vw, 30px) 19px;
+  font-family: var(--font-sans);
+}
+.trustbar::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 9px;
+  background: repeating-linear-gradient(
+      -45deg,
+      #000 0 14px,
+      var(--color-amarelo) 14px 28px
+    );
+}
+.trustbar__list {
+  list-style: none;
+  margin: 0 auto;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  max-width: 1320px;
+}
+.trustbar__item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 3px 14px;
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+}
+.trustbar__item:first-child {
+  border-left: none;
+}
+.trustbar__icon-frame {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(79, 224, 185, 0.38);
+  background: rgba(79, 224, 185, 0.05);
+  clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px);
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+.trustbar__icon {
+  width: 19px;
+  height: 19px;
+  fill: #4fe0b9;
+  transition: transform 0.2s ease, filter 0.2s ease;
+}
+.trustbar__item:hover .trustbar__icon-frame {
+  border-color: rgba(79, 224, 185, 0.85);
+  background: rgba(79, 224, 185, 0.12);
+}
+.trustbar__item:hover .trustbar__icon {
+  transform: scale(1.1);
+  filter: drop-shadow(0 0 6px rgba(79, 224, 185, 0.65));
+}
+.trustbar__copy {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.trustbar__title {
+  margin: 0;
+  font-size: 0.83rem;
+  font-weight: 800;
+  color: #ffffff;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+.trustbar__subtitle {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #8d959e;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+@media (max-width: 900px) {
+  .trustbar__list {
+    grid-template-columns: 1fr 1fr;
+  }
+  .trustbar__item {
+    justify-content: flex-start;
+    padding: 14px 12px;
+    border-left: none;
+  }
+  .trustbar__item:nth-child(2n) {
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  .trustbar__item:nth-child(n + 3) {
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+  }
+}
+@media (max-width: 520px) {
+  .trustbar__item {
+    gap: 9px;
+    padding: 12px 6px;
+  }
+  .trustbar__icon-frame {
+    width: 30px;
+    height: 30px;
+  }
+  .trustbar__icon {
+    width: 16px;
+    height: 16px;
+  }
+  .trustbar__title {
+    font-size: 0.74rem;
+    white-space: normal;
+  }
+  .trustbar__subtitle {
+    font-size: 0.71rem;
+    white-space: normal;
+  }
+}
+.trustbar * {
+  box-sizing: border-box;
+}
+@media (prefers-reduced-motion: reduce) {
+  .trustbar * {
+    transition: none !important;
+    animation: none !important;
+    scroll-behavior: auto !important;
+  }
+}

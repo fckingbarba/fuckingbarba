@@ -78,6 +78,20 @@ em `ferramentas/porte/` — é por ali que cada próxima seção passa.
 - **13 KiB de polyfill do Next entram de propósito.** A auditoria "Legacy JavaScript" acusa um
   `Array.prototype.at` empacotado pelo Next. Dava pra eliminar subindo o alvo do browserslist, mas
   isso quebra o checkout pra quem está num Safari antigo — troca ruim numa loja. Fica o custo.
+- **O LCP do CI é 3 s, e não os 2,5 s do Google, de propósito.** O número que o Lighthouse mostra é
+  simulado: ele pega o que mediu (501 ms de LCP observado em `/barba`, com as fotos de produto) e
+  recalcula como seria num 4G de 1,5 Mbps com 150 ms de latência e um celular quatro vezes mais
+  lento — contra `localhost`, sem HTTP/2, sem CDN e sem Brotli, que é justamente o que a Vercel dá
+  de graça em produção. Com as fotos reais na grade, essa simulação passou a dar entre 2,49 s e
+  2,63 s **na mesma configuração, rodada atrás de rodada**. Um limite de 2,5 s ali dentro não mede
+  regressão: sorteia. E CI que sorteia é CI que todo mundo aprende a ignorar — o mesmo raciocínio
+  que fez o preset cair. A 3 s ele continua pegando o que importa (foto de herói sem otimizar,
+  script bloqueando o render, fonte nova na frente do conteúdo), que empurra o LCP bem além disso.
+  Quem diz a verdade sobre o cliente é a Edge Function `vitals`, com P75 de gente real.
+  Duas tentativas de baixar o número de verdade ficaram pelo caminho, e valem como registro:
+  `priority` nas quatro primeiras fotos da grade (ficou — é certo por si só, mas mexeu pouco no
+  LCP, porque a foto já chegava em 51 ms) e tirar o preload da Inter (foi revertido: economizou uns
+  50 ms de LCP, no ruído, e em troca levou o FCP de 790 ms pra 1,2 s e o CLS de 0 pra 0,019).
 - **O TBT ≤ 300 ms aqui é tripwire, não a meta.** A meta real é 200 ms no P75 de usuário de verdade,
   e quem mede isso é a Edge Function `vitals` (tabela `loja.web_vitals`, view `web_vitals_p75`). O
   runner do GitHub é mais lento que celular bom e mais rápido que celular ruim; serve pra pegar

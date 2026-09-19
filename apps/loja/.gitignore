@@ -49,4 +49,5 @@ next-env.d.ts
 # porte do protótipo: saídas de uso único, não versionadas
 ferramentas/porte/saida/
 ferramentas/porte/arvore.json
-ferramentas/porte/dom.json
+dom.json
+s-*.png
