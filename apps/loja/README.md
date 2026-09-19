@@ -27,7 +27,7 @@ npm run loja:dev                                 # http://localhost:3000
 | `src/lib/rastrear.ts`                 | Única porta de saída de eventos (dataLayer no formato GA4)                                       |
 | `src/components/analytics/`           | Consent Mode v2 (tudo negado até aceitar) + GA4 + faixa de consentimento LGPD                    |
 | `src/app/globals.css`                 | Tokens da marca em `@theme` (Tailwind v4): `bg-menta`, `text-tinta`, `chanfro`, `faixa-perigo`…  |
-| `lighthouserc.json` + `budgets.json`  | Metas: performance ≥ 90, SEO 100, LCP ≤ 2,5 s, CLS ≤ 0,05, terceiros ≤ 150 KB                    |
+| `lighthouserc.json` + `budgets.json`  | As metas que o CI defende: ver "O que o Lighthouse CI cobra" abaixo                              |
 
 ## Decisões que valem saber
 
@@ -38,6 +38,22 @@ npm run loja:dev                                 # http://localhost:3000
   `/nao-encontrado` (rota estática, status 404). Produto inexistente sai como not-found com
   `noindex` (soft 404) até a fase 3, quando o proxy passa a conferir o handle contra a lista do build.
 - **Sem Google Tag Manager na largada.** O `dataLayer` já existe; se precisar, é trocar o componente.
+- **O Lighthouse CI cobra o que a gente decidiu, não tudo que o Lighthouse sabe.** São nove
+  asserções: as quatro notas de categoria (performance ≥ 90, acessibilidade 100, SEO 100, boas
+  práticas ≥ 90), LCP ≤ 2,5 s, CLS ≤ 0,05, TBT ≤ 300 ms e os orçamentos de bytes (script ≤ 250 KB,
+  terceiros ≤ 150 KB). Sem preset. A tentação é ligar o `lighthouse:no-pwa`, que reprova em cima de
+  cada auditoria individual — mas metade delas mede coisa que não controlamos (polyfill que o
+  próprio Next empacota) ou artefato de testar contra `localhost` (sem HTTP/2, sem CDN, sem cache
+  de verdade). CI que fica vermelho por isso é CI que todo mundo aprende a ignorar. As notas de
+  categoria já agregam essas auditorias: se o peso ficar ruim de verdade, a performance cai abaixo
+  de 90 e quebra do mesmo jeito.
+- **13 KiB de polyfill do Next entram de propósito.** A auditoria "Legacy JavaScript" acusa um
+  `Array.prototype.at` empacotado pelo Next. Dava pra eliminar subindo o alvo do browserslist, mas
+  isso quebra o checkout pra quem está num Safari antigo — troca ruim numa loja. Fica o custo.
+- **O TBT ≤ 300 ms aqui é tripwire, não a meta.** A meta real é 200 ms no P75 de usuário de verdade,
+  e quem mede isso é a Edge Function `vitals` (tabela `loja.web_vitals`, view `web_vitals_p75`). O
+  runner do GitHub é mais lento que celular bom e mais rápido que celular ruim; serve pra pegar
+  regressão, não pra dizer a verdade sobre o cliente.
 - **URLs em português e minúsculas, para sempre.** `/produtos/<handle>` e `/<categoria>` — o Medusa
   só guarda o handle (validado no admin), o caminho é desta app.
 
