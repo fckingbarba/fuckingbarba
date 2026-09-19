@@ -1,6 +1,7 @@
 name: loja
 
 on:
+  workflow_dispatch: # permite rodar na mão pela aba Actions
   pull_request:
     paths:
       [

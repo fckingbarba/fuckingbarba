@@ -1,6 +1,7 @@
 name: supabase
 
 on:
+  workflow_dispatch: # permite rodar na mão pela aba Actions
   pull_request:
     paths: ["supabase/**", ".github/workflows/supabase.yml"]
   push:
