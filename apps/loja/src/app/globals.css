@@ -1,0 +1,130 @@
+@import "tailwindcss";
+
+/*
+  Tokens da marca FuckingBarba — os mesmos do protótipo HTML.
+  Tailwind v4 lê este @theme e gera as classes: bg-menta, text-tinta,
+  border-amarelo, font-sans, ease-suave...
+*/
+@theme {
+  --color-menta: #4fe4b6;
+  --color-menta-clara: #e3f8f0;
+  --color-menta-escura: #0b7f62;
+  --color-amarelo: #ffd84d;
+  --color-amarelo-escuro: #e0b800;
+  --color-amarelo-claro: #fff3c4;
+  --color-tinta: #12181f;
+  /* tinta-suave e menta-escura só em fundo branco: sobre a menta não passam de 4,5:1 (WCAG AA). */
+  --color-tinta-suave: #566072;
+  --color-papel: #ffffff;
+  --color-cinza: #f2f3f4;
+
+  --font-sans:
+    var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+
+  --ease-suave: cubic-bezier(0.22, 0.61, 0.36, 1);
+
+  --shadow-dura: 6px 6px 0 0 var(--color-tinta);
+  --shadow-dura-sm: 3px 3px 0 0 var(--color-tinta);
+}
+
+/* Sem cantos redondos em lugar nenhum: a marca é chanfro e sombra dura. */
+@layer base {
+  * {
+    border-radius: 0 !important;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background: var(--color-menta);
+    color: var(--color-tinta);
+    font-family: var(--font-sans);
+    font-feature-settings: "ss01", "cv11";
+  }
+
+  ::selection {
+    background: var(--color-amarelo);
+    color: var(--color-tinta);
+  }
+
+  :focus-visible {
+    outline: 3px solid var(--color-tinta);
+    outline-offset: 3px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@utility chanfro {
+  clip-path: polygon(
+    12px 0,
+    100% 0,
+    100% calc(100% - 12px),
+    calc(100% - 12px) 100%,
+    0 100%,
+    0 12px
+  );
+}
+
+@utility chanfro-sm {
+  clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px);
+}
+
+/* Faixa zebrada preto/amarelo — o "hazard tape" do topo da gaveta e das seções. */
+@utility faixa-perigo {
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--color-tinta) 0 14px,
+    var(--color-amarelo) 14px 28px
+  );
+}
+
+@utility titulo-marca {
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+  line-height: 0.95;
+}
+
+/* Só leitor de tela. */
+@utility sr-only-focusable {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+
+  &:focus {
+    position: fixed;
+    top: 12px;
+    left: 12px;
+    width: auto;
+    height: auto;
+    margin: 0;
+    padding: 10px 16px;
+    overflow: visible;
+    clip: auto;
+    white-space: normal;
+    background: var(--color-amarelo);
+    color: var(--color-tinta);
+    font-weight: 800;
+    z-index: 1000;
+  }
+}

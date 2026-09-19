@@ -1,0 +1,87 @@
+name: backend
+
+on:
+  pull_request:
+    paths:
+      [
+        "apps/backend/**",
+        "package.json",
+        "package-lock.json",
+        "turbo.json",
+        ".github/workflows/backend.yml",
+      ]
+  push:
+    branches: [main, staging]
+    paths:
+      [
+        "apps/backend/**",
+        "package.json",
+        "package-lock.json",
+        "turbo.json",
+        ".github/workflows/backend.yml",
+      ]
+
+concurrency:
+  group: backend-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualidade:
+    name: tipos · lint · build · migra · sobe
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: fuckingbarba
+          POSTGRES_PASSWORD: fuckingbarba
+          POSTGRES_DB: fuckingbarba
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U fuckingbarba" --health-interval 5s --health-timeout 3s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+    env:
+      NODE_ENV: production
+      DATABASE_URL: postgres://fuckingbarba:fuckingbarba@localhost:5432/fuckingbarba
+      DATABASE_SSL: "false"
+      REDIS_URL: redis://localhost:6379
+      STORE_CORS: http://localhost:3000
+      ADMIN_CORS: http://localhost:9000
+      AUTH_CORS: http://localhost:9000
+      JWT_SECRET: ci-jwt
+      COOKIE_SECRET: ci-cookie
+      MEDUSA_BACKEND_URL: http://localhost:9000
+      WORKER_MODE: server
+      ADMIN_DISABLED: "true" # sem bundle do admin no CI: metade do tempo
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+        env:
+          NODE_ENV: development # devDependencies são necessárias pra build e tipos
+      - run: npm run typecheck -w @fuckingbarba/backend
+      - run: npm run lint -w @fuckingbarba/backend
+      - run: npm run build -w @fuckingbarba/backend
+      - name: Migrações + dados iniciais (o mesmo comando do pré-deploy no Railway)
+        working-directory: apps/backend/.medusa/server
+        run: npx medusa db:migrate
+      - name: Sobe o server e confere /health e /store/regions
+        working-directory: apps/backend/.medusa/server
+        run: |
+          npm run start > /tmp/medusa.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:9000/health > /dev/null; then break; fi
+            sleep 2
+          done
+          curl -sf http://localhost:9000/health
+          PK=$(psql "$DATABASE_URL" -tAc "select token from api_key where type='publishable' limit 1")
+          curl -sf -H "x-publishable-api-key: $PK" http://localhost:9000/store/regions | grep -q '"currency_code":"brl"'
+          echo "ok: região Brasil em BRL"
+      - name: Log do Medusa
+        if: failure()
+        run: tail -100 /tmp/medusa.log || true

@@ -1,0 +1,44 @@
+{
+  "name": "fuckingbarba",
+  "private": true,
+  "packageManager": "npm@10.9.7",
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "start": "turbo start",
+    "lint": "turbo lint",
+    "typecheck": "turbo typecheck",
+    "test": "turbo test",
+    "backend:dev": "turbo dev --filter=@fuckingbarba/backend",
+    "backend:build": "turbo build --filter=@fuckingbarba/backend",
+    "backend:migrate": "npm run db:migrate -w @fuckingbarba/backend",
+    "backend:user": "npm run user -w @fuckingbarba/backend --",
+    "loja:dev": "turbo dev --filter=@fuckingbarba/loja",
+    "loja:build": "turbo build --filter=@fuckingbarba/loja"
+  },
+  "devDependencies": {
+    "@medusajs/eslint-plugin": "2.21.0",
+    "eslint": "^9.39.4",
+    "jiti": "^2.7.0",
+    "prettier": "^3.2.5",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "turbo": "^2.0.14",
+    "ajv": "^8.13.0"
+  },
+  "workspaces": [
+    "apps/*"
+  ],
+  "overrides": {
+    "eslint": {
+      "ajv": "^6.12.4"
+    },
+    "@eslint/eslintrc": {
+      "ajv": "^6.12.4"
+    }
+  },
+  "description": "Loja própria FuckingBarba — Next.js 16 (Vercel) + Medusa v2 (Railway) + Supabase."
+}

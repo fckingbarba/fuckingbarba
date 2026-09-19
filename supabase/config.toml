@@ -1,0 +1,10 @@
+# Configuração do CLI do Supabase (supabase link --project-ref SEUREF).
+# Só o que difere do padrão está aqui.
+project_id = "fuckingbarba"
+
+# Webhooks e beacons chegam de fora, sem JWT do Supabase.
+[functions.webhook-pagamento]
+verify_jwt = false
+
+[functions.vitals]
+verify_jwt = false

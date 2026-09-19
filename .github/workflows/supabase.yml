@@ -1,0 +1,51 @@
+name: supabase
+
+on:
+  pull_request:
+    paths: ["supabase/**", ".github/workflows/supabase.yml"]
+  push:
+    branches: [main, staging]
+    paths: ["supabase/**", ".github/workflows/supabase.yml"]
+
+concurrency:
+  group: supabase-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  funcoes:
+    name: Edge Functions · deno check + lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - working-directory: supabase/functions
+        run: |
+          deno check webhook-pagamento/index.ts vitals/index.ts
+          deno lint
+
+  migracoes:
+    name: Migrações · aplicam num Postgres limpo
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 3s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Papéis que o Supabase já tem (anon, authenticated, service_role)
+        run: |
+          psql postgres://postgres:postgres@localhost:5432/postgres -v ON_ERROR_STOP=1 -c \
+            "create role anon; create role authenticated; create role service_role;"
+      - name: Aplica cada migração em ordem
+        run: |
+          for f in supabase/migrations/*.sql; do
+            echo "== $f"
+            psql postgres://postgres:postgres@localhost:5432/postgres -v ON_ERROR_STOP=1 -f "$f"
+          done
