@@ -1,0 +1,369 @@
+/*
+  Cabeçalho preto fixo, menu lateral e véu.
+
+  O menu mora fora da tela em translateX(-100%) e entra quando <html> ganha
+  a classe .menu-aberto (que também trava a rolagem da página). Quem põe e
+  tira essa classe é o componente cliente; a visibilidade e a transição ficam
+  todas aqui, no CSS — inclusive o estado fechado, que é o que o servidor
+  renderiza. Assim não há pulo entre o HTML que chega e a hidratação.
+*/
+
+/* Entrelinha padrão do navegador, como no protótipo: o preflight do
+   Tailwind põe 1.5 na raiz e isso empurra tudo que não declara a sua. */
+.cabecalho,
+.menu {
+  line-height: normal;
+}
+.cabecalho,
+.cabecalho * {
+  border-radius: 0;
+  box-sizing: border-box;
+}
+.cabecalho {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: #000000;
+  color: #ffffff;
+  font-family: var(--font-sans);
+}
+.cabecalho__barra {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 14px clamp(14px, 3vw, 30px);
+}
+.cabecalho__grupo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 0 0;
+}
+.cabecalho__grupo--dir {
+  justify-content: flex-end;
+}
+.cabecalho__icone {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  position: relative;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+.cabecalho__icone:hover {
+  color: #4fe0b9;
+}
+.cabecalho__icone:focus-visible {
+  outline: 2px solid var(--color-amarelo);
+  outline-offset: 2px;
+}
+.cabecalho__icone svg {
+  width: 23px;
+  height: 23px;
+  fill: currentColor;
+}
+.cabecalho__contador {
+  position: absolute;
+  top: 3px;
+  right: 1px;
+  min-width: 17px;
+  height: 17px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  background: var(--color-amarelo);
+  color: var(--color-tinta);
+  font-size: 0.64rem;
+  font-weight: 800;
+  clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
+}
+.cabecalho__logo {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #ffffff;
+  text-decoration: none;
+  font-weight: 800;
+  font-size: clamp(0.95rem, 2vw, 1.15rem);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.cabecalho__logo svg {
+  width: 26px;
+  height: 26px;
+  fill: var(--color-amarelo);
+  flex-shrink: 0;
+}
+.cabecalho__busca {
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  background: #0a0a0a;
+}
+.cabecalho__busca[hidden] {
+  display: none;
+}
+.cabecalho__busca form {
+  display: flex;
+  gap: 8px;
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 12px clamp(14px, 3vw, 30px);
+}
+.cabecalho__busca input {
+  flex: 1;
+  min-width: 0;
+  padding: 11px 13px;
+  background: #141414;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+}
+.cabecalho__busca input::placeholder {
+  color: #8b929a;
+}
+.cabecalho__busca input:focus-visible {
+  outline: 2px solid var(--color-amarelo);
+  outline-offset: 1px;
+}
+.cabecalho__nav {
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+.cabecalho__nav ul {
+  display: flex;
+  justify-content: center;
+  gap: clamp(18px, 4vw, 46px);
+  list-style: none;
+  margin: 0 auto;
+  padding: 13px clamp(14px, 3vw, 30px);
+  max-width: 1320px;
+}
+.cabecalho__nav a {
+  display: block;
+  color: #ffffff;
+  text-decoration: none;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding-bottom: 3px;
+  border-bottom: 2px solid transparent;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.cabecalho__nav a:hover,
+.cabecalho__nav a:focus-visible {
+  color: var(--color-amarelo);
+  border-bottom-color: var(--color-amarelo);
+}
+@media (max-width: 720px) {
+  .cabecalho__nav {
+    display: none;
+  }
+}
+@media (max-width: 400px) {
+  .cabecalho__barra {
+    padding: 12px 10px;
+    gap: 4px;
+  }
+  .cabecalho__icone {
+    width: 34px;
+    height: 34px;
+  }
+  .cabecalho__icone svg {
+    width: 20px;
+    height: 20px;
+  }
+  .cabecalho__logo {
+    font-size: 0.8rem;
+    gap: 5px;
+  }
+  .cabecalho__logo svg {
+    width: 20px;
+    height: 20px;
+  }
+}
+.menu__veu {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(0, 0, 0, 0.6);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+.menu {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  z-index: 61;
+  width: min(320px, 86vw);
+  background: #0a0a0a;
+  color: #ffffff;
+  font-family: var(--font-sans);
+  display: flex;
+  flex-direction: column;
+  transform: translateX(-100%);
+  transition: transform 0.22s ease;
+  overflow-y: auto;
+}
+.menu[inert] {
+  pointer-events: none;
+}
+.menu-aberto .menu__veu {
+  opacity: 1;
+  visibility: visible;
+}
+.menu-aberto .menu {
+  transform: translateX(0);
+}
+.menu-aberto {
+  overflow: hidden;
+}
+.menu__topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 14px 16px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+.menu__titulo {
+  margin: 0;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-amarelo);
+}
+.menu nav ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.menu nav a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 16px 18px;
+  color: #ffffff;
+  text-decoration: none;
+  font-size: 0.95rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.menu nav a:hover,
+.menu nav a:focus-visible {
+  background: rgba(79, 224, 185, 0.12);
+  color: #4fe0b9;
+}
+.menu nav a svg {
+  width: 13px;
+  height: 13px;
+  fill: var(--color-amarelo);
+  flex-shrink: 0;
+}
+/* Aqui a faixa amarela encosta no fim do menu; no protótipo ela para 15px
+   antes, porque o <p> mantinha a margem de baixo que o navegador dá de
+   graça e o preflight do Tailwind zera. A tira de preto sobrando embaixo
+   não era decisão de ninguém — era o padrão do <p> aparecendo. Fica grudada. */
+.menu__rodape {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px 18px;
+  background: var(--color-amarelo);
+  color: var(--color-tinta);
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  line-height: 1.25;
+  text-align: center;
+}
+.menu__rodape svg {
+  width: 17px;
+  height: 17px;
+  fill: var(--color-tinta);
+  flex-shrink: 0;
+}
+.menu__rodape-valor {
+  white-space: nowrap;
+}
+.menu__rodape-ast {
+  font-weight: 600;
+  opacity: 0.55;
+}
+.cabecalho__icone[data-sacola]::after {
+  content: "";
+  position: absolute;
+  inset: -5px;
+  border: 2px solid var(--color-amarelo);
+  clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px);
+  opacity: 0;
+  pointer-events: none;
+}
+.cabecalho__icone.e-recebeu::after {
+  animation: sacola-halo 0.6s ease-out;
+}
+.cabecalho__icone.e-recebeu svg {
+  animation: sacola-bate 0.52s var(--ease-suave);
+}
+@keyframes sacola-halo{
+    0%   { opacity: 1; transform: scale(0.5); }
+    100% { opacity: 0; transform: scale(1.7); }
+  }
+@keyframes sacola-bate{
+    0%   { transform: scale(1) translateY(0); }
+    26%  { transform: scale(0.8) translateY(3px); }
+    58%  { transform: scale(1.2) translateY(-3px); }
+    80%  { transform: scale(0.94) translateY(1px); }
+    100% { transform: scale(1) translateY(0); }
+  }
+.cabecalho__contador.e-subiu {
+  animation: contador-pula 0.5s var(--ease-suave);
+}
+@keyframes contador-pula{
+    0%   { transform: scale(1) rotate(0); }
+    30%  { transform: scale(1.6) rotate(-7deg); }
+    60%  { transform: scale(0.92) rotate(3deg); }
+    100% { transform: scale(1) rotate(0); }
+  }
+@media (prefers-reduced-motion: reduce) {
+  .cabecalho__icone.e-recebeu::after,
+.cabecalho__icone.e-recebeu svg,
+.cabecalho__contador.e-subiu {
+    animation: none !important;
+  }
+}
+.cabecalho {
+  transition: box-shadow 0.25s var(--ease-suave);
+}
+.cabecalho.e-rolado {
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.45);
+}
+@media (prefers-reduced-motion: reduce) {
+  .cabecalho *,
+.menu,
+.menu__veu {
+    transition: none !important;
+    animation: none !important;
+    scroll-behavior: auto !important;
+  }
+}

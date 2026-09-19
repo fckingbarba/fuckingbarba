@@ -1,0 +1,326 @@
+/*
+  Rodapé escuro: newsletter, quatro colunas, formas de pagamento e a barra
+  legal. A faixa zebrada do topo e o raio d'água gigante são ::before e
+  ::after — nada de imagem extra pra baixar.
+*/
+
+/* Entrelinha padrão do navegador, como no protótipo: o preflight do
+   Tailwind põe 1.5 na raiz e isso empurra tudo que não declara a sua. */
+.rodape {
+  line-height: normal;
+}
+.rodape,
+.rodape * {
+  border-radius: 0;
+  box-sizing: border-box;
+}
+.rodape {
+  position: relative;
+  isolation: isolate;
+  background: #060807;
+  color: #ccd3d9;
+  font-family: var(--font-sans);
+  overflow: hidden;
+}
+.rodape::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 9px;
+  background: repeating-linear-gradient(
+      -45deg,
+      #000 0 14px,
+      var(--color-amarelo) 14px 28px
+    );
+  z-index: 2;
+}
+.rodape::after {
+  content: "";
+  position: absolute;
+  bottom: -10%;
+  left: -4%;
+  width: 440px;
+  height: 440px;
+  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z" fill="%234fe0b9" fill-opacity="0.05"/></svg>');
+  background-repeat: no-repeat;
+  background-size: contain;
+  pointer-events: none;
+  z-index: 0;
+}
+.rodape__wrap {
+  position: relative;
+  z-index: 1;
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 0 clamp(16px, 3vw, 30px);
+}
+.rodape__news {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(20px, 3vw, 44px);
+  margin: clamp(28px, 3.4vw, 42px) 0 clamp(28px, 3.2vw, 40px);
+  padding: clamp(20px, 2.4vw, 28px) clamp(20px, 2.6vw, 32px);
+  border: 2px solid rgba(79, 224, 185, 0.42);
+  clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
+}
+.rodape__news-titulo {
+  margin: 0 0 6px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #ffffff;
+  font-size: clamp(1rem, 1.8vw, 1.3rem);
+  font-weight: 800;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+.rodape__news-titulo svg {
+  width: 17px;
+  height: 17px;
+  fill: var(--color-amarelo);
+  flex-shrink: 0;
+}
+.rodape__form {
+  display: grid;
+  gap: 9px;
+}
+.rodape__form-linha {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+.rodape__form input {
+  flex: 1 1 190px;
+  min-width: 0;
+  padding: 14px;
+  background: #0d1211;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  font-family: var(--font-sans);
+  font-size: 0.92rem;
+}
+.rodape__form input::placeholder {
+  color: #79828a;
+}
+.rodape__form input:focus-visible {
+  outline: none;
+  border-color: #4fe0b9;
+}
+.rodape__consent {
+  margin: 0;
+  font-size: 0.73rem;
+  line-height: 1.5;
+  color: #858e96;
+}
+/* Sublinhado é correção nossa, não do protótipo: lá o link da política se
+   distingue do texto só pela cor (#b3bbc2 sobre #858e96), e a diferença entre
+   as duas não chega a 3:1. Quem tem baixa visão ou daltonismo não vê que ali
+   tem link — é falha de WCAG 1.4.1, e o Lighthouse do CI pegou. */
+.rodape__consent a {
+  color: #b3bbc2;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.rodape__colunas {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr 1.2fr 1.2fr;
+  gap: clamp(22px, 3vw, 40px);
+  padding-bottom: clamp(26px, 3.2vw, 38px);
+}
+.rodape__marca {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 10px;
+  color: #ffffff;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  text-decoration: none;
+}
+.rodape__marca svg {
+  width: 24px;
+  height: 24px;
+  fill: var(--color-amarelo);
+  flex-shrink: 0;
+}
+.rodape__assinatura {
+  margin: 0 0 18px;
+  max-width: 30ch;
+  font-size: 0.84rem;
+  line-height: 1.55;
+  color: #949da5;
+}
+.rodape__titulo {
+  margin: 0 0 14px;
+  color: var(--color-amarelo);
+  font-size: 0.73rem;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+.rodape__lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.rodape__lista a {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: #ccd3d9;
+  text-decoration: none;
+  font-size: 0.88rem;
+  line-height: 1.4;
+  transition: color 0.15s ease;
+}
+.rodape__lista a:hover,
+.rodape__lista a:focus-visible {
+  color: #4fe0b9;
+  text-decoration: underline;
+}
+.rodape__lista svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  fill: #4fe0b9;
+}
+.rodape__horario {
+  margin: 13px 0 0;
+  font-size: 0.79rem;
+  line-height: 1.5;
+  color: #949da5;
+}
+.rodape__redes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.rodape__redes a {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid rgba(255, 255, 255, 0.24);
+  color: #ccd3d9;
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.rodape__redes a:hover,
+.rodape__redes a:focus-visible {
+  background: #4fe0b9;
+  border-color: #4fe0b9;
+  color: #06120d;
+}
+.rodape__redes svg {
+  width: 19px;
+  height: 19px;
+  fill: currentColor;
+}
+.rodape__pagamento {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  padding: 18px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+.rodape__pagamento-titulo {
+  margin: 0 6px 0 0;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #949da5;
+}
+.rodape__formas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.rodape__formas li {
+  padding: 7px 12px;
+  border: 1.5px solid rgba(255, 255, 255, 0.2);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  color: #e2e7eb;
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+}
+.rodape__formas li b {
+  color: var(--color-amarelo);
+}
+.rodape__fim {
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+.rodape__fim-wrap {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 18px clamp(16px, 3vw, 30px) 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+}
+.rodape__legal {
+  margin: 0;
+  font-size: 0.76rem;
+  line-height: 1.6;
+  color: #8b949c;
+  max-width: 82ch;
+}
+.rodape__topo {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  border: 1.5px solid rgba(255, 255, 255, 0.24);
+  color: #ccd3d9;
+  text-decoration: none;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px);
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.rodape__topo:hover,
+.rodape__topo:focus-visible {
+  background: var(--color-amarelo);
+  border-color: var(--color-amarelo);
+  color: var(--color-tinta);
+}
+.rodape__topo svg {
+  width: 13px;
+  height: 13px;
+  fill: currentColor;
+}
+@media (max-width: 980px) {
+  .rodape__colunas {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+@media (max-width: 640px) {
+  .rodape__news {
+    grid-template-columns: 1fr;
+  }
+  .rodape__colunas {
+    grid-template-columns: 1fr;
+  }
+}

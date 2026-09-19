@@ -3,7 +3,6 @@ import Image from "next/image"
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import { Suspense } from "react"
-import { Logo } from "@/components/marca/logo"
 import { buscarCategoria, listarProdutos, precoDe } from "@/lib/medusa"
 import { ehCategoria, site } from "@/lib/site"
 
@@ -48,17 +47,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default function PaginaCategoria({ params }: Props) {
   return (
-    <>
-      <div className="faixa-perigo h-3 w-full" aria-hidden="true" />
-      <header className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-6">
-        <Logo />
-      </header>
-      <main id="conteudo" className="mx-auto w-full max-w-6xl flex-1 px-4 pb-16 sm:px-6">
-        <Suspense fallback={<EsqueletoLista />}>
-          <Categoria params={params} />
-        </Suspense>
-      </main>
-    </>
+    <main id="conteudo" className="mx-auto w-full max-w-6xl flex-1 px-4 py-10 sm:px-6 sm:py-14">
+      <Suspense fallback={<EsqueletoLista />}>
+        <Categoria params={params} />
+      </Suspense>
+    </main>
   )
 }
 

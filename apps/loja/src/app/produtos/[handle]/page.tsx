@@ -3,7 +3,6 @@ import Image from "next/image"
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import { Suspense } from "react"
-import { Logo } from "@/components/marca/logo"
 import { buscarProdutoPorHandle, precoDe } from "@/lib/medusa"
 
 /**
@@ -44,17 +43,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default function PaginaProduto({ params }: Props) {
   return (
-    <>
-      <div className="faixa-perigo h-3 w-full" aria-hidden="true" />
-      <header className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-6">
-        <Logo />
-      </header>
-      <main id="conteudo" className="mx-auto w-full max-w-6xl flex-1 px-4 pb-16 sm:px-6">
-        <Suspense fallback={<EsqueletoProduto />}>
-          <Produto params={params} />
-        </Suspense>
-      </main>
-    </>
+    <main id="conteudo" className="mx-auto w-full max-w-6xl flex-1 px-4 py-10 sm:px-6 sm:py-14">
+      <Suspense fallback={<EsqueletoProduto />}>
+        <Produto params={params} />
+      </Suspense>
+    </main>
   )
 }
 

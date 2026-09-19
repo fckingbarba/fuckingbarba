@@ -32,7 +32,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
-      # Build "indexável" só pra medir SEO = 100 no Lighthouse; a Vercel decide o de verdade por VERCEL_ENV.
+      # Indexável só aqui dentro, pra o Lighthouse conseguir medir SEO = 100.
+      # Em produção isto é opt-in manual, feito uma vez na virada (fase 6).
       SITE_INDEXAVEL: "true"
       NEXT_PUBLIC_SITE_URL: http://localhost:3100
       NEXT_PUBLIC_LOJA_ATUAL_URL: https://exemplo.com.br

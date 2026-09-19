@@ -1,0 +1,71 @@
+/*
+  Faixa de avisos em esteira, colada no topo da página.
+
+  Duas listas idênticas correndo -50%: quando a primeira sai de cena a segunda
+  está exatamente onde ela começou, e o salto do loop fica invisível. A cópia
+  leva aria-hidden pra não ser lida duas vezes pelo leitor de tela.
+*/
+
+/* Entrelinha padrão do navegador, como no protótipo: o preflight do
+   Tailwind põe 1.5 na raiz e isso empurra tudo que não declara a sua. */
+.anuncio {
+  line-height: normal;
+}
+.anuncio,
+.anuncio * {
+  border-radius: 0;
+  box-sizing: border-box;
+}
+.anuncio {
+  background: var(--color-amarelo);
+  color: var(--color-tinta);
+  font-family: var(--font-sans);
+  overflow: hidden;
+  padding: 9px 0;
+}
+.anuncio__pista {
+  display: flex;
+  width: max-content;
+  animation: anuncioDesliza 38s linear infinite;
+}
+.anuncio:hover .anuncio__pista {
+  animation-play-state: paused;
+}
+@keyframes anuncioDesliza{
+    to { transform: translateX(-50%); }
+  }
+.anuncio__lista {
+  display: flex;
+  align-items: center;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.anuncio__lista li {
+  display: flex;
+  align-items: center;
+  gap: 34px;
+  padding-right: 34px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.anuncio__lista li::after {
+  content: "";
+  width: 9px;
+  height: 9px;
+  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z" fill="%2312181f"/></svg>');
+  background-repeat: no-repeat;
+  background-size: contain;
+  opacity: 0.55;
+}
+.anuncio__pista {
+  will-change: transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  .anuncio * {
+    transition: none !important;
+    animation: none !important;
+    scroll-behavior: auto !important;
+  }
+}

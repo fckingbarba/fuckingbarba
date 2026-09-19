@@ -1,17 +1,11 @@
 import Link from "next/link"
-import { Logo } from "@/components/marca/logo"
 
 export default function NaoEncontrada() {
   return (
-    <>
-      <div className="faixa-perigo h-3 w-full" aria-hidden="true" />
-      <header className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-6">
-        <Logo />
-      </header>
-      <main
-        id="conteudo"
-        className="mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center px-4 py-16 sm:px-6"
-      >
+    <main
+      id="conteudo"
+      className="mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center px-4 py-16 sm:px-6"
+    >
         <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-tinta">Erro 404</p>
         <h1 className="titulo-marca mt-2 text-5xl text-tinta sm:text-7xl">
           Essa página não existe.
@@ -37,8 +31,7 @@ export default function NaoEncontrada() {
               </Link>
             </li>
           ))}
-        </ul>
-      </main>
-    </>
+      </ul>
+    </main>
   )
 }

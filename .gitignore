@@ -55,3 +55,6 @@ yarn-error.log*
 ehthumbs.db
 Thumbs.db
 **/.DS_Store
+# Python das ferramentas de porte
+__pycache__/
+*.pyc

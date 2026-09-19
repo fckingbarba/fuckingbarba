@@ -15,19 +15,47 @@ npm run loja:dev                                 # http://localhost:3000
 
 | Caminho                               | O que faz                                                                                        |
 | ------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `src/app/layout.tsx`                  | `lang="pt-BR"`, Inter servida do próprio domínio, metadata base, link "pular pro conteúdo", tags |
-| `src/app/page.tsx`                    | Página "loja nova em construção" com a cara da marca (a home real entra na fase 3)               |
+| `src/app/layout.tsx`                  | A carcaça de toda página: esteira, cabeçalho, rodapé, Inter local, metadata base, tags           |
+| `src/components/layout/`              | `Anuncio`, `Cabecalho` (menu lateral e busca), `Rodape`, `Newsletter`, `ForaDaTela`              |
+| `src/components/icones.tsx`           | Os SVGs do protótipo, inline; quem nomeia é o `aria-label` de quem os contém                     |
+| `src/estilos/`                        | O CSS do protótipo por componente — ver "Por que o CSS não virou Tailwind" abaixo                |
+| `src/app/page.tsx`                    | Home provisória: só o miolo, que a fase 3 troca pelas seções do protótipo                        |
 | `src/app/[categoria]/page.tsx`        | `/barba`, `/cabelo`, `/kits` lendo categoria e produtos do Medusa                                |
 | `src/app/produtos/[handle]/page.tsx`  | `/produtos/<handle>` lendo o produto do Medusa (esqueleto da PDP)                                |
+| `src/app/em-breve/page.tsx`           | Destino honesto dos links cujas páginas ainda não existem (blog, conta, busca)                   |
 | `src/app/(institucional)/`            | `/privacidade` e `/trocas` — texto provisório, marcado                                           |
 | `src/app/robots.ts` · `sitemap.ts`    | Bloqueia tudo até `SITE_INDEXAVEL=true`; sitemap gerado do Medusa                                |
 | `src/app/api/revalidar/route.ts`      | O Medusa avisa que algo mudou → a tag do cache cai (`revalidateTag(tag, "max")`)                 |
 | `src/proxy.ts` + `src/redirects.json` | 301 da Nuvemshop, 301 pra minúsculo, 404 real no primeiro nível, `noindex` fora de produção      |
+| `src/lib/site.ts`                     | Identidade, contato e o mapa de links que cabeçalho, menu e rodapé leem                          |
 | `src/lib/medusa.ts`                   | Único ponto de contato com o Medusa; toda leitura é `use cache` com tag                          |
 | `src/lib/rastrear.ts`                 | Única porta de saída de eventos (dataLayer no formato GA4)                                       |
 | `src/components/analytics/`           | Consent Mode v2 (tudo negado até aceitar) + GA4 + faixa de consentimento LGPD                    |
 | `src/app/globals.css`                 | Tokens da marca em `@theme` (Tailwind v4): `bg-menta`, `text-tinta`, `chanfro`, `faixa-perigo`…  |
 | `lighthouserc.json` + `budgets.json`  | As metas que o CI defende: ver "O que o Lighthouse CI cobra" abaixo                              |
+
+## Por que o CSS não virou Tailwind
+
+O protótipo HTML já estava desenhado e aprovado: seiscentas regras de chanfro em `clip-path`,
+sombra dura deslocada e `clamp()` calibrados um a um. Traduzir isso pra classes utilitárias seria
+refazer de cabeça um desenho pronto, e a chance de errar um detalhe é alta — errar em silêncio,
+que é pior. Então o CSS foi **portado como está**, um arquivo por componente em `src/estilos/`,
+importado no `globals.css`. O React entra pra estrutura e comportamento; o Tailwind continua
+valendo pro que é novo (as páginas de texto, `/em-breve`, a home provisória).
+
+Duas coisas mudaram na travessia, e as duas estão comentadas no CSS:
+
+1. **Entrelinha.** O protótipo não tinha regra nenhuma em `body` e herdava `line-height: normal`
+   do navegador; o preflight do Tailwind põe `1.5` na raiz. A diferença engorda todo bloco que não
+   declara a própria entrelinha — 4,7px na esteira de avisos, 30px nas colunas do rodapé. Cada
+   raiz de seção portada devolve `line-height: normal`.
+2. **O link da política no rodapé ganhou sublinhado.** No protótipo ele se distingue do texto ao
+   redor só pela cor, e a diferença entre as duas não chega a 3:1 — falha de WCAG 1.4.1. Quem pegou
+   foi o Lighthouse do CI, que exige acessibilidade 100.
+
+Fora isso, cabeçalho, esteira e rodapé batem com o protótipo **nó por nó**: mesma árvore, mesma
+caixa, mesma cor. O protótipo e as ferramentas que fatiam o CSS dele e conferem o resultado estão
+em `ferramentas/porte/` — é por ali que cada próxima seção passa.
 
 ## Decisões que valem saber
 

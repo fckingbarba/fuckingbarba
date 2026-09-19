@@ -1,0 +1,129 @@
+/*
+  Peças que mais de uma seção usa: o botão da marca (.btn), a margem de
+  rolagem sob o cabeçalho fixo e as classes que o JS liga (.js-revela,
+  .fora-de-vista).
+
+  Tudo aqui — e nos outros arquivos de src/estilos/ — veio do protótipo HTML
+  sem tradução pra Tailwind. O desenho é feito de chanfro em clip-path, sombra
+  dura deslocada e clamp() calibrados um a um; reescrever isso em classes
+  utilitárias seria refazer, com risco de errar o detalhe, algo que já está
+  pronto e aprovado. O React entra pra estrutura e comportamento, não pra
+  repintar. Os tokens do protótipo (--color-accent, --color-text, --suave)
+  foram trocados pelos do app (--color-amarelo, --color-tinta, --ease-suave),
+  que o Tailwind v4 gera a partir do @theme em globals.css.
+
+  Nota: .sr-only e o link "pular pro conteúdo" do protótipo saíram daqui — o
+  primeiro o Tailwind já dá, o segundo virou a utility `sr-only-focusable`.
+*/
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: #4fe0b9;
+  color: #07120e;
+  font-family: var(--font-sans);
+  font-size: 0.92rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  text-decoration: none;
+  padding: 14px 26px;
+  border: 2px solid #4fe0b9;
+  border-radius: 0;
+  box-shadow: 6px 6px 0 0 var(--color-amarelo);
+  cursor: pointer;
+  transition: transform 0.14s ease, box-shadow 0.14s ease;
+}
+.btn:hover,
+.btn:focus-visible {
+  transform: translate(-3px, -3px);
+  box-shadow: 9px 9px 0 0 var(--color-amarelo);
+}
+.btn:active {
+  transform: translate(3px, 3px);
+  box-shadow: 1px 1px 0 0 var(--color-amarelo);
+}
+.btn:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 3px;
+}
+.btn__bolt {
+  width: 15px;
+  height: 15px;
+  fill: currentColor;
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+.btn:hover .btn__bolt {
+  transform: translateX(3px);
+}
+.btn__icone {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  fill: currentColor;
+}
+.btn--branco {
+  background: #ffffff;
+  border-color: #ffffff;
+}
+.btn--preto {
+  background: var(--color-tinta);
+  border-color: var(--color-tinta);
+  color: #ffffff;
+}
+.btn--contorno {
+  background: transparent;
+  border-color: #0f9e7a;
+  color: var(--color-tinta);
+  box-shadow: none;
+}
+.btn--contorno:hover,
+.btn--contorno:focus-visible {
+  background: #4fe0b9;
+  border-color: #4fe0b9;
+  box-shadow: 6px 6px 0 0 var(--color-amarelo);
+}
+.btn--contorno:active {
+  box-shadow: 1px 1px 0 0 var(--color-amarelo);
+}
+.btn--bloco {
+  width: 100%;
+  justify-content: center;
+}
+@keyframes ponto-enche{
+    from { transform: scaleX(0); }
+    to   { transform: scaleX(1); }
+  }
+section[id],
+footer[id],
+[id^="produto-"] {
+  scroll-margin-top: 130px;
+}
+.js-revela [data-revela] {
+  opacity: 0;
+  transform: translate3d(0, 20px, 0);
+}
+.js-revela [data-revela] {
+  transition:
+      opacity 0.62s var(--ease-suave) var(--atraso, 0ms),
+      transform 0.62s var(--ease-suave) var(--atraso, 0ms);
+}
+.js-revela [data-revela].e-visivel {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+}
+.fora-de-vista .anuncio__pista,
+.fora-de-vista .amam__esteira,
+.fora-de-vista .produto__frete span,
+.fora-de-vista .offers__unit {
+  animation-play-state: paused !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .js-revela [data-revela] {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}

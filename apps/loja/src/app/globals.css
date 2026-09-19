@@ -1,6 +1,18 @@
 @import "tailwindcss";
 
 /*
+  O desenho das seções vem do protótipo HTML, em CSS por componente
+  (src/estilos/). Vem depois do Tailwind de propósito: é CSS sem @layer, e
+  CSS sem camada ganha de qualquer camada — inclusive do preflight, que zera
+  a margem de p/h2 que essas regras assumem. Cada seção da home entra aqui
+  quando é portada.
+*/
+@import "../estilos/base.css";
+@import "../estilos/anuncio.css";
+@import "../estilos/cabecalho.css";
+@import "../estilos/rodape.css";
+
+/*
   Tokens da marca FuckingBarba — os mesmos do protótipo HTML.
   Tailwind v4 lê este @theme e gera as classes: bg-menta, text-tinta,
   border-amarelo, font-sans, ease-suave...

@@ -26,7 +26,7 @@ const rotasAntigas = new Map<string, string>(
 )
 
 /** Páginas de primeiro nível que existem em app/ e não são categoria. Mantenha em dia. */
-const PAGINAS_RAIZ = new Set(["privacidade", "trocas", "nao-encontrado"])
+const PAGINAS_RAIZ = new Set(["privacidade", "trocas", "nao-encontrado", "em-breve"])
 const CATEGORIAS = new Set<string>(site.categorias.map((c) => c.handle))
 
 function semBarraFinal(caminho: string): string {

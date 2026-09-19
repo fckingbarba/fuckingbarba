@@ -1,6 +1,9 @@
 import type { Metadata, Viewport } from "next"
 import { Inter } from "next/font/google"
 import { Tags } from "@/components/analytics/tags"
+import { Anuncio } from "@/components/layout/anuncio"
+import { Cabecalho } from "@/components/layout/cabecalho"
+import { Rodape } from "@/components/layout/rodape"
 import { emProducao, site } from "@/lib/site"
 import "./globals.css"
 
@@ -46,7 +49,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <a href="#conteudo" className="sr-only-focusable">
           Pular para o conteúdo
         </a>
+        {/* A carcaça é a mesma em toda página: esteira, cabeçalho, rodapé.
+            Cada página entrega o próprio <main id="conteudo">. */}
+        <Anuncio />
+        <Cabecalho />
         {children}
+        <Rodape />
         <Tags />
       </body>
     </html>
