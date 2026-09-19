@@ -1,0 +1,111 @@
+/*
+  A grade de produtos da home. Usa o mesmo card da faixa de coleção — o
+  desenho do card mora em produto.css.
+*/
+
+/* Entrelinha padrão do navegador, como no protótipo: o preflight do
+   Tailwind põe 1.5 na raiz e isso empurra tudo que não declara a sua. */
+.vitrine {
+  line-height: normal;
+}
+.vitrine,
+.vitrine * {
+  border-radius: 0;
+  box-sizing: border-box;
+}
+.vitrine {
+  position: relative;
+  background: #ffffff;
+  color: var(--color-tinta);
+  font-family: var(--font-sans);
+  padding: clamp(30px, 3.6vw, 46px) clamp(16px, 3vw, 30px) clamp(28px, 3.4vw, 42px);
+}
+.vitrine::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 9px;
+  background: repeating-linear-gradient(
+      -45deg,
+      var(--color-tinta) 0 14px,
+      var(--color-amarelo) 14px 28px
+    );
+}
+.vitrine__wrap {
+  max-width: 1320px;
+  margin: 0 auto;
+}
+.vitrine__topo {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  margin-bottom: clamp(18px, 2.4vw, 26px);
+}
+.vitrine__titulo {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: clamp(1.15rem, 2.2vw, 1.55rem);
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+  line-height: 1.15;
+}
+.vitrine__titulo svg {
+  width: 19px;
+  height: 19px;
+  fill: var(--color-amarelo-escuro);
+  flex-shrink: 0;
+}
+.vitrine__contagem {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--color-tinta-suave);
+}
+.vitrine__grade {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+.vitrine__grade .produto {
+  flex: initial;
+  width: auto;
+}
+.vitrine__rodape {
+  display: flex;
+  justify-content: center;
+  margin-top: clamp(20px, 2.6vw, 30px);
+}
+@media (max-width: 1080px) {
+  .vitrine__grade {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 760px) {
+  .vitrine__grade {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px;
+  }
+  .vitrine__topo {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+}
+@media (max-width: 400px) {
+  .vitrine {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+  .vitrine__grade .produto .produto__nome {
+    font-size: 0.86rem;
+  }
+  .vitrine__grade .produto .produto__parcela {
+    font-size: 0.68rem;
+  }
+}

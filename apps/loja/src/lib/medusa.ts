@@ -36,7 +36,8 @@ export const TAGS = {
 /** Campos que a vitrine precisa; o resto fica no servidor. */
 const CAMPOS_PRODUTO =
   "id,title,handle,subtitle,description,thumbnail,weight,length,height,width," +
-  "*images,*categories,*variants,*variants.calculated_price,*variants.inventory_quantity"
+  "*images,*categories,*variants,*variants.calculated_price," +
+  "+variants.inventory_quantity,+variants.manage_inventory"
 
 function aviso(erro: unknown, contexto: string) {
   const msg = erro instanceof Error ? erro.message : String(erro)
