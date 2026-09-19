@@ -110,8 +110,11 @@ Variáveis comuns aos dois serviços Medusa (copie de `apps/backend/.env.example
    Railway e da Supabase. Trocar pra `gru1` (São Paulo) parece melhor e é pior: afasta a função do
    banco, que é o que ela mais espera.
 4. Ramo de produção: `main`. Em **Domains**, deixe o domínio final cadastrado mas **não aponte o DNS
-   ainda** — isso é a Fase 6. Até lá a loja nova vive em `SEUPROJETO.vercel.app`, com `noindex`
-   automático fora de produção.
+   ainda** — isso é a Fase 6. Até lá a loja nova vive em `SEUPROJETO.vercel.app` e **não indexa**:
+   o robots bloqueia tudo e o proxy manda `X-Robots-Tag: noindex` enquanto `SITE_INDEXAVEL` não
+   existir. Ligar a indexação é um passo manual da virada, não algo que acontece por deployar.
+   Defina também `NEXT_PUBLIC_SITE_URL` com o endereço real do site, senão canonical, sitemap e
+   Open Graph saem apontando pra `localhost`.
 5. Adicione `https://SEUPROJETO.vercel.app` (e o domínio final) em `STORE_CORS` e `AUTH_CORS` no Railway.
 
 ### 5. Cloudflare

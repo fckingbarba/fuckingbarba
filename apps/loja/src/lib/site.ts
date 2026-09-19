@@ -19,9 +19,20 @@ export const site = {
   ] as const,
 } as const
 
-/** Produção de verdade = domínio final. Preview e staging nunca indexam. */
-export const emProducao =
-  process.env.VERCEL_ENV === "production" || process.env.SITE_INDEXAVEL === "true"
+/**
+ * Indexar é decisão explícita, não efeito colateral de deployar.
+ *
+ * A primeira versão disto ligava em `VERCEL_ENV === "production"`, e o erro
+ * apareceu no primeiro deploy: a loja ainda em construção, num domínio
+ * `.vercel.app`, subiu com `Allow: /` no robots.txt — convidando o Google a
+ * indexar uma página vazia associada à marca enquanto a loja real ainda está
+ * na Nuvemshop. "Produção", aqui, quer dizer o deploy principal; não quer
+ * dizer pronto pro público.
+ *
+ * Agora só indexa quando alguém escreve SITE_INDEXAVEL=true de propósito —
+ * o que acontece uma vez só, na virada (fase 6), junto com o DNS.
+ */
+export const emProducao = process.env.SITE_INDEXAVEL === "true"
 
 export type HandleCategoria = (typeof site.categorias)[number]["handle"]
 

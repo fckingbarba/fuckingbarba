@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server"
 import redirects from "./redirects.json"
-import { site } from "@/lib/site"
+import { emProducao, site } from "@/lib/site"
 
 /**
  * Roda antes de qualquer rota, no Node.js da Vercel. Três trabalhos:
@@ -37,8 +37,6 @@ function normaliza(caminho: string): string {
   return semBarraFinal(caminho).toLowerCase()
 }
 
-const ehProducao = process.env.VERCEL_ENV === "production" || process.env.SITE_INDEXAVEL === "true"
-
 export function proxy(req: NextRequest) {
   const caminho = normaliza(req.nextUrl.pathname)
 
@@ -64,7 +62,7 @@ export function proxy(req: NextRequest) {
   }
 
   const resposta = NextResponse.next()
-  if (!ehProducao) resposta.headers.set("X-Robots-Tag", "noindex, nofollow")
+  if (!emProducao) resposta.headers.set("X-Robots-Tag", "noindex, nofollow")
   return resposta
 }
 

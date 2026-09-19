@@ -20,7 +20,7 @@ npm run loja:dev                                 # http://localhost:3000
 | `src/app/[categoria]/page.tsx`        | `/barba`, `/cabelo`, `/kits` lendo categoria e produtos do Medusa                                |
 | `src/app/produtos/[handle]/page.tsx`  | `/produtos/<handle>` lendo o produto do Medusa (esqueleto da PDP)                                |
 | `src/app/(institucional)/`            | `/privacidade` e `/trocas` — texto provisório, marcado                                           |
-| `src/app/robots.ts` · `sitemap.ts`    | Bloqueia tudo fora de produção; sitemap gerado do Medusa                                         |
+| `src/app/robots.ts` · `sitemap.ts`    | Bloqueia tudo até `SITE_INDEXAVEL=true`; sitemap gerado do Medusa                                |
 | `src/app/api/revalidar/route.ts`      | O Medusa avisa que algo mudou → a tag do cache cai (`revalidateTag(tag, "max")`)                 |
 | `src/proxy.ts` + `src/redirects.json` | 301 da Nuvemshop, 301 pra minúsculo, 404 real no primeiro nível, `noindex` fora de produção      |
 | `src/lib/medusa.ts`                   | Único ponto de contato com o Medusa; toda leitura é `use cache` com tag                          |
@@ -59,6 +59,11 @@ npm run loja:dev                                 # http://localhost:3000
   Postgres da Supabase ao lado. Aproximá-la do usuário (`gru1`) a afastaria do banco, que é o que ela
   mais espera. A vitrine, que é o que o usuário realmente carrega, sai do cache no PoP de São Paulo e
   não depende disso. O raciocínio completo está no README da raiz.
+- **Indexar é opt-in explícito (`SITE_INDEXAVEL=true`), não consequência de deployar.** Enquanto a
+  variável não existir, o `robots.ts` bloqueia tudo e o proxy manda `X-Robots-Tag: noindex`. Isso
+  não é excesso de zelo: a primeira versão ligava indexação em `VERCEL_ENV === "production"`, e o
+  primeiro deploy real subiu com `Allow: /` numa loja em construção hospedada em `.vercel.app`,
+  com a loja de verdade ainda na Nuvemshop. Deploy de produção não quer dizer pronto pro público.
 - **URLs em português e minúsculas, para sempre.** `/produtos/<handle>` e `/<categoria>` — o Medusa
   só guarda o handle (validado no admin), o caminho é desta app.
 
