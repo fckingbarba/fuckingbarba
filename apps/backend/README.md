@@ -168,3 +168,29 @@ preço real no modo fixo — promoção que encarece não é promoção — e re
 Salvar no admin dispara `POST <LOJA_URL>/api/revalidar` (ver `.env.example`). Sem `LOJA_URL` e
 `REVALIDAR_SEGREDO`, a gravação funciona mas a loja segue mostrando o valor velho — e a tela avisa
 isso na mensagem de sucesso, em vez de dizer que deu tudo certo.
+
+## A página de produto (PDP)
+
+O texto editorial de cada produto mora no `metadata` do produto, sob `fb_pdp`, e se edita no
+widget **Página do produto** — dentro da página do produto no admin, e não numa tela à parte:
+preço, foto, estoque e texto são a mesma tarefa, e separar em duas telas cria a segunda visita
+que alguém esquece de fazer.
+
+```bash
+npm run backend:pdp   # semeia num banco novo, ou só relata o que cada produto tem
+```
+
+A semente (`src/scripts/dados/pdp-inicial.json`) é o conteúdo que estava escrito em TypeScript na
+loja, extraído uma vez pra que a mudança de endereço não perdesse uma vírgula. O script **não
+sobrescreve** o que já existe.
+
+`src/lib/pdp.ts` tem a validação, e ela é usada nos dois sentidos: na gravação e na leitura. Uma
+seção só entra se os campos **obrigatórios** dela existirem — meio preenchida não vale, porque na
+loja ela vira um cabeçalho solto no meio da página. Salvar derruba duas etiquetas na loja,
+`produto:<handle>` e `layout:produto:<handle>`: texto e ordem são dados diferentes, e derrubar só
+uma deixaria a página com o texto novo na ordem velha.
+
+**Armadilha do admin local:** abra em `http://localhost:9000/app`, não em `127.0.0.1:9000`. São
+origens diferentes pro CORS, e no IP a tela de login aparece sem os campos, dizendo "Register an
+auth provider" — que manda procurar o problema no lugar errado. E o `.env` de exemplo traz
+`ADMIN_DISABLED=true` (o valor do worker); localmente ele precisa ser `false`, senão `/app` é 404.

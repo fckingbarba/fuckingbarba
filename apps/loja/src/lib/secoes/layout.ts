@@ -1,4 +1,5 @@
 import { cacheLife, cacheTag } from "next/cache"
+import { pdpDoProduto } from "@/lib/pdp"
 import { SECOES, type Escopo, type Secao } from "./registro"
 
 /**
@@ -20,12 +21,13 @@ import { SECOES, type Escopo, type Secao } from "./registro"
  * ordem do dia em que foram salvos. Assim, produto novo nasce configurado e
  * mudança no padrão alcança todo mundo que não pediu exceção.
  *
- * HOJE não existe fonte: `lerAjuste` devolve `null` e toda página monta o
- * padrão do registro. O painel que vier escreve numa tabela do schema `loja`
- * do Supabase e esta função passa a lê-la — sem tocar em nenhuma página.
- * Quando isso acontecer, publicar deve derrubar a tag correspondente:
+ * A FONTE, hoje: o `metadata` do produto no Medusa, editado no widget da
+ * página do produto no admin. A home ainda não tem painel e continua
+ * montando o padrão do registro.
  *
- *   POST /api/revalidar  { "tags": ["layout:produto:oleo-para-barba"] }
+ * Salvar no admin derruba `layout:produto:<handle>` junto com
+ * `produto:<handle>` — as duas, porque texto e ordem são dados diferentes e
+ * derrubar só uma deixaria a página com o texto novo na ordem velha.
  */
 
 export type AjusteDeLayout = {
@@ -59,8 +61,18 @@ export async function lerAjuste(escopo: Escopo, handle?: string): Promise<Ajuste
   if (handle) cacheTag(TAGS_LAYOUT.produto(handle))
   cacheLife("days")
 
-  // Enquanto não existe painel, o padrão do registro é a configuração.
-  return null
+  // A home ainda não tem painel: o padrão do registro é a configuração dela.
+  if (escopo !== "produto" || !handle) return null
+
+  const { layout } = await pdpDoProduto(handle)
+
+  /*
+    Ajuste vazio devolve `null`, e não `{}`. São a mesma coisa pro
+    `resolver`, mas `null` diz "este produto não pediu exceção nenhuma" —
+    que é o caso da esmagadora maioria e é o que o ajuste esparso existe pra
+    representar.
+  */
+  return layout.visibilidade || layout.ordem ? layout : null
 }
 
 /**

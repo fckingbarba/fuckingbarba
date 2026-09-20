@@ -21,7 +21,7 @@ import { buscarProdutoPorHandle } from "@/lib/medusa"
  * Quem não esquece, vê resultado; quem vê resultado, recompra.
  */
 export async function Funciona({ handle }: { handle: string }) {
-  const c = conteudoDaPdp(handle).funciona
+  const c = (await conteudoDaPdp(handle)).funciona
   if (!c) return null
 
   const [como, uso] = await Promise.all([

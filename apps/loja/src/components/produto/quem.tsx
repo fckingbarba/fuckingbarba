@@ -14,8 +14,8 @@ import { conteudoDaPdp } from "@/conteudo/produto"
  * Por isso as duas colunas têm o mesmo peso visual. Encolher a do "não"
  * seria desfazer o que ela veio fazer.
  */
-export function Quem({ handle }: { handle: string }) {
-  const c = conteudoDaPdp(handle).quem
+export async function Quem({ handle }: { handle: string }) {
+  const c = (await conteudoDaPdp(handle)).quem
   if (!c) return null
 
   return (

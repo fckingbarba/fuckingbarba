@@ -19,7 +19,7 @@ import { buscarProdutoPorHandle } from "@/lib/medusa"
  * deles é apagada. O olho sabe de qual lado ficar antes de ler.
  */
 export async function Versus({ handle }: { handle: string }) {
-  const c = conteudoDaPdp(handle).versus
+  const c = (await conteudoDaPdp(handle)).versus
   if (!c) return null
 
   const produto = await buscarProdutoPorHandle(handle)

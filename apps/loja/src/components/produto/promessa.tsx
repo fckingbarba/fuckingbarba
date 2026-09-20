@@ -16,8 +16,8 @@ import { conteudoDaPdp } from "@/conteudo/produto"
  * lista de benefícios porque promessa e ressalva têm que ser lidas juntas;
  * jogada pro pé da página, a ressalva não cumpre função nenhuma.
  */
-export function Promessa({ handle }: { handle: string }) {
-  const c = conteudoDaPdp(handle).promessa
+export async function Promessa({ handle }: { handle: string }) {
+  const c = (await conteudoDaPdp(handle)).promessa
   if (!c) return null
 
   return (

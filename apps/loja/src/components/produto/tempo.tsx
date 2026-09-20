@@ -18,8 +18,8 @@ import { conteudoDaPdp } from "@/conteudo/produto"
  * exatamente o que uma lista de definição descreve. Leitor de tela anuncia
  * os dois ligados.
  */
-export function Tempo({ handle }: { handle: string }) {
-  const c = conteudoDaPdp(handle).tempo
+export async function Tempo({ handle }: { handle: string }) {
+  const c = (await conteudoDaPdp(handle)).tempo
   if (!c) return null
 
   return (

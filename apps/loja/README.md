@@ -107,6 +107,7 @@ node ferramentas/conferir-checkout.mjs    # compra de verdade, com Medusa e loja
 node ferramentas/conferir-catalogo.mjs    # /barba, /cabelo, /kits e /produtos
 node ferramentas/conferir-links.mjs       # nenhum link do site leva a 404
 node ferramentas/conferir-configuracoes.mjs   # o contrato e os três modos de frete
+node ferramentas/conferir-pdp.mjs         # as frases da PDP sobreviveram, e editar funciona
 ```
 
 O `conferir-links.mjs` é o que segura a armadilha do `PAGINAS_RAIZ` do proxy: em vez de saber de
@@ -160,6 +161,35 @@ quem navega com JavaScript desligado, que vê o esqueleto. A home, que não depe
 
 Não tem conserto barato: tirar o `<Suspense>` faz o `next build` recusar a rota. Se um dia virar
 problema de verdade, o caminho é separar a lista padrão (estática) da ordenada (dinâmica).
+
+## A página de produto é editável
+
+As oito seções editoriais da PDP — promessa, linha do tempo, faixa, rotina, como funciona, versus,
+pra quem é, dúvidas — moravam em `src/conteudo/produto.ts`. Trocar uma frase era um deploy.
+
+Agora moram no `metadata` do produto e se editam **na própria página do produto no admin** (um
+widget em `product.details.after`). O que ficou no arquivo são os tipos, que continuam sendo o
+contrato entre o editor e as seções.
+
+**Nada disso é novo na loja.** O tipo já tinha toda seção opcional e cada componente já fazia
+`if (!c) return null` — era assim que um produto tinha PDP longa e outro tinha só a dobra. O que
+mudou foi de onde o conteúdo vem. Por isso a conferência não é "a API devolve o que gravei", que
+é tautologia: é que **cada uma das 73 frases da semente aparece na página renderizada**.
+
+**Ligar/desligar é o LAYOUT, apagar é o conteúdo.** A chavinha de cada seção mexe em
+`layout.visibilidade`, que é o mesmo ajuste esparso que `lib/secoes/layout.ts` sempre esperou —
+`lerAjuste` foi escrito com essa fonte em mente e só precisou ser plugado. Desligar esconde e
+guarda o texto; apagar é esvaziar os campos. Juntar as duas faria a primeira destruir a segunda.
+
+**Seção pela metade não vai pro ar.** A validação do backend recusa seção com campo obrigatório
+vazio, e o editor avisa quais ficaram de fora — porque um título sem itens desenha um cabeçalho
+solto no meio da página, que parece defeito. A loja repete só a peneira que evita quebrar
+(`.map` em algo que não é lista); repetir as duzentas linhas de validação dos dois lados criaria
+a divergência que elas deveriam evitar.
+
+**As oito seções fazem uma leitura, não oito.** Cada uma chama `conteudoDaPdp(handle)`, que cai em
+`buscarProdutoPorHandle` — `"use cache"`. Manter cada seção buscando o que precisa é o que permite
+ligar e desligar seção sem mexer em assinatura de componente.
 
 ## As configurações da loja
 

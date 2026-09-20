@@ -21,7 +21,7 @@ import { buscarProdutoPorHandle, precosDe, temEstoque } from "@/lib/medusa"
  * dá pra comprar.
  */
 export async function Rotina({ handle }: { handle: string }) {
-  const c = conteudoDaPdp(handle).rotina
+  const c = (await conteudoDaPdp(handle)).rotina
   if (!c) return null
 
   const proprio = await buscarProdutoPorHandle(handle)

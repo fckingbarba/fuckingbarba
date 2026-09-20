@@ -22,7 +22,7 @@ import { buscarProdutoPorHandle } from "@/lib/medusa"
  * só atrapalha quem está tentando ler a chamada.
  */
 export async function Faixa({ handle }: { handle: string }) {
-  const c = conteudoDaPdp(handle).faixa
+  const c = (await conteudoDaPdp(handle)).faixa
   if (!c) return null
 
   const produto = await buscarProdutoPorHandle(c.fotoDe)

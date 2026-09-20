@@ -18,8 +18,8 @@ import { conteudoDaPdp } from "@/conteudo/produto"
  * mais feita. Acordeão inteiro fechado obriga um clique pra descobrir se
  * vale ler.
  */
-export function Duvidas({ handle }: { handle: string }) {
-  const c = conteudoDaPdp(handle).duvidas
+export async function Duvidas({ handle }: { handle: string }) {
+  const c = (await conteudoDaPdp(handle)).duvidas
   if (!c?.perguntas.length) return null
 
   const faq = {
