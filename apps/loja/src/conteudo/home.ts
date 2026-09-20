@@ -1,5 +1,5 @@
 /**
- * A história da marca, como ela aparece na home.
+ * O texto da home: o bloco do h1, a história da marca e a última chamada.
  *
  * ┌─ NÚMEROS: CONFERIR ANTES DE IR PRO AR ────────────────────────────────┐
  * │ Os três números abaixo vieram do protótipo e ninguém confirmou que    │
@@ -8,6 +8,35 @@
  * │ concorrente aponta e que o consumidor cobra. Confira e corrija aqui.  │
  * └───────────────────────────────────────────────────────────────────────┘
  */
+
+/**
+ * O bloco escuro do meio da home — o único que carrega o <h1> da página.
+ *
+ * ┌─ AFIRMAÇÕES: CONFERIR ────────────────────────────────────────────────┐
+ * │ "Aprovado em estudo interno" e "+1.000.000 clientes satisfeitos" são  │
+ * │ afirmações, não slogan. A primeira é sobre o produto e cosmético no   │
+ * │ Brasil tem regra pra isso (RDC da Anvisa): se o estudo existe, ótimo; │
+ * │ se não existe, a frase sai. A segunda é a mesma do bloco "sobre" e    │
+ * │ precisa bater com ela.                                                │
+ * └───────────────────────────────────────────────────────────────────────┘
+ */
+export const HERO = {
+  chapeu: "Alta Performance",
+  titulo: "Fórmulas de alta performance, resultado que você sente.",
+  /** CONFERIR — ver o aviso acima. */
+  comparativo: [
+    { rotulo: "Ativos", valor: "Alta concentração" },
+    { rotulo: "Testado", valor: "Aprovado em estudo interno" },
+  ],
+  chamada: "Ver produtos",
+  /** CONFERIR — o primeiro item é afirmação sobre o negócio. */
+  garantias: [
+    "+1.000.000 clientes satisfeitos",
+    "Loja oficial da marca",
+    "Cosméticos premium",
+  ],
+  aviso: "*Resultados podem variar conforme uso individual.",
+} as const
 
 export const SOBRE = {
   titulo: "O cuidado que impõe presença",

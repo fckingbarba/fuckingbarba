@@ -1,0 +1,179 @@
+/*
+  O bloco escuro com o <h1> da página, entre a faixa de coleção e a seção de
+  Alta Performance. É a única seção da home que carrega um h1 — as outras são
+  h2, e a ordem dos títulos depende dele estar aqui.
+*/
+
+/* Entrelinha padrão do navegador, como no protótipo: o preflight do
+   Tailwind põe 1.5 na raiz e isso empurra tudo que não declara a sua. */
+.hero {
+  line-height: normal;
+}
+.hero,
+.hero * {
+  border-radius: 0;
+}
+.hero {
+  position: relative;
+  isolation: isolate;
+  background:
+      radial-gradient(ellipse 900px 480px at 50% -8%, #142520 0%, #070a09 48%, #020302 100%);
+  color: #ffffff;
+  font-family: var(--font-sans);
+  text-align: center;
+  padding: clamp(38px, 6vw, 64px) clamp(20px, 4.5vw, 38px) clamp(30px, 5vw, 46px);
+  overflow: hidden;
+}
+.hero--com-faixa::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 10px;
+  background: repeating-linear-gradient(
+      -45deg,
+      #000 0 14px,
+      var(--color-amarelo) 14px 28px
+    );
+  z-index: 2;
+}
+.hero::after {
+  content: "";
+  position: absolute;
+  top: 9%;
+  left: 50%;
+  width: 460px;
+  height: 460px;
+  transform: translateX(-50%);
+  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z" fill="%234fe0b9"/></svg>');
+  background-repeat: no-repeat;
+  background-size: contain;
+  opacity: 0.035;
+  pointer-events: none;
+  z-index: 0;
+}
+.hero > * {
+  position: relative;
+  z-index: 1;
+}
+.hero__eyebrow {
+  margin: 0 0 9px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-amarelo);
+}
+.hero__eyebrow-bolt {
+  width: 12px;
+  height: 12px;
+  fill: var(--color-amarelo);
+  filter: drop-shadow(0 0 4px rgba(255, 216, 77, 0.6));
+}
+.hero__title {
+  margin: 0 auto 17px;
+  max-width: 920px;
+  font-size: clamp(1.65rem, 3.9vw, 2.55rem);
+  font-weight: 800;
+  line-height: 1.17;
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+}
+.hero__compare {
+  margin: 0 auto 26px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  max-width: 620px;
+  border: 1.5px solid rgba(79, 224, 185, 0.55);
+  clip-path: polygon(13px 0, 100% 0, 100% calc(100% - 13px), calc(100% - 13px) 100%, 0 100%, 0 13px);
+}
+.hero__compare-item {
+  padding: 16px 17px;
+  border-left: 1.5px solid rgba(79, 224, 185, 0.35);
+}
+.hero__compare-item:first-child {
+  border-left: none;
+}
+.hero__compare-item dt {
+  margin: 0 0 6px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8b939d;
+}
+.hero__compare-item dd {
+  margin: 0;
+  font-size: 1.08rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+.hero__cta {
+  margin-bottom: 32px;
+}
+.hero__divider {
+  max-width: 1060px;
+  margin: 0 auto 22px;
+  height: 2px;
+  border: none;
+  background: linear-gradient(
+      90deg,
+      rgba(79, 224, 185, 0) 0%,
+      rgba(79, 224, 185, 0.9) 50%,
+      rgba(79, 224, 185, 0) 100%
+    );
+}
+.hero__trust {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 7px 24px;
+  margin: 0 0 12px;
+  padding: 0;
+}
+.hero__trust li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.83rem;
+  font-weight: 700;
+  color: #e7eaed;
+}
+.hero__check {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  fill: #4fe0b9;
+}
+.hero__disclaimer {
+  margin: 0;
+  font-size: 0.7rem;
+  color: #6b7178;
+}
+@media (max-width: 560px) {
+  .hero__compare {
+    grid-template-columns: 1fr;
+  }
+  .hero__compare-item {
+    border-left: none;
+    border-top: 1.5px solid rgba(79, 224, 185, 0.35);
+  }
+  .hero__compare-item:first-child {
+    border-top: none;
+  }
+}
+.hero * {
+  box-sizing: border-box;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero * {
+    transition: none !important;
+    animation: none !important;
+    scroll-behavior: auto !important;
+  }
+}

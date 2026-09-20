@@ -1,7 +1,7 @@
 import Image from "next/image"
 import Link from "next/link"
 import { Raio } from "@/components/icones"
-import { SOBRE } from "@/conteudo/sobre"
+import { SOBRE } from "@/conteudo/home"
 import { buscarProdutoPorHandle } from "@/lib/medusa"
 import { site } from "@/lib/site"
 

@@ -1,7 +1,7 @@
 import Image from "next/image"
 import Link from "next/link"
 import { Raio } from "@/components/icones"
-import { FECHAMENTO } from "@/conteudo/sobre"
+import { FECHAMENTO } from "@/conteudo/home"
 import { emReais } from "@/lib/formato"
 import { buscarProdutoPorHandle } from "@/lib/medusa"
 import { FRETE_GRATIS_ACIMA_DE, parcelamento } from "@/lib/site"
