@@ -47,9 +47,67 @@ export const TAGS = {
 
 /** Campos que a vitrine precisa; o resto fica no servidor. */
 const CAMPOS_PRODUTO =
-  "id,title,handle,subtitle,description,thumbnail,weight,length,height,width," +
+  "id,title,handle,subtitle,description,thumbnail,weight,length,height,width,metadata," +
   "*images,*categories,*variants,*variants.calculated_price," +
   "+variants.inventory_quantity,+variants.manage_inventory"
+
+/**
+ * OS KITS DE QUANTIDADE
+ *
+ * "2 frascos" e "3 frascos" são produtos de verdade no Medusa, com SKU e
+ * estoque próprios (ver `backend/src/scripts/kits-de-quantidade.ts`). O que
+ * os amarra ao avulso é a metadata, e ela faz dois trabalhos aqui:
+ *
+ *   sumir da vitrine — uma grade com "Fator", "Fator 2x" e "Fator 3x" lado
+ *     a lado é péssima vitrine, e o cliente não está escolhendo entre três
+ *     produtos: está escolhendo quanto comprar de um;
+ *   montar o degrau na PDP — que passa a sair do CATÁLOGO, não de uma lista
+ *     escrita no código. Criar um kit de 4 no admin com essa metadata faz
+ *     ele aparecer na página sozinho, sem deploy.
+ */
+const TIPO_KIT = "kit-quantidade"
+
+type MetaDeKit = { tipo?: unknown; base?: unknown; unidades?: unknown }
+
+export function ehKitDeQuantidade(produto: HttpTypes.StoreProduct): boolean {
+  return (produto.metadata as MetaDeKit | null)?.tipo === TIPO_KIT
+}
+
+/** Só os produtos que uma listagem deve mostrar. */
+function semKits(produtos: HttpTypes.StoreProduct[]): HttpTypes.StoreProduct[] {
+  return produtos.filter((p) => !ehKitDeQuantidade(p))
+}
+
+/**
+ * O Medusa não filtra por metadata, então a peneira dos kits é sempre aqui,
+ * DEPOIS de a página chegar. Isso quebra a conta de "pedi 8, recebi 8": se a
+ * página vier cheia de kit, a vitrine fica curta sem ninguém perceber.
+ *
+ * Daí o laço: pede uma página com folga, peneira, e só volta pra buscar mais
+ * se (a) ainda falta produto e (b) a página veio cheia — se veio pela metade,
+ * o catálogo acabou e insistir só gera requisição vazia. O teto de páginas
+ * existe pra que um bug de paginação do outro lado não vire laço infinito
+ * numa requisição de usuário.
+ */
+const MAX_PAGINAS = 5
+
+async function paginarSemKits(
+  params: Record<string, unknown>,
+  limite: number
+): Promise<HttpTypes.StoreProduct[]> {
+  const tamanho = limite + 12
+  const coletados: HttpTypes.StoreProduct[] = []
+  let offset = 0
+
+  for (let pagina = 0; pagina < MAX_PAGINAS; pagina++) {
+    const { products } = await sdk!.store.product.list({ ...params, limit: tamanho, offset })
+    coletados.push(...semKits(products))
+    offset += products.length
+    if (coletados.length >= limite || products.length < tamanho) break
+  }
+
+  return coletados.slice(0, limite)
+}
 
 function aviso(erro: unknown, contexto: string) {
   const msg = erro instanceof Error ? erro.message : String(erro)
@@ -148,13 +206,14 @@ export async function listarProdutos(
   if (!sdk) return []
   try {
     const regiao = await regiaoBrasil()
-    const { products } = await sdk.store.product.list({
-      fields: CAMPOS_PRODUTO,
-      limit: opcoes.limite ?? 48,
-      region_id: regiao?.id,
-      ...(opcoes.categoriaId ? { category_id: [opcoes.categoriaId] } : {}),
-    })
-    return products
+    return await paginarSemKits(
+      {
+        fields: CAMPOS_PRODUTO,
+        region_id: regiao?.id,
+        ...(opcoes.categoriaId ? { category_id: [opcoes.categoriaId] } : {}),
+      },
+      opcoes.limite ?? 48
+    )
   } catch (e) {
     aviso(e, "produtos")
     return []
@@ -225,4 +284,152 @@ export function porHandle(produtos: HttpTypes.StoreProduct[]): Map<string, HttpT
 export function precoDe(produto: HttpTypes.StoreProduct): string | null {
   const precos = precosDe(produto)
   return precos ? emReais(precos.atual) : null
+}
+
+const emCentavos = (n: number) => Math.round(n * 100) / 100
+
+export type DegrauDeQuantidade = {
+  /** handle do produto a comprar — pode ser o próprio avulso (1 unidade) */
+  handle: string
+  varianteId: string
+  unidades: number
+  /** preço total deste degrau, em reais */
+  preco: number
+  /** preço por frasco, pra deixar a comparação na cara */
+  porUnidade: number
+  /** quanto se economiza contra comprar `unidades` avulsos. 0 no primeiro degrau */
+  economia: number
+  disponivel: boolean
+}
+
+/**
+ * Todos os kits do catálogo, uma vez só.
+ *
+ * Separado de `escadaDeQuantidade` porque é a MESMA lista pra qualquer
+ * produto: uma PDP de óleo e uma de fator leem o mesmo resultado cacheado em
+ * vez de cada uma varrer o catálogo por conta. Como kit é minoria (dois hoje),
+ * o laço quase sempre resolve na primeira página.
+ */
+async function kitsDoCatalogo(): Promise<HttpTypes.StoreProduct[]> {
+  "use cache"
+  cacheTag(TAGS.produtos)
+  cacheLife("hours")
+  if (!sdk) return []
+
+  try {
+    const regiao = await regiaoBrasil()
+    const kits: HttpTypes.StoreProduct[] = []
+    let offset = 0
+
+    for (let pagina = 0; pagina < MAX_PAGINAS; pagina++) {
+      const { products } = await sdk.store.product.list({
+        fields: CAMPOS_PRODUTO,
+        limit: 100,
+        offset,
+        region_id: regiao?.id,
+      })
+      kits.push(...products.filter(ehKitDeQuantidade))
+      offset += products.length
+      if (products.length < 100) break
+    }
+
+    return kits
+  } catch (e) {
+    aviso(e, "kits")
+    return []
+  }
+}
+
+/**
+ * O degrau de quantidade de um produto: 1 frasco, 2 frascos, 3 frascos.
+ *
+ * Sai do catálogo, não de lista escrita à mão — os kits se anunciam pela
+ * metadata e esta função só junta. Produto sem kit nenhum devolve um degrau
+ * só, o dele mesmo, e a PDP mostra apenas o seletor de quantidade.
+ *
+ * A ECONOMIA é calculada contra o preço ATUAL do avulso (o que o cliente
+ * pagaria comprando `n` separados hoje), nunca contra o preço cheio riscado.
+ * Comparar com o riscado inflaria a vantagem — é a conta que o Procon autua.
+ *
+ * E ela pode dar ZERO, ou dar negativo e ser zerada pelo `Math.max`: kit que
+ * custa o mesmo (ou mais) que os avulsos somados é erro de cadastro, e a
+ * dobra não vai carimbar "economize R$ 0" em cima dele. Quem decide o que
+ * fazer com degrau sem vantagem é a página, não esta função — aqui o número
+ * é só honesto.
+ */
+export async function escadaDeQuantidade(handle: string): Promise<DegrauDeQuantidade[]> {
+  "use cache"
+  cacheTag(TAGS.produtos, TAGS.produto(handle))
+  cacheLife("hours")
+
+  const base = await buscarProdutoPorHandle(handle)
+  const precoBase = base ? precosDe(base) : null
+  const varianteBase = base?.variants?.[0]
+  if (!base?.handle || !precoBase || !varianteBase) return []
+
+  const primeiro: DegrauDeQuantidade = {
+    handle: base.handle,
+    varianteId: varianteBase.id,
+    unidades: 1,
+    preco: precoBase.atual,
+    porUnidade: precoBase.atual,
+    economia: 0,
+    disponivel: temEstoque(varianteBase),
+  }
+
+  const degraus = (await kitsDoCatalogo()).flatMap<DegrauDeQuantidade>((p) => {
+    const meta = p.metadata as MetaDeKit | null
+    if (meta?.base !== handle) return []
+
+    const unidades = Number(meta.unidades)
+    const preco = precosDe(p)
+    const variante = p.variants?.[0]
+    if (!Number.isInteger(unidades) || unidades < 2 || !preco || !variante || !p.handle) return []
+
+    return [
+      {
+        handle: p.handle,
+        varianteId: variante.id,
+        unidades,
+        preco: preco.atual,
+        // arredondar aqui, e não na hora de exibir: 149,90 / 2 dá
+        // 74.95000000000002 em ponto flutuante, e dinheiro que sai desta
+        // função redondo é dinheiro que ninguém precisa lembrar de arredondar
+        // de novo três componentes adiante
+        porUnidade: emCentavos(preco.atual / unidades),
+        economia: Math.max(0, emCentavos(precoBase.atual * unidades - preco.atual)),
+        disponivel: temEstoque(variante),
+      },
+    ]
+  })
+
+  /*
+   * Dois kits com o mesmo número de frascos é erro de cadastro que acontece
+   * (alguém duplica o de 2 pra testar e esquece publicado). Sem isto a dobra
+   * mostraria dois botões idênticos com preços diferentes — some com o mais
+   * caro, que é o que qualquer pessoa escolheria de qualquer jeito.
+   */
+  const porUnidades = new Map<number, DegrauDeQuantidade>()
+  for (const degrau of [primeiro, ...degraus]) {
+    const atual = porUnidades.get(degrau.unidades)
+    if (!atual || degrau.preco < atual.preco) porUnidades.set(degrau.unidades, degrau)
+  }
+
+  return [...porUnidades.values()].sort((a, b) => a.unidades - b.unidades)
+}
+
+/**
+ * Tem pra vender?
+ *
+ * Variação com `manage_inventory` desligado é sempre comprável — é assim que
+ * o Medusa representa produto sem controle de estoque. Com ele ligado, vale
+ * o número. O `?? true` do fim é deliberado: quando o campo não vem na
+ * consulta, vender e falhar no carrinho é melhor que esconder um produto que
+ * está disponível.
+ */
+export function temEstoque(variante: HttpTypes.StoreProductVariant): boolean {
+  if (!variante.manage_inventory) return true
+  if (variante.allow_backorder) return true
+  const qtd = variante.inventory_quantity
+  return typeof qtd === "number" ? qtd > 0 : true
 }
