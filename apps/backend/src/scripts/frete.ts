@@ -105,6 +105,19 @@ export default async function frete({ container }: ExecArgs) {
       "[frete] sem preço de emergência: se a Frenet cair, a loja para de vender. " +
         "Pra mudar isso, Configurações da loja → Quando a cotação falhar."
     )
+  } else {
+    logger.info(
+      `[frete] se a cotação falhar, a loja cobra R$ ${cotacao.precoDeEmergencia.toFixed(2)}` +
+        (cotacao.prazoDeEmergencia ? ` e promete ${cotacao.prazoDeEmergencia}` : "") +
+        " — e continua vendendo"
+    )
+    if (!cotacao.prazoDeEmergencia) {
+      logger.warn(
+        "[frete] o preço de emergência está configurado mas o PRAZO não. Sem cotação " +
+          "ninguém sabe em quantos dias a transportadora entrega, e é o prazo que o " +
+          "cliente vai cobrar. Configurações da loja → Quando a cotação falhar."
+      )
+    }
   }
 
   const { data: locais } = await query.graph({

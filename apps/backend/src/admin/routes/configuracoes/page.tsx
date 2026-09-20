@@ -1,6 +1,16 @@
 import { defineRouteConfig } from "@medusajs/admin-sdk"
 import { CogSixTooth } from "@medusajs/icons"
-import { Button, Container, Heading, Input, Label, Select, Text, Textarea, toast } from "@medusajs/ui"
+import {
+  Button,
+  Container,
+  Heading,
+  Input,
+  Label,
+  Select,
+  Text,
+  Textarea,
+  toast,
+} from "@medusajs/ui"
 import { useEffect, useState } from "react"
 
 /**
@@ -36,6 +46,7 @@ type Forma = {
   alvo: "mais-barata" | "todas"
   tetoDeCusto: string
   precoDeEmergencia: string
+  prazoDeEmergencia: string
   razaoSocial: string
   cnpj: string
   endereco: string
@@ -52,6 +63,7 @@ const VAZIA: Forma = {
   alvo: "mais-barata",
   tetoDeCusto: "",
   precoDeEmergencia: "",
+  prazoDeEmergencia: "",
   razaoSocial: "",
   cnpj: "",
   endereco: "",
@@ -84,6 +96,7 @@ const Configuracoes = () => {
           alvo: f.alvo === "todas" ? "todas" : "mais-barata",
           tetoDeCusto: numero(f.tetoDeCusto),
           precoDeEmergencia: numero(c?.cotacao?.precoDeEmergencia),
+          prazoDeEmergencia: texto(c?.cotacao?.prazoDeEmergencia),
           razaoSocial: texto(c?.empresa?.razaoSocial),
           cnpj: texto(c?.empresa?.cnpj),
           endereco: texto(c?.empresa?.endereco),
@@ -125,7 +138,10 @@ const Configuracoes = () => {
             cnpj: forma.cnpj,
             endereco: forma.endereco,
           },
-          cotacao: { precoDeEmergencia: forma.precoDeEmergencia || null },
+          cotacao: {
+            precoDeEmergencia: forma.precoDeEmergencia || null,
+            prazoDeEmergencia: forma.prazoDeEmergencia || null,
+          },
           atendimento: {
             whatsapp: forma.whatsapp,
             email: forma.email,
@@ -226,10 +242,7 @@ const Configuracoes = () => {
               rotulo="Em qual opção"
               dica="Com cotação ao vivo, a mais barata muda por CEP — hoje pode ser PAC, amanhã Loggi."
             >
-              <Select
-                value={forma.alvo}
-                onValueChange={(v) => mudar("alvo", v as Forma["alvo"])}
-              >
+              <Select value={forma.alvo} onValueChange={(v) => mudar("alvo", v as Forma["alvo"])}>
                 <Select.Trigger>
                   <Select.Value />
                 </Select.Trigger>
@@ -285,10 +298,22 @@ const Configuracoes = () => {
           />
         </Campo>
 
+        <Campo
+          rotulo="Prazo de entrega nessas horas"
+          dica="A frase inteira, como ela vai aparecer: '7 dias úteis'."
+        >
+          <Input
+            placeholder="7 dias úteis"
+            value={forma.prazoDeEmergencia}
+            onChange={(e) => mudar("prazoDeEmergencia", e.target.value)}
+          />
+        </Campo>
+
         <Text size="xsmall" className="text-ui-fg-subtle">
           Escolha um valor que você aceita bancar se ficar curto: enquanto a cotação estiver fora, é
           este que o cliente vê, e frete anunciado a loja é obrigada a cumprir. O frete grátis acima
-          do piso continua valendo por cima dele.
+          do piso continua valendo por cima dele. O prazo é a sua promessa pra esses pedidos — sem
+          cotação, ninguém sabe em quantos dias a transportadora entrega.
         </Text>
       </div>
 

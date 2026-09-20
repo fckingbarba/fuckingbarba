@@ -98,6 +98,20 @@ export type Atendimento = {
 export type Cotacao = {
   /** Em reais. `null` = sem cotação, sem entrega — a loja não vende. */
   precoDeEmergencia: number | null
+  /**
+   * O prazo que a loja promete quando cobra o preço de emergência.
+   *
+   * Texto livre — "7 dias úteis" —, e não um número de dias, porque é uma
+   * FRASE que vai na tela do cliente e que a loja vai ter que cumprir. Um
+   * número obrigaria a tela a montar a frase, e frase montada por código é
+   * onde aparece "1 dias úteis".
+   *
+   * Existe separado do preço porque são duas promessas diferentes e elas
+   * falham diferente: cobrar R$ 20 e entregar em 15 dias é um problema de
+   * prazo, não de preço. Com a cotação de pé, o prazo vem da
+   * transportadora; aqui é o que vale quando não veio de ninguém.
+   */
+  prazoDeEmergencia: string | null
 }
 
 export type Configuracoes = {
@@ -143,7 +157,7 @@ export const PADRAO: Configuracoes = {
   frete: { modo: "nenhuma" },
   empresa: { razaoSocial: null, cnpj: null, endereco: null },
   atendimento: { whatsapp: null, email: null, horario: null, prazoDePostagem: null },
-  cotacao: { precoDeEmergencia: null },
+  cotacao: { precoDeEmergencia: null, prazoDeEmergencia: null },
 }
 
 /** Chave única dentro do `metadata` da loja, pra não brigar com mais nada. */
@@ -223,7 +237,12 @@ export function lerConfiguracoes(metadata: unknown): Configuracoes {
       é uma decisão possível —, então não dá pra usar `|| null`. O `dinheiro`
       já recusa negativo e texto, e devolve `null` pro que não for número.
     */
-    cotacao: { precoDeEmergencia: dinheiro(cotacao.precoDeEmergencia) },
+    cotacao: {
+      precoDeEmergencia: dinheiro(cotacao.precoDeEmergencia),
+      prazoDeEmergencia: ehTexto(cotacao.prazoDeEmergencia)
+        ? cotacao.prazoDeEmergencia.trim()
+        : null,
+    },
     empresa: {
       razaoSocial: ehTexto(empresa.razaoSocial) ? empresa.razaoSocial.trim() : null,
       cnpj: ehTexto(empresa.cnpj) ? empresa.cnpj.trim() : null,

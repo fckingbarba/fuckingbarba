@@ -1,10 +1,6 @@
 import { ExecArgs } from "@medusajs/framework/types"
 import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
-import {
-  CHAVE_NO_METADATA,
-  lerConfiguracoes,
-  type Configuracoes,
-} from "../lib/configuracoes"
+import { CHAVE_NO_METADATA, lerConfiguracoes, type Configuracoes } from "../lib/configuracoes"
 import { ondeEstou } from "./onde-estou"
 
 /**
@@ -41,7 +37,7 @@ const SEMENTE: Configuracoes = {
     cobrar um valor que ninguém escolheu. É a mesma regra do resto deste
     arquivo — o script não inventa número que vira oferta na tela.
   */
-  cotacao: { precoDeEmergencia: null },
+  cotacao: { precoDeEmergencia: null, prazoDeEmergencia: null },
 }
 
 /**
@@ -112,7 +108,9 @@ function relatar(logger: { info: (m: string) => void }, c: Configuracoes) {
     .map(([nome]) => nome)
 
   if (faltando.length) {
-    logger.info(`  pendente (aparece como tarja vermelha nas páginas legais): ${faltando.join(", ")}`)
+    logger.info(
+      `  pendente (aparece como tarja vermelha nas páginas legais): ${faltando.join(", ")}`
+    )
   } else {
     logger.info("  dados da empresa: completos")
   }
