@@ -10,6 +10,7 @@ import { Provas } from "@/components/home/provas"
 import { Sobre } from "@/components/home/sobre"
 import { Trustbar } from "@/components/home/trustbar"
 import { Vitrine } from "@/components/home/vitrine"
+import { Dobra } from "@/components/produto/dobra"
 
 /**
  * O REGISTRO DE SEÇÕES
@@ -149,11 +150,19 @@ export const SECOES: readonly Secao[] = [
     componente: Fechamento,
   },
 
-  /* ------------------------------------------------------------- PRODUTO
-     As seções da PDP entram aqui conforme forem portadas do protótipo
-     (`ferramentas/porte/prototipo-pdp.html`), nesta ordem:
+  /* ------------------------------------------------------------- PRODUTO */
+  {
+    id: "produto.dobra",
+    escopo: "produto",
+    nome: "Foto, preço e compra",
+    descricao: "A primeira tela: galeria, preço, quantos frascos e o botão. Não desliga.",
+    fixo: true,
+    componente: Dobra,
+  },
 
-       produto.dobra ......... foto, preço, kits, comprar   (fixo)
+  /*  As outras seções da PDP entram aqui conforme forem portadas do
+     protótipo (`ferramentas/porte/prototipo-pdp.html`), nesta ordem:
+
        produto.promessa ...... o que muda na sua cara
        produto.antes-depois .. os pares de foto
        produto.tempo ......... o calendário de 90 dias

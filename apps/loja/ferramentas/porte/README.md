@@ -77,8 +77,37 @@ arquivo torto.
 | `pdp-partes/corpo.html`   | o miolo do `<main>`, no lugar das seções da home                     |
 | `pdp-partes/roteiro.js`   | galeria, kit, quantidade, frete, rotina, vídeos, barra fixa, estoque |
 | `pdp-partes/monta.py`     | junta tudo                                                           |
-| `pdp-partes/conferir.mjs` | roda a página num navegador de verdade                               |
+| `pdp-partes/conferir.mjs` | roda o PROTÓTIPO num navegador de verdade                            |
 | `pdp-partes/largura.mjs`  | acha o elemento que estoura a largura no celular                     |
+
+## Do protótipo pra loja
+
+Duas ferramentas cuidam da travessia. O CSS não se copia e cola:
+
+```bash
+python3 pdp-partes/agrupa-pdp.py ../../src/estilos   # corta estilo.css por seção
+node pdp-partes/conferir-loja.mjs --fotos            # confere a PDP DE VERDADE
+```
+
+`agrupa-pdp.py` é o irmão do `agrupa.py` da home. Ele troca os tokens do protótipo pelos do
+`@theme`, devolve a entrelinha do navegador na raiz de cada seção (o preflight do Tailwind
+põe 1.5 e engorda tudo) e — o principal — **preserva a ordem de origem**. Este CSS foi
+escrito em camadas: o bloco "V2" reescreve coisa definida 2000 linhas antes, e media query
+não soma especificidade, quem ganha é quem vem depois. Recortar na mão embaralha isso e o
+bug aparece três dias depois como "a foto ficou alta demais no celular".
+
+No fim ele imprime **os seletores que não caíram em grupo nenhum**. Essa lista tem que ficar
+vazia. Já perdi a regra do `box-sizing` recortando por "o seletor contém X" — ela foi junto
+com uma seção porque a lista dela mencionava `.versus`.
+
+`conferir-loja.mjs` mede o que o cliente recebe, não o protótipo, com a loja e um Medusa de
+pé. A diferença entre os dois é exatamente o que o porte pode ter perdido no caminho. Ele
+repete as medidas aprovadas da dobra e vai além: abre o carrinho no Medusa depois do clique
+e confere **qual variante entrou e por quanto** — que é o único jeito de provar que a página
+e o carrinho falam o mesmo preço.
+
+Em máquina que já tem Chromium, `CHROMIUM=/caminho/do/chrome` evita o download do
+Playwright.
 
 O `conferir.mjs` existe porque três defeitos passaram pela leitura do código e só apareceram
 no navegador:

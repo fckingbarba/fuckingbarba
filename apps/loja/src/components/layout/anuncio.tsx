@@ -13,9 +13,20 @@ import { FRETE_GRATIS_ACIMA_DE } from "@/lib/site"
  * Três avisos repetidos três vezes é o que enche a pista nas telas largas sem
  * deixar buraco; em 390px sobra, e sobrar não custa nada.
  */
+/*
+ * "Barba na cara ou sua grana de volta" saiu daqui: essa garantia NÃO existe
+ * — o Matheus confirmou. Promessa de devolução que a loja não cumpre é art.
+ * 30 do CDC (oferta vincula quem anunciou), e numa esteira que passa em toda
+ * página ela era a frase mais repetida do site.
+ *
+ * O que entrou no lugar é verdade e tranquiliza igual: os 7 dias de
+ * arrependimento do art. 49, que valem pra toda compra pela internet e não
+ * dependem de política nenhuma. O dia em que existir uma garantia de
+ * satisfação de verdade, com prazo e regra escritos, ela volta pra cá.
+ */
 const AVISOS = [
   `Frete Grátis acima de ${emReais(FRETE_GRATIS_ACIMA_DE)}*`,
-  "Barba na cara ou sua grana de volta",
+  "7 dias pra desistir, por lei",
   "Compra 100% segura",
 ]
 

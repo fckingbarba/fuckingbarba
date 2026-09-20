@@ -24,6 +24,10 @@
 @import "../estilos/sobre.css";
 @import "../estilos/fechamento.css";
 
+/* Página de produto. Gerados por ferramentas/porte/pdp-partes/agrupa-pdp.py;
+   um arquivo por seção, na mesma ordem em que a página os monta. */
+@import "../estilos/pdp.css";
+
 /*
   Tokens da marca FuckingBarba — os mesmos do protótipo HTML.
   Tailwind v4 lê este @theme e gera as classes: bg-menta, text-tinta,

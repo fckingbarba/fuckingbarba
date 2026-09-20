@@ -29,10 +29,16 @@ function Certo() {
 export async function Fechamento() {
   const produto = await buscarProdutoPorHandle(FECHAMENTO.fotoDe)
 
+  /*
+   * A terceira linha era "Barba na cara ou sua grana de volta". Essa garantia
+   * não existe, e aqui ela aparecia no fecho da home — o último argumento
+   * antes do rodapé, que é onde uma promessa pega mais. Ver o comentário em
+   * `layout/anuncio.tsx`: trocada pelo direito de arrependimento, que é lei.
+   */
   const garantias = [
     `Frete grátis acima de ${emReais(FRETE_GRATIS_ACIMA_DE)}`,
     `${parcelamento} no cartão`,
-    "Barba na cara ou sua grana de volta",
+    "7 dias pra desistir, por lei",
   ]
 
   return (

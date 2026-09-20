@@ -187,6 +187,27 @@ export function EscudoCerto(props: Props) {
   )
 }
 
+/** Relógio — "7 dias pra desistir", nas garantias da dobra. */
+export function Relogio(props: Props) {
+  return (
+    <Icone {...props}>
+      <path
+        fillRule="evenodd"
+        d="M12 1.6a10.4 10.4 0 1 0 0 20.8 10.4 10.4 0 0 0 0-20.8zm0 2.6a7.8 7.8 0 1 1 0 15.6 7.8 7.8 0 0 1 0-15.6zm-1 2.2v6.1l4.6 2.8 1-1.7-3.6-2.2V6.4z"
+      />
+    </Icone>
+  )
+}
+
+/** Triângulo de atenção — só na linha de estoque baixo, com número real. */
+export function Triangulo(props: Props) {
+  return (
+    <Icone {...props}>
+      <path fillRule="evenodd" d="M12 2.6 22.4 20.6H1.6zM11 9h2v6h-2zm0 7.4h2v2h-2z" />
+    </Icone>
+  )
+}
+
 export function WhatsApp(props: Props) {
   return (
     <Icone {...props}>

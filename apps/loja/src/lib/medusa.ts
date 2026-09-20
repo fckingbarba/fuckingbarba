@@ -300,6 +300,15 @@ export type DegrauDeQuantidade = {
   /** quanto se economiza contra comprar `unidades` avulsos. 0 no primeiro degrau */
   economia: number
   disponivel: boolean
+  /**
+   * A linha de apoio do cartão, vinda do `subtitle` do kit no admin — "o
+   * ciclo completo de 90 dias", "dois meses de tratamento".
+   *
+   * Sai do catálogo de propósito: é argumento de venda, muda por produto e
+   * quem sabe qual é o argumento é quem vende, não quem programa. Sem
+   * subtítulo o cartão cai na economia calculada, que é sempre verdade.
+   */
+  nota: string | null
 }
 
 /**
@@ -375,6 +384,7 @@ export async function escadaDeQuantidade(handle: string): Promise<DegrauDeQuanti
     porUnidade: precoBase.atual,
     economia: 0,
     disponivel: temEstoque(varianteBase),
+    nota: null,
   }
 
   const degraus = (await kitsDoCatalogo()).flatMap<DegrauDeQuantidade>((p) => {
@@ -399,6 +409,7 @@ export async function escadaDeQuantidade(handle: string): Promise<DegrauDeQuanti
         porUnidade: emCentavos(preco.atual / unidades),
         economia: Math.max(0, emCentavos(precoBase.atual * unidades - preco.atual)),
         disponivel: temEstoque(variante),
+        nota: p.subtitle?.trim() || null,
       },
     ]
   })
