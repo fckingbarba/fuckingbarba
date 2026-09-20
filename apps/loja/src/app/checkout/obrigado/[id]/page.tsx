@@ -2,11 +2,11 @@ import type { Metadata } from "next"
 import Image from "next/image"
 import Link from "next/link"
 import { Suspense } from "react"
-import { Raio } from "@/components/icones"
+import { Cadeado, EscudoCerto, Raio } from "@/components/icones"
 import { RecarregaSacola } from "@/components/sacola/recarrega"
 import { emReais } from "@/lib/formato"
 import { ehDeQuemComprou, lerPedido } from "@/lib/pedido"
-import { contato } from "@/lib/site"
+import { contato, site } from "@/lib/site"
 
 /**
  * /checkout/obrigado/<id> — a única tela que a pessoa vai reler.
@@ -14,6 +14,10 @@ import { contato } from "@/lib/site"
  * O QUE ELA PRECISA SABER, NESTA ORDEM: deu certo; qual é o número do pedido;
  * o que foi comprado e quanto custou; pra onde vai; e o que acontece agora.
  * "Obrigado pela preferência" não responde nenhuma dessas.
+ *
+ * É ROTA PRÓPRIA, e não a `div` escondida do protótipo: assim recarregar
+ * funciona, o link pode ser salvo, e o botão voltar do navegador não devolve
+ * a pessoa pro formulário de um pedido que já foi feito.
  *
  * TUDO É LIDO DO MEDUSA, não recebido da tela anterior. O redirecionamento
  * carrega só o id — se esta página desenhasse o que o checkout tinha na mão,
@@ -38,13 +42,29 @@ type Props = PageProps<"/checkout/obrigado/[id]">
  */
 export default function Pagina({ params }: Props) {
   return (
-    <main className="obrigado" id="conteudo">
-      <div className="obrigado__wrap">
-        <Suspense fallback={<p className="obrigado__carregando">Buscando seu pedido…</p>}>
+    <>
+      <header className="topo">
+        <div className="topo__wrap">
+          <Link className="topo__logo" href="/" aria-label={`${site.nome} — voltar pra loja`}>
+            <Raio aria-hidden="true" />
+            {site.nome}
+          </Link>
+          <p className="topo__seguro">
+            <Cadeado aria-hidden="true" />
+            <span>Checkout seguro</span>
+          </p>
+          <Link className="topo__voltar" href="/">
+            Voltar pra loja
+          </Link>
+        </div>
+      </header>
+
+      <main className="obrigado" id="conteudo">
+        <Suspense fallback={<p className="bloco">Buscando seu pedido…</p>}>
           <Conteudo params={params} />
         </Suspense>
-      </div>
-    </main>
+      </main>
+    </>
   )
 }
 
@@ -54,7 +74,7 @@ async function Conteudo({ params }: { params: Props["params"] }) {
 
   if (!pedido) {
     return (
-      <div className="obrigado__nada">
+      <div className="bloco">
         <h1>Não achei esse pedido</h1>
         <p>
           Confere o link, ou procura o e-mail de confirmação. Se você acabou de comprar e caiu aqui,
@@ -62,6 +82,7 @@ async function Conteudo({ params }: { params: Props["params"] }) {
         </p>
         <Link className="btn" href="/">
           Voltar pra loja
+          <Raio className="btn__bolt" />
         </Link>
       </div>
     )
@@ -74,66 +95,72 @@ async function Conteudo({ params }: { params: Props["params"] }) {
       {/* A compra acabou: o contador do cabeçalho precisa saber. */}
       <RecarregaSacola />
 
-      <header className="obrigado__cabeca">
-        <span className="obrigado__selo" aria-hidden="true">
-          <Raio />
-        </span>
-        <h1>Pedido feito</h1>
-        <p className="obrigado__numero">
-          Número <b>#{pedido.numero}</b>
-        </p>
-      </header>
-
-      {!meu ? (
-        // Pedido existe, mas quem está olhando não é quem comprou.
-        <p className="obrigado__privado">
-          Esse pedido existe. Os detalhes só aparecem pra quem fez a compra, no mesmo navegador — é
-          o que impede que um link encaminhado mostre o endereço de alguém.
-        </p>
-      ) : (
-        <>
-          <p className="obrigado__email">
-            Mandamos a confirmação pra <b>{pedido.email}</b>. Se não chegar em alguns minutos, dá
-            uma olhada no spam.
+      <div className="feito" data-ativo="">
+        <div className="bloco">
+          <EscudoCerto className="feito__ico" aria-hidden="true" />
+          <h1>Pedido recebido</h1>
+          <p>
+            Número <b>#{pedido.numero}</b>
+            {meu ? (
+              <>
+                {" · enviamos os detalhes pra "}
+                <b>{pedido.email}</b>
+              </>
+            ) : null}
           </p>
+          {!meu ? (
+            <p>
+              Os detalhes só aparecem pra quem fez a compra, no mesmo navegador — é o que impede que
+              um link encaminhado mostre o endereço de alguém.
+            </p>
+          ) : null}
+        </div>
+      </div>
 
-          <section className="obrigado__bloco" aria-labelledby="ob-itens">
-            <h2 id="ob-itens">O que você comprou</h2>
-            <ul className="obrigado__itens">
+      {meu ? (
+        <>
+          <section className="bloco" aria-labelledby="ob-itens">
+            <h2 className="bloco__titulo" id="ob-itens">
+              O que você comprou
+            </h2>
+            <ul className="itens">
               {pedido.itens.map((item) => (
-                <li key={item.id}>
-                  <span className="obrigado__foto">
+                <li className="item" key={item.id}>
+                  <span className="item__foto">
                     {item.imagem ? (
-                      <Image src={item.imagem} alt="" width={56} height={56} sizes="56px" />
+                      <Image src={item.imagem} alt="" width={54} height={54} sizes="54px" />
                     ) : null}
+                    <span className="item__qtd" aria-hidden="true">
+                      {item.quantidade}
+                    </span>
                   </span>
-                  <span className="obrigado__nome">
-                    {item.nome}
-                    <small>
+                  <span>
+                    <h3 className="item__nome">{item.nome}</h3>
+                    <p className="item__un">
                       {item.quantidade} × {emReais(item.precoUnitario)}
-                    </small>
+                    </p>
                   </span>
-                  <span className="obrigado__valor">{emReais(item.total)}</span>
+                  <span className="item__valor">{emReais(item.total)}</span>
                 </li>
               ))}
             </ul>
 
-            <dl className="obrigado__contas">
-              <div>
+            <dl className="totais">
+              <div className="totais__linha">
                 <dt>Produtos</dt>
                 <dd>{emReais(pedido.subtotal)}</dd>
               </div>
-              {pedido.desconto > 0 ? (
-                <div>
-                  <dt>Desconto</dt>
-                  <dd>−{emReais(pedido.desconto)}</dd>
-                </div>
-              ) : null}
-              <div>
-                <dt>Entrega{pedido.formaDeEntrega ? ` · ${pedido.formaDeEntrega}` : ""}</dt>
-                <dd>{pedido.frete === 0 ? "Grátis" : emReais(pedido.frete)}</dd>
+              <div className="totais__linha" data-desconto hidden={pedido.desconto <= 0}>
+                <dt>Desconto</dt>
+                <dd>−{emReais(pedido.desconto)}</dd>
               </div>
-              <div className="obrigado__total">
+              <div className="totais__linha">
+                <dt>Entrega{pedido.formaDeEntrega ? ` · ${pedido.formaDeEntrega}` : ""}</dt>
+                <dd data-gratis={pedido.frete === 0 ? "" : undefined}>
+                  {pedido.frete === 0 ? "Grátis" : emReais(pedido.frete)}
+                </dd>
+              </div>
+              <div className="totais__linha totais__total">
                 <dt>Total</dt>
                 <dd>{emReais(pedido.total)}</dd>
               </div>
@@ -141,8 +168,10 @@ async function Conteudo({ params }: { params: Props["params"] }) {
           </section>
 
           {pedido.entrega ? (
-            <section className="obrigado__bloco" aria-labelledby="ob-entrega">
-              <h2 id="ob-entrega">Pra onde vai</h2>
+            <section className="bloco" aria-labelledby="ob-entrega">
+              <h2 className="bloco__titulo" id="ob-entrega">
+                Pra onde vai
+              </h2>
               <address className="obrigado__endereco">
                 {pedido.entrega.nome}
                 <br />
@@ -159,10 +188,12 @@ async function Conteudo({ params }: { params: Props["params"] }) {
             </section>
           ) : null}
         </>
-      )}
+      ) : null}
 
-      <section className="obrigado__bloco obrigado__agora" aria-labelledby="ob-agora">
-        <h2 id="ob-agora">E agora?</h2>
+      <section className="bloco" aria-labelledby="ob-agora">
+        <h2 className="bloco__titulo" id="ob-agora">
+          E agora?
+        </h2>
         {/* Sem promessa de prazo que a loja ainda não consegue cumprir: quem
             posta é gente, e o rastreio só existe depois da postagem. Dizer
             "seu código chega em 24h" aqui seria a primeira promessa quebrada
@@ -180,10 +211,6 @@ async function Conteudo({ params }: { params: Props["params"] }) {
           com o número <b>#{pedido.numero}</b>.
         </p>
       </section>
-
-      <p className="obrigado__volta">
-        <Link href="/">Voltar pra loja</Link>
-      </p>
     </>
   )
 }

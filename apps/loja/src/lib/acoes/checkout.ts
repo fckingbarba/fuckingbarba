@@ -8,6 +8,7 @@ import { buscarCep, limparCep } from "@/lib/cep"
 import { COOKIE_CARRINHO, lerCarrinho } from "@/lib/carrinho"
 import { CAMPOS_CHECKOUT, COOKIE_PEDIDO, OPCOES_COOKIE_PEDIDO } from "@/lib/checkout"
 import type { EnderecoVisivel, ErrosDoFormulario, EstadoDaEtapa } from "@/lib/checkout-visivel"
+import { BUMP } from "@/conteudo/checkout"
 import { conferirDocumento, type Documento } from "@/lib/documento"
 import { cliente } from "@/lib/medusa"
 
@@ -45,6 +46,9 @@ import { cliente } from "@/lib/medusa"
 const GENERICO = "Não consegui falar com a loja agora. Tenta de novo em instantes."
 
 const EXPIROU = "Sua sacola expirou. Volta pra loja e monta ela de novo."
+
+/** Base pras ações que não são de formulário (chips, bump, remover cupom). */
+const ESTADO_VAZIO: EstadoDaEtapa = { ok: false, erros: {}, mensagem: "", rodada: 0 }
 
 /**
  * Erro devolve SEMPRE o que foi digitado junto.
@@ -321,6 +325,30 @@ export async function salvarEntrega(anterior: EstadoDaEtapa, fd: FormData): Prom
     return erro(anterior, {}, GENERICO, fd)
   }
 
+  /**
+   * O FRETE VAI JUNTO, se veio no formulário.
+   *
+   * A opção marcada por padrão na lista está marcada na TELA e não no
+   * carrinho — `defaultChecked` não dispara `onChange`. Sem isto, quem não
+   * tocasse nos rádios salvava o endereço e continuava no passo 2, porque o
+   * checkout olha pro carrinho pra saber onde está e lá não havia frete
+   * nenhum. O bug some porque o rádio mora dentro deste mesmo formulário.
+   */
+  const opcao = texto(fd, "opcao")
+  if (opcao) {
+    try {
+      await atual.sdk.store.cart.addShippingMethod(atual.carrinho.id, { option_id: opcao })
+    } catch (e) {
+      registrar(e, `frete junto do endereço ${opcao}`)
+      return erro(
+        anterior,
+        {},
+        "Essa forma de entrega não está mais disponível. Escolhe outra.",
+        fd
+      )
+    }
+  }
+
   refresh()
   return certo(anterior)
 }
@@ -447,4 +475,137 @@ export async function consultarCep(cep: string): Promise<CepEncontrado> {
     cidade: achado.cidade,
     uf: achado.uf,
   }
+}
+
+/* ── cupom ────────────────────────────────────────────────────────────────── */
+
+/**
+ * Manda o código pro Medusa e conta o que ele respondeu.
+ *
+ * QUEM VALIDA É O MEDUSA. Não existe lista de cupom neste código, e não pode
+ * existir: cupom escrito no navegador é desconto que qualquer um lê no
+ * código-fonte e aplica sozinho. A tela só pergunta e mostra a resposta.
+ *
+ * O Medusa responde 400 pra código que não existe, e também aceita 200 sem
+ * aplicar nada quando o código existe mas não vale pra este carrinho. Os dois
+ * casos dão no mesmo pra quem está comprando — então a checagem que vale é
+ * RELER o carrinho e ver se o código entrou na lista.
+ */
+export async function aplicarCupom(anterior: EstadoDaEtapa, fd: FormData): Promise<EstadoDaEtapa> {
+  const codigo = texto(fd, "cupom").toUpperCase()
+  if (!codigo) return erro(anterior, { cupom: "Escreve o código." }, "", fd)
+
+  const atual = await carrinhoAtual()
+  if (!atual) return erro(anterior, {}, EXPIROU, fd)
+
+  try {
+    await atual.sdk.store.cart.addPromotions(atual.carrinho.id, { promo_codes: [codigo] })
+  } catch {
+    // 400 é a resposta pra código inexistente. Não é exceção nossa.
+  }
+
+  const depois = await lerCarrinho(CAMPOS_CHECKOUT)
+  const entrou = (depois?.promotions ?? []).some((p) => p?.code === codigo)
+
+  if (!entrou) {
+    return erro(anterior, { cupom: "Esse cupom não vale pra este pedido." }, "", fd)
+  }
+
+  refresh()
+  return certo(anterior)
+}
+
+export async function removerCupom(codigo: string): Promise<void> {
+  const atual = await carrinhoAtual()
+  if (!atual || !codigo) return
+
+  try {
+    await atual.sdk.store.cart.removePromotions(atual.carrinho.id, { promo_codes: [codigo] })
+  } catch (e) {
+    registrar(e, `remover cupom ${codigo}`)
+  }
+  refresh()
+}
+
+/* ── as ofertas: chips do frete grátis e order bump ───────────────────────── */
+
+/**
+ * Põe um produto no carrinho de dentro do checkout.
+ *
+ * É o que o chip de "completa o frete grátis" faz. Uma linha nova, preço
+ * cheio, e o Medusa recalcula o frete sozinho — inclusive zerando o da opção
+ * mais barata, que é o motivo de a pessoa ter clicado.
+ */
+export async function adicionarOferta(varianteId: string): Promise<EstadoDaEtapa> {
+  const atual = await carrinhoAtual()
+  if (!atual) return { ...ESTADO_VAZIO, mensagem: EXPIROU }
+
+  try {
+    await atual.sdk.store.cart.createLineItem(atual.carrinho.id, {
+      variant_id: varianteId,
+      quantity: 1,
+    })
+  } catch (e) {
+    registrar(e, `adicionar oferta ${varianteId}`)
+    return { ...ESTADO_VAZIO, mensagem: "Não consegui adicionar agora. Tenta de novo." }
+  }
+
+  refresh()
+  return { ...ESTADO_VAZIO, ok: true }
+}
+
+/** Tira do carrinho a linha de uma variante — é o "desfazer" do chip. */
+export async function removerOferta(varianteId: string): Promise<EstadoDaEtapa> {
+  const atual = await carrinhoAtual()
+  if (!atual) return { ...ESTADO_VAZIO, mensagem: EXPIROU }
+
+  const linha = atual.carrinho.items?.find((i) => i.variant_id === varianteId)
+  if (linha) {
+    try {
+      await atual.sdk.store.cart.deleteLineItem(atual.carrinho.id, linha.id)
+    } catch (e) {
+      registrar(e, `remover oferta ${varianteId}`)
+    }
+  }
+
+  refresh()
+  return { ...ESTADO_VAZIO, ok: true }
+}
+
+/**
+ * Liga e desliga o order bump.
+ *
+ * DUAS COISAS JUNTAS, e nessa ordem: a linha entra no carrinho e o código da
+ * promoção é aplicado. Se só a linha entrasse, a pessoa pagaria o preço cheio
+ * num produto que a tela ofereceu com desconto — que é exatamente a
+ * divergência que a promoção existe pra evitar.
+ *
+ * Desmarcar desfaz as duas. O código sai primeiro: com a linha já fora, o
+ * Medusa não teria mais em que aplicar o desconto, e o cupom ficaria
+ * pendurado no carrinho sem efeito e visível no resumo.
+ */
+export async function alternarBump(varianteId: string, marcar: boolean): Promise<EstadoDaEtapa> {
+  const atual = await carrinhoAtual()
+  if (!atual) return { ...ESTADO_VAZIO, mensagem: EXPIROU }
+
+  const { sdk, carrinho } = atual
+  const linha = carrinho.items?.find((i) => i.variant_id === varianteId)
+
+  try {
+    if (marcar) {
+      if (!linha) {
+        await sdk.store.cart.createLineItem(carrinho.id, { variant_id: varianteId, quantity: 1 })
+      }
+      await sdk.store.cart.addPromotions(carrinho.id, { promo_codes: [BUMP.codigo] })
+    } else {
+      await sdk.store.cart.removePromotions(carrinho.id, { promo_codes: [BUMP.codigo] })
+      if (linha) await sdk.store.cart.deleteLineItem(carrinho.id, linha.id)
+    }
+  } catch (e) {
+    registrar(e, `bump ${marcar ? "marcar" : "desmarcar"}`)
+    return { ...ESTADO_VAZIO, mensagem: "Não consegui mexer na oferta agora. Tenta de novo." }
+  }
+
+  refresh()
+  return { ...ESTADO_VAZIO, ok: true }
 }

@@ -15,9 +15,22 @@ import type { ItemDoCarrinho } from "./carrinho-visivel"
 
 export type { ItemDoCarrinho }
 
-/** As quatro etapas, na ordem. */
-export const ETAPAS = ["contato", "entrega", "frete", "pagamento"] as const
+/**
+ * TRÊS PASSOS, e o frete mora dentro do de entrega.
+ *
+ * O protótipo separava frete num passo só dele e o desenho ficou pior: o
+ * frete depende do CEP, que acabou de ser digitado ali em cima, e mandar a
+ * pessoa pra outra tela pra escolher entre duas linhas é uma parede a mais
+ * no meio de uma decisão que ela já tomou.
+ */
+export const ETAPAS = ["contato", "entrega", "pagamento"] as const
 export type Etapa = (typeof ETAPAS)[number]
+
+export const NOMES_DAS_ETAPAS: Record<Etapa, string> = {
+  contato: "Contato",
+  entrega: "Entrega",
+  pagamento: "Pagamento",
+}
 
 export type EnderecoVisivel = {
   nome: string
@@ -52,6 +65,12 @@ export type OpcaoDeFrete = {
   prazo: string
   /** Em reais. Zero é frete grátis, e a tela escreve isso com todas as letras. */
   preco: number
+  /**
+   * O que esta opção custaria sem o frete grátis. Só existe quando o preço
+   * caiu pra zero — é o valor riscado do lado de "Grátis", que é o que faz a
+   * economia ser visível em vez de ser só um zero.
+   */
+  precoCheio: number | null
 }
 
 export type ProvedorDePagamento = {
@@ -65,6 +84,21 @@ export type ProvedorDePagamento = {
    */
   simbolico: boolean
 }
+
+/** Um produto que o checkout oferece: o bump, ou um chip de completar o frete. */
+export type Oferta = {
+  varianteId: string
+  handle: string
+  nome: string
+  categoria: string
+  imagem: string | null
+  /** Preço cheio, em reais. */
+  preco: number
+  /** Com o desconto do bump já aplicado. Igual a `preco` quando não há desconto. */
+  precoComDesconto: number
+}
+
+export type CupomAplicado = { codigo: string }
 
 export type CheckoutVisivel = {
   id: string
@@ -81,6 +115,9 @@ export type CheckoutVisivel = {
   entrega: EnderecoVisivel
   /** id da opção de frete já pendurada no carrinho. */
   freteEscolhido: string | null
+  cupons: CupomAplicado[]
+  /** `true` quando o código do bump está no carrinho. */
+  bumpMarcado: boolean
 }
 
 /**
@@ -88,19 +125,28 @@ export type CheckoutVisivel = {
  *
  * A etapa sai do ESTADO, não de um contador na tela. Quem recarrega a página
  * no meio, volta do e-mail no dia seguinte ou abre o link em outra aba cai
- * exatamente onde parou, porque a resposta é a mesma pergunta feita ao mesmo
- * carrinho — e não um passo guardado em algum lugar que pode divergir dele.
+ * exatamente onde parou, porque é a mesma pergunta feita ao mesmo carrinho —
+ * e não um passo guardado em algum lugar que pode divergir dele.
  */
 export function etapaDoCarrinho(c: CheckoutVisivel): Etapa {
   if (!c.email || !c.documento) return "contato"
-  if (!c.entrega.cep || !c.entrega.rua || !c.entrega.numero) return "entrega"
-  if (!c.freteEscolhido) return "frete"
+  if (!c.entrega.cep || !c.entrega.rua || !c.entrega.numero || !c.freteEscolhido) return "entrega"
   return "pagamento"
 }
 
-/** Quantas etapas já foram vencidas — pra barra de progresso e pro `aria-label`. */
 export function indiceDaEtapa(etapa: Etapa): number {
   return ETAPAS.indexOf(etapa)
+}
+
+/**
+ * Quanto falta pro frete grátis, ou zero se já chegou.
+ *
+ * Conta sobre o SUBTOTAL menos o desconto — que é o `item_total` do Medusa, o
+ * mesmo número que a regra de preço do frete usa. Somar as linhas aqui daria
+ * quase sempre o mesmo resultado e erraria exatamente onde tem cupom.
+ */
+export function faltaPraGratis(c: CheckoutVisivel, piso: number): number {
+  return Math.max(0, piso - (c.subtotal - c.desconto))
 }
 
 /* ── o que as ações devolvem ──────────────────────────────────────────────── */
@@ -126,8 +172,6 @@ export type EstadoDaEtapa = {
    * O React DÁ RESET no formulário depois que a ação roda — é comportamento
    * de `<form action={…}>`, não bug. Sem isto, quem erra um dígito do CPF vê
    * os outros cinco campos esvaziarem junto, e é aí que se desiste da compra.
-   * Os campos leem daqui antes de ler do carrinho, então o reset devolve o
-   * que estava na tela.
    */
   valores?: Record<string, string>
 }

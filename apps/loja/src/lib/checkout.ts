@@ -1,21 +1,25 @@
 import "server-only"
 import type { HttpTypes } from "@medusajs/types"
+import { BUMP } from "@/conteudo/checkout"
 import { lerCarrinho, paraVisivel } from "./carrinho"
+import { mascararCep } from "./cep-formato"
 import {
   ENDERECO_VAZIO,
   type CheckoutVisivel,
   type EnderecoVisivel,
+  type Oferta,
   type OpcaoDeFrete,
   type ProvedorDePagamento,
 } from "./checkout-visivel"
-import { cliente } from "./medusa"
+import { cliente, temEstoque } from "./medusa"
+import { FRETE_GRATIS_A_PARTIR_DE, site } from "./site"
 
 /**
  * A LEITURA DO CHECKOUT
  *
  * O carrinho já existe em `carrinho.ts`; o que falta pro checkout é o resto do
- * estado: endereço, documento, frete escolhido e as opções que o Medusa
- * oferece pra este carrinho específico.
+ * estado: endereço, documento, frete escolhido, cupons, e as ofertas que a
+ * tela faz (o bump e os chips de completar o frete grátis).
  *
  * NADA AQUI É CACHEADO — nem as opções de frete, que parecem catálogo e não
  * são: o preço de cada uma depende do valor do carrinho (é assim que o frete
@@ -32,12 +36,14 @@ import { cliente } from "./medusa"
 export const CAMPOS_CHECKOUT =
   "id,region_id,currency_code,email,subtotal,discount_total,shipping_total,tax_total,total," +
   "item_subtotal,item_total,*items,*items.variant,*items.product,*items.thumbnail," +
-  "*shipping_address,*billing_address,*shipping_methods"
+  "*shipping_address,*billing_address,*shipping_methods,*promotions"
 
 function aviso(erro: unknown, contexto: string) {
   const msg = erro instanceof Error ? erro.message : String(erro)
   console.warn(`[checkout] ${contexto}: ${msg}`)
 }
+
+const texto = (v: unknown) => (typeof v === "string" ? v : "")
 
 /**
  * O endereço do Medusa de volta pros campos do formulário brasileiro.
@@ -50,15 +56,12 @@ function aviso(erro: unknown, contexto: string) {
 function paraEndereco(e: HttpTypes.StoreCartAddress | null | undefined): EnderecoVisivel {
   if (!e) return ENDERECO_VAZIO
   const meta = (e.metadata ?? {}) as Record<string, unknown>
-  const texto = (v: unknown) => (typeof v === "string" ? v : "")
 
   return {
     nome: e.first_name ?? "",
     sobrenome: e.last_name ?? "",
     telefone: e.phone ?? "",
-    cep: e.postal_code ?? "",
-    // `address_1` guarda "Rua, número" pra etiqueta sair legível; o número
-    // estruturado está no metadata, e é dele que o formulário se serve.
+    cep: mascararCep(e.postal_code ?? ""),
     rua: texto(meta.rua) || (e.address_1 ?? "").replace(/,\s*[^,]*$/, ""),
     numero: texto(meta.numero),
     complemento: texto(meta.complemento),
@@ -72,8 +75,7 @@ function paraEndereco(e: HttpTypes.StoreCartAddress | null | undefined): Enderec
 function paraDocumento(e: HttpTypes.StoreCartAddress | null | undefined): string {
   const doc = (e?.metadata as Record<string, unknown> | undefined)?.documento
   if (doc && typeof doc === "object" && "valor" in doc) {
-    const valor = (doc as { valor?: unknown }).valor
-    return typeof valor === "string" ? valor : ""
+    return texto((doc as { valor?: unknown }).valor)
   }
   return ""
 }
@@ -85,6 +87,9 @@ export async function lerCheckout(): Promise<CheckoutVisivel | null> {
 
   const base = paraVisivel(carrinho)
   const metodo = carrinho.shipping_methods?.[0]
+  const cupons = (carrinho.promotions ?? [])
+    .map((p) => ({ codigo: p?.code ?? "" }))
+    .filter((c) => c.codigo)
 
   return {
     id: base.id,
@@ -101,6 +106,10 @@ export async function lerCheckout(): Promise<CheckoutVisivel | null> {
     documento: paraDocumento(carrinho.billing_address),
     entrega: paraEndereco(carrinho.shipping_address),
     freteEscolhido: metodo?.shipping_option_id ?? null,
+    // O código do bump é um cupom como outro qualquer pro Medusa; quem sabe
+    // que ele é o bump é a loja.
+    cupons: cupons.filter((c) => c.codigo !== BUMP.codigo),
+    bumpMarcado: cupons.some((c) => c.codigo === BUMP.codigo),
   }
 }
 
@@ -108,8 +117,13 @@ export async function lerCheckout(): Promise<CheckoutVisivel | null> {
  * As opções de frete pra ESTE carrinho.
  *
  * O preço vem do Medusa já resolvido pelo valor do carrinho — é aqui que o
- * frete grátis acima do piso aparece como `preco: 0`, sem a loja precisar
- * saber que existe uma regra.
+ * frete grátis aparece como `preco: 0`, sem a loja saber que existe regra.
+ *
+ * `precoCheio` é o valor riscado do lado de "Grátis". Ele não vem da API: o
+ * Medusa devolve o preço que vale agora, e mais nada. Sai da MAIOR cotação
+ * que aquela opção já mostrou nesta mesma tela — ou seja, do preço que a
+ * pessoa via antes de o carrinho passar do piso. Sem isso, "Grátis" não diz
+ * quanto foi economizado, e economia invisível não convence ninguém.
  */
 export async function listarFretes(carrinhoId: string): Promise<OpcaoDeFrete[]> {
   const sdk = cliente()
@@ -125,6 +139,7 @@ export async function listarFretes(carrinhoId: string): Promise<OpcaoDeFrete[]> 
         nome: o.name,
         prazo: o.type?.description ?? "",
         preco: Number(o.amount ?? 0),
+        precoCheio: null as number | null,
       }))
       .sort((a, b) => a.preco - b.preco)
   } catch (e) {
@@ -170,11 +185,122 @@ export async function listarProvedores(regiaoId: string): Promise<ProvedorDePaga
   }
 }
 
-/** A região do carrinho, que é o que `listarProvedores` precisa. */
-export async function regiaoDoCarrinho(): Promise<string | null> {
-  const carrinho = await lerCarrinho()
-  return carrinho?.region_id ?? null
+/* ── as ofertas do checkout ───────────────────────────────────────────────── */
+
+/**
+ * Os produtos que o checkout pode oferecer, com categoria e preço.
+ *
+ * Uma consulta só, e ela serve tanto o order bump quanto os chips de
+ * completar o frete. Não é cacheada porque precisa do preço calculado da
+ * região — e porque uma consulta a mais numa tela que já está falando com o
+ * Medusa cinco vezes não é o que vai pesar.
+ */
+async function catalogoDoCheckout(regiaoId: string): Promise<Oferta[]> {
+  const sdk = cliente()
+  if (!sdk || !regiaoId) return []
+
+  try {
+    const { products } = await sdk.store.product.list({
+      limit: 100,
+      region_id: regiaoId,
+      // `inventory_quantity` é o que separa "existe no catálogo" de "dá pra
+      // comprar agora". Sem ele o `temEstoque` responde sempre sim.
+      fields:
+        "handle,title,thumbnail,*categories,*variants,*variants.calculated_price," +
+        "*variants.inventory_quantity",
+    })
+
+    return (products ?? [])
+      .flatMap((p) => {
+        // Produto com mais de uma variante não vira oferta de um clique: a
+        // pessoa teria que escolher tamanho no meio do checkout, e aí não é
+        // mais um clique.
+        const variante = p.variants?.length === 1 ? p.variants[0] : null
+        const preco = Number(variante?.calculated_price?.calculated_amount ?? 0)
+        if (!variante || !preco) return []
+
+        // SEM ESTOQUE NÃO É OFERTA. O chip promete liberar o frete grátis num
+        // clique; se o produto acabou, o clique falha e a promessa some junto
+        // com a paciência de quem estava a um passo de pagar. Vale igual pro
+        // bump, que sai da mesma lista.
+        if (!temEstoque(variante)) return []
+
+        return [
+          {
+            varianteId: variante.id,
+            handle: p.handle ?? "",
+            nome: p.title ?? "",
+            categoria: p.categories?.[0]?.handle ?? "",
+            imagem: p.thumbnail ?? null,
+            preco,
+            precoComDesconto: preco,
+          },
+        ]
+      })
+      .filter((o) => o.varianteId)
+  } catch (e) {
+    aviso(e, "catálogo do checkout")
+    return []
+  }
 }
+
+/**
+ * O produto do order bump, ou null.
+ *
+ * `precoComDesconto` é calculado com a mesma porcentagem que a promoção do
+ * Medusa aplica — e o conferidor prova que os dois batem. Enquanto a pessoa
+ * não marca a caixinha, é o único jeito de mostrar o "por" sem inventar um
+ * carrinho fantasma só pra perguntar ao Medusa quanto ficaria.
+ *
+ * Some quando o produto já está no pedido: oferecer desconto em algo que a
+ * pessoa acabou de pagar inteiro é a melhor forma de irritar um cliente.
+ */
+export async function lerBump(regiaoId: string, jaNoCarrinho: Set<string>): Promise<Oferta | null> {
+  const catalogo = await catalogoDoCheckout(regiaoId)
+  const achado = catalogo.find((o) => o.handle === BUMP.handle)
+  if (!achado || jaNoCarrinho.has(achado.varianteId)) return null
+
+  return {
+    ...achado,
+    precoComDesconto: Math.round(achado.preco * (1 - BUMP.desconto / 100) * 100) / 100,
+  }
+}
+
+/**
+ * Os chips de "completa o frete grátis": um produto por categoria, o mais
+ * barato que SOZINHO fecha a conta.
+ *
+ * A regra do `preco >= falta` é o que torna a oferta honesta. Sugerir um
+ * produto de R$ 20 quando faltam R$ 40 é mandar a pessoa clicar duas vezes
+ * pra descobrir que ainda não deu — e aí a promessa do chip era mentira.
+ *
+ * Vazio quando já é grátis, quando nada fecha a conta, ou quando não há CEP
+ * (sem frete calculado não há o que completar).
+ */
+export async function listarSugestoes(
+  regiaoId: string,
+  falta: number,
+  jaNoCarrinho: Set<string>
+): Promise<Oferta[]> {
+  if (falta <= 0) return []
+
+  const catalogo = await catalogoDoCheckout(regiaoId)
+  const porCategoria = new Map<string, Oferta>()
+
+  for (const o of catalogo) {
+    if (jaNoCarrinho.has(o.varianteId) || o.preco < falta) continue
+    const atual = porCategoria.get(o.categoria)
+    if (!atual || o.preco < atual.preco) porCategoria.set(o.categoria, o)
+  }
+
+  // Na ordem do menu, pra lista não dançar entre uma visita e outra.
+  return site.categorias
+    .map((c) => porCategoria.get(c.handle))
+    .filter((o): o is Oferta => Boolean(o))
+}
+
+/** O piso do frete grátis, reexportado pro checkout não importar de dois lugares. */
+export { FRETE_GRATIS_A_PARTIR_DE }
 
 /* ── o pedido recém-fechado ───────────────────────────────────────────────── */
 

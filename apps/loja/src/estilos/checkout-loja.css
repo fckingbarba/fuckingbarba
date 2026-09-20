@@ -1,0 +1,165 @@
+/*
+  O QUE O PROTÓTIPO NÃO TINHA.
+
+  Separado dos `checkout*.css` porque aqueles são GERADOS pelo
+  agrupa-checkout.py — escrever neles é escrever num arquivo que a próxima
+  geração apaga. Aqui é o oposto: nada disto sai do protótipo, e nada daqui é
+  regenerado.
+
+  São três coisas: a espera (o protótipo não tinha servidor, então não tinha
+  o que esperar), a sacola vazia, e tirar a carcaça da loja do caminho.
+*/
+
+/* O esqueleto do <Suspense>. O protótipo não tinha servidor, então não tinha
+   espera pra desenhar — e placeholder baixinho que cresce quando o conteúdo
+   chega empurra o botão pra longe do dedo que já ia clicar nele. */
+.esqueleto {
+  display: block;
+  background: linear-gradient(90deg, #e9eaec 25%, #f4f5f6 50%, #e9eaec 75%);
+  background-size: 200% 100%;
+  animation: esqueleto-brilho 1.4s linear infinite;
+}
+.esqueleto--titulo {
+  width: 40%;
+  height: 18px;
+}
+.esqueleto--campo {
+  height: 46px;
+  margin-top: 14px;
+}
+.esqueleto--botao {
+  height: 50px;
+  margin-top: 18px;
+}
+.esqueleto--linha {
+  height: 14px;
+  margin-top: 12px;
+}
+
+@keyframes esqueleto-brilho {
+  to {
+    background-position: -200% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .esqueleto {
+    animation: none;
+  }
+}
+
+/* Sacola vazia: não é erro, é alguém no lugar errado. */
+.checkout__vazio {
+  display: grid;
+  gap: 14px;
+  justify-items: start;
+  max-width: 46ch;
+}
+.checkout__vazio h1 {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+}
+.checkout__vazio p {
+  margin: 0;
+  line-height: 1.6;
+  color: var(--color-tinta-suave);
+}
+
+/* O cabeçalho e o rodapé da loja saem do caminho: quem chegou aqui já
+   decidiu, e menu, busca e sacola são três saídas no meio de uma compra.
+   `:has()` porque a alternativa era duplicar o layout raiz inteiro em grupos
+   de rota — muito risco pra um ganho que o seletor entrega em cinco linhas.
+   Onde `:has()` não existir, aparece o cabeçalho normal, que é o pior caso
+   aceitável. */
+body:has(.pagina) .cabecalho,
+body:has(.pagina) .anuncio,
+body:has(.pagina) .rodape,
+body:has(.obrigado) .cabecalho,
+body:has(.obrigado) .anuncio,
+body:has(.obrigado) .rodape__news,
+body:has(.obrigado) .rodape__colunas {
+  display: none;
+}
+
+/* O FUNDO DA PÁGINA.
+
+   O protótipo põe `background: var(--fundo)` no `body`, e o `body` não sobe
+   pro app: lá o fundo é menta, porque é o da loja. Aqui a regra vale só
+   enquanto uma das duas telas do checkout está montada — é o mesmo `:has()`
+   que tira o cabeçalho da loja do caminho, logo abaixo. */
+body:has(.pagina),
+body:has(.obrigado) {
+  background: var(--color-cinza);
+}
+
+/* ---------- a tela de pedido recebido ---------- */
+
+/* O protótipo tinha a confirmação como uma `div` escondida dentro do mesmo
+   documento. Aqui é rota própria — recarregar funciona, o link pode ser
+   salvo, e o botão voltar não devolve ninguém pro formulário de um pedido
+   que já foi feito. O desenho é o mesmo; o que muda é a moldura. */
+.obrigado {
+  max-width: 620px;
+  margin: 0 auto;
+  padding: clamp(16px, 3vw, 28px) clamp(16px, 3vw, 32px) 60px;
+}
+
+.obrigado__endereco {
+  font-style: normal;
+  line-height: 1.6;
+}
+
+.obrigado__passos {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0 0;
+  padding-left: 20px;
+  line-height: 1.55;
+  color: var(--color-tinta-suave);
+}
+.obrigado__passos li::marker {
+  font-weight: 800;
+  color: var(--color-tinta);
+}
+
+.obrigado__ajuda {
+  margin: 14px 0 0;
+  padding-top: 12px;
+  border-top: 2px solid var(--color-cinza);
+  font-size: 0.88rem;
+  line-height: 1.55;
+  color: var(--color-tinta-suave);
+}
+.obrigado__ajuda a {
+  color: var(--color-menta-escura);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ---------- um ícone que o protótipo não tinha ---------- */
+
+/* O cadeado ao lado da linha de termos. Os SVG da loja não trazem tamanho
+   próprio — quem dimensiona é quem usa — e o protótipo não tinha ícone
+   nenhum aqui dentro, então sem esta regra ele sai do tamanho de um cartaz.
+   Todos os outros (`.confia svg`, `.topo__logo svg`, `.feito__ico`…) já vêm
+   medidos do CSS gerado. */
+.pagamento__nota svg {
+  width: 1em;
+  height: 1em;
+  fill: currentColor;
+  flex-shrink: 0;
+  vertical-align: -0.12em;
+}
+
+/* Quando o chip não pega. O protótipo não tinha backend, então não tinha
+   falha pra mostrar. */
+.completa__falhou {
+  margin: 8px 0 0;
+  font-size: 0.76rem;
+  font-weight: 700;
+  line-height: 1.4;
+  color: var(--color-erro);
+}

@@ -59,28 +59,43 @@ em `ferramentas/porte/` — é por ali que cada próxima seção passa.
 
 ## O checkout
 
-`/checkout` existe, funciona ponta a ponta e fecha pedido de verdade. O que falta é **cobrança**:
-o único meio de pagamento configurado no Medusa é o `pp_system_default`, que aprova sem cobrar
-nada. Por isso o botão da sacola ainda aponta pro `/em-breve`.
+Três passos numa URL só — contato, entrega (com o frete dentro) e pagamento —, portado do
+`ferramentas/porte/prototipo-checkout.html`. O CSS sai de lá pelo
+`ferramentas/porte/checkout-partes/agrupa-checkout.py`, que reporta seletor sem grupo; os três
+`checkout*.css` de `src/estilos/` são **gerados** e não se editam à mão. O que o protótipo não
+tinha (espera, sacola vazia, a carcaça da loja fora do caminho) está em `checkout-loja.css`.
 
 **`CHECKOUT_ABERTO`, em `src/lib/site.ts`, é a chave.** Vire pra `true` quando o Pagar.me estiver
-integrado e aparecendo em `GET /store/payment-providers`. É a única linha que muda.
+ligado. Enquanto for `false`, o botão da sacola vai pro `/em-breve` e as três formas de pagamento
+(Pix, cartão, boleto) aparecem pro desenho poder ser visto — com a chave virada sem gateway, elas
+somem sozinhas e fica só o meio que cobra. A tela não tem como ir ao ar pedindo CVV sem cobrar.
 
-Quatro etapas empilhadas numa URL só, e **a etapa aberta sai do carrinho**, não de um contador na
-tela: tem e-mail? tem endereço? tem frete escolhido? Quem recarrega a página, fecha o navegador e
-volta no dia seguinte, ou abre o link em outra aba cai onde parou, porque é a mesma pergunta feita
-ao mesmo carrinho.
+**O número do cartão não sai do navegador.** Os campos não têm `name`, então não entram no
+`FormData` da ação. É assim que vai ser com o Pagar.me também: quem tokeniza é o navegador.
 
-Três coisas que custaram caro pra descobrir e estão travadas em teste:
+**O passo aberto sai do carrinho**, não de um contador: tem e-mail e documento? tem endereço e
+frete escolhido? Quem recarrega, fecha o navegador ou abre em outra aba cai onde parou.
+
+**As ofertas são de verdade.** O chip de "completa o frete grátis" só sugere produto que SOZINHO
+fecha a conta — sugerir um que não fecha transforma a promessa em mentira. E o desconto do order
+bump existe no Medusa (`apps/backend/src/scripts/promocoes.ts`): marcar a caixinha aplica um
+código de promoção, desmarcar remove. O `20` de `conteudo/checkout.ts` e o do script precisam
+bater; o conferidor prova que batem.
+
+Coisas que custaram caro e agora estão travadas em teste:
 
 - **O `metadata` do carrinho é DESCARTADO no `complete`** — o pedido nasce com `metadata: null`.
-  O do endereço sobrevive. Por isso CPF/CNPJ mora no `metadata` do endereço de **cobrança**;
-  guardá-lo no carrinho seria perdê-lo no instante em que ele passa a valer.
+  O do endereço sobrevive. Por isso CPF/CNPJ mora no `metadata` do endereço de **cobrança**.
 - **O proxy passava a URL pra minúscula**, e id de pedido do Medusa é ULID com maiúscula. Toda
-  tela de "pedido feito" dava "não achei esse pedido". `CAMINHOS_COM_ID`, em `src/proxy.ts`,
-  é o que segura.
+  tela de "pedido feito" dava "não achei esse pedido". `CAMINHOS_COM_ID`, em `src/proxy.ts`.
 - **O React dá reset no `<form action={…}>`** depois que a ação roda. Sem devolver o que foi
   digitado no estado da ação, um dígito errado no CPF esvaziava os cinco campos junto.
+- **O frete marcado por padrão não é o frete gravado.** `defaultChecked` não dispara `onChange`,
+  então quem não tocasse nos rádios salvava o endereço e continuava no passo 2. O rádio mora
+  dentro do formulário da entrega, e a ação grava os dois de uma vez.
+- **`usePathname` fora de `<Suspense>` é erro de build** com Cache Components — foi por isso que
+  o contador da sacola voltou a ser atualizado por um componente na tela de obrigado, e não por
+  uma releitura a cada navegação.
 
 Depois de escrever, as ações chamam **`refresh()`** (de `next/cache`), não `revalidateTag`: com
 perfil de revalidação em segundo plano o `revalidateTag` marca pra atualizar depois e **não**

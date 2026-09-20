@@ -1,0 +1,1239 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Finalizar compra — FuckingBarba</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#12181f">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' fill='%2312181f'/><path d='M13 2 3 14h7l-1 8 10-12h-7l1-8z' fill='%23ffd84d'/></svg>">
+
+<!--
+  CHECKOUT EM 3 PASSOS — Contato → Entrega → Pagamento
+
+  POR QUE ASSIM
+  Um passo visível por vez, na MESMA página: nada recarrega, nada pisca.
+  O passo concluído vira uma linha resumida com "editar" logo acima do
+  passo atual. O botão de voltar do navegador funciona (cada passo tem
+  um #hash). Enter no último campo avança. O foco já cai no primeiro
+  campo do passo seguinte. Pra quem tem autocomplete, são três cliques.
+
+  O QUE FAZ SOZINHO
+  - CEP preenche rua, bairro, cidade e UF (ViaCEP). Falhou? Abre pra
+    digitar. As opções de frete aparecem na hora, sem esperar isso.
+  - Máscaras de CPF, celular, CEP, cartão e validade enquanto digita.
+  - Valida CPF (dígitos verificadores) e cartão (Luhn). Bandeira pelo número.
+  - Pix vem selecionado com 5% off; o total muda na hora.
+  - Autocomplete do navegador em todos os campos.
+
+  PROVA SOCIAL — onde está e por quê
+  - Resumo lateral: um depoimento por vez, trocando sozinho. Fica visível
+    o tempo todo, sem gritar.
+  - Passo do pagamento: nota, garantia e cadeado. É onde a mão hesita.
+  TROQUE os depoimentos (array DEPOIMENTOS no script) por relatos reais,
+  com autorização. E a nota 4,7 só pode ficar se for a nota real.
+
+  ORDER BUMP
+  Caixinha com checkbox colada no botão de pagar (constante BUMP no
+  script). Some sozinha se o produto já está no pedido. Um clique, entra
+  no total e no resumo com a etiqueta "oferta".
+
+  COMO CHEGA AQUI
+  A gaveta manda itens, CEP e frete pela URL (?p=...). Sem isso, abre
+  com um pedido de exemplo. Na loja real:
+      FuckingBarba.checkout.definir({ itens, cep, frete })
+
+  ONDE LIGAR O PAGAMENTO
+  enviarPedido() no fim do script — troque pelo POST pro seu gateway.
+  Número de cartão NUNCA vai pro seu servidor: tokenize no navegador.
+-->
+
+<style>
+  :root {
+    --color-bg: #4fe4b6;
+    --color-accent: #ffd84d;
+    --color-accent-dark: #e0b800;
+    --color-text: #12181f;
+    --color-text-muted: #566072;
+    --menta: #4fe0b9;
+    --menta-escura: #0b7f62;
+    --erro: #b3261e;
+    --linha: #cfd5dc;
+    --fundo: #f2f4f6;
+    --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    --suave: cubic-bezier(0.22, 0.61, 0.36, 1);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; border-radius: 0; }
+  /* hidden vence qualquer display: acaba com a classe inteira de bug
+     "escondi e continuou aparecendo" */
+  [hidden] { display: none !important; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--fundo); color: var(--color-text); font-family: var(--font-sans); font-size: 15px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+  .pula { position: absolute; left: 8px; top: -60px; z-index: 100; padding: 10px 16px; background: var(--color-accent); color: var(--color-text); font-size: 0.85rem; font-weight: 800; text-decoration: none; transition: top 0.15s ease; }
+  .pula:focus { top: 8px; }
+
+  /* ---------- botão ---------- */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+    background: var(--menta); color: #07120e; font-family: var(--font-sans);
+    font-size: 0.92rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; text-decoration: none;
+    padding: 14px 26px; border: 2px solid var(--menta); box-shadow: 6px 6px 0 0 var(--color-accent); cursor: pointer;
+    transition: transform 0.14s ease, box-shadow 0.14s ease, opacity 0.14s ease;
+  }
+  .btn:hover, .btn:focus-visible { transform: translate(-3px, -3px); box-shadow: 9px 9px 0 0 var(--color-accent); }
+  .btn:active { transform: translate(1px, 1px); box-shadow: 2px 2px 0 0 var(--color-accent); }
+  .btn:focus-visible { outline: 3px solid var(--color-text); outline-offset: 3px; }
+  .btn[disabled], .btn[aria-busy="true"] { opacity: 0.6; cursor: progress; transform: none; box-shadow: 6px 6px 0 0 var(--color-accent); }
+  .btn--bloco { width: 100%; }
+  .btn__bolt { width: 15px; height: 15px; fill: currentColor; flex-shrink: 0; }
+  .btn--fantasma { background: none; color: var(--color-text); border-color: transparent; box-shadow: none; padding: 10px 6px; font-size: 0.74rem; text-decoration: underline; text-underline-offset: 3px; }
+  .btn--fantasma:hover, .btn--fantasma:focus-visible { transform: none; box-shadow: none; }
+
+  /* ---------- cabeçalho ---------- */
+  .topo { position: relative; background: var(--color-text); color: #fff; padding: 0 clamp(16px, 3vw, 32px); }
+  .topo::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 6px; background: repeating-linear-gradient(-45deg, var(--color-text) 0 12px, var(--color-accent) 12px 24px); }
+  .topo__wrap { max-width: 1140px; margin: 0 auto; height: 62px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .topo__logo { display: flex; align-items: center; gap: 7px; color: #fff; text-decoration: none; font-size: 1.02rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
+  .topo__logo svg { width: 19px; height: 19px; fill: var(--color-accent); }
+  .topo__seguro { display: flex; align-items: center; gap: 7px; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--menta); }
+  .topo__seguro svg { width: 14px; height: 14px; fill: currentColor; }
+  .topo__voltar { color: #98a1ab; font-size: 0.78rem; text-decoration: none; }
+  .topo__voltar:hover, .topo__voltar:focus-visible { color: #fff; text-decoration: underline; text-underline-offset: 3px; }
+
+  /* ---------- grade ---------- */
+  .pagina { max-width: 1140px; margin: 0 auto; padding: clamp(16px, 3vw, 28px) clamp(16px, 3vw, 32px) 60px; display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: clamp(18px, 3vw, 36px); align-items: start; }
+
+  /* ---------- stepper ---------- */
+  .passos { list-style: none; margin: 0 0 16px; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; counter-reset: p; }
+  .passos li { position: relative; display: flex; align-items: center; gap: 8px; padding: 9px 10px; background: #fff; border: 2px solid var(--linha); font-size: 0.72rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-muted); }
+  .passos li::before { counter-increment: p; content: counter(p); flex-shrink: 0; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; background: var(--linha); color: var(--color-text); font-size: 0.72rem; clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px); }
+  .passos li[aria-current="step"] { border-color: var(--color-text); color: var(--color-text); }
+  .passos li[aria-current="step"]::before { background: var(--color-accent); }
+  .passos li[data-feito] { border-color: var(--menta-escura); color: var(--menta-escura); cursor: pointer; }
+  .passos li[data-feito]::before { content: "✓"; background: var(--menta-escura); color: #fff; }
+  .passos li[data-feito]:hover, .passos li[data-feito]:focus-visible { background: #e3f8f0; outline: none; }
+
+  /* ---------- resumo de passo concluído ---------- */
+  .feito-passo { display: none; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; margin-bottom: 10px; background: #fff; border: 2px solid var(--color-text); border-left-width: 6px; border-left-color: var(--menta-escura); }
+  .feito-passo[data-ativo] { display: flex; }
+  .feito-passo__rot { display: block; font-size: 0.62rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--menta-escura); }
+  .feito-passo__txt { display: block; font-size: 0.82rem; font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }
+  .feito-passo button { flex-shrink: 0; padding: 6px 10px; background: none; border: 2px solid var(--color-text); color: var(--color-text); font-family: inherit; font-size: 0.66rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer; }
+  .feito-passo button:hover, .feito-passo button:focus-visible { background: var(--color-accent); outline: none; }
+
+  /* ---------- painéis ---------- */
+  .painel { display: none; }
+  .painel[data-ativo] { display: block; animation: entra 0.28s var(--suave); }
+  @keyframes entra { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+  .bloco { background: #fff; border: 2px solid var(--color-text); clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px); padding: clamp(16px, 2.4vw, 22px) clamp(16px, 2.4vw, 24px) clamp(18px, 2.4vw, 24px); margin-bottom: 14px; }
+  .bloco__topo { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+  .bloco__num { flex-shrink: 0; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; background: var(--color-text); color: var(--color-accent); font-size: 0.82rem; font-weight: 800; clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px); }
+  .bloco__titulo { margin: 0; font-size: 1.02rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.02em; }
+  .bloco__dica { margin: 0 0 14px 40px; font-size: 0.78rem; color: var(--color-text-muted); }
+
+  .acoes { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 18px; flex-wrap: wrap; }
+  .acoes .btn:not(.btn--fantasma) { min-width: 200px; }
+
+  .cabeca { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 0 0 12px 2px; }
+  .cabeca__titulo { margin: 0; font-size: clamp(1.15rem, 2.4vw, 1.5rem); font-weight: 800; font-style: italic; text-transform: uppercase; }
+  .cabeca__sub { margin: 0; font-size: 0.8rem; color: var(--color-text-muted); }
+
+  /* ---------- campos ---------- */
+  .campos { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px 10px; }
+  .campos + .campos { margin-top: 12px; }
+  /* o endereço só aparece depois do CEP, e entra deslizando */
+  [data-endereco]:not([hidden]) { animation: entra 0.3s var(--suave); }
+  .campo.campo--cep { grid-column: span 2; }   /* especificidade maior que .campo, que vem depois */
+  @media (max-width: 560px) { .campo.campo--cep { grid-column: span 4; } }
+  .campo { grid-column: span 6; display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+  .campo--3 { grid-column: span 3; } .campo--2 { grid-column: span 2; } .campo--4 { grid-column: span 4; } .campo--uf { grid-column: span 1; }
+  .campo label { font-size: 0.74rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; }
+  .campo label small { font-weight: 500; text-transform: none; letter-spacing: 0; color: var(--color-text-muted); }
+  .campo input, .campo select { width: 100%; min-height: 46px; padding: 10px 12px; border: 2px solid var(--linha); background: #fff; color: var(--color-text); font-family: inherit; font-size: 1rem; font-weight: 600; transition: border-color 0.15s ease; -webkit-appearance: none; appearance: none; }
+  .campo input::placeholder { color: #a5adb6; font-weight: 500; }
+  .campo input:focus-visible, .campo select:focus-visible { outline: none; border-color: var(--color-text); box-shadow: 0 0 0 3px rgba(255, 216, 77, 0.55); }
+  .campo input[aria-invalid="true"] { border-color: var(--erro); }
+  .campo input[data-ok] { border-color: var(--menta-escura); }
+  .campo select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 9l6 6 6-6' fill='none' stroke='%2312181f' stroke-width='2.4'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; background-size: 16px; padding-right: 34px; }
+  .campo__erro { display: none; font-size: 0.72rem; font-weight: 700; color: var(--erro); }
+  .campo__erro:not(:empty) { display: block; }
+  .campo__com-icone { position: relative; }
+  .campo__com-icone input { padding-right: 56px; }
+  .campo__icone { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); display: flex; align-items: center; height: 22px; padding: 0 6px; font-size: 0.6rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; background: var(--color-text); color: #fff; pointer-events: none; }
+  .campo__icone:empty { display: none; }
+  .campo__icone[data-ok] { background: var(--menta-escura); }
+  .campo__spinner { position: absolute; right: 12px; top: 50%; width: 16px; height: 16px; margin-top: -8px; border: 2px solid var(--linha); border-top-color: var(--color-text); animation: gira 0.7s linear infinite; display: none; }
+  .campo__com-icone[aria-busy="true"] .campo__spinner { display: block; }
+  @keyframes gira { to { transform: rotate(360deg); } }
+  .marcar { display: flex; align-items: flex-start; gap: 9px; font-size: 0.82rem; margin-top: 4px; cursor: pointer; }
+  .marcar input { width: 17px; height: 17px; margin: 2px 0 0; accent-color: var(--color-text); flex-shrink: 0; }
+
+  /* ---------- opções ---------- */
+  .opcoes { display: grid; gap: 8px; margin: 0; padding: 0; border: none; }
+  .opcoes legend { padding: 0; margin-bottom: 8px; font-size: 0.74rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; }
+  .opcao { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 12px 14px; border: 2px solid var(--linha); background: #fff; cursor: pointer; transition: border-color 0.15s ease, background 0.15s ease; }
+  .opcao:hover { border-color: var(--color-text); }
+  .opcao:has(input:checked) { border-color: var(--color-text); background: #fffbe6; }
+  .opcao:has(input:focus-visible) { outline: 3px solid rgba(255, 216, 77, 0.7); outline-offset: 2px; }
+  .opcao input[type="radio"] { appearance: none; -webkit-appearance: none; width: 16px; height: 16px; margin: 0; border: 2px solid var(--color-text); background: #fff; transform: rotate(45deg); cursor: pointer; }
+  .opcao input[type="radio"]:checked { background: var(--color-text); box-shadow: inset 0 0 0 3px #fff; }
+  .opcao__nome { display: block; font-size: 0.86rem; font-weight: 800; text-transform: uppercase; }
+  .opcao__desc { display: block; font-size: 0.74rem; color: var(--color-text-muted); }
+  .opcao__valor { font-size: 0.9rem; font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; text-align: right; }
+  .opcao__valor[data-gratis] { color: var(--menta-escura); }
+  .opcao__valor s { display: block; font-size: 0.66rem; font-weight: 600; color: var(--color-text-muted); }
+  .opcao__selo { position: absolute; top: -9px; left: 12px; padding: 2px 8px 2px 6px; background: var(--color-accent); color: var(--color-text); font-size: 0.56rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 50%, calc(100% - 6px) 100%, 0 100%); }
+  .pagamento__painel { display: none; padding: 14px 0 2px; }
+  .pagamento__painel[data-ativo] { display: block; }
+  .pagamento__nota { margin: 0; font-size: 0.8rem; color: var(--color-text-muted); line-height: 1.5; }
+  .pagamento__nota b { color: var(--color-text); }
+  .bandeiras { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0 0; }
+  .bandeiras span { padding: 3px 7px; border: 1.5px solid var(--linha); font-size: 0.6rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-muted); }
+  .aviso-frete { margin: 0; padding: 12px 14px; background: var(--fundo); font-size: 0.8rem; color: var(--color-text-muted); }
+
+  /* ---------- completa o frete grátis (passo 2) ----------
+     Discreto de propósito: uma linha cinza, texto pequeno, chips com
+     borda, sem foto. É informação útil, não banner. */
+  .completa { margin: 10px 0 0; padding: 10px 12px 11px; background: var(--fundo); border-left: 3px solid var(--color-accent); }
+  .completa__topo { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+  .completa__txt { margin: 0; font-size: 0.76rem; line-height: 1.4; color: var(--color-text-muted); }
+  .completa__txt b { color: var(--color-text); font-weight: 800; }
+  .completa__txt svg { width: 10px; height: 10px; fill: var(--color-accent-dark); vertical-align: -1px; margin-right: 3px; }
+  .completa__dispensa { flex-shrink: 0; padding: 0 2px; background: none; border: none; color: var(--color-text-muted); font-family: inherit; font-size: 0.66rem; font-weight: 700; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+  .completa__dispensa:hover, .completa__dispensa:focus-visible { color: var(--color-text); outline: none; }
+  .completa__chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0; padding: 0; list-style: none; }
+  .completa__chip { display: inline-flex; align-items: center; gap: 7px; padding: 6px 9px 6px 10px; background: #fff; border: 1.5px solid var(--color-text); color: var(--color-text); font-family: inherit; font-size: 0.72rem; font-weight: 700; text-align: left; cursor: pointer; clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px); transition: background 0.15s ease; }
+  .completa__chip:hover, .completa__chip:focus-visible { background: var(--color-accent); outline: none; }
+  .completa__chip small { font-weight: 600; color: var(--color-text-muted); }
+  .completa__chip:hover small, .completa__chip:focus-visible small { color: var(--color-text); }
+  .completa__chip svg { width: 11px; height: 11px; fill: currentColor; flex-shrink: 0; }
+  .completa__cat { font-size: 0.58rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--menta-escura); }
+  .completa[data-ok] { border-left-color: var(--menta-escura); background: #e3f8f0; }
+  .completa[data-ok] .completa__txt { color: #075c47; }
+
+  /* ---------- order bump ---------- */
+  .bump { display: none; margin: 18px 0 0; position: relative; }
+  .bump[data-ativo] { display: block; }
+  .bump__selo { position: absolute; top: -10px; left: 14px; z-index: 1; display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px 3px 7px; background: var(--color-text); color: var(--color-accent); font-size: 0.58rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 50%, calc(100% - 6px) 100%, 0 100%); }
+  .bump__selo svg { width: 9px; height: 9px; fill: currentColor; }
+  .bump__caixa { display: grid; grid-template-columns: auto 64px minmax(0, 1fr); gap: 12px; align-items: center; padding: 16px 14px 14px; background: #fff8dc; border: 2px dashed var(--color-text); cursor: pointer; transition: background 0.15s ease, border-style 0.15s ease; }
+  .bump__caixa:hover { background: #fff3c4; }
+  .bump__caixa:has(input:checked) { background: #e3f8f0; border-style: solid; border-color: var(--menta-escura); }
+  .bump__caixa:has(input:focus-visible) { outline: 3px solid rgba(255, 216, 77, 0.7); outline-offset: 2px; }
+  .bump__caixa input { width: 20px; height: 20px; margin: 0; accent-color: var(--menta-escura); cursor: pointer; }
+  .bump__foto { width: 64px; height: 64px; overflow: hidden; background: #fff; border: 2px solid var(--color-text); clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px); }
+  .bump__foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .bump__titulo { margin: 0; font-size: 0.86rem; font-weight: 800; line-height: 1.25; }
+  .bump__titulo b { color: var(--menta-escura); }
+  .bump__txt { margin: 2px 0 0; font-size: 0.74rem; color: var(--color-text-muted); line-height: 1.4; }
+  .bump__preco { margin: 4px 0 0; font-size: 0.82rem; font-weight: 800; }
+  .bump__preco s { font-weight: 600; color: var(--color-text-muted); margin-right: 6px; }
+
+  /* ---------- faixa de confiança (passo 3) ---------- */
+  .confia { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0 0 16px; padding: 0; list-style: none; }
+  .confia li { display: flex; align-items: center; gap: 8px; padding: 9px 10px; background: var(--fundo); font-size: 0.7rem; font-weight: 700; line-height: 1.3; }
+  .confia svg { width: 16px; height: 16px; fill: var(--menta-escura); flex-shrink: 0; }
+  .confia .estrelas { color: var(--color-accent-dark); font-size: 0.8rem; letter-spacing: -1px; }
+
+  /* ---------- resumo ---------- */
+  .resumo { position: sticky; top: 16px; }
+  .resumo details { background: #fff; border: 2px solid var(--color-text); clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px); }
+  .resumo summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 18px; background: var(--color-text); color: #fff; font-size: 0.78rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
+  .resumo summary::-webkit-details-marker { display: none; }
+  .resumo summary svg { width: 14px; height: 14px; fill: var(--color-accent); transition: transform 0.2s ease; }
+  .resumo details[open] summary svg { transform: rotate(180deg); }
+  .resumo summary b { font-size: 0.95rem; letter-spacing: 0; }
+  .resumo__miolo { padding: 4px 18px 18px; }
+  .itens { list-style: none; margin: 0; padding: 0; }
+  .item { display: grid; grid-template-columns: 54px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 12px 0; border-bottom: 1px solid rgba(18, 24, 31, 0.12); }
+  .item__foto { position: relative; width: 54px; height: 54px; overflow: hidden; background: var(--fundo); border: 2px solid var(--color-text); clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px); }
+  .item__foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .item__qtd { position: absolute; top: 0; right: 0; min-width: 18px; height: 18px; padding: 0 4px; display: flex; align-items: center; justify-content: center; background: var(--color-accent); color: var(--color-text); font-size: 0.64rem; font-weight: 800; }
+  .item__nome { margin: 0; font-size: 0.76rem; font-weight: 800; line-height: 1.25; text-transform: uppercase; }
+  .item__un { margin: 0; font-size: 0.68rem; color: var(--color-text-muted); }
+  .item__valor { font-size: 0.86rem; font-weight: 800; white-space: nowrap; }
+  .item__oferta { display: inline-block; margin-left: 4px; padding: 1px 5px; background: var(--menta-escura); color: #fff; font-size: 0.56rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; vertical-align: 2px; }
+  .cupom { margin: 12px 0 0; }
+  .cupom__abre { padding: 0; background: none; border: none; color: var(--color-text-muted); font-family: inherit; font-size: 0.76rem; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+  .cupom__abre:hover { color: var(--color-text); }
+  .cupom__form { display: none; gap: 0; margin-top: 8px; }
+  .cupom__form[data-aberto] { display: flex; }
+  .cupom__form input { flex: 1; min-width: 0; min-height: 40px; padding: 8px 11px; border: 2px solid var(--color-text); border-right: none; font: inherit; font-weight: 700; text-transform: uppercase; }
+  .cupom__form button { padding: 0 14px; background: var(--color-text); color: #fff; border: 2px solid var(--color-text); font-family: inherit; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; cursor: pointer; }
+  .cupom__msg { margin: 6px 0 0; font-size: 0.72rem; font-weight: 700; }
+  .cupom__msg[data-tipo="ok"] { color: var(--menta-escura); }
+  .cupom__msg[data-tipo="erro"] { color: var(--erro); }
+  .totais { margin: 14px 0 0; padding-top: 12px; border-top: 2px solid var(--color-text); }
+  .totais__linha { display: flex; justify-content: space-between; gap: 10px; font-size: 0.8rem; margin-bottom: 5px; }
+  .totais__linha dt { margin: 0; color: var(--color-text-muted); font-weight: 600; }
+  .totais__linha dd { margin: 0; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .totais__linha dd[data-gratis], .totais__linha[data-desconto] dd { color: var(--menta-escura); }
+  .totais__linha[hidden] { display: none; }
+  .totais__total { margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(18, 24, 31, 0.15); }
+  .totais__total dt { color: var(--color-text); font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; }
+  .totais__total dd { font-size: 1.3rem; font-weight: 800; line-height: 1; }
+  .totais__parcela { margin: 2px 0 0; text-align: right; font-size: 0.7rem; color: var(--color-text-muted); }
+  .totais__parcela:empty { display: none; }
+  .pix-dica { margin: 10px 0 0; padding: 9px 12px; background: #e3f8f0; color: #075c47; font-size: 0.74rem; font-weight: 700; text-align: center; }
+  .pix-dica:empty { display: none; }
+
+  /* depoimento no resumo */
+  .depo { position: relative; margin: 16px 0 0; padding: 14px 14px 12px; background: var(--fundo); border-left: 4px solid var(--color-accent); min-height: 118px; }
+  .depo__rot { margin: 0 0 6px; display: flex; align-items: center; justify-content: space-between; font-size: 0.6rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-text-muted); }
+  .depo__estrelas { color: var(--color-accent-dark); letter-spacing: -1px; font-size: 0.8rem; }
+  .depo__txt { margin: 0 0 8px; font-size: 0.8rem; line-height: 1.45; font-style: italic; }
+  .depo__quem { margin: 0; display: flex; align-items: center; gap: 8px; font-size: 0.72rem; font-weight: 700; }
+  .depo__quem img { width: 26px; height: 26px; object-fit: cover; border: 1.5px solid var(--color-text); }
+  .depo__quem small { font-weight: 600; color: var(--menta-escura); }
+  .depo__quem small svg { width: 10px; height: 10px; fill: currentColor; vertical-align: -1px; }
+  .depo__pontos { position: absolute; right: 12px; bottom: 10px; display: flex; gap: 4px; }
+  .depo__pontos span { width: 6px; height: 6px; background: rgba(18, 24, 31, 0.2); }
+  .depo__pontos span[data-on] { background: var(--color-text); }
+  .depo[data-trocando] .depo__txt, .depo[data-trocando] .depo__quem { animation: entra 0.35s var(--suave); }
+  .confianca { margin: 12px 0 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+  .confianca li { display: flex; align-items: center; gap: 8px; font-size: 0.72rem; color: var(--color-text-muted); }
+  .confianca svg { width: 14px; height: 14px; fill: var(--menta-escura); flex-shrink: 0; }
+
+  .erros-envio { margin: 0 0 12px; padding: 12px 14px; background: #fde9e7; border-left: 4px solid var(--erro); font-size: 0.82rem; color: #7a1a14; }
+  .erros-envio[hidden] { display: none; }
+
+  /* ---------- barra fixa (celular) ---------- */
+  .barra { display: none; }
+  @media (max-width: 900px) {
+    .barra { position: fixed; left: 0; right: 0; bottom: 0; z-index: 50; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); background: var(--color-text); color: #fff; box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.25); }
+    .barra[hidden] { display: none; }
+    .barra__total { display: flex; flex-direction: column; line-height: 1.1; }
+    .barra__total small { font-size: 0.62rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #98a1ab; }
+    .barra__total b { font-size: 1.15rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+    .barra__btn { padding: 12px 18px; font-size: 0.82rem; box-shadow: 4px 4px 0 0 var(--color-accent); white-space: nowrap; }
+    .pagina { padding-bottom: 110px; }
+    .acoes .btn:not(.btn--fantasma) { display: none; }   /* no celular quem manda é a barra */
+  }
+
+  /* ---------- confirmação ---------- */
+  .feito { display: none; }
+  .feito[data-ativo] { display: block; }
+  .feito .bloco { text-align: center; padding: 36px 24px; }
+  .feito__ico { width: 56px; height: 56px; margin: 0 auto 12px; fill: var(--menta-escura); }
+  .feito h1 { margin: 0 0 6px; font-size: 1.5rem; font-weight: 800; text-transform: uppercase; }
+  .feito p { margin: 0 0 6px; color: var(--color-text-muted); }
+  .feito__pix { margin: 18px auto 0; max-width: 360px; padding: 16px; background: var(--fundo); border: 2px dashed var(--color-text); }
+  .feito__pix code { display: block; word-break: break-all; font-size: 0.72rem; margin: 8px 0 12px; }
+  .feito__qr { width: 150px; height: 150px; margin: 0 auto 8px; background: repeating-conic-gradient(var(--color-text) 0 25%, #fff 0 50%) 0 0 / 14px 14px; border: 6px solid #fff; outline: 2px solid var(--color-text); }
+
+  @media (max-width: 900px) { .pagina { grid-template-columns: 1fr; } .resumo { position: static; order: -1; margin-bottom: 12px; } .topo__seguro span { display: none; } }
+  @media (max-width: 560px) {
+    .campo--3, .campo--2, .campo--4 { grid-column: span 6; } .campo--meio { grid-column: span 3; } .campo--cidade { grid-column: span 4; } .campo--uf { grid-column: span 2; }
+    .bloco__dica { margin-left: 0; }
+    .passos li { padding: 8px 6px; font-size: 0; gap: 0; justify-content: center; }
+    .passos li::before { width: 26px; height: 26px; font-size: 0.78rem; }
+    .confia { grid-template-columns: 1fr; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    .btn, .campo__spinner, .resumo summary svg, .painel[data-ativo], .depo[data-trocando] * { transition: none; animation: none; }
+  }
+</style>
+</head>
+<body>
+
+<a class="pula" href="#conteudo">Pular para o formulário</a>
+
+<header class="topo">
+  <div class="topo__wrap">
+    <a class="topo__logo" href="secao-alta-performance.html" aria-label="FuckingBarba — voltar pra loja">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
+      FuckingBarba
+    </a>
+    <p class="topo__seguro">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M5.4 9.2h13.2l-1.1 12.6H6.5zm6.6 4a1.9 1.9 0 0 0-1 3.5l-.5 3.1h3l-.5-3.1a1.9 1.9 0 0 0-1-3.5z"/><path d="M8.1 9V6.2a3.9 3.9 0 0 1 7.8 0V9h-2.4V6.2a1.5 1.5 0 0 0-3 0V9z"/></svg>
+      <span>Checkout seguro</span>
+    </p>
+    <a class="topo__voltar" href="secao-alta-performance.html">Voltar pra loja</a>
+  </div>
+</header>
+
+<main class="pagina" id="conteudo">
+
+  <form class="fluxo" id="checkout" novalidate data-form>
+
+    <div class="cabeca">
+      <h1 class="cabeca__titulo">Finalizar compra</h1>
+      <p class="cabeca__sub" data-cabeca-sub>Três passos rápidos. Sem cadastro.</p>
+    </div>
+
+    <ol class="passos" aria-label="Etapas do checkout" data-passos>
+      <li aria-current="step" data-passo-item="1" tabindex="-1">Contato</li>
+      <li data-passo-item="2" tabindex="-1">Entrega</li>
+      <li data-passo-item="3" tabindex="-1">Pagamento</li>
+    </ol>
+
+    <!-- resumos dos passos concluídos -->
+    <div class="feito-passo" data-feito-passo="1">
+      <span><span class="feito-passo__rot">Contato</span><span class="feito-passo__txt" data-feito-txt="1"></span></span>
+      <button type="button" data-editar="1">Editar</button>
+    </div>
+    <div class="feito-passo" data-feito-passo="2">
+      <span><span class="feito-passo__rot">Entrega</span><span class="feito-passo__txt" data-feito-txt="2"></span></span>
+      <button type="button" data-editar="2">Editar</button>
+    </div>
+
+    <!-- só aparece se o pagamento falhar no envio (rede/gateway) -->
+    <p class="erros-envio" data-erros role="alert" hidden></p>
+
+    <!-- ============ PASSO 1 · CONTATO ============ -->
+    <section class="painel" data-painel-passo="1" data-ativo aria-labelledby="t-contato">
+      <div class="bloco">
+        <div class="bloco__topo"><span class="bloco__num" aria-hidden="true">1</span><h2 class="bloco__titulo" id="t-contato">Contato</h2></div>
+        <p class="bloco__dica">A gente só precisa de um jeito de te avisar do pedido.</p>
+        <div class="campos">
+          <div class="campo">
+            <label for="email">E-mail</label>
+            <input id="email" name="email" type="email" autocomplete="email" inputmode="email" required placeholder="voce@email.com" aria-describedby="erro-email" data-valida="email" data-passo="1">
+            <span class="campo__erro" id="erro-email"></span>
+          </div>
+          <div class="campo campo--3">
+            <label for="nome">Nome completo</label>
+            <input id="nome" name="nome" type="text" autocomplete="name" required placeholder="Como está no documento" aria-describedby="erro-nome" data-valida="nome" data-passo="1">
+            <span class="campo__erro" id="erro-nome"></span>
+          </div>
+          <div class="campo campo--3">
+            <label for="celular">Celular <small>(WhatsApp)</small></label>
+            <input id="celular" name="celular" type="tel" autocomplete="tel-national" inputmode="numeric" required placeholder="(11) 99999-9999" maxlength="15" aria-describedby="erro-celular" data-valida="celular" data-mascara="celular" data-passo="1">
+            <span class="campo__erro" id="erro-celular"></span>
+          </div>
+          <div class="campo campo--3">
+            <label for="cpf">CPF <small>(pra nota fiscal)</small></label>
+            <input id="cpf" name="cpf" type="text" autocomplete="off" inputmode="numeric" required placeholder="000.000.000-00" maxlength="14" aria-describedby="erro-cpf" data-valida="cpf" data-mascara="cpf" data-passo="1">
+            <span class="campo__erro" id="erro-cpf"></span>
+          </div>
+        </div>
+        <div class="acoes">
+          <span></span>
+          <button type="button" class="btn" data-avanca="1">Continuar <svg class="btn__bolt" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg></button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ PASSO 2 · ENTREGA ============ -->
+    <section class="painel" data-painel-passo="2" aria-labelledby="t-entrega">
+      <div class="bloco">
+        <div class="bloco__topo"><span class="bloco__num" aria-hidden="true">2</span><h2 class="bloco__titulo" id="t-entrega">Entrega</h2></div>
+        <p class="bloco__dica">Digita o CEP que a gente preenche o resto.</p>
+
+        <!-- Só o CEP à vista. O endereço aparece depois, já preenchido. -->
+        <div class="campos">
+          <div class="campo campo--cep">
+            <label for="cep">CEP</label>
+            <span class="campo__com-icone" data-cep-caixa>
+              <input id="cep" name="cep" type="text" autocomplete="postal-code" inputmode="numeric" required placeholder="00000-000" maxlength="9" aria-describedby="erro-cep" data-valida="cep" data-mascara="cep" data-passo="2">
+              <span class="campo__icone" data-cep-icone aria-hidden="true"></span>
+              <span class="campo__spinner" aria-hidden="true"></span>
+            </span>
+            <span class="campo__erro" id="erro-cep"></span>
+          </div>
+        </div>
+
+        <div class="campos" data-endereco hidden>
+          <div class="campo campo--4">
+            <label for="rua">Endereço</label>
+            <input id="rua" name="rua" type="text" autocomplete="address-line1" required placeholder="Rua, avenida…" aria-describedby="erro-rua" data-valida="obrigatorio" data-passo="2">
+            <span class="campo__erro" id="erro-rua"></span>
+          </div>
+          <div class="campo campo--2 campo--meio">
+            <label for="numero">Número</label>
+            <input id="numero" name="numero" type="text" autocomplete="address-line2" inputmode="numeric" required placeholder="123" aria-describedby="erro-numero" data-valida="obrigatorio" data-passo="2">
+            <span class="campo__erro" id="erro-numero"></span>
+          </div>
+          <div class="campo campo--4">
+            <label for="complemento">Complemento <small>(opcional)</small></label>
+            <input id="complemento" name="complemento" type="text" autocomplete="address-line3" placeholder="Apto, bloco, referência">
+          </div>
+          <div class="campo campo--3">
+            <label for="bairro">Bairro</label>
+            <input id="bairro" name="bairro" type="text" autocomplete="address-level3" required aria-describedby="erro-bairro" data-valida="obrigatorio" data-passo="2">
+            <span class="campo__erro" id="erro-bairro"></span>
+          </div>
+          <div class="campo campo--2 campo--cidade">
+            <label for="cidade">Cidade</label>
+            <input id="cidade" name="cidade" type="text" autocomplete="address-level2" required aria-describedby="erro-cidade" data-valida="obrigatorio" data-passo="2">
+            <span class="campo__erro" id="erro-cidade"></span>
+          </div>
+          <div class="campo campo--uf">
+            <label for="uf">UF</label>
+            <input id="uf" name="uf" type="text" autocomplete="address-level1" required maxlength="2" style="text-transform: uppercase;" aria-describedby="erro-uf" data-valida="uf" data-passo="2">
+            <span class="campo__erro" id="erro-uf"></span>
+          </div>
+        </div>
+
+        <fieldset class="opcoes" data-frete-opcoes data-pos-cep style="margin-top: 16px;" hidden>
+          <legend>Como quer receber</legend>
+          <p class="aviso-frete" data-frete-aviso>Preencha o CEP pra ver as opções e o prazo.</p>
+        </fieldset>
+
+        <!-- Falta pouco pro frete grátis? Um item barato de cada categoria
+             que fecha a conta. Some quando o frete já é grátis, quando o
+             cliente dispensa, ou quando nada fecha a conta. -->
+        <div class="completa" data-completa hidden>
+          <div class="completa__topo">
+            <p class="completa__txt" data-completa-txt></p>
+            <button type="button" class="completa__dispensa" data-completa-dispensa>dispensar</button>
+          </div>
+          <ul class="completa__chips" data-completa-chips></ul>
+          <span class="sr-only" aria-live="polite" data-completa-aviso></span>
+        </div>
+
+        <div class="acoes">
+          <button type="button" class="btn btn--fantasma" data-volta="1">← Voltar</button>
+          <button type="button" class="btn" data-avanca="2" data-pos-cep hidden>Ir pro pagamento <svg class="btn__bolt" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg></button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ PASSO 3 · PAGAMENTO ============ -->
+    <section class="painel" data-painel-passo="3" aria-labelledby="t-pagamento">
+      <div class="bloco">
+        <div class="bloco__topo"><span class="bloco__num" aria-hidden="true">3</span><h2 class="bloco__titulo" id="t-pagamento">Pagamento</h2></div>
+        <p class="bloco__dica">Último passo. Escolhe como pagar e pronto.</p>
+
+        <!-- prova social onde a mão hesita -->
+        <ul class="confia" aria-label="Por que comprar com a gente">
+          <li><span class="estrelas" aria-hidden="true">★★★★★</span><span><b>4,7</b> com base em todas as avaliações</span></li>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M4.6 3.9 12 1.6l7.4 2.3 1.4 1.4v4.8l-2 4.9L12 22.4l-6.8-7.4-2-4.9V5.3zM7.3 11.5l1.5-1.5h1.5l1.7 1.7 3.8-3.8h1.5l1.5 1.5-6.8 6.8z"/></svg><span>Barba na cara ou <b>sua grana de volta</b></span></li>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M5.4 9.2h13.2l-1.1 12.6H6.5zm6.6 4a1.9 1.9 0 0 0-1 3.5l-.5 3.1h3l-.5-3.1a1.9 1.9 0 0 0-1-3.5z"/><path d="M8.1 9V6.2a3.9 3.9 0 0 1 7.8 0V9h-2.4V6.2a1.5 1.5 0 0 0-3 0V9z"/></svg><span>Pagamento <b>criptografado</b></span></li>
+        </ul>
+
+        <fieldset class="opcoes" data-pagamento>
+          <legend class="sr-only">Forma de pagamento</legend>
+          <label class="opcao">
+            <span class="opcao__selo">5% off · aprova na hora</span>
+            <input type="radio" name="pagamento" value="pix" checked>
+            <span><span class="opcao__nome">Pix</span><span class="opcao__desc">QR code na próxima tela. Confirmação em segundos.</span></span>
+            <span class="opcao__valor" data-valor-pix></span>
+          </label>
+          <label class="opcao">
+            <input type="radio" name="pagamento" value="cartao">
+            <span><span class="opcao__nome">Cartão de crédito</span><span class="opcao__desc">Em até 3x sem juros.</span></span>
+            <span class="opcao__valor" data-valor-cartao></span>
+          </label>
+          <label class="opcao">
+            <input type="radio" name="pagamento" value="boleto">
+            <span><span class="opcao__nome">Boleto</span><span class="opcao__desc">Vence em 3 dias. O pedido sai após a compensação.</span></span>
+            <span class="opcao__valor" data-valor-boleto></span>
+          </label>
+        </fieldset>
+
+        <div class="pagamento__painel" data-painel="pix" data-ativo>
+          <p class="pagamento__nota">Ao confirmar, mostramos o QR code e o código copia-e-cola. <b>Pagou, aprovou</b> — o pedido entra na fila de envio na hora.</p>
+        </div>
+        <div class="pagamento__painel" data-painel="cartao">
+          <div class="campos">
+            <div class="campo">
+              <label for="cc-numero">Número do cartão</label>
+              <span class="campo__com-icone">
+                <input id="cc-numero" name="cc-numero" type="text" autocomplete="cc-number" inputmode="numeric" placeholder="0000 0000 0000 0000" maxlength="19" aria-describedby="erro-cc-numero" data-valida="cartao" data-mascara="cartao" data-so-cartao data-passo="3">
+                <span class="campo__icone" data-bandeira aria-hidden="true"></span>
+              </span>
+              <span class="campo__erro" id="erro-cc-numero"></span>
+            </div>
+            <div class="campo">
+              <label for="cc-nome">Nome impresso no cartão</label>
+              <input id="cc-nome" name="cc-nome" type="text" autocomplete="cc-name" placeholder="Como está no cartão" style="text-transform: uppercase;" aria-describedby="erro-cc-nome" data-valida="obrigatorio" data-so-cartao data-passo="3">
+              <span class="campo__erro" id="erro-cc-nome"></span>
+            </div>
+            <div class="campo campo--2 campo--meio">
+              <label for="cc-validade">Validade</label>
+              <input id="cc-validade" name="cc-validade" type="text" autocomplete="cc-exp" inputmode="numeric" placeholder="MM/AA" maxlength="5" aria-describedby="erro-cc-validade" data-valida="validade" data-mascara="validade" data-so-cartao data-passo="3">
+              <span class="campo__erro" id="erro-cc-validade"></span>
+            </div>
+            <div class="campo campo--2 campo--meio">
+              <label for="cc-cvv">CVV</label>
+              <input id="cc-cvv" name="cc-cvv" type="text" autocomplete="cc-csc" inputmode="numeric" placeholder="123" maxlength="4" aria-describedby="erro-cc-cvv" data-valida="cvv" data-so-cartao data-passo="3">
+              <span class="campo__erro" id="erro-cc-cvv"></span>
+            </div>
+            <div class="campo campo--2">
+              <label for="parcelas">Parcelas</label>
+              <select id="parcelas" name="parcelas" data-parcelas></select>
+            </div>
+          </div>
+          <div class="bandeiras" aria-label="Bandeiras aceitas"><span>Visa</span><span>Mastercard</span><span>Elo</span><span>Amex</span><span>Hipercard</span></div>
+        </div>
+        <div class="pagamento__painel" data-painel="boleto">
+          <p class="pagamento__nota">O boleto é gerado ao confirmar e pode ser pago em qualquer banco ou app. <b>A compensação leva até 2 dias úteis</b> — o prazo de entrega conta a partir daí.</p>
+        </div>
+
+        <!-- ORDER BUMP: um clique, colado no botão de pagar -->
+        <div class="bump" data-bump>
+          <span class="bump__selo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg> Só nessa tela</span>
+          <label class="bump__caixa">
+            <input type="checkbox" name="bump" data-bump-check>
+            <span class="bump__foto"><img data-bump-img src="" alt="" width="64" height="64"></span>
+            <span>
+              <p class="bump__titulo">Adiciona o <b data-bump-nome></b> ao pedido?</p>
+              <p class="bump__txt" data-bump-txt></p>
+              <p class="bump__preco"><s data-bump-de></s><span data-bump-por></span></p>
+            </span>
+          </label>
+        </div>
+
+        <label class="marcar" style="margin: 14px 0 0 2px;">
+          <input type="checkbox" name="criar-conta">
+          <span>Salvar meus dados pra próxima compra ser mais rápida <small style="color: var(--color-text-muted);">(opcional)</small></span>
+        </label>
+
+        <div class="acoes">
+          <button type="button" class="btn btn--fantasma" data-volta="2">← Voltar</button>
+          <button type="submit" class="btn" data-pagar><span data-pagar-texto>Pagar</span> <svg class="btn__bolt" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg></button>
+        </div>
+        <p class="pix-dica" data-pagar-dica></p>
+      </div>
+    </section>
+
+  </form>
+
+  <!-- ============ CONFIRMAÇÃO ============ -->
+  <div class="feito" data-confirmacao aria-live="polite">
+    <div class="bloco">
+      <svg class="feito__ico" viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M8.4 1.8h7.2l5 5v7.2l-5 5H8.4l-5-5V6.8zm-.6 9.9 1.4-1.4h1.2l1.4 1.4 3.4-3.4h1.2l1.4 1.4-6 6z"/></svg>
+      <h1>Pedido recebido</h1>
+      <p>Número <b data-feito-numero>#000000</b> · enviamos os detalhes pra <b data-feito-email></b></p>
+      <p data-feito-texto></p>
+      <div class="feito__pix" data-feito-pix hidden>
+        <div class="feito__qr" role="img" aria-label="QR code do Pix (exemplo)"></div>
+        <p style="margin:0; font-size:0.74rem; font-weight:800; text-transform:uppercase;">Copia e cola</p>
+        <code>00020126580014br.gov.bcb.pix0136EXEMPLO-TROQUE-PELO-CODIGO-REAL-DO-GATEWAY5204000053039865802BR</code>
+        <button type="button" class="btn" style="padding: 10px 18px; font-size: 0.8rem;" data-copiar>Copiar código</button>
+      </div>
+      <p style="margin-top: 18px;"><a href="secao-alta-performance.html" class="topo__voltar" style="color: var(--color-text);">Voltar pra loja</a></p>
+    </div>
+  </div>
+
+  <!-- barra fixa do celular: espelha o botão do passo atual -->
+  <div class="barra" data-barra>
+    <span class="barra__total"><small>Total</small><b data-barra-total>R$ 0,00</b></span>
+    <button type="button" class="btn barra__btn" data-barra-btn><span data-barra-texto>Continuar</span> <svg class="btn__bolt" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg></button>
+  </div>
+
+  <!-- ============ RESUMO ============ -->
+  <aside class="resumo" aria-labelledby="t-resumo">
+    <details data-resumo open>
+      <summary>
+        <span id="t-resumo">Resumo do pedido</span>
+        <span><b data-resumo-total-mini>R$ 0,00</b> <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16.4 3.6 8 5.4 6.2l6.6 6.6 6.6-6.6L20.4 8z"/></svg></span>
+      </summary>
+      <div class="resumo__miolo">
+        <ul class="itens" data-itens></ul>
+        <div class="cupom">
+          <button type="button" class="cupom__abre" data-cupom-abre aria-expanded="false" aria-controls="cupom-form">Tem cupom de desconto?</button>
+          <form class="cupom__form" id="cupom-form" data-cupom-form>
+            <label class="sr-only" for="cupom">Código do cupom</label>
+            <input id="cupom" name="cupom" type="text" autocomplete="off" placeholder="CÓDIGO">
+            <button type="submit">Aplicar</button>
+          </form>
+          <p class="cupom__msg" data-cupom-msg></p>
+        </div>
+        <dl class="totais">
+          <div class="totais__linha"><dt>Subtotal</dt><dd data-t-subtotal>R$ 0,00</dd></div>
+          <div class="totais__linha"><dt data-t-frete-rotulo>Frete</dt><dd data-t-frete>a calcular</dd></div>
+          <div class="totais__linha" data-t-cupom-linha hidden data-desconto><dt>Cupom</dt><dd data-t-cupom></dd></div>
+          <div class="totais__linha" data-t-pix-linha hidden data-desconto><dt>Desconto Pix (5%)</dt><dd data-t-pix></dd></div>
+          <div class="totais__linha totais__total"><dt>Total</dt><dd data-t-total>R$ 0,00</dd></div>
+        </dl>
+        <p class="totais__parcela" data-t-parcela></p>
+        <p class="pix-dica" data-resumo-dica></p>
+
+        <!-- depoimento: um por vez, trocando sozinho -->
+        <figure class="depo" data-depo aria-live="off">
+          <p class="depo__rot"><span>Quem já comprou</span><span class="depo__estrelas" aria-hidden="true">★★★★★</span></p>
+          <blockquote class="depo__txt" data-depo-txt></blockquote>
+          <figcaption class="depo__quem"><img data-depo-img src="" alt="" width="26" height="26"><span data-depo-quem></span><small><svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M8.4 1.8h7.2l5 5v7.2l-5 5H8.4l-5-5V6.8zm-.6 9.9 1.4-1.4h1.2l1.4 1.4 3.4-3.4h1.2l1.4 1.4-6 6z"/></svg> compra verificada</small></figcaption>
+          <span class="depo__pontos" data-depo-pontos aria-hidden="true"></span>
+        </figure>
+
+        <ul class="confianca">
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1.4 4.6h11.4l1.6 1.6v9.6h-2.2l-1.4-1.4H6.9l-1.4 1.4H1.4z"/><path d="M15.2 8.4h4.1l3.3 4v3.4h-1.3l-1.4-1.4h-3.3l-1.4 1.4v-7.4z"/><path d="M6.9 16h2.3v2.3l-.9.9H6v-2.3z"/><path d="M17.1 16h2.3v2.3l-.9.9h-2.3v-2.3z"/></svg> Enviamos em até 1 dia útil</li>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M4.6 3.9 12 1.6l7.4 2.3 1.4 1.4v4.8l-2 4.9L12 22.4l-6.8-7.4-2-4.9V5.3zM7.3 11.5l1.5-1.5h1.5l1.7 1.7 3.8-3.8h1.5l1.5 1.5-6.8 6.8z"/></svg> 7 dias pra trocar ou devolver</li>
+        </ul>
+      </div>
+    </details>
+  </aside>
+
+</main>
+
+<script>
+(function () {
+  'use strict';
+
+  var FRETE_GRATIS = 149.90;
+  var DESCONTO_PIX = 0.05;
+  var PARCELAS_SEM_JUROS = 3;
+  var CUPONS = { 'BARBA10': 0.10 };      // exemplo — na loja real quem valida é o servidor
+
+  /* ORDER BUMP — troque pelo produto e preço reais. Some sozinho se o
+     item já estiver no pedido. */
+  var BUMP = {
+    id: 'produto-1', nome: 'Óleo para Barba', de: 25.00, por: 19.90,
+    imagem: 'imagens/fuckingbarba-shampoo.webp',
+    texto: 'Quem leva o kit costuma levar o óleo junto: 20% off só aqui, na hora de fechar.'
+  };
+
+  /* CATÁLOGO por categoria — EXEMPLO, pra sugestão de "completa o frete
+     grátis". Na loja real, mande o seu:
+         FuckingBarba.checkout.catalogo([{ id, nome, preco, categoria, imagem, url }])
+     As categorias batem com o menu: barba, cabelo, kits. */
+  var CATALOGO = [
+    { id: 'produto-1',  nome: 'Óleo para Barba',            preco: 25.00,  categoria: 'barba' },
+    { id: 'produto-11', nome: 'Escova de Madeira',          preco: 29.90,  categoria: 'barba' },
+    { id: 'produto-3',  nome: 'Shampoo para Barba',         preco: 34.90,  categoria: 'barba' },
+    { id: 'produto-9',  nome: 'Balm Pós-Barba',             preco: 34.90,  categoria: 'barba' },
+    { id: 'produto-2',  nome: 'Balm para Barba',            preco: 39.90,  categoria: 'barba' },
+    { id: 'produto-12', nome: 'Condicionador Fortalecedor', preco: 29.90,  categoria: 'cabelo' },
+    { id: 'produto-8',  nome: 'Shampoo Antiqueda',          preco: 44.90,  categoria: 'cabelo' },
+    { id: 'spray-matte', nome: 'Spray Matte Modelador',     preco: 49.90,  categoria: 'cabelo' },
+    { id: 'produto-5',  nome: 'Pomada Modeladora',          preco: 49.90,  categoria: 'cabelo' },
+    { id: 'produto-4',  nome: 'Kit Barba Completo',         preco: 89.90,  categoria: 'kits' },
+    { id: 'kit-completo', nome: 'Kit Completo FuckingBarba', preco: 139.90, categoria: 'kits' }
+  ];
+  var CATEGORIAS = { barba: 'Barba', cabelo: 'Cabelo', kits: 'Kits' };
+
+  /* DEPOIMENTOS — EXEMPLO. Troque por relatos reais, com autorização de
+     uso do nome. Texto retocado deixa de ser depoimento e vira propaganda. */
+  var DEPOIMENTOS = [
+    { txt: 'Usei por 1 mês e não vi muita coisa, mas continuei e no terceiro mês começou a aparecer fio novo. Valeu a paciência.', quem: 'André B. · São Paulo, SP', img: 'imagens/fuckingbarba-shampoo-mini.webp' },
+    { txt: 'Produto bom, cheiro suave. Não é milagroso, mas ajuda sim se usar direito.', quem: 'Rodrigo A. · Curitiba, PR', img: 'imagens/fuckingbarba-shampoo-mini.webp' },
+    { txt: '[Cole aqui o texto exato de um cliente real, sem reescrever.]', quem: '[Nome · Cidade, UF]', img: 'imagens/fuckingbarba-shampoo-mini.webp' }
+  ];
+
+  var $ = function (s, r) { return (r || document).querySelector(s); };
+  var $$ = function (s, r) { return [].slice.call((r || document).querySelectorAll(s)); };
+  var quieto = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  var form = $('[data-form]');
+  var pedido = { itens: [], cep: '', frete: null, opcoes: [], cupom: null, pagamento: 'pix', parcelas: 1, bump: false, completaDispensado: false, completou: null };
+  var passo = 1, concluido = { 1: false, 2: false, 3: false };
+
+  /* ---------- utilidades ---------- */
+  function brl(v) { return 'R$ ' + v.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
+  function so(v) { return String(v || '').replace(/\D/g, ''); }
+  function escapa(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+  /* ---------- máscaras ---------- */
+  var MASCARAS = {
+    cpf: function (v) { v = so(v).slice(0, 11); return v.replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})$/, '$1-$2'); },
+    celular: function (v) { v = so(v).slice(0, 11); if (v.length <= 10) return v.replace(/(\d{2})(\d)/, '($1) $2').replace(/(\d{4})(\d)/, '$1-$2'); return v.replace(/(\d{2})(\d)/, '($1) $2').replace(/(\d{5})(\d)/, '$1-$2'); },
+    cep: function (v) { v = so(v).slice(0, 8); return v.length > 5 ? v.slice(0, 5) + '-' + v.slice(5) : v; },
+    cartao: function (v) { v = so(v).slice(0, 16); return bandeira(v) === 'amex' ? v.replace(/(\d{4})(\d{1,6})?(\d{1,5})?/, function (m, a, b, c) { return [a, b, c].filter(Boolean).join(' '); }) : v.replace(/(\d{4})(?=\d)/g, '$1 '); },
+    validade: function (v) { v = so(v).slice(0, 4); return v.length > 2 ? v.slice(0, 2) + '/' + v.slice(2) : v; }
+  };
+  $$('[data-mascara]').forEach(function (el) {
+    el.addEventListener('input', function () {
+      var m = MASCARAS[el.getAttribute('data-mascara')]; if (!m) return;
+      var pos = el.selectionStart, antes = el.value.length;
+      el.value = m(el.value);
+      var d = el.value.length - antes;
+      if (pos !== null) try { el.setSelectionRange(pos + d, pos + d); } catch (e) {}
+    });
+  });
+
+  /* ---------- validações ---------- */
+  function cpfValido(c) {
+    c = so(c); if (c.length !== 11 || /^(\d)\1{10}$/.test(c)) return false;
+    var s = 0, i, d;
+    for (i = 0; i < 9; i++) s += +c[i] * (10 - i);
+    d = (s * 10) % 11; if (d === 10) d = 0; if (d !== +c[9]) return false;
+    s = 0; for (i = 0; i < 10; i++) s += +c[i] * (11 - i);
+    d = (s * 10) % 11; if (d === 10) d = 0;
+    return d === +c[10];
+  }
+  function luhn(n) {
+    n = so(n); if (n.length < 13) return false;
+    var s = 0, alt = false;
+    for (var i = n.length - 1; i >= 0; i--) { var d = +n[i]; if (alt) { d *= 2; if (d > 9) d -= 9; } s += d; alt = !alt; }
+    return s % 10 === 0;
+  }
+  function bandeira(n) {
+    n = so(n);
+    if (/^(4011|4312|4389|4514|4576|5041|5066|5067|509|6277|6362|6363|650|6516|6550)/.test(n)) return 'elo';
+    if (/^(606282|3841)/.test(n)) return 'hipercard';
+    if (/^3[47]/.test(n)) return 'amex';
+    if (/^(5[1-5]|2[2-7])/.test(n)) return 'mastercard';
+    if (/^4/.test(n)) return 'visa';
+    return '';
+  }
+  function validadeOk(v) {
+    var p = so(v); if (p.length !== 4) return false;
+    var m = +p.slice(0, 2), a = 2000 + +p.slice(2); if (m < 1 || m > 12) return false;
+    var hoje = new Date(); return a > hoje.getFullYear() || (a === hoje.getFullYear() && m >= hoje.getMonth() + 1);
+  }
+  var REGRAS = {
+    email: function (v) { return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim()) ? '' : 'Confere o e-mail? Falta alguma coisa.'; },
+    nome: function (v) { return v.trim().split(/\s+/).length >= 2 ? '' : 'Nome e sobrenome, por favor.'; },
+    celular: function (v) { var n = so(v); return (n.length === 10 || n.length === 11) ? '' : 'Celular com DDD, 11 números.'; },
+    cpf: function (v) { return cpfValido(v) ? '' : 'Esse CPF não é válido.'; },
+    cep: function (v) { return so(v).length === 8 ? '' : 'CEP tem 8 números.'; },
+    uf: function (v) { return /^[A-Za-z]{2}$/.test(v.trim()) ? '' : 'UF com 2 letras.'; },
+    obrigatorio: function (v) { return v.trim() ? '' : 'Precisamos disso.'; },
+    cartao: function (v) { return luhn(v) ? '' : 'Número do cartão inválido.'; },
+    validade: function (v) { return validadeOk(v) ? '' : 'Validade no formato MM/AA, no futuro.'; },
+    cvv: function (v) { var n = so(v); return (n.length === 3 || n.length === 4) ? '' : 'CVV de 3 ou 4 números.'; }
+  };
+  function valida(el, mostrar) {
+    var regra = REGRAS[el.getAttribute('data-valida')]; if (!regra) return true;
+    if (el.hasAttribute('data-so-cartao') && pedido.pagamento !== 'cartao') { limpaErro(el); return true; }
+    var msg = regra(el.value);
+    if (mostrar || el.getAttribute('aria-invalid') === 'true') mostraErro(el, msg);
+    return !msg;
+  }
+  function mostraErro(el, msg) {
+    var caixa = document.getElementById(el.getAttribute('aria-describedby'));
+    if (msg) { el.setAttribute('aria-invalid', 'true'); el.removeAttribute('data-ok'); }
+    else { el.removeAttribute('aria-invalid'); if (el.value.trim()) el.setAttribute('data-ok', ''); }
+    if (caixa) caixa.textContent = msg;
+  }
+  function limpaErro(el) { el.removeAttribute('aria-invalid'); var c = document.getElementById(el.getAttribute('aria-describedby')); if (c) c.textContent = ''; }
+  $$('[data-valida]').forEach(function (el) {
+    el.addEventListener('blur', function () { if (el.value.trim()) valida(el, true); });
+    el.addEventListener('input', function () { valida(el, false); });
+  });
+
+  /* ==========================================================
+     PASSOS
+     ========================================================== */
+  var NOMES = { 1: 'contato', 2: 'entrega', 3: 'pagamento' };
+  var erros = $('[data-erros]');
+
+  function camposDoPasso(n) {
+    return $$('[data-valida][data-passo="' + n + '"]').filter(function (el) { return el.offsetParent !== null; });
+  }
+
+  function validaPasso(n) {
+    var inv = camposDoPasso(n).filter(function (el) { return !valida(el, true); });
+    var semFrete = (n === 2 && !pedido.frete);
+    if (semFrete && !inv.length) inv.push($('#cep'));
+    if (inv.length) {
+      /* Sem faixa de "faltam X campos": cada campo já mostra o próprio
+         erro embaixo, e o foco vai direto pro primeiro. */
+      inv[0].focus(); inv[0].scrollIntoView({ block: 'center', behavior: quieto ? 'auto' : 'smooth' });
+      return false;
+    }
+    return true;
+  }
+
+  function resumoDoPasso(n) {
+    if (n === 1) return escapa($('#nome').value) + ' · ' + escapa($('#email').value) + ' · ' + escapa($('#celular').value);
+    var f = valorFrete();
+    return escapa($('#rua').value) + ', ' + escapa($('#numero').value) + (($('#complemento').value) ? ' (' + escapa($('#complemento').value) + ')' : '') +
+      ' — ' + escapa($('#cidade').value) + '/' + escapa($('#uf').value.toUpperCase()) +
+      (f ? ' · ' + escapa(f.nome) + ', ' + (f.gratis ? 'grátis' : brl(f.preco)) : '');
+  }
+
+  function mostraPasso(n, historico, focar) {
+    passo = n;
+    $$('[data-painel-passo]').forEach(function (p) { if (+p.getAttribute('data-painel-passo') === n) p.setAttribute('data-ativo', ''); else p.removeAttribute('data-ativo'); });
+    $$('[data-passo-item]').forEach(function (li) {
+      var k = +li.getAttribute('data-passo-item');
+      if (k === n) li.setAttribute('aria-current', 'step'); else li.removeAttribute('aria-current');
+      if (concluido[k] && k < n) li.setAttribute('data-feito', ''); else li.removeAttribute('data-feito');
+    });
+    $$('[data-feito-passo]').forEach(function (r) {
+      var k = +r.getAttribute('data-feito-passo');
+      if (concluido[k] && k < n) { r.setAttribute('data-ativo', ''); $('[data-feito-txt="' + k + '"]').innerHTML = resumoDoPasso(k); }
+      else r.removeAttribute('data-ativo');
+    });
+    erros.hidden = true;
+    $('[data-cabeca-sub]').textContent = n === 1 ? 'Três passos rápidos. Sem cadastro.' : (n === 2 ? 'Falta pouco. Só o endereço e o frete.' : 'Último passo.');
+    if (historico !== false) { try { history[historico === 'replace' ? 'replaceState' : 'pushState']({ passo: n }, '', '#' + NOMES[n]); } catch (e) {} }
+    atualizaBarra();
+    if (focar !== false) {
+      var painel = $('[data-painel-passo="' + n + '"]');
+      var alvo = painel.querySelector('input:not([type="radio"]):not([type="checkbox"]), input[type="radio"]:checked');
+      // entrega já veio com CEP e rua (da gaveta): o que falta é o número
+      if (n === 2 && revelado && $('#rua').value && !$('#numero').value) alvo = $('#numero');
+      painel.scrollIntoView({ block: 'start', behavior: quieto ? 'auto' : 'smooth' });
+      if (alvo) setTimeout(function () { try { alvo.focus({ preventScroll: true }); } catch (e) { alvo.focus(); } }, quieto ? 0 : 260);
+    }
+  }
+
+  function avanca(n) { if (!validaPasso(n)) return; concluido[n] = true; mostraPasso(n + 1); }
+  function volta(n) { mostraPasso(n); }
+
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('[data-avanca],[data-volta],[data-editar],[data-passo-item][data-feito]') : null;
+    if (!b) return;
+    if (b.hasAttribute('data-avanca')) avanca(+b.getAttribute('data-avanca'));
+    else if (b.hasAttribute('data-volta')) volta(+b.getAttribute('data-volta'));
+    else if (b.hasAttribute('data-editar')) volta(+b.getAttribute('data-editar'));
+    else if (b.hasAttribute('data-passo-item')) volta(+b.getAttribute('data-passo-item'));
+  });
+  $$('[data-passo-item]').forEach(function (li) { li.addEventListener('keydown', function (e) { if ((e.key === 'Enter' || e.key === ' ') && li.hasAttribute('data-feito')) { e.preventDefault(); volta(+li.getAttribute('data-passo-item')); } }); });
+
+  /* Enter num campo dos passos 1 e 2 avança (em vez de tentar enviar o
+     formulário inteiro, que é o padrão do navegador). */
+  form.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' || e.target.tagName !== 'INPUT' || e.target.type === 'checkbox' || e.target.type === 'radio') return;
+    var n = +e.target.getAttribute('data-passo');
+    if (n === 1 || n === 2) { e.preventDefault(); avanca(n); }
+  });
+
+  window.addEventListener('popstate', function (e) {
+    var alvo = (e.state && e.state.passo) || ({ '#contato': 1, '#entrega': 2, '#pagamento': 3 }[location.hash] || 1);
+    if (alvo > 3) return;
+    for (var k = 1; k < alvo; k++) if (!concluido[k]) { alvo = k; break; }
+    mostraPasso(alvo, false);
+  });
+
+  /* ---------- CEP -> endereço (ViaCEP) ---------- */
+  var cepCaixa = $('[data-cep-caixa]'), cepIcone = $('[data-cep-icone]');
+  var ultimoCep = '', revelado = false;
+
+  /* O endereço e o frete só aparecem depois do CEP. Idealmente já
+     preenchidos (ViaCEP); se a consulta demorar mais de 1 s, aparecem
+     vazios pra pessoa não ficar olhando spinner. */
+  function revelaEndereco() {
+    if (revelado) return;
+    revelado = true;
+    $('[data-endereco]').hidden = false;
+    $$('[data-pos-cep]').forEach(function (el) { el.hidden = false; });
+  }
+  function buscaCep(cep, focar) {
+    cep = so(cep); if (cep.length !== 8 || cep === ultimoCep) return;
+    ultimoCep = cep;
+    cepCaixa.setAttribute('aria-busy', 'true'); cepIcone.textContent = '';
+    var ctrl = ('AbortController' in window) ? new AbortController() : null;
+    var timer = setTimeout(function () { if (ctrl) ctrl.abort(); }, 4000);
+    var reserva = setTimeout(function () { revelaEndereco(); if (focar && !$('#rua').value) $('#rua').focus(); }, 1000);
+    fetch('https://viacep.com.br/ws/' + cep + '/json/', { signal: ctrl && ctrl.signal })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        clearTimeout(reserva);
+        if (d.erro) throw new Error('nao-encontrado');
+        revelaEndereco();
+        $('#rua').value = d.logradouro || ''; $('#bairro').value = d.bairro || ''; $('#cidade').value = d.localidade || ''; $('#uf').value = d.uf || '';
+        ['rua', 'bairro', 'cidade', 'uf'].forEach(function (id) { var el = $('#' + id); if (el.value) { el.setAttribute('data-ok', ''); limpaErro(el); } });
+        cepIcone.textContent = 'OK'; cepIcone.setAttribute('data-ok', '');
+        if (focar) $(d.logradouro ? '#numero' : '#rua').focus();
+      })
+      .catch(function (e) {
+        clearTimeout(reserva);
+        revelaEndereco();
+        cepIcone.textContent = ''; cepIcone.removeAttribute('data-ok');
+        if (e && e.message === 'nao-encontrado') mostraErro($('#cep'), 'Não achamos esse CEP. Confere ou preenche o endereço à mão.');
+        if (focar) $('#rua').focus();
+      })
+      .then(function () { clearTimeout(timer); cepCaixa.removeAttribute('aria-busy'); });
+  }
+  function cepPronto(valor, focar) {
+    var cep = so(valor); if (cep.length !== 8) return;
+    if (cep !== pedido.cep) { pedido.cep = cep; pedido.frete = null; montaFrete(); }
+    buscaCep(cep, focar);
+  }
+  $('#cep').addEventListener('input', function () { cepPronto(this.value, true); });
+  $('#cep').addEventListener('blur', function () { cepPronto(this.value, true); });
+
+  /* ---------- frete ---------- */
+  function simulaFrete(cep) {
+    var r = parseInt(cep.charAt(0), 10);
+    var dias = [3, 3, 4, 5, 6, 7, 8, 6, 4, 5][r], base = [14.9, 14.9, 17.9, 22.9, 26.9, 28.9, 32.9, 29.9, 19.9, 22.9][r];
+    var op = [
+      { id: 'economico', nome: 'Econômico', dias: [dias, dias + 3], preco: base },
+      { id: 'expresso', nome: 'Expresso', dias: [Math.max(1, dias - 2), Math.max(2, dias - 1)], preco: +(base * 1.9).toFixed(2) }
+    ];
+    if (r <= 1) op.push({ id: 'hoje', nome: 'Mesmo dia', dias: [0, 0], preco: 39.9 });
+    return op;
+  }
+  function prazo(o) {
+    if (o.dias[1] === 0) return 'Chega hoje, pedindo até 12h';
+    if (o.dias[0] === o.dias[1]) return 'Chega em ' + o.dias[0] + ' dia' + (o.dias[0] > 1 ? 's úteis' : ' útil');
+    return 'Chega em ' + o.dias[0] + ' a ' + o.dias[1] + ' dias úteis';
+  }
+  function subtotal() { return pedido.itens.reduce(function (s, i) { return s + i.preco * i.qtd; }, 0); }
+  function maisBarata() { return pedido.opcoes.reduce(function (m, o) { return (!m || o.preco < m.preco) ? o : m; }, null); }
+
+  function montaFrete() {
+    var fs = $('[data-frete-opcoes]'), aviso = $('[data-frete-aviso]');
+    if (!pedido.cep || so(pedido.cep).length !== 8) { pedido.opcoes = []; pedido.frete = null; fs.innerHTML = '<legend>Como quer receber</legend>'; fs.appendChild(aviso); aviso.hidden = false; atualizaResumo(); return; }
+    var fn = (window.FuckingBarba && window.FuckingBarba.checkout && window.FuckingBarba.checkout.calcularFrete) || simulaFrete;
+    pedido.opcoes = fn(pedido.cep, pedido.itens) || [];
+    var gratis = subtotal() >= FRETE_GRATIS, barata = maisBarata();
+    if (!pedido.frete || !pedido.opcoes.some(function (o) { return o.id === pedido.frete; })) pedido.frete = pedido.opcoes.length ? pedido.opcoes[0].id : null;
+    fs.innerHTML = '<legend>Como quer receber</legend>' + pedido.opcoes.map(function (o) {
+      var g = gratis && barata && o.id === barata.id;
+      return '<label class="opcao"><input type="radio" name="frete" value="' + escapa(o.id) + '"' + (o.id === pedido.frete ? ' checked' : '') + '>' +
+        '<span><span class="opcao__nome">' + escapa(o.nome) + '</span><span class="opcao__desc">' + escapa(prazo(o)) + '</span></span>' +
+        '<span class="opcao__valor"' + (g ? ' data-gratis' : '') + '>' + (g ? 'Grátis<s>' + brl(o.preco) + '</s>' : brl(o.preco)) + '</span></label>';
+    }).join('');
+    atualizaResumo();
+  }
+  function valorFrete() {
+    var o = null; for (var k = 0; k < pedido.opcoes.length; k++) if (pedido.opcoes[k].id === pedido.frete) o = pedido.opcoes[k];
+    if (!o) return null;
+    var b = maisBarata(), g = subtotal() >= FRETE_GRATIS && b && o.id === b.id;
+    return { nome: o.nome, preco: g ? 0 : o.preco, gratis: g };
+  }
+
+  document.addEventListener('change', function (e) {
+    if (e.target.name === 'frete') { pedido.frete = e.target.value; atualizaResumo(); }
+    if (e.target.name === 'pagamento') trocaPagamento(e.target.value);
+    if (e.target.name === 'parcelas') { pedido.parcelas = +e.target.value; atualizaResumo(); }
+    if (e.target.hasAttribute('data-bump-check')) alternaBump(e.target.checked);
+  });
+
+  /* ---------- pagamento ---------- */
+  function trocaPagamento(tipo) {
+    pedido.pagamento = tipo;
+    $$('[data-painel]').forEach(function (p) { if (p.getAttribute('data-painel') === tipo) p.setAttribute('data-ativo', ''); else p.removeAttribute('data-ativo'); });
+    $$('[data-so-cartao]').forEach(limpaErro);
+    atualizaResumo();
+    if (tipo === 'cartao') setTimeout(function () { $('#cc-numero').focus(); }, 50);
+  }
+  $('#cc-numero').addEventListener('input', function () { var b = bandeira(this.value); $('[data-bandeira]').textContent = b; this.maxLength = b === 'amex' ? 17 : 19; });
+  function montaParcelas(total) {
+    var sel = $('[data-parcelas]'), html = '';
+    for (var n = 1; n <= PARCELAS_SEM_JUROS; n++) html += '<option value="' + n + '">' + n + 'x de ' + brl(total / n) + ' sem juros</option>';
+    sel.innerHTML = html; sel.value = Math.min(pedido.parcelas, PARCELAS_SEM_JUROS);
+  }
+
+  /* ---------- completa o frete grátis ---------- */
+  function montaCompleta() {
+    var box = $('[data-completa]'); if (!box) return;
+    var sub = subtotal(), falta = FRETE_GRATIS - sub;
+    var barata = maisBarata();
+
+    // acabou de completar: confirmação com "desfazer", e para por aí
+    if (pedido.completou && falta <= 0) {
+      box.hidden = false; box.setAttribute('data-ok', '');
+      $('[data-completa-txt]').innerHTML = '<b>' + escapa(pedido.completou.nome) + '</b> adicionado — frete grátis liberado.';
+      $('[data-completa-chips]').innerHTML = '';
+      $('[data-completa-dispensa]').textContent = 'desfazer';
+      return;
+    }
+    box.removeAttribute('data-ok'); $('[data-completa-dispensa]').textContent = 'dispensar';
+
+    // sem CEP, já grátis, dispensado, ou nada que feche a conta: some
+    if (!pedido.opcoes.length || falta <= 0 || pedido.completaDispensado) { box.hidden = true; return; }
+
+    var noPedido = {}; pedido.itens.forEach(function (i) { noPedido[i.id] = true; });
+    var porCategoria = {};
+    CATALOGO.forEach(function (p) {
+      if (noPedido[p.id] || p.preco < falta) return;
+      if (!porCategoria[p.categoria] || p.preco < porCategoria[p.categoria].preco) porCategoria[p.categoria] = p;
+    });
+    var opcoes = Object.keys(CATEGORIAS).map(function (c) { return porCategoria[c]; }).filter(Boolean);
+    if (!opcoes.length) { box.hidden = true; return; }
+
+    box.hidden = false;
+    $('[data-completa-txt]').innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>' +
+      'Faltam <b>' + brl(falta) + '</b> pro frete grátis' + (barata ? ' <b>(você economiza ' + brl(barata.preco) + ')</b>' : '') + '. Completa com:';
+    $('[data-completa-chips]').innerHTML = opcoes.map(function (p) {
+      return '<li><button type="button" class="completa__chip" data-completa-add="' + escapa(p.id) + '" ' +
+        'aria-label="Adicionar ' + escapa(p.nome) + ' por ' + brl(p.preco) + ' e liberar o frete grátis">' +
+        '<span><span class="completa__cat">' + escapa(CATEGORIAS[p.categoria]) + '</span><br>' + escapa(p.nome) + ' <small>' + brl(p.preco) + '</small></span>' +
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.6 3h2.8v7.6H21v2.8h-7.6V21h-2.8v-7.6H3v-2.8h7.6z"/></svg></button></li>';
+    }).join('');
+  }
+
+  document.addEventListener('click', function (e) {
+    var add = e.target.closest ? e.target.closest('[data-completa-add]') : null;
+    if (add) {
+      var id = add.getAttribute('data-completa-add'), p = null;
+      for (var k = 0; k < CATALOGO.length; k++) if (CATALOGO[k].id === id) p = CATALOGO[k];
+      if (!p) return;
+      pedido.itens.push({ id: p.id, nome: p.nome, preco: p.preco, qtd: 1, imagem: p.imagem || 'imagens/fuckingbarba-shampoo.webp', completa: true });
+      pedido.completou = p;
+      montaFrete();   // reaplica o frete grátis e redesenha tudo
+      $('[data-completa-aviso]').textContent = p.nome + ' adicionado. Frete grátis liberado.';
+      $('[data-completa-dispensa]').focus();
+      return;
+    }
+    if (e.target.closest && e.target.closest('[data-completa-dispensa]')) {
+      if (pedido.completou) {   // desfazer
+        var nome = pedido.completou.nome;
+        pedido.itens = pedido.itens.filter(function (i) { return !i.completa; });
+        pedido.completou = null;
+        montaFrete();
+        $('[data-completa-aviso]').textContent = nome + ' removido.';
+      } else {
+        pedido.completaDispensado = true;
+        montaCompleta();
+      }
+    }
+  });
+
+  /* ---------- order bump ---------- */
+  function montaBump() {
+    var box = $('[data-bump]');
+    var jaTem = pedido.itens.some(function (i) { return i.id === BUMP.id && !i.bump; });
+    if (!BUMP || jaTem) { box.removeAttribute('data-ativo'); return; }
+    box.setAttribute('data-ativo', '');
+    $('[data-bump-img]').src = BUMP.imagem; $('[data-bump-nome]').textContent = BUMP.nome;
+    $('[data-bump-txt]').textContent = BUMP.texto; $('[data-bump-de]').textContent = brl(BUMP.de); $('[data-bump-por]').textContent = brl(BUMP.por) + ' · 1 un.';
+    $('[data-bump-check]').checked = pedido.bump;
+  }
+  function alternaBump(ligado) {
+    pedido.bump = ligado;
+    pedido.itens = pedido.itens.filter(function (i) { return !i.bump; });
+    if (ligado) pedido.itens.push({ id: BUMP.id, nome: BUMP.nome, preco: BUMP.por, qtd: 1, imagem: BUMP.imagem, bump: true });
+    if (pedido.cep) montaFrete(); else atualizaResumo();   // o bump pode liberar frete grátis
+  }
+
+  /* ---------- cupom ---------- */
+  var cupomAbre = $('[data-cupom-abre]'), cupomForm = $('[data-cupom-form]'), cupomMsg = $('[data-cupom-msg]');
+  cupomAbre.addEventListener('click', function () {
+    var aberto = cupomForm.hasAttribute('data-aberto');
+    if (aberto) cupomForm.removeAttribute('data-aberto'); else { cupomForm.setAttribute('data-aberto', ''); $('#cupom').focus(); }
+    cupomAbre.setAttribute('aria-expanded', String(!aberto));
+  });
+  cupomForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var cod = $('#cupom').value.trim().toUpperCase();
+    if (CUPONS[cod]) { pedido.cupom = { codigo: cod, pct: CUPONS[cod] }; cupomMsg.textContent = cod + ' aplicado.'; cupomMsg.setAttribute('data-tipo', 'ok'); }
+    else { pedido.cupom = null; cupomMsg.textContent = 'Cupom não encontrado ou vencido.'; cupomMsg.setAttribute('data-tipo', 'erro'); }
+    atualizaResumo();
+  });
+
+  /* ---------- resumo e totais ---------- */
+  function totais() {
+    var sub = subtotal(), f = valorFrete();
+    var descCupom = pedido.cupom ? sub * pedido.cupom.pct : 0;
+    var base = sub - descCupom + (f ? f.preco : 0);
+    var descPix = (sub - descCupom) * DESCONTO_PIX;
+    return { sub: sub, f: f, descCupom: descCupom, base: base, descPix: descPix,
+             pix: Math.max(0, base - descPix), cheio: Math.max(0, base),
+             total: Math.max(0, pedido.pagamento === 'pix' ? base - descPix : base) };
+  }
+
+  function atualizaResumo() {
+    var t = totais();
+    $('[data-itens]').innerHTML = pedido.itens.map(function (i) {
+      return '<li class="item"><span class="item__foto"><img src="' + escapa(i.imagem) + '" alt="" width="54" height="54"><span class="item__qtd" aria-hidden="true">' + i.qtd + '</span></span>' +
+        '<span><p class="item__nome">' + escapa(i.nome) + (i.bump ? '<span class="item__oferta">oferta</span>' : '') + '</p><p class="item__un">' + i.qtd + ' × ' + brl(i.preco) + '</p></span>' +
+        '<span class="item__valor">' + brl(i.preco * i.qtd) + '</span></li>';
+    }).join('');
+    $('[data-t-subtotal]').textContent = brl(t.sub);
+    var tf = $('[data-t-frete]');
+    if (t.f) { tf.textContent = t.f.gratis ? 'Grátis' : brl(t.f.preco); if (t.f.gratis) tf.setAttribute('data-gratis', ''); else tf.removeAttribute('data-gratis'); $('[data-t-frete-rotulo]').textContent = 'Frete · ' + t.f.nome; }
+    else { tf.textContent = 'a calcular'; tf.removeAttribute('data-gratis'); $('[data-t-frete-rotulo]').textContent = 'Frete'; }
+    $('[data-t-cupom-linha]').hidden = !t.descCupom; $('[data-t-cupom]').textContent = '− ' + brl(t.descCupom);
+    var pixOn = pedido.pagamento === 'pix' && t.descPix > 0;
+    $('[data-t-pix-linha]').hidden = !pixOn; $('[data-t-pix]').textContent = '− ' + brl(t.descPix);
+    $('[data-t-total]').textContent = brl(t.total); $('[data-resumo-total-mini]').textContent = brl(t.total);
+    $('[data-valor-pix]').textContent = brl(t.pix); $('[data-valor-cartao]').textContent = brl(t.cheio); $('[data-valor-boleto]').textContent = brl(t.cheio);
+    montaParcelas(t.cheio);
+    $('[data-t-parcela]').textContent = (pedido.pagamento === 'cartao' && pedido.parcelas > 1) ? pedido.parcelas + 'x de ' + brl(t.total / pedido.parcelas) + ' sem juros' : '';
+    $('[data-pagar-texto]').textContent = pedido.pagamento === 'pix' ? 'Pagar ' + brl(t.total) + ' no Pix' : (pedido.pagamento === 'cartao' ? 'Pagar ' + brl(t.total) : 'Gerar boleto de ' + brl(t.total));
+    $('[data-pagar-dica]').textContent = pedido.pagamento === 'pix' ? 'Você economiza ' + brl(t.descPix) + ' pagando no Pix.' : '';
+    $('[data-resumo-dica]').textContent = (pedido.pagamento !== 'pix' && t.descPix > 0) ? 'No Pix sairia por ' + brl(t.pix) + ' (5% off).' : '';
+    montaBump();
+    montaCompleta();
+    atualizaBarra();
+  }
+
+  function atualizaBarra() {
+    var t = totais();
+    $('[data-barra-total]').textContent = brl(t.total);
+    $('[data-barra-texto]').textContent = passo === 1 ? 'Continuar' : (passo === 2 ? 'Ir pro pagamento' : (pedido.pagamento === 'pix' ? 'Pagar no Pix' : (pedido.pagamento === 'cartao' ? 'Pagar' : 'Gerar boleto')));
+  }
+  $('[data-barra-btn]').addEventListener('click', function () {
+    if (passo < 3) avanca(passo); else if (form.requestSubmit) form.requestSubmit(); else $('[data-pagar]').click();
+  });
+
+  /* ---------- depoimentos ---------- */
+  (function () {
+    var box = $('[data-depo]'); if (!box || !DEPOIMENTOS.length) return;
+    var i = 0, pontos = $('[data-depo-pontos]'), rel = null;
+    pontos.innerHTML = DEPOIMENTOS.map(function () { return '<span></span>'; }).join('');
+    function mostra(k) {
+      i = (k + DEPOIMENTOS.length) % DEPOIMENTOS.length;
+      var d = DEPOIMENTOS[i];
+      box.setAttribute('data-trocando', ''); void box.offsetWidth;
+      $('[data-depo-txt]').textContent = '“' + d.txt + '”'; $('[data-depo-quem]').textContent = d.quem; $('[data-depo-img]').src = d.img;
+      $$('span', pontos).forEach(function (p, k2) { if (k2 === i) p.setAttribute('data-on', ''); else p.removeAttribute('data-on'); });
+      setTimeout(function () { box.removeAttribute('data-trocando'); }, 400);
+    }
+    function liga() { if (rel || quieto || DEPOIMENTOS.length < 2) return; rel = setInterval(function () { mostra(i + 1); }, 7000); }
+    function para() { if (rel) { clearInterval(rel); rel = null; } }
+    box.addEventListener('mouseenter', para); box.addEventListener('mouseleave', liga);
+    box.addEventListener('focusin', para); box.addEventListener('focusout', liga);
+    document.addEventListener('visibilitychange', function () { if (document.hidden) para(); else liga(); });
+    mostra(0); liga();
+  })();
+
+  /* ---------- envio ---------- */
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (passo !== 3) { avanca(passo); return; }
+    if (!validaPasso(3)) return;
+    var btn = $('[data-pagar]'), barra = $('[data-barra-btn]');
+    btn.setAttribute('aria-busy', 'true'); btn.disabled = true; barra.setAttribute('aria-busy', 'true'); barra.disabled = true;
+    enviarPedido(coletaPedido())
+      .then(mostraConfirmacao)
+      .catch(function () { erros.textContent = 'Não conseguimos processar agora. Nada foi cobrado — tente de novo em instantes.'; erros.hidden = false; })
+      .then(function () { btn.removeAttribute('aria-busy'); btn.disabled = false; barra.removeAttribute('aria-busy'); barra.disabled = false; });
+  });
+
+  function coletaPedido() {
+    var fd = new FormData(form), o = {};
+    fd.forEach(function (v, k) { if (k.indexOf('cc-') !== 0) o[k] = v; });   // cartão NUNCA vai junto: token do gateway
+    var t = totais();
+    o.itens = pedido.itens; o.frete = t.f; o.cupom = pedido.cupom; o.pagamento = pedido.pagamento; o.parcelas = pedido.parcelas; o.bump = pedido.bump; o.total = t.total;
+    return o;
+  }
+
+  /* LIGAÇÃO: troque por POST pro seu backend / gateway. Deve devolver
+     { numero, pixCodigo? }. Aqui só finge que deu certo. */
+  function enviarPedido(p) { return new Promise(function (ok) { setTimeout(function () { ok({ numero: '#' + String(Date.now()).slice(-6) }); }, 900); }); }
+
+  function mostraConfirmacao(resp) {
+    form.hidden = true;
+    var f = $('[data-confirmacao]'); f.setAttribute('data-ativo', '');
+    $('[data-feito-numero]').textContent = resp.numero; $('[data-feito-email]').textContent = $('#email').value;
+    var txt = $('[data-feito-texto]'), pix = $('[data-feito-pix]');
+    if (pedido.pagamento === 'pix') { txt.textContent = 'Pague com o QR code ou o código abaixo. Assim que cair, o pedido entra na fila de envio.'; pix.hidden = false; }
+    else if (pedido.pagamento === 'cartao') { txt.textContent = 'Pagamento aprovado. Já estamos separando o seu pedido.'; pix.hidden = true; }
+    else { txt.textContent = 'Seu boleto foi enviado por e-mail. Depois da compensação, o pedido sai.'; pix.hidden = true; }
+    $('[data-barra]').hidden = true;
+    document.title = 'Pedido recebido — FuckingBarba';
+    try { history.replaceState({ passo: 4 }, '', '#confirmado'); } catch (e) {}
+    f.querySelector('h1').setAttribute('tabindex', '-1'); f.querySelector('h1').focus();
+    window.scrollTo({ top: 0 });
+  }
+  $('[data-copiar]').addEventListener('click', function () {
+    var cod = $('[data-feito-pix] code').textContent, b = this;
+    (navigator.clipboard ? navigator.clipboard.writeText(cod) : Promise.reject()).then(function () { b.textContent = 'Copiado!'; setTimeout(function () { b.textContent = 'Copiar código'; }, 1800); });
+  });
+
+  /* ---------- resumo: aberto no desktop, dobrável no celular ---------- */
+  var det = $('[data-resumo]');
+  if (window.matchMedia('(max-width: 900px)').matches) det.open = false;
+  window.addEventListener('resize', function () { if (window.matchMedia('(min-width: 901px)').matches) det.open = true; });
+
+  /* ---------- carga ---------- */
+  function definir(p) {
+    pedido.itens = (p.itens || []).map(function (i) { return { id: i.id, nome: i.nome, preco: +i.preco, qtd: +i.qtd || 1, imagem: i.imagem || '' }; });
+    pedido.bump = false;
+    if (p.cep && so(p.cep).length === 8) {
+      $('#cep').value = MASCARAS.cep(p.cep); pedido.cep = so(p.cep); pedido.frete = p.frete || null;
+      montaFrete(); buscaCep(p.cep, false);
+    } else { montaFrete(); }
+    atualizaResumo();
+  }
+
+  var EXEMPLO = { itens: [
+    { id: 'kit-completo', nome: 'Kit Completo FuckingBarba', preco: 139.90, qtd: 1, imagem: 'imagens/fuckingbarba-shampoo.webp' }
+  ] };
+  var vindo = null;
+  try { var q = new URLSearchParams(location.search).get('p'); if (q) vindo = JSON.parse(decodeURIComponent(q)); } catch (e) { vindo = null; }
+  definir(vindo && vindo.itens && vindo.itens.length ? vindo : EXEMPLO);
+  mostraPasso(1, 'replace', false);
+
+  window.FuckingBarba = window.FuckingBarba || {};
+  window.FuckingBarba.checkout = { definir: definir, ler: function () { return coletaPedido(); }, calcularFrete: null, irPara: function (n) { mostraPasso(n); },
+    catalogo: function (lista) { CATALOGO = (lista || []).slice(); montaCompleta(); } };
+})();
+</script>
+</body>
+</html>

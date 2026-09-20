@@ -3,21 +3,6 @@
 [hidden] {
   display: none !important;
 }
-.btn--fantasma {
-  background: none;
-  color: var(--color-tinta);
-  border-color: transparent;
-  box-shadow: none;
-  padding: 10px 6px;
-  font-size: 0.74rem;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-.btn--fantasma:hover,
-.btn--fantasma:focus-visible {
-  transform: none;
-  box-shadow: none;
-}
 .topo {
   position: relative;
   background: var(--color-tinta);

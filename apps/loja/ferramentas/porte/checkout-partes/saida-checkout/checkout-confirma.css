@@ -1,0 +1,49 @@
+/* Gerado por ferramentas/porte/checkout-partes/agrupa-checkout.py —
+   não edite à mão. A fonte é ferramentas/porte/prototipo-checkout.html. */
+.feito {
+  display: none;
+}
+.feito[data-ativo] {
+  display: block;
+}
+.feito .bloco {
+  text-align: center;
+  padding: 36px 24px;
+}
+.feito__ico {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 12px;
+  fill: var(--color-menta-escura);
+}
+.feito h1 {
+  margin: 0 0 6px;
+  font-size: 1.5rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.feito p {
+  margin: 0 0 6px;
+  color: var(--color-tinta-suave);
+}
+.feito__pix {
+  margin: 18px auto 0;
+  max-width: 360px;
+  padding: 16px;
+  background: var(--color-cinza);
+  border: 2px dashed var(--color-tinta);
+}
+.feito__pix code {
+  display: block;
+  word-break: break-all;
+  font-size: 0.72rem;
+  margin: 8px 0 12px;
+}
+.feito__qr {
+  width: 150px;
+  height: 150px;
+  margin: 0 auto 8px;
+  background: repeating-conic-gradient(var(--color-tinta) 0 25%, #fff 0 50%) 0 0 / 14px 14px;
+  border: 6px solid #fff;
+  outline: 2px solid var(--color-tinta);
+}
