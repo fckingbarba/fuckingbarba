@@ -100,10 +100,19 @@
   text-transform: uppercase;
   white-space: nowrap;
 }
+/*
+  A logo tem duas cores próprias e não é quadrada (33x49). Aqui mandava um
+  `width: 26px; height: 26px; fill: amarelo` — herança do raio genérico, que
+  era quadrado e monocromático. No lockup isso esmagaria o F e pintaria as
+  letras brancas de amarelo.
+
+  Então manda a ALTURA e deixa a largura seguir, e nada de `fill`: as cores
+  estão dentro do SVG justamente pra que nenhum pai possa repintar a marca
+  por acidente.
+*/
 .cabecalho__logo svg {
-  width: 26px;
-  height: 26px;
-  fill: var(--color-amarelo);
+  height: 30px;
+  width: auto;
   flex-shrink: 0;
 }
 .cabecalho__busca {
@@ -159,7 +168,9 @@
   text-transform: uppercase;
   padding-bottom: 3px;
   border-bottom: 2px solid transparent;
-  transition: border-color 0.15s ease, color 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease;
 }
 .cabecalho__nav a:hover,
 .cabecalho__nav a:focus-visible {
@@ -200,7 +211,9 @@
   background: rgba(0, 0, 0, 0.6);
   opacity: 0;
   visibility: hidden;
-  transition: opacity 0.2s ease, visibility 0.2s ease;
+  transition:
+    opacity 0.2s ease,
+    visibility 0.2s ease;
 }
 .menu {
   position: fixed;
@@ -264,7 +277,9 @@
   text-transform: uppercase;
   letter-spacing: 0.04em;
   border-bottom: 1px solid rgba(255, 255, 255, 0.09);
-  transition: background 0.15s ease, color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
 }
 .menu nav a:hover,
 .menu nav a:focus-visible {
@@ -325,30 +340,54 @@
 .cabecalho__icone.e-recebeu svg {
   animation: sacola-bate 0.52s var(--ease-suave);
 }
-@keyframes sacola-halo{
-    0%   { opacity: 1; transform: scale(0.5); }
-    100% { opacity: 0; transform: scale(1.7); }
+@keyframes sacola-halo {
+  0% {
+    opacity: 1;
+    transform: scale(0.5);
   }
-@keyframes sacola-bate{
-    0%   { transform: scale(1) translateY(0); }
-    26%  { transform: scale(0.8) translateY(3px); }
-    58%  { transform: scale(1.2) translateY(-3px); }
-    80%  { transform: scale(0.94) translateY(1px); }
-    100% { transform: scale(1) translateY(0); }
+  100% {
+    opacity: 0;
+    transform: scale(1.7);
   }
+}
+@keyframes sacola-bate {
+  0% {
+    transform: scale(1) translateY(0);
+  }
+  26% {
+    transform: scale(0.8) translateY(3px);
+  }
+  58% {
+    transform: scale(1.2) translateY(-3px);
+  }
+  80% {
+    transform: scale(0.94) translateY(1px);
+  }
+  100% {
+    transform: scale(1) translateY(0);
+  }
+}
 .cabecalho__contador.e-subiu {
   animation: contador-pula 0.5s var(--ease-suave);
 }
-@keyframes contador-pula{
-    0%   { transform: scale(1) rotate(0); }
-    30%  { transform: scale(1.6) rotate(-7deg); }
-    60%  { transform: scale(0.92) rotate(3deg); }
-    100% { transform: scale(1) rotate(0); }
+@keyframes contador-pula {
+  0% {
+    transform: scale(1) rotate(0);
   }
+  30% {
+    transform: scale(1.6) rotate(-7deg);
+  }
+  60% {
+    transform: scale(0.92) rotate(3deg);
+  }
+  100% {
+    transform: scale(1) rotate(0);
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .cabecalho__icone.e-recebeu::after,
-.cabecalho__icone.e-recebeu svg,
-.cabecalho__contador.e-subiu {
+  .cabecalho__icone.e-recebeu svg,
+  .cabecalho__contador.e-subiu {
     animation: none !important;
   }
 }
@@ -360,8 +399,8 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .cabecalho *,
-.menu,
-.menu__veu {
+  .menu,
+  .menu__veu {
     transition: none !important;
     animation: none !important;
     scroll-behavior: auto !important;

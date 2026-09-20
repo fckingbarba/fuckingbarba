@@ -29,11 +29,7 @@
   left: 0;
   right: 0;
   height: 9px;
-  background: repeating-linear-gradient(
-      -45deg,
-      #000 0 14px,
-      var(--color-amarelo) 14px 28px
-    );
+  background: repeating-linear-gradient(-45deg, #000 0 14px, var(--color-amarelo) 14px 28px);
   z-index: 2;
 }
 .rodape::after {
@@ -64,7 +60,14 @@
   margin: clamp(28px, 3.4vw, 42px) 0 clamp(28px, 3.2vw, 40px);
   padding: clamp(20px, 2.4vw, 28px) clamp(20px, 2.6vw, 32px);
   border: 2px solid rgba(79, 224, 185, 0.42);
-  clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
+  clip-path: polygon(
+    14px 0,
+    100% 0,
+    100% calc(100% - 14px),
+    calc(100% - 14px) 100%,
+    0 100%,
+    0 14px
+  );
 }
 .rodape__news-titulo {
   margin: 0 0 6px;
@@ -142,10 +145,14 @@
   text-transform: uppercase;
   text-decoration: none;
 }
+/*
+  No rodapé entra a logo INTEIRA, que é quase quadrada (119x95) — então aqui
+  quem manda é a largura, com teto pra ela não crescer junto com a coluna.
+  Sem `fill`, pelo mesmo motivo do cabeçalho: a marca traz as próprias cores.
+*/
 .rodape__marca svg {
-  width: 24px;
-  height: 24px;
-  fill: var(--color-amarelo);
+  width: clamp(124px, 40%, 168px);
+  height: auto;
   flex-shrink: 0;
 }
 .rodape__assinatura {
@@ -215,7 +222,10 @@
   border: 1.5px solid rgba(255, 255, 255, 0.24);
   color: #ccd3d9;
   clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
 }
 .rodape__redes a:hover,
 .rodape__redes a:focus-visible {
@@ -298,7 +308,10 @@
   text-transform: uppercase;
   white-space: nowrap;
   clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px);
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
 }
 .rodape__topo:hover,
 .rodape__topo:focus-visible {

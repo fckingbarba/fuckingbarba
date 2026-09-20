@@ -9,15 +9,9 @@ import {
   WhatsApp,
   YouTube,
 } from "@/components/icones"
+import { LogoCompleta } from "@/components/marca"
 import { Newsletter } from "./newsletter"
-import {
-  contato,
-  formasDePagamento,
-  navegacao,
-  parcelamento,
-  redes,
-  site,
-} from "@/lib/site"
+import { contato, formasDePagamento, navegacao, parcelamento, redes, site } from "@/lib/site"
 
 /**
  * Rodapé escuro de toda página: novidades, quatro colunas, pagamento e a
@@ -59,8 +53,13 @@ export function Rodape() {
 
         <div className="rodape__colunas">
           <div>
-            <Link className="rodape__marca" href="/">
-              <Raio /> {site.nome}
+            {/* A logo inteira, uma vez por página, no lugar do raio + nome em
+                texto. É o único lugar em que ela cabe com o tamanho que
+                merece — no cabeçalho ela ficaria pequena demais pra ler
+                BARBA. O nome fica no `aria-label`: pra quem lê a tela, a
+                imagem já diz tudo. */}
+            <Link className="rodape__marca" href="/" aria-label={`${site.nome} — página inicial`}>
+              <LogoCompleta aria-hidden="true" />
             </Link>
             <p className="rodape__assinatura">{site.assinatura}</p>
             <h2 className="rodape__titulo">Siga-nos</h2>
@@ -69,11 +68,7 @@ export function Rodape() {
                 const Icone = ICONES_REDE[rede.nome]
                 return (
                   <li key={rede.nome}>
-                    <a
-                      href={rede.url}
-                      aria-label={`${rede.nome} da ${site.nome}`}
-                      rel="noopener"
-                    >
+                    <a href={rede.url} aria-label={`${rede.nome} da ${site.nome}`} rel="noopener">
                       <Icone />
                     </a>
                   </li>
@@ -150,8 +145,8 @@ export function Rodape() {
       <div className="rodape__fim">
         <div className="rodape__fim-wrap">
           <p className="rodape__legal">
-            © {ANO_PUBLICACAO} {site.nome} — Todos os direitos reservados. CNPJ {contato.cnpj}. Resultados
-            podem variar conforme uso individual.
+            © {ANO_PUBLICACAO} {site.nome} — Todos os direitos reservados. CNPJ {contato.cnpj}.
+            Resultados podem variar conforme uso individual.
           </p>
           <a className="rodape__topo" href="#inicio">
             <SetaTopo />

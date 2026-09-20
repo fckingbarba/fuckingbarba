@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { useEffect, useRef, useState } from "react"
 import { Conta, Fechar, Hamburguer, Lupa, Raio } from "@/components/icones"
+import { LogoCurta } from "@/components/marca"
 import { BotaoDaSacola } from "@/components/sacola/botao"
 import { emReais } from "@/lib/formato"
 import { EM_BREVE, FRETE_GRATIS_ACIMA_DE, navegacao, site } from "@/lib/site"
@@ -129,7 +130,7 @@ export function Cabecalho() {
           </div>
 
           <Link className="cabecalho__logo" href="/" aria-label={`${site.nome} — página inicial`}>
-            <Raio />
+            <LogoCurta aria-hidden="true" />
             {site.nome}
           </Link>
 

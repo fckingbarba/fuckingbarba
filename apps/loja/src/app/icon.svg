@@ -1,5 +1,22 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <!-- Favicon FuckingBarba: raio da marca sobre a menta, canto chanfrado -->
-  <path d="M10 0h54v54l-10 10H0V10z" fill="#4fe4b6"/>
-  <path d="M36 8 12 38h17l-3 18 24-30H33l3-18z" fill="#12181f"/>
+  <title>FuckingBarba</title>
+  <!--
+    O RAIO DA MARCA sobre a tinta, com o canto chanfrado da marca.
+
+    O raio SOZINHO, e não o F com o raio: favicon se lê numa aba de 16px, ao
+    lado de outras vinte. Nesse tamanho o F vira um borrão cinza e some; o
+    raio tem uma silhueta que se reconhece mesmo quando não dá pra ler nada.
+
+    O fundo é chapado de propósito. A arte da marca vem com fundo
+    transparente, e favicon transparente desaparece em aba de tema escuro —
+    o amarelo em cima do escuro é o que garante contraste nos dois temas.
+
+    Gerado por `ferramentas/logo/vetoriza.py` a partir do PNG; o caminho
+    abaixo é o mesmo do `RaioDaMarca` em `components/marca.tsx`, só
+    reposicionado pro quadrado.
+  -->
+  <path d="M10 0h54v54l-10 10H0V10z" fill="#12181f"/>
+  <g transform="translate(21.22 9) scale(1.4375)">
+    <path fill="#ffd84d" d="M2.2 30.9C1.7 30.6 2.0 26.9 2.6 25.3C2.7 24.9 2.9 24.2 2.9 23.8C3.1 22.7 3.2 22.0 3.6 21.3C3.9 20.7 4.0 19.7 3.8 19.4C3.7 19.3 3.3 19.2 1.8 19.2L-0.0 19.3L0.0 17.3C0.0 15.6 0.0 15.4 0.2 15.3C0.6 15.1 0.8 13.9 1.1 11.5C1.2 10.2 1.3 9.0 1.5 8.5C1.7 7.7 1.8 7.0 2.1 3.6C2.3 1.9 2.9 0.7 3.7 0.8C3.9 0.8 4.3 0.6 4.7 0.4L5.4 0.0L9.8 0.0C14.2 0.0 14.2 0.0 14.2 0.3C14.2 0.4 14.4 0.6 14.6 0.7C15.2 1.0 15.2 2.0 14.6 2.2C14.4 2.3 14.2 2.5 14.0 3.1C13.9 3.5 13.6 4.0 13.4 4.2C13.3 4.3 13.1 4.7 13.0 5.0C12.9 5.3 12.7 5.8 12.4 6.2C12.2 6.5 12.0 6.9 12.0 6.9C12.0 7.0 11.8 7.4 11.6 7.7C11.3 8.0 11.1 8.5 11.0 8.8C10.9 9.1 10.7 9.5 10.5 9.8C10.3 10.0 10.1 10.5 10.0 10.8C9.9 11.1 9.7 11.5 9.5 11.8C8.1 13.5 8.5 14.1 11.0 14.0C12.5 13.9 12.7 13.9 12.9 14.1C13.3 14.5 13.1 15.6 12.5 16.0C12.3 16.1 12.1 16.5 12.0 16.7C11.9 17.0 11.7 17.4 11.4 17.7C11.2 18.0 11.0 18.4 11.0 18.4C11.0 18.5 10.8 18.8 10.6 19.1C10.4 19.4 10.0 19.9 9.8 20.3C9.7 20.6 9.4 20.9 9.3 21.0C9.2 21.1 9.1 21.4 9.0 21.6C8.9 21.9 8.7 22.3 8.5 22.5C8.3 22.8 8.1 23.2 8.0 23.4C7.9 23.6 7.6 23.9 7.5 24.0C7.3 24.1 7.1 24.5 7.0 24.7C6.9 25.0 6.7 25.4 6.5 25.6C6.3 25.9 6.1 26.3 6.0 26.5C5.9 26.7 5.7 27.0 5.5 27.3C4.9 28.1 4.3 29.0 4.0 29.5C3.7 30.0 2.7 31.1 2.5 31.1C2.5 31.1 2.3 31.0 2.2 30.9Z"/>
+  </g>
 </svg>
