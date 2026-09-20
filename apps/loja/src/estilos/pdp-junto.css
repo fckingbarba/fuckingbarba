@@ -1,0 +1,95 @@
+/*
+  LEVE JUNTO — o cross-sell dentro da caixa de compra.
+
+  Arquivo próprio porque `pdp.css` é GERADO pelo
+  `ferramentas/porte/pdp-partes/agrupa-pdp.py` e não se edita à mão: qualquer
+  coisa escrita lá some na próxima vez que o script rodar. Esta peça não veio
+  do protótipo — ela nasceu do editor do admin —, então mora fora do gerado.
+
+  Segue a mesma gramática dos degraus de quantidade logo abaixo: caixa
+  branca, borda de 2px, chanfro. As duas escolhas têm que parecer do mesmo
+  sistema, e não duas ideias empilhadas na mesma coluna.
+*/
+.junto {
+  margin: 18px 0 0;
+  padding: 0;
+  border: 0;
+}
+.junto__titulo {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0;
+  margin-bottom: 9px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-tinta);
+}
+.junto__titulo svg {
+  width: 15px;
+  height: 15px;
+  fill: var(--color-amarelo-escuro);
+  flex-shrink: 0;
+}
+.junto__lista {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.junto__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #ffffff;
+  border: 2px solid var(--color-tinta);
+  clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px);
+  padding: 8px 12px 8px 10px;
+  cursor: pointer;
+  transition: transform 0.12s ease;
+}
+.junto__item:hover,
+.junto__item:focus-within {
+  transform: translate(-2px, -2px);
+}
+.junto__item input {
+  width: 17px;
+  height: 17px;
+  flex-shrink: 0;
+  accent-color: var(--color-tinta);
+  cursor: pointer;
+}
+.junto__item img,
+.junto__sem-foto {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  object-fit: contain;
+  background: var(--color-cinza);
+}
+.junto__nome {
+  flex: 1;
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.junto__preco {
+  flex-shrink: 0;
+  font-size: 0.92rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+@media (prefers-reduced-motion: reduce) {
+  .junto__item {
+    transition: none;
+  }
+  .junto__item:hover,
+  .junto__item:focus-within {
+    transform: none;
+  }
+}

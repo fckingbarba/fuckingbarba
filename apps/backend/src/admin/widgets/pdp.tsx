@@ -413,11 +413,14 @@ const PdpWidget = ({ data: produto }: DetailWidgetProps<AdminProduct>) => {
 
         <div className="flex flex-col gap-2">
           <Label size="small" weight="plus">
-            Produtos que combinam
+            Leve junto (ao lado do preço)
           </Label>
           <Text size="xsmall" className="text-ui-fg-subtle">
-            Sem nenhum marcado, a loja escolhe sozinha (mesma categoria primeiro). Dois costuma
-            ser o número certo.
+            Aparecem como caixinhas na coluna de compra, e entram na sacola no mesmo clique do
+            &quot;Adicionar&quot;. Dois costuma ser o número certo — a partir do terceiro a
+            escolha vira lista e empurra o botão pra baixo da tela. Sem nenhum marcado, a
+            oferta não aparece; o carrossel do fim da página continua mostrando o resto do
+            catálogo de qualquer jeito.
           </Text>
           <div className="mt-1 flex flex-col gap-2">
             {catalogo.map((item) => {

@@ -216,32 +216,101 @@ try {
       await abrir(COM_CONTEUDO)
       confere("sem imagem, nenhum embrulho é desenhado", (await pagina.$$(".fundo")).length === 0)
 
-      /* ── produtos que combinam: escolha manda, vazio cai no automático ── */
-      const automatico = async () => {
-        await abrir(COM_CONTEUDO)
-        return pagina.$$eval(".colecao--relacionados .produto__nome", (n) => n.map((e) => e.textContent.trim()))
-      }
-      const todos = await automatico()
-      confere("sem escolha, a loja escolhe sozinha", todos.length > 0, String(todos.length))
+      /* ── quem combina aparece NA CAIXA DE COMPRA, não no carrossel ───── */
+      const noCarrossel = () =>
+        pagina.$$eval(".colecao--relacionados .produto__nome", (n) =>
+          n.map((e) => e.textContent.trim())
+        )
+      const noJunto = () => pagina.$$eval(".junto__nome", (n) => n.map((e) => e.textContent.trim()))
 
-      await gravar({ ...antes, combinada: { produtos: ["oleo-para-barba"] } })
-      const curados = await automatico()
+      await gravar({ ...antes, combinada: {} })
+      await abrir(COM_CONTEUDO)
+      const vitrine = await noCarrossel()
+      confere("sem escolha, o carrossel mostra o resto do catálogo", vitrine.length > 1, String(vitrine.length))
+      confere("e a caixa de compra não oferece nada junto", (await noJunto()).length === 0)
+
+      const DOIS = ["oleo-para-barba", "shampoo-para-barba"]
+      await gravar({ ...antes, combinada: { produtos: DOIS } })
+      await abrir(COM_CONTEUDO)
+      const dupla = await noJunto()
+      confere("os dois escolhidos aparecem na caixa de compra", dupla.length === 2, dupla.join(" | "))
       confere(
-        "com escolha, aparece só o que foi escolhido",
-        curados.length === 1 && /óleo/i.test(curados[0]),
-        curados.join(" | ")
+        "cada um com o próprio preço, pra somar sem abrir outra página",
+        (await pagina.$$eval(".junto__preco", (n) => n.map((e) => e.textContent ?? ""))).every((t) =>
+          t.includes("R$")
+        )
+      )
+      /*
+        DESMARCADAS. Caixa pré-marcada vende mais e é a prática que o cliente
+        descobre no carrinho — e depois disso ele não confere só aquele item,
+        confere a loja inteira.
+      */
+      confere(
+        "e nascem desmarcadas",
+        await pagina.$$eval(".junto__item input", (n) => n.every((e) => !e.checked))
+      )
+      /*
+        A ESCOLHA DO ADMIN NÃO ENCOLHE O CARROSSEL. Foi assim por uns dias: a
+        mesma lista mandava nos dois lugares, e escolher dois produtos pro
+        cross-sell tirava do cliente a única vista do resto do catálogo que a
+        PDP oferece — além de mostrar os mesmos dois produtos duas vezes na
+        mesma página.
+      */
+      confere(
+        "escolher dois não encolhe o carrossel do fim da página",
+        (await noCarrossel()).length === vitrine.length,
+        `antes ${vitrine.length}, agora ${(await noCarrossel()).length}`
       )
 
-      await gravar({ ...antes, combinada: { produtos: ["nao-existe-este-handle"] } })
-      confere(
-        "escolha que aponta pra produto inexistente cai no automático",
-        (await automatico()).length > 1
-      )
+      await gravar({ ...antes, combinada: { produtos: ["nao-existe-este-handle", "oleo-para-barba"] } })
+      await abrir(COM_CONTEUDO)
+      confere("handle que não existe mais sai da oferta, o resto fica", (await noJunto()).length === 1)
 
-      /* ── kits: a chave só desliga ── */
+      /* ── o clique leva o que foi marcado, na MESMA ida ───────────────── */
+      await gravar({ ...antes, combinada: { produtos: DOIS } })
+      /* Sacola nova: sem isto o teste conta o que sobrou de rodadas passadas. */
+      await contexto.clearCookies()
+      await abrir(COM_CONTEUDO)
+      await pagina.check(".junto__lista li:first-child input")
+      await pagina.click(".compra__comprar")
+      await pagina.waitForSelector(".sacolinha__item", { timeout: 20_000 })
+      await pagina.waitForTimeout(600)
+      const naSacola = await pagina.$$eval(".sacolinha__nome", (n) =>
+        n.map((e) => e.textContent.trim())
+      )
+      confere(
+        "marcar um e comprar leva os DOIS pra sacola",
+        naSacola.length === 2,
+        naSacola.join(" | ")
+      )
+      await contexto.clearCookies()
+
+      /* ── kits: a chave esconde OS DEGRAUS, não a compra ──────────────── */
       await gravar({ ...antes, combinada: { kits: false } })
       await abrir(COM_CONTEUDO)
-      confere("kits desligados somem da dobra", (await pagina.$$(".degrau, [data-degrau]")).length <= 1)
+      confere("kits desligados somem da dobra", (await pagina.$$(".compra__kits")).length === 0)
+      /*
+        ┌─ AS TRÊS DE BAIXO SÃO UMA REGRESSÃO QUE ESCAPOU ─────────────────┐
+        │ A primeira versão da chave zerava a lista de degraus, e a        │
+        │ `Compra` faz `if (!degrau) return null`: a coluna inteira sumia  │
+        │ — preço, botão, garantias — e sobrava a foto ao lado de um vazio.│
+        │                                                                   │
+        │ A asserção que existia aqui procurava `.degrau, [data-degrau]`,  │
+        │ duas classes que NUNCA existiram no HTML (os degraus são         │
+        │ `.compra__kit`). Ela dava `0 <= 1` e passava — inclusive com a   │
+        │ página quebrada.                                                 │
+        │                                                                   │
+        │ Testar pela AUSÊNCIA de algo cobra o nome certo: seletor errado  │
+        │ torna a ausência sempre verdadeira. Por isso toda ausência aqui  │
+        │ vem acompanhada de uma presença que prova que a tela existe.     │
+        └───────────────────────────────────────────────────────────────────┘
+      */
+      confere("mas o preço continua na tela", (await pagina.$$(".compra__por")).length === 1)
+      confere("e o botão de comprar também", (await pagina.$$(".compra__comprar")).length === 1)
+      confere(
+        "e ele não está desabilitado",
+        await pagina.$eval(".compra__comprar", (e) => !e.disabled)
+      )
 
       /* lixo no metadata não derruba a PDP: a seção some, a página fica */
       const sujo = await gravar({

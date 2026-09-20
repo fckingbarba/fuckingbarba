@@ -3,7 +3,7 @@ import { Compra } from "@/components/produto/compra"
 import { Galeria, type Foto } from "@/components/produto/galeria"
 import { Migalhas, type Migalha } from "@/components/produto/migalhas"
 import { buscarProdutoPorHandle, escadaDeQuantidade, precosDe } from "@/lib/medusa"
-import { pdpDoProduto } from "@/lib/pdp"
+import { pdpDoProduto, produtosQueCombinam } from "@/lib/pdp"
 import { site } from "@/lib/site"
 
 /**
@@ -29,14 +29,27 @@ export async function Dobra({ handle }: { handle: string }) {
   const produto = await buscarProdutoPorHandle(handle)
   if (!produto) notFound()
 
-  /*
-    O degrau de quantidade é automático — sai do catálogo, pela metadata dos
-    kits. A configuração só sabe DESLIGAR: ligar não é decisão de tela, ou
-    existe kit cadastrado ou não existe. Desligado, a dobra mostra só a
-    unidade avulsa, como qualquer produto sem kit.
-  */
   const { combinada } = await pdpDoProduto(handle)
-  const degraus = combinada.kits === false ? [] : await escadaDeQuantidade(handle)
+  const escada = await escadaDeQuantidade(handle)
+
+  /*
+    DESLIGAR OS KITS TIRA OS DEGRAUS, NÃO A COMPRA.
+    
+    A primeira versão disto zerava a lista inteira — e a `Compra` faz
+    `if (!degrau) return null`, então a caixa de compra sumia junto com o
+    preço e o botão: a PDP ficava com a foto à esquerda e um vazio à direita.
+    
+    O degrau de uma unidade É o produto. O que a chave esconde são os de
+    duas e três; com um só na lista, a `Compra` já não desenha a escolha
+    ("Quantos frascos" precisa de mais de uma opção pra existir).
+  */
+  const degraus = combinada.kits === false ? escada.filter((d) => d.unidades === 1) : escada
+
+  /*
+    Os produtos que combinam, pra caixa de compra. Vêm resolvidos aqui — a
+    `Compra` roda no navegador e não fala com o Medusa.
+  */
+  const combinam = await produtosQueCombinam(combinada.produtos ?? [], handle)
   const precos = precosDe(produto)
   const variante = produto.variants?.[0]
 
@@ -106,6 +119,7 @@ export async function Dobra({ handle }: { handle: string }) {
               nome={produto.title}
               foto={produto.thumbnail ?? fotos[0]?.url ?? null}
               degraus={degraus}
+              combinam={combinam}
               precoCheio={precos?.cheio ?? null}
               estoque={estoque}
             />

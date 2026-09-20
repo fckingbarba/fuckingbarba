@@ -1,7 +1,7 @@
 import "server-only"
 import type { ConteudoDaPdp } from "@/conteudo/produto"
 import type { AjusteDeLayout } from "@/lib/secoes/layout"
-import { buscarProdutoPorHandle } from "./medusa"
+import { buscarProdutoPorHandle, precosDe, temEstoque } from "./medusa"
 
 /**
  * O CONTEÚDO EDITORIAL DA PDP, lido do produto no Medusa.
@@ -128,4 +128,51 @@ export async function lerFundos(handle: string): Promise<Record<string, FundoDaS
 export async function pdpDoProduto(handle: string): Promise<Pdp> {
   const produto = await buscarProdutoPorHandle(handle)
   return produto ? lerPdp(produto.metadata) : PDP_VAZIA
+}
+
+/* ── os produtos que combinam ────────────────────────────────────────────
+ *
+ * Resolve os handles escolhidos no admin em produto, preço e variante —
+ * tudo o que a caixa de compra precisa pra oferecer "leve junto" sem falar
+ * com o Medusa de dentro do navegador.
+ *
+ * Handle que não existe mais, produto sem preço e produto sem estoque saem
+ * da lista em silêncio. São três maneiras de a oferta virar frustração: a
+ * pessoa marca, clica em comprar e leva um erro — depois de já ter decidido.
+ */
+export type ProdutoQueCombina = {
+  handle: string
+  nome: string
+  foto: string | null
+  varianteId: string
+  preco: number
+}
+
+export async function produtosQueCombinam(
+  handles: string[],
+  proprio: string
+): Promise<ProdutoQueCombina[]> {
+  if (!handles.length) return []
+
+  const achados = await Promise.all(
+    handles.filter((h) => h && h !== proprio).map((h) => buscarProdutoPorHandle(h))
+  )
+
+  return achados.flatMap((p) => {
+    if (!p?.handle) return []
+    const precos = precosDe(p)
+    const variante = (p.variants ?? []).find((v) => temEstoque(v)) ?? p.variants?.[0]
+    if (!precos || !variante || !temEstoque(variante)) return []
+    return [
+      {
+        handle: p.handle,
+        nome: p.title,
+        /* A capa, ou a primeira foto se ninguém marcou capa no admin. São
+           dois campos diferentes no Medusa e é comum ter um sem o outro. */
+        foto: p.thumbnail ?? p.images?.[0]?.url ?? null,
+        varianteId: variante.id,
+        preco: precos.atual,
+      },
+    ]
+  })
 }

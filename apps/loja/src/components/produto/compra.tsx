@@ -12,12 +12,13 @@ import {
   Triangulo,
 } from "@/components/icones"
 import { EVENTO_SACOLA } from "@/components/sacola/contexto"
-import { adicionar } from "@/lib/acoes/carrinho"
+import { adicionar, adicionarVarios } from "@/lib/acoes/carrinho"
 import type { CarrinhoVisivel } from "@/lib/carrinho-visivel"
 import { emReais } from "@/lib/formato"
 import type { DegrauDeQuantidade } from "@/lib/medusa"
 import { useFrete } from "@/components/configuracoes/contexto"
 import { frasesDoFrete } from "@/lib/configuracoes"
+import type { ProdutoQueCombina } from "@/lib/pdp"
 import { PARCELA_MINIMA, PARCELAS_SEM_JUROS } from "@/lib/site"
 
 /**
@@ -44,12 +45,15 @@ export function Compra({
   nome,
   foto,
   degraus,
+  combinam,
   precoCheio,
   estoque,
 }: {
   nome: string
   foto: string | null
   degraus: readonly DegrauDeQuantidade[]
+  /** Os produtos escolhidos no admin pra "leve junto". Vazio = não aparece. */
+  combinam: readonly ProdutoQueCombina[]
   /** O riscado, quando existe promoção valendo no degrau de 1 unidade. */
   precoCheio: number | null
   /** Unidades restantes do avulso, quando o Medusa controla estoque. */
@@ -57,6 +61,7 @@ export function Compra({
 }) {
   const frases = frasesDoFrete(useFrete())
   const [escolhido, setEscolhido] = useState(0)
+  const [juntos, setJuntos] = useState<Set<string>>(new Set())
   const [quantidade, setQuantidade] = useState(1)
   const [recado, setRecado] = useState<{ tipo: "ok" | "erro"; texto: string } | null>(null)
   const [enviando, comecar] = useTransition()
@@ -79,12 +84,29 @@ export function Compra({
   function comprar() {
     setRecado(null)
     comecar(async () => {
-      const r = await adicionar(degrau.varianteId, quantidade)
+      /*
+        UMA IDA SÓ pro servidor, com tudo que foi marcado. Duas chamadas
+        (o produto, depois os que combinam) dariam a chance de a primeira
+        passar e a segunda falhar — e aí a sacola fica com metade do que a
+        pessoa pediu, sem ela saber qual metade.
+      */
+      const marcados = combinam.filter((c) => juntos.has(c.varianteId))
+      const r = marcados.length
+        ? await adicionarVarios([
+            { varianteId: degrau.varianteId, quantidade },
+            ...marcados.map((c) => ({ varianteId: c.varianteId, quantidade: 1 })),
+          ])
+        : await adicionar(degrau.varianteId, quantidade)
+
       if (!r.ok) {
         setRecado({ tipo: "erro", texto: r.erro })
         return
       }
-      setRecado({ tipo: "ok", texto: "Na sacola." })
+      setRecado({
+        tipo: "ok",
+        texto: marcados.length ? `Na sacola, com ${marcados.length === 1 ? "o item" : "os itens"} que combinam.` : "Na sacola.",
+      })
+      setJuntos(new Set())
       avisarSacola(r.carrinho)
     })
   }
@@ -162,6 +184,27 @@ export function Compra({
             setEscolhido(i)
             setRecado(null)
           }}
+        />
+      ) : null}
+
+      {/*
+        DEPOIS dos degraus e ANTES do botão, nunca antes dos degraus: "quantos
+        frascos deste" é a decisão principal, e oferecer outro produto no meio
+        dela é interromper quem já estava comprando. Aqui a oferta pega a
+        pessoa com a escolha feita e o botão à vista.
+      */}
+      {combinam.length ? (
+        <LeveJunto
+          itens={combinam}
+          marcados={juntos}
+          aoAlternar={(id) =>
+            setJuntos((s) => {
+              const novo = new Set(s)
+              if (novo.has(id)) novo.delete(id)
+              else novo.add(id)
+              return novo
+            })
+          }
         />
       ) : null}
 
@@ -292,6 +335,63 @@ function limita(n: number) {
  * preço por frasco, que a própria tela mostra ao lado. "Mais vendido" seria
  * afirmação sobre fato — e das que o cliente confere.
  */
+/**
+ * LEVE JUNTO — o cross-sell dentro da caixa de compra.
+ *
+ * Fica ao lado do preço e vai no MESMO clique do "Comprar", e não numa
+ * vitrine lá embaixo. A diferença não é de lugar, é de momento: quem está
+ * escolhendo quantos frascos levar já decidiu comprar, e é ali que somar um
+ * item custa uma caixinha marcada. Uma vitrine no fim da página pede uma
+ * segunda decisão, depois de a pessoa já ter rolado pra longe do botão.
+ *
+ * As caixas nascem DESMARCADAS. Marcada por padrão vende mais e é a prática
+ * que o cliente descobre no carrinho — e aí ele não confere só aquele item,
+ * confere a loja inteira.
+ *
+ * Preço à vista, do jeito que o Medusa devolve: quem escolhe aqui está
+ * somando ao total que já está na tela, e um preço "a partir de" obrigaria
+ * a refazer a conta de cabeça.
+ */
+function LeveJunto({
+  itens,
+  marcados,
+  aoAlternar,
+}: {
+  itens: readonly ProdutoQueCombina[]
+  marcados: Set<string>
+  aoAlternar: (varianteId: string) => void
+}) {
+  return (
+    <fieldset className="junto">
+      <legend className="junto__titulo">
+        <Raio />
+        Leve junto
+      </legend>
+
+      <ul className="junto__lista">
+        {itens.map((item) => (
+          <li key={item.varianteId}>
+            <label className="junto__item">
+              <input
+                type="checkbox"
+                checked={marcados.has(item.varianteId)}
+                onChange={() => aoAlternar(item.varianteId)}
+              />
+              {item.foto ? (
+                <Image src={item.foto} alt="" width={44} height={44} sizes="44px" />
+              ) : (
+                <span className="junto__sem-foto" aria-hidden="true" />
+              )}
+              <span className="junto__nome">{item.nome}</span>
+              <span className="junto__preco">{emReais(item.preco)}</span>
+            </label>
+          </li>
+        ))}
+      </ul>
+    </fieldset>
+  )
+}
+
 function Degraus({
   degraus,
   escolhido,

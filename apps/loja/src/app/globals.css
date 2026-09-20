@@ -50,6 +50,8 @@
 @import "../estilos/pdp-duvidas.css";
 @import "../estilos/pdp-avaliacoes.css";
 @import "../estilos/pdp-relacionados.css";
+/* Escrito à mão (não sai do agrupa-pdp.py): o cross-sell na caixa de compra. */
+@import "../estilos/pdp-junto.css";
 
 /* Escrito à mão: o que a loja diz quando a ação vai pro servidor e volta.
    O protótipo não tinha backend, então não tinha o que dizer. */
