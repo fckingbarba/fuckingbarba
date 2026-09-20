@@ -146,6 +146,67 @@ ok(novas === unidades + 1, `"+" subiu no Medusa (${unidades} → ${novas})`)
 ok((await numeroNoCabecalho()).trim() === String(novas), "e o cabeçalho acompanhou")
 
 /* ------------------------------------------------------------------ */
+titulo("A ESPERA — o que a tela diz enquanto o Medusa recalcula")
+
+/*
+ * Atrasa a próxima server action de propósito. É a única forma de medir o
+ * que a pessoa vê no meio do caminho: numa rede boa a resposta chega em
+ * 300 ms e o defeito — clicar e não acontecer nada — fica invisível pra
+ * quem testa no localhost.
+ */
+let segurar = true
+await pagina.route("**/produtos/**", async (rota) => {
+  if (segurar && rota.request().method() === "POST") {
+    await new Promise((r) => setTimeout(r, 1800))
+  }
+  await rota.continue()
+})
+
+const qtdNaTela = () => pagina.locator(".sacolinha__numero").first().innerText()
+const totalNaGaveta = () => pagina.locator(".sacolinha__soma-valor").innerText()
+const totalDaLinha = () => pagina.locator(".sacolinha__parcial").first().innerText()
+
+const qtdAntes = Number(await qtdNaTela())
+const totalAntes = await totalNaGaveta()
+const linhaAntes = await totalDaLinha()
+
+await pagina.locator('.sacolinha__passo[aria-label^="Aumentar"]').first().click()
+await pagina.waitForTimeout(250) // bem antes dos 1800 ms da resposta
+
+ok(
+  Number(await qtdNaTela()) === qtdAntes + 1,
+  `a quantidade sobe na hora, sem esperar o servidor (${qtdAntes} → ${await qtdNaTela()})`
+)
+ok(
+  (await gaveta().getAttribute("data-ocupada")) !== null,
+  "a gaveta se marca como ocupada"
+)
+ok((await gaveta().getAttribute("aria-busy")) === "true", "e diz aria-busy pra quem não vê")
+ok(
+  (await pagina.locator(".sacolinha__item[data-mexendo]").count()) === 1,
+  "só a linha mexida fica marcada, não a sacola inteira"
+)
+ok(
+  (await totalDaLinha()) !== linhaAntes,
+  `o total da LINHA acompanha — é o unitário vezes a quantidade (${linhaAntes} → ${await totalDaLinha()})`
+)
+ok(
+  (await totalNaGaveta()) === totalAntes,
+  `o total do CARRINHO não é chutado: segue o do servidor (${totalAntes})`
+)
+
+// e quando a resposta chega, tudo volta ao normal
+await pagina.waitForFunction(
+  () => !document.querySelector(".sacolinha")?.hasAttribute("data-ocupada"),
+  null,
+  { timeout: 8000 }
+)
+ok(true, "e o estado de espera sai sozinho quando a resposta chega")
+ok((await totalNaGaveta()) !== totalAntes, `aí o total muda (${await totalNaGaveta()})`)
+
+segurar = false
+
+/* ------------------------------------------------------------------ */
 titulo("TECLADO")
 
 await pagina.keyboard.press("Escape")

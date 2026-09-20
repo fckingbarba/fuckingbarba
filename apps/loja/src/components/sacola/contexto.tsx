@@ -2,10 +2,10 @@
 
 import {
   createContext,
-  useCallback,
   useContext,
   useEffect,
   useMemo,
+  useOptimistic,
   useState,
   useTransition,
   type ReactNode,
@@ -34,11 +34,67 @@ import { CARRINHO_VAZIO, type CarrinhoVisivel } from "@/lib/carrinho-visivel"
  * estática.
  */
 
+/**
+ * O QUE MUDA NA HORA, E O QUE ESPERA O SERVIDOR
+ *
+ * Mexer na sacola custa uma ida ao Medusa — uns 300 ms num dia bom. Sem
+ * nada na tela nesse intervalo, clicar em "+" parece não ter funcionado, e a
+ * segunda reação de todo mundo é clicar de novo.
+ *
+ * A divisão é essa, e ela não é arbitrária:
+ *
+ *   QUANTIDADE muda na hora. É a própria pessoa ecoada de volta — ela sabe
+ *   o que 2 vira quando aperta "+", e esperar meio segundo pra ver o 3 é
+ *   latência à toa. Some a linha inteira na hora, também, quando é remoção.
+ *
+ *   O TOTAL DA LINHA acompanha, porque é multiplicação de dois números que
+ *   já estão na tela — o unitário está escrito ali mesmo, "R$ 149,90 cada".
+ *   Não acompanhar seria pior que esperar: mostraria R$ 149,90 ao lado de
+ *   uma quantidade 2, um número visivelmente errado só que esmaecido.
+ *
+ *   O TOTAL DO CARRINHO ESPERA. Ele não é multiplicação: é onde entram
+ *   promoção, piso de frete grátis e cupom. Dava pra somar as linhas e
+ *   acertar quase sempre — e "quase sempre" quebra exatamente onde tem
+ *   desconto, que é onde o cliente mais olha. Um número que pula duas vezes
+ *   é pior que um número que demora 300 ms, e a loja inteira foi escrita em
+ *   cima da regra de que quem faz conta de dinheiro é o Medusa.
+ */
+type Mudanca =
+  { tipo: "quantidade"; linhaId: string; quantidade: number } | { tipo: "remover"; linhaId: string }
+
+function prever(carrinho: CarrinhoVisivel, m: Mudanca): CarrinhoVisivel {
+  const itens =
+    m.tipo === "remover"
+      ? carrinho.itens.filter((i) => i.id !== m.linhaId)
+      : carrinho.itens.map((i) =>
+          i.id === m.linhaId
+            ? // O total DA LINHA acompanha, e isso não é chutar preço: é
+              // multiplicar dois números que já estão na tela, sendo que o
+              // unitário está escrito logo acima ("R$ 149,90 cada"). Deixar
+              // ele parado mostraria 149,90 ao lado de uma quantidade 2 —
+              // um número visivelmente errado, só que esmaecido.
+              { ...i, quantidade: m.quantidade, total: i.precoUnitario * m.quantidade }
+            : i
+        )
+
+  return {
+    ...carrinho,
+    itens,
+    unidades: itens.reduce((soma, i) => soma + i.quantidade, 0),
+    // O SUBTOTAL E O TOTAL DO CARRINHO ficam como estavam: são do servidor,
+    // e a gaveta os mostra esmaecidos enquanto `ocupada` for true. A conta
+    // deles não é multiplicação — é onde entram promoção, piso de frete
+    // grátis e cupom, e é justamente onde um palpite erraria.
+  }
+}
+
 type Sacola = {
   carrinho: CarrinhoVisivel
   aberta: boolean
-  /** true enquanto uma ação está em voo — a gaveta usa pra travar os botões */
+  /** true enquanto uma ação está em voo — trava os botões e esmaece o dinheiro */
   ocupada: boolean
+  /** a linha em que a pessoa acabou de mexer, pra ela mostrar que está ocupada */
+  mexendo: string | null
   erro: string | null
   abrir: () => void
   fechar: () => void
@@ -56,7 +112,9 @@ const Contexto = createContext<Sacola | null>(null)
 export const EVENTO_SACOLA = "sacola:mudou"
 
 export function ProvedorDaSacola({ children }: { children: ReactNode }) {
-  const [carrinho, setCarrinho] = useState<CarrinhoVisivel>(CARRINHO_VAZIO)
+  const [confirmado, setConfirmado] = useState<CarrinhoVisivel>(CARRINHO_VAZIO)
+  const [carrinho, prevendo] = useOptimistic(confirmado, prever)
+  const [mexendo, setMexendo] = useState<string | null>(null)
   const [aberta, setAberta] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [ocupada, comecar] = useTransition()
@@ -70,7 +128,7 @@ export function ProvedorDaSacola({ children }: { children: ReactNode }) {
   useEffect(() => {
     let vivo = true
     sincronizar()
-      .then((c) => vivo && setCarrinho(c))
+      .then((c) => vivo && setConfirmado(c))
       .catch(() => {})
     return () => {
       vivo = false
@@ -83,7 +141,7 @@ export function ProvedorDaSacola({ children }: { children: ReactNode }) {
     function aoMudar(e: Event) {
       const novo = (e as CustomEvent<CarrinhoVisivel>).detail
       if (!novo) return
-      setCarrinho(novo)
+      setConfirmado(novo)
       setErro(null)
       setAberta(true)
     }
@@ -112,29 +170,46 @@ export function ProvedorDaSacola({ children }: { children: ReactNode }) {
     return () => document.documentElement.classList.remove("carrinho-aberto")
   }, [aberta])
 
-  const aplicar = useCallback(
-    (promessa: Promise<{ ok: boolean; carrinho: CarrinhoVisivel; erro?: string }>) => {
-      comecar(async () => {
-        const r = await promessa
-        setCarrinho(r.carrinho)
-        setErro(r.ok ? null : (r.erro ?? null))
-      })
-    },
-    []
-  )
+  /**
+   * A previsão e a chamada vão na MESMA transição — é o que faz o React
+   * segurar a previsão até a resposta chegar e só então trocar pelo real.
+   * Fora da transição, ela seria descartada no próximo render e o número
+   * voltaria sozinho antes da hora.
+   */
+  function aplicar(
+    mudanca: Mudanca,
+    chamar: () => Promise<{ ok: boolean; carrinho: CarrinhoVisivel; erro?: string }>
+  ) {
+    setErro(null)
+    setMexendo(mudanca.linhaId)
+    comecar(async () => {
+      prevendo(mudanca)
+      const r = await chamar()
+      setConfirmado(r.carrinho)
+      setErro(r.ok ? null : (r.erro ?? null))
+      setMexendo(null)
+    })
+  }
 
   const valor = useMemo<Sacola>(
     () => ({
       carrinho,
       aberta,
       ocupada,
+      mexendo,
       erro,
       abrir: () => setAberta(true),
       fechar: () => setAberta(false),
-      mudar: (linhaId, quantidade) => aplicar(mudarQuantidade(linhaId, quantidade)),
-      tirar: (linhaId) => aplicar(remover(linhaId)),
+      mudar: (linhaId, quantidade) =>
+        quantidade <= 0
+          ? aplicar({ tipo: "remover", linhaId }, () => remover(linhaId))
+          : aplicar({ tipo: "quantidade", linhaId, quantidade }, () =>
+              mudarQuantidade(linhaId, quantidade)
+            ),
+      tirar: (linhaId) => aplicar({ tipo: "remover", linhaId }, () => remover(linhaId)),
     }),
-    [carrinho, aberta, ocupada, erro, aplicar]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [carrinho, aberta, ocupada, mexendo, erro]
   )
 
   return <Contexto.Provider value={valor}>{children}</Contexto.Provider>

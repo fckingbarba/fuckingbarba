@@ -63,7 +63,7 @@ export function Gaveta() {
 
   if (!sacola) return null
 
-  const { carrinho, ocupada, erro, fechar, mudar, tirar } = sacola
+  const { carrinho, ocupada, mexendo, erro, fechar, mudar, tirar } = sacola
   const vazia = carrinho.itens.length === 0
 
   return (
@@ -89,6 +89,14 @@ export function Gaveta() {
         aria-labelledby="carrinho-titulo"
         inert={!aberta}
         data-vazio={vazia ? "" : undefined}
+        /*
+          `data-ocupada` é o que esmaece o dinheiro enquanto o Medusa
+          recalcula, e `aria-busy` conta a mesma coisa pra quem não vê a
+          tela. Quantidade já mudou; o que está "carregando" aqui é só o
+          valor.
+        */
+        data-ocupada={ocupada ? "" : undefined}
+        aria-busy={ocupada || undefined}
       >
         <div className="sacolinha__topo">
           <h2 className="sacolinha__titulo" id="carrinho-titulo">
@@ -122,7 +130,11 @@ export function Gaveta() {
         <div className="sacolinha__corpo">
           <ul className="sacolinha__lista">
             {carrinho.itens.map((item) => (
-              <li className="sacolinha__item" key={item.id}>
+              <li
+                className="sacolinha__item"
+                key={item.id}
+                data-mexendo={mexendo === item.id ? "" : undefined}
+              >
                 {item.imagem ? (
                   <Link
                     className="sacolinha__foto"

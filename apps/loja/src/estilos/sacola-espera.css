@@ -1,0 +1,108 @@
+/*
+  A ESPERA DA SACOLA — o que a tela faz nos 300 ms em que o Medusa recalcula.
+
+  Escrito à mão: o protótipo não falava com servidor nenhum, então lá o "+"
+  respondia no mesmo quadro e não existia espera pra desenhar.
+
+  A DIVISÃO É A MESMA DO `contexto.tsx`, e é ela que dá o desenho:
+
+    quantidade e total da linha já mudaram — o número que a pessoa pediu e a
+      multiplicação dele pelo unitário que está logo acima. Não é
+      "carregando", é feito;
+
+    o total do carrinho está recalculando — ele, a parcela e o medidor de
+      frete são do servidor (é onde entram promoção e piso de frete), então
+      esmaecem e pulsam até a resposta chegar.
+
+  Por que esmaecer em vez de trocar por um ponto-ponto-ponto: o valor antigo
+  continua sendo a referência de quem está olhando ("era 309,70"), e trocar
+  o texto por outro de largura diferente faz o pé da gaveta pular. Pulso sem
+  troca de conteúdo diz "isto está mudando" sem mexer no layout.
+
+  `prefers-reduced-motion` desliga o pulso e deixa só o esmaecido — o recado
+  continua de pé pra quem pediu menos movimento.
+*/
+
+/* --- o dinheiro que está sendo recalculado ------------------------------ */
+
+.sacolinha[data-ocupada] .sacolinha__soma-valor,
+.sacolinha[data-ocupada] .sacolinha__parcela,
+.sacolinha[data-ocupada] .sacolinha__frete-texto,
+.sacolinha[data-ocupada] .sacolinha__frete-trilho {
+  opacity: 0.45;
+  animation: sacolaPulsa 1s ease-in-out infinite;
+  transition: opacity 0.15s ease;
+}
+
+@keyframes sacolaPulsa {
+  50% {
+    opacity: 0.75;
+  }
+}
+
+/* --- a linha em que a pessoa mexeu -------------------------------------- */
+
+/*
+  Só a linha mexida ganha o tratamento. Esmaecer a sacola inteira faria
+  parecer que tudo parou, quando o que mudou foi uma linha só.
+*/
+.sacolinha__item[data-mexendo] {
+  position: relative;
+}
+
+/*
+  A barrinha que corre em cima da linha. É `::after` sobre a borda de baixo,
+  com a menta da marca — não é spinner genérico, e não ocupa espaço nenhum
+  no fluxo, então a linha não muda de altura ao começar e terminar.
+*/
+.sacolinha__item[data-mexendo]::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -1px;
+  height: 3px;
+  width: 40%;
+  background: var(--color-menta);
+  animation: sacolaCorre 0.9s var(--ease-suave) infinite;
+}
+
+@keyframes sacolaCorre {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(250%);
+  }
+}
+
+/*
+  Os passos de quantidade continuam legíveis enquanto travados: `disabled`
+  sozinho deixa o botão com cara de quebrado, e ele não está quebrado — está
+  esperando. Cursor de espera diz isso melhor que cinza.
+*/
+.sacolinha[data-ocupada] .sacolinha__passo,
+.sacolinha[data-ocupada] .sacolinha__tira {
+  cursor: progress;
+}
+
+.sacolinha[data-ocupada] .sacolinha__passo:disabled,
+.sacolinha[data-ocupada] .sacolinha__tira:disabled {
+  opacity: 0.55;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sacolinha[data-ocupada] .sacolinha__soma-valor,
+  .sacolinha[data-ocupada] .sacolinha__parcela,
+  .sacolinha[data-ocupada] .sacolinha__frete-texto,
+  .sacolinha[data-ocupada] .sacolinha__frete-trilho,
+  .sacolinha__item[data-mexendo]::after {
+    animation: none;
+  }
+
+  /* Sem o pulso, a barrinha vira um traço parado na largura toda: ainda
+     marca qual linha está esperando, sem nada se mexendo. */
+  .sacolinha__item[data-mexendo]::after {
+    width: 100%;
+    opacity: 0.6;
+  }
+}

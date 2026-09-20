@@ -25,6 +25,9 @@
 @import "../estilos/fechamento.css";
 
 @import "../estilos/sacola.css";
+/* A espera: o que a gaveta faz enquanto o Medusa recalcula. Escrito à mão —
+   o protótipo não tinha servidor, então não tinha espera pra desenhar. */
+@import "../estilos/sacola-espera.css";
 
 /* Página de produto. Gerados por ferramentas/porte/pdp-partes/agrupa-pdp.py;
    um arquivo por seção, na mesma ordem em que a página os monta. */
