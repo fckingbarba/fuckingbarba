@@ -311,6 +311,78 @@ try {
       }
     }
 
+    /**
+     * OS TRÊS CARTÕES DE QUANTIDADE SÃO UMA GRADE SÓ.
+     *
+     * Cada cartão é `subgrid` de cinco linhas compartilhadas, então bolinha,
+     * nome, preço e tarja ficam na mesma altura nos três mesmo que um tenha
+     * fita e outro não, ou um tenha duas linhas de descrição e outro uma.
+     *
+     * Antes disso a fita — que só um cartão ganha — empurrava o conteúdo
+     * DAQUELE cartão uns 30px pra baixo. Como o desencontro é de poucos
+     * pixels e não quebra nada, ele passa por revisão de código e por
+     * screenshot em tamanho pequeno; quem vê é o cliente, na tela cheia.
+     * Por isso vira medida, e não olhar.
+     *
+     * A tolerância de 3px é o cartão marcado, que sobe 2px de propósito
+     * (`transform: translate(-2px, -2px)` — a sombra dura da marca).
+     */
+    async function conferirAlinhamento() {
+      const FOLGA = 3
+      for (const largura of [1440, 400]) {
+        const aba = await contexto.newPage()
+        await aba.setViewportSize({ width: largura, height: 900 })
+        await aba.goto(`${LOJA}/produtos/${COM_CONTEUDO}?_=${Date.now()}`, {
+          waitUntil: "networkidle",
+        })
+        await aba.waitForTimeout(500)
+
+        const medir = (seletor) =>
+          aba.$$eval(seletor, (n) =>
+            n.map((e) => {
+              const r = e.getBoundingClientRect()
+              return { topo: Math.round(r.top), alt: Math.round(r.height) }
+            })
+          )
+        const espalhamento = (v) => Math.max(...v) - Math.min(...v)
+
+        const cartoes = await medir(".compra__kit")
+        confere(
+          `${largura}px · os três cartões têm a mesma altura`,
+          cartoes.length === 3 && espalhamento(cartoes.map((c) => c.alt)) === 0,
+          JSON.stringify(cartoes)
+        )
+
+        for (const [nome, seletor] of [
+          ["a bolinha", ".compra__kit input"],
+          ["o nome", ".compra__kit-nome"],
+          ["o preço", ".compra__kit-preco"],
+        ]) {
+          const caixas = await medir(seletor)
+          confere(
+            `${largura}px · ${nome} na mesma altura nos três`,
+            caixas.length === 3 && espalhamento(caixas.map((c) => c.topo)) <= FOLGA,
+            JSON.stringify(caixas)
+          )
+        }
+        await aba.close()
+      }
+
+      /* A linha de apoio do avulso é do admin, e o avulso não tem de onde
+         tirar sozinho: o `subtitle` dele descreve o produto, não a
+         quantidade. Sem esta, o campo poderia sumir do contrato sem que
+         nada reclamasse — só o cartão voltaria a ficar vazio. */
+      await abrir(COM_CONTEUDO)
+      const apoio = await pagina.$$eval(".compra__kit-abaixo", (n) =>
+        n.map((e) => e.textContent?.trim() ?? "")
+      )
+      confere(
+        "a linha escrita no admin aparece embaixo de '1 frasco'",
+        apoio[0] === "1 mês de uso",
+        apoio.join(" | ")
+      )
+    }
+
     try {
       /* título novo aparece na tela */
       const MARCA = `TESTE ${Date.now()}`
@@ -451,6 +523,10 @@ try {
       /* ── a tarja de frete: nos kits e nos que combinam ───────────────── */
       await gravar({ ...antes, combinada: { produtos: DOIS } })
       await conferirTarjas()
+
+      /* ── os três cartões de quantidade formam uma grade só ───────────── */
+      await gravar({ ...antes, combinada: { notaDoAvulso: "1 mês de uso", produtos: DOIS } })
+      await conferirAlinhamento()
 
       /* ── kits: a chave esconde OS DEGRAUS, não a compra ──────────────── */
       await gravar({ ...antes, combinada: { kits: false } })

@@ -43,7 +43,20 @@ export async function Dobra({ handle }: { handle: string }) {
     duas e três; com um só na lista, a `Compra` já não desenha a escolha
     ("Quantos frascos" precisa de mais de uma opção pra existir).
   */
-  const degraus = combinada.kits === false ? escada.filter((d) => d.unidades === 1) : escada
+  const visiveis = combinada.kits === false ? escada.filter((d) => d.unidades === 1) : escada
+
+  /*
+    A LINHA DE APOIO DO AVULSO vem do admin, e não do `subtitle` do produto.
+
+    Os kits pegam a deles do próprio `subtitle` ("Dois meses de tratamento,
+    com frete por nossa conta") porque um kit só existe como quantidade. O
+    avulso não: o `subtitle` dele diz o que o PRODUTO é ("Crescimento,
+    densidade e preenchimento"), e isso embaixo de "1 frasco" responde outra
+    pergunta — em três linhas, num cartão de 150px.
+  */
+  const degraus = combinada.notaDoAvulso
+    ? visiveis.map((d) => (d.unidades === 1 ? { ...d, nota: combinada.notaDoAvulso! } : d))
+    : visiveis
 
   /*
     Os produtos que combinam, pra caixa de compra. Vêm resolvidos aqui — a

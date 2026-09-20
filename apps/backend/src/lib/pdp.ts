@@ -115,6 +115,20 @@ export type Fundo = {
 export type VendaCombinada = {
   /** `false` esconde os kits de quantidade neste produto. */
   kits?: boolean
+  /**
+   * A linha embaixo de "1 frasco" no cartão de quantidade.
+   *
+   * Os kits pegam a deles do `subtitle` do próprio kit ("Dois meses de
+   * tratamento…"), porque um kit só existe como quantidade. O avulso não
+   * pode: o `subtitle` dele é o que o PRODUTO é ("Crescimento, densidade e
+   * preenchimento"), e isso embaixo de "1 frasco" responde a pergunta
+   * errada — e em três linhas.
+   *
+   * Sem esta linha o primeiro cartão fica com um buraco do tamanho da
+   * descrição dos outros dois. O texto é curto de propósito: "1 mês de
+   * uso", "Pra experimentar".
+   */
+  notaDoAvulso?: string
   /** Handles escolhidos a dedo. Vazio = automático. */
   produtos?: string[]
 }
@@ -131,8 +145,7 @@ export const PDP_VAZIA: Pdp = { conteudo: {}, layout: {}, fundos: {}, combinada:
 
 /* ── leitura defensiva ─────────────────────────────────────────────────── */
 
-const txt = (v: unknown): string | null =>
-  typeof v === "string" && v.trim() ? v.trim() : null
+const txt = (v: unknown): string | null => (typeof v === "string" && v.trim() ? v.trim() : null)
 
 /** Lista de textos, sem os vazios. `null` quando não sobra nada. */
 const lista = (v: unknown): string[] | null => {
@@ -183,7 +196,13 @@ function lerTempo(v: unknown): ConteudoDaPdp["tempo"] {
 function lerFaixa(v: unknown): ConteudoDaPdp["faixa"] {
   const o = obj(v)
   if (!o) return undefined
-  const c = { chapeu: txt(o.chapeu), titulo: txt(o.titulo), texto: txt(o.texto), chamada: txt(o.chamada), fotoDe: txt(o.fotoDe) }
+  const c = {
+    chapeu: txt(o.chapeu),
+    titulo: txt(o.titulo),
+    texto: txt(o.texto),
+    chamada: txt(o.chamada),
+    fotoDe: txt(o.fotoDe),
+  }
   if (Object.values(c).some((x) => x === null)) return undefined
   return c as NonNullable<ConteudoDaPdp["faixa"]>
 }
@@ -218,7 +237,12 @@ function lerFunciona(v: unknown): ConteudoDaPdp["funciona"] {
     return undefined
   }
   return {
-    comoTitulo, comoFotoDe, comoTexto, usoTitulo, usoFotoDe, usoPassos,
+    comoTitulo,
+    comoFotoDe,
+    comoTexto,
+    usoTitulo,
+    usoFotoDe,
+    usoPassos,
     ...(txt(o.dica) ? { dica: txt(o.dica)! } : {}),
   }
 }
@@ -327,11 +351,18 @@ function lerCombinada(v: unknown): VendaCombinada {
   const produtos = Array.isArray(o.produtos)
     ? [...new Set(o.produtos.map(txt).filter((h): h is string => h !== null))]
     : []
+  const nota = txt(o.notaDoAvulso)
   return {
     ...(o.kits === false ? { kits: false } : {}),
+    /* Cortado no tamanho de uma linha: o cartão tem ~150px e um texto longo
+       empurra o preço pra baixo nos três, porque a grade é compartilhada. */
+    ...(nota ? { notaDoAvulso: nota.slice(0, LIMITE_DA_NOTA) } : {}),
     ...(produtos.length ? { produtos } : {}),
   }
 }
+
+/** Caracteres da linha de apoio do avulso. Duas linhas no cartão, no máximo. */
+export const LIMITE_DA_NOTA = 48
 
 /** Tira do `metadata` do produto a PDP, já peneirada. */
 export function lerPdp(metadata: unknown): Pdp {

@@ -3029,17 +3029,42 @@
 .compra__kits-lista {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 7px;
+  /*
+    CINCO LINHAS COMPARTILHADAS pelos três cartões — fita, bolinha, texto,
+    preço e a tarja de frete —, e cada cartão é um `subgrid` delas. É o que
+    faz "R$ 149,90" ficar na MESMA altura de "R$ 79,90" mesmo com um cartão
+    tendo três linhas de descrição e o outro nenhuma.
+
+    ┌─ O QUE ESTAVA TORTO ─────────────────────────────────────────────────┐
+    │ Cada cartão se organizava sozinho, e a fita era a primeira linha de  │
+    │ DENTRO dele. Só um cartão ganha fita (destaque que se repete deixa   │
+    │ de ser destaque) — então a bolinha DAQUELE cartão descia uns 30px e  │
+    │ os três ficavam desencontrados, justamente no cartão que a loja quer │
+    │ destacar. A `min-height` da fita foi escrita pra resolver isso e não │
+    │ resolvia: ela alinha fitas entre si, não cartão com fita contra      │
+    │ cartão sem.                                                          │
+    └───────────────────────────────────────────────────────────────────────┘
+
+    Linha vazia em TODOS os cartões colapsa pra zero: a da tarja não existe
+    no protótipo e ali não ocupa nada. E se o navegador não souber
+    `subgrid`, a declaração é ignorada e os cartões voltam a se organizar
+    sozinhos — torto como antes, nunca quebrado.
+
+    O espaço entre LINHAS é 3px (o de dentro do cartão) e entre COLUNAS é
+    7px (o entre cartões): com subgrid a mesma propriedade serve aos dois.
+  */
+  grid-template-rows: repeat(5, auto);
+  gap: 3px 7px;
 }
 
 .compra__kit {
   position: relative;
   display: grid;
+  grid-row: span 5;
+  grid-template-rows: subgrid;
   grid-template-columns: minmax(0, 1fr);
   justify-items: center;
-  align-content: start;
   text-align: center;
-  gap: 3px;
   padding: 0 7px 10px;
   border: 3px solid rgba(18, 24, 31, 0.22);
   background: var(--color-card-bg);
@@ -3071,6 +3096,7 @@
 }
 
 .compra__kit input {
+  grid-row: 2;
   width: 17px;
   height: 17px;
   margin: 6px 0 2px;
@@ -3083,6 +3109,7 @@
    altura mínima é o que mantém "1 frasco / 2 frascos / 3 frascos"
    alinhados mesmo com etiquetas de tamanhos diferentes. */
 .compra__kit-fita {
+  grid-row: 1;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3121,6 +3148,24 @@
   border-color: var(--color-text);
 }
 
+/*
+  O bloco de texto do cartão: o nome e, quando existe, a linha de apoio.
+
+  Ele ocupa a linha 3 inteira e fica COLADO NO TOPO dela. É o que põe
+  "1 frasco", "2 frascos" e "3 frascos" na mesma altura — centralizar
+  deixaria o nome do cartão sem linha de apoio descer sozinho, que é
+  justamente o desencontro que esta grade existe pra resolver.
+
+  O espaço que sobra num cartão sem linha de apoio fica ENTRE o nome e o
+  preço: é o lugar onde os outros cartões têm a descrição, então o buraco
+  diz a verdade sobre o que falta ali em vez de empurrar o preço.
+*/
+.compra__kit-texto {
+  grid-row: 3;
+  align-self: start;
+  display: block;
+}
+
 .compra__kit-nome {
   display: block;
   font-size: 0.86rem;
@@ -3129,6 +3174,7 @@
 }
 
 .compra__kit-preco {
+  grid-row: 4;
   font-size: 0.95rem;
   font-weight: 800;
   font-style: italic;

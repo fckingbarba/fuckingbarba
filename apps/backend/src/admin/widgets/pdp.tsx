@@ -1,7 +1,26 @@
 import { defineWidgetConfig } from "@medusajs/admin-sdk"
 import type { DetailWidgetProps, AdminProduct } from "@medusajs/framework/types"
-import { Button, Container, Heading, Input, Label, Switch, Text, Textarea, toast } from "@medusajs/ui"
+import {
+  Button,
+  Container,
+  Heading,
+  Input,
+  Label,
+  Switch,
+  Text,
+  Textarea,
+  toast,
+} from "@medusajs/ui"
 import { useEffect, useState } from "react"
+
+/*
+  O mesmo corte que o `lib/pdp.ts` aplica na gravação, repetido aqui pro
+  campo não deixar digitar o que o servidor vai cortar em silêncio. São dois
+  pacotes diferentes — o admin é bundle próprio —, então o número é escrito
+  dos dois lados, como em qualquer contrato de API. Quem confere que os dois
+  concordam é o `conferir-pdp.mjs`.
+*/
+const LIMITE_DA_LINHA = 48
 
 /**
  * O EDITOR DA PÁGINA DO PRODUTO, dentro da página do produto.
@@ -84,7 +103,12 @@ const SECOES: Secao[] = [
       { k: "titulo", tipo: "texto", rotulo: "Título" },
       { k: "texto", tipo: "textao", rotulo: "Texto" },
       { k: "chamada", tipo: "texto", rotulo: "Chamada do botão" },
-      { k: "fotoDe", tipo: "texto", rotulo: "Foto de", dica: "o handle do produto cuja foto vira o fundo" },
+      {
+        k: "fotoDe",
+        tipo: "texto",
+        rotulo: "Foto de",
+        dica: "o handle do produto cuja foto vira o fundo",
+      },
     ],
   },
   {
@@ -168,7 +192,11 @@ const SECOES: Secao[] = [
 type Qualquer = Record<string, unknown>
 
 const linhas = (v: unknown) => (Array.isArray(v) ? v.join("\n") : "")
-const deLinhas = (v: string) => v.split("\n").map((l) => l.trim()).filter(Boolean)
+const deLinhas = (v: string) =>
+  v
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean)
 
 type Fundo = { imagem: string; veu?: number }
 type NoCatalogo = { id: string; title: string; handle: string; thumbnail: string | null }
@@ -190,7 +218,11 @@ const PdpWidget = ({ data: produto }: DetailWidgetProps<AdminProduct>) => {
   const [conteudo, setConteudo] = useState<Qualquer>({})
   const [visibilidade, setVisibilidade] = useState<Record<string, boolean>>({})
   const [fundos, setFundos] = useState<Record<string, Fundo>>({})
-  const [combinada, setCombinada] = useState<{ kits?: boolean; produtos?: string[] }>({})
+  const [combinada, setCombinada] = useState<{
+    kits?: boolean
+    notaDoAvulso?: string
+    produtos?: string[]
+  }>({})
   const [catalogo, setCatalogo] = useState<NoCatalogo[]>([])
   const [carregando, setCarregando] = useState(true)
   const [salvando, setSalvando] = useState(false)
@@ -218,7 +250,12 @@ const PdpWidget = ({ data: produto }: DetailWidgetProps<AdminProduct>) => {
         setCatalogo(
           (products ?? [])
             .filter((p: NoCatalogo) => p.id !== produto.id && p.handle)
-            .map((p: NoCatalogo) => ({ id: p.id, title: p.title, handle: p.handle, thumbnail: p.thumbnail }))
+            .map((p: NoCatalogo) => ({
+              id: p.id,
+              title: p.title,
+              handle: p.handle,
+              thumbnail: p.thumbnail,
+            }))
         )
       )
       .catch(() => undefined)
@@ -232,7 +269,11 @@ const PdpWidget = ({ data: produto }: DetailWidgetProps<AdminProduct>) => {
     const corpo = new FormData()
     corpo.append("files", arquivo)
     try {
-      const r = await fetch("/admin/uploads", { method: "POST", credentials: "include", body: corpo })
+      const r = await fetch("/admin/uploads", {
+        method: "POST",
+        credentials: "include",
+        body: corpo,
+      })
       if (!r.ok) throw new Error(String(r.status))
       const { files } = await r.json()
       return files?.[0]?.url ?? null
@@ -273,8 +314,8 @@ const PdpWidget = ({ data: produto }: DetailWidgetProps<AdminProduct>) => {
       setFundos(pdp.fundos ?? {})
       setCombinada(pdp.combinada ?? {})
 
-      const pedidas = Object.keys(conteudo).filter(
-        (k) => Object.keys(secaoDe(k)).some((c) => String(secaoDe(k)[c] ?? "").length)
+      const pedidas = Object.keys(conteudo).filter((k) =>
+        Object.keys(secaoDe(k)).some((c) => String(secaoDe(k)[c] ?? "").length)
       )
       const recusadas = pedidas.filter((k) => !(k in pdp.conteudo))
 
@@ -310,9 +351,9 @@ const PdpWidget = ({ data: produto }: DetailWidgetProps<AdminProduct>) => {
       <div className="px-6 py-4">
         <Heading level="h2">Página do produto</Heading>
         <Text size="small" className="text-ui-fg-subtle mt-1">
-          As seções de texto da PDP. A chavinha esconde a seção sem apagar o que está escrito.
-          Seção com campo obrigatório vazio não vai pro ar — a loja prefere não desenhar a
-          desenhar um cabeçalho solto.
+          As seções de texto da PDP. A chavinha esconde a seção sem apagar o que está escrito. Seção
+          com campo obrigatório vazio não vai pro ar — a loja prefere não desenhar a desenhar um
+          cabeçalho solto.
         </Text>
       </div>
 
@@ -346,9 +387,7 @@ const PdpWidget = ({ data: produto }: DetailWidgetProps<AdminProduct>) => {
               </button>
               <Switch
                 checked={visivel}
-                onCheckedChange={(v) =>
-                  setVisibilidade((x) => ({ ...x, [secao.id]: v }))
-                }
+                onCheckedChange={(v) => setVisibilidade((x) => ({ ...x, [secao.id]: v }))}
               />
             </div>
 
@@ -401,8 +440,8 @@ const PdpWidget = ({ data: produto }: DetailWidgetProps<AdminProduct>) => {
               Kits de quantidade
             </Text>
             <Text size="xsmall" className="text-ui-fg-subtle">
-              Automático: aparece quando este produto tem kit de 2 ou 3 cadastrado. A chave só
-              serve pra esconder.
+              Automático: aparece quando este produto tem kit de 2 ou 3 cadastrado. A chave só serve
+              pra esconder.
             </Text>
           </div>
           <Switch
@@ -411,16 +450,41 @@ const PdpWidget = ({ data: produto }: DetailWidgetProps<AdminProduct>) => {
           />
         </div>
 
+        {/*
+          A linha de apoio do cartão de 1 frasco. Os kits tiram a deles do
+          subtítulo do próprio kit; o avulso não tem de onde, porque o
+          subtítulo dele descreve o produto, não a quantidade — e sem nada
+          escrito aqui o primeiro cartão fica com um buraco do tamanho da
+          descrição dos outros dois.
+        */}
+        <div className="flex flex-col gap-2">
+          <Label size="small" weight="plus">
+            Linha embaixo de &quot;1 frasco&quot;
+          </Label>
+          <Input
+            value={combinada.notaDoAvulso ?? ""}
+            maxLength={LIMITE_DA_LINHA}
+            placeholder="1 mês de uso"
+            onChange={(e) =>
+              setCombinada((c) => ({ ...c, notaDoAvulso: e.target.value || undefined }))
+            }
+          />
+          <Text size="xsmall" className="text-ui-fg-subtle">
+            Curta: ela divide o cartão com o nome e o preço. Os kits já têm a deles — é o subtítulo
+            de cada kit.
+          </Text>
+        </div>
+
         <div className="flex flex-col gap-2">
           <Label size="small" weight="plus">
             Leve junto (ao lado do preço)
           </Label>
           <Text size="xsmall" className="text-ui-fg-subtle">
             Aparecem como caixinhas na coluna de compra, e entram na sacola no mesmo clique do
-            &quot;Adicionar&quot;. Dois costuma ser o número certo — a partir do terceiro a
-            escolha vira lista e empurra o botão pra baixo da tela. Sem nenhum marcado, a
-            oferta não aparece; o carrossel do fim da página continua mostrando o resto do
-            catálogo de qualquer jeito.
+            &quot;Adicionar&quot;. Dois costuma ser o número certo — a partir do terceiro a escolha
+            vira lista e empurra o botão pra baixo da tela. Sem nenhum marcado, a oferta não
+            aparece; o carrossel do fim da página continua mostrando o resto do catálogo de qualquer
+            jeito.
           </Text>
           <div className="mt-1 flex flex-col gap-2">
             {catalogo.map((item) => {
@@ -571,9 +635,7 @@ const CampoDaSecao = ({
                 key={sub.k}
                 campo={sub as Campo}
                 valor={item[sub.k]}
-                aoMudar={(v) =>
-                  aoMudar(itens.map((x, j) => (j === i ? { ...x, [sub.k]: v } : x)))
-                }
+                aoMudar={(v) => aoMudar(itens.map((x, j) => (j === i ? { ...x, [sub.k]: v } : x)))}
               />
             ))}
             <div>
@@ -626,11 +688,7 @@ const CampoDaSecao = ({
     <div className="flex flex-col gap-1">
       {comum}
       {campo.tipo === "textao" ? (
-        <Textarea
-          rows={3}
-          value={String(valor ?? "")}
-          onChange={(e) => aoMudar(e.target.value)}
-        />
+        <Textarea rows={3} value={String(valor ?? "")} onChange={(e) => aoMudar(e.target.value)} />
       ) : (
         <Input value={String(valor ?? "")} onChange={(e) => aoMudar(e.target.value)} />
       )}

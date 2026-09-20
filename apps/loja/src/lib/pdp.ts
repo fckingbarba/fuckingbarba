@@ -34,8 +34,14 @@ export const CHAVE_NO_METADATA = "fb_pdp"
 /** A imagem de fundo de uma seção. Sem ela, a seção fica como sempre foi. */
 export type FundoDaSecao = { imagem: string; veu?: number }
 
-/** Quem aparece depois do preço. Lista vazia = automático, não vazio. */
-export type VendaCombinada = { kits?: boolean; produtos?: string[] }
+/**
+ * Quem aparece depois do preço. Lista vazia = automático, não vazio.
+ *
+ * `notaDoAvulso` é a linha embaixo de "1 frasco": os kits tiram a deles do
+ * `subtitle` do próprio kit, e o avulso não pode, porque o `subtitle` dele
+ * descreve o PRODUTO e não a quantidade.
+ */
+export type VendaCombinada = { kits?: boolean; notaDoAvulso?: string; produtos?: string[] }
 
 export type Pdp = {
   conteudo: ConteudoDaPdp
@@ -92,7 +98,9 @@ export function lerPdp(metadata: unknown): Pdp {
 
   const l = ehObjeto(raiz.layout) ? raiz.layout : {}
   const layout: AjusteDeLayout = {
-    ...(ehObjeto(l.visibilidade) ? { visibilidade: l.visibilidade as Record<string, boolean> } : {}),
+    ...(ehObjeto(l.visibilidade)
+      ? { visibilidade: l.visibilidade as Record<string, boolean> }
+      : {}),
     ...(Array.isArray(l.ordem) ? { ordem: l.ordem as string[] } : {}),
   }
 
@@ -111,6 +119,9 @@ export function lerPdp(metadata: unknown): Pdp {
   const c = ehObjeto(raiz.combinada) ? raiz.combinada : {}
   const combinada: VendaCombinada = {
     ...(c.kits === false ? { kits: false } : {}),
+    ...(typeof c.notaDoAvulso === "string" && c.notaDoAvulso.trim()
+      ? { notaDoAvulso: c.notaDoAvulso.trim() }
+      : {}),
     ...(Array.isArray(c.produtos)
       ? { produtos: c.produtos.filter((h): h is string => typeof h === "string") }
       : {}),

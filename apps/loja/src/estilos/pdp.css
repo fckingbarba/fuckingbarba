@@ -1101,16 +1101,17 @@
 .compra__kits-lista {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 7px;
+  grid-template-rows: repeat(5, auto);
+  gap: 3px 7px;
 }
 .compra__kit {
   position: relative;
   display: grid;
+  grid-row: span 5;
+  grid-template-rows: subgrid;
   grid-template-columns: minmax(0, 1fr);
   justify-items: center;
-  align-content: start;
   text-align: center;
-  gap: 3px;
   padding: 0 7px 10px;
   border: 3px solid rgba(18, 24, 31, 0.22);
   background: var(--color-papel);
@@ -1135,6 +1136,7 @@
   outline-offset: 3px;
 }
 .compra__kit input {
+  grid-row: 2;
   width: 17px;
   height: 17px;
   margin: 6px 0 2px;
@@ -1142,6 +1144,7 @@
   cursor: pointer;
 }
 .compra__kit-fita {
+  grid-row: 1;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1174,6 +1177,11 @@
 .compra__kit:has(.compra__kit-fita--campeao) {
   border-color: var(--color-tinta);
 }
+.compra__kit-texto {
+  grid-row: 3;
+  align-self: start;
+  display: block;
+}
 .compra__kit-nome {
   display: block;
   font-size: 0.86rem;
@@ -1181,6 +1189,7 @@
   line-height: 1.2;
 }
 .compra__kit-preco {
+  grid-row: 4;
   font-size: 0.95rem;
   font-weight: 800;
   font-style: italic;

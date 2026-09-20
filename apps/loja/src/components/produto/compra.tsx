@@ -583,18 +583,32 @@ function Degraus({
                 onChange={() => aoEscolher(i)}
               />
 
-              <span>
+              {/*
+                A classe não é enfeite: os cartões são `subgrid` e cada peça
+                é colocada numa linha da grade pelo nome. Sem ela o bloco de
+                texto cairia na linha da bolinha.
+              */}
+              <span className="compra__kit-texto">
                 <span className="compra__kit-nome">
                   {d.unidades} {d.unidades === 1 ? "frasco" : "frascos"}
                 </span>
                 {apoio(d) ? <span className="compra__kit-abaixo">{apoio(d)}</span> : null}
               </span>
 
+              {/*
+                O "cada" aparece em TODOS os cartões, inclusive no de uma
+                unidade, onde ele repete o preço de cima.
+
+                Parece redundância e é a régua: os kits dizem "R$ 74,95
+                cada" e essa vantagem só significa alguma coisa contra um
+                número — o do avulso. Sem ele a pessoa tem que fazer a
+                divisão de cabeça pra saber se 74,95 é bom. Com ele, a
+                coluna lê 79,90 · 74,95 · 74,30 de cima a baixo, e a escada
+                fica visível sem ninguém precisar calcular nada.
+              */}
               <span className="compra__kit-preco">
                 {emReais(d.preco)}
-                {d.unidades > 1 ? (
-                  <span className="compra__kit-unidade">{emReais(d.porUnidade)} cada</span>
-                ) : null}
+                <span className="compra__kit-unidade">{emReais(d.porUnidade)} cada</span>
               </span>
 
               {/* Embaixo do preço: é o preço que decide se a tarja aparece. */}

@@ -41,9 +41,19 @@
   flex-shrink: 0;
 }
 
-/* No cartão de kit ela fica centrada embaixo do preço, com um respiro que
-   a separa do "R$ 74,95 cada". */
+/*
+  No cartão de kit ela é a ÚLTIMA LINHA da grade — a quinta, que o
+  `.compra__kits-lista` reserva justamente pra ela (o protótipo não tinha
+  tarja, então lá aquela linha colapsa pra zero).
+
+  Estar na mesma linha nos três cartões é o que mantém as tarjas alinhadas
+  entre si, mesmo com um cartão tendo três linhas de descrição e o outro
+  nenhuma. `align-self: end` cola a tarja no pé do cartão em vez de deixá-la
+  boiando no meio da linha quando ela é a única coisa ali.
+*/
 .compra__kit .tarja-frete {
+  grid-row: 5;
+  align-self: end;
   margin-top: 5px;
 }
 
