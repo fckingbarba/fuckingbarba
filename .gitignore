@@ -61,3 +61,11 @@ __pycache__/
 
 # Redis rodando direto na raiz (fora do docker compose)
 dump.rdb
+
+# Supabase CLI.
+#
+# NÃO É SUJEIRA, É SENHA: o `supabase link` escreve `supabase/.temp/pooler-url`
+# com a string de conexão INTEIRA — usuário, host e a senha do banco em texto
+# puro. Sem esta linha, um `git add .` distraído publica a credencial de
+# produção num repositório, e a partir daí a única saída é revogar.
+supabase/.temp/
