@@ -6,7 +6,7 @@ import { Raio } from "@/components/icones"
 import { EVENTO_SACOLA } from "@/components/sacola/contexto"
 import { adicionarVarios } from "@/lib/acoes/carrinho"
 import { emReais } from "@/lib/formato"
-import { FRETE_GRATIS_ACIMA_DE } from "@/lib/site"
+import { FRETE_GRATIS_A_PARTIR_DE } from "@/lib/site"
 
 /**
  * A ESCOLHA DA ROTINA — as caixinhas, a soma e o botão.
@@ -44,8 +44,8 @@ export function RotinaEscolha({ itens }: { itens: readonly ItemEscolhivel[] }) {
   const escolhidos = itens.filter((i) => marcados.has(i.varianteId))
   const total = escolhidos.reduce((s, i) => s + i.preco, 0)
   const cheio = escolhidos.reduce((s, i) => s + (i.cheio ?? i.preco), 0)
-  const falta = Math.max(0, FRETE_GRATIS_ACIMA_DE - total)
-  const porcento = Math.min(100, Math.round((total / FRETE_GRATIS_ACIMA_DE) * 100))
+  const falta = Math.max(0, FRETE_GRATIS_A_PARTIR_DE - total)
+  const porcento = Math.min(100, Math.round((total / FRETE_GRATIS_A_PARTIR_DE) * 100))
 
   function alternar(id: string, fixo: boolean) {
     if (fixo) return

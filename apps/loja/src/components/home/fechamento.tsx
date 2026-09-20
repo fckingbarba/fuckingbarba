@@ -4,7 +4,7 @@ import { Raio } from "@/components/icones"
 import { FECHAMENTO } from "@/conteudo/home"
 import { emReais } from "@/lib/formato"
 import { buscarProdutoPorHandle } from "@/lib/medusa"
-import { FRETE_GRATIS_ACIMA_DE, parcelamento } from "@/lib/site"
+import { FRETE_GRATIS_A_PARTIR_DE, parcelamento } from "@/lib/site"
 
 /** O "check" das garantias — só aqui, não vale a pena virar ícone geral. */
 function Certo() {
@@ -36,7 +36,7 @@ export async function Fechamento() {
    * `layout/anuncio.tsx`: trocada pelo direito de arrependimento, que é lei.
    */
   const garantias = [
-    `Frete grátis acima de ${emReais(FRETE_GRATIS_ACIMA_DE)}`,
+    `Frete grátis a partir de ${emReais(FRETE_GRATIS_A_PARTIR_DE)}`,
     `${parcelamento} no cartão`,
     "7 dias pra desistir, por lei",
   ]

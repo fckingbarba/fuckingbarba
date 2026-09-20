@@ -4,7 +4,7 @@ import Link from "next/link"
 import { Carrinho } from "@/components/icones"
 import { emReais } from "@/lib/formato"
 import { precosDe } from "@/lib/medusa"
-import { FRETE_GRATIS_ACIMA_DE, PARCELA_MINIMA, PARCELAS_SEM_JUROS } from "@/lib/site"
+import { FRETE_GRATIS_A_PARTIR_DE, PARCELA_MINIMA, PARCELAS_SEM_JUROS } from "@/lib/site"
 
 /**
  * O card de produto — o mesmo na faixa de coleção e, depois, na vitrine.
@@ -13,10 +13,11 @@ import { FRETE_GRATIS_ACIMA_DE, PARCELA_MINIMA, PARCELAS_SEM_JUROS } from "@/lib
  *
  * - **o selo de desconto** só existe quando há preço cheio maior que o atual
  *   (o `original_price` da promoção). Sem promoção, sem selo;
- * - **a tarja de frete grátis** só aparece quando o produto sozinho já passa
- *   do piso. Pôr "frete grátis" num produto de R$ 54,90 quando o piso é
- *   R$ 149,90 é a mentira mais fácil de cometer numa vitrine, e a primeira
- *   que o cliente descobre no carrinho;
+ * - **a tarja de frete grátis** só aparece quando o produto sozinho já alcança
+ *   o piso — alcança, não passa: a regra do Medusa é `>=`, e o kit de 2 custa
+ *   exatamente o piso. Pôr "frete grátis" num produto de R$ 54,90 quando o
+ *   piso é R$ 149,90 é a mentira mais fácil de cometer numa vitrine, e a
+ *   primeira que o cliente descobre no carrinho;
  * - **o parcelamento** sai do preço e do número de parcelas que o rodapé
  *   promete, então os dois não têm como discordar.
  *
@@ -39,7 +40,7 @@ export function CartaoProduto({
   const desconto =
     precos?.cheio != null ? Math.round((1 - precos.atual / precos.cheio) * 100) : null
 
-  const freteGratis = precos != null && precos.atual >= FRETE_GRATIS_ACIMA_DE
+  const freteGratis = precos != null && precos.atual >= FRETE_GRATIS_A_PARTIR_DE
   const parcela = precos ? precos.atual / PARCELAS_SEM_JUROS : 0
   const mostraParcela = parcela >= PARCELA_MINIMA
 

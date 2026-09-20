@@ -19,6 +19,7 @@
     "backend:produtos": "npm run produtos -w @fuckingbarba/backend",
     "backend:kits": "npm run kits -w @fuckingbarba/backend",
     "backend:fotos": "npm run fotos -w @fuckingbarba/backend",
+    "backend:frete": "npm run frete -w @fuckingbarba/backend",
     "loja:dev": "turbo dev --filter=@fuckingbarba/loja",
     "loja:build": "turbo build --filter=@fuckingbarba/loja"
   },

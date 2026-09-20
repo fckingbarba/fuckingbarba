@@ -38,12 +38,20 @@ export const site = {
 /**
  * PROVISÓRIO — piso do frete grátis, em reais.
  *
- * Aparece na esteira de avisos, no pé do menu e (na fase 3) na barra de
- * progresso da sacola. Hoje é constante porque ainda não existe a promoção no
- * Medusa; na fase 5 vira regra de lá e este valor sai daqui, senão um dia a
- * loja cobra R$ 129,90 e o site continua prometendo R$ 149,90.
+ * Aparece na esteira de avisos, no pé do menu, na barra de progresso da sacola
+ * e na dobra da PDP. Hoje é constante porque a loja precisa mostrar o piso em
+ * páginas que nem têm carrinho ainda; quem realmente zera o frete é o Medusa,
+ * na regra `item_total >= piso` que o `apps/backend/src/scripts/frete.ts`
+ * cadastra em cada opção de entrega. Os dois números PRECISAM ser o mesmo: no
+ * dia em que divergirem, a loja promete um piso e o checkout cobra por outro.
+ *
+ * "A PARTIR DE", NÃO "ACIMA DE" — e a diferença não é firula. O kit de 2
+ * unidades custa exatamente R$ 149,90: o carrinho mais provável de encostar
+ * nesse número encosta nele em cheio. A regra do Medusa é `gte`, conferida
+ * rodando (`apps/backend/ferramentas/conferir-frete.mjs`), então o piso exato
+ * JÁ é grátis. "Acima de" descreveria errado justamente o caso mais comum.
  */
-export const FRETE_GRATIS_ACIMA_DE = 149.9
+export const FRETE_GRATIS_A_PARTIR_DE = 149.9
 
 /**
  * Atendimento. Os valores abaixo são de exemplo e precisam virar os reais

@@ -1,6 +1,6 @@
 import { Caminhao, Cartao, Escudo, EscudoCerto } from "@/components/icones"
 import { emReais } from "@/lib/formato"
-import { FRETE_GRATIS_ACIMA_DE, parcelamento } from "@/lib/site"
+import { FRETE_GRATIS_A_PARTIR_DE, parcelamento } from "@/lib/site"
 
 /**
  * A barra preta logo abaixo do banner: as quatro respostas que o visitante
@@ -16,7 +16,7 @@ const VANTAGENS = [
   {
     Icone: Caminhao,
     titulo: "Frete Grátis",
-    detalhe: `Em compras acima de ${emReais(FRETE_GRATIS_ACIMA_DE)}`,
+    detalhe: `Em compras a partir de ${emReais(FRETE_GRATIS_A_PARTIR_DE)}`,
   },
   { Icone: Cartao, titulo: parcelamento, detalhe: "No cartão de crédito" },
   { Icone: Escudo, titulo: "Loja Segura", detalhe: "Para suas compras" },

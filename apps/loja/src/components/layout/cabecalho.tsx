@@ -6,7 +6,7 @@ import { Conta, Fechar, Hamburguer, Lupa, Raio } from "@/components/icones"
 import { LogoCurta } from "@/components/marca"
 import { BotaoDaSacola } from "@/components/sacola/botao"
 import { emReais } from "@/lib/formato"
-import { EM_BREVE, FRETE_GRATIS_ACIMA_DE, navegacao, site } from "@/lib/site"
+import { EM_BREVE, FRETE_GRATIS_A_PARTIR_DE, navegacao, site } from "@/lib/site"
 
 /**
  * Cabeçalho preto fixo + menu lateral.
@@ -210,9 +210,9 @@ export function Cabecalho() {
         <p className="menu__rodape">
           <Raio />
           <span>
-            Frete grátis acima de{" "}
+            Frete grátis a partir de{" "}
             <span className="menu__rodape-valor">
-              {emReais(FRETE_GRATIS_ACIMA_DE)}
+              {emReais(FRETE_GRATIS_A_PARTIR_DE)}
               <span className="menu__rodape-ast">*</span>
             </span>
           </span>

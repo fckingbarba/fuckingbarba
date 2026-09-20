@@ -48,16 +48,51 @@ npm run typecheck    # tsc sem emitir
 npm run lint
 npm run db:migrate   # migrações + migration-scripts pendentes
 npm run user -- --email x --password y
-npm run produtos     # os cinco produtos iniciais (idempotente)
 ```
 
-No Railway, o mesmo script roda a partir do build, pelo shell do `medusa-server`:
+## Os scripts de dados
+
+Todos são idempotentes — o que já existe é pulado — e todos começam dizendo **em que banco estão
+escrevendo** (`src/scripts/onde-estou.ts`), porque `medusa exec` obedece ao `DATABASE_URL` que
+estiver no ambiente e não pergunta se você queria mesmo mexer em produção.
+
+| Comando                | O que faz                                                                      |
+| ---------------------- | ------------------------------------------------------------------------------ |
+| `npm run produtos`     | os cinco produtos reais da loja atual, com foto, preço e descrição              |
+| `npm run kits`         | os kits de 2 e 3 unidades do fator de crescimento                              |
+| `npm run fotos`        | varre o catálogo inteiro e remove as fotos reprovadas, por URL                  |
+| `npm run frete`        | conjunto de entrega, zona Brasil e as opções de frete com o piso do frete grátis |
+
+Da raiz, os mesmos com o prefixo `backend:` (`npm run backend:frete`).
+
+No Railway eles rodam a partir do build, pelo shell do `medusa-server` — repare no `.js`, e que o
+shell abre em `/app`, a raiz do monorepo:
 
 ```bash
 cd apps/backend/.medusa/server && npx medusa exec ./src/scripts/produtos-iniciais.js
 ```
 
-Ele exige `S3_BUCKET` configurado quando `NODE_ENV=production` — sem isso as fotos iriam pro disco
-do container e sumiriam no deploy seguinte, com os produtos ainda apontando pra elas.
+O `produtos` exige `S3_BUCKET` configurado quando `NODE_ENV=production` — sem isso as fotos iriam
+pro disco do container e sumiriam no deploy seguinte, com os produtos ainda apontando pra elas.
+
+O `frete` se recusa a rodar em banco remoto enquanto `CONFERIDO` for `false` no topo do arquivo: os
+valores que vêm no repositório são de exemplo, e preço de frete chutado em produção é prejuízo seu
+ou reclamação do cliente.
+
+### Conferir o frete
+
+```bash
+node ferramentas/conferir-frete.mjs     # precisa do Medusa de pé
+```
+
+Monta carrinhos de verdade pela API da loja e confere que as opções aparecem, que cobram o valor
+cadastrado abaixo do piso e que **a mesma opção** vai a zero a partir dele. O frete grátis aqui não
+é promoção: é um segundo preço da opção, com regra em `item_total` — o único atributo que o Medusa
+aceita nessa regra. Promoção funcionaria, e apareceria como desconto numa linha separada, deixando
+o cliente fazer a conta de quanto vai pagar de frete.
+
+O piso mora em dois lugares e os dois precisam bater: `FRETE_GRATIS_A_PARTIR_DE` em
+`apps/loja/src/lib/site.ts` (o que a loja promete) e `FRETE_GRATIS_A_PARTIR_DE` em
+`src/scripts/frete.ts` (o que o checkout cobra).
 
 Documentação: https://docs.medusajs.com

@@ -4,7 +4,7 @@ import Link from "next/link"
 import { useEffect, useState } from "react"
 import { Raio } from "@/components/icones"
 import { emReais } from "@/lib/formato"
-import { EM_BREVE, FRETE_GRATIS_ACIMA_DE } from "@/lib/site"
+import { EM_BREVE, FRETE_GRATIS_A_PARTIR_DE } from "@/lib/site"
 
 /** A partir de quanto tempo restante o contador fica amarelo e pulsa. */
 const URGENCIA_MS = 60 * 60 * 1000
@@ -154,7 +154,7 @@ export function OfertasRelampago({ terminaEm }: { terminaEm: string }) {
               <Raio className="btn__bolt" />
             </Link>
             <p className="offers__note">
-              Frete grátis acima de {emReais(FRETE_GRATIS_ACIMA_DE)}*
+              Frete grátis a partir de {emReais(FRETE_GRATIS_A_PARTIR_DE)}*
             </p>
           </div>
         </div>

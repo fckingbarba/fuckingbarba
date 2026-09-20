@@ -6,7 +6,7 @@ import { useEffect, useRef } from "react"
 import { Fechar, Lixeira, Mais, Raio, Sacola as IconeSacola } from "@/components/icones"
 import { useSacola } from "@/components/sacola/contexto"
 import { emReais } from "@/lib/formato"
-import { EM_BREVE, FRETE_GRATIS_ACIMA_DE, PARCELA_MINIMA, PARCELAS_SEM_JUROS } from "@/lib/site"
+import { EM_BREVE, FRETE_GRATIS_A_PARTIR_DE, PARCELA_MINIMA, PARCELAS_SEM_JUROS } from "@/lib/site"
 
 /**
  * A GAVETA DA SACOLA
@@ -262,8 +262,8 @@ export function Gaveta() {
  * barra: sem ele a barra é um retângulo mudo.
  */
 function MedidorDeFrete({ subtotal }: { subtotal: number }) {
-  const falta = Math.max(0, FRETE_GRATIS_ACIMA_DE - subtotal)
-  const porcento = Math.min(100, Math.round((subtotal / FRETE_GRATIS_ACIMA_DE) * 100))
+  const falta = Math.max(0, FRETE_GRATIS_A_PARTIR_DE - subtotal)
+  const porcento = Math.min(100, Math.round((subtotal / FRETE_GRATIS_A_PARTIR_DE) * 100))
   const chegou = falta <= 0
 
   return (

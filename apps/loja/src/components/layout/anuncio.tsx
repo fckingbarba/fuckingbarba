@@ -1,6 +1,6 @@
 import { ForaDaTela } from "./fora-da-tela"
 import { emReais } from "@/lib/formato"
-import { FRETE_GRATIS_ACIMA_DE } from "@/lib/site"
+import { FRETE_GRATIS_A_PARTIR_DE } from "@/lib/site"
 
 /**
  * A esteira amarela de avisos, colada no topo de toda página.
@@ -25,7 +25,7 @@ import { FRETE_GRATIS_ACIMA_DE } from "@/lib/site"
  * satisfação de verdade, com prazo e regra escritos, ela volta pra cá.
  */
 const AVISOS = [
-  `Frete Grátis acima de ${emReais(FRETE_GRATIS_ACIMA_DE)}*`,
+  `Frete Grátis a partir de ${emReais(FRETE_GRATIS_A_PARTIR_DE)}*`,
   "7 dias pra desistir, por lei",
   "Compra 100% segura",
 ]

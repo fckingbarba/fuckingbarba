@@ -16,7 +16,7 @@ import { adicionar } from "@/lib/acoes/carrinho"
 import type { CarrinhoVisivel } from "@/lib/carrinho-visivel"
 import { emReais } from "@/lib/formato"
 import type { DegrauDeQuantidade } from "@/lib/medusa"
-import { FRETE_GRATIS_ACIMA_DE, PARCELA_MINIMA, PARCELAS_SEM_JUROS } from "@/lib/site"
+import { FRETE_GRATIS_A_PARTIR_DE, PARCELA_MINIMA, PARCELAS_SEM_JUROS } from "@/lib/site"
 
 /**
  * A COLUNA DE COMPRA
@@ -228,7 +228,7 @@ export function Compra({
         <li>
           <Caminhao />
           <span>
-            Frete grátis<small>Acima de {emReais(FRETE_GRATIS_ACIMA_DE)}</small>
+            Frete grátis<small>A partir de {emReais(FRETE_GRATIS_A_PARTIR_DE)}</small>
           </span>
         </li>
         <li>
