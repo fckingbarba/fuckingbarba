@@ -120,7 +120,9 @@
   text-transform: uppercase;
   cursor: pointer;
   clip-path: polygon(0 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%);
-  transition: background 0.15s ease, color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
 }
 .sacolinha__leve-add svg {
   width: 12px;
@@ -185,7 +187,9 @@
   text-transform: uppercase;
   cursor: pointer;
   clip-path: polygon(0 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%);
-  transition: background 0.15s ease, color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
 }
 .sacolinha__cep-botao:hover {
   background: var(--color-amarelo);
@@ -233,7 +237,9 @@
   border: 2px solid rgba(18, 24, 31, 0.28);
   background: #ffffff;
   cursor: pointer;
-  transition: border-color 0.15s ease, background 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
 }
 .sacolinha__opcao:hover {
   border-color: var(--color-tinta);

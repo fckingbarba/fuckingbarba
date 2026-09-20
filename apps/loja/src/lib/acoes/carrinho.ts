@@ -88,6 +88,33 @@ export async function adicionar(varianteId: string, quantidade = 1): Promise<Res
   }
 }
 
+/**
+ * Várias variantes de uma vez — é o "levar a rotina", que põe shampoo,
+ * tratamento e óleo na sacola num clique.
+ *
+ * VAI UMA POR VEZ, EM SÉRIE, e não em paralelo: o Medusa recalcula o
+ * carrinho inteiro a cada linha, e duas escritas simultâneas no mesmo
+ * carrinho é a receita pra uma sobrescrever o total da outra. Três idas e
+ * voltas de rede num clique que a pessoa deu de propósito é preço justo.
+ *
+ * SE UMA FALHAR, as anteriores FICAM na sacola. É deliberado: o cliente
+ * escolheu três produtos, um está sem estoque, e esvaziar tudo por causa
+ * dele seria punir a escolha inteira. Ele recebe o aviso do que não entrou,
+ * com o carrinho que de fato existe.
+ */
+export async function adicionarVarios(
+  variantes: { varianteId: string; quantidade?: number }[]
+): Promise<Resultado> {
+  if (!variantes.length) return { ok: true, carrinho: await agora() }
+
+  let ultimo: Resultado = { ok: true, carrinho: CARRINHO_VAZIO }
+  for (const v of variantes) {
+    ultimo = await adicionar(v.varianteId, v.quantidade ?? 1)
+    if (!ultimo.ok) return ultimo
+  }
+  return ultimo
+}
+
 /** Muda a quantidade de uma linha. Zero remove, que é o que quem clica espera. */
 export async function mudarQuantidade(linhaId: string, quantidade: number): Promise<Resultado> {
   const qtd = Math.trunc(quantidade) || 0

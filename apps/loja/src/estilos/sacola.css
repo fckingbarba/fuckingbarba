@@ -15,7 +15,9 @@
   background: rgba(0, 0, 0, 0.62);
   opacity: 0;
   visibility: hidden;
-  transition: opacity 0.2s ease, visibility 0.2s ease;
+  transition:
+    opacity 0.2s ease,
+    visibility 0.2s ease;
 }
 .carrinho-aberto .sacolinha__veu {
   opacity: 1;
@@ -42,7 +44,7 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .sacolinha,
-.sacolinha__veu {
+  .sacolinha__veu {
     transition: none;
   }
 }
@@ -155,7 +157,9 @@
   height: 100%;
   width: 0;
   background: var(--color-tinta);
-  transition: width 0.5s var(--ease-suave), background 0.3s ease;
+  transition:
+    width 0.5s var(--ease-suave),
+    background 0.3s ease;
 }
 .sacolinha__frete-trilho::after {
   content: "";
@@ -163,10 +167,10 @@
   inset: 0;
   pointer-events: none;
   background: repeating-linear-gradient(
-      90deg,
-      transparent 0 calc(8.3333% - 2px),
-      #fff3c4 calc(8.3333% - 2px) 8.3333%
-    );
+    90deg,
+    transparent 0 calc(8.3333% - 2px),
+    #fff3c4 calc(8.3333% - 2px) 8.3333%
+  );
 }
 .sacolinha__frete-raio {
   position: absolute;
@@ -180,7 +184,9 @@
   fill: var(--color-amarelo);
   filter: drop-shadow(0 0 3px rgba(0, 0, 0, 0.55));
   opacity: 0;
-  transition: left 0.5s var(--ease-suave), opacity 0.25s ease;
+  transition:
+    left 0.5s var(--ease-suave),
+    opacity 0.25s ease;
   pointer-events: none;
 }
 .sacolinha__frete[data-andando] .sacolinha__frete-raio {
@@ -188,10 +194,10 @@
 }
 .sacolinha__frete[data-completo] .sacolinha__frete-barra {
   background: repeating-linear-gradient(
-      -45deg,
-      var(--color-tinta) 0 9px,
-      var(--color-amarelo) 9px 18px
-    );
+    -45deg,
+    var(--color-tinta) 0 9px,
+    var(--color-amarelo) 9px 18px
+  );
 }
 .sacolinha__frete[data-completo] .sacolinha__frete-rotulo {
   color: #0b7f62;
@@ -207,11 +213,11 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .sacolinha__frete-barra,
-.sacolinha__frete-raio {
+  .sacolinha__frete-raio {
     transition: none;
   }
   .sacolinha__frete.e-liberou .sacolinha__frete-trilho,
-.sacolinha__frete.e-liberou .sacolinha__frete-texto {
+  .sacolinha__frete.e-liberou .sacolinha__frete-texto {
     animation: none;
   }
 }
@@ -470,25 +476,35 @@
   bottom: 0;
   height: 5px;
   background: repeating-linear-gradient(
-      -45deg,
-      var(--color-tinta) 0 9px,
-      var(--color-amarelo) 9px 18px
-    );
+    -45deg,
+    var(--color-tinta) 0 9px,
+    var(--color-amarelo) 9px 18px
+  );
 }
 .sacolinha__item.e-mexeu {
   animation: item-pisca 0.75s var(--ease-suave);
 }
-@keyframes item-pisca{
-    0%   { background: rgba(255, 216, 77, 0.75); }
-    100% { background: transparent; }
+@keyframes item-pisca {
+  0% {
+    background: rgba(255, 216, 77, 0.75);
   }
+  100% {
+    background: transparent;
+  }
+}
 .sacolinha__item.e-entrou {
   animation: item-entra 0.4s var(--ease-suave);
 }
-@keyframes item-entra{
-    0%   { opacity: 0; transform: translateX(22px); }
-    100% { opacity: 1; transform: translateX(0); }
+@keyframes item-entra {
+  0% {
+    opacity: 0;
+    transform: translateX(22px);
   }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
 .sacolinha__passo svg {
   width: 13px;
   height: 13px;
@@ -500,10 +516,12 @@
 }
 .sacolinha__corpo {
   background:
-      linear-gradient(#ffffff 30%, rgba(255, 255, 255, 0)) top / 100% 24px no-repeat,
-      linear-gradient(rgba(255, 255, 255, 0), #ffffff 70%) bottom / 100% 24px no-repeat,
-      radial-gradient(farthest-side at 50% 0, rgba(18, 24, 31, 0.16), transparent) top / 100% 9px no-repeat,
-      radial-gradient(farthest-side at 50% 100%, rgba(18, 24, 31, 0.16), transparent) bottom / 100% 9px no-repeat;
+    linear-gradient(#ffffff 30%, rgba(255, 255, 255, 0)) top / 100% 24px no-repeat,
+    linear-gradient(rgba(255, 255, 255, 0), #ffffff 70%) bottom / 100% 24px no-repeat,
+    radial-gradient(farthest-side at 50% 0, rgba(18, 24, 31, 0.16), transparent) top / 100% 9px
+      no-repeat,
+    radial-gradient(farthest-side at 50% 100%, rgba(18, 24, 31, 0.16), transparent) bottom / 100%
+      9px no-repeat;
   background-attachment: local, local, scroll, scroll;
 }
 .sacolinha__nome a {
@@ -522,21 +540,40 @@
 .sacolinha__soma-valor.e-mudou {
   animation: total-pula 0.45s var(--ease-suave);
 }
-@keyframes total-pula{
-    0%   { transform: scale(1); }
-    35%  { transform: scale(1.14); }
-    100% { transform: scale(1); }
+@keyframes total-pula {
+  0% {
+    transform: scale(1);
   }
+  35% {
+    transform: scale(1.14);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .sacolinha__item.e-mexeu,
-.sacolinha__item.e-entrou,
-.sacolinha__soma-valor.e-mudou {
+  .sacolinha__item.e-entrou,
+  .sacolinha__soma-valor.e-mudou {
     animation: none;
   }
 }
-@keyframes icone-lanca{
-    0%, 100% { transform: translate(0, 0) scale(1); opacity: 1; }
-    22%      { transform: translate(-4px, 3px) scale(0.88); opacity: 1; }
-    58%      { transform: translate(11px, -9px) scale(0.5); opacity: 0; }
-    59%      { transform: translate(-9px, 7px) scale(0.5); opacity: 0; }
+@keyframes icone-lanca {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
   }
+  22% {
+    transform: translate(-4px, 3px) scale(0.88);
+    opacity: 1;
+  }
+  58% {
+    transform: translate(11px, -9px) scale(0.5);
+    opacity: 0;
+  }
+  59% {
+    transform: translate(-9px, 7px) scale(0.5);
+    opacity: 0;
+  }
+}

@@ -100,6 +100,11 @@ No fim ele imprime **os seletores que não caíram em grupo nenhum**. Essa lista
 vazia. Já perdi a regra do `box-sizing` recortando por "o seletor contém X" — ela foi junto
 com uma seção porque a lista dela mencionava `.versus`.
 
+Depois de gerar, passe o prettier nos arquivos (`npx prettier --write
+"apps/loja/src/estilos/*.css"`): os scripts escrevem lista de seletor sem
+indentar, e sem isso cada regeração aparece no diff como se algo tivesse
+mudado.
+
 `conferir-loja.mjs` mede o que o cliente recebe, não o protótipo, com a loja e um Medusa de
 pé. A diferença entre os dois é exatamente o que o porte pode ter perdido no caminho. Ele
 repete as medidas aprovadas da dobra e vai além: abre o carrinho no Medusa depois do clique

@@ -1,0 +1,90 @@
+/* Gerado por ferramentas/porte/pdp-partes/agrupa-pdp.py — não edite à mão.
+   Entrelinha padrão do navegador, como no protótipo: o preflight do
+   Tailwind põe 1.5 na raiz e isso empurra tudo que não declara a sua. */
+.avaliacoes {
+  line-height: normal;
+}
+.avaliacoes,
+.avaliacoes * {
+  border-radius: 0;
+  box-sizing: border-box;
+}
+.avaliacoes {
+  background: var(--color-papel);
+  font-family: var(--font-sans);
+  color: var(--color-tinta);
+  padding: clamp(38px, 5.5vw, 62px) clamp(16px, 4vw, 28px);
+}
+.avaliacoes__wrap {
+  max-width: 1180px;
+  margin: 0 auto;
+}
+.avaliacoes__titulo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 clamp(16px, 2.4vw, 22px);
+  font-size: clamp(1.5rem, 4.2vw, 2.2rem);
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: -0.025em;
+  line-height: 1;
+}
+.avaliacoes__titulo svg {
+  width: clamp(20px, 3.4vw, 28px);
+  height: clamp(20px, 3.4vw, 28px);
+  fill: var(--color-tinta);
+  flex-shrink: 0;
+}
+.avaliacoes__vazio {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+  border: 3px dashed rgba(18, 24, 31, 0.3);
+  padding: clamp(20px, 3.4vw, 32px);
+}
+.avaliacoes__vazio p {
+  margin: 0;
+  max-width: 58ch;
+  font-size: 0.97rem;
+  font-weight: 600;
+  line-height: 1.55;
+  color: #566072;
+}
+.avaliacoes__vazio p b {
+  color: var(--color-tinta);
+  font-weight: 800;
+}
+.avaliacoes__topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 20px;
+  margin-bottom: clamp(16px, 2.4vw, 24px);
+}
+.avaliacoes__titulo {
+  margin: 0;
+}
+.avaliacoes__grade {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.avaliacoes__grade .avaliacao {
+  width: 100%;
+  height: 100%;
+}
+.avaliacoes__grade .avaliacao {
+  min-width: 0;
+}
+.avaliacoes__grade .avaliacao__corpo {
+  min-width: 0;
+}
+.avaliacoes__titulo {
+  margin: 0 0 clamp(18px, 2.6vw, 26px);
+}

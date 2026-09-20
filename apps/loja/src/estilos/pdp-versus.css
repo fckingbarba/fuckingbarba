@@ -1,0 +1,142 @@
+/* Gerado por ferramentas/porte/pdp-partes/agrupa-pdp.py — não edite à mão.
+   Entrelinha padrão do navegador, como no protótipo: o preflight do
+   Tailwind põe 1.5 na raiz e isso empurra tudo que não declara a sua. */
+.versus {
+  line-height: normal;
+}
+.versus,
+.versus * {
+  border-radius: 0;
+  box-sizing: border-box;
+}
+.versus {
+  background: var(--color-amarelo);
+  font-family: var(--font-sans);
+  color: var(--color-tinta);
+  padding: clamp(38px, 5.5vw, 62px) clamp(16px, 4vw, 28px);
+}
+.versus__wrap {
+  max-width: 1020px;
+  margin: 0 auto;
+}
+.versus__titulo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 6px;
+  font-size: clamp(1.35rem, 4.2vw, 2.2rem);
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: -0.025em;
+  line-height: 1;
+}
+.versus__titulo svg {
+  width: clamp(20px, 3.4vw, 28px);
+  height: clamp(20px, 3.4vw, 28px);
+  fill: var(--color-tinta);
+  flex-shrink: 0;
+}
+.versus__colunas {
+  display: grid;
+  gap: 12px;
+}
+@media (min-width: 760px) {
+  .versus__colunas {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+  }
+}
+.versus__coluna {
+  display: flex;
+  flex-direction: column;
+  border: 3px solid var(--color-tinta);
+  padding: clamp(14px, 2.2vw, 20px);
+  clip-path: polygon(
+    16px 0,
+    100% 0,
+    100% calc(100% - 16px),
+    calc(100% - 16px) 100%,
+    0 100%,
+    0 16px
+  );
+}
+.versus__coluna--nosso {
+  background: var(--color-tinta);
+  color: #ffffff;
+}
+.versus__coluna--deles {
+  background: #ffffff;
+  color: #8b95a3;
+}
+.versus__cabeca {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin: 0 0 14px;
+  padding-bottom: 13px;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.18);
+  font-size: 0.98rem;
+  font-weight: 800;
+  line-height: 1.15;
+}
+.versus__coluna--deles .versus__cabeca {
+  border-bottom-color: rgba(18, 24, 31, 0.12);
+}
+.versus__cabeca img {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  object-fit: contain;
+  background: #ffffff;
+  border: 2px solid var(--color-tinta);
+}
+.versus__cabeca small {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.55);
+}
+.versus__coluna--deles .versus__cabeca small {
+  color: #aab3bf;
+}
+.versus__coluna ul {
+  display: grid;
+  align-content: start;
+  gap: 11px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.versus__coluna li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+.versus__coluna li svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+.versus__coluna--nosso li svg {
+  fill: var(--color-amarelo);
+}
+.versus__coluna--deles li {
+  font-weight: 600;
+}
+.versus__coluna--deles li svg {
+  fill: #c3cad3;
+}
+.versus__falta {
+  font-weight: 800;
+  color: var(--color-amarelo);
+  border-bottom: 2px dashed rgba(255, 216, 77, 0.6);
+}
+.versus__titulo {
+  margin: 0 0 clamp(18px, 2.6vw, 26px);
+}

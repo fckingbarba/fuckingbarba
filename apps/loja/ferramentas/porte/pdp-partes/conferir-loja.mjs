@@ -183,10 +183,27 @@ const estouro = await pagina.evaluate(() => {
     }
     return false
   }
+  /* Painel fixo estacionado FORA da tela — a gaveta da sacola fechada — não
+     é estouro: ele está deslizado pra direita de propósito, esperando abrir.
+     Some do documento ele só sairia se fosse desmontado, e aí não animava. */
+  const foraDeCena = (el) => {
+    for (let p = el; p && p !== document.body; p = p.parentElement) {
+      const e = getComputedStyle(p)
+      if (e.position === "fixed" && p.getBoundingClientRect().left >= limite - 1) return true
+    }
+    return false
+  }
+  const nome = (el) =>
+    typeof el.className === "string" && el.className ? el.className : el.tagName.toLowerCase()
   return [...document.querySelectorAll("body *")]
-    .filter((el) => Math.round(el.getBoundingClientRect().right) > limite + 1 && !contido(el))
+    .filter(
+      (el) =>
+        Math.round(el.getBoundingClientRect().right) > limite + 1 &&
+        !contido(el) &&
+        !foraDeCena(el)
+    )
     .slice(0, 4)
-    .map((el) => `${el.className || el.tagName} (${Math.round(el.getBoundingClientRect().right)}px)`)
+    .map((el) => `${nome(el)} (${Math.round(el.getBoundingClientRect().right)}px)`)
 })
 ok(estouro.length === 0, `sem estouro de largura em ${CELULAR.width}px`, estouro.join(", "))
 
@@ -194,6 +211,36 @@ const rolaDeLado = await pagina.evaluate(
   () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1
 )
 ok(!rolaDeLado, "a página não rola de lado")
+
+/* ------------------------------------------------------------------ */
+titulo("FOTOS — todas têm que carregar de verdade")
+
+/*
+ * `naturalWidth === 0` é imagem que não chegou: URL errada, arquivo que
+ * sumiu do Storage, handle de conteúdo apontando pra produto inexistente.
+ * Na tela isso vira uma moldura vazia, que passa despercebido numa revisão
+ * rápida e é péssimo numa página de produto.
+ *
+ * Rola a página inteira antes de medir: quase toda foto abaixo da dobra é
+ * `loading="lazy"` e só começa a baixar quando entra em cena.
+ */
+await pagina.evaluate(async () => {
+  const passo = window.innerHeight
+  for (let y = 0; y < document.body.scrollHeight; y += passo) {
+    window.scrollTo({ top: y, behavior: "instant" })
+    await new Promise((r) => setTimeout(r, 120))
+  }
+  window.scrollTo({ top: 0, behavior: "instant" })
+})
+await pagina.waitForTimeout(1200)
+
+const quebradas = await pagina.$$eval("img", (imgs) =>
+  imgs
+    .filter((i) => !i.complete || i.naturalWidth === 0)
+    .map((i) => (i.currentSrc || i.src || "(sem src)").split("/").pop())
+)
+const quantasFotos = await pagina.locator("img").count()
+ok(quebradas.length === 0, `as ${quantasFotos} fotos da página carregaram`, quebradas.join(", "))
 
 /* ------------------------------------------------------------------ */
 titulo("BARRA FIXA")
@@ -297,6 +344,10 @@ ok(respostasRuins.length === 0, "nenhuma resposta 4xx/5xx", respostasRuins.slice
 
 /* ------------------------------------------------------------------ */
 if (TIRA_FOTOS) {
+  // A suíte deixou a gaveta aberta (ela abre sozinha ao adicionar). Fecha
+  // antes de fotografar, senão toda revisão a olho vira revisão da gaveta.
+  await pagina.keyboard.press("Escape")
+  await pagina.waitForTimeout(600)
   mkdirSync(PASTA, { recursive: true })
   for (const [nome, tela] of [
     ["celular", CELULAR],

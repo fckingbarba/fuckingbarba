@@ -1,0 +1,127 @@
+/* Gerado por ferramentas/porte/pdp-partes/agrupa-pdp.py — não edite à mão.
+   Entrelinha padrão do navegador, como no protótipo: o preflight do
+   Tailwind põe 1.5 na raiz e isso empurra tudo que não declara a sua. */
+.tempo {
+  line-height: normal;
+}
+.tempo,
+.tempo * {
+  border-radius: 0;
+  box-sizing: border-box;
+}
+.tempo {
+  background: var(--color-menta);
+  font-family: var(--font-sans);
+  color: var(--color-tinta);
+  padding: clamp(38px, 5.5vw, 62px) clamp(16px, 4vw, 28px);
+}
+.tempo__wrap {
+  max-width: 1180px;
+  margin: 0 auto;
+}
+.tempo__titulo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 6px;
+  font-size: clamp(1.5rem, 4.2vw, 2.2rem);
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: -0.025em;
+  line-height: 1;
+}
+.tempo__titulo svg {
+  width: clamp(20px, 3.4vw, 28px);
+  height: clamp(20px, 3.4vw, 28px);
+  fill: var(--color-tinta);
+  flex-shrink: 0;
+}
+.tempo__trilha {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+}
+.tempo__passo {
+  position: relative;
+  border: 3px solid var(--color-tinta);
+  background: var(--color-papel);
+  padding: 16px 16px 18px;
+  box-shadow: 6px 6px 0 0 var(--color-tinta);
+}
+.tempo__passo--alvo {
+  background: var(--color-amarelo);
+  box-shadow: 6px 6px 0 0 var(--color-tinta);
+}
+.tempo__quando {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0 0 8px;
+  background: var(--color-tinta);
+  color: var(--color-amarelo);
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 4px 9px;
+}
+.tempo__quando svg {
+  width: 11px;
+  height: 11px;
+  fill: currentColor;
+}
+.tempo__passo dt {
+  margin: 0 0 4px;
+  font-size: 1.02rem;
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: -0.015em;
+  line-height: 1.1;
+}
+.tempo__passo dd {
+  margin: 0;
+  font-size: 0.89rem;
+  font-weight: 600;
+  line-height: 1.45;
+  color: #2c3541;
+}
+.tempo__aviso {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: clamp(18px, 2.6vw, 26px) 0 0;
+  border-left: 6px solid var(--color-tinta);
+  background: rgba(18, 24, 31, 0.06);
+  padding: 12px 14px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+.tempo__aviso svg {
+  width: 17px;
+  height: 17px;
+  fill: var(--color-tinta);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.tempo__passo {
+  clip-path: polygon(
+    12px 0,
+    100% 0,
+    100% calc(100% - 12px),
+    calc(100% - 12px) 100%,
+    0 100%,
+    0 12px
+  );
+}
+.tempo__passo {
+  box-shadow: none;
+  filter: drop-shadow(6px 6px 0 var(--color-tinta));
+}
+.tempo__titulo {
+  margin: 0 0 clamp(18px, 2.6vw, 26px);
+}

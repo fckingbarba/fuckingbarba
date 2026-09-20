@@ -1,0 +1,95 @@
+/* Gerado por ferramentas/porte/pdp-partes/agrupa-pdp.py — não edite à mão.
+   Entrelinha padrão do navegador, como no protótipo: o preflight do
+   Tailwind põe 1.5 na raiz e isso empurra tudo que não declara a sua. */
+.faixa {
+  line-height: normal;
+}
+.faixa,
+.faixa * {
+  border-radius: 0;
+  box-sizing: border-box;
+}
+.faixa {
+  position: relative;
+  isolation: isolate;
+  background: #070a09;
+  font-family: var(--font-sans);
+  color: #ffffff;
+  padding: clamp(48px, 8vw, 96px) clamp(16px, 4vw, 28px) clamp(44px, 7vw, 88px);
+  overflow: hidden;
+}
+.faixa__foto {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+.faixa__foto img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 40%;
+}
+.faixa__foto::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    rgba(7, 10, 9, 0.94) 0%,
+    rgba(7, 10, 9, 0.86) 42%,
+    rgba(7, 10, 9, 0.45) 100%
+  );
+}
+.faixa__tape {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 10px;
+  z-index: 2;
+  background: repeating-linear-gradient(-45deg, #000 0 14px, var(--color-amarelo) 14px 28px);
+}
+.faixa__wrap {
+  position: relative;
+  z-index: 1;
+  max-width: 1180px;
+  margin: 0 auto;
+}
+.faixa__chapeu {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 12px;
+  color: var(--color-amarelo);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.faixa__chapeu svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+.faixa__titulo {
+  margin: 0 0 12px;
+  max-width: 16ch;
+  font-size: clamp(1.8rem, 6vw, 3.2rem);
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: -0.03em;
+  line-height: 0.96;
+}
+.faixa__titulo em {
+  font-style: inherit;
+  color: var(--color-amarelo);
+}
+.faixa__texto {
+  margin: 0 0 clamp(18px, 2.6vw, 26px);
+  max-width: 42ch;
+  font-size: 0.99rem;
+  font-weight: 600;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.78);
+}

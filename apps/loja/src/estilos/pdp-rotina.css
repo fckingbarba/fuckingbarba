@@ -1,0 +1,277 @@
+/* Gerado por ferramentas/porte/pdp-partes/agrupa-pdp.py — não edite à mão.
+   Entrelinha padrão do navegador, como no protótipo: o preflight do
+   Tailwind põe 1.5 na raiz e isso empurra tudo que não declara a sua. */
+.rotina {
+  line-height: normal;
+}
+.rotina [hidden] {
+  display: none !important;
+}
+.rotina,
+.rotina * {
+  border-radius: 0;
+  box-sizing: border-box;
+}
+.rotina {
+  background: var(--color-papel);
+  font-family: var(--font-sans);
+  color: var(--color-tinta);
+  padding: clamp(38px, 5.5vw, 62px) clamp(16px, 4vw, 28px);
+}
+.rotina__wrap {
+  max-width: 1180px;
+  margin: 0 auto;
+}
+.rotina__titulo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 6px;
+  font-size: clamp(1.5rem, 4.2vw, 2.2rem);
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: -0.025em;
+  line-height: 1;
+}
+.rotina__titulo svg {
+  width: clamp(20px, 3.4vw, 28px);
+  height: clamp(20px, 3.4vw, 28px);
+  fill: var(--color-tinta);
+  flex-shrink: 0;
+}
+.rotina__grade {
+  display: grid;
+  gap: 12px;
+}
+@media (min-width: 880px) {
+  .rotina__grade {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: stretch;
+  }
+}
+.rotina__item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 86px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  border: 3px solid rgba(18, 24, 31, 0.2);
+  background: var(--color-papel);
+  padding: 12px;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
+}
+.rotina__item:hover {
+  border-color: var(--color-tinta);
+}
+.rotina__item:has(input:checked) {
+  border-color: var(--color-tinta);
+  box-shadow: 6px 6px 0 0 var(--color-amarelo);
+  transform: translate(-2px, -2px);
+}
+.rotina__item:has(input:focus-visible) {
+  outline: 3px solid var(--color-tinta);
+  outline-offset: 3px;
+}
+.rotina__item--fixo {
+  border-color: var(--color-tinta);
+  background: var(--color-amarelo);
+  cursor: default;
+}
+.rotina__item--fixo:has(input:checked) {
+  box-shadow: 6px 6px 0 0 var(--color-tinta);
+}
+.rotina__passo {
+  position: absolute;
+  top: -12px;
+  left: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--color-tinta);
+  color: var(--color-amarelo);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+}
+.rotina__foto {
+  width: 86px;
+  height: 86px;
+  border: 2px solid var(--color-tinta);
+  background: var(--color-papel);
+  object-fit: cover;
+  display: block;
+}
+.rotina__corpo {
+  min-width: 0;
+}
+.rotina__marca {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 3px;
+}
+.rotina__marca input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--color-tinta);
+  flex-shrink: 0;
+}
+.rotina__nome {
+  font-size: 0.93rem;
+  font-weight: 800;
+  line-height: 1.18;
+}
+.rotina__para {
+  margin: 0 0 6px;
+  font-size: 0.79rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: #566072;
+}
+.rotina__preco {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 800;
+  font-style: italic;
+  letter-spacing: -0.02em;
+}
+.rotina__preco s {
+  margin-left: 5px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-style: normal;
+  color: #566072;
+}
+.rotina__soma {
+  display: grid;
+  gap: 14px;
+  margin: clamp(16px, 2.4vw, 22px) 0 0;
+  border: 3px solid var(--color-tinta);
+  background: var(--color-tinta);
+  color: #ffffff;
+  padding: 16px 18px;
+}
+@media (min-width: 760px) {
+  .rotina__soma {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+  }
+}
+.rotina__total {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.62);
+}
+.rotina__total b {
+  display: block;
+  margin-top: 2px;
+  font-size: clamp(1.5rem, 4vw, 1.95rem);
+  font-weight: 800;
+  font-style: italic;
+  letter-spacing: -0.03em;
+  text-transform: none;
+  color: #ffffff;
+}
+.rotina__total s {
+  margin-left: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  font-style: normal;
+  color: rgba(255, 255, 255, 0.5);
+}
+.rotina__frete {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+.rotina__frete b {
+  color: var(--color-amarelo);
+}
+.rotina__frete[data-gratis] b {
+  color: #7dffd4;
+}
+.rotina__trilho {
+  display: block;
+  position: relative;
+  height: 8px;
+  margin-top: 8px;
+  background: rgba(255, 255, 255, 0.18);
+  overflow: hidden;
+}
+.rotina__barra {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--color-amarelo);
+  transition: width 0.4s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.rotina__barra[data-gratis] {
+  background: #4fe0b9;
+}
+.rotina__comprar {
+  justify-content: center;
+}
+@media (prefers-reduced-motion: reduce) {
+  .rotina__barra {
+    transition: none !important;
+  }
+}
+.rotina__item {
+  clip-path: polygon(
+    12px 0,
+    100% 0,
+    100% calc(100% - 12px),
+    calc(100% - 12px) 100%,
+    0 100%,
+    0 12px
+  );
+}
+.rotina__item:has(input:checked) {
+  box-shadow: none;
+  filter: drop-shadow(6px 6px 0 var(--color-amarelo));
+}
+.rotina__item--fixo:has(input:checked) {
+  filter: drop-shadow(6px 6px 0 var(--color-tinta));
+}
+.rotina__soma {
+  clip-path: polygon(
+    16px 0,
+    100% 0,
+    100% calc(100% - 16px),
+    calc(100% - 16px) 100%,
+    0 100%,
+    0 16px
+  );
+}
+.rotina__item {
+  grid-template-areas:
+    "passo passo"
+    "foto corpo";
+  row-gap: 9px;
+}
+.rotina__passo {
+  position: static;
+  grid-area: passo;
+  justify-self: start;
+}
+.rotina__foto {
+  grid-area: foto;
+}
+.rotina__corpo {
+  grid-area: corpo;
+}
+.rotina__titulo {
+  margin: 0 0 clamp(18px, 2.6vw, 26px);
+}

@@ -10,7 +10,18 @@ import { Provas } from "@/components/home/provas"
 import { Sobre } from "@/components/home/sobre"
 import { Trustbar } from "@/components/home/trustbar"
 import { Vitrine } from "@/components/home/vitrine"
+import { AntesDepois } from "@/components/produto/antes-depois"
+import { Avaliacoes } from "@/components/produto/avaliacoes"
 import { Dobra } from "@/components/produto/dobra"
+import { Duvidas } from "@/components/produto/duvidas"
+import { Faixa } from "@/components/produto/faixa"
+import { Funciona } from "@/components/produto/funciona"
+import { Promessa } from "@/components/produto/promessa"
+import { Quem } from "@/components/produto/quem"
+import { Relacionados } from "@/components/produto/relacionados"
+import { Rotina } from "@/components/produto/rotina"
+import { Tempo } from "@/components/produto/tempo"
+import { Versus } from "@/components/produto/versus"
 
 /**
  * O REGISTRO DE SEÇÕES
@@ -160,29 +171,81 @@ export const SECOES: readonly Secao[] = [
     componente: Dobra,
   },
 
-  /*  As outras seções da PDP entram aqui conforme forem portadas do
-     protótipo (`ferramentas/porte/prototipo-pdp.html`), nesta ordem:
-
-       produto.promessa ...... o que muda na sua cara
-       produto.antes-depois .. os pares de foto
-       produto.tempo ......... o calendário de 90 dias
-       produto.faixa ......... a faixa de foto
-       produto.rotina ........ monte a rotina
-       produto.funciona ...... como funciona + modo de uso
-       produto.versus ........ o nosso e o genérico
-       produto.quem .......... pra quem é / pra quem não é
-       produto.duvidas ....... perguntas frequentes
-       produto.avaliacoes .... o que dizem de quem usou
-       produto.relacionados .. quem leva este, leva junto
-
-     Os preços de kit da dobra (R$ 149,90 por dois, R$ 222,90 por três) são
-     produtos de verdade no Medusa desde `backend/src/scripts/kits-de-
-     quantidade.ts` — SKU e estoque próprios, amarrados ao avulso por
-     metadata. O que a dobra mostra é o que o carrinho cobra, conferido com
-     kit de verdade num Medusa local. O preço deixou de ser texto na página.
-
-     O custo dessa escolha está escrito no cabeçalho daquele script e vale
-     repetir aqui, porque é ele que vai cobrar: SÃO TRÊS ESTOQUES SEPARADOS
-     PARA O MESMO FRASCO. Vender kit não baixa o avulso.
-  */
+  {
+    id: "produto.promessa",
+    escopo: "produto",
+    nome: "O que muda na sua cara",
+    descricao: "A lista de benefícios, com a ressalva de que o resultado varia.",
+    componente: Promessa,
+  },
+  {
+    id: "produto.antes-depois",
+    escopo: "produto",
+    nome: "Antes e depois",
+    descricao: "Só aparece quando existe caso com as duas fotos e autorização cadastrado.",
+    componente: AntesDepois,
+  },
+  {
+    id: "produto.tempo",
+    escopo: "produto",
+    nome: "Quando o resultado aparece",
+    descricao: "O calendário do tratamento, das duas semanas aos seis meses.",
+    componente: Tempo,
+  },
+  {
+    id: "produto.faixa",
+    escopo: "produto",
+    nome: "Faixa de foto",
+    descricao: "A faixa larga com foto de fundo e a chamada pra voltar ao topo.",
+    componente: Faixa,
+  },
+  {
+    id: "produto.rotina",
+    escopo: "produto",
+    nome: "Monte a rotina",
+    descricao: "Limpa, trata e hidrata — com as caixinhas que levam tudo de uma vez.",
+    componente: Rotina,
+  },
+  {
+    id: "produto.funciona",
+    escopo: "produto",
+    nome: "Como funciona e modo de uso",
+    descricao: "As duas caixas lado a lado: o que o produto faz e o que a pessoa faz.",
+    componente: Funciona,
+  },
+  {
+    id: "produto.versus",
+    escopo: "produto",
+    nome: "O nosso e o genérico",
+    descricao: "A comparação lado a lado — contra um frasco sem marca, nunca contra concorrente.",
+    componente: Versus,
+  },
+  {
+    id: "produto.quem",
+    escopo: "produto",
+    nome: "Pra quem é, pra quem não é",
+    descricao: "As duas colunas. A do 'não é' é a que mais vende — e a que evita reembolso.",
+    componente: Quem,
+  },
+  {
+    id: "produto.duvidas",
+    escopo: "produto",
+    nome: "Perguntas frequentes",
+    descricao: "O acordeão, e o FAQ que o Google lê — os dois saem da mesma lista.",
+    componente: Duvidas,
+  },
+  {
+    id: "produto.avaliacoes",
+    escopo: "produto",
+    nome: "O que diz quem usou",
+    descricao: "Só aparece quando existe avaliação de verdade cadastrada pro produto.",
+    componente: Avaliacoes,
+  },
+  {
+    id: "produto.relacionados",
+    escopo: "produto",
+    nome: "Quem leva este, leva junto",
+    descricao: "Carrossel com o resto do catálogo, começando pela mesma categoria.",
+    componente: Relacionados,
+  },
 ] as const

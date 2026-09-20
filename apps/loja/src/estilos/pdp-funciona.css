@@ -1,0 +1,187 @@
+/* Gerado por ferramentas/porte/pdp-partes/agrupa-pdp.py — não edite à mão.
+   Entrelinha padrão do navegador, como no protótipo: o preflight do
+   Tailwind põe 1.5 na raiz e isso empurra tudo que não declara a sua. */
+.funciona {
+  line-height: normal;
+}
+.funciona,
+.funciona * {
+  border-radius: 0;
+  box-sizing: border-box;
+}
+.funciona {
+  background: var(--color-menta);
+  font-family: var(--font-sans);
+  color: var(--color-tinta);
+  padding: clamp(38px, 5.5vw, 62px) clamp(16px, 4vw, 28px);
+}
+.funciona__wrap {
+  max-width: 1180px;
+  margin: 0 auto;
+  display: grid;
+  gap: clamp(16px, 2.6vw, 26px);
+}
+@media (min-width: 900px) {
+  .funciona__wrap {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+  }
+}
+.funciona__caixa {
+  border: 3px solid var(--color-tinta);
+  background: var(--color-papel);
+  box-shadow: 8px 8px 0 0 var(--color-tinta);
+  padding: clamp(18px, 3vw, 26px);
+}
+.funciona__caixa h2 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 12px;
+  font-size: clamp(1.25rem, 3.4vw, 1.7rem);
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+  line-height: 1.02;
+}
+.funciona__caixa h2 svg {
+  width: 21px;
+  height: 21px;
+  fill: var(--color-tinta);
+  flex-shrink: 0;
+}
+.funciona__caixa p {
+  margin: 0 0 11px;
+  font-size: 0.97rem;
+  font-weight: 500;
+  line-height: 1.6;
+  color: #2c3541;
+}
+.funciona__caixa p:last-child {
+  margin-bottom: 0;
+}
+.funciona__caixa strong {
+  font-weight: 800;
+  color: var(--color-tinta);
+}
+.funciona__passos {
+  counter-reset: passo;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 11px;
+}
+.funciona__passos li {
+  counter-increment: passo;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 11px;
+  align-items: start;
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.45;
+  color: #2c3541;
+}
+.funciona__passos li::before {
+  content: counter(passo);
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  background: var(--color-tinta);
+  color: var(--color-amarelo);
+  font-size: 0.95rem;
+  font-weight: 800;
+  font-style: italic;
+}
+.funciona__dica {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin: 14px 0 0;
+  border-left: 6px solid var(--color-amarelo);
+  background: #fffaea;
+  padding: 11px 13px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+.funciona__dica svg {
+  width: 16px;
+  height: 16px;
+  fill: var(--color-tinta);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.funciona__ficha {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+  gap: 1px;
+  margin: 16px 0 0;
+  background: rgba(18, 24, 31, 0.18);
+  border: 2px solid rgba(18, 24, 31, 0.18);
+}
+.funciona__ficha > div {
+  background: var(--color-papel);
+  padding: 10px 12px;
+}
+.funciona__ficha dt {
+  margin: 0 0 2px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #566072;
+}
+.funciona__ficha dd {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 800;
+  line-height: 1.25;
+}
+.funciona__foto {
+  clip-path: polygon(
+    12px 0,
+    100% 0,
+    100% calc(100% - 12px),
+    calc(100% - 12px) 100%,
+    0 100%,
+    0 12px
+  );
+}
+.funciona__caixa,
+.ficha__grade {
+  clip-path: polygon(
+    16px 0,
+    100% 0,
+    100% calc(100% - 16px),
+    calc(100% - 16px) 100%,
+    0 100%,
+    0 16px
+  );
+}
+.funciona__caixa {
+  box-shadow: none;
+  filter: drop-shadow(8px 8px 0 var(--color-tinta));
+}
+.funciona__caixa {
+  display: flex;
+  flex-direction: column;
+}
+.funciona__dica {
+  margin-top: auto;
+}
+.funciona__foto {
+  margin: 0 0 14px;
+  border: 3px solid var(--color-tinta);
+  overflow: hidden;
+}
+.funciona__foto img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+}

@@ -1,0 +1,122 @@
+/* Gerado por ferramentas/porte/pdp-partes/agrupa-pdp.py — não edite à mão.
+   Entrelinha padrão do navegador, como no protótipo: o preflight do
+   Tailwind põe 1.5 na raiz e isso empurra tudo que não declara a sua. */
+.quem {
+  line-height: normal;
+}
+.quem,
+.quem * {
+  border-radius: 0;
+  box-sizing: border-box;
+}
+.quem {
+  background: var(--color-papel);
+  font-family: var(--font-sans);
+  color: var(--color-tinta);
+  padding: clamp(38px, 5.5vw, 62px) clamp(16px, 4vw, 28px);
+}
+.quem__wrap {
+  max-width: 1180px;
+  margin: 0 auto;
+}
+.quem__titulo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 clamp(18px, 2.6vw, 26px);
+  font-size: clamp(1.5rem, 4.2vw, 2.2rem);
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: -0.025em;
+  line-height: 1;
+}
+.quem__titulo svg {
+  width: clamp(20px, 3.4vw, 28px);
+  height: clamp(20px, 3.4vw, 28px);
+  fill: var(--color-tinta);
+  flex-shrink: 0;
+}
+.quem__colunas {
+  display: grid;
+  gap: 12px;
+}
+@media (min-width: 860px) {
+  .quem__colunas {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.quem__coluna {
+  border: 3px solid var(--color-tinta);
+  padding: clamp(16px, 2.6vw, 24px);
+}
+.quem__coluna--sim {
+  background: var(--color-menta);
+  box-shadow: 8px 8px 0 0 var(--color-tinta);
+}
+.quem__coluna--nao {
+  background: var(--color-tinta);
+  color: #ffffff;
+}
+.quem__coluna h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  font-size: 1.05rem;
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: -0.015em;
+}
+.quem__coluna h3 svg {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+  flex-shrink: 0;
+}
+.quem__coluna--nao h3 svg {
+  fill: var(--color-amarelo);
+}
+.quem__coluna ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 9px;
+}
+.quem__coluna li {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+.quem__coluna li svg {
+  width: 17px;
+  height: 17px;
+  fill: currentColor;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.quem__coluna--nao li svg {
+  fill: var(--color-amarelo);
+}
+.quem__coluna {
+  clip-path: polygon(
+    16px 0,
+    100% 0,
+    100% calc(100% - 16px),
+    calc(100% - 16px) 100%,
+    0 100%,
+    0 16px
+  );
+}
+.quem__coluna--sim {
+  box-shadow: none;
+  filter: drop-shadow(8px 8px 0 var(--color-tinta));
+}
+.quem__titulo {
+  margin: 0 0 clamp(18px, 2.6vw, 26px);
+}

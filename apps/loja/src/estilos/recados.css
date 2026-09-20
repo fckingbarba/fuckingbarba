@@ -6,8 +6,11 @@
   estoque nunca acabava e o produto nunca saía de catálogo no meio do clique.
   Aqui acontece, e a pessoa precisa ler o porquê em vez de clicar de novo.
 
-  São dois lugares, com o mesmo desenho: embaixo do botão da dobra
-  (`compra__recado`) e no pé da gaveta (`sacolinha__aviso`).
+  São três lugares, com o mesmo desenho: embaixo do botão da dobra
+  (`compra__recado`), na soma da rotina (`rotina__recado`) e no pé da gaveta
+  (`sacolinha__aviso`). Cada um leva o nome do próprio bloco em vez de
+  reaproveitar a classe do vizinho — foi o que quebrou um teste que procurava
+  "o recado" e achou dois.
 
   RESERVA DE ESPAÇO, NÃO APARECIMENTO. Os dois nascem com altura zero e
   crescem quando ganham texto — mas o bloco existe desde sempre no HTML, com
@@ -17,6 +20,7 @@
 */
 
 .compra__recado,
+.rotina__recado,
 .sacolinha__aviso {
   margin: 0;
   font-size: 0.82rem;
@@ -28,11 +32,13 @@
 /* Vazio não ocupa linha: sem isto a dobra ganharia um vão permanente entre o
    botão e as garantias, pra uma frase que quase nunca aparece. */
 .compra__recado:empty,
+.rotina__recado:empty,
 .sacolinha__aviso:empty {
   display: none;
 }
 
 .compra__recado,
+.rotina__recado,
 .sacolinha__aviso {
   display: flex;
   align-items: center;
@@ -43,7 +49,8 @@
 }
 
 /* Deu certo: menta, a cor que a marca usa pra confirmar. */
-.compra__recado--ok {
+.compra__recado--ok,
+.rotina__recado--ok {
   background: var(--color-menta);
 }
 
@@ -54,6 +61,7 @@
   na fita de perigo e no selo de desconto.
 */
 .compra__recado--erro,
+.rotina__recado--erro,
 .sacolinha__aviso {
   background: var(--color-amarelo);
 }

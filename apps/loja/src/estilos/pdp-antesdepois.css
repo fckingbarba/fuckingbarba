@@ -1,0 +1,187 @@
+/* Gerado por ferramentas/porte/pdp-partes/agrupa-pdp.py — não edite à mão.
+   Entrelinha padrão do navegador, como no protótipo: o preflight do
+   Tailwind põe 1.5 na raiz e isso empurra tudo que não declara a sua. */
+.antesdepois {
+  line-height: normal;
+}
+.antesdepois,
+.antesdepois * {
+  border-radius: 0;
+  box-sizing: border-box;
+}
+.antesdepois {
+  background: var(--color-papel);
+  font-family: var(--font-sans);
+  color: var(--color-tinta);
+  padding: clamp(38px, 5.5vw, 62px) clamp(16px, 4vw, 28px);
+}
+.antesdepois__wrap {
+  max-width: 1180px;
+  margin: 0 auto;
+}
+.antesdepois__titulo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 6px;
+  font-size: clamp(1.5rem, 4.2vw, 2.2rem);
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: -0.025em;
+  line-height: 1;
+}
+.antesdepois__titulo svg {
+  width: clamp(20px, 3.4vw, 28px);
+  height: clamp(20px, 3.4vw, 28px);
+  fill: var(--color-tinta);
+  flex-shrink: 0;
+}
+.antesdepois__linha-fina {
+  margin: 0 0 clamp(18px, 2.6vw, 26px);
+  max-width: 620px;
+  font-size: 0.97rem;
+  font-weight: 600;
+  line-height: 1.5;
+  color: #566072;
+}
+.antesdepois__casos {
+  display: grid;
+  gap: 16px;
+}
+@media (min-width: 860px) {
+  .antesdepois__casos {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.caso {
+  margin: 0;
+  border: 3px solid var(--color-tinta);
+  background: var(--color-papel);
+  clip-path: polygon(
+    14px 0,
+    100% 0,
+    100% calc(100% - 14px),
+    calc(100% - 14px) 100%,
+    0 100%,
+    0 14px
+  );
+}
+.caso__par {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3px;
+  background: var(--color-tinta);
+}
+.caso__lado {
+  position: relative;
+  background: #1a2028;
+}
+.caso__lado img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 6 / 7;
+  object-fit: cover;
+}
+.caso__etiqueta {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  background: var(--color-tinta);
+  color: #ffffff;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  padding: 5px 9px;
+}
+.caso__etiqueta--depois {
+  background: var(--color-amarelo);
+  color: var(--color-tinta);
+}
+.caso__pe {
+  padding: 13px 15px 15px;
+}
+.caso__quem {
+  margin: 0 0 4px;
+  font-size: 0.92rem;
+  font-weight: 800;
+  line-height: 1.25;
+}
+.caso__quem span {
+  font-weight: 600;
+  color: #566072;
+}
+.caso__fala {
+  margin: 0;
+  font-size: 0.89rem;
+  font-weight: 500;
+  line-height: 1.5;
+  color: #2c3541;
+}
+.antesdepois__regras {
+  margin: clamp(16px, 2.4vw, 22px) 0 0;
+  border: 3px solid var(--color-tinta);
+  background: var(--color-tinta);
+  color: #ffffff;
+  padding: clamp(15px, 2.2vw, 20px) clamp(16px, 2.4vw, 22px);
+  clip-path: polygon(
+    14px 0,
+    100% 0,
+    100% calc(100% - 14px),
+    calc(100% - 14px) 100%,
+    0 100%,
+    0 14px
+  );
+}
+.antesdepois__regras-titulo {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 11px;
+  color: var(--color-amarelo);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.antesdepois__regras-titulo svg {
+  width: 13px;
+  height: 13px;
+  fill: currentColor;
+}
+.antesdepois__regras ul {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 8px 20px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.antesdepois__regras li {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  font-size: 0.89rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+.antesdepois__regras li svg {
+  width: 15px;
+  height: 15px;
+  fill: var(--color-amarelo);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.antesdepois__aviso {
+  margin: clamp(14px, 2vw, 18px) 0 0;
+  max-width: 720px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  line-height: 1.55;
+  color: #566072;
+}
+.antesdepois__titulo {
+  margin: 0 0 clamp(18px, 2.6vw, 26px);
+}
