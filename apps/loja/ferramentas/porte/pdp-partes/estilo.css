@@ -34,28 +34,42 @@
   display: none !important;
 }
 
+/*
+  Reset dos blocos da PDP: canto reto (o chanfro é feito com clip-path,
+  não com border-radius) e border-box em tudo.
+
+  Este bloco já sumiu uma vez: eu estava limpando as regras de uma seção
+  apagando tudo que citava o nome dela, e como o nome aparece TAMBÉM nesta
+  lista compartilhada, a limpeza levou o reset inteiro junto. O sintoma foi
+  o cartão de avaliação estourando a tela em 32px — que é exatamente o
+  padding mais a borda de um elemento que voltou a ser content-box.
+*/
 .migalhas,
 .migalhas *,
 .pdp,
 .pdp *,
 .promessa,
 .promessa *,
+.antesdepois,
+.antesdepois *,
 .tempo,
 .tempo *,
+.faixa,
+.faixa *,
 .rotina,
 .rotina *,
 .funciona,
 .funciona *,
+.versus,
+.versus *,
 .quem,
 .quem *,
 .duvidas,
 .duvidas *,
-.contraste,
-.contraste *,
-.ficha,
-.ficha *,
 .avaliacoes,
 .avaliacoes *,
+.videos,
+.videos *,
 .barra-compra,
 .barra-compra * {
   border-radius: 0;
@@ -71,7 +85,7 @@
 .migalhas {
   background: var(--color-bg);
   font-family: var(--font-sans);
-  padding: 9px clamp(16px, 4vw, 28px) 0;
+  padding: 7px clamp(16px, 4vw, 28px) 0;
 }
 
 @media (min-width: 1000px) {
@@ -142,7 +156,7 @@
   background: var(--color-bg);
   font-family: var(--font-sans);
   color: var(--color-text);
-  padding: clamp(16px, 3vw, 28px) clamp(16px, 4vw, 28px) clamp(34px, 5vw, 56px);
+  padding: clamp(10px, 3vw, 28px) clamp(16px, 4vw, 28px) clamp(34px, 5vw, 56px);
 }
 
 /*
@@ -160,7 +174,7 @@
   max-width: 1320px;
   margin: 0 auto;
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .pdp__cabeca {
@@ -176,7 +190,7 @@
        e sobrava um vazio de 130px de cada lado dela — numa tela de 1440
        a dobra parecia desmontada. Assim o conjunto tem ~1100px e fica no
        meio, que é onde o olho procura. */
-    grid-template-columns: minmax(0, 540px) minmax(0, 500px);
+    grid-template-columns: minmax(0, 620px) minmax(0, 470px);
     justify-content: center;
     grid-template-rows: auto 1fr;
     grid-template-areas:
@@ -239,7 +253,12 @@
     position: sticky;
     /* 74px é a altura do cabeçalho rolado; +18 de respiro */
     top: 92px;
-    max-width: min(540px, 52vh);
+    /* 620 e 66vh: a v2 tinha encolhido demais (52vh dava 468px numa tela
+       de 900, com a foto boiando dentro de um card branco muito maior que
+       ela). A galeria começa em y≈206, então 66vh ainda cabe inteira na
+       primeira tela — e a altura da galeria não empurra o botão, que mora
+       na outra coluna. */
+    max-width: min(620px, 66vh);
     justify-self: center;
   }
 }
@@ -282,10 +301,22 @@
   media query não muda especificidade, quem decide é a ordem no arquivo.
   Da primeira vez eu pus antes e o teto simplesmente não valeu.
 */
+/*
+  No celular a foto volta a ser QUADRADA. A v2 cortou a altura e o card
+  virou um retângulo com duas tarjas brancas nas laterais — economizou
+  pixel e estragou a foto, que é o que mais vende numa PDP.
+
+  O teto agora é de LARGURA em vh: o card inteiro encolhe junto, mantendo
+  o quadrado. Numa tela de 844 dá 337px (contra 358 de largura cheia);
+  num iPhone SE de 667 dá 266 e a foto para de comer metade da tela.
+*/
 @media (max-width: 999px) {
-  .galeria__palco img {
-    aspect-ratio: auto;
-    height: min(34vh, 300px);
+  .galeria {
+    /* 46vh: numa tela de 844 isso passa dos 358px disponíveis, então a
+       foto ocupa a largura toda — que é como ela tem que aparecer. O teto
+       continua existindo pra tela curta: num iPhone SE de 667 dá 307 e a
+       foto para de comer a tela inteira. */
+    max-width: min(100%, 46vh);
   }
 }
 
@@ -345,25 +376,22 @@
 /* dica de zoom, só no mouse */
 .galeria__lupa {
   position: absolute;
-  right: 12px;
-  bottom: 12px;
+  right: 10px;
+  bottom: 10px;
   display: none;
   align-items: center;
-  gap: 6px;
-  background: rgba(18, 24, 31, 0.86);
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: rgba(18, 24, 31, 0.8);
   color: #ffffff;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  padding: 6px 10px;
   z-index: 2;
   pointer-events: none;
 }
 
 .galeria__lupa svg {
-  width: 13px;
-  height: 13px;
+  width: 15px;
+  height: 15px;
   fill: currentColor;
 }
 
@@ -419,10 +447,23 @@
      dentro, Esc pra fechar e o resto da página inerte.
      ------------------------------------------------------ */
 
+/*
+  O zoom estava rolando: a foto é quadrada, o <dialog> tinha só teto de
+  LARGURA (860px), e numa tela de 900 a imagem ficava mais alta que o
+  espaço — sobrava barra de rolagem dentro do modal, que é o contrário do
+  que "ampliar" promete.
+
+  Como a foto é quadrada, o lado dela é o MENOR entre a largura e a altura
+  disponíveis. Daí o min() com as três medidas: 88vh entra na conta e o
+  modal passa a caber sempre. O max-height e o object-fit são cinto de
+  segurança pro dia em que entrar uma foto que não seja quadrada.
+*/
 .galeria__zoom {
-  width: min(92vw, 860px);
+  width: min(92vw, 88vh, 860px);
   max-width: none;
+  max-height: 92vh;
   padding: 0;
+  overflow: hidden;
   border: 3px solid var(--color-text);
   background: var(--color-card-bg);
   box-shadow: 14px 14px 0 0 var(--color-accent);
@@ -436,6 +477,8 @@
   display: block;
   width: 100%;
   height: auto;
+  max-height: calc(92vh - 6px);
+  object-fit: contain;
 }
 
 .galeria__zoom-fecha {
@@ -465,7 +508,7 @@
 .compra {
   display: flex;
   flex-direction: column;
-  gap: 9px;
+  gap: 8px;
 }
 
 @media (min-width: 1000px) {
@@ -618,135 +661,6 @@
   font-weight: 800;
 }
 
-/* --- escolha de quantidade em kit (o degrau de valor) --- */
-
-.compra__kits {
-  margin: 0;
-  padding: 0;
-  border: 0;
-}
-
-.compra__kits-titulo {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 0;
-  /* 14px e não 7: a fita do primeiro cartão flutua 11px acima dele e
-     estava batendo em cima desta legenda */
-  margin: 0 0 14px;
-  font-size: 0.8rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.compra__kits-titulo svg {
-  width: 14px;
-  height: 14px;
-  fill: currentColor;
-}
-
-.compra__kits-lista {
-  display: grid;
-  gap: 9px;
-}
-
-.compra__kit {
-  position: relative;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  border: 3px solid rgba(18, 24, 31, 0.22);
-  background: var(--color-card-bg);
-  cursor: pointer;
-  transition:
-    border-color 0.15s ease,
-    box-shadow 0.15s ease,
-    transform 0.15s ease;
-}
-
-.compra__kit:hover {
-  border-color: var(--color-text);
-}
-
-.compra__kit input {
-  width: 20px;
-  height: 20px;
-  margin: 0;
-  accent-color: var(--color-text);
-  cursor: pointer;
-}
-
-.compra__kit:has(input:checked) {
-  border-color: var(--color-text);
-  box-shadow: 6px 6px 0 0 var(--color-text);
-  transform: translate(-2px, -2px);
-}
-
-.compra__kit:has(input:focus-visible) {
-  outline: 3px solid var(--color-text);
-  outline-offset: 3px;
-}
-
-.compra__kit-nome {
-  display: block;
-  font-size: 0.98rem;
-  font-weight: 800;
-  line-height: 1.2;
-}
-
-.compra__kit-abaixo {
-  display: block;
-  margin-top: 3px;
-  font-size: 0.79rem;
-  font-weight: 600;
-  color: #566072;
-  line-height: 1.35;
-}
-
-.compra__kit-preco {
-  text-align: right;
-  font-size: 1.08rem;
-  font-weight: 800;
-  font-style: italic;
-  letter-spacing: -0.02em;
-  white-space: nowrap;
-}
-
-.compra__kit-unidade {
-  display: block;
-  font-size: 0.72rem;
-  font-weight: 700;
-  font-style: normal;
-  letter-spacing: 0;
-  color: #566072;
-}
-
-/* etiqueta "mais escolhido" / "ciclo completo" no topo do cartão */
-.compra__kit-fita {
-  position: absolute;
-  top: -11px;
-  left: 44px;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  background: var(--color-text);
-  color: var(--color-accent);
-  font-size: 0.66rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  padding: 3px 8px;
-}
-
-.compra__kit-fita svg {
-  width: 10px;
-  height: 10px;
-  fill: currentColor;
-}
-
 /* --- quantidade + comprar --- */
 
 .compra__acao {
@@ -806,11 +720,33 @@
   margin: 0;
 }
 
+/*
+  O BOTÃO PRINCIPAL ERA INVISÍVEL.
+
+  O .btn padrão é menta (#4fe0b9) — desenhado pra fundo branco ou escuro.
+  A coluna de compra fica sobre o fundo menta da loja (#4fe4b6), quase a
+  mesma cor: sobrava só a sombra amarela, e o botão mais importante da
+  loja virava um retângulo fantasma.
+
+  A solução já existia no CSS da home: `.btn--preto`, com o comentário
+  "variante preta, pra usar sobre fundo turquesa ou branco". Era só usar.
+  Preto com sombra amarela sobre menta é o maior contraste que a paleta
+  da marca permite, e não inventa cor nova.
+*/
 .compra__comprar {
   justify-content: center;
   width: 100%;
   font-size: 1.02rem;
-  padding: 17px 20px;
+  padding: 18px 20px;
+  letter-spacing: 0.06em;
+}
+
+/* a seta do carrinho fica amarela, não branca: puxa o olho pro fim da
+   frase, que é onde está a ação */
+.compra__comprar .btn__icone {
+  fill: var(--color-accent);
+  width: 18px;
+  height: 18px;
 }
 
 /* --- estoque: só aparece quando o número é real --- */
@@ -981,36 +917,67 @@
 
 /* --- garantias --- */
 
+/*
+  As quatro garantias eram ícone de traço fino + texto, soltos no fundo
+  menta: a única parte da coluna de compra sem peso nenhum, e dava pra ver.
+  Agora cada ícone mora num quadrado preto chanfrado com o glifo amarelo —
+  os mesmos blocos duros do resto da marca. Só isso já dá ritmo à grade, e
+  a hairline entre as linhas fecha o bloco sem precisar de mais uma caixa
+  branca (já tem a do CEP logo acima).
+*/
 .compra__garantias {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 9px 12px;
-  margin: 2px 0 0;
+  gap: 1px;
+  margin: 4px 0 0;
   padding: 0;
   list-style: none;
+  background: rgba(18, 24, 31, 0.14);
+  border: 1px solid rgba(18, 24, 31, 0.14);
+  clip-path: polygon(
+    10px 0,
+    100% 0,
+    100% calc(100% - 10px),
+    calc(100% - 10px) 100%,
+    0 100%,
+    0 10px
+  );
 }
 
 .compra__garantias li {
   display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  font-size: 0.83rem;
-  font-weight: 700;
-  line-height: 1.32;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 12px;
+  background: var(--color-bg);
+  font-size: 0.84rem;
+  font-weight: 800;
+  line-height: 1.25;
 }
 
 .compra__garantias svg {
-  width: 20px;
-  height: 20px;
-  fill: var(--color-text);
+  box-sizing: content-box;
+  width: 17px;
+  height: 17px;
+  padding: 8px;
+  fill: var(--color-accent);
+  background: var(--color-text);
   flex-shrink: 0;
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
 }
 
 .compra__garantias small {
   display: block;
-  font-size: 0.74rem;
+  margin-top: 2px;
+  font-size: 0.73rem;
   font-weight: 600;
   color: #0d4c3c;
+}
+
+@media (max-width: 400px) {
+  .compra__garantias {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 /* --- bandeiras --- */
@@ -1194,15 +1161,6 @@
   flex-shrink: 0;
 }
 
-.tempo__linha-fina {
-  margin: 0 0 clamp(20px, 3vw, 30px);
-  max-width: 640px;
-  font-size: 0.97rem;
-  font-weight: 600;
-  line-height: 1.5;
-  color: #0d4c3c;
-}
-
 .tempo__trilha {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
@@ -1321,15 +1279,6 @@
   height: clamp(20px, 3.4vw, 28px);
   fill: var(--color-text);
   flex-shrink: 0;
-}
-
-.rotina__linha-fina {
-  margin: 0 0 clamp(20px, 3vw, 28px);
-  max-width: 660px;
-  font-size: 0.97rem;
-  font-weight: 600;
-  line-height: 1.5;
-  color: #566072;
 }
 
 .rotina__grade {
@@ -1569,7 +1518,10 @@
 @media (min-width: 900px) {
   .funciona__wrap {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    align-items: start;
+    /* stretch, não start: com as duas caixas do mesmo tamanho o bloco
+       parece um par. Com alturas diferentes parecia que faltava conteúdo
+       de um lado. */
+    align-items: stretch;
   }
 }
 
@@ -1816,14 +1768,6 @@
 
 .quem__coluna--nao li svg {
   fill: var(--color-accent);
-}
-
-.quem__fecho {
-  margin: clamp(16px, 2.4vw, 22px) 0 0;
-  font-size: 0.92rem;
-  font-weight: 700;
-  line-height: 1.5;
-  color: #566072;
 }
 
 /* ======================================================
@@ -2190,78 +2134,6 @@
    preço; o resto vira uma linha só embaixo.
    ------------------------------------------------------ */
 
-@media (max-width: 719px) {
-  .compra__kits-lista {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 7px;
-  }
-
-  .compra__kit {
-    grid-template-columns: minmax(0, 1fr);
-    justify-items: center;
-    text-align: center;
-    gap: 3px;
-    padding: 10px 6px 9px;
-  }
-
-  .compra__kit input {
-    width: 16px;
-    height: 16px;
-  }
-
-  .compra__kit-nome {
-    font-size: 0.86rem;
-  }
-
-  /* a explicação some do cartão e vira uma linha só, embaixo da
-     grade: três textos de duas linhas lado a lado não se lê */
-  .compra__kit-abaixo {
-    display: none;
-  }
-
-  .compra__kit-preco {
-    text-align: center;
-    font-size: 0.95rem;
-  }
-
-  .compra__kit-unidade {
-    font-size: 0.66rem;
-  }
-
-  .compra__kit-fita {
-    position: static;
-    margin-bottom: 2px;
-    font-size: 0.58rem;
-    letter-spacing: 0.04em;
-    padding: 2px 5px;
-  }
-
-  .compra__kit-fita svg {
-    display: none;
-  }
-}
-
-/* a linha de explicação dos kits, que no celular substitui o texto
-   de dentro dos cartões */
-.compra__kits-nota {
-  margin: 7px 0 0;
-  font-size: 0.79rem;
-  font-weight: 600;
-  line-height: 1.4;
-  color: #0d4c3c;
-}
-
-.compra__kits-nota b {
-  font-weight: 800;
-  color: var(--color-text);
-}
-
-@media (min-width: 720px) {
-  .compra__kits-nota {
-    display: none;
-  }
-}
-
 /* ------------------------------------------------------
    RISCO ZERO, COLADO NO BOTÃO
    É no segundo entre decidir e clicar que o cliente pensa
@@ -2444,259 +2316,6 @@
   background: #000000;
 }
 
-/* ======================================================
-   CONTRASTE — "não é minoxidil"
-   Duas colunas, e a da direita NÃO é a coluna do vilão:
-   é o que o remédio é, dito sem opinião. A cor diferente
-   marca que são coisas de naturezas diferentes, não um
-   duelo.
-   ====================================================== */
-
-.contraste {
-  background: var(--color-card-bg);
-  font-family: var(--font-sans);
-  color: var(--color-text);
-  padding: clamp(38px, 5.5vw, 62px) clamp(16px, 4vw, 28px);
-}
-
-.contraste__wrap {
-  max-width: 1080px;
-  margin: 0 auto;
-}
-
-.contraste__titulo {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 0 0 6px;
-  font-size: clamp(1.35rem, 4.2vw, 2.2rem);
-  font-weight: 800;
-  font-style: italic;
-  text-transform: uppercase;
-  letter-spacing: -0.025em;
-  line-height: 1;
-}
-
-.contraste__titulo svg {
-  width: clamp(20px, 3.4vw, 28px);
-  height: clamp(20px, 3.4vw, 28px);
-  fill: var(--color-text);
-  flex-shrink: 0;
-}
-
-.contraste__linha-fina {
-  margin: 0 0 clamp(18px, 2.6vw, 26px);
-  max-width: 620px;
-  font-size: 0.97rem;
-  font-weight: 600;
-  line-height: 1.5;
-  color: #566072;
-}
-
-.contraste__colunas {
-  display: grid;
-  gap: 12px;
-}
-
-@media (min-width: 820px) {
-  .contraste__colunas {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-.contraste__coluna {
-  border: 3px solid var(--color-text);
-  padding: clamp(16px, 2.6vw, 22px);
-}
-
-.contraste__coluna--nosso {
-  background: var(--color-bg);
-  box-shadow: 8px 8px 0 0 var(--color-text);
-}
-
-.contraste__coluna--deles {
-  background: var(--color-cinza, #f2f3f4);
-}
-
-.contraste__etiqueta {
-  display: inline-flex;
-  margin: 0 0 11px;
-  background: var(--color-text);
-  color: var(--color-accent);
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  padding: 4px 9px;
-}
-
-.contraste__coluna ul {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: grid;
-  gap: 9px;
-}
-
-.contraste__coluna li {
-  display: flex;
-  align-items: flex-start;
-  gap: 9px;
-  font-size: 0.94rem;
-  font-weight: 700;
-  line-height: 1.4;
-}
-
-.contraste__coluna li svg {
-  width: 15px;
-  height: 15px;
-  fill: var(--color-text);
-  flex-shrink: 0;
-  margin-top: 3px;
-}
-
-.contraste__coluna--deles li svg {
-  fill: #98a2b3;
-}
-
-.contraste__coluna--deles li {
-  font-weight: 600;
-  color: #566072;
-}
-
-.contraste__fecho {
-  margin: clamp(16px, 2.4vw, 22px) 0 0;
-  max-width: 720px;
-  font-size: 0.94rem;
-  font-weight: 600;
-  line-height: 1.55;
-  color: #566072;
-}
-
-.contraste__fecho b {
-  font-weight: 800;
-  color: var(--color-text);
-}
-
-/* ======================================================
-   FICHA — o que tem dentro.
-   Os campos vazios ficam À VISTA, marcados. Esconder o que
-   falta num comentário é como esquecer: assim você bate o
-   olho na página e sabe o que ainda não deu pra dizer.
-   ====================================================== */
-
-.ficha {
-  background: var(--color-bg);
-  font-family: var(--font-sans);
-  color: var(--color-text);
-  padding: clamp(38px, 5.5vw, 62px) clamp(16px, 4vw, 28px);
-}
-
-.ficha__wrap {
-  max-width: 1080px;
-  margin: 0 auto;
-}
-
-.ficha__titulo {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 0 0 6px;
-  font-size: clamp(1.5rem, 4.2vw, 2.2rem);
-  font-weight: 800;
-  font-style: italic;
-  text-transform: uppercase;
-  letter-spacing: -0.025em;
-  line-height: 1;
-}
-
-.ficha__titulo svg {
-  width: clamp(20px, 3.4vw, 28px);
-  height: clamp(20px, 3.4vw, 28px);
-  fill: var(--color-text);
-  flex-shrink: 0;
-}
-
-.ficha__linha-fina {
-  margin: 0 0 clamp(18px, 2.6vw, 26px);
-  max-width: 660px;
-  font-size: 0.97rem;
-  font-weight: 600;
-  line-height: 1.5;
-  color: #0d4c3c;
-}
-
-/*
-  Borda em cada célula com margem negativa, em vez de fundo escuro
-  aparecendo pelos vãos. Com o fundo escuro, a última linha (que tem 3
-  células numa grade de 5) deixava um retângulo preto vazio no fim — e
-  buraco preto no meio da ficha parece bloco que não carregou. Assim a
-  grade termina onde as células terminam.
-*/
-.ficha__grade {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-  gap: 0;
-  margin: 0;
-  padding: 0 3px 3px 0;
-}
-
-.ficha__grade > div {
-  background: var(--color-card-bg);
-  border: 3px solid var(--color-text);
-  margin: 0 -3px -3px 0;
-  padding: 13px 15px;
-}
-
-.ficha__grade dt {
-  margin: 0 0 3px;
-  font-size: 0.68rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #566072;
-}
-
-.ficha__grade dd {
-  margin: 0;
-  font-size: 0.97rem;
-  font-weight: 800;
-  line-height: 1.25;
-}
-
-/* o campo que ainda não dá pra preencher se identifica */
-.ficha__falta {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-weight: 700 !important;
-  font-size: 0.86rem !important;
-  color: #8a5a00;
-  border-bottom: 2px dashed #d8a400;
-  padding-bottom: 1px;
-}
-
-.ficha__aviso {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  margin: clamp(16px, 2.4vw, 22px) 0 0;
-  border-left: 6px solid var(--color-text);
-  background: rgba(18, 24, 31, 0.06);
-  padding: 12px 14px;
-  font-size: 0.86rem;
-  font-weight: 600;
-  line-height: 1.5;
-}
-
-.ficha__aviso svg {
-  width: 16px;
-  height: 16px;
-  fill: var(--color-text);
-  flex-shrink: 0;
-  margin-top: 3px;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .videos__item,
   .galeria__mini::after {
@@ -2723,10 +2342,6 @@
   }
 
   .compra__economia svg {
-    display: none;
-  }
-
-  .compra__kit-unidade {
     display: none;
   }
 
@@ -2767,17 +2382,1269 @@
    3 frascos" na mesma altura. Como as fitas têm textos de tamanhos
    diferentes, quem garante o alinhamento é a altura mínima da fita —
    e o primeiro cartão ganhou fita própria em vez de ficar sem. */
+/* Últimos respiros do celular. Cada um deles é pouco; juntos são os
+   30px que separam "o botão aparece na primeira tela" de "não aparece". */
 @media (max-width: 719px) {
+  .galeria__miniaturas {
+    margin-top: 6px;
+  }
+}
+
+/* "Compra segura" é a única das quatro garantias que não repetia nada, e
+   agora mora aqui, na fileira de pagamento, com o escudo preenchido pra
+   se distinguir das formas de pagamento ao lado. */
+.compra__bandeiras-seguro {
+  background: var(--color-text) !important;
+  color: var(--color-accent);
+}
+
+.compra__bandeiras-seguro svg {
+  fill: var(--color-accent);
+}
+
+/* ======================================================
+   AVALIAÇÕES — cartão .avaliacao vindo da home.
+
+   A home usa esses cartões numa esteira que anda sozinha.
+   Aqui não: numa PDP a pessoa LÊ avaliação, não assiste
+   ela passar. Grade parada, e o cartão perde a largura
+   fixa que ele tem lá pra se encaixar na coluna.
+   ====================================================== */
+
+.avaliacoes__topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 20px;
+  margin-bottom: clamp(16px, 2.4vw, 24px);
+}
+
+.avaliacoes__titulo {
+  margin: 0;
+}
+
+.avaliacoes__grade {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.avaliacoes__grade .avaliacao {
+  width: 100%;
+  height: 100%;
+}
+
+/* a nota na dobra, logo abaixo do nome */
+.compra__nota {
+  align-items: center;
+}
+
+.compra__nota .estrelas {
+  width: 96px;
+}
+
+.compra__nota b {
+  font-weight: 800;
+}
+
+/* ======================================================
+   A FOTO NO CELULAR
+
+   Cheguei a mandar ela sangrar de ponta a ponta e ficou
+   ruim: sem as bordas laterais o card deixa de ser card e
+   a foto vira fundo de tela. O meio-termo é manter a
+   moldura e encolher o respiro da seção de 16 pra 10px —
+   ganha 12px de foto sem perder o desenho.
+   ====================================================== */
+
+@media (max-width: 719px) {
+  .pdp {
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+
+  /* o texto devolve pra si o respiro que a seção perdeu */
+  .pdp__cabeca,
+  .compra {
+    padding-inline: 5px;
+  }
+
+  /* A margem negativa que eu tinha usado pra alargar a foto DESCENTRALIZA
+     ela: quando o teto em vh entra em ação a caixa encolhe, e com margem
+     fixa dos dois lados ela gruda na esquerda e sobra espaço na direita.
+
+     A largura agora vem do respiro da seção, que caiu pra 6px, e o texto
+     recupera o seu com padding próprio. Assim a foto é sempre a coisa mais
+     larga da coluna E fica sempre no meio, com ou sem teto. */
+  .galeria {
+    margin-inline: auto;
+    max-width: min(100%, 50vh);
+  }
+
+  .galeria__palco {
+    filter: none;
+  }
+
+  .galeria__miniaturas {
+    margin-top: 9px;
+  }
+}
+
+/* ======================================================
+   CHANFRO — o canto cortado da marca
+
+   A home corta o canto de cima-esquerda e o de
+   baixo-direita em quase tudo que é caixa, com o corte
+   proporcional ao tamanho do bloco: 4px num controle,
+   8px num cartão, 16px num painel. A PDP tinha ficado só
+   de retângulo reto, e é isso que estava fazendo ela
+   parecer de outra loja.
+
+   O PULO DO GATO: `clip-path` corta a sombra junto. Todo
+   `box-shadow: 6px 6px 0` daqui virou
+   `filter: drop-shadow(6px 6px 0 ...)`, que acompanha o
+   formato recortado em vez de desenhar um retângulo atrás
+   dele. É a diferença entre o chanfro parecer de
+   propósito e parecer defeito.
+
+   E o que estava posicionado PRA FORA da caixa (as fitas
+   de "mais vendido" e de "passo 1") teve que entrar pra
+   dentro: clip-path recorta os filhos também, então uma
+   etiqueta flutuando 11px acima do cartão simplesmente
+   sumiria.
+   ====================================================== */
+
+.galeria__palco {
+  clip-path: polygon(
+    18px 0,
+    100% 0,
+    100% calc(100% - 18px),
+    calc(100% - 18px) 100%,
+    0 100%,
+    0 18px
+  );
+  box-shadow: none;
+  filter: drop-shadow(9px 9px 0 var(--color-text));
+}
+
+/* os selos saem de cima do canto cortado */
+.galeria__selos {
+  top: 15px;
+  left: 17px;
+}
+
+.compra__frete,
+.funciona__foto {
+  clip-path: polygon(
+    12px 0,
+    100% 0,
+    100% calc(100% - 12px),
+    calc(100% - 12px) 100%,
+    0 100%,
+    0 12px
+  );
+}
+
+.compra__qtd,
+.videos__item,
+.duvidas__item {
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+}
+
+.duvidas__item[open] {
+  box-shadow: none;
+  filter: drop-shadow(6px 6px 0 var(--color-text));
+}
+
+.videos__item:hover:not(:disabled),
+.videos__item:focus-visible {
+  box-shadow: none;
+  filter: drop-shadow(5px 5px 0 var(--color-accent));
+}
+
+.tempo__passo,
+.rotina__item {
+  clip-path: polygon(
+    12px 0,
+    100% 0,
+    100% calc(100% - 12px),
+    calc(100% - 12px) 100%,
+    0 100%,
+    0 12px
+  );
+}
+
+.tempo__passo {
+  box-shadow: none;
+  filter: drop-shadow(6px 6px 0 var(--color-text));
+}
+
+.rotina__item:has(input:checked) {
+  box-shadow: none;
+  filter: drop-shadow(6px 6px 0 var(--color-accent));
+}
+
+.rotina__item--fixo:has(input:checked) {
+  filter: drop-shadow(6px 6px 0 var(--color-text));
+}
+
+.rotina__soma,
+.funciona__caixa,
+.quem__coluna,
+.ficha__grade {
+  clip-path: polygon(
+    16px 0,
+    100% 0,
+    100% calc(100% - 16px),
+    calc(100% - 16px) 100%,
+    0 100%,
+    0 16px
+  );
+}
+
+.funciona__caixa {
+  box-shadow: none;
+  filter: drop-shadow(8px 8px 0 var(--color-text));
+}
+
+.quem__coluna--sim {
+  box-shadow: none;
+  filter: drop-shadow(8px 8px 0 var(--color-text));
+}
+
+.rotina__item {
+  grid-template-areas:
+    "passo passo"
+    "foto corpo";
+  row-gap: 9px;
+}
+
+.rotina__passo {
+  position: static;
+  grid-area: passo;
+  justify-self: start;
+}
+
+.rotina__foto {
+  grid-area: foto;
+}
+
+.rotina__corpo {
+  grid-area: corpo;
+}
+
+/* ======================================================
+   FAIXA — a seção que é foto
+
+   Mesmo desenho do fechamento da home: a foto é fundo e
+   quem garante a leitura do texto branco é o degradê por
+   cima, não a imagem. Assim dá pra trocar a foto sem ter
+   que reavaliar contraste a cada troca.
+   ====================================================== */
+
+.faixa {
+  position: relative;
+  isolation: isolate;
+  background: #070a09;
+  font-family: var(--font-sans);
+  color: #ffffff;
+  padding: clamp(48px, 8vw, 96px) clamp(16px, 4vw, 28px) clamp(44px, 7vw, 88px);
+  overflow: hidden;
+}
+
+.faixa__foto {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.faixa__foto img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 40%;
+}
+
+/* o degradê é quem faz o texto ser legível, não a foto */
+.faixa__foto::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    rgba(7, 10, 9, 0.94) 0%,
+    rgba(7, 10, 9, 0.86) 42%,
+    rgba(7, 10, 9, 0.45) 100%
+  );
+}
+
+.faixa__tape {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 10px;
+  z-index: 2;
+  background: repeating-linear-gradient(-45deg, #000 0 14px, var(--color-accent) 14px 28px);
+}
+
+.faixa__wrap {
+  position: relative;
+  z-index: 1;
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.faixa__chapeu {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 12px;
+  color: var(--color-accent);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.faixa__chapeu svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+
+.faixa__titulo {
+  margin: 0 0 12px;
+  max-width: 16ch;
+  font-size: clamp(1.8rem, 6vw, 3.2rem);
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: -0.03em;
+  line-height: 0.96;
+}
+
+.faixa__titulo em {
+  font-style: inherit;
+  color: var(--color-accent);
+}
+
+.faixa__texto {
+  margin: 0 0 clamp(18px, 2.6vw, 26px);
+  max-width: 42ch;
+  font-size: 0.99rem;
+  font-weight: 600;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+/* ------------------------------------------------------
+   FOTO DO MODO DE USO
+   ------------------------------------------------------ */
+
+.funciona__caixa {
+  display: flex;
+  flex-direction: column;
+}
+
+/* a dica fica colada no pé da caixa, pra as duas terminarem juntas */
+.funciona__dica {
+  margin-top: auto;
+}
+
+.funciona__foto {
+  margin: 0 0 14px;
+  border: 3px solid var(--color-text);
+  overflow: hidden;
+}
+
+.funciona__foto img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+}
+
+/* ======================================================
+   ANTES E DEPOIS
+
+   Par de fotos lado a lado, não um comparador de arrastar.
+   O comparador é bonito e esconde metade da prova: pra
+   acreditar, a pessoa precisa ver as duas ao mesmo tempo.
+
+   As duas fotos dividem a mesma moldura, separadas por uma
+   linha de 3px — assim fica claro que são um par, e não
+   duas fotos que por acaso ficaram perto.
+   ====================================================== */
+
+.antesdepois {
+  background: var(--color-card-bg);
+  font-family: var(--font-sans);
+  color: var(--color-text);
+  padding: clamp(38px, 5.5vw, 62px) clamp(16px, 4vw, 28px);
+}
+
+.antesdepois__wrap {
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.antesdepois__titulo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 6px;
+  font-size: clamp(1.5rem, 4.2vw, 2.2rem);
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: -0.025em;
+  line-height: 1;
+}
+
+.antesdepois__titulo svg {
+  width: clamp(20px, 3.4vw, 28px);
+  height: clamp(20px, 3.4vw, 28px);
+  fill: var(--color-text);
+  flex-shrink: 0;
+}
+
+.antesdepois__linha-fina {
+  margin: 0 0 clamp(18px, 2.6vw, 26px);
+  max-width: 620px;
+  font-size: 0.97rem;
+  font-weight: 600;
+  line-height: 1.5;
+  color: #566072;
+}
+
+.antesdepois__casos {
+  display: grid;
+  gap: 16px;
+}
+
+@media (min-width: 860px) {
+  .antesdepois__casos {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.caso {
+  margin: 0;
+  border: 3px solid var(--color-text);
+  background: var(--color-card-bg);
+  clip-path: polygon(
+    14px 0,
+    100% 0,
+    100% calc(100% - 14px),
+    calc(100% - 14px) 100%,
+    0 100%,
+    0 14px
+  );
+}
+
+.caso__par {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3px;
+  background: var(--color-text);
+}
+
+.caso__lado {
+  position: relative;
+  background: #1a2028;
+}
+
+.caso__lado img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 6 / 7;
+  object-fit: cover;
+}
+
+.caso__etiqueta {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  background: var(--color-text);
+  color: #ffffff;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  padding: 5px 9px;
+}
+
+.caso__etiqueta--depois {
+  background: var(--color-accent);
+  color: var(--color-text);
+}
+
+.caso__pe {
+  padding: 13px 15px 15px;
+}
+
+.caso__quem {
+  margin: 0 0 4px;
+  font-size: 0.92rem;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.caso__quem span {
+  font-weight: 600;
+  color: #566072;
+}
+
+.caso__fala {
+  margin: 0;
+  font-size: 0.89rem;
+  font-weight: 500;
+  line-height: 1.5;
+  color: #2c3541;
+}
+
+/* ------------------------------------------------------
+   AS REGRAS
+   Não são recado interno: são argumento. Ninguém nesta
+   categoria conta como fotografa, e quem conta ganha a
+   confiança de quem já desconfia de antes e depois — que
+   a essa altura é todo mundo.
+   ------------------------------------------------------ */
+
+.antesdepois__regras {
+  margin: clamp(16px, 2.4vw, 22px) 0 0;
+  border: 3px solid var(--color-text);
+  background: var(--color-text);
+  color: #ffffff;
+  padding: clamp(15px, 2.2vw, 20px) clamp(16px, 2.4vw, 22px);
+  clip-path: polygon(
+    14px 0,
+    100% 0,
+    100% calc(100% - 14px),
+    calc(100% - 14px) 100%,
+    0 100%,
+    0 14px
+  );
+}
+
+.antesdepois__regras-titulo {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 11px;
+  color: var(--color-accent);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.antesdepois__regras-titulo svg {
+  width: 13px;
+  height: 13px;
+  fill: currentColor;
+}
+
+.antesdepois__regras ul {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 8px 20px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.antesdepois__regras li {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  font-size: 0.89rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.antesdepois__regras li svg {
+  width: 15px;
+  height: 15px;
+  fill: var(--color-accent);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.antesdepois__aviso {
+  margin: clamp(14px, 2vw, 18px) 0 0;
+  max-width: 720px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  line-height: 1.55;
+  color: #566072;
+}
+
+/* ======================================================
+   OS KITS — três cartões lado a lado, em qualquer tela
+
+   Este bloco é o ÚNICO lugar que descreve os cartões de
+   kit. Antes eram seis, espalhados entre media queries de
+   revisões diferentes, metade contradizendo a outra — e
+   cada ajuste virava caçada. Se precisar mexer, é aqui.
+
+   Lado a lado no celular E no desktop: empilhados eram
+   297px de altura, o maior bloco entre o topo da página e
+   o botão de comprar. Lado a lado são 110, e o que decide
+   a escolha (quantos frascos, quanto custa) continua à
+   vista. O detalhe de cada opção só aparece onde cabe.
+   ====================================================== */
+
+.compra__kits {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.compra__kits-titulo {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0;
+  margin: 0 0 9px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.compra__kits-titulo svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+
+.compra__kits-lista {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.compra__kit {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+  align-content: start;
+  text-align: center;
+  gap: 3px;
+  padding: 0 7px 10px;
+  border: 3px solid rgba(18, 24, 31, 0.22);
+  background: var(--color-card-bg);
+  cursor: pointer;
+  /* a fita é 14px mais larga que o cartão (ela sangra nas laterais). Sem
+     overflow: hidden esses 14px viram largura de página e o celular ganha
+     rolagem lateral — clip-path recorta o que se VÊ, não o que ocupa. */
+  overflow: hidden;
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+  transition:
+    border-color 0.15s ease,
+    filter 0.15s ease,
+    transform 0.15s ease;
+}
+
+.compra__kit:hover {
+  border-color: var(--color-text);
+}
+
+.compra__kit:has(input:checked) {
+  border-color: var(--color-text);
+  transform: translate(-2px, -2px);
+  filter: drop-shadow(6px 6px 0 var(--color-text));
+}
+
+.compra__kit:has(input:focus-visible) {
+  outline: 3px solid var(--color-text);
+  outline-offset: 3px;
+}
+
+.compra__kit input {
+  width: 17px;
+  height: 17px;
+  margin: 6px 0 2px;
+  accent-color: var(--color-text);
+  cursor: pointer;
+}
+
+/* A fita é a primeira linha de DENTRO do cartão, de ponta a ponta.
+   Flutuando por fora ela seria recortada pelo canto chanfrado — e a
+   altura mínima é o que mantém "1 frasco / 2 frascos / 3 frascos"
+   alinhados mesmo com etiquetas de tamanhos diferentes. */
+.compra__kit-fita {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: calc(100% + 14px);
+  min-height: 2.2em;
+  margin: 0 -7px 4px;
+  padding: 3px 5px;
+  background: var(--color-text);
+  color: var(--color-accent);
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  line-height: 1.15;
+  text-transform: uppercase;
+}
+
+.compra__kit-fita svg {
+  width: 10px;
+  height: 10px;
+  fill: currentColor;
+  flex-shrink: 0;
+}
+
+/* um destaque só na grade: destaque que se repete deixa de ser destaque */
+.compra__kit-fita--campeao {
+  background: var(--color-accent);
+  color: var(--color-text);
+}
+
+.compra__kit-fita--campeao svg {
+  fill: var(--color-text);
+}
+
+.compra__kit:has(.compra__kit-fita--campeao) {
+  border-color: var(--color-text);
+}
+
+.compra__kit-nome {
+  display: block;
+  font-size: 0.86rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.compra__kit-preco {
+  font-size: 0.95rem;
+  font-weight: 800;
+  font-style: italic;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+
+.compra__kit-unidade,
+.compra__kit-abaixo {
+  display: none;
+}
+
+/* Num cartão de 120px (celular) só cabe o que decide: quantos frascos e
+   quanto custa. A partir de 720px o cartão tem ~150px e aí entram o preço
+   por unidade e a linha de vantagem. */
+@media (min-width: 720px) {
+  .compra__kit-unidade {
+    display: block;
+    font-size: 0.67rem;
+    font-weight: 700;
+    font-style: normal;
+    letter-spacing: 0;
+    color: #566072;
+  }
+
+  .compra__kit-abaixo {
+    display: block;
+    margin-top: 3px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    line-height: 1.3;
+    color: #566072;
+  }
+}
+
+@media (max-width: 719px) {
+  /* a legenda sai da tela mas fica pro leitor de tela: "1 frasco /
+     2 frascos / 3 frascos" não precisa de um título explicando */
+  .compra__kits-titulo {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
   .compra__kit {
-    align-content: start;
+    padding: 0 5px 9px;
   }
 
   .compra__kit-fita {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 2.3em;
-    line-height: 1.15;
-    text-align: center;
+    width: calc(100% + 10px);
+    margin-inline: -5px;
+  }
+
+  .compra__kit-nome {
+    font-size: 0.82rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .compra__kit {
+    transition: none !important;
+  }
+}
+
+/* ======================================================
+   VERSUS — duas colunas sobre amarelo
+
+   Fundo amarelo é a cor mais alta da paleta e a página só
+   a usa em pedaço pequeno (selo, fita, sombra). Numa
+   seção inteira ela funciona como interrupção: depois de
+   três blocos claros seguidos, o olho é obrigado a parar
+   aqui. É o lugar certo pra isso, porque esta é a seção
+   que faz a comparação.
+
+   Sobre amarelo o nosso cartão é preto e o genérico é
+   branco apagado — sem X vermelho e sem deboche. O peso
+   visual já diz quem é quem.
+   ====================================================== */
+
+.versus {
+  background: var(--color-accent);
+  font-family: var(--font-sans);
+  color: var(--color-text);
+  padding: clamp(38px, 5.5vw, 62px) clamp(16px, 4vw, 28px);
+}
+
+.versus__wrap {
+  max-width: 1020px;
+  margin: 0 auto;
+}
+
+.versus__titulo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 6px;
+  font-size: clamp(1.35rem, 4.2vw, 2.2rem);
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: -0.025em;
+  line-height: 1;
+}
+
+.versus__titulo svg {
+  width: clamp(20px, 3.4vw, 28px);
+  height: clamp(20px, 3.4vw, 28px);
+  fill: var(--color-text);
+  flex-shrink: 0;
+}
+
+.versus__colunas {
+  display: grid;
+  gap: 12px;
+}
+
+@media (min-width: 760px) {
+  .versus__colunas {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+  }
+}
+
+.versus__coluna {
+  display: flex;
+  flex-direction: column;
+  border: 3px solid var(--color-text);
+  padding: clamp(14px, 2.2vw, 20px);
+  clip-path: polygon(
+    16px 0,
+    100% 0,
+    100% calc(100% - 16px),
+    calc(100% - 16px) 100%,
+    0 100%,
+    0 16px
+  );
+}
+
+.versus__coluna--nosso {
+  background: var(--color-text);
+  color: #ffffff;
+}
+
+.versus__coluna--deles {
+  background: #ffffff;
+  color: #8b95a3;
+}
+
+.versus__cabeca {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin: 0 0 14px;
+  padding-bottom: 13px;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.18);
+  font-size: 0.98rem;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.versus__coluna--deles .versus__cabeca {
+  border-bottom-color: rgba(18, 24, 31, 0.12);
+}
+
+.versus__cabeca img {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  object-fit: contain;
+  background: #ffffff;
+  border: 2px solid var(--color-text);
+}
+
+.versus__cabeca small {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.versus__coluna--deles .versus__cabeca small {
+  color: #aab3bf;
+}
+
+.versus__coluna ul {
+  display: grid;
+  align-content: start;
+  gap: 11px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.versus__coluna li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.versus__coluna li svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+
+.versus__coluna--nosso li svg {
+  fill: var(--color-accent);
+}
+
+.versus__coluna--deles li {
+  font-weight: 600;
+}
+
+.versus__coluna--deles li svg {
+  fill: #c3cad3;
+}
+
+/* o número que ainda não existe acusa a gente também, e de propósito */
+.versus__falta {
+  font-weight: 800;
+  color: var(--color-accent);
+  border-bottom: 2px dashed rgba(255, 216, 77, 0.6);
+}
+
+/* ------------------------------------------------------
+   DOIS ESTOUROS DE LARGURA NO CELULAR
+
+   Os dois pela mesma causa: item de grid nasce com
+   `min-width: auto` e não encolhe abaixo do próprio
+   conteúdo, mesmo quando a coluna é `minmax(0, 1fr)`.
+
+   1. O botão "Adicionar à sacola" não cabia em 234px e
+      esticava a linha inteira. Encolhi o seletor de
+      quantidade e o rótulo até a frase caber numa linha
+      só — botão de compra com texto quebrado parece site
+      mal feito bem na hora de confiar na loja.
+   2. O cartão de avaliação vem da home com largura fixa
+      (280–380px) e foto de 64px. Numa coluna de 358 ele
+      empurrava a página pra 390.
+   ------------------------------------------------------ */
+
+@media (max-width: 719px) {
+  .compra__qtd button {
+    width: 34px;
+  }
+
+  .compra__qtd input {
+    width: 36px;
+  }
+
+  .compra__acao {
+    gap: 7px;
+  }
+
+  .compra__comprar {
+    min-width: 0;
+    font-size: 0.82rem;
+    letter-spacing: 0.04em;
+    padding: 15px 10px;
+    gap: 6px;
+  }
+}
+
+.avaliacoes__grade .avaliacao {
+  min-width: 0;
+}
+
+.avaliacoes__grade .avaliacao__corpo {
+  min-width: 0;
+}
+
+/* ======================================================
+   RITMO VERTICAL
+
+   Medindo a página bloco a bloco, a distância entre um
+   título de seção e o que vem logo abaixo estava em 0, 6,
+   26 e 34px dependendo da seção — sobra das revisões, em
+   que umas tinham linha de apoio embaixo do título e
+   outras não. Agora é um valor só pra todas.
+
+   O mesmo na coluna de compra: os vãos estavam 16, 20,
+   16, 20 e 18 porque alguns blocos tinham margem própria
+   ALÉM do gap do flex. As margens saíram; quem espaça é
+   o gap, num lugar só.
+   ====================================================== */
+
+.promessa__titulo,
+.antesdepois__titulo,
+.tempo__titulo,
+.rotina__titulo,
+.versus__titulo,
+.quem__titulo,
+.duvidas__titulo,
+.avaliacoes__titulo {
+  margin: 0 0 clamp(18px, 2.6vw, 26px);
+}
+
+.compra {
+  gap: 10px;
+}
+
+@media (min-width: 720px) {
+  .compra {
+    gap: 14px;
+  }
+}
+
+.compra__kits,
+.compra__garantias,
+.videos {
+  margin-top: 0;
+}
+
+/*
+  O botão tem sombra dura de 6px, que ocupa o começo do vão de baixo: sem
+  esta margem o espaço ATÉ A SOMBRA fica 6px menor que todos os outros, e
+  a sombra quase encosta no box de CEP. Os 6px devolvem o vão inteiro.
+*/
+.compra__acao {
+  margin: 0 0 6px;
+}
+
+/* ======================================================
+   CROSS-SELL — o mesmo slot do order bump
+
+   Mesma linguagem dos cartões de kit (chanfro, borda que
+   fecha quando marca, sombra dura), mas em linha em vez
+   de coluna: aqui o que decide é a foto e o nome, não um
+   número, então o item deitado lê melhor e ocupa menos
+   altura — e altura, nesta parte da página, é o botão de
+   comprar indo pra fora da primeira tela.
+   ====================================================== */
+
+.cross {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.cross__lista {
+  display: grid;
+  gap: 7px;
+}
+
+.cross__item {
+  display: grid;
+  grid-template-columns: auto 52px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 8px 11px 8px 9px;
+  border: 3px solid rgba(18, 24, 31, 0.22);
+  background: var(--color-card-bg);
+  cursor: pointer;
+  overflow: hidden;
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+  transition:
+    border-color 0.15s ease,
+    filter 0.15s ease,
+    transform 0.15s ease;
+}
+
+.cross__item:hover {
+  border-color: var(--color-text);
+}
+
+.cross__item:has(input:checked) {
+  border-color: var(--color-text);
+  transform: translate(-2px, -2px);
+  filter: drop-shadow(6px 6px 0 var(--color-accent));
+}
+
+.cross__item:has(input:focus-visible) {
+  outline: 3px solid var(--color-text);
+  outline-offset: 3px;
+}
+
+.cross__item input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--color-text);
+  cursor: pointer;
+}
+
+.cross__foto {
+  width: 52px;
+  height: 52px;
+  border: 2px solid var(--color-text);
+  background: var(--color-card-bg);
+  object-fit: contain;
+}
+
+.cross__corpo {
+  min-width: 0;
+}
+
+.cross__nome {
+  display: block;
+  font-size: 0.88rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.cross__para {
+  display: block;
+  margin-top: 1px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: #566072;
+}
+
+.cross__preco {
+  display: block;
+  margin-top: 3px;
+  font-size: 0.92rem;
+  font-weight: 800;
+  font-style: italic;
+  letter-spacing: -0.02em;
+}
+
+.cross__preco s {
+  margin-left: 5px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  font-style: normal;
+  color: #566072;
+}
+
+/* ======================================================
+   CHAVE DE PROTÓTIPO — não vai pro site
+
+   `fixed` pra não entrar no fluxo: a medição da dobra não
+   pode mudar por causa de um controle que não existe na
+   loja. Fica acima da barra de compra fixa (72px de
+   altura) pra não brigar com ela.
+   ====================================================== */
+
+.proto {
+  position: fixed;
+  left: 12px;
+  bottom: 84px;
+  z-index: 80;
+  background: rgba(18, 24, 31, 0.95);
+  border: 2px dashed var(--color-accent);
+  padding: 6px 10px;
+  font-family: var(--font-sans);
+  color: #ffffff;
+  box-shadow: 0 6px 20px rgba(7, 12, 14, 0.35);
+}
+
+.proto__rotulo {
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+  cursor: pointer;
+  list-style: none;
+}
+
+.proto__rotulo::-webkit-details-marker {
+  display: none;
+}
+
+.proto__rotulo::after {
+  content: " +";
+}
+
+.proto[open] .proto__rotulo::after {
+  content: " −";
+}
+
+.proto__opcoes {
+  display: flex;
+  gap: 12px;
+  margin-top: 7px;
+  padding-top: 7px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.proto label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.proto input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--color-accent);
+  cursor: pointer;
+}
+
+@media (max-width: 520px) {
+  .proto {
+    left: 8px;
+    bottom: 78px;
+  }
+
+  .proto__opcoes {
+    flex-direction: column;
+    gap: 6px;
   }
 }

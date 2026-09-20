@@ -277,6 +277,92 @@ console.log("\nVÍDEOS")
   limpo ? ok("Esc fecha e solta o vídeo") : falha("o vídeo continuou carregado depois de fechar")
 }
 
+console.log("\nCROSS-SELL E A CHAVE")
+{
+  await aoTopo()
+  const bumpVisivel = await pagina.locator("[data-kits]").isVisible()
+  const crossEscondido = await pagina.locator("[data-cross]").isHidden()
+  bumpVisivel && crossEscondido
+    ? ok("começa no order bump, com o cross-sell escondido")
+    : falha("os dois blocos apareceram juntos no estado inicial")
+
+  // a chave é um <details> fechado por padrão: sem abrir, o rádio está
+  // escondido e o Playwright fica esperando ele aparecer até estourar
+  await pagina.locator("[data-proto]").evaluate((d) => {
+    d.open = true
+  })
+  await pagina.locator('[data-proto] input[value="cross"]').check()
+  const trocou =
+    (await pagina.locator("[data-cross]").isVisible()) &&
+    (await pagina.locator("[data-kits]").isHidden())
+  trocou ? ok("a chave troca um pelo outro") : falha("a troca não aconteceu")
+
+  const quantos = await pagina.locator("[data-cross-item]").count()
+  quantos <= 2 ? ok(`${quantos} itens no cross-sell (o teto é 2)`) : falha(`${quantos} itens`)
+
+  await pagina.locator("[data-cross-item]").first().check()
+  const rot = (await pagina.textContent("[data-pdp-comprar]")).trim()
+  // ponto e vírgula obrigatório: sem ele o JS lê a barra da regex como
+  // divisão da linha de cima. Já quebrou este arquivo duas vezes.
+  ;/os 2/.test(rot) ? ok('o botão vira "Adicionar os 2"') : falha("botão: " + rot)
+
+  await pagina.evaluate(() => window.FuckingBarba.carrinho.definir([]))
+  await pagina.locator("[data-pdp-comprar]").click()
+  await pagina.waitForTimeout(700)
+  const n = await pagina.evaluate(() => window.FuckingBarba.carrinho.ler().length)
+  n === 2 ? ok("o extra entra na sacola junto") : falha(`entraram ${n} itens`)
+  await pagina.evaluate(() => window.FuckingBarba.carrinho.fechar())
+  await pagina.evaluate(() => window.FuckingBarba.carrinho.definir([]))
+
+  // a dobra tem que continuar de pé no outro estado
+  await pagina.setViewportSize({ width: 390, height: 844 })
+  await aoTopo()
+  const m = await pagina.evaluate(() => ({
+    botao: Math.round(document.querySelector("[data-pdp-comprar]").getBoundingClientRect().top),
+    tela: window.innerHeight,
+  }))
+  m.botao < m.tela
+    ? ok(`no modo kit o comprar segue na primeira tela (y=${m.botao})`)
+    : falha(`no modo kit o comprar caiu ${m.botao - m.tela}px pra fora`)
+
+  await pagina.setViewportSize({ width: 1440, height: 1000 })
+  await pagina.locator("[data-cross-item]").first().uncheck()
+  await pagina.locator('[data-proto] input[value="bump"]').check()
+}
+
+console.log("\nZOOM")
+{
+  /* A foto é quadrada; o modal só tinha teto de largura, então numa tela
+     de 900 ele ficava mais alto que o espaço e ganhava barra de rolagem
+     por dentro — o contrário do que "ampliar" promete. */
+  for (const [w, h] of [
+    [390, 844],
+    [1440, 900],
+    [1280, 720],
+  ]) {
+    await pagina.setViewportSize({ width: w, height: h })
+    await aoTopo()
+    await pagina.locator("[data-galeria-palco]").click()
+    await pagina.waitForTimeout(250)
+    const m = await pagina.evaluate(() => {
+      const d = document.querySelector("[data-galeria-zoom]")
+      const r = d.getBoundingClientRect()
+      return {
+        rola: d.scrollHeight > d.clientHeight + 1,
+        alto: Math.round(r.height),
+        tela: window.innerHeight,
+      }
+    })
+    await pagina.keyboard.press("Escape")
+    !m.rola && m.alto <= m.tela
+      ? ok(`${w}x${h}: a foto ampliada cabe sem rolagem (${m.alto}px)`)
+      : falha(
+          `${w}x${h}: modal com ${m.alto}px numa tela de ${m.tela}${m.rola ? " e com rolagem" : ""}`
+        )
+  }
+  await pagina.setViewportSize({ width: 1440, height: 1000 })
+}
+
 console.log("\nA DOBRA")
 {
   /* O defeito mais caro da v1: no celular o "Adicionar à sacola" nascia
@@ -345,14 +431,21 @@ console.log("\nESTRUTURA DE GRID")
     (els) =>
       els
         .map((el) => {
-          const colunas = getComputedStyle(el).gridTemplateColumns.split(" ").length
+          const cs = getComputedStyle(el)
+          // grid com áreas nomeadas coloca cada filho na mão: contar
+          // filhos contra colunas não diz nada ali
+          if (cs.gridTemplateAreas && cs.gridTemplateAreas !== "none") return null
+          const colunas = cs.gridTemplateColumns.split(" ").length
+          // grid de uma coluna empilha de propósito: só faz sentido
+          // cobrar filho sobrando em grid de duas colunas pra cima
+          if (colunas < 2) return null
           const filhos = [...el.children].filter(
             (c) => getComputedStyle(c).position !== "absolute"
           ).length
           const pseudo = getComputedStyle(el, "::before").content !== "none" ? 1 : 0
           return { cls: el.className || el.tagName, colunas, celulas: filhos + pseudo }
         })
-        .filter((r) => r.celulas > r.colunas)
+        .filter((r) => r && r.celulas > r.colunas)
   )
   quebrados.length
     ? falha(`${quebrados.length} grid com filho sobrando: ${JSON.stringify(quebrados[0])}`)

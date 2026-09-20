@@ -4804,28 +4804,42 @@
   display: none !important;
 }
 
+/*
+  Reset dos blocos da PDP: canto reto (o chanfro é feito com clip-path,
+  não com border-radius) e border-box em tudo.
+
+  Este bloco já sumiu uma vez: eu estava limpando as regras de uma seção
+  apagando tudo que citava o nome dela, e como o nome aparece TAMBÉM nesta
+  lista compartilhada, a limpeza levou o reset inteiro junto. O sintoma foi
+  o cartão de avaliação estourando a tela em 32px — que é exatamente o
+  padding mais a borda de um elemento que voltou a ser content-box.
+*/
 .migalhas,
 .migalhas *,
 .pdp,
 .pdp *,
 .promessa,
 .promessa *,
+.antesdepois,
+.antesdepois *,
 .tempo,
 .tempo *,
+.faixa,
+.faixa *,
 .rotina,
 .rotina *,
 .funciona,
 .funciona *,
+.versus,
+.versus *,
 .quem,
 .quem *,
 .duvidas,
 .duvidas *,
-.contraste,
-.contraste *,
-.ficha,
-.ficha *,
 .avaliacoes,
 .avaliacoes *,
+.videos,
+.videos *,
 .barra-compra,
 .barra-compra * {
   border-radius: 0;
@@ -4841,7 +4855,7 @@
 .migalhas {
   background: var(--color-bg);
   font-family: var(--font-sans);
-  padding: 9px clamp(16px, 4vw, 28px) 0;
+  padding: 7px clamp(16px, 4vw, 28px) 0;
 }
 
 @media (min-width: 1000px) {
@@ -4912,7 +4926,7 @@
   background: var(--color-bg);
   font-family: var(--font-sans);
   color: var(--color-text);
-  padding: clamp(16px, 3vw, 28px) clamp(16px, 4vw, 28px) clamp(34px, 5vw, 56px);
+  padding: clamp(10px, 3vw, 28px) clamp(16px, 4vw, 28px) clamp(34px, 5vw, 56px);
 }
 
 /*
@@ -4930,7 +4944,7 @@
   max-width: 1320px;
   margin: 0 auto;
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .pdp__cabeca {
@@ -4946,7 +4960,7 @@
        e sobrava um vazio de 130px de cada lado dela — numa tela de 1440
        a dobra parecia desmontada. Assim o conjunto tem ~1100px e fica no
        meio, que é onde o olho procura. */
-    grid-template-columns: minmax(0, 540px) minmax(0, 500px);
+    grid-template-columns: minmax(0, 620px) minmax(0, 470px);
     justify-content: center;
     grid-template-rows: auto 1fr;
     grid-template-areas:
@@ -5009,7 +5023,12 @@
     position: sticky;
     /* 74px é a altura do cabeçalho rolado; +18 de respiro */
     top: 92px;
-    max-width: min(540px, 52vh);
+    /* 620 e 66vh: a v2 tinha encolhido demais (52vh dava 468px numa tela
+       de 900, com a foto boiando dentro de um card branco muito maior que
+       ela). A galeria começa em y≈206, então 66vh ainda cabe inteira na
+       primeira tela — e a altura da galeria não empurra o botão, que mora
+       na outra coluna. */
+    max-width: min(620px, 66vh);
     justify-self: center;
   }
 }
@@ -5052,10 +5071,22 @@
   media query não muda especificidade, quem decide é a ordem no arquivo.
   Da primeira vez eu pus antes e o teto simplesmente não valeu.
 */
+/*
+  No celular a foto volta a ser QUADRADA. A v2 cortou a altura e o card
+  virou um retângulo com duas tarjas brancas nas laterais — economizou
+  pixel e estragou a foto, que é o que mais vende numa PDP.
+
+  O teto agora é de LARGURA em vh: o card inteiro encolhe junto, mantendo
+  o quadrado. Numa tela de 844 dá 337px (contra 358 de largura cheia);
+  num iPhone SE de 667 dá 266 e a foto para de comer metade da tela.
+*/
 @media (max-width: 999px) {
-  .galeria__palco img {
-    aspect-ratio: auto;
-    height: min(34vh, 300px);
+  .galeria {
+    /* 46vh: numa tela de 844 isso passa dos 358px disponíveis, então a
+       foto ocupa a largura toda — que é como ela tem que aparecer. O teto
+       continua existindo pra tela curta: num iPhone SE de 667 dá 307 e a
+       foto para de comer a tela inteira. */
+    max-width: min(100%, 46vh);
   }
 }
 
@@ -5115,25 +5146,22 @@
 /* dica de zoom, só no mouse */
 .galeria__lupa {
   position: absolute;
-  right: 12px;
-  bottom: 12px;
+  right: 10px;
+  bottom: 10px;
   display: none;
   align-items: center;
-  gap: 6px;
-  background: rgba(18, 24, 31, 0.86);
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: rgba(18, 24, 31, 0.8);
   color: #ffffff;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  padding: 6px 10px;
   z-index: 2;
   pointer-events: none;
 }
 
 .galeria__lupa svg {
-  width: 13px;
-  height: 13px;
+  width: 15px;
+  height: 15px;
   fill: currentColor;
 }
 
@@ -5189,10 +5217,23 @@
      dentro, Esc pra fechar e o resto da página inerte.
      ------------------------------------------------------ */
 
+/*
+  O zoom estava rolando: a foto é quadrada, o <dialog> tinha só teto de
+  LARGURA (860px), e numa tela de 900 a imagem ficava mais alta que o
+  espaço — sobrava barra de rolagem dentro do modal, que é o contrário do
+  que "ampliar" promete.
+
+  Como a foto é quadrada, o lado dela é o MENOR entre a largura e a altura
+  disponíveis. Daí o min() com as três medidas: 88vh entra na conta e o
+  modal passa a caber sempre. O max-height e o object-fit são cinto de
+  segurança pro dia em que entrar uma foto que não seja quadrada.
+*/
 .galeria__zoom {
-  width: min(92vw, 860px);
+  width: min(92vw, 88vh, 860px);
   max-width: none;
+  max-height: 92vh;
   padding: 0;
+  overflow: hidden;
   border: 3px solid var(--color-text);
   background: var(--color-card-bg);
   box-shadow: 14px 14px 0 0 var(--color-accent);
@@ -5206,6 +5247,8 @@
   display: block;
   width: 100%;
   height: auto;
+  max-height: calc(92vh - 6px);
+  object-fit: contain;
 }
 
 .galeria__zoom-fecha {
@@ -5235,7 +5278,7 @@
 .compra {
   display: flex;
   flex-direction: column;
-  gap: 9px;
+  gap: 8px;
 }
 
 @media (min-width: 1000px) {
@@ -5388,135 +5431,6 @@
   font-weight: 800;
 }
 
-/* --- escolha de quantidade em kit (o degrau de valor) --- */
-
-.compra__kits {
-  margin: 0;
-  padding: 0;
-  border: 0;
-}
-
-.compra__kits-titulo {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 0;
-  /* 14px e não 7: a fita do primeiro cartão flutua 11px acima dele e
-     estava batendo em cima desta legenda */
-  margin: 0 0 14px;
-  font-size: 0.8rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.compra__kits-titulo svg {
-  width: 14px;
-  height: 14px;
-  fill: currentColor;
-}
-
-.compra__kits-lista {
-  display: grid;
-  gap: 9px;
-}
-
-.compra__kit {
-  position: relative;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  border: 3px solid rgba(18, 24, 31, 0.22);
-  background: var(--color-card-bg);
-  cursor: pointer;
-  transition:
-    border-color 0.15s ease,
-    box-shadow 0.15s ease,
-    transform 0.15s ease;
-}
-
-.compra__kit:hover {
-  border-color: var(--color-text);
-}
-
-.compra__kit input {
-  width: 20px;
-  height: 20px;
-  margin: 0;
-  accent-color: var(--color-text);
-  cursor: pointer;
-}
-
-.compra__kit:has(input:checked) {
-  border-color: var(--color-text);
-  box-shadow: 6px 6px 0 0 var(--color-text);
-  transform: translate(-2px, -2px);
-}
-
-.compra__kit:has(input:focus-visible) {
-  outline: 3px solid var(--color-text);
-  outline-offset: 3px;
-}
-
-.compra__kit-nome {
-  display: block;
-  font-size: 0.98rem;
-  font-weight: 800;
-  line-height: 1.2;
-}
-
-.compra__kit-abaixo {
-  display: block;
-  margin-top: 3px;
-  font-size: 0.79rem;
-  font-weight: 600;
-  color: #566072;
-  line-height: 1.35;
-}
-
-.compra__kit-preco {
-  text-align: right;
-  font-size: 1.08rem;
-  font-weight: 800;
-  font-style: italic;
-  letter-spacing: -0.02em;
-  white-space: nowrap;
-}
-
-.compra__kit-unidade {
-  display: block;
-  font-size: 0.72rem;
-  font-weight: 700;
-  font-style: normal;
-  letter-spacing: 0;
-  color: #566072;
-}
-
-/* etiqueta "mais escolhido" / "ciclo completo" no topo do cartão */
-.compra__kit-fita {
-  position: absolute;
-  top: -11px;
-  left: 44px;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  background: var(--color-text);
-  color: var(--color-accent);
-  font-size: 0.66rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  padding: 3px 8px;
-}
-
-.compra__kit-fita svg {
-  width: 10px;
-  height: 10px;
-  fill: currentColor;
-}
-
 /* --- quantidade + comprar --- */
 
 .compra__acao {
@@ -5576,11 +5490,33 @@
   margin: 0;
 }
 
+/*
+  O BOTÃO PRINCIPAL ERA INVISÍVEL.
+
+  O .btn padrão é menta (#4fe0b9) — desenhado pra fundo branco ou escuro.
+  A coluna de compra fica sobre o fundo menta da loja (#4fe4b6), quase a
+  mesma cor: sobrava só a sombra amarela, e o botão mais importante da
+  loja virava um retângulo fantasma.
+
+  A solução já existia no CSS da home: `.btn--preto`, com o comentário
+  "variante preta, pra usar sobre fundo turquesa ou branco". Era só usar.
+  Preto com sombra amarela sobre menta é o maior contraste que a paleta
+  da marca permite, e não inventa cor nova.
+*/
 .compra__comprar {
   justify-content: center;
   width: 100%;
   font-size: 1.02rem;
-  padding: 17px 20px;
+  padding: 18px 20px;
+  letter-spacing: 0.06em;
+}
+
+/* a seta do carrinho fica amarela, não branca: puxa o olho pro fim da
+   frase, que é onde está a ação */
+.compra__comprar .btn__icone {
+  fill: var(--color-accent);
+  width: 18px;
+  height: 18px;
 }
 
 /* --- estoque: só aparece quando o número é real --- */
@@ -5751,36 +5687,67 @@
 
 /* --- garantias --- */
 
+/*
+  As quatro garantias eram ícone de traço fino + texto, soltos no fundo
+  menta: a única parte da coluna de compra sem peso nenhum, e dava pra ver.
+  Agora cada ícone mora num quadrado preto chanfrado com o glifo amarelo —
+  os mesmos blocos duros do resto da marca. Só isso já dá ritmo à grade, e
+  a hairline entre as linhas fecha o bloco sem precisar de mais uma caixa
+  branca (já tem a do CEP logo acima).
+*/
 .compra__garantias {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 9px 12px;
-  margin: 2px 0 0;
+  gap: 1px;
+  margin: 4px 0 0;
   padding: 0;
   list-style: none;
+  background: rgba(18, 24, 31, 0.14);
+  border: 1px solid rgba(18, 24, 31, 0.14);
+  clip-path: polygon(
+    10px 0,
+    100% 0,
+    100% calc(100% - 10px),
+    calc(100% - 10px) 100%,
+    0 100%,
+    0 10px
+  );
 }
 
 .compra__garantias li {
   display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  font-size: 0.83rem;
-  font-weight: 700;
-  line-height: 1.32;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 12px;
+  background: var(--color-bg);
+  font-size: 0.84rem;
+  font-weight: 800;
+  line-height: 1.25;
 }
 
 .compra__garantias svg {
-  width: 20px;
-  height: 20px;
-  fill: var(--color-text);
+  box-sizing: content-box;
+  width: 17px;
+  height: 17px;
+  padding: 8px;
+  fill: var(--color-accent);
+  background: var(--color-text);
   flex-shrink: 0;
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
 }
 
 .compra__garantias small {
   display: block;
-  font-size: 0.74rem;
+  margin-top: 2px;
+  font-size: 0.73rem;
   font-weight: 600;
   color: #0d4c3c;
+}
+
+@media (max-width: 400px) {
+  .compra__garantias {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 /* --- bandeiras --- */
@@ -5964,15 +5931,6 @@
   flex-shrink: 0;
 }
 
-.tempo__linha-fina {
-  margin: 0 0 clamp(20px, 3vw, 30px);
-  max-width: 640px;
-  font-size: 0.97rem;
-  font-weight: 600;
-  line-height: 1.5;
-  color: #0d4c3c;
-}
-
 .tempo__trilha {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
@@ -6091,15 +6049,6 @@
   height: clamp(20px, 3.4vw, 28px);
   fill: var(--color-text);
   flex-shrink: 0;
-}
-
-.rotina__linha-fina {
-  margin: 0 0 clamp(20px, 3vw, 28px);
-  max-width: 660px;
-  font-size: 0.97rem;
-  font-weight: 600;
-  line-height: 1.5;
-  color: #566072;
 }
 
 .rotina__grade {
@@ -6339,7 +6288,10 @@
 @media (min-width: 900px) {
   .funciona__wrap {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    align-items: start;
+    /* stretch, não start: com as duas caixas do mesmo tamanho o bloco
+       parece um par. Com alturas diferentes parecia que faltava conteúdo
+       de um lado. */
+    align-items: stretch;
   }
 }
 
@@ -6586,14 +6538,6 @@
 
 .quem__coluna--nao li svg {
   fill: var(--color-accent);
-}
-
-.quem__fecho {
-  margin: clamp(16px, 2.4vw, 22px) 0 0;
-  font-size: 0.92rem;
-  font-weight: 700;
-  line-height: 1.5;
-  color: #566072;
 }
 
 /* ======================================================
@@ -6960,78 +6904,6 @@
    preço; o resto vira uma linha só embaixo.
    ------------------------------------------------------ */
 
-@media (max-width: 719px) {
-  .compra__kits-lista {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 7px;
-  }
-
-  .compra__kit {
-    grid-template-columns: minmax(0, 1fr);
-    justify-items: center;
-    text-align: center;
-    gap: 3px;
-    padding: 10px 6px 9px;
-  }
-
-  .compra__kit input {
-    width: 16px;
-    height: 16px;
-  }
-
-  .compra__kit-nome {
-    font-size: 0.86rem;
-  }
-
-  /* a explicação some do cartão e vira uma linha só, embaixo da
-     grade: três textos de duas linhas lado a lado não se lê */
-  .compra__kit-abaixo {
-    display: none;
-  }
-
-  .compra__kit-preco {
-    text-align: center;
-    font-size: 0.95rem;
-  }
-
-  .compra__kit-unidade {
-    font-size: 0.66rem;
-  }
-
-  .compra__kit-fita {
-    position: static;
-    margin-bottom: 2px;
-    font-size: 0.58rem;
-    letter-spacing: 0.04em;
-    padding: 2px 5px;
-  }
-
-  .compra__kit-fita svg {
-    display: none;
-  }
-}
-
-/* a linha de explicação dos kits, que no celular substitui o texto
-   de dentro dos cartões */
-.compra__kits-nota {
-  margin: 7px 0 0;
-  font-size: 0.79rem;
-  font-weight: 600;
-  line-height: 1.4;
-  color: #0d4c3c;
-}
-
-.compra__kits-nota b {
-  font-weight: 800;
-  color: var(--color-text);
-}
-
-@media (min-width: 720px) {
-  .compra__kits-nota {
-    display: none;
-  }
-}
-
 /* ------------------------------------------------------
    RISCO ZERO, COLADO NO BOTÃO
    É no segundo entre decidir e clicar que o cliente pensa
@@ -7214,259 +7086,6 @@
   background: #000000;
 }
 
-/* ======================================================
-   CONTRASTE — "não é minoxidil"
-   Duas colunas, e a da direita NÃO é a coluna do vilão:
-   é o que o remédio é, dito sem opinião. A cor diferente
-   marca que são coisas de naturezas diferentes, não um
-   duelo.
-   ====================================================== */
-
-.contraste {
-  background: var(--color-card-bg);
-  font-family: var(--font-sans);
-  color: var(--color-text);
-  padding: clamp(38px, 5.5vw, 62px) clamp(16px, 4vw, 28px);
-}
-
-.contraste__wrap {
-  max-width: 1080px;
-  margin: 0 auto;
-}
-
-.contraste__titulo {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 0 0 6px;
-  font-size: clamp(1.35rem, 4.2vw, 2.2rem);
-  font-weight: 800;
-  font-style: italic;
-  text-transform: uppercase;
-  letter-spacing: -0.025em;
-  line-height: 1;
-}
-
-.contraste__titulo svg {
-  width: clamp(20px, 3.4vw, 28px);
-  height: clamp(20px, 3.4vw, 28px);
-  fill: var(--color-text);
-  flex-shrink: 0;
-}
-
-.contraste__linha-fina {
-  margin: 0 0 clamp(18px, 2.6vw, 26px);
-  max-width: 620px;
-  font-size: 0.97rem;
-  font-weight: 600;
-  line-height: 1.5;
-  color: #566072;
-}
-
-.contraste__colunas {
-  display: grid;
-  gap: 12px;
-}
-
-@media (min-width: 820px) {
-  .contraste__colunas {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-.contraste__coluna {
-  border: 3px solid var(--color-text);
-  padding: clamp(16px, 2.6vw, 22px);
-}
-
-.contraste__coluna--nosso {
-  background: var(--color-bg);
-  box-shadow: 8px 8px 0 0 var(--color-text);
-}
-
-.contraste__coluna--deles {
-  background: var(--color-cinza, #f2f3f4);
-}
-
-.contraste__etiqueta {
-  display: inline-flex;
-  margin: 0 0 11px;
-  background: var(--color-text);
-  color: var(--color-accent);
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  padding: 4px 9px;
-}
-
-.contraste__coluna ul {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: grid;
-  gap: 9px;
-}
-
-.contraste__coluna li {
-  display: flex;
-  align-items: flex-start;
-  gap: 9px;
-  font-size: 0.94rem;
-  font-weight: 700;
-  line-height: 1.4;
-}
-
-.contraste__coluna li svg {
-  width: 15px;
-  height: 15px;
-  fill: var(--color-text);
-  flex-shrink: 0;
-  margin-top: 3px;
-}
-
-.contraste__coluna--deles li svg {
-  fill: #98a2b3;
-}
-
-.contraste__coluna--deles li {
-  font-weight: 600;
-  color: #566072;
-}
-
-.contraste__fecho {
-  margin: clamp(16px, 2.4vw, 22px) 0 0;
-  max-width: 720px;
-  font-size: 0.94rem;
-  font-weight: 600;
-  line-height: 1.55;
-  color: #566072;
-}
-
-.contraste__fecho b {
-  font-weight: 800;
-  color: var(--color-text);
-}
-
-/* ======================================================
-   FICHA — o que tem dentro.
-   Os campos vazios ficam À VISTA, marcados. Esconder o que
-   falta num comentário é como esquecer: assim você bate o
-   olho na página e sabe o que ainda não deu pra dizer.
-   ====================================================== */
-
-.ficha {
-  background: var(--color-bg);
-  font-family: var(--font-sans);
-  color: var(--color-text);
-  padding: clamp(38px, 5.5vw, 62px) clamp(16px, 4vw, 28px);
-}
-
-.ficha__wrap {
-  max-width: 1080px;
-  margin: 0 auto;
-}
-
-.ficha__titulo {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 0 0 6px;
-  font-size: clamp(1.5rem, 4.2vw, 2.2rem);
-  font-weight: 800;
-  font-style: italic;
-  text-transform: uppercase;
-  letter-spacing: -0.025em;
-  line-height: 1;
-}
-
-.ficha__titulo svg {
-  width: clamp(20px, 3.4vw, 28px);
-  height: clamp(20px, 3.4vw, 28px);
-  fill: var(--color-text);
-  flex-shrink: 0;
-}
-
-.ficha__linha-fina {
-  margin: 0 0 clamp(18px, 2.6vw, 26px);
-  max-width: 660px;
-  font-size: 0.97rem;
-  font-weight: 600;
-  line-height: 1.5;
-  color: #0d4c3c;
-}
-
-/*
-  Borda em cada célula com margem negativa, em vez de fundo escuro
-  aparecendo pelos vãos. Com o fundo escuro, a última linha (que tem 3
-  células numa grade de 5) deixava um retângulo preto vazio no fim — e
-  buraco preto no meio da ficha parece bloco que não carregou. Assim a
-  grade termina onde as células terminam.
-*/
-.ficha__grade {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-  gap: 0;
-  margin: 0;
-  padding: 0 3px 3px 0;
-}
-
-.ficha__grade > div {
-  background: var(--color-card-bg);
-  border: 3px solid var(--color-text);
-  margin: 0 -3px -3px 0;
-  padding: 13px 15px;
-}
-
-.ficha__grade dt {
-  margin: 0 0 3px;
-  font-size: 0.68rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #566072;
-}
-
-.ficha__grade dd {
-  margin: 0;
-  font-size: 0.97rem;
-  font-weight: 800;
-  line-height: 1.25;
-}
-
-/* o campo que ainda não dá pra preencher se identifica */
-.ficha__falta {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-weight: 700 !important;
-  font-size: 0.86rem !important;
-  color: #8a5a00;
-  border-bottom: 2px dashed #d8a400;
-  padding-bottom: 1px;
-}
-
-.ficha__aviso {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  margin: clamp(16px, 2.4vw, 22px) 0 0;
-  border-left: 6px solid var(--color-text);
-  background: rgba(18, 24, 31, 0.06);
-  padding: 12px 14px;
-  font-size: 0.86rem;
-  font-weight: 600;
-  line-height: 1.5;
-}
-
-.ficha__aviso svg {
-  width: 16px;
-  height: 16px;
-  fill: var(--color-text);
-  flex-shrink: 0;
-  margin-top: 3px;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .videos__item,
   .galeria__mini::after {
@@ -7493,10 +7112,6 @@
   }
 
   .compra__economia svg {
-    display: none;
-  }
-
-  .compra__kit-unidade {
     display: none;
   }
 
@@ -7537,18 +7152,1270 @@
    3 frascos" na mesma altura. Como as fitas têm textos de tamanhos
    diferentes, quem garante o alinhamento é a altura mínima da fita —
    e o primeiro cartão ganhou fita própria em vez de ficar sem. */
+/* Últimos respiros do celular. Cada um deles é pouco; juntos são os
+   30px que separam "o botão aparece na primeira tela" de "não aparece". */
 @media (max-width: 719px) {
+  .galeria__miniaturas {
+    margin-top: 6px;
+  }
+}
+
+/* "Compra segura" é a única das quatro garantias que não repetia nada, e
+   agora mora aqui, na fileira de pagamento, com o escudo preenchido pra
+   se distinguir das formas de pagamento ao lado. */
+.compra__bandeiras-seguro {
+  background: var(--color-text) !important;
+  color: var(--color-accent);
+}
+
+.compra__bandeiras-seguro svg {
+  fill: var(--color-accent);
+}
+
+/* ======================================================
+   AVALIAÇÕES — cartão .avaliacao vindo da home.
+
+   A home usa esses cartões numa esteira que anda sozinha.
+   Aqui não: numa PDP a pessoa LÊ avaliação, não assiste
+   ela passar. Grade parada, e o cartão perde a largura
+   fixa que ele tem lá pra se encaixar na coluna.
+   ====================================================== */
+
+.avaliacoes__topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 20px;
+  margin-bottom: clamp(16px, 2.4vw, 24px);
+}
+
+.avaliacoes__titulo {
+  margin: 0;
+}
+
+.avaliacoes__grade {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.avaliacoes__grade .avaliacao {
+  width: 100%;
+  height: 100%;
+}
+
+/* a nota na dobra, logo abaixo do nome */
+.compra__nota {
+  align-items: center;
+}
+
+.compra__nota .estrelas {
+  width: 96px;
+}
+
+.compra__nota b {
+  font-weight: 800;
+}
+
+/* ======================================================
+   A FOTO NO CELULAR
+
+   Cheguei a mandar ela sangrar de ponta a ponta e ficou
+   ruim: sem as bordas laterais o card deixa de ser card e
+   a foto vira fundo de tela. O meio-termo é manter a
+   moldura e encolher o respiro da seção de 16 pra 10px —
+   ganha 12px de foto sem perder o desenho.
+   ====================================================== */
+
+@media (max-width: 719px) {
+  .pdp {
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+
+  /* o texto devolve pra si o respiro que a seção perdeu */
+  .pdp__cabeca,
+  .compra {
+    padding-inline: 5px;
+  }
+
+  /* A margem negativa que eu tinha usado pra alargar a foto DESCENTRALIZA
+     ela: quando o teto em vh entra em ação a caixa encolhe, e com margem
+     fixa dos dois lados ela gruda na esquerda e sobra espaço na direita.
+
+     A largura agora vem do respiro da seção, que caiu pra 6px, e o texto
+     recupera o seu com padding próprio. Assim a foto é sempre a coisa mais
+     larga da coluna E fica sempre no meio, com ou sem teto. */
+  .galeria {
+    margin-inline: auto;
+    max-width: min(100%, 50vh);
+  }
+
+  .galeria__palco {
+    filter: none;
+  }
+
+  .galeria__miniaturas {
+    margin-top: 9px;
+  }
+}
+
+/* ======================================================
+   CHANFRO — o canto cortado da marca
+
+   A home corta o canto de cima-esquerda e o de
+   baixo-direita em quase tudo que é caixa, com o corte
+   proporcional ao tamanho do bloco: 4px num controle,
+   8px num cartão, 16px num painel. A PDP tinha ficado só
+   de retângulo reto, e é isso que estava fazendo ela
+   parecer de outra loja.
+
+   O PULO DO GATO: `clip-path` corta a sombra junto. Todo
+   `box-shadow: 6px 6px 0` daqui virou
+   `filter: drop-shadow(6px 6px 0 ...)`, que acompanha o
+   formato recortado em vez de desenhar um retângulo atrás
+   dele. É a diferença entre o chanfro parecer de
+   propósito e parecer defeito.
+
+   E o que estava posicionado PRA FORA da caixa (as fitas
+   de "mais vendido" e de "passo 1") teve que entrar pra
+   dentro: clip-path recorta os filhos também, então uma
+   etiqueta flutuando 11px acima do cartão simplesmente
+   sumiria.
+   ====================================================== */
+
+.galeria__palco {
+  clip-path: polygon(
+    18px 0,
+    100% 0,
+    100% calc(100% - 18px),
+    calc(100% - 18px) 100%,
+    0 100%,
+    0 18px
+  );
+  box-shadow: none;
+  filter: drop-shadow(9px 9px 0 var(--color-text));
+}
+
+/* os selos saem de cima do canto cortado */
+.galeria__selos {
+  top: 15px;
+  left: 17px;
+}
+
+.compra__frete,
+.funciona__foto {
+  clip-path: polygon(
+    12px 0,
+    100% 0,
+    100% calc(100% - 12px),
+    calc(100% - 12px) 100%,
+    0 100%,
+    0 12px
+  );
+}
+
+.compra__qtd,
+.videos__item,
+.duvidas__item {
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+}
+
+.duvidas__item[open] {
+  box-shadow: none;
+  filter: drop-shadow(6px 6px 0 var(--color-text));
+}
+
+.videos__item:hover:not(:disabled),
+.videos__item:focus-visible {
+  box-shadow: none;
+  filter: drop-shadow(5px 5px 0 var(--color-accent));
+}
+
+.tempo__passo,
+.rotina__item {
+  clip-path: polygon(
+    12px 0,
+    100% 0,
+    100% calc(100% - 12px),
+    calc(100% - 12px) 100%,
+    0 100%,
+    0 12px
+  );
+}
+
+.tempo__passo {
+  box-shadow: none;
+  filter: drop-shadow(6px 6px 0 var(--color-text));
+}
+
+.rotina__item:has(input:checked) {
+  box-shadow: none;
+  filter: drop-shadow(6px 6px 0 var(--color-accent));
+}
+
+.rotina__item--fixo:has(input:checked) {
+  filter: drop-shadow(6px 6px 0 var(--color-text));
+}
+
+.rotina__soma,
+.funciona__caixa,
+.quem__coluna,
+.ficha__grade {
+  clip-path: polygon(
+    16px 0,
+    100% 0,
+    100% calc(100% - 16px),
+    calc(100% - 16px) 100%,
+    0 100%,
+    0 16px
+  );
+}
+
+.funciona__caixa {
+  box-shadow: none;
+  filter: drop-shadow(8px 8px 0 var(--color-text));
+}
+
+.quem__coluna--sim {
+  box-shadow: none;
+  filter: drop-shadow(8px 8px 0 var(--color-text));
+}
+
+.rotina__item {
+  grid-template-areas:
+    "passo passo"
+    "foto corpo";
+  row-gap: 9px;
+}
+
+.rotina__passo {
+  position: static;
+  grid-area: passo;
+  justify-self: start;
+}
+
+.rotina__foto {
+  grid-area: foto;
+}
+
+.rotina__corpo {
+  grid-area: corpo;
+}
+
+/* ======================================================
+   FAIXA — a seção que é foto
+
+   Mesmo desenho do fechamento da home: a foto é fundo e
+   quem garante a leitura do texto branco é o degradê por
+   cima, não a imagem. Assim dá pra trocar a foto sem ter
+   que reavaliar contraste a cada troca.
+   ====================================================== */
+
+.faixa {
+  position: relative;
+  isolation: isolate;
+  background: #070a09;
+  font-family: var(--font-sans);
+  color: #ffffff;
+  padding: clamp(48px, 8vw, 96px) clamp(16px, 4vw, 28px) clamp(44px, 7vw, 88px);
+  overflow: hidden;
+}
+
+.faixa__foto {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.faixa__foto img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 40%;
+}
+
+/* o degradê é quem faz o texto ser legível, não a foto */
+.faixa__foto::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    rgba(7, 10, 9, 0.94) 0%,
+    rgba(7, 10, 9, 0.86) 42%,
+    rgba(7, 10, 9, 0.45) 100%
+  );
+}
+
+.faixa__tape {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 10px;
+  z-index: 2;
+  background: repeating-linear-gradient(-45deg, #000 0 14px, var(--color-accent) 14px 28px);
+}
+
+.faixa__wrap {
+  position: relative;
+  z-index: 1;
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.faixa__chapeu {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 12px;
+  color: var(--color-accent);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.faixa__chapeu svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+
+.faixa__titulo {
+  margin: 0 0 12px;
+  max-width: 16ch;
+  font-size: clamp(1.8rem, 6vw, 3.2rem);
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: -0.03em;
+  line-height: 0.96;
+}
+
+.faixa__titulo em {
+  font-style: inherit;
+  color: var(--color-accent);
+}
+
+.faixa__texto {
+  margin: 0 0 clamp(18px, 2.6vw, 26px);
+  max-width: 42ch;
+  font-size: 0.99rem;
+  font-weight: 600;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+/* ------------------------------------------------------
+   FOTO DO MODO DE USO
+   ------------------------------------------------------ */
+
+.funciona__caixa {
+  display: flex;
+  flex-direction: column;
+}
+
+/* a dica fica colada no pé da caixa, pra as duas terminarem juntas */
+.funciona__dica {
+  margin-top: auto;
+}
+
+.funciona__foto {
+  margin: 0 0 14px;
+  border: 3px solid var(--color-text);
+  overflow: hidden;
+}
+
+.funciona__foto img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+}
+
+/* ======================================================
+   ANTES E DEPOIS
+
+   Par de fotos lado a lado, não um comparador de arrastar.
+   O comparador é bonito e esconde metade da prova: pra
+   acreditar, a pessoa precisa ver as duas ao mesmo tempo.
+
+   As duas fotos dividem a mesma moldura, separadas por uma
+   linha de 3px — assim fica claro que são um par, e não
+   duas fotos que por acaso ficaram perto.
+   ====================================================== */
+
+.antesdepois {
+  background: var(--color-card-bg);
+  font-family: var(--font-sans);
+  color: var(--color-text);
+  padding: clamp(38px, 5.5vw, 62px) clamp(16px, 4vw, 28px);
+}
+
+.antesdepois__wrap {
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.antesdepois__titulo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 6px;
+  font-size: clamp(1.5rem, 4.2vw, 2.2rem);
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: -0.025em;
+  line-height: 1;
+}
+
+.antesdepois__titulo svg {
+  width: clamp(20px, 3.4vw, 28px);
+  height: clamp(20px, 3.4vw, 28px);
+  fill: var(--color-text);
+  flex-shrink: 0;
+}
+
+.antesdepois__linha-fina {
+  margin: 0 0 clamp(18px, 2.6vw, 26px);
+  max-width: 620px;
+  font-size: 0.97rem;
+  font-weight: 600;
+  line-height: 1.5;
+  color: #566072;
+}
+
+.antesdepois__casos {
+  display: grid;
+  gap: 16px;
+}
+
+@media (min-width: 860px) {
+  .antesdepois__casos {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.caso {
+  margin: 0;
+  border: 3px solid var(--color-text);
+  background: var(--color-card-bg);
+  clip-path: polygon(
+    14px 0,
+    100% 0,
+    100% calc(100% - 14px),
+    calc(100% - 14px) 100%,
+    0 100%,
+    0 14px
+  );
+}
+
+.caso__par {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3px;
+  background: var(--color-text);
+}
+
+.caso__lado {
+  position: relative;
+  background: #1a2028;
+}
+
+.caso__lado img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 6 / 7;
+  object-fit: cover;
+}
+
+.caso__etiqueta {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  background: var(--color-text);
+  color: #ffffff;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  padding: 5px 9px;
+}
+
+.caso__etiqueta--depois {
+  background: var(--color-accent);
+  color: var(--color-text);
+}
+
+.caso__pe {
+  padding: 13px 15px 15px;
+}
+
+.caso__quem {
+  margin: 0 0 4px;
+  font-size: 0.92rem;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.caso__quem span {
+  font-weight: 600;
+  color: #566072;
+}
+
+.caso__fala {
+  margin: 0;
+  font-size: 0.89rem;
+  font-weight: 500;
+  line-height: 1.5;
+  color: #2c3541;
+}
+
+/* ------------------------------------------------------
+   AS REGRAS
+   Não são recado interno: são argumento. Ninguém nesta
+   categoria conta como fotografa, e quem conta ganha a
+   confiança de quem já desconfia de antes e depois — que
+   a essa altura é todo mundo.
+   ------------------------------------------------------ */
+
+.antesdepois__regras {
+  margin: clamp(16px, 2.4vw, 22px) 0 0;
+  border: 3px solid var(--color-text);
+  background: var(--color-text);
+  color: #ffffff;
+  padding: clamp(15px, 2.2vw, 20px) clamp(16px, 2.4vw, 22px);
+  clip-path: polygon(
+    14px 0,
+    100% 0,
+    100% calc(100% - 14px),
+    calc(100% - 14px) 100%,
+    0 100%,
+    0 14px
+  );
+}
+
+.antesdepois__regras-titulo {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 11px;
+  color: var(--color-accent);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.antesdepois__regras-titulo svg {
+  width: 13px;
+  height: 13px;
+  fill: currentColor;
+}
+
+.antesdepois__regras ul {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 8px 20px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.antesdepois__regras li {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  font-size: 0.89rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.antesdepois__regras li svg {
+  width: 15px;
+  height: 15px;
+  fill: var(--color-accent);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.antesdepois__aviso {
+  margin: clamp(14px, 2vw, 18px) 0 0;
+  max-width: 720px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  line-height: 1.55;
+  color: #566072;
+}
+
+/* ======================================================
+   OS KITS — três cartões lado a lado, em qualquer tela
+
+   Este bloco é o ÚNICO lugar que descreve os cartões de
+   kit. Antes eram seis, espalhados entre media queries de
+   revisões diferentes, metade contradizendo a outra — e
+   cada ajuste virava caçada. Se precisar mexer, é aqui.
+
+   Lado a lado no celular E no desktop: empilhados eram
+   297px de altura, o maior bloco entre o topo da página e
+   o botão de comprar. Lado a lado são 110, e o que decide
+   a escolha (quantos frascos, quanto custa) continua à
+   vista. O detalhe de cada opção só aparece onde cabe.
+   ====================================================== */
+
+.compra__kits {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.compra__kits-titulo {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0;
+  margin: 0 0 9px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.compra__kits-titulo svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+
+.compra__kits-lista {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.compra__kit {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+  align-content: start;
+  text-align: center;
+  gap: 3px;
+  padding: 0 7px 10px;
+  border: 3px solid rgba(18, 24, 31, 0.22);
+  background: var(--color-card-bg);
+  cursor: pointer;
+  /* a fita é 14px mais larga que o cartão (ela sangra nas laterais). Sem
+     overflow: hidden esses 14px viram largura de página e o celular ganha
+     rolagem lateral — clip-path recorta o que se VÊ, não o que ocupa. */
+  overflow: hidden;
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+  transition:
+    border-color 0.15s ease,
+    filter 0.15s ease,
+    transform 0.15s ease;
+}
+
+.compra__kit:hover {
+  border-color: var(--color-text);
+}
+
+.compra__kit:has(input:checked) {
+  border-color: var(--color-text);
+  transform: translate(-2px, -2px);
+  filter: drop-shadow(6px 6px 0 var(--color-text));
+}
+
+.compra__kit:has(input:focus-visible) {
+  outline: 3px solid var(--color-text);
+  outline-offset: 3px;
+}
+
+.compra__kit input {
+  width: 17px;
+  height: 17px;
+  margin: 6px 0 2px;
+  accent-color: var(--color-text);
+  cursor: pointer;
+}
+
+/* A fita é a primeira linha de DENTRO do cartão, de ponta a ponta.
+   Flutuando por fora ela seria recortada pelo canto chanfrado — e a
+   altura mínima é o que mantém "1 frasco / 2 frascos / 3 frascos"
+   alinhados mesmo com etiquetas de tamanhos diferentes. */
+.compra__kit-fita {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: calc(100% + 14px);
+  min-height: 2.2em;
+  margin: 0 -7px 4px;
+  padding: 3px 5px;
+  background: var(--color-text);
+  color: var(--color-accent);
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  line-height: 1.15;
+  text-transform: uppercase;
+}
+
+.compra__kit-fita svg {
+  width: 10px;
+  height: 10px;
+  fill: currentColor;
+  flex-shrink: 0;
+}
+
+/* um destaque só na grade: destaque que se repete deixa de ser destaque */
+.compra__kit-fita--campeao {
+  background: var(--color-accent);
+  color: var(--color-text);
+}
+
+.compra__kit-fita--campeao svg {
+  fill: var(--color-text);
+}
+
+.compra__kit:has(.compra__kit-fita--campeao) {
+  border-color: var(--color-text);
+}
+
+.compra__kit-nome {
+  display: block;
+  font-size: 0.86rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.compra__kit-preco {
+  font-size: 0.95rem;
+  font-weight: 800;
+  font-style: italic;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+
+.compra__kit-unidade,
+.compra__kit-abaixo {
+  display: none;
+}
+
+/* Num cartão de 120px (celular) só cabe o que decide: quantos frascos e
+   quanto custa. A partir de 720px o cartão tem ~150px e aí entram o preço
+   por unidade e a linha de vantagem. */
+@media (min-width: 720px) {
+  .compra__kit-unidade {
+    display: block;
+    font-size: 0.67rem;
+    font-weight: 700;
+    font-style: normal;
+    letter-spacing: 0;
+    color: #566072;
+  }
+
+  .compra__kit-abaixo {
+    display: block;
+    margin-top: 3px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    line-height: 1.3;
+    color: #566072;
+  }
+}
+
+@media (max-width: 719px) {
+  /* a legenda sai da tela mas fica pro leitor de tela: "1 frasco /
+     2 frascos / 3 frascos" não precisa de um título explicando */
+  .compra__kits-titulo {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
   .compra__kit {
-    align-content: start;
+    padding: 0 5px 9px;
   }
 
   .compra__kit-fita {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 2.3em;
-    line-height: 1.15;
-    text-align: center;
+    width: calc(100% + 10px);
+    margin-inline: -5px;
+  }
+
+  .compra__kit-nome {
+    font-size: 0.82rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .compra__kit {
+    transition: none !important;
+  }
+}
+
+/* ======================================================
+   VERSUS — duas colunas sobre amarelo
+
+   Fundo amarelo é a cor mais alta da paleta e a página só
+   a usa em pedaço pequeno (selo, fita, sombra). Numa
+   seção inteira ela funciona como interrupção: depois de
+   três blocos claros seguidos, o olho é obrigado a parar
+   aqui. É o lugar certo pra isso, porque esta é a seção
+   que faz a comparação.
+
+   Sobre amarelo o nosso cartão é preto e o genérico é
+   branco apagado — sem X vermelho e sem deboche. O peso
+   visual já diz quem é quem.
+   ====================================================== */
+
+.versus {
+  background: var(--color-accent);
+  font-family: var(--font-sans);
+  color: var(--color-text);
+  padding: clamp(38px, 5.5vw, 62px) clamp(16px, 4vw, 28px);
+}
+
+.versus__wrap {
+  max-width: 1020px;
+  margin: 0 auto;
+}
+
+.versus__titulo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 6px;
+  font-size: clamp(1.35rem, 4.2vw, 2.2rem);
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: -0.025em;
+  line-height: 1;
+}
+
+.versus__titulo svg {
+  width: clamp(20px, 3.4vw, 28px);
+  height: clamp(20px, 3.4vw, 28px);
+  fill: var(--color-text);
+  flex-shrink: 0;
+}
+
+.versus__colunas {
+  display: grid;
+  gap: 12px;
+}
+
+@media (min-width: 760px) {
+  .versus__colunas {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+  }
+}
+
+.versus__coluna {
+  display: flex;
+  flex-direction: column;
+  border: 3px solid var(--color-text);
+  padding: clamp(14px, 2.2vw, 20px);
+  clip-path: polygon(
+    16px 0,
+    100% 0,
+    100% calc(100% - 16px),
+    calc(100% - 16px) 100%,
+    0 100%,
+    0 16px
+  );
+}
+
+.versus__coluna--nosso {
+  background: var(--color-text);
+  color: #ffffff;
+}
+
+.versus__coluna--deles {
+  background: #ffffff;
+  color: #8b95a3;
+}
+
+.versus__cabeca {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin: 0 0 14px;
+  padding-bottom: 13px;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.18);
+  font-size: 0.98rem;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.versus__coluna--deles .versus__cabeca {
+  border-bottom-color: rgba(18, 24, 31, 0.12);
+}
+
+.versus__cabeca img {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  object-fit: contain;
+  background: #ffffff;
+  border: 2px solid var(--color-text);
+}
+
+.versus__cabeca small {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.versus__coluna--deles .versus__cabeca small {
+  color: #aab3bf;
+}
+
+.versus__coluna ul {
+  display: grid;
+  align-content: start;
+  gap: 11px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.versus__coluna li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.versus__coluna li svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+
+.versus__coluna--nosso li svg {
+  fill: var(--color-accent);
+}
+
+.versus__coluna--deles li {
+  font-weight: 600;
+}
+
+.versus__coluna--deles li svg {
+  fill: #c3cad3;
+}
+
+/* o número que ainda não existe acusa a gente também, e de propósito */
+.versus__falta {
+  font-weight: 800;
+  color: var(--color-accent);
+  border-bottom: 2px dashed rgba(255, 216, 77, 0.6);
+}
+
+/* ------------------------------------------------------
+   DOIS ESTOUROS DE LARGURA NO CELULAR
+
+   Os dois pela mesma causa: item de grid nasce com
+   `min-width: auto` e não encolhe abaixo do próprio
+   conteúdo, mesmo quando a coluna é `minmax(0, 1fr)`.
+
+   1. O botão "Adicionar à sacola" não cabia em 234px e
+      esticava a linha inteira. Encolhi o seletor de
+      quantidade e o rótulo até a frase caber numa linha
+      só — botão de compra com texto quebrado parece site
+      mal feito bem na hora de confiar na loja.
+   2. O cartão de avaliação vem da home com largura fixa
+      (280–380px) e foto de 64px. Numa coluna de 358 ele
+      empurrava a página pra 390.
+   ------------------------------------------------------ */
+
+@media (max-width: 719px) {
+  .compra__qtd button {
+    width: 34px;
+  }
+
+  .compra__qtd input {
+    width: 36px;
+  }
+
+  .compra__acao {
+    gap: 7px;
+  }
+
+  .compra__comprar {
+    min-width: 0;
+    font-size: 0.82rem;
+    letter-spacing: 0.04em;
+    padding: 15px 10px;
+    gap: 6px;
+  }
+}
+
+.avaliacoes__grade .avaliacao {
+  min-width: 0;
+}
+
+.avaliacoes__grade .avaliacao__corpo {
+  min-width: 0;
+}
+
+/* ======================================================
+   RITMO VERTICAL
+
+   Medindo a página bloco a bloco, a distância entre um
+   título de seção e o que vem logo abaixo estava em 0, 6,
+   26 e 34px dependendo da seção — sobra das revisões, em
+   que umas tinham linha de apoio embaixo do título e
+   outras não. Agora é um valor só pra todas.
+
+   O mesmo na coluna de compra: os vãos estavam 16, 20,
+   16, 20 e 18 porque alguns blocos tinham margem própria
+   ALÉM do gap do flex. As margens saíram; quem espaça é
+   o gap, num lugar só.
+   ====================================================== */
+
+.promessa__titulo,
+.antesdepois__titulo,
+.tempo__titulo,
+.rotina__titulo,
+.versus__titulo,
+.quem__titulo,
+.duvidas__titulo,
+.avaliacoes__titulo {
+  margin: 0 0 clamp(18px, 2.6vw, 26px);
+}
+
+.compra {
+  gap: 10px;
+}
+
+@media (min-width: 720px) {
+  .compra {
+    gap: 14px;
+  }
+}
+
+.compra__kits,
+.compra__garantias,
+.videos {
+  margin-top: 0;
+}
+
+/*
+  O botão tem sombra dura de 6px, que ocupa o começo do vão de baixo: sem
+  esta margem o espaço ATÉ A SOMBRA fica 6px menor que todos os outros, e
+  a sombra quase encosta no box de CEP. Os 6px devolvem o vão inteiro.
+*/
+.compra__acao {
+  margin: 0 0 6px;
+}
+
+/* ======================================================
+   CROSS-SELL — o mesmo slot do order bump
+
+   Mesma linguagem dos cartões de kit (chanfro, borda que
+   fecha quando marca, sombra dura), mas em linha em vez
+   de coluna: aqui o que decide é a foto e o nome, não um
+   número, então o item deitado lê melhor e ocupa menos
+   altura — e altura, nesta parte da página, é o botão de
+   comprar indo pra fora da primeira tela.
+   ====================================================== */
+
+.cross {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.cross__lista {
+  display: grid;
+  gap: 7px;
+}
+
+.cross__item {
+  display: grid;
+  grid-template-columns: auto 52px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 8px 11px 8px 9px;
+  border: 3px solid rgba(18, 24, 31, 0.22);
+  background: var(--color-card-bg);
+  cursor: pointer;
+  overflow: hidden;
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+  transition:
+    border-color 0.15s ease,
+    filter 0.15s ease,
+    transform 0.15s ease;
+}
+
+.cross__item:hover {
+  border-color: var(--color-text);
+}
+
+.cross__item:has(input:checked) {
+  border-color: var(--color-text);
+  transform: translate(-2px, -2px);
+  filter: drop-shadow(6px 6px 0 var(--color-accent));
+}
+
+.cross__item:has(input:focus-visible) {
+  outline: 3px solid var(--color-text);
+  outline-offset: 3px;
+}
+
+.cross__item input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--color-text);
+  cursor: pointer;
+}
+
+.cross__foto {
+  width: 52px;
+  height: 52px;
+  border: 2px solid var(--color-text);
+  background: var(--color-card-bg);
+  object-fit: contain;
+}
+
+.cross__corpo {
+  min-width: 0;
+}
+
+.cross__nome {
+  display: block;
+  font-size: 0.88rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.cross__para {
+  display: block;
+  margin-top: 1px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: #566072;
+}
+
+.cross__preco {
+  display: block;
+  margin-top: 3px;
+  font-size: 0.92rem;
+  font-weight: 800;
+  font-style: italic;
+  letter-spacing: -0.02em;
+}
+
+.cross__preco s {
+  margin-left: 5px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  font-style: normal;
+  color: #566072;
+}
+
+/* ======================================================
+   CHAVE DE PROTÓTIPO — não vai pro site
+
+   `fixed` pra não entrar no fluxo: a medição da dobra não
+   pode mudar por causa de um controle que não existe na
+   loja. Fica acima da barra de compra fixa (72px de
+   altura) pra não brigar com ela.
+   ====================================================== */
+
+.proto {
+  position: fixed;
+  left: 12px;
+  bottom: 84px;
+  z-index: 80;
+  background: rgba(18, 24, 31, 0.95);
+  border: 2px dashed var(--color-accent);
+  padding: 6px 10px;
+  font-family: var(--font-sans);
+  color: #ffffff;
+  box-shadow: 0 6px 20px rgba(7, 12, 14, 0.35);
+}
+
+.proto__rotulo {
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+  cursor: pointer;
+  list-style: none;
+}
+
+.proto__rotulo::-webkit-details-marker {
+  display: none;
+}
+
+.proto__rotulo::after {
+  content: " +";
+}
+
+.proto[open] .proto__rotulo::after {
+  content: " −";
+}
+
+.proto__opcoes {
+  display: flex;
+  gap: 12px;
+  margin-top: 7px;
+  padding-top: 7px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.proto label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.proto input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--color-accent);
+  cursor: pointer;
+}
+
+@media (max-width: 520px) {
+  .proto {
+    left: 8px;
+    bottom: 78px;
+  }
+
+  .proto__opcoes {
+    flex-direction: column;
+    gap: 6px;
   }
 }
 </style>
@@ -7589,24 +8456,24 @@
   <div class="anuncio__pista">
       <ul class="anuncio__lista">
         <li>Frete Grátis acima de R$ 149,90*</li>
-        <li>Barba na cara ou sua grana de volta</li>
+        <li>7 dias pra desistir, por lei</li>
         <li>Compra 100% segura</li>
         <li>Frete Grátis acima de R$ 149,90*</li>
-        <li>Barba na cara ou sua grana de volta</li>
+        <li>7 dias pra desistir, por lei</li>
         <li>Compra 100% segura</li>
         <li>Frete Grátis acima de R$ 149,90*</li>
-        <li>Barba na cara ou sua grana de volta</li>
+        <li>7 dias pra desistir, por lei</li>
         <li>Compra 100% segura</li>
       </ul>
       <ul class="anuncio__lista" aria-hidden="true">
         <li>Frete Grátis acima de R$ 149,90*</li>
-        <li>Barba na cara ou sua grana de volta</li>
+        <li>7 dias pra desistir, por lei</li>
         <li>Compra 100% segura</li>
         <li>Frete Grátis acima de R$ 149,90*</li>
-        <li>Barba na cara ou sua grana de volta</li>
+        <li>7 dias pra desistir, por lei</li>
         <li>Compra 100% segura</li>
         <li>Frete Grátis acima de R$ 149,90*</li>
-        <li>Barba na cara ou sua grana de volta</li>
+        <li>7 dias pra desistir, por lei</li>
         <li>Compra 100% segura</li>
       </ul>
   </div>
@@ -7908,15 +8775,22 @@
          leitor de tela ouve na mesma ordem que o celular mostra.
          --------------------------------------------------------------- -->
     <div class="pdp__cabeca">
-      <p class="compra__chapeu">
-        <b><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg> Tratamento</b>
-        <span>Barba</span>
-        <span class="compra__sku">SKU FBFCB01</span>
-      </p>
+      <!-- A cabeça tem duas coisas agora: o nome e a nota. Saíram daqui o
+           chapéu ("TRATAMENTO · BARBA · SKU") e a linha de resumo — a
+           categoria a migalha já diz, o SKU foi pra ficha, e a promessa
+           inteira está na faixa escura logo abaixo da dobra. O que ganhou o
+           lugar deles foi a avaliação, que é o que o cliente procura
+           primeiro depois do nome.
 
+           A descrição continua existindo pro Google, como <meta>. -->
       <h1 class="compra__nome" id="produto-nome" itemprop="name">Fator de Crescimento para Barba 30&nbsp;ml</h1>
+      <meta itemprop="description" content="Tratamento diário que estimula o crescimento da barba e preenche falhas. 30 ml, uso na pele.">
 
-      <p class="compra__resumo" itemprop="description">Mais crescimento, mais densidade, menos falha. Uso diário, direto na pele.</p>
+      <!-- A linha de estrelas que ficava aqui saiu. Ela é útil quando há
+           avaliação de verdade pra sustentar o número; com [4,7] e [128] em
+           colchete ela só ocupava a dobra prometendo uma coisa que a página
+           ainda não tem. A seção de avaliações lá embaixo continua no lugar.
+           Quando os números forem reais, este bloco volta pra cá. -->
     </div>
 
     <!-- ---------------------------------------------------------------
@@ -7963,22 +8837,18 @@
 
       <button type="button" class="galeria__palco" data-galeria-palco
               aria-label="Ampliar a foto do produto">
+        <!-- Um selo só. A faixa "frete grátis a partir de R$ 149,90" que
+             estava aqui atravessava a foto inteira e repetia o que o cartão
+             de 2 frascos e o box de CEP já dizem, com mais precisão. Foto de
+             produto é argumento: quanto menos coisa por cima dela, melhor. -->
         <ul class="galeria__selos">
           <li class="galeria__selo galeria__selo--desconto">-40%</li>
-          <!-- Só aparece porque ESTE produto sozinho (R$ 79,90) ainda não
-               chega nos R$ 149,90. Quando chegar, troque por "Frete grátis".
-               Prometer frete grátis em produto que não alcança a régua é
-               propaganda enganosa — e é o motivo nº 1 de carrinho abandonado
-               no passo do frete. -->
-          <li class="galeria__selo galeria__selo--frete">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1.4 4.6h11.4l1.6 1.6v9.6h-2.2l-1.4-1.4H6.9l-1.4 1.4H1.4z"/><path d="M15.2 8.4h4.1l3.3 4v3.4h-1.3l-1.4-1.4h-3.3l-1.4 1.4v-7.4z"/><path d="M6.9 16h2.3v2.3l-.9.9H6v-2.3z"/><path d="M17.1 16h2.3v2.3l-.9.9h-2.3v-2.3z"/></svg>
-            Frete grátis a partir de R$ 149,90
-          </li>
         </ul>
 
+        <!-- só o ícone: o texto "clique pra ampliar" era uma tarja escura
+             no canto da foto pra ensinar uma coisa que todo mundo já sabe -->
         <span class="galeria__lupa">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M8 2.6h6L18.4 7v6l-1.5 1.5 4.6 4.6-2.4 2.4-4.6-4.6L13 17.4H8L3.6 13V7zm1.3 3.2L6.8 8.2v3.6l2.5 2.4h3.4l2.5-2.4V8.2l-2.5-2.4z"/></svg>
-          Clique pra ampliar
         </span>
 
         <img itemprop="image" id="galeria-foto" width="900" height="900" fetchpriority="high"
@@ -8080,10 +8950,9 @@
         <p class="compra__precos">
           <span class="compra__de">R$&nbsp;133,20</span>
           <span class="compra__por" data-preco-grande>R$&nbsp;79,90</span>
-          <span class="compra__economia">
-            <svg viewBox="0 0 24 24" aria-hidden="true" width="12" height="12" style="fill:currentColor"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
-            Economia de R$&nbsp;53,30
-          </span>
+          <!-- "Economia de R$ 53,30" saiu daqui. O selo -40% na foto e o
+               R$ 133,20 riscado ao lado já contam a mesma história duas
+               vezes; a terceira só rouba a atenção do preço. -->
         </p>
 
         <!-- Uma linha, não duas: no celular cada linha aqui empurra o
@@ -8117,6 +8986,9 @@
                de 1 a 2x ao dia? Se durar 20, o texto do 3x muda.
            --------------------------------------------------------- -->
       <fieldset class="compra__kits" data-kits>
+        <!-- No celular esta legenda vira só leitor de tela: os cartões
+             dizem "1 frasco / 2 frascos / 3 frascos", não precisa de um
+             título em cima explicando que ali se escolhe quantos frascos. -->
         <legend class="compra__kits-titulo">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
           Quantos frascos
@@ -8125,26 +8997,34 @@
         <div class="compra__kits-lista">
 
           <label class="compra__kit">
+            <span class="compra__kit-fita">Pra experimentar</span>
             <input type="radio" name="kit" value="1" data-preco="79.90" data-unidades="1"
                    data-id="fator-1x" data-nome="Fator de Crescimento 30 ml" checked>
-            <span class="compra__kit-fita">Pra experimentar</span>
             <span>
               <span class="compra__kit-nome">1 frasco</span>
-              <span class="compra__kit-abaixo">Cobre cerca de 1 mês de uso.</span>
+              <span class="compra__kit-abaixo">1 mês de uso</span>
             </span>
             <span class="compra__kit-preco">R$&nbsp;79,90</span>
           </label>
 
           <label class="compra__kit">
+            <!-- >>> CONFERIR ANTES DE PUBLICAR: qual kit vende mais?
+                 "Mais vendido" é afirmação sobre fato, não enfeite — e é
+                 das que o cliente confere (ele volta, vê que o esgotado é
+                 outro, e para de acreditar no resto da página). Na loja
+                 nova não existe venda ainda: o número tem que vir do
+                 histórico da Nuvemshop. Se você não tiver essa conta na
+                 mão, a etiqueta sai e o cartão volta a ser "Fecha o frete
+                 grátis" — que é verdade e também empurra pro 2. -->
+            <span class="compra__kit-fita compra__kit-fita--campeao">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
+              Mais vendido
+            </span>
             <input type="radio" name="kit" value="2" data-preco="149.90" data-unidades="2"
                    data-id="fator-2x" data-nome="Kit 2 frascos — Fator de Crescimento">
-            <span class="compra__kit-fita">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1.4 4.6h11.4l1.6 1.6v9.6h-2.2l-1.4-1.4H6.9l-1.4 1.4H1.4z"/><path d="M15.2 8.4h4.1l3.3 4v3.4h-1.3l-1.4-1.4h-3.3l-1.4 1.4v-7.4z"/><path d="M6.9 16h2.3v2.3l-.9.9H6v-2.3z"/><path d="M17.1 16h2.3v2.3l-.9.9h-2.3v-2.3z"/></svg>
-              Fecha o frete grátis
-            </span>
             <span>
               <span class="compra__kit-nome">2 frascos</span>
-              <span class="compra__kit-abaixo">Economiza R$&nbsp;9,90 e passa dos R$&nbsp;149,90 — frete por nossa conta.</span>
+              <span class="compra__kit-abaixo">Economiza R$&nbsp;9,90 + frete grátis</span>
             </span>
             <span class="compra__kit-preco">
               R$&nbsp;149,90
@@ -8153,15 +9033,15 @@
           </label>
 
           <label class="compra__kit">
-            <input type="radio" name="kit" value="3" data-preco="222.90" data-unidades="3"
-                   data-id="fator-3x" data-nome="Kit 3 frascos — Fator de Crescimento">
             <span class="compra__kit-fita">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
               O ciclo completo
             </span>
+            <input type="radio" name="kit" value="3" data-preco="222.90" data-unidades="3"
+                   data-id="fator-3x" data-nome="Kit 3 frascos — Fator de Crescimento">
             <span>
               <span class="compra__kit-nome">3 frascos</span>
-              <span class="compra__kit-abaixo">Os 90 dias inteiros, sem correr pra repor no meio. Economiza R$&nbsp;16,80.</span>
+              <span class="compra__kit-abaixo">Os 90 dias · economiza R$&nbsp;16,80</span>
             </span>
             <span class="compra__kit-preco">
               R$&nbsp;222,90
@@ -8171,13 +9051,64 @@
 
         </div>
 
-        <!-- No celular os cartões ficam lado a lado e o texto de dentro
-             deles sai (três blocos de duas linhas em paralelo ninguém
-             lê). A explicação vira esta linha, que só existe abaixo de
-             720px. -->
-        <p class="compra__kits-nota">
-          <b>2</b> fecham o frete grátis. <b>3</b> cobrem os 90 dias.
-        </p>
+      </fieldset>
+
+      <!-- ---------------------------------------------------------
+           CROSS-SELL — ocupa o MESMO lugar do order bump.
+
+           A regra é essa: produto único (óleo, shampoo, fator) mostra
+           o degrau de quantidade; produto que já é kit não tem degrau
+           de quantidade que faça sentido, então o mesmo espaço vira
+           sugestão do que falta. Um slot, duas caixas, nunca as duas
+           ao mesmo tempo — senão a dobra ganha dois pedidos de decisão
+           em sequência e o cliente não toma nenhum.
+
+           DOIS ITENS, no máximo. Com três o bloco fica do tamanho do
+           seletor de kit e engole o botão de comprar; e a escolha de
+           cross-sell na dobra é sim/não, não é catálogo. O catálogo
+           está na rotina, mais abaixo.
+
+           O QUE SUGERIR: o que o produto da página NÃO cobre. Num kit de
+           barba, falta cabelo; num tratamento, falta modelagem. Sugerir
+           algo que já está dentro do kit é oferecer o que ele acabou de
+           comprar — e é o erro mais comum de motor de recomendação.
+
+           E o próprio produto da página nunca pode aparecer aqui. Parece
+           óbvio e não é: qualquer lista de "relacionados" devolve ele nas
+           primeiras posições, porque ele é o mais parecido com ele mesmo.
+           O JS ignora item com o mesmo id do botão de compra — cinto de
+           segurança pra quando essa lista vier do servidor.
+           --------------------------------------------------------- -->
+      <fieldset class="cross" data-cross hidden>
+        <legend class="compra__kits-titulo">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
+          Leva junto
+        </legend>
+
+        <div class="cross__lista">
+          <label class="cross__item">
+            <input type="checkbox" data-cross-item
+                   data-id="balm-para-barba" data-nome="Balm Modelador 90 g"
+                   data-preco="53.90" data-imagem="https://agqrjwxhuzkncbnmntyw.supabase.co/storage/v1/object/public/produtos/balm-para-barba-1-01M2Y3AKH6BQ146BAP851GGB8N.webp">
+            <img class="cross__foto" src="https://agqrjwxhuzkncbnmntyw.supabase.co/storage/v1/object/public/produtos/balm-para-barba-1-01M2Y3AKH6BQ146BAP851GGB8N.webp" alt="Balm Modelador para Barba FuckingBarba, pote de 90 g" width="120" height="120" loading="lazy">
+            <span class="cross__corpo">
+              <span class="cross__nome">Balm Modelador 90 g</span>
+              <span class="cross__para">Modela enquanto a barba enche</span>
+              <span class="cross__preco">R$ 53,90 <s>R$ 78,90</s></span>
+            </span>
+          </label>
+          <label class="cross__item">
+            <input type="checkbox" data-cross-item
+                   data-id="spray-modelador-matte-100ml-fucking-barba" data-nome="Spray Matte 100 ml"
+                   data-preco="49.90" data-imagem="https://agqrjwxhuzkncbnmntyw.supabase.co/storage/v1/object/public/produtos/spray-modelador-matte-100ml-fucking-barba-1-01M2Y3ANGQNHXWKXS1TXWRJBBE.webp">
+            <img class="cross__foto" src="https://agqrjwxhuzkncbnmntyw.supabase.co/storage/v1/object/public/produtos/spray-modelador-matte-100ml-fucking-barba-1-01M2Y3ANGQNHXWKXS1TXWRJBBE.webp" alt="Spray Modelador Matte Dry Touch FuckingBarba, frasco de 100 ml" width="120" height="120" loading="lazy">
+            <span class="cross__corpo">
+              <span class="cross__nome">Spray Matte 100 ml</span>
+              <span class="cross__para">O cabelo, que kit de barba não cobre</span>
+              <span class="cross__preco">R$ 49,90 <s>R$ 119,90</s></span>
+            </span>
+          </label>
+        </div>
       </fieldset>
 
       <div class="compra__acao">
@@ -8188,7 +9119,7 @@
           <button type="button" data-qtd="+" aria-label="Aumentar quantidade">+</button>
         </div>
 
-        <a href="#sacola" class="btn compra__comprar" data-comprar data-pdp-comprar
+        <a href="#sacola" class="btn btn--preto compra__comprar" data-comprar data-pdp-comprar
            data-produto-id="fator-1x"
            data-produto-nome="Fator de Crescimento 30 ml"
            data-produto-preco="79.90"
@@ -8197,15 +9128,6 @@
           <svg class="btn__icone" viewBox="0 0 24 24" aria-hidden="true"><path d="M1.4 2.6h3.9l3.5 13.9h11.3v2.2H7.1L3.6 4.8H1.4z"/><path d="M6.1 6.4h13.6l2.5 2.5-2 5.6H9.5L8.1 13z"/><path d="M9 19.3h2.3v2.3l-.9.9H8.1v-2.3z"/><path d="M17.6 19.3h2.3v2.3l-.9.9h-2.3v-2.3z"/></svg>
         </a>
       </div>
-
-      <!-- A frase de risco zero mora ENCOSTADA no botão, não lá embaixo
-           com as outras garantias. É no segundo entre decidir e clicar
-           que o cliente pensa "e se não funcionar" — a resposta tem que
-           estar onde o olho já está. -->
-      <p class="compra__risco">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.15 19.55 1.75 12.15l1.6-1.6h2.5l3.3 3.3 8.5-8.5h2.5l1.6 1.6z"/></svg>
-        <span>Barba na cara ou sua grana de volta. Não funcionou, devolve.</span>
-      </p>
 
       <!-- ESCASSEZ
            Este parágrafo só pode existir quando o número for o estoque
@@ -8249,14 +9171,19 @@
         </p>
       </div>
 
+      <!-- As quatro garantias ficam; as etiquetas de Pix/Cartão/Boleto
+           saíram. O meio de pagamento o cliente descobre no checkout e não
+           muda decisão nenhuma aqui; o que muda é saber que tem frete
+           grátis, que dá pra parcelar, que a compra é segura e que dá pra
+           desistir.
+
+           A quarta linha era "Barba na cara ou sua grana de volta" e virou
+           o direito de arrependimento — que é verdade, é lei, e tranquiliza
+           igual. -->
       <ul class="compra__garantias">
         <li>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1.4 4.6h11.4l1.6 1.6v9.6h-2.2l-1.4-1.4H6.9l-1.4 1.4H1.4z"/><path d="M15.2 8.4h4.1l3.3 4v3.4h-1.3l-1.4-1.4h-3.3l-1.4 1.4v-7.4z"/><path d="M6.9 16h2.3v2.3l-.9.9H6v-2.3z"/><path d="M17.1 16h2.3v2.3l-.9.9h-2.3v-2.3z"/></svg>
-          <span>Frete grátis<small>Em pedidos acima de R$ 149,90</small></span>
-        </li>
-        <li>
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1.8 21.4 5v7.1c0 4.6-3.9 8.5-9.4 10.1C6.5 20.6 2.6 16.7 2.6 12.1V5z"/></svg>
-          <span>Garantia<small>Barba na cara ou sua grana de volta</small></span>
+          <span>Frete grátis<small>Acima de R$ 149,90</small></span>
         </li>
         <li>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.6 4.6h18.8l1.2 1.2v12l-1.2 1.2H2.6l-1.2-1.2v-12z"/><path d="M1.4 8.4h21.2v2.6H1.4z" fill="#fff"/></svg>
@@ -8266,18 +9193,10 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1.8 21.4 5v7.1c0 4.6-3.9 8.5-9.4 10.1C6.5 20.6 2.6 16.7 2.6 12.1V5z"/><path d="m10.9 15.6-3.6-3.6 1.3-1.3h1.4l1.4 1.4 4.3-4.3h1.4l1.3 1.3z" fill="#fff"/></svg>
           <span>Compra segura<small>Dados criptografados</small></span>
         </li>
-      </ul>
-
-      <!-- >>> TROCAR: as bandeiras viram os logos reais do provedor
-           (Pagar.me hoje) quando você me passar os arquivos. Texto é
-           placeholder honesto; logo de bandeira é marca registrada e
-           não se desenha "parecido". -->
-      <ul class="compra__bandeiras">
-        <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.6 4.6h18.8l1.2 1.2v12l-1.2 1.2H2.6l-1.2-1.2v-12z"/></svg> Visa</li>
-        <li>Mastercard</li>
-        <li>Elo</li>
-        <li>Pix</li>
-        <li>Boleto</li>
+        <li>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1.6a10.4 10.4 0 1 0 0 20.8 10.4 10.4 0 0 0 0-20.8zm0 2.6a7.8 7.8 0 1 1 0 15.6 7.8 7.8 0 0 1 0-15.6zm-1 2.2v6.1l4.6 2.8 1-1.7-3.6-2.2V6.4z"/></svg>
+          <span>7 dias pra desistir<small>Direito de arrependimento</small></span>
+        </li>
       </ul>
 
       <!-- ---------------------------------------------------------
@@ -8309,6 +9228,12 @@
            o player funcionando. Os outros três estão desligados de
            propósito — cartaz com play que não toca é pior que cartaz
            nenhum.
+
+           >>> As fotos dos cartazes são de OUTROS produtos da marca (as
+               segundas fotos do shampoo, do óleo e do balm). Servem pra
+               você ver o desenho; na hora de publicar, cada cartaz é um
+               frame do próprio vídeo do Fator. O de "dia 0 → dia 90"
+               continua sem foto de propósito — ver o aviso da galeria.
            --------------------------------------------------------- -->
       <section class="videos" aria-labelledby="videos-titulo" data-videos>
         <h2 class="videos__titulo" id="videos-titulo">
@@ -8321,7 +9246,7 @@
           <button type="button" class="videos__item"
                   data-video="data:video/mp4;base64,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"
                   aria-label="Ver vídeo: Como aplicar">
-            <img src='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 640"><rect width="360" height="640" fill="%2312181f"/><rect x="0" y="0" width="360" height="8" fill="%23ffd84d"/><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z" fill="%23ffd84d" transform="translate(132 190) scale(4)"/><text x="180" y="330" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="28" font-weight="bold" fill="%23ffffff">Como</text><text x="180" y="370" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="28" font-weight="bold" fill="%23ffffff">aplicar</text></svg>' alt="" width="360" height="640" loading="lazy">
+            <img src="https://agqrjwxhuzkncbnmntyw.supabase.co/storage/v1/object/public/produtos/shampoo-para-barba-2-01M2Y3AM3JWDVPGTSC50C1RCAD.webp" alt="" width="360" height="640" loading="lazy">
             <span class="videos__play" aria-hidden="true">
               <svg viewBox="0 0 24 24"><path d="M6 3.5 20 12 6 20.5z"/></svg>
             </span>
@@ -8332,7 +9257,7 @@
           <button type="button" class="videos__item" disabled
                   data-video=""
                   aria-label="A textura saindo do frasco — vídeo ainda não gravado">
-            <img src='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 640"><rect width="360" height="640" fill="%2312181f"/><rect x="0" y="0" width="360" height="8" fill="%23ffd84d"/><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z" fill="%23ffd84d" transform="translate(132 190) scale(4)"/><text x="180" y="330" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="28" font-weight="bold" fill="%23ffffff">A</text><text x="180" y="370" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="28" font-weight="bold" fill="%23ffffff">textura</text><text x="180" y="470" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="20" fill="%23808b9c">a gravar</text></svg>' alt="" width="360" height="640" loading="lazy">
+            <img src="https://agqrjwxhuzkncbnmntyw.supabase.co/storage/v1/object/public/produtos/oleo-para-barba-2-01M2Y3AK984122T48QQCHQBE9R.webp" alt="" width="360" height="640" loading="lazy">
             <span class="videos__play" aria-hidden="true">
               <svg viewBox="0 0 24 24"><path d="M6 3.5 20 12 6 20.5z"/></svg>
             </span>
@@ -8343,7 +9268,7 @@
           <button type="button" class="videos__item" disabled
                   data-video=""
                   aria-label="Dia 0 e dia 90, mesma pessoa — vídeo ainda não gravado">
-            <img src='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 640"><rect width="360" height="640" fill="%2312181f"/><rect x="0" y="0" width="360" height="8" fill="%23ffd84d"/><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z" fill="%23ffd84d" transform="translate(132 190) scale(4)"/><text x="180" y="330" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="28" font-weight="bold" fill="%23ffffff">Dia 0 →</text><text x="180" y="370" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="28" font-weight="bold" fill="%23ffffff">dia 90</text><text x="180" y="470" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="20" fill="%23808b9c">a gravar</text></svg>' alt="" width="360" height="640" loading="lazy">
+            <img src='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 640"><rect width="360" height="640" fill="%2312181f"/><rect x="0" y="0" width="360" height="8" fill="%23ffd84d"/><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z" fill="%23ffd84d" opacity="0.5" transform="translate(140 270) scale(3.4)"/></svg>' alt="" width="360" height="640" loading="lazy">
             <span class="videos__play" aria-hidden="true">
               <svg viewBox="0 0 24 24"><path d="M6 3.5 20 12 6 20.5z"/></svg>
             </span>
@@ -8354,7 +9279,7 @@
           <button type="button" class="videos__item" disabled
                   data-video=""
                   aria-label="O rótulo de perto — vídeo ainda não gravado">
-            <img src='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 640"><rect width="360" height="640" fill="%2312181f"/><rect x="0" y="0" width="360" height="8" fill="%23ffd84d"/><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z" fill="%23ffd84d" transform="translate(132 190) scale(4)"/><text x="180" y="330" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="28" font-weight="bold" fill="%23ffffff">O rótulo</text><text x="180" y="370" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="28" font-weight="bold" fill="%23ffffff">de perto</text><text x="180" y="470" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="20" fill="%23808b9c">a gravar</text></svg>' alt="" width="360" height="640" loading="lazy">
+            <img src="https://agqrjwxhuzkncbnmntyw.supabase.co/storage/v1/object/public/produtos/balm-para-barba-2-01M2Y3AKQNA3R577KK7BH67PX1.webp" alt="" width="360" height="640" loading="lazy">
             <span class="videos__play" aria-hidden="true">
               <svg viewBox="0 0 24 24"><path d="M6 3.5 20 12 6 20.5z"/></svg>
             </span>
@@ -8371,9 +9296,6 @@
         </dialog>
       </section>
 
-      <p class="compra__sem-nota">
-        Sem avaliação por aqui ainda. <a href="#avaliacoes">Comprou? conta como foi</a> — a primeira ajuda o próximo.
-      </p>
 
     </div><!-- /.compra -->
   </div><!-- /.pdp__wrap -->
@@ -8405,9 +9327,8 @@
     </ul>
 
     <p class="promessa__rodape">
-      Resultado varia de pessoa pra pessoa e depende de usar todo dia.
-      Não faz nascer barba onde não existe folículo — se é esse o seu caso,
-      <a href="#duvidas" style="color:inherit">lê a última pergunta lá embaixo</a> antes de comprar.
+      Resultado varia de pessoa pra pessoa e depende de usar todo dia. Não faz nascer
+      barba onde não existe folículo — <a href="#duvidas" style="color:inherit">leia isto antes</a>.
     </p>
 
     <!-- ==================================================================
@@ -8447,6 +9368,84 @@
 </section>
 
 <!-- ======================================================================
+     ANTES E DEPOIS
+
+     A prova social mais forte que este produto pode ter — e a mais fácil
+     de fazer errado. Por isso ela nasce assim: a estrutura inteira pronta
+     e as fotos em molde, com as regras escritas NA PÁGINA.
+
+     As regras não estão aqui só pra você lembrar. Elas são argumento de
+     venda: nenhum concorrente desta categoria diz como fotografa, e quem
+     diz ganha a confiança de quem já desconfia de antes/depois — que é
+     todo mundo, a essa altura.
+
+     LEMBRANDO POR QUE ISSO É SÉRIO (é o mesmo aviso da galeria):
+       • a foto que está hoje no ar na Nuvemshop tem DUAS PESSOAS
+         DIFERENTES. É o exemplo de manual do art. 37 §1º do CDC;
+       • Meta e Google proíbem antes/depois de aparência em ANÚNCIO.
+         Aqui, no seu site, pode — em anúncio, não. Quem confunde os
+         dois perde a conta de anúncios, não leva advertência;
+       • LGPD: foto de pessoa identificável precisa de consentimento
+         registrado, e aparência em contexto de tratamento pega o art. 11.
+
+     >>> PRA ENCHER: dois ou três casos bastam. Mais que isso vira álbum e
+         ninguém olha. O melhor caso não é o mais espetacular — é o mais
+         parecido com quem está lendo.
+     ====================================================================== -->
+<section class="antesdepois" aria-labelledby="antesdepois-titulo">
+  <div class="antesdepois__wrap">
+    <h2 class="antesdepois__titulo" id="antesdepois-titulo">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
+      Antes e depois, sem truque
+    </h2>
+
+    <!-- Só o par de fotos. A ficha que ficava embaixo (nome, idade, dias,
+         fala) saiu: o que importa está DENTRO da foto — a etiqueta diz qual
+         é o antes, qual é o depois e quantos dias separam os dois. O resto
+         era legenda explicando uma imagem que já se explica. -->
+    <div class="antesdepois__casos">
+      <figure class="caso">
+        <div class="caso__par">
+          <div class="caso__lado">
+            <img src='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 700"><rect width="600" height="700" fill="%231a2028"/><rect x="0" y="0" width="600" height="7" fill="%23ffd84d"/><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z" fill="%23ffd84d" opacity="0.3" transform="translate(264 290) scale(3)"/><text x="300" y="440" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="26" fill="%237d8794">foto a produzir</text></svg>' alt="Foto do antes, ainda não produzida" width="600" height="700" loading="lazy">
+            <span class="caso__etiqueta">Antes · dia 0</span>
+          </div>
+          <div class="caso__lado">
+            <img src='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 700"><rect width="600" height="700" fill="%231a2028"/><rect x="0" y="0" width="600" height="7" fill="%23ffd84d"/><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z" fill="%23ffd84d" opacity="0.3" transform="translate(264 290) scale(3)"/><text x="300" y="440" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="26" fill="%237d8794">foto a produzir</text></svg>' alt="Foto do depois, ainda não produzida" width="600" height="700" loading="lazy">
+            <span class="caso__etiqueta caso__etiqueta--depois">Depois · dia 90</span>
+          </div>
+        </div>
+      </figure>
+      <figure class="caso">
+        <div class="caso__par">
+          <div class="caso__lado">
+            <img src='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 700"><rect width="600" height="700" fill="%231a2028"/><rect x="0" y="0" width="600" height="7" fill="%23ffd84d"/><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z" fill="%23ffd84d" opacity="0.3" transform="translate(264 290) scale(3)"/><text x="300" y="440" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="26" fill="%237d8794">foto a produzir</text></svg>' alt="Foto do antes, ainda não produzida" width="600" height="700" loading="lazy">
+            <span class="caso__etiqueta">Antes · dia 0</span>
+          </div>
+          <div class="caso__lado">
+            <img src='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 700"><rect width="600" height="700" fill="%231a2028"/><rect x="0" y="0" width="600" height="7" fill="%23ffd84d"/><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z" fill="%23ffd84d" opacity="0.3" transform="translate(264 290) scale(3)"/><text x="300" y="440" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="26" fill="%237d8794">foto a produzir</text></svg>' alt="Foto do depois, ainda não produzida" width="600" height="700" loading="lazy">
+            <span class="caso__etiqueta caso__etiqueta--depois">Depois · dia 120</span>
+          </div>
+        </div>
+      </figure>
+    </div>
+
+    <!-- SAÍRAM DAQUI, a pedido: a linha de abertura, a caixa "como a
+         gente fotografa" e o aviso de que resultado varia.
+
+         >>> As quatro regras continuam valendo, só deixaram de estar
+             escritas na página: mesma pessoa, mesmo ângulo, mesma luz;
+             sem filtro nem retoque; intervalo escrito na foto (é o que a
+             etiqueta faz); autorização assinada de quem aparece.
+
+         >>> E o aviso de "resultado varia" precisa VOLTAR antes de subir
+             foto de verdade. Antes/depois sem essa ressalva é o caso que
+             Procon e CONAR olham primeiro — é uma linha de texto contra
+             uma multa. Hoje não faz falta porque as fotos são molde.
+      -->
+  </section>
+
+<!-- ======================================================================
      TEMPO
      A objeção real deste produto não é preço, é "será que funciona".
      E o maior motivo de reembolso é o cara desistir na semana 2.
@@ -8460,11 +9459,6 @@
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1.6a10.4 10.4 0 1 0 0 20.8 10.4 10.4 0 0 0 0-20.8zm0 2.6a7.8 7.8 0 1 1 0 15.6 7.8 7.8 0 0 1 0-15.6zm-1 2.2v6.1l4.6 2.8 1-1.7-3.6-2.2V6.4z"/></svg>
       Quando o resultado aparece
     </h2>
-
-    <p class="tempo__linha-fina">
-      Sem enrolação: isto não é maquiagem de barba, é construção. O fio leva o tempo
-      que leva pra nascer. O que a gente pode prometer é o calendário.
-    </p>
 
     <dl class="tempo__trilha">
       <div class="tempo__passo">
@@ -8492,11 +9486,51 @@
       </div>
     </dl>
 
+    <!-- >>> CONFERIR: rendimento real do frasco (mesma pendência do FAQ). -->
     <p class="tempo__aviso">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
-      <span>Um frasco cobre cerca de um mês. Se você vai até o dia 90 — e é o que
-      funciona — é mais barato levar os três de uma vez do que repor dois. <b>CONFERIR: rendimento real do frasco.</b></span>
+      <span>Um frasco cobre cerca de um mês. Se o plano é chegar no dia 90, sai mais
+      barato levar os três de uma vez.</span>
     </p>
+  </div>
+</section>
+
+<!-- ======================================================================
+     FAIXA — a única seção da página que é foto, não caixa.
+
+     Ela entra aqui, entre o calendário e a rotina, porque é o ponto em que
+     a página estava virando uma sequência de blocos de texto um atrás do
+     outro. Uma faixa de foto de ponta a ponta quebra o ritmo e dá ao olho
+     um lugar pra descansar antes do próximo argumento.
+
+     O desenho é o mesmo do fechamento da home: foto ao fundo, degradê
+     escuro por cima e texto branco. Quem garante a leitura é o degradê,
+     não a foto — então dá pra trocar a imagem sem reavaliar contraste.
+
+     >>> A foto é a do Kit Completo (a segunda do catálogo). Serve porque
+         mostra produto em mão de verdade. O ideal aqui é uma foto do
+         Fator sendo aplicado, na luz da janela, sem pose.
+     ====================================================================== -->
+<section class="faixa" aria-labelledby="faixa-titulo">
+  <div class="faixa__foto">
+    <img src="https://agqrjwxhuzkncbnmntyw.supabase.co/storage/v1/object/public/produtos/kit-completo-para-barba-2-01M2Y3AP3ARNSWS2BPDDWS279Q.webp" alt="" width="1600" height="900" loading="lazy">
+  </div>
+  <span class="faixa__tape" aria-hidden="true"></span>
+
+  <div class="faixa__wrap">
+    <p class="faixa__chapeu">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
+      Três meses
+    </p>
+    <h2 class="faixa__titulo" id="faixa-titulo">Quem começa hoje<br>tem barba nova em <em>90 dias</em></h2>
+    <p class="faixa__texto">
+      Não tem atalho e a gente não vai fingir que tem. Tem constância —
+      e um frasco em cima da pia toda manhã.
+    </p>
+    <a href="#produto-nome" class="btn faixa__cta">
+      Começar agora
+      <svg class="btn__bolt" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
+    </a>
   </div>
 </section>
 
@@ -8520,11 +9554,6 @@
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
       A rotina que faz o produto render
     </h2>
-
-    <p class="rotina__linha-fina">
-      O Fator age na pele. Se a pele estiver com sebo e resíduo, ele trabalha pior —
-      e o fio novo nasce ressecado se ninguém hidratar. São três passos, três minutos por dia.
-    </p>
 
     <div class="rotina__grade">
 
@@ -8612,26 +9641,25 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
         Como funciona
       </h2>
+      <!-- >>> foto de outro produto da marca, só pra ver o desenho: aqui
+           entra a textura do Fator saindo do frasco. -->
+      <div class="funciona__foto">
+        <img src="https://agqrjwxhuzkncbnmntyw.supabase.co/storage/v1/object/public/produtos/oleo-para-barba-2-01M2Y3AK984122T48QQCHQBE9R.webp" alt="Textura do produto FuckingBarba saindo do frasco"
+             width="900" height="600" loading="lazy">
+      </div>
+
       <p>
         A fórmula age <strong>na pele</strong>, que é onde o crescimento acontece — não no fio.
-        Ela estimula a circulação local e cria o ambiente pro folículo trabalhar melhor.
+        Estimula a circulação local e cria o ambiente pro folículo trabalhar melhor.
       </p>
       <p>
         Não é efeito imediato e não escurece nada pra parecer mais cheio.
-        É construção real, e por isso o calendário ali em cima importa mais que a primeira semana.
       </p>
 
-      <dl class="funciona__ficha">
-        <div><dt>Conteúdo</dt><dd>30 ml</dd></div>
-        <div><dt>Uso</dt><dd>1 a 2x ao dia</dd></div>
-        <div><dt>Onde</dt><dd>Pele da barba</dd></div>
-        <div><dt>Enxágue</dt><dd>Não</dd></div>
-      </dl>
-
-      <!-- >>> FALTA, e faz diferença em cosmético: lista de ingredientes (INCI),
-           registro/notificação ANVISA, validade e lote. Quem compra tratamento
-           lê rótulo — e a ausência derruba a confiança de quem mais compraria.
-           Quando você me mandar, isso entra como uma 5ª e 6ª célula aqui. -->
+      <!-- A mini-ficha que estava aqui (conteúdo, uso, onde, enxágue) saiu:
+           a seção "O que tem dentro", logo abaixo, diz tudo isso e mais. Duas
+           fichas na mesma página é o tipo de repetição que faz o cliente parar
+           de ler as duas. -->
     </div>
 
     <div class="funciona__caixa">
@@ -8645,6 +9673,13 @@
            célula — inclusive um <strong> solto no meio da frase. Sem o
            <span>, "limpa e seca" saía numa linha só pra ele, por cima do
            número. Um filho por coluna, sempre. -->
+      <!-- >>> foto de outro produto da marca, só pra ver o desenho: aqui
+           entra o Fator sendo aplicado na pele. -->
+      <div class="funciona__foto">
+        <img src="https://agqrjwxhuzkncbnmntyw.supabase.co/storage/v1/object/public/produtos/shampoo-para-barba-2-01M2Y3AM3JWDVPGTSC50C1RCAD.webp" alt="Produto FuckingBarba sendo aplicado na mão"
+             width="900" height="600" loading="lazy">
+      </div>
+
       <ol class="funciona__passos">
         <li><span>Pele da barba <strong>limpa e seca</strong>.</span></li>
         <li><span>Aplique direto na pele, de 1 a 2 vezes ao dia.</span></li>
@@ -8654,121 +9689,83 @@
 
       <p class="funciona__dica">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
-        <span>Aplique <strong>depois do banho</strong>. A pele quente absorve melhor, e virar hábito
-        junto de algo que você já faz todo dia é o que impede de esquecer no dia 20.</span>
+        <span>Aplique <strong>depois do banho</strong>: a pele quente absorve melhor, e vira
+        hábito — que é o que impede de esquecer no dia 20.</span>
       </p>
     </div>
 
   </div>
 </section>
 
+
 <!-- ======================================================================
-     CONTRASTE — o elefante da categoria.
+     VERSUS — o nosso e o genérico, em duas colunas
 
-     Quem procura "barba não cresce" já ouviu falar de minoxidil. A
-     página inteira contornava o assunto, e quem sai daqui pra pesquisar
-     isso não volta. Então o assunto entra — do jeito que a gente pode
-     falar dele.
+     A REGRA QUE SEGURA ESTA SEÇÃO FORA DE ENCRENCA, e que vale reler
+     sempre que alguém quiser mexer no texto:
 
-     A regra que eu segui: a FuckingBarba NÃO compara eficácia com
-     medicamento, não desaconselha e não recomenda. Cosmético falando de
-     medicamento é terreno da ANVISA e do CFM, e é exatamente o tipo de
-     frase que derruba anúncio e rende notificação. O que dá pra fazer —
-     e que vende igual — é dizer com todas as letras O QUE ESTE PRODUTO
-     É, e mandar a pessoa pro médico pro resto.
+       • "Genérico" NÃO é marca nenhuma, e a página define isso na linha
+         de abertura. Comparação com concorrente identificado exige que
+         cada afirmação seja comprovável, e comparar depreciando é o
+         art. 4º do Código do CONAR e concorrência desleal (Lei 9.279,
+         art. 195). Enquanto o alvo for uma categoria anônima, é opinião
+         sobre um tipo de produto — o que é permitido.
+       • Cada linha da direita é sobre AUSÊNCIA DE INFORMAÇÃO ("sem
+         laudo", "sem dizer em quanto tempo"), nunca sobre a fórmula do
+         outro. A gente não sabe o que tem no frasco dos outros e não vai
+         fingir que sabe.
 
-     >>> Se você quiser tirar este bloco, tire inteiro. O que NÃO pode é
-         ficar meia-boca: citar minoxidil e insinuar que o nosso é
-         melhor/mais seguro é a versão que dá problema.
+     >>> A PRIMEIRA LINHA DA ESQUERDA É A MAIS IMPORTANTE E ESTÁ VAZIA.
+
+         "__% obtiveram resultado em __ dias" só entra no ar com o laudo
+         na mão. Alegação de eficácia de cosmético exige dossiê (RDC
+         752/2022 da ANVISA) e o art. 36, § único do CDC manda você
+         segurar os dados à disposição de quem pedir. É justamente o tipo
+         de número que Procon e CONAR conferem primeiro.
+
+         Me manda três coisas e eu preencho: quantas pessoas, quem
+         conduziu e quando, e o que foi medido. Com a fonte à vista o
+         número vende MAIS do que solto — porque aí o cliente acredita.
+
+         Sem isso, a seção inteira não sobe: uma tabela que cobra laudo
+         do concorrente com a própria célula vazia é um tiro no pé.
      ====================================================================== -->
-<section class="contraste" aria-labelledby="contraste-titulo">
-  <div class="contraste__wrap">
-    <h2 class="contraste__titulo" id="contraste-titulo">
+<section class="versus" aria-labelledby="versus-titulo">
+  <div class="versus__wrap">
+    <h2 class="versus__titulo" id="versus-titulo">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
-      Antes que você pergunte: não é minoxidil
+      O nosso e o genérico, lado a lado
     </h2>
 
-    <p class="contraste__linha-fina">
-      É a dúvida que todo mundo tem e quase nenhuma marca responde. A gente responde,
-      mas só até onde é honesto responder.
-    </p>
+    <!-- A linha que definia "genérico" saiu daqui a pedido. Quem segura a
+         definição agora é o subtítulo do cartão da direita: "Sem marca, sem
+         laudo". Ele é o que deixa claro que o alvo é uma CATEGORIA anônima
+         e não um concorrente — e por isso ele não pode sumir também. Sem
+         nenhum dos dois, a comparação passa a mirar "os outros produtos"
+         em geral, e aí cada afirmação da coluna da direita precisaria ser
+         comprovável uma por uma. -->
 
-    <div class="contraste__colunas">
-      <div class="contraste__coluna contraste__coluna--nosso">
-        <p class="contraste__etiqueta">O que o Fator é</p>
+    <div class="versus__colunas">
+      <div class="versus__coluna versus__coluna--nosso">
+        <p class="versus__cabeca">
+          <img src="https://agqrjwxhuzkncbnmntyw.supabase.co/storage/v1/object/public/produtos/fator-de-crescimento-para-barba-1-01M2Y3AMVFXWBRTMP5VXGJ0QZZ.webp" alt="" width="120" height="120" loading="lazy">
+          <span>Fator de Crescimento<small>FuckingBarba</small></span>
+        </p>
         <ul>
-          <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg> Cosmético de uso diário, sem receita</li>
-          <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg> Age na pele da barba, onde o fio nasce</li>
-          <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg> Você compra, usa e acompanha sozinho</li>
-          <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg> Resultado progressivo, medido em meses</li>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg> <span>Laudo de eficácia: <b class="versus__falta">__% obtiveram resultado em __ dias</b></span></li><li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg> <span>Formulado pra barba, do zero</span></li><li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg> <span>Age na pele, onde o fio nasce</span></li><li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg> <span>Prazo publicado: 90 dias, com calendário nesta página</span></li>
         </ul>
       </div>
 
-      <div class="contraste__coluna contraste__coluna--deles">
-        <p class="contraste__etiqueta">O que minoxidil é</p>
+      <div class="versus__coluna versus__coluna--deles">
+        <p class="versus__cabeca">
+          <img src='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120"><rect width="120" height="120" fill="%23e6e9ed"/><rect x="50" y="18" width="20" height="12" fill="%23aab3bf"/><path d="M42 32h36l4 8v58l-4 4H42l-4-4V40z" fill="%23c3cad3"/><rect x="46" y="56" width="28" height="26" fill="%23e6e9ed"/><text x="60" y="77" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="24" font-weight="bold" fill="%23aab3bf">?</text></svg>' alt="" width="120" height="120" loading="lazy">
+          <span>Frasco genérico<small>Sem marca, sem laudo</small></span>
+        </p>
         <ul>
-          <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg> Medicamento — quem indica é médico</li>
-          <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg> Tem contraindicação e efeito colateral</li>
-          <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg> Precisa de acompanhamento</li>
-          <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg> A gente não opina sobre uso, dose nem combinação</li>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10.6h16v2.8H4z"/></svg> <span>Sem laudo, sem número, sem quem assine</span></li><li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10.6h16v2.8H4z"/></svg> <span>Fórmula de prateleira, serve pra tudo</span></li><li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10.6h16v2.8H4z"/></svg> <span>Age no fio, por cima</span></li><li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10.6h16v2.8H4z"/></svg> <span>“Resultados rápidos”, sem dizer em quanto tempo</span></li>
         </ul>
       </div>
     </div>
-
-    <p class="contraste__fecho">
-      Não estamos dizendo que um é melhor que o outro — não é da nossa conta, e comparar
-      cosmético com medicamento seria desonesto dos dois lados. Se a sua dúvida é sobre
-      medicamento, a resposta é <b>dermatologista</b>, e não uma página de loja.
-    </p>
-  </div>
-</section>
-
-<!-- ======================================================================
-     FICHA — o que tem dentro.
-
-     Este bloco não existia e é o buraco onde o cliente cético olha. Quem
-     vai passar uma coisa na própria cara todo dia por três meses lê
-     rótulo — e não achar composição numa página que promete crescimento
-     é o que faz ele fechar a aba e ir pro concorrente que mostrou.
-
-     Está propositalmente com os campos VAZIOS e à vista, em vez de
-     escondido num comentário: assim você bate o olho e sabe o que falta.
-     Me manda a ficha do fornecedor que eu preencho em cinco minutos.
-
-     >>> "Testado dermatologicamente" só entra se existir laudo. É a
-         frase que substitui o "não agride a pele" que está hoje no ar,
-         que é afirmação absoluta de segurança e nenhum cosmético
-         sustenta.
-     ====================================================================== -->
-<section class="ficha" aria-labelledby="ficha-titulo">
-  <div class="ficha__wrap">
-    <h2 class="ficha__titulo" id="ficha-titulo">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
-      O que tem dentro
-    </h2>
-
-    <p class="ficha__linha-fina">
-      Sem isto aqui preenchido, a página promete resultado e esconde o rótulo. É a
-      informação que o cliente desconfiado procura antes de comprar — e a que o
-      concorrente que a mostra usa pra ganhar dele de você.
-    </p>
-
-    <dl class="ficha__grade">
-      <div><dt>Volume</dt><dd>30 ml</dd></div>
-      <div><dt>Rendimento</dt><dd class="ficha__falta">a confirmar</dd></div>
-      <div><dt>Composição (INCI)</dt><dd class="ficha__falta">a preencher</dd></div>
-      <div><dt>Registro / notificação ANVISA</dt><dd class="ficha__falta">a preencher</dd></div>
-      <div><dt>Validade</dt><dd class="ficha__falta">a preencher</dd></div>
-      <div><dt>Testado dermatologicamente</dt><dd class="ficha__falta">só com laudo</dd></div>
-      <div><dt>Fabricado por</dt><dd class="ficha__falta">a preencher</dd></div>
-      <div><dt>Conservação</dt><dd class="ficha__falta">a preencher</dd></div>
-    </dl>
-
-    <p class="ficha__aviso">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
-      <span>Produto cosmético de uso externo. Mantenha fora do alcance de crianças.
-      Em caso de irritação, suspenda o uso e procure um dermatologista.</span>
-    </p>
   </div>
 </section>
 
@@ -8816,10 +9813,6 @@
 
     </div>
 
-    <p class="quem__fecho">
-      Se você se viu na coluna da direita, não compra. Sério. Devolução dá trabalho
-      pros dois, e a gente prefere que você volte quando for a hora.
-    </p>
   </div>
 </section>
 
@@ -8867,9 +9860,12 @@
 
     <details class="duvidas__item">
       <summary>Quantos dias dura um frasco?<span class="duvidas__mais" aria-hidden="true"></span></summary>
+      <!-- >>> CONFERIR: preciso do rendimento real medido. Enquanto não
+           vier, "cerca de 30 dias" é estimativa minha — e estimativa que o
+           cliente usa pra decidir entre 1 e 3 frascos não pode ficar no ar
+           sem alguém ter medido. -->
       <div class="duvidas__resposta">
-        <p>Cerca de 30 dias no uso de 1 a 2 vezes ao dia. <b>[CONFERIR — preciso do
-        rendimento real medido, senão esta resposta sai da página.]</b></p>
+        <p>Cerca de 30 dias, usando de 1 a 2 vezes ao dia.</p>
       </div>
     </details>
 
@@ -8898,12 +9894,15 @@
 
     <details class="duvidas__item">
       <summary>E se não funcionar comigo?<span class="duvidas__mais" aria-hidden="true"></span></summary>
+      <!-- "Barba na cara ou sua grana de volta" saiu daqui: essa garantia
+           não existe. Ficou só o que é verdade e é lei. Se um dia você criar
+           uma garantia de satisfação de verdade (o que num produto de ciclo
+           de 90 dias vale MUITO), ela entra aqui com prazo e regra escritos. -->
       <div class="duvidas__resposta">
-        <p>Barba na cara ou sua grana de volta. <b>[CONFERIR — preciso do prazo e da regra
-        exatos da garantia pra escrever aqui. Num produto de ciclo de 90 dias, garantia de
-        7 dias não significa nada: o cliente percebe, e aí a promessa vira piada.]</b></p>
-        <p>Fora isso, os 7 dias de arrependimento do art. 49 do CDC valem sempre, para qualquer
-        compra pela internet.</p>
+        <p>Você tem <b>7 dias corridos</b> a partir do recebimento pra desistir da compra
+        e receber tudo de volta, sem precisar justificar. É o art. 49 do Código de Defesa
+        do Consumidor, e vale pra qualquer compra feita pela internet.</p>
+        <p>Produto com defeito tem 30 dias pra reclamar, pela mesma lei.</p>
       </div>
     </details>
 
@@ -8929,28 +9928,104 @@
          (disparado pelo worker do Medusa, no evento de pedido entregue).
          Antes disso, não existe review de verdade pra mostrar.
      ====================================================================== -->
+<!-- ======================================================================
+     AVALIAÇÕES — mesmo cartão .avaliacao da home, mesma convenção de molde.
+
+     O QUE ESTÁ REAL AQUI: uma só, a do André B., que veio do protótipo da
+     home e fala exatamente do ciclo de 3 meses deste produto. Mesmo essa
+     precisa de confirmação: é cliente de verdade? autorizou o uso do nome?
+
+     O QUE ESTÁ EM MOLDE: as outras três, com [colchetes] — mesma marcação
+     que a home usa. Colchete na tela é feio de propósito: é pra você não
+     conseguir publicar sem preencher.
+
+     A NOTA E A CONTAGEM ([4,7] e [128]) também estão em colchete, na dobra
+     e aqui. Nota média é conta, não escolha: sai das avaliações que
+     existirem, não de um número que a gente ache bonito.
+
+     >>> O aggregateRating do schema.org fica COMENTADO até os números
+         serem reais. Nota inventada em structured data não é só
+         propaganda enganosa (CDC art. 37): o Google tira o rich snippet
+         da loja inteira, não só desta página, e leva meses pra voltar.
+
+     >>> PRA ENCHER: um e-mail automático 15 dias depois da entrega,
+         disparado pelo worker do Medusa no evento de pedido entregue. É o
+         caminho mais barato e o único que gera review de compra
+         verificada — que é o selinho ao lado do nome.
+     ====================================================================== -->
 <section class="avaliacoes" id="avaliacoes" aria-labelledby="avaliacoes-titulo">
   <div class="avaliacoes__wrap">
+
     <h2 class="avaliacoes__titulo" id="avaliacoes-titulo">
       <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-estrela"/></svg>
       O que dizem de quem usou
     </h2>
 
-    <div class="avaliacoes__vazio">
-      <p>
-        <b>Ainda não há avaliação deste produto na loja nova.</b>
-        A gente não vai encher esta página de estrela inventada só pra parecer movimentado —
-        se está vazio, é porque está vazio mesmo.
-      </p>
-      <p>
-        Comprou e usou por 30 dias? Manda como foi. Aparece aqui com seu nome, sem edição,
-        boa ou ruim.
-      </p>
-      <a class="btn" href="#avaliar">
-        Avaliar este produto
-        <svg class="btn__bolt" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
-      </a>
-    </div>
+
+    <!--
+    aggregateRating: descomente SÓ quando os dois números forem reais.
+
+    <span itemprop="aggregateRating" itemscope itemtype="https://schema.org/AggregateRating">
+      <meta itemprop="ratingValue" content="4.7">
+      <meta itemprop="reviewCount" content="128">
+      <meta itemprop="bestRating" content="5">
+    </span>
+    -->
+
+    <ul class="avaliacoes__grade">
+        <li>
+          <article class="avaliacao">
+            <span class="avaliacao__foto">
+              <img src="https://agqrjwxhuzkncbnmntyw.supabase.co/storage/v1/object/public/produtos/fator-de-crescimento-para-barba-1-01M2Y3AMVFXWBRTMP5VXGJ0QZZ.webp" alt="" width="160" height="160" loading="lazy">
+            </span>
+            <div class="avaliacao__corpo">
+              <p class="avaliacao__topo">
+                <span class="avaliacao__nome">André B.</span>
+                <svg class="avaliacao__selo" viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M8.4 1.8h7.2l5 5v7.2l-5 5H8.4l-5-5V6.8zm-.6 9.9 1.4-1.4h1.2l1.4 1.4 3.4-3.4h1.2l1.4 1.4-6 6z"/></svg>
+                <span class="estrelas" style="--nota: 100.0%" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#ico-estrela"/></svg><svg viewBox="0 0 24 24"><use href="#ico-estrela"/></svg><svg viewBox="0 0 24 24"><use href="#ico-estrela"/></svg><svg viewBox="0 0 24 24"><use href="#ico-estrela"/></svg><svg viewBox="0 0 24 24"><use href="#ico-estrela"/></svg><span class="estrelas__cheias"><svg viewBox="0 0 24 24"><use href="#ico-estrela"/></svg><svg viewBox="0 0 24 24"><use href="#ico-estrela"/></svg><svg viewBox="0 0 24 24"><use href="#ico-estrela"/></svg><svg viewBox="0 0 24 24"><use href="#ico-estrela"/></svg><svg viewBox="0 0 24 24"><use href="#ico-estrela"/></svg></span></span>
+                <span class="sr-only">Nota 5 de 5, compra verificada</span>
+              </p>
+              <p class="avaliacao__texto">Usei por 1 mês e não vi muita coisa, mais continuei e no terceiro mês começou aparecer novos fios, valeu a paciência.</p>
+            </div>
+          </article>
+        </li>
+          <!-- MOLDE: troque pelos dados vindos do seu app de avaliações -->
+        <li>
+          <article class="avaliacao">
+            <span class="avaliacao__foto">
+              <img src="https://agqrjwxhuzkncbnmntyw.supabase.co/storage/v1/object/public/produtos/fator-de-crescimento-para-barba-1-01M2Y3AMVFXWBRTMP5VXGJ0QZZ.webp" alt="" width="160" height="160" loading="lazy">
+            </span>
+            <div class="avaliacao__corpo">
+              <p class="avaliacao__topo">
+                <span class="avaliacao__nome">[Nome do cliente]</span>
+                <svg class="avaliacao__selo" viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M8.4 1.8h7.2l5 5v7.2l-5 5H8.4l-5-5V6.8zm-.6 9.9 1.4-1.4h1.2l1.4 1.4 3.4-3.4h1.2l1.4 1.4-6 6z"/></svg>
+                <span class="estrelas" style="--nota: 100.0%" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#ico-estrela"/></svg><svg viewBox="0 0 24 24"><use href="#ico-estrela"/></svg><svg viewBox="0 0 24 24"><use href="#ico-estrela"/></svg><svg viewBox="0 0 24 24"><use href="#ico-estrela"/></svg><svg viewBox="0 0 24 24"><use href="#ico-estrela"/></svg><span class="estrelas__cheias"><svg viewBox="0 0 24 24"><use href="#ico-estrela"/></svg><svg viewBox="0 0 24 24"><use href="#ico-estrela"/></svg><svg viewBox="0 0 24 24"><use href="#ico-estrela"/></svg><svg viewBox="0 0 24 24"><use href="#ico-estrela"/></svg><svg viewBox="0 0 24 24"><use href="#ico-estrela"/></svg></span></span>
+                <span class="sr-only">Nota 5 de 5, compra verificada</span>
+              </p>
+              <p class="avaliacao__texto">[Cole aqui o texto exato que o cliente escreveu, sem reescrever.]</p>
+            </div>
+          </article>
+        </li>
+          <!-- MOLDE: troque pelos dados vindos do seu app de avaliações -->
+        <li>
+          <article class="avaliacao">
+            <span class="avaliacao__foto">
+              <img src="https://agqrjwxhuzkncbnmntyw.supabase.co/storage/v1/object/public/produtos/fator-de-crescimento-para-barba-1-01M2Y3AMVFXWBRTMP5VXGJ0QZZ.webp" alt="" width="160" height="160" loading="lazy">
+            </span>
+            <div class="avaliacao__corpo">
+              <p class="avaliacao__topo">
+                <span class="avaliacao__nome">[Nome do cliente]</span>
+                <svg class="avaliacao__selo" viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M8.4 1.8h7.2l5 5v7.2l-5 5H8.4l-5-5V6.8zm-.6 9.9 1.4-1.4h1.2l1.4 1.4 3.4-3.4h1.2l1.4 1.4-6 6z"/></svg>
+                <span class="estrelas" style="--nota: 80.0%" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#ico-estrela"/></svg><svg viewBox="0 0 24 24"><use href="#ico-estrela"/></svg><svg viewBox="0 0 24 24"><use href="#ico-estrela"/></svg><svg viewBox="0 0 24 24"><use href="#ico-estrela"/></svg><svg viewBox="0 0 24 24"><use href="#ico-estrela"/></svg><span class="estrelas__cheias"><svg viewBox="0 0 24 24"><use href="#ico-estrela"/></svg><svg viewBox="0 0 24 24"><use href="#ico-estrela"/></svg><svg viewBox="0 0 24 24"><use href="#ico-estrela"/></svg><svg viewBox="0 0 24 24"><use href="#ico-estrela"/></svg><svg viewBox="0 0 24 24"><use href="#ico-estrela"/></svg></span></span>
+                <span class="sr-only">Nota 5 de 5, compra verificada</span>
+              </p>
+              <p class="avaliacao__texto">[Cole aqui o texto exato que o cliente escreveu, sem reescrever.]</p>
+            </div>
+          </article>
+        </li>
+          <!-- MOLDE: troque pelos dados vindos do seu app de avaliações -->
+</ul>
+
   </div>
 </section>
 
@@ -9121,6 +10196,27 @@
      continua focável é um dos jeitos mais comuns de quebrar navegação
      por teclado sem ninguém perceber.
      ====================================================================== -->
+<!-- ======================================================================
+     CHAVE DE PROTÓTIPO — NÃO VAI PRO SITE
+
+     Serve só pra você ver os dois estados da mesma dobra sem eu ter que
+     mandar dois arquivos. Na loja de verdade quem decide qual bloco
+     aparece é o produto: se tem degrau de quantidade, é order bump; se
+     é kit, é cross-sell. Nunca os dois.
+
+     É `position: fixed` pra não entrar no fluxo — a medição da dobra não
+     pode mudar por causa de um controle que não existe na loja. E é um
+     <details> fechado por padrão pra não tapar o conteúdo no celular:
+     um toque abre, outro fecha.
+     ====================================================================== -->
+<details class="proto" data-proto>
+  <summary class="proto__rotulo">Protótipo</summary>
+  <div class="proto__opcoes" role="group" aria-label="Ver a dobra como">
+    <label><input type="radio" name="proto-slot" value="bump" checked> Produto único</label>
+    <label><input type="radio" name="proto-slot" value="cross"> Kit</label>
+  </div>
+</details>
+
 <div class="barra-compra" data-barra hidden>
   <img class="barra-compra__foto" alt=""
        src="https://agqrjwxhuzkncbnmntyw.supabase.co/storage/v1/object/public/produtos/fator-de-crescimento-para-barba-1-01M2Y3AMVFXWBRTMP5VXGJ0QZZ.webp"
@@ -11266,6 +12362,88 @@
   if (sai) sai.addEventListener('click', fechar);
   tela.addEventListener('click', function (e) { if (e.target === tela) fechar(); });
   tela.addEventListener('close', fechar);
+})();
+</script>
+
+<script>
+/* ============================================================
+   PDP — CROSS-SELL E A CHAVE DE PROTÓTIPO
+
+   Um slot, dois inquilinos: produto único mostra o degrau de
+   quantidade (order bump), produto que já é kit mostra o que
+   falta (cross-sell). Nunca os dois — dois pedidos de decisão
+   em sequência na mesma dobra e o cliente não toma nenhum.
+
+   Na loja de verdade quem escolhe é o produto, no servidor.
+   A chave aqui existe só pra revisar os dois estados sem
+   precisar de dois arquivos.
+   ============================================================ */
+(function () {
+  var kits  = document.querySelector('[data-kits]');
+  var cross = document.querySelector('[data-cross]');
+  var proto = document.querySelector('[data-proto]');
+  var botao = document.querySelector('[data-pdp-comprar]');
+  if (!kits || !cross) return;
+
+  /* ---------- o botão conta quantos vão ---------- */
+  function marcados() {
+    if (cross.hidden) return [];
+    // nunca o próprio produto da página: qualquer lista de relacionados
+    // devolve ele nas primeiras posições (é o mais parecido com ele
+    // mesmo), e aí o "leva junto" some virando quantidade 2 do que já
+    // estava no carrinho — sem o cliente entender por quê
+    var eu = botao && botao.getAttribute('data-produto-id');
+    return [].slice.call(cross.querySelectorAll('[data-cross-item]')).filter(function (i) {
+      return i.checked && i.getAttribute('data-id') !== eu;
+    });
+  }
+
+  function rotulo() {
+    if (!botao || !botao.firstChild || botao.firstChild.nodeType !== 3) return;
+    var n = marcados().length;
+    botao.firstChild.nodeValue = n
+      ? '\n          Adicionar os ' + (n + 1) + ' à sacola\n          '
+      : '\n          Adicionar à sacola\n          ';
+  }
+
+  cross.addEventListener('change', rotulo);
+
+  /* Os extras entram junto com o produto da página. Este ouvinte roda
+     depois do carrinho da carcaça (ordem dos <script>), então a unidade
+     principal já entrou quando ele é chamado. */
+  document.addEventListener('produto:comprar', function (e) {
+    var b = e.detail && e.detail.botao;
+    if (!b || !b.hasAttribute('data-pdp-comprar')) return;
+
+    var carrinho = window.FuckingBarba && window.FuckingBarba.carrinho;
+    if (!carrinho) return;
+
+    var extras = marcados();
+    if (!extras.length) return;
+
+    extras.forEach(function (i) {
+      carrinho.adicionar({
+        id:     i.getAttribute('data-id'),
+        nome:   i.getAttribute('data-nome'),
+        preco:  parseFloat(i.getAttribute('data-preco')),
+        imagem: i.getAttribute('data-imagem'),
+        url:    '#'
+      });
+    });
+
+    // com mais de um item a sacola aberta é mais clara que o voo: o
+    // cliente confere o que entrou
+    if (carrinho.abrir) carrinho.abrir();
+  });
+
+  /* ---------- a chave ---------- */
+  if (!proto) return;
+  proto.addEventListener('change', function (e) {
+    var kit = e.target.value === 'cross';
+    cross.hidden = !kit;
+    kits.hidden = kit;
+    rotulo();
+  });
 })();
 </script>
 </body>

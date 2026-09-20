@@ -544,3 +544,85 @@
   tela.addEventListener('close', fechar);
 })();
 </script>
+
+<script>
+/* ============================================================
+   PDP — CROSS-SELL E A CHAVE DE PROTÓTIPO
+
+   Um slot, dois inquilinos: produto único mostra o degrau de
+   quantidade (order bump), produto que já é kit mostra o que
+   falta (cross-sell). Nunca os dois — dois pedidos de decisão
+   em sequência na mesma dobra e o cliente não toma nenhum.
+
+   Na loja de verdade quem escolhe é o produto, no servidor.
+   A chave aqui existe só pra revisar os dois estados sem
+   precisar de dois arquivos.
+   ============================================================ */
+(function () {
+  var kits  = document.querySelector('[data-kits]');
+  var cross = document.querySelector('[data-cross]');
+  var proto = document.querySelector('[data-proto]');
+  var botao = document.querySelector('[data-pdp-comprar]');
+  if (!kits || !cross) return;
+
+  /* ---------- o botão conta quantos vão ---------- */
+  function marcados() {
+    if (cross.hidden) return [];
+    // nunca o próprio produto da página: qualquer lista de relacionados
+    // devolve ele nas primeiras posições (é o mais parecido com ele
+    // mesmo), e aí o "leva junto" some virando quantidade 2 do que já
+    // estava no carrinho — sem o cliente entender por quê
+    var eu = botao && botao.getAttribute('data-produto-id');
+    return [].slice.call(cross.querySelectorAll('[data-cross-item]')).filter(function (i) {
+      return i.checked && i.getAttribute('data-id') !== eu;
+    });
+  }
+
+  function rotulo() {
+    if (!botao || !botao.firstChild || botao.firstChild.nodeType !== 3) return;
+    var n = marcados().length;
+    botao.firstChild.nodeValue = n
+      ? '\n          Adicionar os ' + (n + 1) + ' à sacola\n          '
+      : '\n          Adicionar à sacola\n          ';
+  }
+
+  cross.addEventListener('change', rotulo);
+
+  /* Os extras entram junto com o produto da página. Este ouvinte roda
+     depois do carrinho da carcaça (ordem dos <script>), então a unidade
+     principal já entrou quando ele é chamado. */
+  document.addEventListener('produto:comprar', function (e) {
+    var b = e.detail && e.detail.botao;
+    if (!b || !b.hasAttribute('data-pdp-comprar')) return;
+
+    var carrinho = window.FuckingBarba && window.FuckingBarba.carrinho;
+    if (!carrinho) return;
+
+    var extras = marcados();
+    if (!extras.length) return;
+
+    extras.forEach(function (i) {
+      carrinho.adicionar({
+        id:     i.getAttribute('data-id'),
+        nome:   i.getAttribute('data-nome'),
+        preco:  parseFloat(i.getAttribute('data-preco')),
+        imagem: i.getAttribute('data-imagem'),
+        url:    '#'
+      });
+    });
+
+    // com mais de um item a sacola aberta é mais clara que o voo: o
+    // cliente confere o que entrou
+    if (carrinho.abrir) carrinho.abrir();
+  });
+
+  /* ---------- a chave ---------- */
+  if (!proto) return;
+  proto.addEventListener('change', function (e) {
+    var kit = e.target.value === 'cross';
+    cross.hidden = !kit;
+    kits.hidden = kit;
+    rotulo();
+  });
+})();
+</script>

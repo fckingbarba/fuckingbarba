@@ -54,6 +54,18 @@ NOTA_PDP = """  3) O <h1> desta página é o NOME DO PRODUTO, na coluna de compr
      cabeçalho e a esteira de avisos não levam título nenhum: são carcaça,
      não conteúdo. Um <h1> por página, e ele diz o que a página vende."""
 
+# A esteira de avisos promete "Barba na cara ou sua grana de volta" seis
+# vezes. Essa garantia NÃO EXISTE — o Matheus confirmou. Promessa que a loja
+# não cumpre é propaganda enganosa (CDC art. 37) e, pior, é a primeira coisa
+# que o cliente lê ao abrir a página.
+#
+# >>> ISTO É UM REMENDO. A frase está no protótipo da home, e de lá ela foi
+#     pro site em produção: está na esteira, nas garantias do fechamento e
+#     na lista do hero. O certo é tirar na fonte — aqui a troca só garante
+#     que a PDP que eu entrego não sai com a promessa falsa.
+PROMESSA_FALSA = "<li>Barba na cara ou sua grana de volta</li>"
+PROMESSA_REAL = "<li>7 dias pra desistir, por lei</li>"
+
 
 def main() -> None:
     home = HOME.read_text(encoding="utf-8")
@@ -75,6 +87,10 @@ def main() -> None:
     fatia(carcaca, NOTA_HOME, "a nota do banner na carcaça")
     carcaca = carcaca.replace(NOTA_HOME, NOTA_PDP)
 
+    fatia(carcaca, PROMESSA_FALSA, "a promessa de devolução na esteira")
+    trocadas = carcaca.count(PROMESSA_FALSA)
+    carcaca = carcaca.replace(PROMESSA_FALSA, PROMESSA_REAL)
+
     pdp = "".join(
         [
             (AQUI / "cabeca.html").read_text(encoding="utf-8"),
@@ -92,6 +108,7 @@ def main() -> None:
     SAIDA.write_text(pdp, encoding="utf-8")
 
     print(f"{SAIDA.relative_to(PORTE.parent)}  ({len(pdp) / 1024:.0f} KB)")
+    print(f"  esteira        {trocadas}x 'grana de volta' -> '7 dias pra desistir'")
     for marca, conta in (
         ("<main", pdp.count("<main")),
         ("</main>", pdp.count("</main>")),
