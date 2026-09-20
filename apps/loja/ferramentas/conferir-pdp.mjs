@@ -49,7 +49,8 @@ const confere = (nome, ok, detalhe = "") => {
 function frasesDe(valor, saida = []) {
   if (typeof valor === "string") saida.push(valor)
   else if (Array.isArray(valor)) valor.forEach((v) => frasesDe(v, saida))
-  else if (valor && typeof valor === "object") Object.values(valor).forEach((v) => frasesDe(v, saida))
+  else if (valor && typeof valor === "object")
+    Object.values(valor).forEach((v) => frasesDe(v, saida))
   return saida
 }
 
@@ -120,7 +121,10 @@ try {
   confere(
     `as ${exibidas.length} frases da semente aparecem na página`,
     sumidas.length === 0,
-    sumidas.slice(0, 3).map((f) => `sumiu: "${f.slice(0, 70)}…"`).join("\n         ")
+    sumidas
+      .slice(0, 3)
+      .map((f) => `sumiu: "${f.slice(0, 70)}…"`)
+      .join("\n         ")
   )
 
   const secoes = await secoesNaTela()
@@ -161,13 +165,151 @@ try {
     ).json()
     const id = products[0].id
 
-    const ler = async () => (await (await fetch(`${MEDUSA}/admin/produtos/${id}/pdp`, { headers: cab })).json()).pdp
+    const ler = async () =>
+      (await (await fetch(`${MEDUSA}/admin/produtos/${id}/pdp`, { headers: cab })).json()).pdp
     const gravar = async (pdp) =>
-      (await (await fetch(`${MEDUSA}/admin/produtos/${id}/pdp`, {
-        method: "POST", headers: cab, body: JSON.stringify(pdp),
-      })).json())
+      await (
+        await fetch(`${MEDUSA}/admin/produtos/${id}/pdp`, {
+          method: "POST",
+          headers: cab,
+          body: JSON.stringify(pdp),
+        })
+      ).json()
 
     const antes = await ler()
+
+    /* ── a política de frete, pra testar a tarja nos três modos ───────────
+     *
+     * A TARJA É UMA OFERTA, e no art. 30 do CDC oferta vincula. Por isso o
+     * que se confere aqui não é "a tarja aparece": é que ela aparece só onde
+     * o piso é alcançado, que ela DIZ o que a política diz (grátis ou o
+     * preço fixo), e que ela SOME inteira quando não há promoção nenhuma.
+     *
+     * O número que ela mostra é comparado com o piso vindo da API, não com
+     * outra conta feita aqui dentro — senão o teste e a tela erram juntos.
+     */
+    const configuracoesDaLoja = async () =>
+      (
+        await (
+          await fetch(`${MEDUSA}/store/configuracoes`, {
+            headers: { "x-publishable-api-key": CHAVE },
+          })
+        ).json()
+      ).configuracoes
+
+    const gravarFrete = async (frete, resto) => {
+      const r = await fetch(`${MEDUSA}/admin/configuracoes`, {
+        method: "POST",
+        headers: cab,
+        body: JSON.stringify({ frete, empresa: resto.empresa, atendimento: resto.atendimento }),
+      })
+      if (!r.ok) throw new Error(`gravar política falhou: ${r.status}`)
+      /* A loja é avisada com perfil "seconds": chega na primeira requisição,
+         mas a ida do backend até o /api/revalidar não é instantânea. */
+      await pagina.waitForTimeout(700)
+    }
+
+    const emDigitos = (s) => Number(s.replace(/[^\d,]/g, "").replace(",", "."))
+
+    async function conferirTarjas() {
+      const config = await configuracoesDaLoja()
+      const original = config.frete
+      const PISO = 139.9
+
+      try {
+        /* 1. FRETE GRÁTIS — o modo que está no ar hoje. */
+        await gravarFrete(
+          { modo: "gratis", piso: PISO, alvo: "mais-barata", tetoDeCusto: null },
+          config
+        )
+        await abrir(COM_CONTEUDO)
+
+        const preco = emDigitos(await pagina.$eval(".compra__por", (e) => e.textContent))
+        const texto = (await pagina.$eval(".medidor__texto", (e) => e.textContent)).trim()
+        const falta = (PISO - preco).toFixed(2).replace(".", ",")
+        confere(
+          "o medidor diz quanto falta, e a conta fecha com o piso da API",
+          texto.includes(falta),
+          `"${texto}" · preço ${preco}, piso ${PISO}, esperado ${falta}`
+        )
+        confere(
+          "e a letra miúda do 'só na opção mais barata' está junto",
+          (await pagina.$(".medidor__nota")) !== null
+        )
+
+        const kits = await pagina.$$eval(".compra__kit", (n) =>
+          n.map((e) => ({
+            nome: e.querySelector(".compra__kit-nome")?.textContent?.trim() ?? "",
+            tarja: e.querySelector(".tarja-frete")?.textContent?.trim() ?? null,
+          }))
+        )
+        confere(
+          "tarja só nos kits que alcançam o piso",
+          kits.length === 3 &&
+            kits[0].tarja === null &&
+            /grátis/i.test(kits[1].tarja ?? "") &&
+            /grátis/i.test(kits[2].tarja ?? ""),
+          JSON.stringify(kits)
+        )
+
+        /*
+          Com os preços de hoje, NENHUM dos dois fecha a conta sozinho
+          (79,90 + 39,90 e 79,90 + 49,90 ficam abaixo de 139,90) — e marcar
+          um faz o outro alcançar. É o caso que prova que a tarja depende do
+          que está marcado, e não de uma conta fixa por produto.
+        */
+        confere(
+          "nenhum item que combina fecha a conta sozinho",
+          (await pagina.$$(".junto__item .tarja-frete")).length === 0
+        )
+
+        await pagina.check(".junto__lista li:first-child input")
+        await pagina.waitForTimeout(350)
+        const acesas = await pagina.$$eval(".junto__item", (n) =>
+          n.map((e) => e.querySelector(".tarja-frete") !== null)
+        )
+        confere(
+          "marcar um acende a tarja do outro",
+          acesas[0] === false && acesas[1] === true,
+          JSON.stringify(acesas)
+        )
+
+        await pagina.check(".junto__lista li:nth-child(2) input")
+        await pagina.waitForTimeout(450)
+        confere(
+          "com os dois marcados o medidor vira 'conseguiu'",
+          (await pagina.$(".medidor--ganhou")) !== null
+        )
+
+        /* 2. FRETE FIXO — a tarja diz o preço, não "grátis". */
+        await gravarFrete(
+          { modo: "fixo", piso: PISO, preco: 9.9, alvo: "todas", tetoDeCusto: null },
+          config
+        )
+        await abrir(COM_CONTEUDO)
+        const fixas = await pagina.$$eval(".tarja-frete", (n) =>
+          n.map((e) => e.textContent?.trim() ?? "")
+        )
+        confere(
+          "com frete fixo a tarja diz o preço, e nunca 'grátis'",
+          fixas.length > 0 && fixas.every((t) => t.includes("9,90") && !/grátis/i.test(t)),
+          fixas.join(" | ")
+        )
+
+        /* 3. SEM POLÍTICA — não sobra promessa nenhuma na tela. */
+        await gravarFrete({ modo: "nenhuma" }, config)
+        await abrir(COM_CONTEUDO)
+        confere(
+          "sem política, some a tarja, o medidor e o selo das garantias",
+          (await pagina.$$(".tarja-frete")).length === 0 &&
+            (await pagina.$(".medidor")) === null &&
+            !(await textoDaPagina()).includes("Frete grátis")
+        )
+      } finally {
+        await gravarFrete(original, config)
+        console.log("  ↩  política de frete restaurada")
+      }
+    }
 
     try {
       /* título novo aparece na tela */
@@ -187,26 +329,33 @@ try {
       /* e as outras continuam lá — desligar uma não derruba a página */
       confere(
         "e as outras sete continuam desenhando",
-        esperadas.filter((s) => s !== "quem").every((s) => (secoes.includes(s))),
+        esperadas.filter((s) => s !== "quem").every((s) => secoes.includes(s)),
         (await secoesNaTela()).join(", ")
       )
 
       /* ── fundo de imagem: entra, e a cor da seção continua mandando ── */
-      const FOTO = "https://acdn-us.mitiendanube.com/stores/006/689/600/products/pdp-1000x1000-22670c28eafa37f5ea17755696867196-1024-1024.webp"
+      const FOTO =
+        "https://acdn-us.mitiendanube.com/stores/006/689/600/products/pdp-1000x1000-22670c28eafa37f5ea17755696867196-1024-1024.webp"
       await gravar({ ...antes, fundos: { "produto.quem": { imagem: FOTO, veu: 70 } } })
       await abrir(COM_CONTEUDO)
       const embrulho = await pagina.$(".fundo--imagem > .quem")
       confere("seção com imagem ganha o embrulho de fundo", embrulho !== null)
       confere(
         "e a imagem escolhida é a que entra no CSS",
-        (await pagina.$eval(".fundo--imagem", (e) => getComputedStyle(e).getPropertyValue("--fundo-imagem"))).includes("pdp-1000x1000"),
+        (
+          await pagina.$eval(".fundo--imagem", (e) =>
+            getComputedStyle(e).getPropertyValue("--fundo-imagem")
+          )
+        ).includes("pdp-1000x1000")
       )
       /* O véu é o que preserva o contraste: sem ele a foto crua fica atrás
          do texto. Se um dia alguém tirar o ::after, isto pega. */
       confere(
         "o véu por cima da foto existe",
         await pagina.$eval(".fundo--imagem", (e) => {
-          const bg = getComputedStyle(e, "::after").backgroundImage + getComputedStyle(e, "::after").backgroundColor
+          const bg =
+            getComputedStyle(e, "::after").backgroundImage +
+            getComputedStyle(e, "::after").backgroundColor
           return bg.includes("rgb") || bg.includes("gradient")
         })
       )
@@ -226,18 +375,26 @@ try {
       await gravar({ ...antes, combinada: {} })
       await abrir(COM_CONTEUDO)
       const vitrine = await noCarrossel()
-      confere("sem escolha, o carrossel mostra o resto do catálogo", vitrine.length > 1, String(vitrine.length))
+      confere(
+        "sem escolha, o carrossel mostra o resto do catálogo",
+        vitrine.length > 1,
+        String(vitrine.length)
+      )
       confere("e a caixa de compra não oferece nada junto", (await noJunto()).length === 0)
 
       const DOIS = ["oleo-para-barba", "shampoo-para-barba"]
       await gravar({ ...antes, combinada: { produtos: DOIS } })
       await abrir(COM_CONTEUDO)
       const dupla = await noJunto()
-      confere("os dois escolhidos aparecem na caixa de compra", dupla.length === 2, dupla.join(" | "))
+      confere(
+        "os dois escolhidos aparecem na caixa de compra",
+        dupla.length === 2,
+        dupla.join(" | ")
+      )
       confere(
         "cada um com o próprio preço, pra somar sem abrir outra página",
-        (await pagina.$$eval(".junto__preco", (n) => n.map((e) => e.textContent ?? ""))).every((t) =>
-          t.includes("R$")
+        (await pagina.$$eval(".junto__preco", (n) => n.map((e) => e.textContent ?? ""))).every(
+          (t) => t.includes("R$")
         )
       )
       /*
@@ -262,9 +419,15 @@ try {
         `antes ${vitrine.length}, agora ${(await noCarrossel()).length}`
       )
 
-      await gravar({ ...antes, combinada: { produtos: ["nao-existe-este-handle", "oleo-para-barba"] } })
+      await gravar({
+        ...antes,
+        combinada: { produtos: ["nao-existe-este-handle", "oleo-para-barba"] },
+      })
       await abrir(COM_CONTEUDO)
-      confere("handle que não existe mais sai da oferta, o resto fica", (await noJunto()).length === 1)
+      confere(
+        "handle que não existe mais sai da oferta, o resto fica",
+        (await noJunto()).length === 1
+      )
 
       /* ── o clique leva o que foi marcado, na MESMA ida ───────────────── */
       await gravar({ ...antes, combinada: { produtos: DOIS } })
@@ -284,6 +447,10 @@ try {
         naSacola.join(" | ")
       )
       await contexto.clearCookies()
+
+      /* ── a tarja de frete: nos kits e nos que combinam ───────────────── */
+      await gravar({ ...antes, combinada: { produtos: DOIS } })
+      await conferirTarjas()
 
       /* ── kits: a chave esconde OS DEGRAUS, não a compra ──────────────── */
       await gravar({ ...antes, combinada: { kits: false } })
@@ -315,7 +482,10 @@ try {
       /* lixo no metadata não derruba a PDP: a seção some, a página fica */
       const sujo = await gravar({
         ...antes,
-        conteudo: { ...antes.conteudo, duvidas: { titulo: "Torto", perguntas: "isto não é lista" } },
+        conteudo: {
+          ...antes.conteudo,
+          duvidas: { titulo: "Torto", perguntas: "isto não é lista" },
+        },
       })
       confere(
         "seção com lista torta é RECUSADA na gravação",

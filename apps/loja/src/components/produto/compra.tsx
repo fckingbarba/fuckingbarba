@@ -17,7 +17,17 @@ import type { CarrinhoVisivel } from "@/lib/carrinho-visivel"
 import { emReais } from "@/lib/formato"
 import type { DegrauDeQuantidade } from "@/lib/medusa"
 import { useFrete } from "@/components/configuracoes/contexto"
-import { frasesDoFrete } from "@/lib/configuracoes"
+import {
+  alcancaOPiso,
+  faltaPraPromocao,
+  fechaOPiso,
+  fraseDoQueFalta,
+  frasesDoFrete,
+  pisoVale,
+  progressoDaPromocao,
+  type FrasesDoFrete,
+  type PoliticaDeFrete,
+} from "@/lib/configuracoes"
 import type { ProdutoQueCombina } from "@/lib/pdp"
 import { PARCELA_MINIMA, PARCELAS_SEM_JUROS } from "@/lib/site"
 
@@ -59,7 +69,8 @@ export function Compra({
   /** Unidades restantes do avulso, quando o Medusa controla estoque. */
   estoque: number | null
 }) {
-  const frases = frasesDoFrete(useFrete())
+  const politica = useFrete()
+  const frases = frasesDoFrete(politica)
   const [escolhido, setEscolhido] = useState(0)
   const [juntos, setJuntos] = useState<Set<string>>(new Set())
   const [quantidade, setQuantidade] = useState(1)
@@ -73,6 +84,41 @@ export function Compra({
   const total = degrau.preco * quantidade
   const parcela = total / PARCELAS_SEM_JUROS
   const parcelavel = parcela >= PARCELA_MINIMA
+
+  /*
+    ┌─ O QUE CONTA PRO FRETE GRÁTIS, AQUI, É SÓ O QUE ESTA CAIXA ESTÁ ADICIONANDO ┐
+    │ Não o carrinho inteiro — e não por preguiça.                               │
+    │                                                                             │
+    │ A tarja fica GRUDADA numa escolha ("leve o kit de 2 e o frete é por nossa  │
+    │ conta"). Se ela levasse em conta o que já está na sacola, um kit ganharia  │
+    │ a tarja por um motivo que não tem nada a ver com o kit — e a tarja passaria│
+    │ a mentir sobre o PORQUÊ, que é a parte que ninguém confere.                │
+    │                                                                             │
+    │ O preço disso é subestimar pra quem já tem sacola cheia: a pessoa vê       │
+    │ "faltam R$ 20" quando na verdade já alcançou. Erra pra menos, e a correção │
+    │ chega dois segundos depois, na gaveta, que é quem faz a conta do carrinho  │
+    │ inteiro — e chega como surpresa boa, não como promessa desfeita.           │
+    └─────────────────────────────────────────────────────────────────────────────┘
+  */
+  const marcados = combinam.filter((c) => juntos.has(c.varianteId))
+  const pedido = total + marcados.reduce((s, c) => s + c.preco, 0)
+
+  /** A tarja de um degrau: levar ESTE kit, nesta quantidade, alcança o piso? */
+  const tarjaDoDegrau = (preco: number) =>
+    frases && pisoVale(politica) && alcancaOPiso(politica, preco * quantidade) ? frases.selo : null
+
+  /**
+   * A tarja de um item que combina: marcar ESTE é o que fecha a conta?
+   *
+   * Descontando o próprio item antes de perguntar, a tarja continua no item
+   * depois de marcado — ele é quem está segurando o benefício, e vê-la sumir
+   * no clique pareceria que o benefício sumiu junto.
+   */
+  const tarjaDoJunto = (item: ProdutoQueCombina) => {
+    if (!frases || !pisoVale(politica)) return null
+    const semEste = pedido - (juntos.has(item.varianteId) ? item.preco : 0)
+    return fechaOPiso(politica, semEste, item.preco) ? frases.selo : null
+  }
 
   /*
    * O riscado só vale pro degrau de uma unidade: é ele que está na promoção.
@@ -90,7 +136,6 @@ export function Compra({
         passar e a segunda falhar — e aí a sacola fica com metade do que a
         pessoa pediu, sem ela saber qual metade.
       */
-      const marcados = combinam.filter((c) => juntos.has(c.varianteId))
       const r = marcados.length
         ? await adicionarVarios([
             { varianteId: degrau.varianteId, quantidade },
@@ -104,7 +149,9 @@ export function Compra({
       }
       setRecado({
         tipo: "ok",
-        texto: marcados.length ? `Na sacola, com ${marcados.length === 1 ? "o item" : "os itens"} que combinam.` : "Na sacola.",
+        texto: marcados.length
+          ? `Na sacola, com ${marcados.length === 1 ? "o item" : "os itens"} que combinam.`
+          : "Na sacola.",
       })
       setJuntos(new Set())
       avisarSacola(r.carrinho)
@@ -176,10 +223,13 @@ export function Compra({
         )}
       </div>
 
+      <Medidor politica={politica} frases={frases} pedido={pedido} />
+
       {degraus.length > 1 ? (
         <Degraus
           degraus={degraus}
           escolhido={escolhido}
+          tarja={tarjaDoDegrau}
           aoEscolher={(i) => {
             setEscolhido(i)
             setRecado(null)
@@ -197,6 +247,7 @@ export function Compra({
         <LeveJunto
           itens={combinam}
           marcados={juntos}
+          tarja={tarjaDoJunto}
           aoAlternar={(id) =>
             setJuntos((s) => {
               const novo = new Set(s)
@@ -355,10 +406,12 @@ function limita(n: number) {
 function LeveJunto({
   itens,
   marcados,
+  tarja,
   aoAlternar,
 }: {
   itens: readonly ProdutoQueCombina[]
   marcados: Set<string>
+  tarja: (item: ProdutoQueCombina) => string | null
   aoAlternar: (varianteId: string) => void
 }) {
   return (
@@ -369,36 +422,128 @@ function LeveJunto({
       </legend>
 
       <ul className="junto__lista">
-        {itens.map((item) => (
-          <li key={item.varianteId}>
-            <label className="junto__item">
-              <input
-                type="checkbox"
-                checked={marcados.has(item.varianteId)}
-                onChange={() => aoAlternar(item.varianteId)}
-              />
-              {item.foto ? (
-                <Image src={item.foto} alt="" width={44} height={44} sizes="44px" />
-              ) : (
-                <span className="junto__sem-foto" aria-hidden="true" />
-              )}
-              <span className="junto__nome">{item.nome}</span>
-              <span className="junto__preco">{emReais(item.preco)}</span>
-            </label>
-          </li>
-        ))}
+        {itens.map((item) => {
+          const selo = tarja(item)
+          return (
+            <li key={item.varianteId}>
+              <label className="junto__item">
+                <input
+                  type="checkbox"
+                  checked={marcados.has(item.varianteId)}
+                  onChange={() => aoAlternar(item.varianteId)}
+                />
+                {item.foto ? (
+                  <Image src={item.foto} alt="" width={44} height={44} sizes="44px" />
+                ) : (
+                  <span className="junto__sem-foto" aria-hidden="true" />
+                )}
+                <span className="junto__texto">
+                  <span className="junto__nome">{item.nome}</span>
+                  {selo ? <TarjaDeFrete texto={selo} /> : null}
+                </span>
+                <span className="junto__preco">{emReais(item.preco)}</span>
+              </label>
+            </li>
+          )
+        })}
       </ul>
     </fieldset>
+  )
+}
+
+/**
+ * A TARJA DE FRETE — a mesma ideia da tarja do card da vitrine, no tamanho
+ * de quem mora dentro de um cartão de escolha.
+ *
+ * O texto vem SEMPRE do `frasesDoFrete`, nunca escrito aqui: com frete fixo
+ * ela diz "Frete R$ 9,90", e o dia em que a loja desligar a promoção a tarja
+ * some sozinha porque `frases` vira `null` lá em cima. Uma tarja com
+ * "FRETE GRÁTIS" digitado no JSX é uma promessa que sobrevive ao fim da
+ * promoção — e o art. 30 do CDC diz que o anunciado vincula.
+ */
+function TarjaDeFrete({ texto }: { texto: string }) {
+  return (
+    <span className="tarja-frete">
+      <Raio />
+      {texto}
+    </span>
+  )
+}
+
+/**
+ * O MEDIDOR — quanto falta pro frete grátis, contando o que esta caixa vai
+ * adicionar (o kit escolhido, na quantidade escolhida, mais o que estiver
+ * marcado no "leve junto").
+ *
+ * É o que transforma as tarjas em ação: a tarja diz "este aqui fecha a
+ * conta" e o medidor diz de quanto é a conta. Sem ele, "faltam R$ 20,10"
+ * seria um número que a pessoa teria que montar de cabeça.
+ *
+ * A gaveta tem um medidor igual, com classe própria — a daqui não pode usar
+ * `.sacolinha__*` nem `.compra__*`: a primeira é de outro componente e a
+ * segunda mora no `pdp.css`, que é gerado por script.
+ *
+ * A LETRA MIÚDA NÃO É ENFEITE. Com `alvo: "mais-barata"`, "frete grátis"
+ * sozinho deixa a pessoa entender que o Sedex também sai de graça, e ela
+ * descobre que não no checkout — o pior lugar possível pra descobrir.
+ */
+function Medidor({
+  politica,
+  frases,
+  pedido,
+}: {
+  politica: PoliticaDeFrete
+  frases: FrasesDoFrete | null
+  pedido: number
+}) {
+  const falta = faltaPraPromocao(politica, pedido)
+  const porcento = progressoDaPromocao(politica, pedido)
+  if (!frases || falta === null || porcento === null || !pisoVale(politica)) return null
+
+  const conquistou = falta <= 0
+
+  return (
+    <div className={conquistou ? "medidor medidor--ganhou" : "medidor"}>
+      <p className="medidor__topo">
+        <span className="medidor__rotulo">
+          <Raio />
+          {frases.selo}
+        </span>
+        <span className="medidor__texto">
+          {conquistou
+            ? politica.modo === "gratis"
+              ? "Conseguiu — é por nossa conta"
+              : "Conseguiu"
+            : fraseDoQueFalta(politica, falta)}
+        </span>
+      </p>
+
+      <span
+        className="medidor__trilho"
+        role="progressbar"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={porcento}
+        aria-label={`Progresso para ${frases.selo.toLowerCase()}`}
+      >
+        <span className="medidor__barra" style={{ width: `${porcento}%` }} />
+      </span>
+
+      {frases.nota ? <small className="medidor__nota">{frases.nota}</small> : null}
+    </div>
   )
 }
 
 function Degraus({
   degraus,
   escolhido,
+  tarja,
   aoEscolher,
 }: {
   degraus: readonly DegrauDeQuantidade[]
   escolhido: number
+  /** O selo de frete deste degrau, ou `null` quando ele não alcança o piso. */
+  tarja: (preco: number) => string | null
   aoEscolher: (i: number) => void
 }) {
   const melhor = degraus.reduce(
@@ -414,43 +559,49 @@ function Degraus({
       </legend>
 
       <div className="compra__kits-lista">
-        {degraus.map((d, i) => (
-          <label
-            key={d.varianteId}
-            className="compra__kit"
-            data-esgotado={d.disponivel ? undefined : ""}
-          >
-            {i === melhor && d.economia > 0 ? (
-              <span className="compra__kit-fita compra__kit-fita--campeao">
-                <Raio />
-                Melhor preço
-              </span>
-            ) : null}
-
-            <input
-              type="radio"
-              name="degrau"
-              value={d.unidades}
-              checked={i === escolhido}
-              disabled={!d.disponivel}
-              onChange={() => aoEscolher(i)}
-            />
-
-            <span>
-              <span className="compra__kit-nome">
-                {d.unidades} {d.unidades === 1 ? "frasco" : "frascos"}
-              </span>
-              {apoio(d) ? <span className="compra__kit-abaixo">{apoio(d)}</span> : null}
-            </span>
-
-            <span className="compra__kit-preco">
-              {emReais(d.preco)}
-              {d.unidades > 1 ? (
-                <span className="compra__kit-unidade">{emReais(d.porUnidade)} cada</span>
+        {degraus.map((d, i) => {
+          const selo = tarja(d.preco)
+          return (
+            <label
+              key={d.varianteId}
+              className="compra__kit"
+              data-esgotado={d.disponivel ? undefined : ""}
+            >
+              {i === melhor && d.economia > 0 ? (
+                <span className="compra__kit-fita compra__kit-fita--campeao">
+                  <Raio />
+                  Melhor preço
+                </span>
               ) : null}
-            </span>
-          </label>
-        ))}
+
+              <input
+                type="radio"
+                name="degrau"
+                value={d.unidades}
+                checked={i === escolhido}
+                disabled={!d.disponivel}
+                onChange={() => aoEscolher(i)}
+              />
+
+              <span>
+                <span className="compra__kit-nome">
+                  {d.unidades} {d.unidades === 1 ? "frasco" : "frascos"}
+                </span>
+                {apoio(d) ? <span className="compra__kit-abaixo">{apoio(d)}</span> : null}
+              </span>
+
+              <span className="compra__kit-preco">
+                {emReais(d.preco)}
+                {d.unidades > 1 ? (
+                  <span className="compra__kit-unidade">{emReais(d.porUnidade)} cada</span>
+                ) : null}
+              </span>
+
+              {/* Embaixo do preço: é o preço que decide se a tarja aparece. */}
+              {selo ? <TarjaDeFrete texto={selo} /> : null}
+            </label>
+          )
+        })}
       </div>
     </fieldset>
   )

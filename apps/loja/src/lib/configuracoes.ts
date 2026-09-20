@@ -131,24 +131,66 @@ export function progressoDaPromocao(p: PoliticaDeFrete, subtotal: number): numbe
   return Math.min(100, Math.round((subtotal / p.piso) * 100))
 }
 
-/** "Falta R$ 30,00 pro frete grátis" · "…pro frete de R$ 9,90". */
+/**
+ * "Faltam R$ 30,00 pro frete grátis" · "…pro frete de R$ 9,90".
+ *
+ * `null` quando não há nada a perseguir: sem política, ou já alcançado. Cada
+ * tela escreve a própria frase de CONQUISTA — é onde vale mudar o tom ("é
+ * por nossa conta", "nesta combinação") —, mas o número e o nome do
+ * benefício saem daqui, porque são o que não pode variar entre telas.
+ *
+ * "Faltam" no plural: o valor é em reais, e o singular só está certo pra
+ * exatamente um real.
+ */
 export function fraseDoQueFalta(p: PoliticaDeFrete, falta: number): string | null {
-  if (p.modo === "nenhuma") return null
+  if (p.modo === "nenhuma" || falta <= 0) return null
   const alvo = p.modo === "gratis" ? "o frete grátis" : `o frete de ${emReais(p.preco)}`
-  return falta > 0
-    ? `Falta ${emReais(falta)} pr${alvo.startsWith("o") ? "" : "a"}${alvo}`
-    : `Você garantiu ${alvo}`
+  return `${falta === 1 ? "Falta" : "Faltam"} ${emReais(falta)} pr${alvo}`
 }
 
 /**
- * O produto sozinho já alcança o piso? É o que decide a tarja no card.
+ * O piso é uma meta que dá pra alcançar — ou todo mundo já tem o benefício?
+ *
+ * Com piso zero ("frete grátis para todo o Brasil") a tarja apareceria em
+ * cima de cada kit e de cada item que combina, e uma tarja que aparece em
+ * tudo não distingue nada: vira ruído de cor no meio da decisão. Quem
+ * anuncia esse caso é o selo das garantias, uma vez só.
+ */
+export function pisoVale(p: PoliticaDeFrete): boolean {
+  return p.modo !== "nenhuma" && p.piso > 0
+}
+
+/**
+ * Este valor alcança o piso? É o que decide toda tarja de frete da loja.
  *
  * ALCANÇA, não passa: a regra do Medusa é `>=`, e o kit de 2 frascos custa
  * exatamente o piso. Trocar por `>` tiraria a tarja justamente do produto
  * que a loja mais quer vender.
  */
+export function alcancaOPiso(p: PoliticaDeFrete, subtotal: number): boolean {
+  return p.modo !== "nenhuma" && subtotal >= p.piso
+}
+
+/** O produto sozinho alcança? É o que decide a tarja no card da vitrine. */
 export function produtoSozinhoQualifica(p: PoliticaDeFrete, preco: number): boolean {
-  return p.modo !== "nenhuma" && preco >= p.piso
+  return alcancaOPiso(p, preco)
+}
+
+/**
+ * ESTE ITEM É O QUE FECHA A CONTA?
+ *
+ * Responde a pergunta do cross-sell: somando este item ao que já está
+ * escolhido, o pedido passa a ter frete grátis — e sem ele, não tinha.
+ *
+ * As DUAS condições importam, e a segunda é a que mantém a tarja honesta.
+ * Sem `escolhido < piso`, todo item ganharia a tarja assim que o pedido já
+ * estivesse acima do piso por outro motivo: a pessoa marcaria o óleo
+ * "pra ganhar o frete" que ela já tinha ganho no kit de 3. É verdade de
+ * rótulo e mentira de significado, que é o tipo que só se descobre depois.
+ */
+export function fechaOPiso(p: PoliticaDeFrete, escolhido: number, item: number): boolean {
+  if (p.modo === "nenhuma") return false
+  return escolhido < p.piso && escolhido + item >= p.piso
 }
 
 /* ── contato ─────────────────────────────────────────────────────────────

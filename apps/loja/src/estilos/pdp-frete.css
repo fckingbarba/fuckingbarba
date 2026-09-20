@@ -1,0 +1,171 @@
+/*
+  A TARJA DE FRETE E O MEDIDOR, dentro da caixa de compra.
+
+  Arquivo escrito à mão, como o `pdp-junto.css` ao lado: o `pdp.css` é
+  gerado pelo `ferramentas/porte/pdp-partes/agrupa-pdp.py` e o que se escreve
+  lá some na próxima vez que o script roda. Por isso estas classes NÃO usam o
+  prefixo `.compra__` — quem for editar `.compra__alguma-coisa` vai procurar
+  no arquivo gerado, e não encontraria estas aqui.
+
+  ┌─ POR QUE MENTA, E NÃO AMARELO ─────────────────────────────────────────┐
+  │ O amarelo desta marca é o destaque de ESCOLHA: é a cor da fita "melhor │
+  │ preço", que compara opções entre si. A menta é a cor do BENEFÍCIO —    │
+  │ é ela que a tarja de frete usa no card da vitrine e a barrinha usa na  │
+  │ gaveta. Repetir o amarelo aqui faria duas coisas diferentes brigarem   │
+  │ pelo mesmo significado dentro do mesmo cartão.                        │
+  └─────────────────────────────────────────────────────────────────────────┘
+*/
+
+/* ── a tarja ──────────────────────────────────────────────────────────── */
+
+.tarja-frete {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 7px;
+  background: var(--color-menta);
+  color: #06120d;
+  font-size: 0.58rem;
+  font-weight: 800;
+  font-style: italic;
+  letter-spacing: 0.05em;
+  line-height: 1.1;
+  text-transform: uppercase;
+  white-space: nowrap;
+  clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px);
+}
+.tarja-frete svg {
+  width: 10px;
+  height: 10px;
+  fill: #06120d;
+  flex-shrink: 0;
+}
+
+/* No cartão de kit ela fica centrada embaixo do preço, com um respiro que
+   a separa do "R$ 74,95 cada". */
+.compra__kit .tarja-frete {
+  margin-top: 5px;
+}
+
+/*
+  No item que combina, o nome e a tarja empilham na mesma coluna. Sem o
+  `min-width: 0` o nome longo ("Shampoo para Barba FuckingBarba 120ml")
+  empurra o preço pra fora do cartão em vez de quebrar linha — o padrão de
+  item flex é não encolher abaixo do conteúdo.
+*/
+.junto__texto {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+.junto__texto .junto__nome {
+  flex: none;
+}
+
+/* ── o medidor ────────────────────────────────────────────────────────── */
+
+.medidor {
+  margin: 14px 0 0;
+  padding: 9px 11px;
+  background: var(--color-papel);
+  border: 2px solid var(--color-tinta);
+  clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px);
+}
+/*
+  Alcançado, o bloco INVERTE: preto com menta. A mudança acontece no mesmo
+  instante em que a caixinha é marcada, e é ela que diz "conseguiu" antes de
+  qualquer palavra ser lida.
+
+  A primeira tentativa foi pintar de menta — e a menta é o fundo da própria
+  coluna de compra, então o bloco sumia no fundo e sobrava a borda preta
+  boiando. Inverter resolve porque o preto não se repete em mais nada aqui
+  perto: o botão de comprar é preto, e ele fica bem embaixo, o que fecha a
+  coluna entre duas âncoras da mesma cor.
+*/
+.medidor--ganhou {
+  background: var(--color-tinta);
+  color: var(--color-menta);
+}
+
+.medidor__topo {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 0 6px;
+}
+.medidor__rotulo {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  font-style: italic;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.medidor__rotulo svg {
+  width: 12px;
+  height: 12px;
+  fill: var(--color-amarelo-escuro);
+  flex-shrink: 0;
+}
+.medidor--ganhou .medidor__rotulo svg {
+  fill: var(--color-amarelo);
+}
+.medidor__texto {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-align: right;
+  line-height: 1.2;
+}
+
+.medidor__trilho {
+  display: block;
+  position: relative;
+  height: 7px;
+  background: rgba(18, 24, 31, 0.16);
+  overflow: hidden;
+}
+.medidor__barra {
+  display: block;
+  height: 100%;
+  background: var(--color-tinta);
+  /* A barra ANDA quando a pessoa marca um item. É o movimento que diz que a
+     escolha valeu alguma coisa — parado, o mesmo número não diz nada. */
+  transition: width 0.35s var(--ease-suave, ease);
+}
+
+/* No bloco invertido a barra some se continuar preta: trilho e barra trocam
+   de tom pra que o cheio continue se distinguindo do vazio. */
+.medidor--ganhou .medidor__trilho {
+  background: rgba(255, 255, 255, 0.22);
+}
+.medidor--ganhou .medidor__barra {
+  background: var(--color-menta);
+}
+
+.medidor__nota {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.62rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--color-tinta-suave);
+}
+/* Menta-clara e não menta pura: sobre o preto, a nota tem que ficar ABAIXO
+   do rótulo na hierarquia, e menta cheia competiria com ele. */
+.medidor--ganhou .medidor__nota {
+  color: var(--color-menta-clara);
+  opacity: 0.85;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .medidor__barra {
+    transition: none;
+  }
+}
