@@ -2,7 +2,8 @@
 
 import Link from "next/link"
 import { useEffect, useRef, useState } from "react"
-import { Conta, Fechar, Hamburguer, Lupa, Raio, Sacola } from "@/components/icones"
+import { Conta, Fechar, Hamburguer, Lupa, Raio } from "@/components/icones"
+import { BotaoDaSacola } from "@/components/sacola/botao"
 import { emReais } from "@/lib/formato"
 import { EM_BREVE, FRETE_GRATIS_ACIMA_DE, navegacao, site } from "@/lib/site"
 
@@ -136,13 +137,7 @@ export function Cabecalho() {
             <Link className="cabecalho__icone" href={EM_BREVE} aria-label="Minha conta">
               <Conta />
             </Link>
-            {/* Vira o botão que abre a gaveta na fase 4, quando existir carrinho. */}
-            <Link className="cabecalho__icone" href={EM_BREVE} aria-label="Carrinho com 0 itens">
-              <Sacola />
-              <span className="cabecalho__contador" aria-hidden="true">
-                0
-              </span>
-            </Link>
+            <BotaoDaSacola />
           </div>
         </div>
 

@@ -1,0 +1,369 @@
+/* NÃO IMPORTADO — a marcação destes blocos ainda não existe na loja.
+   Quando ela nascer, mova as regras pro arquivo do lado, na ordem em
+   que estão aqui. Ver ADIADAS em ferramentas/porte/agrupa.py. */
+.sacolinha__leve {
+  padding: 14px 18px 6px;
+  border-top: 2px solid var(--color-tinta);
+  background: #e3f8f0;
+}
+.sacolinha__leve-titulo,
+.sacolinha__entrega-titulo {
+  margin: 0 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.sacolinha__leve-titulo svg,
+.sacolinha__entrega-titulo svg {
+  width: 13px;
+  height: 13px;
+  fill: var(--color-amarelo-escuro);
+  flex-shrink: 0;
+}
+.sacolinha__leve-lista {
+  list-style: none;
+  margin: 0 -18px;
+  padding: 0 18px 10px;
+  display: flex;
+  gap: 9px;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
+}
+.sacolinha__leve-item {
+  flex: 0 0 148px;
+  scroll-snap-align: start;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  border: 2px solid var(--color-tinta);
+  clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px);
+}
+.sacolinha__leve-foto {
+  display: block;
+  aspect-ratio: 1 / 1;
+  background: #f2f3f4;
+  border-bottom: 2px solid var(--color-tinta);
+  overflow: hidden;
+}
+.sacolinha__leve-foto img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.sacolinha__leve-selo {
+  position: absolute;
+  top: 8px;
+  left: 0;
+  z-index: 1;
+  padding: 3px 8px 3px 6px;
+  background: var(--color-amarelo);
+  color: var(--color-tinta);
+  font-size: 0.56rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1.2;
+  clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 50%, calc(100% - 6px) 100%, 0 100%);
+}
+.sacolinha__leve-selo svg {
+  width: 8px;
+  height: 8px;
+  fill: currentColor;
+  vertical-align: -1px;
+  margin-right: 2px;
+}
+.sacolinha__leve-corpo {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px 9px 9px;
+  flex: 1;
+}
+.sacolinha__leve-nome {
+  margin: 0;
+  font-size: 0.66rem;
+  font-weight: 800;
+  line-height: 1.2;
+  text-transform: uppercase;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.sacolinha__leve-preco {
+  margin: 0 0 4px;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+.sacolinha__leve-add {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  width: 100%;
+  padding: 7px 6px;
+  background: var(--color-tinta);
+  color: #ffffff;
+  border: none;
+  font-family: inherit;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.sacolinha__leve-add svg {
+  width: 12px;
+  height: 12px;
+  fill: currentColor;
+}
+.sacolinha__leve-add:hover {
+  background: var(--color-amarelo);
+  color: var(--color-tinta);
+}
+.sacolinha__leve-add:focus-visible {
+  outline: 2px solid var(--color-tinta);
+  outline-offset: 2px;
+}
+.sacolinha__entrega {
+  padding: 14px 18px 12px;
+  border-top: 2px solid var(--color-tinta);
+  background: #f2f4f6;
+}
+.sacolinha__cep {
+  display: flex;
+  gap: 0;
+}
+.sacolinha__cep[hidden] {
+  display: none;
+}
+.sacolinha__cep input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 11px;
+  border: 2px solid var(--color-tinta);
+  border-right: none;
+  background: #ffffff;
+  color: var(--color-tinta);
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+}
+.sacolinha__cep input::placeholder {
+  color: #98a1ab;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+.sacolinha__cep input:focus-visible {
+  outline: 2px solid var(--color-amarelo-escuro);
+  outline-offset: -2px;
+}
+.sacolinha__cep input[aria-invalid="true"] {
+  border-color: #b3261e;
+}
+.sacolinha__cep-botao {
+  padding: 0 14px;
+  background: var(--color-tinta);
+  color: #ffffff;
+  border: 2px solid var(--color-tinta);
+  font-family: inherit;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.sacolinha__cep-botao:hover {
+  background: var(--color-amarelo);
+  color: var(--color-tinta);
+}
+.sacolinha__cep-botao:focus-visible {
+  outline: 2px solid var(--color-amarelo-escuro);
+  outline-offset: 2px;
+}
+.sacolinha__cep-botao[aria-busy="true"] {
+  opacity: 0.7;
+  cursor: progress;
+}
+.sacolinha__cep-erro {
+  margin: 7px 0 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #b3261e;
+}
+.sacolinha__cep-ajuda {
+  margin: 8px 0 0;
+  font-size: 0.68rem;
+}
+.sacolinha__cep-ajuda a {
+  color: var(--color-tinta-suave);
+  text-underline-offset: 2px;
+}
+.sacolinha__cep-ajuda a:hover {
+  color: var(--color-tinta);
+}
+.sacolinha__opcoes {
+  margin: 10px 0 0;
+  padding: 0;
+  border: none;
+  display: grid;
+  gap: 6px;
+}
+.sacolinha__opcao {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 11px;
+  border: 2px solid rgba(18, 24, 31, 0.28);
+  background: #ffffff;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.sacolinha__opcao:hover {
+  border-color: var(--color-tinta);
+}
+.sacolinha__opcao:has(input:checked) {
+  border-color: var(--color-tinta);
+  background: #fffbe6;
+}
+.sacolinha__opcao:has(input:focus-visible) {
+  outline: 2px solid var(--color-amarelo-escuro);
+  outline-offset: 2px;
+}
+.sacolinha__opcao input {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  border: 2px solid var(--color-tinta);
+  background: #ffffff;
+  transform: rotate(45deg);
+  cursor: pointer;
+}
+.sacolinha__opcao input:checked {
+  background: var(--color-tinta);
+  box-shadow: inset 0 0 0 3px #ffffff;
+}
+.sacolinha__opcao-nome {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.sacolinha__opcao-prazo {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--color-tinta-suave);
+}
+.sacolinha__opcao-preco {
+  font-size: 0.84rem;
+  font-weight: 800;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.sacolinha__opcao-preco[data-gratis] {
+  color: #0b7f62;
+}
+.sacolinha__opcao-preco s {
+  display: block;
+  font-size: 0.64rem;
+  font-weight: 600;
+  color: var(--color-tinta-suave);
+  text-align: right;
+}
+.sacolinha__cep-ok {
+  margin: 10px 0 0;
+  font-size: 0.7rem;
+  color: var(--color-tinta-suave);
+}
+.sacolinha__cep-ok b {
+  color: var(--color-tinta);
+  font-weight: 800;
+}
+.sacolinha__cep-ok button {
+  padding: 0 0 0 4px;
+  background: none;
+  border: none;
+  color: var(--color-tinta);
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.sacolinha__desfazer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 18px;
+  background: var(--color-tinta);
+  color: #ffffff;
+  font-size: 0.76rem;
+  animation: item-entra 0.3s var(--ease-suave);
+}
+.sacolinha__desfazer p {
+  margin: 0;
+  min-width: 0;
+}
+.sacolinha__desfazer strong {
+  font-weight: 800;
+}
+.sacolinha__desfazer button {
+  flex-shrink: 0;
+  padding: 5px 11px;
+  background: var(--color-amarelo);
+  border: none;
+  color: var(--color-tinta);
+  font-family: inherit;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
+}
+.sacolinha__desfazer button:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sacolinha__desfazer {
+    animation: none;
+  }
+}
+.voo {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  overflow: hidden;
+  pointer-events: none;
+}
+.voo__item {
+  position: absolute;
+  top: 0;
+  left: 0;
+  object-fit: cover;
+  background: #ffffff;
+  border: 2px solid var(--color-tinta);
+  clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px);
+  will-change: transform, opacity;
+}

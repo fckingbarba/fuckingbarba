@@ -84,6 +84,44 @@ RAIZES = {
     "sacola": [".sacolinha"],
 }
 
+# Pedaços cujo HTML ainda não existe na loja. Saem num arquivo `-adiado.css`
+# separado, que NINGUÉM importa — é CSS de marcação que não foi escrita, e
+# mandar isso pro navegador é peso puro.
+#
+# Não é a mesma coisa que apagar: quando a marcação nascer, é só mover as
+# regras de volta (ou passar a importar o arquivo), com a ORDEM DE ORIGEM
+# intacta — que é o que o recorte à mão sempre estraga.
+ADIADAS = {
+    # A gaveta subiu sem o cálculo de frete (depende do Frenet, fase 5), sem
+    # o cross-sell "leve junto" e sem o desfazer de remoção.
+    "sacola": [
+        "sacolinha__cep",
+        "sacolinha__entrega",
+        "sacolinha__opcao",
+        "sacolinha__opcoes",
+        "sacolinha__leve",
+        "sacolinha__desfazer",
+        "voo",
+    ],
+}
+
+
+def faz_adiada(nome):
+    prefixos = ADIADAS.get(nome)
+    if not prefixos:
+        return lambda sel: False
+
+    def adiada(sel):
+        # Aqui o casamento é por prefixo cru, e não com fronteira de palavra
+        # como no `faz_filtro`: os nomes já vêm completos ("sacolinha__cep") e
+        # o que pende deles é sufixo com hífen — `-botao`, `-erro`, `-ajuda`.
+        # Com fronteira, `.sacolinha__cep-botao` escapava e sobrava CSS órfão.
+        s = sel.strip()
+        return any(s.startswith("." + p) for p in prefixos)
+
+    return adiada
+
+
 def entrelinha(nome):
     raizes = RAIZES.get(nome)
     if not raizes:
@@ -106,13 +144,24 @@ relatorio = {}
 usados = set()
 for nome, (prefixos, kf, cruas) in GRUPOS.items():
     quer = faz_filtro(prefixos, kf, cruas)
+    adiada = faz_adiada(nome)
     sub = filtra(nos, quer)
-    css = "\n".join(render(sub))
-    css = troca_tokens(css)
+
+    css = troca_tokens("\n".join(render(filtra(sub, lambda s: not adiada(s)))))
     css = entrelinha(nome) + css
     open(os.path.join(destino, f"{nome}.css"), "w").write(css + "\n")
     n = sum(1 for _ in re.finditer(r"\{", css))
     relatorio[nome] = (len(css), n)
+
+    if ADIADAS.get(nome):
+        resto = troca_tokens("\n".join(render(filtra(sub, adiada))))
+        cabeca = (
+            "/* NÃO IMPORTADO — a marcação destes blocos ainda não existe na loja.\n"
+            "   Quando ela nascer, mova as regras pro arquivo do lado, na ordem em\n"
+            "   que estão aqui. Ver ADIADAS em ferramentas/porte/agrupa.py. */\n"
+        )
+        open(os.path.join(destino, f"{nome}-adiado.css"), "w").write(cabeca + resto + "\n")
+        print(f"{nome + '-adiado':12s} {len(resto):7d} bytes  (fora do bundle)")
 
 # quem sobrou de fora
 todos = set()

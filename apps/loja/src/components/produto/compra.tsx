@@ -11,8 +11,9 @@ import {
   Sacola,
   Triangulo,
 } from "@/components/icones"
+import { EVENTO_SACOLA } from "@/components/sacola/contexto"
 import { adicionar } from "@/lib/acoes/carrinho"
-import type { CarrinhoVisivel } from "@/lib/carrinho"
+import type { CarrinhoVisivel } from "@/lib/carrinho-visivel"
 import { emReais } from "@/lib/formato"
 import type { DegrauDeQuantidade } from "@/lib/medusa"
 import { FRETE_GRATIS_ACIMA_DE, PARCELA_MINIMA, PARCELAS_SEM_JUROS } from "@/lib/site"
@@ -453,16 +454,13 @@ function BarraFixa({
 }
 
 /**
- * O recado de "mudou a sacola", pra quem quiser ouvir — hoje o contador do
- * cabeçalho, amanhã a gaveta.
+ * Avisa que a sacola mudou. Quem escuta é o provedor no layout — o contador
+ * do cabeçalho e a gaveta se atualizam juntos, e a gaveta abre.
  *
- * É evento de DOM, e não contexto do React, porque quem escuta está em outra
- * árvore: o cabeçalho é montado pelo layout, a dobra pela página, e não
- * existe provider comum sem subir estado de carrinho pro layout inteiro — o
- * que tornaria toda página dinâmica e mataria o cache do catálogo.
+ * É evento de DOM, e não uma chamada ao contexto, pra que a dobra não
+ * dependa dele: ela adiciona, avisa, e segue funcionando numa página que não
+ * tenha gaveta nenhuma.
  */
-export const EVENTO_SACOLA = "sacola:mudou"
-
 function avisarSacola(carrinho: CarrinhoVisivel) {
   window.dispatchEvent(new CustomEvent(EVENTO_SACOLA, { detail: carrinho }))
 }

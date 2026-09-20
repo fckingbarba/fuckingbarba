@@ -1,0 +1,63 @@
+/*
+  OS RECADOS — o que a loja diz quando a ação vai pro servidor.
+
+  Escrito à mão, e não gerado do protótipo, por um motivo simples: o
+  protótipo não falava com backend nenhum. Lá o botão sempre funcionava, o
+  estoque nunca acabava e o produto nunca saía de catálogo no meio do clique.
+  Aqui acontece, e a pessoa precisa ler o porquê em vez de clicar de novo.
+
+  São dois lugares, com o mesmo desenho: embaixo do botão da dobra
+  (`compra__recado`) e no pé da gaveta (`sacolinha__aviso`).
+
+  RESERVA DE ESPAÇO, NÃO APARECIMENTO. Os dois nascem com altura zero e
+  crescem quando ganham texto — mas o bloco existe desde sempre no HTML, com
+  `role="status"`. Região viva que é criada junto com a mensagem costuma não
+  ser anunciada pelo leitor de tela: ele precisa já estar observando o
+  elemento quando o texto entra.
+*/
+
+.compra__recado,
+.sacolinha__aviso {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--color-tinta);
+}
+
+/* Vazio não ocupa linha: sem isto a dobra ganharia um vão permanente entre o
+   botão e as garantias, pra uma frase que quase nunca aparece. */
+.compra__recado:empty,
+.sacolinha__aviso:empty {
+  display: none;
+}
+
+.compra__recado,
+.sacolinha__aviso {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 11px;
+  border: 2px solid var(--color-tinta);
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+}
+
+/* Deu certo: menta, a cor que a marca usa pra confirmar. */
+.compra__recado--ok {
+  background: var(--color-menta);
+}
+
+/*
+  Deu errado: amarelo, não vermelho. Vermelho nesta paleta briga com a menta
+  e grita mais que o problema — "não temos essa quantidade em estoque" é um
+  aviso, não um desastre. O amarelo é a cor de atenção da marca e já aparece
+  na fita de perigo e no selo de desconto.
+*/
+.compra__recado--erro,
+.sacolinha__aviso {
+  background: var(--color-amarelo);
+}
+
+.sacolinha__aviso {
+  margin-bottom: 10px;
+}

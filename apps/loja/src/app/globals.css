@@ -24,9 +24,15 @@
 @import "../estilos/sobre.css";
 @import "../estilos/fechamento.css";
 
+@import "../estilos/sacola.css";
+
 /* Página de produto. Gerados por ferramentas/porte/pdp-partes/agrupa-pdp.py;
    um arquivo por seção, na mesma ordem em que a página os monta. */
 @import "../estilos/pdp.css";
+
+/* Escrito à mão: o que a loja diz quando a ação vai pro servidor e volta.
+   O protótipo não tinha backend, então não tinha o que dizer. */
+@import "../estilos/recados.css";
 
 /*
   Tokens da marca FuckingBarba — os mesmos do protótipo HTML.

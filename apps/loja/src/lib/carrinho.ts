@@ -1,6 +1,7 @@
 import "server-only"
 import type { HttpTypes } from "@medusajs/types"
 import { cookies } from "next/headers"
+import { CARRINHO_VAZIO, type CarrinhoVisivel, type ItemDoCarrinho } from "./carrinho-visivel"
 import { cliente, regiaoBrasil } from "./medusa"
 
 /**
@@ -60,45 +61,12 @@ function aviso(erro: unknown, contexto: string) {
 export type Carrinho = HttpTypes.StoreCart
 
 /**
- * O QUE A GAVETA VÊ
- *
- * O carrinho do Medusa tem umas oitenta chaves — provider de pagamento,
- * breakdown de imposto, contexto de promoção. Nada disso interessa pra
- * desenhar uma linha na sacola, e tudo isso atravessaria a rede a cada
- * clique em "+".
- *
- * Então as ações devolvem ESTE formato, e não o carrinho cru. É contrato
- * estável: o dia em que o Medusa renomear um campo interno, muda o mapeador
- * aqui e nenhum componente sente.
+ * O formato que a interface vê mora em `carrinho-visivel.ts`, sem nenhuma
+ * dependência, porque a gaveta é componente de cliente e este arquivo é
+ * `server-only`. Reexporto aqui pra quem já importava daqui continuar
+ * funcionando — e pra ficar claro que é o mesmo contrato.
  */
-export type ItemDoCarrinho = {
-  /** id da LINHA, não da variante — é ele que muda quantidade e remove */
-  id: string
-  varianteId: string
-  nome: string
-  variante: string | null
-  handle: string | null
-  imagem: string | null
-  quantidade: number
-  precoUnitario: number
-  total: number
-}
-
-export type CarrinhoVisivel = {
-  id: string
-  itens: ItemDoCarrinho[]
-  unidades: number
-  subtotal: number
-  total: number
-}
-
-export const CARRINHO_VAZIO: CarrinhoVisivel = {
-  id: "",
-  itens: [],
-  unidades: 0,
-  subtotal: 0,
-  total: 0,
-}
+export { CARRINHO_VAZIO, type CarrinhoVisivel, type ItemDoCarrinho } from "./carrinho-visivel"
 
 export function paraVisivel(carrinho: Carrinho | null): CarrinhoVisivel {
   if (!carrinho) return CARRINHO_VAZIO

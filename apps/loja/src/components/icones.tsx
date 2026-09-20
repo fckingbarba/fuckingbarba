@@ -187,6 +187,24 @@ export function EscudoCerto(props: Props) {
   )
 }
 
+/** Lixeira — o "menos" da sacola quando a quantidade é 1. */
+export function Lixeira(props: Props) {
+  return (
+    <Icone {...props}>
+      <path d="M9.4 2.6h5.2l1 1.4h4.4v2.4H4V4h4.4zM5.6 8h12.8l-.9 12.2-1.3 1.2H7.8l-1.3-1.2z" />
+    </Icone>
+  )
+}
+
+/** Mais — o passo de subir quantidade, na sacola. */
+export function Mais(props: Props) {
+  return (
+    <Icone {...props}>
+      <path d="M10.6 3h2.8v7.6H21v2.8h-7.6V21h-2.8v-7.6H3v-2.8h7.6z" />
+    </Icone>
+  )
+}
+
 /** Relógio — "7 dias pra desistir", nas garantias da dobra. */
 export function Relogio(props: Props) {
   return (

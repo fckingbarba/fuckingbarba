@@ -5,6 +5,8 @@ import { SimboloEstrela } from "@/components/estrelas"
 import { Anuncio } from "@/components/layout/anuncio"
 import { Cabecalho } from "@/components/layout/cabecalho"
 import { Rodape } from "@/components/layout/rodape"
+import { ProvedorDaSacola } from "@/components/sacola/contexto"
+import { Gaveta } from "@/components/sacola/gaveta"
 import { emProducao, site } from "@/lib/site"
 import "./globals.css"
 
@@ -55,10 +57,19 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         {/* O desenho da estrela, uma vez por página: as avaliações
             referenciam por <use> em vez de repetir o path dez vezes cada. */}
         <SimboloEstrela />
-        <Anuncio />
-        <Cabecalho />
-        {children}
-        <Rodape />
+        {/*
+          O provedor da sacola envolve a carcaça inteira porque o contador do
+          cabeçalho e a gaveta precisam do MESMO estado, e os dois nascem
+          aqui. `children` continua sendo componente de servidor: ele entra
+          como prop já renderizada, não vira cliente por estar dentro.
+        */}
+        <ProvedorDaSacola>
+          <Anuncio />
+          <Cabecalho />
+          {children}
+          <Rodape />
+          <Gaveta />
+        </ProvedorDaSacola>
         <Tags />
       </body>
     </html>
