@@ -104,11 +104,54 @@ re-renderiza na resposta da ação, e o frete apareceria com o valor velho.
 ```bash
 node ferramentas/conferir-documento.mjs   # CPF e CNPJ (inclusive o alfanumérico)
 node ferramentas/conferir-checkout.mjs    # compra de verdade, com Medusa e loja de pé
+node ferramentas/conferir-catalogo.mjs    # /barba, /cabelo, /kits e /produtos
 ```
 
 O validador de CNPJ aceita **letras**: desde julho de 2026 a Receita emite CNPJ alfanumérico nas
 12 primeiras posições. Um validador só-numérico passa em todo teste antigo e recusa toda empresa
 aberta de julho pra cá.
+
+## A tela de categoria
+
+`/barba`, `/cabelo`, `/kits` e `/produtos` são **a mesma tela** (`src/app/[categoria]/page.tsx` e
+`src/app/produtos/page.tsx`, com os componentes de `src/components/catalogo/`). O card é o mesmo
+`CartaoProduto` da home — a categoria não desenha produto de um jeito só dela.
+
+**A ordenação é `?ordem=` na URL, com formulário GET e sem uma linha de JavaScript.** Ela vira um
+link que dá pra mandar por WhatsApp, volta igual no botão voltar e o buscador lê. O botão que
+envia fica sempre visível, em vez de aparecer só dentro de `<noscript>`: dois estados do mesmo
+controle é o que ninguém testa.
+
+**Ordena-se em Node, depois de buscar**, e não com o `order` do Medusa. Preço no v2 é *calculado*
+por região e promoção — não é coluna que dá pra ordenar no banco; e os kits de quantidade são
+peneirados depois da resposta (o Medusa não filtra por metadata), então ordenar antes da peneira
+ordenaria uma lista que não é a exibida. Num catálogo deste tamanho custa nada. Quando passar de
+umas centenas de produtos, isto vira paginação de verdade e a conversa muda.
+
+**A barra de ordenação some com menos de dois produtos.** Ordenar uma lista de um item é um
+controle que não faz nada, e controle que não faz nada ensina a pessoa a não confiar nos outros
+que estão na mesma tela. Pelo mesmo motivo, categoria com um ou dois produtos ganha o painel
+`.convite` ocupando o resto da linha, e "o resto da loja" embaixo: três quartos de tela em branco
+não lê como "categoria pequena", lê como "página quebrada".
+
+**A contagem dos trilhos sai da mesma busca que desenha a grade**, então não existe a versão em
+que o número diz quatro e a lista mostra três. Ela conta por `id` no trilho "Todos", porque um
+produto pode estar em duas categorias e a soma diria que a loja tem sete produtos quando tem seis.
+
+### Com JavaScript desligado, a grade não aparece
+
+E isso vale também pra `/produtos` e pra **PDP** — é anterior à tela de categoria, não foi ela que
+trouxe. Com Cache Components, o que lê `searchParams` tem que ficar dentro de `<Suspense>`, e
+conteúdo em `<Suspense>` só é *revelado* pelo script embutido que o React manda junto com o
+stream. Sem script, ele fica no HTML e fica escondido.
+
+O que isso afeta, na prática: **buscador não**, porque o conteúdo está no HTML cru e os que rodam
+JS rodam esse script — o `conferir-catalogo.mjs` confere isso num `fetch`, sem navegador. Afeta
+quem navega com JavaScript desligado, que vê o esqueleto. A home, que não depende de
+`searchParams`, funciona normalmente sem JS.
+
+Não tem conserto barato: tirar o `<Suspense>` faz o `next build` recusar a rota. Se um dia virar
+problema de verdade, o caminho é separar a lista padrão (estática) da ordenada (dinâmica).
 
 ## Decisões que valem saber
 

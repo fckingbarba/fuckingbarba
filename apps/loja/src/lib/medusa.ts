@@ -47,7 +47,11 @@ export const TAGS = {
 
 /** Campos que a vitrine precisa; o resto fica no servidor. */
 const CAMPOS_PRODUTO =
-  "id,title,handle,subtitle,description,thumbnail,weight,length,height,width,metadata," +
+  // `created_at` entra por causa da ordenação "Novidades" da tela de
+  // categoria: com `fields` explícito o Medusa devolve SÓ o que está aqui, e
+  // sem esta palavra o ordenador comparava `undefined` com `undefined` e
+  // devolvia a lista na mesma ordem, sem erro nenhum pra denunciar.
+  "id,title,handle,subtitle,description,thumbnail,weight,length,height,width,metadata,created_at," +
   "*images,*categories,*variants,*variants.calculated_price," +
   "+variants.inventory_quantity,+variants.manage_inventory"
 

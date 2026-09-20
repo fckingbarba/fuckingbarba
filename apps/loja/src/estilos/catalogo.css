@@ -1,0 +1,457 @@
+/*
+  A TELA DE CATEGORIA — /barba, /cabelo, /kits e /produtos.
+
+  Namespace próprio de propósito. `.vitrine` é a grade da home e `.colecao` é
+  a faixa que rola; pendurar a categoria numa delas faria mexer na home
+  quebrar a categoria seis meses depois, sem ninguém ligar uma coisa na
+  outra. O CARD em si não mora aqui: é o mesmo `.produto` de produto.css, que
+  já sabe desenhar selo de desconto, tarja de frete e parcelamento.
+
+  Veio de ferramentas/porte/prototipo-categoria.html, aprovado antes de
+  virar componente.
+*/
+
+/* Entrelinha padrão do navegador, como no resto do protótipo: o preflight do
+   Tailwind põe 1.5 na raiz e isso empurra tudo que não declara a sua. */
+.catalogo {
+  line-height: normal;
+}
+.catalogo,
+.catalogo * {
+  border-radius: 0;
+  box-sizing: border-box;
+}
+
+/*
+  A FAIXA MENTA RESPIRA AQUI, e só aqui.
+
+  Na PDP as migalhas encostam na foto do produto e ficam ótimas com
+  `padding-bottom: 0` — é assim que pdp.css as desenha, e pdp.css é gerado
+  por script, não se edita à mão. Na categoria, logo abaixo vem fundo branco,
+  e a faixa de 7px virava um risco verde que parecia sobra de renderização.
+
+  `body:has(.catalogo)` em vez de uma classe no componente porque o
+  `<Migalhas>` é compartilhado com a PDP e não recebe className — e porque a
+  regra fica onde ela é explicada, em vez de virar uma prop que alguém passa
+  errado.
+*/
+body:has(.catalogo) .migalhas {
+  padding-bottom: 9px;
+}
+@media (min-width: 1000px) {
+  body:has(.catalogo) .migalhas {
+    padding-bottom: 14px;
+  }
+}
+
+/*
+  SEM faixa de perigo no topo, ao contrário da `.vitrine` da home.
+
+  Na home a faixa separa uma seção da anterior — lá ela tem trabalho. Aqui a
+  página começa no cabeçalho preto, e a faixa logo abaixo da menta empilhava
+  três tarjas escuras em 40px de altura. A menta já faz a separação.
+*/
+.catalogo {
+  position: relative;
+  background: #ffffff;
+  color: var(--color-tinta);
+  font-family: var(--font-sans);
+  padding: clamp(26px, 3.2vw, 40px) clamp(16px, 3vw, 30px) clamp(34px, 4vw, 52px);
+}
+.catalogo__wrap {
+  max-width: 1320px;
+  margin: 0 auto;
+}
+
+/* ── Cabeçalho da categoria ───────────────────────────────────────────────
+   O h1 é o nome da categoria, e nada mais. "Produtos para barba | Loja X" é
+   título de aba, não de página: quem já clicou em Barba sabe onde está. */
+.catalogo__cabeca {
+  margin-bottom: clamp(18px, 2.4vw, 26px);
+}
+.catalogo__titulo {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: clamp(1.9rem, 5.2vw, 3rem);
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+}
+.catalogo__titulo svg {
+  width: clamp(22px, 3.4vw, 30px);
+  height: clamp(22px, 3.4vw, 30px);
+  fill: var(--color-amarelo-escuro);
+  flex-shrink: 0;
+}
+
+/* ── Trilhos: as outras categorias ────────────────────────────────────────
+   Ficam ACIMA da grade, não no rodapé. Numa categoria de um produto só a
+   pessoa decide em dois segundos que não é ali — e se a saída estiver
+   embaixo da grade, ela já foi embora antes de rolar.
+
+   A contagem dentro de cada trilho não é enfeite: é o que faz escolher
+   "Barba 4" em vez de descobrir sozinho que Cabelo tem um item. */
+.trilhos {
+  display: flex;
+  gap: 8px;
+  margin-bottom: clamp(16px, 2vw, 22px);
+  padding-bottom: 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  scroll-snap-type: x proximity;
+}
+.trilhos::-webkit-scrollbar {
+  display: none;
+}
+.trilho {
+  scroll-snap-align: start;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: #ffffff;
+  color: var(--color-tinta);
+  text-decoration: none;
+  border: 2px solid var(--color-tinta);
+  padding: 9px 15px;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px);
+  transition: transform 0.12s ease, background 0.12s ease, color 0.12s ease;
+}
+.trilho:hover,
+.trilho:focus-visible {
+  transform: translate(-2px, -2px);
+  background: var(--color-menta);
+}
+.trilho b {
+  font-weight: 800;
+  font-size: 0.68rem;
+  color: var(--color-tinta-suave);
+}
+.trilho--ativo {
+  background: var(--color-tinta);
+  color: #ffffff;
+}
+.trilho--ativo b {
+  color: var(--color-amarelo);
+}
+.trilho--ativo:hover {
+  background: var(--color-tinta);
+  color: #ffffff;
+  transform: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .trilho {
+    transition: none;
+  }
+  .trilho:hover,
+  .trilho:focus-visible {
+    transform: none;
+  }
+}
+
+/* ── Barra: contagem à esquerda, ordenação à direita ──────────────────── */
+.catalogo__barra {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  border-top: 2px solid var(--color-tinta);
+  border-bottom: 2px solid var(--color-tinta);
+  padding: 11px 0;
+  margin-bottom: clamp(18px, 2.4vw, 24px);
+}
+.catalogo__contagem {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-tinta-suave);
+}
+.catalogo__contagem b {
+  color: var(--color-tinta);
+}
+
+/* ── A ordenação ──────────────────────────────────────────────────────────
+   FORMULÁRIO DE VERDADE, com método GET e botão que envia. Sem uma linha de
+   JavaScript: a ordenação vira `?ordem=barato` na URL, que é uma página que
+   o servidor sabe desenhar, que dá pra mandar por WhatsApp e que volta igual
+   no botão voltar. Select que só funciona com `onchange` não faz nenhuma das
+   três e quebra calado quando o script não carrega.
+
+   O botão fica sempre visível em vez de aparecer só no <noscript>: dois
+   estados diferentes do mesmo controle é o tipo de coisa que ninguém testa. */
+.ordena {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.ordena__rotulo {
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-tinta-suave);
+}
+.ordena__caixa {
+  display: flex;
+  align-items: stretch;
+  border: 2px solid var(--color-tinta);
+  background: #ffffff;
+  clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px);
+}
+.ordena__caixa:focus-within {
+  box-shadow: inset 0 0 0 2px var(--color-amarelo);
+}
+.ordena__select {
+  appearance: none;
+  -webkit-appearance: none;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--color-tinta);
+  background: transparent;
+  border: 0;
+  padding: 9px 30px 9px 13px;
+  cursor: pointer;
+  outline: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'><path d='M1 1l5 5 5-5' fill='none' stroke='%2312181f' stroke-width='2'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 11px center;
+  background-size: 11px;
+}
+.ordena__vai {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: var(--color-tinta);
+  color: #ffffff;
+  border: 0;
+  padding: 0 13px;
+  cursor: pointer;
+}
+.ordena__vai svg {
+  width: 14px;
+  height: 14px;
+  fill: var(--color-amarelo);
+}
+.ordena__vai:hover {
+  background: #000000;
+}
+.ordena__vai:focus-visible {
+  outline: 3px solid var(--color-amarelo);
+  outline-offset: -3px;
+}
+@media (max-width: 620px) {
+  .catalogo__barra {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .ordena {
+    justify-content: space-between;
+  }
+  .ordena__caixa {
+    flex: 1;
+  }
+  .ordena__select {
+    flex: 1;
+    width: 100%;
+  }
+}
+
+/* ── A grade ──────────────────────────────────────────────────────────────
+   Quatro colunas no desktop, duas no celular — o mesmo ritmo da vitrine da
+   home, pra quem vem de lá não sentir que mudou de site. */
+.catalogo__grade {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+.catalogo__grade .produto {
+  flex: initial;
+  width: auto;
+}
+@media (max-width: 1080px) {
+  .catalogo__grade {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 760px) {
+  .catalogo__grade {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px;
+  }
+}
+@media (max-width: 400px) {
+  .catalogo {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+  .catalogo__grade .produto .produto__nome {
+    font-size: 0.86rem;
+  }
+  .catalogo__grade .produto .produto__parcela {
+    font-size: 0.68rem;
+  }
+}
+
+/* ── Categoria magra: a grade não pode terminar no vazio ──────────────────
+   /cabelo e /kits têm UM produto. Um card numa grade de quatro colunas deixa
+   três quartos da tela em branco, e branco desse tamanho não lê como
+   "categoria pequena", lê como "página quebrada".
+
+   A grade continua sendo a mesma de quatro colunas — o card não estica nem
+   encolhe, e quem vem da home encontra o produto do tamanho que viu lá. Quem
+   preenche o buraco é o convite, ocupando o que sobrou da linha: `2 / -1`
+   com um produto, `3 / -1` com dois. Escrito assim, a regra vale igual nas
+   três larguras sem recontar coluna em cada uma. */
+.catalogo__grade[data-magra] .convite {
+  grid-column: 2 / -1;
+}
+.catalogo__grade[data-magra="2"] .convite {
+  grid-column: 3 / -1;
+}
+@media (max-width: 760px) {
+  .catalogo__grade[data-magra] .convite {
+    grid-column: 1 / -1;
+  }
+}
+
+.convite {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background: var(--color-menta-clara);
+  border: 2px solid var(--color-tinta);
+  clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
+  padding: clamp(18px, 2.4vw, 26px);
+}
+.convite__olho {
+  margin: 0 0 8px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-menta-escura);
+}
+.convite__titulo {
+  margin: 0 0 9px;
+  font-size: clamp(1.05rem, 2vw, 1.3rem);
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+  line-height: 1.15;
+}
+.convite__texto {
+  margin: 0 0 18px;
+  max-width: 48ch;
+  font-size: 0.86rem;
+  line-height: 1.55;
+  color: var(--color-tinta-suave);
+}
+.convite .btn {
+  align-self: flex-start;
+  font-size: 0.76rem;
+  padding: 11px 18px;
+}
+
+/* ── O resto da loja ──────────────────────────────────────────────────────
+   GRADE NO DESKTOP, FAIXA QUE ROLA NO CELULAR. Faixa horizontal no desktop
+   cortava o quinto card no meio sem barra de rolagem à vista — parecia corte
+   errado, não "tem mais pro lado". No celular a faixa volta, porque lá o
+   corte no meio do card é justamente o sinal de que dá pra arrastar. */
+.resto {
+  margin-top: clamp(34px, 4.4vw, 54px);
+}
+.resto__titulo {
+  margin: 0 0 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: clamp(1.1rem, 2.2vw, 1.5rem);
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+  line-height: 1.15;
+}
+.resto__titulo svg {
+  width: 18px;
+  height: 18px;
+  fill: var(--color-amarelo-escuro);
+  flex-shrink: 0;
+}
+.resto__linha {
+  margin: 0 0 clamp(14px, 2vw, 20px);
+  font-size: 0.86rem;
+  color: var(--color-tinta-suave);
+}
+.resto__faixa {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+.resto__faixa .produto {
+  flex: initial;
+  width: auto;
+}
+@media (max-width: 1080px) {
+  .resto__faixa {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 760px) {
+  .resto__faixa {
+    display: flex;
+    grid-template-columns: none;
+    gap: 9px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    padding: 4px 4px 10px;
+    margin: 0 -4px;
+  }
+  .resto__faixa .produto {
+    flex: 0 0 min(74%, 260px);
+  }
+}
+.resto__faixa::-webkit-scrollbar {
+  display: none;
+}
+
+/* ── Categoria de verdade vazia ───────────────────────────────────────────
+   Estado honesto: diz o que houve e pra onde ir. Não é erro, e não deve
+   parecer um — por isso menta, e não vermelho. */
+.vazio {
+  border: 2px solid var(--color-tinta);
+  background: var(--color-menta-clara);
+  clip-path: polygon(16px 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 16px);
+  padding: clamp(24px, 4vw, 40px);
+  text-align: center;
+}
+.vazio__titulo {
+  margin: 0 0 8px;
+  font-size: clamp(1.1rem, 2.4vw, 1.5rem);
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+}
+.vazio__texto {
+  margin: 0 auto 20px;
+  max-width: 46ch;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: var(--color-tinta-suave);
+}

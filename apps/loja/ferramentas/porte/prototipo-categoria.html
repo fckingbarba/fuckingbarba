@@ -1,0 +1,614 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Protótipo — tela de categoria</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,700;0,800;1,800&display=swap" rel="stylesheet" />
+
+<style>
+/* ===========================================================================
+   PROTÓTIPO DA TELA DE CATEGORIA — /barba, /cabelo, /kits
+
+   Este arquivo NÃO foi desenhado do zero. O card (.produto), as migalhas
+   (.migalhas) e o botão (.btn) são copiados palavra por palavra do CSS que já
+   está no repo — produto.css, pdp.css e base.css. O que é novo aqui é só o
+   que a página de categoria precisa e ainda não existe: o cabeçalho da
+   categoria, os trilhos, a barra de contagem/ordenação e a saída pro resto da
+   loja.
+
+   Isso é de propósito: o que o Matheus aprovar nesta tela é literalmente o
+   que vai pro Next, sem uma segunda tradução onde o detalhe se perde.
+
+   Os produtos, preços e fotos são os DE VERDADE, direto de
+   apps/backend/src/scripts/produtos-iniciais.ts. Os descontos e as parcelas
+   são calculados pela mesma conta do CartaoProduto, não escritos à mão.
+   =========================================================================== */
+
+:root {
+  --color-menta: #4fe4b6;
+  --color-menta-clara: #e3f8f0;
+  --color-menta-escura: #0b7f62;
+  --color-amarelo: #ffd84d;
+  --color-amarelo-escuro: #e0b800;
+  --color-tinta: #12181f;
+  --color-tinta-suave: #566072;
+  --color-papel: #ffffff;
+  --color-cinza: #f2f3f4;
+  --color-linha: #cfd5dc;
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  --ease-suave: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+* { box-sizing: border-box; border-radius: 0; }
+body {
+  margin: 0;
+  background: var(--color-cinza);
+  font-family: var(--font-sans);
+  color: var(--color-tinta);
+  line-height: normal;
+}
+
+/* --------------------------------------------------------------------------
+   A BARRA DO PROTÓTIPO — não faz parte do desenho.
+   Existe só pra você trocar de estado sem eu ter que mandar quatro arquivos.
+   -------------------------------------------------------------------------- */
+.proto {
+  position: sticky; top: 0; z-index: 99;
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px;
+  background: #000; color: #fff;
+  padding: 9px clamp(12px, 3vw, 24px);
+  font-size: 0.7rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
+}
+.proto__marca { color: var(--color-amarelo); }
+.proto__botoes { display: flex; flex-wrap: wrap; gap: 6px; }
+.proto button {
+  font: inherit; cursor: pointer;
+  background: transparent; color: #fff;
+  border: 2px solid #4a4a4a; padding: 5px 11px;
+}
+.proto button[aria-pressed="true"] { background: var(--color-amarelo); border-color: var(--color-amarelo); color: #000; }
+
+/* --------------------------------------------------------------------------
+   CABEÇALHO E RODAPÉ — esboçados.
+   Na loja são os componentes reais do layout; aqui entram só pra tela não
+   flutuar no vazio e pra conferir o encaixe da faixa de perigo com as
+   migalhas logo abaixo.
+   -------------------------------------------------------------------------- */
+.topo { background: var(--color-tinta); color: #fff; }
+.topo__fita { height: 9px; background: repeating-linear-gradient(-45deg, var(--color-tinta) 0 14px, var(--color-amarelo) 14px 28px); }
+.topo__wrap {
+  max-width: 1320px; margin: 0 auto;
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 14px clamp(16px, 4vw, 28px);
+}
+.topo__logo { display: inline-flex; align-items: center; gap: 7px; color: #fff; text-decoration: none; font-size: 1.05rem; font-weight: 800; font-style: italic; text-transform: uppercase; letter-spacing: 0.02em; }
+.topo__logo svg { width: 19px; height: 19px; fill: var(--color-amarelo); }
+.topo__nav { display: flex; gap: 18px; font-size: 0.76rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+.topo__nav a { color: #fff; text-decoration: none; opacity: 0.85; }
+.topo__nav a:hover { opacity: 1; }
+@media (max-width: 620px) { .topo__nav { display: none; } }
+
+.pe { background: var(--color-tinta); color: #9aa3b0; padding: 26px clamp(16px, 4vw, 28px); font-size: 0.74rem; text-align: center; }
+
+/* ==========================================================================
+   MIGALHAS — copiado de estilos/pdp.css, sem uma vírgula de diferença.
+   ========================================================================== */
+/* Única mudança em relação ao pdp.css: padding EMBAIXO também.
+   Na PDP a faixa menta encosta na foto do produto e fica ótima. Aqui ela
+   encostava na faixa de perigo do .catalogo e virava um sanduíche preto /
+   menta / preto de 9px que parecia defeito de renderização. */
+.migalhas { background: var(--color-menta); font-family: var(--font-sans); padding: 9px clamp(16px, 4vw, 28px); }
+@media (min-width: 1000px) { .migalhas { padding-top: 14px; padding-bottom: 14px; } }
+.migalhas__lista {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+  max-width: 1320px; margin: 0 auto; padding: 0; list-style: none;
+  font-size: 0.76rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: #0d4c3c;
+}
+.migalhas__lista li { display: flex; align-items: center; gap: 6px; }
+.migalhas__lista li::after { content: "/"; opacity: 0.45; }
+.migalhas__lista li:last-child::after { content: none; }
+.migalhas__lista a { color: inherit; text-decoration: none; border-bottom: 2px solid transparent; }
+.migalhas__lista a:hover, .migalhas__lista a:focus-visible { border-bottom-color: var(--color-tinta); color: var(--color-tinta); }
+.migalhas__atual { color: var(--color-tinta); opacity: 0.7; }
+
+/* ==========================================================================
+   O BOTÃO — copiado de estilos/base.css.
+   ========================================================================== */
+.btn {
+  display: inline-flex; align-items: center; gap: 10px;
+  background: #4fe0b9; color: #07120e;
+  font-family: var(--font-sans); font-size: 0.92rem; font-weight: 800;
+  text-transform: uppercase; letter-spacing: 0.05em; text-decoration: none;
+  padding: 14px 26px; border: 2px solid #4fe0b9; box-shadow: 6px 6px 0 0 var(--color-amarelo);
+  cursor: pointer; transition: transform 0.14s ease, box-shadow 0.14s ease;
+}
+.btn:hover, .btn:focus-visible { transform: translate(-3px, -3px); box-shadow: 9px 9px 0 0 var(--color-amarelo); }
+.btn:active { transform: translate(3px, 3px); box-shadow: 1px 1px 0 0 var(--color-amarelo); }
+.btn__bolt { width: 15px; height: 15px; fill: currentColor; flex-shrink: 0; transition: transform 0.2s ease; }
+.btn:hover .btn__bolt { transform: translateX(3px); }
+.btn__icone { width: 16px; height: 16px; flex-shrink: 0; fill: currentColor; }
+.btn--contorno { background: transparent; border-color: #0f9e7a; color: var(--color-tinta); box-shadow: none; }
+.btn--contorno:hover, .btn--contorno:focus-visible { background: #4fe0b9; border-color: #4fe0b9; box-shadow: 6px 6px 0 0 var(--color-amarelo); }
+
+/* ==========================================================================
+   O CARD — copiado de estilos/produto.css.
+   ========================================================================== */
+.produto {
+  line-height: normal;
+  flex: 0 0 clamp(226px, 23.5%, 300px); scroll-snap-align: start;
+  position: relative; display: flex; flex-direction: column;
+  background: #ffffff; border: 2px solid var(--color-tinta);
+  clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+.produto:hover, .produto:focus-within { transform: translate(-4px, -4px); filter: drop-shadow(8px 8px 0 var(--color-amarelo)); }
+.produto__midia { position: relative; background: #ffffff; padding: 9px; border-bottom: 2px solid var(--color-tinta); }
+.produto__foto { display: block; aspect-ratio: 1 / 1; overflow: hidden; background: #f2f3f4; }
+.produto__foto img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.4s ease; }
+.produto:hover .produto__foto img { transform: scale(1.05); }
+.produto__selo {
+  position: absolute; top: 10px; left: 0; z-index: 2;
+  background: var(--color-amarelo); color: var(--color-tinta);
+  font-size: 0.72rem; font-weight: 800; letter-spacing: 0.03em; padding: 5px 13px 5px 10px;
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 0 100%);
+}
+.produto__corpo { display: flex; flex-direction: column; padding: 13px 13px 14px; flex: 1; }
+.produto__nome { margin: 0; font-size: 0.78rem; font-weight: 800; line-height: 1.25; text-transform: uppercase; letter-spacing: 0.035em; }
+.produto__nome a { color: inherit; text-decoration: none; }
+.produto__nome a:hover { text-decoration: underline; }
+.produto__preco { margin: auto 0 0; padding-top: 16px; display: block; line-height: 1; }
+.produto__de { display: block; margin-bottom: 3px; font-size: 0.74rem; color: var(--color-tinta-suave); text-decoration: line-through; }
+.produto__por { display: block; font-size: 1.6rem; font-weight: 800; letter-spacing: -0.02em; }
+.produto__parcela { margin: 5px 0 0; font-size: 0.72rem; color: var(--color-tinta-suave); }
+.produto__comprar { width: 100%; justify-content: center; font-size: 0.78rem; padding: 13px 16px; border-width: 0; box-shadow: none; }
+.produto__comprar:hover, .produto__comprar:focus-visible, .produto__comprar:active { transform: none; box-shadow: none; background: var(--color-tinta); color: #ffffff; }
+@media (max-width: 760px) { .produto { flex-basis: min(74%, 260px); } }
+
+/* ==========================================================================
+   NOVO: A PÁGINA DE CATEGORIA (.catalogo)
+
+   Namespace próprio de propósito. `.vitrine` é a grade da home e `.colecao` é
+   a faixa que rola — se eu pendurasse a categoria numa delas, mexer na home
+   quebraria a categoria e vice-versa, que é exatamente o tipo de armadilha
+   que só aparece seis meses depois.
+   ========================================================================== */
+/* SEM faixa de perigo no topo, ao contrário da .vitrine da home.
+   Na home a faixa separa uma seção da anterior — lá ela tem trabalho. Aqui a
+   página começa no cabeçalho preto, e a faixa logo abaixo da menta empilhava
+   três tarjas escuras em 40px de altura. A menta já faz a separação. */
+.catalogo {
+  position: relative; background: #ffffff;
+  padding: clamp(26px, 3.2vw, 40px) clamp(16px, 3vw, 30px) clamp(34px, 4vw, 52px);
+}
+.catalogo__wrap { max-width: 1320px; margin: 0 auto; }
+
+/* --- Cabeçalho da categoria ------------------------------------------------
+   O h1 é o nome da categoria, e nada mais. "Produtos para barba | Loja X" é
+   título de aba, não de página — quem já clicou em Barba sabe onde está.
+   -------------------------------------------------------------------------- */
+.catalogo__cabeca { margin-bottom: clamp(18px, 2.4vw, 26px); }
+.catalogo__titulo {
+  margin: 0; display: flex; align-items: center; gap: 10px;
+  font-size: clamp(1.9rem, 5.2vw, 3rem); font-weight: 800; font-style: italic;
+  text-transform: uppercase; line-height: 1.05; letter-spacing: -0.01em;
+}
+.catalogo__titulo svg { width: clamp(22px, 3.4vw, 30px); height: clamp(22px, 3.4vw, 30px); fill: var(--color-amarelo-escuro); flex-shrink: 0; }
+
+/* --- Trilhos: as outras categorias -----------------------------------------
+   Ficam ACIMA da grade, não no rodapé. Numa categoria de um produto só, a
+   pessoa decide em dois segundos que não é ali — e se a saída estiver embaixo
+   da grade ela já foi embora antes de rolar.
+
+   A contagem dentro de cada trilho não é enfeite: é o que faz a pessoa
+   escolher "Barba 4" em vez de descobrir sozinha que Cabelo tem um item.
+   -------------------------------------------------------------------------- */
+.trilhos {
+  display: flex; gap: 8px; margin-bottom: clamp(16px, 2vw, 22px);
+  overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none;
+  scroll-snap-type: x proximity;
+  padding-bottom: 2px;
+}
+.trilhos::-webkit-scrollbar { display: none; }
+.trilho {
+  scroll-snap-align: start; flex: 0 0 auto;
+  display: inline-flex; align-items: center; gap: 7px;
+  background: #ffffff; color: var(--color-tinta); text-decoration: none;
+  border: 2px solid var(--color-tinta); padding: 9px 15px;
+  font-size: 0.76rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase;
+  clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px);
+  transition: transform 0.12s ease, background 0.12s ease, color 0.12s ease;
+}
+.trilho:hover, .trilho:focus-visible { transform: translate(-2px, -2px); background: var(--color-menta); }
+.trilho b { font-weight: 800; font-size: 0.68rem; color: var(--color-tinta-suave); }
+.trilho--ativo { background: var(--color-tinta); color: #ffffff; }
+.trilho--ativo b { color: var(--color-amarelo); }
+.trilho--ativo:hover { background: var(--color-tinta); color: #ffffff; transform: none; }
+
+/* --- Barra: contagem à esquerda, ordenação à direita ------------------------ */
+.catalogo__barra {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 12px 20px;
+  border-top: 2px solid var(--color-tinta); border-bottom: 2px solid var(--color-tinta);
+  padding: 11px 0; margin-bottom: clamp(18px, 2.4vw, 24px);
+}
+.catalogo__contagem { margin: 0; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--color-tinta-suave); }
+.catalogo__contagem b { color: var(--color-tinta); }
+
+/* --- A ordenação -----------------------------------------------------------
+   FORMULÁRIO DE VERDADE, com método GET e botão que envia. Sem uma linha de
+   JavaScript: a ordenação vira `?ordem=barato` na URL, que é uma página que o
+   servidor sabe desenhar, que dá pra mandar por WhatsApp e que volta igual no
+   botão voltar. Select que só funciona com `onchange` faz nenhuma dessas três
+   e quebra calado quando o script não carrega.
+
+   O botão fica sempre visível em vez de aparecer só no <noscript>: dois
+   estados diferentes do mesmo controle é o tipo de coisa que ninguém testa.
+   -------------------------------------------------------------------------- */
+.ordena { display: flex; align-items: center; gap: 10px; }
+.ordena__rotulo { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-tinta-suave); flex-shrink: 0; }
+.ordena__caixa {
+  display: flex; align-items: stretch;
+  border: 2px solid var(--color-tinta); background: #ffffff;
+  clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px);
+}
+.ordena__caixa:focus-within { box-shadow: inset 0 0 0 2px var(--color-amarelo); }
+.ordena__select {
+  appearance: none; -webkit-appearance: none;
+  font: inherit; font-size: 0.8rem; font-weight: 700;
+  color: var(--color-tinta); background: transparent; border: 0;
+  padding: 9px 30px 9px 13px; cursor: pointer; outline: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'><path d='M1 1l5 5 5-5' fill='none' stroke='%2312181f' stroke-width='2'/></svg>");
+  background-repeat: no-repeat; background-position: right 11px center; background-size: 11px;
+}
+.ordena__vai {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--color-tinta); color: #ffffff; border: 0;
+  padding: 0 13px; cursor: pointer; flex-shrink: 0;
+}
+.ordena__vai svg { width: 14px; height: 14px; fill: var(--color-amarelo); }
+.ordena__vai:hover { background: #000; }
+.ordena__vai:focus-visible { outline: 3px solid var(--color-amarelo); outline-offset: -3px; }
+
+@media (max-width: 620px) {
+  .catalogo__barra { flex-direction: column; align-items: stretch; }
+  .ordena { justify-content: space-between; }
+  .ordena__caixa { flex: 1; }
+  .ordena__select { flex: 1; width: 100%; }
+}
+
+/* --- A grade ---------------------------------------------------------------
+   Quatro colunas no desktop, duas no celular — o mesmo ritmo da vitrine da
+   home, pra que a pessoa que vem da home não sinta que mudou de site.
+   -------------------------------------------------------------------------- */
+.catalogo__grade { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.catalogo__grade .produto { flex: initial; width: auto; }
+@media (max-width: 1080px) { .catalogo__grade { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 760px) { .catalogo__grade { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; } }
+@media (max-width: 400px) {
+  .catalogo { padding-left: 12px; padding-right: 12px; }
+  .catalogo__grade .produto .produto__nome { font-size: 0.86rem; }
+  .catalogo__grade .produto .produto__parcela { font-size: 0.68rem; }
+}
+
+/* --- Categoria magra: a grade não pode terminar no vazio --------------------
+   /cabelo e /kits têm UM produto. Dois cards de largura numa grade de quatro
+   colunas deixam metade da tela em branco, e a leitura disso é "a loja está
+   vazia" — não "esta categoria é pequena".
+
+   Com um ou dois produtos a grade aperta pro tamanho do conteúdo e o resto da
+   loja entra logo abaixo, com título honesto. É a mesma peça do card, então
+   não há desenho novo pra manter.
+   -------------------------------------------------------------------------- */
+/* A grade MAGRA continua sendo a mesma grade de quatro colunas — o card não
+   estica nem encolhe, e quem vem da home encontra o produto do mesmo tamanho
+   que viu lá. Quem preenche o buraco é o convite, ocupando tudo o que sobrou
+   da linha: `2 / -1` com um produto, `3 / -1` com dois. Escrito assim, a
+   regra vale igual nas três larguras sem eu recontar coluna em cada uma. */
+.catalogo__grade[data-magra] .convite { grid-column: 2 / -1; }
+.catalogo__grade[data-magra="2"] .convite { grid-column: 3 / -1; }
+@media (max-width: 760px) { .catalogo__grade[data-magra] .convite { grid-column: 1 / -1; } }
+
+/* O CONVITE — ocupa a célula vazia ao lado do card solitário.
+   Um produto numa grade de quatro colunas deixa três quartos da tela em
+   branco, e branco desse tamanho não lê como "categoria pequena", lê como
+   "página quebrada". Em vez de esticar o card (que faria a foto de 1024px
+   aparecer borrada) ou centralizar (que só muda o branco de lugar), a célula
+   seguinte diz em voz alta o que a tela já estava dizendo baixinho. */
+.convite {
+  display: flex; flex-direction: column; justify-content: center;
+  background: var(--color-menta-clara); border: 2px solid var(--color-tinta);
+  clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
+  padding: clamp(18px, 2.4vw, 26px);
+}
+.convite__olho { margin: 0 0 8px; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-menta-escura); }
+.convite__titulo { margin: 0 0 9px; font-size: clamp(1.05rem, 2vw, 1.3rem); font-weight: 800; font-style: italic; text-transform: uppercase; line-height: 1.15; }
+.convite__texto { margin: 0 0 18px; max-width: 48ch; font-size: 0.86rem; line-height: 1.55; color: var(--color-tinta-suave); }
+.convite .btn { align-self: flex-start; font-size: 0.76rem; padding: 11px 18px; }
+@media (max-width: 760px) { .convite { grid-column: 1 / -1; } }
+
+.resto { margin-top: clamp(34px, 4.4vw, 54px); }
+.resto__cabeca { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 14px; margin-bottom: 4px; }
+.resto__titulo {
+  margin: 0; display: flex; align-items: center; gap: 8px;
+  font-size: clamp(1.1rem, 2.2vw, 1.5rem); font-weight: 800; font-style: italic;
+  text-transform: uppercase; line-height: 1.15;
+}
+.resto__titulo svg { width: 18px; height: 18px; fill: var(--color-amarelo-escuro); flex-shrink: 0; }
+.resto__linha { margin: 0 0 clamp(14px, 2vw, 20px); font-size: 0.86rem; color: var(--color-tinta-suave); }
+/* GRADE NO DESKTOP, FAIXA QUE ROLA NO CELULAR.
+   Faixa horizontal no desktop cortava o quinto card no meio sem barra de
+   rolagem à vista — parecia corte errado, não "tem mais pro lado". Com
+   quatro produtos e quatro colunas, a linha fecha certinho. No celular a
+   faixa que rola volta, porque lá o corte no meio do card é justamente o
+   sinal de que dá pra arrastar. */
+.resto__faixa { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.resto__faixa .produto { flex: initial; width: auto; }
+@media (max-width: 1080px) { .resto__faixa { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 760px) {
+  .resto__faixa {
+    display: flex; grid-template-columns: none; gap: 9px;
+    overflow-x: auto; scroll-snap-type: x mandatory;
+    scrollbar-width: none; -ms-overflow-style: none;
+    padding: 4px 4px 10px; margin: 0 -4px;
+  }
+  .resto__faixa .produto { flex: 0 0 min(74%, 260px); }
+}
+.resto__faixa::-webkit-scrollbar { display: none; }
+
+/* --- Categoria de verdade vazia -------------------------------------------
+   Estado honesto: diz o que houve e para onde ir. Não é erro, e não deve
+   parecer um — por isso menta, e não vermelho.
+   -------------------------------------------------------------------------- */
+.vazio {
+  border: 2px solid var(--color-tinta); background: var(--color-menta-clara);
+  clip-path: polygon(16px 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 16px);
+  padding: clamp(24px, 4vw, 40px); text-align: center;
+}
+.vazio__titulo { margin: 0 0 8px; font-size: clamp(1.1rem, 2.4vw, 1.5rem); font-weight: 800; font-style: italic; text-transform: uppercase; }
+.vazio__texto { margin: 0 auto 20px; max-width: 46ch; font-size: 0.92rem; line-height: 1.55; color: var(--color-tinta-suave); }
+
+[hidden] { display: none !important; }
+</style>
+</head>
+
+<body data-vista="barba">
+
+<div class="proto">
+  <span class="proto__marca">Protótipo</span>
+  <span>tela de categoria · estados:</span>
+  <span class="proto__botoes">
+    <button type="button" data-ir="barba" aria-pressed="true">/barba · 4 produtos</button>
+    <button type="button" data-ir="cabelo" aria-pressed="false">/cabelo · 1 produto</button>
+    <button type="button" data-ir="kits" aria-pressed="false">/kits · 1 produto</button>
+    <button type="button" data-ir="todos" aria-pressed="false">/produtos · todos</button>
+    <button type="button" data-ir="vazia" aria-pressed="false">categoria vazia</button>
+  </span>
+</div>
+
+<header class="topo">
+  <div class="topo__fita"></div>
+  <div class="topo__wrap">
+    <a class="topo__logo" href="#"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>FuckingBarba</a>
+    <nav class="topo__nav">
+      <a href="#">Para barba</a><a href="#">Para cabelo</a><a href="#">Kits</a><a href="#">Sobre</a>
+    </nav>
+  </div>
+</header>
+
+<nav class="migalhas" aria-label="Você está em">
+  <ol class="migalhas__lista">
+    <li><a href="#">Início</a></li>
+    <li><span class="migalhas__atual" data-nome>Barba</span></li>
+  </ol>
+</nav>
+
+<main class="catalogo">
+  <div class="catalogo__wrap">
+
+    <div class="catalogo__cabeca">
+      <h1 class="catalogo__titulo">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
+        <span data-nome>Barba</span>
+      </h1>
+    </div>
+
+    <nav class="trilhos" aria-label="Categorias">
+      <a class="trilho" href="#" data-trilho="barba">Barba <b>4</b></a>
+      <a class="trilho" href="#" data-trilho="cabelo">Cabelo <b>1</b></a>
+      <a class="trilho" href="#" data-trilho="kits">Kits <b>1</b></a>
+      <a class="trilho" href="#" data-trilho="todos">Todos <b>6</b></a>
+    </nav>
+
+    <div class="catalogo__barra" data-barra>
+      <p class="catalogo__contagem"><b data-contagem>4 produtos</b> · pronta entrega</p>
+
+      <form class="ordena" method="get" action="#">
+        <label class="ordena__rotulo" for="ordem">Ordenar por</label>
+        <span class="ordena__caixa">
+          <select class="ordena__select" id="ordem" name="ordem">
+            <option value="">Relevância</option>
+            <option value="barato">Menor preço</option>
+            <option value="caro">Maior preço</option>
+            <option value="desconto">Maior desconto</option>
+            <option value="novidade">Novidades</option>
+          </select>
+          <button class="ordena__vai" type="submit" aria-label="Aplicar ordenação">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
+          </button>
+        </span>
+      </form>
+    </div>
+
+    <!-- A GRADE ------------------------------------------------------------ -->
+    <div class="catalogo__grade" data-grade></div>
+
+    <!-- CATEGORIA VAZIA ---------------------------------------------------- -->
+    <div class="vazio" data-vazio hidden>
+      <h2 class="vazio__titulo">Esta categoria está sem produto agora</h2>
+      <p class="vazio__texto">
+        Não é erro seu: a gente esvaziou a prateleira e ainda não repôs. Enquanto isso, o resto
+        da loja continua de pé.
+      </p>
+      <a class="btn" href="#">Ver todos os produtos <svg class="btn__bolt" viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg></a>
+    </div>
+
+    <!-- O RESTO DA LOJA ---------------------------------------------------- -->
+    <section class="resto" data-resto hidden aria-labelledby="resto-titulo">
+      <div class="resto__cabeca">
+        <h2 class="resto__titulo" id="resto-titulo">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
+          O resto da loja
+        </h2>
+      </div>
+      <p class="resto__linha" data-resto-linha></p>
+      <div class="resto__faixa" data-resto-faixa></div>
+    </section>
+
+  </div>
+</main>
+
+<footer class="pe">FuckingBarba · rodapé real da loja entra aqui</footer>
+
+<script>
+/* ---------------------------------------------------------------------------
+   Só o trocador de estados do protótipo. Nada aqui vai pro Next — na loja a
+   página é um Server Component: ela recebe `categoria` e `?ordem` e desenha
+   tudo no servidor. Os cards abaixo são montados por JS AQUI apenas pra eu
+   não repetir seis vezes o mesmo HTML num arquivo de revisão.
+   --------------------------------------------------------------------------- */
+
+const CDN = "https://acdn-us.mitiendanube.com/stores/006/689/600/products";
+
+/* Os seis produtos de verdade, com os preços de verdade. */
+const CATALOGO = [
+  { handle:"oleo-para-barba", nome:"Óleo para Barba FuckingBarba 30ml", cat:"barba",
+    preco:54.9, de:79.9, foto:`${CDN}/fuckingbarba-product-oil-1-f1a9344cbc509d4d1a17662574545066-1024-1024.webp` },
+  { handle:"balm-para-barba", nome:"Balm Modelador para Barba FuckingBarba 90g", cat:"barba",
+    preco:53.9, de:78.9, foto:`${CDN}/fuckingbarba-product-balm-1-67a0565676b42952e017662573181802-1024-1024.webp` },
+  { handle:"shampoo-para-barba", nome:"Shampoo para Barba FuckingBarba 120ml", cat:"barba",
+    preco:49.9, de:72.4, foto:`${CDN}/fuckingbarba-product-shampoo-1-05b06665e46dfb530417662571787890-1024-1024.webp` },
+  { handle:"fator-de-crescimento-para-barba", nome:"Fator de Crescimento para Barba 30ml", cat:"barba",
+    preco:79.9, de:133.2, foto:`${CDN}/produto-1cf784554239cc00b617755907983101-1024-1024.webp` },
+  { handle:"spray-modelador-matte-100ml-fucking-barba", nome:"Spray Modelador Matte Dry Touch 100ml", cat:"cabelo",
+    preco:49.9, de:119.9, foto:`${CDN}/projeto-redimensionar-imagem-15-de-julho-de-2026-as-12-53-39-1-787bd32b468ba5a78317841309579463-1024-1024.webp` },
+  { handle:"kit-completo-para-barba", nome:"Kit Completo FuckingBarba — Shampoo, Balm e Óleo", cat:"kits",
+    preco:99.9, de:189.9, foto:`${CDN}/f-9-5419ba5582dbe4048f17662577954296-1024-1024.webp` },
+];
+
+const VISTAS = {
+  barba:  { nome: "Barba" },
+  cabelo: { nome: "Cabelo" },
+  kits:   { nome: "Kits" },
+  todos:  { nome: "Todos os produtos" },
+  vazia:  { nome: "Pele" },
+};
+
+/* As mesmas contas do CartaoProduto: desconto arredondado e parcela em 3x. */
+const reais = (n) => n.toLocaleString("pt-BR", { style:"currency", currency:"BRL" });
+const descontoDe = (p) => Math.round((1 - p.preco / p.de) * 100);
+
+function card(p) {
+  const parcela = p.preco / 3;
+  return `
+  <article class="produto">
+    <div class="produto__midia">
+      <a class="produto__foto" href="#" tabindex="-1" aria-hidden="true"><img src="${p.foto}" alt="" loading="lazy" /></a>
+      <span class="produto__selo">-${descontoDe(p)}%</span>
+    </div>
+    <div class="produto__corpo">
+      <h3 class="produto__nome"><a href="#">${p.nome}</a></h3>
+      <p class="produto__preco">
+        <span class="produto__de">${reais(p.de)}</span>
+        <span class="produto__por">${reais(p.preco)}</span>
+      </p>
+      <p class="produto__parcela">ou 3x de ${reais(parcela)} sem juros</p>
+    </div>
+    <a href="#" class="btn produto__comprar">Comprar
+      <svg class="btn__icone" viewBox="0 0 24 24"><path d="M1.4 2.6h3.9l3.5 13.9h11.3v2.2H7.1L3.6 4.8H1.4z"/><path d="M6.1 6.4h13.6l2.5 2.5-2 5.6H9.5L8.1 13z"/><path d="M9 19.3h2.3v2.3l-.9.9H8.1v-2.3z"/><path d="M17.6 19.3h2.3v2.3l-.9.9h-2.3v-2.3z"/></svg>
+    </a>
+  </article>`;
+}
+
+function desenha(vista) {
+  const cfg = VISTAS[vista];
+  const lista = vista === "todos" ? CATALOGO.slice() : CATALOGO.filter((p) => p.cat === vista);
+
+  document.querySelectorAll("[data-nome]").forEach((el) => (el.textContent = cfg.nome));
+
+  document.querySelectorAll("[data-trilho]").forEach((a) => {
+    const ativo = a.dataset.trilho === vista;
+    a.classList.toggle("trilho--ativo", ativo);
+    if (ativo) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
+  });
+
+  const grade = document.querySelector("[data-grade]");
+  const barra = document.querySelector("[data-barra]");
+  const vazio = document.querySelector("[data-vazio]");
+  const resto = document.querySelector("[data-resto]");
+
+  /* O convite entra como mais uma célula da grade, e não como bloco à parte:
+     assim ele acompanha a altura do card sozinho sem uma linha de cálculo. */
+  const convite =
+    lista.length > 0 && lista.length <= 2
+      ? `<aside class="convite">
+           <p class="convite__olho">Categoria nova</p>
+           <h2 class="convite__titulo">${cfg.nome} está começando</h2>
+           <p class="convite__texto">${lista.length === 1 ? "Um produto só" : "Dois produtos"}, por enquanto. O forte da casa ainda é barba — e é de lá que sai a rotina inteira.</p>
+           <a class="btn btn--contorno" href="#">Ver os 4 de barba
+             <svg class="btn__bolt" viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
+           </a>
+         </aside>`
+      : "";
+
+  grade.innerHTML = lista.map(card).join("") + convite;
+  grade.hidden = lista.length === 0;
+  vazio.hidden = lista.length > 0;
+
+  /* A barra some quando não há o que contar nem o que ordenar. Ordenar uma
+     lista de um item é um controle que não faz nada — e controle que não faz
+     nada ensina a pessoa a não confiar nos outros. */
+  barra.hidden = lista.length < 2;
+  document.querySelector("[data-contagem]").textContent =
+    lista.length === 1 ? "1 produto" : `${lista.length} produtos`;
+
+  /* Grade magra: 1 ou 2 produtos não esticam pra ocupar quatro colunas. */
+  if (lista.length > 0 && lista.length <= 2) grade.setAttribute("data-magra", String(lista.length));
+  else grade.removeAttribute("data-magra");
+
+  /* O resto da loja entra quando a categoria é magra ou está vazia. */
+  const sobrando = CATALOGO.filter((p) => p.cat !== vista);
+  const precisa = lista.length <= 2;
+  resto.hidden = !precisa;
+  if (precisa) {
+    document.querySelector("[data-resto-linha]").textContent =
+      lista.length === 0
+        ? "O que continua em pé, das outras categorias:"
+        : `${lista.length === 1 ? "Só um produto" : "Só dois produtos"} em ${cfg.nome} por enquanto. O que mais tem na loja:`;
+    /* Quatro, não todos: é uma linha cheia no desktop e o suficiente pra
+       provar que a loja continua. "Ver todos" resolve o resto. */
+    document.querySelector("[data-resto-faixa]").innerHTML = sobrando.slice(0, 4).map(card).join("");
+  }
+
+  document.querySelectorAll("[data-ir]").forEach((b) =>
+    b.setAttribute("aria-pressed", String(b.dataset.ir === vista))
+  );
+  document.body.dataset.vista = vista;
+}
+
+document.querySelectorAll("[data-ir]").forEach((b) =>
+  b.addEventListener("click", () => desenha(b.dataset.ir))
+);
+document.querySelectorAll("[data-trilho]").forEach((a) =>
+  a.addEventListener("click", (e) => {
+    e.preventDefault();
+    desenha(a.dataset.trilho);
+  })
+);
+
+desenha("barba");
+</script>
+</body>
+</html>

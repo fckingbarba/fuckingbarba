@@ -21,6 +21,9 @@
 @import "../estilos/provas.css";
 @import "../estilos/amam.css";
 @import "../estilos/vitrine.css";
+/* A tela de categoria (/barba, /cabelo, /kits, /produtos). Depois de
+   vitrine.css e produto.css porque reaproveita o card de lá. */
+@import "../estilos/catalogo.css";
 @import "../estilos/sobre.css";
 @import "../estilos/fechamento.css";
 

@@ -1,9 +1,20 @@
 import type { Metadata } from "next"
-import Image from "next/image"
-import Link from "next/link"
 import { notFound } from "next/navigation"
 import { Suspense } from "react"
-import { buscarCategoria, listarProdutos, precoDe } from "@/lib/medusa"
+import { Grade, Resto, Vazio } from "@/components/catalogo/grade"
+import { Ordena } from "@/components/catalogo/ordena"
+import { Trilhos } from "@/components/catalogo/trilhos"
+import { Raio } from "@/components/icones"
+import { Migalhas, type Migalha } from "@/components/produto/migalhas"
+import {
+  aMaiorDasOutras,
+  lerOrdem,
+  oRestoDaLoja,
+  ordenar,
+  prateleiras,
+  type HandleDeCategoria,
+} from "@/lib/catalogo"
+import { buscarCategoria, listarProdutos } from "@/lib/medusa"
 import { ehCategoria, site } from "@/lib/site"
 
 /**
@@ -18,8 +29,15 @@ import { ehCategoria, site } from "@/lib/site"
  * antes de saber se o conteúdo existe; o `notFound()` abaixo é só a rede de
  * segurança, e sai com meta noindex.)
  *
- * FASE 3: grade com filtros, ordenação, paginação `?pagina=2` com canonical
- * próprio e `noindex` em combinação de filtro (seção SEO).
+ * ┌─ POR QUE A DESCRIÇÃO DA CATEGORIA NÃO APARECE ────────────────────────┐
+ * │ O campo existe no Medusa e está vazio, e a tela foi aprovada sem ele: │
+ * │ título, trilhos e produto, nada entre a pessoa e a grade.             │
+ * │                                                                        │
+ * │ O preço disso é SEO: categoria sem texto compete mal em busca contra  │
+ * │ quem escreve dois parágrafos. Quando houver texto pra pôr, o lugar é  │
+ * │ ABAIXO da grade — é onde a maioria das lojas põe, justamente pra não  │
+ * │ empurrar o produto pra baixo da dobra.                                │
+ * └────────────────────────────────────────────────────────────────────────┘
  */
 
 type Props = PageProps<"/[categoria]">
@@ -41,92 +59,135 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: `${nome} — produtos pra ${nome.toLowerCase()}`,
     // `||` de propósito: o Medusa devolve "" (não null) quando não há descrição.
     description: dados?.description || `${nome}: os produtos ${site.nome} pra sua rotina.`,
+    /*
+      CANÔNICA SEM O `?ordem`. `/barba`, `/barba?ordem=barato` e
+      `/barba?ordem=caro` são a MESMA lista em ordens diferentes; sem esta
+      linha o Google indexa três URLs com o mesmo conteúdo e reparte a força
+      entre elas. Canônica resolve; `noindex` junto com canônica não, porque
+      são dois sinais que se contradizem e o Google pede pra não combinar.
+    */
     alternates: { canonical: `/${categoria}` },
   }
 }
 
-export default function PaginaCategoria({ params }: Props) {
+export default function PaginaCategoria({ params, searchParams }: Props) {
   return (
-    <main id="conteudo" className="mx-auto w-full max-w-6xl flex-1 px-4 py-10 sm:px-6 sm:py-14">
-      <Suspense fallback={<EsqueletoLista />}>
-        <Categoria params={params} />
-      </Suspense>
-    </main>
+    <Suspense fallback={<Esqueleto />}>
+      <Conteudo params={params} searchParams={searchParams} />
+    </Suspense>
   )
 }
 
-async function Categoria({ params }: Pick<Props, "params">) {
+/**
+ * `params` e `searchParams` são repassados SEM `await` daqui de cima e
+ * aguardados lá dentro, dentro do `<Suspense>`. Esperar na função de fora
+ * faria a página inteira esperar, e a casca deixaria de sair na hora — que
+ * é o motivo de o `<Suspense>` existir com Cache Components.
+ */
+async function Conteudo({ params, searchParams }: Props) {
   const { categoria } = await params
   if (!ehCategoria(categoria)) notFound()
 
-  const dados = await buscarCategoria(categoria)
+  const ordem = lerOrdem((await searchParams).ordem)
+
+  const [dados, todas] = await Promise.all([buscarCategoria(categoria), prateleiras()])
   const nome = nomeDe(categoria, dados?.name)
-  const produtos = dados ? await listarProdutos({ categoriaId: dados.id }) : []
+
+  /*
+    A busca desta categoria é a MESMA que já veio dentro de `prateleiras()`,
+    e as duas são `"use cache"` com a mesma chave — o Medusa é consultado uma
+    vez só. Ler da prateleira em vez de buscar de novo deixaria a página
+    dependendo de as duas listas nunca divergirem.
+  */
+  const daPrateleira = todas.find((p) => p.handle === categoria)
+  const produtos = ordenar(
+    daPrateleira?.produtos ?? (dados ? await listarProdutos({ categoriaId: dados.id }) : []),
+    ordem
+  )
+
+  const magraOuVazia = produtos.length <= 2
+  const resto = magraOuVazia ? oRestoDaLoja(todas, categoria, produtos) : []
+
+  const trilha: Migalha<"/" | `/${HandleDeCategoria}`>[] = [
+    { nome: "Início", href: "/" },
+    { nome },
+  ]
 
   return (
     <>
-      <h1 className="titulo-marca text-5xl text-tinta sm:text-6xl">{nome}</h1>
-      {dados?.description ? (
-        <p className="mt-3 max-w-prose text-lg text-tinta">{dados.description}</p>
-      ) : null}
+      <Migalhas trilha={trilha} />
 
-      {produtos.length === 0 ? (
-        <p className="mt-10 inline-block border-2 border-dashed border-tinta/40 bg-papel/60 px-4 py-3 font-bold text-tinta">
-          Os produtos desta categoria entram na fase 2 (importação do catálogo).
-        </p>
-      ) : (
-        <ul className="mt-10 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-          {produtos.map((p, i) => {
-            const preco = precoDe(p)
-            // As quatro primeiras fotos entram sem lazy: numa grade de
-            // categoria é uma delas que costuma ser o maior elemento da
-            // primeira tela, e adiar justamente ela é adiar o LCP. Quatro
-            // cobre a primeira fileira no desktop e as duas do celular.
-            const primeiras = i < 4
-            return (
-              <li key={p.id}>
-                <Link
-                  href={`/produtos/${p.handle}`}
-                  className="chanfro-sm block border-2 border-tinta bg-papel shadow-dura-sm transition-transform duration-150 ease-suave hover:-translate-y-0.5"
-                >
-                  <div className="border-b-2 border-tinta bg-papel p-2">
-                    {p.thumbnail ? (
-                      <Image
-                        src={p.thumbnail}
-                        alt={p.title}
-                        width={600}
-                        height={600}
-                        priority={primeiras}
-                        sizes="(min-width: 1024px) 25vw, (min-width: 768px) 33vw, 50vw"
-                        className="aspect-square h-auto w-full bg-cinza object-contain"
-                      />
-                    ) : (
-                      <div className="aspect-square w-full bg-cinza" aria-hidden="true" />
-                    )}
-                  </div>
-                  <div className="p-3">
-                    <h2 className="text-sm font-bold leading-tight text-tinta">{p.title}</h2>
-                    {preco ? <p className="mt-1 font-extrabold text-tinta">{preco}</p> : null}
-                  </div>
-                </Link>
-              </li>
-            )
-          })}
-        </ul>
-      )}
+      <main className="catalogo" id="conteudo">
+        <div className="catalogo__wrap">
+          <div className="catalogo__cabeca">
+            <h1 className="catalogo__titulo">
+              <Raio aria-hidden="true" />
+              {nome}
+            </h1>
+          </div>
+
+          <Trilhos prateleiras={todas} atual={categoria} />
+
+          {/*
+            A barra some quando não há o que contar nem o que ordenar.
+            Ordenar uma lista de um item é um controle que não faz nada — e
+            controle que não faz nada ensina a pessoa a não confiar nos
+            outros que estão na mesma tela.
+          */}
+          {produtos.length >= 2 ? (
+            <div className="catalogo__barra">
+              <p className="catalogo__contagem">
+                <b>
+                  {produtos.length} {produtos.length === 1 ? "produto" : "produtos"}
+                </b>
+                {produtos.every(temEstoque) ? " · pronta entrega" : null}
+              </p>
+              <Ordena ordem={ordem} />
+            </div>
+          ) : null}
+
+          {produtos.length === 0 ? (
+            <Vazio />
+          ) : (
+            <Grade
+              produtos={produtos}
+              maior={aMaiorDasOutras(todas, categoria)}
+              nome={nome}
+            />
+          )}
+
+          <Resto produtos={resto} nome={nome} quantosNaTela={produtos.length} />
+        </div>
+      </main>
     </>
   )
 }
 
-function EsqueletoLista() {
+/**
+ * Produto sem controle de estoque conta como disponível (é o que o Medusa
+ * entende por `manage_inventory: false`); com controle, precisa ter peça.
+ * "Pronta entrega" fala da GRADE INTEIRA, então um esgotado no meio já
+ * derruba a frase — e é por isso que é `every`, não `some`.
+ */
+function temEstoque(produto: { variants?: unknown }): boolean {
+  const variantes = (produto.variants ?? []) as {
+    manage_inventory?: boolean
+    inventory_quantity?: number
+  }[]
+  return variantes.some((v) => !v.manage_inventory || (v.inventory_quantity ?? 0) > 0)
+}
+
+function Esqueleto() {
   return (
-    <div className="animate-pulse" aria-hidden="true">
-      <div className="h-14 w-56 bg-tinta/10" />
-      <div className="mt-10 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="aspect-[3/4] border-2 border-tinta/20 bg-papel/60" />
-        ))}
+    <main className="catalogo" id="conteudo">
+      <div className="catalogo__wrap animate-pulse" aria-hidden="true">
+        <div className="h-14 w-56 bg-tinta/10" />
+        <div className="catalogo__grade mt-10">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="aspect-[3/4] border-2 border-tinta/20 bg-papel/60" />
+          ))}
+        </div>
       </div>
-    </div>
+    </main>
   )
 }

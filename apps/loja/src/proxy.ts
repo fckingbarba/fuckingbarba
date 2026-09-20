@@ -35,7 +35,17 @@ const rotasAntigas = new Map<string, string>(
  * roteador), então o que segura a peça é o conferidor: `conferir-checkout.mjs`
  * pede `/checkout` e falha se vier 404.
  */
-const PAGINAS_RAIZ = new Set(["privacidade", "trocas", "nao-encontrado", "em-breve", "checkout"])
+const PAGINAS_RAIZ = new Set([
+  "privacidade",
+  "trocas",
+  "nao-encontrado",
+  "em-breve",
+  "checkout",
+  // `/produtos` (a lista inteira). `/produtos/<handle>` tem dois segmentos e
+  // nunca caiu nesta peneira, o que torna o esquecimento aqui especialmente
+  // traiçoeiro: a PDP funcionaria e só a lista daria 404.
+  "produtos",
+])
 const CATEGORIAS = new Set<string>(site.categorias.map((c) => c.handle))
 
 function semBarraFinal(caminho: string): string {

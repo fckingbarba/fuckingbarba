@@ -3,7 +3,6 @@ import Link from "next/link"
 import { Raio } from "@/components/icones"
 import { CartaoProduto } from "@/components/produto/cartao"
 import { listarProdutos } from "@/lib/medusa"
-import { EM_BREVE } from "@/lib/site"
 
 /**
  * A grade de produtos da home, com o mesmo card da faixa de coleção.
@@ -47,8 +46,7 @@ export async function Vitrine() {
         </div>
 
         <div className="vitrine__rodape">
-          {/* Vira /produtos na fase 3, quando houver catálogo pra paginar. */}
-          <Link href={EM_BREVE} className="btn">
+          <Link href="/produtos" className="btn">
             Ver todos os produtos
             <Raio className="btn__bolt" />
           </Link>
