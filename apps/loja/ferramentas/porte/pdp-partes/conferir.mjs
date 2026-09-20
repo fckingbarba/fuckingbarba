@@ -32,6 +32,18 @@ const falha = (m) => {
   console.log("  FALHA " + m)
 }
 
+/*
+  O protótipo tem `scroll-behavior: smooth` no <html>, então scrollTo
+  ANIMA. Medir 500ms depois de mandar voltar pro topo pegava a página no
+  meio do caminho — e a barra fixa "aparecia" numa hora em que ela devia
+  estar escondida. Aqui o salto é instantâneo e a gente espera chegar.
+*/
+async function aoTopo() {
+  await pagina.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }))
+  await pagina.waitForFunction(() => window.scrollY === 0, null, { timeout: 3000 })
+  await pagina.waitForTimeout(350)
+}
+
 const navegador = await chromium.launch()
 const contexto = await navegador.newContext({
   viewport: { width: 1440, height: 1000 },
@@ -211,8 +223,7 @@ console.log("\nBARRA FIXA")
 {
   // os blocos acima rolaram a página (clicar num acordeão traz o alvo
   // pra vista); volta pro topo antes de medir
-  await pagina.evaluate(() => window.scrollTo(0, 0))
-  await pagina.waitForTimeout(500)
+  await aoTopo()
 
   const escondida = await pagina
     .locator("[data-barra]")
@@ -226,8 +237,7 @@ console.log("\nBARRA FIXA")
     .evaluate((b) => getComputedStyle(b).visibility)
   visivel === "visible" ? ok("aparece depois de rolar") : falha("visibility: " + visivel)
 
-  await pagina.evaluate(() => window.scrollTo(0, 0))
-  await pagina.waitForTimeout(500)
+  await aoTopo()
   const sumiu = await pagina.locator("[data-barra]").evaluate((b) => getComputedStyle(b).visibility)
   sumiu === "hidden" ? ok("some ao voltar pro topo") : falha("visibility: " + sumiu)
 }
@@ -241,6 +251,68 @@ console.log("\nESTOQUE")
   ;(await pagina.locator("[data-estoque]").isHidden())
     ? ok("some com estoque folgado")
     : falha("continuou visível")
+}
+
+console.log("\nVÍDEOS")
+{
+  await aoTopo()
+  const tocaveis = await pagina.locator(".videos__item:not([disabled])").count()
+  tocaveis >= 1 ? ok(`${tocaveis} cartaz com vídeo de verdade`) : falha("nenhum cartaz toca")
+
+  const mudos = await pagina.locator(".videos__item[disabled]").count()
+  mudos >= 1
+    ? ok(`${mudos} cartaz "a gravar", sem play e fora do alcance do dedo`)
+    : falha("os cartazes sem vídeo estão fingindo que tocam")
+
+  await pagina.locator(".videos__item:not([disabled])").first().click()
+  const abriu = await pagina.locator("[data-videos-tela]").evaluate((d) => d.open)
+  abriu ? ok("o player abre") : falha("o player não abriu")
+
+  await pagina.keyboard.press("Escape")
+  await pagina.waitForTimeout(300)
+  // src limpo no fechar: sem isso o áudio continua tocando atrás do modal
+  const limpo = await pagina
+    .locator("[data-videos-tela] video")
+    .evaluate((v) => !v.getAttribute("src"))
+  limpo ? ok("Esc fecha e solta o vídeo") : falha("o vídeo continuou carregado depois de fechar")
+}
+
+console.log("\nA DOBRA")
+{
+  /* O defeito mais caro da v1: no celular o "Adicionar à sacola" nascia
+     500px abaixo da primeira tela. Aqui o número fica preso — se alguém
+     acrescentar um bloco antes do botão, o teste avisa antes do cliente. */
+  for (const [nome, w, h, exige] of [
+    ["celular 390x844", 390, 844, true],
+    ["pixel 412x915", 412, 915, true],
+    ["desktop 1440x900", 1440, 900, true],
+    ["iPhone SE 360x667", 360, 667, false],
+  ]) {
+    await pagina.setViewportSize({ width: w, height: h })
+    await aoTopo()
+    const m = await pagina.evaluate(() => {
+      const b = document.querySelector("[data-pdp-comprar]")
+      const p = document.querySelector(".compra__precos")
+      return {
+        botao: Math.round(b.getBoundingClientRect().top),
+        preco: Math.round(p.getBoundingClientRect().top),
+        tela: window.innerHeight,
+      }
+    })
+    const cabe = m.botao < m.tela
+    if (exige) {
+      cabe
+        ? ok(`${nome}: comprar na primeira tela (y=${m.botao})`)
+        : falha(`${nome}: comprar ${m.botao - m.tela}px fora da primeira tela`)
+    } else {
+      // tela curta demais pro botão caber: o mínimo é o PREÇO aparecer,
+      // e a barra fixa assume o resto
+      m.preco < m.tela
+        ? ok(`${nome}: preço na primeira tela (y=${m.preco}); botão fica pra barra fixa`)
+        : falha(`${nome}: nem o preço aparece (y=${m.preco})`)
+    }
+  }
+  await pagina.setViewportSize({ width: 1440, height: 1000 })
 }
 
 console.log("\nLARGURA")

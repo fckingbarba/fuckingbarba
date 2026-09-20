@@ -70,15 +70,15 @@ Os limites do recorte são achados por marcador de texto, não por número de li
 mudar de forma a ponto de um marcador sumir, o script **para e diz qual** em vez de gerar um
 arquivo torto.
 
-| arquivo                   | o que é                                                      |
-| ------------------------- | ------------------------------------------------------------ |
-| `pdp-partes/cabeca.html`  | `<title>`, description e og: da página de produto            |
-| `pdp-partes/estilo.css`   | o CSS só da PDP, colado antes do `</style>` da home          |
-| `pdp-partes/corpo.html`   | o miolo do `<main>`, no lugar das seções da home             |
-| `pdp-partes/roteiro.js`   | galeria, kit, quantidade, frete, rotina, barra fixa, estoque |
-| `pdp-partes/monta.py`     | junta tudo                                                   |
-| `pdp-partes/conferir.mjs` | roda a página num navegador de verdade                       |
-| `pdp-partes/largura.mjs`  | acha o elemento que estoura a largura no celular             |
+| arquivo                   | o que é                                                              |
+| ------------------------- | -------------------------------------------------------------------- |
+| `pdp-partes/cabeca.html`  | `<title>`, description e og: da página de produto                    |
+| `pdp-partes/estilo.css`   | o CSS só da PDP, colado antes do `</style>` da home                  |
+| `pdp-partes/corpo.html`   | o miolo do `<main>`, no lugar das seções da home                     |
+| `pdp-partes/roteiro.js`   | galeria, kit, quantidade, frete, rotina, vídeos, barra fixa, estoque |
+| `pdp-partes/monta.py`     | junta tudo                                                           |
+| `pdp-partes/conferir.mjs` | roda a página num navegador de verdade                               |
+| `pdp-partes/largura.mjs`  | acha o elemento que estoura a largura no celular                     |
 
 O `conferir.mjs` existe porque três defeitos passaram pela leitura do código e só apareceram
 no navegador:
@@ -94,3 +94,40 @@ none }`, e qualquer `display: flex` nosso, mais específico, passa por cima. O J
 
 Os três viraram teste. O script também falha se sobrar bloco de revelar-ao-rolar sem revelar
 na hora da foto — sem isso a foto sai com buraco e a gente "conserta" um layout que está certo.
+
+### A dobra tem número, e o número está no teste
+
+A primeira versão gastava a tela inteira com a foto: no celular, o
+"Adicionar à sacola" nascia em y=1347 numa tela de 844 — meia tela de
+rolagem antes de saber como comprar. A v2 põe o nome antes da foto, dá
+teto de altura (em `vh`) pra imagem, troca as miniaturas por pontinhos,
+põe os kits lado a lado e encolhe a etiqueta de economia. Botão em y=839.
+
+Esses números viraram teste em `conferir.mjs`, seção "A DOBRA": se alguém
+acrescentar um bloco antes do botão, o script reclama antes do cliente.
+Em tela curta (iPhone SE, notebook de 720px) o botão não cabe sem destruir
+o seletor de kits, e aí a exigência é outra — o **preço** tem que
+aparecer, e a barra fixa assume o resto.
+
+### Três armadilhas de CSS que este protótipo já pagou
+
+- **Ordem no arquivo ganha de media query.** O teto de altura da foto
+  estava escrito antes da regra que ele precisava vencer. Media query não
+  soma especificidade: quem decide é quem vem depois.
+- **`min-width: auto` sobe pela árvore.** A fita de vídeos tem 4 cartazes
+  de 96px; esses 408px de min-content viraram a largura da coluna inteira
+  e o celular ganhou rolagem lateral. `overflow-x` na fita não resolve —
+  quem precisa de `min-width: 0` é a corrente de ancestrais.
+- **Grid transforma cada filho em célula.** Um `<strong>` solto no meio de
+  uma frase, dentro de um `<li>` de duas colunas, vira célula própria e
+  cai por cima do número do passo.
+
+### Por que o teste rola a página antes de fotografar
+
+`fullPage: true` não rola de verdade, e metade das seções só aparece
+quando entra na tela (o revelar da home vale aqui também). Sem o passeio,
+a foto sai com buraco — e aí a gente "conserta" um layout que está certo.
+O `<html>` também tem `scroll-behavior: smooth`, então voltar ao topo
+**anima**: medir cedo demais pegava a página no meio do caminho e a barra
+fixa aparecia numa hora em que devia estar escondida. Por isso o helper
+`aoTopo()` salta com `behavior: "instant"` e espera `scrollY === 0`.

@@ -493,3 +493,54 @@
   };
 })();
 </script>
+
+<script>
+/* ============================================================
+   PDP — VÍDEOS
+
+   Mesmo <dialog> da galeria: foco preso, Esc fecha, sem
+   biblioteca. O src só é atribuído na hora de abrir e é limpo
+   ao fechar — assim a página não baixa quatro vídeos que
+   ninguém pediu, e o som não continua tocando atrás do modal
+   quando o cliente fecha no meio.
+   ============================================================ */
+(function () {
+  var raiz = document.querySelector('[data-videos]');
+  if (!raiz) return;
+
+  var tela  = raiz.querySelector('[data-videos-tela]');
+  var video = tela && tela.querySelector('video');
+  var sai   = tela && tela.querySelector('[data-videos-fecha]');
+
+  if (!tela || !video || typeof tela.showModal !== 'function') {
+    // navegador sem <dialog>: os cartazes deixam de fingir que abrem
+    [].forEach.call(raiz.querySelectorAll('.videos__item'), function (b) {
+      b.disabled = true;
+    });
+    return;
+  }
+
+  function fechar() {
+    video.pause();
+    video.removeAttribute('src');
+    video.load();          // solta o buffer; sem isto o Chrome segura o arquivo
+    if (tela.open) tela.close();
+  }
+
+  raiz.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('.videos__item');
+    if (!b || b.disabled) return;
+    var src = b.getAttribute('data-video');
+    if (!src) return;
+    video.src = src;
+    tela.showModal();
+    var p = video.play();
+    // autoplay com som bloqueado não é erro: o controle está à vista
+    if (p && p.catch) p.catch(function () {});
+  });
+
+  if (sai) sai.addEventListener('click', fechar);
+  tela.addEventListener('click', function (e) { if (e.target === tela) fechar(); });
+  tela.addEventListener('close', fechar);
+})();
+</script>

@@ -56,6 +56,29 @@
   <div class="pdp__wrap">
 
     <!-- ---------------------------------------------------------------
+         CABEÇA — nome e categoria.
+
+         Fica FORA da coluna de compra de propósito. No celular ela sobe
+         pra antes da foto: o cliente precisa saber o que é isso antes de
+         olhar a embalagem, e cada pixel gasto antes do preço empurra o
+         botão de comprar pra fora da primeira tela. No desktop o grid
+         devolve ela pro alto da coluna da direita, onde sempre esteve.
+         A ordem do HTML é a do celular — quem navega por teclado ou
+         leitor de tela ouve na mesma ordem que o celular mostra.
+         --------------------------------------------------------------- -->
+    <div class="pdp__cabeca">
+      <p class="compra__chapeu">
+        <b><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg> Tratamento</b>
+        <span>Barba</span>
+        <span class="compra__sku">SKU FBFCB01</span>
+      </p>
+
+      <h1 class="compra__nome" id="produto-nome" itemprop="name">Fator de Crescimento para Barba 30&nbsp;ml</h1>
+
+      <p class="compra__resumo" itemprop="description">Mais crescimento, mais densidade, menos falha. Uso diário, direto na pele.</p>
+    </div>
+
+    <!-- ---------------------------------------------------------------
          GALERIA
          Duas fotos é o que o catálogo tem hoje. A estrutura aguenta
          quantas você mandar — o JS lê as miniaturas, não um número fixo.
@@ -155,25 +178,12 @@
          --------------------------------------------------------------- -->
     <div class="compra">
 
-      <p class="compra__chapeu">
-        <b><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg> Tratamento</b>
-        <span>Barba</span>
-        <span class="compra__sku">SKU FBFCB01</span>
-      </p>
-
-      <h1 class="compra__nome" id="produto-nome" itemprop="name">Fator de Crescimento para Barba 30&nbsp;ml</h1>
-
-      <p class="compra__resumo" itemprop="description">Mais crescimento, mais densidade, menos falha. Uso diário, direto na pele.</p>
-
       <!-- AVALIAÇÃO
            Fica assim, vazio, até existir review de verdade no banco.
            Estrela inventada é art. 37 do CDC (propaganda enganosa) e o
            Google derruba o rich snippet da loja inteira quando pega.
            Quando houver review, troque este <p> pelo bloco comentado
            logo abaixo — o CSS dos dois já está pronto. -->
-      <p class="compra__sem-nota">
-        Sem avaliação por aqui ainda. <a href="#avaliacoes">Comprou? conta como foi</a> — a primeira ajuda o próximo.
-      </p>
       <!--
       <p class="compra__nota" itemprop="aggregateRating" itemscope itemtype="https://schema.org/AggregateRating">
         <meta itemprop="ratingValue" content="4.8"><meta itemprop="reviewCount" content="128"><meta itemprop="bestRating" content="5">
@@ -192,6 +202,40 @@
         <link itemprop="availability" href="https://schema.org/InStock">
         <meta itemprop="itemCondition" content="https://schema.org/NewCondition">
 
+        <!-- O Google só monta a ficha de produto completa (com selo de
+             frete e devolução no resultado de busca) quando o Offer traz
+             hasMerchantReturnPolicy e shippingDetails. Sem isso o Search
+             Console acusa "campo ausente" e a ficha sai crua.
+
+             A devolução abaixo é a do art. 49 do CDC: 7 dias corridos de
+             arrependimento, que valem pra toda compra pela internet e
+             não dependem de política sua. SE a sua garantia for maior,
+             troque o número aqui e na pergunta "e se não funcionar
+             comigo?" no FAQ, junto. -->
+        <div itemprop="hasMerchantReturnPolicy" itemscope itemtype="https://schema.org/MerchantReturnPolicy">
+          <meta itemprop="applicableCountry" content="BR">
+          <link itemprop="returnPolicyCategory" href="https://schema.org/MerchantReturnFiniteReturnWindow">
+          <meta itemprop="merchantReturnDays" content="7">
+          <link itemprop="returnMethod" href="https://schema.org/ReturnByMail">
+          <link itemprop="returnFees" href="https://schema.org/FreeReturn">
+        </div>
+
+        <!-- >>> shippingDetails fica de fora até o Frenet estar ligado.
+             Declarar um frete fixo aqui faria o Google mostrar um valor
+             no resultado de busca que o checkout não vai cobrar — e aí
+             a reclamação chega antes do pedido. Quando a tabela real
+             existir, é um bloco assim, um por faixa de destino:
+
+             <div itemprop="shippingDetails" itemscope itemtype="https://schema.org/OfferShippingDetails">
+               <div itemprop="shippingRate" itemscope itemtype="https://schema.org/MonetaryAmount">
+                 <meta itemprop="value" content="14.90"><meta itemprop="currency" content="BRL">
+               </div>
+               <div itemprop="shippingDestination" itemscope itemtype="https://schema.org/DefinedRegion">
+                 <meta itemprop="addressCountry" content="BR">
+               </div>
+             </div>
+        -->
+
         <p class="compra__precos">
           <span class="compra__de">R$&nbsp;133,20</span>
           <span class="compra__por" data-preco-grande>R$&nbsp;79,90</span>
@@ -201,13 +245,13 @@
           </span>
         </p>
 
+        <!-- Uma linha, não duas: no celular cada linha aqui empurra o
+             botão de comprar 20px pra baixo, e ele já estava 500px fora
+             da primeira tela. SE for dar desconto no Pix, é aqui — mas
+             o número tem que sair do Medusa, porque muda o `price` que
+             o Google indexa. -->
         <p class="compra__pagamento-linha">
-          <b data-parcela>3x de R$ 26,63</b> sem juros no cartão
-          <br>ou <b>R$ 79,90</b> no Pix
-          <!-- SE for dar desconto no Pix, é aqui. Deixei sem, porque
-               desconto no Pix é decisão sua de margem e muda o preço
-               que o Google indexa (schema:price). Quando decidir, o
-               número precisa sair do Medusa, não daqui. -->
+          <b data-parcela>3x de R$ 26,63</b> sem juros · ou à vista no Pix
         </p>
       </div>
 
@@ -242,9 +286,10 @@
           <label class="compra__kit">
             <input type="radio" name="kit" value="1" data-preco="79.90" data-unidades="1"
                    data-id="fator-1x" data-nome="Fator de Crescimento 30 ml" checked>
+            <span class="compra__kit-fita">Pra experimentar</span>
             <span>
               <span class="compra__kit-nome">1 frasco</span>
-              <span class="compra__kit-abaixo">Pra testar. Cobre cerca de 1 mês de uso.</span>
+              <span class="compra__kit-abaixo">Cobre cerca de 1 mês de uso.</span>
             </span>
             <span class="compra__kit-preco">R$&nbsp;79,90</span>
           </label>
@@ -284,6 +329,14 @@
           </label>
 
         </div>
+
+        <!-- No celular os cartões ficam lado a lado e o texto de dentro
+             deles sai (três blocos de duas linhas em paralelo ninguém
+             lê). A explicação vira esta linha, que só existe abaixo de
+             720px. -->
+        <p class="compra__kits-nota">
+          <b>2</b> fecham o frete grátis. <b>3</b> cobrem os 90 dias.
+        </p>
       </fieldset>
 
       <div class="compra__acao">
@@ -303,6 +356,15 @@
           <svg class="btn__icone" viewBox="0 0 24 24" aria-hidden="true"><path d="M1.4 2.6h3.9l3.5 13.9h11.3v2.2H7.1L3.6 4.8H1.4z"/><path d="M6.1 6.4h13.6l2.5 2.5-2 5.6H9.5L8.1 13z"/><path d="M9 19.3h2.3v2.3l-.9.9H8.1v-2.3z"/><path d="M17.6 19.3h2.3v2.3l-.9.9h-2.3v-2.3z"/></svg>
         </a>
       </div>
+
+      <!-- A frase de risco zero mora ENCOSTADA no botão, não lá embaixo
+           com as outras garantias. É no segundo entre decidir e clicar
+           que o cliente pensa "e se não funcionar" — a resposta tem que
+           estar onde o olho já está. -->
+      <p class="compra__risco">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.15 19.55 1.75 12.15l1.6-1.6h2.5l3.3 3.3 8.5-8.5h2.5l1.6 1.6z"/></svg>
+        <span>Barba na cara ou sua grana de volta. Não funcionou, devolve.</span>
+      </p>
 
       <!-- ESCASSEZ
            Este parágrafo só pode existir quando o número for o estoque
@@ -376,6 +438,101 @@
         <li>Pix</li>
         <li>Boleto</li>
       </ul>
+
+      <!-- ---------------------------------------------------------
+           VÍDEOS — a fita curtinha, aqui do lado das bandeiras.
+
+           Esse é o formato que o cliente já sabe usar sem instrução:
+           é o mesmo do story. Vertical, curto, com legenda queimada
+           (metade das pessoas assiste sem som).
+
+           E, no caso DESTE produto, vídeo não é enfeite: é a única
+           prova que a página consegue ter enquanto não existe
+           avaliação. Ver a textura saindo do frasco e o rótulo de
+           perto responde três objeções que texto nenhum responde.
+
+           O QUE GRAVAR (celular na mão serve, luz de janela serve):
+             1. Como aplicar .... 20-30s, mão espalhando na pele, sem
+                música, legenda dizendo "1 a 2x por dia, não enxágua"
+             2. A textura ....... 10-15s, close do frasco pingando.
+                É o vídeo que mais retém: todo mundo quer ver se é
+                oleoso antes de passar na cara
+             3. Dia 0 → dia 90 .. mesma pessoa, mesmo ângulo, mesma
+                luz, sem filtro, com AUTORIZAÇÃO DE USO assinada. Sem
+                os quatro, não sobe (ver o comentário da galeria)
+             4. O rótulo ........ 10s girando o frasco, lendo
+                composição e validade. Parece bobo e é o que mais
+                converte cético em cosmético
+
+           O primeiro cartaz abre um vídeo de exemplo, só pra você ver
+           o player funcionando. Os outros três estão desligados de
+           propósito — cartaz com play que não toca é pior que cartaz
+           nenhum.
+           --------------------------------------------------------- -->
+      <section class="videos" aria-labelledby="videos-titulo" data-videos>
+        <h2 class="videos__titulo" id="videos-titulo">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
+          Vê na prática
+        </h2>
+
+        <ul class="videos__fita">
+        <li>
+          <button type="button" class="videos__item"
+                  data-video="data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAATkbW9vdgAAAGxtdmhkAAAAAAAAAAAAAAAAAAAD6AAAC7gAAQAAAQAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAABA50cmFrAAAAXHRraGQAAAADAAAAAAAAAAAAAAABAAAAAAAAC7gAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAWgAAAKAAAAAAAAkZWR0cwAAABxlbHN0AAAAAAAAAAEAAAu4AAAIAAABAAAAAAOGbWRpYQAAACBtZGhkAAAAAAAAAAAAAAAAAAAwAAAAkABVxAAAAAAALWhkbHIAAAAAAAAAAHZpZGUAAAAAAAAAAAAAAABWaWRlb0hhbmRsZXIAAAADMW1pbmYAAAAUdm1oZAAAAAEAAAAAAAAAAAAAACRkaW5mAAAAHGRyZWYAAAAAAAAAAQAAAAx1cmwgAAAAAQAAAvFzdGJsAAAAwXN0c2QAAAAAAAAAAQAAALFhdmMxAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAWgCgABIAAAASAAAAAAAAAABFUxhdmM2MC4zMS4xMDIgbGlieDI2NAAAAAAAAAAAAAAAGP//AAAAN2F2Y0MBZAAW/+EAGmdkABas2UFwUeXwEQAAAwABAAADABgPFi2WAQAGaOvghLIs/fj4AAAAABBwYXNwAAAAAQAAAAEAAAAUYnRydAAAAAAAACxKAAAsSgAAABhzdHRzAAAAAAAAAAEAAAAkAAAEAAAAABRzdHNzAAAAAAAAAAEAAAABAAABKGN0dHMAAAAAAAAAIwAAAAEAAAgAAAAAAQAAFAAAAAABAAAIAAAAAAEAAAAAAAAAAQAABAAAAAABAAAUAAAAAAEAAAgAAAAAAQAAAAAAAAABAAAEAAAAAAEAABQAAAAAAQAACAAAAAABAAAAAAAAAAEAAAQAAAAAAQAAFAAAAAABAAAIAAAAAAEAAAAAAAAAAQAABAAAAAABAAAUAAAAAAEAAAgAAAAAAQAAAAAAAAABAAAEAAAAAAEAABQAAAAAAQAACAAAAAABAAAAAAAAAAEAAAQAAAAAAQAAFAAAAAABAAAIAAAAAAEAAAAAAAAAAQAABAAAAAABAAAUAAAAAAEAAAgAAAAAAQAAAAAAAAABAAAEAAAAAAEAABAAAAAAAgAABAAAAAAcc3RzYwAAAAAAAAABAAAAAQAAACQAAAABAAAApHN0c3oAAAAAAAAAAAAAACQAAA30AAAALQAAABYAAAATAAAAEQAAABYAAAASAAAAEQAAABEAAAAWAAAAEgAAABEAAAARAAAAFgAAABIAAAARAAAAEQAAABYAAAASAAAAEQAAABEAAAAWAAAAEgAAABEAAAARAAAAFgAAABIAAAARAAAAEQAAABYAAAASAAAAEQAAABEAAAAXAAAAEwAAABEAAAAUc3RjbwAAAAAAAAABAAAFFAAAAGJ1ZHRhAAAAWm1ldGEAAAAAAAAAIWhkbHIAAAAAAAAAAG1kaXJhcHBsAAAAAAAAAAAAAAAALWlsc3QAAAAlqXRvbwAAAB1kYXRhAAAAAQAAAABMYXZmNjAuMTYuMTAwAAAACGZyZWUAABCkbWRhdAAAAq4GBf//qtxF6b3m2Ui3lizYINkj7u94MjY0IC0gY29yZSAxNjQgcjMxMDggMzFlMTlmOSAtIEguMjY0L01QRUctNCBBVkMgY29kZWMgLSBDb3B5bGVmdCAyMDAzLTIwMjMgLSBodHRwOi8vd3d3LnZpZGVvbGFuLm9yZy94MjY0Lmh0bWwgLSBvcHRpb25zOiBjYWJhYz0xIHJlZj0zIGRlYmxvY2s9MTowOjAgYW5hbHlzZT0weDM6MHgxMTMgbWU9aGV4IHN1Ym1lPTcgcHN5PTEgcHN5X3JkPTEuMDA6MC4wMCBtaXhlZF9yZWY9MSBtZV9yYW5nZT0xNiBjaHJvbWFfbWU9MSB0cmVsbGlzPTEgOHg4ZGN0PTEgY3FtPTAgZGVhZHpvbmU9MjEsMTEgZmFzdF9wc2tpcD0xIGNocm9tYV9xcF9vZmZzZXQ9LTIgdGhyZWFkcz0zIGxvb2thaGVhZF90aHJlYWRzPTEgc2xpY2VkX3RocmVhZHM9MCBucj0wIGRlY2ltYXRlPTEgaW50ZXJsYWNlZD0wIGJsdXJheV9jb21wYXQ9MCBjb25zdHJhaW5lZF9pbnRyYT0wIGJmcmFtZXM9MyBiX3B5cmFtaWQ9MiBiX2FkYXB0PTEgYl9iaWFzPTAgZGlyZWN0PTEgd2VpZ2h0Yj0xIG9wZW5fZ29wPTAgd2VpZ2h0cD0yIGtleWludD0yNTAga2V5aW50X21pbj0xMiBzY2VuZWN1dD00MCBpbnRyYV9yZWZyZXNoPTAgcmNfbG9va2FoZWFkPTQwIHJjPWNyZiBtYnRyZWU9MSBjcmY9MzQuMCBxY29tcD0wLjYwIHFwbWluPTAgcXBtYXg9NjkgcXBzdGVwPTQgaXBfcmF0aW89MS40MCBhcT0xOjEuMDAAgAAACz5liIQAV/QtS8CT5eH8EVo4skoDrFF+X1QAABUxgADZCbtYuV85DOAHdsMexMpVWtYaAIKAKpDyR2NynR4+AAwhZbWTPUM4ynojWsyuNaSAIM7mek/E9WjEZOa6EluTdzGiGy8rFz+98R8im6I58L6GOVM7EabkB6p5Gcf+ZFvAK8+6RgCjvwCOjtgHt9rS8q9ZIiNOmHfba65xCcT8iZSdi2aFrtU24RMhuB9mXVj/VZC/EfHTh1KEEQNPhrUgAxkg7wb3Mzt23oLZKPIo6H6n7uwpX8x1zqqhqSDaAx2bgsY0HfC/dyr9k+DVYqiug0sa6k4Ql5AUzo/4oIV0e7/RvvhaFhnXnTiOXl09/LsMLp+vSlMjAfWfqFt59xS+uQhq8FulUzTQGGTAY2ht4vdZwu/JlTpxlyYP8RNKzjhDljiT+nVMv5u9dCAtZLYerd/cuRsVYQPNb4m1GBi+UKnJJUPvIIKM0+r01Z0o+dB35T4yYAuQaYibb2cQRHcKHxl+ojFYxW9W7q4SNgkFeuiBMTs1QQRs2On7jFlqDE+dfjK0KEs6Hb5T67mdfAoWWbhyBsSK2pRLfGR7Z2vXZ0gtUAIG/3Jeoo/6u4wty6Nn57IHdyC6Ntwqj+Bx7CBNFQ51qY4ktsSnOVl69WzsVWU8mYrWtr8FaWsLXDjST+5lWVvdclX8IeA3+GxDjJt9oHbRmE+y8s2n11XlspUhMfXRhvst5s+eIvOFO4G1uFIzyavfvXrr6Pah18JQP4cYVuIRgBFwSmcnZpApcOaxnhKPTUu3omCL93Opl2fQO425qwAjjNoI8+VmVw9XulzjzSbqxEPhJiKWpbd7sBGcAddO06aRWkgtNe1sQMiOcylG1FrlGovgR4ZSybDH2ViRseqJiUV9QGXonHEk6mAyu+3mo03IguDOBKlg8k4F6fcY0hkrDYRRaZk3BPxgsjdMf2URCxhqDZFZku9Ary+1RdcVHGVKWEL9opcvN6PALG7+CO8xCSijdqKgf8Ccwbvv9AKfnu6p5Xm6WZrFcYBqxs3NmZWtszXbZ1NqpzaH9cbm+kdK+dT/gzC7QAXGxmF4eVWD8Ds8scN4rFB6WocMz2qFvoCEQ2t+UdHyqbnnn5e1NkhzrfFc176TNlS/8uv7yvExWitrHTY9kjX4VdySrkUjdcOicyDIC0fDwLL5+kwU1zoMbpwqhV/cUKryB1K20yHZFMPt3yurlegcZ7RxCoOwkC3HedAaaO+Ch/vZy4tiPMR/0g9QzdMwITTZ8vtgFWDqoMVEDqrHSnhcWHnZ+gRUKpQe0d0ACpNGV8VZGAozU+RKEJ/3BzwRjhSUIw8HHyAoDWbcLsMx7idiDizOnpMcAO6+qrSLN4DZsG4xMdzHuOmU3r7nBM5JmyU1cUH8IzjrM/9P9ROfwaOaJSNqIaklGqzocQ1rTBq/dJ0fNxhU7cueQ/iHriWGv6TWzT+UxgM1BZVcbqc1rsI4v+JwyV1Bt9EYs8dEWlMPsCUrUMvxbuYBMqaLRRbwPGKxMM7nIbsLnE27Sk2l14/+zT5B3ZTA6cu85RmNUagVyavrONqnX3EL4is2iSsUDEkAV2qj/zO4E4phNw/Npc+lovBZJdLwDirecKGcyEAf0bwpR6Y5TR4b8igbomkWb9Io3JlO2MSJXB1y8RekvxQuPlTvc8ZelDwJecN7xzYeMX5kd6m3TzKvOTzKXFLEBGHlNeutyP4GuVDrcjKUrc7ySq0DSY2uJzL9KpUlU5sY3ZWXb5taQEUi+KGLFT0F/6D4Uy/eytOUqihqWoFPOT+LF1uBtwIukZcfZsMiTv93FEGSK20Si4TC24/hcas44on7N3qB6GdirvSKQo8vWP5M7OlY6wlHJ+sEOekyYQGCvDei0Ja7Gyefnc0F098AvXDhUSJWLuZ0Oo/TiNj/3uFg9D5mI4QmGgub8oRTtStlu5bL+b61gXr9cZu9U6kQU6jEpnPXjdWfiBwjLLMmzXijFSJt4ppmUIlX92AXhrmturxKh08ZOCj0/STaeufP64vEjxoAh8fGzKKFuI+8JkFT4L1ke7TqstGRvqNOfSzVEpOppE20LOpZWQg+KpMunATSGoseQ5lAu/Oq7dY0l/XeXmBp09T6NvniEJbtKvpyw7VXrqwRdypNhCH060rlcpXNH2TBJwqE1mzRkP6kFTA4U8/5YOxf9qFNqNtCQzxU2OccIau+DvqDZERht9nPglzYB1NiwSdbEy9ND2MBImBHCj7dZOjSbd3vChKNIWIFGV42HQqxuZxMEuYcZv1Dnwjzgb9O6yiX9MlWO7UZuw7go2wyLX0GImXI/BAl7n95bzBBM6EUXC3w6I8cLejLzcIwb1HUSoBn6GZDDjP72btdJPjJm54DZhMeo7HhO17Tg0/AStSq1M1t7XZuQYZet61+vUynT+HxGeBLKWS90o4JkOVY+0Btz7c2bFjUWlcz0xSSG+ME+ok/TSScBaopSqAFFWiUadVIc6B+mQdey6wl0KsmS4ENH2XQ+wOZhsBi+vweBfrLN03K+gnwoNvdXqgViiAH8U4UA968wHA5gpWYyyGub5UXK5zxn01aBMRzRzAgPU29RgaRFrowBjS1rwQlceytRLnto/OixrcHhj6fH47hcDLMgzMMR/uXJkdqFI7rUtjN6oUzENRiMm1Y/uCIiYKlGBCYSl18eiJsuGSeDATrKLWmQQhvg52mR3C7Ox7hIVXyVADxyGT1zWwYF6bIihpkb+5QbBdB8iixSq+uv3JOLEt/QSHS9ISauinJ9Zb6RuZwpKsPw/L8l+u1xgBQe2Bn8miShLV5rihM5GzbeOv3MMzRyqJJ/CILgXlt/w4H7GgN+zzRNr6Gbdq5CImzqQ3ntCvGCH///xSelxzYfLbm5xyDxHudoNynIPWnAl94GjaRGx29GJyf1RAyVaFzSPmCa9XxAjQhUx+Mu103GkmSERDMV/mfZX8U7bjKO+PCnulOcRAtW7yNDNXjxSYq/hI6dGvrREdlFDodUlezU5s1w7k0GYbXRuvrdbgfWEQPJrHFeGuZl5HVYrGJhknexEQLrnPCKzH9HJNpDpaCK+/PwafMQ8phEZx0EJ+31InZtFS8ABLJurmVw3+vpv1PBONf9wMW4bErBfVtQE1PSM486dJ/XWjRtepzBGNZFwk3bLC5Wy+/T/99d1kCuH0qFJDqDqwA2XktXGkspA3quohEX46PoXgj515Zgm2tMYViWTGzpJqmEItubevoFHXjN78MsduOx35KwdkUHviHCgjmjv+vgs93//669gD1IUYKRjx59jTAKw4Xi+Ban1klKeCm50II9VYIHoJJlrstT2BzUUL8ZJYrothBL3TWMg9CskUkSAzXxmz7cPQFQUlSeSLaw6pi9Al4y0gQ+acmpwxGuMSqoYmTdb/aTrHMB8RCO/U/HquPSrAz+B0QTUH1T8lRrcV/2nXUfJDPeDVCzVnHd2LpWXzjD22EBJfMMtPF9ujmScqi5q0Db5F4g1zBmhstnctcbqXQkjB4Z4EcSrklytOq9LdF4CDwq1cvUQhMJuAVpZPn2rEnUm48M6aMJQpxW115izcCtP6dlre8GO6IrE/KXJ3nFXQa38Cl+BDgm2XrKjAlz7Y3OVQn8P/To81q6cPt0FFp1DoCEGxSmNSVnRnL4vQYm5Cd0ARBHaB7ztAFfHtOE0kdBRuGjz8EGzEjd7dbIBlzAD6De9s5+nRu4TtFOU6+/912lsEd9Ts1yQOu6Q7JpwlZvBRv8bWlGgxdoSox0VDTmgAEewG32bew7jjOAAADAAADAAADAAADAAADAAADAAADAAADAAADACRhAAAAKUGaJGxFfwAA4tpVDcE0sJitKEQgTKg13qAhamdTVfUTkPbD2PAAABBwAAAAEkGeQniO/wAD1EegoOgAAAMDUwAAAA8BnmF0Ql8ABARsoyAAAQMAAAANAZ5jakJfAAADAAA1IQAAABJBmmhJqEFomUwIrwAAAwAAC2kAAAAOQZ6GRREsdwAAAwAAMqEAAAANAZ6ldEJfAAADAAA1IQAAAA0BnqdqQl8AAAMAADUgAAAAEkGarEmoQWyZTAivAAADAAALaAAAAA5BnspFFSx3AAADAAAyoQAAAA0Bnul0Ql8AAAMAADUgAAAADQGe62pCXwAAAwAANSAAAAASQZrwSahBbJlMCK8AAAMAAAtpAAAADkGfDkUVLHcAAAMAADKhAAAADQGfLXRCXwAAAwAANSEAAAANAZ8vakJfAAADAAA1IAAAABJBmzRJqEFsmUwIrwAAAwAAC2gAAAAOQZ9SRRUsdwAAAwAAMqEAAAANAZ9xdEJfAAADAAA1IAAAAA0Bn3NqQl8AAAMAADUgAAAAEkGbeEmoQWyZTAivAAADAAALaQAAAA5Bn5ZFFSx3AAADAAAyoAAAAA0Bn7V0Ql8AAAMAADUhAAAADQGft2pCXwAAAwAANSEAAAASQZu8SahBbJlMCK8AAAMAAAtoAAAADkGf2kUVLHcAAAMAADKhAAAADQGf+XRCXwAAAwAANSAAAAANAZ/7akJfAAADAAA1IQAAABJBm+BJqEFsmUwI7wAAAwAADukAAAAOQZ4eRRUsdwAAAwAAMqAAAAANAZ49dEJfAAADAAA1IAAAAA0Bnj9qQl8AAAMAADUhAAAAE0GaI0moQWyZTAhL/wAAAwAAFTAAAAAPQZ5BRRUsIf8AAAMAADPhAAAADQGeYmpCXwAAAwAANSA="
+                  aria-label="Ver vídeo: Como aplicar">
+            <img src='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 640"><rect width="360" height="640" fill="%2312181f"/><rect x="0" y="0" width="360" height="8" fill="%23ffd84d"/><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z" fill="%23ffd84d" transform="translate(132 190) scale(4)"/><text x="180" y="330" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="28" font-weight="bold" fill="%23ffffff">Como</text><text x="180" y="370" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="28" font-weight="bold" fill="%23ffffff">aplicar</text></svg>' alt="" width="360" height="640" loading="lazy">
+            <span class="videos__play" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M6 3.5 20 12 6 20.5z"/></svg>
+            </span>
+            <span class="videos__rotulo">Como aplicar<b>0:24</b></span>
+          </button>
+        </li>
+        <li>
+          <button type="button" class="videos__item" disabled
+                  data-video=""
+                  aria-label="A textura saindo do frasco — vídeo ainda não gravado">
+            <img src='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 640"><rect width="360" height="640" fill="%2312181f"/><rect x="0" y="0" width="360" height="8" fill="%23ffd84d"/><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z" fill="%23ffd84d" transform="translate(132 190) scale(4)"/><text x="180" y="330" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="28" font-weight="bold" fill="%23ffffff">A</text><text x="180" y="370" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="28" font-weight="bold" fill="%23ffffff">textura</text><text x="180" y="470" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="20" fill="%23808b9c">a gravar</text></svg>' alt="" width="360" height="640" loading="lazy">
+            <span class="videos__play" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M6 3.5 20 12 6 20.5z"/></svg>
+            </span>
+            <span class="videos__rotulo">A textura<b>a gravar</b></span>
+          </button>
+        </li>
+        <li>
+          <button type="button" class="videos__item" disabled
+                  data-video=""
+                  aria-label="Dia 0 e dia 90, mesma pessoa — vídeo ainda não gravado">
+            <img src='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 640"><rect width="360" height="640" fill="%2312181f"/><rect x="0" y="0" width="360" height="8" fill="%23ffd84d"/><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z" fill="%23ffd84d" transform="translate(132 190) scale(4)"/><text x="180" y="330" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="28" font-weight="bold" fill="%23ffffff">Dia 0 →</text><text x="180" y="370" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="28" font-weight="bold" fill="%23ffffff">dia 90</text><text x="180" y="470" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="20" fill="%23808b9c">a gravar</text></svg>' alt="" width="360" height="640" loading="lazy">
+            <span class="videos__play" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M6 3.5 20 12 6 20.5z"/></svg>
+            </span>
+            <span class="videos__rotulo">Dia 0 → dia 90<b>a gravar</b></span>
+          </button>
+        </li>
+        <li>
+          <button type="button" class="videos__item" disabled
+                  data-video=""
+                  aria-label="O rótulo de perto — vídeo ainda não gravado">
+            <img src='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 640"><rect width="360" height="640" fill="%2312181f"/><rect x="0" y="0" width="360" height="8" fill="%23ffd84d"/><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z" fill="%23ffd84d" transform="translate(132 190) scale(4)"/><text x="180" y="330" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="28" font-weight="bold" fill="%23ffffff">O rótulo</text><text x="180" y="370" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="28" font-weight="bold" fill="%23ffffff">de perto</text><text x="180" y="470" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="20" fill="%23808b9c">a gravar</text></svg>' alt="" width="360" height="640" loading="lazy">
+            <span class="videos__play" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M6 3.5 20 12 6 20.5z"/></svg>
+            </span>
+            <span class="videos__rotulo">O rótulo de perto<b>a gravar</b></span>
+          </button>
+        </li>
+        </ul>
+
+        <dialog class="videos__tela" data-videos-tela aria-label="Vídeo do produto">
+          <button type="button" class="galeria__zoom-fecha" data-videos-fecha aria-label="Fechar">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.2 3.6 12 10.4l6.8-6.8 1.6 1.6L13.6 12l6.8 6.8-1.6 1.6L12 13.6l-6.8 6.8-1.6-1.6L10.4 12 3.6 5.2z"/></svg>
+          </button>
+          <video controls playsinline preload="none"></video>
+        </dialog>
+      </section>
+
+      <p class="compra__sem-nota">
+        Sem avaliação por aqui ainda. <a href="#avaliacoes">Comprou? conta como foi</a> — a primeira ajuda o próximo.
+      </p>
 
     </div><!-- /.compra -->
   </div><!-- /.pdp__wrap -->
@@ -661,6 +818,116 @@
       </p>
     </div>
 
+  </div>
+</section>
+
+<!-- ======================================================================
+     CONTRASTE — o elefante da categoria.
+
+     Quem procura "barba não cresce" já ouviu falar de minoxidil. A
+     página inteira contornava o assunto, e quem sai daqui pra pesquisar
+     isso não volta. Então o assunto entra — do jeito que a gente pode
+     falar dele.
+
+     A regra que eu segui: a FuckingBarba NÃO compara eficácia com
+     medicamento, não desaconselha e não recomenda. Cosmético falando de
+     medicamento é terreno da ANVISA e do CFM, e é exatamente o tipo de
+     frase que derruba anúncio e rende notificação. O que dá pra fazer —
+     e que vende igual — é dizer com todas as letras O QUE ESTE PRODUTO
+     É, e mandar a pessoa pro médico pro resto.
+
+     >>> Se você quiser tirar este bloco, tire inteiro. O que NÃO pode é
+         ficar meia-boca: citar minoxidil e insinuar que o nosso é
+         melhor/mais seguro é a versão que dá problema.
+     ====================================================================== -->
+<section class="contraste" aria-labelledby="contraste-titulo">
+  <div class="contraste__wrap">
+    <h2 class="contraste__titulo" id="contraste-titulo">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
+      Antes que você pergunte: não é minoxidil
+    </h2>
+
+    <p class="contraste__linha-fina">
+      É a dúvida que todo mundo tem e quase nenhuma marca responde. A gente responde,
+      mas só até onde é honesto responder.
+    </p>
+
+    <div class="contraste__colunas">
+      <div class="contraste__coluna contraste__coluna--nosso">
+        <p class="contraste__etiqueta">O que o Fator é</p>
+        <ul>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg> Cosmético de uso diário, sem receita</li>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg> Age na pele da barba, onde o fio nasce</li>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg> Você compra, usa e acompanha sozinho</li>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg> Resultado progressivo, medido em meses</li>
+        </ul>
+      </div>
+
+      <div class="contraste__coluna contraste__coluna--deles">
+        <p class="contraste__etiqueta">O que minoxidil é</p>
+        <ul>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg> Medicamento — quem indica é médico</li>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg> Tem contraindicação e efeito colateral</li>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg> Precisa de acompanhamento</li>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg> A gente não opina sobre uso, dose nem combinação</li>
+        </ul>
+      </div>
+    </div>
+
+    <p class="contraste__fecho">
+      Não estamos dizendo que um é melhor que o outro — não é da nossa conta, e comparar
+      cosmético com medicamento seria desonesto dos dois lados. Se a sua dúvida é sobre
+      medicamento, a resposta é <b>dermatologista</b>, e não uma página de loja.
+    </p>
+  </div>
+</section>
+
+<!-- ======================================================================
+     FICHA — o que tem dentro.
+
+     Este bloco não existia e é o buraco onde o cliente cético olha. Quem
+     vai passar uma coisa na própria cara todo dia por três meses lê
+     rótulo — e não achar composição numa página que promete crescimento
+     é o que faz ele fechar a aba e ir pro concorrente que mostrou.
+
+     Está propositalmente com os campos VAZIOS e à vista, em vez de
+     escondido num comentário: assim você bate o olho e sabe o que falta.
+     Me manda a ficha do fornecedor que eu preencho em cinco minutos.
+
+     >>> "Testado dermatologicamente" só entra se existir laudo. É a
+         frase que substitui o "não agride a pele" que está hoje no ar,
+         que é afirmação absoluta de segurança e nenhum cosmético
+         sustenta.
+     ====================================================================== -->
+<section class="ficha" aria-labelledby="ficha-titulo">
+  <div class="ficha__wrap">
+    <h2 class="ficha__titulo" id="ficha-titulo">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
+      O que tem dentro
+    </h2>
+
+    <p class="ficha__linha-fina">
+      Sem isto aqui preenchido, a página promete resultado e esconde o rótulo. É a
+      informação que o cliente desconfiado procura antes de comprar — e a que o
+      concorrente que a mostra usa pra ganhar dele de você.
+    </p>
+
+    <dl class="ficha__grade">
+      <div><dt>Volume</dt><dd>30 ml</dd></div>
+      <div><dt>Rendimento</dt><dd class="ficha__falta">a confirmar</dd></div>
+      <div><dt>Composição (INCI)</dt><dd class="ficha__falta">a preencher</dd></div>
+      <div><dt>Registro / notificação ANVISA</dt><dd class="ficha__falta">a preencher</dd></div>
+      <div><dt>Validade</dt><dd class="ficha__falta">a preencher</dd></div>
+      <div><dt>Testado dermatologicamente</dt><dd class="ficha__falta">só com laudo</dd></div>
+      <div><dt>Fabricado por</dt><dd class="ficha__falta">a preencher</dd></div>
+      <div><dt>Conservação</dt><dd class="ficha__falta">a preencher</dd></div>
+    </dl>
+
+    <p class="ficha__aviso">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
+      <span>Produto cosmético de uso externo. Mantenha fora do alcance de crianças.
+      Em caso de irritação, suspenda o uso e procure um dermatologista.</span>
+    </p>
   </div>
 </section>
 

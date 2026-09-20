@@ -29,6 +29,7 @@
   */
 .pdp [hidden],
 .rotina [hidden],
+.videos [hidden],
 .barra-compra[hidden] {
   display: none !important;
 }
@@ -49,6 +50,10 @@
 .quem *,
 .duvidas,
 .duvidas *,
+.contraste,
+.contraste *,
+.ficha,
+.ficha *,
 .avaliacoes,
 .avaliacoes *,
 .barra-compra,
@@ -66,7 +71,13 @@
 .migalhas {
   background: var(--color-bg);
   font-family: var(--font-sans);
-  padding: 14px clamp(16px, 4vw, 28px) 0;
+  padding: 9px clamp(16px, 4vw, 28px) 0;
+}
+
+@media (min-width: 1000px) {
+  .migalhas {
+    padding-top: 14px;
+  }
 }
 
 .migalhas__lista {
@@ -134,17 +145,59 @@
   padding: clamp(16px, 3vw, 28px) clamp(16px, 4vw, 28px) clamp(34px, 5vw, 56px);
 }
 
+/*
+  Três células: cabeça, galeria, compra. No celular caem nessa ordem, uma
+  embaixo da outra — nome primeiro, foto depois. No desktop o grid manda a
+  cabeça pro alto da coluna da direita e a galeria ocupa as duas linhas da
+  esquerda.
+
+  A ordem do HTML é a do CELULAR de propósito. `order` e `grid-area` mudam
+  o que o olho vê, não o que o Tab e o leitor de tela percorrem; quando as
+  duas ordens divergem, quem navega por teclado se perde. Então a ordem de
+  verdade é a do celular, e o desktop que se vire com grid-area.
+*/
 .pdp__wrap {
   max-width: 1320px;
   margin: 0 auto;
   display: grid;
-  gap: clamp(20px, 3vw, 44px);
+  gap: 10px;
+}
+
+.pdp__cabeca {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
 }
 
 @media (min-width: 1000px) {
   .pdp__wrap {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 470px);
+    /* Medidas fixas e o par centralizado, em vez de 1fr + 470. Com 1fr a
+       galeria (que tem teto de 540) ficava boiando numa coluna de 800px
+       e sobrava um vazio de 130px de cada lado dela — numa tela de 1440
+       a dobra parecia desmontada. Assim o conjunto tem ~1100px e fica no
+       meio, que é onde o olho procura. */
+    grid-template-columns: minmax(0, 540px) minmax(0, 500px);
+    justify-content: center;
+    grid-template-rows: auto 1fr;
+    grid-template-areas:
+      "galeria cabeca"
+      "galeria compra";
+    column-gap: clamp(24px, 3vw, 44px);
+    row-gap: 16px;
     align-items: start;
+  }
+
+  .pdp__cabeca {
+    grid-area: cabeca;
+    gap: 9px;
+  }
+
+  .galeria {
+    grid-area: galeria;
+  }
+
+  .compra {
+    grid-area: compra;
   }
 }
 
@@ -155,11 +208,39 @@
      <button> pelo mesmo motivo.
      ------------------------------------------------------ */
 
+/*
+  A foto quadrada ocupava a coluna inteira: 800px de altura numa tela de
+  900. O cliente abria a página e via embalagem, só. O teto é em `vh`
+  porque o problema é de ALTURA de tela, não de largura — num notebook de
+  768px a foto encolhe junto, em vez de continuar empurrando o preço pra
+  fora da vista.
+*/
+/*
+  min-width: 0 em toda a corrente. Item de grid nasce com min-width: auto
+  e não encolhe abaixo do conteúdo — e a fita de vídeos tem 4 cartazes de
+  96px, ou seja 408px de min-content, que subiam pro grid e faziam a
+  coluna inteira ficar mais larga que um celular de 390px. `overflow-x`
+  na fita não basta: quem tem que poder encolher é o ancestral.
+*/
+.galeria,
+.compra,
+.videos,
+.videos__fita {
+  min-width: 0;
+}
+
+.galeria {
+  width: 100%;
+  margin-inline: auto;
+}
+
 @media (min-width: 1000px) {
   .galeria {
     position: sticky;
     /* 74px é a altura do cabeçalho rolado; +18 de respiro */
     top: 92px;
+    max-width: min(540px, 52vh);
+    justify-self: center;
   }
 }
 
@@ -180,12 +261,32 @@
   width: 100%;
   height: auto;
   aspect-ratio: 1 / 1;
-  object-fit: cover;
+  /* contain, não cover: recortar um frasco pelo meio é pior que deixar
+     margem branca, e a foto do catálogo já vem em fundo branco */
+  object-fit: contain;
+  background: var(--color-card-bg);
   transition: transform 0.45s var(--suave, cubic-bezier(0.22, 0.61, 0.36, 1));
 }
 
 .galeria__palco:hover img {
   transform: scale(1.06);
+}
+
+/*
+  No celular o teto é de ALTURA, não de largura: a foto continua de ponta
+  a ponta (card estreito no meio da tela fica com cara de erro) e o miolo
+  é `contain`, então ela ganha margem branca em vez de cortar o frasco.
+  Em `vh` porque num iPhone SE ela precisa encolher junto com a tela.
+
+  Esta regra tem que vir DEPOIS de `.galeria__palco img` lá em cima:
+  media query não muda especificidade, quem decide é a ordem no arquivo.
+  Da primeira vez eu pus antes e o teto simplesmente não valeu.
+*/
+@media (max-width: 999px) {
+  .galeria__palco img {
+    aspect-ratio: auto;
+    height: min(34vh, 300px);
+  }
 }
 
 .galeria__palco:focus-visible {
@@ -364,7 +465,13 @@
 .compra {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 9px;
+}
+
+@media (min-width: 1000px) {
+  .compra {
+    gap: 16px;
+  }
 }
 
 .compra__chapeu {
@@ -404,7 +511,9 @@
 
 .compra__nome {
   margin: 0;
-  font-size: clamp(1.85rem, 4.6vw, 2.6rem);
+  /* piso menor que o da v1 (era 1.85rem): a 390px o título ocupava três
+     linhas e cada linha aqui custa 30px de distância até o botão */
+  font-size: clamp(1.45rem, 4.6vw, 2.6rem);
   font-weight: 800;
   font-style: italic;
   text-transform: uppercase;
@@ -414,7 +523,7 @@
 
 .compra__resumo {
   margin: 0;
-  font-size: clamp(1rem, 2.2vw, 1.1rem);
+  font-size: clamp(0.92rem, 2.2vw, 1.1rem);
   font-weight: 600;
   line-height: 1.4;
   color: #0d4c3c;
@@ -476,7 +585,7 @@
 }
 
 .compra__por {
-  font-size: clamp(2.1rem, 5.2vw, 2.7rem);
+  font-size: clamp(1.85rem, 5.2vw, 2.7rem);
   font-weight: 800;
   font-style: italic;
   letter-spacing: -0.03em;
@@ -512,7 +621,7 @@
 /* --- escolha de quantidade em kit (o degrau de valor) --- */
 
 .compra__kits {
-  margin: 6px 0 0;
+  margin: 0;
   padding: 0;
   border: 0;
 }
@@ -522,7 +631,9 @@
   align-items: center;
   gap: 7px;
   padding: 0;
-  margin: 0 0 9px;
+  /* 14px e não 7: a fita do primeiro cartão flutua 11px acima dele e
+     estava batendo em cima desta legenda */
+  margin: 0 0 14px;
   font-size: 0.8rem;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -2002,5 +2113,671 @@
   .duvidas__mais::before,
   .duvidas__mais::after {
     transition: none !important;
+  }
+}
+
+/* ======================================================
+   V2 — o que mudou depois da primeira revisão
+   ======================================================
+   Três queixas viraram estas regras:
+     1. a foto principal não cabia na tela  -> teto em vh, lá em cima
+     2. o botão de comprar nascia 500px abaixo da primeira tela
+        no celular  -> pontinhos no lugar da fita, kits em três
+        colunas, e a frase de risco colada no botão
+     3. faltava vídeo  -> .videos, na coluna de compra
+   ====================================================== */
+
+/* ------------------------------------------------------
+   MINIATURAS VIRAM PONTINHOS NO CELULAR
+   São 64px de altura que, somados ao resto, empurravam o
+   "Adicionar à sacola" pra fora da primeira tela. O alvo de
+   toque continua com 24px — o ponto tem 10, a área em volta
+   é o resto. Abaixo disso vira armadilha de dedo grosso.
+   ------------------------------------------------------ */
+
+@media (max-width: 999px) {
+  .galeria__miniaturas {
+    justify-content: center;
+    gap: 8px;
+    margin-top: 8px;
+    padding: 0;
+    overflow: visible;
+  }
+
+  .galeria__mini {
+    width: 24px;
+    height: 24px;
+    border: 0;
+    background: transparent;
+    display: grid;
+    place-items: center;
+  }
+
+  .galeria__mini img {
+    display: none;
+  }
+
+  .galeria__mini::after {
+    content: "";
+    width: 10px;
+    height: 10px;
+    background: rgba(18, 24, 31, 0.32);
+    transition:
+      background 0.15s ease,
+      transform 0.15s ease;
+  }
+
+  .galeria__mini:hover {
+    border: 0;
+  }
+
+  .galeria__mini[aria-current="true"] {
+    box-shadow: none;
+    transform: none;
+  }
+
+  .galeria__mini[aria-current="true"]::after {
+    background: var(--color-text);
+    transform: scale(1.4);
+  }
+}
+
+/* ------------------------------------------------------
+   KITS EM TRÊS COLUNAS NO CELULAR
+   Empilhados eram 297px — o maior bloco isolado entre o
+   topo e o botão. Lado a lado são 110px e continuam
+   legíveis, porque o que decide é o número de frascos e o
+   preço; o resto vira uma linha só embaixo.
+   ------------------------------------------------------ */
+
+@media (max-width: 719px) {
+  .compra__kits-lista {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 7px;
+  }
+
+  .compra__kit {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+    text-align: center;
+    gap: 3px;
+    padding: 10px 6px 9px;
+  }
+
+  .compra__kit input {
+    width: 16px;
+    height: 16px;
+  }
+
+  .compra__kit-nome {
+    font-size: 0.86rem;
+  }
+
+  /* a explicação some do cartão e vira uma linha só, embaixo da
+     grade: três textos de duas linhas lado a lado não se lê */
+  .compra__kit-abaixo {
+    display: none;
+  }
+
+  .compra__kit-preco {
+    text-align: center;
+    font-size: 0.95rem;
+  }
+
+  .compra__kit-unidade {
+    font-size: 0.66rem;
+  }
+
+  .compra__kit-fita {
+    position: static;
+    margin-bottom: 2px;
+    font-size: 0.58rem;
+    letter-spacing: 0.04em;
+    padding: 2px 5px;
+  }
+
+  .compra__kit-fita svg {
+    display: none;
+  }
+}
+
+/* a linha de explicação dos kits, que no celular substitui o texto
+   de dentro dos cartões */
+.compra__kits-nota {
+  margin: 7px 0 0;
+  font-size: 0.79rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: #0d4c3c;
+}
+
+.compra__kits-nota b {
+  font-weight: 800;
+  color: var(--color-text);
+}
+
+@media (min-width: 720px) {
+  .compra__kits-nota {
+    display: none;
+  }
+}
+
+/* ------------------------------------------------------
+   RISCO ZERO, COLADO NO BOTÃO
+   É no segundo entre decidir e clicar que o cliente pensa
+   "e se não funcionar". A resposta tem que estar onde o
+   olho já está, não 400px abaixo com as outras garantias.
+   ------------------------------------------------------ */
+
+.compra__risco {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: -2px 0 0;
+  font-size: 0.84rem;
+  font-weight: 700;
+  line-height: 1.35;
+  color: #0d4c3c;
+}
+
+.compra__risco svg {
+  width: 17px;
+  height: 17px;
+  fill: #0d6b52;
+  flex-shrink: 0;
+}
+
+/* ======================================================
+   VÍDEOS — a fita vertical, na coluna de compra.
+
+   Formato de story: o cliente já sabe usar sem instrução.
+   Cada cartaz é 9:16, e a fita rola na horizontal quando
+   não cabe — nunca quebra linha, senão vira grade e perde
+   a leitura de "tem mais pro lado".
+   ====================================================== */
+
+.videos {
+  margin-top: 2px;
+  padding-top: 13px;
+  border-top: 2px solid rgba(18, 24, 31, 0.15);
+}
+
+.videos__titulo {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 9px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.videos__titulo svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+
+.videos__fita {
+  display: flex;
+  gap: 8px;
+  margin: 0;
+  padding: 0 0 4px;
+  list-style: none;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scroll-snap-type: x proximity;
+}
+
+.videos__item {
+  position: relative;
+  flex: 0 0 auto;
+  width: 96px;
+  aspect-ratio: 9 / 16;
+  padding: 0;
+  border: 3px solid var(--color-text);
+  background: var(--color-text);
+  cursor: pointer;
+  overflow: hidden;
+  scroll-snap-align: start;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.videos__item img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.videos__item:hover:not(:disabled),
+.videos__item:focus-visible {
+  transform: translate(-2px, -2px);
+  box-shadow: 5px 5px 0 0 var(--color-accent);
+}
+
+.videos__item:focus-visible {
+  outline: 3px solid var(--color-text);
+  outline-offset: 3px;
+}
+
+/* Cartaz sem vídeo gravado não finge que toca: perde o play e sai do
+   alcance do dedo. A primeira versão usava opacity, e o cartaz escuro a
+   62% sobre o fundo menta virava uma mancha esverdeada — parecia defeito
+   de imagem, não "ainda não gravei". Borda tracejada diz a mesma coisa
+   sem sujar a cor. */
+.videos__item:disabled {
+  cursor: default;
+  border-style: dashed;
+  border-color: rgba(18, 24, 31, 0.45);
+}
+
+.videos__item:disabled .videos__play {
+  display: none;
+}
+
+.videos__play {
+  position: absolute;
+  top: 38%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  background: var(--color-accent);
+  border: 2px solid var(--color-text);
+  z-index: 2;
+}
+
+.videos__play svg {
+  width: 15px;
+  height: 15px;
+  fill: var(--color-text);
+  margin-left: 2px;
+}
+
+.videos__rotulo {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 16px 7px 6px;
+  background: linear-gradient(to top, rgba(7, 12, 14, 0.92), rgba(7, 12, 14, 0));
+  color: #ffffff;
+  font-size: 0.68rem;
+  font-weight: 800;
+  line-height: 1.2;
+  text-align: left;
+  z-index: 2;
+}
+
+.videos__rotulo b {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: var(--color-accent);
+}
+
+.videos__tela {
+  width: min(94vw, 420px);
+  max-width: none;
+  padding: 0;
+  border: 3px solid var(--color-text);
+  background: #000000;
+  box-shadow: 14px 14px 0 0 var(--color-accent);
+}
+
+.videos__tela::backdrop {
+  background: rgba(7, 12, 14, 0.88);
+}
+
+.videos__tela video {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 9 / 16;
+  background: #000000;
+}
+
+/* ======================================================
+   CONTRASTE — "não é minoxidil"
+   Duas colunas, e a da direita NÃO é a coluna do vilão:
+   é o que o remédio é, dito sem opinião. A cor diferente
+   marca que são coisas de naturezas diferentes, não um
+   duelo.
+   ====================================================== */
+
+.contraste {
+  background: var(--color-card-bg);
+  font-family: var(--font-sans);
+  color: var(--color-text);
+  padding: clamp(38px, 5.5vw, 62px) clamp(16px, 4vw, 28px);
+}
+
+.contraste__wrap {
+  max-width: 1080px;
+  margin: 0 auto;
+}
+
+.contraste__titulo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 6px;
+  font-size: clamp(1.35rem, 4.2vw, 2.2rem);
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: -0.025em;
+  line-height: 1;
+}
+
+.contraste__titulo svg {
+  width: clamp(20px, 3.4vw, 28px);
+  height: clamp(20px, 3.4vw, 28px);
+  fill: var(--color-text);
+  flex-shrink: 0;
+}
+
+.contraste__linha-fina {
+  margin: 0 0 clamp(18px, 2.6vw, 26px);
+  max-width: 620px;
+  font-size: 0.97rem;
+  font-weight: 600;
+  line-height: 1.5;
+  color: #566072;
+}
+
+.contraste__colunas {
+  display: grid;
+  gap: 12px;
+}
+
+@media (min-width: 820px) {
+  .contraste__colunas {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.contraste__coluna {
+  border: 3px solid var(--color-text);
+  padding: clamp(16px, 2.6vw, 22px);
+}
+
+.contraste__coluna--nosso {
+  background: var(--color-bg);
+  box-shadow: 8px 8px 0 0 var(--color-text);
+}
+
+.contraste__coluna--deles {
+  background: var(--color-cinza, #f2f3f4);
+}
+
+.contraste__etiqueta {
+  display: inline-flex;
+  margin: 0 0 11px;
+  background: var(--color-text);
+  color: var(--color-accent);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 4px 9px;
+}
+
+.contraste__coluna ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 9px;
+}
+
+.contraste__coluna li {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  font-size: 0.94rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.contraste__coluna li svg {
+  width: 15px;
+  height: 15px;
+  fill: var(--color-text);
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+
+.contraste__coluna--deles li svg {
+  fill: #98a2b3;
+}
+
+.contraste__coluna--deles li {
+  font-weight: 600;
+  color: #566072;
+}
+
+.contraste__fecho {
+  margin: clamp(16px, 2.4vw, 22px) 0 0;
+  max-width: 720px;
+  font-size: 0.94rem;
+  font-weight: 600;
+  line-height: 1.55;
+  color: #566072;
+}
+
+.contraste__fecho b {
+  font-weight: 800;
+  color: var(--color-text);
+}
+
+/* ======================================================
+   FICHA — o que tem dentro.
+   Os campos vazios ficam À VISTA, marcados. Esconder o que
+   falta num comentário é como esquecer: assim você bate o
+   olho na página e sabe o que ainda não deu pra dizer.
+   ====================================================== */
+
+.ficha {
+  background: var(--color-bg);
+  font-family: var(--font-sans);
+  color: var(--color-text);
+  padding: clamp(38px, 5.5vw, 62px) clamp(16px, 4vw, 28px);
+}
+
+.ficha__wrap {
+  max-width: 1080px;
+  margin: 0 auto;
+}
+
+.ficha__titulo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 6px;
+  font-size: clamp(1.5rem, 4.2vw, 2.2rem);
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: -0.025em;
+  line-height: 1;
+}
+
+.ficha__titulo svg {
+  width: clamp(20px, 3.4vw, 28px);
+  height: clamp(20px, 3.4vw, 28px);
+  fill: var(--color-text);
+  flex-shrink: 0;
+}
+
+.ficha__linha-fina {
+  margin: 0 0 clamp(18px, 2.6vw, 26px);
+  max-width: 660px;
+  font-size: 0.97rem;
+  font-weight: 600;
+  line-height: 1.5;
+  color: #0d4c3c;
+}
+
+/*
+  Borda em cada célula com margem negativa, em vez de fundo escuro
+  aparecendo pelos vãos. Com o fundo escuro, a última linha (que tem 3
+  células numa grade de 5) deixava um retângulo preto vazio no fim — e
+  buraco preto no meio da ficha parece bloco que não carregou. Assim a
+  grade termina onde as células terminam.
+*/
+.ficha__grade {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 0;
+  margin: 0;
+  padding: 0 3px 3px 0;
+}
+
+.ficha__grade > div {
+  background: var(--color-card-bg);
+  border: 3px solid var(--color-text);
+  margin: 0 -3px -3px 0;
+  padding: 13px 15px;
+}
+
+.ficha__grade dt {
+  margin: 0 0 3px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #566072;
+}
+
+.ficha__grade dd {
+  margin: 0;
+  font-size: 0.97rem;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+/* o campo que ainda não dá pra preencher se identifica */
+.ficha__falta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700 !important;
+  font-size: 0.86rem !important;
+  color: #8a5a00;
+  border-bottom: 2px dashed #d8a400;
+  padding-bottom: 1px;
+}
+
+.ficha__aviso {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: clamp(16px, 2.4vw, 22px) 0 0;
+  border-left: 6px solid var(--color-text);
+  background: rgba(18, 24, 31, 0.06);
+  padding: 12px 14px;
+  font-size: 0.86rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.ficha__aviso svg {
+  width: 16px;
+  height: 16px;
+  fill: var(--color-text);
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .videos__item,
+  .galeria__mini::after {
+    transition: none !important;
+  }
+}
+
+/* ------------------------------------------------------
+   OS ÚLTIMOS 40 PIXELS
+   Depois de medir bloco a bloco no celular, o que sobrava
+   entre o preço e o botão era: a etiqueta de economia
+   quebrando pra uma linha só dela (29px) e o "R$ 74,95
+   cada" dentro dos cartões de kit (14px). Os dois viram
+   detalhe no desktop e saem do caminho no celular — o
+   desconto já está gritado no selo em cima da foto.
+   ------------------------------------------------------ */
+
+@media (max-width: 719px) {
+  .compra__economia {
+    font-size: 0.68rem;
+    letter-spacing: 0;
+    padding: 3px 7px;
+    border-width: 2px;
+  }
+
+  .compra__economia svg {
+    display: none;
+  }
+
+  .compra__kit-unidade {
+    display: none;
+  }
+
+  .compra__precos {
+    gap: 6px 9px;
+  }
+}
+
+/* ------------------------------------------------------
+   AJUSTES DEPOIS DE OLHAR A FOTO
+   ------------------------------------------------------ */
+
+/* "Adicionar à sacola" quebrava em duas linhas no celular: o seletor
+   de quantidade comia 140px dos 358 disponíveis. Ele encolhe, o rótulo
+   diminui um pouco, e a frase cabe numa linha — botão de compra com o
+   texto quebrado parece site mal feito bem na hora de confiar na loja. */
+@media (max-width: 719px) {
+  .compra__qtd button {
+    width: 36px;
+  }
+
+  .compra__qtd input {
+    width: 38px;
+  }
+
+  .compra__acao {
+    gap: 8px;
+  }
+
+  .compra__comprar {
+    font-size: 0.86rem;
+    padding: 15px 12px;
+    gap: 7px;
+  }
+}
+
+/* Os três cartões de kit precisam alinhar "1 frasco / 2 frascos /
+   3 frascos" na mesma altura. Como as fitas têm textos de tamanhos
+   diferentes, quem garante o alinhamento é a altura mínima da fita —
+   e o primeiro cartão ganhou fita própria em vez de ficar sem. */
+@media (max-width: 719px) {
+  .compra__kit {
+    align-content: start;
+  }
+
+  .compra__kit-fita {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.3em;
+    line-height: 1.15;
+    text-align: center;
   }
 }
