@@ -1,12 +1,26 @@
 import { ExecArgs } from "@medusajs/framework/types"
 import { ContainerRegistrationKeys, MedusaError, ProductStatus } from "@medusajs/framework/utils"
 import { createInventoryLevelsWorkflow, createProductsWorkflow } from "@medusajs/medusa/core-flows"
+import { ondeEstou } from "./onde-estou"
 
 /**
  * Os kits de quantidade — "2 frascos", "3 frascos" — como produtos próprios.
  *
- *   npm run backend:kits          (local)
- *   npx medusa exec ./src/scripts/kits-de-quantidade.js   (no Railway, de .medusa/server)
+ *   npm install && npm run backend:kits
+ *
+ * ONDE ISSO ESCREVE: no banco do `DATABASE_URL` que estiver valendo — o de
+ * `apps/backend/.env` quando roda da sua máquina, o da variável do serviço
+ * quando roda no Railway. NÃO É O REPOSITÓRIO: dar push não cria kit nenhum.
+ * A primeira linha do log diz em qual banco ele está escrevendo.
+ *
+ * Pra criar os kits no catálogo que está no ar, as duas opções são: rodar da
+ * sua máquina com o DATABASE_URL de produção no `.env`, ou rodar no próprio
+ * Railway (Shell do serviço, de `.medusa/server`, com o arquivo já
+ * compilado: `npx medusa exec ./src/scripts/kits-de-quantidade.js`).
+ *
+ * ENQUANTO ELE NÃO RODAR, a PDP mostra um degrau só ("1 frasco") e nenhum
+ * preço de kit. Isso é de propósito: a página lê o catálogo, e o que não
+ * existe no catálogo ela não promete.
  *
  * POR QUE ISTO EXISTE: a PDP oferece um degrau de quantidade com desconto
  * (1 frasco R$ 79,90, 2 por R$ 149,90, 3 por R$ 222,90). Esses preços não
@@ -97,6 +111,7 @@ const KITS: Kit[] = [
 export default async function kitsDeQuantidade({ container }: ExecArgs) {
   const logger = container.resolve(ContainerRegistrationKeys.LOGGER)
   const query = container.resolve(ContainerRegistrationKeys.QUERY)
+  ondeEstou(logger, "kits")
 
   const { data: canais } = await query.graph({ entity: "sales_channel", fields: ["id"] })
   const canal = canais[0]

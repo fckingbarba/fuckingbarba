@@ -12,6 +12,7 @@ import {
   createShippingProfilesWorkflow,
   uploadFilesWorkflow,
 } from "@medusajs/medusa/core-flows"
+import { ondeEstou } from "./onde-estou"
 
 /**
  * Seis produtos de verdade, pra loja nova sair do vazio.
@@ -182,6 +183,7 @@ const CATALOGO: Produto[] = [
 export default async function produtosIniciais({ container }: ExecArgs) {
   const logger = container.resolve(ContainerRegistrationKeys.LOGGER)
   const query = container.resolve(ContainerRegistrationKeys.QUERY)
+  ondeEstou(logger, "produtos")
 
   // Sem S3 o Medusa grava a foto no disco do container. Local, tudo bem. No
   // Railway isso é uma armadilha silenciosa: funciona hoje, e no próximo

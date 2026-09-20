@@ -1,12 +1,24 @@
 import { ExecArgs } from "@medusajs/framework/types"
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import { updateProductsWorkflow } from "@medusajs/medusa/core-flows"
+import { ondeEstou } from "./onde-estou"
 
 /**
  * Tira do catálogo as fotos que não podem ir ao ar.
  *
- *   npm run backend:fotos          (local)
- *   npx medusa exec ./src/scripts/fotos-reprovadas.js   (no Railway, de .medusa/server)
+ *   npm install && npm run backend:fotos
+ *
+ * ONDE ISSO ESCREVE: no banco do `DATABASE_URL` que estiver valendo — o de
+ * `apps/backend/.env` quando roda da sua máquina, o da variável do serviço
+ * quando roda no Railway. NÃO É O REPOSITÓRIO: dar push não muda catálogo
+ * nenhum, este script precisa rodar apontando pro banco certo. A primeira
+ * linha do log diz em qual banco ele está escrevendo, justamente pra essa
+ * dúvida acabar antes da escrita.
+ *
+ * Pra mexer no catálogo que está no ar, as duas opções são: rodar da sua
+ * máquina com o DATABASE_URL de produção no `.env`, ou rodar no próprio
+ * Railway (Shell do serviço, de `.medusa/server`, com o arquivo já
+ * compilado: `npx medusa exec ./src/scripts/fotos-reprovadas.js`).
  *
  * POR QUE ISTO EXISTE, E POR QUE NÃO É UM FILTRO NA LOJA:
  *
@@ -70,6 +82,7 @@ const REPROVADAS: Reprovada[] = [
 export default async function fotosReprovadas({ container }: ExecArgs) {
   const logger = container.resolve(ContainerRegistrationKeys.LOGGER)
   const query = container.resolve(ContainerRegistrationKeys.QUERY)
+  ondeEstou(logger, "fotos")
 
   const handles = [...new Set(REPROVADAS.map((r) => r.produto))]
   const { data: produtos } = await query.graph({
