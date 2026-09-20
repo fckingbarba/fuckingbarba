@@ -58,7 +58,26 @@ const CEP = "01310-100" // Avenida Paulista — CEP que o ViaCEP conhece de cor
 const EMAIL = "teste.checkout@fuckingbarba.invalid"
 /** O mesmo do `conteudo/checkout.ts` e do `promocoes.ts` do backend. */
 const BUMP_DESCONTO = 20
-const PISO = 149.9
+
+/**
+ * O PISO É LIDO DA LOJA, não escrito aqui.
+ *
+ * Estava `const PISO = 149.9`, e o teste quebrou no dia em que o piso mudou
+ * pra 139,90 no admin — acusando a tela de errar por R$ 10 quando a tela
+ * estava certa. Teste com número fixo de configuração é o mesmo problema que
+ * o código tinha: duas fontes pro mesmo valor, e a que ninguém revisita
+ * vence a discussão.
+ *
+ * Sem promoção configurada, `PISO` é 0 e os testes de "falta X pro frete
+ * grátis" são pulados — não há o que faltar.
+ */
+const PISO = await (async () => {
+  const r = await fetch(`${MEDUSA}/store/configuracoes`, {
+    headers: { "x-publishable-api-key": CHAVE },
+  })
+  const { configuracoes } = await r.json()
+  return configuracoes?.frete?.modo === "nenhuma" ? 0 : (configuracoes?.frete?.piso ?? 0)
+})()
 
 let falhas = 0
 let testes = 0

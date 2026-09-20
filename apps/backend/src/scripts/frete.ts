@@ -1,11 +1,12 @@
 import { ExecArgs } from "@medusajs/framework/types"
-import { ContainerRegistrationKeys, MedusaError } from "@medusajs/framework/utils"
+import { ContainerRegistrationKeys, MedusaError, Modules } from "@medusajs/framework/utils"
 import {
   createLocationFulfillmentSetWorkflow,
   createServiceZonesWorkflow,
   createShippingOptionsWorkflow,
   updateShippingOptionsWorkflow,
 } from "@medusajs/medusa/core-flows"
+import { lerConfiguracoes } from "../lib/configuracoes"
 import { ondeEstou } from "./onde-estou"
 
 /**
@@ -48,7 +49,8 @@ import { ondeEstou } from "./onde-estou"
  * pergunta o frete como o checkout vai perguntar.
  *
  * O PISO É O MESMO NÚMERO DO SITE — hoje escrito em `apps/loja/src/lib/site.ts`
- * como `FRETE_GRATIS_A_PARTIR_DE`. Os dois precisam bater: o dia em que
+ * O PISO VEM DAS CONFIGURAÇÕES DA LOJA (admin), não daqui. Antes eram dois
+ * números em dois apps, e o dia em que
  * divergirem, a loja promete um piso e o carrinho cobra por outro. Quando o
  * Medusa virar a fonte também desse número (fase 5), a constante da loja sai.
  *
@@ -78,7 +80,25 @@ import { ondeEstou } from "./onde-estou"
  */
 const CONFERIDO = false
 
-const FRETE_GRATIS_A_PARTIR_DE = 149.9
+/**
+ * O PISO NÃO É MAIS CONSTANTE — ele é LIDO das configurações da loja.
+ *
+ * Era um número escrito aqui e outro igual escrito em `apps/loja/src/lib/
+ * site.ts`. O daqui virava a regra `item_total >= piso` que de fato zera o
+ * frete; o de lá era o que catorze telas exibiam. Nada ligava os dois, e a
+ * divergência aconteceu de verdade: o admin foi ajustado pra R$ 139,90 e
+ * este script continuaria cadastrando a regra em R$ 149,90 — a loja
+ * anunciando um piso e o carrinho cobrando por outro, que no art. 30 do CDC
+ * é oferta que vincula sem ser cumprida.
+ *
+ * Agora a fonte é uma só: o `metadata` da loja, editável no admin. Este
+ * script lê de lá e cadastra a regra com o mesmo número que a vitrine
+ * anuncia. Sem política de frete configurada, ele NÃO cria regra de
+ * gratuidade nenhuma — em vez de inventar um piso.
+ *
+ * (Quando o provider do Frenet entrar, quem aplica a política é ele, em
+ * tempo de cotação, e esta parte do script some.)
+ */
 
 type Opcao = {
   nome: string
@@ -122,10 +142,10 @@ const NOME_DA_ZONA = "Brasil"
  * `item_total` é o ÚNICO atributo que o Medusa aceita numa regra de preço de
  * frete, e `gte` inclui o piso exato — o kit de 2 custa exatamente ele.
  */
-function precosDe(opcao: Opcao) {
+function precosDe(opcao: Opcao, piso: number | null) {
   return [
     { currency_code: "brl", amount: opcao.preco },
-    ...(opcao.gratisAcimaDoPiso
+    ...(opcao.gratisAcimaDoPiso && piso !== null
       ? [
           {
             currency_code: "brl",
@@ -134,7 +154,7 @@ function precosDe(opcao: Opcao) {
               {
                 attribute: "item_total",
                 operator: "gte" as const,
-                value: FRETE_GRATIS_A_PARTIR_DE,
+                value: piso,
               },
             ],
           },
@@ -147,6 +167,25 @@ export default async function frete({ container }: ExecArgs) {
   const logger = container.resolve(ContainerRegistrationKeys.LOGGER)
   const query = container.resolve(ContainerRegistrationKeys.QUERY)
   ondeEstou(logger, "frete")
+
+  const loja = container.resolve(Modules.STORE)
+  const [dadosDaLoja] = await loja.listStores({}, { select: ["id", "metadata"], take: 1 })
+  const politica = lerConfiguracoes(dadosDaLoja?.metadata).frete
+
+  if (politica.modo === "nenhuma") {
+    logger.info(
+      "[frete] sem política de frete nas configurações — as opções são criadas SEM regra de " +
+        "gratuidade. Pra ter frete grátis, configure em Configurações da loja, no admin."
+    )
+  } else if (politica.modo === "fixo") {
+    logger.warn(
+      `[frete] a política configurada é FRETE FIXO de R$ ${politica.preco.toFixed(2)}, e este ` +
+        "script só sabe cadastrar gratuidade. O fixo depende do provider do Frenet — até lá, " +
+        "as opções são criadas sem regra."
+    )
+  }
+
+  const FRETE_GRATIS_A_PARTIR_DE = politica.modo === "gratis" ? politica.piso : null
 
   const remoto = !/localhost|127\.0\.0\.1/.test(process.env.DATABASE_URL ?? "")
   if (remoto && !CONFERIDO) {
@@ -252,7 +291,7 @@ export default async function frete({ container }: ExecArgs) {
     await updateShippingOptionsWorkflow(container).run({
       input: aAtualizar.map((opcao) => ({
         id: porNome.get(opcao.nome)!,
-        prices: precosDe(opcao),
+        prices: precosDe(opcao, FRETE_GRATIS_A_PARTIR_DE),
       })),
     })
     for (const o of aAtualizar) {
@@ -284,7 +323,7 @@ export default async function frete({ container }: ExecArgs) {
         description: opcao.prazo,
         code: opcao.nome.toLowerCase().replace(/[^a-z]+/g, "-"),
       },
-      prices: precosDe(opcao),
+      prices: precosDe(opcao, FRETE_GRATIS_A_PARTIR_DE),
       rules: [
         // Sem estas duas a opção existe no admin e não aparece na loja.
         { attribute: "enabled_in_store", operator: "eq", value: "true" },
@@ -296,7 +335,11 @@ export default async function frete({ container }: ExecArgs) {
   for (const o of aCriar) {
     logger.info(`[frete] ${o.nome}: R$ ${o.preco.toFixed(2)} · ${o.prazo}`)
   }
-  logger.info(`[frete] grátis a partir de R$ ${FRETE_GRATIS_A_PARTIR_DE.toFixed(2)}`)
+  logger.info(
+    FRETE_GRATIS_A_PARTIR_DE === null
+      ? "[frete] sem regra de gratuidade — nenhuma opção sai de graça"
+      : `[frete] grátis a partir de R$ ${FRETE_GRATIS_A_PARTIR_DE.toFixed(2)}, lido das configurações da loja`
+  )
   logger.info(
     "[frete] LEMBRE: valor fixo pro Brasil inteiro. Enviar pro Norte custa " +
       "mais que pro Sudeste, e um número só come a margem de um e encarece o outro."
