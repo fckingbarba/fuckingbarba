@@ -52,7 +52,7 @@ npm run user -- --email x --password y
 
 ## Os scripts de dados
 
-Todos são idempotentes — o que já existe é pulado — e todos começam dizendo **em que banco estão
+Todos podem rodar quantas vezes quiser, e todos começam dizendo **em que banco estão
 escrevendo** (`src/scripts/onde-estou.ts`), porque `medusa exec` obedece ao `DATABASE_URL` que
 estiver no ambiente e não pergunta se você queria mesmo mexer em produção.
 
@@ -62,8 +62,13 @@ estiver no ambiente e não pergunta se você queria mesmo mexer em produção.
 | `npm run kits`         | os kits de 2 e 3 unidades do fator de crescimento                              |
 | `npm run fotos`        | varre o catálogo inteiro e remove as fotos reprovadas, por URL                  |
 | `npm run frete`        | conjunto de entrega, zona Brasil e as opções de frete com o piso do frete grátis |
+| `npm run promocoes`    | o desconto do order bump do checkout, como promoção de verdade                  |
 
 Da raiz, os mesmos com o prefixo `backend:` (`npm run backend:frete`).
+
+`produtos`, `kits` e `fotos` **pulam** o que já existe. `frete` e `promocoes` **corrigem**: eles
+são a fonte dos números que escrevem, e pular faria com que mudar um valor de frete exigisse
+apagar a opção no painel primeiro.
 
 No Railway eles rodam a partir do build, pelo shell do `medusa-server` — repare no `.js`, e que o
 shell abre em `/app`, a raiz do monorepo:
@@ -94,6 +99,23 @@ na mesma ordem. Duas coisas que ele existe pra travar:
   ou frete — ele confere o pagamento primeiro e desiste ali. Ou seja, ela não serve pra dizer à
   pessoa o que falta; quem sabe em que etapa a compra está é o checkout.
 
+### Conferir as promoções
+
+```bash
+node ferramentas/conferir-promocoes.mjs
+```
+
+O order bump do checkout promete "de X por Y" na tela. O desconto **existe no Medusa** — uma
+promoção com código que o checkout aplica quando a pessoa marca a caixinha e remove quando
+desmarca. Escrever o desconto só no HTML seria a diferença que o cliente descobre na fatura, e
+no Brasil a oferta anunciada vincula (CDC art. 30).
+
+O mesmo vale pro campo de cupom: ele manda o código pro Medusa e mostra a resposta. Não existe
+lista de cupom no navegador.
+
+O conferidor trava o limite de **uma unidade**: sem ele, quem marca o bump e sobe a quantidade
+leva o desconto em todas.
+
 ### Conferir o frete
 
 ```bash
@@ -101,10 +123,16 @@ node ferramentas/conferir-frete.mjs     # precisa do Medusa de pé
 ```
 
 Monta carrinhos de verdade pela API da loja e confere que as opções aparecem, que cobram o valor
-cadastrado abaixo do piso e que **a mesma opção** vai a zero a partir dele. O frete grátis aqui não
-é promoção: é um segundo preço da opção, com regra em `item_total` — o único atributo que o Medusa
-aceita nessa regra. Promoção funcionaria, e apareceria como desconto numa linha separada, deixando
-o cliente fazer a conta de quanto vai pagar de frete.
+cadastrado abaixo do piso e que **a mais barata** vai a zero a partir dele.
+
+**Frete grátis é só na opção mais barata.** "Frete grátis" quer dizer que a loja paga o envio
+comum, não que ela paga a pressa de quem escolhe Sedex — com a regra nas duas, todo pedido acima
+do piso saía por R$ 39,90 de frete em vez de R$ 24,90, e a diferença é margem que some sem
+ninguém ver. Quem quiser Sedex acima do piso continua podendo: paga a diferença.
+
+E ele **não é promoção**: é um segundo preço da própria opção, com regra em `item_total` — o
+único atributo que o Medusa aceita nessa regra. Promoção funcionaria, e apareceria como desconto
+numa linha separada, deixando o cliente fazer a conta de quanto vai pagar de frete.
 
 O piso mora em dois lugares e os dois precisam bater: `FRETE_GRATIS_A_PARTIR_DE` em
 `apps/loja/src/lib/site.ts` (o que a loja promete) e `FRETE_GRATIS_A_PARTIR_DE` em

@@ -4,6 +4,7 @@ import {
   createLocationFulfillmentSetWorkflow,
   createServiceZonesWorkflow,
   createShippingOptionsWorkflow,
+  updateShippingOptionsWorkflow,
 } from "@medusajs/medusa/core-flows"
 import { ondeEstou } from "./onde-estou"
 
@@ -35,6 +36,11 @@ import { ondeEstou } from "./onde-estou"
  * teria que fazer a conta. Aqui ele lê "Frete grátis" no lugar do valor, que é
  * o que a esteira, a gaveta e a dobra prometem.
  *
+ * FRETE GRÁTIS É SÓ NA OPÇÃO MAIS BARATA. "Frete grátis" quer dizer que a loja
+ * paga o envio comum, não que ela paga a pressa de quem escolhe Sedex — com a
+ * regra nas duas, todo pedido acima do piso saía por R$ 39,90 de frete em vez
+ * de R$ 24,90, e a diferença é margem que some sem ninguém ver.
+ *
  * "A PARTIR DE", NÃO "ACIMA DE": a regra é `gte`, então o piso exato já sai de
  * graça — e o kit de 2 unidades custa exatamente R$ 149,90, ou seja, o carrinho
  * mais provável de encostar no piso encosta nele em cheio. Quem confere isso
@@ -52,7 +58,10 @@ import { ondeEstou } from "./onde-estou"
  * `price_type: "calculated"` e o provedor cota por CEP. A loja não muda: ela
  * lista o que o Medusa devolver.
  *
- * Roda quantas vezes quiser: o que já existe é pulado.
+ * RODA QUANTAS VEZES QUISER, e ele CORRIGE o que já existe em vez de pular.
+ * Pular era idempotente e inútil na hora que importa: mudar um valor de frete
+ * exigiria apagar a opção no painel primeiro. Este arquivo é a fonte desses
+ * números, então ele escreve os números.
  */
 
 /* ─────────────────────────────────────────────────────────────────────────
@@ -77,17 +86,62 @@ type Opcao = {
   preco: number
   /** Aparece na tela do checkout, ao lado do preço. */
   prazo: string
+  /**
+   * Esta opção sai de graça acima do piso?
+   *
+   * SÓ A MAIS BARATA, e isso é margem: "frete grátis" quer dizer que a loja
+   * paga o envio comum, não que ela paga a pressa de quem quer Sedex. Com a
+   * regra nas duas — como estava — todo pedido acima do piso saía por R$ 39,90
+   * de frete em vez de R$ 24,90, e a diferença é sua.
+   *
+   * Quem quiser Sedex acima do piso continua podendo: paga os R$ 39,90, e a
+   * tela mostra o PAC riscado do lado pra escolha ficar visível.
+   */
+  gratisAcimaDoPiso: boolean
 }
 
 const OPCOES: Opcao[] = [
-  { nome: "Correios PAC", preco: 24.9, prazo: "5 a 10 dias úteis" },
-  { nome: "Correios Sedex", preco: 39.9, prazo: "2 a 4 dias úteis" },
+  { nome: "Correios PAC", preco: 24.9, prazo: "5 a 10 dias úteis", gratisAcimaDoPiso: true },
+  { nome: "Correios Sedex", preco: 39.9, prazo: "2 a 4 dias úteis", gratisAcimaDoPiso: false },
 ]
 
 /* ───────────────────────────────────────────────────────────────────────── */
 
 const NOME_DO_CONJUNTO = "Entrega Brasil"
 const NOME_DA_ZONA = "Brasil"
+
+/**
+ * Os preços de uma opção: o valor cheio, e — só pra quem tem frete grátis —
+ * um SEGUNDO preço zerado com regra em `item_total`.
+ *
+ * Este segundo preço é o mecanismo inteiro do frete grátis. Não é promoção:
+ * é a mesma opção custando outra coisa acima do piso, então o checkout
+ * escreve "Grátis" no lugar do valor em vez de abrir uma linha de desconto
+ * que obriga o cliente a fazer a conta.
+ *
+ * `item_total` é o ÚNICO atributo que o Medusa aceita numa regra de preço de
+ * frete, e `gte` inclui o piso exato — o kit de 2 custa exatamente ele.
+ */
+function precosDe(opcao: Opcao) {
+  return [
+    { currency_code: "brl", amount: opcao.preco },
+    ...(opcao.gratisAcimaDoPiso
+      ? [
+          {
+            currency_code: "brl",
+            amount: 0,
+            rules: [
+              {
+                attribute: "item_total",
+                operator: "gte" as const,
+                value: FRETE_GRATIS_A_PARTIR_DE,
+              },
+            ],
+          },
+        ]
+      : []),
+  ]
+}
 
 export default async function frete({ container }: ExecArgs) {
   const logger = container.resolve(ContainerRegistrationKeys.LOGGER)
@@ -180,11 +234,39 @@ export default async function frete({ container }: ExecArgs) {
     entity: "shipping_option",
     fields: ["id", "name"],
   })
-  const jaTem = new Set(existentes.map((o) => o.name))
-  const aCriar = OPCOES.filter((o) => !jaTem.has(o.nome))
+  const porNome = new Map(existentes.map((o) => [o.name, o.id]))
+
+  /**
+   * Os preços de uma opção que JÁ EXISTE também são corrigidos.
+   *
+   * "Pula o que já existe" era idempotente e inútil na hora que importa:
+   * mudar um valor de frete, ou tirar o frete grátis de uma opção, exigiria
+   * apagar a opção no painel e rodar de novo. Este script é a fonte da
+   * verdade desses números — então ele escreve os números, sempre.
+   *
+   * Mandar `prices` SUBSTITUI a lista inteira, que é justamente o que faz o
+   * preço zerado sumir de quem deixou de ter frete grátis.
+   */
+  const aAtualizar = OPCOES.filter((o) => porNome.has(o.nome))
+  if (aAtualizar.length) {
+    await updateShippingOptionsWorkflow(container).run({
+      input: aAtualizar.map((opcao) => ({
+        id: porNome.get(opcao.nome)!,
+        prices: precosDe(opcao),
+      })),
+    })
+    for (const o of aAtualizar) {
+      logger.info(
+        `[frete] ${o.nome} atualizado: R$ ${o.preco.toFixed(2)}` +
+          `${o.gratisAcimaDoPiso ? " · grátis acima do piso" : " · sem frete grátis"}`
+      )
+    }
+  }
+
+  const aCriar = OPCOES.filter((o) => !porNome.has(o.nome))
 
   if (!aCriar.length) {
-    logger.info("[frete] todas as opções já estão lá, nada a fazer")
+    logger.info("[frete] nenhuma opção nova a criar")
     return
   }
 
@@ -202,18 +284,7 @@ export default async function frete({ container }: ExecArgs) {
         description: opcao.prazo,
         code: opcao.nome.toLowerCase().replace(/[^a-z]+/g, "-"),
       },
-      prices: [
-        { currency_code: "brl", amount: opcao.preco },
-        // A MESMA opção, zerada a partir do piso. É isto que faz o checkout
-        // escrever "Frete grátis" em vez de cobrar — sem promoção, sem linha
-        // de desconto, sem o cliente ter que fazer conta. `gte`: o piso exato
-        // conta, e o kit de 2 custa exatamente o piso.
-        {
-          currency_code: "brl",
-          amount: 0,
-          rules: [{ attribute: "item_total", operator: "gte", value: FRETE_GRATIS_A_PARTIR_DE }],
-        },
-      ],
+      prices: precosDe(opcao),
       rules: [
         // Sem estas duas a opção existe no admin e não aparece na loja.
         { attribute: "enabled_in_store", operator: "eq", value: "true" },

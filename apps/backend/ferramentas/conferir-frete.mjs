@@ -19,9 +19,18 @@ import { readFileSync } from "node:fs"
 
 const MEDUSA = process.env.MEDUSA_BACKEND_URL ?? "http://127.0.0.1:9000"
 
-/** Os mesmos números do `src/scripts/frete.ts`. Se lá mudar, aqui muda. */
+/**
+ * Os mesmos números do `src/scripts/frete.ts`. Se lá mudar, aqui muda.
+ *
+ * `gratis` é a metade que custa dinheiro: frete grátis vale SÓ na opção mais
+ * barata. Com a regra nas duas — como já esteve — todo pedido acima do piso
+ * saía com Sedex de graça, R$ 39,90 de margem embora por pedido.
+ */
 const PISO = 149.9
-const ESPERADO = { "Correios PAC": 24.9, "Correios Sedex": 39.9 }
+const ESPERADO = {
+  "Correios PAC": { preco: 24.9, gratis: true },
+  "Correios Sedex": { preco: 39.9, gratis: false },
+}
 
 const CHAVE =
   process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY ??
@@ -142,7 +151,7 @@ ok(
   "a loja enxerga alguma opção de frete",
   "lista vazia = pedido impossível"
 )
-for (const [nome, valor] of Object.entries(ESPERADO)) {
+for (const [nome, { preco: valor }] of Object.entries(ESPERADO)) {
   ok(
     preco(barato.opcoes, nome) === valor,
     `${nome} custa ${reais(valor)}`,
@@ -164,13 +173,22 @@ ok(
   "o carrinho passa do piso",
   `item_total = ${reais(rico.carrinho.item_total)}`
 )
-for (const nome of Object.keys(ESPERADO)) {
-  ok(
-    preco(rico.opcoes, nome) === 0,
-    `${nome} vira frete grátis`,
-    `veio ${reais(preco(rico.opcoes, nome) ?? NaN)}`
-  )
+for (const [nome, esperado] of Object.entries(ESPERADO)) {
+  const veio = preco(rico.opcoes, nome)
+  if (esperado.gratis) {
+    ok(veio === 0, `${nome} vira frete grátis`, `veio ${reais(veio ?? NaN)}`)
+  } else {
+    ok(
+      veio === esperado.preco,
+      `${nome} CONTINUA custando ${reais(esperado.preco)} — frete grátis não paga pressa`,
+      `veio ${reais(veio ?? NaN)}`
+    )
+  }
 }
+console.log(
+  "    → quem quiser Sedex acima do piso paga a diferença. Frete grátis é a\n" +
+    "      loja pagando o envio comum, não a pressa de quem escolhe o caro."
+)
 ok(
   rico.opcoes.length === barato.opcoes.length,
   "são as mesmas opções, não outras",
@@ -187,7 +205,9 @@ if (naBorda) {
     "o carrinho fecha exatamente no piso",
     `item_total = ${reais(borda.carrinho.item_total)}`
   )
-  const naoPaga = Object.keys(ESPERADO).every((n) => preco(borda.opcoes, n) === 0)
+  const naoPaga = Object.entries(ESPERADO)
+    .filter(([, e]) => e.gratis)
+    .every(([n]) => preco(borda.opcoes, n) === 0)
   ok(naoPaga, "o piso exato já é grátis (regra `gte`, e não `gt`)")
   console.log(
     `    → é por isso que a loja diz "a partir de ${reais(PISO)}", e não "acima de".\n` +
@@ -201,7 +221,8 @@ if (naBorda) {
 /* ── 4. dá pra escolher a opção e ela entra no total ──────────────────────── */
 
 titulo("O método entra no carrinho")
-const escolhido = rico.opcoes[0]
+// A mais barata, que é a que sai de graça acima do piso.
+const escolhido = [...rico.opcoes].sort((a, b) => a.amount - b.amount)[0]
 await api(`/store/carts/${rico.carrinho.id}/shipping-methods`, {
   method: "POST",
   body: JSON.stringify({ option_id: escolhido.id }),
