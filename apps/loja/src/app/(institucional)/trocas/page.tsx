@@ -1,23 +1,131 @@
 import type { Metadata } from "next"
+import Link from "next/link"
+import { Abertura, Atualizado, Lista, P, Pendente, Secao, Titulo } from "@/components/institucional/texto"
+import { contato, site, FRETE_GRATIS_A_PARTIR_DE } from "@/lib/site"
+import { emReais } from "@/lib/formato"
 
 export const metadata: Metadata = {
-  title: "Trocas e devoluções",
-  description: "Como trocar ou devolver um produto FuckingBarba.",
+  title: "Entrega, trocas e devoluções",
+  description: `Como funciona a entrega, e como trocar ou devolver um produto ${site.nome}.`,
   alternates: { canonical: "/trocas" },
 }
 
-/** TEXTO PROVISÓRIO — regra real (prazo de 7 dias do CDC, arrependimento, defeito) antes da virada. */
+/**
+ * ENTREGA, TROCAS E DEVOLUÇÕES.
+ *
+ * Esta página não é opcional: o botão "Fazer o pedido" do checkout diz, em
+ * letras miúdas, que ao fechar o pedido a pessoa ACEITA as regras desta
+ * página. Enquanto ela era um rascunho com tarja de "em redação", o checkout
+ * pedia aceite de um documento que não existia — o que, num eventual
+ * desentendimento, é o mesmo que não ter regra nenhuma.
+ *
+ * Os prazos aqui são os da LEI (art. 49 e art. 26 do CDC), que a loja cumpre
+ * por obrigação. O que depende de política da casa — quanto tempo a gente
+ * leva pra postar, quem paga o frete da devolução por arrependimento — está
+ * marcado como pendente em vez de chutado: no CDC, o que está escrito vincula.
+ */
+
+const ATUALIZADO = "20 de setembro de 2026"
+
 export default function Trocas() {
   return (
     <>
-      <h1 className="titulo-marca text-4xl text-tinta sm:text-5xl">Trocas e devoluções</h1>
-      <p className="mt-6 text-lg text-tinta">
-        Você tem 7 dias corridos a partir do recebimento pra desistir da compra, como manda o Código
-        de Defesa do Consumidor. Produto com defeito a gente troca sem custo.
-      </p>
-      <p className="mt-4 inline-block border-2 border-dashed border-tinta/40 px-3 py-2 text-xs font-bold uppercase tracking-wide text-tinta">
-        Passo a passo e prazos completos em redação
-      </p>
+      <Titulo>Entrega, trocas e devoluções</Titulo>
+
+      <Abertura>
+        Resumo: você tem 7 dias pra desistir sem justificar e 30 dias pra reclamar de defeito. Nos
+        dois casos é o mesmo primeiro passo — chamar no WhatsApp com o número do pedido.
+      </Abertura>
+
+      <Secao titulo="Entrega">
+        <P>
+          A gente envia pelos Correios pra todo o Brasil. O valor e o prazo aparecem no checkout
+          depois que você digita o CEP, e o frete é grátis a partir de{" "}
+          {emReais(FRETE_GRATIS_A_PARTIR_DE)} — a partir, ou seja, um pedido de exatamente esse
+          valor já tem frete grátis.
+        </P>
+        <P>
+          <b>O prazo começa na postagem, não na compra.</b> Entre o pagamento confirmado e a
+          postagem tem o tempo de separar e despachar: <Pendente>prazo de postagem pendente</Pendente>.
+          O código de rastreio vai pro seu e-mail assim que a encomenda for postada.
+        </P>
+        <P>
+          Se a encomenda voltar por endereço errado ou por ninguém ter recebido depois das
+          tentativas dos Correios, a gente avisa. O reenvio tem novo custo de frete; se preferir
+          cancelar, o valor do produto volta integralmente.
+        </P>
+      </Secao>
+
+      <Secao titulo="Desistiu? 7 dias, sem precisar explicar">
+        <P>
+          Compra pela internet dá direito a <b>7 dias corridos</b> contados do recebimento pra
+          desistir, sem justificativa nenhuma. É o art. 49 do Código de Defesa do Consumidor, e vale
+          mesmo que você tenha aberto a caixa pra conferir o produto.
+        </P>
+        <P>
+          O produto precisa voltar em condição de ser vendido de novo: com a embalagem, sem uso
+          além do necessário pra conferir. Frasco de cosmético usado pela metade não se enquadra
+          aqui — nesse caso, se o problema for o produto em si, o caminho é o de defeito, logo
+          abaixo.
+        </P>
+        <P>
+          Devolvido, a gente reembolsa <b>o valor integral, incluindo o frete que você pagou</b>,
+          pelo mesmo meio do pagamento, em até 10 dias depois de a encomenda chegar aqui. Cartão
+          pode levar mais uma ou duas faturas pra aparecer — isso é prazo da operadora, não nosso.
+        </P>
+        <P>
+          Quem paga o frete de volta: <Pendente>política de frete da devolução pendente</Pendente>.
+        </P>
+      </Secao>
+
+      <Secao titulo="Veio com defeito ou errado">
+        <P>
+          Produto com defeito, vazado, violado, vencido ou diferente do que você pediu: chama a
+          gente em até <b>30 dias</b> do recebimento (art. 26 do CDC, para produto não durável).
+          Manda foto — resolve muito mais rápido do que descrever.
+        </P>
+        <P>
+          A gente troca por outro igual ou devolve o dinheiro, do jeito que você preferir. Nesse
+          caso <b>o frete das duas pontas é por nossa conta</b>: o erro foi nosso.
+        </P>
+      </Secao>
+
+      <Secao titulo="Como pedir, na prática">
+        <Lista>
+          <li>
+            Chama no WhatsApp {contato.whatsapp.exibicao} ou manda e-mail pra{" "}
+            <a href={`mailto:${contato.email}`}>{contato.email}</a>, com o{" "}
+            <b>número do pedido</b> e o motivo. Foto, se for defeito.
+          </li>
+          <li>A gente responde com as instruções e, quando for o caso, o código de postagem.</li>
+          <li>Você posta. Guarda o comprovante — é ele que prova que a encomenda saiu.</li>
+          <li>Chegou aqui e conferido, o reembolso ou a troca sai nos prazos acima.</li>
+        </Lista>
+        <P>
+          Sem número de pedido também dá: a gente acha pelo e-mail ou pelo CPF da compra.
+        </P>
+      </Secao>
+
+      <Secao titulo="O que não dá pra devolver">
+        <Lista>
+          <li>produto usado além do necessário pra conferir, fora do caso de defeito;</li>
+          <li>produto sem a embalagem, quando ela é parte do que foi vendido;</li>
+          <li>pedido fora dos prazos acima — 7 dias pra desistência, 30 pra defeito.</li>
+        </Lista>
+        <P>
+          Se você acha que o seu caso é exceção, fala com a gente assim mesmo. Prazo é o mínimo que
+          a lei garante, não o máximo que a gente topa fazer.
+        </P>
+      </Secao>
+
+      <Secao titulo="Mais">
+        <P>
+          Veja também os <Link href="/termos">termos de uso</Link> e a{" "}
+          <Link href="/privacidade">política de privacidade</Link>.
+        </P>
+      </Secao>
+
+      <Atualizado em={ATUALIZADO} />
     </>
   )
 }

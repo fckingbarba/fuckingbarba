@@ -24,6 +24,8 @@
 /* A tela de categoria (/barba, /cabelo, /kits, /produtos). Depois de
    vitrine.css e produto.css porque reaproveita o card de lá. */
 @import "../estilos/catalogo.css";
+/* Privacidade, termos e trocas: fundo branco e link sublinhado. */
+@import "../estilos/institucional.css";
 @import "../estilos/sobre.css";
 @import "../estilos/fechamento.css";
 

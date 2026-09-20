@@ -4,7 +4,7 @@ import Link from "next/link"
 import { useEffect, useState } from "react"
 import { Raio } from "@/components/icones"
 import { emReais } from "@/lib/formato"
-import { EM_BREVE, FRETE_GRATIS_A_PARTIR_DE } from "@/lib/site"
+import { FRETE_GRATIS_A_PARTIR_DE } from "@/lib/site"
 
 /** A partir de quanto tempo restante o contador fica amarelo e pulsa. */
 const URGENCIA_MS = 60 * 60 * 1000
@@ -148,8 +148,12 @@ export function OfertasRelampago({ terminaEm }: { terminaEm: string }) {
           </div>
 
           <div className="offers__action">
-            {/* Vira a página de ofertas na fase 3, quando houver coleção. */}
-            <Link href={EM_BREVE} className="btn">
+            {/* "Ofertas" aqui é a loja ordenada por maior desconto — que é o
+                que a palavra significa pra quem clica. Não existe página de
+                ofertas curada porque não existe curadoria: inventar uma seria
+                uma segunda lista de produtos pra manter combinando com a
+                primeira. */}
+            <Link href="/produtos?ordem=desconto" className="btn">
               Aproveitar ofertas
               <Raio className="btn__bolt" />
             </Link>

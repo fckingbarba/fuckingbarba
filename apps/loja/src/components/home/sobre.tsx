@@ -21,7 +21,10 @@ export async function Sobre() {
   const produto = await buscarProdutoPorHandle(SOBRE.fotoDe)
 
   return (
-    <section className="sobre" aria-labelledby="sobre-titulo">
+    // `id="sobre"` é o destino do "Sobre nós" do rodapé. Não existe tela
+    // separada de propósito: o texto já está aqui, e uma página nova seria
+    // uma segunda versão da mesma história pra manter em dia.
+    <section className="sobre" id="sobre" aria-labelledby="sobre-titulo">
       <div className="sobre__wrap">
         <h2 className="sobre__titulo" id="sobre-titulo">
           <Raio />

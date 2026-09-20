@@ -1,0 +1,35 @@
+/*
+  AS PÁGINAS DE TEXTO — privacidade, termos, entrega/trocas.
+
+  Uma regra só, e ela existe por um motivo concreto: o fundo do `body` na
+  loja é MENTA, porque é a cor da marca e porque nas telas de venda ele
+  aparece em faixas curtas. Documento legal é texto corrido de duas mil
+  palavras, e duas mil palavras sobre menta cansam a vista em três
+  parágrafos — que é mais ou menos onde a pessoa desiste de ler justamente a
+  página que ela abriu pra decidir se confia na loja.
+
+  `body:has(.institucional)` pelo mesmo caminho que o checkout usa: o `body`
+  é do layout raiz e não sabe qual página está montada, então quem responde
+  é a página, de dentro pra fora.
+*/
+body:has(.institucional) {
+  background: var(--color-papel);
+}
+
+/*
+  Link dentro do texto precisa PARECER link. No corpo dos documentos eles
+  aparecem no meio da frase ("está na política de entrega"), e sem sublinhado
+  viram texto que ninguém clica — o que, num documento que remete aos outros
+  dois o tempo todo, é o mesmo que não ter remetido.
+*/
+.institucional a {
+  color: var(--color-menta-escura);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 2px;
+}
+.institucional a:hover,
+.institucional a:focus-visible {
+  color: var(--color-tinta);
+  background: var(--color-menta);
+}

@@ -38,6 +38,7 @@ const rotasAntigas = new Map<string, string>(
 const PAGINAS_RAIZ = new Set([
   "privacidade",
   "trocas",
+  "termos",
   "nao-encontrado",
   "em-breve",
   "checkout",

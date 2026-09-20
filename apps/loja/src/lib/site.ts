@@ -121,17 +121,23 @@ export const navegacao = {
     { href: EM_BREVE, texto: "Carrinho" },
   ],
   uteis: [
+    { href: "/produtos", texto: "Todos os produtos" },
+    /*
+      "Sobre nós" não tem tela própria: o texto já está na home, na seção
+      `#sobre`. Uma página separada seria uma segunda versão da mesma
+      história pra manter em dia — e quando duas versões divergem, é sempre
+      a que ninguém revisita que o cliente lê.
+    */
+    { href: "/#sobre", texto: "Sobre nós" },
     { href: EM_BREVE, texto: "Blog" },
-    { href: EM_BREVE, texto: "Sobre nós" },
     { href: EM_BREVE, texto: "Contato" },
     { href: EM_BREVE, texto: "Dúvidas frequentes" },
-    { href: EM_BREVE, texto: "Seja um revendedor" },
     { href: EM_BREVE, texto: "Minha conta" },
   ],
   politicas: [
     { href: "/trocas", texto: "Política de entrega, troca e devolução" },
     { href: "/privacidade", texto: "Política de privacidade" },
-    { href: EM_BREVE, texto: "Barba garante" },
+    { href: "/termos", texto: "Termos de uso" },
   ],
 } as const
 

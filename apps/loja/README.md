@@ -105,7 +105,14 @@ re-renderiza na resposta da ação, e o frete apareceria com o valor velho.
 node ferramentas/conferir-documento.mjs   # CPF e CNPJ (inclusive o alfanumérico)
 node ferramentas/conferir-checkout.mjs    # compra de verdade, com Medusa e loja de pé
 node ferramentas/conferir-catalogo.mjs    # /barba, /cabelo, /kits e /produtos
+node ferramentas/conferir-links.mjs       # nenhum link do site leva a 404
 ```
+
+O `conferir-links.mjs` é o que segura a armadilha do `PAGINAS_RAIZ` do proxy: em vez de saber de
+uma página específica, ele colhe todo `href` interno das telas principais e pede cada um. Página
+nova que apareça no menu ou no rodapé passa a ser coberta sozinha. Ele também **relata** as tarjas
+`data-pendente` das páginas legais — CNPJ, telefone e prazo de postagem que ainda não existem. O
+dia em que esse relatório vier vazio é o dia em que a loja pode abrir.
 
 O validador de CNPJ aceita **letras**: desde julho de 2026 a Receita emite CNPJ alfanumérico nas
 12 primeiras posições. Um validador só-numérico passa em todo teste antigo e recusa toda empresa

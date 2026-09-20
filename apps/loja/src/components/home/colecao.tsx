@@ -2,7 +2,6 @@ import Link from "next/link"
 import { Raio } from "@/components/icones"
 import { CartaoProduto } from "@/components/produto/cartao"
 import { listarProdutos } from "@/lib/medusa"
-import { EM_BREVE } from "@/lib/site"
 import { ColecaoCarrossel } from "./colecao-carrossel"
 
 /**
@@ -45,8 +44,7 @@ export async function Colecao() {
         </ColecaoCarrossel>
 
         <div className="colecao__rodape">
-          {/* Vira /colecao ou a categoria cheia na fase 3. */}
-          <Link href={EM_BREVE} className="btn">
+          <Link href="/produtos" className="btn">
             Ver toda a coleção
             <Raio className="btn__bolt" />
           </Link>

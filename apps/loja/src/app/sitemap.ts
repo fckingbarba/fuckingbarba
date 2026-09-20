@@ -25,6 +25,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "daily" as const,
       priority: 0.9,
     },
+    /*
+      As institucionais entram com prioridade baixa mas ENTRAM: o Google usa
+      a existência de termos, privacidade e política de devolução como sinal
+      de loja legítima, e uma loja nova de marca desconhecida precisa desse
+      sinal mais do que uma loja grande.
+    */
+    ...(["/trocas", "/privacidade", "/termos"] as const).map((caminho) => ({
+      url: `${site.url}${caminho}`,
+      changeFrequency: "yearly" as const,
+      priority: 0.3,
+    })),
     ...categorias.map((c) => ({
       url: `${site.url}/${c.handle}`,
       changeFrequency: "weekly" as const,
