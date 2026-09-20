@@ -151,7 +151,7 @@
   Sem `fill`, pelo mesmo motivo do cabeçalho: a marca traz as próprias cores.
 */
 .rodape__marca svg {
-  width: clamp(124px, 40%, 168px);
+  width: clamp(104px, 34%, 140px);
   height: auto;
   flex-shrink: 0;
 }
@@ -336,4 +336,70 @@
   .rodape__colunas {
     grid-template-columns: 1fr;
   }
+}
+
+/* ======================================================
+   SELOS DE SEGURANÇA
+
+   Desenhados na linguagem da casa — chanfro, borda dura,
+   ícone da marca — e não colados de um PNG de banco de
+   imagem. Selo com degradê e azul de outra marca no meio
+   de uma página que é chanfro e três cores aparece como o
+   que é: enfeite colado de fora. E selo que parece colado
+   de fora não tranquiliza; faz o contrário.
+
+   Cada um é uma afirmação verdadeira e verificável pelo
+   próprio cliente — o cadeado do navegador prova o SSL, os
+   7 dias são o art. 49 do CDC. Ver `layout/selos.tsx`.
+   ====================================================== */
+.selos {
+  padding: 18px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+.selos__titulo {
+  margin: 0 0 12px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #949da5;
+}
+.selos__lista {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 10px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.selo {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 11px 13px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1.5px solid rgba(255, 255, 255, 0.16);
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+}
+.selo svg {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  fill: var(--color-menta);
+}
+.selo span {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.selo b {
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  color: #ffffff;
+}
+.selo small {
+  font-size: 0.72rem;
+  color: #949da5;
 }

@@ -187,6 +187,18 @@ export function EscudoCerto(props: Props) {
   )
 }
 
+/** Cadeado fechado — o selo de conexão segura, no rodapé. */
+export function Cadeado(props: Props) {
+  return (
+    <Icone {...props}>
+      <path
+        fillRule="evenodd"
+        d="M12 1.6c-3.2 0-5.8 2.6-5.8 5.8v2.4H4.4l-1.2 1.2v10l1.2 1.2h15.2l1.2-1.2v-10l-1.2-1.2h-1.8V7.4c0-3.2-2.6-5.8-5.8-5.8zm0 2.6a3.2 3.2 0 0 1 3.2 3.2v2.4H8.8V7.4A3.2 3.2 0 0 1 12 4.2zm-1.3 9.6h2.6v4.4h-2.6z"
+      />
+    </Icone>
+  )
+}
+
 /** Lixeira — o "menos" da sacola quando a quantidade é 1. */
 export function Lixeira(props: Props) {
   return (

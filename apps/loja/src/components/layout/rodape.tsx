@@ -11,6 +11,7 @@ import {
 } from "@/components/icones"
 import { LogoCompleta } from "@/components/marca"
 import { Newsletter } from "./newsletter"
+import { Selos } from "./selos"
 import { contato, formasDePagamento, navegacao, parcelamento, redes, site } from "@/lib/site"
 
 /**
@@ -126,6 +127,8 @@ export function Rodape() {
             </p>
           </div>
         </div>
+
+        <Selos />
 
         <section className="rodape__pagamento" aria-labelledby="rod-pag">
           <h2 className="rodape__pagamento-titulo" id="rod-pag">

@@ -129,9 +129,10 @@ export function Cabecalho() {
             </button>
           </div>
 
+          {/* Só a marca. O nome sai do `aria-label` pra quem lê a tela — o
+              texto na barra era a muleta de quando não existia logo. */}
           <Link className="cabecalho__logo" href="/" aria-label={`${site.nome} — página inicial`}>
             <LogoCurta aria-hidden="true" />
-            {site.nome}
           </Link>
 
           <div className="cabecalho__grupo cabecalho__grupo--dir">

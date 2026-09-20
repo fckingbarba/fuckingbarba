@@ -111,7 +111,9 @@
   por acidente.
 */
 .cabecalho__logo svg {
-  height: 30px;
+  /* Sozinha na barra ela pode crescer: sem o nome do lado, o que segura o
+     tamanho é a altura da barra, não o texto. */
+  height: 36px;
   width: auto;
   flex-shrink: 0;
 }
