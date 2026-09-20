@@ -77,9 +77,57 @@ export type AjusteDeLayout = {
   ordem?: string[]
 }
 
-export type Pdp = { conteudo: ConteudoDaPdp; layout: AjusteDeLayout }
+/* ── a imagem de fundo de uma seção ──────────────────────────────────────
+ *
+ * SÓ IMAGEM. Não há paleta de cores: sem imagem, a seção fica com a cor que
+ * ela já tem, que é o desenho aprovado. O que se acrescenta é uma FOTO
+ * ATRÁS, e a cor original vem por cima como véu translúcido.
+ *
+ * O porquê do véu (e não da foto crua) está em `apps/loja/src/estilos/
+ * fundo.css`, com o resultado do teste que levou a ele: seis das oito
+ * seções são cartões escuros sobre fundo claro, e foto crua no lugar do
+ * fundo claro faz o cartão sumir e o texto solto virar escuro sobre escuro.
+ */
+export type Fundo = {
+  /** URL da imagem. É a única coisa que liga o fundo. */
+  imagem: string
+  /** Opacidade do véu, de 40 a 100. 100 = a tela de hoje, sem foto à vista. */
+  veu?: number
+}
 
-export const PDP_VAZIA: Pdp = { conteudo: {}, layout: {} }
+/**
+ * QUEM APARECE DEPOIS DO PREÇO.
+ *
+ * Duas coisas diferentes que costumam ser confundidas:
+ *
+ *   KITS (upsell) — mais unidades do MESMO produto. Já é automático: sai
+ *     do catálogo, pela metadata `kit-quantidade`, e aparece sozinho em
+ *     quem tem kit cadastrado. A chavinha aqui só DESLIGA, porque ligar
+ *     não é decisão de tela: ou existe kit, ou não existe;
+ *   PRODUTOS QUE COMBINAM (cross-sell) — produtos DIFERENTES. Hoje a
+ *     escolha é "o resto do catálogo, mesma categoria primeiro", o que com
+ *     seis produtos é honesto e com sessenta deixa de ser.
+ *
+ * ESCOLHA VAZIA CAI NO AUTOMÁTICO, e não em seção vazia. Se a lista vazia
+ * significasse "não mostre nada", ligar este campo esvaziaria a seção no
+ * catálogo inteiro de uma vez — em todo produto que ninguém curou ainda.
+ */
+export type VendaCombinada = {
+  /** `false` esconde os kits de quantidade neste produto. */
+  kits?: boolean
+  /** Handles escolhidos a dedo. Vazio = automático. */
+  produtos?: string[]
+}
+
+export type Pdp = {
+  conteudo: ConteudoDaPdp
+  layout: AjusteDeLayout
+  /** Por id de seção do registro: "produto.promessa", "produto.quem"… */
+  fundos: Record<string, Fundo>
+  combinada: VendaCombinada
+}
+
+export const PDP_VAZIA: Pdp = { conteudo: {}, layout: {}, fundos: {}, combinada: {} }
 
 /* ── leitura defensiva ─────────────────────────────────────────────────── */
 
@@ -235,6 +283,56 @@ function lerLayout(v: unknown): AjusteDeLayout {
   }
 }
 
+/**
+ * A URL da imagem é conferida ANTES de virar `background-image` numa página
+ * pública. `javascript:` e `data:` numa url() de CSS são vetores conhecidos,
+ * e este campo vem do formulário — ou seja, de fora.
+ */
+function lerImagem(v: unknown): string | null {
+  const u = txt(v)
+  if (!u) return null
+  try {
+    const url = new URL(u, "https://x.invalid")
+    return url.protocol === "http:" || url.protocol === "https:" ? u : null
+  } catch {
+    // Caminho relativo ("/uploads/foto.jpg") é o que o Medusa devolve quando
+    // o arquivo fica em disco, e é seguro.
+    return u.startsWith("/") ? u : null
+  }
+}
+
+function lerFundos(v: unknown): Record<string, Fundo> {
+  const o = obj(v)
+  if (!o) return {}
+  const fundos: Record<string, Fundo> = {}
+
+  for (const [id, valor] of Object.entries(o)) {
+    const f = obj(valor)
+    // Sem imagem válida não há fundo: a seção volta à cor que ela já tinha,
+    // que é o comportamento certo e o mesmo de nunca ter configurado nada.
+    const imagem = f && lerImagem(f.imagem)
+    if (!imagem) continue
+
+    const bruto = typeof f!.veu === "number" ? Math.round(f!.veu as number) : NaN
+    const veu = Number.isFinite(bruto) ? Math.min(100, Math.max(40, bruto)) : undefined
+    fundos[id] = { imagem, ...(veu !== undefined ? { veu } : {}) }
+  }
+
+  return fundos
+}
+
+function lerCombinada(v: unknown): VendaCombinada {
+  const o = obj(v)
+  if (!o) return {}
+  const produtos = Array.isArray(o.produtos)
+    ? [...new Set(o.produtos.map(txt).filter((h): h is string => h !== null))]
+    : []
+  return {
+    ...(o.kits === false ? { kits: false } : {}),
+    ...(produtos.length ? { produtos } : {}),
+  }
+}
+
 /** Tira do `metadata` do produto a PDP, já peneirada. */
 export function lerPdp(metadata: unknown): Pdp {
   const raiz = obj(metadata)?.[CHAVE_NO_METADATA]
@@ -258,5 +356,10 @@ export function lerPdp(metadata: unknown): Pdp {
     if (valor) Object.assign(conteudo, { [nome]: valor })
   }
 
-  return { conteudo, layout: lerLayout(o.layout) }
+  return {
+    conteudo,
+    layout: lerLayout(o.layout),
+    fundos: lerFundos(o.fundos),
+    combinada: lerCombinada(o.combinada),
+  }
 }

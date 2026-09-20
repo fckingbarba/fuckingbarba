@@ -31,9 +31,20 @@ import { buscarProdutoPorHandle } from "./medusa"
 
 export const CHAVE_NO_METADATA = "fb_pdp"
 
-export type Pdp = { conteudo: ConteudoDaPdp; layout: AjusteDeLayout }
+/** A imagem de fundo de uma seção. Sem ela, a seção fica como sempre foi. */
+export type FundoDaSecao = { imagem: string; veu?: number }
 
-export const PDP_VAZIA: Pdp = { conteudo: {}, layout: {} }
+/** Quem aparece depois do preço. Lista vazia = automático, não vazio. */
+export type VendaCombinada = { kits?: boolean; produtos?: string[] }
+
+export type Pdp = {
+  conteudo: ConteudoDaPdp
+  layout: AjusteDeLayout
+  fundos: Record<string, FundoDaSecao>
+  combinada: VendaCombinada
+}
+
+export const PDP_VAZIA: Pdp = { conteudo: {}, layout: {}, fundos: {}, combinada: {} }
 
 /**
  * As listas que cada seção percorre com `.map`.
@@ -85,7 +96,32 @@ export function lerPdp(metadata: unknown): Pdp {
     ...(Array.isArray(l.ordem) ? { ordem: l.ordem as string[] } : {}),
   }
 
-  return { conteudo: conteudo as ConteudoDaPdp, layout }
+  /*
+    O backend já validou a URL e a faixa do véu na gravação. Aqui só sobra
+    conferir que existe imagem: sem ela o embrulho desenharia um retângulo
+    translúcido por cima de nada, escurecendo a seção sem motivo.
+  */
+  const fundos: Record<string, FundoDaSecao> = {}
+  const f = ehObjeto(raiz.fundos) ? raiz.fundos : {}
+  for (const [id, valor] of Object.entries(f)) {
+    if (!ehObjeto(valor) || typeof valor.imagem !== "string" || !valor.imagem) continue
+    fundos[id] = valor as unknown as FundoDaSecao
+  }
+
+  const c = ehObjeto(raiz.combinada) ? raiz.combinada : {}
+  const combinada: VendaCombinada = {
+    ...(c.kits === false ? { kits: false } : {}),
+    ...(Array.isArray(c.produtos)
+      ? { produtos: c.produtos.filter((h): h is string => typeof h === "string") }
+      : {}),
+  }
+
+  return { conteudo: conteudo as ConteudoDaPdp, layout, fundos, combinada }
+}
+
+/** Só os fundos, pro montador de seções. */
+export async function lerFundos(handle: string): Promise<Record<string, FundoDaSecao>> {
+  return (await pdpDoProduto(handle)).fundos
 }
 
 /** A PDP de um produto. Produto que não existe devolve a vazia, não erro. */

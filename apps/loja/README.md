@@ -187,6 +187,25 @@ solto no meio da página, que parece defeito. A loja repete só a peneira que ev
 (`.map` em algo que não é lista); repetir as duzentas linhas de validação dos dois lados criaria
 a divergência que elas deveriam evitar.
 
+**Imagem de fundo: a cor da seção vira véu.** O jeito óbvio — foto no fundo, seção transparente
+— foi testado e quebrou seis das oito seções, e o desenho explica: linha do tempo, rotina, versus,
+"pra quem é" e dúvidas são *cartões escuros sobre fundo claro*. Tirando o fundo claro, o cartão
+escuro cai em cima da foto e some, e o texto solto vira escuro sobre escuro.
+
+Então a foto entra **atrás** e a cor que a seção já tem vem **por cima, translúcida**. A seção
+mantém exatamente a paleta e o contraste de antes; a foto aparece como textura. O véu vai de 40 a
+100 (100 é a tela de hoje, sem foto à vista), e 70 costuma ser onde a foto lê sem atrapalhar. Sem
+imagem, nenhum embrulho é desenhado — a seção sai idêntica ao que sempre foi.
+
+As cores por seção estão em `estilos/fundo.css`, escritas à mão e não lidas do CSS: se alguém
+mudar a cor de uma seção e esquecer de atualizar lá, a foto aparece com véu da cor errada, o que
+se vê na primeira tela — melhor que um cálculo esperto que erra em silêncio.
+
+**Produtos que combinam: escolha manda, vazio cai no automático.** Se lista vazia significasse
+"não mostre nada", ligar o campo esvaziaria a seção no catálogo inteiro de uma vez. Handle que
+aponta pra produto que saiu do catálogo é ignorado e a seção volta ao automático — ninguém volta
+em todas as PDPs pra limpar referência.
+
 **As oito seções fazem uma leitura, não oito.** Cada uma chama `conteudoDaPdp(handle)`, que cai em
 `buscarProdutoPorHandle` — `"use cache"`. Manter cada seção buscando o que precisa é o que permite
 ligar e desligar seção sem mexer em assinatura de componente.

@@ -26,6 +26,8 @@
 @import "../estilos/catalogo.css";
 /* Privacidade, termos e trocas: fundo branco e link sublinhado. */
 @import "../estilos/institucional.css";
+/* O fundo por seção da PDP, escolhido no admin. */
+@import "../estilos/fundo.css";
 @import "../estilos/sobre.css";
 @import "../estilos/fechamento.css";
 

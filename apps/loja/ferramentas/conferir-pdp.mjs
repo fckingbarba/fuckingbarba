@@ -191,6 +191,58 @@ try {
         (await secoesNaTela()).join(", ")
       )
 
+      /* ── fundo de imagem: entra, e a cor da seção continua mandando ── */
+      const FOTO = "https://acdn-us.mitiendanube.com/stores/006/689/600/products/pdp-1000x1000-22670c28eafa37f5ea17755696867196-1024-1024.webp"
+      await gravar({ ...antes, fundos: { "produto.quem": { imagem: FOTO, veu: 70 } } })
+      await abrir(COM_CONTEUDO)
+      const embrulho = await pagina.$(".fundo--imagem > .quem")
+      confere("seção com imagem ganha o embrulho de fundo", embrulho !== null)
+      confere(
+        "e a imagem escolhida é a que entra no CSS",
+        (await pagina.$eval(".fundo--imagem", (e) => getComputedStyle(e).getPropertyValue("--fundo-imagem"))).includes("pdp-1000x1000"),
+      )
+      /* O véu é o que preserva o contraste: sem ele a foto crua fica atrás
+         do texto. Se um dia alguém tirar o ::after, isto pega. */
+      confere(
+        "o véu por cima da foto existe",
+        await pagina.$eval(".fundo--imagem", (e) => {
+          const bg = getComputedStyle(e, "::after").backgroundImage + getComputedStyle(e, "::after").backgroundColor
+          return bg.includes("rgb") || bg.includes("gradient")
+        })
+      )
+
+      /* ── sem imagem, a seção volta a ser exatamente o que era ── */
+      await gravar({ ...antes, fundos: {} })
+      await abrir(COM_CONTEUDO)
+      confere("sem imagem, nenhum embrulho é desenhado", (await pagina.$$(".fundo")).length === 0)
+
+      /* ── produtos que combinam: escolha manda, vazio cai no automático ── */
+      const automatico = async () => {
+        await abrir(COM_CONTEUDO)
+        return pagina.$$eval(".colecao--relacionados .produto__nome", (n) => n.map((e) => e.textContent.trim()))
+      }
+      const todos = await automatico()
+      confere("sem escolha, a loja escolhe sozinha", todos.length > 0, String(todos.length))
+
+      await gravar({ ...antes, combinada: { produtos: ["oleo-para-barba"] } })
+      const curados = await automatico()
+      confere(
+        "com escolha, aparece só o que foi escolhido",
+        curados.length === 1 && /óleo/i.test(curados[0]),
+        curados.join(" | ")
+      )
+
+      await gravar({ ...antes, combinada: { produtos: ["nao-existe-este-handle"] } })
+      confere(
+        "escolha que aponta pra produto inexistente cai no automático",
+        (await automatico()).length > 1
+      )
+
+      /* ── kits: a chave só desliga ── */
+      await gravar({ ...antes, combinada: { kits: false } })
+      await abrir(COM_CONTEUDO)
+      confere("kits desligados somem da dobra", (await pagina.$$(".degrau, [data-degrau]")).length <= 1)
+
       /* lixo no metadata não derruba a PDP: a seção some, a página fica */
       const sujo = await gravar({
         ...antes,

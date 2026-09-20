@@ -3,6 +3,7 @@ import { Compra } from "@/components/produto/compra"
 import { Galeria, type Foto } from "@/components/produto/galeria"
 import { Migalhas, type Migalha } from "@/components/produto/migalhas"
 import { buscarProdutoPorHandle, escadaDeQuantidade, precosDe } from "@/lib/medusa"
+import { pdpDoProduto } from "@/lib/pdp"
 import { site } from "@/lib/site"
 
 /**
@@ -28,7 +29,14 @@ export async function Dobra({ handle }: { handle: string }) {
   const produto = await buscarProdutoPorHandle(handle)
   if (!produto) notFound()
 
-  const degraus = await escadaDeQuantidade(handle)
+  /*
+    O degrau de quantidade é automático — sai do catálogo, pela metadata dos
+    kits. A configuração só sabe DESLIGAR: ligar não é decisão de tela, ou
+    existe kit cadastrado ou não existe. Desligado, a dobra mostra só a
+    unidade avulsa, como qualquer produto sem kit.
+  */
+  const { combinada } = await pdpDoProduto(handle)
+  const degraus = combinada.kits === false ? [] : await escadaDeQuantidade(handle)
   const precos = precosDe(produto)
   const variante = produto.variants?.[0]
 

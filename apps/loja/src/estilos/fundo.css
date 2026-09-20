@@ -1,0 +1,95 @@
+/*
+  IMAGEM DE FUNDO NUMA SEÇÃO DA PDP.
+
+  Sem imagem, nada disto existe: a seção sai exatamente como sempre saiu.
+  Com imagem, ela aparece ATRÁS da seção — e a cor que a seção já tinha vem
+  por cima, translúcida, como véu.
+
+  ┌─ POR QUE VÉU DA COR DA PRÓPRIA SEÇÃO, E NÃO A FOTO CRUA ───────────────┐
+  │ Tentei primeiro o jeito óbvio: foto no fundo, seção transparente. Em   │
+  │ seis das oito seções a página quebrou, e dá pra ver o porquê no        │
+  │ desenho delas: a linha do tempo, a rotina, o versus, o "pra quem é" e  │
+  │ as dúvidas são CARTÕES ESCUROS SOBRE FUNDO CLARO. Tirando o fundo      │
+  │ claro, o cartão escuro cai em cima da foto e some, e o texto solto da  │
+  │ seção (títulos, notas) fica escuro sobre foto escura.                  │
+  │                                                                          │
+  │ Com o véu da cor original, a seção mantém EXATAMENTE a paleta que tem: │
+  │ os cartões continuam contrastando com o mesmo fundo de antes, e a foto │
+  │ entra como textura por trás. Em 100% de véu, é a tela de hoje; em 70%, │
+  │ a foto aparece. Quem decide o quanto é quem edita, e vê na hora.       │
+  │                                                                          │
+  │ O efeito colateral bom: contraste de texto não muda com a foto. O CI   │
+  │ cobra acessibilidade 100, e foto crua atrás de texto reprova sempre.   │
+  └──────────────────────────────────────────────────────────────────────────┘
+*/
+
+.fundo {
+  position: relative;
+  isolation: isolate;
+}
+
+/* A seção cede o fundo pro embrulho. `.fundo > section` tem especificidade
+   maior que `.promessa`, então não precisa de `!important`. */
+.fundo--imagem > section {
+  background: transparent;
+}
+
+.fundo--imagem::before,
+.fundo--imagem::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+}
+
+.fundo--imagem::before {
+  background-image: var(--fundo-imagem);
+  background-size: cover;
+  /* 40% a partir do topo: em foto de gente, é onde o rosto costuma cair. */
+  background-position: center 40%;
+}
+
+/*
+  O VÉU. `--secao-rgb` é a cor que a seção usa hoje, declarada abaixo por
+  seção; `--veu` é a opacidade, de 40 a 100, que vem do admin.
+
+  O padrão é 85: a foto aparece como textura sem que nada perca leitura.
+*/
+.fundo--imagem::after {
+  background: rgb(var(--secao-rgb, 255 255 255) / calc(var(--veu, 85) * 1%));
+}
+
+/*
+  A COR DE CADA SEÇÃO, em triplo RGB.
+
+  Escrito à mão e não lido do CSS de propósito: são os mesmos valores dos
+  arquivos `pdp-*.css`, e um dia em que alguém mudar a cor de uma seção lá e
+  esquecer aqui, a foto aparece com véu da cor errada — visível na hora, numa
+  tela só. Melhor que um cálculo esperto que erra em silêncio.
+*/
+.fundo--imagem:has(> .promessa) {
+  /* O gradiente radial dela é quase preto; o meio da elipse é este. */
+  --secao-rgb: 7 10 9;
+}
+.fundo--imagem:has(> .tempo),
+.fundo--imagem:has(> .funciona),
+.fundo--imagem:has(> .duvidas) {
+  --secao-rgb: 79 228 182; /* menta */
+}
+.fundo--imagem:has(> .rotina),
+.fundo--imagem:has(> .quem) {
+  --secao-rgb: 255 255 255; /* papel */
+}
+.fundo--imagem:has(> .versus) {
+  --secao-rgb: 255 216 77; /* amarelo */
+}
+
+/*
+  A faixa já tem foto e véu próprios. Embrulhá-la empilharia dois fundos e
+  escureceria a foto até virar um retângulo preto — então ela não cede o
+  fundo, e o embrulho fica sem efeito. O editor nem oferece imagem pra ela:
+  ela tem campo de imagem próprio.
+*/
+.fundo--imagem > .faixa {
+  background: #070a09;
+}
