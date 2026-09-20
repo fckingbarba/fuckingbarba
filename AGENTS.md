@@ -39,6 +39,11 @@ Desenvolvimento local precisa de Postgres e Redis: `docker compose up -d`.
   `gtag`/`fbq`. `purchase` só no worker, com pagamento confirmado.
 - **Toda leitura do Medusa no front é `"use cache"` com `cacheTag`** (`apps/loja/src/lib/medusa.ts`).
   Invalidação por `POST /api/revalidar`.
+- **Página é dado, não JSX.** Quais seções uma página monta, e em que ordem, vem do registro
+  (`apps/loja/src/lib/secoes/registro.ts`); a rota só escreve `<Secoes escopo="..." />`. A ordem do
+  array é a ordem padrão — não existe segunda lista, e o banco guardará só a diferença
+  (`lib/secoes/layout.ts`). Seção nova se declara lá, com `id` estável (é chave de banco), `nome` e
+  `descricao` (é o que uma pessoa lê no painel) e `fixo: true` quando não pode ser desligada.
 - **404 real no primeiro nível é no proxy** (`apps/loja/src/proxy.ts`); com Cache Components, rota
   dinâmica manda o shell com 200. Ao criar uma página nova de primeiro nível, adicione o segmento em
   `PAGINAS_RAIZ` do proxy.
