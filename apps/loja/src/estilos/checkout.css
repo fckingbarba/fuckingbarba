@@ -1,0 +1,656 @@
+/*
+  O CHECKOUT
+
+  Mesma linguagem do resto — chanfro, sombra dura, título em caixa alta — com
+  uma diferença deliberada: AQUI NADA COMPETE PELA ATENÇÃO. Sem esteira de
+  ofertas, sem contador, sem produto relacionado. Quem chegou aqui já decidiu;
+  o trabalho desta tela é sair da frente.
+
+  Por isso o `body:has(.checkout)` lá embaixo esconde a navegação do cabeçalho
+  e encolhe o rodapé. É `:has()` em vez de um layout separado porque a
+  alternativa seria duplicar o layout raiz inteiro em grupos de rota — muito
+  risco pra um ganho que o seletor entrega em cinco linhas. Onde `:has()` não
+  existir, a pessoa vê o cabeçalho normal, que é o pior caso aceitável.
+*/
+
+.checkout {
+  background: var(--color-cinza);
+  min-height: 70vh;
+  padding: clamp(20px, 4vw, 44px) 0 clamp(40px, 7vw, 80px);
+}
+
+.checkout__wrap {
+  width: min(1120px, 100% - 32px);
+  margin-inline: auto;
+}
+
+.checkout__titulo {
+  font-size: clamp(1.5rem, 4vw, 2.1rem);
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+  color: var(--color-tinta);
+  margin-bottom: clamp(16px, 3vw, 28px);
+}
+
+.checkout__grade {
+  display: grid;
+  gap: clamp(16px, 3vw, 28px);
+  align-items: start;
+}
+
+@media (min-width: 900px) {
+  .checkout__grade {
+    grid-template-columns: minmax(0, 1fr) 360px;
+  }
+}
+
+.checkout__etapas {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+/* ── uma etapa ───────────────────────────────────────────────────────────── */
+
+.etapa {
+  background: var(--color-papel);
+  border: 2px solid var(--color-tinta);
+  clip-path: polygon(
+    14px 0,
+    100% 0,
+    100% calc(100% - 14px),
+    calc(100% - 14px) 100%,
+    0 100%,
+    0 14px
+  );
+}
+
+.etapa.e-aberta {
+  box-shadow: 6px 6px 0 0 var(--color-amarelo);
+}
+
+.etapa__cabeca {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  font-size: 1rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--color-tinta);
+}
+
+.etapa:not(.e-aberta):not(.e-vencida) .etapa__cabeca {
+  color: var(--color-tinta-suave);
+}
+
+.etapa__numero {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  background: var(--color-tinta);
+  color: var(--color-papel);
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+.etapa.e-vencida .etapa__numero {
+  background: var(--color-menta);
+  color: var(--color-tinta);
+}
+
+.etapa__numero svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+
+.etapa:not(.e-aberta):not(.e-vencida) .etapa__numero {
+  background: var(--color-cinza);
+  color: var(--color-tinta-suave);
+}
+
+.etapa__titulo {
+  flex: 1;
+  min-width: 0;
+}
+
+.etapa__alterar {
+  background: none;
+  border: none;
+  padding: 4px 2px;
+  font: inherit;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  color: var(--color-menta-escura);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.etapa__alterar:hover,
+.etapa__alterar:focus-visible {
+  color: var(--color-tinta);
+}
+
+.etapa__resumo {
+  padding: 0 18px 14px 58px;
+  margin-top: -6px;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--color-tinta-suave);
+}
+
+.etapa__corpo {
+  padding: 4px 18px 20px;
+}
+
+@media (min-width: 560px) {
+  .etapa__corpo {
+    padding-left: 58px;
+  }
+  .etapa__resumo {
+    padding-left: 58px;
+  }
+}
+
+.etapa__form {
+  display: grid;
+  gap: 14px;
+}
+
+/* Erro que não é de campo nenhum: rede fora, Medusa recusando. */
+.etapa__recado {
+  display: flex;
+  gap: 8px;
+  padding: 12px 14px;
+  background: #fff1f0;
+  border-left: 4px solid #c0392b;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: #7d241a;
+}
+
+/* ── campos ──────────────────────────────────────────────────────────────── */
+
+.campo {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.campo__rotulo {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-tinta);
+}
+
+.campo__dica {
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--color-tinta-suave);
+}
+
+.campo__entrada {
+  width: 100%;
+  padding: 11px 12px;
+  border: 2px solid var(--color-tinta);
+  background: var(--color-papel);
+  font: inherit;
+  /*
+    16px é o mínimo: abaixo disso o Safari do iPhone dá zoom sozinho ao focar
+    o campo, e a pessoa fica com a página torta no meio do checkout.
+  */
+  font-size: 16px;
+  color: var(--color-tinta);
+}
+
+.campo__entrada:focus-visible {
+  outline: 3px solid var(--color-menta);
+  outline-offset: 1px;
+}
+
+.campo--erro .campo__entrada {
+  border-color: #c0392b;
+}
+
+.campo__erro:empty {
+  display: none;
+}
+
+.campo__erro {
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: #c0392b;
+}
+
+.campo-par {
+  display: grid;
+  gap: 14px;
+}
+
+@media (min-width: 560px) {
+  .campo-par {
+    grid-template-columns: 1fr 1fr;
+  }
+  .campo-par--cep {
+    grid-template-columns: 200px 1fr;
+    align-items: center;
+  }
+  .campo-par--cidade {
+    grid-template-columns: 1fr 120px;
+  }
+}
+
+.entrega__estado {
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: var(--color-tinta-suave);
+}
+
+.entrega__estado:empty {
+  display: none;
+}
+
+/* ── frete e pagamento: listas de escolha ────────────────────────────────── */
+
+.fretes,
+.pagamentos {
+  display: grid;
+  gap: 10px;
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+.frete,
+.pagamento {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 14px;
+  border: 2px solid var(--color-tinta);
+  background: var(--color-papel);
+  cursor: pointer;
+}
+
+.frete:has(input:checked),
+.pagamento:has(input:checked) {
+  background: var(--color-menta-clara);
+  box-shadow: var(--shadow-dura-sm);
+}
+
+.frete:has(input:focus-visible),
+.pagamento:has(input:focus-visible) {
+  outline: 3px solid var(--color-menta);
+  outline-offset: 2px;
+}
+
+.frete input,
+.pagamento input {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  accent-color: var(--color-menta-escura);
+}
+
+.frete__nome,
+.pagamento__nome {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--color-tinta);
+}
+
+.frete__prazo,
+.pagamento__desc {
+  font-size: 0.8rem;
+  font-weight: 400;
+  line-height: 1.4;
+  color: var(--color-tinta-suave);
+}
+
+.frete__preco {
+  flex-shrink: 0;
+  font-size: 0.98rem;
+  font-weight: 800;
+  color: var(--color-tinta);
+}
+
+.frete__preco.e-gratis {
+  color: var(--color-menta-escura);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.pagamento__aviso {
+  padding: 12px 14px;
+  background: var(--color-amarelo-claro);
+  border-left: 4px solid var(--color-amarelo-escuro);
+  font-size: 0.86rem;
+  line-height: 1.5;
+  color: #5a4600;
+}
+
+.pagamento__rodape {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--color-tinta-suave);
+}
+
+.pagamento__rodape svg {
+  flex-shrink: 0;
+  width: 15px;
+  height: 15px;
+  margin-top: 2px;
+  fill: currentColor;
+}
+
+.pagamento__rodape a {
+  color: var(--color-menta-escura);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.btn--bloco {
+  justify-content: center;
+  width: 100%;
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: var(--shadow-dura-sm);
+}
+
+/* ── o resumo do pedido ──────────────────────────────────────────────────── */
+
+.resumo {
+  background: var(--color-papel);
+  border: 2px solid var(--color-tinta);
+  padding: 18px;
+  clip-path: polygon(
+    16px 0,
+    100% 0,
+    100% calc(100% - 16px),
+    calc(100% - 16px) 100%,
+    0 100%,
+    0 16px
+  );
+}
+
+@media (min-width: 900px) {
+  .resumo {
+    position: sticky;
+    /* 96px: a altura do cabeçalho fixo mais um respiro. */
+    top: 96px;
+  }
+}
+
+.resumo__titulo {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.95rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-tinta);
+  padding-bottom: 12px;
+  border-bottom: 2px solid var(--color-cinza);
+}
+
+.resumo__unidades {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--color-tinta-suave);
+}
+
+.resumo__itens {
+  display: grid;
+  gap: 12px;
+  padding: 14px 0;
+  list-style: none;
+}
+
+.resumo__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.resumo__foto {
+  position: relative;
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
+  background: var(--color-cinza);
+}
+
+.resumo__foto img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.resumo__qtd {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  display: grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  background: var(--color-tinta);
+  color: var(--color-papel);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.resumo__nome {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+  font-size: 0.86rem;
+  line-height: 1.35;
+  color: var(--color-tinta);
+}
+
+.resumo__nome a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.resumo__nome a:hover,
+.resumo__nome a:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.resumo__nome small {
+  font-size: 0.76rem;
+  color: var(--color-tinta-suave);
+}
+
+.resumo__valor {
+  flex-shrink: 0;
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--color-tinta);
+}
+
+.resumo__contas {
+  display: grid;
+  gap: 8px;
+  padding-top: 14px;
+  border-top: 2px solid var(--color-cinza);
+  font-size: 0.88rem;
+  color: var(--color-tinta-suave);
+}
+
+.resumo__contas > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.resumo__contas dd {
+  font-weight: 700;
+  color: var(--color-tinta);
+}
+
+.resumo__desconto dd {
+  color: var(--color-menta-escura);
+}
+
+.resumo__gratis {
+  color: var(--color-menta-escura);
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+}
+
+.resumo__pendente {
+  font-weight: 400;
+  font-style: italic;
+  color: var(--color-tinta-suave);
+}
+
+.resumo__total {
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 2px solid var(--color-tinta);
+  font-size: 1.05rem;
+}
+
+.resumo__total dt {
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-tinta);
+}
+
+.resumo__total dd {
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+
+.resumo__volta {
+  margin-top: 14px;
+  font-size: 0.84rem;
+  text-align: center;
+}
+
+.resumo__volta a {
+  color: var(--color-menta-escura);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ── sacola vazia e esqueleto ────────────────────────────────────────────── */
+
+.checkout__vazio {
+  display: grid;
+  gap: 14px;
+  justify-items: start;
+  max-width: 46ch;
+  padding: clamp(22px, 5vw, 40px);
+  background: var(--color-papel);
+  border: 2px solid var(--color-tinta);
+  box-shadow: var(--shadow-dura);
+}
+
+.checkout__vazio h2 {
+  font-size: 1.3rem;
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+  color: var(--color-tinta);
+}
+
+.checkout__vazio p {
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: var(--color-tinta-suave);
+}
+
+.esqueleto {
+  display: block;
+  background: linear-gradient(90deg, #e9eaec 25%, #f4f5f6 50%, #e9eaec 75%);
+  background-size: 200% 100%;
+  animation: esqueleto-brilho 1.4s linear infinite;
+}
+
+.esqueleto--titulo {
+  width: 40%;
+  height: 16px;
+}
+.esqueleto--campo {
+  height: 46px;
+  margin-top: 14px;
+}
+.esqueleto--botao {
+  height: 50px;
+  margin-top: 18px;
+}
+.esqueleto--linha {
+  height: 14px;
+  margin-top: 12px;
+}
+
+@keyframes esqueleto-brilho {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .esqueleto {
+    animation: none;
+  }
+}
+
+/* ── tirar as distrações do caminho ──────────────────────────────────────── */
+
+body:has(.checkout) .cabecalho__nav,
+body:has(.checkout) .anuncio,
+body:has(.checkout) .rodape__news,
+body:has(.checkout) .rodape__colunas,
+body:has(.obrigado) .cabecalho__nav,
+body:has(.obrigado) .anuncio,
+body:has(.obrigado) .rodape__news,
+body:has(.obrigado) .rodape__colunas {
+  display: none;
+}
+
+/*
+  A sacola e a conta somem do cabeçalho no checkout: a pessoa já ESTÁ na
+  sacola, em versão completa e editável ali do lado, e um ícone com o mesmo
+  número só serve pra tirar alguém do fluxo em que ela acabou de entrar.
+
+  Na tela de obrigado a sacola volta — ali a compra acabou, e quem quiser
+  comprar de novo tem por onde.
+*/
+body:has(.checkout) .cabecalho__grupo--dir {
+  display: none;
+}

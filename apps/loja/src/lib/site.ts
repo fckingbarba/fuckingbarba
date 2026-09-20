@@ -17,6 +17,28 @@
  */
 export const EM_BREVE = "/em-breve"
 
+/**
+ * A CHAVE DO CHECKOUT.
+ *
+ * O `/checkout` existe, funciona ponta a ponta e fecha pedido de verdade. O
+ * que ele ainda NÃO tem é cobrança: o único meio de pagamento configurado no
+ * Medusa é o `pp_system_default`, que aprova sem cobrar nada. Mandar gente
+ * pra lá hoje seria receber pedido que ninguém pagou e ter que correr atrás
+ * de cada um por WhatsApp.
+ *
+ * Enquanto isto for `false`, o botão da sacola continua indo pro `/em-breve`
+ * e a página de checkout só é alcançada por quem digita a URL — que é como
+ * ela é testada.
+ *
+ * VIRE PRA `true` QUANDO o Pagar.me estiver integrado e aparecendo em
+ * `GET /store/payment-providers`. É a única linha que precisa mudar; nenhuma
+ * tela depende deste valor além do botão.
+ */
+export const CHECKOUT_ABERTO = false
+
+/** Pra onde o botão "Finalizar compra" aponta hoje. */
+export const DESTINO_DO_CHECKOUT = CHECKOUT_ABERTO ? "/checkout" : EM_BREVE
+
 export const site = {
   nome: "FuckingBarba",
   descricao:

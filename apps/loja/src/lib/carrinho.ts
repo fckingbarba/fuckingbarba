@@ -101,8 +101,12 @@ export function paraVisivel(carrinho: Carrinho | null): CarrinhoVisivel {
  * não reconhece mais — carrinho finalizado, banco recriado, id de outro
  * ambiente. É o caso que acontece toda vez que alguém volta ao site depois
  * de comprar, e tratar como "não tem carrinho" é o certo.
+ *
+ * `campos` existe porque o checkout precisa de mais coisa que a gaveta
+ * (endereço, cobrança, método de frete) e a gaveta não tem por que carregar
+ * isso em toda página. O padrão continua sendo o da gaveta.
  */
-export async function lerCarrinho(): Promise<Carrinho | null> {
+export async function lerCarrinho(campos = CAMPOS_CARRINHO): Promise<Carrinho | null> {
   const sdk = cliente()
   if (!sdk) return null
 
@@ -110,7 +114,7 @@ export async function lerCarrinho(): Promise<Carrinho | null> {
   if (!id) return null
 
   try {
-    const { cart } = await sdk.store.cart.retrieve(id, { fields: CAMPOS_CARRINHO })
+    const { cart } = await sdk.store.cart.retrieve(id, { fields: campos })
     // Carrinho já virado pedido não serve mais pra nada, mas o Medusa ainda
     // devolve ele. Sem esta checagem a pessoa que comprou volta pro site e
     // encontra a própria compra parada na gaveta.

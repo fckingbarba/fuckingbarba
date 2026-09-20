@@ -79,6 +79,21 @@ O `frete` se recusa a rodar em banco remoto enquanto `CONFERIDO` for `false` no 
 valores que vêm no repositório são de exemplo, e preço de frete chutado em produção é prejuízo seu
 ou reclamação do cliente.
 
+### Conferir o pedido inteiro
+
+```bash
+node ferramentas/conferir-pedido.mjs    # precisa do Medusa de pé
+```
+
+Vai do carrinho vazio ao pedido fechado pela API da loja — as mesmas chamadas que o checkout faz,
+na mesma ordem. Duas coisas que ele existe pra travar:
+
+- **`metadata` de CARRINHO é descartado no `complete`**: o pedido nasce com `metadata: null`. O de
+  ENDEREÇO sobrevive. É por isso que o CPF/CNPJ mora no endereço de cobrança, e não no carrinho.
+- **A mensagem de erro do `complete` é sempre sobre pagamento**, mesmo faltando e-mail, endereço
+  ou frete — ele confere o pagamento primeiro e desiste ali. Ou seja, ela não serve pra dizer à
+  pessoa o que falta; quem sabe em que etapa a compra está é o checkout.
+
 ### Conferir o frete
 
 ```bash

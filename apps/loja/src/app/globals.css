@@ -48,6 +48,10 @@
    O protótipo não tinha backend, então não tinha o que dizer. */
 @import "../estilos/recados.css";
 
+/* Também à mão: o protótipo parava no botão "Finalizar compra". */
+@import "../estilos/checkout.css";
+@import "../estilos/obrigado.css";
+
 /*
   Tokens da marca FuckingBarba — os mesmos do protótipo HTML.
   Tailwind v4 lê este @theme e gera as classes: bg-menta, text-tinta,

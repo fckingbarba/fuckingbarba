@@ -25,8 +25,17 @@ const rotasAntigas = new Map<string, string>(
   Object.entries(redirects.rotas).map(([de, para]) => [normaliza(de), para])
 )
 
-/** Páginas de primeiro nível que existem em app/ e não são categoria. Mantenha em dia. */
-const PAGINAS_RAIZ = new Set(["privacidade", "trocas", "nao-encontrado", "em-breve"])
+/**
+ * Páginas de primeiro nível que existem em `app/` e não são categoria.
+ *
+ * ESTA LISTA À MÃO É UMA ARMADILHA, e vale saber disso: quem criar uma página
+ * nova em `app/` e esquecer de anotar aqui vai ver a página responder 404 —
+ * não no build, não no lint, só ao abrir a URL. Já aconteceu com o
+ * `/checkout`. Não dá pra derivar as rotas daqui (o proxy roda antes do
+ * roteador), então o que segura a peça é o conferidor: `conferir-checkout.mjs`
+ * pede `/checkout` e falha se vier 404.
+ */
+const PAGINAS_RAIZ = new Set(["privacidade", "trocas", "nao-encontrado", "em-breve", "checkout"])
 const CATEGORIAS = new Set<string>(site.categorias.map((c) => c.handle))
 
 function semBarraFinal(caminho: string): string {
@@ -37,11 +46,27 @@ function normaliza(caminho: string): string {
   return semBarraFinal(caminho).toLowerCase()
 }
 
+/**
+ * Caminhos que carregam um IDENTIFICADOR no meio e por isso NÃO podem ser
+ * passados pra minúscula.
+ *
+ * O id de pedido do Medusa é um ULID — `order_01M2ZFEF6J256CVS4KJS5B8QZ0`,
+ * com maiúsculas que fazem parte do valor. Baixar a caixa dele transforma o
+ * id em outro id, e a tela de "pedido feito" vira "não achei esse pedido"
+ * pra TODA compra. Aconteceu; está travado em `conferir-checkout.mjs`.
+ *
+ * Handle de produto e de categoria continua minúsculo por construção (o
+ * middleware do backend garante), então a regra segue valendo pro resto.
+ */
+const CAMINHOS_COM_ID = ["/checkout/obrigado/"]
+
 export function proxy(req: NextRequest) {
-  const caminho = normaliza(req.nextUrl.pathname)
+  const bruto = semBarraFinal(req.nextUrl.pathname)
+  const temId = CAMINHOS_COM_ID.some((prefixo) => bruto.toLowerCase().startsWith(prefixo))
+  const caminho = temId ? bruto : normaliza(bruto)
 
   // /Barba, /PRODUTOS/x → 301 pra minúsculo: uma URL só por página.
-  if (semBarraFinal(req.nextUrl.pathname) !== caminho) {
+  if (!temId && bruto !== caminho) {
     const url = req.nextUrl.clone()
     url.pathname = caminho
     return NextResponse.redirect(url, 301)

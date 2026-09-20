@@ -6,7 +6,13 @@ import { useEffect, useRef } from "react"
 import { Fechar, Lixeira, Mais, Raio, Sacola as IconeSacola } from "@/components/icones"
 import { useSacola } from "@/components/sacola/contexto"
 import { emReais } from "@/lib/formato"
-import { EM_BREVE, FRETE_GRATIS_A_PARTIR_DE, PARCELA_MINIMA, PARCELAS_SEM_JUROS } from "@/lib/site"
+import {
+  DESTINO_DO_CHECKOUT,
+  EM_BREVE,
+  FRETE_GRATIS_A_PARTIR_DE,
+  PARCELA_MINIMA,
+  PARCELAS_SEM_JUROS,
+} from "@/lib/site"
 
 /**
  * A GAVETA DA SACOLA
@@ -232,11 +238,12 @@ export function Gaveta() {
           </p>
 
           {/*
-            Aponta pro /em-breve enquanto o checkout não existe. É feio e é
-            honesto: melhor que um botão que parece levar a algum lugar e
-            trava numa tela em branco.
+            O /checkout existe e fecha pedido — o que falta é cobrança de
+            verdade. Enquanto `CHECKOUT_ABERTO` for `false`, este botão vai
+            pro /em-breve: melhor que levar alguém a uma tela que aceita o
+            pedido e não cobra nada.
           */}
-          <Link href={EM_BREVE} className="btn btn--bloco sacolinha__finalizar">
+          <Link href={DESTINO_DO_CHECKOUT} className="btn btn--bloco sacolinha__finalizar">
             Finalizar compra
             <Raio className="btn__bolt" />
           </Link>

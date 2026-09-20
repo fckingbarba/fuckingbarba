@@ -2,6 +2,7 @@
 
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -100,6 +101,8 @@ type Sacola = {
   fechar: () => void
   mudar: (linhaId: string, quantidade: number) => void
   tirar: (linhaId: string) => void
+  /** Relê a sacola no servidor. Ver o porquê no provedor. */
+  recarregar: () => void
 }
 
 const Contexto = createContext<Sacola | null>(null)
@@ -133,6 +136,26 @@ export function ProvedorDaSacola({ children }: { children: ReactNode }) {
     return () => {
       vivo = false
     }
+  }, [])
+
+  /**
+   * Relê a sacola sob encomenda.
+   *
+   * O provedor mora no layout raiz e NUNCA REMONTA, então a leitura de cima
+   * roda uma vez por aba e mais nada. Quem terminava uma compra continuava
+   * vendo "1" no cabeçalho até dar F5 — o pedido fechado, a sacola vazia, e o
+   * número dizendo o contrário.
+   *
+   * Quem chama é `<RecarregaSacola />`, na tela de obrigado. A alternativa era
+   * reler a cada navegação com `usePathname`, e ela tem dois defeitos: uma ida
+   * ao servidor por página pra todo mundo, e — com Cache Components —
+   * `usePathname` fora de `<Suspense>` é erro de build, e este provedor
+   * envolve o site inteiro.
+   */
+  const recarregar = useCallback(() => {
+    sincronizar()
+      .then(setConfirmado)
+      .catch(() => {})
   }, [])
 
   // Quem adiciona (a dobra) avisa por evento; a gaveta abre junto, porque
@@ -207,9 +230,10 @@ export function ProvedorDaSacola({ children }: { children: ReactNode }) {
               mudarQuantidade(linhaId, quantidade)
             ),
       tirar: (linhaId) => aplicar({ tipo: "remover", linhaId }, () => remover(linhaId)),
+      recarregar,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [carrinho, aberta, ocupada, mexendo, erro]
+    [carrinho, aberta, ocupada, mexendo, erro, recarregar]
   )
 
   return <Contexto.Provider value={valor}>{children}</Contexto.Provider>

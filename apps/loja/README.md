@@ -57,10 +57,50 @@ Fora isso, cabeçalho, esteira e rodapé batem com o protótipo **nó por nó**:
 caixa, mesma cor. O protótipo e as ferramentas que fatiam o CSS dele e conferem o resultado estão
 em `ferramentas/porte/` — é por ali que cada próxima seção passa.
 
+## O checkout
+
+`/checkout` existe, funciona ponta a ponta e fecha pedido de verdade. O que falta é **cobrança**:
+o único meio de pagamento configurado no Medusa é o `pp_system_default`, que aprova sem cobrar
+nada. Por isso o botão da sacola ainda aponta pro `/em-breve`.
+
+**`CHECKOUT_ABERTO`, em `src/lib/site.ts`, é a chave.** Vire pra `true` quando o Pagar.me estiver
+integrado e aparecendo em `GET /store/payment-providers`. É a única linha que muda.
+
+Quatro etapas empilhadas numa URL só, e **a etapa aberta sai do carrinho**, não de um contador na
+tela: tem e-mail? tem endereço? tem frete escolhido? Quem recarrega a página, fecha o navegador e
+volta no dia seguinte, ou abre o link em outra aba cai onde parou, porque é a mesma pergunta feita
+ao mesmo carrinho.
+
+Três coisas que custaram caro pra descobrir e estão travadas em teste:
+
+- **O `metadata` do carrinho é DESCARTADO no `complete`** — o pedido nasce com `metadata: null`.
+  O do endereço sobrevive. Por isso CPF/CNPJ mora no `metadata` do endereço de **cobrança**;
+  guardá-lo no carrinho seria perdê-lo no instante em que ele passa a valer.
+- **O proxy passava a URL pra minúscula**, e id de pedido do Medusa é ULID com maiúscula. Toda
+  tela de "pedido feito" dava "não achei esse pedido". `CAMINHOS_COM_ID`, em `src/proxy.ts`,
+  é o que segura.
+- **O React dá reset no `<form action={…}>`** depois que a ação roda. Sem devolver o que foi
+  digitado no estado da ação, um dígito errado no CPF esvaziava os cinco campos junto.
+
+Depois de escrever, as ações chamam **`refresh()`** (de `next/cache`), não `revalidateTag`: com
+perfil de revalidação em segundo plano o `revalidateTag` marca pra atualizar depois e **não**
+re-renderiza na resposta da ação, e o frete apareceria com o valor velho.
+
+```bash
+node ferramentas/conferir-documento.mjs   # CPF e CNPJ (inclusive o alfanumérico)
+node ferramentas/conferir-checkout.mjs    # compra de verdade, com Medusa e loja de pé
+```
+
+O validador de CNPJ aceita **letras**: desde julho de 2026 a Receita emite CNPJ alfanumérico nas
+12 primeiras posições. Um validador só-numérico passa em todo teste antigo e recusa toda empresa
+aberta de julho pra cá.
+
 ## Decisões que valem saber
 
 - **Cache Components ligado** (`cacheComponents: true`). Dados vêm de funções `"use cache"` com
-  `cacheTag`; a página é servida pré-renderizada e só o que depende de request faz stream.
+  `cacheTag`; a página é servida pré-renderizada e só o que depende de request faz stream. O
+  `/checkout` é a exceção pelo avesso: lê cookie, então nada ali é cacheado — e a leitura fica
+  dentro de um `<Suspense>`, senão o `next build` recusa a rota.
 - **404 de verdade é no proxy.** Com Cache Components a rota dinâmica manda o shell com 200 antes
   de saber se o conteúdo existe; por isso `/qualquer-coisa` é reescrito no proxy pra
   `/nao-encontrado` (rota estática, status 404). Produto inexistente sai como not-found com
