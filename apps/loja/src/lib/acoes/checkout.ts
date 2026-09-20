@@ -466,6 +466,54 @@ export async function consultarCep(cep: string): Promise<CepEncontrado> {
   if (!limpo) return vazio
 
   const achado = await buscarCep(limpo)
+
+  /*
+    ┌─ O CEP VAI PRO CARRINHO ANTES DE O ENDEREÇO ESTAR COMPLETO ──────────┐
+    │ Com frete fixo, as opções existiam antes do endereço e esta função   │
+    │ só preenchia campos. Com cotação ao vivo elas não existem: a         │
+    │ transportadora precisa saber pra onde, e o Medusa lê o "pra onde" do │
+    │ endereço do CARRINHO — não do formulário que ainda está aberto.      │
+    │                                                                       │
+    │ Então o CEP é gravado aqui, sozinho, e o resto do endereço continua  │
+    │ sendo gravado no `salvarEntrega`. Gravar um endereço pela metade     │
+    │ parece sujeira, mas é o que ele é de verdade neste instante: a       │
+    │ pessoa digitou o CEP e ainda não digitou o número.                   │
+    │                                                                       │
+    │ Cotação falhada não vira erro de tela: devolve lista vazia, e a tela │
+    │ já sabe dizer "não temos entrega pra esse CEP ainda".                │
+    └───────────────────────────────────────────────────────────────────────┘
+  */
+  const atual = await carrinhoAtual()
+  if (atual) {
+    try {
+      const entrega: EnderecoVisivel = {
+        ...lerEndereco(atual.carrinho.shipping_address),
+        cep: limpo,
+        ...(achado
+          ? { cidade: achado.cidade, uf: achado.uf, rua: achado.logradouro, bairro: achado.bairro }
+          : {}),
+      }
+      await atual.sdk.store.cart.update(
+        atual.carrinho.id,
+        { shipping_address: montarEndereco(entrega) },
+        { fields: CAMPOS_CHECKOUT }
+      )
+      /*
+        E O `refresh()` é o que faz as opções aparecerem.
+
+        Quem cota é a página, no servidor, olhando o endereço do carrinho.
+        Gravar o CEP sem avisar ninguém deixaria a tela com a lista vazia
+        que ela tinha antes — e a pessoa esperando por uma entrega que já
+        tinha sido cotada. É o mesmo `refresh()` do chip de oferta: qualquer
+        mudança no carrinho refaz a cotação, porque o preço do frete depende
+        do que tem dentro dele.
+      */
+      refresh()
+    } catch (e) {
+      registrar(e, "cep no carrinho")
+    }
+  }
+
   if (!achado) return vazio
 
   return {

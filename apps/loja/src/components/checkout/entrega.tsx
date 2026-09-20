@@ -101,6 +101,9 @@ export function Entrega({ checkout, fretes, sugestoes, falta, piso, aoSalvar, ..
     ultimoBuscado.current = limpo
     setNaoAchou(false)
     buscar(async () => {
+      /* Além de preencher os campos, isto grava o CEP no carrinho e pede
+         o `refresh()` — é o que traz as opções de entrega, que agora só
+         existem depois de a transportadora cotar pra este CEP. */
       const achado = await consultarCep(limpo)
       // Abre de qualquer jeito: CEP que o ViaCEP não conhece existe, e a
       // pessoa precisa dos campos pra digitar à mão.

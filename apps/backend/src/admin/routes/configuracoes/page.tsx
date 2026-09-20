@@ -35,6 +35,7 @@ type Forma = {
   preco: string
   alvo: "mais-barata" | "todas"
   tetoDeCusto: string
+  precoDeEmergencia: string
   razaoSocial: string
   cnpj: string
   endereco: string
@@ -50,6 +51,7 @@ const VAZIA: Forma = {
   preco: "",
   alvo: "mais-barata",
   tetoDeCusto: "",
+  precoDeEmergencia: "",
   razaoSocial: "",
   cnpj: "",
   endereco: "",
@@ -81,6 +83,7 @@ const Configuracoes = () => {
           preco: numero(f.preco),
           alvo: f.alvo === "todas" ? "todas" : "mais-barata",
           tetoDeCusto: numero(f.tetoDeCusto),
+          precoDeEmergencia: numero(c?.cotacao?.precoDeEmergencia),
           razaoSocial: texto(c?.empresa?.razaoSocial),
           cnpj: texto(c?.empresa?.cnpj),
           endereco: texto(c?.empresa?.endereco),
@@ -122,6 +125,7 @@ const Configuracoes = () => {
             cnpj: forma.cnpj,
             endereco: forma.endereco,
           },
+          cotacao: { precoDeEmergencia: forma.precoDeEmergencia || null },
           atendimento: {
             whatsapp: forma.whatsapp,
             email: forma.email,
@@ -256,6 +260,36 @@ const Configuracoes = () => {
             da sacola e a tarja dos produtos somem sozinhas.
           </Text>
         )}
+      </div>
+
+      {/* ── COTAÇÃO ──────────────────────────────────────────────────── */}
+      <div className="flex flex-col gap-4 px-6 py-5">
+        <Heading level="h2">Quando a cotação falhar</Heading>
+        <Text size="small" className="text-ui-fg-subtle">
+          O frete é cotado na hora, pelo CEP do cliente. Se a transportadora não responder — cai,
+          demora demais, ou o token vence —, a loja fica sem opção de entrega, e sem opção de
+          entrega ninguém consegue fechar pedido. Este é o valor que ela cobra nessas horas.
+        </Text>
+
+        <Campo
+          rotulo="Frete de emergência"
+          dica="Deixe vazio pra não vender sem cotar: é o mais seguro, e para a loja enquanto durar a queda."
+        >
+          <Input
+            type="number"
+            step="0.01"
+            min="0"
+            placeholder="vazio = a loja para de vender"
+            value={forma.precoDeEmergencia}
+            onChange={(e) => mudar("precoDeEmergencia", e.target.value)}
+          />
+        </Campo>
+
+        <Text size="xsmall" className="text-ui-fg-subtle">
+          Escolha um valor que você aceita bancar se ficar curto: enquanto a cotação estiver fora, é
+          este que o cliente vê, e frete anunciado a loja é obrigada a cumprir. O frete grátis acima
+          do piso continua valendo por cima dele.
+        </Text>
       </div>
 
       {/* ── EMPRESA ──────────────────────────────────────────────────── */}

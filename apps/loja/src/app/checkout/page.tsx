@@ -96,12 +96,19 @@ async function Conteudo() {
   // pedir ao mesmo tempo multiplica escritas concorrentes — que é como um
   // total sobrescreve o outro.
   //
-  // O frete é pedido SEM depender do endereço estar gravado. Hoje as opções
-  // são nacionais e de valor fixo, então elas existem antes do CEP; quem
-  // decide quando MOSTRAR é a tela, depois que o endereço abre. Quando o
-  // Frenet entrar e a cotação passar a depender do CEP, esta linha é a que
-  // muda — e aí ela espera o endereço.
-  const fretes = await listarFretes(checkout.id)
+  /*
+    ESTA É A LINHA QUE O COMENTÁRIO ANTIGO PREVIU QUE MUDARIA.
+
+    Enquanto o frete era fixo, as opções existiam antes do CEP e vinham
+    sempre. Agora elas são cotação ao vivo: sem CEP no carrinho não há preço
+    a pedir, e chamar assim só rende um erro no log a cada abertura do
+    checkout.
+
+    Então aqui ele só cota quem JÁ tem endereço — quem voltou pro checkout
+    com o carrinho de antes. Pra quem está chegando agora, quem traz as
+    opções é o `consultarCep`, no instante em que o CEP é digitado.
+  */
+  const fretes = checkout.entrega.cep ? await listarFretes(checkout.id) : []
   const provedores = await listarProvedores(checkout.regiaoId)
   const bump = await lerBump(checkout.regiaoId, jaNoCarrinho)
   const sugestoes = await listarSugestoes(checkout.regiaoId, falta, jaNoCarrinho)

@@ -1,6 +1,6 @@
 import type { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
-import { lerConfiguracoes, PADRAO } from "../../../lib/configuracoes"
+import { lerConfiguracoes, PADRAO, soOPublico } from "../../../lib/configuracoes"
 
 /**
  * GET /store/configuracoes — o que a loja anuncia, lido de onde ele é editado.
@@ -25,9 +25,9 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
     const service = req.scope.resolve(Modules.STORE)
     const [loja] = await service.listStores({}, { select: ["id", "metadata"], take: 1 })
 
-    res.json({ configuracoes: lerConfiguracoes(loja?.metadata) })
+    res.json({ configuracoes: soOPublico(lerConfiguracoes(loja?.metadata)) })
   } catch (e) {
     req.scope.resolve(ContainerRegistrationKeys.LOGGER).warn(`[configuracoes] ${e instanceof Error ? e.message : e}`)
-    res.json({ configuracoes: PADRAO })
+    res.json({ configuracoes: soOPublico(PADRAO) })
   }
 }

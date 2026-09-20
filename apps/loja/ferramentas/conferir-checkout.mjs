@@ -29,6 +29,7 @@
 
 import { readFileSync } from "node:fs"
 import { chromium } from "playwright"
+import { subirFrenetFalsa } from "./frenet-falsa.mjs"
 
 /**
  * `localhost`, e NÃO `127.0.0.1`: o `next dev` recusa POST de origem que não
@@ -102,6 +103,49 @@ const perto = (a, b) => Math.abs(a - b) < 0.02
 async function medusa(caminho) {
   const r = await fetch(`${MEDUSA}${caminho}`, { headers: { "x-publishable-api-key": CHAVE } })
   return r.ok ? r.json() : null
+}
+
+/*
+  A FRENET FALSA SOBE JUNTO COM O TESTE.
+
+  O frete virou cotação ao vivo, então sem uma transportadora respondendo
+  não existe opção de entrega — e sem opção de entrega o checkout não passa
+  do passo 2. Este teste não é sobre a cotação (quem cuida disso é o
+  `conferir-frete.mjs`); ele só precisa que exista frete pra poder chegar no
+  pagamento.
+
+  O backend precisa estar rodando com FRENET_URL apontando pra cá.
+*/
+const frenet = await subirFrenetFalsa()
+
+/*
+  O PREÇO DE UMA OPÇÃO CALCULADA NÃO VEM NA LISTAGEM.
+
+  `/store/shipping-options` devolve o preço que está no banco, e opção
+  cotada não tem preço no banco: quem sabe é o provedor, e ele só é chamado
+  pelo `/calculate`, uma opção por vez. A loja faz as duas chamadas; o teste
+  faz as mesmas duas, senão compararia a tela contra `undefined`.
+*/
+async function fretesCotados(carrinhoId) {
+  const { shipping_options: lista } = (await medusa(`/store/shipping-options?cart_id=${carrinhoId}`)) ?? {
+    shipping_options: [],
+  }
+  const saida = []
+  for (const o of lista) {
+    if (o.price_type !== "calculated") {
+      saida.push(o)
+      continue
+    }
+    const r = await fetch(`${MEDUSA}/store/shipping-options/${o.id}/calculate`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-publishable-api-key": CHAVE },
+      body: JSON.stringify({ cart_id: carrinhoId, data: {} }),
+    })
+    if (!r.ok) continue
+    const { shipping_option } = await r.json()
+    saida.push(shipping_option)
+  }
+  return saida
 }
 
 const navegador = await chromium.launch(
@@ -329,8 +373,7 @@ ok(
 ok(await campo("rua").isEditable(), "e nada ficou travado")
 
 titulo("As opções de frete")
-const opcoesApi =
-  (await medusa(`/store/shipping-options?cart_id=${carrinhoId}`))?.shipping_options ?? []
+const opcoesApi = await fretesCotados(carrinhoId)
 await pagina.locator("#form-entrega .opcao").first().waitFor({ timeout: 15000 })
 ok(
   (await pagina.locator("#form-entrega .opcao").count()) === opcoesApi.length,
@@ -599,5 +642,6 @@ titulo("Higiene")
 ok(errosDeConsole.length === 0, "nenhum erro no console", errosDeConsole.slice(0, 3).join(" | "))
 
 await navegador.close()
+frenet.fechar()
 console.log(`\n${testes - falhas}/${testes} passaram`)
 process.exit(falhas ? 1 : 0)

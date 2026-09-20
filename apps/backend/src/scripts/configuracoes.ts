@@ -36,6 +36,12 @@ const SEMENTE: Configuracoes = {
   frete: { modo: "gratis", piso: 149.9, alvo: "mais-barata", tetoDeCusto: null },
   empresa: { razaoSocial: null, cnpj: null, endereco: null },
   atendimento: { whatsapp: null, email: null, horario: null, prazoDePostagem: null },
+  /*
+    Sem preço de emergência: queda da transportadora para a loja em vez de
+    cobrar um valor que ninguém escolheu. É a mesma regra do resto deste
+    arquivo — o script não inventa número que vira oferta na tela.
+  */
+  cotacao: { precoDeEmergencia: null },
 }
 
 /**

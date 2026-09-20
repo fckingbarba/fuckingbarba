@@ -74,10 +74,53 @@ export type Atendimento = {
   prazoDePostagem: string | null
 }
 
+/**
+ * A COTAÇÃO AO VIVO — o que fazer quando ela não responde.
+ *
+ * Com frete cotado na hora, a loja passa a depender de uma API de terceiro
+ * pra conseguir fechar pedido: o Medusa não completa carrinho sem método de
+ * envio, e sem cotação não há método. Ou seja, uma queda da Frenet fecha a
+ * loja.
+ *
+ * ┌─ POR QUE O SOCORRO É UM NÚMERO SEU, E NÃO UM CHUTE MEU ────────────────┐
+ * │ A alternativa "óbvia" é o código cair num valor razoável — R$ 24,90,   │
+ * │ digamos. Mas frete que o cliente vê é oferta, e no art. 30 do CDC ela  │
+ * │ vincula: se sair barato demais, quem paga a diferença é a loja, em     │
+ * │ todo pedido, enquanto a queda durar. Esse é um risco que o dono        │
+ * │ dimensiona, não o programador.                                         │
+ * │                                                                         │
+ * │ Por isso `null` é o padrão e significa "não venda sem cotar". É o mais │
+ * │ conservador: a loja para em vez de cobrar um número que ninguém        │
+ * │ escolheu. Quem quiser continuar vendendo durante a queda escreve o     │
+ * │ valor no admin, e aí o número é dele.                                  │
+ * └─────────────────────────────────────────────────────────────────────────┘
+ */
+export type Cotacao = {
+  /** Em reais. `null` = sem cotação, sem entrega — a loja não vende. */
+  precoDeEmergencia: number | null
+}
+
 export type Configuracoes = {
   frete: PoliticaDeFrete
   empresa: Empresa
   atendimento: Atendimento
+  cotacao: Cotacao
+}
+
+/**
+ * O RECORTE PÚBLICO. A rota `/store/configuracoes` devolve ISTO, não o
+ * objeto inteiro.
+ *
+ * Os campos são listados um a um de propósito. Com `delete c.cotacao` ou um
+ * `Omit` espalhado, o próximo campo interno que alguém acrescentar nasce
+ * público — e o jeito de descobrir seria achá-lo num `curl` da loja. Aqui o
+ * padrão é o contrário: campo novo é invisível até alguém escrever o nome
+ * dele nesta função.
+ */
+export type ConfiguracoesPublicas = Pick<Configuracoes, "frete" | "empresa" | "atendimento">
+
+export function soOPublico(c: Configuracoes): ConfiguracoesPublicas {
+  return { frete: c.frete, empresa: c.empresa, atendimento: c.atendimento }
 }
 
 /**
@@ -100,6 +143,7 @@ export const PADRAO: Configuracoes = {
   frete: { modo: "nenhuma" },
   empresa: { razaoSocial: null, cnpj: null, endereco: null },
   atendimento: { whatsapp: null, email: null, horario: null, prazoDePostagem: null },
+  cotacao: { precoDeEmergencia: null },
 }
 
 /** Chave única dentro do `metadata` da loja, pra não brigar com mais nada. */
@@ -170,9 +214,16 @@ export function lerConfiguracoes(metadata: unknown): Configuracoes {
   const o = raiz as Record<string, unknown>
   const empresa = (o.empresa ?? {}) as Record<string, unknown>
   const atendimento = (o.atendimento ?? {}) as Record<string, unknown>
+  const cotacao = (o.cotacao ?? {}) as Record<string, unknown>
 
   return {
     frete: lerFrete(o.frete),
+    /*
+      Zero é um valor legítimo aqui — "na queda, frete grátis pra todo mundo"
+      é uma decisão possível —, então não dá pra usar `|| null`. O `dinheiro`
+      já recusa negativo e texto, e devolve `null` pro que não for número.
+    */
+    cotacao: { precoDeEmergencia: dinheiro(cotacao.precoDeEmergencia) },
     empresa: {
       razaoSocial: ehTexto(empresa.razaoSocial) ? empresa.razaoSocial.trim() : null,
       cnpj: ehTexto(empresa.cnpj) ? empresa.cnpj.trim() : null,

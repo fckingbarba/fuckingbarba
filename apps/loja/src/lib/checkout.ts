@@ -133,7 +133,54 @@ export async function listarFretes(carrinhoId: string): Promise<OpcaoDeFrete[]> 
     const { shipping_options } = await sdk.store.fulfillment.listCartOptions({
       cart_id: carrinhoId,
     })
-    return (shipping_options ?? [])
+
+    /*
+      ┌─ LISTAR NÃO É COTAR, E ISSO CUSTOU UM TESTE VERMELHO INTEIRO ────────┐
+      │ `listCartOptions` devolve as opções com o preço que está NO BANCO.  │
+      │ Opção `calculated` — as duas da Frenet — não tem preço no banco:    │
+      │ quem sabe quanto custa é o provedor, e ele só é chamado pela rota   │
+      │ `/store/shipping-options/:id/calculate`, uma opção por vez.          │
+      │                                                                      │
+      │ Sem esta segunda volta, a tela de entrega mostrava "Entrega          │
+      │ econômica — R$ 0,00" e o cliente escolheria frete grátis que não     │
+      │ existe. Zero aqui não é promoção: é preço que ninguém calculou.      │
+      │                                                                      │
+      │ As cotações vão em PARALELO e o backend junta as duas numa chamada   │
+      │ só à transportadora — quem faz isso é o provedor, não esta função.   │
+      └──────────────────────────────────────────────────────────────────────┘
+    */
+    const cotadas = await Promise.all(
+      (shipping_options ?? []).map(async (o) => {
+        if (o.price_type !== "calculated") return o
+        try {
+          const { shipping_option } = await sdk.store.fulfillment.calculate(
+            o.id,
+            { cart_id: carrinhoId },
+            /*
+              `+type.*` porque a rota de cotação devolve o conjunto PADRÃO de
+              campos, que não inclui o tipo — e é dele que sai a linha de
+              apoio embaixo do nome ("A mais barata para o seu CEP"). Sem
+              isto a opção aparece com o nome solto, e a lista passa a ter
+              duas entregas sem nada que explique a diferença entre elas.
+            */
+            { fields: "+type.*" }
+          )
+          return shipping_option
+        } catch (e) {
+          /*
+            Opção que não cotou some da lista em vez de aparecer com preço
+            zero. Some uma; as outras continuam, e o cliente compra com a
+            que deu certo. Se nenhuma der, a tela mostra "não consegui
+            calcular o frete" — que é a verdade.
+          */
+          aviso(e, `cotação da opção ${o.id}`)
+          return null
+        }
+      })
+    )
+
+    return cotadas
+      .filter((o): o is NonNullable<typeof o> => o !== null)
       .map((o) => ({
         id: o.id,
         nome: o.name,

@@ -104,6 +104,40 @@ const fileModule = process.env.S3_BUCKET
     ]
   : []
 
+/**
+ * FRETE COTADO NA HORA, PELA FRENET.
+ *
+ * Declarar o módulo de fulfillment SUBSTITUI o padrão do Medusa, então o
+ * provedor manual precisa vir listado aqui junto — sem ele, as opções de
+ * frete que dependem de despacho manual (e qualquer devolução) ficam sem
+ * provedor e o Medusa recusa criá-las.
+ *
+ * O token é lido da variável de ambiente e nunca fica em código. Sem ele o
+ * módulo sobe do mesmo jeito e avisa no log: cada cotação cai no preço de
+ * emergência das configurações da loja, e a loja continua de pé.
+ */
+const fulfillmentModule = [
+  {
+    resolve: "@medusajs/medusa/fulfillment",
+    options: {
+      providers: [
+        { resolve: "@medusajs/medusa/fulfillment-manual", id: "manual" },
+        {
+          resolve: "./src/modules/frenet",
+          id: "frenet",
+          options: {
+            token: process.env.FRENET_TOKEN,
+            /* Isto roda enquanto o cliente espera na tela de entrega. Seis
+               segundos é o que dá pra pedir de paciência antes de valer mais
+               a pena cair na emergência do que continuar esperando. */
+            tempoLimite: Number(process.env.FRENET_TEMPO_LIMITE_MS || 6000),
+          },
+        },
+      ],
+    },
+  },
+]
+
 module.exports = defineConfig({
   projectConfig: {
     databaseUrl: process.env.DATABASE_URL,
@@ -123,5 +157,5 @@ module.exports = defineConfig({
     disable: process.env.ADMIN_DISABLED === "true",
     backendUrl: process.env.MEDUSA_BACKEND_URL || "http://localhost:9000",
   },
-  modules: [...redisModules, ...fileModule],
+  modules: [...redisModules, ...fileModule, ...fulfillmentModule],
 })
