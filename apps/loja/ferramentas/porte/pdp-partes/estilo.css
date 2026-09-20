@@ -1,0 +1,2006 @@
+/* ======================================================
+     PDP — PÁGINA DE PRODUTO
+     ======================================================
+     Tudo abaixo é exclusivo da página de produto. A carcaça
+     (esteira, cabeçalho, menu, sacola, rodapé), o botão .btn
+     e o card .produto vêm do CSS da home, acima — não são
+     redefinidos aqui de propósito: botão e card iguais nas
+     duas páginas é o que faz a loja parecer uma loja só.
+
+     Blocos desta folha, na ordem em que aparecem na página:
+       .migalhas     trilha de navegação
+       .pdp          a dobra: galeria + compra
+       .promessa     faixa escura "o que você vai perceber"
+       .tempo        linha do tempo do resultado
+       .rotina       monte a rotina (cross-sell)
+       .funciona     como funciona + modo de uso
+       .quem         pra quem é / pra quem não é
+       .duvidas      perguntas frequentes
+       .avaliacoes   o que dizem (vazio até ter review real)
+       .barra-compra barra fixa que aparece ao rolar
+     ====================================================== */
+
+/*
+    `display` nesta folha ganha do `[hidden]` do navegador: a regra do
+    user-agent é `[hidden] { display: none }`, e qualquer `display: flex`
+    ou `grid` nosso, sendo mais específico, passa por cima. Resultado: o
+    JS marca hidden e o elemento continua na tela. Já aconteceu aqui com
+    o aviso de estoque. Fica valendo pros blocos desta página.
+  */
+.pdp [hidden],
+.rotina [hidden],
+.barra-compra[hidden] {
+  display: none !important;
+}
+
+.migalhas,
+.migalhas *,
+.pdp,
+.pdp *,
+.promessa,
+.promessa *,
+.tempo,
+.tempo *,
+.rotina,
+.rotina *,
+.funciona,
+.funciona *,
+.quem,
+.quem *,
+.duvidas,
+.duvidas *,
+.avaliacoes,
+.avaliacoes *,
+.barra-compra,
+.barra-compra * {
+  border-radius: 0;
+  box-sizing: border-box;
+}
+
+/* ------------------------------------------------------
+     MIGALHAS — onde o cliente está dentro da loja.
+     Também é o BreadcrumbList que o Google usa pra mostrar
+     "Início > Barba > ..." no lugar da URL crua.
+     ------------------------------------------------------ */
+
+.migalhas {
+  background: var(--color-bg);
+  font-family: var(--font-sans);
+  padding: 14px clamp(16px, 4vw, 28px) 0;
+}
+
+.migalhas__lista {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 0;
+  list-style: none;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #0d4c3c;
+}
+
+.migalhas__lista li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.migalhas__lista li::after {
+  content: "/";
+  opacity: 0.45;
+}
+
+.migalhas__lista li:last-child::after {
+  content: none;
+}
+
+.migalhas__lista a {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+}
+
+.migalhas__lista a:hover,
+.migalhas__lista a:focus-visible {
+  border-bottom-color: var(--color-text);
+  color: var(--color-text);
+}
+
+/* o último item é a página atual: texto, não link */
+.migalhas__atual {
+  color: var(--color-text);
+  opacity: 0.7;
+  max-width: 46vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ======================================================
+     A DOBRA — galeria à esquerda, compra à direita.
+     No celular vira uma coluna só, galeria primeiro.
+     ====================================================== */
+
+.pdp {
+  background: var(--color-bg);
+  font-family: var(--font-sans);
+  color: var(--color-text);
+  padding: clamp(16px, 3vw, 28px) clamp(16px, 4vw, 28px) clamp(34px, 5vw, 56px);
+}
+
+.pdp__wrap {
+  max-width: 1320px;
+  margin: 0 auto;
+  display: grid;
+  gap: clamp(20px, 3vw, 44px);
+}
+
+@media (min-width: 1000px) {
+  .pdp__wrap {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 470px);
+    align-items: start;
+  }
+}
+
+/* ------------------------------------------------------
+     GALERIA
+     A foto grande é um <button>, não uma <div> com onclick:
+     abre o zoom por teclado também. As miniaturas são
+     <button> pelo mesmo motivo.
+     ------------------------------------------------------ */
+
+@media (min-width: 1000px) {
+  .galeria {
+    position: sticky;
+    /* 74px é a altura do cabeçalho rolado; +18 de respiro */
+    top: 92px;
+  }
+}
+
+.galeria__palco {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 3px solid var(--color-text);
+  background: var(--color-card-bg);
+  box-shadow: 10px 10px 0 0 var(--color-text);
+  cursor: zoom-in;
+  overflow: hidden;
+}
+
+.galeria__palco img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  transition: transform 0.45s var(--suave, cubic-bezier(0.22, 0.61, 0.36, 1));
+}
+
+.galeria__palco:hover img {
+  transform: scale(1.06);
+}
+
+.galeria__palco:focus-visible {
+  outline: 3px solid var(--color-text);
+  outline-offset: 5px;
+}
+
+/* etiquetas sobre a foto. Empilham no canto de cima. */
+.galeria__selos {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.galeria__selo {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--color-text);
+  color: #ffffff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 6px 10px;
+}
+
+.galeria__selo svg {
+  width: 12px;
+  height: 12px;
+  fill: currentColor;
+}
+
+.galeria__selo--desconto {
+  background: var(--color-accent);
+  color: var(--color-text);
+  font-size: 0.95rem;
+  letter-spacing: -0.01em;
+  padding: 7px 12px;
+}
+
+.galeria__selo--frete {
+  background: #0d4c3c;
+  color: #ffffff;
+}
+
+/* dica de zoom, só no mouse */
+.galeria__lupa {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: none;
+  align-items: center;
+  gap: 6px;
+  background: rgba(18, 24, 31, 0.86);
+  color: #ffffff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 6px 10px;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.galeria__lupa svg {
+  width: 13px;
+  height: 13px;
+  fill: currentColor;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .galeria__lupa {
+    display: inline-flex;
+  }
+}
+
+.galeria__miniaturas {
+  display: flex;
+  gap: 10px;
+  margin: 12px 0 0;
+  padding: 0 0 4px;
+  list-style: none;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.galeria__mini {
+  flex: 0 0 auto;
+  width: 74px;
+  height: 74px;
+  padding: 0;
+  border: 3px solid rgba(18, 24, 31, 0.28);
+  background: var(--color-card-bg);
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    transform 0.15s ease;
+}
+
+.galeria__mini img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.galeria__mini:hover {
+  border-color: var(--color-text);
+}
+
+.galeria__mini[aria-current="true"] {
+  border-color: var(--color-text);
+  box-shadow: 4px 4px 0 0 var(--color-accent);
+  transform: translate(-1px, -1px);
+}
+
+/* ------------------------------------------------------
+     ZOOM — camada que cobre a tela.
+     Abre com <dialog>: o navegador já entrega foco preso
+     dentro, Esc pra fechar e o resto da página inerte.
+     ------------------------------------------------------ */
+
+.galeria__zoom {
+  width: min(92vw, 860px);
+  max-width: none;
+  padding: 0;
+  border: 3px solid var(--color-text);
+  background: var(--color-card-bg);
+  box-shadow: 14px 14px 0 0 var(--color-accent);
+}
+
+.galeria__zoom::backdrop {
+  background: rgba(7, 12, 14, 0.82);
+}
+
+.galeria__zoom img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.galeria__zoom-fecha {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border: 3px solid var(--color-text);
+  background: var(--color-accent);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.galeria__zoom-fecha svg {
+  width: 17px;
+  height: 17px;
+  fill: currentColor;
+}
+
+/* ======================================================
+     COLUNA DE COMPRA
+     ====================================================== */
+
+.compra {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.compra__chapeu {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #0d4c3c;
+}
+
+.compra__chapeu b {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--color-text);
+  color: var(--color-accent);
+  padding: 4px 9px;
+  letter-spacing: 0.08em;
+}
+
+.compra__chapeu b svg {
+  width: 11px;
+  height: 11px;
+  fill: currentColor;
+}
+
+.compra__sku {
+  color: var(--color-text);
+  opacity: 0.55;
+  letter-spacing: 0.06em;
+}
+
+.compra__nome {
+  margin: 0;
+  font-size: clamp(1.85rem, 4.6vw, 2.6rem);
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: -0.025em;
+  line-height: 0.96;
+}
+
+.compra__resumo {
+  margin: 0;
+  font-size: clamp(1rem, 2.2vw, 1.1rem);
+  font-weight: 600;
+  line-height: 1.4;
+  color: #0d4c3c;
+}
+
+/* --- avaliação: só existe quando há review de verdade --- */
+
+.compra__nota {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.compra__nota .estrelas {
+  width: 92px;
+}
+
+.compra__nota a {
+  color: var(--color-text);
+  text-decoration: none;
+  border-bottom: 2px solid var(--color-text);
+}
+
+/* estado vazio: convida a avaliar em vez de mostrar estrela apagada */
+.compra__sem-nota {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #0d4c3c;
+}
+
+.compra__sem-nota a {
+  color: var(--color-text);
+  border-bottom: 2px solid var(--color-text);
+  text-decoration: none;
+}
+
+/* --- preço --- */
+
+.compra__precos {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px 12px;
+  margin: 2px 0 0;
+}
+
+.compra__de {
+  font-size: 1rem;
+  font-weight: 700;
+  text-decoration: line-through;
+  text-decoration-thickness: 2px;
+  color: var(--color-text);
+  opacity: 0.5;
+}
+
+.compra__por {
+  font-size: clamp(2.1rem, 5.2vw, 2.7rem);
+  font-weight: 800;
+  font-style: italic;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.compra__economia {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  align-self: center;
+  background: var(--color-accent);
+  color: var(--color-text);
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  padding: 5px 10px;
+  border: 2px solid var(--color-text);
+}
+
+.compra__pagamento-linha {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.compra__pagamento-linha b {
+  font-weight: 800;
+}
+
+/* --- escolha de quantidade em kit (o degrau de valor) --- */
+
+.compra__kits {
+  margin: 6px 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.compra__kits-titulo {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0;
+  margin: 0 0 9px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.compra__kits-titulo svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+
+.compra__kits-lista {
+  display: grid;
+  gap: 9px;
+}
+
+.compra__kit {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 3px solid rgba(18, 24, 31, 0.22);
+  background: var(--color-card-bg);
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
+}
+
+.compra__kit:hover {
+  border-color: var(--color-text);
+}
+
+.compra__kit input {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--color-text);
+  cursor: pointer;
+}
+
+.compra__kit:has(input:checked) {
+  border-color: var(--color-text);
+  box-shadow: 6px 6px 0 0 var(--color-text);
+  transform: translate(-2px, -2px);
+}
+
+.compra__kit:has(input:focus-visible) {
+  outline: 3px solid var(--color-text);
+  outline-offset: 3px;
+}
+
+.compra__kit-nome {
+  display: block;
+  font-size: 0.98rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.compra__kit-abaixo {
+  display: block;
+  margin-top: 3px;
+  font-size: 0.79rem;
+  font-weight: 600;
+  color: #566072;
+  line-height: 1.35;
+}
+
+.compra__kit-preco {
+  text-align: right;
+  font-size: 1.08rem;
+  font-weight: 800;
+  font-style: italic;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+
+.compra__kit-unidade {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-style: normal;
+  letter-spacing: 0;
+  color: #566072;
+}
+
+/* etiqueta "mais escolhido" / "ciclo completo" no topo do cartão */
+.compra__kit-fita {
+  position: absolute;
+  top: -11px;
+  left: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--color-text);
+  color: var(--color-accent);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+}
+
+.compra__kit-fita svg {
+  width: 10px;
+  height: 10px;
+  fill: currentColor;
+}
+
+/* --- quantidade + comprar --- */
+
+.compra__acao {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: stretch;
+  margin-top: 4px;
+}
+
+.compra__qtd {
+  display: flex;
+  align-items: stretch;
+  border: 3px solid var(--color-text);
+  background: var(--color-card-bg);
+}
+
+.compra__qtd button {
+  width: 42px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--color-text);
+  font-size: 1.3rem;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.compra__qtd button:hover:not(:disabled) {
+  background: var(--color-accent);
+}
+
+.compra__qtd button:disabled {
+  opacity: 0.32;
+  cursor: not-allowed;
+}
+
+.compra__qtd input {
+  width: 44px;
+  border: 0;
+  border-left: 3px solid var(--color-text);
+  border-right: 3px solid var(--color-text);
+  background: transparent;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 800;
+  text-align: center;
+  color: var(--color-text);
+  -moz-appearance: textfield;
+}
+
+.compra__qtd input::-webkit-outer-spin-button,
+.compra__qtd input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.compra__comprar {
+  justify-content: center;
+  width: 100%;
+  font-size: 1.02rem;
+  padding: 17px 20px;
+}
+
+/* --- estoque: só aparece quando o número é real --- */
+
+.compra__estoque {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #7a2f12;
+}
+
+.compra__estoque svg {
+  width: 15px;
+  height: 15px;
+  fill: currentColor;
+  flex-shrink: 0;
+}
+
+/* --- frete: o mesmo cálculo da sacola, aqui na página --- */
+
+.compra__frete {
+  border: 3px solid var(--color-text);
+  background: var(--color-card-bg);
+  padding: 14px;
+}
+
+.compra__frete-titulo {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 10px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.compra__frete-titulo svg {
+  width: 17px;
+  height: 17px;
+  fill: currentColor;
+}
+
+/*
+    Grid, não flex, e com minmax(0, 1fr): um <input> sem width tem largura
+    intrínseca de ~230px (vem do atributo `size`), e num flex ele leva essa
+    medida pro min-content do pai mesmo com min-width: 0. Resultado: a
+    coluna inteira da compra ficava 32px mais larga que a tela e o celular
+    ganhava rolagem horizontal. Com minmax(0, 1fr) a coluna pode encolher
+    abaixo do conteúdo, que é o que a gente quer aqui.
+  */
+.compra__cep {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.compra__cep input {
+  min-width: 0;
+  border: 3px solid var(--color-text);
+  background: var(--color-card-bg);
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 700;
+  padding: 10px 12px;
+  color: var(--color-text);
+}
+
+.compra__cep input::placeholder {
+  color: rgba(18, 24, 31, 0.4);
+}
+
+.compra__cep button {
+  border: 3px solid var(--color-text);
+  background: var(--color-text);
+  color: var(--color-accent);
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 10px 15px;
+  cursor: pointer;
+}
+
+.compra__cep button:hover {
+  background: var(--color-accent);
+  color: var(--color-text);
+}
+
+.compra__cep button[aria-busy="true"] {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.compra__frete-erro {
+  margin: 8px 0 0;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #9b2c1a;
+}
+
+.compra__frete-opcoes {
+  margin: 11px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 7px;
+}
+
+.compra__frete-opcoes li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  border-top: 2px solid rgba(18, 24, 31, 0.12);
+  padding-top: 7px;
+  font-size: 0.88rem;
+}
+
+.compra__frete-opcoes li:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.compra__frete-nome {
+  font-weight: 800;
+}
+
+.compra__frete-prazo {
+  display: block;
+  font-size: 0.79rem;
+  font-weight: 600;
+  color: #566072;
+}
+
+.compra__frete-preco {
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.compra__frete-preco[data-gratis] {
+  color: #0d6b52;
+}
+
+.compra__frete-preco s {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #566072;
+}
+
+.compra__frete-ajuda {
+  margin: 10px 0 0;
+  font-size: 0.76rem;
+  font-weight: 600;
+  line-height: 1.45;
+  color: #566072;
+}
+
+.compra__frete-ajuda a {
+  color: var(--color-text);
+  font-weight: 700;
+}
+
+/* --- garantias --- */
+
+.compra__garantias {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px 12px;
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.compra__garantias li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 0.83rem;
+  font-weight: 700;
+  line-height: 1.32;
+}
+
+.compra__garantias svg {
+  width: 20px;
+  height: 20px;
+  fill: var(--color-text);
+  flex-shrink: 0;
+}
+
+.compra__garantias small {
+  display: block;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: #0d4c3c;
+}
+
+/* --- bandeiras --- */
+
+.compra__bandeiras {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  padding: 12px 0 0;
+  border-top: 2px solid rgba(18, 24, 31, 0.15);
+  list-style: none;
+}
+
+.compra__bandeiras li {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--color-card-bg);
+  border: 2px solid var(--color-text);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 4px 8px;
+}
+
+.compra__bandeiras svg {
+  width: 13px;
+  height: 13px;
+  fill: currentColor;
+}
+
+/* ======================================================
+     PROMESSA — a faixa escura logo abaixo da dobra.
+     É o "o que você vai perceber" da descrição antiga,
+     que estava enterrado no meio de um textão.
+     ====================================================== */
+
+.promessa {
+  position: relative;
+  background: radial-gradient(
+    ellipse 900px 460px at 50% -10%,
+    #142520 0%,
+    #070a09 52%,
+    #020302 100%
+  );
+  color: #ffffff;
+  font-family: var(--font-sans);
+  padding: clamp(40px, 6vw, 64px) clamp(16px, 4vw, 28px) clamp(34px, 5vw, 54px);
+  overflow: hidden;
+}
+
+.promessa::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 10px;
+  background: repeating-linear-gradient(-45deg, #000 0 14px, var(--color-accent) 14px 28px);
+  z-index: 2;
+}
+
+.promessa__wrap {
+  position: relative;
+  max-width: 1080px;
+  margin: 0 auto;
+  text-align: center;
+  z-index: 1;
+}
+
+.promessa__chapeu {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 12px;
+  color: var(--color-accent);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.promessa__chapeu svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+
+.promessa__titulo {
+  margin: 0 0 clamp(22px, 4vw, 34px);
+  font-size: clamp(1.7rem, 5vw, 2.7rem);
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: -0.025em;
+  line-height: 0.98;
+}
+
+.promessa__titulo em {
+  font-style: inherit;
+  color: var(--color-accent);
+}
+
+.promessa__lista {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+}
+
+.promessa__lista li {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  border: 2px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.035);
+  padding: 15px 16px;
+  font-size: 0.97rem;
+  font-weight: 700;
+  line-height: 1.32;
+}
+
+.promessa__lista svg {
+  width: 19px;
+  height: 19px;
+  fill: var(--color-accent);
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.promessa__rodape {
+  margin: clamp(20px, 3vw, 28px) auto 0;
+  max-width: 640px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+/* ======================================================
+     TEMPO — quando o resultado aparece.
+     Vende dizendo a verdade: é tratamento, não maquiagem.
+     Quem compra sabendo do prazo não pede reembolso no dia 12.
+     ====================================================== */
+
+.tempo {
+  background: var(--color-bg);
+  font-family: var(--font-sans);
+  color: var(--color-text);
+  padding: clamp(38px, 5.5vw, 62px) clamp(16px, 4vw, 28px);
+}
+
+.tempo__wrap {
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.tempo__titulo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 6px;
+  font-size: clamp(1.5rem, 4.2vw, 2.2rem);
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: -0.025em;
+  line-height: 1;
+}
+
+.tempo__titulo svg {
+  width: clamp(20px, 3.4vw, 28px);
+  height: clamp(20px, 3.4vw, 28px);
+  fill: var(--color-text);
+  flex-shrink: 0;
+}
+
+.tempo__linha-fina {
+  margin: 0 0 clamp(20px, 3vw, 30px);
+  max-width: 640px;
+  font-size: 0.97rem;
+  font-weight: 600;
+  line-height: 1.5;
+  color: #0d4c3c;
+}
+
+.tempo__trilha {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+}
+
+.tempo__passo {
+  position: relative;
+  border: 3px solid var(--color-text);
+  background: var(--color-card-bg);
+  padding: 16px 16px 18px;
+  box-shadow: 6px 6px 0 0 var(--color-text);
+}
+
+/* o passo do resultado "completo" é o que a página empurra */
+.tempo__passo--alvo {
+  background: var(--color-accent);
+  box-shadow: 6px 6px 0 0 var(--color-text);
+}
+
+.tempo__quando {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0 0 8px;
+  background: var(--color-text);
+  color: var(--color-accent);
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 4px 9px;
+}
+
+.tempo__quando svg {
+  width: 11px;
+  height: 11px;
+  fill: currentColor;
+}
+
+.tempo__passo dt {
+  margin: 0 0 4px;
+  font-size: 1.02rem;
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: -0.015em;
+  line-height: 1.1;
+}
+
+.tempo__passo dd {
+  margin: 0;
+  font-size: 0.89rem;
+  font-weight: 600;
+  line-height: 1.45;
+  color: #2c3541;
+}
+
+.tempo__aviso {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: clamp(18px, 2.6vw, 26px) 0 0;
+  border-left: 6px solid var(--color-text);
+  background: rgba(18, 24, 31, 0.06);
+  padding: 12px 14px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.tempo__aviso svg {
+  width: 17px;
+  height: 17px;
+  fill: var(--color-text);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* ======================================================
+     ROTINA — o cross-sell honesto.
+     A descrição antiga já mandava usar shampoo + fator +
+     óleo. Aqui isso vira três caixas que somam de verdade,
+     com a barra do frete grátis andando junto.
+     ====================================================== */
+
+.rotina {
+  background: var(--color-card-bg);
+  font-family: var(--font-sans);
+  color: var(--color-text);
+  padding: clamp(38px, 5.5vw, 62px) clamp(16px, 4vw, 28px);
+}
+
+.rotina__wrap {
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.rotina__titulo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 6px;
+  font-size: clamp(1.5rem, 4.2vw, 2.2rem);
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: -0.025em;
+  line-height: 1;
+}
+
+.rotina__titulo svg {
+  width: clamp(20px, 3.4vw, 28px);
+  height: clamp(20px, 3.4vw, 28px);
+  fill: var(--color-text);
+  flex-shrink: 0;
+}
+
+.rotina__linha-fina {
+  margin: 0 0 clamp(20px, 3vw, 28px);
+  max-width: 660px;
+  font-size: 0.97rem;
+  font-weight: 600;
+  line-height: 1.5;
+  color: #566072;
+}
+
+.rotina__grade {
+  display: grid;
+  gap: 12px;
+}
+
+@media (min-width: 880px) {
+  .rotina__grade {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: stretch;
+  }
+}
+
+.rotina__item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 86px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  border: 3px solid rgba(18, 24, 31, 0.2);
+  background: var(--color-card-bg);
+  padding: 12px;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
+}
+
+.rotina__item:hover {
+  border-color: var(--color-text);
+}
+
+.rotina__item:has(input:checked) {
+  border-color: var(--color-text);
+  box-shadow: 6px 6px 0 0 var(--color-accent);
+  transform: translate(-2px, -2px);
+}
+
+.rotina__item:has(input:focus-visible) {
+  outline: 3px solid var(--color-text);
+  outline-offset: 3px;
+}
+
+/* o produto da página não sai da rotina: ele é o motivo dela */
+.rotina__item--fixo {
+  border-color: var(--color-text);
+  background: var(--color-accent);
+  cursor: default;
+}
+
+.rotina__item--fixo:has(input:checked) {
+  box-shadow: 6px 6px 0 0 var(--color-text);
+}
+
+.rotina__passo {
+  position: absolute;
+  top: -12px;
+  left: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--color-text);
+  color: var(--color-accent);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+}
+
+.rotina__foto {
+  width: 86px;
+  height: 86px;
+  border: 2px solid var(--color-text);
+  background: var(--color-card-bg);
+  object-fit: cover;
+  display: block;
+}
+
+.rotina__corpo {
+  min-width: 0;
+}
+
+.rotina__marca {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 3px;
+}
+
+.rotina__marca input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--color-text);
+  flex-shrink: 0;
+}
+
+.rotina__nome {
+  font-size: 0.93rem;
+  font-weight: 800;
+  line-height: 1.18;
+}
+
+.rotina__para {
+  margin: 0 0 6px;
+  font-size: 0.79rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: #566072;
+}
+
+.rotina__preco {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 800;
+  font-style: italic;
+  letter-spacing: -0.02em;
+}
+
+.rotina__preco s {
+  margin-left: 5px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-style: normal;
+  color: #566072;
+}
+
+/* --- soma --- */
+
+.rotina__soma {
+  display: grid;
+  gap: 14px;
+  margin: clamp(16px, 2.4vw, 22px) 0 0;
+  border: 3px solid var(--color-text);
+  background: var(--color-text);
+  color: #ffffff;
+  padding: 16px 18px;
+}
+
+@media (min-width: 760px) {
+  .rotina__soma {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+  }
+}
+
+.rotina__total {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.rotina__total b {
+  display: block;
+  margin-top: 2px;
+  font-size: clamp(1.5rem, 4vw, 1.95rem);
+  font-weight: 800;
+  font-style: italic;
+  letter-spacing: -0.03em;
+  text-transform: none;
+  color: #ffffff;
+}
+
+.rotina__total s {
+  margin-left: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  font-style: normal;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* barra do frete grátis: a mesma regra da sacola, aqui */
+.rotina__frete {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.rotina__frete b {
+  color: var(--color-accent);
+}
+
+.rotina__frete[data-gratis] b {
+  color: #7dffd4;
+}
+
+.rotina__trilho {
+  display: block;
+  position: relative;
+  height: 8px;
+  margin-top: 8px;
+  background: rgba(255, 255, 255, 0.18);
+  overflow: hidden;
+}
+
+.rotina__barra {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--color-accent);
+  transition: width 0.4s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.rotina__barra[data-gratis] {
+  background: #4fe0b9;
+}
+
+.rotina__comprar {
+  justify-content: center;
+}
+
+/* ======================================================
+     FUNCIONA — como age e como usar, lado a lado.
+     ====================================================== */
+
+.funciona {
+  background: var(--color-bg);
+  font-family: var(--font-sans);
+  color: var(--color-text);
+  padding: clamp(38px, 5.5vw, 62px) clamp(16px, 4vw, 28px);
+}
+
+.funciona__wrap {
+  max-width: 1180px;
+  margin: 0 auto;
+  display: grid;
+  gap: clamp(16px, 2.6vw, 26px);
+}
+
+@media (min-width: 900px) {
+  .funciona__wrap {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+}
+
+.funciona__caixa {
+  border: 3px solid var(--color-text);
+  background: var(--color-card-bg);
+  box-shadow: 8px 8px 0 0 var(--color-text);
+  padding: clamp(18px, 3vw, 26px);
+}
+
+.funciona__caixa h2 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 12px;
+  font-size: clamp(1.25rem, 3.4vw, 1.7rem);
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+  line-height: 1.02;
+}
+
+.funciona__caixa h2 svg {
+  width: 21px;
+  height: 21px;
+  fill: var(--color-text);
+  flex-shrink: 0;
+}
+
+.funciona__caixa p {
+  margin: 0 0 11px;
+  font-size: 0.97rem;
+  font-weight: 500;
+  line-height: 1.6;
+  color: #2c3541;
+}
+
+.funciona__caixa p:last-child {
+  margin-bottom: 0;
+}
+
+.funciona__caixa strong {
+  font-weight: 800;
+  color: var(--color-text);
+}
+
+.funciona__passos {
+  counter-reset: passo;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 11px;
+}
+
+.funciona__passos li {
+  counter-increment: passo;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 11px;
+  align-items: start;
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.45;
+  color: #2c3541;
+}
+
+.funciona__passos li::before {
+  content: counter(passo);
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  background: var(--color-text);
+  color: var(--color-accent);
+  font-size: 0.95rem;
+  font-weight: 800;
+  font-style: italic;
+}
+
+.funciona__dica {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin: 14px 0 0;
+  border-left: 6px solid var(--color-accent);
+  background: #fffaea;
+  padding: 11px 13px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.funciona__dica svg {
+  width: 16px;
+  height: 16px;
+  fill: var(--color-text);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.funciona__ficha {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+  gap: 1px;
+  margin: 16px 0 0;
+  background: rgba(18, 24, 31, 0.18);
+  border: 2px solid rgba(18, 24, 31, 0.18);
+}
+
+.funciona__ficha > div {
+  background: var(--color-card-bg);
+  padding: 10px 12px;
+}
+
+.funciona__ficha dt {
+  margin: 0 0 2px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #566072;
+}
+
+.funciona__ficha dd {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+/* ======================================================
+     QUEM — pra quem é / pra quem não é.
+     A coluna da direita é a que mais vende: dizer pra quem
+     o produto NÃO serve é o que faz acreditar na de cima.
+     ====================================================== */
+
+.quem {
+  background: var(--color-card-bg);
+  font-family: var(--font-sans);
+  color: var(--color-text);
+  padding: clamp(38px, 5.5vw, 62px) clamp(16px, 4vw, 28px);
+}
+
+.quem__wrap {
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.quem__titulo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 clamp(18px, 2.6vw, 26px);
+  font-size: clamp(1.5rem, 4.2vw, 2.2rem);
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: -0.025em;
+  line-height: 1;
+}
+
+.quem__titulo svg {
+  width: clamp(20px, 3.4vw, 28px);
+  height: clamp(20px, 3.4vw, 28px);
+  fill: var(--color-text);
+  flex-shrink: 0;
+}
+
+.quem__colunas {
+  display: grid;
+  gap: 12px;
+}
+
+@media (min-width: 860px) {
+  .quem__colunas {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.quem__coluna {
+  border: 3px solid var(--color-text);
+  padding: clamp(16px, 2.6vw, 24px);
+}
+
+.quem__coluna--sim {
+  background: var(--color-bg);
+  box-shadow: 8px 8px 0 0 var(--color-text);
+}
+
+.quem__coluna--nao {
+  background: var(--color-text);
+  color: #ffffff;
+}
+
+.quem__coluna h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  font-size: 1.05rem;
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: -0.015em;
+}
+
+.quem__coluna h3 svg {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+  flex-shrink: 0;
+}
+
+.quem__coluna--nao h3 svg {
+  fill: var(--color-accent);
+}
+
+.quem__coluna ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 9px;
+}
+
+.quem__coluna li {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.quem__coluna li svg {
+  width: 17px;
+  height: 17px;
+  fill: currentColor;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.quem__coluna--nao li svg {
+  fill: var(--color-accent);
+}
+
+.quem__fecho {
+  margin: clamp(16px, 2.4vw, 22px) 0 0;
+  font-size: 0.92rem;
+  font-weight: 700;
+  line-height: 1.5;
+  color: #566072;
+}
+
+/* ======================================================
+     DÚVIDAS — acordeão nativo (<details>), sem JS.
+     O que está aqui vira FAQPage pro Google.
+     ====================================================== */
+
+.duvidas {
+  background: var(--color-bg);
+  font-family: var(--font-sans);
+  color: var(--color-text);
+  padding: clamp(38px, 5.5vw, 62px) clamp(16px, 4vw, 28px);
+}
+
+.duvidas__wrap {
+  max-width: 880px;
+  margin: 0 auto;
+}
+
+.duvidas__titulo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 clamp(18px, 2.6vw, 26px);
+  font-size: clamp(1.5rem, 4.2vw, 2.2rem);
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: -0.025em;
+  line-height: 1;
+}
+
+.duvidas__titulo svg {
+  width: clamp(20px, 3.4vw, 28px);
+  height: clamp(20px, 3.4vw, 28px);
+  fill: var(--color-text);
+  flex-shrink: 0;
+}
+
+.duvidas__item {
+  border: 3px solid var(--color-text);
+  background: var(--color-card-bg);
+  margin-bottom: 9px;
+}
+
+.duvidas__item[open] {
+  box-shadow: 6px 6px 0 0 var(--color-text);
+}
+
+.duvidas__item summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 16px;
+  font-size: 0.99rem;
+  font-weight: 800;
+  line-height: 1.32;
+  cursor: pointer;
+  list-style: none;
+}
+
+.duvidas__item summary::-webkit-details-marker {
+  display: none;
+}
+
+.duvidas__item summary:focus-visible {
+  outline: 3px solid var(--color-text);
+  outline-offset: -3px;
+}
+
+/* o "+" que vira "−" — feito com dois traços, sem fonte de ícone */
+.duvidas__mais {
+  position: relative;
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  background: var(--color-accent);
+  border: 2px solid var(--color-text);
+}
+
+.duvidas__mais::before,
+.duvidas__mais::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 10px;
+  height: 2.5px;
+  background: var(--color-text);
+  transform: translate(-50%, -50%);
+  transition: transform 0.18s ease;
+}
+
+.duvidas__mais::after {
+  transform: translate(-50%, -50%) rotate(90deg);
+}
+
+.duvidas__item[open] .duvidas__mais::after {
+  transform: translate(-50%, -50%) rotate(0deg);
+}
+
+.duvidas__resposta {
+  padding: 0 16px 15px;
+  font-size: 0.94rem;
+  font-weight: 500;
+  line-height: 1.6;
+  color: #2c3541;
+}
+
+.duvidas__resposta p {
+  margin: 0 0 9px;
+}
+
+.duvidas__resposta p:last-child {
+  margin-bottom: 0;
+}
+
+.duvidas__resposta a {
+  color: var(--color-text);
+  font-weight: 800;
+}
+
+/* ======================================================
+     AVALIAÇÕES
+     Estrutura pronta e VAZIA. Nada de estrela inventada:
+     nota falsa é propaganda enganosa (CDC art. 37) e o
+     Google tira o rich snippet da loja inteira quando pega.
+     ====================================================== */
+
+.avaliacoes {
+  background: var(--color-card-bg);
+  font-family: var(--font-sans);
+  color: var(--color-text);
+  padding: clamp(38px, 5.5vw, 62px) clamp(16px, 4vw, 28px);
+}
+
+.avaliacoes__wrap {
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.avaliacoes__titulo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 clamp(16px, 2.4vw, 22px);
+  font-size: clamp(1.5rem, 4.2vw, 2.2rem);
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: -0.025em;
+  line-height: 1;
+}
+
+.avaliacoes__titulo svg {
+  width: clamp(20px, 3.4vw, 28px);
+  height: clamp(20px, 3.4vw, 28px);
+  fill: var(--color-text);
+  flex-shrink: 0;
+}
+
+.avaliacoes__vazio {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+  border: 3px dashed rgba(18, 24, 31, 0.3);
+  padding: clamp(20px, 3.4vw, 32px);
+}
+
+.avaliacoes__vazio p {
+  margin: 0;
+  max-width: 58ch;
+  font-size: 0.97rem;
+  font-weight: 600;
+  line-height: 1.55;
+  color: #566072;
+}
+
+.avaliacoes__vazio p b {
+  color: var(--color-text);
+  font-weight: 800;
+}
+
+/* ======================================================
+     BARRA DE COMPRA — fixa no pé, aparece quando o botão
+     de comprar da dobra sai de vista.
+     ====================================================== */
+
+.barra-compra {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 60;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  background: var(--color-card-bg);
+  border-top: 3px solid var(--color-text);
+  padding: 9px clamp(12px, 3vw, 22px);
+  box-shadow: 0 -8px 24px rgba(7, 12, 14, 0.14);
+  transform: translateY(105%);
+  transition: transform 0.26s cubic-bezier(0.22, 0.61, 0.36, 1);
+  /* fora de vista também sai do Tab e do leitor de tela */
+  visibility: hidden;
+}
+
+.barra-compra.e-visivel {
+  transform: translateY(0);
+  visibility: visible;
+}
+
+.barra-compra__foto {
+  width: 46px;
+  height: 46px;
+  border: 2px solid var(--color-text);
+  object-fit: cover;
+  display: block;
+}
+
+.barra-compra__texto {
+  min-width: 0;
+}
+
+.barra-compra__nome {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 800;
+  line-height: 1.15;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.barra-compra__preco {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.93rem;
+  font-weight: 800;
+  font-style: italic;
+  letter-spacing: -0.02em;
+}
+
+.barra-compra__preco s {
+  margin-left: 6px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  font-style: normal;
+  color: #566072;
+}
+
+.barra-compra .btn {
+  padding: 12px 18px;
+  font-size: 0.85rem;
+  box-shadow: 4px 4px 0 0 var(--color-accent);
+}
+
+.barra-compra .btn:hover,
+.barra-compra .btn:focus-visible {
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0 0 var(--color-accent);
+}
+
+/* o nome some no celular estreito: preço e botão importam mais */
+@media (max-width: 400px) {
+  .barra-compra__nome {
+    display: none;
+  }
+}
+
+/* ======================================================
+     RELACIONADOS — reusa .colecao e .produto da home.
+     Só troca o fundo pra não repetir a faixa branca das
+     avaliações logo acima.
+     ====================================================== */
+
+.colecao--relacionados {
+  background: var(--color-bg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .galeria__palco img,
+  .rotina__barra,
+  .barra-compra,
+  .duvidas__mais::before,
+  .duvidas__mais::after {
+    transition: none !important;
+  }
+}

@@ -1,0 +1,1098 @@
+<!--
+  ======================================================================
+  PÁGINA DE PRODUTO (PDP)
+
+  Produto usado no protótipo: Fator de Crescimento para Barba 30 ml.
+  Escolhi o mais difícil de vender de propósito — é o que tem promessa
+  de resultado, prazo longo e regra da ANVISA em cima. O que resolve
+  ele resolve o óleo e o shampoo de olhos fechados.
+
+  Preço, foto, SKU e texto vieram do catálogo real (Medusa em produção
+  + a descrição que está hoje na Nuvemshop). Nada aqui é inventado,
+  com uma exceção sinalizada: veja o bloco "TESTADO E APROVADO" mais
+  abaixo, que está COMENTADO até você me mandar a fonte do número.
+
+  ORDEM DA PÁGINA, e o porquê de cada bloco:
+    1. migalhas     .... onde estou na loja (e o breadcrumb do Google)
+    2. pdp          .... foto + preço + comprar. A dobra decide a venda.
+    3. promessa     .... o que muda na cara dele. Benefício antes de técnica.
+    4. tempo        .... quando aparece. Corta o reembolso do dia 12.
+    5. rotina       .... o cross-sell que a própria bula já mandava fazer.
+    6. funciona     .... como age + modo de uso + ficha técnica.
+    7. quem         .... pra quem é e pra quem NÃO é.
+    8. duvidas      .... as objeções que sobraram, em FAQ.
+    9. avaliacoes   .... vazio até existir review de verdade.
+   10. relacionados .... reusa o card e o carrossel da home.
+   +   barra fixa   .... o Comprar que não some quando ele rola.
+  ====================================================================== -->
+
+<nav class="migalhas" aria-label="Você está em">
+  <ol class="migalhas__lista" itemscope itemtype="https://schema.org/BreadcrumbList">
+    <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+      <a itemprop="item" href="#inicio"><span itemprop="name">Início</span></a>
+      <meta itemprop="position" content="1">
+    </li>
+    <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+      <a itemprop="item" href="#barba"><span itemprop="name">Barba</span></a>
+      <meta itemprop="position" content="2">
+    </li>
+    <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+      <span class="migalhas__atual" itemprop="name">Fator de Crescimento 30 ml</span>
+      <meta itemprop="position" content="3">
+    </li>
+  </ol>
+</nav>
+
+<!-- ======================================================================
+     A DOBRA
+     O itemscope Product abre aqui e fecha no fim da seção: preço,
+     disponibilidade e imagem precisam estar todos dentro dele pro
+     Google montar o resultado rico com preço.
+     ====================================================================== -->
+<section class="pdp" itemscope itemtype="https://schema.org/Product" aria-labelledby="produto-nome">
+  <meta itemprop="sku" content="FBFCB01">
+  <meta itemprop="brand" content="FuckingBarba">
+
+  <div class="pdp__wrap">
+
+    <!-- ---------------------------------------------------------------
+         GALERIA
+         Duas fotos é o que o catálogo tem hoje. A estrutura aguenta
+         quantas você mandar — o JS lê as miniaturas, não um número fixo.
+
+         >>> A SEGUNDA FOTO DO CATÁLOGO NÃO ENTROU AQUI. Leia isto.
+
+         A imagem 2 do Fator no catálogo (e que está no ar na Nuvemshop)
+         é um "ANTES / DEPOIS" — e as duas fotos são de PESSOAS
+         DIFERENTES. Rosto diferente, tom de pele diferente, cabelo
+         diferente, cenário diferente. Não é detalhe de enquadramento.
+
+         Por que eu não coloco isso numa página que você vai publicar:
+           • CDC art. 37 §1º — antes/depois que não é a mesma pessoa é o
+             exemplo de manual de propaganda enganosa. Dá multa de Procon
+             e dá ação individual de qualquer cliente que comprou por causa
+             dela.
+           • Meta e Google proíbem antes/depois de aparência em anúncio,
+             na política, sem exceção. Isso não rende advertência: rende
+             conta de anúncios derrubada. Pra uma loja que vive de tráfego
+             pago, é o risco mais caro desta lista.
+           • LGPD — foto de pessoa identificável precisa de consentimento
+             registrado, e "aparência" em contexto de tratamento pega o
+             art. 11. Se essas fotos vieram de banco de imagem ou da
+             internet, não há consentimento pra esse uso.
+
+         Um antes/depois que PODE ir ao ar: mesma pessoa, mesmo ângulo,
+         mesma luz, sem filtro, com o intervalo escrito ("dia 0 / dia 90"),
+         autorização de uso assinada guardada, e legenda dizendo que o
+         resultado varia. Vende mais que esse aí — porque parece real.
+
+         Enquanto isso não existe, a segunda miniatura abaixo é um
+         quadrado marcado "a fazer", só pra você ver a galeria funcionando.
+
+         O QUE FALTA DE FOTO (e vale mais que qualquer texto desta página):
+           • o produto na mão de alguém, pra dar escala ao frasco de 30 ml
+           • a textura saindo do conta-gotas
+           • o rótulo de perto, legível (quem compra cosmético lê rótulo)
+           • um vídeo curto de aplicação (o <video> entra como 1º item)
+         --------------------------------------------------------------- -->
+    <div class="galeria" data-galeria>
+
+      <button type="button" class="galeria__palco" data-galeria-palco
+              aria-label="Ampliar a foto do produto">
+        <ul class="galeria__selos">
+          <li class="galeria__selo galeria__selo--desconto">-40%</li>
+          <!-- Só aparece porque ESTE produto sozinho (R$ 79,90) ainda não
+               chega nos R$ 149,90. Quando chegar, troque por "Frete grátis".
+               Prometer frete grátis em produto que não alcança a régua é
+               propaganda enganosa — e é o motivo nº 1 de carrinho abandonado
+               no passo do frete. -->
+          <li class="galeria__selo galeria__selo--frete">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1.4 4.6h11.4l1.6 1.6v9.6h-2.2l-1.4-1.4H6.9l-1.4 1.4H1.4z"/><path d="M15.2 8.4h4.1l3.3 4v3.4h-1.3l-1.4-1.4h-3.3l-1.4 1.4v-7.4z"/><path d="M6.9 16h2.3v2.3l-.9.9H6v-2.3z"/><path d="M17.1 16h2.3v2.3l-.9.9h-2.3v-2.3z"/></svg>
+            Frete grátis a partir de R$ 149,90
+          </li>
+        </ul>
+
+        <span class="galeria__lupa">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M8 2.6h6L18.4 7v6l-1.5 1.5 4.6 4.6-2.4 2.4-4.6-4.6L13 17.4H8L3.6 13V7zm1.3 3.2L6.8 8.2v3.6l2.5 2.4h3.4l2.5-2.4V8.2l-2.5-2.4z"/></svg>
+          Clique pra ampliar
+        </span>
+
+        <img itemprop="image" id="galeria-foto" width="900" height="900" fetchpriority="high"
+             alt="Fator de Crescimento para Barba FuckingBarba, frasco de 30 ml com conta-gotas"
+             src="https://agqrjwxhuzkncbnmntyw.supabase.co/storage/v1/object/public/produtos/fator-de-crescimento-para-barba-1-01M2Y3AMVFXWBRTMP5VXGJ0QZZ.webp">
+      </button>
+
+      <ul class="galeria__miniaturas" data-galeria-minis>
+        <li>
+          <button type="button" class="galeria__mini" aria-current="true"
+                  data-foto="https://agqrjwxhuzkncbnmntyw.supabase.co/storage/v1/object/public/produtos/fator-de-crescimento-para-barba-1-01M2Y3AMVFXWBRTMP5VXGJ0QZZ.webp"
+                  aria-label="Ver foto 1: frasco de 30 ml com conta-gotas">
+            <img src="https://agqrjwxhuzkncbnmntyw.supabase.co/storage/v1/object/public/produtos/fator-de-crescimento-para-barba-1-01M2Y3AMVFXWBRTMP5VXGJ0QZZ.webp"
+                 alt="" width="150" height="150" loading="lazy">
+          </button>
+        </li>
+        <li>
+          <button type="button" class="galeria__mini"
+                  data-foto='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600"><rect width="600" height="600" fill="%23f2f3f4"/><rect x="20" y="20" width="560" height="560" fill="none" stroke="%2312181f" stroke-width="7" stroke-dasharray="24 18"/><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z" fill="%2312181f" transform="translate(252 186) scale(4)"/><text x="300" y="396" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="46" font-weight="bold" fill="%2312181f">FOTO 2</text><text x="300" y="446" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="30" fill="%23566072">a fazer</text></svg>'
+                  aria-label="Ver foto 2: espaço reservado, foto ainda não produzida">
+            <img src='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600"><rect width="600" height="600" fill="%23f2f3f4"/><rect x="20" y="20" width="560" height="560" fill="none" stroke="%2312181f" stroke-width="7" stroke-dasharray="24 18"/><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z" fill="%2312181f" transform="translate(252 186) scale(4)"/><text x="300" y="396" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="46" font-weight="bold" fill="%2312181f">FOTO 2</text><text x="300" y="446" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="30" fill="%23566072">a fazer</text></svg>'
+                 alt="" width="150" height="150" loading="lazy">
+          </button>
+        </li>
+      </ul>
+
+      <!-- zoom: <dialog> nativo — foco preso, Esc fecha, sem biblioteca -->
+      <dialog class="galeria__zoom" data-galeria-zoom aria-label="Foto ampliada do produto">
+        <button type="button" class="galeria__zoom-fecha" data-galeria-zoom-fecha aria-label="Fechar">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.2 3.6 12 10.4l6.8-6.8 1.6 1.6L13.6 12l6.8 6.8-1.6 1.6L12 13.6l-6.8 6.8-1.6-1.6L10.4 12 3.6 5.2z"/></svg>
+        </button>
+        <img src="" alt="Fator de Crescimento para Barba FuckingBarba, foto ampliada" width="900" height="900">
+      </dialog>
+    </div>
+
+    <!-- ---------------------------------------------------------------
+         COLUNA DE COMPRA
+         --------------------------------------------------------------- -->
+    <div class="compra">
+
+      <p class="compra__chapeu">
+        <b><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg> Tratamento</b>
+        <span>Barba</span>
+        <span class="compra__sku">SKU FBFCB01</span>
+      </p>
+
+      <h1 class="compra__nome" id="produto-nome" itemprop="name">Fator de Crescimento para Barba 30&nbsp;ml</h1>
+
+      <p class="compra__resumo" itemprop="description">Mais crescimento, mais densidade, menos falha. Uso diário, direto na pele.</p>
+
+      <!-- AVALIAÇÃO
+           Fica assim, vazio, até existir review de verdade no banco.
+           Estrela inventada é art. 37 do CDC (propaganda enganosa) e o
+           Google derruba o rich snippet da loja inteira quando pega.
+           Quando houver review, troque este <p> pelo bloco comentado
+           logo abaixo — o CSS dos dois já está pronto. -->
+      <p class="compra__sem-nota">
+        Sem avaliação por aqui ainda. <a href="#avaliacoes">Comprou? conta como foi</a> — a primeira ajuda o próximo.
+      </p>
+      <!--
+      <p class="compra__nota" itemprop="aggregateRating" itemscope itemtype="https://schema.org/AggregateRating">
+        <meta itemprop="ratingValue" content="4.8"><meta itemprop="reviewCount" content="128"><meta itemprop="bestRating" content="5">
+        <span class="estrelas" style="--nota: 96.0%" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><use href="#ico-estrela"/></svg><svg viewBox="0 0 24 24"><use href="#ico-estrela"/></svg><svg viewBox="0 0 24 24"><use href="#ico-estrela"/></svg><svg viewBox="0 0 24 24"><use href="#ico-estrela"/></svg><svg viewBox="0 0 24 24"><use href="#ico-estrela"/></svg>
+          <span class="estrelas__cheias"><svg viewBox="0 0 24 24"><use href="#ico-estrela"/></svg><svg viewBox="0 0 24 24"><use href="#ico-estrela"/></svg><svg viewBox="0 0 24 24"><use href="#ico-estrela"/></svg><svg viewBox="0 0 24 24"><use href="#ico-estrela"/></svg><svg viewBox="0 0 24 24"><use href="#ico-estrela"/></svg></span>
+        </span>
+        <b aria-hidden="true">4,8</b>
+        <a href="#avaliacoes"><span class="sr-only">Nota 4,8 de 5, com </span>128 avaliações</a>
+      </p>
+      -->
+
+      <div itemprop="offers" itemscope itemtype="https://schema.org/Offer">
+        <meta itemprop="priceCurrency" content="BRL">
+        <meta itemprop="price" content="79.90" data-preco-schema>
+        <link itemprop="availability" href="https://schema.org/InStock">
+        <meta itemprop="itemCondition" content="https://schema.org/NewCondition">
+
+        <p class="compra__precos">
+          <span class="compra__de">R$&nbsp;133,20</span>
+          <span class="compra__por" data-preco-grande>R$&nbsp;79,90</span>
+          <span class="compra__economia">
+            <svg viewBox="0 0 24 24" aria-hidden="true" width="12" height="12" style="fill:currentColor"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
+            Economia de R$&nbsp;53,30
+          </span>
+        </p>
+
+        <p class="compra__pagamento-linha">
+          <b data-parcela>3x de R$ 26,63</b> sem juros no cartão
+          <br>ou <b>R$ 79,90</b> no Pix
+          <!-- SE for dar desconto no Pix, é aqui. Deixei sem, porque
+               desconto no Pix é decisão sua de margem e muda o preço
+               que o Google indexa (schema:price). Quando decidir, o
+               número precisa sair do Medusa, não daqui. -->
+        </p>
+      </div>
+
+      <!-- ---------------------------------------------------------
+           KITS — o degrau de valor.
+           Hoje o 2x, o 3x e o 6x existem na Nuvemshop como PRODUTOS
+           SEPARADOS, e todos estão "Esgotado". Enterrados lá embaixo,
+           em "produtos relacionados", onde quase ninguém rola.
+           Trazer a escolha pra cá é a maior alavanca de ticket que
+           esta página tem — e resolve o problema de estoque: é o
+           mesmo SKU, só muda a quantidade.
+
+           Os preços são os seus mesmos da Nuvemshop. A economia que
+           eu mostro é contra 79,90 x quantidade (o preço de verdade
+           de comprar avulso hoje), NÃO contra o preço riscado. Fazer
+           a conta em cima do riscado infla a economia e é exatamente
+           o que o Procon autua.
+
+           O 3x vem marcado como recomendado por um motivo que é
+           verdade: o ciclo do resultado é de 90 dias.
+           >>> CONFERIR: um frasco de 30 ml dura mesmo ~30 dias no uso
+               de 1 a 2x ao dia? Se durar 20, o texto do 3x muda.
+           --------------------------------------------------------- -->
+      <fieldset class="compra__kits" data-kits>
+        <legend class="compra__kits-titulo">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
+          Quantos frascos
+        </legend>
+
+        <div class="compra__kits-lista">
+
+          <label class="compra__kit">
+            <input type="radio" name="kit" value="1" data-preco="79.90" data-unidades="1"
+                   data-id="fator-1x" data-nome="Fator de Crescimento 30 ml" checked>
+            <span>
+              <span class="compra__kit-nome">1 frasco</span>
+              <span class="compra__kit-abaixo">Pra testar. Cobre cerca de 1 mês de uso.</span>
+            </span>
+            <span class="compra__kit-preco">R$&nbsp;79,90</span>
+          </label>
+
+          <label class="compra__kit">
+            <input type="radio" name="kit" value="2" data-preco="149.90" data-unidades="2"
+                   data-id="fator-2x" data-nome="Kit 2 frascos — Fator de Crescimento">
+            <span class="compra__kit-fita">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1.4 4.6h11.4l1.6 1.6v9.6h-2.2l-1.4-1.4H6.9l-1.4 1.4H1.4z"/><path d="M15.2 8.4h4.1l3.3 4v3.4h-1.3l-1.4-1.4h-3.3l-1.4 1.4v-7.4z"/><path d="M6.9 16h2.3v2.3l-.9.9H6v-2.3z"/><path d="M17.1 16h2.3v2.3l-.9.9h-2.3v-2.3z"/></svg>
+              Fecha o frete grátis
+            </span>
+            <span>
+              <span class="compra__kit-nome">2 frascos</span>
+              <span class="compra__kit-abaixo">Economiza R$&nbsp;9,90 e passa dos R$&nbsp;149,90 — frete por nossa conta.</span>
+            </span>
+            <span class="compra__kit-preco">
+              R$&nbsp;149,90
+              <span class="compra__kit-unidade">R$ 74,95 cada</span>
+            </span>
+          </label>
+
+          <label class="compra__kit">
+            <input type="radio" name="kit" value="3" data-preco="222.90" data-unidades="3"
+                   data-id="fator-3x" data-nome="Kit 3 frascos — Fator de Crescimento">
+            <span class="compra__kit-fita">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
+              O ciclo completo
+            </span>
+            <span>
+              <span class="compra__kit-nome">3 frascos</span>
+              <span class="compra__kit-abaixo">Os 90 dias inteiros, sem correr pra repor no meio. Economiza R$&nbsp;16,80.</span>
+            </span>
+            <span class="compra__kit-preco">
+              R$&nbsp;222,90
+              <span class="compra__kit-unidade">R$ 74,30 cada</span>
+            </span>
+          </label>
+
+        </div>
+      </fieldset>
+
+      <div class="compra__acao">
+        <div class="compra__qtd">
+          <button type="button" data-qtd="-" aria-label="Diminuir quantidade" disabled>−</button>
+          <label class="sr-only" for="qtd">Quantidade</label>
+          <input id="qtd" type="number" value="1" min="1" max="10" step="1" inputmode="numeric" data-qtd-campo>
+          <button type="button" data-qtd="+" aria-label="Aumentar quantidade">+</button>
+        </div>
+
+        <a href="#sacola" class="btn compra__comprar" data-comprar data-pdp-comprar
+           data-produto-id="fator-1x"
+           data-produto-nome="Fator de Crescimento 30 ml"
+           data-produto-preco="79.90"
+           data-produto-imagem="https://agqrjwxhuzkncbnmntyw.supabase.co/storage/v1/object/public/produtos/fator-de-crescimento-para-barba-1-01M2Y3AMVFXWBRTMP5VXGJ0QZZ.webp">
+          Adicionar à sacola
+          <svg class="btn__icone" viewBox="0 0 24 24" aria-hidden="true"><path d="M1.4 2.6h3.9l3.5 13.9h11.3v2.2H7.1L3.6 4.8H1.4z"/><path d="M6.1 6.4h13.6l2.5 2.5-2 5.6H9.5L8.1 13z"/><path d="M9 19.3h2.3v2.3l-.9.9H8.1v-2.3z"/><path d="M17.6 19.3h2.3v2.3l-.9.9h-2.3v-2.3z"/></svg>
+        </a>
+      </div>
+
+      <!-- ESCASSEZ
+           Este parágrafo só pode existir quando o número for o estoque
+           de verdade do Medusa (manage_inventory já está ligado nos 6
+           produtos). "Últimas unidades" fixo no HTML é mentira que o
+           cliente descobre voltando no dia seguinte — e aí ele não
+           acredita em mais nada que a página disser.
+           Regra sugerida: mostra quando estoque <= 5. Some acima disso. -->
+      <p class="compra__estoque" data-estoque hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.6 22.4 20.6H1.6zM11 9h2v6h-2zm0 7.4h2v2h-2z"/></svg>
+        <span></span>
+      </p>
+
+      <!-- ---------------------------------------------------------
+           FRETE
+           O botão chama FuckingBarba.carrinho.calcularFrete(cep) — a
+           MESMA função da gaveta da sacola. Quando o Frenet entrar
+           (fase 5), é um lugar só pra trocar, e o cálculo da página
+           e o do carrinho não têm como divergir.
+           --------------------------------------------------------- -->
+      <div class="compra__frete" data-frete>
+        <h2 class="compra__frete-titulo">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1.4 4.6h11.4l1.6 1.6v9.6h-2.2l-1.4-1.4H6.9l-1.4 1.4H1.4z"/><path d="M15.2 8.4h4.1l3.3 4v3.4h-1.3l-1.4-1.4h-3.3l-1.4 1.4v-7.4z"/><path d="M6.9 16h2.3v2.3l-.9.9H6v-2.3z"/><path d="M17.1 16h2.3v2.3l-.9.9h-2.3v-2.3z"/></svg>
+          Quando chega na sua casa
+        </h2>
+
+        <form class="compra__cep" data-frete-form novalidate>
+          <label class="sr-only" for="pdp-cep">CEP de entrega</label>
+          <input id="pdp-cep" name="cep" type="text" inputmode="numeric" autocomplete="postal-code"
+                 placeholder="00000-000" maxlength="9" aria-describedby="pdp-cep-erro" data-frete-cep>
+          <button type="submit" data-frete-botao>Calcular</button>
+        </form>
+
+        <p class="compra__frete-erro" id="pdp-cep-erro" data-frete-erro role="alert" hidden></p>
+
+        <ul class="compra__frete-opcoes" data-frete-opcoes hidden></ul>
+
+        <p class="compra__frete-ajuda">
+          Prazo contado em dias úteis depois da postagem.
+          <a href="https://buscacepinter.correios.com.br/app/endereco/" rel="noopener" target="_blank">Não sei meu CEP</a>
+        </p>
+      </div>
+
+      <ul class="compra__garantias">
+        <li>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1.4 4.6h11.4l1.6 1.6v9.6h-2.2l-1.4-1.4H6.9l-1.4 1.4H1.4z"/><path d="M15.2 8.4h4.1l3.3 4v3.4h-1.3l-1.4-1.4h-3.3l-1.4 1.4v-7.4z"/><path d="M6.9 16h2.3v2.3l-.9.9H6v-2.3z"/><path d="M17.1 16h2.3v2.3l-.9.9h-2.3v-2.3z"/></svg>
+          <span>Frete grátis<small>Em pedidos acima de R$ 149,90</small></span>
+        </li>
+        <li>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1.8 21.4 5v7.1c0 4.6-3.9 8.5-9.4 10.1C6.5 20.6 2.6 16.7 2.6 12.1V5z"/></svg>
+          <span>Garantia<small>Barba na cara ou sua grana de volta</small></span>
+        </li>
+        <li>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.6 4.6h18.8l1.2 1.2v12l-1.2 1.2H2.6l-1.2-1.2v-12z"/><path d="M1.4 8.4h21.2v2.6H1.4z" fill="#fff"/></svg>
+          <span>3x sem juros<small>Cartão, Pix ou boleto</small></span>
+        </li>
+        <li>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1.8 21.4 5v7.1c0 4.6-3.9 8.5-9.4 10.1C6.5 20.6 2.6 16.7 2.6 12.1V5z"/><path d="m10.9 15.6-3.6-3.6 1.3-1.3h1.4l1.4 1.4 4.3-4.3h1.4l1.3 1.3z" fill="#fff"/></svg>
+          <span>Compra segura<small>Dados criptografados</small></span>
+        </li>
+      </ul>
+
+      <!-- >>> TROCAR: as bandeiras viram os logos reais do provedor
+           (Pagar.me hoje) quando você me passar os arquivos. Texto é
+           placeholder honesto; logo de bandeira é marca registrada e
+           não se desenha "parecido". -->
+      <ul class="compra__bandeiras">
+        <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.6 4.6h18.8l1.2 1.2v12l-1.2 1.2H2.6l-1.2-1.2v-12z"/></svg> Visa</li>
+        <li>Mastercard</li>
+        <li>Elo</li>
+        <li>Pix</li>
+        <li>Boleto</li>
+      </ul>
+
+    </div><!-- /.compra -->
+  </div><!-- /.pdp__wrap -->
+</section>
+
+<!-- ======================================================================
+     PROMESSA
+     Era o bloco "O que você vai perceber", que na loja atual está no
+     meio de um textão que ninguém lê. Aqui é a primeira coisa depois
+     da dobra, porque benefício vende e mecanismo só convence depois.
+     ====================================================================== -->
+<section class="promessa" aria-labelledby="promessa-titulo">
+  <div class="promessa__wrap">
+    <p class="promessa__chapeu">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
+      Uso diário, na pele
+    </p>
+
+    <h2 class="promessa__titulo" id="promessa-titulo">
+      O que muda na <em>sua cara</em>
+    </h2>
+
+    <ul class="promessa__lista">
+      <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg> Estímulo ao crescimento dos fios</li>
+      <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg> Preenchimento das falhas</li>
+      <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg> Fios mais grossos e encorpados</li>
+      <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg> Barba mais uniforme e definida</li>
+      <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg> Melhora geral na qualidade dos fios</li>
+    </ul>
+
+    <p class="promessa__rodape">
+      Resultado varia de pessoa pra pessoa e depende de usar todo dia.
+      Não faz nascer barba onde não existe folículo — se é esse o seu caso,
+      <a href="#duvidas" style="color:inherit">lê a última pergunta lá embaixo</a> antes de comprar.
+    </p>
+
+    <!-- ==================================================================
+         TESTADO E APROVADO — BLOCO DESLIGADO DE PROPÓSITO
+
+         A loja atual diz: "9 a cada 10 homens onde o produto foi testado
+         tiveram resultados. Uso contínuo por 30 dias."
+
+         Eu NÃO coloquei isso na página, e não é frescura minha:
+
+         1. Alegação de eficácia em cosmético precisa de dossiê. A RDC
+            752/2022 da ANVISA e o Guia de Estabilidade/Eficácia exigem
+            que o fabricante SEGURE a comprovação do que anuncia. Quem
+            responde pelo anúncio é quem anuncia — ou seja, você.
+         2. CDC art. 36, parágrafo único: os dados que sustentam a
+            publicidade têm que ficar à disposição de quem pedir.
+         3. Número com cara de estudo ("9 a cada 10") é justamente o que
+            Procon e CONAR olham primeiro.
+
+         PRA LIGAR, me manda três coisas:
+           • n  — quantos homens participaram (se foram 10, a frase muda
+                  de figura: "9 de 10" com n=10 não é estudo, é anedota)
+           • quem conduziu e quando
+           • o que foi medido, e como
+
+         Com isso eu escrevo o bloco com a fonte à vista — que vende MAIS
+         que o número solto, porque número com fonte o cliente acredita.
+         O HTML abaixo já fica pronto, é só preencher e descomentar.
+
+    <div class="tempo__aviso" style="background:rgba(255,255,255,.07);border-left-color:var(--color-accent);color:#fff;max-width:640px;margin:26px auto 0;text-align:left">
+      <svg viewBox="0 0 24 24" aria-hidden="true" style="fill:var(--color-accent)"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
+      <span><b>__ de cada 10</b> homens relataram resultado em __ dias de uso contínuo.
+      <br><small>Teste com __ participantes, conduzido por ______ em ____. Metodologia disponível mediante solicitação.</small></span>
+    </div>
+         ================================================================== -->
+  </div>
+</section>
+
+<!-- ======================================================================
+     TEMPO
+     A objeção real deste produto não é preço, é "será que funciona".
+     E o maior motivo de reembolso é o cara desistir na semana 2.
+     Dizer o prazo na cara dura faz três coisas ao mesmo tempo:
+     vende (é tratamento sério, não milagre), segura o reembolso, e
+     justifica o kit de 3 frascos que está lá em cima.
+     ====================================================================== -->
+<section class="tempo" aria-labelledby="tempo-titulo">
+  <div class="tempo__wrap">
+    <h2 class="tempo__titulo" id="tempo-titulo">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1.6a10.4 10.4 0 1 0 0 20.8 10.4 10.4 0 0 0 0-20.8zm0 2.6a7.8 7.8 0 1 1 0 15.6 7.8 7.8 0 0 1 0-15.6zm-1 2.2v6.1l4.6 2.8 1-1.7-3.6-2.2V6.4z"/></svg>
+      Quando o resultado aparece
+    </h2>
+
+    <p class="tempo__linha-fina">
+      Sem enrolação: isto não é maquiagem de barba, é construção. O fio leva o tempo
+      que leva pra nascer. O que a gente pode prometer é o calendário.
+    </p>
+
+    <dl class="tempo__trilha">
+      <div class="tempo__passo">
+        <p class="tempo__quando"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg> Semanas 1 e 2</p>
+        <dt>Textura</dt>
+        <dd>O fio fica mais forte ao toque. Ainda não cresceu nada — e é normal.</dd>
+      </div>
+
+      <div class="tempo__passo">
+        <p class="tempo__quando"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg> Dia 30</p>
+        <dt>Começa a encher</dt>
+        <dd>Primeiros fios novos nas áreas de falha. Aqui é onde a maioria desiste cedo demais.</dd>
+      </div>
+
+      <div class="tempo__passo tempo__passo--alvo">
+        <p class="tempo__quando"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg> Dia 90</p>
+        <dt>Densidade</dt>
+        <dd>Barba visivelmente mais cheia e uniforme. É o marco que vale a foto do antes e depois.</dd>
+      </div>
+
+      <div class="tempo__passo">
+        <p class="tempo__quando"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg> 3 a 6 meses</p>
+        <dt>Resultado cheio</dt>
+        <dd>O máximo que a sua genética permite. Daí em diante é manutenção.</dd>
+      </div>
+    </dl>
+
+    <p class="tempo__aviso">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
+      <span>Um frasco cobre cerca de um mês. Se você vai até o dia 90 — e é o que
+      funciona — é mais barato levar os três de uma vez do que repor dois. <b>CONFERIR: rendimento real do frasco.</b></span>
+    </p>
+  </div>
+</section>
+
+<!-- ======================================================================
+     ROTINA
+     Não inventei esse cross-sell: a sua própria descrição manda fazer
+     lavar → aplicar → hidratar. Só que hoje isso é um parágrafo, e
+     parágrafo não vai pro carrinho.
+
+     Aqui é honesto: soma o preço cheio de cada item, sem desconto de
+     combo fantasma. O que puxa a venda é a barra do frete grátis —
+     a mesma régua de R$ 149,90 da sacola, andando na frente do cara.
+
+     >>> SE você quiser dar um desconto real de combo, me fala a
+         porcentagem que eu ligo aqui e no Medusa (price list). Aí o
+         bloco passa a mostrar "economize R$ X" de verdade.
+     ====================================================================== -->
+<section class="rotina" aria-labelledby="rotina-titulo" data-rotina>
+  <div class="rotina__wrap">
+    <h2 class="rotina__titulo" id="rotina-titulo">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
+      A rotina que faz o produto render
+    </h2>
+
+    <p class="rotina__linha-fina">
+      O Fator age na pele. Se a pele estiver com sebo e resíduo, ele trabalha pior —
+      e o fio novo nasce ressecado se ninguém hidratar. São três passos, três minutos por dia.
+    </p>
+
+    <div class="rotina__grade">
+
+      <label class="rotina__item">
+        <span class="rotina__passo">Passo 1 · limpa</span>
+        <img class="rotina__foto" src="https://agqrjwxhuzkncbnmntyw.supabase.co/storage/v1/object/public/produtos/shampoo-para-barba-1-01M2Y3AKXB5DF492147RWGFRGP.webp"
+             alt="Shampoo para Barba FuckingBarba, frasco de 120 ml" width="172" height="172" loading="lazy">
+        <span class="rotina__corpo">
+          <span class="rotina__marca">
+            <input type="checkbox" data-rotina-item data-preco="49.90" data-cheio="72.40"
+                   data-id="shampoo-para-barba" data-nome="Shampoo para Barba 120 ml"
+                   data-imagem="https://agqrjwxhuzkncbnmntyw.supabase.co/storage/v1/object/public/produtos/shampoo-para-barba-1-01M2Y3AKXB5DF492147RWGFRGP.webp">
+            <span class="rotina__nome">Shampoo para Barba 120&nbsp;ml</span>
+          </span>
+          <span class="rotina__para">Tira sebo e resíduo. Pele limpa absorve mais.</span>
+          <span class="rotina__preco">R$ 49,90 <s>R$ 72,40</s></span>
+        </span>
+      </label>
+
+      <label class="rotina__item rotina__item--fixo">
+        <span class="rotina__passo">Passo 2 · trata</span>
+        <img class="rotina__foto" src="https://agqrjwxhuzkncbnmntyw.supabase.co/storage/v1/object/public/produtos/fator-de-crescimento-para-barba-1-01M2Y3AMVFXWBRTMP5VXGJ0QZZ.webp"
+             alt="Fator de Crescimento para Barba FuckingBarba, frasco de 30 ml" width="172" height="172" loading="lazy">
+        <span class="rotina__corpo">
+          <span class="rotina__marca">
+            <input type="checkbox" data-rotina-item data-fixo checked
+                   data-preco="79.90" data-cheio="133.20"
+                   data-id="fator-1x" data-nome="Fator de Crescimento 30 ml"
+                   data-imagem="https://agqrjwxhuzkncbnmntyw.supabase.co/storage/v1/object/public/produtos/fator-de-crescimento-para-barba-1-01M2Y3AMVFXWBRTMP5VXGJ0QZZ.webp"
+                   aria-label="Fator de Crescimento — é o produto desta página, já vai na rotina">
+            <span class="rotina__nome">Fator de Crescimento 30&nbsp;ml</span>
+          </span>
+          <span class="rotina__para">O tratamento. Na pele, todo dia, sem enxaguar.</span>
+          <span class="rotina__preco">R$ 79,90 <s>R$ 133,20</s></span>
+        </span>
+      </label>
+
+      <label class="rotina__item">
+        <span class="rotina__passo">Passo 3 · hidrata</span>
+        <img class="rotina__foto" src="https://agqrjwxhuzkncbnmntyw.supabase.co/storage/v1/object/public/produtos/oleo-para-barba-1-01M2Y3AJSE23976TXB1946FVQS.webp"
+             alt="Óleo para Barba FuckingBarba, frasco de 30 ml" width="172" height="172" loading="lazy">
+        <span class="rotina__corpo">
+          <span class="rotina__marca">
+            <input type="checkbox" data-rotina-item data-preco="54.90" data-cheio="79.90"
+                   data-id="oleo-para-barba" data-nome="Óleo para Barba 30 ml"
+                   data-imagem="https://agqrjwxhuzkncbnmntyw.supabase.co/storage/v1/object/public/produtos/oleo-para-barba-1-01M2Y3AJSE23976TXB1946FVQS.webp">
+            <span class="rotina__nome">Óleo para Barba 30&nbsp;ml</span>
+          </span>
+          <span class="rotina__para">Fecha o ciclo. Fio novo nasce, óleo mantém macio.</span>
+          <span class="rotina__preco">R$ 54,90 <s>R$ 79,90</s></span>
+        </span>
+      </label>
+
+    </div>
+
+    <div class="rotina__soma">
+      <div>
+        <p class="rotina__total">
+          <span data-rotina-quantos>1 item</span>
+          <b data-rotina-valor>R$ 79,90</b>
+          <s data-rotina-cheio>R$ 133,20</s>
+        </p>
+        <p class="rotina__frete" data-rotina-frete>
+          <span data-rotina-frete-texto>Faltam <b>R$ 70,00</b> pro frete grátis</span>
+          <span class="rotina__trilho" aria-hidden="true"><span class="rotina__barra" data-rotina-barra></span></span>
+        </p>
+      </div>
+
+      <a href="#sacola" class="btn rotina__comprar" data-rotina-comprar>
+        Levar a rotina
+        <svg class="btn__bolt" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================================
+     FUNCIONA — mecanismo e modo de uso, lado a lado.
+     ====================================================================== -->
+<section class="funciona" aria-label="Como funciona e como usar">
+  <div class="funciona__wrap">
+
+    <div class="funciona__caixa">
+      <h2>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
+        Como funciona
+      </h2>
+      <p>
+        A fórmula age <strong>na pele</strong>, que é onde o crescimento acontece — não no fio.
+        Ela estimula a circulação local e cria o ambiente pro folículo trabalhar melhor.
+      </p>
+      <p>
+        Não é efeito imediato e não escurece nada pra parecer mais cheio.
+        É construção real, e por isso o calendário ali em cima importa mais que a primeira semana.
+      </p>
+
+      <dl class="funciona__ficha">
+        <div><dt>Conteúdo</dt><dd>30 ml</dd></div>
+        <div><dt>Uso</dt><dd>1 a 2x ao dia</dd></div>
+        <div><dt>Onde</dt><dd>Pele da barba</dd></div>
+        <div><dt>Enxágue</dt><dd>Não</dd></div>
+      </dl>
+
+      <!-- >>> FALTA, e faz diferença em cosmético: lista de ingredientes (INCI),
+           registro/notificação ANVISA, validade e lote. Quem compra tratamento
+           lê rótulo — e a ausência derruba a confiança de quem mais compraria.
+           Quando você me mandar, isso entra como uma 5ª e 6ª célula aqui. -->
+    </div>
+
+    <div class="funciona__caixa">
+      <h2>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1.6a10.4 10.4 0 1 0 0 20.8 10.4 10.4 0 0 0 0-20.8zm0 2.6a7.8 7.8 0 1 1 0 15.6 7.8 7.8 0 0 1 0-15.6zm-1 2.2v6.1l4.6 2.8 1-1.7-3.6-2.2V6.4z"/></svg>
+        Modo de uso
+      </h2>
+
+      <!-- O <span> em volta do texto não é enfeite: o <li> é um grid de
+           duas colunas (número | texto), e num grid CADA filho vira uma
+           célula — inclusive um <strong> solto no meio da frase. Sem o
+           <span>, "limpa e seca" saía numa linha só pra ele, por cima do
+           número. Um filho por coluna, sempre. -->
+      <ol class="funciona__passos">
+        <li><span>Pele da barba <strong>limpa e seca</strong>.</span></li>
+        <li><span>Aplique direto na pele, de 1 a 2 vezes ao dia.</span></li>
+        <li><span>Espalhe e <strong>massageie</strong> bem a região.</span></li>
+        <li><span><strong>Não enxágue.</strong> Deixe agir.</span></li>
+      </ol>
+
+      <p class="funciona__dica">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
+        <span>Aplique <strong>depois do banho</strong>. A pele quente absorve melhor, e virar hábito
+        junto de algo que você já faz todo dia é o que impede de esquecer no dia 20.</span>
+      </p>
+    </div>
+
+  </div>
+</section>
+
+<!-- ======================================================================
+     QUEM
+     A coluna da direita é contraintuitiva e é a que mais converte:
+     dizer pra quem o produto NÃO serve é o que faz acreditar na
+     coluna da esquerda. Também derruba devolução e nota 1 de quem
+     comprou esperando outra coisa.
+     ====================================================================== -->
+<section class="quem" aria-labelledby="quem-titulo">
+  <div class="quem__wrap">
+    <h2 class="quem__titulo" id="quem-titulo">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
+      Isto é pra você?
+    </h2>
+
+    <div class="quem__colunas">
+
+      <div class="quem__coluna quem__coluna--sim">
+        <h3>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.15 19.55 1.75 12.15l1.6-1.6h2.5l3.3 3.3 8.5-8.5h2.5l1.6 1.6z"/></svg>
+          É, se você
+        </h3>
+        <ul>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.15 19.55 1.75 12.15l1.6-1.6h2.5l3.3 3.3 8.5-8.5h2.5l1.6 1.6z"/></svg> Tem barba que cresce, mas com falha</li>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.15 19.55 1.75 12.15l1.6-1.6h2.5l3.3 3.3 8.5-8.5h2.5l1.6 1.6z"/></svg> Quer mais volume e densidade</li>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.15 19.55 1.75 12.15l1.6-1.6h2.5l3.3 3.3 8.5-8.5h2.5l1.6 1.6z"/></svg> Acha o fio fino e sem corpo</li>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.15 19.55 1.75 12.15l1.6-1.6h2.5l3.3 3.3 8.5-8.5h2.5l1.6 1.6z"/></svg> Topa aplicar todo dia por três meses</li>
+        </ul>
+      </div>
+
+      <div class="quem__coluna quem__coluna--nao">
+        <h3>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.2 3.6 12 10.4l6.8-6.8 1.6 1.6L13.6 12l6.8 6.8-1.6 1.6L12 13.6l-6.8 6.8-1.6-1.6L10.4 12 3.6 5.2z"/></svg>
+          Não é, se você
+        </h3>
+        <ul>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.2 3.6 12 10.4l6.8-6.8 1.6 1.6L13.6 12l6.8 6.8-1.6 1.6L12 13.6l-6.8 6.8-1.6-1.6L10.4 12 3.6 5.2z"/></svg> Espera resultado em uma semana</li>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.2 3.6 12 10.4l6.8-6.8 1.6 1.6L13.6 12l6.8 6.8-1.6 1.6L12 13.6l-6.8 6.8-1.6-1.6L10.4 12 3.6 5.2z"/></svg> Não tem folículo na região (aí nada faz nascer)</li>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.2 3.6 12 10.4l6.8-6.8 1.6 1.6L13.6 12l6.8 6.8-1.6 1.6L12 13.6l-6.8 6.8-1.6-1.6L10.4 12 3.6 5.2z"/></svg> Sabe que vai esquecer de aplicar</li>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.2 3.6 12 10.4l6.8-6.8 1.6 1.6L13.6 12l6.8 6.8-1.6 1.6L12 13.6l-6.8 6.8-1.6-1.6L10.4 12 3.6 5.2z"/></svg> Quer só perfumar ou modelar (aí é óleo ou balm)</li>
+        </ul>
+      </div>
+
+    </div>
+
+    <p class="quem__fecho">
+      Se você se viu na coluna da direita, não compra. Sério. Devolução dá trabalho
+      pros dois, e a gente prefere que você volte quando for a hora.
+    </p>
+  </div>
+</section>
+
+<!-- ======================================================================
+     DÚVIDAS
+     <details> nativo: abre sem JS, funciona com teclado, e o Google lê.
+     O JSON-LD de FAQPage está no fim do arquivo — se você editar uma
+     pergunta aqui, edite lá também, senão o structured data mente.
+     ====================================================================== -->
+<section class="duvidas" id="duvidas" aria-labelledby="duvidas-titulo">
+  <div class="duvidas__wrap">
+    <h2 class="duvidas__titulo" id="duvidas-titulo">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
+      Perguntas que todo mundo faz
+    </h2>
+
+    <details class="duvidas__item" open>
+      <summary>Em quanto tempo vejo resultado?<span class="duvidas__mais" aria-hidden="true"></span></summary>
+      <div class="duvidas__resposta">
+        <p>Textura melhora nas primeiras duas semanas. Crescimento novo começa lá pelo dia 30.
+        Densidade de verdade, dia 90. O resultado cheio vem entre 3 e 6 meses.</p>
+        <p>Varia de pessoa pra pessoa, e depende de usar todo dia — sem constância não tem resultado.</p>
+      </div>
+    </details>
+
+    <details class="duvidas__item">
+      <summary>Funciona pra barba que não nasce nada?<span class="duvidas__mais" aria-hidden="true"></span></summary>
+      <div class="duvidas__resposta">
+        <p>Não. O produto trabalha em cima do folículo que já existe: ele estimula, fortalece
+        e ajuda a preencher falha. Onde não tem folículo, nada faz nascer — nem isto, nem nada
+        que você comprar por aí.</p>
+        <p>Se a sua barba não nasce em regiões inteiras desde sempre, o caminho é conversar com
+        um dermatologista antes de gastar com cosmético.</p>
+      </div>
+    </details>
+
+    <details class="duvidas__item">
+      <summary>Posso usar junto com minoxidil?<span class="duvidas__mais" aria-hidden="true"></span></summary>
+      <div class="duvidas__resposta">
+        <p>Minoxidil é medicamento, e quem responde por combinação de medicamento é médico —
+        não é a gente. Não damos essa orientação.</p>
+        <p>Se você já usa, leva a pergunta pro seu dermatologista.</p>
+      </div>
+    </details>
+
+    <details class="duvidas__item">
+      <summary>Quantos dias dura um frasco?<span class="duvidas__mais" aria-hidden="true"></span></summary>
+      <div class="duvidas__resposta">
+        <p>Cerca de 30 dias no uso de 1 a 2 vezes ao dia. <b>[CONFERIR — preciso do
+        rendimento real medido, senão esta resposta sai da página.]</b></p>
+      </div>
+    </details>
+
+    <details class="duvidas__item">
+      <summary>Dá pra usar com pele sensível?<span class="duvidas__mais" aria-hidden="true"></span></summary>
+      <div class="duvidas__resposta">
+        <p>É um cosmético de uso diário, de absorção rápida. Se você tem pele reativa,
+        faça o teste de sempre: uma gota atrás da orelha, espera 24 horas.</p>
+        <p>Qualquer ardência, vermelhidão ou coceira que não passa, suspende o uso e procura
+        um dermatologista.</p>
+        <!-- >>> "Não agride a pele" (texto de hoje na Nuvemshop) é afirmação absoluta
+             de segurança, e disso nenhum cosmético escapa 100%. Se existe teste de
+             irritabilidade dermatológica, a frase certa é "testado dermatologicamente"
+             + o laudo guardado. Me manda que eu troco. -->
+      </div>
+    </details>
+
+    <details class="duvidas__item">
+      <summary>Preciso continuar usando pra sempre?<span class="duvidas__mais" aria-hidden="true"></span></summary>
+      <div class="duvidas__resposta">
+        <p>O que o produto faz é criar condição pro fio crescer melhor enquanto você usa.
+        Parando, a barba volta ao ritmo dela com o tempo.</p>
+        <p>A maioria mantém uma aplicação por dia depois do terceiro mês, só pra segurar o que conquistou.</p>
+      </div>
+    </details>
+
+    <details class="duvidas__item">
+      <summary>E se não funcionar comigo?<span class="duvidas__mais" aria-hidden="true"></span></summary>
+      <div class="duvidas__resposta">
+        <p>Barba na cara ou sua grana de volta. <b>[CONFERIR — preciso do prazo e da regra
+        exatos da garantia pra escrever aqui. Num produto de ciclo de 90 dias, garantia de
+        7 dias não significa nada: o cliente percebe, e aí a promessa vira piada.]</b></p>
+        <p>Fora isso, os 7 dias de arrependimento do art. 49 do CDC valem sempre, para qualquer
+        compra pela internet.</p>
+      </div>
+    </details>
+
+    <details class="duvidas__item">
+      <summary>Qual a diferença pro óleo e pro balm?<span class="duvidas__mais" aria-hidden="true"></span></summary>
+      <div class="duvidas__resposta">
+        <p>O Fator age <b>na pele</b> e mexe no crescimento. Óleo e balm agem <b>no fio</b>:
+        hidratam, dão brilho, controlam volume e modelam.</p>
+        <p>Não competem — se completam. É por isso que a rotina lá em cima tem os três.</p>
+      </div>
+    </details>
+
+  </div>
+</section>
+
+<!-- ======================================================================
+     AVALIAÇÕES
+     Vazio de propósito, com estado vazio de verdade. É o mesmo critério
+     da home: nada de review inventada.
+
+     >>> PRA ENCHER: precisa de um jeito de coletar. O caminho barato é
+         um e-mail automático 15 dias depois da entrega pedindo a nota
+         (disparado pelo worker do Medusa, no evento de pedido entregue).
+         Antes disso, não existe review de verdade pra mostrar.
+     ====================================================================== -->
+<section class="avaliacoes" id="avaliacoes" aria-labelledby="avaliacoes-titulo">
+  <div class="avaliacoes__wrap">
+    <h2 class="avaliacoes__titulo" id="avaliacoes-titulo">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-estrela"/></svg>
+      O que dizem de quem usou
+    </h2>
+
+    <div class="avaliacoes__vazio">
+      <p>
+        <b>Ainda não há avaliação deste produto na loja nova.</b>
+        A gente não vai encher esta página de estrela inventada só pra parecer movimentado —
+        se está vazio, é porque está vazio mesmo.
+      </p>
+      <p>
+        Comprou e usou por 30 dias? Manda como foi. Aparece aqui com seu nome, sem edição,
+        boa ou ruim.
+      </p>
+      <a class="btn" href="#avaliar">
+        Avaliar este produto
+        <svg class="btn__bolt" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================================
+     RELACIONADOS
+     Reusa .colecao (carrossel) e .produto (card) da home — mesma
+     marcação, mesmo CSS, mesmo JS. Card diferente por página é como
+     loja começa a parecer duas lojas.
+     ====================================================================== -->
+<section class="colecao colecao--relacionados" aria-labelledby="relacionados-titulo" data-carrossel-raiz>
+  <div class="colecao__wrap">
+
+    <div class="colecao__topo">
+      <div>
+        <h2 class="colecao__titulo" id="relacionados-titulo">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
+          Quem leva este, leva junto
+        </h2>
+      </div>
+      <div>
+        <div class="colecao__navs" data-carrossel-navs>
+          <button type="button" class="colecao__nav" data-carrossel="anterior" aria-label="Ver produtos anteriores">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.4 3.6h1.6l1.6 1.6-6.8 6.8 6.8 6.8-1.6 1.6h-1.6L6.6 12z"/></svg>
+          </button>
+          <button type="button" class="colecao__nav" data-carrossel="proximo" aria-label="Ver próximos produtos">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.6 3.6H7L5.4 5.2 12.2 12l-6.8 6.8L7 20.4h1.6L17.4 12z"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="colecao__track" data-carrossel-track tabindex="0" role="region" aria-label="Produtos relacionados">
+
+      <article class="produto" itemscope itemtype="https://schema.org/Product">
+        <div class="produto__midia">
+          <a class="produto__foto" href="#shampoo-para-barba" tabindex="-1" aria-hidden="true">
+            <img itemprop="image" width="600" height="600" loading="lazy"
+                 alt="Shampoo para Barba FuckingBarba, frasco de 120 ml"
+                 src="https://agqrjwxhuzkncbnmntyw.supabase.co/storage/v1/object/public/produtos/shampoo-para-barba-1-01M2Y3AKXB5DF492147RWGFRGP.webp">
+          </a>
+          <span class="produto__selo">-31%</span>
+        </div>
+        <div class="produto__corpo">
+          <h3 class="produto__nome">
+            <a href="#shampoo-para-barba" itemprop="url"><span itemprop="name">Shampoo para Barba 120 ml</span></a>
+          </h3>
+          <p class="produto__preco" itemprop="offers" itemscope itemtype="https://schema.org/Offer">
+            <meta itemprop="priceCurrency" content="BRL">
+            <span class="produto__de">R$ 72,40</span>
+            <span class="produto__por" itemprop="price" content="49.90">R$ 49,90</span>
+            <link itemprop="availability" href="https://schema.org/InStock">
+          </p>
+          <p class="produto__parcela">ou 3x de R$ 16,63 sem juros</p>
+        </div>
+        <a href="#shampoo-para-barba" class="btn produto__comprar" data-comprar
+           data-produto-id="shampoo-para-barba" data-produto-nome="Shampoo para Barba 120 ml"
+           data-produto-preco="49.90"
+           data-produto-imagem="https://agqrjwxhuzkncbnmntyw.supabase.co/storage/v1/object/public/produtos/shampoo-para-barba-1-01M2Y3AKXB5DF492147RWGFRGP.webp">
+          Comprar
+          <svg class="btn__icone" viewBox="0 0 24 24" aria-hidden="true"><path d="M1.4 2.6h3.9l3.5 13.9h11.3v2.2H7.1L3.6 4.8H1.4z"/><path d="M6.1 6.4h13.6l2.5 2.5-2 5.6H9.5L8.1 13z"/><path d="M9 19.3h2.3v2.3l-.9.9H8.1v-2.3z"/><path d="M17.6 19.3h2.3v2.3l-.9.9h-2.3v-2.3z"/></svg>
+        </a>
+      </article>
+
+      <article class="produto" itemscope itemtype="https://schema.org/Product">
+        <div class="produto__midia">
+          <a class="produto__foto" href="#oleo-para-barba" tabindex="-1" aria-hidden="true">
+            <img itemprop="image" width="600" height="600" loading="lazy"
+                 alt="Óleo para Barba FuckingBarba, frasco de 30 ml"
+                 src="https://agqrjwxhuzkncbnmntyw.supabase.co/storage/v1/object/public/produtos/oleo-para-barba-1-01M2Y3AJSE23976TXB1946FVQS.webp">
+          </a>
+          <span class="produto__selo">-31%</span>
+        </div>
+        <div class="produto__corpo">
+          <h3 class="produto__nome">
+            <a href="#oleo-para-barba" itemprop="url"><span itemprop="name">Óleo para Barba 30 ml</span></a>
+          </h3>
+          <p class="produto__preco" itemprop="offers" itemscope itemtype="https://schema.org/Offer">
+            <meta itemprop="priceCurrency" content="BRL">
+            <span class="produto__de">R$ 79,90</span>
+            <span class="produto__por" itemprop="price" content="54.90">R$ 54,90</span>
+            <link itemprop="availability" href="https://schema.org/InStock">
+          </p>
+          <p class="produto__parcela">ou 3x de R$ 18,30 sem juros</p>
+        </div>
+        <a href="#oleo-para-barba" class="btn produto__comprar" data-comprar
+           data-produto-id="oleo-para-barba" data-produto-nome="Óleo para Barba 30 ml"
+           data-produto-preco="54.90"
+           data-produto-imagem="https://agqrjwxhuzkncbnmntyw.supabase.co/storage/v1/object/public/produtos/oleo-para-barba-1-01M2Y3AJSE23976TXB1946FVQS.webp">
+          Comprar
+          <svg class="btn__icone" viewBox="0 0 24 24" aria-hidden="true"><path d="M1.4 2.6h3.9l3.5 13.9h11.3v2.2H7.1L3.6 4.8H1.4z"/><path d="M6.1 6.4h13.6l2.5 2.5-2 5.6H9.5L8.1 13z"/><path d="M9 19.3h2.3v2.3l-.9.9H8.1v-2.3z"/><path d="M17.6 19.3h2.3v2.3l-.9.9h-2.3v-2.3z"/></svg>
+        </a>
+      </article>
+
+      <article class="produto" itemscope itemtype="https://schema.org/Product">
+        <div class="produto__midia">
+          <a class="produto__foto" href="#balm-para-barba" tabindex="-1" aria-hidden="true">
+            <img itemprop="image" width="600" height="600" loading="lazy"
+                 alt="Balm Modelador para Barba FuckingBarba, pote de 90 g"
+                 src="https://agqrjwxhuzkncbnmntyw.supabase.co/storage/v1/object/public/produtos/balm-para-barba-1-01M2Y3AKH6BQ146BAP851GGB8N.webp">
+          </a>
+          <span class="produto__selo">-32%</span>
+        </div>
+        <div class="produto__corpo">
+          <h3 class="produto__nome">
+            <a href="#balm-para-barba" itemprop="url"><span itemprop="name">Balm Modelador 90 g</span></a>
+          </h3>
+          <p class="produto__preco" itemprop="offers" itemscope itemtype="https://schema.org/Offer">
+            <meta itemprop="priceCurrency" content="BRL">
+            <span class="produto__de">R$ 78,90</span>
+            <span class="produto__por" itemprop="price" content="53.90">R$ 53,90</span>
+            <link itemprop="availability" href="https://schema.org/InStock">
+          </p>
+          <p class="produto__parcela">ou 3x de R$ 17,97 sem juros</p>
+        </div>
+        <a href="#balm-para-barba" class="btn produto__comprar" data-comprar
+           data-produto-id="balm-para-barba" data-produto-nome="Balm Modelador 90 g"
+           data-produto-preco="53.90"
+           data-produto-imagem="https://agqrjwxhuzkncbnmntyw.supabase.co/storage/v1/object/public/produtos/balm-para-barba-1-01M2Y3AKH6BQ146BAP851GGB8N.webp">
+          Comprar
+          <svg class="btn__icone" viewBox="0 0 24 24" aria-hidden="true"><path d="M1.4 2.6h3.9l3.5 13.9h11.3v2.2H7.1L3.6 4.8H1.4z"/><path d="M6.1 6.4h13.6l2.5 2.5-2 5.6H9.5L8.1 13z"/><path d="M9 19.3h2.3v2.3l-.9.9H8.1v-2.3z"/><path d="M17.6 19.3h2.3v2.3l-.9.9h-2.3v-2.3z"/></svg>
+        </a>
+      </article>
+
+      <article class="produto" itemscope itemtype="https://schema.org/Product">
+        <div class="produto__midia">
+          <a class="produto__foto" href="#kit-completo-para-barba" tabindex="-1" aria-hidden="true">
+            <img itemprop="image" width="600" height="600" loading="lazy"
+                 alt="Kit Completo FuckingBarba com shampoo, balm e óleo para barba"
+                 src="https://agqrjwxhuzkncbnmntyw.supabase.co/storage/v1/object/public/produtos/kit-completo-para-barba-1-01M2Y3ANXCB816KHPWTVNF4WTH.webp">
+          </a>
+          <span class="produto__selo">-47%</span>
+          <p class="produto__frete"><span>Frete grátis</span></p>
+        </div>
+        <div class="produto__corpo">
+          <h3 class="produto__nome">
+            <a href="#kit-completo-para-barba" itemprop="url"><span itemprop="name">Kit Completo — Shampoo, Balm e Óleo</span></a>
+          </h3>
+          <p class="produto__preco" itemprop="offers" itemscope itemtype="https://schema.org/Offer">
+            <meta itemprop="priceCurrency" content="BRL">
+            <span class="produto__de">R$ 189,90</span>
+            <span class="produto__por" itemprop="price" content="99.90">R$ 99,90</span>
+            <link itemprop="availability" href="https://schema.org/InStock">
+          </p>
+          <p class="produto__parcela">ou 3x de R$ 33,30 sem juros</p>
+        </div>
+        <a href="#kit-completo-para-barba" class="btn produto__comprar" data-comprar
+           data-produto-id="kit-completo-para-barba" data-produto-nome="Kit Completo para Barba"
+           data-produto-preco="99.90"
+           data-produto-imagem="https://agqrjwxhuzkncbnmntyw.supabase.co/storage/v1/object/public/produtos/kit-completo-para-barba-1-01M2Y3ANXCB816KHPWTVNF4WTH.webp">
+          Comprar
+          <svg class="btn__icone" viewBox="0 0 24 24" aria-hidden="true"><path d="M1.4 2.6h3.9l3.5 13.9h11.3v2.2H7.1L3.6 4.8H1.4z"/><path d="M6.1 6.4h13.6l2.5 2.5-2 5.6H9.5L8.1 13z"/><path d="M9 19.3h2.3v2.3l-.9.9H8.1v-2.3z"/><path d="M17.6 19.3h2.3v2.3l-.9.9h-2.3v-2.3z"/></svg>
+        </a>
+      </article>
+
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================================
+     BARRA DE COMPRA FIXA
+     Aparece quando o botão da dobra sai de vista, some quando ele volta.
+     Na loja de hoje, no celular, o cliente rola 3 mil pixels de descrição
+     e o Comprar ficou lá atrás — ele tem que subir a página inteira pra
+     comprar, e boa parte simplesmente não sobe.
+
+     Enquanto está escondida ela fica com visibility:hidden, então não
+     entra no Tab nem no leitor de tela. Isso importa: barra fixa que
+     continua focável é um dos jeitos mais comuns de quebrar navegação
+     por teclado sem ninguém perceber.
+     ====================================================================== -->
+<div class="barra-compra" data-barra hidden>
+  <img class="barra-compra__foto" alt=""
+       src="https://agqrjwxhuzkncbnmntyw.supabase.co/storage/v1/object/public/produtos/fator-de-crescimento-para-barba-1-01M2Y3AMVFXWBRTMP5VXGJ0QZZ.webp"
+       width="92" height="92">
+
+  <span class="barra-compra__texto">
+    <span class="barra-compra__nome">Fator de Crescimento 30 ml</span>
+    <span class="barra-compra__preco" data-barra-preco>R$ 79,90 <s>R$ 133,20</s></span>
+  </span>
+
+  <a href="#sacola" class="btn" data-comprar data-barra-comprar
+     data-produto-id="fator-1x"
+     data-produto-nome="Fator de Crescimento 30 ml"
+     data-produto-preco="79.90"
+     data-produto-imagem="https://agqrjwxhuzkncbnmntyw.supabase.co/storage/v1/object/public/produtos/fator-de-crescimento-para-barba-1-01M2Y3AMVFXWBRTMP5VXGJ0QZZ.webp">
+    Comprar
+    <svg class="btn__icone" viewBox="0 0 24 24" aria-hidden="true"><path d="M1.4 2.6h3.9l3.5 13.9h11.3v2.2H7.1L3.6 4.8H1.4z"/><path d="M6.1 6.4h13.6l2.5 2.5-2 5.6H9.5L8.1 13z"/><path d="M9 19.3h2.3v2.3l-.9.9H8.1v-2.3z"/><path d="M17.6 19.3h2.3v2.3l-.9.9h-2.3v-2.3z"/></svg>
+  </a>
+</div>
+
+<!--
+  FAQ pro Google. Tem que bater PALAVRA POR PALAVRA com o acordeão lá em
+  cima — structured data que diz uma coisa e página que mostra outra é
+  motivo de penalização manual, não só de perder o rich result.
+  Deixei de fora as duas perguntas com [CONFERIR]: não vou publicar
+  structured data de resposta que ainda vai mudar.
+-->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Em quanto tempo vejo resultado?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Textura melhora nas primeiras duas semanas. Crescimento novo começa lá pelo dia 30. Densidade de verdade, dia 90. O resultado cheio vem entre 3 e 6 meses. Varia de pessoa pra pessoa, e depende de usar todo dia — sem constância não tem resultado."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Funciona pra barba que não nasce nada?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Não. O produto trabalha em cima do folículo que já existe: ele estimula, fortalece e ajuda a preencher falha. Onde não tem folículo, nada faz nascer. Se a sua barba não nasce em regiões inteiras desde sempre, o caminho é conversar com um dermatologista antes de gastar com cosmético."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Posso usar junto com minoxidil?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Minoxidil é medicamento, e quem responde por combinação de medicamento é médico. Não damos essa orientação. Se você já usa, leva a pergunta pro seu dermatologista."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Dá pra usar com pele sensível?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "É um cosmético de uso diário, de absorção rápida. Se você tem pele reativa, faça o teste de sempre: uma gota atrás da orelha, espera 24 horas. Qualquer ardência, vermelhidão ou coceira que não passa, suspende o uso e procura um dermatologista."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Preciso continuar usando pra sempre?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "O que o produto faz é criar condição pro fio crescer melhor enquanto você usa. Parando, a barba volta ao ritmo dela com o tempo. A maioria mantém uma aplicação por dia depois do terceiro mês, só pra segurar o que conquistou."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Qual a diferença pro óleo e pro balm?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "O Fator age na pele e mexe no crescimento. Óleo e balm agem no fio: hidratam, dão brilho, controlam volume e modelam. Não competem, se completam."
+      }
+    }
+  ]
+}
+</script>

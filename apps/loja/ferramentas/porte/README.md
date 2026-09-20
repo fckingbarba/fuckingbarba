@@ -7,6 +7,9 @@ Não entram no build nem no CI.
 único `<style>`. É a fonte da verdade do desenho: se o componente e ele discordarem, quem
 está errado é o componente.
 
+`prototipo-pdp.html` é o protótipo da página de produto. Ele é **gerado**, não editado à
+mão — veja "A PDP" mais abaixo.
+
 ## Fatiar o CSS
 
 ```bash
@@ -46,3 +49,48 @@ senão a comparação mente. Sai com código 1 se alguma seção divergir.
 > no CSS do build, em `.next/static/chunks/*.css`) e inclua no `<head>` do protótipo. Sem isso o
 > protótipo desenha com a fonte de sistema e toda medida de texto difere — foi o que quase me
 > fez "corrigir" um bug que não existia.
+
+## A PDP
+
+`prototipo-pdp.html` **não se edita**. Ele é montado a partir de `prototipo.html` mais as
+peças em `pdp-partes/`:
+
+```bash
+python3 pdp-partes/monta.py                    # gera prototipo-pdp.html
+node pdp-partes/conferir.mjs                   # abre no Chromium e confere
+node pdp-partes/largura.mjs                    # quem está estourando a tela no celular
+```
+
+A carcaça inteira (esteira, cabeçalho, menu, busca, gaveta da sacola, rodapé) e o CSS de
+`.btn`, `.produto` e `.colecao` são **copiados** do protótipo da home, byte a byte. Mexeu
+no botão lá, roda o `monta.py` de novo e a PDP acompanha. É o que impede as duas páginas de
+divergirem com o tempo — que é como uma loja começa a parecer duas lojas.
+
+Os limites do recorte são achados por marcador de texto, não por número de linha. Se a home
+mudar de forma a ponto de um marcador sumir, o script **para e diz qual** em vez de gerar um
+arquivo torto.
+
+| arquivo                   | o que é                                                      |
+| ------------------------- | ------------------------------------------------------------ |
+| `pdp-partes/cabeca.html`  | `<title>`, description e og: da página de produto            |
+| `pdp-partes/estilo.css`   | o CSS só da PDP, colado antes do `</style>` da home          |
+| `pdp-partes/corpo.html`   | o miolo do `<main>`, no lugar das seções da home             |
+| `pdp-partes/roteiro.js`   | galeria, kit, quantidade, frete, rotina, barra fixa, estoque |
+| `pdp-partes/monta.py`     | junta tudo                                                   |
+| `pdp-partes/conferir.mjs` | roda a página num navegador de verdade                       |
+| `pdp-partes/largura.mjs`  | acha o elemento que estoura a largura no celular             |
+
+O `conferir.mjs` existe porque três defeitos passaram pela leitura do código e só apareceram
+no navegador:
+
+- **`display` da folha ganhando do `[hidden]`** — a regra do navegador é `[hidden] { display:
+none }`, e qualquer `display: flex` nosso, mais específico, passa por cima. O JS marcava
+  hidden e o aviso de estoque continuava na tela.
+- **`<input>` sem largura dentro de um flex** — o `size` padrão dá ~230px de largura
+  intrínseca, que vai pro `min-content` do pai mesmo com `min-width: 0`. A coluna inteira
+  ficou 32px mais larga que a tela e o celular ganhou rolagem horizontal.
+- **filho a mais num grid** — `<li>` de duas colunas com um `<strong>` solto no meio da
+  frase: o `<strong>` virou célula própria e caiu por cima do número do passo.
+
+Os três viraram teste. O script também falha se sobrar bloco de revelar-ao-rolar sem revelar
+na hora da foto — sem isso a foto sai com buraco e a gente "conserta" um layout que está certo.
