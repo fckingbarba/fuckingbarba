@@ -1,7 +1,9 @@
 import type { Metadata } from "next"
 import Link from "next/link"
-import { Abertura, Atualizado, Lista, P, Pendente, Secao, Titulo } from "@/components/institucional/texto"
-import { contato, site } from "@/lib/site"
+import { Abertura, Atualizado, Dado, Lista, P, Secao, Titulo } from "@/components/institucional/texto"
+import { whatsappNaTela } from "@/lib/configuracoes"
+import { configuracoes } from "@/lib/medusa"
+import { site } from "@/lib/site"
 
 export const metadata: Metadata = {
   title: "Política de privacidade",
@@ -27,7 +29,10 @@ export const metadata: Metadata = {
 
 const ATUALIZADO = "20 de setembro de 2026"
 
-export default function Privacidade() {
+export default async function Privacidade() {
+  const { empresa, atendimento } = await configuracoes()
+  const email = atendimento.email
+
   return (
     <>
       <Titulo>Política de privacidade</Titulo>
@@ -40,9 +45,10 @@ export default function Privacidade() {
 
       <Secao titulo="Quem é o responsável">
         <P>
-          {site.nome}, CNPJ <Pendente>CNPJ real pendente</Pendente>. Dúvida sobre seus dados, ou
-          pedido pra apagá-los: <a href={`mailto:${contato.email}`}>{contato.email}</a> ou WhatsApp{" "}
-          {contato.whatsapp.exibicao}.
+          <Dado valor={empresa.razaoSocial} falta="razão social pendente" />, CNPJ{" "}
+          <Dado valor={empresa.cnpj} falta="CNPJ pendente" />. Dúvida sobre seus dados, ou pedido
+          pra apagá-los: <Dado valor={email} falta="e-mail pendente" /> ou WhatsApp{" "}
+          <Dado valor={whatsappNaTela(atendimento.whatsapp)} falta="WhatsApp pendente" />.
         </P>
       </Secao>
 
@@ -149,7 +155,7 @@ export default function Privacidade() {
           A LGPD te dá o direito de saber o que a gente tem sobre você, corrigir o que estiver
           errado, pedir uma cópia, pedir a exclusão, retirar um consentimento que você deu e saber
           com quem a gente compartilhou. Pra exercer qualquer um deles, escreve pra{" "}
-          <a href={`mailto:${contato.email}`}>{contato.email}</a>.
+          <Dado valor={email} falta="e-mail pendente" />.
         </P>
         <P>
           A gente responde em até 15 dias. Se algum dado não puder ser apagado — os da nota fiscal,

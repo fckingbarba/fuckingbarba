@@ -4,7 +4,6 @@ import { Suspense } from "react"
 import { Etapas } from "@/components/checkout/etapas"
 import { Cadeado, Raio } from "@/components/icones"
 import {
-  FRETE_GRATIS_A_PARTIR_DE,
   lerBump,
   lerCheckout,
   listarFretes,
@@ -13,6 +12,7 @@ import {
 } from "@/lib/checkout"
 import { faltaPraGratis } from "@/lib/checkout-visivel"
 import { site } from "@/lib/site"
+import { configuracoes } from "@/lib/medusa"
 
 /**
  * /checkout — a compra, numa página só, em três passos.
@@ -78,7 +78,19 @@ async function Conteudo() {
   if (!checkout || checkout.itens.length === 0) return <Vazio />
 
   const jaNoCarrinho = new Set(checkout.itens.map((i) => i.varianteId))
-  const falta = faltaPraGratis(checkout, FRETE_GRATIS_A_PARTIR_DE)
+
+  /*
+    O piso vem do Medusa, não de constante: é o MESMO número que a regra de
+    preço do frete usa pra decidir se zera. Enquanto eram dois números em
+    dois arquivos, o checkout podia dizer "faltam R$ 20 pro frete grátis" e
+    o Medusa cobrar frete mesmo assim.
+
+    `piso: 0` quando não há promoção — os chips de "complete o frete grátis"
+    somem sozinhos, porque não falta nada pra uma promoção que não existe.
+  */
+  const { frete: politica } = await configuracoes()
+  const piso = politica.modo === "nenhuma" ? 0 : politica.piso
+  const falta = politica.modo === "nenhuma" ? 0 : faltaPraGratis(checkout, piso)
 
   // Em série, e não em paralelo: tudo isto conversa com o mesmo carrinho, e
   // pedir ao mesmo tempo multiplica escritas concorrentes — que é como um
@@ -102,7 +114,7 @@ async function Conteudo() {
       bump={bump}
       sugestoes={sugestoes}
       falta={falta}
-      piso={FRETE_GRATIS_A_PARTIR_DE}
+      piso={piso}
     />
   )
 }

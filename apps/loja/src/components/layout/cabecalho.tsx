@@ -5,8 +5,9 @@ import { useEffect, useRef, useState } from "react"
 import { Conta, Fechar, Hamburguer, Lupa, Raio } from "@/components/icones"
 import { LogoCurta } from "@/components/marca"
 import { BotaoDaSacola } from "@/components/sacola/botao"
-import { emReais } from "@/lib/formato"
-import { EM_BREVE, FRETE_GRATIS_A_PARTIR_DE, navegacao, site } from "@/lib/site"
+import { useFrete } from "@/components/configuracoes/contexto"
+import { frasesDoFrete } from "@/lib/configuracoes"
+import { EM_BREVE, navegacao, site } from "@/lib/site"
 
 /**
  * Cabeçalho preto fixo + menu lateral.
@@ -25,6 +26,8 @@ import { EM_BREVE, FRETE_GRATIS_A_PARTIR_DE, navegacao, site } from "@/lib/site"
  * - Esc fecha, e clicar no véu também.
  */
 export function Cabecalho() {
+  const frases = frasesDoFrete(useFrete())
+
   const [menuAberto, setMenuAberto] = useState(false)
   const [buscaAberta, setBuscaAberta] = useState(false)
   const [rolado, setRolado] = useState(false)
@@ -207,16 +210,20 @@ export function Cabecalho() {
           </ul>
         </nav>
 
-        <p className="menu__rodape">
-          <Raio />
-          <span>
-            Frete grátis a partir de{" "}
-            <span className="menu__rodape-valor">
-              {emReais(FRETE_GRATIS_A_PARTIR_DE)}
-              <span className="menu__rodape-ast">*</span>
+        {/* Sem política de frete, o pé do menu lateral simplesmente não
+            existe — em vez de virar "Frete grátis a partir de R$ 0,00". */}
+        {frases ? (
+          <p className="menu__rodape">
+            <Raio />
+            <span>
+              {frases.selo}{" "}
+              <span className="menu__rodape-valor">
+                {frases.condicao.toLowerCase()}
+                <span className="menu__rodape-ast">*</span>
+              </span>
             </span>
-          </span>
-        </p>
+          </p>
+        ) : null}
       </aside>
     </>
   )

@@ -2,6 +2,7 @@ import "server-only"
 import Medusa from "@medusajs/js-sdk"
 import type { HttpTypes } from "@medusajs/types"
 import { cacheLife, cacheTag } from "next/cache"
+import { PADRAO, type Configuracoes } from "./configuracoes"
 import { emReais } from "./formato"
 
 /**
@@ -43,6 +44,9 @@ export const TAGS = {
   categoria: (handle: string) => `categoria:${handle}`,
   regioes: "regioes",
   promocao: "promocao",
+  /* O que o admin edita: política de frete e dados da empresa. Derrubada
+     pelo próprio admin ao salvar, via POST /api/revalidar. */
+  configuracoes: "configuracoes",
 } as const
 
 /** Campos que a vitrine precisa; o resto fica no servidor. */
@@ -129,6 +133,37 @@ export async function regiaoBrasil(): Promise<HttpTypes.StoreRegion | null> {
   } catch (e) {
     aviso(e, "regiões")
     return null
+  }
+}
+
+/**
+ * AS CONFIGURAÇÕES DA LOJA — o que o admin edita e a vitrine anuncia.
+ *
+ * Fica aqui, e não em `lib/configuracoes.ts`, porque `lib/configuracoes.ts`
+ * é importado por componentes de CLIENTE (a gaveta da sacola, a barra da
+ * PDP) — e este arquivo tem `import "server-only"` no topo.
+ *
+ * Cache de DIAS, e não de minutos: isto só muda quando alguém mexe no admin,
+ * e o admin avisa a loja na hora (`POST /api/revalidar`). Cache curto por
+ * desconfiança não corrige nada — só faz o dado ficar errado por menos tempo.
+ *
+ * Erro devolve o PADRÃO, que é "sem promoção de frete". Cair de volta no
+ * valor de antes seria anunciar uma oferta que a loja não conseguiu
+ * confirmar, e oferta anunciada vincula (CDC art. 30).
+ */
+export async function configuracoes(): Promise<Configuracoes> {
+  "use cache"
+  cacheTag(TAGS.configuracoes)
+  cacheLife("days")
+  if (!sdk) return PADRAO
+  try {
+    const { configuracoes: c } = await sdk.client.fetch<{ configuracoes: Configuracoes }>(
+      "/store/configuracoes"
+    )
+    return c ?? PADRAO
+  } catch (e) {
+    aviso(e, "configurações")
+    return PADRAO
   }
 }
 

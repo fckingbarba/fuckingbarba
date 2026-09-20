@@ -5,8 +5,10 @@ import { SimboloEstrela } from "@/components/estrelas"
 import { Anuncio } from "@/components/layout/anuncio"
 import { Cabecalho } from "@/components/layout/cabecalho"
 import { Rodape } from "@/components/layout/rodape"
+import { ProvedorDoFrete } from "@/components/configuracoes/contexto"
 import { ProvedorDaSacola } from "@/components/sacola/contexto"
 import { Gaveta } from "@/components/sacola/gaveta"
+import { configuracoes } from "@/lib/medusa"
 import { emProducao, site } from "@/lib/site"
 import "./globals.css"
 
@@ -45,7 +47,15 @@ export const viewport: Viewport = {
   initialScale: 1,
 }
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+/**
+ * `async` por causa das configurações: a política de frete é lida do Medusa
+ * aqui, uma vez, e entregue às telas de cliente pelo provedor. Esperar no
+ * layout raiz seria caro se a leitura fosse dinâmica — ela é `"use cache"`,
+ * então resolve na pré-renderização e a casca continua saindo estática.
+ */
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const { frete } = await configuracoes()
+
   return (
     <html lang="pt-BR" className={`${inter.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col">
@@ -63,13 +73,15 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           aqui. `children` continua sendo componente de servidor: ele entra
           como prop já renderizada, não vira cliente por estar dentro.
         */}
-        <ProvedorDaSacola>
-          <Anuncio />
-          <Cabecalho />
-          {children}
-          <Rodape />
-          <Gaveta />
-        </ProvedorDaSacola>
+        <ProvedorDoFrete politica={frete}>
+          <ProvedorDaSacola>
+            <Anuncio />
+            <Cabecalho />
+            {children}
+            <Rodape />
+            <Gaveta />
+          </ProvedorDaSacola>
+        </ProvedorDoFrete>
         <Tags />
       </body>
     </html>

@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { Fragment } from "react"
 import {
   Envelope,
   Facebook,
@@ -12,7 +13,9 @@ import {
 import { LogoCompleta } from "@/components/marca"
 import { Newsletter } from "./newsletter"
 import { Selos } from "./selos"
-import { contato, formasDePagamento, navegacao, parcelamento, redes, site } from "@/lib/site"
+import { linkDoWhatsapp, whatsappNaTela } from "@/lib/configuracoes"
+import { configuracoes } from "@/lib/medusa"
+import { formasDePagamento, navegacao, parcelamento, redes, site } from "@/lib/site"
 
 /**
  * Rodapé escuro de toda página: novidades, quatro colunas, pagamento e a
@@ -39,7 +42,17 @@ const ICONES_REDE = {
  */
 const ANO_PUBLICACAO = 2026
 
-export function Rodape() {
+export async function Rodape() {
+  /*
+    WhatsApp, e-mail, horário e CNPJ vêm das configurações do Medusa. O que
+    ainda não foi preenchido simplesmente NÃO APARECE — em vez de aparecer
+    como "(00) 00000-0000", que é o que estava no ar até agora, em toda
+    página, no lugar onde o Google lê o contato do negócio.
+  */
+  const { empresa, atendimento } = await configuracoes()
+  const zap = linkDoWhatsapp(atendimento.whatsapp)
+  const zapNaTela = whatsappNaTela(atendimento.whatsapp)
+
   return (
     <footer className="rodape" id="rodape">
       <div className="rodape__wrap">
@@ -107,24 +120,33 @@ export function Rodape() {
           <div id="rodape-contato">
             <h2 className="rodape__titulo">Entrar em contato</h2>
             <ul className="rodape__lista">
-              <li>
-                <a href={`https://wa.me/${contato.whatsapp.numero}`} rel="noopener">
-                  <WhatsApp />
-                  <span>{contato.whatsapp.exibicao}</span> · WhatsApp
-                </a>
-              </li>
-              <li>
-                <a href={`mailto:${contato.email}`}>
-                  <Envelope />
-                  <span>{contato.email}</span>
-                </a>
-              </li>
+              {zap && zapNaTela ? (
+                <li>
+                  <a href={zap} rel="noopener">
+                    <WhatsApp />
+                    <span>{zapNaTela}</span> · WhatsApp
+                  </a>
+                </li>
+              ) : null}
+              {atendimento.email ? (
+                <li>
+                  <a href={`mailto:${atendimento.email}`}>
+                    <Envelope />
+                    <span>{atendimento.email}</span>
+                  </a>
+                </li>
+              ) : null}
             </ul>
-            <p className="rodape__horario">
-              {contato.horario[0]}
-              <br />
-              {contato.horario[1]}
-            </p>
+            {atendimento.horario?.length ? (
+              <p className="rodape__horario">
+                {atendimento.horario.map((linha, i) => (
+                  <Fragment key={linha}>
+                    {i > 0 ? <br /> : null}
+                    {linha}
+                  </Fragment>
+                ))}
+              </p>
+            ) : null}
           </div>
         </div>
 
@@ -148,8 +170,9 @@ export function Rodape() {
       <div className="rodape__fim">
         <div className="rodape__fim-wrap">
           <p className="rodape__legal">
-            © {ANO_PUBLICACAO} {site.nome} — Todos os direitos reservados. CNPJ {contato.cnpj}.
-            Resultados podem variar conforme uso individual.
+            © {ANO_PUBLICACAO} {site.nome} — Todos os direitos reservados
+            {empresa.cnpj ? `. CNPJ ${empresa.cnpj}` : ""}. Resultados podem variar conforme uso
+            individual.
           </p>
           <a className="rodape__topo" href="#inicio">
             <SetaTopo />

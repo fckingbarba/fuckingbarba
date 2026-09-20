@@ -139,3 +139,32 @@ O piso mora em dois lugares e os dois precisam bater: `FRETE_GRATIS_A_PARTIR_DE`
 `src/scripts/frete.ts` (o que o checkout cobra).
 
 Documentação: https://docs.medusajs.com
+
+## Configurações da loja
+
+A tela **Configurações da loja** no admin edita o que a vitrine anuncia: a política de frete
+(nenhuma / grátis / fixo, com piso, alvo e teto de custo) e os dados da empresa (razão social,
+CNPJ, endereço, WhatsApp, e-mail, horário, prazo de postagem).
+
+Mora no `metadata` da store, sob a chave `fb_configuracoes`. O tipo e a validação estão em
+`src/lib/configuracoes.ts`, e há um gêmeo na loja — é contrato de rede, conferido de verdade pelo
+`apps/loja/ferramentas/conferir-configuracoes.mjs`.
+
+```bash
+npm run backend:configuracoes   # semeia num banco novo, ou só relata o que está gravado
+```
+
+O script **não sobrescreve** o que já existe (`SOBRESCREVER = false`): o caminho normal é o admin,
+e um script que sobrescreve em silêncio desfaz a alteração que alguém fez na tela cinco minutos
+antes. Rodando com a configuração já existente, ele apenas imprime o que está valendo e o que
+ainda está pendente — que é a primeira pergunta quando a loja anuncia um número estranho.
+
+**`aplicarPolitica()` é a regra que o provider do Frenet vai chamar.** Ela está no backend, e não
+dentro do provider, porque é a MESMA regra que a loja anuncia: com ela num lugar só, não existe a
+versão em que a tela promete uma coisa e a cotação faz outra. Ela também nunca cobra mais que o
+preço real no modo fixo — promoção que encarece não é promoção — e respeita o teto de custo, que
+é o que protege a margem quando a cotação ao vivo devolve um frete caro pro interior.
+
+Salvar no admin dispara `POST <LOJA_URL>/api/revalidar` (ver `.env.example`). Sem `LOJA_URL` e
+`REVALIDAR_SEGREDO`, a gravação funciona mas a loja segue mostrando o valor velho — e a tela avisa
+isso na mensagem de sucesso, em vez de dizer que deu tudo certo.

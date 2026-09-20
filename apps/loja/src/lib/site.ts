@@ -2,11 +2,12 @@
  * Constantes do site: identidade, contato e navegação.
  *
  * A regra continua valendo — preço, estoque e promoção vêm do Medusa, nunca
- * de constante aqui. O que mora neste arquivo é o que não é dado de loja: o
- * nome, as URLs públicas, os canais de atendimento e o mapa de links que o
- * cabeçalho, o menu e o rodapé leem. Uma exceção declarada: o piso do frete
- * grátis, que ainda é número fixo até virar regra de promoção no Medusa
- * (fase 5) — está marcado lá embaixo.
+ * de constante aqui. E o que a LOJA CONFIGURA (piso do frete, CNPJ, WhatsApp,
+ * horário, prazo de postagem) também saiu: mora no Medusa, em
+ * `lib/configuracoes.ts`, editável sem deploy.
+ *
+ * O que sobrou aqui é o que não muda sem alguém mexer no código: o nome da
+ * marca, as URLs públicas, as redes sociais e o mapa de links.
  */
 
 /**
@@ -57,35 +58,36 @@ export const site = {
   ] as const,
 } as const
 
-/**
- * PROVISÓRIO — piso do frete grátis, em reais.
+/*
+ * O PISO DO FRETE GRÁTIS SAIU DAQUI.
  *
- * Aparece na esteira de avisos, no pé do menu, na barra de progresso da sacola
- * e na dobra da PDP. Hoje é constante porque a loja precisa mostrar o piso em
- * páginas que nem têm carrinho ainda; quem realmente zera o frete é o Medusa,
- * na regra `item_total >= piso` que o `apps/backend/src/scripts/frete.ts`
- * cadastra em cada opção de entrega. Os dois números PRECISAM ser o mesmo: no
- * dia em que divergirem, a loja promete um piso e o checkout cobra por outro.
+ * Ele agora é uma POLÍTICA nas configurações do Medusa
+ * (`lib/configuracoes.ts`), por dois motivos que a constante não resolvia:
  *
- * "A PARTIR DE", NÃO "ACIMA DE" — e a diferença não é firula. O kit de 2
- * unidades custa exatamente R$ 149,90: o carrinho mais provável de encostar
- * nesse número encosta nele em cheio. A regra do Medusa é `gte`, conferida
- * rodando (`apps/backend/ferramentas/conferir-frete.mjs`), então o piso exato
- * JÁ é grátis. "Acima de" descreveria errado justamente o caso mais comum.
+ *   1. ela existia DUAS vezes — aqui e em `apps/backend/src/scripts/frete.ts`,
+ *      que é a que de fato virava regra de preço no Medusa. Nada ligava as
+ *      duas, e o dia em que divergissem a loja anunciaria um piso e o
+ *      carrinho cobraria outro. Anúncio vincula (CDC art. 30);
+ *   2. um número não sabe dizer "não tem promoção" nem "frete fixo de
+ *      R$ 9,90 na opção mais barata", que são políticas que a loja pode
+ *      querer — e com o Frenet a opção mais barata deixa de ser sempre o PAC.
+ *
+ * Quem precisa do valor chama `configuracoes()` e pergunta às funções de
+ * `frasesDoFrete` / `faltaPraPromocao`, que sabem sumir quando não há política.
  */
-export const FRETE_GRATIS_A_PARTIR_DE = 149.9
 
-/**
- * Atendimento. Os valores abaixo são de exemplo e precisam virar os reais
- * antes da virada (fase 6) — eles aparecem no rodapé de toda página e o
- * Google lê esse bloco como dado de contato do negócio.
+/*
+ * O BLOCO `contato` SAIU DAQUI (WhatsApp, e-mail, horário, CNPJ).
+ *
+ * Eram valores de exemplo — "(00) 00000-0000" e "00.000.000/0001-00" — no
+ * rodapé de TODA página, que é onde o Google lê o dado de contato do negócio
+ * e onde o cliente procura com quem falar. Constante de exemplo tem o hábito
+ * de sobreviver ao lançamento.
+ *
+ * Agora vêm das configurações do Medusa, e o que ainda não existe aparece
+ * como tarja vermelha de "pendente" em vez de número falso. Ver
+ * `lib/configuracoes.ts`.
  */
-export const contato = {
-  whatsapp: { numero: "5500000000000", exibicao: "(00) 00000-0000" },
-  email: "contato@exemplo.com.br",
-  horario: ["Atendimento de segunda a sexta,", "das 09:00 às 18:00."],
-  cnpj: "00.000.000/0001-00",
-} as const
 
 /**
  * O que o rodapé promete sobre pagamento. Tem que bater com o que o Pagar.me

@@ -106,6 +106,7 @@ node ferramentas/conferir-documento.mjs   # CPF e CNPJ (inclusive o alfanuméric
 node ferramentas/conferir-checkout.mjs    # compra de verdade, com Medusa e loja de pé
 node ferramentas/conferir-catalogo.mjs    # /barba, /cabelo, /kits e /produtos
 node ferramentas/conferir-links.mjs       # nenhum link do site leva a 404
+node ferramentas/conferir-configuracoes.mjs   # o contrato e os três modos de frete
 ```
 
 O `conferir-links.mjs` é o que segura a armadilha do `PAGINAS_RAIZ` do proxy: em vez de saber de
@@ -159,6 +160,38 @@ quem navega com JavaScript desligado, que vê o esqueleto. A home, que não depe
 
 Não tem conserto barato: tirar o `<Suspense>` faz o `next build` recusar a rota. Se um dia virar
 problema de verdade, o caminho é separar a lista padrão (estática) da ordenada (dinâmica).
+
+## As configurações da loja
+
+Piso do frete grátis, CNPJ, razão social, endereço, WhatsApp, e-mail, horário e prazo de postagem
+**não são mais constantes**: vêm de `GET /store/configuracoes` (Medusa), editáveis na tela
+*Configurações da loja* do admin, sem deploy.
+
+**O frete é uma POLÍTICA, não um número.** São três modos: `nenhuma`, `gratis` (a partir de um
+piso) e `fixo` (preço fechado a partir de um piso), com alvo (`mais-barata` ou `todas`) e um teto
+de custo opcional. Um número não sabe dizer "não tem promoção" a não ser virando zero — e aí a
+loja anuncia "frete grátis a partir de R$ 0,00" numa faixa amarela em toda página.
+
+**O alvo é posição na cotação, não transportadora.** Com o Frenet, as opções passam a ser cotação
+ao vivo (Loggi, Jadlog, Azul, PAC) variando por CEP e peso. Pendurar a regra no nome "PAC" faria o
+benefício cair na opção que a pessoa não escolheu no dia em que outra saísse mais barata.
+
+**Nenhuma tela calcula.** Elas perguntam a `frasesDoFrete`, `faltaPraPromocao` e
+`progressoDaPromocao`, que devolvem `null` quando não há política — e `null` o compilador cobra em
+cada uma das catorze telas. Antes, cada uma fazia a própria conta em cima da constante.
+
+**Onde o tipo mora:** `lib/configuracoes.ts` tem só tipos e funções puras; a busca fica em
+`lib/medusa.ts`. Não é organização, é obrigatório — a gaveta da sacola e a barra da PDP rodam no
+navegador e importam as frases, e um arquivo que puxasse `lib/medusa.ts` levaria o
+`import "server-only"` pro bundle do cliente, com um erro de build que aponta pro arquivo errado.
+
+**Quando o valor muda, a loja sabe na hora.** O admin chama `POST /api/revalidar` ao salvar, com
+perfil `seconds` — e não o `max` do catálogo. `max` serve o conteúdo velho por mais uma visita, o
+que para catálogo é ótimo e para configuração é péssimo: quem salvou vai abrir o site pra
+conferir, ver o número antigo e concluir que não salvou.
+
+**O que não está preenchido aparece como tarja vermelha** nas páginas legais, em vez de um valor
+de exemplo. O `conferir-links.mjs` relata quantas ainda existem.
 
 ## Decisões que valem saber
 

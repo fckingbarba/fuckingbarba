@@ -1,29 +1,32 @@
 import { Caminhao, Cartao, Escudo, EscudoCerto } from "@/components/icones"
-import { emReais } from "@/lib/formato"
-import { FRETE_GRATIS_A_PARTIR_DE, parcelamento } from "@/lib/site"
+import { frasesDoFrete } from "@/lib/configuracoes"
+import { configuracoes } from "@/lib/medusa"
+import { parcelamento } from "@/lib/site"
 
 /**
  * A barra preta logo abaixo do banner: as quatro respostas que o visitante
  * procura antes de olhar preço — quanto custa o frete, dá pra parcelar, o
  * site é seguro, e se der errado.
  *
- * Os dois números que aparecem aqui (piso do frete grátis e parcelamento)
- * vêm do mesmo lugar que a esteira e o rodapé usam. Dito de outro jeito: se
- * um dia o frete grátis mudar, ele muda numa linha e em toda a loja junto —
- * em vez de mudar em três telas e ficar errado na quarta.
+ * O frete sai das configurações do Medusa, não de uma constante: é o mesmo
+ * número que a esteira, o rodapé e o CARRINHO usam. Sem promoção de frete, a
+ * barra mostra três vantagens em vez de quatro — porque a alternativa seria
+ * um card dizendo "Frete Grátis" numa loja que não dá frete grátis.
  */
-const VANTAGENS = [
-  {
-    Icone: Caminhao,
-    titulo: "Frete Grátis",
-    detalhe: `Em compras a partir de ${emReais(FRETE_GRATIS_A_PARTIR_DE)}`,
-  },
+const OUTRAS = [
   { Icone: Cartao, titulo: parcelamento, detalhe: "No cartão de crédito" },
   { Icone: Escudo, titulo: "Loja Segura", detalhe: "Para suas compras" },
   { Icone: EscudoCerto, titulo: "Compra Garantida", detalhe: "Satisfação garantida" },
 ]
 
-export function Trustbar() {
+export async function Trustbar() {
+  const { frete } = await configuracoes()
+  const frases = frasesDoFrete(frete)
+
+  const VANTAGENS = frases
+    ? [{ Icone: Caminhao, titulo: frases.selo, detalhe: frases.condicao }, ...OUTRAS]
+    : OUTRAS
+
   return (
     <section className="trustbar" aria-label="Vantagens da compra">
       <ul className="trustbar__list">

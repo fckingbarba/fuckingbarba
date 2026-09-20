@@ -3,8 +3,8 @@
 import Link from "next/link"
 import { useEffect, useState } from "react"
 import { Raio } from "@/components/icones"
-import { emReais } from "@/lib/formato"
-import { FRETE_GRATIS_A_PARTIR_DE } from "@/lib/site"
+import { useFrete } from "@/components/configuracoes/contexto"
+import { frasesDoFrete } from "@/lib/configuracoes"
 
 /** A partir de quanto tempo restante o contador fica amarelo e pulsa. */
 const URGENCIA_MS = 60 * 60 * 1000
@@ -44,6 +44,8 @@ const doisDigitos = (n: number) => String(n).padStart(2, "0")
  *    onde existe "agora".
  */
 export function OfertasRelampago({ terminaEm }: { terminaEm: string }) {
+  const frases = frasesDoFrete(useFrete())
+
   const fim = new Date(terminaEm).getTime()
   const [restante, setRestante] = useState<Restante | null>(null)
 
@@ -157,9 +159,7 @@ export function OfertasRelampago({ terminaEm }: { terminaEm: string }) {
               Aproveitar ofertas
               <Raio className="btn__bolt" />
             </Link>
-            <p className="offers__note">
-              Frete grátis a partir de {emReais(FRETE_GRATIS_A_PARTIR_DE)}*
-            </p>
+            {frases ? <p className="offers__note">{frases.completa}*</p> : null}
           </div>
         </div>
       </div>

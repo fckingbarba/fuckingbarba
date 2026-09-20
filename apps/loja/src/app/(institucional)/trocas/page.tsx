@@ -1,8 +1,9 @@
 import type { Metadata } from "next"
 import Link from "next/link"
-import { Abertura, Atualizado, Lista, P, Pendente, Secao, Titulo } from "@/components/institucional/texto"
-import { contato, site, FRETE_GRATIS_A_PARTIR_DE } from "@/lib/site"
-import { emReais } from "@/lib/formato"
+import { Abertura, Atualizado, Dado, Lista, P, Pendente, Secao, Titulo } from "@/components/institucional/texto"
+import { frasesDoFrete } from "@/lib/configuracoes"
+import { configuracoes } from "@/lib/medusa"
+import { site } from "@/lib/site"
 
 export const metadata: Metadata = {
   title: "Entrega, trocas e devoluções",
@@ -27,7 +28,10 @@ export const metadata: Metadata = {
 
 const ATUALIZADO = "20 de setembro de 2026"
 
-export default function Trocas() {
+export default async function Trocas() {
+  const { frete, atendimento } = await configuracoes()
+  const frases = frasesDoFrete(frete)
+
   return (
     <>
       <Titulo>Entrega, trocas e devoluções</Titulo>
@@ -39,14 +43,20 @@ export default function Trocas() {
 
       <Secao titulo="Entrega">
         <P>
-          A gente envia pelos Correios pra todo o Brasil. O valor e o prazo aparecem no checkout
-          depois que você digita o CEP, e o frete é grátis a partir de{" "}
-          {emReais(FRETE_GRATIS_A_PARTIR_DE)} — a partir, ou seja, um pedido de exatamente esse
-          valor já tem frete grátis.
+          A gente envia pra todo o Brasil. O valor e o prazo aparecem no checkout depois que você
+          digita o CEP.
+          {frases ? (
+            <>
+              {" "}
+              {frases.completa} — <b>a partir</b>, ou seja, um pedido de exatamente esse valor já
+              tem o benefício.{frases.nota ? ` ${frases.nota}` : ""}
+            </>
+          ) : null}
         </P>
         <P>
           <b>O prazo começa na postagem, não na compra.</b> Entre o pagamento confirmado e a
-          postagem tem o tempo de separar e despachar: <Pendente>prazo de postagem pendente</Pendente>.
+          postagem tem o tempo de separar e despachar:{" "}
+          <Dado valor={atendimento.prazoDePostagem} falta="prazo de postagem pendente" />.
           O código de rastreio vai pro seu e-mail assim que a encomenda for postada.
         </P>
         <P>
@@ -93,8 +103,8 @@ export default function Trocas() {
       <Secao titulo="Como pedir, na prática">
         <Lista>
           <li>
-            Chama no WhatsApp {contato.whatsapp.exibicao} ou manda e-mail pra{" "}
-            <a href={`mailto:${contato.email}`}>{contato.email}</a>, com o{" "}
+            Chama no WhatsApp <Dado valor={atendimento.whatsapp} falta="WhatsApp pendente" /> ou
+            manda e-mail pra <Dado valor={atendimento.email} falta="e-mail pendente" />, com o{" "}
             <b>número do pedido</b> e o motivo. Foto, se for defeito.
           </li>
           <li>A gente responde com as instruções e, quando for o caso, o código de postagem.</li>

@@ -1,8 +1,9 @@
 import type { Metadata } from "next"
 import Link from "next/link"
-import { Abertura, Atualizado, Lista, P, Pendente, Secao, Titulo } from "@/components/institucional/texto"
-import { contato, site, FRETE_GRATIS_A_PARTIR_DE, PARCELAS_SEM_JUROS } from "@/lib/site"
-import { emReais } from "@/lib/formato"
+import { Abertura, Atualizado, Dado, Lista, P, Secao, Titulo } from "@/components/institucional/texto"
+import { frasesDoFrete } from "@/lib/configuracoes"
+import { configuracoes } from "@/lib/medusa"
+import { site, PARCELAS_SEM_JUROS } from "@/lib/site"
 
 export const metadata: Metadata = {
   title: "Termos de uso",
@@ -19,17 +20,24 @@ export const metadata: Metadata = {
  * enfeite. Por isso não tem prazo de entrega, não tem "satisfação garantida"
  * e não tem canal de atendimento que ninguém atende.
  *
- * Os números que aparecem (frete grátis, parcelas) são LIDOS de `lib/site.ts`,
- * os mesmos que o rodapé e o checkout mostram. Número digitado à mão aqui
- * sobreviveria à próxima mudança de política e viraria promessa quebrada em
- * documento assinado.
+ * O frete e os dados da empresa vêm das CONFIGURAÇÕES DO MEDUSA — a mesma
+ * fonte que a faixa do topo, o carrinho e (quando o Frenet entrar) a cotação
+ * usam. Número digitado à mão num documento que vincula sobreviveria à
+ * próxima mudança de política e viraria promessa quebrada por escrito.
+ *
+ * E quando a política de frete for "nenhuma", a seção de entrega simplesmente
+ * não fala de frete grátis: um termo de uso que promete frete grátis numa
+ * loja que não dá é a pior versão possível deste arquivo.
  *
  * Isto não é revisão de advogado.
  */
 
 const ATUALIZADO = "20 de setembro de 2026"
 
-export default function Termos() {
+export default async function Termos() {
+  const { frete, empresa, atendimento } = await configuracoes()
+  const frases = frasesDoFrete(frete)
+
   return (
     <>
       <Titulo>Termos de uso</Titulo>
@@ -41,9 +49,12 @@ export default function Termos() {
 
       <Secao titulo="Quem vende">
         <P>
-          {site.nome} — <Pendente>razão social, CNPJ e endereço pendentes</Pendente>. Contato:{" "}
-          <a href={`mailto:${contato.email}`}>{contato.email}</a> e WhatsApp{" "}
-          {contato.whatsapp.exibicao}. {contato.horario.join(" ")}
+          <Dado valor={empresa.razaoSocial} falta="razão social pendente" />, CNPJ{" "}
+          <Dado valor={empresa.cnpj} falta="CNPJ pendente" />,{" "}
+          <Dado valor={empresa.endereco} falta="endereço pendente" />. Contato:{" "}
+          <Dado valor={atendimento.email} falta="e-mail pendente" /> e WhatsApp{" "}
+          <Dado valor={atendimento.whatsapp} falta="WhatsApp pendente" />.{" "}
+          {atendimento.horario?.join(" ") ?? ""}
         </P>
       </Secao>
 
@@ -97,9 +108,14 @@ export default function Termos() {
 
       <Secao titulo="Entrega">
         <P>
-          A gente entrega em todo o Brasil pelos Correios. O valor aparece no checkout depois do
-          CEP, e o frete é grátis a partir de {emReais(FRETE_GRATIS_A_PARTIR_DE)} — a partir, ou
-          seja, um pedido de exatamente esse valor já tem frete grátis.
+          A gente entrega em todo o Brasil. O valor aparece no checkout depois do CEP.
+          {frases ? (
+            <>
+              {" "}
+              {frases.completa} — <b>a partir</b>, ou seja, um pedido de exatamente esse valor já
+              tem o benefício.{frases.nota ? ` ${frases.nota}` : ""}
+            </>
+          ) : null}
         </P>
         <P>
           O prazo que aparece no checkout é o prazo do transportador, contado a partir da postagem,

@@ -5,11 +5,12 @@ import Link from "next/link"
 import { useEffect, useRef } from "react"
 import { Fechar, Lixeira, Mais, Raio, Sacola as IconeSacola } from "@/components/icones"
 import { useSacola } from "@/components/sacola/contexto"
+import { useFrete } from "@/components/configuracoes/contexto"
+import { faltaPraPromocao, frasesDoFrete, progressoDaPromocao } from "@/lib/configuracoes"
 import { emReais } from "@/lib/formato"
 import {
   DESTINO_DO_CHECKOUT,
   EM_BREVE,
-  FRETE_GRATIS_A_PARTIR_DE,
   PARCELA_MINIMA,
   PARCELAS_SEM_JUROS,
 } from "@/lib/site"
@@ -269,8 +270,19 @@ export function Gaveta() {
  * barra: sem ele a barra é um retângulo mudo.
  */
 function MedidorDeFrete({ subtotal }: { subtotal: number }) {
-  const falta = Math.max(0, FRETE_GRATIS_A_PARTIR_DE - subtotal)
-  const porcento = Math.min(100, Math.round((subtotal / FRETE_GRATIS_A_PARTIR_DE) * 100))
+  const politica = useFrete()
+  const frases = frasesDoFrete(politica)
+  const falta = faltaPraPromocao(politica, subtotal)
+  const porcento = progressoDaPromocao(politica, subtotal)
+
+  /*
+    Sem política de frete não há meta, e sem meta não há barra de progresso.
+    Desenhar o trilho cheio "porque sim" seria pior que não desenhar: uma
+    barra de progresso que já nasce completa não informa nada e ocupa o topo
+    da sacola, que é onde a pessoa olha o total.
+  */
+  if (!frases || falta === null || porcento === null) return null
+
   const chegou = falta <= 0
 
   return (
@@ -278,10 +290,14 @@ function MedidorDeFrete({ subtotal }: { subtotal: number }) {
       <div className="sacolinha__frete-topo">
         <p className="sacolinha__frete-rotulo">
           <Raio />
-          Frete grátis
+          {frases.selo}
         </p>
         <p className="sacolinha__frete-texto">
-          {chegou ? "Conseguiu — é por nossa conta" : `Faltam ${emReais(falta)}`}
+          {chegou
+            ? politica.modo === "gratis"
+              ? "Conseguiu — é por nossa conta"
+              : "Conseguiu"
+            : `Faltam ${emReais(falta)}`}
         </p>
       </div>
 
@@ -291,7 +307,7 @@ function MedidorDeFrete({ subtotal }: { subtotal: number }) {
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={porcento}
-        aria-label="Progresso para o frete grátis"
+        aria-label={`Progresso para ${frases.selo.toLowerCase()}`}
       >
         <span className="sacolinha__frete-barra" style={{ width: `${porcento}%` }} />
         <Raio className="sacolinha__frete-raio" style={{ left: `${porcento}%` }} />

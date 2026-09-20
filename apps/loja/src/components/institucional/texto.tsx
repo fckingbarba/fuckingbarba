@@ -61,6 +61,17 @@ export function Pendente({ children }: { children: ReactNode }) {
   )
 }
 
+/**
+ * O valor, ou a tarja do que falta.
+ *
+ * Existe pra que a página se escreva uma vez só, em vez de ter uma versão
+ * "com CNPJ" e outra "sem". Quando o dado entrar nas configurações do
+ * Medusa, a tarja some sozinha — ninguém precisa voltar aqui.
+ */
+export function Dado({ valor, falta }: { valor: string | null; falta: string }) {
+  return valor ? <>{valor}</> : <Pendente>{falta}</Pendente>
+}
+
 /** Data da última alteração. Documento legal sem data não serve de prova. */
 export function Atualizado({ em }: { em: string }) {
   return (

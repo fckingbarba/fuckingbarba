@@ -6,7 +6,9 @@ import { Cadeado, EscudoCerto, Raio } from "@/components/icones"
 import { RecarregaSacola } from "@/components/sacola/recarrega"
 import { emReais } from "@/lib/formato"
 import { ehDeQuemComprou, lerPedido } from "@/lib/pedido"
-import { contato, site } from "@/lib/site"
+import { linkDoWhatsapp, whatsappNaTela } from "@/lib/configuracoes"
+import { configuracoes } from "@/lib/medusa"
+import { site } from "@/lib/site"
 
 /**
  * /checkout/obrigado/<id> — a única tela que a pessoa vai reler.
@@ -89,6 +91,8 @@ async function Conteudo({ params }: { params: Props["params"] }) {
   }
 
   const meu = await ehDeQuemComprou(pedido.id)
+  const { atendimento } = await configuracoes()
+  const zap = linkDoWhatsapp(atendimento.whatsapp)
 
   return (
     <>
@@ -203,12 +207,23 @@ async function Conteudo({ params }: { params: Props["params"] }) {
           <li>Com o pagamento acertado, a encomenda é separada e postada.</li>
           <li>O código de rastreio chega por e-mail assim que ela for postada.</li>
         </ol>
+        {/* Sem WhatsApp configurado, a frase muda em vez de oferecer um
+            número que não atende — que é o pior lugar possível pra isso,
+            logo depois de a pessoa ter pagado. */}
         <p className="obrigado__ajuda">
-          Qualquer coisa, chama no WhatsApp{" "}
-          <a href={`https://wa.me/${contato.whatsapp.numero}`} rel="noopener">
-            {contato.whatsapp.exibicao}
-          </a>{" "}
-          com o número <b>#{pedido.numero}</b>.
+          {zap ? (
+            <>
+              Qualquer coisa, chama no WhatsApp{" "}
+              <a href={zap} rel="noopener">
+                {whatsappNaTela(atendimento.whatsapp)}
+              </a>{" "}
+              com o número <b>#{pedido.numero}</b>.
+            </>
+          ) : (
+            <>
+              Guarde o número <b>#{pedido.numero}</b>: é por ele que a gente encontra seu pedido.
+            </>
+          )}
         </p>
       </section>
     </>

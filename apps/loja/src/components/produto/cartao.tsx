@@ -3,8 +3,9 @@ import Image from "next/image"
 import Link from "next/link"
 import { Carrinho } from "@/components/icones"
 import { emReais } from "@/lib/formato"
-import { precosDe } from "@/lib/medusa"
-import { FRETE_GRATIS_A_PARTIR_DE, PARCELA_MINIMA, PARCELAS_SEM_JUROS } from "@/lib/site"
+import { frasesDoFrete, produtoSozinhoQualifica } from "@/lib/configuracoes"
+import { PARCELA_MINIMA, PARCELAS_SEM_JUROS } from "@/lib/site"
+import { configuracoes, precosDe } from "@/lib/medusa"
 
 /**
  * O card de produto — o mesmo na faixa de coleção e, depois, na vitrine.
@@ -13,11 +14,13 @@ import { FRETE_GRATIS_A_PARTIR_DE, PARCELA_MINIMA, PARCELAS_SEM_JUROS } from "@/
  *
  * - **o selo de desconto** só existe quando há preço cheio maior que o atual
  *   (o `original_price` da promoção). Sem promoção, sem selo;
- * - **a tarja de frete grátis** só aparece quando o produto sozinho já alcança
- *   o piso — alcança, não passa: a regra do Medusa é `>=`, e o kit de 2 custa
- *   exatamente o piso. Pôr "frete grátis" num produto de R$ 54,90 quando o
- *   piso é R$ 149,90 é a mentira mais fácil de cometer numa vitrine, e a
- *   primeira que o cliente descobre no carrinho;
+ * - **a tarja de frete** só aparece quando existe política de frete E o
+ *   produto sozinho já alcança o piso — alcança, não passa: a regra é `>=`, e
+ *   o kit de 2 custa exatamente o piso. Pôr "frete grátis" num produto de
+ *   R$ 54,90 quando o piso é R$ 149,90 é a mentira mais fácil de cometer numa
+ *   vitrine, e a primeira que o cliente descobre no carrinho. A tarja também
+ *   diz o que a política diz: com frete fixo ela mostra "Frete R$ 9,90", e
+ *   sem política nenhuma ela não existe;
  * - **o parcelamento** sai do preço e do número de parcelas que o rodapé
  *   promete, então os dois não têm como discordar.
  *
@@ -26,7 +29,7 @@ import { FRETE_GRATIS_A_PARTIR_DE, PARCELA_MINIMA, PARCELAS_SEM_JUROS } from "@/
  * não é enfeite — é prova social falsa, e em dado estruturado o Google trata
  * como motivo de punição. Entra quando houver avaliação de verdade.
  */
-export function CartaoProduto({
+export async function CartaoProduto({
   produto,
   prioridade = false,
 }: {
@@ -34,13 +37,20 @@ export function CartaoProduto({
   /** Fotos acima da dobra não devem esperar: elas costumam ser o LCP. */
   prioridade?: boolean
 }) {
+  /*
+    `"use cache"` lá dentro: numa grade de doze cards isto é UMA leitura, não
+    doze — e nenhuma delas depois que o cache esquenta.
+  */
+  const { frete } = await configuracoes()
+  const frases = frasesDoFrete(frete)
+
   const precos = precosDe(produto)
   const caminho = `/produtos/${produto.handle}` as const
 
   const desconto =
     precos?.cheio != null ? Math.round((1 - precos.atual / precos.cheio) * 100) : null
 
-  const freteGratis = precos != null && precos.atual >= FRETE_GRATIS_A_PARTIR_DE
+  const temTarja = precos != null && produtoSozinhoQualifica(frete, precos.atual)
   const parcela = precos ? precos.atual / PARCELAS_SEM_JUROS : 0
   const mostraParcela = parcela >= PARCELA_MINIMA
 
@@ -65,9 +75,9 @@ export function CartaoProduto({
 
         {desconto ? <span className="produto__selo">-{desconto}%</span> : null}
 
-        {freteGratis ? (
+        {temTarja && frases ? (
           <p className="produto__frete">
-            <span>Frete grátis</span>
+            <span>{frases.selo}</span>
             <span>Envio imediato</span>
           </p>
         ) : null}

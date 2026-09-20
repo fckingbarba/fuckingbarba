@@ -1,6 +1,6 @@
 import { ForaDaTela } from "./fora-da-tela"
-import { emReais } from "@/lib/formato"
-import { FRETE_GRATIS_A_PARTIR_DE } from "@/lib/site"
+import { frasesDoFrete } from "@/lib/configuracoes"
+import { configuracoes } from "@/lib/medusa"
 
 /**
  * A esteira amarela de avisos, colada no topo de toda página.
@@ -24,32 +24,41 @@ import { FRETE_GRATIS_A_PARTIR_DE } from "@/lib/site"
  * dependem de política nenhuma. O dia em que existir uma garantia de
  * satisfação de verdade, com prazo e regra escritos, ela volta pra cá.
  */
-const AVISOS = [
-  `Frete Grátis a partir de ${emReais(FRETE_GRATIS_A_PARTIR_DE)}*`,
-  "7 dias pra desistir, por lei",
-  "Compra 100% segura",
-]
+/*
+ * O aviso do frete é o ÚNICO condicional: quando não há promoção de frete, a
+ * esteira roda com dois avisos em vez de três, e não com um "frete grátis a
+ * partir de R$ 0,00". Esteira é a peça que aparece em toda página do site —
+ * é o pior lugar possível pra anunciar uma oferta que não existe.
+ */
+const SEMPRE = ["7 dias pra desistir, por lei", "Compra 100% segura"]
+
+function avisosDe(frases: { completa: string } | null) {
+  return frases ? [`${frases.completa}*`, ...SEMPRE] : SEMPRE
+}
 
 const REPETICOES = 3
 
-function Lista({ oculta = false }: { oculta?: boolean }) {
+function Lista({ avisos, oculta = false }: { avisos: string[]; oculta?: boolean }) {
   return (
     <ul className="anuncio__lista" aria-hidden={oculta || undefined}>
       {Array.from({ length: REPETICOES }).flatMap((_, volta) =>
-        AVISOS.map((aviso) => <li key={`${volta}-${aviso}`}>{aviso}</li>)
+        avisos.map((aviso) => <li key={`${volta}-${aviso}`}>{aviso}</li>)
       )}
     </ul>
   )
 }
 
-export function Anuncio() {
+export async function Anuncio() {
+  const { frete } = await configuracoes()
+  const avisos = avisosDe(frasesDoFrete(frete))
+
   return (
     // O id="inicio" é o alvo do "voltar ao topo" do rodapé: como esta é a
     // primeira coisa da página, o link volta pro topo de verdade, sem JS.
     <ForaDaTela className="anuncio" id="inicio" role="region" aria-label="Avisos da loja">
       <div className="anuncio__pista">
-        <Lista />
-        <Lista oculta />
+        <Lista avisos={avisos} />
+        <Lista avisos={avisos} oculta />
       </div>
     </ForaDaTela>
   )

@@ -12,7 +12,7 @@ import {
   type ProvedorDePagamento,
 } from "./checkout-visivel"
 import { cliente, temEstoque } from "./medusa"
-import { FRETE_GRATIS_A_PARTIR_DE, site } from "./site"
+import { site } from "./site"
 
 /**
  * A LEITURA DO CHECKOUT
@@ -298,9 +298,6 @@ export async function listarSugestoes(
     .map((c) => porCategoria.get(c.handle))
     .filter((o): o is Oferta => Boolean(o))
 }
-
-/** O piso do frete grátis, reexportado pro checkout não importar de dois lugares. */
-export { FRETE_GRATIS_A_PARTIR_DE }
 
 /* ── o pedido recém-fechado ───────────────────────────────────────────────── */
 

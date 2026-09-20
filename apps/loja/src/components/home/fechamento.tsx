@@ -2,9 +2,9 @@ import Image from "next/image"
 import Link from "next/link"
 import { Raio } from "@/components/icones"
 import { FECHAMENTO } from "@/conteudo/home"
-import { emReais } from "@/lib/formato"
-import { buscarProdutoPorHandle } from "@/lib/medusa"
-import { FRETE_GRATIS_A_PARTIR_DE, parcelamento } from "@/lib/site"
+import { frasesDoFrete } from "@/lib/configuracoes"
+import { parcelamento } from "@/lib/site"
+import { buscarProdutoPorHandle, configuracoes } from "@/lib/medusa"
 
 /** O "check" das garantias — só aqui, não vale a pena virar ícone geral. */
 function Certo() {
@@ -35,8 +35,9 @@ export async function Fechamento() {
    * antes do rodapé, que é onde uma promessa pega mais. Ver o comentário em
    * `layout/anuncio.tsx`: trocada pelo direito de arrependimento, que é lei.
    */
+  const frases = frasesDoFrete((await configuracoes()).frete)
   const garantias = [
-    `Frete grátis a partir de ${emReais(FRETE_GRATIS_A_PARTIR_DE)}`,
+    ...(frases ? [frases.completa] : []),
     `${parcelamento} no cartão`,
     "7 dias pra desistir, por lei",
   ]

@@ -6,7 +6,8 @@ import { Raio } from "@/components/icones"
 import { EVENTO_SACOLA } from "@/components/sacola/contexto"
 import { adicionarVarios } from "@/lib/acoes/carrinho"
 import { emReais } from "@/lib/formato"
-import { FRETE_GRATIS_A_PARTIR_DE } from "@/lib/site"
+import { useFrete } from "@/components/configuracoes/contexto"
+import { faltaPraPromocao, frasesDoFrete, progressoDaPromocao } from "@/lib/configuracoes"
 
 /**
  * A ESCOLHA DA ROTINA — as caixinhas, a soma e o botão.
@@ -44,8 +45,10 @@ export function RotinaEscolha({ itens }: { itens: readonly ItemEscolhivel[] }) {
   const escolhidos = itens.filter((i) => marcados.has(i.varianteId))
   const total = escolhidos.reduce((s, i) => s + i.preco, 0)
   const cheio = escolhidos.reduce((s, i) => s + (i.cheio ?? i.preco), 0)
-  const falta = Math.max(0, FRETE_GRATIS_A_PARTIR_DE - total)
-  const porcento = Math.min(100, Math.round((total / FRETE_GRATIS_A_PARTIR_DE) * 100))
+  const politica = useFrete()
+  const frases = frasesDoFrete(politica)
+  const falta = faltaPraPromocao(politica, total)
+  const porcento = progressoDaPromocao(politica, total)
 
   function alternar(id: string, fixo: boolean) {
     if (fixo) return
@@ -126,22 +129,28 @@ export function RotinaEscolha({ itens }: { itens: readonly ItemEscolhivel[] }) {
             {cheio > total ? <s>{emReais(cheio)}</s> : null}
           </p>
 
-          <p className="rotina__frete">
-            <span>
-              {falta > 0 ? (
-                <>
-                  Faltam <b>{emReais(falta)}</b> pro frete grátis
-                </>
-              ) : (
-                <>
-                  <b>Frete grátis</b> nesta combinação
-                </>
-              )}
-            </span>
-            <span className="rotina__trilho" aria-hidden="true">
-              <span className="rotina__barra" style={{ width: `${porcento}%` }} />
-            </span>
-          </p>
+          {/* A linha inteira some quando não há promoção de frete: ela
+              existe pra empurrar a combinação pro piso, e sem piso não há
+              pra onde empurrar. */}
+          {frases && falta !== null && porcento !== null ? (
+            <p className="rotina__frete">
+              <span>
+                {falta > 0 ? (
+                  <>
+                    Faltam <b>{emReais(falta)}</b> pr{frases.selo.toLowerCase().startsWith("frete") ? "o " : "a "}
+                    {frases.selo.toLowerCase()}
+                  </>
+                ) : (
+                  <>
+                    <b>{frases.selo}</b> nesta combinação
+                  </>
+                )}
+              </span>
+              <span className="rotina__trilho" aria-hidden="true">
+                <span className="rotina__barra" style={{ width: `${porcento}%` }} />
+              </span>
+            </p>
+          ) : null}
 
           <p
             className={recado ? `rotina__recado rotina__recado--${recado.tipo}` : "rotina__recado"}

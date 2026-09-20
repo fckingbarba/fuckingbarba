@@ -16,7 +16,9 @@ import { adicionar } from "@/lib/acoes/carrinho"
 import type { CarrinhoVisivel } from "@/lib/carrinho-visivel"
 import { emReais } from "@/lib/formato"
 import type { DegrauDeQuantidade } from "@/lib/medusa"
-import { FRETE_GRATIS_A_PARTIR_DE, PARCELA_MINIMA, PARCELAS_SEM_JUROS } from "@/lib/site"
+import { useFrete } from "@/components/configuracoes/contexto"
+import { frasesDoFrete } from "@/lib/configuracoes"
+import { PARCELA_MINIMA, PARCELAS_SEM_JUROS } from "@/lib/site"
 
 /**
  * A COLUNA DE COMPRA
@@ -53,6 +55,7 @@ export function Compra({
   /** Unidades restantes do avulso, quando o Medusa controla estoque. */
   estoque: number | null
 }) {
+  const frases = frasesDoFrete(useFrete())
   const [escolhido, setEscolhido] = useState(0)
   const [quantidade, setQuantidade] = useState(1)
   const [recado, setRecado] = useState<{ tipo: "ok" | "erro"; texto: string } | null>(null)
@@ -225,12 +228,15 @@ export function Compra({
       <Escassez unidades={estoque} />
 
       <ul className="compra__garantias">
-        <li>
-          <Caminhao />
-          <span>
-            Frete grátis<small>A partir de {emReais(FRETE_GRATIS_A_PARTIR_DE)}</small>
-          </span>
-        </li>
+        {frases ? (
+          <li>
+            <Caminhao />
+            <span>
+              {frases.selo}
+              <small>{frases.condicao}</small>
+            </span>
+          </li>
+        ) : null}
         <li>
           <Cartao />
           <span>
