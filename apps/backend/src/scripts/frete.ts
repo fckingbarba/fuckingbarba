@@ -131,9 +131,25 @@ export default async function frete({ container }: ExecArgs) {
 
   const { data: variantes } = await query.graph({
     entity: "product_variant",
-    fields: ["id", "title", "weight", "length", "width", "height", "product.title"],
+    fields: [
+      "id",
+      "title",
+      "weight",
+      "length",
+      "width",
+      "height",
+      "product.title",
+      "product.status",
+    ],
   })
-  const semMedida = variantes.filter((v) => !v.weight || !v.length || !v.width || !v.height)
+  /*
+    Só os PUBLICADOS. Rascunho não entra em carrinho, então não existe
+    cotação pra ele errar — e travar aqui por causa de um rascunho esquecido
+    é travar pelo motivo errado, que é como uma trava perde a autoridade.
+  */
+  const semMedida = variantes.filter(
+    (v) => v.product?.status === "published" && (!v.weight || !v.length || !v.width || !v.height)
+  )
   if (semMedida.length) {
     throw new MedusaError(
       MedusaError.Types.INVALID_DATA,

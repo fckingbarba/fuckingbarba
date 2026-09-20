@@ -16,6 +16,7 @@
     "fotos": "medusa exec ./src/scripts/fotos-reprovadas.ts",
     "frete": "medusa exec ./src/scripts/frete.ts",
     "medidas": "medusa exec ./src/scripts/medidas.ts",
+    "origem": "medusa exec ./src/scripts/origem.ts",
     "promocoes": "medusa exec ./src/scripts/promocoes.ts",
     "test:integration:http": "TEST_TYPE=integration:http NODE_OPTIONS=--experimental-vm-modules jest --silent=false --runInBand --forceExit",
     "test:integration:modules": "TEST_TYPE=integration:modules NODE_OPTIONS=--experimental-vm-modules jest --silent=false --runInBand --forceExit",

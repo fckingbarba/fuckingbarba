@@ -44,20 +44,31 @@ import { ondeEstou } from "./onde-estou"
    ───────────────────────────────────────────────────────────────────────── */
 
 /**
- * Vire `true` quando as medidas abaixo forem as SUAS, conferidas com régua
- * numa caixa montada de verdade. Enquanto for `false`, o script se recusa a
- * escrever em banco remoto — mesma trava do `frete.ts`, e pelo mesmo motivo:
- * medida errada vira preço de frete errado, que vira prejuízo ou reclamação.
+ * Vire `true` quando os números abaixo forem os que VOCÊ quer que a loja
+ * cobre. Enquanto for `false`, o script se recusa a escrever em banco
+ * remoto: medida errada vira preço de frete errado, que vira prejuízo seu
+ * ou reclamação do cliente.
+ *
+ * Note que "autorizado" não é o mesmo que "certo" — medida marcada como
+ * `provisoria` continua sendo chute, e o script grita isso em toda rodada.
  */
-const CONFERIDO = false
+const AUTORIZADO = true
 
 type Medida = {
-  /** Gramas. Sem isto, usa o peso do produto — se ele existir. */
+  /** Gramas. Sem isto, o script usa o peso que já existe no cadastro. */
   peso?: number
-  /** Centímetros, da caixa fechada. */
+  /** Centímetros, da caixa fechada — não do frasco. */
   comprimento: number
   largura: number
   altura: number
+  /**
+   * `true` diz que este número é um lugar-reservado, não uma medição.
+   *
+   * O dado mora na tabela e não numa chave global porque é POR PRODUTO: os
+   * primeiros que vierem do Bling perdem a marca, os outros continuam com
+   * ela, e o aviso encolhe sozinho até sumir.
+   */
+  provisoria?: true
 }
 
 /**
@@ -66,17 +77,41 @@ type Medida = {
  * Handle que não está aqui aparece no fim como pendente. Produto que sai do
  * catálogo pode ficar sobrando nesta tabela sem quebrar nada — o script
  * avisa e segue.
+ *
+ * ┌─ HOJE É TUDO PROVISÓRIO, E ISSO TEM PREÇO ─────────────────────────────┐
+ * │ 10 × 5 × 8 cm em todo produto é o lugar-reservado até o catálogo vir   │
+ * │ do Bling com as medidas de verdade. Duas consequências, pra ficarem    │
+ * │ escritas:                                                              │
+ * │                                                                        │
+ * │ 1. É MENOR que o mínimo dos Correios (16 × 11 × 2), então na prática   │
+ * │    toda cotação sai como se a caixa fosse o mínimo. Pros frascos       │
+ * │    avulsos isso está perto da verdade.                                 │
+ * │                                                                        │
+ * │ 2. Pro KIT COMPLETO não está: três produtos numa caixa de 10 × 5 × 8   │
+ * │    não cabem. A cotação vai sair mais barata que a etiqueta, e a       │
+ * │    diferença sai do bolso da loja em todo pedido de kit.               │
+ * │                                                                        │
+ * │ O PESO não é provisório: o cadastro já tinha o de cada produto, e o    │
+ * │ script usa ele. Os dois kits de quantidade, que não tinham peso        │
+ * │ nenhum, ganham unidades × peso do produto base — aritmética em cima    │
+ * │ de número que o dono cadastrou, não chute meu.                         │
+ * └────────────────────────────────────────────────────────────────────────┘
  */
+const CAIXA_PROVISORIA = { comprimento: 10, largura: 5, altura: 8, provisoria: true } as const
+
 const MEDIDAS: Record<string, Medida> = {
-  // "oleo-para-barba": { comprimento: 16, largura: 11, altura: 6 },
-  // "shampoo-para-barba": { comprimento: 18, largura: 11, altura: 7 },
-  // "balm-para-barba": { comprimento: 16, largura: 11, altura: 7 },
-  // "fator-de-crescimento-para-barba": { comprimento: 16, largura: 11, altura: 6 },
-  // "spray-modelador-matte-100ml-fucking-barba": { comprimento: 20, largura: 11, altura: 7 },
-  // "kit-completo-para-barba": { comprimento: 25, largura: 18, altura: 10 },
-  // "kit-2-fator-de-crescimento-para-barba": { peso: 190, comprimento: 18, largura: 12, altura: 8 },
-  // "kit-3-fator-de-crescimento-para-barba": { peso: 285, comprimento: 20, largura: 14, altura: 9 },
+  "oleo-para-barba": { ...CAIXA_PROVISORIA },
+  "shampoo-para-barba": { ...CAIXA_PROVISORIA },
+  "balm-para-barba": { ...CAIXA_PROVISORIA },
+  "fator-de-crescimento-para-barba": { ...CAIXA_PROVISORIA },
+  "spray-modelador-matte-100ml-fucking-barba": { ...CAIXA_PROVISORIA },
+  "kit-completo-para-barba": { ...CAIXA_PROVISORIA },
+  "kit-2-fator-de-crescimento-para-barba": { ...CAIXA_PROVISORIA },
+  "kit-3-fator-de-crescimento-para-barba": { ...CAIXA_PROVISORIA },
 }
+
+/** O último recurso, quando nem o cadastro nem a conta dos kits sabem. */
+const PESO_PROVISORIO = 100
 
 /* ───────────────────────────────────────────────────────────────────────── */
 
@@ -98,21 +133,67 @@ export default async function medidas({ container }: ExecArgs) {
   ondeEstou(logger, "medidas")
 
   const remoto = !/localhost|127\.0\.0\.1/.test(process.env.DATABASE_URL ?? "")
-  if (remoto && !CONFERIDO) {
+  if (remoto && !AUTORIZADO) {
     throw new MedusaError(
       MedusaError.Types.NOT_ALLOWED,
-      "As medidas ainda não foram conferidas. Preencha a tabela em " +
-        "src/scripts/medidas.ts, meça uma caixa de verdade, vire CONFERIDO " +
+      "As medidas ainda não foram autorizadas. Preencha a tabela em " +
+        "src/scripts/medidas.ts, confira os números, vire AUTORIZADO " +
         "para true, e rode de novo."
     )
   }
 
   const { data: produtos } = await query.graph({
     entity: "product",
-    fields: ["id", "handle", "title", "weight", "variants.id", "variants.title", "variants.weight"],
+    fields: [
+      "id",
+      "handle",
+      "title",
+      "weight",
+      "status",
+      "metadata",
+      "variants.id",
+      "variants.title",
+      "variants.weight",
+    ],
   })
 
+  /*
+    O PESO DOS KITS DE QUANTIDADE SAI DE CONTA, NÃO DE CHUTE.
+
+    Kit de 2 e kit de 3 nasceram sem peso — eles são produtos próprios no
+    Medusa, criados pelo `kits-de-quantidade.ts`, e ninguém digitou o peso
+    deles. Mas o `metadata` diz de qual produto eles são kit e de quantas
+    unidades, e o produto base TEM peso cadastrado. Então dois frascos de
+    95 g pesam 190 g, e isso é aritmética em cima de um número que o dono
+    já tinha escrito.
+
+    Fica abaixo do real pela embalagem do kit, que ninguém pesou. É o erro
+    menos ruim disponível — e some quando as medidas vierem do Bling.
+  */
+  const pesoPorHandle = new Map(
+    produtos.flatMap((p) => (p.handle && p.weight ? [[p.handle, p.weight] as const] : []))
+  )
+  const pesoDeKit = (metadata: unknown): number | null => {
+    const m = (metadata ?? {}) as Record<string, unknown>
+    const base = typeof m.base === "string" ? pesoPorHandle.get(m.base) : undefined
+    const unidades = Number(m.unidades)
+    if (!base || !Number.isInteger(unidades) || unidades < 2) return null
+    return base * unidades
+  }
+
   const pendencias: Pendencia[] = []
+  /*
+    Os avisos são JUNTADOS e impressos UMA VEZ no fim, em vez de sair um por
+    variante dentro do laço. Com dez variantes, o aviso por variante vira
+    dez linhas quase iguais — e aviso repetido é aviso que se aprende a
+    pular. Uma linha dizendo "seis produtos estão com caixa provisória" é
+    uma linha que alguém lê.
+  */
+  let rascunhos = 0
+  const provisorias = new Set<string>()
+  const abaixoDoMinimo = new Set<string>()
+  /** Quem nem peso tinha: nem cadastrado, nem calculável pelos kits. */
+  const semPeso: string[] = []
   /*
     Uma chamada só, com todas as variantes: o workflow aceita `selector` +
     `update` (uma regra pra muitas) ou `product_variants` (cada uma com o
@@ -131,49 +212,77 @@ export default async function medidas({ container }: ExecArgs) {
     const handle = produto.handle ?? ""
     const medida = MEDIDAS[handle]
 
+    /*
+      RASCUNHO NÃO PRECISA DE MEDIDA.
+
+      Produto que não está publicado não entra em carrinho nenhum, então não
+      existe cotação pra ele errar. Exigir medida de rascunho fazia este
+      script parar em dois "Óleo para Barba Ação Nº1/Nº2" que sobraram de uma
+      semeadura que deu errado — e uma trava que trava pelo motivo errado é
+      uma trava que alguém desliga.
+
+      No dia em que o rascunho for publicado, ele aparece aqui como pendente,
+      que é exatamente quando a medida passa a importar.
+    */
+    if (produto.status !== "published") {
+      rascunhos++
+      continue
+    }
+
     for (const variante of produto.variants ?? []) {
       if (!variante?.id) continue
 
       /*
-        O peso da variante ganha do peso do produto: quem já ajustou a
-        variante à mão sabe de algo que esta tabela não sabe. O do produto é
-        o fallback, e a tabela só entra quando nenhum dos dois existe — é o
-        caso dos kits, que nasceram sem peso nenhum.
+        A ORDEM DO PESO, do mais explícito pro mais chutado:
+
+          1. o `peso` da tabela aqui do lado — alguém escreveu de propósito;
+          2. o peso da VARIANTE, se já estiver preenchido;
+          3. o peso do PRODUTO, que é onde o catálogo antigo guardava;
+          4. unidades × peso da base, pros kits de quantidade;
+          5. o provisório, que é o último recurso e sai avisado.
+
+        A tabela vem em primeiro, e não em terceiro, porque senão ela não
+        CONSERTA nada: um peso errado escrito na variante ficaria pra sempre,
+        e a única saída seria mexer no banco à mão. Script que não consegue
+        corrigir o que ele mesmo escreveu é script que se usa uma vez só.
       */
-      const peso = variante.weight ?? produto.weight ?? medida?.peso ?? null
+      const peso =
+        medida?.peso ??
+        variante.weight ??
+        produto.weight ??
+        pesoDeKit(produto.metadata)
 
-      const faltando: string[] = []
-      if (peso === null) faltando.push("peso")
-      if (!medida) faltando.push("medidas da caixa")
-
-      if (faltando.length) {
+      /*
+        Sem medida na tabela, o produto vira pendência e o script termina em
+        erro. Sem PESO, porém, o último recurso é o provisório: é melhor uma
+        cotação com peso de lugar-reservado do que nenhuma opção de entrega,
+        que é o que acontece quando este script se recusa a terminar.
+      */
+      if (!medida) {
         pendencias.push({
           handle,
           nome: produto.title ?? handle,
-          falta: faltando.join(" e "),
+          falta: "medidas da caixa",
         })
         continue
       }
-
-      if (medida) {
-        const pequenas = (["comprimento", "largura", "altura"] as const).filter(
-          (d) => medida[d] < MINIMO[d]
-        )
-        if (pequenas.length) {
-          logger.warn(
-            `[medidas] ${handle}: ${pequenas.join(", ")} abaixo do mínimo dos Correios ` +
-              `(${MINIMO.comprimento}×${MINIMO.largura}×${MINIMO.altura} cm). A cotação vai sair ` +
-              "como se fosse o mínimo de qualquer jeito."
-          )
-        }
+      if (peso === null) {
+        semPeso.push(`${produto.title ?? handle} (${handle})`)
       }
+
+      const pequenas = (["comprimento", "largura", "altura"] as const).filter(
+        (d) => medida[d] < MINIMO[d]
+      )
+      if (pequenas.length) abaixoDoMinimo.add(handle)
+
+      if (medida.provisoria) provisorias.add(handle)
 
       aEscrever.push({
         id: variante.id,
-        weight: peso!,
-        length: medida!.comprimento,
-        width: medida!.largura,
-        height: medida!.altura,
+        weight: peso ?? PESO_PROVISORIO,
+        length: medida.comprimento,
+        width: medida.largura,
+        height: medida.altura,
       })
     }
   }
@@ -210,5 +319,43 @@ export default async function medidas({ container }: ExecArgs) {
     )
   }
 
-  logger.info("[medidas] todas as variantes têm peso e medida")
+  if (rascunhos) {
+    logger.info(`[medidas] ${rascunhos} produto(s) em rascunho ficaram de fora — não são vendidos`)
+  }
+
+  if (semPeso.length) {
+    logger.warn(
+      `[medidas] ${semPeso.length} variante(s) sem peso em lugar nenhum — ficaram com ` +
+        `${PESO_PROVISORIO} g de lugar-reservado: ${semPeso.join(", ")}`
+    )
+  }
+
+  if (abaixoDoMinimo.size) {
+    logger.info(
+      `[medidas] ${abaixoDoMinimo.size} produto(s) com caixa menor que o mínimo dos Correios ` +
+        `(${MINIMO.comprimento}×${MINIMO.largura}×${MINIMO.altura} cm) — a cotação sai como se ` +
+        "fosse o mínimo de qualquer jeito. Não é erro, é só medida que não muda nada."
+    )
+  }
+
+  if (provisorias.size) {
+    /*
+      ESTE AVISO É O PONTO DO CAMPO `provisoria`.
+
+      Ele sai em TODA rodada, com nome e tudo, porque medida de
+      lugar-reservado não dá erro em lugar nenhum: a loja cota, vende,
+      despacha, e a conta só aparece no extrato do fim do mês. Enquanto
+      alguém estiver lendo este log, a dívida continua visível.
+    */
+    logger.warn(
+      `\n[medidas] ⚠  ${provisorias.size} produto(s) estão com MEDIDA PROVISÓRIA:\n` +
+        [...provisorias].map((h) => `  · ${h}`).join("\n") +
+        "\n     A cotação desses sai pelo tamanho errado — pra caixa grande, mais barata " +
+        "\n     que a etiqueta, e a diferença é sua. Troque na tabela MEDIDAS assim que as " +
+        "\n     medidas de verdade existirem, e apague o `provisoria: true` de cada uma."
+    )
+    return
+  }
+
+  logger.info("[medidas] todas as variantes têm peso e medida conferidos")
 }
