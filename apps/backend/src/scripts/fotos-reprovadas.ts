@@ -63,9 +63,20 @@ import { ondeEstou } from "./onde-estou"
  * Roda quantas vezes quiser: foto que já saiu é pulada.
  */
 
+/**
+ * A regra é sobre a FOTO, não sobre o produto — e essa distinção custou um
+ * erro de verdade. Na primeira versão eu nomeava o produto junto, e rodei
+ * logo depois do script dos kits: os kits nascem copiando as fotos do
+ * produto base, então os dois kits do Fator já tinham herdado o antes/depois
+ * quando esta limpeza rodou. Ela olhou só o produto que eu tinha listado,
+ * disse "1 produto atualizado", e a foto continuou no catálogo em outros
+ * dois lugares — os dois com página e com feed próprios.
+ *
+ * Foto reprovada é reprovada em qualquer produto. Então agora o script varre
+ * o catálogo inteiro e não existe ordem errada de rodar: criar um kit novo
+ * amanhã e rodar isto depois limpa o kit também.
+ */
 type Reprovada = {
-  /** Handle do produto. */
-  produto: string
   /** Pedaço do nome do arquivo que identifica a imagem, sem o timestamp. */
   contem: string
   motivo: string
@@ -73,33 +84,50 @@ type Reprovada = {
 
 const REPROVADAS: Reprovada[] = [
   {
-    produto: "fator-de-crescimento-para-barba",
     contem: "fator-de-crescimento-para-barba-2",
     motivo: "antes/depois com duas pessoas diferentes",
   },
 ]
+
+/** Página da varredura. O catálogo é pequeno; o teto é contra laço infinito. */
+const PAGINA = 200
+const MAX_PAGINAS = 25
 
 export default async function fotosReprovadas({ container }: ExecArgs) {
   const logger = container.resolve(ContainerRegistrationKeys.LOGGER)
   const query = container.resolve(ContainerRegistrationKeys.QUERY)
   ondeEstou(logger, "fotos")
 
-  const handles = [...new Set(REPROVADAS.map((r) => r.produto))]
-  const { data: produtos } = await query.graph({
-    entity: "product",
-    fields: ["id", "handle", "thumbnail", "images.id", "images.url"],
-    filters: { handle: handles },
-  })
+  // O catálogo inteiro, de página em página: a foto pode estar pendurada em
+  // qualquer produto, e é justamente o que eu não tinha previsto.
+  const produtos: { id: string; handle: string; thumbnail?: string | null; urls: string[] }[] = []
+  for (let pagina = 0; pagina < MAX_PAGINAS; pagina++) {
+    const { data } = await query.graph({
+      entity: "product",
+      fields: ["id", "handle", "thumbnail", "images.url"],
+      pagination: { skip: pagina * PAGINA, take: PAGINA },
+    })
+    produtos.push(
+      ...data.map((p) => ({
+        id: p.id,
+        handle: p.handle,
+        thumbnail: p.thumbnail,
+        urls: (p.images ?? []).flatMap((i) => (i?.url ? [i.url] : [])),
+      }))
+    )
+    if (data.length < PAGINA) break
+  }
+  logger.info(`[fotos] ${produtos.length} produto(s) no catálogo`)
 
   const updates: { id: string; images: { url: string }[]; thumbnail?: string }[] = []
+  let intactos = 0
 
   for (const produto of produtos) {
-    const regras = REPROVADAS.filter((r) => r.produto === produto.handle)
-    const todas = (produto.images ?? []).flatMap((i) => (i?.url ? [i.url] : []))
-    const ficam = todas.filter((url) => !regras.some((r) => url.includes(r.contem)))
+    const todas = produto.urls
+    const ficam = todas.filter((url) => !REPROVADAS.some((r) => url.includes(r.contem)))
 
     if (ficam.length === todas.length) {
-      logger.info(`[fotos] ${produto.handle}: nada reprovado ainda pendurado`)
+      intactos++
       continue
     }
 
@@ -122,13 +150,13 @@ export default async function fotosReprovadas({ container }: ExecArgs) {
     })
 
     for (const url of saindo) {
-      const motivo = regras.find((r) => url.includes(r.contem))?.motivo ?? "reprovada"
+      const motivo = REPROVADAS.find((r) => url.includes(r.contem))?.motivo ?? "reprovada"
       logger.info(`[fotos] ${produto.handle}: sai ${url.split("/").pop()} — ${motivo}`)
     }
   }
 
   if (!updates.length) {
-    logger.info("[fotos] nada a fazer")
+    logger.info(`[fotos] nada a fazer — ${intactos} produto(s) já estão limpos`)
     return
   }
 

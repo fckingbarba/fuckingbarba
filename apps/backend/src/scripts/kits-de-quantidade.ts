@@ -129,6 +129,11 @@ export default async function kitsDeQuantidade({ container }: ExecArgs) {
   // Reusar a foto do avulso é de propósito: o kit é o mesmo frasco, e uma
   // foto genérica é melhor que nenhuma. A foto CERTA mostra dois ou três
   // frascos juntos — quando ela existir, troque no admin.
+  //
+  // O KIT HERDA TUDO QUE O BASE TIVER, inclusive foto que não devia estar
+  // lá. Foi o que aconteceu no primeiro deploy: os dois kits nasceram com o
+  // antes/depois do Fator junto. Por isso `fotos-reprovadas` varre o
+  // catálogo inteiro, e por isso ele é o ÚLTIMO a rodar depois de criar kit.
   const bases = [...new Set(KITS.map((k) => k.base))]
   const { data: produtosBase } = await query.graph({
     entity: "product",
