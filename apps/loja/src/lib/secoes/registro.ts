@@ -165,5 +165,25 @@ export const SECOES: readonly Secao[] = [
        produto.duvidas ....... perguntas frequentes
        produto.avaliacoes .... o que dizem de quem usou
        produto.relacionados .. quem leva este, leva junto
+
+     >>> ANTES DE PORTAR A DOBRA, uma pendência de backend que eu descobri
+         testando o carrinho contra a produção: os preços de kit do
+         protótipo NÃO EXISTEM no Medusa. Duas unidades do Fator saem por
+         R$ 159,80 (2 x 79,90), não pelos R$ 149,90 que a página promete;
+         três saem por 239,70, não 222,90.
+
+         São dois caminhos, e é decisão sua:
+
+           a) preço por faixa de quantidade — uma price list com
+              min_quantity/max_quantity na mesma variante. "2 frascos" vira
+              quantidade 2 e o Medusa aplica o preço de faixa. É o mais
+              limpo: um SKU só, estoque num lugar só;
+           b) kits como produtos próprios, com SKU e estoque separados.
+              É o que a Nuvemshop faz hoje, e é por isso que lá os kits
+              aparecem "Esgotado" enquanto o avulso tem estoque.
+
+         Enquanto nenhum dos dois existir, a dobra não pode mostrar
+         R$ 149,90 — o cliente escolheria um preço e o carrinho cobraria
+         outro, que é a pior hora possível pra descobrir uma diferença.
   */
 ] as const

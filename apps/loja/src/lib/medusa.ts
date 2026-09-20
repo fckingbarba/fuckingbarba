@@ -24,6 +24,18 @@ export const medusaConfigurado = Boolean(baseUrl && publishableKey)
 
 const sdk = medusaConfigurado ? new Medusa({ baseUrl: baseUrl!, publishableKey }) : null
 
+/**
+ * O mesmo cliente, pro carrinho (`lib/carrinho.ts`).
+ *
+ * O carrinho não mora aqui porque este arquivo é só leitura cacheada, e
+ * carrinho é escrita por pessoa — as duas coisas têm regras opostas de cache
+ * e misturar as duas num arquivo é como uma acaba herdando a regra da outra.
+ * O que elas compartilham de verdade é só a conexão.
+ */
+export function cliente() {
+  return sdk
+}
+
 export const TAGS = {
   produtos: "produtos",
   produto: (handle: string) => `produto:${handle}`,
@@ -205,9 +217,7 @@ export function precosDe(
  * `undefined` faria `get(undefined)` devolver um produto qualquer, que é o
  * tipo de bug que só aparece na tela do cliente.
  */
-export function porHandle(
-  produtos: HttpTypes.StoreProduct[]
-): Map<string, HttpTypes.StoreProduct> {
+export function porHandle(produtos: HttpTypes.StoreProduct[]): Map<string, HttpTypes.StoreProduct> {
   return new Map(produtos.flatMap((p) => (p.handle ? [[p.handle, p] as const] : [])))
 }
 
