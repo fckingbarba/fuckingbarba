@@ -2,6 +2,7 @@ import { ExecArgs } from "@medusajs/framework/types"
 import { ContainerRegistrationKeys, MedusaError, Modules } from "@medusajs/framework/utils"
 import {
   batchLinksWorkflow,
+  linkSalesChannelsToStockLocationWorkflow,
   createLocationFulfillmentSetWorkflow,
   createServiceZonesWorkflow,
   createShippingOptionsWorkflow,
@@ -120,13 +121,45 @@ export default async function frete({ container }: ExecArgs) {
     }
   }
 
+  const { data: canais } = await query.graph({ entity: "sales_channel", fields: ["id", "name"] })
+  const canal = canais[0]
+  if (!canal) {
+    throw new MedusaError(MedusaError.Types.NOT_FOUND, "Nenhum canal de venda.")
+  }
+
   const { data: locais } = await query.graph({
     entity: "stock_location",
-    fields: ["id", "name", "address.postal_code"],
+    fields: ["id", "name", "address.postal_code", "sales_channels.id"],
   })
-  const local = locais[0]
+  /*
+    ┌─ O LOCAL CERTO É O QUE ESTÁ LIGADO AO CANAL DE VENDA ──────────────────┐
+    │ O Medusa monta a lista de fretes do carrinho por este caminho:         │
+    │                                                                        │
+    │   canal de venda → locais de estoque → conjuntos → zonas → opções      │
+    │                                                                        │
+    │ Ou seja, opção pendurada num local que o canal não enxerga é opção que │
+    │ NÃO EXISTE pro cliente. O `/store/shipping-options` devolve lista      │
+    │ vazia, sem erro, sem log, sem nada — e ninguém consegue fechar pedido  │
+    │ numa loja que, pelo admin, tem duas entregas cadastradas.              │
+    │                                                                        │
+    │ Pegar `locais[0]` funcionava com um local só e passa a ser sorteio com │
+    │ dois. Aqui o critério é explícito, e quando o local escolhido não tem  │
+    │ canal nenhum, o script LIGA em vez de deixar a loja muda.              │
+    └────────────────────────────────────────────────────────────────────────┘
+  */
+  const local = locais.find((l) => (l.sales_channels ?? []).length) ?? locais[0]
   if (!local) {
     throw new MedusaError(MedusaError.Types.NOT_FOUND, "Nenhum local de estoque.")
+  }
+
+  if (!(local.sales_channels ?? []).length) {
+    await linkSalesChannelsToStockLocationWorkflow(container).run({
+      input: { id: local.id, add: [canal.id] },
+    })
+    logger.warn(
+      `[frete] "${local.name}" não estava ligado a canal de venda nenhum — as opções de ` +
+        `frete existiriam no admin e não apareceriam na loja. Liguei em "${canal.name}".`
+    )
   }
   if (!local.address?.postal_code) {
     /*
@@ -346,8 +379,16 @@ export default async function frete({ container }: ExecArgs) {
     }
   }
 
+  /*
+    O caminho "nada a criar" TAMBÉM confere. Ele era um `return` seco, e era
+    justamente o caminho de quem roda o script pela segunda vez — ou seja, de
+    quem está tentando entender por que a loja não mostra frete. Sair dizendo
+    "nada a criar" pra uma loja sem entrega nenhuma é a pior resposta
+    possível: parece confirmação de que está tudo certo.
+  */
   if (!aCriar.length) {
     logger.info("[frete] nada a criar")
+    await conferirQueAparecem(container, logger, canal.name)
     return
   }
 
@@ -382,5 +423,70 @@ export default async function frete({ container }: ExecArgs) {
   for (const o of aCriar) {
     logger.info(`[frete] ${o.nome} — cotada pela Frenet, saindo de ${local.address.postal_code}`)
   }
+
+  await conferirQueAparecem(container, logger, canal.name)
+}
+
+/**
+ * ELE CRIOU — MAS A LOJA ENXERGA?
+ *
+ * Esta é a pergunta que o script não respondia, e que custou uma tarde: as
+ * duas opções foram criadas, o log disse "pronto", e o `/store/shipping-
+ * options` continuou devolvendo lista vazia. Criar e aparecer são coisas
+ * diferentes, e a segunda depende de uma corrente inteira:
+ *
+ *   canal de venda → local de estoque → conjunto → zona → opção
+ *
+ * Qualquer elo solto e a loja fica sem entrega, em silêncio — sem erro, sem
+ * log, sem nada que apareça no admin. Então o script anda a corrente no
+ * sentido do cliente e conta o que chegou no fim. Zero é erro, e o erro diz
+ * qual elo arrebentou.
+ */
+async function conferirQueAparecem(
+  container: ExecArgs["container"],
+  logger: { info: (m: string) => void; warn: (m: string) => void },
+  nomeDoCanal: string
+) {
+  const query = container.resolve(ContainerRegistrationKeys.QUERY)
+
+  const { data: canais } = await query.graph({
+    entity: "sales_channel",
+    fields: [
+      "id",
+      "name",
+      "stock_locations.id",
+      "stock_locations.name",
+      "stock_locations.fulfillment_sets.id",
+      "stock_locations.fulfillment_sets.service_zones.id",
+      "stock_locations.fulfillment_sets.service_zones.shipping_options.id",
+      "stock_locations.fulfillment_sets.service_zones.shipping_options.name",
+    ],
+  })
+
+  const visiveis = canais.flatMap((c) =>
+    (c.stock_locations ?? []).flatMap((l) =>
+      (l?.fulfillment_sets ?? []).flatMap((f) =>
+        (f?.service_zones ?? []).flatMap((z) => z?.shipping_options ?? [])
+      )
+    )
+  )
+
+  if (!visiveis.length) {
+    const elos = canais.map(
+      (c) =>
+        `${c.name}: ${(c.stock_locations ?? []).length} local(is), ` +
+        `${(c.stock_locations ?? []).flatMap((l) => l?.fulfillment_sets ?? []).length} conjunto(s)`
+    )
+    throw new MedusaError(
+      MedusaError.Types.UNEXPECTED_STATE,
+      "As opções foram criadas mas NÃO aparecem pra loja — o carrinho vai continuar sem " +
+        `entrega. A corrente canal → local → conjunto → zona → opção está quebrada: ${elos.join("; ")}`
+    )
+  }
+
+  logger.info(
+    `[frete] conferido: ${visiveis.length} opção(ões) chegam no carrinho por "${nomeDoCanal}" — ` +
+      visiveis.map((o) => o.name).join(", ")
+  )
   logger.info("[frete] pronto. Confira com: node apps/loja/ferramentas/conferir-frete.mjs")
 }
