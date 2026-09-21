@@ -1,4 +1,9 @@
-import { loadEnv, defineConfig } from "@medusajs/framework/utils"
+import {
+  ContainerRegistrationKeys,
+  defineConfig,
+  loadEnv,
+  Modules,
+} from "@medusajs/framework/utils"
 
 loadEnv(process.env.NODE_ENV || "development", process.cwd())
 
@@ -169,6 +174,29 @@ const paymentModule = [
   },
 ]
 
+/**
+ * ENTRAR NA CONTA — com código no e-mail, sem senha.
+ *
+ * Declarar o módulo de auth SUBSTITUI a lista de provedores padrão, então o
+ * `emailpass` precisa vir junto: é por ele que o admin entra. O `codigo` é o
+ * nosso (`src/modules/codigo/`) — a rota que manda o código é
+ * `POST /store/conta/codigo`, e a que confere é `POST /auth/customer/codigo`.
+ *
+ * Quem usa qual está em `authMethodsPerActor`, logo abaixo.
+ */
+const authModule = [
+  {
+    resolve: "@medusajs/medusa/auth",
+    dependencies: [Modules.CACHE, ContainerRegistrationKeys.LOGGER],
+    options: {
+      providers: [
+        { resolve: "@medusajs/medusa/auth-emailpass", id: "emailpass" },
+        { resolve: "./src/modules/codigo", id: "codigo" },
+      ],
+    },
+  },
+]
+
 module.exports = defineConfig({
   projectConfig: {
     databaseUrl: process.env.DATABASE_URL,
@@ -181,6 +209,21 @@ module.exports = defineConfig({
       authCors: process.env.AUTH_CORS!,
       jwtSecret: process.env.JWT_SECRET,
       cookieSecret: process.env.COOKIE_SECRET,
+      /*
+        Cliente entra SÓ pelo código; admin, só por e-mail e senha. Sem esta
+        lista, qualquer provedor vale pra qualquer um — inclusive
+        `POST /auth/customer/emailpass/register`, que criaria conta de
+        cliente com senha, sem provar o e-mail, numa loja que nem pede senha.
+      */
+      authMethodsPerActor: { user: ["emailpass"], customer: ["codigo"] },
+      /*
+        30 dias, e não o 1 dia padrão. O token do cliente mora num cookie
+        `httpOnly` da loja e só viaja de servidor pra servidor; com 1 dia, a
+        pessoa que volta na semana seguinte pra ver o pedido teria que pedir
+        código de novo. O admin não muda: ele troca o token por uma sessão
+        na hora de entrar, e a sessão tem a validade dela.
+      */
+      jwtExpiresIn: "30d",
     },
   },
   admin: {
@@ -188,5 +231,5 @@ module.exports = defineConfig({
     disable: process.env.ADMIN_DISABLED === "true",
     backendUrl: process.env.MEDUSA_BACKEND_URL || "http://localhost:9000",
   },
-  modules: [...redisModules, ...fileModule, ...fulfillmentModule, ...paymentModule],
+  modules: [...redisModules, ...fileModule, ...fulfillmentModule, ...paymentModule, ...authModule],
 })

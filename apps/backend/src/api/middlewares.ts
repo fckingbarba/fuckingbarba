@@ -1,4 +1,5 @@
 import {
+  authenticate,
   defineMiddlewares,
   type MedusaNextFunction,
   type MedusaRequest,
@@ -115,6 +116,17 @@ export default defineMiddlewares({
       matcher: "/store/payment-collections/:id/payment-sessions",
       method: ["POST"],
       middlewares: [pagamentoDePedidoFechado],
+    },
+    /*
+      O token que chega aqui ainda não tem cliente (é pra isso que a rota
+      existe), então `allowUnregistered`. Só `bearer`: quem chama é o
+      servidor da loja, que guarda o token no cookie dela — sessão do Medusa
+      não entra nessa conversa.
+    */
+    {
+      matcher: "/store/conta/vincular",
+      method: ["POST"],
+      middlewares: [authenticate("customer", ["bearer"], { allowUnregistered: true })],
     },
     { matcher: "/admin/products", method: ["POST"], middlewares: [normalizaHandle] },
     { matcher: "/admin/products/:id", method: ["POST"], middlewares: [normalizaHandle] },

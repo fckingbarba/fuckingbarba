@@ -1,0 +1,167 @@
+/*
+  A MINHA CONTA — escrito à mão, a partir de
+  ferramentas/porte/prototipo-conta.html (as seções marcadas "NOVO" de lá).
+
+  O resto do que a conta usa já existe e é global: .btn (base.css), .bloco,
+  .campo e .giro (checkout.css e checkout-loja.css). A conta preenche os
+  mesmos dados que a compra pede, e campo com cara diferente nos dois
+  lugares faz a pessoa achar que são duas lojas.
+
+  O FUNDO É CINZA, como no checkout: aqui a pessoa confere e preenche coisa,
+  não passeia pela vitrine. A regra vem em dupla pelo motivo de sempre — a
+  marca `data-tela` depois de o React assumir, o `:has()` antes (ver
+  `components/marca-da-tela.tsx` e `institucional.css`).
+*/
+html[data-tela~="conta"] body {
+  background: var(--color-cinza);
+}
+html:not([data-hidratado]) body:has(.conta) {
+  background: var(--color-cinza);
+}
+
+.conta {
+  flex: 1 0 auto;
+  width: 100%;
+  padding: clamp(18px, 3vw, 32px) clamp(16px, 4vw, 28px) 72px;
+}
+.conta__wrap {
+  max-width: 1140px;
+  margin: 0 auto;
+}
+.conta h1 {
+  margin: 0;
+  font-size: clamp(1.2rem, 2.6vw, 1.55rem);
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+  line-height: 1.15;
+}
+.conta p {
+  line-height: 1.5;
+}
+
+/* O link que é botão (e o que é link): sublinhado, na cor do texto. */
+.link {
+  padding: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-tinta);
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.link:hover,
+.link:focus-visible {
+  color: var(--color-menta-escura);
+}
+.link:disabled {
+  color: var(--color-tinta-suave);
+  text-decoration: none;
+  cursor: default;
+}
+
+/* ---------- entrar e código: um bloco só, no meio ---------- */
+.entrar {
+  max-width: 440px;
+  margin: clamp(0px, 3vw, 28px) auto 0;
+}
+.entrar .bloco {
+  padding: 26px clamp(18px, 4vw, 26px) 24px;
+}
+.entrar__ico {
+  width: 46px;
+  height: 46px;
+  margin: 0 0 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-tinta);
+  color: var(--color-amarelo);
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+}
+.entrar__ico svg {
+  width: 22px;
+  height: 22px;
+}
+.entrar__txt {
+  margin: 8px 0 18px;
+  font-size: 0.9rem;
+  color: var(--color-tinta-suave);
+}
+.entrar__txt b {
+  color: var(--color-tinta);
+  overflow-wrap: anywhere;
+}
+/* "Trocar e-mail" não parte no hífen. */
+.entrar__txt .link {
+  white-space: nowrap;
+}
+.entrar form .btn {
+  margin-top: 16px;
+}
+.entrar__nota {
+  margin: 20px 0 0;
+  padding-top: 14px;
+  border-top: 1px solid rgba(18, 24, 31, 0.12);
+  font-size: 0.78rem;
+  color: var(--color-tinta-suave);
+}
+.entrar__nota b {
+  color: var(--color-tinta);
+}
+/* NOVO (o protótipo mostrava isso num aviso que sumia): "você saiu",
+   "sua sessão acabou" — em cima do campo, onde a pessoa está olhando. */
+.entrar__recado {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  background: var(--color-menta-clara);
+  border-left: 4px solid var(--color-menta-escura);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+/* Os 6 dígitos num campo só, e não em seis caixinhas (ver `codigo.tsx`).
+   A cara de caixinhas é o espaçamento largo. */
+.codigo input {
+  text-align: center;
+  font-size: 1.7rem;
+  font-weight: 800;
+  letter-spacing: 0.45em;
+  padding-left: calc(12px + 0.45em);
+  font-variant-numeric: tabular-nums;
+}
+.codigo__reenviar {
+  margin: 14px 0 0;
+  font-size: 0.8rem;
+  color: var(--color-tinta-suave);
+}
+/* O código morreu (venceu, ou cinco erros): o "reenviar" é a única saída,
+   então ele deixa de ser rodapé e vira a próxima coisa a fazer. */
+.codigo__reenviar[data-destaque] {
+  padding: 10px 12px;
+  background: var(--color-amarelo-claro);
+  color: var(--color-tinta);
+}
+.codigo__aviso {
+  margin: 6px 0 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--color-menta-escura);
+}
+.codigo__aviso:empty {
+  display: none;
+}
+
+/* ---------- a /conta provisória (até as telas de pedidos) ---------- */
+.conta__provisoria {
+  max-width: 560px;
+}
+.conta__provisoria p {
+  margin: 10px 0 0;
+  font-size: 0.9rem;
+}
+.conta__provisoria form {
+  margin-top: 8px;
+}

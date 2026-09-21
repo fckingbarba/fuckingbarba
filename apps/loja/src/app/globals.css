@@ -67,6 +67,10 @@
 /* Escrito à mão: espera, sacola vazia e a carcaça da loja fora do caminho. */
 @import "../estilos/checkout-loja.css";
 
+/* A Minha conta: escrito à mão a partir de ferramentas/porte/prototipo-conta.html.
+   Depois do checkout porque usa as peças dele (.bloco, .campo, .giro). */
+@import "../estilos/conta.css";
+
 /*
   Tokens da marca FuckingBarba — os mesmos do protótipo HTML.
   Tailwind v4 lê este @theme e gera as classes: bg-menta, text-tinta,

@@ -36,17 +36,18 @@ verdade.
 ### Conferidores
 
 `apps/loja/ferramentas/conferir-*.mjs` abrem a loja num Chromium de verdade e comparam o que está na
-tela com o que a API do Medusa responde — nunca com outra conta feita no próprio teste. São oito:
-frete, pdp, checkout, pagamento, catálogo, links, configurações e documento. Rode os que tocam no que
-você mexeu, e todos antes de entregar. Os que escrevem no admin desfazem o que mudaram no fim, mesmo
-quando falham.
+tela com o que a API do Medusa responde — nunca com outra conta feita no próprio teste. São nove:
+frete, pdp, checkout, pagamento, catálogo, links, configurações, documento e conta. Rode os que
+tocam no que você mexeu, e todos antes de entregar. Os que escrevem no admin desfazem o que mudaram
+no fim, mesmo quando falham.
 
 ```bash
-# frete, checkout e pagamento sobem uma Frenet falsa (4310) e um Pagar.me falso (4320);
-# o backend precisa apontar pros dois
+# frete, checkout e pagamento sobem uma Frenet falsa (4310) e um Pagar.me falso (4320); o da
+# conta sobe um Resend falso (4330) e lê o código de lá. O backend precisa apontar pros três
 FRENET_URL=http://127.0.0.1:4310/shipping/quote FRENET_TOKEN=teste \
 PAGARME_SECRET_KEY=sk_test_falsa PAGARME_URL=http://127.0.0.1:4320/core/v5 \
-MEDUSA_WEBHOOK_SEGREDO=segredo-de-teste npm run backend:dev
+MEDUSA_WEBHOOK_SEGREDO=segredo-de-teste \
+RESEND_URL=http://127.0.0.1:4330 RESEND_API_KEY=re_teste_falsa npm run backend:dev
 # e a loja tokeniza no falso: no .env.development.local,
 #   NEXT_PUBLIC_PAGARME_PUBLIC_KEY=pk_test_falsa
 #   NEXT_PUBLIC_PAGARME_API=http://127.0.0.1:4320/core/v5
@@ -61,7 +62,7 @@ asserção — `ferramentas/retrato-calculadora.mjs` é o modelo (e `retrato-pag
 e da tela de obrigado), e roda contra `next build` + `next start`. Os conferidores, ao contrário,
 rodam contra o `next dev` (`LOJA`, padrão `localhost:3000`): com o cache de produção o de PDP lê o
 conteúdo de antes da edição e falha sem bug nenhum. Os `apps/backend/ferramentas/conferir-{frete,pedido}.mjs` são de antes da Frenet (esperam
-"Correios PAC" fixo e não sobem a falsa) — os que valem são os oito da loja.
+"Correios PAC" fixo e não sobem a falsa) — os que valem são os nove da loja.
 
 O de pagamento liga o Pagar.me na região pelo admin e devolve como estava. O de checkout, com o
 checkout aberto (`CHECKOUT_ABERTO`), precisa do Pagar.me ligado na região local — o passo 3 não
@@ -155,6 +156,19 @@ corpo cru da API pública. Os pedidos levam `metadata.origem` (hash do usuário,
 na mesma chave de teste não estornam as compras uma da outra. Ainda assim, uma chave por ambiente —
 a de produção só no Railway. Na loja, carrinho que fechou sem a confirmação chegar ao navegador
 volta pro pedido pelo `/checkout/retomar`, em vez de mostrar "sacola vazia".
+
+A **conta** entra com código no e-mail, sem senha. `POST /store/conta/codigo` sorteia seis dígitos,
+guarda só o hash (HMAC com o `JWT_SECRET`) no `provider_metadata` da identidade `codigo` e manda o
+e-mail pelo Resend (`src/lib/email.ts`; sem `RESEND_API_KEY`, fora de produção, o código sai no
+log). Quem confere é o provedor de auth `codigo` (`src/modules/codigo/`), na rota
+`POST /auth/customer/codigo` do próprio Medusa; as regras (10 minutos, 5 tentativas, limites por
+e-mail) estão num arquivo só, `regras.ts`, com teste de unidade. No primeiro código certo,
+`POST /store/conta/vincular` liga a identidade a um cliente — e o convidado que o checkout criou
+com aquele e-mail VIRA a conta, com os pedidos dele. `authMethodsPerActor` deixa cliente só no
+`codigo` e admin só no `emailpass`. Na loja, o token mora no cookie `httpOnly` `sessao` e só o
+servidor fala com o Medusa (`apps/loja/src/lib/conta.ts`); o `proxy.ts` faz a checagem otimista da
+porta da `/conta`. O limite por pessoa conta o IP que a loja manda em `x-cliente-ip`, assinado com o
+`REVALIDAR_SEGREDO`.
 
 A **sacola** grava CEP e entrega no carrinho (`apps/loja/src/lib/acoes/frete.ts`), e o pé da
 gaveta mostra o frete e o total que o Medusa calculou com ela — o checkout abre com os dois. Com

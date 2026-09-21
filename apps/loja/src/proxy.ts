@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server"
 import redirects from "./redirects.json"
+import { COOKIE_SESSAO, destinoSeguro, sessaoParece } from "@/lib/sessao"
 import { emProducao, site } from "@/lib/site"
 
 /**
@@ -17,6 +18,11 @@ import { emProducao, site } from "@/lib/site"
  *
  * 3. Fora de produção, X-Robots-Tag: noindex — preview e staging nunca
  *    aparecem na busca, mesmo que alguém compartilhe o link.
+ *
+ * 4. A porta da /conta: sem sessão, a página da conta vira o "entrar" (com
+ *    `?para=` pra voltar depois); com sessão, o "entrar" vira a conta. Só
+ *    olha o cookie, sem perguntar ao Medusa — é a checagem otimista do guia
+ *    de autenticação do Next. A de verdade é a página, que pergunta.
  *
  * O Next já trata barra final (/x/ → /x); maiúscula vira 301 pra minúscula.
  */
@@ -42,6 +48,7 @@ const PAGINAS_RAIZ = new Set([
   "nao-encontrado",
   "em-breve",
   "checkout",
+  "conta",
   // `/produtos` (a lista inteira). `/produtos/<handle>` tem dois segmentos e
   // nunca caiu nesta peneira, o que torna o esquecimento aqui especialmente
   // traiçoeiro: a PDP funcionaria e só a lista daria 404.
@@ -97,9 +104,39 @@ export function proxy(req: NextRequest) {
     return NextResponse.rewrite(url)
   }
 
+  if (segmentos[0] === "conta") {
+    const porta = portaDaConta(caminho, req)
+    if (porta) return porta
+  }
+
   const resposta = NextResponse.next()
   if (!emProducao) resposta.headers.set("X-Robots-Tag", "noindex, nofollow")
   return resposta
+}
+
+/**
+ * Quem entra e quem fica na porta da /conta. `/conta/sair` passa sempre: é
+ * quem apaga o cookie do token que o Medusa recusou.
+ */
+function portaDaConta(caminho: string, req: NextRequest): NextResponse | null {
+  if (caminho === "/conta/sair") return null
+
+  const logado = sessaoParece(req.cookies.get(COOKIE_SESSAO)?.value)
+  const entrando = caminho === "/conta/entrar" || caminho.startsWith("/conta/entrar/")
+
+  if (entrando && logado) {
+    const url = req.nextUrl.clone()
+    url.pathname = destinoSeguro(req.nextUrl.searchParams.get("para"))
+    url.search = ""
+    return NextResponse.redirect(url)
+  }
+  if (!entrando && !logado) {
+    const url = req.nextUrl.clone()
+    url.pathname = "/conta/entrar"
+    url.search = caminho === "/conta" ? "" : `?para=${encodeURIComponent(caminho)}`
+    return NextResponse.redirect(url)
+  }
+  return null
 }
 
 export const config = {

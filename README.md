@@ -150,9 +150,9 @@ npm run backend:user -- --email x --password y
 
 | Fase          | Entrega                                                                                        | Onde encostar                                                              |
 | ------------- | ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| 2. Catálogo   | Exportação da Nuvemshop → Medusa (produtos, variações, fotos, peso, medidas, slugs congelados) | script de importação em `apps/backend/src/scripts/`                        |
+| 2. Catálogo   | Nuvemshop → Medusa: produtos, variações, fotos, medidas, slugs congelados e pedidos antigos    | script de importação em `apps/backend/src/scripts/`                        |
 | 3. Vitrine    | Home, PDP, categoria, busca, blog, institucionais — o protótipo HTML vira componentes          | `apps/loja/src/app`, `components/`                                         |
 | 4. Checkout   | Gaveta + 3 passos ligados ao Medusa; Pagar.me em sandbox; webhook pela Edge Function           | `apps/backend/src/modules/pagarme`, `supabase/functions/webhook-pagamento` |
-| 5. Operação   | Bling (NF-e), Frenet (+ Melhor Envio reserva), Resend, carrinho abandonado                     | subscribers/jobs do worker                                                 |
-| 6. Virada     | Mapa de 301 completo, clientes redefinem senha, DNS                                            | `apps/loja/src/redirects.json`, Cloudflare                                 |
+| 5. Operação   | Bling (NF-e), Frenet (+ Melhor Envio reserva), e-mails de pedido (Resend), carrinho abandonado | subscribers/jobs do worker                                                 |
+| 6. Virada     | Mapa de 301 completo, a última importação de pedidos da Nuvemshop, DNS                         | `apps/loja/src/redirects.json`, Cloudflare                                 |
 | 7. Pós-virada | 30 dias de vigilância: 404, Web Vitals, conversão, webhooks                                    | Search Console, `loja.web_vitals_p75`                                      |

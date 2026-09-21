@@ -1,6 +1,6 @@
 # Estado do projeto — e o que vem a seguir
 
-Atualizado em 21/09/2026, com o protótipo da Minha conta (depois do acerto do checkout). O
+Atualizado em 21/09/2026, com o login da Minha conta (código por e-mail, sem senha). O
 AGENTS.md diz **como** trabalhar aqui; este arquivo diz **onde** o projeto está. Leia os dois antes
 de começar e, ao terminar uma tarefa, atualize este: o que mudou de estado, o que saiu da lista, o
 que entrou.
@@ -102,12 +102,25 @@ sozinha a cada 5 minutos; se nem ela resolver, o log com `[conciliação]` diz o
       e-mail, horário e prazo de postagem.
 - [ ] Catálogo da Nuvemshop (fase 2).
 - [ ] Páginas que faltam — Blog, Contato, Dúvidas, Minha conta (hoje apontam pro `/em-breve`).
-- [ ] **Minha conta:** protótipo em `apps/loja/ferramentas/porte/prototipo-conta.html`, esperando
-      aprovação. Decidido: entrar com código de 6 dígitos no e-mail, sem senha (o primeiro acesso
-      cria a conta), e o histórico da Nuvemshop importado com o número de lá. O porte pede um
-      provedor de auth próprio no Medusa e os e-mails (Resend) antes da fase 5. E, antes da
-      virada, decidir a numeração: a loja nova conta do #1, e se a da Nuvemshop também for baixa
-      vão existir dois "#28".
+- [ ] **Minha conta**, em três partes. Protótipo aprovado:
+      `apps/loja/ferramentas/porte/prototipo-conta.html`.
+  - [x] 1. Entrar com código de 6 dígitos no e-mail, sem senha; o primeiro código cria a conta, e o
+        cliente convidado de quem já comprou vira a conta (com os pedidos). `/conta` ainda sem
+        link na loja — o "Minha conta" do cabeçalho segue no `/em-breve` até a parte 3.
+  - [ ] **Você: o Resend.** Sem ele ninguém entra na conta em produção. (a) Criar a conta em
+        resend.com — o plano grátis (100 e-mails por dia) dá pro login; (b) Domains → Add Domain →
+        `fuckingbarba.com.br`, e no DNS os três registros que ele mostrar (um MX e um TXT no
+        `send`, um TXT no `resend._domainkey`) — ficam em subdomínios, não mexem no site nem no
+        e-mail de hoje; esperar o "Verified"; (c) API Keys → Create, com "Sending access" só desse
+        domínio; (d) no Railway: `RESEND_API_KEY` e, se quiser outro remetente que
+        `nao-responda@fuckingbarba.com.br`, `EMAIL_REMETENTE`. Pra conferir: pedir um código em
+        `/conta/entrar` — se não chegar, o log do Railway diz por quê (linha `[email]`).
+  - [ ] 2. Visão geral, pedidos e o detalhe do pedido.
+  - [ ] 3. Endereços e meus dados — e aí o link do cabeçalho troca o `/em-breve` por `/conta`.
+  - [ ] Histórico da Nuvemshop na conta: junto da importação do catálogo (fase 2), e de novo na
+        virada, com os últimos pedidos.
+  - [ ] Numeração: decidido que os pedidos novos começam depois do último da Nuvemshop (nada de dois
+        "#28"). **Falta você dizer o número** do pedido mais recente de lá.
 - [ ] O checkout não pede mais aceite das regras de troca (a linha embaixo do botão de pagar saiu
       no enxugamento de 21/09). As regras seguem publicadas no `/trocas`, com link no rodapé. Se
       quiser o aceite de volta sem texto novo: o "7 dias pra trocar ou devolver" da faixa do passo
@@ -118,15 +131,16 @@ sozinha a cada 5 minutos; se nem ela resolver, o log com `[conciliação]` diz o
 
 ### 4. Fase 5
 
-- E-mails transacionais (Resend), nota fiscal (Bling) e `purchase` pro GA4 e pra Meta. O gancho é
+- E-mails transacionais — o Resend já está ligado (`apps/backend/src/lib/email.ts`, que manda o
+  código de acesso) —, nota fiscal (Bling) e `purchase` pro GA4 e pra Meta. O gancho é
   `apps/backend/src/subscribers/pagamento-capturado.ts` — idempotente, porque o evento pode sair
   duas vezes pro mesmo pagamento.
 - E-mail de "seu Pix venceu": a conciliação já cancela o pedido e devolve o estoque; falta avisar.
 
 ## Como seguir no Claude Code
 
-- O operacional está no AGENTS.md: comandos, os oito conferidores (contra o Medusa local, com Frenet
-  e Pagar.me falsos) e as regras. Rode os conferidores antes de subir.
+- O operacional está no AGENTS.md: comandos, os nove conferidores (contra o Medusa local, com Frenet,
+  Pagar.me e Resend falsos) e as regras. Rode os conferidores antes de subir.
 - O que mexe em produção — variável, painel, script no Railway — quem faz é você; o Claude Code
   prepara e diz o comando.
 - Chave nunca passa pela conversa. Cuidado com texto copiado de painel: o link pode levar o valor
