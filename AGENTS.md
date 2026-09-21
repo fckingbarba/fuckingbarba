@@ -26,6 +26,32 @@ cd supabase/functions && deno check webhook-pagamento/index.ts vitals/index.ts &
 
 Desenvolvimento local precisa de Postgres e Redis: `docker compose up -d`.
 
+**`next start` fala com a PRODUÇÃO.** Ele lê o `.env.local`, que aponta pro Medusa do Railway; só o
+`next dev` lê o `.env.development.local`. Pra testar um build contra o Medusa local, exporte as
+variáveis do `.env.development.local` antes do `next build` (as `NEXT_PUBLIC_` entram no bundle na
+hora do build) e de novo no `next start`. Sem isso, "Adicionar à sacola" cria carrinho na loja de
+verdade.
+
+### Conferidores
+
+`apps/loja/ferramentas/conferir-*.mjs` abrem a loja num Chromium de verdade e comparam o que está na
+tela com o que a API do Medusa responde — nunca com outra conta feita no próprio teste. São sete:
+frete, pdp, checkout, catálogo, links, configurações e documento. Rode os que tocam no que você mexeu,
+e todos antes de entregar. Os que escrevem no admin desfazem o que mudaram no fim, mesmo quando falham.
+
+```bash
+# o de frete sobe uma Frenet falsa na porta 4310; o backend precisa apontar pra ela
+FRENET_URL=http://127.0.0.1:4310/shipping/quote FRENET_TOKEN=teste npm run backend:dev
+npm run loja:dev
+cd apps/loja && export $(grep -E '^(MEDUSA_BACKEND_URL|NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY)=' .env.development.local | xargs)
+ADMIN_EMAIL=<admin local> ADMIN_SENHA=<senha local> node ferramentas/conferir-frete.mjs
+```
+
+O admin é um usuário do banco LOCAL (`npm run backend:user`). `CHROMIUM=<caminho>` quando o
+Playwright não achar o navegador. Layout de componente interativo se confere com foto, não com
+asserção — `ferramentas/retrato-calculadora.mjs` é o modelo, e roda contra `next build` +
+`next start`.
+
 ## Regras do projeto
 
 - **Português nos nomes** (funções, variáveis, rotas, comentários) e nas mensagens pro usuário. Sem
@@ -50,6 +76,12 @@ Desenvolvimento local precisa de Postgres e Redis: `docker compose up -d`.
 - **Sem GTM, sem widget de terceiro no `<head>`.** Tags entram por `components/analytics/tags.tsx`,
   depois do consentimento. Orçamento de terceiros: 150 KB (Lighthouse CI quebra acima).
 - **Segredo nunca com `NEXT_PUBLIC_`.** Chaves de servidor ficam no Railway e na Vercel, nunca em código.
+- **Chave nunca passa pela conversa.** Token, senha e segredo vão direto no painel do Railway ou da
+  Vercel, por quem tem acesso a ele. Se um aparecer colado num chat, num log ou num commit, conta como
+  vazado: revoga e gera outro. Diagnóstico de credencial mostra host e nome do banco, nunca o valor.
+  A chave publicável do Medusa (`pk_…`) é pública por desenho e não entra nesta regra.
+- **Número de cartão nunca chega no servidor da loja** (PCI-DSS). A tokenização é no navegador, e
+  campo de cartão não tem atributo `name` — o conferidor de checkout confere isso.
 - **Estilo**: sem `border-radius` (a marca é chanfro e sombra dura); tokens em `globals.css`
   (`@theme`); em fundo menta só `text-tinta`/`text-papel` (contraste AA).
 - Prettier na raiz (`.prettierrc`: sem ponto e vírgula, 100 colunas). ESLint por app.
@@ -70,8 +102,20 @@ em `03-api-reference/03-file-conventions/loading.md`.
 Documentação: https://docs.medusajs.com. O build de produção é `.medusa/server` — é de lá que o
 Railway roda `medusa start` e `medusa db:migrate`.
 
+**Frete** é um provider próprio (`src/modules/frenet/`, id `frenet_frenet`), montado por
+`src/scripts/frete.ts`. As opções só aparecem no carrinho com a corrente inteira de pé — canal de
+venda → local de estoque → conjunto → zona → opção, e todo produto com perfil de envio. Um elo
+faltando dá lista vazia, sem erro nenhum; por isso o script confere a corrente no fim em vez de
+dizer "pronto". Preço cotado sai de `POST /store/shipping-options/:id/calculate`: o `GET` da lista
+não calcula. Peso e medidas moram na VARIANTE (`src/scripts/medidas.ts`), não no produto.
+
 ## Fora dos limites
 
 - `apps/backend/.medusa/`, `apps/loja/.next/`, `node_modules/` — gerados.
+- **CSS que começa com "Gerado por …"** em `apps/loja/src/estilos/` (quase todo `pdp*.css` e
+  `checkout*.css`). Sai de `ferramentas/porte/pdp-partes/agrupa-pdp.py` (fonte: `estilo.css` da mesma
+  pasta) e de `ferramentas/porte/checkout-partes/agrupa-checkout.py` (fonte:
+  `prototipo-checkout.html`). Edite a fonte e rode o script — o que se escreve no gerado some na
+  próxima rodada. Arquivo sem o cabeçalho é escrito à mão e se edita direto.
 - Schema `public` do Supabase — do Medusa; migra pelo `medusa db:migrate`, nunca por SQL manual.
 - `redirects.json` — só cresce; nunca remova uma linha (é o que preserva o Google).
