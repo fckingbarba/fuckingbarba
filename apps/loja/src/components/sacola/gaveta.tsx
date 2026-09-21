@@ -267,10 +267,9 @@ export function Gaveta() {
           </p>
 
           {/*
-            O /checkout existe e fecha pedido — o que falta é cobrança de
-            verdade. Enquanto `CHECKOUT_ABERTO` for `false`, este botão vai
-            pro /em-breve: melhor que levar alguém a uma tela que aceita o
-            pedido e não cobra nada.
+            Pro /checkout, que cobra de verdade (Pix ou cartão, pelo
+            Pagar.me). Com `CHECKOUT_ABERTO` em `false`, este botão volta pro
+            /em-breve — ver `lib/site.ts`.
           */}
           <Link href={DESTINO_DO_CHECKOUT} className="btn btn--bloco sacolinha__finalizar">
             Finalizar compra

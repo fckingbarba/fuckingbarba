@@ -62,8 +62,9 @@ rodam contra o `next dev` (`LOJA`, padrão `localhost:3000`): com o cache de pro
 conteúdo de antes da edição e falha sem bug nenhum. Os `apps/backend/ferramentas/conferir-{frete,pedido}.mjs` são de antes da Frenet (esperam
 "Correios PAC" fixo e não sobem a falsa) — os que valem são os oito da loja.
 
-O de pagamento liga o Pagar.me na região pelo admin e devolve como estava; o de checkout roda com
-qualquer um dos dois provedores. A conciliação automática roda a cada 5 minutos DENTRO do
+O de pagamento liga o Pagar.me na região pelo admin e devolve como estava. O de checkout, com o
+checkout aberto (`CHECKOUT_ABERTO`), precisa do Pagar.me ligado na região local — o passo 3 não
+oferece mais o provisório —: `PAGARME_SECRET_KEY=sk_test_falsa npm run backend:pagamento`, uma vez. A conciliação automática roda a cada 5 minutos DENTRO do
 `medusa develop` (o worker é o mesmo processo): teste que depende de "ninguém mexeu nisso ainda"
 precisa sair da janela dela — ver `longeDaConciliacaoAutomatica` no conferidor de pagamento.
 

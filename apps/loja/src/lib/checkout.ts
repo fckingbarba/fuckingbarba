@@ -14,7 +14,7 @@ import {
   type ProvedorDePagamento,
 } from "./checkout-visivel"
 import { cliente, temEstoque } from "./medusa"
-import { site } from "./site"
+import { CHECKOUT_ABERTO, site } from "./site"
 
 /**
  * A LEITURA DO CHECKOUT
@@ -229,10 +229,16 @@ export async function listarProvedores(regiaoId: string): Promise<ProvedorDePaga
       region_id: regiaoId,
       limit: 20,
     })
-    return (payment_providers ?? []).map((p) => ({
-      id: p.id,
-      ...(NOMES[p.id] ?? { nome: p.id, descricao: "", simbolico: false }),
-    }))
+    return (
+      (payment_providers ?? [])
+        .map((p) => ({
+          id: p.id,
+          ...(NOMES[p.id] ?? { nome: p.id, descricao: "", simbolico: false }),
+        }))
+        // Checkout aberto só oferece o que cobra: o provisório fecharia pedido
+        // de graça. Sem nenhum, o passo 3 diz que não há forma de pagamento.
+        .filter((p) => !(CHECKOUT_ABERTO && p.simbolico))
+    )
   } catch (e) {
     aviso(e, `provedores da região ${regiaoId}`)
     return []

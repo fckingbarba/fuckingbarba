@@ -19,25 +19,23 @@
 export const EM_BREVE = "/em-breve"
 
 /**
- * A CHAVE DO CHECKOUT.
+ * A CHAVE DO CHECKOUT — aberta.
  *
- * O `/checkout` existe, funciona ponta a ponta e fecha pedido de verdade, e
- * o Pagar.me está integrado (`apps/backend/src/modules/pagarme/`). O que
- * decide se ele COBRA é a região do Medusa: com o `pp_system_default`, o
- * provisório, o pedido fecha sem cobrança nenhuma; com o `pp_pagarme_pagarme`
- * (ligado por `npm run backend:pagamento`), fecha com Pix ou cartão.
+ * O botão "Finalizar compra" da sacola leva pro `/checkout`, e o checkout
+ * cobra de verdade: Pix ou cartão em até 3x, pelo Pagar.me
+ * (`apps/backend/src/modules/pagarme/`), ligado na região por
+ * `npm run backend:pagamento`.
  *
- * Enquanto isto for `false`, o botão da sacola continua indo pro `/em-breve`
- * e a página de checkout só é alcançada por quem digita a URL — que é como
- * ela é testada, inclusive com a chave de teste do Pagar.me.
+ * ABERTO QUER DIZER COBRANDO. Com isto em `true`, o provedor provisório
+ * (`pp_system_default`, que fecha pedido sem cobrar nada) some do passo 3 e é
+ * recusado na ação de finalizar — se a região um dia voltar pra ele (um
+ * `backend:pagamento -- voltar` esquecido), o checkout diz "nenhuma forma de
+ * pagamento disponível" em vez de aceitar pedido de graça.
  *
- * VIRE PRA `true` DEPOIS de: a região estar com o Pagar.me (o script confere),
- * uma compra de ensaio com Pix e outra com cartão passarem na chave de teste,
- * e a chave de produção entrar no Railway e na Vercel. É a única linha que
- * precisa mudar; nenhuma tela depende deste valor além do botão (e das
- * formas de pagamento de vitrine do passo 3, que somem).
+ * `false` fecha de novo: o botão volta pro `/em-breve`, e o passo 3 volta a
+ * aceitar o provisório, com o aviso de que o pedido não é cobrado.
  */
-export const CHECKOUT_ABERTO = false
+export const CHECKOUT_ABERTO = true
 
 /** Pra onde o botão "Finalizar compra" aponta hoje. */
 export const DESTINO_DO_CHECKOUT = CHECKOUT_ABERTO ? "/checkout" : EM_BREVE

@@ -121,10 +121,11 @@ const frenet = await subirFrenetFalsa()
 
 /*
   E O PAGAR.ME FALSO, pelo mesmo motivo: este teste é sobre o checkout, não
-  sobre a cobrança (quem cuida dela é o `conferir-pagamento.mjs`). Mas se a
-  região estiver com o Pagar.me ligado, fechar o pedido cria um Pix — e sem
-  ninguém do outro lado, o fechamento falharia por um motivo que não é o
-  que este arquivo procura. Com o provisório (`pp_system_default`), ele fica
+  sobre a cobrança (quem cuida dela é o `conferir-pagamento.mjs`). Mas com o
+  Pagar.me ligado na região — e com o checkout aberto ele TEM que estar —,
+  fechar o pedido cria um Pix, e sem ninguém do outro lado o fechamento
+  falharia por um motivo que não é o que este arquivo procura. Com o
+  provisório (`pp_system_default`, só com o checkout fechado), ele fica
   aqui parado.
 */
 const pagarme = await subirPagarmeFalso()
@@ -288,6 +289,36 @@ ok(Boolean(carrinhoId), "o carrinho existe e tem o produto", `veio ${carrinhoId}
       headers: { "content-type": "application/json", "x-publishable-api-key": CHAVE },
       body: JSON.stringify({ quantity: 2 }),
     })
+  }
+}
+
+/*
+  CHECKOUT ABERTO SÓ OFERECE O QUE COBRA (`CHECKOUT_ABERTO`, em
+  `lib/site.ts`): o provisório, que fecha pedido sem cobrar, some do passo 3.
+  Então, aberto, este teste precisa do Pagar.me — o falso, lá em cima — ligado
+  na região; senão o passo 3 não tem forma de pagamento e o teste morreria num
+  tempo esgotado que não diz nada. Quem diz se está aberto é o botão da
+  gaveta, que acabou de abrir com o produto.
+*/
+const destinoDaGaveta = await pagina
+  .locator("a.sacolinha__finalizar")
+  .first()
+  .getAttribute("href", { timeout: 5000 })
+  .catch(() => null)
+if (destinoDaGaveta === "/checkout") {
+  const regiao = (await medusa(`/store/carts/${carrinhoId}?fields=region_id`))?.cart?.region_id
+  const { payment_providers: daRegiao = [] } =
+    (await medusa(`/store/payment-providers?region_id=${regiao}`)) ?? {}
+  if (!daRegiao.some((p) => p.id === "pp_pagarme_pagarme")) {
+    console.log(
+      "\n  ✗ o checkout está aberto e a região local não tem o Pagar.me — o passo 3 ficaria\n" +
+        "    sem forma de pagamento. Ligue o falso na região e rode de novo:\n" +
+        "    PAGARME_SECRET_KEY=sk_test_falsa npm run backend:pagamento"
+    )
+    await navegador.close()
+    frenet.fechar()
+    pagarme.fechar()
+    process.exit(1)
   }
 }
 

@@ -92,6 +92,9 @@ export type ProvedorDePagamento = {
  */
 export const PROVEDOR_PAGARME = "pp_pagarme_pagarme"
 
+/** O provisório do Medusa: fecha o pedido sem cobrar nada. Ver `CHECKOUT_ABERTO`. */
+export const PROVEDOR_PROVISORIO = "pp_system_default"
+
 /**
  * O pagamento de um pedido já fechado, como a tela de obrigado desenha.
  *

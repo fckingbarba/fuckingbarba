@@ -45,10 +45,11 @@ import { Painel, Recado, type PropsDaEtapa } from "./etapas"
  * │ • `pp_pagarme_pagarme` — Pix e cartão em até 3x, de verdade. É o que   │
  * │   o `npm run backend:pagamento` liga, e é quando ele aparece que esta  │
  * │   tela passa a cobrar;                                                 │
- * │ • `pp_system_default` — o provisório, que APROVA SEM COBRAR. Com ele,  │
- * │   Pix e cartão aparecem só como vitrine (e só enquanto                 │
- * │   `CHECKOUT_ABERTO` for `false`), e a tela diz com todas as letras     │
- * │   que o pedido não é cobrado agora.                                    │
+ * │ • `pp_system_default` — o provisório, que APROVA SEM COBRAR. Com o     │
+ * │   checkout aberto (`CHECKOUT_ABERTO`), ele nem chega aqui: a lista de  │
+ * │   provedores o tira, e sem o Pagar.me a tela diz que não há forma de   │
+ * │   pagamento. Fechado, Pix e cartão aparecem como vitrine, e a tela diz │
+ * │   com todas as letras que o pedido não é cobrado agora.                │
  * │                                                                        │
  * │ O NÚMERO DO CARTÃO NÃO SAI DO NAVEGADOR, a não ser direto pro          │
  * │ Pagar.me: os campos não têm `name` (não entram no FormData da ação),   │

@@ -8,6 +8,7 @@ import { lerCarrinho, pedidoDoCarrinhoFechado } from "@/lib/carrinho"
 import { abrirPedido, CAMPOS_CHECKOUT } from "@/lib/checkout"
 import {
   PROVEDOR_PAGARME,
+  PROVEDOR_PROVISORIO,
   type EnderecoVisivel,
   type ErrosDoFormulario,
   type EstadoDaEtapa,
@@ -17,6 +18,7 @@ import { conferirDocumento, type Documento } from "@/lib/documento"
 import { lerEndereco, montarEndereco } from "@/lib/endereco"
 import { cliente } from "@/lib/medusa"
 import { depoisDaRecusa, entradaDoCarrinho } from "@/lib/pagamento"
+import { CHECKOUT_ABERTO } from "@/lib/site"
 
 /**
  * AS AÇÕES DO CHECKOUT
@@ -380,6 +382,16 @@ export async function finalizar(anterior: EstadoDaEtapa, fd: FormData): Promise<
   fd.delete("token_cartao")
 
   if (!provedor) return erro(anterior, { provedor: "Escolhe como pagar." }, "", fd)
+  // A tela já não oferece o provisório com o checkout aberto; a ação é um
+  // POST público, então confere de novo — pedido que não cobra, não entra.
+  if (CHECKOUT_ABERTO && provedor === PROVEDOR_PROVISORIO) {
+    return erro(
+      anterior,
+      {},
+      "O pagamento pelo site está fora do ar agora. Chama a gente no WhatsApp que a gente fecha o pedido por lá.",
+      fd
+    )
+  }
 
   const cobra = provedor === PROVEDOR_PAGARME
   if (cobra && forma !== "pix" && forma !== "cartao") {
