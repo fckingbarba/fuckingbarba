@@ -1,6 +1,15 @@
 "use client"
 
-import { useActionState, useEffect, useRef, useState, useTransition } from "react"
+import {
+  useActionState,
+  useEffect,
+  useOptimistic,
+  useRef,
+  useState,
+  useTransition,
+  type FormEvent,
+  type TransitionStartFunction,
+} from "react"
 import { Mais, Raio } from "@/components/icones"
 import { adicionarOferta, consultarCep, escolherFrete, salvarEntrega } from "@/lib/acoes/checkout"
 import { mascararCep } from "@/lib/cep-formato"
@@ -13,7 +22,14 @@ import {
 import { emReais } from "@/lib/formato"
 import { site } from "@/lib/site"
 import { Campo } from "./campo"
-import { Painel, Recado, useFechaQuandoSalva, type PropsDaEtapa } from "./etapas"
+import {
+  Giro,
+  Painel,
+  Recado,
+  useAvisaOcupado,
+  useFechaQuandoSalva,
+  type PropsDaEtapa,
+} from "./etapas"
 
 /**
  * PASSO 2 — o endereço e o frete.
@@ -74,6 +90,16 @@ type Props = PropsDaEtapa & {
 export function Entrega({ checkout, fretes, sugestoes, falta, piso, aoSalvar, ...casca }: Props) {
   const [estado, acao, enviando] = useActionState(salvarEntrega, ESTADO_INICIAL)
   useFechaQuandoSalva(estado, aoSalvar)
+  useAvisaOcupado(casca, enviando ? "Salvando…" : null)
+  const { recalcular, recalculando } = casca
+
+  // Um envio por vez, e nenhum com o frete trocando: o rádio fica travado no
+  // caminho, e rádio travado não entra no FormData — o passo gravaria o
+  // endereço sem a entrega. Os botões já travam; isto cobre o Enter num campo
+  // de texto e o toque repetido na barra do celular.
+  function aoEnviar(ev: FormEvent<HTMLFormElement>) {
+    if (enviando || recalculando) ev.preventDefault()
+  }
 
   const inicial = checkout.entrega
   const [cep, setCep] = useState(mascararCep(inicial.cep))
@@ -148,8 +174,8 @@ export function Entrega({ checkout, fretes, sugestoes, falta, piso, aoSalvar, ..
   const v = (campo: string, gravado: string) => estado.valores?.[campo] ?? gravado
 
   return (
-    <Painel etapa="entrega" aberta={casca.aberta} dica="Digita o CEP que a gente preenche o resto.">
-      <form id="form-entrega" action={acao} noValidate>
+    <Painel etapa="entrega" aberta={casca.aberta}>
+      <form id="form-entrega" action={acao} onSubmit={aoEnviar} noValidate>
         <div className="campos">
           <Campo
             rotulo="CEP"
@@ -249,13 +275,21 @@ export function Entrega({ checkout, fretes, sugestoes, falta, piso, aoSalvar, ..
           {!buscando && naoAchou ? "Não achei esse CEP. Preenche à mão que funciona igual." : null}
         </p>
 
-        <Fretes checkout={checkout} fretes={fretes} abriu={abriu} />
+        <Fretes
+          checkout={checkout}
+          fretes={fretes}
+          abriu={abriu}
+          recalcular={recalcular}
+          recalculando={recalculando}
+        />
 
         <Completa
           sugestoes={sugestoes}
           falta={falta}
           piso={piso}
           temFrete={abriu && fretes.length > 0}
+          recalcular={recalcular}
+          recalculando={recalculando}
         />
 
         <Recado estado={estado} />
@@ -268,9 +302,15 @@ export function Entrega({ checkout, fretes, sugestoes, falta, piso, aoSalvar, ..
           >
             ← Voltar
           </button>
-          <button type="submit" className="btn" disabled={enviando}>
+          <button
+            type="submit"
+            className="btn"
+            disabled={enviando || recalculando}
+            aria-busy={enviando || undefined}
+          >
+            {enviando ? <Giro /> : null}
             {enviando ? "Salvando…" : "Ir pro pagamento"}
-            <Raio className="btn__bolt" />
+            {enviando ? null : <Raio className="btn__bolt" />}
           </button>
         </div>
       </form>
@@ -289,22 +329,54 @@ export function Entrega({ checkout, fretes, sugestoes, falta, piso, aoSalvar, ..
  * A ESCOLHA GRAVA NA HORA, sem esperar o botão: o valor do frete entra no
  * resumo ao lado, e um total que só atualiza no clique seguinte é um total em
  * que ninguém confia.
+ *
+ * ┌─ A ESPERA DA TROCA ────────────────────────────────────────────────────┐
+ * │ A marca muda no clique (`useOptimistic`); a opção escolhida ganha a    │
+ * │ barrinha menta correndo embaixo, e o dinheiro do resumo esmaece até o  │
+ * │ Medusa responder — o mesmo desenho da espera da sacola. Os preços das  │
+ * │ opções não esmaecem: eles não mudam com a troca, só o total muda.      │
+ * │                                                                        │
+ * │ Se o Medusa recusar (a opção sumiu entre a cotação e o clique), a      │
+ * │ transição acaba sem `refresh()`, a marca volta sozinha pra gravada, e  │
+ * │ o recado diz por quê. Antes a resposta era jogada fora: a tela mostrava│
+ * │ uma entrega e o carrinho guardava outra.                               │
+ * └────────────────────────────────────────────────────────────────────────┘
  */
 function Fretes({
   checkout,
   fretes,
   abriu,
+  recalcular,
+  recalculando,
 }: {
   checkout: CheckoutVisivel
   fretes: OpcaoDeFrete[]
   abriu: boolean
+  recalcular: TransitionStartFunction
+  recalculando: boolean
 }) {
-  const [, acao, trocando] = useActionState(escolherFrete, ESTADO_INICIAL)
+  // A gravada no carrinho — ou, enquanto não há nenhuma, a primeira da
+  // lista, que é a que o envio do passo grava junto com o endereço.
+  const gravada = checkout.freteEscolhido ?? fretes[0]?.id ?? ""
+  const [marcada, preverMarca] = useOptimistic(gravada)
+  const [erro, setErro] = useState("")
+  const trocando = marcada !== gravada
 
   if (!abriu) return null
 
+  function escolher(id: string) {
+    setErro("")
+    recalcular(async () => {
+      preverMarca(id)
+      const fd = new FormData()
+      fd.set("opcao", id)
+      const r = await escolherFrete(ESTADO_INICIAL, fd)
+      if (!r.ok) setErro(r.mensagem || "Não consegui trocar a entrega agora. Tenta de novo.")
+    })
+  }
+
   return (
-    <fieldset className="opcoes" style={{ marginTop: 16 }}>
+    <fieldset className="opcoes" style={{ marginTop: 16 }} aria-busy={trocando || undefined}>
       <legend>Como quer receber</legend>
 
       {fretes.length === 0 ? (
@@ -313,20 +385,22 @@ function Fretes({
           gente no WhatsApp que a gente dá um jeito.
         </p>
       ) : (
-        fretes.map((f, i) => (
-          <label className="opcao" key={f.id}>
+        fretes.map((f) => (
+          <label
+            className="opcao"
+            key={f.id}
+            data-mexendo={trocando && marcada === f.id ? "" : undefined}
+          >
             {f.preco === 0 ? <span className="opcao__selo">Frete grátis</span> : null}
             <input
               type="radio"
               name="opcao"
               value={f.id}
-              defaultChecked={checkout.freteEscolhido ? checkout.freteEscolhido === f.id : i === 0}
-              disabled={trocando}
-              onChange={(ev) => {
-                const fd = new FormData()
-                fd.set("opcao", ev.target.value)
-                acao(fd)
-              }}
+              checked={marcada === f.id}
+              // Travado só enquanto uma troca vai e volta: duas cruzadas no
+              // caminho podiam deixar gravada a primeira e marcada a segunda.
+              disabled={recalculando}
+              onChange={() => escolher(f.id)}
             />
             <span>
               <span className="opcao__nome">{f.nome}</span>
@@ -339,6 +413,12 @@ function Fretes({
           </label>
         ))
       )}
+
+      {erro ? (
+        <p className="campo__erro" role="alert">
+          {erro}
+        </p>
+      ) : null}
     </fieldset>
   )
 }
@@ -361,14 +441,20 @@ function Completa({
   falta,
   piso,
   temFrete,
+  recalcular,
+  recalculando,
 }: {
   sugestoes: Oferta[]
   falta: number
   piso: number
   temFrete: boolean
+  recalcular: TransitionStartFunction
+  recalculando: boolean
 }) {
   const [dispensado, setDispensado] = useState(false)
-  const [pondo, comecar] = useTransition()
+  // Qual chip está indo pro carrinho. Otimista: volta a `null` sozinho
+  // quando a transição acaba, deu certo ou não.
+  const [pondo, marcarPondo] = useOptimistic<string | null>(null)
   const [aviso, setAviso] = useState("")
   const [falhou, setFalhou] = useState("")
 
@@ -395,10 +481,12 @@ function Completa({
             <button
               type="button"
               className="completa__chip"
-              disabled={pondo}
+              disabled={recalculando}
+              data-mexendo={pondo === o.varianteId ? "" : undefined}
               aria-label={`Adicionar ${o.nome} por ${emReais(o.preco)} e liberar o frete grátis`}
               onClick={() =>
-                comecar(async () => {
+                recalcular(async () => {
+                  marcarPondo(o.varianteId)
                   const r = await adicionarOferta(o.varianteId)
                   setFalhou(r.ok ? "" : o.nome)
                   setAviso(

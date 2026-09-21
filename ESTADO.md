@@ -1,8 +1,9 @@
 # Estado do projeto — e o que vem a seguir
 
-Atualizado em 21/09/2026, no fim da integração do Pagar.me. O AGENTS.md diz **como** trabalhar aqui;
-este arquivo diz **onde** o projeto está. Leia os dois antes de começar e, ao terminar uma tarefa,
-atualize este: o que mudou de estado, o que saiu da lista, o que entrou.
+Atualizado em 21/09/2026, depois do acerto do checkout (gaveta, logo, bump, esperas, textos). O
+AGENTS.md diz **como** trabalhar aqui; este arquivo diz **onde** o projeto está. Leia os dois antes
+de começar e, ao terminar uma tarefa, atualize este: o que mudou de estado, o que saiu da lista, o
+que entrou.
 
 ## No ar hoje
 
@@ -58,6 +59,13 @@ sozinha a cada 5 minutos; se nem ela resolver, o log com `[conciliação]` diz o
 - [ ] Estornar pelo painel do Pagar.me o Pix do #6 — o estorno pedido pelo admin falhou (ver o
       primeiro achado abaixo). O Medusa já está como Refunded; não mexer lá.
 - [ ] Uma compra real pequena no cartão, cancelando em seguida.
+- [ ] **Criar a promoção do bump em produção** — sem ela, o "Só nessa tela" do passo 3 não
+      desconta. No shell do Railway: `cd apps/backend/.medusa/server && npx medusa exec ./src/scripts/promocoes.js`
+      (cria o `BUMP-OLEO`; rodar de novo só atualiza). Até lá, marcar a caixinha diz "Não deu pra
+      incluir a oferta agora" e o pedido segue sem o óleo; o log da Vercel diz o motivo (linha
+      `[checkout] bump marcar`). Antes do acerto do checkout ela marcava e desmarcava — e, quando
+      o que falhava era o desconto, o óleo ficava no carrinho **a preço cheio**: vale olhar se
+      algum pedido de teste saiu com um óleo que ninguém pediu.
 
 ### 2. Achados da revisão do pagamento — Claude Code
 
@@ -94,6 +102,10 @@ sozinha a cada 5 minutos; se nem ela resolver, o log com `[conciliação]` diz o
       e-mail, horário e prazo de postagem.
 - [ ] Catálogo da Nuvemshop (fase 2).
 - [ ] Páginas que faltam — Blog, Contato, Dúvidas, Minha conta (hoje apontam pro `/em-breve`).
+- [ ] O checkout não pede mais aceite das regras de troca (a linha embaixo do botão de pagar saiu
+      no enxugamento de 21/09). As regras seguem publicadas no `/trocas`, com link no rodapé. Se
+      quiser o aceite de volta sem texto novo: o "7 dias pra trocar ou devolver" da faixa do passo
+      3 vira link pro `/trocas`.
 - [ ] Troca de domínio (fase 6). O que depende do endereço da loja: `NEXT_PUBLIC_SITE_URL` na
       Vercel, `STORE_CORS`/`AUTH_CORS` no Railway, `SITE_ORIGENS` no Supabase, a indexação, e o
       domínio no Pagar.me se ele passar a exigir.

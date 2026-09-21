@@ -1,16 +1,18 @@
 "use client"
 
 import Image from "next/image"
-import Link from "next/link"
 import {
   startTransition,
   useActionState,
+  useEffect,
   useOptimistic,
+  useRef,
   useState,
-  useTransition,
   type FormEvent,
   type ReactNode,
+  type TransitionStartFunction,
 } from "react"
+import { createPortal } from "react-dom"
 import { Cadeado, Caminhao, Escudo, Raio, Relogio } from "@/components/icones"
 import { BANDEIRAS, FORMAS, GARANTIAS, type FormaDePagamento } from "@/conteudo/checkout"
 import { alternarBump, finalizar } from "@/lib/acoes/checkout"
@@ -34,7 +36,7 @@ import { emReais } from "@/lib/formato"
 import { nomeNoCartao, tokenizar } from "@/lib/pagarme"
 import { CHECKOUT_ABERTO, PARCELA_MINIMA, PARCELAS_SEM_JUROS } from "@/lib/site"
 import { Campo } from "./campo"
-import { Painel, Recado, type PropsDaEtapa } from "./etapas"
+import { Giro, Painel, Recado, trazerPraVista, useAvisaOcupado, type PropsDaEtapa } from "./etapas"
 
 /**
  * PASSO 3 — pagamento, e o pedido.
@@ -103,6 +105,12 @@ export function Pagamento({ checkout, provedores, bump, aoSalvar, ...casca }: Pr
   const [parcelas, setParcelas] = useState(1)
   const [tokenizando, setTokenizando] = useState(false)
   const [erroDoCartao, setErroDoCartao] = useState("")
+  // O erro do cartão vem pra vista, pelo mesmo motivo do `Recado`: no
+  // celular, quem tocou a barra lá embaixo não está olhando pra ele.
+  const erroDoCartaoRef = useRef<HTMLParagraphElement>(null)
+  useEffect(() => {
+    if (erroDoCartao) trazerPraVista(erroDoCartaoRef.current)
+  }, [erroDoCartao])
 
   const pagarme = provedores.find((p) => p.id === PROVEDOR_PAGARME)
   const provedor = pagarme ?? provedores[0]
@@ -110,6 +118,25 @@ export function Pagamento({ checkout, provedores, bump, aoSalvar, ...casca }: Pr
   const simbolico = !cobra && provedores.some((p) => p.simbolico)
   const pronto = Boolean(checkout.email && checkout.entrega.cep && checkout.freteEscolhido)
   const ocupado = enviando || tokenizando
+  const { recalcular, recalculando } = casca
+  // Pagando, ou com o total mudando por baixo (bump, frete): nada de pedido
+  // novo. Pagar no meio de uma troca cobraria um total que ninguém viu.
+  const travado = ocupado || recalculando
+
+  /*
+   * O QUE A ESPERA DIZ — no botão, na barra do celular e na cortina por
+   * cima da página. `null` fora da espera.
+   */
+  const espera = tokenizando
+    ? "Validando o cartão…"
+    : enviando
+      ? cobra
+        ? forma === "pix"
+          ? "Gerando o Pix…"
+          : "Processando o pagamento…"
+        : "Fechando o pedido…"
+      : null
+  useAvisaOcupado(casca, espera)
 
   const opcoesDeParcelas = parcelasPossiveis(checkout.total)
   // O total pode cair (bump desmarcado) e tirar a parcela escolhida da lista.
@@ -124,11 +151,19 @@ export function Pagamento({ checkout, provedores, bump, aoSalvar, ...casca }: Pr
    * token com o Pagar.me, e só então a ação é chamada, com o token no lugar
    * do cartão. A barra fixa do celular passa por aqui também: ela dispara
    * `requestSubmit()`, que é um envio como outro qualquer.
+   *
+   * UM PEDIDO POR VEZ. O botão trava enquanto espera, mas nem todo envio
+   * passa por ele: o toque na barra do celular e o Enter num campo chegam
+   * direto aqui. Sem esta primeira linha, cada toque a mais enfileirava
+   * outro `finalizar` atrás do primeiro.
    */
   function aoEnviar(e: FormEvent<HTMLFormElement>) {
+    if (travado) {
+      e.preventDefault()
+      return
+    }
     if (!cobra || forma !== "cartao") return
     e.preventDefault()
-    if (ocupado) return
 
     const problema = problemaNoCartao(cartao)
     if (problema) {
@@ -159,26 +194,16 @@ export function Pagamento({ checkout, provedores, bump, aoSalvar, ...casca }: Pr
     })
   }
 
-  const textoDoBotao = ocupado
-    ? tokenizando
-      ? "Validando o cartão…"
-      : cobra
-        ? forma === "pix"
-          ? "Gerando o Pix…"
-          : "Processando o pagamento…"
-        : "Fechando o pedido…"
-    : cobra
+  const textoDoBotao =
+    espera ??
+    (cobra
       ? forma === "pix"
         ? `Pagar ${emReais(checkout.total)} no Pix`
         : `Pagar ${emReais(checkout.total)}`
-      : `Fazer o pedido · ${emReais(checkout.total)}`
+      : `Fazer o pedido · ${emReais(checkout.total)}`)
 
   return (
-    <Painel
-      etapa="pagamento"
-      aberta={casca.aberta}
-      dica="Último passo. Escolhe como pagar e pronto."
-    >
+    <Painel etapa="pagamento" aberta={casca.aberta}>
       <ul className="confia" aria-label="Por que comprar com a gente">
         {GARANTIAS.map((g) => {
           const Icone = ICONES[g.icone]
@@ -229,7 +254,14 @@ export function Pagamento({ checkout, provedores, bump, aoSalvar, ...casca }: Pr
             />
           ) : null}
 
-          {bump ? <Bump bump={bump} marcado={checkout.bumpMarcado} /> : null}
+          {bump ? (
+            <Bump
+              bump={bump}
+              marcado={checkout.bumpMarcado}
+              recalcular={recalcular}
+              travado={travado}
+            />
+          ) : null}
 
           {simbolico ? (
             <p className="pagamento__aviso">
@@ -244,7 +276,7 @@ export function Pagamento({ checkout, provedores, bump, aoSalvar, ...casca }: Pr
             </p>
           ) : null}
           {erroDoCartao ? (
-            <p className="erros-envio" role="alert">
+            <p className="erros-envio" role="alert" ref={erroDoCartaoRef}>
               {erroDoCartao}
             </p>
           ) : (
@@ -259,20 +291,60 @@ export function Pagamento({ checkout, provedores, bump, aoSalvar, ...casca }: Pr
             >
               ← Voltar
             </button>
-            <button type="submit" className="btn" disabled={ocupado || !pronto}>
+            <button
+              type="submit"
+              className="btn"
+              disabled={travado || !pronto}
+              aria-busy={ocupado || undefined}
+            >
+              {ocupado ? <Giro /> : null}
               {textoDoBotao}
-              <Raio className="btn__bolt" />
+              {ocupado ? null : <Raio className="btn__bolt" />}
             </button>
           </div>
-
-          <p className="pagamento__nota" style={{ marginTop: 12 }}>
-            <Cadeado aria-hidden="true" /> Ao fazer o pedido você aceita as{" "}
-            <Link href="/trocas">regras de troca e devolução</Link>, incluindo os 7 dias de
-            arrependimento que a lei garante.
-          </p>
         </form>
       )}
+
+      {/* Fora da cortina, que é `aria-hidden`: a região viva existe sempre,
+          e é a mudança do texto dentro dela que o leitor de tela anuncia. */}
+      <p className="sr-only" role="status" aria-live="polite">
+        {espera ?? ""}
+      </p>
+      {espera ? <Cortina texto={espera} /> : null}
     </Painel>
+  )
+}
+
+/**
+ * A CORTINA DO PAGAMENTO — por cima da página inteira, até a próxima tela.
+ *
+ * O botão mudando de texto era a única notícia de que o pedido estava indo,
+ * e no celular nem isso: o botão de dentro do passo fica escondido lá, e
+ * quem paga toca a barra de baixo. A tela parecia parada, e a pessoa tocava
+ * de novo. Agora a espera é impossível de não ver, e cobre também o que
+ * mudaria o total no meio do caminho — o bump, o cupom, o "editar" dos
+ * passos.
+ *
+ * Ela fica até a tela de obrigado chegar: o `redirect` da ação acontece
+ * dentro da mesma transição, então `enviando` só volta a `false` quando a
+ * página nova está pronta. Se o pagamento voltar com erro, ela some e o
+ * recado aparece — e vem pra vista (`Recado`).
+ *
+ * NUM PORTAL, direto no <body>. Ela nasce dentro do `.bloco`, que recorta os
+ * cantos com `clip-path` — e `clip-path` recorta até filho `position:
+ * fixed`: sem o portal, a cortina seria um retângulo do tamanho do passo.
+ * Só existe depois de um clique, então `document` sempre está lá.
+ */
+function Cortina({ texto }: { texto: string }) {
+  return createPortal(
+    <div className="cortina" aria-hidden="true">
+      <div className="cortina__caixa">
+        <Giro />
+        <p className="cortina__titulo">{texto}</p>
+        <p className="cortina__sub">Não feche nem atualize a página.</p>
+      </div>
+    </div>,
+    document.body
   )
 }
 
@@ -314,20 +386,18 @@ function Formas({
         ))}
       </fieldset>
 
-      <div className="pagamento__painel" data-ativo={forma === "pix" ? "" : undefined}>
-        {cobra ? (
-          <p className="pagamento__nota">
-            Ao confirmar, mostramos o QR code e o código copia-e-cola. <b>Pagou, aprovou</b> — o
-            pedido entra na fila de envio na hora.
-          </p>
-        ) : (
+      {/* Cobrando de verdade, o Pix não precisa de painel: a linha dele já
+          diz "QR code na próxima tela". A vitrine (checkout fechado) é que
+          tem o que avisar — que o QR ali é de exemplo. */}
+      {cobra ? null : (
+        <div className="pagamento__painel" data-ativo={forma === "pix" ? "" : undefined}>
           <p className="pagamento__nota">
             Ao confirmar, mostramos o QR code e o código copia-e-cola.{" "}
             <b>Enquanto o gateway não entra, o QR é de exemplo</b> — o pedido é registrado e a gente
             chama você pra acertar.
           </p>
-        )}
-      </div>
+        </div>
+      )}
 
       <div className="pagamento__painel" data-ativo={forma === "cartao" ? "" : undefined}>
         {cartao}
@@ -499,11 +569,26 @@ function Cartao({
  * Medusa, e marcar a caixinha aplica o código dela. Se o desconto fosse só
  * escrito aqui, o cliente pagaria o cheio — e oferta anunciada vincula.
  *
- * Some sozinha quando o produto já está no pedido (quem acabou de pagar
- * inteiro não quer ver desconto naquilo).
+ * Marcada, ela FICA — é por ela que se desmarca. Só some quando o produto
+ * já está no pedido a preço cheio (`lerBump`).
+ *
+ * Quando o Medusa não aceita (a promoção não existe lá, por exemplo), a ação
+ * desfaz o que fez, a marca volta, e o recado diz que o pedido segue sem a
+ * oferta. Antes a resposta era ignorada: a marca voltava sem explicação — o
+ * "marca e desmarca" —, e o produto ficava no carrinho a preço cheio.
  */
-function Bump({ bump, marcado }: { bump: Oferta; marcado: boolean }) {
-  const [mexendo, comecar] = useTransition()
+function Bump({
+  bump,
+  marcado,
+  recalcular,
+  travado,
+}: {
+  bump: Oferta
+  marcado: boolean
+  recalcular: TransitionStartFunction
+  /** Pagando, ou outra troca no caminho: a caixinha espera. */
+  travado: boolean
+}) {
   /**
    * A marca responde NA HORA, e o servidor confirma depois.
    *
@@ -515,9 +600,11 @@ function Bump({ bump, marcado }: { bump: Oferta; marcado: boolean }) {
    * volta. O preço NÃO é adivinhado aqui; ele continua vindo do Medusa.
    */
   const [marcadoAgora, preverMarca] = useOptimistic(marcado)
+  const [erro, setErro] = useState("")
+  const mexendo = marcadoAgora !== marcado
 
   return (
-    <div className="bump" data-ativo="">
+    <div className="bump" data-ativo="" data-mexendo={mexendo ? "" : undefined}>
       <span className="bump__selo">
         <Raio aria-hidden="true" /> Só nessa tela
       </span>
@@ -525,14 +612,16 @@ function Bump({ bump, marcado }: { bump: Oferta; marcado: boolean }) {
         <input
           type="checkbox"
           checked={marcadoAgora}
-          disabled={mexendo}
+          disabled={travado}
           onChange={(e) => {
             const marcar = e.target.checked
+            setErro("")
             // O palpite e a ação na MESMA transição: fora dela o React
             // descarta o otimista antes de o servidor responder.
-            comecar(async () => {
+            recalcular(async () => {
               preverMarca(marcar)
-              await alternarBump(bump.varianteId, marcar)
+              const r = await alternarBump(bump.varianteId, marcar)
+              if (!r.ok) setErro(r.mensagem || "Não consegui mexer na oferta agora.")
             })
           }}
         />
@@ -554,6 +643,11 @@ function Bump({ bump, marcado }: { bump: Oferta; marcado: boolean }) {
           </p>
         </span>
       </label>
+      {erro ? (
+        <p className="bump__erro" role="alert">
+          {erro}
+        </p>
+      ) : null}
     </div>
   )
 }

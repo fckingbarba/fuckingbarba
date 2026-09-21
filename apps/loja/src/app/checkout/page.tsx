@@ -4,6 +4,7 @@ import { redirect } from "next/navigation"
 import { Suspense } from "react"
 import { Etapas } from "@/components/checkout/etapas"
 import { Cadeado, Raio } from "@/components/icones"
+import { LogoCurta } from "@/components/marca"
 import {
   lerBump,
   lerCheckout,
@@ -51,9 +52,10 @@ export default function Pagina() {
       */}
       <header className="topo">
         <div className="topo__wrap">
+          {/* A mesma marca do cabeçalho da loja, sozinha. O nome sai do
+              `aria-label` pra quem lê a tela. */}
           <Link className="topo__logo" href="/" aria-label={`${site.nome} — voltar pra loja`}>
-            <Raio aria-hidden="true" />
-            {site.nome}
+            <LogoCurta aria-hidden="true" />
           </Link>
           <p className="topo__seguro">
             <Cadeado aria-hidden="true" />
@@ -116,7 +118,7 @@ async function Conteudo() {
   */
   const fretes = checkout.entrega.cep ? await listarFretes(checkout.id) : []
   const provedores = await listarProvedores(checkout.regiaoId)
-  const bump = await lerBump(checkout.regiaoId, jaNoCarrinho)
+  const bump = await lerBump(checkout.regiaoId, jaNoCarrinho, checkout.bumpMarcado)
   const sugestoes = await listarSugestoes(checkout.regiaoId, falta, jaNoCarrinho)
 
   return (

@@ -30,12 +30,29 @@ import { PARCELAS_SEM_JUROS, PARCELA_MINIMA } from "@/lib/site"
 
 const ICONES = { escudo: Escudo, cadeado: Cadeado, caminhao: Caminhao, relogio: Relogio }
 
-export function Resumo({ checkout }: { checkout: CheckoutVisivel }) {
+/*
+ * `recalculando`: uma troca de frete, de bump ou de chip está indo e voltando
+ * do Medusa. O dinheiro daqui esmaece e pulsa até a resposta (o mesmo
+ * desenho da espera da sacola, em `checkout-loja.css`): o número na tela
+ * ainda é o de antes, e vai mudar.
+ */
+export function Resumo({
+  checkout,
+  recalculando,
+}: {
+  checkout: CheckoutVisivel
+  recalculando: boolean
+}) {
   const { itens, subtotal, desconto, frete, total, unidades } = checkout
   const parcela = total / PARCELAS_SEM_JUROS
 
   return (
-    <aside className="resumo" aria-labelledby="t-resumo">
+    <aside
+      className="resumo"
+      aria-labelledby="t-resumo"
+      data-recalculando={recalculando ? "" : undefined}
+      aria-busy={recalculando || undefined}
+    >
       <details open>
         <summary>
           <span id="t-resumo">Resumo do pedido</span>

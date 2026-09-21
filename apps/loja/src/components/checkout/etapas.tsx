@@ -1,6 +1,13 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useTransition,
+  type TransitionStartFunction,
+} from "react"
 import { Raio } from "@/components/icones"
 import {
   ETAPAS,
@@ -56,11 +63,39 @@ export function Etapas({ checkout, fretes, provedores, bump, sugestoes, falta, p
   const [editando, setEditando] = useState<Etapa | null>(null)
   const aberta = editando ?? sugerida
 
+  /*
+   * O TOTAL MUDANDO SEM SAIR DO PASSO. Trocar o frete, marcar o bump e pôr
+   * um chip reescrevem o carrinho e pedem `refresh()`. Uma transição só pra
+   * todos, e é dela que vem a espera que se vê: enquanto corre, o dinheiro
+   * do resumo e da barra esmaece e pulsa (o número na tela é o de antes, e
+   * vai mudar), e o botão de pagar espera — pagar no meio de uma troca
+   * cobraria um total que a pessoa ainda não viu.
+   *
+   * SER TRANSIÇÃO NÃO É DETALHE. A ação chamada fora de uma suspende a
+   * página, e o <Suspense> do checkout trocava TUDO pelo esqueleto até o
+   * servidor responder — era o "carregando esquisito" ao trocar o frete.
+   * Dentro de uma, o React mantém a tela de antes até a nova estar pronta.
+   */
+  const [recalculando, recalcular] = useTransition()
+
+  /*
+   * O que cada passo está enviando, pro botão da barra do celular. A barra
+   * não é dona de formulário nenhum — ela só pede `requestSubmit()` ao passo
+   * aberto —, então quem sabe que está ocupado é o passo, e ele avisa.
+   */
+  const [ocupados, setOcupados] = useState<Partial<Record<Etapa, string>>>({})
+  const aoOcupar = useCallback((etapa: Etapa, texto: string | null) => {
+    setOcupados((o) => ((o[etapa] ?? null) === texto ? o : { ...o, [etapa]: texto ?? undefined }))
+  }, [])
+
   const comum = {
     aberta,
     sugerida,
     aoAbrir: setEditando,
     aoSalvar: () => setEditando(null),
+    recalcular,
+    recalculando,
+    aoOcupar,
   }
 
   return (
@@ -71,7 +106,6 @@ export function Etapas({ checkout, fretes, provedores, bump, sugestoes, falta, p
       <div className="fluxo">
         <div className="cabeca">
           <h1 className="cabeca__titulo">Finalizar compra</h1>
-          <p className="cabeca__sub">Três passos rápidos. Sem cadastro.</p>
         </div>
 
         <Passos aberta={aberta} sugerida={sugerida} aoAbrir={setEditando} />
@@ -107,9 +141,14 @@ export function Etapas({ checkout, fretes, provedores, bump, sugestoes, falta, p
         />
       </div>
 
-      <Barra checkout={checkout} aberta={aberta} />
+      <Barra
+        checkout={checkout}
+        aberta={aberta}
+        ocupado={ocupados[aberta] ?? null}
+        recalculando={recalculando}
+      />
 
-      <Resumo checkout={checkout} />
+      <Resumo checkout={checkout} recalculando={recalculando} />
     </>
   )
 }
@@ -205,8 +244,24 @@ function resumoDoPasso(e: Etapa, c: CheckoutVisivel, fretes: OpcaoDeFrete[]): st
  * Ela não duplica a lógica de nenhum passo: acha o formulário do passo aberto
  * e pede pra ele se enviar. `requestSubmit()` e não `submit()`, que é a
  * diferença entre passar pela validação do formulário e atropelá-la.
+ *
+ * E ESPERA JUNTO COM O PASSO. Antes ela não sabia que o passo estava
+ * enviando: no celular — onde o botão de dentro do passo nem aparece — o
+ * toque em "Fazer o pedido" não mudava nada na tela, e o segundo toque
+ * mandava o pedido de novo. Agora o passo avisa (`ocupado`), e ela trava com
+ * o mesmo texto do botão de dentro.
  */
-function Barra({ checkout, aberta }: { checkout: CheckoutVisivel; aberta: Etapa }) {
+function Barra({
+  checkout,
+  aberta,
+  ocupado,
+  recalculando,
+}: {
+  checkout: CheckoutVisivel
+  aberta: Etapa
+  ocupado: string | null
+  recalculando: boolean
+}) {
   const textos: Record<Etapa, string> = {
     contato: "Continuar",
     entrega: "Ir pro pagamento",
@@ -215,23 +270,45 @@ function Barra({ checkout, aberta }: { checkout: CheckoutVisivel; aberta: Etapa 
 
   return (
     <div className="barra">
-      <span className="barra__total">
+      <span className="barra__total" data-recalculando={recalculando ? "" : undefined}>
         <small>Total</small>
         <b>{emReais(checkout.total)}</b>
       </span>
       <button
         type="button"
         className="btn barra__btn"
+        // Com o total mudando, espera: o passo aberto confere de novo no
+        // envio, mas travar aqui é o que a pessoa vê.
+        disabled={Boolean(ocupado) || recalculando}
+        aria-busy={ocupado ? true : undefined}
         onClick={() => {
           const form = document.getElementById(`form-${aberta}`)
           if (form instanceof HTMLFormElement) form.requestSubmit()
         }}
       >
-        {textos[aberta]}
-        <Raio className="btn__bolt" />
+        {ocupado ? (
+          <>
+            <Giro />
+            {ocupado}
+          </>
+        ) : (
+          <>
+            {textos[aberta]}
+            <Raio className="btn__bolt" />
+          </>
+        )}
       </button>
     </div>
   )
+}
+
+/**
+ * O "trabalhando" dos botões do checkout: um quadrado girando, na cor do
+ * texto. Quadrado e não círculo — a marca não tem canto redondo em lugar
+ * nenhum, e o do campo de CEP (do protótipo) já é assim.
+ */
+export function Giro() {
+  return <span className="giro" aria-hidden="true" />
 }
 
 /* ── a casca de cada passo ────────────────────────────────────────────────── */
@@ -242,17 +319,37 @@ export type PropsDaEtapa = {
   sugerida: Etapa
   aoAbrir: (e: Etapa) => void
   aoSalvar: () => void
+  /** Pra troca que mexe no total sem sair do passo: frete, bump, chip. */
+  recalcular: TransitionStartFunction
+  /** Alguma dessas trocas ainda está indo e voltando do Medusa. */
+  recalculando: boolean
+  /** O passo conta o que está enviando (o texto do botão), ou `null`. */
+  aoOcupar: (etapa: Etapa, texto: string | null) => void
+}
+
+/**
+ * O passo avisa a barra do celular que está enviando, e com que texto.
+ *
+ * Efeito, e não chamada no render: é o pai que guarda o estado, e mexer no
+ * estado do pai durante o render do filho é o que o React proíbe.
+ */
+export function useAvisaOcupado(
+  casca: Pick<PropsDaEtapa, "etapa" | "aoOcupar">,
+  texto: string | null
+) {
+  const { etapa, aoOcupar } = casca
+  useEffect(() => {
+    aoOcupar(etapa, texto)
+  }, [aoOcupar, etapa, texto])
 }
 
 export function Painel({
   etapa,
   aberta,
-  dica,
   children,
 }: {
   etapa: Etapa
   aberta: Etapa
-  dica: string
   children: React.ReactNode
 }) {
   const numero = indiceDaEtapa(etapa) + 1
@@ -272,21 +369,46 @@ export function Painel({
             {NOMES_DAS_ETAPAS[etapa]}
           </h2>
         </div>
-        <p className="bloco__dica">{dica}</p>
         {children}
       </div>
     </section>
   )
 }
 
-/** O aviso que não é de campo nenhum: rede fora, Medusa recusando. */
+/**
+ * O aviso que não é de campo nenhum: rede fora, Medusa recusando, cartão
+ * recusado.
+ *
+ * VEM PRA VISTA quando chega. No celular o botão que a pessoa tocou é o da
+ * barra fixa, lá embaixo, e o aviso nasce no meio do formulário — fora da
+ * tela, ou atrás da própria barra. Sem isto, a espera acabava e nada parecia
+ * ter acontecido. Só em resposta NOVA (`rodada`): o Next devolve o estado da
+ * ação a quem navega pra fora e volta, e o recado velho não pode puxar a
+ * página sozinho.
+ */
 export function Recado({ estado }: { estado: EstadoDaEtapa }) {
+  const ref = useRef<HTMLParagraphElement>(null)
+  const ultima = useRef(estado.rodada)
+
+  useEffect(() => {
+    if (estado.rodada === ultima.current) return
+    ultima.current = estado.rodada
+    if (estado.mensagem) trazerPraVista(ref.current)
+  }, [estado.rodada, estado.mensagem])
+
   if (!estado.mensagem) return null
   return (
-    <p className="erros-envio" role="alert">
+    <p className="erros-envio" role="alert" ref={ref}>
       {estado.mensagem}
     </p>
   )
+}
+
+/** Rola até o elemento, no meio da tela — sem animação pra quem pediu menos movimento. */
+export function trazerPraVista(el: HTMLElement | null) {
+  if (!el) return
+  const calmo = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+  el.scrollIntoView({ block: "center", behavior: calmo ? "auto" : "smooth" })
 }
 
 /**

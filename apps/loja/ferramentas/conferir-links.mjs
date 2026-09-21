@@ -85,9 +85,12 @@ for (const caminho of ["/privacidade", "/termos", "/trocas"]) {
   confere(`${caminho} não diz mais "em redação"`, !/em reda[çc][ãa]o/i.test(html))
 }
 
-/* ── o aceite do checkout aponta pra um documento que existe ────────────── */
+/* ── as regras de troca e devolução existem ─────────────────────────────── */
+/* O checkout pedia aceite delas numa linha embaixo do botão de pagar; a
+   linha saiu (o "7 dias pra trocar ou devolver" da faixa do passo 3 ficou),
+   e a página segue sendo a que o rodapé e o sitemap apontam. */
 const trocas = await pegar("/trocas")
-confere("o /trocas que o checkout manda aceitar responde 200", trocas.status === 200)
+confere("o /trocas responde 200", trocas.status === 200)
 
 /* ── relatório dos dados que ainda faltam ───────────────────────────────── */
 const pendencias = []

@@ -288,8 +288,8 @@ export async function salvarEntrega(anterior: EstadoDaEtapa, fd: FormData): Prom
   /**
    * O FRETE VAI JUNTO, se veio no formulário.
    *
-   * A opção marcada por padrão na lista está marcada na TELA e não no
-   * carrinho — `defaultChecked` não dispara `onChange`. Sem isto, quem não
+   * A primeira opção da lista aparece marcada na TELA sem estar no
+   * carrinho — ninguém clicou, então nada foi gravado. Sem isto, quem não
    * tocasse nos rádios salvava o endereço e continuava no passo 2, porque o
    * checkout olha pro carrinho pra saber onde está e lá não havia frete
    * nenhum. O bug some porque o rádio mora dentro deste mesmo formulário.
@@ -701,9 +701,23 @@ export async function removerOferta(varianteId: string): Promise<EstadoDaEtapa> 
  * num produto que a tela ofereceu com desconto — que é exatamente a
  * divergência que a promoção existe pra evitar.
  *
+ * ┌─ OU AS DUAS, OU NENHUMA ───────────────────────────────────────────────┐
+ * │ A linha entra primeiro, e o desconto pode falhar depois dela: a        │
+ * │ promoção não existe nesse Medusa (o `backend:promocoes` não rodou lá), │
+ * │ foi desativada, ou a regra dela aponta pra outro produto. Antes, a     │
+ * │ falha voltava sem `refresh()`: a caixinha desmarcava, o resumo ficava  │
+ * │ velho — e o óleo continuava no carrinho, a preço cheio, pra ser cobrado│
+ * │ no Pix sem ninguém ter visto. Agora a linha que ESTA ação pôs sai de   │
+ * │ volta, e o desconto é CONFERIDO na resposta (código aplicado sem       │
+ * │ ajuste na linha também é falha).                                       │
+ * └────────────────────────────────────────────────────────────────────────┘
+ *
  * Desmarcar desfaz as duas. O código sai primeiro: com a linha já fora, o
  * Medusa não teria mais em que aplicar o desconto, e o cupom ficaria
  * pendurado no carrinho sem efeito e visível no resumo.
+ *
+ * `refresh()` em TODA saída, inclusive nas de erro: a tela tem que mostrar o
+ * carrinho como ele ficou, e não como ela achava que ia ficar.
  */
 export async function alternarBump(varianteId: string, marcar: boolean): Promise<EstadoDaEtapa> {
   const atual = await carrinhoAtual()
@@ -712,19 +726,83 @@ export async function alternarBump(varianteId: string, marcar: boolean): Promise
   const { sdk, carrinho } = atual
   const linha = carrinho.items?.find((i) => i.variant_id === varianteId)
 
-  try {
-    if (marcar) {
-      if (!linha) {
-        await sdk.store.cart.createLineItem(carrinho.id, { variant_id: varianteId, quantity: 1 })
-      }
-      await sdk.store.cart.addPromotions(carrinho.id, { promo_codes: [BUMP.codigo] })
-    } else {
+  if (!marcar) {
+    try {
       await sdk.store.cart.removePromotions(carrinho.id, { promo_codes: [BUMP.codigo] })
       if (linha) await sdk.store.cart.deleteLineItem(carrinho.id, linha.id)
+    } catch (e) {
+      registrar(e, "bump desmarcar")
+      refresh()
+      return { ...ESTADO_VAZIO, mensagem: "Não consegui tirar a oferta agora. Tenta de novo." }
+    }
+    refresh()
+    return { ...ESTADO_VAZIO, ok: true }
+  }
+
+  const SEM_OFERTA = "Não deu pra incluir a oferta agora — seu pedido segue sem ela."
+
+  // A linha — só se ainda não está lá. E o id da que ESTA ação criou, que é
+  // a única que ela tem o direito de tirar se o desconto não pegar.
+  let criada: string | null = null
+  if (!linha) {
+    try {
+      const { cart } = await sdk.store.cart.createLineItem(
+        carrinho.id,
+        { variant_id: varianteId, quantity: 1 },
+        { fields: "id,*items" }
+      )
+      criada = cart.items?.find((i) => i.variant_id === varianteId)?.id ?? null
+    } catch (e) {
+      registrar(e, "bump marcar: a linha não entrou")
+      refresh()
+      return { ...ESTADO_VAZIO, mensagem: SEM_OFERTA }
+    }
+  }
+
+  // O desconto — e a prova de que ele pegou NA LINHA do bump.
+  let descontou = false
+  try {
+    const { cart } = await sdk.store.cart.addPromotions(
+      carrinho.id,
+      { promo_codes: [BUMP.codigo] },
+      { fields: "id,*items,*items.adjustments" }
+    )
+    descontou = Boolean(
+      cart.items
+        ?.find((i) => i.variant_id === varianteId)
+        ?.adjustments?.some((a) => a.code === BUMP.codigo && Number(a.amount) > 0)
+    )
+    if (!descontou) {
+      registrar(
+        new Error(`o código ${BUMP.codigo} entrou, mas não descontou nada na linha`),
+        "bump marcar"
+      )
     }
   } catch (e) {
-    registrar(e, `bump ${marcar ? "marcar" : "desmarcar"}`)
-    return { ...ESTADO_VAZIO, mensagem: "Não consegui mexer na oferta agora. Tenta de novo." }
+    registrar(
+      e,
+      `bump marcar: a promoção ${BUMP.codigo} não pegou — ela existe nesse Medusa? ` +
+        "(`npm run backend:promocoes`, ou o promocoes.js no shell do Railway)"
+    )
+  }
+
+  if (!descontou) {
+    // Desfaz na ordem inversa. Cada passo por conta própria: falhar em tirar
+    // o código não pode impedir de tirar a linha, que é o que custa dinheiro.
+    try {
+      await sdk.store.cart.removePromotions(carrinho.id, { promo_codes: [BUMP.codigo] })
+    } catch {
+      // Código que nem entrou não tem o que sair.
+    }
+    if (criada) {
+      try {
+        await sdk.store.cart.deleteLineItem(carrinho.id, criada)
+      } catch (e) {
+        registrar(e, "bump: desfazer a linha")
+      }
+    }
+    refresh()
+    return { ...ESTADO_VAZIO, mensagem: SEM_OFERTA }
   }
 
   refresh()

@@ -5,6 +5,7 @@ import { Suspense } from "react"
 import { EsperaDoPagamento } from "@/components/checkout/espera"
 import { Pix } from "@/components/checkout/pix"
 import { Cadeado, EscudoCerto, Raio, Relogio, Triangulo } from "@/components/icones"
+import { LogoCurta } from "@/components/marca"
 import { RecarregaSacola } from "@/components/sacola/recarrega"
 import type { PagamentoVisivel } from "@/lib/checkout-visivel"
 import { emReais } from "@/lib/formato"
@@ -129,9 +130,9 @@ export default function Pagina({ params }: Props) {
     <>
       <header className="topo">
         <div className="topo__wrap">
+          {/* A marca, sozinha — a mesma do topo do checkout e da loja. */}
           <Link className="topo__logo" href="/" aria-label={`${site.nome} — voltar pra loja`}>
-            <Raio aria-hidden="true" />
-            {site.nome}
+            <LogoCurta aria-hidden="true" />
           </Link>
           <p className="topo__seguro">
             <Cadeado aria-hidden="true" />

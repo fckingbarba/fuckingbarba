@@ -22,9 +22,16 @@
  *   era gravado no carrinho;
  * - o formulário esvaziar quando um campo dá erro (o React dá reset no
  *   `<form action>`);
- * - o desconto do bump existir só no HTML.
+ * - o desconto do bump existir só no HTML;
+ * - a gaveta ficar aberta por cima do checkout, engolindo o primeiro clique;
+ * - trocar o frete trocar a página inteira pelo esqueleto;
+ * - o bump "marcar e desmarcar" sem a promoção no Medusa, deixando o óleo
+ *   no carrinho a preço cheio; e sumir da tela depois de marcado;
+ * - o segundo clique em pagar (ou toque na barra do celular) mandar outro
+ *   pedido, com a tela parada sem dizer que estava trabalhando.
  *
- * Variáveis: MEDUSA_BACKEND_URL, NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY, CHROMIUM.
+ * Variáveis: MEDUSA_BACKEND_URL, NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY, CHROMIUM;
+ * ADMIN_EMAIL e ADMIN_SENHA, opcionais, pro bump com a promoção desligada.
  */
 
 import { readFileSync } from "node:fs"
@@ -106,6 +113,79 @@ async function medusa(caminho) {
   return r.ok ? r.json() : null
 }
 
+/**
+ * Roda `fn` vigiando o DOM, e devolve, pra cada seletor, se ele APARECEU em
+ * algum momento no meio do caminho.
+ *
+ * É como se afirma coisa que dura meio segundo — a barrinha da troca de
+ * frete, a cortina do pagamento, o esqueleto que NÃO pode aparecer — sem
+ * depender de fotografar no instante certo: com a Frenet e o Pagar.me
+ * falsos respondendo na hora, "esperar 50 ms e olhar" vira sorteio.
+ */
+async function vigiar(pag, seletores, fn) {
+  await pag.evaluate((lista) => {
+    const viu = Object.fromEntries(lista.map((s) => [s, false]))
+    const olha = () => {
+      for (const s of lista) if (!viu[s] && document.querySelector(s)) viu[s] = true
+    }
+    window.__vigia = { viu, obs: new MutationObserver(olha) }
+    window.__vigia.obs.observe(document.body, { childList: true, subtree: true, attributes: true })
+    olha()
+  }, seletores)
+  await fn()
+  return pag.evaluate(() => {
+    window.__vigia.obs.disconnect()
+    return window.__vigia.viu
+  })
+}
+
+/**
+ * Dentro de um `vigiar` que olha `.resumo[data-recalculando]`: espera o
+ * recálculo COMEÇAR e ACABAR. Só "acabar" não serve — logo depois do clique
+ * ele pode ainda nem ter começado, e aí a espera passaria na hora. Se nunca
+ * começar, desiste em 20 s e deixa o `ok` de quem chamou dizer o que faltou.
+ */
+const esperarRecalculo = (pag) =>
+  pag
+    .waitForFunction(
+      () =>
+        window.__vigia.viu[".resumo[data-recalculando]"] &&
+        !document.querySelector(".resumo[data-recalculando]"),
+      null,
+      { timeout: 20000 }
+    )
+    .catch(() => null)
+
+/*
+  Admin, só pra um teste: o bump com a promoção DESLIGADA, que é o caso de
+  um Medusa onde o `backend:promocoes` nunca rodou. Sem as credenciais ele é
+  pulado, e o resto do arquivo não depende delas.
+*/
+const EMAIL_ADMIN = process.env.ADMIN_EMAIL
+const SENHA_ADMIN = process.env.ADMIN_SENHA
+let tokenAdmin = ""
+async function adm(caminho, init = {}) {
+  if (!tokenAdmin) {
+    const r = await fetch(`${MEDUSA}/auth/user/emailpass`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: EMAIL_ADMIN, password: SENHA_ADMIN }),
+    })
+    if (!r.ok) throw new Error(`login do admin falhou: ${r.status}`)
+    tokenAdmin = (await r.json()).token
+  }
+  const r = await fetch(`${MEDUSA}${caminho}`, {
+    ...init,
+    headers: {
+      authorization: `Bearer ${tokenAdmin}`,
+      "content-type": "application/json",
+      ...(init.headers ?? {}),
+    },
+  })
+  if (!r.ok) throw new Error(`admin ${caminho}: ${r.status}`)
+  return r.json()
+}
+
 /*
   A FRENET FALSA SOBE JUNTO COM O TESTE.
 
@@ -174,6 +254,25 @@ pagina.on(
   "console",
   (m) => m.type() === "error" && !RUIDO_DE_DEV.test(m.text()) && errosDeConsole.push(m.text())
 )
+
+// Cada ENVIO DE FORMULÁRIO que sai da página do checkout: server action é um
+// POST com o cabeçalho `next-action` pra própria rota, e a de formulário vai
+// em multipart (leva o FormData). As outras — a gaveta sincronizando, o bump
+// — vão em texto, e não entram na conta. É como se conta quantos pedidos um
+// clique, ou três, mandou.
+const acoesDoCheckout = []
+const contaAcoes = (pag, lista) =>
+  pag.on("request", (r) => {
+    const h = r.headers()
+    if (
+      r.method() === "POST" &&
+      h["next-action"] &&
+      h["content-type"]?.startsWith("multipart/form-data") &&
+      new URL(r.url()).pathname === "/checkout"
+    )
+      lista.push(r.url())
+  })
+contaAcoes(pagina, acoesDoCheckout)
 
 const fluxo = () => pagina.locator(".fluxo")
 const campo = (nome) => fluxo().locator(`[name="${nome}"]`)
@@ -320,6 +419,33 @@ if (destinoDaGaveta === "/checkout") {
     pagarme.fechar()
     process.exit(1)
   }
+
+  /*
+    A GAVETA FECHA NO CAMINHO. Ela mora no layout, que não desmonta entre
+    uma página e outra: "Finalizar compra" abria o checkout com a gaveta
+    ainda por cima, e o véu dela engolia o primeiro clique no formulário.
+  */
+  titulo("A gaveta")
+  const finalizar = pagina.locator("a.sacolinha__finalizar").first()
+  if (!(await finalizar.isVisible())) {
+    await pagina.locator('[aria-controls="carrinho-gaveta"]').first().click()
+  }
+  await finalizar.click()
+  await pagina.waitForURL(/\/checkout$/, { timeout: 20000 })
+  await pagina.locator("#form-contato").waitFor({ timeout: 20000 })
+  ok(
+    (await pagina.locator(".sacolinha").first().getAttribute("inert")) !== null,
+    '"Finalizar compra" fecha a gaveta no caminho pro checkout'
+  )
+  // Com a gaveta aberta por cima, o véu recebe o clique e o Playwright
+  // desiste — é o próprio defeito, então vira ✗, não exceção.
+  await campo("email")
+    .click({ timeout: 5000 })
+    .catch(() => null)
+  ok(
+    await campo("email").evaluate((el) => el === document.activeElement),
+    "e o primeiro clique no formulário pega"
+  )
 }
 
 /* ── 2. passo 1: contato, com o CPF errado primeiro ───────────────────────── */
@@ -428,6 +554,46 @@ for (const opcao of opcoesApi) {
   const bate =
     opcao.amount === 0 ? /gr[áa]tis/i.test(mostrado) : numero(mostrado) === Number(opcao.amount)
   ok(bate, `${opcao.name}: a tela diz o que o Medusa cobra (${reais(opcao.amount)})`, mostrado)
+}
+
+/*
+  TROCAR A ENTREGA NÃO PODE PISCAR A PÁGINA. A troca chamava a ação fora de
+  uma transição, e o <Suspense> do checkout trocava a tela INTEIRA pelo
+  esqueleto até o servidor responder. A espera certa é pequena: a barrinha
+  na opção escolhida e o dinheiro do resumo esmaecido.
+*/
+titulo("Trocar a entrega")
+if (opcoesApi.length > 1) {
+  const opcoes = pagina.locator("#form-entrega .opcao")
+  const trocarPara = async (i) => {
+    const id = await opcoes.nth(i).locator("input").getAttribute("value")
+    const viu = await vigiar(
+      pagina,
+      [".esqueleto", "#form-entrega .opcao[data-mexendo]", ".resumo[data-recalculando]"],
+      async () => {
+        await opcoes.nth(i).click()
+        await esperarRecalculo(pagina)
+      }
+    )
+    const gravado = (await medusa(`/store/carts/${carrinhoId}?fields=*shipping_methods`))?.cart
+    return { viu, certo: gravado?.shipping_methods?.[0]?.shipping_option_id === id }
+  }
+
+  const ida = await trocarPara(1)
+  ok(!ida.viu[".esqueleto"], "trocar a entrega NÃO troca a página pelo esqueleto")
+  ok(
+    ida.viu["#form-entrega .opcao[data-mexendo]"],
+    "a opção escolhida ganha a barrinha enquanto grava"
+  )
+  ok(ida.viu[".resumo[data-recalculando]"], "e o dinheiro do resumo esmaece até o Medusa responder")
+  ok(ida.certo, "o Medusa gravou a troca")
+  ok(await opcoes.nth(1).locator("input").isChecked(), "e a tela ficou com ela marcada")
+
+  // E de volta pra primeira: o resto do arquivo segue com a mais barata.
+  const volta = await trocarPara(0)
+  ok(volta.certo && !volta.viu[".esqueleto"], "trocar de volta também grava, sem piscar")
+} else {
+  console.log("    (uma opção só de entrega — nada pra trocar)")
 }
 
 titulo("Completa o frete grátis")
@@ -556,8 +722,74 @@ ok(
   `tela diz ${reais(precoPor)}`
 )
 
+const caixinha = bump.locator("input[type=checkbox]")
 const totalAntesDoBump = await pagina.locator(".totais__total dd").innerText()
-await bump.locator("input[type=checkbox]").check()
+const linhasAntesDoBump = (await medusa(`/store/carts/${carrinhoId}?fields=id,*items`))?.cart?.items
+  ?.length
+
+/*
+  SEM A PROMOÇÃO NO MEDUSA — o que acontecia em produção, onde o
+  `backend:promocoes` não tinha rodado. A caixinha "marcava e desmarcava", e
+  a ação, que já tinha posto a linha do óleo, voltava sem desfazer nada: o
+  óleo ficava no carrinho a PREÇO CHEIO, fora da tela até o próximo
+  recálculo. Promoção desligada é o mesmo caso por outro caminho (o Medusa
+  aceita o código e não desconta nada — nem erro dá).
+*/
+if (EMAIL_ADMIN && SENHA_ADMIN) {
+  const { promotions = [] } = await adm("/admin/promotions?code=BUMP-OLEO&fields=id,status")
+  const promo = promotions[0]
+  if (promo) {
+    await adm(`/admin/promotions/${promo.id}`, {
+      method: "POST",
+      body: JSON.stringify({ status: "inactive" }),
+    })
+    try {
+      // Sem `check()`: ele confere que a caixa ficou marcada, e aqui o
+      // certo é ela VOLTAR desmarcada. Falhas viram ✗ lá embaixo, não exceção.
+      await caixinha.click()
+      const recado = await pagina
+        .locator(".bump__erro")
+        .waitFor({ timeout: 25000 })
+        .then(
+          () => pagina.locator(".bump__erro").innerText(),
+          () => ""
+        )
+      await pagina
+        .waitForFunction(() => !document.querySelector(".resumo[data-recalculando]"), null, {
+          timeout: 20000,
+        })
+        .catch(() => null)
+      const semDesconto = (await medusa(`/store/carts/${carrinhoId}?fields=id,*items,*promotions`))
+        ?.cart
+      ok(
+        semDesconto?.items?.length === linhasAntesDoBump,
+        "sem a promoção, o óleo NÃO fica no carrinho a preço cheio",
+        `${semDesconto?.items?.length} linha(s)`
+      )
+      ok(
+        !(semDesconto?.promotions ?? []).some((p) => p.code === "BUMP-OLEO"),
+        "nem o código pendurado"
+      )
+      ok(!(await caixinha.isChecked()), "a caixinha volta desmarcada")
+      ok(/segue sem ela/i.test(recado), "e o recado diz que o pedido segue sem a oferta", recado)
+      ok(
+        (await pagina.locator(".totais__total dd").innerText()) === totalAntesDoBump,
+        "e o total não mudou"
+      )
+    } finally {
+      await adm(`/admin/promotions/${promo.id}`, {
+        method: "POST",
+        body: JSON.stringify({ status: promo.status }),
+      })
+    }
+  } else {
+    console.log("    (a promoção BUMP-OLEO não existe aqui — rode npm run backend:promocoes)")
+  }
+} else {
+  console.log("    (sem ADMIN_EMAIL/ADMIN_SENHA: pulei o bump com a promoção desligada)")
+}
+
+await caixinha.check()
 await pagina.waitForFunction(
   (antes) => document.querySelector(".totais__total dd")?.textContent !== antes,
   totalAntesDoBump,
@@ -584,6 +816,42 @@ ok(
   `tela ${reais(totalNaTela)} vs Medusa ${reais(comBump.total)}`
 )
 
+/*
+  MARCADA, ELA FICA. A caixinha sumia no instante em que o óleo entrava
+  (o produto já estava no pedido), e parecia que o clique tinha dado errado
+  — sem ter por onde desmarcar.
+*/
+await pagina.waitForFunction(() => !document.querySelector(".resumo[data-recalculando]"), null, {
+  timeout: 20000,
+})
+ok(await bump.isVisible(), "marcada, a caixinha continua na tela")
+ok(await caixinha.isChecked(), "e continua marcada")
+
+await caixinha.uncheck()
+await pagina.waitForFunction(
+  (antes) => document.querySelector(".totais__total dd")?.textContent === antes,
+  totalAntesDoBump,
+  { timeout: 25000 }
+)
+const desmarcado = (await medusa(`/store/carts/${carrinhoId}?fields=id,*items,*promotions`))?.cart
+ok(
+  desmarcado?.items?.length === linhasAntesDoBump &&
+    !(desmarcado?.promotions ?? []).some((p) => p.code === "BUMP-OLEO"),
+  "desmarcar tira o óleo e o código, e o total volta"
+)
+
+// Marca de novo: o pedido lá embaixo confere o desconto do bump.
+await caixinha.check()
+await pagina.waitForFunction(
+  (antes) => document.querySelector(".totais__total dd")?.textContent !== antes,
+  totalAntesDoBump,
+  { timeout: 25000 }
+)
+await pagina.waitForFunction(() => !document.querySelector(".resumo[data-recalculando]"), null, {
+  timeout: 20000,
+})
+ok(await caixinha.isChecked(), "e marcar de novo volta a marcar")
+
 titulo("Cupom")
 await pagina.locator(".cupom__abre").first().click()
 await pagina.locator("#cupom").fill("NAO-EXISTE-ISSO")
@@ -601,8 +869,33 @@ const totalAntesDeFechar = Number(comBump.total)
 // De volta pro Pix: o cartão lá em cima ficou com um número recusado pelo
 // Luhn de propósito, e com o Pagar.me ligado o envio pararia nele.
 await pagina.locator("#form-pagamento .opcao", { hasText: "Pix" }).locator("input").check()
-await pagina.locator("#form-pagamento button[type=submit]").click()
-await pagina.waitForURL(/\/checkout\/obrigado\//, { timeout: 30000 })
+
+/*
+  UM PEDIDO POR CLIQUE — ou por três. A tela parecia parada enquanto o Pix
+  era gerado (só o texto do botão mudava), a pessoa clicava de novo, e cada
+  clique a mais enfileirava outro `finalizar`. Agora a cortina cobre a
+  página e o botão trava; os dois cliques extras são `force` justamente pra
+  passar por cima da trava e provar que o envio também recusa.
+*/
+const acoesAntesDePagar = acoesDoCheckout.length
+const pagar = pagina.locator("#form-pagamento button[type=submit]")
+const naEspera = await vigiar(
+  pagina,
+  [".cortina", "#form-pagamento button[aria-busy]"],
+  async () => {
+    await pagar.click()
+    await pagar.click({ force: true, timeout: 2000 }).catch(() => null)
+    await pagar.click({ force: true, timeout: 2000 }).catch(() => null)
+    await pagina.waitForURL(/\/checkout\/obrigado\//, { timeout: 30000 })
+  }
+)
+ok(naEspera[".cortina"], "pagando, a cortina cobre a página até a tela de obrigado")
+ok(naEspera["#form-pagamento button[aria-busy]"], "e o botão mostra que está trabalhando")
+ok(
+  acoesDoCheckout.length - acoesAntesDePagar === 1,
+  "três cliques em pagar mandam UM pedido",
+  `${acoesDoCheckout.length - acoesAntesDePagar} envios`
+)
 
 const pedidoId = pagina.url().split("/").pop()
 ok(
@@ -688,6 +981,28 @@ ok(
 const totalDaBarra = numero(await noCelular.locator(".barra__total b").innerText())
 const totalDoResumo = numero(await noCelular.locator(".totais__total dd").innerText())
 ok(perto(totalDaBarra, totalDoResumo), "e a barra mostra o mesmo total do resumo")
+
+/*
+  A BARRA ESPERA JUNTO. Ela não sabia que o passo estava enviando: o toque
+  não mudava nada na tela, e o segundo toque mandava de novo. Aqui, dois
+  toques em "Continuar" — o segundo com `force`, por cima da trava.
+*/
+const acoesDoCelular = []
+contaAcoes(noCelular, acoesDoCelular)
+const noCampo = (nome, valor) => noCelular.locator(`.fluxo [name="${nome}"]`).fill(valor)
+await noCampo("email", EMAIL)
+await noCampo("nome", "Matheus")
+await noCampo("sobrenome", "da Silva Teste")
+await noCampo("telefone", "(11) 99999-9999")
+await noCampo("documento", CPF)
+const barra = noCelular.locator(".barra__btn")
+const naBarra = await vigiar(noCelular, [".barra__btn[aria-busy]"], async () => {
+  await barra.click()
+  await barra.click({ force: true, timeout: 2000 }).catch(() => null)
+  await noCelular.locator(".painel[data-ativo] #form-entrega").waitFor({ timeout: 20000 })
+})
+ok(naBarra[".barra__btn[aria-busy]"], "tocar na barra mostra que está salvando, e trava")
+ok(acoesDoCelular.length === 1, "dois toques, um envio", `${acoesDoCelular.length} envios`)
 await celular.close()
 
 /* ── 6. higiene ───────────────────────────────────────────────────────────── */

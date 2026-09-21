@@ -2,7 +2,7 @@
 
 import Image from "next/image"
 import Link from "next/link"
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, type MouseEvent } from "react"
 import { Fechar, Lixeira, Mais, Raio, Sacola as IconeSacola } from "@/components/icones"
 import { useSacola } from "@/components/sacola/contexto"
 import { FreteEPrazo } from "@/components/sacola/entrega"
@@ -68,6 +68,21 @@ export function Gaveta() {
 
   const { carrinho, ocupada, mexendo, erro, fechar, mudar, tirar } = sacola
   const vazia = carrinho.itens.length === 0
+
+  /*
+   * LINK DE DENTRO DA GAVETA FECHA A GAVETA. Ela mora no layout, que não
+   * desmonta entre uma página e outra: sem isto, "Finalizar compra" abria o
+   * checkout com a gaveta ainda por cima, e o véu dela engolia o primeiro
+   * clique no formulário. Fecha já no clique — esperar a navegação terminar
+   * deixaria a gaveta um instante em cima da página que está chegando.
+   *
+   * Com Ctrl/⌘/Shift ou o botão do meio, o link abre noutra aba e esta
+   * página fica onde está; a gaveta também.
+   */
+  function aoNavegar(ev: MouseEvent<HTMLAnchorElement>) {
+    if (ev.button !== 0 || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return
+    fechar()
+  }
 
   return (
     <>
@@ -142,6 +157,7 @@ export function Gaveta() {
                   <Link
                     className="sacolinha__foto"
                     href={item.handle ? `/produtos/${item.handle}` : EM_BREVE}
+                    onClick={aoNavegar}
                     tabIndex={-1}
                     aria-hidden="true"
                   >
@@ -151,7 +167,10 @@ export function Gaveta() {
 
                 <div>
                   <h3 className="sacolinha__nome">
-                    <Link href={item.handle ? `/produtos/${item.handle}` : EM_BREVE}>
+                    <Link
+                      href={item.handle ? `/produtos/${item.handle}` : EM_BREVE}
+                      onClick={aoNavegar}
+                    >
                       {item.nome}
                     </Link>
                   </h3>
@@ -271,7 +290,11 @@ export function Gaveta() {
             Pagar.me). Com `CHECKOUT_ABERTO` em `false`, este botão volta pro
             /em-breve — ver `lib/site.ts`.
           */}
-          <Link href={DESTINO_DO_CHECKOUT} className="btn btn--bloco sacolinha__finalizar">
+          <Link
+            href={DESTINO_DO_CHECKOUT}
+            className="btn btn--bloco sacolinha__finalizar"
+            onClick={aoNavegar}
+          >
             Finalizar compra
             <Raio className="btn__bolt" />
           </Link>

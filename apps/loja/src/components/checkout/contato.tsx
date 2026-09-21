@@ -6,7 +6,14 @@ import { salvarContato } from "@/lib/acoes/checkout"
 import { ESTADO_INICIAL, type CheckoutVisivel } from "@/lib/checkout-visivel"
 import { mascararDocumento } from "@/lib/documento"
 import { Campo } from "./campo"
-import { Painel, Recado, useFechaQuandoSalva, type PropsDaEtapa } from "./etapas"
+import {
+  Giro,
+  Painel,
+  Recado,
+  useAvisaOcupado,
+  useFechaQuandoSalva,
+  type PropsDaEtapa,
+} from "./etapas"
 
 /**
  * PASSO 1 — e-mail, nome, celular e documento.
@@ -27,6 +34,7 @@ export function Contato({
 }: PropsDaEtapa & { checkout: CheckoutVisivel }) {
   const [estado, acao, enviando] = useActionState(salvarContato, ESTADO_INICIAL)
   useFechaQuandoSalva(estado, aoSalvar)
+  useAvisaOcupado(casca, enviando ? "Salvando…" : null)
 
   // O documento é controlado só por causa da máscara; o resto é `defaultValue`
   // e vive no próprio DOM, que é onde o navegador já guarda melhor.
@@ -38,12 +46,15 @@ export function Contato({
   const v = (campo: string, gravado: string) => estado.valores?.[campo] ?? gravado
 
   return (
-    <Painel
-      etapa="contato"
-      aberta={casca.aberta}
-      dica="A gente só precisa de um jeito de te avisar do pedido."
-    >
-      <form id="form-contato" action={acao} noValidate>
+    <Painel etapa="contato" aberta={casca.aberta}>
+      <form
+        id="form-contato"
+        action={acao}
+        // Um envio por vez: o Enter num campo e o toque na barra do celular
+        // não passam pelo botão travado.
+        onSubmit={(ev) => enviando && ev.preventDefault()}
+        noValidate
+      >
         <div className="campos">
           <Campo
             rotulo="E-mail"
@@ -107,9 +118,15 @@ export function Contato({
 
         <div className="acoes">
           <span />
-          <button type="submit" className="btn" disabled={enviando}>
+          <button
+            type="submit"
+            className="btn"
+            disabled={enviando}
+            aria-busy={enviando || undefined}
+          >
+            {enviando ? <Giro /> : null}
             {enviando ? "Salvando…" : "Continuar"}
-            <Raio className="btn__bolt" />
+            {enviando ? null : <Raio className="btn__bolt" />}
           </button>
         </div>
       </form>

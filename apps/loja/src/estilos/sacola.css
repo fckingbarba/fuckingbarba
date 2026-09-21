@@ -36,11 +36,16 @@
   color: var(--color-tinta);
   font-family: var(--font-sans);
   transform: translateX(100%);
-  transition: transform 0.26s var(--ease-suave);
-  box-shadow: -14px 0 40px rgba(0, 0, 0, 0.3);
+  transition:
+    transform 0.26s var(--ease-suave),
+    box-shadow 0.26s var(--ease-suave);
 }
+/* A sombra só com a gaveta aberta. Fechada, ela mora logo depois da borda
+   direita da tela — e os 40px de desfoque vazavam pra dentro, uma faixa
+   cinza na beirada de toda página. */
 .carrinho-aberto .sacolinha {
   transform: translateX(0);
+  box-shadow: -14px 0 40px rgba(0, 0, 0, 0.3);
 }
 @media (prefers-reduced-motion: reduce) {
   .sacolinha,

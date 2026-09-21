@@ -14,11 +14,14 @@ export const metadata: Metadata = {
 /**
  * ENTREGA, TROCAS E DEVOLUÇÕES.
  *
- * Esta página não é opcional: o botão "Fazer o pedido" do checkout diz, em
- * letras miúdas, que ao fechar o pedido a pessoa ACEITA as regras desta
- * página. Enquanto ela era um rascunho com tarja de "em redação", o checkout
- * pedia aceite de um documento que não existia — o que, num eventual
- * desentendimento, é o mesmo que não ter regra nenhuma.
+ * Esta página não é opcional: é onde estão publicadas as regras de entrega,
+ * troca e devolução que valem pra toda compra, e é pra ela que o rodapé
+ * aponta. O checkout pedia aceite dela numa linha em letras miúdas embaixo
+ * do botão de pagar; a linha saiu (21/09/2026) pra enxugar a tela, e ficou o
+ * "7 dias pra trocar ou devolver" da faixa do passo 3. Enquanto ela era um
+ * rascunho com tarja de "em redação", o checkout pedia aceite de um
+ * documento que não existia — o que, num eventual desentendimento, é o
+ * mesmo que não ter regra nenhuma.
  *
  * Os prazos aqui são os da LEI (art. 49 e art. 26 do CDC), que a loja cumpre
  * por obrigação. O que depende de política da casa — quanto tempo a gente

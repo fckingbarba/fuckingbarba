@@ -312,13 +312,21 @@ async function catalogoDoCheckout(regiaoId: string): Promise<Oferta[]> {
  * não marca a caixinha, é o único jeito de mostrar o "por" sem inventar um
  * carrinho fantasma só pra perguntar ao Medusa quanto ficaria.
  *
- * Some quando o produto já está no pedido: oferecer desconto em algo que a
- * pessoa acabou de pagar inteiro é a melhor forma de irritar um cliente.
+ * Some quando o produto já está no pedido a preço cheio: oferecer desconto
+ * em algo que a pessoa acabou de pôr inteiro na sacola é a melhor forma de
+ * irritar um cliente. Com o bump MARCADO ele também está no pedido, mas aí a
+ * caixinha fica — marcada —, porque é por ela que se desmarca. Antes ela
+ * sumia no instante em que o óleo entrava, e parecia que o clique tinha dado
+ * errado.
  */
-export async function lerBump(regiaoId: string, jaNoCarrinho: Set<string>): Promise<Oferta | null> {
+export async function lerBump(
+  regiaoId: string,
+  jaNoCarrinho: Set<string>,
+  marcado: boolean
+): Promise<Oferta | null> {
   const catalogo = await catalogoDoCheckout(regiaoId)
   const achado = catalogo.find((o) => o.handle === BUMP.handle)
-  if (!achado || jaNoCarrinho.has(achado.varianteId)) return null
+  if (!achado || (jaNoCarrinho.has(achado.varianteId) && !marcado)) return null
 
   return {
     ...achado,
