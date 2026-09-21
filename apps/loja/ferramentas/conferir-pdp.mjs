@@ -224,17 +224,30 @@ try {
         )
         await abrir(COM_CONTEUDO)
 
-        const preco = emDigitos(await pagina.$eval(".compra__por", (e) => e.textContent))
-        const texto = (await pagina.$eval(".medidor__texto", (e) => e.textContent)).trim()
-        const falta = (PISO - preco).toFixed(2).replace(".", ",")
+        /*
+          O MEDIDOR DE "FALTAM R$ X" SAIU DAQUI, e no lugar entrou a
+          calculadora de CEP. Estas duas asserções ficam pra garantir que a
+          troca não desfez: uma cobra que a calculadora está na tela, a
+          outra que a barrinha não voltou junto — duas caixas sobre frete na
+          mesma coluna empurram o botão de comprar pra fora da primeira tela
+          no celular.
+        */
         confere(
-          "o medidor diz quanto falta, e a conta fecha com o piso da API",
-          texto.includes(falta),
-          `"${texto}" · preço ${preco}, piso ${PISO}, esperado ${falta}`
+          "a calculadora de CEP está na caixa de compra",
+          (await pagina.$(".cep__campo")) !== null
         )
         confere(
-          "e a letra miúda do 'só na opção mais barata' está junto",
-          (await pagina.$(".medidor__nota")) !== null
+          "e o medidor de 'faltam R$ X' não voltou junto",
+          (await pagina.$(".medidor")) === null
+        )
+        /*
+          A ressalva do "vale só na opção mais barata" mudou de casa junto
+          com o medidor: agora ela vai no selo das garantias, que é o que a
+          página afirma antes de qualquer CEP.
+        */
+        confere(
+          "a ressalva do alvo continua escrita em algum lugar",
+          (await textoDaPagina()).includes("opção de entrega mais barata")
         )
 
         const kits = await pagina.$$eval(".compra__kit", (n) =>
@@ -276,9 +289,20 @@ try {
 
         await pagina.check(".junto__lista li:nth-child(2) input")
         await pagina.waitForTimeout(450)
+        /*
+          Com os dois marcados o pedido passa do piso. Quem responde isso
+          agora são as TARJAS: as duas continuam acesas, porque tirar
+          qualquer um dos dois derruba o frete grátis — ou seja, os dois são
+          responsáveis por ele. Antes quem respondia era o medidor virando
+          "conseguiu"; o medidor saiu e a pergunta continua valendo.
+        */
+        const aindaAcesas = await pagina.$$eval(".junto__item", (n) =>
+          n.map((e) => e.querySelector(".tarja-frete") !== null)
+        )
         confere(
-          "com os dois marcados o medidor vira 'conseguiu'",
-          (await pagina.$(".medidor--ganhou")) !== null
+          "com os dois marcados, as duas tarjas continuam de pé",
+          aindaAcesas.length === 2 && aindaAcesas.every(Boolean),
+          JSON.stringify(aindaAcesas)
         )
 
         /* 2. FRETE FIXO — a tarja diz o preço, não "grátis". */

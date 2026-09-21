@@ -4,6 +4,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { useEffect, useRef } from "react"
 import { Fechar, Lixeira, Mais, Raio, Sacola as IconeSacola } from "@/components/icones"
+import { CalculadoraDeFrete } from "@/components/produto/calculadora"
 import { useSacola } from "@/components/sacola/contexto"
 import { useFrete } from "@/components/configuracoes/contexto"
 import { faltaPraPromocao, frasesDoFrete, progressoDaPromocao } from "@/lib/configuracoes"
@@ -219,6 +220,31 @@ export function Gaveta() {
             ))}
           </ul>
         </div>
+
+        {/*
+          A CALCULADORA TAMBÉM AQUI, e aqui ela CONVIVE com a barrinha.
+
+          Na página do produto a barrinha saiu pra ela entrar: as duas
+          disputavam o mesmo lugar e a mesma pergunta. Na sacola as duas
+          perguntas são diferentes e as duas valem — a barrinha lá em cima
+          diz "faltam R$ 50 pro frete grátis", que é o empurrão; esta diz
+          quanto custa e em quantos dias chega, que é a resposta.
+
+          Ela cota o que está DENTRO da sacola, e não o que a PDP tinha
+          selecionado: é o frete que o checkout vai cobrar daqui a duas
+          telas, e é aqui que ele precisa bater.
+        */}
+        {carrinho.itens.length ? (
+          <div className="sacolinha__cep">
+            <CalculadoraDeFrete
+              titulo="Frete e prazo"
+              itens={carrinho.itens.map((i) => ({
+                varianteId: i.varianteId,
+                quantidade: i.quantidade,
+              }))}
+            />
+          </div>
+        ) : null}
 
         <div className="sacolinha__pe">
           {/*

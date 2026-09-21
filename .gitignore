@@ -59,8 +59,15 @@ Thumbs.db
 __pycache__/
 *.pyc
 
-# Redis rodando direto na raiz (fora do docker compose)
-dump.rdb
+# Redis rodando direto na raiz (fora do docker compose).
+#
+# `*.rdb`, e não só `dump.rdb`: enquanto grava o snapshot, o Redis escreve
+# primeiro num `temp-<pid>.rdb` NA PASTA DE ONDE FOI CHAMADO e só depois
+# renomeia. Rodando de dentro de `apps/backend/`, esse temporário cai ao lado
+# do código — e o `medusa develop` vigia a pasta, então cada snapshot também
+# reinicia o servidor no meio do que estiver rodando. Um deles já entrou num
+# commit por engano.
+*.rdb
 
 # Supabase CLI.
 #

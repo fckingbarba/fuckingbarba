@@ -577,3 +577,18 @@
     opacity: 0;
   }
 }
+
+/*
+  A CALCULADORA DE CEP DENTRO DA GAVETA.
+
+  Ela é o mesmo componente da página de produto, e aqui só precisa de
+  respiro e de não brigar com a borda do rodapé. O `--color-cinza` de fundo
+  separa o bloco da lista de itens logo acima sem precisar de mais uma linha.
+*/
+.sacolinha__cep {
+  padding: 0 16px 14px;
+  background: var(--color-cinza);
+}
+.sacolinha__cep .cep {
+  margin: 0;
+}

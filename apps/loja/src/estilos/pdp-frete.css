@@ -75,107 +75,195 @@
   flex: none;
 }
 
-/* ── o medidor ────────────────────────────────────────────────────────── */
+/* ── a calculadora de CEP ─────────────────────────────────────────────── */
 
-.medidor {
-  margin: 14px 0 0;
-  padding: 9px 11px;
-  background: var(--color-papel);
-  border: 2px solid var(--color-tinta);
-  clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px);
-}
 /*
-  Alcançado, o bloco INVERTE: preto com menta. A mudança acontece no mesmo
-  instante em que a caixinha é marcada, e é ela que diz "conseguiu" antes de
-  qualquer palavra ser lida.
+  "QUANDO CHEGA NA SUA CASA" — entrou no lugar do medidor de "faltam R$ X".
 
-  A primeira tentativa foi pintar de menta — e a menta é o fundo da própria
-  coluna de compra, então o bloco sumia no fundo e sobrava a borda preta
-  boiando. Inverter resolve porque o preto não se repete em mais nada aqui
-  perto: o botão de comprar é preto, e ele fica bem embaixo, o que fecha a
-  coluna entre duas âncoras da mesma cor.
+  O desenho é o do resto da marca: caixa branca, borda grossa preta, chanfro
+  e nada de canto redondo. O único elemento colorido é o botão — preto com
+  letra amarela, igual ao "melhor preço" dos kits —, porque ele é a única
+  coisa aqui que se clica.
 */
-.medidor--ganhou {
-  background: var(--color-tinta);
-  color: var(--color-menta);
+.cep {
+  margin: 14px 0 0;
+  padding: 12px 14px 10px;
+  background: var(--color-papel);
+  border: 3px solid var(--color-tinta);
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
 }
 
-.medidor__topo {
+.cep__titulo {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-  margin: 0 0 6px;
-}
-.medidor__rotulo {
-  display: inline-flex;
   align-items: center;
-  gap: 5px;
-  font-size: 0.7rem;
+  gap: 7px;
+  margin: 0 0 10px;
+  font-size: 0.78rem;
   font-weight: 800;
   font-style: italic;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
-  white-space: nowrap;
 }
-.medidor__rotulo svg {
-  width: 12px;
-  height: 12px;
-  fill: var(--color-amarelo-escuro);
+.cep__titulo svg {
+  width: 17px;
+  height: 17px;
+  fill: var(--color-tinta);
   flex-shrink: 0;
 }
-.medidor--ganhou .medidor__rotulo svg {
-  fill: var(--color-amarelo);
+
+.cep__linha {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
 }
-.medidor__texto {
-  font-size: 0.72rem;
+
+/*
+  O campo ocupa o que sobra e o botão tem o tamanho do texto dele. Largura
+  fixa no campo estouraria na gaveta, que é mais estreita que a coluna de
+  compra — e é o mesmo componente nos dois lugares.
+*/
+.cep__campo {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 12px;
+  border: 3px solid var(--color-tinta);
+  background: var(--color-papel);
+  font: inherit;
+  font-size: 1.05rem;
   font-weight: 700;
-  text-align: right;
+  letter-spacing: 0.03em;
+}
+.cep__campo::placeholder {
+  color: #9aa2ae;
+  font-weight: 600;
+}
+.cep__campo:focus {
+  outline: 3px solid var(--color-amarelo);
+  outline-offset: -6px;
+}
+
+.cep__botao {
+  flex-shrink: 0;
+  padding: 9px 18px;
+  border: 0;
+  background: var(--color-tinta);
+  color: var(--color-amarelo);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+/*
+  Desabilitado enquanto o CEP não tem oito dígitos: clicar antes só renderia
+  um erro que a pessoa já sabe. Continua legível de propósito — botão que
+  some faz procurar, botão apagado faz completar o campo.
+*/
+.cep__botao:disabled {
+  background: #4a5260;
+  color: #c9ccd2;
+  cursor: not-allowed;
+}
+
+.cep__resposta:not(:empty) {
+  margin-top: 12px;
+}
+
+.cep__erro {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-erro);
+}
+
+/* Uma linha fina entre as opções, e outra antes do rodapé: é o que separa
+   sem transformar a caixa numa tabela. */
+.cep__opcao {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
+  padding: 9px 0;
+  border-top: 2px solid var(--color-cinza);
+}
+.cep__opcao:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+.cep__opcao-nome {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.88rem;
+  font-weight: 800;
   line-height: 1.2;
 }
-
-.medidor__trilho {
-  display: block;
-  position: relative;
-  height: 7px;
-  background: rgba(18, 24, 31, 0.16);
-  overflow: hidden;
-}
-.medidor__barra {
-  display: block;
-  height: 100%;
-  background: var(--color-tinta);
-  /* A barra ANDA quando a pessoa marca um item. É o movimento que diz que a
-     escolha valeu alguma coisa — parado, o mesmo número não diz nada. */
-  transition: width 0.35s var(--ease-suave, ease);
-}
-
-/* No bloco invertido a barra some se continuar preta: trilho e barra trocam
-   de tom pra que o cheio continue se distinguindo do vazio. */
-.medidor--ganhou .medidor__trilho {
-  background: rgba(255, 255, 255, 0.22);
-}
-.medidor--ganhou .medidor__barra {
-  background: var(--color-menta);
-}
-
-.medidor__nota {
-  display: block;
-  margin-top: 6px;
-  font-size: 0.62rem;
+.cep__opcao-nome small {
+  font-size: 0.76rem;
   font-weight: 600;
-  line-height: 1.3;
   color: var(--color-tinta-suave);
 }
-/* Menta-clara e não menta pura: sobre o preto, a nota tem que ficar ABAIXO
-   do rótulo na hierarquia, e menta cheia competiria com ele. */
-.medidor--ganhou .medidor__nota {
-  color: var(--color-menta-clara);
-  opacity: 0.85;
+.cep__quem {
+  font-size: 0.7rem !important;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.cep__opcao-preco {
+  flex-shrink: 0;
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+/* Grátis é a única coisa desta caixa que merece cor: é o que a pessoa
+   estava torcendo pra ver. */
+.cep__opcao-preco[data-gratis] {
+  color: var(--color-menta-escura);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .medidor__barra {
-    transition: none;
+.cep__falta {
+  margin: 0;
+  padding: 9px 0 0;
+  border-top: 2px solid var(--color-cinza);
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+.cep__aviso {
+  margin: 8px 0 0;
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--color-tinta-suave);
+}
+
+.cep__pe {
+  margin: 10px 0 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--color-tinta-suave);
+}
+.cep__pe a {
+  color: var(--color-tinta);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  white-space: nowrap;
+}
+
+/* No celular o botão desce pra linha de baixo em vez de espremer o campo
+   até o CEP não caber inteiro nele. */
+@media (max-width: 420px) {
+  .cep__linha {
+    flex-wrap: wrap;
+  }
+  .cep__campo {
+    flex-basis: 100%;
+  }
+  .cep__botao {
+    flex: 1;
   }
 }

@@ -17,17 +17,8 @@ import type { CarrinhoVisivel } from "@/lib/carrinho-visivel"
 import { emReais } from "@/lib/formato"
 import type { DegrauDeQuantidade } from "@/lib/medusa"
 import { useFrete } from "@/components/configuracoes/contexto"
-import {
-  alcancaOPiso,
-  faltaPraPromocao,
-  fechaOPiso,
-  fraseDoQueFalta,
-  frasesDoFrete,
-  pisoVale,
-  progressoDaPromocao,
-  type FrasesDoFrete,
-  type PoliticaDeFrete,
-} from "@/lib/configuracoes"
+import { alcancaOPiso, fechaOPiso, frasesDoFrete, pisoVale } from "@/lib/configuracoes"
+import { CalculadoraDeFrete } from "@/components/produto/calculadora"
 import type { ProdutoQueCombina } from "@/lib/pdp"
 import { PARCELA_MINIMA, PARCELAS_SEM_JUROS } from "@/lib/site"
 
@@ -223,7 +214,26 @@ export function Compra({
         )}
       </div>
 
-      <Medidor politica={politica} frases={frases} pedido={pedido} />
+      {/*
+        A CALCULADORA NO LUGAR DO MEDIDOR.
+
+        Aqui havia uma barrinha de "faltam R$ 85,00 pro frete grátis". Ela
+        respondia uma pergunta que ninguém faz na página do produto: quem
+        ainda não montou carrinho não está perseguindo piso, está decidindo
+        se compra. A pergunta que existe é "quanto sai pra minha casa" — e
+        essa a barrinha não respondia.
+
+        Ela cota o que está SELECIONADO: o kit escolhido, na quantidade
+        escolhida, mais o que estiver marcado no "leve junto". Trocar
+        qualquer um recota, porque o peso muda e preço de frete velho na
+        tela é oferta errada.
+      */}
+      <CalculadoraDeFrete
+        itens={[
+          { varianteId: degrau.varianteId, quantidade },
+          ...marcados.map((c) => ({ varianteId: c.varianteId, quantidade: 1 })),
+        ]}
+      />
 
       {degraus.length > 1 ? (
         <Degraus
@@ -327,7 +337,20 @@ export function Compra({
             <Caminhao />
             <span>
               {frases.selo}
-              <small>{frases.condicao}</small>
+              {/*
+                A LETRA MIÚDA MORAVA NO MEDIDOR, e o medidor saiu.
+
+                Com `alvo: "mais-barata"`, "frete grátis" sozinho deixa a
+                pessoa entender que o Sedex também sai de graça — e ela
+                descobre que não no checkout, que é o pior lugar possível.
+                A calculadora ali em cima mostra isso em números depois do
+                CEP; este selo é o que a página afirma ANTES de qualquer
+                CEP, então é aqui que a ressalva precisa estar.
+              */}
+              <small>
+                {frases.condicao}
+                {frases.nota ? ` · ${frases.nota}` : ""}
+              </small>
             </span>
           </li>
         ) : null}
@@ -470,69 +493,6 @@ function TarjaDeFrete({ texto }: { texto: string }) {
   )
 }
 
-/**
- * O MEDIDOR — quanto falta pro frete grátis, contando o que esta caixa vai
- * adicionar (o kit escolhido, na quantidade escolhida, mais o que estiver
- * marcado no "leve junto").
- *
- * É o que transforma as tarjas em ação: a tarja diz "este aqui fecha a
- * conta" e o medidor diz de quanto é a conta. Sem ele, "faltam R$ 20,10"
- * seria um número que a pessoa teria que montar de cabeça.
- *
- * A gaveta tem um medidor igual, com classe própria — a daqui não pode usar
- * `.sacolinha__*` nem `.compra__*`: a primeira é de outro componente e a
- * segunda mora no `pdp.css`, que é gerado por script.
- *
- * A LETRA MIÚDA NÃO É ENFEITE. Com `alvo: "mais-barata"`, "frete grátis"
- * sozinho deixa a pessoa entender que o Sedex também sai de graça, e ela
- * descobre que não no checkout — o pior lugar possível pra descobrir.
- */
-function Medidor({
-  politica,
-  frases,
-  pedido,
-}: {
-  politica: PoliticaDeFrete
-  frases: FrasesDoFrete | null
-  pedido: number
-}) {
-  const falta = faltaPraPromocao(politica, pedido)
-  const porcento = progressoDaPromocao(politica, pedido)
-  if (!frases || falta === null || porcento === null || !pisoVale(politica)) return null
-
-  const conquistou = falta <= 0
-
-  return (
-    <div className={conquistou ? "medidor medidor--ganhou" : "medidor"}>
-      <p className="medidor__topo">
-        <span className="medidor__rotulo">
-          <Raio />
-          {frases.selo}
-        </span>
-        <span className="medidor__texto">
-          {conquistou
-            ? politica.modo === "gratis"
-              ? "Conseguiu — é por nossa conta"
-              : "Conseguiu"
-            : fraseDoQueFalta(politica, falta)}
-        </span>
-      </p>
-
-      <span
-        className="medidor__trilho"
-        role="progressbar"
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={porcento}
-        aria-label={`Progresso para ${frases.selo.toLowerCase()}`}
-      >
-        <span className="medidor__barra" style={{ width: `${porcento}%` }} />
-      </span>
-
-      {frases.nota ? <small className="medidor__nota">{frases.nota}</small> : null}
-    </div>
-  )
-}
 
 function Degraus({
   degraus,

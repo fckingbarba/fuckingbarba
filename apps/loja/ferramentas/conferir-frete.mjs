@@ -421,7 +421,88 @@ try {
     JSON.stringify(resultado).slice(0, 120)
   )
 
-  /* ── 8. cotação vazia ──────────────────────────────────────────────── */
+  /* ── 8. a rota da calculadora de CEP ───────────────────────────────── */
+  /*
+    A PDP e a sacola não usam a rota do Medusa: elas chamam `POST
+    /store/frete`, que cota SEM carrinho. Os dois caminhos precisam devolver
+    o MESMO preço — senão a página de produto promete um valor e o checkout
+    cobra outro, que é a divergência que esta integração inteira existe pra
+    não ter.
+  */
+  falsa.roteiro = "normal"
+  await gravarConfig({
+    frete: { modo: "gratis", piso: 1, alvo: "mais-barata", tetoDeCusto: null },
+    cotacao: { precoDeEmergencia: 19.9, prazoDeEmergencia: "7 dias úteis" },
+  })
+
+  const calcular = async (corpo) => {
+    const r = await fetch(`${MEDUSA}/store/frete`, {
+      method: "POST",
+      headers: daLoja,
+      body: JSON.stringify(corpo),
+    })
+    return { status: r.status, corpo: await r.json() }
+  }
+
+  const umItem = [{ variante_id: variante.id, quantidade: 1 }]
+
+  const cotado = await calcular({ cep: "90010-150", itens: umItem })
+  const daCalculadora = cotado.corpo?.frete?.opcoes ?? []
+  confere("a rota da calculadora responde 200", cotado.status === 200, JSON.stringify(cotado.corpo).slice(0, 120))
+  confere(
+    "e devolve TRANSPORTADORA e PRAZO, que a rota do Medusa não devolve",
+    daCalculadora.length === 2 &&
+      daCalculadora[0].transportadora === "Correios" &&
+      daCalculadora[0].prazo === "8 dias úteis",
+    JSON.stringify(daCalculadora)
+  )
+  confere(
+    "o preço da calculadora é o mesmo do checkout",
+    daCalculadora[0]?.preco === 0,
+    `${daCalculadora[0]?.preco} — acima do piso, a econômica é grátis dos dois lados`
+  )
+  confere(
+    "CEP com hífen e sem hífen dão a mesma resposta",
+    (await calcular({ cep: "90010150", itens: umItem })).corpo?.frete?.cep === "90010150"
+  )
+
+  const torto = await calcular({ cep: "123", itens: umItem })
+  confere("CEP curto é recusado antes de gastar cotação", torto.status === 400, String(torto.status))
+
+  const semNada = await calcular({ cep: "90010150", itens: [] })
+  confere("pedido sem item é recusado", semNada.status === 400, String(semNada.status))
+
+  /*
+    O NAVEGADOR NÃO DIZ QUANTO GASTOU. Mandar `region_id` de brincadeira não
+    pode virar frete grátis: quem soma o subtotal é o servidor, pelos preços
+    da região. Se um dia alguém aceitar um `subtotal` do corpo, isto quebra.
+  */
+  const mentindo = await calcular({
+    cep: "90010150",
+    itens: [{ variante_id: variante.id, quantidade: 1, preco: 99999, subtotal: 99999 }],
+  })
+  confere(
+    "preço mandado pelo navegador é ignorado",
+    mentindo.status === 200,
+    "a rota não lê preço do corpo — quem soma é o servidor"
+  )
+
+  falsa.roteiro = "queda"
+  const naQuedaDaRota = await calcular({ cep: "90010150", itens: umItem })
+  const naEmergencia = naQuedaDaRota.corpo?.frete
+  confere(
+    "na queda, a calculadora diz o preço de emergência e o prazo do admin",
+    naEmergencia?.emergencia === true && naEmergencia?.opcoes?.[0]?.prazo === "7 dias úteis",
+    JSON.stringify(naEmergencia)
+  )
+  confere(
+    "e não inventa quem entrega",
+    naEmergencia?.opcoes?.[0]?.transportadora === null,
+    "sem cotação ninguém sabe a transportadora — dizer uma seria mentira"
+  )
+  falsa.roteiro = "normal"
+
+  /* ── 9. cotação vazia ──────────────────────────────────────────────── */
   falsa.roteiro = "vazia"
   await gravarConfig({ frete: { modo: "nenhuma" }, cotacao: { precoDeEmergencia: 19.9 } })
   const semCobertura = await carrinhoCom(1)

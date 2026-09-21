@@ -6,7 +6,13 @@ import type {
   FulfillmentOption,
 } from "@medusajs/framework/types"
 import { aplicarPolitica, type OpcaoCotada, type PoliticaDeFrete } from "../../lib/configuracoes"
-import { cotar, ErroDaFrenet, type ItemPraCotar, type ServicoCotado } from "./client"
+import {
+  cotar,
+  ErroDaFrenet,
+  escolherFaixas,
+  type ItemPraCotar,
+  type ServicoCotado,
+} from "./client"
 
 /**
  * O PROVEDOR DE FRETE — a Frenet cota, a loja decide.
@@ -213,19 +219,17 @@ export default class FrenetFulfillmentService extends AbstractFulfillmentProvide
       )
     }
 
-    const maisBarata = servicos.reduce((a, b) =>
-      b.preco < a.preco || (b.preco === a.preco && b.prazo < a.prazo) ? b : a
-    )
-    const maisRapida = servicos.reduce((a, b) =>
-      b.prazo < a.prazo || (b.prazo === a.prazo && b.preco < a.preco) ? b : a
-    )
+    /* A MESMA função que a rota `/store/frete` usa pra responder a
+       calculadora de CEP. Se as duas escolhessem sozinhas, a PDP mostraria
+       um preço e o checkout cobraria outro. */
+    const { economica, expressa } = escolherFaixas(servicos)!
 
     /* A ordem importa: `aplicarPolitica` desempata pela primeira, e a
        econômica tem que ser a que ganha o frete grátis. */
     return this.precoFinal(
       [
-        { id: "economica", preco: maisBarata.preco },
-        { id: "expressa", preco: maisRapida.preco },
+        { id: "economica", preco: economica.preco },
+        { id: "expressa", preco: expressa.preco },
       ],
       faixa,
       politica,

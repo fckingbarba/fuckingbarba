@@ -53,8 +53,22 @@ export type ServicoCotado = {
   servico: string
   /** Em reais. */
   preco: number
-  /** Dias úteis. */
+  /**
+   * Dias úteis, o MAIOR quando a transportadora manda faixa.
+   *
+   * É por ele que a faixa "mais rápida" é escolhida e ordenada: prometer o
+   * melhor caso e entregar o pior é o jeito mais barato de perder cliente.
+   */
   prazo: number
+  /**
+   * O prazo como a transportadora escreveu: "8", "4 a 7".
+   *
+   * A tela mostra a FAIXA quando ela existe ("chega em 4 a 7 dias úteis"),
+   * porque é o que a transportadora de fato promete. Guardar só o número
+   * maior deixaria a loja anunciando sete dias num frete que costuma chegar
+   * em quatro — e chegar antes é a única surpresa boa que sobra no frete.
+   */
+  prazoTexto: string
 }
 
 export type ItemPraCotar = {
@@ -125,11 +139,50 @@ function emReais(v: unknown): number | null {
   return Number.isFinite(n) ? n : null
 }
 
-/** O prazo, também texto. "5" · "5 a 8" → pega o maior, que é o que promete. */
-function emDias(v: unknown): number | null {
+/**
+ * O prazo, também texto. "5" · "5 a 8".
+ *
+ * Devolve o MAIOR (pra comparar e ordenar) e o TEXTO enxuto (pra tela). Dois
+ * valores porque são dois usos: comparar pede número, prometer pede a frase
+ * que a transportadora escreveu.
+ */
+function lerPrazo(v: unknown): { dias: number; texto: string } | null {
   const numeros = String(v ?? "").match(/\d+/g)
-  if (!numeros?.length) return null
-  return Math.max(...numeros.map(Number))
+  const lista = (numeros ?? []).map(Number).filter((n) => Number.isFinite(n) && n > 0)
+  if (!lista.length) return null
+  const menor = Math.min(...lista)
+  const maior = Math.max(...lista)
+  return { dias: maior, texto: menor === maior ? String(maior) : `${menor} a ${maior}` }
+}
+
+/**
+ * AS DUAS FAIXAS, escolhidas de uma lista de serviços cotados.
+ *
+ * Mora aqui, e não dentro do provider, porque DOIS lugares precisam dela: o
+ * provider (que responde quanto custa cada opção no checkout) e a rota
+ * `/store/frete` (que responde a calculadora de CEP da PDP e da sacola).
+ *
+ * Duas cópias desta escolha é a vitrine mostrando um preço e o checkout
+ * cobrando outro — e o cliente descobrindo na última tela. A função é pura
+ * de propósito: entra lista, sai escolha, e dá pra conferir sem subir nada.
+ *
+ * Os desempates importam e não são simétricos: entre dois preços iguais
+ * ganha o mais rápido, e entre dois prazos iguais ganha o mais barato. Sem
+ * eles a escolha viraria a ordem em que a transportadora respondeu.
+ */
+export function escolherFaixas(servicos: ServicoCotado[]): {
+  economica: ServicoCotado
+  expressa: ServicoCotado
+} | null {
+  if (!servicos.length) return null
+  return {
+    economica: servicos.reduce((a, b) =>
+      b.preco < a.preco || (b.preco === a.preco && b.prazo < a.prazo) ? b : a
+    ),
+    expressa: servicos.reduce((a, b) =>
+      b.prazo < a.prazo || (b.prazo === a.prazo && b.preco < a.preco) ? b : a
+    ),
+  }
 }
 
 export async function cotar(pedido: PedidoDeCotacao): Promise<ServicoCotado[]> {
@@ -212,7 +265,7 @@ export async function cotar(pedido: PedidoDeCotacao): Promise<ServicoCotado[]> {
     if (s.Error === true || s.Error === "true") return []
 
     const preco = emReais(s.ShippingPrice)
-    const prazo = emDias(s.DeliveryTime)
+    const prazo = lerPrazo(s.DeliveryTime)
     const codigo = typeof s.ServiceCode === "string" ? s.ServiceCode : ""
 
     /*
@@ -227,7 +280,8 @@ export async function cotar(pedido: PedidoDeCotacao): Promise<ServicoCotado[]> {
         transportadora: typeof s.Carrier === "string" ? s.Carrier : "",
         servico: typeof s.ServiceDescription === "string" ? s.ServiceDescription : "",
         preco,
-        prazo,
+        prazo: prazo.dias,
+        prazoTexto: prazo.texto,
       },
     ]
   })
