@@ -109,12 +109,15 @@ sozinha a cada 5 minutos; se nem ela resolver, o log com `[conciliação]` diz o
         link na loja — o "Minha conta" do cabeçalho segue no `/em-breve` até a parte 3.
   - [ ] **Você: o Resend.** Sem ele ninguém entra na conta em produção. (a) Criar a conta em
         resend.com — o plano grátis (100 e-mails por dia) dá pro login; (b) Domains → Add Domain →
-        `fuckingbarba.com.br`, e no DNS os três registros que ele mostrar (um MX e um TXT no
-        `send`, um TXT no `resend._domainkey`) — ficam em subdomínios, não mexem no site nem no
-        e-mail de hoje; esperar o "Verified"; (c) API Keys → Create, com "Sending access" só desse
-        domínio; (d) no Railway: `RESEND_API_KEY` e, se quiser outro remetente que
-        `nao-responda@fuckingbarba.com.br`, `EMAIL_REMETENTE`. Pra conferir: pedir um código em
-        `/conta/entrar` — se não chegar, o log do Railway diz por quê (linha `[email]`).
+        `fuckingbarba.com.br`, e no DNS da GoDaddy (é lá que o domínio está) os três registros que
+        ele mostrar: TXT `resend._domainkey`, CNAME `send` e CNAME `rsend`, só o prefixo no campo
+        Nome. Ficam em nomes que não existiam: o site (`@` e `www`, na Nuvemshop) e o e-mail
+        (Google) não mudam. Não editar nada que já está lá; "Enable Receiving" desligado (ele
+        disputaria o e-mail com o Google); o DMARC de hoje fica como está. Esperar o "Verified";
+        (c) API Keys → Create, com "Sending access" só desse domínio; (d) no Railway:
+        `RESEND_API_KEY` e, se quiser outro remetente que `nao-responda@fuckingbarba.com.br`,
+        `EMAIL_REMETENTE`. Pra conferir: pedir um código em `/conta/entrar` — se não chegar, o log
+        do Railway diz por quê (linha `[email]`).
   - [ ] 2. Visão geral, pedidos e o detalhe do pedido.
   - [ ] 3. Endereços e meus dados — e aí o link do cabeçalho troca o `/em-breve` por `/conta`.
   - [ ] Histórico da Nuvemshop na conta: junto da importação do catálogo (fase 2), e de novo na
