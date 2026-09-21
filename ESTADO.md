@@ -1,6 +1,6 @@
 # Estado do projeto — e o que vem a seguir
 
-Atualizado em 21/09/2026, com a cara nova dos e-mails (o do código e o de pedido confirmado). O
+Atualizado em 21/09/2026, com a parte 2 da Minha conta (visão geral, pedidos e o pedido). O
 AGENTS.md diz **como** trabalhar aqui; este arquivo diz **onde** o projeto está. Leia os dois antes
 de começar e, ao terminar uma tarefa, atualize este: o que mudou de estado, o que saiu da lista, o
 que entrou.
@@ -22,6 +22,12 @@ foi criado, e com `WORKER_MODE=server` sozinho **nada de fundo rodava**: Pix pag
 pago, a conciliação não existia, nenhum subscriber disparava. Hoje o único serviço roda os dois
 papéis (`WORKER_MODE=shared`), o que dá conta do volume atual. Separar em dois serviços é quando o
 volume pedir — e aí as variáveis do Pagar.me vão nos DOIS.
+
+**Conexões com o banco.** O Medusa fala com o Supabase pelo pooler em modo sessão, que aceita
+tantas conexões ao mesmo tempo quanto o **Pool Size** (Supabase → Database → Settings → Connection
+pooling). Num deploy somam três: a versão no ar, a migração do pré-deploy e a versão nova subindo.
+Com 15 (o padrão), o deploy de 21/09 falhou no pré-deploy com `EMAXCONNSESSION`; 30 dá folga (o
+banco aceita 60). Se o erro voltar, é aqui.
 
 ### Como o pagamento ficou configurado
 
@@ -109,20 +115,15 @@ sozinha a cada 5 minutos; se nem ela resolver, o log com `[conciliação]` diz o
   - [x] 1. Entrar com código de 6 dígitos no e-mail, sem senha; o primeiro código cria a conta, e o
         cliente convidado de quem já comprou vira a conta (com os pedidos). `/conta` ainda sem
         link na loja — o "Minha conta" do cabeçalho segue no `/em-breve` até a parte 3.
-  - [ ] **Você: o Resend.** Sem ele ninguém entra na conta em produção. (a) Criar a conta em
-        resend.com — o plano grátis (100 e-mails por dia) dá pro login; (b) Domains → Add Domain →
-        `fuckingbarba.com.br`, e no DNS da GoDaddy (é lá que o domínio está) os três registros que
-        ele mostrar: TXT `resend._domainkey`, CNAME `send` e CNAME `rsend`, só o prefixo no campo
-        Nome. Ficam em nomes que não existiam: o site (`@` e `www`, na Nuvemshop) e o e-mail
-        (Google) não mudam. Não editar nada que já está lá; "Enable Receiving" desligado (ele
-        disputaria o e-mail com o Google); o DMARC de hoje fica como está. Esperar o "Verified";
-        (c) API Keys → Create, com "Sending access" só desse domínio; (d) no Railway:
-        `RESEND_API_KEY` e, se quiser outro remetente que `nao-responda@fuckingbarba.com.br`,
-        `EMAIL_REMETENTE`; (e) conferir que `LOJA_URL`, no Railway, é o endereço da loja na Vercel —
-        a logo dos e-mails vem de `<LOJA_URL>/email/logo.png` (sem ela, o nome sai em texto). Pra
-        conferir: pedir um código em `/conta/entrar` — se não chegar, o log do Railway diz por quê
-        (linha `[email]`).
-  - [ ] 2. Visão geral, pedidos e o detalhe do pedido.
+  - [x] **Resend no ar** (21/09): domínio verificado (DNS na GoDaddy: TXT `resend._domainkey`,
+        CNAME `send` e `rsend` — o site e o e-mail do Google não mudaram), chave só de envio no
+        Railway, e o código chegou na caixa de entrada com a logo. Se um código não chegar, o log do
+        Railway diz por quê (linha `[email]`).
+  - [x] 2. Visão geral (em andamento e comprar de novo), a lista de pedidos e o pedido: selo do
+        estado, linha do tempo, rastreio, o Pix pendente (a caixa do obrigado, que muda sozinha
+        quando cai), totais e "comprar de novo". Pedidos lidos da conta, nunca pelo id solto.
+  - [ ] **Você, ao postar um pedido:** no admin, "Mark as shipped" com o código de rastreio. É dele
+        que a tela do pedido tira o rastreio; sem código, ela diz que aparece quando for postado.
   - [ ] 3. Endereços e meus dados — e aí o link do cabeçalho troca o `/em-breve` por `/conta`.
   - [ ] Histórico da Nuvemshop na conta: junto da importação do catálogo (fase 2), e de novo na
         virada, com os últimos pedidos.
@@ -144,8 +145,8 @@ sozinha a cada 5 minutos; se nem ela resolver, o log com `[conciliação]` diz o
   `apps/backend/src/subscribers/pagamento-capturado.ts` — idempotente, porque o evento pode sair
   duas vezes pro mesmo pagamento.
 - A moldura dos e-mails existe (`apps/backend/src/lib/emails/moldura.ts`), e o de pedido
-  confirmado está desenhado e testado, sem ligar. Ligar DEPOIS da parte 2 da conta: o botão dele
-  leva a `/conta/pedidos/<id>`. Faltam desenhar o de enviado (com rastreio) e o de Pix vencido.
+  confirmado está desenhado e testado, sem ligar. O botão dele leva a `/conta/pedidos/<id>`, que
+  já existe — dá pra ligar. Faltam desenhar o de enviado (com rastreio) e o de Pix vencido.
 - E-mail de "seu Pix venceu": a conciliação já cancela o pedido e devolve o estoque; falta avisar.
 
 ## Como seguir no Claude Code

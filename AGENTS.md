@@ -43,7 +43,7 @@ no fim, mesmo quando falham.
 
 ```bash
 # frete, checkout e pagamento sobem uma Frenet falsa (4310) e um Pagar.me falso (4320); o da
-# conta sobe um Resend falso (4330) e lê o código de lá. O backend precisa apontar pros três
+# conta sobe os dois e um Resend falso (4330), de onde lê o código. O backend aponta pros três
 FRENET_URL=http://127.0.0.1:4310/shipping/quote FRENET_TOKEN=teste \
 PAGARME_SECRET_KEY=sk_test_falsa PAGARME_URL=http://127.0.0.1:4320/core/v5 \
 MEDUSA_WEBHOOK_SEGREDO=segredo-de-teste \
@@ -169,6 +169,15 @@ com aquele e-mail VIRA a conta, com os pedidos dele. `authMethodsPerActor` deixa
 servidor fala com o Medusa (`apps/loja/src/lib/conta.ts`); o `proxy.ts` faz a checagem otimista da
 porta da `/conta`. O limite por pessoa conta o IP que a loja manda em `x-cliente-ip`, assinado com o
 `REVALIDAR_SEGREDO`.
+
+Os **pedidos da conta** (`apps/loja/src/lib/pedidos-da-conta.ts`) saem de `GET /store/orders` com o
+token da sessão — a rota só devolve pedido do cliente do token. O detalhe também vem por ela
+(`?id=`), nunca por `/store/orders/:id`, que responde pra qualquer um com o id: pedido de outra
+pessoa não aparece, e a tela diz que não achou. O rastreio vem de
+`GET /store/conta/pedidos/:id/rastreio` (backend), porque a API da loja corta as etiquetas dos
+envios. O id do pedido no endereço não passa pra minúscula (`CAMINHOS_COM_ID`, no `proxy.ts`). O
+conferidor da conta monta pedidos de verdade em cada estado com `ferramentas/pedido-de-teste.mjs`
+— por isso pede `ADMIN_EMAIL`/`ADMIN_SENHA`, como os de frete e pagamento.
 
 Os **e-mails** moram em `apps/backend/src/lib/emails/`: a `moldura.ts` (barra preta com a logo,
 fundo menta, blocos com sombra dura — em tabela e estilo em linha, porque é e-mail) e um arquivo

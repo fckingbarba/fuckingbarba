@@ -165,11 +165,10 @@ export function lerPagamento(order: HttpTypes.StoreOrder): PagamentoVisivel {
   )
   const doPagarme = sessoes.find((s) => s.provider_id === PROVEDOR_PAGARME)
 
-  if (order.status === "canceled") {
-    return { estado: "cancelado", forma: null, pix: null, cartao: null }
-  }
   if (!doPagarme) {
-    return { estado: "combinar", forma: null, pix: null, cartao: null }
+    return order.status === "canceled"
+      ? { estado: "cancelado", forma: null, pix: null, cartao: null }
+      : { estado: "combinar", forma: null, pix: null, cartao: null }
   }
 
   const estado = (doPagarme.data?.pagarme ?? {}) as {
@@ -198,6 +197,13 @@ export function lerPagamento(order: HttpTypes.StoreOrder): PagamentoVisivel {
           parcelas: Number(estado.parcelas ?? 1) || 1,
         }
       : null
+
+  /*
+    Cancelado continua dizendo COMO foi pago (a conta escreve "Pix — venceu
+    sem pagamento", ou o cartão que foi estornado), mas sem o QR: um Pix de
+    pedido cancelado não pode aparecer como coisa a pagar.
+  */
+  if (order.status === "canceled") return { estado: "cancelado", forma, pix: null, cartao }
 
   return {
     estado: pago ? "pago" : forma === "cartao" ? "analise" : "aguardando",

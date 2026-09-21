@@ -1,5 +1,6 @@
 import "server-only"
 import { cookies, headers } from "next/headers"
+import { cache } from "react"
 import { COOKIE_ENTRANDO, COOKIE_SESSAO, destinoSeguro, type Destino } from "./sessao"
 
 /**
@@ -166,7 +167,8 @@ export type LeituraDoCliente =
   /** O Medusa não respondeu. Não é motivo pra tirar ninguém da conta. */
   | { estado: "fora-do-ar" }
 
-export async function lerCliente(): Promise<LeituraDoCliente> {
+/** `cache`: o menu e a página perguntam no mesmo pedido de página — uma ida só. */
+export const lerCliente = cache(async (): Promise<LeituraDoCliente> => {
   const token = await lerSessao()
   if (!token) return { estado: "sem-sessao" }
 
@@ -189,4 +191,4 @@ export async function lerCliente(): Promise<LeituraDoCliente> {
       sobrenome: c.last_name ?? "",
     },
   }
-}
+})

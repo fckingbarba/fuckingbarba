@@ -34,3 +34,63 @@ export function emReaisPartido(valor: number): { inteiro: string; centavos: stri
   if (virgula < 0) return { inteiro: texto, centavos: "" }
   return { inteiro: texto.slice(0, virgula), centavos: texto.slice(virgula) }
 }
+
+/* ── datas ────────────────────────────────────────────────────────────────── */
+
+/**
+ * DATAS NO FUSO DA LOJA, e não no do servidor. A Vercel roda em UTC: um
+ * pedido feito às 22h de São Paulo já é "amanhã" lá, e a conta diria que a
+ * compra de ontem à noite foi feita hoje.
+ */
+const FUSO = "America/Sao_Paulo"
+const DIA = new Intl.DateTimeFormat("pt-BR", { timeZone: FUSO, day: "2-digit", month: "2-digit" })
+const DIA_E_ANO = new Intl.DateTimeFormat("pt-BR", {
+  timeZone: FUSO,
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+})
+const HORA = new Intl.DateTimeFormat("pt-BR", {
+  timeZone: FUSO,
+  hour: "2-digit",
+  minute: "2-digit",
+})
+/** "2026-09-17": só pra comparar dias, no fuso certo. */
+const CHAVE_DO_DIA = new Intl.DateTimeFormat("en-CA", {
+  timeZone: FUSO,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+})
+
+const valida = (iso: string | null | undefined): Date | null => {
+  const d = iso ? new Date(iso) : null
+  return d && Number.isFinite(d.getTime()) ? d : null
+}
+
+/** "17/09". */
+export function dia(iso: string | null | undefined): string {
+  const d = valida(iso)
+  return d ? DIA.format(d) : ""
+}
+
+/** "17/09, 14:02" — a linha do tempo do pedido. */
+export function diaEHora(iso: string | null | undefined): string {
+  const d = valida(iso)
+  return d ? `${DIA.format(d)}, ${HORA.format(d)}` : ""
+}
+
+/**
+ * "hoje, 10:15", "ontem, 19:48" ou "17/09/2026, 14:02" — quando um pedido
+ * foi feito. Com o ano: a lista de pedidos atravessa anos.
+ */
+export function quando(iso: string | null | undefined, agora: Date = new Date()): string {
+  const d = valida(iso)
+  if (!d) return ""
+  const esse = CHAVE_DO_DIA.format(d)
+  if (esse === CHAVE_DO_DIA.format(agora)) return `hoje, ${HORA.format(d)}`
+  if (esse === CHAVE_DO_DIA.format(new Date(agora.getTime() - 86_400_000))) {
+    return `ontem, ${HORA.format(d)}`
+  }
+  return `${DIA_E_ANO.format(d)}, ${HORA.format(d)}`
+}

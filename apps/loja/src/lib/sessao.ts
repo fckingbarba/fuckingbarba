@@ -53,15 +53,20 @@ export function sessaoParece(token: string | undefined | null, agora = Date.now(
  * existem: aceitar qualquer `?para=` faria do "entrar" um trampolim — um
  * link da loja que, depois do código, leva a pessoa pra um site qualquer.
  *
- * UMA LISTA, E NÃO UMA REGEX, por causa do `typedRoutes`: o `redirect` só
- * aceita caminho que o compilador sabe que existe. A lista cresce junto com
- * as telas (pedidos, endereços, dados); o que não estiver nela volta pra
- * /conta, que existe sempre.
+ * UMA LISTA E UM MOLDE, e não uma regex solta, por causa do `typedRoutes`:
+ * o `redirect` só aceita caminho que o compilador sabe que existe. A lista
+ * cresce junto com as telas (endereços e dados vêm na parte 3); o pedido é
+ * o único caminho com pedaço variável, e o molde só deixa passar um id do
+ * Medusa. O que não estiver em nenhum dos dois volta pra /conta, que existe
+ * sempre.
  */
-const DESTINOS = ["/conta"] as const
+const DESTINOS = ["/conta", "/conta/pedidos"] as const
+const DO_PEDIDO = /^\/conta\/pedidos\/order_[0-9A-Za-z]{10,40}$/
 
-export type Destino = (typeof DESTINOS)[number]
+export type Destino = (typeof DESTINOS)[number] | `/conta/pedidos/${string}`
 
 export function destinoSeguro(valor: unknown): Destino {
-  return (DESTINOS as readonly unknown[]).includes(valor) ? (valor as Destino) : "/conta"
+  if ((DESTINOS as readonly unknown[]).includes(valor)) return valor as Destino
+  if (typeof valor === "string" && DO_PEDIDO.test(valor)) return valor as Destino
+  return "/conta"
 }

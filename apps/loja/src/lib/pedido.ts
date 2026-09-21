@@ -1,4 +1,5 @@
 import "server-only"
+import type { HttpTypes } from "@medusajs/types"
 import { cookies } from "next/headers"
 import type { ItemDoCarrinho } from "./carrinho-visivel"
 import { mascararCep } from "./cep-formato"
@@ -64,9 +65,10 @@ export type PedidoVisivel = {
   pagamento: PagamentoVisivel
 }
 
-const CAMPOS =
+/** Os campos que a tela de obrigado (e a conta, com mais alguns) lê do pedido. */
+export const CAMPOS_DO_PEDIDO =
   "id,display_id,email,created_at,currency_code,subtotal,item_subtotal,item_total," +
-  "discount_total,shipping_total,total,*items,*items.variant,*items.product," +
+  "discount_total,shipping_total,total,original_total,*items,*items.variant,*items.product," +
   `*shipping_methods,*shipping_address,${CAMPOS_DO_PAGAMENTO}`
 
 /**
@@ -85,57 +87,66 @@ export async function lerPedido(id: string): Promise<PedidoVisivel | null> {
   if (!sdk) return null
 
   try {
-    const { order } = await sdk.store.order.retrieve(id, { fields: CAMPOS })
-    if (!order) return null
-
-    const itens: ItemDoCarrinho[] = (order.items ?? []).map((item) => ({
-      id: item.id,
-      varianteId: item.variant_id ?? "",
-      nome: item.product_title ?? item.title ?? "Produto",
-      variante: item.variant_title && item.variant_title !== "Único" ? item.variant_title : null,
-      handle: item.product_handle ?? null,
-      imagem: item.thumbnail ?? null,
-      quantidade: item.quantity ?? 0,
-      precoUnitario: Number(item.unit_price ?? 0),
-      total: Number(item.total ?? 0),
-    }))
-
-    const e = order.shipping_address
-    const meta = (e?.metadata ?? {}) as Record<string, unknown>
-    const s = (v: unknown) => (typeof v === "string" ? v : "")
-
-    return {
-      id: order.id,
-      numero: order.display_id ?? 0,
-      email: order.email ?? "",
-      quando: order.created_at ? String(order.created_at) : "",
-      itens,
-      subtotal: Number(order.item_subtotal ?? order.subtotal ?? 0),
-      desconto: Number(order.discount_total ?? 0),
-      frete: Number(order.shipping_total ?? 0),
-      total: Number(order.total ?? 0),
-      entrega: e
-        ? {
-            nome: [e.first_name, e.last_name].filter(Boolean).join(" "),
-            linha1: e.address_1 ?? "",
-            // Bairro e complemento foram gravados juntos em `address_2` pra
-            // etiqueta sair legível; o metadata guarda os dois separados, e é
-            // dele que esta tela se serve quando existe.
-            linha2:
-              [s(meta.complemento), s(meta.bairro)].filter(Boolean).join(" — ") ||
-              (e.address_2 ?? ""),
-            cidade: e.city ?? "",
-            uf: (e.province ?? "").toUpperCase(),
-            // Com máscara: o CEP é guardado limpo (é o que o Medusa e o
-            // Frenet querem), mas ninguém lê 01310100 sem contar os dígitos.
-            cep: mascararCep(e.postal_code ?? ""),
-          }
-        : null,
-      formaDeEntrega: order.shipping_methods?.[0]?.name ?? "",
-      pagamento: lerPagamento(order),
-    }
+    const { order } = await sdk.store.order.retrieve(id, { fields: CAMPOS_DO_PEDIDO })
+    return order ? paraPedidoVisivel(order) : null
   } catch (erro) {
     console.warn(`[pedido] ${id}: ${erro instanceof Error ? erro.message : String(erro)}`)
     return null
+  }
+}
+
+/**
+ * O pedido do Medusa no formato das telas. Uma tradução só, pra tela de
+ * obrigado e pra conta: o mesmo pedido não pode aparecer com um total num
+ * lugar e outro no outro.
+ */
+export function paraPedidoVisivel(order: HttpTypes.StoreOrder): PedidoVisivel {
+  const itens: ItemDoCarrinho[] = (order.items ?? []).map((item) => ({
+    id: item.id,
+    varianteId: item.variant_id ?? "",
+    nome: item.product_title ?? item.title ?? "Produto",
+    variante: item.variant_title && item.variant_title !== "Único" ? item.variant_title : null,
+    handle: item.product_handle ?? null,
+    imagem: item.thumbnail ?? null,
+    quantidade: item.quantity ?? 0,
+    precoUnitario: Number(item.unit_price ?? 0),
+    total: Number(item.total ?? 0),
+  }))
+
+  const e = order.shipping_address
+  const meta = (e?.metadata ?? {}) as Record<string, unknown>
+  const s = (v: unknown) => (typeof v === "string" ? v : "")
+
+  return {
+    id: order.id,
+    numero: order.display_id ?? 0,
+    email: order.email ?? "",
+    quando: order.created_at ? String(order.created_at) : "",
+    itens,
+    subtotal: Number(order.item_subtotal ?? order.subtotal ?? 0),
+    desconto: Number(order.discount_total ?? 0),
+    frete: Number(order.shipping_total ?? 0),
+    // Pedido cancelado e estornado tem `total` zero (o estorno entra como
+    // crédito e zera a conta). O que a pessoa quer ver é quanto ele era.
+    total: Number((order.status === "canceled" ? order.original_total : null) ?? order.total ?? 0),
+    entrega: e
+      ? {
+          nome: [e.first_name, e.last_name].filter(Boolean).join(" "),
+          linha1: e.address_1 ?? "",
+          // Bairro e complemento foram gravados juntos em `address_2` pra
+          // etiqueta sair legível; o metadata guarda os dois separados, e é
+          // dele que esta tela se serve quando existe.
+          linha2:
+            [s(meta.complemento), s(meta.bairro)].filter(Boolean).join(" — ") ||
+            (e.address_2 ?? ""),
+          cidade: e.city ?? "",
+          uf: (e.province ?? "").toUpperCase(),
+          // Com máscara: o CEP é guardado limpo (é o que o Medusa e o
+          // Frenet querem), mas ninguém lê 01310100 sem contar os dígitos.
+          cep: mascararCep(e.postal_code ?? ""),
+        }
+      : null,
+    formaDeEntrega: order.shipping_methods?.[0]?.name ?? "",
+    pagamento: lerPagamento(order),
   }
 }

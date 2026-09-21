@@ -8,10 +8,15 @@
  *
  * Variáveis: LOJA (padrão http://localhost:3000), MEDUSA_BACKEND_URL,
  * NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY e REVALIDAR_SEGREDO (os dois últimos
- * saem do `.env.development.local` se faltarem) e CHROMIUM.
+ * saem do `.env.development.local` se faltarem), ADMIN_EMAIL e ADMIN_SENHA
+ * (os pedidos) e CHROMIUM.
  *
- * Não escreve no admin. Cria clientes de teste com e-mails que nunca se
- * repetem (`conta.<hora>.<n>@teste.fuckingbarba.dev`) — e esses ficam.
+ * Cria clientes de teste com e-mails que nunca se repetem
+ * (`conta.<hora>.<n>@teste.fuckingbarba.dev`) — e esses ficam. Pra conferir
+ * as telas de pedido, monta pedidos de verdade pra um deles, com a Frenet e
+ * o Pagar.me falsos (`pedido-de-teste.mjs`), e usa o admin pra pagar,
+ * postar, entregar e cancelar. No fim cancela os que ainda dá: os postados
+ * ficam, e levam uma unidade de estoque cada.
  *
  * ┌─ O QUE ESTE ARQUIVO EXISTE PRA TRAVAR ─────────────────────────────────┐
  * │ • página da conta abrindo sem sessão, ou o "entrar" com sessão;        │
@@ -27,12 +32,21 @@
  * │ • cliente conseguindo conta com senha (`emailpass`), ou "cadastro"     │
  * │   sem provar o e-mail;                                                 │
  * │ • o limite por pessoa não segurando quem dispara código em série;      │
- * │ • o e-mail do código com link (é o que golpe imita).                   │
+ * │ • o e-mail do código com link (é o que golpe imita);                   │
+ * │ • a conta mostrando pedido de outra pessoa — na lista, no detalhe, no  │
+ * │   rastreio ou no "comprar de novo";                                    │
+ * │ • o id do pedido passado pra minúscula no endereço (vira outro id);    │
+ * │ • um estado de pedido com o rótulo, o total ou a linha do tempo        │
+ * │   errados; o Pix pendente sem o código de verdade, ou a página que não │
+ * │   muda sozinha quando ele cai.                                         │
  * └─────────────────────────────────────────────────────────────────────────┘
  */
 
 import { readFileSync } from "node:fs"
 import { chromium } from "playwright"
+import { subirFrenetFalsa } from "./frenet-falsa.mjs"
+import { subirPagarmeFalso } from "./pagarme-falso.mjs"
+import { fabricaDePedidos } from "./pedido-de-teste.mjs"
 import { subirResendFalso } from "./resend-falso.mjs"
 
 const LOJA =
@@ -293,10 +307,32 @@ let clienteDoPrimeiro = ""
   const h1 = (
     (await pagina.locator("h1").filter({ visible: true }).first().textContent()) ?? ""
   ).trim()
-  ok(h1 === "Oi!", "conta nova, sem nome ainda: Oi!", h1)
+  ok(h1 === "Visão geral", "entra na visão geral", h1)
+  // O menu sai primeiro sem nome (a casca), e o nome chega do Medusa.
+  await pagina
+    .waitForFunction(
+      () => window.__visivel("[data-conta-email]")?.textContent?.includes("@"),
+      null,
+      {
+        timeout: 15000,
+      }
+    )
+    .catch(() => null)
+  const oi = (
+    (await pagina.locator(".menu-conta__oi").filter({ visible: true }).textContent()) ?? ""
+  ).trim()
+  ok(oi === "Oi!", "conta nova, sem nome ainda: Oi!", oi)
   ok(
-    ((await pagina.locator("[data-conta-email]").textContent()) ?? "") === PRIMEIRO,
+    ((await pagina.locator("[data-conta-email]").filter({ visible: true }).textContent()) ?? "") ===
+      PRIMEIRO,
     "com o e-mail de quem entrou"
+  )
+  await pagina.locator(".conta-vazio").filter({ visible: true }).waitFor({ timeout: 15000 })
+  ok(
+    ((await pagina.locator(".conta-vazio").filter({ visible: true }).textContent()) ?? "").includes(
+      "Nenhum pedido ainda"
+    ),
+    "e, sem compra nenhuma, o vazio com o caminho pra vitrine"
   )
 
   const cookies = await contexto.cookies()
@@ -625,12 +661,341 @@ if (!SEGREDO_LOJA) {
   ok(outro.status === 200, "outro IP segue podendo", String(outro.status))
 }
 
-/* ── 12. higiene ──────────────────────────────────────────────────────────── */
+/* ── 12. os pedidos da conta ──────────────────────────────────────────────── */
+
+/**
+ * Entra pela tela com um e-mail que já pediu código — pro caso de a página
+ * de partida ser outra que não o "entrar" (o `?para=`).
+ */
+async function entrarPelaTela(pagina, email, partida = "/conta/entrar") {
+  const antes = quantosPara(email)
+  await pagina.goto(LOJA + partida)
+  await pagina.waitForURL("**/conta/entrar**", { timeout: 15000 })
+  await noBloco(pagina, "input[name=email]").fill(email)
+  await noBloco(pagina, "form button[type=submit]").click()
+  await pagina.waitForURL("**/conta/entrar/codigo", { timeout: 20000 })
+  await noBloco(pagina, "input[name=codigo]").waitFor({ timeout: 15000 })
+  const codigo = (await esperarEmail(email, antes))?.subject?.match(/\b\d{6}\b/)?.[0]
+  await digitar(pagina, codigo ?? "")
+  await pagina.waitForURL((u) => !u.pathname.startsWith("/conta/entrar"), { timeout: 20000 })
+}
+
+const visivel = (pagina, sel) => pagina.locator(sel).filter({ visible: true })
+const textoDe = async (pagina, sel) =>
+  (
+    (await visivel(pagina, sel)
+      .first()
+      .textContent()
+      .catch(() => "")) ?? ""
+  ).trim()
+
+titulo("Os pedidos da conta")
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL
+const ADMIN_SENHA = process.env.ADMIN_SENHA
+const deixados = []
+let pagarme = null
+let frenet = null
+let fabrica = null
+if (!ADMIN_EMAIL || !ADMIN_SENHA) {
+  ok(false, "montar pedidos de teste precisa de ADMIN_EMAIL e ADMIN_SENHA (o admin LOCAL)")
+} else {
+  frenet = await subirFrenetFalsa()
+  pagarme = await subirPagarmeFalso({
+    webhook: {
+      url: `${MEDUSA}/hooks/payment/pagarme_pagarme`,
+      segredo: process.env.MEDUSA_WEBHOOK_SEGREDO ?? "segredo-de-teste",
+    },
+  })
+  const entrou = await fetch(`${MEDUSA}/auth/user/emailpass`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email: ADMIN_EMAIL, password: ADMIN_SENHA }),
+  })
+  const { token: tokenAdmin } = await entrou.json()
+  fabrica = fabricaDePedidos({ medusa: MEDUSA, chave: CHAVE, tokenAdmin, pagarme })
+}
+
+if (fabrica) {
+  const COMPRADOR = novoEmail()
+  // Na ordem em que a vida acontece — o mais novo, no fim, é o do Pix.
+  const entregue = await fabrica.pedidoPix(COMPRADOR, [["fator-de-crescimento-para-barba", 2]])
+  await fabrica.pagar(entregue)
+  await fabrica.entregar(entregue, await fabrica.enviar(entregue, { codigo: "JD0012345678" }))
+  const enviado = await fabrica.pedidoPix(COMPRADOR, [
+    ["kit-completo-para-barba", 1],
+    ["balm-para-barba", 1],
+  ])
+  await fabrica.pagar(enviado)
+  const URL_RASTREIO = "https://rastreamento.correios.com.br/app/index.php"
+  await fabrica.enviar(enviado, { codigo: "QS123456789BR", url: URL_RASTREIO })
+  const cancelado = await fabrica.pedidoPix(COMPRADOR, [
+    ["spray-modelador-matte-100ml-fucking-barba", 1],
+  ])
+  await fabrica.cancelar(cancelado)
+  const pago = await fabrica.pedidoPix(COMPRADOR, [["oleo-para-barba", 1]])
+  await fabrica.pagar(pago)
+  deixados.push(pago)
+  const pix = await fabrica.pedidoPix(COMPRADOR, [
+    ["shampoo-para-barba", 1],
+    ["oleo-para-barba", 1],
+  ])
+  deixados.push(pix)
+  const deOutro = await fabrica.pedidoPix(novoEmail())
+  deixados.push(deOutro)
+  ok(
+    true,
+    `pedidos montados: #${entregue.numero} a #${pix.numero}, e o #${deOutro.numero} de outra pessoa`
+  )
+
+  /* ── o ?para= até um pedido, com o id intacto ── */
+  const { contexto, pagina } = await novaAba()
+  await entrarPelaTela(pagina, COMPRADOR, `/conta/pedidos/${enviado.id}`)
+  ok(
+    new URL(pagina.url()).pathname === `/conta/pedidos/${enviado.id}`,
+    "sem sessão, o link de um pedido volta pra ELE depois do código — id com as maiúsculas",
+    pagina.url()
+  )
+  await visivel(pagina, "h1#t-pedido").waitFor({ timeout: 15000 })
+  ok(
+    (await textoDe(pagina, "h1#t-pedido")) === `Pedido #${enviado.numero}`,
+    "e abre o pedido certo",
+    await textoDe(pagina, "h1#t-pedido")
+  )
+
+  /* ── a visão geral ── */
+  titulo("A visão geral")
+  await pagina.goto(`${LOJA}/conta`)
+  await visivel(pagina, ".andamento__linha").first().waitFor({ timeout: 15000 })
+  const linhas = await pagina.evaluate(() =>
+    [...document.querySelectorAll(".andamento__linha")]
+      .filter((e) => e.checkVisibility())
+      .map((e) => ({ status: e.dataset.status, pedido: e.dataset.pedido }))
+  )
+  ok(
+    linhas.map((l) => l.status).join(",") === "pix,pago,enviado",
+    "em andamento: o Pix primeiro, depois do mais novo pro mais velho — sem o entregue e o cancelado",
+    JSON.stringify(linhas)
+  )
+  ok(
+    linhas[0]?.pedido === pix.id &&
+      (await textoDe(pagina, ".andamento__linha[data-status=pix] .btn")) === "Pagar o Pix",
+    "o do Pix leva pra pagar"
+  )
+  ok(
+    (await textoDe(pagina, "[data-bloco-de-novo] .de-novo__txt")).includes(`#${enviado.numero}`),
+    "comprar de novo sugere o último que saiu pra entrega",
+    await textoDe(pagina, "[data-bloco-de-novo] .de-novo__txt")
+  )
+  await pagina
+    .waitForFunction(() => window.__visivel("[data-conta-pedidos]")?.textContent === "5", null, {
+      timeout: 10000,
+    })
+    .catch(() => null)
+  ok((await textoDe(pagina, "[data-conta-pedidos]")) === "5", "o menu conta os cinco pedidos")
+
+  /* ── a lista, contra o Medusa ── */
+  titulo("A lista de pedidos")
+  const token = (await sessaoDo(contexto))?.value
+  const daApi = await medusa(
+    "/store/orders?limit=50&order=-created_at&fields=id,display_id,status,total,original_total",
+    { metodo: "GET", token }
+  )
+  const esperados = (daApi.corpo.orders ?? []).map((o) => ({
+    id: o.id,
+    total: Number(o.status === "canceled" ? o.original_total : o.total),
+  }))
+  await pagina.goto(`${LOJA}/conta/pedidos`)
+  await visivel(pagina, "article.pedido-card").first().waitFor({ timeout: 15000 })
+  const cartoes = await pagina.evaluate(() =>
+    [...document.querySelectorAll("article.pedido-card")]
+      .filter((e) => e.checkVisibility())
+      .map((e) => ({
+        id: e.dataset.pedido,
+        status: e.querySelector(".status")?.textContent?.trim(),
+        total: e.querySelector(".pedido-card__total")?.textContent?.trim(),
+      }))
+  )
+  ok(
+    cartoes.map((c) => c.id).join() ===
+      [pix, pago, cancelado, enviado, entregue].map((p) => p.id).join(),
+    "os cinco, do mais novo pro mais velho — e nenhum de outra pessoa",
+    cartoes.map((c) => c.id.slice(-6)).join(",")
+  )
+  ok(
+    cartoes.map((c) => c.status).join(",") ===
+      "Aguardando Pix,Em separação,Cancelado,Enviado,Entregue",
+    "cada um com o selo do estado dele",
+    cartoes.map((c) => c.status).join(",")
+  )
+  const reais = (v) => `R$ ${v.toFixed(2).replace(".", ",")}`
+  const totaisCertos = cartoes.every((c) => {
+    const e = esperados.find((x) => x.id === c.id)
+    return e && c.total.replace(/\s/g, " ") === reais(e.total)
+  })
+  ok(
+    totaisCertos,
+    "os totais são os do Medusa (o cancelado com o valor que tinha, e não zero)",
+    cartoes.map((c) => c.total).join(" | ")
+  )
+
+  /* ── um pedido, em cada estado ── */
+  titulo("Um pedido, em cada estado")
+  const abrir = async (p) => {
+    await pagina.goto(`${LOJA}/conta/pedidos/${p.id}`)
+    await visivel(pagina, "h1#t-pedido").waitFor({ timeout: 15000 })
+  }
+  const marcas = () =>
+    pagina.evaluate(() => {
+      const lis = [...document.querySelectorAll(".linha-do-tempo li")].filter((e) =>
+        e.checkVisibility()
+      )
+      return {
+        feitos: lis.filter((l) => l.hasAttribute("data-feito")).length,
+        agora: lis.findIndex((l) => l.hasAttribute("data-agora")),
+      }
+    })
+
+  await abrir(enviado)
+  ok(
+    (await textoDe(pagina, ".rastreio__codigo")) === "QS123456789BR",
+    "enviado: o código de rastreio"
+  )
+  ok(
+    (await visivel(pagina, ".rastreio a").getAttribute("href")) === URL_RASTREIO,
+    "e o link da transportadora"
+  )
+  let m = await marcas()
+  ok(
+    m.feitos === 3 && m.agora === 3,
+    "a linha do tempo: três feitos, a entrega é a de agora",
+    JSON.stringify(m)
+  )
+
+  await abrir(entregue)
+  m = await marcas()
+  ok(m.feitos === 4 && m.agora === -1, "entregue: os quatro feitos", JSON.stringify(m))
+  ok((await visivel(pagina, ".ajuda a[href='/trocas']").count()) === 1, "e o caminho da troca")
+  ok(
+    (await textoDe(pagina, ".rastreio__codigo")) === "JD0012345678",
+    "com o rastreio (etiqueta sem link: sem o botão de rastrear)"
+  )
+  ok((await visivel(pagina, ".rastreio a").count()) === 0, "o '#' do admin não vira link")
+
+  await abrir(cancelado)
+  ok(
+    (await textoDe(pagina, ".cancelado b")) === "Pedido cancelado",
+    "cancelado: o porquê no lugar da linha do tempo"
+  )
+  ok((await visivel(pagina, ".linha-do-tempo").count()) === 0, "sem linha do tempo")
+  ok(
+    (await textoDe(pagina, "#t-pagamento + .info")) === "Pix — venceu sem pagamento",
+    "e o pagamento diz o que houve",
+    await textoDe(pagina, "#t-pagamento + .info")
+  )
+
+  await abrir(pago)
+  m = await marcas()
+  ok(m.feitos === 2 && m.agora === 2, "em separação: o envio é o de agora", JSON.stringify(m))
+  ok(
+    (await textoDe(pagina, ".rastreio__depois")).startsWith("O código de rastreio aparece aqui"),
+    "e o lugar do rastreio diz quando ele chega"
+  )
+
+  /* ── o Pix pendente, até cair ── */
+  titulo("O Pix pendente, pela conta")
+  const sessaoPix = (
+    await medusa(`/store/orders/${pix.id}?fields=*payment_collections.payment_sessions`, {
+      metodo: "GET",
+    })
+  ).corpo.order?.payment_collections?.[0]?.payment_sessions?.[0]?.data?.pagarme?.pix?.copiaECola
+  await abrir(pix)
+  ok(
+    (await textoDe(pagina, ".feito__pix code")) === sessaoPix,
+    "a caixa do Pix tem o código de verdade"
+  )
+  ok((await textoDe(pagina, "#t-pix")) === "Falta só o Pix", "com o título do obrigado")
+  ok(
+    (await visivel(pagina, "[data-comprar-de-novo]").count()) === 0,
+    "e sem comprar de novo (ainda não comprou)"
+  )
+  await fabrica.pagar(pix)
+  await visivel(pagina, ".status[data-status='pago']")
+    .waitFor({ timeout: 30000 })
+    .catch(() => null)
+  ok(
+    (await visivel(pagina, ".status[data-status='pago']").count()) === 1 &&
+      (await visivel(pagina, ".feito__pix").count()) === 0,
+    "o Pix cai e a página muda sozinha — sem o crachá do navegador de quem comprou"
+  )
+
+  /* ── de outra pessoa ── */
+  titulo("Pedido de outra pessoa")
+  await abrir(deOutro)
+  ok(
+    (await textoDe(pagina, "h1#t-pedido")) === "Não achei esse pedido",
+    "o detalhe diz que não achou",
+    await textoDe(pagina, "h1#t-pedido")
+  )
+  ok(
+    !(await textoDe(pagina, ".area__miolo")).includes(`#${deOutro.numero}`),
+    "sem mostrar nada dele"
+  )
+  const rastreioAlheio = await medusa(`/store/conta/pedidos/${deOutro.id}/rastreio`, {
+    metodo: "GET",
+    token,
+  })
+  ok(
+    rastreioAlheio.status === 404,
+    "o rastreio de pedido alheio responde 404",
+    String(rastreioAlheio.status)
+  )
+  const rastreioSemToken = await medusa(`/store/conta/pedidos/${enviado.id}/rastreio`, {
+    metodo: "GET",
+  })
+  ok(rastreioSemToken.status === 401, "e sem token, 401", String(rastreioSemToken.status))
+
+  /* ── comprar de novo ── */
+  titulo("Comprar de novo")
+  await abrir(entregue)
+  await visivel(pagina, "[data-comprar-de-novo]").click()
+  await pagina
+    .waitForFunction(() => document.documentElement.classList.contains("carrinho-aberto"), null, {
+      timeout: 20000,
+    })
+    .catch(() => null)
+  ok(
+    await pagina.evaluate(() => document.documentElement.classList.contains("carrinho-aberto")),
+    "a sacola abre com os itens"
+  )
+  ok(
+    (await textoDe(pagina, ".de-novo__aviso")) === "2 itens voltaram pra sacola.",
+    "e a frase diz quantos",
+    await textoDe(pagina, ".de-novo__aviso")
+  )
+  const idCarrinho = (await contexto.cookies()).find((c) => c.name === "carrinho")?.value
+  const carrinho = await medusa(`/store/carts/${idCarrinho}?fields=*items`, { metodo: "GET" })
+  const itens = carrinho.corpo.cart?.items ?? []
+  ok(
+    itens.length === 1 &&
+      itens[0].quantity === 2 &&
+      /Fator de Crescimento/.test(itens[0].product_title ?? ""),
+    "no carrinho do Medusa: o mesmo produto, na mesma quantidade",
+    JSON.stringify(itens.map((i) => [i.product_title, i.quantity]))
+  )
+  await contexto.close()
+}
+
+/* ── 13. higiene ──────────────────────────────────────────────────────────── */
 
 titulo("Higiene")
 ok(errosDeConsole.length === 0, "nenhum erro no console", errosDeConsole.slice(0, 3).join(" | "))
 
+// O que dá pra cancelar volta pro estoque. Os postados ficam.
+for (const p of deixados) await fabrica?.cancelar(p).catch(() => null)
+
 await navegador.close()
 await resend.fechar()
+await pagarme?.fechar?.()
+await frenet?.fechar?.()
 console.log(`\n${testes - falhas}/${testes} passaram`)
 process.exit(falhas ? 1 : 0)

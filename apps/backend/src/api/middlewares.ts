@@ -128,6 +128,15 @@ export default defineMiddlewares({
       method: ["POST"],
       middlewares: [authenticate("customer", ["bearer"], { allowUnregistered: true })],
     },
+    /*
+      O rastreio de um pedido da conta: só com token de cliente de verdade
+      (sem `allowUnregistered`) — a rota filtra pelo cliente do token.
+    */
+    {
+      matcher: "/store/conta/pedidos/:id/rastreio",
+      method: ["GET"],
+      middlewares: [authenticate("customer", ["bearer"])],
+    },
     { matcher: "/admin/products", method: ["POST"], middlewares: [normalizaHandle] },
     { matcher: "/admin/products/:id", method: ["POST"], middlewares: [normalizaHandle] },
     { matcher: "/admin/product-categories", method: ["POST"], middlewares: [normalizaHandle] },

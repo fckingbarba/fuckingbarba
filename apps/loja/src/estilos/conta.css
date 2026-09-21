@@ -154,14 +154,735 @@ html:not([data-hidratado]) body:has(.conta) {
   display: none;
 }
 
-/* ---------- a /conta provisória (até as telas de pedidos) ---------- */
-.conta__provisoria {
-  max-width: 560px;
+/* ==========================================================================
+   A ÁREA LOGADA — menu + miolo. Do protótipo (as seções "NOVO"), com três
+   mudanças do porte:
+     - o vazio é `.conta-vazio`, e não `.vazio`: o `.vazio` do catálogo é
+       global (fundo menta-claro e chanfro) e pintaria o bloco por cima;
+     - o selo ganhou "Em análise" e "A combinar", que o protótipo não tinha;
+     - o aviso do "comprar de novo" (`.de-novo__aviso`) — no protótipo era
+       um toast; aqui fica ao lado do botão que o causou.
+   ========================================================================== */
+
+.voltar {
+  display: inline-block;
+  margin: 0 0 10px 2px;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-tinta);
+  text-decoration: none;
 }
-.conta__provisoria p {
-  margin: 10px 0 0;
-  font-size: 0.9rem;
+.voltar:hover,
+.voltar:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
-.conta__provisoria form {
-  margin-top: 8px;
+/* Link solto no pé de um bloco ou ao lado de um botão: o tamanho do texto
+   miúdo em volta, não o do corpo — senão ele grita mais que o botão. */
+.bloco > .link,
+.pedido-card__acoes .link,
+.acoes-pedido .link {
+  font-size: 0.8rem;
+}
+
+/* O botão menor, pra quando ele divide a linha com texto (o "Pagar o Pix"
+   do andamento, o "Ver pedido" do cartão). Mesma família do .btn, com a
+   sombra na proporção. */
+.btn--menor {
+  padding: 10px 16px;
+  font-size: 0.76rem;
+  box-shadow: 4px 4px 0 0 var(--color-amarelo);
+}
+.btn--menor:hover,
+.btn--menor:focus-visible {
+  box-shadow: 7px 7px 0 0 var(--color-amarelo);
+}
+.btn--menor:active {
+  box-shadow: 1px 1px 0 0 var(--color-amarelo);
+}
+.btn--menor:disabled {
+  box-shadow: 4px 4px 0 0 var(--color-amarelo);
+}
+
+.area {
+  display: grid;
+  grid-template-columns: 250px minmax(0, 1fr);
+  gap: clamp(16px, 3vw, 32px);
+  align-items: start;
+}
+.menu-conta {
+  position: sticky;
+  top: 56px;
+  background: #fff;
+  border: 2px solid var(--color-tinta);
+  clip-path: polygon(
+    14px 0,
+    100% 0,
+    100% calc(100% - 14px),
+    calc(100% - 14px) 100%,
+    0 100%,
+    0 14px
+  );
+}
+.menu-conta__quem {
+  padding: 16px 18px 14px;
+  background: var(--color-tinta);
+  color: #fff;
+}
+.menu-conta__oi {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+}
+.menu-conta__email {
+  margin: 3px 0 0;
+  min-height: 1em;
+  font-size: 0.74rem;
+  color: #98a1ab;
+  overflow-wrap: anywhere;
+}
+.menu-conta ul {
+  margin: 0;
+  padding: 8px 0;
+  list-style: none;
+}
+.menu-conta form {
+  margin: 0;
+}
+.menu-conta a,
+.menu-conta button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 18px;
+  background: none;
+  border: none;
+  border-left: 4px solid transparent;
+  color: var(--color-tinta);
+  text-decoration: none;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.menu-conta a:hover,
+.menu-conta a:focus-visible,
+.menu-conta button:hover,
+.menu-conta button:focus-visible {
+  background: #fffbe6;
+  outline: none;
+}
+.menu-conta a[aria-current="page"] {
+  border-left-color: var(--color-amarelo);
+  background: var(--color-cinza);
+}
+.menu-conta__num {
+  min-width: 20px;
+  padding: 1px 6px;
+  text-align: center;
+  background: var(--color-tinta);
+  color: var(--color-amarelo);
+  font-size: 0.64rem;
+  letter-spacing: 0;
+}
+.menu-conta__sair {
+  color: var(--color-tinta-suave) !important;
+  border-top: 1px solid rgba(18, 24, 31, 0.1) !important;
+}
+
+@media (max-width: 900px) {
+  .area {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+  .menu-conta {
+    position: static;
+    clip-path: none;
+  }
+  .menu-conta__quem {
+    padding: 12px 16px;
+  }
+  /* No celular o menu vira uma fita de abas que rola de lado: poucos
+     destinos não justificam um menu que abre e fecha. */
+  .menu-conta ul {
+    display: flex;
+    overflow-x: auto;
+    padding: 0;
+    scrollbar-width: none;
+  }
+  .menu-conta ul::-webkit-scrollbar {
+    display: none;
+  }
+  .menu-conta li {
+    flex-shrink: 0;
+  }
+  .menu-conta a,
+  .menu-conta button {
+    border-left: 0;
+    border-bottom: 3px solid transparent;
+    padding: 12px 14px;
+    white-space: nowrap;
+  }
+  .menu-conta a[aria-current="page"] {
+    border-bottom-color: var(--color-amarelo);
+  }
+  .menu-conta__sair {
+    border-top: 0 !important;
+  }
+}
+
+.cabeca-tela {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px 14px;
+  flex-wrap: wrap;
+  margin: 0 0 14px 2px;
+}
+.cabeca-tela__sub {
+  margin: 4px 0 0;
+  font-size: 0.8rem;
+  color: var(--color-tinta-suave);
+}
+/* No pedido, o estado vai COLADO no número: longe, na outra ponta da linha,
+   o olho lê o título e não chega nele. */
+.titulo-status {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+}
+.rotulo {
+  margin: 0 0 10px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-tinta-suave);
+}
+
+/* ---------- o selo de onde o pedido está ---------- */
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 12px 4px 7px;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  clip-path: polygon(0 0, calc(100% - 5px) 0, 100% 50%, calc(100% - 5px) 100%, 0 100%);
+}
+.status[data-status="pix"] {
+  background: var(--color-amarelo);
+  color: var(--color-tinta);
+}
+.status[data-status="analise"] {
+  background: var(--color-amarelo-claro);
+  color: var(--color-tinta);
+}
+.status[data-status="pago"] {
+  background: var(--color-menta-clara);
+  color: var(--color-menta-escura);
+}
+.status[data-status="enviado"] {
+  background: var(--color-tinta);
+  color: var(--color-amarelo);
+}
+.status[data-status="entregue"] {
+  background: var(--color-menta-escura);
+  color: #fff;
+}
+.status[data-status="cancelado"],
+.status[data-status="combinar"] {
+  background: #e6e8eb;
+  color: var(--color-tinta-suave);
+}
+.status[data-status="combinar"] {
+  color: var(--color-tinta);
+}
+
+/* ---------- a visão geral ---------- */
+.painel-grade {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 14px;
+}
+.painel-grade > .bloco:first-child:last-child,
+.painel-grade .bloco--largo,
+.painel-grade > .ajuda {
+  grid-column: 1 / -1;
+}
+@media (max-width: 700px) {
+  .painel-grade {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.andamento {
+  display: grid;
+  gap: 10px;
+}
+.andamento__linha {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px 14px;
+  padding: 12px 14px;
+  background: var(--color-cinza);
+  border-left: 4px solid var(--color-tinta);
+}
+.andamento__linha[data-status="pix"] {
+  background: #fffbe6;
+  border-left-color: var(--color-amarelo-escuro);
+}
+.andamento__num {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.andamento__txt {
+  margin: 2px 0 0;
+  font-size: 0.8rem;
+  color: var(--color-tinta-suave);
+}
+.andamento__txt b {
+  color: var(--color-tinta);
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 520px) {
+  .andamento__linha {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .andamento .btn {
+    justify-content: center;
+  }
+}
+
+/* Comprar de novo: fotos, o que era e o botão, numa linha só — é um atalho,
+   não uma vitrine. No celular o botão desce e ocupa a largura. */
+.de-novo {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px 18px;
+}
+.de-novo__fotos {
+  display: flex;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.de-novo__fotos .item__foto {
+  width: 64px;
+  height: 64px;
+}
+.de-novo__txt {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--color-tinta-suave);
+}
+.de-novo__txt b {
+  color: var(--color-tinta);
+}
+.de-novo__acao {
+  display: grid;
+  justify-items: end;
+  gap: 6px;
+}
+/* O que a ação respondeu, do lado do botão que a causou. */
+.de-novo__aviso {
+  margin: 0;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--color-menta-escura);
+}
+.de-novo__aviso[data-erro] {
+  color: var(--color-erro);
+}
+.de-novo__aviso:empty {
+  display: none;
+}
+.pedido-card__acoes .de-novo__aviso,
+.acoes-pedido .de-novo__aviso {
+  flex-basis: 100%;
+}
+@media (max-width: 560px) {
+  .de-novo {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .de-novo__acao {
+    grid-column: 1 / -1;
+    justify-items: stretch;
+  }
+  .de-novo__acao .btn {
+    justify-content: center;
+  }
+}
+
+.resumo-curto {
+  margin: 0;
+  font-size: 0.86rem;
+  color: var(--color-tinta-suave);
+}
+.ajuda {
+  margin: 4px 2px 0;
+  font-size: 0.8rem;
+  color: var(--color-tinta-suave);
+}
+.ajuda + .ajuda {
+  margin-top: 10px;
+}
+
+/* Sem pedido nenhum. */
+.conta-vazio {
+  text-align: center;
+  padding: 34px 20px;
+}
+.conta-vazio > svg {
+  width: 40px;
+  height: 40px;
+  margin: 0 auto 10px;
+  fill: var(--color-linha);
+}
+.conta-vazio p {
+  margin: 0 auto 16px;
+  max-width: 34ch;
+  font-size: 0.88rem;
+  color: var(--color-tinta-suave);
+}
+.conta-vazio .conta-vazio__titulo {
+  margin-bottom: 6px;
+  font-size: 0.95rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--color-tinta);
+}
+
+/* ---------- a lista de pedidos ---------- */
+.pedidos {
+  display: grid;
+  gap: 0;
+}
+.pedido-card {
+  padding: 16px clamp(14px, 2.4vw, 20px);
+}
+.pedido-card__topo {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.pedido-card__num {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.pedido-card__data {
+  margin: 2px 0 0;
+  font-size: 0.76rem;
+  color: var(--color-tinta-suave);
+}
+.pedido-card__meio {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 0 0;
+  padding: 12px 0;
+  border-top: 1px solid rgba(18, 24, 31, 0.12);
+}
+.pedido-card__fotos {
+  display: flex;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pedido-card__fotos li + li {
+  margin-left: -12px;
+}
+.pedido-card__fotos .item__foto {
+  width: 48px;
+  height: 48px;
+  background: #fff;
+}
+.pedido-card__itens {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+.pedido-card__itens small {
+  display: block;
+  color: var(--color-tinta-suave);
+  font-weight: 500;
+}
+.pedido-card__total {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 800;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.pedido-card__acoes {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+}
+.pedido-card__prazo {
+  margin: 0;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--color-menta-escura);
+}
+/* Prazo do Pix é contagem pra acabar, não boa notícia: sem o verde. */
+.pedido-card__prazo[data-pix] {
+  color: var(--color-tinta);
+}
+.pedido-card__prazo[data-cancelado] {
+  color: var(--color-tinta-suave);
+  font-weight: 600;
+}
+@media (max-width: 520px) {
+  .pedido-card__meio {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .pedido-card__total {
+    grid-column: 1 / -1;
+  }
+}
+
+/* O `.item__foto` é um <span>. No resumo do checkout ele é filho da grade
+   do `.item`, e a grade o faz bloco; aqui ele mora dentro de um <li>, e span
+   solto ignora largura e altura — a foto sumia num buraco. */
+.de-novo__fotos .item__foto,
+.pedido-card__fotos .item__foto {
+  display: block;
+}
+.item__foto.item__foto--vazia {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-tinta-suave);
+}
+.item__foto--vazia svg {
+  width: 22px;
+  height: 22px;
+  fill: currentColor;
+  opacity: 0.5;
+}
+
+/* ---------- um pedido ---------- */
+.detalhe {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 0 14px;
+  align-items: start;
+}
+.detalhe__lado {
+  display: grid;
+}
+.detalhe__titulo {
+  margin-bottom: 4px;
+}
+@media (max-width: 1060px) {
+  .detalhe {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* A linha do tempo: losango cheio pro que já foi, amarelo pro de agora,
+   vazado pro que falta — o mesmo losango do rádio do checkout. No
+   protótipo era `.tempo`, que já é da PDP (`pdp-tempo.css`, com fundo
+   menta) — daí o nome comprido. */
+.linha-do-tempo {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.linha-do-tempo li {
+  position: relative;
+  padding: 26px 8px 0 0;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-tinta-suave);
+}
+.linha-do-tempo li::before {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 3px;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--color-tinta-suave);
+  background: #fff;
+  transform: rotate(45deg);
+  z-index: 1;
+}
+.linha-do-tempo li::after {
+  content: "";
+  position: absolute;
+  left: 18px;
+  right: 0;
+  top: 9px;
+  height: 2px;
+  background: var(--color-linha);
+}
+.linha-do-tempo li:last-child::after {
+  content: none;
+}
+.linha-do-tempo li[data-feito] {
+  color: var(--color-tinta);
+}
+.linha-do-tempo li[data-feito]::before {
+  background: var(--color-tinta);
+  border-color: var(--color-tinta);
+}
+.linha-do-tempo li[data-feito]::after {
+  background: var(--color-tinta);
+}
+.linha-do-tempo li[data-agora] {
+  color: var(--color-tinta);
+}
+.linha-do-tempo li[data-agora]::before {
+  background: var(--color-amarelo);
+  border-color: var(--color-tinta);
+}
+.linha-do-tempo small {
+  display: block;
+  margin-top: 3px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--color-tinta-suave);
+}
+@media (max-width: 560px) {
+  .linha-do-tempo {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+  .linha-do-tempo li {
+    padding: 0 0 0 30px;
+  }
+  .linha-do-tempo li::after {
+    left: 9px;
+    right: auto;
+    top: 18px;
+    bottom: -14px;
+    width: 2px;
+    height: auto;
+  }
+}
+
+.rastreio {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  margin: 18px 0 0;
+  padding: 12px 14px;
+  background: var(--color-cinza);
+}
+.rastreio__rot {
+  margin: 0;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-tinta-suave);
+}
+.rastreio__codigo {
+  margin: 2px 0 0;
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  user-select: all;
+}
+.rastreio__acoes {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 0.8rem;
+}
+/* Antes da postagem, o lugar do rastreio diz quando ele chega — em vez de
+   um buraco que a pessoa não sabe se é defeito. */
+.rastreio__depois {
+  margin: 18px 0 0;
+  padding: 12px 14px;
+  background: var(--color-cinza);
+  font-size: 0.8rem;
+  color: var(--color-tinta-suave);
+}
+
+/* O Pix pendente: a caixa do obrigado (dentro de um `.feito`, que é onde o
+   CSS dela mora), com o título e a frase no meio. */
+.pix-pendente {
+  text-align: center;
+}
+.feito .pix-pendente__frase {
+  max-width: 46ch;
+  margin: 6px auto 0;
+  font-size: 0.86rem;
+}
+
+/* Pedido cancelado: no lugar da linha do tempo, o porquê. Tom neutro —
+   vermelho seria alarme. */
+.cancelado {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.cancelado svg {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  fill: var(--color-tinta-suave);
+}
+.cancelado p {
+  margin: 0;
+  font-size: 0.86rem;
+  color: var(--color-tinta-suave);
+}
+.cancelado b {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--color-tinta);
+  text-transform: uppercase;
+  font-size: 0.8rem;
+}
+
+.info {
+  margin: 0;
+  font-style: normal;
+  font-size: 0.84rem;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+.acoes-pedido {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px 22px;
+  margin: 18px 0 2px;
 }

@@ -71,12 +71,13 @@ function normaliza(caminho: string): string {
  * O id de pedido do Medusa é um ULID — `order_01M2ZFEF6J256CVS4KJS5B8QZ0`,
  * com maiúsculas que fazem parte do valor. Baixar a caixa dele transforma o
  * id em outro id, e a tela de "pedido feito" vira "não achei esse pedido"
- * pra TODA compra. Aconteceu; está travado em `conferir-checkout.mjs`.
+ * pra TODA compra. Aconteceu; está travado em `conferir-checkout.mjs` — e
+ * o pedido da conta tem o mesmo id no endereço (`conferir-conta.mjs`).
  *
  * Handle de produto e de categoria continua minúsculo por construção (o
  * middleware do backend garante), então a regra segue valendo pro resto.
  */
-const CAMINHOS_COM_ID = ["/checkout/obrigado/"]
+const CAMINHOS_COM_ID = ["/checkout/obrigado/", "/conta/pedidos/"]
 
 export function proxy(req: NextRequest) {
   const bruto = semBarraFinal(req.nextUrl.pathname)
