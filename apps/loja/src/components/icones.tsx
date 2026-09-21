@@ -96,6 +96,19 @@ export function SetaDireita(props: Props) {
   )
 }
 
+/**
+ * A `SetaDireita` girada pra baixo — o "abre/fecha" do resumo do checkout,
+ * que no protótipo era um chevron. Aponta pra baixo fechado; o CSS gira
+ * 180° quando abre.
+ */
+export function SetaBaixo(props: Props) {
+  return (
+    <Icone {...props}>
+      <path d="M20.4 8.6V7l-1.6-1.6L12 12.2 5.2 5.4 3.6 7v1.6l8.4 8.8z" />
+    </Icone>
+  )
+}
+
 export function Fechar(props: Props) {
   return (
     <Icone {...props}>

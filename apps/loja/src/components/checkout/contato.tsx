@@ -5,6 +5,7 @@ import { Raio } from "@/components/icones"
 import { salvarContato } from "@/lib/acoes/checkout"
 import { ESTADO_INICIAL, type CheckoutVisivel } from "@/lib/checkout-visivel"
 import { mascararDocumento } from "@/lib/documento"
+import { mascararTelefone } from "@/lib/telefone"
 import { Campo } from "./campo"
 import {
   Giro,
@@ -36,9 +37,11 @@ export function Contato({
   useFechaQuandoSalva(estado, aoSalvar)
   useAvisaOcupado(casca, enviando ? "Salvando…" : null)
 
-  // O documento é controlado só por causa da máscara; o resto é `defaultValue`
-  // e vive no próprio DOM, que é onde o navegador já guarda melhor.
+  // Documento e celular são controlados só por causa da máscara; o resto é
+  // `defaultValue` e vive no próprio DOM, que é onde o navegador já guarda
+  // melhor. O celular gravado vem como +5511…; a máscara tira o país.
   const [documento, setDocumento] = useState(mascararDocumento(checkout.documento))
+  const [telefone, setTelefone] = useState(mascararTelefone(checkout.entrega.telefone))
 
   const e = estado.erros
   // O que voltou da ação vem antes do que está gravado: é o que a pessoa
@@ -72,7 +75,7 @@ export function Contato({
             nome="nome"
             largura="campo--3"
             autoComplete="given-name"
-            placeholder="Como está no documento"
+            placeholder="Primeiro nome"
             defaultValue={v("nome", checkout.entrega.nome)}
             erro={e.nome}
             required
@@ -86,6 +89,11 @@ export function Contato({
             erro={e.sobrenome}
             required
           />
+          {/*
+            Sem `maxLength`: o navegador cortaria o que é colado ANTES da
+            máscara ver — "+55 11 98765-4321" chegaria sem os últimos
+            dígitos. Quem limita a 11 dígitos é a própria máscara.
+          */}
           <Campo
             rotulo="Celular"
             nota="(WhatsApp)"
@@ -95,7 +103,8 @@ export function Contato({
             inputMode="numeric"
             autoComplete="tel-national"
             placeholder="(11) 99999-9999"
-            defaultValue={v("telefone", checkout.entrega.telefone)}
+            value={telefone}
+            onChange={(ev) => setTelefone(mascararTelefone(ev.target.value))}
             erro={e.telefone}
             required
           />

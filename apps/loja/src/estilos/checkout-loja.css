@@ -6,8 +6,10 @@
   geração apaga. Aqui é o oposto: nada disto sai do protótipo, e nada daqui é
   regenerado.
 
-  São três coisas: a espera (o protótipo não tinha servidor, então não tinha
-  o que esperar), a sacola vazia, e tirar a carcaça da loja do caminho.
+  O que tem: a espera (o protótipo não tinha servidor, então não tinha o que
+  esperar), a sacola vazia, a marca no topo, o resumo, a tela de obrigado
+  com o Pix de verdade, e o que só existe porque existe backend — recado de
+  falha, cortina de pagamento.
 */
 
 /* O esqueleto do <Suspense>. O protótipo não tinha servidor, então não tinha
@@ -67,20 +69,48 @@
   color: var(--color-tinta-suave);
 }
 
-/* O cabeçalho e o rodapé da loja saem do caminho: quem chegou aqui já
-   decidiu, e menu, busca e sacola são três saídas no meio de uma compra.
-   `:has()` porque a alternativa era duplicar o layout raiz inteiro em grupos
-   de rota — muito risco pra um ganho que o seletor entrega em cinco linhas.
-   Onde `:has()` não existir, aparece o cabeçalho normal, que é o pior caso
-   aceitável. */
-body:has(.pagina) .cabecalho,
-body:has(.pagina) .anuncio,
-body:has(.pagina) .rodape,
-body:has(.obrigado) .cabecalho,
-body:has(.obrigado) .anuncio,
-body:has(.obrigado) .rodape__news,
-body:has(.obrigado) .rodape__colunas {
+/*
+  A CARCAÇA DA LOJA SAI DO CAMINHO: quem chegou ao checkout já decidiu, e
+  menu, busca e sacola são três saídas no meio de uma compra. Na tela de
+  obrigado some o cabeçalho e o grosso do rodapé; o pé dele fica (selos,
+  formas de pagamento, a linha legal com o CNPJ). E o fundo do `body` — que é
+  do layout raiz, e lá é menta — vira o cinza do protótipo.
+
+  CADA REGRA EM DUPLA, uma por fase (o porquê está em
+  `components/marca-da-tela.tsx`):
+
+    `html[data-tela~="…"]` — a marca que a página põe enquanto está na tela
+      e tira quando sai. Era só `body:has(.pagina)`, e ele continuava casando
+      com o checkout que o Next guarda escondido: a home aberta pelo logo
+      vinha sem cabeçalho e sem rodapé;
+
+    `html:not([data-hidratado]) body:has(…)` — antes de o React assumir, na
+      carga direta, quando ainda não existe marca (nem página guardada). Sem
+      isto, o cabeçalho da loja aparecia até o JavaScript chegar.
+
+  Em regras separadas, e não numa lista: navegador sem `:has()` descarta a
+  regra INTEIRA onde ele aparece, e a da marca tem que sobreviver sozinha.
+*/
+html[data-tela~="checkout"] :is(.anuncio, .cabecalho, .rodape),
+html[data-tela~="obrigado"] :is(.anuncio, .cabecalho, .rodape__news, .rodape__colunas) {
   display: none;
+}
+html:not([data-hidratado]) body:has(.pagina) :is(.anuncio, .cabecalho, .rodape) {
+  display: none;
+}
+html:not([data-hidratado])
+  body:has(.obrigado)
+  :is(.anuncio, .cabecalho, .rodape__news, .rodape__colunas) {
+  display: none;
+}
+
+html[data-tela~="checkout"] body,
+html[data-tela~="obrigado"] body {
+  background: var(--color-cinza);
+}
+html:not([data-hidratado]) body:has(.pagina),
+html:not([data-hidratado]) body:has(.obrigado) {
+  background: var(--color-cinza);
 }
 
 /* A MARCA NO TOPO. O protótipo tinha o raio fino e o nome em texto, e o CSS
@@ -100,15 +130,26 @@ body:has(.obrigado) .rodape__colunas {
   }
 }
 
-/* O FUNDO DA PÁGINA.
+/* ---------- o resumo ---------- */
 
-   O protótipo põe `background: var(--fundo)` no `body`, e o `body` não sobe
-   pro app: lá o fundo é menta, porque é o da loja. Aqui a regra vale só
-   enquanto uma das duas telas do checkout está montada — é o mesmo `:has()`
-   que tira o cabeçalho da loja do caminho, logo abaixo. */
-body:has(.pagina),
-body:has(.obrigado) {
-  background: var(--color-cinza);
+/* O total e o chevron na mesma linha, centrados um no outro. No protótipo o
+   `svg` era inline e ficava ao lado do valor; aqui o preflight do Tailwind
+   põe `display: block` em todo `svg`, e a seta caía pra baixo do número. */
+.resumo__mini {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Na coluna do lado o resumo não fecha (`resumo.tsx`): sem seta e sem mãozinha
+   num cabeçalho que não abre nem fecha nada. */
+@media (min-width: 901px) {
+  .resumo summary {
+    cursor: default;
+  }
+  .resumo summary svg {
+    display: none;
+  }
 }
 
 /* ---------- a tela de pedido recebido ---------- */

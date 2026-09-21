@@ -59,13 +59,13 @@ sozinha a cada 5 minutos; se nem ela resolver, o log com `[conciliação]` diz o
 - [ ] Estornar pelo painel do Pagar.me o Pix do #6 — o estorno pedido pelo admin falhou (ver o
       primeiro achado abaixo). O Medusa já está como Refunded; não mexer lá.
 - [ ] Uma compra real pequena no cartão, cancelando em seguida.
-- [ ] **Criar a promoção do bump em produção** — sem ela, o "Só nessa tela" do passo 3 não
-      desconta. No shell do Railway: `cd apps/backend/.medusa/server && npx medusa exec ./src/scripts/promocoes.js`
-      (cria o `BUMP-OLEO`; rodar de novo só atualiza). Até lá, marcar a caixinha diz "Não deu pra
-      incluir a oferta agora" e o pedido segue sem o óleo; o log da Vercel diz o motivo (linha
-      `[checkout] bump marcar`). Antes do acerto do checkout ela marcava e desmarcava — e, quando
-      o que falhava era o desconto, o óleo ficava no carrinho **a preço cheio**: vale olhar se
-      algum pedido de teste saiu com um óleo que ninguém pediu.
+- [x] Promoção do bump em produção (21/09): o `promocoes.js` no shell do Railway respondeu
+      "BUMP-OLEO **criada**" — ela nunca tinha existido lá, e era isso que fazia o "Só nessa tela"
+      marcar e desmarcar. Se um dia o bump voltar a dizer "Não deu pra incluir a oferta agora", o
+      log da Vercel diz o motivo (linha `[checkout] bump marcar`); rodar o script de novo só
+      atualiza.
+- [ ] Olhar se algum pedido de teste de antes de 21/09 saiu com um óleo que ninguém pediu: sem a
+      promoção, o clique no bump deixava o óleo no carrinho **a preço cheio**, fora da tela.
 
 ### 2. Achados da revisão do pagamento — Claude Code
 

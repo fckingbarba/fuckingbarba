@@ -4,6 +4,7 @@ import Link from "next/link"
 import { Suspense } from "react"
 import { EsperaDoPagamento } from "@/components/checkout/espera"
 import { Pix } from "@/components/checkout/pix"
+import { MarcaDaTela } from "@/components/marca-da-tela"
 import { Cadeado, EscudoCerto, Raio, Relogio, Triangulo } from "@/components/icones"
 import { LogoCurta } from "@/components/marca"
 import { RecarregaSacola } from "@/components/sacola/recarrega"
@@ -128,6 +129,10 @@ type Props = PageProps<"/checkout/obrigado/[id]">
 export default function Pagina({ params }: Props) {
   return (
     <>
+      {/* Some o cabeçalho da loja e o grosso do rodapé; o pé dele fica —
+          `checkout-loja.css`. */}
+      <MarcaDaTela tela="obrigado" />
+
       <header className="topo">
         <div className="topo__wrap">
           {/* A marca, sozinha — a mesma do topo do checkout e da loja. */}

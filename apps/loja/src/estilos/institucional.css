@@ -1,18 +1,24 @@
 /*
   AS PÁGINAS DE TEXTO — privacidade, termos, entrega/trocas.
 
-  Uma regra só, e ela existe por um motivo concreto: o fundo do `body` na
-  loja é MENTA, porque é a cor da marca e porque nas telas de venda ele
-  aparece em faixas curtas. Documento legal é texto corrido de duas mil
-  palavras, e duas mil palavras sobre menta cansam a vista em três
-  parágrafos — que é mais ou menos onde a pessoa desiste de ler justamente a
-  página que ela abriu pra decidir se confia na loja.
+  O fundo delas é branco, não o MENTA do resto da loja: documento legal é
+  texto corrido de duas mil palavras, e duas mil palavras sobre menta cansam
+  a vista em três parágrafos — que é mais ou menos onde a pessoa desiste de
+  ler justamente a página que ela abriu pra decidir se confia na loja.
 
-  `body:has(.institucional)` pelo mesmo caminho que o checkout usa: o `body`
-  é do layout raiz e não sabe qual página está montada, então quem responde
-  é a página, de dentro pra fora.
+  O fundo é do `body`, que é do layout raiz e não sabe qual página está
+  montada. Quem avisa é a página: a marca `data-tela` no `<html>`, que ela
+  põe enquanto está na tela (`components/marca-da-tela.tsx`). Era só um
+  `body:has(.institucional)`, que seguia valendo com a página guardada,
+  escondida, depois que a pessoa ia embora — o fundo branco ia junto pra
+  página seguinte. O `:has()` ficou só pra antes de o React assumir, na carga
+  direta, quando ainda não há marca nem página guardada; em regra separada,
+  porque navegador sem `:has()` descartaria a regra inteira.
 */
-body:has(.institucional) {
+html[data-tela~="institucional"] body {
+  background: var(--color-papel);
+}
+html:not([data-hidratado]) body:has(.institucional) {
   background: var(--color-papel);
 }
 

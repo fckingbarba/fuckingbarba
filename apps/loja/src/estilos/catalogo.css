@@ -30,16 +30,21 @@
   por script, não se edita à mão. Na categoria, logo abaixo vem fundo branco,
   e a faixa de 7px virava um risco verde que parecia sobra de renderização.
 
-  `body:has(.catalogo)` em vez de uma classe no componente porque o
-  `<Migalhas>` é compartilhado com a PDP e não recebe className — e porque a
-  regra fica onde ela é explicada, em vez de virar uma prop que alguém passa
-  errado.
+  "A migalha logo antes do catálogo" (`:has(+ .catalogo)`) em vez de uma
+  classe no componente porque o `<Migalhas>` é compartilhado com a PDP e não
+  recebe className — e porque a regra fica onde ela é explicada, em vez de
+  virar uma prop que alguém passa errado.
+
+  Irmã vizinha, e não `body:has(.catalogo)`, que era como estava: o Next
+  guarda a página anterior escondida no documento, e a regra no `body`
+  seguia casando com ela — a PDP aberta a partir da categoria herdava o
+  respiro da categoria.
 */
-body:has(.catalogo) .migalhas {
+.migalhas:has(+ .catalogo) {
   padding-bottom: 9px;
 }
 @media (min-width: 1000px) {
-  body:has(.catalogo) .migalhas {
+  .migalhas:has(+ .catalogo) {
     padding-bottom: 14px;
   }
 }

@@ -19,6 +19,7 @@ import { lerEndereco, montarEndereco } from "@/lib/endereco"
 import { cliente } from "@/lib/medusa"
 import { depoisDaRecusa, entradaDoCarrinho } from "@/lib/pagamento"
 import { CHECKOUT_ABERTO } from "@/lib/site"
+import { conferirTelefone } from "@/lib/telefone"
 
 /**
  * AS AÇÕES DO CHECKOUT
@@ -129,19 +130,6 @@ const UFS = new Set([
   "SP",
   "TO",
 ])
-
-/**
- * Telefone brasileiro em 10 ou 11 dígitos, com DDD. O 11º é o 9 do celular.
- * Guardado como +55DDD… porque é o formato que gateway de pagamento e
- * disparador de WhatsApp esperam, e converter na hora de usar é como se
- * esquece de converter em um dos lugares.
- */
-function conferirTelefone(v: string): string | null {
-  const so = v.replace(/\D+/g, "").replace(/^55(?=\d{10,11}$)/, "")
-  if (so.length < 10 || so.length > 11) return null
-  if (!/^[1-9]{2}/.test(so)) return null
-  return `+55${so}`
-}
 
 /* ── o carrinho, sempre do cookie ─────────────────────────────────────────── */
 

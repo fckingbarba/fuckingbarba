@@ -28,7 +28,13 @@
  * - o bump "marcar e desmarcar" sem a promoção no Medusa, deixando o óleo
  *   no carrinho a preço cheio; e sumir da tela depois de marcado;
  * - o segundo clique em pagar (ou toque na barra do celular) mandar outro
- *   pedido, com a tela parada sem dizer que estava trabalhando.
+ *   pedido, com a tela parada sem dizer que estava trabalhando;
+ * - a home aberta pelo logo do checkout (ou da tela de obrigado) vir sem
+ *   cabeçalho e sem rodapé — o Next guarda a página escondida, e o
+ *   `body:has(.pagina)` seguia casando com ela;
+ * - o resumo fechar no desktop, onde ele é a coluna do lado, e a seta dele
+ *   cair pra baixo do total;
+ * - o celular sem máscara.
  *
  * Variáveis: MEDUSA_BACKEND_URL, NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY, CHROMIUM;
  * ADMIN_EMAIL e ADMIN_SENHA, opcionais, pro bump com a promoção desligada.
@@ -446,6 +452,30 @@ if (destinoDaGaveta === "/checkout") {
     await campo("email").evaluate((el) => el === document.activeElement),
     "e o primeiro clique no formulário pega"
   )
+
+  /*
+    NO DESKTOP O RESUMO NÃO FECHA. Ele é a coluna do lado — fechar não
+    liberava espaço nenhum, só escondia o total —, e o Next guarda a página
+    com o `<details>` do jeito que ficou: quem fechava voltava pro checkout
+    e achava o resumo fechado.
+  */
+  titulo("O resumo, no desktop")
+  const detalhes = pagina.locator(".resumo details")
+  ok(await detalhes.evaluate((d) => d.open), "abre aberto")
+  await pagina.locator(".resumo summary").click()
+  ok(await detalhes.evaluate((d) => d.open), "e clicar no cabeçalho não fecha")
+
+  /*
+    O LOGO DO CHECKOUT LEVA PRA LOJA INTEIRA. A regra que tira cabeçalho e
+    rodapé era um `body:has(.pagina)` global, e o Next guarda a página que
+    ficou pra trás escondida no documento: a home chegava sem os dois.
+  */
+  titulo("Saindo pelo logo")
+  await pagina.locator(".topo__logo").click()
+  await pagina.waitForURL(`${LOJA}/`, { timeout: 20000 })
+  await pagina.locator("main").filter({ visible: true }).first().waitFor({ timeout: 20000 })
+  ok(await pagina.locator(".cabecalho").isVisible(), "a home volta com o cabeçalho")
+  ok(await pagina.locator(".rodape").isVisible(), "e com o rodapé")
 }
 
 /* ── 2. passo 1: contato, com o CPF errado primeiro ───────────────────────── */
@@ -496,6 +526,22 @@ ok(
   (await campo("documento").inputValue()) === "12.ABC.345/01DE-35",
   "CNPJ alfanumérico entra e ganha a máscara certa",
   await campo("documento").inputValue()
+)
+
+// O celular também tem máscara — digitado tecla a tecla, como uma pessoa, e
+// colado do jeito que o preenchimento automático costuma trazer.
+await campo("telefone").fill("")
+await campo("telefone").pressSequentially("11987654321")
+ok(
+  (await campo("telefone").inputValue()) === "(11) 98765-4321",
+  "o celular ganha a máscara enquanto é digitado",
+  await campo("telefone").inputValue()
+)
+await campo("telefone").fill("+55 11 3456-7890")
+ok(
+  (await campo("telefone").inputValue()) === "(11) 3456-7890",
+  "e colado com o +55, o país sai e o fixo fica 4-4",
+  await campo("telefone").inputValue()
 )
 
 await preencheContato(CPF)
@@ -943,6 +989,10 @@ ok(
   !/chega em \d+ dias|entrega garantida/i.test(corpo),
   "sem prometer prazo que ninguém pode cumprir ainda"
 )
+ok(
+  !(await pagina.locator(".cabecalho").isVisible()),
+  "e sem o cabeçalho da loja — o checkout, guardado escondido, não manda mais nela"
+)
 
 titulo("O mesmo link, em outro navegador")
 const estranho = await navegador.newContext({ viewport: MESA })
@@ -954,6 +1004,18 @@ ok(visto.includes(`#${order.display_id}`), "quem tem o link confirma que o pedid
 ok(!visto.includes("Avenida Paulista"), "mas NÃO vê o endereço de quem comprou")
 ok(!visto.includes(EMAIL), "nem o e-mail")
 await estranho.close()
+
+// Da tela de obrigado, o logo volta pra loja INTEIRA. Aqui há duas páginas
+// guardadas escondidas (o checkout e o obrigado) — o caso em que a regra
+// antiga mais escondia coisa. `visible`, porque o `.topo__logo` do checkout
+// escondido também está no documento.
+await pagina.locator(".topo__logo").filter({ visible: true }).click()
+await pagina.waitForURL(`${LOJA}/`, { timeout: 20000 })
+await pagina.locator("main").filter({ visible: true }).first().waitFor({ timeout: 20000 })
+ok(
+  (await pagina.locator(".cabecalho").isVisible()) && (await pagina.locator(".rodape").isVisible()),
+  "e o logo de lá leva pra loja com cabeçalho e rodapé"
+)
 
 /* ── 5. o celular ─────────────────────────────────────────────────────────── */
 
@@ -981,6 +1043,24 @@ ok(
 const totalDaBarra = numero(await noCelular.locator(".barra__total b").innerText())
 const totalDoResumo = numero(await noCelular.locator(".totais__total dd").innerText())
 ok(perto(totalDaBarra, totalDoResumo), "e a barra mostra o mesmo total do resumo")
+
+// A seta do resumo caía pra baixo do total (o preflight do Tailwind põe
+// `display: block` em todo `svg`). Ela é o abre/fecha: fica AO LADO dele.
+const noTotal = await noCelular.locator(".resumo summary b").boundingBox()
+const naSeta = await noCelular.locator(".resumo summary svg").boundingBox()
+const meio = (c) => c.y + c.height / 2
+ok(
+  Boolean(noTotal && naSeta) &&
+    Math.abs(meio(naSeta) - meio(noTotal)) < 4 &&
+    naSeta.x >= noTotal.x + noTotal.width,
+  "a seta do resumo fica ao lado do total, na mesma linha",
+  JSON.stringify({ noTotal, naSeta })
+)
+const resumoAberto = () => noCelular.locator(".resumo details").evaluate((d) => d.open)
+await noCelular.locator(".resumo summary").click()
+const fechou = !(await resumoAberto())
+await noCelular.locator(".resumo summary").click()
+ok(fechou && (await resumoAberto()), "no celular, o cabeçalho do resumo fecha e abre")
 
 /*
   A BARRA ESPERA JUNTO. Ela não sabia que o passo estava enviando: o toque

@@ -2,8 +2,8 @@
 
 import Image from "next/image"
 import Link from "next/link"
-import { useActionState, useEffect, useState, useTransition } from "react"
-import { Caminhao, Cadeado, Escudo, Relogio, SetaTopo } from "@/components/icones"
+import { useActionState, useEffect, useRef, useState, useTransition } from "react"
+import { Caminhao, Cadeado, Escudo, Relogio, SetaBaixo } from "@/components/icones"
 import { CONFIANCA, DEPOIMENTOS } from "@/conteudo/checkout"
 import { aplicarCupom, removerCupom } from "@/lib/acoes/checkout"
 import { ESTADO_INICIAL, type CheckoutVisivel } from "@/lib/checkout-visivel"
@@ -30,6 +30,9 @@ import { PARCELAS_SEM_JUROS, PARCELA_MINIMA } from "@/lib/site"
 
 const ICONES = { escudo: Escudo, cadeado: Cadeado, caminhao: Caminhao, relogio: Relogio }
 
+/** Onde o resumo é a coluna do lado. Abaixo disto ele sobe pro topo (`checkout.css`). */
+const COLUNA_DO_LADO = "(min-width: 901px)"
+
 /*
  * `recalculando`: uma troca de frete, de bump ou de chip está indo e voltando
  * do Medusa. O dinheiro daqui esmaece e pulsa até a resposta (o mesmo
@@ -45,6 +48,28 @@ export function Resumo({
 }) {
   const { itens, subtotal, desconto, frete, total, unidades } = checkout
   const parcela = total / PARCELAS_SEM_JUROS
+  const detalhes = useRef<HTMLDetailsElement>(null)
+
+  /*
+   * NO DESKTOP, SEMPRE ABERTO. Lá o resumo é a coluna do lado: fechar não
+   * libera espaço nenhum pro formulário, só esconde o que a pessoa vai
+   * pagar. E o Next guarda a página quando a pessoa sai (é o `<Activity>`),
+   * com o `<details>` do jeito que ficou — então quem tinha fechado voltava
+   * pro checkout e achava o resumo fechado. Este efeito roda de novo toda
+   * vez que a página volta pra tela, e reabre; e reabre também se a janela
+   * crescer até virar coluna.
+   *
+   * No celular ele sobe pro topo, e o toque no cabeçalho abre e fecha.
+   */
+  useEffect(() => {
+    const lado = window.matchMedia(COLUNA_DO_LADO)
+    const abrir = () => {
+      if (lado.matches && detalhes.current) detalhes.current.open = true
+    }
+    abrir()
+    lado.addEventListener("change", abrir)
+    return () => lado.removeEventListener("change", abrir)
+  }, [])
 
   return (
     <aside
@@ -53,12 +78,20 @@ export function Resumo({
       data-recalculando={recalculando ? "" : undefined}
       aria-busy={recalculando || undefined}
     >
-      <details open>
-        <summary>
+      <details open ref={detalhes}>
+        <summary
+          onClick={(ev) => {
+            // Coluna do lado não fecha (ver o efeito acima). O Enter e o
+            // espaço no `<summary>` também chegam aqui como clique.
+            if (window.matchMedia(COLUNA_DO_LADO).matches) ev.preventDefault()
+          }}
+        >
           <span id="t-resumo">Resumo do pedido</span>
-          <span>
+          {/* O total e a seta NA MESMA LINHA, como no protótipo: a seta é o
+              chevron que abre e fecha, e fica ao lado de quem ela resume. */}
+          <span className="resumo__mini">
             <b>{emReais(total)}</b>
-            <SetaTopo aria-hidden="true" />
+            <SetaBaixo aria-hidden="true" />
           </span>
         </summary>
 

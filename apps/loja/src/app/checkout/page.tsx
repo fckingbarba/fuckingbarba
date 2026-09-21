@@ -3,6 +3,7 @@ import Link from "next/link"
 import { redirect } from "next/navigation"
 import { Suspense } from "react"
 import { Etapas } from "@/components/checkout/etapas"
+import { MarcaDaTela } from "@/components/marca-da-tela"
 import { Cadeado, Raio } from "@/components/icones"
 import { LogoCurta } from "@/components/marca"
 import {
@@ -45,6 +46,10 @@ export const metadata: Metadata = {
 export default function Pagina() {
   return (
     <>
+      {/* Tira a carcaça da loja (cabeçalho, esteira, rodapé) e põe o fundo
+          cinza enquanto esta página está na tela — `checkout-loja.css`. */}
+      <MarcaDaTela tela="checkout" />
+
       {/*
         Cabeçalho próprio, e curto. O da loja tem menu, busca e sacola — três
         saídas no meio de uma compra. Aqui ficam a marca (que volta pra loja,
