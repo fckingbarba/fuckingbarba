@@ -170,6 +170,14 @@ servidor fala com o Medusa (`apps/loja/src/lib/conta.ts`); o `proxy.ts` faz a ch
 porta da `/conta`. O limite por pessoa conta o IP que a loja manda em `x-cliente-ip`, assinado com o
 `REVALIDAR_SEGREDO`.
 
+Os **e-mails** moram em `apps/backend/src/lib/emails/`: a `moldura.ts` (barra preta com a logo,
+fundo menta, blocos com sombra dura — em tabela e estilo em linha, porque é e-mail) e um arquivo
+por e-mail. Tudo o que vem de fora passa por `esc`. A logo e os ícones são PNGs em
+`apps/loja/public/email/`, gerados dos vetores do site por `ferramentas/logo/pngs-do-email.mjs`, e o
+e-mail aponta pra eles pela `LOJA_URL`. Pra ver antes de mandar:
+`cd apps/backend && npx ts-node ferramentas/previa-emails.ts` escreve
+`ferramentas/saida/previa-emails.html` — computador, celular e modo escuro lado a lado.
+
 A **sacola** grava CEP e entrega no carrinho (`apps/loja/src/lib/acoes/frete.ts`), e o pé da
 gaveta mostra o frete e o total que o Medusa calculou com ela — o checkout abre com os dois. Com
 entrega pendurada, toda mudança de quantidade faz o Medusa cotar de novo; o `cotar` do

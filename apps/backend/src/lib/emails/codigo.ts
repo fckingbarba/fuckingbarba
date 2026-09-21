@@ -1,4 +1,16 @@
 import type { Email } from "../email"
+import {
+  cartao,
+  comSombra,
+  COR,
+  divisor,
+  esc,
+  espaco,
+  FONTE,
+  moldura,
+  paragrafo,
+  titulo,
+} from "./moldura"
 
 /**
  * O E-MAIL DO CÓDIGO DE ACESSO.
@@ -7,14 +19,14 @@ import type { Email } from "../email"
  * caixa de entrada, e a pessoa digita sem abrir nada. É o que o "preencher
  * código do e-mail" do iPhone também lê.
  *
- * SEM LINK NENHUM, de propósito. E-mail de acesso com botão "clique aqui" é
- * exatamente o que golpe imita — o nosso só pede pra digitar seis números na
- * tela que a pessoa já tem aberta. E não depende do domínio da loja estar no
- * ar pra funcionar.
+ * SEM LINK NENHUM, de propósito — nem no pé. E-mail de acesso com botão
+ * "clique aqui" é exatamente o que golpe imita: o nosso só pede pra digitar
+ * seis números na tela que a pessoa já tem aberta. E não depende do domínio
+ * da loja estar no ar pra funcionar (a logo, se não carregar, vira o nome).
  *
- * HTML de e-mail é HTML de 2005: tabela, estilo em linha e nada de SVG (o
- * Gmail tira). A marca aparece em texto, nas cores dela; a fonte cai pra
- * Arial, que é a que todo leitor de e-mail tem.
+ * OS SEIS DÍGITOS NUMA CAIXA SÓ, com espaço largo entre eles — a mesma cara
+ * do campo da tela do código. Copiar dá "482917", sem espaço: o espaço é
+ * `letter-spacing`, não caractere.
  */
 export function emailDoCodigo({
   para,
@@ -40,29 +52,47 @@ export function emailDoCodigo({
     naoPediu,
   ].join("\n")
 
-  const html = `<!doctype html>
-<html lang="pt-BR">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${assunto}</title></head>
-<body style="margin:0;padding:0;background:#f2f3f4;">
-<div style="display:none;max-height:0;overflow:hidden;">${aviso} ${naoPediu}</div>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f2f3f4;">
-  <tr><td align="center" style="padding:28px 12px;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:480px;background:#ffffff;border:2px solid #12181f;">
-      <tr><td style="background:#12181f;padding:18px 26px;font:italic 800 18px/1.2 Arial,Helvetica,sans-serif;letter-spacing:0.04em;text-transform:uppercase;color:#ffffff;">
-        Fucking<span style="color:#ffd84d;">Barba</span>
-      </td></tr>
-      <tr><td style="padding:28px 26px 30px;font:400 15px/1.55 Arial,Helvetica,sans-serif;color:#12181f;">
-        <p style="margin:0 0 6px;font:italic 800 20px/1.2 Arial,Helvetica,sans-serif;text-transform:uppercase;">Seu código de acesso</p>
-        <p style="margin:0 0 20px;color:#566072;">Digite na tela da loja pra entrar na sua conta.</p>
-        <p style="margin:0 0 20px;padding:18px 10px;background:#fff3c4;border:2px dashed #12181f;text-align:center;font:800 34px/1 'Courier New',Courier,monospace;letter-spacing:0.3em;color:#12181f;">${codigo}</p>
-        <p style="margin:0 0 8px;font-size:13px;font-weight:700;">${aviso}</p>
-        <p style="margin:0;font-size:13px;color:#566072;">${naoPediu}</p>
-      </td></tr>
-    </table>
-  </td></tr>
-</table>
-</body>
-</html>`
+  /*
+    O `padding-left` igual ao espaçamento empurra os dígitos de volta pro
+    centro: o `letter-spacing` põe espaço DEPOIS de cada dígito, inclusive
+    do último, e o bloco ficaria torto pra esquerda.
+  */
+  const caixa = comSombra({
+    celula:
+      `<td class="fb-codigo" align="center" bgcolor="${COR.amarelo}" style="background:${COR.amarelo};` +
+      `border:2px solid ${COR.tinta};padding:16px 12px 16px 24px;font-family:${FONTE};font-size:40px;` +
+      `line-height:44px;font-weight:800;letter-spacing:12px;color:${COR.tinta};mso-line-height-rule:exactly;` +
+      `font-variant-numeric:tabular-nums;">${esc(codigo)}</td>`,
+    cor: COR.tinta,
+    tamanho: 4,
+    fundo: COR.papel,
+    largura: "100%",
+    classeDaSombra: "fb-sombra",
+    classeDoDente: "fb-dente",
+  })
+
+  const conteudo = cartao(
+    titulo("Seu código de acesso") +
+      espaco(8) +
+      paragrafo("Digite na tela da loja pra entrar na sua conta.", { suave: true }) +
+      espaco(24) +
+      caixa +
+      espaco(22) +
+      paragrafo(esc(aviso), { tamanho: 14, peso: 700 }) +
+      espaco(18) +
+      divisor() +
+      espaco(16) +
+      paragrafo(esc(naoPediu), { suave: true, tamanho: 13 })
+  )
+
+  const html = moldura({
+    assunto,
+    previa: `${aviso} ${naoPediu}`,
+    conteudo,
+    // Sem o endereço escrito: o Gmail transformaria em link, e este e-mail
+    // não tem link nenhum.
+    rodape: "Você recebeu porque alguém pediu um código de acesso com este e-mail na FuckingBarba.",
+  })
 
   return { para, assunto, html, texto }
 }

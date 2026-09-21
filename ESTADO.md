@@ -1,6 +1,6 @@
 # Estado do projeto — e o que vem a seguir
 
-Atualizado em 21/09/2026, com o login da Minha conta (código por e-mail, sem senha). O
+Atualizado em 21/09/2026, com a cara nova dos e-mails (o do código e o de pedido confirmado). O
 AGENTS.md diz **como** trabalhar aqui; este arquivo diz **onde** o projeto está. Leia os dois antes
 de começar e, ao terminar uma tarefa, atualize este: o que mudou de estado, o que saiu da lista, o
 que entrou.
@@ -87,6 +87,8 @@ sozinha a cada 5 minutos; se nem ela resolver, o log com `[conciliação]` diz o
       `apps/backend/src/api/middlewares.ts` limitando os campos resolve.
 - [ ] **A tela de obrigado promete e-mail que não sai:** "enviamos os detalhes pra <e-mail>" e "o
       código de rastreio chega por e-mail". Ajustar o texto até a fase 5, ou adiantar os e-mails.
+      O de pedido confirmado já está desenhado (`apps/backend/src/lib/emails/pedido-confirmado.ts`);
+      falta ligar — ver a fase 5.
 - [ ] **O botão Check payment status não emite `payment.captured`.** Hoje não muda nada; na fase 5
       (nota fiscal, e-mail, `purchase`) esse caminho também precisa disparar.
 - [ ] **Documentação do deploy:** README e AGENTS ainda descrevem server + worker. Acertar quando
@@ -116,8 +118,10 @@ sozinha a cada 5 minutos; se nem ela resolver, o log com `[conciliação]` diz o
         disputaria o e-mail com o Google); o DMARC de hoje fica como está. Esperar o "Verified";
         (c) API Keys → Create, com "Sending access" só desse domínio; (d) no Railway:
         `RESEND_API_KEY` e, se quiser outro remetente que `nao-responda@fuckingbarba.com.br`,
-        `EMAIL_REMETENTE`. Pra conferir: pedir um código em `/conta/entrar` — se não chegar, o log
-        do Railway diz por quê (linha `[email]`).
+        `EMAIL_REMETENTE`; (e) conferir que `LOJA_URL`, no Railway, é o endereço da loja na Vercel —
+        a logo dos e-mails vem de `<LOJA_URL>/email/logo.png` (sem ela, o nome sai em texto). Pra
+        conferir: pedir um código em `/conta/entrar` — se não chegar, o log do Railway diz por quê
+        (linha `[email]`).
   - [ ] 2. Visão geral, pedidos e o detalhe do pedido.
   - [ ] 3. Endereços e meus dados — e aí o link do cabeçalho troca o `/em-breve` por `/conta`.
   - [ ] Histórico da Nuvemshop na conta: junto da importação do catálogo (fase 2), e de novo na
@@ -129,8 +133,9 @@ sozinha a cada 5 minutos; se nem ela resolver, o log com `[conciliação]` diz o
       quiser o aceite de volta sem texto novo: o "7 dias pra trocar ou devolver" da faixa do passo
       3 vira link pro `/trocas`.
 - [ ] Troca de domínio (fase 6). O que depende do endereço da loja: `NEXT_PUBLIC_SITE_URL` na
-      Vercel, `STORE_CORS`/`AUTH_CORS` no Railway, `SITE_ORIGENS` no Supabase, a indexação, e o
-      domínio no Pagar.me se ele passar a exigir.
+      Vercel, `STORE_CORS`/`AUTH_CORS` e `LOJA_URL` (revalidação, logo e links dos e-mails) no
+      Railway, `SITE_ORIGENS` no Supabase, a indexação, e o domínio no Pagar.me se ele passar a
+      exigir.
 
 ### 4. Fase 5
 
@@ -138,6 +143,9 @@ sozinha a cada 5 minutos; se nem ela resolver, o log com `[conciliação]` diz o
   código de acesso) —, nota fiscal (Bling) e `purchase` pro GA4 e pra Meta. O gancho é
   `apps/backend/src/subscribers/pagamento-capturado.ts` — idempotente, porque o evento pode sair
   duas vezes pro mesmo pagamento.
+- A moldura dos e-mails existe (`apps/backend/src/lib/emails/moldura.ts`), e o de pedido
+  confirmado está desenhado e testado, sem ligar. Ligar DEPOIS da parte 2 da conta: o botão dele
+  leva a `/conta/pedidos/<id>`. Faltam desenhar o de enviado (com rastreio) e o de Pix vencido.
 - E-mail de "seu Pix venceu": a conciliação já cancela o pedido e devolve o estoque; falta avisar.
 
 ## Como seguir no Claude Code
