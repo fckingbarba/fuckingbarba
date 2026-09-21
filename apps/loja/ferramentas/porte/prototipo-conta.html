@@ -1,0 +1,2481 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex" />
+<title>Protótipo — Minha conta</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,500;0,600;0,700;0,800;1,800&display=swap" rel="stylesheet" />
+
+<!--
+  ===========================================================================
+  PROTÓTIPO DA ÁREA DO CLIENTE — /conta
+
+  As decisões que vieram antes deste arquivo (21/09/2026):
+
+    ENTRAR É COM CÓDIGO POR E-MAIL, sem senha. A pessoa digita o e-mail,
+    recebe 6 dígitos, entra. O primeiro acesso cria a conta — não existe
+    "cadastre-se" separado. E quem vem da Nuvemshop entra direto, sem a
+    campanha de "redefina sua senha" (as senhas de lá não vêm).
+
+    O HISTÓRICO DA NUVEMSHOP VEM JUNTO. Os pedidos antigos aparecem na
+    conta, com o número que a pessoa tem nos e-mails de lá e a etiqueta
+    "Loja antiga". O "comprar de novo" deles põe na sacola o que ainda
+    existe, e diz o que saiu de linha.
+
+    DENTRO: pedidos (lista e detalhe, com rastreio e o Pix pendente pra
+    pagar), comprar de novo, endereços salvos e dados pessoais.
+
+  O que é de verdade e o que é exemplo:
+    - produtos, fotos e preços: os do catálogo (produtos-iniciais.ts). As
+      fotos estão EMBUTIDAS, em miniatura de 160px, pra este arquivo abrir
+      em qualquer lugar sem internet;
+    - o cliente (Rafael Souza), os pedidos, o CPF (111.444.777-35, o de
+      teste dos conferidores — não é de ninguém) e os endereços: exemplo;
+    - o "Kit Presente de Natal" do pedido #8841 é INVENTADO, só pra mostrar
+      um produto que saiu de linha.
+
+  O CSS que já existe no repo foi COPIADO, sem mudar uma vírgula: .btn
+  (estilos/base.css), .bloco, .campo, .marcar, o CEP procurando e o "não
+  achei" (estilos/checkout.css), .itens, .item e .totais
+  (estilos/checkout-resumo.css) e a caixa do Pix do obrigado
+  (checkout-confirma.css e checkout-loja.css). O que é novo mora nas seções
+  marcadas "NOVO". Os tokens são os do app (globals.css), não os do
+  protótipo antigo da home.
+
+  OS TEXTOS também são os da loja onde a mesma coisa já existe: o Pix
+  pendente fala como o obrigado ("Falta só o Pix", "Vale por mais N
+  minutos"), o cancelado também, e os totais usam os rótulos de lá
+  (Produtos, a entrega, Total).
+
+  As telas simulam as rotas que a loja vai ter:
+      /conta/entrar            e-mail
+      /conta/entrar/codigo     os 6 dígitos
+      /conta                   visão geral
+      /conta/pedidos           lista
+      /conta/pedidos/<número>  detalhe
+      /conta/enderecos
+      /conta/dados
+
+  No protótipo QUALQUER código entra, menos 000000, que mostra o erro (no
+  entrar e na troca de e-mail). O CEP conhece 01310-100, 01304-001 e
+  89036-370; qualquer outro mostra o "não achei" e abre os campos vazios.
+
+  O QUE O PORTE VAI PRECISAR (não é desenho, é aviso):
+    - O Medusa não tem login por código pronto: é um provedor de auth
+      próprio (código guardado com hash, vale 10 minutos, 5 tentativas,
+      limite de envio por e-mail e por IP). E o e-mail precisa sair — o
+      Resend, que era da fase 5, vem pra antes.
+    - Pedido feito sem conta (o checkout de hoje) é ligado à conta pelo
+      e-mail na primeira entrada: o código prova que o e-mail é dela.
+    - O endereço usado numa compra logada fica salvo na conta (é o que a
+      tela diz pra quem ainda não tem nenhum).
+    - A importação da Nuvemshop traz pedido com o número original e liga
+      cada item ao produto de hoje pelo SKU, quando existir.
+    - NÚMERO DE PEDIDO: a loja nova conta do #1 (o #6 já existe). Se a
+      numeração da Nuvemshop também for baixa, vão existir dois "#28" — e
+      no WhatsApp ninguém sabe qual é. Vale decidir antes da virada se a
+      numeração nova começa depois da última de lá.
+    - O Pix pendente é o componente do obrigado (components/checkout/
+      pix.tsx), e o "esta página muda sozinha" é a mesma espera de lá
+      (EsperaDoPagamento).
+  ===========================================================================
+-->
+
+<style>
+:root {
+  --color-menta: #4fe4b6;
+  --color-menta-clara: #e3f8f0;
+  --color-menta-escura: #0b7f62;
+  --color-amarelo: #ffd84d;
+  --color-amarelo-escuro: #e0b800;
+  --color-amarelo-claro: #fff3c4;
+  --color-tinta: #12181f;
+  --color-tinta-suave: #566072;
+  --color-papel: #ffffff;
+  --color-cinza: #f2f3f4;
+  --color-linha: #cfd5dc;
+  --color-erro: #b3261e;
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  --ease-suave: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+*, *::before, *::after { box-sizing: border-box; border-radius: 0; }
+/* `hidden` vence qualquer `display` desta folha — a lição do conferidor da
+   PDP: `display: flex` nosso, mais específico, passava por cima do
+   `[hidden]` do navegador e o elemento continuava na tela. */
+[hidden] { display: none !important; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--color-cinza);
+  color: var(--color-tinta);
+  font-family: var(--font-sans);
+  line-height: normal;
+  -webkit-font-smoothing: antialiased;
+}
+img, svg { display: block; }
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* --------------------------------------------------------------------------
+   A BARRA DO PROTÓTIPO — não faz parte do desenho.
+   Pra pular direto pra cada tela e trocar o cliente de "com histórico"
+   pra "novo" (e ver as telas vazias), sem precisar clicar o caminho todo.
+   -------------------------------------------------------------------------- */
+.proto {
+  position: sticky; top: 0; z-index: 99;
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px;
+  background: #000; color: #fff;
+  padding: 9px clamp(12px, 3vw, 24px);
+  font-size: 0.66rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
+}
+.proto__marca { color: var(--color-amarelo); }
+.proto__botoes { display: flex; flex-wrap: wrap; gap: 6px; }
+.proto button {
+  font: inherit; cursor: pointer;
+  background: transparent; color: #fff;
+  border: 2px solid #4a4a4a; padding: 5px 9px;
+}
+.proto button[aria-pressed="true"] { background: var(--color-amarelo); border-color: var(--color-amarelo); color: #000; }
+.proto__sep { width: 2px; align-self: stretch; background: #333; }
+/* No celular a barra tem quatro linhas: grudada no topo, cobriria meia tela
+   o tempo todo. */
+@media (max-width: 720px) {
+  .proto { position: static; }
+  .proto__sep { display: none; }
+}
+
+/* --------------------------------------------------------------------------
+   ESTEIRA, CABEÇALHO E RODAPÉ — esboçados.
+   Na loja são os componentes reais do layout (anuncio.tsx, cabecalho.tsx,
+   rodape.tsx); aqui entram só pra tela não flutuar no vazio. Logo e ícones
+   são os de verdade (marca.tsx e icones.tsx).
+   -------------------------------------------------------------------------- */
+.loja-esteira {
+  background: var(--color-amarelo); color: var(--color-tinta);
+  padding: 8px 16px; text-align: center;
+  font-size: 0.72rem; font-weight: 800; letter-spacing: 0.02em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.loja-topo { background: #000; color: #fff; }
+.loja-topo__barra {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  max-width: 1320px; margin: 0 auto; padding: 14px clamp(14px, 3vw, 30px);
+}
+.loja-topo__grupo { display: flex; align-items: center; gap: 6px; flex: 1 0 0; }
+.loja-topo__grupo--dir { justify-content: flex-end; }
+.loja-topo__icone {
+  position: relative; width: 40px; height: 40px;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; text-decoration: none;
+}
+.loja-topo__icone svg { width: 23px; height: 23px; fill: currentColor; }
+.loja-topo__icone[aria-current="page"]::after {
+  content: ""; position: absolute; left: 9px; right: 9px; bottom: 2px; height: 3px;
+  background: var(--color-amarelo);
+}
+.loja-topo__contador {
+  position: absolute; top: 2px; right: 0; min-width: 17px; height: 17px; padding: 0 4px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--color-amarelo); color: var(--color-tinta);
+  font-size: 0.64rem; font-weight: 800;
+}
+.loja-topo__logo { display: flex; color: #fff; }
+.loja-topo__logo svg { height: 36px; width: auto; }
+.loja-topo__nav { border-top: 1px solid rgba(255, 255, 255, 0.12); }
+.loja-topo__nav ul {
+  display: flex; justify-content: center; gap: 34px;
+  margin: 0; padding: 12px 16px; list-style: none;
+}
+.loja-topo__nav a {
+  color: #fff; text-decoration: none;
+  font-size: 0.8rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+}
+@media (max-width: 720px) { .loja-topo__nav { display: none; } }
+@media (max-width: 400px) {
+  .loja-topo__barra { padding: 12px 10px; gap: 4px; }
+  .loja-topo__icone { width: 34px; height: 34px; }
+  .loja-topo__icone svg { width: 20px; height: 20px; }
+  .loja-topo__logo svg { height: 26px; }
+}
+.pe {
+  background: var(--color-tinta); color: #9aa3b0;
+  padding: 26px clamp(16px, 4vw, 28px); font-size: 0.74rem; text-align: center;
+}
+/* O rodapé no pé da janela mesmo com tela curta (o entrar, as telas
+   vazias). Na loja o rodapé de verdade é alto, e isso não acontece. */
+body { display: flex; flex-direction: column; min-height: 100vh; }
+.conta { flex: 1 0 auto; }
+
+/* ==========================================================================
+   BOTÃO — copiado de estilos/base.css (e o .btn--fantasma, de
+   estilos/checkout.css), sem uma vírgula de diferença.
+   ========================================================================== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: #4fe0b9;
+  color: #07120e;
+  font-family: var(--font-sans);
+  font-size: 0.92rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  text-decoration: none;
+  padding: 14px 26px;
+  border: 2px solid #4fe0b9;
+  border-radius: 0;
+  box-shadow: 6px 6px 0 0 var(--color-amarelo);
+  cursor: pointer;
+  transition: transform 0.14s ease, box-shadow 0.14s ease;
+}
+.btn:hover,
+.btn:focus-visible {
+  transform: translate(-3px, -3px);
+  box-shadow: 9px 9px 0 0 var(--color-amarelo);
+}
+.btn:active {
+  transform: translate(3px, 3px);
+  box-shadow: 1px 1px 0 0 var(--color-amarelo);
+}
+.btn:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 3px;
+}
+.btn__bolt {
+  width: 15px;
+  height: 15px;
+  fill: currentColor;
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+.btn:hover .btn__bolt {
+  transform: translateX(3px);
+}
+.btn--bloco {
+  width: 100%;
+  justify-content: center;
+}
+.btn--fantasma {
+  background: none;
+  color: var(--color-tinta);
+  border-color: transparent;
+  box-shadow: none;
+  padding: 10px 6px;
+  font-size: 0.74rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.btn--fantasma:hover,
+.btn--fantasma:focus-visible {
+  transform: none;
+  box-shadow: none;
+}
+/* do checkout-loja.css: botão esperando não pula, e mostra o cursor de espera */
+.btn:disabled { cursor: progress; transform: none; box-shadow: 6px 6px 0 0 var(--color-amarelo); }
+.giro {
+  display: inline-block; flex-shrink: 0; width: 14px; height: 14px;
+  border: 2px solid rgba(7, 18, 14, 0.25); border-top-color: currentColor;
+  animation: gira 0.7s linear infinite;
+}
+@keyframes gira { to { transform: rotate(360deg); } }
+
+/* ==========================================================================
+   BLOCO, CAMPOS E CAIXINHAS — copiados de estilos/checkout.css.
+   A conta preenche o mesmo endereço e os mesmos dados que o checkout pede:
+   campo com cara diferente nos dois lugares faria a pessoa achar que são
+   duas lojas.
+   ========================================================================== */
+.bloco {
+  background: #fff;
+  border: 2px solid var(--color-tinta);
+  clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
+  padding: clamp(16px, 2.4vw, 22px) clamp(16px, 2.4vw, 24px) clamp(18px, 2.4vw, 24px);
+  margin-bottom: 14px;
+}
+.bloco__titulo {
+  margin: 0;
+  font-size: 1.02rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+.campos {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 12px 10px;
+}
+.campo.campo--cep {
+  grid-column: span 2;
+}
+@media (max-width: 560px) {
+  .campo.campo--cep {
+    grid-column: span 4;
+  }
+}
+.campo {
+  grid-column: span 6;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+.campo--3 {
+  grid-column: span 3;
+}
+.campo--2 {
+  grid-column: span 2;
+}
+.campo--4 {
+  grid-column: span 4;
+}
+.campo--uf {
+  grid-column: span 1;
+}
+.campo label {
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.campo label small {
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--color-tinta-suave);
+}
+.campo input,
+.campo select {
+  width: 100%;
+  min-height: 46px;
+  padding: 10px 12px;
+  border: 2px solid var(--color-linha);
+  background: #fff;
+  color: var(--color-tinta);
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  transition: border-color 0.15s ease;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.campo input::placeholder {
+  color: #a5adb6;
+  font-weight: 500;
+}
+.campo input:focus-visible,
+.campo select:focus-visible {
+  outline: none;
+  border-color: var(--color-tinta);
+  box-shadow: 0 0 0 3px rgba(255, 216, 77, 0.55);
+}
+.campo input[aria-invalid="true"] {
+  border-color: var(--color-erro);
+}
+/* NOVO — o select também fica vermelho. Falta no checkout.css: lá a UF sem
+   escolher mostra o recado, mas a borda continua cinza. */
+.campo select[aria-invalid="true"] {
+  border-color: var(--color-erro);
+}
+.campo select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 9l6 6 6-6' fill='none' stroke='%2312181f' stroke-width='2.4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 16px;
+  padding-right: 34px;
+}
+.campo__erro {
+  display: none;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--color-erro);
+}
+.campo__erro:not(:empty) {
+  display: block;
+}
+.marcar {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  font-size: 0.82rem;
+  margin-top: 4px;
+  cursor: pointer;
+}
+.marcar input {
+  width: 17px;
+  height: 17px;
+  margin: 2px 0 0;
+  accent-color: var(--color-tinta);
+  flex-shrink: 0;
+}
+@media (max-width: 560px) {
+  .campo--3,
+  .campo--2,
+  .campo--4 {
+    grid-column: span 6;
+  }
+  .campo--meio {
+    grid-column: span 3;
+  }
+  .campo--cidade {
+    grid-column: span 4;
+  }
+  .campo--uf {
+    grid-column: span 2;
+  }
+}
+
+/* ==========================================================================
+   ITENS E TOTAIS — copiados de estilos/checkout-resumo.css.
+   O pedido na conta é o mesmo resumo que a pessoa viu ao pagar.
+   ========================================================================== */
+.itens {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.item {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(18, 24, 31, 0.12);
+}
+.item__foto {
+  position: relative;
+  width: 54px;
+  height: 54px;
+  overflow: hidden;
+  background: var(--color-cinza);
+  border: 2px solid var(--color-tinta);
+  clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px);
+}
+.item__foto img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.item__qtd {
+  position: absolute;
+  top: 0;
+  right: 0;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-amarelo);
+  color: var(--color-tinta);
+  font-size: 0.64rem;
+  font-weight: 800;
+}
+.item__nome {
+  margin: 0;
+  font-size: 0.76rem;
+  font-weight: 800;
+  line-height: 1.25;
+  text-transform: uppercase;
+}
+.item__un {
+  margin: 0;
+  font-size: 0.68rem;
+  color: var(--color-tinta-suave);
+}
+.item__valor {
+  font-size: 0.86rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.totais {
+  margin: 14px 0 0;
+  padding-top: 12px;
+  border-top: 2px solid var(--color-tinta);
+}
+.totais__linha {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.8rem;
+  margin-bottom: 5px;
+}
+.totais__linha dt {
+  margin: 0;
+  color: var(--color-tinta-suave);
+  font-weight: 600;
+}
+.totais__linha dd {
+  margin: 0;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.totais__linha dd[data-gratis],
+.totais__linha[data-desconto] dd {
+  color: var(--color-menta-escura);
+}
+.totais__total {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(18, 24, 31, 0.15);
+}
+.totais__total dt {
+  color: var(--color-tinta);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.totais__total dd {
+  font-size: 1.3rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+/* ==========================================================================
+   NOVO — A PÁGINA DA CONTA
+   Fundo cinza com blocos brancos, como o checkout: aqui a pessoa confere e
+   preenche coisa, não passeia pela vitrine.
+   ========================================================================== */
+.conta {
+  padding: clamp(18px, 3vw, 32px) clamp(16px, 4vw, 28px) 72px;
+}
+.conta__wrap { max-width: 1140px; margin: 0 auto; }
+.conta h1 {
+  margin: 0;
+  font-size: clamp(1.2rem, 2.6vw, 1.55rem);
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+  line-height: 1.15;
+}
+.conta h1:focus { outline: none; }
+.conta p { line-height: 1.5; }
+.link {
+  padding: 0; background: none; border: none; cursor: pointer;
+  color: var(--color-tinta); font: inherit; font-weight: 700;
+  text-decoration: underline; text-underline-offset: 3px;
+}
+.link:hover, .link:focus-visible { color: var(--color-menta-escura); }
+.link:disabled { color: var(--color-tinta-suave); text-decoration: none; cursor: default; }
+.voltar {
+  display: inline-block; margin: 0 0 10px 2px;
+  font-size: 0.74rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--color-tinta); text-decoration: none;
+}
+.voltar:hover, .voltar:focus-visible { text-decoration: underline; text-underline-offset: 3px; }
+/* Link solto no pé de um bloco ou ao lado de um botão: o tamanho do texto
+   miúdo em volta, não o do corpo — senão ele grita mais que o botão. */
+.bloco > .link, .pedido-card__acoes .link, .acoes-pedido .link { font-size: 0.8rem; }
+
+/* NOVO — o botão menor, pra quando ele divide a linha com texto (o "Pagar o
+   Pix" do andamento, o "Ver pedido" do cartão). Mesma família do .btn, com a
+   sombra na proporção. */
+.btn--menor { padding: 10px 16px; font-size: 0.76rem; box-shadow: 4px 4px 0 0 var(--color-amarelo); }
+.btn--menor:hover, .btn--menor:focus-visible { box-shadow: 7px 7px 0 0 var(--color-amarelo); }
+.btn--menor:active { box-shadow: 1px 1px 0 0 var(--color-amarelo); }
+.btn--menor:disabled { box-shadow: 4px 4px 0 0 var(--color-amarelo); }
+/* NOVO — o que não tem volta. Vermelho cheio e sem a sombra amarela: a
+   sombra é o convite da marca, e aqui não é convite. */
+.btn--perigo { background: var(--color-erro); border-color: var(--color-erro); color: #fff; box-shadow: none; }
+.btn--perigo:hover, .btn--perigo:focus-visible, .btn--perigo:active { transform: none; box-shadow: none; background: #8f1d17; border-color: #8f1d17; }
+
+/* ---------- entrar e código: um bloco só, no meio ---------- */
+.entrar { max-width: 440px; margin: clamp(0px, 3vw, 28px) auto 0; }
+.entrar .bloco { padding: 26px clamp(18px, 4vw, 26px) 24px; }
+.entrar__ico {
+  width: 46px; height: 46px; margin: 0 0 14px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--color-tinta); color: var(--color-amarelo);
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+}
+.entrar__ico svg { width: 22px; height: 22px; fill: currentColor; }
+.entrar__txt { margin: 8px 0 18px; font-size: 0.9rem; color: var(--color-tinta-suave); }
+.entrar__txt b { color: var(--color-tinta); overflow-wrap: anywhere; }
+.entrar form .btn { margin-top: 16px; }
+.entrar__nota {
+  margin: 20px 0 0; padding-top: 14px;
+  border-top: 1px solid rgba(18, 24, 31, 0.12);
+  font-size: 0.78rem; color: var(--color-tinta-suave);
+}
+.entrar__nota b { color: var(--color-tinta); }
+
+/* Os 6 dígitos num campo só, e não em seis caixinhas: colar o código,
+   o preenchimento do iPhone (autocomplete="one-time-code") e o leitor de
+   tela funcionam de primeira num campo só. O "cara de caixinhas" é o
+   espaçamento largo. */
+.codigo input {
+  text-align: center;
+  font-size: 1.7rem;
+  font-weight: 800;
+  letter-spacing: 0.45em;
+  padding-left: calc(12px + 0.45em);
+  font-variant-numeric: tabular-nums;
+}
+.codigo__reenviar { margin: 14px 0 0; font-size: 0.8rem; color: var(--color-tinta-suave); }
+
+/* ---------- a área logada: menu + miolo ---------- */
+.area {
+  display: grid;
+  grid-template-columns: 250px minmax(0, 1fr);
+  gap: clamp(16px, 3vw, 32px);
+  align-items: start;
+}
+.menu-conta {
+  position: sticky; top: 56px;
+  background: #fff;
+  border: 2px solid var(--color-tinta);
+  clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
+}
+.menu-conta__quem { padding: 16px 18px 14px; background: var(--color-tinta); color: #fff; }
+.menu-conta__oi { margin: 0; font-size: 1rem; font-weight: 800; font-style: italic; text-transform: uppercase; }
+.menu-conta__email { margin: 3px 0 0; font-size: 0.74rem; color: #98a1ab; overflow-wrap: anywhere; }
+.menu-conta ul { margin: 0; padding: 8px 0; list-style: none; }
+.menu-conta a,
+.menu-conta button {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  width: 100%; padding: 11px 18px;
+  background: none; border: none; border-left: 4px solid transparent;
+  color: var(--color-tinta); text-decoration: none; text-align: left; cursor: pointer;
+  font-family: inherit; font-size: 0.76rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+}
+.menu-conta a:hover, .menu-conta a:focus-visible,
+.menu-conta button:hover, .menu-conta button:focus-visible { background: #fffbe6; outline: none; }
+.menu-conta a[aria-current="page"] { border-left-color: var(--color-amarelo); background: var(--color-cinza); }
+.menu-conta__num {
+  min-width: 20px; padding: 1px 6px; text-align: center;
+  background: var(--color-tinta); color: var(--color-amarelo);
+  font-size: 0.64rem; letter-spacing: 0;
+}
+.menu-conta__num:empty { display: none; }
+.menu-conta__sair { color: var(--color-tinta-suave) !important; border-top: 1px solid rgba(18, 24, 31, 0.1) !important; }
+
+@media (max-width: 900px) {
+  .area { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .menu-conta { position: static; clip-path: none; }
+  .menu-conta__quem { padding: 12px 16px; }
+  /* No celular o menu vira uma fita de abas que rola de lado: quatro
+     destinos não justificam um menu que abre e fecha. */
+  .menu-conta ul { display: flex; overflow-x: auto; padding: 0; scrollbar-width: none; }
+  .menu-conta ul::-webkit-scrollbar { display: none; }
+  .menu-conta li { flex-shrink: 0; }
+  .menu-conta a, .menu-conta button {
+    border-left: 0; border-bottom: 3px solid transparent; padding: 12px 14px; white-space: nowrap;
+  }
+  .menu-conta a[aria-current="page"] { border-bottom-color: var(--color-amarelo); }
+  .menu-conta__sair { border-top: 0 !important; }
+  /* Sobrou aba escondida à direita: a ponta esmaece, pra dizer que tem mais.
+     Quem liga e desliga é o roteiro, olhando a rolagem (`data-mais`). */
+  .menu-conta__abas { position: relative; }
+  .menu-conta__abas::before,
+  .menu-conta__abas::after {
+    content: ""; position: absolute; top: 0; bottom: 0; width: 40px; z-index: 1;
+    pointer-events: none; opacity: 0; transition: opacity 0.2s ease;
+  }
+  .menu-conta__abas::before { left: 0; background: linear-gradient(270deg, rgba(255, 255, 255, 0), #fff 75%); }
+  .menu-conta__abas::after { right: 0; background: linear-gradient(90deg, rgba(255, 255, 255, 0), #fff 75%); }
+  .menu-conta__abas[data-antes]::before,
+  .menu-conta__abas[data-mais]::after { opacity: 1; }
+}
+
+.cabeca-tela {
+  display: flex; align-items: flex-end; justify-content: space-between; gap: 8px 14px; flex-wrap: wrap;
+  margin: 0 0 14px 2px;
+}
+.cabeca-tela__sub { margin: 4px 0 0; font-size: 0.8rem; color: var(--color-tinta-suave); }
+/* No pedido, o estado vai COLADO no número: longe, na outra ponta da linha,
+   o olho lê o título e não chega nele. */
+.titulo-status { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; }
+.rotulo {
+  margin: 0 0 10px;
+  font-size: 0.7rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--color-tinta-suave);
+}
+
+/* ---------- selos de estado do pedido ---------- */
+.status {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 8px 4px 7px;
+  font-size: 0.62rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+  white-space: nowrap;
+  clip-path: polygon(0 0, calc(100% - 5px) 0, 100% 50%, calc(100% - 5px) 100%, 0 100%);
+  padding-right: 12px;
+}
+.status svg { width: 11px; height: 11px; fill: currentColor; }
+.status[data-status="pix"] { background: var(--color-amarelo); color: var(--color-tinta); }
+.status[data-status="pago"] { background: var(--color-menta-clara); color: var(--color-menta-escura); }
+.status[data-status="enviado"] { background: var(--color-tinta); color: var(--color-amarelo); }
+.status[data-status="entregue"] { background: var(--color-menta-escura); color: #fff; }
+.status[data-status="cancelado"] { background: #e6e8eb; color: var(--color-tinta-suave); }
+.selo {
+  display: inline-block; padding: 2px 6px;
+  border: 1.5px solid currentColor; color: var(--color-tinta-suave);
+  font-size: 0.58rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+  white-space: nowrap;
+}
+.selo--principal { color: var(--color-menta-escura); }
+
+/* ---------- visão geral ---------- */
+.painel-grade { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 14px; }
+.painel-grade > .bloco:first-child:last-child,
+.painel-grade .bloco--largo { grid-column: 1 / -1; }
+@media (max-width: 700px) { .painel-grade { grid-template-columns: minmax(0, 1fr); } }
+
+.andamento { display: grid; gap: 10px; }
+.andamento__linha {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px 14px;
+  padding: 12px 14px; background: var(--color-cinza);
+  border-left: 4px solid var(--color-tinta);
+}
+.andamento__linha[data-status="pix"] { background: #fffbe6; border-left-color: var(--color-amarelo-escuro); }
+.andamento__num { margin: 0; font-size: 0.8rem; font-weight: 800; text-transform: uppercase; }
+.andamento__txt { margin: 2px 0 0; font-size: 0.8rem; color: var(--color-tinta-suave); }
+.andamento__txt b { color: var(--color-tinta); font-variant-numeric: tabular-nums; }
+@media (max-width: 520px) {
+  .andamento__linha { grid-template-columns: minmax(0, 1fr); }
+  .andamento .btn { justify-content: center; }
+}
+
+/* Comprar de novo: fotos, o que era e o botão, numa linha só — é um atalho,
+   não uma vitrine. No celular o botão desce e ocupa a largura. */
+.de-novo { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px 18px; }
+.de-novo__fotos { display: flex; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.de-novo__fotos .item__foto { width: 64px; height: 64px; }
+.de-novo__txt { margin: 0; font-size: 0.82rem; color: var(--color-tinta-suave); }
+.de-novo__txt b { color: var(--color-tinta); }
+@media (max-width: 560px) {
+  .de-novo { grid-template-columns: auto minmax(0, 1fr); }
+  .de-novo .btn { grid-column: 1 / -1; justify-content: center; }
+}
+
+/* Os dois atalhos do pé do painel: o link fica no pé do bloco, na mesma
+   altura nos dois, tenha o endereço quantas linhas tiver. */
+.bloco--atalho { display: flex; flex-direction: column; align-items: flex-start; }
+.bloco--atalho > .link { margin-top: auto; }
+.resumo-curto { margin: 0 0 12px; font-size: 0.86rem; font-style: normal; line-height: 1.55; overflow-wrap: anywhere; }
+.resumo-curto b { font-weight: 800; }
+.resumo-curto small { color: var(--color-tinta-suave); font-size: 0.78rem; }
+
+/* ---------- a lista de pedidos ---------- */
+.pedidos { display: grid; gap: 0; }
+.pedido-card { padding: 16px clamp(14px, 2.4vw, 20px); }
+.pedido-card__topo { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.pedido-card__num { margin: 0; font-size: 0.92rem; font-weight: 800; text-transform: uppercase; }
+.pedido-card__data { margin: 2px 0 0; font-size: 0.76rem; color: var(--color-tinta-suave); }
+.pedido-card__meio {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px;
+  margin: 12px 0 0; padding: 12px 0; border-top: 1px solid rgba(18, 24, 31, 0.12);
+}
+.pedido-card__fotos { display: flex; margin: 0; padding: 0; list-style: none; }
+.pedido-card__fotos li + li { margin-left: -12px; }
+.pedido-card__fotos .item__foto { width: 48px; height: 48px; background: #fff; }
+.pedido-card__itens { margin: 0; font-size: 0.8rem; font-weight: 600; line-height: 1.35; }
+.pedido-card__itens small { display: block; color: var(--color-tinta-suave); font-weight: 500; }
+.pedido-card__total { margin: 0; font-size: 0.95rem; font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pedido-card__acoes { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 18px; }
+.pedido-card__prazo { margin: 0; font-size: 0.76rem; font-weight: 700; color: var(--color-menta-escura); }
+/* Prazo do Pix é contagem pra acabar, não boa notícia: sem o verde. */
+.pedido-card__prazo[data-pix] { color: var(--color-tinta); }
+.pedido-card__prazo[data-cancelado] { color: var(--color-tinta-suave); font-weight: 600; }
+@media (max-width: 520px) {
+  .pedido-card__meio { grid-template-columns: auto minmax(0, 1fr); }
+  .pedido-card__total { grid-column: 1 / -1; }
+}
+.separador {
+  display: flex; align-items: center; gap: 10px;
+  margin: 14px 0 12px 2px;
+  font-size: 0.7rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--color-tinta-suave);
+}
+.separador::after { content: ""; flex: 1; height: 2px; background: var(--color-linha); }
+.separador small { font-weight: 600; letter-spacing: 0; text-transform: none; }
+
+/* ---------- o detalhe do pedido ---------- */
+.detalhe { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 0 14px; align-items: start; }
+.detalhe__lado { display: grid; }
+@media (max-width: 1060px) { .detalhe { grid-template-columns: minmax(0, 1fr); } }
+
+/* A linha do tempo: losango cheio pro que já foi, amarelo pro de agora,
+   vazado pro que falta — o mesmo losango do rádio do checkout. */
+.tempo { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 4px 0 0; padding: 0; list-style: none; }
+.tempo li { position: relative; padding: 26px 8px 0 0; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.03em; color: var(--color-tinta-suave); }
+.tempo li::before {
+  content: ""; position: absolute; left: 3px; top: 3px; width: 14px; height: 14px;
+  border: 2px solid var(--color-tinta-suave); background: #fff; transform: rotate(45deg); z-index: 1;
+}
+.tempo li::after { content: ""; position: absolute; left: 18px; right: 0; top: 9px; height: 2px; background: var(--color-linha); }
+.tempo li:last-child::after { content: none; }
+.tempo li[data-feito] { color: var(--color-tinta); }
+.tempo li[data-feito]::before { background: var(--color-tinta); border-color: var(--color-tinta); }
+.tempo li[data-feito]::after { background: var(--color-tinta); }
+.tempo li[data-agora] { color: var(--color-tinta); }
+.tempo li[data-agora]::before { background: var(--color-amarelo); border-color: var(--color-tinta); }
+.tempo small { display: block; margin-top: 3px; font-size: 0.7rem; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--color-tinta-suave); }
+@media (max-width: 560px) {
+  .tempo { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .tempo li { padding: 0 0 0 30px; }
+  .tempo li::after { left: 9px; right: auto; top: 18px; bottom: -14px; width: 2px; height: auto; }
+}
+
+.rastreio {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px 16px;
+  margin: 18px 0 0; padding: 12px 14px; background: var(--color-cinza);
+}
+.rastreio__rot { margin: 0; font-size: 0.66rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-tinta-suave); }
+.rastreio__codigo { margin: 2px 0 0; font-size: 0.95rem; font-weight: 800; letter-spacing: 0.04em; font-variant-numeric: tabular-nums; }
+.rastreio__acoes { display: flex; align-items: center; gap: 14px; font-size: 0.8rem; }
+/* Antes da postagem, o lugar do rastreio diz quando ele chega — em vez de
+   um buraco que a pessoa não sabe se é defeito. */
+.rastreio__depois { margin: 18px 0 0; padding: 12px 14px; background: var(--color-cinza); font-size: 0.8rem; color: var(--color-tinta-suave); }
+
+/* ==========================================================================
+   O PIX PENDENTE — a caixa da tela de obrigado, copiada: .feito__pix e
+   .feito__qr de estilos/checkout-confirma.css, o resto de
+   estilos/checkout-loja.css. Na loja é o MESMO componente (components/
+   checkout/pix.tsx), com os mesmos textos: quem pagou pelo obrigado e quem
+   paga pela conta vê a mesma caixa.
+   PORTE: lá, .feito__pix-rotulo e .feito__validade vêm escopadas em `.feito`
+   (pra ganhar do `.feito p` do CSS gerado). Fora do `.feito` elas não pegam —
+   ou a conta embrulha o <Pix> num `.feito`, ou as regras perdem o escopo.
+   ========================================================================== */
+.feito__pix {
+  margin: 18px auto 0;
+  max-width: 360px;
+  padding: 16px;
+  background: var(--color-cinza);
+  border: 2px dashed var(--color-tinta);
+}
+.feito__pix code {
+  display: block;
+  word-break: break-all;
+  font-size: 0.72rem;
+  margin: 8px 0 12px;
+  user-select: all;
+}
+.feito__qr {
+  width: 150px;
+  height: 150px;
+  margin: 0 auto 8px;
+  background: repeating-conic-gradient(var(--color-tinta) 0 25%, #fff 0 50%) 0 0 / 14px 14px;
+  border: 6px solid #fff;
+  outline: 2px solid var(--color-tinta);
+}
+.feito__pix-rotulo {
+  margin: 0;
+  font-size: 0.74rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.feito__copiar {
+  padding: 10px 18px;
+  font-size: 0.8rem;
+}
+.feito__validade {
+  margin: 10px 0 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.feito__validade:empty {
+  display: none;
+}
+.feito__pix[data-vencido] .feito__qr {
+  opacity: 0.3;
+}
+/* NOVO — o bloco em volta: título e frase do obrigado, no meio. */
+.pix-pendente { text-align: center; }
+.pix-pendente__frase { max-width: 46ch; margin: 6px auto 0; font-size: 0.86rem; color: var(--color-tinta-suave); }
+
+/* NOVO — pedido cancelado: no lugar da linha do tempo, o porquê. A frase é a
+   do obrigado, e o tom também: neutro, ninguém perdeu dinheiro. */
+.cancelado { display: flex; gap: 12px; align-items: flex-start; }
+.cancelado svg { width: 22px; height: 22px; flex-shrink: 0; fill: var(--color-tinta-suave); }
+.cancelado p { margin: 0; font-size: 0.86rem; color: var(--color-tinta-suave); }
+.cancelado b { display: block; margin-bottom: 2px; color: var(--color-tinta); text-transform: uppercase; font-size: 0.8rem; }
+
+.info { margin: 0; font-style: normal; font-size: 0.84rem; line-height: 1.55; overflow-wrap: anywhere; }
+.info small { display: block; color: var(--color-tinta-suave); font-size: 0.76rem; }
+.nota-fiscal { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 0.84rem; }
+.ajuda { margin: 4px 2px 0; font-size: 0.8rem; color: var(--color-tinta-suave); }
+.acoes-pedido { display: flex; align-items: center; flex-wrap: wrap; gap: 14px 22px; margin: 18px 0 2px; }
+
+.antiga {
+  margin: 0 0 14px; padding: 10px 14px;
+  background: var(--color-cinza); border-left: 4px solid var(--color-tinta-suave);
+  font-size: 0.8rem; color: var(--color-tinta-suave);
+}
+.fora-de-linha { color: var(--color-erro); font-weight: 700; }
+/* O `.item__foto` é um <span>. No resumo do checkout ele é filho da grade do
+   `.item`, e a grade o faz bloco; na lista de pedidos e no "comprar de novo"
+   ele mora dentro de um <li>, e span solto ignora largura e altura — a foto
+   sumia num buraco do tamanho da imagem. */
+.de-novo__fotos .item__foto,
+.pedido-card__fotos .item__foto { display: block; }
+.item__foto.item__foto--vazia {
+  display: flex; align-items: center; justify-content: center;
+  color: var(--color-tinta-suave);
+}
+.item__foto--vazia svg { width: 22px; height: 22px; fill: currentColor; opacity: 0.5; }
+
+/* ---------- endereços ---------- */
+.enderecos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 14px; }
+@media (max-width: 700px) { .enderecos { grid-template-columns: minmax(0, 1fr); } }
+.endereco { display: flex; flex-direction: column; }
+.endereco[data-principal] { border-color: var(--color-menta-escura); }
+.endereco__topo { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 8px; }
+.endereco__apelido { margin: 0; font-size: 0.86rem; font-weight: 800; text-transform: uppercase; }
+.endereco address { flex: 1; }
+.endereco__acoes { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-top: 14px; font-size: 0.8rem; }
+.endereco__confirma { font-weight: 700; color: var(--color-erro); }
+.endereco--novo {
+  display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 150px;
+  width: 100%; margin: 0 0 14px; background: transparent; cursor: pointer;
+  border: 2px dashed var(--color-tinta); color: var(--color-tinta);
+  font-family: inherit; font-size: 0.8rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+}
+.endereco--novo:hover, .endereco--novo:focus-visible { background: #fffbe6; outline: none; }
+.endereco--novo svg { width: 16px; height: 16px; fill: currentColor; }
+/* O formulário entra NA GRADE, no lugar do que ele edita: no do cartão, pra
+   editar; no do "Adicionar", pra um novo. Lá embaixo, depois de tudo, a
+   pessoa clicava em "Editar" e o formulário abria longe do endereço. */
+.enderecos > form { grid-column: 1 / -1; }
+.form-acoes { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-top: 18px; }
+/* No celular o botão que salva vem primeiro e na largura toda, onde o
+   polegar está; o "Cancelar" fica embaixo, pequeno. */
+@media (max-width: 560px) {
+  .form-acoes { flex-direction: column-reverse; align-items: stretch; gap: 4px; }
+  .form-acoes .btn:not(.btn--fantasma) { justify-content: center; }
+  .form-acoes .btn--fantasma { align-self: center; }
+}
+
+/* O CEP procurando — copiado de estilos/checkout.css. */
+.campo__com-icone {
+  position: relative;
+}
+.campo__com-icone input {
+  padding-right: 56px;
+}
+.campo__spinner {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  margin-top: -8px;
+  border: 2px solid var(--color-linha);
+  border-top-color: var(--color-tinta);
+  animation: gira 0.7s linear infinite;
+  display: none;
+}
+.campo__com-icone[aria-busy="true"] .campo__spinner {
+  display: block;
+}
+.aviso-frete {
+  margin: 0;
+  padding: 12px 14px;
+  background: var(--color-cinza);
+  font-size: 0.8rem;
+  color: var(--color-tinta-suave);
+}
+/* NOVO — o "Não sei meu CEP", com o desenho do da sacola
+   (.sacolinha__cep-ajuda, em estilos/sacola.css). */
+.cep-ajuda { margin: 8px 0 0; font-size: 0.68rem; }
+.cep-ajuda a { color: var(--color-tinta-suave); text-decoration: underline; text-underline-offset: 2px; }
+.cep-ajuda a:hover { color: var(--color-tinta); }
+
+/* ---------- meus dados ---------- */
+.email-fixo { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 46px; padding: 0 12px; background: var(--color-cinza); font-weight: 600; overflow-wrap: anywhere; }
+.email-fixo .link { flex-shrink: 0; font-size: 0.8rem; }
+.preferencias { margin: 20px 0 0; padding: 16px 0 0; border: 0; border-top: 1px solid rgba(18, 24, 31, 0.12); }
+.preferencias legend { padding: 0; font-size: 0.74rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; }
+.preferencias .marcar { margin-top: 10px; }
+.excluir { margin: 6px 2px 0; font-size: 0.78rem; color: var(--color-tinta-suave); }
+.excluir__caixa { margin: 10px 0 0; padding: 14px 16px; background: #fff; border: 2px solid var(--color-erro); font-size: 0.84rem; }
+.excluir__caixa p { margin: 0 0 12px; color: var(--color-tinta); }
+.excluir__acoes { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; }
+
+/* A troca de e-mail: um passo dentro do campo, com o fio amarelo do lado
+   pra dizer que ainda não terminou. */
+.troca-email { margin-top: 10px; padding: 4px 0 4px 14px; border-left: 4px solid var(--color-amarelo); }
+.troca-email__txt { margin: 0 0 10px; font-size: 0.8rem; color: var(--color-tinta-suave); }
+.troca-email__txt b { color: var(--color-tinta); overflow-wrap: anywhere; }
+.troca-email__botao { justify-content: flex-end; }
+.troca-email__botao .btn { min-height: 46px; justify-content: center; }
+.troca-email__cancela { margin-top: 10px; font-size: 0.78rem; }
+.codigo--menor input { font-size: 1.2rem; letter-spacing: 0.35em; padding-left: calc(12px + 0.35em); }
+
+/* ---------- vazio ---------- */
+.vazio { text-align: center; padding: 34px 20px; }
+.vazio > svg { width: 40px; height: 40px; margin: 0 auto 10px; fill: var(--color-linha); }
+.vazio p { margin: 0 auto 16px; max-width: 34ch; font-size: 0.88rem; color: var(--color-tinta-suave); }
+.vazio .vazio__titulo { margin-bottom: 6px; font-size: 0.95rem; font-weight: 800; text-transform: uppercase; color: var(--color-tinta); }
+
+/* "Cliente novo" x "com histórico" — a barra do protótipo troca. */
+body[data-cliente="novo"] [data-com-historico] { display: none !important; }
+body:not([data-cliente="novo"]) [data-sem-historico] { display: none !important; }
+
+/* ---------- o aviso que sobe de baixo ---------- */
+.aviso {
+  position: fixed; left: 50%; bottom: 20px; z-index: 90;
+  display: flex; align-items: center; gap: 14px;
+  max-width: calc(100% - 32px); padding: 12px 16px;
+  background: var(--color-tinta); color: #fff;
+  box-shadow: 5px 5px 0 0 var(--color-amarelo);
+  font-size: 0.84rem; font-weight: 600;
+  transform: translate(-50%, 0); transition: transform 0.25s var(--ease-suave), opacity 0.25s ease;
+}
+.aviso[data-fora] { transform: translate(-50%, 140%); opacity: 0; pointer-events: none; }
+.aviso a { color: var(--color-amarelo); font-weight: 800; white-space: nowrap; }
+
+/* ---------- a entrada de cada tela ---------- */
+[data-tela-de]:not([hidden]) { animation: entra 0.28s var(--ease-suave); }
+@keyframes entra { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  [data-tela-de]:not([hidden]), .giro { animation: none; }
+  .btn, .aviso { transition: none; }
+}
+</style>
+</head>
+
+<body data-cliente="antigo">
+
+<div class="proto" aria-label="Controles do protótipo">
+  <span class="proto__marca">Protótipo</span>
+  <span class="proto__botoes" data-proto-telas>
+    <button type="button" data-proto-ir="/conta/entrar">Entrar</button>
+    <button type="button" data-proto-ir="/conta/entrar/codigo">Código</button>
+    <button type="button" data-proto-ir="/conta">Visão geral</button>
+    <button type="button" data-proto-ir="/conta/pedidos">Pedidos</button>
+    <button type="button" data-proto-ir="/conta/pedidos/28">Pedido · Pix</button>
+    <button type="button" data-proto-ir="/conta/pedidos/27">Pedido · enviado</button>
+    <button type="button" data-proto-ir="/conta/pedidos/8841">Pedido · loja antiga</button>
+    <button type="button" data-proto-ir="/conta/enderecos">Endereços</button>
+    <button type="button" data-proto-ir="/conta/dados">Dados</button>
+  </span>
+  <span class="proto__sep" aria-hidden="true"></span>
+  <span class="proto__botoes">
+    <button type="button" data-proto-cliente="antigo" aria-pressed="true">Cliente com histórico</button>
+    <button type="button" data-proto-cliente="novo" aria-pressed="false">Cliente novo</button>
+  </span>
+</div>
+
+<div class="loja-esteira">Frete grátis a partir de R$ 149,90* · 7 dias pra desistir, por lei · Compra 100% segura</div>
+<header class="loja-topo">
+  <div class="loja-topo__barra">
+    <span class="loja-topo__grupo">
+      <a class="loja-topo__icone" href="#/" aria-label="Abrir menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h19l-2.6 2.6H3zM3 10.7h19l-2.6 2.6H3zM3 16.4h19l-2.6 2.6H3z"/></svg></a>
+      <a class="loja-topo__icone" href="#/" aria-label="Buscar produtos"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M8 2.6h6L18.4 7v6l-1.5 1.5 4.6 4.6-2.4 2.4-4.6-4.6L13 17.4H8L3.6 13V7zm1.3 3.2L6.8 8.2v3.6l2.5 2.4h3.4l2.5-2.4V8.2l-2.5-2.4z"/></svg></a>
+    </span>
+    <a class="loja-topo__logo" href="#/" aria-label="FuckingBarba — página inicial">
+      <svg viewBox="0 0 33 49" aria-hidden="true"><path fill="#fff" d="M6.2 47.8C5.9 47.7 5.9 47.4 5.9 42.2C5.8 38.3 5.7 36.2 5.6 35.2C5.2 32.0 5.1 30.4 5.4 29.9C5.7 29.3 5.8 28.0 5.6 26.8C5.3 25.2 5.1 22.7 5.1 19.8C5.1 16.7 5.0 16.4 4.2 16.7C4.0 16.8 3.5 17.0 3.0 17.1C2.6 17.1 2.1 17.3 2.0 17.4C1.2 17.9 0.5 17.2 0.5 16.1C0.5 15.5 0.5 15.3 0.2 15.2C-0.1 15.0 -0.1 7.6 0.2 7.6C0.3 7.6 0.7 7.3 1.0 7.0C1.5 6.5 1.7 6.4 2.0 6.4C2.6 6.4 4.8 5.8 5.1 5.5C5.2 5.3 5.6 5.2 6.2 5.1C7.5 4.9 7.6 4.9 8.0 4.4C8.3 4.1 8.5 4.0 9.2 3.9C9.7 3.8 10.5 3.6 11.0 3.4C11.5 3.3 12.4 3.1 12.9 3.0C13.5 2.9 14.2 2.8 14.5 2.6C15.5 2.1 15.8 2.1 17.8 2.0C19.7 1.9 19.9 1.9 20.8 1.5C21.4 1.3 22.1 1.1 22.9 1.0C24.4 0.9 25.0 0.7 25.3 0.3C25.6 0.0 25.7 0.0 26.8 0.0L28.0 0.0L28.0 0.4C28.0 0.7 27.9 0.9 27.6 1.1L27.2 1.5L27.6 1.9C27.8 2.2 28.0 2.5 28.0 2.5C28.0 2.6 28.2 3.0 28.4 3.4C29.2 5.2 29.3 11.5 28.5 11.7C28.1 11.7 23.3 12.0 21.5 12.0C20.0 12.1 19.4 12.4 19.1 13.2C18.8 13.9 18.6 14.0 17.8 13.9C17.0 13.8 14.4 14.1 13.5 14.3C13.1 14.4 12.5 14.6 12.1 14.7C10.7 15.1 10.8 14.5 11.1 21.7C11.3 25.9 11.5 26.1 13.4 25.4C14.9 25.0 16.7 24.9 16.9 25.2C17.1 25.6 16.8 27.6 16.5 28.6C16.4 29.0 16.2 29.8 16.1 30.4C16.0 31.6 15.9 32.0 15.5 32.0C15.4 32.0 15.0 32.2 14.6 32.4C14.2 32.6 13.6 32.8 13.3 32.9C12.5 33.2 12.2 33.5 12.2 34.3C12.1 35.0 12.3 37.4 12.6 38.1C12.7 38.3 12.8 39.3 12.9 40.2C13.2 44.3 13.3 45.5 13.3 46.0C13.4 46.9 13.0 47.1 9.7 47.5C9.1 47.6 8.4 47.7 8.1 47.8C7.3 48.0 6.5 48.1 6.2 47.8Z"/><path fill="#ffd84d" d="M19.4 44.2C19.2 44.0 19.2 43.2 19.5 42.5C19.6 42.1 19.8 40.9 19.9 39.8C20.1 38.2 20.2 37.5 20.5 37.0C20.6 36.6 20.9 35.8 21.0 35.2C21.1 34.6 21.3 33.9 21.3 33.7C21.5 33.0 21.1 32.9 19.7 32.9C17.8 32.9 17.6 32.6 17.9 30.2C17.9 29.5 18.1 28.3 18.1 27.5C18.2 26.7 18.4 25.8 18.5 25.4C18.7 25.0 18.8 23.9 19.0 22.6C19.1 21.5 19.3 20.0 19.5 19.2C19.6 18.5 19.8 17.3 19.9 16.6C20.1 14.1 20.2 14.1 23.8 13.9C25.2 13.8 26.4 13.7 26.6 13.7C27.8 13.4 30.1 13.3 30.9 13.5C32.3 13.9 32.6 15.5 31.5 16.8C31.2 17.2 30.9 17.8 30.3 19.0C30.1 19.3 29.9 19.8 29.7 20.1C29.6 20.3 29.3 20.9 29.1 21.3C28.9 21.7 28.6 22.2 28.4 22.4C28.3 22.6 28.1 23.0 28.0 23.3C27.9 23.6 27.7 24.1 27.4 24.4C27.2 24.7 27.0 25.1 27.0 25.2C27.0 25.4 26.8 25.7 26.6 26.0C25.9 27.1 26.2 27.8 27.1 27.5C28.8 27.0 30.3 27.0 30.6 27.4C30.8 27.8 30.8 28.5 30.5 28.8C30.3 29.0 30.1 29.3 29.9 29.6C29.8 29.9 29.6 30.3 29.5 30.4C29.4 30.4 29.2 30.7 29.1 31.0C28.9 31.3 28.6 31.8 28.4 32.0C28.2 32.3 28.0 32.6 28.0 32.7C28.0 32.8 27.8 33.1 27.6 33.4C27.3 33.7 27.0 34.2 26.9 34.5C26.7 34.8 26.5 35.2 26.3 35.5C26.0 35.9 25.4 36.8 25.0 37.6C24.8 37.8 24.6 38.2 24.4 38.4C24.3 38.6 24.1 38.9 24.0 39.2C23.9 39.4 23.6 39.8 23.4 40.0C23.2 40.3 23.0 40.6 23.0 40.7C23.0 40.8 22.8 41.1 22.6 41.4C22.3 41.7 22.1 42.2 22.0 42.4C21.9 42.6 21.6 42.9 21.5 43.0C21.3 43.1 21.1 43.4 21.0 43.7C20.8 44.3 19.8 44.7 19.4 44.2Z"/></svg>
+    </a>
+    <span class="loja-topo__grupo loja-topo__grupo--dir">
+      <a class="loja-topo__icone" href="#/conta" aria-label="Minha conta" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.6 3.2h4.8l2 2v4.8l-2 2H9.6l-2-2V5.2z"/><path d="M4.2 21.6v-2.6l2.8-2.8h10l2.8 2.8v2.6z"/></svg></a>
+      <a class="loja-topo__icone" href="#/" aria-label="Sacola"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.4 7.6h11.9l1.3 1.3-.9 11.5-1.3 1.3H7.6l-1.3-1.3-.9-11.5z"/><path d="M8.2 7.6V4.8l1.6-1.6h4.4l1.6 1.6v2.8h-1.7V5.1H9.9v2.5z"/></svg><span class="loja-topo__contador" data-sacola-contador>0</span></a>
+    </span>
+  </div>
+  <nav class="loja-topo__nav" aria-label="Categorias">
+    <ul><li><a href="#/">Para barba</a></li><li><a href="#/">Para cabelo</a></li><li><a href="#/">Kits</a></li></ul>
+  </nav>
+</header>
+
+<main class="conta" id="conteudo">
+  <div class="conta__wrap">
+
+    <!-- ================================================================
+         ENTRAR — /conta/entrar
+
+         Um campo e um botão. Não existe "criar conta": o primeiro código
+         confirmado cria. A frase de baixo é pra quem vem da Nuvemshop, que
+         é quase todo mundo nos primeiros meses — e que ia procurar a senha.
+         ================================================================ -->
+    <section class="entrar" data-tela-de="entrar" aria-labelledby="t-entrar" hidden>
+      <div class="bloco">
+        <span class="entrar__ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9.6 3.2h4.8l2 2v4.8l-2 2H9.6l-2-2V5.2z"/><path d="M4.2 21.6v-2.6l2.8-2.8h10l2.8 2.8v2.6z"/></svg></span>
+        <h1 id="t-entrar" tabindex="-1">Minha conta</h1>
+        <p class="entrar__txt">Entre com seu e-mail. A gente manda um código de acesso — sem senha.</p>
+        <form data-form-entrar novalidate>
+          <div class="campo">
+            <label for="entrar-email">E-mail</label>
+            <input id="entrar-email" name="email" type="email" inputmode="email" autocomplete="email" placeholder="voce@email.com" aria-describedby="entrar-erro" required>
+            <span class="campo__erro" id="entrar-erro" aria-live="polite"></span>
+          </div>
+          <button type="submit" class="btn btn--bloco">Receber código <svg class="btn__bolt" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg></button>
+        </form>
+        <p class="entrar__nota">Comprou na loja antiga? <b>Use o mesmo e-mail</b>: seus pedidos de lá já estão aqui.</p>
+      </div>
+    </section>
+
+    <!-- ================================================================
+         CÓDIGO — /conta/entrar/codigo
+
+         Seis dígitos num campo só (ver o CSS). Entra sozinho quando o
+         sexto dígito chega; o botão fica pra quem prefere. O e-mail vem
+         INTEIRO, com "trocar" do lado: o erro mais comum aqui é o e-mail
+         digitado errado ("gmial.com"), e é lendo ele inteiro que a pessoa
+         percebe. Mascarar esconderia justamente o erro — de alguém que
+         acabou de digitar o próprio e-mail, na própria tela.
+         ================================================================ -->
+    <section class="entrar" data-tela-de="codigo" aria-labelledby="t-codigo" hidden>
+      <div class="bloco">
+        <span class="entrar__ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M1.8 4.6h20.4v1.8L12 14.1 1.8 6.4z"/><path d="M1.8 8.7 12 16.4l10.2-7.7v8.9l-1.5 1.5H3.3l-1.5-1.5z"/></svg></span>
+        <h1 id="t-codigo" tabindex="-1">Confere seu e-mail</h1>
+        <p class="entrar__txt">Mandamos um código de 6 dígitos pra <b data-email-digitado>rafael.souza@email.com</b>. <a class="link" href="#/conta/entrar">Trocar e-mail</a></p>
+        <form class="codigo" data-form-codigo novalidate>
+          <div class="campo">
+            <label for="codigo">Código</label>
+            <input id="codigo" name="codigo" type="text" inputmode="numeric" autocomplete="one-time-code" placeholder="000000" aria-describedby="codigo-erro codigo-validade" required>
+            <span class="campo__erro" id="codigo-erro" aria-live="polite"></span>
+          </div>
+          <button type="submit" class="btn btn--bloco">Entrar <svg class="btn__bolt" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg></button>
+        </form>
+        <p class="codigo__reenviar" id="codigo-validade">Vale por 10 minutos. Não chegou? Olha no spam, ou <button type="button" class="link" data-reenviar disabled>reenvie em <span data-reenviar-conta>0:30</span></button>.</p>
+      </div>
+    </section>
+
+    <!-- ================================================================
+         A ÁREA LOGADA — menu à esquerda (no celular, abas no topo) e a
+         tela da vez à direita.
+         ================================================================ -->
+    <div class="area" data-area hidden>
+      <nav class="menu-conta" aria-label="Minha conta">
+        <div class="menu-conta__quem">
+          <p class="menu-conta__oi" data-oi>Oi, Rafael</p>
+          <p class="menu-conta__email" data-email>rafael.souza@email.com</p>
+        </div>
+        <div class="menu-conta__abas" data-abas>
+          <ul>
+            <li><a href="#/conta" data-menu="painel">Visão geral</a></li>
+            <li><a href="#/conta/pedidos" data-menu="pedidos">Pedidos <span class="menu-conta__num" data-conta-pedidos></span></a></li>
+            <li><a href="#/conta/enderecos" data-menu="enderecos">Endereços <span class="menu-conta__num" data-conta-enderecos></span></a></li>
+            <li><a href="#/conta/dados" data-menu="dados">Meus dados</a></li>
+            <li><button type="button" class="menu-conta__sair" data-sair>Sair</button></li>
+          </ul>
+        </div>
+      </nav>
+
+      <div class="area__miolo">
+
+        <!-- ============================================================
+             VISÃO GERAL — /conta
+
+             O que a pessoa veio fazer, na ordem em que ela vem fazer: pagar
+             o Pix que ficou pendente, ver onde está a encomenda, e repor o
+             que acabou. Endereço e dados ficam por último, pequenos.
+             ============================================================ -->
+        <section data-tela-de="painel" aria-labelledby="t-painel" hidden>
+          <div class="cabeca-tela">
+            <h1 id="t-painel" tabindex="-1">Visão geral</h1>
+          </div>
+
+          <div class="painel-grade">
+            <div class="bloco bloco--largo" data-com-historico data-bloco-andamento>
+              <p class="rotulo">Em andamento</p>
+              <div class="andamento" data-andamento></div>
+            </div>
+
+            <div class="bloco bloco--largo" data-com-historico data-bloco-de-novo>
+              <p class="rotulo">Comprar de novo</p>
+              <div class="de-novo" data-de-novo></div>
+            </div>
+
+            <div class="bloco bloco--largo vazio" data-sem-historico>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.4 7.6h11.9l1.3 1.3-.9 11.5-1.3 1.3H7.6l-1.3-1.3-.9-11.5z"/><path d="M8.2 7.6V4.8l1.6-1.6h4.4l1.6 1.6v2.8h-1.7V5.1H9.9v2.5z"/></svg>
+              <p class="vazio__titulo">Nenhum pedido ainda</p>
+              <p>Quando você comprar, ele aparece aqui — com rastreio e tudo.</p>
+              <a class="btn" href="#/">Ver produtos <svg class="btn__bolt" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg></a>
+            </div>
+
+            <!-- Conta nova nasce só com o e-mail (o código não pede mais
+                 nada). Nome, celular e CPF vêm da primeira compra — ou daqui,
+                 e aí o checkout já abre preenchido. -->
+            <div class="bloco bloco--atalho">
+              <p class="rotulo">Endereço principal</p>
+              <div data-endereco-principal></div>
+              <a class="link" href="#/conta/enderecos" data-link-enderecos>Ver endereços</a>
+            </div>
+
+            <div class="bloco bloco--atalho">
+              <p class="rotulo">Seus dados</p>
+              <div data-dados-resumo></div>
+              <a class="link" href="#/conta/dados" data-link-dados>Editar dados</a>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============================================================
+             PEDIDOS — /conta/pedidos
+
+             Os da loja nova primeiro; os da Nuvemshop embaixo, separados e
+             com o número de lá (é o que a pessoa tem nos e-mails antigos).
+             ============================================================ -->
+        <section data-tela-de="pedidos" aria-labelledby="t-pedidos" hidden>
+          <div class="cabeca-tela">
+            <div>
+              <h1 id="t-pedidos" tabindex="-1">Pedidos</h1>
+              <p class="cabeca-tela__sub" data-com-historico data-pedidos-conta></p>
+            </div>
+          </div>
+          <div class="pedidos" data-lista-pedidos data-com-historico></div>
+          <div class="bloco vazio" data-sem-historico>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.4 7.6h11.9l1.3 1.3-.9 11.5-1.3 1.3H7.6l-1.3-1.3-.9-11.5z"/><path d="M8.2 7.6V4.8l1.6-1.6h4.4l1.6 1.6v2.8h-1.7V5.1H9.9v2.5z"/></svg>
+            <p class="vazio__titulo">Nenhum pedido ainda</p>
+            <p>Comprou na loja antiga com outro e-mail? Chama a gente no WhatsApp que a gente junta.</p>
+            <a class="btn" href="#/">Ver produtos <svg class="btn__bolt" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg></a>
+          </div>
+        </section>
+
+        <!-- ============================================================
+             UM PEDIDO — /conta/pedidos/<número>
+
+             Montado pelo roteiro a partir dos dados (PEDIDOS, lá embaixo),
+             como a página vai montar a partir do Medusa. Cada bloco aparece
+             só quando faz sentido: o Pix só enquanto está pendente, o
+             rastreio só depois de postado, a nota só quando existe, e o
+             aviso de "loja antiga" só nos importados.
+             ============================================================ -->
+        <section data-tela-de="pedido" aria-labelledby="t-pedido" hidden>
+          <a class="voltar" href="#/conta/pedidos">← Pedidos</a>
+          <div data-detalhe-pedido></div>
+        </section>
+
+        <!-- ============================================================
+             ENDEREÇOS — /conta/enderecos
+
+             O principal vem preenchido no checkout. Excluir pergunta antes,
+             na própria caixa — sem janela do navegador por cima.
+             ============================================================ -->
+        <section data-tela-de="enderecos" aria-labelledby="t-enderecos" hidden>
+          <div class="cabeca-tela">
+            <div>
+              <h1 id="t-enderecos" tabindex="-1">Endereços</h1>
+              <p class="cabeca-tela__sub">O principal já vem preenchido no checkout.</p>
+            </div>
+          </div>
+          <div class="enderecos" data-lista-enderecos></div>
+
+          <!-- O formulário é o do passo 2 do checkout, campo por campo:
+               CEP primeiro, o resto aparece quando a busca volta (ou quando
+               ela não acha, pra preencher à mão), e o cursor cai no número —
+               o único campo que a busca nunca sabe. Pra editar, abre tudo. -->
+          <form class="bloco" data-form-endereco novalidate hidden>
+            <h2 class="bloco__titulo" data-form-endereco-titulo style="margin-bottom: 14px">Novo endereço</h2>
+            <div class="campos">
+              <div class="campo campo--cep">
+                <label for="end-cep">CEP</label>
+                <span class="campo__com-icone" data-cep-busca>
+                  <input id="end-cep" name="cep" inputmode="numeric" autocomplete="postal-code" placeholder="00000-000" maxlength="9" aria-describedby="end-cep-erro" required>
+                  <span class="campo__spinner" aria-hidden="true"></span>
+                </span>
+                <span class="campo__erro" id="end-cep-erro" aria-live="polite"></span>
+                <p class="cep-ajuda"><a href="https://buscacepinter.correios.com.br/app/endereco/index.php" target="_blank" rel="noopener noreferrer">Não sei meu CEP</a></p>
+              </div>
+            </div>
+            <p class="aviso-frete" data-cep-aviso aria-live="polite" hidden style="margin-top: 12px"></p>
+            <div class="campos" data-endereco-resto hidden style="margin-top: 12px">
+              <div class="campo campo--4">
+                <label for="end-rua">Endereço</label>
+                <input id="end-rua" name="rua" autocomplete="address-line1" placeholder="Rua, avenida…" required>
+                <span class="campo__erro" aria-live="polite"></span>
+              </div>
+              <div class="campo campo--2 campo--meio">
+                <label for="end-numero">Número</label>
+                <input id="end-numero" name="numero" inputmode="text" placeholder="123" required>
+                <span class="campo__erro" aria-live="polite"></span>
+              </div>
+              <div class="campo campo--4">
+                <label for="end-complemento">Complemento <small>(opcional)</small></label>
+                <input id="end-complemento" name="complemento" autocomplete="address-line2" placeholder="Apto, bloco, referência">
+              </div>
+              <div class="campo campo--3">
+                <label for="end-bairro">Bairro</label>
+                <input id="end-bairro" name="bairro" autocomplete="address-level3" required>
+                <span class="campo__erro" aria-live="polite"></span>
+              </div>
+              <div class="campo campo--2 campo--cidade">
+                <label for="end-cidade">Cidade</label>
+                <input id="end-cidade" name="cidade" autocomplete="address-level2" required>
+                <span class="campo__erro" aria-live="polite"></span>
+              </div>
+              <div class="campo campo--uf">
+                <label for="end-uf">UF</label>
+                <select id="end-uf" name="uf" autocomplete="address-level1" required>
+                  <option value="">—</option>
+                  <option>AC</option><option>AL</option><option>AM</option><option>AP</option><option>BA</option><option>CE</option><option>DF</option><option>ES</option><option>GO</option><option>MA</option><option>MG</option><option>MS</option><option>MT</option><option>PA</option><option>PB</option><option>PE</option><option>PI</option><option>PR</option><option>RJ</option><option>RN</option><option>RO</option><option>RR</option><option>RS</option><option>SC</option><option>SE</option><option>SP</option><option>TO</option>
+                </select>
+                <span class="campo__erro" aria-live="polite"></span>
+              </div>
+              <div class="campo campo--3">
+                <label for="end-apelido">Nome do endereço <small>(opcional)</small></label>
+                <input id="end-apelido" name="apelido" placeholder="Casa, trabalho…">
+              </div>
+            </div>
+            <label class="marcar" data-endereco-principal-marca hidden style="margin-top: 14px"><input type="checkbox" name="principal"> <span>Usar como principal</span></label>
+            <div class="form-acoes">
+              <button type="button" class="btn btn--fantasma" data-cancelar-endereco>Cancelar</button>
+              <button type="submit" class="btn">Salvar endereço <svg class="btn__bolt" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg></button>
+            </div>
+          </form>
+        </section>
+
+        <!-- ============================================================
+             MEUS DADOS — /conta/dados
+
+             Os mesmos campos do passo 1 do checkout, com as mesmas máscaras.
+             O e-mail não se edita no campo: trocar é mandar código pro novo
+             (senão a pessoa perde a conta num erro de digitação).
+             As preferências nascem DESMARCADAS — é consentimento (LGPD), e
+             consentimento não vem marcado.
+             ============================================================ -->
+        <section data-tela-de="dados" aria-labelledby="t-dados" hidden>
+          <div class="cabeca-tela">
+            <h1 id="t-dados" tabindex="-1">Meus dados</h1>
+          </div>
+          <form class="bloco" data-form-dados novalidate>
+            <div class="campos">
+              <div class="campo campo--3">
+                <label for="dados-nome">Nome</label>
+                <input id="dados-nome" name="nome" autocomplete="given-name" placeholder="Primeiro nome" value="Rafael" required>
+                <span class="campo__erro" aria-live="polite"></span>
+              </div>
+              <div class="campo campo--3">
+                <label for="dados-sobrenome">Sobrenome</label>
+                <input id="dados-sobrenome" name="sobrenome" autocomplete="family-name" value="Souza" required>
+                <span class="campo__erro" aria-live="polite"></span>
+              </div>
+              <div class="campo">
+                <label>E-mail</label>
+                <div class="email-fixo"><span data-email>rafael.souza@email.com</span> <button type="button" class="link" data-trocar-email aria-expanded="false" aria-controls="troca-email">Trocar</button></div>
+                <!-- Trocar o e-mail é trocar a chave da conta: o novo só
+                     vale depois de provar que é dele, com o mesmo código de
+                     6 dígitos do entrar. Até lá, o antigo continua valendo. -->
+                <div class="troca-email" id="troca-email" data-caixa-email hidden>
+                  <div class="campos" data-email-passo="1">
+                    <div class="campo campo--4">
+                      <label for="dados-email-novo">Novo e-mail</label>
+                      <input id="dados-email-novo" type="email" inputmode="email" autocomplete="email" placeholder="voce@email.com">
+                      <span class="campo__erro" aria-live="polite"></span>
+                    </div>
+                    <div class="campo campo--2 troca-email__botao">
+                      <button type="button" class="btn btn--menor" data-enviar-codigo-email>Enviar código</button>
+                    </div>
+                  </div>
+                  <div data-email-passo="2" hidden>
+                    <p class="troca-email__txt">Mandamos um código pra <b data-email-novo></b>. O e-mail de agora continua valendo até você confirmar.</p>
+                    <div class="campos">
+                      <div class="campo campo--3 codigo codigo--menor">
+                        <label for="dados-email-codigo">Código</label>
+                        <input id="dados-email-codigo" type="text" inputmode="numeric" autocomplete="one-time-code" placeholder="000000">
+                        <span class="campo__erro" aria-live="polite"></span>
+                      </div>
+                      <div class="campo campo--3 troca-email__botao">
+                        <button type="button" class="btn btn--menor" data-confirmar-email>Confirmar</button>
+                      </div>
+                    </div>
+                  </div>
+                  <button type="button" class="link troca-email__cancela" data-cancelar-email>Cancelar a troca</button>
+                </div>
+              </div>
+              <div class="campo campo--3">
+                <label for="dados-celular">Celular <small>(WhatsApp)</small></label>
+                <input id="dados-celular" name="celular" type="tel" inputmode="numeric" autocomplete="tel-national" placeholder="(11) 99999-9999" value="(11) 98765-4321" required>
+                <span class="campo__erro" aria-live="polite"></span>
+              </div>
+              <div class="campo campo--3">
+                <label for="dados-documento">CPF ou CNPJ <small>(pra nota fiscal)</small></label>
+                <input id="dados-documento" name="documento" inputmode="text" autocomplete="off" placeholder="000.000.000-00" value="111.444.777-35" required>
+                <span class="campo__erro" aria-live="polite"></span>
+              </div>
+            </div>
+
+            <fieldset class="preferencias">
+              <legend>O que você quer receber</legend>
+              <label class="marcar"><input type="checkbox" name="ofertas-email"> <span>Novidades e ofertas por e-mail</span></label>
+              <label class="marcar"><input type="checkbox" name="ofertas-whatsapp"> <span>Ofertas pelo WhatsApp</span></label>
+            </fieldset>
+
+            <div class="form-acoes">
+              <span></span>
+              <button type="submit" class="btn">Salvar <svg class="btn__bolt" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg></button>
+            </div>
+          </form>
+
+          <!-- Excluir a conta é direito da pessoa (LGPD, art. 18). As notas
+               fiscais ficam: a lei fiscal manda guardar. CONFIRA ESTE TEXTO
+               com quem cuida da parte jurídica antes de publicar. -->
+          <p class="excluir">Quer apagar sua conta? <button type="button" class="link" data-excluir>Pedir exclusão</button></p>
+          <div class="excluir__caixa" data-excluir-caixa hidden>
+            <p>A gente apaga seus dados pessoais e sai da conta em todos os aparelhos. As notas fiscais dos pedidos continuam guardadas, como a lei manda.</p>
+            <div class="excluir__acoes">
+              <button type="button" class="btn btn--menor btn--perigo" data-excluir-confirma>Excluir minha conta</button>
+              <button type="button" class="btn btn--fantasma" data-excluir-cancela>Cancelar</button>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<footer class="pe">FuckingBarba · o rodapé real da loja entra aqui</footer>
+
+<div class="aviso" data-aviso role="status" aria-live="polite" data-fora></div>
+
+<script>
+/* ==========================================================================
+   AS FOTOS — miniaturas de 160px das fotos reais, embutidas pra o protótipo
+   abrir sem internet. Na loja elas vêm do Medusa, como no resto do site.
+   ========================================================================== */
+var FOTOS = {
+  "oleo-para-barba": "data:image/webp;base64,UklGRgwFAABXRUJQVlA4IAAFAADwGgCdASqgAKAAPnk6mUokoyKho1ZpgJAPCWdu4XKRAW5Cm/IAaxnvI2RAsU78fJD76UIHKB4C4+Vn/NPUc807Qc9W+wcLLs3cEW5gB/TlXPQv4RfGfQw8d2ZfYdhXQru1OzPhXKGm+NfEgNEmwZDhB3n0dWVL8blDJerY8aufItY+PbZLfcwBDL5/LJJf5x+TKZPzxs2Asv/hwtyZFouNOG9hFkUmNZgc5+7tF3/SpPZGb4VwhaYclSHtsArh7cKS5mDkZ8I03ML2RMIPIPcLg5uYRpx1cS2W5gQNR2pcIAD+/2TQH/75GictXLbcq5+/C2vIHqpqOOH9UIvJ1xWBGMl6R2SsZyCyKjnM1BFlteo4lGZHQUOYNfGZ8/pAHOcYIatLwHeHiGqY0VGiNXhQV4hmF5UzLyHUlf26v+B56LdljueJNjy63jJE737aWXgQO5k2m1x6awtqlTWAkwvKBX/L9HxHVXAbSI1OITeXkalFWjYxzoZhOf5uyeUBngLLaZJND+kGrlokZ4li9rMyAQ/08S+QXGj8uupuUQ89vKddOMBxjimv0yI2xd/k3/4O437w8XJoISGQXy7BiaTmI6KC4fjDPxlrdbdyNxO6ClMGprO9/GcwoPHB89DFiZdw35aply0Vx8VpUEpLdPQ01JgaLg9RcOtl0U0eHFD7Dx37LqDoDYakcsASMNTnLFKO4BfrnV+5VoLSuN2HLSk08pAQZkPCEW7QFofoWwHSXX4EIdrTXcNc7aCjDi3ps050yNLxBVwlhDrkTvePXxBd91R0YzbbR3TwBDluYhcrrliBjglRMb6p6dyvqE60FfdD7Rgk0fy4tDRNlf/OrQvWCem08NRmhhVSKJdQ9tcIcd5lbILVNn6PD/5Z6on+RnTApAb2RDXZOErCCMIyPnDpTcStRfjI9b8rBMGV4tQ0/AHtPYttdOYZOx9AKLO32iJkrs1m7gg8Mb5iLCWgu6VmMJUb55R/GcVf6x16aGsQubkvcSlbXUvNDOSsV0+NY/CiIbVkC7kXMKsJpwF/XQ7UMOCNCF3yTSGlVcCLPOcOwAg3QFThTda1sRGyNRA6wgpmA5H3tyjTmRFx8QQ1V0lupZV28ec8XrqkNdWHHJHqhJzUjSdk9CNErCXqWykwk1kAZxZSjDm+ns0ZFRauPH9bGRDxPcnQy00V0wfZLUO4JOfMOKT/mZuMD6Utp+5f+JfN9+RH6SWvxe6MrXsyQwys1/BTNp0mV0a6R3/sEERWgjeX+cc0CtXRtZm718LKOfOj6au6wn//3AJsBdI5lUj9TvLvDoo38xDjueO1lutSyRGVR8rsW2KX6vs6SevBWYY5EiHHGmDD1XvheiM2JsNDNl0IBrEthD+xrWJGKofcKSB/H6cOwsFSpapMPYB8DvGypJeNW1USX5AJqip52r1oWyFY1Pf7cgoSdgpuoFXVxSZMLBR5A/+RFw8lHPHKvNXSNf3eP/xTI3hbATyONNDC8AJiwL8kkMFtsYGw//BUvCVwPT1yGPCvRzOO8CBo1ER0Zr+fPHhnMBSkqk5+zDl+dyNgLWfRNOQov/sNse7e8Hfei6A26pRmYyUXLQsn9cFxYGs+wk1N/6Q3IG2+FZEw2pmH2bKi71l4S69IzG+w+z4UowtTQIc59v1e4ce1vedW87pX/wm7v3hqfDmxKjisqu6aLCG5yL1IuNk+AAAAAA==",
+  "balm-para-barba": "data:image/webp;base64,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",
+  "shampoo-para-barba": "data:image/webp;base64,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",
+  "fator-de-crescimento-para-barba": "data:image/webp;base64,UklGRhAEAABXRUJQVlA4IAQEAAAwFwCdASqgAKAAPnk8m0okoyKhopgImJAPCWdu4XVJ0H9mwG40tCW3lXedJ9rzCiE0vcC8sfg5pm5pHkw+nPYMDTuzdm7N2Vwh7odDQMxhQBoc13jqjnqLPsoy2h+mMcrUYFHIShs0KK9eRltCwailkErwX2ic/ghxk/fI7WNQ/C4GdDek7VOVWmO6LcP4OIeJZ+BM5IAtUX9dH1YaDraIFVysltfjJSw8P/Y7NpMYdYukL1CmU/lwTmXMkBICQEfgAAD+/6NACn3vL2lxzkeQxJanlXzt7kl5x+F+DOZEnZOm7T18ZcpK+t7odQyyvW4yuX1EVpe1P9ebjX/EUPLyqWS12yxBMa17IyBtD72vFicIYxjnBOCIg9vHmQr19ssRrGfusjQ6m5Cn0Iu/XaCxWbycIJCz2hvgFKXZZcMDqftCxV98yZbGMPfmzzZcMyIabXQhYMaqmrrEXlGFW+Cm2eGyDtrhfmdO4ziXt3jpeZau9m/oE4z38dIfZ/a4z7qWuO5E+eu1U7Ar9tFIG2naGYHSQbN98dyN8CfK37sz2eZOirJArwj/85s+jEfHk/4icJbGZP7BtuvIqBJTQ3H5wDQhTbyJq87emr07VWL3aOnt0nlVwr7HF7m8MRM/j/NNGIpiHfFeLQcZcDoyzXKHPFvz0sm0EvzHn2Iv5u6AqmqobkYYwxAheANfAZOEK1f4IvudeOUJ/kdHU3A6nc1rIMbvG4+Bwl0GKE/2LG2ynRDPicl0q61x4Q55ubc808kpCxIuTIAJT8q6hp3fOCXQpLfdhmMLjaLD4Rc3q5F6OUS95jibRhEw/5WZl5yzeFL6KxkINIq1nrF7S/euseDd5nB4kOq28N56VQTaOeLy57y5Diw6AUbbLDh3tMXhTBisfwD9ZNOvCqcIOQsDeIgjPqPbebFcY9PkYBIKu5cN3BJUtsVoUGoJdtZkIHsrj6yeic06AAVY3gkoY+M/limUlF2N2+UtXZuD8vrsSoPbJYfdTHJ23Kw7G20eumVjxSxmuwZqUUZBmsPue8v2HNGT1vSPYhEdH3WR7LK+NXyLu3WPRM+DJD3n8YtR999CmcnVZcUlHQzwS/jzyBRbi2Rndzh2XeKaO5vi97zZt2QIwrjYWRWZDYg1cWc6REgHCokKg+gPPq2+9TUYmgI27f3PL3jbJU2qL3fRa/9+kl4Cb1SdYv4DONP966vNvmov+nTDD1zd/ojpyOh6jEM6JHAbfyAsR3aLcUv5LRJCXCFfEE3QMqIxXJ+VFqMuz7sc8NIVf63L9snUQHSPvvwCYe2T1+lSKu6V1esgb7gNlVUYPB8jf9qGUlFqCwHSP6lqokq+zLLlb4IA4E8yjk02bWHYsAAAAA==",
+  "kit-completo-para-barba": "data:image/webp;base64,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",
+  "spray-modelador-matte-100ml-fucking-barba": "data:image/webp;base64,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"
+};
+</script>
+
+<script>
+(function () {
+  var corpo = document.body;
+
+  /* ------------------------------------------------------------------------
+     OS DADOS — no formato em que o Medusa vai entregar (e a importação da
+     Nuvemshop vai gravar). Preços em reais, datas já escritas. "Hoje" é
+     segunda, 21/09/2026.
+     ------------------------------------------------------------------------ */
+  var PRODUTOS = {
+    oleo:    { nome: 'Óleo para Barba FuckingBarba 30ml', curto: 'Óleo para Barba', foto: 'oleo-para-barba', preco: 54.90 },
+    balm:    { nome: 'Balm Modelador para Barba FuckingBarba 90g', curto: 'Balm Modelador', foto: 'balm-para-barba', preco: 53.90 },
+    shampoo: { nome: 'Shampoo para Barba FuckingBarba 120ml', curto: 'Shampoo para Barba', foto: 'shampoo-para-barba', preco: 49.90 },
+    fator:   { nome: 'Fator de Crescimento para Barba 30ml', curto: 'Fator de Crescimento', foto: 'fator-de-crescimento-para-barba', preco: 79.90 },
+    kit:     { nome: 'Kit Completo FuckingBarba — Shampoo, Balm e Óleo', curto: 'Kit Completo', foto: 'kit-completo-para-barba', preco: 99.90 },
+    spray:   { nome: 'Spray Modelador Matte Dry Touch 100ml', curto: 'Spray Modelador Matte', foto: 'spray-modelador-matte-100ml-fucking-barba', preco: 49.90 },
+    // INVENTADO — só pra mostrar produto que saiu de linha num pedido antigo.
+    natal:   { nome: 'Kit Presente de Natal', curto: 'Kit Presente de Natal', foto: null, preco: null, foraDeLinha: true }
+  };
+
+  var CASA = { id: 'casa', principal: true, apelido: 'Casa', nome: 'Rafael Souza', rua: 'Rua Augusta', numero: '1200',
+               complemento: 'apto 51', bairro: 'Consolação', cidade: 'São Paulo', uf: 'SP', cep: '01304-001' };
+  var TRABALHO = { id: 'trabalho', principal: false, apelido: 'Trabalho', nome: 'Rafael Souza', rua: 'Avenida Paulista', numero: '1578',
+                   complemento: '10º andar', bairro: 'Bela Vista', cidade: 'São Paulo', uf: 'SP', cep: '01310-200' };
+
+  // O Pix de exemplo vence daqui a 24 minutos. O da loja vale 30
+  // (PIX_MINUTOS_PADRAO, no módulo do Pagar.me).
+  var PIX_VENCE = Date.now() + 24 * 60 * 1000;
+
+  var PEDIDOS = [
+    { numero: '28', quando: 'hoje, 10:15', status: 'pix',
+      itens: [{ p: 'oleo', qtd: 1, preco: 54.90 }, { p: 'shampoo', qtd: 1, preco: 49.90 }],
+      frete: 23.70, entrega: { opcao: 'Entrega econômica', prazo: 'até 7 dias úteis, contados da postagem', endereco: CASA },
+      pagamento: 'Pix',
+      pix: '00020101021226840014br.gov.bcb.pix2562pix.pagar.me/qr/v2/cobv/9a1b2c3d4e5f6071829304f5a6b7c8d95204000053039865406128.505802BR5912FUCKINGBARBA6009JOINVILLE62070503***6304A1B2',
+      tempo: [['Pedido feito', 'hoje, 10:15'], ['Pagamento', 'esperando o Pix'], ['Enviado', ''], ['Entregue', '']], agora: 1 },
+
+    { numero: '27', quando: '17/09/2026, 14:02', status: 'enviado', previsao: 'até 29/09',
+      itens: [{ p: 'kit', qtd: 1, preco: 99.90 }, { p: 'balm', qtd: 1, preco: 53.90 }],
+      frete: 0, entrega: { opcao: 'Entrega econômica', prazo: 'até 7 dias úteis da postagem — previsão: até 29/09', endereco: CASA },
+      pagamento: 'Cartão Visa final 4242 · 3x de R$ 51,27 sem juros',
+      rastreio: { transportadora: 'Correios · PAC', codigo: 'QS123456789BR' },
+      nf: '1.234',
+      tempo: [['Pedido feito', '17/09, 14:02'], ['Pagamento aprovado', '17/09, 14:02'], ['Enviado', '18/09, 11:20'], ['Entregue', 'previsão: até 29/09']], agora: 3 },
+
+    { numero: '26', quando: '10/09/2026, 19:48', status: 'cancelado',
+      itens: [{ p: 'spray', qtd: 1, preco: 49.90 }],
+      frete: 23.70, entrega: { opcao: 'Entrega econômica', prazo: 'não saiu — o pedido foi cancelado', endereco: CASA },
+      pagamento: 'Pix — venceu sem pagamento' },
+
+    { numero: '25', quando: '02/09/2026, 21:37', status: 'entregue', entregue: '08/09',
+      itens: [{ p: 'fator', qtd: 2, preco: 79.90 }],
+      frete: 0, entrega: { opcao: 'Entrega expressa', prazo: 'entregue em 08/09', endereco: CASA },
+      pagamento: 'Pix',
+      rastreio: { transportadora: 'Jadlog · Expresso', codigo: 'JD0012345678' },
+      nf: '1.198',
+      tempo: [['Pedido feito', '02/09, 21:37'], ['Pagamento aprovado', '02/09, 21:38'], ['Enviado', '03/09, 11:02'], ['Entregue', '08/09, 15:20']], agora: 4 },
+
+    // Da Nuvemshop: número de lá, sem linha do tempo, sem rastreio, sem nota.
+    { numero: '8841', antiga: true, quando: '14/12/2025', status: 'entregue', entregue: '19/12/2025',
+      itens: [{ p: 'oleo', qtd: 1, preco: 49.90 }, { p: 'natal', qtd: 1, preco: 129.90 }],
+      frete: 0, entrega: { opcao: 'Correios · SEDEX', prazo: 'entregue em 19/12/2025', endereco: CASA },
+      pagamento: 'Cartão de crédito' },
+
+    { numero: '8612', antiga: true, quando: '03/08/2025', status: 'entregue', entregue: '11/08/2025',
+      itens: [{ p: 'shampoo', qtd: 1, preco: 44.90 }],
+      frete: 18.50, entrega: { opcao: 'Correios · PAC', prazo: 'entregue em 11/08/2025', endereco: CASA },
+      pagamento: 'Pix' }
+  ];
+
+  // Os dois clientes do protótipo. O novo acabou de entrar pela primeira vez:
+  // a conta nasceu com o e-mail e mais nada.
+  var CLIENTES = {
+    antigo: { nome: 'Rafael', sobrenome: 'Souza', celular: '(11) 98765-4321', documento: '111.444.777-35',
+              ofertasEmail: false, ofertasZap: false, enderecos: [CASA, TRABALHO] },
+    novo:   { nome: '', sobrenome: '', celular: '', documento: '',
+              ofertasEmail: false, ofertasZap: false, enderecos: [] }
+  };
+
+  // CEPs que o protótipo "conhece" — na loja é o mesmo consultarCep do
+  // checkout. Qualquer outro mostra o "não achei".
+  var CEPS = {
+    '01310100': { rua: 'Avenida Paulista', bairro: 'Bela Vista', cidade: 'São Paulo', uf: 'SP' },
+    '01304001': { rua: 'Rua Augusta', bairro: 'Consolação', cidade: 'São Paulo', uf: 'SP' },
+    '89036370': { rua: 'Rua Doutor Pedro Zimmermann', bairro: 'Itoupava Central', cidade: 'Blumenau', uf: 'SC' }
+  };
+
+  // Os estados que a pessoa vê. "pago" é "Em separação": é o que ela quer
+  // saber depois de pagar, e é o que o obrigado diz ("Já estamos separando").
+  var STATUS = {
+    pix: 'Aguardando Pix', analise: 'Em análise', pago: 'Em separação',
+    enviado: 'Enviado', entregue: 'Entregue', cancelado: 'Cancelado'
+  };
+
+  var estado = { logado: false, email: '', destino: '/conta', sacola: 0 };
+
+  /* ------------------------------------------------------------------------
+     utilidades
+     ------------------------------------------------------------------------ */
+  function $(s, r) { return (r || document).querySelector(s); }
+  function $$(s, r) { return [].slice.call((r || document).querySelectorAll(s)); }
+  function brl(v) { return 'R$ ' + v.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
+  function esc(t) { return String(t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function historico() { return corpo.getAttribute('data-cliente') !== 'novo'; }
+  function pedidos() { return historico() ? PEDIDOS : []; }
+  function cliente() { return CLIENTES[historico() ? 'antigo' : 'novo']; }
+  function acharPedido(n) { return PEDIDOS.filter(function (p) { return p.numero === n; })[0]; }
+  function unidades(p) { return p.itens.reduce(function (s, i) { return s + i.qtd; }, 0); }
+  function subtotal(p) { return p.itens.reduce(function (s, i) { return s + i.preco * i.qtd; }, 0); }
+  function total(p) { return subtotal(p) + p.frete; }
+  function emailOk(v) { return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v); }
+
+  var ICO = {
+    raio: '<svg class="btn__bolt" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>',
+    frasco: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 2h6v3l-1 1v2l3 3v11H7V11l3-3V6L9 5z"/></svg>',
+    mais: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.6 3h2.8v7.6H21v2.8h-7.6V21h-2.8v-7.6H3v-2.8h7.6z"/></svg>',
+    // Triangulo, de components/icones.tsx — o mesmo do obrigado cancelado
+    triangulo: '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2.6 22.4 20.6H1.6zM11 9h2v6h-2zm0 7.4h2v2h-2z"/></svg>'
+  };
+
+  // Foto do produto no quadradinho do checkout. Com `qtd`, leva o número
+  // amarelo no canto, como no resumo e no obrigado.
+  function foto(chave, qtd) {
+    var p = PRODUTOS[chave];
+    var img = p.foto && FOTOS[p.foto]
+      ? '<img src="' + FOTOS[p.foto] + '" alt="" width="54" height="54">'
+      : ICO.frasco;
+    return '<span class="item__foto' + (p.foto ? '' : ' item__foto--vazia') + '">' + img +
+      (qtd ? '<span class="item__qtd" aria-hidden="true">' + qtd + '</span>' : '') + '</span>';
+  }
+
+  function linhaEndereco(e) {
+    // No formato do obrigado (lib/pedido.ts): rua e número; complemento e
+    // bairro; cidade/UF · CEP.
+    var l2 = [e.complemento, e.bairro].filter(Boolean).join(' — ');
+    return esc(e.rua + ', ' + e.numero) + (l2 ? '<br>' + esc(l2) : '') + '<br>' + esc(e.cidade + '/' + e.uf + ' · ' + e.cep);
+  }
+
+  /* o aviso que sobe de baixo */
+  var elAviso = $('[data-aviso]'), relogioAviso;
+  function avisar(html) {
+    clearTimeout(relogioAviso);
+    elAviso.innerHTML = html;
+    elAviso.removeAttribute('data-fora');
+    relogioAviso = setTimeout(function () { elAviso.setAttribute('data-fora', ''); }, 4200);
+  }
+
+  /* o botão esperando: quadradinho girando no lugar do raio */
+  function ocupar(botao, texto) {
+    botao.disabled = true;
+    botao.setAttribute('aria-busy', 'true');
+    botao.setAttribute('data-texto', botao.innerHTML);
+    botao.innerHTML = '<span class="giro" aria-hidden="true"></span>' + texto;
+  }
+  function liberar(botao) {
+    botao.disabled = false;
+    botao.removeAttribute('aria-busy');
+    botao.innerHTML = botao.getAttribute('data-texto');
+  }
+
+  function erroNoCampo(input, msg) {
+    var erro = input.closest('.campo').querySelector('.campo__erro');
+    if (msg) input.setAttribute('aria-invalid', 'true'); else input.removeAttribute('aria-invalid');
+    if (erro) erro.textContent = msg || '';
+  }
+
+  /* ------------------------------------------------------------------------
+     AS ROTAS — o hash imita o caminho que a loja vai ter.
+     ------------------------------------------------------------------------ */
+  var ROTAS = [
+    { re: /^\/conta\/entrar\/codigo$/, tela: 'codigo' },
+    { re: /^\/conta\/entrar$/, tela: 'entrar' },
+    { re: /^\/conta\/pedidos\/(\w+)$/, tela: 'pedido', menu: 'pedidos', area: true },
+    { re: /^\/conta\/pedidos$/, tela: 'pedidos', menu: 'pedidos', area: true, titulo: 'Pedidos' },
+    { re: /^\/conta\/enderecos$/, tela: 'enderecos', menu: 'enderecos', area: true, titulo: 'Endereços' },
+    { re: /^\/conta\/dados$/, tela: 'dados', menu: 'dados', area: true, titulo: 'Meus dados' },
+    { re: /^\/conta\/?$/, tela: 'painel', menu: 'painel', area: true, titulo: 'Minha conta' }
+  ];
+  var primeira = true;
+
+  function ir(caminho) { location.hash = '#' + caminho; }
+
+  function mostrar() {
+    var caminho = location.hash.replace(/^#/, '') || '/conta/entrar';
+    var rota = null, m = null;
+    for (var i = 0; i < ROTAS.length && !rota; i++) {
+      m = caminho.match(ROTAS[i].re);
+      if (m) rota = ROTAS[i];
+    }
+    if (!rota) { ir('/conta'); return; }
+
+    // área logada sem estar logado: pro entrar, lembrando pra onde ia
+    if (rota.area && !estado.logado) { estado.destino = caminho; ir('/conta/entrar'); return; }
+    // entrar estando logado: não tem por quê
+    if ((rota.tela === 'entrar' || rota.tela === 'codigo') && estado.logado) { ir('/conta'); return; }
+    if (rota.tela === 'codigo' && !estado.email) { estado.email = 'rafael.souza@email.com'; mostrarEmailDigitado(); }
+
+    if (rota.tela === 'pedido') {
+      var pedido = pedidos().filter(function (p) { return p.numero === m[1]; })[0];
+      if (!pedido) { ir('/conta/pedidos'); return; }
+      desenharDetalhe(pedido);
+    }
+
+    corpo.setAttribute('data-tela', rota.tela);
+    $('[data-area]').hidden = !rota.area;
+    $$('[data-tela-de]').forEach(function (s) { s.hidden = s.getAttribute('data-tela-de') !== rota.tela; });
+    $$('[data-menu]').forEach(function (a) {
+      if (a.getAttribute('data-menu') === rota.menu) a.setAttribute('aria-current', 'page');
+      else a.removeAttribute('aria-current');
+    });
+    $$('[data-proto-ir]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.getAttribute('data-proto-ir') === caminho));
+    });
+    document.title = (rota.tela === 'pedido' ? 'Pedido #' + m[1] : rota.titulo || 'Minha conta') + ' · FuckingBarba';
+    if (rota.area) ajustarAbas();
+
+    // Troca de tela é troca de página: o foco vai pro título dela, pra quem
+    // navega por teclado ou leitor de tela saber onde caiu.
+    if (!primeira) {
+      window.scrollTo({ top: 0, behavior: 'instant' });
+      var h1 = $('[data-tela-de="' + rota.tela + '"] h1');
+      if (h1) h1.focus({ preventScroll: true });
+    }
+    primeira = false;
+  }
+  window.addEventListener('hashchange', mostrar);
+
+  /* ------------------------------------------------------------------------
+     AS ABAS NO CELULAR — a da tela atual sempre à vista, e a ponta
+     esmaecida enquanto sobrar aba escondida à direita.
+     ------------------------------------------------------------------------ */
+  var caixaAbas = $('[data-abas]'), fitaAbas = caixaAbas.querySelector('ul');
+  function marcarMais() {
+    caixaAbas.toggleAttribute('data-antes', fitaAbas.scrollLeft > 2);
+    caixaAbas.toggleAttribute('data-mais', fitaAbas.scrollLeft + fitaAbas.clientWidth < fitaAbas.scrollWidth - 2);
+  }
+  function ajustarAbas() {
+    var atual = fitaAbas.querySelector('[aria-current="page"]');
+    if (atual && fitaAbas.scrollWidth > fitaAbas.clientWidth) {
+      var r = atual.getBoundingClientRect(), f = fitaAbas.getBoundingClientRect();
+      if (r.left < f.left) fitaAbas.scrollLeft -= f.left - r.left + 16;
+      else if (r.right > f.right - 40) fitaAbas.scrollLeft += r.right - f.right + 48;
+    }
+    marcarMais();
+  }
+  fitaAbas.addEventListener('scroll', marcarMais, { passive: true });
+  window.addEventListener('resize', marcarMais);
+
+  /* ------------------------------------------------------------------------
+     ENTRAR
+     ------------------------------------------------------------------------ */
+  var formEntrar = $('[data-form-entrar]');
+  var inEmail = $('#entrar-email');
+
+  function mostrarEmailDigitado() {
+    $$('[data-email-digitado]').forEach(function (el) { el.textContent = estado.email; });
+  }
+
+  formEntrar.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var botao = formEntrar.querySelector('button[type=submit]');
+    if (botao.disabled) return;
+    var v = inEmail.value.trim().toLowerCase();
+    if (!emailOk(v)) { erroNoCampo(inEmail, 'Confere o e-mail.'); inEmail.focus(); return; }
+    erroNoCampo(inEmail, '');
+    ocupar(botao, 'Enviando…');
+    setTimeout(function () {
+      liberar(botao);
+      estado.email = v;
+      mostrarEmailDigitado();
+      inCodigo.value = '';
+      erroNoCampo(inCodigo, '');
+      tentativas = 0;
+      contagemReenvio();
+      ir('/conta/entrar/codigo');
+    }, 700);
+  });
+  inEmail.addEventListener('input', function () { erroNoCampo(inEmail, ''); });
+
+  /* ------------------------------------------------------------------------
+     CÓDIGO
+     ------------------------------------------------------------------------ */
+  var formCodigo = $('[data-form-codigo]');
+  var inCodigo = $('#codigo');
+  var tentativas = 0;
+  var MAX_TENTATIVAS = 5;
+
+  // Só dígito, no máximo 6 — e sem `maxlength`: colar "123 456" do e-mail
+  // tem que dar 123456, não "123 45".
+  function soDigitos(input) {
+    var so = input.value.replace(/\D+/g, '').slice(0, 6);
+    if (input.value !== so) input.value = so;
+    erroNoCampo(input, '');
+    return so;
+  }
+
+  inCodigo.addEventListener('input', function () {
+    if (soDigitos(inCodigo).length === 6) setTimeout(function () { formCodigo.requestSubmit(); }, 120);
+  });
+
+  formCodigo.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var botao = formCodigo.querySelector('button[type=submit]');
+    if (botao.disabled) return;
+    var v = inCodigo.value;
+    if (tentativas >= MAX_TENTATIVAS) { erroNoCampo(inCodigo, 'Muitas tentativas. Pede um código novo.'); return; }
+    if (v.length !== 6) { erroNoCampo(inCodigo, 'O código tem 6 números.'); inCodigo.focus(); return; }
+    ocupar(botao, 'Entrando…');
+    setTimeout(function () {
+      liberar(botao);
+      tentativas++;
+      if (v === '000000') {
+        erroNoCampo(inCodigo, tentativas >= MAX_TENTATIVAS
+          ? 'Muitas tentativas. Pede um código novo.'
+          : 'Código errado. Confere e tenta de novo.');
+        inCodigo.select();
+        return;
+      }
+      estado.logado = true;
+      $$('[data-email]').forEach(function (el) { el.textContent = estado.email; });
+      var destino = estado.destino || '/conta';
+      estado.destino = '/conta';
+      ir(destino);
+    }, 600);
+  });
+
+  var btnReenviar = $('[data-reenviar]');
+  var relogioReenvio;
+  function contagemReenvio() {
+    clearInterval(relogioReenvio);
+    var falta = 30;
+    btnReenviar.disabled = true;
+    btnReenviar.innerHTML = 'reenvie em <span data-reenviar-conta>0:30</span>';
+    relogioReenvio = setInterval(function () {
+      falta--;
+      if (falta <= 0) {
+        clearInterval(relogioReenvio);
+        btnReenviar.disabled = false;
+        btnReenviar.textContent = 'reenvie o código';
+        return;
+      }
+      $('[data-reenviar-conta]').textContent = '0:' + String(falta).padStart(2, '0');
+    }, 1000);
+  }
+  btnReenviar.addEventListener('click', function () {
+    tentativas = 0;
+    inCodigo.value = '';
+    erroNoCampo(inCodigo, '');
+    contagemReenvio();
+    avisar('Código novo enviado pra ' + esc(estado.email) + '.');
+    inCodigo.focus();
+  });
+
+  /* ------------------------------------------------------------------------
+     SAIR
+     ------------------------------------------------------------------------ */
+  $('[data-sair]').addEventListener('click', function () {
+    estado.logado = false;
+    inEmail.value = '';
+    ir('/conta/entrar');
+    avisar('Você saiu da conta.');
+  });
+
+  /* ------------------------------------------------------------------------
+     COMPRAR DE NOVO
+     Na loja: cada item vira linha no carrinho do Medusa (pela variante de
+     hoje, com o preço de hoje) e a gaveta da sacola abre. O que saiu de linha
+     fica de fora — e o aviso diz o quê, pra ninguém achar que foi esquecido.
+     ------------------------------------------------------------------------ */
+  function comprarDeNovo(numero) {
+    var p = acharPedido(numero);
+    if (!p) return;
+    var entram = p.itens.filter(function (i) { return !PRODUTOS[i.p].foraDeLinha; });
+    var ficam = p.itens.filter(function (i) { return PRODUTOS[i.p].foraDeLinha; });
+    var qtd = entram.reduce(function (s, i) { return s + i.qtd; }, 0);
+    estado.sacola += qtd;
+    $('[data-sacola-contador]').textContent = estado.sacola;
+    var txt = qtd === 1 ? '1 item voltou pra sacola.' : qtd + ' itens voltaram pra sacola.';
+    if (ficam.length) txt += ' ' + ficam.map(function (i) { return esc(PRODUTOS[i.p].nome); }).join(', ') + ' saiu de linha.';
+    avisar(txt + ' <a href="#/">Ver sacola</a>');
+  }
+
+  /* COPIAR — o código do Pix e o de rastreio. Sem permissão de área de
+     transferência (o navegador do Instagram, por exemplo), o código segue na
+     tela e um toque seleciona ele inteiro (`user-select: all`). */
+  function copiar(botao) {
+    var texto = botao.getAttribute('data-copiar');
+    var antes = botao.getAttribute('data-rotulo') || botao.textContent;
+    botao.setAttribute('data-rotulo', antes);
+    var validade = botao.closest('.feito__pix') && botao.closest('.feito__pix').querySelector('.feito__validade');
+    var deu = function () {
+      botao.textContent = 'Copiado!';
+      setTimeout(function () { botao.textContent = antes; }, 2500);
+    };
+    var falhou = function () {
+      if (!validade) return;
+      var era = validade.textContent;
+      validade.textContent = 'Não consegui copiar sozinho — seleciona o código acima e copia.';
+      setTimeout(function () { validade.textContent = era; atualizarPix(); }, 2500);
+    };
+    if (navigator.clipboard) navigator.clipboard.writeText(texto).then(deu, falhou); else falhou();
+  }
+
+  /* ------------------------------------------------------------------------
+     O PIX PENDENTE — em minutos, como o componente da loja
+     (components/checkout/pix.tsx): relógio de segundos na tela é ansiedade,
+     e a hora do celular de ninguém bate com a do banco a esse ponto.
+     ------------------------------------------------------------------------ */
+  function minutosPix() { return Math.max(0, Math.ceil((PIX_VENCE - Date.now()) / 60000)); }
+  function atualizarPix() {
+    var min = minutosPix();
+    $$('[data-pix-min]').forEach(function (el) { el.textContent = min ? min + ' min' : 'venceu'; });
+    $$('[data-pix-validade]').forEach(function (el) {
+      el.textContent = min
+        ? 'Vale por mais ' + min + (min === 1 ? ' minuto.' : ' minutos.')
+        : 'Este código venceu. O pedido vai ser cancelado e o estoque volta pra loja.';
+    });
+    $$('.feito__pix').forEach(function (caixa) {
+      caixa.toggleAttribute('data-vencido', !min);
+      var b = caixa.querySelector('[data-copiar]');
+      if (b) b.disabled = !min;
+    });
+  }
+  setInterval(atualizarPix, 20000);
+
+  /* ------------------------------------------------------------------------
+     VISÃO GERAL
+     ------------------------------------------------------------------------ */
+  function desenharPainel() {
+    var lista = pedidos();
+    var abertos = lista.filter(function (p) { return /^(pix|analise|pago|enviado)$/.test(p.status); });
+    $('[data-andamento]').innerHTML = abertos.map(function (p) {
+      var txt, acao;
+      if (p.status === 'pix') {
+        txt = 'Falta pagar o Pix — vale por mais <b data-pix-min></b>';
+        acao = '<a class="btn btn--menor" href="#/conta/pedidos/' + p.numero + '">Pagar o Pix ' + ICO.raio + '</a>';
+      } else if (p.status === 'enviado') {
+        txt = 'A caminho — previsão: <b>' + esc(p.previsao) + '</b>';
+        acao = '<a class="btn btn--menor" href="#/conta/pedidos/' + p.numero + '">Acompanhar ' + ICO.raio + '</a>';
+      } else {
+        txt = 'Separando seu pedido — o rastreio aparece aqui quando ele for postado.';
+        acao = '<a class="btn btn--menor" href="#/conta/pedidos/' + p.numero + '">Ver pedido ' + ICO.raio + '</a>';
+      }
+      return '<div class="andamento__linha" data-status="' + p.status + '">' +
+        '<div><p class="andamento__num">Pedido #' + p.numero + ' · ' + brl(total(p)) + '</p>' +
+        '<p class="andamento__txt">' + txt + '</p></div>' + acao + '</div>';
+    }).join('');
+    $('[data-bloco-andamento]').hidden = !abertos.length;
+
+    // Comprar de novo: o último pedido entregue — é o que está acabando.
+    var ultimo = lista.filter(function (p) { return p.status === 'entregue'; })[0];
+    $('[data-bloco-de-novo]').hidden = !ultimo;
+    if (ultimo) {
+      $('[data-de-novo]').innerHTML =
+        '<ul class="de-novo__fotos">' + ultimo.itens.map(function (i) { return '<li>' + foto(i.p) + '</li>'; }).join('') + '</ul>' +
+        '<p class="de-novo__txt"><b>' + ultimo.itens.map(function (i) { return (i.qtd > 1 ? i.qtd + '× ' : '') + esc(PRODUTOS[i.p].nome); }).join(' + ') + '</b>' +
+        '<br>Do pedido #' + ultimo.numero + ', entregue em ' + esc(ultimo.entregue) + '.</p>' +
+        '<button type="button" class="btn btn--menor" data-comprar-de-novo="' + ultimo.numero + '">Pôr na sacola ' + ICO.raio + '</button>';
+    }
+
+    var c = cliente();
+    var principal = c.enderecos.filter(function (e) { return e.principal; })[0];
+    $('[data-endereco-principal]').innerHTML = principal
+      ? '<address class="resumo-curto"><b>' + esc(principal.apelido || 'Principal') + '</b><br>' + linhaEndereco(principal) + '</address>'
+      : '<p class="resumo-curto"><small>Nenhum endereço salvo ainda. O primeiro que você usar no checkout fica guardado aqui.</small></p>';
+    $('[data-link-enderecos]').textContent = principal ? 'Ver endereços' : 'Adicionar endereço';
+
+    var completo = c.nome && c.celular && c.documento;
+    $('[data-dados-resumo]').innerHTML = completo
+      ? '<p class="resumo-curto"><b>' + esc(c.nome + ' ' + c.sobrenome) + '</b><br>' + esc(c.celular) +
+        '<br><small>' + esc(documentoNaTela(c.documento)) + '</small></p>'
+      : '<p class="resumo-curto"><small>Falta nome, celular e CPF. Com eles aqui, o checkout já abre preenchido.</small></p>';
+    $('[data-link-dados]').textContent = completo ? 'Editar dados' : 'Completar dados';
+
+    $('[data-oi]').textContent = c.nome ? 'Oi, ' + c.nome : 'Oi!';
+    atualizarPix();
+  }
+
+  // O documento inteiro não precisa estar na tela de ninguém. CPF mostra o
+  // miolo; CNPJ é público e vai inteiro.
+  function documentoNaTela(v) {
+    var so = v.replace(/\W/g, '');
+    if (so.length === 11) return 'CPF •••.' + so.substr(3, 3) + '.' + so.substr(6, 3) + '-••';
+    if (so.length === 14) return 'CNPJ ' + v;
+    return v;
+  }
+
+  /* ------------------------------------------------------------------------
+     PEDIDOS — a lista
+     ------------------------------------------------------------------------ */
+  function seloStatus(p) {
+    return '<span class="status" data-status="' + p.status + '">' + STATUS[p.status] + '</span>';
+  }
+
+  function cartao(p) {
+    var nomes = p.itens.map(function (i) { return PRODUTOS[i.p].curto; });
+    var n = unidades(p);
+    var ver = '<a class="btn btn--menor" href="#/conta/pedidos/' + p.numero + '">Ver pedido ' + ICO.raio + '</a>';
+    var deNovo = '<button type="button" class="link" data-comprar-de-novo="' + p.numero + '">Comprar de novo</button>';
+    var acoes;
+    if (p.status === 'pix') {
+      acoes = '<a class="btn btn--menor" href="#/conta/pedidos/' + p.numero + '">Pagar o Pix ' + ICO.raio + '</a>' +
+              '<p class="pedido-card__prazo" data-pix>Vale por mais <span data-pix-min></span></p>';
+    } else if (p.status === 'enviado') {
+      acoes = ver + deNovo + '<p class="pedido-card__prazo">Previsão: ' + esc(p.previsao) + '</p>';
+    } else if (p.status === 'cancelado') {
+      acoes = ver + deNovo + '<p class="pedido-card__prazo" data-cancelado>O Pix venceu antes do pagamento.</p>';
+    } else {
+      acoes = ver + deNovo + (p.entregue ? '<p class="pedido-card__prazo">Entregue em ' + esc(p.entregue) + '</p>' : '');
+    }
+    return '<article class="bloco pedido-card">' +
+      '<div class="pedido-card__topo"><div>' +
+        '<h2 class="pedido-card__num">Pedido #' + p.numero + '</h2>' +
+        '<p class="pedido-card__data">' + esc(p.quando.charAt(0).toUpperCase() + p.quando.slice(1)) + '</p></div>' +
+        seloStatus(p) + '</div>' +
+      '<div class="pedido-card__meio">' +
+        '<ul class="pedido-card__fotos">' + p.itens.slice(0, 3).map(function (i) { return '<li>' + foto(i.p) + '</li>'; }).join('') + '</ul>' +
+        '<p class="pedido-card__itens">' + esc(nomes.join(', ')) + '<small>' + n + (n === 1 ? ' item' : ' itens') + '</small></p>' +
+        '<p class="pedido-card__total">' + brl(total(p)) + '</p></div>' +
+      '<div class="pedido-card__acoes">' + acoes + '</div></article>';
+  }
+
+  function desenharPedidos() {
+    var lista = pedidos();
+    var novos = lista.filter(function (p) { return !p.antiga; });
+    var antigos = lista.filter(function (p) { return p.antiga; });
+    $('[data-lista-pedidos]').innerHTML = novos.map(cartao).join('') +
+      (antigos.length
+        ? '<p class="separador">Da loja antiga <small>· importados em set/2026</small></p>' + antigos.map(cartao).join('')
+        : '');
+    $('[data-pedidos-conta]').textContent = lista.length + (lista.length === 1 ? ' pedido' : ' pedidos');
+    $('[data-conta-pedidos]').textContent = lista.length || '';
+    atualizarPix();
+  }
+
+  /* ------------------------------------------------------------------------
+     UM PEDIDO — o detalhe
+     ------------------------------------------------------------------------ */
+  function desenharDetalhe(p) {
+    var html = '';
+    var feito = p.antiga ? 'Feito em ' + esc(p.quando) + ', na loja antiga'
+      : 'Feito ' + (p.quando.indexOf('hoje') === 0 ? esc(p.quando) : 'em ' + esc(p.quando));
+
+    html += '<div class="cabeca-tela"><div>' +
+      '<div class="titulo-status"><h1 id="t-pedido" tabindex="-1">Pedido #' + p.numero + '</h1>' + seloStatus(p) + '</div>' +
+      '<p class="cabeca-tela__sub">' + feito + '</p></div></div>';
+
+    html += '<div class="detalhe"><div>';
+
+    if (p.antiga) {
+      html += '<p class="antiga"><span class="selo">Loja antiga</span> Pedido trazido da loja anterior, com o número de lá. O rastreio e a nota fiscal ficaram por lá — se precisar, chama a gente.</p>';
+    }
+
+    // Os textos do Pix são os do obrigado (cabecaDo e o <Pix>): a mesma
+    // caixa, dita do mesmo jeito, nos dois lugares.
+    if (p.status === 'pix') {
+      html += '<section class="bloco pix-pendente" aria-labelledby="t-pix">' +
+        '<h2 class="bloco__titulo" id="t-pix">Falta só o Pix</h2>' +
+        '<p class="pix-pendente__frase">Pague com o QR code ou o código abaixo. Assim que cair, o pedido entra na fila de envio — e esta página muda sozinha.</p>' +
+        '<div class="feito__pix">' +
+          '<div class="feito__qr" role="img" aria-label="QR code do Pix deste pedido"></div>' +
+          '<p class="feito__pix-rotulo">Copia e cola</p>' +
+          '<code>' + esc(p.pix) + '</code>' +
+          '<button type="button" class="btn feito__copiar" data-copiar="' + esc(p.pix) + '">Copiar código</button>' +
+          '<p class="feito__validade" data-pix-validade aria-live="polite"></p>' +
+        '</div></section>';
+    }
+
+    if (p.status === 'cancelado') {
+      html += '<div class="bloco cancelado">' + ICO.triangulo +
+        '<p><b>Pedido cancelado</b>O pagamento não foi confirmado a tempo, e o pedido foi cancelado — os produtos voltaram pro estoque. Nada foi cobrado.</p></div>';
+    }
+
+    if (p.tempo && p.status !== 'cancelado') {
+      html += '<section class="bloco" aria-labelledby="t-andamento"><h2 class="sr-only" id="t-andamento">Andamento</h2><ol class="tempo">' +
+        p.tempo.map(function (t, i) {
+          var marca = i < p.agora ? ' data-feito' : (i === p.agora ? ' data-agora' : '');
+          return '<li' + marca + '>' + esc(t[0]) + (t[1] ? '<small>' + esc(t[1]) + '</small>' : '') + '</li>';
+        }).join('') + '</ol>';
+      if (p.rastreio) {
+        html += '<div class="rastreio"><div>' +
+          '<p class="rastreio__rot">Rastreio · ' + esc(p.rastreio.transportadora) + '</p>' +
+          '<p class="rastreio__codigo">' + esc(p.rastreio.codigo) + '</p></div>' +
+          '<div class="rastreio__acoes"><button type="button" class="link" data-copiar="' + esc(p.rastreio.codigo) + '">Copiar</button>' +
+          '<a class="link" href="#/" target="_blank" rel="noopener">Rastrear na transportadora ↗</a></div></div>';
+      } else if (p.status === 'pix' || p.status === 'pago') {
+        html += '<p class="rastreio__depois">O código de rastreio aparece aqui quando a encomenda for postada.</p>';
+      }
+      html += '</section>';
+    }
+
+    // Os rótulos dos totais são os do obrigado (Produtos, a entrega, Total),
+    // com uma diferença: lá a linha do frete é "Entrega · <forma>", e como a
+    // forma já se chama "Entrega econômica", sai "Entrega · Entrega
+    // econômica". Aqui vai só o nome da forma — e vale acertar lá também.
+    html += '<section class="bloco" aria-labelledby="t-itens"><h2 class="bloco__titulo" id="t-itens" style="margin-bottom:4px">O que você comprou</h2>' +
+      '<ul class="itens">' + p.itens.map(function (i) {
+        var pr = PRODUTOS[i.p];
+        return '<li class="item">' + foto(i.p, i.qtd) + '<span><h3 class="item__nome">' + esc(pr.nome) + '</h3>' +
+          '<p class="item__un">' + i.qtd + ' × ' + brl(i.preco) + (pr.foraDeLinha ? ' · <span class="fora-de-linha">saiu de linha</span>' : '') + '</p></span>' +
+          '<span class="item__valor">' + brl(i.preco * i.qtd) + '</span></li>';
+      }).join('') + '</ul>' +
+      '<dl class="totais">' +
+        '<div class="totais__linha"><dt>Produtos</dt><dd>' + brl(subtotal(p)) + '</dd></div>' +
+        '<div class="totais__linha"><dt>' + esc(p.entrega.opcao) + '</dt><dd' + (p.frete ? '' : ' data-gratis') + '>' + (p.frete ? brl(p.frete) : 'Grátis') + '</dd></div>' +
+        '<div class="totais__linha totais__total"><dt>Total</dt><dd>' + brl(total(p)) + '</dd></div>' +
+      '</dl>';
+    if (p.status !== 'pix') {
+      html += '<div class="acoes-pedido">' +
+        '<button type="button" class="btn btn--menor" data-comprar-de-novo="' + p.numero + '">Comprar de novo ' + ICO.raio + '</button>' +
+        '</div>';
+    }
+    html += '</section>';
+
+    html += '</div><div class="detalhe__lado">';
+    html += '<section class="bloco"><h2 class="rotulo">Pra onde vai</h2><address class="info"><b>' + esc(p.entrega.opcao) + '</b><small>' + esc(p.entrega.prazo) + '</small><br>' +
+      esc(p.entrega.endereco.nome) + '<br>' + linhaEndereco(p.entrega.endereco) + '</address></section>';
+    html += '<section class="bloco"><h2 class="rotulo">Pagamento</h2><p class="info">' + esc(p.pagamento) + '</p></section>';
+    if (p.nf) {
+      // A nota vem da Bling (fase 5): o bloco só aparece quando ela existe.
+      html += '<section class="bloco"><h2 class="rotulo">Nota fiscal</h2><p class="nota-fiscal"><span>NF-e nº ' + esc(p.nf) + '</span> <a class="link" href="#/">Baixar PDF</a></p></section>';
+    }
+    html += '<p class="ajuda">Algum problema com o pedido? <a class="link" href="#/">Chama no WhatsApp</a> — o número do pedido já vai junto.</p>';
+    if (p.status === 'entregue' && !p.antiga) {
+      html += '<p class="ajuda">Quer trocar ou devolver? <a class="link" href="#/">Veja como funciona</a> — são 7 dias pra desistir, por lei.</p>';
+    }
+    html += '</div></div>';
+
+    $('[data-detalhe-pedido]').innerHTML = html;
+    atualizarPix();
+  }
+
+  /* ------------------------------------------------------------------------
+     ENDEREÇOS
+     ------------------------------------------------------------------------ */
+  var formEnd = $('[data-form-endereco]');
+  var gradeEnd = $('[data-lista-enderecos]');
+  var restoEnd = $('[data-endereco-resto]');
+  var avisoCep = $('[data-cep-aviso]');
+  var buscaCep = $('[data-cep-busca]');
+  var marcaPrincipal = $('[data-endereco-principal-marca]');
+  var editando = null, ultimoCep = '';
+
+  function desenharEnderecos() {
+    // O formulário sai da grade antes do innerHTML — senão ia junto.
+    if (formEnd.parentNode === gradeEnd) gradeEnd.after(formEnd);
+    var lista = cliente().enderecos;
+    gradeEnd.innerHTML = lista.map(function (e) {
+      return '<article class="bloco endereco"' + (e.principal ? ' data-principal' : '') + ' data-endereco="' + e.id + '">' +
+        '<div class="endereco__topo"><h2 class="endereco__apelido">' + esc(e.apelido || 'Endereço') + '</h2>' +
+        (e.principal ? '<span class="selo selo--principal">Principal</span>' : '') + '</div>' +
+        '<address class="info">' + (e.nome ? esc(e.nome) + '<br>' : '') + linhaEndereco(e) + '</address>' +
+        '<div class="endereco__acoes" data-endereco-acoes>' +
+          '<button type="button" class="link" data-editar-endereco="' + e.id + '">Editar</button>' +
+          (e.principal ? '' : '<button type="button" class="link" data-principal-endereco="' + e.id + '">Tornar principal</button>') +
+          '<button type="button" class="link" data-excluir-endereco="' + e.id + '">Excluir</button>' +
+        '</div></article>';
+    }).join('') +
+      '<button type="button" class="endereco--novo" data-novo-endereco>' + ICO.mais + ' Adicionar endereço</button>';
+    $('[data-conta-enderecos]').textContent = lista.length || '';
+    posicionarForm();
+  }
+
+  // O formulário entra no lugar do que ele edita (ver o CSS).
+  function posicionarForm() {
+    var novo = $('[data-novo-endereco]');
+    $$('[data-endereco]', gradeEnd).forEach(function (c) { c.hidden = false; });
+    novo.hidden = false;
+    if (formEnd.hidden) return;
+    var card = editando && $('[data-endereco="' + editando + '"]', gradeEnd);
+    if (card) { card.after(formEnd); card.hidden = true; }
+    else { novo.before(formEnd); novo.hidden = true; }
+  }
+
+  function abrirForm(e) {
+    editando = e ? e.id : null;
+    formEnd.reset();
+    $$('input, select', formEnd).forEach(function (i) { if (i.type !== 'checkbox') erroNoCampo(i, ''); });
+    $('[data-form-endereco-titulo]').textContent = e ? 'Editar endereço' : 'Novo endereço';
+    avisoCep.hidden = true;
+    buscaCep.removeAttribute('aria-busy');
+    ultimoCep = e ? e.cep.replace(/\D/g, '') : '';
+    // Pra editar, tudo aberto. Pra um novo, só o CEP até a busca voltar.
+    restoEnd.hidden = !e;
+    // "Usar como principal" só quando há outro endereço pra disputar o
+    // posto — e nunca no próprio principal: ele deixa de ser quando outro vira.
+    var outros = cliente().enderecos.filter(function (x) { return !e || x.id !== e.id; }).length;
+    var pergunta = outros > 0 && !(e && e.principal);
+    marcaPrincipal.setAttribute('data-pode', pergunta ? '1' : '');
+    marcaPrincipal.hidden = !e || !pergunta;
+    if (e) {
+      formEnd.cep.value = e.cep; formEnd.rua.value = e.rua; formEnd.numero.value = e.numero;
+      formEnd.complemento.value = e.complemento; formEnd.bairro.value = e.bairro; formEnd.cidade.value = e.cidade;
+      formEnd.uf.value = e.uf; formEnd.apelido.value = e.apelido; formEnd.principal.checked = e.principal;
+    }
+    formEnd.hidden = false;
+    posicionarForm();
+    formEnd.scrollIntoView({ block: 'nearest' });
+    formEnd.cep.focus({ preventScroll: true });
+  }
+
+  function fecharForm(focarEm) {
+    formEnd.hidden = true;
+    var id = editando;
+    editando = null;
+    posicionarForm();
+    var alvo = focarEm || (id && $('[data-endereco="' + id + '"] [data-editar-endereco]')) || $('[data-novo-endereco]');
+    if (alvo) alvo.focus();
+  }
+
+  document.addEventListener('click', function (ev) {
+    var t = ev.target.closest && ev.target.closest('button');
+    if (!t) return;
+    if (t.hasAttribute('data-comprar-de-novo')) comprarDeNovo(t.getAttribute('data-comprar-de-novo'));
+    if (t.hasAttribute('data-copiar')) copiar(t);
+    var lista = cliente().enderecos;
+    if (t.hasAttribute('data-novo-endereco')) abrirForm(null);
+    if (t.hasAttribute('data-editar-endereco')) abrirForm(lista.filter(function (e) { return e.id === t.getAttribute('data-editar-endereco'); })[0]);
+    if (t.hasAttribute('data-principal-endereco')) {
+      var id = t.getAttribute('data-principal-endereco');
+      lista.forEach(function (e) { e.principal = e.id === id; });
+      lista.sort(function (a, b) { return b.principal - a.principal; });
+      desenharEnderecos();
+      avisar('Endereço principal trocado.');
+      $('[data-endereco="' + id + '"] [data-editar-endereco]').focus();
+    }
+    if (t.hasAttribute('data-excluir-endereco')) {
+      var alvo = t.getAttribute('data-excluir-endereco');
+      var caixa = $('[data-endereco="' + alvo + '"] [data-endereco-acoes]');
+      caixa.innerHTML = '<span class="endereco__confirma">Excluir este endereço?</span>' +
+        '<button type="button" class="link" data-excluir-sim="' + alvo + '">Sim, excluir</button>' +
+        '<button type="button" class="link" data-excluir-nao="' + alvo + '">Não</button>';
+      caixa.querySelector('[data-excluir-nao]').focus();
+    }
+    if (t.hasAttribute('data-excluir-sim')) {
+      var fora = t.getAttribute('data-excluir-sim');
+      var eraPrincipal = lista.filter(function (e) { return e.id === fora; })[0].principal;
+      cliente().enderecos = lista = lista.filter(function (e) { return e.id !== fora; });
+      if (eraPrincipal && lista[0]) lista[0].principal = true;
+      desenharEnderecos();
+      avisar('Endereço excluído.');
+      $('[data-novo-endereco]').focus();
+    }
+    if (t.hasAttribute('data-excluir-nao')) {
+      var volta = t.getAttribute('data-excluir-nao');
+      desenharEnderecos();
+      $('[data-endereco="' + volta + '"] [data-excluir-endereco]').focus();
+    }
+  });
+
+  $('[data-cancelar-endereco]').addEventListener('click', function () { fecharForm(); });
+
+  // Digitar num campo apaga o recado dele.
+  formEnd.addEventListener('input', function (ev) {
+    if (ev.target.closest('.campo') && ev.target !== formEnd.cep) erroNoCampo(ev.target, '');
+  });
+  formEnd.addEventListener('change', function (ev) {
+    if (ev.target.tagName === 'SELECT') erroNoCampo(ev.target, '');
+  });
+
+  formEnd.cep.addEventListener('input', function () {
+    var so = formEnd.cep.value.replace(/\D+/g, '').slice(0, 8);
+    formEnd.cep.value = so.replace(/^(\d{5})(\d)/, '$1-$2');
+    erroNoCampo(formEnd.cep, '');
+    if (so.length === 8 && so !== ultimoCep) buscarCep(so);
+  });
+
+  function buscarCep(so) {
+    ultimoCep = so;
+    buscaCep.setAttribute('aria-busy', 'true');
+    avisoCep.hidden = false;
+    avisoCep.textContent = 'Procurando o endereço…';
+    setTimeout(function () {
+      if (ultimoCep !== so) return;
+      buscaCep.removeAttribute('aria-busy');
+      var a = CEPS[so];
+      restoEnd.hidden = false;
+      marcaPrincipal.hidden = !marcaPrincipal.getAttribute('data-pode');
+      if (a) {
+        avisoCep.hidden = true;
+        formEnd.rua.value = a.rua; formEnd.bairro.value = a.bairro; formEnd.cidade.value = a.cidade; formEnd.uf.value = a.uf;
+        [formEnd.rua, formEnd.bairro, formEnd.cidade, formEnd.uf].forEach(function (i) { erroNoCampo(i, ''); });
+        formEnd.numero.focus();
+      } else {
+        avisoCep.textContent = 'Não achei esse CEP. Preenche à mão que funciona igual.';
+        formEnd.rua.focus();
+      }
+    }, 600);
+  }
+
+  formEnd.addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var faltou = null;
+    var cepOk = formEnd.cep.value.replace(/\D/g, '').length === 8;
+    erroNoCampo(formEnd.cep, cepOk ? '' : 'CEP tem 8 dígitos.');
+    if (!cepOk) { formEnd.cep.focus(); return; }
+    if (restoEnd.hidden) return; // a busca ainda não voltou
+    [['rua', 'Falta a rua.'], ['numero', 'Falta o número. Se não tem, escreve S/N.'],
+     ['bairro', 'Falta o bairro.'], ['cidade', 'Falta a cidade.'], ['uf', 'Escolhe o estado.']].forEach(function (c) {
+      var campo = formEnd[c[0]];
+      var ok = campo.value.trim().length > 0;
+      erroNoCampo(campo, ok ? '' : c[1]);
+      if (!ok && !faltou) faltou = campo;
+    });
+    if (faltou) { faltou.focus(); return; }
+
+    var c = cliente();
+    var lista = c.enderecos;
+    var atual = editando && lista.filter(function (x) { return x.id === editando; })[0];
+    var dados = {
+      // Quem recebe é o dono da conta (o checkout usa o nome do passo 1).
+      // Conta nova, ainda sem nome: o cartão só não mostra a linha.
+      apelido: formEnd.apelido.value.trim(), nome: (c.nome + ' ' + c.sobrenome).trim(),
+      cep: formEnd.cep.value, rua: formEnd.rua.value.trim(), numero: formEnd.numero.value.trim(),
+      complemento: formEnd.complemento.value.trim(), bairro: formEnd.bairro.value.trim(),
+      cidade: formEnd.cidade.value.trim(), uf: formEnd.uf.value,
+      // o primeiro endereço é o principal, sem perguntar; o principal segue
+      // principal até outro tomar o lugar
+      principal: !!(atual && atual.principal) || formEnd.principal.checked || lista.length === (atual ? 1 : 0)
+    };
+    if (dados.principal) lista.forEach(function (e) { e.principal = false; });
+    var id = editando || 'e' + Date.now();
+    dados.id = id;
+    if (editando) c.enderecos = lista = lista.map(function (e) { return e.id === editando ? dados : e; });
+    else lista.push(dados);
+    if (!lista.some(function (e) { return e.principal; }) && lista[0]) lista[0].principal = true;
+    lista.sort(function (a, b) { return b.principal - a.principal; });
+    var eraEdicao = !!editando;
+    formEnd.hidden = true;
+    editando = null;
+    desenharEnderecos();
+    avisar(eraEdicao ? 'Endereço atualizado.' : 'Endereço salvo.');
+    $('[data-endereco="' + id + '"] [data-editar-endereco]').focus();
+  });
+
+  /* ------------------------------------------------------------------------
+     MEUS DADOS — as máscaras são as do checkout (lib/telefone.ts e
+     lib/documento.ts), traduzidas pra este arquivo.
+     ------------------------------------------------------------------------ */
+  function limparTelefone(v) {
+    var so = v.replace(/\D+/g, '').replace(/^0+/, '');
+    return so.length > 11 && so.indexOf('55') === 0 ? so.slice(2) : so;
+  }
+  function mascararTelefone(v) {
+    var so = limparTelefone(v).slice(0, 11);
+    if (!so) return '';
+    if (so.length <= 2) return '(' + so;
+    var ddd = so.slice(0, 2), numero = so.slice(2);
+    if (numero.length <= 4) return '(' + ddd + ') ' + numero;
+    var corte = so.length === 11 ? 5 : 4;
+    return '(' + ddd + ') ' + numero.slice(0, corte) + '-' + numero.slice(corte);
+  }
+  function mascararDocumento(entrada) {
+    var v = entrada.toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, 14);
+    if (v.length <= 11) {
+      return v.replace(/^(\d{3})(\d)/, '$1.$2').replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3').replace(/^(\d{3})\.(\d{3})\.(\d{3})(\d)/, '$1.$2.$3-$4');
+    }
+    return v.replace(/^(.{2})(.)/, '$1.$2').replace(/^(.{2})\.(.{3})(.)/, '$1.$2.$3')
+      .replace(/^(.{2})\.(.{3})\.(.{3})(.)/, '$1.$2.$3/$4').replace(/^(.{2})\.(.{3})\.(.{3})\/(.{4})(.)/, '$1.$2.$3/$4-$5');
+  }
+  var formDados = $('[data-form-dados]');
+  var inNome = $('#dados-nome'), inSobrenome = $('#dados-sobrenome');
+  var inCelular = $('#dados-celular'), inDoc = $('#dados-documento');
+  inCelular.addEventListener('input', function () { inCelular.value = mascararTelefone(inCelular.value); erroNoCampo(inCelular, ''); });
+  inDoc.addEventListener('input', function () { inDoc.value = mascararDocumento(inDoc.value); erroNoCampo(inDoc, ''); });
+  [inNome, inSobrenome].forEach(function (i) { i.addEventListener('input', function () { erroNoCampo(i, ''); }); });
+
+  function preencherDados() {
+    var c = cliente();
+    inNome.value = c.nome; inSobrenome.value = c.sobrenome;
+    inCelular.value = c.celular; inDoc.value = c.documento;
+    formDados['ofertas-email'].checked = c.ofertasEmail;
+    formDados['ofertas-whatsapp'].checked = c.ofertasZap;
+    [inNome, inSobrenome, inCelular, inDoc].forEach(function (i) { erroNoCampo(i, ''); });
+  }
+
+  formDados.addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var botao = formDados.querySelector('button[type=submit]');
+    if (botao.disabled) return;
+    var faltou = null;
+    var cel = limparTelefone(inCelular.value), doc = inDoc.value.replace(/[^0-9A-Z]/gi, '');
+    [[inNome, inNome.value.trim() ? '' : 'Falta o nome.'],
+     [inSobrenome, inSobrenome.value.trim() ? '' : 'Falta o sobrenome.'],
+     [inCelular, cel.length >= 10 && cel.length <= 11 ? '' : 'Telefone com DDD, 10 ou 11 dígitos.'],
+     [inDoc, doc.length === 11 || doc.length === 14 ? '' : 'Confere o CPF ou o CNPJ.']].forEach(function (c) {
+      erroNoCampo(c[0], c[1]);
+      if (c[1] && !faltou) faltou = c[0];
+    });
+    if (faltou) { faltou.focus(); return; }
+    ocupar(botao, 'Salvando…');
+    setTimeout(function () {
+      liberar(botao);
+      var c = cliente();
+      c.nome = inNome.value.trim(); c.sobrenome = inSobrenome.value.trim();
+      c.celular = inCelular.value; c.documento = inDoc.value;
+      c.ofertasEmail = formDados['ofertas-email'].checked;
+      c.ofertasZap = formDados['ofertas-whatsapp'].checked;
+      desenharPainel();
+      avisar('Dados salvos.');
+    }, 600);
+  });
+
+  /* trocar o e-mail — dois passos, o segundo com o código */
+  var caixaEmail = $('[data-caixa-email]');
+  var inEmailNovo = $('#dados-email-novo'), inEmailCodigo = $('#dados-email-codigo');
+  function passoEmail(n) {
+    $$('[data-email-passo]', caixaEmail).forEach(function (el) { el.hidden = el.getAttribute('data-email-passo') !== String(n); });
+  }
+  function fecharTrocaEmail() {
+    caixaEmail.hidden = true;
+    $('[data-trocar-email]').setAttribute('aria-expanded', 'false');
+  }
+  $('[data-trocar-email]').addEventListener('click', function () {
+    var abrir = caixaEmail.hidden;
+    caixaEmail.hidden = !abrir;
+    this.setAttribute('aria-expanded', String(abrir));
+    if (abrir) {
+      passoEmail(1);
+      inEmailNovo.value = ''; inEmailCodigo.value = '';
+      erroNoCampo(inEmailNovo, ''); erroNoCampo(inEmailCodigo, '');
+      inEmailNovo.focus();
+    }
+  });
+  inEmailNovo.addEventListener('input', function () { erroNoCampo(inEmailNovo, ''); });
+  $('[data-enviar-codigo-email]').addEventListener('click', function () {
+    var botao = this;
+    var v = inEmailNovo.value.trim().toLowerCase();
+    if (!emailOk(v)) { erroNoCampo(inEmailNovo, 'Confere o e-mail.'); inEmailNovo.focus(); return; }
+    if (v === estado.email) { erroNoCampo(inEmailNovo, 'Esse já é o e-mail da conta.'); inEmailNovo.focus(); return; }
+    ocupar(botao, 'Enviando…');
+    setTimeout(function () {
+      liberar(botao);
+      $('[data-email-novo]').textContent = v;
+      passoEmail(2);
+      inEmailCodigo.focus();
+    }, 700);
+  });
+  inEmailCodigo.addEventListener('input', function () {
+    if (soDigitos(inEmailCodigo).length === 6) setTimeout(function () { $('[data-confirmar-email]').click(); }, 120);
+  });
+  $('[data-confirmar-email]').addEventListener('click', function () {
+    var botao = this;
+    if (botao.disabled) return;
+    var v = inEmailCodigo.value;
+    if (v.length !== 6) { erroNoCampo(inEmailCodigo, 'O código tem 6 números.'); inEmailCodigo.focus(); return; }
+    ocupar(botao, 'Confirmando…');
+    setTimeout(function () {
+      liberar(botao);
+      if (v === '000000') { erroNoCampo(inEmailCodigo, 'Código errado. Confere e tenta de novo.'); inEmailCodigo.select(); return; }
+      estado.email = $('[data-email-novo]').textContent;
+      $$('[data-email]').forEach(function (el) { el.textContent = estado.email; });
+      fecharTrocaEmail();
+      avisar('E-mail trocado. Os próximos códigos vão pra ' + esc(estado.email) + '.');
+      $('[data-trocar-email]').focus();
+    }, 600);
+  });
+  $('[data-cancelar-email]').addEventListener('click', function () {
+    fecharTrocaEmail();
+    $('[data-trocar-email]').focus();
+  });
+
+  $('[data-excluir]').addEventListener('click', function () {
+    $('[data-excluir-caixa]').hidden = false;
+    $('[data-excluir-cancela]').focus();
+  });
+  $('[data-excluir-cancela]').addEventListener('click', function () {
+    $('[data-excluir-caixa]').hidden = true;
+    $('[data-excluir]').focus();
+  });
+  $('[data-excluir-confirma]').addEventListener('click', function () {
+    $('[data-excluir-caixa]').hidden = true;
+    avisar('Pedido de exclusão recebido. A gente confirma por e-mail.');
+  });
+
+  /* ------------------------------------------------------------------------
+     A BARRA DO PROTÓTIPO
+     ------------------------------------------------------------------------ */
+  $$('[data-proto-ir]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var alvo = b.getAttribute('data-proto-ir');
+      var area = alvo !== '/conta/entrar' && alvo !== '/conta/entrar/codigo';
+      if (area) {
+        estado.logado = true;
+        if (!estado.email) estado.email = 'rafael.souza@email.com';
+        $$('[data-email]').forEach(function (el) { el.textContent = estado.email; });
+      } else {
+        estado.logado = false;
+        if (alvo === '/conta/entrar/codigo') {
+          if (!estado.email) estado.email = 'rafael.souza@email.com';
+          mostrarEmailDigitado();
+          contagemReenvio();
+          tentativas = 0;
+          inCodigo.value = '';
+          erroNoCampo(inCodigo, '');
+        }
+      }
+      // pedido que não existe pro cliente novo: volta pra ter histórico
+      if (/\/pedidos\/\w+$/.test(alvo) && !historico()) trocarCliente('antigo');
+      // mesmo endereço não dispara `hashchange`: aí redesenha na mão
+      if (location.hash === '#' + alvo) mostrar(); else ir(alvo);
+    });
+  });
+
+  function trocarCliente(tipo) {
+    corpo.setAttribute('data-cliente', tipo);
+    $$('[data-proto-cliente]').forEach(function (x) {
+      x.setAttribute('aria-pressed', String(x.getAttribute('data-proto-cliente') === tipo));
+    });
+    formEnd.hidden = true;
+    editando = null;
+    fecharTrocaEmail();
+    $('[data-excluir-caixa]').hidden = true;
+    preencherDados();
+    desenharTudo();
+    if (corpo.getAttribute('data-tela') === 'pedido' && tipo === 'novo') ir('/conta/pedidos');
+  }
+  $$('[data-proto-cliente]').forEach(function (b) {
+    b.addEventListener('click', function () { trocarCliente(b.getAttribute('data-proto-cliente')); });
+  });
+
+  function desenharTudo() {
+    desenharPedidos();
+    desenharEnderecos();
+    desenharPainel();
+  }
+
+  preencherDados();
+  desenharTudo();
+  mostrar();
+})();
+</script>
+</body>
+</html>
