@@ -91,6 +91,15 @@ export type PedidoDeCotacao = {
   itens: ItemPraCotar[]
   /** Milissegundos até desistir. Isto roda no caminho do checkout. */
   tempoLimite?: number
+  /**
+   * O carrinho que pergunta, quando é um carrinho. Entra na chave da viagem:
+   * a mesma pergunta do MESMO carrinho divide a resposta — as duas opções do
+   * checkout, a rota da sacola e o frete pendurado. De carrinhos diferentes,
+   * não: cada um tem a sua cotação, e a queda da Frenet aparece pra quem
+   * perguntou depois dela, em vez de ficar escondida atrás da resposta de
+   * outra pessoa.
+   */
+  carrinho?: string | null
 }
 
 /**
@@ -223,6 +232,66 @@ export async function cotar(pedido: PedidoDeCotacao): Promise<ServicoCotado[]> {
     })),
   }
 
+  /*
+    Sem carrinho — a calculadora da PDP —, cada pergunta é uma viagem, como
+    sempre foi: ali não há segunda pergunta igual chegando junto.
+
+    Com carrinho, a chave é a PERGUNTA inteira (token, endereço e o corpo que
+    sai daqui) mais o carrinho que pergunta. Tudo que muda a resposta está
+    nela: não existe o "esqueci de pôr o CEP na chave" quando a chave é o
+    próprio pedido. O carrinho é o cinto de segurança que já existia:
+    perguntas de carrinhos diferentes não se misturam.
+  */
+  if (!pedido.carrinho) return perguntar(token, corpo, tempoLimite)
+  const chave = `${token}|${ENDERECO}|${pedido.carrinho}|${JSON.stringify(corpo)}`
+  return deUmaViagemSo(chave, () => perguntar(token, corpo, tempoLimite))
+}
+
+/**
+ * A MESMA PERGUNTA, UMA VIAGEM SÓ.
+ *
+ * Três lugares perguntam a mesma coisa à Frenet no mesmo instante, pelo
+ * mesmo carrinho:
+ *
+ *   - o Medusa, que calcula as duas opções do carrinho EM PARALELO — sem
+ *     isto, cada abertura do checkout cotava duas vezes com o mesmo corpo;
+ *   - o bloco de frete da SACOLA, que cota pela rota `/store/frete` (é ela
+ *     que sabe o prazo e o preço cheio) e logo em seguida pendura a entrega
+ *     no carrinho — e o Medusa cota de novo pra saber o preço dela;
+ *   - a mesma sacola quando a quantidade muda: o Medusa refaz o frete
+ *     pendurado, e a lista da tela se refaz pela rota.
+ *
+ * Duas vezes o tempo de espera do cliente, e duas vezes o consumo da conta.
+ * O cache guarda a PROMESSA, não o resultado, pra que a segunda pergunta
+ * entre na mesma viagem em vez de começar outra.
+ *
+ * Vida curta de propósito: é pra unir perguntas do mesmo instante, não pra
+ * servir frete velho.
+ */
+const VIAGENS = new Map<string, { quando: number; promessa: Promise<ServicoCotado[]> }>()
+const VALIDADE = 10_000
+
+function deUmaViagemSo(chave: string, fazer: () => Promise<ServicoCotado[]>) {
+  const agora = Date.now()
+  for (const [k, v] of VIAGENS) if (agora - v.quando > VALIDADE) VIAGENS.delete(k)
+
+  const guardada = VIAGENS.get(chave)
+  if (guardada) return guardada.promessa
+
+  const promessa = fazer()
+  VIAGENS.set(chave, { quando: agora, promessa })
+  /* Falha não fica no cache: o próximo pedido tenta de novo em vez de herdar
+     um erro de dez segundos atrás. */
+  promessa.catch(() => VIAGENS.delete(chave))
+  return promessa
+}
+
+/** A ida de verdade à Frenet, com o corpo já no formato deles. */
+async function perguntar(
+  token: string,
+  corpo: Record<string, unknown>,
+  tempoLimite: number
+): Promise<ServicoCotado[]> {
   const desistir = new AbortController()
   const relogio = setTimeout(() => desistir.abort(), tempoLimite)
 

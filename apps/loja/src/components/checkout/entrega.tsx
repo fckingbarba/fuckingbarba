@@ -83,7 +83,13 @@ export function Entrega({ checkout, fretes, sugestoes, falta, piso, aoSalvar, ..
   const [uf, setUf] = useState(inicial.uf)
   // O endereço já apareceu? Abre quando o CEP resolve, e fica aberto — quem
   // voltou pra corrigir o número não quer ver os campos sumirem.
-  const [abriu, setAbriu] = useState(Boolean(inicial.rua || inicial.numero))
+  //
+  // CEP gravado também abre: ele pode ter vindo da SACOLA, que grava o CEP
+  // e a entrega no carrinho. Se o ViaCEP não soube a rua naquela hora, o
+  // carrinho chega com CEP e sem rua — e fechado aqui, a pessoa veria o CEP
+  // preenchido sem campo nenhum pra digitar o resto, e sem a entrega que
+  // acabou de escolher. O atalho do CEP só dispara quando ele é digitado.
+  const [abriu, setAbriu] = useState(Boolean(inicial.rua || inicial.numero || inicial.cep))
 
   const [buscando, buscar] = useTransition()
   const [naoAchou, setNaoAchou] = useState(false)

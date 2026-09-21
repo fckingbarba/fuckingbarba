@@ -50,7 +50,10 @@ ADMIN_EMAIL=<admin local> ADMIN_SENHA=<senha local> node ferramentas/conferir-fr
 O admin é um usuário do banco LOCAL (`npm run backend:user`). `CHROMIUM=<caminho>` quando o
 Playwright não achar o navegador. Layout de componente interativo se confere com foto, não com
 asserção — `ferramentas/retrato-calculadora.mjs` é o modelo, e roda contra `next build` +
-`next start`.
+`next start`. Os conferidores, ao contrário, rodam contra o `next dev` (`LOJA`, padrão
+`localhost:3000`): com o cache de produção o de PDP lê o conteúdo de antes da edição e falha sem
+bug nenhum. Os `apps/backend/ferramentas/conferir-{frete,pedido}.mjs` são de antes da Frenet (esperam
+"Correios PAC" fixo e não sobem a falsa) — os que valem são os sete da loja.
 
 ## Regras do projeto
 
@@ -108,6 +111,12 @@ venda → local de estoque → conjunto → zona → opção, e todo produto com
 faltando dá lista vazia, sem erro nenhum; por isso o script confere a corrente no fim em vez de
 dizer "pronto". Preço cotado sai de `POST /store/shipping-options/:id/calculate`: o `GET` da lista
 não calcula. Peso e medidas moram na VARIANTE (`src/scripts/medidas.ts`), não no produto.
+
+A **sacola** grava CEP e entrega no carrinho (`apps/loja/src/lib/acoes/frete.ts`), e o pé da
+gaveta mostra o frete e o total que o Medusa calculou com ela — o checkout abre com os dois. Com
+entrega pendurada, toda mudança de quantidade faz o Medusa cotar de novo; o `cotar` do
+`client.ts` junta perguntas iguais do MESMO carrinho por 10 s, e é por isso que a rota
+`/store/frete` recebe `cart_id` quando quem pergunta é a sacola.
 
 ## Fora dos limites
 

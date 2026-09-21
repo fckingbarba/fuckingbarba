@@ -6,8 +6,7 @@
   border-top: 2px solid var(--color-tinta);
   background: #e3f8f0;
 }
-.sacolinha__leve-titulo,
-.sacolinha__entrega-titulo {
+.sacolinha__leve-titulo {
   margin: 0 0 10px;
   display: flex;
   align-items: center;
@@ -17,8 +16,7 @@
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
-.sacolinha__leve-titulo svg,
-.sacolinha__entrega-titulo svg {
+.sacolinha__leve-titulo svg {
   width: 13px;
   height: 13px;
   fill: var(--color-amarelo-escuro);
@@ -136,184 +134,6 @@
 .sacolinha__leve-add:focus-visible {
   outline: 2px solid var(--color-tinta);
   outline-offset: 2px;
-}
-.sacolinha__entrega {
-  padding: 14px 18px 12px;
-  border-top: 2px solid var(--color-tinta);
-  background: #f2f4f6;
-}
-.sacolinha__cep {
-  display: flex;
-  gap: 0;
-}
-.sacolinha__cep[hidden] {
-  display: none;
-}
-.sacolinha__cep input {
-  flex: 1;
-  min-width: 0;
-  padding: 10px 11px;
-  border: 2px solid var(--color-tinta);
-  border-right: none;
-  background: #ffffff;
-  color: var(--color-tinta);
-  font-family: inherit;
-  font-size: 0.9rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  font-variant-numeric: tabular-nums;
-}
-.sacolinha__cep input::placeholder {
-  color: #98a1ab;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-}
-.sacolinha__cep input:focus-visible {
-  outline: 2px solid var(--color-amarelo-escuro);
-  outline-offset: -2px;
-}
-.sacolinha__cep input[aria-invalid="true"] {
-  border-color: #b3261e;
-}
-.sacolinha__cep-botao {
-  padding: 0 14px;
-  background: var(--color-tinta);
-  color: #ffffff;
-  border: 2px solid var(--color-tinta);
-  font-family: inherit;
-  font-size: 0.7rem;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  cursor: pointer;
-  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%);
-  transition:
-    background 0.15s ease,
-    color 0.15s ease;
-}
-.sacolinha__cep-botao:hover {
-  background: var(--color-amarelo);
-  color: var(--color-tinta);
-}
-.sacolinha__cep-botao:focus-visible {
-  outline: 2px solid var(--color-amarelo-escuro);
-  outline-offset: 2px;
-}
-.sacolinha__cep-botao[aria-busy="true"] {
-  opacity: 0.7;
-  cursor: progress;
-}
-.sacolinha__cep-erro {
-  margin: 7px 0 0;
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: #b3261e;
-}
-.sacolinha__cep-ajuda {
-  margin: 8px 0 0;
-  font-size: 0.68rem;
-}
-.sacolinha__cep-ajuda a {
-  color: var(--color-tinta-suave);
-  text-underline-offset: 2px;
-}
-.sacolinha__cep-ajuda a:hover {
-  color: var(--color-tinta);
-}
-.sacolinha__opcoes {
-  margin: 10px 0 0;
-  padding: 0;
-  border: none;
-  display: grid;
-  gap: 6px;
-}
-.sacolinha__opcao {
-  position: relative;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 10px;
-  padding: 9px 11px;
-  border: 2px solid rgba(18, 24, 31, 0.28);
-  background: #ffffff;
-  cursor: pointer;
-  transition:
-    border-color 0.15s ease,
-    background 0.15s ease;
-}
-.sacolinha__opcao:hover {
-  border-color: var(--color-tinta);
-}
-.sacolinha__opcao:has(input:checked) {
-  border-color: var(--color-tinta);
-  background: #fffbe6;
-}
-.sacolinha__opcao:has(input:focus-visible) {
-  outline: 2px solid var(--color-amarelo-escuro);
-  outline-offset: 2px;
-}
-.sacolinha__opcao input {
-  appearance: none;
-  -webkit-appearance: none;
-  width: 15px;
-  height: 15px;
-  margin: 0;
-  border: 2px solid var(--color-tinta);
-  background: #ffffff;
-  transform: rotate(45deg);
-  cursor: pointer;
-}
-.sacolinha__opcao input:checked {
-  background: var(--color-tinta);
-  box-shadow: inset 0 0 0 3px #ffffff;
-}
-.sacolinha__opcao-nome {
-  display: block;
-  font-size: 0.78rem;
-  font-weight: 800;
-  text-transform: uppercase;
-}
-.sacolinha__opcao-prazo {
-  display: block;
-  font-size: 0.7rem;
-  color: var(--color-tinta-suave);
-}
-.sacolinha__opcao-preco {
-  font-size: 0.84rem;
-  font-weight: 800;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-}
-.sacolinha__opcao-preco[data-gratis] {
-  color: #0b7f62;
-}
-.sacolinha__opcao-preco s {
-  display: block;
-  font-size: 0.64rem;
-  font-weight: 600;
-  color: var(--color-tinta-suave);
-  text-align: right;
-}
-.sacolinha__cep-ok {
-  margin: 10px 0 0;
-  font-size: 0.7rem;
-  color: var(--color-tinta-suave);
-}
-.sacolinha__cep-ok b {
-  color: var(--color-tinta);
-  font-weight: 800;
-}
-.sacolinha__cep-ok button {
-  padding: 0 0 0 4px;
-  background: none;
-  border: none;
-  color: var(--color-tinta);
-  font-family: inherit;
-  font-size: inherit;
-  font-weight: 700;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  cursor: pointer;
 }
 .sacolinha__desfazer {
   display: flex;

@@ -10,9 +10,10 @@
       multiplicação dele pelo unitário que está logo acima. Não é
       "carregando", é feito;
 
-    o total do carrinho está recalculando — ele, a parcela e o medidor de
-      frete são do servidor (é onde entram promoção e piso de frete), então
-      esmaecem e pulsam até a resposta chegar.
+    o total do carrinho está recalculando — ele, a parcela, o medidor de
+      frete e o preço de cada entrega do bloco "Frete e prazo" são do
+      servidor (é onde entram promoção e piso de frete), então esmaecem e
+      pulsam até a resposta chegar.
 
   Por que esmaecer em vez de trocar por um ponto-ponto-ponto: o valor antigo
   continua sendo a referência de quem está olhando ("era 309,70"), e trocar
@@ -28,7 +29,10 @@
 .sacolinha[data-ocupada] .sacolinha__soma-valor,
 .sacolinha[data-ocupada] .sacolinha__parcela,
 .sacolinha[data-ocupada] .sacolinha__frete-texto,
-.sacolinha[data-ocupada] .sacolinha__frete-trilho {
+.sacolinha[data-ocupada] .sacolinha__frete-trilho,
+.sacolinha[data-ocupada] .sacolinha__detalhe b,
+.sacolinha[data-ocupada] .sacolinha__opcao-preco,
+.sacolinha__opcoes[aria-busy="true"] .sacolinha__opcao-preco {
   opacity: 0.45;
   animation: sacolaPulsa 1s ease-in-out infinite;
   transition: opacity 0.15s ease;
@@ -95,6 +99,9 @@
   .sacolinha[data-ocupada] .sacolinha__parcela,
   .sacolinha[data-ocupada] .sacolinha__frete-texto,
   .sacolinha[data-ocupada] .sacolinha__frete-trilho,
+  .sacolinha[data-ocupada] .sacolinha__detalhe b,
+  .sacolinha[data-ocupada] .sacolinha__opcao-preco,
+  .sacolinha__opcoes[aria-busy="true"] .sacolinha__opcao-preco,
   .sacolinha__item[data-mexendo]::after {
     animation: none;
   }

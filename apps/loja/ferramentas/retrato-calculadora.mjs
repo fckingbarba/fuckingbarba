@@ -19,7 +19,8 @@
  * Sobe a Frenet falsa, digita um CEP na PDP e na sacola, clica em calcular e
  * fotografa o resultado nos dois lugares, em 1440px e em 390px. É o único
  * jeito de conferir layout: conferidor mede altura e posição, e isso pega
- * desalinhamento — não pega "ficou feio".
+ * desalinhamento — não pega "ficou feio". O comportamento da sacola (a
+ * escolha virar o frete do carrinho) quem confere é o `conferir-frete.mjs`.
  */
 
 import { chromium } from "playwright"
@@ -93,17 +94,69 @@ for (const [nome, largura, altura] of [
   })
 }
 
-/* ── e na sacola, que é mais estreita ───────────────────────────────────── */
+/* ── e na sacola, que tem o bloco dela ──────────────────────────────────────
 
-await retrato("sacola", 1440, 1000, async (pagina) => {
+   A sacola NÃO usa a calculadora da PDP: o bloco "Frete e prazo" dela é o
+   do protótipo (`components/sacola/entrega.tsx`), com as entregas como
+   opções de escolher. Fotografa o campo antes, a lista depois, a troca pra
+   expressa (o pé da gaveta muda junto) e a segunda unidade, que passa do
+   piso e faz a econômica aparecer como "Grátis" com o preço cheio riscado.
+   Compare com a gaveta do `ferramentas/porte/prototipo.html`. */
+
+async function sacolaCheia(pagina) {
   await pagina.goto(`${LOJA}/produtos/${PRODUTO}`, { waitUntil: "networkidle" })
-  await pagina.locator("button:has-text('Adicionar'), button:has-text('Comprar')").first().click()
-  await pagina.locator(".sacolinha").first().waitFor({ timeout: 20000 })
+  await pagina.locator(".compra__comprar").first().click({ timeout: 20000 })
+  await pagina.locator(".sacolinha__item").first().waitFor({ timeout: 20000 })
   await pagina.waitForTimeout(700)
-  await cotar(pagina, ".sacolinha")
-  await pagina.locator(".sacolinha").first().screenshot({ path: `${SAIDA}/calculadora-sacola.png` })
-  console.log("  📸 calculadora-sacola.png")
-})
+}
+
+async function cotarNaSacola(pagina) {
+  const campo = pagina.locator("#carrinho-cep")
+  await campo.waitFor({ state: "visible", timeout: 15000 })
+  await campo.fill("")
+  await campo.type(CEP, { delay: 30 })
+  await pagina.locator(".sacolinha__cep-botao").click()
+  await pagina
+    .locator(".sacolinha__opcao, .sacolinha__cep-erro:not([hidden])")
+    .first()
+    .waitFor({ timeout: 25000 })
+  await pagina.waitForTimeout(500)
+}
+
+const fotoDaSacola = async (pagina, nome) => {
+  await pagina
+    .locator(".sacolinha")
+    .first()
+    .screenshot({ path: `${SAIDA}/${nome}.png` })
+  console.log(`  📸 ${nome}.png`)
+}
+
+for (const [nome, largura, altura] of [
+  ["sacola", 1440, 1000],
+  ["sacola-celular", 390, 844],
+]) {
+  await retrato(nome, largura, altura, async (pagina) => {
+    await sacolaCheia(pagina)
+    await fotoDaSacola(pagina, `${nome}-antes`)
+    await cotarNaSacola(pagina)
+    await fotoDaSacola(pagina, `${nome}-calculada`)
+
+    if (nome !== "sacola") return
+    await pagina.locator(".sacolinha__opcao").nth(1).click()
+    await pagina.locator(".sacolinha[data-ocupada]").waitFor({ state: "detached", timeout: 15000 })
+    await pagina.waitForTimeout(300)
+    await fotoDaSacola(pagina, `${nome}-expressa`)
+
+    await pagina.locator(".sacolinha__passo[aria-label^='Aumentar']").first().click()
+    await pagina
+      .locator(".sacolinha__opcao-preco[data-gratis]")
+      .first()
+      .waitFor({ timeout: 20000 })
+      .catch(() => console.log("  ⚠  a segunda unidade não passou do piso — sem foto do Grátis"))
+    await pagina.waitForTimeout(300)
+    await fotoDaSacola(pagina, `${nome}-gratis`)
+  })
+}
 
 /* ── e o caminho da queda, que é o que ninguém desenha ──────────────────────
 
@@ -133,8 +186,17 @@ falsa.roteiro = "queda"
 await retrato("queda-sem-emergencia", 1440, 1100, async (pagina) => {
   await pagina.goto(`${LOJA}/produtos/${PRODUTO}`, { waitUntil: "networkidle" })
   await cotarQualquer(pagina)
-  await pagina.locator(".cep").first().screenshot({ path: `${SAIDA}/calculadora-queda-sem-emergencia.png` })
+  await pagina
+    .locator(".cep")
+    .first()
+    .screenshot({ path: `${SAIDA}/calculadora-queda-sem-emergencia.png` })
   console.log("  📸 calculadora-queda-sem-emergencia.png")
+})
+
+await retrato("sacola-queda-sem-emergencia", 1440, 1000, async (pagina) => {
+  await sacolaCheia(pagina)
+  await cotarNaSacola(pagina)
+  await fotoDaSacola(pagina, "sacola-queda-sem-emergencia")
 })
 
 if (EMAIL && SENHA) {
@@ -145,7 +207,8 @@ if (EMAIL && SENHA) {
   })
   const { token } = await entrar.json()
   const cab = { "content-type": "application/json", authorization: `Bearer ${token}` }
-  const antes = (await (await fetch(`${MEDUSA}/admin/configuracoes`, { headers: cab })).json()).configuracoes
+  const antes = (await (await fetch(`${MEDUSA}/admin/configuracoes`, { headers: cab })).json())
+    .configuracoes
 
   try {
     await fetch(`${MEDUSA}/admin/configuracoes`, {
@@ -159,8 +222,16 @@ if (EMAIL && SENHA) {
     await retrato("queda-com-emergencia", 1440, 1100, async (pagina) => {
       await pagina.goto(`${LOJA}/produtos/${PRODUTO}`, { waitUntil: "networkidle" })
       await cotarQualquer(pagina)
-      await pagina.locator(".cep").first().screenshot({ path: `${SAIDA}/calculadora-queda-com-emergencia.png` })
+      await pagina
+        .locator(".cep")
+        .first()
+        .screenshot({ path: `${SAIDA}/calculadora-queda-com-emergencia.png` })
       console.log("  📸 calculadora-queda-com-emergencia.png")
+    })
+    await retrato("sacola-queda-com-emergencia", 1440, 1000, async (pagina) => {
+      await sacolaCheia(pagina)
+      await cotarNaSacola(pagina)
+      await fotoDaSacola(pagina, "sacola-queda-com-emergencia")
     })
   } finally {
     await fetch(`${MEDUSA}/admin/configuracoes`, {

@@ -48,10 +48,15 @@ export const OPCOES_COOKIE = {
  * Campos que a gaveta precisa. `*items.variant` e `*items.product` trazem
  * foto e handle pra linha do carrinho poder linkar de volta pro produto sem
  * uma segunda consulta por item.
+ *
+ * `*shipping_methods` e o CEP do endereço entram porque a gaveta tem o bloco
+ * "Frete e prazo": a entrega que a pessoa escolhe ali fica NO CARRINHO, e o
+ * pé da gaveta mostra o frete e o total que o Medusa calculou com ela.
  */
 const CAMPOS_CARRINHO =
   "id,region_id,currency_code,email,subtotal,discount_total,shipping_total,tax_total,total," +
-  "item_subtotal,item_total,*items,*items.variant,*items.product,*items.thumbnail"
+  "item_subtotal,item_total,*items,*items.variant,*items.product,*items.thumbnail," +
+  "*shipping_methods,shipping_address.postal_code"
 
 function aviso(erro: unknown, contexto: string) {
   const msg = erro instanceof Error ? erro.message : String(erro)
@@ -85,11 +90,19 @@ export function paraVisivel(carrinho: Carrinho | null): CarrinhoVisivel {
     total: Number(item.total ?? 0),
   }))
 
+  const metodo = carrinho.shipping_methods?.[0]
+
   return {
     id: carrinho.id,
     itens,
     unidades: itens.reduce((soma, i) => soma + i.quantidade, 0),
     subtotal: Number(carrinho.item_subtotal ?? carrinho.subtotal ?? 0),
+    totalDosItens: Number(carrinho.item_total ?? 0),
+    // Sem método, `null` — e não o `shipping_total`, que vem 0 e diria
+    // "frete grátis" pra quem ainda nem digitou o CEP.
+    frete: metodo ? Number(carrinho.shipping_total ?? 0) : null,
+    freteEscolhido: metodo?.shipping_option_id ?? null,
+    cep: (carrinho.shipping_address?.postal_code ?? "").replace(/\D+/g, ""),
     total: Number(carrinho.total ?? 0),
   }
 }

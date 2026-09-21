@@ -103,6 +103,12 @@ type Sacola = {
   tirar: (linhaId: string) => void
   /** Relê a sacola no servidor. Ver o porquê no provedor. */
   recarregar: () => void
+  /**
+   * Roda uma ação que escreve no carrinho por outro caminho — hoje, o frete
+   * da sacola — dentro da MESMA espera das quantidades. Ver o porquê no
+   * provedor.
+   */
+  comCarrinho: <T extends { carrinho?: CarrinhoVisivel }>(chamar: () => Promise<T>) => Promise<T>
 }
 
 const Contexto = createContext<Sacola | null>(null)
@@ -214,6 +220,37 @@ export function ProvedorDaSacola({ children }: { children: ReactNode }) {
     })
   }
 
+  /**
+   * O FRETE DA SACOLA ESPERA NA MESMA FILA DAS QUANTIDADES.
+   *
+   * Calcular o CEP grava endereço e entrega no carrinho, e o Medusa refaz o
+   * total. Se isso corresse por fora, um "+" apertado no meio da cotação
+   * seria uma segunda escrita no mesmo carrinho ao mesmo tempo — e aí a
+   * resposta que chegar por último sobrescreve a outra na tela, com o total
+   * de um carrinho que já não existe.
+   *
+   * Dentro da transição daqui, os botões de quantidade travam enquanto o
+   * frete grava (e vice-versa), o dinheiro esmaece como em qualquer outra
+   * conta do servidor, e o carrinho que volta substitui o da tela inteiro.
+   * Quem chamou recebe a resposta de volta — as opções de entrega que a
+   * ação cotou são dela, não da sacola.
+   */
+  const comCarrinho = useCallback(
+    <T extends { carrinho?: CarrinhoVisivel }>(chamar: () => Promise<T>) =>
+      new Promise<T>((resolver, recusar) => {
+        comecar(async () => {
+          try {
+            const r = await chamar()
+            if (r.carrinho) setConfirmado(r.carrinho)
+            resolver(r)
+          } catch (e) {
+            recusar(e)
+          }
+        })
+      }),
+    []
+  )
+
   const valor = useMemo<Sacola>(
     () => ({
       carrinho,
@@ -231,9 +268,10 @@ export function ProvedorDaSacola({ children }: { children: ReactNode }) {
             ),
       tirar: (linhaId) => aplicar({ tipo: "remover", linhaId }, () => remover(linhaId)),
       recarregar,
+      comCarrinho,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [carrinho, aberta, ocupada, mexendo, erro, recarregar]
+    [carrinho, aberta, ocupada, mexendo, erro, recarregar, comCarrinho]
   )
 
   return <Contexto.Provider value={valor}>{children}</Contexto.Provider>

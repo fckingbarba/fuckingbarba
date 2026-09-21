@@ -5,6 +5,7 @@ import { Caminhao } from "@/components/icones"
 import { useFrete } from "@/components/configuracoes/contexto"
 import { cotarFrete, type Cotacao, type OpcaoCotada } from "@/lib/acoes/frete"
 import { mascararCep } from "@/lib/cep-formato"
+import { cepGuardado, guardarCep } from "@/lib/cep-guardado"
 import { fraseDoQueFalta } from "@/lib/configuracoes"
 import { emReais } from "@/lib/formato"
 
@@ -23,7 +24,8 @@ import { emReais } from "@/lib/formato"
  * │ sobre o mesmo assunto e o botão desce meia tela no celular.            │
  * │                                                                        │
  * │ Na SACOLA a conta é outra e as duas convivem: lá a barrinha é o        │
- * │ empurrão ("faltam R$ 50, olha o que completa") e esta é a resposta.    │
+ * │ empurrão ("faltam R$ 50, olha o que completa") e o bloco "Frete e      │
+ * │ prazo" é a resposta.                                                   │
  * └────────────────────────────────────────────────────────────────────────┘
  *
  * ┌─ TEM BOTÃO, E O BOTÃO NÃO É A ÚNICA COISA QUE COTA ────────────────────┐
@@ -41,32 +43,14 @@ import { emReais } from "@/lib/formato"
  * │ Quem já digitou uma vez não digita de novo: a próxima PDP, a sacola e  │
  * │ a visita de amanhã abrem com o CEP preenchido. É o mesmo que o         │
  * │ checkout vai pedir, então guardar adianta trabalho em vez de repetir.  │
- * │                                                                        │
- * │ `localStorage` é por navegador e some quando a pessoa limpa os dados — │
- * │ por isso toda leitura e escrita vai dentro de try/catch e a tela       │
- * │ funciona igual sem ele. Em modo anônimo o acesso LANÇA, não devolve    │
- * │ vazio.                                                                 │
+ * │ Quem lê e escreve é `lib/cep-guardado.ts`, o mesmo da sacola.          │
  * └────────────────────────────────────────────────────────────────────────┘
+ *
+ * ESTA É A CALCULADORA DA PÁGINA DE PRODUTO, e só dela. A sacola tem a sua
+ * (`components/sacola/entrega.tsx`), no desenho do protótipo: lá a pergunta
+ * é outra — não "quanto custa", mas "como você quer receber" —, e a escolha
+ * vira o frete do carrinho.
  */
-
-const GUARDADO = "fb_cep"
-
-function cepGuardado(): string {
-  try {
-    return localStorage.getItem(GUARDADO) ?? ""
-  } catch {
-    return ""
-  }
-}
-
-function guardarCep(cep: string) {
-  try {
-    localStorage.setItem(GUARDADO, cep)
-  } catch {
-    /* navegador sem armazenamento: a calculadora funciona igual, só não
-       lembra do CEP na próxima visita */
-  }
-}
 
 export type ItemPraCotar = { varianteId: string; quantidade: number }
 

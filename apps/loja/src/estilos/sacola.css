@@ -465,6 +465,200 @@
     height: 58px;
   }
 }
+.sacolinha__entrega-titulo {
+  margin: 0 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.sacolinha__entrega-titulo svg {
+  width: 13px;
+  height: 13px;
+  fill: var(--color-amarelo-escuro);
+  flex-shrink: 0;
+}
+.sacolinha__entrega {
+  padding: 14px 18px 12px;
+  border-top: 2px solid var(--color-tinta);
+  background: #f2f4f6;
+}
+.sacolinha__cep {
+  display: flex;
+  gap: 0;
+}
+.sacolinha__cep[hidden] {
+  display: none;
+}
+.sacolinha__cep input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 11px;
+  border: 2px solid var(--color-tinta);
+  border-right: none;
+  background: #ffffff;
+  color: var(--color-tinta);
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+}
+.sacolinha__cep input::placeholder {
+  color: #98a1ab;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+.sacolinha__cep input:focus-visible {
+  outline: 2px solid var(--color-amarelo-escuro);
+  outline-offset: -2px;
+}
+.sacolinha__cep input[aria-invalid="true"] {
+  border-color: #b3261e;
+}
+.sacolinha__cep-botao {
+  padding: 0 14px;
+  background: var(--color-tinta);
+  color: #ffffff;
+  border: 2px solid var(--color-tinta);
+  font-family: inherit;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%);
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+.sacolinha__cep-botao:hover {
+  background: var(--color-amarelo);
+  color: var(--color-tinta);
+}
+.sacolinha__cep-botao:focus-visible {
+  outline: 2px solid var(--color-amarelo-escuro);
+  outline-offset: 2px;
+}
+.sacolinha__cep-botao[aria-busy="true"] {
+  opacity: 0.7;
+  cursor: progress;
+}
+.sacolinha__cep-erro {
+  margin: 7px 0 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #b3261e;
+}
+.sacolinha__cep-ajuda {
+  margin: 8px 0 0;
+  font-size: 0.68rem;
+}
+.sacolinha__cep-ajuda a {
+  color: var(--color-tinta-suave);
+  text-underline-offset: 2px;
+}
+.sacolinha__cep-ajuda a:hover {
+  color: var(--color-tinta);
+}
+.sacolinha__opcoes {
+  margin: 10px 0 0;
+  padding: 0;
+  border: none;
+  display: grid;
+  gap: 6px;
+}
+.sacolinha__opcao {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 11px;
+  border: 2px solid rgba(18, 24, 31, 0.28);
+  background: #ffffff;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+.sacolinha__opcao:hover {
+  border-color: var(--color-tinta);
+}
+.sacolinha__opcao:has(input:checked) {
+  border-color: var(--color-tinta);
+  background: #fffbe6;
+}
+.sacolinha__opcao:has(input:focus-visible) {
+  outline: 2px solid var(--color-amarelo-escuro);
+  outline-offset: 2px;
+}
+.sacolinha__opcao input {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  border: 2px solid var(--color-tinta);
+  background: #ffffff;
+  transform: rotate(45deg);
+  cursor: pointer;
+}
+.sacolinha__opcao input:checked {
+  background: var(--color-tinta);
+  box-shadow: inset 0 0 0 3px #ffffff;
+}
+.sacolinha__opcao-nome {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.sacolinha__opcao-prazo {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--color-tinta-suave);
+}
+.sacolinha__opcao-preco {
+  font-size: 0.84rem;
+  font-weight: 800;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.sacolinha__opcao-preco[data-gratis] {
+  color: #0b7f62;
+}
+.sacolinha__opcao-preco s {
+  display: block;
+  font-size: 0.64rem;
+  font-weight: 600;
+  color: var(--color-tinta-suave);
+  text-align: right;
+}
+.sacolinha__cep-ok {
+  margin: 10px 0 0;
+  font-size: 0.7rem;
+  color: var(--color-tinta-suave);
+}
+.sacolinha__cep-ok b {
+  color: var(--color-tinta);
+  font-weight: 800;
+}
+.sacolinha__cep-ok button {
+  padding: 0 0 0 4px;
+  background: none;
+  border: none;
+  color: var(--color-tinta);
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
 .sacolinha__topo {
   position: relative;
 }
@@ -579,16 +773,32 @@
 }
 
 /*
-  A CALCULADORA DE CEP DENTRO DA GAVETA.
+  O QUE O BLOCO "FRETE E PRAZO" TEM E O PROTÓTIPO NÃO TINHA.
 
-  Ela é o mesmo componente da página de produto, e aqui só precisa de
-  respiro e de não brigar com a borda do rodapé. O `--color-cinza` de fundo
-  separa o bloco da lista de itens logo acima sem precisar de mais uma linha.
+  Escrito à mão. O resto do bloco é o CSS do protótipo, logo acima, movido
+  do `sacola-adiado.css` na ordem em que estava.
+
+  - A ressalva da EMERGÊNCIA: quando a transportadora não responde, o preço
+    é o que a loja arbitrou, e a tela precisa dizer isso. O protótipo
+    simulava a cotação e nunca caía.
+  - "Dias úteis, contados da postagem.", antes do "Não sei meu CEP": o
+    prazo da transportadora começa quando o pacote é postado, e é a
+    reclamação número um de quem compra pela internet. Mesmo cinza do link,
+    pra linha continuar lendo como nota de rodapé.
+  - O SUBLINHADO do "Não sei meu CEP". No protótipo ele vinha do navegador;
+    aqui o preflight do Tailwind tira (`text-decoration: inherit`), e com a
+    nota do prazo do lado, no mesmo cinza, o link passaria a se distinguir
+    do texto só pela cor — é a falha de WCAG 1.4.1 que o rodapé já teve.
 */
-.sacolinha__cep {
-  padding: 0 16px 14px;
-  background: var(--color-cinza);
+.sacolinha__cep-aviso {
+  margin: 8px 0 0;
+  font-size: 0.68rem;
+  line-height: 1.4;
+  color: var(--color-tinta-suave);
 }
-.sacolinha__cep .cep {
-  margin: 0;
+.sacolinha__cep-ajuda span {
+  color: var(--color-tinta-suave);
+}
+.sacolinha__cep-ajuda a {
+  text-decoration: underline;
 }

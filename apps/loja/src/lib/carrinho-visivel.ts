@@ -37,6 +37,23 @@ export type CarrinhoVisivel = {
   /** soma das quantidades — é o número do cabeçalho, não o de linhas */
   unidades: number
   subtotal: number
+  /**
+   * O que os produtos custam DEPOIS do desconto — o `item_total` do Medusa,
+   * que é a soma das linhas que a gaveta mostra. É ele que aparece como
+   * "Subtotal" no pé quando existe frete: com ele, subtotal + frete dá o
+   * total que está logo embaixo. Com o `subtotal` de cima (antes do
+   * desconto), um cupom faria a conta da tela não fechar.
+   */
+  totalDosItens: number
+  /**
+   * O frete que o carrinho JÁ TEM, em reais — `null` quando nenhuma entrega
+   * foi escolhida, que é diferente de zero (zero é frete grátis).
+   */
+  frete: number | null
+  /** id da opção de frete pendurada no carrinho, se houver. */
+  freteEscolhido: string | null
+  /** O CEP de entrega gravado no carrinho, só dígitos. Vazio se não há. */
+  cep: string
   total: number
 }
 
@@ -45,5 +62,9 @@ export const CARRINHO_VAZIO: CarrinhoVisivel = {
   itens: [],
   unidades: 0,
   subtotal: 0,
+  totalDosItens: 0,
+  frete: null,
+  freteEscolhido: null,
+  cep: "",
   total: 0,
 }

@@ -92,13 +92,11 @@ RAIZES = {
 # regras de volta (ou passar a importar o arquivo), com a ORDEM DE ORIGEM
 # intacta — que é o que o recorte à mão sempre estraga.
 ADIADAS = {
-    # A gaveta subiu sem o cálculo de frete (depende do Frenet, fase 5), sem
-    # o cross-sell "leve junto" e sem o desfazer de remoção.
+    # A gaveta subiu sem o cross-sell "leve junto" e sem o desfazer de
+    # remoção. O bloco "Frete e prazo" (`sacolinha__entrega`, `__cep`,
+    # `__opcao`, `__opcoes`) saiu daqui quando a cotação da Frenet entrou —
+    # a marcação dele é `components/sacola/entrega.tsx`.
     "sacola": [
-        "sacolinha__cep",
-        "sacolinha__entrega",
-        "sacolinha__opcao",
-        "sacolinha__opcoes",
         "sacolinha__leve",
         "sacolinha__desfazer",
         "voo",
@@ -113,9 +111,13 @@ def faz_adiada(nome):
 
     def adiada(sel):
         # Aqui o casamento é por prefixo cru, e não com fronteira de palavra
-        # como no `faz_filtro`: os nomes já vêm completos ("sacolinha__cep") e
-        # o que pende deles é sufixo com hífen — `-botao`, `-erro`, `-ajuda`.
-        # Com fronteira, `.sacolinha__cep-botao` escapava e sobrava CSS órfão.
+        # como no `faz_filtro`: os nomes já vêm completos ("sacolinha__leve") e
+        # o que pende deles é sufixo com hífen — `-titulo`, `-lista`, `-add`.
+        # Com fronteira, `.sacolinha__leve-add` escapava e sobrava CSS órfão.
+        #
+        # `sel` é UM seletor, nunca a lista: o `filtra` separa as vírgulas
+        # antes. É por isso que `.sacolinha__leve-titulo, .sacolinha__entrega-
+        # titulo` sai em duas regras, uma em cada arquivo.
         s = sel.strip()
         return any(s.startswith("." + p) for p in prefixos)
 

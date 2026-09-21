@@ -4,17 +4,12 @@ import Image from "next/image"
 import Link from "next/link"
 import { useEffect, useRef } from "react"
 import { Fechar, Lixeira, Mais, Raio, Sacola as IconeSacola } from "@/components/icones"
-import { CalculadoraDeFrete } from "@/components/produto/calculadora"
 import { useSacola } from "@/components/sacola/contexto"
+import { FreteEPrazo } from "@/components/sacola/entrega"
 import { useFrete } from "@/components/configuracoes/contexto"
 import { faltaPraPromocao, frasesDoFrete, progressoDaPromocao } from "@/lib/configuracoes"
 import { emReais } from "@/lib/formato"
-import {
-  DESTINO_DO_CHECKOUT,
-  EM_BREVE,
-  PARCELA_MINIMA,
-  PARCELAS_SEM_JUROS,
-} from "@/lib/site"
+import { DESTINO_DO_CHECKOUT, EM_BREVE, PARCELA_MINIMA, PARCELAS_SEM_JUROS } from "@/lib/site"
 
 /**
  * A GAVETA DA SACOLA
@@ -219,32 +214,18 @@ export function Gaveta() {
               </li>
             ))}
           </ul>
+
+          {/*
+            FRETE E PRAZO, no desenho do protótipo — e DENTRO do corpo que
+            rola, como lá: só o topo e o pé ficam presos, pra ninguém perder
+            o "Finalizar compra" de vista numa sacola comprida.
+
+            Convive com a barrinha lá de cima: ela é o empurrão ("faltam
+            R$ 50 pro frete grátis"); este bloco é a resposta — quanto custa,
+            em quantos dias chega, e qual das entregas vai no pedido.
+          */}
+          {vazia ? null : <FreteEPrazo />}
         </div>
-
-        {/*
-          A CALCULADORA TAMBÉM AQUI, e aqui ela CONVIVE com a barrinha.
-
-          Na página do produto a barrinha saiu pra ela entrar: as duas
-          disputavam o mesmo lugar e a mesma pergunta. Na sacola as duas
-          perguntas são diferentes e as duas valem — a barrinha lá em cima
-          diz "faltam R$ 50 pro frete grátis", que é o empurrão; esta diz
-          quanto custa e em quantos dias chega, que é a resposta.
-
-          Ela cota o que está DENTRO da sacola, e não o que a PDP tinha
-          selecionado: é o frete que o checkout vai cobrar daqui a duas
-          telas, e é aqui que ele precisa bater.
-        */}
-        {carrinho.itens.length ? (
-          <div className="sacolinha__cep">
-            <CalculadoraDeFrete
-              titulo="Frete e prazo"
-              itens={carrinho.itens.map((i) => ({
-                varianteId: i.varianteId,
-                quantidade: i.quantidade,
-              }))}
-            />
-          </div>
-        ) : null}
 
         <div className="sacolinha__pe">
           {/*
@@ -256,9 +237,30 @@ export function Gaveta() {
             {erro ?? ""}
           </p>
 
+          {/*
+            SUBTOTAL E FRETE NUMA LINHA, como no protótipo — só quando o
+            carrinho TEM frete. Os três números são do Medusa: o subtotal é o
+            dos produtos já com desconto, e com ele subtotal + frete fecha
+            com o total de baixo. Sem frete escolhido, a linha some e o
+            rótulo diz "Subtotal", que é o que o número é.
+          */}
+          <p className="sacolinha__detalhe" hidden={carrinho.frete === null}>
+            <span>
+              Subtotal <b>{emReais(carrinho.totalDosItens)}</b>
+            </span>
+            <span>
+              Frete{" "}
+              <b data-gratis={carrinho.frete === 0 ? "" : undefined}>
+                {carrinho.frete === 0 ? "Grátis" : emReais(carrinho.frete ?? 0)}
+              </b>
+            </span>
+          </p>
+
           <p className="sacolinha__soma">
             <span className="sacolinha__soma-esq">
-              <span className="sacolinha__soma-rotulo">Subtotal</span>
+              <span className="sacolinha__soma-rotulo">
+                {carrinho.frete === null ? "Subtotal" : "Total"}
+              </span>
               <Parcela total={carrinho.total} />
             </span>
             <span className="sacolinha__soma-valor">{emReais(carrinho.total)}</span>

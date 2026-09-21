@@ -26,6 +26,10 @@ import { cotar, ErroDaFrenet, escolherFaixas, soDigitos } from "../../../modules
  * │ nada — o contrato do provedor é `{ calculated_amount }` —, então o     │
  * │ "Correios PAC · 8 dias úteis" que a Frenet manda se perdia no caminho. │
  * │ Aqui não há esse funil, e o cliente vê quem entrega e em quantos dias. │
+ * │                                                                        │
+ * │ E o PREÇO CHEIO de quem ganhou frete grátis: o Medusa devolve o preço  │
+ * │ que vale agora, zero, e esquece o resto. A sacola risca o cheio ao     │
+ * │ lado do "Grátis", e esse número só existe aqui.                        │
  * └────────────────────────────────────────────────────────────────────────┘
  *
  * O PREÇO DAQUI E O DO CHECKOUT SÃO O MESMO NÚMERO porque saem das mesmas
@@ -40,12 +44,23 @@ type FaixaNaResposta = {
   faixa: "economica" | "expressa"
   nome: string
   preco: number
+  /**
+   * O que a faixa custaria SEM a política — só quando a política baixou o
+   * preço. É o número riscado ao lado de "Grátis" na sacola, e ele não é
+   * enfeite: sem ele o frete grátis vira um zero, e economia que não se vê
+   * não convence ninguém. `null` quando o preço já é o cheio — riscar um
+   * número igual ao do lado não diria nada.
+   */
+  precoCheio: number | null
   /** `null` na emergência: sem cotação, ninguém sabe quem entrega. */
   transportadora: string | null
   servico: string | null
   /** Texto pronto: "8 dias úteis". Na emergência, o que o admin escreveu. */
   prazo: string | null
 }
+
+/** A faixa antes da política — o `precoCheio` só existe depois dela. */
+type FaixaCotada = Omit<FaixaNaResposta, "precoCheio">
 
 /**
  * "Econômico" e "Expresso", e não "Correios PAC".
@@ -67,6 +82,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     cep?: unknown
     itens?: unknown
     region_id?: unknown
+    cart_id?: unknown
   }
 
   const cep = soDigitos(String(corpo.cep ?? ""))
@@ -100,8 +116,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
       entity: "region",
       fields: ["id", "currency_code"],
     })
-    const regiao =
-      regioes.find((r) => r.id === corpo.region_id) ?? regioes[0]
+    const regiao = regioes.find((r) => r.id === corpo.region_id) ?? regioes[0]
     if (!regiao) {
       res.status(503).json({ erro: "sem_regiao" })
       return
@@ -109,15 +124,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
 
     const { data: variantes } = await query.graph({
       entity: "variant",
-      fields: [
-        "id",
-        "sku",
-        "weight",
-        "length",
-        "width",
-        "height",
-        "calculated_price.calculated_amount",
-      ],
+      fields: ["id", "weight", "length", "width", "height", "calculated_price.calculated_amount"],
       filters: { id: pedidos.map((p) => p.id) },
       context: {
         calculated_price: QueryContext({
@@ -148,7 +155,14 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
           largura: Number(v.width ?? 0) || 0,
           altura: Number(v.height ?? 0) || 0,
           quantidade: p.quantidade,
-          ...(v.sku ? { sku: v.sku as string } : {}),
+          /*
+            SEM SKU, de propósito. O frete que o carrinho cobra é cotado
+            pelo provedor, com o contexto que o Medusa monta — e esse
+            contexto não traz o SKU da variante. Mandar o SKU só daqui
+            seria a vitrine fazendo uma pergunta diferente da que o
+            checkout faz; e perguntas iguais, além de darem o mesmo preço,
+            dividem a mesma viagem à Frenet (ver `cotar`).
+          */
         },
       ]
     })
@@ -173,7 +187,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     })
     const origem = locais.find((l) => l.address?.postal_code)?.address?.postal_code
 
-    let faixas: FaixaNaResposta[] = []
+    let faixas: FaixaCotada[] = []
     let emergencia = false
 
     /*
@@ -204,6 +218,17 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
         valor: subtotal,
         itens,
         tempoLimite: Number(process.env.FRENET_TEMPO_LIMITE_MS || 6000),
+        /*
+          A sacola manda o id do carrinho: a entrega que ela pendura em
+          seguida faz o Medusa cotar a mesma pergunta, e com o carrinho na
+          chave as duas dividem a viagem. A PDP não tem carrinho e não manda.
+          O id só entra na chave do cache — preço, itens e CEP continuam
+          vindo do corpo e do banco, como sempre.
+        */
+        carrinho:
+          typeof corpo.cart_id === "string" && /^cart_[A-Za-z0-9]+$/.test(corpo.cart_id)
+            ? corpo.cart_id
+            : null,
       })
 
       const escolhidas = escolherFaixas(servicos)
@@ -274,8 +299,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
           FRASE é montada na loja, pelo `fraseDoQueFalta`, que já sabe
           escrever tanto "pro frete grátis" quanto "pro frete de R$ 9,90".
         */
-        faltaPraGratis:
-          politica.modo === "nenhuma" ? null : Math.max(0, politica.piso - subtotal),
+        faltaPraGratis: politica.modo === "nenhuma" ? null : Math.max(0, politica.piso - subtotal),
         /*
           As duas viram UMA quando caem no mesmo serviço — mesmo preço, mesma
           transportadora, mesmo prazo. Mostrar duas linhas idênticas faz a
@@ -283,7 +307,10 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
           dá pra fazer (as opções são cadastradas no Medusa); aqui dá.
         */
         opcoes: enxugar(
-          faixas.map((f) => ({ ...f, preco: precoPorFaixa.get(f.faixa) ?? f.preco }))
+          faixas.map((f) => {
+            const preco = precoPorFaixa.get(f.faixa) ?? f.preco
+            return { ...f, preco, precoCheio: preco < f.preco ? f.preco : null }
+          })
         ),
       },
     })
@@ -299,4 +326,3 @@ function enxugar(opcoes: FaixaNaResposta[]): FaixaNaResposta[] {
   const iguais = a.preco === b.preco && a.transportadora === b.transportadora && a.prazo === b.prazo
   return iguais ? [{ ...a, nome: "Entrega" }] : opcoes
 }
-

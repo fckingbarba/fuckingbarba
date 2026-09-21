@@ -67,37 +67,14 @@ const FAIXAS: { id: Faixa; nome: string }[] = [
   { id: "expressa", nome: "Entrega expressa" },
 ]
 
-/**
- * A COTAÇÃO É UMA SÓ, MESMO SENDO DUAS OPÇÕES.
- *
- * O Medusa pergunta o preço de cada opção em paralelo (`promiseAll`), então
- * sem isto cada abertura do checkout bate duas vezes na Frenet com o mesmo
- * corpo — duas vezes o tempo de espera do cliente, e duas vezes o consumo da
- * conta. O cache guarda a PROMESSA, não o resultado, pra que a segunda
- * chamada entre na mesma viagem em vez de começar outra.
- *
- * Vida curta de propósito: é pra unir chamadas do mesmo instante, não pra
- * servir frete velho. Preço de frete muda quando o carrinho muda, e a chave
- * já inclui o carrinho — mas o tempo curto é o cinto de segurança pra quando
- * a chave esquecer de incluir alguma coisa.
+/*
+ * A COTAÇÃO É UMA SÓ, MESMO SENDO DUAS OPÇÕES — e isso agora é trabalho do
+ * `cotar`, no `client.ts`. Morava aqui e só unia as duas opções do mesmo
+ * carrinho. Lá, com a chave sendo a pergunta inteira mais o carrinho, ela
+ * une também a rota `/store/frete` quando a rota pergunta PELO carrinho: o
+ * bloco de frete da sacola cota pela rota e em seguida pendura a entrega, e
+ * as duas perguntas são a mesma.
  */
-const VIAGENS = new Map<string, { quando: number; promessa: Promise<ServicoCotado[]> }>()
-const VALIDADE = 10_000
-
-function deUmaViagemSo(chave: string, fazer: () => Promise<ServicoCotado[]>) {
-  const agora = Date.now()
-  for (const [k, v] of VIAGENS) if (agora - v.quando > VALIDADE) VIAGENS.delete(k)
-
-  const guardada = VIAGENS.get(chave)
-  if (guardada) return guardada.promessa
-
-  const promessa = fazer()
-  VIAGENS.set(chave, { quando: agora, promessa })
-  /* Falha não fica no cache: o próximo pedido tenta de novo em vez de herdar
-     um erro de dez segundos atrás. */
-  promessa.catch(() => VIAGENS.delete(chave))
-  return promessa
-}
 
 export default class FrenetFulfillmentService extends AbstractFulfillmentProviderService {
   static identifier = "frenet"
@@ -164,6 +141,23 @@ export default class FrenetFulfillmentService extends AbstractFulfillmentProvide
     _data: CalculateShippingOptionPriceDTO["data"],
     context: CalculateShippingOptionPriceDTO["context"]
   ): Promise<CalculatedShippingOptionPrice> {
+    /*
+      CARRINHO VAZIO NÃO TEM O QUE MANDAR, e não se cota.
+
+      O Medusa refaz o frete pendurado a cada mudança no carrinho — inclusive
+      quando sai o ÚLTIMO item. Cotação sem item lança ("cotação sem itens"),
+      e sem preço de emergência esse lançamento derrubava a remoção inteira:
+      a pessoa apertava a lixeira, recebia erro, e o produto continuava lá.
+      Com a sacola pendurando a entrega logo no primeiro CEP, isso deixou de
+      ser caso raro de quem voltou do checkout.
+
+      O zero aqui nunca é cobrado: carrinho sem item não vira pedido, e o
+      próximo item que entrar refaz a conta.
+    */
+    if (!(context.items ?? []).length) {
+      return { calculated_amount: 0, is_calculated_price_tax_inclusive: true }
+    }
+
     const faixa: Faixa = optionData?.faixa === "expressa" ? "expressa" : "economica"
     const nosso = (context as Record<string, unknown>)[CHAVE_NO_CONTEXTO] as
       ContextoDoFrete | undefined
@@ -278,21 +272,15 @@ export default class FrenetFulfillmentService extends AbstractFulfillmentProvide
     }
     if (!destino) throw new ErroDaFrenet("carrinho ainda sem CEP de entrega", false)
 
-    const itens = itensPraCotar(context)
-    const valor = somaDosProdutos(context)
-
-    const chave = JSON.stringify([context.id, origem, destino, itens])
-
-    return deUmaViagemSo(chave, () =>
-      cotar({
-        token: this.token,
-        cepDeOrigem: origem,
-        cepDeDestino: destino,
-        valor,
-        itens,
-        tempoLimite: this.tempoLimite,
-      })
-    )
+    return cotar({
+      token: this.token,
+      cepDeOrigem: origem,
+      cepDeDestino: destino,
+      valor: somaDosProdutos(context),
+      itens: itensPraCotar(context),
+      tempoLimite: this.tempoLimite,
+      carrinho: context.id,
+    })
   }
 
   /**
@@ -342,19 +330,22 @@ function somaDosProdutos(context: CalculateShippingOptionPriceDTO["context"]): n
  * cima do zero — ou seja, cota como se fosse a menor caixa possível. É o
  * chute menos ruim, e o `medidas.ts` existe pra que ele nunca aconteça: ele
  * lista o que está faltando em vez de deixar passar.
+ *
+ * SEM SKU: o contexto que o Medusa monta pra este método não traz o SKU da
+ * variante (a linha que tentava ler dele nunca achou nada). A rota
+ * `/store/frete` também não manda, pra fazer à Frenet exatamente a pergunta
+ * que este método faz — mesma pergunta, mesmo preço, e uma viagem só.
  */
 function itensPraCotar(context: CalculateShippingOptionPriceDTO["context"]): ItemPraCotar[] {
   return (context.items ?? []).map((item) => {
     const v = item.variant as
-      | { weight?: number; length?: number; width?: number; height?: number; sku?: string }
-      | undefined
+      { weight?: number; length?: number; width?: number; height?: number } | undefined
     return {
       pesoEmGramas: Number(v?.weight ?? 0) || 0,
       comprimento: Number(v?.length ?? 0) || 0,
       largura: Number(v?.width ?? 0) || 0,
       altura: Number(v?.height ?? 0) || 0,
       quantidade: Number(item.quantity ?? 1) || 1,
-      ...(v?.sku ? { sku: v.sku } : {}),
     }
   })
 }
