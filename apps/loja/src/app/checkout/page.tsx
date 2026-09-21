@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import Link from "next/link"
+import { redirect } from "next/navigation"
 import { Suspense } from "react"
 import { Etapas } from "@/components/checkout/etapas"
 import { Cadeado, Raio } from "@/components/icones"
@@ -10,6 +11,7 @@ import {
   listarProvedores,
   listarSugestoes,
 } from "@/lib/checkout"
+import { carrinhoFechado } from "@/lib/carrinho"
 import { faltaPraGratis } from "@/lib/checkout-visivel"
 import { site } from "@/lib/site"
 import { configuracoes } from "@/lib/medusa"
@@ -75,6 +77,10 @@ export default function Pagina() {
 async function Conteudo() {
   const checkout = await lerCheckout()
 
+  // Carrinho que já virou pedido, com a confirmação perdida no caminho: vai
+  // buscar o pedido em vez de dizer "sacola vazia" — senão a pessoa compra
+  // de novo. Ver `/checkout/retomar`.
+  if (!checkout && (await carrinhoFechado())) redirect("/checkout/retomar")
   if (!checkout || checkout.itens.length === 0) return <Vazio />
 
   const jaNoCarrinho = new Set(checkout.itens.map((i) => i.varianteId))
@@ -136,8 +142,8 @@ function Vazio() {
     <div className="bloco checkout__vazio">
       <h1>Sua sacola está vazia</h1>
       <p>
-        Pode ser que a compra já tenha sido fechada, ou que o carrinho tenha expirado. Os dois
-        acontecem, e nenhum dos dois cobrou nada de você.
+        Ou a compra já foi fechada — e aí o pedido está na tela de confirmação que abriu depois do
+        pagamento —, ou o carrinho expirou, e nada foi cobrado.
       </p>
       <Link className="btn" href="/">
         Ver os produtos

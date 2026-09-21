@@ -30,6 +30,7 @@
 import { readFileSync } from "node:fs"
 import { chromium } from "playwright"
 import { subirFrenetFalsa } from "./frenet-falsa.mjs"
+import { subirPagarmeFalso } from "./pagarme-falso.mjs"
 
 /**
  * `localhost`, e NÃO `127.0.0.1`: o `next dev` recusa POST de origem que não
@@ -117,6 +118,16 @@ async function medusa(caminho) {
   O backend precisa estar rodando com FRENET_URL apontando pra cá.
 */
 const frenet = await subirFrenetFalsa()
+
+/*
+  E O PAGAR.ME FALSO, pelo mesmo motivo: este teste é sobre o checkout, não
+  sobre a cobrança (quem cuida dela é o `conferir-pagamento.mjs`). Mas se a
+  região estiver com o Pagar.me ligado, fechar o pedido cria um Pix — e sem
+  ninguém do outro lado, o fechamento falharia por um motivo que não é o
+  que este arquivo procura. Com o provisório (`pp_system_default`), ele fica
+  aqui parado.
+*/
+const pagarme = await subirPagarmeFalso()
 
 /*
   O PREÇO DE UMA OPÇÃO CALCULADA NÃO VEM NA LISTAGEM.
@@ -462,13 +473,22 @@ ok(true, "endereço e frete salvos de uma vez, e o passo 3 abre")
 /* ── 4. passo 3: as formas, o bump e o pedido ─────────────────────────────── */
 
 titulo("Passo 3 — pagamento")
+const regiaoId = (await medusa(`/store/carts/${carrinhoId}?fields=region_id`))?.cart?.region_id
+const { payment_providers: provedores = [] } =
+  (await medusa(`/store/payment-providers?region_id=${regiaoId}`)) ?? {}
+const cobra = provedores.some((p) => p.id === "pp_pagarme_pagarme")
+console.log(`    (região com ${provedores.map((p) => p.id).join(", ") || "nenhum provedor"})`)
 ok(
-  (await pagina.locator("#form-pagamento .opcao").count()) === 3,
-  "as três formas aparecem: Pix, cartão e boleto"
+  (await pagina.locator("#form-pagamento .opcao").count()) === 2,
+  "as duas formas aparecem: Pix e cartão — boleto não entrou no lançamento"
 )
 ok(
-  (await pagina.locator(".pagamento__aviso").count()) > 0,
-  "e a tela avisa, em negrito, que este pedido não é cobrado agora"
+  cobra
+    ? (await pagina.locator(".pagamento__aviso").count()) === 0
+    : (await pagina.locator(".pagamento__aviso").count()) > 0,
+  cobra
+    ? "com o Pagar.me, sem aviso de 'não é cobrado' — é"
+    : "e, com o provisório, a tela avisa em negrito que o pedido não é cobrado agora"
 )
 
 await pagina.locator("#form-pagamento .opcao", { hasText: "Cartão" }).locator("input").check()
@@ -547,6 +567,9 @@ ok(
 
 titulo("O pedido")
 const totalAntesDeFechar = Number(comBump.total)
+// De volta pro Pix: o cartão lá em cima ficou com um número recusado pelo
+// Luhn de propósito, e com o Pagar.me ligado o envio pararia nele.
+await pagina.locator("#form-pagamento .opcao", { hasText: "Pix" }).locator("input").check()
 await pagina.locator("#form-pagamento button[type=submit]").click()
 await pagina.waitForURL(/\/checkout\/obrigado\//, { timeout: 30000 })
 
@@ -643,5 +666,6 @@ ok(errosDeConsole.length === 0, "nenhum erro no console", errosDeConsole.slice(0
 
 await navegador.close()
 frenet.fechar()
+pagarme.fechar()
 console.log(`\n${testes - falhas}/${testes} passaram`)
 process.exit(falhas ? 1 : 0)

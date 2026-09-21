@@ -26,7 +26,8 @@
     "backend:configuracoes": "npm run configuracoes -w @fuckingbarba/backend",
     "backend:pdp": "npm run pdp -w @fuckingbarba/backend",
     "backend:medidas": "npm run medidas -w @fuckingbarba/backend",
-    "backend:origem": "npm run origem -w @fuckingbarba/backend"
+    "backend:origem": "npm run origem -w @fuckingbarba/backend",
+    "backend:pagamento": "npm run pagamento -w @fuckingbarba/backend --"
   },
   "devDependencies": {
     "@medusajs/eslint-plugin": "2.21.0",

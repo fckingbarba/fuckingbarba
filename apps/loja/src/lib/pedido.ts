@@ -3,7 +3,9 @@ import { cookies } from "next/headers"
 import type { ItemDoCarrinho } from "./carrinho-visivel"
 import { mascararCep } from "./cep-formato"
 import { COOKIE_PEDIDO } from "./checkout"
+import type { PagamentoVisivel } from "./checkout-visivel"
 import { cliente } from "./medusa"
+import { CAMPOS_DO_PAGAMENTO, lerPagamento } from "./pagamento"
 
 /**
  * O PEDIDO FECHADO
@@ -11,6 +13,28 @@ import { cliente } from "./medusa"
  * Leitura só. Depois do `complete` o pedido é do Medusa e a loja não mexe mais
  * nele — o que muda dali pra frente (pagamento, separação, envio) muda lá.
  */
+
+/**
+ * Só o que muda depois do pedido fechado: se foi pago, se foi cancelado. É
+ * o que a tela de obrigado pergunta de tempos em tempos enquanto o Pix não
+ * cai — e por isso é leve, sem itens nem endereço.
+ */
+export async function situacaoDoPedido(
+  id: string
+): Promise<{ pago: boolean; cancelado: boolean } | null> {
+  const sdk = cliente()
+  if (!sdk) return null
+  try {
+    const { order } = await sdk.store.order.retrieve(id, { fields: "id,status,payment_status" })
+    if (!order) return null
+    return {
+      pago: order.payment_status === "captured" || order.payment_status === "authorized",
+      cancelado: order.status === "canceled",
+    }
+  } catch {
+    return null
+  }
+}
 
 export type PedidoVisivel = {
   id: string
@@ -32,12 +56,18 @@ export type PedidoVisivel = {
     cep: string
   } | null
   formaDeEntrega: string
+  /**
+   * O Pix esperando, o cartão aprovado, o pedido cancelado — ver
+   * `lerPagamento`. Os dados do Pix e do cartão são da sessão de pagamento,
+   * que o provedor limpou de dado pessoal quando o pedido nasceu.
+   */
+  pagamento: PagamentoVisivel
 }
 
 const CAMPOS =
   "id,display_id,email,created_at,currency_code,subtotal,item_subtotal,item_total," +
   "discount_total,shipping_total,total,*items,*items.variant,*items.product," +
-  "*shipping_methods,*shipping_address"
+  `*shipping_methods,*shipping_address,${CAMPOS_DO_PAGAMENTO}`
 
 /**
  * Quem acabou de comprar vê o pedido inteiro; quem só tem o link, não.
@@ -102,6 +132,7 @@ export async function lerPedido(id: string): Promise<PedidoVisivel | null> {
           }
         : null,
       formaDeEntrega: order.shipping_methods?.[0]?.name ?? "",
+      pagamento: lerPagamento(order),
     }
   } catch (erro) {
     console.warn(`[pedido] ${id}: ${erro instanceof Error ? erro.message : String(erro)}`)

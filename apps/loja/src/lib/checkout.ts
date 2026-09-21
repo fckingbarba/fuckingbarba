@@ -1,7 +1,9 @@
 import "server-only"
 import type { HttpTypes } from "@medusajs/types"
+import { cookies } from "next/headers"
+import { redirect } from "next/navigation"
 import { BUMP } from "@/conteudo/checkout"
-import { lerCarrinho, paraVisivel } from "./carrinho"
+import { COOKIE_CARRINHO, lerCarrinho, paraVisivel } from "./carrinho"
 import { mascararCep } from "./cep-formato"
 import {
   ENDERECO_VAZIO,
@@ -198,12 +200,17 @@ export async function listarFretes(carrinhoId: string): Promise<OpcaoDeFrete[]> 
 /**
  * COMO CADA MEIO DE PAGAMENTO SE CHAMA NA TELA.
  *
- * O Medusa devolve id de provedor (`pp_system_default`, e um dia
- * `pp_pagarme_pagarme`) e mais nada — nome e explicação são nossos. Quem não
+ * O Medusa devolve id de provedor (`pp_pagarme_pagarme`, ou o provisório
+ * `pp_system_default`) e mais nada — nome e explicação são nossos. Quem não
  * estiver nesta lista aparece com o id cru em vez de sumir: provedor ligado no
  * painel e invisível na loja é o tipo de bug que ninguém encontra.
  */
 const NOMES: Record<string, Omit<ProvedorDePagamento, "id">> = {
+  pp_pagarme_pagarme: {
+    nome: "Pix ou cartão",
+    descricao: "Pix na hora, ou cartão de crédito em até 3x sem juros, pelo Pagar.me.",
+    simbolico: false,
+  },
   pp_system_default: {
     nome: "Combinar com a loja",
     descricao:
@@ -370,3 +377,22 @@ export const OPCOES_COOKIE_PEDIDO = {
   path: "/",
   maxAge: UMA_SEMANA,
 } as const
+
+/**
+ * Entrega o pedido a quem acabou de comprar: apaga a sacola, dá o crachá e
+ * leva pra tela de obrigado. Só roda onde o Next deixa gravar cookie — ação
+ * e route handler (a ação de finalizar e o `/checkout/retomar`).
+ *
+ * `redirect` LANÇA: nada depois da chamada roda, e ela fica fora de qualquer
+ * try/catch, senão o catch engole a navegação.
+ */
+export async function abrirPedido(pedidoId: string): Promise<never> {
+  const jar = await cookies()
+  // A sacola acabou. Sem isto, quem comprou volta pro site e encontra a
+  // própria compra parada na gaveta.
+  jar.delete(COOKIE_CARRINHO)
+  // O crachá de quem comprou — a tela de obrigado só mostra endereço,
+  // documento e o QR do Pix pra quem tem ele.
+  jar.set(COOKIE_PEDIDO, pedidoId, OPCOES_COOKIE_PEDIDO)
+  redirect(`/checkout/obrigado/${pedidoId}`)
+}

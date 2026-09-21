@@ -1,3 +1,5 @@
+import { PARCELAS_SEM_JUROS } from "@/lib/site"
+
 /**
  * O QUE O CHECKOUT DIZ
  *
@@ -97,10 +99,10 @@ export const CONFIANCA: Garantia[] = [
   { icone: "escudo", texto: "7 dias pra trocar ou devolver" },
 ]
 
-/* ── as três formas de pagamento do protótipo ─────────────────────────────── */
+/* ── as formas de pagamento ───────────────────────────────────────────────── */
 
 export type FormaDePagamento = {
-  id: "pix" | "cartao" | "boleto"
+  id: "pix" | "cartao"
   nome: string
   descricao: string
   /** Selo amarelo em cima da linha. Vazio, some. */
@@ -108,11 +110,17 @@ export type FormaDePagamento = {
 }
 
 /**
- * O DESENHO das três formas. Quais delas a pessoa pode de fato escolher é
- * outra conversa, e quem responde é o Medusa: `lib/checkout.ts` só deixa
- * aparecer a forma que tem provedor de pagamento ligado.
+ * Pix e cartão — as duas que o Pagar.me cobra na loja (`pp_pagarme_pagarme`).
  *
- * Enquanto o Pagar.me não entrar, nenhuma delas cobra — e a tela diz isso.
+ * O protótipo tinha boleto também, e ele ficou de fora do lançamento por
+ * escolha: boleto segura o estoque por dias esperando uma compensação que
+ * pode nunca vir, e o Pix faz o mesmo papel (pagar sem cartão) em segundos.
+ * Voltar com ele é decisão comercial, não só uma linha aqui — o provedor do
+ * backend também teria que saber gerar boleto.
+ *
+ * Sem desconto no Pix, também de propósito: o valor das duas linhas é o
+ * total do Medusa, igual. Desconto que existisse só aqui seria um preço que
+ * o Pagar.me não cobraria.
  */
 export const FORMAS: FormaDePagamento[] = [
   {
@@ -123,12 +131,7 @@ export const FORMAS: FormaDePagamento[] = [
   {
     id: "cartao",
     nome: "Cartão de crédito",
-    descricao: "Em até 3x sem juros.",
-  },
-  {
-    id: "boleto",
-    nome: "Boleto",
-    descricao: "Vence em 3 dias. O pedido sai após a compensação.",
+    descricao: `Em até ${PARCELAS_SEM_JUROS}x sem juros.`,
   },
 ]
 

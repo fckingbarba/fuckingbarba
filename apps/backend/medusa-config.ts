@@ -138,6 +138,37 @@ const fulfillmentModule = [
   },
 ]
 
+/**
+ * PAGAMENTO PELO PAGAR.ME — Pix e cartão em até 3x.
+ *
+ * Declarar o módulo de pagamento NÃO tira o `pp_system_default`: o Medusa
+ * registra o provedor de sistema sempre, e é ele que a região usa enquanto o
+ * `npm run pagamento` não trocar. Então este bloco pode entrar antes da chave
+ * existir — sem ela, o provedor sobe, avisa no log, e o script da região se
+ * recusa a ligá-lo.
+ *
+ * `PAGARME_URL` só existe no teste (o conferidor sobe um Pagar.me falso).
+ */
+const paymentModule = [
+  {
+    resolve: "@medusajs/medusa/payment",
+    options: {
+      providers: [
+        {
+          resolve: "./src/modules/pagarme",
+          id: "pagarme",
+          options: {
+            chaveSecreta: process.env.PAGARME_SECRET_KEY,
+            segredoDoWebhook: process.env.MEDUSA_WEBHOOK_SEGREDO,
+            pixMinutos: Number(process.env.PAGARME_PIX_MINUTOS || 30),
+            url: process.env.PAGARME_URL,
+          },
+        },
+      ],
+    },
+  },
+]
+
 module.exports = defineConfig({
   projectConfig: {
     databaseUrl: process.env.DATABASE_URL,
@@ -157,5 +188,5 @@ module.exports = defineConfig({
     disable: process.env.ADMIN_DISABLED === "true",
     backendUrl: process.env.MEDUSA_BACKEND_URL || "http://localhost:9000",
   },
-  modules: [...redisModules, ...fileModule, ...fulfillmentModule],
+  modules: [...redisModules, ...fileModule, ...fulfillmentModule, ...paymentModule],
 })

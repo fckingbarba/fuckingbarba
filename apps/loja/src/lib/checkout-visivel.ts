@@ -78,11 +78,32 @@ export type ProvedorDePagamento = {
   nome: string
   descricao: string
   /**
-   * `true` quando o provedor não cobra nada de verdade — hoje só o
+   * `true` quando o provedor não cobra nada de verdade — o
    * `pp_system_default`. A tela precisa saber pra não escrever "pagamento
    * aprovado" sobre um pagamento que não existiu.
    */
   simbolico: boolean
+}
+
+/**
+ * O provedor que cobra de verdade: Pix e cartão, pelo Pagar.me. É o id que o
+ * `npm run backend:pagamento` liga na região — quando ele aparece na lista,
+ * o passo 3 deixa de ser vitrine e passa a cobrar.
+ */
+export const PROVEDOR_PAGARME = "pp_pagarme_pagarme"
+
+/**
+ * O pagamento de um pedido já fechado, como a tela de obrigado desenha.
+ *
+ * `estado` é a pergunta que a pessoa faz ao olhar a tela ("e o meu
+ * pagamento?"), já respondida: o Pix esperando, o cartão em análise, pago,
+ * ou cancelado. `combinar` é o provedor provisório, que não cobra.
+ */
+export type PagamentoVisivel = {
+  estado: "aguardando" | "analise" | "pago" | "cancelado" | "combinar"
+  forma: "pix" | "cartao" | null
+  pix: { copiaECola: string; imagem: string; expiraEm: string } | null
+  cartao: { bandeira: string; final: string; parcelas: number } | null
 }
 
 /** Um produto que o checkout oferece: o bump, ou um chip de completar o frete. */

@@ -2,16 +2,21 @@
 
 import type { HttpTypes } from "@medusajs/types"
 import { refresh } from "next/cache"
-import { cookies } from "next/headers"
-import { redirect } from "next/navigation"
+import { headers } from "next/headers"
 import { buscarCep, limparCep } from "@/lib/cep"
-import { COOKIE_CARRINHO, lerCarrinho } from "@/lib/carrinho"
-import { CAMPOS_CHECKOUT, COOKIE_PEDIDO, OPCOES_COOKIE_PEDIDO } from "@/lib/checkout"
-import type { EnderecoVisivel, ErrosDoFormulario, EstadoDaEtapa } from "@/lib/checkout-visivel"
+import { lerCarrinho, pedidoDoCarrinhoFechado } from "@/lib/carrinho"
+import { abrirPedido, CAMPOS_CHECKOUT } from "@/lib/checkout"
+import {
+  PROVEDOR_PAGARME,
+  type EnderecoVisivel,
+  type ErrosDoFormulario,
+  type EstadoDaEtapa,
+} from "@/lib/checkout-visivel"
 import { BUMP } from "@/conteudo/checkout"
 import { conferirDocumento, type Documento } from "@/lib/documento"
 import { lerEndereco, montarEndereco } from "@/lib/endereco"
 import { cliente } from "@/lib/medusa"
+import { depoisDaRecusa, entradaDoCarrinho } from "@/lib/pagamento"
 
 /**
  * AS AÇÕES DO CHECKOUT
@@ -333,7 +338,18 @@ export async function escolherFrete(anterior: EstadoDaEtapa, fd: FormData): Prom
 /* ── 4. pagamento, e o pedido ─────────────────────────────────────────────── */
 
 /**
- * Onde o pedido nasce.
+ * O IP de quem está comprando, pra análise de fraude do Pagar.me. Na Vercel é
+ * o primeiro do `x-forwarded-for`. Sem ele o pedido segue — é um sinal a
+ * mais pra antifraude, não uma exigência.
+ */
+async function ipDeQuemCompra(): Promise<string | null> {
+  const h = await headers()
+  const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() || h.get("x-real-ip")?.trim() || ""
+  return ip || null
+}
+
+/**
+ * Onde o pedido nasce — e, com o Pagar.me, onde ele é cobrado.
  *
  * A ORDEM IMPORTA: sessão de pagamento primeiro, `complete` depois. O Medusa
  * recusa fechar carrinho sem coleção de pagamento iniciada — e recusa com a
@@ -342,16 +358,50 @@ export async function escolherFrete(anterior: EstadoDaEtapa, fd: FormData): Prom
  * dizer à pessoa o que falta; quem sabe em que etapa o checkout está é o
  * checkout, olhando pro próprio carrinho.
  *
- * DUAS VEZES NÃO FAZ DOIS PEDIDOS: o Medusa devolve o mesmo pedido pro
- * carrinho já fechado. O botão pode ser clicado duas vezes sem medo — o que é
- * bom, porque numa conexão ruim ele vai ser.
+ * ┌─ O QUE CHEGA DA TELA, E O QUE NÃO CHEGA ───────────────────────────────┐
+ * │ Da tela vem a ESCOLHA: Pix ou cartão, quantas parcelas, e — no cartão  │
+ * │ — o token que o navegador trocou com o Pagar.me. O número do cartão    │
+ * │ nunca: os campos dele não têm `name`, e o token é o que sobrou. Quem   │
+ * │ compra, o quê e pra onde sai do CARRINHO, lido aqui do Medusa.         │
+ * └─────────────────────────────────────────────────────────────────────────┘
+ *
+ * CADA TENTATIVA ABRE UMA SESSÃO NOVA. O token do cartão é de uso único, e a
+ * sessão anterior — a do cartão recusado, a do Pix que a pessoa desistiu de
+ * pagar — é apagada pelo Medusa ao abrir a nova (e o provedor cancela o Pix
+ * dela no Pagar.me). O botão fica travado enquanto a ação roda: duas
+ * finalizações ao mesmo tempo disputariam a mesma sessão.
  */
 export async function finalizar(anterior: EstadoDaEtapa, fd: FormData): Promise<EstadoDaEtapa> {
   const provedor = texto(fd, "provedor")
+  const forma = texto(fd, "forma")
+  const token = texto(fd, "token_cartao")
+  const parcelas = Number.parseInt(texto(fd, "parcelas") || "1", 10)
+  // O token já foi gasto (ou vai ser agora): não volta pra tela no `valores`.
+  fd.delete("token_cartao")
+
   if (!provedor) return erro(anterior, { provedor: "Escolhe como pagar." }, "", fd)
 
+  const cobra = provedor === PROVEDOR_PAGARME
+  if (cobra && forma !== "pix" && forma !== "cartao") {
+    return erro(anterior, { forma: "Escolhe Pix ou cartão." }, "", fd)
+  }
+  if (cobra && forma === "cartao" && !/^token_[A-Za-z0-9]+$/.test(token)) {
+    return erro(
+      anterior,
+      {},
+      "Não consegui validar o cartão. Confere os dados e tenta de novo — nada foi cobrado.",
+      fd
+    )
+  }
+
   const atual = await carrinhoAtual()
-  if (!atual) return erro(anterior, {}, EXPIROU, fd)
+  if (!atual) {
+    // O segundo clique depois de uma resposta perdida: o pedido fechou, e a
+    // pessoa leu "não consegui confirmar". Leva pra ele, sem cobrar de novo.
+    const jaFechado = await pedidoDoCarrinhoFechado()
+    if (jaFechado) return abrirPedido(jaFechado)
+    return erro(anterior, {}, EXPIROU, fd)
+  }
 
   const { sdk, carrinho } = atual
 
@@ -362,38 +412,96 @@ export async function finalizar(anterior: EstadoDaEtapa, fd: FormData): Promise<
     return erro(anterior, {}, "Falta o endereço de entrega.", fd)
   if (!carrinho.shipping_methods?.length) return erro(anterior, {}, "Falta escolher a entrega.", fd)
 
-  let pedidoId: string
-  try {
-    await sdk.store.payment.initiatePaymentSession(carrinho, { provider_id: provedor })
-    const resposta = await sdk.store.cart.complete(carrinho.id)
+  let dados: Record<string, unknown> | undefined
+  if (cobra) {
+    const montada = entradaDoCarrinho(carrinho, {
+      forma: forma as "pix" | "cartao",
+      parcelas: Number.isInteger(parcelas) && parcelas > 0 ? parcelas : 1,
+      token: forma === "cartao" ? token : null,
+      ip: await ipDeQuemCompra(),
+    })
+    if (!montada.ok) return erro(anterior, {}, montada.mensagem, fd)
+    dados = { entrada: montada.entrada }
+  }
 
-    if (resposta.type !== "order") {
-      const motivo = "error" in resposta ? String(resposta.error?.message ?? "") : ""
-      registrar(new Error(motivo || "complete não devolveu pedido"), "finalizar")
+  try {
+    await sdk.store.payment.initiatePaymentSession(carrinho, {
+      provider_id: provedor,
+      ...(dados ? { data: dados } : {}),
+    })
+  } catch (e) {
+    registrar(e, "abrir a sessão de pagamento")
+    return erro(
+      anterior,
+      {},
+      "Não consegui iniciar o pagamento. Nada foi cobrado — tenta de novo em instantes.",
+      fd
+    )
+  }
+
+  let pedidoId: string | null = null
+  try {
+    const resposta = await sdk.store.cart.complete(carrinho.id)
+    if (resposta.type === "order") pedidoId = resposta.order.id
+    else registrar(new Error(String(resposta.error?.message ?? "sem pedido")), "finalizar")
+  } catch (e) {
+    // Cartão recusado chega AQUI, como 400 — não como `type: "cart"`. O
+    // Medusa só devolve 200 pro erro genérico de autorização; a recusa de
+    // um provedor que respondeu "error" sobe como exceção.
+    registrar(e, "finalizar")
+  }
+
+  if (!pedidoId) {
+    /*
+      Sem pedido na resposta, por um de dois motivos bem diferentes:
+
+      • o carrinho FECHOU, e a resposta é que se perdeu (a conexão entre a
+        Vercel e o Railway caiu no meio). Perguntar de novo é seguro: o
+        `complete` de um carrinho já fechado devolve o MESMO pedido, sem
+        cobrar outra vez;
+      • o pagamento foi recusado — e aí a frase certa está gravada na sessão.
+    */
+    const depois = await depoisDaRecusa(sdk, carrinho.id)
+    if (depois.fechado) {
+      try {
+        const denovo = await sdk.store.cart.complete(carrinho.id)
+        if (denovo.type === "order") pedidoId = denovo.order.id
+      } catch (e) {
+        registrar(e, "finalizar, segunda pergunta")
+      }
+      if (!pedidoId) {
+        return erro(
+          anterior,
+          {},
+          "Seu pedido foi registrado, mas não consegui abrir a confirmação. Não faz de novo: " +
+            "chama a gente no WhatsApp com o seu e-mail, que a gente confirma na hora.",
+          fd
+        )
+      }
+    } else {
+      /*
+        Sem recusa gravada e sem pedido, com cobrança no meio, NÃO dá pra
+        dizer "nada foi cobrado": a resposta pode ter se perdido com o
+        Medusa ainda falando com o Pagar.me. A frase manda esperar e clicar
+        de novo — e o clique seguinte é seguro nos dois casos: se o pedido
+        fechou, `pedidoDoCarrinhoFechado` leva pra ele; se não fechou, é uma
+        tentativa nova, e uma cobrança perdida da primeira é estornada pela
+        conciliação (ver "ÓRFÃOS" em `conciliar-pagamentos.ts`).
+      */
       return erro(
         anterior,
         {},
-        "Não consegui fechar o pedido. Nada foi cobrado — tenta de novo em instantes.",
+        depois.recusa ??
+          (cobra
+            ? "Não consegui confirmar o pagamento. Espera um minuto e clica em pagar de novo: " +
+              "se ele tiver passado, você vai direto pro pedido, sem pagar duas vezes."
+            : "Não consegui fechar o pedido. Nada foi cobrado — tenta de novo em instantes."),
         fd
       )
     }
-    pedidoId = resposta.order.id
-  } catch (e) {
-    registrar(e, "finalizar")
-    return erro(anterior, {}, "Não consegui fechar o pedido. Nada foi cobrado — tenta de novo.", fd)
   }
 
-  const jar = await cookies()
-  // A sacola acabou. Sem isto, quem comprou volta pro site e encontra a
-  // própria compra parada na gaveta.
-  jar.delete(COOKIE_CARRINHO)
-  // O crachá de quem comprou — a tela de obrigado só mostra endereço e
-  // documento pra quem tem ele.
-  jar.set(COOKIE_PEDIDO, pedidoId, OPCOES_COOKIE_PEDIDO)
-
-  // `redirect` LANÇA — nada depois desta linha roda, e ela fica fora de
-  // qualquer try/catch, senão o catch engole a navegação.
-  redirect(`/checkout/obrigado/${pedidoId}`)
+  return abrirPedido(pedidoId)
 }
 
 /* ── o atalho do CEP ──────────────────────────────────────────────────────── */

@@ -29,7 +29,7 @@ export type EventoRastreado =
   | { nome: "view_cart"; dados: ComItens }
   | { nome: "begin_checkout"; dados: ComItens }
   | { nome: "add_shipping_info"; dados: ComItens & { shipping_tier: string } }
-  | { nome: "add_payment_info"; dados: ComItens & { payment_type: "pix" | "cartao" | "boleto" } }
+  | { nome: "add_payment_info"; dados: ComItens & { payment_type: "pix" | "cartao" } }
   // Próprios da loja — as alavancas de ticket médio que vale acompanhar.
   | { nome: "frete_gratis_atingido"; dados: { value: number } }
   | { nome: "cupom_aplicado"; dados: { coupon: string } }

@@ -45,7 +45,7 @@ const SELOS = [
   {
     Icone: Cartao,
     titulo: "Pagamento protegido",
-    detalhe: `Pix, boleto ou ${PARCELAS_SEM_JUROS}x no cartão`,
+    detalhe: `Pix ou ${PARCELAS_SEM_JUROS}x no cartão`,
   },
   {
     Icone: Relogio,

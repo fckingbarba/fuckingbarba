@@ -4,7 +4,7 @@ import {
   type MedusaRequest,
   type MedusaResponse,
 } from "@medusajs/framework/http"
-import { MedusaError } from "@medusajs/framework/utils"
+import { ContainerRegistrationKeys, MedusaError } from "@medusajs/framework/utils"
 
 /**
  * URLs em português, limpas e congeladas (seção SEO da arquitetura).
@@ -60,8 +60,62 @@ function normalizaHandle(req: MedusaRequest, _res: MedusaResponse, next: MedusaN
   next()
 }
 
+/**
+ * PAGAMENTO DE PEDIDO FECHADO NÃO SE REABRE pela API pública.
+ *
+ * `POST /store/payment-collections/:id/payment-sessions` abre uma sessão de
+ * pagamento nova — e, antes, APAGA todas as da coleção. O Medusa não confere
+ * se a coleção já é de um pedido: basta o id dela (que vem no carrinho) e a
+ * chave publicável. Num pedido com o Pix esperando, isso apaga a sessão do
+ * Pix; o cliente paga o QR que está na tela dele, o aviso do Pagar.me chega
+ * procurando uma sessão que não existe, e o pedido fica "aguardando" pra
+ * sempre — com o dinheiro sendo estornado pela conciliação como órfão.
+ *
+ * Então: coleção que já é de um pedido (ou de um carrinho fechado) e que já
+ * teve sessão ou pagamento, não recebe sessão nova por aqui. O que continua
+ * livre: o checkout normal (carrinho aberto, trocando Pix por cartão, tentando
+ * de novo depois de um cartão recusado) e a coleção nova que uma edição de
+ * pedido cria, que nasce sem sessão nenhuma. O admin marca pedido como pago
+ * por outro caminho, que não passa por esta rota.
+ */
+async function pagamentoDePedidoFechado(
+  req: MedusaRequest,
+  _res: MedusaResponse,
+  next: MedusaNextFunction
+) {
+  const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
+  const { data } = await query.graph({
+    entity: "payment_collection",
+    fields: ["id", "order.id", "cart.completed_at", "payment_sessions.id", "payments.id"],
+    filters: { id: req.params.id },
+  })
+  const colecao = data[0] as
+    | {
+        order?: { id?: string } | null
+        cart?: { completed_at?: unknown } | null
+        payment_sessions?: unknown[] | null
+        payments?: unknown[] | null
+      }
+    | undefined
+
+  const fechada = Boolean(colecao?.order?.id || colecao?.cart?.completed_at)
+  const usada = Boolean(colecao?.payment_sessions?.length || colecao?.payments?.length)
+  if (fechada && usada) {
+    throw new MedusaError(
+      MedusaError.Types.NOT_ALLOWED,
+      "Este pagamento já é de um pedido fechado e não pode ser aberto de novo."
+    )
+  }
+  next()
+}
+
 export default defineMiddlewares({
   routes: [
+    {
+      matcher: "/store/payment-collections/:id/payment-sessions",
+      method: ["POST"],
+      middlewares: [pagamentoDePedidoFechado],
+    },
     { matcher: "/admin/products", method: ["POST"], middlewares: [normalizaHandle] },
     { matcher: "/admin/products/:id", method: ["POST"], middlewares: [normalizaHandle] },
     { matcher: "/admin/product-categories", method: ["POST"], middlewares: [normalizaHandle] },

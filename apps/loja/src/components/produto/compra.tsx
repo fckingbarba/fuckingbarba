@@ -357,7 +357,7 @@ export function Compra({
         <li>
           <Cartao />
           <span>
-            {PARCELAS_SEM_JUROS}x sem juros<small>Cartão, Pix ou boleto</small>
+            {PARCELAS_SEM_JUROS}x sem juros<small>No cartão, ou Pix</small>
           </span>
         </li>
         <li>

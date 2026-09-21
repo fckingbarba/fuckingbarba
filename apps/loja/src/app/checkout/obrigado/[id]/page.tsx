@@ -2,8 +2,11 @@ import type { Metadata } from "next"
 import Image from "next/image"
 import Link from "next/link"
 import { Suspense } from "react"
-import { Cadeado, EscudoCerto, Raio } from "@/components/icones"
+import { EsperaDoPagamento } from "@/components/checkout/espera"
+import { Pix } from "@/components/checkout/pix"
+import { Cadeado, EscudoCerto, Raio, Relogio, Triangulo } from "@/components/icones"
 import { RecarregaSacola } from "@/components/sacola/recarrega"
+import type { PagamentoVisivel } from "@/lib/checkout-visivel"
 import { emReais } from "@/lib/formato"
 import { ehDeQuemComprou, lerPedido } from "@/lib/pedido"
 import { linkDoWhatsapp, whatsappNaTela } from "@/lib/configuracoes"
@@ -28,7 +31,86 @@ import { site } from "@/lib/site"
  * ENDEREÇO SÓ PRA QUEM COMPROU: o cookie do pedido é que abre a versão
  * completa. Sem ele, a página confirma que o pedido existe e não mostra dado
  * pessoal nenhum — o id é imprevisível, mas link vaza.
+ *
+ * ┌─ O PAGAMENTO MUDA A TELA INTEIRA ──────────────────────────────────────┐
+ * │ Com o Pagar.me, "pedido recebido" pode querer dizer quatro coisas: o   │
+ * │ Pix esperando (e aí o QR é a tela), o cartão em análise, pago, ou      │
+ * │ cancelado porque o Pix venceu. O título, a frase e o "e agora?" saem   │
+ * │ de `pagamento.estado` — que o Medusa responde, não esta tela. Enquanto │
+ * │ o Pix não cai, `EsperaDoPagamento` pergunta de tempos em tempos e      │
+ * │ redesenha quando muda.                                                 │
+ * └────────────────────────────────────────────────────────────────────────┘
  */
+
+type Cabeca = { Icone: typeof EscudoCerto; titulo: string; frase: string }
+
+function cabecaDo(p: PagamentoVisivel): Cabeca {
+  switch (p.estado) {
+    case "aguardando":
+      return {
+        Icone: Relogio,
+        titulo: "Falta só o Pix",
+        frase:
+          "Pague com o QR code ou o código abaixo. Assim que cair, o pedido entra na fila de envio.",
+      }
+    case "analise":
+      return {
+        Icone: Relogio,
+        titulo: "Pagamento em análise",
+        frase:
+          "O Pagar.me está conferindo o pagamento — costuma levar poucos minutos, e esta página muda sozinha.",
+      }
+    case "pago":
+      return {
+        Icone: EscudoCerto,
+        titulo: "Pedido confirmado",
+        frase: p.cartao
+          ? `Pagamento aprovado no cartão ${p.cartao.bandeira} final ${p.cartao.final}` +
+            (p.cartao.parcelas > 1 ? `, em ${p.cartao.parcelas}x sem juros` : "") +
+            ". Já estamos separando o seu pedido."
+          : "Pix recebido. Já estamos separando o seu pedido.",
+      }
+    case "cancelado":
+      return {
+        Icone: Triangulo,
+        titulo: "Pedido cancelado",
+        frase:
+          "O pagamento não foi confirmado a tempo, e o pedido foi cancelado — os produtos voltaram pro estoque.",
+      }
+    default:
+      return { Icone: EscudoCerto, titulo: "Pedido recebido", frase: "" }
+  }
+}
+
+/**
+ * O que acontece agora, na ordem em que acontece. Sem prazo que a loja ainda
+ * não consegue cumprir: quem posta é gente, e o rastreio só existe depois da
+ * postagem. "Seu código chega em 24h" aqui seria a primeira promessa
+ * quebrada da relação.
+ */
+const PASSOS: Record<PagamentoVisivel["estado"], string[]> = {
+  combinar: [
+    "A gente confere o pedido e chama você pra acertar o pagamento.",
+    "Com o pagamento acertado, a encomenda é separada e postada.",
+    "O código de rastreio chega por e-mail assim que ela for postada.",
+  ],
+  aguardando: [
+    "Pague o Pix pelo QR code ou pelo copia-e-cola, no app do seu banco.",
+    "Assim que o banco confirmar, esta página muda sozinha e a encomenda entra na fila de separação.",
+    "O código de rastreio chega por e-mail assim que ela for postada.",
+  ],
+  analise: [
+    "O pagamento passa por uma conferência de segurança, que costuma levar poucos minutos.",
+    "Aprovado, a encomenda entra na fila de separação e é postada.",
+    "O código de rastreio chega por e-mail assim que ela for postada.",
+  ],
+  pago: [
+    "A encomenda entra na fila de separação.",
+    "Ela é postada, e o prazo de entrega começa a contar daí.",
+    "O código de rastreio chega por e-mail assim que ela for postada.",
+  ],
+  cancelado: ["Se ainda quiser os produtos, é só montar a sacola de novo — nada ficou pendente."],
+}
 
 export const metadata: Metadata = {
   title: "Pedido confirmado",
@@ -93,16 +175,19 @@ async function Conteudo({ params }: { params: Props["params"] }) {
   const meu = await ehDeQuemComprou(pedido.id)
   const { atendimento } = await configuracoes()
   const zap = linkDoWhatsapp(atendimento.whatsapp)
+  const { pagamento } = pedido
+  const { Icone, titulo, frase } = cabecaDo(pagamento)
+  const esperando = pagamento.estado === "aguardando" || pagamento.estado === "analise"
 
   return (
     <>
       {/* A compra acabou: o contador do cabeçalho precisa saber. */}
       <RecarregaSacola />
 
-      <div className="feito" data-ativo="">
+      <div className="feito" data-ativo="" data-pagamento={pagamento.estado}>
         <div className="bloco">
-          <EscudoCerto className="feito__ico" aria-hidden="true" />
-          <h1>Pedido recebido</h1>
+          <Icone className="feito__ico" aria-hidden="true" />
+          <h1>{titulo}</h1>
           <p>
             Número <b>#{pedido.numero}</b>
             {meu ? (
@@ -112,6 +197,18 @@ async function Conteudo({ params }: { params: Props["params"] }) {
               </>
             ) : null}
           </p>
+          {meu && frase ? <p className="feito__frase">{frase}</p> : null}
+          {/* O QR só pra quem comprou, como o resto dos detalhes: pagar o Pix
+              de outra pessoa não prejudica ninguém, mas o link encaminhado
+              não precisa mostrar o valor nem o nome da loja no código. */}
+          {meu && pagamento.estado === "aguardando" && pagamento.pix ? (
+            <Pix
+              copiaECola={pagamento.pix.copiaECola}
+              imagem={pagamento.pix.imagem}
+              expiraEm={pagamento.pix.expiraEm}
+              total={pedido.total}
+            />
+          ) : null}
           {!meu ? (
             <p>
               Os detalhes só aparecem pra quem fez a compra, no mesmo navegador — é o que impede que
@@ -120,6 +217,10 @@ async function Conteudo({ params }: { params: Props["params"] }) {
           ) : null}
         </div>
       </div>
+
+      {meu && esperando ? (
+        <EsperaDoPagamento pedidoId={pedido.id} ate={pagamento.pix?.expiraEm ?? null} />
+      ) : null}
 
       {meu ? (
         <>
@@ -198,14 +299,10 @@ async function Conteudo({ params }: { params: Props["params"] }) {
         <h2 className="bloco__titulo" id="ob-agora">
           E agora?
         </h2>
-        {/* Sem promessa de prazo que a loja ainda não consegue cumprir: quem
-            posta é gente, e o rastreio só existe depois da postagem. Dizer
-            "seu código chega em 24h" aqui seria a primeira promessa quebrada
-            da relação. */}
         <ol className="obrigado__passos">
-          <li>A gente confere o pedido e chama você pra acertar o pagamento.</li>
-          <li>Com o pagamento acertado, a encomenda é separada e postada.</li>
-          <li>O código de rastreio chega por e-mail assim que ela for postada.</li>
+          {PASSOS[pagamento.estado].map((passo) => (
+            <li key={passo}>{passo}</li>
+          ))}
         </ol>
         {/* Sem WhatsApp configurado, a frase muda em vez de oferecer um
             número que não atende — que é o pior lugar possível pra isso,

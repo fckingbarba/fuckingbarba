@@ -139,6 +139,66 @@ body:has(.obrigado) {
   text-underline-offset: 3px;
 }
 
+/* ---------- o Pix de verdade ---------- */
+
+/* A caixa `.feito__pix` e o quadrado `.feito__qr` vêm do protótipo, onde o QR
+   era um xadrez de exemplo pintado com gradiente. Agora ele é uma imagem do
+   Pagar.me — e o xadrez de fundo apareceria por trás de qualquer pixel
+   transparente dela. Fundo branco, que é o que leitor de QR espera. */
+img.feito__qr {
+  display: block;
+  background: #fff;
+  object-fit: contain;
+}
+
+/* O que o protótipo escrevia com `style=` no próprio HTML. */
+.feito .feito__pix-rotulo {
+  margin: 0;
+  font-size: 0.74rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.feito__copiar {
+  padding: 10px 18px;
+  font-size: 0.8rem;
+}
+
+/* Um toque seleciona o código inteiro: quando o navegador embutido (o do
+   Instagram, por exemplo) não deixa o botão copiar, copiar à mão tem que ser
+   um gesto só, e não um arrasto de ponta a ponta num texto de 150 letras. */
+.feito__pix code {
+  user-select: all;
+}
+
+.feito .feito__validade {
+  margin: 10px 0 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.feito .feito__validade:empty {
+  display: none;
+}
+
+/* Pedido cancelado não ganha o verde de "deu certo" do ícone: fica na cor
+   da tinta, neutro. Vermelho seria alarme — e ninguém perdeu dinheiro. */
+.feito[data-pagamento="cancelado"] .feito__ico {
+  fill: var(--color-tinta);
+}
+
+/* Vencido, o QR fica apagado: ele ainda está ali (a pessoa pode ter pago no
+   último segundo e querer conferir), mas não chama mais pra ser escaneado. */
+.feito__pix[data-vencido] .feito__qr {
+  opacity: 0.3;
+}
+
+/* `.feito .feito__frase`, e não só a classe: o `.feito p` do CSS gerado zera
+   a margem lateral, e ganha de uma classe sozinha. */
+.feito .feito__frase {
+  max-width: 46ch;
+  margin-inline: auto;
+  line-height: 1.5;
+}
+
 /* ---------- um ícone que o protótipo não tinha ---------- */
 
 /* O cadeado ao lado da linha de termos. Os SVG da loja não trazem tamanho

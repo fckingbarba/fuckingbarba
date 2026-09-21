@@ -21,19 +21,21 @@ export const EM_BREVE = "/em-breve"
 /**
  * A CHAVE DO CHECKOUT.
  *
- * O `/checkout` existe, funciona ponta a ponta e fecha pedido de verdade. O
- * que ele ainda NÃO tem é cobrança: o único meio de pagamento configurado no
- * Medusa é o `pp_system_default`, que aprova sem cobrar nada. Mandar gente
- * pra lá hoje seria receber pedido que ninguém pagou e ter que correr atrás
- * de cada um por WhatsApp.
+ * O `/checkout` existe, funciona ponta a ponta e fecha pedido de verdade, e
+ * o Pagar.me está integrado (`apps/backend/src/modules/pagarme/`). O que
+ * decide se ele COBRA é a região do Medusa: com o `pp_system_default`, o
+ * provisório, o pedido fecha sem cobrança nenhuma; com o `pp_pagarme_pagarme`
+ * (ligado por `npm run backend:pagamento`), fecha com Pix ou cartão.
  *
  * Enquanto isto for `false`, o botão da sacola continua indo pro `/em-breve`
  * e a página de checkout só é alcançada por quem digita a URL — que é como
- * ela é testada.
+ * ela é testada, inclusive com a chave de teste do Pagar.me.
  *
- * VIRE PRA `true` QUANDO o Pagar.me estiver integrado e aparecendo em
- * `GET /store/payment-providers`. É a única linha que precisa mudar; nenhuma
- * tela depende deste valor além do botão.
+ * VIRE PRA `true` DEPOIS de: a região estar com o Pagar.me (o script confere),
+ * uma compra de ensaio com Pix e outra com cartão passarem na chave de teste,
+ * e a chave de produção entrar no Railway e na Vercel. É a única linha que
+ * precisa mudar; nenhuma tela depende deste valor além do botão (e das
+ * formas de pagamento de vitrine do passo 3, que somem).
  */
 export const CHECKOUT_ABERTO = false
 
@@ -91,10 +93,17 @@ export const site = {
 
 /**
  * O que o rodapé promete sobre pagamento. Tem que bater com o que o Pagar.me
- * está configurado pra aceitar (fase 4) — promessa de parcelamento no rodapé
- * que o checkout não cumpre é reclamação certa.
+ * cobra (`apps/backend/src/modules/pagarme/`) — promessa de forma de
+ * pagamento ou de parcelamento que o checkout não cumpre é reclamação certa.
+ * O cartão não entra nesta lista porque o rodapé escreve a linha dele à
+ * parte, com o parcelamento.
+ *
+ * `PARCELAS_SEM_JUROS` e `PARCELA_MINIMA` precisam bater com
+ * `PARCELAS_MAXIMAS` e `PARCELA_MINIMA_CENTAVOS` do backend
+ * (`modules/pagarme/pedido.ts`): aqui é o que a vitrine anuncia, lá é o que
+ * o pagamento aceita.
  */
-export const formasDePagamento = ["Pix", "Boleto"] as const
+export const formasDePagamento = ["Pix"] as const
 export const PARCELAS_SEM_JUROS = 3
 export const parcelamento = `${PARCELAS_SEM_JUROS}x sem juros`
 

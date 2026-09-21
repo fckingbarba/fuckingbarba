@@ -127,7 +127,16 @@ export async function lerCarrinho(campos = CAMPOS_CARRINHO): Promise<Carrinho | 
   if (!id) return null
 
   try {
-    const { cart } = await sdk.store.cart.retrieve(id, { fields: campos })
+    /*
+      `completed_at` vai SEMPRE, somado ao que quem chamou pediu. Lista de
+      campos sem `+` substitui a padrão do Medusa inteira — e nenhuma das
+      listas desta loja pedia `completed_at`. A checagem logo abaixo
+      comparava com `undefined` e nunca disparava: um carrinho já virado
+      pedido continuava "vivo", e o checkout abria sessão de pagamento nova
+      em cima dele — o que apaga a sessão do pedido e mata o Pix que o
+      cliente está pagando. (A revisão do pagamento pegou.)
+    */
+    const { cart } = await sdk.store.cart.retrieve(id, { fields: `${campos},completed_at` })
     // Carrinho já virado pedido não serve mais pra nada, mas o Medusa ainda
     // devolve ele. Sem esta checagem a pessoa que comprou volta pro site e
     // encontra a própria compra parada na gaveta.
@@ -135,6 +144,43 @@ export async function lerCarrinho(campos = CAMPOS_CARRINHO): Promise<Carrinho | 
     return cart ?? null
   } catch (e) {
     aviso(e, `carrinho ${id}`)
+    return null
+  }
+}
+
+/**
+ * O CARRINHO DO COOKIE JÁ VIROU PEDIDO? E qual?
+ *
+ * Acontece quando a resposta do fechamento se perde no caminho — entre o
+ * navegador e a loja, ou entre a loja e o Medusa. O pedido existe (no cartão,
+ * já cobrado), mas o cookie da sacola não foi apagado e o crachá do pedido
+ * não chegou. Sem isto, a pessoa recarrega o checkout, encontra a sacola
+ * vazia e compra de novo.
+ *
+ * `complete` num carrinho já fechado devolve o MESMO pedido, sem cobrar outra
+ * vez: é o jeito que a API pública tem de dizer que pedido saiu dele.
+ */
+export async function carrinhoFechado(): Promise<boolean> {
+  const sdk = cliente()
+  const id = (await cookies()).get(COOKIE_CARRINHO)?.value
+  if (!sdk || !id) return false
+  try {
+    const { cart } = await sdk.store.cart.retrieve(id, { fields: "id,completed_at" })
+    return Boolean(cart?.completed_at)
+  } catch {
+    return false
+  }
+}
+
+export async function pedidoDoCarrinhoFechado(): Promise<string | null> {
+  const sdk = cliente()
+  const id = (await cookies()).get(COOKIE_CARRINHO)?.value
+  if (!sdk || !id || !(await carrinhoFechado())) return null
+  try {
+    const resposta = await sdk.store.cart.complete(id)
+    return resposta.type === "order" ? resposta.order.id : null
+  } catch (e) {
+    aviso(e, `pedido do carrinho ${id}`)
     return null
   }
 }

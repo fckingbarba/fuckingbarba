@@ -35,13 +35,20 @@ verdade.
 ### Conferidores
 
 `apps/loja/ferramentas/conferir-*.mjs` abrem a loja num Chromium de verdade e comparam o que está na
-tela com o que a API do Medusa responde — nunca com outra conta feita no próprio teste. São sete:
-frete, pdp, checkout, catálogo, links, configurações e documento. Rode os que tocam no que você mexeu,
-e todos antes de entregar. Os que escrevem no admin desfazem o que mudaram no fim, mesmo quando falham.
+tela com o que a API do Medusa responde — nunca com outra conta feita no próprio teste. São oito:
+frete, pdp, checkout, pagamento, catálogo, links, configurações e documento. Rode os que tocam no que
+você mexeu, e todos antes de entregar. Os que escrevem no admin desfazem o que mudaram no fim, mesmo
+quando falham.
 
 ```bash
-# o de frete sobe uma Frenet falsa na porta 4310; o backend precisa apontar pra ela
-FRENET_URL=http://127.0.0.1:4310/shipping/quote FRENET_TOKEN=teste npm run backend:dev
+# frete, checkout e pagamento sobem uma Frenet falsa (4310) e um Pagar.me falso (4320);
+# o backend precisa apontar pros dois
+FRENET_URL=http://127.0.0.1:4310/shipping/quote FRENET_TOKEN=teste \
+PAGARME_SECRET_KEY=sk_test_falsa PAGARME_URL=http://127.0.0.1:4320/core/v5 \
+MEDUSA_WEBHOOK_SEGREDO=segredo-de-teste npm run backend:dev
+# e a loja tokeniza no falso: no .env.development.local,
+#   NEXT_PUBLIC_PAGARME_PUBLIC_KEY=pk_test_falsa
+#   NEXT_PUBLIC_PAGARME_API=http://127.0.0.1:4320/core/v5
 npm run loja:dev
 cd apps/loja && export $(grep -E '^(MEDUSA_BACKEND_URL|NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY)=' .env.development.local | xargs)
 ADMIN_EMAIL=<admin local> ADMIN_SENHA=<senha local> node ferramentas/conferir-frete.mjs
@@ -49,11 +56,16 @@ ADMIN_EMAIL=<admin local> ADMIN_SENHA=<senha local> node ferramentas/conferir-fr
 
 O admin é um usuário do banco LOCAL (`npm run backend:user`). `CHROMIUM=<caminho>` quando o
 Playwright não achar o navegador. Layout de componente interativo se confere com foto, não com
-asserção — `ferramentas/retrato-calculadora.mjs` é o modelo, e roda contra `next build` +
-`next start`. Os conferidores, ao contrário, rodam contra o `next dev` (`LOJA`, padrão
-`localhost:3000`): com o cache de produção o de PDP lê o conteúdo de antes da edição e falha sem
-bug nenhum. Os `apps/backend/ferramentas/conferir-{frete,pedido}.mjs` são de antes da Frenet (esperam
-"Correios PAC" fixo e não sobem a falsa) — os que valem são os sete da loja.
+asserção — `ferramentas/retrato-calculadora.mjs` é o modelo (e `retrato-pagamento.mjs`, o do passo 3
+e da tela de obrigado), e roda contra `next build` + `next start`. Os conferidores, ao contrário,
+rodam contra o `next dev` (`LOJA`, padrão `localhost:3000`): com o cache de produção o de PDP lê o
+conteúdo de antes da edição e falha sem bug nenhum. Os `apps/backend/ferramentas/conferir-{frete,pedido}.mjs` são de antes da Frenet (esperam
+"Correios PAC" fixo e não sobem a falsa) — os que valem são os oito da loja.
+
+O de pagamento liga o Pagar.me na região pelo admin e devolve como estava; o de checkout roda com
+qualquer um dos dois provedores. A conciliação automática roda a cada 5 minutos DENTRO do
+`medusa develop` (o worker é o mesmo processo): teste que depende de "ninguém mexeu nisso ainda"
+precisa sair da janela dela — ver `longeDaConciliacaoAutomatica` no conferidor de pagamento.
 
 ## Regras do projeto
 
@@ -111,6 +123,36 @@ venda → local de estoque → conjunto → zona → opção, e todo produto com
 faltando dá lista vazia, sem erro nenhum; por isso o script confere a corrente no fim em vez de
 dizer "pronto". Preço cotado sai de `POST /store/shipping-options/:id/calculate`: o `GET` da lista
 não calcula. Peso e medidas moram na VARIANTE (`src/scripts/medidas.ts`), não no produto.
+
+**Pagamento** é um provider próprio (`src/modules/pagarme/`, id `pp_pagarme_pagarme`): Pix e cartão
+em até 3x pelo Pagar.me, ligado na região por `npm run backend:pagamento` (que tira o provisório
+`pp_system_default` — o que aprova sem cobrar — e confere o que a loja enxerga; `-- voltar` desfaz).
+O pedido nasce no Pagar.me no `authorizePayment`, no fim do fechamento do carrinho: cartão aprovado
+fecha pago, Pix fecha aguardando, cartão recusado desfaz o pedido. O Pix pago chega pelo webhook
+(Pagar.me → Edge Function `webhook-pagamento` → `/hooks/payment/pagarme_pagarme`, que exige o
+`x-webhook-segredo` e relê o pedido na API antes de acreditar); o que o webhook não resolve — Pix
+vencido, aviso perdido, cobrança que sumiu no caminho — a conciliação resolve a cada 5 minutos no
+worker (`src/lib/conciliar-pagamentos.ts`, e `POST /admin/pagamentos/conciliar` pra rodar na hora).
+Duas armadilhas já pagas: o Medusa MISTURA (em profundidade) o `data` da sessão com o que chegou
+da API pública, então o provedor grava o estado inteiro, com `null` explícito, e acha o pedido do
+Pagar.me pelo CÓDIGO (o id da sessão), nunca pelo `data`; e o cartão aprovado no fechamento não
+emite `payment.captured` — quem emite é `src/subscribers/pedido-pago-na-hora.ts`. A loja manda o
+comprador em `data.entrada` (montado do carrinho, em `apps/loja/src/lib/pagamento.ts`) e o cartão
+só como token, gerado no navegador (`apps/loja/src/lib/pagarme.ts`).
+
+Três portas que o Medusa deixa abertas e o projeto fecha. (1) Abrir sessão de pagamento APAGA as
+anteriores da coleção, sem conferir se ela já é de um pedido: `src/api/middlewares.ts` recusa sessão
+nova em coleção de pedido fechado — sem isso, o Pix esperando perde a sessão que o aviso procura.
+(2) Cancelar pedido não chama o provedor pra sessão pendente: `src/subscribers/pedido-cancelado.ts`
+cancela o Pix (o QR morre) e estorna o que tiver sido pago sem o Medusa saber. (3) A cobrança cuja
+sessão sumiu (tentou de novo depois de uma resposta perdida) não aparece em lugar nenhum da loja: a
+conciliação lista os pedidos do Pagar.me das últimas 48 horas e fecha os que não têm mais sessão. É
+por isso que o `deletePayment` do provedor não mexe no Pagar.me — o `data` que ele recebe pode ser o
+corpo cru da API pública. Os pedidos levam `metadata.origem` (hash do usuário, host e banco da
+`DATABASE_URL`, nunca a senha), e a conciliação só fecha órfão da própria origem: duas instalações
+na mesma chave de teste não estornam as compras uma da outra. Ainda assim, uma chave por ambiente —
+a de produção só no Railway. Na loja, carrinho que fechou sem a confirmação chegar ao navegador
+volta pro pedido pelo `/checkout/retomar`, em vez de mostrar "sacola vazia".
 
 A **sacola** grava CEP e entrega no carrinho (`apps/loja/src/lib/acoes/frete.ts`), e o pé da
 gaveta mostra o frete e o total que o Medusa calculou com ela — o checkout abre com os dois. Com
