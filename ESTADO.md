@@ -51,11 +51,23 @@ sozinha a cada 5 minutos; se nem ela resolver, o log com `[conciliação]` diz o
 
 ### 1. Fechar o pagamento — você
 
-- [ ] Uma compra real pequena no Pix e outra no cartão, cancelando as duas no admin em seguida.
-      Confirma a chave pública de produção, o webhook de produção e o estorno de verdade.
+- [x] Pix real (21/09, pedido #6, R$ 62,58): cobrou e confirmou sozinho — pela conciliação, porque
+      o webhook de produção respondeu 404 (URL diferente da do modo teste).
+- [ ] Webhook de produção com a mesma URL do de teste, e os eventos com Falha reenviados (↻) até
+      voltarem 200.
+- [ ] Estornar pelo painel do Pagar.me o Pix do #6 — o estorno pedido pelo admin falhou (ver o
+      primeiro achado abaixo). O Medusa já está como Refunded; não mexer lá.
+- [ ] Uma compra real pequena no cartão, cancelando em seguida.
 
 ### 2. Achados da revisão do pagamento — Claude Code
 
+- [ ] **Estorno de Pix que falha no Pagar.me não volta pro Medusa** (visto no primeiro Pix real).
+      Cancelar pedido pago no admin pede o estorno; o Pagar.me aceita ("Aguardando Cancelamento") e
+      o Medusa marca Refunded. Se o estorno falha depois — o de Pix exige **saldo atual** na conta, e
+      Pix que acabou de entrar pode ainda não estar nele —, a cobrança volta pra "Aprovada" e ninguém
+      fica sabendo: o cliente sem o dinheiro, o admin dizendo que devolveu. Falta a conciliação
+      conferir no Pagar.me os estornos dos últimos dias e avisar (ou tentar de novo quando houver
+      saldo). Até lá: todo estorno de Pix pelo admin se confere no painel.
 - [ ] **A loja guarda falha em cache** (o mais urgente). Em `apps/loja/src/lib/medusa.ts`,
       `regiaoBrasil()` e outras leituras devolvem `null` ou lista vazia quando o Medusa não responde
       — DENTRO do `"use cache"`, então a falha fica guardada por horas ou dias. Aconteceu no
