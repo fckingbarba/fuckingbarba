@@ -1,13 +1,14 @@
 # AGENTS.md
 
 Guia pra quem (pessoa ou agente) for mexer neste repositório. O contexto de produto e as decisões de
-arquitetura estão no README e no doc de arquitetura linkado lá; aqui é o operacional.
+arquitetura estão no README e no doc de arquitetura linkado lá; aqui é o operacional. **Onde o projeto
+está e o que vem a seguir: [ESTADO.md](./ESTADO.md)** — leia antes de começar, atualize ao terminar.
 
 ## Estrutura
 
 ```
 apps/loja/       Next.js 16 (App Router, Cache Components, Tailwind v4) — Vercel
-apps/backend/    Medusa v2 — Railway em dois processos (server e worker), mesmo código
+apps/backend/    Medusa v2 — Railway; feito pra server + worker, hoje um serviço só (ver ESTADO.md)
 supabase/        migrations do schema `loja` (nunca `public`) e Edge Functions (Deno)
 .github/         um workflow por área, disparado por caminho
 ```
