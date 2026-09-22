@@ -13,6 +13,7 @@ import {
   Recado,
   useAvisaOcupado,
   useFechaQuandoSalva,
+  useFocaNoErro,
   type PropsDaEtapa,
 } from "./etapas"
 
@@ -36,6 +37,7 @@ export function Contato({
   const [estado, acao, enviando] = useActionState(salvarContato, ESTADO_INICIAL)
   useFechaQuandoSalva(estado, aoSalvar)
   useAvisaOcupado(casca, enviando ? "Salvando…" : null)
+  const formulario = useFocaNoErro(estado)
 
   // Documento e celular são controlados só por causa da máscara; o resto é
   // `defaultValue` e vive no próprio DOM, que é onde o navegador já guarda
@@ -52,6 +54,7 @@ export function Contato({
     <Painel etapa="contato" aberta={casca.aberta}>
       <form
         id="form-contato"
+        ref={formulario}
         action={acao}
         // Um envio por vez: o Enter num campo e o toque na barra do celular
         // não passam pelo botão travado.

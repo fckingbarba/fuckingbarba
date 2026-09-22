@@ -27,7 +27,7 @@ import { Giro } from "./resposta"
 import { Resumo } from "./resumo"
 
 // Moram em `resposta.tsx` (a conta usa os mesmos); o checkout segue importando daqui.
-export { Giro, Recado, trazerPraVista, useFechaQuandoSalva } from "./resposta"
+export { Giro, Recado, trazerPraVista, useFechaQuandoSalva, useFocaNoErro } from "./resposta"
 
 /**
  * O CHECKOUT EM TRÊS PASSOS

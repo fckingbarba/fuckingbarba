@@ -539,14 +539,37 @@ export type CepEncontrado = {
 }
 
 /**
+ * O mesmo do `CepEncontrado`, mais a única coisa que a tela do checkout
+ * precisa saber além do endereço: SE O CEP CHEGOU NO CARRINHO.
+ *
+ * ┌─ POR QUE ISTO PRECISA SUBIR PRA TELA ──────────────────────────────────┐
+ * │ Quem cota a entrega é a página, no servidor, lendo o endereço do       │
+ * │ CARRINHO. Se a gravação falhar — rede caiu no meio, Medusa fora do ar  │
+ * │ — o carrinho continua sem CEP, a cotação volta vazia, e a tela dizia   │
+ * │ "Não temos entrega pra esse CEP ainda". Isso é mentira: o CEP está     │
+ * │ certo, a loja entrega lá, e a pessoa ia embora achando que o endereço  │
+ * │ dela é que era o problema — ou pior, chamava no WhatsApp pra perguntar │
+ * │ de uma entrega que sempre existiu.                                     │
+ * │                                                                        │
+ * │ `gravado: false` também quando não há carrinho nenhum, pelo mesmo      │
+ * │ motivo: o CEP não chegou em lugar nenhum, então a lista vazia não fala │
+ * │ sobre este CEP.                                                        │
+ * └────────────────────────────────────────────────────────────────────────┘
+ *
+ * Tipo próprio, e não um campo a mais no `CepEncontrado`, porque a conta usa
+ * o mesmo tipo (`consultarCepDaConta`) e lá não existe carrinho pra gravar.
+ */
+export type CepDoCheckout = CepEncontrado & { gravado: boolean }
+
+/**
  * Preenche rua, bairro, cidade e estado a partir do CEP.
  *
  * `encontrado: false` NÃO é erro e não trava nada: quer dizer só que o atalho
  * não funcionou — CEP novo, zona rural, ViaCEP fora do ar — e que a pessoa
  * digita à mão, como faria se o atalho não existisse.
  */
-export async function consultarCep(cep: string): Promise<CepEncontrado> {
-  const vazio = { encontrado: false, rua: "", bairro: "", cidade: "", uf: "" }
+export async function consultarCep(cep: string): Promise<CepDoCheckout> {
+  const vazio = { encontrado: false, gravado: false, rua: "", bairro: "", cidade: "", uf: "" }
   const limpo = limparCep(cep)
   if (!limpo) return vazio
 
@@ -564,10 +587,13 @@ export async function consultarCep(cep: string): Promise<CepEncontrado> {
     │ parece sujeira, mas é o que ele é de verdade neste instante: a       │
     │ pessoa digitou o CEP e ainda não digitou o número.                   │
     │                                                                       │
-    │ Cotação falhada não vira erro de tela: devolve lista vazia, e a tela │
-    │ já sabe dizer "não temos entrega pra esse CEP ainda".                │
+    │ Cotação que a transportadora recusa não vira erro de tela: devolve   │
+    │ lista vazia, e a tela sabe dizer "não temos entrega pra esse CEP     │
+    │ ainda". GRAVAÇÃO que falha é outra coisa, e volta como              │
+    │ `gravado: false` — ver o tipo acima.                                 │
     └───────────────────────────────────────────────────────────────────────┘
   */
+  let gravado = false
   const atual = await carrinhoAtual()
   if (atual) {
     try {
@@ -594,15 +620,17 @@ export async function consultarCep(cep: string): Promise<CepEncontrado> {
         do que tem dentro dele.
       */
       refresh()
+      gravado = true
     } catch (e) {
       registrar(e, "cep no carrinho")
     }
   }
 
-  if (!achado) return vazio
+  if (!achado) return { ...vazio, gravado }
 
   return {
     encontrado: true,
+    gravado,
     rua: achado.logradouro,
     bairro: achado.bairro,
     cidade: achado.cidade,
