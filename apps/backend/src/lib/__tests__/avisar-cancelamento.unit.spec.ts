@@ -119,6 +119,56 @@ describe("o que o e-mail de cancelamento vai dizer", () => {
     })
   })
 
+  it("cartão reprovado pela antifraude: o valor foi e voltou, e o e-mail não diz que nada foi cobrado", () => {
+    /*
+      O #9, de verdade: 22/09, R$ 62,58, cobrança ch_JdkpjxImnTx1GDej. A
+      Stone autorizou (`0000 — Approved`, autorização 264832), a análise de
+      fraude reprovou, e o Pagar.me desfez a captura 4 segundos depois. O
+      Medusa nunca registrou pagamento nenhum — nenhum `captured_at`, nenhum
+      estorno pedido daqui — mas os R$ 62,58 saíram do cartão e voltaram, e
+      quem comprou viu os dois no aplicativo do banco.
+
+      Quem conta é o `estornado` da cobrança, em centavos.
+    */
+    const reprovado = pedido({
+      payment_collections: [
+        {
+          payments: [],
+          payment_sessions: [
+            pagarme({
+              forma: "cartao",
+              situacao: "cancelado",
+              cartao: { bandeira: "Mastercard", final: "8187" },
+              estornado: 6258,
+            }),
+          ],
+        },
+      ],
+    })
+    expect(decidir(reprovado, { agora: AGORA })).toEqual({
+      mandar: true,
+      motivo: "estornado",
+      estorno: { valor: 62.58, forma: "cartao" },
+    })
+  })
+
+  it("cobrança sem nada devolvido do lado de lá continua sendo 'nada foi cobrado'", () => {
+    // O zero do `estornado` é o caso comum — a recusa na hora, o Pix que
+    // nunca foi pago. Só o maior que zero é dinheiro que se mexeu.
+    const recusado = pedido({
+      payment_collections: [
+        {
+          payments: [],
+          payment_sessions: [pagarme({ forma: "cartao", situacao: "recusado", estornado: 0 })],
+        },
+      ],
+    })
+    expect(decidir(recusado, { agora: AGORA })).toMatchObject({
+      motivo: "sem-cobranca",
+      estorno: null,
+    })
+  })
+
   it("Pix que passou da validade tem frase própria", () => {
     const vencido = pedido({
       payment_collections: [
