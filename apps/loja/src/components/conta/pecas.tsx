@@ -61,6 +61,42 @@ export function MinutosDoPix({ expiraEm }: { expiraEm: string | null }) {
 }
 
 /**
+ * O PIX QUE VENCE COM A TELA ABERTA.
+ *
+ * Quem decide que um Pix está vencido é o SERVIDOR (`situacaoDe`, em
+ * `pedidos-da-conta.ts`): o relógio do celular pode estar adiantado, e tirar
+ * o QR da frente de quem ainda ia pagar seria bem pior do que deixá-lo um
+ * minuto a mais. Mas quem está olhando a contagem chegar a zero merece ver a
+ * frase mudar sem recarregar a página — é o que esta peça faz, e só depois
+ * de montada.
+ *
+ * A primeira pintura é sempre a `children`, igual à do servidor: hidratação
+ * que não bate é tela piscando.
+ */
+export function AteVencer({
+  expiraEm,
+  venceu,
+  children,
+}: {
+  expiraEm: string | null
+  venceu: ReactNode
+  children: ReactNode
+}) {
+  const [passou, setPassou] = useState(false)
+
+  useEffect(() => {
+    const fim = expiraEm ? Date.parse(expiraEm) : NaN
+    if (!Number.isFinite(fim)) return
+    // Sempre por um relógio, mesmo com a hora já passada: trocar o estado
+    // no corpo do efeito pinta a tela duas vezes de uma vez só.
+    const relogio = setTimeout(() => setPassou(true), Math.max(0, fim - Date.now()))
+    return () => clearTimeout(relogio)
+  }, [expiraEm])
+
+  return <>{passou ? venceu : children}</>
+}
+
+/**
  * COMPRAR DE NOVO. A ação põe os itens na sacola; o evento abre a gaveta
  * com ela (o mesmo recado que o botão da página de produto manda), e a
  * frase fica aqui do lado — com o que não entrou, se algo não entrou.

@@ -139,12 +139,22 @@ export const dadosCompletos = (c: ClienteVisivel): boolean =>
  * "pago" é "Em separação": é o que ela quer saber depois de pagar, e é o que
  * o obrigado diz ("Já estamos separando o seu pedido"). "combinar" é o
  * pedido do checkout provisório, de antes do Pagar.me.
+ *
+ * "vencido" é o Pix que passou da hora e o pedido que ainda não foi
+ * cancelado. Ele existe porque esse intervalo é REAL: o Pagar.me não cancela
+ * Pix pendente, e quem cancela o pedido é a conciliação, de 5 em 5 minutos,
+ * com folga de 10 depois do vencimento. Nesse meio-tempo a conta dizia
+ * "Aguardando Pix" e oferecia "Pagar o Pix" pra um QR que não aceita mais
+ * pagamento. Quem decide é o SERVIDOR (ver `situacaoDe`, em
+ * `pedidos-da-conta.ts`) — a tela não fica adivinhando pelo relógio do
+ * celular, que não bate com o do banco.
  */
 export type SituacaoDoPedido =
-  "pix" | "analise" | "pago" | "enviado" | "entregue" | "cancelado" | "combinar"
+  "pix" | "vencido" | "analise" | "pago" | "enviado" | "entregue" | "cancelado" | "combinar"
 
 export const ROTULO_DA_SITUACAO: Record<SituacaoDoPedido, string> = {
   pix: "Aguardando Pix",
+  vencido: "Pix vencido",
   analise: "Em análise",
   pago: "Em separação",
   enviado: "Enviado",
@@ -153,9 +163,14 @@ export const ROTULO_DA_SITUACAO: Record<SituacaoDoPedido, string> = {
   combinar: "A combinar",
 }
 
-/** O que ainda vai mudar — é o que a visão geral põe em "Em andamento". */
+/**
+ * O que ainda vai mudar — é o que a visão geral põe em "Em andamento". O
+ * vencido está aqui: ainda vai mudar (pra cancelado), e é justamente o que a
+ * pessoa precisa ver.
+ */
 export const EM_ANDAMENTO: readonly SituacaoDoPedido[] = [
   "pix",
+  "vencido",
   "analise",
   "combinar",
   "pago",

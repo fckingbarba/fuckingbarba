@@ -159,7 +159,7 @@ Três portas que o Medusa deixa abertas e o projeto fecha. (1) Abrir sessão de 
 anteriores da coleção, sem conferir se ela já é de um pedido: `src/api/middlewares.ts` recusa sessão
 nova em coleção de pedido fechado — sem isso, o Pix esperando perde a sessão que o aviso procura.
 (2) Cancelar pedido não chama o provedor pra sessão pendente: `src/subscribers/pedido-cancelado.ts`
-cancela o Pix (o QR morre) e estorna o que tiver sido pago sem o Medusa saber. (3) A cobrança cuja
+fecha no Pagar.me o que dá (ver abaixo) e estorna o que tiver sido pago sem o Medusa saber. (3) A cobrança cuja
 sessão sumiu (tentou de novo depois de uma resposta perdida) não aparece em lugar nenhum da loja: a
 conciliação lista os pedidos do Pagar.me das últimas 48 horas e fecha os que não têm mais sessão. É
 por isso que o `deletePayment` do provedor não mexe no Pagar.me — o `data` que ele recebe pode ser o
@@ -168,6 +168,21 @@ corpo cru da API pública. Os pedidos levam `metadata.origem` (hash do usuário,
 na mesma chave de teste não estornam as compras uma da outra. Ainda assim, uma chave por ambiente —
 a de produção só no Railway. Na loja, carrinho que fechou sem a confirmação chegar ao navegador
 volta pro pedido pelo `/checkout/retomar`, em vez de mostrar "sacola vazia".
+
+**O PAGAR.ME NÃO CANCELA PIX PENDENTE.** `DELETE /charges/:id` numa cobrança de Pix esperando
+pagamento responde **412** ("This charge cannot be canceled because is pending"), e Pix VENCIDO
+continua `pending` lá — o 412 não passa nunca. Foi o que prendeu o estoque do #7 por um dia: o
+cancelamento do pedido vinha depois do DELETE, e o DELETE estourava de 5 em 5 minutos. Regra:
+ninguém manda DELETE em Pix pendente — nem a conciliação, nem o `cancelPayment` do provedor, nem o
+subscriber. No lugar disso, **Pix vencido cancela só o pedido aqui** (com os 10 minutos de folga, e
+relendo o pagamento antes — pago no limite existe), e **pedido cancelado com o Pix ainda valendo
+deixa a sessão pendente e VIGIADA**: o QR continua pagável, e a varredura de pagos-depois-de-
+cancelados (todo pedido cancelado dos últimos 7 dias) devolve o que entrar, pelo
+`refundPaymentsWorkflow` — no PLURAL, porque o singular recusa pedido cancelado. Cartão em análise
+ainda se cancela com DELETE; se vier 412, vira vigiado também. Quando o Pix vence sai de três
+camadas, nesta ordem: o `expires_at` que o Pagar.me acabou de dizer, o gravado na sessão (juntos com
+`||`, e não `??`: o lido nasce string VAZIA) e o `created_at` de lá + `PAGARME_PIX_MINUTOS`. Sem
+nenhuma das três, o Pix não vence — antes o estoque preso que a venda cancelada à toa.
 
 O **estorno** é pedido na hora (cancelar pedido pago no admin chama o `refundPayment`) e o Medusa
 marca "Refunded" na hora — mas anda DEPOIS, no Pagar.me, e pode falhar: o de Pix sai do saldo
@@ -213,7 +228,14 @@ achou. O rastreio vem de
 abaixo) com o mesmo filtro de dono — a API da loja nem sabe que eles existem, e corta as etiquetas
 dos fulfillments. O id do pedido no endereço não passa pra minúscula (`CAMINHOS_COM_ID`, no `proxy.ts`). O
 conferidor da conta monta pedidos de verdade em cada estado com `ferramentas/pedido-de-teste.mjs`
-— por isso pede `ADMIN_EMAIL`/`ADMIN_SENHA`, como os de frete e pagamento.
+— por isso pede `ADMIN_EMAIL`/`ADMIN_SENHA`, como os de frete e pagamento. Quem decide a situação
+de cada pedido é o servidor (`situacaoDe`), com a hora dele: Pix que passou do `expiraEm` não é
+`pix`, é **`vencido`** — selo "Pix vencido", "O Pix venceu — o pedido vai ser cancelado" e "Ver
+pedido" no lugar de "Pagar o Pix". Quem está com a tela aberta na hora em que vence vê a troca sem
+recarregar (`AteVencer`, em `components/conta/pecas.tsx`, que desenha o texto de antes no servidor
+e na primeira pintura). Pra montar esse estado no conferidor, `pedidoPix(..., { validadeSegundos })`
+aceita NEGATIVO — um Pix que já nasce vencido, dentro dos 10 minutos de folga antes de a
+conciliação cancelar.
 
 Os **endereços e os dados da conta** (`/conta/enderecos` e `/conta/dados`; as ações em
 `apps/loja/src/lib/acoes/enderecos.ts` e `dados.ts`) gravam no cliente do Medusa pela API da conta,

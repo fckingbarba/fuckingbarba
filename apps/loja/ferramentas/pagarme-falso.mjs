@@ -33,6 +33,7 @@ import { createServer } from "node:http"
  *   cartão 4000000000000036 → em análise (o teste decide o fim)
  *   CPF 11111111111         → recusado pela antifraude
  *   Pix acima de R$ 500     → falha na criação
+ *   DELETE em Pix pendente  → 412, sempre (nem vencido cancela)
  *
  * E o que a API deles exige e o falso também exige — senão o teste passaria
  * aqui e quebraria lá: token de cartão vale 60 segundos e UMA vez; tokenizar
@@ -102,6 +103,14 @@ export async function subirPagarmeFalso({ porta = PORTA_PADRAO, webhook = null }
     estornos: "normal",
     /** cobrança → centavos pedidos, enquanto o estorno está segurado. */
     estornosSegurados: new Map(),
+    /**
+     * A VALIDADE DO PIX, EM SEGUNDOS, por cima do `expires_in` que o backend
+     * pede. `null` é não mandar nada. Serve pro teste fazer um Pix que vence
+     * em segundos — o `envelhecer` empurra o pedido inteiro pro passado, e
+     * às vezes o que o teste quer é só o QR vencendo com a tela aberta, com
+     * o pedido recém-nascido.
+     */
+    validadeDoPix: null,
   }
 
   const cobrancaDo = (pedido) => pedido.charges[0]
@@ -250,7 +259,7 @@ export async function subirPagarmeFalso({ porta = PORTA_PADRAO, webhook = null }
           qr_code: `00020101021226840014br.gov.bcb.pix2562pix-falso.invalid/${pedidoId}5204000053039865406${(total / 100).toFixed(2)}5802BR`,
           qr_code_url: `http://127.0.0.1:${painel.porta}/qr/${t.id}.png`,
           expires_at: new Date(
-            Date.now() + (pagamento.pix?.expires_in ?? 3600) * 1000
+            Date.now() + (painel.validadeDoPix ?? pagamento.pix?.expires_in ?? 3600) * 1000
           ).toISOString(),
         })
       }
@@ -506,6 +515,28 @@ export async function subirPagarmeFalso({ porta = PORTA_PADRAO, webhook = null }
         }
         const c = cobrancaDo(registro.pedido)
         const valor = corpo?.amount ?? c.amount
+        /*
+          O PAGAR.ME NÃO CANCELA PIX ESPERANDO PAGAMENTO — e nem Pix vencido,
+          que continua `pending` lá. Responde 412, com esta frase, pra
+          sempre. Foi o que prendeu o estoque do pedido #7 por um dia: a
+          conciliação pedia o DELETE antes de cancelar o pedido, tomava o
+          412, e nunca chegava a cancelar.
+
+          O pedido recusado entra em `cancelamentos` do mesmo jeito, marcado:
+          quem conferir vê que o DELETE CHEGOU, e é isso que o conferidor
+          proíbe.
+        */
+        if (c.payment_method === "pix" && c.status === "pending") {
+          painel.cancelamentos.push({
+            cobranca: c.id,
+            pedido: registro.pedido.id,
+            status: c.status,
+            valor,
+            recusado: true,
+          })
+          json(412, { message: "This charge cannot be canceled because is pending." })
+          return
+        }
         painel.cancelamentos.push({
           cobranca: c.id,
           pedido: registro.pedido.id,

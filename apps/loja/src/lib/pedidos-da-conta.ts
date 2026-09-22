@@ -86,14 +86,33 @@ type Envio = {
 const emTexto = (d: string | Date | null | undefined) =>
   d ? String(d instanceof Date ? d.toISOString() : d) : null
 
-function situacaoDe(order: HttpTypes.StoreOrder, pedido: PedidoVisivel): SituacaoDoPedido {
+/**
+ * ONDE O PEDIDO ESTÁ — e o Pix vencido é decidido AQUI, no servidor.
+ *
+ * O intervalo entre o QR vencer e o pedido ser cancelado é real: o Pagar.me
+ * não cancela Pix pendente, e quem cancela o pedido é a conciliação do
+ * backend, de 5 em 5 minutos, com 10 de folga depois do vencimento. Até uns
+ * 15 minutos, portanto, o pedido está de pé com um QR que não serve mais.
+ *
+ * A comparação é feita com o relógio do SERVIDOR, e não com o do navegador:
+ * o do celular pode estar minutos adiantado, e nenhum "Pix vencido" deve
+ * aparecer antes da hora por causa disso. O que o navegador faz é só trocar
+ * a frase se o Pix vencer com a tela aberta (ver `MinutosDoPix`).
+ */
+function situacaoDe(
+  order: HttpTypes.StoreOrder,
+  pedido: PedidoVisivel,
+  agora: number
+): SituacaoDoPedido {
   if (order.status === "canceled" || pedido.pagamento.estado === "cancelado") return "cancelado"
   const envio = order.fulfillment_status
   if (envio === "delivered" || envio === "partially_delivered") return "entregue"
   if (envio === "shipped" || envio === "partially_shipped") return "enviado"
   switch (pedido.pagamento.estado) {
-    case "aguardando":
-      return "pix"
+    case "aguardando": {
+      const expira = Date.parse(pedido.pagamento.pix?.expiraEm ?? "")
+      return Number.isFinite(expira) && agora > expira ? "vencido" : "pix"
+    }
     case "analise":
       return "analise"
     case "pago":
@@ -114,7 +133,7 @@ function urlSegura(url: string | null | undefined): string | null {
   }
 }
 
-export function paraPedidoDaConta(order: HttpTypes.StoreOrder): PedidoDaConta {
+export function paraPedidoDaConta(order: HttpTypes.StoreOrder, agora = Date.now()): PedidoDaConta {
   const pedido = paraPedidoVisivel(order)
   const envios = ((order.fulfillments ?? []) as Envio[]).filter((f) => !f.canceled_at)
   const pagamentos = (order.payment_collections ?? []).flatMap(
@@ -125,7 +144,7 @@ export function paraPedidoDaConta(order: HttpTypes.StoreOrder): PedidoDaConta {
 
   return {
     ...pedido,
-    situacao: situacaoDe(order, pedido),
+    situacao: situacaoDe(order, pedido, agora),
     datas: {
       feito: pedido.quando,
       pago: primeira(pagamentos.map((p) => emTexto(p.captured_at))),
@@ -168,7 +187,11 @@ async function perguntar(
  */
 export const listarPedidos = cache(async (): Promise<LeituraDosPedidos> => {
   const r = await perguntar("limit=50&order=-created_at")
-  return r.estado === "ok" ? { estado: "ok", pedidos: r.orders.map(paraPedidoDaConta) } : r
+  if (r.estado !== "ok") return r
+  // A mesma hora pra lista inteira — e sem passar o índice do `map` como
+  // `agora`, que é o que aconteceria com `.map(paraPedidoDaConta)`.
+  const agora = Date.now()
+  return { estado: "ok", pedidos: r.orders.map((o) => paraPedidoDaConta(o, agora)) }
 })
 
 /**
