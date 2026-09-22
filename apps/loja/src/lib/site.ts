@@ -127,7 +127,14 @@ export const navegacao = {
   menu: [
     ...site.categorias.map((c) => ({ href: `/${c.handle}` as const, texto: c.menu })),
     { href: "/conta", texto: "Minha conta" },
-    { href: EM_BREVE, texto: "Carrinho" },
+    /*
+      Abre a GAVETA, como o ícone da sacola do cabeçalho (ver o menu em
+      `layout/cabecalho.tsx`). O `href` é pra quando não há JavaScript nem
+      gaveta: o checkout mostra a sacola. Era o `/em-breve`, com a sacola já
+      funcionando — o menu do celular dizia "ainda não ficou pronta" pra
+      quem queria ver o que tinha comprado.
+    */
+    { href: DESTINO_DO_CHECKOUT, texto: "Carrinho", abreSacola: true },
   ],
   uteis: [
     { href: "/produtos", texto: "Todos os produtos" },

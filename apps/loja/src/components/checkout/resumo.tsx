@@ -4,9 +4,10 @@ import Image from "next/image"
 import Link from "next/link"
 import { useActionState, useEffect, useRef, useState, useTransition } from "react"
 import { Caminhao, Cadeado, Escudo, Relogio, SetaBaixo, WhatsApp } from "@/components/icones"
-import { CONFIANCA, DEPOIMENTOS } from "@/conteudo/checkout"
+import { confiancaDoResumo, DEPOIMENTOS } from "@/conteudo/checkout"
 import { aplicarCupom, removerCupom } from "@/lib/acoes/checkout"
 import { ESTADO_INICIAL, type CheckoutVisivel } from "@/lib/checkout-visivel"
+import type { Configuracoes } from "@/lib/configuracoes"
 import { emReais } from "@/lib/formato"
 import { PARCELAS_SEM_JUROS, PARCELA_MINIMA } from "@/lib/site"
 
@@ -48,11 +49,15 @@ const COLUNA_DO_LADO = "(min-width: 901px)"
 export function Resumo({
   checkout,
   recalculando,
+  atendimento,
 }: {
   checkout: CheckoutVisivel
   recalculando: boolean
+  /** O prazo de postagem, pro pé — ver `confiancaDoResumo`. */
+  atendimento: Configuracoes["atendimento"]
 }) {
   const { itens, subtotal, desconto, frete, total, unidades } = checkout
+  const confianca = confiancaDoResumo(atendimento)
   const parcela = total / PARCELAS_SEM_JUROS
   const detalhes = useRef<HTMLDetailsElement>(null)
 
@@ -178,16 +183,18 @@ export function Resumo({
 
           <Depoimento />
 
-          <ul className="confianca">
-            {CONFIANCA.map((g) => {
-              const Icone = ICONES[g.icone]
-              return (
-                <li key={g.texto}>
-                  <Icone aria-hidden="true" /> {g.texto}
-                </li>
-              )
-            })}
-          </ul>
+          {confianca.length ? (
+            <ul className="confianca">
+              {confianca.map((g) => {
+                const Icone = ICONES[g.icone]
+                return (
+                  <li key={g.texto}>
+                    <Icone aria-hidden="true" /> {g.texto}
+                  </li>
+                )
+              })}
+            </ul>
+          ) : null}
         </div>
       </details>
     </aside>

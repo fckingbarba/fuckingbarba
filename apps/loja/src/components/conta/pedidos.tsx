@@ -459,9 +459,19 @@ export function textoDoPagamento(p: PedidoDaConta): string {
   return forma === "pix" ? "Pix — venceu sem pagamento" : `${base} — não aprovado`
 }
 
-/** A frase do pedido cancelado — a do obrigado, quando é o caso dela. */
+/**
+ * A frase do pedido cancelado — a do obrigado, quando é o caso dela.
+ *
+ * No cartão, o estorno diz QUANDO aparece, como o e-mail de cancelamento: é
+ * a pergunta seguinte de quem viu o valor sair — inclusive o de quem teve o
+ * cartão reprovado pela análise depois de capturado, que agora também é
+ * `estornado` (ver `devolvidoNoPagarme`).
+ */
 export function fraseDoCancelado(p: PedidoDaConta): string {
-  if (p.estornado) return "O pedido foi cancelado e o valor pago foi estornado."
+  if (p.estornado)
+    return p.pagamento.forma === "cartao"
+      ? "O pedido foi cancelado e o valor foi estornado no cartão — pode aparecer nesta fatura ou na próxima."
+      : "O pedido foi cancelado e o valor pago foi estornado."
   if (p.pagamento.forma === "cartao")
     return "O pagamento não foi aprovado, e o pedido foi cancelado."
   return "O pagamento não foi confirmado a tempo, e o pedido foi cancelado — os produtos voltaram pro estoque."

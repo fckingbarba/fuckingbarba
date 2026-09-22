@@ -242,7 +242,9 @@ const pagarme = await subirPagarmeFalso()
   faz as mesmas duas, senão compararia a tela contra `undefined`.
 */
 async function fretesCotados(carrinhoId) {
-  const { shipping_options: lista } = (await medusa(`/store/shipping-options?cart_id=${carrinhoId}`)) ?? {
+  const { shipping_options: lista } = (await medusa(
+    `/store/shipping-options?cart_id=${carrinhoId}`
+  )) ?? {
     shipping_options: [],
   }
   const saida = []
@@ -753,10 +755,27 @@ ok(
 
 await pagina.locator("#form-pagamento .opcao", { hasText: "Cartão" }).locator("input").check()
 const cartao = pagina.locator(".pagamento__painel[data-ativo] input").first()
+/* DIGITADO, e não colado de uma vez: o bug era o primeiro dígito que
+   revelava a bandeira tirar o foco do campo (o espaço do logo aparecia e o
+   React montava outro input). Com `fill` o número entra inteiro e o bug
+   passava batido. */
+await cartao.click()
+await cartao.pressSequentially("4111", { delay: 30 })
+ok(
+  (await cartao.evaluate((el) => el === document.activeElement)) &&
+    (await cartao.inputValue()) === "4111",
+  "o campo do número não perde o foco quando a bandeira aparece",
+  `valor na tela: "${await cartao.inputValue()}"`
+)
 await cartao.fill("4111 1111 1111 1111")
 ok(
-  (await pagina.locator(".campo__icone").first().innerText()).toLowerCase() === "visa",
-  "o número do cartão revela a bandeira enquanto digita"
+  (await pagina.locator('.campo__icone[data-bandeira="visa"] svg[role="img"]').count()) === 1,
+  "o número do cartão revela a bandeira enquanto digita — o logo da Visa no fim do campo"
+)
+ok(
+  (await pagina.locator(".pagamento__painel[data-ativo] .bandeiras").count()) === 0 &&
+    !/Estes campos não passam/.test(await pagina.locator("#form-pagamento").innerText()),
+  "sem a lista de bandeiras nem a explicação do caminho do cartão (saíram por escolha da loja)"
 )
 await cartao.fill("4111 1111 1111 1112")
 await cartao.blur()

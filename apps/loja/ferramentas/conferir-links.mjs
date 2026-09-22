@@ -97,8 +97,9 @@ for (const caminho of ["/privacidade", "/termos", "/trocas"]) {
 
 /* ── as regras de troca e devolução existem ─────────────────────────────── */
 /* O checkout pedia aceite delas numa linha embaixo do botão de pagar; a
-   linha saiu (o "7 dias pra trocar ou devolver" da faixa do passo 3 ficou),
-   e a página segue sendo a que o rodapé e o sitemap apontam. */
+   linha saiu, e depois o "7 dias pra trocar ou devolver" do resumo também
+   (escolha da loja). A página segue sendo a que o rodapé e o sitemap
+   apontam — é ela que cumpre o dever de informar a desistência. */
 const trocas = await pegar("/trocas")
 confere("o /trocas responde 200", trocas.status === 200)
 

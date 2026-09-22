@@ -106,7 +106,7 @@ async function Conteudo() {
     `piso: 0` quando não há promoção — os chips de "complete o frete grátis"
     somem sozinhos, porque não falta nada pra uma promoção que não existe.
   */
-  const { frete: politica } = await configuracoes()
+  const { frete: politica, atendimento } = await configuracoes()
   const piso = politica.modo === "nenhuma" ? 0 : politica.piso
   const falta = politica.modo === "nenhuma" ? 0 : faltaPraGratis(checkout, piso)
 
@@ -140,6 +140,7 @@ async function Conteudo() {
       sugestoes={sugestoes}
       falta={falta}
       piso={piso}
+      atendimento={atendimento}
     />
   )
 }

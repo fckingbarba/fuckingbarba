@@ -5,11 +5,11 @@ achado da revisão do pagamento) e a Minha conta de pé na loja: endereços, meu
 abre preenchido pra quem está na conta (e guarda o endereço da compra), e o "Minha conta" do
 cabeçalho apontando pra ela. No mesmo dia, o estorno que o Pagar.me não faz (a conciliação confere,
 avisa e pede de novo), a API de pedido fechada pra quem só tem o id, o e-mail de pedido confirmado
-ligado, as páginas de Contato e Dúvidas no lugar do `/em-breve` e a busca de verdade na lupa do
-cabeçalho; em 21/09, o conserto do cache e o rastreio da Frenet chegando no pedido, na conta e no
-e-mail. O AGENTS.md diz **como** trabalhar aqui; este arquivo diz **onde** o projeto está. Leia os
-dois antes de começar e, ao terminar uma tarefa, atualize este: o que mudou de estado, o que saiu
-da lista, o que entrou.
+ligado, as páginas de Contato e Dúvidas no lugar do `/em-breve`, a busca de verdade na lupa do
+cabeçalho e o checkout mais enxuto, com o logo da bandeira no campo do cartão; em 21/09, o conserto
+do cache e o rastreio da Frenet chegando no pedido, na conta e no e-mail. O AGENTS.md diz **como**
+trabalhar aqui; este arquivo diz **onde** o projeto está. Leia os dois antes de começar e, ao
+terminar uma tarefa, atualize este: o que mudou de estado, o que saiu da lista, o que entrou.
 
 ## No ar hoje
 
@@ -146,11 +146,13 @@ sozinha a cada 5 minutos; se nem ela resolver, o log com `[conciliação]` diz o
       ninguém receber duas vezes. Pra corrigir, só apagando o registro desses três à mão e deixando
       a varredura mandar de novo. Como são os amigos do teste, dá pra avisar por fora e deixar
       quieto — mas fica anotado que o que eles têm na caixa de entrada está errado.
-- [ ] Frase da conta pro cartão reprovado depois do pedido nascer. Quando o antifraude responde na
-      hora, a tela diz o certo (`RECUSAS.antifraude`, em `modules/pagarme/situacao.ts`); quando
-      demora, o pedido nasce e é cancelado, e a conta mostra o genérico "Cancelado antes do
-      pagamento." — pouco pra quem viu a cobrança ir e voltar no cartão. **O e-mail já não diz mais
-      isso** (item acima); a tela da conta ainda diz.
+- [x] **A conta não diz mais "Cancelado antes do pagamento." pro cartão que foi e voltou** (22/09).
+      Quando o antifraude reprova depois de capturar, o Medusa nunca registra pagamento nem
+      estorno — mas a sessão guarda o que o Pagar.me devolveu (`estornado`, em centavos). A conta
+      passou a ler isso também (`devolvidoNoPagarme`, em `apps/loja/src/lib/pagamento.ts`), igual
+      ao e-mail de cancelamento: o pedido aparece como "Cancelado, com o pagamento estornado.", o
+      pagamento como "Cartão … — estornado", e o detalhe diz que o valor pode aparecer nesta fatura
+      ou na próxima.
 - [x] Pix real de outra pessoa (22/09, pedido #10): pagou, a confirmação chegou — e ao cancelar e
       estornar **nenhum e-mail avisou o cliente**. O dinheiro saiu da conta dele e voltou sem uma
       palavra. Não era falha de envio: **o e-mail de pedido cancelado não existia** (nem o desenho,
@@ -300,12 +302,33 @@ aparecem na conta e no log, sem e-mail automático — esses a loja conversa com
       do Google (`noindex`) e do sitemap, e o `conferir-links` busca um produto de verdade pelo
       endereço dele, sem acento.
 - [x] **O "Blog" saiu do rodapé** (22/09) até o blog existir — o conteúdo é o da Nuvemshop, que vem
-      com a migração. Com isso, o único link de navegação que ainda leva pro `/em-breve` é o
-      "Carrinho" do menu lateral do celular (a sacola funciona; é só o link que ficou pra trás).
-- [ ] O passo 3 do checkout promete **"Envio imediato"** e o resumo, na mesma tela, **"Enviamos em
-      até 1 dia útil"** — os dois fixos em `apps/loja/src/conteudo/checkout.ts` (`GARANTIAS` e
-      `CONFIANCA`), enquanto o prazo de verdade é o **prazo de postagem** do admin. Escolher a frase
-      e ligar ao admin, como as Dúvidas e as trocas já fazem.
+      com a migração.
+- [x] **O "Carrinho" do menu do celular abre a sacola** (22/09), como o ícone do cabeçalho — levava
+      pro `/em-breve` com a sacola já funcionando. Sem JavaScript, o link vai pro checkout. Com isso,
+      nenhum link de navegação leva mais pro `/em-breve`.
+- [x] **O que o site promete sobre envio sai do admin** (22/09). O passo 3 dizia "Envio imediato", o
+      resumo "Enviamos em até 1 dia útil" (os dois na mesma tela, discordando) e o card de produto
+      alternava "Frete grátis" com "Envio imediato". Agora o passo 3 e o resumo dizem "Postagem em
+      <prazo de postagem do admin>", e somem enquanto ele estiver vazio; o card ficou só com a
+      política de frete. "Suporte no WhatsApp" também só aparece com um WhatsApp configurado. **Hoje,
+      em produção, nenhum dos dois está preenchido** — o passo 3 mostra só "Compra segura".
+- [x] **O checkout mais enxuto, por escolha da loja** (22/09): saíram o "7 dias pra trocar ou
+      devolver" do resumo, a lista de bandeiras embaixo do cartão e a explicação "Estes campos não
+      passam pelo servidor da loja…". O caminho do cartão não mudou (campos sem `name`, token do
+      Pagar.me) — só não é mais texto na tela. A desistência continua publicada onde a lei pede
+      (Decreto 7.962/2013, art. 5º): o `/trocas`, no rodapé de toda página, e as Dúvidas.
+- [x] **O logo da bandeira aparece no fim do campo do número do cartão** (22/09), no lugar da
+      etiqueta de texto. A detecção (`apps/loja/src/lib/cartao.ts`) agora usa as faixas de seis
+      dígitos da Elo e da Hipercard, e conhece as bandeiras que a loja não aceita (Diners,
+      Discover, JCB) — antes, todo Visa começando com 4011 era chamado de Elo, e um Discover
+      ganharia o logo da Elo. Enquanto o número ainda pode ser de duas bandeiras, nenhum logo
+      aparece: na prática, Visa no segundo ou terceiro dígito, Elo e Hipercard no sexto. Os logos
+      são SVG desenhados na loja (`components/checkout/bandeira.tsx`).
+- [x] **O campo do número do cartão perdia o foco no primeiro dígito** (achado e resolvido em 22/09).
+      O espaço da bandeira entrava e saía da tela junto com ela, e o `Campo` trocava o input de
+      lugar — o React montava outro, e quem digitava perdia o cursor bem quando a bandeira aparecia
+      (o mesmo bug que o CEP já tinha tido). Agora o espaço fica sempre montado, vazio até a
+      bandeira. O `conferir-checkout` digita tecla por tecla e confere o foco.
 - [ ] **Minha conta**, em quatro partes (a quarta saiu da terceira). Protótipo aprovado:
       `apps/loja/ferramentas/porte/prototipo-conta.html`.
   - [x] 1. Entrar com código de 6 dígitos no e-mail, sem senha; o primeiro código cria a conta, e o
@@ -353,9 +376,8 @@ aparecem na conta e no log, sem e-mail automático — esses a loja conversa com
   - [ ] Numeração: decidido que os pedidos novos começam depois do último da Nuvemshop (nada de dois
         "#28"). **Falta você dizer o número** do pedido mais recente de lá.
 - [ ] O checkout não pede mais aceite das regras de troca (a linha embaixo do botão de pagar saiu
-      no enxugamento de 21/09). As regras seguem publicadas no `/trocas`, com link no rodapé. Se
-      quiser o aceite de volta sem texto novo: o "7 dias pra trocar ou devolver" da faixa do passo
-      3 vira link pro `/trocas`.
+      no enxugamento de 21/09), e desde 22/09 também não fala mais em desistência. As regras seguem
+      publicadas no `/trocas`, com link no rodapé.
 - [ ] Troca de domínio (fase 6). O que depende do endereço da loja: `NEXT_PUBLIC_SITE_URL` na
       Vercel, `STORE_CORS`/`AUTH_CORS` e `LOJA_URL` (revalidação, logo e links dos e-mails) no
       Railway, `SITE_ORIGENS` no Supabase, a indexação, e o domínio no Pagar.me se ele passar a

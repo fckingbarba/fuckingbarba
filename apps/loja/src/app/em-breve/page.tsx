@@ -4,9 +4,10 @@ import { Raio } from "@/components/icones"
 import { site } from "@/lib/site"
 
 /**
- * Destino provisório dos links cujas páginas ainda não existem — hoje, o
- * "Carrinho" do menu lateral e os caminhos de reserva da sacola (ver
- * `EM_BREVE` em `lib/site.ts`).
+ * Destino provisório dos links cujas páginas ainda não existem. Hoje nenhum
+ * link de navegação leva pra cá: sobraram só os caminhos de reserva da
+ * sacola (item sem página de produto, botão sem gaveta) e o checkout, se um
+ * dia ele fechar de novo — ver `EM_BREVE` em `lib/site.ts`.
  *
  * Por que não deixar o link apontando pro nada: 404 é a resposta certa pra
  * endereço que não existe, não pra página que a gente ainda não fez. Quem

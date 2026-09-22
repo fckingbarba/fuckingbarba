@@ -20,8 +20,17 @@
   flex-direction: column;
   background: #ffffff;
   border: 2px solid var(--color-tinta);
-  clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
-  transition: transform 0.15s ease, filter 0.15s ease;
+  clip-path: polygon(
+    14px 0,
+    100% 0,
+    100% calc(100% - 14px),
+    calc(100% - 14px) 100%,
+    0 100%,
+    0 14px
+  );
+  transition:
+    transform 0.15s ease,
+    filter 0.15s ease;
 }
 .produto:hover,
 .produto:focus-within {
@@ -91,23 +100,12 @@
   padding: 5px 9px 5px 13px;
   clip-path: polygon(8px 0, 100% 0, 100% 100%, 8px 100%, 0 50%);
 }
+/* Uma frase só: a política de frete. Alternava com "Envio imediato", que a
+   loja não cumpre — o prazo é o de postagem do admin, e ele mora no
+   checkout. Sem a segunda frase, a animação de troca saiu junto. */
 .produto__frete span {
-  grid-area: 1 / 1;
   white-space: nowrap;
-  animation: freteAlterna 6s infinite;
 }
-.produto__frete span:nth-child(2) {
-  opacity: 0;
-  animation-delay: 3s;
-}
-@keyframes freteAlterna{
-    0%     { opacity: 0; transform: translateX(115%); }
-    5%     { opacity: 1; transform: translateX(0); }
-    45%    { opacity: 1; transform: translateX(0); }
-    50%    { opacity: 0; transform: translateX(-115%); }
-    99.9%  { opacity: 0; transform: translateX(-115%); }
-    100%   { opacity: 0; transform: translateX(115%); }
-  }
 .produto__corpo {
   display: flex;
   flex-direction: column;
@@ -177,15 +175,27 @@
     flex-basis: min(74%, 260px);
   }
 }
-@keyframes frete-estufa{
-    0%   { transform: scale(1); }
-    32%  { transform: scale(1.045); }
-    100% { transform: scale(1); }
+@keyframes frete-estufa {
+  0% {
+    transform: scale(1);
   }
-@keyframes frete-sobe{
-    0%   { transform: translateY(7px); opacity: 0; }
-    100% { transform: translateY(0); opacity: 1; }
+  32% {
+    transform: scale(1.045);
   }
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes frete-sobe {
+  0% {
+    transform: translateY(7px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
 [data-comprar].e-clicou .btn__icone {
   animation: icone-lanca 0.42s var(--ease-suave);
 }

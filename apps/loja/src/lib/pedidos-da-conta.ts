@@ -11,6 +11,7 @@ import {
   type SituacaoDoPedido,
   type TipoDeEvento,
 } from "./conta-visivel"
+import { devolvidoNoPagarme } from "./pagamento"
 import { CAMPOS_DO_PEDIDO, paraPedidoVisivel, type PedidoVisivel } from "./pedido"
 
 /**
@@ -40,7 +41,10 @@ export type PedidoDaConta = PedidoVisivel & {
    * pergunta a mais por pedido.
    */
   rastreios: Rastreio[]
-  /** Cancelado depois de pago: o Medusa registrou o estorno. */
+  /**
+   * Cancelado com dinheiro devolvido: o Medusa registrou o estorno, ou o
+   * Pagar.me desfez a cobrança sozinho (ver `devolvidoNoPagarme`).
+   */
   estornado: boolean
 }
 
@@ -152,7 +156,12 @@ export function paraPedidoDaConta(order: HttpTypes.StoreOrder, agora = Date.now(
       entregue: primeira(envios.map((f) => emTexto(f.delivered_at))),
     },
     rastreios: [],
-    estornado: order.status === "canceled" && /refunded/.test(String(order.payment_status ?? "")),
+    // As duas portas por onde o dinheiro volta: o estorno que o Medusa
+    // registrou, e o que o Pagar.me desfez sem o Medusa ver (o cartão
+    // reprovado pela análise depois de capturado — `devolvidoNoPagarme`).
+    estornado:
+      order.status === "canceled" &&
+      (/refunded/.test(String(order.payment_status ?? "")) || devolvidoNoPagarme(order) > 0),
   }
 }
 
