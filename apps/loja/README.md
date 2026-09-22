@@ -13,26 +13,27 @@ npm run loja:dev                                 # http://localhost:3000
 
 ## O que está aqui (fase 1)
 
-| Caminho                               | O que faz                                                                                       |
-| ------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `src/app/layout.tsx`                  | A carcaça de toda página: esteira, cabeçalho, rodapé, Inter local, metadata base, tags          |
-| `src/components/layout/`              | `Anuncio`, `Cabecalho` (menu lateral e busca), `Rodape`, `Newsletter`, `ForaDaTela`             |
-| `src/components/icones.tsx`           | Os SVGs do protótipo, inline; quem nomeia é o `aria-label` de quem os contém                    |
-| `src/estilos/`                        | O CSS do protótipo por componente — ver "Por que o CSS não virou Tailwind" abaixo               |
-| `src/app/page.tsx`                    | Home provisória: só o miolo, que a fase 3 troca pelas seções do protótipo                       |
-| `src/app/[categoria]/page.tsx`        | `/barba`, `/cabelo`, `/kits` lendo categoria e produtos do Medusa                               |
-| `src/app/produtos/[handle]/page.tsx`  | `/produtos/<handle>` lendo o produto do Medusa (esqueleto da PDP)                               |
-| `src/app/em-breve/page.tsx`           | Destino honesto dos links cujas páginas ainda não existem (blog, busca)                         |
-| `src/app/(institucional)/`            | `/privacidade`, `/termos`, `/trocas`, `/contato` e `/duvidas` (texto em `conteudo/duvidas.ts`)  |
-| `src/app/robots.ts` · `sitemap.ts`    | Bloqueia tudo até `SITE_INDEXAVEL=true`; sitemap gerado do Medusa                               |
-| `src/app/api/revalidar/route.ts`      | O Medusa avisa que algo mudou → a tag do cache cai (`revalidateTag(tag, "max")`)                |
-| `src/proxy.ts` + `src/redirects.json` | 301 da Nuvemshop, 301 pra minúsculo, 404 real no primeiro nível, `noindex` fora de produção     |
-| `src/lib/site.ts`                     | Identidade, contato e o mapa de links que cabeçalho, menu e rodapé leem                         |
-| `src/lib/medusa.ts`                   | Único ponto de contato com o Medusa; toda leitura é `use cache` com tag                         |
-| `src/lib/rastrear.ts`                 | Única porta de saída de eventos (dataLayer no formato GA4)                                      |
-| `src/components/analytics/`           | Consent Mode v2 (tudo negado até aceitar) + GA4 + faixa de consentimento LGPD                   |
-| `src/app/globals.css`                 | Tokens da marca em `@theme` (Tailwind v4): `bg-menta`, `text-tinta`, `chanfro`, `faixa-perigo`… |
-| `lighthouserc.json` + `budgets.json`  | As metas que o CI defende: ver "O que o Lighthouse CI cobra" abaixo                             |
+| Caminho                                       | O que faz                                                                                       |
+| --------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `src/app/layout.tsx`                          | A carcaça de toda página: esteira, cabeçalho, rodapé, Inter local, metadata base, tags          |
+| `src/components/layout/`                      | `Anuncio`, `Cabecalho` (menu lateral e busca), `Rodape`, `Newsletter`, `ForaDaTela`             |
+| `src/components/icones.tsx`                   | Os SVGs do protótipo, inline; quem nomeia é o `aria-label` de quem os contém                    |
+| `src/estilos/`                                | O CSS do protótipo por componente — ver "Por que o CSS não virou Tailwind" abaixo               |
+| `src/app/page.tsx`                            | Home provisória: só o miolo, que a fase 3 troca pelas seções do protótipo                       |
+| `src/app/[categoria]/page.tsx`                | `/barba`, `/cabelo`, `/kits` lendo categoria e produtos do Medusa                               |
+| `src/app/produtos/[handle]/page.tsx`          | `/produtos/<handle>` lendo o produto do Medusa (esqueleto da PDP)                               |
+| `src/app/busca/page.tsx` + `src/lib/busca.ts` | `/busca?q=` — a lupa do cabeçalho: sem acento, em qualquer ordem, com plural                    |
+| `src/app/em-breve/page.tsx`                   | Destino honesto dos links cujas páginas ainda não existem (hoje, o Carrinho do menu lateral)    |
+| `src/app/(institucional)/`                    | `/privacidade`, `/termos`, `/trocas`, `/contato` e `/duvidas` (texto em `conteudo/duvidas.ts`)  |
+| `src/app/robots.ts` · `sitemap.ts`            | Bloqueia tudo até `SITE_INDEXAVEL=true`; sitemap gerado do Medusa                               |
+| `src/app/api/revalidar/route.ts`              | O Medusa avisa que algo mudou → a tag do cache cai (`revalidateTag(tag, "max")`)                |
+| `src/proxy.ts` + `src/redirects.json`         | 301 da Nuvemshop, 301 pra minúsculo, 404 real no primeiro nível, `noindex` fora de produção     |
+| `src/lib/site.ts`                             | Identidade, contato e o mapa de links que cabeçalho, menu e rodapé leem                         |
+| `src/lib/medusa.ts`                           | Único ponto de contato com o Medusa; toda leitura é `use cache` com tag                         |
+| `src/lib/rastrear.ts`                         | Única porta de saída de eventos (dataLayer no formato GA4)                                      |
+| `src/components/analytics/`                   | Consent Mode v2 (tudo negado até aceitar) + GA4 + faixa de consentimento LGPD                   |
+| `src/app/globals.css`                         | Tokens da marca em `@theme` (Tailwind v4): `bg-menta`, `text-tinta`, `chanfro`, `faixa-perigo`… |
+| `lighthouserc.json` + `budgets.json`          | As metas que o CI defende: ver "O que o Lighthouse CI cobra" abaixo                             |
 
 ## Por que o CSS não virou Tailwind
 
@@ -128,7 +129,9 @@ aberta de julho pra cá.
 
 `/barba`, `/cabelo`, `/kits` e `/produtos` são **a mesma tela** (`src/app/[categoria]/page.tsx` e
 `src/app/produtos/page.tsx`, com os componentes de `src/components/catalogo/`). O card é o mesmo
-`CartaoProduto` da home — a categoria não desenha produto de um jeito só dela.
+`CartaoProduto` da home — a categoria não desenha produto de um jeito só dela. A `/busca` também é
+essa tela, com um campo no lugar do filtro; quem decide o que serve é `src/lib/busca.ts`, que
+explica por que a peneira é na loja e não no `q` do Medusa.
 
 **A ordenação é `?ordem=` na URL, com formulário GET e sem uma linha de JavaScript.** Ela vira um
 link que dá pra mandar por WhatsApp, volta igual no botão voltar e o buscador lê. O botão que

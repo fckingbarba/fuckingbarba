@@ -1,5 +1,6 @@
 "use client"
 
+import Form from "next/form"
 import Link from "next/link"
 import { useEffect, useRef, useState } from "react"
 import { Conta, Fechar, Hamburguer, Lupa, Raio } from "@/components/icones"
@@ -7,7 +8,7 @@ import { LogoCurta } from "@/components/marca"
 import { BotaoDaSacola } from "@/components/sacola/botao"
 import { useFrete } from "@/components/configuracoes/contexto"
 import { frasesDoFrete } from "@/lib/configuracoes"
-import { EM_BREVE, navegacao, site } from "@/lib/site"
+import { navegacao, site } from "@/lib/site"
 
 /**
  * Cabeçalho preto fixo + menu lateral.
@@ -147,19 +148,23 @@ export function Cabecalho() {
         </div>
 
         <div className="cabecalho__busca" id="busca" hidden={!buscaAberta}>
-          {/* A página de resultados entra na fase 3; até lá o caminho é honesto. */}
-          <form role="search" action={EM_BREVE}>
+          {/* `next/form`: um GET pro `/busca?q=…` que funciona sem JavaScript,
+              e com ele troca de página sem recarregar a loja. O painel fecha
+              ao buscar — o cabeçalho continua montado entre as páginas, e sem
+              isto ele ficaria aberto por cima dos resultados. */}
+          <Form role="search" action="/busca" onSubmit={() => setBuscaAberta(false)}>
             <input
               ref={buscaRef}
               type="search"
               name="q"
               placeholder="O que você procura?"
               aria-label="Buscar produtos"
+              enterKeyHint="search"
             />
             <button type="submit" className="btn">
               Buscar
             </button>
-          </form>
+          </Form>
         </div>
 
         <nav className="cabecalho__nav" aria-label="Categorias">

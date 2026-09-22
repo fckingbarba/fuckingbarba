@@ -19,8 +19,11 @@ import { contarTudo, type HandleDeCategoria, type Prateleira } from "@/lib/catal
 
 type Props = {
   prateleiras: Prateleira[]
-  /** handle da categoria atual, ou "produtos" na lista completa. */
-  atual: HandleDeCategoria | "produtos"
+  /**
+   * handle da categoria atual, "produtos" na lista completa, ou `null` onde
+   * nenhuma é a atual (a busca).
+   */
+  atual: HandleDeCategoria | "produtos" | null
 }
 
 export function Trilhos({ prateleiras, atual }: Props) {
