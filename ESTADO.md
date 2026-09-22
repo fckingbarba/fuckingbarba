@@ -126,6 +126,15 @@ sozinha a cada 5 minutos; se nem ela resolver, o log com `[conciliação]` diz o
       Pagar.me, em centavos, que a sessão guarda): maior que zero é dinheiro que se mexeu, e o
       e-mail diz que está voltando. Com 100% dos cartões sendo reprovados, este caso era a regra e
       não a exceção.
+- [ ] **Três pessoas já receberam a versão errada, antes da correção subir.** A varredura rodou às
+      19:22 de 22/09 com o código antigo e mandou: `#7` e `#8` como "pix-vencido" (certo), `#10`
+      como "estornado" (certo, era o Pix pago) e **`#9`, `#11` e `#12` como "sem-cobranca"** — as
+      três compras no cartão reprovadas pela antifraude, as três dizendo "nada foi cobrado" pra
+      quem viu o valor sair e voltar. Subir a correção **não reenvia**: o registro em
+      `metadata.emails.cancelado` já está gravado nos três pedidos, e ele existe justamente pra
+      ninguém receber duas vezes. Pra corrigir, só apagando o registro desses três à mão e deixando
+      a varredura mandar de novo. Como são os amigos do teste, dá pra avisar por fora e deixar
+      quieto — mas fica anotado que o que eles têm na caixa de entrada está errado.
 - [ ] Frase da conta pro cartão reprovado depois do pedido nascer. Quando o antifraude responde na
       hora, a tela diz o certo (`RECUSAS.antifraude`, em `modules/pagarme/situacao.ts`); quando
       demora, o pedido nasce e é cancelado, e a conta mostra o genérico "Cancelado antes do
