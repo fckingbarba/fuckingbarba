@@ -13,8 +13,9 @@
  * └────────────────────────────────────────────────────────────────────────┘
  *
  * O que este arquivo faz é só o que dá pra fazer sem gateway: dizer na hora
- * que o número está torto, e mostrar a bandeira certa. Os dois evitam a
- * recusa que só apareceria depois de a pessoa clicar em pagar.
+ * que o número está torto, e mostrar a bandeira certa (o logo dela, no fim
+ * do campo — `components/checkout/bandeira.tsx`). Os dois evitam a recusa
+ * que só apareceria depois de a pessoa clicar em pagar.
  */
 
 export type Bandeira = "visa" | "mastercard" | "elo" | "amex" | "hipercard" | ""
@@ -22,21 +23,98 @@ export type Bandeira = "visa" | "mastercard" | "elo" | "amex" | "hipercard" | ""
 const soDigitos = (v: string) => v.replace(/\D+/g, "")
 
 /**
- * A bandeira pelo começo do número.
+ * AS FAIXAS DE CADA BANDEIRA — o começo do número (o BIN), de 1 a 6 dígitos.
  *
- * A ordem importa: Elo e Hipercard têm faixas que começam com 4 ou 6 e
- * cairiam em Visa se a checagem delas viesse depois.
+ * Uma faixa é `[início, fim]` com o mesmo número de dígitos; o número está
+ * nela quando o começo dele, desse tamanho, cai entre os dois. As da Elo são
+ * as publicadas por ela, de seis dígitos — e elas moram DENTRO do 4 da Visa e
+ * do 65 da Discover, que é por que a checagem por quatro dígitos que existia
+ * aqui ("4011" é Elo) chamava de Elo um monte de Visa: de 401100 a 401199,
+ * só 401178 e 401179 são Elo.
+ *
+ * As bandeiras que a loja NÃO aceita também estão aqui. Sem elas, um Discover
+ * (65…) apareceria com o logo da Elo, e um Diners (38…), com o da Hipercard
+ * — a bandeira errada na tela é pior que nenhuma.
+ */
+type Faixa = readonly [inicio: string, fim: string]
+
+const faixa = (inicio: string, fim = inicio): Faixa => [inicio, fim]
+
+const FAIXAS: Record<string, readonly Faixa[]> = {
+  visa: [faixa("4")],
+  mastercard: [
+    faixa("51", "55"),
+    faixa("2221", "2229"),
+    faixa("223", "229"),
+    faixa("23", "26"),
+    faixa("270", "271"),
+    faixa("2720"),
+  ],
+  amex: [faixa("34"), faixa("37")],
+  elo: [
+    faixa("401178", "401179"),
+    faixa("431274"),
+    faixa("438935"),
+    faixa("451416"),
+    faixa("457393"),
+    faixa("457631", "457632"),
+    faixa("504175"),
+    faixa("506699", "506778"),
+    faixa("509000", "509999"),
+    faixa("627780"),
+    faixa("636297"),
+    faixa("636368"),
+    faixa("650031", "650033"),
+    faixa("650035", "650051"),
+    faixa("650405", "650439"),
+    faixa("650485", "650538"),
+    faixa("650541", "650598"),
+    faixa("650700", "650718"),
+    faixa("650720", "650727"),
+    faixa("650901", "650978"),
+    faixa("651652", "651679"),
+    faixa("655000", "655019"),
+    faixa("655021", "655058"),
+  ],
+  hipercard: [faixa("606282"), faixa("384100"), faixa("384140"), faixa("384160")],
+  diners: [faixa("300", "305"), faixa("36"), faixa("38"), faixa("39")],
+  discover: [faixa("6011"), faixa("644", "649"), faixa("65")],
+  jcb: [faixa("3528", "3589")],
+}
+
+const ACEITAS = new Set<string>(["visa", "mastercard", "elo", "amex", "hipercard"])
+
+/**
+ * A bandeira pelo começo do número — ou `""` enquanto não dá pra ter certeza.
+ *
+ * A faixa MAIS ESPECÍFICA ganha: 451416 é Elo mesmo começando com o 4 da
+ * Visa. E enquanto ainda cabe uma faixa mais específica de outra bandeira,
+ * a resposta espera: com "45" digitado, pode ser Visa ou Elo (451416), e
+ * mostrar Visa pra depois trocar é mostrar a bandeira errada por três
+ * dígitos. Na prática, Visa aparece no segundo ou terceiro dígito, Amex e
+ * Mastercard no segundo, e Elo e Hipercard no sexto.
  */
 export function bandeiraDe(numero: string): Bandeira {
   const n = soDigitos(numero)
-  if (/^(4011|4312|4389|4514|4576|5041|5066|5067|509|6277|6362|6363|650|6516|6550)/.test(n)) {
-    return "elo"
+  let certa: { nome: string; digitos: number } | null = null
+  const ainda: { nome: string; digitos: number }[] = []
+
+  for (const [nome, faixas] of Object.entries(FAIXAS)) {
+    for (const [inicio, fim] of faixas) {
+      const digitos = inicio.length
+      const k = Math.min(n.length, digitos)
+      if (k === 0) continue
+      const comeco = n.slice(0, k)
+      if (comeco < inicio.slice(0, k) || comeco > fim.slice(0, k)) continue
+      if (n.length < digitos) ainda.push({ nome, digitos })
+      else if (!certa || digitos > certa.digitos) certa = { nome, digitos }
+    }
   }
-  if (/^(606282|3841)/.test(n)) return "hipercard"
-  if (/^3[47]/.test(n)) return "amex"
-  if (/^(5[1-5]|2[2-7])/.test(n)) return "mastercard"
-  if (/^4/.test(n)) return "visa"
-  return ""
+
+  const achada = certa
+  if (!achada) return ""
+  if (ainda.some((a) => a.nome !== achada.nome && a.digitos > achada.digitos)) return ""
+  return ACEITAS.has(achada.nome) ? (achada.nome as Bandeira) : ""
 }
 
 export const NOMES_DAS_BANDEIRAS: Record<Exclude<Bandeira, "">, string> = {

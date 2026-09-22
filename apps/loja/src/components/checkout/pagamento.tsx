@@ -23,17 +23,9 @@ import {
   Relogio,
   WhatsApp,
 } from "@/components/icones"
-import { BANDEIRAS, FORMAS, GARANTIAS, type FormaDePagamento } from "@/conteudo/checkout"
+import { FORMAS, garantiasDoPagamento, type FormaDePagamento } from "@/conteudo/checkout"
 import { alternarBump, finalizar } from "@/lib/acoes/checkout"
-import {
-  bandeiraDe,
-  cvvOk,
-  luhn,
-  mascararCartao,
-  mascararValidade,
-  validadeOk,
-  NOMES_DAS_BANDEIRAS,
-} from "@/lib/cartao"
+import { bandeiraDe, cvvOk, luhn, mascararCartao, mascararValidade, validadeOk } from "@/lib/cartao"
 import {
   ESTADO_INICIAL,
   PROVEDOR_PAGARME,
@@ -41,9 +33,11 @@ import {
   type Oferta,
   type ProvedorDePagamento,
 } from "@/lib/checkout-visivel"
+import type { Configuracoes } from "@/lib/configuracoes"
 import { emReais } from "@/lib/formato"
 import { nomeNoCartao, tokenizar } from "@/lib/pagarme"
 import { CHECKOUT_ABERTO, PARCELA_MINIMA, PARCELAS_SEM_JUROS } from "@/lib/site"
+import { LogoDaBandeira } from "./bandeira"
 import { Campo } from "./campo"
 import {
   Giro,
@@ -92,6 +86,8 @@ type Props = PropsDaEtapa & {
   checkout: CheckoutVisivel
   provedores: ProvedorDePagamento[]
   bump: Oferta | null
+  /** O prazo de postagem e o WhatsApp decidem o que a faixa pode prometer. */
+  atendimento: Configuracoes["atendimento"]
 }
 
 export type CartaoNaTela = { numero: string; nome: string; validade: string; cvv: string }
@@ -123,7 +119,7 @@ function parcelasPossiveis(total: number): number[] {
 // quando dá certo — a ação redireciona pra tela de obrigado e esta página
 // deixa de existir. Tirar da prop quebraria a assinatura comum das etapas.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function Pagamento({ checkout, provedores, bump, aoSalvar, ...casca }: Props) {
+export function Pagamento({ checkout, provedores, bump, atendimento, aoSalvar, ...casca }: Props) {
   const [estado, acao, enviando] = useActionState(finalizar, ESTADO_INICIAL)
   const [forma, setForma] = useState<FormaDePagamento["id"]>("pix")
   const [cartao, setCartao] = useState<CartaoNaTela>(CARTAO_VAZIO)
@@ -229,10 +225,14 @@ export function Pagamento({ checkout, provedores, bump, aoSalvar, ...casca }: Pr
         : `Pagar ${emReais(checkout.total)}`
       : `Fazer o pedido · ${emReais(checkout.total)}`)
 
+  const garantias = garantiasDoPagamento(atendimento)
+
   return (
     <Painel etapa="pagamento" aberta={casca.aberta}>
-      <ul className="confia" aria-label="Por que comprar com a gente">
-        {GARANTIAS.map((g) => {
+      {/* `data-itens`: são de uma a três frases (ver `garantiasDoPagamento`),
+          e a grade do protótipo era de três colunas fixas. */}
+      <ul className="confia" aria-label="Por que comprar com a gente" data-itens={garantias.length}>
+        {garantias.map((g) => {
           const Icone = ICONES[g.icone]
           return (
             <li key={g.texto}>
@@ -513,12 +513,18 @@ function Cartao({
           onChange={(e) => muda("numero", mascararCartao(e.target.value))}
           onBlur={() => aoTocar("numero")}
           erro={erroNumero}
+          /*
+            O espaço do logo fica SEMPRE montado, vazio até a bandeira
+            aparecer (`.campo__icone:empty` some). Era `bandeira ? … :
+            undefined`, e o `Campo` troca o input de lugar na árvore quando o
+            enfeite aparece — o React montava outro campo, e o primeiro dígito
+            que revelava a bandeira tirava o foco de quem estava digitando.
+            O `data-bandeira` é o que o conferidor de checkout procura.
+          */
           enfeite={
-            bandeira ? (
-              <span className="campo__icone" data-ok="" aria-hidden="true">
-                {NOMES_DAS_BANDEIRAS[bandeira]}
-              </span>
-            ) : undefined
+            <span className="campo__icone" data-bandeira={bandeira || undefined}>
+              {bandeira ? <LogoDaBandeira bandeira={bandeira} /> : null}
+            </span>
           }
         />
         <Campo
@@ -583,18 +589,15 @@ function Cartao({
         </div>
       </div>
 
-      <div className="bandeiras" aria-label="Bandeiras aceitas">
-        {BANDEIRAS.map((b) => (
-          <span key={b}>{b}</span>
-        ))}
-      </div>
-
-      {cobra ? (
-        <p className="pagamento__nota" style={{ marginTop: 10 }}>
-          <b>Estes campos não passam pelo servidor da loja.</b> O cartão vai direto pro Pagar.me,
-          que devolve só um código de uso único — é ele que fecha a compra.
-        </p>
-      ) : (
+      {/*
+        Cobrando de verdade, o formulário não explica mais o caminho do cartão
+        nem lista as bandeiras (saíram por escolha da loja, 22/09/2026): o logo
+        no fim do campo já diz qual cartão foi reconhecido. O caminho continua
+        o mesmo — os campos sem `name`, o token do Pagar.me —, só não é mais
+        texto na tela. A nota abaixo é a da vitrine, sem cobrança, e essa
+        precisa ficar: diz que o pedido não é cobrado agora.
+      */}
+      {cobra ? null : (
         <p className="pagamento__nota" style={{ marginTop: 10 }}>
           <b>Estes campos não saem do seu navegador.</b> O pagamento no site entra com o gateway;
           até lá o pedido é registrado e a gente chama você pra acertar.

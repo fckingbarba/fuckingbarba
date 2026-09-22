@@ -75,10 +75,12 @@ export async function CartaoProduto({
 
         {desconto ? <span className="produto__selo">-{desconto}%</span> : null}
 
+        {/* Era "Frete grátis" alternando com "Envio imediato" — e a loja não
+            posta na hora: o prazo é o de postagem que ela configura no admin,
+            e ele mora no checkout. Ficou o que a política de frete garante. */}
         {temTarja && frases ? (
           <p className="produto__frete">
             <span>{frases.selo}</span>
-            <span>Envio imediato</span>
           </p>
         ) : null}
       </div>

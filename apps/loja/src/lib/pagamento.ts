@@ -150,6 +150,32 @@ type SessaoLida = {
   data?: Record<string, unknown> | null
 }
 
+function sessaoDoPagarme(order: HttpTypes.StoreOrder): SessaoLida | undefined {
+  return (order.payment_collections ?? [])
+    .flatMap((c) => (c?.payment_sessions ?? []) as SessaoLida[])
+    .find((s) => s.provider_id === PROVEDOR_PAGARME)
+}
+
+/**
+ * Quanto o Pagar.me já devolveu da cobrança deste pedido, em centavos.
+ *
+ * É o `estornado` que o provedor grava na sessão (o `canceled_amount` /
+ * `refunded_amount` de lá), e existe por causa de UM caso que o Medusa não
+ * enxerga: o cartão que o banco aprova e a análise de fraude reprova depois
+ * de capturado. O valor sai e volta no cartão de quem comprou, e o Medusa
+ * nunca registrou pagamento nenhum — nem estorno. Pelo `payment_status`, é
+ * um pedido "cancelado antes do pagamento"; pelo extrato do cliente, não.
+ *
+ * O e-mail de cancelamento já decide assim (`decidir`, em
+ * `apps/backend/src/lib/avisar-cancelamento.ts`); a conta lê daqui pra dizer
+ * a mesma coisa que ele.
+ */
+export function devolvidoNoPagarme(order: HttpTypes.StoreOrder): number {
+  const estado = sessaoDoPagarme(order)?.data?.pagarme as { estornado?: unknown } | undefined
+  const centavos = Number(estado?.estornado ?? 0)
+  return Number.isFinite(centavos) && centavos > 0 ? centavos : 0
+}
+
 /**
  * O pagamento de um pedido, na pergunta que a pessoa faz ("e o meu
  * pagamento?"), já respondida.
@@ -160,10 +186,7 @@ type SessaoLida = {
  * Pix e o final do cartão.
  */
 export function lerPagamento(order: HttpTypes.StoreOrder): PagamentoVisivel {
-  const sessoes = (order.payment_collections ?? []).flatMap(
-    (c) => (c?.payment_sessions ?? []) as SessaoLida[]
-  )
-  const doPagarme = sessoes.find((s) => s.provider_id === PROVEDOR_PAGARME)
+  const doPagarme = sessaoDoPagarme(order)
 
   if (!doPagarme) {
     return order.status === "canceled"

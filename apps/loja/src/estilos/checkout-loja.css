@@ -532,3 +532,42 @@ img.feito__qr {
     animation-duration: 2s;
   }
 }
+
+/*
+  O LOGO DA BANDEIRA no fim do campo do número (`components/checkout/
+  bandeira.tsx`). O `.campo__icone` do protótipo era uma etiqueta de texto
+  — fundo tinta, letra branca, "VISA" — e o logo já traz as cores dele: aqui
+  sai o fundo e o respiro, e o SVG ocupa a caixa inteira. Sem bandeira a
+  caixa fica vazia, e o `.campo__icone:empty` do protótipo esconde.
+*/
+.campo__icone[data-bandeira] {
+  height: 26px;
+  padding: 0;
+  background: none;
+  /* A etiqueta do protótipo era em maiúsculas espaçadas, e o texto de
+     dentro do SVG herda isso: o "elo" virava "ELO" e a Hipercard,
+     "HIPERCARD". Logo é desenho; a caixa não mexe nele. */
+  text-transform: none;
+  letter-spacing: normal;
+}
+.campo__icone[data-bandeira] svg {
+  display: block;
+  width: 40px;
+  height: 26px;
+}
+
+/*
+  A faixa do passo 3 tem de UMA a TRÊS frases agora: o prazo de postagem e o
+  WhatsApp só entram quando o admin tem os dois (`garantiasDoPagamento`). A
+  grade do protótipo era de três colunas fixas, e com uma frase só sobravam
+  dois terços de faixa vazia. No celular (até 560px) ela já empilha — é lá
+  que o protótipo decide, e isto não mexe.
+*/
+@media (min-width: 561px) {
+  .confia[data-itens="1"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .confia[data-itens="2"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

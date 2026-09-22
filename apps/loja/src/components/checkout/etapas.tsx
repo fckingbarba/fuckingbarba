@@ -19,6 +19,7 @@ import {
   type OpcaoDeFrete,
   type ProvedorDePagamento,
 } from "@/lib/checkout-visivel"
+import type { Configuracoes } from "@/lib/configuracoes"
 import { emReais } from "@/lib/formato"
 import { Contato } from "./contato"
 import { Entrega } from "./entrega"
@@ -58,9 +59,20 @@ type Props = {
   sugestoes: Oferta[]
   falta: number
   piso: number
+  /** Do admin: o que o passo 3 e o resumo podem prometer (prazo, WhatsApp). */
+  atendimento: Configuracoes["atendimento"]
 }
 
-export function Etapas({ checkout, fretes, provedores, bump, sugestoes, falta, piso }: Props) {
+export function Etapas({
+  checkout,
+  fretes,
+  provedores,
+  bump,
+  sugestoes,
+  falta,
+  piso,
+  atendimento,
+}: Props) {
   const sugerida = etapaDoCarrinho(checkout)
   const [editando, setEditando] = useState<Etapa | null>(null)
   const aberta = editando ?? sugerida
@@ -139,6 +151,7 @@ export function Etapas({ checkout, fretes, provedores, bump, sugestoes, falta, p
           checkout={checkout}
           provedores={provedores}
           bump={bump}
+          atendimento={atendimento}
           {...comum}
         />
       </div>
@@ -150,7 +163,7 @@ export function Etapas({ checkout, fretes, provedores, bump, sugestoes, falta, p
         recalculando={recalculando}
       />
 
-      <Resumo checkout={checkout} recalculando={recalculando} />
+      <Resumo checkout={checkout} recalculando={recalculando} atendimento={atendimento} />
     </>
   )
 }

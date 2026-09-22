@@ -1,5 +1,5 @@
 import type { Route } from "next"
-import { BANDEIRAS } from "@/conteudo/checkout"
+import { NOMES_DAS_BANDEIRAS } from "@/lib/cartao"
 import { frasesDoFrete, pisoVale, type Configuracoes } from "@/lib/configuracoes"
 import { emReais } from "@/lib/formato"
 import { PARCELA_MINIMA, PARCELAS_SEM_JUROS } from "@/lib/site"
@@ -84,7 +84,9 @@ export function textoPuro(p: Paragrafo): string {
 
 export function duvidasDaLoja({ frete, atendimento }: Configuracoes): GrupoDeDuvidas[] {
   const frases = frasesDoFrete(frete)
-  const bandeiras = new Intl.ListFormat("pt-BR").format(BANDEIRAS)
+  // As mesmas que o campo do cartão reconhece (`lib/cartao.ts`): a lista que a
+  // resposta dá e a que o checkout aceita não têm como divergir.
+  const bandeiras = new Intl.ListFormat("pt-BR").format(Object.values(NOMES_DAS_BANDEIRAS))
   const falaComAGente = link("Fala com a gente", "/contato")
 
   /*

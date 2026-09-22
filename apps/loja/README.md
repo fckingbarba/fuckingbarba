@@ -23,7 +23,7 @@ npm run loja:dev                                 # http://localhost:3000
 | `src/app/[categoria]/page.tsx`                | `/barba`, `/cabelo`, `/kits` lendo categoria e produtos do Medusa                               |
 | `src/app/produtos/[handle]/page.tsx`          | `/produtos/<handle>` lendo o produto do Medusa (esqueleto da PDP)                               |
 | `src/app/busca/page.tsx` + `src/lib/busca.ts` | `/busca?q=` — a lupa do cabeçalho: sem acento, em qualquer ordem, com plural                    |
-| `src/app/em-breve/page.tsx`                   | Destino honesto dos links cujas páginas ainda não existem (hoje, o Carrinho do menu lateral)    |
+| `src/app/em-breve/page.tsx`                   | Destino honesto do que ainda não tem página (hoje, só os caminhos de reserva da sacola)         |
 | `src/app/(institucional)/`                    | `/privacidade`, `/termos`, `/trocas`, `/contato` e `/duvidas` (texto em `conteudo/duvidas.ts`)  |
 | `src/app/robots.ts` · `sitemap.ts`            | Bloqueia tudo até `SITE_INDEXAVEL=true`; sitemap gerado do Medusa                               |
 | `src/app/api/revalidar/route.ts`              | O Medusa avisa que algo mudou → a tag do cache cai (`revalidateTag(tag, "max")`)                |

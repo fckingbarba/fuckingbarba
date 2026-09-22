@@ -1,3 +1,4 @@
+import type { Configuracoes } from "@/lib/configuracoes"
 import { PARCELAS_SEM_JUROS } from "@/lib/site"
 
 /**
@@ -81,32 +82,48 @@ export type Garantia = {
   texto: string
 }
 
-/**
- * Onde a mão hesita, no passo do pagamento. Três frases curtas, e nenhuma
- * repetindo o pé do resumo (`CONFIANCA`) — na mesma tela, dizer duas vezes a
- * mesma coisa não tranquiliza ninguém, só ocupa espaço.
- *
- * Só o que a loja cumpre:
- *
- * - o pagamento é do Pagar.me, e o cartão vai do navegador direto pra lá —
- *   ele não passa pelo servidor da loja (ver o passo 3);
- * - o pedido é postado em até 1 dia útil, que é o que o site promete;
- * - o WhatsApp da loja responde de verdade, e está no rodapé de toda página.
- *
- * Nada de "compra 100% segura" nem selo inventado de certificadora: promessa
- * que a loja não cumpre é propaganda enganosa, e quem descobre é o cliente.
- */
-export const GARANTIAS: Garantia[] = [
-  { icone: "cadeado", texto: "Compra segura" },
-  { icone: "caminhao", texto: "Envio imediato" },
-  { icone: "whatsapp", texto: "Suporte no WhatsApp" },
-]
+/** O que as duas faixas precisam saber do atendimento — ver `lib/configuracoes.ts`. */
+type Atendimento = Pick<Configuracoes["atendimento"], "whatsapp" | "prazoDePostagem">
 
-/** As duas linhas do pé do resumo. */
-export const CONFIANCA: Garantia[] = [
-  { icone: "caminhao", texto: "Enviamos em até 1 dia útil" },
-  { icone: "escudo", texto: "7 dias pra trocar ou devolver" },
-]
+/**
+ * Onde a mão hesita, no passo do pagamento: até três frases curtas.
+ *
+ * Só o que a loja cumpre, e é por isso que duas delas dependem do admin:
+ *
+ * - "Compra segura": o pagamento é do Pagar.me, e o cartão vai do navegador
+ *   direto pra lá, sem passar pelo servidor da loja. Vale sempre;
+ * - a POSTAGEM, com o prazo que a loja configurou (admin → Configurações →
+ *   prazo de postagem). Era "Envio imediato", escrito aqui, enquanto o pé do
+ *   resumo dizia "até 1 dia útil" — as duas na mesma tela, discordando, e
+ *   nenhuma lida de onde a loja diz o prazo de verdade;
+ * - "Suporte no WhatsApp", só com um número pra atender. Sem ele, a frase
+ *   prometia um canal que não existe.
+ *
+ * Sem prazo nem WhatsApp configurados, fica só a primeira — em vez de uma
+ * promessa de mentira no lugar das outras duas.
+ */
+export function garantiasDoPagamento({ whatsapp, prazoDePostagem }: Atendimento): Garantia[] {
+  return [
+    { icone: "cadeado", texto: "Compra segura" },
+    ...(prazoDePostagem
+      ? [{ icone: "caminhao" as const, texto: `Postagem em ${prazoDePostagem}` }]
+      : []),
+    ...(whatsapp ? [{ icone: "whatsapp" as const, texto: "Suporte no WhatsApp" }] : []),
+  ]
+}
+
+/**
+ * O pé do resumo: o prazo de postagem, quando existe. Sem ele, nada — o
+ * resumo não inventa um.
+ *
+ * O "7 dias pra trocar ou devolver" que morava aqui saiu por escolha da loja
+ * (22/09/2026): o checkout não fala mais de desistência. O direito continua
+ * publicado onde a lei pede que ele esteja à mão (Decreto 7.962/2013, art.
+ * 5º) — a página `/trocas`, no rodapé de toda página, e as Dúvidas.
+ */
+export function confiancaDoResumo({ prazoDePostagem }: Atendimento): Garantia[] {
+  return prazoDePostagem ? [{ icone: "caminhao", texto: `Postagem em ${prazoDePostagem}` }] : []
+}
 
 /* ── as formas de pagamento ───────────────────────────────────────────────── */
 
@@ -143,5 +160,3 @@ export const FORMAS: FormaDePagamento[] = [
     descricao: `Em até ${PARCELAS_SEM_JUROS}x sem juros.`,
   },
 ]
-
-export const BANDEIRAS = ["Visa", "Mastercard", "Elo", "Amex", "Hipercard"] as const

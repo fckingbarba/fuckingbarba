@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react"
 import { Conta, Fechar, Hamburguer, Lupa, Raio } from "@/components/icones"
 import { LogoCurta } from "@/components/marca"
 import { BotaoDaSacola } from "@/components/sacola/botao"
+import { useSacola } from "@/components/sacola/contexto"
 import { useFrete } from "@/components/configuracoes/contexto"
 import { frasesDoFrete } from "@/lib/configuracoes"
 import { navegacao, site } from "@/lib/site"
@@ -28,6 +29,7 @@ import { navegacao, site } from "@/lib/site"
  */
 export function Cabecalho() {
   const frases = frasesDoFrete(useFrete())
+  const sacola = useSacola()
 
   const [menuAberto, setMenuAberto] = useState(false)
   const [buscaAberta, setBuscaAberta] = useState(false)
@@ -206,7 +208,20 @@ export function Cabecalho() {
           <ul>
             {navegacao.menu.map((item) => (
               <li key={item.texto}>
-                <Link href={item.href} onClick={() => setMenuAberto(false)}>
+                <Link
+                  href={item.href}
+                  onClick={(evento) => {
+                    setMenuAberto(false)
+                    // O "Carrinho" abre a gaveta no lugar de navegar. O foco
+                    // termina nela: a gaveta vem depois do cabeçalho na
+                    // árvore, e o efeito dela roda depois do que devolve o
+                    // foco pro hambúrguer.
+                    if ("abreSacola" in item && sacola) {
+                      evento.preventDefault()
+                      sacola.abrir()
+                    }
+                  }}
+                >
                   {item.texto}
                   <Raio />
                 </Link>
