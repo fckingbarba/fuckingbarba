@@ -61,6 +61,15 @@ export const ENDERECO_VAZIO: EnderecoVisivel = {
 export type OpcaoDeFrete = {
   id: string
   nome: string
+  /**
+   * `economica` ou `expressa` — a mesma faixa que a calculadora da sacola
+   * usa. Sai do `data.faixa` que o `scripts/frete.ts` grava em cada opção do
+   * Medusa, e é `null` se a opção subir sem ela. Quem lê é a regra de
+   * `lib/frete.ts`, pra decidir qual entrega aparece quando as duas custam
+   * igual; é `string` solto, e não a união fechada, porque o valor vem do
+   * banco e ninguém aqui pode jurar o que tem lá dentro.
+   */
+  faixa: string | null
   /** "5 a 10 dias úteis" — vem do tipo da opção, cadastrado no Medusa. */
   prazo: string
   /** Em reais. Zero é frete grátis, e a tela escreve isso com todas as letras. */

@@ -142,7 +142,22 @@ html:not([data-hidratado]) body:has(.obrigado) {
 }
 
 /* Na coluna do lado o resumo não fecha (`resumo.tsx`): sem seta e sem mãozinha
-   num cabeçalho que não abre nem fecha nada. */
+   num cabeçalho que não abre nem fecha nada.
+
+   E ABERTO ANTES DE O JAVASCRIPT CHEGAR. O `<details>` nasce fechado no HTML
+   porque o celular é quem manda no primeiro pixel: lá o resumo fica no topo,
+   e nascer aberto empurrava o formulário inteiro pra debaixo da dobra — a
+   pessoa tocava em "finalizar compra" e caía numa lista de itens que ela
+   acabou de ver. Nascer fechado no desktop, por outro lado, seria um piscar:
+   o efeito em `resumo.tsx` reabre, mas só depois da hidratação.
+
+   Então quem abre no desktop é o CSS, que já está na primeira pintura. Ele
+   desenha aberto; o efeito continua existindo pra corrigir o atributo — é
+   dele que sai o `aria-expanded` que o leitor de tela anuncia, e a tela não
+   pode dizer "recolhido" pro que está na cara. As duas regras são o mesmo
+   pedido escrito duas vezes, porque os navegadores escondem o miolo de
+   jeitos diferentes: o Chrome novo por `::details-content`, os outros
+   apagando os filhos do `<details>` fechado. */
 @media (min-width: 901px) {
   .resumo summary {
     cursor: default;
@@ -150,6 +165,47 @@ html:not([data-hidratado]) body:has(.obrigado) {
   .resumo summary svg {
     display: none;
   }
+  .resumo details > .resumo__miolo {
+    display: block;
+  }
+  .resumo details::details-content {
+    content-visibility: visible;
+  }
+}
+
+/* ---------- a linha de forma de pagamento ---------- */
+
+/* O PROTÓTIPO PUNHA UM LOSANGO EM PIX E EM CARTÃO — o mesmo losango nos dois,
+   um enfeite que não dizia qual era qual. No lugar dele entra a marca de cada
+   forma (`icones.tsx`), que é o que responde "é o Pix mesmo?" antes de a
+   pessoa ler a linha.
+
+   O rádio sai do fluxo da grade e o ícone assume a primeira coluna. Ele NÃO
+   é `display: none` nem `visibility: hidden`: campo escondido assim some do
+   teclado e do leitor de tela junto, e a escolha deixaria de existir pra quem
+   não usa mouse. Deste jeito ele continua focável — e a regra
+   `.opcao:has(input:focus-visible)` do protótipo desenha o contorno na linha
+   inteira quando o foco chega nele.
+
+   Quem está escolhido já era dito pela borda e pelo fundo da própria linha; o
+   ícone só acompanha, saindo do apagado. */
+.opcao--forma input[type="radio"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  clip-path: inset(50%);
+  transform: none;
+}
+.opcao__icone {
+  width: 26px;
+  height: 26px;
+  opacity: 0.4;
+  transition: opacity 0.15s ease;
+}
+.opcao--forma:has(input:checked) .opcao__icone {
+  opacity: 1;
 }
 
 /* ---------- a tela de pedido recebido ---------- */

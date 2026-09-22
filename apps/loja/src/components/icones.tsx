@@ -178,6 +178,25 @@ export function Cartao(props: Props) {
   )
 }
 
+/**
+ * A marca do Pix — quatro setas apontando pra fora, como no símbolo do Banco
+ * Central. Desenho nosso, no corte chanfrado dos outros: o arquivo oficial é
+ * arredondado e destoaria de tudo em volta.
+ *
+ * Ela precisa ser RECONHECÍVEL de relance, e não bonita: na linha de forma de
+ * pagamento, ela é o que responde "é o Pix mesmo?" antes de a pessoa ler.
+ */
+export function Pix(props: Props) {
+  return (
+    <Icone {...props}>
+      <path d="M12 2.6 16.2 6.8 13.8 9.2 12 7.4 10.2 9.2 7.8 6.8z" />
+      <path d="M21.4 12 17.2 16.2 14.8 13.8 16.6 12 14.8 10.2 17.2 7.8z" />
+      <path d="M12 21.4 7.8 17.2 10.2 14.8 12 16.6 13.8 14.8 16.2 17.2z" />
+      <path d="M2.6 12 6.8 7.8 9.2 10.2 7.4 12 9.2 13.8 6.8 16.2z" />
+    </Icone>
+  )
+}
+
 export function Escudo(props: Props) {
   return (
     <Icone {...props}>

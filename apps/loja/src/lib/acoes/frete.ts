@@ -4,6 +4,7 @@ import type { HttpTypes } from "@medusajs/types"
 import { buscarCep, limparCep } from "@/lib/cep"
 import { CAMPOS_CARRINHO, lerCarrinho, paraVisivel, type CarrinhoVisivel } from "@/lib/carrinho"
 import { lerEndereco, montarEndereco } from "@/lib/endereco"
+import { semEntregaEmpatada } from "@/lib/frete"
 import { cliente } from "@/lib/medusa"
 
 /**
@@ -213,10 +214,19 @@ async function entregasPara(sdk: Sdk, carrinho: Carrinho, cep: string): Promise<
     do frete quebrada em algum elo (ver o AGENTS.md), e quem descobre é o
     cliente.
   */
-  const opcoes = cotacao.opcoes.flatMap((o) => {
+  const comId = cotacao.opcoes.flatMap((o) => {
     const id = porFaixa.get(o.faixa)
     return id ? [{ ...o, id }] : []
   })
+
+  /*
+    E a econômica some quando custa o mesmo que a expressa — a mesma regra
+    que o checkout aplica (`lib/frete.ts`), pelo mesmo código. As duas telas
+    têm que oferecer a mesma coisa: a entrega marcada na gaveta é a que o
+    checkout abre marcada, e uma linha que existe lá e não existe aqui vira
+    uma escolha que some sozinha no meio da compra.
+  */
+  const opcoes = semEntregaEmpatada(comId)
   if (!opcoes.length) return { ok: false, mensagem: NAO_DEU }
   return { ok: true, emergencia: cotacao.emergencia, opcoes }
 }

@@ -16,6 +16,7 @@ import {
 import { lerCliente, lerSessao, medusa, type ClienteVisivel } from "./conta"
 import { documentoGuardado } from "./documento"
 import { lerEndereco, montarEndereco } from "./endereco"
+import { semEntregaEmpatada } from "./frete"
 import { cliente, temEstoque } from "./medusa"
 import { CHECKOUT_ABERTO, site } from "./site"
 
@@ -329,16 +330,29 @@ export async function listarFretes(carrinhoId: string): Promise<OpcaoDeFrete[]> 
       })
     )
 
-    return cotadas
+    /*
+      A faixa vem do `data` que o `scripts/frete.ts` grava, com o `type.code`
+      como segunda chance — são os dois lugares onde ela existe, e o provedor
+      da Frenet lê o primeiro. Ela não vai pra tela: quem usa é a regra do
+      `semEntregaEmpatada`, logo abaixo.
+    */
+    const opcoes = cotadas
       .filter((o): o is NonNullable<typeof o> => o !== null)
-      .map((o) => ({
-        id: o.id,
-        nome: o.name,
-        prazo: o.type?.description ?? "",
-        preco: Number(o.amount ?? 0),
-        precoCheio: null as number | null,
-      }))
+      .map((o) => {
+        const doData = (o.data as { faixa?: unknown } | null | undefined)?.faixa
+        const faixa = typeof doData === "string" ? doData : (o.type?.code ?? null)
+        return {
+          id: o.id,
+          nome: o.name,
+          faixa,
+          prazo: o.type?.description ?? "",
+          preco: Number(o.amount ?? 0),
+          precoCheio: null as number | null,
+        }
+      })
       .sort((a, b) => a.preco - b.preco)
+
+    return semEntregaEmpatada(opcoes)
   } catch (e) {
     aviso(e, `fretes do carrinho ${carrinhoId}`)
     return []
