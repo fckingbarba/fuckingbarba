@@ -3,6 +3,10 @@ import { extname, join, resolve } from "node:path"
 import { emailDoCodigo } from "../src/lib/emails/codigo"
 import { emailDoEnvio } from "../src/lib/emails/envio"
 import { emailDoEstornoQueFalhou } from "../src/lib/emails/estorno-falhou"
+import {
+  emailDePedidoCancelado,
+  type CancelamentoDoEmail,
+} from "../src/lib/emails/pedido-cancelado"
 import { emailDePedidoConfirmado, type PedidoDoEmail } from "../src/lib/emails/pedido-confirmado"
 import type { Email } from "../src/lib/email"
 
@@ -104,6 +108,27 @@ function exemploDePedido(): PedidoDoEmail {
   }
 }
 
+/**
+ * O cancelamento, nas quatro versões que a loja manda: o Pix estornado, o
+ * cartão estornado, o Pix que venceu e o cancelado antes de qualquer cobrança.
+ * É o mesmo pedido de cima — o que muda é só o que aconteceu com o dinheiro.
+ */
+function exemploDeCancelamento(
+  motivo: CancelamentoDoEmail["motivo"],
+  estorno: CancelamentoDoEmail["estorno"]
+): CancelamentoDoEmail {
+  const p = exemploDePedido()
+  return {
+    id: p.id,
+    numero: p.numero,
+    email: p.email,
+    itens: p.itens,
+    total: p.total,
+    motivo,
+    estorno,
+  }
+}
+
 /** Troca os endereços de `LOJA_URL/email/...` pelas imagens embutidas. */
 function comImagensEmbutidas(html: string): string {
   return html.replace(
@@ -192,6 +217,19 @@ function main() {
   const retirar = doEnvio("retirar")
   const entregue = doEnvio("entregue")
 
+  const cancelado = (
+    motivo: CancelamentoDoEmail["motivo"],
+    estorno: CancelamentoDoEmail["estorno"]
+  ) =>
+    emailDePedidoCancelado({
+      cancelamento: exemploDeCancelamento(motivo, estorno),
+      whatsapp: "5547999990000",
+    })
+  const estornadoPix = cancelado("estornado", { valor: 272.6, forma: "pix" })
+  const estornadoCartao = cancelado("estornado", { valor: 272.6, forma: "cartao" })
+  const pixVencido = cancelado("pix-vencido", null)
+  const semCobranca = cancelado("sem-cobranca", null)
+
   const pagina = `<!doctype html>
 <html lang="pt-BR">
 <head>
@@ -228,6 +266,10 @@ ${secao("Pedido a caminho", enviado, { pc: 1300, celular: 1400 })}
 ${secao("Saiu pra entrega", saiu, { pc: 1300, celular: 1400 })}
 ${secao("Esperando retirada", retirar, { pc: 1300, celular: 1400 })}
 ${secao("Entregue", entregue, { pc: 1300, celular: 1400 })}
+${secao("Cancelado, Pix estornado", estornadoPix, { pc: 1240, celular: 1340 })}
+${secao("Cancelado, cartão estornado", estornadoCartao, { pc: 1240, celular: 1360 })}
+${secao("Pix venceu", pixVencido, { pc: 1120, celular: 1220 })}
+${secao("Cancelado antes do pagamento", semCobranca, { pc: 1120, celular: 1220 })}
 ${secao("Estorno que não saiu (pra equipe)", estorno, { pc: 760, celular: 900 })}
 </body>
 </html>`
@@ -242,6 +284,10 @@ ${secao("Estorno que não saiu (pra equipe)", estorno, { pc: 760, celular: 900 }
     ["envio-saiu", saiu],
     ["envio-retirar", retirar],
     ["envio-entregue", entregue],
+    ["cancelado-estornado-pix", estornadoPix],
+    ["cancelado-estornado-cartao", estornadoCartao],
+    ["cancelado-pix-vencido", pixVencido],
+    ["cancelado-sem-cobranca", semCobranca],
     ["estorno-falhou", estorno],
   ] as const) {
     writeFileSync(join(saida, `${nome}.html`), comImagensEmbutidas(e.html))

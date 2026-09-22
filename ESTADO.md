@@ -43,10 +43,22 @@ banco aceita 60). Se o erro voltar, é aqui.
   preso na versão dele — teste sempre no endereço fixo.
 - **Pagar.me, modo produção:** webhook `order.paid` + `charge.paid`, 3 tentativas, para
   `https://<project-id>.supabase.co/functions/v1/webhook-pagamento?chave=…`. Teste e produção têm
-  listas de webhook separadas; o do modo teste continua lá e não atrapalha.
+  listas de webhook separadas; a URL é a mesma nos dois.
 - **Supabase (Edge Functions → Secrets):** `PAGARME_WEBHOOK_CHAVE` (a do `?chave=`),
   `MEDUSA_WEBHOOK_URL` (`https://<api>/hooks/payment/pagarme_pagarme`) e `MEDUSA_WEBHOOK_SEGREDO`
-  (igual ao do Railway).
+  (igual ao do Railway). **Publicar a função não é automático:** depois de qualquer mudança de
+  segredo, `supabase functions deploy webhook-pagamento`. E `supabase functions list` vazio quer
+  dizer que ela não está no ar — o Pagar.me recebe 404 em qualquer URL.
+- **Como saber onde um webhook morreu**, pelo código que o painel do Pagar.me registra: **404** é a
+  função não publicada (ou o project-ref errado); **401** é a `?chave=` diferente da
+  `PAGARME_WEBHOOK_CHAVE`; **405** é GET em vez de POST — e serve como teste, porque a função
+  responde 405 antes de olhar autenticação, sem gravar nada. Um **200** do painel não prova que
+  chegou no Medusa: a função responde 200 mesmo sem repassar, de propósito. A prova do repasse é
+  `loja.eventos_webhook` com `processado_em` preenchido; a do segredo é o log do Railway **não**
+  trazer `[pagarme] aviso sem o segredo certo — ignorado`.
+- **Reenvio (↻) de evento antigo no painel usa a URL de quando o evento nasceu**, não a atual: evento
+  que falhou antes de a URL ser corrigida nunca passa. Não insista — a conciliação já cobriu o
+  pagamento dele.
 - **Região "Brasil"** cobrando pelo `pp_pagarme_pagarme`, conferida com a chave de produção pelo
   script (no shell do Railway: `cd apps/backend/.medusa/server && npx medusa exec ./src/scripts/pagamento.js`).
 - **Domínio da loja no Pagar.me:** no sandbox o cartão tokenizou sem cadastro. Se um dia aparecer
@@ -65,16 +77,52 @@ sozinha a cada 5 minutos; se nem ela resolver, o log com `[conciliação]` diz o
 ### 1. Fechar o pagamento — você
 
 - [x] Pix real (21/09, pedido #6, R$ 62,58): cobrou e confirmou sozinho — pela conciliação, porque
-      o webhook de produção respondeu 404 (URL diferente da do modo teste).
-- [ ] Webhook de produção com a mesma URL do de teste, e os eventos com Falha reenviados (↻) até
-      voltarem 200.
+      o webhook respondeu 404.
+- [x] **O webhook nunca tinha existido** (descoberto e resolvido em 22/09). A URL não era o
+      problema: `supabase functions list` respondia `{"functions":[]}` — a função nunca foi
+      publicada, e só a `PAGARME_WEBHOOK_CHAVE` estava nos secrets; faltavam `MEDUSA_WEBHOOK_URL` e
+      `MEDUSA_WEBHOOK_SEGREDO`. Publicada a função, criados os três segredos (chave nova, e o
+      segredo gerado de novo dos dois lados porque o do Railway não batia), o caminho
+      Pagar.me → Supabase → Medusa foi conferido ponta a ponta: a função grava
+      (`loja.eventos_webhook` começou no id 1), repassa, e o Railway não reclama mais do segredo.
+      Desde 21/09 **todo pagamento vinha sendo confirmado só pela conciliação** — funciona, mas com
+      até 5 minutos de atraso na tela de quem pagou.
+- [ ] Trocar a URL do webhook no **modo teste** também: a chave antiga precisa morrer nos dois.
+- [ ] Ver, no admin, o pedido da cobrança `ch_OrXNpVvU2zFjGwj3` (paga em 22/09 às 14:05, o último
+      evento que morreu em 404). Foi resolvido pela conciliação; é só conferir que está certo.
+- [ ] A prova final do webhook — o Pagar.me chamando a função sozinho — vem junto com a compra de
+      teste no cartão, logo abaixo.
 - [ ] O Pix do #6, cujo estorno falhou (ver o primeiro achado abaixo). **Depois do deploy de
       22/09, a conciliação confere ele sozinha:** se o dinheiro ainda não voltou, chega um e-mail
       ("O estorno do pedido #6 não saiu") e o pedido no admin ganha uma faixa vermelha, no fim da
       coluna principal, com "Tentar o estorno de novo" — é apertar, ou esperar as 6 horas da
       tentativa sozinha. Se você já estornou pelo painel do Pagar.me, ela só anota. O Medusa segue
       como Refunded; não mexer lá.
-- [ ] Uma compra real pequena no cartão, cancelando em seguida.
+- [x] Cartão real (22/09, pedido #9, R$ 62,58): **o antifraude do Pagar.me reprovou**. A Stone
+      autorizou (`Approved`, código `0000`) e o `PagarmeAntifraud` respondeu `reproved` um minuto
+      depois; como mandamos `auth_and_capture`, a cobrança foi capturada às 15:11 e cancelada às
+      15:12 — o valor apareceu e sumiu da fatura. Daqui, tudo certo: o Medusa nunca registrou o
+      pagamento (Paid Total R$ 0,00, selo **Canceled** e não _Refunded_) e a conciliação cancelou o
+      #9, devolvendo o estoque. Nada a corrigir no código.
+- [ ] **Antifraude reprovando compra legítima — o item mais urgente do pagamento.** Enquanto isso
+      valer, nenhuma venda de cartão entra. Falar com o Pagar.me com o id da venda do #9: por que
+      reprovou, e se o cadastro da conta está completo (domínio da loja informado). Provável causa
+      inocente: conta nova e o dono comprando de si mesmo, mesmo nome e endereço, primeiro cartão da
+      conta. Testar de novo com **outro cartão, de outra pessoa e outro endereço** antes de concluir
+      qualquer coisa.
+- [ ] Frase da conta pro cartão reprovado depois do pedido nascer. Quando o antifraude responde na
+      hora, a tela diz o certo (`RECUSAS.antifraude`, em `modules/pagarme/situacao.ts`); quando
+      demora, o pedido nasce e é cancelado, e a conta mostra o genérico "Cancelado antes do
+      pagamento." — pouco pra quem viu a cobrança ir e voltar no cartão. Não é urgente.
+- [x] Pix real de outra pessoa (22/09, pedido #10): pagou, a confirmação chegou — e ao cancelar e
+      estornar **nenhum e-mail avisou o cliente**. O dinheiro saiu da conta dele e voltou sem uma
+      palavra. Não era falha de envio: **o e-mail de pedido cancelado não existia** (nem o desenho,
+      nem o gatilho). Escrito e ligado em 22/09 — ver "O e-mail de pedido cancelado sai", na Fase 5.
+- [ ] Conferir o #10 no admin: o selo **Refunded** é o Medusa dizendo que PEDIU o estorno, não que
+      ele aconteceu (foi exatamente assim no #6). Se a faixa vermelha do estorno estiver no fim da
+      página, o dinheiro ainda não voltou.
+- [ ] Depois do próximo deploy, cancelar um pedido de teste e conferir que o e-mail de cancelamento
+      chega — as três versões (estornado, Pix vencido, cancelado antes do pagamento).
 - [x] Promoção do bump em produção (21/09): o `promocoes.js` no shell do Railway respondeu
       "BUMP-OLEO **criada**" — ela nunca tinha existido lá, e era isso que fazia o "Só nessa tela"
       marcar e desmarcar. Se um dia o bump voltar a dizer "Não deu pra incluir a oferta agora", o
@@ -270,8 +318,23 @@ aparecem na conta e no log, sem e-mail automático — esses a loja conversa com
   `payment.captured` sozinho perde o "Check payment status" e pode sair duas vezes pro mesmo
   pagamento. Evento na hora, varredura embaixo, registro no pedido: `src/lib/confirmar-pedido.ts`
   é o exemplo.
-- Os e-mails do caminho da encomenda (`envio.ts`) já saem. Falta desenhar e ligar o de "seu Pix
-  venceu": a conciliação já cancela o pedido e devolve o estoque; falta avisar.
+- **O e-mail de pedido cancelado sai** (22/09), uma vez por pedido: no `order.canceled`, pelo
+  `subscribers/pedido-cancelado.ts`, e pela mesma varredura de 5 em 5 minutos do `confirmar-pedidos`
+  (últimas 24 horas). Ele diz três coisas diferentes, e a escolha está em `src/lib/avisar-cancelamento.ts`:
+  **estornado** (houve pagamento capturado — "o valor está voltando", com o caminho de volta do Pix
+  ou do cartão), **Pix vencido** (o QR passou da validade sem pagamento) e **cancelado antes do
+  pagamento**. A pergunta é feita à CAPTURA, e não ao estorno: o admin cancela e estorna em dois
+  cliques, o evento chega entre um e outro, e ler o estorno mandaria "nada foi cobrado" pra quem
+  acabou de ver o dinheiro sair da conta. O registro fica em `metadata.emails.cancelado`, e o log é
+  `[pedido] cancelamento do #N (motivo) pra m•••@…`.
+  - **Por que ele existe:** o #10. Um Pix pago de verdade, cancelado e estornado no admin, e o
+    cliente não recebeu uma palavra — viu o dinheiro sair e voltar sem explicação. O e-mail de
+    confirmação existia desde o começo; este nunca tinha sido escrito.
+  - **A ponta que fica:** Pix pago DEPOIS do cancelamento (o QR continua pagável até vencer — ver o
+    #7). Na hora do cancelamento o `fecharCobrancasDoPedido` do subscriber pega o que já tinha
+    entrado e avisa certo; o que cair mais tarde é estornado pela conciliação, mas o e-mail daquele
+    pedido já saiu dizendo "nada foi cobrado" e o registro impede um segundo. É raro e é conhecido.
+- Os e-mails do caminho da encomenda (`envio.ts`) já saem.
 - **Envios — o que o desenho já tem lugar pra receber** (o contrato do parceiro está em
   `apps/backend/src/lib/envios/parceiro.ts`):
   - consultar o rastreio de tempos em tempos (`consultar`), a rede de segurança do aviso que se
