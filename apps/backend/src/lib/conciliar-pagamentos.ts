@@ -22,6 +22,7 @@ import {
   type Estado,
   type Situacao,
 } from "../modules/pagarme/situacao"
+import { conferirEstornos, type RelatorioDeEstornos } from "./estornos"
 
 /**
  * A CONCILIAÇÃO — o que o webhook não resolve.
@@ -58,11 +59,19 @@ import {
  *     nada ao apagar sessão (ver `deletePayment`): aqui a decisão sai só do
  *     banco e do Pagar.me, nunca de um dado que veio de fora.
  *
+ *   ESTORNO QUE NÃO ACONTECEU — o Medusa registrou o estorno e o Pagar.me
+ *     não fez (o de Pix sai do saldo disponível, e às vezes ele não tem).
+ *     Todo estorno dos últimos 7 dias é conferido na cobrança; o que falhou
+ *     fica anotado no pedido, avisa quem cuida da loja e, se for do
+ *     pagamento inteiro, é pedido de novo de 6 em 6 horas. Ver
+ *     `lib/estornos.ts`.
+ *
  * ┌─ NÃO FALA COM O CLIENTE, SÓ COM O PAGAR.ME E O MEDUSA ─────────────────┐
- * │ E-mail de "seu Pix venceu" é fase 5, com o Resend. O que esta função    │
- * │ garante é que o estoque não fica preso e que nenhum dinheiro fica sem   │
- * │ pedido — o resto é comunicação.                                        │
- * └─────────────────────────────────────────────────────────────────────────┘
+ * │ E-mail de "seu Pix venceu" é fase 5, com o Resend. O que esta função   │
+ * │ garante é que o estoque não fica preso e que nenhum dinheiro fica sem  │
+ * │ pedido — o resto é comunicação. O único e-mail que sai daqui é pra     │
+ * │ quem cuida da loja: o do estorno que o Pagar.me não fez.               │
+ * └────────────────────────────────────────────────────────────────────────┘
  *
  * A chave é a mesma do provedor, lida do mesmo lugar. Sem ela, não há o que
  * conciliar, e a função diz isso em vez de fingir que conferiu.
@@ -101,8 +110,20 @@ export type Relatorio = {
   canceladas: string[]
   estornadas: string[]
   esperando: number
+  /** O que a rodada dos estornos viu e fez — ver `lib/estornos.ts`. */
+  estornos: Omit<RelatorioDeEstornos, "avisos">
   avisos: string[]
 }
+
+const relatorioVazio = (): Relatorio => ({
+  conferidas: 0,
+  pagas: [],
+  canceladas: [],
+  estornadas: [],
+  esperando: 0,
+  estornos: { falharam: [], pedidosDeNovo: [], confirmados: [] },
+  avisos: [],
+})
 
 type Sessao = {
   id: string
@@ -124,14 +145,7 @@ export async function conciliarPagamentos(
   { agora = new Date() }: { agora?: Date } = {}
 ): Promise<Relatorio> {
   const logger = container.resolve<Logger>(ContainerRegistrationKeys.LOGGER)
-  const relatorio: Relatorio = {
-    conferidas: 0,
-    pagas: [],
-    canceladas: [],
-    estornadas: [],
-    esperando: 0,
-    avisos: [],
-  }
+  const relatorio = relatorioVazio()
 
   const chave = process.env.PAGARME_SECRET_KEY
   if (!chave) {
@@ -198,6 +212,16 @@ export async function conciliarPagamentos(
     await conciliarOrfaos(container, cliente, agora, relatorio)
   } catch (e) {
     relatorio.avisos.push(`órfãos: ${e instanceof Error ? e.message : String(e)}`)
+  }
+
+  // Cada estorno que falha, é pedido de novo ou volta tem a sua linha
+  // `[estorno]` no log; o resumo abaixo só leva os avisos.
+  try {
+    const { avisos, ...estornos } = await conferirEstornos(container, cliente, agora)
+    relatorio.estornos = estornos
+    relatorio.avisos.push(...avisos.map((a) => `estornos: ${a}`))
+  } catch (e) {
+    relatorio.avisos.push(`estornos: ${e instanceof Error ? e.message : String(e)}`)
   }
 
   const mexeu = relatorio.pagas.length + relatorio.canceladas.length + relatorio.estornadas.length
@@ -457,14 +481,7 @@ export async function fecharCobrancasDoPedido(
   container: MedusaContainer,
   pedidoId: string
 ): Promise<Relatorio> {
-  const relatorio: Relatorio = {
-    conferidas: 0,
-    pagas: [],
-    canceladas: [],
-    estornadas: [],
-    esperando: 0,
-    avisos: [],
-  }
+  const relatorio = relatorioVazio()
   const chave = process.env.PAGARME_SECRET_KEY
   if (!chave) return relatorio
   const cliente = clienteDoPagarme(chave, process.env.PAGARME_URL || ENDERECO_PADRAO)

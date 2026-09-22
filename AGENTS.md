@@ -169,6 +169,17 @@ na mesma chave de teste não estornam as compras uma da outra. Ainda assim, uma 
 a de produção só no Railway. Na loja, carrinho que fechou sem a confirmação chegar ao navegador
 volta pro pedido pelo `/checkout/retomar`, em vez de mostrar "sacola vazia".
 
+O **estorno** é pedido na hora (cancelar pedido pago no admin chama o `refundPayment`) e o Medusa
+marca "Refunded" na hora — mas anda DEPOIS, no Pagar.me, e pode falhar: o de Pix sai do saldo
+disponível. A conciliação confere todo estorno dos últimos 7 dias na cobrança, pelo dinheiro (o
+que o Medusa diz que voltou contra `canceled_amount`/`refunded_amount`; "aguardando cancelamento"
+é esperar) — `src/lib/estornos.ts`. O que falhou fica em `metadata.estornos` do pedido, vira uma
+faixa vermelha no pedido no admin (`src/admin/widgets/estorno.tsx`, com "Tentar o estorno de
+novo" → `POST /admin/pedidos/:id/estorno`) e UM e-mail pra cada usuário do admin; o do pagamento
+inteiro é pedido de novo sozinho de 6 em 6 horas, até 8 vezes. Parcial, nunca sozinho. No
+conferidor, o Pagar.me falso segura o estorno (`pagarme.estornos = "segura"`) e faz ele falhar
+(`falharEstorno`) ou sair (`concluirEstorno`).
+
 O **pedido pelo id** (`GET /store/orders/:id`) é aberto de propósito no Medusa — o id faz as vezes
 de senha —, e a resposta padrão traz e-mail, endereço, telefone e o CPF. Só que o id está na URL da
 tela de obrigado e no link dos e-mails. `src/api/middlewares.ts` e `src/lib/pedido-publico.ts`

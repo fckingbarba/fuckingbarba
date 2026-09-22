@@ -5,9 +5,10 @@ import { createServer } from "node:http"
  * UM PAGAR.ME DE MENTIRA, pros testes.
  *
  * Fala o pedaço da API v5 que a loja usa — tokenizar cartão, criar pedido,
- * ler pedido, procurar por código, cancelar cobrança — e deixa o teste
+ * ler pedido, procurar por código, ler e cancelar cobrança — e deixa o teste
  * mandar no resto: pagar um Pix, recusar um cartão, envelhecer um QR,
- * perder uma resposta no meio do caminho.
+ * perder uma resposta no meio do caminho, segurar um estorno e fazer ele
+ * falhar (o Pix sem saldo).
  *
  * A listagem (`GET /orders`) filtra por `code` e por `created_since` e pagina
  * com `paging.next`, como a deles — é por ela que a conciliação acha as
@@ -93,9 +94,28 @@ export async function subirPagarmeFalso({ porta = PORTA_PADRAO, webhook = null }
     chamadas: [],
     cancelamentos: [],
     webhooksEnviados: [],
+    /**
+     * "normal": o estorno sai na hora. "segura": o estorno fica "aguardando
+     * cancelamento" (`pending_cancellation`) até o teste mandar falhar ou
+     * concluir — é o Pix sem saldo do primeiro pedido real.
+     */
+    estornos: "normal",
+    /** cobrança → centavos pedidos, enquanto o estorno está segurado. */
+    estornosSegurados: new Map(),
   }
 
   const cobrancaDo = (pedido) => pedido.charges[0]
+
+  /** O estorno acontecendo de fato: o dinheiro volta e a cobrança conta. */
+  function devolver(c, valor) {
+    c.refunded_amount = (c.refunded_amount ?? 0) + valor
+    c.pending_cancellation = false
+    if (c.refunded_amount >= c.amount) {
+      c.status = "refunded"
+      c.last_transaction.status = "refunded"
+    }
+    c.updated_at = agora()
+  }
 
   function mudar(pedido, status, transacao) {
     const c = cobrancaDo(pedido)
@@ -113,6 +133,7 @@ export async function subirPagarmeFalso({ porta = PORTA_PADRAO, webhook = null }
       c.paid_at = agora()
     }
     Object.assign(c.last_transaction, transacao)
+    c.updated_at = agora()
     pedido.updated_at = agora()
   }
 
@@ -201,6 +222,7 @@ export async function subirPagarmeFalso({ porta = PORTA_PADRAO, webhook = null }
       currency: "BRL",
       payment_method: pagamento.payment_method,
       created_at: agora(),
+      updated_at: agora(),
       order: { id: pedidoId, code: corpo.code },
       last_transaction: { id: id("tran"), transaction_type: pagamento.payment_method },
     }
@@ -463,6 +485,16 @@ export async function subirPagarmeFalso({ porta = PORTA_PADRAO, webhook = null }
         return
       }
 
+      const cobrancaLida = caminho.match(/^\/core\/v5\/charges\/([^/]+)$/)
+      if (req.method === "GET" && cobrancaLida) {
+        const registro = [...painel.pedidos.values()].find(
+          (r) => cobrancaDo(r.pedido).id === cobrancaLida[1]
+        )
+        if (!registro) json(404, { message: "Charge not found" })
+        else json(200, cobrancaDo(registro.pedido))
+        return
+      }
+
       const cancelando = caminho.match(/^\/core\/v5\/charges\/([^/]+)$/)
       if (req.method === "DELETE" && cancelando) {
         const registro = [...painel.pedidos.values()].find(
@@ -481,10 +513,14 @@ export async function subirPagarmeFalso({ porta = PORTA_PADRAO, webhook = null }
           valor,
         })
         if (c.status === "paid") {
-          c.refunded_amount = (c.refunded_amount ?? 0) + valor
-          if (c.refunded_amount >= c.amount) {
-            c.status = "refunded"
-            c.last_transaction.status = "refunded"
+          if (painel.estornos === "segura") {
+            // Aceito e andando: a cobrança continua paga, com o aviso de
+            // cancelamento pendente — como o painel mostrou no pedido #6.
+            c.pending_cancellation = true
+            c.updated_at = agora()
+            painel.estornosSegurados.set(c.id, valor)
+          } else {
+            devolver(c, valor)
           }
         } else {
           c.status = "canceled"
@@ -514,6 +550,31 @@ export async function subirPagarmeFalso({ porta = PORTA_PADRAO, webhook = null }
       body: JSON.stringify({ semAviso }),
     })
     return r.json()
+  }
+  /**
+   * O fim de um estorno segurado. `falharEstorno` é o Pix sem saldo: o
+   * aviso de pendente some, a cobrança continua paga e nada volta.
+   * `concluirEstorno` é o estorno que saiu.
+   */
+  const seguradoDo = (pedidoId) => {
+    const registro = painel.pedidos.get(pedidoId)
+    const c = registro ? cobrancaDo(registro.pedido) : null
+    return c && painel.estornosSegurados.has(c.id) ? c : null
+  }
+  painel.falharEstorno = (pedidoId) => {
+    const c = seguradoDo(pedidoId)
+    if (!c) return false
+    painel.estornosSegurados.delete(c.id)
+    c.pending_cancellation = false
+    c.updated_at = agora()
+    return true
+  }
+  painel.concluirEstorno = (pedidoId) => {
+    const c = seguradoDo(pedidoId)
+    if (!c) return false
+    devolver(c, painel.estornosSegurados.get(c.id))
+    painel.estornosSegurados.delete(c.id)
+    return true
   }
   painel.envelhecer = async (pedidoId) =>
     (

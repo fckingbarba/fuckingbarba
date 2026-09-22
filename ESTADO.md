@@ -1,9 +1,9 @@
 # Estado do projeto — e o que vem a seguir
 
-Atualizado em 22/09/2026, com a API de pedido fechada: quem só tem o id de um pedido não lê mais o
-endereço, o e-mail nem o CPF de quem comprou. No mesmo dia, o e-mail de pedido confirmado ligado
-(sai uma vez por pedido pago, inclusive o que o "Check payment status" do admin confirma); em
-21/09, o conserto do cache e o rastreio da Frenet chegando no pedido, na conta e no e-mail. O
+Atualizado em 22/09/2026, com o estorno que o Pagar.me não faz: a conciliação confere cada estorno
+na cobrança, avisa quando o dinheiro não voltou e pede de novo. No mesmo dia, a API de pedido
+fechada pra quem só tem o id, e o e-mail de pedido confirmado ligado; em 21/09, o conserto do cache
+e o rastreio da Frenet chegando no pedido, na conta e no e-mail. O
 AGENTS.md diz **como** trabalhar aqui; este arquivo diz **onde** o projeto está. Leia os dois antes
 de começar e, ao terminar uma tarefa, atualize este: o que mudou de estado, o que saiu da lista, o
 que entrou.
@@ -65,8 +65,12 @@ sozinha a cada 5 minutos; se nem ela resolver, o log com `[conciliação]` diz o
       o webhook de produção respondeu 404 (URL diferente da do modo teste).
 - [ ] Webhook de produção com a mesma URL do de teste, e os eventos com Falha reenviados (↻) até
       voltarem 200.
-- [ ] Estornar pelo painel do Pagar.me o Pix do #6 — o estorno pedido pelo admin falhou (ver o
-      primeiro achado abaixo). O Medusa já está como Refunded; não mexer lá.
+- [ ] O Pix do #6, cujo estorno falhou (ver o primeiro achado abaixo). **Depois do deploy de
+      22/09, a conciliação confere ele sozinha:** se o dinheiro ainda não voltou, chega um e-mail
+      ("O estorno do pedido #6 não saiu") e o pedido no admin ganha uma faixa vermelha, no fim da
+      coluna principal, com "Tentar o estorno de novo" — é apertar, ou esperar as 6 horas da
+      tentativa sozinha. Se você já estornou pelo painel do Pagar.me, ela só anota. O Medusa segue
+      como Refunded; não mexer lá.
 - [ ] Uma compra real pequena no cartão, cancelando em seguida.
 - [x] Promoção do bump em produção (21/09): o `promocoes.js` no shell do Railway respondeu
       "BUMP-OLEO **criada**" — ela nunca tinha existido lá, e era isso que fazia o "Só nessa tela"
@@ -108,13 +112,20 @@ aparecem na conta e no log, sem e-mail automático — esses a loja conversa com
 
 ### 2. Achados da revisão do pagamento — Claude Code
 
-- [ ] **Estorno de Pix que falha no Pagar.me não volta pro Medusa** (visto no primeiro Pix real).
-      Cancelar pedido pago no admin pede o estorno; o Pagar.me aceita ("Aguardando Cancelamento") e
-      o Medusa marca Refunded. Se o estorno falha depois — o de Pix exige **saldo atual** na conta, e
-      Pix que acabou de entrar pode ainda não estar nele —, a cobrança volta pra "Aprovada" e ninguém
-      fica sabendo: o cliente sem o dinheiro, o admin dizendo que devolveu. Falta a conciliação
-      conferir no Pagar.me os estornos dos últimos dias e avisar (ou tentar de novo quando houver
-      saldo). Até lá: todo estorno de Pix pelo admin se confere no painel.
+- [x] **Estorno de Pix que falha no Pagar.me não voltava pro Medusa** (visto no primeiro Pix real;
+      resolvido em 22/09). Cancelar pedido pago no admin pede o estorno, o Pagar.me aceita
+      ("Aguardando Cancelamento") e o Medusa marca Refunded na hora; se o estorno falha depois — o
+      de Pix sai do **saldo disponível** —, a cobrança volta pra "Aprovada". Agora a conciliação
+      confere todo estorno dos últimos 7 dias na cobrança, pelo dinheiro. Quando falha:
+  - chega **um e-mail pra cada usuário do admin** ("O estorno do pedido #N não saiu"), com o valor
+    e o código da cobrança pra achar no painel;
+  - o pedido no admin mostra uma **faixa vermelha** com "Tentar o estorno de novo" — no fim da
+    coluna principal, que é onde o Medusa 2.21 põe essas faixas; dá pra arrastar pro topo no
+    ícone de controles do cabeçalho, e a escolha fica guardada;
+  - estorno do pedido inteiro é **pedido de novo sozinho de 6 em 6 horas**, até 8 vezes; parcial,
+    não (esse é pelo painel);
+  - no log do Railway, as linhas `[estorno]`: o que falhou, o que foi pedido de novo, o que o
+    Pagar.me confirmou.
 - [x] **A loja guardava falha em cache** (21/09). As leituras do Medusa devolviam `null` ou lista
       vazia quando ele não respondia, dentro do `"use cache"`: com o Medusa fora por instantes e as
       tags derrubadas, a home ficava sem produto, as categorias "sem produto agora" e o produto que

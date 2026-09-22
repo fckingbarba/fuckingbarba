@@ -1,5 +1,5 @@
 import { PaymentSessionStatus } from "@medusajs/framework/utils"
-import type { PedidoPagarme, TransacaoPagarme } from "./client"
+import { devolvidoNaCobranca, type PedidoPagarme, type TransacaoPagarme } from "./client"
 import type { EntradaDaLoja, Forma } from "./pedido"
 
 /**
@@ -182,7 +182,7 @@ export function traduzir(pedido: PedidoPagarme, forma: Forma, parcelasPedidas = 
         ? { bandeira: t.card.brand ?? "", final: t.card.last_four_digits }
         : null,
     recusa: null,
-    estornado: Number((cobranca as { refunded_amount?: number } | undefined)?.refunded_amount ?? 0),
+    estornado: devolvidoNaCobranca(cobranca),
   }
 
   // Estorno ANTES de pago: a cobrança estornada pode deixar o pedido com o

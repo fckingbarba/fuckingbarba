@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 
 import { extname, join, resolve } from "node:path"
 import { emailDoCodigo } from "../src/lib/emails/codigo"
 import { emailDoEnvio } from "../src/lib/emails/envio"
+import { emailDoEstornoQueFalhou } from "../src/lib/emails/estorno-falhou"
 import { emailDePedidoConfirmado, type PedidoDoEmail } from "../src/lib/emails/pedido-confirmado"
 import type { Email } from "../src/lib/email"
 
@@ -174,6 +175,18 @@ function main() {
       whatsapp: "5547999990000",
     })
   }
+  process.env.MEDUSA_BACKEND_URL = "https://api.exemplo"
+  const estorno = emailDoEstornoQueFalhou("matheus@exemplo.com", {
+    pedidoId: "order_01K5EXEMPLO",
+    numero: 1042,
+    falta: 6258,
+    forma: "pix",
+    cobranca: "ch_x7Kq2mB4n9aP1eRt",
+    motivo: "a cobrança voltou pra paga",
+    sozinha: true,
+    horas: 6,
+    tentativas: 8,
+  })
   const enviado = doEnvio("enviado")
   const saiu = doEnvio("saiu")
   const retirar = doEnvio("retirar")
@@ -215,6 +228,7 @@ ${secao("Pedido a caminho", enviado, { pc: 1300, celular: 1400 })}
 ${secao("Saiu pra entrega", saiu, { pc: 1300, celular: 1400 })}
 ${secao("Esperando retirada", retirar, { pc: 1300, celular: 1400 })}
 ${secao("Entregue", entregue, { pc: 1300, celular: 1400 })}
+${secao("Estorno que não saiu (pra equipe)", estorno, { pc: 760, celular: 900 })}
 </body>
 </html>`
 
@@ -228,6 +242,7 @@ ${secao("Entregue", entregue, { pc: 1300, celular: 1400 })}
     ["envio-saiu", saiu],
     ["envio-retirar", retirar],
     ["envio-entregue", entregue],
+    ["estorno-falhou", estorno],
   ] as const) {
     writeFileSync(join(saida, `${nome}.html`), comImagensEmbutidas(e.html))
     writeFileSync(join(saida, `${nome}.escuro.html`), escuro(comImagensEmbutidas(e.html)))

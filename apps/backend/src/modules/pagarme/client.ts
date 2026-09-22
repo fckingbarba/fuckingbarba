@@ -72,10 +72,24 @@ export type CobrancaPagarme = {
   code?: string
   amount: number
   paid_amount?: number
+  /**
+   * O que já voltou. A documentação publica os dois campos e não diz qual o
+   * estorno de Pix preenche — quem lê usa o maior (`devolvidoNaCobranca`).
+   */
+  canceled_amount?: number
+  refunded_amount?: number
+  /** O "Aguardando cancelamento" do painel: o estorno foi pedido e está andando. */
+  pending_cancellation?: boolean
   status: string
   payment_method?: string
+  updated_at?: string
   last_transaction?: TransacaoPagarme
   order?: { id: string; code?: string; status?: string }
+}
+
+/** Centavos que a cobrança diz que já voltaram pra quem pagou. */
+export function devolvidoNaCobranca(c: Partial<CobrancaPagarme> | null | undefined): number {
+  return Math.max(Number(c?.refunded_amount ?? 0) || 0, Number(c?.canceled_amount ?? 0) || 0)
 }
 
 export type PedidoPagarme = {
@@ -343,6 +357,10 @@ export function clienteDoPagarme(chaveSecreta: string, url = ENDERECO_PADRAO) {
 
     lerPedido: (id: string) =>
       chamar<PedidoPagarme>("GET", `/orders/${encodeURIComponent(id)}`, undefined, PRA_LER),
+
+    /** A cobrança, com o que já foi devolvido e se há estorno andando — ver `lib/estornos.ts`. */
+    lerCobranca: (id: string) =>
+      chamar<CobrancaPagarme>("GET", `/charges/${encodeURIComponent(id)}`, undefined, PRA_LER),
 
     /**
      * O pedido criado com este `code`, ou null.

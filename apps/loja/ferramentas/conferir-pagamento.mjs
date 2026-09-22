@@ -40,7 +40,9 @@
  * │ • pedido pago ficar sem o e-mail "Pedido confirmado" — pelo aviso,     │
  * │   pelo cartão, pela conciliação, pelo "Check status" do admin, com o   │
  * │   Resend fora na hora — ou receber dois; e pedido que não foi pago     │
- * │   receber um.                                                          │
+ * │   receber um;                                                          │
+ * │ • o estorno que o Pagar.me não fez (o Pix sem saldo) passar calado,    │
+ * │   com o admin dizendo que devolveu — ou ser pedido duas vezes.         │
  * └─────────────────────────────────────────────────────────────────────────┘
  */
 
@@ -1216,11 +1218,158 @@ try {
       `${cancelado?.status} ${cancelado?.payment_status}`
     )
   }
+
+  /* ── 8b. o estorno que o Pagar.me não fez ─────────────────────────────── */
+
+  /*
+    O PRIMEIRO PIX REAL (#6): o admin cancelou, o Medusa marcou "Refunded",
+    o Pagar.me aceitou o estorno ("Aguardando cancelamento") e desistiu
+    depois — Pix sai do saldo, e o saldo não tinha o valor. A cobrança voltou
+    pra "Aprovada", e ninguém soube. Aqui o Pagar.me falso segura o estorno e
+    faz ele falhar, duas vezes, antes de deixar sair.
+  */
+  titulo("O estorno que o Pagar.me não fez: a loja fica sabendo, avisa e pede de novo")
+  {
+    const email = "estorno@fuckingbarba.invalid"
+    const aberto = await fecharPelaApi(await carrinhoPelaApi(email), email)
+    const la = noPagarme(aberto)
+    await pagarme.pagar(la.pedido.id)
+    let pago = null
+    for (let i = 0; i < 40 && pago?.payment_status !== "captured"; i++) {
+      await esperar(250)
+      pago = await pedidoNoMedusa(aberto.id)
+    }
+    ok(pago?.payment_status === "captured", "um Pix pago, pra cancelar", pago?.payment_status)
+    const cobranca = la.pedido.charges[0]
+    const pedidosDeEstorno = () => pagarme.cancelamentos.filter((c) => c.cobranca === cobranca.id)
+    const avisos = () =>
+      resend.emails.filter((e) => e.subject === `O estorno do pedido #${pago.display_id} não saiu`)
+    const registro = async () =>
+      Object.values(
+        (await adm(`/admin/orders/${aberto.id}?fields=id,metadata`)).order?.metadata?.estornos ?? {}
+      )[0]
+
+    pagarme.estornos = "segura"
+    await adm(`/admin/orders/${aberto.id}/cancel`, { method: "POST" })
+    const cancelado = await pedidoNoMedusa(aberto.id)
+    ok(
+      cancelado?.payment_status === "refunded" && cobranca.pending_cancellation === true,
+      'o admin cancela e o Medusa marca estornado; lá, o estorno fica "aguardando cancelamento"',
+      `${cancelado?.payment_status} · pendente: ${cobranca.pending_cancellation}`
+    )
+
+    let r = await conciliar()
+    ok(
+      !r.estornos.falharam.length && !(await registro()) && !avisos().length,
+      "enquanto o estorno anda, a conciliação espera — sem alarme",
+      JSON.stringify(r.estornos)
+    )
+
+    pagarme.falharEstorno(la.pedido.id)
+    r = await conciliar()
+    ok(
+      r.estornos.falharam.some((x) => x.startsWith(`#${pago.display_id} `)),
+      "o Pagar.me desistiu: a conciliação vê que o dinheiro não voltou",
+      JSON.stringify(r.estornos)
+    )
+    let anotado = await registro()
+    ok(
+      anotado?.situacao === "falhou" && anotado?.sozinha === true && anotado?.cobranca === cobranca.id,
+      "e anota no pedido — é o que a faixa vermelha do admin lê",
+      JSON.stringify(anotado)
+    )
+    ok(
+      Date.parse(anotado?.proxima ?? "") - Date.now() > 5.9 * 3600 * 1000,
+      "com a próxima tentativa sozinha daqui a 6 horas",
+      String(anotado?.proxima)
+    )
+    // Um pra cada usuário do admin (o banco local tem mais de um) — e um só pra cada.
+    const pra = avisos().map((e) => e.to?.[0])
+    const aviso = avisos().find((e) => e.to?.[0] === EMAIL_ADMIN)
+    ok(
+      Boolean(aviso) && new Set(pra).size === pra.length,
+      "quem tem acesso ao admin recebe UM e-mail",
+      pra.join(", ")
+    )
+    const quantosAvisos = pra.length
+    ok(
+      textoDo(aviso).includes(reais(pago.total)) && textoDo(aviso).includes(cobranca.id),
+      "com o valor e a cobrança, pra achar no painel do Pagar.me",
+      textoDo(aviso).slice(0, 160)
+    )
+    ok(
+      !textoDo(aviso).includes(email) && !/Paulista|11144477735|Fulano/.test(textoDo(aviso)),
+      "e sem dado de quem comprou"
+    )
+
+    r = await conciliar()
+    ok(
+      avisos().length === quantosAvisos &&
+        !r.estornos.pedidosDeNovo.length &&
+        pedidosDeEstorno().length === 1,
+      "a rodada seguinte não repete o e-mail nem pede de novo antes da hora",
+      `${avisos().length} e-mail(s), ${pedidosDeEstorno().length} pedido(s) de estorno`
+    )
+
+    /*
+      "Tentar o estorno de novo", ainda sem saldo: o pedido sai, com o valor
+      que faltou, e o Pagar.me segura e desiste outra vez. (A hora marcada da
+      loja sozinha é a mesma conta, e está no teste de unidade: `ehAVez`.)
+    */
+    let tentativa = await adm(`/admin/pedidos/${aberto.id}/estorno`, { method: "POST" })
+    anotado = await registro()
+    ok(
+      tentativa?.resultado === "pedido" &&
+        pedidosDeEstorno().length === 2 &&
+        pedidosDeEstorno()[1].valor === la.pedido.amount &&
+        anotado?.tentativas === 1,
+      'o botão do admin pede o estorno de novo, com o valor que faltou',
+      `${JSON.stringify(tentativa)} · ${JSON.stringify(pedidosDeEstorno())}`
+    )
+    const andando = await adm(`/admin/pedidos/${aberto.id}/estorno`, { method: "POST" })
+    ok(
+      andando?.resultado === "andando" && pedidosDeEstorno().length === 2,
+      "apertar de novo com o estorno andando não pede outro",
+      JSON.stringify(andando)
+    )
+    pagarme.falharEstorno(la.pedido.id)
+    r = await conciliar()
+    ok(
+      avisos().length === quantosAvisos &&
+        !r.estornos.falharam.length &&
+        pedidosDeEstorno().length === 2,
+      "falhou de novo: nem e-mail novo, nem pedido fora de hora",
+      `${avisos().length} · ${JSON.stringify(r.estornos)}`
+    )
+
+    // "Tentar o estorno de novo", com saldo: sai na hora.
+    pagarme.estornos = "normal"
+    tentativa = await adm(`/admin/pedidos/${aberto.id}/estorno`, { method: "POST" })
+    anotado = await registro()
+    ok(
+      tentativa?.resultado === "devolvido" && anotado?.situacao === "devolvido",
+      'o botão "Tentar o estorno de novo": o Pagar.me devolve, e a faixa vira a verde',
+      `${JSON.stringify(tentativa)} · ${JSON.stringify(anotado)}`
+    )
+    ok(
+      pedidosDeEstorno().length === 3 && cobranca.refunded_amount === la.pedido.amount,
+      "três pedidos de estorno, e o dinheiro volta uma vez só",
+      `${pedidosDeEstorno().length} · devolvido ${cobranca.refunded_amount} de ${la.pedido.amount}`
+    )
+    r = await conciliar()
+    const deNovo = await adm(`/admin/pedidos/${aberto.id}/estorno`, { method: "POST" })
+    ok(
+      deNovo?.resultado === "devolvido" && pedidosDeEstorno().length === 3,
+      "depois de devolvido, nem a conciliação nem o botão pedem outro",
+      `${JSON.stringify(deNovo)} · ${pedidosDeEstorno().length}`
+    )
+  }
 } catch (e) {
   falhas++
   console.log(`\n  ✗ o conferidor quebrou no meio: ${e instanceof Error ? e.stack : e}`)
 } finally {
   resend.roteiro.cair = false
+  pagarme.estornos = "normal"
   // Os pedidos que o teste criou e ficaram de pé: cancelados, estoque de volta.
   for (const id of pedidosDoTeste) {
     const o = (await loja(`/store/orders/${id}?fields=id,status`)).json?.order
