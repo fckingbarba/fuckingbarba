@@ -2,7 +2,7 @@ import "server-only"
 import type { HttpTypes } from "@medusajs/types"
 import { cookies } from "next/headers"
 import { CARRINHO_VAZIO, type CarrinhoVisivel, type ItemDoCarrinho } from "./carrinho-visivel"
-import { cliente, regiaoBrasil } from "./medusa"
+import { cliente, falhaPassageira, regiaoBrasil } from "./medusa"
 
 /**
  * O CARRINHO
@@ -191,11 +191,39 @@ export function quantasUnidades(carrinho: Carrinho | null): number {
 }
 
 /**
+ * O carrinho do cookie ainda serve pra escrever?
+ *
+ * "sem-resposta" é o Medusa fora do ar, e aí não dá pra saber. A diferença
+ * pesa: o `lerCarrinho` devolve null pros dois casos, e o `garantirCarrinho`
+ * apagava o cookie em qualquer null. Um clique em "Adicionar" durante um
+ * restart do backend jogava fora a sacola inteira, que continuava lá no
+ * Medusa, só que sem ninguém que soubesse o id dela.
+ */
+async function situacaoDoCarrinho(
+  sdk: NonNullable<ReturnType<typeof cliente>>,
+  id: string
+): Promise<"vale" | "acabou" | "sem-resposta"> {
+  try {
+    const { cart } = await sdk.store.cart.retrieve(id, { fields: "id,completed_at" })
+    return cart && !cart.completed_at ? "vale" : "acabou"
+  } catch (e) {
+    if (falhaPassageira(e)) {
+      aviso(e, `carrinho ${id}`)
+      return "sem-resposta"
+    }
+    // 404: finalizado há tempo, banco recriado, id de outro ambiente.
+    return "acabou"
+  }
+}
+
+/**
  * O id do carrinho pra escrever, criando um se ainda não existe.
  *
  * Só serve dentro de ação ou route handler: fora deles o Next não deixa
  * gravar cookie, e sem gravar o carrinho recém-criado se perderia no fim da
  * requisição.
+ *
+ * `null` é "agora não deu" — quem chama já diz isso na tela. Nunca lança.
  */
 export async function garantirCarrinho(): Promise<string | null> {
   const sdk = cliente()
@@ -204,13 +232,21 @@ export async function garantirCarrinho(): Promise<string | null> {
   const jar = await cookies()
   const existente = jar.get(COOKIE_CARRINHO)?.value
   if (existente) {
-    // confere se ainda vale antes de tentar escrever nele
-    const atual = await lerCarrinho()
-    if (atual) return atual.id
+    const situacao = await situacaoDoCarrinho(sdk, existente)
+    if (situacao === "vale") return existente
+    // A sacola fica no cookie pra quando o Medusa voltar.
+    if (situacao === "sem-resposta") return null
     jar.delete(COOKIE_CARRINHO)
   }
 
-  const regiao = await regiaoBrasil()
+  let regiao: Awaited<ReturnType<typeof regiaoBrasil>>
+  try {
+    regiao = await regiaoBrasil()
+  } catch (e) {
+    // A leitura cacheada lança quando o Medusa não responde (ver `lib/medusa.ts`).
+    aviso(e, "região")
+    return null
+  }
   if (!regiao) {
     aviso(new Error("nenhuma região configurada"), "criar")
     return null

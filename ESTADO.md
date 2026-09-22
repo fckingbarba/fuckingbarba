@@ -1,7 +1,8 @@
 # Estado do projeto — e o que vem a seguir
 
-Atualizado em 21/09/2026, com os envios: o rastreio da Frenet chegando no pedido, na conta e no
-e-mail do cliente, por um núcleo que não depende do parceiro. O AGENTS.md diz **como** trabalhar
+Atualizado em 21/09/2026, com o conserto do cache: a loja parou de guardar falha do Medusa como se
+fosse o catálogo. Antes, no mesmo dia, os envios: o rastreio da Frenet chegando no pedido, na conta
+e no e-mail do cliente, por um núcleo que não depende do parceiro. O AGENTS.md diz **como** trabalhar
 aqui; este arquivo diz **onde** o projeto está. Leia os dois antes de começar e, ao terminar uma
 tarefa, atualize este: o que mudou de estado, o que saiu da lista, o que entrou.
 
@@ -79,19 +80,21 @@ O código já está no ar depois do deploy; falta a Frenet mandar os avisos. At�
 shipped" com o código continua valendo sozinho: o cliente recebe o e-mail "a caminho" com o código,
 e a conta mostra o rastreio.
 
-- [ ] **Railway:** criar `FRENET_WEBHOOK_TOKEN` no serviço do backend, com um valor novo
-      (`openssl rand -hex 32`, digitado por você — não cola aqui). Sem ela, nenhum aviso entra (e o
+- [x] **Railway:** `FRENET_WEBHOOK_TOKEN` criado no serviço do backend (21/09) e conferido: a rota
+      responde 401 sem a chave e 200 ("ignorado") com ela. Se um dia sumir, nenhum aviso entra (e o
       log diz `[envio] Frenet: aviso recusado — FRENET_WEBHOOK_TOKEN não configurado`).
-- [ ] **Frenet:** pedir ao suporte (ou a parceiros@frenet.com.br) o webhook **"Atualização de
-      Tracking"** da conta apontando pra `https://<api do Railway>/hooks/envio/frenet`, com o
-      cabeçalho de segurança `x-webhook-token` = o valor acima (é o TOKEN_NAME/TOKEN_VALUE da
-      documentação deles). Se só aceitarem a URL: `…/hooks/envio/frenet?chave=<o valor>`. O outro
-      webhook deles (status do pedido/carteira) não precisa — se vier, é ignorado.
+- [ ] **Frenet:** pedido enviado ao suporte em 21/09 — o webhook **"Atualização de Tracking"** da
+      conta apontando pra `https://<api do Railway>/hooks/envio/frenet`, com o cabeçalho de segurança
+      `x-webhook-token` = o valor acima (é o TOKEN_NAME/TOKEN_VALUE da documentação deles). **Falta a
+      resposta:** o cadastro feito, e se o `OrderId` do aviso leva o número do pedido. Se só
+      aceitarem a URL: `…/hooks/envio/frenet?chave=<o valor>`. O outro webhook deles (status do
+      pedido/carteira) não precisa — se vier, é ignorado.
 - [ ] **No painel da Frenet, ao gerar a etiqueta:** pôr o número do pedido da loja (o `#` da conta e
       do admin) no campo de pedido. É por ele que o aviso acha o pedido sozinho. Sem ele, o aviso
       fica guardado e se liga quando o código for cadastrado no pedido ("Mark as shipped").
-- [ ] Quando o primeiro aviso chegar, o log do Railway mostra `[envio] Frenet: <código> → postado
-  (pedido …)`, e o pedido vira "Shipped" no admin com a etiqueta.
+- [ ] Quando o primeiro aviso chegar, o log do Railway mostra
+      `[envio] Frenet: <código> → postado (pedido …)`, e o pedido vira "Shipped" no admin com a
+      etiqueta.
 
 Dois cuidados. **A conta da Frenet é a mesma da Nuvemshop:** se o webhook valer pra conta inteira,
 os pedidos de lá também vão avisar. Eles ficam guardados sem dono (não batem com pedido nenhum) e
@@ -110,12 +113,20 @@ aparecem na conta e no log, sem e-mail automático — esses a loja conversa com
       fica sabendo: o cliente sem o dinheiro, o admin dizendo que devolveu. Falta a conciliação
       conferir no Pagar.me os estornos dos últimos dias e avisar (ou tentar de novo quando houver
       saldo). Até lá: todo estorno de Pix pelo admin se confere no painel.
-- [ ] **A loja guarda falha em cache** (o mais urgente). Em `apps/loja/src/lib/medusa.ts`,
-      `regiaoBrasil()` e outras leituras devolvem `null` ou lista vazia quando o Medusa não responde
-      — DENTRO do `"use cache"`, então a falha fica guardada por horas ou dias. Aconteceu no
-      desenvolvimento: um restart do backend deixou o catálogo vazio até revalidar. Em produção, um
-      deploy do Railway na hora errada faz o mesmo. Correção: lançar dentro da função cacheada e
-      cair no padrão do lado de fora (erro não entra no cache).
+- [x] **A loja guardava falha em cache** (21/09). As leituras do Medusa devolviam `null` ou lista
+      vazia quando ele não respondia, dentro do `"use cache"`: com o Medusa fora por instantes e as
+      tags derrubadas, a home ficava sem produto, as categorias "sem produto agora" e o produto que
+      ninguém tinha aberto virava 404 — e tudo isso continuava assim depois de o Medusa voltar.
+      Agora a leitura lança, e erro não entra em cache nenhum: a página no ar fica com a última
+      versão boa, a que não estava pronta mostra **"Essa página não carregou"** com "Tentar de
+      novo", e a sacola não se perde num clique com o Medusa fora. Cada pedido tem prazo (8 s) e
+      nova chance (no build, uns 40 s de insistência, que cobrem o Railway reiniciando).
+      Na prática, pra você: **build da Vercel que falhar com `[medusa] …` no log é o Railway fora na
+      hora do deploy** — a versão anterior continua no ar; quando ele voltar, Redeploy. E a tela
+      "não carregou" na loja tem a mesma linha `[medusa] <o quê>: <motivo>` no log da Vercel.
+      De quebra: o build deixou de reaproveitar respostas do Medusa de um build anterior (dois
+      deploys com menos de 15 minutos entre eles subiam a loja com o catálogo do primeiro), e o
+      sitemap passou a ter a data de cada produto.
 - [ ] **A API de pedido do Medusa mostra endereço e CPF** a quem tiver o id do pedido
       (`GET /store/orders/:id`). A tela de obrigado esconde; a API, não. Um middleware em
       `apps/backend/src/api/middlewares.ts` limitando os campos resolve.

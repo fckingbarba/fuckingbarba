@@ -65,6 +65,12 @@ rodam contra o `next dev` (`LOJA`, padrão `localhost:3000`): com o cache de pro
 conteúdo de antes da edição e falha sem bug nenhum. Os `apps/backend/ferramentas/conferir-{frete,pedido}.mjs` são de antes da Frenet (esperam
 "Correios PAC" fixo e não sobem a falsa) — os que valem são os dez da loja.
 
+Dois tropeços de ambiente, que não são bug: o de configurações muda a política de frete pelo admin,
+e quem derruba o cache da loja depois é o backend, pelo `LOJA_URL` do `apps/backend/.env`; se ele
+não apontar pro `next dev` conferido, rode esse por último (ou reinicie o `next dev`), senão o de
+checkout lê a política do teste. E pedido de teste reserva estoque: `insufficient_inventory` num
+conferidor é o estoque local acabando — reponha no admin local.
+
 O de pagamento liga o Pagar.me na região pelo admin e devolve como estava. O de checkout, com o
 checkout aberto (`CHECKOUT_ABERTO`), precisa do Pagar.me ligado na região local — o passo 3 não
 oferece mais o provisório —: `PAGARME_SECRET_KEY=sk_test_falsa npm run backend:pagamento`, uma vez. A conciliação automática roda a cada 5 minutos DENTRO do
@@ -82,8 +88,13 @@ precisa sair da janela dela — ver `longeDaConciliacaoAutomatica` no conferidor
   Edge Function nunca escreve no schema `public`; ela chama a API do Medusa.
 - **Uma porta de saída de analytics**: `apps/loja/src/lib/rastrear.ts`. Nenhum componente chama
   `gtag`/`fbq`. `purchase` só no worker, com pagamento confirmado.
-- **Toda leitura do Medusa no front é `"use cache"` com `cacheTag`** (`apps/loja/src/lib/medusa.ts`).
-  Invalidação por `POST /api/revalidar`.
+- **Toda leitura do Medusa no front é `"use cache"` com `cacheTag`**, e passa pelo `lerDoMedusa`
+  (`apps/loja/src/lib/medusa.ts`). Invalidação por `POST /api/revalidar`. **Falha lança, nunca vira
+  vazio:** o que a função cacheada devolve fica guardado, e um `[]` de quando o Medusa não respondeu
+  era a vitrine vazia por horas. Erro não entra em cache: a página no ar fica com a última versão
+  boa, a que não estava pronta mostra o `app/error.tsx`, e o build com o Medusa fora falha (a loja
+  anterior segue no ar; Redeploy quando o Railway voltar). Padrão no lugar da resposta, só fora do
+  cache e em quem chama (`garantirCarrinho`, `buscarCep`).
 - **Página é dado, não JSX.** Quais seções uma página monta, e em que ordem, vem do registro
   (`apps/loja/src/lib/secoes/registro.ts`); a rota só escreve `<Secoes escopo="..." />`. A ordem do
   array é a ordem padrão — não existe segunda lista, e o banco guardará só a diferença

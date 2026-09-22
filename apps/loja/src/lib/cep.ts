@@ -55,7 +55,7 @@ type RespostaViaCep = {
 }
 
 /**
- * O endereço de um CEP, ou null.
+ * O endereço de um CEP, ou null. Nunca lança.
  *
  * Null quer dizer "não consegui", nunca "esse CEP não existe" — os dois casos
  * dão no mesmo pra quem está preenchendo, e distinguir só serviria pra loja
@@ -63,33 +63,51 @@ type RespostaViaCep = {
  * respondeu.
  */
 export async function buscarCep(cep: string): Promise<EnderecoDoCep | null> {
-  "use cache"
-  cacheTag(`cep:${cep}`)
-  cacheLife("max")
-
   const limpo = limparCep(cep)
   if (!limpo) return null
-
   try {
-    const resposta = await fetch(`https://viacep.com.br/ws/${limpo}/json/`, {
-      signal: AbortSignal.timeout(PACIENCIA),
-      headers: { accept: "application/json" },
-    })
-    if (!resposta.ok) return null
-
-    const dados = (await resposta.json()) as RespostaViaCep
-    // O ViaCEP responde 200 com `{ "erro": true }` pra CEP que não existe —
-    // olhar só o status daria um endereço todo vazio como se fosse válido.
-    if (dados.erro || !dados.uf) return null
-
-    return {
-      logradouro: dados.logradouro?.trim() ?? "",
-      bairro: dados.bairro?.trim() ?? "",
-      cidade: dados.localidade?.trim() ?? "",
-      uf: dados.uf.trim().toUpperCase(),
-    }
+    return await perguntarAoViaCep(limpo)
   } catch {
     // Timeout, DNS, ViaCEP fora do ar: o formulário segue à mão.
     return null
+  }
+}
+
+/**
+ * A pergunta de verdade, cacheada: o endereço, ou null pro CEP que o ViaCEP
+ * não conhece.
+ *
+ * FALHA LANÇA, e o `buscarCep` ali em cima é que devolve o null. Com o null
+ * aqui dentro, um ViaCEP fora do ar por um minuto ficava guardado com o
+ * `max`: aquele CEP nunca mais se preenchia sozinho. Erro não entra no
+ * cache, então a próxima pessoa do mesmo CEP pergunta de novo.
+ *
+ * O CEP desconhecido é resposta, e fica guardado — mas por dias, e não pelo
+ * `max`: CEP de loteamento novo entra na base do ViaCEP depois.
+ */
+async function perguntarAoViaCep(cep: string): Promise<EnderecoDoCep | null> {
+  "use cache"
+  cacheTag(`cep:${cep}`)
+
+  const resposta = await fetch(`https://viacep.com.br/ws/${cep}/json/`, {
+    signal: AbortSignal.timeout(PACIENCIA),
+    headers: { accept: "application/json" },
+  })
+  if (!resposta.ok) throw new Error(`ViaCEP respondeu ${resposta.status}`)
+
+  const dados = (await resposta.json()) as RespostaViaCep
+  // O ViaCEP responde 200 com `{ "erro": true }` pra CEP que não existe —
+  // olhar só o status daria um endereço todo vazio como se fosse válido.
+  if (dados.erro || !dados.uf) {
+    cacheLife("days")
+    return null
+  }
+
+  cacheLife("max")
+  return {
+    logradouro: dados.logradouro?.trim() ?? "",
+    bairro: dados.bairro?.trim() ?? "",
+    cidade: dados.localidade?.trim() ?? "",
+    uf: dados.uf.trim().toUpperCase(),
   }
 }

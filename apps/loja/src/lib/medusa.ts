@@ -16,6 +16,34 @@ import { emReais } from "./formato"
  *    vitrine servida do CDN sem ficar velha.
  * 3. Sem backend configurado, as funções devolvem vazio em vez de quebrar o
  *    build: a fase 1 sobe na Vercel antes de o Railway existir.
+ * 4. Com backend configurado e sem resposta dele, a leitura LANÇA. Nunca
+ *    devolve vazio, `null` ou o padrão no lugar da resposta que não veio.
+ *
+ * ┌─ POR QUE LANÇAR ───────────────────────────────────────────────────────┐
+ * │ O que uma função `"use cache"` devolve fica guardado por horas ou      │
+ * │ dias, e vai junto na página pré-renderizada, que é o que a Vercel      │
+ * │ serve. Era assim que um restart do Medusa virava "esta categoria está  │
+ * │ sem produto agora" até a revalidação seguinte, sem erro em lugar       │
+ * │ nenhum: a lista vazia de quando ele não respondeu ficava guardada como │
+ * │ se fosse o catálogo. O mesmo valia pra produto virar 404 e pra região  │
+ * │ sumir (e, com ela, o carrinho).                                        │
+ * │                                                                        │
+ * │ Erro não entra em cache nenhum, nem no da função nem no da página:     │
+ * │ • revalidação: a página que estava no ar continua sendo servida, e a   │
+ * │   próxima visita tenta de novo;                                        │
+ * │ • build: falha, e a versão anterior da loja segue no ar. Com o Railway │
+ * │   de volta, é Redeploy na Vercel. Antes, o build passava e publicava a │
+ * │   vitrine vazia;                                                       │
+ * │ • quem abre uma página que não estava pronta (produto que ninguém      │
+ * │   visitou desde o deploy, a categoria com `?ordem=`, o checkout) vê o  │
+ * │   `app/error.tsx`, com "tentar de novo".                               │
+ * │                                                                        │
+ * │ Cair num padrão continua valendo, mas FORA do cache e só onde a tela   │
+ * │ tem o que fazer sem o Medusa: o carrinho (`garantirCarrinho`) e o CEP  │
+ * │ (`buscarCep`) fazem assim. Resposta vazia de verdade (categoria sem    │
+ * │ produto, handle que não existe) continua sendo guardada: essa é o      │
+ * │ catálogo.                                                              │
+ * └────────────────────────────────────────────────────────────────────────┘
  */
 
 const baseUrl = process.env.MEDUSA_BACKEND_URL
@@ -54,10 +82,109 @@ const CAMPOS_PRODUTO =
   // `created_at` entra por causa da ordenação "Novidades" da tela de
   // categoria: com `fields` explícito o Medusa devolve SÓ o que está aqui, e
   // sem esta palavra o ordenador comparava `undefined` com `undefined` e
-  // devolvia a lista na mesma ordem, sem erro nenhum pra denunciar.
-  "id,title,handle,subtitle,description,thumbnail,weight,length,height,width,metadata,created_at," +
+  // devolvia a lista na mesma ordem, sem erro nenhum pra denunciar. O
+  // `updated_at` caiu na mesma armadilha: é o `<lastmod>` do sitemap, que
+  // saía sem data nenhuma.
+  "id,title,handle,subtitle,description,thumbnail,weight,length,height,width,metadata,created_at,updated_at," +
   "*images,*categories,*variants,*variants.calculated_price," +
   "+variants.inventory_quantity,+variants.manage_inventory"
+
+/* ── uma ida ao Medusa ────────────────────────────────────────────────────
+ *
+ * Tropeço acontece e dura segundos: o Railway trocando de versão num deploy,
+ * uma conexão que caiu. Por isso cada pedido tem um prazo e uma segunda
+ * chance antes de desistir, e desiste LANÇANDO (a regra 4, lá em cima).
+ *
+ * No build a paciência é maior: mais quatro tentativas, uns 40 segundos de
+ * espera. O push sobe o Railway e a Vercel juntos, e um build que desiste
+ * cedo demais pede um Redeploy à mão. Mais que isso não cabe: o Next dá 60
+ * segundos por página (`staticPageGenerationTimeout`). Fora do build, uma
+ * segunda tentativa só: do outro lado tem gente olhando pra tela.
+ *
+ * Só falha passageira ganha outra chance: sem resposta (rede, prazo
+ * estourado) ou 5xx/429. Um 4xx é o Medusa dizendo não — chave publicável
+ * errada, filtro inválido — e perguntar de novo dá a mesma resposta.
+ */
+
+const NO_BUILD = process.env.NEXT_PHASE === "phase-production-build"
+
+/** A espera antes de cada nova tentativa. O tamanho da lista é o número delas. */
+const ESPERAS_MS = NO_BUILD ? [2_000, 5_000, 10_000, 20_000] : [400]
+
+/**
+ * O prazo de cada pedido. Normal é menos de um segundo; o prazo existe pro
+ * Medusa que aceita a conexão e não responde (banco sem conexão livre, por
+ * exemplo): sem ele, a tela de quem abriu a página esperaria o infinito.
+ */
+const PRAZO_MS = 8_000
+
+/** Rede, prazo estourado, 5xx ou 429: vale tentar de novo. Também serve pro carrinho. */
+export function falhaPassageira(erro: unknown): boolean {
+  const status = (erro as { status?: unknown } | null)?.status
+  return typeof status !== "number" || status >= 500 || status === 429
+}
+
+function descrever(erro: unknown): string {
+  if (!(erro instanceof Error)) return String(erro)
+  if (erro.name === "TimeoutError") return `sem resposta em ${PRAZO_MS / 1000} s`
+  const status = (erro as { status?: unknown }).status
+  // O "fetch failed" do Node esconde o motivo (ECONNREFUSED, ENOTFOUND…) no `cause`.
+  const codigo = (erro.cause as { code?: unknown } | undefined)?.code
+  return [
+    typeof status === "number" ? `HTTP ${status}` : "",
+    erro.message,
+    typeof codigo === "string" ? `(${codigo})` : "",
+  ]
+    .filter(Boolean)
+    .join(" ")
+}
+
+const esperar = (ms: number) => new Promise<void>((pronto) => setTimeout(pronto, ms))
+
+/**
+ * Um GET no Medusa, com prazo e nova chance. Se não der, lança um erro que
+ * diz o quê e por quê — `[medusa] produtos: HTTP 502 Bad Gateway` — pro log
+ * da Vercel: é a linha que se procura quando a loja mostrar "tentar de novo".
+ *
+ * TODA TENTATIVA SAI PRA REDE DE VERDADE. Visto no build: o Medusa voltou
+ * no meio e as tentativas seguintes continuaram falhando até desistir. Duas
+ * memórias do Next, feitas pra poupar ida ao servidor, são desligadas aqui:
+ *   • a dos GET iguais dentro de uma renderização — o `signal` desliga
+ *     (regra do `dedupe-fetch` do Next), e de quebra dá o prazo;
+ *   • o cache de `fetch` do build, que guarda cada resposta por 15 minutos
+ *     em `.next/cache`, sem tag — `cache: "no-store"` desliga. Com uma
+ *     cópia vencida lá, a nova tentativa repetia a falha. E com uma cópia
+ *     em dia era pior: um deploy menos de 15 minutos depois do outro montava
+ *     a loja com as respostas do build anterior sem perguntar ao Medusa, e
+ *     tag derrubada pelo admin não alcança essa cópia. Quem guarda a leitura
+ *     é o `"use cache"` de cada função, com a tag certa.
+ *
+ * É por isso também que as leituras daqui usam `sdk.client.fetch` com o
+ * caminho, e não `sdk.store.product.list` e companhia: os atalhos do SDK
+ * fazem a mesma chamada, mas não deixam passar `signal` nem `cache`.
+ */
+async function lerDoMedusa<T>(
+  contexto: string,
+  caminho: string,
+  query?: Record<string, unknown>
+): Promise<T> {
+  for (let tentativa = 0; ; tentativa++) {
+    try {
+      return await sdk!.client.fetch<T>(caminho, {
+        query,
+        signal: AbortSignal.timeout(PRAZO_MS),
+        cache: "no-store",
+      })
+    } catch (e) {
+      const espera = ESPERAS_MS[tentativa]
+      if (espera === undefined || !falhaPassageira(e)) {
+        throw new Error(`[medusa] ${contexto}: ${descrever(e)}`, { cause: e })
+      }
+      console.warn(`[medusa] ${contexto}: ${descrever(e)} — de novo em ${espera} ms`)
+      await esperar(espera)
+    }
+  }
+}
 
 /**
  * OS KITS DE QUANTIDADE
@@ -108,7 +235,11 @@ async function paginarSemKits(
   let offset = 0
 
   for (let pagina = 0; pagina < MAX_PAGINAS; pagina++) {
-    const { products } = await sdk!.store.product.list({ ...params, limit: tamanho, offset })
+    const { products } = await lerDoMedusa<HttpTypes.StoreProductListResponse>(
+      "produtos",
+      "/store/products",
+      { ...params, limit: tamanho, offset }
+    )
     coletados.push(...semKits(products))
     offset += products.length
     if (coletados.length >= limite || products.length < tamanho) break
@@ -117,23 +248,17 @@ async function paginarSemKits(
   return coletados.slice(0, limite)
 }
 
-function aviso(erro: unknown, contexto: string) {
-  const msg = erro instanceof Error ? erro.message : String(erro)
-  console.warn(`[medusa] ${contexto}: ${msg}`)
-}
-
 export async function regiaoBrasil(): Promise<HttpTypes.StoreRegion | null> {
   "use cache"
   cacheTag(TAGS.regioes)
   cacheLife("days")
   if (!sdk) return null
-  try {
-    const { regions } = await sdk.store.region.list({ limit: 10 })
-    return regions.find((r) => r.currency_code === "brl") ?? regions[0] ?? null
-  } catch (e) {
-    aviso(e, "regiões")
-    return null
-  }
+  const { regions } = await lerDoMedusa<HttpTypes.StoreRegionListResponse>(
+    "regiões",
+    "/store/regions",
+    { limit: 10 }
+  )
+  return regions.find((r) => r.currency_code === "brl") ?? regions[0] ?? null
 }
 
 /**
@@ -147,24 +272,25 @@ export async function regiaoBrasil(): Promise<HttpTypes.StoreRegion | null> {
  * e o admin avisa a loja na hora (`POST /api/revalidar`). Cache curto por
  * desconfiança não corrige nada — só faz o dado ficar errado por menos tempo.
  *
- * Erro devolve o PADRÃO, que é "sem promoção de frete". Cair de volta no
- * valor de antes seria anunciar uma oferta que a loja não conseguiu
- * confirmar, e oferta anunciada vincula (CDC art. 30).
+ * ERRO LANÇA, e a página no ar fica com o valor que o Medusa confirmou por
+ * último. Já foi "erro devolve o PADRÃO" (sem promoção de frete, sem dados
+ * da empresa), pra nunca anunciar uma oferta sem confirmar (CDC art. 30).
+ * Só que o padrão ficava guardado por DIAS: um tropeço tirava do ar a
+ * promoção de frete e, do rodapé, o CNPJ e o contato, que a lei do comércio
+ * eletrônico manda mostrar (Decreto 7.962/2013). E o valor de antes não é
+ * palpite: quem muda a política é o admin, e salvar derruba esta tag na hora
+ * — com o Medusa de pé, porque foi nele que salvou.
  */
 export async function configuracoes(): Promise<Configuracoes> {
   "use cache"
   cacheTag(TAGS.configuracoes)
   cacheLife("days")
   if (!sdk) return PADRAO
-  try {
-    const { configuracoes: c } = await sdk.client.fetch<{ configuracoes: Configuracoes }>(
-      "/store/configuracoes"
-    )
-    return c ?? PADRAO
-  } catch (e) {
-    aviso(e, "configurações")
-    return PADRAO
-  }
+  const { configuracoes: c } = await lerDoMedusa<{ configuracoes: Configuracoes }>(
+    "configurações",
+    "/store/configuracoes"
+  )
+  return c ?? PADRAO
 }
 
 export type Promocao = { titulo: string; termina_em: string }
@@ -187,13 +313,11 @@ export async function buscarPromocao(): Promise<Promocao | null> {
   cacheTag(TAGS.promocao)
   cacheLife("minutes")
   if (!sdk) return null
-  try {
-    const { promocao } = await sdk.client.fetch<{ promocao: Promocao | null }>("/store/promocao")
-    return promocao ?? null
-  } catch (e) {
-    aviso(e, "promoção")
-    return null
-  }
+  const { promocao } = await lerDoMedusa<{ promocao: Promocao | null }>(
+    "promoção",
+    "/store/promocao"
+  )
+  return promocao ?? null
 }
 
 export async function listarCategorias(): Promise<HttpTypes.StoreProductCategory[]> {
@@ -201,16 +325,12 @@ export async function listarCategorias(): Promise<HttpTypes.StoreProductCategory
   cacheTag(TAGS.categorias)
   cacheLife("hours")
   if (!sdk) return []
-  try {
-    const { product_categories } = await sdk.store.category.list({
-      fields: "id,name,handle,description,rank",
-      limit: 50,
-    })
-    return product_categories
-  } catch (e) {
-    aviso(e, "categorias")
-    return []
-  }
+  const { product_categories } = await lerDoMedusa<HttpTypes.StoreProductCategoryListResponse>(
+    "categorias",
+    "/store/product-categories",
+    { fields: "id,name,handle,description,rank", limit: 50 }
+  )
+  return product_categories
 }
 
 export async function buscarCategoria(
@@ -220,17 +340,12 @@ export async function buscarCategoria(
   cacheTag(TAGS.categorias, TAGS.categoria(handle))
   cacheLife("hours")
   if (!sdk) return null
-  try {
-    const { product_categories } = await sdk.store.category.list({
-      handle,
-      fields: "id,name,handle,description",
-      limit: 1,
-    })
-    return product_categories[0] ?? null
-  } catch (e) {
-    aviso(e, `categoria ${handle}`)
-    return null
-  }
+  const { product_categories } = await lerDoMedusa<HttpTypes.StoreProductCategoryListResponse>(
+    `categoria ${handle}`,
+    "/store/product-categories",
+    { handle, fields: "id,name,handle,description", limit: 1 }
+  )
+  return product_categories[0] ?? null
 }
 
 export async function listarProdutos(
@@ -243,22 +358,22 @@ export async function listarProdutos(
   cacheTag(TAGS.produtos, ...(opcoes.categoriaId ? [TAGS.categoria(opcoes.categoriaId)] : []))
   cacheLife("hours")
   if (!sdk) return []
-  try {
-    const regiao = await regiaoBrasil()
-    return await paginarSemKits(
-      {
-        fields: CAMPOS_PRODUTO,
-        region_id: regiao?.id,
-        ...(opcoes.categoriaId ? { category_id: [opcoes.categoriaId] } : {}),
-      },
-      opcoes.limite ?? 48
-    )
-  } catch (e) {
-    aviso(e, "produtos")
-    return []
-  }
+  const regiao = await regiaoBrasil()
+  return paginarSemKits(
+    {
+      fields: CAMPOS_PRODUTO,
+      region_id: regiao?.id,
+      ...(opcoes.categoriaId ? { category_id: [opcoes.categoriaId] } : {}),
+    },
+    opcoes.limite ?? 48
+  )
 }
 
+/**
+ * O produto, ou `null` se o handle não existe — e SÓ nesse caso. O `null`
+ * vira 404 na PDP (`dobra.tsx`) e fica guardado por horas; foi assim que um
+ * Medusa fora do ar transformava produto de verdade em "não encontrado".
+ */
 export async function buscarProdutoPorHandle(
   handle: string
 ): Promise<HttpTypes.StoreProduct | null> {
@@ -266,19 +381,13 @@ export async function buscarProdutoPorHandle(
   cacheTag(TAGS.produtos, TAGS.produto(handle))
   cacheLife("hours")
   if (!sdk) return null
-  try {
-    const regiao = await regiaoBrasil()
-    const { products } = await sdk.store.product.list({
-      handle,
-      fields: CAMPOS_PRODUTO,
-      limit: 1,
-      region_id: regiao?.id,
-    })
-    return products[0] ?? null
-  } catch (e) {
-    aviso(e, `produto ${handle}`)
-    return null
-  }
+  const regiao = await regiaoBrasil()
+  const { products } = await lerDoMedusa<HttpTypes.StoreProductListResponse>(
+    `produto ${handle}`,
+    "/store/products",
+    { handle, fields: CAMPOS_PRODUTO, limit: 1, region_id: regiao?.id }
+  )
+  return products[0] ?? null
 }
 
 /**
@@ -364,28 +473,22 @@ async function kitsDoCatalogo(): Promise<HttpTypes.StoreProduct[]> {
   cacheLife("hours")
   if (!sdk) return []
 
-  try {
-    const regiao = await regiaoBrasil()
-    const kits: HttpTypes.StoreProduct[] = []
-    let offset = 0
+  const regiao = await regiaoBrasil()
+  const kits: HttpTypes.StoreProduct[] = []
+  let offset = 0
 
-    for (let pagina = 0; pagina < MAX_PAGINAS; pagina++) {
-      const { products } = await sdk.store.product.list({
-        fields: CAMPOS_PRODUTO,
-        limit: 100,
-        offset,
-        region_id: regiao?.id,
-      })
-      kits.push(...products.filter(ehKitDeQuantidade))
-      offset += products.length
-      if (products.length < 100) break
-    }
-
-    return kits
-  } catch (e) {
-    aviso(e, "kits")
-    return []
+  for (let pagina = 0; pagina < MAX_PAGINAS; pagina++) {
+    const { products } = await lerDoMedusa<HttpTypes.StoreProductListResponse>(
+      "kits",
+      "/store/products",
+      { fields: CAMPOS_PRODUTO, limit: 100, offset, region_id: regiao?.id }
+    )
+    kits.push(...products.filter(ehKitDeQuantidade))
+    offset += products.length
+    if (products.length < 100) break
   }
+
+  return kits
 }
 
 /**
