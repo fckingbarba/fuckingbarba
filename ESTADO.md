@@ -104,16 +104,33 @@ sozinha a cada 5 minutos; se nem ela resolver, o log com `[conciliação]` diz o
       15:12 — o valor apareceu e sumiu da fatura. Daqui, tudo certo: o Medusa nunca registrou o
       pagamento (Paid Total R$ 0,00, selo **Canceled** e não _Refunded_) e a conciliação cancelou o
       #9, devolvendo o estoque. Nada a corrigir no código.
+- [x] O teste com outras pessoas foi feito (22/09), e **a causa inocente morreu**. Três compras no
+      cartão, três reprovações: `ch_JdkpjxImnTx1GDej` (Matheus, SC, Mastercard 8187, 15:11, desfeita
+      em 4 s), `ch_GKqrWD7I3SpljEyz` (Marcelo, SC, Visa 4323, 15:42, 2 s) e `ch_56om91s84h28mbK9`
+      (Anderson, SP, Mastercard 9684, 15:46, 6 s). Nas três o banco **autorizou** (`0000 — Approved`,
+      com código de autorização) e a antifraude respondeu `reproved`. Pessoas, estados, bandeiras e
+      cartões diferentes reprovando 100% não é perfil de comprador: é regra da conta. Quem levanta
+      esses dados é `ferramentas/conferir-cartao.mjs` (só lê).
 - [ ] **Antifraude reprovando compra legítima — o item mais urgente do pagamento.** Enquanto isso
-      valer, nenhuma venda de cartão entra. Falar com o Pagar.me com o id da venda do #9: por que
-      reprovou, e se o cadastro da conta está completo (domínio da loja informado). Provável causa
-      inocente: conta nova e o dono comprando de si mesmo, mesmo nome e endereço, primeiro cartão da
-      conta. Testar de novo com **outro cartão, de outra pessoa e outro endereço** antes de concluir
-      qualquer coisa.
+      valer, nenhuma venda de cartão entra. Falar com o Pagar.me levando as três cobranças acima:
+      **qual regra** reprovou cada uma, se o cadastro da conta está completo (domínio da loja
+      informado) e qual é o valor mínimo configurado pra análise. Não mexer no `auth_and_capture`
+      antes dessa conversa: capturar depois da análise trocaria "o valor foi e voltou" por "o valor
+      nem saiu", o que é melhor pro cliente, mas não resolve a venda perdida.
+- [x] **O e-mail de cancelamento ia mentir pro cartão reprovado, e isso foi corrigido no mesmo dia
+      em que nasceu (22/09).** Na antifraude o dinheiro sai e volta sem o Medusa ver nada: não há
+      `captured_at` e ninguém pediu estorno, então a decisão caía em "sem-cobranca" e o e-mail dizia
+      _"Nada foi cobrado de você"_ pra quem tinha acabado de ver R$ 62,58 irem e voltarem no
+      aplicativo do banco. Era o erro que o `capturado` existe pra evitar, entrando por outra porta.
+      Agora a decisão também lê o `estornado` da cobrança (o `canceled_amount`/`refunded_amount` do
+      Pagar.me, em centavos, que a sessão guarda): maior que zero é dinheiro que se mexeu, e o
+      e-mail diz que está voltando. Com 100% dos cartões sendo reprovados, este caso era a regra e
+      não a exceção.
 - [ ] Frase da conta pro cartão reprovado depois do pedido nascer. Quando o antifraude responde na
       hora, a tela diz o certo (`RECUSAS.antifraude`, em `modules/pagarme/situacao.ts`); quando
       demora, o pedido nasce e é cancelado, e a conta mostra o genérico "Cancelado antes do
-      pagamento." — pouco pra quem viu a cobrança ir e voltar no cartão. Não é urgente.
+      pagamento." — pouco pra quem viu a cobrança ir e voltar no cartão. **O e-mail já não diz mais
+      isso** (item acima); a tela da conta ainda diz.
 - [x] Pix real de outra pessoa (22/09, pedido #10): pagou, a confirmação chegou — e ao cancelar e
       estornar **nenhum e-mail avisou o cliente**. O dinheiro saiu da conta dele e voltou sem uma
       palavra. Não era falha de envio: **o e-mail de pedido cancelado não existia** (nem o desenho,

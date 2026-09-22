@@ -162,6 +162,30 @@ export function decidir(o: PedidoLido, { estornouLa = false, agora = new Date() 
     return { mandar: true, motivo: "estornado", estorno: { valor, forma } }
   }
 
+  /*
+    O DINHEIRO QUE FOI E VOLTOU SEM O MEDUSA NUNCA TER VISTO.
+
+    É o cartão reprovado pela ANÁLISE DE FRAUDE depois do pedido nascer. O
+    banco autoriza, a loja manda `auth_and_capture`, e o valor sai da conta
+    de quem comprou; segundos depois a análise reprova e o Pagar.me desfaz a
+    captura sozinho. Aqui dentro não houve pagamento nenhum — o Medusa nunca
+    registrou (Paid Total R$ 0,00) — e ninguém pediu estorno: `capturado` é
+    zero e `estornouLa` é falso.
+
+    Mas o extrato de quem comprou mostra a cobrança aparecendo e sumindo. Um
+    e-mail dizendo "nada foi cobrado" seria a loja contando pra pessoa o
+    contrário do que ela acabou de ver no aplicativo do banco — o mesmo erro
+    que o `capturado` existe pra evitar, entrando por outra porta.
+
+    Quem sabe disso é a COBRANÇA no Pagar.me, e a sessão guardou: `estornado`
+    é o `canceled_amount`/`refunded_amount` de lá, em centavos — o quanto já
+    voltou. Maior que zero é dinheiro que se mexeu.
+  */
+  const devolvidoLa = Number(estado?.estornado ?? 0)
+  if (devolvidoLa > 0) {
+    return { mandar: true, motivo: "estornado", estorno: { valor: devolvidoLa / 100, forma } }
+  }
+
   // Ninguém pagou. O Pix que passou da validade tem uma frase própria: é a
   // razão mais comum de um pedido cancelado, e a única que a pessoa reconhece.
   const expira = Date.parse(estado?.pix?.expiraEm ?? "")

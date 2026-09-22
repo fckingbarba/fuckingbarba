@@ -1,16 +1,23 @@
 import type { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
+import { avisarCancelamentosRecentes } from "../../../../lib/avisar-cancelamento"
 import { confirmarPedidosPagos } from "../../../../lib/confirmar-pedido"
 
 /**
- * POST /admin/pedidos/confirmar — a varredura dos e-mails de pedido
- * confirmado agora, sem esperar os 5 minutos do worker.
+ * POST /admin/pedidos/confirmar — as varreduras de e-mail de pedido agora,
+ * sem esperar os 5 minutos do worker.
+ *
+ * AS DUAS, como no job `confirmar-pedidos`: a dos pagos e a dos cancelados.
+ * Este endpoint é o gêmeo sob demanda dele, e gêmeo que faz metade do
+ * trabalho mente — quem roda aqui pra conferir se o e-mail sai ficaria
+ * esperando um cancelamento que ninguém foi buscar.
  *
  * Pra quem cuida da loja depois de um "Check status" (que registra o Pix
  * pago sem avisar ninguém), e pro conferidor de pagamento provar que esse
- * caminho também confirma. Devolve o relatório — e é idempotente: rodar
- * duas vezes seguidas não manda nada na segunda.
+ * caminho também confirma. Devolve os dois relatórios — e é idempotente:
+ * rodar duas vezes seguidas não manda nada na segunda.
  */
 export async function POST(req: MedusaRequest, res: MedusaResponse) {
   const relatorio = await confirmarPedidosPagos(req.scope)
-  res.json({ relatorio })
+  const cancelamentos = await avisarCancelamentosRecentes(req.scope)
+  res.json({ relatorio, cancelamentos })
 }
