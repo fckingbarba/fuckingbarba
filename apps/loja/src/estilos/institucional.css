@@ -1,5 +1,6 @@
 /*
-  AS PÁGINAS DE TEXTO — privacidade, termos, entrega/trocas.
+  AS PÁGINAS DE TEXTO — privacidade, termos, entrega/trocas, contato e
+  dúvidas.
 
   O fundo delas é branco, não o MENTA do resto da loja: documento legal é
   texto corrido de duas mil palavras, e duas mil palavras sobre menta cansam
@@ -38,4 +39,26 @@ html:not([data-hidratado]) body:has(.institucional) {
 .institucional a:focus-visible {
   color: var(--color-tinta);
   background: var(--color-menta);
+}
+
+/*
+  Os canais do /contato: ali o CARTÃO INTEIRO é o link, e cartão sublinhado
+  de ponta a ponta parece erro de estilo, não link — quem avisa que dá pra
+  clicar é a borda, a sombra dura e o fundo mudando embaixo do cursor.
+
+  O contorno do foco vai pra DENTRO (offset negativo) porque o chanfro é
+  `clip-path`: o contorno padrão, desenhado do lado de fora da borda, seria
+  cortado junto com o canto, e quem navega pelo teclado não veria onde está.
+*/
+.institucional a.canal {
+  color: var(--color-tinta);
+  text-decoration: none;
+}
+.institucional a.canal:hover,
+.institucional a.canal:focus-visible {
+  color: var(--color-tinta);
+  background: var(--color-menta);
+}
+.institucional a.canal:focus-visible {
+  outline-offset: -6px;
 }

@@ -1,7 +1,16 @@
 import type { Metadata } from "next"
 import Link from "next/link"
-import { Abertura, Atualizado, Dado, Lista, P, Pendente, Secao, Titulo } from "@/components/institucional/texto"
-import { frasesDoFrete } from "@/lib/configuracoes"
+import {
+  Abertura,
+  Atualizado,
+  Dado,
+  Lista,
+  P,
+  Pendente,
+  Secao,
+  Titulo,
+} from "@/components/institucional/texto"
+import { frasesDoFrete, whatsappNaTela } from "@/lib/configuracoes"
 import { configuracoes } from "@/lib/medusa"
 import { site } from "@/lib/site"
 
@@ -59,8 +68,8 @@ export default async function Trocas() {
         <P>
           <b>O prazo começa na postagem, não na compra.</b> Entre o pagamento confirmado e a
           postagem tem o tempo de separar e despachar:{" "}
-          <Dado valor={atendimento.prazoDePostagem} falta="prazo de postagem pendente" />.
-          O código de rastreio vai pro seu e-mail assim que a encomenda for postada.
+          <Dado valor={atendimento.prazoDePostagem} falta="prazo de postagem pendente" />. O código
+          de rastreio vai pro seu e-mail assim que a encomenda for postada.
         </P>
         <P>
           Se a encomenda voltar por endereço errado ou por ninguém ter recebido depois das
@@ -76,10 +85,9 @@ export default async function Trocas() {
           mesmo que você tenha aberto a caixa pra conferir o produto.
         </P>
         <P>
-          O produto precisa voltar em condição de ser vendido de novo: com a embalagem, sem uso
-          além do necessário pra conferir. Frasco de cosmético usado pela metade não se enquadra
-          aqui — nesse caso, se o problema for o produto em si, o caminho é o de defeito, logo
-          abaixo.
+          O produto precisa voltar em condição de ser vendido de novo: com a embalagem, sem uso além
+          do necessário pra conferir. Frasco de cosmético usado pela metade não se enquadra aqui —
+          nesse caso, se o problema for o produto em si, o caminho é o de defeito, logo abaixo.
         </P>
         <P>
           Devolvido, a gente reembolsa <b>o valor integral, incluindo o frete que você pagou</b>,
@@ -106,17 +114,16 @@ export default async function Trocas() {
       <Secao titulo="Como pedir, na prática">
         <Lista>
           <li>
-            Chama no WhatsApp <Dado valor={atendimento.whatsapp} falta="WhatsApp pendente" /> ou
-            manda e-mail pra <Dado valor={atendimento.email} falta="e-mail pendente" />, com o{" "}
+            Chama no WhatsApp{" "}
+            <Dado valor={whatsappNaTela(atendimento.whatsapp)} falta="WhatsApp pendente" /> ou manda
+            e-mail pra <Dado valor={atendimento.email} falta="e-mail pendente" />, com o{" "}
             <b>número do pedido</b> e o motivo. Foto, se for defeito.
           </li>
           <li>A gente responde com as instruções e, quando for o caso, o código de postagem.</li>
           <li>Você posta. Guarda o comprovante — é ele que prova que a encomenda saiu.</li>
           <li>Chegou aqui e conferido, o reembolso ou a troca sai nos prazos acima.</li>
         </Lista>
-        <P>
-          Sem número de pedido também dá: a gente acha pelo e-mail ou pelo CPF da compra.
-        </P>
+        <P>Sem número de pedido também dá: a gente acha pelo e-mail ou pelo CPF da compra.</P>
       </Secao>
 
       <Secao titulo="O que não dá pra devolver">

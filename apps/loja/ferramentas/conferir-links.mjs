@@ -17,7 +17,8 @@
  * Também confere que as páginas institucionais não foram ao ar com dado de
  * mentira — a tarja `data-pendente` é intencional enquanto CNPJ e telefone
  * não existem, e este conferidor só a RELATA. O dia em que ela sumir das
- * três páginas é o dia em que a loja pode abrir.
+ * quatro páginas (as três legais e o /contato) é o dia em que a loja pode
+ * abrir.
  */
 
 const LOJA = process.argv[2] ?? process.env.LOJA ?? "http://localhost:3000"
@@ -31,7 +32,16 @@ function confere(nome, ok, detalhe = "") {
 }
 
 /** As telas de onde vale colher link: é delas que sai a navegação do site. */
-const SEMENTES = ["/", "/barba", "/produtos", "/privacidade", "/termos", "/trocas"]
+const SEMENTES = [
+  "/",
+  "/barba",
+  "/produtos",
+  "/privacidade",
+  "/termos",
+  "/trocas",
+  "/contato",
+  "/duvidas",
+]
 
 async function pegar(caminho) {
   const r = await fetch(new URL(caminho, LOJA), { redirect: "manual" })
@@ -92,9 +102,67 @@ for (const caminho of ["/privacidade", "/termos", "/trocas"]) {
 const trocas = await pegar("/trocas")
 confere("o /trocas responde 200", trocas.status === 200)
 
+/* ── contato e dúvidas ──────────────────────────────────────────────────── */
+/* As duas nasceram no lugar do /em-breve. O rodapé é de TODA página, então
+   um link que voltasse pro andaime voltaria no site inteiro de uma vez. */
+const home = await pegar("/")
+confere(
+  'o rodapé leva "Contato" e "Dúvidas frequentes" pras páginas, e não pro /em-breve',
+  home.html.includes('href="/contato"') &&
+    home.html.includes('href="/duvidas"') &&
+    !/href="\/em-breve"[^>]*>(Contato|Dúvidas frequentes)</.test(home.html)
+)
+
+const contato = await pegar("/contato")
+confere(
+  "/contato tem <h1> e aponta pras dúvidas e pras trocas",
+  /<h1[^>]*>/.test(contato.html) &&
+    contato.html.includes('href="/duvidas"') &&
+    contato.html.includes('href="/trocas"')
+)
+
+/* O FAQ que o Google lê (JSON-LD) e o que a tela mostra saem do MESMO array
+   (`conteudo/duvidas.ts`). Se um dia alguém escrever uma segunda lista, é
+   aqui que as duas se desencontram — e structured data que diz uma coisa
+   com a página mostrando outra é penalização manual. */
+const duvidas = await pegar("/duvidas")
+const entidades = (t) =>
+  t
+    .replace(/&#x27;|&#39;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&")
+const naTela = [...duvidas.html.matchAll(/<summary>([^<]+)<span/g)].map((m) => entidades(m[1]))
+const faq = [...duvidas.html.matchAll(/<script type="application\/ld\+json">(.*?)<\/script>/gs)]
+  .map((m) => JSON.parse(m[1]))
+  .find((j) => j["@type"] === "FAQPage")
+const noJsonLd = (faq?.mainEntity ?? []).map((q) => q.name)
+confere(
+  "/duvidas tem <h1>, perguntas na tela e aponta pro /contato",
+  /<h1[^>]*>/.test(duvidas.html) && naTela.length > 0 && duvidas.html.includes('href="/contato"'),
+  `${naTela.length} pergunta(s) na tela`
+)
+confere(
+  "o JSON-LD das dúvidas tem exatamente as perguntas da tela, na mesma ordem",
+  noJsonLd.length === naTela.length && noJsonLd.every((q, i) => q === naTela[i]),
+  `tela: ${naTela.length}, JSON-LD: ${noJsonLd.length}`
+)
+/* O realce das respostas se escreve `*assim*`, e o `<Realce>` devolve o
+   texto CRU quando os asteriscos não fecham par — em vez de adivinhar onde
+   o negrito termina. Asterisco na tela é esse par quebrado. */
+const respostas = [...duvidas.html.matchAll(/class="duvidas__resposta">(.*?)<\/div>/gs)]
+  .map((m) => m[1])
+  .join("")
+confere(
+  "nenhum asterisco de realce cru nas respostas",
+  respostas.length > 0 && !respostas.includes("*"),
+  "achei `*` numa resposta — algum `*realce*` do conteudo/duvidas.ts ficou sem par"
+)
+
 /* ── relatório dos dados que ainda faltam ───────────────────────────────── */
 const pendencias = []
-for (const caminho of ["/privacidade", "/termos", "/trocas"]) {
+for (const caminho of ["/privacidade", "/termos", "/trocas", "/contato"]) {
   const { html } = await pegar(caminho)
   /* `<span data-pendente` e não só `data-pendente`: o atributo cru aparece
      DUAS vezes por tarja — uma na marcação e outra no payload do React que
@@ -105,7 +173,7 @@ for (const caminho of ["/privacidade", "/termos", "/trocas"]) {
 }
 if (pendencias.length) {
   console.log(`\n  ⚠  tarjas de dado pendente no ar — ${pendencias.join(", ")}`)
-  console.log("     (intencional; some quando CNPJ, telefone e prazos reais entrarem em lib/site.ts)")
+  console.log("     (intencional; some quando os dados reais entrarem no admin, em Configurações)")
 }
 
 console.log(`\n${passou} passou, ${falhou} falhou\n`)

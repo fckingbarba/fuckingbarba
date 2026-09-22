@@ -5,7 +5,7 @@ import { site } from "@/lib/site"
 
 /**
  * Destino provisório dos links cujas páginas ainda não existem (blog,
- * contato, minha conta, busca…).
+ * busca…).
  *
  * Por que não deixar o link apontando pro nada: 404 é a resposta certa pra
  * endereço que não existe, não pra página que a gente ainda não fez. Quem

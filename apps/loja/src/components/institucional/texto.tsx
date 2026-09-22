@@ -1,9 +1,10 @@
 import type { ReactNode } from "react"
 
 /**
- * AS PEÇAS DAS PÁGINAS DE TEXTO — privacidade, termos, trocas.
+ * AS PEÇAS DAS PÁGINAS DE TEXTO — privacidade, termos, trocas, contato e
+ * dúvidas.
  *
- * Existem pra que as três tenham a mesma tipografia sem repetir trinta
+ * Existem pra que todas tenham a mesma tipografia sem repetir trinta
  * classes do Tailwind em cada parágrafo. Documento legal que muda de cara de
  * uma página pra outra passa a impressão de recortado da internet, que é
  * exatamente a impressão que ele não pode passar.
@@ -22,10 +23,25 @@ export function Abertura({ children }: { children: ReactNode }) {
   return <p className="mt-6 text-lg leading-relaxed text-tinta">{children}</p>
 }
 
-export function Secao({ titulo, children }: { titulo: string; children: ReactNode }) {
+/**
+ * `id` é opcional e vira âncora (`/duvidas#entrega`): quando vem, o título
+ * ganha id próprio e nomeia a seção pra quem navega por leitor de tela.
+ */
+export function Secao({
+  titulo,
+  id,
+  children,
+}: {
+  titulo: string
+  id?: string
+  children: ReactNode
+}) {
+  const idDoTitulo = id ? `${id}-titulo` : undefined
   return (
-    <section className="mt-10">
-      <h2 className="titulo-marca text-xl text-tinta sm:text-2xl">{titulo}</h2>
+    <section className="mt-10" id={id} aria-labelledby={idDoTitulo}>
+      <h2 className="titulo-marca text-xl text-tinta sm:text-2xl" id={idDoTitulo}>
+        {titulo}
+      </h2>
       <div className="mt-3 space-y-3">{children}</div>
     </section>
   )
@@ -44,8 +60,9 @@ export function Lista({ children }: { children: ReactNode }) {
  *
  * CNPJ, razão social, endereço e WhatsApp são dados que ninguém pode
  * inventar — num documento legal, dado inventado é pior que dado ausente,
- * porque some a chance de alguém reparar. Enquanto o valor real não entra em
- * `lib/site.ts`, a página mostra esta tarja em vez de um número de mentira.
+ * porque some a chance de alguém reparar. Enquanto o valor real não entra nas
+ * configurações do Medusa (admin → Configurações), a página mostra esta tarja
+ * em vez de um número de mentira.
  *
  * `data-pendente` é o que o conferidor procura: quando os dados entrarem,
  * nenhuma tarja pode sobrar numa página pública.

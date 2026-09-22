@@ -1,9 +1,9 @@
 import { MarcaDaTela } from "@/components/marca-da-tela"
 
 /**
- * Páginas de texto (privacidade, termos, trocas). O cabeçalho e o rodapé vêm
- * do layout raiz; aqui só a medida da linha — texto corrido acima de uns 70
- * caracteres por linha fica cansativo de ler.
+ * Páginas de texto (privacidade, termos, trocas, contato, dúvidas). O
+ * cabeçalho e o rodapé vêm do layout raiz; aqui só a medida da linha — texto
+ * corrido acima de uns 70 caracteres por linha fica cansativo de ler.
  *
  * A classe `institucional` é o gancho do CSS: é ela que faz o link dentro do
  * texto parecer link; e a marca de tela troca o fundo menta do `body` por
