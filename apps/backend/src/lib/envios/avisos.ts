@@ -2,7 +2,7 @@ import type { MedusaContainer } from "@medusajs/framework/types"
 import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
 import { ENVIOS } from "../../modules/envios"
 import type EnviosService from "../../modules/envios/service"
-import { lerConfiguracoes } from "../configuracoes"
+import { whatsappDaLoja } from "../atendimento"
 import { emailNoLog, enviarEmail } from "../email"
 import { emailDoEnvio, type PedidoDoAviso } from "../emails/envio"
 import { avisoPendente, lerAvisos, type SituacaoDoEnvio } from "./situacao"
@@ -105,17 +105,6 @@ async function lerPedidoDoAviso(
           cep: cep(e.postal_code ?? ""),
         }
       : null,
-  }
-}
-
-async function whatsappDaLoja(container: MedusaContainer): Promise<string | null> {
-  try {
-    const [loja] = await container
-      .resolve(Modules.STORE)
-      .listStores({}, { select: ["id", "metadata"], take: 1 })
-    return lerConfiguracoes(loja?.metadata).atendimento.whatsapp
-  } catch {
-    return null
   }
 }
 

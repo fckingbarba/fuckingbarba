@@ -20,14 +20,14 @@ import {
 /**
  * O E-MAIL DE PEDIDO CONFIRMADO — o que sai quando o pagamento cai.
  *
- * AINDA NÃO SAI: é o desenho, pronto pra quando o envio for ligado no
- * `subscribers/pagamento-capturado.ts` (a fase 5, ou antes). Quem ligar
- * monta o `PedidoDoEmail` a partir do pedido do Medusa — o molde é o
- * `lerPedido` da loja (`apps/loja/src/lib/pedido.ts`), campo por campo — e
- * pega o WhatsApp nas configurações da loja.
+ * Só o desenho. Quem manda, quando e quantas vezes (uma) é o
+ * `lib/confirmar-pedido.ts`, que também monta o `PedidoDoEmail` a partir do
+ * pedido do Medusa, com o molde do `lerPedido` da loja
+ * (`apps/loja/src/lib/pedido.ts`).
  *
- * O "ACOMPANHAR PEDIDO" aponta pro `/conta/pedidos/<id>`, que nasce na parte
- * 2 da Minha conta. Ligar este e-mail antes dela é mandar gente pra um 404.
+ * O "ACOMPANHAR PEDIDO" aponta pro `/conta/pedidos/<id>`. Quem comprou sem
+ * conta entra pelo código no e-mail, e o pedido já está lá: o primeiro
+ * código transforma o cliente convidado na conta.
  *
  * ONDE A MESMA COISA JÁ EXISTE NA LOJA, O TEXTO É O DE LÁ: o título, a frase
  * do pagamento, os rótulos dos totais e o "E agora?" são os da tela de
@@ -74,11 +74,17 @@ export type PedidoDoEmail = {
 
 const INSTAGRAM = "https://www.instagram.com/fuckingbarba"
 
-/** A frase do obrigado pro estado "pago", palavra por palavra. */
-function fraseDoPagamento(p: PagamentoDoEmail): string {
+/**
+ * A frase do obrigado pro estado "pago", palavra por palavra. Sem a
+ * bandeira ou o final (a sessão não guardou), a frase encolhe em vez de
+ * escrever "cartão  final ." — o e-mail sai do mesmo jeito.
+ */
+export function fraseDoPagamento(p: PagamentoDoEmail): string {
   if (p.forma === "pix") return "Pix recebido. Já estamos separando o seu pedido."
   return (
-    `Pagamento aprovado no cartão ${p.bandeira} final ${p.final}` +
+    "Pagamento aprovado no cartão" +
+    (p.bandeira ? ` ${p.bandeira}` : "") +
+    (p.final ? ` final ${p.final}` : "") +
     (p.parcelas > 1 ? `, em ${p.parcelas}x sem juros` : "") +
     ". Já estamos separando o seu pedido."
   )

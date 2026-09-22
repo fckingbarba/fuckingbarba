@@ -1,10 +1,12 @@
 # Estado do projeto — e o que vem a seguir
 
-Atualizado em 21/09/2026, com o conserto do cache: a loja parou de guardar falha do Medusa como se
-fosse o catálogo. Antes, no mesmo dia, os envios: o rastreio da Frenet chegando no pedido, na conta
-e no e-mail do cliente, por um núcleo que não depende do parceiro. O AGENTS.md diz **como** trabalhar
-aqui; este arquivo diz **onde** o projeto está. Leia os dois antes de começar e, ao terminar uma
-tarefa, atualize este: o que mudou de estado, o que saiu da lista, o que entrou.
+Atualizado em 22/09/2026, com o e-mail de pedido confirmado ligado: sai uma vez por pedido pago,
+inclusive o que o "Check payment status" do admin confirma. Antes, em 21/09, o conserto do cache (a
+loja parou de guardar falha do Medusa como se fosse o catálogo) e os envios: o rastreio da Frenet
+chegando no pedido, na conta e no e-mail do cliente, por um núcleo que não depende do parceiro. O
+AGENTS.md diz **como** trabalhar aqui; este arquivo diz **onde** o projeto está. Leia os dois antes
+de começar e, ao terminar uma tarefa, atualize este: o que mudou de estado, o que saiu da lista, o
+que entrou.
 
 ## No ar hoje
 
@@ -130,11 +132,15 @@ aparecem na conta e no log, sem e-mail automático — esses a loja conversa com
 - [ ] **A API de pedido do Medusa mostra endereço e CPF** a quem tiver o id do pedido
       (`GET /store/orders/:id`). A tela de obrigado esconde; a API, não. Um middleware em
       `apps/backend/src/api/middlewares.ts` limitando os campos resolve.
-- [ ] **A tela de obrigado promete e-mail que não sai:** "enviamos os detalhes pra <e-mail>". (O
-      "código de rastreio chega por e-mail" já sai, com os envios.) O de pedido confirmado já está
-      desenhado (`apps/backend/src/lib/emails/pedido-confirmado.ts`); falta ligar — ver a fase 5.
-- [ ] **O botão Check payment status não emite `payment.captured`.** Hoje não muda nada; na fase 5
-      (nota fiscal, e-mail, `purchase`) esse caminho também precisa disparar.
+- [x] **A tela de obrigado prometia e-mail que não saía** (22/09). O de pedido confirmado sai agora,
+      uma vez por pedido pago (ver a fase 5), e a tela promete conforme o estado: pago, "enviamos os
+      detalhes pra <e-mail>"; Pix esperando, "quando o Pix cair, a confirmação vai pra <e-mail>";
+      cartão em análise, "com o pagamento aprovado, a confirmação vai pra <e-mail>"; cancelado ou
+      pagamento a combinar, nada.
+- [x] **O botão Check payment status não emite `payment.captured`** — continua não emitindo, mas o
+      e-mail de confirmação já não depende dele (22/09): a varredura de 5 em 5 minutos acha o
+      pagamento capturado sem evento e manda. A nota fiscal e o `purchase`, quando vierem, seguem o
+      mesmo molde (ver a fase 5).
 - [ ] **Documentação do deploy:** README e AGENTS ainda descrevem server + worker. Acertar quando
       decidir se produção fica em `shared`.
 
@@ -179,15 +185,27 @@ aparecem na conta e no log, sem e-mail automático — esses a loja conversa com
 
 ### 4. Fase 5
 
-- E-mails transacionais — o Resend já está ligado (`apps/backend/src/lib/email.ts`, que manda o
-  código de acesso) —, nota fiscal (Bling) e `purchase` pro GA4 e pra Meta. O gancho é
-  `apps/backend/src/subscribers/pagamento-capturado.ts` — idempotente, porque o evento pode sair
-  duas vezes pro mesmo pagamento.
-- A moldura dos e-mails existe (`apps/backend/src/lib/emails/moldura.ts`), e o de pedido
-  confirmado está desenhado e testado, sem ligar. O botão dele leva a `/conta/pedidos/<id>`, que
-  já existe — dá pra ligar. Os do caminho da encomenda (`envio.ts`) já saem. Falta desenhar o de
-  Pix vencido.
-- E-mail de "seu Pix venceu": a conciliação já cancela o pedido e devolve o estoque; falta avisar.
+- **O e-mail de pedido confirmado sai** (22/09), uma vez por pedido pago no Pagar.me: na hora em que
+  o pagamento é capturado (Pix pelo aviso ou pela conciliação, cartão aprovado no checkout) ou pela
+  varredura — o job `confirmar-pedidos`, de 5 em 5 minutos, nos minutos 2, 7, 12… —, que olha os
+  pagamentos das últimas 24 horas e manda o que faltou. **No primeiro deploy**, ela manda a
+  confirmação dos pedidos pagos nas 24 horas anteriores que ainda não foram postados (os postados
+  ficam `dispensado`; cancelado não recebe). Como saber o que aconteceu:
+  - no log do Railway, `[pedido] confirmação do #N pra r•••@…` é o e-mail que saiu. O que não saiu
+    aparece como `[pedido] a confirmação do #N não saiu (…)` ou, na varredura,
+    `[pedido] confirmações: … não saíram — #N (…)`, com o porquê entre parênteses ou na linha
+    `[email]` logo antes; a rodada seguinte tenta de novo, e a chave de idempotência do Resend
+    impede que saia duas vezes;
+  - no admin, no JSON do pedido (fim da página), `metadata.emails.confirmado`: `email` (saiu, com o
+    id do Resend), `dispensado` (não era pra sair: sem o Pagar.me, já postado ou sem e-mail) ou
+    `recusado` (o Resend disse que o endereço não aceita e-mail — não se tenta mais).
+- Nota fiscal (Bling) e `purchase` pro GA4 e pra Meta: o gancho é o mesmo do e-mail
+  (`apps/backend/src/subscribers/pagamento-capturado.ts`), e o molde também — o
+  `payment.captured` sozinho perde o "Check payment status" e pode sair duas vezes pro mesmo
+  pagamento. Evento na hora, varredura embaixo, registro no pedido: `src/lib/confirmar-pedido.ts`
+  é o exemplo.
+- Os e-mails do caminho da encomenda (`envio.ts`) já saem. Falta desenhar e ligar o de "seu Pix
+  venceu": a conciliação já cancela o pedido e devolve o estoque; falta avisar.
 - **Envios — o que o desenho já tem lugar pra receber** (o contrato do parceiro está em
   `apps/backend/src/lib/envios/parceiro.ts`):
   - consultar o rastreio de tempos em tempos (`consultar`), a rede de segurança do aviso que se

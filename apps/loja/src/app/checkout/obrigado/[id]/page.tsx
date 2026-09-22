@@ -114,6 +114,20 @@ const PASSOS: Record<PagamentoVisivel["estado"], string[]> = {
   cancelado: ["Se ainda quiser os produtos, é só montar a sacola de novo — nada ficou pendente."],
 }
 
+/**
+ * O que a linha do número promete sobre o e-mail, em cada estado.
+ *
+ * A confirmação sai quando o pagamento é capturado (o backend manda:
+ * `apps/backend/src/lib/confirmar-pedido.ts`). Então só o pago diz que já
+ * mandou; o Pix esperando e o cartão em análise dizem QUANDO vai; cancelado
+ * e "a combinar" não prometem e-mail nenhum — eles não recebem.
+ */
+const SOBRE_O_EMAIL: Partial<Record<PagamentoVisivel["estado"], string>> = {
+  pago: "enviamos os detalhes pra",
+  aguardando: "quando o Pix cair, a confirmação vai pra",
+  analise: "com o pagamento aprovado, a confirmação vai pra",
+}
+
 export const metadata: Metadata = {
   title: "Pedido confirmado",
   robots: { index: false, follow: false },
@@ -184,6 +198,7 @@ async function Conteudo({ params }: { params: Props["params"] }) {
   const { pagamento } = pedido
   const { Icone, titulo, frase } = cabecaDo(pagamento)
   const esperando = pagamento.estado === "aguardando" || pagamento.estado === "analise"
+  const sobreOEmail = SOBRE_O_EMAIL[pagamento.estado]
 
   return (
     <>
@@ -196,9 +211,9 @@ async function Conteudo({ params }: { params: Props["params"] }) {
           <h1>{titulo}</h1>
           <p>
             Número <b>#{pedido.numero}</b>
-            {meu ? (
+            {meu && sobreOEmail ? (
               <>
-                {" · enviamos os detalhes pra "}
+                {` · ${sobreOEmail} `}
                 <b>{pedido.email}</b>
               </>
             ) : null}

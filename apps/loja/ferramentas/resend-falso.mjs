@@ -12,6 +12,13 @@ import { createServer } from "node:http"
  *
  * `roteiro.cair = true` faz ele responder 500 — o caminho do "não conseguimos
  * mandar o código agora", que com o Resend de verdade não dá pra encenar.
+ * O assunto de cada e-mail recusado assim fica em `recusados`, pra quem
+ * precisa saber que a tentativa aconteceu antes de o Resend "voltar".
+ *
+ * A CHAVE DE IDEMPOTÊNCIA funciona como a deles: a mesma chave com o mesmo
+ * corpo devolve o id do primeiro e não guarda outro e-mail; com corpo
+ * diferente, 409 `invalid_idempotent_request`. Cada e-mail guardado leva a
+ * `chave` que veio, pro conferidor ver que o backend mandou uma.
  *
  * Rodando sozinho (`node ferramentas/resend-falso.mjs`), ele imprime cada
  * e-mail que chega: serve pra entrar na conta à mão no desenvolvimento.
@@ -22,6 +29,9 @@ export const PORTA_PADRAO = Number(process.env.PORTA_RESEND || 4330)
 export async function subirResendFalso({ porta = PORTA_PADRAO, aoReceber } = {}) {
   const emails = []
   const roteiro = { cair: false }
+  const recusados = []
+  /** chave de idempotência → { corpo, id } */
+  const chaves = new Map()
 
   const servidor = createServer((req, res) => {
     let corpo = ""
@@ -38,6 +48,11 @@ export async function subirResendFalso({ porta = PORTA_PADRAO, aoReceber } = {})
         return
       }
       if (roteiro.cair) {
+        try {
+          recusados.push(JSON.parse(corpo).subject)
+        } catch {
+          recusados.push(null)
+        }
         res.writeHead(500, { "content-type": "application/json" })
         res.end(JSON.stringify({ message: "caiu de propósito" }))
         return
@@ -50,8 +65,27 @@ export async function subirResendFalso({ porta = PORTA_PADRAO, aoReceber } = {})
         res.end(JSON.stringify({ message: "corpo não é JSON" }))
         return
       }
+      const chave = req.headers["idempotency-key"] || null
+      if (chave && chaves.has(chave)) {
+        const antes = chaves.get(chave)
+        if (antes.corpo !== corpo) {
+          res.writeHead(409, { "content-type": "application/json" })
+          res.end(
+            JSON.stringify({
+              statusCode: 409,
+              name: "invalid_idempotent_request",
+              message: "Same idempotency key used with a different request payload.",
+            })
+          )
+          return
+        }
+        res.writeHead(200, { "content-type": "application/json" })
+        res.end(JSON.stringify({ id: antes.id }))
+        return
+      }
       const id = `falso_${emails.length + 1}`
-      emails.push({ id, recebido: Date.now(), ...email })
+      if (chave) chaves.set(chave, { corpo, id })
+      emails.push({ id, recebido: Date.now(), chave, ...email })
       aoReceber?.(email)
       res.writeHead(200, { "content-type": "application/json" })
       res.end(JSON.stringify({ id }))
@@ -67,6 +101,7 @@ export async function subirResendFalso({ porta = PORTA_PADRAO, aoReceber } = {})
     porta,
     emails,
     roteiro,
+    recusados,
     /** O último e-mail mandado pra este endereço, ou undefined. */
     ultimoPara: (para) => [...emails].reverse().find((e) => e.to?.includes(para)),
     /**

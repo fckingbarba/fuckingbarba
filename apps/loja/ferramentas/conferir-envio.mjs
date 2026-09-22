@@ -186,8 +186,12 @@ const avisoDe = ({ pedido, codigo, shipment, eventos, referencia }) => ({
 /* ── os e-mails ───────────────────────────────────────────────────────────── */
 
 const deCodigo = (e) => /^\d{6} é o seu código/.test(e.subject ?? "")
-/** Os e-mails de pedido de um endereço (o de código fica de fora). */
-const dePedido = (email) => resend.emails.filter((e) => e.to?.includes(email) && !deCodigo(e))
+/* A confirmação do pagamento ("Pedido #N confirmado") é do conferidor de
+   pagamento: o Pix que a fábrica paga também a dispara, e ela não é deste caminho. */
+const deConfirmacao = (e) => /^Pedido #\d+ confirmado$/.test(e.subject ?? "")
+/** Os e-mails do caminho da encomenda pra um endereço — sem o de código e sem a confirmação. */
+const dePedido = (email) =>
+  resend.emails.filter((e) => e.to?.includes(email) && !deCodigo(e) && !deConfirmacao(e))
 const assuntos = (email) => dePedido(email).map((e) => e.subject)
 
 async function esperarAssunto(email, assunto, ms = 10000) {

@@ -42,8 +42,8 @@ tocam no que você mexeu, e todos antes de entregar. Os que escrevem no admin de
 no fim, mesmo quando falham.
 
 ```bash
-# frete, checkout e pagamento sobem uma Frenet falsa (4310) e um Pagar.me falso (4320); os da
-# conta e de envio sobem os dois e um Resend falso (4330), de onde leem os e-mails. O backend
+# frete e checkout sobem uma Frenet falsa (4310) e um Pagar.me falso (4320); os de pagamento,
+# conta e envio sobem os dois e um Resend falso (4330), de onde leem os e-mails. O backend
 # aponta pros três; o de envio manda os avisos de rastreio da Frenet com o FRENET_WEBHOOK_TOKEN
 FRENET_URL=http://127.0.0.1:4310/shipping/quote FRENET_TOKEN=teste FRENET_WEBHOOK_TOKEN=token-de-teste \
 PAGARME_SECRET_KEY=sk_test_falsa PAGARME_URL=http://127.0.0.1:4320/core/v5 \
@@ -223,6 +223,18 @@ da encomenda). Tudo o que vem de fora passa por `esc`. A logo e os ícones são 
 e-mail aponta pra eles pela `LOJA_URL`. Pra ver antes de mandar:
 `cd apps/backend && npx ts-node ferramentas/previa-emails.ts` escreve
 `ferramentas/saida/previa-emails.html` — computador, celular e modo escuro lado a lado.
+
+O de **pedido confirmado** sai uma vez por pedido, quando o pagamento é capturado
+(`src/lib/confirmar-pedido.ts`): na hora, pelo `payment.captured` (Pix pelo aviso ou pela
+conciliação; cartão pelo `pedido-pago-na-hora.ts`), e pela varredura — o job `confirmar-pedidos`,
+de 5 em 5 minutos (nos minutos 2, 7, 12…), e `POST /admin/pedidos/confirmar` —, que olha os
+pagamentos das últimas 24 horas e manda o que faltou: o "Check status" do admin captura sem evento
+nenhum, e o e-mail que falhou tenta de novo. O registro fica no pedido,
+`metadata.emails.confirmado` (`email`, `dispensado` ou `recusado`), lido dentro da trava do pedido;
+e a chave de idempotência do Resend (`pedido-confirmado/<id>`) cobre o resto. Não sai pra pedido
+cancelado, sem o Pagar.me ou que já saiu pra entrega. Todo e-mail de pedido novo segue esse molde
+— evento na hora, varredura embaixo, registro no pedido —, e a nota fiscal e o `purchase` também:
+o `payment.captured` sozinho perde o "Check status".
 
 A **sacola** grava CEP e entrega no carrinho (`apps/loja/src/lib/acoes/frete.ts`), e o pé da
 gaveta mostra o frete e o total que o Medusa calculou com ela — o checkout abre com os dois. Com

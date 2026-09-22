@@ -30,7 +30,14 @@ export type Email = {
   texto: string
 }
 
-export type Enviado = { ok: true; id?: string } | { ok: false; motivo: string }
+/**
+ * `repetido`: o Resend já tinha aceitado um e-mail com a mesma chave de
+ * idempotência (ver `enviarEmail`) — não saiu de novo.
+ * `status`: o HTTP da recusa, quando houve resposta. 422 é endereço que
+ * nunca vai aceitar; o resto pode dar certo numa próxima tentativa.
+ */
+export type Enviado =
+  { ok: true; id?: string; repetido?: boolean } | { ok: false; motivo: string; status?: number }
 
 type Registro = { info: (m: string) => void; warn: (m: string) => void; error: (m: string) => void }
 
@@ -42,7 +49,19 @@ export function emailNoLog(email: string): string {
   return `${(nome ?? "").slice(0, 1)}•••@${dominio ?? ""}`
 }
 
-export async function enviarEmail(email: Email, logger: Registro): Promise<Enviado> {
+/**
+ * `idempotencia` vai no cabeçalho `Idempotency-Key` do Resend, que guarda a
+ * chave por 24 horas: a mesma chave com o mesmo e-mail devolve o id do
+ * primeiro, sem mandar de novo. É a segunda trava dos e-mails de pedido —
+ * a primeira é o registro no pedido, e esta cobre o instante entre o
+ * Resend aceitar e o registro ser gravado. Formato deles:
+ * `<o que>/<de quem>` (`pedido-confirmado/order_…`).
+ */
+export async function enviarEmail(
+  email: Email,
+  logger: Registro,
+  { idempotencia }: { idempotencia?: string } = {}
+): Promise<Enviado> {
   const chave = process.env.RESEND_API_KEY
   const remetente = process.env.EMAIL_REMETENTE || "FuckingBarba <nao-responda@fuckingbarba.com.br>"
   const base = (process.env.RESEND_URL || "https://api.resend.com").replace(/\/+$/, "")
@@ -62,7 +81,11 @@ export async function enviarEmail(email: Email, logger: Registro): Promise<Envia
   try {
     const resposta = await fetch(`${base}/emails`, {
       method: "POST",
-      headers: { authorization: `Bearer ${chave}`, "content-type": "application/json" },
+      headers: {
+        authorization: `Bearer ${chave}`,
+        "content-type": "application/json",
+        ...(idempotencia ? { "idempotency-key": idempotencia } : {}),
+      },
       body: JSON.stringify({
         from: remetente,
         to: [email.para],
@@ -76,10 +99,24 @@ export async function enviarEmail(email: Email, logger: Registro): Promise<Envia
       // O corpo do erro do Resend diz o porquê ("domínio não verificado",
       // "remetente inválido") — é a linha que resolve o problema no log.
       const corpo = await resposta.text().catch(() => "")
+      /*
+        409 `invalid_idempotent_request`: a chave já foi usada, com um e-mail
+        um pouco diferente (a foto de um produto mudou entre as tentativas,
+        por exemplo). Quer dizer que o Resend já aceitou um e-mail com esta
+        chave nas últimas 24 horas — mandar outro é exatamente o que a chave
+        existe pra impedir. O outro 409, `concurrent_idempotent_requests`, é
+        a mesma chave ainda em andamento: esse é tentar de novo depois.
+      */
+      if (resposta.status === 409 && corpo.includes("invalid_idempotent_request")) {
+        logger.info(
+          `[email] o Resend já tinha aceitado "${idempotencia}" pra ${emailNoLog(email.para)} — não saiu de novo`
+        )
+        return { ok: true, repetido: true }
+      }
       logger.warn(
         `[email] o Resend recusou (${resposta.status}) o e-mail pra ${emailNoLog(email.para)}: ${corpo.slice(0, 300)}`
       )
-      return { ok: false, motivo: `Resend ${resposta.status}` }
+      return { ok: false, motivo: `Resend ${resposta.status}`, status: resposta.status }
     }
     const { id } = (await resposta.json().catch(() => ({}))) as { id?: string }
     return { ok: true, id }

@@ -109,16 +109,25 @@ async function medusa(caminho, { metodo = "POST", corpo, token, cabecalhos = {} 
   return { status: r.status, corpo: await r.json().catch(() => ({})) }
 }
 
+/**
+ * Só os e-mails de código contam aqui: quem tem pedido recebe também a
+ * confirmação do pagamento e os do envio, e eles chegam quando querem
+ * (são assíncronos). "Pedido #1234 confirmado" no lugar do código faria o
+ * teste digitar o número do pedido.
+ */
+const deCodigo = (e) => /^\d{6} é o seu código/.test(e.subject ?? "")
+
 async function esperarEmail(email, antes = 0, ms = 8000) {
   const fim = Date.now() + ms
   while (Date.now() < fim) {
-    const deste = resend.emails.filter((e) => e.to?.includes(email))
+    const deste = resend.emails.filter((e) => e.to?.includes(email) && deCodigo(e))
     if (deste.length > antes) return deste.at(-1)
     await esperar(150)
   }
   return undefined
 }
-const quantosPara = (email) => resend.emails.filter((e) => e.to?.includes(email)).length
+const quantosPara = (email) =>
+  resend.emails.filter((e) => e.to?.includes(email) && deCodigo(e)).length
 
 {
   const sonda = novoEmail()
@@ -164,8 +173,28 @@ const noBloco = (pagina, seletor) => pagina.locator(`.entrar ${seletor}`).filter
 const erroDoCampo = async (pagina) =>
   ((await noBloco(pagina, ".campo__erro").first().textContent()) ?? "").trim()
 
+/**
+ * Espera o React assumir o campo antes de digitar. Digitado antes, o valor
+ * some quando a página hidrata (o campo é controlado e volta ao estado
+ * dele, vazio), e o envio sai sem e-mail: a ação responde "Confere o
+ * e-mail." em 0 ms e a tela do código nunca chega. Era a falha que ia e
+ * vinha deste arquivo. O React marca cada elemento que assumiu com uma
+ * propriedade `__reactProps$…`.
+ */
+async function hidratado(pagina, seletor) {
+  await pagina.waitForFunction(
+    (s) =>
+      [...document.querySelectorAll(s)].some((el) =>
+        Object.keys(el).some((k) => k.startsWith("__reactProps"))
+      ),
+    seletor,
+    { timeout: 20000 }
+  )
+}
+
 async function pedirPelaTela(pagina, email, url = "/conta/entrar") {
   await pagina.goto(LOJA + url)
+  await hidratado(pagina, ".entrar input[name=email]")
   await noBloco(pagina, "input[name=email]").fill(email)
   await noBloco(pagina, "form button[type=submit]").click()
   await pagina.waitForURL("**/conta/entrar/codigo", { timeout: 20000 })
@@ -255,6 +284,7 @@ let clienteDoPrimeiro = ""
   const { contexto, pagina } = await novaAba()
   await pagina.goto(`${LOJA}/conta`)
   await pagina.waitForURL("**/conta/entrar", { timeout: 15000 })
+  await hidratado(pagina, ".entrar input[name=email]")
   await noBloco(pagina, "input[name=email]").fill("rafael@")
   await noBloco(pagina, "form button[type=submit]").click()
   await esperarRecado(pagina)
@@ -542,6 +572,7 @@ titulo("Quando o e-mail não sai")
   const { contexto, pagina } = await novaAba()
   resend.roteiro.cair = true
   await pagina.goto(`${LOJA}/conta/entrar`)
+  await hidratado(pagina, ".entrar input[name=email]")
   await noBloco(pagina, "input[name=email]").fill(novoEmail())
   await noBloco(pagina, "form button[type=submit]").click()
   await esperarRecado(pagina)
@@ -663,8 +694,7 @@ if (!SEGREDO_LOJA) {
 
 /* ── 12. os pedidos da conta ──────────────────────────────────────────────── */
 
-/** Só os e-mails de código: quem tem pedido recebe também os de envio (a caminho, entregue). */
-const deCodigo = (e) => /^\d{6} é o seu código/.test(e.subject ?? "")
+/** Os e-mails de código de um endereço (o `deCodigo` lá de cima diz por quê). */
 const codigosPara = (email) => resend.emails.filter((e) => e.to?.includes(email) && deCodigo(e))
 
 /**
@@ -676,6 +706,7 @@ async function entrarPelaTela(pagina, email, partida = "/conta/entrar") {
   const antes = codigosPara(email).length
   await pagina.goto(LOJA + partida)
   await pagina.waitForURL("**/conta/entrar**", { timeout: 15000 })
+  await hidratado(pagina, ".entrar input[name=email]")
   await noBloco(pagina, "input[name=email]").fill(email)
   await noBloco(pagina, "form button[type=submit]").click()
   await pagina.waitForURL("**/conta/entrar/codigo", { timeout: 20000 })

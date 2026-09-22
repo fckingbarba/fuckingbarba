@@ -4,7 +4,8 @@
  *
  *   FRENET_URL=http://127.0.0.1:4310/shipping/quote FRENET_TOKEN=teste \
  *   PAGARME_SECRET_KEY=sk_test_falsa PAGARME_URL=http://127.0.0.1:4320/core/v5 \
- *   MEDUSA_WEBHOOK_SEGREDO=segredo-de-teste npm run backend:dev
+ *   MEDUSA_WEBHOOK_SEGREDO=segredo-de-teste \
+ *   RESEND_URL=http://127.0.0.1:4330 RESEND_API_KEY=re_teste_falsa npm run backend:dev
  *
  *   # na loja, em .env.development.local:
  *   #   NEXT_PUBLIC_PAGARME_PUBLIC_KEY=pk_test_falsa
@@ -35,13 +36,18 @@
  * │ • a cobrança que perdeu a sessão (tentou de novo) ficar sem estorno;   │
  * │ • o pagamento de um pedido fechado ser reaberto pela API pública;      │
  * │ • o QR de um pedido cancelado no admin continuar pagável;              │
- * │ • a confirmação perdida no caminho virar "sacola vazia" e compra dupla.│
+ * │ • a confirmação perdida no caminho virar "sacola vazia" e compra dupla;│
+ * │ • pedido pago ficar sem o e-mail "Pedido confirmado" — pelo aviso,     │
+ * │   pelo cartão, pela conciliação, pelo "Check status" do admin, com o   │
+ * │   Resend fora na hora — ou receber dois; e pedido que não foi pago     │
+ * │   receber um.                                                          │
  * └─────────────────────────────────────────────────────────────────────────┘
  */
 
 import { readFileSync } from "node:fs"
 import { subirFrenetFalsa } from "./frenet-falsa.mjs"
 import { CARTOES, subirPagarmeFalso } from "./pagarme-falso.mjs"
+import { subirResendFalso } from "./resend-falso.mjs"
 
 const LOJA =
   process.env.LOJA ??
@@ -86,13 +92,16 @@ if (!EMAIL_ADMIN || !SENHA_ADMIN) {
   process.exit(1)
 }
 
-/* ── os dois falsos ───────────────────────────────────────────────────────── */
+/* ── os três falsos ───────────────────────────────────────────────────────── */
 
 const frenet = await subirFrenetFalsa()
 const pagarme = await subirPagarmeFalso({
   webhook: { url: `${MEDUSA}/hooks/payment/pagarme_pagarme`, segredo: SEGREDO },
 })
-console.log(`  ⚙  Frenet falsa :${frenet.porta} · Pagar.me falso ${pagarme.url}`)
+const resend = await subirResendFalso()
+console.log(
+  `  ⚙  Frenet falsa :${frenet.porta} · Pagar.me falso ${pagarme.url} · Resend falso :${resend.porta}`
+)
 
 /* ── o Medusa ─────────────────────────────────────────────────────────────── */
 
@@ -118,6 +127,35 @@ async function loja(caminho, opcoes = {}) {
 }
 const conciliar = async () =>
   (await adm("/admin/pagamentos/conciliar", { method: "POST" })).relatorio
+/** A varredura das confirmações (o job de 5 em 5 minutos), agora. */
+const confirmarPendentes = async () =>
+  (await adm("/admin/pedidos/confirmar", { method: "POST" })).relatorio
+
+/* ── o e-mail de pedido confirmado ────────────────────────────────────────── */
+
+/*
+  SEMPRE PELO NÚMERO DO PEDIDO, nunca pelo endereço: os endereços deste
+  arquivo se repetem a cada rodada, e a varredura pode confirmar no meio
+  dela um pedido pago de uma rodada anterior (o Resend falso não estava de pé
+  quando ele foi pago).
+*/
+const confirmacoesDo = (pedido) =>
+  resend.emails.filter((e) => e.subject === `Pedido #${pedido.display_id} confirmado`)
+
+async function esperarConfirmacao(pedido, ms = 20000) {
+  for (const fim = Date.now() + ms; Date.now() < fim; await esperar(250)) {
+    const achadas = confirmacoesDo(pedido)
+    if (achadas.length) return achadas
+  }
+  return []
+}
+
+/** O texto do e-mail com os espaços fixos dos valores trocados por espaço comum. */
+const textoDo = (email) => (email?.text ?? "").replace(/\u00a0/g, " ")
+const reais = (v) =>
+  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
+    .format(Number(v))
+    .replace(/\u00a0/g, " ")
 /**
  * Todo pedido que o teste lê fica anotado: no fim, os que sobraram de pé são
  * cancelados, e o estoque volta. Sem isso, cada rodada deixava umas dez
@@ -349,6 +387,26 @@ async function longeDaConciliacaoAutomatica(janelaMs) {
   }
 }
 
+/**
+ * O mesmo, pra conciliação (minutos 0, 5, 10…) E pra varredura das
+ * confirmações (2, 7, 12…): o teste do "Check status" precisa de uma janela
+ * em que nenhuma das duas resolva o caso por ele.
+ */
+async function longeDasRodadasAutomaticas(janelaMs) {
+  for (;;) {
+    const agora = Date.now()
+    const proximas = [0, 2].map((minuto) => {
+      const desloca = minuto * 60_000
+      return Math.ceil((agora - desloca) / 300_000) * 300_000 + desloca
+    })
+    const proxima = Math.min(...proximas)
+    if (proxima - agora >= janelaMs + 5_000) return
+    const espera = proxima - agora + 20_000
+    console.log(`    (esperando ${Math.round(espera / 1000)} s uma rodada automática passar)`)
+    await esperar(espera)
+  }
+}
+
 /* ── a região com o Pagar.me, e de volta no fim ───────────────────────────── */
 
 const { regions } = await adm("/admin/regions?fields=id,currency_code,*payment_providers")
@@ -360,6 +418,25 @@ try {
     method: "POST",
     body: JSON.stringify({ payment_providers: [PAGARME] }),
   })
+
+  titulo("A fila de confirmações começa vazia")
+  {
+    // Pedido pago de rodadas antigas, sem Resend falso de pé na hora, ainda
+    // está na janela da varredura. Aqui ela é esvaziada antes, pra que o
+    // pedido de cada cenário não fique atrás de vinte velhos na fila.
+    let antigos = 0
+    for (let i = 0; i < 20; i++) {
+      const rodada = await confirmarPendentes()
+      antigos += rodada.mandados.length
+      if (!rodada.pendentes || (!rodada.mandados.length && !rodada.dispensados)) break
+    }
+    const resto = await confirmarPendentes()
+    ok(
+      resto.pendentes === 0,
+      `nenhum pedido pago esperando confirmação${antigos ? ` (${antigos} de rodadas antigas saíram agora)` : ""}`,
+      JSON.stringify(resto)
+    )
+  }
 
   titulo("A região")
   const { json: prov } = await loja(`/store/payment-providers?region_id=${regiao.id}`)
@@ -435,6 +512,12 @@ try {
 
     titulo("A tela do Pix")
     ok((await tituloDoFeito(pagina)) === "Falta só o Pix", "o título pede o Pix")
+    ok(
+      /quando o Pix cair, a confirmação vai pra pix@fuckingbarba\.invalid/.test(
+        await pagina.locator(".feito").innerText()
+      ),
+      "e promete o e-mail pra quando o Pix cair — não 'enviamos', porque ainda não foi"
+    )
     const codigo = await pagina.locator(".feito__pix code").innerText()
     ok(
       codigo === registro?.pedido.charges[0].last_transaction.qr_code,
@@ -472,6 +555,40 @@ try {
     const pago = await pedidoNoMedusa(pedidoId)
     ok(pago?.payment_status === "captured", "o Medusa registrou o pagamento", pago?.payment_status)
     ok((await pagina.locator(".feito__pix").count()) === 0, "e o QR sumiu — não se paga duas vezes")
+    ok(
+      /enviamos os detalhes pra pix@fuckingbarba\.invalid/.test(
+        await pagina.locator(".feito").innerText()
+      ),
+      "e só agora a tela diz que mandou os detalhes por e-mail"
+    )
+
+    titulo("O e-mail de pedido confirmado")
+    const [confirmacao] = await esperarConfirmacao(pago)
+    ok(Boolean(confirmacao), `"Pedido #${pago.display_id} confirmado" sai quando o Pix cai`)
+    ok(confirmacao?.to?.[0] === "pix@fuckingbarba.invalid", "pra quem comprou")
+    const texto = textoDo(confirmacao)
+    ok(/Pix recebido/.test(texto), "com a frase do obrigado pro Pix")
+    ok(
+      texto.includes(`Total: ${reais(pago.total)}`),
+      `e o total do Medusa (${reais(pago.total)})`,
+      texto.match(/Total: [^\n]*/)?.[0]
+    )
+    ok(
+      (confirmacao?.html ?? "").includes(`/conta/pedidos/${pedidoId}`),
+      "o botão leva ao pedido na conta"
+    )
+    ok(
+      confirmacao?.chave === `pedido-confirmado/${pedidoId}`,
+      "com a chave de idempotência do pedido — o Resend não manda duas vezes",
+      String(confirmacao?.chave)
+    )
+    await esperar(3000)
+    await confirmarPendentes()
+    ok(
+      confirmacoesDo(pago).length === 1,
+      "uma vez só: o aviso do Pagar.me e a varredura passam pelo mesmo registro",
+      String(confirmacoesDo(pago).length)
+    )
     await contexto.close()
   }
 
@@ -532,6 +649,16 @@ try {
       "a tela diz o final do cartão e as parcelas",
       frase.slice(0, 160)
     )
+    const [confirmacao] = await esperarConfirmacao(pedido)
+    ok(
+      Boolean(confirmacao),
+      "e o e-mail de confirmação sai na hora, sem esperar aviso nenhum do Pagar.me"
+    )
+    ok(
+      /final 0010, em 3x sem juros/.test(textoDo(confirmacao)),
+      "com o final do cartão e as parcelas",
+      textoDo(confirmacao).split("\n")[2]
+    )
     await contexto.close()
   }
 
@@ -576,6 +703,13 @@ try {
       "duas tentativas, duas sessões — o token de uma não serve pra outra",
       String(doCarrinho.length)
     )
+    await esperarConfirmacao(pedido)
+    await esperar(2000)
+    ok(
+      confirmacoesDo(pedido).length === 1,
+      "UMA confirmação, a do pedido — a tentativa recusada não vira e-mail",
+      String(confirmacoesDo(pedido).length)
+    )
     await contexto.close()
   }
 
@@ -619,6 +753,12 @@ try {
       "rodar a conciliação de novo não mexe em nada",
       JSON.stringify(segunda)
     )
+    ok(
+      !/enviamos|confirmação vai/.test(await pagina.locator(".feito").innerText()),
+      "a tela do cancelado não promete e-mail nenhum"
+    )
+    await confirmarPendentes()
+    ok(confirmacoesDo(pedido).length === 0, "e nenhum 'Pedido confirmado' sai pro Pix que venceu")
     await contexto.close()
   }
 
@@ -656,6 +796,86 @@ try {
       JSON.stringify(relatorio)
     )
     ok((await pedidoNoMedusa(pedidoId))?.payment_status === "captured", "e registra o pagamento")
+    const [confirmacao] = await esperarConfirmacao(await pedidoNoMedusa(pedidoId))
+    ok(Boolean(confirmacao), "e o e-mail de confirmação sai do mesmo jeito, sem o aviso")
+    await contexto.close()
+  }
+
+  /* ── 5b. o Resend fora na hora da confirmação ─────────────────────────── */
+
+  titulo("O Resend fora na hora da confirmação: a varredura manda depois")
+  {
+    // A varredura automática não pode passar no meio: o teste quer ver a
+    // rodada dele mandar.
+    await longeDasRodadasAutomaticas(45_000)
+    const { contexto, pagina } = await novaAba()
+    await sacolaPronta(contexto, 1)
+    await ateOPagamento(pagina, "resend@fuckingbarba.invalid")
+    await preencherCartao(pagina, "4000 0000 0000 0010")
+    resend.roteiro.cair = true
+    await pagar(pagina)
+    await pagina.waitForURL(/\/checkout\/obrigado\//, { timeout: 45000 })
+    const pedido = await pedidoNoMedusa(idDaUrl(pagina))
+    const assunto = `Pedido #${pedido.display_id} confirmado`
+    let tentou = false
+    for (let i = 0; i < 80 && !tentou; i++) {
+      tentou = resend.recusados.includes(assunto)
+      if (!tentou) await esperar(250)
+    }
+    resend.roteiro.cair = false
+    ok(tentou, "o pedido pago tentou mandar a confirmação na hora, e o Resend recusou")
+    ok(confirmacoesDo(pedido).length === 0, "nada saiu ainda")
+    const rodada = await confirmarPendentes()
+    ok(
+      rodada.mandados.includes(`#${pedido.display_id}`),
+      "a varredura seguinte manda",
+      JSON.stringify(rodada)
+    )
+    const outra = await confirmarPendentes()
+    ok(
+      confirmacoesDo(pedido).length === 1 && !outra.mandados.includes(`#${pedido.display_id}`),
+      "uma vez: a rodada depois dela não manda de novo",
+      `${confirmacoesDo(pedido).length} e-mails · ${JSON.stringify(outra)}`
+    )
+    await contexto.close()
+  }
+
+  /* ── 5c. o "Check status" do admin ────────────────────────────────────── */
+
+  titulo('O "Check status" do admin também confirma')
+  {
+    // Nem a conciliação nem a varredura automática podem resolver isto no
+    // meio: o teste é que o botão, sozinho, não avisa — e a varredura, sim.
+    await longeDasRodadasAutomaticas(50_000)
+    const { contexto, pagina } = await novaAba()
+    await sacolaPronta(contexto, 1)
+    await ateOPagamento(pagina, "checkstatus@fuckingbarba.invalid")
+    await pagar(pagina)
+    await pagina.waitForURL(/\/checkout\/obrigado\//, { timeout: 45000 })
+    const pedidoId = idDaUrl(pagina)
+    const pedido = await pedidoNoMedusa(pedidoId)
+    const registro = noPagarme(pedido)
+    await pagarme.pagar(registro.pedido.id, { semAviso: true })
+    const r = await adm(`/admin/orders/${pedidoId}/payment-sessions/authorize`, {
+      method: "POST",
+      body: JSON.stringify({
+        payment_session_id: pedido.payment_collections[0].payment_sessions[0].id,
+      }),
+    })
+    ok(r.is_authorized === true, "o botão pergunta ao Pagar.me e registra o Pix pago")
+    const pago = await pedidoNoMedusa(pedidoId)
+    ok(pago?.payment_status === "captured", "o pedido fica pago", pago?.payment_status)
+    await esperar(3000)
+    ok(
+      confirmacoesDo(pago).length === 0,
+      "e nenhum evento sai dali — é o buraco que a varredura existe pra cobrir"
+    )
+    const rodada = await confirmarPendentes()
+    ok(
+      rodada.mandados.includes(`#${pago.display_id}`) && confirmacoesDo(pago).length === 1,
+      "a varredura acha o pedido pago sem confirmação e manda, uma vez",
+      JSON.stringify(rodada)
+    )
     await contexto.close()
   }
 
@@ -994,6 +1214,7 @@ try {
   falhas++
   console.log(`\n  ✗ o conferidor quebrou no meio: ${e instanceof Error ? e.stack : e}`)
 } finally {
+  resend.roteiro.cair = false
   // Os pedidos que o teste criou e ficaram de pé: cancelados, estoque de volta.
   for (const id of pedidosDoTeste) {
     const o = (await loja(`/store/orders/${id}?fields=id,status`)).json?.order
@@ -1014,5 +1235,6 @@ ok(errosDeConsole.length === 0, "nenhum erro no console", errosDeConsole.slice(0
 await navegador.close()
 frenet.fechar()
 pagarme.fechar()
+await resend.fechar()
 console.log(`\n${testes - falhas}/${testes} passaram`)
 process.exit(falhas ? 1 : 0)
