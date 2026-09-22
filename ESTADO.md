@@ -5,11 +5,11 @@ achado da revisão do pagamento) e a Minha conta de pé na loja: endereços, meu
 abre preenchido pra quem está na conta (e guarda o endereço da compra), e o "Minha conta" do
 cabeçalho apontando pra ela. No mesmo dia, o estorno que o Pagar.me não faz (a conciliação confere,
 avisa e pede de novo), a API de pedido fechada pra quem só tem o id, o e-mail de pedido confirmado
-ligado e as páginas de Contato e Dúvidas no lugar do `/em-breve`; em 21/09, o conserto do cache e o rastreio da Frenet chegando no pedido, na conta e no
-e-mail. O
-AGENTS.md diz **como** trabalhar aqui; este arquivo diz **onde** o projeto está. Leia os dois antes
-de começar e, ao terminar uma tarefa, atualize este: o que mudou de estado, o que saiu da lista, o
-que entrou.
+ligado, as páginas de Contato e Dúvidas no lugar do `/em-breve` e a busca de verdade na lupa do
+cabeçalho; em 21/09, o conserto do cache e o rastreio da Frenet chegando no pedido, na conta e no
+e-mail. O AGENTS.md diz **como** trabalhar aqui; este arquivo diz **onde** o projeto está. Leia os
+dois antes de começar e, ao terminar uma tarefa, atualize este: o que mudou de estado, o que saiu
+da lista, o que entrou.
 
 ## No ar hoje
 
@@ -280,7 +280,10 @@ aparecem na conta e no log, sem e-mail automático — esses a loja conversa com
       e-mail, horário e prazo de postagem. **Hoje nenhum está preenchido em produção**: o rodapé
       mostra "Entrar em contato" sem nada embaixo, e o `/contato` tem só o Instagram como canal
       (mais seis tarjas de pendente). Preenchido, tudo aparece sozinho — nada a mexer no código.
-- [ ] Catálogo da Nuvemshop (fase 2).
+- [ ] Catálogo da Nuvemshop (fase 2). **Com ele importado, conferir o teto:** a `/produtos` lista
+      até 48 produtos, e a busca vê exatamente essa lista (`apps/loja/src/lib/busca.ts`). Os quinze
+      da Nuvemshop cabem com folga; passando de 48, a `/produtos` precisa de paginação e a busca vai
+      pro backend, com o acento resolvido lá.
 - [x] **Contato e Dúvidas no ar** (22/09), no lugar do `/em-breve` — o rodapé já leva pras duas. O
       `/contato` mostra os canais que o admin tiver (WhatsApp, e-mail, horário) e os dados da
       empresa, com a tarja de pendente no que falta; o Instagram entra sempre, porque é da marca.
@@ -289,7 +292,16 @@ aparecem na conta e no log, sem e-mail automático — esses a loja conversa com
       resposta. Nenhuma resposta cita canal (todas mandam pro `/contato`), e o que a loja ainda não
       cumpre ficou de fora — a lista está no fim do arquivo. O `conferir-links` confere as duas e
       que o JSON-LD das dúvidas é exatamente o que a tela mostra.
-- [ ] Blog (segue no `/em-breve`).
+- [x] **A busca funciona** (22/09): a lupa do cabeçalho leva pro `/busca?q=…` em vez do
+      `/em-breve`. Acha sem acento ("oleo" → Óleo), em qualquer ordem ("barba oleo"), com plural
+      ("oleos") e palavra pela metade ("fat" → Fator); o título pesa mais que a categoria, que pesa
+      mais que a descrição. A peneira é na loja e não no Medusa — o `q` de lá é um `ILIKE` que erra
+      as três primeiras — e o porquê está no topo de `apps/loja/src/lib/busca.ts`. A página fica fora
+      do Google (`noindex`) e do sitemap, e o `conferir-links` busca um produto de verdade pelo
+      endereço dele, sem acento.
+- [x] **O "Blog" saiu do rodapé** (22/09) até o blog existir — o conteúdo é o da Nuvemshop, que vem
+      com a migração. Com isso, o único link de navegação que ainda leva pro `/em-breve` é o
+      "Carrinho" do menu lateral do celular (a sacola funciona; é só o link que ficou pra trás).
 - [ ] O passo 3 do checkout promete **"Envio imediato"** e o resumo, na mesma tela, **"Enviamos em
       até 1 dia útil"** — os dois fixos em `apps/loja/src/conteudo/checkout.ts` (`GARANTIAS` e
       `CONFIANCA`), enquanto o prazo de verdade é o **prazo de postagem** do admin. Escolher a frase

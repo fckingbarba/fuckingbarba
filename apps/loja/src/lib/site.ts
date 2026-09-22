@@ -138,7 +138,12 @@ export const navegacao = {
       a que ninguém revisita que o cliente lê.
     */
     { href: "/#sobre", texto: "Sobre nós" },
-    { href: EM_BREVE, texto: "Blog" },
+    /*
+      "Blog" saiu (22/09/2026) e volta quando o blog existir. O conteúdo é o
+      da Nuvemshop, que vem com a migração — até lá o link só levava pro
+      `/em-breve`, e rodapé com um link de obras em toda página faz a loja
+      inteira parecer inacabada.
+    */
     { href: "/contato", texto: "Contato" },
     { href: "/duvidas", texto: "Dúvidas frequentes" },
     { href: "/conta", texto: "Minha conta" },

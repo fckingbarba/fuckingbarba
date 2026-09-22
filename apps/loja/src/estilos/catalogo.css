@@ -1,5 +1,6 @@
 /*
-  A TELA DE CATEGORIA — /barba, /cabelo, /kits e /produtos.
+  A TELA DE CATEGORIA — /barba, /cabelo, /kits e /produtos. E a /busca, que
+  é a mesma tela com um campo de busca no lugar do filtro.
 
   Namespace próprio de propósito. `.vitrine` é a grade da home e `.colecao` é
   a faixa que rola; pendurar a categoria numa delas faria mexer na home
@@ -129,7 +130,10 @@
   letter-spacing: 0.05em;
   text-transform: uppercase;
   clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px);
-  transition: transform 0.12s ease, background 0.12s ease, color 0.12s ease;
+  transition:
+    transform 0.12s ease,
+    background 0.12s ease,
+    color 0.12s ease;
 }
 .trilho:hover,
 .trilho:focus-visible {
@@ -340,7 +344,14 @@
   justify-content: center;
   background: var(--color-menta-clara);
   border: 2px solid var(--color-tinta);
-  clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
+  clip-path: polygon(
+    14px 0,
+    100% 0,
+    100% calc(100% - 14px),
+    calc(100% - 14px) 100%,
+    0 100%,
+    0 14px
+  );
   padding: clamp(18px, 2.4vw, 26px);
 }
 .convite__olho {
@@ -442,7 +453,14 @@
 .vazio {
   border: 2px solid var(--color-tinta);
   background: var(--color-menta-clara);
-  clip-path: polygon(16px 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 16px);
+  clip-path: polygon(
+    16px 0,
+    100% 0,
+    100% calc(100% - 16px),
+    calc(100% - 16px) 100%,
+    0 100%,
+    0 16px
+  );
   padding: clamp(24px, 4vw, 40px);
   text-align: center;
 }
@@ -459,4 +477,50 @@
   font-size: 0.92rem;
   line-height: 1.55;
   color: var(--color-tinta-suave);
+}
+
+/* ── A busca (/busca) ─────────────────────────────────────────────────────
+   O campo de novo, logo abaixo do título, já com o que foi buscado: quem
+   errou uma letra corrige ali, olhando o resultado.
+
+   16px no campo, e não os 14 do cabeçalho: abaixo de 16px o iPhone dá zoom
+   na página inteira ao tocar no campo, e a pessoa volta pros resultados com
+   a tela ampliada e cortada dos lados. `appearance: none` porque o Safari
+   desenha o campo de busca do jeito dele, por cima da borda da marca. */
+.busca {
+  display: flex;
+  gap: 8px;
+  max-width: 640px;
+  margin: 0 0 clamp(18px, 2.4vw, 24px);
+}
+.busca input {
+  flex: 1;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 2px solid var(--color-tinta);
+  background: var(--color-papel);
+  color: var(--color-tinta);
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  appearance: none;
+}
+.busca input:focus-visible {
+  outline: 3px solid var(--color-tinta);
+  outline-offset: 2px;
+}
+.busca__dica {
+  margin: 0 0 12px;
+}
+
+/* Link dentro do texto do vazio: o reset do Tailwind tira o sublinhado de
+   todo `<a>`, e sem ele "Fala com a gente" some no meio da frase. */
+.vazio__texto a {
+  color: var(--color-tinta);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+/* Os trilhos depois do vazio (a saída por categoria) precisam de ar. */
+.vazio + .trilhos {
+  margin-top: clamp(18px, 2.4vw, 24px);
 }

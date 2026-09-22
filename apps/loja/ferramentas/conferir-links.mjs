@@ -160,6 +160,47 @@ confere(
   "achei `*` numa resposta — algum `*realce*` do conteudo/duvidas.ts ficou sem par"
 )
 
+/* ── a busca e o blog ───────────────────────────────────────────────────── */
+/* A lupa do cabeçalho mandava pro /em-breve, e o rodapé tinha "Blog" levando
+   pro mesmo lugar. Os dois são de TODA página. */
+confere(
+  "a busca do cabeçalho vai pro /busca, e não pro /em-breve",
+  home.html.includes('action="/busca"') && !/action="\/em-breve"/.test(home.html)
+)
+confere('o rodapé não tem mais "Blog"', !/>Blog</.test(home.html))
+
+/* Busca interna fica fora do Google: página rasa que concorre com a
+   categoria de verdade. `follow` continua, pros produtos serem achados. */
+const buscaVazia = await pegar("/busca")
+confere(
+  "/busca responde 200, com noindex e o campo de busca",
+  buscaVazia.status === 200 &&
+    /<meta name="robots" content="noindex, follow"/.test(buscaVazia.html) &&
+    /<input[^>]*name="q"/.test(buscaVazia.html),
+  `veio ${buscaVazia.status}`
+)
+
+/* A busca de verdade: o primeiro produto da /produtos, procurado pela
+   primeira palavra do endereço dele — que vem SEM acento ("oleo-para-barba"),
+   então isto confere também que "oleo" acha "Óleo". */
+const listaInteira = await pegar("/produtos")
+const primeiro = listaInteira.html.match(/href="\/produtos\/([a-z0-9-]+)"/)?.[1]
+if (primeiro) {
+  const palavra = primeiro.split("-")[0]
+  const achou = await pegar(`/busca?q=${encodeURIComponent(palavra)}`)
+  confere(
+    `buscar "${palavra}" acha o ${primeiro}`,
+    achou.html.includes(`href="/produtos/${primeiro}"`)
+  )
+} else {
+  console.log("  --   a /produtos veio sem produto: a busca por um produto real ficou sem conferir")
+}
+const nada = await pegar("/busca?q=zzqqxxkk")
+confere(
+  "busca sem resultado mostra o vazio, sem card de produto",
+  nada.html.includes('class="vazio"') && !/href="\/produtos\/[a-z0-9-]+"/.test(nada.html)
+)
+
 /* ── relatório dos dados que ainda faltam ───────────────────────────────── */
 const pendencias = []
 for (const caminho of ["/privacidade", "/termos", "/trocas", "/contato"]) {

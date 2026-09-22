@@ -4,8 +4,9 @@ import { Raio } from "@/components/icones"
 import { site } from "@/lib/site"
 
 /**
- * Destino provisório dos links cujas páginas ainda não existem (blog,
- * busca…).
+ * Destino provisório dos links cujas páginas ainda não existem — hoje, o
+ * "Carrinho" do menu lateral e os caminhos de reserva da sacola (ver
+ * `EM_BREVE` em `lib/site.ts`).
  *
  * Por que não deixar o link apontando pro nada: 404 é a resposta certa pra
  * endereço que não existe, não pra página que a gente ainda não fez. Quem
