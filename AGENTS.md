@@ -298,6 +298,15 @@ cancelado, sem o Pagar.me ou que já saiu pra entrega. Todo e-mail de pedido nov
 — evento na hora, varredura embaixo, registro no pedido —, e a nota fiscal e o `purchase` também:
 o `payment.captured` sozinho perde o "Check status".
 
+O de **pedido cancelado** (`src/lib/avisar-cancelamento.ts`) é o mesmo molde, com o `order.canceled`
+no lugar do `payment.captured` e a mesma varredura embaixo; o registro é `metadata.emails.cancelado`.
+Ele diz três coisas — estornado, Pix vencido, cancelado antes do pagamento —, e **a pergunta "houve
+dinheiro?" é feita ao pagamento CAPTURADO, nunca ao estorno**: o estorno pode ser registrado minutos
+depois do cancelamento (admin cancelando e estornando em dois cliques), e o lado errado dessa
+corrida é um e-mail dizendo "nada foi cobrado" pra quem acabou de ver o dinheiro sair da conta. A
+outra ponta, a cobrança que o Pagar.me recebeu e o Medusa nunca soube, quem descobre é o
+`fecharCobrancasDoPedido` do subscriber — por isso ele roda ANTES e passa o `estornouLa`.
+
 A **sacola** grava CEP e entrega no carrinho (`apps/loja/src/lib/acoes/frete.ts`), e o pé da
 gaveta mostra o frete e o total que o Medusa calculou com ela — o checkout abre com os dois. Com
 entrega pendurada, toda mudança de quantidade faz o Medusa cotar de novo; o `cotar` do

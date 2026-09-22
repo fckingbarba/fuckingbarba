@@ -1,6 +1,7 @@
 import { emailDoCodigo } from "../codigo"
 import { emailDoEnvio, type EnvioDoAviso, type PedidoDoAviso } from "../envio"
 import { emReais, esc, urlDaLoja } from "../moldura"
+import { emailDePedidoCancelado, type CancelamentoDoEmail } from "../pedido-cancelado"
 import { emailDePedidoConfirmado, rotuloDaEntrega, type PedidoDoEmail } from "../pedido-confirmado"
 
 const LOJA = "https://fuckingbarba-loja.vercel.app"
@@ -193,6 +194,99 @@ describe("e-mail de pedido confirmado", () => {
     expect(e.texto).toContain("pedido #1042 confirmado")
     expect(e.texto).toContain(`Total: ${emReais(109.8)}`)
     expect(e.texto).toContain("Blumenau/SC · 89036-370")
+    expect(e.para).toBe("rafael@exemplo.com")
+  })
+})
+
+describe("e-mail de pedido cancelado", () => {
+  const cancelado = (extra: Partial<CancelamentoDoEmail> = {}): CancelamentoDoEmail => {
+    const p = pedido()
+    return {
+      id: p.id,
+      numero: p.numero,
+      email: p.email,
+      itens: p.itens,
+      total: p.total,
+      motivo: "estornado",
+      estorno: { valor: 109.8, forma: "pix" },
+      ...extra,
+    }
+  }
+  const montar = (extra: Partial<CancelamentoDoEmail> = {}, whatsapp: string | null = null) =>
+    emailDePedidoCancelado({ cancelamento: cancelado(extra), whatsapp })
+
+  it("o assunto diz o estorno quando houve estorno", () => {
+    expect(montar().assunto).toBe("Pedido #1042 cancelado e estornado")
+    expect(montar({ motivo: "pix-vencido", estorno: null }).assunto).toBe("Pedido #1042 cancelado")
+  })
+
+  it("com dinheiro de volta, diz o valor e de onde ele vem", () => {
+    const e = montar()
+    expect(e.html).toContain("Cancelado, com o pagamento estornado.")
+    expect(e.html).toContain(emReais(109.8))
+    expect(e.html).toContain("voltam pra conta que pagou")
+
+    const noCartao = montar({ estorno: { valor: 109.8, forma: "cartao" } })
+    expect(noCartao.html).toContain("voltam pro mesmo cartão")
+    expect(noCartao.html).toContain("quem manda no prazo")
+  })
+
+  it("nenhuma promessa de dia — o prazo é do banco", () => {
+    for (const forma of ["pix", "cartao"] as const) {
+      const e = montar({ estorno: { valor: 109.8, forma } })
+      expect(e.html).not.toMatch(/\b(amanhã|hoje|em \d+ dias?\b)/i)
+    }
+  })
+
+  it("sem cobrança, uma frase só — e nada de 'o seu dinheiro'", () => {
+    const e = montar({ motivo: "sem-cobranca", estorno: null })
+    expect(e.html).toContain("Cancelado antes do pagamento.")
+    expect(e.html).toContain("Nada foi cobrado de você")
+    expect(e.html).not.toContain("O seu dinheiro")
+    expect(e.html).not.toContain("corre atrás")
+  })
+
+  it("Pix vencido convida a refazer; os outros, não", () => {
+    expect(montar({ motivo: "pix-vencido", estorno: null }).html).toContain(
+      "um Pix novo nasce na hora"
+    )
+    expect(montar().html).toContain("continuam à venda")
+  })
+
+  it("escapa nome de produto", () => {
+    const e = montar({
+      itens: [
+        {
+          nome: "<script>alert(1)</script>",
+          variante: null,
+          imagem: null,
+          quantidade: 1,
+          precoUnitario: 10,
+          total: 10,
+        },
+      ],
+    })
+    expect(e.html).not.toContain("<script>")
+    expect(e.html).toContain("&lt;script&gt;")
+  })
+
+  it("o botão volta pra loja; sem LOJA_URL, não tem botão", () => {
+    expect(montar().html).toContain(`href="${LOJA}"`)
+    delete process.env.LOJA_URL
+    expect(montar().html).not.toMatch(/<a[^>]+class="fb-botao"/)
+  })
+
+  it("pedido sem itens não deixa cartão vazio", () => {
+    const e = montar({ itens: [] })
+    expect(e.html).not.toContain("O que estava no pedido")
+    expect(e.texto).not.toContain("O QUE ESTAVA NO PEDIDO")
+  })
+
+  it("a versão em texto tem o que importa", () => {
+    const e = montar({}, "5547999990000")
+    expect(e.texto).toContain("pedido #1042 cancelado")
+    expect(e.texto).toContain(`Total: ${emReais(109.8)}`)
+    expect(e.texto).toContain("(47) 99999-0000")
     expect(e.para).toBe("rafael@exemplo.com")
   })
 })
