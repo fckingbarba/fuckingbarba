@@ -139,8 +139,8 @@ export const navegacao = {
     */
     { href: "/#sobre", texto: "Sobre nós" },
     { href: EM_BREVE, texto: "Blog" },
-    { href: EM_BREVE, texto: "Contato" },
-    { href: EM_BREVE, texto: "Dúvidas frequentes" },
+    { href: "/contato", texto: "Contato" },
+    { href: "/duvidas", texto: "Dúvidas frequentes" },
     { href: "/conta", texto: "Minha conta" },
   ],
   politicas: [

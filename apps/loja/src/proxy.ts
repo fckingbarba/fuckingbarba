@@ -45,6 +45,8 @@ const PAGINAS_RAIZ = new Set([
   "privacidade",
   "trocas",
   "termos",
+  "contato",
+  "duvidas",
   "nao-encontrado",
   "em-breve",
   "checkout",

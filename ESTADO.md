@@ -4,8 +4,8 @@ Atualizado em 22/09/2026, com o Pix vencido que prendia o estoque consertado (o 
 achado da revisão do pagamento) e a Minha conta de pé na loja: endereços, meus dados, o checkout que
 abre preenchido pra quem está na conta (e guarda o endereço da compra), e o "Minha conta" do
 cabeçalho apontando pra ela. No mesmo dia, o estorno que o Pagar.me não faz (a conciliação confere,
-avisa e pede de novo), a API de pedido fechada pra quem só tem o id e o e-mail de pedido confirmado
-ligado; em 21/09, o conserto do cache e o rastreio da Frenet chegando no pedido, na conta e no
+avisa e pede de novo), a API de pedido fechada pra quem só tem o id, o e-mail de pedido confirmado
+ligado e as páginas de Contato e Dúvidas no lugar do `/em-breve`; em 21/09, o conserto do cache e o rastreio da Frenet chegando no pedido, na conta e no
 e-mail. O
 AGENTS.md diz **como** trabalhar aqui; este arquivo diz **onde** o projeto está. Leia os dois antes
 de começar e, ao terminar uma tarefa, atualize este: o que mudou de estado, o que saiu da lista, o
@@ -92,12 +92,10 @@ sozinha a cada 5 minutos; se nem ela resolver, o log com `[conciliação]` diz o
       evento que morreu em 404). Foi resolvido pela conciliação; é só conferir que está certo.
 - [ ] A prova final do webhook — o Pagar.me chamando a função sozinho — vem junto com a compra de
       teste no cartão, logo abaixo.
-- [ ] O Pix do #6, cujo estorno falhou (ver o primeiro achado abaixo). **Depois do deploy de
-      22/09, a conciliação confere ele sozinha:** se o dinheiro ainda não voltou, chega um e-mail
-      ("O estorno do pedido #6 não saiu") e o pedido no admin ganha uma faixa vermelha, no fim da
-      coluna principal, com "Tentar o estorno de novo" — é apertar, ou esperar as 6 horas da
-      tentativa sozinha. Se você já estornou pelo painel do Pagar.me, ela só anota. O Medusa segue
-      como Refunded; não mexer lá.
+- [x] O Pix do #6, cujo estorno tinha falhado: **o dinheiro voltou** (22/09). Era o único estorno
+      pendente. O caminho que nasceu dessa falha continua de pé pro próximo — a conciliação confere
+      todo estorno dos últimos 7 dias, avisa a equipe por e-mail, põe a faixa vermelha no admin e
+      pede de novo de 6 em 6 horas (ver o achado do estorno mais abaixo). Nada a mexer no Medusa.
 - [x] Cartão real (22/09, pedido #9, R$ 62,58): **o antifraude do Pagar.me reprovou**. A Stone
       autorizou (`Approved`, código `0000`) e o `PagarmeAntifraud` respondeu `reproved` um minuto
       depois; como mandamos `auth_and_capture`, a cobrança foi capturada às 15:11 e cancelada às
@@ -111,12 +109,25 @@ sozinha a cada 5 minutos; se nem ela resolver, o log com `[conciliação]` diz o
       com código de autorização) e a antifraude respondeu `reproved`. Pessoas, estados, bandeiras e
       cartões diferentes reprovando 100% não é perfil de comprador: é regra da conta. Quem levanta
       esses dados é `ferramentas/conferir-cartao.mjs` (só lê).
-- [ ] **Antifraude reprovando compra legítima — o item mais urgente do pagamento.** Enquanto isso
-      valer, nenhuma venda de cartão entra. Falar com o Pagar.me levando as três cobranças acima:
-      **qual regra** reprovou cada uma, se o cadastro da conta está completo (domínio da loja
-      informado) e qual é o valor mínimo configurado pra análise. Não mexer no `auth_and_capture`
-      antes dessa conversa: capturar depois da análise trocaria "o valor foi e voltou" por "o valor
-      nem saiu", o que é melhor pro cliente, mas não resolve a venda perdida.
+- [x] **Antifraude reprovando compra legítima: o Pagar.me respondeu (22/09), e não é defeito
+      nosso.** A `ch_JdkpjxImnTx1GDej` foi reprovada por ser compra **com os dados do próprio
+      titular da conta** — o Pagar.me lê isso como teste e barra por regra. As outras duas caíram
+      na análise normal do antifraude, que é estatística (histórico do e-mail, dados da transação,
+      comportamento de compra): nem o suporte consegue dizer qual regra pegou cada uma, e falso
+      positivo acontece. A orientação deles é **seguir vendendo pra clientes de verdade** —
+      conforme o histórico legítimo cresce, o antifraude se ajusta ao perfil da loja; se as
+      recusas continuarem altas, dá pra pedir uma calibração. Ou seja: os 100% de reprovação eram
+      o teste, não a conta. Teste de integração vai pro **sandbox**, nunca na chave de produção —
+      é o que o `ferramentas/pagarme-falso.mjs` já faz, com cartão que aprova
+      (`4000000000000010`), cartão que recusa (`4000000000000028`) e CPF que cai na antifraude
+      (`11111111111`).
+- [ ] Decidir o `auth_and_capture` — a conversa que travava essa decisão já aconteceu. Hoje a loja
+      captura junto com a autorização, então quando o antifraude dá falso positivo o valor **sai e
+      volta** na fatura de quem comprou de verdade. Autorizar primeiro e capturar depois da análise
+      troca isso por "o valor nem saiu", que é melhor pro cliente — e o Pagar.me já avisou que falso
+      positivo vai acontecer. O custo é um passo a mais no fluxo e uma janela em que o pedido existe
+      com o dinheiro só reservado. Não é urgente; é uma escolha que antes estava travada e agora
+      não está.
 - [x] **O e-mail de cancelamento ia mentir pro cartão reprovado, e isso foi corrigido no mesmo dia
       em que nasceu (22/09).** Na antifraude o dinheiro sai e volta sem o Medusa ver nada: não há
       `captured_at` e ninguém pediu estorno, então a decisão caía em "sem-cobranca" e o e-mail dizia
@@ -266,9 +277,23 @@ aparecem na conta e no log, sem e-mail automático — esses a loja conversa com
 - [ ] Rua e número da origem (CEP 89036370) em `apps/backend/src/scripts/origem.ts`, pra etiqueta.
 - [ ] Apagar os dois rascunhos duplicados de óleo no admin.
 - [ ] Dados reais da empresa no admin, em Configurações: CNPJ, razão social, endereço, WhatsApp,
-      e-mail, horário e prazo de postagem.
+      e-mail, horário e prazo de postagem. **Hoje nenhum está preenchido em produção**: o rodapé
+      mostra "Entrar em contato" sem nada embaixo, e o `/contato` tem só o Instagram como canal
+      (mais seis tarjas de pendente). Preenchido, tudo aparece sozinho — nada a mexer no código.
 - [ ] Catálogo da Nuvemshop (fase 2).
-- [ ] Páginas que faltam — Blog, Contato e Dúvidas (hoje apontam pro `/em-breve`).
+- [x] **Contato e Dúvidas no ar** (22/09), no lugar do `/em-breve` — o rodapé já leva pras duas. O
+      `/contato` mostra os canais que o admin tiver (WhatsApp, e-mail, horário) e os dados da
+      empresa, com a tarja de pendente no que falta; o Instagram entra sempre, porque é da marca.
+      O `/duvidas` tem 15 perguntas sobre a loja (16 quando há política de frete), montadas das
+      configurações em `apps/loja/src/conteudo/duvidas.ts`: mudou a política no admin, mudou a
+      resposta. Nenhuma resposta cita canal (todas mandam pro `/contato`), e o que a loja ainda não
+      cumpre ficou de fora — a lista está no fim do arquivo. O `conferir-links` confere as duas e
+      que o JSON-LD das dúvidas é exatamente o que a tela mostra.
+- [ ] Blog (segue no `/em-breve`).
+- [ ] O passo 3 do checkout promete **"Envio imediato"** e o resumo, na mesma tela, **"Enviamos em
+      até 1 dia útil"** — os dois fixos em `apps/loja/src/conteudo/checkout.ts` (`GARANTIAS` e
+      `CONFIANCA`), enquanto o prazo de verdade é o **prazo de postagem** do admin. Escolher a frase
+      e ligar ao admin, como as Dúvidas e as trocas já fazem.
 - [ ] **Minha conta**, em quatro partes (a quarta saiu da terceira). Protótipo aprovado:
       `apps/loja/ferramentas/porte/prototipo-conta.html`.
   - [x] 1. Entrar com código de 6 dígitos no e-mail, sem senha; o primeiro código cria a conta, e o
@@ -311,7 +336,8 @@ aparecem na conta e no log, sem e-mail automático — esses a loja conversa com
         conta aberta isso não acontece mais — a troca de dono é pelo token. Pra quem compra sem
         entrar, dá pra juntar depois, no backend; é raro o bastante pra esperar.
   - [ ] Histórico da Nuvemshop na conta: junto da importação do catálogo (fase 2), e de novo na
-        virada, com os últimos pedidos.
+        virada, com os últimos pedidos. Quando entrar, as Dúvidas podem responder "comprei na loja
+        antiga, cadê meu pedido?" — hoje não respondem, de propósito (`conteudo/duvidas.ts`).
   - [ ] Numeração: decidido que os pedidos novos começam depois do último da Nuvemshop (nada de dois
         "#28"). **Falta você dizer o número** do pedido mais recente de lá.
 - [ ] O checkout não pede mais aceite das regras de troca (a linha embaixo do botão de pagar saiu
@@ -343,7 +369,8 @@ aparecem na conta e no log, sem e-mail automático — esses a loja conversa com
   (`apps/backend/src/subscribers/pagamento-capturado.ts`), e o molde também — o
   `payment.captured` sozinho perde o "Check payment status" e pode sair duas vezes pro mesmo
   pagamento. Evento na hora, varredura embaixo, registro no pedido: `src/lib/confirmar-pedido.ts`
-  é o exemplo.
+  é o exemplo. Com a nota saindo, a pergunta "recebo nota fiscal?" entra nas Dúvidas
+  (`apps/loja/src/conteudo/duvidas.ts`) — antes disso, ela prometeria o que não sai.
 - **O e-mail de pedido cancelado sai** (22/09), uma vez por pedido: no `order.canceled`, pelo
   `subscribers/pedido-cancelado.ts`, e pela mesma varredura de 5 em 5 minutos do `confirmar-pedidos`
   (últimas 24 horas). Ele diz três coisas diferentes, e a escolha está em `src/lib/avisar-cancelamento.ts`:

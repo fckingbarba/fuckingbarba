@@ -3,8 +3,9 @@ import { listarCategorias, listarProdutos } from "@/lib/medusa"
 import { site } from "@/lib/site"
 
 /**
- * Sitemap gerado do Medusa: home, categorias e produtos, com lastmod real.
- * Blog e institucionais entram na fase 3 junto com as páginas.
+ * Sitemap gerado do Medusa: home, categorias e produtos, com lastmod real;
+ * mais as páginas fixas (institucionais, contato e dúvidas). O blog entra
+ * quando existir.
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const [categorias, produtos] = await Promise.all([
@@ -35,6 +36,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       url: `${site.url}${caminho}`,
       changeFrequency: "yearly" as const,
       priority: 0.3,
+    })),
+    /*
+      Contato e dúvidas um degrau acima dos documentos legais: são as que a
+      pessoa BUSCA ("fuckingbarba contato", "fuckingbarba frete") antes de
+      comprar, e cair nelas direto da busca poupa uma venda de desistir no
+      caminho. Mudam quando muda a política de frete ou o atendimento.
+    */
+    ...(["/contato", "/duvidas"] as const).map((caminho) => ({
+      url: `${site.url}${caminho}`,
+      changeFrequency: "monthly" as const,
+      priority: 0.5,
     })),
     ...categorias.map((c) => ({
       url: `${site.url}/${c.handle}`,

@@ -1,7 +1,15 @@
 import type { Metadata } from "next"
 import Link from "next/link"
-import { Abertura, Atualizado, Dado, Lista, P, Secao, Titulo } from "@/components/institucional/texto"
-import { frasesDoFrete } from "@/lib/configuracoes"
+import {
+  Abertura,
+  Atualizado,
+  Dado,
+  Lista,
+  P,
+  Secao,
+  Titulo,
+} from "@/components/institucional/texto"
+import { frasesDoFrete, whatsappNaTela } from "@/lib/configuracoes"
 import { configuracoes } from "@/lib/medusa"
 import { site, PARCELAS_SEM_JUROS } from "@/lib/site"
 
@@ -53,7 +61,7 @@ export default async function Termos() {
           <Dado valor={empresa.cnpj} falta="CNPJ pendente" />,{" "}
           <Dado valor={empresa.endereco} falta="endereço pendente" />. Contato:{" "}
           <Dado valor={atendimento.email} falta="e-mail pendente" /> e WhatsApp{" "}
-          <Dado valor={atendimento.whatsapp} falta="WhatsApp pendente" />.{" "}
+          <Dado valor={whatsappNaTela(atendimento.whatsapp)} falta="WhatsApp pendente" />.{" "}
           {atendimento.horario?.join(" ") ?? ""}
         </P>
       </Secao>
@@ -90,15 +98,15 @@ export default async function Termos() {
       <Secao titulo="Estoque">
         <P>
           A gente mostra o estoque que o sistema tem. Pode acontecer de dois pedidos disputarem a
-          última unidade; nesse caso a gente fala com você e devolve o valor integral, sem
-          enrolação e sem crédito forçado na loja.
+          última unidade; nesse caso a gente fala com você e devolve o valor integral, sem enrolação
+          e sem crédito forçado na loja.
         </P>
       </Secao>
 
       <Secao titulo="Pagamento">
         <P>
-          Parcelamos em até {PARCELAS_SEM_JUROS}x sem juros no cartão. O pedido só é separado
-          depois do pagamento confirmado.
+          Parcelamos em até {PARCELAS_SEM_JUROS}x sem juros no cartão. O pedido só é separado depois
+          do pagamento confirmado.
         </P>
         <P>
           Os dados do cartão não passam pelo servidor da loja: eles vão do seu navegador direto pro
@@ -120,12 +128,12 @@ export default async function Termos() {
         <P>
           O prazo que aparece no checkout é o prazo do transportador, contado a partir da postagem,
           e não da compra. Assim que a encomenda for postada, o código de rastreio vai pro seu
-          e-mail. Atraso do transportador, greve e evento fora do nosso alcance a gente não
-          controla — mas continua sendo com a gente que você fala, e a gente corre atrás.
+          e-mail. Atraso do transportador, greve e evento fora do nosso alcance a gente não controla
+          — mas continua sendo com a gente que você fala, e a gente corre atrás.
         </P>
         <P>
-          O endereço é o que você digitou. Endereço errado ou incompleto faz a encomenda voltar, e
-          o reenvio tem novo custo de frete.
+          O endereço é o que você digitou. Endereço errado ou incompleto faz a encomenda voltar, e o
+          reenvio tem novo custo de frete.
         </P>
       </Secao>
 
@@ -142,9 +150,8 @@ export default async function Termos() {
       <Secao titulo="Como usar os produtos">
         <P>
           São cosméticos de uso externo. Leia o rótulo, não use em pele ferida e pare se aparecer
-          irritação. Resultado varia de pessoa pra pessoa: o que está escrito nas páginas de
-          produto é o efeito esperado no uso normal, não uma garantia de resultado igual pra todo
-          mundo.
+          irritação. Resultado varia de pessoa pra pessoa: o que está escrito nas páginas de produto
+          é o efeito esperado no uso normal, não uma garantia de resultado igual pra todo mundo.
         </P>
         <P>
           Nada aqui é conselho médico. Se você tem alergia, condição de pele ou está em tratamento,

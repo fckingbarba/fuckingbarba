@@ -13,26 +13,26 @@ npm run loja:dev                                 # http://localhost:3000
 
 ## O que está aqui (fase 1)
 
-| Caminho                               | O que faz                                                                                        |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `src/app/layout.tsx`                  | A carcaça de toda página: esteira, cabeçalho, rodapé, Inter local, metadata base, tags           |
-| `src/components/layout/`              | `Anuncio`, `Cabecalho` (menu lateral e busca), `Rodape`, `Newsletter`, `ForaDaTela`              |
-| `src/components/icones.tsx`           | Os SVGs do protótipo, inline; quem nomeia é o `aria-label` de quem os contém                     |
-| `src/estilos/`                        | O CSS do protótipo por componente — ver "Por que o CSS não virou Tailwind" abaixo                |
-| `src/app/page.tsx`                    | Home provisória: só o miolo, que a fase 3 troca pelas seções do protótipo                        |
-| `src/app/[categoria]/page.tsx`        | `/barba`, `/cabelo`, `/kits` lendo categoria e produtos do Medusa                                |
-| `src/app/produtos/[handle]/page.tsx`  | `/produtos/<handle>` lendo o produto do Medusa (esqueleto da PDP)                                |
-| `src/app/em-breve/page.tsx`           | Destino honesto dos links cujas páginas ainda não existem (blog, contato, busca)                 |
-| `src/app/(institucional)/`            | `/privacidade` e `/trocas` — texto provisório, marcado                                           |
-| `src/app/robots.ts` · `sitemap.ts`    | Bloqueia tudo até `SITE_INDEXAVEL=true`; sitemap gerado do Medusa                                |
-| `src/app/api/revalidar/route.ts`      | O Medusa avisa que algo mudou → a tag do cache cai (`revalidateTag(tag, "max")`)                 |
-| `src/proxy.ts` + `src/redirects.json` | 301 da Nuvemshop, 301 pra minúsculo, 404 real no primeiro nível, `noindex` fora de produção      |
-| `src/lib/site.ts`                     | Identidade, contato e o mapa de links que cabeçalho, menu e rodapé leem                          |
-| `src/lib/medusa.ts`                   | Único ponto de contato com o Medusa; toda leitura é `use cache` com tag                          |
-| `src/lib/rastrear.ts`                 | Única porta de saída de eventos (dataLayer no formato GA4)                                       |
-| `src/components/analytics/`           | Consent Mode v2 (tudo negado até aceitar) + GA4 + faixa de consentimento LGPD                    |
-| `src/app/globals.css`                 | Tokens da marca em `@theme` (Tailwind v4): `bg-menta`, `text-tinta`, `chanfro`, `faixa-perigo`…  |
-| `lighthouserc.json` + `budgets.json`  | As metas que o CI defende: ver "O que o Lighthouse CI cobra" abaixo                              |
+| Caminho                               | O que faz                                                                                       |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `src/app/layout.tsx`                  | A carcaça de toda página: esteira, cabeçalho, rodapé, Inter local, metadata base, tags          |
+| `src/components/layout/`              | `Anuncio`, `Cabecalho` (menu lateral e busca), `Rodape`, `Newsletter`, `ForaDaTela`             |
+| `src/components/icones.tsx`           | Os SVGs do protótipo, inline; quem nomeia é o `aria-label` de quem os contém                    |
+| `src/estilos/`                        | O CSS do protótipo por componente — ver "Por que o CSS não virou Tailwind" abaixo               |
+| `src/app/page.tsx`                    | Home provisória: só o miolo, que a fase 3 troca pelas seções do protótipo                       |
+| `src/app/[categoria]/page.tsx`        | `/barba`, `/cabelo`, `/kits` lendo categoria e produtos do Medusa                               |
+| `src/app/produtos/[handle]/page.tsx`  | `/produtos/<handle>` lendo o produto do Medusa (esqueleto da PDP)                               |
+| `src/app/em-breve/page.tsx`           | Destino honesto dos links cujas páginas ainda não existem (blog, busca)                         |
+| `src/app/(institucional)/`            | `/privacidade`, `/termos`, `/trocas`, `/contato` e `/duvidas` (texto em `conteudo/duvidas.ts`)  |
+| `src/app/robots.ts` · `sitemap.ts`    | Bloqueia tudo até `SITE_INDEXAVEL=true`; sitemap gerado do Medusa                               |
+| `src/app/api/revalidar/route.ts`      | O Medusa avisa que algo mudou → a tag do cache cai (`revalidateTag(tag, "max")`)                |
+| `src/proxy.ts` + `src/redirects.json` | 301 da Nuvemshop, 301 pra minúsculo, 404 real no primeiro nível, `noindex` fora de produção     |
+| `src/lib/site.ts`                     | Identidade, contato e o mapa de links que cabeçalho, menu e rodapé leem                         |
+| `src/lib/medusa.ts`                   | Único ponto de contato com o Medusa; toda leitura é `use cache` com tag                         |
+| `src/lib/rastrear.ts`                 | Única porta de saída de eventos (dataLayer no formato GA4)                                      |
+| `src/components/analytics/`           | Consent Mode v2 (tudo negado até aceitar) + GA4 + faixa de consentimento LGPD                   |
+| `src/app/globals.css`                 | Tokens da marca em `@theme` (Tailwind v4): `bg-menta`, `text-tinta`, `chanfro`, `faixa-perigo`… |
+| `lighthouserc.json` + `budgets.json`  | As metas que o CI defende: ver "O que o Lighthouse CI cobra" abaixo                             |
 
 ## Por que o CSS não virou Tailwind
 
@@ -135,7 +135,7 @@ link que dá pra mandar por WhatsApp, volta igual no botão voltar e o buscador 
 envia fica sempre visível, em vez de aparecer só dentro de `<noscript>`: dois estados do mesmo
 controle é o que ninguém testa.
 
-**Ordena-se em Node, depois de buscar**, e não com o `order` do Medusa. Preço no v2 é *calculado*
+**Ordena-se em Node, depois de buscar**, e não com o `order` do Medusa. Preço no v2 é _calculado_
 por região e promoção — não é coluna que dá pra ordenar no banco; e os kits de quantidade são
 peneirados depois da resposta (o Medusa não filtra por metadata), então ordenar antes da peneira
 ordenaria uma lista que não é a exibida. Num catálogo deste tamanho custa nada. Quando passar de
@@ -155,7 +155,7 @@ produto pode estar em duas categorias e a soma diria que a loja tem sete produto
 
 E isso vale também pra `/produtos` e pra **PDP** — é anterior à tela de categoria, não foi ela que
 trouxe. Com Cache Components, o que lê `searchParams` tem que ficar dentro de `<Suspense>`, e
-conteúdo em `<Suspense>` só é *revelado* pelo script embutido que o React manda junto com o
+conteúdo em `<Suspense>` só é _revelado_ pelo script embutido que o React manda junto com o
 stream. Sem script, ele fica no HTML e fica escondido.
 
 O que isso afeta, na prática: **buscador não**, porque o conteúdo está no HTML cru e os que rodam
@@ -193,7 +193,7 @@ a divergência que elas deveriam evitar.
 
 **Imagem de fundo: a cor da seção vira véu.** O jeito óbvio — foto no fundo, seção transparente
 — foi testado e quebrou seis das oito seções, e o desenho explica: linha do tempo, rotina, versus,
-"pra quem é" e dúvidas são *cartões escuros sobre fundo claro*. Tirando o fundo claro, o cartão
+"pra quem é" e dúvidas são _cartões escuros sobre fundo claro_. Tirando o fundo claro, o cartão
 escuro cai em cima da foto e some, e o texto solto vira escuro sobre escuro.
 
 Então a foto entra **atrás** e a cor que a seção já tem vem **por cima, translúcida**. A seção
@@ -218,7 +218,7 @@ ligar e desligar seção sem mexer em assinatura de componente.
 
 Piso do frete grátis, CNPJ, razão social, endereço, WhatsApp, e-mail, horário e prazo de postagem
 **não são mais constantes**: vêm de `GET /store/configuracoes` (Medusa), editáveis na tela
-*Configurações da loja* do admin, sem deploy.
+_Configurações da loja_ do admin, sem deploy.
 
 **O frete é uma POLÍTICA, não um número.** São três modos: `nenhuma`, `gratis` (a partir de um
 piso) e `fixo` (preço fechado a partir de um piso), com alvo (`mais-barata` ou `todas`) e um teto
