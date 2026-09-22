@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url"
 import { chromium } from "playwright"
 
 /**
- * OS PNGs DOS E-MAILS — a marca e dois ícones, em `public/email/`.
+ * OS PNGs DOS E-MAILS — a marca e três ícones, em `public/email/`.
  *
  * E-mail não mostra SVG (o Gmail tira), então o que a loja desenha em vetor
  * vai pro e-mail em PNG. Este script desenha os PNGs A PARTIR DOS MESMOS
@@ -35,8 +35,21 @@ const RAIO = "M13 2 3 14h7l-1 8 10-12h-7l1-8z"
 const ESCUDO_CERTO =
   "M4.6 3.9 12 1.6l7.4 2.3 1.4 1.4v4.8l-2 4.9L12 22.4l-6.8-7.4-2-4.9V5.3zM7.3 11.5l1.5-1.5h1.5l1.7 1.7 3.8-3.8h1.5l1.5 1.5-6.8 6.8z"
 
+/* O caminhão tem quatro caminhos (a carroceria, a cabine e as rodas). */
+const CAMINHAO = [
+  "M1.4 4.6h11.4l1.6 1.6v9.6h-2.2l-1.4-1.4H6.9l-1.4 1.4H1.4z",
+  "M15.2 8.4h4.1l3.3 4v3.4h-1.3l-1.4-1.4h-3.3l-1.4 1.4v-7.4z",
+  "M6.9 16h2.3v2.3l-.9.9H6v-2.3z",
+  "M17.1 16h2.3v2.3l-.9.9h-2.3v-2.3z",
+]
+
 const icone = (d, cor) =>
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="${cor}" fill-rule="evenodd" d="${d}"/></svg>`
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">` +
+  [d]
+    .flat()
+    .map((c) => `<path fill="${cor}" fill-rule="evenodd" d="${c}"/>`)
+    .join("") +
+  `</svg>`
 
 const pngs = [
   {
@@ -50,6 +63,13 @@ const pngs = [
   {
     arquivo: "confirmado.png",
     svg: icone(ESCUDO_CERTO, MENTA_ESCURA),
+    largura: 48,
+    altura: 48,
+    fundo: null,
+  },
+  {
+    arquivo: "caminhao.png",
+    svg: icone(CAMINHAO, MENTA_ESCURA),
     largura: 48,
     altura: 48,
     fundo: null,

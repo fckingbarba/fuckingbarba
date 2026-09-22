@@ -663,19 +663,28 @@ if (!SEGREDO_LOJA) {
 
 /* ── 12. os pedidos da conta ──────────────────────────────────────────────── */
 
+/** Só os e-mails de código: quem tem pedido recebe também os de envio (a caminho, entregue). */
+const deCodigo = (e) => /^\d{6} é o seu código/.test(e.subject ?? "")
+const codigosPara = (email) => resend.emails.filter((e) => e.to?.includes(email) && deCodigo(e))
+
 /**
  * Entra pela tela com um e-mail que já pediu código — pro caso de a página
- * de partida ser outra que não o "entrar" (o `?para=`).
+ * de partida ser outra que não o "entrar" (o `?para=`). Conta só os e-mails
+ * de código: o de "pedido a caminho" pode chegar no meio (é assíncrono).
  */
 async function entrarPelaTela(pagina, email, partida = "/conta/entrar") {
-  const antes = quantosPara(email)
+  const antes = codigosPara(email).length
   await pagina.goto(LOJA + partida)
   await pagina.waitForURL("**/conta/entrar**", { timeout: 15000 })
   await noBloco(pagina, "input[name=email]").fill(email)
   await noBloco(pagina, "form button[type=submit]").click()
   await pagina.waitForURL("**/conta/entrar/codigo", { timeout: 20000 })
   await noBloco(pagina, "input[name=codigo]").waitFor({ timeout: 15000 })
-  const codigo = (await esperarEmail(email, antes))?.subject?.match(/\b\d{6}\b/)?.[0]
+  let codigo = null
+  for (const fim = Date.now() + 8000; !codigo && Date.now() < fim; await esperar(150)) {
+    const deste = codigosPara(email)
+    if (deste.length > antes) codigo = deste.at(-1).subject.match(/^\d{6}/)[0]
+  }
   await digitar(pagina, codigo ?? "")
   await pagina.waitForURL((u) => !u.pathname.startsWith("/conta/entrar"), { timeout: 20000 })
 }

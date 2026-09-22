@@ -2,11 +2,19 @@ import Image from "next/image"
 import Link from "next/link"
 import { redirect } from "next/navigation"
 import type { ReactNode } from "react"
-import { ComprarDeNovo, MinutosDoPix } from "@/components/conta/pecas"
+import { ComprarDeNovo, Copiar, MinutosDoPix } from "@/components/conta/pecas"
 import { Raio, Sacola } from "@/components/icones"
-import { ROTULO_DA_SITUACAO, type SituacaoDoPedido } from "@/lib/conta-visivel"
+import {
+  FRASE_DO_ALERTA,
+  FRASE_DO_ENVIO,
+  ROTULO_DA_SITUACAO,
+  ROTULO_DO_ALERTA,
+  ROTULO_DO_ENVIO,
+  ROTULO_DO_EVENTO,
+  type SituacaoDoPedido,
+} from "@/lib/conta-visivel"
 import { dia, diaEHora, emReais, quando } from "@/lib/formato"
-import type { PedidoDaConta } from "@/lib/pedidos-da-conta"
+import type { EventoDoRastreio, PedidoDaConta, Rastreio } from "@/lib/pedidos-da-conta"
 
 /**
  * AS PEÇAS DAS TELAS DE PEDIDO — o desenho é o de
@@ -73,7 +81,14 @@ function porQueCancelou(p: PedidoDaConta): string {
  * Uma linha do "Em andamento": o que falta, e o botão que resolve. O Pix
  * vem primeiro na lista (é o único que depende da pessoa).
  */
-export function LinhaDoAndamento({ p }: { p: PedidoDaConta }) {
+export function LinhaDoAndamento({
+  p,
+  rastreio = null,
+}: {
+  p: PedidoDaConta
+  /** O pacote, quando o pedido está na rua — pra dizer onde ele está. */
+  rastreio?: Rastreio | null
+}) {
   let texto: ReactNode
   let acao = "Ver pedido"
   switch (p.situacao) {
@@ -95,7 +110,9 @@ export function LinhaDoAndamento({ p }: { p: PedidoDaConta }) {
       texto = "A gente vai chamar você pra acertar o pagamento."
       break
     case "enviado":
-      texto = `A caminho desde ${dia(p.datas.enviado)} — o código de rastreio está no pedido.`
+      texto =
+        ondeEsta(rastreio) ??
+        `A caminho desde ${dia(p.datas.enviado)} — o código de rastreio está no pedido.`
       acao = "Acompanhar"
       break
     default:
@@ -114,6 +131,25 @@ export function LinhaDoAndamento({ p }: { p: PedidoDaConta }) {
       </Link>
     </div>
   )
+}
+
+/**
+ * O que a linha do "Em andamento" diz do pacote, quando há novidade além de
+ * "a caminho": o alerta, o dia da entrega, a agência, o que deu errado. As
+ * frases já dizem o estado — o rótulo junto seria repetir.
+ */
+function ondeEsta(r: Rastreio | null): string | null {
+  if (!r?.situacao) return null
+  if (r.alerta) return FRASE_DO_ALERTA[r.alerta]
+  switch (r.situacao) {
+    case "saiu_para_entrega":
+    case "aguardando_retirada":
+    case "devolvido":
+    case "extraviado":
+      return FRASE_DO_ENVIO[r.situacao]
+    default:
+      return null
+  }
 }
 
 /** "Comprar de novo" da visão geral: o último pedido que chegou (ou está chegando). */
@@ -273,6 +309,86 @@ export function Trilha({ p }: { p: PedidoDaConta }) {
         </li>
       ))}
     </ol>
+  )
+}
+
+/**
+ * O RASTREIO DE UM PACOTE: o código (com copiar e o link da
+ * transportadora), onde ele está agora, e o caminho até aqui — os três
+ * últimos eventos à vista, o resto dobrado. As palavras são as do núcleo
+ * dos envios; o texto miúdo de cada evento é o da transportadora.
+ *
+ * Nenhum link dentro da lista de eventos: o único `<a>` do bloco é o da
+ * transportadora (o conferidor da conta conta com isso).
+ */
+export function RastreioDoPacote({ r }: { r: Rastreio }) {
+  const recentes = r.eventos.slice(0, 3)
+  const antigos = r.eventos.slice(3)
+  return (
+    <div
+      className="rastreio"
+      data-envio={r.situacao ?? undefined}
+      data-alerta={r.alerta ?? undefined}
+    >
+      <div className="rastreio__topo">
+        <div>
+          <p className="rastreio__rot">Rastreio{r.quem ? ` · ${r.quem}` : ""}</p>
+          <p className="rastreio__codigo" data-rastreio>
+            {r.codigo}
+          </p>
+        </div>
+        <div className="rastreio__acoes">
+          <Copiar texto={r.codigo} />
+          {r.url ? (
+            <a className="link" href={r.url} target="_blank" rel="noopener noreferrer">
+              Rastrear na transportadora ↗
+            </a>
+          ) : null}
+        </div>
+      </div>
+      {r.situacao ? (
+        <p className="rastreio__agora">
+          <b>{r.alerta ? ROTULO_DO_ALERTA[r.alerta] : ROTULO_DO_ENVIO[r.situacao]}</b>
+          {r.alerta ? FRASE_DO_ALERTA[r.alerta] : FRASE_DO_ENVIO[r.situacao]}
+        </p>
+      ) : null}
+      {recentes.length ? (
+        <ol className="rastreio__eventos">
+          {recentes.map((e) => (
+            <EventoDoPacote key={`${e.tipo}${e.quando}${e.descricao}`} e={e} />
+          ))}
+        </ol>
+      ) : null}
+      {antigos.length ? (
+        <details className="rastreio__mais">
+          <summary>Ver o caminho todo ({r.eventos.length})</summary>
+          <ol className="rastreio__eventos">
+            {antigos.map((e) => (
+              <EventoDoPacote key={`${e.tipo}${e.quando}${e.descricao}`} e={e} />
+            ))}
+          </ol>
+        </details>
+      ) : null}
+    </div>
+  )
+}
+
+const mesmoTexto = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase()
+
+function EventoDoPacote({ e }: { e: EventoDoRastreio }) {
+  const titulo = e.tipo === "informativo" ? e.descricao : ROTULO_DO_EVENTO[e.tipo]
+  const detalhe = [
+    e.tipo === "informativo" || mesmoTexto(e.descricao, titulo) ? null : e.descricao,
+    e.local,
+  ]
+    .filter(Boolean)
+    .join(" · ")
+  return (
+    <li data-tipo={e.tipo}>
+      <span className="rastreio__evento">{titulo}</span>{" "}
+      <time dateTime={e.quando}>{quando(e.quando)}</time>
+      {detalhe ? <small>{detalhe}</small> : null}
+    </li>
   )
 }
 

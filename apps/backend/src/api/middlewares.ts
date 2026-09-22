@@ -137,6 +137,16 @@ export default defineMiddlewares({
       method: ["GET"],
       middlewares: [authenticate("customer", ["bearer"])],
     },
+    /*
+      Os avisos dos parceiros de entrega: o corpo cru fica guardado
+      (`req.rawBody`) pro parceiro que autentica assinando o corpo — a
+      Frenet manda token, mas o próximo pode não mandar.
+    */
+    {
+      matcher: "/hooks/envio/*",
+      method: ["POST"],
+      bodyParser: { preserveRawBody: true },
+    },
     { matcher: "/admin/products", method: ["POST"], middlewares: [normalizaHandle] },
     { matcher: "/admin/products/:id", method: ["POST"], middlewares: [normalizaHandle] },
     { matcher: "/admin/product-categories", method: ["POST"], middlewares: [normalizaHandle] },

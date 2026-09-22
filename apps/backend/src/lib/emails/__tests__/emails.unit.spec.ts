@@ -1,4 +1,5 @@
 import { emailDoCodigo } from "../codigo"
+import { emailDoEnvio, type EnvioDoAviso, type PedidoDoAviso } from "../envio"
 import { emReais, esc, urlDaLoja } from "../moldura"
 import { emailDePedidoConfirmado, rotuloDaEntrega, type PedidoDoEmail } from "../pedido-confirmado"
 
@@ -193,5 +194,99 @@ describe("e-mail de pedido confirmado", () => {
     expect(e.texto).toContain(`Total: ${emReais(109.8)}`)
     expect(e.texto).toContain("Blumenau/SC · 89036-370")
     expect(e.para).toBe("rafael@exemplo.com")
+  })
+})
+
+describe("e-mails do caminho da encomenda", () => {
+  const doAviso = (extra: Partial<PedidoDoAviso> = {}): PedidoDoAviso => {
+    const p = pedido()
+    return {
+      id: p.id,
+      numero: p.numero,
+      email: p.email,
+      itens: [{ nome: "Óleo para Barba 30ml", variante: null, quantidade: 2 }],
+      entrega: p.entrega,
+      ...extra,
+    }
+  }
+  const envio = (extra: Partial<EnvioDoAviso> = {}): EnvioDoAviso => ({
+    codigo: "QS123456789BR",
+    url: "https://rastreio.frenet.com.br/COR/QS123456789BR",
+    transportadora: "Correios",
+    servico: "PAC",
+    ...extra,
+  })
+  const montar = (momento: "enviado" | "saiu" | "retirar" | "entregue", e = envio()) =>
+    emailDoEnvio({ momento, pedido: doAviso(), envio: e, whatsapp: null })
+
+  it("cada momento com o seu assunto, e o código em todos", () => {
+    expect(montar("enviado").assunto).toBe("Pedido #1042 a caminho")
+    expect(montar("saiu").assunto).toBe("Pedido #1042 saiu pra entrega")
+    expect(montar("retirar").assunto).toBe("Pedido #1042 esperando retirada")
+    expect(montar("entregue").assunto).toBe("Pedido #1042 entregue")
+    for (const m of ["enviado", "saiu", "retirar", "entregue"] as const) {
+      const e = montar(m)
+      expect(e.html).toContain(">QS123456789BR<")
+      expect(e.texto).toContain("QS123456789BR")
+      expect(e.para).toBe("rafael@exemplo.com")
+    }
+  })
+
+  it("diz quem leva, e com quem está", () => {
+    const e = montar("enviado")
+    expect(e.html).toContain("Rastreio · Correios · PAC")
+    expect(e.html).toContain("já está com os Correios")
+    expect(montar("enviado", envio({ transportadora: null })).html).toContain(
+      "já está com a transportadora"
+    )
+  })
+
+  it("o link da transportadora só quando é http(s)", () => {
+    expect(montar("enviado").html).toContain(
+      `href="https://rastreio.frenet.com.br/COR/QS123456789BR"`
+    )
+    const falso = montar("enviado", envio({ url: "javascript:alert(1)" }))
+    expect(falso.html).not.toContain("javascript:")
+    expect(falso.html).not.toContain("Rastrear na transportadora")
+    expect(montar("enviado", envio({ url: "#" })).html).not.toContain("Rastrear na transportadora")
+  })
+
+  it("cada momento com o bloco dele: endereço, agência ou trocas", () => {
+    expect(montar("enviado").html).toContain("Pra onde vai")
+    expect(montar("saiu").html).toContain("Precisa ter alguém no endereço")
+    const retirar = montar("retirar")
+    expect(retirar.html).toContain("Onde retirar")
+    expect(retirar.html).not.toContain("Pra onde vai")
+    const entregue = montar("entregue")
+    expect(entregue.html).toContain(`href="${LOJA}/trocas"`)
+    expect(entregue.html).toContain(`src="${LOJA}/email/confirmado.png"`)
+    expect(montar("enviado").html).toContain(`src="${LOJA}/email/caminhao.png"`)
+  })
+
+  it("a trilha diz, em texto, o que já aconteceu", () => {
+    expect(montar("enviado").html).toContain(
+      `aria-label="Pedido feito, pagamento aprovado e enviado; falta entregar."`
+    )
+    expect(montar("entregue").html).toContain(
+      `aria-label="Pedido feito, pago, enviado e entregue."`
+    )
+  })
+
+  it("escapa o que vem de fora — do pedido e do parceiro", () => {
+    const e = emailDoEnvio({
+      momento: "enviado",
+      pedido: doAviso({ itens: [{ nome: "<b>x</b>", variante: null, quantidade: 1 }] }),
+      envio: envio({ codigo: "<script>", servico: `"><img src=x>` }),
+      whatsapp: null,
+    })
+    expect(e.html).not.toContain("<script>")
+    expect(e.html).not.toContain("<b>x</b>")
+    expect(e.html).not.toContain(`"><img src=x>`)
+  })
+
+  it("o botão leva ao pedido na conta", () => {
+    expect(montar("enviado").html).toContain(`href="${LOJA}/conta/pedidos/order_01ABC"`)
+    delete process.env.LOJA_URL
+    expect(montar("enviado").html).not.toContain("/conta/pedidos/")
   })
 })

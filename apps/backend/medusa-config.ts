@@ -197,6 +197,16 @@ const authModule = [
   },
 ]
 
+/**
+ * OS ENVIOS — o rastreio dos pacotes, venha o aviso de qual parceiro vier.
+ *
+ * Duas tabelas nossas (`envio` e `envio_evento`, pelo `medusa db:migrate`
+ * como qualquer módulo). Quem fala com o parceiro é o tradutor dele
+ * (`src/modules/frenet/rastreio.ts`); quem decide é o núcleo
+ * (`src/lib/envios/`). Ver o AGENTS.md, "Envios".
+ */
+const enviosModule = [{ resolve: "./src/modules/envios" }]
+
 module.exports = defineConfig({
   projectConfig: {
     databaseUrl: process.env.DATABASE_URL,
@@ -231,5 +241,12 @@ module.exports = defineConfig({
     disable: process.env.ADMIN_DISABLED === "true",
     backendUrl: process.env.MEDUSA_BACKEND_URL || "http://localhost:9000",
   },
-  modules: [...redisModules, ...fileModule, ...fulfillmentModule, ...paymentModule, ...authModule],
+  modules: [
+    ...redisModules,
+    ...fileModule,
+    ...fulfillmentModule,
+    ...paymentModule,
+    ...authModule,
+    ...enviosModule,
+  ],
 })

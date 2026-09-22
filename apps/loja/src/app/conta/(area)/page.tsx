@@ -9,7 +9,7 @@ import {
   seSessaoAcabou,
 } from "@/components/conta/pedidos"
 import { EM_ANDAMENTO } from "@/lib/conta-visivel"
-import { listarPedidos } from "@/lib/pedidos-da-conta"
+import { lerRastreios, listarPedidos } from "@/lib/pedidos-da-conta"
 
 /**
  * /conta — a visão geral.
@@ -54,6 +54,13 @@ async function Painel() {
   const abertos = pedidos
     .filter((p) => EM_ANDAMENTO.includes(p.situacao))
     .sort((a, b) => Number(b.situacao === "pix") - Number(a.situacao === "pix"))
+  // Os que estão na rua dizem onde estão: uma pergunta por pedido a caminho.
+  const naRua = await Promise.all(
+    abertos
+      .filter((p) => p.situacao === "enviado")
+      .map(async (p) => [p.id, (await lerRastreios(p.id))[0] ?? null] as const)
+  )
+  const rastreioDe = new Map(naRua)
   // Comprar de novo: o último que chegou (ou está chegando) — é o que acaba.
   const repetir = pedidos.find((p) => p.situacao === "entregue" || p.situacao === "enviado")
 
@@ -64,7 +71,7 @@ async function Painel() {
           <p className="rotulo">Em andamento</p>
           <div className="andamento">
             {abertos.map((p) => (
-              <LinhaDoAndamento key={p.id} p={p} />
+              <LinhaDoAndamento key={p.id} p={p} rastreio={rastreioDe.get(p.id) ?? null} />
             ))}
           </div>
         </div>

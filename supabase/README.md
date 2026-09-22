@@ -14,7 +14,13 @@ ficam de fora nesta fase.
 | `functions/_shared/`                        | Cliente com `service_role` (schema `loja`), comparação em tempo constante, resposta JSON.                                                                                     |
 | `config.toml`                               | `verify_jwt = false` nas duas funções (chamadas de fora, sem JWT do Supabase).                                                                                                |
 
-Ficam pra depois, no mesmo padrão: `webhook-frete` (fase 5), `feed-merchant` (fase 3), `newsletter` (fase 3).
+Ficam pra depois, no mesmo padrão: `feed-merchant` (fase 3), `newsletter` (fase 3).
+
+O aviso de rastreio do parceiro de entrega (a Frenet) NÃO passa por aqui: vai direto pro Medusa, em
+`/hooks/envio/:parceiro` (ver "Envios" no AGENTS.md). Cada aviso de rastreio já traz a situação mais
+recente do pacote, e o núcleo dos envios guarda tudo no banco dele. Se um dia valer a pena guardar o
+aviso bruto antes, uma `webhook-envio` aqui seria só um repasse — com os cabeçalhos do parceiro —, e
+nada no Medusa muda.
 
 ## Subir
 

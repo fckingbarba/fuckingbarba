@@ -3,12 +3,13 @@ import Link from "next/link"
 import { Suspense } from "react"
 import { EsperaDoPagamento } from "@/components/checkout/espera"
 import { Pix } from "@/components/checkout/pix"
-import { ComprarDeNovo, Copiar } from "@/components/conta/pecas"
+import { ComprarDeNovo } from "@/components/conta/pecas"
 import {
   feito,
   FotoDoItem,
   ForaDoAr,
   fraseDoCancelado,
+  RastreioDoPacote,
   seSessaoAcabou,
   Situacao,
   textoDoPagamento,
@@ -25,8 +26,9 @@ import { lerPedidoDaConta } from "@/lib/pedidos-da-conta"
  * /conta/pedidos/<id> — um pedido.
  *
  * Cada bloco aparece só quando faz sentido: o Pix só enquanto está
- * pendente, o rastreio só depois de postado, a linha do tempo só enquanto
- * o pedido não foi cancelado. A nota fiscal entra com a Bling (fase 5).
+ * pendente, o rastreio só depois de postado (um por pacote, com o caminho
+ * que a transportadora contou), a linha do tempo só enquanto o pedido não
+ * foi cancelado. A nota fiscal entra com a Bling (fase 5).
  *
  * O PIX PENDENTE É O MESMO DO OBRIGADO — o componente `<Pix>`, com os
  * mesmos textos, e a mesma espera que redesenha a página quando o
@@ -114,28 +116,8 @@ async function Detalhe({ params }: { params: PageProps<"/conta/pedidos/[id]">["p
           ) : (
             <section className="bloco" aria-label="Andamento">
               <Trilha p={p} />
-              {p.rastreio ? (
-                <div className="rastreio">
-                  <div>
-                    <p className="rastreio__rot">Rastreio</p>
-                    <p className="rastreio__codigo" data-rastreio>
-                      {p.rastreio.codigo}
-                    </p>
-                  </div>
-                  <div className="rastreio__acoes">
-                    <Copiar texto={p.rastreio.codigo} />
-                    {p.rastreio.url ? (
-                      <a
-                        className="link"
-                        href={p.rastreio.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        Rastrear na transportadora ↗
-                      </a>
-                    ) : null}
-                  </div>
-                </div>
+              {p.rastreios.length ? (
+                p.rastreios.map((r) => <RastreioDoPacote key={r.codigo} r={r} />)
               ) : p.situacao === "enviado" || p.situacao === "entregue" ? null : (
                 <p className="rastreio__depois">
                   O código de rastreio aparece aqui quando a encomenda for postada.

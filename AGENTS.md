@@ -36,15 +36,16 @@ verdade.
 ### Conferidores
 
 `apps/loja/ferramentas/conferir-*.mjs` abrem a loja num Chromium de verdade e comparam o que está na
-tela com o que a API do Medusa responde — nunca com outra conta feita no próprio teste. São nove:
-frete, pdp, checkout, pagamento, catálogo, links, configurações, documento e conta. Rode os que
+tela com o que a API do Medusa responde — nunca com outra conta feita no próprio teste. São dez:
+frete, pdp, checkout, pagamento, catálogo, links, configurações, documento, conta e envio. Rode os que
 tocam no que você mexeu, e todos antes de entregar. Os que escrevem no admin desfazem o que mudaram
 no fim, mesmo quando falham.
 
 ```bash
-# frete, checkout e pagamento sobem uma Frenet falsa (4310) e um Pagar.me falso (4320); o da
-# conta sobe os dois e um Resend falso (4330), de onde lê o código. O backend aponta pros três
-FRENET_URL=http://127.0.0.1:4310/shipping/quote FRENET_TOKEN=teste \
+# frete, checkout e pagamento sobem uma Frenet falsa (4310) e um Pagar.me falso (4320); os da
+# conta e de envio sobem os dois e um Resend falso (4330), de onde leem os e-mails. O backend
+# aponta pros três; o de envio manda os avisos de rastreio da Frenet com o FRENET_WEBHOOK_TOKEN
+FRENET_URL=http://127.0.0.1:4310/shipping/quote FRENET_TOKEN=teste FRENET_WEBHOOK_TOKEN=token-de-teste \
 PAGARME_SECRET_KEY=sk_test_falsa PAGARME_URL=http://127.0.0.1:4320/core/v5 \
 MEDUSA_WEBHOOK_SEGREDO=segredo-de-teste \
 RESEND_URL=http://127.0.0.1:4330 RESEND_API_KEY=re_teste_falsa npm run backend:dev
@@ -62,7 +63,7 @@ asserção — `ferramentas/retrato-calculadora.mjs` é o modelo (e `retrato-pag
 e da tela de obrigado), e roda contra `next build` + `next start`. Os conferidores, ao contrário,
 rodam contra o `next dev` (`LOJA`, padrão `localhost:3000`): com o cache de produção o de PDP lê o
 conteúdo de antes da edição e falha sem bug nenhum. Os `apps/backend/ferramentas/conferir-{frete,pedido}.mjs` são de antes da Frenet (esperam
-"Correios PAC" fixo e não sobem a falsa) — os que valem são os nove da loja.
+"Correios PAC" fixo e não sobem a falsa) — os que valem são os dez da loja.
 
 O de pagamento liga o Pagar.me na região pelo admin e devolve como estava. O de checkout, com o
 checkout aberto (`CHECKOUT_ABERTO`), precisa do Pagar.me ligado na região local — o passo 3 não
@@ -174,14 +175,39 @@ Os **pedidos da conta** (`apps/loja/src/lib/pedidos-da-conta.ts`) saem de `GET /
 token da sessão — a rota só devolve pedido do cliente do token. O detalhe também vem por ela
 (`?id=`), nunca por `/store/orders/:id`, que responde pra qualquer um com o id: pedido de outra
 pessoa não aparece, e a tela diz que não achou. O rastreio vem de
-`GET /store/conta/pedidos/:id/rastreio` (backend), porque a API da loja corta as etiquetas dos
-envios. O id do pedido no endereço não passa pra minúscula (`CAMINHOS_COM_ID`, no `proxy.ts`). O
+`GET /store/conta/pedidos/:id/rastreio` (backend), que lê os envios do núcleo (ver **Envios**,
+abaixo) com o mesmo filtro de dono — a API da loja nem sabe que eles existem, e corta as etiquetas
+dos fulfillments. O id do pedido no endereço não passa pra minúscula (`CAMINHOS_COM_ID`, no `proxy.ts`). O
 conferidor da conta monta pedidos de verdade em cada estado com `ferramentas/pedido-de-teste.mjs`
 — por isso pede `ADMIN_EMAIL`/`ADMIN_SENHA`, como os de frete e pagamento.
 
+Os **envios** — o rastreio dos pacotes — têm um núcleo que não sabe quem é o parceiro de entrega. Três
+camadas: o TRADUTOR de cada parceiro (`src/modules/frenet/rastreio.ts`: confere a chave do aviso,
+lê o formato dele e converte os códigos), o NÚCLEO (`src/lib/envios/`, com as tabelas `envio` e
+`envio_evento` no módulo `src/modules/envios/`) e quem consome (a conta, os e-mails), que só falam
+o vocabulário do núcleo (`situacao.ts`: postado, em trânsito, saiu pra entrega, esperando retirada,
+entregue, devolvido, extraviado; atraso e tentativa frustrada são alertas). Toda notícia entra por
+`receberNovidade` (`nucleo.ts`): o aviso do parceiro em `POST /hooks/envio/:parceiro` (a rota
+escolhe o tradutor em `parceiros.ts`), e o "Mark as shipped"/"Mark as delivered" do admin
+(`src/subscribers/envio-pelo-admin.ts`). O núcleo acha o pedido (pelo `order_…` ou pelo número que
+o parceiro devolve, ou pelo código que o admin cadastrou), ignora o repetido, recalcula a situação
+de TODOS os eventos (fora de ordem não puxa pra trás), marca enviado/entregue no Medusa pelos
+workflows dele (`medusa.ts`), e solta `envio.mudou` — o e-mail ao cliente é um assinante
+(`avisos.ts`), um por momento, só se ainda for notícia. Aviso sem pedido conhecido fica guardado e
+se liga quando o código aparecer num pedido. O job `acompanhar-envios` (de hora em hora) refaz o
+que falhou. Trocar de parceiro é escrever outro tradutor e pôr em `parceiros.ts`: o núcleo, a conta
+e os e-mails não mudam, e os dois parceiros convivem enquanto houver pacote do velho na rua. Três
+armadilhas: o `MedusaService` do módulo tem as chaves no PLURAL (`Envios`, `Eventos`), porque o tipo
+do Medusa pluraliza "Envio" como "Envioes" e o código gera "Envios"; o "Postado" que o admin marca
+tem a hora do clique e só conta enquanto a transportadora não contou nada (senão puxaria um "em
+trânsito" de volta); e a Frenet escreve `ServiceDescrition`, sem o "p". A chave do aviso da Frenet
+é o `FRENET_WEBHOOK_TOKEN`, no cabeçalho `x-webhook-token` ou em `?chave=`; sem ela, nenhum aviso
+entra.
+
 Os **e-mails** moram em `apps/backend/src/lib/emails/`: a `moldura.ts` (barra preta com a logo,
 fundo menta, blocos com sombra dura — em tabela e estilo em linha, porque é e-mail) e um arquivo
-por e-mail. Tudo o que vem de fora passa por `esc`. A logo e os ícones são PNGs em
+por e-mail (o de código, o de pedido confirmado e o `envio.ts`, com os quatro momentos do caminho
+da encomenda). Tudo o que vem de fora passa por `esc`. A logo e os ícones são PNGs em
 `apps/loja/public/email/`, gerados dos vetores do site por `ferramentas/logo/pngs-do-email.mjs`, e o
 e-mail aponta pra eles pela `LOJA_URL`. Pra ver antes de mandar:
 `cd apps/backend && npx ts-node ferramentas/previa-emails.ts` escreve

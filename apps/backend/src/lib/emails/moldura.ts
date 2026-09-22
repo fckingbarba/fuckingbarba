@@ -248,6 +248,45 @@ export function botao({ texto, href }: { texto: string; href: string }): string 
   })
 }
 
+/**
+ * A TRILHA do pedido — a mesma da tela do pedido na conta. Barra verde no
+ * que já aconteceu, cinza no que falta; o rótulo diz de novo, em texto, pra
+ * quem não enxerga a cor (e pro app do Gmail, que mexe nas cores).
+ * `descricao` é o que o leitor de tela lê no lugar das barras.
+ */
+export function trilha({
+  passos,
+  feitos,
+  descricao,
+}: {
+  passos: string[]
+  feitos: number
+  descricao: string
+}): string {
+  const largura = `${Math.floor(100 / passos.length)}%`
+  const colunas = passos
+    .map((passo, i) => {
+      const feito = i < feitos
+      const barra = feito ? COR.mentaEscura : COR.linha
+      const ultimo = i === passos.length - 1
+      return (
+        `<td width="${largura}" valign="top" style="width:${largura};padding:0 ${ultimo ? 0 : 4}px 0 0;">` +
+        `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>` +
+        `<td class="${feito ? "fb-feito" : "fb-falta"}" height="6" bgcolor="${barra}" ` +
+        `style="height:6px;background:${barra};${vazio(6)}">&nbsp;</td></tr></table>` +
+        `<p class="${feito ? "fb-texto" : "fb-suave"}" style="margin:0;padding:8px 2px 0 0;font-family:${FONTE};` +
+        `font-size:12px;line-height:15px;font-weight:${feito ? 700 : 400};` +
+        `color:${feito ? COR.tinta : COR.tintaSuave};mso-line-height-rule:exactly;">${esc(passo)}</p>` +
+        `</td>`
+      )
+    })
+    .join("")
+  return (
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" ` +
+    `aria-label="${esc(descricao)}"><tr>${colunas}</tr></table>`
+  )
+}
+
 /* ── a moldura ────────────────────────────────────────────────────────────── */
 
 /**

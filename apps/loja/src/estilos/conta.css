@@ -793,15 +793,22 @@ html:not([data-hidratado]) body:has(.conta) {
   }
 }
 
+/* O rastreio de um pacote: o código em cima, onde ele está, e o caminho.
+   Um bloco por pacote — pedido que foi em duas caixas mostra dois. */
 .rastreio {
+  margin: 18px 0 0;
+  padding: 12px 14px;
+  background: var(--color-cinza);
+}
+.rastreio + .rastreio {
+  margin-top: 10px;
+}
+.rastreio__topo {
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 10px 16px;
-  margin: 18px 0 0;
-  padding: 12px 14px;
-  background: var(--color-cinza);
 }
 .rastreio__rot {
   margin: 0;
@@ -825,6 +832,106 @@ html:not([data-hidratado]) body:has(.conta) {
   gap: 14px;
   font-size: 0.8rem;
 }
+/* Onde o pacote está agora. O que pede atenção (o alerta, o dia da entrega,
+   a agência, o que deu errado) ganha a etiqueta amarela — amarelo, e não
+   vermelho, pelo mesmo motivo do cancelado: é aviso, não alarme. */
+.rastreio__agora {
+  margin: 12px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-linha);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+.rastreio__agora b {
+  display: block;
+  width: fit-content;
+  margin-bottom: 3px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.rastreio[data-alerta] .rastreio__agora b,
+.rastreio[data-envio="saiu_para_entrega"] .rastreio__agora b,
+.rastreio[data-envio="aguardando_retirada"] .rastreio__agora b,
+.rastreio[data-envio="devolvido"] .rastreio__agora b,
+.rastreio[data-envio="extraviado"] .rastreio__agora b {
+  padding: 2px 7px;
+  background: var(--color-amarelo);
+}
+.rastreio[data-envio="entregue"] .rastreio__agora b {
+  color: var(--color-menta-escura);
+}
+
+/* O caminho: o losango do rádio do checkout (o da linha do tempo), com o
+   mais novo em amarelo. O texto miúdo é o da transportadora. */
+.rastreio__eventos {
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.rastreio__eventos li {
+  position: relative;
+  padding: 0 0 12px 24px;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+.rastreio__eventos li::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 4px;
+  width: 8px;
+  height: 8px;
+  border: 2px solid var(--color-tinta);
+  background: var(--color-cinza);
+  transform: rotate(45deg);
+  z-index: 1;
+}
+.rastreio__eventos li::after {
+  content: "";
+  position: absolute;
+  left: 9px;
+  top: 14px;
+  bottom: -2px;
+  width: 2px;
+  background: var(--color-linha);
+}
+.rastreio__eventos li:last-child {
+  padding-bottom: 0;
+}
+.rastreio__eventos li:last-child::after {
+  content: none;
+}
+.rastreio > .rastreio__eventos li:first-child::before {
+  background: var(--color-amarelo);
+}
+.rastreio__evento {
+  font-weight: 800;
+}
+.rastreio__eventos time {
+  margin-left: 4px;
+  font-size: 0.74rem;
+  color: var(--color-tinta-suave);
+  font-variant-numeric: tabular-nums;
+}
+.rastreio__eventos small {
+  display: block;
+  margin-top: 1px;
+  font-size: 0.76rem;
+  color: var(--color-tinta-suave);
+}
+.rastreio__mais {
+  margin: 12px 0 0;
+}
+.rastreio__mais summary {
+  width: fit-content;
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-decoration: underline;
+}
+
 /* Antes da postagem, o lugar do rastreio diz quando ele chega — em vez de
    um buraco que a pessoa não sabe se é defeito. */
 .rastreio__depois {

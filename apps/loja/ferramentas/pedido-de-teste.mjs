@@ -101,12 +101,12 @@ export function fabricaDePedidos({ medusa, chave, tokenAdmin, pagarme }) {
     return variantes.get(handle)
   }
 
-  /** Lê o pedido pelo admin — o estado de verdade, com envios e pagamentos. */
+  /** Lê o pedido pelo admin — o estado de verdade, com envios (e etiquetas) e pagamentos. */
   const noAdmin = async (id) =>
     (
       await adm(
         `/admin/orders/${id}?fields=id,display_id,status,payment_status,fulfillment_status,total,` +
-          "*items,*fulfillments"
+          "*items,*fulfillments,*fulfillments.labels"
       )
     ).order
 
@@ -162,21 +162,34 @@ export function fabricaDePedidos({ medusa, chave, tokenAdmin, pagarme }) {
     throw new Error(`o pagamento do pedido #${pedido.numero} não chegou no Medusa`)
   }
 
-  /** Separado e postado, com a etiqueta do rastreio. */
-  async function enviar(pedido, { codigo, url = null }) {
+  /**
+   * Só separado — o "Fulfill items" do admin, na hora de embalar —, sem
+   * postar. Devolve o id do envio (o fulfillment).
+   */
+  async function separar(pedido) {
     const o = await noAdmin(pedido.id)
-    const itens = o.items.map((i) => ({ id: i.id, quantity: i.quantity }))
     await adm(`/admin/orders/${pedido.id}/fulfillments`, {
       method: "POST",
-      body: JSON.stringify({ items: itens }),
+      body: JSON.stringify({ items: o.items.map((i) => ({ id: i.id, quantity: i.quantity })) }),
     })
     const separado = await noAdmin(pedido.id)
-    const envio = separado.fulfillments.find((f) => !f.canceled_at && !f.shipped_at)
+    return separado.fulfillments.find((f) => !f.canceled_at && !f.shipped_at).id
+  }
+
+  /**
+   * Separado e postado, com a etiqueta do rastreio. `avisar: false` é o
+   * "não avisar o cliente" do admin (o `no_notification` do Medusa).
+   */
+  async function enviar(pedido, { codigo, url = null, avisar = true }) {
+    const o = await noAdmin(pedido.id)
+    const itens = o.items.map((i) => ({ id: i.id, quantity: i.quantity }))
+    const envio = { id: await separar(pedido) }
     await adm(`/admin/orders/${pedido.id}/fulfillments/${envio.id}/shipments`, {
       method: "POST",
       body: JSON.stringify({
         items: itens,
         labels: [{ tracking_number: codigo, tracking_url: url ?? "#", label_url: "#" }],
+        ...(avisar ? {} : { no_notification: true }),
       }),
     })
     return envio.id
@@ -192,5 +205,5 @@ export function fabricaDePedidos({ medusa, chave, tokenAdmin, pagarme }) {
     await adm(`/admin/orders/${pedido.id}/cancel`, { method: "POST" })
   }
 
-  return { pedidoPix, pagar, enviar, entregar, cancelar, noAdmin }
+  return { pedidoPix, pagar, separar, enviar, entregar, cancelar, noAdmin }
 }

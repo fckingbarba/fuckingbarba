@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs"
 import { extname, join, resolve } from "node:path"
 import { emailDoCodigo } from "../src/lib/emails/codigo"
+import { emailDoEnvio } from "../src/lib/emails/envio"
 import { emailDePedidoConfirmado, type PedidoDoEmail } from "../src/lib/emails/pedido-confirmado"
 import type { Email } from "../src/lib/email"
 
@@ -149,6 +150,34 @@ function secao(nome: string, email: Email, alturas: { pc: number; celular: numbe
 function main() {
   const codigo = emailDoCodigo({ para: "rafael.souza@email.com", codigo: "482917", minutos: 10 })
   const pedido = emailDePedidoConfirmado({ pedido: exemploDePedido(), whatsapp: "5547999990000" })
+  const doEnvio = (momento: "enviado" | "saiu" | "retirar" | "entregue") => {
+    const p = exemploDePedido()
+    return emailDoEnvio({
+      momento,
+      pedido: {
+        id: p.id,
+        numero: p.numero,
+        email: p.email,
+        itens: p.itens.map((i) => ({
+          nome: i.nome,
+          variante: i.variante,
+          quantidade: i.quantidade,
+        })),
+        entrega: p.entrega,
+      },
+      envio: {
+        codigo: "QS123456789BR",
+        url: "https://rastreio.frenet.com.br/COR/QS123456789BR",
+        transportadora: "Correios",
+        servico: "PAC",
+      },
+      whatsapp: "5547999990000",
+    })
+  }
+  const enviado = doEnvio("enviado")
+  const saiu = doEnvio("saiu")
+  const retirar = doEnvio("retirar")
+  const entregue = doEnvio("entregue")
 
   const pagina = `<!doctype html>
 <html lang="pt-BR">
@@ -182,6 +211,10 @@ aqui, porque no e-mail de verdade elas vêm da loja. O modo escuro é o do Apple
 escurece do jeito dele.</p>
 ${secao("Código de acesso", codigo, { pc: 700, celular: 720 })}
 ${secao("Pedido confirmado", pedido, { pc: 1740, celular: 1860 })}
+${secao("Pedido a caminho", enviado, { pc: 1300, celular: 1400 })}
+${secao("Saiu pra entrega", saiu, { pc: 1300, celular: 1400 })}
+${secao("Esperando retirada", retirar, { pc: 1300, celular: 1400 })}
+${secao("Entregue", entregue, { pc: 1300, celular: 1400 })}
 </body>
 </html>`
 
@@ -191,6 +224,10 @@ ${secao("Pedido confirmado", pedido, { pc: 1740, celular: 1860 })}
   for (const [nome, e] of [
     ["codigo", codigo],
     ["pedido-confirmado", pedido],
+    ["envio-enviado", enviado],
+    ["envio-saiu", saiu],
+    ["envio-retirar", retirar],
+    ["envio-entregue", entregue],
   ] as const) {
     writeFileSync(join(saida, `${nome}.html`), comImagensEmbutidas(e.html))
     writeFileSync(join(saida, `${nome}.escuro.html`), escuro(comImagensEmbutidas(e.html)))

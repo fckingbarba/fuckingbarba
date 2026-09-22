@@ -80,3 +80,96 @@ export function rotuloDaEntrega(forma: string): string {
 
 /** A resposta do "comprar de novo": a frase pra tela e a sacola nova, se mudou. */
 export type DeNovo = { ok: boolean; texto: string; carrinho: CarrinhoVisivel | null }
+
+/* ── onde está o pacote ───────────────────────────────────────────────────── */
+
+/*
+  ESTE VOCABULÁRIO TEM UM GÊMEO no backend: `apps/backend/src/lib/envios/situacao.ts`,
+  o núcleo dos envios. São as palavras dele, venha o aviso de qual parceiro
+  vier (a Frenet hoje) — a loja nunca sabe quem levou a notícia. Quem
+  acrescentar uma palavra lá, acrescenta aqui; palavra que a loja não
+  conhecer vira "sem situação" (e o evento, texto da transportadora).
+*/
+
+export const SITUACOES_DO_ENVIO = [
+  "aguardando",
+  "postado",
+  "em_transito",
+  "saiu_para_entrega",
+  "aguardando_retirada",
+  "entregue",
+  "devolvido",
+  "extraviado",
+] as const
+export type SituacaoDoEnvio = (typeof SITUACOES_DO_ENVIO)[number]
+
+export const ALERTAS_DO_ENVIO = ["atrasado", "nao_entregue"] as const
+export type AlertaDoEnvio = (typeof ALERTAS_DO_ENVIO)[number]
+
+export const TIPOS_DE_EVENTO = [
+  "postado",
+  "em_transito",
+  "saiu_para_entrega",
+  "aguardando_retirada",
+  "entregue",
+  "atrasado",
+  "nao_entregue",
+  "devolvido",
+  "extraviado",
+  "informativo",
+] as const
+export type TipoDeEvento = (typeof TIPOS_DE_EVENTO)[number]
+
+/** O título do rastreio: onde o pacote está agora. */
+export const ROTULO_DO_ENVIO: Record<SituacaoDoEnvio, string> = {
+  aguardando: "Aguardando postagem",
+  postado: "Postado",
+  em_transito: "Em trânsito",
+  saiu_para_entrega: "Saiu pra entrega",
+  aguardando_retirada: "Esperando retirada",
+  entregue: "Entregue",
+  devolvido: "Voltando pra loja",
+  extraviado: "Extraviado",
+}
+
+/**
+ * A frase embaixo do título — o que isso quer dizer pra quem está
+ * esperando. Nos dois finais ruins, a promessa é a de sempre: a gente
+ * chama. E-mail automático pra esses a loja não manda (ver o núcleo).
+ */
+export const FRASE_DO_ENVIO: Record<SituacaoDoEnvio, string> = {
+  aguardando: "A etiqueta está pronta; a encomenda sai daqui em breve.",
+  postado: "A encomenda saiu daqui e já está com a transportadora.",
+  em_transito: "A caminho da sua cidade.",
+  saiu_para_entrega: "Chega hoje — precisa ter alguém no endereço pra receber.",
+  aguardando_retirada:
+    "Não deu pra entregar no endereço: a encomenda está esperando você na agência que o rastreio indica, e fica lá só por poucos dias.",
+  entregue: "A encomenda chegou.",
+  devolvido:
+    "A entrega não deu certo e a encomenda está voltando pra loja. A gente vai te chamar pra combinar.",
+  extraviado: "A transportadora perdeu a encomenda. A gente já está resolvendo — e vai te chamar.",
+}
+
+/** O alerta por cima da situação: não muda onde o pacote está, mas é o que a pessoa precisa ler primeiro. */
+export const ROTULO_DO_ALERTA: Record<AlertaDoEnvio, string> = {
+  atrasado: "Atrasado",
+  nao_entregue: "Tentativa de entrega",
+}
+
+export const FRASE_DO_ALERTA: Record<AlertaDoEnvio, string> = {
+  atrasado: "A transportadora avisou atraso. A gente está de olho.",
+  nao_entregue: "Tentaram entregar e não conseguiram — o rastreio diz o que a transportadora fez.",
+}
+
+/** O título de cada evento da linha do tempo. `informativo` usa o texto da transportadora. */
+export const ROTULO_DO_EVENTO: Record<Exclude<TipoDeEvento, "informativo">, string> = {
+  postado: "Postado",
+  em_transito: "Em trânsito",
+  saiu_para_entrega: "Saiu pra entrega",
+  aguardando_retirada: "Esperando retirada",
+  entregue: "Entregue",
+  devolvido: "Devolvido",
+  extraviado: "Extraviado",
+  atrasado: "Atraso",
+  nao_entregue: "Tentativa de entrega",
+}

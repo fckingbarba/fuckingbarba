@@ -69,12 +69,16 @@ export async function subirResendFalso({ porta = PORTA_PADRAO, aoReceber } = {})
     roteiro,
     /** O último e-mail mandado pra este endereço, ou undefined. */
     ultimoPara: (para) => [...emails].reverse().find((e) => e.to?.includes(para)),
-    /** Os seis dígitos do assunto do último e-mail pra este endereço. */
+    /**
+     * O código do último e-mail DE CÓDIGO pra este endereço. Só o assunto do
+     * e-mail de acesso conta: os de pedido (a caminho, entregue) também vão
+     * pra ele, e "Pedido #100234 a caminho" tem seis dígitos.
+     */
     codigoPara: (para) =>
       [...emails]
         .reverse()
-        .find((e) => e.to?.includes(para))
-        ?.subject?.match(/\b\d{6}\b/)?.[0],
+        .map((e) => e.to?.includes(para) && e.subject?.match(/^(\d{6}) é o seu código/)?.[1])
+        .find(Boolean),
     fechar: () => new Promise((ok) => servidor.close(ok)),
   }
 }

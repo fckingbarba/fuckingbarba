@@ -12,6 +12,7 @@ import {
   paragrafo,
   rotulo,
   titulo,
+  trilha,
   urlDaLoja,
   vazio,
 } from "./moldura"
@@ -95,7 +96,7 @@ export function rotuloDaEntrega(forma: string): string {
 }
 
 /** 5547999990000 → (47) 99999-0000, como o `whatsappNaTela` da loja. */
-function whatsappNaTela(digitos: string): string {
+export function whatsappNaTela(digitos: string): string {
   const semDdi = digitos.startsWith("55") ? digitos.slice(2) : digitos
   const m = semDdi.match(/^(\d{2})(\d{4,5})(\d{4})$/)
   return m ? `(${m[1]}) ${m[2]}-${m[3]}` : digitos
@@ -103,35 +104,8 @@ function whatsappNaTela(digitos: string): string {
 
 /* ── as partes ────────────────────────────────────────────────────────────── */
 
-const PASSOS_DA_TRILHA = ["Pedido feito", "Pagamento aprovado", "Enviado", "Entregue"]
-const FEITOS = 2
-
-/**
- * A TRILHA do pedido — a mesma da tela do pedido na conta. Barra verde no
- * que já aconteceu, cinza no que falta; o rótulo diz de novo, em texto, pra
- * quem não enxerga a cor (e pro app do Gmail, que mexe nas cores).
- */
-function trilha(): string {
-  const colunas = PASSOS_DA_TRILHA.map((passo, i) => {
-    const feito = i < FEITOS
-    const barra = feito ? COR.mentaEscura : COR.linha
-    const ultimo = i === PASSOS_DA_TRILHA.length - 1
-    return (
-      `<td width="25%" valign="top" style="width:25%;padding:0 ${ultimo ? 0 : 4}px 0 0;">` +
-      `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>` +
-      `<td class="${feito ? "fb-feito" : "fb-falta"}" height="6" bgcolor="${barra}" ` +
-      `style="height:6px;background:${barra};${vazio(6)}">&nbsp;</td></tr></table>` +
-      `<p class="${feito ? "fb-texto" : "fb-suave"}" style="margin:0;padding:8px 2px 0 0;font-family:${FONTE};` +
-      `font-size:12px;line-height:15px;font-weight:${feito ? 700 : 400};` +
-      `color:${feito ? COR.tinta : COR.tintaSuave};mso-line-height-rule:exactly;">${esc(passo)}</p>` +
-      `</td>`
-    )
-  }).join("")
-  return (
-    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" ` +
-    `aria-label="Pedido feito e pagamento aprovado; falta enviar e entregar."><tr>${colunas}</tr></table>`
-  )
-}
+/** Os quatro passos do protótipo da conta — os mesmos do e-mail de envio. */
+export const PASSOS_DO_PEDIDO = ["Pedido feito", "Pagamento aprovado", "Enviado", "Entregue"]
 
 function linhaDoItem(item: ItemDoEmail): string {
   const detalhe = [item.variante, `${item.quantidade} × ${emReais(item.precoUnitario)}`]
@@ -248,7 +222,11 @@ export function emailDePedidoConfirmado({
       paragrafo(esc(frase), { suave: true, tamanho: 14 }) +
       `</td></tr></table>` +
       espaco(24) +
-      trilha() +
+      trilha({
+        passos: PASSOS_DO_PEDIDO,
+        feitos: 2,
+        descricao: "Pedido feito e pagamento aprovado; falta enviar e entregar.",
+      }) +
       (loja
         ? espaco(26) +
           `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>` +

@@ -2,7 +2,15 @@ import "server-only"
 import type { HttpTypes } from "@medusajs/types"
 import { cache } from "react"
 import { lerSessao, medusa } from "./conta"
-import type { SituacaoDoPedido } from "./conta-visivel"
+import {
+  ALERTAS_DO_ENVIO,
+  SITUACOES_DO_ENVIO,
+  TIPOS_DE_EVENTO,
+  type AlertaDoEnvio,
+  type SituacaoDoEnvio,
+  type SituacaoDoPedido,
+  type TipoDeEvento,
+} from "./conta-visivel"
 import { CAMPOS_DO_PEDIDO, paraPedidoVisivel, type PedidoVisivel } from "./pedido"
 
 /**
@@ -26,13 +34,40 @@ export type PedidoDaConta = PedidoVisivel & {
   /** Datas em ISO; `null` é o que ainda não aconteceu. */
   datas: { feito: string; pago: string | null; enviado: string | null; entregue: string | null }
   /**
-   * Da etiqueta que o admin preenche ao marcar como enviado. Só no detalhe
-   * (`lerPedidoDaConta`): a lista não precisa, e custaria uma pergunta a
-   * mais por pedido.
+   * Os pacotes, com a linha do tempo de cada um (ver `Rastreio`). Só no
+   * detalhe (`lerPedidoDaConta`): a lista não precisa, e custaria uma
+   * pergunta a mais por pedido.
    */
-  rastreio: { codigo: string; url: string | null } | null
+  rastreios: Rastreio[]
   /** Cancelado depois de pago: o Medusa registrou o estorno. */
   estornado: boolean
+}
+
+/**
+ * UM PACOTE NA RUA — o que o núcleo dos envios sabe dele, no vocabulário
+ * do núcleo (`conta-visivel.ts`), nunca no do parceiro. `situacao` é `null`
+ * no código que o admin cadastrou antes de o núcleo existir: aí só há
+ * código e link.
+ */
+export type Rastreio = {
+  codigo: string
+  url: string | null
+  /** "Correios · PAC", quando se sabe. */
+  quem: string | null
+  situacao: SituacaoDoEnvio | null
+  alerta: AlertaDoEnvio | null
+  postadoEm: string | null
+  entregueEm: string | null
+  /** Do mais novo pro mais velho. */
+  eventos: EventoDoRastreio[]
+}
+
+export type EventoDoRastreio = {
+  tipo: TipoDeEvento
+  /** O texto da transportadora. */
+  descricao: string
+  local: string | null
+  quando: string
 }
 
 const CAMPOS_DA_CONTA = `${CAMPOS_DO_PEDIDO},fulfillment_status,*fulfillments,*payment_collections.payments`
@@ -96,7 +131,7 @@ export function paraPedidoDaConta(order: HttpTypes.StoreOrder): PedidoDaConta {
       enviado: primeira(envios.map((f) => emTexto(f.shipped_at))),
       entregue: primeira(envios.map((f) => emTexto(f.delivered_at))),
     },
-    rastreio: null,
+    rastreios: [],
     estornado: order.status === "canceled" && /refunded/.test(String(order.payment_status ?? "")),
   }
 }
@@ -138,10 +173,14 @@ export const listarPedidos = cache(async (): Promise<LeituraDosPedidos> => {
 /**
  * Um pedido, só se for da conta. Id fora do formato nem vai pro Medusa.
  *
- * O RASTREIO VEM DE OUTRA ROTA: a API da loja devolve os envios sem as
- * etiquetas, e o código mora nelas. `/store/conta/pedidos/:id/rastreio` (no
- * backend) lê com o mesmo filtro de dono. Se ela não responder, o pedido
- * aparece sem o código — nunca sem o pedido.
+ * O RASTREIO VEM DE OUTRA ROTA: `/store/conta/pedidos/:id/rastreio` (no
+ * backend), que lê os envios do núcleo com o mesmo filtro de dono — a API
+ * da loja nem sabe que eles existem. Se ela não responder, o pedido aparece
+ * sem o rastreio — nunca sem o pedido.
+ *
+ * As datas de enviado e entregue passam a ser as da TRANSPORTADORA quando o
+ * rastreio as tem: o Medusa marca a hora em que ficou sabendo, e o aviso
+ * pode chegar horas depois do fato.
  */
 export const lerPedidoDaConta = cache(async (id: string): Promise<LeituraDoPedido> => {
   if (!ID_DO_PEDIDO.test(id)) return { estado: "nao-achei" }
@@ -152,27 +191,70 @@ export const lerPedidoDaConta = cache(async (id: string): Promise<LeituraDoPedid
 
   const pedido = paraPedidoDaConta(order)
   if (pedido.situacao === "enviado" || pedido.situacao === "entregue") {
-    pedido.rastreio = await rastreioDo(id)
+    pedido.rastreios = await lerRastreios(id)
+    const postados = pedido.rastreios.map((x) => x.postadoEm).filter((d): d is string => Boolean(d))
+    const entregues = pedido.rastreios
+      .map((x) => x.entregueEm)
+      .filter((d): d is string => Boolean(d))
+    if (postados.length) pedido.datas.enviado = postados.sort()[0]!
+    if (entregues.length && pedido.situacao === "entregue")
+      pedido.datas.entregue = entregues.sort().at(-1)!
   }
   return { estado: "ok", pedido }
 })
 
-async function rastreioDo(id: string): Promise<PedidoDaConta["rastreio"]> {
+/**
+ * Os pacotes de um pedido da conta. `cache` porque a visão geral pede os
+ * dos pedidos a caminho, e o detalhe pede o dele — no mesmo pedido de
+ * página, uma ida só.
+ */
+export const lerRastreios = cache(async (id: string): Promise<Rastreio[]> => {
+  if (!ID_DO_PEDIDO.test(id)) return []
   const token = await lerSessao()
-  if (!token) return null
+  if (!token) return []
   const r = await medusa(`/store/conta/pedidos/${encodeURIComponent(id)}/rastreio`, {
     metodo: "GET",
     token,
   })
   const lista = r.corpo.rastreios
-  if (r.status !== 200 || !Array.isArray(lista) || !lista.length) return null
-  const primeiro = lista[0] as { codigo?: unknown; url?: unknown }
-  return typeof primeiro.codigo === "string" && primeiro.codigo
-    ? {
-        codigo: primeiro.codigo,
-        url: urlSegura(typeof primeiro.url === "string" ? primeiro.url : null),
-      }
-    : null
+  if (r.status !== 200 || !Array.isArray(lista)) return []
+  return lista.map(paraRastreio).filter((x): x is Rastreio => x !== null)
+})
+
+const texto = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null)
+const umDe = <T extends string>(lista: readonly T[], v: unknown): T | null =>
+  typeof v === "string" && (lista as readonly string[]).includes(v) ? (v as T) : null
+
+/** Um rastreio como a rota manda — conferido campo a campo: é rede, não confiança. */
+function paraRastreio(bruto: unknown): Rastreio | null {
+  const r = (bruto ?? {}) as Record<string, unknown>
+  const codigo = texto(r.codigo)
+  if (!codigo) return null
+  const quem = [texto(r.transportadora), texto(r.servico)].filter(Boolean).join(" · ")
+  const eventos = (Array.isArray(r.eventos) ? r.eventos : []).flatMap((e): EventoDoRastreio[] => {
+    const x = (e ?? {}) as Record<string, unknown>
+    const descricao = texto(x.descricao)
+    const quando = texto(x.quando)
+    if (!descricao || !quando || Number.isNaN(Date.parse(quando))) return []
+    return [
+      {
+        tipo: umDe(TIPOS_DE_EVENTO, x.tipo) ?? "informativo",
+        descricao,
+        local: texto(x.local),
+        quando,
+      },
+    ]
+  })
+  return {
+    codigo,
+    url: urlSegura(texto(r.url)),
+    quem: quem || null,
+    situacao: umDe(SITUACOES_DO_ENVIO, r.situacao),
+    alerta: umDe(ALERTAS_DO_ENVIO, r.alerta),
+    postadoEm: texto(r.postadoEm),
+    entregueEm: texto(r.entregueEm),
+    eventos,
+  }
 }
 
 /**
