@@ -13,7 +13,16 @@ import {
   type TransitionStartFunction,
 } from "react"
 import { createPortal } from "react-dom"
-import { Cadeado, Caminhao, Escudo, Raio, Relogio } from "@/components/icones"
+import {
+  Cadeado,
+  Caminhao,
+  Cartao as IconeCartao,
+  Escudo,
+  Pix,
+  Raio,
+  Relogio,
+  WhatsApp,
+} from "@/components/icones"
 import { BANDEIRAS, FORMAS, GARANTIAS, type FormaDePagamento } from "@/conteudo/checkout"
 import { alternarBump, finalizar } from "@/lib/acoes/checkout"
 import {
@@ -60,7 +69,16 @@ import { Giro, Painel, Recado, trazerPraVista, useAvisaOcupado, type PropsDaEtap
  * └────────────────────────────────────────────────────────────────────────┘
  */
 
-const ICONES = { escudo: Escudo, cadeado: Cadeado, caminhao: Caminhao, relogio: Relogio }
+const ICONES = {
+  escudo: Escudo,
+  cadeado: Cadeado,
+  caminhao: Caminhao,
+  relogio: Relogio,
+  whatsapp: WhatsApp,
+}
+
+/** Cada forma com a cara dela. O losango genérico não dizia nada. */
+const ICONE_DA_FORMA = { pix: Pix, cartao: IconeCartao }
 
 type Props = PropsDaEtapa & {
   checkout: CheckoutVisivel
@@ -365,25 +383,42 @@ function Formas({
 }) {
   return (
     <>
+      {/*
+        O RÁDIO SAI DA VISTA E O ÍCONE OCUPA O LUGAR DELE.
+
+        O losango do `.opcao` serve pra escolher entrega, onde as duas linhas
+        são a mesma coisa em velocidades diferentes. Aqui não: Pix e cartão
+        são meios com cara própria, e a marca do Pix responde "é o Pix mesmo?"
+        antes de qualquer palavra ser lida.
+
+        O rádio continua no HTML — escondido do olho, não do teclado nem do
+        leitor de tela (`opcao--forma` em `checkout-loja.css`): ele ainda recebe
+        foco, o foco ainda desenha o contorno na linha inteira, e quem está
+        escolhido é dito pela borda e pelo fundo, que já mudavam.
+      */}
       <fieldset className="opcoes">
         <legend className="sr-only">Forma de pagamento</legend>
-        {FORMAS.map((f) => (
-          <label className="opcao" key={f.id}>
-            {f.selo ? <span className="opcao__selo">{f.selo}</span> : null}
-            <input
-              type="radio"
-              name="forma"
-              value={f.id}
-              checked={forma === f.id}
-              onChange={() => aoTrocar(f.id)}
-            />
-            <span>
-              <span className="opcao__nome">{f.nome}</span>
-              <span className="opcao__desc">{f.descricao}</span>
-            </span>
-            <span className="opcao__valor">{emReais(total)}</span>
-          </label>
-        ))}
+        {FORMAS.map((f) => {
+          const Icone = ICONE_DA_FORMA[f.id]
+          return (
+            <label className="opcao opcao--forma" key={f.id}>
+              {f.selo ? <span className="opcao__selo">{f.selo}</span> : null}
+              <input
+                type="radio"
+                name="forma"
+                value={f.id}
+                checked={forma === f.id}
+                onChange={() => aoTrocar(f.id)}
+              />
+              <Icone className="opcao__icone" aria-hidden="true" />
+              <span>
+                <span className="opcao__nome">{f.nome}</span>
+                <span className="opcao__desc">{f.descricao}</span>
+              </span>
+              <span className="opcao__valor">{emReais(total)}</span>
+            </label>
+          )
+        })}
       </fieldset>
 
       {/* Cobrando de verdade, o Pix não precisa de painel: a linha dele já

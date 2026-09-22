@@ -3,7 +3,7 @@
 import Image from "next/image"
 import Link from "next/link"
 import { useActionState, useEffect, useRef, useState, useTransition } from "react"
-import { Caminhao, Cadeado, Escudo, Relogio, SetaBaixo } from "@/components/icones"
+import { Caminhao, Cadeado, Escudo, Relogio, SetaBaixo, WhatsApp } from "@/components/icones"
 import { CONFIANCA, DEPOIMENTOS } from "@/conteudo/checkout"
 import { aplicarCupom, removerCupom } from "@/lib/acoes/checkout"
 import { ESTADO_INICIAL, type CheckoutVisivel } from "@/lib/checkout-visivel"
@@ -28,7 +28,13 @@ import { PARCELAS_SEM_JUROS, PARCELA_MINIMA } from "@/lib/site"
  * anunciaria frete grátis pra quem ainda nem digitou o CEP.
  */
 
-const ICONES = { escudo: Escudo, cadeado: Cadeado, caminhao: Caminhao, relogio: Relogio }
+const ICONES = {
+  escudo: Escudo,
+  cadeado: Cadeado,
+  caminhao: Caminhao,
+  relogio: Relogio,
+  whatsapp: WhatsApp,
+}
 
 /** Onde o resumo é a coluna do lado. Abaixo disto ele sobe pro topo (`checkout.css`). */
 const COLUNA_DO_LADO = "(min-width: 901px)"
@@ -59,7 +65,16 @@ export function Resumo({
    * vez que a página volta pra tela, e reabre; e reabre também se a janela
    * crescer até virar coluna.
    *
-   * No celular ele sobe pro topo, e o toque no cabeçalho abre e fecha.
+   * QUEM ABRE DE VERDADE NO DESKTOP É O CSS (`checkout-loja.css`), porque
+   * ele já está na primeira pintura e este efeito não. O que este aqui faz é
+   * pôr o atributo `open` de acordo com o que se vê: é dele que sai o
+   * `aria-expanded` do `<summary>`, e a tela não pode anunciar "recolhido"
+   * pra um resumo que está inteiro na frente da pessoa.
+   *
+   * No celular ele sobe pro topo e NASCE FECHADO — nascer aberto empurrava
+   * o formulário pra debaixo da dobra, e quem acabou de clicar em "finalizar
+   * compra" caía na lista dos itens que acabou de ver em vez de no primeiro
+   * campo. O toque no cabeçalho abre e fecha.
    */
   useEffect(() => {
     const lado = window.matchMedia(COLUNA_DO_LADO)
@@ -78,7 +93,7 @@ export function Resumo({
       data-recalculando={recalculando ? "" : undefined}
       aria-busy={recalculando || undefined}
     >
-      <details open ref={detalhes}>
+      <details ref={detalhes}>
         <summary
           onClick={(ev) => {
             // Coluna do lado não fecha (ver o efeito acima). O Enter e o

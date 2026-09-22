@@ -76,21 +76,30 @@ export const NOTA: { media: number; quantas: number } | null = null
 
 /* ── a faixa de confiança do passo do pagamento ───────────────────────────── */
 
-export type Garantia = { icone: "escudo" | "cadeado" | "caminhao" | "relogio"; texto: string }
+export type Garantia = {
+  icone: "escudo" | "cadeado" | "caminhao" | "relogio" | "whatsapp"
+  texto: string
+}
 
 /**
- * Onde a mão hesita. Só o que a loja cumpre:
+ * Onde a mão hesita, no passo do pagamento. Três frases curtas, e nenhuma
+ * repetindo o pé do resumo (`CONFIANCA`) — na mesma tela, dizer duas vezes a
+ * mesma coisa não tranquiliza ninguém, só ocupa espaço.
  *
- * - a garantia está escrita na política de trocas;
- * - o cadeado é o TLS do site, que existe;
- * - o prazo de postagem é o que o pedido promete.
+ * Só o que a loja cumpre:
  *
- * Nada de "compra 100% segura" nem selo inventado de certificadora.
+ * - o pagamento é do Pagar.me, e o cartão vai do navegador direto pra lá —
+ *   ele não passa pelo servidor da loja (ver o passo 3);
+ * - o pedido é postado em até 1 dia útil, que é o que o site promete;
+ * - o WhatsApp da loja responde de verdade, e está no rodapé de toda página.
+ *
+ * Nada de "compra 100% segura" nem selo inventado de certificadora: promessa
+ * que a loja não cumpre é propaganda enganosa, e quem descobre é o cliente.
  */
 export const GARANTIAS: Garantia[] = [
-  { icone: "escudo", texto: "Barba na cara ou sua grana de volta" },
-  { icone: "cadeado", texto: "Conexão criptografada" },
-  { icone: "relogio", texto: "7 dias pra trocar ou devolver" },
+  { icone: "cadeado", texto: "Compra segura" },
+  { icone: "caminhao", texto: "Envio imediato" },
+  { icone: "whatsapp", texto: "Suporte no WhatsApp" },
 ]
 
 /** As duas linhas do pé do resumo. */

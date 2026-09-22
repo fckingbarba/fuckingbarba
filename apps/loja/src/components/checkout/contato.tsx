@@ -80,11 +80,19 @@ export function Contato({
             erro={e.nome}
             required
           />
+          {/*
+            "Restante do nome", e não "Sobrenome" de novo: o campo ao lado
+            pede o PRIMEIRO nome, e quem se chama "Ana Paula de Oliveira
+            Santos" precisa saber onde põe o resto. Este nome vai inteiro pra
+            etiqueta dos Correios e pra nota fiscal — sobrenome cortado no
+            meio é entrega que o entregador não confere.
+          */}
           <Campo
             rotulo="Sobrenome"
             nome="sobrenome"
             largura="campo--3"
             autoComplete="family-name"
+            placeholder="Restante do nome"
             defaultValue={v("sobrenome", checkout.entrega.sobrenome)}
             erro={e.sobrenome}
             required
