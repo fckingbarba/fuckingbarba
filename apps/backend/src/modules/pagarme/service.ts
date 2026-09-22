@@ -334,6 +334,10 @@ export default class PagarmeServico extends AbstractPaymentProvider<Opcoes> {
       não for — o que só acontece se a montagem tiver um bug —, o pedido de
       lá é cancelado (ou estornado, se o cartão já passou) e a compra não
       fecha. Cobrar diferente do que a tela mostrou não tem conserto depois.
+
+      No Pix, o cancelamento não pega (412, ver o `cancelPayment`) — e não
+      precisa: a compra não fechou, o pedido daqui não nasceu, e se alguém
+      pagar esse QR a cobrança vira órfã e a conciliação estorna.
     */
     if (Number(pedido.amount) !== estado.valor) {
       this.logger.error(
@@ -390,6 +394,12 @@ export default class PagarmeServico extends AbstractPaymentProvider<Opcoes> {
    * o fechamento do carrinho foi desfeito. (Cancelar pedido pago no admin
    * não passa por aqui: passa pelo `refundPayment`.)
    *
+   * PIX PENDENTE NÃO SE CANCELA: o Pagar.me responde 412 ("This charge
+   * cannot be canceled because is pending"), vencido ou não. A sessão é
+   * anotada como cancelada aqui — o Medusa desistiu dela mesmo —, o QR morre
+   * sozinho na hora da validade, e o que for pago nesse meio-tempo a
+   * conciliação devolve (ver `lib/conciliar-pagamentos.ts`).
+   *
    * A cobrança cancelada é a do pedido LIDO agora no Pagar.me, e não um id
    * que veio nos dados: um estado lido e uma cobrança de outro pedido
    * misturados seriam o estorno de uma venda que não tem nada a ver.
@@ -411,7 +421,7 @@ export default class PagarmeServico extends AbstractPaymentProvider<Opcoes> {
         data: gravar({ ...lido.estado, situacao: "estornado", estornado: Number(pedido.amount) }),
       }
     }
-    if (lido.status === PaymentSessionStatus.PENDING_AUTHORIZATION) {
+    if (lido.status === PaymentSessionStatus.PENDING_AUTHORIZATION && lido.estado.forma !== "pix") {
       await this.cliente.cancelarCobranca(cobranca)
     }
     return { data: gravar({ ...lido.estado, situacao: "cancelado" }) }

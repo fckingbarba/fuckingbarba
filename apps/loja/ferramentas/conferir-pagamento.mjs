@@ -27,7 +27,9 @@
  * │ • o valor cobrado no Pagar.me ser diferente do total do Medusa;        │
  * │ • cartão recusado deixar pedido criado, ou estoque preso;              │
  * │ • Pix pago não virar pedido pago — pelo aviso, e sem ele;              │
- * │ • Pix vencido segurar estoque pra sempre;                              │
+ * │ • Pix vencido segurar estoque pra sempre — foi o #7: a conciliação     │
+ * │   pedia DELETE na cobrança, tomava 412 ("cannot be canceled because    │
+ * │   is pending") e nunca chegava a cancelar o pedido;                    │
  * │ • aviso forjado (sem o segredo) mudar alguma coisa;                    │
  * │ • a resposta perdida no caminho cobrar duas vezes, ou cobrar sem       │
  * │   pedido e ficar por isso mesmo;                                       │
@@ -35,7 +37,8 @@
  * │   isso já aconteceu, e era compra de graça (ver `situacao.ts`);        │
  * │ • a cobrança que perdeu a sessão (tentou de novo) ficar sem estorno;   │
  * │ • o pagamento de um pedido fechado ser reaberto pela API pública;      │
- * │ • o QR de um pedido cancelado no admin continuar pagável;              │
+ * │ • o dinheiro que entra pelo QR de um pedido cancelado no admin ficar   │
+ * │   lá (o QR continua pagável — o Pagar.me não deixa matá-lo);           │
  * │ • a confirmação perdida no caminho virar "sacola vazia" e compra dupla;│
  * │ • pedido pago ficar sem o e-mail "Pedido confirmado" — pelo aviso,     │
  * │   pelo cartão, pela conciliação, pelo "Check status" do admin, com o   │
@@ -749,8 +752,9 @@ try {
     const reservasDepois = (await adm(`/admin/reservations?line_item_id=${linha}`)).reservations
     ok(reservasDepois.length === 0, "e a reserva é desfeita — o estoque volta")
     ok(
-      pagarme.cancelamentos.some((c) => c.pedido === registro.pedido.id && c.status === "pending"),
-      "o Pix é cancelado LÁ também, antes — o QR morre"
+      !pagarme.cancelamentos.some((c) => c.pedido === registro.pedido.id),
+      "e NINGUÉM pede DELETE na cobrança do Pix — o Pagar.me responde 412, e foi isso que prendeu o estoque do #7 por um dia",
+      JSON.stringify(pagarme.cancelamentos.filter((c) => c.pedido === registro.pedido.id))
     )
     await pagina.reload({ waitUntil: "domcontentloaded" })
     await pagina.locator(".feito h1").waitFor({ timeout: 20000 })
@@ -1121,29 +1125,63 @@ try {
 
     /* ── 7c. cancelado no admin, com o Pix esperando ─────────────────────── */
 
-    titulo("Cancelar no admin um pedido com o Pix esperando mata o QR na hora")
-    await longeDaConciliacaoAutomatica(30_000)
+    /*
+      O QR NÃO MORRE, E O DINHEIRO VOLTA.
+
+      Cancelar o pedido aqui não cancela o Pix lá: o Pagar.me responde 412 em
+      Pix pendente, sempre. Então o combinado é outro — ninguém pede o
+      DELETE, a sessão fica VIGIADA, e se a pessoa pagar o QR que está no
+      WhatsApp dela desde ontem, a conciliação devolve o dinheiro.
+    */
+    titulo("Cancelar no admin com o Pix esperando: o QR sobrevive, e o que entrar volta")
+    await longeDaConciliacaoAutomatica(90_000)
     await adm(`/admin/orders/${pedido.id}/cancel`, { method: "POST" })
-    let fechado = false
-    for (let i = 0; i < 40 && !fechado; i++) {
+    let cancelado = null
+    for (let i = 0; i < 40 && cancelado !== "canceled"; i++) {
       await esperar(250)
-      fechado = pagarme.cancelamentos.some(
-        (c) => c.pedido === criado.pedido.id && c.status === "pending"
-      )
+      cancelado = (await pedidoNoMedusa(pedido.id))?.status
     }
-    ok(fechado, "o Pix é cancelado no Pagar.me em segundos — sem esperar a conciliação")
-    let anotada = null
-    for (let i = 0; i < 20 && anotada !== "canceled"; i++) {
-      anotada = (await pedidoNoMedusa(pedido.id))?.payment_collections?.[0]?.payment_sessions?.[0]
-        ?.status
-      if (anotada !== "canceled") await esperar(250)
-    }
-    ok(anotada === "canceled", "e a sessão fica anotada como cancelada", anotada)
-    const depois = await conciliar()
+    ok(cancelado === "canceled", "o pedido fica cancelado no Medusa", cancelado)
+    // O subscriber já rodou (o cancelamento acima esperou por ele); o que
+    // ele NÃO pode ter feito é pedir o DELETE.
+    await esperar(2000)
     ok(
-      !pagarme.cancelamentos.some((c) => c.pedido === criado.pedido.id && c.status !== "pending"),
-      "a conciliação seguinte não mexe de novo nele",
-      JSON.stringify(depois)
+      !pagarme.cancelamentos.some((c) => c.pedido === criado.pedido.id),
+      "e ninguém pede DELETE na cobrança do Pix — o Pagar.me responderia 412",
+      JSON.stringify(pagarme.cancelamentos.filter((c) => c.pedido === criado.pedido.id))
+    )
+    const cobranca = criado.pedido.charges[0]
+    ok(
+      cobranca.status === "pending",
+      "a cobrança segue pendente lá — o QR ainda paga",
+      cobranca.status
+    )
+    let vigiada = null
+    for (let i = 0; i < 20; i++) {
+      vigiada = (await pedidoNoMedusa(pedido.id))?.payment_collections?.[0]?.payment_sessions?.[0]
+        ?.status
+      if (vigiada !== "pending_authorization") break
+      await esperar(250)
+    }
+    ok(
+      vigiada === "pending_authorization",
+      "e a sessão continua pendente — vigiada, à espera do que possa entrar",
+      vigiada
+    )
+
+    // E a pessoa paga o QR velho.
+    await pagarme.pagar(criado.pedido.id)
+    await esperar(6000)
+    const devolveu = await conciliar()
+    ok(
+      devolveu.estornadas.length >= 1,
+      "a conciliação devolve o que entrou num pedido que não existe mais",
+      JSON.stringify(devolveu)
+    )
+    ok(
+      (cobranca.refunded_amount ?? 0) >= cobranca.amount || cobranca.status === "refunded",
+      "e o dinheiro está de volta no Pagar.me",
+      `${cobranca.status} ${cobranca.refunded_amount}/${cobranca.amount}`
     )
   }
 
@@ -1274,7 +1312,9 @@ try {
     )
     let anotado = await registro()
     ok(
-      anotado?.situacao === "falhou" && anotado?.sozinha === true && anotado?.cobranca === cobranca.id,
+      anotado?.situacao === "falhou" &&
+        anotado?.sozinha === true &&
+        anotado?.cobranca === cobranca.id,
       "e anota no pedido — é o que a faixa vermelha do admin lê",
       JSON.stringify(anotado)
     )
@@ -1323,7 +1363,7 @@ try {
         pedidosDeEstorno().length === 2 &&
         pedidosDeEstorno()[1].valor === la.pedido.amount &&
         anotado?.tentativas === 1,
-      'o botão do admin pede o estorno de novo, com o valor que faltou',
+      "o botão do admin pede o estorno de novo, com o valor que faltou",
       `${JSON.stringify(tentativa)} · ${JSON.stringify(pedidosDeEstorno())}`
     )
     const andando = await adm(`/admin/pedidos/${aberto.id}/estorno`, { method: "POST" })

@@ -39,6 +39,8 @@
  * │ • um estado de pedido com o rótulo, o total ou a linha do tempo        │
  * │   errados; o Pix pendente sem o código de verdade, ou a página que não │
  * │   muda sozinha quando ele cai;                                         │
+ * │ • o Pix que VENCEU continuar dizendo "Aguardando Pix" e oferecendo     │
+ * │   pagar um QR que não aceita mais nada (foi o pedido #7);              │
  * │ • endereço salvo sem o número e o bairro separados, dois principais,   │
  * │   ou nenhum depois de excluir o principal;                             │
  * │ • o formulário de endereço mandando os campos escondidos;              │
@@ -791,6 +793,18 @@ if (fabrica) {
   const pago = await fabrica.pedidoPix(COMPRADOR, [["oleo-para-barba", 1]])
   await fabrica.pagar(pago)
   deixados.push(pago)
+  /*
+    O PIX QUE JÁ NASCE VENCIDO. Validade negativa: o `expires_at` sai meio
+    minuto no passado, e a conta mostra "Pix vencido" sem ninguém esperar
+    meia hora. O pedido continua VIVO — a conciliação só cancela dez minutos
+    depois do vencimento —, e é justamente esse intervalo que a tela precisa
+    desenhar: venceu, e ainda não foi cancelado. Foi ele que o #7 passou um
+    dia inteiro dizendo "Aguardando Pix".
+  */
+  const vencido = await fabrica.pedidoPix(COMPRADOR, [["balm-para-barba", 1]], {
+    validadeSegundos: -30,
+  })
+  deixados.push(vencido)
   const pix = await fabrica.pedidoPix(COMPRADOR, [
     ["shampoo-para-barba", 1],
     ["oleo-para-barba", 1],
@@ -829,7 +843,7 @@ if (fabrica) {
       .map((e) => ({ status: e.dataset.status, pedido: e.dataset.pedido }))
   )
   ok(
-    linhas.map((l) => l.status).join(",") === "pix,pago,enviado",
+    linhas.map((l) => l.status).join(",") === "pix,vencido,pago,enviado",
     "em andamento: o Pix primeiro, depois do mais novo pro mais velho — sem o entregue e o cancelado",
     JSON.stringify(linhas)
   )
@@ -839,16 +853,28 @@ if (fabrica) {
     "o do Pix leva pra pagar"
   )
   ok(
+    linhas[1]?.pedido === vencido.id &&
+      (await textoDe(pagina, ".andamento__linha[data-status=vencido] .andamento__txt")) ===
+        "O Pix venceu — o pedido vai ser cancelado.",
+    "o vencido não manda pagar: diz o que vai acontecer",
+    await textoDe(pagina, ".andamento__linha[data-status=vencido] .andamento__txt")
+  )
+  ok(
+    (await textoDe(pagina, ".andamento__linha[data-status=vencido] .btn")) === "Ver pedido",
+    "e o botão dele é 'Ver pedido', não 'Pagar o Pix'",
+    await textoDe(pagina, ".andamento__linha[data-status=vencido] .btn")
+  )
+  ok(
     (await textoDe(pagina, "[data-bloco-de-novo] .de-novo__txt")).includes(`#${enviado.numero}`),
     "comprar de novo sugere o último que saiu pra entrega",
     await textoDe(pagina, "[data-bloco-de-novo] .de-novo__txt")
   )
   await pagina
-    .waitForFunction(() => window.__visivel("[data-conta-pedidos]")?.textContent === "5", null, {
+    .waitForFunction(() => window.__visivel("[data-conta-pedidos]")?.textContent === "6", null, {
       timeout: 10000,
     })
     .catch(() => null)
-  ok((await textoDe(pagina, "[data-conta-pedidos]")) === "5", "o menu conta os cinco pedidos")
+  ok((await textoDe(pagina, "[data-conta-pedidos]")) === "6", "o menu conta os seis pedidos")
 
   /* ── a lista, contra o Medusa ── */
   titulo("A lista de pedidos")
@@ -874,13 +900,13 @@ if (fabrica) {
   )
   ok(
     cartoes.map((c) => c.id).join() ===
-      [pix, pago, cancelado, enviado, entregue].map((p) => p.id).join(),
-    "os cinco, do mais novo pro mais velho — e nenhum de outra pessoa",
+      [pix, vencido, pago, cancelado, enviado, entregue].map((p) => p.id).join(),
+    "os seis, do mais novo pro mais velho — e nenhum de outra pessoa",
     cartoes.map((c) => c.id.slice(-6)).join(",")
   )
   ok(
     cartoes.map((c) => c.status).join(",") ===
-      "Aguardando Pix,Em separação,Cancelado,Enviado,Entregue",
+      "Aguardando Pix,Pix vencido,Em separação,Cancelado,Enviado,Entregue",
     "cada um com o selo do estado dele",
     cartoes.map((c) => c.status).join(",")
   )
@@ -893,6 +919,21 @@ if (fabrica) {
     totaisCertos,
     "os totais são os do Medusa (o cancelado com o valor que tinha, e não zero)",
     cartoes.map((c) => c.total).join(" | ")
+  )
+  const cartaoVencido = await pagina.evaluate((id) => {
+    const c = document.querySelector(`article.pedido-card[data-pedido="${id}"]`)
+    return {
+      acoes: [...c.querySelectorAll(".pedido-card__acoes .btn, .pedido-card__acoes .link")]
+        .map((e) => e.textContent.trim())
+        .join(" | "),
+      prazo: c.querySelector(".pedido-card__prazo")?.textContent?.trim(),
+    }
+  }, vencido.id)
+  ok(
+    !cartaoVencido.acoes.includes("Pagar o Pix") &&
+      cartaoVencido.prazo === "O Pix venceu — o pedido vai ser cancelado.",
+    "o cartão do vencido não oferece pagar, e diz o que vem",
+    JSON.stringify(cartaoVencido)
   )
 
   /* ── um pedido, em cada estado ── */
@@ -948,6 +989,34 @@ if (fabrica) {
     (await textoDe(pagina, "#t-pagamento + .info")) === "Pix — venceu sem pagamento",
     "e o pagamento diz o que houve",
     await textoDe(pagina, "#t-pagamento + .info")
+  )
+
+  await abrir(vencido)
+  ok(
+    (await visivel(pagina, ".status[data-status=vencido]").count()) === 1 &&
+      (await textoDe(pagina, ".status[data-status=vencido]")) === "Pix vencido",
+    "vencido: o selo diz que venceu"
+  )
+  ok(
+    (await visivel(pagina, ".feito__pix").count()) === 0 &&
+      (await textoDe(pagina, ".cancelado[data-vencido] b")) === "O Pix venceu",
+    "o aviso fica no lugar do QR — que não aceita mais pagamento",
+    await textoDe(pagina, ".cancelado[data-vencido] b")
+  )
+  ok(
+    (await visivel(pagina, "[data-comprar-de-novo]").count()) === 1,
+    "com o 'comprar de novo', que é a saída de quem ainda quer"
+  )
+  ok(
+    (await textoDe(pagina, "#t-pagamento + .info")) === "Pix — venceu sem pagamento",
+    "e o pagamento diz o que houve",
+    await textoDe(pagina, "#t-pagamento + .info")
+  )
+  m = await marcas()
+  ok(
+    m.feitos === 1 && m.agora === 1,
+    "a linha do tempo para no pagamento — o pedido ainda não foi cancelado",
+    JSON.stringify(m)
   )
 
   await abrir(pago)

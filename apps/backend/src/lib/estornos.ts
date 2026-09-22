@@ -78,6 +78,26 @@ const ANDANDO_NA_TRANSACAO = new Set(["pending_refund", "waiting_cancellation", 
 const PAGA = new Set(["paid", "overpaid", "underpaid"])
 
 /**
+ * JÁ HÁ ESTORNO ANDANDO NESTA COBRANÇA? O `pending_cancellation` é o
+ * "Aguardando Cancelamento" do painel do Pagar.me.
+ *
+ * Quem vir isto e pedir outro estorno por cima corre o risco de devolver o
+ * dinheiro duas vezes. Por isso a pergunta mora aqui, numa função só: quem
+ * conferiu o estorno pergunta antes de pedir de novo, e a conciliação
+ * pergunta antes de mexer numa cobrança paga (ver `fecharCobranca`, em
+ * `conciliar-pagamentos.ts`).
+ */
+export function estornoAndando(cobranca: Partial<CobrancaPagarme>): boolean {
+  const status = String(cobranca.status ?? "").toLowerCase()
+  const transacao = String(cobranca.last_transaction?.status ?? "").toLowerCase()
+  return (
+    Boolean(cobranca.pending_cancellation) ||
+    ANDANDO.has(status) ||
+    ANDANDO_NA_TRANSACAO.has(transacao)
+  )
+}
+
+/**
  * O estorno aconteceu? `esperado` é o que o Medusa registrou (centavos);
  * `pedidoEm`, o último pedido de estorno — o do Medusa ou o nosso.
  *
@@ -98,16 +118,13 @@ export function lerEstorno({
 }): Leitura {
   const devolvido = devolvidoNaCobranca(cobranca)
   const status = String(cobranca.status ?? "").toLowerCase()
-  const transacao = String(cobranca.last_transaction?.status ?? "").toLowerCase()
 
   if (devolvido >= esperado) return { situacao: "devolvido", devolvido }
   // Cancelada ou estornada inteira: voltou tudo o que dava, conte o campo ou não.
   if (status === "canceled" || status === "refunded") {
     return { situacao: "devolvido", devolvido: Math.max(devolvido, esperado) }
   }
-  if (cobranca.pending_cancellation || ANDANDO.has(status) || ANDANDO_NA_TRANSACAO.has(transacao)) {
-    return { situacao: "andando" }
-  }
+  if (estornoAndando(cobranca)) return { situacao: "andando" }
 
   const falta = esperado - devolvido
   if (!PAGA.has(status)) {

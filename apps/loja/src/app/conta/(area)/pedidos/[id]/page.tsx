@@ -67,7 +67,14 @@ async function Detalhe({ params }: { params: PageProps<"/conta/pedidos/[id]">["p
   const { atendimento } = await configuracoes()
   const zap = linkDoWhatsapp(atendimento.whatsapp)
   const pix = p.situacao === "pix" ? p.pagamento.pix : null
-  const esperando = p.situacao === "pix" || p.situacao === "analise"
+  /*
+    A ESPERA CONTINUA COM O PIX VENCIDO. Não pra pagar — o QR não serve mais
+    —, mas porque o que vem a seguir acontece sozinho, e a pessoa está
+    olhando: a conciliação cancela o pedido nos próximos minutos, e a tela se
+    redesenha com "Cancelado" quando isso chegar. A espera para no
+    cancelamento (ver `EsperaDoPagamento`), e não no vencimento.
+  */
+  const esperando = p.situacao === "pix" || p.situacao === "vencido" || p.situacao === "analise"
 
   return (
     <>
@@ -102,6 +109,16 @@ async function Detalhe({ params }: { params: PageProps<"/conta/pedidos/[id]">["p
                   total={p.total}
                 />
               </section>
+            </div>
+          ) : null}
+
+          {p.situacao === "vencido" ? (
+            <div className="bloco cancelado" data-vencido="">
+              <Triangulo aria-hidden="true" />
+              <p>
+                <b>O Pix venceu</b>O código não aceita mais pagamento. O pedido vai ser cancelado e
+                os produtos voltam pro estoque — se ainda quiser, é só comprar de novo.
+              </p>
             </div>
           ) : null}
 

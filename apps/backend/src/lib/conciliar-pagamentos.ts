@@ -5,7 +5,11 @@ import {
   PaymentActions,
   PaymentSessionStatus,
 } from "@medusajs/framework/utils"
-import { cancelOrderWorkflow, processPaymentWorkflow } from "@medusajs/medusa/core-flows"
+import {
+  cancelOrderWorkflow,
+  processPaymentWorkflow,
+  refundPaymentsWorkflow,
+} from "@medusajs/medusa/core-flows"
 import {
   clienteDoPagarme,
   emReais,
@@ -22,7 +26,7 @@ import {
   type Estado,
   type Situacao,
 } from "../modules/pagarme/situacao"
-import { conferirEstornos, type RelatorioDeEstornos } from "./estornos"
+import { conferirEstornos, estornoAndando, type RelatorioDeEstornos } from "./estornos"
 
 /**
  * A CONCILIAÇÃO — o que o webhook não resolve.
@@ -36,14 +40,19 @@ import { conferirEstornos, type RelatorioDeEstornos } from "./estornos"
  *     webhook (`processPaymentWorkflow`). É a rede de proteção do aviso que
  *     não chegou: Edge Function fora, Medusa reiniciando, segredo trocado.
  *
- *   PIX VENCIDO → cancela a cobrança lá (o QR morre) e o pedido aqui (o
- *     estoque volta). Com folga: só depois de `expires_at` + 10 minutos, e
- *     relendo o estado antes, porque Pix pago no último minuto existe.
+ *   PIX VENCIDO → cancela o pedido aqui, e o estoque volta. Com folga: só
+ *     depois de `expires_at` + 10 minutos, e relendo o estado antes, porque
+ *     Pix pago no último minuto existe.
  *
  *   CARTÃO RECUSADO NA ANÁLISE, PIX QUE FALHOU → cancela o pedido aqui.
  *
- *   PEDIDO CANCELADO NO ADMIN COM PIX AINDA ABERTO → cancela o Pix lá. Sem
- *     isso, o QR continuaria pagável pra um pedido que não existe mais.
+ *   PEDIDO CANCELADO NO ADMIN COM PIX AINDA ABERTO → o QR continua vivo (ver
+ *     a caixa abaixo): a sessão fica VIGIADA, e o que for pago depois do
+ *     cancelamento é estornado.
+ *
+ *   PAGO DEPOIS DE CANCELADO → todo pedido cancelado nos últimos 7 dias é
+ *     olhado: pagamento capturado DEPOIS do `canceled_at` é devolvido pelo
+ *     `refundPaymentsWorkflow`. É a outra ponta do QR que não morre.
  *
  *   "INCERTO" — a criação que sumiu no caminho, sem resposta (ver o
  *     `authorizePayment`). A tela prometeu: "se aparecer alguma cobrança,
@@ -66,6 +75,27 @@ import { conferirEstornos, type RelatorioDeEstornos } from "./estornos"
  *     pagamento inteiro, é pedido de novo de 6 em 6 horas. Ver
  *     `lib/estornos.ts`.
  *
+ * ┌─ O PAGAR.ME NÃO CANCELA PIX PENDENTE — e isso desenha o resto ─────────┐
+ * │ `DELETE /charges/:id` numa cobrança de Pix esperando pagamento         │
+ * │ responde 412: "This charge cannot be canceled because is pending". E   │
+ * │ Pix VENCIDO continua `pending` lá: o 412 não passa nunca.              │
+ * │                                                                         │
+ * │ O #7 ficou um dia "Aguardando Pix" com o estoque preso por causa       │
+ * │ disso: o cancelamento do pedido vinha DEPOIS do DELETE, e o DELETE     │
+ * │ estourava a cada 5 minutos. Então, regra: NINGUÉM manda DELETE em Pix  │
+ * │ pendente — nem aqui, nem o `cancelPayment` do provedor, nem o          │
+ * │ subscriber de pedido cancelado.                                        │
+ * │                                                                         │
+ * │ O que fica no lugar:                                                   │
+ * │ • Pix vencido: cancela SÓ o pedido no Medusa. O QR morre sozinho.      │
+ * │ • pedido cancelado com o Pix ainda valendo: a sessão continua          │
+ * │   `pending_authorization`, VIGIADA. Se a pessoa pagar, o dinheiro      │
+ * │   entra num pedido cancelado — e a varredura de "pago depois de        │
+ * │   cancelado" devolve.                                                  │
+ * │ • cartão pendente (análise) ainda se cancela com DELETE; se vier 412,  │
+ * │   vira vigiado também.                                                 │
+ * └────────────────────────────────────────────────────────────────────────┘
+ *
  * ┌─ NÃO FALA COM O CLIENTE, SÓ COM O PAGAR.ME E O MEDUSA ─────────────────┐
  * │ E-mail de "seu Pix venceu" é fase 5, com o Resend. O que esta função   │
  * │ garante é que o estoque não fica preso e que nenhum dinheiro fica sem  │
@@ -81,6 +111,9 @@ export const PROVEDOR = "pp_pagarme_pagarme"
 
 /** Depois de `expires_at`, quanto esperar antes de dar o Pix por perdido. */
 const FOLGA_DO_PIX_MS = 10 * 60 * 1000
+
+/** O mesmo padrão do provedor, pra quando nem o Pagar.me disser a validade. */
+const PIX_MINUTOS_PADRAO = 30
 
 /** Cartão em análise por mais que isto é caso pra gente olhar. */
 const ANALISE_LONGA_MS = 3 * 24 * 60 * 60 * 1000
@@ -99,6 +132,9 @@ const INCERTA_SEM_PEDIDO_MS = 60 * 60 * 1000
  */
 const ORFAO_DEPOIS_DE_MS = 15 * 60 * 1000
 const JANELA_ORFAOS_MS = 48 * 60 * 60 * 1000
+
+/** Até quando procurar dinheiro que entrou depois de o pedido ser cancelado. */
+const JANELA_CANCELADOS_MS = 7 * 24 * 60 * 60 * 1000
 /** 20 páginas de 30: 600 pedidos em 48 horas. Passou disso, o log avisa. */
 const PAGINAS_DE_ORFAOS = 20
 
@@ -184,7 +220,7 @@ export async function conciliarPagamentos(
     try {
       await conciliarPendente(container, cliente, sessao, agora, relatorio)
     } catch (e) {
-      relatorio.avisos.push(`${sessao.id}: ${e instanceof Error ? e.message : String(e)}`)
+      relatorio.avisos.push(`${sessao.id}: ${mensagemDe(e)}`)
     }
   }
 
@@ -204,14 +240,20 @@ export async function conciliarPagamentos(
     try {
       await conciliarIncerta(container, cliente, sessao, agora, relatorio)
     } catch (e) {
-      relatorio.avisos.push(`${sessao.id}: ${e instanceof Error ? e.message : String(e)}`)
+      relatorio.avisos.push(`${sessao.id}: ${mensagemDe(e)}`)
     }
   }
 
   try {
     await conciliarOrfaos(container, cliente, agora, relatorio)
   } catch (e) {
-    relatorio.avisos.push(`órfãos: ${e instanceof Error ? e.message : String(e)}`)
+    relatorio.avisos.push(`órfãos: ${mensagemDe(e)}`)
+  }
+
+  try {
+    await devolverPagosDepoisDoCancelamento(container, agora, relatorio)
+  } catch (e) {
+    relatorio.avisos.push(`pagos depois de cancelados: ${mensagemDe(e)}`)
   }
 
   // Cada estorno que falha, é pedido de novo ou volta tem a sua linha
@@ -221,7 +263,7 @@ export async function conciliarPagamentos(
     relatorio.estornos = estornos
     relatorio.avisos.push(...avisos.map((a) => `estornos: ${a}`))
   } catch (e) {
-    relatorio.avisos.push(`estornos: ${e instanceof Error ? e.message : String(e)}`)
+    relatorio.avisos.push(`estornos: ${mensagemDe(e)}`)
   }
 
   const mexeu = relatorio.pagas.length + relatorio.canceladas.length + relatorio.estornadas.length
@@ -292,11 +334,21 @@ async function conciliarPendente(
   // Pedido cancelado aqui com a cobrança ainda viva lá: fecha lá. Quem
   // costuma chegar antes é o subscriber de pedido cancelado; isto é a rede.
   if (pedidoMedusa?.status === "canceled") {
-    const { situacao, agiu } = await fecharCobranca(cliente, pedido, lido)
+    const { feito, situacao } = await fecharCobranca(cliente, pedido, lido, agora, estado)
+    /*
+      VIGIANDO: o Pix ainda vale (não se cancela lá), ou há estorno andando.
+      A sessão fica como está — pendente — pra próxima rodada olhar de novo.
+      Se a pessoa pagar esse QR, quem devolve é a varredura de pagos depois
+      de cancelados.
+    */
+    if (feito === "vigiando") {
+      relatorio.esperando++
+      return
+    }
     await anotar(container, sessao, { ...lido.estado, situacao }, "canceled")
-    if (agiu) {
-      ;(situacao === "estornado" ? relatorio.estornadas : relatorio.canceladas).push(
-        `${nome} (cancelado aqui; cobrança ${situacao === "estornado" ? "estornada" : "cancelada"} lá)`
+    if (feito !== "nada") {
+      ;(feito === "estornou" ? relatorio.estornadas : relatorio.canceladas).push(
+        `${nome} (cancelado aqui; cobrança ${feito === "estornou" ? "estornada" : "cancelada"} lá)`
       )
     }
     return
@@ -317,8 +369,7 @@ async function conciliarPendente(
 
   // Ainda pendente.
   if (estado.forma === "pix") {
-    const expira = Date.parse(lido.estado.pix?.expiraEm ?? estado.pix?.expiraEm ?? "")
-    if (Number.isFinite(expira) && agora.getTime() > expira + FOLGA_DO_PIX_MS) {
+    if (venceuOPix(lido.estado, estado, pedido, agora)) {
       await cancelarPixVencido(container, cliente, sessao, pedido.id, nome, relatorio)
       return
     }
@@ -329,12 +380,18 @@ async function conciliarPendente(
 }
 
 /**
- * O Pix venceu. A ordem importa: fecha a cobrança LÁ primeiro, e só depois o
- * pedido aqui. Ao contrário, haveria um instante em que o estoque já voltou
- * pra prateleira e o QR ainda aceita pagamento.
+ * O PIX VENCEU: CANCELA O PEDIDO, E SÓ.
  *
- * E relê antes de cancelar: se o pagamento entrou entre a primeira leitura e
- * agora, o `DELETE` viraria ESTORNO — o mesmo endpoint faz os dois.
+ * Nada de `DELETE` na cobrança. O Pagar.me não cancela Pix pendente — e Pix
+ * vencido continua `pending` lá, então o 412 não passaria nunca. Pedir era
+ * exatamente o que prendia o estoque: o erro estourava ANTES do cancelamento
+ * do pedido, a cada 5 minutos, pra sempre (foi o #7).
+ *
+ * O QR morre sozinho na hora que a validade dele acaba; o que a loja precisa
+ * é do estoque de volta.
+ *
+ * E relê antes de cancelar: Pix pago no último minuto existe, e cancelar o
+ * pedido de quem acabou de pagar é bem pior do que esperar mais uma rodada.
  */
 async function cancelarPixVencido(
   container: MedusaContainer,
@@ -351,12 +408,54 @@ async function cancelarPixVencido(
     relatorio.pagas.push(`${nome} (pago no limite)`)
     return
   }
-  if (relido.status === PaymentSessionStatus.PENDING_AUTHORIZATION && relido.estado.cobranca) {
-    await cliente.cancelarCobranca(relido.estado.cobranca)
-  }
   await cancelarPedido(container, sessao.payment_collection?.order?.id)
   await anotar(container, sessao, { ...relido.estado, situacao: "cancelado" }, "canceled")
   relatorio.canceladas.push(`${nome} (Pix vencido)`)
+}
+
+/* ── quando o Pix vence ───────────────────────────────────────────────────── */
+
+/**
+ * O PIX JÁ VENCEU (com a folga)? A validade vem em três camadas, da mais
+ * confiável pra menos:
+ *
+ *   1. o `expires_at` que o Pagar.me acabou de dizer, na leitura de agora;
+ *   2. o que ficou gravado na sessão quando o QR nasceu;
+ *   3. o `created_at` do pedido lá + `PAGARME_PIX_MINUTOS`.
+ *
+ * As duas primeiras se juntam com `||`, e NÃO com `??`: `expiraEm` nasce
+ * STRING VAZIA quando o Pagar.me não manda a data (ver `traduzir`), e o `??`
+ * deixaria a vazia passar por cima da que estava gravada — que é justamente
+ * o caso em que a terceira camada nunca seria usada.
+ *
+ * Sem nenhuma das três, o Pix não vence: antes o estoque preso e um pedido
+ * na lista do que cancelar um pedido que ainda pode virar venda.
+ */
+export function venceuOPix(
+  lido: Estado,
+  gravado: Estado | null,
+  pedido: PedidoPagarme,
+  agora: Date
+) {
+  const expira = vencimentoDoPix(lido, gravado, pedido)
+  return Number.isFinite(expira) && agora.getTime() > expira + FOLGA_DO_PIX_MS
+}
+
+export function vencimentoDoPix(
+  lido: Estado,
+  gravado: Estado | null,
+  pedido: PedidoPagarme
+): number {
+  const dito = Date.parse(lido.pix?.expiraEm || gravado?.pix?.expiraEm || "")
+  if (Number.isFinite(dito)) return dito
+  const nasceu = Date.parse(pedido.created_at ?? "")
+  return Number.isFinite(nasceu) ? nasceu + minutosDoPix() * 60_000 : NaN
+}
+
+/** A mesma validade que o provedor pede ao criar o Pix (ver `service.ts`). */
+function minutosDoPix(): number {
+  const n = Number(process.env.PAGARME_PIX_MINUTOS)
+  return Number.isInteger(n) && n >= 5 ? n : PIX_MINUTOS_PADRAO
 }
 
 /* ── incerta: a criação que sumiu no caminho ──────────────────────────────── */
@@ -380,9 +479,11 @@ async function conciliarIncerta(
 
   // Cobrou, e o pedido daqui nunca nasceu (a sessão deu erro): devolve.
   const lido = traduzir(pedido, estado.forma, estado.parcelas)
-  const { situacao, agiu } = await fecharCobranca(cliente, pedido, lido)
-  if (agiu) {
-    ;(situacao === "estornado" ? relatorio.estornadas : relatorio.canceladas).push(
+  const { feito, situacao } = await fecharCobranca(cliente, pedido, lido, agora, estado)
+  // Vigiando: a sessão continua "incerta" e a próxima rodada volta nela.
+  if (feito === "vigiando") return
+  if (feito !== "nada") {
+    ;(feito === "estornou" ? relatorio.estornadas : relatorio.canceladas).push(
       `${pedido.id} (sessão ${sessao.id}, sem pedido na loja)`
     )
   }
@@ -453,14 +554,106 @@ async function conciliarOrfaos(
     const metodo = String(pedido.charges?.[0]?.payment_method ?? "").toLowerCase()
     const lido = traduzir(pedido, metodo === "pix" ? "pix" : "cartao")
     try {
-      const { situacao, agiu } = await fecharCobranca(cliente, pedido, lido)
-      if (agiu) {
-        ;(situacao === "estornado" ? relatorio.estornadas : relatorio.canceladas).push(
+      const { feito } = await fecharCobranca(cliente, pedido, lido, agora)
+      if (feito === "estornou" || feito === "cancelou") {
+        ;(feito === "estornou" ? relatorio.estornadas : relatorio.canceladas).push(
           `${pedido.id} (a sessão ${pedido.code} não existe mais na loja)`
         )
       }
     } catch (e) {
-      relatorio.avisos.push(`${pedido.id}: ${e instanceof Error ? e.message : String(e)}`)
+      relatorio.avisos.push(`${pedido.id}: ${mensagemDe(e)}`)
+    }
+  }
+}
+
+/* ── pago depois de cancelado ─────────────────────────────────────────────── */
+
+/**
+ * O DINHEIRO QUE ENTROU NUM PEDIDO QUE NÃO EXISTE MAIS.
+ *
+ * É a outra ponta do QR que não morre: cancelar o pedido não cancela o Pix
+ * pendente lá (412), então a pessoa ainda pode pagar — e paga, porque o QR
+ * está no WhatsApp dela desde ontem. O pagamento entra pela sessão vigiada,
+ * o webhook registra, e o dinheiro fica num pedido cancelado.
+ *
+ * Esta varredura olha todo pedido cancelado dos últimos 7 dias e devolve o
+ * que foi CAPTURADO DEPOIS do `canceled_at`. O que foi capturado antes não é
+ * problema dela: quem cancela pedido pago no admin já pede o estorno, e
+ * quem confere se ele aconteceu é o `lib/estornos.ts`.
+ *
+ * ┌─ `refundPaymentsWorkflow`, no PLURAL ──────────────────────────────────┐
+ * │ O singular (`refundPaymentWorkflow`) valida o pedido antes e recusa:   │
+ * │ "Order … has been canceled" — exatamente o caso que estamos            │
+ * │ resolvendo. O plural trabalha no pagamento, e não no pedido, e passa.  │
+ * └────────────────────────────────────────────────────────────────────────┘
+ */
+async function devolverPagosDepoisDoCancelamento(
+  container: MedusaContainer,
+  agora: Date,
+  relatorio: Relatorio
+) {
+  const query = container.resolve(ContainerRegistrationKeys.QUERY)
+  const { data: pedidos } = await query.graph({
+    entity: "order",
+    fields: [
+      "id",
+      "display_id",
+      "canceled_at",
+      "payment_collections.payments.id",
+      "payment_collections.payments.provider_id",
+      "payment_collections.payments.amount",
+      "payment_collections.payments.captured_at",
+      "payment_collections.payments.refunds.amount",
+    ],
+    filters: {
+      status: "canceled",
+      canceled_at: { $gte: new Date(agora.getTime() - JANELA_CANCELADOS_MS) },
+    },
+  })
+
+  type Pagamento = {
+    id: string
+    provider_id?: string
+    amount: unknown
+    captured_at?: string | null
+    refunds?: { amount: unknown }[]
+  }
+  type Cancelado = {
+    id: string
+    display_id?: number
+    canceled_at?: string | null
+    payment_collections?: { payments?: Pagamento[] }[]
+  }
+
+  for (const pedido of pedidos as unknown as Cancelado[]) {
+    const cancelado = Date.parse(pedido.canceled_at ?? "")
+    if (!Number.isFinite(cancelado)) continue
+    const nome = `#${pedido.display_id ?? pedido.id}`
+
+    for (const pagamento of (pedido.payment_collections ?? []).flatMap((c) => c?.payments ?? [])) {
+      if (pagamento.provider_id !== PROVEDOR) continue
+      const capturado = Date.parse(pagamento.captured_at ?? "")
+      if (!Number.isFinite(capturado) || capturado <= cancelado) continue
+
+      const devolvido = (pagamento.refunds ?? []).reduce((s, r) => s + Number(r.amount ?? 0), 0)
+      const resta = Number(pagamento.amount) - devolvido
+      if (!(resta > 0)) continue
+
+      relatorio.conferidas++
+      try {
+        await refundPaymentsWorkflow(container).run({
+          input: [
+            {
+              payment_id: pagamento.id,
+              amount: resta,
+              note: "pago depois de o pedido ser cancelado",
+            },
+          ],
+        })
+        relatorio.estornadas.push(`${nome} (pago depois de cancelado)`)
+      } catch (e) {
+        relatorio.avisos.push(`${nome}: pago depois de cancelado, e o estorno ${mensagemDe(e)}`)
+      }
     }
   }
 }
@@ -468,18 +661,23 @@ async function conciliarOrfaos(
 /* ── pedido cancelado no admin ────────────────────────────────────────────── */
 
 /**
- * Fecha no Pagar.me as cobranças de um pedido que acabou de ser cancelado:
- * o Pix esperando é cancelado (o QR morre), e o que já tinha sido pago e o
- * Medusa ainda não sabia é estornado. O subscriber `pedido-cancelado.ts`
- * chama isto no instante do cancelamento — é o que impede o cliente de pagar
- * um QR de pedido que não existe mais. A rodada de pendentes é a rede.
+ * Fecha no Pagar.me o que dá pra fechar num pedido recém-cancelado: o que já
+ * tinha sido pago (e o Medusa não sabia) é estornado, e o cartão em análise é
+ * cancelado. O subscriber `pedido-cancelado.ts` chama isto no instante do
+ * cancelamento; a rodada de pendentes é a rede.
+ *
+ * O PIX ESPERANDO NÃO SE FECHA — o Pagar.me responde 412 (ver a caixa no
+ * começo do arquivo). O QR continua pagável até vencer, e a sessão fica
+ * VIGIADA: o que entrar nela vai pro pedido cancelado, e a varredura de
+ * pagos depois de cancelados devolve o dinheiro.
  *
  * A cobrança é achada pelo CÓDIGO (o id da sessão, lido do banco), e não
  * pelo que está nos dados dela.
  */
 export async function fecharCobrancasDoPedido(
   container: MedusaContainer,
-  pedidoId: string
+  pedidoId: string,
+  { agora = new Date() }: { agora?: Date } = {}
 ): Promise<Relatorio> {
   const relatorio = relatorioVazio()
   const chave = process.env.PAGARME_SECRET_KEY
@@ -519,44 +717,98 @@ export async function fecharCobrancasDoPedido(
       const pedido = await cliente.buscarPorCodigo(sessao.id)
       if (!estado || !pedido) continue
       const lido = traduzir(pedido, estado.forma, estado.parcelas)
-      const { situacao, agiu } = await fecharCobranca(cliente, pedido, lido)
+      const { feito, situacao } = await fecharCobranca(cliente, pedido, lido, agora, estado)
+      // O Pix ainda vale: a sessão continua pendente, e vigiada.
+      if (feito === "vigiando") {
+        relatorio.esperando++
+        continue
+      }
       await anotar(container, sessao, { ...lido.estado, situacao }, "canceled")
-      if (agiu) {
-        ;(situacao === "estornado" ? relatorio.estornadas : relatorio.canceladas).push(
+      if (feito !== "nada") {
+        ;(feito === "estornou" ? relatorio.estornadas : relatorio.canceladas).push(
           `#${pedidoMedusa?.display_id ?? pedidoId} (${pedido.id})`
         )
       }
     } catch (e) {
-      relatorio.avisos.push(`${sessao.id}: ${e instanceof Error ? e.message : String(e)}`)
+      relatorio.avisos.push(`${sessao.id}: ${mensagemDe(e)}`)
     }
   }
   return relatorio
 }
 
 /**
- * Fecha uma cobrança que não vai mais virar venda: pendente, cancela; paga,
- * estorna o que ainda não foi devolvido. Devolve a situação em que ela ficou,
- * e se ESTA chamada mexeu em alguma coisa (cobrança já fechada é conferida e
- * deixada como está). A cobrança é a do pedido LIDO, nunca um id que veio de
- * outro lugar.
+ * O QUE ESTA PASSADA FEZ COM A COBRANÇA.
+ *
+ *   `estornou`  — o dinheiro voltou (ou o Pagar.me aceitou devolver);
+ *   `cancelou`  — a cobrança foi cancelada lá, e não vira mais venda;
+ *   `vigiando`  — não dava pra mexer AGORA, e não é erro: o Pix ainda vale,
+ *                 o 412 disse que não, ou já há um estorno andando. Quem
+ *                 chamou deixa a sessão como está, pendente, e a próxima
+ *                 rodada volta nela;
+ *   `nada`      — não havia o que fazer: já estava fechada, já tinha voltado
+ *                 tudo, ou é um Pix pendente que já venceu (e que lá não se
+ *                 cancela de jeito nenhum).
+ *
+ * A diferença entre `vigiando` e `nada` é a única que importa pra quem
+ * chama: `nada` fecha a sessão; `vigiando`, não.
  */
-async function fecharCobranca(
+export type Fecho = "estornou" | "cancelou" | "vigiando" | "nada"
+
+/**
+ * Fecha uma cobrança que não vai mais virar venda, no que der:
+ *
+ *   PAGA → estorna o que ainda não voltou. NUNCA por cima de um estorno
+ *     andando (`pending_cancellation`): dois pedidos de estorno na mesma
+ *     cobrança devolvem o dinheiro duas vezes. Nesse caso, vigia.
+ *
+ *   PIX PENDENTE → NÃO MANDA DELETE. O Pagar.me responde 412, vencido ou
+ *     não. Enquanto o QR vale, vigia; depois de vencido, não há mais nada a
+ *     fechar lá — só anotar aqui.
+ *
+ *   CARTÃO PENDENTE (análise) → esse o DELETE cancela. E se vier 412
+ *     assim mesmo, é o Pagar.me dizendo "ainda não": vigia.
+ *
+ * A cobrança é a do pedido LIDO, nunca um id que veio de outro lugar. O
+ * `gravado` é o estado da sessão, e serve só pra saber quando o Pix vence.
+ */
+export async function fecharCobranca(
   cliente: ClienteDoPagarme,
   pedido: PedidoPagarme,
-  lido: ReturnType<typeof traduzir>
-): Promise<{ situacao: Situacao; agiu: boolean }> {
+  lido: ReturnType<typeof traduzir>,
+  agora: Date,
+  gravado: Estado | null = null
+): Promise<{ feito: Fecho; situacao: Situacao }> {
   const cobranca = lido.estado.cobranca
-  if (cobranca && lido.status === PaymentSessionStatus.CAPTURED) {
+  if (!cobranca) return { feito: "nada", situacao: lido.estado.situacao }
+
+  if (lido.status === PaymentSessionStatus.CAPTURED) {
+    if (estornoAndando(pedido.charges?.[0] ?? {})) {
+      return { feito: "vigiando", situacao: lido.estado.situacao }
+    }
     const resta = Number(pedido.amount) - lido.estado.estornado
-    if (resta <= 0) return { situacao: "estornado", agiu: false }
+    if (resta <= 0) return { feito: "nada", situacao: "estornado" }
     await cliente.cancelarCobranca(cobranca, resta)
-    return { situacao: "estornado", agiu: true }
+    return { feito: "estornou", situacao: "estornado" }
   }
-  if (cobranca && lido.status === PaymentSessionStatus.PENDING_AUTHORIZATION) {
-    await cliente.cancelarCobranca(cobranca)
-    return { situacao: "cancelado", agiu: true }
+
+  if (lido.status === PaymentSessionStatus.PENDING_AUTHORIZATION) {
+    if (lido.estado.forma === "pix") {
+      return venceuOPix(lido.estado, gravado, pedido, agora)
+        ? { feito: "nada", situacao: "cancelado" }
+        : { feito: "vigiando", situacao: lido.estado.situacao }
+    }
+    try {
+      await cliente.cancelarCobranca(cobranca)
+      return { feito: "cancelou", situacao: "cancelado" }
+    } catch (e) {
+      if (e instanceof ErroDoPagarme && e.status === 412) {
+        return { feito: "vigiando", situacao: lido.estado.situacao }
+      }
+      throw e
+    }
   }
-  return { situacao: lido.estado.situacao, agiu: false }
+
+  return { feito: "nada", situacao: lido.estado.situacao }
 }
 
 /* ── as três escritas ─────────────────────────────────────────────────────── */
@@ -576,6 +828,23 @@ async function registrarPagamento(container: MedusaContainer, sessaoId: string, 
 }
 
 /**
+ * A MENSAGEM DE UM ERRO QUALQUER.
+ *
+ * Os workflows do Medusa não jogam `Error`: jogam um objeto com `message`
+ * (e `type`, e `code`). Com `e instanceof Error ? … : String(e)`, esse
+ * objeto virava "[object Object]" no log — e, pior, o `cancelarPedido`
+ * abaixo deixava de reconhecer o "has been canceled" e subia um erro por
+ * um pedido que já estava cancelado.
+ */
+function mensagemDe(e: unknown): string {
+  if (e instanceof Error) return e.message
+  if (e && typeof e === "object" && "message" in e) {
+    return String((e as { message: unknown }).message)
+  }
+  return String(e)
+}
+
+/**
  * Cancela o pedido e devolve o estoque. Pedido JÁ cancelado não é erro (o
  * admin pode ter chegado antes); qualquer outra recusa é, e sobe — "tem
  * envio criado" num pedido que ninguém pagou é coisa pra gente ver.
@@ -585,7 +854,7 @@ async function cancelarPedido(container: MedusaContainer, pedidoId: string | und
   try {
     await cancelOrderWorkflow(container).run({ input: { order_id: pedidoId } })
   } catch (e) {
-    if (!/has been canceled/i.test(e instanceof Error ? e.message : String(e))) throw e
+    if (!/has been canceled/i.test(mensagemDe(e))) throw e
   }
 }
 

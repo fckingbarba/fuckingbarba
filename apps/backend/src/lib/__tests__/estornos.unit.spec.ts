@@ -1,5 +1,5 @@
 import { emailDoEstornoQueFalhou } from "../emails/estorno-falhou"
-import { ehAVez, lerEstorno, lerRegistros, TENTATIVAS } from "../estornos"
+import { ehAVez, estornoAndando, lerEstorno, lerRegistros, TENTATIVAS } from "../estornos"
 
 const PEDIDO_EM = new Date("2026-09-21T15:00:00.000Z")
 const minutos = (n: number) => new Date(PEDIDO_EM.getTime() + n * 60 * 1000)
@@ -80,6 +80,25 @@ describe("o estorno aconteceu?", () => {
       retentavel: false,
       motivo: 'a cobrança está "chargedback" lá',
     })
+  })
+})
+
+describe("já há estorno andando nesta cobrança?", () => {
+  it("o 'Aguardando Cancelamento' do painel, a cobrança processando, a transação estornando", () => {
+    expect(estornoAndando(paga({ pending_cancellation: true }))).toBe(true)
+    expect(estornoAndando(paga({ status: "PROCESSING" }))).toBe(true)
+    expect(estornoAndando(paga({ last_transaction: { status: "pending_refund" } }))).toBe(true)
+    expect(estornoAndando(paga({ last_transaction: { status: "waiting_cancellation" } }))).toBe(
+      true
+    )
+  })
+
+  it("paga e parada, já estornada, ou vazia: não há nada andando", () => {
+    expect(estornoAndando(paga())).toBe(false)
+    expect(
+      estornoAndando(paga({ status: "refunded", last_transaction: { status: "refunded" } }))
+    ).toBe(false)
+    expect(estornoAndando({})).toBe(false)
   })
 })
 

@@ -113,8 +113,18 @@ export function fabricaDePedidos({ medusa, chave, tokenAdmin, pagarme }) {
   /**
    * Um pedido com o Pix esperando. `itens` é uma lista de handles com
    * quantidade: [["shampoo-para-barba", 2], ["balm-para-barba", 1]].
+   *
+   * `validadeSegundos` manda no `expires_at` que o Pagar.me falso devolve.
+   * NEGATIVO faz um Pix que já nasce vencido — é assim que o conferidor da
+   * conta desenha a tela do "Pix vencido" sem esperar meia hora. Ele ainda
+   * tem os 10 minutos de folga da conciliação antes de virar cancelado, que
+   * é tempo de sobra pro teste.
    */
-  async function pedidoPix(email, itens = [["shampoo-para-barba", 1]]) {
+  async function pedidoPix(
+    email,
+    itens = [["shampoo-para-barba", 1]],
+    { validadeSegundos = null } = {}
+  ) {
     await variante(itens[0][0]) // a região vem junto
     const { cart } = await loja("/store/carts", {
       method: "POST",
@@ -140,10 +150,15 @@ export function fabricaDePedidos({ medusa, chave, tokenAdmin, pagarme }) {
       body: JSON.stringify({ cart_id: cart.id }),
     })
     const antes = new Set(pagarme.pedidos.keys())
-    await loja(`/store/payment-collections/${payment_collection.id}/payment-sessions`, {
-      method: "POST",
-      body: JSON.stringify({ provider_id: PAGARME, data: { entrada: entradaDoPix(email) } }),
-    })
+    pagarme.validadeDoPix = validadeSegundos
+    try {
+      await loja(`/store/payment-collections/${payment_collection.id}/payment-sessions`, {
+        method: "POST",
+        body: JSON.stringify({ provider_id: PAGARME, data: { entrada: entradaDoPix(email) } }),
+      })
+    } finally {
+      pagarme.validadeDoPix = null
+    }
     const fim = await loja(`/store/carts/${cart.id}/complete`, { method: "POST" })
     if (fim?.type !== "order")
       throw new Error(`o carrinho não virou pedido: ${JSON.stringify(fim)}`)

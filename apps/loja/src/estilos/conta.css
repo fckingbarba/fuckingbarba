@@ -387,6 +387,13 @@ html:not([data-hidratado]) body:has(.conta) {
   background: var(--color-amarelo);
   color: var(--color-tinta);
 }
+/* O Pix que passou da hora: amarelo escuro, não vermelho — o vermelho desta
+   paleta briga com a menta (ver `recados.css`). Não é erro de ninguém; é um
+   prazo que acabou, e o cancelamento vem em seguida. */
+.status[data-status="vencido"] {
+  background: var(--color-amarelo-escuro);
+  color: var(--color-tinta);
+}
 .status[data-status="analise"] {
   background: var(--color-amarelo-claro);
   color: var(--color-tinta);
@@ -442,7 +449,8 @@ html:not([data-hidratado]) body:has(.conta) {
   background: var(--color-cinza);
   border-left: 4px solid var(--color-tinta);
 }
-.andamento__linha[data-status="pix"] {
+.andamento__linha[data-status="pix"],
+.andamento__linha[data-status="vencido"] {
   background: #fffbe6;
   border-left-color: var(--color-amarelo-escuro);
 }
@@ -977,6 +985,14 @@ html:not([data-hidratado]) body:has(.conta) {
   color: var(--color-tinta);
   text-transform: uppercase;
   font-size: 0.8rem;
+}
+/* O Pix vencido usa a mesma caixa do cancelado — mas ainda vai acontecer
+   coisa, e o triângulo amarelo diz isso melhor que o cinza de "acabou". */
+.cancelado[data-vencido] {
+  background: #fffbe6;
+}
+.cancelado[data-vencido] svg {
+  fill: var(--color-amarelo-escuro);
 }
 
 .info {

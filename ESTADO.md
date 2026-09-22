@@ -1,6 +1,7 @@
 # Estado do projeto — e o que vem a seguir
 
-Atualizado em 22/09/2026, com a Minha conta de pé na loja: endereços, meus dados, o checkout que
+Atualizado em 22/09/2026, com o Pix vencido que prendia o estoque consertado (o #7 — ver o primeiro
+achado da revisão do pagamento) e a Minha conta de pé na loja: endereços, meus dados, o checkout que
 abre preenchido pra quem está na conta (e guarda o endereço da compra), e o "Minha conta" do
 cabeçalho apontando pra ela. No mesmo dia, o estorno que o Pagar.me não faz (a conciliação confere,
 avisa e pede de novo), a API de pedido fechada pra quem só tem o id e o e-mail de pedido confirmado
@@ -114,6 +115,22 @@ aparecem na conta e no log, sem e-mail automático — esses a loja conversa com
 
 ### 2. Achados da revisão do pagamento — Claude Code
 
+- [x] **Pix vencido não cancelava o pedido, e o estoque ficava preso** (visto no #7; resolvido em
+      22/09). O pedido passou um dia em "Aguardando Pix" com a unidade reservada, e o log repetia,
+      de 5 em 5 minutos, o 412 do `DELETE /charges/ch_…`: "This charge cannot be canceled because is
+      pending". **O Pagar.me não cancela Pix pendente** — e Pix vencido continua `pending` lá, então
+      o 412 não passava nunca; como o pedido só era cancelado DEPOIS do DELETE, nunca era. Agora
+      ninguém manda DELETE em Pix pendente (nem a conciliação, nem o provedor, nem o subscriber de
+      pedido cancelado). No lugar:
+  - **Pix vencido:** cancela só o pedido aqui, e o estoque volta. Com os 10 minutos de folga de
+    sempre, e relendo o pagamento antes — Pix pago no último minuto existe. O QR morre sozinho;
+  - **pedido cancelado no admin com o Pix ainda valendo:** o QR continua pagável, e a sessão fica
+    **vigiada**. Se a pessoa pagar, uma varredura nova (todo pedido cancelado dos últimos 7 dias)
+    devolve o que entrou depois do cancelamento;
+  - **cartão em análise** continua sendo cancelado lá; se vier 412, vira vigiado também;
+  - **na conta**, o Pix que passou da hora deixou de dizer "Aguardando Pix": vira **"Pix vencido"**,
+    com "O Pix venceu — o pedido vai ser cancelado" e "Ver pedido" no lugar de "Pagar o Pix". Quem
+    estiver com a tela aberta vê a frase virar na hora, sem recarregar.
 - [x] **Estorno de Pix que falha no Pagar.me não voltava pro Medusa** (visto no primeiro Pix real;
       resolvido em 22/09). Cancelar pedido pago no admin pede o estorno, o Pagar.me aceita
       ("Aguardando Cancelamento") e o Medusa marca Refunded na hora; se o estorno falha depois — o

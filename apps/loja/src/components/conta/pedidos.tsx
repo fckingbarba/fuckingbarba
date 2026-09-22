@@ -2,7 +2,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { redirect } from "next/navigation"
 import type { ReactNode } from "react"
-import { ComprarDeNovo, Copiar, MinutosDoPix } from "@/components/conta/pecas"
+import { AteVencer, ComprarDeNovo, Copiar, MinutosDoPix } from "@/components/conta/pecas"
 import { Raio, Sacola } from "@/components/icones"
 import {
   FRASE_DO_ALERTA,
@@ -68,6 +68,13 @@ export function feito(p: PedidoDaConta): string {
   return /^(hoje|ontem)/.test(q) ? `Feito ${q}` : `Feito em ${q}`
 }
 
+/**
+ * A FRASE DO PIX VENCIDO, uma só — a lista, a visão geral e a contagem que
+ * vira no navegador dizem exatamente a mesma coisa. Quem cancela é a
+ * conciliação, nos próximos minutos; a tela não promete hora.
+ */
+const PIX_VENCEU = "O Pix venceu — o pedido vai ser cancelado."
+
 /** Por que um pedido cancelado foi cancelado — em uma linha, pra lista. */
 function porQueCancelou(p: PedidoDaConta): string {
   if (p.estornado) return "Cancelado, com o pagamento estornado."
@@ -90,18 +97,30 @@ export function LinhaDoAndamento({
   rastreio?: Rastreio | null
 }) {
   let texto: ReactNode
-  let acao = "Ver pedido"
+  let acao: ReactNode = "Ver pedido"
   switch (p.situacao) {
     case "pix":
+      // Quem já abriu a conta e ficou olhando vê a frase e o botão virarem
+      // na hora em que o Pix vence — sem recarregar. Quem chega depois já
+      // recebe "vencido" do servidor.
       texto = (
-        <>
+        <AteVencer expiraEm={p.pagamento.pix?.expiraEm ?? null} venceu={PIX_VENCEU}>
           Falta pagar o Pix — vale por mais{" "}
           <b>
             <MinutosDoPix expiraEm={p.pagamento.pix?.expiraEm ?? null} />
           </b>
-        </>
+        </AteVencer>
       )
-      acao = "Pagar o Pix"
+      acao = (
+        <AteVencer expiraEm={p.pagamento.pix?.expiraEm ?? null} venceu="Ver pedido">
+          Pagar o Pix
+        </AteVencer>
+      )
+      break
+    case "vencido":
+      // Nem "Pagar o Pix", nem prazo: o QR não aceita mais nada, e o
+      // cancelamento é a conciliação que faz, nos próximos minutos.
+      texto = PIX_VENCEU
       break
     case "analise":
       texto = "Pagamento em análise — costuma levar poucos minutos."
@@ -217,13 +236,19 @@ export function CartaoDoPedido({ p }: { p: PedidoDaConta }) {
   )
   let acoes: ReactNode
   if (p.situacao === "pix") {
+    const expiraEm = p.pagamento.pix?.expiraEm ?? null
     acoes = (
       <>
         <Link className="btn btn--menor" href={doPedido(p)}>
-          Pagar o Pix <Raio className="btn__bolt" />
+          <AteVencer expiraEm={expiraEm} venceu="Ver pedido">
+            Pagar o Pix
+          </AteVencer>{" "}
+          <Raio className="btn__bolt" />
         </Link>
         <p className="pedido-card__prazo" data-pix="">
-          Vale por mais <MinutosDoPix expiraEm={p.pagamento.pix?.expiraEm ?? null} />
+          <AteVencer expiraEm={expiraEm} venceu={PIX_VENCEU}>
+            Vale por mais <MinutosDoPix expiraEm={expiraEm} />
+          </AteVencer>
         </p>
       </>
     )
@@ -235,7 +260,9 @@ export function CartaoDoPedido({ p }: { p: PedidoDaConta }) {
           ? `Enviado em ${dia(p.datas.enviado)}`
           : p.situacao === "cancelado"
             ? porQueCancelou(p)
-            : null
+            : p.situacao === "vencido"
+              ? PIX_VENCEU
+              : null
     acoes = (
       <>
         {ver}
@@ -243,7 +270,7 @@ export function CartaoDoPedido({ p }: { p: PedidoDaConta }) {
         {prazo ? (
           <p
             className="pedido-card__prazo"
-            data-cancelado={p.situacao === "cancelado" ? "" : undefined}
+            data-cancelado={p.situacao === "cancelado" || p.situacao === "vencido" ? "" : undefined}
           >
             {prazo}
           </p>
@@ -290,20 +317,29 @@ export function Trilha({ p }: { p: PedidoDaConta }) {
   const pagamento: [string, string] =
     p.situacao === "pix"
       ? ["Pagamento", "esperando o Pix"]
-      : p.situacao === "analise"
-        ? ["Pagamento", "em análise"]
-        : p.situacao === "combinar"
-          ? ["Pagamento", "a combinar"]
-          : ["Pagamento aprovado", diaEHora(p.datas.pago)]
+      : p.situacao === "vencido"
+        ? ["Pagamento", "o Pix venceu"]
+        : p.situacao === "analise"
+          ? ["Pagamento", "em análise"]
+          : p.situacao === "combinar"
+            ? ["Pagamento", "a combinar"]
+            : ["Pagamento aprovado", diaEHora(p.datas.pago)]
   const passos: [string, string][] = [
     ["Pedido feito", diaEHora(p.datas.feito)],
     pagamento,
     ["Enviado", diaEHora(p.datas.enviado)],
     ["Entregue", diaEHora(p.datas.entregue)],
   ]
-  const agora = { pix: 1, analise: 1, combinar: 1, pago: 2, enviado: 3, entregue: 4, cancelado: 0 }[
-    p.situacao
-  ]
+  const agora = {
+    pix: 1,
+    vencido: 1,
+    analise: 1,
+    combinar: 1,
+    pago: 2,
+    enviado: 3,
+    entregue: 4,
+    cancelado: 0,
+  }[p.situacao]
   return (
     <ol className="linha-do-tempo">
       {passos.map(([rotulo, data], i) => (
@@ -417,6 +453,7 @@ export function textoDoPagamento(p: PedidoDaConta): string {
   } else {
     base = "A combinar com a loja"
   }
+  if (p.situacao === "vencido") return "Pix — venceu sem pagamento"
   if (p.situacao !== "cancelado") return base
   if (p.estornado) return `${base} — estornado`
   return forma === "pix" ? "Pix — venceu sem pagamento" : `${base} — não aprovado`
