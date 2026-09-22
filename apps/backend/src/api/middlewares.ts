@@ -1,11 +1,19 @@
 import {
   authenticate,
   defineMiddlewares,
+  type AuthenticatedMedusaRequest,
   type MedusaNextFunction,
   type MedusaRequest,
   type MedusaResponse,
 } from "@medusajs/framework/http"
 import { ContainerRegistrationKeys, MedusaError } from "@medusajs/framework/utils"
+import {
+  acessoAoPedido,
+  CABECALHO_DO_CARRINHO,
+  CAMPOS_PUBLICOS,
+  type Posse,
+  respostaPublica,
+} from "../lib/pedido-publico"
 
 /**
  * URLs em português, limpas e congeladas (seção SEO da arquitetura).
@@ -110,6 +118,64 @@ async function pagamentoDePedidoFechado(
   next()
 }
 
+/**
+ * O PEDIDO INTEIRO SÓ PRA QUEM COMPROU — o porquê está em
+ * `lib/pedido-publico.ts`.
+ *
+ * Roda depois da validação do core, que já montou o `req.queryConfig`, e
+ * antes da rota. Pra quem não é dono, duas coisas: os campos pedidos viram
+ * os públicos (o resto nem sai do banco), e a resposta passa pela versão
+ * pública, montada campo a campo — se um dia o core mudar a ordem e os
+ * campos pedidos voltarem, a resposta continua sem dado pessoal.
+ */
+async function pedidoSoPraQuemComprou(
+  req: MedusaRequest,
+  res: MedusaResponse,
+  next: MedusaNextFunction
+) {
+  const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
+  const { data } = await query.graph({
+    entity: "order",
+    fields: ["id", "customer_id", "cart.id"],
+    filters: { id: req.params.id },
+  })
+  const pedido = data[0] as Posse | undefined
+  const quem = (req as Partial<AuthenticatedMedusaRequest>).auth_context
+  const carrinho = req.headers[CABECALHO_DO_CARRINHO]
+  // Pedido que não existe segue como público: a rota responde o 404 dela.
+  const acesso = pedido
+    ? acessoAoPedido(pedido, {
+        cliente: quem?.actor_type === "customer" ? quem.actor_id : null,
+        carrinho: typeof carrinho === "string" ? carrinho : undefined,
+      })
+    : "publico"
+
+  if (acesso === "dono") return next()
+  if (acesso === "recusado") {
+    throw new MedusaError(MedusaError.Types.FORBIDDEN, "Este carrinho não é o deste pedido.")
+  }
+  if (req.queryConfig) req.queryConfig.fields = [...CAMPOS_PUBLICOS]
+  const responder = res.json.bind(res)
+  res.json = (corpo: unknown) => responder(respostaPublica(corpo))
+  next()
+}
+
+/**
+ * ROTAS DO CORE QUE A LOJA NÃO USA e que abrem o pedido de outra pessoa.
+ *
+ * - Troca de dono (`/store/orders/:id/transfer/*`): qualquer conta pede a
+ *   transferência de qualquer pedido pelo id, e a resposta traz o pedido
+ *   INTEIRO — e-mail, endereço, CPF. O Medusa só confere que a conta existe e
+ *   que o pedido não é dela. Aqui os pedidos do convidado entram na conta
+ *   quando o e-mail é provado pelo código (`/store/conta/vincular`).
+ * - Devolução (`POST /store/returns`): qualquer um com o id abre uma
+ *   devolução no pedido. Aqui a troca e a devolução são conversadas no
+ *   WhatsApp e registradas pelo admin.
+ */
+function rotaQueALojaNaoUsa(_req: MedusaRequest, _res: MedusaResponse, _next: MedusaNextFunction) {
+  throw new MedusaError(MedusaError.Types.NOT_ALLOWED, "Esta loja não usa esta rota.")
+}
+
 export default defineMiddlewares({
   routes: [
     {
@@ -117,6 +183,28 @@ export default defineMiddlewares({
       method: ["POST"],
       middlewares: [pagamentoDePedidoFechado],
     },
+    { matcher: "/store/orders/:id", method: ["GET"], middlewares: [pedidoSoPraQuemComprou] },
+    {
+      matcher: "/store/orders/:id/transfer/request",
+      method: ["POST"],
+      middlewares: [rotaQueALojaNaoUsa],
+    },
+    {
+      matcher: "/store/orders/:id/transfer/cancel",
+      method: ["POST"],
+      middlewares: [rotaQueALojaNaoUsa],
+    },
+    {
+      matcher: "/store/orders/:id/transfer/accept",
+      method: ["POST"],
+      middlewares: [rotaQueALojaNaoUsa],
+    },
+    {
+      matcher: "/store/orders/:id/transfer/decline",
+      method: ["POST"],
+      middlewares: [rotaQueALojaNaoUsa],
+    },
+    { matcher: "/store/returns", method: ["POST"], middlewares: [rotaQueALojaNaoUsa] },
     /*
       O token que chega aqui ainda não tem cliente (é pra isso que a rota
       existe), então `allowUnregistered`. Só `bearer`: quem chama é o

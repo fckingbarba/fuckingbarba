@@ -153,8 +153,9 @@ try {
       await pagina.locator(".feito__validade", { hasText: "Vale" }).waitFor({ timeout: 15000 })
       await foto(pagina, `obrigado-pix-${tela}`)
       const pedidoId = pagina.url().split("/").pop()
-      const { order } = await loja(
-        `/store/orders/${pedidoId}?fields=id,*payment_collections,*payment_collections.payment_sessions`
+      // Pelo admin: pela loja, quem só tem o id lê a versão pública, sem a sessão.
+      const { order } = await adm(
+        `/admin/orders/${pedidoId}?fields=id,*payment_collections,*payment_collections.payment_sessions`
       )
       const sessao = order.payment_collections[0].payment_sessions[0].id
       await pagarme.pagar(pagarme.pedidoPorCodigo(sessao).pedido.id)
@@ -199,8 +200,8 @@ try {
     await pagar(pagina)
     await pagina.waitForURL(/obrigado/, { timeout: 45000 })
     const pedidoId = pagina.url().split("/").pop()
-    const { order } = await loja(
-      `/store/orders/${pedidoId}?fields=id,*payment_collections,*payment_collections.payment_sessions`
+    const { order } = await adm(
+      `/admin/orders/${pedidoId}?fields=id,*payment_collections,*payment_collections.payment_sessions`
     )
     const registro = pagarme.pedidoPorCodigo(order.payment_collections[0].payment_sessions[0].id)
     await pagarme.envelhecer(registro.pedido.id)

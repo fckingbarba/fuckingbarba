@@ -19,9 +19,10 @@ import { CAMPOS_DO_PEDIDO, paraPedidoVisivel, type PedidoVisivel } from "./pedid
  * ┌─ QUEM DIZ DE QUEM É O PEDIDO É O MEDUSA ───────────────────────────────┐
  * │ Tudo sai de `GET /store/orders` com o token da sessão, e essa rota só  │
  * │ devolve pedido do cliente do token. O detalhe também vem por ela       │
- * │ (`?id=`), e não por `/store/orders/:id` — que responde pra qualquer    │
- * │ um que tenha o id. Pedido de outra pessoa não é "proibido" aqui: ele   │
- * │ simplesmente não aparece, e a tela diz que não achou.                   │
+ * │ (`?id=`), e não por `/store/orders/:id` — que, pra quem só tem o id,   │
+ * │ responde a versão pública (número e situação). Pedido de outra pessoa  │
+ * │ não é "proibido" aqui: ele simplesmente não aparece, e a tela diz que  │
+ * │ não achou.                                                             │
  * └────────────────────────────────────────────────────────────────────────┘
  *
  * O convidado que comprou antes de ter conta VIROU a conta no primeiro

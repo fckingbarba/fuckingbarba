@@ -169,6 +169,18 @@ na mesma chave de teste não estornam as compras uma da outra. Ainda assim, uma 
 a de produção só no Railway. Na loja, carrinho que fechou sem a confirmação chegar ao navegador
 volta pro pedido pelo `/checkout/retomar`, em vez de mostrar "sacola vazia".
 
+O **pedido pelo id** (`GET /store/orders/:id`) é aberto de propósito no Medusa — o id faz as vezes
+de senha —, e a resposta padrão traz e-mail, endereço, telefone e o CPF. Só que o id está na URL da
+tela de obrigado e no link dos e-mails. `src/api/middlewares.ts` e `src/lib/pedido-publico.ts`
+fecham: o pedido inteiro só sai pra quem prova que é dono — o carrinho de onde ele nasceu, no
+cabeçalho `x-carrinho`, ou a conta dona (token de cliente). Pra todo o resto, a versão pública,
+montada campo a campo: número, situação e a forma de pagamento. Carrinho errado é 403. Na loja, o
+crachá de quem comprou é o cookie `pedido` = `<pedido>.<carrinho>` (`abrirPedido`, em
+`apps/loja/src/lib/checkout.ts`), e quem decide se ele vale é o Medusa (`lerPedido`). A troca de
+dono (`/store/orders/:id/transfer/*`) e a devolução pela API (`POST /store/returns`) ficam
+fechadas: abriam o pedido de qualquer um pelo id, e a loja não usa nenhuma das duas. Conferidor que
+precisa do pedido inteiro lê pelo admin ou manda o `x-carrinho`.
+
 A **conta** entra com código no e-mail, sem senha. `POST /store/conta/codigo` sorteia seis dígitos,
 guarda só o hash (HMAC com o `JWT_SECRET`) no `provider_metadata` da identidade `codigo` e manda o
 e-mail pelo Resend (`src/lib/email.ts`; sem `RESEND_API_KEY`, fora de produção, o código sai no
@@ -184,8 +196,8 @@ porta da `/conta`. O limite por pessoa conta o IP que a loja manda em `x-cliente
 
 Os **pedidos da conta** (`apps/loja/src/lib/pedidos-da-conta.ts`) saem de `GET /store/orders` com o
 token da sessão — a rota só devolve pedido do cliente do token. O detalhe também vem por ela
-(`?id=`), nunca por `/store/orders/:id`, que responde pra qualquer um com o id: pedido de outra
-pessoa não aparece, e a tela diz que não achou. O rastreio vem de
+(`?id=`), e não por `/store/orders/:id`: pedido de outra pessoa não aparece, e a tela diz que não
+achou. O rastreio vem de
 `GET /store/conta/pedidos/:id/rastreio` (backend), que lê os envios do núcleo (ver **Envios**,
 abaixo) com o mesmo filtro de dono — a API da loja nem sabe que eles existem, e corta as etiquetas
 dos fulfillments. O id do pedido no endereço não passa pra minúscula (`CAMINHOS_COM_ID`, no `proxy.ts`). O

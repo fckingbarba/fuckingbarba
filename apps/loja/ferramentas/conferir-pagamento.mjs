@@ -164,13 +164,19 @@ const reais = (v) =>
  * falhava num lugar que não tem nada a ver com pagamento.
  */
 const pedidosDoTeste = new Set()
+/**
+ * Pelo admin: pela loja, o pedido de quem só tem o id vem na versão pública
+ * (número e situação — ver `lib/pedido-publico.ts` do backend), e aqui se
+ * confere total, itens e a sessão do Pagar.me.
+ */
 async function pedidoNoMedusa(id) {
   pedidosDoTeste.add(id)
-  const { json } = await loja(
-    `/store/orders/${id}?fields=id,display_id,status,payment_status,total,*items,` +
-      "*payment_collections,*payment_collections.payment_sessions"
+  const r = await fetch(
+    `${MEDUSA}/admin/orders/${id}?fields=id,display_id,status,payment_status,total,*items,` +
+      "*payment_collections,*payment_collections.payment_sessions",
+    { headers: cabAdmin }
   )
-  return json?.order
+  return (await r.json().catch(() => null))?.order
 }
 
 /** O pedido do Pagar.me falso que nasceu da sessão deste pedido do Medusa. */

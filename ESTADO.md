@@ -1,9 +1,9 @@
 # Estado do projeto — e o que vem a seguir
 
-Atualizado em 22/09/2026, com o e-mail de pedido confirmado ligado: sai uma vez por pedido pago,
-inclusive o que o "Check payment status" do admin confirma. Antes, em 21/09, o conserto do cache (a
-loja parou de guardar falha do Medusa como se fosse o catálogo) e os envios: o rastreio da Frenet
-chegando no pedido, na conta e no e-mail do cliente, por um núcleo que não depende do parceiro. O
+Atualizado em 22/09/2026, com a API de pedido fechada: quem só tem o id de um pedido não lê mais o
+endereço, o e-mail nem o CPF de quem comprou. No mesmo dia, o e-mail de pedido confirmado ligado
+(sai uma vez por pedido pago, inclusive o que o "Check payment status" do admin confirma); em
+21/09, o conserto do cache e o rastreio da Frenet chegando no pedido, na conta e no e-mail. O
 AGENTS.md diz **como** trabalhar aqui; este arquivo diz **onde** o projeto está. Leia os dois antes
 de começar e, ao terminar uma tarefa, atualize este: o que mudou de estado, o que saiu da lista, o
 que entrou.
@@ -129,9 +129,20 @@ aparecem na conta e no log, sem e-mail automático — esses a loja conversa com
       De quebra: o build deixou de reaproveitar respostas do Medusa de um build anterior (dois
       deploys com menos de 15 minutos entre eles subiam a loja com o catálogo do primeiro), e o
       sitemap passou a ter a data de cada produto.
-- [ ] **A API de pedido do Medusa mostra endereço e CPF** a quem tiver o id do pedido
-      (`GET /store/orders/:id`). A tela de obrigado esconde; a API, não. Um middleware em
-      `apps/backend/src/api/middlewares.ts` limitando os campos resolve.
+- [x] **A API de pedido do Medusa mostrava endereço e CPF** a quem tivesse o id do pedido
+      (22/09). O id está na URL da tela de obrigado e no link dos e-mails, e a chave publicável é
+      pública. Agora o pedido inteiro só sai pra quem prova que é dono — o carrinho de onde ele
+      nasceu, que a loja guarda no crachá de quem comprou, ou a conta dona; pra todo o resto, só o
+      número e a situação. Na revisão apareceram mais duas portas, fechadas junto:
+  - **o crachá da tela de obrigado era forjável**: era o próprio id do pedido, então bastava pôr um
+    cookie `pedido=<id>` no navegador pra ver o endereço. Agora ele leva o carrinho, e quem confere
+    é o Medusa;
+  - **a troca de dono do Medusa** (`/store/orders/:id/transfer/request`): qualquer conta pedia a
+    transferência de qualquer pedido e recebia o pedido inteiro na resposta. Fechada, junto com a
+    devolução pela API (`POST /store/returns`), que também abria pelo id — a loja não usa nenhuma;
+  - o efeito colateral, pequeno: quem comprou antes do deploy passa a ver a tela de obrigado sem os
+    detalhes, mesmo no navegador da compra (o crachá antigo não tem o carrinho). Eles continuam na
+    conta, entrando com o e-mail da compra.
 - [x] **A tela de obrigado prometia e-mail que não saía** (22/09). O de pedido confirmado sai agora,
       uma vez por pedido pago (ver a fase 5), e a tela promete conforme o estado: pago, "enviamos os
       detalhes pra <e-mail>"; Pix esperando, "quando o Pix cair, a confirmação vai pra <e-mail>";

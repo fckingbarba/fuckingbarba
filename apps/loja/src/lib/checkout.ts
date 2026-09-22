@@ -374,13 +374,29 @@ export async function listarSugestoes(
  *
  * O id do pedido é imprevisível, mas "imprevisível" não é "privado" — URL
  * vaza em histórico, em print, no grupo da família. E a tela de obrigado
- * mostra endereço completo e documento. Então ela só abre tudo quando este
- * cookie confirma que quem está olhando é quem comprou.
+ * mostra endereço completo e documento. Então ela só abre tudo pra quem tem
+ * este cookie, o crachá de quem comprou.
+ *
+ * O CRACHÁ LEVA O CARRINHO, e não só o pedido: `<pedido>.<carrinho>`. Um
+ * crachá só com o id do pedido era forjável por qualquer um que tivesse o
+ * link — é o mesmo texto da URL. O id do carrinho, não: ele morava no cookie
+ * da sacola e em lugar nenhum mais. É ele que a loja mostra ao Medusa
+ * (`x-carrinho`), e é o Medusa que decide se entrega o pedido inteiro —
+ * ver `apps/backend/src/lib/pedido-publico.ts`.
  *
  * Uma semana: tempo de conferir o pedido algumas vezes, e curto o bastante pra
  * não virar um crachá esquecido num computador compartilhado.
  */
 export const COOKIE_PEDIDO = "pedido"
+
+export type Cracha = { pedido: string; carrinho: string | null }
+
+/** `<pedido>.<carrinho>`. O de antes (só o pedido) ainda é lido, sem carrinho. */
+export function lerCracha(valor: string | undefined): Cracha | null {
+  if (!valor) return null
+  const [pedido, carrinho] = valor.split(".")
+  return pedido ? { pedido, carrinho: carrinho || null } : null
+}
 
 const UMA_SEMANA = 60 * 60 * 24 * 7
 
@@ -402,11 +418,14 @@ export const OPCOES_COOKIE_PEDIDO = {
  */
 export async function abrirPedido(pedidoId: string): Promise<never> {
   const jar = await cookies()
+  // Os três caminhos que chegam aqui acharam o pedido pelo carrinho deste
+  // cookie — é ele que vai no crachá.
+  const carrinhoId = jar.get(COOKIE_CARRINHO)?.value
   // A sacola acabou. Sem isto, quem comprou volta pro site e encontra a
   // própria compra parada na gaveta.
   jar.delete(COOKIE_CARRINHO)
   // O crachá de quem comprou — a tela de obrigado só mostra endereço,
   // documento e o QR do Pix pra quem tem ele.
-  jar.set(COOKIE_PEDIDO, pedidoId, OPCOES_COOKIE_PEDIDO)
+  jar.set(COOKIE_PEDIDO, carrinhoId ? `${pedidoId}.${carrinhoId}` : pedidoId, OPCOES_COOKIE_PEDIDO)
   redirect(`/checkout/obrigado/${pedidoId}`)
 }

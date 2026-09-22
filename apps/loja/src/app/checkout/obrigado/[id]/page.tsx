@@ -10,7 +10,7 @@ import { LogoCurta } from "@/components/marca"
 import { RecarregaSacola } from "@/components/sacola/recarrega"
 import type { PagamentoVisivel } from "@/lib/checkout-visivel"
 import { emReais } from "@/lib/formato"
-import { ehDeQuemComprou, lerPedido } from "@/lib/pedido"
+import { lerPedido } from "@/lib/pedido"
 import { linkDoWhatsapp, whatsappNaTela } from "@/lib/configuracoes"
 import { configuracoes } from "@/lib/medusa"
 import { site } from "@/lib/site"
@@ -30,9 +30,11 @@ import { site } from "@/lib/site"
  * carrega só o id — se esta página desenhasse o que o checkout tinha na mão,
  * ela mostraria o que a loja ACHA que foi cobrado, e não o que foi.
  *
- * ENDEREÇO SÓ PRA QUEM COMPROU: o cookie do pedido é que abre a versão
- * completa. Sem ele, a página confirma que o pedido existe e não mostra dado
- * pessoal nenhum — o id é imprevisível, mas link vaza.
+ * ENDEREÇO SÓ PRA QUEM COMPROU: o crachá do pedido (o cookie, com o carrinho
+ * de onde ele nasceu) é que abre a versão completa — e quem confere o crachá
+ * é o Medusa, que sem ele nem entrega o endereço (`lerPedido`). Sem crachá, a
+ * página confirma que o pedido existe e não mostra dado pessoal nenhum — o id
+ * é imprevisível, mas link vaza.
  *
  * ┌─ O PAGAMENTO MUDA A TELA INTEIRA ──────────────────────────────────────┐
  * │ Com o Pagar.me, "pedido recebido" pode querer dizer quatro coisas: o   │
@@ -174,9 +176,9 @@ export default function Pagina({ params }: Props) {
 
 async function Conteudo({ params }: { params: Props["params"] }) {
   const { id } = await params
-  const pedido = await lerPedido(id)
+  const leitura = await lerPedido(id)
 
-  if (!pedido) {
+  if (!leitura) {
     return (
       <div className="bloco">
         <h1>Não achei esse pedido</h1>
@@ -192,7 +194,7 @@ async function Conteudo({ params }: { params: Props["params"] }) {
     )
   }
 
-  const meu = await ehDeQuemComprou(pedido.id)
+  const { pedido, meu } = leitura
   const { atendimento } = await configuracoes()
   const zap = linkDoWhatsapp(atendimento.whatsapp)
   const { pagamento } = pedido

@@ -114,9 +114,26 @@ const numero = (txt) =>
   )
 const perto = (a, b) => Math.abs(a - b) < 0.02
 
-async function medusa(caminho) {
-  const r = await fetch(`${MEDUSA}${caminho}`, { headers: { "x-publishable-api-key": CHAVE } })
+async function medusa(caminho, cabecalhos = {}) {
+  const r = await fetch(`${MEDUSA}${caminho}`, {
+    headers: { "x-publishable-api-key": CHAVE, ...cabecalhos },
+  })
   return r.ok ? r.json() : null
+}
+
+/** A mesma ida, devolvendo o status e o texto cru — pra conferir o que NÃO veio. */
+async function medusaCru(caminho, { metodo = "GET", corpo, cabecalhos = {} } = {}) {
+  const r = await fetch(`${MEDUSA}${caminho}`, {
+    method: metodo,
+    headers: { "content-type": "application/json", "x-publishable-api-key": CHAVE, ...cabecalhos },
+    body: corpo === undefined ? undefined : JSON.stringify(corpo),
+  })
+  const texto = await r.text()
+  let json = null
+  try {
+    json = JSON.parse(texto)
+  } catch {}
+  return { status: r.status, texto, json }
 }
 
 /**
@@ -950,10 +967,13 @@ ok(
   `o proxy não pode baixar a caixa daqui — veio ${pedidoId}`
 )
 
+// Com o carrinho de onde ele nasceu no `x-carrinho`: é a prova de dono. Sem
+// ela, o Medusa só devolve número e situação (ver "O pedido pela API", abaixo).
 const { order } =
   (await medusa(
     `/store/orders/${pedidoId}?fields=id,display_id,email,total,discount_total,` +
-      `*billing_address,*shipping_address,*items`
+      `*billing_address,*shipping_address,*items`,
+    { "x-carrinho": carrinhoId }
   )) ?? {}
 ok(Boolean(order), "o pedido existe no Medusa", pedidoId)
 ok(order?.email === EMAIL, "com o e-mail que foi digitado")
@@ -978,6 +998,68 @@ ok(
   order?.shipping_address?.address_1
 )
 ok(!(await idDoCarrinho()), "a sacola foi esvaziada")
+const cracha = (await contexto.cookies()).find((c) => c.name === "pedido")?.value
+ok(
+  cracha === `${pedidoId}.${carrinhoId}`,
+  "e o crachá de quem comprou leva o carrinho, que é a prova de dono pro Medusa",
+  cracha
+)
+
+titulo("O pedido pela API, pra quem só tem o id")
+/*
+  O id do pedido está na URL da tela de obrigado — no histórico, no print, no
+  GA4 — e a chave publicável é pública. Com os dois, a API do Medusa
+  devolvia e-mail, endereço, telefone e CPF. Agora, só número e situação; o
+  pedido inteiro, só com o carrinho de onde ele nasceu.
+*/
+const PESSOAIS = [EMAIL, "11144477735", "Paulista", "+5511", carrinhoId]
+const vazou = (texto) => PESSOAIS.filter((p) => texto.includes(p)).join(", ")
+const semProva = await medusaCru(`/store/orders/${pedidoId}`)
+ok(
+  semProva.status === 200 && semProva.json?.order?.display_id === order?.display_id,
+  "sem prova nenhuma, o pedido responde com o número e a situação",
+  `${semProva.status} ${semProva.texto.slice(0, 120)}`
+)
+ok(
+  !vazou(semProva.texto),
+  "sem e-mail, endereço, telefone, CPF nem o carrinho",
+  vazou(semProva.texto)
+)
+const pedindoTudo = await medusaCru(
+  `/store/orders/${pedidoId}?fields=email,*shipping_address,*billing_address,cart.id,` +
+    "customer.email,*customer,*items,total,*payment_collections.payment_sessions"
+)
+ok(
+  pedindoTudo.status === 200 && !vazou(pedindoTudo.texto),
+  "e pedir os campos pelo nome não muda nada",
+  vazou(pedindoTudo.texto) || pedindoTudo.texto.slice(0, 120)
+)
+ok(
+  !pedindoTudo.texto.includes("copiaECola") && pedindoTudo.texto.includes('"forma":"pix"'),
+  "do pagamento, só a forma: o QR do Pix fica pra quem comprou",
+  pedindoTudo.texto.slice(0, 200)
+)
+const outroCarrinho = await medusaCru(`/store/orders/${pedidoId}`, {
+  cabecalhos: { "x-carrinho": "cart_01ZZZZZZZZZZZZZZZZZZZZZZZZ" },
+})
+ok(
+  outroCarrinho.status === 403 && !vazou(outroCarrinho.texto),
+  "com o carrinho de outra compra, 403 — e não a versão pública",
+  `${outroCarrinho.status} ${outroCarrinho.texto.slice(0, 120)}`
+)
+const devolucao = await medusaCru("/store/returns", {
+  metodo: "POST",
+  corpo: {
+    order_id: pedidoId,
+    items: [{ id: order?.items?.[0]?.id ?? "x", quantity: 1 }],
+    return_shipping: { option_id: "so_qualquer" },
+  },
+})
+ok(
+  devolucao.status === 400 && devolucao.json?.message === "Esta loja não usa esta rota.",
+  "e ninguém abre devolução no pedido pelo id: a rota está fechada",
+  `${devolucao.status} ${devolucao.texto.slice(0, 120)}`
+)
 
 titulo("A tela de obrigado")
 await pagina.locator(".feito").waitFor({ timeout: 15000 })
@@ -1004,6 +1086,36 @@ ok(visto.includes(`#${order.display_id}`), "quem tem o link confirma que o pedid
 ok(!visto.includes("Avenida Paulista"), "mas NÃO vê o endereço de quem comprou")
 ok(!visto.includes(EMAIL), "nem o e-mail")
 await estranho.close()
+
+/*
+  O CRACHÁ FORJADO. Até aqui o crachá era o id do pedido — o mesmo texto da
+  URL —, e bastava pôr um cookie `pedido=<id>` no navegador pra ver o
+  endereço de quem comprou. O de hoje leva o carrinho, e quem confere é o
+  Medusa.
+*/
+for (const [como, valor] of [
+  ["só com o id do pedido, como o de antes", pedidoId],
+  ["com um carrinho inventado", `${pedidoId}.cart_01ZZZZZZZZZZZZZZZZZZZZZZZZ`],
+]) {
+  const forjado = await navegador.newContext({ viewport: MESA })
+  await forjado.addCookies([{ name: "pedido", value: valor, url: LOJA }])
+  const noForjado = await forjado.newPage()
+  await noForjado.goto(pagina.url(), { waitUntil: "domcontentloaded" })
+  await noForjado.locator(".feito").waitFor({ timeout: 15000 })
+  // O texto, pro que aparece; o HTML inteiro (com os dados que o React manda
+  // junto), pro que não pode estar nem escondido.
+  const texto = await noForjado.locator("main.obrigado").innerText()
+  const html = await noForjado.content()
+  const vazouNoHtml = ["Avenida Paulista", EMAIL, "11144477735", "copiaECola"].filter((p) =>
+    html.includes(p)
+  )
+  ok(
+    texto.includes(`#${order.display_id}`) && !vazouNoHtml.length,
+    `crachá forjado ${como}: o número aparece, o endereço e o e-mail não`,
+    vazouNoHtml.join(", ") || texto.slice(0, 120)
+  )
+  await forjado.close()
+}
 
 // Da tela de obrigado, o logo volta pra loja INTEIRA. Aqui há duas páginas
 // guardadas escondidas (o checkout e o obrigado) — o caso em que a regra

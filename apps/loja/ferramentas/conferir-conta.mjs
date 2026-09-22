@@ -780,7 +780,8 @@ if (fabrica) {
     ["oleo-para-barba", 1],
   ])
   deixados.push(pix)
-  const deOutro = await fabrica.pedidoPix(novoEmail())
+  const OUTRA_PESSOA = novoEmail()
+  const deOutro = await fabrica.pedidoPix(OUTRA_PESSOA)
   deixados.push(deOutro)
   ok(
     true,
@@ -943,9 +944,11 @@ if (fabrica) {
 
   /* ── o Pix pendente, até cair ── */
   titulo("O Pix pendente, pela conta")
+  // Com o token da conta dona: sem ele, o pedido vem na versão pública, sem o QR.
   const sessaoPix = (
     await medusa(`/store/orders/${pix.id}?fields=*payment_collections.payment_sessions`, {
       metodo: "GET",
+      token,
     })
   ).corpo.order?.payment_collections?.[0]?.payment_sessions?.[0]?.data?.pagarme?.pix?.copiaECola
   await abrir(pix)
@@ -993,6 +996,50 @@ if (fabrica) {
     metodo: "GET",
   })
   ok(rastreioSemToken.status === 401, "e sem token, 401", String(rastreioSemToken.status))
+
+  /*
+    O PEDIDO PELO ID, NA API DO MEDUSA: inteiro pra conta dona; pra qualquer
+    outra, a versão pública — número e situação, sem e-mail nem endereço.
+  */
+  const doDono = await medusa(`/store/orders/${pix.id}?fields=id,email,*shipping_address`, {
+    metodo: "GET",
+    token,
+  })
+  ok(
+    doDono.status === 200 && doDono.corpo.order?.email === COMPRADOR,
+    "pelo id, a conta dona lê o próprio pedido inteiro",
+    `${doDono.status} ${JSON.stringify(doDono.corpo).slice(0, 120)}`
+  )
+  const alheio = await medusa(`/store/orders/${deOutro.id}?fields=id,email,*shipping_address`, {
+    metodo: "GET",
+    token,
+  })
+  const alheioTexto = JSON.stringify(alheio.corpo)
+  ok(
+    alheio.status === 200 &&
+      alheio.corpo.order?.display_id === deOutro.numero &&
+      !alheioTexto.includes(OUTRA_PESSOA) &&
+      !alheioTexto.includes("Zimmermann"),
+    "o de outra pessoa vem só com número e situação, mesmo com token de cliente",
+    alheioTexto.slice(0, 160)
+  )
+  /*
+    A TROCA DE DONO DO MEDUSA: qualquer conta pedia a transferência de
+    qualquer pedido pelo id, e a resposta trazia o pedido inteiro. A loja não
+    usa (os pedidos do convidado entram na conta pelo código), e a rota fecha.
+  */
+  const troca = await medusa(`/store/orders/${deOutro.id}/transfer/request`, {
+    corpo: {},
+    token,
+  })
+  const trocaTexto = JSON.stringify(troca.corpo)
+  ok(
+    troca.status === 400 &&
+      troca.corpo.message === "Esta loja não usa esta rota." &&
+      !trocaTexto.includes(OUTRA_PESSOA),
+    "pedir a troca de dono de um pedido alheio não abre ele",
+    `${troca.status} ${trocaTexto.slice(0, 160)}`
+  )
 
   /* ── comprar de novo ── */
   titulo("Comprar de novo")
