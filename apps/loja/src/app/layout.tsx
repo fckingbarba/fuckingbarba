@@ -52,12 +52,38 @@ export const viewport: Viewport = {
  * aqui, uma vez, e entregue às telas de cliente pelo provedor. Esperar no
  * layout raiz seria caro se a leitura fosse dinâmica — ela é `"use cache"`,
  * então resolve na pré-renderização e a casca continua saindo estática.
+ *
+ * ┌─ `data-scroll-behavior="smooth"` NÃO É DECORAÇÃO ──────────────────────┐
+ * │ Sem ele, trocar de página abre a página nova NO MEIO.                  │
+ * │                                                                        │
+ * │ O `globals.css` põe `scroll-behavior: smooth` no <html>, pros links    │
+ * │ de âncora (#vitrine, #duvidas, "voltar ao topo") deslizarem em vez de  │
+ * │ teleportarem. Só que trocar de rota também rola: o Next manda          │
+ * │ `scrollTop = 0`. Com o `smooth` valendo, esse comando vira ANIMAÇÃO —  │
+ * │ e o Next confere o resultado na linha seguinte, quando a animação mal  │
+ * │ começou. Ele conclui que não funcionou, chama um `scrollIntoView()`    │
+ * │ por cima, e as duas rolagens brigam: a página para no meio do          │
+ * │ caminho. Era o que acontecia ao clicar num produto com a home rolada,  │
+ * │ e ao voltar pra home pelo logo.                                        │
+ * │                                                                        │
+ * │ O Next sabe desarmar o `smooth` durante a troca de rota, mas só faz    │
+ * │ isso quando ESTE atributo está aqui — ele não lê o CSS pra adivinhar.  │
+ * │ Ver `disable-smooth-scroll.js` no pacote: sem o atributo ele roda a    │
+ * │ rolagem sem desarmar nada, e só avisa no console em desenvolvimento.   │
+ * │                                                                        │
+ * │ As duas pontas andam juntas: quem apagar este atributo traz o bug de   │
+ * │ volta; quem apagar o `scroll-behavior` do CSS torna o atributo inútil. │
+ * └────────────────────────────────────────────────────────────────────────┘
  */
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   const { frete } = await configuracoes()
 
   return (
-    <html lang="pt-BR" className={`${inter.variable} h-full antialiased`}>
+    <html
+      lang="pt-BR"
+      data-scroll-behavior="smooth"
+      className={`${inter.variable} h-full antialiased`}
+    >
       <body className="flex min-h-full flex-col">
         <a href="#conteudo" className="sr-only-focusable">
           Pular para o conteúdo
