@@ -29,6 +29,7 @@ import {
   Recado,
   useAvisaOcupado,
   useFechaQuandoSalva,
+  useFocaNoErro,
   type PropsDaEtapa,
 } from "./etapas"
 
@@ -62,6 +63,7 @@ export function Entrega({ checkout, fretes, sugestoes, falta, piso, aoSalvar, ..
   const [estado, acao, enviando] = useActionState(salvarEntrega, ESTADO_INICIAL)
   useFechaQuandoSalva(estado, aoSalvar)
   useAvisaOcupado(casca, enviando ? "Salvando…" : null)
+  const formulario = useFocaNoErro(estado)
   const { recalcular, recalculando } = casca
 
   // Um envio por vez, e nenhum com o frete trocando: o rádio fica travado no
@@ -90,6 +92,11 @@ export function Entrega({ checkout, fretes, sugestoes, falta, piso, aoSalvar, ..
 
   const [buscando, buscar] = useTransition()
   const [naoAchou, setNaoAchou] = useState(false)
+  // O CEP não chegou no carrinho (rede, Medusa fora do ar). Sem isto, a lista
+  // de entregas voltava vazia e a tela culpava o CEP da pessoa — ver o
+  // `CepDoCheckout` em `acoes/checkout.ts`. Começa `false`: na primeira
+  // pintura ninguém tentou gravar nada ainda.
+  const [naoGravou, setNaoGravou] = useState(false)
   const numeroRef = useRef<HTMLInputElement>(null)
   const ufRef = useRef<HTMLSelectElement>(null)
   const ultimoBuscado = useRef("")
@@ -125,6 +132,7 @@ export function Entrega({ checkout, fretes, sugestoes, falta, piso, aoSalvar, ..
       // Abre de qualquer jeito: CEP que o ViaCEP não conhece existe, e a
       // pessoa precisa dos campos pra digitar à mão.
       setAbriu(true)
+      setNaoGravou(!achado.gravado)
       if (!achado.encontrado) {
         setNaoAchou(true)
         return
@@ -160,7 +168,7 @@ export function Entrega({ checkout, fretes, sugestoes, falta, piso, aoSalvar, ..
 
   return (
     <Painel etapa="entrega" aberta={casca.aberta}>
-      <form id="form-entrega" action={acao} onSubmit={aoEnviar} noValidate>
+      <form id="form-entrega" ref={formulario} action={acao} onSubmit={aoEnviar} noValidate>
         <div className="campos">
           <Campo
             rotulo="CEP"
@@ -191,12 +199,24 @@ export function Entrega({ checkout, fretes, sugestoes, falta, piso, aoSalvar, ..
             erro={e.rua}
             required
           />
+          {/*
+            `autoComplete="off"` DE PROPÓSITO, e é o único campo do endereço
+            sem token: a lista da especificação não tem "número da casa" —
+            no padrão de fora o número mora dentro do `address-line1`, junto
+            com a rua. Sem dizer nada, o campo ficava à mercê do palpite do
+            navegador, que via "Número" ao lado de "Endereço" e despejava
+            "Rua das Flores, 123" aqui dentro. Etiqueta dos Correios com a
+            rua escrita duas vezes e o número no lugar errado é entrega que
+            volta. O `off` faz o navegador deixar quieto; a rua continua
+            sendo preenchida sozinha pelo campo ao lado.
+          */}
           <Campo
             rotulo="Número"
             nome="numero"
             largura="campo--2 campo--meio"
             ref={numeroRef}
             inputMode="text"
+            autoComplete="off"
             placeholder="123"
             defaultValue={v("numero", inicial.numero)}
             erro={e.numero}
@@ -266,6 +286,7 @@ export function Entrega({ checkout, fretes, sugestoes, falta, piso, aoSalvar, ..
           checkout={checkout}
           fretes={fretes}
           abriu={abriu}
+          naoGravou={naoGravou}
           recalcular={recalcular}
           recalculando={recalculando}
         />
@@ -333,12 +354,14 @@ function Fretes({
   checkout,
   fretes,
   abriu,
+  naoGravou,
   recalcular,
   recalculando,
 }: {
   checkout: CheckoutVisivel
   fretes: OpcaoDeFrete[]
   abriu: boolean
+  naoGravou: boolean
   recalcular: TransitionStartFunction
   recalculando: boolean
 }) {
@@ -377,7 +400,23 @@ function Fretes({
     <fieldset className="opcoes" style={{ marginTop: 16 }} aria-busy={trocando || undefined}>
       <legend>Como quer receber</legend>
 
-      {fretes.length === 0 ? (
+      {/*
+        LISTA VAZIA TEM DOIS MOTIVOS, e eles não são a mesma frase.
+
+        Se o CEP nem chegou no carrinho (`naoGravou`), ninguém cotou nada —
+        e dizer "não temos entrega pra esse CEP" acusa um CEP que está
+        certo. A pessoa conferia o número, achava tudo em ordem, e ia embora
+        sem entender. Aqui a culpa é da loja, e a saída é digitar de novo.
+
+        Cotação pedida e vazia é a outra: aí a transportadora respondeu
+        mesmo que não vai lá.
+      */}
+      {fretes.length === 0 && naoGravou ? (
+        <p className="aviso-frete" role="alert">
+          Não consegui calcular a entrega agora — problema nosso, não do seu CEP. Confere a conexão
+          e digita o CEP de novo.
+        </p>
+      ) : fretes.length === 0 ? (
         <p className="aviso-frete">
           Não temos entrega pra esse CEP ainda. Confere se o número está certo — se estiver, chama a
           gente no WhatsApp que a gente dá um jeito.

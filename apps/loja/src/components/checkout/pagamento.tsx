@@ -45,7 +45,15 @@ import { emReais } from "@/lib/formato"
 import { nomeNoCartao, tokenizar } from "@/lib/pagarme"
 import { CHECKOUT_ABERTO, PARCELA_MINIMA, PARCELAS_SEM_JUROS } from "@/lib/site"
 import { Campo } from "./campo"
-import { Giro, Painel, Recado, trazerPraVista, useAvisaOcupado, type PropsDaEtapa } from "./etapas"
+import {
+  Giro,
+  Painel,
+  Recado,
+  trazerPraVista,
+  useAvisaOcupado,
+  useFocaNoErro,
+  type PropsDaEtapa,
+} from "./etapas"
 
 /**
  * PASSO 3 — pagamento, e o pedido.
@@ -155,6 +163,7 @@ export function Pagamento({ checkout, provedores, bump, aoSalvar, ...casca }: Pr
         : "Fechando o pedido…"
       : null
   useAvisaOcupado(casca, espera)
+  const formulario = useFocaNoErro(estado)
 
   const opcoesDeParcelas = parcelasPossiveis(checkout.total)
   // O total pode cair (bump desmarcado) e tirar a parcela escolhida da lista.
@@ -240,7 +249,7 @@ export function Pagamento({ checkout, provedores, bump, aoSalvar, ...casca }: Pr
           pedido por lá.
         </p>
       ) : (
-        <form id="form-pagamento" action={acao} onSubmit={aoEnviar} noValidate>
+        <form id="form-pagamento" ref={formulario} action={acao} onSubmit={aoEnviar} noValidate>
           {/* O provedor que o Medusa vai usar de fato. Escondido porque quem
               a pessoa escolhe é a FORMA (Pix ou cartão); o provedor é um só
               pros dois. */}
