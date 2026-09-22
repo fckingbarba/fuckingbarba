@@ -176,3 +176,28 @@ export function mascararDocumento(entrada: string): string {
 export function formatarDocumento(doc: Documento): string {
   return mascararDocumento(doc.valor)
 }
+
+/**
+ * O documento pra mostrar de relance — o resumo da conta, que fica na tela
+ * de quem estiver olhando junto. O CPF inteiro não precisa estar lá: sai o
+ * miolo, `CPF •••.444.777-••`. CNPJ é público (está em toda nota) e vai
+ * inteiro.
+ */
+export function documentoEscondido(doc: Documento): string {
+  if (doc.tipo === "cnpj") return `CNPJ ${formatarDocumento(doc)}`
+  const v = soDigitos(doc.valor)
+  return `CPF •••.${v.slice(3, 6)}.${v.slice(6, 9)}-••`
+}
+
+/**
+ * Um documento que veio de fora (o `metadata` do Medusa, que a API da loja
+ * deixa o próprio cliente escrever): só vale se tiver a forma e o dígito
+ * certos. O que não confere é tratado como ausente.
+ */
+export function documentoGuardado(bruto: unknown): Documento | null {
+  if (!bruto || typeof bruto !== "object") return null
+  const valor = (bruto as { valor?: unknown }).valor
+  if (typeof valor !== "string") return null
+  const conferido = conferirDocumento(valor)
+  return conferido.ok ? conferido.documento : null
+}

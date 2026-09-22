@@ -215,6 +215,23 @@ dos fulfillments. O id do pedido no endereço não passa pra minúscula (`CAMINH
 conferidor da conta monta pedidos de verdade em cada estado com `ferramentas/pedido-de-teste.mjs`
 — por isso pede `ADMIN_EMAIL`/`ADMIN_SENHA`, como os de frete e pagamento.
 
+Os **endereços e os dados da conta** (`/conta/enderecos` e `/conta/dados`; as ações em
+`apps/loja/src/lib/acoes/enderecos.ts` e `dados.ts`) gravam no cliente do Medusa pela API da conta,
+com o token (`/store/customers/me` e `/me/addresses`) — que só acha endereço do cliente do token. O
+endereço usa a tradução do checkout (`lib/endereco.ts`), sem nome nem telefone: quem recebe é o dono
+da conta. O principal é o `is_default_shipping` (o Medusa desmarca o outro; excluir o principal
+passa o posto pro mais antigo, na loja). CPF e ofertas moram no `metadata` do cliente, que o Medusa
+mescla no primeiro nível e o próprio cliente pode escrever pela API: a loja confere o documento ao
+ler, e nada dali decide preço, dono ou acesso. **O checkout de quem está na conta:**
+`preencherDaConta` (`lib/checkout.ts`) roda na página antes de ler o carrinho — passa o carrinho pro
+nome da conta (`POST /store/carts/:id/customer`, com o token) e preenche o que estiver vazio, grupo
+por grupo (o passo 1 de "Meus dados"; o endereço principal, se o passo 2 nunca foi salvo e o CEP que
+a sacola gravou não é de outro lugar). O `finalizar` confere o dono de novo e, depois da resposta
+(`after`), `guardarDaCompra` (`lib/conta.ts`) salva o endereço e completa os dados vazios — com o
+token, nunca pelo e-mail do pedido: o Medusa liga à conta todo carrinho com o e-mail dela, e quem
+digitasse o e-mail de outra pessoa escreveria na conta dela. Sair (a ação `sair` e o `/conta/sair`)
+apaga o cookie da sacola quando ela é da conta.
+
 Os **envios** — o rastreio dos pacotes — têm um núcleo que não sabe quem é o parceiro de entrega. Três
 camadas: o TRADUTOR de cada parceiro (`src/modules/frenet/rastreio.ts`: confere a chave do aviso,
 lê o formato dele e converte os códigos), o NÚCLEO (`src/lib/envios/`, com as tabelas `envio` e

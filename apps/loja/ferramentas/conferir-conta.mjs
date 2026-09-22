@@ -38,7 +38,16 @@
  * │ • o id do pedido passado pra minúscula no endereço (vira outro id);    │
  * │ • um estado de pedido com o rótulo, o total ou a linha do tempo        │
  * │   errados; o Pix pendente sem o código de verdade, ou a página que não │
- * │   muda sozinha quando ele cai.                                         │
+ * │   muda sozinha quando ele cai;                                         │
+ * │ • endereço salvo sem o número e o bairro separados, dois principais,   │
+ * │   ou nenhum depois de excluir o principal;                             │
+ * │ • o formulário de endereço mandando os campos escondidos;              │
+ * │ • meus dados aceitando CPF errado, ou a oferta nascendo marcada;       │
+ * │ • o checkout de quem está na conta abrindo vazio, ou o pedido nascendo │
+ * │   fora dela; a compra não deixando o endereço na conta — ou a compra   │
+ * │   SEM a conta aberta escrevendo na conta de quem tem aquele e-mail;    │
+ * │ • sair deixando a sacola da conta pra próxima pessoa do navegador;     │
+ * │ • o "Minha conta" do cabeçalho voltando pro /em-breve.                 │
  * └─────────────────────────────────────────────────────────────────────────┘
  */
 
@@ -510,6 +519,13 @@ titulo("Pedir de novo, e reenviar")
     .filter({ visible: true })
     .click()
   await pagina.waitForURL("**/conta/entrar", { timeout: 15000 })
+  // O e-mail chega com o miolo, que lê o cookie dentro de um `<Suspense>`:
+  // no `next start` a casca (campo vazio) aparece antes dele.
+  await pagina
+    .waitForFunction((e) => window.__visivel(".entrar input[name=email]")?.value === e, EMAIL, {
+      timeout: 10000,
+    })
+    .catch(() => null)
   ok(
     (await noBloco(pagina, "input[name=email]").inputValue()) === EMAIL,
     "trocar e-mail volta com o e-mail digitado"
@@ -1072,7 +1088,768 @@ if (fabrica) {
   await contexto.close()
 }
 
-/* ── 13. higiene ──────────────────────────────────────────────────────────── */
+/* ── 13. a parte 3: quem entra por aqui ───────────────────────────────────── */
+
+/*
+  As telas da parte 3 não precisam passar pelo código de novo — o entrar já
+  foi conferido lá em cima. O token sai pela API (o mesmo caminho: código no
+  Resend falso, vincular, refresh) e vai direto pro cookie `sessao`.
+
+  UM IP INVENTADO SÓ PRA ISTO, assinado como a loja assina: as seções de
+  cima já gastam perto dos dez códigos por hora do IP da rodada, e o
+  décimo primeiro seria um 429 que não tem nada a ver com endereço.
+*/
+const IP_DA_PARTE_3 = `10.253.${(Date.now() >> 9) % 250}.${(Date.now() >> 1) % 250}`
+
+async function tokenPorApi(email) {
+  const antes = codigosPara(email).length
+  const pedido = await medusa("/store/conta/codigo", {
+    corpo: { email },
+    cabecalhos: SEGREDO_LOJA
+      ? { "x-cliente-ip": IP_DA_PARTE_3, "x-loja-segredo": SEGREDO_LOJA }
+      : {},
+  })
+  if (pedido.status !== 200) return null
+  let codigo = null
+  for (const fim = Date.now() + 8000; !codigo && Date.now() < fim; await esperar(150)) {
+    const deste = codigosPara(email)
+    if (deste.length > antes) codigo = deste.at(-1).subject.match(/^\d{6}/)[0]
+  }
+  let token = (await medusa("/auth/customer/codigo", { corpo: { email, codigo } })).corpo.token
+  if (!token) return null
+  const conteudo = JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString())
+  if (!conteudo.actor_id) {
+    await medusa("/store/conta/vincular", { token })
+    token = (await medusa("/auth/token/refresh", { token })).corpo.token
+  }
+  return token ?? null
+}
+
+async function abaNaConta(token, viewport) {
+  const aba = await novaAba(viewport)
+  if (token) await aba.contexto.addCookies([{ name: "sessao", value: token, url: LOJA }])
+  return aba
+}
+
+const CAMPOS_DO_CLIENTE = "id,email,first_name,last_name,phone,metadata,*addresses"
+const doCliente = async (token) =>
+  (
+    await medusa(`/store/customers/me?fields=${encodeURIComponent(CAMPOS_DO_CLIENTE)}`, {
+      metodo: "GET",
+      token,
+    })
+  ).corpo.customer ?? {}
+
+/** Espera o aviso que sobe de baixo dizer isto (o da página da vez, não o guardado). */
+async function esperarAviso(pagina, texto) {
+  await pagina
+    .waitForFunction(
+      (t) => window.__visivel("[data-conta-aviso]:not([data-fora])")?.textContent === t,
+      texto,
+      { timeout: 20000 }
+    )
+    .catch(() => null)
+  return (await textoDe(pagina, "[data-conta-aviso]:not([data-fora])")) === texto
+}
+
+const focado = (pagina) =>
+  pagina.evaluate(() => {
+    const el = document.activeElement
+    return {
+      nome: el?.getAttribute("name") ?? "",
+      texto: el?.textContent?.trim() ?? "",
+      editar: el?.getAttribute("data-editar-endereco") ?? "",
+    }
+  })
+
+/* ── 14. os endereços ─────────────────────────────────────────────────────── */
+
+titulo("Os endereços")
+const DONO = novoEmail()
+const tokenDono = await tokenPorApi(DONO)
+ok(Boolean(tokenDono), "entra por API pra conferir as telas da parte 3", DONO)
+if (tokenDono) {
+  const { contexto, pagina } = await abaNaConta(tokenDono)
+  await pagina.goto(`${LOJA}/conta/enderecos`)
+  await hidratado(pagina, "[data-novo-endereco]")
+  ok(
+    (await visivel(pagina, "article[data-endereco]").count()) === 0 &&
+      (await visivel(pagina, "[data-novo-endereco]").count()) === 1,
+    "conta nova: nenhum endereço, só o Adicionar"
+  )
+
+  const form = () => visivel(pagina, "form[data-form-endereco]")
+  const campo = (nome) => form().locator(`[name="${nome}"]`)
+
+  /* ── um novo, pelo CEP ── */
+  await visivel(pagina, "[data-novo-endereco]").click()
+  await form().waitFor({ timeout: 10000 })
+  ok(await form().locator(".endereco__resto").isHidden(), "o formulário novo mostra só o CEP")
+  ok((await focado(pagina)).nome === "cep", "com o cursor nele")
+
+  await campo("cep").fill("0131")
+  await form().locator("button[type=submit]").click()
+  ok(
+    (await textoDe(pagina, "form[data-form-endereco] .campo__erro")) === "CEP tem 8 dígitos.",
+    "salvar com o CEP pela metade: o recado no CEP — e não nos campos escondidos",
+    await textoDe(pagina, "form[data-form-endereco] .campo__erro")
+  )
+
+  await campo("cep").fill("")
+  await campo("cep").pressSequentially("01310100", { delay: 30 })
+  await pagina.waitForFunction(
+    () => window.__visivel("form[data-form-endereco] [name=rua]")?.value?.length > 0,
+    null,
+    { timeout: 20000 }
+  )
+  ok((await campo("rua").inputValue()) === "Avenida Paulista", "o CEP preenche a rua")
+  ok((await campo("uf").inputValue()) === "SP", "e o estado")
+  await pagina
+    .waitForFunction(() => document.activeElement?.getAttribute("name") === "numero", null, {
+      timeout: 5000,
+    })
+    .catch(() => null)
+  ok((await focado(pagina)).nome === "numero", "e o cursor pula pro número")
+  ok(
+    (await campo("principal").count()) === 0,
+    "o primeiro endereço nem pergunta se é o principal — ele é"
+  )
+
+  await form().locator("button[type=submit]").click()
+  await pagina
+    .waitForFunction(
+      () => /Falta o número/.test(window.__visivel("form[data-form-endereco]")?.textContent ?? ""),
+      null,
+      { timeout: 15000 }
+    )
+    .catch(() => null)
+  ok(
+    ((await form().textContent()) ?? "").includes("Falta o número. Se não tem, escreve S/N."),
+    "sem número: o recado no número (a frase do checkout)"
+  )
+  ok((await doCliente(tokenDono)).addresses?.length === 0, "e nada foi gravado")
+
+  await campo("numero").fill("1578")
+  await campo("complemento").fill("Apto 12")
+  await campo("apelido").fill("Casa")
+  await form().locator("button[type=submit]").click()
+  await visivel(pagina, "article[data-endereco]").first().waitFor({ timeout: 20000 })
+  ok(await esperarAviso(pagina, "Endereço salvo."), "salvou: o aviso sobe")
+  await pagina
+    .waitForFunction(() => document.activeElement?.hasAttribute("data-editar-endereco"), null, {
+      timeout: 5000,
+    })
+    .catch(() => null)
+  const depoisDeSalvar = await focado(pagina)
+
+  let conta = await doCliente(tokenDono)
+  const casa = conta.addresses?.[0]
+  ok(
+    conta.addresses?.length === 1 &&
+      casa.is_default_shipping === true &&
+      casa.address_name === "Casa" &&
+      casa.postal_code === "01310100" &&
+      casa.metadata?.rua === "Avenida Paulista" &&
+      casa.metadata?.numero === "1578" &&
+      casa.metadata?.complemento === "Apto 12" &&
+      casa.metadata?.bairro === "Bela Vista",
+    "no Medusa: principal, com rua, número, complemento e bairro separados (o que a nota e a cotação leem)",
+    JSON.stringify(casa)
+  )
+  ok(
+    !casa?.first_name && !casa?.last_name && !casa?.phone,
+    "sem nome nem telefone no endereço: quem recebe é o dono da conta"
+  )
+  ok(
+    depoisDeSalvar.editar === casa?.id,
+    "e o foco volta pro Editar do cartão salvo",
+    JSON.stringify(depoisDeSalvar)
+  )
+  ok(
+    (await visivel(pagina, `article[data-endereco="${casa?.id}"] .selo--principal`).count()) === 1,
+    "o cartão diz que ele é o principal"
+  )
+  await pagina
+    .waitForFunction(() => window.__visivel("[data-conta-enderecos]")?.textContent === "1", null, {
+      timeout: 10000,
+    })
+    .catch(() => null)
+  ok((await textoDe(pagina, "[data-conta-enderecos]")) === "1", "e o menu conta um endereço")
+
+  /* ── outro, à mão, e principal ── */
+  await visivel(pagina, "[data-novo-endereco]").click()
+  await form().waitFor({ timeout: 10000 })
+  await campo("cep").pressSequentially("99999999", { delay: 30 })
+  await pagina
+    .waitForFunction(
+      () => /Não achei esse CEP/.test(window.__visivel(".endereco__busca")?.textContent ?? ""),
+      null,
+      { timeout: 20000 }
+    )
+    .catch(() => null)
+  ok(
+    (await textoDe(pagina, ".endereco__busca")) ===
+      "Não achei esse CEP. Preenche à mão que funciona igual.",
+    "CEP que ninguém conhece: o recado, e os campos abrem vazios pra preencher à mão"
+  )
+  ok(
+    (await campo("rua").inputValue()) === "" && (await focado(pagina)).nome === "rua",
+    "com o cursor na rua"
+  )
+  await campo("rua").fill("Rua das Palmeiras")
+  await campo("numero").fill("S/N")
+  await campo("bairro").fill("Centro")
+  await campo("cidade").fill("Pomerode")
+  await campo("uf").selectOption("SC")
+  await campo("apelido").fill("Trabalho")
+  ok(
+    await campo("principal").isVisible(),
+    "com um endereço já salvo, pergunta se este vira o principal"
+  )
+  await campo("principal").check()
+  await form().locator("button[type=submit]").click()
+  await pagina
+    .waitForFunction(() => document.querySelectorAll("article[data-endereco]").length >= 2, null, {
+      timeout: 20000,
+    })
+    .catch(() => null)
+  ok(await esperarAviso(pagina, "Endereço salvo."), "salvou o segundo")
+
+  conta = await doCliente(tokenDono)
+  const trabalho = conta.addresses?.find((a) => a.address_name === "Trabalho")
+  ok(
+    trabalho?.is_default_shipping === true &&
+      conta.addresses.find((a) => a.id === casa?.id)?.is_default_shipping === false,
+    "o novo virou o principal, e o de antes deixou de ser — um só",
+    JSON.stringify(conta.addresses?.map((a) => [a.address_name, a.is_default_shipping]))
+  )
+  const ordem = await pagina.evaluate(() =>
+    [...document.querySelectorAll("article[data-endereco]")]
+      .filter((e) => e.checkVisibility())
+      .map((e) => e.dataset.endereco)
+  )
+  ok(ordem[0] === trabalho?.id, "e o principal vem primeiro na lista", JSON.stringify(ordem))
+
+  /* ── editar ── */
+  await visivel(pagina, `[data-editar-endereco="${casa?.id}"]`).click()
+  await form().waitFor({ timeout: 10000 })
+  ok(
+    (await campo("numero").inputValue()) === "1578" &&
+      (await campo("complemento").inputValue()) === "Apto 12" &&
+      (await form().locator(".endereco__resto").isVisible()),
+    "editar abre tudo, preenchido"
+  )
+  ok(
+    (await visivel(pagina, `article[data-endereco="${casa?.id}"]`).count()) === 0,
+    "no lugar do cartão (e não lá embaixo, longe dele)"
+  )
+  await campo("complemento").fill("Apto 34")
+  await form().locator("button[type=submit]").click()
+  ok(await esperarAviso(pagina, "Endereço atualizado."), "editou: o aviso diz atualizado")
+  conta = await doCliente(tokenDono)
+  const casaDepois = conta.addresses?.find((a) => a.id === casa?.id)
+  ok(
+    casaDepois?.metadata?.complemento === "Apto 34" && casaDepois?.is_default_shipping === false,
+    "no Medusa, o complemento novo — e editar não mexeu em quem é o principal",
+    JSON.stringify(casaDepois)
+  )
+
+  /* ── tornar principal ── */
+  await visivel(pagina, `[data-principal-endereco="${casa?.id}"]`).click()
+  ok(await esperarAviso(pagina, "Endereço principal trocado."), "tornar principal: o aviso")
+  conta = await doCliente(tokenDono)
+  ok(
+    conta.addresses?.find((a) => a.id === casa?.id)?.is_default_shipping === true &&
+      conta.addresses?.find((a) => a.id === trabalho?.id)?.is_default_shipping === false,
+    "e o principal trocou no Medusa"
+  )
+
+  /* ── excluir: pergunta antes ── */
+  await visivel(pagina, `[data-excluir-endereco="${casa?.id}"]`).click()
+  ok(
+    (await textoDe(pagina, `article[data-endereco="${casa?.id}"] .endereco__confirma`)) ===
+      "Excluir este endereço?",
+    "excluir pergunta antes, na própria caixa"
+  )
+  await pagina
+    .waitForFunction(() => document.activeElement?.hasAttribute("data-excluir-nao"), null, {
+      timeout: 5000,
+    })
+    .catch(() => null)
+  ok((await focado(pagina)).texto === "Não", "com o foco no Não")
+  await visivel(pagina, `[data-excluir-nao="${casa?.id}"]`).click()
+  ok(
+    (await visivel(pagina, `[data-excluir-endereco="${casa?.id}"]`).count()) === 1 &&
+      (await doCliente(tokenDono)).addresses?.length === 2,
+    "o Não desfaz a pergunta, e nada sai"
+  )
+
+  // O principal sai — e o outro assume, senão o checkout abriria vazio.
+  await visivel(pagina, `[data-excluir-endereco="${casa?.id}"]`).click()
+  await visivel(pagina, `[data-excluir-sim="${casa?.id}"]`).click()
+  ok(await esperarAviso(pagina, "Endereço excluído."), "excluiu: o aviso")
+  conta = await doCliente(tokenDono)
+  ok(
+    conta.addresses?.length === 1 &&
+      conta.addresses[0].id === trabalho?.id &&
+      conta.addresses[0].is_default_shipping === true,
+    "excluir o principal passa o posto pro que sobrou",
+    JSON.stringify(conta.addresses?.map((a) => [a.address_name, a.is_default_shipping]))
+  )
+  await pagina
+    .waitForFunction(() => document.activeElement?.hasAttribute("data-novo-endereco"), null, {
+      timeout: 5000,
+    })
+    .catch(() => null)
+  ok((await focado(pagina)).texto.includes("Adicionar endereço"), "e o foco vai pro Adicionar")
+
+  /* ── de outra pessoa ── */
+  const tokenOutro = await tokenPorApi(novoEmail())
+  const alheio = await medusa(`/store/customers/me/addresses/${trabalho?.id}`, {
+    corpo: { address_name: "roubado" },
+    token: tokenOutro,
+  })
+  ok(
+    alheio.status === 404 &&
+      (await doCliente(tokenDono)).addresses?.[0]?.address_name === "Trabalho",
+    "o endereço de uma conta não se edita com o token de outra",
+    String(alheio.status)
+  )
+  await contexto.close()
+}
+
+/* ── 15. meus dados ───────────────────────────────────────────────────────── */
+
+titulo("Meus dados")
+if (tokenDono) {
+  const { contexto, pagina } = await abaNaConta(tokenDono)
+  await pagina.goto(`${LOJA}/conta/dados`)
+  await hidratado(pagina, "form[data-form-dados] [name=nome]")
+  const form = () => visivel(pagina, "form[data-form-dados]")
+  const campo = (nome) => form().locator(`[name="${nome}"]`)
+
+  ok((await textoDe(pagina, "[data-email-fixo]")) === DONO, "o e-mail aparece, e não é campo")
+  ok((await form().locator('input[type="email"]').count()) === 0, "(não tem como editar ali)")
+  ok(
+    !(await campo("ofertas-email").isChecked()) && !(await campo("ofertas-whatsapp").isChecked()),
+    "as ofertas nascem desmarcadas — consentimento não vem marcado"
+  )
+
+  await campo("nome").fill("Rafael")
+  await campo("sobrenome").fill("Souza")
+  await campo("telefone").pressSequentially("11987654321")
+  ok(
+    (await campo("telefone").inputValue()) === "(11) 98765-4321",
+    "o celular com a máscara do checkout"
+  )
+  await campo("documento").fill("111.444.777-36")
+  await form().locator("button[type=submit]").click()
+  await pagina
+    .waitForFunction(
+      () => /não confere/.test(window.__visivel("form[data-form-dados]")?.textContent ?? ""),
+      null,
+      { timeout: 15000 }
+    )
+    .catch(() => null)
+  ok(
+    ((await form().textContent()) ?? "").includes("Esse CPF não confere"),
+    "CPF com o dígito errado: o recado do checkout, no campo"
+  )
+  ok(
+    (await campo("nome").inputValue()) === "Rafael",
+    "e o resto do que foi digitado continua lá (o React dá reset no formulário)"
+  )
+  ok(!(await doCliente(tokenDono)).first_name, "e nada foi gravado")
+
+  await campo("documento").fill("111.444.777-35")
+  await campo("ofertas-email").check()
+  await form().locator("button[type=submit]").click()
+  ok(await esperarAviso(pagina, "Dados salvos."), "salvou: o aviso")
+  let c = await doCliente(tokenDono)
+  const dataDoSim = c.metadata?.ofertas?.email
+  ok(
+    c.first_name === "Rafael" &&
+      c.last_name === "Souza" &&
+      c.phone === "+5511987654321" &&
+      c.metadata?.documento?.valor === "11144477735" &&
+      c.metadata?.documento?.tipo === "cpf",
+    "no Medusa: nome, celular com +55 e o documento sem pontuação",
+    JSON.stringify({ n: c.first_name, t: c.phone, d: c.metadata?.documento })
+  )
+  ok(
+    typeof dataDoSim === "string" &&
+      !Number.isNaN(Date.parse(dataDoSim)) &&
+      c.metadata?.ofertas?.whatsapp === null,
+    "a oferta por e-mail guarda a DATA do sim; a do WhatsApp, null",
+    JSON.stringify(c.metadata?.ofertas)
+  )
+  await pagina
+    .waitForFunction(
+      () => window.__visivel(".menu-conta__oi")?.textContent === "Oi, Rafael",
+      null,
+      {
+        timeout: 10000,
+      }
+    )
+    .catch(() => null)
+  ok((await textoDe(pagina, ".menu-conta__oi")) === "Oi, Rafael", "o menu passa a chamar pelo nome")
+
+  // Salvar de novo, com a caixa ainda marcada, não inventa um consentimento novo.
+  // (O aviso do primeiro ainda pode estar na tela, com o mesmo texto: quem diz
+  // que o segundo chegou é o Medusa.)
+  await campo("ofertas-whatsapp").check()
+  await form().locator("button[type=submit]").click()
+  for (let i = 0; i < 30; i++) {
+    c = await doCliente(tokenDono)
+    if (c.metadata?.ofertas?.whatsapp) break
+    await esperar(300)
+  }
+  ok(
+    c.metadata?.ofertas?.email === dataDoSim && typeof c.metadata?.ofertas?.whatsapp === "string",
+    "o sim do e-mail mantém a data de antes; o do WhatsApp ganha a sua",
+    JSON.stringify(c.metadata?.ofertas)
+  )
+  ok(
+    c.addresses?.length === 1,
+    "e salvar os dados não mexe nos endereços (o metadata mescla, não substitui)"
+  )
+
+  await pagina.reload()
+  await hidratado(pagina, "form[data-form-dados] [name=nome]")
+  ok(
+    (await campo("documento").inputValue()) === "111.444.777-35" &&
+      (await campo("telefone").inputValue()) === "(11) 98765-4321" &&
+      (await campo("ofertas-email").isChecked()),
+    "recarregado, o formulário mostra o que está gravado"
+  )
+  await contexto.close()
+}
+
+/* ── 16. a visão geral: os atalhos, e o link do cabeçalho ─────────────────── */
+
+titulo("A visão geral e o link do cabeçalho")
+{
+  const home = await fetch(`${LOJA}/`)
+  const html = await home.text()
+  ok(
+    /<a[^>]*href="\/conta"[^>]*aria-label="Minha conta"|<a[^>]*aria-label="Minha conta"[^>]*href="\/conta"/.test(
+      html
+    ),
+    'o "Minha conta" do cabeçalho leva pra /conta (e não mais pro /em-breve)'
+  )
+  ok(!/href="\/em-breve"[^>]*>Minha conta</.test(html), "nem o do rodapé")
+
+  const tokenVazio = await tokenPorApi(novoEmail())
+  const vazio = await abaNaConta(tokenVazio)
+  await vazio.pagina.goto(`${LOJA}/conta`)
+  await visivel(vazio.pagina, "[data-bloco-dados]").waitFor({ timeout: 20000 })
+  ok(
+    (await textoDe(vazio.pagina, "[data-bloco-endereco] .resumo-curto")).startsWith(
+      "Nenhum endereço salvo ainda"
+    ) && (await textoDe(vazio.pagina, "[data-bloco-endereco] .link")) === "Adicionar endereço",
+    "conta nova: o bloco do endereço diz que o primeiro do checkout fica guardado"
+  )
+  ok(
+    (await textoDe(vazio.pagina, "[data-bloco-dados] .resumo-curto")).startsWith(
+      "Falta nome, celular e CPF"
+    ) && (await textoDe(vazio.pagina, "[data-bloco-dados] .link")) === "Completar dados",
+    "e o dos dados, o que falta"
+  )
+  await vazio.contexto.close()
+
+  if (tokenDono) {
+    const cheia = await abaNaConta(tokenDono)
+    await cheia.pagina.goto(`${LOJA}/conta`)
+    await visivel(cheia.pagina, "[data-bloco-dados]").waitFor({ timeout: 20000 })
+    const endereco = await textoDe(cheia.pagina, "[data-bloco-endereco] .resumo-curto")
+    ok(
+      endereco.startsWith("Trabalho") && endereco.includes("Rua das Palmeiras, S/N"),
+      "com endereço: o principal, pelo nome",
+      endereco
+    )
+    const dados = await textoDe(cheia.pagina, "[data-bloco-dados] .resumo-curto")
+    ok(
+      dados.includes("Rafael Souza") &&
+        dados.includes("(11) 98765-4321") &&
+        dados.includes("CPF •••.444.777-••") &&
+        !dados.includes("111.444.777-35"),
+      "com dados: nome e celular — e o CPF sem o começo e o fim",
+      dados
+    )
+    await cheia.contexto.close()
+  }
+}
+
+/* ── 17. o checkout com a conta aberta ────────────────────────────────────── */
+
+titulo("O checkout com a conta aberta")
+frenet ??= await subirFrenetFalsa()
+pagarme ??= await subirPagarmeFalso()
+
+const regiaoBrl = (await medusa("/store/regions", { metodo: "GET" })).corpo.regions?.find(
+  (r) => r.currency_code === "brl"
+)
+const shampoo = (
+  await medusa(
+    `/store/products?handle=shampoo-para-barba&region_id=${regiaoBrl?.id}&fields=*variants`,
+    { metodo: "GET" }
+  )
+).corpo.products?.[0]?.variants?.[0]?.id
+
+/** Um carrinho com um shampoo, direto na API — a PDP é assunto do conferidor dela. */
+async function carrinhoComShampoo() {
+  const { corpo } = await medusa("/store/carts", { corpo: { region_id: regiaoBrl?.id } })
+  await medusa(`/store/carts/${corpo.cart.id}/line-items`, {
+    corpo: { variant_id: shampoo, quantity: 1 },
+  })
+  return corpo.cart.id
+}
+
+/*
+  SÓ O QUE ESTÁ NA TELA. No `next start` o miolo do checkout chega em
+  streaming, e por um instante a cópia do HTML (ainda escondida) e a que o
+  React já desenhou convivem — dois `#form-contato`. Mirar o visível é
+  mirar o que a pessoa vê.
+*/
+const noCheckout = (pagina, sel) => visivel(pagina, `.fluxo ${sel}`)
+
+async function pagarNoPix(pagina) {
+  await visivel(pagina, "#form-pagamento").waitFor({ timeout: 30000 })
+  await hidratado(pagina, "#form-pagamento button[type=submit]")
+  await visivel(pagina, "#form-pagamento .opcao")
+    .filter({ hasText: "Pix" })
+    .locator("input")
+    .check()
+  await visivel(pagina, "#form-pagamento button[type=submit]").click()
+  await pagina.waitForURL(/\/checkout\/obrigado\//, { timeout: 40000 })
+  return new URL(pagina.url()).pathname.split("/").pop()
+}
+
+async function entregaPeloCep(pagina, cep, numero) {
+  await visivel(pagina, "#form-entrega").waitFor({ timeout: 30000 })
+  await hidratado(pagina, "#form-entrega [name=cep]")
+  await noCheckout(pagina, "[name=cep]").fill(cep)
+  await pagina.waitForFunction(
+    () => window.__visivel('.fluxo [name="rua"]')?.value?.length > 0,
+    null,
+    { timeout: 20000 }
+  )
+  await noCheckout(pagina, "[name=numero]").fill(numero)
+  await visivel(pagina, "#form-entrega .opcao").first().waitFor({ timeout: 20000 })
+  await visivel(pagina, "#form-entrega button[type=submit]").click()
+}
+
+async function contatoNaMao(pagina, { email, nome, sobrenome, telefone }) {
+  await visivel(pagina, "#form-contato").waitFor({ timeout: 30000 })
+  await hidratado(pagina, "#form-contato [name=email]")
+  if (email) await noCheckout(pagina, "[name=email]").fill(email)
+  await noCheckout(pagina, "[name=nome]").fill(nome)
+  await noCheckout(pagina, "[name=sobrenome]").fill(sobrenome)
+  await noCheckout(pagina, "[name=telefone]").fill(telefone)
+  await noCheckout(pagina, "[name=documento]").fill("111.444.777-35")
+  await visivel(pagina, "#form-contato button[type=submit]").click()
+}
+
+const pedidosDa = async (token) =>
+  (await medusa("/store/orders?fields=id&limit=50", { metodo: "GET", token })).corpo.orders ?? []
+
+if (!regiaoBrl || !shampoo) {
+  ok(false, "o checkout precisa da região em real e do shampoo no catálogo local")
+} else {
+  /* ── com dados e endereço: abre no passo 2, preenchido ── */
+  const COMPLETA = novoEmail()
+  const tokenCompleta = await tokenPorApi(COMPLETA)
+  await medusa("/store/customers/me", {
+    corpo: {
+      first_name: "Rafael",
+      last_name: "Souza",
+      phone: "+5511987654321",
+      metadata: { documento: { tipo: "cpf", valor: "11144477735" } },
+    },
+    token: tokenCompleta,
+  })
+  await medusa("/store/customers/me/addresses", {
+    corpo: {
+      address_1: "Avenida Paulista, 1578",
+      address_2: "Apto 12 — Bela Vista",
+      city: "São Paulo",
+      province: "SP",
+      postal_code: "01310100",
+      country_code: "br",
+      metadata: {
+        rua: "Avenida Paulista",
+        numero: "1578",
+        complemento: "Apto 12",
+        bairro: "Bela Vista",
+      },
+      address_name: "Casa",
+      is_default_shipping: true,
+    },
+    token: tokenCompleta,
+  })
+  const idCompleta = (await doCliente(tokenCompleta)).id
+
+  const carrinho = await carrinhoComShampoo()
+  const { contexto, pagina } = await abaNaConta(tokenCompleta)
+  await contexto.addCookies([{ name: "carrinho", value: carrinho, url: LOJA }])
+  await pagina.goto(`${LOJA}/checkout`)
+  await visivel(pagina, "#form-entrega").waitFor({ timeout: 30000 })
+  ok(
+    (await visivel(pagina, ".painel[data-ativo]").getAttribute("aria-labelledby")) === "t-entrega",
+    "com dados e endereço na conta, o checkout abre direto na entrega"
+  )
+  const resumo = await visivel(pagina, ".feito-passo__txt").first().innerText()
+  ok(
+    resumo.includes("Rafael Souza") && resumo.includes(COMPLETA),
+    "o passo 1 vem feito, com o nome e o e-mail da conta",
+    resumo
+  )
+  ok(
+    (await noCheckout(pagina, "[name=cep]").inputValue()) === "01310-100" &&
+      (await noCheckout(pagina, "[name=numero]").inputValue()) === "1578" &&
+      (await noCheckout(pagina, "[name=complemento]").inputValue()) === "Apto 12",
+    "e o endereço principal, preenchido — com número e complemento"
+  )
+  await visivel(pagina, "#form-entrega .opcao").first().waitFor({ timeout: 20000 })
+  ok(
+    (await visivel(pagina, "#form-entrega .opcao").count()) > 0,
+    "com as entregas já cotadas pro CEP dele"
+  )
+  const noMedusa = (
+    await medusa(`/store/carts/${carrinho}?fields=id,email,customer.id,*billing_address`, {
+      metodo: "GET",
+    })
+  ).corpo.cart
+  ok(
+    noMedusa?.customer?.id === idCompleta && noMedusa?.email === COMPLETA,
+    "o carrinho passou pro nome da conta, com o e-mail dela",
+    JSON.stringify({ dono: noMedusa?.customer?.id, email: noMedusa?.email })
+  )
+  ok(
+    noMedusa?.billing_address?.metadata?.documento?.valor === "11144477735",
+    "e o CPF da conta foi pro endereço de cobrança, onde o checkout guarda"
+  )
+
+  await hidratado(pagina, "#form-entrega button[type=submit]")
+  await visivel(pagina, "#form-entrega button[type=submit]").click()
+  const pedidoDaCompleta = await pagarNoPix(pagina)
+  ok(
+    (await pedidosDa(tokenCompleta)).some((o) => o.id === pedidoDaCompleta),
+    "o pedido nasce na conta"
+  )
+  await esperar(2500)
+  ok(
+    (await doCliente(tokenCompleta)).addresses?.length === 1,
+    "comprar pro endereço que já está salvo não duplica ele"
+  )
+  deixados.push({ id: pedidoDaCompleta })
+  await contexto.close()
+
+  /* ── conta vazia: o que a compra deixa ── */
+  const VAZIA = novoEmail()
+  const tokenVazia = await tokenPorApi(VAZIA)
+  const carrinhoVazia = await carrinhoComShampoo()
+  const b = await abaNaConta(tokenVazia)
+  await b.contexto.addCookies([{ name: "carrinho", value: carrinhoVazia, url: LOJA }])
+  await b.pagina.goto(`${LOJA}/checkout`)
+  await visivel(b.pagina, "#form-contato").waitFor({ timeout: 30000 })
+  await hidratado(b.pagina, "#form-contato [name=email]")
+  ok(
+    (await noCheckout(b.pagina, "[name=email]").inputValue()) === VAZIA,
+    "conta sem dados: o checkout abre no passo 1, com o e-mail da conta"
+  )
+  await contatoNaMao(b.pagina, {
+    nome: "Bruna",
+    sobrenome: "Lima",
+    telefone: "(47) 99999-8888",
+  })
+  await entregaPeloCep(b.pagina, "01310-100", "900")
+  const pedidoDaVazia = await pagarNoPix(b.pagina)
+  ok(
+    (await pedidosDa(tokenVazia)).some((o) => o.id === pedidoDaVazia),
+    "o pedido nasce na conta"
+  )
+  deixados.push({ id: pedidoDaVazia })
+  let depois = {}
+  for (let i = 0; i < 20 && !depois.addresses?.length; i++) {
+    await esperar(500)
+    depois = await doCliente(tokenVazia)
+  }
+  const guardado = depois.addresses?.[0]
+  ok(
+    depois.addresses?.length === 1 &&
+      guardado?.is_default_shipping === true &&
+      guardado?.metadata?.numero === "900" &&
+      guardado?.postal_code === "01310100",
+    "o endereço da compra fica salvo na conta — e vira o principal",
+    JSON.stringify(depois.addresses)
+  )
+  ok(
+    depois.first_name === "Bruna" &&
+      depois.last_name === "Lima" &&
+      depois.phone === "+5547999998888" &&
+      depois.metadata?.documento?.valor === "11144477735",
+    "e nome, celular e CPF completam os dados que estavam vazios",
+    JSON.stringify({ n: depois.first_name, t: depois.phone, d: depois.metadata?.documento })
+  )
+  await b.contexto.close()
+
+  /* ── sem a conta aberta, com o e-mail dela: nada escrito nela ── */
+  const antes = (await doCliente(tokenCompleta)).addresses?.length
+  const carrinhoAnonimo = await carrinhoComShampoo()
+  const d = await abaNaConta(null)
+  await d.contexto.addCookies([{ name: "carrinho", value: carrinhoAnonimo, url: LOJA }])
+  await d.pagina.goto(`${LOJA}/checkout`)
+  await contatoNaMao(d.pagina, {
+    email: COMPLETA,
+    nome: "Outra",
+    sobrenome: "Pessoa",
+    telefone: "(21) 98888-7777",
+  })
+  await entregaPeloCep(d.pagina, "01310-100", "7")
+  const pedidoAnonimo = await pagarNoPix(d.pagina)
+  deixados.push({ id: pedidoAnonimo })
+  await esperar(2500)
+  const intacta = await doCliente(tokenCompleta)
+  ok(
+    intacta.addresses?.length === antes && intacta.first_name === "Rafael",
+    "comprar SEM entrar, com o e-mail de uma conta, não escreve endereço nem dados nela",
+    `${antes} → ${intacta.addresses?.length}, ${intacta.first_name}`
+  )
+  await d.contexto.close()
+
+  /* ── sair leva a sacola da conta ── */
+  titulo("Sair leva a sacola da conta")
+  const carrinhoDaConta = await carrinhoComShampoo()
+  const s = await abaNaConta(tokenCompleta)
+  await s.contexto.addCookies([{ name: "carrinho", value: carrinhoDaConta, url: LOJA }])
+  await s.pagina.goto(`${LOJA}/checkout`)
+  await visivel(s.pagina, "#form-entrega").waitFor({ timeout: 30000 })
+  await s.pagina.goto(`${LOJA}/conta`)
+  await hidratado(s.pagina, ".menu-conta__sair")
+  await visivel(s.pagina, ".menu-conta__sair").click()
+  await s.pagina.waitForURL("**/conta/entrar?saiu=1", { timeout: 20000 })
+  ok(
+    !(await s.contexto.cookies()).some((c) => c.name === "carrinho" && c.value),
+    "com a sacola já no nome da conta, sair leva ela junto"
+  )
+  await s.contexto.close()
+
+  const carrinhoSolto = await carrinhoComShampoo()
+  const t = await abaNaConta(tokenCompleta)
+  await t.contexto.addCookies([{ name: "carrinho", value: carrinhoSolto, url: LOJA }])
+  await t.pagina.goto(`${LOJA}/conta`)
+  await hidratado(t.pagina, ".menu-conta__sair")
+  await visivel(t.pagina, ".menu-conta__sair").click()
+  await t.pagina.waitForURL("**/conta/entrar?saiu=1", { timeout: 20000 })
+  ok(
+    (await t.contexto.cookies()).some((c) => c.name === "carrinho" && c.value === carrinhoSolto),
+    "a sacola que não é da conta fica"
+  )
+  await t.contexto.close()
+}
+
+/* ── 18. higiene ──────────────────────────────────────────────────────────── */
 
 titulo("Higiene")
 ok(errosDeConsole.length === 0, "nenhum erro no console", errosDeConsole.slice(0, 3).join(" | "))

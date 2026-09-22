@@ -11,8 +11,9 @@ import { listarPedidos } from "@/lib/pedidos-da-conta"
  * O MENU DA CONTA — quem está logado, e as telas.
  *
  * À esquerda no computador; no celular vira uma fita de abas no topo
- * (`conta.css`). Endereços e Meus dados entram na parte 3 do porte, junto
- * das telas deles — link pra tela que não existe é pior que link nenhum.
+ * (`conta.css`). Os números do lado são quantos pedidos e quantos endereços
+ * — saem das mesmas perguntas que a página da vez faz (`cache`), sem ida a
+ * mais ao Medusa.
  *
  * É ELE QUEM DECIDE QUE A SESSÃO ACABOU: a leitura do cliente é a primeira
  * pergunta ao Medusa de qualquer tela da área. Token recusado vai pro
@@ -31,6 +32,7 @@ export async function MenuDaConta() {
       oi={cliente?.nome ? `Oi, ${cliente.nome}` : "Oi!"}
       email={cliente?.email ?? ""}
       quantos={quantos}
+      enderecos={cliente?.enderecos.length ?? 0}
       marcar
     />
   )
@@ -42,18 +44,20 @@ export async function MenuDaConta() {
  * isso não existe na casca estática.
  */
 export function MenuEsperando() {
-  return <Casca oi="Oi!" email="" quantos={0} marcar={false} />
+  return <Casca oi="Oi!" email="" quantos={0} enderecos={0} marcar={false} />
 }
 
 function Casca({
   oi,
   email,
   quantos,
+  enderecos,
   marcar,
 }: {
   oi: string
   email: string
   quantos: number
+  enderecos: number
   marcar: boolean
 }) {
   return (
@@ -79,6 +83,21 @@ function Casca({
                   {quantos}
                 </span>
               ) : null}
+            </Destino>
+          </Item>
+          <Item>
+            <Destino href="/conta/enderecos" marcar={marcar}>
+              Endereços{" "}
+              {enderecos ? (
+                <span className="menu-conta__num" data-conta-enderecos>
+                  {enderecos}
+                </span>
+              ) : null}
+            </Destino>
+          </Item>
+          <Item>
+            <Destino href="/conta/dados" marcar={marcar}>
+              Meus dados
             </Destino>
           </Item>
           <Item>

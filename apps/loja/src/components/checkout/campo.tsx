@@ -35,12 +35,35 @@ type Props = {
   nota?: string
   /** Vai depois do input, dentro do `.campo`: selo de bandeira, spinner. */
   enfeite?: ReactNode
+  /**
+   * O campo está esperando uma resposta (o CEP procurando o endereço): é o
+   * `aria-busy` da caixa que MOSTRA o `.campo__spinner` — sem ele, o CSS
+   * do protótipo deixa o spinner escondido.
+   *
+   * O ENFEITE FICA SEMPRE, e o que liga e desliga é isto. Pôr e tirar o
+   * enfeite trocava o input de lugar na árvore (dentro e fora da caixa), e
+   * o React montava outro: no oitavo dígito do CEP o campo perdia o foco.
+   */
+  ocupado?: boolean
+  /** Vai no pé do `.campo`, depois do erro: o "Não sei meu CEP" da conta. */
+  depois?: ReactNode
   /** Classe de largura da grade: `campo--3`, `campo--cep`… */
   largura?: string
   ref?: Ref<HTMLInputElement>
 } & Omit<InputHTMLAttributes<HTMLInputElement>, "name" | "className">
 
-export function Campo({ rotulo, nome, erro, nota, enfeite, largura = "", ref, ...resto }: Props) {
+export function Campo({
+  rotulo,
+  nome,
+  erro,
+  nota,
+  enfeite,
+  ocupado,
+  depois,
+  largura = "",
+  ref,
+  ...resto
+}: Props) {
   const id = useId()
   const idErro = `erro-${id}`
 
@@ -51,7 +74,7 @@ export function Campo({ rotulo, nome, erro, nota, enfeite, largura = "", ref, ..
         {nota ? <small> {nota}</small> : null}
       </label>
       {enfeite ? (
-        <span className="campo__com-icone">
+        <span className="campo__com-icone" aria-busy={ocupado ? true : undefined}>
           <input
             {...resto}
             ref={ref}
@@ -80,6 +103,7 @@ export function Campo({ rotulo, nome, erro, nota, enfeite, largura = "", ref, ..
       <span className="campo__erro" id={idErro} aria-live="polite">
         {erro ?? ""}
       </span>
+      {depois}
     </div>
   )
 }

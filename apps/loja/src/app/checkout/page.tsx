@@ -12,6 +12,7 @@ import {
   listarFretes,
   listarProvedores,
   listarSugestoes,
+  preencherDaConta,
 } from "@/lib/checkout"
 import { carrinhoFechado } from "@/lib/carrinho"
 import { faltaPraGratis } from "@/lib/checkout-visivel"
@@ -82,6 +83,10 @@ export default function Pagina() {
 }
 
 async function Conteudo() {
+  // Com a conta aberta: o carrinho passa pro nome dela, e o que estiver
+  // vazio vem de "Meus dados" e do endereço principal. Antes de ler — é o
+  // carrinho já preenchido que decide em que passo o checkout abre.
+  await preencherDaConta()
   const checkout = await lerCheckout()
 
   // Carrinho que já virou pedido, com a confirmação perdida no caminho: vai

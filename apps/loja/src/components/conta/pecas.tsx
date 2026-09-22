@@ -3,7 +3,7 @@
 import type { Route } from "next"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useEffect, useState, useTransition, type ReactNode } from "react"
+import { useCallback, useEffect, useState, useTransition, type ReactNode } from "react"
 import { Raio } from "@/components/icones"
 import { EVENTO_SACOLA } from "@/components/sacola/contexto"
 import { comprarDeNovo } from "@/lib/acoes/pedido"
@@ -105,6 +105,54 @@ export function ComprarDeNovo({
         {aviso?.texto ?? ""}
       </p>
     </>
+  )
+}
+
+/* ── o aviso que sobe de baixo ────────────────────────────────────────────── */
+
+type EstadoDoAviso = { texto: string; visivel: boolean; n: number }
+
+/**
+ * "Endereço salvo.", "Dados salvos." — a confirmação que aparece embaixo e
+ * some sozinha em quatro segundos (o `.aviso` do protótipo). O texto fica
+ * depois de sumir: a caixa desce com ele, em vez de encolher vazia no
+ * caminho.
+ */
+export function useAviso() {
+  const [aviso, setAviso] = useState<EstadoDoAviso>({ texto: "", visivel: false, n: 0 })
+
+  useEffect(() => {
+    if (!aviso.visivel) return
+    const n = aviso.n
+    const relogio = setTimeout(
+      () => setAviso((a) => (a.n === n ? { ...a, visivel: false } : a)),
+      4200
+    )
+    return () => clearTimeout(relogio)
+  }, [aviso.n, aviso.visivel])
+
+  const avisar = useCallback(
+    (texto: string) => setAviso((a) => ({ texto, visivel: true, n: a.n + 1 })),
+    []
+  )
+  return { aviso, avisar }
+}
+
+/**
+ * A caixa do aviso existe SEMPRE, vazia e fora da tela: região viva que
+ * nasce junto com o texto costuma não ser anunciada pelo leitor de tela.
+ */
+export function Aviso({ aviso }: { aviso: EstadoDoAviso }) {
+  return (
+    <p
+      className="conta-aviso"
+      role="status"
+      aria-live="polite"
+      data-fora={aviso.visivel ? undefined : ""}
+      data-conta-aviso
+    >
+      {aviso.texto}
+    </p>
   )
 }
 

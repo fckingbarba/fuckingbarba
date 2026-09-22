@@ -139,7 +139,7 @@ export function Cabecalho() {
           </Link>
 
           <div className="cabecalho__grupo cabecalho__grupo--dir">
-            <Link className="cabecalho__icone" href={EM_BREVE} aria-label="Minha conta">
+            <Link className="cabecalho__icone" href="/conta" aria-label="Minha conta">
               <Conta />
             </Link>
             <BotaoDaSacola />

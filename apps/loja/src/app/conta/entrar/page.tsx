@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { Suspense } from "react"
 import { FormEntrar } from "@/components/conta/entrar"
 import { Conta } from "@/components/icones"
+import { RecarregaSacola } from "@/components/sacola/recarrega"
 import { lerEntrando } from "@/lib/conta"
 import { destinoSeguro } from "@/lib/sessao"
 
@@ -71,6 +72,10 @@ async function Formulario({
           {recado}
         </p>
       ) : null}
+      {/* Quem saiu pode ter levado a sacola junto (a da conta — ver a ação
+          `sair`): o número do cabeçalho relê, em vez de mostrar os itens
+          que já não estão mais neste navegador. */}
+      {recado ? <RecarregaSacola /> : null}
       <FormEntrar email={entrando?.email ?? ""} para={destinoSeguro(busca.para)} />
     </>
   )

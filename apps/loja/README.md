@@ -22,7 +22,7 @@ npm run loja:dev                                 # http://localhost:3000
 | `src/app/page.tsx`                    | Home provisória: só o miolo, que a fase 3 troca pelas seções do protótipo                        |
 | `src/app/[categoria]/page.tsx`        | `/barba`, `/cabelo`, `/kits` lendo categoria e produtos do Medusa                                |
 | `src/app/produtos/[handle]/page.tsx`  | `/produtos/<handle>` lendo o produto do Medusa (esqueleto da PDP)                                |
-| `src/app/em-breve/page.tsx`           | Destino honesto dos links cujas páginas ainda não existem (blog, conta, busca)                   |
+| `src/app/em-breve/page.tsx`           | Destino honesto dos links cujas páginas ainda não existem (blog, contato, busca)                 |
 | `src/app/(institucional)/`            | `/privacidade` e `/trocas` — texto provisório, marcado                                           |
 | `src/app/robots.ts` · `sitemap.ts`    | Bloqueia tudo até `SITE_INDEXAVEL=true`; sitemap gerado do Medusa                                |
 | `src/app/api/revalidar/route.ts`      | O Medusa avisa que algo mudou → a tag do cache cai (`revalidateTag(tag, "max")`)                 |
@@ -90,6 +90,10 @@ Coisas que custaram caro e agora estão travadas em teste:
   tela de "pedido feito" dava "não achei esse pedido". `CAMINHOS_COM_ID`, em `src/proxy.ts`.
 - **O React dá reset no `<form action={…}>`** depois que a ação roda. Sem devolver o que foi
   digitado no estado da ação, um dígito errado no CPF esvaziava os cinco campos junto.
+- **E o reset não poupa `<select>` controlado:** ele volta pra primeira opção na tela enquanto o
+  estado segue "SP", e o envio seguinte chega sem estado ("Escolhe o estado." num campo que a
+  pessoa via preenchido). Um efeito devolve o valor depois de cada resposta — no passo 2 e nos
+  endereços da conta (`conferir-conta.mjs` trava).
 - **O frete marcado por padrão não é o frete gravado.** `defaultChecked` não dispara `onChange`,
   então quem não tocasse nos rádios salvava o endereço e continuava no passo 2. O rádio mora
   dentro do formulário da entrega, e a ação grava os dois de uma vez.

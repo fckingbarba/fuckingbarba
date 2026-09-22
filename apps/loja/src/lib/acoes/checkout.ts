@@ -3,9 +3,15 @@
 import type { HttpTypes } from "@medusajs/types"
 import { refresh } from "next/cache"
 import { headers } from "next/headers"
+import { after } from "next/server"
 import { buscarCep, limparCep } from "@/lib/cep"
 import { lerCarrinho, pedidoDoCarrinhoFechado } from "@/lib/carrinho"
-import { abrirPedido, CAMPOS_CHECKOUT } from "@/lib/checkout"
+import {
+  abrirPedido,
+  CAMPOS_CHECKOUT,
+  donoDoCarrinho,
+  garantirDonoDoCarrinho,
+} from "@/lib/checkout"
 import {
   PROVEDOR_PAGARME,
   PROVEDOR_PROVISORIO,
@@ -14,10 +20,12 @@ import {
   type EstadoDaEtapa,
 } from "@/lib/checkout-visivel"
 import { BUMP } from "@/conteudo/checkout"
+import { guardarDaCompra, lerCliente, lerSessao } from "@/lib/conta"
 import { conferirDocumento, type Documento } from "@/lib/documento"
-import { lerEndereco, montarEndereco } from "@/lib/endereco"
+import { ehUf, lerEndereco, montarEndereco } from "@/lib/endereco"
 import { cliente } from "@/lib/medusa"
 import { depoisDaRecusa, entradaDoCarrinho } from "@/lib/pagamento"
+import { lerToken } from "@/lib/sessao"
 import { CHECKOUT_ABERTO } from "@/lib/site"
 import { conferirTelefone } from "@/lib/telefone"
 
@@ -100,36 +108,6 @@ const texto = (fd: FormData, campo: string) => String(fd.get(campo) ?? "").trim(
  * O Medusa também valida, então esta é a primeira de duas peneiras.
  */
 const ehEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v)
-
-const UFS = new Set([
-  "AC",
-  "AL",
-  "AM",
-  "AP",
-  "BA",
-  "CE",
-  "DF",
-  "ES",
-  "GO",
-  "MA",
-  "MG",
-  "MS",
-  "MT",
-  "PA",
-  "PB",
-  "PE",
-  "PI",
-  "PR",
-  "RJ",
-  "RN",
-  "RO",
-  "RR",
-  "RS",
-  "SC",
-  "SE",
-  "SP",
-  "TO",
-])
 
 /* ── o carrinho, sempre do cookie ─────────────────────────────────────────── */
 
@@ -237,7 +215,7 @@ export async function salvarEntrega(anterior: EstadoDaEtapa, fd: FormData): Prom
   if (!numero) erros.numero = "Falta o número. Se não tem, escreve S/N."
   if (!bairro) erros.bairro = "Falta o bairro."
   if (!cidade) erros.cidade = "Falta a cidade."
-  if (!UFS.has(uf)) erros.uf = "Estado em duas letras (SP, RJ, MG…)."
+  if (!ehUf(uf)) erros.uf = "Estado em duas letras (SP, RJ, MG…)."
 
   if (Object.keys(erros).length) return erro(anterior, erros, "", fd)
 
@@ -403,7 +381,8 @@ export async function finalizar(anterior: EstadoDaEtapa, fd: FormData): Promise<
     return erro(anterior, {}, EXPIROU, fd)
   }
 
-  const { sdk, carrinho } = atual
+  const { sdk } = atual
+  let { carrinho } = atual
 
   // Falta alguma coisa? Diz o que falta, em vez de deixar o Medusa recusar com
   // a mensagem errada.
@@ -411,6 +390,38 @@ export async function finalizar(anterior: EstadoDaEtapa, fd: FormData): Promise<
   if (!carrinho.shipping_address?.postal_code)
     return erro(anterior, {}, "Falta o endereço de entrega.", fd)
   if (!carrinho.shipping_methods?.length) return erro(anterior, {}, "Falta escolher a entrega.", fd)
+
+  /*
+    O PEDIDO NASCE NA CONTA ABERTA. O checkout já passou o carrinho pro nome
+    dela ao abrir (`preencherDaConta`); isto cobre quem entrou na conta em
+    outra aba com o checkout aberto e clicou em pagar sem mais nada no meio.
+    O token só diz QUEM está logado — quem confere é o Medusa, na troca.
+
+    Trocar de dono recalcula o carrinho. Se o total mudasse (preço de grupo
+    de cliente, que a loja não usa hoje), a pessoa pagaria um valor que não
+    viu: aí ela volta pro resumo, com o total novo, antes de cobrar.
+  */
+  const sessao = await lerSessao()
+  const eu = lerToken(sessao)?.actor_id
+  if (sessao && typeof eu === "string" && donoDoCarrinho(carrinho) !== eu) {
+    const leitura = await lerCliente()
+    if (
+      leitura.estado === "ok" &&
+      (await garantirDonoDoCarrinho(carrinho, sessao, leitura.cliente))
+    ) {
+      const relido = await lerCarrinho(CAMPOS_CHECKOUT)
+      if (relido && Number(relido.total) !== Number(carrinho.total)) {
+        refresh()
+        return erro(
+          anterior,
+          {},
+          "O total do pedido mudou. Confere o resumo e clica em pagar de novo.",
+          fd
+        )
+      }
+      if (relido) carrinho = relido
+    }
+  }
 
   let dados: Record<string, unknown> | undefined
   if (cobra) {
@@ -499,6 +510,19 @@ export async function finalizar(anterior: EstadoDaEtapa, fd: FormData): Promise<
         fd
       )
     }
+  }
+
+  /*
+    O ENDEREÇO E OS DADOS DESTA COMPRA FICAM NA CONTA — com o token de quem
+    está nela, e DEPOIS da resposta: a tela de obrigado não espera por isso,
+    e uma falha ali não é falha da compra. Ver `guardarDaCompra`.
+  */
+  if (sessao) {
+    const compra = {
+      entrega: lerEndereco(carrinho.shipping_address),
+      documento: documentoGravado(carrinho.billing_address) ?? null,
+    }
+    after(() => guardarDaCompra(sessao, compra))
   }
 
   return abrirPedido(pedidoId)

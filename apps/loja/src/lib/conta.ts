@@ -1,7 +1,12 @@
 import "server-only"
+import type { HttpTypes } from "@medusajs/types"
 import { cookies, headers } from "next/headers"
 import { cache } from "react"
-import { COOKIE_ENTRANDO, COOKIE_SESSAO, destinoSeguro, type Destino } from "./sessao"
+import type { EnderecoVisivel } from "./checkout-visivel"
+import { LIMITE_DE_ENDERECOS, type ClienteVisivel } from "./conta-visivel"
+import { documentoGuardado, type Documento } from "./documento"
+import { lerEnderecoDaConta, lugarParaMedusa, mesmoLugar } from "./endereco"
+import { COOKIE_ENTRANDO, COOKIE_SESSAO, destinoSeguro, lerToken, type Destino } from "./sessao"
 
 /**
  * A MINHA CONTA DO LADO DO SERVIDOR — cookies e as conversas com o Medusa.
@@ -95,7 +100,7 @@ export async function medusa(
     token,
     extras = {},
   }: {
-    metodo?: "GET" | "POST"
+    metodo?: "GET" | "POST" | "DELETE"
     corpo?: unknown
     token?: string
     extras?: Record<string, string>
@@ -152,12 +157,7 @@ export async function pedirCodigoAoMedusa(email: string): Promise<Resposta> {
 
 /* ── quem está logado ─────────────────────────────────────────────────────── */
 
-export type ClienteVisivel = {
-  id: string
-  email: string
-  nome: string
-  sobrenome: string
-}
+export type { ClienteVisivel } from "./conta-visivel"
 
 export type LeituraDoCliente =
   | { estado: "ok"; cliente: ClienteVisivel }
@@ -167,28 +167,159 @@ export type LeituraDoCliente =
   /** O Medusa não respondeu. Não é motivo pra tirar ninguém da conta. */
   | { estado: "fora-do-ar" }
 
-/** `cache`: o menu e a página perguntam no mesmo pedido de página — uma ida só. */
-export const lerCliente = cache(async (): Promise<LeituraDoCliente> => {
-  const token = await lerSessao()
-  if (!token) return { estado: "sem-sessao" }
+/**
+ * Tudo que a conta mostra sai desta pergunta: o menu (nome e quantos
+ * endereços), a visão geral, os endereços, os dados — e o checkout, que abre
+ * preenchido com eles.
+ */
+const CAMPOS_DO_CLIENTE = "id,email,first_name,last_name,phone,metadata,*addresses"
 
-  const r = await medusa("/store/customers/me?fields=id,email,first_name,last_name", {
+const texto = (v: unknown) => (typeof v === "string" ? v.trim() : "")
+/** Uma data ISO que o Medusa devolveu, ou null — o `metadata` é escrito por quem tem o token. */
+const data = (v: unknown) => (typeof v === "string" && !Number.isNaN(Date.parse(v)) ? v : null)
+
+/**
+ * O cliente do Medusa no formato das telas.
+ *
+ * O `metadata` É ESCRITO PELO PRÓPRIO CLIENTE — a API da loja deixa quem tem
+ * o token gravar o que quiser ali. Então nada dele entra sem conferência: o
+ * documento só vale com o dígito certo, e a data do consentimento só se for
+ * data. Nada aqui decide preço, dono ou acesso; é só o que a tela mostra e
+ * o checkout sugere.
+ */
+function paraCliente(c: HttpTypes.StoreCustomer): ClienteVisivel {
+  const meta = (c.metadata ?? {}) as Record<string, unknown>
+  const ofertas = (meta.ofertas ?? {}) as Record<string, unknown>
+  const enderecos = (c.addresses ?? [])
+    .map((a) => ({ a, e: lerEnderecoDaConta(a) }))
+    .sort(
+      (x, y) =>
+        Number(y.e.principal) - Number(x.e.principal) ||
+        String(x.a.created_at ?? "").localeCompare(String(y.a.created_at ?? ""))
+    )
+    .map(({ e }) => e)
+
+  return {
+    id: c.id,
+    email: c.email ?? "",
+    nome: texto(c.first_name),
+    sobrenome: texto(c.last_name),
+    telefone: texto(c.phone),
+    documento: documentoGuardado(meta.documento),
+    ofertas: { email: data(ofertas.email), whatsapp: data(ofertas.whatsapp) },
+    enderecos,
+  }
+}
+
+/** Com o token na mão (a ação de finalizar, depois da resposta), sem cookie. */
+async function perguntarPeloCliente(token: string): Promise<LeituraDoCliente> {
+  const r = await medusa(`/store/customers/me?fields=${encodeURIComponent(CAMPOS_DO_CLIENTE)}`, {
     metodo: "GET",
     token,
   })
   if (r.status === 401 || r.status === 404) return { estado: "expirou" }
-  const c = r.corpo.customer as
-    | { id?: string; email?: string; first_name?: string | null; last_name?: string | null }
-    | undefined
+  const c = r.corpo.customer as HttpTypes.StoreCustomer | undefined
   if (r.status !== 200 || !c?.id) return { estado: "fora-do-ar" }
+  return { estado: "ok", cliente: paraCliente(c) }
+}
 
-  return {
-    estado: "ok",
-    cliente: {
-      id: c.id,
-      email: c.email ?? "",
-      nome: c.first_name ?? "",
-      sobrenome: c.last_name ?? "",
-    },
-  }
+/** `cache`: o menu e a página perguntam no mesmo pedido de página — uma ida só. */
+export const lerCliente = cache(async (): Promise<LeituraDoCliente> => {
+  const token = await lerSessao()
+  if (!token) return { estado: "sem-sessao" }
+  return perguntarPeloCliente(token)
 })
+
+/* ── a compra feita com a conta aberta ────────────────────────────────────── */
+
+/** O que a compra deixa pra conta: o endereço e os dados do passo 1. */
+export type DaCompra = { entrega: EnderecoVisivel; documento: Documento | null }
+
+/**
+ * DEPOIS DE UMA COMPRA COM A CONTA ABERTA, o endereço dela fica salvo — é a
+ * promessa da visão geral ("o primeiro que você usar no checkout fica
+ * guardado aqui"). E nome, celular e documento completam "Meus dados" onde
+ * eles estiverem VAZIOS: o que a pessoa escreveu lá manda, e uma compra pra
+ * outra pessoa não reescreve a conta.
+ *
+ * ┌─ POR QUE AQUI, COM O TOKEN, E NÃO NUM SUBSCRIBER DO BACKEND ───────────┐
+ * │ O backend saberia de todo pedido — mas não saberia se ele foi feito    │
+ * │ com a conta aberta. O Medusa liga ao cliente com conta qualquer        │
+ * │ carrinho com o e-mail dele, e com isso quem digitasse o e-mail de      │
+ * │ outra pessoa no checkout ESCREVERIA na conta dela: um endereço         │
+ * │ estranho na lista (e principal, se ela não tivesse nenhum), abrindo    │
+ * │ preenchido no checkout dela. Com o token do cookie, só escreve na      │
+ * │ conta quem está dentro dela.                                           │
+ * └────────────────────────────────────────────────────────────────────────┘
+ *
+ * Nunca lança, e roda DEPOIS da resposta (`after`, na ação de finalizar): a
+ * confirmação do pedido não espera por isto, e uma falha aqui não é falha da
+ * compra — no pior caso, o endereço não fica salvo.
+ */
+export async function guardarDaCompra(token: string, compra: DaCompra): Promise<void> {
+  const leitura = await perguntarPeloCliente(token)
+  if (leitura.estado !== "ok") return
+  const conta = leitura.cliente
+  const { entrega } = compra
+
+  const vazios: Record<string, unknown> = {}
+  if (!conta.nome && entrega.nome) vazios.first_name = entrega.nome
+  if (!conta.sobrenome && entrega.sobrenome) vazios.last_name = entrega.sobrenome
+  if (!conta.telefone && entrega.telefone) vazios.phone = entrega.telefone
+  // O `metadata` do cliente MESCLA no primeiro nível: mandar só o documento
+  // não apaga as preferências de oferta.
+  if (!conta.documento && compra.documento) vazios.metadata = { documento: compra.documento }
+  if (Object.keys(vazios).length) {
+    const r = await medusa("/store/customers/me", { corpo: vazios, token })
+    if (r.status !== 200) console.warn(`[conta] dados da compra: ${r.status}`)
+  }
+
+  const lugar = {
+    cep: entrega.cep.replace(/\D+/g, ""),
+    rua: entrega.rua,
+    numero: entrega.numero,
+    complemento: entrega.complemento,
+    bairro: entrega.bairro,
+    cidade: entrega.cidade,
+    uf: entrega.uf,
+  }
+  if (lugar.cep.length !== 8 || !lugar.rua || !lugar.numero) return
+  if (conta.enderecos.some((e) => mesmoLugar(e, lugar))) return
+  if (conta.enderecos.length >= LIMITE_DE_ENDERECOS) return
+
+  const r = await medusa("/store/customers/me/addresses", {
+    corpo: {
+      ...lugarParaMedusa(lugar),
+      // Sem nenhum principal, este vira: é o que o checkout vai abrir.
+      ...(conta.enderecos.some((e) => e.principal) ? {} : { is_default_shipping: true }),
+    },
+    token,
+  })
+  if (r.status !== 200) console.warn(`[conta] endereço da compra: ${r.status}`)
+}
+
+/* ── sair, e a sacola de quem saiu ────────────────────────────────────────── */
+
+/**
+ * A sacola deste navegador é da conta que está saindo?
+ *
+ * Com a conta aberta, o checkout passa o carrinho pro nome dela
+ * (`preencherDaConta`, em `checkout.ts`) — e o Medusa não desfaz isso:
+ * carrinho de cliente com conta continua dele mesmo que o e-mail mude. Quem
+ * usasse o mesmo navegador depois fecharia a compra NA CONTA de quem saiu,
+ * vendo o endereço e o CPF dela preenchidos. Então sair leva a sacola junto
+ * — a pessoa que saiu perde o que estava nela, e é o preço de não entregar
+ * a conta pra próxima.
+ *
+ * Quem decide de quem é o carrinho é o Medusa; o token só diz quem está
+ * saindo (a assinatura não importa aqui: ele não abre nada, só compara).
+ */
+export async function carrinhoEhDaConta(carrinhoId: string, token: string): Promise<boolean> {
+  const eu = lerToken(token)?.actor_id
+  if (!carrinhoId || typeof eu !== "string" || !eu) return false
+  const r = await medusa(`/store/carts/${encodeURIComponent(carrinhoId)}?fields=id,customer.id`, {
+    metodo: "GET",
+  })
+  const dono = (r.corpo.cart as { customer?: { id?: string } | null } | undefined)?.customer?.id
+  return r.status === 200 && dono === eu
+}

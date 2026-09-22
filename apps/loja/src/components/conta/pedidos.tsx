@@ -183,10 +183,19 @@ export function RepetirPedido({ p }: { p: PedidoDaConta }) {
   )
 }
 
-/** Sem pedido nenhum: o que acontece quando houver, e o caminho pra vitrine. */
-export function NenhumPedido({ children }: { children: ReactNode }) {
+/**
+ * Sem pedido nenhum: o que acontece quando houver, e o caminho pra vitrine.
+ * `largo` na visão geral, onde ele divide a grade com os atalhos do pé.
+ */
+export function NenhumPedido({
+  children,
+  largo = false,
+}: {
+  children: ReactNode
+  largo?: boolean
+}) {
   return (
-    <div className="bloco conta-vazio">
+    <div className={`bloco conta-vazio${largo ? " bloco--largo" : ""}`}>
       <Sacola aria-hidden="true" />
       <p className="conta-vazio__titulo">Nenhum pedido ainda</p>
       <p>{children}</p>
@@ -435,9 +444,9 @@ export function seSessaoAcabou(estado: string): void {
 }
 
 /** O Medusa não respondeu. Não é motivo pra tirar ninguém da conta. */
-export function ForaDoAr() {
+export function ForaDoAr({ largo = false }: { largo?: boolean }) {
   return (
-    <div className="bloco" role="alert">
+    <div className={`bloco${largo ? " bloco--largo" : ""}`} role="alert">
       Não consegui buscar seus pedidos agora. Tenta de novo em instantes.
     </div>
   )

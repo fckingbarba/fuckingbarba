@@ -1,9 +1,11 @@
 # Estado do projeto — e o que vem a seguir
 
-Atualizado em 22/09/2026, com o estorno que o Pagar.me não faz: a conciliação confere cada estorno
-na cobrança, avisa quando o dinheiro não voltou e pede de novo. No mesmo dia, a API de pedido
-fechada pra quem só tem o id, e o e-mail de pedido confirmado ligado; em 21/09, o conserto do cache
-e o rastreio da Frenet chegando no pedido, na conta e no e-mail. O
+Atualizado em 22/09/2026, com a Minha conta de pé na loja: endereços, meus dados, o checkout que
+abre preenchido pra quem está na conta (e guarda o endereço da compra), e o "Minha conta" do
+cabeçalho apontando pra ela. No mesmo dia, o estorno que o Pagar.me não faz (a conciliação confere,
+avisa e pede de novo), a API de pedido fechada pra quem só tem o id e o e-mail de pedido confirmado
+ligado; em 21/09, o conserto do cache e o rastreio da Frenet chegando no pedido, na conta e no
+e-mail. O
 AGENTS.md diz **como** trabalhar aqui; este arquivo diz **onde** o projeto está. Leia os dois antes
 de começar e, ao terminar uma tarefa, atualize este: o que mudou de estado, o que saiu da lista, o
 que entrou.
@@ -175,12 +177,11 @@ aparecem na conta e no log, sem e-mail automático — esses a loja conversa com
 - [ ] Dados reais da empresa no admin, em Configurações: CNPJ, razão social, endereço, WhatsApp,
       e-mail, horário e prazo de postagem.
 - [ ] Catálogo da Nuvemshop (fase 2).
-- [ ] Páginas que faltam — Blog, Contato, Dúvidas, Minha conta (hoje apontam pro `/em-breve`).
-- [ ] **Minha conta**, em três partes. Protótipo aprovado:
+- [ ] Páginas que faltam — Blog, Contato e Dúvidas (hoje apontam pro `/em-breve`).
+- [ ] **Minha conta**, em quatro partes (a quarta saiu da terceira). Protótipo aprovado:
       `apps/loja/ferramentas/porte/prototipo-conta.html`.
   - [x] 1. Entrar com código de 6 dígitos no e-mail, sem senha; o primeiro código cria a conta, e o
-        cliente convidado de quem já comprou vira a conta (com os pedidos). `/conta` ainda sem
-        link na loja — o "Minha conta" do cabeçalho segue no `/em-breve` até a parte 3.
+        cliente convidado de quem já comprou vira a conta (com os pedidos).
   - [x] **Resend no ar** (21/09): domínio verificado (DNS na GoDaddy: TXT `resend._domainkey`,
         CNAME `send` e `rsend` — o site e o e-mail do Google não mudaram), chave só de envio no
         Railway, e o código chegou na caixa de entrada com a logo. Se um código não chegar, o log do
@@ -191,7 +192,33 @@ aparecem na conta e no log, sem e-mail automático — esses a loja conversa com
   - [x] O rastreio na conta: a situação do pacote, o caminho que a transportadora contou e os
         e-mails de cada momento (ver 1b e "Envios" no AGENTS.md). Postar pelo admin ("Mark as
         shipped" com o código) continua valendo, com ou sem o aviso da Frenet.
-  - [ ] 3. Endereços e meus dados — e aí o link do cabeçalho troca o `/em-breve` por `/conta`.
+  - [x] 3. Endereços e meus dados (22/09), e o "Minha conta" do cabeçalho, do menu e do rodapé
+        levando pra `/conta`. Endereços: o formulário do passo 2 do checkout (CEP primeiro), com
+        principal, editar e excluir perguntando antes; o principal é o que o checkout abre.
+        Meus dados: nome, celular, CPF ou CNPJ e as ofertas por e-mail e WhatsApp, que nascem
+        desmarcadas e guardam a data do "sim". A visão geral ganhou os dois atalhos do pé.
+  - [x] **O checkout conhece a conta** (22/09). Com a conta aberta, o carrinho passa pro nome dela
+        e o que estiver vazio vem preenchido — o passo 1 de "Meus dados", o endereço principal —, então
+        quem tem os dois cai direto na entrega. O pedido nasce na conta, e a compra deixa nela o
+        endereço (principal, se for o primeiro) e o nome, celular e CPF que faltavam — só com a
+        conta aberta: comprar sem entrar, com o e-mail de alguém, não escreve na conta dessa
+        pessoa. **Sair leva a sacola junto** se ela já for da conta (senão a próxima pessoa do
+        navegador compraria nela).
+  - [ ] 4. Trocar o e-mail (código no e-mail novo; o de agora vale até confirmar) e excluir a conta.
+        **O texto da exclusão precisa passar por quem cuida da parte jurídica** antes de ir ao ar
+        — está no protótipo: "a gente apaga seus dados pessoais e sai da conta em todos os
+        aparelhos; as notas fiscais continuam guardadas, como a lei manda".
+  - [ ] **A política de privacidade não fala da conta** — os endereços e dados guardados, as
+        ofertas por e-mail e WhatsApp com o consentimento, o cookie da sessão —, nem do Resend e do
+        Pagar.me, que entraram depois dela. Vai junto do item 4, pela mesma revisão jurídica.
+  - [ ] **As ofertas ainda não vão pra lugar nenhum:** a escolha fica no cliente do Medusa
+        (`metadata.ofertas`, com a data), e nada manda oferta hoje. Quando a newsletter ou o
+        WhatsApp de ofertas existirem, é de lá que sai a lista.
+  - [ ] Achado de 22/09, **fora da conta aberta:** comprar SEM entrar, digitar um e-mail errado no
+        passo 1 e depois corrigir pro e-mail de uma conta cria um cliente convidado novo, e o pedido
+        não aparece na conta (o Medusa só liga à conta o carrinho que ainda não tinha cliente). Com a
+        conta aberta isso não acontece mais — a troca de dono é pelo token. Pra quem compra sem
+        entrar, dá pra juntar depois, no backend; é raro o bastante pra esperar.
   - [ ] Histórico da Nuvemshop na conta: junto da importação do catálogo (fase 2), e de novo na
         virada, com os últimos pedidos.
   - [ ] Numeração: decidido que os pedidos novos começam depois do último da Nuvemshop (nada de dois

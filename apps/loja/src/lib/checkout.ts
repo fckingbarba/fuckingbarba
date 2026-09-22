@@ -13,6 +13,9 @@ import {
   type OpcaoDeFrete,
   type ProvedorDePagamento,
 } from "./checkout-visivel"
+import { lerCliente, lerSessao, medusa, type ClienteVisivel } from "./conta"
+import { documentoGuardado } from "./documento"
+import { lerEndereco, montarEndereco } from "./endereco"
 import { cliente, temEstoque } from "./medusa"
 import { CHECKOUT_ABERTO, site } from "./site"
 
@@ -33,12 +36,13 @@ import { CHECKOUT_ABERTO, site } from "./site"
 /**
  * Os campos que o checkout precisa. `*billing_address` entra mesmo a tela
  * nunca mostrando cobrança separada: é lá que mora o CPF/CNPJ (veja o porquê
- * em `acoes/checkout.ts`).
+ * em `acoes/checkout.ts`). `customer.id` é de quem é o carrinho — a ação de
+ * finalizar confere se é da conta aberta (`garantirDonoDoCarrinho`).
  */
 export const CAMPOS_CHECKOUT =
   "id,region_id,currency_code,email,subtotal,discount_total,shipping_total,tax_total,total," +
   "item_subtotal,item_total,*items,*items.variant,*items.product,*items.thumbnail," +
-  "*shipping_address,*billing_address,*shipping_methods,*promotions"
+  "*shipping_address,*billing_address,*shipping_methods,*promotions,customer.id"
 
 function aviso(erro: unknown, contexto: string) {
   const msg = erro instanceof Error ? erro.message : String(erro)
@@ -112,6 +116,150 @@ export async function lerCheckout(): Promise<CheckoutVisivel | null> {
     // que ele é o bump é a loja.
     cupons: cupons.filter((c) => c.codigo !== BUMP.codigo),
     bumpMarcado: cupons.some((c) => c.codigo === BUMP.codigo),
+  }
+}
+
+/* ── o checkout de quem está na conta ─────────────────────────────────────── */
+
+type CarrinhoComDono = {
+  id: string
+  email?: string | null
+  customer?: { id?: string } | null
+}
+
+/**
+ * De quem é o carrinho. O tipo do SDK não lista `customer` no carrinho da
+ * loja, mas a API devolve quando o campo é pedido (`customer.id`, em
+ * `CAMPOS_CHECKOUT`).
+ */
+export function donoDoCarrinho(carrinho: object): string | null {
+  return (carrinho as CarrinhoComDono).customer?.id ?? null
+}
+
+/**
+ * O carrinho passa pro nome da conta aberta — e o pedido nasce nela.
+ *
+ * ┌─ POR QUE NÃO BASTA O E-MAIL ───────────────────────────────────────────┐
+ * │ O Medusa já liga à conta o carrinho que recebe o e-mail dela. Quase    │
+ * │ sempre: carrinho que ganhou OUTRO e-mail antes (um erro de digitação   │
+ * │ corrigido depois) fica com um cliente convidado novo, e o pedido nasce │
+ * │ fora da conta — medido, não suposto. A troca de dono pelo token, na    │
+ * │ rota `/store/carts/:id/customer`, é a que não depende de ordem.        │
+ * └────────────────────────────────────────────────────────────────────────┘
+ *
+ * A troca põe o e-mail da conta no carrinho, por cima do que estava lá.
+ * Quem já tinha digitado outro no passo 1 fica com o dele: carrinho de
+ * cliente com conta aceita outro e-mail sem mudar de dono, e o que a pessoa
+ * escreveu pra esta compra manda.
+ *
+ * Devolve se trocou (`true`) — quem chama pode precisar reler o carrinho.
+ * Falha não é erro de tela: o checkout segue como se a conta não estivesse
+ * aberta, e o pedido cai onde o e-mail mandar.
+ */
+export async function garantirDonoDoCarrinho(
+  carrinho: CarrinhoComDono,
+  token: string,
+  conta: Pick<ClienteVisivel, "id" | "email">
+): Promise<boolean> {
+  if (donoDoCarrinho(carrinho) === conta.id) return false
+
+  const r = await medusa(`/store/carts/${encodeURIComponent(carrinho.id)}/customer?fields=id`, {
+    corpo: {},
+    token,
+  })
+  if (r.status !== 200) {
+    aviso(new Error(`${r.status} ${String(r.corpo.message ?? "")}`), "carrinho pra conta")
+    return false
+  }
+
+  const antes = (carrinho.email ?? "").trim().toLowerCase()
+  const sdk = cliente()
+  if (sdk && antes && antes !== conta.email.toLowerCase()) {
+    try {
+      await sdk.store.cart.update(carrinho.id, { email: antes }, { fields: "id" })
+    } catch (e) {
+      aviso(e, "e-mail de volta depois da troca de dono")
+    }
+  }
+  return true
+}
+
+/**
+ * O CHECKOUT ABRE PREENCHIDO pra quem está na conta — é a promessa da tela
+ * de endereços ("o principal já vem preenchido no checkout").
+ *
+ * Roda na página, antes de ler o checkout, e ESCREVE NO CARRINHO, não só no
+ * formulário: a etapa em que o checkout abre sai do carrinho
+ * (`etapaDoCarrinho`), e as opções de frete só existem pra CEP gravado nele.
+ * Preencher só a tela deixaria o passo 1 aberto com tudo escrito, e o passo
+ * 2 com um CEP sem entrega nenhuma pra escolher.
+ *
+ * SÓ O QUE ESTÁ VAZIO, grupo por grupo — o que a pessoa digitou neste
+ * carrinho manda, sempre:
+ *   - o passo 1 (nome, celular, documento), se ele nunca foi salvo aqui;
+ *   - o endereço principal, se o passo 2 nunca foi salvo (sem número) e o
+ *     CEP que já estiver no carrinho for o dele — a sacola grava o CEP da
+ *     cotação, e CEP de outro lugar é presente pra alguém: não é o
+ *     principal que a pessoa quer ali.
+ *
+ * Como toda escrita espera o carrinho vazio daquele grupo, rodar de novo (a
+ * página roda a cada `refresh()` das ações) não muda nada. Nunca lança.
+ */
+export async function preencherDaConta(): Promise<void> {
+  const token = await lerSessao()
+  if (!token) return
+  const leitura = await lerCliente()
+  if (leitura.estado !== "ok") return
+  const conta = leitura.cliente
+  const sdk = cliente()
+  if (!sdk) return
+
+  const carrinho = await lerCarrinho("id,email,customer.id,*shipping_address,*billing_address")
+  if (!carrinho) return
+  await garantirDonoDoCarrinho(carrinho, token, conta)
+
+  const entrega = lerEndereco(carrinho.shipping_address)
+  const gravado = documentoGuardado(
+    (carrinho.billing_address?.metadata as Record<string, unknown> | undefined)?.documento
+  )
+  const novo: EnderecoVisivel = { ...entrega }
+  let documento = gravado
+
+  // O DOCUMENTO FECHA O PASSO 1 — a etapa olha e-mail e documento. Então ele
+  // só vai com nome, sobrenome e celular junto; com os dados pela metade, o
+  // passo abre com o que houver e a pessoa completa.
+  if (!gravado && !entrega.nome && conta.nome && conta.sobrenome) {
+    novo.nome = conta.nome
+    novo.sobrenome = conta.sobrenome
+    novo.telefone = conta.telefone
+    if (conta.telefone) documento = conta.documento
+  }
+
+  const principal = conta.enderecos.find((e) => e.principal)
+  const cepNoCarrinho = entrega.cep.replace(/\D+/g, "")
+  if (principal && !entrega.numero && (!cepNoCarrinho || cepNoCarrinho === principal.cep)) {
+    novo.cep = principal.cep
+    novo.rua = principal.rua
+    novo.numero = principal.numero
+    novo.complemento = principal.complemento
+    novo.bairro = principal.bairro
+    novo.cidade = principal.cidade
+    novo.uf = principal.uf
+  }
+
+  if (JSON.stringify(novo) === JSON.stringify(entrega) && documento === gravado) return
+
+  try {
+    await sdk.store.cart.update(
+      carrinho.id,
+      {
+        shipping_address: montarEndereco(novo),
+        billing_address: montarEndereco(novo, documento ?? undefined),
+      },
+      { fields: "id" }
+    )
+  } catch (e) {
+    aviso(e, "preencher da conta")
   }
 }
 

@@ -126,7 +126,7 @@ export const navegacao = {
   /** Menu lateral: as categorias mais o que é da pessoa. */
   menu: [
     ...site.categorias.map((c) => ({ href: `/${c.handle}` as const, texto: c.menu })),
-    { href: EM_BREVE, texto: "Minha conta" },
+    { href: "/conta", texto: "Minha conta" },
     { href: EM_BREVE, texto: "Carrinho" },
   ],
   uteis: [
@@ -141,7 +141,7 @@ export const navegacao = {
     { href: EM_BREVE, texto: "Blog" },
     { href: EM_BREVE, texto: "Contato" },
     { href: EM_BREVE, texto: "Dúvidas frequentes" },
-    { href: EM_BREVE, texto: "Minha conta" },
+    { href: "/conta", texto: "Minha conta" },
   ],
   politicas: [
     { href: "/trocas", texto: "Política de entrega, troca e devolução" },

@@ -2,7 +2,9 @@
 
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
+import { COOKIE_CARRINHO } from "@/lib/carrinho"
 import {
+  carrinhoEhDaConta,
   lerEntrando,
   medusa,
   OPCOES_ENTRANDO,
@@ -166,8 +168,18 @@ export async function reenviarCodigo(): Promise<Reenvio> {
  * O token continua válido no Medusa até vencer — é assim que JWT funciona —,
  * mas ele só existia neste cookie, que não é lido por ninguém além do
  * servidor da loja. Apagado o cookie, não sobra onde usar.
+ *
+ * A SACOLA DA CONTA VAI JUNTO: o checkout passa o carrinho pro nome da conta,
+ * e quem usasse este navegador depois compraria nela (ver
+ * `carrinhoEhDaConta`). Sacola que não é da conta fica.
  */
 export async function sair() {
-  ;(await cookies()).set(COOKIE_SESSAO, "", { ...OPCOES_SESSAO, maxAge: 0 })
+  const jar = await cookies()
+  const token = jar.get(COOKIE_SESSAO)?.value
+  const carrinho = jar.get(COOKIE_CARRINHO)?.value
+  if (token && carrinho && (await carrinhoEhDaConta(carrinho, token))) {
+    jar.delete(COOKIE_CARRINHO)
+  }
+  jar.set(COOKIE_SESSAO, "", { ...OPCOES_SESSAO, maxAge: 0 })
   redirect("/conta/entrar?saiu=1")
 }

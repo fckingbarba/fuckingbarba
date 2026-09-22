@@ -8,6 +8,9 @@
  */
 
 import type { CarrinhoVisivel } from "./carrinho-visivel"
+import { mascararCep } from "./cep-formato"
+import type { EstadoDaEtapa } from "./checkout-visivel"
+import type { Documento } from "./documento"
 
 export type EstadoEntrar = {
   erro: string
@@ -36,6 +39,98 @@ export type Reenvio = { ok: boolean; segundos: number; erro: string }
 
 /** Os 30 segundos entre um código e outro — os mesmos de `regras.ts`, no backend. */
 export const SEGUNDOS_ENTRE_ENVIOS = 30
+
+/* ── quem está na conta: os dados e os endereços ──────────────────────────── */
+
+/**
+ * Um endereço guardado na conta. Sem nome de quem recebe: é o dono da conta,
+ * com o nome de "Meus dados" (ver `lugarParaMedusa`, em `endereco.ts`).
+ */
+export type EnderecoDaConta = {
+  id: string
+  /** "Casa", "Trabalho" — ou vazio, e a tela escreve "Endereço". */
+  apelido: string
+  /** O que o checkout abre preenchido. É o `is_default_shipping` do Medusa. */
+  principal: boolean
+  /** Só os oito dígitos. */
+  cep: string
+  rua: string
+  numero: string
+  complemento: string
+  bairro: string
+  cidade: string
+  uf: string
+}
+
+export type ClienteVisivel = {
+  id: string
+  email: string
+  nome: string
+  sobrenome: string
+  /** Como o checkout grava: `+55` e os dígitos. Vazio se nunca foi dado. */
+  telefone: string
+  documento: Documento | null
+  /**
+   * O CONSENTIMENTO, COM DATA: quando a pessoa marcou que quer ofertas por
+   * e-mail e por WhatsApp (ISO), ou `null` se não quer. Nasce `null` —
+   * consentimento não vem marcado (LGPD) —, e a data é a do primeiro "sim",
+   * que é o que se mostra se um dia alguém perguntar desde quando.
+   */
+  ofertas: { email: string | null; whatsapp: string | null }
+  /** O principal primeiro; depois, do mais antigo pro mais novo. */
+  enderecos: EnderecoDaConta[]
+}
+
+/**
+ * Até quantos endereços uma conta guarda. Quem compra pra casa, trabalho e
+ * pra mãe tem três; vinte é folga — e é o teto que impede uma conta de
+ * encher o banco de endereço, que a API aceitaria sem fim.
+ */
+export const LIMITE_DE_ENDERECOS = 20
+
+/** A resposta de salvar um endereço: a do checkout, e o id de quem foi salvo (pro foco). */
+export type EstadoDoEndereco = EstadoDaEtapa & { id?: string }
+
+export const ENDERECO_INICIAL: EstadoDoEndereco = { ok: false, erros: {}, mensagem: "", rodada: 0 }
+
+/**
+ * A resposta de um formulário da conta que não passou — com o que foi
+ * digitado de volta (o React dá reset no `<form action>`; ver `valores` em
+ * `checkout-visivel.ts`). Mora aqui, e não nas ações, pela regra do Next:
+ * arquivo `"use server"` só exporta função assíncrona.
+ */
+export function naoSalvou<E extends EstadoDaEtapa>(
+  anterior: E,
+  erros: Record<string, string>,
+  mensagem = "",
+  fd?: FormData
+): E {
+  const valores: Record<string, string> = {}
+  for (const [chave, valor] of fd?.entries() ?? []) {
+    if (typeof valor === "string") valores[chave] = valor
+  }
+  return { ok: false, erros, mensagem, rodada: anterior.rodada + 1, valores } as E
+}
+
+/** A resposta dos botões do cartão (tornar principal, excluir). */
+export type RespostaDaConta = { ok: boolean; mensagem: string }
+
+/**
+ * As três linhas de um endereço, como o obrigado e o pedido escrevem: rua e
+ * número; complemento e bairro; cidade/UF · CEP.
+ */
+export function linhasDoEndereco(e: EnderecoDaConta): string[] {
+  const meio = [e.complemento, e.bairro].filter(Boolean).join(" — ")
+  return [
+    [e.rua, e.numero].filter(Boolean).join(", "),
+    ...(meio ? [meio] : []),
+    `${e.cidade}/${e.uf} · ${mascararCep(e.cep)}`,
+  ]
+}
+
+/** Os dados que o checkout pede estão todos aqui? É o que decide "Completar dados". */
+export const dadosCompletos = (c: ClienteVisivel): boolean =>
+  Boolean(c.nome && c.telefone && c.documento)
 
 /* ── os pedidos da conta ──────────────────────────────────────────────────── */
 

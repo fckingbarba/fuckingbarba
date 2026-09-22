@@ -55,12 +55,11 @@ export function sessaoParece(token: string | undefined | null, agora = Date.now(
  *
  * UMA LISTA E UM MOLDE, e não uma regex solta, por causa do `typedRoutes`:
  * o `redirect` só aceita caminho que o compilador sabe que existe. A lista
- * cresce junto com as telas (endereços e dados vêm na parte 3); o pedido é
- * o único caminho com pedaço variável, e o molde só deixa passar um id do
- * Medusa. O que não estiver em nenhum dos dois volta pra /conta, que existe
- * sempre.
+ * cresce junto com as telas; o pedido é o único caminho com pedaço
+ * variável, e o molde só deixa passar um id do Medusa. O que não estiver em
+ * nenhum dos dois volta pra /conta, que existe sempre.
  */
-const DESTINOS = ["/conta", "/conta/pedidos"] as const
+const DESTINOS = ["/conta", "/conta/pedidos", "/conta/enderecos", "/conta/dados"] as const
 const DO_PEDIDO = /^\/conta\/pedidos\/order_[0-9A-Za-z]{10,40}$/
 
 export type Destino = (typeof DESTINOS)[number] | `/conta/pedidos/${string}`

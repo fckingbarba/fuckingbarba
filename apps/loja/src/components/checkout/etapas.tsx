@@ -3,7 +3,6 @@
 import {
   useCallback,
   useEffect,
-  useRef,
   useState,
   useTransition,
   type TransitionStartFunction,
@@ -16,7 +15,6 @@ import {
   indiceDaEtapa,
   type CheckoutVisivel,
   type Etapa,
-  type EstadoDaEtapa,
   type Oferta,
   type OpcaoDeFrete,
   type ProvedorDePagamento,
@@ -25,7 +23,11 @@ import { emReais } from "@/lib/formato"
 import { Contato } from "./contato"
 import { Entrega } from "./entrega"
 import { Pagamento } from "./pagamento"
+import { Giro } from "./resposta"
 import { Resumo } from "./resumo"
+
+// Moram em `resposta.tsx` (a conta usa os mesmos); o checkout segue importando daqui.
+export { Giro, Recado, trazerPraVista, useFechaQuandoSalva } from "./resposta"
 
 /**
  * O CHECKOUT EM TRÊS PASSOS
@@ -302,15 +304,6 @@ function Barra({
   )
 }
 
-/**
- * O "trabalhando" dos botões do checkout: um quadrado girando, na cor do
- * texto. Quadrado e não círculo — a marca não tem canto redondo em lugar
- * nenhum, e o do campo de CEP (do protótipo) já é assim.
- */
-export function Giro() {
-  return <span className="giro" aria-hidden="true" />
-}
-
 /* ── a casca de cada passo ────────────────────────────────────────────────── */
 
 export type PropsDaEtapa = {
@@ -373,58 +366,4 @@ export function Painel({
       </div>
     </section>
   )
-}
-
-/**
- * O aviso que não é de campo nenhum: rede fora, Medusa recusando, cartão
- * recusado.
- *
- * VEM PRA VISTA quando chega. No celular o botão que a pessoa tocou é o da
- * barra fixa, lá embaixo, e o aviso nasce no meio do formulário — fora da
- * tela, ou atrás da própria barra. Sem isto, a espera acabava e nada parecia
- * ter acontecido. Só em resposta NOVA (`rodada`): o Next devolve o estado da
- * ação a quem navega pra fora e volta, e o recado velho não pode puxar a
- * página sozinho.
- */
-export function Recado({ estado }: { estado: EstadoDaEtapa }) {
-  const ref = useRef<HTMLParagraphElement>(null)
-  const ultima = useRef(estado.rodada)
-
-  useEffect(() => {
-    if (estado.rodada === ultima.current) return
-    ultima.current = estado.rodada
-    if (estado.mensagem) trazerPraVista(ref.current)
-  }, [estado.rodada, estado.mensagem])
-
-  if (!estado.mensagem) return null
-  return (
-    <p className="erros-envio" role="alert" ref={ref}>
-      {estado.mensagem}
-    </p>
-  )
-}
-
-/** Rola até o elemento, no meio da tela — sem animação pra quem pediu menos movimento. */
-export function trazerPraVista(el: HTMLElement | null) {
-  if (!el) return
-  const calmo = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
-  el.scrollIntoView({ block: "center", behavior: calmo ? "auto" : "smooth" })
-}
-
-/**
- * Avisa o pai quando um passo foi salvo com sucesso, uma vez por resposta.
- *
- * Olha `rodada`, e não `ok`, porque o Next PRESERVA o estado de
- * `useActionState` quando a pessoa navega pra fora e volta: sem o contador,
- * um passo reaberto dias depois acharia que acabou de ser salvo e se fecharia
- * na cara de quem foi corrigir o endereço.
- */
-export function useFechaQuandoSalva(estado: EstadoDaEtapa, aoSalvar: () => void) {
-  const ultima = useRef(estado.rodada)
-  useEffect(() => {
-    if (estado.rodada !== ultima.current) {
-      ultima.current = estado.rodada
-      if (estado.ok) aoSalvar()
-    }
-  }, [estado.rodada, estado.ok, aoSalvar])
 }

@@ -993,3 +993,263 @@ html:not([data-hidratado]) body:has(.conta) {
   gap: 14px 22px;
   margin: 18px 0 2px;
 }
+
+/* ==========================================================================
+   ENDEREÇOS E MEUS DADOS — as seções "NOVO" do protótipo (endereços, meus
+   dados, os atalhos do pé da visão geral e o aviso que sobe de baixo), com
+   quatro mudanças do porte:
+     - o aviso é `.conta-aviso`, e não `.aviso`: cada recado leva o nome do
+       próprio bloco (ver `recados.css`);
+     - os `style=""` do protótipo viraram classe (`.endereco__resto`,
+       `.endereco__busca`, `.endereco__marca`, `.endereco__titulo-form`);
+     - o rótulo do e-mail, que não é campo, é `.campo__rotulo` com a cara do
+       `label` dos outros (o CSS do `.campo label` é do checkout);
+     - o `.resumo-curto` dos atalhos escreve na cor do texto; o da linha
+       "nenhum pedido em andamento" segue suave, como já era.
+   ========================================================================== */
+
+/* ---------- os atalhos do pé da visão geral ---------- */
+.painel-grade > .ajuda:not(:last-child) {
+  margin-bottom: 16px;
+}
+.bloco--atalho {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.bloco--atalho > .link {
+  margin-top: auto;
+}
+.bloco--atalho .resumo-curto {
+  margin: 0 0 12px;
+  font-style: normal;
+  line-height: 1.55;
+  color: var(--color-tinta);
+  overflow-wrap: anywhere;
+}
+.resumo-curto b {
+  font-weight: 800;
+}
+.resumo-curto small {
+  color: var(--color-tinta-suave);
+  font-size: 0.78rem;
+}
+
+/* ---------- o selo do principal ---------- */
+.selo {
+  display: inline-block;
+  padding: 2px 6px;
+  border: 1.5px solid currentColor;
+  color: var(--color-tinta-suave);
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.selo--principal {
+  color: var(--color-menta-escura);
+}
+
+/* ---------- endereços ---------- */
+.enderecos {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 14px;
+}
+@media (max-width: 700px) {
+  .enderecos {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.endereco {
+  display: flex;
+  flex-direction: column;
+}
+.endereco[data-principal] {
+  border-color: var(--color-menta-escura);
+}
+.endereco__topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 0 8px;
+}
+.endereco__apelido {
+  margin: 0;
+  font-size: 0.86rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+.endereco address {
+  flex: 1;
+}
+.endereco__acoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin-top: 14px;
+  font-size: 0.8rem;
+}
+.endereco__confirma {
+  font-weight: 700;
+  color: var(--color-erro);
+}
+.endereco--novo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 150px;
+  width: 100%;
+  margin: 0 0 14px;
+  background: transparent;
+  cursor: pointer;
+  border: 2px dashed var(--color-tinta);
+  color: var(--color-tinta);
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.endereco--novo:hover,
+.endereco--novo:focus-visible {
+  background: #fffbe6;
+  outline: none;
+}
+.endereco--novo:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  background: transparent;
+}
+.endereco--novo svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+/* O formulário entra NA GRADE, no lugar do que ele edita: no do cartão, pra
+   editar; no do "Adicionar", pra um novo. */
+.enderecos > form {
+  grid-column: 1 / -1;
+}
+.endereco__titulo-form {
+  margin-bottom: 14px;
+}
+.endereco__busca,
+.endereco__resto {
+  margin-top: 12px;
+}
+.endereco__marca {
+  margin-top: 14px;
+}
+.form-acoes {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 18px;
+}
+/* No celular o botão que salva vem primeiro e na largura toda, onde o
+   polegar está; o "Cancelar" fica embaixo, pequeno. */
+@media (max-width: 560px) {
+  .form-acoes {
+    flex-direction: column-reverse;
+    align-items: stretch;
+    gap: 4px;
+  }
+  .form-acoes .btn:not(.btn--fantasma) {
+    justify-content: center;
+  }
+  .form-acoes .btn--fantasma {
+    align-self: center;
+  }
+}
+/* O "Não sei meu CEP", com o desenho do da sacola (.sacolinha__cep-ajuda). */
+.cep-ajuda {
+  margin: 8px 0 0;
+  font-size: 0.68rem;
+}
+.cep-ajuda a {
+  color: var(--color-tinta-suave);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.cep-ajuda a:hover {
+  color: var(--color-tinta);
+}
+
+/* ---------- meus dados ---------- */
+.campo .campo__rotulo {
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.email-fixo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 46px;
+  padding: 0 12px;
+  background: var(--color-cinza);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.preferencias {
+  margin: 20px 0 0;
+  padding: 16px 0 0;
+  border: 0;
+  border-top: 1px solid rgba(18, 24, 31, 0.12);
+}
+.preferencias legend {
+  padding: 0;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.preferencias .marcar {
+  margin-top: 10px;
+}
+
+/* ---------- o aviso que sobe de baixo ---------- */
+.conta-aviso {
+  position: fixed;
+  left: 50%;
+  bottom: 20px;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  max-width: calc(100% - 32px);
+  margin: 0;
+  padding: 12px 16px;
+  background: var(--color-tinta);
+  color: #fff;
+  box-shadow: 5px 5px 0 0 var(--color-amarelo);
+  font-size: 0.84rem;
+  font-weight: 600;
+  transform: translate(-50%, 0);
+  transition:
+    transform 0.25s var(--ease-suave),
+    opacity 0.25s ease;
+}
+.conta-aviso[data-fora] {
+  transform: translate(-50%, 140%);
+  opacity: 0;
+  pointer-events: none;
+}
+.conta-aviso:empty {
+  display: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .conta-aviso {
+    transition: none;
+  }
+}

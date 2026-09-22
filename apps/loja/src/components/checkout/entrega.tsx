@@ -19,6 +19,7 @@ import {
   type Oferta,
   type OpcaoDeFrete,
 } from "@/lib/checkout-visivel"
+import { UFS } from "@/lib/endereco"
 import { emReais } from "@/lib/formato"
 import { site } from "@/lib/site"
 import { Campo } from "./campo"
@@ -48,36 +49,6 @@ import {
  * de ser digitado, e mandar a pessoa pra outra tela pra escolher entre duas
  * linhas é uma parede a mais no meio de uma decisão que ela já tomou.
  */
-
-const UFS = [
-  "AC",
-  "AL",
-  "AM",
-  "AP",
-  "BA",
-  "CE",
-  "DF",
-  "ES",
-  "GO",
-  "MA",
-  "MG",
-  "MS",
-  "MT",
-  "PA",
-  "PB",
-  "PE",
-  "PI",
-  "PR",
-  "RJ",
-  "RN",
-  "RO",
-  "RR",
-  "RS",
-  "SC",
-  "SE",
-  "SP",
-  "TO",
-]
 
 type Props = PropsDaEtapa & {
   checkout: CheckoutVisivel
@@ -120,8 +91,22 @@ export function Entrega({ checkout, fretes, sugestoes, falta, piso, aoSalvar, ..
   const [buscando, buscar] = useTransition()
   const [naoAchou, setNaoAchou] = useState(false)
   const numeroRef = useRef<HTMLInputElement>(null)
+  const ufRef = useRef<HTMLSelectElement>(null)
   const ultimoBuscado = useRef("")
   const querFoco = useRef(false)
+
+  /*
+    O RESET DO FORMULÁRIO NÃO POUPA O SELECT: depois de cada resposta da
+    ação o React dá `reset()` no `<form action>`, e o `<select>` controlado
+    volta pra opção marcada no HTML — o estado segue "SP", e o React só
+    reescreve o DOM quando o valor muda. Aqui isso se escondia atrás de um
+    acaso (a barra do celular faz o passo desenhar de novo logo depois, e
+    o desenho devolvia o valor); nos endereços da conta, não tinha acaso, e
+    o segundo envio chegava sem estado. O efeito roda depois do reset.
+  */
+  useEffect(() => {
+    if (ufRef.current && ufRef.current.value !== uf) ufRef.current.value = uf
+  }, [estado, uf])
 
   function aoMudarCep(valor: string) {
     const mascarado = mascararCep(valor)
@@ -189,7 +174,8 @@ export function Entrega({ checkout, fretes, sugestoes, falta, piso, aoSalvar, ..
             onChange={(ev) => aoMudarCep(ev.target.value)}
             erro={e.cep}
             required
-            enfeite={buscando ? <span className="campo__spinner" aria-hidden="true" /> : undefined}
+            enfeite={<span className="campo__spinner" aria-hidden="true" />}
+            ocupado={buscando}
           />
         </div>
 
@@ -248,6 +234,7 @@ export function Entrega({ checkout, fretes, sugestoes, falta, piso, aoSalvar, ..
           <div className="campo campo--uf">
             <label htmlFor="uf">UF</label>
             <select
+              ref={ufRef}
               id="uf"
               name="uf"
               autoComplete="address-level1"
