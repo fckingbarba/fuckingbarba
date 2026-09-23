@@ -16,7 +16,9 @@ import type { MetadadosDoCodigo } from "../../modules/codigo/regras"
  * que ele criou some; a que já existia volta com o que tinha antes.
  *
  * Quem decide SE pode guardar (os limites de `regras.ts`) é a rota, antes —
- * isto só escreve.
+ * isto só escreve. A troca de e-mail (`api/store/conta/email/`) guarda o
+ * código dela pelo mesmo caminho: é o mesmo `provider_metadata`, no campo
+ * `troca`.
  */
 
 type Entrada = { email: string; metadados: MetadadosDoCodigo }

@@ -23,10 +23,7 @@ import {
  * "clique aqui" é exatamente o que golpe imita: o nosso só pede pra digitar
  * seis números na tela que a pessoa já tem aberta. E não depende do domínio
  * da loja estar no ar pra funcionar (a logo, se não carregar, vira o nome).
- *
- * OS SEIS DÍGITOS NUMA CAIXA SÓ, com espaço largo entre eles — a mesma cara
- * do campo da tela do código. Copiar dá "482917", sem espaço: o espaço é
- * `letter-spacing`, não caractere.
+ * Os e-mails da troca de e-mail (`troca-de-email.ts`) seguem a mesma regra.
  */
 export function emailDoCodigo({
   para,
@@ -52,31 +49,12 @@ export function emailDoCodigo({
     naoPediu,
   ].join("\n")
 
-  /*
-    O `padding-left` igual ao espaçamento empurra os dígitos de volta pro
-    centro: o `letter-spacing` põe espaço DEPOIS de cada dígito, inclusive
-    do último, e o bloco ficaria torto pra esquerda.
-  */
-  const caixa = comSombra({
-    celula:
-      `<td class="fb-codigo" align="center" bgcolor="${COR.amarelo}" style="background:${COR.amarelo};` +
-      `border:2px solid ${COR.tinta};padding:16px 12px 16px 24px;font-family:${FONTE};font-size:40px;` +
-      `line-height:44px;font-weight:800;letter-spacing:12px;color:${COR.tinta};mso-line-height-rule:exactly;` +
-      `font-variant-numeric:tabular-nums;">${esc(codigo)}</td>`,
-    cor: COR.tinta,
-    tamanho: 4,
-    fundo: COR.papel,
-    largura: "100%",
-    classeDaSombra: "fb-sombra",
-    classeDoDente: "fb-dente",
-  })
-
   const conteudo = cartao(
     titulo("Seu código de acesso") +
       espaco(8) +
       paragrafo("Digite na tela da loja pra entrar na sua conta.", { suave: true }) +
       espaco(24) +
-      caixa +
+      caixaDoCodigo(codigo) +
       espaco(22) +
       paragrafo(esc(aviso), { tamanho: 14, peso: 700 }) +
       espaco(18) +
@@ -95,4 +73,31 @@ export function emailDoCodigo({
   })
 
   return { para, assunto, html, texto }
+}
+
+/**
+ * OS SEIS DÍGITOS NUMA CAIXA SÓ, com espaço largo entre eles — a mesma cara
+ * do campo da tela do código. Copiar dá "482917", sem espaço: o espaço é
+ * `letter-spacing`, não caractere. É a mesma caixa no código de entrar e no
+ * de trocar o e-mail.
+ */
+export function caixaDoCodigo(codigo: string): string {
+  /*
+    O `padding-left` igual ao espaçamento empurra os dígitos de volta pro
+    centro: o `letter-spacing` põe espaço DEPOIS de cada dígito, inclusive
+    do último, e o bloco ficaria torto pra esquerda.
+  */
+  return comSombra({
+    celula:
+      `<td class="fb-codigo" align="center" bgcolor="${COR.amarelo}" style="background:${COR.amarelo};` +
+      `border:2px solid ${COR.tinta};padding:16px 12px 16px 24px;font-family:${FONTE};font-size:40px;` +
+      `line-height:44px;font-weight:800;letter-spacing:12px;color:${COR.tinta};mso-line-height-rule:exactly;` +
+      `font-variant-numeric:tabular-nums;">${esc(codigo)}</td>`,
+    cor: COR.tinta,
+    tamanho: 4,
+    fundo: COR.papel,
+    largura: "100%",
+    classeDaSombra: "fb-sombra",
+    classeDoDente: "fb-dente",
+  })
 }

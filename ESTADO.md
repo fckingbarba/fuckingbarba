@@ -438,10 +438,21 @@ aparecem na conta e no log, sem e-mail automático — esses a loja conversa com
         conta aberta: comprar sem entrar, com o e-mail de alguém, não escreve na conta dessa
         pessoa. **Sair leva a sacola junto** se ela já for da conta (senão a próxima pessoa do
         navegador compraria nela).
-  - [ ] 4. Trocar o e-mail (código no e-mail novo; o de agora vale até confirmar) e excluir a conta.
-        **O texto da exclusão precisa passar por quem cuida da parte jurídica** antes de ir ao ar
-        — está no protótipo: "a gente apaga seus dados pessoais e sai da conta em todos os
-        aparelhos; as notas fiscais continuam guardadas, como a lei manda".
+  - [x] 4a. **Trocar o e-mail** (23/09), em Meus dados: o "Trocar" do lado do e-mail pede o
+        endereço novo e manda o código de 6 dígitos pra ELE — até o código voltar certo, o de agora
+        continua valendo. A troca muda a chave de entrar e o cliente juntos, e a sessão segue aberta;
+        o endereço antigo recebe um aviso ("seu e-mail mudou", com o novo escrito e sem link). E-mail
+        que já é de outra conta não entra — e a tela só diz isso depois do código certo, pra troca
+        não virar um jeito de descobrir quem é cliente. Até 5 códigos de troca por hora por conta.
+        Os pedidos já feitos continuam com o e-mail da compra. Testado de ponta a ponta num Medusa
+        local (29 checagens novas no conferidor da conta, seção 15b).
+  - [ ] 4b. Excluir a conta. **O texto da exclusão precisa passar por quem cuida da parte
+        jurídica** antes de ir ao ar — está no protótipo: "a gente apaga seus dados pessoais e sai
+        da conta em todos os aparelhos; as notas fiscais continuam guardadas, como a lei manda".
+  - [ ] **Devolver uma conta trocada sem o dono** (alguém com a conta aberta num aparelho esquecido
+        troca pro e-mail dele): o aviso chega no endereço antigo, mas desfazer hoje é pelo banco — o
+        admin do Medusa muda o e-mail do cliente, não a chave de entrar (a identidade `codigo`). Se
+        um dia acontecer, é uma ação no admin.
   - [ ] **A política de privacidade não fala da conta** — os endereços e dados guardados, as
         ofertas por e-mail e WhatsApp com o consentimento, o cookie da sessão —, nem do Resend e do
         Pagar.me, que entraram depois dela. Vai junto do item 4, pela mesma revisão jurídica.

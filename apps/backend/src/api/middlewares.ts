@@ -226,6 +226,21 @@ export default defineMiddlewares({
       middlewares: [authenticate("customer", ["bearer"])],
     },
     /*
+      Trocar o e-mail da conta (pedir o código e confirmar): também só com
+      token de cliente de verdade — as duas rotas leem a conta do token
+      (`lib/conta-do-token.ts`), nunca do corpo do pedido.
+    */
+    {
+      matcher: "/store/conta/email",
+      method: ["POST"],
+      middlewares: [authenticate("customer", ["bearer"])],
+    },
+    {
+      matcher: "/store/conta/email/codigo",
+      method: ["POST"],
+      middlewares: [authenticate("customer", ["bearer"])],
+    },
+    /*
       Os avisos dos parceiros de entrega: o corpo cru fica guardado
       (`req.rawBody`) pro parceiro que autentica assinando o corpo — a
       Frenet manda token, mas o próximo pode não mandar.

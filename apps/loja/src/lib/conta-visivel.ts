@@ -40,6 +40,27 @@ export type Reenvio = { ok: boolean; segundos: number; erro: string }
 /** Os 30 segundos entre um código e outro — os mesmos de `regras.ts`, no backend. */
 export const SEGUNDOS_ENTRE_ENVIOS = 30
 
+/* ── trocar o e-mail ──────────────────────────────────────────────────────── */
+
+/**
+ * A resposta do "Enviar código" da troca de e-mail. `ok` leva pro passo do
+ * código, com o e-mail pra onde ele foi e quanto falta pro "reenviar".
+ */
+export type EnvioDaTroca = { ok: boolean; email: string; segundos: number; erro: string }
+
+/**
+ * A resposta do "Confirmar". `morto`, como no entrar: o código não serve mais
+ * (venceu, cinco erros), e a saída é pedir outro. `emUso`: o código conferiu,
+ * mas o e-mail novo já é de outra conta — a troca volta pro passo do e-mail.
+ */
+export type ConfirmacaoDaTroca = {
+  ok: boolean
+  email: string
+  erro: string
+  morto: boolean
+  emUso: boolean
+}
+
 /* ── quem está na conta: os dados e os endereços ──────────────────────────── */
 
 /**
