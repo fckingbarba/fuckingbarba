@@ -20,7 +20,8 @@
  *
  * O ESTOQUE LOCAL VOLTA AO QUE ERA no fim, mesmo se ele quebrar no meio: a
  * sincronização copia os saldos pequenos do Bling falso, e os outros
- * conferidores precisam de estoque pra montar pedido.
+ * conferidores precisam de estoque pra montar pedido. A importação só mexe em
+ * produtos de teste, criados aqui e apagados no fim — os da loja ficam.
  *
  * ┌─ O QUE ESTE ARQUIVO EXISTE PRA TRAVAR ─────────────────────────────────┐
  * │ • a conexão que não conclui, ou que troca o código de autorização duas │
@@ -34,7 +35,11 @@
  * │   sem aviso pra equipe, e a corrigida no Bling que a loja não percebe; │
  * │ • o cancelado que deixa pedido e nota no Bling — ou a nota autorizada  │
  * │   de pedido cancelado sem o e-mail que manda cancelar em 24 horas;     │
- * │ • o pedido sem CPF sem aviso; a conexão que cai em silêncio.           │
+ * │ • o pedido sem CPF sem aviso; a conexão que cai em silêncio;           │
+ * │ • a importação dos produtos que apaga o que a prévia não mostrou, que  │
+ * │   troca o endereço ou a categoria do que já existe, que deixa o "de/   │
+ * │   por" e os textos da página, que aponta a foto pro Bling, que apaga   │
+ * │   produto com pedido esperando envio, ou que duplica ao rodar de novo. │
  * └────────────────────────────────────────────────────────────────────────┘
  */
 
@@ -157,6 +162,8 @@ async function niveisDeEstoque() {
   )
 }
 const estoqueDeAntes = await niveisDeEstoque()
+/** O que os testes criaram no admin; desfeito no fim, do último pro primeiro. */
+const limpar = []
 async function devolverEstoque() {
   for (const n of estoqueDeAntes) {
     await adm(`/admin/inventory-items/${n.item}/location-levels/${n.local}`, {
@@ -294,6 +301,17 @@ try {
         401,
       "aviso sem a assinatura certa, 401"
     )
+
+    // O Bling falso, como a especificação: sem `filtroSaldoEstoque`, a lista
+    // só traz saldo positivo. O esgotado tem de chegar a zero mesmo assim.
+    bling.produto(SKU_SO, 0)
+    await adm("/admin/erp/estoque", { method: "POST" })
+    ok(
+      (await guardado(SKU_SO)) === 0,
+      `o esgotado no Bling zera na loja (${SKU_SO}: 0) — a lista do Bling esconde o saldo zero`,
+      String(await guardado(SKU_SO))
+    )
+    bling.produto(SKU_SO, 3)
   }
 
   /* ── 3. a nota do pedido pago ─────────────────────────────────────────────── */
@@ -506,7 +524,331 @@ try {
     )
   }
 
-  /* ── 9. a conexão cai ─────────────────────────────────────────────────────── */
+  /* ── 9. os produtos do Bling ──────────────────────────────────────────────── */
+
+  titulo("Os produtos vêm do Bling: a prévia, a troca, e de novo")
+  {
+    const R = RODADA
+    const { corpo: lojas } = await adm("/admin/stores?fields=default_sales_channel_id")
+    const canal = lojas.stores?.[0]?.default_sales_channel_id
+    const { corpo: perfis } = await adm("/admin/shipping-profiles?fields=id,type")
+    const perfil =
+      (perfis.shipping_profiles ?? []).find((x) => x.type === "default") ??
+      perfis.shipping_profiles?.[0]
+    const { corpo: locais } = await adm("/admin/stock-locations?fields=id")
+    const local = locais.stock_locations?.[0]?.id
+    const { corpo: cats } = await adm("/admin/product-categories?fields=id,handle&limit=50")
+    const categoria =
+      (cats.product_categories ?? []).find((c) => c.handle === "barba") ??
+      cats.product_categories?.[0]
+
+    /** Um produto do site, como os da loja: publicado, com categoria, perfil e estoque. */
+    async function produtoNoSite({ nome, handle, sku, preco, metadata = {}, estoque = 0 }) {
+      const { status, corpo } = await adm("/admin/products", {
+        method: "POST",
+        body: JSON.stringify({
+          title: nome,
+          subtitle: "O subtítulo de hoje",
+          description: "A descrição de hoje.",
+          handle,
+          status: "published",
+          shipping_profile_id: perfil?.id,
+          sales_channels: canal ? [{ id: canal }] : [],
+          categories: categoria ? [{ id: categoria.id }] : [],
+          metadata,
+          options: [{ title: "Tamanho", values: ["Único"] }],
+          variants: [
+            {
+              title: "Único",
+              sku,
+              manage_inventory: true,
+              options: { Tamanho: "Único" },
+              prices: [{ amount: preco, currency_code: "brl" }],
+              weight: 90,
+            },
+          ],
+        }),
+      })
+      if (status !== 200)
+        throw new Error(
+          `o produto de teste não nasceu: ${status} ${JSON.stringify(corpo).slice(0, 200)}`
+        )
+      limpar.push(() => adm(`/admin/products/${corpo.product.id}`, { method: "DELETE" }))
+      if (estoque && local) {
+        const { corpo: itens } = await adm(
+          `/admin/inventory-items?sku=${encodeURIComponent(sku)}&fields=id`
+        )
+        await adm(`/admin/inventory-items/${itens.inventory_items[0].id}/location-levels`, {
+          method: "POST",
+          body: JSON.stringify({ location_id: local, stocked_quantity: estoque }),
+        })
+      }
+      return corpo.product
+    }
+    const produtoNoAdmin = async (id, campos) =>
+      (await adm(`/admin/products/${id}?fields=${campos}`)).corpo.product
+
+    // No site: o óleo (com os textos da página e o "de/por"), um que sai, e
+    // um que sai mas tem um Pix esperando.
+    const oleo = await produtoNoSite({
+      nome: `Óleo de hoje ${R}`,
+      handle: `teste-imp-oleo-${R}`,
+      sku: `TIMP-OL-${R}`,
+      preco: 79.9,
+      metadata: { fb_pdp: { conteudo: { promessa: { titulo: "de hoje" } } }, outra: "chave" },
+    })
+    const sai = await produtoNoSite({
+      nome: `Sai ${R}`,
+      handle: `teste-imp-sai-${R}`,
+      sku: `TIMP-SAI-${R}`,
+      preco: 30,
+    })
+    const preso = await produtoNoSite({
+      nome: `Sai com pedido ${R}`,
+      handle: `teste-imp-preso-${R}`,
+      sku: `TIMP-PRESO-${R}`,
+      preco: 30,
+      estoque: 5,
+    })
+    const { corpo: lp } = await adm("/admin/price-lists", {
+      method: "POST",
+      body: JSON.stringify({
+        title: `Promo de teste ${R}`,
+        description: "conferir-erp",
+        type: "sale",
+        status: "active",
+        ends_at: new Date(Date.now() + 7 * 864e5).toISOString(),
+        prices: [{ variant_id: oleo.variants[0].id, amount: 54.9, currency_code: "brl" }],
+      }),
+    })
+    const promo = lp.price_list
+    limpar.push(() => adm(`/admin/price-lists/${promo?.id}`, { method: "DELETE" }))
+    const pedidoPreso = await fabrica.pedidoPix(novoEmail(), [[preso.handle, 1]])
+    limpar.push(() => fabrica.cancelar(pedidoPreso))
+
+    // No Bling: o mesmo óleo, um produto novo com variações, um insumo sem
+    // preço, um serviço e um esgotado.
+    const b = `http://127.0.0.1:${bling.porta}`
+    const bOleo = bling.produto(`TIMP-OL-${R}`, 9, {
+      nome: `Óleo do Bling ${R}`,
+      preco: 59.9,
+      pesoBruto: 0.12,
+      dimensoes: { largura: 6, altura: 15, profundidade: 12, unidadeMedida: 1 },
+      descricaoCurta: "<p>Texto <strong>do Bling</strong>.</p>",
+      fotos: 2,
+      externas: [`${b}/imagens/quebrada.html`],
+    })
+    const bNovo = bling.produto(`TIMP-NOVO-${R}`, 0, {
+      nome: `Pomada Nova ${R}`,
+      preco: 40,
+      pesoBruto: 0.1,
+      dimensoes: { largura: 80, altura: 60, profundidade: 80, unidadeMedida: 2 },
+      descricaoCurta: "Pomada.",
+      fotos: 1,
+      variacoes: [
+        { codigo: `TIMP-NOVO-${R}-50`, saldo: 4, nome: "Tamanho:50g", preco: 0 },
+        {
+          codigo: `TIMP-NOVO-${R}-100`,
+          saldo: 6,
+          nome: "Tamanho:100g",
+          preco: 60,
+          pesoBruto: 0.18,
+        },
+      ],
+    })
+    const bInsumo = bling.produto(`TIMP-INSUMO-${R}`, 100, { nome: `Rótulo ${R}`, preco: 0 })
+    bling.produto(`TIMP-SERV-${R}`, 0, { nome: `Serviço ${R}`, preco: 10, tipo: "S" })
+    const bZero = bling.produto(`TIMP-ZERO-${R}`, 0, { nome: `Esgotado ${R}`, preco: 25 })
+    const HANDLE_NOVO = `pomada-nova-${R}`
+
+    const { status: sp, corpo: previa } = await adm("/admin/erp/catalogo")
+    const doErp = (x) => previa.produtos?.find((p) => p.id === String(x.id))
+    const doSite = (x) => previa.doSite?.find((s) => s.id === x.id)
+    ok(sp === 200, "a prévia lê o Bling", JSON.stringify(previa).slice(0, 160))
+    ok(
+      doErp(bOleo)?.como === "atualiza" &&
+        doErp(bOleo).noSite[0] === oleo.id &&
+        doErp(bOleo).handle === oleo.handle,
+      "o mesmo SKU substitui no lugar, com o endereço de hoje",
+      JSON.stringify(doErp(bOleo))
+    )
+    ok(
+      doErp(bNovo)?.como === "novo" &&
+        doErp(bNovo).variacoes === 2 &&
+        doErp(bNovo).handle === HANDLE_NOVO,
+      "o SKU que o site não tem entra como novo, com endereço gerado do nome",
+      JSON.stringify(doErp(bNovo))
+    )
+    ok(
+      /sem preço/.test(doErp(bInsumo)?.bloqueio ?? ""),
+      "o insumo, sem preço no Bling, não entra",
+      JSON.stringify(doErp(bInsumo))
+    )
+    ok(
+      !previa.produtos?.some((p) => p.nome === `Serviço ${R}`) && Boolean(doErp(bZero)),
+      "serviço não aparece; o esgotado aparece (a lista do Bling esconde saldo zero)"
+    )
+    ok(
+      doSite(oleo)?.temTextos && doSite(oleo)?.preco === 54.9 && doSite(oleo)?.precoDe === 79.9,
+      "a prévia mostra o de hoje: os textos da página e o “de R$ 79,90 por R$ 54,90”",
+      JSON.stringify(doSite(oleo))
+    )
+    ok(
+      doSite(preso)?.esperando >= 1,
+      "e o produto do site que tem pedido esperando envio",
+      JSON.stringify(doSite(preso))
+    )
+    ok(
+      (await produtoNoAdmin(oleo.id, "title")).title === `Óleo de hoje ${R}`,
+      "a prévia não muda nada"
+    )
+
+    const { status: s400 } = await adm("/admin/erp/catalogo", {
+      method: "POST",
+      body: JSON.stringify({ importar: "tudo" }),
+    })
+    ok(s400 === 400, "pedido torto: 400")
+
+    const { status: si, corpo: troca } = await adm("/admin/erp/catalogo", {
+      method: "POST",
+      body: JSON.stringify({
+        importar: [String(bOleo.id), String(bNovo.id)],
+        remover: [sai.id, preso.id],
+      }),
+    })
+    const r = troca.relatorio ?? {}
+    ok(si === 200, "a troca roda", JSON.stringify(troca).slice(0, 300))
+    const novo = (await adm(`/admin/products?handle=${HANDLE_NOVO}&fields=id`)).corpo.products?.[0]
+    if (novo) limpar.push(() => adm(`/admin/products/${novo.id}`, { method: "DELETE" }))
+    const tem = (lista, handle) => (lista ?? []).some((x) => x.handle === handle)
+    ok(
+      tem(r.atualizados, oleo.handle) &&
+        tem(r.criados, HANDLE_NOVO) &&
+        tem(r.removidos, sai.handle) &&
+        tem(r.rascunho, preso.handle),
+      "o relatório: um substituído, um novo, um que saiu e um que virou rascunho",
+      JSON.stringify(r).slice(0, 400)
+    )
+
+    const o = await produtoNoAdmin(
+      oleo.id,
+      "id,title,subtitle,handle,description,metadata,thumbnail,*images,*categories,*variants,*variants.prices"
+    )
+    ok(
+      o?.title === `Óleo do Bling ${R}` && !o.subtitle && o.description === "Texto do Bling.",
+      "no lugar: o nome e a descrição do Bling (em texto), sem o subtítulo",
+      JSON.stringify({ titulo: o?.title, sub: o?.subtitle, descricao: o?.description })
+    )
+    ok(
+      o?.handle === oleo.handle && o.categories?.some((c) => c.id === categoria?.id),
+      "o mesmo produto, no mesmo endereço e na mesma categoria"
+    )
+    ok(
+      !o?.metadata?.fb_pdp && !o?.metadata?.outra && o?.metadata?.fb_erp?.id === String(bOleo.id),
+      "os textos da página saem; fica a marca de onde ele veio",
+      JSON.stringify(o?.metadata)
+    )
+    const v = o?.variants?.[0]
+    ok(
+      v?.weight === 120 && v?.length === 12 && v?.width === 6 && v?.height === 15,
+      "o peso e a caixa do Bling, na variação, em grama e centímetro",
+      JSON.stringify({ peso: v?.weight, c: v?.length, l: v?.width, a: v?.height })
+    )
+    ok(
+      v?.prices?.length === 1 && v.prices[0].amount === 59.9,
+      "o preço é o do Bling",
+      JSON.stringify(v?.prices)
+    )
+    ok(
+      (await adm(`/admin/price-lists/${promo?.id}`)).status === 404,
+      "o “de/por” sai, e a lista de promoção que ficou vazia também"
+    )
+    const fotos = [...(o?.images ?? [])].sort((x, y) => (x.rank ?? 0) - (y.rank ?? 0))
+    ok(
+      fotos.length === 2 &&
+        fotos.every((f) => !f.url.includes(`:${bling.porta}`)) &&
+        o.thumbnail === fotos[0].url,
+      "as duas fotos, copiadas pro armazenamento da loja (não o link do Bling, que vence)",
+      JSON.stringify(fotos.map((f) => f.url))
+    )
+    ok(
+      r.fotos?.falharam?.length === 1 && /não é imagem/.test(r.fotos.falharam[0]),
+      "o link cadastrado que não é foto fica de fora, e o relatório diz qual",
+      JSON.stringify(r.fotos)
+    )
+
+    const n = await produtoNoAdmin(
+      novo?.id,
+      "id,status,*categories,*options,*options.values,*variants,*variants.prices"
+    )
+    ok(n?.status === "draft" && !n.categories?.length, "o novo entra em rascunho, sem categoria")
+    const porSku = Object.fromEntries((n?.variants ?? []).map((x) => [x.sku, x]))
+    const v50 = porSku[`TIMP-NOVO-${R}-50`]
+    const v100 = porSku[`TIMP-NOVO-${R}-100`]
+    ok(
+      v50?.prices?.[0]?.amount === 40 &&
+        v100?.prices?.[0]?.amount === 60 &&
+        v50?.weight === 100 &&
+        v100?.weight === 180 &&
+        v50?.length === 8,
+      "com as variações do Bling: cada uma com o preço e o peso dela (ou os do produto)",
+      JSON.stringify(
+        (n?.variants ?? []).map((x) => [x.sku, x.prices?.[0]?.amount, x.weight, x.length])
+      )
+    )
+    ok(
+      n?.options?.[0]?.title === "Tamanho" &&
+        (n.options[0].values ?? [])
+          .map((x) => x.value)
+          .sort()
+          .join(",") === "100g,50g",
+      "a opção sai do nome da variação (Tamanho:50g)",
+      JSON.stringify(n?.options)
+    )
+    await adm(`/admin/products/${novo?.id}`, {
+      method: "POST",
+      body: JSON.stringify({ status: "published" }),
+    })
+    await adm("/admin/erp/estoque", { method: "POST" })
+    ok(
+      (await guardado(`TIMP-NOVO-${R}-50`)) === 4 && (await guardado(`TIMP-NOVO-${R}-100`)) === 6,
+      "publicado, o estoque dele vem do Bling (nasce com o lugar no estoque)",
+      `${await guardado(`TIMP-NOVO-${R}-50`)} / ${await guardado(`TIMP-NOVO-${R}-100`)}`
+    )
+
+    ok((await adm(`/admin/products/${sai.id}?fields=id`)).status === 404, "o que saiu foi apagado")
+    const p = await produtoNoAdmin(preso.id, "id,status")
+    ok(
+      p?.status === "draft" && (await fabrica.noAdmin(pedidoPreso.id)).items?.length === 1,
+      "o que tem Pix esperando vira rascunho, e o pedido continua de pé",
+      JSON.stringify(p)
+    )
+
+    const servidas = bling.fotosServidas
+    const { corpo: de2 } = await adm("/admin/erp/catalogo", {
+      method: "POST",
+      body: JSON.stringify({ importar: [String(bOleo.id), String(bNovo.id)], remover: [] }),
+    })
+    const r2 = de2.relatorio ?? {}
+    ok(
+      tem(r2.atualizados, oleo.handle) &&
+        tem(r2.atualizados, HANDLE_NOVO) &&
+        !r2.criados?.length &&
+        r2.fotos?.copiadas === 0 &&
+        r2.fotos?.reaproveitadas === 3 &&
+        bling.fotosServidas === servidas + 1,
+      "de novo dá no mesmo: os dois achados pelo SKU, e nenhuma foto baixada de novo",
+      JSON.stringify({ ...r2, estoque: undefined }).slice(0, 400)
+    )
+    const repetido = (await adm(`/admin/products?handle=${HANDLE_NOVO}-2&fields=id`)).corpo
+    ok(
+      !repetido.products?.length &&
+        (await produtoNoAdmin(novo?.id, "status"))?.status === "published",
+      "sem produto repetido, e a situação que a pessoa escolheu (publicado) fica"
+    )
+  }
+
+  /* ── 10. a conexão cai ────────────────────────────────────────────────────── */
 
   titulo("A conexão cai: a loja para e avisa")
   {
@@ -530,6 +872,7 @@ try {
     )
   }
 } finally {
+  for (const desfazer of limpar.reverse()) await Promise.resolve(desfazer()).catch(() => {})
   await devolverEstoque()
 }
 

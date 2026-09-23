@@ -1,6 +1,7 @@
 import type { ErpDaLoja } from "../../lib/erp/contrato"
 import { concluirAutorizacao, configurado, renovar, urlDeAutorizacao } from "./autorizacao"
 import { lerAviso } from "./avisos"
+import { lerCatalogo } from "./catalogo"
 import { consultarNota, desfazerNota, emitirNota, lerPassos } from "./notas"
 import { lerSaldos } from "./produtos"
 
@@ -11,6 +12,7 @@ import { lerSaldos } from "./produtos"
  *   api.ts          a fila das chamadas, o token, o 429
  *   autorizacao.ts  o OAuth (o app privado, os escopos, a renovação)
  *   produtos.ts     SKU → id do Bling, e o saldo
+ *   catalogo.ts     os produtos inteiros, pra importação (peso, medidas, fotos)
  *   notas.ts        cliente → pedido de venda → NF-e → SEFAZ
  *   avisos.ts       o webhook assinado
  *
@@ -26,6 +28,7 @@ export const bling: ErpDaLoja = {
   concluirAutorizacao,
   renovar,
   lerSaldos,
+  lerCatalogo,
   emitirNota,
   consultarNota,
   desfazerNota,

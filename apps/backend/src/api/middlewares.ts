@@ -7,6 +7,7 @@ import {
   type MedusaResponse,
 } from "@medusajs/framework/http"
 import { ContainerRegistrationKeys, MedusaError } from "@medusajs/framework/utils"
+import { gerarHandle, HANDLE_VALIDO } from "../lib/handle"
 import {
   acessoAoPedido,
   CABECALHO_DO_CARRINHO,
@@ -22,19 +23,9 @@ import {
  * /produtos/<handle> e /<categoria> é montada pelo Next.js. Aqui garantimos,
  * na entrada do admin, que todo handle é `a-z`, `0-9` e hífen — sem acento,
  * sem maiúscula, sem espaço — e que um handle gerado a partir do título
- * também obedece a isso ("Óleo para Barba" → "oleo-para-barba").
+ * também obedece a isso ("Óleo para Barba" → "oleo-para-barba"). A regra
+ * mora em `lib/handle.ts`, que a importação do ERP também usa.
  */
-const HANDLE_VALIDO = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
-
-export function gerarHandle(texto: string): string {
-  return texto
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "") // tira acentos
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-}
-
 type CorpoComHandle = { handle?: unknown; title?: unknown; name?: unknown }
 
 function normalizaHandle(req: MedusaRequest, _res: MedusaResponse, next: MedusaNextFunction) {

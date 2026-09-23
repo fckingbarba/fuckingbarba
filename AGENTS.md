@@ -369,6 +369,19 @@ espera a nota (`notaParaAEtiqueta`) e leva número e chave no `Invoice`. Cancela
 autorizada, a loja apaga a nota pendente e cancela o pedido de venda; com nota autorizada, e-mail
 pra equipe (a API não cancela NF-e). O conferidor é o `conferir-erp.mjs`, com o `bling-falso.mjs`.
 
+A **importação do catálogo** (`src/lib/erp/catalogo.ts`; a tela é `admin/routes/erp/catalogo`)
+traz os produtos do ERP em dois passos: a prévia, sem efeito (`GET /admin/erp/catalogo`), e a troca
+(`POST`, com os ids do ERP que entram e os ids do site que saem — só os que a prévia mostrou; ela
+relê o ERP em vez de confiar na prévia). O mesmo SKU é reescrito NO LUGAR: o Medusa não apaga
+produto com reserva de estoque, e o id mantém a sacola, o pedido em andamento, o endereço e as
+categorias. SKU novo nasce em rascunho; formato que muda (simples ↔ variações) tira o velho do
+caminho e recria com o endereço dele. Campo vazio no ERP não apaga o do site. O `metadata` do
+produto MISTURA na atualização (chave que vem `""` sai): é assim que o `fb_pdp` sai. As fotos são
+baixadas e sobem pro armazenamento da loja (o tipo sai dos bytes: o S3 do Bling responde
+`binary/octet-stream`), com a chave de cada uma na marca `fb_erp` do produto — rodar de novo não
+baixa outra vez. E a lista de produtos do Bling pergunta pelos três `filtroSaldoEstoque`: a
+especificação dá padrão "só saldo positivo", que esconderia o esgotado da sincronização.
+
 Os **e-mails** moram em `apps/backend/src/lib/emails/`: a `moldura.ts` (barra preta com a logo,
 fundo menta, blocos com sombra dura — em tabela e estilo em linha, porque é e-mail) e um arquivo
 por e-mail (o de código, o de pedido confirmado e o `envio.ts`, com os quatro momentos do caminho

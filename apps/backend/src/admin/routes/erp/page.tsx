@@ -11,7 +11,7 @@ import { useEffect, useState } from "react"
  * saem sozinhas, o que a última sincronização de estoque mudou, e as notas
  * que a loja não resolve sozinha — a autorizada de pedido cancelado (a API
  * não cancela: é no painel do ERP, em até 24 horas), a rejeitada, a que o
- * ERP recusou.
+ * ERP recusou. E é a porta da importação dos produtos (`erp/catalogo`).
  *
  * O formato do que o backend devolve está escrito dos dois lados
  * (`GET /admin/erp`): o admin é bundle próprio e não importa código do
@@ -308,6 +308,23 @@ const ErpPage = () => {
                 onClick={sincronizar}
               >
                 Sincronizar agora
+              </Button>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-3 px-6 py-4">
+            <Heading level="h2">Produtos</Heading>
+            <Text size="small">
+              Trazer do {nome} os produtos do site: nome, descrição, preço, peso, medidas e fotos.
+              Primeiro você vê a prévia e escolhe o que entra; nada muda até confirmar.
+            </Text>
+            <div>
+              <Button
+                size="small"
+                variant="secondary"
+                onClick={() => window.location.assign("/app/erp/catalogo")}
+              >
+                Importar produtos do {nome}
               </Button>
             </div>
           </div>

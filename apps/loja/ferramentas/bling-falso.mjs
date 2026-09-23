@@ -6,9 +6,10 @@ import { createServer } from "node:http"
  *
  * Fala o formato da API v3 que a loja usa (`apps/backend/src/modules/bling/`):
  * o OAuth (a tela de autorização, que devolve direto pro endereço de volta, e
- * o `/oauth/token`), os produtos com o saldo, os contatos, o pedido de venda
- * (que reserva o saldo, como o Bling), a NF-e gerada do pedido e a SEFAZ —
- * que autoriza, demora, rejeita ou fica pendente, conforme `painel.sefaz`.
+ * o `/oauth/token`), os produtos com o saldo — e inteiros, com peso, medidas,
+ * fotos e variações, pra importação —, os contatos, o pedido de venda (que
+ * reserva o saldo, como o Bling), a NF-e gerada do pedido e a SEFAZ — que
+ * autoriza, demora, rejeita ou fica pendente, conforme `painel.sefaz`.
  *
  * O QUE ELE COBRA DA LOJA, porque o Bling de verdade cobra:
  *   - client id e secret SÓ no cabeçalho do `/oauth/token`, e o `enable-jwt`;
@@ -17,7 +18,13 @@ import { createServer } from "node:http"
  *   - o token vence (`painel.validadeDoToken`) e o de renovação é trocado a
  *     cada renovação: o velho deixa de valer;
  *   - a parcela tem de bater com o total do pedido, e o item com um produto;
- *   - uma nota só por pedido de venda.
+ *   - uma nota só por pedido de venda;
+ *   - a lista de produtos sem `filtroSaldoEstoque` só traz saldo POSITIVO — o
+ *     padrão que a especificação da v3 dá (a loja pergunta pelos três);
+ *   - a foto de dentro do Bling tem link que muda a cada leitura (vence).
+ *
+ * As fotos saem de `/imagens/<n>.png` (sem token, como o link do S3 do Bling);
+ * `painel.fotosServidas` conta quantas a loja baixou.
  *
  * `painel.avisar(url, evento, dados)` manda um aviso assinado (webhook), como
  * o Bling manda: `X-Bling-Signature-256: sha256=<HMAC do corpo com o secret>`.
@@ -52,8 +59,14 @@ export async function subirBlingFalso({
     codigosTrocados: 0,
     acessos: new Set(),
     renovacao: null,
-    /** codigo (SKU) → { id, codigo, situacao, saldo } */
+    /**
+     * codigo (SKU) → o produto: `{ id, codigo, situacao, saldo }` e, pra
+     * importação, `nome`, `preco`, `tipo`, `formato`, `pesoBruto`,
+     * `dimensoes`, `descricaoCurta`, `fotos` (quantas internas), `externas`
+     * (links) e `pai` (o id do produto, na variação).
+     */
     produtos: new Map(),
+    fotosServidas: 0,
     contatos: new Map(),
     pedidos: new Map(),
     notas: new Map(),
@@ -66,12 +79,27 @@ export async function subirBlingFalso({
     ],
   }
 
-  painel.produto = (codigo, saldo, { situacao = "A" } = {}) => {
+  /**
+   * Cadastra (ou muda) um produto. Com `variacoes: [{ codigo, saldo, nome:
+   * "Tamanho:50g", preco }]`, ele vira produto com variações, e cada uma é
+   * um produto também (com o `pai`), como no Bling.
+   */
+  painel.produto = (codigo, saldo, { situacao = "A", variacoes, ...detalhes } = {}) => {
     const atual = painel.produtos.get(codigo)
-    if (atual) Object.assign(atual, { saldo, situacao })
-    else painel.produtos.set(codigo, { id: novoId(), codigo, situacao, saldo })
-    return painel.produtos.get(codigo)
+    if (atual) Object.assign(atual, { saldo, situacao }, detalhes)
+    else painel.produtos.set(codigo, { id: novoId(), codigo, situacao, saldo, ...detalhes })
+    const produto = painel.produtos.get(codigo)
+    if (variacoes) {
+      produto.formato = "V"
+      for (const v of variacoes) {
+        const { codigo: sku, saldo: s = 0, ...resto } = v
+        painel.produto(sku, s, { ...resto, pai: produto.id })
+      }
+    }
+    return produto
   }
+  const porId = (id) => [...painel.produtos.values()].find((p) => p.id === id)
+  const variacoesDe = (p) => [...painel.produtos.values()].filter((v) => v.pai === p.id)
   painel.notaDoPedidoDeVenda = (numeroLoja) => {
     const pedido = [...painel.pedidos.values()].find((p) => p.numeroLoja === numeroLoja)
     return pedido?.notaFiscal ? painel.notas.get(pedido.notaFiscal.id) : undefined
@@ -129,11 +157,50 @@ export async function subirBlingFalso({
   }
   const saldoDo = (p) => ({
     id: p.id,
+    ...(p.pai ? { idProdutoPai: p.pai } : {}),
+    nome: p.nome ?? p.codigo,
     codigo: p.codigo,
+    preco: p.preco ?? 0,
+    tipo: p.tipo ?? "P",
     situacao: p.situacao,
-    formato: "S",
+    formato: p.formato ?? "S",
     estoque: { saldoVirtualTotal: p.saldo },
   })
+  /* A foto de dentro do Bling: o link muda a cada leitura (vence), o anexo não. */
+  const fotosDo = (p) => ({
+    video: { url: "" },
+    imagens: {
+      internas: Array.from({ length: p.fotos ?? 0 }, (_, n) => ({
+        link: `http://127.0.0.1:${porta}/imagens/${p.id}-${n + 1}.png?validade=${Date.now()}`,
+        linkMiniatura: "",
+        validade: "2099-01-01 00:00:00",
+        ordem: n + 1,
+        anexo: { id: p.id * 10 + n + 1 },
+        anexoVinculo: { id: p.id },
+      })),
+      externas: (p.externas ?? []).map((link) => ({ link })),
+    },
+  })
+  const detalheDo = (p) => ({
+    ...saldoDo(p),
+    descricaoCurta: p.descricaoCurta ?? "",
+    pesoBruto: p.pesoBruto ?? 0,
+    pesoLiquido: p.pesoLiquido ?? 0,
+    dimensoes: p.dimensoes ?? { largura: 0, altura: 0, profundidade: 0, unidadeMedida: 1 },
+    midia: fotosDo(p),
+    ...(p.pai ? { variacao: { nome: p.nome ?? "", ordem: 1, produtoPai: { id: p.pai } } } : {}),
+    variacoes: (p.formato === "V" ? variacoesDe(p) : []).map((v) => ({
+      ...saldoDo(v),
+      nome: `${p.nome ?? p.codigo} ${v.nome ?? ""}`.trim(),
+      pesoBruto: v.pesoBruto ?? 0,
+      dimensoes: v.dimensoes ?? { largura: 0, altura: 0, profundidade: 0, unidadeMedida: 1 },
+      variacao: { nome: v.nome ?? "", ordem: 1, produtoPai: { id: p.id } },
+    })),
+  })
+  const PNG = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAIAAAAmkwkpAAAAEElEQVR42mPQWNUDRwzEcQAy0hXh1qb/xAAAAABJRU5ErkJggg==",
+    "base64"
+  )
   const lista = (consulta, chave) => consulta.getAll(`${chave}[]`)
 
   const servidor = createServer((req, res) => {
@@ -190,6 +257,17 @@ export async function subirBlingFalso({
         return erro(res, 400, "grant_type desconhecido")
       }
 
+      /* ── as fotos (o link assinado do S3 do Bling não pede token) ── */
+      if (url.pathname.startsWith("/imagens/") && req.method === "GET") {
+        painel.fotosServidas++
+        if (url.pathname.endsWith(".png")) {
+          res.writeHead(200, { "content-type": "binary/octet-stream" })
+          return res.end(PNG)
+        }
+        res.writeHead(200, { "content-type": "text/html" })
+        return res.end("<html>isto não é uma foto</html>")
+      }
+
       /* ── daqui pra baixo, só com token ── */
       const token = (req.headers.authorization ?? "").replace(/^Bearer /, "")
       if (painel.revogado || !painel.acessos.has(token))
@@ -211,10 +289,27 @@ export async function subirBlingFalso({
       if (caminho === "/produtos" && req.method === "GET") {
         const codigos = lista(url.searchParams, "codigos")
         const soAtivos = url.searchParams.get("criterio") === "2"
+        // Sem o filtro, o padrão da especificação: só saldo positivo.
+        const filtro = url.searchParams.get("filtroSaldoEstoque") ?? "1"
+        const doFiltro = { 0: (s) => s === 0, 1: (s) => s > 0, 2: (s) => s < 0 }[filtro]
+        const pagina = Number(url.searchParams.get("pagina") ?? 1)
+        const limite = Number(url.searchParams.get("limite") ?? 100)
         const achados = [...painel.produtos.values()].filter(
-          (p) => codigos.includes(p.codigo) && (!soAtivos || p.situacao === "A")
+          (p) =>
+            (!codigos.length || codigos.includes(p.codigo)) &&
+            (!soAtivos || p.situacao === "A") &&
+            (!doFiltro || doFiltro(p.saldo))
         )
-        return json(res, 200, { data: achados.map(saldoDo) })
+        return json(res, 200, {
+          data: achados.slice((pagina - 1) * limite, pagina * limite).map(saldoDo),
+        })
+      }
+      const produto = caminho.match(/^\/produtos\/(\d+)$/)
+      if (produto && req.method === "GET") {
+        const p = porId(Number(produto[1]))
+        return p
+          ? json(res, 200, { data: detalheDo(p) })
+          : erro(res, 404, "produto não existe", "RESOURCE_NOT_FOUND")
       }
       if (caminho === "/estoques/saldos" && req.method === "GET") {
         const ids = lista(url.searchParams, "idsProdutos").map(Number)
