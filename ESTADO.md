@@ -286,10 +286,13 @@ aparecem na conta e no log, sem e-mail automático — esses a loja conversa com
       `apps/backend/src/scripts/medidas.ts`.
 - [ ] Rua e número da origem (CEP 89036370) em `apps/backend/src/scripts/origem.ts`, pra etiqueta.
 - [ ] Apagar os dois rascunhos duplicados de óleo no admin.
-- [ ] **Decidir o "Leve junto" da caixa de compra da PDP** (as caixinhas embaixo das quantidades,
-      que vão no mesmo clique do "Adicionar à sacola"). Hoje ele só aparece com produtos escolhidos
-      no admin (Venda combinada), e nenhum produto tem — então não aparece em lugar nenhum. O motor
-      pode preencher sozinho; é uma seção nova em toda PDP, por isso a pergunta.
+- [ ] **O "Leve junto" da caixa de compra da PDP vai ser escolha do admin, por produto, e
+      exclusiva com os cartões de quantidade** (o "order bump" da PDP): ou um, ou o outro — os dois
+      juntos deixam a caixa grande demais (decidido em 23/09, pra fazer depois). Hoje as duas
+      coisas são independentes no widget da PDP (a chave "kits" e a lista de produtos que
+      combinam), e o Leve junto só aparece com produtos escolhidos — nenhum tem, então não aparece
+      em lugar nenhum. Quando for feito, os produtos dele podem sair do motor de recomendação, como
+      nos outros cross-sells, e o admin só decide qual dos dois a caixa mostra.
 - [ ] **Achado de 23/09 no frete da sacola:** com 2 ou mais unidades, a rota `/store/frete`
       declara à Frenet o valor cheio (2 × R$ 49,90 = R$ 99,80) e o Medusa, o valor com o desconto
       por quantidade (R$ 94,90). As perguntas ficam diferentes, e a sacola faz DUAS cotações onde o
