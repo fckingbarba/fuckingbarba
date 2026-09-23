@@ -3348,6 +3348,16 @@
   border: 2px solid var(--color-text);
 }
 
+/* O frasco genérico, do mesmo tamanho da foto do nosso. Ele é um <svg>
+   desenhado no componente, com 120px de atributo, e a regra de cima só pega
+   <img>: ficava duas vezes e meia maior que a foto ao lado (23/09). */
+.versus__cabeca svg {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  border: 2px solid #c3cad3;
+}
+
 .versus__cabeca small {
   display: block;
   margin-top: 2px;

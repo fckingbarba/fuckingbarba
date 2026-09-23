@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState, useSyncExternalStore, useTransition } from "react"
+import { useEffect, useId, useRef, useState, useSyncExternalStore, useTransition } from "react"
 import { Caminhao } from "@/components/icones"
 import { useFrete } from "@/components/configuracoes/contexto"
 import { cotarFrete, type Cotacao, type OpcaoCotada } from "@/lib/acoes/frete"
@@ -79,6 +79,9 @@ export function CalculadoraDeFrete({
   titulo?: string
 }) {
   const politica = useFrete()
+  // Id desta calculadora, e não "cep-frete" fixo: a PDP anterior fica guardada
+  // no documento, e o rótulo apontaria pro campo dela (ver os degraus, em compra.tsx).
+  const idDoCep = useId()
 
   /*
     O CEP GUARDADO ENTRA POR `useSyncExternalStore`, e não por um `useEffect`
@@ -161,11 +164,11 @@ export function CalculadoraDeFrete({
       </p>
 
       <div className="cep__linha">
-        <label className="sr-only" htmlFor="cep-frete">
+        <label className="sr-only" htmlFor={idDoCep}>
           CEP de entrega
         </label>
         <input
-          id="cep-frete"
+          id={idDoCep}
           className="cep__campo"
           type="text"
           inputMode="numeric"

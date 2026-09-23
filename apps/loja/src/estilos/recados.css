@@ -52,9 +52,9 @@
   clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
 }
 
-/* Deu certo: menta, a cor que a marca usa pra confirmar. */
-.compra__recado--ok,
-.rotina__recado--ok {
+/* Deu certo: menta, a cor que a marca usa pra confirmar. (A rotina não diz
+   "deu certo": a gaveta que abre já diz.) */
+.compra__recado--ok {
   background: var(--color-menta);
 }
 

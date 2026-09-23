@@ -39,7 +39,12 @@ export function RotinaEscolha({ itens }: { itens: readonly ItemEscolhivel[] }) {
   const [marcados, setMarcados] = useState<Set<string>>(
     () => new Set(itens.filter((i) => i.fixo).map((i) => i.varianteId))
   )
-  const [recado, setRecado] = useState<{ tipo: "ok" | "erro"; texto: string } | null>(null)
+  /*
+    Só o recado de ERRO. Deu certo, a gaveta abre com a sacola — e um "Na
+    sacola." aqui virava uma faixa verde no meio do bloco escuro, repetindo o
+    que a gaveta já mostra (tirado a pedido da loja em 23/09).
+  */
+  const [erro, setErro] = useState("")
   const [enviando, comecar] = useTransition()
 
   const escolhidos = itens.filter((i) => marcados.has(i.varianteId))
@@ -52,7 +57,7 @@ export function RotinaEscolha({ itens }: { itens: readonly ItemEscolhivel[] }) {
 
   function alternar(id: string, fixo: boolean) {
     if (fixo) return
-    setRecado(null)
+    setErro("")
     setMarcados((atual) => {
       const novo = new Set(atual)
       if (novo.has(id)) novo.delete(id)
@@ -62,14 +67,13 @@ export function RotinaEscolha({ itens }: { itens: readonly ItemEscolhivel[] }) {
   }
 
   function levar() {
-    setRecado(null)
+    setErro("")
     comecar(async () => {
       const r = await adicionarVarios(escolhidos.map((i) => ({ varianteId: i.varianteId })))
       if (!r.ok) {
-        setRecado({ tipo: "erro", texto: r.erro })
+        setErro(r.erro)
         return
       }
-      setRecado({ tipo: "ok", texto: "Na sacola." })
       window.dispatchEvent(new CustomEvent(EVENTO_SACOLA, { detail: r.carrinho }))
     })
   }
@@ -137,7 +141,8 @@ export function RotinaEscolha({ itens }: { itens: readonly ItemEscolhivel[] }) {
               <span>
                 {falta > 0 ? (
                   <>
-                    Faltam <b>{emReais(falta)}</b> pr{frases.selo.toLowerCase().startsWith("frete") ? "o " : "a "}
+                    Faltam <b>{emReais(falta)}</b> pr
+                    {frases.selo.toLowerCase().startsWith("frete") ? "o " : "a "}
                     {frases.selo.toLowerCase()}
                   </>
                 ) : (
@@ -153,11 +158,11 @@ export function RotinaEscolha({ itens }: { itens: readonly ItemEscolhivel[] }) {
           ) : null}
 
           <p
-            className={recado ? `rotina__recado rotina__recado--${recado.tipo}` : "rotina__recado"}
+            className={erro ? "rotina__recado rotina__recado--erro" : "rotina__recado"}
             role="status"
             aria-live="polite"
           >
-            {recado?.texto ?? ""}
+            {erro}
           </p>
         </div>
 

@@ -91,6 +91,12 @@
   background: #ffffff;
   border: 2px solid var(--color-tinta);
 }
+.versus__cabeca svg {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  border: 2px solid #c3cad3;
+}
 .versus__cabeca small {
   display: block;
   margin-top: 2px;
