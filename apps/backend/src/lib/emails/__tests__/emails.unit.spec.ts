@@ -1,7 +1,7 @@
 import { emailDoCodigo } from "../codigo"
 import { emailDoEnvio, type EnvioDoAviso, type PedidoDoAviso } from "../envio"
 import { emReais, esc, urlDaLoja } from "../moldura"
-import { emailDaNotaComProblema } from "../erp"
+import { emailDaNotaComProblema, emailDaNotaParaConferir } from "../erp"
 import { emailDePedidoCancelado, type CancelamentoDoEmail } from "../pedido-cancelado"
 import { emailDePedidoConfirmado, rotuloDaEntrega, type PedidoDoEmail } from "../pedido-confirmado"
 import { emailDaTroca, emailDeEmailTrocado } from "../troca-de-email"
@@ -458,5 +458,19 @@ describe("a nota que não saiu (pra equipe)", () => {
     expect(aviso("acompanha").html).toContain(
       'href="https://api.exemplo.com/app/orders/order_01ABC"'
     )
+  })
+})
+
+describe("a nota que saiu com o cadastro antigo (pra equipe)", () => {
+  it("diz o que conferir, e o que fazer se estiver errado", () => {
+    const e = emailDaNotaParaConferir("equipe@exemplo.com", {
+      erp: "Bling",
+      pedidoId: "order_01ABC",
+      numero: 15,
+      motivo: "o cadastro do cliente no Bling não foi atualizado com este pedido (erro)",
+    })
+    expect(e.assunto).toBe("Confira a nota do pedido #15")
+    expect(e.html).toContain("carta de correção")
+    expect(e.html).toContain("em até 24 horas")
   })
 })

@@ -13,7 +13,12 @@ import {
   telefone,
   type EnderecoDoMedusa,
 } from "../dados-do-pedido"
-import { emailDaNotaComProblema, emailDaNotaParaCancelar, type JeitoDoAviso } from "../emails/erp"
+import {
+  emailDaNotaComProblema,
+  emailDaNotaParaCancelar,
+  emailDaNotaParaConferir,
+  type JeitoDoAviso,
+} from "../emails/erp"
 import { referenciaDoPedido } from "../envios/parceiro"
 import { avisarAEquipe } from "./avisos"
 import { acessoAoErp, avisarQuedaSeForAHora, lerConexao } from "./conexao"
@@ -364,7 +369,7 @@ async function aplicarEstado(
 async function avisarUmaVez(
   container: MedusaContainer,
   linha: LinhaDaNota,
-  qual: "problema" | "cancelar",
+  qual: "problema" | "cancelar" | "conferir",
   montar: (para: string) => import("../email").Email,
   agora: Date
 ) {
@@ -604,6 +609,24 @@ export async function emitirNotaDoPedido(
         return { resultado: "falhou", referencia, motivo: r.motivo, definitivo: r.definitivo }
       }
 
+      if (r.avisos?.length) {
+        const motivo = r.avisos.join("; ")
+        logger.warn(`[erp] a nota do ${referencia} saiu, mas ${motivo}`)
+        const numero = await numeroDoPedido(container, atual)
+        await avisarUmaVez(
+          container,
+          atual,
+          "conferir",
+          (para) =>
+            emailDaNotaParaConferir(para, {
+              erp: erp.nome,
+              pedidoId: atual.pedido_id,
+              numero,
+              motivo,
+            }),
+          agora
+        )
+      }
       const c = await aplicarEstado(container, erp, atual, r.nota, agora)
       autorizou = c.autorizou
       if (c.problema) await avisarProblema(container, erp, atual, c.problema, "acompanha", agora)

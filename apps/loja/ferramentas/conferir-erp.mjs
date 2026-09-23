@@ -328,6 +328,31 @@ try {
   const quem = novoEmail()
   await adm("/admin/erp/estoque", { method: "POST" })
   const livreAntes = await disponivel(SKU_OLEO)
+  // O Bling já tem um cadastro com este CPF — de antes da loja nova, com o
+  // e-mail e o telefone de outra pessoa, como o da primeira compra de teste em
+  // produção (23/09). Quem comprou agora é quem tem de ir na nota.
+  const antigo = bling.contato({
+    nome: "Nome Antigo",
+    tipo: "F",
+    situacao: "A",
+    numeroDocumento: CPF,
+    indicadorIe: 9,
+    email: "outra.pessoa@exemplo.com",
+    emailNotaFiscal: "outra.pessoa@exemplo.com",
+    telefone: "(11) 95428-3743",
+    celular: "(11) 95428-3743",
+    vendedor: { id: 3 },
+    endereco: {
+      geral: {
+        endereco: "Rua Velha",
+        numero: "1",
+        bairro: "Centro",
+        cep: "01001-000",
+        municipio: "São Paulo",
+        uf: "SP",
+      },
+    },
+  })
   const A = await fabrica.pedidoPix(quem, [["oleo-para-barba", 2]], { documento: CPF })
   await fabrica.pagar(A)
   const refA = `FB-${A.numero}`
@@ -349,6 +374,18 @@ try {
         contato.endereco?.geral?.bairro === "Itoupava Central",
       "o cliente no Bling: pelo CPF, com o endereço em partes",
       JSON.stringify(contato).slice(0, 200)
+    )
+    const digitos = (v) => String(v ?? "").replace(/\D/g, "")
+    ok(
+      contato.id === antigo.id &&
+        contato.email === quem &&
+        contato.emailNotaFiscal === quem &&
+        digitos(contato.telefone).endsWith("988887777") &&
+        digitos(contato.celular).endsWith("988887777") &&
+        contato.vendedor?.id === 3,
+      "o cadastro que já existia é atualizado com quem comprou — o e-mail da nota e o telefone " +
+        "também —, sem perder o vendedor",
+      JSON.stringify(contato).slice(0, 300)
     )
     ok(
       venda.contato?.id === contato.id &&
@@ -621,6 +658,44 @@ try {
       `${fim2.headers.get("location")} · ${bling.notaDoPedidoDeVenda(`FB-${G.numero}`)?.situacao}`
     )
     ok(!(await pendencias()).some((p) => p.referencia === `FB-${G.numero}`), "e a pendência some")
+  }
+
+  /* ── 8c. o cadastro que o Bling não deixa atualizar ─────────────────────── */
+
+  titulo("O cadastro do cliente que o Bling não deixa atualizar: a nota sai, e a equipe confere")
+  {
+    const CPF_ANTIGO = "39053344705"
+    bling.contato({
+      nome: "Cadastro Antigo",
+      tipo: "F",
+      situacao: "A",
+      numeroDocumento: CPF_ANTIGO,
+      email: "antigo@exemplo.com",
+      endereco: {
+        geral: {
+          endereco: "Rua Velha",
+          numero: "1",
+          bairro: "Centro",
+          cep: "01001-000",
+          municipio: "São Paulo",
+          uf: "SP",
+        },
+      },
+    })
+    bling.recusarAtualizacaoDeContato = true
+    const H = await fabrica.pedidoPix(novoEmail(), [["balm-para-barba", 1]], {
+      documento: CPF_ANTIGO,
+    })
+    await fabrica.pagar(H)
+    const nota = await esperarQue(() => bling.notaDoPedidoDeVenda(`FB-${H.numero}`)?.situacao === 5)
+    const email = await esperarQue(() => praEquipe(`Confira a nota do pedido #${H.numero}`)[0])
+    bling.recusarAtualizacaoDeContato = false
+    ok(Boolean(nota), "a nota sai assim mesmo, com o cadastro que está lá")
+    ok(
+      /não foi atualizado/.test(email?.html ?? "") && /carta de correção/.test(email?.html ?? ""),
+      "e a equipe recebe o e-mail pra conferir o destinatário da nota",
+      email?.subject
+    )
   }
 
   /* ── 9. os produtos do Bling ──────────────────────────────────────────────── */

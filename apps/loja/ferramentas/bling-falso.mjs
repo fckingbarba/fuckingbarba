@@ -75,6 +75,8 @@ export async function subirBlingFalso({
      * lia o cliente e não podia criar.
      */
     semEscopo: new Set(),
+    /** `PUT /contatos/{id}` responde 400: o cadastro que o Bling não deixa atualizar. */
+    recusarAtualizacaoDeContato: false,
     contatos: new Map(),
     pedidos: new Map(),
     notas: new Map(),
@@ -105,6 +107,12 @@ export async function subirBlingFalso({
       }
     }
     return produto
+  }
+  /** Um cliente que o Bling já tem (o cadastro antigo, de antes da loja nova). */
+  painel.contato = (dados) => {
+    const id = novoId()
+    painel.contatos.set(id, { ...dados, id })
+    return painel.contatos.get(id)
   }
   const porId = (id) => [...painel.produtos.values()].find((p) => p.id === id)
   const variacoesDe = (p) => [...painel.produtos.values()].filter((v) => v.pai === p.id)
@@ -352,6 +360,8 @@ export async function subirBlingFalso({
           ? json(res, 200, { data: c })
           : erro(res, 404, "contato não existe", "RESOURCE_NOT_FOUND")
       }
+      if (contato && req.method === "PUT" && painel.recusarAtualizacaoDeContato)
+        return erro(res, 400, "Não foi possível salvar o contato")
       if ((caminho === "/contatos" && req.method === "POST") || (contato && req.method === "PUT")) {
         if (!corpo?.nome || !corpo?.tipo || !corpo?.situacao)
           return erro(res, 400, "Informe o nome, o tipo e a situação")

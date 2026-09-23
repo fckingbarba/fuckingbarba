@@ -197,7 +197,15 @@ export type EstadoDaNota = {
 }
 
 export type ResultadoDaEmissao =
-  | { ok: true; nota: EstadoDaNota }
+  | {
+      ok: true
+      nota: EstadoDaNota
+      /**
+       * O que saiu, mas não do jeito certo (o cadastro do cliente que o ERP
+       * não deixou atualizar): a equipe recebe um aviso pra conferir a nota.
+       */
+      avisos?: string[]
+    }
   | {
       ok: false
       motivo: string
