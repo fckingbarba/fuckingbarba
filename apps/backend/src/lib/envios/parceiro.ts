@@ -10,16 +10,20 @@ import type { TipoDeEvento } from "./situacao"
  * por outro amanhã escrevendo UM arquivo: o novo tradutor, registrado em
  * `parceiros.ts`.
  *
+ * DOIS JEITOS DE SABER DE UM PACOTE, e o parceiro tem um ou os dois:
+ *
+ *   `lerAviso` — o parceiro AVISA (webhook), a cada evento;
+ *   `consultar` — a loja PERGUNTA, de hora em hora (o job
+ *     `acompanhar-envios`). É o que faz andar o pacote que não tem aviso:
+ *     na Frenet, toda etiqueta gerada à mão no painel (ver `rastreio.ts`).
+ *
  * ┌─ O QUE AINDA NÃO ESTÁ NO CONTRATO, E ONDE ENTRA ───────────────────────┐
  * │ • `registrarPedido(pedido)` — mandar o pedido pago pro painel do       │
  * │   parceiro, pra etiqueta sair sem digitar. Na Frenet exige o token de  │
  * │   parceiro (homologação); o gancho é o `pagamento-capturado.ts`.       │
- * │ • `consultar(envio)` — perguntar como está um pacote, pro parceiro sem │
- * │   webhook (ou pro aviso que se perdeu). Devolveria `Novidade`, e o job │
- * │   `acompanhar-envios` passaria a chamar. Na Frenet pede o código do    │
- * │   serviço cotado, que o pedido ainda não guarda.                       │
- * │ Os dois são métodos OPCIONAIS: parceiro que não tem, não implementa.   │
- * └─────────────────────────────────────────────────────────────────────────┘
+ * │ Método OPCIONAL, como o `consultar`: parceiro que não tem, não         │
+ * │ implementa.                                                            │
+ * └────────────────────────────────────────────────────────────────────────┘
  */
 
 /** Um evento da transportadora, já traduzido. */
@@ -82,6 +86,20 @@ export type LeituraDoAviso =
       detalhe: string
     }
 
+/** O que a loja pergunta ao parceiro sobre um pacote. */
+export type PerguntaDeRastreio = {
+  /** O código de rastreio. */
+  codigo: string
+  /**
+   * O serviço NO parceiro (o `ServiceCode` da Frenet), quando o pedido
+   * guardou — ele é escolhido na cotação, junto com a entrega.
+   */
+  servico: string | null
+}
+
+/** A resposta: a novidade, ou por que não deu (vai pro log). */
+export type Consulta = { ok: true; novidade: Novidade } | { ok: false; motivo: string }
+
 export interface ParceiroDeEntrega {
   /** Sem acento, minúsculo: vai no endereço do aviso, `/hooks/envio/<id>`. */
   id: string
@@ -89,6 +107,12 @@ export interface ParceiroDeEntrega {
   nome: string
   /** Confere se o aviso é mesmo do parceiro e traduz. Não pode lançar. */
   lerAviso(chegada: Chegada): LeituraDoAviso
+  /**
+   * Pergunta como está um pacote — o caminho do pacote que não tem aviso.
+   * Opcional. Não pode lançar: o job pergunta por vários de uma vez, e um
+   * erro não pode parar os outros.
+   */
+  consultar?(pergunta: PerguntaDeRastreio): Promise<Consulta>
 }
 
 /* ── o que todo tradutor usa ──────────────────────────────────────────────── */

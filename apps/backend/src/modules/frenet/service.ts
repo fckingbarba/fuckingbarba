@@ -4,6 +4,7 @@ import type {
   CalculateShippingOptionPriceDTO,
   CreateFulfillmentResult,
   FulfillmentOption,
+  ValidateFulfillmentDataContext,
 } from "@medusajs/framework/types"
 import { aplicarPolitica, type OpcaoCotada, type PoliticaDeFrete } from "../../lib/configuracoes"
 import {
@@ -107,10 +108,48 @@ export default class FrenetFulfillmentService extends AbstractFulfillmentProvide
     return FAIXAS.map((f) => ({ id: f.id, name: f.nome, faixa: f.id }))
   }
 
+  /**
+   * O SERVIÇO DA FRENET QUE ATENDE A FAIXA ESCOLHIDA, guardado no método de
+   * entrega do carrinho — e, dali, no do pedido (`data.servico`).
+   *
+   * A consulta de rastreio da Frenet pede o código do serviço junto com o
+   * de rastreio (`consultar`, em `rastreio.ts`), e a etiqueta feita à mão no
+   * painel não diz qual foi. O Medusa chama isto logo depois de calcular o
+   * preço, com o mesmo carrinho: a cotação sai do cache de dez segundos do
+   * `client.ts`, sem ida a mais à Frenet.
+   *
+   * NUNCA LANÇA. Lançar aqui impede a pessoa de escolher a entrega — ou
+   * seja, de comprar. Sem cotação (Frenet fora, preço de emergência), o
+   * método entra sem o serviço, e o rastreio se vira pelo formato do código.
+   */
   async validateFulfillmentData(
-    _optionData: Record<string, unknown>,
-    data: Record<string, unknown>
+    optionData: Record<string, unknown>,
+    data: Record<string, unknown>,
+    context: ValidateFulfillmentDataContext
   ): Promise<Record<string, unknown>> {
+    try {
+      const faixa: Faixa = optionData?.faixa === "expressa" ? "expressa" : "economica"
+      const servicos = await this.cotacao(
+        context as unknown as CalculateShippingOptionPriceDTO["context"],
+        undefined
+      )
+      const escolhido = escolherFaixas(servicos)?.[faixa]
+      if (escolhido) {
+        return {
+          ...data,
+          servico: {
+            codigo: escolhido.codigo,
+            transportadora: escolhido.transportadora,
+            nome: escolhido.servico,
+          },
+        }
+      }
+    } catch (e) {
+      this.logger.info(
+        "[frenet] o serviço da entrega não foi guardado no pedido " +
+          `(${e instanceof Error ? e.message : e})`
+      )
+    }
     return data
   }
 

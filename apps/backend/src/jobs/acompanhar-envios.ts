@@ -3,12 +3,17 @@ import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import { ENVIOS } from "../modules/envios"
 import type EnviosService from "../modules/envios/service"
 import { avisarCliente } from "../lib/envios/avisos"
+import { perguntarAosParceiros } from "../lib/envios/consultas"
 import { acompanharDeNovo } from "../lib/envios/nucleo"
 import { avisoPendente, lerAvisos, type SituacaoDoEnvio } from "../lib/envios/situacao"
 
 /**
  * DE HORA EM HORA, no worker: o que ficou pra trás nos envios.
  *
+ *   0. O PACOTE SEM AVISO — pergunta ao parceiro como está cada pacote a
+ *      caminho (`perguntarAosParceiros`, em `lib/envios/consultas.ts`). Na
+ *      Frenet é o único caminho da etiqueta feita à mão no painel, que não
+ *      manda aviso nenhum.
  *   1. O PEDIDO QUE NÃO ACOMPANHOU — o envio disse "postado" e o Medusa
  *      não deixou marcar (o banco caiu no meio, o pedido estava sendo
  *      editado). Tenta de novo por três dias; depois disso, o motivo fica
@@ -19,9 +24,8 @@ import { avisoPendente, lerAvisos, type SituacaoDoEnvio } from "../lib/envios/si
  *      há o que o código faça (o aviso pode ter se perdido, ou o pacote);
  *      uma linha no log por dia, pra alguém conferir no painel do parceiro.
  *
- * O que ele ainda não faz: PERGUNTAR ao parceiro como está o pacote. É o
- * `consultar` do contrato (ver `lib/envios/parceiro.ts`) — entra aqui
- * quando o primeiro parceiro souber responder.
+ * A pergunta vem primeiro: o que ela trouxer já sai nos passos seguintes
+ * (o pedido que acompanha, o e-mail).
  */
 const DIA = 24 * 60 * 60 * 1000
 const EM_ANDAMENTO: SituacaoDoEnvio[] = [
@@ -36,6 +40,11 @@ export default async function acompanharEnvios(container: MedusaContainer) {
   const envios = container.resolve<EnviosService>(ENVIOS)
   const logger = container.resolve(ContainerRegistrationKeys.LOGGER)
   const agora = new Date()
+
+  /* 0. o pacote sem aviso */
+  await perguntarAosParceiros(container, agora).catch((e) =>
+    logger.warn(`[envio] a consulta aos parceiros falhou — ${e instanceof Error ? e.message : e}`)
+  )
 
   /* 1. o pedido que não acompanhou */
   const pendentes = await envios.listEnvios(

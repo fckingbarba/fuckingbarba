@@ -15,6 +15,13 @@ import { createServer } from "node:http"
  * │ de testar: é o que decide se a loja continua vendendo ou não.          │
  * └─────────────────────────────────────────────────────────────────────────┘
  *
+ * E A CONSULTA DE RASTREIO (`POST /tracking/trackinginfo`): responde os
+ * eventos que o teste puser em `painel.rastreios` (código → eventos, no
+ * formato da Frenet), e guarda cada pergunta em `painel.consultas`. É o
+ * caminho da etiqueta feita à mão no painel, que não manda aviso — o
+ * `conferir-envio.mjs` usa. A consulta não conta em `chamadas`, que é das
+ * cotações.
+ *
  * MORA NUM ARQUIVO SÓ porque dois conferidores precisam dela: o do frete,
  * que testa a cotação, e o do checkout, que precisa de opções de entrega
  * pra chegar no passo do pagamento. Duas cópias divergiriam no dia em que
@@ -84,12 +91,40 @@ export async function subirFrenetFalsa({ porta = PORTA_PADRAO } = {}) {
     ultimoCorpo: null,
     ultimoToken: null,
     chamadas: 0,
+    /** código de rastreio → eventos, no formato da Frenet */
+    rastreios: new Map(),
+    /** cada consulta de rastreio que chegou: `{ token, corpo }` */
+    consultas: [],
   }
 
   const servidor = createServer((req, res) => {
     let corpo = ""
     req.on("data", (p) => (corpo += p))
     req.on("end", async () => {
+      if (req.url?.startsWith("/tracking/trackinginfo")) {
+        let pergunta = null
+        try {
+          pergunta = JSON.parse(corpo)
+        } catch {}
+        painel.consultas.push({ token: req.headers.token ?? null, corpo: pergunta })
+        const codigo = pergunta?.TrackingNumber
+        const eventos = painel.rastreios.get(codigo)
+        res.writeHead(200, { "content-type": "application/json" })
+        res.end(
+          JSON.stringify(
+            eventos
+              ? {
+                  TrackingNumber: codigo,
+                  TrackingUrl: `https://rastreio.frenet.com.br/COR/${codigo}`,
+                  ServiceDescrition: "PAC",
+                  TrackingEvents: eventos,
+                }
+              : { ErrorMessage: "Objeto não encontrado" }
+          )
+        )
+        return
+      }
+
       painel.chamadas++
       painel.ultimoToken = req.headers.token ?? null
       try {
