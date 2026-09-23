@@ -216,13 +216,18 @@ try {
       "o admin mostra a empresa e desde quando as notas saem",
       JSON.stringify({ conectado: s.conectado, empresa: s.empresa })
     )
-    ok(
-      s.janelaDaNota === 120 && Array.isArray(s.esperando),
-      "sem ninguém escolher, a nota espera 2 horas depois do pagamento (o padrão)",
-      String(s.janelaDaNota)
-    )
     // As seções da nota, até a da janela, conferem a nota que sai na hora.
     const janelaAntes = s.janelaDaNota
+    const { status: sPadrao } = await adm("/admin/erp/notas/janela", {
+      method: "POST",
+      body: JSON.stringify({ minutos: null }),
+    })
+    const padrao = (await adm("/admin/erp")).corpo
+    ok(
+      sPadrao === 200 && padrao.janelaDaNota === 5 && Array.isArray(padrao.esperando),
+      "sem ninguém escolher, a nota espera 5 minutos depois do pagamento (o padrão)",
+      String(padrao.janelaDaNota)
+    )
     await adm("/admin/erp/notas/janela", { method: "POST", body: JSON.stringify({ minutos: 0 }) })
     limpar.push(() =>
       adm("/admin/erp/notas/janela", {
@@ -805,15 +810,15 @@ try {
 
   /* ── 8d. a janela antes da nota ────────────────────────────────────────────── */
 
-  titulo("A janela: o pedido de venda vai na hora, a nota espera 2 horas")
+  titulo("A janela: o pedido de venda vai na hora, e a nota espera (aqui, 2 horas)")
   bling.sefaz = "autoriza"
   {
     const janela = (minutos) =>
       adm("/admin/erp/notas/janela", { method: "POST", body: JSON.stringify({ minutos }) })
-    const invalidos = await Promise.all([-1, 1441, 1.5, "120", null].map((m) => janela(m)))
+    const invalidos = await Promise.all([-1, 1441, 1.5, "120", undefined].map((m) => janela(m)))
     ok(
       invalidos.every((r) => r.status === 400),
-      "a janela só aceita minutos inteiros, de 0 a 24 horas",
+      "a janela só aceita minutos inteiros, de 0 a 24 horas (ou null, o padrão)",
       invalidos.map((r) => r.status).join(",")
     )
     const { status: sJ, corpo: cJ } = await janela(120)

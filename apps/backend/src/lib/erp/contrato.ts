@@ -18,7 +18,7 @@
  *
  * O ERP MANDA NO ESTOQUE (decidido em 23/09): entrada, produção e perda são
  * lançadas nele, e a loja só copia o saldo. O pedido vai pro ERP quando o
- * pagamento cai; a nota sai depois da janela de cancelamento (2 horas, na
+ * pagamento cai; a nota sai depois da janela de cancelamento (5 minutos, na
  * tela do ERP) e vai pra SEFAZ na hora.
  */
 

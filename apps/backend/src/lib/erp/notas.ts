@@ -32,7 +32,7 @@ import { erpDaLoja, erpPorId } from "./erps"
  *
  *   pago ──▶ emitirNotaDoPedido ──▶ o pedido no ERP, na hora
  *                                            │
- *                            a janela (2 horas, na tela do ERP)
+ *                          a janela (5 minutos, na tela do ERP)
  *                                            ▼
  *                                   a nota ──▶ SEFAZ
  *                                            │
@@ -63,8 +63,8 @@ import { erpDaLoja, erpPorId } from "./erps"
  * ┌─ A JANELA DE CANCELAMENTO (decidida em 23/09) ─────────────────────────┐
  * │ A API do Bling não cancela nota autorizada. Então a nota espera: o     │
  * │ pedido de venda vai pro ERP na hora (e reserva o estoque lá), e a nota │
- * │ só sai quando a janela fecha — 2 horas depois do pagamento, ou o que a │
- * │ tela do ERP disser (0 = na hora). O pedido cancelado dentro dela é     │
+ * │ só sai quando a janela fecha — 5 minutos depois do pagamento, ou o que │
+ * │ a tela do ERP disser (0 = na hora). O pedido cancelado dentro dela é   │
  * │ desfeito sozinho, sem nota pra cancelar e sem e-mail; a etiqueta da    │
  * │ Frenet espera a nota. A janela conta do primeiro pagamento, a cada     │
  * │ vez — não fica gravada no registro —, então mudar na tela vale também  │

@@ -13,7 +13,7 @@ import { emitirNotaDoPedido } from "../lib/erp/notas"
  *      Se ele falhar aqui, a varredura de 5 em 5 minutos manda depois;
  *   2. o pedido de venda no ERP (`lib/erp/notas.ts`) — só com o ERP
  *      conectado. A nota fica pra quando a janela de cancelamento fechar
- *      (2 horas, na tela do ERP; a varredura de 5 em 5 minutos emite), ou
+ *      (5 minutos, na tela do ERP; a varredura de 5 em 5 minutos emite), ou
  *      sai aqui mesmo, até a SEFAZ, com a janela em "na hora". Se falhar, a
  *      varredura tenta de novo;
  *   3. o pedido no painel da Frenet (`lib/envios/registro.ts`), pra etiqueta

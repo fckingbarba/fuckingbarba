@@ -243,7 +243,7 @@ aparecem na conta e no log, sem e-mail automático — esses a loja conversa com
 
 **Pronto no código, desligado até conectar (23/09).** Decidido com você: o Bling manda no estoque
 (entrada, produção e perda são lançadas nele, e a loja só copia o saldo); o pedido de venda vai pro
-Bling quando o pagamento cai, e a nota **2 horas depois** (a janela de cancelamento), direto pra
+Bling quando o pagamento cai, e a nota **5 minutos depois** (a janela de cancelamento), direto pra
 SEFAZ, e segue junto do pedido pro painel da Frenet; e nota autorizada de pedido cancelado vira
 e-mail pra equipe, porque **a API do Bling não cancela NF-e** (a rota não existe — conferido de novo
 em 23/09) — é no painel do Bling, em até 24 horas da autorização (Santa Catarina).
@@ -258,10 +258,13 @@ Como funciona, em uma linha cada:
   do Bling pro cliente. A natureza de operação, o CFOP e os impostos são os da conta do Bling.
   Autorizada, a nota vai junto do pedido pro painel da Frenet (quando o token de parceiro chegar).
 - **A janela de cancelamento (decidida em 23/09):** como o Bling não deixa cancelar nota pela API,
-  a nota espera **2 horas** depois do pagamento. Cancelado nesse meio-tempo, a loja cancela o pedido
-  de venda no Bling sozinha — sem nota pra cancelar e sem e-mail. Na tela ERP, **"Quando a nota
-  sai"** muda a espera (na hora, 30 minutos, 1, 2 ou 4 horas; vale também pra quem já está
-  esperando), lista os pedidos esperando e tem **"Emitir agora"** pro que precisa despachar antes.
+  a nota espera **5 minutos** depois do pagamento (começou em 2 horas; no mesmo dia, você baixou
+  pra 5). Na prática sai entre 5 e 10 minutos depois, porque a varredura é de 5 em 5. Cancelado
+  nesse meio-tempo, a loja cancela o pedido de venda no Bling sozinha — sem nota pra cancelar e sem
+  e-mail; depois, a nota é cancelada à mão no Bling (o e-mail avisa) e o pedido de venda vai
+  sozinho. Na tela ERP, **"Quando a nota sai"** muda a espera (na hora, 5, 15 ou 30 minutos, 1, 2
+  ou 4 horas; vale também pra quem já está esperando), lista os pedidos esperando e tem **"Emitir
+  agora"** pro que precisa despachar antes.
   A etiqueta da Frenet espera a nota. Não emita a nota à mão no Bling, senão ela sai duas vezes.
 - **Deu errado:** nota rejeitada, pedido sem CPF, produto que o Bling não tem — um e-mail pra
   equipe, e a pendência na tela ERP. Nota corrigida e reenviada no Bling, a loja percebe sozinha.
@@ -759,7 +762,7 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
     id do Resend), `dispensado` (não era pra sair: sem o Pagar.me, já postado ou sem e-mail) ou
     `recusado` (o Resend disse que o endereço não aceita e-mail — não se tenta mais).
 - **A nota fiscal pelo Bling está pronta** (23/09, ver 1c): o pedido de venda na hora, a nota
-  depois da janela de cancelamento (2 horas), varredura de 5 em 5 minutos embaixo, registro na
+  depois da janela de cancelamento (5 minutos), varredura de 5 em 5 minutos embaixo, registro na
   tabela `erp_nota`. Quando ela estiver saindo de verdade, a pergunta
   "recebo nota fiscal?" entra nas Dúvidas (`apps/loja/src/conteudo/duvidas.ts`) e o bloco "Nota
   fiscal" na página do pedido da conta (o protótipo já tem) — antes disso, prometeriam o que não

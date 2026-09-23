@@ -367,7 +367,7 @@ o Medusa reservou pros pedidos que já estão lá (senão o pedido pago desconta
 vai pro ERP no `payment.captured`, pela varredura `acompanhar-notas` (5 em 5 minutos) e pelo aviso
 do ERP (`/hooks/erp/:erp`, assinado com HMAC do client secret sobre o corpo cru); só pros pedidos
 pagos depois da primeira conexão (`notas_desde`). A **JANELA DE CANCELAMENTO**
-(`erp_conexao.janela_da_nota`, em minutos; `null` = 2 horas, 0 = na hora; `POST
+(`erp_conexao.janela_da_nota`, em minutos; `null` = 5 minutos, 0 = na hora; `POST
 /admin/erp/notas/janela`): dentro dela, `emitirNota` vai com `ate: "pedido"` — cliente e pedido de
 venda, sem nota — e a varredura emite quando ela fecha. Ela conta do PRIMEIRO pagamento, a cada vez
 (não é gravada no registro): mudar a janela vale pra quem já espera. Cancelado dentro dela, o

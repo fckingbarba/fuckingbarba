@@ -26,7 +26,7 @@ export const Conexao = model
     /**
      * Quantos minutos a nota espera depois do pagamento — a janela de
      * cancelamento: o pedido vai pro ERP na hora, e o cancelado dentro dela
-     * não chega a ter nota. `null` = o padrão (2 horas); 0 = na hora.
+     * não chega a ter nota. `null` = o padrão (5 minutos); 0 = na hora.
      */
     janela_da_nota: model.number().nullable(),
     /** O "state" da autorização em andamento — de uso único. */

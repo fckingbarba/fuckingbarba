@@ -145,13 +145,14 @@ describe("a janela de cancelamento antes da nota", () => {
     expect(decidir(agora, nota({ situacao: "autorizada" }))).toBe("ja-tem")
   })
 
-  it("o padrão é 2 horas; 0 é na hora; o que não for minuto inteiro vira o padrão; no máximo 24 horas", () => {
-    expect(minutosDaJanela(null)).toBe(120)
-    expect(minutosDaJanela({ janela_da_nota: null })).toBe(120)
+  it("o padrão é 5 minutos; 0 é na hora; o que não for minuto inteiro vira o padrão; no máximo 24 horas", () => {
+    expect(minutosDaJanela(null)).toBe(5)
+    expect(minutosDaJanela({ janela_da_nota: null })).toBe(5)
+    expect(minutosDaJanela({ janela_da_nota: 120 })).toBe(120)
     expect(minutosDaJanela({ janela_da_nota: 0 })).toBe(0)
     expect(minutosDaJanela({ janela_da_nota: 45 })).toBe(45)
-    expect(minutosDaJanela({ janela_da_nota: -5 })).toBe(120)
-    expect(minutosDaJanela({ janela_da_nota: 1.5 })).toBe(120)
+    expect(minutosDaJanela({ janela_da_nota: -5 })).toBe(5)
+    expect(minutosDaJanela({ janela_da_nota: 1.5 })).toBe(5)
     expect(minutosDaJanela({ janela_da_nota: 5000 })).toBe(1440)
   })
 })

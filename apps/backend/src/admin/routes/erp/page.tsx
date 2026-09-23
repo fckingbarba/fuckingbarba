@@ -64,6 +64,8 @@ type Situacao = {
 /** As janelas da lista; outra, gravada pela API, aparece como "N minutos". */
 const JANELAS: { minutos: number; rotulo: string }[] = [
   { minutos: 0, rotulo: "Na hora do pagamento" },
+  { minutos: 5, rotulo: "5 minutos depois do pagamento" },
+  { minutos: 15, rotulo: "15 minutos depois do pagamento" },
   { minutos: 30, rotulo: "30 minutos depois do pagamento" },
   { minutos: 60, rotulo: "1 hora depois do pagamento" },
   { minutos: 120, rotulo: "2 horas depois do pagamento" },

@@ -49,8 +49,12 @@ export type LinhaDaConexao = {
   janela_da_nota: number | null
 }
 
-/** A janela de cancelamento antes da nota, quando ninguém escolheu outra (decidida em 23/09). */
-export const JANELA_PADRAO_DA_NOTA_MIN = 120
+/**
+ * A janela de cancelamento antes da nota, quando ninguém escolheu outra.
+ * Decidida em 23/09: 2 horas; no mesmo dia, 5 minutos (a nota sai entre 5 e
+ * 10 minutos depois do pagamento — a varredura é de 5 em 5).
+ */
+export const JANELA_PADRAO_DA_NOTA_MIN = 5
 /** A maior: a varredura das notas olha três dias pra trás, e a etiqueta espera a nota. */
 export const JANELA_MAXIMA_DA_NOTA_MIN = 24 * 60
 
