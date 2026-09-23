@@ -1,6 +1,8 @@
 import type { Metadata } from "next"
 import type { ReactNode } from "react"
 import { MarcaDaTela } from "@/components/marca-da-tela"
+// Só no checkout e na conta, e não no globals.css: ver "O QUE NÃO MORA AQUI" lá.
+import "@/estilos/telas/checkout-e-conta.css"
 
 /**
  * /conta — a área do cliente. O desenho é o de

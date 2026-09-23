@@ -127,6 +127,9 @@ precisa sair da janela dela — ver `longeDaConciliacaoAutomatica` no conferidor
   campo de cartão não tem atributo `name` — o conferidor de checkout confere isso.
 - **Estilo**: sem `border-radius` (a marca é chanfro e sombra dura); tokens em `globals.css`
   (`@theme`); em fundo menta só `text-tinta`/`text-papel` (contraste AA).
+- **CSS de uma tela só não entra no `globals.css`.** Tudo que ele importa, toda página baixa antes
+  de pintar. PDP, checkout e conta importam o seu por `src/estilos/telas/` — ver o quadro "O QUE
+  NÃO MORA AQUI" no próprio `globals.css` antes de mover mais alguma coisa.
 - Prettier na raiz (`.prettierrc`: sem ponto e vírgula, 100 colunas). ESLint por app.
 
 ## Next.js 16 — leia antes de escrever código de front

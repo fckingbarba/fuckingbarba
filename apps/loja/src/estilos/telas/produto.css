@@ -1,0 +1,30 @@
+/*
+  O CSS DA PÁGINA DE PRODUTO — importado só por app/produtos/[handle]/page.tsx.
+
+  Morava no globals.css, e aí toda página da loja baixava o estilo da PDP
+  antes de pintar a primeira coisa (o porquê está no quadro "O QUE NÃO MORA
+  AQUI", lá). A ordem é a mesma de quando morava lá.
+*/
+
+/* O fundo por seção da PDP, escolhido no admin. */
+@import "../fundo.css";
+
+/* Gerados por ferramentas/porte/pdp-partes/agrupa-pdp.py; um arquivo por
+   seção, na mesma ordem em que a página os monta. As migalhas também saem
+   de lá, mas ficam no globals.css: aparecem na categoria e na busca. */
+@import "../pdp.css";
+@import "../pdp-promessa.css";
+@import "../pdp-antesdepois.css";
+@import "../pdp-tempo.css";
+@import "../pdp-faixa.css";
+@import "../pdp-rotina.css";
+@import "../pdp-funciona.css";
+@import "../pdp-versus.css";
+@import "../pdp-quem.css";
+@import "../pdp-duvidas.css";
+@import "../pdp-avaliacoes.css";
+@import "../pdp-relacionados.css";
+/* Escritos à mão (não saem do agrupa-pdp.py): o cross-sell na caixa de
+   compra, e a tarja de frete que mora dentro dele e dos kits. */
+@import "../pdp-junto.css";
+@import "../pdp-frete.css";

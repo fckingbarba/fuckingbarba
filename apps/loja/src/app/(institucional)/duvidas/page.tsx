@@ -5,6 +5,9 @@ import { Realce } from "@/components/realce"
 import { duvidasDaLoja, textoPuro, type Paragrafo } from "@/conteudo/duvidas"
 import { configuracoes } from "@/lib/medusa"
 import { site } from "@/lib/site"
+// O acordeão desta página é o das dúvidas da PDP (as mesmas classes
+// `duvidas__*`), e o CSS dele não mora mais no globals.css.
+import "@/estilos/pdp-duvidas.css"
 
 export const metadata: Metadata = {
   title: "Dúvidas frequentes",

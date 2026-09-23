@@ -1,7 +1,7 @@
 /*
   Banner do topo — é o maior elemento visível quando a página abre, o que o
-  Google mede como LCP. Por isso a foto vem com `priority` no componente (sem
-  lazy, com preload) e nada aqui depende de JavaScript pra aparecer.
+  Google mede como LCP. Por isso a foto vem sem lazy e com prioridade alta no
+  componente, e nada aqui depende de JavaScript pra aparecer.
 */
 
 /* Entrelinha padrão do navegador, como no protótipo: o preflight do

@@ -35,7 +35,9 @@ jobs:
       # Indexável só aqui dentro, pra o Lighthouse conseguir medir SEO = 100.
       # Em produção isto é opt-in manual, feito uma vez na virada (fase 6).
       SITE_INDEXAVEL: "true"
-      NEXT_PUBLIC_SITE_URL: http://localhost:3100
+      # O endereço do proxy HTTPS (ferramentas/https-local.mjs), que é por
+      # onde o Lighthouse entra — canônica e sitemap apontam pra ele.
+      NEXT_PUBLIC_SITE_URL: https://localhost:3443
       NEXT_PUBLIC_LOJA_ATUAL_URL: https://exemplo.com.br
       NEXT_TELEMETRY_DISABLED: "1"
       # O Medusa falso (apps/loja/ferramentas/medusa-falso.mjs), só de leitura:
@@ -64,6 +66,20 @@ jobs:
           cat /tmp/medusa-falso.log
           exit 1
       - run: npm run build -w @fuckingbarba/loja
+      # A Vercel entrega em HTTP/2; o `next start`, em HTTP/1.1, e o 4G
+      # simulado do Lighthouse cobra a fila das seis conexões — meio segundo
+      # de LCP que a produção não tem. O porquê, com os números, está no
+      # próprio arquivo.
+      - name: HTTPS local em HTTP/2, como a Vercel entrega
+        working-directory: apps/loja
+        run: |
+          node ferramentas/https-local.mjs > /tmp/https-local.log 2>&1 &
+          for i in $(seq 1 20); do
+            curl -sk -o /dev/null https://localhost:3443/ && exit 0
+            sleep 1
+          done
+          cat /tmp/https-local.log
+          exit 1
       - name: Lighthouse CI (orçamentos em apps/loja/budgets.json)
         working-directory: apps/loja
         run: npx lhci autorun
@@ -72,6 +88,9 @@ jobs:
       - name: Log do Medusa falso
         if: failure()
         run: cat /tmp/medusa-falso.log || true
+      - name: Log do HTTPS local
+        if: failure()
+        run: cat /tmp/https-local.log || true
       - uses: actions/upload-artifact@v4
         if: always()
         with:

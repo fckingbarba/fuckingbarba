@@ -11,7 +11,6 @@ import {
   YouTube,
 } from "@/components/icones"
 import { LogoDaBandeira } from "@/components/bandeira"
-import { LogoCompleta } from "@/components/marca"
 import { Newsletter } from "./newsletter"
 import { Selos } from "./selos"
 import { BANDEIRAS_ACEITAS } from "@/lib/cartao"
@@ -75,7 +74,25 @@ export async function Rodape() {
                 BARBA. O nome fica no `aria-label`: pra quem lê a tela, a
                 imagem já diz tudo. */}
             <Link className="rodape__marca" href="/" aria-label={`${site.nome} — página inicial`}>
-              <LogoCompleta aria-hidden="true" />
+              {/*
+                ARQUIVO, e não SVG dentro do HTML. São 18 KB de caminho — a
+                letra desenhada à mão — que iam DUAS vezes em toda página: no
+                HTML e de novo no pacote do React. Rodapé nunca é o que a
+                pessoa vê primeiro, então pesava justo no que a página baixa
+                antes do principal aparecer (o LCP). Como arquivo, vai uma vez,
+                fica em cache entre as páginas, e com `lazy` só é pedido quando
+                o rodapé chega perto da tela. O desenho é o mesmo de
+                `ferramentas/logo/saida/logo.svg`, copiado.
+              */}
+              {/* eslint-disable-next-line @next/next/no-img-element -- SVG estático: o otimizador não mexe em SVG */}
+              <img
+                src="/marca/logo-completa.svg"
+                alt=""
+                width={119}
+                height={95}
+                loading="lazy"
+                decoding="async"
+              />
             </Link>
             <p className="rodape__assinatura">{site.assinatura}</p>
             <h2 className="rodape__titulo">Siga-nos</h2>

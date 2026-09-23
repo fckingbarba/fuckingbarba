@@ -32,10 +32,13 @@ import { configuracoes, precosDe } from "@/lib/medusa"
 export async function CartaoProduto({
   produto,
   prioridade = false,
+  destaque = false,
 }: {
   produto: HttpTypes.StoreProduct
   /** Fotos acima da dobra não devem esperar: elas costumam ser o LCP. */
   prioridade?: boolean
+  /** A primeira da grade: é a que vira o LCP, e ganha prioridade alta. */
+  destaque?: boolean
 }) {
   /*
     `"use cache"` lá dentro: numa grade de doze cards isto é UMA leitura, não
@@ -67,7 +70,12 @@ export async function CartaoProduto({
               alt=""
               width={600}
               height={600}
-              priority={prioridade}
+              // Os primeiros da grade carregam na hora (sem `lazy`), e o
+              // primeiro de todos — o LCP da categoria — com prioridade alta.
+              // Era `priority`, descontinuado no Next 16: virava só um preload
+              // de prioridade baixa.
+              loading={prioridade ? "eager" : "lazy"}
+              fetchPriority={destaque ? "high" : undefined}
               sizes="(max-width: 640px) 70vw, 280px"
             />
           ) : null}

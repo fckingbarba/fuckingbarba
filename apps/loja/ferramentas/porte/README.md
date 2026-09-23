@@ -105,6 +105,11 @@ Depois de gerar, passe o prettier nos arquivos (`npx prettier --write
 indentar, e sem isso cada regeração aparece no diff como se algo tivesse
 mudado.
 
+Os arquivos da PDP **não entram no `globals.css`**: quem os importa é
+`src/estilos/telas/produto.css`, que só a página de produto carrega. A exceção é o
+`migalhas.css` — sai do mesmo script, mas a trilha aparece também na categoria e na busca,
+então mora no global. Seção nova de PDP entra lá, na ordem em que a página a monta.
+
 `conferir-loja.mjs` mede o que o cliente recebe, não o protótipo, com a loja e um Medusa de
 pé. A diferença entre os dois é exatamente o que o porte pode ter perdido no caminho. Ele
 repete as medidas aprovadas da dobra e vai além: abre o carrinho no Medusa depois do clique

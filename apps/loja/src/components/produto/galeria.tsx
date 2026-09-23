@@ -84,7 +84,12 @@ export function Galeria({
           alt={foto.alt || alvo}
           width={900}
           height={900}
-          priority
+          // `fetchPriority="high"` + `eager`, e não `priority`: no Next 16 o
+          // `priority` foi descontinuado e só punha um preload de prioridade
+          // BAIXA no <head> — a foto principal entrava na fila atrás dos
+          // scripts. É ela o LCP da página.
+          loading="eager"
+          fetchPriority="high"
           sizes="(min-width: 1000px) 620px, 100vw"
         />
       </button>

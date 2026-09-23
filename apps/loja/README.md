@@ -41,7 +41,9 @@ O protótipo HTML já estava desenhado e aprovado: seiscentas regras de chanfro 
 sombra dura deslocada e `clamp()` calibrados um a um. Traduzir isso pra classes utilitárias seria
 refazer de cabeça um desenho pronto, e a chance de errar um detalhe é alta — errar em silêncio,
 que é pior. Então o CSS foi **portado como está**, um arquivo por componente em `src/estilos/`,
-importado no `globals.css`. O React entra pra estrutura e comportamento; o Tailwind continua
+importado no `globals.css` — menos o da PDP, do checkout e da conta, que cada uma dessas telas
+importa por `src/estilos/telas/` pra não pesar no carregamento das outras. O React entra pra
+estrutura e comportamento; o Tailwind continua
 valendo pro que é novo (as páginas de texto, `/em-breve`, a home provisória).
 
 Duas coisas mudaram na travessia, e as duas estão comentadas no CSS:
