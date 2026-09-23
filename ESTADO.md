@@ -178,33 +178,39 @@ sozinha a cada 5 minutos; se nem ela resolver, o log com `[conciliação]` diz o
       "[bumps] 6 criada(s) … 1 desligada(s)"). Precisa do `REVALIDAR_SEGREDO` no Railway, que já
       existe (é o mesmo da revalidação).
 
-### 1b. Ligar o rastreio da Frenet — você
+### 1b. O rastreio da Frenet — você
 
-O código já está no ar depois do deploy; falta a Frenet mandar os avisos. Até lá, o "Mark as
-shipped" com o código continua valendo sozinho: o cliente recebe o e-mail "a caminho" com o código,
-e a conta mostra o rastreio.
+**A Frenet respondeu em 23/09:** o aviso "Atualização de Tracking" só sai pros pedidos da
+plataforma onde ele foi cadastrado — os que entram pela API de pedidos deles. **A etiqueta gerada
+à mão no painel não avisa ninguém**, e o número digitado nela vai como nota fiscal, não como
+pedido. Então, do jeito que a loja trabalha hoje, aviso nunca vai chegar.
 
+**Por isso a loja passou a PERGUNTAR (23/09):** de hora em hora, pra cada pacote a caminho, o
+backend consulta a Frenet (`POST /tracking/trackinginfo`, com o token da loja) e o pedido anda
+sozinho — em trânsito, saiu pra entrega, entregue —, com os e-mails de sempre. A consulta pede o
+serviço da entrega junto com o código: o pedido passou a guardar o da cotação na hora em que a
+pessoa escolhe a entrega. Pra rodar na hora: `POST /admin/envios/consultar`.
+
+- [ ] **O que muda no dia a dia:** depois de gerar a etiqueta no painel da Frenet, copiar o código
+      de rastreio pro pedido no admin do Medusa — criar o envio do pedido e marcar como enviado
+      ("Mark as shipped") com o código. É isso que avisa o cliente ("a caminho") e põe o pacote na
+      consulta de hora em hora. Sem o código no pedido, a loja não tem o que perguntar.
+- [ ] **Pra não precisar digitar nada (opcional, depende da Frenet):** a API de pedidos deles põe o
+      pedido pago direto no painel — a etiqueta sai sem redigitar endereço, e o aviso de rastreio
+      passa a chegar sozinho, com o código. Ela exige o token de PARCEIRO (`x-partner-token`), que
+      só sai depois da homologação deles. Perguntar se uma loja própria pode ter esse token.
 - [x] **Railway:** `FRENET_WEBHOOK_TOKEN` criado no serviço do backend (21/09) e conferido: a rota
-      responde 401 sem a chave e 200 ("ignorado") com ela. Se um dia sumir, nenhum aviso entra (e o
-      log diz `[envio] Frenet: aviso recusado — FRENET_WEBHOOK_TOKEN não configurado`).
-- [ ] **Frenet:** pedido enviado ao suporte em 21/09 — o webhook **"Atualização de Tracking"** da
-      conta apontando pra `https://<api do Railway>/hooks/envio/frenet`, com o cabeçalho de segurança
-      `x-webhook-token` = o valor acima (é o TOKEN_NAME/TOKEN_VALUE da documentação deles). **Falta a
-      resposta:** o cadastro feito, e se o `OrderId` do aviso leva o número do pedido. Se só
-      aceitarem a URL: `…/hooks/envio/frenet?chave=<o valor>`. O outro webhook deles (status do
-      pedido/carteira) não precisa — se vier, é ignorado.
-- [ ] **No painel da Frenet, ao gerar a etiqueta:** pôr o número do pedido da loja (o `#` da conta e
-      do admin) no campo de pedido. É por ele que o aviso acha o pedido sozinho. Sem ele, o aviso
-      fica guardado e se liga quando o código for cadastrado no pedido ("Mark as shipped").
-- [ ] Quando o primeiro aviso chegar, o log do Railway mostra
-      `[envio] Frenet: <código> → postado (pedido …)`, e o pedido vira "Shipped" no admin com a
-      etiqueta.
+      responde 401 sem a chave e 200 ("ignorado") com ela. Continua valendo — é a porta dos avisos
+      no dia em que os pedidos entrarem pela API de pedidos.
+- [x] **Frenet:** o webhook de rastreio foi cadastrado (resposta de 23/09), mas só vale pros pedidos
+      da plataforma — ver acima.
+- [ ] Pedidos de antes de 23/09 não guardaram o serviço da entrega: pra eles, o código dos Correios
+      é consultado pelo PAC. Se o log mostrar `[envio] … pacote(s) sem resposta do parceiro` com
+      "Serviço", é esse número (`PAC`, em `apps/backend/src/modules/frenet/rastreio.ts`).
 
-Dois cuidados. **A conta da Frenet é a mesma da Nuvemshop:** se o webhook valer pra conta inteira,
-os pedidos de lá também vão avisar. Eles ficam guardados sem dono (não batem com pedido nenhum) e
-não mexem em nada — mas, se um número de lá coincidir com um número daqui, o aviso cai no pedido
-errado. Hoje os daqui são poucos e os de lá, altos; quando a numeração daqui passar a seguir a de lá
-(o item da numeração, abaixo), a coincidência deixa de existir. **O e-mail sai uma vez por
+Dois cuidados. **A conta da Frenet é a mesma da Nuvemshop:** a Frenet confirmou que o aviso da
+loja própria não mexe na integração da Nuvemshop, que continua recebendo o rastreio dela — e, como
+o aviso só vale pros pedidos da plataforma, os de lá não chegam aqui. **O e-mail sai uma vez por
 momento** (a caminho, saiu pra entrega, esperando retirada, entregue); atraso, devolução e extravio
 aparecem na conta e no log, sem e-mail automático — esses a loja conversa com o cliente.
 

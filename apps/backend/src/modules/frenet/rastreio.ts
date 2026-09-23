@@ -3,12 +3,14 @@ import {
   mesmoSegredo,
   texto,
   type Chegada,
+  type Consulta,
   type EventoDoParceiro,
   type LeituraDoAviso,
   type Novidade,
   type ParceiroDeEntrega,
+  type PerguntaDeRastreio,
 } from "../../lib/envios/parceiro"
-import type { TipoDeEvento } from "../../lib/envios/situacao"
+import { transportadoraPeloCodigo, type TipoDeEvento } from "../../lib/envios/situacao"
 
 /**
  * A FRENET COMO PARCEIRO DE ENTREGA — o tradutor do aviso de rastreio.
@@ -48,6 +50,19 @@ import type { TipoDeEvento } from "../../lib/envios/situacao"
  * `ShipmentStatus` e saldo da carteira) não interessa ao cliente: se chegar
  * aqui, é respondido com 200 e ignorado. O "postado" que ele traz, o de
  * rastreio também traz — com o código junto.
+ *
+ * ┌─ A ETIQUETA DO PAINEL NÃO AVISA — ENTÃO A LOJA PERGUNTA ───────────────┐
+ * │ A Frenet confirmou (23/09): o aviso de rastreio só sai pros pedidos da │
+ * │ plataforma onde ele foi cadastrado — os que entram pela API de pedidos │
+ * │ deles, que exige o token de PARCEIRO (homologação). A etiqueta gerada  │
+ * │ à mão no painel não é de plataforma nenhuma, e não avisa ninguém.      │
+ * │                                                                        │
+ * │ Por isso existe o `consultar`, lá embaixo: com o código que o admin    │
+ * │ cadastrou no pedido ("Mark as shipped"), a loja pergunta à Frenet, de  │
+ * │ hora em hora, como está o pacote (`POST /tracking/trackinginfo`, com o │
+ * │ token da própria loja). A resposta tem o MESMO formato do aviso e      │
+ * │ passa pelo mesmo tradutor.                                             │
+ * └────────────────────────────────────────────────────────────────────────┘
  */
 
 export const CABECALHO_DO_TOKEN = "x-webhook-token"
@@ -142,6 +157,29 @@ export function traduzirAviso(corpo: unknown, chegouEm = new Date()): Novidade |
   }
 }
 
+/**
+ * A consulta mora no mesmo servidor da cotação — o `FRENET_URL`, que os
+ * conferidores apontam pra Frenet falsa (ver `client.ts`).
+ */
+function enderecoDaConsulta(): string {
+  return new URL(
+    "/tracking/trackinginfo",
+    process.env.FRENET_URL || "https://api.frenet.com.br"
+  ).toString()
+}
+
+/**
+ * A consulta pede o serviço da entrega junto com o código: é por ele que a
+ * Frenet sabe em qual transportadora perguntar. O pedido guarda o da
+ * cotação (`validateFulfillmentData`, em `service.ts`); sem ele — pedido de
+ * antes de 23/09, ou cotação que falhou na hora —, o código dos Correios
+ * vai pelo PAC, que é a mesma transportadora. Suposição: se a consulta dos
+ * Correios voltar com erro de serviço, é este número.
+ */
+const PAC = "04510"
+
+const PRAZO_DA_CONSULTA_MS = 8_000
+
 export const frenet: ParceiroDeEntrega = {
   id: "frenet",
   nome: "Frenet",
@@ -182,5 +220,45 @@ export const frenet: ParceiroDeEntrega = {
       }
     }
     return { ok: false, motivo: "ilegivel", detalhe: "não parece um aviso de rastreio da Frenet" }
+  },
+
+  async consultar({ codigo, servico }: PerguntaDeRastreio): Promise<Consulta> {
+    const token = process.env.FRENET_TOKEN
+    if (!token) return { ok: false, motivo: "sem FRENET_TOKEN" }
+    const doServico = servico ?? (transportadoraPeloCodigo(codigo) === "Correios" ? PAC : null)
+    if (!doServico) {
+      return {
+        ok: false,
+        motivo: "o pedido não guardou o serviço da entrega, e o código não é dos Correios",
+      }
+    }
+
+    const desistir = new AbortController()
+    const relogio = setTimeout(() => desistir.abort(), PRAZO_DA_CONSULTA_MS)
+    try {
+      const r = await fetch(enderecoDaConsulta(), {
+        method: "POST",
+        headers: { token, "content-type": "application/json", accept: "application/json" },
+        body: JSON.stringify({ ShippingServiceCode: doServico, TrackingNumber: codigo }),
+        signal: desistir.signal,
+      })
+      if (!r.ok) return { ok: false, motivo: `a Frenet respondeu ${r.status}` }
+      const corpo = (await r.json()) as Record<string, unknown> | null
+      const erro = texto(corpo?.ErrorMessage)
+      if (erro) return { ok: false, motivo: `a Frenet disse: ${erro}` }
+      const novidade = traduzirAviso({ ...corpo, TrackingNumber: corpo?.TrackingNumber || codigo })
+      return novidade ? { ok: true, novidade } : { ok: false, motivo: "resposta sem rastreio" }
+    } catch (e) {
+      return {
+        ok: false,
+        motivo: desistir.signal.aborted
+          ? "a Frenet não respondeu a tempo"
+          : e instanceof Error
+            ? e.message
+            : String(e),
+      }
+    } finally {
+      clearTimeout(relogio)
+    }
   },
 }

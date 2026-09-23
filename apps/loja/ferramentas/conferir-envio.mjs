@@ -35,7 +35,10 @@
  * │ • e-mail de atraso ou de pedido cancelado (esses a loja conversa), ou  │
  * │   aviso mexendo em pedido cancelado;                                   │
  * │ • a conta sem a situação e o caminho do pacote, ou a rota com o bruto  │
- * │   do parceiro na resposta.                                             │
+ * │   do parceiro na resposta;                                             │
+ * │ • a etiqueta feita à mão no painel da Frenet (que não manda aviso)     │
+ * │   parada no "postado" — a loja tem que perguntar, com o serviço que o  │
+ * │   pedido guardou na cotação.                                           │
  * └─────────────────────────────────────────────────────────────────────────┘
  */
 
@@ -485,7 +488,83 @@ titulo("Aviso de pedido cancelado")
     `${r.status} ${o.status} ${(o.fulfillments ?? []).length} envio(s)`
   )
   await silencio()
-  ok(dePedido(quem).length === 0, "nem avisa o cliente", assuntos(quem).join(" | "))
+  // O "Pedido #N cancelado" é do cancelamento (sai desde 22/09), não do aviso.
+  const doAviso = dePedido(quem).filter((e) => e.subject !== `Pedido #${F.numero} cancelado`)
+  ok(doAviso.length === 0, "nem avisa o cliente do envio", assuntos(quem).join(" | "))
+}
+
+/* ── 7b. a etiqueta do painel: sem aviso, a loja pergunta ──────────────────── */
+
+titulo("A etiqueta do painel: sem aviso, a loja pergunta à Frenet")
+{
+  /*
+    A Frenet confirmou (23/09): a etiqueta gerada à mão no painel não manda
+    o aviso de rastreio. O admin cadastra o código ("Mark as shipped") e a
+    loja pergunta de hora em hora — aqui, pela rota que roda a rodada na
+    hora. A Frenet falsa responde o que o teste pôr em `rastreios`.
+  */
+  const quem = novoEmail()
+  const P = await fabrica.pedidoPix(quem, [["shampoo-para-barba", 1]])
+  await fabrica.pagar(P)
+  const admin = async (caminho, opcoes = {}) =>
+    (
+      await fetch(`${MEDUSA}${caminho}`, {
+        ...opcoes,
+        headers: { "content-type": "application/json", authorization: `Bearer ${tokenAdmin}` },
+      })
+    ).json()
+  const consultarAgora = () => admin("/admin/envios/consultar", { method: "POST" })
+
+  const { order } = await admin(`/admin/orders/${P.id}?fields=id,*shipping_methods`)
+  const servico = order?.shipping_methods?.[0]?.data?.servico
+  ok(
+    typeof servico?.codigo === "string" && servico.codigo.length > 0,
+    "o pedido guardou o serviço da Frenet escolhido na cotação",
+    JSON.stringify(order?.shipping_methods?.[0]?.data)
+  )
+
+  const COD_P = novoCodigo("QP")
+  await fabrica.enviar(P, { codigo: COD_P })
+  await esperarAssunto(quem, `Pedido #${P.numero} a caminho`)
+
+  frenet.rastreios.set(COD_P, [
+    evento(1, 90, "Objeto em trânsito - por favor aguarde", "Curitiba-PR"),
+  ])
+  let r = await consultarAgora()
+  const pergunta = frenet.consultas.findLast((c) => c.corpo?.TrackingNumber === COD_P)
+  ok(Boolean(pergunta), "a rodada pergunta à Frenet pelo pacote postado", JSON.stringify(r))
+  ok(
+    pergunta?.corpo?.ShippingServiceCode === servico?.codigo,
+    "com o serviço que o pedido guardou",
+    JSON.stringify(pergunta?.corpo)
+  )
+  ok(Boolean(pergunta?.token), "e com o token da loja")
+  ok((r.relatorio?.andaram ?? 0) >= 1, "o pacote anda: em trânsito", JSON.stringify(r.relatorio))
+
+  frenet.rastreios.set(COD_P, [
+    ...frenet.rastreios.get(COD_P),
+    evento(9, 5, "Objeto entregue ao destinatário", "Joinville-SC"),
+  ])
+  await consultarAgora()
+  const o = await fabrica.noAdmin(P.id)
+  ok(o.fulfillment_status === "delivered", "entregue: o Medusa marca", o.fulfillment_status)
+  ok(
+    Boolean(await esperarAssunto(quem, `Pedido #${P.numero} entregue`)),
+    "e o e-mail de entregue sai, sem aviso nenhum da Frenet"
+  )
+
+  const antes = frenet.consultas.filter((c) => c.corpo?.TrackingNumber === COD_P).length
+  r = await consultarAgora()
+  await silencio()
+  ok(
+    frenet.consultas.filter((c) => c.corpo?.TrackingNumber === COD_P).length === antes,
+    "entregue, o pacote sai da rodada: ninguém pergunta de novo"
+  )
+  ok(
+    dePedido(quem).filter((e) => e.subject === `Pedido #${P.numero} entregue`).length === 1,
+    "e nenhum e-mail repetido",
+    assuntos(quem).join(" | ")
+  )
 }
 
 /* ── 8. a conta ───────────────────────────────────────────────────────────── */

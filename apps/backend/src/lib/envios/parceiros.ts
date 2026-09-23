@@ -22,3 +22,8 @@ const POR_ID = new Map(LISTA.map((p) => [p.id, p]))
 export function parceiroDeEntrega(id: string): ParceiroDeEntrega | null {
   return POR_ID.get(id) ?? null
 }
+
+/** Os que sabem responder "como está este pacote?" (`consultar`). */
+export function parceirosQueConsultam(): ParceiroDeEntrega[] {
+  return LISTA.filter((p) => typeof p.consultar === "function")
+}

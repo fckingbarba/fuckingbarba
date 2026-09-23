@@ -305,6 +305,17 @@ trânsito" de volta); e a Frenet escreve `ServiceDescrition`, sem o "p". A chave
 é o `FRENET_WEBHOOK_TOKEN`, no cabeçalho `x-webhook-token` ou em `?chave=`; sem ela, nenhum aviso
 entra.
 
+**A etiqueta feita à mão no painel da Frenet não manda aviso** (resposta deles, 23/09: o aviso só
+vale pros pedidos que entram pela API de pedidos, que exige o token de parceiro). Pra ela, a loja
+PERGUNTA: o `consultar` do contrato (`parceiro.ts`), que na Frenet é `POST /tracking/trackinginfo`
+com o token da loja, chamado por `perguntarAosParceiros` (`lib/envios/consultas.ts`) — no job
+`acompanhar-envios`, de hora em hora, e em `POST /admin/envios/consultar`. Entram os pacotes com
+código a caminho, de até 45 dias; a resposta passa pelo mesmo tradutor do aviso e entra no núcleo
+como qualquer notícia. A consulta pede o serviço da entrega: o provedor de frete guarda o da
+cotação no método de entrega (`validateFulfillmentData`, `data.servico`), e sem ele o código dos
+Correios vai pelo PAC. O `validateFulfillmentData` nunca lança — lançar ali impediria a pessoa de
+escolher a entrega.
+
 Os **e-mails** moram em `apps/backend/src/lib/emails/`: a `moldura.ts` (barra preta com a logo,
 fundo menta, blocos com sombra dura — em tabela e estilo em linha, porque é e-mail) e um arquivo
 por e-mail (o de código, o de pedido confirmado e o `envio.ts`, com os quatro momentos do caminho
