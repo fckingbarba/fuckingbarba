@@ -16,7 +16,8 @@ import { conferirTelefone } from "@/lib/telefone"
  * checkout abriria pela metade do mesmo jeito.
  *
  * O E-MAIL NÃO SE EDITA AQUI: é a chave da conta, e trocar pede código no
- * endereço novo (senão um erro de digitação tranca a pessoa pra fora).
+ * endereço novo (senão um erro de digitação tranca a pessoa pra fora) — ver
+ * `troca-de-email.ts`, ao lado.
  *
  * ┌─ ONDE CADA COISA MORA NO MEDUSA ───────────────────────────────────────┐
  * │ Nome, sobrenome e celular: `first_name`, `last_name` e `phone` do      │

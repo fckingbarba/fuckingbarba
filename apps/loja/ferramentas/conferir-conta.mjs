@@ -45,12 +45,16 @@
  * │   ou nenhum depois de excluir o principal;                             │
  * │ • o formulário de endereço mandando os campos escondidos;              │
  * │ • meus dados aceitando CPF errado, ou a oferta nascendo marcada;       │
+ * │ • o e-mail trocando sem o código do endereço novo, com o código de     │
+ * │   entrar, ou pra um e-mail que já é de outra conta; o antigo ainda     │
+ * │   abrindo a conta depois da troca, o novo abrindo uma conta vazia, ou  │
+ * │   o antigo sem o aviso;                                                │
  * │ • o checkout de quem está na conta abrindo vazio, ou o pedido nascendo │
  * │   fora dela; a compra não deixando o endereço na conta — ou a compra   │
  * │   SEM a conta aberta escrevendo na conta de quem tem aquele e-mail;    │
  * │ • sair deixando a sacola da conta pra próxima pessoa do navegador;     │
  * │ • o "Minha conta" do cabeçalho voltando pro /em-breve.                 │
- * └─────────────────────────────────────────────────────────────────────────┘
+ * └────────────────────────────────────────────────────────────────────────┘
  */
 
 import { readFileSync } from "node:fs"
@@ -1170,13 +1174,11 @@ if (fabrica) {
 */
 const IP_DA_PARTE_3 = `10.253.${(Date.now() >> 9) % 250}.${(Date.now() >> 1) % 250}`
 
-async function tokenPorApi(email) {
+async function tokenPorApi(email, ip = IP_DA_PARTE_3) {
   const antes = codigosPara(email).length
   const pedido = await medusa("/store/conta/codigo", {
     corpo: { email },
-    cabecalhos: SEGREDO_LOJA
-      ? { "x-cliente-ip": IP_DA_PARTE_3, "x-loja-segredo": SEGREDO_LOJA }
-      : {},
+    cabecalhos: SEGREDO_LOJA ? { "x-cliente-ip": ip, "x-loja-segredo": SEGREDO_LOJA } : {},
   })
   if (pedido.status !== 200) return null
   let codigo = null
@@ -1498,7 +1500,10 @@ if (tokenDono) {
   const campo = (nome) => form().locator(`[name="${nome}"]`)
 
   ok((await textoDe(pagina, "[data-email-fixo]")) === DONO, "o e-mail aparece, e não é campo")
-  ok((await form().locator('input[type="email"]').count()) === 0, "(não tem como editar ali)")
+  ok(
+    (await form().locator('input[type="email"]').count()) === 0,
+    "(não tem como editar ali: trocar é o botão do lado, com código — seção 15b)"
+  )
   ok(
     !(await campo("ofertas-email").isChecked()) && !(await campo("ofertas-whatsapp").isChecked()),
     "as ofertas nascem desmarcadas — consentimento não vem marcado"
@@ -1592,6 +1597,262 @@ if (tokenDono) {
     "recarregado, o formulário mostra o que está gravado"
   )
   await contexto.close()
+}
+
+/* ── 15b. trocar o e-mail ─────────────────────────────────────────────────── */
+
+titulo("Trocar o e-mail")
+/*
+  UM IP SÓ PRA ESTA SEÇÃO, como na parte 3: ela entra em quatro contas pela
+  API e pede códigos de troca — no IP dela, o limite de ninguém mais é gasto.
+*/
+const IP_DA_TROCA = `10.252.${(Date.now() >> 9) % 250}.${(Date.now() >> 1) % 250}`
+const assinadoDaTroca = SEGREDO_LOJA
+  ? { "x-cliente-ip": IP_DA_TROCA, "x-loja-segredo": SEGREDO_LOJA }
+  : {}
+/** O código da troca tem assunto próprio — não é o de entrar (`deCodigo`). */
+const deTroca = (e) => /^\d{6} é o código pra confirmar/.test(e.subject ?? "")
+const trocasPara = (email) => resend.emails.filter((e) => e.to?.includes(email) && deTroca(e))
+const avisosPara = (email) =>
+  resend.emails.filter((e) => e.to?.includes(email) && /mudou$/.test(e.subject ?? ""))
+async function codigoDaTroca(email, antes) {
+  for (const fim = Date.now() + 8000; Date.now() < fim; await esperar(150)) {
+    const deste = trocasPara(email)
+    if (deste.length > antes) return deste.at(-1).subject.match(/^\d{6}/)[0]
+  }
+  return null
+}
+const pelaApi = (caminho, token, corpo) =>
+  medusa(caminho, { corpo, token, cabecalhos: assinadoDaTroca })
+
+/** Espera o recado de um campo da caixa da troca dizer isto. */
+async function recadoDaTroca(pagina, texto) {
+  await pagina
+    .waitForFunction(
+      (t) =>
+        [...(window.__visivel("[data-troca-email]")?.querySelectorAll(".campo__erro") ?? [])].some(
+          (el) => el.textContent === t
+        ),
+      texto,
+      { timeout: 15000 }
+    )
+    .catch(() => null)
+  return pagina.evaluate(() =>
+    [...(window.__visivel("[data-troca-email]")?.querySelectorAll(".campo__erro") ?? [])]
+      .map((el) => el.textContent)
+      .filter(Boolean)
+      .join(" | ")
+  )
+}
+
+const ANTIGO = novoEmail()
+const NOVO = novoEmail()
+const tokenTroca = await tokenPorApi(ANTIGO, IP_DA_TROCA)
+ok(Boolean(tokenTroca), "entra por API numa conta nova, pra trocar o e-mail dela", ANTIGO)
+if (tokenTroca) {
+  const idDaConta = (await doCliente(tokenTroca)).id
+
+  const semToken = await medusa("/store/conta/email/codigo", { corpo: { email: NOVO } })
+  const semToken2 = await medusa("/store/conta/email", { corpo: { codigo: "123456" } })
+  ok(
+    semToken.status === 401 && semToken2.status === 401,
+    "sem token de cliente, as duas rotas da troca nem abrem",
+    `${semToken.status} ${semToken2.status}`
+  )
+
+  const { contexto, pagina } = await abaNaConta(tokenTroca)
+  await pagina.goto(`${LOJA}/conta/dados`)
+  await hidratado(pagina, "[data-trocar-email]")
+  await visivel(pagina, "[data-trocar-email]").click()
+  const campoNovo = visivel(pagina, "[data-email-novo-campo]")
+  await campoNovo.waitFor({ timeout: 10000 })
+  ok(
+    await campoNovo.evaluate((el) => el === document.activeElement),
+    '"Trocar" abre o campo do e-mail novo, com o cursor nele'
+  )
+
+  await campoNovo.fill("rafael@")
+  await campoNovo.press("Enter")
+  ok(
+    (await recadoDaTroca(pagina, "Confere o e-mail.")) === "Confere o e-mail.",
+    "e-mail pela metade: o recado, no Enter"
+  )
+  ok(
+    (await pagina.locator('form[data-form-dados] [name="nome"][aria-invalid="true"]').count()) ===
+      0,
+    "(e o Enter é da troca: o formulário de fora não foi enviado)"
+  )
+  await campoNovo.fill(ANTIGO.toUpperCase())
+  await visivel(pagina, "[data-enviar-codigo-email]").click()
+  ok(
+    (await recadoDaTroca(pagina, "Esse já é o e-mail da conta.")) ===
+      "Esse já é o e-mail da conta.",
+    "o mesmo e-mail, em maiúscula: é o mesmo"
+  )
+
+  const antes = trocasPara(NOVO).length
+  await campoNovo.fill(NOVO)
+  await visivel(pagina, "[data-enviar-codigo-email]").click()
+  await visivel(pagina, "[data-email-codigo]").waitFor({ timeout: 15000 })
+  ok(
+    (await textoDe(pagina, "[data-email-novo]")) === NOVO,
+    "enviou: a tela diz pra onde o código foi"
+  )
+  ok(
+    /reenvie em 0:\d\d/.test(await textoDe(pagina, "[data-troca-email] .codigo__reenviar")),
+    'e o "reenviar" conta os 30 segundos'
+  )
+  const codigo = await codigoDaTroca(NOVO, antes)
+  ok(Boolean(codigo), "o código chegou no e-mail NOVO")
+  const doCodigo = trocasPara(NOVO).at(-1)
+  ok(!/<a[\s>]/.test(doCodigo?.html ?? ""), "sem link nenhum, como o de entrar")
+  ok(codigosPara(NOVO).length === 0, "(e com assunto próprio: não é um código de entrar)")
+
+  const deNovoLogo = await pelaApi("/store/conta/email/codigo", tokenTroca, { email: NOVO })
+  ok(
+    deNovoLogo.status === 429 &&
+      deNovoLogo.corpo.message === "espera" &&
+      deNovoLogo.corpo.segundos > 0,
+    "pedir de novo pro mesmo e-mail antes dos 30 segundos: espera",
+    JSON.stringify(deNovoLogo)
+  )
+  const comoEntrar = await medusa("/auth/customer/codigo", { corpo: { email: NOVO, codigo } })
+  ok(
+    comoEntrar.status === 401,
+    "o código da troca não serve pra ENTRAR com o e-mail novo",
+    String(comoEntrar.status)
+  )
+
+  const campoCodigo = visivel(pagina, "[data-email-codigo]")
+  await campoCodigo.pressSequentially(codigo === "000000" ? "111111" : "000000", { delay: 30 })
+  ok(
+    (await recadoDaTroca(pagina, "Código errado. Confere e tenta de novo.")) ===
+      "Código errado. Confere e tenta de novo.",
+    "código errado, no sexto dígito: o recado"
+  )
+  ok((await doCliente(tokenTroca)).email === ANTIGO, "(e o e-mail continua o de antes)")
+
+  await campoCodigo.pressSequentially(codigo, { delay: 30 })
+  ok(
+    await esperarAviso(pagina, `E-mail trocado. Os próximos códigos vão pra ${NOVO}.`),
+    "o certo troca: o aviso"
+  )
+  await pagina
+    .waitForFunction((e) => window.__visivel("[data-email-fixo]")?.textContent === e, NOVO, {
+      timeout: 10000,
+    })
+    .catch(() => null)
+  ok(
+    (await textoDe(pagina, "[data-email-fixo]")) === NOVO &&
+      (await visivel(pagina, "[data-troca-email]").count()) === 0,
+    "a tela mostra o novo, e a caixa da troca fecha"
+  )
+  const trocado = await doCliente(tokenTroca)
+  ok(
+    trocado.email === NOVO && trocado.id === idDaConta,
+    "no Medusa: o MESMO cliente, com o e-mail novo — e a sessão segue valendo",
+    JSON.stringify({ id: trocado.id, email: trocado.email })
+  )
+  let aviso
+  for (const fim = Date.now() + 8000; !aviso && Date.now() < fim; await esperar(150)) {
+    aviso = avisosPara(ANTIGO).at(-1)
+  }
+  ok(
+    Boolean(aviso) && (aviso.html ?? "").includes(NOVO) && !/<a[\s>]/.test(aviso.html ?? ""),
+    "o endereço ANTIGO recebe o aviso, com o novo escrito e sem link",
+    aviso?.subject ?? "(nenhum)"
+  )
+
+  const tokenNovo = await tokenPorApi(NOVO, IP_DA_TROCA)
+  ok((await doCliente(tokenNovo)).id === idDaConta, "entrar com o e-mail novo abre a MESMA conta")
+  const tokenAntigo = await tokenPorApi(ANTIGO, IP_DA_TROCA)
+  const contaDoAntigo = await doCliente(tokenAntigo)
+  ok(
+    Boolean(contaDoAntigo.id) && contaDoAntigo.id !== idDaConta,
+    "e o antigo não abre mais ela: entrar com ele dá numa conta nova, vazia",
+    contaDoAntigo.id
+  )
+
+  /* ── o e-mail de outra conta ── */
+  await pagina.reload()
+  await hidratado(pagina, "[data-trocar-email]")
+  await visivel(pagina, "[data-trocar-email]").click()
+  await visivel(pagina, "[data-email-novo-campo]").fill(ANTIGO)
+  const antesDoAntigo = trocasPara(ANTIGO).length
+  await visivel(pagina, "[data-enviar-codigo-email]").click()
+  await visivel(pagina, "[data-email-codigo]").waitFor({ timeout: 15000 })
+  ok(true, "pedir a troca pra um e-mail que já tem conta responde igual (não conta quem é cliente)")
+  const codigoDoAntigo = await codigoDaTroca(ANTIGO, antesDoAntigo)
+  await visivel(pagina, "[data-email-codigo]").pressSequentially(codigoDoAntigo ?? "", {
+    delay: 30,
+  })
+  const emUso = "Esse e-mail já é de outra conta da loja. Pra usar ele, sai desta e entra com ele."
+  ok(
+    (await recadoDaTroca(pagina, emUso)) === emUso &&
+      (await visivel(pagina, "[data-email-novo-campo]").count()) === 1,
+    "com o código certo, aí sim: é de outra conta — e a troca volta pro e-mail"
+  )
+  ok(
+    (await doCliente(tokenTroca)).email === NOVO && (await doCliente(tokenAntigo)).email === ANTIGO,
+    "as duas contas ficam como estavam"
+  )
+  const reusado = await pelaApi("/store/conta/email", tokenTroca, { codigo: codigoDoAntigo })
+  ok(
+    reusado.status === 400 && reusado.corpo.message === "sem_troca",
+    "e aquele código não serve uma segunda vez",
+    JSON.stringify(reusado)
+  )
+  await contexto.close()
+
+  /* ── a identidade sem conta ── */
+  const SEM_CONTA = novoEmail()
+  const deEntrar = await medusa("/store/conta/codigo", {
+    corpo: { email: SEM_CONTA },
+    cabecalhos: assinadoDaTroca,
+  })
+  const antesDoSemConta = trocasPara(SEM_CONTA).length
+  const pedido = await pelaApi("/store/conta/email/codigo", tokenTroca, { email: SEM_CONTA })
+  const codigoSemConta = await codigoDaTroca(SEM_CONTA, antesDoSemConta)
+  const pelaOrfa = await pelaApi("/store/conta/email", tokenTroca, { codigo: codigoSemConta })
+  ok(
+    deEntrar.status === 200 &&
+      pedido.status === 200 &&
+      pelaOrfa.status === 200 &&
+      pelaOrfa.corpo.email === SEM_CONTA,
+    "um e-mail que só pediu código de entrar (identidade sem conta) pode virar o da conta",
+    `${deEntrar.status} ${pedido.status} ${JSON.stringify(pelaOrfa)}`
+  )
+  ok(
+    (await doCliente(await tokenPorApi(SEM_CONTA, IP_DA_TROCA))).id === idDaConta,
+    "e entrar com ele abre a conta trocada"
+  )
+
+  /* ── cinco erros ── */
+  const CINCO = novoEmail()
+  await pelaApi("/store/conta/email/codigo", tokenTroca, { email: CINCO })
+  const codigoCinco = await codigoDaTroca(CINCO, 0)
+  const errado = codigoCinco === "000000" ? "111111" : "000000"
+  const respostas = []
+  for (let i = 0; i < 5; i++) {
+    respostas.push(
+      (await pelaApi("/store/conta/email", tokenTroca, { codigo: errado })).corpo.message
+    )
+  }
+  const depois = await pelaApi("/store/conta/email", tokenTroca, { codigo: codigoCinco })
+  ok(
+    respostas.at(-1) === "codigo_esgotado" && depois.corpo.message === "codigo_esgotado",
+    "na quinta errada o código morre — e depois nem o certo troca",
+    `${respostas.join(",")} → ${depois.corpo.message}`
+  )
+
+  /* ── o limite por conta ── */
+  const quinto = await pelaApi("/store/conta/email/codigo", tokenTroca, { email: novoEmail() })
+  const sexto = await pelaApi("/store/conta/email/codigo", tokenTroca, { email: novoEmail() })
+  ok(
+    quinto.status === 200 && sexto.status === 429 && sexto.corpo.message === "limite",
+    "cinco códigos de troca por hora por conta, pra qualquer e-mail — o sexto não sai",
+    `${quinto.status} ${sexto.status} ${sexto.corpo.message}`
+  )
 }
 
 /* ── 16. a visão geral: os atalhos, e o link do cabeçalho ─────────────────── */

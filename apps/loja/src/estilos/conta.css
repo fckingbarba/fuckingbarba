@@ -1217,6 +1217,43 @@ html:not([data-hidratado]) body:has(.conta) {
   font-weight: 600;
   overflow-wrap: anywhere;
 }
+.email-fixo .link {
+  flex-shrink: 0;
+  font-size: 0.8rem;
+}
+/* A troca de e-mail: um passo dentro do campo, com o fio amarelo do lado
+   pra dizer que ainda não terminou (`troca-de-email.tsx`). */
+.troca-email {
+  margin-top: 10px;
+  padding: 4px 0 4px 14px;
+  border-left: 4px solid var(--color-amarelo);
+}
+.troca-email__txt {
+  margin: 0 0 10px;
+  font-size: 0.8rem;
+  color: var(--color-tinta-suave);
+}
+.troca-email__txt b {
+  color: var(--color-tinta);
+  overflow-wrap: anywhere;
+}
+.troca-email__botao {
+  justify-content: flex-end;
+}
+.troca-email__botao .btn {
+  min-height: 46px;
+  justify-content: center;
+}
+.troca-email__cancela {
+  margin-top: 10px;
+  font-size: 0.78rem;
+}
+/* O código da troca, menor que o do entrar: mora no meio de um formulário. */
+.codigo--menor input {
+  font-size: 1.2rem;
+  letter-spacing: 0.35em;
+  padding-left: calc(12px + 0.35em);
+}
 .preferencias {
   margin: 20px 0 0;
   padding: 16px 0 0;

@@ -3,6 +3,7 @@ import { emailDoEnvio, type EnvioDoAviso, type PedidoDoAviso } from "../envio"
 import { emReais, esc, urlDaLoja } from "../moldura"
 import { emailDePedidoCancelado, type CancelamentoDoEmail } from "../pedido-cancelado"
 import { emailDePedidoConfirmado, rotuloDaEntrega, type PedidoDoEmail } from "../pedido-confirmado"
+import { emailDaTroca, emailDeEmailTrocado } from "../troca-de-email"
 
 const LOJA = "https://fuckingbarba-loja.vercel.app"
 const original = process.env.LOJA_URL
@@ -92,6 +93,39 @@ describe("e-mail do código", () => {
     const sem = emailDoCodigo({ para: "a@b.co", codigo: "123456", minutos: 10 })
     expect(sem.html).not.toMatch(/<img/)
     expect(sem.html).toContain("Fucking<span")
+  })
+})
+
+describe("e-mails da troca de e-mail", () => {
+  const codigo = () => emailDaTroca({ para: "novo@exemplo.com", codigo: "482917", minutos: 10 })
+  const aviso = (whatsapp: string | null = "5547999990000") =>
+    emailDeEmailTrocado({ para: "antigo@exemplo.com", novo: "novo@exemplo.com", whatsapp })
+
+  it("o código vai no assunto — e o assunto não é o de entrar", () => {
+    const e = codigo()
+    expect(e.assunto).toBe("482917 é o código pra confirmar seu e-mail na FuckingBarba")
+    expect(e.assunto).not.toMatch(/é o seu código/)
+    expect(e.html).toContain(">482917<")
+    expect(e.texto).toContain("482917")
+    expect(e.texto).toContain("Vale por 10 minutos")
+  })
+
+  it("nenhum dos dois tem link", () => {
+    for (const e of [codigo(), aviso(), aviso(null)]) expect(e.html).not.toMatch(/<a[\s>]/)
+  })
+
+  it("o aviso vai pro endereço antigo, com o novo escrito e o WhatsApp da loja", () => {
+    const e = aviso()
+    expect(e.para).toBe("antigo@exemplo.com")
+    expect(e.html).toContain("<b>novo@exemplo.com</b>")
+    expect(e.texto).toContain("novo@exemplo.com")
+    expect(e.texto).toContain("WhatsApp (47) 99999-0000")
+    expect(aviso(null).texto).toContain("no Instagram, @fuckingbarba")
+  })
+
+  it("escapa o e-mail novo", () => {
+    const e = emailDeEmailTrocado({ para: "a@b.co", novo: '"><img src=x>@b.co', whatsapp: null })
+    expect(e.html).not.toContain("<img src=x>")
   })
 })
 

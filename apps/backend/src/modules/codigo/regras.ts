@@ -7,7 +7,9 @@ import { createHmac, randomInt, timingSafeEqual } from "node:crypto"
  * (`api/store/conta/codigo/route.ts`) e o provedor de auth que CONFERE
  * (`service.ts`, ao lado). Se cada uma tivesse o próprio "10 minutos" ou o
  * próprio jeito de calcular o hash, um dia elas discordariam — e o código
- * que acabou de chegar no e-mail seria recusado como errado.
+ * que acabou de chegar no e-mail seria recusado como errado. A troca de
+ * e-mail da conta (`api/store/conta/email/`) usa as mesmas regras, com o
+ * contexto dela (a seção do fim).
  *
  * Sem nada do Medusa aqui dentro: são contas e datas. É o que deixa o
  * `regras.unit.spec.ts` testar cada fronteira sem subir servidor.
@@ -41,14 +43,31 @@ export type Pendente = {
 }
 
 /**
+ * A troca de e-mail esperando o código que foi pro endereço NOVO — ver
+ * `api/store/conta/email/`. O `email` é o novo; o de agora é o `entity_id`
+ * da própria identidade, e continua valendo até o código voltar certo.
+ */
+export type TrocaPendente = {
+  email: string
+  codigo: Pendente
+}
+
+/**
  * O que mora no `provider_metadata` da identidade `codigo` (tabela
  * `provider_identity`, do módulo de auth do Medusa). `envios` são as horas
  * dos códigos mandados nas últimas 24 horas, e é deles que saem os limites.
+ *
+ * `troca` e `envios_troca` são a mesma coisa pra trocar o e-mail da conta,
+ * contados à parte: um não gasta o limite do outro. Toda escrita aqui
+ * espalha o que já existia (`...meta`) — quem mexe no código de entrar não
+ * apaga a troca pendente, e vice-versa.
  */
 export type MetadadosDoCodigo = {
   codigo?: Pendente | null
   envios?: string[]
   ultimo_acesso?: string
+  troca?: TrocaPendente | null
+  envios_troca?: string[]
 }
 
 /**
@@ -74,6 +93,9 @@ export function gerarCodigo(): string {
   return String(randomInt(0, 1_000_000)).padStart(6, "0")
 }
 
+/** O contexto do código de ENTRAR. O da troca de e-mail é `contextoDaTroca`, lá embaixo. */
+const ENTRAR = "codigo-de-acesso"
+
 /**
  * HMAC, e não um hash puro. Com um milhão de códigos possíveis, o hash
  * simples se desfaz em milissegundos por quem tiver o banco na mão; com a
@@ -82,16 +104,22 @@ export function gerarCodigo(): string {
  * produção — lá o Medusa não sobe sem ele).
  *
  * O e-mail entra na conta: o mesmo código mandado pra duas pessoas não gera
- * o mesmo hash.
+ * o mesmo hash. O `contexto` separa os usos — o código de entrar e o de
+ * trocar o e-mail nunca conferem um no lugar do outro.
  */
-export function hashDoCodigo(email: string, codigo: string): string {
+export function hashDoCodigo(email: string, codigo: string, contexto = ENTRAR): string {
   const chave = process.env.JWT_SECRET || "supersecret"
-  return createHmac("sha256", chave).update(`codigo-de-acesso:${email}:${codigo}`).digest("hex")
+  return createHmac("sha256", chave).update(`${contexto}:${email}:${codigo}`).digest("hex")
 }
 
-export function novoPendente(email: string, codigo: string, agora = Date.now()): Pendente {
+export function novoPendente(
+  email: string,
+  codigo: string,
+  agora = Date.now(),
+  contexto = ENTRAR
+): Pendente {
   return {
-    hash: hashDoCodigo(email, codigo),
+    hash: hashDoCodigo(email, codigo, contexto),
     expira_em: new Date(agora + MINUTOS_DE_VALIDADE * 60 * 1000).toISOString(),
     tentativas: 0,
   }
@@ -113,14 +141,15 @@ export function conferir(
   pendente: Pendente | null | undefined,
   email: string,
   codigo: string,
-  agora = Date.now()
+  agora = Date.now(),
+  contexto = ENTRAR
 ): Veredito {
   if (!pendente?.hash) return "sem_codigo"
   if ((pendente.tentativas ?? 0) >= TENTATIVAS) return "esgotado"
   const expira = Date.parse(pendente.expira_em)
   if (!Number.isFinite(expira) || expira <= agora) return "vencido"
   const esperado = Buffer.from(pendente.hash, "hex")
-  const recebido = Buffer.from(hashDoCodigo(email, codigo), "hex")
+  const recebido = Buffer.from(hashDoCodigo(email, codigo, contexto), "hex")
   return esperado.length === recebido.length && timingSafeEqual(esperado, recebido)
     ? "certo"
     : "errado"
@@ -173,4 +202,34 @@ export function podeEnviar(meta: MetadadosDoCodigo | undefined, agora = Date.now
 /** A lista de envios com este a mais — e sem o que passou de 24 horas, pra não crescer pra sempre. */
 export function registrarEnvio(envios: string[] | undefined, agora = Date.now()): string[] {
   return [...recentes(envios, agora), agora].map((t) => new Date(t).toISOString())
+}
+
+/* ── a troca de e-mail ────────────────────────────────────────────────────── */
+
+/**
+ * O contexto do código da troca: leva a CONTA junto (o id da identidade de
+ * auth). O código que foi pro e-mail novo só confirma a troca da conta que
+ * pediu — e nunca abre a conta de ninguém como código de entrar.
+ */
+export function contextoDaTroca(identidade: string): string {
+  return `troca-de-email:${identidade}`
+}
+
+/**
+ * Pode mandar mais um código de troca agora? As regras do código de entrar,
+ * com os envios da troca: 5 por hora e 10 por dia por CONTA, venham pra que
+ * e-mail vierem — sem isso, uma conta viraria um jeito de mandar e-mail pra
+ * caixa de qualquer um.
+ *
+ * A espera dos 30 segundos só vale pro MESMO e-mail com código vivo: quem
+ * errou a digitação e corrigiu na hora pede pro endereço certo sem esperar,
+ * e o código do errado morre (só existe uma troca pendente por conta).
+ */
+export function podeEnviarTroca(
+  meta: MetadadosDoCodigo | undefined,
+  email: string,
+  agora = Date.now()
+): PodeEnviar {
+  const mesma = meta?.troca?.email === email ? meta.troca.codigo : null
+  return podeEnviar({ codigo: mesma, envios: meta?.envios_troca }, agora)
 }

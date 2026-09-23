@@ -270,6 +270,18 @@ token, nunca pelo e-mail do pedido: o Medusa liga à conta todo carrinho com o e
 digitasse o e-mail de outra pessoa escreveria na conta dela. Sair (a ação `sair` e o `/conta/sair`)
 apaga o cookie da sacola quando ela é da conta.
 
+**Trocar o e-mail da conta** ("Meus dados": `components/conta/troca-de-email.tsx` e
+`lib/acoes/troca-de-email.ts`) são duas rotas do backend, só com token de cliente:
+`POST /store/conta/email/codigo` manda um código pro endereço NOVO e `POST /store/conta/email`
+confere e troca. O código fica em `troca`, no mesmo `provider_metadata` da identidade `codigo`, com
+hash de contexto próprio (`contextoDaTroca`, em `regras.ts`): não serve pra entrar, nem pra trocar o
+e-mail de outra conta. O e-mail mora em dois lugares e o `trocarEmailWorkflow` muda os dois — o
+`entity_id` da identidade (a chave de entrar) e o `customer.email`. A identidade `codigo` do e-mail
+novo sem cliente (quem só pediu código de entrar com ele) sai antes; com cliente, `email_em_uso`,
+dito só depois do código certo. O endereço antigo recebe o aviso (`emailDeEmailTrocado`). As rotas
+usam a trava do código de entrar (`conta:codigo:<e-mail>`), porque escrevem no mesmo
+`provider_metadata`.
+
 Os **envios** — o rastreio dos pacotes — têm um núcleo que não sabe quem é o parceiro de entrega. Três
 camadas: o TRADUTOR de cada parceiro (`src/modules/frenet/rastreio.ts`: confere a chave do aviso,
 lê o formato dele e converte os códigos), o NÚCLEO (`src/lib/envios/`, com as tabelas `envio` e

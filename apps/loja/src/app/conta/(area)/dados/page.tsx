@@ -11,9 +11,9 @@ import { lerCliente } from "@/lib/conta"
  * conta aberta completa o que estiver vazio (nunca reescreve o que a pessoa
  * pôs aqui — `guardarDaCompra`, em `lib/conta.ts`).
  *
- * Trocar o e-mail e excluir a conta são o passo seguinte da conta: o
- * primeiro pede código no e-mail novo, e o segundo, o texto revisado por
- * quem cuida da parte jurídica.
+ * O e-mail troca aqui também, com código no endereço novo (o "Trocar" do
+ * lado dele). Excluir a conta é o passo seguinte: espera o texto revisado
+ * por quem cuida da parte jurídica.
  */
 export const metadata: Metadata = {
   title: "Meus dados",

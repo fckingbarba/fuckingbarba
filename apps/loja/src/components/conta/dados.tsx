@@ -4,6 +4,7 @@ import { useActionState, useCallback, useState } from "react"
 import { Campo } from "@/components/checkout/campo"
 import { Giro, Recado, useFechaQuandoSalva } from "@/components/checkout/resposta"
 import { Aviso, useAviso } from "@/components/conta/pecas"
+import { TrocaDeEmail } from "@/components/conta/troca-de-email"
 import { Raio } from "@/components/icones"
 import { salvarDados } from "@/lib/acoes/dados"
 import { ESTADO_INICIAL } from "@/lib/checkout-visivel"
@@ -16,8 +17,8 @@ import { mascararTelefone } from "@/lib/telefone"
  * que a pessoa quer receber. O desenho é o do protótipo da conta.
  *
  * O e-mail aparece, mas não se edita no campo: trocar é mandar código pro
- * novo (senão a pessoa perde a conta num erro de digitação) — é o próximo
- * passo da conta, e até lá ele fica só pra ler.
+ * novo (senão a pessoa perde a conta num erro de digitação) — é o "Trocar"
+ * do lado dele (`troca-de-email.tsx`), com os passos dele.
  *
  * AS PREFERÊNCIAS NASCEM DESMARCADAS: é consentimento (LGPD), e
  * consentimento não vem marcado. A ação guarda a data do "sim".
@@ -79,9 +80,7 @@ export function FormularioDeDados({ cliente }: { cliente: ClienteVisivel }) {
               (`.campo__rotulo`, em conta.css), e é lido junto, na ordem. */}
           <div className="campo">
             <span className="campo__rotulo">E-mail</span>
-            <div className="email-fixo" data-email-fixo>
-              <span>{cliente.email}</span>
-            </div>
+            <TrocaDeEmail email={cliente.email} avisar={avisar} />
           </div>
           {/* Sem `maxLength`, como no checkout: o navegador cortaria o que é
               colado antes de a máscara ver o +55. */}

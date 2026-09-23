@@ -5,7 +5,7 @@ import { useActionState, useEffect, useRef, useState, useTransition } from "reac
 import { Campo } from "@/components/checkout/campo"
 import { Raio } from "@/components/icones"
 import { confirmarCodigo, reenviarCodigo } from "@/lib/acoes/conta"
-import { CODIGO_INICIAL } from "@/lib/conta-visivel"
+import { CODIGO_INICIAL, type Reenvio } from "@/lib/conta-visivel"
 
 /**
  * OS SEIS DÍGITOS — num campo só, e não em seis caixinhas.
@@ -74,7 +74,9 @@ export function FormCodigo({ email, faltam }: { email: string; faltam: number })
         )}
       </form>
 
-      {estado.perdido ? null : <Reenviar faltam={faltam} destaque={estado.morto} email={email} />}
+      {estado.perdido ? null : (
+        <Reenviar faltam={faltam} destaque={estado.morto} email={email} reenviar={reenviarCodigo} />
+      )}
     </>
   )
 }
@@ -108,14 +110,21 @@ function CampoDoCodigo({ erro, aoCompletar }: { erro: string; aoCompletar: () =>
   )
 }
 
-function Reenviar({
+/**
+ * O "NÃO CHEGOU? REENVIE" — com a contagem dos 30 segundos. É o mesmo no
+ * entrar e na troca de e-mail (`troca-de-email.tsx`); quem sabe pra onde
+ * reenviar é quem chama (`reenviar`).
+ */
+export function Reenviar({
   faltam,
   destaque,
   email,
+  reenviar: pedirDeNovo,
 }: {
   faltam: number
   destaque: boolean
   email: string
+  reenviar: () => Promise<Reenvio>
 }) {
   const [restam, setRestam] = useState(faltam)
   const [aviso, setAviso] = useState("")
@@ -131,7 +140,7 @@ function Reenviar({
 
   function reenviar() {
     comecar(async () => {
-      const r = await reenviarCodigo()
+      const r = await pedirDeNovo()
       setAviso(r.ok ? `Código novo enviado pra ${email}.` : r.erro)
       setRestam(r.segundos)
     })
