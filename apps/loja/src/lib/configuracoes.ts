@@ -41,6 +41,13 @@ export type PoliticaDeFrete =
   | { modo: "gratis"; piso: number; alvo: AlvoDoFrete; tetoDeCusto: number | null }
   | { modo: "fixo"; piso: number; preco: number; alvo: AlvoDoFrete; tetoDeCusto: number | null }
 
+/**
+ * O vídeo da seção "O cuidado que impõe presença", na home, quando o admin
+ * subiu um. As medidas são pra reservar o espaço antes de ele carregar
+ * (contrato: `VideoDaMarca`, em `apps/backend/src/lib/configuracoes.ts`).
+ */
+export type VideoDaMarca = { url: string; largura: number; altura: number }
+
 export type Configuracoes = {
   frete: PoliticaDeFrete
   empresa: { razaoSocial: string | null; cnpj: string | null; endereco: string | null }
@@ -50,6 +57,7 @@ export type Configuracoes = {
     horario: string[] | null
     prazoDePostagem: string | null
   }
+  home: { video: VideoDaMarca | null }
 }
 
 /**
@@ -65,6 +73,7 @@ export const PADRAO: Configuracoes = {
   frete: { modo: "nenhuma" },
   empresa: { razaoSocial: null, cnpj: null, endereco: null },
   atendimento: { whatsapp: null, email: null, horario: null, prazoDePostagem: null },
+  home: { video: null },
 }
 
 /* ── as frases ───────────────────────────────────────────────────────────
