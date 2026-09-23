@@ -622,6 +622,9 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+.compra__garantias li:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
 .compra__bandeiras {
   display: flex;
   flex-wrap: wrap;

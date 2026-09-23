@@ -1,4 +1,4 @@
-import { Cadeado, Cartao, Raio, Relogio } from "@/components/icones"
+import { Cadeado, Cartao, Raio } from "@/components/icones"
 import { PARCELAS_SEM_JUROS, site } from "@/lib/site"
 
 /**
@@ -46,11 +46,6 @@ const SELOS = [
     Icone: Cartao,
     titulo: "Pagamento protegido",
     detalhe: `Pix ou ${PARCELAS_SEM_JUROS}x no cartão`,
-  },
-  {
-    Icone: Relogio,
-    titulo: "7 dias pra desistir",
-    detalhe: "Direito de arrependimento",
   },
   {
     Icone: Raio,
