@@ -207,6 +207,9 @@ const authModule = [
  */
 const enviosModule = [{ resolve: "./src/modules/envios" }]
 
+/** A lista da newsletter do rodapé (`src/modules/newsletter`). */
+const newsletterModule = [{ resolve: "./src/modules/newsletter" }]
+
 module.exports = defineConfig({
   projectConfig: {
     databaseUrl: process.env.DATABASE_URL,
@@ -248,5 +251,6 @@ module.exports = defineConfig({
     ...paymentModule,
     ...authModule,
     ...enviosModule,
+    ...newsletterModule,
   ],
 })

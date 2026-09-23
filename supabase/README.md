@@ -14,7 +14,10 @@ ficam de fora nesta fase.
 | `functions/_shared/`                        | Cliente com `service_role` (schema `loja`), comparação em tempo constante, resposta JSON.                                                                                     |
 | `config.toml`                               | `verify_jwt = false` nas duas funções (chamadas de fora, sem JWT do Supabase).                                                                                                |
 
-Ficam pra depois, no mesmo padrão: `feed-merchant` (fase 3), `newsletter` (fase 3).
+Fica pra depois, no mesmo padrão: `feed-merchant` (fase 3). A `newsletter`, que também estava
+prevista aqui, foi pro Medusa (módulo `newsletter`, ver o AGENTS.md): a função precisaria de
+deploy à mão pela linha de comando do Supabase, e o módulo sobe junto com o backend. A tabela
+`loja.newsletter` ficou sem uso.
 
 O aviso de rastreio do parceiro de entrega (a Frenet) NÃO passa por aqui: vai direto pro Medusa, em
 `/hooks/envio/:parceiro` (ver "Envios" no AGENTS.md). Cada aviso de rastreio já traz a situação mais
