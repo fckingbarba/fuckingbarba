@@ -346,6 +346,14 @@ aparecem na conta e no log, sem e-mail automático — esses a loja conversa com
   - Sem zoom ao tocar num campo no iPhone: os campos já têm 16px no celular, e o viewport ganha
     `maximum-scale=1` só no iPhone e no iPad — lá a pinça continua funcionando; no Android o mesmo
     atributo travaria a pinça, e por isso não vale pra todos.
+  - E a segunda lista, da PDP: os cartões de quantidade apareciam **sem nenhum marcado** depois de
+    ir de uma PDP pra outra pelo site (o Next guarda a PDP anterior escondida no documento, e os
+    rádios das duas tinham o mesmo nome — viravam um grupo só; agora o nome é de cada página, e o
+    campo do CEP também tem id próprio). A "rotina" não mostra mais "Na sacola." (a gaveta que abre
+    já diz). O frasco genérico da comparação tem o tamanho da foto do produto. Nas garantias da
+    caixa de compra saiu a ressalva "Vale na opção de entrega mais barata" (a calculadora, a sacola
+    e o checkout mostram o preço de cada entrega) e entrou **"Envio imediato · Pronta entrega"**, só
+    com estoque — quatro garantias, dois por dois.
 - [x] **O logo da bandeira aparece no fim do campo do número do cartão** (22/09), no lugar da
       etiqueta de texto. A detecção (`apps/loja/src/lib/cartao.ts`) agora usa as faixas de seis
       dígitos da Elo e da Hipercard, e conhece as bandeiras que a loja não aceita (Diners,
