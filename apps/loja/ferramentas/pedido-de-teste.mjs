@@ -119,11 +119,14 @@ export function fabricaDePedidos({ medusa, chave, tokenAdmin, pagarme }) {
    * conta desenha a tela do "Pix vencido" sem esperar meia hora. Ele ainda
    * tem os 10 minutos de folga da conciliação antes de virar cancelado, que
    * é tempo de sobra pro teste.
+   *
+   * `documento` põe o CPF no endereço de cobrança, como o checkout da loja
+   * grava (`montarEndereco`) — é de lá que a nota fiscal tira o CPF.
    */
   async function pedidoPix(
     email,
     itens = [["shampoo-para-barba", 1]],
-    { validadeSegundos = null } = {}
+    { validadeSegundos = null, documento = null } = {}
   ) {
     await variante(itens[0][0]) // a região vem junto
     const { cart } = await loja("/store/carts", {
@@ -138,7 +141,16 @@ export function fabricaDePedidos({ medusa, chave, tokenAdmin, pagarme }) {
     }
     await loja(`/store/carts/${cart.id}`, {
       method: "POST",
-      body: JSON.stringify({ email, shipping_address: ENDERECO, billing_address: ENDERECO }),
+      body: JSON.stringify({
+        email,
+        shipping_address: ENDERECO,
+        billing_address: documento
+          ? {
+              ...ENDERECO,
+              metadata: { ...ENDERECO.metadata, documento: { tipo: "cpf", valor: documento } },
+            }
+          : ENDERECO,
+      }),
     })
     const { shipping_options } = await loja(`/store/shipping-options?cart_id=${cart.id}`)
     await loja(`/store/carts/${cart.id}/shipping-methods`, {

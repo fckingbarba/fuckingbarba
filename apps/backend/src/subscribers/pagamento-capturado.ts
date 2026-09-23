@@ -2,6 +2,7 @@ import type { SubscriberArgs, SubscriberConfig } from "@medusajs/framework"
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import { confirmarPedido, pedidoDoPagamento } from "../lib/confirmar-pedido"
 import { registrarNoParceiro } from "../lib/envios/registro"
+import { emitirNotaDoPedido } from "../lib/erp/notas"
 
 /**
  * Roda NO WORKER toda vez que um pagamento é capturado (Pix pago, cartão
@@ -10,10 +11,14 @@ import { registrarNoParceiro } from "../lib/envios/registro"
  * Hoje, nesta ordem:
  *   1. o e-mail de pedido confirmado (`lib/confirmar-pedido.ts`), na hora.
  *      Se ele falhar aqui, a varredura de 5 em 5 minutos manda depois;
- *   2. o pedido no painel da Frenet (`lib/envios/registro.ts`), pra etiqueta
+ *   2. a nota fiscal no ERP (`lib/erp/notas.ts`), até a SEFAZ — só com o
+ *      ERP conectado. Se falhar, a varredura de 5 em 5 minutos tenta de novo;
+ *   3. o pedido no painel da Frenet (`lib/envios/registro.ts`), pra etiqueta
  *      sair sem ninguém digitar — só com o token de parceiro; sem ele, não
- *      faz nada. Se falhar, a varredura de 10 em 10 minutos tenta de novo.
- *      Um não espera o outro dar certo: são dois `try`.
+ *      faz nada. Com o ERP emitindo, ele espera a nota, que vai junto (o
+ *      `nota-autorizada.ts` registra quando ela chega). Se falhar, a
+ *      varredura de 10 em 10 minutos tenta de novo.
+ *      Um não espera o outro dar certo: cada um no seu `try`.
  *
  * O que ainda vem pra cá, na fase 5:
  *   - emitir a NF-e no Bling
@@ -44,6 +49,14 @@ export default async function pagamentoCapturado({
     } catch (e) {
       logger.warn(
         `[pedido] a confirmação do pagamento ${data.id} ficou pra varredura: ` +
+          (e instanceof Error ? e.message : String(e))
+      )
+    }
+    try {
+      await emitirNotaDoPedido(container, pedidoId)
+    } catch (e) {
+      logger.warn(
+        `[erp] a nota do pedido ${pedidoId} ficou pra varredura: ` +
           (e instanceof Error ? e.message : String(e))
       )
     }

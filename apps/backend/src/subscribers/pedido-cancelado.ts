@@ -3,6 +3,7 @@ import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import { avisarCancelamento } from "../lib/avisar-cancelamento"
 import { fecharCobrancasDoPedido } from "../lib/conciliar-pagamentos"
 import { tirarDoParceiro } from "../lib/envios/registro"
+import { desfazerNotaDoPedido } from "../lib/erp/notas"
 
 /**
  * PEDIDO CANCELADO FECHA NO PAGAR.ME O QUE DÁ PRA FECHAR, na hora — e avisa
@@ -37,10 +38,12 @@ import { tirarDoParceiro } from "../lib/envios/registro"
  * fechada é dinheiro resolvido; e-mail é gente avisada, e vai mesmo que o
  * Pagar.me esteja fora do ar.
  *
- * POR ÚLTIMO, O PAINEL DO PARCEIRO: o pedido que já tinha entrado lá
- * (`lib/envios/registro.ts`) sai, pra ninguém gerar etiqueta de pedido
- * cancelado. Se não sair — o pacote já foi postado, a Frenet fora do ar —,
- * o log diz qual, pra alguém olhar no painel.
+ * POR ÚLTIMO, O PAINEL DO PARCEIRO E A NOTA: o pedido que já tinha entrado
+ * no painel da Frenet (`lib/envios/registro.ts`) sai, pra ninguém gerar
+ * etiqueta de pedido cancelado. Se não sair — o pacote já foi postado, a
+ * Frenet fora do ar —, o log diz qual, pra alguém olhar no painel. E a nota
+ * no ERP (`lib/erp/notas.ts`): a que não foi autorizada é desfeita lá; a
+ * autorizada vira e-mail pra equipe cancelar no ERP, em até 24 horas.
  */
 export default async function pedidoCancelado({
   event: { data },
@@ -92,6 +95,15 @@ export default async function pedidoCancelado({
     logger.warn(
       `[envio] o pedido cancelado ${data.id} pode ter ficado no painel do parceiro ` +
         `(${e instanceof Error ? e.message : String(e)}) — confira lá`
+    )
+  }
+
+  try {
+    await desfazerNotaDoPedido(container, data.id)
+  } catch (e) {
+    logger.warn(
+      `[erp] a nota do pedido cancelado ${data.id} ficou pra varredura ` +
+        `(${e instanceof Error ? e.message : String(e)})`
     )
   }
 }

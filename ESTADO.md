@@ -239,6 +239,55 @@ o aviso só vale pros pedidos da plataforma, os de lá não chegam aqui. **O e-m
 momento** (a caminho, saiu pra entrega, esperando retirada, entregue); atraso, devolução e extravio
 aparecem na conta e no log, sem e-mail automático — esses a loja conversa com o cliente.
 
+### 1c. O Bling (estoque e nota fiscal) — você
+
+**Pronto no código, desligado até conectar (23/09).** Decidido com você: o Bling manda no estoque
+(entrada, produção e perda são lançadas nele, e a loja só copia o saldo); a nota sai quando o
+pagamento cai, vai pra SEFAZ na hora e segue junto do pedido pro painel da Frenet; e nota autorizada
+de pedido cancelado vira e-mail pra equipe, porque **a API do Bling não cancela NF-e** (a rota não
+existe) — é no painel do Bling, em até 24 horas da autorização (Santa Catarina).
+
+Como funciona, em uma linha cada:
+
+- **Estoque:** a cada 5 minutos, e alguns segundos depois de cada aviso do Bling, a loja lê o saldo
+  de cada SKU e copia. O pedido que já está no Bling não é descontado duas vezes. SKU que o Bling
+  não tem fica como está, e a tela ERP do admin diz qual.
+- **Nota:** pago o pedido, a loja acha (ou cria) o cliente pelo CPF, cria o pedido de venda
+  **FB-<número>**, gera a NF-e dele e manda pra SEFAZ, sem o e-mail do Bling pro cliente. A
+  natureza de operação, o CFOP e os impostos são os da conta do Bling. Autorizada, a nota vai junto
+  do pedido pro painel da Frenet (quando o token de parceiro chegar).
+- **Deu errado:** nota rejeitada, pedido sem CPF, produto que o Bling não tem — um e-mail pra
+  equipe, e a pendência na tela ERP. Nota corrigida e reenviada no Bling, a loja percebe sozinha.
+- **Cancelado:** sem nota autorizada, a loja apaga a nota pendente e cancela o pedido de venda no
+  Bling; com nota autorizada, o e-mail diz qual cancelar e até que horas.
+- **Pedidos de antes:** as notas automáticas valem pros pedidos pagos **depois da primeira
+  conexão**. Os de antes seguem com a nota feita à mão, pra não sair nota em dobro.
+
+- [ ] **Conferir no Bling, antes de conectar** (com o contador, no que for fiscal):
+  - certificado **A1** instalado (emitir pelo servidor exige o A1);
+  - a natureza de operação **padrão de venda** com CFOP e tributação certos;
+  - a NF-e em **produção**, não em homologação;
+  - **o mesmo SKU** nos dois lados (FBOL01, FBKIT01…) — é por ele que a loja acha o produto;
+  - as formas de pagamento **Pix** (tipo 17) e **cartão de crédito** (tipo 3) ativas pra
+    recebimento. Sem elas, vale a forma padrão da conta.
+- [ ] **Criar o app privado:** Central de Extensões → Área do Integrador → Criar aplicativo.
+  - URL de redirecionamento: `https://<api do Railway>/hooks/erp/bling/autorizado`;
+  - escopos: produtos, estoques, contatos, pedidos de venda, notas fiscais (NF-e), formas de
+    pagamento, situações e dados da empresa. **Mudar escopo depois revoga o acesso** — aí é
+    conectar de novo;
+  - webhooks (recomendado): servidor `https://<api do Railway>/hooks/erp/bling`, com os recursos
+    de estoque e de nota fiscal. Sem eles, o estoque anda de 5 em 5 minutos, e a nota que
+    demora na SEFAZ é buscada pela varredura.
+- [ ] **Railway:** `BLING_CLIENT_ID` e `BLING_CLIENT_SECRET` (os dois da aba "Informações do app").
+      O deploy cria as duas tabelas do ERP sozinho.
+- [ ] **Conectar:** admin → ERP → "Conectar o Bling", entrando com o usuário administrador do
+      Bling. A tela mostra a empresa, desde quando as notas saem e a primeira sincronização.
+- [ ] **Conferir o primeiro pedido pago:** FB-<número> no Bling, a nota autorizada, e o estoque.
+
+Dois cuidados. **O limite da API é da conta** (3 chamadas por segundo, somando a integração da
+Nuvemshop): a loja faz no máximo 2,5, e espera e tenta de novo quando o Bling pede. **Desde abril
+de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olhar o plano.
+
 ### 2. Achados da revisão do pagamento — Claude Code
 
 - [x] **Pix vencido não cancelava o pedido, e o estoque ficava preso** (visto no #7; resolvido em
@@ -648,12 +697,12 @@ aparecem na conta e no log, sem e-mail automático — esses a loja conversa com
   - no admin, no JSON do pedido (fim da página), `metadata.emails.confirmado`: `email` (saiu, com o
     id do Resend), `dispensado` (não era pra sair: sem o Pagar.me, já postado ou sem e-mail) ou
     `recusado` (o Resend disse que o endereço não aceita e-mail — não se tenta mais).
-- Nota fiscal (Bling) e `purchase` pro GA4 e pra Meta: o gancho é o mesmo do e-mail
-  (`apps/backend/src/subscribers/pagamento-capturado.ts`), e o molde também — o
-  `payment.captured` sozinho perde o "Check payment status" e pode sair duas vezes pro mesmo
-  pagamento. Evento na hora, varredura embaixo, registro no pedido: `src/lib/confirmar-pedido.ts`
-  é o exemplo. Com a nota saindo, a pergunta "recebo nota fiscal?" entra nas Dúvidas
-  (`apps/loja/src/conteudo/duvidas.ts`) — antes disso, ela prometeria o que não sai.
+- **A nota fiscal pelo Bling está pronta** (23/09, ver 1c): evento na hora, varredura de 5 em 5
+  minutos embaixo, registro na tabela `erp_nota`. Quando ela estiver saindo de verdade, a pergunta
+  "recebo nota fiscal?" entra nas Dúvidas (`apps/loja/src/conteudo/duvidas.ts`) e o bloco "Nota
+  fiscal" na página do pedido da conta (o protótipo já tem) — antes disso, prometeriam o que não
+  sai. O `purchase` pro GA4 e pra Meta segue pendente, no mesmo gancho
+  (`apps/backend/src/subscribers/pagamento-capturado.ts`) e no mesmo molde.
 - **O e-mail de pedido cancelado sai** (22/09), uma vez por pedido: no `order.canceled`, pelo
   `subscribers/pedido-cancelado.ts`, e pela mesma varredura de 5 em 5 minutos do `confirmar-pedidos`
   (últimas 24 horas). Ele diz três coisas diferentes, e a escolha está em `src/lib/avisar-cancelamento.ts`:
@@ -687,8 +736,8 @@ aparecem na conta e no log, sem e-mail automático — esses a loja conversa com
 
 ## Como seguir no Claude Code
 
-- O operacional está no AGENTS.md: comandos, os dez conferidores (contra o Medusa local, com Frenet,
-  Pagar.me e Resend falsos) e as regras. Rode os conferidores antes de subir.
+- O operacional está no AGENTS.md: comandos, os onze conferidores (contra o Medusa local, com
+  Frenet, Pagar.me, Resend e Bling falsos) e as regras. Rode os conferidores antes de subir.
 - O que mexe em produção — variável, painel, script no Railway — quem faz é você; o Claude Code
   prepara e diz o comando.
 - Chave nunca passa pela conversa. Cuidado com texto copiado de painel: o link pode levar o valor

@@ -900,10 +900,29 @@ const textoDe = async (sel) =>
       .catch(() => "")) ?? ""
   ).trim()
 
+/**
+ * Espera o React assumir o campo antes de digitar — o mesmo `hidratado` do
+ * `conferir-conta.mjs`. Digitado antes, o valor some na hidratação (o campo
+ * é controlado e volta vazio), a ação responde "Confere o e-mail." sem nem
+ * chamar o Medusa, e a tela do código nunca chega: era o login que falhava
+ * de vez em quando aqui.
+ */
+async function hidratado(seletor) {
+  await pagina.waitForFunction(
+    (s) =>
+      [...document.querySelectorAll(s)].some((el) =>
+        Object.keys(el).some((k) => k.startsWith("__reactProps"))
+      ),
+    seletor,
+    { timeout: 20000 }
+  )
+}
+
 {
   // Entrar pelo código — contando só os e-mails de código (os de pedido também chegam aqui).
   const antes = resend.emails.filter((e) => e.to?.includes(CLIENTE) && deCodigo(e)).length
   await pagina.goto(`${LOJA}/conta/entrar`)
+  await hidratado(".entrar input[name=email]")
   await pagina.locator(".entrar input[name=email]").filter({ visible: true }).fill(CLIENTE)
   await pagina.locator(".entrar form button[type=submit]").filter({ visible: true }).click()
   await pagina.waitForURL("**/conta/entrar/codigo", { timeout: 20000 })

@@ -117,6 +117,17 @@ export function corpoDoPedido(
         Value: centavos(p.total),
         Created: p.criadoEm,
         UseFrenetRegistration: true,
+        ...(p.nota
+          ? {
+              Invoice: {
+                Number: p.nota.numero,
+                ...(p.nota.serie ? { Series: p.nota.serie } : {}),
+                Key: p.nota.chave,
+                ...(p.nota.valor !== null ? { Value: centavos(p.nota.valor) } : {}),
+                ...(p.nota.emitidaEm ? { Date: p.nota.emitidaEm } : {}),
+              },
+            }
+          : {}),
         Items: p.itens.map((i) => ({
           OrderId: p.referencia,
           ItemId: i.id,

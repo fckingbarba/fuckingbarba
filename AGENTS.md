@@ -36,8 +36,9 @@ verdade.
 ### Conferidores
 
 `apps/loja/ferramentas/conferir-*.mjs` abrem a loja num Chromium de verdade e comparam o que está na
-tela com o que a API do Medusa responde — nunca com outra conta feita no próprio teste. São dez:
-frete, pdp, checkout, pagamento, catálogo, links, configurações, documento, conta e envio. Rode os que
+tela com o que a API do Medusa responde — nunca com outra conta feita no próprio teste. São onze:
+frete, pdp, checkout, pagamento, catálogo, links, configurações, documento, conta, envio e erp (este
+sem navegador: o Bling falso e o admin). Rode os que
 tocam no que você mexeu, e todos antes de entregar. Os que escrevem no admin desfazem o que mudaram
 no fim, mesmo quando falham.
 
@@ -52,6 +53,10 @@ RESEND_URL=http://127.0.0.1:4330 RESEND_API_KEY=re_teste_falsa npm run backend:d
 # com o registro no painel da Frenet ligado (a seção 7c do conferir-envio, que também precisa do
 # FRENET_PARCEIRO_TOKEN no ambiente dele), acrescente: FRENET_PARCEIRO_TOKEN=parceiro-de-teste
 # FRENET_WHITELABEL_URL=http://127.0.0.1:4310 MEDUSA_BACKEND_URL=http://127.0.0.1:9000
+# pro conferir-erp (o Bling falso na 4340), acrescente: BLING_CLIENT_ID=cliente-de-teste
+# BLING_CLIENT_SECRET=segredo-de-teste BLING_URL=http://127.0.0.1:4340/Api/v3
+# BLING_AUTORIZACAO_URL=http://127.0.0.1:4340/Api/v3/oauth/authorize — e rode o conferir-envio
+# SEM elas: com o ERP conectado, a etiqueta espera a nota, e ali não há Bling pra emitir
 # e a loja tokeniza no falso: no .env.development.local,
 #   NEXT_PUBLIC_PAGARME_PUBLIC_KEY=pk_test_falsa
 #   NEXT_PUBLIC_PAGARME_API=http://127.0.0.1:4320/core/v5
@@ -66,7 +71,7 @@ asserção — `ferramentas/retrato-calculadora.mjs` é o modelo (e `retrato-pag
 e da tela de obrigado), e roda contra `next build` + `next start`. Os conferidores, ao contrário,
 rodam contra o `next dev` (`LOJA`, padrão `localhost:3000`): com o cache de produção o de PDP lê o
 conteúdo de antes da edição e falha sem bug nenhum. Os `apps/backend/ferramentas/conferir-{frete,pedido}.mjs` são de antes da Frenet (esperam
-"Correios PAC" fixo e não sobem a falsa) — os que valem são os dez da loja.
+"Correios PAC" fixo e não sobem a falsa) — os que valem são os onze da loja.
 
 O **Lighthouse do CI** roda contra `apps/loja/ferramentas/medusa-falso.mjs` — um Medusa só de
 leitura, na porta 9000, com os seis produtos de verdade e fotos desenhadas na hora —, porque sem
@@ -340,6 +345,29 @@ mostra nem pergunta por ele. Cada pedido leva o `TrackingNotificationUrl` dele, 
 `MEDUSA_BACKEND_URL`: `?pedido=FB-N&assinatura=HMAC(FRENET_WEBHOOK_TOKEN)`, que só vale pra aviso
 daquele pedido (`lerAviso`). A chave da porta nunca vai em URL. No conferidor de envio, a seção 7c
 roda das duas formas (ver o cabeçalho dele).
+
+**O ERP** (hoje, o Bling) mora em duas pastas, no mesmo molde dos envios. `src/lib/erp/` é a
+regra da loja, na língua dela: o contrato (`contrato.ts`: `lerSaldos`, `emitirNota`,
+`consultarNota`, `desfazerNota`, o OAuth), a conexão (`conexao.ts`: tokens cifrados com AES-GCM por
+uma chave derivada do client secret, `cofre.ts`; o `state` de uso único e de 10 minutos, apagado
+ANTES de trocar o código — no Bling, reusar o código revoga o usuário; a renovação sob a trava, e a
+queda com e-mail pra equipe), o estoque (`estoque.ts`) e as notas (`notas.ts`).
+`src/modules/bling/` é o formato do Bling: a fila das chamadas (400 ms entre elas — o limite de 3
+por segundo é da CONTA), `enable-jwt: 1` em toda chamada, o 401 que renova e o 429 que espera; SKU
+→ id pelo `GET /produtos?codigos[]` (no PLURAL — o singular é ignorado em silêncio); cliente pelo
+CPF (o PUT do contato vai inteiro, senão apaga o que a equipe cadastrou); pedido de venda com
+`numeroLoja` "FB-N" (o Bling NÃO deduplica — a loja procura por `numerosLojas[]` antes de criar);
+`gerar-nfe` e `enviar?enviarEmail=false`, que só vai com a nota PENDENTE (reenvio demais bloqueia a
+nota no Bling). As tabelas são do módulo `src/modules/erp` (`erp_conexao` e `erp_nota`, com os
+passos dados no ERP gravados um a um). O estoque espelha o saldo que dá pra vender no ERP MAIS o que
+o Medusa reservou pros pedidos que já estão lá (senão o pedido pago desconta duas vezes). A nota sai
+no `payment.captured`, pela varredura `acompanhar-notas` (5 em 5 minutos) e pelo aviso do ERP
+(`/hooks/erp/:erp`, assinado com HMAC do client secret sobre o corpo cru); só pros pedidos pagos
+depois da primeira conexão (`notas_desde`). Autorizada, solta `erp.nota_autorizada`, e o
+`subscribers/nota-autorizada.ts` manda o pedido pro painel da Frenet — que, com o ERP conectado,
+espera a nota (`notaParaAEtiqueta`) e leva número e chave no `Invoice`. Cancelado sem nota
+autorizada, a loja apaga a nota pendente e cancela o pedido de venda; com nota autorizada, e-mail
+pra equipe (a API não cancela NF-e). O conferidor é o `conferir-erp.mjs`, com o `bling-falso.mjs`.
 
 Os **e-mails** moram em `apps/backend/src/lib/emails/`: a `moldura.ts` (barra preta com a logo,
 fundo menta, blocos com sombra dura — em tabela e estilo em linha, porque é e-mail) e um arquivo

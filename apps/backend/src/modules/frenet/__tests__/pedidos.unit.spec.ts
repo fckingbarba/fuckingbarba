@@ -60,6 +60,7 @@ const PEDIDO: PedidoParaOParceiro = {
     },
   ],
   servico: { codigo: "04510", nome: "PAC", transportadora: "Correios" },
+  nota: null,
 }
 
 const ambiente = { ...process.env }
@@ -139,6 +140,27 @@ describe("o pedido no formato da Frenet", () => {
       Height: 4,
     })
     expect(corpoDoPedido(PEDIDO)[0].Order.Items[0]).toMatchObject({ Weight: 0.12, SKU: "OLEO-30" })
+  })
+
+  it("sem nota, vai sem; com a nota autorizada, ela vai no pedido (a etiqueta sai sem digitar)", () => {
+    expect(corpoDoPedido(PEDIDO)[0].Order).not.toHaveProperty("Invoice")
+    const comNota = corpoDoPedido({
+      ...PEDIDO,
+      nota: {
+        numero: "1234",
+        serie: "1",
+        chave: "42260912345678000199550010000012341000012345",
+        valor: 149.7,
+        emitidaEm: "2026-09-23T13:05:00.000Z",
+      },
+    })[0].Order
+    expect(comNota.Invoice).toEqual({
+      Number: "1234",
+      Series: "1",
+      Key: "42260912345678000199550010000012341000012345",
+      Value: 149.7,
+      Date: "2026-09-23T13:05:00.000Z",
+    })
   })
 
   it("com o endereço do aviso, ele vai no envio", () => {
