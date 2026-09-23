@@ -46,6 +46,20 @@ export type LinhaDaConexao = {
   queda: string | null
   queda_avisada_em: Date | string | null
   estoque: Record<string, unknown> | null
+  janela_da_nota: number | null
+}
+
+/** A janela de cancelamento antes da nota, quando ninguém escolheu outra (decidida em 23/09). */
+export const JANELA_PADRAO_DA_NOTA_MIN = 120
+/** A maior: a varredura das notas olha três dias pra trás, e a etiqueta espera a nota. */
+export const JANELA_MAXIMA_DA_NOTA_MIN = 24 * 60
+
+/** Os minutos da janela: o que a tela do ERP escolheu, ou o padrão. */
+export function minutosDaJanela(linha: Pick<LinhaDaConexao, "janela_da_nota"> | null | undefined) {
+  const m = linha?.janela_da_nota
+  return typeof m === "number" && Number.isInteger(m) && m >= 0
+    ? Math.min(m, JANELA_MAXIMA_DA_NOTA_MIN)
+    : JANELA_PADRAO_DA_NOTA_MIN
 }
 
 const servico = (container: MedusaContainer) => container.resolve<ErpService>(ERP)
@@ -263,6 +277,8 @@ export type SituacaoDaConexao = {
   empresa: string | null
   conectadoEm: string | null
   notasDesde: string | null
+  /** Quantos minutos a nota espera depois do pagamento (0: na hora). */
+  janelaDaNota: number
   queda: string | null
   estoque: Record<string, unknown> | null
 }
@@ -284,6 +300,7 @@ export async function situacaoDaConexao(
     empresa: linha?.empresa ?? null,
     conectadoEm: iso(linha?.conectado_em),
     notasDesde: iso(linha?.notas_desde),
+    janelaDaNota: minutosDaJanela(linha),
     queda: linha?.queda ?? null,
     estoque: linha?.estoque ?? null,
   }

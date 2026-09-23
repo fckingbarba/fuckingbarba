@@ -473,4 +473,18 @@ describe("a nota que saiu com o cadastro antigo (pra equipe)", () => {
     expect(e.html).toContain("carta de correção")
     expect(e.html).toContain("em até 24 horas")
   })
+
+  it("com a nota ainda na janela: dá tempo de corrigir o cadastro, e o e-mail diz até quando", () => {
+    const e = emailDaNotaParaConferir("equipe@exemplo.com", {
+      erp: "Bling",
+      pedidoId: "order_01ABC",
+      numero: 16,
+      motivo: "o cadastro do cliente no Bling não foi atualizado com este pedido (erro)",
+      notaEm: new Date("2026-09-23T20:05:00.000Z"),
+    })
+    expect(e.assunto).toBe("Confira a nota do pedido #16")
+    expect(e.texto).toContain("sai depois de 23/09, 17:05")
+    expect(e.texto).toContain("Corrija o cadastro do cliente no Bling antes de 23/09, 17:05")
+    expect(e.texto).not.toContain("A nota fiscal do pedido #16 saiu")
+  })
 })

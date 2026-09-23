@@ -23,6 +23,12 @@ export const Conexao = model
      * muda mais. O pedido pago antes disso pode já ter nota feita à mão.
      */
     notas_desde: model.dateTime().nullable(),
+    /**
+     * Quantos minutos a nota espera depois do pagamento — a janela de
+     * cancelamento: o pedido vai pro ERP na hora, e o cancelado dentro dela
+     * não chega a ter nota. `null` = o padrão (2 horas); 0 = na hora.
+     */
+    janela_da_nota: model.number().nullable(),
     /** O "state" da autorização em andamento — de uso único. */
     estado: model.text().nullable(),
     estado_em: model.dateTime().nullable(),

@@ -182,14 +182,42 @@ export function emailDaNotaComProblema(para: string, a: NotaComProblema): Email 
  * atualizar o cadastro dele com este pedido, e a nota foi com o que já estava
  * lá (outro endereço, o e-mail ou o telefone de outra época — ou de outra
  * pessoa, se o CPF foi usado por alguém antes).
+ *
+ * Com `notaEm`, a nota ainda não saiu (espera a janela de cancelamento): o
+ * e-mail diz até quando dá pra corrigir o cadastro, e aí ela sai certa.
  */
 export function emailDaNotaParaConferir(
   para: string,
-  a: { erp: string; pedidoId: string; numero: number; motivo: string }
+  a: {
+    erp: string
+    pedidoId: string
+    numero: number
+    motivo: string
+    /** A nota ainda espera a janela: sai depois disso — dá tempo de corrigir antes. */
+    notaEm?: Date | null
+  }
 ): Email {
   const assunto = `Confira a nota do pedido #${a.numero}`
-  const forte = `Confira o destinatário da nota do pedido #${a.numero} no ${a.erp}.`
   const href = linkDoAdmin(`orders/${encodeURIComponent(a.pedidoId)}`)
+  if (a.notaEm) {
+    const antes = `Corrija o cadastro do cliente no ${a.erp} antes de ${quando(a.notaEm)} (horário de Brasília).`
+    return montar({
+      para,
+      assunto,
+      previa: antes,
+      cabeca: "Confira o cadastro antes da nota",
+      blocos: [
+        `O pedido #${a.numero} foi pro ${a.erp}, e a nota fiscal dele sai depois de ` +
+          `${quando(a.notaEm)}, mas ${a.motivo}.`,
+        `Abra o cadastro do cliente no ${a.erp} e compare com o pedido (nome, endereço, e-mail e ` +
+          "telefone): a nota sai com o que estiver lá. Se ela já tiver saído, faça uma carta de " +
+          "correção, ou cancele a nota em até 24 horas e emita de novo.",
+      ],
+      forte: antes,
+      link: href ? { texto: "Abrir o pedido no admin", href } : null,
+    })
+  }
+  const forte = `Confira o destinatário da nota do pedido #${a.numero} no ${a.erp}.`
   return montar({
     para,
     assunto,
