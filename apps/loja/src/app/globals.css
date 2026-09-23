@@ -26,8 +26,6 @@
 @import "../estilos/catalogo.css";
 /* Privacidade, termos e trocas: fundo branco e link sublinhado. */
 @import "../estilos/institucional.css";
-/* O fundo por seção da PDP, escolhido no admin. */
-@import "../estilos/fundo.css";
 @import "../estilos/sobre.css";
 @import "../estilos/fechamento.css";
 
@@ -36,40 +34,33 @@
    o protótipo não tinha servidor, então não tinha espera pra desenhar. */
 @import "../estilos/sacola-espera.css";
 
-/* Página de produto. Gerados por ferramentas/porte/pdp-partes/agrupa-pdp.py;
-   um arquivo por seção, na mesma ordem em que a página os monta. */
-@import "../estilos/pdp.css";
-@import "../estilos/pdp-promessa.css";
-@import "../estilos/pdp-antesdepois.css";
-@import "../estilos/pdp-tempo.css";
-@import "../estilos/pdp-faixa.css";
-@import "../estilos/pdp-rotina.css";
-@import "../estilos/pdp-funciona.css";
-@import "../estilos/pdp-versus.css";
-@import "../estilos/pdp-quem.css";
-@import "../estilos/pdp-duvidas.css";
-@import "../estilos/pdp-avaliacoes.css";
-@import "../estilos/pdp-relacionados.css";
-/* Escritos à mão (não saem do agrupa-pdp.py): o cross-sell na caixa de
-   compra, e a tarja de frete que mora dentro dele e dos kits. */
-@import "../estilos/pdp-junto.css";
-@import "../estilos/pdp-frete.css";
+/* A trilha "Início / Barba", da categoria, da busca e da PDP. Sai do
+   agrupa-pdp.py junto com o CSS da PDP, mas mora aqui porque aparece fora
+   dela. */
+@import "../estilos/migalhas.css";
 
 /* Escrito à mão: o que a loja diz quando a ação vai pro servidor e volta.
    O protótipo não tinha backend, então não tinha o que dizer. */
 @import "../estilos/recados.css";
 
-/* O checkout tem protótipo próprio (ferramentas/porte/prototipo-checkout.html);
-   estes três saem dele pelo agrupa-checkout.py, e não se editam à mão. */
-@import "../estilos/checkout.css";
-@import "../estilos/checkout-resumo.css";
-@import "../estilos/checkout-confirma.css";
-/* Escrito à mão: espera, sacola vazia e a carcaça da loja fora do caminho. */
-@import "../estilos/checkout-loja.css";
-
-/* A Minha conta: escrito à mão a partir de ferramentas/porte/prototipo-conta.html.
-   Depois do checkout porque usa as peças dele (.bloco, .campo, .giro). */
-@import "../estilos/conta.css";
+/*
+  ┌─ O QUE NÃO MORA AQUI ────────────────────────────────────────────────────┐
+  │ Tudo o que este arquivo importa vira UM CSS que toda página baixa antes  │
+  │ de pintar a primeira coisa: o navegador segura a tela até ele chegar.    │
+  │ Com a PDP, o checkout e a conta aqui dentro, a home e a categoria        │
+  │ baixavam uns 15 KB (comprimidos) de estilo de telas que elas nem têm —   │
+  │ no 4G lento do Lighthouse, de 0,15s a 0,2s a mais de LCP.                │
+  │                                                                          │
+  │ Agora cada uma dessas telas importa o próprio CSS:                       │
+  │   • PDP .............. estilos/telas/produto.css                         │
+  │   • checkout e conta . estilos/telas/checkout-e-conta.css                │
+  │   • /duvidas ......... estilos/pdp-duvidas.css (o acordeão é o da PDP)   │
+  │                                                                          │
+  │ ANTES DE TIRAR MAIS ALGUMA COISA DAQUI, confira se a classe não aparece  │
+  │ em outra tela. As migalhas foram desenhadas pra PDP e moram também na    │
+  │ categoria e na busca — por isso ganharam arquivo próprio aqui dentro.    │
+  └──────────────────────────────────────────────────────────────────────────┘
+*/
 
 /*
   Tokens da marca FuckingBarba — os mesmos do protótipo HTML.

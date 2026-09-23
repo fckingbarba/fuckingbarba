@@ -58,7 +58,12 @@ export function Grade({
         data-magra={magra ? String(produtos.length) : undefined}
       >
         {produtos.map((produto, i) => (
-          <CartaoProduto key={produto.id} produto={produto} prioridade={i < prioritarios} />
+          <CartaoProduto
+            key={produto.id}
+            produto={produto}
+            prioridade={i < prioritarios}
+            destaque={i === 0}
+          />
         ))}
         {magra && maior ? <Convite nome={nome} quantos={produtos.length} maior={maior} /> : null}
       </div>

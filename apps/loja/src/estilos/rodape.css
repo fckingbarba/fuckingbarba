@@ -158,7 +158,7 @@
   quem manda é a largura, com teto pra ela não crescer junto com a coluna.
   Sem `fill`, pelo mesmo motivo do cabeçalho: a marca traz as próprias cores.
 */
-.rodape__marca svg {
+.rodape__marca img {
   width: clamp(104px, 34%, 140px);
   height: auto;
   flex-shrink: 0;

@@ -1,0 +1,24 @@
+/*
+  O CSS DO CHECKOUT E DA MINHA CONTA — importado pelas páginas do checkout e
+  pelo layout da conta.
+
+  Morava no globals.css, e aí toda página da loja baixava o estilo do
+  checkout antes de pintar a primeira coisa (o porquê está no quadro "O QUE
+  NÃO MORA AQUI", lá).
+
+  Os dois num arquivo só, e na ordem de antes: a conta é montada com as
+  peças do checkout (.bloco, .campo, .giro), e carregando juntos cada tela
+  continua recebendo exatamente as regras que recebia quando tudo era global.
+*/
+
+/* O checkout tem protótipo próprio (ferramentas/porte/prototipo-checkout.html);
+   estes três saem dele pelo agrupa-checkout.py, e não se editam à mão. */
+@import "../checkout.css";
+@import "../checkout-resumo.css";
+@import "../checkout-confirma.css";
+/* Escrito à mão: espera, sacola vazia e a carcaça da loja fora do caminho. */
+@import "../checkout-loja.css";
+
+/* A Minha conta: escrito à mão a partir de ferramentas/porte/prototipo-conta.html.
+   Depois do checkout porque usa as peças dele (.bloco, .campo, .giro). */
+@import "../conta.css";

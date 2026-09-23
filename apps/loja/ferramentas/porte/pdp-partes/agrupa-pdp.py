@@ -52,10 +52,15 @@ TOKENS = {
 # nome do arquivo -> (prefixos de classe, keyframes, seletores crus)
 GRUPOS = {
     "pdp": (
-        ["pdp", "migalhas", "galeria", "compra", "cross", "videos", "barra-compra"],
+        ["pdp", "galeria", "compra", "cross", "videos", "barra-compra"],
         ["barraSobe", "kitPisca"],
         ["[data-comprar]"],
     ),
+    # As migalhas nasceram na PDP, mas moram também na categoria e na busca.
+    # Arquivo próprio porque o `pdp.css` só carrega na página de produto
+    # (ver `estilos/telas/produto.css`); dentro dele, a trilha da categoria
+    # ficava sem estilo.
+    "migalhas": (["migalhas"], [], []),
     "pdp-promessa": (["promessa"], [], []),
     "pdp-antesdepois": (["antesdepois", "caso"], [], []),
     "pdp-tempo": (["tempo"], [], []),
@@ -108,13 +113,16 @@ def faz_filtro(prefixos, keyframes, cruas):
     return quer
 
 
+AVISO = "Gerado por ferramentas/porte/pdp-partes/agrupa-pdp.py — não edite à mão."
+
+
 def cabecalho(nome):
     raizes = RAIZES.get(nome)
     if not raizes:
-        return ""
+        return f"/* {AVISO} */\n"
     sel = ",\n".join(raizes)
     return (
-        "/* Gerado por ferramentas/porte/pdp-partes/agrupa-pdp.py — não edite à mão.\n"
+        f"/* {AVISO}\n"
         "   Entrelinha padrão do navegador, como no protótipo: o preflight do\n"
         "   Tailwind põe 1.5 na raiz e isso empurra tudo que não declara a sua. */\n"
         f"{sel} {{\n  line-height: normal;\n}}\n"

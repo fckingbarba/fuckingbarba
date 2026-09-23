@@ -14,6 +14,8 @@ import { lerPedido } from "@/lib/pedido"
 import { linkDoWhatsapp, whatsappNaTela } from "@/lib/configuracoes"
 import { configuracoes } from "@/lib/medusa"
 import { site } from "@/lib/site"
+// Só no checkout e na conta, e não no globals.css: ver "O QUE NÃO MORA AQUI" lá.
+import "@/estilos/telas/checkout-e-conta.css"
 
 /**
  * /checkout/obrigado/<id> — a única tela que a pessoa vai reler.

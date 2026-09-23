@@ -6,8 +6,8 @@ import { buscarProdutoPorHandle, precosDe } from "@/lib/medusa"
 
 /**
  * O banner do topo. É o maior elemento visível quando a página abre — o que o
- * Google mede como LCP — então a foto vem com `priority` (preload, sem lazy) e
- * nada aqui depende de JavaScript pra aparecer.
+ * Google mede como LCP — então a foto vem sem lazy e na frente da fila (ver o
+ * comentário no `<Image>`), e nada aqui depende de JavaScript pra aparecer.
  *
  * Preço e foto saem do produto em destaque, não de texto escrito à mão. A
  * diferença aparece no dia em que o preço muda no admin: assim o banner muda
@@ -56,7 +56,12 @@ export async function Banner() {
           alt={produto.title}
           width={600}
           height={600}
-          priority
+          // `fetchPriority="high"` + `eager`, e não `priority`: no Next 16 o
+          // `priority` foi descontinuado e só punha um preload de prioridade
+          // BAIXA no <head> — a foto principal entrava na fila atrás dos
+          // scripts. É ela o LCP da página.
+          loading="eager"
+          fetchPriority="high"
           // A caixa da foto é metade do banner (720px no desktop), mas com
           // `contain` numa imagem quadrada só 450px ficam visíveis — o resto
           // é o branco dos lados. Pedir 720 era pedir 60% de bytes a mais

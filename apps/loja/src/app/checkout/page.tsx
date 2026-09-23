@@ -18,6 +18,8 @@ import { carrinhoFechado } from "@/lib/carrinho"
 import { faltaPraGratis } from "@/lib/checkout-visivel"
 import { site } from "@/lib/site"
 import { configuracoes } from "@/lib/medusa"
+// Só no checkout e na conta, e não no globals.css: ver "O QUE NÃO MORA AQUI" lá.
+import "@/estilos/telas/checkout-e-conta.css"
 
 /**
  * /checkout — a compra, numa página só, em três passos.

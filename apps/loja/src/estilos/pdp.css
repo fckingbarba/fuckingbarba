@@ -10,8 +10,6 @@
 .barra-compra[hidden] {
   display: none !important;
 }
-.migalhas,
-.migalhas *,
 .pdp,
 .pdp *,
 .videos,
@@ -20,61 +18,6 @@
 .barra-compra * {
   border-radius: 0;
   box-sizing: border-box;
-}
-.migalhas {
-  background: var(--color-menta);
-  font-family: var(--font-sans);
-  padding: 7px clamp(16px, 4vw, 28px) 0;
-}
-@media (min-width: 1000px) {
-  .migalhas {
-    padding-top: 14px;
-  }
-}
-.migalhas__lista {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  max-width: 1320px;
-  margin: 0 auto;
-  padding: 0;
-  list-style: none;
-  font-size: 0.76rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: #0d4c3c;
-}
-.migalhas__lista li {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.migalhas__lista li::after {
-  content: "/";
-  opacity: 0.45;
-}
-.migalhas__lista li:last-child::after {
-  content: none;
-}
-.migalhas__lista a {
-  color: inherit;
-  text-decoration: none;
-  border-bottom: 2px solid transparent;
-}
-.migalhas__lista a:hover,
-.migalhas__lista a:focus-visible {
-  border-bottom-color: var(--color-tinta);
-  color: var(--color-tinta);
-}
-.migalhas__atual {
-  color: var(--color-tinta);
-  opacity: 0.7;
-  max-width: 46vw;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .pdp {
   background: var(--color-menta);

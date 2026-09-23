@@ -8,7 +8,9 @@ python3 vetoriza.py <entrada.png> saida/<nome>.svg
 ```
 
 Os caminhos que ele gera vão pra `src/components/marca.tsx` (que é **gerado**, não escrito à
-mão) e pro `src/app/icon.svg`.
+mão) e pro `src/app/icon.svg`. A logo inteira é a exceção: o `saida/logo.svg` é copiado como
+está pra `public/marca/logo-completa.svg`, e o rodapé usa o arquivo — dentro do HTML, os 18 KB de
+caminho iam duas vezes em toda página.
 
 ## O que ele faz, e por que cada passo existe
 

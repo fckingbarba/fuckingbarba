@@ -354,6 +354,27 @@ aparecem na conta e no log, sem e-mail automático — esses a loja conversa com
 - [x] **O zoom do iPhone ao tocar num campo** (22/09): a busca do cabeçalho, o CEP da sacola, o CEP
       da página de produto, o e-mail de novidades e o "ordenar por" tinham letra abaixo de 16px, e o
       Safari dava zoom na página inteira. Agora 16px em tela de toque; no computador, nada mudou.
+- [x] **LCP abaixo de 2,5s** (22/09). O PageSpeed do Google media a produção em 2,2s na home e
+      2,5s no `/barba` — no limite. **O CSS de uma tela só saiu do `globals.css`**: toda página
+      baixava ~35 KB de CSS antes de pintar, e menos da metade era dela (o resto era PDP, checkout
+      e conta). Agora cada uma importa o seu por `src/estilos/telas/`; as migalhas ganharam
+      `migalhas.css` (sai do `agrupa-pdp.py`) porque aparecem na categoria e na busca. Conferido
+      regra por regra contra o HTML de cada página, e por print antes/depois em 23 páginas,
+      celular e computador, com sacola, menu e busca abertos. **O logo do rodapé virou arquivo**
+      (`public/marca/logo-completa.svg`, carregado quando aparece): eram 18 KB de desenho no HTML de
+      toda página, duas vezes. **A foto principal** (banner, galeria, primeiro card da grade) pede
+      prioridade alta de verdade — o `priority` do Next 16 só punha um preload de prioridade
+      baixa. E **o CI mede por HTTP/2, como a Vercel entrega** (`ferramentas/https-local.mjs`), e
+      reprova LCP acima de 2,5s (era 3,0s): em HTTP/1.1 ele somava meio segundo que a produção não
+      tem. Com o Medusa falso, em HTTP/2: home 2,41 → 2,18s; `/barba` 2,26 → 2,11s; PDP 2,48 →
+      2,18s.
+- [ ] **A PDP pula quando carrega** (achado em 22/09): CLS 0,45 com o Medusa falso (bom é abaixo
+      de 0,1). A página inteira vem por streaming atrás de um esqueleto que só tem a altura da
+      dobra: o rodapé aparece logo embaixo e é empurrado quando as seções chegam. É o defeito que a
+      categoria tinha, e lá resolveu virar página estática. Aqui: o `generateStaticParams` que a
+      rota já lista como "A FAZER", ou o esqueleto ocupar a tela inteira. O Lighthouse da PDP
+      também reprova o contraste do preço "de" (`.compra__de`) e o botão da foto, cujo nome pra
+      leitor de tela não inclui o texto que aparece nele.
 - [ ] **Minha conta**, em quatro partes (a quarta saiu da terceira). Protótipo aprovado:
       `apps/loja/ferramentas/porte/prototipo-conta.html`.
   - [x] 1. Entrar com código de 6 dígitos no e-mail, sem senha; o primeiro código cria a conta, e o

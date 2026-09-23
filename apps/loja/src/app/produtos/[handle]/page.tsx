@@ -2,6 +2,8 @@ import type { Metadata } from "next"
 import { Suspense } from "react"
 import { Secoes } from "@/components/secoes"
 import { buscarProdutoPorHandle } from "@/lib/medusa"
+// Só aqui, e não no globals.css: ver "O QUE NÃO MORA AQUI" lá.
+import "@/estilos/telas/produto.css"
 
 /**
  * /produtos/<handle> — a URL em português que o SEO pede. O Medusa só guarda
