@@ -117,6 +117,8 @@ export function Compra({
    * nunca teve — exatamente a conta inflada que o degrau existe pra evitar.
    */
   const riscado = degrau.unidades === 1 && precoCheio ? precoCheio * quantidade : null
+  // A diferença entre os dois números que já estão na tela — nada além deles.
+  const economia = riscado ? riscado - total : 0
 
   function comprar() {
     setRecado(null)
@@ -195,9 +197,27 @@ export function Compra({
           <link itemProp="returnFees" href="https://schema.org/FreeReturn" />
         </div>
 
+        {/*
+          O PREÇO QUE SE PAGA VEM PRIMEIRO, grande; o "de" riscado e a
+          economia vêm depois, como prova. O protótipo tinha a ordem inversa
+          e tinha tirado o selo de economia (o riscado já contava a mesma
+          história); a loja pediu os dois assim em 22/09. O selo só existe
+          junto com o riscado — sem "de", não há do que ter economizado.
+
+          O "antes" escondido é pra quem ouve a página: sem o traço e sem o
+          tamanho, "R$ 54,90 R$ 79,90" não diz qual dos dois se paga.
+        */}
         <p className="compra__precos">
-          {riscado ? <span className="compra__de">{emReais(riscado)}</span> : null}
           <span className="compra__por">{emReais(total)}</span>
+          {riscado ? (
+            <span className="compra__de">
+              <span className="sr-only">antes </span>
+              {emReais(riscado)}
+            </span>
+          ) : null}
+          {economia >= 0.01 ? (
+            <span className="compra__economia">Economizou {emReais(economia)}</span>
+          ) : null}
         </p>
 
         {parcelavel ? (
@@ -492,7 +512,6 @@ function TarjaDeFrete({ texto }: { texto: string }) {
     </span>
   )
 }
-
 
 function Degraus({
   degraus,

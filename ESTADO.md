@@ -368,6 +368,11 @@ aparecem na conta e no log, sem e-mail automático — esses a loja conversa com
       reprova LCP acima de 2,5s (era 3,0s): em HTTP/1.1 ele somava meio segundo que a produção não
       tem. Com o Medusa falso, em HTTP/2: home 2,41 → 2,18s; `/barba` 2,26 → 2,11s; PDP 2,48 →
       2,18s.
+- [x] **O preço da PDP: o que se paga vem primeiro** (22/09). Grande na frente, o "de" riscado
+      depois e, ao lado, o selo "Economizou R$ 25,00" — a diferença entre os dois preços do
+      Medusa, e só quando existe o riscado (no degrau de 2 ou 3 unidades não aparece: o card do
+      degrau já diz quanto economiza). O selo é o do protótipo, que tinha saído dele; o CSS
+      continuava lá.
 - [ ] **A PDP pula quando carrega** (achado em 22/09): CLS 0,45 com o Medusa falso (bom é abaixo
       de 0,1). A página inteira vem por streaming atrás de um esqueleto que só tem a altura da
       dobra: o rodapé aparece logo embaixo e é empurrado quando as seções chegam. É o defeito que a
