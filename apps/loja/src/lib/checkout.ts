@@ -3,13 +3,21 @@ import type { HttpTypes } from "@medusajs/types"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import { BUMP } from "@/conteudo/checkout"
-import { COOKIE_CARRINHO, lerCarrinho, paraVisivel } from "./carrinho"
+import { ehCodigoDeBump, handleDoBump } from "./bump"
+import {
+  COOKIE_CARRINHO,
+  lerCarrinho,
+  paraVisivel,
+  type Carrinho,
+  type ItemDoCarrinho,
+} from "./carrinho"
 import { mascararCep } from "./cep-formato"
 import {
   ENDERECO_VAZIO,
   type CheckoutVisivel,
   type EnderecoVisivel,
   type Oferta,
+  type OfertaDoBump,
   type OpcaoDeFrete,
   type ProvedorDePagamento,
 } from "./checkout-visivel"
@@ -17,7 +25,8 @@ import { lerCliente, lerSessao, medusa, type ClienteVisivel } from "./conta"
 import { documentoGuardado } from "./documento"
 import { lerEndereco, montarEndereco } from "./endereco"
 import { semEntregaEmpatada } from "./frete"
-import { cliente, temEstoque } from "./medusa"
+import { cliente, modeloDeRecomendacao, temEstoque } from "./medusa"
+import { escolherBump, nomeCurto, pontuar, sacolaDe, type Motivo } from "./recomendacao"
 import { CHECKOUT_ABERTO, site } from "./site"
 
 /**
@@ -114,10 +123,19 @@ export async function lerCheckout(): Promise<CheckoutVisivel | null> {
     entrega: paraEndereco(carrinho.shipping_address),
     freteEscolhido: metodo?.shipping_option_id ?? null,
     // O código do bump é um cupom como outro qualquer pro Medusa; quem sabe
-    // que ele é o bump é a loja.
-    cupons: cupons.filter((c) => c.codigo !== BUMP.codigo),
-    bumpMarcado: cupons.some((c) => c.codigo === BUMP.codigo),
+    // que ele é o bump é a loja (`lib/bump.ts`).
+    cupons: cupons.filter((c) => !ehCodigoDeBump(c.codigo)),
+    bumpAplicado: bumpDoCarrinho(carrinho),
   }
+}
+
+/** O produto da oferta marcada, pelo código dela no carrinho — ou `null`. */
+function bumpDoCarrinho(carrinho: Carrinho): string | null {
+  for (const p of carrinho.promotions ?? []) {
+    const handle = p?.code ? handleDoBump(p.code) : null
+    if (handle) return handle
+  }
+  return null
 }
 
 /* ── o checkout de quem está na conta ─────────────────────────────────────── */
@@ -466,33 +484,113 @@ async function catalogoDoCheckout(regiaoId: string): Promise<Oferta[]> {
   }
 }
 
+/** O que a oferta do checkout precisa saber do carrinho — o `CheckoutVisivel` serve. */
+type BaseDaOferta = Pick<CheckoutVisivel, "id" | "regiaoId" | "itens" | "subtotal" | "bumpAplicado">
+
+/** O preço com o desconto da oferta — a MESMA conta da promoção no Medusa. */
+const comDesconto = (preco: number) => Math.round(preco * (1 - BUMP.desconto / 100) * 100) / 100
+
+/** A frase da caixinha: por que este produto, e o desconto. */
+function textoDaOferta(motivo: Motivo, itens: readonly ItemDoCarrinho[]): string {
+  const oferta = BUMP.oferta(BUMP.desconto)
+  const nome = (handle: string) => nomeCurto(itens.find((i) => i.handle === handle)?.nome ?? "")
+  const porque =
+    motivo.tipo === "juntos" && nome(motivo.com)
+      ? BUMP.porque.juntos(nome(motivo.com))
+      : motivo.tipo === "combina" && nome(motivo.com)
+        ? BUMP.porque.combina(nome(motivo.com))
+        : motivo.tipo === "popular"
+          ? BUMP.porque.popular
+          : null
+  return porque ? `${porque} — ${oferta}` : oferta.charAt(0).toUpperCase() + oferta.slice(1)
+}
+
 /**
- * O produto do order bump, ou null.
+ * A OFERTA DO CHECKOUT, ou null: o produto que o motor de recomendação
+ * escolheu pra ESTE carrinho (`escolherBump`, em `lib/recomendacao.ts`), com
+ * o preço com desconto e a frase que diz por quê.
  *
  * `precoComDesconto` é calculado com a mesma porcentagem que a promoção do
  * Medusa aplica — e o conferidor prova que os dois batem. Enquanto a pessoa
  * não marca a caixinha, é o único jeito de mostrar o "por" sem inventar um
  * carrinho fantasma só pra perguntar ao Medusa quanto ficaria.
  *
- * Some quando o produto já está no pedido a preço cheio: oferecer desconto
- * em algo que a pessoa acabou de pôr inteiro na sacola é a melhor forma de
- * irritar um cliente. Com o bump MARCADO ele também está no pedido, mas aí a
- * caixinha fica — marcada —, porque é por ela que se desmarca. Antes ela
- * sumia no instante em que o óleo entrava, e parecia que o clique tinha dado
- * errado.
+ * NUNCA OFERECE O QUE JÁ ESTÁ NO PEDIDO: desconto em algo que a pessoa
+ * acabou de pôr inteiro na sacola é a melhor forma de irritar um cliente.
+ * Antes, com a oferta fixa no óleo, quem já levava o óleo ficava sem
+ * oferta nenhuma; agora o motor oferece o próximo da fila.
+ *
+ * MARCADA, ELA FICA com o produto dela, e com a mesma frase — é por ela que
+ * se desmarca. Antes ela sumia no instante em que o produto entrava, e
+ * parecia que o clique tinha dado errado.
  */
-export async function lerBump(
-  regiaoId: string,
-  jaNoCarrinho: Set<string>,
-  marcado: boolean
-): Promise<Oferta | null> {
-  const catalogo = await catalogoDoCheckout(regiaoId)
-  const achado = catalogo.find((o) => o.handle === BUMP.handle)
-  if (!achado || (jaNoCarrinho.has(achado.varianteId) && !marcado)) return null
+export async function lerBump(base: BaseDaOferta): Promise<OfertaDoBump | null> {
+  const catalogo = await catalogoDoCheckout(base.regiaoId)
+  const modelo = await modeloDeRecomendacao()
 
+  if (base.bumpAplicado) {
+    const linha = base.itens.find((i) => i.handle === base.bumpAplicado)
+    // O código sem a linha não tem o que desmarcar — e o Medusa tira o
+    // código sozinho na próxima conta do carrinho.
+    if (!linha?.handle) return null
+    const doCatalogo = catalogo.find((o) => o.handle === linha.handle)
+    const preco = doCatalogo?.preco ?? linha.precoUnitario
+    // A frase de ANTES de marcar: a sacola sem o produto da oferta.
+    const antes = base.itens.filter((i) => i.handle !== linha.handle)
+    const motivo: Motivo = modelo
+      ? pontuar(modelo, sacolaDe(antes).handles, linha.handle).motivo
+      : { tipo: "nenhum" }
+    return {
+      varianteId: linha.varianteId,
+      handle: linha.handle,
+      nome: doCatalogo?.nome ?? linha.nome,
+      categoria: doCatalogo?.categoria ?? "",
+      imagem: doCatalogo?.imagem ?? linha.imagem,
+      preco,
+      precoComDesconto: comDesconto(preco),
+      texto: textoDaOferta(motivo, antes),
+    }
+  }
+
+  const escolha = escolherBump(catalogo, sacolaDe(base.itens), base.subtotal, modelo, base.id)
+  if (!escolha) return null
   return {
-    ...achado,
-    precoComDesconto: Math.round(achado.preco * (1 - BUMP.desconto / 100) * 100) / 100,
+    ...escolha.item,
+    precoComDesconto: comDesconto(escolha.item.preco),
+    texto: textoDaOferta(escolha.motivo, base.itens),
+  }
+}
+
+/**
+ * ENSINA O MOTOR: conta pro Medusa o que a oferta mostrou neste pedido, e se
+ * a pessoa marcou (`POST /store/recomendacoes/oferta`, que grava no pedido).
+ *
+ * Roda DEPOIS da resposta (`after()`, na ação de finalizar), com o carrinho
+ * como ele fechou. A oferta é refeita aqui, com a mesma conta que desenhou a
+ * tela — e dá a mesma resposta, porque a escolha é a mesma pro mesmo
+ * carrinho. Falhar aqui só custa um pedido a menos no aprendizado: a
+ * compra já está feita.
+ */
+export async function registrarOferta(pedidoId: string, carrinho: Carrinho): Promise<void> {
+  const sdk = cliente()
+  const segredo = process.env.REVALIDAR_SEGREDO
+  if (!sdk || !segredo) return
+
+  try {
+    const bumpAplicado = bumpDoCarrinho(carrinho)
+    const oferta = await lerBump({
+      ...paraVisivel(carrinho),
+      regiaoId: carrinho.region_id ?? "",
+      bumpAplicado,
+    })
+    if (!oferta) return
+    await sdk.client.fetch("/store/recomendacoes/oferta", {
+      method: "POST",
+      headers: { "x-loja-segredo": segredo },
+      body: { pedido: pedidoId, produto: oferta.handle, aceito: bumpAplicado === oferta.handle },
+    })
+  } catch (e) {
+    aviso(e, `registrar a oferta do pedido ${pedidoId}`)
   }
 }
 

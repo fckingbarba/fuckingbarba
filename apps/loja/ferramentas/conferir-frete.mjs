@@ -594,8 +594,9 @@ try {
   async function sacolaNoNavegador() {
     /* `LOJA`, como nos outros conferidores que abrem navegador. */
     const LOJA = process.env.LOJA ?? "http://localhost:3000"
-    /* O shampoo, e não o óleo: o óleo é o do order bump, e a sacola não
-       tem nada a ver com isso — mas o checkout do fim do teste tem. */
+    /* O shampoo, o mesmo do conferir-checkout. A oferta do checkout do fim
+       do teste muda com os pedidos da loja, e o teste dela lê o produto que
+       a tela mostrar. */
     const HANDLE = "shampoo-para-barba"
     const CEP_DA_SACOLA = "90010-150"
 

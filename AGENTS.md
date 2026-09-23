@@ -342,10 +342,28 @@ entrega pendurada, toda mudança de quantidade faz o Medusa cotar de novo; o `co
 `/store/frete` recebe `cart_id` quando quem pergunta é a sacola.
 O **"leva junto"** da gaveta (`components/sacola/leva-junto.tsx`) sai de uma lista pronta do
 servidor: `vitrineDaSacola` (`lib/medusa.ts`, cacheada com a tag `produtos`) é lida no layout raiz
-e entregue à `<Gaveta>`; a escolha de até três, na hora, é `escolherLevaJunto`
-(`lib/carrinho-visivel.ts`). "Adicionar" entra na fila das quantidades (`comCarrinho`). Os logos
-das bandeiras são os oficiais, em arquivo (`public/bandeiras/`, MPL-2.0 — ver o `LICENCA.txt` de
-lá).
+e entregue à `<Gaveta>` junto com o modelo do motor de recomendação; a escolha de até três, na
+hora, é `escolherLevaJunto` (`lib/recomendacao.ts`). "Adicionar" entra na fila das quantidades
+(`comCarrinho`). Os logos das bandeiras são os oficiais, em arquivo (`public/bandeiras/`, MPL-2.0
+— ver o `LICENCA.txt` de lá).
+
+O **motor de recomendação** (o "leva junto" e a oferta do checkout; nada se escolhe no admin) tem
+duas metades. O BACKEND monta o modelo (`apps/backend/src/lib/recomendacao.ts`, pura, com testes):
+afinidade entre produtos pelos pedidos do último ano, com a rotina da PDP e a categoria como
+crença inicial (vale 10 pedidos), as peças de cada kit (pelo nome), a popularidade e o peso
+aprendido de cada oferta (`fb_bump` no metadata do pedido). `GET /store/recomendacoes` entrega o
+modelo só pra loja (`x-loja-segredo`, `daLoja` em `lib/quem-pede.ts`), com 10 min de memória; a
+loja guarda 1 h (`modeloDeRecomendacao`; erro guarda minutos). A LOJA decide
+(`escolherLevaJunto`, `escolherBump`): noisy-or da afinidade mais a popularidade, peso pro frete
+grátis na gaveta, preço perto do pedido na oferta, e 10% de exploração sorteada pelo id do
+carrinho (a mesma oferta a cada recarga). A oferta tem uma promoção de 10% POR PRODUTO
+(`lib/bumps.ts`; o job `bumps` mantém de hora em hora, o `promocoes` faz na hora), com código
+`BUMP-<HANDLE>-<8 hex>` assinado por HMAC do `REVALIDAR_SEGREDO` — a loja calcula o mesmo em
+`lib/bump.ts`. `alternarBump` tira qualquer outro código de oferta antes de aplicar (uma oferta por
+vez) e não refaz a escolha; `finalizar` registra a oferta no pedido em `after()`
+(`registrarOferta` → `POST /store/recomendacoes/oferta`, grava uma vez). A frase da caixinha só
+afirma o que o modelo prova (`Motivo`). `ferramentas/conferir-recomendacao.mjs` roda as duas
+metades juntas, sem servidor.
 
 A **newsletter** do rodapé é um módulo próprio (`src/modules/newsletter/`, tabela
 `newsletter_inscricao`): só o e-mail, a origem e a data do consentimento, como a Política de

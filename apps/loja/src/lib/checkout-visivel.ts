@@ -131,6 +131,9 @@ export type Oferta = {
   precoComDesconto: number
 }
 
+/** A oferta do checkout: o produto, e a frase que diz por que ele (`BUMP`, no `conteudo`). */
+export type OfertaDoBump = Oferta & { texto: string }
+
 export type CupomAplicado = { codigo: string }
 
 export type CheckoutVisivel = {
@@ -149,8 +152,12 @@ export type CheckoutVisivel = {
   /** id da opção de frete já pendurada no carrinho. */
   freteEscolhido: string | null
   cupons: CupomAplicado[]
-  /** `true` quando o código do bump está no carrinho. */
-  bumpMarcado: boolean
+  /**
+   * O produto da oferta do checkout que está MARCADA — o código dela está no
+   * carrinho —, ou `null`. É o que mantém a caixinha no mesmo produto depois
+   * de marcada: é por ela que se desmarca.
+   */
+  bumpAplicado: string | null
 }
 
 /**

@@ -130,7 +130,7 @@ async function Conteudo() {
   */
   const fretes = checkout.entrega.cep ? await listarFretes(checkout.id) : []
   const provedores = await listarProvedores(checkout.regiaoId)
-  const bump = await lerBump(checkout.regiaoId, jaNoCarrinho, checkout.bumpMarcado)
+  const bump = await lerBump(checkout)
   const sugestoes = await listarSugestoes(checkout.regiaoId, falta, jaNoCarrinho)
 
   return (

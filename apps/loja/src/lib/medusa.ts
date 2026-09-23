@@ -5,6 +5,7 @@ import { cacheLife, cacheTag } from "next/cache"
 import type { SugestaoDaSacola } from "./carrinho-visivel"
 import { PADRAO, type Configuracoes } from "./configuracoes"
 import { emReais } from "./formato"
+import type { ModeloDeRecomendacao } from "./recomendacao"
 
 /**
  * Único ponto de contato com o Medusa. Regras:
@@ -76,6 +77,9 @@ export const TAGS = {
   /* O que o admin edita: política de frete e dados da empresa. Derrubada
      pelo próprio admin ao salvar, via POST /api/revalidar. */
   configuracoes: "configuracoes",
+  /* O modelo do motor de recomendação. Ninguém derruba: vale uma hora, e a
+     próxima leitura já traz o que os pedidos novos ensinaram. */
+  recomendacoes: "recomendacoes",
 } as const
 
 /** Campos que a vitrine precisa; o resto fica no servidor. */
@@ -167,12 +171,14 @@ const esperar = (ms: number) => new Promise<void>((pronto) => setTimeout(pronto,
 async function lerDoMedusa<T>(
   contexto: string,
   caminho: string,
-  query?: Record<string, unknown>
+  query?: Record<string, unknown>,
+  cabecalhos?: Record<string, string>
 ): Promise<T> {
   for (let tentativa = 0; ; tentativa++) {
     try {
       return await sdk!.client.fetch<T>(caminho, {
         query,
+        headers: cabecalhos,
         signal: AbortSignal.timeout(PRAZO_MS),
         cache: "no-store",
       })
@@ -568,7 +574,7 @@ export function temEstoque(variante: HttpTypes.StoreProductVariant, unidades = 1
 
 /**
  * OS PRODUTOS DO "LEVA JUNTO" DA SACOLA, prontos pra gaveta escolher
- * (`escolherLevaJunto`, em `lib/carrinho-visivel.ts`): os mesmos da
+ * (`escolherLevaJunto`, em `lib/recomendacao.ts`): os mesmos da
  * vitrine, só os que vão pra sacola num clique (`varianteDoCard`, logo
  * abaixo) — sem estoque ou com variação pra escolher, ficam de fora.
  *
@@ -588,6 +594,43 @@ export async function vitrineDaSacola(): Promise<SugestaoDaSacola[]> {
       { varianteId, handle: p.handle, nome: p.title ?? "", imagem: p.thumbnail ?? null, preco },
     ]
   })
+}
+
+/**
+ * O MODELO DO MOTOR DE RECOMENDAÇÃO (`lib/recomendacao.ts`), ou `null`.
+ *
+ * Vem do Medusa, assinado com o `REVALIDAR_SEGREDO` — a rota só responde à
+ * loja, porque montar o modelo lê um ano de pedidos. Vale uma hora.
+ *
+ * FALHA NÃO FICA GUARDADA POR UMA HORA. Medusa fora do ar é coisa de
+ * segundos, e guardar o `null` por uma hora deixaria a gaveta na regra
+ * antiga e o checkout sem oferta até a próxima leitura. Por isso o `null`
+ * de erro vale minutos (`cacheLife` diferente em cada caminho — o Next
+ * deixa, contanto que só um rode). Sem o segredo, o `null` vale a hora: não
+ * é tropeço, é configuração.
+ */
+export async function modeloDeRecomendacao(): Promise<ModeloDeRecomendacao | null> {
+  "use cache"
+  cacheTag(TAGS.recomendacoes)
+  const segredo = process.env.REVALIDAR_SEGREDO
+  if (!sdk || !segredo) {
+    cacheLife("hours")
+    return null
+  }
+  try {
+    const { modelo } = await lerDoMedusa<{ modelo: ModeloDeRecomendacao }>(
+      "recomendações",
+      "/store/recomendacoes",
+      undefined,
+      { "x-loja-segredo": segredo }
+    )
+    cacheLife("hours")
+    return modelo
+  } catch (e) {
+    console.warn(e instanceof Error ? e.message : String(e))
+    cacheLife("minutes")
+    return null
+  }
 }
 
 /**

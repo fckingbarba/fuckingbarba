@@ -81,9 +81,11 @@ frete escolhido? Quem recarrega, fecha o navegador ou abre em outra aba cai onde
 
 **As ofertas são de verdade.** O chip de "completa o frete grátis" só sugere produto que SOZINHO
 fecha a conta — sugerir um que não fecha transforma a promessa em mentira. E o desconto do order
-bump existe no Medusa (`apps/backend/src/scripts/promocoes.ts`): marcar a caixinha aplica um
-código de promoção, desmarcar remove. O `20` de `conteudo/checkout.ts` e o do script precisam
-bater; o conferidor prova que batem.
+bump existe no Medusa, uma promoção por produto (`apps/backend/src/lib/bumps.ts`): marcar a
+caixinha aplica o código daquele produto, desmarcar remove. O `10` de `conteudo/checkout.ts` e o
+`DESCONTO_DO_BUMP` do backend precisam bater; o conferidor prova que batem. Qual produto a
+caixinha oferece — e o que o "leva junto" da sacola mostra — é o motor de recomendação
+(`lib/recomendacao.ts`), pelo que está na sacola.
 
 Coisas que custaram caro e agora estão travadas em teste:
 
@@ -110,6 +112,7 @@ re-renderiza na resposta da ação, e o frete apareceria com o valor velho.
 
 ```bash
 node ferramentas/conferir-documento.mjs   # CPF e CNPJ (inclusive o alfanumérico)
+node ferramentas/conferir-recomendacao.mjs    # o motor do "leva junto" e da oferta, sem servidor
 node ferramentas/conferir-checkout.mjs    # compra de verdade, com Medusa e loja de pé
 node ferramentas/conferir-catalogo.mjs    # /barba, /cabelo, /kits e /produtos
 node ferramentas/conferir-links.mjs       # nenhum link do site leva a 404

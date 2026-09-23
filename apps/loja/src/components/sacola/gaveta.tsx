@@ -11,6 +11,7 @@ import { useFrete } from "@/components/configuracoes/contexto"
 import type { SugestaoDaSacola } from "@/lib/carrinho-visivel"
 import { faltaPraPromocao, frasesDoFrete, progressoDaPromocao } from "@/lib/configuracoes"
 import { emReais } from "@/lib/formato"
+import type { ModeloDeRecomendacao } from "@/lib/recomendacao"
 import { DESTINO_DO_CHECKOUT, EM_BREVE, PARCELA_MINIMA, PARCELAS_SEM_JUROS } from "@/lib/site"
 
 /**
@@ -29,7 +30,14 @@ import { DESTINO_DO_CHECKOUT, EM_BREVE, PARCELA_MINIMA, PARCELAS_SEM_JUROS } fro
  * ele, a gaveta continua no Tab escondida fora da tela, e quem navega por
  * teclado passeia por dez botões invisíveis antes de chegar no conteúdo.
  */
-export function Gaveta({ vitrine }: { vitrine: readonly SugestaoDaSacola[] }) {
+export function Gaveta({
+  vitrine,
+  modelo,
+}: {
+  vitrine: readonly SugestaoDaSacola[]
+  /** O modelo do "Leva junto" — `null` quando o Medusa não respondeu. */
+  modelo: ModeloDeRecomendacao | null
+}) {
   const sacola = useSacola()
   const painel = useRef<HTMLDivElement>(null)
   const fechaRef = useRef<HTMLButtonElement>(null)
@@ -247,7 +255,7 @@ export function Gaveta({ vitrine }: { vitrine: readonly SugestaoDaSacola[] }) {
           */}
           {/* O "leva junto" entre a lista e o frete, como no protótipo: primeiro
               o que mais cabe na sacola, depois quanto custa mandar. */}
-          {vazia ? null : <LevaJunto vitrine={vitrine} aoNavegar={aoNavegar} />}
+          {vazia ? null : <LevaJunto vitrine={vitrine} modelo={modelo} aoNavegar={aoNavegar} />}
           {vazia ? null : <FreteEPrazo />}
         </div>
 

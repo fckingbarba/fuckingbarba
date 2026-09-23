@@ -34,6 +34,18 @@ export function quemPede(req: MedusaRequest): { chave: string; assinado: boolean
   return { chave: `direto:${req.ip ?? "?"}`, assinado: false }
 }
 
+/**
+ * O pedido veio do SERVIDOR DA LOJA — assinado com o `REVALIDAR_SEGREDO`.
+ *
+ * Pras rotas que só a loja chama (o modelo de recomendação, o registro da
+ * oferta do checkout): sem a assinatura, é qualquer um na internet.
+ */
+export function daLoja(req: MedusaRequest): boolean {
+  const segredo = process.env.REVALIDAR_SEGREDO
+  const assinatura = req.headers["x-loja-segredo"]
+  return Boolean(segredo) && typeof assinatura === "string" && iguais(assinatura, segredo!)
+}
+
 function iguais(recebido: string, esperado: string): boolean {
   const a = Buffer.from(recebido)
   const b = Buffer.from(esperado)

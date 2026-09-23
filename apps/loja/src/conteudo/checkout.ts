@@ -11,24 +11,36 @@ import { PARCELAS_SEM_JUROS } from "@/lib/site"
 /* ── order bump ───────────────────────────────────────────────────────────── */
 
 /**
- * A caixinha colada no botão de pagar.
+ * A caixinha colada no botão de pagar — a OFERTA DO CHECKOUT.
  *
- * `handle` e `desconto` PRECISAM BATER com `apps/backend/src/scripts/promocoes.ts`:
- * lá o desconto existe de verdade, como promoção com código, e é ele que o
- * Medusa cobra. O número aqui é só pra tela poder escrever "20% off" antes de
- * a pessoa marcar — o "de" e o "por" em reais vêm do carrinho depois que o
- * Medusa aplicou.
+ * O PRODUTO NÃO É ESCOLHIDO AQUI: quem escolhe é o motor de recomendação
+ * (`escolherBump`, em `lib/recomendacao.ts`), carrinho a carrinho — o que
+ * mais combina com o que já está na sacola, entre os produtos com a
+ * promoção ligada no Medusa. Aqui moram o desconto e as frases.
  *
- * `codigo` é a promoção que o checkout aplica quando a caixinha é marcada, e
- * remove quando é desmarcada.
+ * `desconto` PRECISA BATER com `DESCONTO_DO_BUMP`, em
+ * `apps/backend/src/lib/bumps.ts`: lá o desconto existe de verdade, uma
+ * promoção por produto, e é ele que o Medusa cobra. O número aqui é só pra
+ * tela escrever o "por" antes de a pessoa marcar — depois de marcada, o total
+ * vem do carrinho, com o desconto que o Medusa aplicou. O conferidor do
+ * checkout prova que os dois batem.
  *
- * Pra desligar o bump, é só `null`.
+ * AS FRASES DIZEM POR QUE AQUELE PRODUTO, e só o que dá pra provar (o
+ * `Motivo`, em `lib/recomendacao.ts`): "quem compra X também leva" só com
+ * os pedidos mostrando (pelo menos cinco, e 15% de quem compra X);
+ * "combina" só com a rotina da PDP dizendo; "mais pedidos" só com a loja
+ * tendo pedido bastante pra saber. Sem nada disso, a frase fala só do
+ * desconto. `nome` é o do produto da sacola, curto ("Óleo para Barba", sem
+ * a marca e o tamanho).
  */
 export const BUMP = {
-  handle: "oleo-para-barba",
-  codigo: "BUMP-OLEO",
-  desconto: 20,
-  texto: "Quem leva tratamento costuma levar o óleo junto — só nessa tela, com desconto.",
+  desconto: 10,
+  porque: {
+    juntos: (nome: string) => `Quem compra ${nome} também leva`,
+    combina: (nome: string) => `Combina com ${nome}`,
+    popular: "Um dos mais pedidos da loja",
+  },
+  oferta: (desconto: number) => `só nessa tela, com ${desconto}% de desconto.`,
 } as const
 
 /* ── prova social ─────────────────────────────────────────────────────────── */
