@@ -1,7 +1,7 @@
 "use client"
 
 import Image from "next/image"
-import { useEffect, useRef, useState, useTransition } from "react"
+import { useEffect, useId, useRef, useState, useTransition } from "react"
 import { Caminhao, Cartao, EscudoCerto, Raio, Sacola, Triangulo } from "@/components/icones"
 import { EVENTO_SACOLA } from "@/components/sacola/contexto"
 import { adicionar, adicionarVarios } from "@/lib/acoes/carrinho"
@@ -84,6 +84,8 @@ export function Compra({
   const degrau = degraus[emVigor] ?? base
   const maximo = estoque === null ? MAX : Math.max(1, Math.min(MAX, estoque))
   const disponivel = estoque === null ? base.disponivel : estoque >= unidades
+  // Tem pelo menos uma pra mandar — é o que "envio imediato" promete.
+  const temEstoque = estoque === null ? base.disponivel : estoque >= 1
 
   const total = emCentavos(degrau.porUnidade * unidades)
   const parcela = total / PARCELAS_SEM_JUROS
@@ -364,6 +366,11 @@ export function Compra({
 
       <Escassez unidades={estoque} />
 
+      {/*
+        QUATRO GARANTIAS, dois por dois (pedido da loja em 23/09). Sem política
+        de frete, ou sem estoque, sobram três — e a última ocupa a linha
+        inteira (`.compra__garantias li:last-child:nth-child(odd)`).
+      */}
       <ul className="compra__garantias">
         {frases ? (
           <li>
@@ -371,19 +378,21 @@ export function Compra({
             <span>
               {frases.selo}
               {/*
-                A LETRA MIÚDA MORAVA NO MEDIDOR, e o medidor saiu.
-
-                Com `alvo: "mais-barata"`, "frete grátis" sozinho deixa a
-                pessoa entender que o Sedex também sai de graça — e ela
-                descobre que não no checkout, que é o pior lugar possível.
-                A calculadora ali em cima mostra isso em números depois do
-                CEP; este selo é o que a página afirma ANTES de qualquer
-                CEP, então é aqui que a ressalva precisa estar.
+                Só a condição. A ressalva "vale na opção de entrega mais
+                barata" saiu daqui a pedido da loja (23/09): qual entrega sai
+                de graça a pessoa vê em números na calculadora, logo acima, e
+                de novo na sacola e no checkout, onde escolhe.
               */}
-              <small>
-                {frases.condicao}
-                {frases.nota ? ` · ${frases.nota}` : ""}
-              </small>
+              <small>{frases.condicao}</small>
+            </span>
+          </li>
+        ) : null}
+        {/* Só com estoque: "envio imediato" de um produto esgotado seria mentira. */}
+        {temEstoque ? (
+          <li>
+            <Raio />
+            <span>
+              Envio imediato<small>Pronta entrega</small>
             </span>
           </li>
         ) : null}
@@ -531,6 +540,14 @@ function Degraus({
     (a, b, i) => (b.economia > 0 && b.porUnidade < degraus[a]!.porUnidade ? i : a),
     0
   )
+  /*
+    O NOME DO GRUPO É DESTA PDP, e não "degrau" pra todas. O Next guarda a
+    página de produto anterior escondida no documento (o `<Activity>`), e
+    rádios com o mesmo nome são UM grupo no documento inteiro: marcar um lá
+    desmarcava o daqui. Quem ia de uma PDP pra outra pelo site via os
+    cartões sem nenhum marcado, com o preço de 2 unidades valendo.
+  */
+  const grupo = useId()
 
   return (
     <fieldset className="compra__kits">
@@ -557,7 +574,7 @@ function Degraus({
 
               <input
                 type="radio"
-                name="degrau"
+                name={grupo}
                 value={d.unidades}
                 checked={i === escolhido}
                 disabled={!d.disponivel}
