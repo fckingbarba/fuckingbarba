@@ -293,7 +293,9 @@ export async function configuracoes(): Promise<Configuracoes> {
     "configurações",
     "/store/configuracoes"
   )
-  return c ?? PADRAO
+  // `home` chegou depois: um Medusa de antes dele responde sem o campo, e a
+  // loja segue com a foto em vez de quebrar a home.
+  return c ? { ...c, home: c.home ?? PADRAO.home } : PADRAO
 }
 
 export type Promocao = { titulo: string; termina_em: string }

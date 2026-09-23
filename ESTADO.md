@@ -286,10 +286,13 @@ aparecem na conta e no log, sem e-mail automático — esses a loja conversa com
       `apps/backend/src/scripts/medidas.ts`.
 - [ ] Rua e número da origem (CEP 89036370) em `apps/backend/src/scripts/origem.ts`, pra etiqueta.
 - [ ] Apagar os dois rascunhos duplicados de óleo no admin.
-- [ ] **Decidir o "Leve junto" da caixa de compra da PDP** (as caixinhas embaixo das quantidades,
-      que vão no mesmo clique do "Adicionar à sacola"). Hoje ele só aparece com produtos escolhidos
-      no admin (Venda combinada), e nenhum produto tem — então não aparece em lugar nenhum. O motor
-      pode preencher sozinho; é uma seção nova em toda PDP, por isso a pergunta.
+- [ ] **O "Leve junto" da caixa de compra da PDP vai ser escolha do admin, por produto, e
+      exclusiva com os cartões de quantidade** (o "order bump" da PDP): ou um, ou o outro — os dois
+      juntos deixam a caixa grande demais (decidido em 23/09, pra fazer depois). Hoje as duas
+      coisas são independentes no widget da PDP (a chave "kits" e a lista de produtos que
+      combinam), e o Leve junto só aparece com produtos escolhidos — nenhum tem, então não aparece
+      em lugar nenhum. Quando for feito, os produtos dele podem sair do motor de recomendação, como
+      nos outros cross-sells, e o admin só decide qual dos dois a caixa mostra.
 - [x] **O frete da sacola cotava duas vezes com 2 ou mais unidades** (achado e consertado em
       23/09). A rota `/store/frete` declarava à Frenet o valor cheio (2 × R$ 49,90 = R$ 99,80) e o
       Medusa, o valor com o desconto por quantidade (R$ 94,90): perguntas diferentes, duas cotações
@@ -308,6 +311,23 @@ aparecem na conta e no log, sem e-mail automático — esses a loja conversa com
       o preço pedido com a quantidade (`calculated_price` com `quantity`, que é como o Medusa
       escolhe a faixa). `conferir-frete` 70/70; as cinco conferências novas (parte 8½, com o piso
       entre a faixa e o cheio, pela sacola e pela PDP) falham no código de antes.
+- [x] **Home: a seção "O cuidado que impõe presença" ficou enxuta, e aceita vídeo** (23/09).
+  - O texto caiu de quatro parágrafos e dois gritos pra dois parágrafos e um grito, e tudo —
+    título, texto, números e o botão — foi pro lado da foto. A seção foi de 759 pra 525px no
+    computador e de 1247 pra 903px no celular (com um vídeo em pé: 640 e 1102px).
+  - **O vídeo sobe pelo admin**, em Configurações da loja → Home → "Vídeo da história da marca".
+    Entra no lugar da foto, e a foto vira a capa até ele começar. Toca sozinho e sem som quando a
+    pessoa chega na seção (e só baixa aí), em loop, com botão de pausar — e de ligar o som,
+    quando o vídeo tem som. MP4, de preferência em pé; .MOV do iPhone é recusado com o aviso de
+    exportar como MP4. "Tirar o vídeo" volta a foto.
+  - O `conferir-configuracoes` voltou a passar: lia a tela uma vez só, e a primeira visita
+    depois de salvar no admin ainda vem com a versão velha (a loja refaz a página no fundo). E
+    parou de apagar o frete de emergência ao restaurar a política.
+  - [ ] Subir o vídeo quando ele existir, e conferir no celular.
+  - [ ] Conferir os números da seção: "2016", "+1M clientes impactados" e "BR presença nacional"
+        estão marcados como CONFERIR desde o protótipo (`apps/loja/src/conteudo/home.ts`), junto
+        do "+1.000.000 clientes satisfeitos" do bloco do meio. Se o +1M for alcance nas redes, e
+        não cliente, o rótulo precisa dizer isso.
 - [ ] Dados reais da empresa no admin, em Configurações: CNPJ, razão social, endereço, WhatsApp,
       e-mail, horário e prazo de postagem. **Hoje nenhum está preenchido em produção**: o rodapé
       mostra "Entrar em contato" sem nada embaixo, e o `/contato` tem só o Instagram como canal

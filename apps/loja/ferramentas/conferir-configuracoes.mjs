@@ -55,8 +55,8 @@ const c = await lerPublica()
 
 confere("a rota devolve um objeto de configurações", c && typeof c === "object")
 confere(
-  "tem as três seções: frete, empresa, atendimento",
-  ["frete", "empresa", "atendimento"].every((k) => k in c),
+  "tem as quatro seções: frete, empresa, atendimento, home",
+  ["frete", "empresa", "atendimento", "home"].every((k) => k in c),
   `veio ${Object.keys(c ?? {}).join(", ")}`
 )
 confere(
@@ -75,6 +75,16 @@ confere(
   "atendimento tem whatsapp, email, horario e prazoDePostagem",
   ["whatsapp", "email", "horario", "prazoDePostagem"].every((k) => k in c.atendimento),
   JSON.stringify(c.atendimento)
+)
+/* O vídeo da história da marca: nenhum, ou inteiro — endereço e as duas
+   medidas, que é o que a home usa pra reservar o espaço antes de ele chegar. */
+confere(
+  "home.video é null ou { url, largura, altura }",
+  c.home?.video === null ||
+    (typeof c.home?.video?.url === "string" &&
+      Number.isInteger(c.home.video.largura) &&
+      Number.isInteger(c.home.video.altura)),
+  JSON.stringify(c.home)
 )
 confere(
   "quando há promoção, ela traz piso e alvo",
@@ -103,11 +113,21 @@ if (!EMAIL || !SENHA) {
   if (!entrar.ok) throw new Error(`login do admin falhou: ${entrar.status}`)
   const { token } = await entrar.json()
 
+  /*
+    A BASE É A DO ADMIN, e não a pública: a rota pública não mostra a
+    cotação de emergência, e gravar em cima dela apagava o frete de
+    emergência de quem rodasse este teste. O POST troca o objeto inteiro —
+    só o frete muda aqui; o resto vai como estava.
+  */
+  const { configuracoes: base } = await fetch(`${MEDUSA}/admin/configuracoes`, {
+    headers: { authorization: `Bearer ${token}` },
+  }).then((r) => r.json())
+
   const gravar = async (frete) => {
     const r = await fetch(`${MEDUSA}/admin/configuracoes`, {
       method: "POST",
       headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-      body: JSON.stringify({ frete, empresa: c.empresa, atendimento: c.atendimento }),
+      body: JSON.stringify({ ...base, frete }),
     })
     if (!r.ok) throw new Error(`gravar falhou: ${r.status}`)
     return r.json()
@@ -128,6 +148,14 @@ if (!EMAIL || !SENHA) {
 
   /** O texto que a loja mostra sobre frete, em três lugares diferentes. */
   const oQueATelaDiz = async () => {
+    /*
+      UMA VISITA DE AQUECIMENTO ANTES. O aviso do admin marca a página como
+      vencida, e a loja refaz ela no fundo: a primeira visita depois de
+      salvar ainda recebe a versão velha (e dispara a nova), a segunda já vem
+      certa. Sem isto o teste lê sempre a tela da troca ANTERIOR.
+    */
+    await fetch(`${LOJA}/?_=${Date.now()}`, { headers: { "cache-control": "no-cache" } })
+    await new Promise((pronto) => setTimeout(pronto, 1500))
     await pagina.goto(`${LOJA}/?_=${Date.now()}`, { waitUntil: "networkidle" })
     const esteira = await pagina.$$eval(".anuncio__lista li", (n) =>
       n.map((e) => e.textContent.trim())

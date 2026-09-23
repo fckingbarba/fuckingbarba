@@ -163,8 +163,9 @@ Documentação: https://docs.medusajs.com
 ## Configurações da loja
 
 A tela **Configurações da loja** no admin edita o que a vitrine anuncia: a política de frete
-(nenhuma / grátis / fixo, com piso, alvo e teto de custo) e os dados da empresa (razão social,
-CNPJ, endereço, WhatsApp, e-mail, horário, prazo de postagem).
+(nenhuma / grátis / fixo, com piso, alvo e teto de custo), os dados da empresa (razão social,
+CNPJ, endereço, WhatsApp, e-mail, horário, prazo de postagem) e o vídeo da história da marca, na
+home (`home.video`: sobe pelo módulo de arquivos, com a largura e a altura medidas na hora).
 
 Mora no `metadata` da store, sob a chave `fb_configuracoes`. O tipo e a validação estão em
 `src/lib/configuracoes.ts`, e há um gêmeo na loja — é contrato de rede, conferido de verdade pelo

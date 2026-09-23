@@ -1,5 +1,18 @@
 /*
   A história da marca, com os números do negócio e o convite pro catálogo.
+
+  ENXUTA (23/09): a mídia — a foto do óleo, ou o vídeo que o admin subiu —
+  fica de um lado, e TUDO o mais do outro: título, texto, números e o botão.
+  A seção passou a ter a altura da mídia, e não a soma de faixas
+  empilhadas. O `data-midia` do `.sobre__wrap` diz o que tem ali:
+
+    foto    — a coluna da mídia é proporcional, e a foto estica até a altura
+              da coluna do texto;
+    em-pe   — vídeo de celular: a altura é fixa e a largura sai da proporção
+              do vídeo (a coluna é `auto`);
+    deitado — vídeo deitado: a mídia fica com a maior parte da largura.
+
+  No celular, empilha: título, mídia, texto.
 */
 
 /* Entrelinha padrão do navegador, como no protótipo: o preflight do
@@ -53,8 +66,28 @@
   z-index: 1;
   max-width: 1320px;
   margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    "titulo"
+    "texto";
+  column-gap: clamp(22px, 3.5vw, 46px);
+}
+.sobre__wrap[data-midia] {
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  grid-template-rows: auto 1fr;
+  grid-template-areas:
+    "midia titulo"
+    "midia texto";
+}
+.sobre__wrap[data-midia="em-pe"] {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+.sobre__wrap[data-midia="deitado"] {
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
 }
 .sobre__titulo {
+  grid-area: titulo;
   margin: 4px 0 clamp(14px, 2vw, 20px);
   display: flex;
   align-items: center;
@@ -75,12 +108,11 @@
   align-self: flex-start;
   margin-top: 0.1em;
 }
-.sobre__corpo {
-  display: grid;
-  grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
-  gap: clamp(22px, 3.5vw, 46px);
+.sobre__texto {
+  grid-area: texto;
 }
 .sobre__midia {
+  grid-area: midia;
   position: relative;
   min-height: 300px;
   background: #0e1512;
@@ -88,13 +120,58 @@
   clip-path: polygon(18px 0, 100% 0, 100% calc(100% - 18px), calc(100% - 18px) 100%, 0 100%, 0 18px);
   filter: drop-shadow(10px 10px 0 var(--color-amarelo));
 }
-.sobre__midia img {
+.sobre__midia img,
+.sobre__midia video {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
+}
+/* Vídeo em pé: altura fixa, e a largura que a proporção dele pede. */
+.sobre__midia--em-pe {
+  align-self: start;
+  height: clamp(440px, 40vw, 560px);
+  aspect-ratio: var(--proporcao);
+  min-height: 0;
+}
+.sobre__midia--deitado {
+  align-self: center;
+  width: 100%;
+  aspect-ratio: var(--proporcao);
+  min-height: 0;
+}
+
+/* Pausar e ligar o som, no canto de baixo — com o mesmo corte da marca. O
+   foco vira borda de dentro: com `clip-path`, um contorno de fora some. */
+.sobre__controles {
+  position: absolute;
+  left: 16px;
+  bottom: 16px;
+  z-index: 1;
+  display: flex;
+  gap: 8px;
+}
+.sobre__controles button {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: 0;
+  background: rgba(18, 24, 31, 0.85);
+  color: var(--color-amarelo);
+  cursor: pointer;
+  clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px);
+}
+.sobre__controles button:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 3px var(--color-amarelo);
+}
+.sobre__controles svg {
+  width: 18px;
+  height: 18px;
 }
 .sobre__texto p {
   margin: 0 0 10px;
@@ -126,7 +203,7 @@
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 12px;
-  margin: clamp(18px, 2.4vw, 26px) 0 0;
+  margin: clamp(16px, 2vw, 22px) 0 0;
 }
 .sobre__numero {
   display: flex;
@@ -153,22 +230,43 @@
 }
 .sobre__fecho {
   display: flex;
-  justify-content: center;
-  margin-top: clamp(16px, 2.2vw, 24px);
+  justify-content: flex-start;
+  margin-top: clamp(16px, 2vw, 22px);
 }
 @media (max-width: 880px) {
-  .sobre__corpo {
-    grid-template-columns: 1fr;
+  .sobre__wrap[data-midia],
+  .sobre__wrap[data-midia="em-pe"],
+  .sobre__wrap[data-midia="deitado"] {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+    grid-template-areas:
+      "titulo"
+      "midia"
+      "texto";
   }
   .sobre__midia {
     width: calc(100% - 10px);
-    margin-right: 10px;
+    margin: 0 10px clamp(18px, 4vw, 24px) 0;
     aspect-ratio: 1 / 1;
     max-height: 300px;
     min-height: 0;
   }
+  .sobre__midia--em-pe {
+    justify-self: center;
+    width: min(72vw, 320px);
+    height: auto;
+    max-height: none;
+    aspect-ratio: var(--proporcao);
+  }
+  .sobre__midia--deitado {
+    max-height: none;
+    aspect-ratio: var(--proporcao);
+  }
   .sobre__titulo {
     max-width: none;
+  }
+  .sobre__fecho {
+    justify-content: center;
   }
 }
 @media (max-width: 560px) {

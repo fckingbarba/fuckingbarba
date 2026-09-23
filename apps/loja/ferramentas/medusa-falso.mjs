@@ -158,6 +158,7 @@ const CONFIGURACOES = {
   frete: { modo: "gratis", piso: 149.9, alvo: "mais-barata", tetoDeCusto: null },
   empresa: { razaoSocial: null, cnpj: null, endereco: null },
   atendimento: { whatsapp: null, email: null, horario: null, prazoDePostagem: null },
+  home: { video: null },
 }
 
 /* ── as fotos ─────────────────────────────────────────────────────────────── */
