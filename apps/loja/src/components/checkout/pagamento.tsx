@@ -37,7 +37,7 @@ import type { Configuracoes } from "@/lib/configuracoes"
 import { emReais } from "@/lib/formato"
 import { nomeNoCartao, tokenizar } from "@/lib/pagarme"
 import { CHECKOUT_ABERTO, PARCELA_MINIMA, PARCELAS_SEM_JUROS } from "@/lib/site"
-import { LogoDaBandeira } from "./bandeira"
+import { LogoDaBandeira } from "@/components/bandeira"
 import { Campo } from "./campo"
 import {
   Giro,

@@ -38,6 +38,12 @@ jobs:
       NEXT_PUBLIC_SITE_URL: http://localhost:3100
       NEXT_PUBLIC_LOJA_ATUAL_URL: https://exemplo.com.br
       NEXT_TELEMETRY_DISABLED: "1"
+      # O Medusa falso (apps/loja/ferramentas/medusa-falso.mjs), só de leitura:
+      # sem ele o build sai com o catálogo vazio e o Lighthouse mede uma
+      # categoria "sem produto" que o cliente nunca vê. Porta 9000 porque é a
+      # que o next.config.ts já libera pras fotos do Medusa local.
+      MEDUSA_BACKEND_URL: http://localhost:9000
+      NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY: pk_medusa_falso
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -47,10 +53,25 @@ jobs:
       - run: npm ci
       - run: npm run typecheck -w @fuckingbarba/loja
       - run: npm run lint -w @fuckingbarba/loja
+      - name: Medusa falso (só leitura), pro build e o Lighthouse verem produto
+        working-directory: apps/loja
+        run: |
+          node ferramentas/medusa-falso.mjs > /tmp/medusa-falso.log 2>&1 &
+          for i in $(seq 1 20); do
+            curl -sf http://localhost:9000/store/regions > /dev/null && exit 0
+            sleep 1
+          done
+          cat /tmp/medusa-falso.log
+          exit 1
       - run: npm run build -w @fuckingbarba/loja
       - name: Lighthouse CI (orçamentos em apps/loja/budgets.json)
         working-directory: apps/loja
         run: npx lhci autorun
+      # Rota que o falso não conhece aparece aqui ("sem rota") — é o primeiro
+      # lugar pra olhar quando o build quebra depois de uma tela nova.
+      - name: Log do Medusa falso
+        if: failure()
+        run: cat /tmp/medusa-falso.log || true
       - uses: actions/upload-artifact@v4
         if: always()
         with:

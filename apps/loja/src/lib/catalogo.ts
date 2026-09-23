@@ -28,26 +28,8 @@ import { site } from "@/lib/site"
  * isso vira paginação de verdade e a conversa muda — está anotado no README.
  */
 
-export const ORDENS = [
-  { id: "", nome: "Relevância" },
-  { id: "barato", nome: "Menor preço" },
-  { id: "caro", nome: "Maior preço" },
-  { id: "desconto", nome: "Maior desconto" },
-  { id: "novidade", nome: "Novidades" },
-] as const
-
-export type Ordem = (typeof ORDENS)[number]["id"]
-
-/**
- * `?ordem=` vem da URL, ou seja, de qualquer um. Valor que não está na lista
- * vira relevância em silêncio — a alternativa seria 404 numa página que
- * existe, por causa de um parâmetro que alguém digitou errado.
- */
-export function lerOrdem(valor: string | string[] | undefined): Ordem {
-  const texto = Array.isArray(valor) ? valor[0] : valor
-  const achou = ORDENS.find((o) => o.id === texto)
-  return achou ? achou.id : ""
-}
+export { ORDENS, lerOrdem, type Ordem } from "./ordens"
+import type { Ordem } from "./ordens"
 
 /** Desconto em fração (0,31 = 31% off). Sem preço cheio, não há desconto. */
 function descontoDe(produto: HttpTypes.StoreProduct): number {

@@ -10,9 +10,11 @@ import {
   WhatsApp,
   YouTube,
 } from "@/components/icones"
+import { LogoDaBandeira } from "@/components/bandeira"
 import { LogoCompleta } from "@/components/marca"
 import { Newsletter } from "./newsletter"
 import { Selos } from "./selos"
+import { BANDEIRAS_ACEITAS } from "@/lib/cartao"
 import { linkDoWhatsapp, whatsappNaTela } from "@/lib/configuracoes"
 import { configuracoes } from "@/lib/medusa"
 import { formasDePagamento, navegacao, parcelamento, redes, site } from "@/lib/site"
@@ -163,6 +165,16 @@ export async function Rodape() {
             <li>
               Cartão em até <b>{parcelamento}</b>
             </li>
+          </ul>
+          {/* As mesmas bandeiras que o campo do cartão reconhece no checkout
+              (`lib/cartao.ts`): a que o rodapé anuncia e a que o checkout
+              aceita saem da mesma lista. */}
+          <ul className="rodape__bandeiras" aria-label="Bandeiras aceitas no cartão">
+            {BANDEIRAS_ACEITAS.map((b) => (
+              <li key={b}>
+                <LogoDaBandeira bandeira={b} />
+              </li>
+            ))}
           </ul>
         </section>
       </div>

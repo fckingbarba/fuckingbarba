@@ -59,6 +59,12 @@ const SELOS = [
   },
 ] as const
 
+/*
+  `selos__item`, e não `selo`: a Minha conta tem a etiqueta "Principal" do
+  endereço com a classe `.selo`, e o CSS dela carrega DEPOIS do rodapé. As
+  duas brigavam, e a da conta ganhava — `inline-block`, maiúsculas, borda
+  cinza: o rodapé nunca mostrou este desenho, mostrava a etiqueta esticada.
+*/
 export function Selos() {
   return (
     <section className="selos" aria-labelledby="selos-titulo">
@@ -67,9 +73,11 @@ export function Selos() {
       </h2>
       <ul className="selos__lista">
         {SELOS.map(({ Icone, titulo, detalhe }) => (
-          <li className="selo" key={titulo}>
-            <Icone />
-            <span>
+          <li className="selos__item" key={titulo}>
+            <span className="selos__icone" aria-hidden="true">
+              <Icone />
+            </span>
+            <span className="selos__texto">
               <b>{titulo}</b>
               <small>{detalhe}</small>
             </span>

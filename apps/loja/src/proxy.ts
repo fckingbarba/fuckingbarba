@@ -1,10 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server"
 import redirects from "./redirects.json"
+import { ORDENS_COM_PAGINA } from "@/lib/ordens"
 import { COOKIE_SESSAO, destinoSeguro, sessaoParece } from "@/lib/sessao"
 import { emProducao, site } from "@/lib/site"
 
 /**
- * Roda antes de qualquer rota, no Node.js da Vercel. Três trabalhos:
+ * Roda antes de qualquer rota, no Node.js da Vercel. Cinco trabalhos:
  *
  * 1. Redirects 301 da Nuvemshop (redirects.json). É a tarefa mais importante
  *    da virada: cada URL antiga que o Google conhece precisa apontar pra nova.
@@ -23,6 +24,11 @@ import { emProducao, site } from "@/lib/site"
  *    `?para=` pra voltar depois); com sessão, o "entrar" vira a conta. Só
  *    olha o cookie, sem perguntar ao Medusa — é a checagem otimista do guia
  *    de autenticação do Next. A de verdade é a página, que pergunta.
+ *
+ * 5. A ordenação da vitrine: `/barba?ordem=barato` vira, por dentro, a
+ *    página estática `/barba/ordem/barato` — sem mudar o endereço na barra.
+ *    Ler o `?ordem=` na própria categoria a tornava dinâmica (esqueleto,
+ *    streaming, rodapé pulando); o porquê está em `components/catalogo/tela.tsx`.
  *
  * O Next já trata barra final (/x/ → /x); maiúscula vira 301 pra minúscula.
  */
@@ -58,6 +64,10 @@ const PAGINAS_RAIZ = new Set([
   "produtos",
 ])
 const CATEGORIAS = new Set<string>(site.categorias.map((c) => c.handle))
+
+/** Onde o `?ordem=` vale: as categorias e a lista inteira. */
+const ORDENAVEIS = new Set<string>([...CATEGORIAS, "produtos"])
+const ORDENS = new Set<string>(ORDENS_COM_PAGINA)
 
 function semBarraFinal(caminho: string): string {
   return caminho.length > 1 ? caminho.replace(/\/+$/, "") : caminho
@@ -106,6 +116,31 @@ export function proxy(req: NextRequest) {
     const url = req.nextUrl.clone()
     url.pathname = "/nao-encontrado"
     return NextResponse.rewrite(url)
+  }
+
+  /*
+    O endereço INTERNO da ordenação, digitado direto, volta pro público: uma
+    URL só por página. Não dá laço — o proxy roda uma vez por requisição, e
+    a troca de baixo (`rewrite`) acontece por dentro, sem passar por aqui de
+    novo.
+  */
+  if (segmentos.length === 3 && segmentos[1] === "ordem" && ORDENAVEIS.has(segmentos[0])) {
+    const url = req.nextUrl.clone()
+    url.pathname = `/${segmentos[0]}`
+    url.searchParams.set("ordem", segmentos[2])
+    return NextResponse.redirect(url, 301)
+  }
+
+  // `/barba?ordem=barato` → a página estática daquela ordem. Ordem que não
+  // existe segue pra categoria, que mostra a relevância.
+  const ordem = req.nextUrl.searchParams.get("ordem")
+  if (ordem && ORDENS.has(ordem) && segmentos.length === 1 && ORDENAVEIS.has(segmentos[0])) {
+    const url = req.nextUrl.clone()
+    url.pathname = `/${segmentos[0]}/ordem/${ordem}`
+    url.searchParams.delete("ordem")
+    const trocada = NextResponse.rewrite(url)
+    if (!emProducao) trocada.headers.set("X-Robots-Tag", "noindex, nofollow")
+    return trocada
   }
 
   if (segmentos[0] === "conta") {

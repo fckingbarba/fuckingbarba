@@ -64,6 +64,33 @@
   font-family: var(--font-sans);
   padding: clamp(26px, 3.2vw, 40px) clamp(16px, 3vw, 30px) clamp(34px, 4vw, 52px);
 }
+/*
+  A TELA QUE AINDA CHEGA POR PARTES — hoje só a `/busca`, que depende do
+  `?q=` e não tem como ser estática como a categoria (ver
+  `components/catalogo/tela.tsx`). O resultado vem por streaming, depois
+  de um esqueleto que nunca tem a altura exata do que vem.
+
+  NO MÍNIMO UMA TELA DE ALTURA segura o rodapé: com a página mais baixa que
+  a tela, ele aparecia no pé dela e PULAVA quando o resultado chegava — o
+  mesmo pulo que o Lighthouse do CI media no /barba (CLS de 0,09) antes de
+  a categoria virar estática. Ocupando a tela, o rodapé começa fora da
+  vista nos dois momentos. `svh` onde existe: no celular, é a altura com a
+  barra do navegador aberta, a que a pessoa de fato vê.
+*/
+.catalogo--por-partes {
+  min-height: 100vh;
+  min-height: 100svh;
+}
+/* A faixa do caminho ("Início / Busca") no esqueleto: vazia, só pra ocupar
+   a altura dela — senão a página inteira desce quando a de verdade chega. */
+.migalhas--esqueleto {
+  min-height: 36px;
+}
+@media (min-width: 1000px) {
+  .migalhas--esqueleto {
+    min-height: 48px;
+  }
+}
 .catalogo__wrap {
   max-width: 1320px;
   margin: 0 auto;
@@ -239,6 +266,14 @@
   background-repeat: no-repeat;
   background-position: right 11px center;
   background-size: 11px;
+}
+/* iPhone: campo com letra abaixo de 16px faz o Safari dar zoom na página
+   inteira ao tocar nele — e a pessoa volta pra tela ampliada e cortada.
+   Só em tela de toque: no computador o desenho fica como estava. */
+@media (pointer: coarse) {
+  .ordena__select {
+    font-size: 1rem;
+  }
 }
 .ordena__vai {
   display: inline-flex;

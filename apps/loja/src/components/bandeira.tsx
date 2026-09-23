@@ -2,7 +2,8 @@ import type { ReactNode } from "react"
 import { NOMES_DAS_BANDEIRAS, type Bandeira } from "@/lib/cartao"
 
 /**
- * O LOGO DA BANDEIRA, no fim do campo do número do cartão.
+ * O LOGO DA BANDEIRA — no fim do campo do número do cartão (checkout) e ao
+ * lado de "Cartão em até 3x sem juros" (rodapé).
  *
  * Desenhado aqui, em SVG, e não baixado de lugar nenhum: cinco marcas de
  * 40×26 não justificam uma dependência nem uma imagem a mais na página que

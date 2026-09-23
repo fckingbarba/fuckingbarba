@@ -141,6 +141,14 @@
   font-family: var(--font-sans);
   font-size: 0.9rem;
 }
+/* iPhone: campo com letra abaixo de 16px faz o Safari dar zoom na página
+   inteira ao tocar nele — e a pessoa volta pra tela ampliada e cortada.
+   Só em tela de toque: no computador o desenho fica como estava. */
+@media (pointer: coarse) {
+  .cabecalho__busca input {
+    font-size: 1rem;
+  }
+}
 .cabecalho__busca input::placeholder {
   color: #8b929a;
 }

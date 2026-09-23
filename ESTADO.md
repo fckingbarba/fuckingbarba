@@ -6,10 +6,11 @@ abre preenchido pra quem está na conta (e guarda o endereço da compra), e o "M
 cabeçalho apontando pra ela. No mesmo dia, o estorno que o Pagar.me não faz (a conciliação confere,
 avisa e pede de novo), a API de pedido fechada pra quem só tem o id, o e-mail de pedido confirmado
 ligado, as páginas de Contato e Dúvidas no lugar do `/em-breve`, a busca de verdade na lupa do
-cabeçalho e o checkout mais enxuto, com o logo da bandeira no campo do cartão; em 21/09, o conserto
-do cache e o rastreio da Frenet chegando no pedido, na conta e no e-mail. O AGENTS.md diz **como**
-trabalhar aqui; este arquivo diz **onde** o projeto está. Leia os dois antes de começar e, ao
-terminar uma tarefa, atualize este: o que mudou de estado, o que saiu da lista, o que entrou.
+cabeçalho, o checkout mais enxuto (com o logo da bandeira no campo do cartão), a categoria
+estática e o CI medindo a loja com produto; em 21/09, o conserto do cache e o rastreio da Frenet
+chegando no pedido, na conta e no e-mail. O AGENTS.md diz **como** trabalhar aqui; este arquivo diz
+**onde** o projeto está. Leia os dois antes de começar e, ao terminar uma tarefa, atualize este: o
+que mudou de estado, o que saiu da lista, o que entrou.
 
 ## No ar hoje
 
@@ -323,12 +324,36 @@ aparecem na conta e no log, sem e-mail automático — esses a loja conversa com
       Discover, JCB) — antes, todo Visa começando com 4011 era chamado de Elo, e um Discover
       ganharia o logo da Elo. Enquanto o número ainda pode ser de duas bandeiras, nenhum logo
       aparece: na prática, Visa no segundo ou terceiro dígito, Elo e Hipercard no sexto. Os logos
-      são SVG desenhados na loja (`components/checkout/bandeira.tsx`).
+      são SVG desenhados na loja (`components/bandeira.tsx`).
 - [x] **O campo do número do cartão perdia o foco no primeiro dígito** (achado e resolvido em 22/09).
       O espaço da bandeira entrava e saía da tela junto com ela, e o `Campo` trocava o input de
       lugar — o React montava outro, e quem digitava perdia o cursor bem quando a bandeira aparecia
       (o mesmo bug que o CEP já tinha tido). Agora o espaço fica sempre montado, vazio até a
       bandeira. O `conferir-checkout` digita tecla por tecla e confere o foco.
+- [x] **O CI mede a loja com produto — e passa** (22/09). Sem Medusa no CI, o build saía com o
+      catálogo vazio e o Lighthouse media um `/barba` "sem produto": o CLS de 0,09 era o rodapé
+      pulando quando o esqueleto dava lugar ao aviso de vazio, e o LCP de 3,2s era o texto desse
+      aviso. (O PR #6 não tinha piorado nada: o run "verde" de antes dele tinha os mesmos números;
+      passou porque o CI fica com a melhor de duas medições, e uma escapou do pulo.) Agora o job sobe
+      `apps/loja/ferramentas/medusa-falso.mjs` — só leitura, os seis produtos de verdade, fotos
+      desenhadas na hora — e mede a grade de verdade: CLS 0, LCP 2,86s no `/barba` e 2,93s na home,
+      desempenho 0,95. Medindo com produto, ele achou um problema real que o vazio escondia: a grade
+      pulava do `h1` pro `h3` (o nome do card), e a acessibilidade dava 0,98 — ganhou um `h2`
+      "Produtos" só pra leitor de tela.
+- [x] **A categoria virou página estática** (22/09). Ler o `?ordem=` a tornava dinâmica (esqueleto,
+      streaming, rodapé pulando, LCP atrás dos scripts). Agora `/barba` é a relevância e o
+      `proxy.ts` troca `/barba?ordem=barato` por `/barba/ordem/barato`, gerada no build, sem mudar o
+      endereço; o mesmo pra `/produtos`. De brinde, a categoria e a lista inteira passaram a
+      funcionar com JavaScript desligado — a PDP continua precisando dele (README da loja).
+- [x] **Os selos de "Compra segura" do rodapé redesenhados** (22/09) — e o motivo de estarem feios:
+      a etiqueta "Principal" dos endereços da conta também se chamava `.selo`, e o CSS da conta,
+      carregado depois, vencia (`inline-block`, maiúsculas, borda). O rodapé nunca tinha mostrado o
+      desenho dele. Agora são `selos__item`: sem borda (a borda com chanfro quebrava nos cantos),
+      ícone numa caixinha menta. Ao lado de "Cartão em até 3x sem juros", os logos das cinco
+      bandeiras — os mesmos do campo do cartão, da mesma lista.
+- [x] **O zoom do iPhone ao tocar num campo** (22/09): a busca do cabeçalho, o CEP da sacola, o CEP
+      da página de produto, o e-mail de novidades e o "ordenar por" tinham letra abaixo de 16px, e o
+      Safari dava zoom na página inteira. Agora 16px em tela de toque; no computador, nada mudou.
 - [ ] **Minha conta**, em quatro partes (a quarta saiu da terceira). Protótipo aprovado:
       `apps/loja/ferramentas/porte/prototipo-conta.html`.
   - [x] 1. Entrar com código de 6 dígitos no e-mail, sem senha; o primeiro código cria a conta, e o

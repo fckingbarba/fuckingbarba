@@ -512,6 +512,14 @@
   letter-spacing: 0.06em;
   font-variant-numeric: tabular-nums;
 }
+/* iPhone: campo com letra abaixo de 16px faz o Safari dar zoom na página
+   inteira ao tocar nele — e a pessoa volta pra tela ampliada e cortada.
+   Só em tela de toque: no computador o desenho fica como estava. */
+@media (pointer: coarse) {
+  .sacolinha__cep input {
+    font-size: 1rem;
+  }
+}
 .sacolinha__cep input::placeholder {
   color: #98a1ab;
   font-weight: 500;
