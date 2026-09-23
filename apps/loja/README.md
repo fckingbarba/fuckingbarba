@@ -154,20 +154,24 @@ não lê como "categoria pequena", lê como "página quebrada".
 que o número diz quatro e a lista mostra três. Ela conta por `id` no trilho "Todos", porque um
 produto pode estar em duas categorias e a soma diria que a loja tem sete produtos quando tem seis.
 
-### Com JavaScript desligado, a grade não aparece
+### A categoria é estática — inclusive com `?ordem=`
 
-E isso vale também pra `/produtos` e pra **PDP** — é anterior à tela de categoria, não foi ela que
-trouxe. Com Cache Components, o que lê `searchParams` tem que ficar dentro de `<Suspense>`, e
-conteúdo em `<Suspense>` só é _revelado_ pelo script embutido que o React manda junto com o
-stream. Sem script, ele fica no HTML e fica escondido.
+`/barba`, `/cabelo`, `/kits` e `/produtos` não leem `searchParams`. A ordem padrão (relevância) é a
+própria página, e **o `proxy.ts` troca `/barba?ordem=barato` por `/barba/ordem/barato`** — uma
+página estática gerada no build, com o endereço na barra do navegador intacto (e o endereço
+interno, digitado direto, volta pro público com 301). A tela é a mesma nas duas:
+`src/components/catalogo/tela.tsx`.
 
-O que isso afeta, na prática: **buscador não**, porque o conteúdo está no HTML cru e os que rodam
-JS rodam esse script — o `conferir-catalogo.mjs` confere isso num `fetch`, sem navegador. Afeta
-quem navega com JavaScript desligado, que vê o esqueleto. A home, que não depende de
-`searchParams`, funciona normalmente sem JS.
+Era dinâmica, e custava três coisas: a grade vinha por streaming atrás de um esqueleto (o rodapé
+pulava quando ela chegava — CLS de 0,09 no Lighthouse do CI), o elemento principal da tela chegava
+depois dos scripts (LCP de 3,3s na simulação de 4G) e, **com JavaScript desligado, a grade não
+aparecia**: conteúdo em `<Suspense>` só é revelado pelo script embutido do stream. Agora as quatro
+funcionam sem JavaScript.
 
-Não tem conserto barato: tirar o `<Suspense>` faz o `next build` recusar a rota. Se um dia virar
-problema de verdade, o caminho é separar a lista padrão (estática) da ordenada (dinâmica).
+A **PDP** continua com esse limite — ela ainda tem partes dentro de `<Suspense>`. Buscador não é
+afetado (o conteúdo está no HTML cru, e os que rodam JS rodam o script); quem navega com
+JavaScript desligado vê o esqueleto nela. O `conferir-catalogo.mjs` confere a ordem num `fetch`,
+sem navegador.
 
 ## A página de produto é editável
 

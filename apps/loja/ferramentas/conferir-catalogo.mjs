@@ -168,14 +168,11 @@ try {
      que o Google lê — e não um embaralhamento que só existe depois que o
      JavaScript roda no navegador de quem abriu.
 
-     ATENÇÃO ao que este teste NÃO diz: ele não diz que a tela aparece com o
-     JavaScript desligado. Não aparece — e isso vale pra /barba, /produtos e
-     também pra PDP, que é anterior a tudo isto. Com Cache Components, o que
-     lê `searchParams` precisa ficar dentro de `<Suspense>`, e conteúdo em
-     `<Suspense>` só é REVELADO pelo script embutido que o React manda junto.
-     Sem script, ele fica no HTML mas escondido. Buscador enxerga (está no
-     HTML, e os que rodam JS rodam o script); gente com JavaScript desligado
-     vê o esqueleto. Está anotado no README. */
+     Desde que a categoria virou estática (o `proxy.ts` troca o `?ordem=`
+     por `/produtos/ordem/barato`, uma página gerada no build), este HTML é
+     a página inteira, visível — nada de `<Suspense>` escondendo a grade até
+     um script rodar. Quem ainda depende de script pra aparecer é a PDP. Está
+     anotado no README. */
   const html = await (await fetch(`${LOJA}/produtos?ordem=barato`)).text()
   const precosNoHtml = [...html.matchAll(/produto__por"[^>]*>R\$\s*([\d.]+),(\d{2})/g)].map(
     (m) => Number(`${m[1].replace(/\./g, "")}.${m[2]}`)

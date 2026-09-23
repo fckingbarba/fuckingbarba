@@ -59,7 +59,7 @@ async function Conteudo({ searchParams }: Pick<Props, "searchParams">) {
     <>
       <Migalhas trilha={trilha} />
 
-      <main className="catalogo" id="conteudo">
+      <main className="catalogo catalogo--por-partes" id="conteudo">
         <div className="catalogo__wrap">
           <div className="catalogo__cabeca">
             <h1 className="catalogo__titulo">
@@ -128,16 +128,21 @@ function SemResultado({ busca, prateleiras }: { busca: string; prateleiras: Prat
 
 function Esqueleto() {
   return (
-    <main className="catalogo" id="conteudo">
-      <div className="catalogo__wrap animate-pulse" aria-hidden="true">
-        <div className="h-14 w-48 bg-tinta/10" />
-        <div className="mt-6 h-12 max-w-[640px] border-2 border-tinta/20 bg-papel/60" />
-        <div className="catalogo__grade mt-10">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="aspect-[3/4] border-2 border-tinta/20 bg-papel/60" />
-          ))}
+    <>
+      {/* A faixa do caminho, vazia: a de verdade entra junto com a grade, e sem
+          esta a página inteira desceria quando ela chegasse. */}
+      <div className="migalhas migalhas--esqueleto" aria-hidden="true" />
+      <main className="catalogo catalogo--por-partes" id="conteudo">
+        <div className="catalogo__wrap animate-pulse" aria-hidden="true">
+          <div className="h-14 w-48 bg-tinta/10" />
+          <div className="mt-6 h-12 max-w-[640px] border-2 border-tinta/20 bg-papel/60" />
+          <div className="catalogo__grade mt-10">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="aspect-[3/4] border-2 border-tinta/20 bg-papel/60" />
+            ))}
+          </div>
         </div>
-      </div>
-    </main>
+      </main>
+    </>
   )
 }

@@ -90,7 +90,14 @@
   padding: 12px 14px 10px;
   background: var(--color-papel);
   border: 3px solid var(--color-tinta);
-  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+  clip-path: polygon(
+    10px 0,
+    100% 0,
+    100% calc(100% - 10px),
+    calc(100% - 10px) 100%,
+    0 100%,
+    0 10px
+  );
 }
 
 .cep__titulo {
@@ -265,5 +272,16 @@
   }
   .cep__botao {
     flex: 1;
+  }
+}
+
+/* iPhone: campo com letra abaixo de 16px faz o Safari dar zoom na página
+   inteira ao tocar nele — e a pessoa volta pra tela ampliada e cortada.
+   O campo do CEP da caixa de compra mora no `pdp.css`, que é GERADO — a
+   correção fica aqui, que carrega depois. Só em tela de toque: no
+   computador o desenho fica como estava. */
+@media (pointer: coarse) {
+  .compra__cep input {
+    font-size: 1rem;
   }
 }

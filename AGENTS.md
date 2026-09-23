@@ -65,6 +65,14 @@ rodam contra o `next dev` (`LOJA`, padrão `localhost:3000`): com o cache de pro
 conteúdo de antes da edição e falha sem bug nenhum. Os `apps/backend/ferramentas/conferir-{frete,pedido}.mjs` são de antes da Frenet (esperam
 "Correios PAC" fixo e não sobem a falsa) — os que valem são os dez da loja.
 
+O **Lighthouse do CI** roda contra `apps/loja/ferramentas/medusa-falso.mjs` — um Medusa só de
+leitura, na porta 9000, com os seis produtos de verdade e fotos desenhadas na hora —, porque sem
+Medusa o build sai com o catálogo vazio e o orçamento mediria uma vitrine que ninguém vê. Pra medir
+aqui do mesmo jeito: `node ferramentas/medusa-falso.mjs` num terminal; no outro, exporte
+`MEDUSA_BACKEND_URL=http://localhost:9000`, `NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY=pk_medusa_falso` e
+as variáveis do job (`.github/workflows/loja.yml`), rode o `next build` e depois
+`npx lhci collect && npx lhci assert` em `apps/loja` (sem `autorun`, que publica o relatório).
+
 Dois tropeços de ambiente, que não são bug: o de configurações muda a política de frete pelo admin,
 e quem derruba o cache da loja depois é o backend, pelo `LOJA_URL` do `apps/backend/.env`; se ele
 não apontar pro `next dev` conferido, rode esse por último (ou reinicie o `next dev`), senão o de
@@ -103,6 +111,11 @@ precisa sair da janela dela — ver `longeDaConciliacaoAutomatica` no conferidor
 - **404 real no primeiro nível é no proxy** (`apps/loja/src/proxy.ts`); com Cache Components, rota
   dinâmica manda o shell com 200. Ao criar uma página nova de primeiro nível, adicione o segmento em
   `PAGINAS_RAIZ` do proxy.
+- **A vitrine não lê `searchParams`.** `/barba`, `/cabelo`, `/kits` e `/produtos` são estáticas, e o
+  `?ordem=` é trocado pelo proxy por `/<página>/ordem/<ordem>` (estática também, sem mudar a URL).
+  Ler `searchParams` numa delas a torna dinâmica: esqueleto, streaming, rodapé pulando e LCP
+  estourado no Lighthouse — ver `apps/loja/src/components/catalogo/tela.tsx`. A `/busca` é a
+  exceção, porque o `?q=` não tem como ser gerado no build.
 - **Sem GTM, sem widget de terceiro no `<head>`.** Tags entram por `components/analytics/tags.tsx`,
   depois do consentimento. Orçamento de terceiros: 150 KB (Lighthouse CI quebra acima).
 - **Segredo nunca com `NEXT_PUBLIC_`.** Chaves de servidor ficam no Railway e na Vercel, nunca em código.

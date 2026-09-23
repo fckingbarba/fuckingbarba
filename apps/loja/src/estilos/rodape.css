@@ -105,6 +105,14 @@
   font-family: var(--font-sans);
   font-size: 0.92rem;
 }
+/* iPhone: campo com letra abaixo de 16px faz o Safari dar zoom na página
+   inteira ao tocar nele — e a pessoa volta pra tela ampliada e cortada.
+   Só em tela de toque: no computador o desenho fica como estava. */
+@media (pointer: coarse) {
+  .rodape__form input {
+    font-size: 1rem;
+  }
+}
 .rodape__form input::placeholder {
   color: #79828a;
 }
@@ -274,6 +282,22 @@
 .rodape__formas li b {
   color: var(--color-amarelo);
 }
+/* Os logos das bandeiras, colados no "Cartão em até 3x" — o desenho é o
+   mesmo do campo do cartão no checkout (`components/bandeira.tsx`). */
+.rodape__bandeiras {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.rodape__bandeiras svg {
+  display: block;
+  width: 40px;
+  height: 26px;
+}
 .rodape__fim {
   border-top: 1px solid rgba(255, 255, 255, 0.12);
 }
@@ -372,34 +396,55 @@
   margin: 0;
   padding: 0;
 }
-.selo {
+/*
+  SEM BORDA, de propósito. Borda com chanfro deixa o canto cortado SEM
+  linha — o `clip-path` corta a borda junto —, e no fundo escuro esse canto
+  aparece como um traço quebrado. O cartão se separa do fundo pelo tom, e o
+  ícone ganha uma caixinha menta, que é o que puxa o olho.
+*/
+.selos__item {
   display: flex;
   align-items: center;
-  gap: 11px;
-  padding: 11px 13px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1.5px solid rgba(255, 255, 255, 0.16);
-  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+  gap: 12px;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.05);
+  clip-path: polygon(
+    10px 0,
+    100% 0,
+    100% calc(100% - 10px),
+    calc(100% - 10px) 100%,
+    0 100%,
+    0 10px
+  );
 }
-.selo svg {
-  width: 22px;
-  height: 22px;
+.selos__icone {
+  display: grid;
+  place-items: center;
   flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  background: rgba(79, 228, 182, 0.13);
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+}
+.selos__icone svg {
+  width: 19px;
+  height: 19px;
   fill: var(--color-menta);
 }
-.selo span {
+.selos__texto {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
   min-width: 0;
 }
-.selo b {
-  font-size: 0.8rem;
+.selos__texto b {
+  font-size: 0.84rem;
   font-weight: 800;
-  letter-spacing: 0.01em;
+  line-height: 1.2;
   color: #ffffff;
 }
-.selo small {
-  font-size: 0.72rem;
-  color: #949da5;
+.selos__texto small {
+  font-size: 0.74rem;
+  line-height: 1.3;
+  color: #a3acb4;
 }

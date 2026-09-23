@@ -37,21 +37,32 @@ export function Grade({
   const magra = produtos.length > 0 && produtos.length <= MAGRA_ATE
 
   return (
-    <div
-      className="catalogo__grade"
-      /*
-        O número, e não só a presença: o CSS usa `[data-magra="2"]` pra
-        decidir se o convite começa na segunda ou na terceira coluna. Com um
-        atributo vazio ele começaria sempre na segunda e ficaria por cima do
-        segundo card.
-      */
-      data-magra={magra ? String(produtos.length) : undefined}
-    >
-      {produtos.map((produto, i) => (
-        <CartaoProduto key={produto.id} produto={produto} prioridade={i < prioritarios} />
-      ))}
-      {magra && maior ? <Convite nome={nome} quantos={produtos.length} maior={maior} /> : null}
-    </div>
+    /*
+      O `h2` que só o leitor de tela ouve: o nome do card é `h3` (na home ele
+      mora em seções com `h2`), e aqui a grade vem logo depois do `h1` da
+      página. Sem este título, quem navega pelos títulos pulava do 1 pro 3 —
+      e o Lighthouse do CI, medindo a categoria COM produto, reprova isso.
+    */
+    <section aria-labelledby="grade-titulo">
+      <h2 className="sr-only" id="grade-titulo">
+        Produtos
+      </h2>
+      <div
+        className="catalogo__grade"
+        /*
+          O número, e não só a presença: o CSS usa `[data-magra="2"]` pra
+          decidir se o convite começa na segunda ou na terceira coluna. Com um
+          atributo vazio ele começaria sempre na segunda e ficaria por cima do
+          segundo card.
+        */
+        data-magra={magra ? String(produtos.length) : undefined}
+      >
+        {produtos.map((produto, i) => (
+          <CartaoProduto key={produto.id} produto={produto} prioridade={i < prioritarios} />
+        ))}
+        {magra && maior ? <Convite nome={nome} quantos={produtos.length} maior={maior} /> : null}
+      </div>
+    </section>
   )
 }
 
@@ -65,15 +76,7 @@ export function Grade({
  * voz alta o que a tela já estava dizendo baixinho, e aponta pra onde tem o
  * que ver.
  */
-function Convite({
-  nome,
-  quantos,
-  maior,
-}: {
-  nome: string
-  quantos: number
-  maior: Prateleira
-}) {
+function Convite({ nome, quantos, maior }: { nome: string; quantos: number; maior: Prateleira }) {
   const destino: `/${HandleDeCategoria}` = `/${maior.handle}`
 
   return (

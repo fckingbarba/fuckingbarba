@@ -14,7 +14,7 @@
  *
  * O que este arquivo faz é só o que dá pra fazer sem gateway: dizer na hora
  * que o número está torto, e mostrar a bandeira certa (o logo dela, no fim
- * do campo — `components/checkout/bandeira.tsx`). Os dois evitam a recusa
+ * do campo — `components/bandeira.tsx`). Os dois evitam a recusa
  * que só apareceria depois de a pessoa clicar em pagar.
  */
 
@@ -82,8 +82,6 @@ const FAIXAS: Record<string, readonly Faixa[]> = {
   jcb: [faixa("3528", "3589")],
 }
 
-const ACEITAS = new Set<string>(["visa", "mastercard", "elo", "amex", "hipercard"])
-
 /**
  * A bandeira pelo começo do número — ou `""` enquanto não dá pra ter certeza.
  *
@@ -124,6 +122,12 @@ export const NOMES_DAS_BANDEIRAS: Record<Exclude<Bandeira, "">, string> = {
   amex: "Amex",
   hipercard: "Hipercard",
 }
+
+/** As que a loja aceita, na ordem de sempre — a do rodapé e a das Dúvidas. */
+export const BANDEIRAS_ACEITAS = Object.keys(NOMES_DAS_BANDEIRAS) as Exclude<Bandeira, "">[]
+
+/** As mesmas, pra `bandeiraDe` separar as aceitas das que só estão lá pra desempatar. */
+const ACEITAS = new Set<string>(BANDEIRAS_ACEITAS)
 
 /**
  * Luhn — o dígito verificador do cartão.
