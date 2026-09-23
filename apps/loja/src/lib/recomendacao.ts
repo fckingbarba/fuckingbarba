@@ -127,6 +127,26 @@ export function pontuar(
   return { pontos, motivo: { tipo: "nenhum" } }
 }
 
+/**
+ * O preço perto do pedido (`AJUSTES.preco`): oferta de um clique é compra
+ * por impulso, e um produto que custa mais que a sacola inteira pede outra
+ * decisão, não um clique.
+ */
+function peloPreco(preco: number, subtotal: number): number {
+  const { barato, fatorMedio, fatorCaro } = AJUSTES.preco
+  return preco <= subtotal * barato ? 1 : preco <= subtotal ? fatorMedio : fatorCaro
+}
+
+/** Do maior pro menor; no empate, o mais barato, e depois o nome (a ordem não dança). */
+function porNota<T extends { preco: number; handle: string }>(
+  x: { item: T; nota: number },
+  y: { item: T; nota: number }
+) {
+  return (
+    y.nota - x.nota || x.item.preco - y.item.preco || x.item.handle.localeCompare(y.item.handle)
+  )
+}
+
 /* ── o "Leva junto" da gaveta ─────────────────────────────────────────────── */
 
 export type SugestaoEscolhida = SugestaoDaSacola & {
@@ -211,9 +231,6 @@ export function escolherBump<T extends CandidatoDoBump>(
 ): { item: T; motivo: Motivo } | null {
   if (!modelo) return null
   const fora = foraDaSugestao(modelo, sacola.handles)
-  const { barato, fatorMedio, fatorCaro } = AJUSTES.preco
-  const peloPreco = (preco: number) =>
-    preco <= subtotal * barato ? 1 : preco <= subtotal ? fatorMedio : fatorCaro
 
   const notas = catalogo
     .filter(
@@ -224,13 +241,14 @@ export function escolherBump<T extends CandidatoDoBump>(
     )
     .map((c) => {
       const { pontos, motivo } = pontuar(modelo, sacola.handles, c.handle)
-      return { item: c, motivo, nota: pontos * modelo.bump[c.handle] * peloPreco(c.preco) }
+      return {
+        item: c,
+        motivo,
+        nota: pontos * modelo.bump[c.handle] * peloPreco(c.preco, subtotal),
+      }
     })
     .filter((x) => x.nota > 0)
-    .sort(
-      (x, y) =>
-        y.nota - x.nota || x.item.preco - y.item.preco || x.item.handle.localeCompare(y.item.handle)
-    )
+    .sort(porNota)
 
   const [primeiro, segundo] = notas
   if (!primeiro) return null
@@ -240,6 +258,65 @@ export function escolherBump<T extends CandidatoDoBump>(
     sorteio(semente) < AJUSTES.exploracao.vezes
   const { item, motivo } = explora ? segundo : primeiro
   return { item, motivo }
+}
+
+/* ── os chips do frete grátis, no passo da entrega ───────────────────────── */
+
+/**
+ * ATÉ TRÊS PRODUTOS que SOZINHOS fecham o que falta pro frete grátis, na
+ * ordem do motor.
+ *
+ * A regra do `preco >= falta` continua sendo o que torna o chip honesto: um
+ * produto de R$ 20 quando faltam R$ 40 é mandar a pessoa clicar duas vezes
+ * pra descobrir que ainda não deu. Dentro dela, quem manda é o motor — o que
+ * combina com a sacola, e o preço perto do pedido: faltando R$ 6, o kit de
+ * R$ 99,90 também fecha a conta, mas não é a sugestão de ninguém. E as
+ * mesmas exclusões do resto: nada do que está na sacola, nem peça de kit
+ * que está nela, nem o kit de uma peça que está nela.
+ *
+ * Sem modelo, quem escolhe é a regra de antes (`listarSugestoes`, em
+ * `lib/checkout.ts`).
+ */
+export function escolherParaOFrete<T extends CandidatoDoBump>(
+  catalogo: readonly T[],
+  sacola: Sacola,
+  falta: number,
+  subtotal: number,
+  modelo: ModeloDeRecomendacao,
+  quantos = 3
+): T[] {
+  if (falta <= 0) return []
+  const fora = foraDaSugestao(modelo, sacola.handles)
+  return catalogo
+    .filter((c) => c.preco >= falta && !sacola.varianteIds.has(c.varianteId) && !fora.has(c.handle))
+    .map((c) => ({
+      item: c,
+      nota: pontuar(modelo, sacola.handles, c.handle).pontos * peloPreco(c.preco, subtotal),
+    }))
+    .sort(porNota)
+    .slice(0, quantos)
+    .map((x) => x.item)
+}
+
+/* ── o carrossel da página do produto ─────────────────────────────────────── */
+
+/**
+ * "QUEM LEVA ESTE, LEVA JUNTO" — o carrossel do fim da PDP, na ordem do
+ * motor: o que mais vai junto com ESTE produto vem primeiro.
+ *
+ * Ninguém sai da lista: o carrossel é também a vista do resto do catálogo
+ * que a PDP oferece. O que não faz sentido levar junto — as peças, na página
+ * do kit; o kit, na página de uma peça — vai pro fim em vez de sumir.
+ * No empate, a ordem que veio (`sort` estável).
+ */
+export function ordenarParaAPagina<T extends { handle: string | null }>(
+  produtos: readonly T[],
+  handle: string,
+  modelo: ModeloDeRecomendacao
+): T[] {
+  const fora = foraDaSugestao(modelo, [handle])
+  const nota = (h: string | null) => (!h || fora.has(h) ? -1 : pontuar(modelo, [handle], h).pontos)
+  return [...produtos].sort((a, b) => nota(b.handle) - nota(a.handle))
 }
 
 /**

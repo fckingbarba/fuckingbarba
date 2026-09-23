@@ -125,12 +125,13 @@ leva o desconto em todas.
 
 ### O motor de recomendação
 
-O "leva junto" da sacola e a oferta do checkout não são fixos, e não se escolhem no admin. O
-modelo sai daqui (`src/lib/recomendacao.ts`, só conta, com testes): quem comprou A levou B junto
-quantas vezes, no último ano — e, enquanto há pouco pedido, o que a loja já diz: a rotina da PDP
-e a categoria, que valem como dez pedidos. Também sabe as peças de cada kit (pelo nome) e o que
-cada oferta do checkout já rendeu: todo pedido guarda o que foi oferecido e se foi aceito
-(`fb_bump` no metadata, gravado pela loja em `POST /store/recomendacoes/oferta`).
+O "leva junto" da sacola, os chips do frete grátis, a oferta do checkout e o carrossel da página
+do produto não são fixos, e não se escolhem no admin. O modelo sai daqui
+(`src/lib/recomendacao.ts`, só conta, com testes): quem comprou A levou B junto quantas vezes, no
+último ano — e, enquanto há pouco pedido, o que a loja já diz: a rotina da PDP e a categoria, que
+valem como dez pedidos. Também sabe as peças de cada kit (pelo nome) e o que cada oferta do
+checkout já rendeu: todo pedido guarda o que foi oferecido e se foi aceito (`fb_bump` no metadata,
+gravado pela loja em `POST /store/recomendacoes/oferta`).
 
 A loja lê o modelo em `GET /store/recomendacoes` — só ela, com o `REVALIDAR_SEGREDO` no
 `x-loja-segredo` — e decide na hora, com a sacola na mão (`apps/loja/src/lib/recomendacao.ts`).

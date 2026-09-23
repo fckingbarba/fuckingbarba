@@ -2,7 +2,8 @@ import { Raio } from "@/components/icones"
 import { ColecaoCarrossel } from "@/components/home/colecao-carrossel"
 import { CartaoProduto } from "@/components/produto/cartao"
 import type { HttpTypes } from "@medusajs/types"
-import { buscarProdutoPorHandle, listarProdutos } from "@/lib/medusa"
+import { buscarProdutoPorHandle, listarProdutos, modeloDeRecomendacao } from "@/lib/medusa"
+import { ordenarParaAPagina } from "@/lib/recomendacao"
 
 /**
  * QUEM LEVA ESTE, LEVA JUNTO.
@@ -33,37 +34,46 @@ import { buscarProdutoPorHandle, listarProdutos } from "@/lib/medusa"
  * │ oferece. São trabalhos diferentes e agora cada um tem o seu.           │
  * └────────────────────────────────────────────────────────────────────────┘
  *
- * A CURADORIA AQUI É "O RESTO DO CATÁLOGO", que com seis produtos é
- * honesto. Quando passar de umas doze peças isto vira coleção de verdade no
- * Medusa e a escolha passa a ser do admin — o que muda aqui é só a consulta.
+ * A ORDEM É DO MOTOR DE RECOMENDAÇÃO (`ordenarParaAPagina`, em
+ * `lib/recomendacao.ts`): o que mais vai junto com ESTE produto — pelos
+ * pedidos da loja e pela rotina da PDP — vem primeiro. É o que faz o título
+ * dizer a verdade. Continua sendo o resto do catálogo: o que não faz sentido
+ * levar junto (as peças, na página do kit) vai pro fim em vez de sumir.
+ * Ninguém escolhe no admin.
  */
 const LIMITE = 12
 
 export async function Relacionados({ handle }: { handle: string }) {
-  const [produtos, proprio] = await Promise.all([
-    listarProdutos({ limite: LIMITE }),
+  // O catálogo da vitrine (a mesma leitura cacheada), e não só os doze
+  // primeiros: o corte vem DEPOIS da ordem, senão o que mais combina podia
+  // ficar de fora só por ter entrado tarde no catálogo.
+  const [produtos, proprio, modelo] = await Promise.all([
+    listarProdutos(),
     buscarProdutoPorHandle(handle),
+    modeloDeRecomendacao(),
   ])
 
   const outros = produtos.filter((p) => p.handle !== handle)
 
   /*
-   * Mesma categoria primeiro: num catálogo de barba e cabelo, oferecer
+   * Sem o modelo (o Medusa não respondeu), a aproximação de antes do motor:
+   * mesma categoria primeiro — num catálogo de barba e cabelo, oferecer
    * shampoo de barba pra quem olha tratamento de barba acerta mais que
-   * oferecer spray de cabelo. Não é recomendação de verdade — é a melhor
-   * aproximação que dá pra fazer sem histórico de compra.
+   * oferecer spray de cabelo.
    */
   const categoria = proprio?.categories?.[0]?.id
-  const ordenados = categoria
-    ? [
-        ...outros.filter((p) => p.categories?.some((c) => c.id === categoria)),
-        ...outros.filter((p) => !p.categories?.some((c) => c.id === categoria)),
-      ]
-    : outros
+  const ordenados = modelo
+    ? ordenarParaAPagina(outros, handle, modelo)
+    : categoria
+      ? [
+          ...outros.filter((p) => p.categories?.some((c) => c.id === categoria)),
+          ...outros.filter((p) => !p.categories?.some((c) => c.id === categoria)),
+        ]
+      : outros
 
   if (!ordenados.length) return null
 
-  return <Carrossel produtos={ordenados} />
+  return <Carrossel produtos={ordenados.slice(0, LIMITE)} />
 }
 
 function Carrossel({ produtos }: { produtos: HttpTypes.StoreProduct[] }) {

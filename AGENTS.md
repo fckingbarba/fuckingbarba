@@ -347,23 +347,25 @@ hora, é `escolherLevaJunto` (`lib/recomendacao.ts`). "Adicionar" entra na fila 
 (`comCarrinho`). Os logos das bandeiras são os oficiais, em arquivo (`public/bandeiras/`, MPL-2.0
 — ver o `LICENCA.txt` de lá).
 
-O **motor de recomendação** (o "leva junto" e a oferta do checkout; nada se escolhe no admin) tem
-duas metades. O BACKEND monta o modelo (`apps/backend/src/lib/recomendacao.ts`, pura, com testes):
-afinidade entre produtos pelos pedidos do último ano, com a rotina da PDP e a categoria como
-crença inicial (vale 10 pedidos), as peças de cada kit (pelo nome), a popularidade e o peso
-aprendido de cada oferta (`fb_bump` no metadata do pedido). `GET /store/recomendacoes` entrega o
-modelo só pra loja (`x-loja-segredo`, `daLoja` em `lib/quem-pede.ts`), com 10 min de memória; a
-loja guarda 1 h (`modeloDeRecomendacao`; erro guarda minutos). A LOJA decide
-(`escolherLevaJunto`, `escolherBump`): noisy-or da afinidade mais a popularidade, peso pro frete
-grátis na gaveta, preço perto do pedido na oferta, e 10% de exploração sorteada pelo id do
-carrinho (a mesma oferta a cada recarga). A oferta tem uma promoção de 10% POR PRODUTO
-(`lib/bumps.ts`; o job `bumps` mantém de hora em hora, o `promocoes` faz na hora), com código
-`BUMP-<HANDLE>-<8 hex>` assinado por HMAC do `REVALIDAR_SEGREDO` — a loja calcula o mesmo em
+O **motor de recomendação** (o "leva junto" da gaveta, os chips do frete grátis e a oferta do
+checkout, e o carrossel "Quem leva este, leva junto" da PDP; nada se escolhe no admin) tem duas
+metades. O BACKEND monta o modelo (`apps/backend/src/lib/recomendacao.ts`, pura, com testes):
+afinidade entre produtos pelos pedidos do último ano, com a rotina da PDP e a categoria como crença
+inicial (vale 10 pedidos), as peças de cada kit (pelo nome), a popularidade e o peso aprendido de
+cada oferta (`fb_bump` no metadata do pedido). `GET /store/recomendacoes` entrega o modelo só pra
+loja (`x-loja-segredo`, `daLoja` em `lib/quem-pede.ts`), com 10 min de memória; a loja guarda 1 h
+(`modeloDeRecomendacao`; erro guarda minutos). A LOJA decide (`escolherLevaJunto`, `escolherBump`,
+`escolherParaOFrete` — os chips, em `listarSugestoes` —, e `ordenarParaAPagina` — o carrossel, em
+`components/produto/relacionados.tsx`): noisy-or da afinidade mais a popularidade, peso pro frete
+grátis na gaveta, preço perto do pedido na oferta e nos chips (que só sugerem quem sozinho fecha a
+conta), e 10% de exploração na oferta, sorteada pelo id do carrinho (a mesma oferta a cada recarga).
+Sem o modelo, cada lugar volta à regra de antes (a oferta some). A oferta tem uma promoção de 10%
+POR PRODUTO (`lib/bumps.ts`; o job `bumps` mantém de hora em hora, o `promocoes` faz na hora), com
+código `BUMP-<HANDLE>-<8 hex>` assinado por HMAC do `REVALIDAR_SEGREDO` — a loja calcula o mesmo em
 `lib/bump.ts`. `alternarBump` tira qualquer outro código de oferta antes de aplicar (uma oferta por
-vez) e não refaz a escolha; `finalizar` registra a oferta no pedido em `after()`
-(`registrarOferta` → `POST /store/recomendacoes/oferta`, grava uma vez). A frase da caixinha só
-afirma o que o modelo prova (`Motivo`). `ferramentas/conferir-recomendacao.mjs` roda as duas
-metades juntas, sem servidor.
+vez) e não refaz a escolha; `finalizar` registra a oferta no pedido em `after()` (`registrarOferta`
+→ `POST /store/recomendacoes/oferta`, grava uma vez). A frase da caixinha só afirma o que o modelo
+prova (`Motivo`). `ferramentas/conferir-recomendacao.mjs` roda as duas metades juntas, sem servidor.
 
 A **newsletter** do rodapé é um módulo próprio (`src/modules/newsletter/`, tabela
 `newsletter_inscricao`): só o e-mail, a origem e a data do consentimento, como a Política de
