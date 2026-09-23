@@ -624,7 +624,10 @@
   text-decoration: line-through;
   text-decoration-thickness: 2px;
   color: var(--color-text);
-  opacity: 0.5;
+  /* 0.7 e não 0.5: a meia-tinta sobre o menta dava 3:1 de contraste, e
+     texto desse tamanho pede 4,5:1 (o Lighthouse da PDP reprovava). Em 0.7
+     dá 5,3:1 e o riscado continua claramente o preço de trás. */
+  opacity: 0.7;
 }
 
 .compra__por {
