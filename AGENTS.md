@@ -55,7 +55,8 @@ RESEND_URL=http://127.0.0.1:4330 RESEND_API_KEY=re_teste_falsa npm run backend:d
 # FRENET_WHITELABEL_URL=http://127.0.0.1:4310 MEDUSA_BACKEND_URL=http://127.0.0.1:9000
 # pro conferir-erp (o Bling falso na 4340), acrescente: BLING_CLIENT_ID=cliente-de-teste
 # BLING_CLIENT_SECRET=segredo-de-teste BLING_URL=http://127.0.0.1:4340/Api/v3
-# BLING_AUTORIZACAO_URL=http://127.0.0.1:4340/Api/v3/oauth/authorize — e rode o conferir-envio
+# BLING_AUTORIZACAO_URL=http://127.0.0.1:4340/Api/v3/oauth/authorize
+# NUVEMSHOP_LOJA_URL=http://127.0.0.1:4350 (a Nuvemshop falsa) — e rode o conferir-envio
 # SEM elas: com o ERP conectado, a etiqueta espera a nota, e ali não há Bling pra emitir
 # e a loja tokeniza no falso: no .env.development.local,
 #   NEXT_PUBLIC_PAGARME_PUBLIC_KEY=pk_test_falsa
@@ -380,7 +381,18 @@ produto MISTURA na atualização (chave que vem `""` sai): é assim que o `fb_pd
 baixadas e sobem pro armazenamento da loja (o tipo sai dos bytes: o S3 do Bling responde
 `binary/octet-stream`), com a chave de cada uma na marca `fb_erp` do produto — rodar de novo não
 baixa outra vez. E a lista de produtos do Bling pergunta pelos três `filtroSaldoEstoque`: a
-especificação dá padrão "só saldo positivo", que esconderia o esgotado da sincronização.
+especificação dá padrão "só saldo positivo", que esconderia o esgotado da sincronização. O "do
+zero" (subtítulo, textos, "de/por" e fotos) vale só na PRIMEIRA vez de cada produto — sem a marca
+`fb_erp`; rodar de novo atualiza nome, descrição, preço, peso e medidas e deixa o resto, e foto
+do ERP nunca entra em produto com a marca `fb_fotos`.
+
+Os **endereços e as fotos da Nuvemshop** (`src/lib/nuvemshop.ts`; a tela é `admin/routes/nuvemshop`)
+vêm da loja antiga no ar, sem API e sem senha: o `/sitemap.xml` diz os produtos, e a página de cada
+um traz o SKU (o `mainEntity` do JSON-LD e o `data-variants`), a categoria (a trilha, posição 2) e a
+galeria (os links `data-fancybox="product-gallery"`, em 1024 px; o do vídeo fica de fora). Casa
+pelo SKU; o handle vira o slug de lá (o rascunho que a Nuvemshop não tem sai do caminho com
+"-antigo"; o publicado, não), as fotos são copiadas pra loja com a marca `fb_fotos`, e a categoria
+só entra no produto que está sem. A página da Nuvemshop recusa pedido sem `user-agent` (403).
 
 Os **e-mails** moram em `apps/backend/src/lib/emails/`: a `moldura.ts` (barra preta com a logo,
 fundo menta, blocos com sombra dura — em tabela e estilo em linha, porque é e-mail) e um arquivo

@@ -316,15 +316,23 @@ const ErpPage = () => {
             <Heading level="h2">Produtos</Heading>
             <Text size="small">
               Trazer do {nome} os produtos do site: nome, descrição, preço, peso, medidas e fotos.
-              Primeiro você vê a prévia e escolhe o que entra; nada muda até confirmar.
+              Da loja da Nuvemshop, o endereço de cada produto e as fotos da vitrine. Nos dois,
+              primeiro você vê a prévia; nada muda até confirmar.
             </Text>
-            <div>
+            <div className="flex flex-wrap gap-2">
               <Button
                 size="small"
                 variant="secondary"
                 onClick={() => window.location.assign("/app/erp/catalogo")}
               >
                 Importar produtos do {nome}
+              </Button>
+              <Button
+                size="small"
+                variant="secondary"
+                onClick={() => window.location.assign("/app/nuvemshop")}
+              >
+                Endereços e fotos da Nuvemshop
               </Button>
             </div>
           </div>

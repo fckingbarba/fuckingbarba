@@ -42,6 +42,13 @@ import { baixarFoto, guardarFoto } from "./fotos"
  * │ saem, a promoção "de/por" sai, as fotos são as do ERP.                 │
  * └────────────────────────────────────────────────────────────────────────┘
  *
+ * O "DO ZERO" É SÓ NA PRIMEIRA VEZ de cada produto (a marca `fb_erp` diz se
+ * ele já veio). Rodar de novo — mudou o preço no ERP — atualiza nome,
+ * descrição, preço, peso e medidas, e só: o subtítulo, os textos da página,
+ * a promoção e as fotos que a equipe pôs depois (as da Nuvemshop,
+ * `lib/nuvemshop.ts`) ficam. Foto do ERP, depois da primeira vez, só entra
+ * em produto que está sem nenhuma.
+ *
  * CAMPO VAZIO NO ERP NÃO APAGA O DO SITE: sem foto, sem peso, sem medidas ou
  * sem descrição lá, fica o de hoje (e a prévia avisa). Sem preço ou sem SKU,
  * o produto não entra.
@@ -68,6 +75,12 @@ import { baixarFoto, guardarFoto } from "./fotos"
  */
 
 export const MARCA_DO_ERP = "fb_erp"
+/**
+ * As fotos que a equipe escolheu pra loja (as da Nuvemshop, `lib/nuvemshop.ts`).
+ * Produto com esta marca nunca tem as fotos trocadas pelas do ERP — nem na
+ * primeira importação.
+ */
+export const MARCA_DAS_FOTOS = "fb_fotos"
 const MOEDA = "brl"
 
 export type FotoCopiada = { chave: string; url: string }
@@ -256,6 +269,16 @@ export type ItemDoPlano = {
   /** Os produtos do site com os mesmos SKUs; no recria, o primeiro é quem passa o endereço. */
   noSite: string[]
   variacoes: VariacaoPlanejada[]
+  /**
+   * A primeira vez que o produto vem do ERP (novo, recriado, ou sem a marca
+   * `fb_erp`): é só nela que o "do zero" vale — saem o subtítulo, os textos
+   * da página e o "de/por", e as fotos passam a ser as do ERP. Da segunda em
+   * diante, o que a equipe refez no site depois (textos, promoção, as fotos
+   * da Nuvemshop) fica.
+   */
+  primeira: boolean
+  /** As fotos do ERP entram (na primeira vez, ou no produto que está sem foto). */
+  fotosDoErp: boolean
   /** Por que não entra. */
   bloqueio: string | null
   avisos: string[]
@@ -342,11 +365,12 @@ export function handleLivre(nome: string, usados: Set<string>): string {
 const mesmoConjunto = (a: readonly string[], b: readonly string[]) =>
   a.length === b.length && a.every((x) => b.includes(x))
 
-function avisosDosCampos(i: ItemDoPlano): string[] {
+function avisosDosCampos(i: ItemDoPlano, temFoto: boolean): string[] {
   const mantem = i.como !== "novo"
   const avisos: string[] = []
-  if (!i.erp.fotos.length)
-    avisos.push(mantem ? "sem foto no ERP: ficam as fotos de hoje" : "sem foto no ERP")
+  // Da segunda vez em diante, a foto do site fica de qualquer jeito.
+  if (!i.erp.fotos.length && (i.primeira || !temFoto))
+    avisos.push(mantem && temFoto ? "sem foto no ERP: ficam as fotos de hoje" : "sem foto no ERP")
   if (i.variacoes.some((v) => !v.pesoGramas))
     avisos.push(
       mantem ? "sem peso no ERP: fica o peso de hoje" : "sem peso no ERP: o frete não cota sem ele"
@@ -367,7 +391,17 @@ export function planejar(doErp: ProdutoNoErp[], doSite: ProdutoDoSite[]): ItemDo
     const { variacoes, avisos, bloqueio } = variacoesDoProduto(erp)
     // O que o site tem destes SKUs, inclusive os de variação que não entra.
     const noSite = [...new Set(skusDoErp(erp).flatMap((sku) => donoDoSku.get(sku) ?? []))]
-    return { erp, como: "novo", handle: "", noSite, variacoes, bloqueio, avisos }
+    return {
+      erp,
+      como: "novo",
+      handle: "",
+      noSite,
+      variacoes,
+      primeira: true,
+      fotosDoErp: false,
+      bloqueio,
+      avisos,
+    }
   })
 
   // O mesmo SKU em dois produtos do ERP: nenhum dos dois entra.
@@ -411,7 +445,16 @@ export function planejar(doErp: ProdutoNoErp[], doSite: ProdutoDoSite[]): ItemDo
     }
     i.handle = site.get(i.noSite[0]!)?.handle ?? handleLivre(i.erp.nome, usados)
   }
-  for (const i of itens) if (!i.bloqueio) i.avisos.push(...avisosDosCampos(i))
+  for (const i of itens) {
+    if (i.bloqueio) continue
+    // O de hoje: o reescrito no atualiza; o que passa o endereço no recria.
+    const deHoje = i.noSite.length ? site.get(i.noSite[0]!) : undefined
+    const temFoto = Boolean(deHoje?.fotos.length)
+    const escolhidas = Boolean((deHoje?.metadata as Record<string, unknown>)?.[MARCA_DAS_FOTOS])
+    i.primeira = i.como !== "atualiza" || !marcaDe(deHoje?.metadata)
+    i.fotosDoErp = i.erp.fotos.length > 0 && !(temFoto && escolhidas) && (i.primeira || !temFoto)
+    i.avisos.push(...avisosDosCampos(i, temFoto))
+  }
   return itens
 }
 
@@ -423,6 +466,8 @@ export type ProdutoNaPrevia = {
   skus: string[]
   como: Como
   handle: string
+  /** A primeira vez que ele vem do ERP (ver `ItemDoPlano.primeira`). */
+  primeira: boolean
   bloqueio: string | null
   avisos: string[]
   noSite: string[]
@@ -529,6 +574,7 @@ export async function lerPrevia(
         skus: skusDoErp(i.erp),
         como: i.como,
         handle: i.handle,
+        primeira: i.primeira,
         bloqueio: i.bloqueio,
         avisos: i.avisos,
         noSite: i.noSite,
@@ -651,9 +697,16 @@ async function copiarFotos(
   return copiadas
 }
 
-/** Cada chave que o produto tem, marcada pra sair (o Medusa apaga a chave que vem vazia). */
+/**
+ * Cada chave que o produto tem, marcada pra sair (o Medusa apaga a chave que
+ * vem vazia) — menos a das fotos escolhidas, que o ERP não troca.
+ */
 const semAsChavesDeHoje = (metadata: Record<string, unknown>) =>
-  Object.fromEntries(Object.keys(metadata).map((k) => [k, ""]))
+  Object.fromEntries(
+    Object.keys(metadata)
+      .filter((k) => k !== MARCA_DAS_FOTOS)
+      .map((k) => [k, ""])
+  )
 
 const medidasPraMedusa = (m: MedidasDaCaixa | null) =>
   m ? { length: m.comprimento, width: m.largura, height: m.altura } : {}
@@ -664,21 +717,25 @@ async function atualizarNoLugar(
   s: ProdutoDoSite,
   marca: MarcaDoErp
 ) {
-  const primeira = i.variacoes[0]!
-  const fotos = marca.fotos
+  const v1 = i.variacoes[0]!
+  const fotos = i.fotosDoErp ? marca.fotos : []
   await updateProductsWorkflow(container).run({
     input: {
       selector: { id: s.id },
       update: {
         title: i.erp.nome,
-        subtitle: null,
+        ...(i.primeira ? { subtitle: null } : {}),
         ...(i.erp.descricao ? { description: i.erp.descricao } : {}),
         ...(fotos.length
           ? { images: fotos.map((f) => ({ url: f.url })), thumbnail: fotos[0]!.url }
           : {}),
-        ...(primeira.pesoGramas ? { weight: primeira.pesoGramas } : {}),
-        ...medidasPraMedusa(primeira.medidas),
-        metadata: { ...semAsChavesDeHoje(s.metadata), [MARCA_DO_ERP]: marca },
+        ...(v1.pesoGramas ? { weight: v1.pesoGramas } : {}),
+        ...medidasPraMedusa(v1.medidas),
+        // Na primeira vez, toda chave de hoje sai (os textos da página, o
+        // `tipo` do kit antigo); depois, só a marca do ERP muda.
+        metadata: i.primeira
+          ? { ...semAsChavesDeHoje(s.metadata), [MARCA_DO_ERP]: marca }
+          : { [MARCA_DO_ERP]: marca },
       },
     },
   })
@@ -1046,15 +1103,19 @@ async function importar(
     marcas.set(i, {
       erp: erp.id,
       id: i.erp.id,
-      fotos: await copiarFotos(container, i.handle, i.erp.fotos, anteriores, relatorio),
+      // Quem fica com as fotos de hoje não baixa nada: a marca guarda as do ERP de antes.
+      fotos: i.fotosDoErp
+        ? await copiarFotos(container, i.handle, i.erp.fotos, anteriores, relatorio)
+        : anteriores,
     })
   }
 
   // As promoções que apontam pros produtos mexidos, antes de mexer neles. O
-  // apagado leva o preço junto; o que fica (reescrito, ou em rascunho por ter
-  // pedido esperando) perde o dele no passo 8.
+  // apagado leva o preço junto; o que fica (reescrito pela primeira vez, ou em
+  // rascunho por ter pedido esperando) perde o dele no passo 8. O que já veio
+  // do ERP antes guarda a promoção que a equipe criou depois.
   const conjuntos = [
-    ...atualizar.map((i) => porId.get(i.noSite[0]!)!),
+    ...atualizar.filter((i) => i.primeira).map((i) => porId.get(i.noSite[0]!)!),
     ...sair,
     ...recriaveis.flatMap((i) => i.noSite.map((id) => porId.get(id)!)),
   ].flatMap((s) => s.variacoes.flatMap((v) => (v.conjunto ? [v.conjunto] : [])))

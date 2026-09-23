@@ -34,6 +34,7 @@ type ProdutoDoErp = {
   skus: string[]
   como: "atualiza" | "recria" | "novo"
   handle: string
+  primeira: boolean
   bloqueio: string | null
   avisos: string[]
   noSite: string[]
@@ -164,7 +165,7 @@ const CatalogoDoErp = () => {
   const novos = escolhidos.filter((p) => p.como === "novo")
   const remover = saem.filter((s) => !manter.has(s.id))
   const comTextos = [
-    ...substituidos.flatMap((p) => p.noSite.map((id) => doSite.get(id))),
+    ...substituidos.filter((p) => p.primeira).flatMap((p) => p.noSite.map((id) => doSite.get(id))),
     ...remover,
   ].filter((s) => s?.temTextos).length
 
@@ -307,7 +308,7 @@ const CatalogoDoErp = () => {
                         depois={faixa(p.preco)}
                         muda={precoHoje !== null && (!p.preco || p.preco.de !== precoHoje)}
                       />
-                      {hoje?.precoDe && p.como !== "novo" ? (
+                      {hoje?.precoDe && p.como !== "novo" && p.primeira ? (
                         <Text size="xsmall" className="text-ui-fg-muted">
                           sai o “de {reais(hoje.precoDe)}”
                         </Text>
@@ -350,13 +351,25 @@ const CatalogoDoErp = () => {
                         </>
                       ) : (
                         <>
-                          <Badge size="2xsmall" color={p.como === "recria" ? "orange" : "green"}>
-                            {p.como === "recria" ? "Substitui (nasce de novo)" : "Substitui"}
+                          <Badge
+                            size="2xsmall"
+                            color={p.como === "recria" ? "orange" : p.primeira ? "green" : "grey"}
+                          >
+                            {p.como === "recria"
+                              ? "Substitui (nasce de novo)"
+                              : p.primeira
+                                ? "Substitui"
+                                : "Atualiza"}
                           </Badge>
                           <Text size="xsmall" className="text-ui-fg-subtle mt-1">
                             {hoje?.titulo} · /produtos/{p.handle}
                             {hoje?.categorias.length ? ` · ${hoje.categorias.join(", ")}` : ""}
                           </Text>
+                          {!p.primeira ? (
+                            <Text size="xsmall" className="text-ui-fg-muted">
+                              Já veio do {nome}: muda só nome, descrição, preço, peso e medidas.
+                            </Text>
+                          ) : null}
                         </>
                       )}
                     </Table.Cell>
@@ -418,11 +431,14 @@ const CatalogoDoErp = () => {
                 comprando e os pedidos em andamento continuam valendo.
               </li>
               <li>
-                Saem o subtítulo e os textos da página de cada produto (os blocos editados no admin)
-                {comTextos ? ` — ${comTextos} produto(s) têm esses textos hoje` : ""}.
+                Na primeira vez de cada produto, saem o subtítulo, os textos da página (os blocos
+                editados no admin) e o preço “de/por”
+                {comTextos ? ` — ${comTextos} produto(s) têm esses textos hoje` : ""}. Promoção nova
+                se cria no admin.
               </li>
               <li>
-                Acaba o preço “de/por”: vale o preço do {nome}. Promoção nova se cria no admin.
+                O que já veio do {nome} antes (“Atualiza”) muda só nome, descrição, preço, peso e
+                medidas: as fotos, os textos e as promoções de hoje ficam.
               </li>
               <li>
                 A descrição do {nome} vai pro Google e pra busca da loja. A página do produto não
