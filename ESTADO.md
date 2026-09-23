@@ -318,6 +318,12 @@ aparecem na conta e no log, sem e-mail automático — esses a loja conversa com
       passam pelo servidor da loja…". O caminho do cartão não mudou (campos sem `name`, token do
       Pagar.me) — só não é mais texto na tela. A desistência continua publicada onde a lei pede
       (Decreto 7.962/2013, art. 5º): o `/trocas`, no rodapé de toda página, e as Dúvidas.
+- [x] **O "7 dias pra desistir" saiu também da vitrine** (23/09), pelo mesmo motivo do checkout:
+      a esteira de avisos, os selos do rodapé, o fecho da home, as garantias da caixa de compra e a
+      linha do pedido entregue na conta. Nas Dúvidas ficou UMA resposta ("Posso desistir da
+      compra?"), curta, com o artigo do CDC e o link pro `/trocas` — o Decreto 7.962 pede o direito
+      de arrependimento informado com clareza, e é ali, no `/trocas` e no rodapé, que ele fica. As
+      garantias da caixa de compra viraram três; a que sobra na última linha ocupa a linha inteira.
 - [x] **O logo da bandeira aparece no fim do campo do número do cartão** (22/09), no lugar da
       etiqueta de texto. A detecção (`apps/loja/src/lib/cartao.ts`) agora usa as faixas de seis
       dígitos da Elo e da Hipercard, e conhece as bandeiras que a loja não aceita (Diners,

@@ -10,7 +10,7 @@ import { configuracoes } from "@/lib/medusa"
  * começou, e o loop não tem emenda. A segunda leva `aria-hidden` pra que o
  * leitor de tela leia os avisos uma vez só — ela existe só pro olho.
  *
- * Três avisos repetidos três vezes é o que enche a pista nas telas largas sem
+ * Os avisos repetidos três vezes é o que enche a pista nas telas largas sem
  * deixar buraco; em 390px sobra, e sobrar não custa nada.
  */
 /*
@@ -19,18 +19,20 @@ import { configuracoes } from "@/lib/medusa"
  * 30 do CDC (oferta vincula quem anunciou), e numa esteira que passa em toda
  * página ela era a frase mais repetida do site.
  *
- * O que entrou no lugar é verdade e tranquiliza igual: os 7 dias de
- * arrependimento do art. 49, que valem pra toda compra pela internet e não
- * dependem de política nenhuma. O dia em que existir uma garantia de
- * satisfação de verdade, com prazo e regra escritos, ela volta pra cá.
+ * Depois dela entraram os 7 dias de arrependimento do art. 49 — que também
+ * saíram, em 23/09, por escolha da loja: a esteira é propaganda, e não é
+ * lugar de lembrar ninguém de devolver. O direito continua valendo e dito
+ * onde a lei pede que ele esteja claro: a página /trocas, com link no
+ * rodapé, e a resposta nas Dúvidas. O dia em que existir uma garantia de
+ * satisfação de verdade, com prazo e regra escritos, ela vem pra cá.
  */
 /*
  * O aviso do frete é o ÚNICO condicional: quando não há promoção de frete, a
- * esteira roda com dois avisos em vez de três, e não com um "frete grátis a
+ * esteira roda com um aviso em vez de dois, e não com um "frete grátis a
  * partir de R$ 0,00". Esteira é a peça que aparece em toda página do site —
  * é o pior lugar possível pra anunciar uma oferta que não existe.
  */
-const SEMPRE = ["7 dias pra desistir, por lei", "Compra 100% segura"]
+const SEMPRE = ["Compra 100% segura"]
 
 function avisosDe(frases: { completa: string } | null) {
   return frases ? [`${frases.completa}*`, ...SEMPRE] : SEMPRE

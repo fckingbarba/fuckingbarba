@@ -32,15 +32,12 @@ export async function Fechamento() {
   /*
    * A terceira linha era "Barba na cara ou sua grana de volta". Essa garantia
    * não existe, e aqui ela aparecia no fecho da home — o último argumento
-   * antes do rodapé, que é onde uma promessa pega mais. Ver o comentário em
-   * `layout/anuncio.tsx`: trocada pelo direito de arrependimento, que é lei.
+   * antes do rodapé, que é onde uma promessa pega mais. Depois foi o direito
+   * de arrependimento, que saiu em 23/09 pelo mesmo motivo da esteira (ver
+   * `layout/anuncio.tsx`): fecho de venda não é lugar de lembrar de devolver.
    */
   const frases = frasesDoFrete((await configuracoes()).frete)
-  const garantias = [
-    ...(frases ? [frases.completa] : []),
-    `${parcelamento} no cartão`,
-    "7 dias pra desistir, por lei",
-  ]
+  const garantias = [...(frases ? [frases.completa] : []), `${parcelamento} no cartão`]
 
   return (
     <section className="fechamento" aria-labelledby="fechamento-titulo">

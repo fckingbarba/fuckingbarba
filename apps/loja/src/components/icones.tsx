@@ -249,7 +249,7 @@ export function Mais(props: Props) {
   )
 }
 
-/** Relógio — "7 dias pra desistir", nas garantias da dobra. */
+/** Relógio — prazo e tempo: o tempo de uso na PDP, o prazo no checkout e no obrigado. */
 export function Relogio(props: Props) {
   return (
     <Icone {...props}>

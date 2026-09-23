@@ -244,8 +244,8 @@ async function Detalhe({ params }: { params: PageProps<"/conta/pedidos/[id]">["p
               Quer trocar ou devolver?{" "}
               <Link className="link" href="/trocas">
                 Veja como funciona
-              </Link>{" "}
-              — são 7 dias pra desistir, por lei.
+              </Link>
+              .
             </p>
           ) : null}
         </div>

@@ -207,9 +207,8 @@ export function duvidasDaLoja({ frete, atendimento }: Configuracoes): GrupoDeDuv
         {
           pergunta: "Posso desistir da compra?",
           resposta: [
-            "Pode. São *7 dias corridos* a partir do recebimento, sem precisar explicar o motivo — é o art. 49 do Código de Defesa do Consumidor. Devolvido o produto, o valor volta inteiro, com o frete que você pagou.",
             [
-              "As condições e o passo a passo estão na ",
+              "Pode, dentro do prazo do art. 49 do Código de Defesa do Consumidor. As condições e o passo a passo estão na ",
               link("política de entrega, troca e devolução", "/trocas"),
               ".",
             ],
@@ -233,9 +232,9 @@ export function duvidasDaLoja({ frete, atendimento }: Configuracoes): GrupoDeDuv
               " o quanto antes, com o número do pedido. Se ele ainda não foi postado, a gente cancela e devolve o valor: o Pix volta pra conta que pagou, e no cartão o estorno aparece nesta fatura ou na próxima.",
             ],
             [
-              "Pix que você ainda não pagou nem precisa disso: ele vence e o pedido se cancela sozinho. E se a encomenda já foi postada, vale a ",
-              link("desistência", "/trocas"),
-              " — 7 dias a partir do recebimento.",
+              "Pix que você ainda não pagou nem precisa disso: ele vence e o pedido se cancela sozinho. E se a encomenda já foi postada, veja a ",
+              link("política de troca e devolução", "/trocas"),
+              ".",
             ],
           ],
         },

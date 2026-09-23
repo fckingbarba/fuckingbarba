@@ -983,6 +983,15 @@
   }
 }
 
+/*
+  Garantia sobrando sozinha na última linha ocupa a linha inteira: com três
+  (desde que o "7 dias pra desistir" saiu, em 23/09), a grade de duas
+  colunas deixava um buraco no canto.
+*/
+.compra__garantias li:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+
 /* --- bandeiras --- */
 
 .compra__bandeiras {

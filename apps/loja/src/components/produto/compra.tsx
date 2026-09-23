@@ -2,15 +2,7 @@
 
 import Image from "next/image"
 import { useEffect, useRef, useState, useTransition } from "react"
-import {
-  Caminhao,
-  Cartao,
-  EscudoCerto,
-  Raio,
-  Relogio,
-  Sacola,
-  Triangulo,
-} from "@/components/icones"
+import { Caminhao, Cartao, EscudoCerto, Raio, Sacola, Triangulo } from "@/components/icones"
 import { EVENTO_SACOLA } from "@/components/sacola/contexto"
 import { adicionar, adicionarVarios } from "@/lib/acoes/carrinho"
 import type { CarrinhoVisivel } from "@/lib/carrinho-visivel"
@@ -410,12 +402,6 @@ export function Compra({
           <EscudoCerto />
           <span>
             Compra segura<small>Dados criptografados</small>
-          </span>
-        </li>
-        <li>
-          <Relogio />
-          <span>
-            7 dias pra desistir<small>Direito de arrependimento</small>
           </span>
         </li>
       </ul>
