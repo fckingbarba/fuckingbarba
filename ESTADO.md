@@ -290,12 +290,24 @@ aparecem na conta e no log, sem e-mail automático — esses a loja conversa com
       que vão no mesmo clique do "Adicionar à sacola"). Hoje ele só aparece com produtos escolhidos
       no admin (Venda combinada), e nenhum produto tem — então não aparece em lugar nenhum. O motor
       pode preencher sozinho; é uma seção nova em toda PDP, por isso a pergunta.
-- [ ] **Achado de 23/09 no frete da sacola:** com 2 ou mais unidades, a rota `/store/frete`
-      declara à Frenet o valor cheio (2 × R$ 49,90 = R$ 99,80) e o Medusa, o valor com o desconto
-      por quantidade (R$ 94,90). As perguntas ficam diferentes, e a sacola faz DUAS cotações onde o
-      `cotar` do `client.ts` devia juntar numa (o `conferir-frete` acusa: "foram 2"). A lista da
-      gaveta sai da cotação de R$ 99,80 e o pé (o que o Medusa cobra) da de R$ 94,90 — se a
-      transportadora cobra seguro sobre o valor declarado, os dois podem diferir por centavos.
+- [x] **O frete da sacola cotava duas vezes com 2 ou mais unidades** (achado e consertado em
+      23/09). A rota `/store/frete` declarava à Frenet o valor cheio (2 × R$ 49,90 = R$ 99,80) e o
+      Medusa, o valor com o desconto por quantidade (R$ 94,90): perguntas diferentes, duas cotações
+      onde o `cotar` devia juntar numa. E não era só o centavo do seguro — o frete grátis da lista
+      era decidido sobre o valor cheio: num teste local com piso de R$ 139,90, 3 shampoos
+      (R$ 138,90 no carrinho, R$ 149,70 cheios) apareciam "Grátis" na gaveta com o pé cobrando
+      R$ 23,70. Agora, quando a sacola manda o `cart_id`, a rota lê o valor e os itens do CARRINHO,
+      pelas mesmas funções do provider (`somaDosProdutos` e `itensPraCotar`, no `client.ts`), e o
+      valor fecha no centavo (3 × R$ 46,30 dava 138,89999999999998, abaixo de um piso de
+      R$ 138,90). O `client.unit.spec.ts` trava a pergunta igual.
+- [x] **A calculadora da PDP somava o preço cheio** com 2 ou mais unidades (visto e consertado
+      junto, em 23/09). Sem carrinho, a rota somava o preço de uma unidade: 3 shampoos declaravam
+      R$ 149,70 e decidiam o frete grátis por esse valor, com o carrinho cobrando R$ 138,90 — com
+      piso de R$ 139,90, a PDP dizia "Grátis" e o checkout cobrava o frete (e oferta vincula, art. 30
+      do CDC). Agora a rota monta as linhas que o carrinho teria: a mesma variante numa linha só, e
+      o preço pedido com a quantidade (`calculated_price` com `quantity`, que é como o Medusa
+      escolhe a faixa). `conferir-frete` 70/70; as cinco conferências novas (parte 8½, com o piso
+      entre a faixa e o cheio, pela sacola e pela PDP) falham no código de antes.
 - [ ] Dados reais da empresa no admin, em Configurações: CNPJ, razão social, endereço, WhatsApp,
       e-mail, horário e prazo de postagem. **Hoje nenhum está preenchido em produção**: o rodapé
       mostra "Entrar em contato" sem nada embaixo, e o `/contato` tem só o Instagram como canal

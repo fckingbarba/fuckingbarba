@@ -10,7 +10,8 @@ import {
   cotar,
   ErroDaFrenet,
   escolherFaixas,
-  type ItemPraCotar,
+  itensPraCotar,
+  somaDosProdutos,
   type ServicoCotado,
 } from "./client"
 
@@ -73,7 +74,10 @@ const FAIXAS: { id: Faixa; nome: string }[] = [
  * carrinho. Lá, com a chave sendo a pergunta inteira mais o carrinho, ela
  * une também a rota `/store/frete` quando a rota pergunta PELO carrinho: o
  * bloco de frete da sacola cota pela rota e em seguida pendura a entrega, e
- * as duas perguntas são a mesma.
+ * as duas perguntas são a mesma. São a mesma porque saem das mesmas funções:
+ * o valor e os itens que este provider declara (`somaDosProdutos` e
+ * `itensPraCotar`) moram no `client.ts`, e a rota monta a pergunta do
+ * carrinho com elas.
  */
 
 export default class FrenetFulfillmentService extends AbstractFulfillmentProviderService {
@@ -164,7 +168,7 @@ export default class FrenetFulfillmentService extends AbstractFulfillmentProvide
 
     const politica: PoliticaDeFrete = nosso?.politica ?? { modo: "nenhuma" }
     const emergencia = nosso?.precoDeEmergencia ?? null
-    const subtotal = somaDosProdutos(context)
+    const subtotal = somaDosProdutos(context.items ?? [])
 
     let servicos: ServicoCotado[] = []
     try {
@@ -276,8 +280,8 @@ export default class FrenetFulfillmentService extends AbstractFulfillmentProvide
       token: this.token,
       cepDeOrigem: origem,
       cepDeDestino: destino,
-      valor: somaDosProdutos(context),
-      itens: itensPraCotar(context),
+      valor: somaDosProdutos(context.items ?? []),
+      itens: itensPraCotar(context.items ?? []),
       tempoLimite: this.tempoLimite,
       carrinho: context.id,
     })
@@ -298,54 +302,4 @@ export default class FrenetFulfillmentService extends AbstractFulfillmentProvide
   async cancelFulfillment(): Promise<Record<string, unknown>> {
     return {}
   }
-}
-
-/**
- * O SUBTOTAL DOS PRODUTOS, somado aqui e não lido do carrinho.
- *
- * O contexto que o Medusa entrega ao provider traz os itens, e não o total —
- * então a soma é nossa. Ela precisa bater com o `item_total` que a regra de
- * frete grátis usava antes, senão o piso muda de significado sem ninguém
- * mexer nele: é preço de produto vezes quantidade, sem frete e sem desconto
- * de pedido.
- */
-function somaDosProdutos(context: CalculateShippingOptionPriceDTO["context"]): number {
-  return (context.items ?? []).reduce((s, item) => {
-    const preco = Number(item.unit_price ?? 0)
-    const quantidade = Number(item.quantity ?? 0)
-    return s + (Number.isFinite(preco) ? preco : 0) * (Number.isFinite(quantidade) ? quantidade : 0)
-  }, 0)
-}
-
-/**
- * Os itens do carrinho no formato da cotação.
- *
- * PESO E MEDIDA SÃO DA VARIANTE, não do produto — é só isso que o Medusa
- * entrega aqui. Foi a descoberta que atrasou esta integração: o catálogo
- * tinha peso cadastrado, mas no PRODUTO, que é outro campo e nunca chega
- * neste objeto. Quem leva os números pro lugar certo é o
- * `scripts/medidas.ts`.
- *
- * Variante sem medida vira zero, e o cliente aplica o mínimo dos Correios em
- * cima do zero — ou seja, cota como se fosse a menor caixa possível. É o
- * chute menos ruim, e o `medidas.ts` existe pra que ele nunca aconteça: ele
- * lista o que está faltando em vez de deixar passar.
- *
- * SEM SKU: o contexto que o Medusa monta pra este método não traz o SKU da
- * variante (a linha que tentava ler dele nunca achou nada). A rota
- * `/store/frete` também não manda, pra fazer à Frenet exatamente a pergunta
- * que este método faz — mesma pergunta, mesmo preço, e uma viagem só.
- */
-function itensPraCotar(context: CalculateShippingOptionPriceDTO["context"]): ItemPraCotar[] {
-  return (context.items ?? []).map((item) => {
-    const v = item.variant as
-      { weight?: number; length?: number; width?: number; height?: number } | undefined
-    return {
-      pesoEmGramas: Number(v?.weight ?? 0) || 0,
-      comprimento: Number(v?.length ?? 0) || 0,
-      largura: Number(v?.width ?? 0) || 0,
-      altura: Number(v?.height ?? 0) || 0,
-      quantidade: Number(item.quantity ?? 1) || 1,
-    }
-  })
 }
