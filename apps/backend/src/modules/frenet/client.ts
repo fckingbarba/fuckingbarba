@@ -194,6 +194,91 @@ export function escolherFaixas(servicos: ServicoCotado[]): {
   }
 }
 
+/**
+ * Uma linha do carrinho como o Medusa entrega — ao provider, no contexto do
+ * cálculo, e à rota `/store/frete`, pelo `query.graph` (na PDP, sem carrinho,
+ * a rota monta neste formato as linhas que o carrinho teria). Só o que a
+ * pergunta usa, e tudo `unknown`: cada caminho tipa de um jeito
+ * (`BigNumberValue` no contexto, o tipo gerado no `query.graph`), e quem
+ * converte são as duas funções abaixo.
+ */
+export type LinhaDoCarrinho = {
+  unit_price?: unknown
+  quantity?: unknown
+  variant?: { weight?: unknown; length?: unknown; width?: unknown; height?: unknown } | null
+}
+
+/**
+ * O VALOR DOS PRODUTOS de um carrinho, em reais: o que vai declarado à Frenet
+ * e o que decide o frete grátis.
+ *
+ * Somado aqui, e não lido do carrinho, porque o contexto que o Medusa entrega
+ * ao provider traz os itens, e não o total. A soma precisa bater com o
+ * `item_total` que a regra de frete grátis usava antes, senão o piso muda de
+ * significado sem ninguém mexer nele: é preço de produto vezes quantidade,
+ * sem frete e sem desconto de pedido. O preço da linha já é o da FAIXA de
+ * quantidade (`lib/precos-por-quantidade.ts`) — quem escolhe a faixa é o
+ * Medusa, pela quantidade da linha.
+ *
+ * Mora aqui, e não no provider, pelo mesmo motivo do `escolherFaixas`: DOIS
+ * lugares perguntam à Frenet por um carrinho — o provider, quando o Medusa
+ * calcula o frete, e a rota `/store/frete`, pelo carrinho da sacola (o
+ * `cart_id`) ou pelo que o carrinho teria (a PDP). O valor vai no corpo, e o
+ * corpo é a chave da viagem (ver `cotar`): duas somas eram duas perguntas.
+ * Foi o achado de 23/09 — com 2 frascos de R$ 49,90, a rota declarava
+ * R$ 99,80 (o preço cheio) e o Medusa, R$ 94,90 (o da faixa): a sacola
+ * cotava duas vezes onde devia cotar uma, e a PDP prometia frete grátis por
+ * um valor que o carrinho não cobra.
+ *
+ * ARREDONDADA NO CENTAVO. A faixa de 3 unidades tem preço quebrado, e
+ * 3 × 46,30 em ponto flutuante dá 138,89999999999998. O carrinho cobra
+ * R$ 138,90, e é isso que se declara — e que se compara com o piso: sem o
+ * arredondamento, um carrinho de exatamente R$ 138,90 ficaria abaixo de um
+ * piso de R$ 138,90.
+ */
+export function somaDosProdutos(linhas: LinhaDoCarrinho[]): number {
+  const soma = linhas.reduce((s, linha) => {
+    const preco = Number(linha.unit_price ?? 0)
+    const quantidade = Number(linha.quantity ?? 0)
+    return s + (Number.isFinite(preco) ? preco : 0) * (Number.isFinite(quantidade) ? quantidade : 0)
+  }, 0)
+  return Math.round(soma * 100) / 100
+}
+
+/**
+ * Os itens de um carrinho no formato da cotação — pelos mesmos dois caminhos
+ * da soma acima, e pelo mesmo motivo: a mesma linha tem que virar o mesmo
+ * item nos dois, senão a pergunta muda e a viagem se divide.
+ *
+ * PESO E MEDIDA SÃO DA VARIANTE, não do produto — é só isso que o Medusa
+ * entrega ao provider. Foi a descoberta que atrasou esta integração: o
+ * catálogo tinha peso cadastrado, mas no PRODUTO, que é outro campo e nunca
+ * chega neste objeto. Quem leva os números pro lugar certo é o
+ * `scripts/medidas.ts`.
+ *
+ * Variante sem medida vira zero, e o `cotar` aplica o mínimo dos Correios em
+ * cima do zero — ou seja, cota como se fosse a menor caixa possível. É o
+ * chute menos ruim, e o `medidas.ts` existe pra que ele nunca aconteça: ele
+ * lista o que está faltando em vez de deixar passar.
+ *
+ * SEM SKU: o contexto que o Medusa monta pro provider não traz o SKU da
+ * variante (a linha que tentava ler dele nunca achou nada). A rota
+ * `/store/frete` também não manda, pra fazer à Frenet exatamente a pergunta
+ * que o provider faz — mesma pergunta, mesmo preço, e uma viagem só.
+ */
+export function itensPraCotar(linhas: LinhaDoCarrinho[]): ItemPraCotar[] {
+  return linhas.map((linha) => {
+    const v = linha.variant
+    return {
+      pesoEmGramas: Number(v?.weight ?? 0) || 0,
+      comprimento: Number(v?.length ?? 0) || 0,
+      largura: Number(v?.width ?? 0) || 0,
+      altura: Number(v?.height ?? 0) || 0,
+      quantidade: Number(linha.quantity ?? 1) || 1,
+    }
+  })
+}
+
 export async function cotar(pedido: PedidoDeCotacao): Promise<ServicoCotado[]> {
   const { token, valor, itens, tempoLimite = 6000 } = pedido
   const origem = soDigitos(pedido.cepDeOrigem)
@@ -241,6 +326,10 @@ export async function cotar(pedido: PedidoDeCotacao): Promise<ServicoCotado[]> {
     nela: não existe o "esqueci de pôr o CEP na chave" quando a chave é o
     próprio pedido. O carrinho é o cinto de segurança que já existia:
     perguntas de carrinhos diferentes não se misturam.
+
+    O outro lado: qualquer diferença no corpo é outra viagem. Por isso o
+    provider e a rota, quando perguntam pelo carrinho, montam valor e itens
+    com as mesmas funções (`somaDosProdutos` e `itensPraCotar`, acima).
   */
   if (!pedido.carrinho) return perguntar(token, corpo, tempoLimite)
   const chave = `${token}|${ENDERECO}|${pedido.carrinho}|${JSON.stringify(corpo)}`

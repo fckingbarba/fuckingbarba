@@ -339,7 +339,12 @@ A **sacola** grava CEP e entrega no carrinho (`apps/loja/src/lib/acoes/frete.ts`
 gaveta mostra o frete e o total que o Medusa calculou com ela — o checkout abre com os dois. Com
 entrega pendurada, toda mudança de quantidade faz o Medusa cotar de novo; o `cotar` do
 `client.ts` junta perguntas iguais do MESMO carrinho por 10 s, e é por isso que a rota
-`/store/frete` recebe `cart_id` quando quem pergunta é a sacola.
+`/store/frete` recebe `cart_id` quando quem pergunta é a sacola. Igual é byte a byte: com o
+`cart_id`, a rota monta a pergunta DO CARRINHO — o valor (já com a faixa de quantidade) e os
+itens, pelas mesmas `somaDosProdutos` e `itensPraCotar` do provider. Sem ele (a PDP), monta as
+linhas que o carrinho teria: a mesma variante numa linha só, e o preço pedido com a quantidade
+(`calculated_price` com `quantity` no contexto) — com o preço de uma unidade, a PDP prometia frete
+grátis que o checkout não dava.
 O **"leva junto"** da gaveta (`components/sacola/leva-junto.tsx`) sai de uma lista pronta do
 servidor: `vitrineDaSacola` (`lib/medusa.ts`, cacheada com a tag `produtos`) é lida no layout raiz
 e entregue à `<Gaveta>` junto com o modelo do motor de recomendação; a escolha de até três, na

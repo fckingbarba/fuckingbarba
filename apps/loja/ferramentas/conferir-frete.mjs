@@ -430,7 +430,8 @@ try {
   /* ── 8. a rota da calculadora de CEP ───────────────────────────────── */
   /*
     A PDP e a sacola não usam a rota do Medusa: elas chamam `POST
-    /store/frete`, que cota SEM carrinho. Os dois caminhos precisam devolver
+    /store/frete`, que cota sem precisar de carrinho (a sacola manda o dela,
+    e aí a pergunta sai dele — ver o 8½). Os dois caminhos precisam devolver
     o MESMO preço — senão a página de produto promete um valor e o checkout
     cobra outro, que é a divergência que esta integração inteira existe pra
     não ter.
@@ -526,6 +527,88 @@ try {
     "sem cotação ninguém sabe a transportadora — dizer uma seria mentira"
   )
   falsa.roteiro = "normal"
+
+  /* ── 8½. a faixa de quantidade, pela sacola e pela PDP ────────────── */
+  /*
+    Com 2 unidades o carrinho cobra o preço da FAIXA de quantidade, e a
+    rota tem que decidir o frete grátis sobre ele — perguntada pela sacola
+    (com `cart_id`) e pela PDP (sem) —, e não sobre o preço cheio. O piso
+    fica ENTRE os dois: o cheio passa dele, o da faixa não. Antes do conserto
+    de 23/09, a lista da gaveta e a calculadora da PDP diziam "Grátis" e o
+    pé cobrava a econômica inteira.
+  */
+  const comDois = await carrinhoCom(2)
+  const { cart: deDois } = await (
+    await fetch(`${MEDUSA}/store/carts/${comDois.id}?fields=id,item_total`, { headers: daLoja })
+  ).json()
+  const naFaixa = Number(deDois?.item_total ?? 0)
+  const cheio = Math.round(Number(variante.calculated_price?.calculated_amount ?? 0) * 200) / 100
+  confere(
+    "2 unidades no carrinho saem pelo preço da faixa de quantidade",
+    naFaixa > 0 && naFaixa < cheio,
+    `carrinho ${naFaixa}, cheio ${cheio} — rode npm run backend:quantidade`
+  )
+  if (naFaixa > 0 && naFaixa < cheio) {
+    const piso = Math.round((naFaixa + cheio) * 50) / 100
+    await gravarConfig({
+      frete: { modo: "gratis", piso, alvo: "mais-barata", tetoDeCusto: null },
+      cotacao: { precoDeEmergencia: null },
+    })
+    const { opcoes: doMedusa } = await fretesDo(comDois)
+    const cobrado = (doMedusa ?? []).find((o) => o.name === "Entrega econômica")?.amount
+    const pelaSacola = (
+      await calcular({
+        cep: "90010150",
+        itens: [{ variante_id: variante.id, quantidade: 2 }],
+        cart_id: comDois.id,
+      })
+    ).corpo?.frete
+    confere(
+      "pela sacola, a rota cobra a econômica que o Medusa cobra, com o piso entre a faixa e o cheio",
+      cobrado === MAIS_BARATA && pelaSacola?.opcoes?.[0]?.preco === cobrado,
+      `Medusa ${cobrado}, rota ${pelaSacola?.opcoes?.[0]?.preco} (piso ${piso}, carrinho ${naFaixa})`
+    )
+    confere(
+      "e o quanto falta pro frete grátis sai do valor do carrinho",
+      Math.abs(Number(pelaSacola?.faltaPraGratis) - (piso - naFaixa)) < 0.005,
+      `${pelaSacola?.faltaPraGratis} — o carrinho está a ${(piso - naFaixa).toFixed(2)} do piso`
+    )
+
+    /*
+      A PDP, SEM CARRINHO, FAZ A CONTA DO CARRINHO QUE AINDA NÃO EXISTE: o
+      preço na quantidade da linha, e a mesma variante numa linha só (o
+      Medusa soma a quantidade quando ela entra de novo). É a PDP prometendo
+      "Grátis" por um valor que o checkout não cobra que isto trava.
+    */
+    const pelaPdp = (
+      await calcular({ cep: "90010150", itens: [{ variante_id: variante.id, quantidade: 2 }] })
+    ).corpo?.frete
+    const declarado = Number(falsa.ultimoCorpo?.ShipmentInvoiceValue)
+    confere(
+      "a PDP, sem carrinho, declara e cobra pelo preço da faixa, como o carrinho",
+      declarado === naFaixa &&
+        pelaPdp?.opcoes?.[0]?.preco === cobrado &&
+        Math.abs(Number(pelaPdp?.faltaPraGratis) - (piso - naFaixa)) < 0.005,
+      `declarou ${declarado} (carrinho ${naFaixa}); econômica ${pelaPdp?.opcoes?.[0]?.preco}, ` +
+        `falta ${pelaPdp?.faltaPraGratis}`
+    )
+    const emDuasVezes = (
+      await calcular({
+        cep: "90010150",
+        itens: [
+          { variante_id: variante.id, quantidade: 1 },
+          { variante_id: variante.id, quantidade: 1 },
+        ],
+      })
+    ).corpo?.frete
+    confere(
+      "e a mesma variante mandada duas vezes vale como uma linha de 2",
+      Number(falsa.ultimoCorpo?.ShipmentInvoiceValue) === naFaixa &&
+        falsa.ultimoCorpo?.ShippingItemArray?.length === 1 &&
+        emDuasVezes?.opcoes?.[0]?.preco === cobrado,
+      JSON.stringify(falsa.ultimoCorpo)
+    )
+  }
 
   /* ── 9. cotação vazia ──────────────────────────────────────────────── */
   falsa.roteiro = "vazia"

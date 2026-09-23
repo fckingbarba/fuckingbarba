@@ -1,7 +1,15 @@
 import type { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { ContainerRegistrationKeys, Modules, QueryContext } from "@medusajs/framework/utils"
 import { aplicarPolitica, lerConfiguracoes } from "../../../lib/configuracoes"
-import { cotar, ErroDaFrenet, escolherFaixas, soDigitos } from "../../../modules/frenet/client"
+import {
+  cotar,
+  ErroDaFrenet,
+  escolherFaixas,
+  itensPraCotar,
+  soDigitos,
+  somaDosProdutos,
+  type LinhaDoCarrinho,
+} from "../../../modules/frenet/client"
 
 /**
  * POST /store/frete — quanto custa mandar ISTO pra ESTE CEP.
@@ -17,8 +25,8 @@ import { cotar, ErroDaFrenet, escolherFaixas, soDigitos } from "../../../modules
  * │ de abandono e transforma "olhei o frete" em "quase comprou".           │
  * │                                                                        │
  * │ Então esta rota cota SEM carrinho: recebe variantes e quantidades,     │
- * │ soma o valor pelo preço de verdade (o da região, não o que o           │
- * │ navegador mandar) e devolve as duas faixas.                            │
+ * │ soma o valor pelo preço de verdade (o da região NA QUANTIDADE pedida,  │
+ * │ e não o que o navegador mandar) e devolve as duas faixas.              │
  * └────────────────────────────────────────────────────────────────────────┘
  *
  * ┌─ E DEVOLVE O QUE O CHECKOUT NÃO CONSEGUE DEVOLVER ─────────────────────┐
@@ -36,6 +44,15 @@ import { cotar, ErroDaFrenet, escolherFaixas, soDigitos } from "../../../modules
  * duas funções: `escolherFaixas` escolhe a mais barata e a mais rápida, e
  * `aplicarPolitica` aplica o frete grátis. Reimplementar qualquer uma das
  * duas aqui seria a vitrine prometendo um valor e o carrinho cobrando outro.
+ *
+ * E A PERGUNTA À FRENET É SEMPRE A DE UM CARRINHO. Com `cart_id` (a sacola),
+ * a do carrinho de verdade; sem ele (a PDP), a do carrinho que estes itens
+ * formariam — a mesma variante numa linha só, o preço na quantidade da
+ * linha. Nos dois casos o valor declarado e os itens saem das mesmas funções
+ * do provider (`somaDosProdutos` e `itensPraCotar`): a lista da gaveta e o
+ * frete pendurado são UMA cotação só, e o frete grátis daqui é decidido
+ * sobre o que o carrinho cobra. O porquê está lá embaixo, onde as linhas
+ * são montadas.
  */
 
 type ItemPedido = { variante_id?: unknown; quantidade?: unknown }
@@ -104,6 +121,12 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     return
   }
 
+  /* Só a sacola manda — a PDP não tem carrinho. Aqui se confere o formato. */
+  const carrinho =
+    typeof corpo.cart_id === "string" && /^cart_[A-Za-z0-9]+$/.test(corpo.cart_id)
+      ? corpo.cart_id
+      : null
+
   try {
     /*
       A REGIÃO decide o preço, e o preço decide se o frete é grátis. Vem do
@@ -122,60 +145,109 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
       return
     }
 
-    const { data: variantes } = await query.graph({
-      entity: "variant",
-      fields: ["id", "weight", "length", "width", "height", "calculated_price.calculated_amount"],
-      filters: { id: pedidos.map((p) => p.id) },
-      context: {
-        calculated_price: QueryContext({
-          region_id: regiao.id,
-          currency_code: regiao.currency_code,
-        }),
-      },
-    })
+    /*
+      SEM CARRINHO, A ROTA MONTA AS LINHAS QUE O CARRINHO TERIA com estes
+      itens, e a pergunta sai delas pelas mesmas funções do provider.
+
+      Duas regras do carrinho entram na conta. A MESMA VARIANTE VIRA UMA LINHA
+      SÓ: o Medusa soma a quantidade na linha que já existe. E O PREÇO É O DA
+      QUANTIDADE DA LINHA: com `quantity` no contexto de preço, o Medusa
+      escolhe a faixa (`lib/precos-por-quantidade.ts`) como faz no carrinho —
+      2 frascos de R$ 49,90 saem R$ 47,45 cada. Com o preço de uma unidade, a
+      PDP declarava o valor cheio e decidia o frete grátis por ele: com piso
+      de R$ 139,90, 3 frascos (R$ 138,90 no carrinho) apareciam "Grátis" e o
+      checkout cobrava o frete.
+
+      Uma consulta por quantidade, porque o contexto vale pra consulta
+      inteira. Na PDP são uma ou duas: as unidades do produto, e 1 pra cada
+      marcado no "leve junto".
+    */
+    const quantidades = new Map<string, number>()
+    for (const p of pedidos) quantidades.set(p.id, (quantidades.get(p.id) ?? 0) + p.quantidade)
+    const porQuantidade = new Map<number, string[]>()
+    for (const [id, q] of quantidades) porQuantidade.set(q, [...(porQuantidade.get(q) ?? []), id])
+
+    const consultas = await Promise.all(
+      [...porQuantidade].map(([quantity, ids]) =>
+        query.graph({
+          entity: "variant",
+          fields: [
+            "id",
+            "weight",
+            "length",
+            "width",
+            "height",
+            "calculated_price.calculated_amount",
+          ],
+          filters: { id: ids },
+          context: {
+            calculated_price: QueryContext({
+              region_id: regiao.id,
+              currency_code: regiao.currency_code,
+              quantity,
+            }),
+          },
+        })
+      )
+    )
 
     /*
       O tipo do `query.graph` não conhece `calculated_price`: ele é montado
       pelo módulo de preços na hora, a partir do contexto de região, e não
       faz parte da entidade. O `as` é o custo de pedir um campo calculado —
-      e o `Number(... ?? 0)` logo abaixo é quem trata o dia em que ele não
-      vier.
+      e o `?? 0` logo abaixo (mais o `Number` do `somaDosProdutos`) é quem
+      trata o dia em que ele não vier.
     */
-    type ComPreco = (typeof variantes)[number] & {
+    type ComPreco = (typeof consultas)[number]["data"][number] & {
       calculated_price?: { calculated_amount?: number | null } | null
     }
-    const porId = new Map((variantes as ComPreco[]).map((v) => [v.id, v]))
-    const itens = pedidos.flatMap((p) => {
-      const v = porId.get(p.id)
-      if (!v) return []
-      return [
-        {
-          pesoEmGramas: Number(v.weight ?? 0) || 0,
-          comprimento: Number(v.length ?? 0) || 0,
-          largura: Number(v.width ?? 0) || 0,
-          altura: Number(v.height ?? 0) || 0,
-          quantidade: p.quantidade,
-          /*
-            SEM SKU, de propósito. O frete que o carrinho cobra é cotado
-            pelo provedor, com o contexto que o Medusa monta — e esse
-            contexto não traz o SKU da variante. Mandar o SKU só daqui
-            seria a vitrine fazendo uma pergunta diferente da que o
-            checkout faz; e perguntas iguais, além de darem o mesmo preço,
-            dividem a mesma viagem à Frenet (ver `cotar`).
-          */
-        },
-      ]
+    const porId = new Map(consultas.flatMap((c) => c.data as ComPreco[]).map((v) => [v.id, v]))
+    const linhasDoCorpo = [...quantidades].flatMap(([id, quantity]) => {
+      const v = porId.get(id)
+      return v
+        ? [{ unit_price: v.calculated_price?.calculated_amount ?? 0, quantity, variant: v }]
+        : []
     })
 
-    if (!itens.length) {
+    if (!linhasDoCorpo.length) {
       res.status(404).json({ erro: "variante_desconhecida" })
       return
     }
 
-    const subtotal = pedidos.reduce((s, p) => {
-      const preco = Number(porId.get(p.id)?.calculated_price?.calculated_amount ?? 0)
-      return s + (Number.isFinite(preco) ? preco : 0) * p.quantidade
-    }, 0)
+    /*
+      COM CARRINHO, AS LINHAS SÃO AS DELE. O corpo continua conferido aí em
+      cima — é o contrato da rota —, mas quem responde é o carrinho: as
+      linhas do corpo imitam o carrinho, e as do carrinho SÃO o que o Medusa
+      manda ao provider quando cota o frete pendurado.
+
+      E é isso que a sacola precisa: a pergunta daqui igual, byte a byte, à
+      do frete pendurado, pra que as duas dividam a viagem à Frenet. Montada
+      do corpo, ela já foi outra — o achado de 23/09: o preço de uma unidade
+      contra o da faixa, duas viagens onde devia ser uma, a lista da gaveta
+      cotada sobre um valor e o pé sobre outro.
+
+      Id que não acha carrinho, ou carrinho vazio, fica com as linhas do
+      corpo — e sai da chave da viagem, porque a pergunta não é mais a dele.
+    */
+    const { data: carrinhos } = carrinho
+      ? await query.graph({
+          entity: "cart",
+          fields: [
+            "items.unit_price",
+            "items.quantity",
+            "items.variant.weight",
+            "items.variant.length",
+            "items.variant.width",
+            "items.variant.height",
+          ],
+          filters: { id: carrinho },
+        })
+      : { data: [] }
+    const linhasDoCarrinho = (carrinhos[0]?.items ?? []).flatMap((l) => (l ? [l] : []))
+    const doCarrinho = linhasDoCarrinho.length > 0
+    const linhas: LinhaDoCarrinho[] = doCarrinho ? linhasDoCarrinho : linhasDoCorpo
+    const itens = itensPraCotar(linhas)
+    const subtotal = somaDosProdutos(linhas)
 
     const loja = req.scope.resolve(Modules.STORE)
     const [dados] = await loja.listStores({}, { select: ["id", "metadata"], take: 1 })
@@ -219,16 +291,13 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
         itens,
         tempoLimite: Number(process.env.FRENET_TEMPO_LIMITE_MS || 6000),
         /*
-          A sacola manda o id do carrinho: a entrega que ela pendura em
-          seguida faz o Medusa cotar a mesma pergunta, e com o carrinho na
-          chave as duas dividem a viagem. A PDP não tem carrinho e não manda.
-          O id só entra na chave do cache — preço, itens e CEP continuam
-          vindo do corpo e do banco, como sempre.
+          O carrinho entra na chave quando a pergunta é DELE (valor e itens
+          lidos dele, lá em cima): a entrega que a sacola pendura em seguida,
+          e o recálculo quando a quantidade muda, fazem o Medusa cotar a mesma
+          pergunta, e as duas dividem a viagem. Sem carrinho — a PDP, ou um
+          id que não achou nada —, cada pergunta é uma viagem.
         */
-        carrinho:
-          typeof corpo.cart_id === "string" && /^cart_[A-Za-z0-9]+$/.test(corpo.cart_id)
-            ? corpo.cart_id
-            : null,
+        carrinho: doCarrinho ? carrinho : null,
       })
 
       const escolhidas = escolherFaixas(servicos)
