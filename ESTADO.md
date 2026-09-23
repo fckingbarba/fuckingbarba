@@ -262,6 +262,21 @@ Como funciona, em uma linha cada:
   Bling; com nota autorizada, o e-mail diz qual cancelar e até que horas.
 - **Pedidos de antes:** as notas automáticas valem pros pedidos pagos **depois da primeira
   conexão**. Os de antes seguem com a nota feita à mão, pra não sair nota em dobro.
+- **Produtos (a importação, decidida em 23/09):** o Bling passa a mandar no catálogo do site —
+  nome, descrição, preço, peso, medidas, fotos e quais produtos existem. Na tela ERP, "Importar
+  produtos do Bling" abre uma **prévia**: cada produto ativo do Bling, o que acontece com ele no
+  site, e os produtos do site que saem. Nada muda até "Trocar os produtos".
+  - **Mesmo SKU:** o produto do site é reescrito no lugar, com o endereço e as categorias de hoje.
+    Saem o subtítulo, os textos da página e o "de/por"; o preço passa a ser o do Bling. (Reescrito,
+    e não apagado e recriado: o Medusa não apaga produto com pedido esperando envio, e assim a
+    sacola de quem está comprando e os pedidos em andamento continuam valendo.)
+  - **SKU que o site não tem:** entra em rascunho, sem categoria, pra alguém revisar e publicar.
+  - **Sai do site:** o que nenhum produto marcado substitui (a prévia lista, e dá pra manter um).
+    Com pedido esperando envio, vira rascunho em vez de sair.
+  - Campo vazio no Bling (foto, peso, medidas, descrição) não apaga o do site. Sem preço ou sem
+    SKU, o produto não entra. As fotos são copiadas pro Supabase Storage (o link do Bling vence).
+  - A descrição do Bling vai pro Google e pra busca da loja: a página do produto não tem bloco de
+    descrição. O desconto por quantidade e as ofertas do checkout se refazem na hora.
 
 - [ ] **Conferir no Bling, antes de conectar** (com o contador, no que for fiscal):
   - certificado **A1** instalado (emitir pelo servidor exige o A1);
@@ -270,7 +285,7 @@ Como funciona, em uma linha cada:
   - **o mesmo SKU** nos dois lados (FBOL01, FBKIT01…) — é por ele que a loja acha o produto;
   - as formas de pagamento **Pix** (tipo 17) e **cartão de crédito** (tipo 3) ativas pra
     recebimento. Sem elas, vale a forma padrão da conta.
-- [ ] **Criar o app privado:** Central de Extensões → Área do Integrador → Criar aplicativo.
+- [x] **Criar o app privado:** Central de Extensões → Área do Integrador → Criar aplicativo.
   - URL de redirecionamento: `https://<api do Railway>/hooks/erp/bling/autorizado`;
   - escopos: produtos, estoques, contatos, pedidos de venda, notas fiscais (NF-e), formas de
     pagamento, situações e dados da empresa. **Mudar escopo depois revoga o acesso** — aí é
@@ -278,10 +293,15 @@ Como funciona, em uma linha cada:
   - webhooks (recomendado): servidor `https://<api do Railway>/hooks/erp/bling`, com os recursos
     de estoque e de nota fiscal. Sem eles, o estoque anda de 5 em 5 minutos, e a nota que
     demora na SEFAZ é buscada pela varredura.
-- [ ] **Railway:** `BLING_CLIENT_ID` e `BLING_CLIENT_SECRET` (os dois da aba "Informações do app").
+- [x] **Railway:** `BLING_CLIENT_ID` e `BLING_CLIENT_SECRET` (os dois da aba "Informações do app").
       O deploy cria as duas tabelas do ERP sozinho.
-- [ ] **Conectar:** admin → ERP → "Conectar o Bling", entrando com o usuário administrador do
+- [x] **Conectar:** admin → ERP → "Conectar o Bling", entrando com o usuário administrador do
       Bling. A tela mostra a empresa, desde quando as notas saem e a primeira sincronização.
+      Conectado em 23/09; a primeira sincronização atualizou 6 produtos.
+- [ ] **Trazer os produtos do Bling:** admin → ERP → "Importar produtos do Bling". Na prévia,
+      desmarque insumo e embalagem e confira preço, peso, medidas e fotos. Troque num horário de
+      pouco movimento: quem tiver na sacola um produto que sai vê o item indisponível. Depois,
+      publique os novos que forem de vender (entram em rascunho, sem categoria).
 - [ ] **Conferir o primeiro pedido pago:** FB-<número> no Bling, a nota autorizada, e o estoque.
 
 Dois cuidados. **O limite da API é da conta** (3 chamadas por segundo, somando a integração da

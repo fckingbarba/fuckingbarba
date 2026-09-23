@@ -1,5 +1,5 @@
 import type { Acesso, LeituraDeSaldos } from "../../lib/erp/contrato"
-import { chamarBling, ErroDoBling } from "./api"
+import { chamarBling, type Consulta, ErroDoBling } from "./api"
 
 /**
  * OS PRODUTOS DO BLING, PELO SKU.
@@ -70,20 +70,52 @@ const emLotes = <T>(lista: readonly T[], tamanho: number) =>
 
 const POR_PAGINA = 100
 
+/**
+ * OS TRÊS FILTROS DE SALDO, pra não perder o produto esgotado.
+ *
+ * A especificação da v3 dá `filtroSaldoEstoque` com padrão 1 — só saldo
+ * POSITIVO. Se o Bling aplicar esse padrão quando o parâmetro não vai, a
+ * lista esconde o produto zerado: o estoque dele nunca chegaria a zero na
+ * loja (vende o que não tem), e a importação o daria por apagado. Não há
+ * valor pra "todos", então a loja pergunta pelos três — positivo, zerado,
+ * negativo — e junta pelo id. Se o padrão não for aplicado, as três
+ * respostas só se repetem; o custo são duas chamadas a mais por leitura.
+ */
+const FILTROS_DE_SALDO = [1, 0, 2] as const
+
+/** `GET /produtos` com `consulta`, todas as páginas dos três filtros de saldo, sem repetir id. */
+export async function listarProdutos(
+  acesso: Acesso,
+  consulta: Consulta,
+  { paginas = 20 }: { paginas?: number } = {}
+): Promise<unknown[]> {
+  const vistos = new Map<number, unknown>()
+  for (const filtroSaldoEstoque of FILTROS_DE_SALDO) {
+    for (let pagina = 1; pagina <= paginas; pagina++) {
+      const r = await chamarBling<{ data?: unknown[] }>(acesso, "GET", "/produtos", {
+        consulta: { ...consulta, filtroSaldoEstoque, pagina, limite: POR_PAGINA },
+      })
+      const itens = Array.isArray(r.corpo?.data) ? r.corpo.data : []
+      for (const item of itens) {
+        const id = numero((item as { id?: unknown } | null)?.id)
+        if (id && !vistos.has(id)) vistos.set(id, item)
+      }
+      if (itens.length < POR_PAGINA) break
+    }
+  }
+  return [...vistos.values()]
+}
+
 export async function produtosPorSku(
   acesso: Acesso,
   skus: readonly string[]
 ): Promise<Map<string, ProdutoDoBling>> {
   const achados = new Map<string, ProdutoDoBling>()
   for (const lote of emLotes([...new Set(skus)], 50)) {
-    for (let pagina = 1; pagina <= 20; pagina++) {
-      const r = await chamarBling<{ data?: unknown[] }>(acesso, "GET", "/produtos", {
-        // `criterio` 2: só os ativos.
-        consulta: { "codigos[]": lote, criterio: 2, pagina, limite: POR_PAGINA },
-      })
-      for (const [sku, p] of lerProdutos(r.corpo, lote)) if (!achados.has(sku)) achados.set(sku, p)
-      if ((r.corpo?.data?.length ?? 0) < POR_PAGINA) break
-    }
+    // `criterio` 2: só os ativos.
+    const itens = await listarProdutos(acesso, { "codigos[]": lote, criterio: 2 })
+    for (const [sku, p] of lerProdutos({ data: itens }, lote))
+      if (!achados.has(sku)) achados.set(sku, p)
   }
 
   const semSaldo = [...achados.values()].filter((p) => p.saldo === null)

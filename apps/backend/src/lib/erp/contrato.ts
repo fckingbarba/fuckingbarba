@@ -12,6 +12,7 @@
  *   │ estoque.ts   espelha o saldo    │ ──────▶│ lerSaldos                │
  *   │ notas.ts     emite, acompanha,  │ ──────▶│ emitirNota, consultarNota│
  *   │              desfaz, avisa      │        │ desfazerNota             │
+ *   │ catalogo.ts  importa os produtos│ ──────▶│ lerCatalogo              │
  *   │ conexao.ts   guarda os tokens   │ ──────▶│ autorização e renovação  │
  *   └─────────────────────────────────┘        └──────────────────────────┘
  *
@@ -64,6 +65,59 @@ export type LeituraDeSaldos =
       saldos: SaldoNoErp[]
       /** Os SKUs que o ERP não conhece (ou tem inativos): a loja não mexe neles. */
       naoAchados: string[]
+    }
+  | { ok: false; motivo: string }
+
+/* ── o catálogo (a importação dos produtos) ───────────────────────────────── */
+
+/** Centímetros, da caixa fechada: é o que a transportadora mede. */
+export type MedidasDaCaixa = { comprimento: number; largura: number; altura: number }
+
+/**
+ * Uma foto do produto no ERP. O `url` pode mudar a cada leitura (link que
+ * vence); a `chave` não muda enquanto a foto for a mesma. É pela chave que a
+ * loja sabe que já copiou aquela foto.
+ */
+export type FotoNoErp = { url: string; chave: string }
+
+export type VariacaoNoErp = {
+  id: string
+  sku: string | null
+  /** "Tamanho" → "G". */
+  opcoes: Record<string, string>
+  /** Em reais. `null`: vale o do produto. */
+  preco: number | null
+  /** `null`: vale o do produto. */
+  pesoGramas: number | null
+  medidas: MedidasDaCaixa | null
+}
+
+export type ProdutoNoErp = {
+  id: string
+  nome: string
+  /** O código do produto. No produto com variações, quem vende são elas. */
+  sku: string | null
+  /** Texto puro (o ERP guarda HTML). */
+  descricao: string | null
+  /** Em reais. */
+  preco: number | null
+  pesoGramas: number | null
+  medidas: MedidasDaCaixa | null
+  fotos: FotoNoErp[]
+  /** O kit montado no ERP: na loja é um produto como outro qualquer, com o SKU dele. */
+  composicao: boolean
+  /** Vazia no produto simples. */
+  variacoes: VariacaoNoErp[]
+}
+
+export type LeituraDoCatalogo =
+  | {
+      ok: true
+      produtos: ProdutoNoErp[]
+      /** Os ids pedidos que o ERP não tem mais como produto ativo. */
+      naoAchados: string[]
+      /** Produtos que ficaram de fora do limite de uma leitura. */
+      restantes: number
     }
   | { ok: false; motivo: string }
 
@@ -203,6 +257,13 @@ export type ErpDaLoja = {
   renovar(credenciais: Credenciais): Promise<Renovacao>
 
   lerSaldos(acesso: Acesso, skus: string[]): Promise<LeituraDeSaldos>
+
+  /**
+   * Os produtos ativos do ERP (serviço fica de fora), com peso, medidas,
+   * fotos e variações. Com `ids`, só esses: é a releitura da importação,
+   * que não confia no que a prévia mostrou minutos antes.
+   */
+  lerCatalogo(acesso: Acesso, ids?: string[]): Promise<LeituraDoCatalogo>
 
   /**
    * Leva a nota do pedido até a SEFAZ. Cada passo dado no ERP é gravado com
