@@ -154,6 +154,20 @@ export type PedidoParaOParceiro = {
   }[]
   /** O serviço escolhido na cotação (`data.servico` do método de entrega), quando guardado. */
   servico: { codigo: string; nome: string | null; transportadora: string | null } | null
+  /**
+   * A nota fiscal autorizada, quando o ERP emite (`lib/erp/notas.ts`): vai
+   * junto, pra etiqueta sair sem ninguém digitar a nota. Sem ela, o painel
+   * recebe o pedido como sempre, e a nota é a feita à mão.
+   */
+  nota: {
+    numero: string
+    serie: string | null
+    chave: string
+    /** Em reais. */
+    valor: number | null
+    /** ISO. */
+    emitidaEm: string | null
+  } | null
 }
 
 /**

@@ -250,6 +250,12 @@ export default defineMiddlewares({
       method: ["POST"],
       bodyParser: { preserveRawBody: true },
     },
+    /* Os avisos do ERP: o Bling assina o corpo cru (HMAC com o segredo do app). */
+    {
+      matcher: "/hooks/erp/*",
+      method: ["POST"],
+      bodyParser: { preserveRawBody: true },
+    },
     { matcher: "/admin/products", method: ["POST"], middlewares: [normalizaHandle] },
     { matcher: "/admin/products/:id", method: ["POST"], middlewares: [normalizaHandle] },
     { matcher: "/admin/product-categories", method: ["POST"], middlewares: [normalizaHandle] },

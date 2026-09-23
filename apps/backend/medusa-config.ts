@@ -210,6 +210,13 @@ const enviosModule = [{ resolve: "./src/modules/envios" }]
 /** A lista da newsletter do rodapé (`src/modules/newsletter`). */
 const newsletterModule = [{ resolve: "./src/modules/newsletter" }]
 
+/**
+ * O ERP — a conexão (tokens cifrados) e a nota fiscal de cada pedido. Quem
+ * fala com o ERP é o tradutor dele (`src/modules/bling/`); quem decide é
+ * `src/lib/erp/`. Ver o AGENTS.md, "ERP".
+ */
+const erpModule = [{ resolve: "./src/modules/erp" }]
+
 module.exports = defineConfig({
   projectConfig: {
     databaseUrl: process.env.DATABASE_URL,
@@ -252,5 +259,6 @@ module.exports = defineConfig({
     ...authModule,
     ...enviosModule,
     ...newsletterModule,
+    ...erpModule,
   ],
 })

@@ -2,6 +2,17 @@ import type { MedusaContainer } from "@medusajs/framework/types"
 import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
 import { ENVIOS } from "../../modules/envios"
 import type EnviosService from "../../modules/envios/service"
+import {
+  capturasDo,
+  documentoDoPedido,
+  faltaNoEndereco,
+  lerEndereco,
+  linha,
+  nomeDoEndereco,
+  telefone,
+  type EnderecoDoMedusa,
+} from "../dados-do-pedido"
+import { notaParaAEtiqueta, type NotaParaAEtiqueta } from "../erp/notas"
 import { referenciaDoPedido, type ParceiroDeEntrega, type PedidoParaOParceiro } from "./parceiro"
 import { parceiroDeEntrega, parceiroQueRegistra } from "./parceiros"
 
@@ -121,17 +132,7 @@ async function gravar(container: MedusaContainer, pedidoId: string, registro: Re
 
 /* ── o pedido, como o Medusa devolve ──────────────────────────────────────── */
 
-type Endereco = {
-  first_name?: string | null
-  last_name?: string | null
-  phone?: string | null
-  address_1?: string | null
-  address_2?: string | null
-  city?: string | null
-  province?: string | null
-  postal_code?: string | null
-  metadata?: Record<string, unknown> | null
-}
+type Endereco = EnderecoDoMedusa
 
 export type PedidoLido = {
   id: string
@@ -222,19 +223,21 @@ export type DecisaoDoRegistro =
         | "ja-tem-envio"
         | "recusado"
         | "esperando"
+        | "esperando-nota"
     }
 
 export function decidirRegistro(
   o: PedidoLido,
-  { desde, agora }: { desde: Date; agora: Date }
+  {
+    desde,
+    agora,
+    nota = { esperar: false, nota: null },
+  }: { desde: Date; agora: Date; nota?: NotaParaAEtiqueta }
 ): DecisaoDoRegistro {
   const r = lerRegistroNoPedido(o.metadata)
   if (r?.entrou) return { registrar: false, motivo: "ja-entrou" }
   if (o.status === "canceled") return { registrar: false, motivo: "cancelado" }
-  const capturas = (o.payment_collections ?? [])
-    .flatMap((c) => c?.payments ?? [])
-    .map((p) => (p?.captured_at ? new Date(p.captured_at as string) : null))
-    .filter((d): d is Date => d !== null && !Number.isNaN(d.getTime()))
+  const capturas = capturasDo(o)
   if (!capturas.length) return { registrar: false, motivo: "nao-pago" }
   if (!capturas.some((d) => d >= desde)) return { registrar: false, motivo: "pago-antes" }
   // Envio criado no admin — postado ou não — é alguém cuidando dele à mão.
@@ -243,77 +246,30 @@ export function decidirRegistro(
   }
   if (r?.definitivo) return { registrar: false, motivo: "recusado" }
   if (r && emEspera(r, agora)) return { registrar: false, motivo: "esperando" }
+  // Com o ERP emitindo, a etiqueta espera a nota: ela vai junto pro painel.
+  if (nota.esperar) return { registrar: false, motivo: "esperando-nota" }
   return { registrar: true }
 }
 
 /* ── o pedido no formato do contrato ──────────────────────────────────────── */
 
-const digitos = (v: unknown) => (typeof v === "string" ? v.replace(/\D/g, "") : "")
-const linha = (v: unknown) => (typeof v === "string" ? v.replace(/\s+/g, " ").trim() : "")
 const numeroOuZero = (v: unknown) => {
   const n = Number(v ?? 0)
   return Number.isFinite(n) ? n : 0
 }
 
-/** "+55 (11) 91234-5678" → "11912345678". Sem DDD, não serve pra transportadora. */
-function telefone(v: unknown): string | null {
-  let d = digitos(v)
-  if (d.startsWith("55") && (d.length === 12 || d.length === 13)) d = d.slice(2)
-  return d.length === 10 || d.length === 11 ? d : null
-}
-
-/** O CPF/CNPJ que o checkout grava no endereço de cobrança (`{ tipo, valor }`). */
-function documento(o: PedidoLido): string | null {
-  for (const meta of [o.billing_address?.metadata, o.shipping_address?.metadata]) {
-    const doc = (meta?.documento as { valor?: unknown } | null | undefined)?.valor
-    const limpo = typeof doc === "string" ? doc.replace(/[^0-9A-Za-z]/g, "").toUpperCase() : ""
-    if (limpo.length === 11 || limpo.length === 14) return limpo
-  }
-  return null
-}
-
-/**
- * O endereço como o checkout grava (`montarEndereco`, na loja): as partes
- * no metadata, e as linhas montadas — "rua, número" e "complemento —
- * bairro" — pra quem não lê o metadata. As partes valem mais; as linhas são
- * o plano B.
- */
-function lerEndereco(e: Endereco) {
-  const meta = e.metadata ?? {}
-  const l1 = linha(e.address_1)
-  const partesDaL2 = linha(e.address_2).split(" — ").filter(Boolean)
-  return {
-    cep: digitos(e.postal_code),
-    rua: linha(meta.rua) || l1.replace(/,\s*[^,]*$/, "").trim(),
-    numero: linha(meta.numero) || (l1.includes(",") ? l1.split(",").pop()!.trim() : "") || "S/N",
-    complemento:
-      linha(meta.complemento) ||
-      (partesDaL2.length > 1 ? partesDaL2.slice(0, -1).join(" — ") : "") ||
-      null,
-    bairro: linha(meta.bairro) || partesDaL2[partesDaL2.length - 1] || "",
-    cidade: linha(e.city),
-    uf: linha(e.province).toUpperCase(),
-  }
-}
-
 export function montarPedido(
-  o: PedidoLido
+  o: PedidoLido,
+  nota: PedidoParaOParceiro["nota"] = null
 ): { ok: true; pedido: PedidoParaOParceiro } | { ok: false; motivo: string } {
   const numero = Number(o.display_id ?? 0)
   if (!numero) return { ok: false, motivo: "pedido sem número" }
   const e = o.shipping_address
   if (!e) return { ok: false, motivo: "pedido sem endereço de entrega" }
 
-  const nome = [linha(e.first_name), linha(e.last_name)].filter(Boolean).join(" ")
+  const nome = nomeDoEndereco(e)
   const endereco = lerEndereco(e)
-  const falta = [
-    !nome && "nome",
-    endereco.cep.length !== 8 && "CEP",
-    !endereco.rua && "rua",
-    !endereco.bairro && "bairro",
-    !endereco.cidade && "cidade",
-    !/^[A-Z]{2}$/.test(endereco.uf) && "UF",
-  ].filter(Boolean)
+  const falta = faltaNoEndereco(nome, endereco)
   if (falta.length) return { ok: false, motivo: `endereço incompleto (falta ${falta.join(", ")})` }
 
   const itens = (o.items ?? [])
@@ -365,9 +321,15 @@ export function montarPedido(
       valorDosProdutos: numeroOuZero(o.item_total),
       frete: numeroOuZero(o.shipping_total),
       email: o.email?.includes("@") ? o.email : null,
-      destinatario: { nome, documento: documento(o), telefone: telefone(e.phone), endereco },
+      destinatario: {
+        nome,
+        documento: documentoDoPedido(o.billing_address, o.shipping_address)?.valor ?? null,
+        telefone: telefone(e.phone),
+        endereco,
+      },
       itens,
       servico,
+      nota,
     },
   }
 }
@@ -456,13 +418,14 @@ export async function registrarNoParceiro(
     async (): Promise<ResultadoDoRegistro> => {
       const pedido = await lerPedido(container, pedidoId)
       if (!pedido) return { resultado: "nada", motivo: "pedido não existe" }
-      const decisao = decidirRegistro(pedido, { desde: valeDesde, agora })
+      const nota = await notaParaAEtiqueta(container, pedidoId, capturasDo(pedido))
+      const decisao = decidirRegistro(pedido, { desde: valeDesde, agora, nota })
       if (!decisao.registrar) return { resultado: "nada", motivo: decisao.motivo }
 
       const numero = Number(pedido.display_id ?? 0)
       const referencia = referenciaDoPedido(numero)
       const tentativas = (lerRegistroNoPedido(pedido.metadata)?.tentativas ?? 0) + 1
-      const montado = montarPedido(pedido)
+      const montado = montarPedido(pedido, nota.nota)
       const r = montado.ok
         ? await parceiro.registrarPedido!(montado.pedido)
         : { ok: false as const, motivo: montado.motivo, definitivo: true }
