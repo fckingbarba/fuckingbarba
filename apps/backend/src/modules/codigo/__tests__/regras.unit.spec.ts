@@ -47,12 +47,18 @@ describe("hashDoCodigo", () => {
   })
   it("depende do segredo do servidor", () => {
     const antes = process.env.JWT_SECRET
-    process.env.JWT_SECRET = "um"
-    const um = hashDoCodigo(EMAIL, "123456")
-    process.env.JWT_SECRET = "dois"
-    const dois = hashDoCodigo(EMAIL, "123456")
-    process.env.JWT_SECRET = antes
-    expect(um).not.toBe(dois)
+    try {
+      process.env.JWT_SECRET = "um"
+      const um = hashDoCodigo(EMAIL, "123456")
+      process.env.JWT_SECRET = "dois"
+      const dois = hashDoCodigo(EMAIL, "123456")
+      expect(um).not.toBe(dois)
+    } finally {
+      // `process.env` guarda texto: devolver `undefined` gravaria "undefined" — outro segredo, e o
+      // `conferir`, lá embaixo, passaria a recusar o código certo do `pendente`.
+      if (antes === undefined) delete process.env.JWT_SECRET
+      else process.env.JWT_SECRET = antes
+    }
   })
 })
 
