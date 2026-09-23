@@ -23,10 +23,11 @@ export const Nota = model
     /** Como o pedido se chama lá: "FB-1042". */
     referencia: model.text(),
     /**
-     * "a-emitir" (nada no ERP ainda, ou parou no meio), "processando" (na
-     * SEFAZ), "autorizada", "rejeitada", "denegada", "cancelada" (no ERP) e
-     * "desfeita" (o pedido foi cancelado antes da autorização, e a loja
-     * desfez o que tinha feito no ERP).
+     * "a-emitir" (nada no ERP ainda, ou parou no meio — o pedido de venda
+     * esperando a janela, por exemplo), "processando" (na SEFAZ),
+     * "autorizada", "rejeitada", "denegada", "cancelada" (no ERP) e
+     * "desfeita" (o pedido foi cancelado, e a loja desfez no ERP o que dava:
+     * antes da autorização, ou depois de alguém cancelar a nota lá).
      */
     situacao: model.text().default("a-emitir"),
     /** Os passos dados no ERP, do jeito que o tradutor dele precisa. */

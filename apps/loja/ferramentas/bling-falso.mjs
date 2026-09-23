@@ -22,7 +22,9 @@ import { createServer } from "node:http"
  *   - a lista de produtos sem `filtroSaldoEstoque` só traz saldo POSITIVO — o
  *     padrão que a especificação da v3 dá (a loja pergunta pelos três);
  *   - a foto de dentro do Bling tem link que muda a cada leitura (vence);
- *   - o recurso fora do escopo do app responde 403 (`painel.semEscopo`).
+ *   - o recurso fora do escopo do app responde 403 (`painel.semEscopo`);
+ *   - gerar a nota deixa o pedido de venda "Atendido" (9), e cancelar a nota
+ *     no painel (`painel.cancelarNota`) não mexe nele — como no Bling.
  *
  * As fotos saem de `/imagens/<n>.png` (sem token, como o link do S3 do Bling);
  * `painel.fotosServidas` conta quantas a loja baixou.
@@ -134,6 +136,11 @@ export async function subirBlingFalso({
         .replace("T", " "),
       linkDanfe: `https://www.bling.com.br/doc.view.php?id=falso${nota.id}`,
     })
+  }
+  /** Alguém cancela a nota no painel do Bling (a API não cancela): o pedido de venda fica como está. */
+  painel.cancelarNota = (nota) => {
+    nota.situacao = 2
+    return nota
   }
   painel.avisar = async (url, evento, dados, { segredo = painel.clientSecret } = {}) => {
     const corpo = JSON.stringify({
@@ -433,7 +440,9 @@ export async function subirBlingFalso({
         if (!p) return erro(res, 404, "pedido não existe", "RESOURCE_NOT_FOUND")
         const resto = pedido[2] ?? ""
         if (!resto && req.method === "GET")
-          return json(res, 200, { data: { ...p, notaFiscal: p.notaFiscal } })
+          return json(res, 200, {
+            data: { ...p, situacao: { id: p.situacao, valor: 0 }, notaFiscal: p.notaFiscal },
+          })
         if (resto === "/gerar-nfe" && req.method === "POST") {
           if (p.notaFiscal) return erro(res, 400, "Esta venda já possui nota fiscal")
           const id = novoId()
@@ -448,6 +457,8 @@ export async function subirBlingFalso({
             envios: 0,
           })
           p.notaFiscal = { id }
+          // Como no Bling: o pedido que ganhou nota fica "Atendido".
+          p.situacao = 9
           return json(res, 201, { idNotaFiscal: id })
         }
         const situacao = resto.match(/^\/situacoes\/(\d+)$/)

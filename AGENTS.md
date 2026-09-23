@@ -377,7 +377,13 @@ confere a janela numa seção dela (e devolve o valor de antes no fim). Autoriza
 `subscribers/nota-autorizada.ts` manda o pedido pro painel da Frenet — que, com o ERP conectado,
 espera a nota (`notaParaAEtiqueta`) e leva número e chave no `Invoice`. Cancelado sem nota
 autorizada, a loja apaga a nota pendente e cancela o pedido de venda; com nota autorizada, e-mail
-pra equipe (a API não cancela NF-e). O conferidor é o `conferir-erp.mjs`, com o `bling-falso.mjs`.
+pra equipe (a API não cancela NF-e) e, quando a nota aparece cancelada (o aviso `invoice.updated`,
+ou a varredura, que pergunta pelas autorizadas de pedido cancelado), a loja cancela o pedido de
+venda — o Bling deixa ele "Atendido" ao gerar a nota. O `desfazerNota` confere a situação do
+pedido antes (já cancelado, não manda de novo) e passa pelo 404 da nota que ele mesmo já apagou. A
+marca `cancelar` é gravada antes da trava, e a varredura marca o cancelado cujo evento se perdeu.
+Falha no desfazer que precisa de alguém (o 403 inclusive) vira o e-mail "Cancele no <ERP> o pedido
+#N" e a pendência "desfazer"; a loja segue tentando. O conferidor é o `conferir-erp.mjs`, com o `bling-falso.mjs`.
 O **403 do Bling é escopo que falta no app** (e a resposta de produção veio sem corpo): o
 `chamarBling` põe na mensagem o escopo que o caminho pede (`escopoDoCaminho`, com o nome da tela de
 escopos do app) e marca `semPermissao`; na nota isso NÃO é definitivo (`precisaDeGente`): a equipe

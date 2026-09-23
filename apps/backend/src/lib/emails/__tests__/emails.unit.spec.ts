@@ -1,7 +1,7 @@
 import { emailDoCodigo } from "../codigo"
 import { emailDoEnvio, type EnvioDoAviso, type PedidoDoAviso } from "../envio"
 import { emReais, esc, urlDaLoja } from "../moldura"
-import { emailDaNotaComProblema, emailDaNotaParaConferir } from "../erp"
+import { emailDaNotaComProblema, emailDaNotaParaConferir, emailDoPedidoParaDesfazer } from "../erp"
 import { emailDePedidoCancelado, type CancelamentoDoEmail } from "../pedido-cancelado"
 import { emailDePedidoConfirmado, rotuloDaEntrega, type PedidoDoEmail } from "../pedido-confirmado"
 import { emailDaTroca, emailDeEmailTrocado } from "../troca-de-email"
@@ -486,5 +486,22 @@ describe("a nota que saiu com o cadastro antigo (pra equipe)", () => {
     expect(e.texto).toContain("sai depois de 23/09, 17:05")
     expect(e.texto).toContain("Corrija o cadastro do cliente no Bling antes de 23/09, 17:05")
     expect(e.texto).not.toContain("A nota fiscal do pedido #16 saiu")
+  })
+})
+
+describe("o pedido cancelado que a loja não desfez no ERP (pra equipe)", () => {
+  it("diz o que cancelar lá, e não manda emitir nada", () => {
+    const e = emailDoPedidoParaDesfazer("equipe@exemplo.com", {
+      erp: "Bling",
+      pedidoId: "order_01ABC",
+      numero: 16,
+      referencia: "FB-16",
+      motivo: "o Bling negou a permissão pro pedido de venda (403)",
+    })
+    expect(e.assunto).toBe("Cancele no Bling o pedido #16")
+    expect(e.texto).toContain("Vendas → Pedidos de venda → FB-16")
+    expect(e.texto).toContain("o Bling negou a permissão pro pedido de venda (403)")
+    expect(e.texto).toContain("A loja segue tentando")
+    expect(e.texto).not.toMatch(/emita/)
   })
 })

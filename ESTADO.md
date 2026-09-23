@@ -283,8 +283,12 @@ Como funciona, em uma linha cada:
   marcar no app e **"Conectar de novo"** a loja tenta sozinha. Não emita à mão, senão a nota sai
   duas vezes.
 - **Cancelado:** dentro da janela (ou com a nota ainda não autorizada), a loja cancela o pedido de
-  venda no Bling, e apaga a nota pendente se houver; com nota autorizada, o e-mail diz qual
-  cancelar e até que horas.
+  venda no Bling, e apaga a nota pendente se houver. Com nota autorizada, o e-mail diz qual
+  cancelar e até que horas; **cancelada a nota no Bling, a loja cancela o pedido de venda
+  sozinha**, em até 5 minutos (o Bling deixa o pedido "Atendido" quando gera a nota, e cancelar a
+  nota não mexe nele — foi o FB-15, em 23/09). Se o Bling recusar cancelar o pedido de venda, a
+  equipe recebe "Cancele no Bling o pedido #N", a tela ERP mostra a pendência, e a loja segue
+  tentando.
 - **Pedidos de antes:** as notas automáticas valem pros pedidos pagos **depois da primeira
   conexão**. Os de antes seguem com a nota feita à mão, pra não sair nota em dobro.
 - **Produtos (a importação, decidida em 23/09):** o Bling passa a mandar no catálogo do site —
