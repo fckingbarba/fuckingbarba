@@ -1,10 +1,12 @@
 import { abrir, fechar } from "../cofre"
 import { estoqueEspelhado } from "../estoque"
+import { minutosDaJanela } from "../conexao"
 import {
   decidirNota,
   diaEmBrasilia,
   esperaDaNota,
   montarPedidoParaNota,
+  quandoSaiANota,
   type PedidoLido,
 } from "../notas"
 
@@ -102,6 +104,55 @@ describe("quais pedidos ganham nota", () => {
     expect(esperaDaNota(1)).toBe(10 * 60 * 1000)
     expect(esperaDaNota(3)).toBe(40 * 60 * 1000)
     expect(esperaDaNota(30)).toBe(6 * 60 * 60 * 1000)
+  })
+})
+
+describe("a janela de cancelamento antes da nota", () => {
+  const HORA = 60 * 60 * 1000
+  const decidir = (
+    o: Parameters<typeof decidirNota>[0],
+    n: Parameters<typeof decidirNota>[1] = null,
+    janela = 2 * HORA
+  ) => decidirNota(o, n, { desde: DESDE, agora: AGORA, janela })
+
+  it("dentro dela, só o pedido vai pro ERP; fechada, a nota sai", () => {
+    // Pago 14:00, agora 15:00: com 2 horas, a nota sai às 16:00.
+    expect(decidir(pago("2026-09-23T14:00:00.000Z"))).toBe("so-o-pedido")
+    expect(decidir(pago("2026-09-23T14:00:00.000Z"), nota({}))).toBe("so-o-pedido")
+    // Pago 12:30: a janela fechou às 14:30.
+    expect(decidir(pago("2026-09-23T12:30:00.000Z"))).toBe("emitir")
+    // Na hora (0), ou quem clicou "Emitir agora": sem janela.
+    expect(decidir(pago("2026-09-23T14:00:00.000Z"), null, 0)).toBe("emitir")
+  })
+
+  it("conta do primeiro pagamento", () => {
+    const doisPagamentos = {
+      status: "pending",
+      payment_collections: [
+        { payments: [{ captured_at: "2026-09-23T14:50:00.000Z" }] },
+        { payments: [{ captured_at: "2026-09-23T12:40:00.000Z" }] },
+      ],
+    }
+    expect(quandoSaiANota(doisPagamentos, 2 * HORA).toISOString()).toBe("2026-09-23T14:40:00.000Z")
+    expect(decidir(doisPagamentos)).toBe("emitir")
+  })
+
+  it("não passa na frente do resto: cancelado, recusado e a espera da tentativa valem antes", () => {
+    const agora = pago("2026-09-23T14:30:00.000Z")
+    expect(decidir({ ...agora, status: "canceled" })).toBe("cancelado")
+    expect(decidir(agora, nota({ definitivo: true }))).toBe("recusado")
+    expect(decidir(agora, nota({ proxima_em: "2026-09-23T15:10:00.000Z" }))).toBe("esperando")
+    expect(decidir(agora, nota({ situacao: "autorizada" }))).toBe("ja-tem")
+  })
+
+  it("o padrão é 2 horas; 0 é na hora; o que não for minuto inteiro vira o padrão; no máximo 24 horas", () => {
+    expect(minutosDaJanela(null)).toBe(120)
+    expect(minutosDaJanela({ janela_da_nota: null })).toBe(120)
+    expect(minutosDaJanela({ janela_da_nota: 0 })).toBe(0)
+    expect(minutosDaJanela({ janela_da_nota: 45 })).toBe(45)
+    expect(minutosDaJanela({ janela_da_nota: -5 })).toBe(120)
+    expect(minutosDaJanela({ janela_da_nota: 1.5 })).toBe(120)
+    expect(minutosDaJanela({ janela_da_nota: 5000 })).toBe(1440)
   })
 })
 

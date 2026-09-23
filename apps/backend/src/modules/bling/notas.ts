@@ -23,6 +23,10 @@ import { produtosPorSku } from "./produtos"
  *      padrão da conta — é lá, e não aqui, que moram CFOP e impostos;
  *   4. a SEFAZ (`enviar`), sem o e-mail do Bling pro cliente.
  *
+ * Com `ate: "pedido"`, para no 2: o pedido de venda vai pro Bling na hora
+ * do pagamento, e a nota espera a janela de cancelamento (`lib/erp/notas.ts`).
+ * Cancelado dentro dela, o pedido de venda é cancelado lá e não há nota.
+ *
  * ┌─ UMA NOTA SÓ, MESMO QUE O SERVIDOR CAIA NO MEIO ───────────────────────┐
  * │ O Bling NÃO recusa um segundo pedido com o mesmo `numeroLoja`, e nota  │
  * │ duplicada é problema com a Receita. Então: cada passo é gravado na     │
@@ -193,8 +197,8 @@ async function garantirContato(
         id,
         aviso:
           `o cadastro do cliente no Bling não foi atualizado com este pedido ` +
-          `(${e instanceof Error ? e.message : String(e)}) — a nota saiu com o nome, o ` +
-          "endereço, o e-mail e o telefone que já estavam lá",
+          `(${e instanceof Error ? e.message : String(e)}) — a nota usa o nome, o ` +
+          "endereço, o e-mail e o telefone que estão lá",
       }
     }
     return { id, aviso: null }
@@ -426,7 +430,8 @@ export async function emitirNota(
   acesso: Acesso,
   pedido: PedidoParaNota,
   passosGuardados: Passos,
-  salvar: (passos: Passos) => Promise<void>
+  salvar: (passos: Passos) => Promise<void>,
+  { ate }: { ate?: "pedido" } = {}
 ): Promise<ResultadoDaEmissao> {
   const passos = lerPassos(passosGuardados)
   const gravar = async (novo: PassosDoBling) => {
@@ -447,6 +452,10 @@ export async function emitirNota(
           (await criarPedido(acesso, pedido, passos.contato!)),
       })
     }
+    // A janela de cancelamento: o pedido de venda já reserva o estoque no
+    // Bling, e a nota espera. (A que já existe — gerada à mão no Bling, a
+    // partir deste pedido — é achada quando a janela fechar.)
+    if (ate === "pedido") return { ok: true, nota: null, ...(avisos.length ? { avisos } : {}) }
     if (!passos.nota) {
       await gravar({
         nota:

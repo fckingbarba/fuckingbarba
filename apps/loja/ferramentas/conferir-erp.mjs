@@ -36,6 +36,9 @@
  * │   sem aviso pra equipe, e a corrigida no Bling que a loja não percebe; │
  * │ • o cancelado que deixa pedido e nota no Bling — ou a nota autorizada  │
  * │   de pedido cancelado sem o e-mail que manda cancelar em 24 horas;     │
+ * │ • a janela antes da nota: a nota que sai antes dela fechar, o pedido   │
+ * │   de venda que não vai na hora, o cancelado dentro dela que deixa algo │
+ * │   no Bling ou manda e-mail, e o "Emitir agora" que não passa;          │
  * │ • o pedido sem CPF sem aviso; a conexão que cai em silêncio;           │
  * │ • a importação dos produtos que apaga o que a prévia não mostrou, que  │
  * │   troca o endereço ou a categoria do que já existe, que deixa o "de/   │
@@ -210,6 +213,20 @@ try {
       s.conectado && s.empresa === "FuckingBarba (Bling falso)" && Boolean(s.notasDesde),
       "o admin mostra a empresa e desde quando as notas saem",
       JSON.stringify({ conectado: s.conectado, empresa: s.empresa })
+    )
+    ok(
+      s.janelaDaNota === 120 && Array.isArray(s.esperando),
+      "sem ninguém escolher, a nota espera 2 horas depois do pagamento (o padrão)",
+      String(s.janelaDaNota)
+    )
+    // As seções da nota, até a da janela, conferem a nota que sai na hora.
+    const janelaAntes = s.janelaDaNota
+    await adm("/admin/erp/notas/janela", { method: "POST", body: JSON.stringify({ minutos: 0 }) })
+    limpar.push(() =>
+      adm("/admin/erp/notas/janela", {
+        method: "POST",
+        body: JSON.stringify({ minutos: janelaAntes }),
+      })
     )
     const f5 = await fetch(volta, { redirect: "manual" })
     ok(
@@ -695,6 +712,130 @@ try {
       /não foi atualizado/.test(email?.html ?? "") && /carta de correção/.test(email?.html ?? ""),
       "e a equipe recebe o e-mail pra conferir o destinatário da nota",
       email?.subject
+    )
+  }
+
+  /* ── 8d. a janela antes da nota ────────────────────────────────────────────── */
+
+  titulo("A janela: o pedido de venda vai na hora, a nota espera 2 horas")
+  bling.sefaz = "autoriza"
+  {
+    const janela = (minutos) =>
+      adm("/admin/erp/notas/janela", { method: "POST", body: JSON.stringify({ minutos }) })
+    const invalidos = await Promise.all([-1, 1441, 1.5, "120", null].map((m) => janela(m)))
+    ok(
+      invalidos.every((r) => r.status === 400),
+      "a janela só aceita minutos inteiros, de 0 a 24 horas",
+      invalidos.map((r) => r.status).join(",")
+    )
+    const { status: sJ, corpo: cJ } = await janela(120)
+    ok(
+      sJ === 200 && (await adm("/admin/erp")).corpo.janelaDaNota === 120,
+      "a tela grava a janela",
+      JSON.stringify(cJ)
+    )
+
+    const J = await fabrica.pedidoPix(novoEmail(), [["oleo-para-barba", 1]], { documento: CPF })
+    await fabrica.pagar(J)
+    const pagoEm = Date.now()
+    const refJ = `FB-${J.numero}`
+    const vendaJ = await esperarQue(() => bling.pedidoDeVenda(refJ))
+    // A varredura espera a trava do pedido: depois dela, o pagamento já passou todo.
+    await adm("/admin/erp/notas", { method: "POST" })
+    ok(
+      Boolean(vendaJ) && !bling.notaDoPedidoDeVenda(refJ),
+      `pago, o #${J.numero} vira pedido de venda no Bling na hora — e a nota espera`
+    )
+    await adm("/admin/erp/notas", { method: "POST" })
+    ok(
+      !bling.notaDoPedidoDeVenda(refJ) &&
+        [...bling.pedidos.values()].filter((p) => p.numeroLoja === refJ).length === 1,
+      "a varredura não emite antes de a janela fechar, nem cria outro pedido de venda"
+    )
+    const esperandoJ = (await adm("/admin/erp")).corpo.esperando?.find((e) => e.referencia === refJ)
+    ok(
+      Boolean(esperandoJ) &&
+        Math.abs(new Date(esperandoJ.notaEm).getTime() - (pagoEm + 2 * 60 * 60 * 1000)) <
+          5 * 60 * 1000,
+      "a tela mostra o pedido esperando, com a hora da nota: 2 horas depois do pagamento",
+      JSON.stringify(esperandoJ)
+    )
+    if (PARCEIRO) {
+      await esperar(1500)
+      ok(
+        !frenet.pedidos.some((p) => p.corpo?.Order?.Id === refJ),
+        "e o pedido ainda não vai pro painel da Frenet: a etiqueta espera a nota"
+      )
+    }
+
+    await fabrica.cancelar(J)
+    const desfeito = await esperarQue(() => bling.pedidoDeVenda(refJ)?.situacao === 12)
+    ok(
+      Boolean(desfeito) && !bling.notaDoPedidoDeVenda(refJ),
+      "cancelado dentro da janela: o pedido de venda é cancelado no Bling, e nota nenhuma foi feita"
+    )
+    await esperar(1000)
+    ok(
+      praEquipe(`Cancele a nota do pedido #${J.numero} no Bling`).length === 0 &&
+        !(await pendencias()).some((p) => p.referencia === refJ) &&
+        !(await adm("/admin/erp")).corpo.esperando?.some((e) => e.referencia === refJ),
+      "sem e-mail pra equipe, sem pendência, e ele sai da lista dos que esperam"
+    )
+
+    const K = await fabrica.pedidoPix(novoEmail(), [["balm-para-barba", 1]], { documento: CPF })
+    await fabrica.pagar(K)
+    const refK = `FB-${K.numero}`
+    await esperarQue(() => bling.pedidoDeVenda(refK))
+    const { corpo: agora } = await adm("/admin/erp/notas/tentar", {
+      method: "POST",
+      body: JSON.stringify({ pedidoId: K.id }),
+    })
+    ok(
+      agora.resultado?.resultado === "autorizada" &&
+        bling.notaDoPedidoDeVenda(refK)?.situacao === 5 &&
+        !(await adm("/admin/erp")).corpo.esperando?.some((e) => e.referencia === refK),
+      "“Emitir agora” emite na hora, sem esperar a janela — e ele sai da lista",
+      JSON.stringify(agora)
+    )
+    if (PARCEIRO) {
+      const naFrenet = await esperarQue(() =>
+        frenet.pedidos.find((p) => p.corpo?.Order?.Id === refK)
+      )
+      ok(
+        naFrenet?.corpo?.Order?.Invoice?.Number === bling.notaDoPedidoDeVenda(refK)?.numero,
+        "e o pedido segue pro painel da Frenet com a nota"
+      )
+    }
+
+    // O cadastro que o Bling não deixa atualizar, com a nota ainda na janela:
+    // o aviso chega antes da nota — dá tempo de corrigir lá.
+    bling.recusarAtualizacaoDeContato = true
+    const M = await fabrica.pedidoPix(novoEmail(), [["balm-para-barba", 1]], {
+      documento: "39053344705",
+    })
+    await fabrica.pagar(M)
+    const emailM = await esperarQue(() => praEquipe(`Confira a nota do pedido #${M.numero}`)[0])
+    bling.recusarAtualizacaoDeContato = false
+    ok(
+      /Corrija o cadastro do cliente no Bling antes de/.test(emailM?.text ?? "") &&
+        !bling.notaDoPedidoDeVenda(`FB-${M.numero}`),
+      "o cadastro que o Bling não deixa atualizar: o e-mail chega antes da nota, com a hora dela",
+      emailM?.subject
+    )
+
+    const L = await fabrica.pedidoPix(novoEmail(), [["oleo-para-barba", 1]], { documento: CPF })
+    await fabrica.pagar(L)
+    const refL = `FB-${L.numero}`
+    await esperarQue(() => bling.pedidoDeVenda(refL))
+    await adm("/admin/erp/notas", { method: "POST" })
+    const antesDeMudar = !bling.notaDoPedidoDeVenda(refL)
+    await janela(0)
+    await adm("/admin/erp/notas", { method: "POST" })
+    ok(
+      antesDeMudar &&
+        bling.notaDoPedidoDeVenda(`FB-${L.numero}`)?.situacao === 5 &&
+        bling.notaDoPedidoDeVenda(`FB-${M.numero}`)?.situacao === 5,
+      "a janela mudou pra “na hora”: quem já estava esperando sai na varredura seguinte"
     )
   }
 

@@ -363,10 +363,17 @@ falha vira "Confira a nota" pra equipe, não silêncio); pedido de venda com
 `gerar-nfe` e `enviar?enviarEmail=false`, que só vai com a nota PENDENTE (reenvio demais bloqueia a
 nota no Bling). As tabelas são do módulo `src/modules/erp` (`erp_conexao` e `erp_nota`, com os
 passos dados no ERP gravados um a um). O estoque espelha o saldo que dá pra vender no ERP MAIS o que
-o Medusa reservou pros pedidos que já estão lá (senão o pedido pago desconta duas vezes). A nota sai
-no `payment.captured`, pela varredura `acompanhar-notas` (5 em 5 minutos) e pelo aviso do ERP
-(`/hooks/erp/:erp`, assinado com HMAC do client secret sobre o corpo cru); só pros pedidos pagos
-depois da primeira conexão (`notas_desde`). Autorizada, solta `erp.nota_autorizada`, e o
+o Medusa reservou pros pedidos que já estão lá (senão o pedido pago desconta duas vezes). O pedido
+vai pro ERP no `payment.captured`, pela varredura `acompanhar-notas` (5 em 5 minutos) e pelo aviso
+do ERP (`/hooks/erp/:erp`, assinado com HMAC do client secret sobre o corpo cru); só pros pedidos
+pagos depois da primeira conexão (`notas_desde`). A **JANELA DE CANCELAMENTO**
+(`erp_conexao.janela_da_nota`, em minutos; `null` = 2 horas, 0 = na hora; `POST
+/admin/erp/notas/janela`): dentro dela, `emitirNota` vai com `ate: "pedido"` — cliente e pedido de
+venda, sem nota — e a varredura emite quando ela fecha. Ela conta do PRIMEIRO pagamento, a cada vez
+(não é gravada no registro): mudar a janela vale pra quem já espera. Cancelado dentro dela, o
+pedido de venda é cancelado no ERP e não há nota nem e-mail. `POST /admin/erp/notas/tentar` ("Emitir
+agora" e "Tentar de novo") pula a janela. O conferidor roda as seções da nota com a janela em 0 e
+confere a janela numa seção dela (e devolve o valor de antes no fim). Autorizada, solta `erp.nota_autorizada`, e o
 `subscribers/nota-autorizada.ts` manda o pedido pro painel da Frenet — que, com o ERP conectado,
 espera a nota (`notaParaAEtiqueta`) e leva número e chave no `Invoice`. Cancelado sem nota
 autorizada, a loja apaga a nota pendente e cancela o pedido de venda; com nota autorizada, e-mail
@@ -379,7 +386,7 @@ notas pendentes. `POST /admin/erp/permissoes` confere escopo por escopo, LER e G
 permissões diferentes no Bling): a leitura com um item, a gravação com um pedido que o Bling
 recusa antes de gravar (o cliente e o pedido de venda vazios, a nota e o pedido de id 0) — 400 ou
 404 é permissão dada, 403 é a que falta. `POST /admin/erp/notas/tentar` devolve à fila a nota de
-que a loja desistiu. No Bling falso, `painel.semEscopo` nega um caminho ("/contatos") ou só um
+que a loja desistiu, e emite na hora. No Bling falso, `painel.semEscopo` nega um caminho ("/contatos") ou só um
 método nele ("POST /contatos").
 
 A **importação do catálogo** (`src/lib/erp/catalogo.ts`; a tela é `admin/routes/erp/catalogo`)

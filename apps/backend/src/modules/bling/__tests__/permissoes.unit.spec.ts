@@ -216,3 +216,61 @@ describe("o cliente que o Bling não deixa atualizar", () => {
     })
   }, 30_000)
 })
+
+describe("a janela de cancelamento: o pedido de venda na hora, a nota depois", () => {
+  it("com `ate: 'pedido'`, para no pedido de venda; a chamada seguinte continua dali, sem outro pedido", async () => {
+    const chamadas: string[] = []
+    let situacaoDaNota = 1
+    jest.spyOn(global, "fetch").mockImplementation(async (entrada, init) => {
+      const caminho = new URL(String(entrada)).pathname.replace(/^\/Api\/v3/, "")
+      const metodo = init?.method ?? "GET"
+      chamadas.push(`${metodo} ${caminho}`)
+      const json = (dados: unknown, status = 200) => new Response(JSON.stringify(dados), { status })
+      if (caminho === "/contatos" && metodo === "GET") return json({ data: [] })
+      if (caminho === "/contatos" && metodo === "POST") return json({ data: { id: 7 } }, 201)
+      if (caminho === "/pedidos/vendas" && metodo === "GET") return json({ data: [] })
+      if (caminho === "/formas-pagamentos")
+        return json({ data: [{ id: 12, tipoPagamento: 17, situacao: 1, finalidade: 2 }] })
+      if (caminho === "/produtos")
+        return json({
+          data: [{ id: 99, codigo: "FBOL01", situacao: "A", estoque: { saldoVirtualTotal: 5 } }],
+        })
+      if (caminho === "/pedidos/vendas" && metodo === "POST")
+        return json({ data: { id: 500 } }, 201)
+      if (caminho === "/pedidos/vendas/500") return json({ data: { id: 500, notaFiscal: null } })
+      if (caminho === "/pedidos/vendas/500/gerar-nfe") return json({ idNotaFiscal: 900 }, 201)
+      if (caminho === "/nfe/900/enviar") {
+        situacaoDaNota = 5
+        return json({ data: {} })
+      }
+      if (caminho === "/nfe/900" && metodo === "GET")
+        return json({
+          data: {
+            id: 900,
+            situacao: situacaoDaNota,
+            numero: "000002",
+            serie: 1,
+            chaveAcesso: "42",
+          },
+        })
+      return json({ error: { message: `não esperado: ${metodo} ${caminho}` } }, 404)
+    })
+    let passos: Record<string, unknown> = {}
+    const salvar = async (p: Record<string, unknown>) => {
+      passos = p
+    }
+
+    const naHora = await emitirNota(acesso, PEDIDO, {}, salvar, { ate: "pedido" })
+    expect(naHora).toEqual({ ok: true, nota: null })
+    expect(passos).toEqual({ contato: 7, pedido: 500 })
+    expect(chamadas.filter((c) => /nfe/.test(c))).toEqual([])
+
+    chamadas.length = 0
+    const depois = await emitirNota(acesso, PEDIDO, passos, salvar)
+    expect(depois).toMatchObject({ ok: true, nota: { situacao: "autorizada", numero: "000002" } })
+    expect(passos).toEqual({ contato: 7, pedido: 500, nota: 900 })
+    expect(chamadas.filter((c) => c === "POST /contatos" || c === "POST /pedidos/vendas")).toEqual(
+      []
+    )
+  }, 30_000)
+})

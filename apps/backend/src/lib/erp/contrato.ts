@@ -17,8 +17,9 @@
  *   └─────────────────────────────────┘        └──────────────────────────┘
  *
  * O ERP MANDA NO ESTOQUE (decidido em 23/09): entrada, produção e perda são
- * lançadas nele, e a loja só copia o saldo. A nota sai quando o pagamento
- * cai, e vai pra SEFAZ na hora.
+ * lançadas nele, e a loja só copia o saldo. O pedido vai pro ERP quando o
+ * pagamento cai; a nota sai depois da janela de cancelamento (2 horas, na
+ * tela do ERP) e vai pra SEFAZ na hora.
  */
 
 /** Os tokens da autorização. A loja guarda cifrado (`cofre.ts`) e nunca mostra. */
@@ -199,7 +200,8 @@ export type EstadoDaNota = {
 export type ResultadoDaEmissao =
   | {
       ok: true
-      nota: EstadoDaNota
+      /** `null`: parou antes da nota (`ate: "pedido"`) — ela vem depois, noutra chamada. */
+      nota: EstadoDaNota | null
       /**
        * O que saiu, mas não do jeito certo (o cadastro do cliente que o ERP
        * não deixou atualizar): a equipe recebe um aviso pra conferir a nota.
@@ -299,12 +301,17 @@ export type ErpDaLoja = {
   /**
    * Leva a nota do pedido até a SEFAZ. Cada passo dado no ERP é gravado com
    * `salvar` NA HORA — a próxima tentativa continua dali. Não pode lançar.
+   *
+   * Com `ate: "pedido"`, para depois de criar o pedido no ERP (o cliente e o
+   * pedido de venda, no Bling), sem nota: é a janela de cancelamento. A
+   * chamada seguinte, sem `ate`, continua dali.
    */
   emitirNota(
     acesso: Acesso,
     pedido: PedidoParaNota,
     passos: Passos,
-    salvar: (passos: Passos) => Promise<void>
+    salvar: (passos: Passos) => Promise<void>,
+    opcoes?: { ate?: "pedido" }
   ): Promise<ResultadoDaEmissao>
   consultarNota(acesso: Acesso, passos: Passos): Promise<ResultadoDaConsulta>
   /** Desfaz o que dá pra desfazer de um pedido cancelado antes da autorização. */

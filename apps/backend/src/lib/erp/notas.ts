@@ -21,7 +21,7 @@ import {
 } from "../emails/erp"
 import { referenciaDoPedido } from "../envios/parceiro"
 import { avisarAEquipe } from "./avisos"
-import { acessoAoErp, avisarQuedaSeForAHora, lerConexao } from "./conexao"
+import { acessoAoErp, avisarQuedaSeForAHora, lerConexao, minutosDaJanela } from "./conexao"
 import type { Acesso, ErpDaLoja, EstadoDaNota, PedidoParaNota } from "./contrato"
 import { erpDaLoja, erpPorId } from "./erps"
 
@@ -29,7 +29,11 @@ import { erpDaLoja, erpPorId } from "./erps"
  * A NOTA FISCAL DE CADA PEDIDO PAGO — quando, quais e quantas vezes. O
  * formato do ERP mora no tradutor dele; aqui é a regra da loja.
  *
- *   pago ──▶ emitirNotaDoPedido ──▶ ERP ──▶ SEFAZ
+ *   pago ──▶ emitirNotaDoPedido ──▶ o pedido no ERP, na hora
+ *                                            │
+ *                            a janela (2 horas, na tela do ERP)
+ *                                            ▼
+ *                                   a nota ──▶ SEFAZ
  *                                            │
  *                     autorizada ◀───────────┤  (na hora, pelo aviso do ERP,
  *                     │                      │   ou pela varredura)
@@ -54,6 +58,18 @@ import { erpDaLoja, erpPorId } from "./erps"
  * passa (ERP fora, tempo esgotado) espera cada vez mais pra tentar de novo;
  * falha que não passa (o ERP não tem o produto, falta o CPF) vira e-mail pra
  * equipe, uma vez, e a loja não insiste.
+ *
+ * ┌─ A JANELA DE CANCELAMENTO (decidida em 23/09) ─────────────────────────┐
+ * │ A API do Bling não cancela nota autorizada. Então a nota espera: o     │
+ * │ pedido de venda vai pro ERP na hora (e reserva o estoque lá), e a nota │
+ * │ só sai quando a janela fecha — 2 horas depois do pagamento, ou o que a │
+ * │ tela do ERP disser (0 = na hora). O pedido cancelado dentro dela é     │
+ * │ desfeito sozinho, sem nota pra cancelar e sem e-mail; a etiqueta da    │
+ * │ Frenet espera a nota. A janela conta do primeiro pagamento, a cada     │
+ * │ vez — não fica gravada no registro —, então mudar na tela vale também  │
+ * │ pra quem já está esperando. "Emitir agora" e "Tentar de novo", no      │
+ * │ admin, pulam a janela.                                                 │
+ * └────────────────────────────────────────────────────────────────────────┘
  *
  * ┌─ PEDIDO CANCELADO ─────────────────────────────────────────────────────┐
  * │ Sem nota autorizada, a loja desfaz sozinha o que fez no ERP (apaga a   │
@@ -180,6 +196,7 @@ async function lerPedido(container: MedusaContainer, id: string): Promise<Pedido
 
 export type DecisaoDaNota =
   | "emitir"
+  | "so-o-pedido"
   | "acompanhar"
   | "ja-tem"
   | "cancelado"
@@ -188,10 +205,16 @@ export type DecisaoDaNota =
   | "recusado"
   | "esperando"
 
+/** Quando a nota do pedido pode sair: o primeiro pagamento, mais a janela (em ms). */
+export function quandoSaiANota(o: Pick<PedidoLido, "payment_collections">, janela: number): Date {
+  const primeiro = Math.min(...capturasDo(o).map((d) => d.getTime()))
+  return new Date((Number.isFinite(primeiro) ? primeiro : 0) + janela)
+}
+
 export function decidirNota(
   o: Pick<PedidoLido, "status" | "payment_collections">,
   nota: Pick<LinhaDaNota, "situacao" | "definitivo" | "proxima_em"> | null,
-  { desde, agora }: { desde: Date; agora: Date }
+  { desde, agora, janela = 0 }: { desde: Date; agora: Date; janela?: number }
 ): DecisaoDaNota {
   if (nota && ["autorizada", "cancelada", "desfeita"].includes(nota.situacao)) return "ja-tem"
   if (nota && ["processando", "rejeitada", "denegada"].includes(nota.situacao)) return "acompanhar"
@@ -201,6 +224,8 @@ export function decidirNota(
   if (!nota && !capturas.some((d) => d >= desde)) return "pago-antes"
   if (nota?.definitivo) return "recusado"
   if (nota?.proxima_em && new Date(nota.proxima_em).getTime() > agora.getTime()) return "esperando"
+  // A janela de cancelamento: o pedido vai pro ERP; a nota, quando ela fechar.
+  if (janela > 0 && quandoSaiANota(o, janela).getTime() > agora.getTime()) return "so-o-pedido"
   return "emitir"
 }
 
@@ -521,13 +546,24 @@ async function tratarCancelado(
 export type ResultadoDaNota =
   | { resultado: "autorizada"; referencia: string; numero: string | null }
   | { resultado: "processando"; referencia: string }
+  /** O pedido está no ERP, e a nota espera a janela fechar (ISO). */
+  | { resultado: "esperando"; referencia: string; notaEm: string }
   | { resultado: "nada"; motivo: string }
   | { resultado: "falhou"; referencia: string; motivo: string; definitivo: boolean }
 
 export async function emitirNotaDoPedido(
   container: MedusaContainer,
   pedidoId: string,
-  { agora = new Date(), quieto = false }: { agora?: Date; quieto?: boolean } = {}
+  {
+    agora = new Date(),
+    quieto = false,
+    semJanela = false,
+  }: {
+    agora?: Date
+    quieto?: boolean
+    /** Alguém mandou emitir agora, no admin: a nota não espera a janela. */
+    semJanela?: boolean
+  } = {}
 ): Promise<ResultadoDaNota> {
   const erp = erpDaLoja()
   if (!erp) return { resultado: "nada", motivo: "sem ERP" }
@@ -536,6 +572,7 @@ export async function emitirNotaDoPedido(
   if (!conexao?.notas_desde || !acesso)
     return { resultado: "nada", motivo: `${erp.nome} desconectado` }
   const desde = new Date(conexao.notas_desde)
+  const janela = semJanela ? 0 : minutosDaJanela(conexao) * MINUTO
   const logger = container.resolve(ContainerRegistrationKeys.LOGGER)
 
   let autorizou = false
@@ -545,7 +582,7 @@ export async function emitirNotaDoPedido(
       const pedido = await lerPedido(container, pedidoId)
       if (!pedido) return { resultado: "nada", motivo: "pedido não existe" }
       let linha = await notaDoPedido(container, pedidoId)
-      const decisao = decidirNota(pedido, linha, { desde, agora })
+      const decisao = decidirNota(pedido, linha, { desde, agora, janela })
 
       if (decisao === "acompanhar" && linha) {
         const c = await acompanharSobTrava(container, erp, acesso, linha, agora)
@@ -554,7 +591,13 @@ export async function emitirNotaDoPedido(
           ? { resultado: "autorizada", referencia: linha.referencia, numero: linha.numero }
           : { resultado: "nada", motivo: `nota ${linha.situacao}` }
       }
-      if (decisao !== "emitir") return { resultado: "nada", motivo: decisao }
+      if (decisao !== "emitir" && decisao !== "so-o-pedido")
+        return { resultado: "nada", motivo: decisao }
+      const ate = decisao === "so-o-pedido" ? ("pedido" as const) : undefined
+      const notaEm = quandoSaiANota(pedido, janela).toISOString()
+      // O pedido já está no ERP, e a janela aberta: até ela fechar, nada a fazer.
+      if (ate && linha && erp.pedidoNoErp(linha.no_erp ?? {}))
+        return { resultado: "esperando", referencia: linha.referencia, notaEm }
 
       const montado = montarPedidoParaNota(pedido, agora)
       const referencia = referenciaDoPedido(Number(pedido.display_id ?? 0))
@@ -577,13 +620,19 @@ export async function emitirNotaDoPedido(
         return { resultado: "falhou", referencia, motivo: montado.motivo, definitivo: true }
       }
 
-      const r = await erp.emitirNota(acesso, montado.pedido, atual.no_erp ?? {}, async (passos) => {
-        atual.no_erp = passos
-        await atualizarNota(container, atual.id, {
-          no_erp: passos,
-          id_no_erp: erp.idDaNota(passos),
-        })
-      })
+      const r = await erp.emitirNota(
+        acesso,
+        montado.pedido,
+        atual.no_erp ?? {},
+        async (passos) => {
+          atual.no_erp = passos
+          await atualizarNota(container, atual.id, {
+            no_erp: passos,
+            id_no_erp: erp.idDaNota(passos),
+          })
+        },
+        { ate }
+      )
 
       if (!r.ok) {
         const tentativas = atual.tentativas + 1
@@ -611,7 +660,11 @@ export async function emitirNotaDoPedido(
 
       if (r.avisos?.length) {
         const motivo = r.avisos.join("; ")
-        logger.warn(`[erp] a nota do ${referencia} saiu, mas ${motivo}`)
+        logger.warn(
+          r.nota
+            ? `[erp] a nota do ${referencia} saiu, mas ${motivo}`
+            : `[erp] o ${referencia} foi pro ${erp.nome}, mas ${motivo}`
+        )
         const numero = await numeroDoPedido(container, atual)
         await avisarUmaVez(
           container,
@@ -623,9 +676,19 @@ export async function emitirNotaDoPedido(
               pedidoId: atual.pedido_id,
               numero,
               motivo,
+              // A nota ainda não saiu: dá tempo de corrigir o cadastro antes.
+              notaEm: r.nota ? null : new Date(notaEm),
             }),
           agora
         )
+      }
+      if (!r.nota) {
+        // Parou no pedido: a varredura volta quando a janela fechar.
+        await atualizarNota(container, atual.id, { erro: null, proxima_em: null })
+        logger.info(
+          `[erp] ${referencia} no ${erp.nome}, com o pedido de venda; a nota sai depois de ${notaEm}`
+        )
+        return { resultado: "esperando", referencia, notaEm }
       }
       const c = await aplicarEstado(container, erp, atual, r.nota, agora)
       autorizou = c.autorizou
@@ -652,6 +715,9 @@ export async function emitirNotaDoPedido(
  * faltava no pedido, o ERP recusou o que recebeu) volta pra fila e sai na
  * hora — é o botão pra depois que alguém corrigiu o que faltava. A nota que
  * já existe no ERP não é criada de novo: os passos gravados continuam valendo.
+ *
+ * É também o "EMITIR AGORA" da nota esperando a janela (o pedido que precisa
+ * sair antes): nos dois, quem clicou decidiu, e a janela não vale.
  */
 export async function tentarDeNovo(
   container: MedusaContainer,
@@ -661,7 +727,7 @@ export async function tentarDeNovo(
   const linha = await notaDoPedido(container, pedidoId)
   if (linha?.situacao === "a-emitir")
     await atualizarNota(container, linha.id, { definitivo: false, proxima_em: null, erro: null })
-  return emitirNotaDoPedido(container, pedidoId, { agora })
+  return emitirNotaDoPedido(container, pedidoId, { agora, semJanela: true })
 }
 
 /** O aviso do ERP: esta nota mudou. */
@@ -833,6 +899,58 @@ export async function pendenciasDasNotas(
   })
 }
 
+export type NotaEsperando = {
+  pedidoId: string
+  referencia: string
+  /** ISO: quando a janela fecha (a varredura emite nos 5 minutos seguintes). */
+  notaEm: string
+}
+
+/**
+ * Os pedidos que já estão no ERP com a nota esperando a janela fechar — pra
+ * tela, com o "Emitir agora" de cada um (o pedido que precisa sair antes).
+ */
+export async function notasEsperando(
+  container: MedusaContainer,
+  erp: ErpDaLoja,
+  agora = new Date()
+): Promise<NotaEsperando[]> {
+  const janela = minutosDaJanela(await lerConexao(container, erp)) * MINUTO
+  if (!janela) return []
+  const linhas = (
+    (await servico(container).listNotas(
+      {
+        erp: erp.id,
+        situacao: "a-emitir",
+        definitivo: false,
+        cancelar: false,
+        created_at: { $gte: new Date(agora.getTime() - janela - HORA) },
+      },
+      { take: 200, order: { created_at: "ASC" } }
+    )) as LinhaDaNota[]
+  ).filter((n) => !n.erro && erp.pedidoNoErp(n.no_erp ?? {}))
+  if (!linhas.length) return []
+  const { data } = await container.resolve(ContainerRegistrationKeys.QUERY).graph({
+    entity: "order",
+    fields: ["id", "status", "payment_collections.payments.captured_at"],
+    filters: { id: linhas.map((n) => n.pedido_id) },
+  })
+  const pedidos = new Map(
+    (data as (Pick<PedidoLido, "status" | "payment_collections"> & { id: string })[]).map((o) => [
+      o.id,
+      o,
+    ])
+  )
+  return linhas.flatMap((n): NotaEsperando[] => {
+    const o = pedidos.get(n.pedido_id)
+    if (!o || o.status === "canceled" || !capturasDo(o).length) return []
+    const notaEm = quandoSaiANota(o, janela)
+    return notaEm.getTime() > agora.getTime()
+      ? [{ pedidoId: n.pedido_id, referencia: n.referencia, notaEm: notaEm.toISOString() }]
+      : []
+  })
+}
+
 /* ── a varredura ──────────────────────────────────────────────────────────── */
 
 export type RelatorioDasNotas = {
@@ -840,6 +958,8 @@ export type RelatorioDasNotas = {
   autorizadas: string[]
   pendentes: number
   emitidas: string[]
+  /** Foram pro ERP nesta rodada, e a nota espera a janela fechar. */
+  esperando: string[]
   falharam: string[]
   desfeitas: number
 }
@@ -853,6 +973,7 @@ export async function acompanharNotas(
     autorizadas: [],
     pendentes: 0,
     emitidas: [],
+    esperando: [],
     falharam: [],
     desfeitas: 0,
   }
@@ -926,13 +1047,24 @@ export async function acompanharNotas(
       fields: ["payment_collection_id", "order.id", "order.status"],
       filters: { payment_collection_id: colecoes },
     })
-    const pedidos = [
-      ...new Set(
-        (data as { order?: { id?: string; status?: string } | null }[])
-          .filter((l) => l.order?.id && l.order.status !== "canceled")
-          .map((l) => l.order!.id!)
-      ),
-    ]
+    const linhas = (
+      data as {
+        payment_collection_id?: string
+        order?: { id?: string; status?: string } | null
+      }[]
+    ).filter((l) => l.order?.id && l.order.status !== "canceled")
+    const pedidos = [...new Set(linhas.map((l) => l.order!.id!))]
+    // O primeiro pagamento de cada pedido: é dele que a janela conta.
+    const pedidoDaCobranca = new Map(linhas.map((l) => [l.payment_collection_id, l.order!.id!]))
+    const captura = new Map<string, number>()
+    for (const p of pagos) {
+      const id = pedidoDaCobranca.get(p.payment_collection_id)
+      if (!id) continue
+      const t = new Date(p.captured_at as Date | string).getTime()
+      const antes = captura.get(id)
+      if (antes === undefined || t < antes) captura.set(id, t)
+    }
+    const janela = minutosDaJanela(conexao) * MINUTO
     const notas = new Map(
       (
         (await servico(container).listNotas(
@@ -945,7 +1077,14 @@ export async function acompanharNotas(
       const n = notas.get(id)
       if (!n) return true
       if (n.situacao !== "a-emitir" || n.definitivo) return false
-      return !n.proxima_em || new Date(n.proxima_em).getTime() <= agora.getTime()
+      if (n.proxima_em && new Date(n.proxima_em).getTime() > agora.getTime()) return false
+      // Já no ERP, com a janela aberta: nada a fazer até ela fechar.
+      const pago = captura.get(id)
+      return !(
+        erp.pedidoNoErp(n.no_erp ?? {}) &&
+        pago !== undefined &&
+        pago + janela > agora.getTime()
+      )
     })
     relatorio.pendentes = aEmitir.length
     for (const id of aEmitir.slice(0, POR_RODADA)) {
@@ -957,6 +1096,7 @@ export async function acompanharNotas(
       }))
       if (r.resultado === "autorizada" || r.resultado === "processando")
         relatorio.emitidas.push(r.referencia)
+      else if (r.resultado === "esperando") relatorio.esperando.push(r.referencia)
       else if (r.resultado === "falhou") relatorio.falharam.push(`${r.referencia} (${r.motivo})`)
     }
   }

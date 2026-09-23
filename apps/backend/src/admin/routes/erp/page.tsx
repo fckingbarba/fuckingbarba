@@ -1,6 +1,6 @@
 import { defineRouteConfig } from "@medusajs/admin-sdk"
 import { Receipt } from "@medusajs/icons"
-import { Alert, Button, Container, Heading, Text, toast } from "@medusajs/ui"
+import { Alert, Button, Container, Heading, Select, Text, toast } from "@medusajs/ui"
 import { useEffect, useState } from "react"
 
 /**
@@ -12,6 +12,10 @@ import { useEffect, useState } from "react"
  * que a loja não resolve sozinha — a autorizada de pedido cancelado (a API
  * não cancela: é no painel do ERP, em até 24 horas), a rejeitada, a que o
  * ERP recusou. E é a porta da importação dos produtos (`erp/catalogo`).
+ *
+ * E a JANELA ANTES DA NOTA: quanto ela espera depois do pagamento (o pedido
+ * cancelado dentro dela não chega a ter nota), com os pedidos esperando e o
+ * "Emitir agora" de cada um.
  *
  * O formato do que o backend devolve está escrito dos dois lados
  * (`GET /admin/erp`): o admin é bundle próprio e não importa código do
@@ -41,6 +45,8 @@ type Pendencia = {
   prazo: string | null
 }
 
+type Esperando = { pedidoId: string; referencia: string; notaEm: string }
+
 type Situacao = {
   erp: { id: string; nome: string }
   configurado: boolean
@@ -48,10 +54,29 @@ type Situacao = {
   empresa: string | null
   conectadoEm: string | null
   notasDesde: string | null
+  janelaDaNota: number
   queda: string | null
   estoque: Relatorio | null
   pendencias: Pendencia[]
+  esperando: Esperando[]
 }
+
+/** As janelas da lista; outra, gravada pela API, aparece como "N minutos". */
+const JANELAS: { minutos: number; rotulo: string }[] = [
+  { minutos: 0, rotulo: "Na hora do pagamento" },
+  { minutos: 30, rotulo: "30 minutos depois do pagamento" },
+  { minutos: 60, rotulo: "1 hora depois do pagamento" },
+  { minutos: 120, rotulo: "2 horas depois do pagamento" },
+  { minutos: 240, rotulo: "4 horas depois do pagamento" },
+]
+
+const hora = (iso: string) =>
+  new Date(iso).toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  })
 
 const quando = (iso: string | null | undefined) =>
   iso
@@ -75,6 +100,7 @@ type Permissao = {
 type ResultadoDaNota =
   | { resultado: "autorizada"; referencia: string; numero: string | null }
   | { resultado: "processando"; referencia: string }
+  | { resultado: "esperando"; referencia: string; notaEm: string }
   | { resultado: "nada"; motivo: string }
   | { resultado: "falhou"; referencia: string; motivo: string; definitivo: boolean }
 
@@ -108,7 +134,7 @@ async function pedir<T>(
 const ErpPage = () => {
   const [s, setS] = useState<Situacao | null>(null)
   const [ocupado, setOcupado] = useState<
-    "conectar" | "estoque" | "notas" | "permissoes" | `tentar:${string}` | null
+    "conectar" | "estoque" | "notas" | "permissoes" | "janela" | `tentar:${string}` | null
   >(null)
   const [permissoes, setPermissoes] = useState<Permissao[] | null>(null)
 
@@ -132,7 +158,8 @@ const ErpPage = () => {
     }
   }
 
-  const tentarDeNovo = async (p: Pendencia) => {
+  /** "Tentar de novo" e "Emitir agora": a nota sai agora, sem esperar a janela. */
+  const emitirAgora = async (p: { pedidoId: string; referencia: string }) => {
     setOcupado(`tentar:${p.pedidoId}`)
     try {
       const { resultado: r } = await pedir<{ resultado: ResultadoDaNota }>(
@@ -146,7 +173,24 @@ const ErpPage = () => {
       else toast.error(`${p.referencia}: não saiu — ${"motivo" in r ? r.motivo : "?"}.`)
       await ler()
     } catch (e) {
-      toast.error(`Não deu pra tentar de novo: ${e instanceof Error ? e.message : e}`)
+      toast.error(`Não deu pra emitir: ${e instanceof Error ? e.message : e}`)
+    } finally {
+      setOcupado(null)
+    }
+  }
+
+  const mudarJanela = async (minutos: number) => {
+    setOcupado("janela")
+    try {
+      await pedir("/admin/erp/notas/janela", "POST", { minutos })
+      toast.success(
+        minutos
+          ? "Pronto. A janela vale também pros pedidos que já estão esperando."
+          : "Pronto. A nota sai na hora — os que estavam esperando saem na próxima varredura."
+      )
+      await ler()
+    } catch (e) {
+      toast.error(`Não deu pra mudar: ${e instanceof Error ? e.message : e}`)
     } finally {
       setOcupado(null)
     }
@@ -203,6 +247,7 @@ const ErpPage = () => {
         relatorio: {
           emitidas: string[]
           autorizadas: string[]
+          esperando: string[]
           falharam: string[]
           pendentes: number
         }
@@ -210,6 +255,9 @@ const ErpPage = () => {
       toast.success(
         `Notas conferidas: ${relatorio.emitidas.length} emitida(s), ` +
           `${relatorio.autorizadas.length} autorizada(s)` +
+          (relatorio.esperando.length
+            ? `, ${relatorio.esperando.length} pedido(s) no ${s?.erp.nome ?? "ERP"} esperando a janela`
+            : "") +
           (relatorio.falharam.length ? `, ${relatorio.falharam.length} com problema.` : ".")
       )
       await ler()
@@ -237,7 +285,8 @@ const ErpPage = () => {
         <Heading level="h1">ERP — {nome}</Heading>
         <Text size="small" className="text-ui-fg-subtle mt-1">
           O {nome} manda no estoque (a loja copia o saldo) e emite a nota fiscal de cada pedido
-          pago, que vai pra SEFAZ na hora e segue pro painel da Frenet junto do pedido.
+          pago: o pedido de venda vai pra lá na hora, e a nota, depois da janela de cancelamento.
+          Autorizada, ela segue pro painel da Frenet junto do pedido.
         </Text>
       </div>
 
@@ -292,6 +341,75 @@ const ErpPage = () => {
       {s.conectado ? (
         <>
           <div className="flex flex-col gap-3 px-6 py-4">
+            <Heading level="h2">Quando a nota sai</Heading>
+            <Text size="small">
+              O pedido de venda vai pro {nome} na hora do pagamento. A nota espera: se o pedido for
+              cancelado antes, a loja cancela o pedido de venda lá sozinha, e não há nota pra
+              cancelar (a API do {nome} não cancela nota autorizada). A etiqueta da Frenet espera a
+              nota.
+            </Text>
+            <div className="w-full max-w-xs">
+              <Select
+                value={String(s.janelaDaNota)}
+                onValueChange={(v) => mudarJanela(Number(v))}
+                disabled={ocupado === "janela"}
+              >
+                <Select.Trigger>
+                  <Select.Value />
+                </Select.Trigger>
+                <Select.Content>
+                  {(JANELAS.some((j) => j.minutos === s.janelaDaNota)
+                    ? JANELAS
+                    : [
+                        ...JANELAS,
+                        {
+                          minutos: s.janelaDaNota,
+                          rotulo: `${s.janelaDaNota} minutos depois do pagamento`,
+                        },
+                      ]
+                  ).map((j) => (
+                    <Select.Item key={j.minutos} value={String(j.minutos)}>
+                      {j.rotulo}
+                    </Select.Item>
+                  ))}
+                </Select.Content>
+              </Select>
+            </div>
+            {s.esperando.length ? (
+              <ul className="flex flex-col gap-2">
+                {s.esperando.map((p) => (
+                  <li key={p.pedidoId} className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <Text size="small">
+                      <a className="underline" href={`/app/orders/${p.pedidoId}`}>
+                        {p.referencia}
+                      </a>{" "}
+                      — a nota sai depois de {hora(p.notaEm)}.
+                    </Text>
+                    <Button
+                      size="small"
+                      variant="secondary"
+                      isLoading={ocupado === `tentar:${p.pedidoId}`}
+                      onClick={() => emitirAgora(p)}
+                    >
+                      Emitir agora
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            ) : s.janelaDaNota ? (
+              <Text size="small" className="text-ui-fg-subtle">
+                Nenhum pedido esperando a nota agora.
+              </Text>
+            ) : null}
+            {s.esperando.length ? (
+              <Text size="small" className="text-ui-fg-subtle">
+                Precisa despachar antes? Use &quot;Emitir agora&quot; — não emita a nota à mão no{" "}
+                {nome}, senão ela sai duas vezes.
+              </Text>
+            ) : null}
+          </div>
+
+          <div className="flex flex-col gap-3 px-6 py-4">
             <Heading level="h2">Notas que precisam de alguém</Heading>
             {s.pendencias.length ? (
               <ul className="flex flex-col gap-2">
@@ -321,7 +439,7 @@ const ErpPage = () => {
                               size="small"
                               variant="secondary"
                               isLoading={ocupado === `tentar:${p.pedidoId}`}
-                              onClick={() => tentarDeNovo(p)}
+                              onClick={() => emitirAgora(p)}
                             >
                               Tentar de novo
                             </Button>

@@ -11,8 +11,11 @@ import { emitirNotaDoPedido } from "../lib/erp/notas"
  * Hoje, nesta ordem:
  *   1. o e-mail de pedido confirmado (`lib/confirmar-pedido.ts`), na hora.
  *      Se ele falhar aqui, a varredura de 5 em 5 minutos manda depois;
- *   2. a nota fiscal no ERP (`lib/erp/notas.ts`), até a SEFAZ — só com o
- *      ERP conectado. Se falhar, a varredura de 5 em 5 minutos tenta de novo;
+ *   2. o pedido de venda no ERP (`lib/erp/notas.ts`) — só com o ERP
+ *      conectado. A nota fica pra quando a janela de cancelamento fechar
+ *      (2 horas, na tela do ERP; a varredura de 5 em 5 minutos emite), ou
+ *      sai aqui mesmo, até a SEFAZ, com a janela em "na hora". Se falhar, a
+ *      varredura tenta de novo;
  *   3. o pedido no painel da Frenet (`lib/envios/registro.ts`), pra etiqueta
  *      sair sem ninguém digitar — só com o token de parceiro; sem ele, não
  *      faz nada. Com o ERP emitindo, ele espera a nota, que vai junto (o
