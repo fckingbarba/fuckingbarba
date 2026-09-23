@@ -11,14 +11,18 @@
  *
  * Os casos são os que a loja vive: o fator puxando a rotina dele, o kit que
  * não pode ganhar outro shampoo, o frete grátis dando peso a quem fecha a
- * conta, e a oferta que aprende com o que os pedidos mostram.
+ * conta, e a oferta que aprende com o que os pedidos mostram — nos quatro
+ * lugares: a gaveta, os chips do frete grátis, a oferta do checkout e o
+ * carrossel da página do produto.
  */
 
 import { montarModelo } from "../../backend/src/lib/recomendacao.ts"
 import {
   escolherBump,
   escolherLevaJunto,
+  escolherParaOFrete,
   nomeCurto,
+  ordenarParaAPagina,
   sacolaDe,
   sorteio,
 } from "../src/lib/recomendacao.ts"
@@ -271,6 +275,72 @@ titulo("Oferta do checkout — a mesma pra mesma pessoa")
     `${exploram} de 2000`
   )
   ok(sorteio("x") === sorteio("x") && sorteio("x") !== sorteio("y"), "o sorteio é pelo id")
+}
+
+/* ── os chips do frete grátis, no passo da entrega ───────────────────────── */
+
+titulo("Chips do frete grátis — balm e fator na sacola, faltando R$ 6,10")
+{
+  const { sacola: s, subtotal } = sacola("balm-para-barba", "fator-de-crescimento-para-barba")
+  const chips = escolherParaOFrete(vitrine, s, 6.1, subtotal, semPedidos)
+  ok(
+    !chips.some((c) => c.handle === "kit-completo-para-barba"),
+    "sem o kit: quem já tem o balm levaria dois (antes, o kit de R$ 99,90 aparecia)",
+    nomes(chips)
+  )
+  ok(
+    chips[0]?.handle === "shampoo-para-barba" && chips[1]?.handle === "oleo-para-barba",
+    "a rotina do fator na frente: shampoo e óleo",
+    nomes(chips)
+  )
+  ok(chips.length === 3, "três chips", nomes(chips))
+}
+
+titulo("Chips do frete grátis — só quem fecha a conta sozinho")
+{
+  const { sacola: s, subtotal } = sacola("fator-de-crescimento-para-barba")
+  const chips = escolherParaOFrete(vitrine, s, 60, subtotal, semPedidos)
+  ok(
+    chips.length > 0 && chips.every((c) => c.preco >= 60),
+    "faltando R$ 60, nenhum chip de menos que isso",
+    chips.map((c) => `${c.handle} ${c.preco}`).join(", ")
+  )
+  ok(escolherParaOFrete(vitrine, s, 0, subtotal, semPedidos).length === 0, "já grátis, sem chip")
+}
+
+/* ── o carrossel da página do produto ─────────────────────────────────────── */
+
+titulo('Carrossel "Quem leva este, leva junto"')
+{
+  const semEle = (h) => vitrine.filter((v) => v.handle !== h)
+  const doFator = ordenarParaAPagina(
+    semEle("fator-de-crescimento-para-barba"),
+    "fator-de-crescimento-para-barba",
+    semPedidos
+  )
+  ok(
+    ["oleo-para-barba", "shampoo-para-barba"].includes(doFator[0]?.handle) &&
+      ["oleo-para-barba", "shampoo-para-barba"].includes(doFator[1]?.handle),
+    "na página do fator, a rotina dele primeiro",
+    nomes(doFator)
+  )
+  ok(doFator.at(-1)?.handle === "spray-modelador-matte-100ml-fucking-barba", "e o spray por último")
+
+  const doKit = ordenarParaAPagina(
+    semEle("kit-completo-para-barba"),
+    "kit-completo-para-barba",
+    semPedidos
+  )
+  ok(
+    doKit.length === 5 &&
+      doKit
+        .slice(2)
+        .every((p) =>
+          ["shampoo-para-barba", "balm-para-barba", "oleo-para-barba"].includes(p.handle)
+        ),
+    "na página do kit, as peças dele vão pro fim — e não somem",
+    nomes(doKit)
+  )
 }
 
 /* ── a frase ──────────────────────────────────────────────────────────────── */

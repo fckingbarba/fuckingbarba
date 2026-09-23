@@ -26,7 +26,14 @@ import { documentoGuardado } from "./documento"
 import { lerEndereco, montarEndereco } from "./endereco"
 import { semEntregaEmpatada } from "./frete"
 import { cliente, modeloDeRecomendacao, temEstoque } from "./medusa"
-import { escolherBump, nomeCurto, pontuar, sacolaDe, type Motivo } from "./recomendacao"
+import {
+  escolherBump,
+  escolherParaOFrete,
+  nomeCurto,
+  pontuar,
+  sacolaDe,
+  type Motivo,
+} from "./recomendacao"
 import { CHECKOUT_ABERTO, site } from "./site"
 
 /**
@@ -595,28 +602,35 @@ export async function registrarOferta(pedidoId: string, carrinho: Carrinho): Pro
 }
 
 /**
- * Os chips de "completa o frete grátis": um produto por categoria, o mais
- * barato que SOZINHO fecha a conta.
+ * Os chips de "completa o frete grátis": até três produtos que SOZINHOS
+ * fecham a conta, escolhidos pelo motor de recomendação (`escolherParaOFrete`,
+ * em `lib/recomendacao.ts`) — o que combina com a sacola, com o preço perto
+ * do pedido.
  *
  * A regra do `preco >= falta` é o que torna a oferta honesta. Sugerir um
  * produto de R$ 20 quando faltam R$ 40 é mandar a pessoa clicar duas vezes
  * pra descobrir que ainda não deu — e aí a promessa do chip era mentira.
  *
+ * SEM O MODELO (o Medusa não respondeu), vale a regra de antes do motor: um
+ * produto por categoria, o mais barato que fecha a conta, na ordem do menu.
+ *
  * Vazio quando já é grátis, quando nada fecha a conta, ou quando não há CEP
  * (sem frete calculado não há o que completar).
  */
 export async function listarSugestoes(
-  regiaoId: string,
-  falta: number,
-  jaNoCarrinho: Set<string>
+  base: Pick<CheckoutVisivel, "regiaoId" | "itens" | "subtotal">,
+  falta: number
 ): Promise<Oferta[]> {
   if (falta <= 0) return []
 
-  const catalogo = await catalogoDoCheckout(regiaoId)
-  const porCategoria = new Map<string, Oferta>()
+  const catalogo = await catalogoDoCheckout(base.regiaoId)
+  const sacola = sacolaDe(base.itens)
+  const modelo = await modeloDeRecomendacao()
+  if (modelo) return escolherParaOFrete(catalogo, sacola, falta, base.subtotal, modelo)
 
+  const porCategoria = new Map<string, Oferta>()
   for (const o of catalogo) {
-    if (jaNoCarrinho.has(o.varianteId) || o.preco < falta) continue
+    if (sacola.varianteIds.has(o.varianteId) || o.preco < falta) continue
     const atual = porCategoria.get(o.categoria)
     if (!atual || o.preco < atual.preco) porCategoria.set(o.categoria, o)
   }

@@ -463,7 +463,8 @@ function Fretes({
 /* ── completa o frete grátis ──────────────────────────────────────────────── */
 
 /**
- * "Faltam R$ X pro frete grátis. Completa com:" — e um produto por categoria.
+ * "Faltam R$ X pro frete grátis. Completa com:" — e até três produtos, que o
+ * motor de recomendação escolhe pelo que está na sacola (`listarSugestoes`).
  *
  * O QUE TORNA ISTO HONESTO é a regra de quem entra na lista: só produto que
  * SOZINHO fecha a conta. Sugerir um de R$ 20 quando faltam R$ 40 é mandar a

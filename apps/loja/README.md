@@ -84,8 +84,8 @@ fecha a conta — sugerir um que não fecha transforma a promessa em mentira. E 
 bump existe no Medusa, uma promoção por produto (`apps/backend/src/lib/bumps.ts`): marcar a
 caixinha aplica o código daquele produto, desmarcar remove. O `10` de `conteudo/checkout.ts` e o
 `DESCONTO_DO_BUMP` do backend precisam bater; o conferidor prova que batem. Qual produto a
-caixinha oferece — e o que o "leva junto" da sacola mostra — é o motor de recomendação
-(`lib/recomendacao.ts`), pelo que está na sacola.
+caixinha oferece — e o que os chips e o "leva junto" da sacola mostram — é o motor de
+recomendação (`lib/recomendacao.ts`), pelo que está na sacola.
 
 Coisas que custaram caro e agora estão travadas em teste:
 

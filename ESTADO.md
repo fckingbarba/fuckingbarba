@@ -286,6 +286,10 @@ aparecem na conta e no log, sem e-mail automático — esses a loja conversa com
       `apps/backend/src/scripts/medidas.ts`.
 - [ ] Rua e número da origem (CEP 89036370) em `apps/backend/src/scripts/origem.ts`, pra etiqueta.
 - [ ] Apagar os dois rascunhos duplicados de óleo no admin.
+- [ ] **Decidir o "Leve junto" da caixa de compra da PDP** (as caixinhas embaixo das quantidades,
+      que vão no mesmo clique do "Adicionar à sacola"). Hoje ele só aparece com produtos escolhidos
+      no admin (Venda combinada), e nenhum produto tem — então não aparece em lugar nenhum. O motor
+      pode preencher sozinho; é uma seção nova em toda PDP, por isso a pergunta.
 - [ ] **Achado de 23/09 no frete da sacola:** com 2 ou mais unidades, a rota `/store/frete`
       declara à Frenet o valor cheio (2 × R$ 49,90 = R$ 99,80) e o Medusa, o valor com o desconto
       por quantidade (R$ 94,90). As perguntas ficam diferentes, e a sacola faz DUAS cotações onde o
@@ -380,7 +384,8 @@ aparecem na conta e no log, sem e-mail automático — esses a loja conversa com
     com foto, preço e "+ Adicionar". Faltando valor pro frete grátis, o mais barato que fecha a
     conta vem primeiro, com a etiqueta "Libera o frete grátis". Só entram produtos de uma variação,
     com preço e estoque.
-- [x] **O "Leva junto" e a oferta do checkout viraram um motor de recomendação** (23/09), sem nada
+- [x] **Os cross-sells viraram um motor de recomendação** (23/09) — o "Leva junto" da sacola, os
+      chips do frete grátis e a oferta do checkout, e o carrossel da página do produto —, sem nada
       pra escolher no admin. O que aparece depende do que está na sacola:
   - **De onde sai a escolha:** dos pedidos (quem comprou A, quantas vezes levou B junto) e,
     enquanto há pouco pedido, do que a loja já diz — a rotina da PDP (a do Fator junta shampoo e
@@ -391,6 +396,11 @@ aparecem na conta e no log, sem e-mail automático — esses a loja conversa com
   - **"Leva junto":** até três, na ordem do motor; quem sozinho fecha o frete grátis ganha peso e a
     etiqueta. Com o Fator na sacola: shampoo, óleo e o kit ("Libera o frete grátis"). Sem o motor
     (Medusa fora do ar), vale a regra de antes.
+  - **Chips do frete grátis** (passo 2 do checkout): até três que sozinhos fecham o que falta, na
+    ordem do motor e com o preço perto do pedido. Com balm e fator na sacola, faltando R$ 6,10:
+    antes, shampoo, spray e o kit de R$ 99,90 (que já traz um balm); agora, shampoo, óleo e spray.
+  - **Carrossel "Quem leva este, leva junto"** da página do produto: na ordem do motor (antes,
+    mesma categoria primeiro). Na página do kit, as peças dele vão pro fim — e não somem.
   - **A oferta do checkout:** 10% (era 20% só no óleo), em qualquer produto — cada um tem a própria
     promoção no Medusa, com código assinado (um código adivinhável seria 10% em tudo pela API).
     Nunca oferece o que já está no pedido (antes, quem levava o óleo ficava sem oferta), prefere
@@ -401,7 +411,7 @@ aparecem na conta e no log, sem e-mail automático — esses a loja conversa com
     seria mais aceito. A mesma pessoa vê sempre a mesma oferta (o sorteio é pelo carrinho).
   - Conferido numa loja local: `conferir-checkout` 118/118 (a oferta, o desconto cobrado pelo
     Medusa, a promoção desligada e o registro no pedido), `conferir-promocoes` 18/18,
-    `conferir-recomendacao` 31/31 e os 192 testes do backend. O `conferir-checkout` voltou a rodar
+    `conferir-recomendacao` 39/39 e os 192 testes do backend. O `conferir-checkout` voltou a rodar
     até o fim: clicava no rádio escondido da forma de pagamento, esperava o resumo aberto no
     celular (ele nasce fechado desde 22/09) e tropeçava na cópia escondida que o streaming deixa
     por um instante.

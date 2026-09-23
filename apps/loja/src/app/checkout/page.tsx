@@ -97,8 +97,6 @@ async function Conteudo() {
   if (!checkout && (await carrinhoFechado())) redirect("/checkout/retomar")
   if (!checkout || checkout.itens.length === 0) return <Vazio />
 
-  const jaNoCarrinho = new Set(checkout.itens.map((i) => i.varianteId))
-
   /*
     O piso vem do Medusa, não de constante: é o MESMO número que a regra de
     preço do frete usa pra decidir se zera. Enquanto eram dois números em
@@ -131,7 +129,7 @@ async function Conteudo() {
   const fretes = checkout.entrega.cep ? await listarFretes(checkout.id) : []
   const provedores = await listarProvedores(checkout.regiaoId)
   const bump = await lerBump(checkout)
-  const sugestoes = await listarSugestoes(checkout.regiaoId, falta, jaNoCarrinho)
+  const sugestoes = await listarSugestoes(checkout, falta)
 
   return (
     <Etapas
