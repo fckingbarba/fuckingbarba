@@ -33,6 +33,12 @@ import { BigNumber } from "@medusajs/framework/utils"
  * │ 4. NÃO EXISTE CABEÇALHO DE IDEMPOTÊNCIA. O que impede cobrar duas      │
  * │    vezes a mesma sessão é o `code` do pedido: ele é o id da sessão de  │
  * │    pagamento do Medusa, e antes de criar a gente procura por ele.      │
+ * │                                                                         │
+ * │ 5. O CARTÃO SÓ É AUTORIZADO NA CRIAÇÃO (`auth_only`), e é cobrado      │
+ * │    depois, num segundo pedido: `POST /charges/:id/capture`. A          │
+ * │    autorização vale 5 dias; passado isso, o Pagar.me solta a reserva   │
+ * │    sozinho. O porquê está no `situacao.ts` ("A ANÁLISE ANTES DA        │
+ * │    COBRANÇA").                                                         │
  * └─────────────────────────────────────────────────────────────────────────┘
  *
  * O QUE NUNCA VAI PRO LOG: o corpo do pedido. Ele tem CPF, telefone,
@@ -60,9 +66,15 @@ export type TransacaoPagarme = {
   qr_code_url?: string
   expires_at?: string
   installments?: number
+  /** Cartão: `auth_only` (desde 23/09) ou `auth_and_capture` (os pedidos de antes). */
+  operation_type?: string
   acquirer_message?: string
   acquirer_return_code?: string
   card?: { brand?: string; last_four_digits?: string }
+  /**
+   * A análise de fraude do cartão: `pending`, `approved`, `reproved` ou
+   * `manual` (quando uma pessoa do Pagar.me analisa, em até 48 horas úteis).
+   */
   antifraud_response?: { status?: string; return_message?: string }
   gateway_response?: { code?: string; errors?: { message?: string }[] }
 }
@@ -82,6 +94,7 @@ export type CobrancaPagarme = {
   pending_cancellation?: boolean
   status: string
   payment_method?: string
+  created_at?: string
   updated_at?: string
   last_transaction?: TransacaoPagarme
   order?: { id: string; code?: string; status?: string }
@@ -144,7 +157,7 @@ export type CorpoDoPedido = {
         credit_card: {
           installments: number
           statement_descriptor: string
-          operation_type: "auth_and_capture"
+          operation_type: "auth_only"
           card_token: string
           card: { billing_address: EnderecoPagarme }
         }
@@ -419,6 +432,19 @@ export function clienteDoPagarme(chaveSecreta: string, url = ENDERECO_PADRAO) {
         "DELETE",
         `/charges/${encodeURIComponent(id)}`,
         centavos === undefined ? undefined : { amount: centavos },
+        PRA_CRIAR
+      ),
+
+    /**
+     * Cobra o cartão autorizado — é aqui que o dinheiro sai de verdade. Quem
+     * decide QUANDO é o `podeCobrar` (`situacao.ts`): só com a análise de
+     * fraude aprovada. O valor vai explícito, e é o da cobrança inteira.
+     */
+    capturarCobranca: (id: string, centavos: number) =>
+      chamar<CobrancaPagarme>(
+        "POST",
+        `/charges/${encodeURIComponent(id)}/capture`,
+        { amount: centavos },
         PRA_CRIAR
       ),
   }

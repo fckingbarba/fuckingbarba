@@ -26,6 +26,9 @@
  * │ • o número do cartão chegar no servidor da loja (PCI);                 │
  * │ • o valor cobrado no Pagar.me ser diferente do total do Medusa;        │
  * │ • cartão recusado deixar pedido criado, ou estoque preso;              │
+ * │ • o cartão ser COBRADO antes de a análise de fraude aprovar — foram as │
+ * │   três compras de 22/09, cobradas e devolvidas —, ou a reserva que ela │
+ * │   reprovou ficar pendurada no limite de quem tentou;                   │
  * │ • Pix pago não virar pedido pago — pelo aviso, e sem ele;              │
  * │ • Pix vencido segurar estoque pra sempre — foi o #7: a conciliação     │
  * │   pedia DELETE na cobrança, tomava 412 ("cannot be canceled because    │
@@ -336,9 +339,23 @@ async function fecharPelaApi(carrinho, email) {
   return fim.json?.type === "order" ? pedidoNoMedusa(fim.json.order.id) : null
 }
 
+/*
+  O STREAMING TERMINAR antes de procurar o formulário: enquanto a página
+  chega em pedaços, o documento tem a tela DUAS vezes (a do HTML, escondida
+  num `<div hidden id="S:…">`, e a da hidratação), e o seletor estrito acusa
+  as duas. Ninguém vê a cópia escondida — o mesmo do `conferir-checkout`.
+*/
+const semStreaming = (pagina) =>
+  pagina
+    .waitForFunction(() => !document.querySelector('div[hidden][id^="S:"]'), null, {
+      timeout: 20000,
+    })
+    .catch(() => null)
+
 /** Passos 1 e 2 do checkout, pela tela. Termina no passo 3 aberto. */
 async function ateOPagamento(pagina, email) {
   await pagina.goto(`${LOJA}/checkout`, { waitUntil: "domcontentloaded" })
+  await semStreaming(pagina)
   await pagina.locator("#form-contato").waitFor({ timeout: 25000 })
   const campo = (n) => pagina.locator(`.fluxo [name="${n}"]`)
   await campo("email").fill(email)
@@ -360,7 +377,12 @@ async function ateOPagamento(pagina, email) {
 }
 
 async function preencherCartao(pagina, numero, { parcelas = "1", cvv = CVV } = {}) {
-  await pagina.locator("#form-pagamento .opcao", { hasText: "Cartão" }).locator("input").check()
+  // A forma se escolhe pela LINHA, como a pessoa faz: o rádio está escondido
+  // do olho (`opcao--forma`), e um `check()` nele esbarra na linha por cima e
+  // espera pra sempre — o mesmo conserto do `conferir-checkout`.
+  const linha = pagina.locator("#form-pagamento .opcao", { hasText: "Cartão" })
+  await linha.click()
+  await linha.locator("input:checked").waitFor({ state: "attached", timeout: 10000 })
   const painel = pagina.locator(".pagamento__painel[data-ativo]")
   const campos = painel.locator("input")
   await campos.nth(0).fill(numero)
@@ -646,6 +668,19 @@ try {
     const registro = noPagarme(pedido)
     pedidoDoCartao = { id: pedido?.id, pagarme: registro?.pedido }
     const cc = registro?.corpo?.payments?.[0]?.credit_card
+    ok(cc?.operation_type === "auth_only", "o cartão vai só pra AUTORIZAR", cc?.operation_type)
+    const capturas = pagarme.capturas.filter((c) => c.pedido === registro?.pedido.id)
+    ok(
+      capturas.filter((c) => !c.recusada).length === 1 &&
+        capturas[0]?.valor === registro?.pedido.amount,
+      "e é cobrado UMA vez, o valor inteiro",
+      JSON.stringify(capturas)
+    )
+    ok(
+      capturas.length > 0 && capturas.every((c) => c.analise === "approved"),
+      "só depois de a análise de fraude aprovar",
+      JSON.stringify(capturas.map((c) => c.analise))
+    )
     ok(cc?.installments === 3, "em 3 parcelas", String(cc?.installments))
     ok(cc?.statement_descriptor === "FUCKINGBARBA", "com o nome da loja na fatura")
     ok(Boolean(cc?.card?.billing_address?.line_1), "e o endereço de cobrança junto do token")
@@ -714,6 +749,11 @@ try {
       "duas tentativas, duas sessões — o token de uma não serve pra outra",
       String(doCarrinho.length)
     )
+    const recusado = doCarrinho.find((r) => r.pedido.status === "failed")
+    ok(
+      Boolean(recusado) && !pagarme.capturas.some((c) => c.pedido === recusado.pedido.id),
+      "o cartão recusado não é cobrado"
+    )
     await esperarConfirmacao(pedido)
     await esperar(2000)
     ok(
@@ -722,6 +762,202 @@ try {
       String(confirmacoesDo(pedido).length)
     )
     await contexto.close()
+  }
+
+  /* ── 3b. o cartão só é cobrado depois da análise de fraude ────────────── */
+
+  /*
+    AS TRÊS COMPRAS DE 22/09: o banco aprovou, a análise de fraude reprovou
+    segundos depois, e com `auth_and_capture` o valor apareceu e sumiu da
+    fatura de quem comprou. Agora o cartão só é AUTORIZADO na criação, e a
+    cobrança (`POST /charges/:id/capture`) vem com a análise aprovada. O
+    cartão 0036 nasce "em análise" no falso; o teste decide o fim.
+  */
+
+  /** Checkout com o cartão em análise. Devolve o pedido e o dele no Pagar.me. */
+  async function compraEmAnalise(email) {
+    const { contexto, pagina } = await novaAba()
+    const carrinhoId = await sacolaPronta(contexto, 1)
+    await ateOPagamento(pagina, email)
+    await preencherCartao(pagina, "4000 0000 0000 0036")
+    await pagar(pagina)
+    return { contexto, pagina, carrinhoId }
+  }
+  /** Relê o pedido no Medusa até `cond` valer, ou o tempo acabar. */
+  async function esperarPedido(id, cond, ms = 20000) {
+    let pedido = null
+    for (const fim = Date.now() + ms; Date.now() < fim; await esperar(250)) {
+      pedido = await pedidoNoMedusa(id)
+      if (cond(pedido)) break
+    }
+    return pedido
+  }
+  const cobrancasDo = (la) => pagarme.capturas.filter((c) => c.pedido === la?.pedido.id)
+  async function emailComAssunto(assunto, ms = 20000) {
+    for (const fim = Date.now() + ms; Date.now() < fim; await esperar(250)) {
+      const achado = resend.emails.find((e) => e.subject === assunto)
+      if (achado) return achado
+    }
+    return null
+  }
+
+  titulo("Cartão em análise: o valor fica reservado, e só é cobrado quando a análise aprova")
+  {
+    const { contexto, pagina } = await compraEmAnalise("analise@fuckingbarba.invalid")
+    await pagina.waitForURL(/\/checkout\/obrigado\//, { timeout: 45000 })
+    const pedido = await pedidoNoMedusa(idDaUrl(pagina))
+    const la = noPagarme(pedido)
+    ok(
+      pedido?.payment_status !== "captured" && la?.pedido.status === "pending",
+      "o pedido nasce, mas NÃO pago: no Pagar.me, o cartão está só autorizado",
+      `${pedido?.payment_status} · ${la?.pedido.status}`
+    )
+    ok(cobrancasDo(la).length === 0, "e nada foi cobrado")
+    ok(
+      (await tituloDoFeito(pagina)) === "Pagamento em análise" &&
+        /só reservado/.test(await pagina.locator(".feito").innerText()),
+      'a tela diz "Pagamento em análise", e que o valor fica só reservado',
+      await tituloDoFeito(pagina)
+    )
+    await esperar(1500)
+    ok(confirmacoesDo(pedido).length === 0, "nenhum e-mail de confirmação antes de cobrar")
+
+    const aviso = await pagarme.aprovarAnalise(la.pedido.id)
+    ok(aviso?.aviso === 200, "a análise aprova, e o Pagar.me avisa (charge.antifraud_approved)")
+    const pago = await esperarPedido(pedido.id, (p) => p?.payment_status === "captured")
+    ok(
+      pago?.payment_status === "captured",
+      "a loja cobra sozinha, e o pedido fica pago",
+      pago?.payment_status
+    )
+    const cobrancas = cobrancasDo(la)
+    ok(
+      cobrancas.filter((c) => !c.recusada).length === 1 &&
+        cobrancas[0].valor === la.pedido.amount &&
+        cobrancas.every((c) => c.analise === "approved"),
+      "UMA cobrança, o valor inteiro, com a análise aprovada",
+      JSON.stringify(cobrancas)
+    )
+    ok((await esperarConfirmacao(pago)).length === 1, "e o e-mail de confirmação sai")
+    await pagina
+      .waitForFunction(
+        () => document.querySelector(".feito h1")?.textContent?.trim() === "Pedido confirmado",
+        null,
+        { timeout: 30000 }
+      )
+      .catch(() => null)
+    ok(
+      (await tituloDoFeito(pagina)) === "Pedido confirmado",
+      "a tela de obrigado vira sozinha",
+      await tituloDoFeito(pagina)
+    )
+    await contexto.close()
+  }
+
+  titulo("Cartão aprovado na análise sem aviso nenhum: a conciliação cobra")
+  {
+    await longeDaConciliacaoAutomatica(90_000)
+    const { contexto, pagina } = await compraEmAnalise("analise-quieta@fuckingbarba.invalid")
+    await pagina.waitForURL(/\/checkout\/obrigado\//, { timeout: 45000 })
+    const pedido = await pedidoNoMedusa(idDaUrl(pagina))
+    const la = noPagarme(pedido)
+    await pagarme.aprovarAnalise(la.pedido.id, { semAviso: true })
+    await esperar(2000)
+    ok(cobrancasDo(la).length === 0, "sem o aviso, nada acontece sozinho")
+    const r = await conciliar()
+    ok(
+      r.pagas.some((p) => p.includes(`#${pedido.display_id}`)),
+      "a conciliação acha o aprovado e cobra",
+      JSON.stringify(r)
+    )
+    const pago = await esperarPedido(pedido.id, (p) => p?.payment_status === "captured")
+    ok(pago?.payment_status === "captured", "o pedido fica pago", pago?.payment_status)
+    ok(
+      cobrancasDo(la).filter((c) => !c.recusada).length === 1,
+      "UMA cobrança",
+      JSON.stringify(cobrancasDo(la))
+    )
+    await contexto.close()
+  }
+
+  titulo("Cartão reprovado na análise depois: o pedido é cancelado, e nada é cobrado")
+  {
+    await longeDaConciliacaoAutomatica(90_000)
+    const { contexto, pagina } = await compraEmAnalise("analise-reprovada@fuckingbarba.invalid")
+    await pagina.waitForURL(/\/checkout\/obrigado\//, { timeout: 45000 })
+    const pedido = await pedidoNoMedusa(idDaUrl(pagina))
+    const la = noPagarme(pedido)
+    // A reserva fica pendurada: o Pagar.me não desfez, e quem desfaz é a loja.
+    await pagarme.reprovarAnalise(la.pedido.id, { desfaz: false })
+    const r = await conciliar()
+    ok(
+      r.canceladas.some((c) => c.includes(`#${pedido.display_id}`)),
+      "a conciliação cancela o pedido",
+      JSON.stringify(r)
+    )
+    const cancelado = await pedidoNoMedusa(pedido.id)
+    ok(cancelado?.status === "canceled", "cancelado, e o estoque volta", cancelado?.status)
+    ok(cobrancasDo(la).length === 0, "nada foi cobrado")
+    ok(
+      pagarme.cancelamentos.some((c) => c.pedido === la.pedido.id && c.status === "pending") &&
+        la.pedido.charges[0].last_transaction.status === "voided",
+      "e a reserva que o Pagar.me deixou pendurada é desfeita pela loja",
+      JSON.stringify(pagarme.cancelamentos.filter((c) => c.pedido === la.pedido.id))
+    )
+    ok(
+      !pagarme.cancelamentos.some((c) => c.pedido === la.pedido.id && c.status === "paid"),
+      "sem estorno nenhum: não havia o que devolver"
+    )
+    const email = await emailComAssunto(`Pedido #${pedido.display_id} cancelado`)
+    ok(
+      Boolean(email) && /Nada foi cobrado/.test(textoDo(email)),
+      'o e-mail diz "nada foi cobrado" — reserva desfeita não é estorno',
+      email?.subject ?? "sem e-mail"
+    )
+    await contexto.close()
+  }
+
+  titulo("A análise responde enquanto o checkout espera")
+  {
+    pagarme.decisaoDaAnalise = { depoisDe: 2500, resultado: "aprova" }
+    const aprovado = await compraEmAnalise("espera-aprova@fuckingbarba.invalid")
+    await aprovado.pagina.waitForURL(/\/checkout\/obrigado\//, { timeout: 45000 })
+    const pedido = await pedidoNoMedusa(idDaUrl(aprovado.pagina))
+    ok(
+      pedido?.payment_status === "captured",
+      "aprovada em segundos: o checkout espera, cobra, e o pedido nasce PAGO",
+      pedido?.payment_status
+    )
+    ok(
+      cobrancasDo(noPagarme(pedido)).every((c) => c.analise === "approved") &&
+        cobrancasDo(noPagarme(pedido)).filter((c) => !c.recusada).length === 1,
+      "cobrado uma vez, com a análise aprovada",
+      JSON.stringify(cobrancasDo(noPagarme(pedido)))
+    )
+    await aprovado.contexto.close()
+
+    pagarme.decisaoDaAnalise = { depoisDe: 2500, resultado: "reprova" }
+    const reprovado = await compraEmAnalise("espera-reprova@fuckingbarba.invalid")
+    const recado = reprovado.pagina.locator("#form-pagamento .erros-envio")
+    await recado.waitFor({ timeout: 45000 })
+    ok(
+      /análise de segurança/.test(await recado.innerText()) &&
+        /nada foi cobrado/.test(await recado.innerText()),
+      "reprovada em segundos: a tela pede outro cartão ou o Pix, e diz que nada foi cobrado",
+      await recado.innerText()
+    )
+    const { json: aberto } = await loja(
+      `/store/carts/${reprovado.carrinhoId}?fields=id,completed_at`
+    )
+    ok(
+      aberto?.cart && !aberto.cart.completed_at,
+      "o carrinho continua aberto — nenhum pedido nasceu"
+    )
+    const la = [...pagarme.pedidos.values()].find(
+      (r) => r.corpo.customer?.email === "espera-reprova@fuckingbarba.invalid"
+    )
+    ok(Boolean(la) && cobrancasDo(la).length === 0, "e nada foi cobrado")
+    await reprovado.contexto.close()
   }
 
   /* ── 4. Pix que venceu ────────────────────────────────────────────────── */
@@ -757,6 +993,7 @@ try {
       JSON.stringify(pagarme.cancelamentos.filter((c) => c.pedido === registro.pedido.id))
     )
     await pagina.reload({ waitUntil: "domcontentloaded" })
+    await semStreaming(pagina)
     await pagina.locator(".feito h1").waitFor({ timeout: 20000 })
     ok((await tituloDoFeito(pagina)) === "Pedido cancelado", "e a tela diz isso")
     const segunda = await conciliar()
@@ -913,6 +1150,11 @@ try {
       [...pagarme.pedidos.values()].filter((r) => r.corpo.code === sessao).length === 1,
       "UM pedido no Pagar.me — perder a resposta não cobra duas vezes"
     )
+    ok(
+      cobrancasDo(pagarme.pedidoPorCodigo(sessao)).filter((c) => !c.recusada).length === 1,
+      "e o cartão, achado pelo código, é cobrado uma vez",
+      JSON.stringify(cobrancasDo(pagarme.pedidoPorCodigo(sessao)))
+    )
     await contexto.close()
   }
   {
@@ -934,24 +1176,33 @@ try {
     ok(!aberto?.cart?.completed_at, "e o carrinho continua aberto")
 
     await esperar(10000) // o falso cria o pedido 9 s depois de derrubar a conexão
-    const cobrado = [...pagarme.pedidos.values()].find(
+    const reservado = [...pagarme.pedidos.values()].find(
       (r) => r.corpo.customer?.email === "incerto@fuckingbarba.invalid"
     )
-    ok(cobrado?.pedido.status === "paid", "o cartão FOI cobrado lá, sem pedido aqui — o pior caso")
+    /*
+      Era o pior caso: o cartão cobrado lá, sem pedido aqui. Com o cartão só
+      autorizado, o pior caso encolheu pra uma RESERVA sem pedido — e sessão
+      que terminou "incerta" não é cobrada nunca, nem com a análise aprovada.
+    */
+    ok(
+      reservado?.pedido.charges[0].last_transaction.status === "authorized_pending_capture",
+      "o cartão foi AUTORIZADO lá, sem pedido aqui",
+      reservado?.pedido.charges[0].last_transaction.status
+    )
     const relatorio = await conciliar()
     ok(
-      relatorio.estornadas.some((e) => e.includes(cobrado?.pedido.id)),
-      "a conciliação acha e estorna",
+      relatorio.canceladas.some((e) => e.includes(reservado?.pedido.id)),
+      "a conciliação acha e desfaz a reserva",
       JSON.stringify(relatorio)
     )
     ok(
       pagarme.cancelamentos.some(
         (c) =>
-          c.pedido === cobrado?.pedido.id &&
-          c.status === "paid" &&
-          c.valor === cobrado?.pedido.amount
-      ),
-      "o estorno é do valor inteiro"
+          c.pedido === reservado?.pedido.id &&
+          c.status === "pending" &&
+          c.valor === reservado?.pedido.amount
+      ) && cobrancasDo(reservado).length === 0,
+      "o valor inteiro, e nada foi cobrado"
     )
     await contexto.close()
   }
@@ -976,7 +1227,11 @@ try {
     pagarme.roteiro = "normal"
     await esperar(10000) // o falso cria o pedido 9 s depois de derrubar a conexão
     const primeira = [...pagarme.pedidos.values()].find((r) => r.corpo.customer?.email === email)
-    ok(primeira?.pedido.status === "paid", "a primeira tentativa cobrou lá, sem resposta")
+    ok(
+      primeira?.pedido.charges[0].last_transaction.status === "authorized_pending_capture",
+      "a primeira tentativa AUTORIZOU o cartão lá, sem resposta",
+      primeira?.pedido.charges[0].last_transaction.status
+    )
 
     await pagina.locator(".pagamento__painel[data-ativo] input").nth(0).fill("4000 0000 0000 0010")
     await pagina.locator(".pagamento__painel[data-ativo] input").nth(3).fill(CVV)
@@ -1000,18 +1255,18 @@ try {
     await pagarme.envelhecer(primeira.pedido.id)
     const relatorio = await conciliar()
     ok(
-      relatorio.estornadas.some((e) => e.includes(primeira.pedido.id)),
-      "passados 15 minutos, a conciliação acha a órfã e estorna",
+      relatorio.canceladas.some((e) => e.includes(primeira.pedido.id)),
+      "passados 15 minutos, a conciliação acha a órfã e desfaz a reserva",
       JSON.stringify(relatorio)
     )
     ok(
       pagarme.cancelamentos.some(
         (c) =>
           c.pedido === primeira.pedido.id &&
-          c.status === "paid" &&
+          c.status === "pending" &&
           c.valor === primeira.pedido.amount
-      ),
-      "o valor inteiro"
+      ) && cobrancasDo(primeira).length === 0,
+      "o valor inteiro, sem nunca ter sido cobrado"
     )
     ok(
       !pagarme.cancelamentos.some((c) => c.pedido === segunda?.pedido.id),
@@ -1019,9 +1274,9 @@ try {
     )
     const denovo = await conciliar()
     ok(
-      !denovo.estornadas.some((e) => e.includes(primeira.pedido.id)) &&
+      !denovo.canceladas.some((e) => e.includes(primeira.pedido.id)) &&
         pagarme.cancelamentos.filter((c) => c.pedido === primeira.pedido.id).length === 1,
-      "rodar de novo não estorna duas vezes, nem repete no relatório",
+      "rodar de novo não desfaz duas vezes, nem repete no relatório",
       JSON.stringify(denovo)
     )
     await contexto.close()
@@ -1202,6 +1457,7 @@ try {
     await pagar(pagina)
     await pagina.waitForURL(/\/checkout\/obrigado\//, { timeout: 45000 })
     ok(idDaUrl(pagina) === fechado?.id, "o segundo clique leva pro MESMO pedido")
+    await semStreaming(pagina)
     await pagina.locator(".feito__pix code").waitFor({ timeout: 15000 })
     ok(true, "com o QR do Pix — o crachá do pedido chegou")
     const doEmail = [...pagarme.pedidos.values()].filter((r) => r.corpo.customer?.email === email)
@@ -1225,6 +1481,7 @@ try {
       idDaUrl(pagina) === fechado?.id,
       "recarregar o checkout leva pro pedido, em vez de 'sacola vazia'"
     )
+    await semStreaming(pagina)
     await pagina.locator(".feito__pix code").waitFor({ timeout: 15000 })
     ok(true, "com o QR do Pix")
     const cookies = await contexto.cookies(LOJA)
