@@ -443,20 +443,27 @@ let cancelado: number | null = null
 
 async function situacaoCancelado(acesso: Acesso): Promise<number> {
   if (cancelado) return cancelado
-  const modulos = await chamarBling<{
-    data?: { id?: unknown; nome?: unknown; descricao?: unknown }[]
-  }>(acesso, "GET", "/situacoes/modulos")
-  const vendas = (modulos.corpo?.data ?? []).find((m) =>
-    /vendas/i.test(`${String(m.nome ?? "")} ${String(m.descricao ?? "")}`)
-  )
-  if (inteiro(vendas?.id)) {
-    const r = await chamarBling<{ data?: { id?: unknown; nome?: unknown }[] }>(
-      acesso,
-      "GET",
-      `/situacoes/modulos/${vendas!.id as number}`
+  try {
+    const modulos = await chamarBling<{
+      data?: { id?: unknown; nome?: unknown; descricao?: unknown }[]
+    }>(acesso, "GET", "/situacoes/modulos")
+    const vendas = (modulos.corpo?.data ?? []).find((m) =>
+      /vendas/i.test(`${String(m.nome ?? "")} ${String(m.descricao ?? "")}`)
     )
-    const s = (r.corpo?.data ?? []).find((x) => /^cancelad[oa]$/i.test(String(x.nome ?? "").trim()))
-    if (inteiro(s?.id)) cancelado = s!.id as number
+    if (inteiro(vendas?.id)) {
+      const r = await chamarBling<{ data?: { id?: unknown; nome?: unknown }[] }>(
+        acesso,
+        "GET",
+        `/situacoes/modulos/${vendas!.id as number}`
+      )
+      const s = (r.corpo?.data ?? []).find((x) =>
+        /^cancelad[oa]$/i.test(String(x.nome ?? "").trim())
+      )
+      if (inteiro(s?.id)) cancelado = s!.id as number
+    }
+  } catch {
+    // Sem a permissão de ler as situações (ou o Bling fora), vale o padrão
+    // abaixo — e a próxima vez pergunta de novo.
   }
   // 12 é o "Cancelado" padrão das contas do Bling, se a conta não disser outro.
   return cancelado ?? 12
