@@ -219,9 +219,10 @@ export function Compra({
         {/*
           O PREÇO QUE SE PAGA VEM PRIMEIRO, grande; o "de" riscado e a
           economia vêm depois, como prova. O protótipo tinha a ordem inversa
-          e tinha tirado o selo de economia (o riscado já contava a mesma
-          história); a loja pediu os dois assim em 22/09. O selo só existe
-          junto com o riscado — sem "de", não há do que ter economizado.
+          e tinha tirado a economia (o riscado já contava a mesma história);
+          a loja pediu os dois assim em 22/09 — e, em 23/09, a economia como
+          TEXTO ao lado do riscado, "Economiza", e não mais etiqueta. Ela só
+          existe junto com o riscado: sem "de", não há do que economizar.
 
           O "antes" escondido é pra quem ouve a página: sem o traço e sem o
           tamanho, "R$ 54,90 R$ 79,90" não diz qual dos dois se paga.
@@ -235,7 +236,7 @@ export function Compra({
             </span>
           ) : null}
           {economia >= 0.01 ? (
-            <span className="compra__economia">Economizou {emReais(economia)}</span>
+            <span className="compra__economia">Economiza {emReais(economia)}</span>
           ) : null}
         </p>
 
@@ -317,19 +318,13 @@ export function Compra({
           >
             −
           </button>
-          <label className="sr-only" htmlFor="qtd">
-            Quantidade
-          </label>
-          <input
-            id="qtd"
-            type="number"
-            min={1}
-            max={maximo}
-            step={1}
-            inputMode="numeric"
-            value={unidades}
-            onChange={(e) => setUnidades(limita(e.target.valueAsNumber, maximo))}
-          />
+          {/* Só os botões mudam o número: ele não é campo (pedido da loja em
+              23/09). `<output>` é o elemento de "resultado", e o leitor de
+              tela lê "Quantidade: 2" a cada toque no − e no +. */}
+          <output className="compra__numero" aria-live="polite" aria-atomic="true">
+            <span className="sr-only">Quantidade: </span>
+            {unidades}
+          </output>
           <button
             type="button"
             aria-label="Aumentar quantidade"
@@ -423,11 +418,6 @@ export function Compra({
 function textoDoBotao(enviando: boolean, disponivel: boolean) {
   if (!disponivel) return "Esgotado"
   return enviando ? "Adicionando…" : "Adicionar à sacola"
-}
-
-function limita(n: number, maximo: number) {
-  if (!Number.isFinite(n)) return 1
-  return Math.min(maximo, Math.max(1, Math.trunc(n)))
 }
 
 /**

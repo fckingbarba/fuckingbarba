@@ -6,9 +6,10 @@
   estoque nunca acabava e o produto nunca saía de catálogo no meio do clique.
   Aqui acontece, e a pessoa precisa ler o porquê em vez de clicar de novo.
 
-  São três lugares, com o mesmo desenho: embaixo do botão da dobra
-  (`compra__recado`), na soma da rotina (`rotina__recado`) e no pé da gaveta
-  (`sacolinha__aviso`). Cada um leva o nome do próprio bloco em vez de
+  São quatro lugares, com o mesmo desenho: embaixo do botão da dobra
+  (`compra__recado`), na soma da rotina (`rotina__recado`), no pé da gaveta
+  (`sacolinha__aviso`) e embaixo do "Comprar" da vitrine (`comprar__recado`,
+  que só fala quando dá errado — dando certo, a gaveta abre). Cada um leva o nome do próprio bloco em vez de
   reaproveitar a classe do vizinho — foi o que quebrou um teste que procurava
   "o recado" e achou dois.
 
@@ -21,7 +22,8 @@
 
 .compra__recado,
 .rotina__recado,
-.sacolinha__aviso {
+.sacolinha__aviso,
+.comprar__recado {
   margin: 0;
   font-size: 0.82rem;
   font-weight: 700;
@@ -33,13 +35,15 @@
    botão e as garantias, pra uma frase que quase nunca aparece. */
 .compra__recado:empty,
 .rotina__recado:empty,
-.sacolinha__aviso:empty {
+.sacolinha__aviso:empty,
+.comprar__recado:empty {
   display: none;
 }
 
 .compra__recado,
 .rotina__recado,
-.sacolinha__aviso {
+.sacolinha__aviso,
+.comprar__recado {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -62,8 +66,13 @@
 */
 .compra__recado--erro,
 .rotina__recado--erro,
-.sacolinha__aviso {
+.sacolinha__aviso,
+.comprar__recado {
   background: var(--color-amarelo);
+}
+
+.comprar__recado {
+  margin-top: 8px;
 }
 
 .sacolinha__aviso {

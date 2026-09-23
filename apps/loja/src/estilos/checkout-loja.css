@@ -12,6 +12,20 @@
   falha, cortina de pagamento.
 */
 
+/*
+  A PÁGINA OCUPA A LARGURA TODA, tenha o que tiver dentro.
+
+  O `.pagina` do protótipo se centraliza com `margin: 0 auto` — e dentro do
+  body, que é uma coluna flex, margem automática faz a caixa ENCOLHER até o
+  tamanho do que ela tem dentro. No computador o formulário empurra até os
+  1140px e ninguém nota. No celular o checkout ficava com uns 280px no meio de
+  uma tela de 390, com faixa cinza sobrando dos dois lados; e o esqueleto,
+  que não tem texto nenhum, virava duas tiras brancas de 60px.
+*/
+.pagina {
+  width: 100%;
+}
+
 /* O esqueleto do <Suspense>. O protótipo não tinha servidor, então não tinha
    espera pra desenhar — e placeholder baixinho que cresce quando o conteúdo
    chega empurra o botão pra longe do dedo que já ia clicar nele. */
@@ -21,21 +35,79 @@
   background-size: 200% 100%;
   animation: esqueleto-brilho 1.4s linear infinite;
 }
+/* As medidas são as do checkout de verdade (`checkout.css`): o título em
+   itálico de ~1,5rem, o rótulo pequeno em cima de cada campo de 46px, o botão
+   de continuar à direita — que no celular mora na barra de baixo, e some. */
 .esqueleto--titulo {
-  width: 40%;
-  height: 18px;
+  width: min(260px, 60%);
+  height: 24px;
+}
+.esqueleto--subtitulo {
+  width: 110px;
+  height: 16px;
+}
+.esqueleto--etiqueta {
+  width: 84px;
+  height: 10px;
+  margin-top: 18px;
 }
 .esqueleto--campo {
   height: 46px;
-  margin-top: 14px;
+  margin-top: 8px;
 }
 .esqueleto--botao {
-  height: 50px;
-  margin-top: 18px;
+  width: 200px;
+  height: 54px;
+  margin: 22px 0 0 auto;
 }
 .esqueleto--linha {
   height: 14px;
-  margin-top: 12px;
+  margin-top: 14px;
+}
+.esqueleto--curta {
+  width: 55%;
+}
+/* Na barra escura do resumo o brilho é escuro também. */
+.esqueleto--valor {
+  width: 72px;
+  height: 16px;
+  background: linear-gradient(90deg, #2a323d 25%, #3a4452 50%, #2a323d 75%);
+  background-size: 200% 100%;
+}
+.resumo-esqueleto {
+  background: #fff;
+  border: 2px solid var(--color-tinta);
+  clip-path: polygon(
+    14px 0,
+    100% 0,
+    100% calc(100% - 14px),
+    calc(100% - 14px) 100%,
+    0 100%,
+    0 14px
+  );
+}
+.resumo-esqueleto__barra {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0;
+  padding: 14px 18px;
+  background: var(--color-tinta);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.resumo-esqueleto__corpo {
+  padding: 4px 18px 20px;
+}
+@media (max-width: 900px) {
+  .esqueleto--botao,
+  .resumo-esqueleto__corpo {
+    display: none;
+  }
 }
 
 @keyframes esqueleto-brilho {
@@ -73,8 +145,9 @@
   A CARCAÇA DA LOJA SAI DO CAMINHO: quem chegou ao checkout já decidiu, e
   menu, busca e sacola são três saídas no meio de uma compra. Na tela de
   obrigado some o cabeçalho e o grosso do rodapé; o pé dele fica (selos,
-  formas de pagamento, a linha legal com o CNPJ). E o fundo do `body` — que é
-  do layout raiz, e lá é menta — vira o cinza do protótipo.
+  formas de pagamento, a linha legal com o CNPJ). E o fundo da página — o
+  `--fundo-da-pagina` do `body`, que é do layout raiz e lá é menta — vira o
+  cinza do protótipo.
 
   CADA REGRA EM DUPLA, uma por fase (o porquê está em
   `components/marca-da-tela.tsx`):
@@ -106,11 +179,11 @@ html:not([data-hidratado])
 
 html[data-tela~="checkout"] body,
 html[data-tela~="obrigado"] body {
-  background: var(--color-cinza);
+  --fundo-da-pagina: var(--color-cinza);
 }
 html:not([data-hidratado]) body:has(.pagina),
 html:not([data-hidratado]) body:has(.obrigado) {
-  background: var(--color-cinza);
+  --fundo-da-pagina: var(--color-cinza);
 }
 
 /* A MARCA NO TOPO. O protótipo tinha o raio fino e o nome em texto, e o CSS
@@ -214,7 +287,10 @@ html:not([data-hidratado]) body:has(.obrigado) {
    documento. Aqui é rota própria — recarregar funciona, o link pode ser
    salvo, e o botão voltar não devolve ninguém pro formulário de um pedido
    que já foi feito. O desenho é o mesmo; o que muda é a moldura. */
+/* `width: 100%` pelo motivo do `.pagina`, lá em cima: sem ele, a margem
+   automática encolhia o obrigado até o tamanho do texto. */
 .obrigado {
+  width: 100%;
   max-width: 620px;
   margin: 0 auto;
   padding: clamp(16px, 3vw, 28px) clamp(16px, 3vw, 32px) 60px;

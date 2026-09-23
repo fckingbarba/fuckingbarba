@@ -5,6 +5,7 @@ import { SimboloEstrela } from "@/components/estrelas"
 import { Anuncio } from "@/components/layout/anuncio"
 import { Cabecalho } from "@/components/layout/cabecalho"
 import { Rodape } from "@/components/layout/rodape"
+import { SemZoomNoCampo } from "@/components/layout/sem-zoom-no-campo"
 import { ProvedorDoFrete } from "@/components/configuracoes/contexto"
 import { ProvedorDaSacola } from "@/components/sacola/contexto"
 import { Gaveta } from "@/components/sacola/gaveta"
@@ -42,7 +43,13 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  themeColor: "#4fe4b6",
+  /*
+    Preto, a cor do cabeçalho: é com ela que o Chrome do Android e o Safari
+    até o 18 pintam a barra do navegador. O Safari 26 ignora o `theme-color`
+    e usa o fundo do body — ver "O FUNDO DA PÁGINA NÃO É O FUNDO DO BODY" no
+    `globals.css`. Era o menta, e a loja abria com uma faixa menta em cima.
+  */
+  themeColor: "#000000",
   width: "device-width",
   initialScale: 1,
 }
@@ -93,6 +100,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         {/* O desenho da estrela, uma vez por página: as avaliações
             referenciam por <use> em vez de repetir o path dez vezes cada. */}
         <SimboloEstrela />
+        <SemZoomNoCampo />
         {/*
           O provedor da sacola envolve a carcaça inteira porque o contador do
           cabeçalho e a gaveta precisam do MESMO estado, e os dois nascem

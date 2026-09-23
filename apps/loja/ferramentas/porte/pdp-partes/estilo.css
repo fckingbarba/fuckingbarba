@@ -458,7 +458,13 @@
   modal passa a caber sempre. O max-height e o object-fit são cinto de
   segurança pro dia em que entrar uma foto que não seja quadrada.
 */
+/*
+  `margin: auto` DE VOLTA. É o que centraliza o <dialog> na tela — o
+  navegador faz isso sozinho, mas o preflight do Tailwind zera a margem de
+  todo elemento, e o zoom abria colado no canto de cima à esquerda.
+*/
 .galeria__zoom {
+  margin: auto;
   width: min(92vw, 88vh, 860px);
   max-width: none;
   max-height: 92vh;
@@ -638,19 +644,13 @@
   line-height: 1;
 }
 
+/* A economia é TEXTO ao lado do riscado, e não mais etiqueta (pedido da
+   loja em 23/09): o mesmo tamanho do riscado, na cor cheia — o riscado é o
+   preço de trás, e isto é o que fica no bolso. */
 .compra__economia {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  align-self: center;
-  background: var(--color-accent);
-  color: var(--color-text);
-  font-size: 0.8rem;
+  font-size: 1rem;
   font-weight: 800;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  padding: 5px 10px;
-  border: 2px solid var(--color-text);
+  color: var(--color-text);
 }
 
 .compra__pagamento-linha {
@@ -703,24 +703,18 @@
   cursor: not-allowed;
 }
 
-.compra__qtd input {
+/* O número entre o − e o +: texto, não campo (pedido da loja em 23/09).
+   Era um <input type="number">, que abria o teclado e aceitava digitação. */
+.compra__numero {
   width: 44px;
-  border: 0;
+  display: grid;
+  place-items: center;
   border-left: 3px solid var(--color-text);
   border-right: 3px solid var(--color-text);
-  background: transparent;
-  font-family: inherit;
   font-size: 1rem;
   font-weight: 800;
-  text-align: center;
   color: var(--color-text);
-  -moz-appearance: textfield;
-}
-
-.compra__qtd input::-webkit-outer-spin-button,
-.compra__qtd input::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
+  font-variant-numeric: tabular-nums;
 }
 
 /*
@@ -2340,23 +2334,12 @@
    Depois de medir bloco a bloco no celular, o que sobrava
    entre o preço e o botão era: a etiqueta de economia
    quebrando pra uma linha só dela (29px) e o "R$ 74,95
-   cada" dentro dos cartões de kit (14px). Os dois viram
-   detalhe no desktop e saem do caminho no celular — o
-   desconto já está gritado no selo em cima da foto.
+   cada" dentro dos cartões de kit (14px). A etiqueta virou
+   texto em 23/09 e cabe do lado do riscado; o que ficou
+   aqui é o respiro menor da linha do preço.
    ------------------------------------------------------ */
 
 @media (max-width: 719px) {
-  .compra__economia {
-    font-size: 0.68rem;
-    letter-spacing: 0;
-    padding: 3px 7px;
-    border-width: 2px;
-  }
-
-  .compra__economia svg {
-    display: none;
-  }
-
   .compra__precos {
     gap: 6px 9px;
   }
@@ -2375,7 +2358,7 @@
     width: 36px;
   }
 
-  .compra__qtd input {
+  .compra__numero {
     width: 38px;
   }
 
@@ -3443,7 +3426,7 @@
     width: 34px;
   }
 
-  .compra__qtd input {
+  .compra__numero {
     width: 36px;
   }
 

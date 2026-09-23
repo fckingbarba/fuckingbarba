@@ -2,9 +2,14 @@ import type { HttpTypes } from "@medusajs/types"
 import Image from "next/image"
 import Link from "next/link"
 import { Carrinho, Cronometro, Curva, Frasco, Raio } from "@/components/icones"
-import { ALTA_PERFORMANCE, ORDEM_ALTA_PERFORMANCE, type Beneficios } from "@/conteudo/alta-performance"
+import { BotaoComprar } from "@/components/produto/comprar"
+import {
+  ALTA_PERFORMANCE,
+  ORDEM_ALTA_PERFORMANCE,
+  type Beneficios,
+} from "@/conteudo/alta-performance"
 import { emReais } from "@/lib/formato"
-import { buscarProdutoPorHandle, precosDe } from "@/lib/medusa"
+import { buscarProdutoPorHandle, precosDe, varianteDoCard } from "@/lib/medusa"
 import { PARCELA_MINIMA, PARCELAS_SEM_JUROS } from "@/lib/site"
 import { PalcoAltaPerformance } from "./palco-alta-performance"
 
@@ -55,6 +60,7 @@ function Slide({
   const precos = precosDe(produto)
   const caminho = `/produtos/${produto.handle}` as const
   const parcela = precos ? precos.atual / PARCELAS_SEM_JUROS : 0
+  const variante = varianteDoCard(produto)
 
   return (
     <div
@@ -97,10 +103,20 @@ function Slide({
           ) : null}
         </div>
 
-        <Link href={caminho} className="btn benefits__compra">
-          Comprar
-          <Carrinho className="btn__icone" />
-        </Link>
+        {/* Põe na sacola, como o card da vitrine (ver `BotaoComprar`). */}
+        {variante ? (
+          <BotaoComprar
+            varianteId={variante}
+            nome={produto.title}
+            className="btn benefits__compra"
+            icone={<Carrinho className="btn__icone" />}
+          />
+        ) : (
+          <Link href={caminho} className="btn benefits__compra">
+            Comprar
+            <Carrinho className="btn__icone" />
+          </Link>
+        )}
       </div>
 
       <div className="benefits__grid">

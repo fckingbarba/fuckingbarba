@@ -324,6 +324,28 @@ aparecem na conta e no log, sem e-mail automático — esses a loja conversa com
       compra?"), curta, com o artigo do CDC e o link pro `/trocas` — o Decreto 7.962 pede o direito
       de arrependimento informado com clareza, e é ali, no `/trocas` e no rodapé, que ele fica. As
       garantias da caixa de compra viraram três; a que sobra na última linha ocupa a linha inteira.
+- [x] **A lista do celular de 23/09**, conferida numa loja local em computador e celular:
+  - A faixa de cima do Safari no iPhone (a da hora) abre **preta**; era menta até a pessoa rolar.
+    O Safari 26 ignora o `theme-color` e pinta a faixa com o fundo do body, então o body virou
+    preto e o fundo que se vê é pintado por baixo (`--fundo-da-pagina`, no `globals.css`). O
+    `theme-color` também é preto, pro Chrome do Android. **Conferir no iPhone**: aqui não há
+    simulador de iPhone.
+  - O checkout ocupa a largura do celular — ficava com uns 280px no meio da tela, com cinza sobrando
+    dos lados (a margem automática encolhia a página até o tamanho do conteúdo). O carregamento tem
+    a cara da página: título, os três passos, os campos e a barra do resumo, no lugar das duas tiras
+    brancas estreitas.
+  - A sacola não abre mais com "Não consegui falar com a loja agora": a atualização automática do
+    frete, quando falha (aba aberta de antes de uma atualização do site, Frenet demorando), fica
+    quieta e deixa o CEP e o "Calcular" à mão; o recado só aparece se a pessoa clicar e der errado.
+  - PDP: a quantidade só muda pelo − e pelo + (não é mais campo); a economia virou texto do lado do
+    riscado, "Economiza R$ …", sem etiqueta; a foto ampliada abre no centro (o reset do Tailwind
+    tirava a margem que centraliza o `<dialog>`).
+  - O "Comprar" dos cards (vitrine, categorias, relacionados), do Alta Performance e o "Comprar
+    agora" do banner põem uma unidade na sacola e abrem a gaveta, sem sair da página. Produto com
+    variação pra escolher, ou sem estoque, continua levando pra página dele.
+  - Sem zoom ao tocar num campo no iPhone: os campos já têm 16px no celular, e o viewport ganha
+    `maximum-scale=1` só no iPhone e no iPad — lá a pinça continua funcionando; no Android o mesmo
+    atributo travaria a pinça, e por isso não vale pra todos.
 - [x] **O logo da bandeira aparece no fim do campo do número do cartão** (22/09), no lugar da
       etiqueta de texto. A detecção (`apps/loja/src/lib/cartao.ts`) agora usa as faixas de seis
       dígitos da Elo e da Hipercard, e conhece as bandeiras que a loja não aceita (Diners,
@@ -378,7 +400,7 @@ aparecem na conta e no log, sem e-mail automático — esses a loja conversa com
       depois e, ao lado, o selo "Economizou R$ 25,00" — a diferença entre os dois preços do
       Medusa, e só quando existe o riscado — que, com o desconto por quantidade (abaixo), vale pra
       qualquer quantidade: o cheio da unidade vezes quantas. O selo é o do protótipo, que tinha
-      saído dele; o CSS continuava lá.
+      saído dele; o CSS continuava lá. Em 23/09 virou texto, "Economiza R$ 25,00", sem etiqueta.
 - [x] **Desconto por quantidade no lugar dos kits** (22/09): "2 unidades" é o MESMO produto com
       quantidade 2 — um SKU, um estoque —, e vale pra todo produto: 4% a menos levando 2, 6%
       levando 3 ou mais, arredondado pra baixo até o ",90" (no de 3, o ",90" que divide em

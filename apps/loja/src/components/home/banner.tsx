@@ -1,8 +1,9 @@
 import Image from "next/image"
 import Link from "next/link"
 import { Raio } from "@/components/icones"
+import { BotaoComprar } from "@/components/produto/comprar"
 import { emReaisPartido } from "@/lib/formato"
-import { buscarProdutoPorHandle, precosDe } from "@/lib/medusa"
+import { buscarProdutoPorHandle, precosDe, varianteDoCard } from "@/lib/medusa"
 
 /**
  * O banner do topo. É o maior elemento visível quando a página abre — o que o
@@ -34,6 +35,7 @@ export async function Banner() {
   if (!produto || !precos || !produto.thumbnail) return null
 
   const { inteiro, centavos } = emReaisPartido(precos.atual)
+  const variante = varianteDoCard(produto)
 
   return (
     <section className="banner" aria-label={`${CAMPANHA.chapeu}: ${CAMPANHA.titulo}`}>
@@ -45,10 +47,23 @@ export async function Banner() {
           <span className="banner__preco-inteiro">{inteiro}</span>
           <span className="banner__preco-centavos">{centavos}</span>
         </p>
-        <Link href={`/produtos/${produto.handle}`} className="btn btn--branco">
-          {CAMPANHA.chamada}
-          <Raio className="btn__bolt" />
-        </Link>
+        {/* "Comprar agora" compra: põe o kit na sacola e abre a gaveta, como
+            todo "Comprar" da vitrine (pedido de 23/09). Sem estoque, leva
+            pra página do kit, que diz isso antes do clique. */}
+        {variante ? (
+          <BotaoComprar
+            varianteId={variante}
+            nome={produto.title}
+            className="btn btn--branco"
+            rotulo={CAMPANHA.chamada}
+            icone={<Raio className="btn__bolt" />}
+          />
+        ) : (
+          <Link href={`/produtos/${produto.handle}`} className="btn btn--branco">
+            {CAMPANHA.chamada}
+            <Raio className="btn__bolt" />
+          </Link>
+        )}
       </div>
       <div className="banner__midia">
         <Image

@@ -13,10 +13,10 @@
   `components/marca-da-tela.tsx` e `institucional.css`).
 */
 html[data-tela~="conta"] body {
-  background: var(--color-cinza);
+  --fundo-da-pagina: var(--color-cinza);
 }
 html:not([data-hidratado]) body:has(.conta) {
-  background: var(--color-cinza);
+  --fundo-da-pagina: var(--color-cinza);
 }
 
 .conta {

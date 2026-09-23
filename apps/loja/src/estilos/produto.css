@@ -3,8 +3,8 @@
 
   Três peças que não são só enfeite: o selo de desconto (só aparece quando há
   preço cheio maior que o atual), a tarja de frete (só quando o produto
-  sozinho já passa do piso do frete grátis) e o botão de comprar, que na fase
-  4 vira o gatilho da gaveta.
+  sozinho já passa do piso do frete grátis) e o botão de comprar, que põe na
+  sacola e abre a gaveta (`components/produto/comprar.tsx`).
 */
 
 /* Entrelinha padrão do navegador, como no protótipo: o preflight do

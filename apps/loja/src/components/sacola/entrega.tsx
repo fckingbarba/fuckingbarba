@@ -124,6 +124,13 @@ export function FreteEPrazo() {
     `tentada` segura a repetição: se a cotação falhar, a chave não muda, e
     sem isto o efeito tentaria de novo a cada render.
 
+    FALHA DE QUEM NINGUÉM CHAMOU NÃO VIRA RECADO. A pessoa só abriu a
+    gaveta; se a cotação automática não voltou (o servidor trocando de versão
+    com a aba aberta, a Frenet demorando), ela via "Não consegui falar com a
+    loja agora" em vermelho antes de fazer qualquer coisa. Agora o campo
+    aparece com o CEP dela e o "Calcular" à mão — se ELA clicar e der errado,
+    aí sim o recado.
+
     A espera de 450 ms é pra quem aperta "+" três vezes seguidas: uma
     cotação no fim, e não três. Na primeira abertura não há o que juntar, e
     esperar só deixaria o botão dizendo "Calcular" por meio segundo antes de
@@ -144,7 +151,6 @@ export function FreteEPrazo() {
           setErro("")
         } else {
           setLista(null)
-          setErro(r.mensagem)
         }
       },
       chaveDaLista ? 450 : 0
