@@ -373,9 +373,12 @@ O **403 do Bling é escopo que falta no app** (e a resposta de produção veio s
 `chamarBling` põe na mensagem o escopo que o caminho pede (`escopoDoCaminho`, com o nome da tela de
 escopos do app) e marca `semPermissao`; na nota isso NÃO é definitivo (`precisaDeGente`): a equipe
 recebe o aviso de conectar de novo, a loja segue tentando, e conectar de novo zera a espera das
-notas pendentes. `POST /admin/erp/permissoes` confere escopo por escopo, com uma leitura inofensiva
-de cada recurso; `POST /admin/erp/notas/tentar` devolve à fila a nota de que a loja desistiu. No
-Bling falso, `painel.semEscopo` nega os recursos que você puser lá.
+notas pendentes. `POST /admin/erp/permissoes` confere escopo por escopo, LER e GRAVAR (são
+permissões diferentes no Bling): a leitura com um item, a gravação com um pedido que o Bling
+recusa antes de gravar (o cliente e o pedido de venda vazios, a nota e o pedido de id 0) — 400 ou
+404 é permissão dada, 403 é a que falta. `POST /admin/erp/notas/tentar` devolve à fila a nota de
+que a loja desistiu. No Bling falso, `painel.semEscopo` nega um caminho ("/contatos") ou só um
+método nele ("POST /contatos").
 
 A **importação do catálogo** (`src/lib/erp/catalogo.ts`; a tela é `admin/routes/erp/catalogo`)
 traz os produtos do ERP em dois passos: a prévia, sem efeito (`GET /admin/erp/catalogo`), e a troca

@@ -262,7 +262,9 @@ Como funciona, em uma linha cada:
   depois de alguém corrigir o pedido.
 - **Falta permissão no app (403):** o Bling responde "sem permissão" quando o app não tem o escopo
   do recurso. Foi o que aconteceu no primeiro pedido de verdade (#14, 23/09): o pedido de venda
-  nem chegou a ser criado. A tela ERP tem **"Conferir as permissões"**, que diz qual escopo falta;
+  nem chegou a ser criado — com todas as leituras liberadas: o app lia o cliente e não podia
+  criar. A tela ERP tem **"Conferir as permissões"**, que diz qual escopo falta, pra ler e pra
+  gravar;
   a nota fica esperando (não desiste), a equipe recebe um e-mail dizendo o escopo, e depois de
   marcar no app e **"Conectar de novo"** a loja tenta sozinha. Não emita à mão, senão a nota sai
   duas vezes.

@@ -568,21 +568,34 @@ try {
 
   titulo("Falta uma permissão no app do Bling: a loja diz qual, e segue tentando")
   {
-    bling.semEscopo.add("/contatos")
+    // Como em produção (23/09): o app lê o cliente, mas não pode criar.
+    bling.semEscopo.add("POST /contatos")
     const { corpo: pc } = await adm("/admin/erp/permissoes", { method: "POST" })
-    const escopo = (nome) => pc.permissoes?.find((p) => p.escopo === nome)
+    const escopo = (nome, acao) => pc.permissoes?.find((p) => p.escopo === nome && p.acao === acao)
     ok(
-      escopo("Clientes e Fornecedores")?.ok === false &&
+      escopo("Clientes e Fornecedores", "gravar")?.ok === false &&
+        escopo("Clientes e Fornecedores", "ler")?.ok === true &&
         pc.permissoes?.filter((p) => p.ok === false).length === 1,
-      "a conferência das permissões aponta a que falta (Clientes e Fornecedores), e só ela",
-      JSON.stringify(pc.permissoes?.map((p) => [p.escopo, p.ok]))
+      "a conferência aponta a que falta — gravar em Clientes e Fornecedores —, e só ela",
+      JSON.stringify(pc.permissoes?.map((p) => [p.escopo, p.acao, p.ok]))
+    )
+    ok(
+      pc.permissoes?.filter((p) => p.acao === "gravar").every((p) => p.ok !== null) &&
+        pc.permissoes?.every((p) => p.ok !== null),
+      "e confere a gravação sem gravar nada (o Bling recusa o pedido vazio antes)",
+      JSON.stringify(pc.permissoes?.filter((p) => p.ok === null))
     )
 
-    const G = await fabrica.pedidoPix(novoEmail(), [["oleo-para-barba", 1]], { documento: CPF })
+    // Um cliente que o Bling ainda não tem: o CPF novo faz a loja precisar criar.
+    const CPF_NOVO = "52998224725"
+    const G = await fabrica.pedidoPix(novoEmail(), [["oleo-para-barba", 1]], {
+      documento: CPF_NOVO,
+    })
     await fabrica.pagar(G)
     const email = await esperarQue(() => praEquipe(`A nota do pedido #${G.numero} não saiu`)[0])
     ok(
       /Clientes e Fornecedores/.test(email?.html ?? "") &&
+        /permissão de gravar/.test(email?.html ?? "") &&
         /Conectar de novo/.test(email?.html ?? "") &&
         /não emita à mão/.test(email?.html ?? ""),
       "a equipe recebe o e-mail com o escopo que falta, e que é pra conectar de novo (não emitir à mão)"

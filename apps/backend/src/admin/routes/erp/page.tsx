@@ -66,6 +66,7 @@ const quando = (iso: string | null | undefined) =>
 
 type Permissao = {
   escopo: string
+  acao: "ler" | "gravar"
   paraQue: string
   ok: boolean | null
   motivo: string | null
@@ -358,14 +359,14 @@ const ErpPage = () => {
             {permissoes ? (
               <ul className="flex flex-col gap-1">
                 {permissoes.map((p) => (
-                  <li key={p.escopo}>
+                  <li key={`${p.escopo}-${p.acao}-${p.paraQue}`}>
                     <Text
                       size="small"
                       className={
                         p.ok === false ? "text-ui-fg-error" : p.ok ? "" : "text-ui-fg-subtle"
                       }
                     >
-                      {p.ok === false ? "✗" : p.ok ? "✓" : "?"} {p.escopo}
+                      {p.ok === false ? "✗" : p.ok ? "✓" : "?"} {p.escopo} ({p.acao})
                       <span className="text-ui-fg-subtle"> — {p.paraQue}</span>
                       {p.ok === null && p.motivo ? ` (não deu pra conferir: ${p.motivo})` : ""}
                     </Text>
@@ -376,13 +377,16 @@ const ErpPage = () => {
             {permissoes?.some((p) => p.ok === false) ? (
               <Alert variant="error">
                 Falta permissão no app:{" "}
-                {permissoes
-                  .filter((p) => p.ok === false)
-                  .map((p) => `“${p.escopo}”`)
-                  .join(", ")}
+                {[
+                  ...new Set(
+                    permissoes.filter((p) => p.ok === false).map((p) => `“${p.escopo}” (${p.acao})`)
+                  ),
+                ].join(", ")}
                 . No {nome}, em Central de Extensões → Área do Integrador → o app da loja, marque o
-                que falta nos escopos e salve. Depois, aqui, clique em &quot;Conectar de novo&quot;
-                — a loja tenta de novo sozinha as notas que ficaram esperando.
+                que falta nos escopos e salve. Onde falta &quot;gravar&quot; e a leitura passou, o
+                escopo está lá, mas sem a permissão de inserir e editar: procure, dentro dele, a
+                opção de gerenciar (ou inserir e editar). Depois, aqui, clique em &quot;Conectar de
+                novo&quot; — a loja tenta de novo sozinha as notas que ficaram esperando.
               </Alert>
             ) : permissoes?.every((p) => p.ok) ? (
               <Text size="small">Todas as permissões que a loja usa estão no app.</Text>

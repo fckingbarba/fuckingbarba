@@ -69,7 +69,7 @@ describe("o 403 do Bling: a permissão que falta no app", () => {
       semPermissao: true,
       temporario: false,
       message:
-        "o Bling negou a permissão pro cliente (403): falta o escopo “Clientes e Fornecedores” no app",
+        "o Bling negou a permissão pro cliente (403): falta no app o escopo “Clientes e Fornecedores”",
     })
   })
 
@@ -84,7 +84,7 @@ describe("o 403 do Bling: a permissão que falta no app", () => {
     )
     await expect(chamarBling(acesso, "GET", "/nfe/1")).rejects.toMatchObject({
       message:
-        "o Bling negou a permissão pra nota fiscal (403): falta o escopo “Notas Fiscais” no app (Sem permissão)",
+        "o Bling negou a permissão pra nota fiscal (403): falta no app o escopo “Notas Fiscais” (Sem permissão)",
     })
   })
 
@@ -112,26 +112,57 @@ describe("o 403 do Bling: a permissão que falta no app", () => {
 })
 
 describe("a conferência das permissões", () => {
-  it("403 é o escopo que falta; 400 ou 404 é permissão dada; o resto, não deu pra conferir", async () => {
-    jest.spyOn(global, "fetch").mockImplementation(async (entrada) => {
-      const caminho = new URL(String(entrada)).pathname
-      if (caminho.endsWith("/contatos")) return new Response("", { status: 403 })
-      if (caminho.endsWith("/estoques/saldos"))
-        return new Response(JSON.stringify({ error: { message: "id inválido" } }), { status: 400 })
-      if (caminho.endsWith("/situacoes/modulos"))
+  it("ler e gravar, cada um: 403 falta; 400 ou 404 é permissão dada; o resto, não deu pra conferir", async () => {
+    const chamadas: string[] = []
+    jest.spyOn(global, "fetch").mockImplementation(async (entrada, init) => {
+      const caminho = new URL(String(entrada)).pathname.replace(/^\/Api\/v3/, "")
+      const metodo = init?.method ?? "GET"
+      chamadas.push(`${metodo} ${caminho}`)
+      // Como em produção (23/09): lê o cliente, não cria.
+      if (metodo === "POST" && caminho === "/contatos") return new Response("", { status: 403 })
+      if (metodo === "POST" && caminho === "/pedidos/vendas")
+        return new Response(JSON.stringify({ error: { message: "Informe o contato" } }), {
+          status: 400,
+        })
+      if (caminho.includes("/0"))
+        return new Response(JSON.stringify({ error: { message: "não existe" } }), { status: 404 })
+      if (caminho === "/situacoes/modulos")
         return new Response(JSON.stringify({ error: { message: "erro interno" } }), {
           status: 500,
         })
       return new Response(JSON.stringify({ data: [] }), { status: 200 })
     })
     const r = await conferirPermissoes(acesso)
-    const de = (escopo: string) => r.find((p) => p.escopo === escopo)
-    expect(de("Clientes e Fornecedores")).toMatchObject({ ok: false })
-    expect(de("Controle de Estoque")).toMatchObject({ ok: true })
-    expect(de("Gerenciador de transições")).toMatchObject({ ok: null, motivo: "erro interno" })
-    expect(de("Produtos")?.ok).toBe(true)
-    expect(de("Pedidos de Venda")?.ok).toBe(true)
-    expect(de("Notas Fiscais")?.ok).toBe(true)
-    expect(r).toHaveLength(8)
-  }, 30_000)
+    const de = (escopo: string, acao: "ler" | "gravar") =>
+      r.filter((p) => p.escopo === escopo && p.acao === acao)
+    expect(de("Clientes e Fornecedores", "ler").map((p) => p.ok)).toEqual([true])
+    expect(de("Clientes e Fornecedores", "gravar").map((p) => p.ok)).toEqual([false])
+    // o pedido vazio (400) e o de id 0 (404): permissão dada
+    expect(de("Pedidos de Venda", "gravar").map((p) => p.ok)).toEqual([true, true, true])
+    expect(de("Notas Fiscais", "gravar").map((p) => p.ok)).toEqual([true, true])
+    expect(de("Gerenciador de transições", "ler")[0]).toMatchObject({
+      ok: null,
+      motivo: "erro interno",
+    })
+    // a gravação vai com o pedido que o Bling recusa: vazio, ou de id 0
+    expect(chamadas).toEqual(
+      expect.arrayContaining([
+        "POST /contatos",
+        "POST /pedidos/vendas",
+        "POST /pedidos/vendas/0/gerar-nfe",
+        "PATCH /pedidos/vendas/0/situacoes/0",
+        "POST /nfe/0/enviar",
+        "DELETE /nfe",
+      ])
+    )
+    expect(r).toHaveLength(14)
+  }, 60_000)
+
+  it("gravar sem permissão: a frase diz que falta gravar, não o escopo inteiro", async () => {
+    blingQueNega(/\/contatos/)
+    await expect(chamarBling(acesso, "POST", "/contatos", { corpo: {} })).rejects.toMatchObject({
+      message:
+        "o Bling negou a permissão pro cliente (403): falta no app o escopo “Clientes e Fornecedores” com a permissão de gravar (inserir e editar)",
+    })
+  })
 })

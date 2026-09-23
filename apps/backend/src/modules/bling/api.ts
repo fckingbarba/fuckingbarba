@@ -204,8 +204,9 @@ export async function chamarBling<T = unknown>(
       throw new ErroDoBling(
         403,
         (e
-          ? `o Bling negou a permissão ${e.pra} (403): falta o escopo “${e.escopo}” no app`
-          : `o Bling negou a permissão (403) em ${caminho}: falta um escopo no app`) +
+          ? `o Bling negou a permissão ${e.pra} (403): falta no app o escopo “${e.escopo}”` +
+            (metodo === "GET" ? "" : " com a permissão de gravar (inserir e editar)")
+          : `o Bling negou a permissão (403) em ${metodo} ${caminho}: falta um escopo no app`) +
           (motivo ? ` (${motivo})` : ""),
         lido,
         false,
