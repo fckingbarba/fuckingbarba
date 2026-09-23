@@ -5,6 +5,7 @@
  *   BLING_CLIENT_ID=cliente-de-teste BLING_CLIENT_SECRET=segredo-de-teste \
  *   BLING_URL=http://127.0.0.1:4340/Api/v3 \
  *   BLING_AUTORIZACAO_URL=http://127.0.0.1:4340/Api/v3/oauth/authorize \
+ *   NUVEMSHOP_LOJA_URL=http://127.0.0.1:4350 \
  *   MEDUSA_BACKEND_URL=http://127.0.0.1:9000 (e os falsos de sempre, ver AGENTS.md) npm run backend:dev
  *   ADMIN_EMAIL=… ADMIN_SENHA=… node ferramentas/conferir-erp.mjs
  *
@@ -39,13 +40,18 @@
  * │ • a importação dos produtos que apaga o que a prévia não mostrou, que  │
  * │   troca o endereço ou a categoria do que já existe, que deixa o "de/   │
  * │   por" e os textos da página, que aponta a foto pro Bling, que apaga   │
- * │   produto com pedido esperando envio, ou que duplica ao rodar de novo. │
+ * │   produto com pedido esperando envio, ou que duplica ao rodar de novo; │
+ * │   e que, rodada de novo, apaga o que a equipe refez depois;            │
+ * │ • o endereço e as fotos da Nuvemshop que não chegam, que trocam o que  │
+ * │   não devem (categoria de quem já tem, o publicado no caminho), ou que │
+ * │   a importação do Bling desfaz depois.                                 │
  * └────────────────────────────────────────────────────────────────────────┘
  */
 
 import { readFileSync } from "node:fs"
 import { subirBlingFalso } from "./bling-falso.mjs"
 import { subirFrenetFalsa } from "./frenet-falsa.mjs"
+import { subirNuvemshopFalsa } from "./nuvemshop-falsa.mjs"
 import { subirPagarmeFalso } from "./pagarme-falso.mjs"
 import { fabricaDePedidos } from "./pedido-de-teste.mjs"
 import { subirResendFalso } from "./resend-falso.mjs"
@@ -139,6 +145,7 @@ const pagarme = await subirPagarmeFalso({
   },
 })
 const bling = await subirBlingFalso({ volta: `${MEDUSA}/hooks/erp/bling/autorizado` })
+const nuvem = await subirNuvemshopFalsa()
 const fabrica = fabricaDePedidos({ medusa: MEDUSA, chave: CHAVE, tokenAdmin, pagarme })
 const AVISO = `${MEDUSA}/hooks/erp/bling`
 
@@ -824,7 +831,31 @@ try {
       JSON.stringify(p)
     )
 
+    // Depois da primeira vez, a equipe refaz o subtítulo, os textos da página
+    // e cria uma promoção; no Bling, o preço e o nome mudam.
+    await adm(`/admin/products/${oleo.id}`, {
+      method: "POST",
+      body: JSON.stringify({
+        subtitle: "Feito pela equipe",
+        metadata: { fb_pdp: { conteudo: { promessa: { titulo: "de novo" } } } },
+      }),
+    })
+    const { corpo: lp2 } = await adm("/admin/price-lists", {
+      method: "POST",
+      body: JSON.stringify({
+        title: `Promo nova ${R}`,
+        description: "conferir-erp",
+        type: "sale",
+        status: "active",
+        prices: [{ variant_id: oleo.variants[0].id, amount: 49.9, currency_code: "brl" }],
+      }),
+    })
+    const promoNova = lp2.price_list
+    limpar.push(() => adm(`/admin/price-lists/${promoNova?.id}`, { method: "DELETE" }))
+    const capaAntes = (await produtoNoAdmin(oleo.id, "thumbnail"))?.thumbnail
+    bling.produto(`TIMP-OL-${R}`, 9, { nome: `Óleo do Bling ${R} v2`, preco: 64.9 })
     const servidas = bling.fotosServidas
+
     const { corpo: de2 } = await adm("/admin/erp/catalogo", {
       method: "POST",
       body: JSON.stringify({ importar: [String(bOleo.id), String(bNovo.id)], remover: [] }),
@@ -835,10 +866,26 @@ try {
         tem(r2.atualizados, HANDLE_NOVO) &&
         !r2.criados?.length &&
         r2.fotos?.copiadas === 0 &&
-        r2.fotos?.reaproveitadas === 3 &&
-        bling.fotosServidas === servidas + 1,
-      "de novo dá no mesmo: os dois achados pelo SKU, e nenhuma foto baixada de novo",
+        bling.fotosServidas === servidas,
+      "de novo: os dois achados pelo SKU, e nenhuma foto baixada (já vieram do Bling)",
       JSON.stringify({ ...r2, estoque: undefined }).slice(0, 400)
+    )
+    const o2 = await produtoNoAdmin(
+      oleo.id,
+      "title,subtitle,thumbnail,metadata,*variants,*variants.prices"
+    )
+    ok(
+      o2?.title === `Óleo do Bling ${R} v2` && o2.variants?.[0]?.prices?.[0]?.amount === 64.9,
+      "o nome e o preço acompanham o Bling",
+      JSON.stringify({ t: o2?.title, p: o2?.variants?.[0]?.prices })
+    )
+    ok(
+      o2?.subtitle === "Feito pela equipe" &&
+        o2.metadata?.fb_pdp?.conteudo?.promessa?.titulo === "de novo" &&
+        o2.thumbnail === capaAntes &&
+        (await adm(`/admin/price-lists/${promoNova?.id}`)).status === 200,
+      "o que a equipe fez depois da primeira vez fica: subtítulo, textos, fotos e a promoção nova",
+      JSON.stringify({ sub: o2?.subtitle, meta: o2?.metadata, capa: o2?.thumbnail === capaAntes })
     )
     const repetido = (await adm(`/admin/products?handle=${HANDLE_NOVO}-2&fields=id`)).corpo
     ok(
@@ -846,9 +893,143 @@ try {
         (await produtoNoAdmin(novo?.id, "status"))?.status === "published",
       "sem produto repetido, e a situação que a pessoa escolheu (publicado) fica"
     )
+
+    /* ── 10. os endereços e as fotos da Nuvemshop ─────────────────────────── */
+
+    titulo("Os endereços e as fotos vêm da Nuvemshop")
+    const temCabelo = (cats.product_categories ?? []).find((c) => c.handle === "cabelo")
+    const n3 = await produtoNoSite({
+      nome: `Terceiro ${R}`,
+      handle: `teste-n3-${R}`,
+      sku: `TIMP-N3-${R}`,
+      preco: 20,
+    })
+    const N1 = nuvem.produto({
+      slug: `teste-nv-oleo-${R}`,
+      nome: `Óleo na Nuvemshop ${R}`,
+      skus: [`TIMP-OL-${R}`],
+      fotos: 3,
+      categoria: { nome: "Produtos para a Barba", slug: "produtos-para-a-barba" },
+    })
+    const N2 = nuvem.produto({
+      slug: `teste-nv-pomada-${R}`,
+      nome: `Pomada na Nuvemshop ${R}`,
+      skus: [`TIMP-NOVO-${R}-50`, `TIMP-NOVO-${R}-100`],
+      fotos: 2,
+      categoria: { nome: "Para o Cabelo", slug: "para-o-cabelo" },
+    })
+    // O endereço de lá está com o rascunho que saiu do site (o que tinha Pix esperando).
+    const N3 = nuvem.produto({
+      slug: preso.handle,
+      nome: `Terceiro na Nuvemshop ${R}`,
+      skus: [`TIMP-N3-${R}`],
+    })
+    const N4 = nuvem.produto({ slug: `teste-nv-fora-${R}`, nome: "Fora", skus: [`TIMP-FORA-${R}`] })
+
+    const { status: snp, corpo: pn } = await adm("/admin/nuvemshop")
+    const item = (x) => pn.itens?.find((i) => i.nuvem.slug === x.slug)
+    ok(
+      snp === 200 && pn.loja === nuvem.url,
+      "a prévia lê a loja da Nuvemshop (a falsa: NUVEMSHOP_LOJA_URL no Medusa)",
+      `${snp} ${pn.loja ?? JSON.stringify(pn).slice(0, 160)}`
+    )
+    ok(
+      item(N1)?.produto?.id === oleo.id &&
+        item(N1).endereco?.de === oleo.handle &&
+        item(N1).endereco?.para === N1.slug &&
+        item(N1).trocaFotos &&
+        item(N1).nuvem.fotos.length === 3 &&
+        !item(N1).categoria,
+      "casa pelo SKU: o endereço vira o de lá, as fotos também; a categoria de hoje fica",
+      JSON.stringify(item(N1))
+    )
+    ok(
+      item(N2)?.produto?.id === novo?.id &&
+        item(N2).endereco?.para === N2.slug &&
+        (temCabelo ? item(N2).categoria?.handle === "cabelo" : !item(N2).categoria),
+      "o produto com variações casa por qualquer SKU; o que está sem categoria ganha a de lá",
+      JSON.stringify(item(N2))
+    )
+    ok(
+      item(N3)?.produto?.id === n3.id &&
+        item(N3).ocupante?.id === preso.id &&
+        item(N3).ocupante?.novoHandle === `${preso.handle}-antigo`,
+      "o rascunho que está com o endereço de lá sai do caminho (vira -antigo)",
+      JSON.stringify(item(N3))
+    )
+    ok(
+      /nenhum produto do site/.test(item(N4)?.bloqueio ?? ""),
+      "código que o site não tem: não dá, e diz por quê",
+      JSON.stringify(item(N4))
+    )
+    ok((await produtoNoAdmin(oleo.id, "handle"))?.handle === oleo.handle, "a prévia não muda nada")
+
+    const fotosAntes = nuvem.fotosServidas
+    const { status: stn, corpo: tn } = await adm("/admin/nuvemshop", {
+      method: "POST",
+      body: JSON.stringify({ slugs: [N1.slug, N2.slug, N3.slug] }),
+    })
+    const rn = tn.relatorio ?? {}
+    ok(
+      stn === 200 &&
+        rn.enderecos?.length === 3 &&
+        rn.afastados?.some((a) => a.de === preso.handle) &&
+        rn.fotos?.copiadas === 7 &&
+        nuvem.fotosServidas === fotosAntes + 7,
+      "a troca: três endereços, um rascunho fora do caminho, sete fotos copiadas",
+      JSON.stringify(tn).slice(0, 400)
+    )
+    const on = await produtoNoAdmin(oleo.id, "handle,thumbnail,metadata,*images,*categories")
+    const fotosN = [...(on?.images ?? [])].sort((x, y) => (x.rank ?? 0) - (y.rank ?? 0))
+    ok(
+      on?.handle === N1.slug &&
+        fotosN.length === 3 &&
+        fotosN.every((f) => !f.url.includes(`:${nuvem.porta}`)) &&
+        on.thumbnail === fotosN[0].url &&
+        on.metadata?.fb_fotos?.origem === "nuvemshop" &&
+        on.metadata?.fb_erp?.id === String(bOleo.id) &&
+        on.categories?.some((c) => c.id === categoria?.id),
+      "o óleo: endereço e fotos da Nuvemshop (copiadas pra loja), e o resto como estava",
+      JSON.stringify({ h: on?.handle, n: fotosN.length, meta: on?.metadata })
+    )
+    const pn2 = await produtoNoAdmin(novo?.id, "handle,*categories")
+    ok(
+      pn2?.handle === N2.slug &&
+        (temCabelo ? pn2.categories?.some((c) => c.handle === "cabelo") : true),
+      "a pomada: o endereço de lá e a categoria que faltava",
+      JSON.stringify(pn2)
+    )
+    ok(
+      (await produtoNoAdmin(n3.id, "handle"))?.handle === preso.handle &&
+        (await produtoNoAdmin(preso.id, "handle"))?.handle === `${preso.handle}-antigo`,
+      "o terceiro ficou com o endereço, e o rascunho antigo com -antigo"
+    )
+
+    const { corpo: pn3 } = await adm("/admin/nuvemshop")
+    const item3 = (x) => pn3.itens?.find((i) => i.nuvem.slug === x.slug)
+    ok(
+      [N1, N2, N3].every((x) => item3(x)?.pronto) && nuvem.fotosServidas === fotosAntes + 7,
+      "de novo: os três aparecem prontos, e nenhuma foto é baixada outra vez",
+      JSON.stringify([N1, N2, N3].map((x) => item3(x)?.pronto))
+    )
+
+    const servidas2 = bling.fotosServidas
+    await adm("/admin/erp/catalogo", {
+      method: "POST",
+      body: JSON.stringify({ importar: [String(bOleo.id)], remover: [] }),
+    })
+    const depois = await produtoNoAdmin(oleo.id, "handle,thumbnail,*images")
+    ok(
+      depois?.handle === N1.slug &&
+        depois.thumbnail === on?.thumbnail &&
+        depois.images?.length === 3 &&
+        bling.fotosServidas === servidas2,
+      "e a importação do Bling, rodada depois, não troca o endereço nem as fotos da Nuvemshop",
+      JSON.stringify({ h: depois?.handle, n: depois?.images?.length })
+    )
   }
 
-  /* ── 10. a conexão cai ────────────────────────────────────────────────────── */
+  /* ── 11. a conexão cai ────────────────────────────────────────────────────── */
 
   titulo("A conexão cai: a loja para e avisa")
   {
@@ -879,6 +1060,7 @@ try {
 /* ── fim ──────────────────────────────────────────────────────────────────── */
 
 bling.fechar()
+nuvem.fechar()
 await resend.fechar()
 await frenet.fechar?.()
 await pagarme.fechar?.()

@@ -136,7 +136,12 @@ describe("as variações que entram", () => {
 
 describe("o plano: o que acontece com cada produto do ERP", () => {
   const site = [
-    doSite({ id: "prod_oleo", handle: "oleo-para-barba", skus: ["FBOL01"] }),
+    doSite({
+      id: "prod_oleo",
+      handle: "oleo-para-barba",
+      skus: ["FBOL01"],
+      fotos: ["https://loja/oleo-1.webp"],
+    }),
     doSite({ id: "prod_pomada", handle: "pomada", skus: ["POM"] }),
     doSite({ id: "prod_kit2", handle: "kit-2-fator", skus: ["FBFCB01-K2"], status: "draft" }),
   ]
@@ -236,6 +241,30 @@ describe("o plano: o que acontece com cada produto do ERP", () => {
       "sem medidas da caixa no ERP",
       "sem descrição no ERP",
     ])
+  })
+
+  it("a primeira vez é o 'do zero'; da segunda em diante, as fotos de hoje ficam", () => {
+    const marcado = { fb_erp: { erp: "bling", id: "1", fotos: [] } }
+    const [primeira] = planejar([doErp({ id: "1", nome: "Óleo", sku: "FBOL01" })], site)
+    expect(primeira).toMatchObject({ como: "atualiza", primeira: true, fotosDoErp: true })
+
+    const [segunda] = planejar(
+      [doErp({ id: "1", nome: "Óleo", sku: "FBOL01", fotos: [] })],
+      [{ ...site[0]!, metadata: marcado }]
+    )
+    // Já veio do ERP e tem foto (a da Nuvemshop): nada de foto do ERP, nem aviso.
+    expect(segunda).toMatchObject({ primeira: false, fotosDoErp: false })
+    expect(segunda!.avisos).not.toContain("sem foto no ERP: ficam as fotos de hoje")
+
+    const [semFoto] = planejar(
+      [doErp({ id: "1", nome: "Óleo", sku: "FBOL01" })],
+      [{ ...site[0]!, metadata: marcado, fotos: [] }]
+    )
+    // Já veio, mas está sem nenhuma foto: a do ERP preenche.
+    expect(semFoto).toMatchObject({ primeira: false, fotosDoErp: true })
+
+    const [novo] = planejar([doErp({ id: "2", nome: "Novo", sku: "N1" })], site)
+    expect(novo).toMatchObject({ como: "novo", primeira: true, fotosDoErp: true })
   })
 
   it("o bloqueado não gasta endereço, e o produto do site que ele cobre continua coberto", () => {

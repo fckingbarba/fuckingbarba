@@ -277,6 +277,15 @@ Como funciona, em uma linha cada:
     SKU, o produto não entra. As fotos são copiadas pro Supabase Storage (o link do Bling vence).
   - A descrição do Bling vai pro Google e pra busca da loja: a página do produto não tem bloco de
     descrição. O desconto por quantidade e as ofertas do checkout se refazem na hora.
+  - **Rodar de novo** (mudou preço ou nome no Bling): o "do zero" é só da primeira vez. Depois,
+    muda nome, descrição, preço, peso e medidas; o subtítulo, os textos, as promoções e as fotos
+    que a equipe pôs ficam.
+- **Endereços e fotos da Nuvemshop (23/09):** na tela ERP, "Endereços e fotos da Nuvemshop" lê a
+  loja antiga no ar (o mapa do site e a página de cada produto, sem senha) e casa pelo SKU. Cada
+  produto daqui fica com o **mesmo endereço** de lá (`/produtos/<slug>` — o link que circula
+  continua valendo quando o domínio vier) e com as **fotos da vitrine** de lá, copiadas pro
+  Supabase Storage; o que está sem categoria ganha a de lá. A importação do Bling não troca mais
+  essas fotos.
 
 - [ ] **Conferir no Bling, antes de conectar** (com o contador, no que for fiscal):
   - certificado **A1** instalado (emitir pelo servidor exige o A1);
@@ -298,10 +307,13 @@ Como funciona, em uma linha cada:
 - [x] **Conectar:** admin → ERP → "Conectar o Bling", entrando com o usuário administrador do
       Bling. A tela mostra a empresa, desde quando as notas saem e a primeira sincronização.
       Conectado em 23/09; a primeira sincronização atualizou 6 produtos.
-- [ ] **Trazer os produtos do Bling:** admin → ERP → "Importar produtos do Bling". Na prévia,
+- [x] **Trazer os produtos do Bling:** admin → ERP → "Importar produtos do Bling". Na prévia,
       desmarque insumo e embalagem e confira preço, peso, medidas e fotos. Troque num horário de
       pouco movimento: quem tiver na sacola um produto que sai vê o item indisponível. Depois,
-      publique os novos que forem de vender (entram em rascunho, sem categoria).
+      publique os novos que forem de vender (entram em rascunho, sem categoria). Feito em 23/09.
+- [ ] **Endereços e fotos da Nuvemshop:** admin → ERP → "Endereços e fotos da Nuvemshop". Confira
+      na prévia o endereço de cada um (o de lá) e as fotos, e traga. Depois, publique os novos que
+      forem de vender.
 - [ ] **Conferir o primeiro pedido pago:** FB-<número> no Bling, a nota autorizada, e o estoque.
 
 Dois cuidados. **O limite da API é da conta** (3 chamadas por segundo, somando a integração da
