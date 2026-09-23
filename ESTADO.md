@@ -1,9 +1,13 @@
 # Estado do projeto — e o que vem a seguir
 
-Atualizado em 22/09/2026, com o Pix vencido que prendia o estoque consertado (o #7 — ver o primeiro
-achado da revisão do pagamento) e a Minha conta de pé na loja: endereços, meus dados, o checkout que
-abre preenchido pra quem está na conta (e guarda o endereço da compra), e o "Minha conta" do
-cabeçalho apontando pra ela. No mesmo dia, o estorno que o Pagar.me não faz (a conciliação confere,
+Atualizado em 23/09/2026, à noite: **a fase 5 (Operação) está quase fechada** — o que falta está no
+topo da seção 4. Em 23/09 o Bling foi conectado (estoque, catálogo e a nota fiscal, que sai 5
+minutos depois do pagamento — ver 1c), e o token de parceiro da Frenet entrou no Railway, junto com
+o `MEDUSA_BACKEND_URL` (ver 1b): o pedido pago passa a ir sozinho pro painel da Frenet. Em 22/09, o
+Pix vencido que prendia o estoque foi consertado (o #7 — ver o primeiro achado da revisão do
+pagamento) e a Minha conta ficou de pé na loja: endereços, meus dados, o checkout que abre
+preenchido pra quem está na conta (e guarda o endereço da compra), e o "Minha conta" do cabeçalho
+apontando pra ela. No mesmo dia, o estorno que o Pagar.me não faz (a conciliação confere,
 avisa e pede de novo), a API de pedido fechada pra quem só tem o id, o e-mail de pedido confirmado
 ligado, as páginas de Contato e Dúvidas no lugar do `/em-breve`, a busca de verdade na lupa do
 cabeçalho, o checkout mais enxuto (com o logo da bandeira no campo do cartão), a categoria
@@ -19,8 +23,9 @@ que mudou de estado, o que saiu da lista, o que entrou.
 | Loja (Next.js 16)             | Vercel — `fuckingbarba-loja.vercel.app`           | No ar, sem indexar. Domínio definitivo é a fase 6.                          |
 | Backend (Medusa 2.21)         | Railway — serviço `@fuckingbarba/backend` + Redis | **Um serviço só, `WORKER_MODE=shared`** (ver abaixo).                       |
 | Banco, imagens, Edge Function | Supabase (`us-east-1`)                            | `webhook-pagamento` publicada.                                              |
-| Frete                         | Frenet                                            | Econômica e expressa; emergência R$ 20 / 7 dias úteis. Rastreio: a ligar.   |
+| Frete                         | Frenet                                            | Econômica e expressa; emergência R$ 20 / 7 dias úteis. Rastreio no ar (1b). |
 | Pagamento                     | Pagar.me, **chave de produção**                   | Pix (30 min) e cartão em até 3x sem juros. Checkout aberto desde `a6165ae`. |
+| Nota fiscal e estoque         | Bling                                             | Conectado em 23/09. A nota sai 5 minutos depois do pagamento (ver 1c).      |
 
 ### O backend roda num serviço só
 
@@ -201,16 +206,20 @@ painel. O código: `apps/backend/src/lib/envios/registro.ts` (quando e quais) e
 aviso dele, assinado (`TrackingNotificationUrl`) — não depende de o webhook da conta valer pra
 plataforma nova.
 
-- [ ] **Pedir o token de parceiro à Frenet** (a mensagem foi redigida na conversa de 23/09). Quando
-      chegar, no Railway, serviço do backend:
-  - `FRENET_PARCEIRO_TOKEN` = o token. É só isso. O `FRENET_TOKEN` e o `FRENET_WEBHOOK_TOKEN` já
-    estão lá; confira que o `MEDUSA_BACKEND_URL` também (é dele que sai o endereço do aviso de cada
-    pedido — sem ele, vale só o webhook da conta);
-  - o registro liga no primeiro pagamento depois disso e vale pros pedidos **pagos dali em diante**
-    (com 10 minutos de folga). Os pagos antes seguem pela etiqueta feita à mão, como hoje — senão o
-    mesmo pacote apareceria duas vezes no painel. O log avisa quando liga:
-    `[envio] registro de pedidos na Frenet ligado`;
-  - conferir o primeiro: aparece no painel como FB-<número>, com o serviço escolhido. **A caixa vai
+- [x] **O token de parceiro chegou e está no Railway** (23/09): a Frenet mandou, e você pôs o
+      `FRENET_PARCEIRO_TOKEN` no serviço do backend. No mesmo dia entrou o `MEDUSA_BACKEND_URL`,
+      que **não existia**: sem ele, os e-mails pra equipe (os do Bling, o do estorno que falhou)
+      saíam sem o botão pro admin, e o pedido registrado na Frenet iria sem o endereço do aviso
+      dele. O `FRENET_TOKEN` e o `FRENET_WEBHOOK_TOKEN` já estavam lá.
+- [ ] **Conferir que o registro ligou, e o primeiro pedido pago depois dele:**
+  - no log do Railway, a linha `[envio] registro de pedidos na Frenet ligado`, que diz desde
+    quando ele vale. Ela sai na primeira rodada com o token — a varredura é de 10 em 10 minutos, e
+    um pagamento também dispara. Se ela não aparecer, a variável não chegou no serviço no ar (no
+    Railway, variável nova só entra no serviço com um deploy);
+  - o registro vale pros pedidos **pagos dali em diante** (com 10 minutos de folga). Os pagos antes
+    seguem pela etiqueta feita à mão — senão o mesmo pacote apareceria duas vezes no painel;
+  - o primeiro aparece no painel como FB-<número> depois que a nota sai (com o Bling conectado, o
+    registro espera a nota e leva o número e a chave dela), com o serviço escolhido. **A caixa vai
     como palpite** (o peso das variantes e os produtos empilhados, nunca menor que 16×11×2 cm) —
     corrigir no painel se a caixa de verdade for outra;
   - se a Frenet recusar um pedido (um endereço que ela não aceita, por exemplo), o log diz
@@ -219,10 +228,10 @@ plataforma nova.
     `POST /admin/envios/registrar`;
   - **não criar envio no admin** pros pedidos que estão no painel: pedido com envio criado à mão
     fica fora do registro (é o sinal de que alguém já está cuidando dele).
-- [ ] **Até o token chegar, o dia a dia continua:** depois de gerar a etiqueta no painel, copiar o
-      código de rastreio pro pedido no admin do Medusa — criar o envio do pedido e marcar como
-      enviado ("Mark as shipped") com o código. É isso que avisa o cliente ("a caminho") e põe o
-      pacote na consulta de hora em hora.
+- [ ] **Os pedidos pagos antes de o registro ligar** seguem como antes: depois de gerar a etiqueta
+      no painel, copiar o código de rastreio pro pedido no admin do Medusa — criar o envio do
+      pedido e marcar como enviado ("Mark as shipped") com o código. É isso que avisa o cliente ("a
+      caminho") e põe o pacote na consulta de hora em hora.
 - [x] **Railway:** `FRENET_WEBHOOK_TOKEN` criado no serviço do backend (21/09) e conferido: a rota
       responde 401 sem a chave e 200 ("ignorado") com ela. Continua valendo — é a porta dos avisos
       no dia em que os pedidos entrarem pela API de pedidos, e é dela que sai a assinatura do
@@ -341,12 +350,25 @@ Como funciona, em uma linha cada:
       Conectado em 23/09; a primeira sincronização atualizou 6 produtos.
 - [x] **Trazer os produtos do Bling:** admin → ERP → "Importar produtos do Bling". Na prévia,
       desmarque insumo e embalagem e confira preço, peso, medidas e fotos. Troque num horário de
-      pouco movimento: quem tiver na sacola um produto que sai vê o item indisponível. Depois,
-      publique os novos que forem de vender (entram em rascunho, sem categoria). Feito em 23/09.
+      pouco movimento: quem tiver na sacola um produto que sai vê o item indisponível. Feito em
+      23/09.
 - [ ] **Endereços e fotos da Nuvemshop:** admin → ERP → "Endereços e fotos da Nuvemshop". Confira
-      na prévia o endereço de cada um (o de lá) e as fotos, e traga. Depois, publique os novos que
-      forem de vender.
-- [ ] **Conferir o primeiro pedido pago:** FB-<número> no Bling, a nota autorizada, e o estoque.
+      na prévia o endereço de cada um (o de lá) e as fotos, e traga.
+- [ ] **Publicar os rascunhos novos do Bling:** os produtos que o site não tinha entraram em
+      rascunho, sem categoria. No admin, em Produtos, revise cada um, ponha a categoria e publique
+      os que forem de vender — de preferência depois das fotos da Nuvemshop, logo acima.
+- [ ] **Conferir o primeiro pedido pago de verdade:** FB-<número> no Bling, a nota autorizada, o
+      estoque — e, agora com o token, o pedido no painel da Frenet (ver 1b). É a prova que fecha a
+      fase 5 (ver a seção 4). O FB-15, de teste, já saiu com a nota autorizada (23/09).
+- [ ] **Cancelar à mão, no Bling, a nota do FB-15** — o pedido de teste de 23/09: NF-e 003321
+      autorizada, pedido de venda 3336 "Atendido". O pedido já foi cancelado no admin; a nota só
+      se cancela no painel do Bling, e **em até 24 horas da autorização** (a tela ERP mostra o
+      prazo na pendência do FB-15). Cancelada a nota, a loja cancela o pedido de venda sozinha em
+      até 5 minutos — a varredura olha os pedidos cancelados dos últimos 7 dias.
+- [ ] **O #14 foi cancelado?** A pendência dele na tela ERP ("A loja desistiu de emitir") sumiu
+      sem explicação. Ela some quando o pedido é cancelado, ou quando alguém manda tentar de novo e
+      a nota sai. Falta você dizer se ele foi cancelado; se não foi, conferir no Bling se o FB-14
+      tem nota.
 
 Dois cuidados. **O limite da API é da conta** (3 chamadas por segundo, somando a integração da
 Nuvemshop): a loja faz no máximo 2,5, e espera e tenta de novo quando o Bling pede. **Desde abril
@@ -747,6 +769,19 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
 
 ### 4. Fase 5
 
+**Onde está (23/09):** das sete fases do doc de arquitetura, da 1 à 4 estão prontas (o que sobrou
+delas está nas listas acima), e a 5 — Operação — está quase fechada. Ela fecha quando **um pedido
+de verdade sair com nota, etiqueta e rastreio sem ninguém tocar nele**: o primeiro pago depois do
+token da Frenet é esse teste (ver 1b e 1c). Falta:
+
+- **no código:** o e-mail de carrinho abandonado e o evento de compra (`purchase`) pro Google e pra
+  Meta;
+- **da sua parte:** os dados da empresa no admin (todos vazios em produção — seção 3), publicar os
+  rascunhos novos do Bling (1c), o número do último pedido da Nuvemshop e a revisão jurídica da
+  exclusão de conta e da política de privacidade (esses dois estão na Minha conta, seção 3).
+
+O que já está de pé:
+
 - **O e-mail de pedido confirmado sai** (22/09), uma vez por pedido pago no Pagar.me: na hora em que
   o pagamento é capturado (Pix pelo aviso ou pela conciliação, cartão aprovado no checkout) ou pela
   varredura — o job `confirmar-pedidos`, de 5 em 5 minutos, nos minutos 2, 7, 12… —, que olha os
@@ -786,13 +821,9 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
     pedido já saiu dizendo "nada foi cobrado" e o registro impede um segundo. É raro e é conhecido.
 - Os e-mails do caminho da encomenda (`envio.ts`) já saem.
 - **Envios — o que o desenho já tem lugar pra receber** (o contrato do parceiro está em
-  `apps/backend/src/lib/envios/parceiro.ts`):
-  - consultar o rastreio de tempos em tempos (`consultar`), a rede de segurança do aviso que se
-    perde — na Frenet, pede o código do serviço cotado, que o pedido ainda não guarda. O primeiro
-    passo é o provedor gravar no pedido o serviço escolhido no checkout;
-  - mandar o pedido pago pro painel da Frenet sozinho, pra etiqueta sair sem digitar
-    (`registrarPedido`, no `pagamento-capturado.ts`) — a API de pedidos dela exige o token de
-    parceiro, que sai de uma homologação com o time de parcerias;
+  `apps/backend/src/lib/envios/parceiro.ts`). Os dois primeiros desta lista saíram em 23/09 — a
+  consulta do rastreio de hora em hora e o pedido pago indo sozinho pro painel da Frenet (ver 1b).
+  Sobram:
   - avisar a LOJA de extravio e devolução (e-mail ou um bloco no admin com a linha do tempo) —
     hoje é o log (`[envio]`) e o painel da Frenet;
   - o "entregue + pedido de avaliação" sete dias depois, do doc de arquitetura — um assinante do
