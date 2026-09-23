@@ -187,25 +187,21 @@ async function lerDoMedusa<T>(
 }
 
 /**
- * OS KITS DE QUANTIDADE
+ * OS KITS DE QUANTIDADE, APOSENTADOS
  *
- * "2 frascos" e "3 frascos" são produtos de verdade no Medusa, com SKU e
- * estoque próprios (ver `backend/src/scripts/kits-de-quantidade.ts`). O que
- * os amarra ao avulso é a metadata, e ela faz dois trabalhos aqui:
+ * "2 frascos" e "3 frascos" eram produtos à parte no Medusa, com SKU e
+ * estoque próprios. Deram lugar ao desconto por quantidade no MESMO produto
+ * (`escadaDeQuantidade`, abaixo, e `backend/src/lib/precos-por-quantidade.ts`),
+ * e o script `backend:quantidade` passa os kits pra rascunho.
  *
- *   sumir da vitrine — uma grade com "Fator", "Fator 2x" e "Fator 3x" lado
- *     a lado é péssima vitrine, e o cliente não está escolhendo entre três
- *     produtos: está escolhendo quanto comprar de um;
- *   montar o degrau na PDP — que passa a sair do CATÁLOGO, não de uma lista
- *     escrita no código. Criar um kit de 4 no admin com essa metadata faz
- *     ele aparecer na página sozinho, sem deploy.
+ * O filtro continua porque rascunho é passo manual: até alguém rodar o
+ * script, um kit publicado apareceria na grade como produto — "Fator",
+ * "Fator 2x" e "Fator 3x" lado a lado.
  */
 const TIPO_KIT = "kit-quantidade"
 
-type MetaDeKit = { tipo?: unknown; base?: unknown; unidades?: unknown }
-
 export function ehKitDeQuantidade(produto: HttpTypes.StoreProduct): boolean {
-  return (produto.metadata as MetaDeKit | null)?.tipo === TIPO_KIT
+  return (produto.metadata as { tipo?: unknown } | null)?.tipo === TIPO_KIT
 }
 
 /** Só os produtos que uma listagem deve mostrar. */
@@ -437,138 +433,120 @@ export function precoDe(produto: HttpTypes.StoreProduct): string | null {
 const emCentavos = (n: number) => Math.round(n * 100) / 100
 
 export type DegrauDeQuantidade = {
-  /** handle do produto a comprar — pode ser o próprio avulso (1 unidade) */
+  /** o produto — o mesmo em todos os degraus */
   handle: string
+  /** a variação — a mesma em todos: "2 unidades" é quantidade 2 dela */
   varianteId: string
   unidades: number
   /** preço total deste degrau, em reais */
   preco: number
-  /** preço por frasco, pra deixar a comparação na cara */
+  /** preço por unidade nesta quantidade, pra deixar a comparação na cara */
   porUnidade: number
   /** quanto se economiza contra comprar `unidades` avulsos. 0 no primeiro degrau */
   economia: number
   disponivel: boolean
   /**
-   * A linha de apoio do cartão, vinda do `subtitle` do kit no admin — "o
-   * ciclo completo de 90 dias", "dois meses de tratamento".
-   *
-   * Sai do catálogo de propósito: é argumento de venda, muda por produto e
-   * quem sabe qual é o argumento é quem vende, não quem programa. Sem
-   * subtítulo o cartão cai na economia calculada, que é sempre verdade.
+   * A linha de apoio do cartão. Só o de uma unidade pode ter uma escrita à
+   * mão (a `notaDoAvulso` do admin, aplicada na `Dobra`); os outros caem na
+   * economia calculada, que é sempre verdade.
    */
   nota: string | null
 }
 
 /**
- * Todos os kits do catálogo, uma vez só.
+ * O PREÇO DE UMA UNIDADE levando 1, 2 e 3 — `{ 1: 79.9, 2: 76.45, 3: 74.3 }`.
  *
- * Separado de `escadaDeQuantidade` porque é a MESMA lista pra qualquer
- * produto: uma PDP de óleo e uma de fator leem o mesmo resultado cacheado em
- * vez de cada uma varrer o catálogo por conta. Como kit é minoria (dois hoje),
- * o laço quase sempre resolve na primeira página.
+ * Vem do backend (`/store/precos-por-quantidade`), que pergunta pro Medusa
+ * com a quantidade no contexto: é a MESMA conta que o carrinho faz quando a
+ * pessoa adiciona ou muda a quantidade na sacola. "3" vale pra 3 ou mais.
+ *
+ * `null` quando não deu pra perguntar — quem chama decide o que fazer, e o
+ * que ela faz é não anunciar desconto nenhum (ver `escadaDeQuantidade`).
  */
-async function kitsDoCatalogo(): Promise<HttpTypes.StoreProduct[]> {
-  "use cache"
-  cacheTag(TAGS.produtos)
-  cacheLife("hours")
-  if (!sdk) return []
-
-  const regiao = await regiaoBrasil()
-  const kits: HttpTypes.StoreProduct[] = []
-  let offset = 0
-
-  for (let pagina = 0; pagina < MAX_PAGINAS; pagina++) {
-    const { products } = await lerDoMedusa<HttpTypes.StoreProductListResponse>(
-      "kits",
-      "/store/products",
-      { fields: CAMPOS_PRODUTO, limit: 100, offset, region_id: regiao?.id }
+async function precosPorQuantidade(varianteId: string): Promise<Record<number, number> | null> {
+  if (!sdk) return null
+  try {
+    const { precos } = await lerDoMedusa<{ precos: Record<string, Record<string, number>> }>(
+      "preços por quantidade",
+      "/store/precos-por-quantidade",
+      { variante: varianteId }
     )
-    kits.push(...products.filter(ehKitDeQuantidade))
-    offset += products.length
-    if (products.length < 100) break
+    const daVariante = precos?.[varianteId] ?? {}
+    return Object.fromEntries(
+      Object.entries(daVariante).map(([quantidade, unitario]) => [
+        Number(quantidade),
+        Number(unitario),
+      ])
+    )
+  } catch (e) {
+    console.warn(e instanceof Error ? e.message : e)
+    return null
   }
-
-  return kits
 }
 
+/** As opções que a PDP mostra. Daqui pra cima, vale o preço do 3. */
+const UNIDADES = [1, 2, 3] as const
+
 /**
- * O degrau de quantidade de um produto: 1 frasco, 2 frascos, 3 frascos.
+ * A ESCADA DE QUANTIDADE: 1, 2 e 3 unidades do MESMO produto, com o preço
+ * que o carrinho vai cobrar por cada uma.
  *
- * Sai do catálogo, não de lista escrita à mão — os kits se anunciam pela
- * metadata e esta função só junta. Produto sem kit nenhum devolve um degrau
- * só, o dele mesmo, e a PDP mostra apenas o seletor de quantidade.
+ * Não é mais kit: "2 unidades" é quantidade 2 da mesma variação, e o
+ * desconto é o Medusa que dá, pela quantidade da linha (a lista "Desconto
+ * por quantidade", que o backend mantém). Esta função só pergunta quanto sai
+ * e monta os degraus.
  *
- * A ECONOMIA é calculada contra o preço ATUAL do avulso (o que o cliente
+ * A ECONOMIA é calculada contra o preço ATUAL da unidade (o que o cliente
  * pagaria comprando `n` separados hoje), nunca contra o preço cheio riscado.
  * Comparar com o riscado inflaria a vantagem — é a conta que o Procon autua.
  *
- * E ela pode dar ZERO, ou dar negativo e ser zerada pelo `Math.max`: kit que
- * custa o mesmo (ou mais) que os avulsos somados é erro de cadastro, e a
- * dobra não vai carimbar "economize R$ 0" em cima dele. Quem decide o que
- * fazer com degrau sem vantagem é a página, não esta função — aqui o número
- * é só honesto.
+ * SEM RESPOSTA DO BACKEND, UM DEGRAU SÓ — o preço de uma unidade, que vem
+ * do próprio produto. E guardado por MINUTOS, não horas: é o que acontece
+ * num deploy em que a loja sobe antes do backend, e a página tem que se
+ * corrigir sozinha em vez de ficar sem os degraus até a próxima mudança de
+ * catálogo. O prazo curto precisa estar AQUI: com `cacheLife` explícito, a
+ * função de fora manda no prazo de tudo o que ela guarda.
  */
 export async function escadaDeQuantidade(handle: string): Promise<DegrauDeQuantidade[]> {
   "use cache"
   cacheTag(TAGS.produtos, TAGS.produto(handle))
-  cacheLife("hours")
 
   const base = await buscarProdutoPorHandle(handle)
   const precoBase = base ? precosDe(base) : null
-  const varianteBase = base?.variants?.[0]
-  if (!base?.handle || !precoBase || !varianteBase) return []
-
-  const primeiro: DegrauDeQuantidade = {
-    handle: base.handle,
-    varianteId: varianteBase.id,
-    unidades: 1,
-    preco: precoBase.atual,
-    porUnidade: precoBase.atual,
-    economia: 0,
-    disponivel: temEstoque(varianteBase),
-    nota: null,
+  const variante = base?.variants?.[0]
+  if (!base?.handle || !precoBase || !variante) {
+    cacheLife("hours")
+    return []
   }
 
-  const degraus = (await kitsDoCatalogo()).flatMap<DegrauDeQuantidade>((p) => {
-    const meta = p.metadata as MetaDeKit | null
-    if (meta?.base !== handle) return []
+  const porQuantidade = await precosPorQuantidade(variante.id)
+  if (porQuantidade) cacheLife("hours")
+  else cacheLife("minutes")
 
-    const unidades = Number(meta.unidades)
-    const preco = precosDe(p)
-    const variante = p.variants?.[0]
-    if (!Number.isInteger(unidades) || unidades < 2 || !preco || !variante || !p.handle) return []
-
+  const avulso = porQuantidade?.[1] ?? precoBase.atual
+  return UNIDADES.flatMap<DegrauDeQuantidade>((unidades) => {
+    const unitario = unidades === 1 ? avulso : porQuantidade?.[unidades]
+    // Faixa que não sai mais barata que as unidades avulsas não vira degrau:
+    // um cartão de "2 unidades" sem vantagem nenhuma é só ruído.
+    if (!unitario || (unidades > 1 && unitario >= avulso)) return []
+    // arredondar aqui, e não na hora de exibir: 76,45 x 2 dá
+    // 152.89999999999998 em ponto flutuante, e dinheiro que sai desta função
+    // redondo é dinheiro que ninguém precisa lembrar de arredondar de novo
+    // três componentes adiante
+    const preco = emCentavos(unitario * unidades)
     return [
       {
-        handle: p.handle,
+        handle: base.handle!,
         varianteId: variante.id,
         unidades,
-        preco: preco.atual,
-        // arredondar aqui, e não na hora de exibir: 149,90 / 2 dá
-        // 74.95000000000002 em ponto flutuante, e dinheiro que sai desta
-        // função redondo é dinheiro que ninguém precisa lembrar de arredondar
-        // de novo três componentes adiante
-        porUnidade: emCentavos(preco.atual / unidades),
-        economia: Math.max(0, emCentavos(precoBase.atual * unidades - preco.atual)),
-        disponivel: temEstoque(variante),
-        nota: p.subtitle?.trim() || null,
+        preco,
+        porUnidade: unitario,
+        economia: Math.max(0, emCentavos(avulso * unidades - preco)),
+        disponivel: temEstoque(variante, unidades),
+        nota: null,
       },
     ]
   })
-
-  /*
-   * Dois kits com o mesmo número de frascos é erro de cadastro que acontece
-   * (alguém duplica o de 2 pra testar e esquece publicado). Sem isto a dobra
-   * mostraria dois botões idênticos com preços diferentes — some com o mais
-   * caro, que é o que qualquer pessoa escolheria de qualquer jeito.
-   */
-  const porUnidades = new Map<number, DegrauDeQuantidade>()
-  for (const degrau of [primeiro, ...degraus]) {
-    const atual = porUnidades.get(degrau.unidades)
-    if (!atual || degrau.preco < atual.preco) porUnidades.set(degrau.unidades, degrau)
-  }
-
-  return [...porUnidades.values()].sort((a, b) => a.unidades - b.unidades)
 }
 
 /**
@@ -580,9 +558,9 @@ export async function escadaDeQuantidade(handle: string): Promise<DegrauDeQuanti
  * consulta, vender e falhar no carrinho é melhor que esconder um produto que
  * está disponível.
  */
-export function temEstoque(variante: HttpTypes.StoreProductVariant): boolean {
+export function temEstoque(variante: HttpTypes.StoreProductVariant, unidades = 1): boolean {
   if (!variante.manage_inventory) return true
   if (variante.allow_backorder) return true
   const qtd = variante.inventory_quantity
-  return typeof qtd === "number" ? qtd > 0 : true
+  return typeof qtd === "number" ? qtd >= unidades : true
 }

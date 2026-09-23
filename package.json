@@ -17,7 +17,7 @@
     "backend:migrate": "npm run db:migrate -w @fuckingbarba/backend",
     "backend:user": "npm run user -w @fuckingbarba/backend --",
     "backend:produtos": "npm run produtos -w @fuckingbarba/backend",
-    "backend:kits": "npm run kits -w @fuckingbarba/backend",
+    "backend:quantidade": "npm run quantidade -w @fuckingbarba/backend",
     "backend:fotos": "npm run fotos -w @fuckingbarba/backend",
     "backend:frete": "npm run frete -w @fuckingbarba/backend",
     "backend:promocoes": "npm run promocoes -w @fuckingbarba/backend",

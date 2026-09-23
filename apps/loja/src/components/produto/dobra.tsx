@@ -33,30 +33,27 @@ export async function Dobra({ handle }: { handle: string }) {
   const escada = await escadaDeQuantidade(handle)
 
   /*
-    DESLIGAR OS KITS TIRA OS DEGRAUS, NÃO A COMPRA.
-    
-    A primeira versão disto zerava a lista inteira — e a `Compra` faz
-    `if (!degrau) return null`, então a caixa de compra sumia junto com o
-    preço e o botão: a PDP ficava com a foto à esquerda e um vazio à direita.
-    
-    O degrau de uma unidade É o produto. O que a chave esconde são os de
-    duas e três; com um só na lista, a `Compra` já não desenha a escolha
-    ("Quantos frascos" precisa de mais de uma opção pra existir).
+    A CHAVE "KITS" DO ADMIN ESCONDE OS CARTÕES, NÃO O DESCONTO.
+
+    O desconto por quantidade é do Medusa e vale em todo produto: quem põe
+    2 no seletor paga o preço de 2, com ou sem cartão na tela. Então a
+    escada inteira vai pra `Compra` — é dela que sai o preço de cada
+    quantidade — e a chave só decide se a escolha "1, 2, 3 unidades"
+    aparece.
   */
-  const visiveis = combinada.kits === false ? escada.filter((d) => d.unidades === 1) : escada
+  const mostrarDegraus = combinada.kits !== false
 
   /*
     A LINHA DE APOIO DO AVULSO vem do admin, e não do `subtitle` do produto.
 
-    Os kits pegam a deles do próprio `subtitle` ("Dois meses de tratamento,
-    com frete por nossa conta") porque um kit só existe como quantidade. O
-    avulso não: o `subtitle` dele diz o que o PRODUTO é ("Crescimento,
-    densidade e preenchimento"), e isso embaixo de "1 frasco" responde outra
-    pergunta — em três linhas, num cartão de 150px.
+    O `subtitle` do produto diz o que o PRODUTO é ("Crescimento, densidade e
+    preenchimento"), e isso embaixo de "1 unidade" responde outra pergunta —
+    em três linhas, num cartão de 150px. Os cartões de 2 e 3 dizem quanto se
+    economiza, que é conta, não texto.
   */
   const degraus = combinada.notaDoAvulso
-    ? visiveis.map((d) => (d.unidades === 1 ? { ...d, nota: combinada.notaDoAvulso! } : d))
-    : visiveis
+    ? escada.map((d) => (d.unidades === 1 ? { ...d, nota: combinada.notaDoAvulso! } : d))
+    : escada
 
   /*
     Os produtos que combinam, pra caixa de compra. Vêm resolvidos aqui — a
@@ -135,6 +132,7 @@ export async function Dobra({ handle }: { handle: string }) {
               combinam={combinam}
               precoCheio={precos?.cheio ?? null}
               estoque={estoque}
+              mostrarDegraus={mostrarDegraus}
             />
           </div>
         </div>

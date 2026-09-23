@@ -27,20 +27,23 @@ import { PARCELA_MINIMA, PARCELAS_SEM_JUROS } from "@/lib/site"
  *
  * Preço, degrau de quantidade, quantidade, botão e garantias — e a barra fixa
  * que aparece quando o botão sai de vista. Tudo num componente só porque
- * tudo lê o MESMO estado: qual degrau está escolhido. Separar a barra fixa
+ * tudo lê o MESMO estado: quantas unidades. Separar a barra fixa
  * num componente irmão exigiria contexto ou estado subindo pro servidor pra
  * manter os dois preços iguais, e preço diferente em dois lugares da mesma
  * tela é o bug que mais custa confiança.
  *
- * O QUE ESTE COMPONENTE NÃO FAZ: conta. Ele escolhe uma VARIANTE e manda o
- * id pro servidor. O preço que aparece aqui veio do Medusa (via
- * `escadaDeQuantidade`), e o preço que vai ser cobrado é o que o Medusa
- * calcular no carrinho — os dois saem da mesma fonte. É por isso que os kits
- * existem como produto: sem eles, esta tela mostraria R$ 149,90 e o carrinho
- * cobraria R$ 159,80.
+ * O QUE ESTE COMPONENTE NÃO FAZ: conta. Ele escolhe QUANTAS UNIDADES e manda
+ * isso pro servidor. O preço por unidade de cada quantidade veio do Medusa
+ * (via `escadaDeQuantidade`, que pergunta com a quantidade no contexto), e o
+ * que vai ser cobrado é o que o Medusa calcular no carrinho pra essa mesma
+ * quantidade — os dois saem da mesma conta. A única multiplicação daqui é
+ * unidades x preço da unidade, que é a que o carrinho também faz.
  */
 
 const MAX = 10
+
+/** 76,45 x 2 dá 152.89999999999998 em ponto flutuante; dinheiro sai redondo. */
+const emCentavos = (n: number) => Math.round(n * 100) / 100
 
 export function Compra({
   nome,
@@ -49,6 +52,7 @@ export function Compra({
   combinam,
   precoCheio,
   estoque,
+  mostrarDegraus,
 }: {
   nome: string
   foto: string | null
@@ -59,20 +63,37 @@ export function Compra({
   precoCheio: number | null
   /** Unidades restantes do avulso, quando o Medusa controla estoque. */
   estoque: number | null
+  /**
+   * Os cartões "1, 2, 3 unidades". Desligados no admin, eles somem — mas o
+   * DESCONTO NÃO: o Medusa cobra por quantidade em todo produto, então o
+   * preço lá em cima continua seguindo os degraus quando a pessoa aumenta a
+   * quantidade. Por isso os degraus chegam sempre, e isto só decide se a
+   * escolha aparece.
+   */
+  mostrarDegraus: boolean
 }) {
   const politica = useFrete()
   const frases = frasesDoFrete(politica)
-  const [escolhido, setEscolhido] = useState(0)
   const [juntos, setJuntos] = useState<Set<string>>(new Set())
-  const [quantidade, setQuantidade] = useState(1)
+  const [unidades, setUnidades] = useState(1)
   const [recado, setRecado] = useState<{ tipo: "ok" | "erro"; texto: string } | null>(null)
   const [enviando, comecar] = useTransition()
   const botao = useRef<HTMLButtonElement>(null)
 
-  const degrau = degraus[escolhido] ?? degraus[0]
-  if (!degrau) return null
+  const base = degraus[0]
+  if (!base) return null
 
-  const total = degrau.preco * quantidade
+  /*
+    O DEGRAU EM VIGOR é o maior que não passa da quantidade: 4 ou 5
+    unidades pagam o preço do de 3, porque a faixa de 3 não tem teto — é
+    assim que o Medusa cobra, e é esse cartão que fica marcado.
+  */
+  const emVigor = degraus.reduce((vale, d, i) => (d.unidades <= unidades ? i : vale), 0)
+  const degrau = degraus[emVigor] ?? base
+  const maximo = estoque === null ? MAX : Math.max(1, Math.min(MAX, estoque))
+  const disponivel = estoque === null ? base.disponivel : estoque >= unidades
+
+  const total = emCentavos(degrau.porUnidade * unidades)
   const parcela = total / PARCELAS_SEM_JUROS
   const parcelavel = parcela >= PARCELA_MINIMA
 
@@ -80,10 +101,11 @@ export function Compra({
     ┌─ O QUE CONTA PRO FRETE GRÁTIS, AQUI, É SÓ O QUE ESTA CAIXA ESTÁ ADICIONANDO ┐
     │ Não o carrinho inteiro — e não por preguiça.                               │
     │                                                                             │
-    │ A tarja fica GRUDADA numa escolha ("leve o kit de 2 e o frete é por nossa  │
-    │ conta"). Se ela levasse em conta o que já está na sacola, um kit ganharia  │
-    │ a tarja por um motivo que não tem nada a ver com o kit — e a tarja passaria│
-    │ a mentir sobre o PORQUÊ, que é a parte que ninguém confere.                │
+    │ A tarja fica GRUDADA numa escolha ("leve 2 unidades e o frete é por        │
+    │ nossa conta"). Se ela levasse em conta o que já está na sacola, um         │
+    │ degrau ganharia a tarja por um motivo que não tem nada a ver com ele — e   │
+    │ a tarja passaria a mentir sobre o PORQUÊ, que é a parte que ninguém        │
+    │ confere.                                                                   │
     │                                                                             │
     │ O preço disso é subestimar pra quem já tem sacola cheia: a pessoa vê       │
     │ "faltam R$ 20" quando na verdade já alcançou. Erra pra menos, e a correção │
@@ -94,9 +116,9 @@ export function Compra({
   const marcados = combinam.filter((c) => juntos.has(c.varianteId))
   const pedido = total + marcados.reduce((s, c) => s + c.preco, 0)
 
-  /** A tarja de um degrau: levar ESTE kit, nesta quantidade, alcança o piso? */
+  /** A tarja de um degrau: levar ESTAS unidades alcança o piso? */
   const tarjaDoDegrau = (preco: number) =>
-    frases && pisoVale(politica) && alcancaOPiso(politica, preco * quantidade) ? frases.selo : null
+    frases && pisoVale(politica) && alcancaOPiso(politica, preco) ? frases.selo : null
 
   /**
    * A tarja de um item que combina: marcar ESTE é o que fecha a conta?
@@ -112,11 +134,16 @@ export function Compra({
   }
 
   /*
-   * O riscado só vale pro degrau de uma unidade: é ele que está na promoção.
-   * Multiplicar esse "de" pelos kits inventaria um preço cheio que o kit
-   * nunca teve — exatamente a conta inflada que o degrau existe pra evitar.
+   * O RISCADO é o preço da MESMA unidade, vezes quantas estão na conta — o
+   * que a pessoa pagaria sem a promoção e sem o desconto de quantidade. Com
+   * promoção, a referência é o preço cheio; sem, o da própria unidade, que
+   * só fica acima do total quando o desconto de quantidade entra (2 ou
+   * mais). Riscado igual ao preço não aparece: não há do que ter
+   * economizado. (Com os kits isto não valia: um kit nunca teve "de"
+   * nenhum, e multiplicar o do avulso inventaria um.)
    */
-  const riscado = degrau.unidades === 1 && precoCheio ? precoCheio * quantidade : null
+  const referencia = emCentavos((precoCheio ?? base.porUnidade) * unidades)
+  const riscado = referencia > total ? referencia : null
   // A diferença entre os dois números que já estão na tela — nada além deles.
   const economia = riscado ? riscado - total : 0
 
@@ -131,10 +158,10 @@ export function Compra({
       */
       const r = marcados.length
         ? await adicionarVarios([
-            { varianteId: degrau.varianteId, quantidade },
+            { varianteId: base.varianteId, quantidade: unidades },
             ...marcados.map((c) => ({ varianteId: c.varianteId, quantidade: 1 })),
           ])
-        : await adicionar(degrau.varianteId, quantidade)
+        : await adicionar(base.varianteId, unidades)
 
       if (!r.ok) {
         setRecado({ tipo: "erro", texto: r.erro })
@@ -158,9 +185,9 @@ export function Compra({
         {/*
           O preço indexado é o do produto DESTA página — uma unidade —, e não
           o do degrau escolhido. O Google lê o HTML que sai do servidor; um
-          número que muda no clique não chega nele, e um preço de kit no lugar
-          do preço do produto faria o resultado de busca anunciar R$ 222,90
-          por um frasco.
+          número que muda no clique não chega nele, e o preço de 3 unidades no
+          lugar do de uma faria o resultado de busca anunciar R$ 222,90 por
+          uma unidade.
         */}
         <meta itemProp="price" content={(degraus[0]?.preco ?? 0).toFixed(2)} />
         <link
@@ -243,33 +270,32 @@ export function Compra({
         se compra. A pergunta que existe é "quanto sai pra minha casa" — e
         essa a barrinha não respondia.
 
-        Ela cota o que está SELECIONADO: o kit escolhido, na quantidade
-        escolhida, mais o que estiver marcado no "leve junto". Trocar
-        qualquer um recota, porque o peso muda e preço de frete velho na
-        tela é oferta errada.
+        Ela cota o que está SELECIONADO: as unidades escolhidas, mais o que
+        estiver marcado no "leve junto". Trocar qualquer um recota, porque o
+        peso muda e preço de frete velho na tela é oferta errada.
       */}
       <CalculadoraDeFrete
         itens={[
-          { varianteId: degrau.varianteId, quantidade },
+          { varianteId: base.varianteId, quantidade: unidades },
           ...marcados.map((c) => ({ varianteId: c.varianteId, quantidade: 1 })),
         ]}
       />
 
-      {degraus.length > 1 ? (
+      {mostrarDegraus && degraus.length > 1 ? (
         <Degraus
           degraus={degraus}
-          escolhido={escolhido}
+          escolhido={emVigor}
           tarja={tarjaDoDegrau}
           aoEscolher={(i) => {
-            setEscolhido(i)
+            setUnidades(degraus[i]?.unidades ?? 1)
             setRecado(null)
           }}
         />
       ) : null}
 
       {/*
-        DEPOIS dos degraus e ANTES do botão, nunca antes dos degraus: "quantos
-        frascos deste" é a decisão principal, e oferecer outro produto no meio
+        DEPOIS dos degraus e ANTES do botão, nunca antes dos degraus: "quantas
+        unidades deste" é a decisão principal, e oferecer outro produto no meio
         dela é interromper quem já estava comprando. Aqui a oferta pega a
         pessoa com a escolha feita e o botão à vista.
       */}
@@ -294,8 +320,8 @@ export function Compra({
           <button
             type="button"
             aria-label="Diminuir quantidade"
-            disabled={quantidade <= 1}
-            onClick={() => setQuantidade((q) => Math.max(1, q - 1))}
+            disabled={unidades <= 1}
+            onClick={() => setUnidades((q) => Math.max(1, q - 1))}
           >
             −
           </button>
@@ -306,17 +332,17 @@ export function Compra({
             id="qtd"
             type="number"
             min={1}
-            max={MAX}
+            max={maximo}
             step={1}
             inputMode="numeric"
-            value={quantidade}
-            onChange={(e) => setQuantidade(limita(e.target.valueAsNumber))}
+            value={unidades}
+            onChange={(e) => setUnidades(limita(e.target.valueAsNumber, maximo))}
           />
           <button
             type="button"
             aria-label="Aumentar quantidade"
-            disabled={quantidade >= MAX}
-            onClick={() => setQuantidade((q) => Math.min(MAX, q + 1))}
+            disabled={unidades >= maximo}
+            onClick={() => setUnidades((q) => Math.min(maximo, q + 1))}
           >
             +
           </button>
@@ -327,9 +353,9 @@ export function Compra({
           ref={botao}
           className="btn btn--preto compra__comprar"
           onClick={comprar}
-          disabled={enviando || !degrau.disponivel}
+          disabled={enviando || !disponivel}
         >
-          {textoDoBotao(enviando, degrau.disponivel)}
+          {textoDoBotao(enviando, disponivel)}
           <Sacola className="btn__icone" />
         </button>
       </div>
@@ -401,7 +427,7 @@ export function Compra({
         riscado={riscado}
         alvo={botao}
         ocupado={enviando}
-        disponivel={degrau.disponivel}
+        disponivel={disponivel}
         aoComprar={comprar}
       />
     </>
@@ -413,9 +439,9 @@ function textoDoBotao(enviando: boolean, disponivel: boolean) {
   return enviando ? "Adicionando…" : "Adicionar à sacola"
 }
 
-function limita(n: number) {
+function limita(n: number, maximo: number) {
   if (!Number.isFinite(n)) return 1
-  return Math.min(MAX, Math.max(1, Math.trunc(n)))
+  return Math.min(maximo, Math.max(1, Math.trunc(n)))
 }
 
 /**
@@ -426,7 +452,7 @@ function limita(n: number) {
  * grupo. Um botão estilizado de radio custa isso tudo pra ganhar nada.
  *
  * A fita de destaque é aritmética, não promessa: vai pro degrau de MENOR
- * preço por frasco, que a própria tela mostra ao lado. "Mais vendido" seria
+ * preço por unidade, que a própria tela mostra ao lado. "Mais vendido" seria
  * afirmação sobre fato — e das que o cliente confere.
  */
 /**
@@ -434,7 +460,7 @@ function limita(n: number) {
  *
  * Fica ao lado do preço e vai no MESMO clique do "Comprar", e não numa
  * vitrine lá embaixo. A diferença não é de lugar, é de momento: quem está
- * escolhendo quantos frascos levar já decidiu comprar, e é ali que somar um
+ * escolhendo quantas unidades levar já decidiu comprar, e é ali que somar um
  * item custa uma caixinha marcada. Uma vitrine no fim da página pede uma
  * segunda decisão, depois de a pessoa já ter rolado pra longe do botão.
  *
@@ -534,7 +560,7 @@ function Degraus({
     <fieldset className="compra__kits">
       <legend className="compra__kits-titulo">
         <Raio />
-        Quantos frascos
+        Quantas unidades
       </legend>
 
       <div className="compra__kits-lista">
@@ -569,7 +595,7 @@ function Degraus({
               */}
               <span className="compra__kit-texto">
                 <span className="compra__kit-nome">
-                  {d.unidades} {d.unidades === 1 ? "frasco" : "frascos"}
+                  {d.unidades} {d.unidades === 1 ? "unidade" : "unidades"}
                 </span>
                 {apoio(d) ? <span className="compra__kit-abaixo">{apoio(d)}</span> : null}
               </span>
@@ -578,12 +604,12 @@ function Degraus({
                 O "cada" aparece em TODOS os cartões, inclusive no de uma
                 unidade, onde ele repete o preço de cima.
 
-                Parece redundância e é a régua: os kits dizem "R$ 74,95
-                cada" e essa vantagem só significa alguma coisa contra um
-                número — o do avulso. Sem ele a pessoa tem que fazer a
-                divisão de cabeça pra saber se 74,95 é bom. Com ele, a
-                coluna lê 79,90 · 74,95 · 74,30 de cima a baixo, e a escada
-                fica visível sem ninguém precisar calcular nada.
+                Parece redundância e é a régua: o de 2 diz "R$ 76,45 cada"
+                e essa vantagem só significa alguma coisa contra um número —
+                o da unidade avulsa. Sem ele a pessoa tem que fazer a divisão
+                de cabeça pra saber se 76,45 é bom. Com ele, a coluna lê
+                79,90 · 76,45 · 74,30 de cima a baixo, e a escada fica
+                visível sem ninguém precisar calcular nada.
               */}
               <span className="compra__kit-preco">
                 {emReais(d.preco)}

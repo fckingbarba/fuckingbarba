@@ -161,7 +161,7 @@ export default async function medidas({ container }: ExecArgs) {
     O PESO DOS KITS DE QUANTIDADE SAI DE CONTA, NÃO DE CHUTE.
 
     Kit de 2 e kit de 3 nasceram sem peso — eles são produtos próprios no
-    Medusa, criados pelo `kits-de-quantidade.ts`, e ninguém digitou o peso
+    Medusa, criados pelo antigo `kits-de-quantidade.ts`, e ninguém digitou o peso
     deles. Mas o `metadata` diz de qual produto eles são kit e de quantas
     unidades, e o produto base TEM peso cadastrado. Então dois frascos de
     95 g pesam 190 g, e isso é aritmética em cima de um número que o dono
@@ -246,11 +246,7 @@ export default async function medidas({ container }: ExecArgs) {
         e a única saída seria mexer no banco à mão. Script que não consegue
         corrigir o que ele mesmo escreveu é script que se usa uma vez só.
       */
-      const peso =
-        medida?.peso ??
-        variante.weight ??
-        produto.weight ??
-        pesoDeKit(produto.metadata)
+      const peso = medida?.peso ?? variante.weight ?? produto.weight ?? pesoDeKit(produto.metadata)
 
       /*
         Sem medida na tabela, o produto vira pendência e o script termina em

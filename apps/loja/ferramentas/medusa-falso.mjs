@@ -28,7 +28,7 @@ import { crc32, deflateSync } from "node:zlib"
  * número da produção.
  *
  * Só leitura, e só o que a vitrine pede: regiões, categorias, produtos,
- * configurações e a promoção. Nada de carrinho, conta ou pedido — o
+ * configurações, a promoção e os preços por quantidade. Nada de carrinho, conta ou pedido — o
  * Lighthouse não compra. Rota que não existe aqui responde 404 e aparece no
  * log com `[medusa falso] sem rota`: se o build falhar por causa dela, é
  * porque alguma tela nova passou a pedir algo que o falso ainda não sabe.
@@ -134,6 +134,26 @@ const PRODUTOS = [
   cor,
 }))
 
+/*
+  O DESCONTO POR QUANTIDADE, imitado: a mesma conta de
+  `apps/backend/src/lib/precos-por-quantidade.ts` (4% levando 2, 6% levando 3
+  ou mais, pra baixo até o ,90 que divide em centavos). Mudou lá, muda aqui —
+  senão o CI mede cartões de "2 unidades" com um preço que a loja não cobra.
+*/
+const FAIXAS = [
+  { unidades: 2, desconto: 4 },
+  { unidades: 3, desconto: 6 },
+]
+
+function unitarioDaFaixa(preco, unidades, desconto) {
+  const cheio = Math.round(preco * 100) * unidades
+  const comDesconto = Math.floor((cheio * (100 - desconto)) / 100)
+  let reais = Math.floor((comDesconto - 90) / 100)
+  while (reais >= 0 && (reais * 100 + 90) % unidades !== 0) reais--
+  const total = reais * 100 + 90
+  return reais >= 0 && total < cheio ? total / unidades / 100 : null
+}
+
 const CONFIGURACOES = {
   frete: { modo: "gratis", piso: 149.9, alvo: "mais-barata", tetoDeCusto: null },
   empresa: { razaoSocial: null, cnpj: null, endereco: null },
@@ -231,6 +251,20 @@ export async function subirMedusaFalso({ porta = PORTA_PADRAO } = {}) {
         return json({ configuracoes: CONFIGURACOES })
       case "/store/promocao":
         return json({ promocao: null })
+      case "/store/precos-por-quantidade": {
+        const precos = {}
+        for (const id of valores(url, "variante")) {
+          const variante = PRODUTOS.flatMap((p) => p.variants).find((v) => v.id === id)
+          if (!variante) continue
+          const preco = variante.calculated_price.calculated_amount
+          precos[id] = { 1: preco }
+          for (const f of FAIXAS) {
+            const unitario = unitarioDaFaixa(preco, f.unidades, f.desconto)
+            if (unitario !== null) precos[id][f.unidades] = unitario
+          }
+        }
+        return json({ precos })
+      }
       case "/store/product-categories": {
         const handles = valores(url, "handle")
         const lista = Object.values(CATEGORIAS).filter(
