@@ -30,7 +30,7 @@ import {
   ESTADO_INICIAL,
   PROVEDOR_PAGARME,
   type CheckoutVisivel,
-  type Oferta,
+  type OfertaDoBump,
   type ProvedorDePagamento,
 } from "@/lib/checkout-visivel"
 import type { Configuracoes } from "@/lib/configuracoes"
@@ -85,7 +85,7 @@ const ICONE_DA_FORMA = { pix: Pix, cartao: IconeCartao }
 type Props = PropsDaEtapa & {
   checkout: CheckoutVisivel
   provedores: ProvedorDePagamento[]
-  bump: Oferta | null
+  bump: OfertaDoBump | null
   /** O prazo de postagem e o WhatsApp decidem o que a faixa pode prometer. */
   atendimento: Configuracoes["atendimento"]
 }
@@ -291,7 +291,7 @@ export function Pagamento({ checkout, provedores, bump, atendimento, aoSalvar, .
           {bump ? (
             <Bump
               bump={bump}
-              marcado={checkout.bumpMarcado}
+              marcado={checkout.bumpAplicado === bump.handle}
               recalcular={recalcular}
               travado={travado}
             />
@@ -617,14 +617,18 @@ function Cartao({
 /* ── order bump ───────────────────────────────────────────────────────────── */
 
 /**
- * A caixinha colada no botão de pagar.
+ * A caixinha colada no botão de pagar — a oferta do checkout.
+ *
+ * O PRODUTO MUDA DE CARRINHO PRA CARRINHO: quem escolhe é o motor de
+ * recomendação (`lerBump`, em `lib/checkout.ts`), e a frase de baixo diz por
+ * que aquele produto — só com o que dá pra provar.
  *
  * O "de/por" NÃO É TEXTO: o "por" é o preço com a promoção que existe no
  * Medusa, e marcar a caixinha aplica o código dela. Se o desconto fosse só
  * escrito aqui, o cliente pagaria o cheio — e oferta anunciada vincula.
  *
- * Marcada, ela FICA — é por ela que se desmarca. Só some quando o produto
- * já está no pedido a preço cheio (`lerBump`).
+ * Marcada, ela FICA, com o mesmo produto e a mesma frase — é por ela que se
+ * desmarca.
  *
  * Quando o Medusa não aceita (a promoção não existe lá, por exemplo), a ação
  * desfaz o que fez, a marca volta, e o recado diz que o pedido segue sem a
@@ -637,7 +641,7 @@ function Bump({
   recalcular,
   travado,
 }: {
-  bump: Oferta
+  bump: OfertaDoBump
   marcado: boolean
   recalcular: TransitionStartFunction
   /** Pagando, ou outra troca no caminho: a caixinha espera. */
@@ -658,7 +662,12 @@ function Bump({
   const mexendo = marcadoAgora !== marcado
 
   return (
-    <div className="bump" data-ativo="" data-mexendo={mexendo ? "" : undefined}>
+    <div
+      className="bump"
+      data-ativo=""
+      data-produto={bump.handle}
+      data-mexendo={mexendo ? "" : undefined}
+    >
       <span className="bump__selo">
         <Raio aria-hidden="true" /> Só nessa tela
       </span>
@@ -686,11 +695,9 @@ function Bump({
         </span>
         <span>
           <p className="bump__titulo">
-            Adiciona o <b>{bump.nome}</b> ao pedido?
+            Adiciona <b>{bump.nome}</b> ao pedido?
           </p>
-          <p className="bump__txt">
-            Quem leva tratamento costuma levar o óleo junto — só nessa tela, com desconto.
-          </p>
+          <p className="bump__txt">{bump.texto}</p>
           <p className="bump__preco">
             <s>{emReais(bump.preco)}</s>
             <span>{emReais(bump.precoComDesconto)}</span>

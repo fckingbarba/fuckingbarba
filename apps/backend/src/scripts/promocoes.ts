@@ -4,12 +4,11 @@ import {
   ApplicationMethodTargetType,
   ApplicationMethodType,
   ContainerRegistrationKeys,
-  MedusaError,
-  PromotionRuleOperator,
   PromotionStatus,
   PromotionType,
 } from "@medusajs/framework/utils"
 import { createPromotionsWorkflow, updatePromotionsWorkflow } from "@medusajs/medusa/core-flows"
+import { DESCONTO_DO_BUMP, sincronizarBumps } from "../lib/bumps"
 import { ondeEstou } from "./onde-estou"
 
 /**
@@ -20,10 +19,10 @@ import { ondeEstou } from "./onde-estou"
  * ┌─ POR QUE ISTO EXISTE ──────────────────────────────────────────────────┐
  * │ O checkout tem um ORDER BUMP: uma caixinha colada no botão de pagar    │
  * │ que oferece um produto com desconto. Escrever "de R$ 54,90 por         │
- * │ R$ 43,90" na tela e deixar o Medusa cobrar R$ 54,90 é a diferença que  │
+ * │ R$ 49,41" na tela e deixar o Medusa cobrar R$ 54,90 é a diferença que  │
  * │ o cliente descobre na fatura — e, no Brasil, oferta anunciada vincula  │
  * │ (CDC art. 30). Então o desconto EXISTE no backend, e a tela só mostra  │
- * │ o que o Medusa confirmou.                                             │
+ * │ o que o Medusa confirmou.                                              │
  * │                                                                        │
  * │ O mesmo vale pro campo de cupom: ele manda o código pro Medusa e       │
  * │ mostra a resposta. Não existe lista de cupom no navegador — isso seria │
@@ -35,8 +34,11 @@ import { ondeEstou } from "./onde-estou"
  * quando desmarca. Assim o desconto nasce e morre com a decisão dela, e não
  * fica valendo pra quem só passou pela tela.
  *
- * Se alguém descobrir o código e usar fora do checkout, o estrago é o próprio
- * desconto do bump num produto só — que é o que a loja já estava oferecendo.
+ * O PRODUTO DO BUMP NÃO É ESCOLHIDO AQUI: quem escolhe é o motor de
+ * recomendação, carrinho a carrinho. Por isso cada produto publicado tem a
+ * própria promoção, com código assinado — o porquê está em `lib/bumps.ts`,
+ * e o job `bumps` mantém isso em dia de hora em hora. Este script roda a
+ * mesma sincronização na hora, pra quem não quer esperar o job.
  *
  * Roda quantas vezes quiser: o que já existe é ATUALIZADO, não duplicado.
  */
@@ -44,23 +46,6 @@ import { ondeEstou } from "./onde-estou"
 /* ─────────────────────────────────────────────────────────────────────────
    O QUE A LOJA OFERECE. Trocar aqui, rodar de novo.
    ───────────────────────────────────────────────────────────────────────── */
-
-/**
- * O produto do order bump e quanto ele desconta.
- *
- * `handle` é o do produto no catálogo; `desconto` é em PORCENTAGEM.
- *
- * O MESMO NÚMERO ESTÁ NA LOJA, em `apps/loja/src/conteudo/checkout.ts`. Os
- * dois precisam bater — o conferidor monta um carrinho de verdade, aplica o
- * código e confere que o desconto que o Medusa deu é o que a tela promete.
- */
-const BUMP = {
-  handle: "oleo-para-barba",
-  desconto: 20,
-  codigo: "BUMP-OLEO",
-  /** Aparece só no painel, pra quem for olhar o relatório depois. */
-  descricao: "Order bump do checkout — óleo com 20% off na hora de fechar",
-}
 
 /**
  * Cupons de campanha. Vazio de propósito: cupom é decisão comercial, e
@@ -76,73 +61,38 @@ const CUPONS: { codigo: string; desconto: number; descricao: string }[] = []
 
 /* ───────────────────────────────────────────────────────────────────────── */
 
-type ParaCriar = {
-  codigo: string
-  desconto: number
-  descricao: string
-  /** id do produto, quando a promoção vale só pra ele. */
-  produtoId?: string
-}
-
 export default async function promocoes({ container }: ExecArgs) {
   const logger = container.resolve(ContainerRegistrationKeys.LOGGER)
   const query = container.resolve(ContainerRegistrationKeys.QUERY)
   ondeEstou(logger, "promocoes")
 
-  // ── o produto do bump precisa existir ───────────────────────────────────
-  const { data: produtos } = await query.graph({
-    entity: "product",
-    fields: ["id", "handle", "title"],
-    filters: { handle: BUMP.handle },
-  })
-  const produto = produtos[0]
-  if (!produto) {
-    throw new MedusaError(
-      MedusaError.Types.NOT_FOUND,
-      `Não achei o produto "${BUMP.handle}" pro order bump. Confira o handle no ` +
-        `topo de src/scripts/promocoes.ts, ou rode o produtos-iniciais antes.`
-    )
-  }
+  // ── as ofertas do checkout, uma por produto ─────────────────────────────
+  const bumps = await sincronizarBumps(container)
+  logger.info(
+    `[promocoes] oferta do checkout: ${DESCONTO_DO_BUMP}% em ${bumps.produtos} produto(s) ` +
+      `(${bumps.criadas} criada(s), ${bumps.corrigidas} corrigida(s), ${bumps.desligadas} desligada(s))`
+  )
 
-  const desejadas: ParaCriar[] = [
-    { ...BUMP, produtoId: produto.id },
-    ...CUPONS.map((c) => ({ ...c })),
-  ]
-
-  // ── o que já existe ─────────────────────────────────────────────────────
+  // ── os cupons de campanha — o que já existe ─────────────────────────────
   const { data: existentes } = await query.graph({
     entity: "promotion",
     fields: ["id", "code", "application_method.id"],
   })
   const porCodigo = new Map(existentes.map((p) => [p.code, p]))
 
-  for (const promo of desejadas) {
+  for (const promo of CUPONS) {
     const jaTem = porCodigo.get(promo.codigo)
 
-    /**
-     * `allocation: EACH` com `max_quantity: 1` desconta UMA unidade.
-     *
-     * Sem o limite, quem marcasse o bump e depois subisse a quantidade pra
-     * dez levaria as dez com desconto — "só nessa tela" viraria atacado.
-     */
+    // Sem regra de alvo, a promoção vale pro carrinho inteiro — que é o
+    // comportamento certo pra cupom. (A do bump, com alvo e uma unidade só,
+    // mora em `lib/bumps.ts`.)
     const metodo = {
       type: ApplicationMethodType.PERCENTAGE,
       target_type: ApplicationMethodTargetType.ITEMS,
       allocation: ApplicationMethodAllocation.EACH,
       value: promo.desconto,
-      max_quantity: promo.produtoId ? 1 : undefined,
       description: promo.descricao,
-      // Sem regra de alvo, a promoção vale pro carrinho inteiro — que é o
-      // comportamento certo pra cupom e errado pro bump.
-      target_rules: promo.produtoId
-        ? [
-            {
-              attribute: "items.product.id",
-              operator: PromotionRuleOperator.IN,
-              values: [promo.produtoId],
-            },
-          ]
-        : [],
+      target_rules: [],
     }
 
     if (jaTem) {
@@ -159,7 +109,6 @@ export default async function promocoes({ container }: ExecArgs) {
                 target_type: metodo.target_type,
                 allocation: metodo.allocation,
                 value: metodo.value,
-                max_quantity: metodo.max_quantity,
               },
             },
           ],
@@ -176,18 +125,14 @@ export default async function promocoes({ container }: ExecArgs) {
             code: promo.codigo,
             type: PromotionType.STANDARD,
             status: PromotionStatus.ACTIVE,
-            // Código, não automática: o bump só vale quando a pessoa marca a
-            // caixinha, e o cupom só quando alguém digita.
+            // Código, não automática: o cupom só vale quando alguém digita.
             is_automatic: false,
             application_method: metodo,
           },
         ],
       },
     })
-    logger.info(
-      `[promocoes] ${promo.codigo} criada: ${promo.desconto}% off` +
-        (promo.produtoId ? ` em "${produto.title}", 1 unidade` : " no carrinho")
-    )
+    logger.info(`[promocoes] ${promo.codigo} criada: ${promo.desconto}% off no carrinho`)
   }
 
   if (!CUPONS.length) {

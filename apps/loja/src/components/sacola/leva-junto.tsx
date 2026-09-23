@@ -7,20 +7,25 @@ import { useFrete } from "@/components/configuracoes/contexto"
 import { Mais, Raio } from "@/components/icones"
 import { useSacola } from "@/components/sacola/contexto"
 import { adicionar } from "@/lib/acoes/carrinho"
-import { escolherLevaJunto, type SugestaoDaSacola } from "@/lib/carrinho-visivel"
+import type { SugestaoDaSacola } from "@/lib/carrinho-visivel"
 import { faltaPraPromocao } from "@/lib/configuracoes"
 import { emReais } from "@/lib/formato"
+import { escolherLevaJunto, sacolaDe, type ModeloDeRecomendacao } from "@/lib/recomendacao"
 
 /**
  * O "LEVA JUNTO" DA GAVETA — o cross-sell do protótipo da loja
  * (`ferramentas/porte/prototipo.html`): até três produtos que ainda não estão
- * na sacola, cada um com foto, preço e "+ Adicionar". Faltando valor pro
- * frete grátis, o que fecha a conta vem primeiro, com a etiqueta — a regra
- * mora em `escolherLevaJunto` (`lib/carrinho-visivel.ts`).
+ * na sacola, cada um com foto, preço e "+ Adicionar".
  *
- * A LISTA VEM PRONTA DO SERVIDOR (`vitrineDaSacola`, no layout raiz): a
- * gaveta só escolhe, na hora, com o que está na sacola. Abrir a sacola não
- * espera ninguém.
+ * QUEM ESCOLHE É O MOTOR DE RECOMENDAÇÃO (`escolherLevaJunto`, em
+ * `lib/recomendacao.ts`): o que combina com o que já está na sacola — pelos
+ * pedidos da loja e pela rotina da PDP —, com peso a mais pra quem sozinho
+ * fecha o frete grátis (e a etiqueta no primeiro deles). Nada fixo, e nada
+ * pra escolher no admin.
+ *
+ * A LISTA E O MODELO VÊM PRONTOS DO SERVIDOR (`vitrineDaSacola` e
+ * `modeloDeRecomendacao`, no layout raiz): a gaveta só decide, na hora, com
+ * o que está na sacola. Abrir a sacola não espera ninguém.
  *
  * "Adicionar" entra na MESMA fila das quantidades (`comCarrinho`): com um
  * produto entrando, os botões de quantidade e de frete esperam, e o total
@@ -31,9 +36,11 @@ import { emReais } from "@/lib/formato"
  */
 export function LevaJunto({
   vitrine,
+  modelo,
   aoNavegar,
 }: {
   vitrine: readonly SugestaoDaSacola[]
+  modelo: ModeloDeRecomendacao | null
   /** O mesmo da gaveta: link de dentro dela fecha a gaveta. */
   aoNavegar: (ev: MouseEvent<HTMLAnchorElement>) => void
 }) {
@@ -45,9 +52,13 @@ export function LevaJunto({
   const carrinho = sacola?.carrinho
   const escolhidos = useMemo(() => {
     if (!carrinho) return []
-    const naSacola = new Set(carrinho.itens.map((i) => i.varianteId))
-    return escolherLevaJunto(vitrine, naSacola, faltaPraPromocao(politica, carrinho.subtotal))
-  }, [vitrine, carrinho, politica])
+    return escolherLevaJunto(
+      vitrine,
+      sacolaDe(carrinho.itens),
+      faltaPraPromocao(politica, carrinho.subtotal),
+      modelo
+    )
+  }, [vitrine, modelo, carrinho, politica])
 
   if (!sacola || !carrinho || !carrinho.itens.length || !escolhidos.length) return null
   const { comCarrinho, ocupada } = sacola

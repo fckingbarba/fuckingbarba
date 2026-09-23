@@ -16,6 +16,7 @@ import {
   type CheckoutVisivel,
   type Etapa,
   type Oferta,
+  type OfertaDoBump,
   type OpcaoDeFrete,
   type ProvedorDePagamento,
 } from "@/lib/checkout-visivel"
@@ -55,7 +56,7 @@ type Props = {
   checkout: CheckoutVisivel
   fretes: OpcaoDeFrete[]
   provedores: ProvedorDePagamento[]
-  bump: Oferta | null
+  bump: OfertaDoBump | null
   sugestoes: Oferta[]
   falta: number
   piso: number

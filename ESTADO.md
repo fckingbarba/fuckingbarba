@@ -170,6 +170,13 @@ sozinha a cada 5 minutos; se nem ela resolver, o log com `[conciliação]` diz o
       atualiza.
 - [ ] Olhar se algum pedido de teste de antes de 21/09 saiu com um óleo que ninguém pediu: sem a
       promoção, o clique no bump deixava o óleo no carrinho **a preço cheio**, fora da tela.
+- [ ] **A oferta do checkout virou do motor de recomendação (23/09), com 10% em qualquer
+      produto.** Depois do deploy, o job `bumps` cria as promoções na hora cheia seguinte (no
+      minuto 23) e desliga o `BUMP-OLEO` antigo; até lá, o checkout fica sem a caixinha — e não
+      com uma caixinha que marca e desmarca. Pra não esperar, no shell do Railway:
+      `cd apps/backend/.medusa/server && npx medusa exec ./src/scripts/promocoes.js` (responde
+      "[bumps] 6 criada(s) … 1 desligada(s)"). Precisa do `REVALIDAR_SEGREDO` no Railway, que já
+      existe (é o mesmo da revalidação).
 
 ### 1b. Ligar o rastreio da Frenet — você
 
@@ -279,6 +286,12 @@ aparecem na conta e no log, sem e-mail automático — esses a loja conversa com
       `apps/backend/src/scripts/medidas.ts`.
 - [ ] Rua e número da origem (CEP 89036370) em `apps/backend/src/scripts/origem.ts`, pra etiqueta.
 - [ ] Apagar os dois rascunhos duplicados de óleo no admin.
+- [ ] **Achado de 23/09 no frete da sacola:** com 2 ou mais unidades, a rota `/store/frete`
+      declara à Frenet o valor cheio (2 × R$ 49,90 = R$ 99,80) e o Medusa, o valor com o desconto
+      por quantidade (R$ 94,90). As perguntas ficam diferentes, e a sacola faz DUAS cotações onde o
+      `cotar` do `client.ts` devia juntar numa (o `conferir-frete` acusa: "foram 2"). A lista da
+      gaveta sai da cotação de R$ 99,80 e o pé (o que o Medusa cobra) da de R$ 94,90 — se a
+      transportadora cobra seguro sobre o valor declarado, os dois podem diferir por centavos.
 - [ ] Dados reais da empresa no admin, em Configurações: CNPJ, razão social, endereço, WhatsApp,
       e-mail, horário e prazo de postagem. **Hoje nenhum está preenchido em produção**: o rodapé
       mostra "Entrar em contato" sem nada embaixo, e o `/contato` tem só o Instagram como canal
@@ -367,6 +380,31 @@ aparecem na conta e no log, sem e-mail automático — esses a loja conversa com
     com foto, preço e "+ Adicionar". Faltando valor pro frete grátis, o mais barato que fecha a
     conta vem primeiro, com a etiqueta "Libera o frete grátis". Só entram produtos de uma variação,
     com preço e estoque.
+- [x] **O "Leva junto" e a oferta do checkout viraram um motor de recomendação** (23/09), sem nada
+      pra escolher no admin. O que aparece depende do que está na sacola:
+  - **De onde sai a escolha:** dos pedidos (quem comprou A, quantas vezes levou B junto) e,
+    enquanto há pouco pedido, do que a loja já diz — a rotina da PDP (a do Fator junta shampoo e
+    óleo) e a categoria. A rotina vale como dez pedidos: com poucos ela guia, com muitos os pedidos
+    mandam.
+  - **O kit não briga com as peças:** quem tem o Kit Completo na sacola não recebe shampoo, balm
+    nem óleo, e quem tem uma peça não recebe o kit.
+  - **"Leva junto":** até três, na ordem do motor; quem sozinho fecha o frete grátis ganha peso e a
+    etiqueta. Com o Fator na sacola: shampoo, óleo e o kit ("Libera o frete grátis"). Sem o motor
+    (Medusa fora do ar), vale a regra de antes.
+  - **A oferta do checkout:** 10% (era 20% só no óleo), em qualquer produto — cada um tem a própria
+    promoção no Medusa, com código assinado (um código adivinhável seria 10% em tudo pela API).
+    Nunca oferece o que já está no pedido (antes, quem levava o óleo ficava sem oferta), prefere
+    produto barato perto do valor do pedido, e a frase diz por quê, só com o que dá pra provar:
+    "Combina com Fator de Crescimento para Barba — só nessa tela, com 10% de desconto."
+  - **Ela aprende:** cada pedido guarda o que foi oferecido e se foi aceito; o que é aceito mais
+    aparece mais. Um carrinho em dez vê o segundo colocado, pro motor descobrir se outro produto
+    seria mais aceito. A mesma pessoa vê sempre a mesma oferta (o sorteio é pelo carrinho).
+  - Conferido numa loja local: `conferir-checkout` 118/118 (a oferta, o desconto cobrado pelo
+    Medusa, a promoção desligada e o registro no pedido), `conferir-promocoes` 18/18,
+    `conferir-recomendacao` 31/31 e os 192 testes do backend. O `conferir-checkout` voltou a rodar
+    até o fim: clicava no rádio escondido da forma de pagamento, esperava o resumo aberto no
+    celular (ele nasce fechado desde 22/09) e tropeçava na cópia escondida que o streaming deixa
+    por um instante.
 - [x] **O logo da bandeira aparece no fim do campo do número do cartão** (22/09), no lugar da
       etiqueta de texto. A detecção (`apps/loja/src/lib/cartao.ts`) agora usa as faixas de seis
       dígitos da Elo e da Hipercard, e conhece as bandeiras que a loja não aceita (Diners,
@@ -509,7 +547,8 @@ aparecem na conta e no log, sem e-mail automático — esses a loja conversa com
         entrar, dá pra juntar depois, no backend; é raro o bastante pra esperar.
   - [ ] Histórico da Nuvemshop na conta: junto da importação do catálogo (fase 2), e de novo na
         virada, com os últimos pedidos. Quando entrar, as Dúvidas podem responder "comprei na loja
-        antiga, cadê meu pedido?" — hoje não respondem, de propósito (`conteudo/duvidas.ts`).
+        antiga, cadê meu pedido?" — hoje não respondem, de propósito (`conteudo/duvidas.ts`). E o
+        motor de recomendação passa a aprender com anos de pedidos, em vez de começar do zero.
   - [ ] Numeração: decidido que os pedidos novos começam depois do último da Nuvemshop (nada de dois
         "#28"). **Falta você dizer o número** do pedido mais recente de lá.
 - [ ] O checkout não pede mais aceite das regras de troca (a linha embaixo do botão de pagar saiu

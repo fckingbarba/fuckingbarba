@@ -4,6 +4,7 @@ import type { HttpTypes } from "@medusajs/types"
 import { refresh } from "next/cache"
 import { headers } from "next/headers"
 import { after } from "next/server"
+import { codigoDoBump, ehCodigoDeBump } from "@/lib/bump"
 import { buscarCep, limparCep } from "@/lib/cep"
 import { lerCarrinho, pedidoDoCarrinhoFechado } from "@/lib/carrinho"
 import {
@@ -11,6 +12,7 @@ import {
   CAMPOS_CHECKOUT,
   donoDoCarrinho,
   garantirDonoDoCarrinho,
+  registrarOferta,
 } from "@/lib/checkout"
 import {
   PROVEDOR_PAGARME,
@@ -19,7 +21,6 @@ import {
   type ErrosDoFormulario,
   type EstadoDaEtapa,
 } from "@/lib/checkout-visivel"
-import { BUMP } from "@/conteudo/checkout"
 import { guardarDaCompra, lerCliente, lerSessao } from "@/lib/conta"
 import { conferirDocumento, type Documento } from "@/lib/documento"
 import { ehUf, lerEndereco, montarEndereco } from "@/lib/endereco"
@@ -525,6 +526,14 @@ export async function finalizar(anterior: EstadoDaEtapa, fd: FormData): Promise<
     after(() => guardarDaCompra(sessao, compra))
   }
 
+  /*
+    E A OFERTA DO CHECKOUT APRENDE COM ESTE PEDIDO: o que ela mostrou, e se a
+    pessoa marcou. Também depois da resposta — ver `registrarOferta`.
+  */
+  const pedido = pedidoId
+  const fechado = carrinho
+  after(() => registrarOferta(pedido, fechado))
+
   return abrirPedido(pedidoId)
 }
 
@@ -734,23 +743,32 @@ export async function removerOferta(varianteId: string): Promise<EstadoDaEtapa> 
 }
 
 /**
- * Liga e desliga o order bump.
+ * Liga e desliga a oferta do checkout (o order bump).
  *
  * DUAS COISAS JUNTAS, e nessa ordem: a linha entra no carrinho e o código da
- * promoção é aplicado. Se só a linha entrasse, a pessoa pagaria o preço cheio
- * num produto que a tela ofereceu com desconto — que é exatamente a
+ * promoção DAQUELE PRODUTO é aplicado (`codigoDoBump`, em `lib/bump.ts` —
+ * cada produto tem a sua). Se só a linha entrasse, a pessoa pagaria o preço
+ * cheio num produto que a tela ofereceu com desconto — que é exatamente a
  * divergência que a promoção existe pra evitar.
  *
  * ┌─ OU AS DUAS, OU NENHUMA ───────────────────────────────────────────────┐
  * │ A linha entra primeiro, e o desconto pode falhar depois dela: a        │
- * │ promoção não existe nesse Medusa (o `backend:promocoes` não rodou lá), │
- * │ foi desativada, ou a regra dela aponta pra outro produto. Antes, a     │
- * │ falha voltava sem `refresh()`: a caixinha desmarcava, o resumo ficava  │
- * │ velho — e o óleo continuava no carrinho, a preço cheio, pra ser cobrado│
- * │ no Pix sem ninguém ter visto. Agora a linha que ESTA ação pôs sai de   │
- * │ volta, e o desconto é CONFERIDO na resposta (código aplicado sem       │
- * │ ajuste na linha também é falha).                                       │
+ * │ promoção daquele produto ainda não existe nesse Medusa (o job `bumps`  │
+ * │ cria de hora em hora), foi desativada, ou a loja está sem o segredo    │
+ * │ que assina o código. Antes, a falha voltava sem `refresh()`: a         │
+ * │ caixinha desmarcava, o resumo ficava velho — e o produto continuava no │
+ * │ carrinho, a preço cheio, pra ser cobrado no Pix sem ninguém ter visto. │
+ * │ Agora a linha que ESTA ação pôs sai de volta, e o desconto é CONFERIDO │
+ * │ na resposta (código aplicado sem ajuste na linha também é falha).      │
  * └────────────────────────────────────────────────────────────────────────┘
+ *
+ * UMA OFERTA POR VEZ. Qual produto a tela oferece é o motor que decide, e a
+ * ação não refaz a conta — refazer poderia dar outra resposta se o catálogo
+ * mudasse no meio, e a pessoa leria "não deu" na oferta que acabou de ver.
+ * Mas ela é um POST público: alguém chamando direto, produto a produto,
+ * juntaria um desconto em cada. Por isso marcar tira antes qualquer outro
+ * código de oferta do carrinho — no pior caso, 10% numa unidade de UM
+ * produto, que é o que a caixinha oferece a qualquer um.
  *
  * Desmarcar desfaz as duas. O código sai primeiro: com a linha já fora, o
  * Medusa não teria mais em que aplicar o desconto, e o cupom ficaria
@@ -765,10 +783,15 @@ export async function alternarBump(varianteId: string, marcar: boolean): Promise
 
   const { sdk, carrinho } = atual
   const linha = carrinho.items?.find((i) => i.variant_id === varianteId)
+  const pendurados = (carrinho.promotions ?? []).flatMap((p) =>
+    p?.code && ehCodigoDeBump(p.code) ? [p.code] : []
+  )
 
   if (!marcar) {
     try {
-      await sdk.store.cart.removePromotions(carrinho.id, { promo_codes: [BUMP.codigo] })
+      if (pendurados.length) {
+        await sdk.store.cart.removePromotions(carrinho.id, { promo_codes: pendurados })
+      }
       if (linha) await sdk.store.cart.deleteLineItem(carrinho.id, linha.id)
     } catch (e) {
       registrar(e, "bump desmarcar")
@@ -784,6 +807,7 @@ export async function alternarBump(varianteId: string, marcar: boolean): Promise
   // A linha — só se ainda não está lá. E o id da que ESTA ação criou, que é
   // a única que ela tem o direito de tirar se o desconto não pegar.
   let criada: string | null = null
+  let produto = linha ? { handle: linha.product_handle, id: linha.product_id } : null
   if (!linha) {
     try {
       const { cart } = await sdk.store.cart.createLineItem(
@@ -791,7 +815,9 @@ export async function alternarBump(varianteId: string, marcar: boolean): Promise
         { variant_id: varianteId, quantity: 1 },
         { fields: "id,*items" }
       )
-      criada = cart.items?.find((i) => i.variant_id === varianteId)?.id ?? null
+      const nova = cart.items?.find((i) => i.variant_id === varianteId)
+      criada = nova?.id ?? null
+      produto = nova ? { handle: nova.product_handle, id: nova.product_id } : null
     } catch (e) {
       registrar(e, "bump marcar: a linha não entrou")
       refresh()
@@ -799,40 +825,56 @@ export async function alternarBump(varianteId: string, marcar: boolean): Promise
     }
   }
 
-  // O desconto — e a prova de que ele pegou NA LINHA do bump.
+  // O código da promoção DESTE produto. O código em si não vai pro log: ele
+  // é o desconto, e log é lido por mais gente que o carrinho.
+  const codigo = produto?.handle && produto.id ? codigoDoBump(produto.handle, produto.id) : null
+  const deQuem = `a oferta de "${produto?.handle ?? varianteId}"`
+
+  // O desconto — e a prova de que ele pegou NA LINHA da oferta.
   let descontou = false
-  try {
-    const { cart } = await sdk.store.cart.addPromotions(
-      carrinho.id,
-      { promo_codes: [BUMP.codigo] },
-      { fields: "id,*items,*items.adjustments" }
+  if (!codigo) {
+    registrar(
+      new Error("sem REVALIDAR_SEGREDO, não dá pra montar o código"),
+      `bump marcar: ${deQuem}`
     )
-    descontou = Boolean(
-      cart.items
-        ?.find((i) => i.variant_id === varianteId)
-        ?.adjustments?.some((a) => a.code === BUMP.codigo && Number(a.amount) > 0)
-    )
-    if (!descontou) {
+  } else {
+    try {
+      const outros = pendurados.filter((c) => c !== codigo)
+      if (outros.length) await sdk.store.cart.removePromotions(carrinho.id, { promo_codes: outros })
+      const { cart } = await sdk.store.cart.addPromotions(
+        carrinho.id,
+        { promo_codes: [codigo] },
+        { fields: "id,*items,*items.adjustments" }
+      )
+      descontou = Boolean(
+        cart.items
+          ?.find((i) => i.variant_id === varianteId)
+          ?.adjustments?.some((a) => a.code === codigo && Number(a.amount) > 0)
+      )
+      if (!descontou) {
+        registrar(
+          new Error("o código entrou, mas não descontou nada na linha"),
+          `bump marcar: ${deQuem}`
+        )
+      }
+    } catch (e) {
       registrar(
-        new Error(`o código ${BUMP.codigo} entrou, mas não descontou nada na linha`),
-        "bump marcar"
+        e,
+        `bump marcar: a promoção de ${deQuem} não pegou — ela existe nesse Medusa? ` +
+          "(o job `bumps` cria de hora em hora; na hora: `npm run backend:promocoes`)"
       )
     }
-  } catch (e) {
-    registrar(
-      e,
-      `bump marcar: a promoção ${BUMP.codigo} não pegou — ela existe nesse Medusa? ` +
-        "(`npm run backend:promocoes`, ou o promocoes.js no shell do Railway)"
-    )
   }
 
   if (!descontou) {
     // Desfaz na ordem inversa. Cada passo por conta própria: falhar em tirar
     // o código não pode impedir de tirar a linha, que é o que custa dinheiro.
-    try {
-      await sdk.store.cart.removePromotions(carrinho.id, { promo_codes: [BUMP.codigo] })
-    } catch {
-      // Código que nem entrou não tem o que sair.
+    if (codigo) {
+      try {
+        await sdk.store.cart.removePromotions(carrinho.id, { promo_codes: [codigo] })
+      } catch {
+        // Código que nem entrou não tem o que sair.
+      }
     }
     if (criada) {
       try {

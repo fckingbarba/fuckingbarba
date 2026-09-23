@@ -9,7 +9,7 @@ import { SemZoomNoCampo } from "@/components/layout/sem-zoom-no-campo"
 import { ProvedorDoFrete } from "@/components/configuracoes/contexto"
 import { ProvedorDaSacola } from "@/components/sacola/contexto"
 import { Gaveta } from "@/components/sacola/gaveta"
-import { configuracoes, vitrineDaSacola } from "@/lib/medusa"
+import { configuracoes, modeloDeRecomendacao, vitrineDaSacola } from "@/lib/medusa"
 import { emProducao, site } from "@/lib/site"
 import "./globals.css"
 
@@ -84,8 +84,10 @@ export const viewport: Viewport = {
  */
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   const { frete } = await configuracoes()
-  // O "leva junto" da sacola: cacheado como a vitrine (ver `vitrineDaSacola`).
+  // O "leva junto" da sacola: os produtos, cacheados como a vitrine (ver
+  // `vitrineDaSacola`), e o modelo que escolhe entre eles (`lib/recomendacao.ts`).
   const vitrine = await vitrineDaSacola()
+  const modelo = await modeloDeRecomendacao()
 
   return (
     <html
@@ -115,7 +117,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
             <Cabecalho />
             {children}
             <Rodape />
-            <Gaveta vitrine={vitrine} />
+            <Gaveta vitrine={vitrine} modelo={modelo} />
           </ProvedorDaSacola>
         </ProvedorDoFrete>
         <Tags />

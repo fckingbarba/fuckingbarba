@@ -62,7 +62,7 @@ estiver no ambiente e não pergunta se você queria mesmo mexer em produção.
 | `npm run quantidade` | liga o desconto por quantidade (4% levando 2, 6% levando 3) e aposenta os kits   |
 | `npm run fotos`      | varre o catálogo inteiro e remove as fotos reprovadas, por URL                   |
 | `npm run frete`      | conjunto de entrega, zona Brasil e as opções de frete com o piso do frete grátis |
-| `npm run promocoes`  | o desconto do order bump do checkout, como promoção de verdade                   |
+| `npm run promocoes`  | a oferta do checkout (10% em cada produto) e os cupons, como promoção de verdade |
 
 Da raiz, os mesmos com o prefixo `backend:` (`npm run backend:frete`).
 
@@ -110,11 +110,30 @@ promoção com código que o checkout aplica quando a pessoa marca a caixinha e 
 desmarca. Escrever o desconto só no HTML seria a diferença que o cliente descobre na fatura, e
 no Brasil a oferta anunciada vincula (CDC art. 30).
 
+O produto oferecido muda de carrinho pra carrinho (o motor de recomendação, abaixo), então
+**cada produto publicado tem a própria promoção**, de 10% numa unidade (`src/lib/bumps.ts`). O
+job `bumps` cria, corrige e desliga de hora em hora; o `npm run promocoes` faz o mesmo na hora. O
+código é `BUMP-<HANDLE>-` e oito letras assinadas com o `REVALIDAR_SEGREDO`: um código adivinhável
+seria 10% em tudo, aplicado direto na API. O conferidor precisa do mesmo segredo, e prova também
+que um código montado sem ele não desconta nada.
+
 O mesmo vale pro campo de cupom: ele manda o código pro Medusa e mostra a resposta. Não existe
 lista de cupom no navegador.
 
 O conferidor trava o limite de **uma unidade**: sem ele, quem marca o bump e sobe a quantidade
 leva o desconto em todas.
+
+### O motor de recomendação
+
+O "leva junto" da sacola e a oferta do checkout não são fixos, e não se escolhem no admin. O
+modelo sai daqui (`src/lib/recomendacao.ts`, só conta, com testes): quem comprou A levou B junto
+quantas vezes, no último ano — e, enquanto há pouco pedido, o que a loja já diz: a rotina da PDP
+e a categoria, que valem como dez pedidos. Também sabe as peças de cada kit (pelo nome) e o que
+cada oferta do checkout já rendeu: todo pedido guarda o que foi oferecido e se foi aceito
+(`fb_bump` no metadata, gravado pela loja em `POST /store/recomendacoes/oferta`).
+
+A loja lê o modelo em `GET /store/recomendacoes` — só ela, com o `REVALIDAR_SEGREDO` no
+`x-loja-segredo` — e decide na hora, com a sacola na mão (`apps/loja/src/lib/recomendacao.ts`).
 
 ### Conferir o frete
 

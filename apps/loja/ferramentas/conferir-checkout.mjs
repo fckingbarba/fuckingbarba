@@ -25,8 +25,10 @@
  * - o desconto do bump existir só no HTML;
  * - a gaveta ficar aberta por cima do checkout, engolindo o primeiro clique;
  * - trocar o frete trocar a página inteira pelo esqueleto;
- * - o bump "marcar e desmarcar" sem a promoção no Medusa, deixando o óleo
- *   no carrinho a preço cheio; e sumir da tela depois de marcado;
+ * - o bump "marcar e desmarcar" sem a promoção no Medusa, deixando o
+ *   produto no carrinho a preço cheio; e sumir da tela depois de marcado;
+ * - a oferta do checkout ser fixa — o mesmo óleo pra todo mundo — e o pedido
+ *   não guardar o que ela ofereceu, que é de onde o motor aprende;
  * - o segundo clique em pagar (ou toque na barra do celular) mandar outro
  *   pedido, com a tela parada sem dizer que estava trabalhando;
  * - a home aberta pelo logo do checkout (ou da tela de obrigado) vir sem
@@ -37,7 +39,8 @@
  * - o celular sem máscara.
  *
  * Variáveis: MEDUSA_BACKEND_URL, NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY, CHROMIUM;
- * ADMIN_EMAIL e ADMIN_SENHA, opcionais, pro bump com a promoção desligada.
+ * ADMIN_EMAIL e ADMIN_SENHA, opcionais, pro bump com a promoção desligada e
+ * pra ler, no pedido, o registro da oferta.
  */
 
 import { readFileSync } from "node:fs"
@@ -71,8 +74,8 @@ const CPF = "111.444.777-35"
 const CPF_TORTO = "111.444.777-36"
 const CEP = "01310-100" // Avenida Paulista — CEP que o ViaCEP conhece de cor
 const EMAIL = "teste.checkout@fuckingbarba.invalid"
-/** O mesmo do `conteudo/checkout.ts` e do `promocoes.ts` do backend. */
-const BUMP_DESCONTO = 20
+/** O mesmo do `conteudo/checkout.ts` e do `lib/bumps.ts` do backend. */
+const BUMP_DESCONTO = 10
 
 /**
  * O PISO É LIDO DA LOJA, não escrito aqui.
@@ -367,10 +370,28 @@ async function poeNaSacola(pag, ctx, handle) {
   return null
 }
 
+/*
+  O STREAMING TERMINAR, antes de procurar qualquer coisa na página.
+
+  A página chega em pedaços: o que depende do carrinho vem depois, escondido
+  num `<div hidden id="S:…">` até o React encaixar no lugar. Nesse meio
+  tempo o documento chega a ter a tela DUAS vezes — a do HTML, esperando a
+  vez, e a da hidratação —, e um seletor estrito acusa as duas ("strict
+  mode violation"). Não é defeito da loja: ninguém vê a cópia escondida.
+  Esperar ela sumir deixa o teste sobre o que a pessoa vê.
+*/
+const semStreaming = (pag) =>
+  pag
+    .waitForFunction(() => !document.querySelector('div[hidden][id^="S:"]'), null, {
+      timeout: 20000,
+    })
+    .catch(() => null)
+
 /* ── 0. a rota existe mesmo ───────────────────────────────────────────────── */
 
 titulo("A rota")
 const resposta = await pagina.goto(`${LOJA}/checkout`, { waitUntil: "domcontentloaded" })
+await semStreaming(pagina)
 ok(resposta?.status() === 200, "/checkout responde 200", `veio ${resposta?.status()}`)
 ok(
   !(await pagina.locator("text=/não encontrei|não encontrada/i").count()),
@@ -379,18 +400,20 @@ ok(
 )
 
 titulo("Sacola vazia")
-await pagina.locator(".checkout__vazio").waitFor({ timeout: 15000 })
+// `:visible` além do `semStreaming`: o que importa é o bloco que aparece.
+const vazio = pagina.locator(".checkout__vazio:visible")
+await vazio.waitFor({ timeout: 15000 })
 ok(
-  await pagina.locator(".checkout__vazio").isVisible(),
+  await vazio.isVisible(),
   "sem carrinho, o checkout oferece o caminho de volta em vez de um formulário"
 )
 
 /* ── 1. monta a sacola pela loja ──────────────────────────────────────────── */
 
 titulo("Montando a sacola pela loja")
-// O shampoo, e NÃO o óleo: o óleo é o produto do order bump, e ter ele no
-// carrinho faz o bump sumir — que é o comportamento certo, e esconderia o
-// teste do bump lá embaixo.
+// O shampoo. A oferta do checkout lá embaixo sai do motor — numa loja sem
+// pedido, é o óleo (a rotina do fator junta os dois); com pedidos, o que eles
+// mostrarem —, e o teste dela lê o produto que a tela oferecer.
 const carrinhoId = await poeNaSacola(pagina, contexto, "shampoo-para-barba")
 ok(Boolean(carrinhoId), "o carrinho existe e tem o produto", `veio ${carrinhoId}`)
 
@@ -457,6 +480,7 @@ if (destinoDaGaveta === "/checkout") {
   }
   await finalizar.click()
   await pagina.waitForURL(/\/checkout$/, { timeout: 20000 })
+  await semStreaming(pagina)
   await pagina.locator("#form-contato").waitFor({ timeout: 20000 })
   ok(
     (await pagina.locator(".sacolinha").first().getAttribute("inert")) !== null,
@@ -501,6 +525,7 @@ if (destinoDaGaveta === "/checkout") {
 
 titulo("Passo 1 — contato")
 await pagina.goto(`${LOJA}/checkout`, { waitUntil: "domcontentloaded" })
+await semStreaming(pagina)
 await pagina.locator("#form-contato").waitFor({ timeout: 20000 })
 
 ok((await pagina.locator(".painel[data-ativo]").count()) === 1, "só um passo aberto por vez")
@@ -753,7 +778,18 @@ ok(
     : "e, com o provisório, a tela avisa em negrito que o pedido não é cobrado agora"
 )
 
-await pagina.locator("#form-pagamento .opcao", { hasText: "Cartão" }).locator("input").check()
+/*
+  A FORMA SE ESCOLHE PELA LINHA INTEIRA, como a pessoa faz. O rádio está no
+  HTML, mas escondido do olho (`opcao--forma`, em `checkout-loja.css`) — um
+  `check()` nele esbarra na linha por cima e espera pra sempre.
+*/
+async function escolherForma(nome) {
+  const linha = pagina.locator("#form-pagamento .opcao", { hasText: nome })
+  await linha.click()
+  await linha.locator("input:checked").waitFor({ state: "attached", timeout: 10000 })
+}
+
+await escolherForma("Cartão")
 const cartao = pagina.locator(".pagamento__painel[data-ativo] input").first()
 /* DIGITADO, e não colado de uma vez: o bug era o primeiro dígito que
    revelava a bandeira tirar o foco do campo (o espaço do logo aparecia e o
@@ -793,9 +829,27 @@ ok(
   "campo sem nome não entra no FormData, então o número não chega ao servidor"
 )
 
-titulo("Order bump")
+titulo("Oferta do checkout (order bump)")
 const bump = pagina.locator(".bump")
 ok(await bump.isVisible(), "a caixinha aparece")
+
+/*
+  O PRODUTO É DO MOTOR, não deste arquivo: com o shampoo na sacola, numa
+  loja sem pedido, ele é o óleo (a rotina do fator junta os dois) — mas os
+  pedidos mudam a resposta, e um carrinho em dez vê o segundo colocado
+  (`AJUSTES.exploracao`, em `src/lib/recomendacao.ts`). O teste lê o que a
+  tela ofereceu e confere ESSE.
+*/
+const produtoDaOferta = (await bump.getAttribute("data-produto")) ?? ""
+const noPedido = (
+  (await medusa(`/store/carts/${carrinhoId}?fields=id,*items`))?.cart?.items ?? []
+).map((i) => i.product_handle)
+ok(Boolean(produtoDaOferta), "a caixinha diz de que produto é", produtoDaOferta)
+ok(
+  !noPedido.includes(produtoDaOferta),
+  "e não é nenhum que já está no pedido",
+  `${produtoDaOferta} · pedido: ${noPedido.join(", ")}`
+)
 
 const precoDe = numero(await bump.locator(".bump__preco s").innerText())
 const precoPor = numero(await bump.locator(".bump__preco span").innerText())
@@ -804,22 +858,95 @@ ok(
   `o "por" da tela é ${BUMP_DESCONTO}% abaixo do "de" (${reais(precoDe)} → ${reais(precoPor)})`,
   `tela diz ${reais(precoPor)}`
 )
+const frase = await bump.locator(".bump__txt").innerText()
+ok(frase.includes(`${BUMP_DESCONTO}% de desconto`), "a frase diz o desconto", frase)
+console.log(`    → "${frase}"`)
 
 const caixinha = bump.locator("input[type=checkbox]")
 const totalAntesDoBump = await pagina.locator(".totais__total dd").innerText()
-const linhasAntesDoBump = (await medusa(`/store/carts/${carrinhoId}?fields=id,*items`))?.cart?.items
-  ?.length
+const linhasAntesDoBump = noPedido.length
+const codigosDeOferta = (c) =>
+  (c?.promotions ?? []).map((p) => p.code).filter((codigo) => codigo?.startsWith("BUMP-"))
+
+await caixinha.check()
+await pagina.waitForFunction(
+  (antes) => document.querySelector(".totais__total dd")?.textContent !== antes,
+  totalAntesDoBump,
+  { timeout: 25000 }
+)
+
+const comBump = (
+  await medusa(
+    `/store/carts/${carrinhoId}?fields=item_total,discount_total,total,*items,*promotions`
+  )
+)?.cart
+ok(comBump.items.length === linhasAntesDoBump + 1, "o produto da oferta entrou no pedido")
+ok(
+  perto(Number(comBump.discount_total), precoDe - precoPor),
+  `e o Medusa DESCONTOU os ${reais(precoDe - precoPor)} que a tela prometeu`,
+  `desconto do Medusa: ${reais(comBump.discount_total)}`
+)
+console.log("    → o desconto existe no backend; a tela não inventa preço")
+
+/*
+  O CÓDIGO É DAQUELE PRODUTO, e assinado: "BUMP-<HANDLE>-" e oito letras
+  que só a loja e o Medusa sabem montar (`src/lib/bump.ts`). Um código
+  adivinhável seria 10% em tudo, aplicado direto na API.
+*/
+const [codigoDaOferta = ""] = codigosDeOferta(comBump)
+ok(
+  new RegExp(`^BUMP-${produtoDaOferta.toUpperCase()}-[0-9A-F]{8}$`).test(codigoDaOferta),
+  "com o código DAQUELE produto, assinado",
+  codigoDaOferta || "nenhum código de oferta no carrinho"
+)
+
+const totalNaTela = numero(await pagina.locator(".totais__total dd").innerText())
+ok(
+  perto(totalNaTela, Number(comBump.total)),
+  "o total do resumo é o total do Medusa",
+  `tela ${reais(totalNaTela)} vs Medusa ${reais(comBump.total)}`
+)
+
+/*
+  MARCADA, ELA FICA — com o mesmo produto e a mesma frase. A caixinha sumia
+  no instante em que o produto entrava (ele já estava no pedido), e parecia
+  que o clique tinha dado errado — sem ter por onde desmarcar.
+*/
+await pagina.waitForFunction(() => !document.querySelector(".resumo[data-recalculando]"), null, {
+  timeout: 20000,
+})
+ok(await bump.isVisible(), "marcada, a caixinha continua na tela")
+ok(await caixinha.isChecked(), "e continua marcada")
+ok(
+  (await bump.getAttribute("data-produto")) === produtoDaOferta &&
+    (await bump.locator(".bump__txt").innerText()) === frase,
+  "com o mesmo produto e a mesma frase"
+)
+
+await caixinha.uncheck()
+await pagina.waitForFunction(
+  (antes) => document.querySelector(".totais__total dd")?.textContent === antes,
+  totalAntesDoBump,
+  { timeout: 25000 }
+)
+const desmarcado = (await medusa(`/store/carts/${carrinhoId}?fields=id,*items,*promotions`))?.cart
+ok(
+  desmarcado?.items?.length === linhasAntesDoBump && !codigosDeOferta(desmarcado).length,
+  "desmarcar tira o produto e o código, e o total volta"
+)
 
 /*
   SEM A PROMOÇÃO NO MEDUSA — o que acontecia em produção, onde o
   `backend:promocoes` não tinha rodado. A caixinha "marcava e desmarcava", e
-  a ação, que já tinha posto a linha do óleo, voltava sem desfazer nada: o
-  óleo ficava no carrinho a PREÇO CHEIO, fora da tela até o próximo
-  recálculo. Promoção desligada é o mesmo caso por outro caminho (o Medusa
-  aceita o código e não desconta nada — nem erro dá).
+  a ação, que já tinha posto a linha, voltava sem desfazer nada: o produto
+  ficava no carrinho a PREÇO CHEIO, fora da tela até o próximo recálculo.
+  Promoção desligada é o mesmo caso por outro caminho (o Medusa aceita o
+  código e não desconta nada — nem erro dá).
 */
-if (EMAIL_ADMIN && SENHA_ADMIN) {
-  const { promotions = [] } = await adm("/admin/promotions?code=BUMP-OLEO&fields=id,status")
+if (EMAIL_ADMIN && SENHA_ADMIN && codigoDaOferta) {
+  const { promotions = [] } = await adm(
+    `/admin/promotions?code=${encodeURIComponent(codigoDaOferta)}&fields=id,status`
+  )
   const promo = promotions[0]
   if (promo) {
     await adm(`/admin/promotions/${promo.id}`, {
@@ -846,13 +973,10 @@ if (EMAIL_ADMIN && SENHA_ADMIN) {
         ?.cart
       ok(
         semDesconto?.items?.length === linhasAntesDoBump,
-        "sem a promoção, o óleo NÃO fica no carrinho a preço cheio",
+        "sem a promoção, o produto NÃO fica no carrinho a preço cheio",
         `${semDesconto?.items?.length} linha(s)`
       )
-      ok(
-        !(semDesconto?.promotions ?? []).some((p) => p.code === "BUMP-OLEO"),
-        "nem o código pendurado"
-      )
+      ok(!codigosDeOferta(semDesconto).length, "nem o código pendurado")
       ok(!(await caixinha.isChecked()), "a caixinha volta desmarcada")
       ok(/segue sem ela/i.test(recado), "e o recado diz que o pedido segue sem a oferta", recado)
       ok(
@@ -866,64 +990,13 @@ if (EMAIL_ADMIN && SENHA_ADMIN) {
       })
     }
   } else {
-    console.log("    (a promoção BUMP-OLEO não existe aqui — rode npm run backend:promocoes)")
+    console.log("    (a promoção da oferta não apareceu no admin — pulei a promoção desligada)")
   }
 } else {
   console.log("    (sem ADMIN_EMAIL/ADMIN_SENHA: pulei o bump com a promoção desligada)")
 }
 
-await caixinha.check()
-await pagina.waitForFunction(
-  (antes) => document.querySelector(".totais__total dd")?.textContent !== antes,
-  totalAntesDoBump,
-  { timeout: 25000 }
-)
-
-const comBump = (
-  await medusa(
-    `/store/carts/${carrinhoId}?fields=item_total,discount_total,total,*items,*promotions`
-  )
-)?.cart
-ok(comBump.items.length === 3, "o produto do bump entrou no pedido")
-ok(
-  perto(Number(comBump.discount_total), precoDe - precoPor),
-  `e o Medusa DESCONTOU os ${reais(precoDe - precoPor)} que a tela prometeu`,
-  `desconto do Medusa: ${reais(comBump.discount_total)}`
-)
-console.log("    → o desconto existe no backend; a tela não inventa preço")
-
-const totalNaTela = numero(await pagina.locator(".totais__total dd").innerText())
-ok(
-  perto(totalNaTela, Number(comBump.total)),
-  "o total do resumo é o total do Medusa",
-  `tela ${reais(totalNaTela)} vs Medusa ${reais(comBump.total)}`
-)
-
-/*
-  MARCADA, ELA FICA. A caixinha sumia no instante em que o óleo entrava
-  (o produto já estava no pedido), e parecia que o clique tinha dado errado
-  — sem ter por onde desmarcar.
-*/
-await pagina.waitForFunction(() => !document.querySelector(".resumo[data-recalculando]"), null, {
-  timeout: 20000,
-})
-ok(await bump.isVisible(), "marcada, a caixinha continua na tela")
-ok(await caixinha.isChecked(), "e continua marcada")
-
-await caixinha.uncheck()
-await pagina.waitForFunction(
-  (antes) => document.querySelector(".totais__total dd")?.textContent === antes,
-  totalAntesDoBump,
-  { timeout: 25000 }
-)
-const desmarcado = (await medusa(`/store/carts/${carrinhoId}?fields=id,*items,*promotions`))?.cart
-ok(
-  desmarcado?.items?.length === linhasAntesDoBump &&
-    !(desmarcado?.promotions ?? []).some((p) => p.code === "BUMP-OLEO"),
-  "desmarcar tira o óleo e o código, e o total volta"
-)
-
-// Marca de novo: o pedido lá embaixo confere o desconto do bump.
+// Marca de novo: o pedido lá embaixo confere o desconto da oferta.
 await caixinha.check()
 await pagina.waitForFunction(
   (antes) => document.querySelector(".totais__total dd")?.textContent !== antes,
@@ -951,7 +1024,7 @@ titulo("O pedido")
 const totalAntesDeFechar = Number(comBump.total)
 // De volta pro Pix: o cartão lá em cima ficou com um número recusado pelo
 // Luhn de propósito, e com o Pagar.me ligado o envio pararia nele.
-await pagina.locator("#form-pagamento .opcao", { hasText: "Pix" }).locator("input").check()
+await escolherForma("Pix")
 
 /*
   UM PEDIDO POR CLIQUE — ou por três. A tela parecia parada enquanto o Pix
@@ -1007,6 +1080,27 @@ ok(
   "o desconto do bump sobreviveu até o pedido",
   `veio ${reais(order?.discount_total)}`
 )
+
+/*
+  O PEDIDO GUARDA O QUE A OFERTA MOSTROU — é de onde o motor aprende quem
+  aceita o quê (`fb_bump`, gravado pela loja DEPOIS da resposta; daí a
+  espera). O metadata do pedido só o admin lê.
+*/
+if (EMAIL_ADMIN && SENHA_ADMIN) {
+  let registro = null
+  for (let i = 0; i < 20 && !registro; i++) {
+    const { order: doAdmin } = await adm(`/admin/orders/${pedidoId}?fields=id,metadata`)
+    registro = doAdmin?.metadata?.fb_bump ?? null
+    if (!registro) await new Promise((pronto) => setTimeout(pronto, 500))
+  }
+  ok(
+    registro?.produto === produtoDaOferta && registro?.aceito === true,
+    "o pedido guardou a oferta, e que ela foi aceita",
+    JSON.stringify(registro)
+  )
+} else {
+  console.log("    (sem ADMIN_EMAIL/ADMIN_SENHA: pulei o registro da oferta no pedido)")
+}
 ok(
   order?.billing_address?.metadata?.documento?.valor === "11144477735",
   "o CPF sobreviveu até o pedido",
@@ -1082,7 +1176,7 @@ ok(
 )
 
 titulo("A tela de obrigado")
-await pagina.locator(".feito").waitFor({ timeout: 15000 })
+await pagina.locator(".feito:visible").waitFor({ timeout: 15000 })
 const corpo = await pagina.locator("main.obrigado").innerText()
 ok(corpo.includes(`#${order.display_id}`), "mostra o número curto do pedido")
 ok(corpo.includes("Avenida Paulista"), "mostra pra onde vai")
@@ -1100,7 +1194,8 @@ titulo("O mesmo link, em outro navegador")
 const estranho = await navegador.newContext({ viewport: MESA })
 const outraPagina = await estranho.newPage()
 await outraPagina.goto(pagina.url(), { waitUntil: "domcontentloaded" })
-await outraPagina.locator(".feito").waitFor({ timeout: 15000 })
+await semStreaming(outraPagina)
+await outraPagina.locator(".feito:visible").waitFor({ timeout: 15000 })
 const visto = await outraPagina.locator("main.obrigado").innerText()
 ok(visto.includes(`#${order.display_id}`), "quem tem o link confirma que o pedido existe")
 ok(!visto.includes("Avenida Paulista"), "mas NÃO vê o endereço de quem comprou")
@@ -1121,7 +1216,8 @@ for (const [como, valor] of [
   await forjado.addCookies([{ name: "pedido", value: valor, url: LOJA }])
   const noForjado = await forjado.newPage()
   await noForjado.goto(pagina.url(), { waitUntil: "domcontentloaded" })
-  await noForjado.locator(".feito").waitFor({ timeout: 15000 })
+  await semStreaming(noForjado)
+  await noForjado.locator(".feito:visible").waitFor({ timeout: 15000 })
   // O texto, pro que aparece; o HTML inteiro (com os dados que o React manda
   // junto), pro que não pode estar nem escondido.
   const texto = await noForjado.locator("main.obrigado").innerText()
@@ -1157,6 +1253,7 @@ const noCelular = await celular.newPage()
 const noCarrinhoDoCelular = await poeNaSacola(noCelular, celular, "shampoo-para-barba")
 ok(Boolean(noCarrinhoDoCelular), "a sacola do celular tem item antes de abrir o checkout")
 await noCelular.goto(`${LOJA}/checkout`, { waitUntil: "domcontentloaded" })
+await semStreaming(noCelular)
 await noCelular.locator("#form-contato").waitFor({ timeout: 20000 })
 
 ok(
@@ -1172,9 +1269,15 @@ ok(
     (await noCelular.locator(".fluxo").boundingBox()).y,
   "o resumo sobe pro topo: 'quanto vou pagar?' não pode estar a três rolagens"
 )
+// `textContent`, e não `innerText`: no celular o resumo nasce fechado (logo
+// abaixo), e texto dentro de `<details>` fechado não tem `innerText`.
 const totalDaBarra = numero(await noCelular.locator(".barra__total b").innerText())
-const totalDoResumo = numero(await noCelular.locator(".totais__total dd").innerText())
-ok(perto(totalDaBarra, totalDoResumo), "e a barra mostra o mesmo total do resumo")
+const totalDoResumo = numero(await noCelular.locator(".totais__total dd").textContent())
+ok(
+  perto(totalDaBarra, totalDoResumo),
+  "e a barra mostra o mesmo total do resumo",
+  `barra ${reais(totalDaBarra)} vs resumo ${reais(totalDoResumo)}`
+)
 
 // A seta do resumo caía pra baixo do total (o preflight do Tailwind põe
 // `display: block` em todo `svg`). Ela é o abre/fecha: fica AO LADO dele.
@@ -1188,11 +1291,18 @@ ok(
   "a seta do resumo fica ao lado do total, na mesma linha",
   JSON.stringify({ noTotal, naSeta })
 )
+/*
+  NO CELULAR ELE NASCE FECHADO: aberto, o resumo mora no topo e empurra o
+  primeiro campo do formulário pra fora da tela de quem acabou de clicar em
+  "finalizar compra" (116e0cd). Tocar no cabeçalho abre, e tocar de novo
+  fecha.
+*/
 const resumoAberto = () => noCelular.locator(".resumo details").evaluate((d) => d.open)
+ok(!(await resumoAberto()), "no celular, o resumo nasce fechado: o formulário fica na dobra")
 await noCelular.locator(".resumo summary").click()
-const fechou = !(await resumoAberto())
+const abriu = await resumoAberto()
 await noCelular.locator(".resumo summary").click()
-ok(fechou && (await resumoAberto()), "no celular, o cabeçalho do resumo fecha e abre")
+ok(abriu && !(await resumoAberto()), "e o cabeçalho do resumo abre e fecha")
 
 /*
   A BARRA ESPERA JUNTO. Ela não sabia que o passo estava enviando: o toque
