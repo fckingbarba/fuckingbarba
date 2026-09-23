@@ -12,7 +12,7 @@
     "db:sync-links": "medusa db:sync-links",
     "user": "medusa user",
     "produtos": "medusa exec ./src/scripts/produtos-iniciais.ts",
-    "kits": "medusa exec ./src/scripts/kits-de-quantidade.ts",
+    "quantidade": "medusa exec ./src/scripts/precos-por-quantidade.ts",
     "fotos": "medusa exec ./src/scripts/fotos-reprovadas.ts",
     "frete": "medusa exec ./src/scripts/frete.ts",
     "medidas": "medusa exec ./src/scripts/medidas.ts",

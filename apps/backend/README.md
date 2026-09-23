@@ -56,13 +56,13 @@ Todos podem rodar quantas vezes quiser, e todos começam dizendo **em que banco 
 escrevendo** (`src/scripts/onde-estou.ts`), porque `medusa exec` obedece ao `DATABASE_URL` que
 estiver no ambiente e não pergunta se você queria mesmo mexer em produção.
 
-| Comando                | O que faz                                                                      |
-| ---------------------- | ------------------------------------------------------------------------------ |
-| `npm run produtos`     | os cinco produtos reais da loja atual, com foto, preço e descrição              |
-| `npm run kits`         | os kits de 2 e 3 unidades do fator de crescimento                              |
-| `npm run fotos`        | varre o catálogo inteiro e remove as fotos reprovadas, por URL                  |
-| `npm run frete`        | conjunto de entrega, zona Brasil e as opções de frete com o piso do frete grátis |
-| `npm run promocoes`    | o desconto do order bump do checkout, como promoção de verdade                  |
+| Comando              | O que faz                                                                        |
+| -------------------- | -------------------------------------------------------------------------------- |
+| `npm run produtos`   | os cinco produtos reais da loja atual, com foto, preço e descrição               |
+| `npm run quantidade` | liga o desconto por quantidade (4% levando 2, 6% levando 3) e aposenta os kits   |
+| `npm run fotos`      | varre o catálogo inteiro e remove as fotos reprovadas, por URL                   |
+| `npm run frete`      | conjunto de entrega, zona Brasil e as opções de frete com o piso do frete grátis |
+| `npm run promocoes`  | o desconto do order bump do checkout, como promoção de verdade                   |
 
 Da raiz, os mesmos com o prefixo `backend:` (`npm run backend:frete`).
 

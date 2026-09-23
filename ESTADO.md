@@ -370,9 +370,25 @@ aparecem na conta e no log, sem e-mail automático — esses a loja conversa com
       2,18s.
 - [x] **O preço da PDP: o que se paga vem primeiro** (22/09). Grande na frente, o "de" riscado
       depois e, ao lado, o selo "Economizou R$ 25,00" — a diferença entre os dois preços do
-      Medusa, e só quando existe o riscado (no degrau de 2 ou 3 unidades não aparece: o card do
-      degrau já diz quanto economiza). O selo é o do protótipo, que tinha saído dele; o CSS
-      continuava lá.
+      Medusa, e só quando existe o riscado — que, com o desconto por quantidade (abaixo), vale pra
+      qualquer quantidade: o cheio da unidade vezes quantas. O selo é o do protótipo, que tinha
+      saído dele; o CSS continuava lá.
+- [x] **Desconto por quantidade no lugar dos kits** (22/09): "2 unidades" é o MESMO produto com
+      quantidade 2 — um SKU, um estoque —, e vale pra todo produto: 4% a menos levando 2, 6%
+      levando 3 ou mais, arredondado pra baixo até o ",90" (no de 3, o ",90" que divide em
+      centavos: o Fator fica R$ 152,90 e R$ 222,90). Quem cobra é o Medusa, pela quantidade da
+      linha — ao adicionar, ao mudar na sacola, no checkout —, com a lista "Desconto por
+      quantidade" que o job `precos-por-quantidade` refaz de 15 em 15 minutos a partir do preço
+      atual (mudou o preço no admin, as faixas acompanham). A PDP pergunta os preços em
+      `/store/precos-por-quantidade`, que usa a mesma conta do carrinho. Na tela: "Quantas
+      unidades", e os cartões e o seletor de quantidade são a mesma coisa (clicar em "2 unidades"
+      põe 2 no seletor; 4 ou 5 pagam o preço do de 3). Testado de ponta a ponta num Medusa local:
+      o carrinho cobra exatamente o que a página mostra. Os textos dos kits ("Dois meses de
+      tratamento…") saíram com eles; os cartões dizem quanto se economiza.
+- [ ] **Aposentar os dois kits do Fator** (produtos "Kit 2/3 frascos"), que a página não usa mais:
+      no admin, mudar os dois pra Rascunho — ou, no Shell do Railway, de `.medusa/server`,
+      `npx medusa exec ./src/scripts/precos-por-quantidade.js` (faz as faixas e passa os kits pra
+      rascunho). Publicados eles não aparecem em lugar nenhum da loja; é só arrumação.
 - [x] **A PDP parou de pular, e sai pronta do build** (22/09). CLS 0,45 → 0: a página inteira vinha
       por streaming atrás de um esqueleto da altura da dobra, e o rodapé aparecia logo embaixo e era
       empurrado quando as seções chegavam. Agora os produtos do catálogo são pré-renderizados

@@ -429,19 +429,19 @@ const PdpWidget = ({ data: produto }: DetailWidgetProps<AdminProduct>) => {
         <div>
           <Text weight="plus">O que aparece junto</Text>
           <Text size="xsmall" className="text-ui-fg-subtle">
-            Duas coisas diferentes: levar MAIS DO MESMO (os kits de quantidade) e levar OUTRO
-            produto.
+            Duas coisas diferentes: levar MAIS DO MESMO (1, 2 ou 3 unidades, com desconto por
+            quantidade) e levar OUTRO produto.
           </Text>
         </div>
 
         <div className="flex items-center justify-between gap-4">
           <div>
             <Text size="small" weight="plus">
-              Kits de quantidade
+              Cartões de 1, 2 e 3 unidades
             </Text>
             <Text size="xsmall" className="text-ui-fg-subtle">
-              Automático: aparece quando este produto tem kit de 2 ou 3 cadastrado. A chave só serve
-              pra esconder.
+              Automático em todo produto: 4% a menos levando 2, 6% levando 3 ou mais. A chave só
+              esconde os cartões — o desconto continua valendo no carrinho.
             </Text>
           </div>
           <Switch
@@ -451,15 +451,15 @@ const PdpWidget = ({ data: produto }: DetailWidgetProps<AdminProduct>) => {
         </div>
 
         {/*
-          A linha de apoio do cartão de 1 frasco. Os kits tiram a deles do
-          subtítulo do próprio kit; o avulso não tem de onde, porque o
-          subtítulo dele descreve o produto, não a quantidade — e sem nada
-          escrito aqui o primeiro cartão fica com um buraco do tamanho da
-          descrição dos outros dois.
+          A linha de apoio do cartão de 1 unidade. Os de 2 e 3 dizem quanto se
+          economiza; o de 1 não tem de onde tirar a dele, porque o subtítulo
+          do produto descreve o produto, não a quantidade — e sem nada escrito
+          aqui o primeiro cartão fica com um buraco do tamanho da linha dos
+          outros dois.
         */}
         <div className="flex flex-col gap-2">
           <Label size="small" weight="plus">
-            Linha embaixo de &quot;1 frasco&quot;
+            Linha embaixo de &quot;1 unidade&quot;
           </Label>
           <Input
             value={combinada.notaDoAvulso ?? ""}
@@ -470,8 +470,8 @@ const PdpWidget = ({ data: produto }: DetailWidgetProps<AdminProduct>) => {
             }
           />
           <Text size="xsmall" className="text-ui-fg-subtle">
-            Curta: ela divide o cartão com o nome e o preço. Os kits já têm a deles — é o subtítulo
-            de cada kit.
+            Curta: ela divide o cartão com o nome e o preço. Os de 2 e 3 unidades já têm a deles — a
+            economia, calculada.
           </Text>
         </div>
 
