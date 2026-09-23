@@ -374,6 +374,14 @@ lista, e os limites por IP assinado do código da conta) e se vê, baixa em CSV 
 "Newsletter". Remover APAGA — é o "pode sair quando quiser" e o pedido de exclusão da LGPD. A
 tabela `loja.newsletter` do Supabase, do plano antigo, ficou sem uso.
 
+O **vídeo da história da marca** (a seção "O cuidado que impõe presença" da home) é `home.video`
+nas configurações da loja (`fb_configuracoes`): sobe no admin, em Configurações da loja → Home, com
+a largura e a altura medidas no navegador (a loja reserva o espaço com elas), e a home troca a foto
+por ele (`components/home/video-da-marca.tsx`: mudo, em loop, só baixa e toca quando aparece na
+tela; pausar sempre, som só quando o vídeo tem). Depois de salvar qualquer configuração, a primeira
+visita ainda recebe a página velha — a loja refaz no fundo —, e conferidor que lê a tela logo
+depois de gravar precisa de uma visita de aquecimento (ver `conferir-configuracoes.mjs`).
+
 ## Fora dos limites
 
 - `apps/backend/.medusa/`, `apps/loja/.next/`, `node_modules/` — gerados.

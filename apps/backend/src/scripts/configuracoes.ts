@@ -38,6 +38,9 @@ const SEMENTE: Configuracoes = {
     arquivo — o script não inventa número que vira oferta na tela.
   */
   cotacao: { precoDeEmergencia: null, prazoDeEmergencia: null },
+  // Sem vídeo: a seção da história da marca mostra a foto até alguém subir
+  // um pelo admin.
+  home: { video: null },
 }
 
 /**
@@ -114,4 +117,11 @@ function relatar(logger: { info: (m: string) => void }, c: Configuracoes) {
   } else {
     logger.info("  dados da empresa: completos")
   }
+
+  const video = c.home.video
+  logger.info(
+    video
+      ? `  vídeo da história da marca: ${video.url} (${video.largura}×${video.altura})`
+      : "  vídeo da história da marca: nenhum — a seção mostra a foto"
+  )
 }

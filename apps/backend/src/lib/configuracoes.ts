@@ -114,11 +114,25 @@ export type Cotacao = {
   prazoDeEmergencia: string | null
 }
 
+/**
+ * O VÍDEO DA HISTÓRIA DA MARCA — na home, a seção "O cuidado que impõe
+ * presença" mostra ele no lugar da foto, quando existe.
+ *
+ * Largura e altura vão junto porque a loja reserva o espaço antes de o vídeo
+ * carregar. Sem elas a seção nasceria com a altura da foto e pularia quando
+ * o vídeo chegasse — e ele chega por último, de propósito: só baixa quando a
+ * pessoa rola até ele. Quem mede é o admin, na hora de subir o arquivo.
+ */
+export type VideoDaMarca = { url: string; largura: number; altura: number }
+
+export type Home = { video: VideoDaMarca | null }
+
 export type Configuracoes = {
   frete: PoliticaDeFrete
   empresa: Empresa
   atendimento: Atendimento
   cotacao: Cotacao
+  home: Home
 }
 
 /**
@@ -131,10 +145,13 @@ export type Configuracoes = {
  * padrão é o contrário: campo novo é invisível até alguém escrever o nome
  * dele nesta função.
  */
-export type ConfiguracoesPublicas = Pick<Configuracoes, "frete" | "empresa" | "atendimento">
+export type ConfiguracoesPublicas = Pick<
+  Configuracoes,
+  "frete" | "empresa" | "atendimento" | "home"
+>
 
 export function soOPublico(c: Configuracoes): ConfiguracoesPublicas {
-  return { frete: c.frete, empresa: c.empresa, atendimento: c.atendimento }
+  return { frete: c.frete, empresa: c.empresa, atendimento: c.atendimento, home: c.home }
 }
 
 /**
@@ -158,6 +175,7 @@ export const PADRAO: Configuracoes = {
   empresa: { razaoSocial: null, cnpj: null, endereco: null },
   atendimento: { whatsapp: null, email: null, horario: null, prazoDePostagem: null },
   cotacao: { precoDeEmergencia: null, prazoDeEmergencia: null },
+  home: { video: null },
 }
 
 /** Chave única dentro do `metadata` da loja, pra não brigar com mais nada. */
@@ -218,6 +236,23 @@ function lerWhatsapp(v: unknown): string | null {
   return digitos.length >= 12 && digitos.length <= 15 ? digitos : null
 }
 
+/**
+ * O vídeo só vale inteiro: endereço http(s) e as duas medidas. Sem as medidas
+ * a loja não tem como reservar o espaço, e um vídeo que empurra a página
+ * quando chega é pior que a foto que já estava lá.
+ */
+function lerVideo(v: unknown): VideoDaMarca | null {
+  if (!v || typeof v !== "object") return null
+  const o = v as Record<string, unknown>
+  const url = ehTexto(o.url) ? o.url.trim() : ""
+  const medida = (n: unknown) =>
+    typeof n === "number" && Number.isInteger(n) && n > 0 && n <= 10_000 ? n : null
+  const largura = medida(o.largura)
+  const altura = medida(o.altura)
+  if (!/^https?:\/\/\S+$/i.test(url) || url.length > 2048 || !largura || !altura) return null
+  return { url, largura, altura }
+}
+
 export function lerConfiguracoes(metadata: unknown): Configuracoes {
   const raiz =
     metadata && typeof metadata === "object"
@@ -229,6 +264,7 @@ export function lerConfiguracoes(metadata: unknown): Configuracoes {
   const empresa = (o.empresa ?? {}) as Record<string, unknown>
   const atendimento = (o.atendimento ?? {}) as Record<string, unknown>
   const cotacao = (o.cotacao ?? {}) as Record<string, unknown>
+  const home = (o.home ?? {}) as Record<string, unknown>
 
   return {
     frete: lerFrete(o.frete),
@@ -256,6 +292,7 @@ export function lerConfiguracoes(metadata: unknown): Configuracoes {
         ? atendimento.prazoDePostagem.trim()
         : null,
     },
+    home: { video: lerVideo(home.video) },
   }
 }
 

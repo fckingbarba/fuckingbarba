@@ -41,16 +41,22 @@ export const HERO = {
 export const SOBRE = {
   titulo: "O cuidado que impõe presença",
 
-  /** O handle do produto cuja foto ilustra a seção. */
+  /**
+   * O handle do produto cuja foto ilustra a seção. Com vídeo (subido no
+   * admin, em Configurações da loja), a foto vira a capa dele: é o que
+   * aparece até o vídeo começar.
+   */
   fotoDe: "oleo-para-barba",
 
+  /*
+    ENXUTO DE PROPÓSITO (23/09). Eram quatro parágrafos e dois gritos, e a
+    seção dizia a mesma coisa duas vezes. Ficou o essencial: de onde a marca
+    veio, o grito, e o que ela entrega.
+  */
   paragrafos: [
-    "A FuckingBarba nasceu da revolta com produtos genéricos e marcas que tratam o cuidado pessoal como um detalhe qualquer. A gente acredita que cuidar de si é um ritual, um ato de presença, de identidade e de respeito com quem você é.",
-    "Nossa missão é clara: oferecer os melhores cosméticos masculinos do mercado para quem não aceita qualquer coisa no rosto ou no cabelo. Cada óleo, balm ou sabonete é pensado para realçar o melhor de você — seja no toque, no cheiro ou no visual.",
+    "A FuckingBarba nasceu da revolta com produtos genéricos e marcas que tratam o cuidado pessoal como detalhe. Aqui, cuidar de si é ritual: presença, identidade e respeito com quem você é.",
     { grito: "Somos mais do que cosméticos. Somos atitude." },
-    "A FuckingBarba é pra quem não tem medo de se impor. Pra quem quer ser lembrado. Pra quem sabe que a aparência fala antes mesmo de você abrir a boca.",
-    "Trabalhamos com fórmulas de alta performance, ingredientes de qualidade e uma identidade que carrega autenticidade em cada gota.",
-    { grito: "Ousamos. Criamos. Cuidamos." },
+    "Fórmulas de alta performance e ingredientes de qualidade, pra quem sabe que a aparência fala antes mesmo de você abrir a boca.",
   ] satisfies (string | { grito: string })[],
 
   /** CONFERIR — ver o aviso no topo do arquivo. */

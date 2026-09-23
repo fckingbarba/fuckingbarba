@@ -260,6 +260,42 @@ export function Relogio(props: Props) {
   )
 }
 
+/** Tocar — o play do vídeo da história da marca, na home. */
+export function Tocar(props: Props) {
+  return (
+    <Icone {...props}>
+      <path d="M7 3.5v17L21 12z" />
+    </Icone>
+  )
+}
+
+/** Pausar — o mesmo botão, com o vídeo andando. */
+export function Pausar(props: Props) {
+  return (
+    <Icone {...props}>
+      <path d="M5.5 3.5h4.6v17H5.5zm8.4 0h4.6v17h-4.6z" />
+    </Icone>
+  )
+}
+
+/** Som ligado — o vídeo da home, quando a pessoa pediu o som. */
+export function SomLigado(props: Props) {
+  return (
+    <Icone {...props}>
+      <path d="M2.5 9h4l5.5-4.8v15.6L6.5 15h-4zm12.3 1.3 1.6-1.6a4.7 4.7 0 0 1 0 6.6l-1.6-1.6a2.4 2.4 0 0 0 0-3.4zm2.8-2.8 1.6-1.6a8.7 8.7 0 0 1 0 12.2l-1.6-1.6a6.4 6.4 0 0 0 0-9z" />
+    </Icone>
+  )
+}
+
+/** Som desligado — como o vídeo da home começa. */
+export function SomDesligado(props: Props) {
+  return (
+    <Icone {...props}>
+      <path d="M2.5 9h4l5.5-4.8v15.6L6.5 15h-4zm12.7.9 1.6-1.6 2.2 2.2 2.2-2.2 1.6 1.6-2.2 2.2 2.2 2.2-1.6 1.6-2.2-2.2-2.2 2.2-1.6-1.6 2.2-2.2z" />
+    </Icone>
+  )
+}
+
 /** Triângulo de atenção — só na linha de estoque baixo, com número real. */
 export function Triangulo(props: Props) {
   return (
