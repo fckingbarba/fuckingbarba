@@ -80,6 +80,10 @@ jobs:
           done
           cat /tmp/https-local.log
           exit 1
+      # Três medições por página, e vale a melhor (o padrão do LHCI): a máquina
+      # do GitHub oscila — no CI do #13 a mesma home travou a CPU por 1s numa
+      # medição e passou limpa na outra. Com a CPU 6x mais lenta aqui, a home
+      # gasta o mesmo JavaScript que a /barba; o que reprovava era a oscilação.
       - name: Lighthouse CI (orçamentos em apps/loja/budgets.json)
         working-directory: apps/loja
         run: npx lhci autorun
