@@ -66,8 +66,15 @@ export function Galeria({
         aria-label="Ampliar a foto do produto"
         onClick={() => zoom.current?.showModal()}
       >
+        {/*
+          `aria-hidden`: o selo mora DENTRO do botão, e o que se lê em voz
+          alta é o nome do botão ("Ampliar a foto do produto"). Um "-31%"
+          visível fora desse nome é o que o Lighthouse reprova (quem usa voz
+          pra comandar a tela diz o que vê, e o botão não atende). O desconto
+          já é dito no preço, do lado — aqui ele é só desenho.
+        */}
         {desconto ? (
-          <ul className="galeria__selos">
+          <ul className="galeria__selos" aria-hidden="true">
             <li className="galeria__selo galeria__selo--desconto">-{desconto}%</li>
           </ul>
         ) : null}

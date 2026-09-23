@@ -373,13 +373,16 @@ aparecem na conta e no log, sem e-mail automático — esses a loja conversa com
       Medusa, e só quando existe o riscado (no degrau de 2 ou 3 unidades não aparece: o card do
       degrau já diz quanto economiza). O selo é o do protótipo, que tinha saído dele; o CSS
       continuava lá.
-- [ ] **A PDP pula quando carrega** (achado em 22/09): CLS 0,45 com o Medusa falso (bom é abaixo
-      de 0,1). A página inteira vem por streaming atrás de um esqueleto que só tem a altura da
-      dobra: o rodapé aparece logo embaixo e é empurrado quando as seções chegam. É o defeito que a
-      categoria tinha, e lá resolveu virar página estática. Aqui: o `generateStaticParams` que a
-      rota já lista como "A FAZER", ou o esqueleto ocupar a tela inteira. O Lighthouse da PDP
-      também reprova o contraste do preço "de" (`.compra__de`) e o botão da foto, cujo nome pra
-      leitor de tela não inclui o texto que aparece nele.
+- [x] **A PDP parou de pular, e sai pronta do build** (22/09). CLS 0,45 → 0: a página inteira vinha
+      por streaming atrás de um esqueleto da altura da dobra, e o rodapé aparecia logo embaixo e era
+      empurrado quando as seções chegavam. Agora os produtos do catálogo são pré-renderizados
+      (`generateStaticParams`) e a página não tem mais `<Suspense>` — com ele, até a página estática
+      saía em duas etapas, e o React 19 segura a troca em lotes de 300 ms (LCP de 2,55s). Handle fora
+      da lista é montado na hora, inteiro, e o que não existe responde 404 de verdade (antes era 200
+      com noindex). Junto, os dois reprovados de acessibilidade da PDP: o contraste do preço "de"
+      (opacidade 0,5 → 0,7 na fonte do `pdp.css`: 3:1 → 5,3:1) e o selo "-31%" dentro do botão da
+      foto, que agora é `aria-hidden` (o desconto já está no preço). A PDP entrou no Lighthouse do
+      CI. Com o Medusa falso: LCP 2,48 → 2,18s, desempenho 0,77 → 0,99, acessibilidade 0,96 → 1.
 - [ ] **Minha conta**, em quatro partes (a quarta saiu da terceira). Protótipo aprovado:
       `apps/loja/ferramentas/porte/prototipo-conta.html`.
   - [x] 1. Entrar com código de 6 dígitos no e-mail, sem senha; o primeiro código cria a conta, e o

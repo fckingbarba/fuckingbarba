@@ -1,7 +1,6 @@
 import type { Metadata } from "next"
-import { Suspense } from "react"
 import { Secoes } from "@/components/secoes"
-import { buscarProdutoPorHandle } from "@/lib/medusa"
+import { buscarProdutoPorHandle, listarProdutos } from "@/lib/medusa"
 // Só aqui, e não no globals.css: ver "O QUE NÃO MORA AQUI" lá.
 import "@/estilos/telas/produto.css"
 
@@ -14,18 +13,38 @@ import "@/estilos/telas/produto.css"
  * o quê e em que ordem. Ligar, desligar e reordenar seção vira dado — que é
  * o que o painel vai mexer, sem tocar em JSX.
  *
- * Sobre 404: com Cache Components o shell (cabeçalho) sai com status 200
- * antes de o produto ser lido; produto inexistente vira not-found com meta
- * noindex (soft 404, que o Google não indexa). Um 404 de status real exige
- * checar a existência no proxy — quando o catálogo estiver estável, o proxy
- * passa a comparar o handle com a lista gerada no build.
- *
- * A FAZER: `generateStaticParams` com os handles do catálogo, pra
- * pré-renderizar no build. Com Cache Components ele precisa devolver pelo
- * menos um handle, então entra junto com a virada do catálogo.
+ * Os produtos do catálogo saem prontos do build (`generateStaticParams`,
+ * abaixo). Handle fora da lista é montado no servidor na hora do pedido,
+ * inteiro, e o que não existe responde 404 de verdade, com noindex — sem
+ * `<Suspense>` na página, nada sai antes de o produto ser lido.
  */
 
 type Props = PageProps<"/produtos/[handle]">
+
+/**
+ * OS PRODUTOS DO CATÁLOGO SAEM PRONTOS DO BUILD.
+ *
+ * ┌─ POR QUE ────────────────────────────────────────────────────────────────┐
+ * │ Sem esta lista, a PDP inteira vinha por streaming: o servidor mandava    │
+ * │ o cabeçalho, o esqueleto da dobra e, logo embaixo dele, o rodapé.        │
+ * │ Quando as seções chegavam, o rodapé era empurrado tela abaixo — o        │
+ * │ Lighthouse media CLS de 0,45 (bom é abaixo de 0,1), e o maior elemento   │
+ * │ da tela enquanto isso era o texto do rodapé. Era o defeito da            │
+ * │ categoria, e a saída é a mesma: página estática.                         │
+ * └──────────────────────────────────────────────────────────────────────────┘
+ *
+ * Produto que não está na lista — criado depois do build, ou um kit de
+ * quantidade, que a listagem esconde — é montado na hora do pedido (ver a
+ * página, abaixo): a resposta demora um pouco mais, mas chega inteira.
+ *
+ * NUNCA VAZIA: com Cache Components, lista vazia é erro de build. Sem Medusa
+ * (build na máquina, sem backend), sai um marcador que vira "não encontrado".
+ */
+export async function generateStaticParams() {
+  const produtos = await listarProdutos()
+  if (!produtos.length) return [{ handle: "__sem-catalogo__" }]
+  return produtos.map((produto) => ({ handle: produto.handle }))
+}
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { handle } = await params
@@ -41,43 +60,19 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 }
 
-export default function PaginaProduto({ params }: Props) {
+/**
+ * SEM `<Suspense>` EM VOLTA, de propósito. Com ele, até a página gerada no
+ * build saía em duas etapas: o esqueleto primeiro e o conteúdo depois,
+ * trocado por um script no fim do HTML — e o React 19 junta essas trocas de
+ * 300 em 300 ms. O título e a foto só apareciam na troca, e o LCP ia junto:
+ * 2,55s no Lighthouse, contra 2,18s da categoria. Sem ele, o HTML já sai com
+ * a página inteira, pintada na primeira passada.
+ */
+export default async function PaginaProduto({ params }: Props) {
+  const { handle } = await params
   return (
     <main id="conteudo" className="flex-1">
-      <Suspense fallback={<EsqueletoDaDobra />}>
-        <Conteudo params={params} />
-      </Suspense>
+      <Secoes escopo="produto" handle={handle} />
     </main>
-  )
-}
-
-async function Conteudo({ params }: Pick<Props, "params">) {
-  const { handle } = await params
-  return <Secoes escopo="produto" handle={handle} />
-}
-
-/**
- * O esqueleto tem as MESMAS medidas da dobra: mesma grade, mesma proporção
- * de foto, mesma altura de botão. Um retângulo genérico no lugar certo
- * custaria o mesmo e faria a página pular quando o conteúdo chegasse — que é
- * exatamente o que o Cache Components existe pra evitar.
- */
-function EsqueletoDaDobra() {
-  return (
-    <section className="pdp" aria-hidden="true">
-      <div className="pdp__wrap animate-pulse">
-        <div className="pdp__cabeca">
-          <div className="h-10 w-3/4 bg-tinta/10" />
-        </div>
-        <div className="galeria">
-          <div className="galeria__palco bg-tinta/5" />
-        </div>
-        <div className="compra space-y-4">
-          <div className="h-10 w-40 bg-tinta/10" />
-          <div className="h-24 w-full bg-tinta/10" />
-          <div className="h-14 w-full bg-tinta/10" />
-        </div>
-      </div>
-    </section>
   )
 }
