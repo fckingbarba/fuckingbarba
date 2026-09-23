@@ -329,6 +329,13 @@ entrega pendurada, toda mudança de quantidade faz o Medusa cotar de novo; o `co
 `client.ts` junta perguntas iguais do MESMO carrinho por 10 s, e é por isso que a rota
 `/store/frete` recebe `cart_id` quando quem pergunta é a sacola.
 
+A **newsletter** do rodapé é um módulo próprio (`src/modules/newsletter/`, tabela
+`newsletter_inscricao`): só o e-mail, a origem e a data do consentimento, como a Política de
+Privacidade promete. Entra por `POST /store/newsletter` (a mesma resposta pra quem já estava na
+lista, e os limites por IP assinado do código da conta) e se vê, baixa em CSV e remove no admin, em
+"Newsletter". Remover APAGA — é o "pode sair quando quiser" e o pedido de exclusão da LGPD. A
+tabela `loja.newsletter` do Supabase, do plano antigo, ficou sem uso.
+
 ## Fora dos limites
 
 - `apps/backend/.medusa/`, `apps/loja/.next/`, `node_modules/` — gerados.

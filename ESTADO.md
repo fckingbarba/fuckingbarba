@@ -405,6 +405,13 @@ aparecem na conta e no log, sem e-mail automático — esses a loja conversa com
       (opacidade 0,5 → 0,7 na fonte do `pdp.css`: 3:1 → 5,3:1) e o selo "-31%" dentro do botão da
       foto, que agora é `aria-hidden` (o desconto já está no preço). A PDP entrou no Lighthouse do
       CI. Com o Medusa falso: LCP 2,48 → 2,18s, desempenho 0,77 → 0,99, acessibilidade 0,96 → 1.
+- [x] **A newsletter do rodapé guarda de verdade** (23/09). Antes o envio era interceptado e a
+      pessoa era avisada de que nada tinha sido guardado. Agora o e-mail vai pro Medusa (módulo
+      `newsletter`) com a data do consentimento e a origem, e aparece no admin em **Newsletter**:
+      a lista, o botão **Baixar CSV** (abre certo no Excel) e **Remover** pra quem pedir pra sair —
+      remover apaga, como a Política de Privacidade promete. Mesma resposta pra quem já estava na
+      lista (o formulário não revela quem é cliente) e limite por IP contra robô. Testado de ponta a
+      ponta num Medusa local. Quando houver ferramenta de e-mail marketing, é importar o CSV dela.
 - [ ] **Minha conta**, em quatro partes (a quarta saiu da terceira). Protótipo aprovado:
       `apps/loja/ferramentas/porte/prototipo-conta.html`.
   - [x] 1. Entrar com código de 6 dígitos no e-mail, sem senha; o primeiro código cria a conta, e o
