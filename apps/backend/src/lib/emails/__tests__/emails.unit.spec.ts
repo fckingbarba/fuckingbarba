@@ -1,6 +1,7 @@
 import { emailDoCodigo } from "../codigo"
 import { emailDoEnvio, type EnvioDoAviso, type PedidoDoAviso } from "../envio"
 import { emReais, esc, urlDaLoja } from "../moldura"
+import { emailDaNotaComProblema } from "../erp"
 import { emailDePedidoCancelado, type CancelamentoDoEmail } from "../pedido-cancelado"
 import { emailDePedidoConfirmado, rotuloDaEntrega, type PedidoDoEmail } from "../pedido-confirmado"
 import { emailDaTroca, emailDeEmailTrocado } from "../troca-de-email"
@@ -416,5 +417,46 @@ describe("e-mails do caminho da encomenda", () => {
     expect(montar("enviado").html).toContain(`href="${LOJA}/conta/pedidos/order_01ABC"`)
     delete process.env.LOJA_URL
     expect(montar("enviado").html).not.toContain("/conta/pedidos/")
+  })
+})
+
+describe("a nota que não saiu (pra equipe)", () => {
+  const antes = process.env.MEDUSA_BACKEND_URL
+  beforeEach(() => {
+    process.env.MEDUSA_BACKEND_URL = "https://api.exemplo.com"
+  })
+  afterAll(() => {
+    if (antes === undefined) delete process.env.MEDUSA_BACKEND_URL
+    else process.env.MEDUSA_BACKEND_URL = antes
+  })
+  const aviso = (jeito: "a-mao" | "acompanha" | "reconectar") =>
+    emailDaNotaComProblema("equipe@exemplo.com", {
+      erp: "Bling",
+      pedidoId: "order_01ABC",
+      numero: 14,
+      motivo:
+        "o Bling negou a permissão pro cliente (403): falta o escopo “Clientes e Fornecedores” no app",
+      jeito,
+    })
+
+  it("falta permissão: marcar o escopo e conectar de novo — e NÃO emitir à mão", () => {
+    const e = aviso("reconectar")
+    expect(e.assunto).toBe("A nota do pedido #14 não saiu")
+    expect(e.html).toContain("Clientes e Fornecedores")
+    expect(e.html).toContain("Conectar de novo")
+    expect(e.html).toContain("não emita à mão")
+    expect(e.html).toContain('href="https://api.exemplo.com/app/erp"')
+  })
+
+  it("a loja desistiu: corrigir e tentar de novo pelo admin, ou emitir à mão", () => {
+    const e = aviso("a-mao")
+    expect(e.html).toContain("Tentar de novo")
+    expect(e.html).toContain("emita a nota à mão no Bling")
+  })
+
+  it("a nota está no ERP: corrigir e reenviar lá, com o link do pedido", () => {
+    expect(aviso("acompanha").html).toContain(
+      'href="https://api.exemplo.com/app/orders/order_01ABC"'
+    )
   })
 })

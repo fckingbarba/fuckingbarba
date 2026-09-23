@@ -369,6 +369,13 @@ depois da primeira conexão (`notas_desde`). Autorizada, solta `erp.nota_autoriz
 espera a nota (`notaParaAEtiqueta`) e leva número e chave no `Invoice`. Cancelado sem nota
 autorizada, a loja apaga a nota pendente e cancela o pedido de venda; com nota autorizada, e-mail
 pra equipe (a API não cancela NF-e). O conferidor é o `conferir-erp.mjs`, com o `bling-falso.mjs`.
+O **403 do Bling é escopo que falta no app** (e a resposta de produção veio sem corpo): o
+`chamarBling` põe na mensagem o escopo que o caminho pede (`escopoDoCaminho`, com o nome da tela de
+escopos do app) e marca `semPermissao`; na nota isso NÃO é definitivo (`precisaDeGente`): a equipe
+recebe o aviso de conectar de novo, a loja segue tentando, e conectar de novo zera a espera das
+notas pendentes. `POST /admin/erp/permissoes` confere escopo por escopo, com uma leitura inofensiva
+de cada recurso; `POST /admin/erp/notas/tentar` devolve à fila a nota de que a loja desistiu. No
+Bling falso, `painel.semEscopo` nega os recursos que você puser lá.
 
 A **importação do catálogo** (`src/lib/erp/catalogo.ts`; a tela é `admin/routes/erp/catalogo`)
 traz os produtos do ERP em dois passos: a prévia, sem efeito (`GET /admin/erp/catalogo`), e a troca

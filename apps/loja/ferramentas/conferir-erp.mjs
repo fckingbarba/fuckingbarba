@@ -529,6 +529,85 @@ try {
       (await pendencias()).some((p) => p.referencia === `FB-${F.numero}` && p.tipo === "nao-sai"),
       "a tela do ERP mostra: emitir à mão"
     )
+
+    // A equipe põe o CPF no pedido e manda tentar de novo, pelo admin.
+    const { corpo: lido } = await adm(`/admin/orders/${F.id}?fields=*billing_address`)
+    const cobranca = lido.order?.billing_address ?? {}
+    // Só os campos que o admin aceita no endereço (o validador é estrito).
+    const CAMPOS = ["first_name", "last_name", "phone", "company", "address_1", "address_2"]
+    CAMPOS.push("city", "country_code", "province", "postal_code")
+    const { status: sEnd } = await adm(`/admin/orders/${F.id}`, {
+      method: "POST",
+      body: JSON.stringify({
+        billing_address: {
+          ...Object.fromEntries(
+            CAMPOS.filter((k) => cobranca[k] != null).map((k) => [k, cobranca[k]])
+          ),
+          metadata: { ...(cobranca.metadata ?? {}), documento: { tipo: "cpf", valor: CPF } },
+        },
+      }),
+    })
+    const { corpo: tentou } = await adm("/admin/erp/notas/tentar", {
+      method: "POST",
+      body: JSON.stringify({ pedidoId: F.id }),
+    })
+    ok(
+      sEnd === 200 &&
+        tentou.resultado?.resultado === "autorizada" &&
+        bling.notaDoPedidoDeVenda(`FB-${F.numero}`)?.situacao === 5,
+      "com o CPF posto, “Tentar de novo” emite a nota na hora",
+      JSON.stringify({ sEnd, tentou })
+    )
+    ok(
+      !(await pendencias()).some((p) => p.referencia === `FB-${F.numero}`),
+      "e a pendência some da tela"
+    )
+  }
+
+  /* ── 8b. falta uma permissão no app ───────────────────────────────────────── */
+
+  titulo("Falta uma permissão no app do Bling: a loja diz qual, e segue tentando")
+  {
+    bling.semEscopo.add("/contatos")
+    const { corpo: pc } = await adm("/admin/erp/permissoes", { method: "POST" })
+    const escopo = (nome) => pc.permissoes?.find((p) => p.escopo === nome)
+    ok(
+      escopo("Clientes e Fornecedores")?.ok === false &&
+        pc.permissoes?.filter((p) => p.ok === false).length === 1,
+      "a conferência das permissões aponta a que falta (Clientes e Fornecedores), e só ela",
+      JSON.stringify(pc.permissoes?.map((p) => [p.escopo, p.ok]))
+    )
+
+    const G = await fabrica.pedidoPix(novoEmail(), [["oleo-para-barba", 1]], { documento: CPF })
+    await fabrica.pagar(G)
+    const email = await esperarQue(() => praEquipe(`A nota do pedido #${G.numero} não saiu`)[0])
+    ok(
+      /Clientes e Fornecedores/.test(email?.html ?? "") &&
+        /Conectar de novo/.test(email?.html ?? "") &&
+        /não emita à mão/.test(email?.html ?? ""),
+      "a equipe recebe o e-mail com o escopo que falta, e que é pra conectar de novo (não emitir à mão)"
+    )
+    const pendente = (await pendencias()).find((p) => p.referencia === `FB-${G.numero}`)
+    ok(
+      pendente?.tipo === "tentando" && /Clientes e Fornecedores/.test(pendente.detalhe ?? ""),
+      "a tela do ERP mostra a nota esperando, com o motivo",
+      JSON.stringify(pendente)
+    )
+    ok(!bling.pedidoDeVenda(`FB-${G.numero}`), "e nada foi criado no Bling")
+
+    // Alguém marca o escopo no app e conecta de novo, pelo admin.
+    bling.semEscopo.clear()
+    const { corpo: c2 } = await adm("/admin/erp/conectar", { method: "POST" })
+    const volta2 = (await fetch(c2.url, { redirect: "manual" })).headers.get("location") ?? ""
+    const fim2 = await fetch(volta2, { redirect: "manual" })
+    await adm("/admin/erp/notas", { method: "POST" })
+    ok(
+      fim2.headers.get("location") === "/app/erp?conectado=1" &&
+        bling.notaDoPedidoDeVenda(`FB-${G.numero}`)?.situacao === 5,
+      "conectado de novo, a nota sai na varredura seguinte — sem esperar a vez dela",
+      `${fim2.headers.get("location")} · ${bling.notaDoPedidoDeVenda(`FB-${G.numero}`)?.situacao}`
+    )
+    ok(!(await pendencias()).some((p) => p.referencia === `FB-${G.numero}`), "e a pendência some")
   }
 
   /* ── 9. os produtos do Bling ──────────────────────────────────────────────── */

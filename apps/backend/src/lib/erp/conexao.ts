@@ -5,7 +5,7 @@ import { ERP } from "../../modules/erp"
 import type ErpService from "../../modules/erp/service"
 import { avisarAEquipe } from "./avisos"
 import { abrir, fechar } from "./cofre"
-import type { Acesso, Credenciais, ErpDaLoja } from "./contrato"
+import type { Acesso, Credenciais, ErpDaLoja, PermissaoNoErp } from "./contrato"
 import { emailDaConexaoQueCaiu } from "../emails/erp"
 
 /**
@@ -130,6 +130,12 @@ export async function concluirAutorizacao(
         queda_avisada_em: null,
       })
       memoria.set(erp.id, r.credenciais)
+      // A nota que esperava (a conexão, ou a permissão que faltava no app)
+      // tenta de novo na próxima varredura, em vez de esperar a vez dela.
+      await servico(container).updateNotas({
+        selector: { erp: erp.id, situacao: "a-emitir", definitivo: false },
+        data: { proxima_em: null },
+      })
       container
         .resolve(ContainerRegistrationKeys.LOGGER)
         .info(`[erp] ${erp.nome} conectado${r.empresa ? ` (${r.empresa})` : ""}`)
@@ -240,6 +246,15 @@ export async function avisarQuedaSeForAHora(
 }
 
 /* ── pra tela do admin ────────────────────────────────────────────────────── */
+
+/** Cada escopo que a loja usa, conferido no ERP agora. `null`: desconectado. */
+export async function conferirPermissoes(
+  container: MedusaContainer,
+  erp: ErpDaLoja
+): Promise<PermissaoNoErp[] | null> {
+  const acesso = await acessoAoErp(container, erp)
+  return acesso ? erp.conferirPermissoes(acesso) : null
+}
 
 export type SituacaoDaConexao = {
   erp: { id: string; nome: string }
