@@ -32,7 +32,9 @@ import { erpDaLoja } from "./erps"
  *
  * SKU QUE O ERP NÃO CONHECE NÃO É MEXIDO: melhor o número de antes do que
  * zerar um produto por causa de um cadastro faltando — e o relatório (na
- * tela do ERP, no admin) diz qual.
+ * tela do ERP, no admin) diz qual. Só entram os produtos PUBLICADOS: o
+ * rascunho não está à venda (os kits de quantidade aposentados, FBFCB01-K2
+ * e -K3, estão lá, e o Bling nunca teve esses códigos).
  */
 
 export type RelatorioDoEstoque = {
@@ -54,7 +56,7 @@ type Variacao = {
   sku?: string | null
   title?: string | null
   manage_inventory?: boolean | null
-  product?: { handle?: string | null; title?: string | null } | null
+  product?: { handle?: string | null; title?: string | null; status?: string | null } | null
   inventory_items?:
     ({ inventory_item_id?: string | null; required_quantity?: number | null } | null)[] | null
 }
@@ -155,6 +157,7 @@ export async function sincronizarEstoque(
           "title",
           "manage_inventory",
           "product.handle",
+          "product.status",
           "product.title",
           "inventory_items.inventory_item_id",
           "inventory_items.required_quantity",
@@ -162,7 +165,10 @@ export async function sincronizarEstoque(
       })
       const porItem = new Map<string, { sku: string; handle: string | null }>()
       for (const v of data as Variacao[]) {
-        if (!v.manage_inventory) continue
+        // Só o que está à venda: o rascunho (os kits de quantidade aposentados,
+        // um produto em preparo) não tem estoque que importe, e o SKU dele
+        // pode nem existir no ERP — viraria um aviso eterno na tela e no log.
+        if (!v.manage_inventory || v.product?.status !== "published") continue
         const sku = v.sku?.trim()
         const itens = (v.inventory_items ?? []).filter((i) => i?.inventory_item_id)
         if (!sku) {
