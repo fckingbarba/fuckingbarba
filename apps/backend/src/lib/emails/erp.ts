@@ -91,8 +91,8 @@ export function emailDaNotaParaCancelar(para: string, a: NotaParaCancelar): Emai
     vencido
       ? "O prazo de 24 horas da SEFAZ já passou: aí a nota não se cancela mais, e o caminho é uma " +
         "nota de estorno ou de devolução — combine com o contador."
-      : "Depois de cancelar lá, a loja não precisa de mais nada: o estoque volta pelo " +
-        `${a.erp} e aparece na loja na sincronização seguinte.`,
+      : `Depois de cancelar a nota lá, a loja cancela o pedido de venda sozinha (em até 5 ` +
+        `minutos), e o estoque volta pelo ${a.erp}.`,
   ]
   const forte = vencido
     ? "O prazo de cancelamento já passou — fale com o contador."
@@ -108,6 +108,37 @@ export function emailDaNotaParaCancelar(para: string, a: NotaParaCancelar): Emai
     blocos,
     forte,
     link: href ? { texto: "Abrir o pedido no admin", href } : null,
+  })
+}
+
+/**
+ * O pedido cancelado que a loja não conseguiu desfazer no ERP (o ERP recusou
+ * cancelar o pedido de venda, ou a nota já estava autorizada): alguém cancela
+ * lá. A loja segue tentando sozinha — o que alguém cancelar lá, ela percebe.
+ */
+export function emailDoPedidoParaDesfazer(
+  para: string,
+  a: { erp: string; pedidoId: string; numero: number; referencia: string; motivo: string }
+): Email {
+  const assunto = `Cancele no ${a.erp} o pedido #${a.numero}`
+  const forte = `No ${a.erp}, cancele o pedido de venda ${a.referencia}.`
+  const href = linkDoAdmin("erp")
+  return montar({
+    para,
+    assunto,
+    previa: forte,
+    cabeca: "Cancele o pedido no ERP",
+    blocos: [
+      `O pedido #${a.numero} foi cancelado na loja, e a loja não conseguiu cancelar no ` +
+        `${a.erp} o que tinha feito lá: ${a.motivo}.`,
+      `No ${a.erp}: Vendas → Pedidos de venda → ${a.referencia} → os três pontinhos → ` +
+        `Cancelado. Se houver nota autorizada dele, cancele a nota também (Notas fiscais de ` +
+        `saída → Cancelar NF-e, em até 24 horas da autorização). A loja segue tentando ` +
+        `sozinha; se o motivo for permissão, marque o escopo no app e clique em "Conectar de ` +
+        `novo" na tela do ERP.`,
+    ],
+    forte,
+    link: href ? { texto: "Abrir a tela do ERP", href } : null,
   })
 }
 

@@ -1,6 +1,6 @@
 import type { PedidoParaNota } from "../../../lib/erp/contrato"
 import { chamarBling, escopoDoCaminho, motivoDoErro } from "../api"
-import { emitirNota } from "../notas"
+import { desfazerNota, emitirNota } from "../notas"
 import { conferirPermissoes } from "../permissoes"
 
 afterEach(() => jest.restoreAllMocks())
@@ -272,5 +272,82 @@ describe("a janela de cancelamento: o pedido de venda na hora, a nota depois", (
     expect(chamadas.filter((c) => c === "POST /contatos" || c === "POST /pedidos/vendas")).toEqual(
       []
     )
+  }, 30_000)
+})
+
+describe("o pedido cancelado: desfazer no Bling", () => {
+  /** Um Bling com a nota e o pedido de venda deste teste; devolve as chamadas. */
+  const bling = ({
+    nota,
+    pedido = 9,
+    patch = 204,
+  }: {
+    nota: number | "apagada"
+    pedido?: number
+    patch?: number
+  }) => {
+    const chamadas: string[] = []
+    jest.spyOn(global, "fetch").mockImplementation(async (entrada, init) => {
+      const caminho = new URL(String(entrada)).pathname.replace(/^\/Api\/v3/, "")
+      const metodo = init?.method ?? "GET"
+      chamadas.push(`${metodo} ${caminho}`)
+      const json = (dados: unknown, status = 200) =>
+        new Response(dados === undefined ? null : JSON.stringify(dados), { status })
+      if (caminho === "/nfe/900" && metodo === "GET")
+        return nota === "apagada"
+          ? json({ error: { message: "não existe" } }, 404)
+          : json({ data: { id: 900, situacao: nota } })
+      if (caminho === "/nfe" && metodo === "DELETE") return json({ data: { idsExcluidos: [900] } })
+      if (caminho === "/pedidos/vendas/500" && metodo === "GET")
+        return json({ data: { id: 500, situacao: { id: pedido, valor: 0 } } })
+      if (caminho === "/pedidos/vendas/500/situacoes/12" && metodo === "PATCH")
+        return json(undefined, patch)
+      // Sem ler as situações da conta, vale o "Cancelado" padrão (12).
+      return json({ error: { message: `não esperado: ${metodo} ${caminho}` } }, 404)
+    })
+    return chamadas
+  }
+
+  it("a nota que alguém cancelou no painel: não mexe nela, e cancela o pedido de venda", async () => {
+    const chamadas = bling({ nota: 2 })
+    expect(await desfazerNota(acesso, { contato: 7, pedido: 500, nota: 900 })).toEqual({
+      ok: true,
+      como: "a nota já estava cancelada e o pedido de venda foi cancelado",
+    })
+    expect(chamadas).toContain("PATCH /pedidos/vendas/500/situacoes/12")
+    expect(chamadas).not.toContain("DELETE /nfe")
+  }, 30_000)
+
+  it("a nota que a loja já apagou (404) não trava: segue pro pedido de venda", async () => {
+    const chamadas = bling({ nota: "apagada" })
+    expect(await desfazerNota(acesso, { pedido: 500, nota: 900 })).toMatchObject({ ok: true })
+    expect(chamadas).toContain("PATCH /pedidos/vendas/500/situacoes/12")
+  }, 30_000)
+
+  it("o pedido de venda já cancelado (à mão, ou antes) não vai de novo", async () => {
+    const chamadas = bling({ nota: 2, pedido: 12 })
+    expect(await desfazerNota(acesso, { pedido: 500, nota: 900 })).toEqual({
+      ok: true,
+      como: "a nota já estava cancelada e o pedido de venda já estava cancelado",
+    })
+    expect(chamadas.some((c) => c.startsWith("PATCH"))).toBe(false)
+  }, 30_000)
+
+  it("o Bling recusa (403): precisa de alguém, e o motivo diz o escopo", async () => {
+    bling({ nota: 1, patch: 403 })
+    expect(await desfazerNota(acesso, { pedido: 500, nota: 900 })).toEqual({
+      ok: false,
+      motivo: expect.stringContaining("Pedidos de Venda"),
+      precisaDeGente: true,
+    })
+  }, 30_000)
+
+  it("a nota autorizada: não desfaz — alguém cancela a nota no painel antes", async () => {
+    const chamadas = bling({ nota: 5 })
+    expect(await desfazerNota(acesso, { pedido: 500, nota: 900 })).toMatchObject({
+      ok: false,
+      precisaDeGente: true,
+    })
+    expect(chamadas.some((c) => c.startsWith("PATCH") || c.startsWith("DELETE"))).toBe(false)
   }, 30_000)
 })

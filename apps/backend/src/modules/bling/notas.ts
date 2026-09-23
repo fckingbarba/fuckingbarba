@@ -41,7 +41,9 @@ import { produtosPorSku } from "./produtos"
  * especificação, 23/09). Quem cancela é alguém, no painel do Bling, em até
  * 24 horas (Santa Catarina). A loja avisa (`lib/erp/notas.ts`); aqui, só o
  * que a API deixa: apagar a nota que não foi autorizada e cancelar o pedido
- * de venda.
+ * de venda — inclusive o da nota que alguém já cancelou no painel (o Bling
+ * deixa o pedido "Atendido" quando gera a nota, e cancelar a nota não mexe
+ * nele).
  */
 
 type PassosDoBling = { contato?: number; pedido?: number; nota?: number }
@@ -524,6 +526,22 @@ async function situacaoCancelado(acesso: Acesso): Promise<number> {
   return cancelado ?? 12
 }
 
+/** A situação do pedido de venda (o id), ou `null` se ele não existe mais no Bling. */
+async function situacaoDoPedido(acesso: Acesso, pedido: number): Promise<number | null> {
+  try {
+    const r = await chamarBling<{ data?: { situacao?: { id?: unknown } | number | null } }>(
+      acesso,
+      "GET",
+      `/pedidos/vendas/${pedido}`
+    )
+    const s = r.corpo?.data?.situacao
+    return inteiro(typeof s === "object" && s ? s.id : s) ?? 0
+  } catch (e) {
+    if (e instanceof ErroDoBling && e.status === 404) return null
+    throw e
+  }
+}
+
 export async function desfazerNota(
   acesso: Acesso,
   passosGuardados: Passos
@@ -532,22 +550,28 @@ export async function desfazerNota(
   try {
     const feito: string[] = []
     if (passos.nota) {
-      const nota = await consultar(acesso, passos.nota)
-      if (nota.situacao === "autorizada") {
+      // 404: a loja já apagou a nota numa tentativa anterior (e o cancelamento
+      // do pedido falhou depois) — segue pro pedido de venda.
+      const nota = await consultar(acesso, passos.nota).catch((e) => {
+        if (e instanceof ErroDoBling && e.status === 404) return null
+        throw e
+      })
+      if (nota?.situacao === "autorizada") {
         return { ok: false, motivo: "a nota já foi autorizada", precisaDeGente: true }
       }
-      if (nota.situacao === "processando") {
+      if (nota?.situacao === "processando") {
         return {
           ok: false,
           motivo: "a nota está na SEFAZ, sem resposta ainda",
           precisaDeGente: false,
         }
       }
-      if (nota.situacao === "denegada") {
+      if (nota?.situacao === "denegada") {
         // Nota denegada não se cancela nem se apaga: fica no Bling como está.
         feito.push("a nota denegada fica no Bling")
       }
-      if (nota.situacao === "pendente" || nota.situacao === "rejeitada") {
+      if (nota?.situacao === "cancelada") feito.push("a nota já estava cancelada")
+      if (nota?.situacao === "pendente" || nota?.situacao === "rejeitada") {
         const r = await chamarBling<{ data?: { idsExcluidos?: unknown[] } }>(
           acesso,
           "DELETE",
@@ -568,16 +592,28 @@ export async function desfazerNota(
       }
     }
     if (passos.pedido) {
-      await chamarBling(
-        acesso,
-        "PATCH",
-        `/pedidos/vendas/${passos.pedido}/situacoes/${await situacaoCancelado(acesso)}`
-      )
-      feito.push("o pedido de venda foi cancelado")
+      // Cancelado à mão no Bling (ou numa tentativa anterior): não manda de novo.
+      const cancelado = await situacaoCancelado(acesso)
+      const atual = await situacaoDoPedido(acesso, passos.pedido)
+      if (atual === null) feito.push("o pedido de venda não existe mais no Bling")
+      else if (atual === cancelado) feito.push("o pedido de venda já estava cancelado")
+      else {
+        await chamarBling(
+          acesso,
+          "PATCH",
+          `/pedidos/vendas/${passos.pedido}/situacoes/${cancelado}`
+        )
+        feito.push("o pedido de venda foi cancelado")
+      }
     }
     return { ok: true, como: feito.join(" e ") || "nada tinha chegado ao Bling" }
   } catch (e) {
     const f = comoFalha(e)
-    return { ok: false, motivo: f.motivo, precisaDeGente: f.definitivo }
+    // A permissão que falta (403) também precisa de alguém: o escopo, ou cancelar lá.
+    return {
+      ok: false,
+      motivo: f.motivo,
+      precisaDeGente: f.definitivo || Boolean(f.precisaDeGente),
+    }
   }
 }

@@ -40,7 +40,7 @@ type Relatorio = {
 type Pendencia = {
   pedidoId: string
   referencia: string
-  tipo: "cancelar" | "rejeitada" | "denegada" | "nao-sai" | "tentando"
+  tipo: "cancelar" | "desfazer" | "rejeitada" | "denegada" | "nao-sai" | "tentando"
   detalhe: string | null
   prazo: string | null
 }
@@ -64,6 +64,8 @@ type Situacao = {
 /** As janelas da lista; outra, gravada pela API, aparece como "N minutos". */
 const JANELAS: { minutos: number; rotulo: string }[] = [
   { minutos: 0, rotulo: "Na hora do pagamento" },
+  { minutos: 5, rotulo: "5 minutos depois do pagamento" },
+  { minutos: 15, rotulo: "15 minutos depois do pagamento" },
   { minutos: 30, rotulo: "30 minutos depois do pagamento" },
   { minutos: 60, rotulo: "1 hora depois do pagamento" },
   { minutos: 120, rotulo: "2 horas depois do pagamento" },
@@ -106,6 +108,8 @@ type ResultadoDaNota =
 
 const O_QUE_FAZER: Record<Pendencia["tipo"], string> = {
   cancelar: "Pedido cancelado com a nota autorizada: cancele a nota no ERP",
+  desfazer:
+    "Pedido cancelado: a loja não conseguiu cancelar o pedido de venda no ERP — ela segue tentando; se preferir, cancele lá",
   rejeitada: "Rejeitada pela SEFAZ: corrija e reenvie no ERP — a loja acompanha",
   denegada: "Denegada pela SEFAZ: fale com o contador",
   "nao-sai":
@@ -415,7 +419,9 @@ const ErpPage = () => {
               <ul className="flex flex-col gap-2">
                 {s.pendencias.map((p) => (
                   <li key={`${p.pedidoId}-${p.tipo}`}>
-                    <Alert variant={p.tipo === "cancelar" ? "error" : "warning"}>
+                    <Alert
+                      variant={p.tipo === "cancelar" || p.tipo === "desfazer" ? "error" : "warning"}
+                    >
                       <div className="flex flex-col gap-1">
                         <Text size="small" weight="plus">
                           <a className="underline" href={`/app/orders/${p.pedidoId}`}>
@@ -431,6 +437,11 @@ const ErpPage = () => {
                         {p.detalhe ? (
                           <Text size="small" className="text-ui-fg-subtle">
                             {p.detalhe}
+                          </Text>
+                        ) : null}
+                        {p.tipo === "cancelar" ? (
+                          <Text size="small" className="text-ui-fg-subtle">
+                            Cancelada a nota lá, a loja cancela o pedido de venda sozinha.
                           </Text>
                         ) : null}
                         {p.tipo === "nao-sai" ? (

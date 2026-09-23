@@ -35,7 +35,9 @@
  * │ • a nota que demora na SEFAZ e ninguém volta pra buscar; a rejeitada   │
  * │   sem aviso pra equipe, e a corrigida no Bling que a loja não percebe; │
  * │ • o cancelado que deixa pedido e nota no Bling — ou a nota autorizada  │
- * │   de pedido cancelado sem o e-mail que manda cancelar em 24 horas;     │
+ * │   de pedido cancelado sem o e-mail que manda cancelar em 24 horas, e o │
+ * │   pedido de venda que fica "Atendido" depois de a nota ser cancelada   │
+ * │   lá; o cancelamento que o Bling recusa sem ninguém ficar sabendo;     │
  * │ • a janela antes da nota: a nota que sai antes dela fechar, o pedido   │
  * │   de venda que não vai na hora, o cancelado dentro dela que deixa algo │
  * │   no Bling ou manda e-mail, e o "Emitir agora" que não passa;          │
@@ -214,13 +216,18 @@ try {
       "o admin mostra a empresa e desde quando as notas saem",
       JSON.stringify({ conectado: s.conectado, empresa: s.empresa })
     )
-    ok(
-      s.janelaDaNota === 120 && Array.isArray(s.esperando),
-      "sem ninguém escolher, a nota espera 2 horas depois do pagamento (o padrão)",
-      String(s.janelaDaNota)
-    )
     // As seções da nota, até a da janela, conferem a nota que sai na hora.
     const janelaAntes = s.janelaDaNota
+    const { status: sPadrao } = await adm("/admin/erp/notas/janela", {
+      method: "POST",
+      body: JSON.stringify({ minutos: null }),
+    })
+    const padrao = (await adm("/admin/erp")).corpo
+    ok(
+      sPadrao === 200 && padrao.janelaDaNota === 5 && Array.isArray(padrao.esperando),
+      "sem ninguém escolher, a nota espera 5 minutos depois do pagamento (o padrão)",
+      String(padrao.janelaDaNota)
+    )
     await adm("/admin/erp/notas/janela", { method: "POST", body: JSON.stringify({ minutos: 0 }) })
     limpar.push(() =>
       adm("/admin/erp/notas/janela", {
@@ -538,6 +545,46 @@ try {
     )
   }
 
+  /* ── 6b. o Bling recusa cancelar o pedido de venda ───────────────────────── */
+
+  titulo("O Bling recusa cancelar o pedido de venda: a equipe fica sabendo, e a loja insiste")
+  bling.sefaz = "pendente"
+  {
+    const D2 = await fabrica.pedidoPix(novoEmail(), [["shampoo-para-barba", 1]], {
+      documento: CPF,
+    })
+    await fabrica.pagar(D2)
+    const refD2 = `FB-${D2.numero}`
+    const nota = await esperarQue(() => bling.notaDoPedidoDeVenda(refD2))
+    // O app sem a permissão de mudar a situação do pedido de venda.
+    bling.semEscopo.add("PATCH /pedidos/vendas")
+    await fabrica.cancelar(D2)
+    const email = await esperarQue(() => praEquipe(`Cancele no Bling o pedido #${D2.numero}`)[0])
+    ok(
+      Boolean(email) &&
+        email.text.includes(refD2) &&
+        /Pedidos de Venda/.test(email.text) &&
+        !/emita/.test(email.text) &&
+        !bling.notas.has(nota?.id) &&
+        bling.pedidoDeVenda(refD2)?.situacao !== 12,
+      "a nota pendente é apagada; o pedido de venda, recusado: e-mail pra cancelar lá (e não pra emitir)",
+      email?.text?.slice(0, 200)
+    )
+    ok(
+      (await pendencias()).some(
+        (p) => p.referencia === refD2 && p.tipo === "desfazer" && /Pedidos de Venda/.test(p.detalhe)
+      ),
+      "e a tela do ERP mostra o pedido que falta cancelar, com o motivo"
+    )
+    bling.semEscopo.clear()
+    await adm("/admin/erp/notas", { method: "POST" })
+    ok(
+      bling.pedidoDeVenda(refD2)?.situacao === 12 &&
+        !(await pendencias()).some((p) => p.referencia === refD2),
+      "com a permissão de volta, a varredura cancela o pedido de venda (a nota já apagada não trava) e a pendência some"
+    )
+  }
+
   /* ── 7. cancelado com a nota autorizada ───────────────────────────────────── */
 
   titulo("Cancelado com a nota autorizada: e-mail pra cancelar no Bling em 24 horas")
@@ -565,8 +612,54 @@ try {
       "e a tela do ERP mostra a nota pra cancelar, com o prazo"
     )
     ok(
-      bling.pedidoDeVenda(refE)?.situacao !== 12,
-      "a loja não mexe no pedido de venda com nota autorizada"
+      bling.pedidoDeVenda(refE)?.situacao === 9,
+      "a loja não mexe no pedido de venda com nota autorizada (fica “Atendido”, como o Bling deixa)"
+    )
+    await adm("/admin/erp/notas", { method: "POST" })
+    ok(
+      praEquipe(`Cancele a nota do pedido #${E.numero} no Bling`).length === 1 &&
+        bling.pedidoDeVenda(refE)?.situacao === 9,
+      "a varredura pergunta pela nota, sem mandar o e-mail de novo"
+    )
+
+    // Alguém cancela a nota no painel do Bling, como o e-mail pediu — e o aviso chega.
+    const notaE = bling.cancelarNota(bling.notaDoPedidoDeVenda(refE))
+    ok(
+      (await bling.avisar(AVISO, "invoice.updated", { id: notaE.id, situacao: 2 })) === 200,
+      "cancelada a nota no Bling, o aviso dela chega"
+    )
+    ok(
+      Boolean(await esperarQue(() => bling.pedidoDeVenda(refE)?.situacao === 12)) &&
+        Boolean(
+          await esperarQue(async () => !(await pendencias()).some((p) => p.referencia === refE))
+        ),
+      "e a loja cancela o pedido de venda sozinha — a pendência some"
+    )
+  }
+
+  /* ── 7b. a nota cancelada no Bling, sem aviso ─────────────────────────────── */
+
+  titulo("A nota cancelada no Bling sem o aviso: a varredura percebe e cancela o pedido de venda")
+  bling.sefaz = "autoriza"
+  {
+    const E2 = await fabrica.pedidoPix(novoEmail(), [["balm-para-barba", 1]], { documento: CPF })
+    await fabrica.pagar(E2)
+    const refE2 = `FB-${E2.numero}`
+    await esperarQue(() => bling.notaDoPedidoDeVenda(refE2)?.situacao === 5)
+    await fabrica.cancelar(E2)
+    await esperarQue(() => praEquipe(`Cancele a nota do pedido #${E2.numero} no Bling`)[0])
+    bling.cancelarNota(bling.notaDoPedidoDeVenda(refE2))
+    const antes = bling.pedidoDeVenda(refE2)?.situacao
+    await adm("/admin/erp/notas", { method: "POST" })
+    ok(
+      antes === 9 && bling.pedidoDeVenda(refE2)?.situacao === 12,
+      "a varredura pergunta pela nota, acha cancelada e cancela o pedido de venda",
+      `${antes} → ${bling.pedidoDeVenda(refE2)?.situacao}`
+    )
+    ok(
+      !(await pendencias()).some((p) => p.referencia === refE2) &&
+        praEquipe(`Cancele no Bling o pedido #${E2.numero}`).length === 0,
+      "sem pendência e sem e-mail de problema"
     )
   }
 
@@ -717,15 +810,15 @@ try {
 
   /* ── 8d. a janela antes da nota ────────────────────────────────────────────── */
 
-  titulo("A janela: o pedido de venda vai na hora, a nota espera 2 horas")
+  titulo("A janela: o pedido de venda vai na hora, e a nota espera (aqui, 2 horas)")
   bling.sefaz = "autoriza"
   {
     const janela = (minutos) =>
       adm("/admin/erp/notas/janela", { method: "POST", body: JSON.stringify({ minutos }) })
-    const invalidos = await Promise.all([-1, 1441, 1.5, "120", null].map((m) => janela(m)))
+    const invalidos = await Promise.all([-1, 1441, 1.5, "120", undefined].map((m) => janela(m)))
     ok(
       invalidos.every((r) => r.status === 400),
-      "a janela só aceita minutos inteiros, de 0 a 24 horas",
+      "a janela só aceita minutos inteiros, de 0 a 24 horas (ou null, o padrão)",
       invalidos.map((r) => r.status).join(",")
     )
     const { status: sJ, corpo: cJ } = await janela(120)

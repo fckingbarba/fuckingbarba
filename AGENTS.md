@@ -367,7 +367,7 @@ o Medusa reservou pros pedidos que já estão lá (senão o pedido pago desconta
 vai pro ERP no `payment.captured`, pela varredura `acompanhar-notas` (5 em 5 minutos) e pelo aviso
 do ERP (`/hooks/erp/:erp`, assinado com HMAC do client secret sobre o corpo cru); só pros pedidos
 pagos depois da primeira conexão (`notas_desde`). A **JANELA DE CANCELAMENTO**
-(`erp_conexao.janela_da_nota`, em minutos; `null` = 2 horas, 0 = na hora; `POST
+(`erp_conexao.janela_da_nota`, em minutos; `null` = 5 minutos, 0 = na hora; `POST
 /admin/erp/notas/janela`): dentro dela, `emitirNota` vai com `ate: "pedido"` — cliente e pedido de
 venda, sem nota — e a varredura emite quando ela fecha. Ela conta do PRIMEIRO pagamento, a cada vez
 (não é gravada no registro): mudar a janela vale pra quem já espera. Cancelado dentro dela, o
@@ -377,7 +377,13 @@ confere a janela numa seção dela (e devolve o valor de antes no fim). Autoriza
 `subscribers/nota-autorizada.ts` manda o pedido pro painel da Frenet — que, com o ERP conectado,
 espera a nota (`notaParaAEtiqueta`) e leva número e chave no `Invoice`. Cancelado sem nota
 autorizada, a loja apaga a nota pendente e cancela o pedido de venda; com nota autorizada, e-mail
-pra equipe (a API não cancela NF-e). O conferidor é o `conferir-erp.mjs`, com o `bling-falso.mjs`.
+pra equipe (a API não cancela NF-e) e, quando a nota aparece cancelada (o aviso `invoice.updated`,
+ou a varredura, que pergunta pelas autorizadas de pedido cancelado), a loja cancela o pedido de
+venda — o Bling deixa ele "Atendido" ao gerar a nota. O `desfazerNota` confere a situação do
+pedido antes (já cancelado, não manda de novo) e passa pelo 404 da nota que ele mesmo já apagou. A
+marca `cancelar` é gravada antes da trava, e a varredura marca o cancelado cujo evento se perdeu.
+Falha no desfazer que precisa de alguém (o 403 inclusive) vira o e-mail "Cancele no <ERP> o pedido
+#N" e a pendência "desfazer"; a loja segue tentando. O conferidor é o `conferir-erp.mjs`, com o `bling-falso.mjs`.
 O **403 do Bling é escopo que falta no app** (e a resposta de produção veio sem corpo): o
 `chamarBling` põe na mensagem o escopo que o caminho pede (`escopoDoCaminho`, com o nome da tela de
 escopos do app) e marca `semPermissao`; na nota isso NÃO é definitivo (`precisaDeGente`): a equipe

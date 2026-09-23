@@ -17,6 +17,7 @@ import {
   emailDaNotaComProblema,
   emailDaNotaParaCancelar,
   emailDaNotaParaConferir,
+  emailDoPedidoParaDesfazer,
   type JeitoDoAviso,
 } from "../emails/erp"
 import { referenciaDoPedido } from "../envios/parceiro"
@@ -31,7 +32,7 @@ import { erpDaLoja, erpPorId } from "./erps"
  *
  *   pago ──▶ emitirNotaDoPedido ──▶ o pedido no ERP, na hora
  *                                            │
- *                            a janela (2 horas, na tela do ERP)
+ *                          a janela (5 minutos, na tela do ERP)
  *                                            ▼
  *                                   a nota ──▶ SEFAZ
  *                                            │
@@ -62,8 +63,8 @@ import { erpDaLoja, erpPorId } from "./erps"
  * ┌─ A JANELA DE CANCELAMENTO (decidida em 23/09) ─────────────────────────┐
  * │ A API do Bling não cancela nota autorizada. Então a nota espera: o     │
  * │ pedido de venda vai pro ERP na hora (e reserva o estoque lá), e a nota │
- * │ só sai quando a janela fecha — 2 horas depois do pagamento, ou o que a │
- * │ tela do ERP disser (0 = na hora). O pedido cancelado dentro dela é     │
+ * │ só sai quando a janela fecha — 5 minutos depois do pagamento, ou o que │
+ * │ a tela do ERP disser (0 = na hora). O pedido cancelado dentro dela é   │
  * │ desfeito sozinho, sem nota pra cancelar e sem e-mail; a etiqueta da    │
  * │ Frenet espera a nota. A janela conta do primeiro pagamento, a cada     │
  * │ vez — não fica gravada no registro —, então mudar na tela vale também  │
@@ -76,7 +77,11 @@ import { erpDaLoja, erpPorId } from "./erps"
  * │ nota que não foi autorizada, cancela o pedido de venda). Com nota      │
  * │ autorizada, a API não cancela (no Bling, não existe a rota): vai um    │
  * │ e-mail pra equipe dizendo qual nota cancelar e até que horas — 24      │
- * │ horas depois da autorização, em Santa Catarina.                        │
+ * │ horas depois da autorização, em Santa Catarina. Cancelada a nota lá,   │
+ * │ a loja percebe (pelo aviso do ERP, ou perguntando a cada varredura) e  │
+ * │ cancela o pedido de venda sozinha — o Bling deixa ele "Atendido".      │
+ * │ O que não der certo vira e-mail e pendência na tela do ERP, e a loja   │
+ * │ segue tentando (7 dias).                                               │
  * └────────────────────────────────────────────────────────────────────────┘
  */
 
@@ -394,7 +399,7 @@ async function aplicarEstado(
 async function avisarUmaVez(
   container: MedusaContainer,
   linha: LinhaDaNota,
-  qual: "problema" | "cancelar" | "conferir",
+  qual: "problema" | "cancelar" | "conferir" | "desfazer",
   montar: (para: string) => import("../email").Email,
   agora: Date
 ) {
@@ -447,6 +452,8 @@ async function avisarCancelamento(
   linha: LinhaDaNota,
   agora: Date
 ) {
+  // Já avisou: a varredura só pergunta, até alguém cancelar a nota lá.
+  if (linha.avisos?.cancelar) return
   const numero = await numeroDoPedido(container, linha)
   const emitida = linha.emitida_em ? new Date(linha.emitida_em) : null
   await avisarUmaVez(
@@ -469,6 +476,31 @@ async function avisarCancelamento(
     .warn(
       `[erp] o ${linha.referencia} foi cancelado com a nota autorizada — cancele a nota no ${erp.nome}`
     )
+}
+
+/** O pedido cancelado que a loja não conseguiu desfazer no ERP: alguém cancela lá. */
+async function avisarDesfazer(
+  container: MedusaContainer,
+  erp: ErpDaLoja,
+  linha: LinhaDaNota,
+  motivo: string,
+  agora: Date
+) {
+  const numero = await numeroDoPedido(container, linha)
+  await avisarUmaVez(
+    container,
+    linha,
+    "desfazer",
+    (para) =>
+      emailDoPedidoParaDesfazer(para, {
+        erp: erp.nome,
+        pedidoId: linha.pedido_id,
+        numero,
+        referencia: linha.referencia,
+        motivo,
+      }),
+    agora
+  )
 }
 
 async function soltarAutorizada(container: MedusaContainer, pedidoId: string) {
@@ -502,7 +534,11 @@ async function acompanharSobTrava(
   return c
 }
 
-/** O pedido foi cancelado: desfazer no ERP o que dá, ou avisar pra cancelar lá. */
+/**
+ * O pedido foi cancelado: desfazer no ERP o que dá, ou avisar pra cancelar
+ * lá. A nota "cancelada" é a que alguém cancelou no ERP (o e-mail pediu):
+ * falta o pedido de venda, e é a loja que cancela.
+ */
 async function tratarCancelado(
   container: MedusaContainer,
   erp: ErpDaLoja,
@@ -511,13 +547,8 @@ async function tratarCancelado(
   agora: Date
 ) {
   if (linha.situacao === "autorizada") return avisarCancelamento(container, erp, linha, agora)
-  if (
-    linha.situacao === "processando" ||
-    linha.situacao === "cancelada" ||
-    linha.situacao === "desfeita"
-  ) {
-    return // a varredura volta quando a SEFAZ responder
-  }
+  // Na SEFAZ, sem resposta: a varredura volta. Desfeita: não há mais nada.
+  if (linha.situacao === "processando" || linha.situacao === "desfeita") return
   if (!acesso) return
   const r = await erp.desfazerNota(acesso, (linha.no_erp ?? {}) as Record<string, unknown>)
   if (r.ok) {
@@ -528,17 +559,18 @@ async function tratarCancelado(
       .info(`[erp] ${linha.referencia} cancelado: ${r.como} no ${erp.nome}`)
     return
   }
+  linha.erro = r.motivo
   await atualizarNota(container, linha.id, { erro: r.motivo })
-  if (r.precisaDeGente) {
-    await avisarProblema(
-      container,
-      erp,
-      linha,
-      `o pedido foi cancelado, e a loja não conseguiu desfazer no ${erp.nome} (${r.motivo}) — cancele o pedido de venda lá`,
-      "a-mao",
-      agora
-    )
+  if (!r.precisaDeGente) return // passa sozinho: a varredura tenta de novo
+  if (!linha.avisos?.desfazer) {
+    container
+      .resolve(ContainerRegistrationKeys.LOGGER)
+      .warn(
+        `[erp] ${linha.referencia} cancelado, e o ${erp.nome} não deixou desfazer (${r.motivo}) — ` +
+          "cancele lá; a loja segue tentando"
+      )
   }
+  await avisarDesfazer(container, erp, linha, r.motivo, agora)
 }
 
 /* ── um pedido ────────────────────────────────────────────────────────────── */
@@ -769,9 +801,11 @@ export async function desfazerNotaDoPedido(
   agora = new Date()
 ): Promise<void> {
   const inicial = await notaDoPedido(container, pedidoId)
-  if (!inicial || inicial.situacao === "desfeita" || inicial.situacao === "cancelada") return
+  if (!inicial || inicial.situacao === "desfeita") return
   const erp = erpPorId(inicial.erp)
   if (!erp) return
+  // A marca vem antes da trava: se ela demorar, a varredura sabe o que desfazer.
+  if (!inicial.cancelar) await atualizarNota(container, inicial.id, { cancelar: true })
   const acesso = await acessoAoErp(container, erp)
   await container.resolve(Modules.LOCKING).execute(
     `erp-nota:${pedidoId}`,
@@ -851,12 +885,13 @@ export type Pendencia = {
   pedidoId: string
   referencia: string
   /**
-   * "cancelar" (nota autorizada de pedido cancelado), "rejeitada", "denegada",
-   * "nao-sai" (a loja desistiu: alguém corrige e manda tentar de novo, ou
-   * emite à mão) ou "tentando" (não saiu ainda, e a loja segue tentando — a
-   * permissão que falta no app aparece aqui).
+   * "cancelar" (nota autorizada de pedido cancelado), "desfazer" (pedido
+   * cancelado que a loja ainda não conseguiu desfazer no ERP — ela segue
+   * tentando), "rejeitada", "denegada", "nao-sai" (a loja desistiu: alguém
+   * corrige e manda tentar de novo, ou emite à mão) ou "tentando" (não saiu
+   * ainda, e a loja segue tentando — a permissão que falta no app aparece aqui).
    */
-  tipo: "cancelar" | "rejeitada" | "denegada" | "nao-sai" | "tentando"
+  tipo: "cancelar" | "desfazer" | "rejeitada" | "denegada" | "nao-sai" | "tentando"
   detalhe: string | null
   /** Até quando a SEFAZ aceita o cancelamento (só no "cancelar"). */
   prazo: string | null
@@ -885,13 +920,18 @@ export async function pendenciasDasNotas(
         },
       ]
     }
+    if (n.cancelar && n.situacao !== "desfeita" && n.erro) {
+      return [{ ...base, tipo: "desfazer", detalhe: n.erro, prazo: null }]
+    }
+    // O resto do pedido cancelado a loja resolve sozinha (espera a SEFAZ, ou desfaz na varredura).
+    if (n.cancelar) return []
     if (n.situacao === "rejeitada" || n.situacao === "denegada") {
       return [{ ...base, tipo: n.situacao, detalhe: n.detalhe, prazo: null }]
     }
     if (n.situacao === "a-emitir" && n.definitivo) {
       return [{ ...base, tipo: "nao-sai", detalhe: n.erro, prazo: null }]
     }
-    if (n.situacao === "a-emitir" && n.erro && !n.cancelar) {
+    if (n.situacao === "a-emitir" && n.erro) {
       const proxima = n.proxima_em ? new Date(n.proxima_em).toISOString() : null
       return [{ ...base, tipo: "tentando", detalhe: n.erro, prazo: proxima }]
     }
@@ -1012,12 +1052,38 @@ export async function acompanharNotas(
     if (r.resultado === "autorizada") relatorio.autorizadas.push(nota.referencia)
   }
 
-  /* 2. o cancelado com o que desfazer no ERP */
+  /*
+    1b. a nota autorizada de pedido cancelado: a loja pergunta se alguém já
+    cancelou a nota no ERP (o aviso do ERP pode não vir) — cancelada, a loja
+    cancela o pedido de venda.
+  */
+  const aCancelarNoErp = (await servico(container).listNotas(
+    { erp: erp.id, cancelar: true, situacao: "autorizada", created_at: { $gte: semana } },
+    { take: 50, order: { updated_at: "ASC" } }
+  )) as LinhaDaNota[]
+  for (const nota of aCancelarNoErp) {
+    await container
+      .resolve(Modules.LOCKING)
+      .execute(
+        `erp-nota:${nota.pedido_id}`,
+        async () => {
+          const atual = await notaDoPedido(container, nota.pedido_id)
+          if (atual?.cancelar && atual.situacao === "autorizada")
+            await acompanharSobTrava(container, erp, acesso, atual, agora)
+          if ((await notaDoPedido(container, nota.pedido_id))?.situacao === "desfeita")
+            relatorio.desfeitas++
+        },
+        { timeout: 120 }
+      )
+      .catch(() => undefined)
+  }
+
+  /* 2. o cancelado com o que desfazer no ERP (inclusive a nota que alguém cancelou lá) */
   const canceladas = (await servico(container).listNotas(
     {
       erp: erp.id,
       cancelar: true,
-      situacao: ["a-emitir", "rejeitada", "denegada"],
+      situacao: ["a-emitir", "rejeitada", "denegada", "cancelada"],
       created_at: { $gte: semana },
     },
     { take: 50 }
@@ -1047,12 +1113,27 @@ export async function acompanharNotas(
       fields: ["payment_collection_id", "order.id", "order.status"],
       filters: { payment_collection_id: colecoes },
     })
-    const linhas = (
-      data as {
-        payment_collection_id?: string
-        order?: { id?: string; status?: string } | null
-      }[]
-    ).filter((l) => l.order?.id && l.order.status !== "canceled")
+    const todas = data as {
+      payment_collection_id?: string
+      order?: { id?: string; status?: string } | null
+    }[]
+    // O cancelado cujo aviso se perdeu (o evento do Medusa, a trava que demorou): a
+    // nota dele ainda não sabe. Marca e desfaz, como o `pedido-cancelado` faria.
+    const cancelados = [
+      ...new Set(
+        todas.filter((l) => l.order?.id && l.order.status === "canceled").map((l) => l.order!.id!)
+      ),
+    ]
+    if (cancelados.length) {
+      const semMarca = (await servico(container).listNotas(
+        { erp: erp.id, pedido_id: cancelados, cancelar: false },
+        { take: 200 }
+      )) as LinhaDaNota[]
+      for (const n of semMarca.filter((x) => x.situacao !== "desfeita")) {
+        await desfazerNotaDoPedido(container, n.pedido_id, agora).catch(() => undefined)
+      }
+    }
+    const linhas = todas.filter((l) => l.order?.id && l.order.status !== "canceled")
     const pedidos = [...new Set(linhas.map((l) => l.order!.id!))]
     // O primeiro pagamento de cada pedido: é dele que a janela conta.
     const pedidoDaCobranca = new Map(linhas.map((l) => [l.payment_collection_id, l.order!.id!]))
