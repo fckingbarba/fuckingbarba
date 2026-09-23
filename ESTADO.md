@@ -258,6 +258,14 @@ Como funciona, em uma linha cada:
   do pedido pro painel da Frenet (quando o token de parceiro chegar).
 - **Deu errado:** nota rejeitada, pedido sem CPF, produto que o Bling não tem — um e-mail pra
   equipe, e a pendência na tela ERP. Nota corrigida e reenviada no Bling, a loja percebe sozinha.
+  A nota de que a loja desistiu (o CPF faltava) tem o botão **"Tentar de novo"** na tela ERP, pra
+  depois de alguém corrigir o pedido.
+- **Falta permissão no app (403):** o Bling responde "sem permissão" quando o app não tem o escopo
+  do recurso. Foi o que aconteceu no primeiro pedido de verdade (#14, 23/09): o pedido de venda
+  nem chegou a ser criado. A tela ERP tem **"Conferir as permissões"**, que diz qual escopo falta;
+  a nota fica esperando (não desiste), a equipe recebe um e-mail dizendo o escopo, e depois de
+  marcar no app e **"Conectar de novo"** a loja tenta sozinha. Não emita à mão, senão a nota sai
+  duas vezes.
 - **Cancelado:** sem nota autorizada, a loja apaga a nota pendente e cancela o pedido de venda no
   Bling; com nota autorizada, o e-mail diz qual cancelar e até que horas.
 - **Pedidos de antes:** as notas automáticas valem pros pedidos pagos **depois da primeira

@@ -111,38 +111,69 @@ export function emailDaNotaParaCancelar(para: string, a: NotaParaCancelar): Emai
   })
 }
 
+/**
+ * O que a equipe faz com a nota que não saiu:
+ *   "a-mao"      a loja desistiu: emitir à mão no ERP (ou corrigir e tentar de
+ *                novo pelo admin);
+ *   "acompanha"  a nota está no ERP: corrigir e reenviar lá, e a loja acompanha;
+ *   "reconectar" falta permissão no app do ERP: marcar o escopo e conectar de
+ *                novo — a loja segue tentando sozinha.
+ */
+export type JeitoDoAviso = "a-mao" | "acompanha" | "reconectar"
+
 export type NotaComProblema = {
   erp: string
   pedidoId: string
   numero: number
   motivo: string
-  /** A loja segue sozinha quando a nota for corrigida no ERP? */
-  acompanha: boolean
+  jeito: JeitoDoAviso
 }
 
-/** A nota não saiu: rejeitada, denegada, ou o ERP recusou o pedido. */
+/** A nota não saiu: rejeitada, denegada, o ERP recusou o pedido, ou falta permissão no app. */
 export function emailDaNotaComProblema(para: string, a: NotaComProblema): Email {
   const assunto = `A nota do pedido #${a.numero} não saiu`
-  const blocos = [
-    `A nota fiscal do pedido #${a.numero} não foi autorizada: ${a.motivo}.`,
-    a.acompanha
-      ? `Corrija no ${a.erp} e envie a nota de novo por lá. A loja acompanha: quando ela for ` +
-        "autorizada, o pedido segue sozinho (inclusive pro painel da Frenet)."
-      : `A loja não tenta de novo sozinha — emita a nota à mão no ${a.erp}. Até lá, o pedido ` +
-        "fica sem nota.",
-  ]
-  const forte = a.acompanha
-    ? `Corrija e reenvie a nota no ${a.erp}.`
-    : `Emita a nota do pedido #${a.numero} à mão no ${a.erp}.`
-  const href = linkDoAdmin(`orders/${encodeURIComponent(a.pedidoId)}`)
+  const causa = `A nota fiscal do pedido #${a.numero} não foi autorizada: ${a.motivo}.`
+  const porJeito: Record<JeitoDoAviso, { bloco: string; forte: string; ondeLink: string }> = {
+    "a-mao": {
+      bloco:
+        `A loja não tenta de novo sozinha. Se o problema for do pedido (o CPF que faltava), ` +
+        `corrija e clique em "Tentar de novo" na tela do ERP, no admin; senão, emita a nota à ` +
+        `mão no ${a.erp}. Até lá, o pedido fica sem nota.`,
+      forte: `Corrija e tente de novo pelo admin, ou emita a nota do pedido #${a.numero} à mão no ${a.erp}.`,
+      ondeLink: "erp",
+    },
+    acompanha: {
+      bloco:
+        `Corrija no ${a.erp} e envie a nota de novo por lá. A loja acompanha: quando ela for ` +
+        "autorizada, o pedido segue sozinho (inclusive pro painel da Frenet).",
+      forte: `Corrija e reenvie a nota no ${a.erp}.`,
+      ondeLink: `orders/${encodeURIComponent(a.pedidoId)}`,
+    },
+    reconectar: {
+      bloco:
+        `Falta uma permissão no app da loja no ${a.erp}. Marque o escopo no app (Central de ` +
+        `Extensões → Área do Integrador → o app da loja → escopos) e, no admin da loja, em ERP, ` +
+        `clique em "Conectar de novo". Depois disso a loja tenta de novo sozinha — não emita à ` +
+        "mão, senão a nota sai duas vezes. A tela do ERP tem o botão que confere as permissões.",
+      forte: `Marque o escopo no app do ${a.erp} e conecte de novo no admin.`,
+      ondeLink: "erp",
+    },
+  }
+  const j = porJeito[a.jeito]
+  const href = linkDoAdmin(j.ondeLink)
   return montar({
     para,
     assunto,
-    previa: forte,
+    previa: j.forte,
     cabeca: "A nota não saiu",
-    blocos,
-    forte,
-    link: href ? { texto: "Abrir o pedido no admin", href } : null,
+    blocos: [causa, j.bloco],
+    forte: j.forte,
+    link: href
+      ? {
+          texto: j.ondeLink === "erp" ? "Abrir a tela do ERP" : "Abrir o pedido no admin",
+          href,
+        }
+      : null,
   })
 }
 

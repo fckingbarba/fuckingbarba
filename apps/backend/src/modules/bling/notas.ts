@@ -375,8 +375,17 @@ async function gerarNota(acesso: Acesso, pedido: number): Promise<number> {
 
 /* ── o contrato ───────────────────────────────────────────────────────────── */
 
-function comoFalha(e: unknown): { ok: false; motivo: string; definitivo: boolean } {
+function comoFalha(e: unknown): {
+  ok: false
+  motivo: string
+  definitivo: boolean
+  precisaDeGente?: boolean
+} {
   if (e instanceof ErroDeDados) return { ok: false, motivo: e.message, definitivo: true }
+  // Permissão que falta no app: depois de marcar o escopo e conectar de novo,
+  // a mesma tentativa passa — não é pra desistir da nota.
+  if (e instanceof ErroDoBling && e.semPermissao)
+    return { ok: false, motivo: e.message, definitivo: false, precisaDeGente: true }
   if (e instanceof ErroDoBling) return { ok: false, motivo: e.message, definitivo: !e.temporario }
   return { ok: false, motivo: e instanceof Error ? e.message : String(e), definitivo: false }
 }

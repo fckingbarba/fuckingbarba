@@ -203,6 +203,12 @@ export type ResultadoDaEmissao =
       motivo: string
       /** Tentar de novo não resolve (o ERP recusou o que recebeu). */
       definitivo: boolean
+      /**
+       * Não é definitivo — depois do conserto, a mesma tentativa passa —, mas
+       * alguém precisa agir no ERP (a permissão que falta no app). A equipe
+       * recebe o aviso; a loja segue tentando.
+       */
+      precisaDeGente?: boolean
     }
 
 export type ResultadoDaConsulta = { ok: true; nota: EstadoDaNota } | { ok: false; motivo: string }
@@ -215,6 +221,18 @@ export type ResultadoDoDesfazer =
       /** Não há o que o código faça: alguém precisa desfazer no ERP. */
       precisaDeGente: boolean
     }
+
+/* ── as permissões do app ─────────────────────────────────────────────────── */
+
+export type PermissaoNoErp = {
+  /** O nome do escopo, como a pessoa acha na tela de escopos do app no ERP. */
+  escopo: string
+  /** Pra que a loja precisa dele. */
+  paraQue: string
+  /** `null`: não deu pra conferir agora (o ERP fora do ar, a conexão caída). */
+  ok: boolean | null
+  motivo: string | null
+}
 
 /* ── os avisos do ERP (webhooks) ──────────────────────────────────────────── */
 
@@ -284,4 +302,11 @@ export type ErpDaLoja = {
   idDaNota(passos: Passos): string | null
 
   lerAviso(chegada: ChegadaDoErp): LeituraDoAvisoDoErp
+
+  /**
+   * Cada escopo que a loja usa, conferido com uma leitura inofensiva. É o que
+   * diz, sem adivinhar, qual permissão falta no app quando o ERP responde
+   * "sem permissão".
+   */
+  conferirPermissoes(acesso: Acesso): Promise<PermissaoNoErp[]>
 }

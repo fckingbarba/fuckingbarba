@@ -13,7 +13,7 @@ import {
   telefone,
   type EnderecoDoMedusa,
 } from "../dados-do-pedido"
-import { emailDaNotaComProblema, emailDaNotaParaCancelar } from "../emails/erp"
+import { emailDaNotaComProblema, emailDaNotaParaCancelar, type JeitoDoAviso } from "../emails/erp"
 import { referenciaDoPedido } from "../envios/parceiro"
 import { avisarAEquipe } from "./avisos"
 import { acessoAoErp, avisarQuedaSeForAHora, lerConexao } from "./conexao"
@@ -391,7 +391,7 @@ async function avisarProblema(
   erp: ErpDaLoja,
   linha: LinhaDaNota,
   motivo: string,
-  acompanha: boolean,
+  jeito: JeitoDoAviso,
   agora: Date
 ) {
   const numero = await numeroDoPedido(container, linha)
@@ -405,7 +405,7 @@ async function avisarProblema(
         pedidoId: linha.pedido_id,
         numero,
         motivo,
-        acompanha,
+        jeito,
       }),
     agora
   )
@@ -467,7 +467,7 @@ async function acompanharSobTrava(
   if (linha.cancelar) {
     await tratarCancelado(container, erp, acesso, linha, agora)
   } else if (c.problema) {
-    await avisarProblema(container, erp, linha, c.problema, true, agora)
+    await avisarProblema(container, erp, linha, c.problema, "acompanha", agora)
   }
   return c
 }
@@ -505,7 +505,7 @@ async function tratarCancelado(
       erp,
       linha,
       `o pedido foi cancelado, e a loja não conseguiu desfazer no ${erp.nome} (${r.motivo}) — cancele o pedido de venda lá`,
-      false,
+      "a-mao",
       agora
     )
   }
@@ -568,7 +568,7 @@ export async function emitirNotaDoPedido(
           tentativas: atual.tentativas + 1,
         })
         logger.warn(`[erp] a nota do ${referencia} não sai: ${montado.motivo}`)
-        await avisarProblema(container, erp, atual, montado.motivo, false, agora)
+        await avisarProblema(container, erp, atual, montado.motivo, "a-mao", agora)
         return { resultado: "falhou", referencia, motivo: montado.motivo, definitivo: true }
       }
 
@@ -590,7 +590,12 @@ export async function emitirNotaDoPedido(
         })
         if (r.definitivo) {
           logger.warn(`[erp] a nota do ${referencia} foi recusada pelo ${erp.nome}: ${r.motivo}`)
-          await avisarProblema(container, erp, atual, r.motivo, false, agora)
+          await avisarProblema(container, erp, atual, r.motivo, "a-mao", agora)
+        } else if (r.precisaDeGente) {
+          // A permissão que falta no app: a equipe fica sabendo (uma vez), e a
+          // loja segue tentando — conectou de novo com o escopo, a nota sai.
+          logger.warn(`[erp] a nota do ${referencia} não sai até alguém agir: ${r.motivo}`)
+          await avisarProblema(container, erp, atual, r.motivo, "reconectar", agora)
         } else if (!quieto) {
           logger.warn(
             `[erp] a nota do ${referencia} não saiu agora (${r.motivo}) — a varredura tenta de novo`
@@ -601,7 +606,7 @@ export async function emitirNotaDoPedido(
 
       const c = await aplicarEstado(container, erp, atual, r.nota, agora)
       autorizou = c.autorizou
-      if (c.problema) await avisarProblema(container, erp, atual, c.problema, true, agora)
+      if (c.problema) await avisarProblema(container, erp, atual, c.problema, "acompanha", agora)
       if (atual.situacao === "autorizada")
         return { resultado: "autorizada", referencia, numero: r.nota.numero }
       if (atual.situacao === "processando" || atual.situacao === "a-emitir")
@@ -617,6 +622,23 @@ export async function emitirNotaDoPedido(
   )
   if (autorizou) await soltarAutorizada(container, pedidoId)
   return resultado
+}
+
+/**
+ * "TENTAR DE NOVO", pelo admin: a nota de que a loja tinha desistido (o CPF
+ * faltava no pedido, o ERP recusou o que recebeu) volta pra fila e sai na
+ * hora — é o botão pra depois que alguém corrigiu o que faltava. A nota que
+ * já existe no ERP não é criada de novo: os passos gravados continuam valendo.
+ */
+export async function tentarDeNovo(
+  container: MedusaContainer,
+  pedidoId: string,
+  agora = new Date()
+): Promise<ResultadoDaNota> {
+  const linha = await notaDoPedido(container, pedidoId)
+  if (linha?.situacao === "a-emitir")
+    await atualizarNota(container, linha.id, { definitivo: false, proxima_em: null, erro: null })
+  return emitirNotaDoPedido(container, pedidoId, { agora })
 }
 
 /** O aviso do ERP: esta nota mudou. */
@@ -739,8 +761,13 @@ export async function notaParaAEtiqueta(
 export type Pendencia = {
   pedidoId: string
   referencia: string
-  /** "cancelar" (nota autorizada de pedido cancelado), "rejeitada", "denegada" ou "nao-sai". */
-  tipo: "cancelar" | "rejeitada" | "denegada" | "nao-sai"
+  /**
+   * "cancelar" (nota autorizada de pedido cancelado), "rejeitada", "denegada",
+   * "nao-sai" (a loja desistiu: alguém corrige e manda tentar de novo, ou
+   * emite à mão) ou "tentando" (não saiu ainda, e a loja segue tentando — a
+   * permissão que falta no app aparece aqui).
+   */
+  tipo: "cancelar" | "rejeitada" | "denegada" | "nao-sai" | "tentando"
   detalhe: string | null
   /** Até quando a SEFAZ aceita o cancelamento (só no "cancelar"). */
   prazo: string | null
@@ -774,6 +801,10 @@ export async function pendenciasDasNotas(
     }
     if (n.situacao === "a-emitir" && n.definitivo) {
       return [{ ...base, tipo: "nao-sai", detalhe: n.erro, prazo: null }]
+    }
+    if (n.situacao === "a-emitir" && n.erro && !n.cancelar) {
+      const proxima = n.proxima_em ? new Date(n.proxima_em).toISOString() : null
+      return [{ ...base, tipo: "tentando", detalhe: n.erro, prazo: proxima }]
     }
     return []
   })

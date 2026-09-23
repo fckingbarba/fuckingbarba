@@ -21,7 +21,8 @@ import { createServer } from "node:http"
  *   - uma nota só por pedido de venda;
  *   - a lista de produtos sem `filtroSaldoEstoque` só traz saldo POSITIVO — o
  *     padrão que a especificação da v3 dá (a loja pergunta pelos três);
- *   - a foto de dentro do Bling tem link que muda a cada leitura (vence).
+ *   - a foto de dentro do Bling tem link que muda a cada leitura (vence);
+ *   - o recurso fora do escopo do app responde 403 (`painel.semEscopo`).
  *
  * As fotos saem de `/imagens/<n>.png` (sem token, como o link do S3 do Bling);
  * `painel.fotosServidas` conta quantas a loja baixou.
@@ -67,6 +68,12 @@ export async function subirBlingFalso({
      */
     produtos: new Map(),
     fotosServidas: 0,
+    /**
+     * Os recursos (começo do caminho: "/contatos") que o app NÃO tem no
+     * escopo: respondem 403, sem corpo — como o Bling de produção respondeu
+     * em 23/09.
+     */
+    semEscopo: new Set(),
     contatos: new Map(),
     pedidos: new Map(),
     notas: new Map(),
@@ -272,6 +279,10 @@ export async function subirBlingFalso({
       const token = (req.headers.authorization ?? "").replace(/^Bearer /, "")
       if (painel.revogado || !painel.acessos.has(token))
         return erro(res, 401, "token inválido", "invalid_token")
+      if ([...painel.semEscopo].some((c) => caminho.startsWith(c))) {
+        res.writeHead(403)
+        return res.end()
+      }
       painel.chamadas.push({
         metodo: req.method,
         caminho,

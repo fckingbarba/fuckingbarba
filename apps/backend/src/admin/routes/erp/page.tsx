@@ -36,7 +36,7 @@ type Relatorio = {
 type Pendencia = {
   pedidoId: string
   referencia: string
-  tipo: "cancelar" | "rejeitada" | "denegada" | "nao-sai"
+  tipo: "cancelar" | "rejeitada" | "denegada" | "nao-sai" | "tentando"
   detalhe: string | null
   prazo: string | null
 }
@@ -64,15 +64,40 @@ const quando = (iso: string | null | undefined) =>
       })
     : "—"
 
+type Permissao = {
+  escopo: string
+  paraQue: string
+  ok: boolean | null
+  motivo: string | null
+}
+
+type ResultadoDaNota =
+  | { resultado: "autorizada"; referencia: string; numero: string | null }
+  | { resultado: "processando"; referencia: string }
+  | { resultado: "nada"; motivo: string }
+  | { resultado: "falhou"; referencia: string; motivo: string; definitivo: boolean }
+
 const O_QUE_FAZER: Record<Pendencia["tipo"], string> = {
   cancelar: "Pedido cancelado com a nota autorizada: cancele a nota no ERP",
   rejeitada: "Rejeitada pela SEFAZ: corrija e reenvie no ERP — a loja acompanha",
   denegada: "Denegada pela SEFAZ: fale com o contador",
-  "nao-sai": "A loja não consegue emitir: emita à mão no ERP",
+  "nao-sai":
+    "A loja desistiu de emitir: corrija o que falta e tente de novo, ou emita à mão no ERP",
+  tentando: "A nota ainda não saiu — a loja tenta de novo sozinha",
 }
 
-async function pedir<T>(caminho: string, metodo: "GET" | "POST" = "GET"): Promise<T> {
-  const r = await fetch(caminho, { method: metodo, credentials: "include" })
+async function pedir<T>(
+  caminho: string,
+  metodo: "GET" | "POST" = "GET",
+  envio?: unknown
+): Promise<T> {
+  const r = await fetch(caminho, {
+    method: metodo,
+    credentials: "include",
+    ...(envio === undefined
+      ? {}
+      : { headers: { "content-type": "application/json" }, body: JSON.stringify(envio) }),
+  })
   const corpo = await r.json().catch(() => ({}))
   if (!r.ok)
     throw new Error((corpo as { message?: string }).message ?? `o backend respondeu ${r.status}`)
@@ -81,17 +106,58 @@ async function pedir<T>(caminho: string, metodo: "GET" | "POST" = "GET"): Promis
 
 const ErpPage = () => {
   const [s, setS] = useState<Situacao | null>(null)
-  const [ocupado, setOcupado] = useState<"conectar" | "estoque" | "notas" | null>(null)
+  const [ocupado, setOcupado] = useState<
+    "conectar" | "estoque" | "notas" | "permissoes" | `tentar:${string}` | null
+  >(null)
+  const [permissoes, setPermissoes] = useState<Permissao[] | null>(null)
 
   const ler = () =>
     pedir<Situacao>("/admin/erp")
       .then(setS)
       .catch(() => toast.error("Não consegui ler a situação do ERP agora."))
 
+  const conferirPermissoes = async () => {
+    setOcupado("permissoes")
+    try {
+      const { permissoes } = await pedir<{ permissoes: Permissao[] }>(
+        "/admin/erp/permissoes",
+        "POST"
+      )
+      setPermissoes(permissoes)
+    } catch (e) {
+      toast.error(`Não deu pra conferir as permissões: ${e instanceof Error ? e.message : e}`)
+    } finally {
+      setOcupado(null)
+    }
+  }
+
+  const tentarDeNovo = async (p: Pendencia) => {
+    setOcupado(`tentar:${p.pedidoId}`)
+    try {
+      const { resultado: r } = await pedir<{ resultado: ResultadoDaNota }>(
+        "/admin/erp/notas/tentar",
+        "POST",
+        { pedidoId: p.pedidoId }
+      )
+      if (r.resultado === "autorizada") toast.success(`${p.referencia}: nota autorizada.`)
+      else if (r.resultado === "processando")
+        toast.success(`${p.referencia}: a nota foi pra SEFAZ — a loja acompanha.`)
+      else toast.error(`${p.referencia}: não saiu — ${"motivo" in r ? r.motivo : "?"}.`)
+      await ler()
+    } catch (e) {
+      toast.error(`Não deu pra tentar de novo: ${e instanceof Error ? e.message : e}`)
+    } finally {
+      setOcupado(null)
+    }
+  }
+
   useEffect(() => {
     const busca = new URLSearchParams(window.location.search)
-    if (busca.get("conectado"))
+    if (busca.get("conectado")) {
       toast.success("Conectado. As notas e o estoque passam a andar sozinhos.")
+      // Logo depois de conectar: a hora de ver se o app tem todas as permissões.
+      void conferirPermissoes()
+    }
     const erro = busca.get("erro")
     if (erro) toast.error(`A conexão não foi concluída: ${erro}`)
     if (busca.has("conectado") || erro)
@@ -237,12 +303,28 @@ const ErpPage = () => {
                             {p.referencia}
                           </a>{" "}
                           — {O_QUE_FAZER[p.tipo]}
-                          {p.tipo === "cancelar" && p.prazo ? ` até ${quando(p.prazo)}` : ""}.
+                          {p.tipo === "cancelar" && p.prazo ? ` até ${quando(p.prazo)}` : ""}
+                          {p.tipo === "tentando" && p.prazo
+                            ? ` (a próxima tentativa é às ${quando(p.prazo)})`
+                            : ""}
+                          .
                         </Text>
                         {p.detalhe ? (
                           <Text size="small" className="text-ui-fg-subtle">
                             {p.detalhe}
                           </Text>
+                        ) : null}
+                        {p.tipo === "nao-sai" ? (
+                          <div className="mt-1">
+                            <Button
+                              size="small"
+                              variant="secondary"
+                              isLoading={ocupado === `tentar:${p.pedidoId}`}
+                              onClick={() => tentarDeNovo(p)}
+                            >
+                              Tentar de novo
+                            </Button>
+                          </div>
                         ) : null}
                       </div>
                     </Alert>
@@ -262,6 +344,57 @@ const ErpPage = () => {
                 onClick={conferirNotas}
               >
                 Conferir as notas agora
+              </Button>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-3 px-6 py-4">
+            <Heading level="h2">Permissões do app no {nome}</Heading>
+            <Text size="small" className="text-ui-fg-subtle">
+              O {nome} só deixa a loja mexer no que o app da loja tem permissão (os escopos). Quando
+              falta uma, ele responde &quot;sem permissão&quot; (403) — aqui a loja confere uma por
+              uma.
+            </Text>
+            {permissoes ? (
+              <ul className="flex flex-col gap-1">
+                {permissoes.map((p) => (
+                  <li key={p.escopo}>
+                    <Text
+                      size="small"
+                      className={
+                        p.ok === false ? "text-ui-fg-error" : p.ok ? "" : "text-ui-fg-subtle"
+                      }
+                    >
+                      {p.ok === false ? "✗" : p.ok ? "✓" : "?"} {p.escopo}
+                      <span className="text-ui-fg-subtle"> — {p.paraQue}</span>
+                      {p.ok === null && p.motivo ? ` (não deu pra conferir: ${p.motivo})` : ""}
+                    </Text>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            {permissoes?.some((p) => p.ok === false) ? (
+              <Alert variant="error">
+                Falta permissão no app:{" "}
+                {permissoes
+                  .filter((p) => p.ok === false)
+                  .map((p) => `“${p.escopo}”`)
+                  .join(", ")}
+                . No {nome}, em Central de Extensões → Área do Integrador → o app da loja, marque o
+                que falta nos escopos e salve. Depois, aqui, clique em &quot;Conectar de novo&quot;
+                — a loja tenta de novo sozinha as notas que ficaram esperando.
+              </Alert>
+            ) : permissoes?.every((p) => p.ok) ? (
+              <Text size="small">Todas as permissões que a loja usa estão no app.</Text>
+            ) : null}
+            <div>
+              <Button
+                size="small"
+                variant="secondary"
+                isLoading={ocupado === "permissoes"}
+                onClick={conferirPermissoes}
+              >
+                Conferir as permissões
               </Button>
             </div>
           </div>

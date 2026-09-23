@@ -3,6 +3,7 @@ import { concluirAutorizacao, configurado, renovar, urlDeAutorizacao } from "./a
 import { lerAviso } from "./avisos"
 import { lerCatalogo } from "./catalogo"
 import { consultarNota, desfazerNota, emitirNota, lerPassos } from "./notas"
+import { conferirPermissoes } from "./permissoes"
 import { lerSaldos } from "./produtos"
 
 /**
@@ -14,6 +15,7 @@ import { lerSaldos } from "./produtos"
  *   produtos.ts     SKU → id do Bling, e o saldo
  *   catalogo.ts     os produtos inteiros, pra importação (peso, medidas, fotos)
  *   notas.ts        cliente → pedido de venda → NF-e → SEFAZ
+ *   permissoes.ts   qual escopo falta no app (o 403 não diz)
  *   avisos.ts       o webhook assinado
  *
  * No dia em que a loja trocar de ERP, esta pasta sai, a do outro entra, e
@@ -38,4 +40,5 @@ export const bling: ErpDaLoja = {
     return nota ? String(nota) : null
   },
   lerAviso,
+  conferirPermissoes,
 }
