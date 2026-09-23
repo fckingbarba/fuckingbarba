@@ -260,6 +260,13 @@ Como funciona, em uma linha cada:
   equipe, e a pendência na tela ERP. Nota corrigida e reenviada no Bling, a loja percebe sozinha.
   A nota de que a loja desistiu (o CPF faltava) tem o botão **"Tentar de novo"** na tela ERP, pra
   depois de alguém corrigir o pedido.
+- **Cliente que o Bling já tinha:** a nota usa o cadastro do Bling (pelo CPF), e a loja atualiza
+  esse cadastro com quem comprou agora: nome, endereço, e-mail — inclusive o "e-mail pra nota
+  fiscal" — e telefone. Na primeira compra de teste (23/09) a nota saiu com o e-mail e o telefone
+  de outra pessoa, de um cadastro antigo com o mesmo CPF; a loja não mexia nesses dois. Se o Bling
+  recusar a atualização, a nota sai com o cadastro que está lá e a equipe recebe "Confira a nota
+  do pedido #N". O "$" dos pedidos da Nuvemshop é da integração nativa do Bling com a loja
+  virtual; o pedido da loja nova não tem (a loja guarda o número e a chave da nota do lado dela).
 - **Falta permissão no app (403):** o Bling responde "sem permissão" quando o app não tem o escopo
   do recurso. Foi o que aconteceu no primeiro pedido de verdade (#14, 23/09): o pedido de venda
   nem chegou a ser criado — com todas as leituras liberadas: o app lia o cliente e não podia

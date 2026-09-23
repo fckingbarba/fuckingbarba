@@ -166,3 +166,53 @@ describe("a conferência das permissões", () => {
     })
   })
 })
+
+describe("o cliente que o Bling não deixa atualizar", () => {
+  it("a nota sai com o cadastro que está lá, e volta com o aviso pra equipe conferir", async () => {
+    jest.spyOn(global, "fetch").mockImplementation(async (entrada, init) => {
+      const url = new URL(String(entrada))
+      const caminho = url.pathname.replace(/^\/Api\/v3/, "")
+      const metodo = init?.method ?? "GET"
+      const json = (dados: unknown, status = 200) => new Response(JSON.stringify(dados), { status })
+      if (caminho === "/contatos" && metodo === "GET")
+        return json({ data: [{ id: 7, numeroDocumento: "123.456.789-09", situacao: "A" }] })
+      if (caminho === "/contatos/7" && metodo === "GET")
+        return json({ data: { id: 7, nome: "Nome Antigo", email: "outra@exemplo.com" } })
+      if (caminho === "/contatos/7" && metodo === "PUT")
+        return json({ error: { message: "Não foi possível salvar o contato" } }, 400)
+      if (caminho === "/pedidos/vendas" && metodo === "GET") return json({ data: [] })
+      if (caminho === "/formas-pagamentos")
+        return json({ data: [{ id: 12, tipoPagamento: 17, situacao: 1, finalidade: 2 }] })
+      if (caminho === "/produtos")
+        return json({
+          data: [{ id: 99, codigo: "FBOL01", situacao: "A", estoque: { saldoVirtualTotal: 5 } }],
+        })
+      if (caminho === "/pedidos/vendas" && metodo === "POST")
+        return json({ data: { id: 500 } }, 201)
+      if (caminho === "/pedidos/vendas/500") return json({ data: { id: 500, notaFiscal: null } })
+      if (caminho === "/pedidos/vendas/500/gerar-nfe") return json({ idNotaFiscal: 900 }, 201)
+      if (caminho === "/nfe/900" && metodo === "GET")
+        return json({
+          data: {
+            id: 900,
+            situacao: 5,
+            numero: "000001",
+            serie: 1,
+            chaveAcesso: "4226",
+            valorNota: 54.9,
+          },
+        })
+      return json({ error: { message: `não esperado: ${metodo} ${caminho}` } }, 404)
+    })
+    const r = await emitirNota(acesso, PEDIDO, {}, async () => undefined)
+    expect(r).toMatchObject({
+      ok: true,
+      nota: { situacao: "autorizada" },
+      avisos: [
+        expect.stringContaining(
+          "o cadastro do cliente no Bling não foi atualizado com este pedido (Não foi possível salvar o contato)"
+        ),
+      ],
+    })
+  }, 30_000)
+})

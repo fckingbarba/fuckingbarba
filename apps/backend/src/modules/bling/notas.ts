@@ -84,8 +84,10 @@ export function corpoDoContato(p: PedidoParaNota) {
     numeroDocumento: c.documento.valor,
     // Consumidor final, não contribuinte do ICMS: é a venda da loja online.
     indicadorIe: 9,
-    ...(c.email ? { email: c.email } : {}),
-    ...(c.telefone ? { celular: c.telefone } : {}),
+    // O e-mail e o telefone vão também nos campos que a NOTA usa: o "e-mail
+    // pra nota fiscal" e o telefone fixo. Sem eles, a nota pega o que estiver lá.
+    ...(c.email ? { email: c.email, emailNotaFiscal: c.email } : {}),
+    ...(c.telefone ? { telefone: c.telefone, celular: c.telefone } : {}),
     endereco: { geral: enderecoDoBling(c.endereco) },
   }
 }
@@ -106,6 +108,17 @@ const igual = (a: unknown, b: unknown) =>
  * o PUT troca o contato todo, e um campo que ficasse de fora (o vendedor, o
  * tipo, o que a equipe cadastrou lá) seria apagado.
  */
+/**
+ * O cliente que JÁ EXISTE no Bling (o mesmo CPF), com os dados deste pedido:
+ * nome, endereço, e-mail e telefone — inclusive o "e-mail pra nota fiscal" e
+ * o telefone fixo, que são os que a NOTA usa. O resto do cadastro (vendedor,
+ * o endereço de cobrança, o que a equipe pôs lá) fica.
+ *
+ * Por que tudo: o cadastro antigo pode ser de outra época, ou ter os dados de
+ * outra pessoa — foi o que saiu na nota do primeiro pedido de teste (23/09):
+ * o CPF certo, com o e-mail e o telefone de outro cliente. Quem comprou agora
+ * é quem vai na nota.
+ */
 export function contatoAtualizado(
   existente: Record<string, unknown>,
   p: PedidoParaNota
@@ -113,9 +126,16 @@ export function contatoAtualizado(
   const novo = enderecoDoBling(p.cliente.endereco)
   const endereco = (existente.endereco ?? {}) as { geral?: Record<string, unknown> }
   const geral = endereco.geral ?? {}
+  const email = p.cliente.email
+  const fone = p.cliente.telefone
+  const digitos = (v: unknown) => String(v ?? "").replace(/\D/g, "")
   const mudou =
     !igual(existente.nome, p.cliente.nome) ||
-    (p.cliente.email !== null && !igual(existente.email, p.cliente.email)) ||
+    (email !== null &&
+      (!igual(existente.email, email) || !igual(existente.emailNotaFiscal, email))) ||
+    (fone !== null &&
+      (digitos(existente.telefone) !== digitos(fone) ||
+        digitos(existente.celular) !== digitos(fone))) ||
     (Object.keys(novo) as (keyof typeof novo)[]).some((k) =>
       k === "cep"
         ? geral.cep?.toString().replace(/\D/g, "") !== novo.cep.replace(/\D/g, "")
@@ -126,12 +146,16 @@ export function contatoAtualizado(
   return {
     ...resto,
     nome: p.cliente.nome,
-    ...(p.cliente.email ? { email: p.cliente.email } : {}),
+    ...(email ? { email, emailNotaFiscal: email } : {}),
+    ...(fone ? { telefone: fone, celular: fone } : {}),
     endereco: { ...endereco, geral: { ...geral, ...novo } },
   }
 }
 
-async function garantirContato(acesso: Acesso, p: PedidoParaNota): Promise<number> {
+async function garantirContato(
+  acesso: Acesso,
+  p: PedidoParaNota
+): Promise<{ id: number; aviso: string | null }> {
   const busca = await chamarBling<{
     data?: { id?: unknown; numeroDocumento?: unknown; situacao?: unknown }[]
   }>(
@@ -162,10 +186,18 @@ async function garantirContato(acesso: Acesso, p: PedidoParaNota): Promise<numbe
         ? contatoAtualizado(inteiroNoBling.corpo.data, p)
         : null
       if (novo) await chamarBling(acesso, "PUT", `/contatos/${id}`, { corpo: novo })
-    } catch {
-      // O endereço velho numa nota é menos grave que nota nenhuma: segue com o contato como está.
+    } catch (e) {
+      // Nota com o cadastro antigo é menos grave que nota nenhuma: segue com
+      // o contato como está — mas a equipe fica sabendo, pra conferir a nota.
+      return {
+        id,
+        aviso:
+          `o cadastro do cliente no Bling não foi atualizado com este pedido ` +
+          `(${e instanceof Error ? e.message : String(e)}) — a nota saiu com o nome, o ` +
+          "endereço, o e-mail e o telefone que já estavam lá",
+      }
     }
-    return id
+    return { id, aviso: null }
   }
   const criado = await chamarBling<{ data?: { id?: unknown } }>(acesso, "POST", "/contatos", {
     corpo: corpoDoContato(p),
@@ -178,7 +210,7 @@ async function garantirContato(acesso: Acesso, p: PedidoParaNota): Promise<numbe
       criado.corpo,
       true
     )
-  return id
+  return { id, aviso: null }
 }
 
 /* ── o pedido de venda ────────────────────────────────────────────────────── */
@@ -401,8 +433,13 @@ export async function emitirNota(
     Object.assign(passos, novo)
     await salvar({ ...passos })
   }
+  const avisos: string[] = []
   try {
-    if (!passos.contato) await gravar({ contato: await garantirContato(acesso, pedido) })
+    if (!passos.contato) {
+      const contato = await garantirContato(acesso, pedido)
+      if (contato.aviso) avisos.push(contato.aviso)
+      await gravar({ contato: contato.id })
+    }
     if (!passos.pedido) {
       await gravar({
         pedido:
@@ -428,7 +465,7 @@ export async function emitirNota(
       })
       nota = await consultar(acesso, passos.nota!)
     }
-    return { ok: true, nota }
+    return { ok: true, nota, ...(avisos.length ? { avisos } : {}) }
   } catch (e) {
     return comoFalha(e)
   }

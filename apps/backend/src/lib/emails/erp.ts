@@ -177,6 +177,35 @@ export function emailDaNotaComProblema(para: string, a: NotaComProblema): Email 
   })
 }
 
+/**
+ * A nota SAIU, mas talvez com dados errados do cliente: o ERP não deixou
+ * atualizar o cadastro dele com este pedido, e a nota foi com o que já estava
+ * lá (outro endereço, o e-mail ou o telefone de outra época — ou de outra
+ * pessoa, se o CPF foi usado por alguém antes).
+ */
+export function emailDaNotaParaConferir(
+  para: string,
+  a: { erp: string; pedidoId: string; numero: number; motivo: string }
+): Email {
+  const assunto = `Confira a nota do pedido #${a.numero}`
+  const forte = `Confira o destinatário da nota do pedido #${a.numero} no ${a.erp}.`
+  const href = linkDoAdmin(`orders/${encodeURIComponent(a.pedidoId)}`)
+  return montar({
+    para,
+    assunto,
+    previa: forte,
+    cabeca: "Confira os dados da nota",
+    blocos: [
+      `A nota fiscal do pedido #${a.numero} saiu, mas ${a.motivo}.`,
+      `Abra a nota no ${a.erp} e compare o destinatário com o pedido (nome, endereço, e-mail e ` +
+        `telefone). Se estiver errado: corrija o cadastro do cliente no ${a.erp} e faça uma ` +
+        "carta de correção, ou cancele a nota em até 24 horas e emita de novo.",
+    ],
+    forte,
+    link: href ? { texto: "Abrir o pedido no admin", href } : null,
+  })
+}
+
 /** A renovação do token foi recusada: sem conectar de novo, nada sai. */
 export function emailDaConexaoQueCaiu(para: string, a: { erp: string; motivo: string }): Email {
   const assunto = `A conexão com o ${a.erp} caiu`

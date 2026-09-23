@@ -66,6 +66,8 @@ describe("o cliente no Bling", () => {
       numeroDocumento: "12345678909",
       indicadorIe: 9,
       email: "ana@exemplo.com",
+      emailNotaFiscal: "ana@exemplo.com",
+      telefone: "47999887766",
       celular: "47999887766",
       endereco: {
         geral: {
@@ -87,9 +89,33 @@ describe("o cliente no Bling", () => {
     ).toBe("J")
   })
 
-  it("contato igual não é regravado", () => {
+  it("contato igual não é regravado; o telefone vale pelos dígitos", () => {
     const existente = { id: 7, ...corpoDoContato(PEDIDO) }
     expect(contatoAtualizado(existente, PEDIDO)).toBeNull()
+    expect(
+      contatoAtualizado(
+        { ...existente, telefone: "(47) 99988-7766", celular: "47 99988-7766" },
+        PEDIDO
+      )
+    ).toBeNull()
+  })
+
+  it("o cadastro antigo com o e-mail e o telefone de outra pessoa: quem comprou agora vai na nota", () => {
+    // Como no primeiro pedido de teste (23/09): o CPF certo, o resto de outro cliente.
+    const existente = {
+      id: 7,
+      ...corpoDoContato(PEDIDO),
+      email: "ana@exemplo.com",
+      emailNotaFiscal: "outra.pessoa@exemplo.com",
+      telefone: "(11) 95428-3743",
+      celular: "(11) 95428-3743",
+    }
+    expect(contatoAtualizado(existente, PEDIDO)).toMatchObject({
+      email: "ana@exemplo.com",
+      emailNotaFiscal: "ana@exemplo.com",
+      telefone: "47999887766",
+      celular: "47999887766",
+    })
   })
 
   it("endereço novo regrava o contato INTEIRO — sem o id, e sem perder o que a equipe cadastrou", () => {

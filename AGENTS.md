@@ -356,7 +356,9 @@ queda com e-mail pra equipe), o estoque (`estoque.ts`) e as notas (`notas.ts`).
 `src/modules/bling/` é o formato do Bling: a fila das chamadas (400 ms entre elas — o limite de 3
 por segundo é da CONTA), `enable-jwt: 1` em toda chamada, o 401 que renova e o 429 que espera; SKU
 → id pelo `GET /produtos?codigos[]` (no PLURAL — o singular é ignorado em silêncio); cliente pelo
-CPF (o PUT do contato vai inteiro, senão apaga o que a equipe cadastrou); pedido de venda com
+CPF (o PUT do contato vai inteiro, senão apaga o que a equipe cadastrou — e atualiza nome,
+endereço, e-mail, `emailNotaFiscal`, `telefone` e `celular`, que são os que a NOTA usa; o PUT que
+falha vira "Confira a nota" pra equipe, não silêncio); pedido de venda com
 `numeroLoja` "FB-N" (o Bling NÃO deduplica — a loja procura por `numerosLojas[]` antes de criar);
 `gerar-nfe` e `enviar?enviarEmail=false`, que só vai com a nota PENDENTE (reenvio demais bloqueia a
 nota no Bling). As tabelas são do módulo `src/modules/erp` (`erp_conexao` e `erp_nota`, com os
