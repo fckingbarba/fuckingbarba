@@ -280,6 +280,10 @@ html:not([data-hidratado]) body:has(.obrigado) {
 .opcao--forma:has(input:checked) .opcao__icone {
   opacity: 1;
 }
+/* O símbolo do Pix no verde-água do manual de marca do Banco Central. */
+.opcao__icone--pix {
+  color: #32bcad;
+}
 
 /* ---------- a tela de pedido recebido ---------- */
 
@@ -610,14 +614,14 @@ img.feito__qr {
 }
 
 /*
-  O LOGO DA BANDEIRA no fim do campo do número (`components/checkout/
-  bandeira.tsx`). O `.campo__icone` do protótipo era uma etiqueta de texto
-  — fundo tinta, letra branca, "VISA" — e o logo já traz as cores dele: aqui
-  sai o fundo e o respiro, e o SVG ocupa a caixa inteira. Sem bandeira a
-  caixa fica vazia, e o `.campo__icone:empty` do protótipo esconde.
+  O LOGO DA BANDEIRA no fim do campo do número (`components/bandeira.tsx`).
+  O `.campo__icone` do protótipo era uma etiqueta de texto — fundo tinta,
+  letra branca, "VISA" — e o logo já traz as cores dele: aqui sai o fundo e
+  o respiro, e a imagem ocupa a caixa inteira. Sem bandeira a caixa fica
+  vazia, e o `.campo__icone:empty` do protótipo esconde.
 */
 .campo__icone[data-bandeira] {
-  height: 26px;
+  height: 25px;
   padding: 0;
   background: none;
   /* A etiqueta do protótipo era em maiúsculas espaçadas, e o texto de
@@ -626,10 +630,10 @@ img.feito__qr {
   text-transform: none;
   letter-spacing: normal;
 }
-.campo__icone[data-bandeira] svg {
+.campo__icone[data-bandeira] img {
   display: block;
   width: 40px;
-  height: 26px;
+  height: 25px;
 }
 
 /*

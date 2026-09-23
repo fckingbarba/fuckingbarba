@@ -1,0 +1,12 @@
+Os logos das bandeiras de cartão desta pasta (visa, mastercard, amex, elo e
+hipercard) vêm do projeto payment-icons:
+
+  https://github.com/muffinresearch/payment-icons
+
+distribuído sob a Mozilla Public License 2.0 (https://mozilla.org/MPL/2.0/).
+Estes arquivos seguem sob a mesma licença. A única mudança da FuckingBarba:
+os cantos ficaram retos (a marca da loja não usa canto arredondado), e a
+Hipercard, de fundo branco, ganhou uma borda cinza fina.
+
+As marcas em si pertencem às bandeiras; aparecem aqui só pra dizer quais
+cartões a loja aceita.

@@ -86,8 +86,11 @@ export function useCarrossel() {
     const el = trilho.current
     const alvo = el?.children[i]
     if (!el || !alvo) return
+    // Descontando o respiro do trilho (o `scroll-padding` do `.colecao__track`):
+    // é ali, e não na borda, que o card para quando a rolagem encaixa.
+    const respiro = parseFloat(getComputedStyle(el).scrollPaddingLeft) || 0
     const deslocamento = alvo.getBoundingClientRect().left - el.getBoundingClientRect().left
-    el.scrollTo({ left: el.scrollLeft + deslocamento, behavior: "smooth" })
+    el.scrollTo({ left: el.scrollLeft + deslocamento - respiro, behavior: "smooth" })
   }, [])
 
   return { trilho, rola, noInicio, noFim, barra, atual, andar, irPara }

@@ -346,6 +346,19 @@ aparecem na conta e no log, sem e-mail automático — esses a loja conversa com
   - Sem zoom ao tocar num campo no iPhone: os campos já têm 16px no celular, e o viewport ganha
     `maximum-scale=1` só no iPhone e no iPad — lá a pinça continua funcionando; no Android o mesmo
     atributo travaria a pinça, e por isso não vale pra todos.
+- [x] **A terceira lista de 23/09** (conferida numa loja local, no computador e no celular):
+  - O card da vitrine não perde mais a borda esquerda com o mouse em cima: ele sobe 4px, e o
+    carrossel, que rola, cortava o que saía dele. O trilho ganhou respiro (`colecao.css`).
+  - Os logos das bandeiras são os **oficiais** (Visa, Mastercard, Amex, Elo e Hipercard), no rodapé
+    e no campo do cartão, em arquivo (`public/bandeiras/`, do projeto payment-icons, MPL-2.0), com
+    os cantos retos da marca. O Pix do passo 3 é o símbolo oficial do Banco Central, no verde-água
+    do manual.
+  - O passo 3 do checkout ficou sem a faixa "Compra segura". A faixa só volta com prazo de postagem
+    ou WhatsApp preenchidos no admin (as duas frases que sobraram nela).
+  - **"Leva junto" na sacola**, como no protótipo: até três produtos que ainda não estão na sacola,
+    com foto, preço e "+ Adicionar". Faltando valor pro frete grátis, o mais barato que fecha a
+    conta vem primeiro, com a etiqueta "Libera o frete grátis". Só entram produtos de uma variação,
+    com preço e estoque.
 - [x] **O logo da bandeira aparece no fim do campo do número do cartão** (22/09), no lugar da
       etiqueta de texto. A detecção (`apps/loja/src/lib/cartao.ts`) agora usa as faixas de seis
       dígitos da Elo e da Hipercard, e conhece as bandeiras que a loja não aceita (Diners,

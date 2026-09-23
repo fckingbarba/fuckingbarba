@@ -9,7 +9,7 @@ import { SemZoomNoCampo } from "@/components/layout/sem-zoom-no-campo"
 import { ProvedorDoFrete } from "@/components/configuracoes/contexto"
 import { ProvedorDaSacola } from "@/components/sacola/contexto"
 import { Gaveta } from "@/components/sacola/gaveta"
-import { configuracoes } from "@/lib/medusa"
+import { configuracoes, vitrineDaSacola } from "@/lib/medusa"
 import { emProducao, site } from "@/lib/site"
 import "./globals.css"
 
@@ -84,6 +84,8 @@ export const viewport: Viewport = {
  */
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   const { frete } = await configuracoes()
+  // O "leva junto" da sacola: cacheado como a vitrine (ver `vitrineDaSacola`).
+  const vitrine = await vitrineDaSacola()
 
   return (
     <html
@@ -113,7 +115,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
             <Cabecalho />
             {children}
             <Rodape />
-            <Gaveta />
+            <Gaveta vitrine={vitrine} />
           </ProvedorDaSacola>
         </ProvedorDoFrete>
         <Tags />

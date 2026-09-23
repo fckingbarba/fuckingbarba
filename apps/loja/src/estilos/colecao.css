@@ -100,13 +100,24 @@
   opacity: 0.25;
   cursor: default;
 }
+/*
+  RESPIRO PRO CARD QUE SE MEXE. Com o mouse em cima, o card sobe 4px pra
+  esquerda e pra cima e ganha a sombra amarela de 8px pra direita e pra
+  baixo (`produto.css`). Só que este trilho rola na horizontal, e caixa que
+  rola CORTA o que sai dela: a borda esquerda do primeiro card sumia
+  (achado da loja em 23/09). O respiro de dentro dá lugar ao movimento, a
+  margem negativa devolve o alinhamento com o título, e o `scroll-padding`
+  faz o encaixe da rolagem parar no mesmo lugar de antes.
+*/
 .colecao__track {
   display: flex;
   gap: 16px;
   overflow-x: auto;
   scroll-snap-type: x mandatory;
   scroll-behavior: smooth;
-  padding: 6px 0 12px;
+  padding: 6px 10px 12px 6px;
+  margin: 0 -10px 0 -6px;
+  scroll-padding-inline: 6px 10px;
   scrollbar-width: none;
   -ms-overflow-style: none;
 }

@@ -179,20 +179,19 @@ export function Cartao(props: Props) {
 }
 
 /**
- * A marca do Pix — quatro setas apontando pra fora, como no símbolo do Banco
- * Central. Desenho nosso, no corte chanfrado dos outros: o arquivo oficial é
- * arredondado e destoaria de tudo em volta.
+ * O SÍMBOLO DO PIX, o oficial do Banco Central — o losango de quatro pontas
+ * arredondadas. O de antes era desenho nosso, chanfrado, e a loja notou
+ * (23/09): no pagamento, marca que não é a do Pix parece golpe. O traçado
+ * é o do Simple Icons (CC0, domínio público).
  *
- * Ela precisa ser RECONHECÍVEL de relance, e não bonita: na linha de forma de
- * pagamento, ela é o que responde "é o Pix mesmo?" antes de a pessoa ler.
+ * Na cor da página (`currentColor`), como todo ícone daqui. Quem quiser o
+ * verde-água do Pix (#32BCAD, o do manual de marca) pinta por fora — é o
+ * que a linha de forma de pagamento faz (`.opcao__icone--pix`).
  */
 export function Pix(props: Props) {
   return (
     <Icone {...props}>
-      <path d="M12 2.6 16.2 6.8 13.8 9.2 12 7.4 10.2 9.2 7.8 6.8z" />
-      <path d="M21.4 12 17.2 16.2 14.8 13.8 16.6 12 14.8 10.2 17.2 7.8z" />
-      <path d="M12 21.4 7.8 17.2 10.2 14.8 12 16.6 13.8 14.8 16.2 17.2z" />
-      <path d="M2.6 12 6.8 7.8 9.2 10.2 7.4 12 9.2 13.8 6.8 16.2z" />
+      <path d="M5.283 18.36a3.505 3.505 0 0 0 2.493-1.032l3.6-3.6a.684.684 0 0 1 .946 0l3.613 3.613a3.504 3.504 0 0 0 2.493 1.032h.71l-4.56 4.56a3.647 3.647 0 0 1-5.156 0L4.85 18.36ZM18.428 5.627a3.505 3.505 0 0 0-2.493 1.032l-3.613 3.614a.67.67 0 0 1-.946 0l-3.6-3.6A3.505 3.505 0 0 0 5.283 5.64h-.434l4.573-4.572a3.646 3.646 0 0 1 5.156 0l4.559 4.559ZM1.068 9.422 3.79 6.699h1.492a2.483 2.483 0 0 1 1.744.722l3.6 3.6a1.73 1.73 0 0 0 2.443 0l3.614-3.613a2.482 2.482 0 0 1 1.744-.723h1.767l2.737 2.737a3.646 3.646 0 0 1 0 5.156l-2.736 2.736h-1.768a2.482 2.482 0 0 1-1.744-.722l-3.613-3.613a1.77 1.77 0 0 0-2.444 0l-3.6 3.6a2.483 2.483 0 0 1-1.744.722H3.791l-2.723-2.723a3.646 3.646 0 0 1 0-5.156" />
     </Icone>
   )
 }

@@ -340,6 +340,12 @@ gaveta mostra o frete e o total que o Medusa calculou com ela — o checkout abr
 entrega pendurada, toda mudança de quantidade faz o Medusa cotar de novo; o `cotar` do
 `client.ts` junta perguntas iguais do MESMO carrinho por 10 s, e é por isso que a rota
 `/store/frete` recebe `cart_id` quando quem pergunta é a sacola.
+O **"leva junto"** da gaveta (`components/sacola/leva-junto.tsx`) sai de uma lista pronta do
+servidor: `vitrineDaSacola` (`lib/medusa.ts`, cacheada com a tag `produtos`) é lida no layout raiz
+e entregue à `<Gaveta>`; a escolha de até três, na hora, é `escolherLevaJunto`
+(`lib/carrinho-visivel.ts`). "Adicionar" entra na fila das quantidades (`comCarrinho`). Os logos
+das bandeiras são os oficiais, em arquivo (`public/bandeiras/`, MPL-2.0 — ver o `LICENCA.txt` de
+lá).
 
 A **newsletter** do rodapé é um módulo próprio (`src/modules/newsletter/`, tabela
 `newsletter_inscricao`): só o e-mail, a origem e a data do consentimento, como a Política de
