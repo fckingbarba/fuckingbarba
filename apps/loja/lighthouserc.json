@@ -9,7 +9,7 @@
         "https://localhost:3443/barba",
         "https://localhost:3443/produtos/oleo-para-barba"
       ],
-      "numberOfRuns": 2,
+      "numberOfRuns": 3,
       "settings": {
         "budgetPath": "./budgets.json",
         "chromeFlags": "--ignore-certificate-errors"
