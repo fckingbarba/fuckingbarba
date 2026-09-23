@@ -227,6 +227,11 @@ export type ResultadoDoDesfazer =
 export type PermissaoNoErp = {
   /** O nome do escopo, como a pessoa acha na tela de escopos do app no ERP. */
   escopo: string
+  /**
+   * Ler ou gravar: no Bling, o escopo pode deixar ler e não gravar (a
+   * gravação é outra permissão, dentro do escopo).
+   */
+  acao: "ler" | "gravar"
   /** Pra que a loja precisa dele. */
   paraQue: string
   /** `null`: não deu pra conferir agora (o ERP fora do ar, a conexão caída). */

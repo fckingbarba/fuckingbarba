@@ -69,9 +69,10 @@ export async function subirBlingFalso({
     produtos: new Map(),
     fotosServidas: 0,
     /**
-     * Os recursos (começo do caminho: "/contatos") que o app NÃO tem no
-     * escopo: respondem 403, sem corpo — como o Bling de produção respondeu
-     * em 23/09.
+     * O que o app NÃO tem no escopo: o começo do caminho ("/contatos", todo
+     * método) ou método e caminho ("POST /contatos", só gravar). Responde 403,
+     * sem corpo — como o Bling de produção respondeu em 23/09, quando o app
+     * lia o cliente e não podia criar.
      */
     semEscopo: new Set(),
     contatos: new Map(),
@@ -279,7 +280,11 @@ export async function subirBlingFalso({
       const token = (req.headers.authorization ?? "").replace(/^Bearer /, "")
       if (painel.revogado || !painel.acessos.has(token))
         return erro(res, 401, "token inválido", "invalid_token")
-      if ([...painel.semEscopo].some((c) => caminho.startsWith(c))) {
+      const negado = [...painel.semEscopo].some((c) => {
+        const [metodo, inicio] = c.includes(" ") ? c.split(" ") : [null, c]
+        return (!metodo || metodo === req.method) && caminho.startsWith(inicio)
+      })
+      if (negado) {
         res.writeHead(403)
         return res.end()
       }
