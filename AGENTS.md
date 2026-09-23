@@ -49,6 +49,9 @@ FRENET_URL=http://127.0.0.1:4310/shipping/quote FRENET_TOKEN=teste FRENET_WEBHOO
 PAGARME_SECRET_KEY=sk_test_falsa PAGARME_URL=http://127.0.0.1:4320/core/v5 \
 MEDUSA_WEBHOOK_SEGREDO=segredo-de-teste \
 RESEND_URL=http://127.0.0.1:4330 RESEND_API_KEY=re_teste_falsa npm run backend:dev
+# com o registro no painel da Frenet ligado (a seção 7c do conferir-envio, que também precisa do
+# FRENET_PARCEIRO_TOKEN no ambiente dele), acrescente: FRENET_PARCEIRO_TOKEN=parceiro-de-teste
+# FRENET_WHITELABEL_URL=http://127.0.0.1:4310 MEDUSA_BACKEND_URL=http://127.0.0.1:9000
 # e a loja tokeniza no falso: no .env.development.local,
 #   NEXT_PUBLIC_PAGARME_PUBLIC_KEY=pk_test_falsa
 #   NEXT_PUBLIC_PAGARME_API=http://127.0.0.1:4320/core/v5
@@ -315,6 +318,28 @@ como qualquer notícia. A consulta pede o serviço da entrega: o provedor de fre
 cotação no método de entrega (`validateFulfillmentData`, `data.servico`), e sem ele o código dos
 Correios vai pelo PAC. O `validateFulfillmentData` nunca lança — lançar ali impediria a pessoa de
 escolher a entrega.
+
+**O pedido pago vai sozinho pro painel da Frenet** — o caminho da Nuvemshop, DESLIGADO até o token
+de parceiro existir (`FRENET_PARCEIRO_TOKEN`). O contrato ganhou `registraPedidos`,
+`registrarPedido` e `tirarPedido` (opcionais); na Frenet, `POST /v1/orders` e
+`/v1/shipments/:id/cancel` (ou `DELETE`) da API whitelabel, com os dois tokens
+(`modules/frenet/pedidos.ts`). Quem decide é
+`lib/envios/registro.ts`: `registrarNoParceiro` no `payment.captured`, logo depois da confirmação;
+a varredura `registrarPendentes` (job `registrar-pedidos`, de 10 em 10 minutos, e
+`POST /admin/envios/registrar`); `tirarDoParceiro` no `order.canceled`. Vão os pagos, não
+cancelados, sem envio criado no admin e pagos DEPOIS de o registro ligar — o "desde" fica no
+metadata da loja (`fb_parceiros`), gravado na primeira rodada ligada, pra não duplicar no painel o
+pedido que já teve etiqueta à mão. Uma vez só: trava por pedido e o registro em
+`metadata.fb_parceiro`, relido antes de gravar (outros registros moram no mesmo metadata).
+Recusa da Frenet (400, erro no item) é definitiva e o log pede a etiqueta à mão; queda, tempo e
+token recusado voltam na varredura, com espera crescente (10 min até 6 h), por três dias. No
+painel o pedido se chama **FB-<número>** (`referenciaDoPedido`) — a Nuvemshop segue na mesma conta,
+com a numeração dela —, e o núcleo aceita esse nome de volta. Registrado o pedido, nasce um envio
+"aguardando", SEM código, com o `ShipmentId` — o aviso acha o pedido por ele; sem código, ninguém
+mostra nem pergunta por ele. Cada pedido leva o `TrackingNotificationUrl` dele, montado com o
+`MEDUSA_BACKEND_URL`: `?pedido=FB-N&assinatura=HMAC(FRENET_WEBHOOK_TOKEN)`, que só vale pra aviso
+daquele pedido (`lerAviso`). A chave da porta nunca vai em URL. No conferidor de envio, a seção 7c
+roda das duas formas (ver o cabeçalho dele).
 
 Os **e-mails** moram em `apps/backend/src/lib/emails/`: a `moldura.ts` (barra preta com a logo,
 fundo menta, blocos com sombra dura — em tabela e estilo em linha, porque é e-mail) e um arquivo

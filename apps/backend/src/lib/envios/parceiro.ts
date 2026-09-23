@@ -17,13 +17,12 @@ import type { TipoDeEvento } from "./situacao"
  *     `acompanhar-envios`). É o que faz andar o pacote que não tem aviso:
  *     na Frenet, toda etiqueta gerada à mão no painel (ver `rastreio.ts`).
  *
- * ┌─ O QUE AINDA NÃO ESTÁ NO CONTRATO, E ONDE ENTRA ───────────────────────┐
- * │ • `registrarPedido(pedido)` — mandar o pedido pago pro painel do       │
- * │   parceiro, pra etiqueta sair sem digitar. Na Frenet exige o token de  │
- * │   parceiro (homologação); o gancho é o `pagamento-capturado.ts`.       │
- * │ Método OPCIONAL, como o `consultar`: parceiro que não tem, não         │
- * │ implementa.                                                            │
- * └────────────────────────────────────────────────────────────────────────┘
+ * E UM JEITO DE O PACOTE NASCER NO PARCEIRO: `registrarPedido` manda o
+ * pedido pago pro painel dele, pra etiqueta sair sem ninguém digitar nada —
+ * e o aviso de rastreio, na postagem, voltar sozinho com o número do pedido
+ * (ver `lib/envios/registro.ts`). `tirarPedido` desfaz, quando o pedido é
+ * cancelado antes de sair. Os três são OPCIONAIS: parceiro que não tem, não
+ * implementa.
  */
 
 /** Um evento da transportadora, já traduzido. */
@@ -100,6 +99,83 @@ export type PerguntaDeRastreio = {
 /** A resposta: a novidade, ou por que não deu (vai pro log). */
 export type Consulta = { ok: true; novidade: Novidade } | { ok: false; motivo: string }
 
+/**
+ * O pedido pago, com o que a etiqueta precisa — no vocabulário da loja, e
+ * não no do parceiro (o tradutor de cada um monta o formato dele).
+ */
+export type PedidoParaOParceiro = {
+  /** O número que a loja mostra (o `#` da conta e do admin). */
+  numero: number
+  /**
+   * Como o pedido se chama no parceiro: `referenciaDoPedido(numero)`. É o
+   * que o aviso de rastreio traz de volta, e por onde o núcleo acha o pedido.
+   */
+  referencia: string
+  /** ISO. */
+  criadoEm: string
+  /** Em reais: o que a pessoa pagou, frete incluído. */
+  total: number
+  /** Em reais: o que os produtos custaram, já com desconto. Vale como valor declarado. */
+  valorDosProdutos: number
+  /** Em reais: o frete que a pessoa pagou. */
+  frete: number
+  email: string | null
+  destinatario: {
+    nome: string
+    /** CPF ou CNPJ, sem pontuação (o CNPJ novo tem letras). */
+    documento: string | null
+    /** Só dígitos, com DDD. */
+    telefone: string | null
+    endereco: {
+      /** Só dígitos. */
+      cep: string
+      rua: string
+      numero: string
+      complemento: string | null
+      bairro: string
+      cidade: string
+      uf: string
+    }
+  }
+  itens: {
+    /** O id da linha do pedido. */
+    id: string
+    produtoId: string | null
+    sku: string | null
+    nome: string
+    quantidade: number
+    /** Em reais, por unidade. */
+    preco: number
+    pesoEmGramas: number
+    /** Em centímetros. */
+    comprimento: number
+    largura: number
+    altura: number
+  }[]
+  /** O serviço escolhido na cotação (`data.servico` do método de entrega), quando guardado. */
+  servico: { codigo: string; nome: string | null; transportadora: string | null } | null
+}
+
+/**
+ * O NOME DO PEDIDO NO PARCEIRO: "FB-1042", o número da loja com o prefixo da
+ * marca.
+ *
+ * A Nuvemshop continua ligada na mesma conta da Frenet, com a numeração
+ * dela. Sem o prefixo, o 1042 da loja nova e o 1042 de lá seriam o mesmo
+ * número no painel — e no aviso de rastreio que volta. O núcleo aceita
+ * "FB-1042", "#1042" e "1042" (`pedidoDaReferencia`, em `nucleo.ts`).
+ */
+export const referenciaDoPedido = (numero: number) => `FB-${numero}`
+
+export type RegistroNoParceiro =
+  | { ok: true; idNoParceiro: string }
+  | {
+      ok: false
+      motivo: string
+      /** Tentar de novo não resolve: o parceiro recusou o que recebeu. */
+      definitivo: boolean
+    }
+
 export interface ParceiroDeEntrega {
   /** Sem acento, minúsculo: vai no endereço do aviso, `/hooks/envio/<id>`. */
   id: string
@@ -113,6 +189,15 @@ export interface ParceiroDeEntrega {
    * erro não pode parar os outros.
    */
   consultar?(pergunta: PerguntaDeRastreio): Promise<Consulta>
+  /**
+   * O registro de pedidos está ligado? (Na Frenet, só com o token de
+   * parceiro.) Desligado, a loja nem monta o pedido pra mandar.
+   */
+  registraPedidos?(): boolean
+  /** Manda o pedido pago pro painel do parceiro. Não pode lançar. */
+  registrarPedido?(pedido: PedidoParaOParceiro): Promise<RegistroNoParceiro>
+  /** Tira do painel o pedido que foi cancelado antes de sair. Não pode lançar. */
+  tirarPedido?(idNoParceiro: string): Promise<{ ok: true } | { ok: false; motivo: string }>
 }
 
 /* ── o que todo tradutor usa ──────────────────────────────────────────────── */

@@ -2,6 +2,7 @@ import type { SubscriberArgs, SubscriberConfig } from "@medusajs/framework"
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import { avisarCancelamento } from "../lib/avisar-cancelamento"
 import { fecharCobrancasDoPedido } from "../lib/conciliar-pagamentos"
+import { tirarDoParceiro } from "../lib/envios/registro"
 
 /**
  * PEDIDO CANCELADO FECHA NO PAGAR.ME O QUE DÁ PRA FECHAR, na hora — e avisa
@@ -35,6 +36,11 @@ import { fecharCobrancasDoPedido } from "../lib/conciliar-pagamentos"
  * o e-mail diz "nada foi cobrado" ou "o valor está voltando". Cobrança
  * fechada é dinheiro resolvido; e-mail é gente avisada, e vai mesmo que o
  * Pagar.me esteja fora do ar.
+ *
+ * POR ÚLTIMO, O PAINEL DO PARCEIRO: o pedido que já tinha entrado lá
+ * (`lib/envios/registro.ts`) sai, pra ninguém gerar etiqueta de pedido
+ * cancelado. Se não sair — o pacote já foi postado, a Frenet fora do ar —,
+ * o log diz qual, pra alguém olhar no painel.
  */
 export default async function pedidoCancelado({
   event: { data },
@@ -69,6 +75,23 @@ export default async function pedidoCancelado({
     logger.warn(
       `[pedido] o aviso de cancelamento do pedido ${data.id} não saiu ` +
         `(${e instanceof Error ? e.message : String(e)})`
+    )
+  }
+
+  try {
+    const r = await tirarDoParceiro(container, data.id)
+    if (r.resultado === "tirou") {
+      logger.info(`[envio] #${r.numero} cancelado: saiu do painel do parceiro`)
+    } else if (r.resultado === "falhou") {
+      logger.warn(
+        `[envio] #${r.numero} cancelado, e continua no painel do parceiro (${r.motivo}) — ` +
+          "confira lá antes de gerar a etiqueta"
+      )
+    }
+  } catch (e) {
+    logger.warn(
+      `[envio] o pedido cancelado ${data.id} pode ter ficado no painel do parceiro ` +
+        `(${e instanceof Error ? e.message : String(e)}) — confira lá`
     )
   }
 }

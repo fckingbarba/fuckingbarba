@@ -113,7 +113,7 @@ export type PedidoDeCotacao = {
  * Aumentar a medida antes de cotar não é inventar número: é cotar o pacote
  * que os Correios vão de fato medir no balcão.
  */
-const MINIMO = { comprimento: 16, largura: 11, altura: 2 }
+export const MINIMO = { comprimento: 16, largura: 11, altura: 2 }
 
 /** O teto dos Correios, e o sinal de que alguém digitou quilo em vez de grama. */
 const PESO_MAXIMO_KG = 30

@@ -105,7 +105,7 @@ export function fabricaDePedidos({ medusa, chave, tokenAdmin, pagarme }) {
   const noAdmin = async (id) =>
     (
       await adm(
-        `/admin/orders/${id}?fields=id,display_id,status,payment_status,fulfillment_status,total,` +
+        `/admin/orders/${id}?fields=id,display_id,status,payment_status,fulfillment_status,total,metadata,` +
           "*items,*fulfillments,*fulfillments.labels"
       )
     ).order

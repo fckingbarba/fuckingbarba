@@ -191,17 +191,42 @@ sozinho — em trânsito, saiu pra entrega, entregue —, com os e-mails de semp
 serviço da entrega junto com o código: o pedido passou a guardar o da cotação na hora em que a
 pessoa escolhe a entrega. Pra rodar na hora: `POST /admin/envios/consultar`.
 
-- [ ] **O que muda no dia a dia:** depois de gerar a etiqueta no painel da Frenet, copiar o código
-      de rastreio pro pedido no admin do Medusa — criar o envio do pedido e marcar como enviado
-      ("Mark as shipped") com o código. É isso que avisa o cliente ("a caminho") e põe o pacote na
-      consulta de hora em hora. Sem o código no pedido, a loja não tem o que perguntar.
-- [ ] **Pra não precisar digitar nada (opcional, depende da Frenet):** a API de pedidos deles põe o
-      pedido pago direto no painel — a etiqueta sai sem redigitar endereço, e o aviso de rastreio
-      passa a chegar sozinho, com o código. Ela exige o token de PARCEIRO (`x-partner-token`), que
-      só sai depois da homologação deles. Perguntar se uma loja própria pode ter esse token.
+**E o caminho da Nuvemshop está pronto, desligado (23/09):** com o token de PARCEIRO da Frenet, o
+pedido pago entra sozinho no painel dela — endereço, itens e o serviço que o cliente escolheu —
+como **FB-<número>** (o prefixo separa dos pedidos da Nuvemshop, que seguem na mesma conta). Quem
+despacha só gera a etiqueta e posta; o aviso de rastreio volta, o pedido vira "enviado" e o
+cliente recebe o "a caminho". Ninguém digita código nem marca nada. Pedido cancelado sai do
+painel. O código: `apps/backend/src/lib/envios/registro.ts` (quando e quais) e
+`apps/backend/src/modules/frenet/pedidos.ts` (o formato deles). Cada pedido leva o endereço do
+aviso dele, assinado (`TrackingNotificationUrl`) — não depende de o webhook da conta valer pra
+plataforma nova.
+
+- [ ] **Pedir o token de parceiro à Frenet** (a mensagem foi redigida na conversa de 23/09). Quando
+      chegar, no Railway, serviço do backend:
+  - `FRENET_PARCEIRO_TOKEN` = o token. É só isso. O `FRENET_TOKEN` e o `FRENET_WEBHOOK_TOKEN` já
+    estão lá; confira que o `MEDUSA_BACKEND_URL` também (é dele que sai o endereço do aviso de cada
+    pedido — sem ele, vale só o webhook da conta);
+  - o registro liga no primeiro pagamento depois disso e vale pros pedidos **pagos dali em diante**
+    (com 10 minutos de folga). Os pagos antes seguem pela etiqueta feita à mão, como hoje — senão o
+    mesmo pacote apareceria duas vezes no painel. O log avisa quando liga:
+    `[envio] registro de pedidos na Frenet ligado`;
+  - conferir o primeiro: aparece no painel como FB-<número>, com o serviço escolhido. **A caixa vai
+    como palpite** (o peso das variantes e os produtos empilhados, nunca menor que 16×11×2 cm) —
+    corrigir no painel se a caixa de verdade for outra;
+  - se a Frenet recusar um pedido (um endereço que ela não aceita, por exemplo), o log diz
+    `[envio] o #N não entrou no painel da Frenet, e não vou tentar de novo` — esse vai à mão. Frenet
+    fora do ar não é recusa: a varredura tenta de novo sozinha. Pra rodar a varredura na hora:
+    `POST /admin/envios/registrar`;
+  - **não criar envio no admin** pros pedidos que estão no painel: pedido com envio criado à mão
+    fica fora do registro (é o sinal de que alguém já está cuidando dele).
+- [ ] **Até o token chegar, o dia a dia continua:** depois de gerar a etiqueta no painel, copiar o
+      código de rastreio pro pedido no admin do Medusa — criar o envio do pedido e marcar como
+      enviado ("Mark as shipped") com o código. É isso que avisa o cliente ("a caminho") e põe o
+      pacote na consulta de hora em hora.
 - [x] **Railway:** `FRENET_WEBHOOK_TOKEN` criado no serviço do backend (21/09) e conferido: a rota
       responde 401 sem a chave e 200 ("ignorado") com ela. Continua valendo — é a porta dos avisos
-      no dia em que os pedidos entrarem pela API de pedidos.
+      no dia em que os pedidos entrarem pela API de pedidos, e é dela que sai a assinatura do
+      endereço do aviso de cada pedido.
 - [x] **Frenet:** o webhook de rastreio foi cadastrado (resposta de 23/09), mas só vale pros pedidos
       da plataforma — ver acima.
 - [ ] Pedidos de antes de 23/09 não guardaram o serviço da entrega: pra eles, o código dos Correios
