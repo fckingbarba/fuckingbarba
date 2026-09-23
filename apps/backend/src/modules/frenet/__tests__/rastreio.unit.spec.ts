@@ -1,4 +1,5 @@
 import type { Chegada } from "../../../lib/envios/parceiro"
+import { assinaturaDoAviso } from "../pedidos"
 import { frenet, lerHoraDaFrenet, traduzirAviso } from "../rastreio"
 
 const AVISO = {
@@ -125,6 +126,43 @@ describe("quem pode avisar", () => {
     expect(frenet.lerAviso(chegada({ corpo: { foo: 1 } }))).toMatchObject({
       ok: false,
       motivo: "ilegivel",
+    })
+  })
+
+  describe("pelo endereço assinado do pedido (o que a loja mandou pro painel)", () => {
+    const doPedido = { ...AVISO, OrderId: "FB-1042" }
+    const assinado = (pedido: string, assinatura = assinaturaDoAviso(pedido, "segredo")) =>
+      chegada({ cabecalhos: {}, consulta: { pedido, assinatura }, corpo: doPedido })
+
+    it("vale, sem cabeçalho nenhum", () => {
+      const r = frenet.lerAviso(assinado("FB-1042"))
+      expect(r.ok && r.novidades[0]?.pedido).toBe("FB-1042")
+    })
+
+    it("mas só pro pedido da assinatura: com a de outro pedido, não", () => {
+      expect(frenet.lerAviso(assinado("FB-7"))).toMatchObject({
+        ok: false,
+        motivo: "nao-autorizado",
+        detalhe: expect.stringContaining("outro pedido"),
+      })
+    })
+
+    it("assinatura errada, ou feita com outra chave, não", () => {
+      expect(frenet.lerAviso(assinado("FB-1042", "0".repeat(64)))).toMatchObject({
+        motivo: "nao-autorizado",
+        detalhe: "assinatura errada",
+      })
+      expect(
+        frenet.lerAviso(assinado("FB-1042", assinaturaDoAviso("FB-1042", "outra-chave")))
+      ).toMatchObject({ motivo: "nao-autorizado" })
+    })
+
+    it("com o cabeçalho junto, vale o cabeçalho", () => {
+      const c = assinado("FB-7")
+      expect(frenet.lerAviso({ ...c, cabecalhos: { "x-webhook-token": "segredo" } }).ok).toBe(true)
+      expect(frenet.lerAviso({ ...c, cabecalhos: { "x-webhook-token": "chute" } })).toMatchObject({
+        detalhe: "token errado",
+      })
     })
   })
 

@@ -22,6 +22,13 @@ import { createServer } from "node:http"
  * `conferir-envio.mjs` usa. A consulta não conta em `chamadas`, que é das
  * cotações.
  *
+ * E A API DE PEDIDOS (`POST /v1/orders`, a do token de parceiro): guarda
+ * cada pedido que chega em `painel.pedidos` e devolve um `ShipmentId` novo
+ * pra cada um — ou a recusa, com `painel.roteiroDosPedidos = "recusa"`, ou
+ * 500, com "queda". Sem os dois tokens nos cabeçalhos, 401. Cancelar e
+ * apagar um envio (`/v1/shipments/:id/cancel` e `DELETE /v1/shipments/:id`)
+ * ficam em `painel.retirados`. Nada disso conta em `chamadas`.
+ *
  * MORA NUM ARQUIVO SÓ porque dois conferidores precisam dela: o do frete,
  * que testa a cotação, e o do checkout, que precisa de opções de entrega
  * pra chegar no passo do pagamento. Duas cópias divergiriam no dia em que
@@ -95,7 +102,18 @@ export async function subirFrenetFalsa({ porta = PORTA_PADRAO } = {}) {
     rastreios: new Map(),
     /** cada consulta de rastreio que chegou: `{ token, corpo }` */
     consultas: [],
+    /** "normal", "recusa" (erro no item do lote) ou "queda" (500) */
+    roteiroDosPedidos: "normal",
+    /** cada pedido que chegou pela API de pedidos: `{ token, parceiro, envio, corpo }` */
+    pedidos: [],
+    /** cada envio cancelado ou apagado: `{ como: "cancelar" | "apagar", id }` */
+    retirados: [],
   }
+  /* O id do envio é único na Frenet de verdade, e o banco local guarda os
+     das rodadas anteriores: começar sempre do mesmo número faria o aviso
+     achar o pedido de outra rodada. Do relógio, e longe dos ids que o
+     conferidor inventa (abaixo de 10⁸). */
+  let ultimoEnvio = 1_000_000_000 + (Date.now() % 1_000_000_000)
 
   const servidor = createServer((req, res) => {
     let corpo = ""
@@ -122,6 +140,59 @@ export async function subirFrenetFalsa({ porta = PORTA_PADRAO } = {}) {
               : { ErrorMessage: "Objeto não encontrado" }
           )
         )
+        return
+      }
+
+      if (req.url?.startsWith("/v1/")) {
+        const json = (status, dados) => {
+          res.writeHead(status, { "content-type": "application/json" })
+          res.end(JSON.stringify(dados))
+        }
+        if (!req.headers.token || !req.headers["x-partner-token"]) {
+          json(401, { Message: "Não Autorizado - Token Inválido" })
+          return
+        }
+        const retirada = req.url.match(/^\/v1\/shipments\/(\d+)(\/cancel)?$/)
+        if (retirada) {
+          const como = retirada[2] ? "cancelar" : "apagar"
+          if ((como === "cancelar") !== (req.method === "POST")) {
+            json(405, { Message: "método" })
+            return
+          }
+          painel.retirados.push({ como, id: retirada[1] })
+          res.writeHead(204).end()
+          return
+        }
+        if (req.url === "/v1/orders" && req.method === "POST") {
+          if (painel.roteiroDosPedidos === "queda") {
+            json(500, { Message: "Erro interno" })
+            return
+          }
+          let lote = []
+          try {
+            lote = JSON.parse(corpo)
+          } catch {}
+          const itens = (Array.isArray(lote) ? lote : []).map((envio) => {
+            const id = envio?.Order?.Id ?? null
+            if (painel.roteiroDosPedidos === "recusa") {
+              return { OrderId: id, Errors: [{ Code: 12, Message: "CEP de destino inválido" }] }
+            }
+            const ShipmentId = ++ultimoEnvio
+            painel.pedidos.push({
+              token: req.headers.token,
+              parceiro: req.headers["x-partner-token"],
+              envio: ShipmentId,
+              corpo: envio,
+            })
+            return { OrderId: id, ShipmentId, ShipmentStatus: 1, Errors: [] }
+          })
+          json(200, {
+            StatusBatch: itens.some((i) => i.Errors.length) ? "Erro" : "Processado",
+            Items: itens,
+          })
+          return
+        }
+        json(404, { Message: "não existe" })
         return
       }
 

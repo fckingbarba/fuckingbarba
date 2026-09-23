@@ -5,6 +5,7 @@ import type EnviosService from "../modules/envios/service"
 import { avisarCliente } from "../lib/envios/avisos"
 import { perguntarAosParceiros } from "../lib/envios/consultas"
 import { acompanharDeNovo } from "../lib/envios/nucleo"
+import { noPainelSemPostagem } from "../lib/envios/registro"
 import { avisoPendente, lerAvisos, type SituacaoDoEnvio } from "../lib/envios/situacao"
 
 /**
@@ -23,6 +24,9 @@ import { avisoPendente, lerAvisos, type SituacaoDoEnvio } from "../lib/envios/si
  *   3. O PACOTE PARADO — em andamento há mais de 15 dias sem notícia. Não
  *      há o que o código faça (o aviso pode ter se perdido, ou o pacote);
  *      uma linha no log por dia, pra alguém conferir no painel do parceiro.
+ *      E, na mesma hora, o pedido que entrou no painel há mais de 5 dias e
+ *      não foi postado (`noPainelSemPostagem`, em `lib/envios/registro.ts`):
+ *      a etiqueta que não saiu, ou o aviso da postagem que não chegou.
  *
  * A pergunta vem primeiro: o que ela trouxer já sai nos passos seguintes
  * (o pedido que acompanha, o e-mail).
@@ -99,6 +103,19 @@ export default async function acompanharEnvios(container: MedusaContainer) {
       logger.warn(
         `[envio] ${parados.length} pacote(s) sem notícia há mais de 15 dias: ` +
           `${parados.map((p) => `${p.codigo} (${p.situacao})`).join(", ")} — confira no painel do parceiro`
+      )
+    }
+
+    const semPostagem = await noPainelSemPostagem(container, agora).catch((e) => {
+      logger.warn(
+        `[envio] o painel sem postagem não foi conferido — ${e instanceof Error ? e.message : e}`
+      )
+      return []
+    })
+    if (semPostagem.length) {
+      logger.warn(
+        `[envio] ${semPostagem.length} pedido(s) no painel do parceiro há mais de 5 dias sem ` +
+          `postagem: ${semPostagem.join(", ")} — confira se a etiqueta saiu`
       )
     }
   }

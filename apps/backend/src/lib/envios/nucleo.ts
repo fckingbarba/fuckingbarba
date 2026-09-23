@@ -384,7 +384,9 @@ async function acharEnvio(
 
 /**
  * O pedido pelo que o parceiro diz: o id do Medusa, ou o número da loja
- * (1042, #1042) — que é o que alguém digitaria no painel do parceiro.
+ * (1042, #1042) — que é o que alguém digitaria no painel do parceiro —, ou o
+ * nome que a loja deu ao pedido quando o mandou pra lá (FB-1042, ver
+ * `referenciaDoPedido`).
  */
 async function pedidoDaReferencia(
   container: MedusaContainer,
@@ -395,7 +397,7 @@ async function pedidoDaReferencia(
   let filtros: Record<string, unknown>
   if (/^order_[0-9A-Za-z]{10,40}$/.test(t)) filtros = { id: t }
   else {
-    const m = t.match(/^#?(\d{1,9})$/)
+    const m = t.match(/^(?:FB-|#)?(\d{1,9})$/i)
     if (!m) return null
     filtros = { display_id: Number(m[1]) }
   }

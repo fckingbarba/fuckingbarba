@@ -11,6 +11,7 @@ import {
   type PerguntaDeRastreio,
 } from "../../lib/envios/parceiro"
 import { transportadoraPeloCodigo, type TipoDeEvento } from "../../lib/envios/situacao"
+import { assinaturaDoAviso, registraPedidos, registrarPedido, tirarPedido } from "./pedidos"
 
 /**
  * A FRENET COMO PARCEIRO DE ENTREGA — o tradutor do aviso de rastreio.
@@ -44,6 +45,11 @@ import { transportadoraPeloCodigo, type TipoDeEvento } from "../../lib/envios/si
  * │ por quê. O aviso sem autenticação que a documentação permite não      │
  * │ serve aqui: qualquer um que soubesse a URL marcaria pedido como       │
  * │ entregue.                                                              │
+ * │                                                                         │
+ * │ O terceiro jeito é o do pedido que a loja mandou pro painel: o         │
+ * │ endereço do aviso DELE (`urlDoAviso`, em `pedidos.ts`), com            │
+ * │ `?pedido=FB-1042&assinatura=…`. Vale só pra aquele pedido: aviso de    │
+ * │ outro, com a mesma assinatura, é recusado.                             │
  * └─────────────────────────────────────────────────────────────────────────┘
  *
  * O OUTRO WEBHOOK DELES ("Atualização de Dados de Pedidos", com
@@ -62,6 +68,10 @@ import { transportadoraPeloCodigo, type TipoDeEvento } from "../../lib/envios/si
  * │ hora em hora, como está o pacote (`POST /tracking/trackinginfo`, com o │
  * │ token da própria loja). A resposta tem o MESMO formato do aviso e      │
  * │ passa pelo mesmo tradutor.                                             │
+ * │                                                                        │
+ * │ Com o token de parceiro, o pedido pago entra no painel pela API        │
+ * │ (`pedidos.ts`), como na Nuvemshop — e aí o aviso vem sozinho, com o    │
+ * │ `OrderId` "FB-1042" e o `ShipmentId` que a loja guardou ao registrar.  │
  * └────────────────────────────────────────────────────────────────────────┘
  */
 
@@ -183,6 +193,9 @@ const PRAZO_DA_CONSULTA_MS = 8_000
 export const frenet: ParceiroDeEntrega = {
   id: "frenet",
   nome: "Frenet",
+  registraPedidos,
+  registrarPedido,
+  tirarPedido,
 
   lerAviso(chegada: Chegada): LeituraDoAviso {
     const esperado = process.env.FRENET_WEBHOOK_TOKEN ?? ""
@@ -193,15 +206,25 @@ export const frenet: ParceiroDeEntrega = {
         detalhe: "FRENET_WEBHOOK_TOKEN não configurado — nenhum aviso da Frenet é aceito",
       }
     }
-    const chave = chegada.consulta.chave
+    const { chave, pedido, assinatura } = chegada.consulta
     const recebido =
       cabecalho(chegada, CABECALHO_DO_TOKEN) || (typeof chave === "string" ? chave : "")
-    if (!mesmoSegredo(recebido, esperado)) {
-      return {
-        ok: false,
-        motivo: "nao-autorizado",
-        detalhe: recebido ? "token errado" : `sem o cabeçalho ${CABECALHO_DO_TOKEN}`,
+    /** Com a assinatura de um pedido, só vale aviso dele. */
+    let soDoPedido: string | null = null
+    if (recebido || typeof assinatura !== "string") {
+      if (!mesmoSegredo(recebido, esperado)) {
+        return {
+          ok: false,
+          motivo: "nao-autorizado",
+          detalhe: recebido ? "token errado" : `sem o cabeçalho ${CABECALHO_DO_TOKEN}`,
+        }
       }
+    } else {
+      const referencia = typeof pedido === "string" ? pedido : ""
+      if (!referencia || !mesmoSegredo(assinatura, assinaturaDoAviso(referencia, esperado))) {
+        return { ok: false, motivo: "nao-autorizado", detalhe: "assinatura errada" }
+      }
+      soDoPedido = referencia
     }
 
     const corpos = Array.isArray(chegada.corpo) ? chegada.corpo : [chegada.corpo]
@@ -209,6 +232,13 @@ export const frenet: ParceiroDeEntrega = {
     const novidades = corpos
       .map((c) => traduzirAviso(c, chegouEm))
       .filter((n): n is Novidade => n !== null)
+    if (soDoPedido && novidades.some((n) => n.pedido !== soDoPedido)) {
+      return {
+        ok: false,
+        motivo: "nao-autorizado",
+        detalhe: `a assinatura é do ${soDoPedido}, e o aviso é de outro pedido`,
+      }
+    }
     if (novidades.length) return { ok: true, novidades }
 
     const primeiro = corpos[0] as Record<string, unknown> | undefined

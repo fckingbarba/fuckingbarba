@@ -27,3 +27,15 @@ export function parceiroDeEntrega(id: string): ParceiroDeEntrega | null {
 export function parceirosQueConsultam(): ParceiroDeEntrega[] {
   return LISTA.filter((p) => typeof p.consultar === "function")
 }
+
+/**
+ * Quem recebe o pedido pago no painel (`registrarPedido`), se algum estiver
+ * ligado — na Frenet, só com o token de parceiro. Um só: o pedido vai pra
+ * UM painel, senão sairiam duas etiquetas.
+ */
+export function parceiroQueRegistra(): ParceiroDeEntrega | null {
+  return (
+    LISTA.find((p) => typeof p.registrarPedido === "function" && p.registraPedidos?.() === true) ??
+    null
+  )
+}

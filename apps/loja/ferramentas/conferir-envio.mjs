@@ -6,6 +6,13 @@
  *   npm run loja:dev
  *   ADMIN_EMAIL=… ADMIN_SENHA=… node ferramentas/conferir-envio.mjs
  *
+ * Duas rodadas pro registro de pedidos no painel da Frenet (a seção 7c):
+ * como está em produção, sem o token de parceiro (nada vai pro painel); e
+ * ligado — o Medusa com FRENET_PARCEIRO_TOKEN=parceiro-de-teste,
+ * FRENET_WHITELABEL_URL=http://127.0.0.1:4310 e
+ * MEDUSA_BACKEND_URL=http://127.0.0.1:9000 (o endereço do aviso que vai em
+ * cada pedido), e este conferidor com o mesmo FRENET_PARCEIRO_TOKEN.
+ *
  * O parceiro é a Frenet, com os avisos no formato da documentação dela
  * ("Atualização de Tracking"), mandados daqui pra `/hooks/envio/frenet` —
  * como a Frenet mandaria. Os pedidos nascem como na loja (Frenet e Pagar.me
@@ -38,11 +45,17 @@
  * │   do parceiro na resposta;                                             │
  * │ • a etiqueta feita à mão no painel da Frenet (que não manda aviso)     │
  * │   parada no "postado" — a loja tem que perguntar, com o serviço que o  │
- * │   pedido guardou na cotação.                                           │
+ * │   pedido guardou na cotação;                                           │
+ * │ • o pedido pago que não vai sozinho pro painel da Frenet (com o token  │
+ * │   de parceiro), que vai duas vezes, que vai sem o que a etiqueta       │
+ * │   precisa, ou que vai sem o token; o pago antes de o registro ligar    │
+ * │   indo também; a postagem que não volta como "enviado"; o cancelado   │
+ * │   que fica no painel; e a recusa ou a queda da Frenet tratadas igual.  │
  * └─────────────────────────────────────────────────────────────────────────┘
  */
 
 import { readFileSync } from "node:fs"
+import { isDeepStrictEqual } from "node:util"
 import { chromium } from "playwright"
 import { subirFrenetFalsa } from "./frenet-falsa.mjs"
 import { subirPagarmeFalso } from "./pagarme-falso.mjs"
@@ -565,6 +578,304 @@ titulo("A etiqueta do painel: sem aviso, a loja pergunta à Frenet")
     "e nenhum e-mail repetido",
     assuntos(quem).join(" | ")
   )
+}
+
+/* ── 7c. o pedido pago vai sozinho pro painel da Frenet ───────────────────── */
+
+titulo("O pedido pago vai sozinho pro painel da Frenet (o token de parceiro)")
+{
+  const PARCEIRO = process.env.FRENET_PARCEIRO_TOKEN ?? ""
+  const noPainel = (numero) => frenet.pedidos.filter((p) => p.corpo?.Order?.Id === `FB-${numero}`)
+  async function esperarNoPainel(numero, ms = 10000) {
+    for (const fim = Date.now() + ms; Date.now() < fim; await esperar(150)) {
+      if (noPainel(numero).length) break
+    }
+    return noPainel(numero)
+  }
+  /** O registro no pedido (`metadata.fb_parceiro`), quando ele satisfizer `cond`. */
+  async function registroQuando(pedido, cond, ms = 10000) {
+    let r = null
+    for (const fim = Date.now() + ms; Date.now() < fim; await esperar(250)) {
+      r = (await fabrica.noAdmin(pedido.id)).metadata?.fb_parceiro ?? null
+      if (r && cond(r)) break
+    }
+    return r
+  }
+  const adm = async (caminho, opcoes = {}) => {
+    const r = await fetch(`${MEDUSA}${caminho}`, {
+      ...opcoes,
+      headers: { "content-type": "application/json", authorization: `Bearer ${tokenAdmin}` },
+    })
+    return r.json().catch(() => ({}))
+  }
+  const varrer = () => adm("/admin/envios/registrar", { method: "POST" })
+
+  if (!PARCEIRO) {
+    // Como está em produção até a Frenet mandar o token.
+    const R = await fabrica.pedidoPix(novoEmail(), [["oleo-para-barba", 1]])
+    await fabrica.pagar(R)
+    await silencio()
+    ok(
+      frenet.pedidos.length === 0,
+      "sem o token de parceiro, nenhum pedido vai pro painel",
+      `${frenet.pedidos.length} foram — o Medusa está com FRENET_PARCEIRO_TOKEN?`
+    )
+    ok(!(await fabrica.noAdmin(R.id)).metadata?.fb_parceiro, "e o pedido não ganha registro")
+    const v = await varrer()
+    ok(
+      v.relatorio?.pendentes === 0 && frenet.pedidos.length === 0,
+      "a varredura também não faz nada",
+      JSON.stringify(v)
+    )
+    console.log(
+      "  ·  o registro ligado: Medusa com FRENET_PARCEIRO_TOKEN=parceiro-de-teste, " +
+        "FRENET_WHITELABEL_URL=http://127.0.0.1:4310 e MEDUSA_BACKEND_URL=http://127.0.0.1:9000, " +
+        "e este conferidor com o mesmo token"
+    )
+  } else {
+    /* 1. pago → no painel, com o que a etiqueta precisa */
+    const quem = novoEmail()
+    const R = await fabrica.pedidoPix(quem, [
+      ["oleo-para-barba", 2],
+      ["balm-para-barba", 1],
+    ])
+    await fabrica.pagar(R)
+    const [chegou] = await esperarNoPainel(R.numero)
+    ok(
+      Boolean(chegou),
+      `pago, o #${R.numero} entra no painel como FB-${R.numero}`,
+      `${frenet.pedidos.length} no painel — o Medusa está com FRENET_PARCEIRO_TOKEN e FRENET_WHITELABEL_URL?`
+    )
+    const envio = chegou?.corpo ?? {}
+    ok(
+      chegou?.parceiro === PARCEIRO && Boolean(chegou?.token),
+      "com o token da loja e o de parceiro"
+    )
+    ok(
+      envio.Order?.UseFrenetRegistration === true && !envio.Order?.From,
+      "o remetente é o cadastrado na conta"
+    )
+    const para = envio.Order?.To ?? {}
+    ok(
+      para.Name === "Rafael Teste" && para.Email === quem && para.Cellphone === "11988887777",
+      "o destinatário: nome, e-mail e o celular sem o +55",
+      JSON.stringify(para)
+    )
+    ok(
+      isDeepStrictEqual(para.Address, {
+        ZipCode: "89036370",
+        City: "Blumenau",
+        Street: "Rua Doutor Pedro Zimmermann",
+        AddressNumber: "99",
+        AddressComplement: "Casa 2",
+        AddressQuarter: "Itoupava Central",
+        AddressState: "SC",
+        Country: "BR",
+      }),
+      "o endereço em partes, com o bairro separado",
+      JSON.stringify(para.Address)
+    )
+    const itens = envio.Order?.Items ?? []
+    ok(
+      itens.length === 2 &&
+        itens.some((i) => i.Quantity === 2) &&
+        itens.every((i) => i.OrderId === `FB-${R.numero}` && i.ItemId && i.ProductName),
+      "os dois itens, com a quantidade e a linha do pedido",
+      JSON.stringify(itens.map((i) => [i.ProductName, i.Quantity]))
+    )
+    const [caixa] = envio.Volumes ?? []
+    ok(
+      caixa?.OrderItemsId?.length === 2 && caixa.Length >= 16 && caixa.DeclaredValue > 0,
+      "uma caixa, nunca menor que o mínimo dos Correios, com o valor declarado",
+      JSON.stringify(caixa)
+    )
+    ok(
+      ["04510", "LOG01"].includes(envio.Quotation?.ShippingServiceCode),
+      "e o serviço que o cliente escolheu na cotação",
+      JSON.stringify(envio.Quotation)
+    )
+    const enderecoDoAviso = String(envio.TrackingNotificationUrl ?? "")
+    ok(
+      enderecoDoAviso.startsWith(
+        `${MEDUSA}/hooks/envio/frenet?pedido=FB-${R.numero}&assinatura=`
+      ) && !enderecoDoAviso.includes(TOKEN),
+      "com o endereço do aviso deste pedido, assinado — sem a chave da porta nele",
+      enderecoDoAviso || "sem TrackingNotificationUrl (o Medusa está com MEDUSA_BACKEND_URL?)"
+    )
+    const registro = await registroQuando(R, (r) => r.entrou)
+    ok(
+      registro?.entrou === true &&
+        registro.id === String(chegou?.envio) &&
+        registro.referencia === `FB-${R.numero}`,
+      "o pedido guarda o id do envio na Frenet",
+      JSON.stringify(registro)
+    )
+    const loja = (await adm("/admin/stores")).stores?.[0]
+    ok(
+      !Number.isNaN(Date.parse(loja?.metadata?.fb_parceiros?.frenet?.pedidos_desde ?? "")),
+      "e a loja guarda desde quando o registro vale",
+      JSON.stringify(loja?.metadata?.fb_parceiros)
+    )
+
+    /* 2. uma vez só */
+    await varrer()
+    await varrer()
+    ok(
+      noPainel(R.numero).length === 1,
+      "uma vez só: o evento repetido e a varredura não mandam de novo",
+      `${noPainel(R.numero).length} vezes`
+    )
+
+    /* 3. a postagem volta sozinha, pelo endereço que foi no pedido */
+    const naUrlDoAviso = async (corpo) => {
+      const resposta = await fetch(enderecoDoAviso, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(corpo),
+      })
+      return { status: resposta.status, corpo: await resposta.json().catch(() => ({})) }
+    }
+    const COD_R = novoCodigo("QR")
+    const postagemDeR = {
+      OrderId: `FB-${R.numero}`,
+      ShipmentId: chegou?.envio,
+      TrackingNumber: COD_R,
+      TrackingUrl: urlDe(COD_R),
+      ServiceDescrition: "PAC",
+      TrackingEvents: [evento(18, 30, "Aguardando coleta no ponto de postagem")],
+    }
+    let r = await naUrlDoAviso({ ...postagemDeR, OrderId: `FB-${R.numero + 1000}` })
+    ok(r.status === 401, "o endereço de um pedido não serve pra avisar de outro", String(r.status))
+    r = await naUrlDoAviso(postagemDeR)
+    ok(
+      r.status === 200 && r.corpo.envios?.[0]?.pedido === R.id,
+      "a Frenet chama o endereço que foi no pedido — sem cabeçalho — e o aviso acha o pedido",
+      `${r.status} ${JSON.stringify(r.corpo)}`
+    )
+    ok(
+      (await fabrica.noAdmin(R.id)).fulfillment_status === "shipped",
+      "e o pedido vira enviado — ninguém marcou nada"
+    )
+    ok(
+      Boolean(await esperarAssunto(quem, `Pedido #${R.numero} a caminho`)),
+      "com o e-mail 'a caminho'"
+    )
+
+    // Pelo aviso da conta (com o cabeçalho), os dois caminhos que acham o pedido.
+    const S = await fabrica.pedidoPix(novoEmail(), [["shampoo-para-barba", 1]])
+    await fabrica.pagar(S)
+    const [doS] = await esperarNoPainel(S.numero)
+    const COD_S = novoCodigo("QS")
+    r = await aviso(
+      avisoDe({
+        pedido: S,
+        codigo: COD_S,
+        shipment: doS?.envio,
+        referencia: "PLAT-OUTRA-COISA",
+        eventos: [evento(0, 20, "Objeto postado")],
+      })
+    )
+    ok(
+      r.corpo.envios?.[0]?.pedido === S.id,
+      "o id do envio que a loja guardou acha o pedido, mesmo com outro número no aviso",
+      JSON.stringify(r.corpo)
+    )
+    const X = await fabrica.pedidoPix(novoEmail(), [["balm-para-barba", 1]])
+    await fabrica.pagar(X)
+    await esperarNoPainel(X.numero)
+    const COD_X = novoCodigo("QX")
+    r = await aviso(
+      avisoDe({
+        pedido: X,
+        codigo: COD_X,
+        shipment: novoShipmentId(),
+        referencia: `FB-${X.numero}`,
+        eventos: [evento(0, 20, "Objeto postado")],
+      })
+    )
+    ok(
+      r.corpo.envios?.[0]?.pedido === X.id,
+      `e o nome do pedido no painel (FB-${X.numero}) também, quando o id não bate`,
+      JSON.stringify(r.corpo)
+    )
+
+    /* 4. o cancelado sai do painel */
+    const T = await fabrica.pedidoPix(novoEmail(), [["oleo-para-barba", 1]])
+    await fabrica.pagar(T)
+    const [doT] = await esperarNoPainel(T.numero)
+    await registroQuando(T, (x) => x.entrou)
+    await fabrica.cancelar(T)
+    const saiu = await registroQuando(T, (x) => Boolean(x.tirado_em))
+    ok(
+      Boolean(saiu?.tirado_em) &&
+        frenet.retirados.some((x) => x.id === String(doT?.envio) && x.como === "cancelar"),
+      "cancelado, sai do painel (o envio é cancelado na Frenet)",
+      JSON.stringify({ saiu, retirados: frenet.retirados })
+    )
+
+    /* 5. a Frenet recusa: não insiste */
+    frenet.roteiroDosPedidos = "recusa"
+    const U = await fabrica.pedidoPix(novoEmail(), [["oleo-para-barba", 1]])
+    await fabrica.pagar(U)
+    const recusado = await registroQuando(U, (x) => x.definitivo)
+    frenet.roteiroDosPedidos = "normal"
+    ok(
+      recusado?.definitivo === true && /CEP de destino inválido/.test(recusado.erro ?? ""),
+      "recusado pela Frenet: fica registrado, com o motivo dela",
+      JSON.stringify(recusado)
+    )
+    await varrer()
+    ok(
+      noPainel(U.numero).length === 0 &&
+        (await fabrica.noAdmin(U.id)).metadata?.fb_parceiro?.tentativas === 1,
+      "e a varredura não insiste (a etiqueta desse é à mão)"
+    )
+
+    /* 6. a Frenet fora do ar: fica pra depois */
+    frenet.roteiroDosPedidos = "queda"
+    const V = await fabrica.pedidoPix(novoEmail(), [["oleo-para-barba", 1]])
+    await fabrica.pagar(V)
+    const caiu = await registroQuando(V, (x) => x.tentativas >= 1)
+    frenet.roteiroDosPedidos = "normal"
+    ok(
+      caiu?.entrou === false && !caiu.definitivo && /500/.test(caiu.erro ?? ""),
+      "Frenet fora do ar: não entrou, e não desistiu",
+      JSON.stringify(caiu)
+    )
+    const v = await varrer()
+    ok(
+      noPainel(V.numero).length === 0 && v.relatorio?.pendentes === 0,
+      "e a varredura espera antes de tentar de novo (10 minutos, depois 20, 40…)",
+      JSON.stringify(v)
+    )
+
+    /* 7. pago antes de o registro ligar: etiqueta à mão, fora do painel */
+    const metaAntes = loja?.metadata ?? {}
+    const amanha = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+    await adm(`/admin/stores/${loja?.id}`, {
+      method: "POST",
+      body: JSON.stringify({
+        metadata: { ...metaAntes, fb_parceiros: { frenet: { pedidos_desde: amanha } } },
+      }),
+    })
+    const W = await fabrica.pedidoPix(novoEmail(), [["oleo-para-barba", 1]])
+    await fabrica.pagar(W)
+    await silencio()
+    await varrer()
+    ok(
+      noPainel(W.numero).length === 0 && !(await fabrica.noAdmin(W.id)).metadata?.fb_parceiro,
+      "o pedido pago antes de o registro ligar não vai (pode já ter etiqueta feita à mão)"
+    )
+    await adm(`/admin/stores/${loja?.id}`, {
+      method: "POST",
+      body: JSON.stringify({ metadata: metaAntes }),
+    })
+
+    // O que ficou pra trás de propósito (a queda, o pago "antes") sai de cena:
+    // senão a próxima varredura manda os dois pro painel falso.
+    await fabrica.cancelar(V)
+    await fabrica.cancelar(W)
+  }
 }
 
 /* ── 8. a conta ───────────────────────────────────────────────────────────── */
