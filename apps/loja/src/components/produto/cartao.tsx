@@ -2,10 +2,11 @@ import type { HttpTypes } from "@medusajs/types"
 import Image from "next/image"
 import Link from "next/link"
 import { Carrinho } from "@/components/icones"
+import { BotaoComprar } from "@/components/produto/comprar"
 import { emReais } from "@/lib/formato"
 import { frasesDoFrete, produtoSozinhoQualifica } from "@/lib/configuracoes"
 import { PARCELA_MINIMA, PARCELAS_SEM_JUROS } from "@/lib/site"
-import { configuracoes, precosDe } from "@/lib/medusa"
+import { configuracoes, precosDe, varianteDoCard } from "@/lib/medusa"
 
 /**
  * O card de produto — o mesmo na faixa de coleção e, depois, na vitrine.
@@ -53,6 +54,7 @@ export async function CartaoProduto({
   const desconto =
     precos?.cheio != null ? Math.round((1 - precos.atual / precos.cheio) * 100) : null
 
+  const variante = varianteDoCard(produto)
   const temTarja = precos != null && produtoSozinhoQualifica(frete, precos.atual)
   const parcela = precos ? precos.atual / PARCELAS_SEM_JUROS : 0
   const mostraParcela = parcela >= PARCELA_MINIMA
@@ -114,12 +116,21 @@ export async function CartaoProduto({
         ) : null}
       </div>
 
-      {/* Vira o gatilho da gaveta na fase 4; até lá leva pra página do
-          produto, que é onde a compra acontece de verdade hoje. */}
-      <Link href={caminho} className="btn produto__comprar">
-        Comprar
-        <Carrinho className="btn__icone" />
-      </Link>
+      {/* Põe na sacola e abre a gaveta. Produto com variação pra escolher,
+          ou sem estoque, leva pra página dele (`varianteDoCard`). */}
+      {variante ? (
+        <BotaoComprar
+          varianteId={variante}
+          nome={produto.title}
+          className="btn produto__comprar"
+          icone={<Carrinho className="btn__icone" />}
+        />
+      ) : (
+        <Link href={caminho} className="btn produto__comprar">
+          Comprar
+          <Carrinho className="btn__icone" />
+        </Link>
+      )}
     </article>
   )
 }

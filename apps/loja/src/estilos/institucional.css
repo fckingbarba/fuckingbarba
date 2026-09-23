@@ -7,8 +7,8 @@
   a vista em três parágrafos — que é mais ou menos onde a pessoa desiste de
   ler justamente a página que ela abriu pra decidir se confia na loja.
 
-  O fundo é do `body`, que é do layout raiz e não sabe qual página está
-  montada. Quem avisa é a página: a marca `data-tela` no `<html>`, que ela
+  O fundo é o `--fundo-da-pagina` do `body` (ver o `globals.css`), que é do
+  layout raiz e não sabe qual página está montada. Quem avisa é a página: a marca `data-tela` no `<html>`, que ela
   põe enquanto está na tela (`components/marca-da-tela.tsx`). Era só um
   `body:has(.institucional)`, que seguia valendo com a página guardada,
   escondida, depois que a pessoa ia embora — o fundo branco ia junto pra
@@ -17,10 +17,10 @@
   porque navegador sem `:has()` descartaria a regra inteira.
 */
 html[data-tela~="institucional"] body {
-  background: var(--color-papel);
+  --fundo-da-pagina: var(--color-papel);
 }
 html:not([data-hidratado]) body:has(.institucional) {
-  background: var(--color-papel);
+  --fundo-da-pagina: var(--color-papel);
 }
 
 /*

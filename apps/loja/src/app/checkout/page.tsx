@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { redirect } from "next/navigation"
-import { Suspense } from "react"
+import { Fragment, Suspense } from "react"
 import { Etapas } from "@/components/checkout/etapas"
 import { MarcaDaTela } from "@/components/marca-da-tela"
 import { Cadeado, Raio } from "@/components/icones"
@@ -169,9 +169,16 @@ function Vazio() {
 }
 
 /**
- * O esqueleto tem a ALTURA do passo de verdade. Não é enfeite: placeholder
+ * O ESQUELETO TEM A CARA DO CHECKOUT: o título, os três passos, o bloco do
+ * passo com rótulo e campo, e o resumo — a barra escura e, no computador, o
+ * corpo dele (no celular o resumo chega fechado). Não é enfeite: placeholder
  * baixinho que cresce quando o conteúdo chega empurra o botão pra longe do
- * dedo que já ia clicar nele.
+ * dedo que já ia clicar nele, e placeholder com outra cara faz a página
+ * piscar em vez de só se preencher.
+ *
+ * Os passos são os de verdade, vazios — o número sai do contador do CSS
+ * (`.passos li::before`). Nenhum vem marcado: o checkout pode abrir no 2 ou
+ * no 3, e quem decide é o carrinho, que ainda está chegando.
  */
 function Esqueleto() {
   return (
@@ -180,17 +187,36 @@ function Esqueleto() {
         <div className="cabeca">
           <span className="esqueleto esqueleto--titulo" />
         </div>
+        <ol className="passos">
+          <li />
+          <li />
+          <li />
+        </ol>
         <div className="bloco">
-          <span className="esqueleto esqueleto--campo" />
-          <span className="esqueleto esqueleto--campo" />
+          <div className="bloco__topo">
+            <span className="bloco__num" />
+            <span className="esqueleto esqueleto--subtitulo" />
+          </div>
+          {[0, 1, 2].map((i) => (
+            <Fragment key={i}>
+              <span className="esqueleto esqueleto--etiqueta" />
+              <span className="esqueleto esqueleto--campo" />
+            </Fragment>
+          ))}
           <span className="esqueleto esqueleto--botao" />
         </div>
       </div>
       <aside className="resumo" aria-hidden="true">
-        <div className="bloco">
-          <span className="esqueleto esqueleto--titulo" />
-          <span className="esqueleto esqueleto--linha" />
-          <span className="esqueleto esqueleto--linha" />
+        <div className="resumo-esqueleto">
+          <p className="resumo-esqueleto__barra">
+            Resumo do pedido
+            <span className="esqueleto esqueleto--valor" />
+          </p>
+          <div className="resumo-esqueleto__corpo">
+            <span className="esqueleto esqueleto--linha" />
+            <span className="esqueleto esqueleto--linha" />
+            <span className="esqueleto esqueleto--linha esqueleto--curta" />
+          </div>
         </div>
       </aside>
     </>

@@ -211,6 +211,7 @@
   transform: translate(-1px, -1px);
 }
 .galeria__zoom {
+  margin: auto;
   width: min(92vw, 88vh, 860px);
   max-width: none;
   max-height: 92vh;
@@ -356,18 +357,9 @@
   line-height: 1;
 }
 .compra__economia {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  align-self: center;
-  background: var(--color-amarelo);
-  color: var(--color-tinta);
-  font-size: 0.8rem;
+  font-size: 1rem;
   font-weight: 800;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  padding: 5px 10px;
-  border: 2px solid var(--color-tinta);
+  color: var(--color-tinta);
 }
 .compra__pagamento-linha {
   margin: 0;
@@ -410,23 +402,16 @@
   opacity: 0.32;
   cursor: not-allowed;
 }
-.compra__qtd input {
+.compra__numero {
   width: 44px;
-  border: 0;
+  display: grid;
+  place-items: center;
   border-left: 3px solid var(--color-tinta);
   border-right: 3px solid var(--color-tinta);
-  background: transparent;
-  font-family: inherit;
   font-size: 1rem;
   font-weight: 800;
-  text-align: center;
   color: var(--color-tinta);
-  -moz-appearance: textfield;
-}
-.compra__qtd input::-webkit-outer-spin-button,
-.compra__qtd input::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
+  font-variant-numeric: tabular-nums;
 }
 .compra__comprar {
   justify-content: center;
@@ -918,15 +903,6 @@
   }
 }
 @media (max-width: 719px) {
-  .compra__economia {
-    font-size: 0.68rem;
-    letter-spacing: 0;
-    padding: 3px 7px;
-    border-width: 2px;
-  }
-  .compra__economia svg {
-    display: none;
-  }
   .compra__precos {
     gap: 6px 9px;
   }
@@ -935,7 +911,7 @@
   .compra__qtd button {
     width: 36px;
   }
-  .compra__qtd input {
+  .compra__numero {
     width: 38px;
   }
   .compra__acao {
@@ -1195,7 +1171,7 @@
   .compra__qtd button {
     width: 34px;
   }
-  .compra__qtd input {
+  .compra__numero {
     width: 36px;
   }
   .compra__acao {

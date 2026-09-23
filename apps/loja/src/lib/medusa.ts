@@ -564,3 +564,20 @@ export function temEstoque(variante: HttpTypes.StoreProductVariant, unidades = 1
   const qtd = variante.inventory_quantity
   return typeof qtd === "number" ? qtd >= unidades : true
 }
+
+/**
+ * A variação que o "Comprar" da vitrine põe direto na sacola — ou `null`, e
+ * aí o botão continua levando pra página do produto.
+ *
+ * Só com UMA variação, com preço e com estoque. Produto com tamanho ou cheiro
+ * pra escolher precisa da escolha antes da sacola; e um "Comprar" que
+ * responde "acabou" depois do clique é pior do que a página que diz isso
+ * antes dele.
+ */
+export function varianteDoCard(produto: HttpTypes.StoreProduct): string | null {
+  const variantes = produto.variants ?? []
+  if (variantes.length !== 1) return null
+  const [variante] = variantes
+  if (typeof variante.calculated_price?.calculated_amount !== "number") return null
+  return temEstoque(variante) ? variante.id : null
+}

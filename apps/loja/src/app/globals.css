@@ -106,11 +106,37 @@
     -webkit-text-size-adjust: 100%;
   }
 
+  /*
+    ┌─ O FUNDO DA PÁGINA NÃO É O FUNDO DO BODY ────────────────────────────────┐
+    │ O Safari do iPhone (iOS 26) pinta a faixa de cima da tela — a da hora e  │
+    │ da bateria — com a cor de fundo do BODY enquanto a página está no topo,  │
+    │ e ignora o `theme-color`. Com o menta no body, a loja abria com uma      │
+    │ faixa menta em cima do aviso amarelo, e só ficava preta depois de rolar  │
+    │ (aí quem manda é o cabeçalho preto, grudado no topo).                    │
+    │                                                                          │
+    │ Então o body é PRETO, a cor do cabeçalho, e o fundo que se vê é pintado  │
+    │ por baixo de tudo pelo `body::before`, com a cor de `--fundo-da-pagina`: │
+    │ menta aqui; cinza no checkout e na conta; branco nas páginas de texto. O │
+    │ `isolation` faz do body uma camada própria — sem ele, o `z-index: -1`    │
+    │ mandaria o fundo pra trás do preto do body. E é `absolute`, não `fixed`: │
+    │ elemento FIXO encostado no topo também pinta a faixa do Safari.          │
+    └──────────────────────────────────────────────────────────────────────────┘
+  */
   body {
-    background: var(--color-menta);
+    --fundo-da-pagina: var(--color-menta);
+    position: relative;
+    isolation: isolate;
+    background: #000000;
     color: var(--color-tinta);
     font-family: var(--font-sans);
     font-feature-settings: "ss01", "cv11";
+  }
+  body::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: var(--fundo-da-pagina);
   }
 
   ::selection {

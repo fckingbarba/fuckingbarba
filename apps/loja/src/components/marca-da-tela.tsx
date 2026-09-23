@@ -4,8 +4,8 @@ import { useLayoutEffect } from "react"
 
 /**
  * A PÁGINA DIZ AO DOCUMENTO QUE ESTÁ NA TELA — pra regra global que depende
- * dela (o fundo do `body`, a carcaça do layout raiz) valer só enquanto ela
- * está visível.
+ * dela (o fundo da página, `--fundo-da-pagina` no `body`; a carcaça do
+ * layout raiz) valer só enquanto ela está visível.
  *
  * ┌─ POR QUE NÃO `body:has(.pagina)` ──────────────────────────────────────┐
  * │ O Next (com Cache Components) não desmonta a página quando a pessoa    │
