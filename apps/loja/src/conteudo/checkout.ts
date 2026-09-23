@@ -86,12 +86,10 @@ export type Garantia = {
 type Atendimento = Pick<Configuracoes["atendimento"], "whatsapp" | "prazoDePostagem">
 
 /**
- * Onde a mão hesita, no passo do pagamento: até três frases curtas.
+ * Onde a mão hesita, no passo do pagamento: até duas frases curtas.
  *
- * Só o que a loja cumpre, e é por isso que duas delas dependem do admin:
+ * Só o que a loja cumpre, e é por isso que as duas dependem do admin:
  *
- * - "Compra segura": o pagamento é do Pagar.me, e o cartão vai do navegador
- *   direto pra lá, sem passar pelo servidor da loja. Vale sempre;
  * - a POSTAGEM, com o prazo que a loja configurou (admin → Configurações →
  *   prazo de postagem). Era "Envio imediato", escrito aqui, enquanto o pé do
  *   resumo dizia "até 1 dia útil" — as duas na mesma tela, discordando, e
@@ -99,12 +97,13 @@ type Atendimento = Pick<Configuracoes["atendimento"], "whatsapp" | "prazoDePosta
  * - "Suporte no WhatsApp", só com um número pra atender. Sem ele, a frase
  *   prometia um canal que não existe.
  *
- * Sem prazo nem WhatsApp configurados, fica só a primeira — em vez de uma
- * promessa de mentira no lugar das outras duas.
+ * Sem prazo nem WhatsApp configurados, a lista sai vazia, e a faixa some —
+ * em vez de uma promessa de mentira no lugar delas. O "Compra segura", que
+ * valia sempre e abria a faixa, saiu a pedido da loja (23/09): o passo 3
+ * fica só com as formas de pagamento.
  */
 export function garantiasDoPagamento({ whatsapp, prazoDePostagem }: Atendimento): Garantia[] {
   return [
-    { icone: "cadeado", texto: "Compra segura" },
     ...(prazoDePostagem
       ? [{ icone: "caminhao" as const, texto: `Postagem em ${prazoDePostagem}` }]
       : []),

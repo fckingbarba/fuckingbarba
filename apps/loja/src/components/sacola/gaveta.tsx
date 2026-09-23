@@ -6,7 +6,9 @@ import { useEffect, useRef, type MouseEvent } from "react"
 import { Fechar, Lixeira, Mais, Raio, Sacola as IconeSacola } from "@/components/icones"
 import { useSacola } from "@/components/sacola/contexto"
 import { FreteEPrazo } from "@/components/sacola/entrega"
+import { LevaJunto } from "@/components/sacola/leva-junto"
 import { useFrete } from "@/components/configuracoes/contexto"
+import type { SugestaoDaSacola } from "@/lib/carrinho-visivel"
 import { faltaPraPromocao, frasesDoFrete, progressoDaPromocao } from "@/lib/configuracoes"
 import { emReais } from "@/lib/formato"
 import { DESTINO_DO_CHECKOUT, EM_BREVE, PARCELA_MINIMA, PARCELAS_SEM_JUROS } from "@/lib/site"
@@ -27,7 +29,7 @@ import { DESTINO_DO_CHECKOUT, EM_BREVE, PARCELA_MINIMA, PARCELAS_SEM_JUROS } fro
  * ele, a gaveta continua no Tab escondida fora da tela, e quem navega por
  * teclado passeia por dez botões invisíveis antes de chegar no conteúdo.
  */
-export function Gaveta() {
+export function Gaveta({ vitrine }: { vitrine: readonly SugestaoDaSacola[] }) {
   const sacola = useSacola()
   const painel = useRef<HTMLDivElement>(null)
   const fechaRef = useRef<HTMLButtonElement>(null)
@@ -243,6 +245,9 @@ export function Gaveta() {
             R$ 50 pro frete grátis"); este bloco é a resposta — quanto custa,
             em quantos dias chega, e qual das entregas vai no pedido.
           */}
+          {/* O "leva junto" entre a lista e o frete, como no protótipo: primeiro
+              o que mais cabe na sacola, depois quanto custa mandar. */}
+          {vazia ? null : <LevaJunto vitrine={vitrine} aoNavegar={aoNavegar} />}
           {vazia ? null : <FreteEPrazo />}
         </div>
 

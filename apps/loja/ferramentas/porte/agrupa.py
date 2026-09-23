@@ -95,9 +95,9 @@ ADIADAS = {
     # A gaveta subiu sem o cross-sell "leve junto" e sem o desfazer de
     # remoção. O bloco "Frete e prazo" (`sacolinha__entrega`, `__cep`,
     # `__opcao`, `__opcoes`) saiu daqui quando a cotação da Frenet entrou —
-    # a marcação dele é `components/sacola/entrega.tsx`.
+    # a marcação dele é `components/sacola/entrega.tsx` —, e o "leva junto"
+    # (`sacolinha__leve`) em 23/09, com `components/sacola/leva-junto.tsx`.
     "sacola": [
-        "sacolinha__leve",
         "sacolinha__desfazer",
         "voo",
     ],

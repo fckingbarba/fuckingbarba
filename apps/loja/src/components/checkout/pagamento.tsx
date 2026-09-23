@@ -229,19 +229,26 @@ export function Pagamento({ checkout, provedores, bump, atendimento, aoSalvar, .
 
   return (
     <Painel etapa="pagamento" aberta={casca.aberta}>
-      {/* `data-itens`: são de uma a três frases (ver `garantiasDoPagamento`),
-          e a grade do protótipo era de três colunas fixas. */}
-      <ul className="confia" aria-label="Por que comprar com a gente" data-itens={garantias.length}>
-        {garantias.map((g) => {
-          const Icone = ICONES[g.icone]
-          return (
-            <li key={g.texto}>
-              <Icone aria-hidden="true" />
-              <span>{g.texto}</span>
-            </li>
-          )
-        })}
-      </ul>
+      {/* `data-itens`: são até duas frases (ver `garantiasDoPagamento`), e a
+          grade do protótipo era de três colunas fixas. Sem nenhuma, a faixa
+          nem aparece. */}
+      {garantias.length ? (
+        <ul
+          className="confia"
+          aria-label="Por que comprar com a gente"
+          data-itens={garantias.length}
+        >
+          {garantias.map((g) => {
+            const Icone = ICONES[g.icone]
+            return (
+              <li key={g.texto}>
+                <Icone aria-hidden="true" />
+                <span>{g.texto}</span>
+              </li>
+            )
+          })}
+        </ul>
+      ) : null}
 
       {provedores.length === 0 ? (
         <p className="erros-envio" role="alert">
@@ -419,7 +426,7 @@ function Formas({
                 checked={forma === f.id}
                 onChange={() => aoTrocar(f.id)}
               />
-              <Icone className="opcao__icone" aria-hidden="true" />
+              <Icone className={`opcao__icone opcao__icone--${f.id}`} aria-hidden="true" />
               <span>
                 <span className="opcao__nome">{f.nome}</span>
                 <span className="opcao__desc">{f.descricao}</span>

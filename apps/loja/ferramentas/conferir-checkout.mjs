@@ -769,7 +769,8 @@ ok(
 )
 await cartao.fill("4111 1111 1111 1111")
 ok(
-  (await pagina.locator('.campo__icone[data-bandeira="visa"] svg[role="img"]').count()) === 1,
+  (await pagina.locator('.campo__icone[data-bandeira="visa"] img[alt="Cartão Visa"]').count()) ===
+    1,
   "o número do cartão revela a bandeira enquanto digita — o logo da Visa no fim do campo"
 )
 ok(

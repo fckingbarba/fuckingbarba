@@ -2,6 +2,7 @@ import "server-only"
 import Medusa from "@medusajs/js-sdk"
 import type { HttpTypes } from "@medusajs/types"
 import { cacheLife, cacheTag } from "next/cache"
+import type { SugestaoDaSacola } from "./carrinho-visivel"
 import { PADRAO, type Configuracoes } from "./configuracoes"
 import { emReais } from "./formato"
 
@@ -563,6 +564,30 @@ export function temEstoque(variante: HttpTypes.StoreProductVariant, unidades = 1
   if (variante.allow_backorder) return true
   const qtd = variante.inventory_quantity
   return typeof qtd === "number" ? qtd >= unidades : true
+}
+
+/**
+ * OS PRODUTOS DO "LEVA JUNTO" DA SACOLA, prontos pra gaveta escolher
+ * (`escolherLevaJunto`, em `lib/carrinho-visivel.ts`): os mesmos da
+ * vitrine, só os que vão pra sacola num clique (`varianteDoCard`, logo
+ * abaixo) — sem estoque ou com variação pra escolher, ficam de fora.
+ *
+ * Mora no layout raiz, porque a gaveta também mora: cacheado como a
+ * vitrine, e derrubado junto com ela quando o admin mexe num produto.
+ */
+export async function vitrineDaSacola(): Promise<SugestaoDaSacola[]> {
+  "use cache"
+  cacheTag(TAGS.produtos)
+  cacheLife("hours")
+  const produtos = await listarProdutos()
+  return produtos.flatMap((p) => {
+    const varianteId = varianteDoCard(p)
+    const preco = precosDe(p)?.atual
+    if (!varianteId || !preco || !p.handle) return []
+    return [
+      { varianteId, handle: p.handle, nome: p.title ?? "", imagem: p.thumbnail ?? null, preco },
+    ]
+  })
 }
 
 /**
