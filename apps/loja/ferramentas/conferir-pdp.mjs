@@ -609,6 +609,11 @@ try {
         naSacola.length === 2,
         naSacola.join(" | ")
       )
+      // Com a sacola aberta, o marcado continua marcado (desmarcar parecia que não tinha ido).
+      confere(
+        "e o que foi marcado continua marcado na página",
+        await pagina.$eval(".junto__lista li:first-child input", (e) => e.checked)
+      )
       await contexto.clearCookies()
 
       /* ── a tarja de frete: nos kits e nos que combinam ───────────────── */

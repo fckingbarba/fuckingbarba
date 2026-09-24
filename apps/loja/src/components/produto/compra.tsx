@@ -167,7 +167,13 @@ export function Compra({
           ? `Na sacola, com ${marcados.length === 1 ? "o item" : "os itens"} que combinam.`
           : "Na sacola.",
       })
-      setJuntos(new Set())
+      /*
+        O "leve junto" CONTINUA MARCADO depois do clique, como as unidades
+        escolhidas continuam na tela. Desmarcar na hora em que a sacola abre
+        (era assim até 24/09) fazia parecer que os itens não tinham ido — a
+        loja viu e pediu pra manter. Um segundo clique leva de novo o que
+        está marcado, do mesmo jeito que leva de novo as unidades.
+      */
       avisarSacola(r.carrinho)
     })
   }
@@ -410,11 +416,18 @@ export function Compra({
         </li>
       </ul>
 
+      {/*
+        A barra leva o que o "Comprar" dela leva: com itens do "leve junto"
+        marcados, o preço é o do pedido todo (o riscado ganha os extras, que
+        não têm desconto — a economia continua a mesma), e as fotos deles
+        aparecem empilhadas atrás da principal, com o "+N" ao lado do nome.
+      */}
       <BarraFixa
         nome={nome}
         foto={foto}
-        preco={total}
-        riscado={riscado}
+        juntos={marcados}
+        preco={pedido}
+        riscado={riscado ? riscado + (pedido - total) : null}
         alvo={botao}
         ocupado={enviando}
         disponivel={disponivel}
@@ -676,6 +689,7 @@ function Escassez({ unidades }: { unidades: number | null }) {
 function BarraFixa({
   nome,
   foto,
+  juntos,
   preco,
   riscado,
   alvo,
@@ -685,6 +699,8 @@ function BarraFixa({
 }: {
   nome: string
   foto: string | null
+  /** Os itens marcados no "leve junto": vão no mesmo clique, então aparecem aqui. */
+  juntos: readonly ProdutoQueCombina[]
   preco: number
   riscado: number | null
   alvo: React.RefObject<HTMLButtonElement | null>
@@ -710,12 +726,51 @@ function BarraFixa({
 
   return (
     <div className={mostra ? "barra-compra e-visivel" : "barra-compra"}>
-      {foto ? (
-        <Image className="barra-compra__foto" src={foto} alt="" width={92} height={92} />
+      {foto || juntos.length ? (
+        <span className="barra-compra__fotos" data-juntos={juntos.length || undefined}>
+          {/* Os de trás primeiro: o último da lista fica mais longe da principal. */}
+          {[...juntos]
+            .reverse()
+            .map((j, i) =>
+              j.foto ? (
+                <Image
+                  key={j.varianteId}
+                  className="barra-compra__foto barra-compra__foto--atras"
+                  style={{ "--nivel": juntos.length - i } as React.CSSProperties}
+                  src={j.foto}
+                  alt=""
+                  width={92}
+                  height={92}
+                />
+              ) : (
+                <span
+                  key={j.varianteId}
+                  className="barra-compra__foto barra-compra__foto--atras barra-compra__sem-foto"
+                  style={{ "--nivel": juntos.length - i } as React.CSSProperties}
+                  aria-hidden="true"
+                />
+              )
+            )}
+          {foto ? (
+            <Image className="barra-compra__foto" src={foto} alt="" width={92} height={92} />
+          ) : (
+            <span className="barra-compra__foto barra-compra__sem-foto" aria-hidden="true" />
+          )}
+        </span>
       ) : null}
 
       <span className="barra-compra__texto">
-        <span className="barra-compra__nome">{nome}</span>
+        <span className="barra-compra__nome">
+          <span className="barra-compra__nome-texto">{nome}</span>
+          {juntos.length ? (
+            <span className="barra-compra__mais">
+              +{juntos.length}
+              <span className="sr-only">
+                {juntos.length === 1 ? " produto que combina" : " produtos que combinam"}
+              </span>
+            </span>
+          ) : null}
+        </span>
         <span className="barra-compra__preco">
           {emReais(preco)} {riscado ? <s>{emReais(riscado)}</s> : null}
         </span>
