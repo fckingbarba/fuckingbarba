@@ -8,6 +8,7 @@ import {
   type CancelamentoDoEmail,
   type MotivoDoCancelamento,
 } from "./emails/pedido-cancelado"
+import { gravarNoMetadataDoPedido } from "./metadata-do-pedido"
 
 /**
  * O AVISO DE PEDIDO CANCELADO — uma vez por pedido, quando ele é cancelado.
@@ -15,8 +16,9 @@ import {
  * O desenho está em `emails/pedido-cancelado.ts`; aqui é quando, pra quem e
  * quantas vezes. É o irmão do `confirmar-pedido.ts`, e as travas são as
  * mesmas, na mesma ordem: a trava do Medusa por pedido, o registro em
- * `metadata.emails.cancelado` lido DENTRO dela, e a chave de idempotência do
- * Resend por cima.
+ * `metadata.emails.cancelado` lido DENTRO dela (e gravado pela porta do
+ * metadata, `metadata-do-pedido.ts`), e a chave de idempotência do Resend
+ * por cima.
  *
  * ┌─ POR QUE O DINHEIRO É LIDO PELA CAPTURA, E NÃO PELO ESTORNO ───────────┐
  * │ O estorno do Medusa pode ser registrado no mesmo segundo do            │
@@ -107,14 +109,9 @@ export function lerRegistro(metadata: unknown): Registro | null {
   return r as Registro
 }
 
+/** Só o `emails.cancelado`, relido na hora de gravar (ver `confirmar-pedido.ts`). */
 async function registrar(container: MedusaContainer, pedido: PedidoLido, registro: Registro) {
-  const meta = pedido.metadata ?? {}
-  const emails = meta.emails && typeof meta.emails === "object" ? meta.emails : {}
-  await container
-    .resolve(Modules.ORDER)
-    .updateOrders([
-      { id: pedido.id, metadata: { ...meta, emails: { ...emails, cancelado: registro } } },
-    ])
+  await gravarNoMetadataDoPedido(container, pedido.id, ["emails", "cancelado"], registro)
 }
 
 /* ── a decisão, sem efeito nenhum ─────────────────────────────────────────── */

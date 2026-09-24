@@ -12,6 +12,7 @@ import {
 import { lerEstado } from "../modules/pagarme/situacao"
 import { emailNoLog, enviarEmail } from "./email"
 import { emailDoEstornoQueFalhou } from "./emails/estorno-falhou"
+import { gravarNoMetadataDoPedido } from "./metadata-do-pedido"
 
 /**
  * O ESTORNO QUE O PAGAR.ME NÃO FEZ.
@@ -564,11 +565,13 @@ async function conferirPedido(
         mudou = true
       }
 
-      if (mudou) {
-        await pedidos.updateOrders([
-          { id: grupo.pedidoId, metadata: { ...meta, estornos: registros } },
-        ])
-      }
+      /*
+        Só a chave `estornos`, pela porta do metadata: o `meta` lá de cima é
+        de antes das chamadas ao Pagar.me e dos e-mails, e espalhá-lo aqui
+        apagaria o que os outros donos gravaram no meio. Os estornos em si só
+        mudam aqui dentro, com esta trava — o `registros` está em dia.
+      */
+      if (mudou) await gravarNoMetadataDoPedido(container, grupo.pedidoId, "estornos", registros)
       return tentativa
     },
     { timeout: 30 }
