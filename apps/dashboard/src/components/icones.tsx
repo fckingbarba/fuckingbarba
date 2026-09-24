@@ -46,6 +46,10 @@ const CAMINHOS = {
   busca:
     "M8 2.6h6L18.4 7v6l-1.5 1.5 4.6 4.6-2.4 2.4-4.6-4.6L13 17.4H8L3.6 13V7zm1.3 3.2L6.8 8.2v3.6l2.5 2.4h3.4l2.5-2.4V8.2l-2.5-2.4z",
   fora: "M13 3h8v8h-2.6V7.4l-8 8-1.8-1.8 8-8H13zM3 5h7v2.6H5.6v10.8h10.8V14H19v7H3z",
+  tela: "M2 4h20v12.6H2zM4.4 6.4v7.8h15.2V6.4zM9 18.2h6l1 2.4H8z",
+  celular: "M6.5 1.6h11v20.8h-11zM8.9 4v13.8h6.2V4zM11 19h2v1.6h-2z",
+  cima: "M12 1.8 21.2 11v1.6l-1.6 1.6-5-5v12.2H9.4V9.2l-5 5-1.6-1.6V11z",
+  baixo: "M12 22.2 2.8 13v-1.6l1.6-1.6 5 5V2.6h5.2v12.2l5-5 1.6 1.6V13z",
 } as const
 
 export type NomeDoIcone = keyof typeof CAMINHOS
@@ -63,6 +67,8 @@ const FURADOS = new Set<NomeDoIcone>([
   "cartao",
   "nota",
   "busca",
+  "tela",
+  "celular",
 ])
 
 export function Icone({ nome, className }: { nome: NomeDoIcone; className?: string }) {
