@@ -3,6 +3,7 @@ import {
   lerVisitas,
   temOBloco,
   type Barra,
+  type Comparacao,
   type RespostaDasVisitas,
   type Visitas,
 } from "@/lib/visitas"
@@ -16,6 +17,11 @@ import {
  * Os dois componentes de dados são assíncronos e leem a mesma resposta: o
  * Início põe cada um num `<Suspense>`, com o `NumeroDeVisitas` em
  * "carregando" no lugar enquanto o Google responde.
+ *
+ * O GOOGLE SOMA COM HORAS DE ATRASO: o "hoje" é o que ele já somou, e a
+ * comparação com ontem é só nessas horas — a tela diz até que hora
+ * ("−5% que ontem até as 9h"). A conta de quantas viraram pedido pago é a
+ * de ontem, que já fechou.
  */
 
 const INTEIRO = new Intl.NumberFormat("pt-BR")
@@ -30,11 +36,12 @@ const SEM_NUMERO: Record<Exclude<RespostaDasVisitas["estado"], "ok">, string> = 
   fora: "o Google não respondeu agora",
 }
 
-/** "+12% que ontem a esta hora" — ou o que der pra dizer sem a conta. */
-function comparacao(hoje: number, ontem: number): string {
-  if (!ontem) return hoje ? "ontem a esta hora: nenhuma" : "ninguém ainda hoje"
-  const diferenca = Math.round((hoje / ontem - 1) * 100)
-  return `${diferenca >= 0 ? "+" : "−"}${Math.abs(diferenca)}% que ontem a esta hora`
+/** "−5% que ontem até as 9h" — nas horas que o Google já somou hoje —, ou o que der pra dizer. */
+function comparacao(hoje: number, c: Comparacao | null): string {
+  if (!c) return hoje ? "o Google ainda está somando as de hoje" : "nenhuma somada ainda hoje"
+  if (!c.ontem) return c.hoje ? `ontem até as ${c.ate}h: nenhuma` : `nenhuma até as ${c.ate}h`
+  const diferenca = Math.round((c.hoje / c.ontem - 1) * 100)
+  return `${diferenca >= 0 ? "+" : "−"}${Math.abs(diferenca)}% que ontem até as ${c.ate}h`
 }
 
 export function NumeroDeVisitas({ r }: { r: RespostaDasVisitas }) {
@@ -46,12 +53,12 @@ export function NumeroDeVisitas({ r }: { r: RespostaDasVisitas }) {
         <p className="numero__sub">{SEM_NUMERO[r.estado]}</p>
       </div>
     )
-  const { hoje, ontemAteAgora } = r.visitas
+  const { hoje, comparacao: c } = r.visitas
   const miolo = (
     <>
       <span className="numero__rot">Visitas hoje</span>
       <span className="numero__valor">{INTEIRO.format(hoje)}</span>
-      <span className="numero__sub">{comparacao(hoje, ontemAteAgora)}</span>
+      <span className="numero__sub">{comparacao(hoje, c)}</span>
     </>
   )
   // Quem tem o bloco chega nele pelo número; a operação só lê.
@@ -76,23 +83,31 @@ export async function NumeroDasVisitas() {
   return <NumeroDeVisitas r={await lerVisitas()} />
 }
 
-/** O bloco das visitas — só pra quem recebeu o bloco (o dono e o marketing), e só com número. */
-export async function BlocoDasVisitas({ pedidosPagos }: { pedidosPagos: number }) {
+/**
+ * O bloco das visitas — só pra quem recebeu o bloco (o dono e o marketing),
+ * e só com número. `pedidosPagosOntem` vem do gráfico da semana do Início:
+ * a conta de quantas visitas viraram pedido é a de ontem, que já fechou.
+ */
+export async function BlocoDasVisitas({ pedidosPagosOntem }: { pedidosPagosOntem: number | null }) {
   const r = await lerVisitas()
   if (r.estado !== "ok" || !temOBloco(r.visitas)) return null
   const v = r.visitas
-  const conversao = v.hoje
-    ? ` · ${PORCENTO.format((pedidosPagos / v.hoje) * 100)}% viraram pedido pago`
-    : ""
+  const conversao =
+    v.ontem && pedidosPagosOntem !== null
+      ? ` · ${PORCENTO.format((pedidosPagosOntem / v.ontem) * 100)}% viraram pedido pago`
+      : ""
   return (
     <section className="bloco" id="visitas" tabIndex={-1}>
       <div className="bloco__cabeca">
         <div>
           <h2 className="bloco__titulo">Visitas de hoje</h2>
-          <p className="bloco__sub">
-            {INTEIRO.format(v.hoje)} até as {v.ate}
-            {conversao}
-          </p>
+          <p className="bloco__sub">{INTEIRO.format(v.hoje)} somadas pelo Google até agora</p>
+          {v.ontem ? (
+            <p className="bloco__sub" data-ontem>
+              Ontem: {INTEIRO.format(v.ontem)} {v.ontem === 1 ? "visita" : "visitas"}
+              {conversao}
+            </p>
+          ) : null}
         </div>
         <span className="agora" title="Nos últimos 30 minutos">
           <i />
@@ -105,7 +120,8 @@ export async function BlocoDasVisitas({ pedidosPagos }: { pedidosPagos: number }
       <h3 className="rotulo rotulo--depois">Produtos mais vistos</h3>
       <Barras itens={v.maisVistos} vazio="Nenhuma página de produto vista ainda hoje." />
       <p className="pequeno suave visitas__nota">
-        Do Google Analytics. Quem recusa os cookies fica de fora — o número real é um pouco maior.
+        Do Google Analytics, que soma as visitas com algumas horas de atraso — o “no site agora” é
+        na hora. Quem recusa os cookies fica de fora: o número real é um pouco maior.
       </p>
     </section>
   )
@@ -124,6 +140,8 @@ function PorHora({ v }: { v: Visitas }) {
   const agora = v.porHora.length - 1
   const maior = Math.max(...v.porHora, 1)
   const pico = v.porHora.indexOf(Math.max(...v.porHora))
+  // Depois da última hora com visita, até agora: o Google ainda está somando (o atraso dele).
+  const ultima = v.porHora.findLastIndex((valor) => valor > 0)
   return (
     <div
       className="barras-v barras-v--fino"
@@ -139,9 +157,11 @@ function PorHora({ v }: { v: Visitas }) {
             className="barras-v__col"
             key={h}
             title={
-              passou
-                ? `${h}h: ${INTEIRO.format(valor)} ${valor === 1 ? "visita" : "visitas"}${h === agora ? " (até agora)" : ""}`
-                : undefined
+              !passou
+                ? undefined
+                : h > ultima
+                  ? `${h}h: o Google ainda está somando`
+                  : `${h}h: ${INTEIRO.format(valor)} ${valor === 1 ? "visita" : "visitas"}${h === agora ? " (até agora)" : ""}`
             }
           >
             <i

@@ -68,9 +68,12 @@ export default async function PaginaInicio() {
   const inicio = r.corpo as unknown as Inicio
 
   const { titulo, sub } = cabecalho(membro.nome, membro.papel)
+  // A conta de quantas visitas viraram pedido é a de ontem: hoje o Google ainda está somando.
+  const hoje = inicio.grafico.findIndex((d) => d.hoje)
+  const ontem = hoje > 0 ? inicio.grafico[hoje - 1] : null
   const visitas = (
     <Suspense fallback={null}>
-      <BlocoDasVisitas pedidosPagos={inicio.numeros.vendasHoje.pedidos} />
+      <BlocoDasVisitas pedidosPagosOntem={ontem ? ontem.pedidos : null} />
     </Suspense>
   )
 

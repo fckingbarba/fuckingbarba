@@ -13,10 +13,15 @@ import { medusa } from "@/lib/medusa"
 
 export type Barra = { nome: string; visitas: number }
 
-export type NumeroDeVisitas = { hoje: number; ontemAteAgora: number; ate: string }
+/** Hoje contra ontem, da 0h até `ate`h — só as horas que o Google já somou hoje. */
+export type Comparacao = { ate: number; hoje: number; ontem: number }
+
+export type NumeroDeVisitas = { hoje: number; comparacao: Comparacao | null }
 
 export type Visitas = NumeroDeVisitas & {
   porHora: number[]
+  /** Ontem inteiro. */
+  ontem: number
   agora: number
   origens: Barra[]
   maisVistos: Barra[]
