@@ -559,6 +559,33 @@ só desenha. Os conferidores são o `apps/dashboard/ferramentas/conferir-entrar.
 (`pedido-de-teste.mjs`, que ganhou o `pedidoCartao` — o cartão em análise) e usa o admin local
 (`ADMIN_EMAIL`/`ADMIN_SENHA`) e a chave publicável.
 
+**As ações do pedido e as visitas** (fase 2, parte 2). "Emitir a nota agora" / "Tentar a nota de
+novo" e "Tentar o estorno de novo" são as funções que o admin já usava (`tentarDeNovo`,
+`tentarEstornoAgora`) atrás de `POST /dashboard/pedidos/:id/nota` e `/estorno`: a rota confere o
+papel (o estorno tem linha própria no `ACESSO`, `estornos`, só do dono) e se o pedido ainda está no
+estado do botão (`src/lib/painel/acoes.ts`, puro; senão 409 `nada_a_fazer`), faz, e grava a linha
+no registro da equipe (`workflows/equipe/anotar.ts`) — o histórico do pedido lê o registro e mostra
+o nome de quem apertou. O aviso de baixo das ações é um só pro painel inteiro (`ComAvisos`, no
+layout): a frase sobrevive à página se refazendo. As visitas vêm do GA4 pela
+`GET /dashboard/visitas`, à parte do Início: `src/lib/painel/ga4.ts` fala com o Google (conta de
+serviço só leitura, JWT assinado com `node:crypto`, um `batchRunReports` e um `runRealtimeReport`,
+respostas guardadas `GA4_CACHE_SEGUNDOS`, token recusado pede outro uma vez) e `visitas.ts` (puro)
+lê as respostas; a operação recebe só o número. No painel, cada pedaço das visitas está num
+`<Suspense>` e o Início não espera o Google. Conferidores: `conferir-acoes.mjs` (Bling e Pagar.me
+falsos; o backend com o app do Bling apontando pro falso, como no conferir-erp — e o Bling fica
+conectado no banco local, como depois dele) e `conferir-visitas.mjs` (o `google-falso.mjs` sobe na
+porta do `GA4_API_URL` e confere a assinatura do JWT com a chave pública da `GA4_CREDENCIAIS`). A
+chave do teste se gera na hora — nenhuma chave, nem de teste, mora no repositório:
+
+```bash
+export GA4_PROPERTY_ID=123456789 GA4_API_URL=http://127.0.0.1:4360/v1beta GA4_CACHE_SEGUNDOS=0
+export GA4_CREDENCIAIS=$(node -e 'const{generateKeyPairSync:g}=require("node:crypto");const{privateKey:k}=g("rsa",{modulusLength:2048});process.stdout.write(Buffer.from(JSON.stringify({type:"service_account",client_email:"painel@local.iam.gserviceaccount.com",private_key:k.export({type:"pkcs8",format:"pem"}),token_uri:"http://127.0.0.1:4360/token"})).toString("base64"))')
+# as mesmas no backend (antes do backend:dev) e no conferidor
+```
+
+O CSS do painel segue o do protótipo, uma regra por linha, escrito à mão: o prettier fica nos
+`.ts`/`.tsx`/`.mjs` — rodado nos `.css` do painel, ele reescreve o arquivo inteiro.
+
 ## Fora dos limites
 
 - `apps/backend/.medusa/`, `apps/loja/.next/`, `apps/dashboard/.next/`, `node_modules/` — gerados.

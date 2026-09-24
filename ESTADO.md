@@ -991,10 +991,49 @@ inteiro só o dono vê (e abre mascarado, até pra ele); o marketing não vê pe
 cliente — só os números e os mais vendidos. Conferido pelo
 `apps/dashboard/ferramentas/conferir-pedidos.mjs` (69 checagens, com um pedido de cada jeito).
 
-- [ ] **Parte 2 (a próxima entrega):** as ações que já existem no admin — "Emitir a nota agora" e
-      "Tentar o estorno de novo" —, cada uma registrada com nome e hora, e as **visitas do dia**
-      no Início (do Google Analytics, com uma conta de serviço só de leitura — o passo a passo
-      vem junto).
+- [x] **Parte 2:** as ações e as visitas — logo abaixo.
+
+**Fase 2, parte 2: as ações do pedido e as visitas — pronta em 24/09 (entrega 0061).** No pedido:
+"Emitir a nota agora" (a nota esperando a janela, pro pedido que precisa sair antes) e "Tentar a
+nota de novo" (a que a loja desistiu de emitir, depois de alguém corrigir o que faltava), pro dono
+e pra operação; "Tentar o estorno de novo", **só pro dono** — a operação vê a faixa, com "Estorno é
+com o dono". Cada clique fica no histórico do pedido com o nome de quem apertou e no que deu, e o
+estorno que falhou e depois saiu vira faixa verde. No Início, as **visitas do dia**, do Google
+Analytics: o número pra todos ("+12% que ontem a esta hora"); pro dono e o marketing, o bloco com
+a hora a hora, quem está no site agora, de onde vieram, os produtos mais vistos e quantas viraram
+pedido pago. Se o Google demorar ou cair, o resto do Início aparece do mesmo jeito. De quebra: o
+pedido estornado mostrava total R$ 0,00 (o Medusa desconta o estorno) — agora mostra o total que
+foi feito. Conferido pelos `conferir-acoes.mjs` (32 checagens) e `conferir-visitas.mjs` (36).
+
+Depois do deploy — **você**, pra ligar as visitas (as ações não precisam de nada). Qual
+propriedade: a do GA4 que a loja já usa hoje (a do `G-CS3QPK0QHL`, a da Nuvemshop) — assim o
+histórico continua quando o endereço passar pra loja nova.
+
+- [ ] **Google Cloud** (console.cloud.google.com, com o e-mail dono do Analytics): crie um projeto
+      (ex.: "fuckingbarba-painel"). Em "APIs e serviços" → "Biblioteca", procure **Google
+      Analytics Data API** e clique em **Ativar**.
+- [ ] **A conta que só lê**: "IAM e administrador" → "Contas de serviço" → "Criar conta de
+      serviço", nome `painel-ga4`, e "Concluir" (não precisa dar papel nenhum). Abra a conta →
+      aba "Chaves" → "Adicionar chave" → "Criar nova chave" → **JSON**. Baixa um arquivo `.json`:
+      ele é uma SENHA — não mande pra ninguém, nem pra conversa. (Se o Google disser que a criação
+      de chave está bloqueada pela organização, me mande um print da tela.)
+- [ ] **No Analytics** (analytics.google.com): Administrador (a engrenagem) → "Gerenciamento de
+      acesso à propriedade" → "+" → "Adicionar usuários" → cole o e-mail da conta de serviço
+      (termina em `.iam.gserviceaccount.com`), papel **Leitor**, desmarque "Notificar" →
+      "Adicionar". Ainda no Administrador → "Detalhes da propriedade": copie o **ID da
+      propriedade** (só números — não é o `G-…`) e confira o fuso: **Brasília**.
+- [ ] **Railway** (o backend), em Variables, onde está o `DASHBOARD_DONO_EMAIL`:
+      `GA4_PROPERTY_ID` = o número; `GA4_CREDENCIAIS` = abra o `.json` no TextEdit, copie TUDO e
+      cole no valor. Salve (o Railway sobe de novo sozinho). Depois, apague o `.json` dos
+      Downloads e da lixeira.
+- [ ] **Vercel, no projeto da LOJA** (não no do painel): hoje a loja nova não manda visita
+      nenhuma pro Google — falta o `NEXT_PUBLIC_GA4_ID`. Em Settings → Environment Variables,
+      `NEXT_PUBLIC_GA4_ID` = `G-CS3QPK0QHL`, e um Redeploy. Com ele, a loja passa a mostrar o aviso
+      de cookies (é ele que decide quem entra na conta). Sem ele, o painel mostra só as visitas
+      que o site da Nuvemshop ainda manda.
+- [ ] **Conferir**: abra o Início do painel. No lugar de "o Google Analytics ainda não está ligado"
+      aparece o número de visitas de hoje. Se aparecer "o Google recusou a leitura", o e-mail da
+      conta não está como Leitor na propriedade, ou a API não foi ativada no projeto.
 
 ## Como seguir no Claude Code
 
