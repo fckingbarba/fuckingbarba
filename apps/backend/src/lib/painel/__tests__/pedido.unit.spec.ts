@@ -441,6 +441,145 @@ describe("o pedido inteiro", () => {
   })
 })
 
+describe("os botões do pedido", () => {
+  const estorno = (extra: Record<string, unknown> = {}) =>
+    pedido(
+      {
+        status: "canceled",
+        metadata: {
+          estornos: {
+            pay_1: {
+              situacao: "falhou",
+              esperado: 7760,
+              devolvido: 0,
+              cobranca: "ch_1",
+              forma: "pix",
+              tentativas: 1,
+              motivo: "faltou saldo no Pagar.me",
+              proxima: depois(100),
+              sozinha: true,
+              ...extra,
+            },
+          },
+        },
+      },
+      true
+    )
+  const DONO = { verCpf: true, nota: true, estorno: true }
+  const OPERACAO = { verCpf: false, nota: true, estorno: false }
+
+  it("o estorno que falhou: o botão só pro dono; a operação lê de quem é", () => {
+    const doDono = detalheDo(estorno(), null, [], SEM_ERP, DONO)
+    expect(doDono.acoes.estorno).toBe(true)
+    expect(doDono.faixas[0]).toMatchObject({ botao: "estorno" })
+    const daOperacao = detalheDo(estorno(), null, [], SEM_ERP, OPERACAO)
+    expect(daOperacao.acoes.estorno).toBe(false)
+    expect(daOperacao.faixas[0].botao).toBeUndefined()
+    expect(daOperacao.faixas[0].rodape).toBe("Estorno é com o dono.")
+  })
+
+  it("o estorno parcial não tem botão: é pelo painel do Pagar.me", () => {
+    const d = detalheDo(estorno({ sozinha: false, proxima: null }), null, [], SEM_ERP, DONO)
+    expect(d.acoes.estorno).toBe(false)
+    expect(d.faixas[0].botao).toBeUndefined()
+    expect(d.faixas[0].texto).toContain("estorne pelo painel do Pagar.me, na cobrança ch_1")
+  })
+
+  it("a loja parou de tentar sozinha: o texto diz, e o botão segue lá", () => {
+    const d = detalheDo(estorno({ tentativas: 8, proxima: null }), null, [], SEM_ERP, DONO)
+    expect(d.faixas[0].texto).toContain("A loja já pediu de novo 8 vezes e parou de tentar sozinha")
+    expect(d.faixas[0].botao).toBe("estorno")
+  })
+
+  it("o estorno que falhou e depois saiu vira faixa verde", () => {
+    const d = detalheDo(
+      estorno({ situacao: "devolvido", devolvido: 7760, desde: antes(300), confirmado: antes(20) }),
+      null,
+      [],
+      SEM_ERP,
+      DONO
+    )
+    expect(d.faixas).toEqual([
+      {
+        nivel: "info",
+        titulo: "O estorno saiu",
+        texto: expect.stringMatching(
+          /^O Pagar\.me confirmou em 24\/09, às 11:40: R\$\s77,60 voltaram/
+        ),
+      },
+    ])
+    expect(d.acoes.estorno).toBe(false)
+  })
+
+  it("a nota esperando a janela: “Emitir a nota agora”, com a hora que ela sairia", () => {
+    const o = pedido(
+      {
+        payment_collections: [
+          {
+            payment_sessions: [sessao("pago")],
+            payments: [{ provider_id: "pp_pagarme_pagarme", captured_at: antes(2) }],
+          },
+        ],
+      },
+      false
+    )
+    const d = detalheDo(o, nota(), [], COM_ERP, OPERACAO)
+    expect(d.acoes.nota).toBe("agora")
+    expect(d.acoes.dica).toMatch(/^Ela sai sozinha às 12:03\. Precisa despachar antes\?/)
+    expect(detalheDo(o, nota(), [], COM_ERP, { verCpf: false }).acoes.nota).toBeNull()
+  })
+
+  it("a nota que a loja desistiu de emitir: a faixa diz por quê e tem o botão", () => {
+    const d = detalheDo(
+      pedido({}, true),
+      nota({ definitivo: true, erro: "o pedido não tem CPF/CNPJ, e a nota precisa" }),
+      [],
+      COM_ERP,
+      OPERACAO
+    )
+    expect(d.acoes.nota).toBe("de-novo")
+    expect(d.faixas[0]).toEqual({
+      nivel: "grave",
+      titulo: "A nota não sai sozinha",
+      texto:
+        "A loja desistiu de emitir: O pedido não tem CPF/CNPJ, e a nota precisa. Corrija o que falta e tente de novo — ou emita à mão no Bling.",
+      botao: "nota",
+    })
+  })
+
+  it("o pedido estornado mostra o total que foi feito, não o que sobrou (zero)", () => {
+    // O estorno vira crédito no Medusa: o `total` cai pra zero; o `original_total`, não.
+    const d = detalheDo(
+      estorno({ situacao: "devolvido", devolvido: 7760 }),
+      null,
+      [],
+      SEM_ERP,
+      DONO
+    )
+    expect(d.total).toBe(128.6)
+    const zerado = { ...estorno(), total: 0, original_total: 128.6 }
+    expect(detalheDo(zerado, null, [], SEM_ERP, DONO).totais.total).toBe(128.6)
+    expect(linhaDaLista(zerado, null, [], SEM_ERP).total).toBe(128.6)
+  })
+
+  it("o que a equipe fez entra no histórico, com o nome e na hora certa", () => {
+    const d = detalheDo(pedido({}, true), null, [], SEM_ERP, DONO, [
+      {
+        em: antes(1),
+        acao: "pediu-estorno",
+        quem: "Matheus Santana",
+        detalhe: { resultado: "pedido" },
+      },
+    ])
+    const ultimo = d.historico[d.historico.length - 1]
+    expect(ultimo).toMatchObject({
+      quando: "hoje, 11:59",
+      titulo: "Matheus Santana pediu o estorno de novo",
+      detalhe: "o Pagar.me aceitou — confirma em minutos",
+    })
+  })
+})
+
 describe("o Início", () => {
   const venda = (id: string, minutos: number, total: number, extra: Partial<PedidoCru> = {}) =>
     pedido(
@@ -483,6 +622,21 @@ describe("o Início", () => {
     ],
     notas: new Map<string, NotaCrua>(),
     envios: new Map(),
+  })
+
+  it("a nota que a loja desistiu de emitir: a fila diz por quê e que se tenta de novo no pedido", () => {
+    const d = dados()
+    d.notas.set(
+      "order_A",
+      nota({ definitivo: true, erro: "o pedido não tem CPF/CNPJ, e a nota precisa" })
+    )
+    const item = montarInicio("operacao", d, COM_ERP).fila.find((f) => f.icone === "nota")
+    expect(item).toMatchObject({
+      nivel: "grave",
+      titulo: "A nota do #1042 não sai sozinha",
+      texto:
+        "O pedido não tem CPF/CNPJ, e a nota precisa. Corrija o que falta e tente de novo, no pedido.",
+    })
   })
 
   it("venda é pedido pago: hoje, a semana e o ticket", () => {

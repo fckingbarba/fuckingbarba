@@ -1,6 +1,8 @@
 import type { MedusaContainer } from "@medusajs/framework/types"
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import { ENVIOS } from "../../modules/envios"
+import { EQUIPE } from "../../modules/equipe"
+import type EquipeService from "../../modules/equipe/service"
 import type EnviosService from "../../modules/envios/service"
 import { ERP } from "../../modules/erp"
 import type ErpService from "../../modules/erp/service"
@@ -8,7 +10,8 @@ import { NEWSLETTER } from "../../modules/newsletter"
 import type NewsletterService from "../../modules/newsletter/service"
 import { lerConexao, minutosDaJanela } from "../erp/conexao"
 import { erpDaLoja } from "../erp/erps"
-import type { Contexto, EnvioCru, NotaCrua, PedidoCru } from "./pedido"
+import { ACOES_NO_PEDIDO, type FeitoNoPedido } from "./acoes"
+import { nomeCurto, type Contexto, type EnvioCru, type NotaCrua, type PedidoCru } from "./pedido"
 
 /**
  * O QUE O PAINEL LÊ DO BANCO pros pedidos — e só lê: nada aqui escreve.
@@ -32,6 +35,7 @@ const CAMPOS_DA_LISTA = [
   "status",
   "email",
   "total",
+  "original_total",
   "metadata",
   "customer.has_account",
   "items.id",
@@ -180,6 +184,57 @@ export async function enviosDos(
     porPedido.set(e.pedido_id, [...(porPedido.get(e.pedido_id) ?? []), e])
   }
   return porPedido
+}
+
+/**
+ * O que a equipe fez no pedido pelo painel ("Emitir a nota agora", "Tentar o
+ * estorno de novo"), do registro da equipe, com o nome de quem fez — mesmo
+ * de quem já saiu da equipe: o registro não se apaga.
+ */
+export async function feitosNoPedido(
+  container: MedusaContainer,
+  pedidoId: string
+): Promise<FeitoNoPedido[]> {
+  const equipe = container.resolve<EquipeService>(EQUIPE)
+  const linhas = (await equipe.listRegistros(
+    { alvo_id: pedidoId, acao: ACOES_NO_PEDIDO },
+    { take: 50, order: { created_at: "ASC" } }
+  )) as unknown as {
+    membro_id: string | null
+    acao: string
+    detalhe: Record<string, unknown> | null
+    created_at: Date
+  }[]
+  const ids = [...new Set(linhas.map((l) => l.membro_id).filter((id): id is string => !!id))]
+  const membros = ids.length
+    ? ((await equipe.listMembros({ id: ids }, { take: ids.length })) as {
+        id: string
+        nome: string
+      }[])
+    : []
+  const nomes = new Map(membros.map((m) => [m.id, m.nome]))
+  return linhas.map((l) => ({
+    em: l.created_at,
+    acao: l.acao,
+    quem: (l.membro_id && nomes.get(l.membro_id)) || "Alguém da equipe",
+    detalhe: l.detalhe,
+  }))
+}
+
+/** O nome curto de cada produto, pelo handle — pros mais vistos das visitas. */
+export async function nomesDosProdutos(
+  container: MedusaContainer,
+  handles: string[]
+): Promise<Map<string, string>> {
+  if (!handles.length) return new Map()
+  const { data } = await query(container).graph({
+    entity: "product",
+    fields: ["handle", "title"],
+    filters: { handle: handles },
+  })
+  return new Map(
+    (data as { handle: string; title: string }[]).map((p) => [p.handle, nomeCurto(p.title)])
+  )
 }
 
 /** Marketing: a newsletter da semana e o total. */

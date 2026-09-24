@@ -31,10 +31,15 @@ export function ehPapel(valor: unknown): valor is Papel {
  * As áreas do painel e quem abre cada uma — a matriz da tela "Equipe e
  * acessos" do protótipo. A área nova entra aqui ANTES da rota dela existir:
  * rota sem linha nesta tabela não abre pra ninguém.
+ *
+ * Nem toda linha é tela: `estornos` é o botão "Tentar o estorno de novo",
+ * dentro do pedido — mexe em dinheiro de cliente, então tem linha própria
+ * (a operação vê o pedido e a faixa do estorno, mas não aperta).
  */
 export const ACESSO = {
   inicio: ["dono", "operacao", "marketing"],
   pedidos: ["dono", "operacao"],
+  estornos: ["dono"],
   carrinhos: ["dono", "operacao", "marketing"],
   produtos: ["dono", "operacao", "marketing"],
   cupons: ["dono", "marketing"],
@@ -51,6 +56,7 @@ export type Area = keyof typeof ACESSO
 export const NOME_DA_AREA: Record<Area, string> = {
   inicio: "Início",
   pedidos: "Pedidos",
+  estornos: "Estornos",
   carrinhos: "Carrinhos abandonados",
   produtos: "Produtos",
   cupons: "Cupons e descontos",
