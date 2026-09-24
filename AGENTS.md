@@ -679,7 +679,8 @@ texto de fábrica (`SEMENTE_DA_HOME`, o que estava no ar em 24/09). As regras do
 (`lib/painel/home.ts`, com testes): toda mudança vai pro rascunho; o rascunho que fica igual ao
 publicado some; a ordem é a conta da loja (a fixa — o bloco escuro, que tem o `<h1>` — volta pro
 lugar dela no registro, no meio da página, e as outras passam por cima); o "Publicar" copia o
-rascunho e avisa a loja (`home` e `layout:home`). Rotas: `GET /dashboard/home` e
+rascunho e avisa a loja (a etiqueta `home`; o backend ainda manda a `layout:home`, que a loja não
+usa mais — ver o parágrafo das imagens). Rotas: `GET /dashboard/home` e
 `POST /dashboard/home/{secao,ordem,publicar,desfazer}` (área `home`: dono e marketing), e
 `GET /store/home` (só o publicado, com todas as seções completas). **O metadata da loja é gravado
 inteiro**: o módulo de loja do Medusa não junta o metadata (o de produto junta). Quem grava lê e
@@ -697,12 +698,12 @@ da loja (tipo, peneira e a reserva) e o `SECOES_DA_HOME` do painel. Conferidor:
 `apps/dashboard/ferramentas/conferir-home.mjs` — guarda o `fb_home` do banco no começo, devolve no
 fim e avisa a loja.
 
-**As imagens da home** (fase 4, parte 2). O banner é `{ slides, tempo }` (até 5 slides; `tempo` em
-0, 5, 7 ou 10 s; o banner de antes, de campos soltos, é lido como um slide só): slide COM `imagem`
-é a arte, que ocupa o banner inteiro (só o `titulo` é obrigatório — é o `alt` —, e o `produto`,
-vazio, leva pra vitrine); SEM imagem, o banner de sempre (chapéu, título, botão e produto). Na
-loja, `components/home/slides-do-banner.tsx` desenha os dois jeitos sem hook (o servidor usa pro
-banner de um slide só) e `carrossel-do-banner.tsx` é o carrossel: o trilho do `useCarrossel`
+**As imagens da home** (fase 4, parte 2, e a entrega 0076). O banner é `{ slides, tempo }` (até 5
+slides; `tempo` em 0, 5, 7 ou 10 s) e é SÓ ARTE: cada slide tem a `imagem` (e a `imagemCelular`),
+o `titulo` (o `alt`) e o `produto` (vazio, leva pra vitrine); slide sem imagem — como os de texto de
+antes — cai na leitura, e o banner de fábrica é `slides: []`: sem arte, a home começa na barra de
+vantagens. Na loja, `components/home/slides-do-banner.tsx` desenha a arte sem hook (o servidor usa
+pro banner de um slide só) e `carrossel-do-banner.tsx` é o carrossel: o trilho do `useCarrossel`
 (rolagem com encaixe), a troca sozinha, e a imagem de cada slide montada só quando ele vai
 aparecer. A arte tem a proporção 1920 × 700 (4 × 5 abaixo de 768 px, com a do celular) e aparece
 inteira (`contain`). Foto de fundo nas seções de `SECOES_COM_FUNDO_DA_HOME` (`fundos` da versão,
@@ -714,7 +715,11 @@ pra `lib/armazenamento.ts` (a PDP e a home usam; em `lib/pdp.ts` ela fazia ciclo
 `lib/medusa.ts`). No painel, as imagens sobem por `POST /dashboard/home/imagens` (os usos do
 fundo) e o `FundoDaSecao` virou comum: recebe `subir` (pra onde sobe), `comVeu` e, na medida,
 `minimo` e `mostra: "inteira"` (a arte: avisa faixa, não corte). O formulário ganhou os campos
-`imagens` (a do computador em `c`, a do celular em `c` + "Celular") e `opcoes`.
+`imagens` (a do computador em `c`, a do celular em `c` + "Celular") e `opcoes`. **O ajuste de
+layout não tem cache próprio** (`lib/secoes/layout.ts`): era um `"use cache"` lendo outro (o
+`home()`, o produto), e no "Publicar" o de fora se refazia lendo o de dentro ainda vencido e
+guardava a ordem velha por dias. Leitura cacheada que depende de outra leitura cacheada, com as
+duas etiquetas caindo juntas, tem esse risco: prefira um cache só.
 
 O CSS do painel segue o do protótipo, uma regra por linha, escrito à mão: o prettier fica nos
 `.ts`/`.tsx`/`.mjs` — rodado nos `.css` do painel, ele reescreve o arquivo inteiro. A gaveta
