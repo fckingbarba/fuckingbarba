@@ -14,6 +14,7 @@ const CAMPOS_DA_LISTA = [
   "status",
   "thumbnail",
   "images.url",
+  "images.rank",
   "categories.id",
   "categories.name",
   "variants.id",

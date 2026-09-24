@@ -1,8 +1,17 @@
 import type { MedusaContainer } from "@medusajs/framework/types"
 import { ContainerRegistrationKeys, Modules, ProductStatus } from "@medusajs/framework/utils"
 import { updateProductsWorkflow } from "@medusajs/medusa/core-flows"
-import { CHAVE_NO_METADATA, lerPdp, type Pdp } from "../pdp"
+import { MARCA_DAS_FOTOS } from "../erp/catalogo"
+import { CHAVE_NO_METADATA, LIMITE_DE_VIDEOS, lerPdp, type Pdp } from "../pdp"
 import { avisarALoja } from "../revalidar"
+import {
+  desmontarGaleria,
+  fotosDoProduto,
+  montarGaleria,
+  mudarGaleria,
+  type ItemDaGaleria,
+  type PedidoNaGaleria,
+} from "./galeria"
 
 /**
  * O PRODUTO GRAVADO PELO PAINEL — uma mudança de cada vez, sobre o que está
@@ -83,6 +92,62 @@ export async function mudarProduto(
         input: { selector: { id }, update },
       })
       return { ok: true, handle: produto.handle }
+    },
+    { timeout: 30 }
+  )
+  if (!r.ok) return r
+  const aviso = await avisarALoja(tagsDoProduto(r.handle), logger, "seconds")
+  return { ...r, lojaAvisada: aviso.avisou }
+}
+
+/**
+ * UMA mudança na galeria (incluir, mover, tirar), dentro da trava do
+ * produto. Grava as fotos no Medusa — na ordem (`rank`), com a primeira como
+ * `thumbnail` — e os vídeos no `fb_pdp`, num update só. Marca as fotos como
+ * escolhidas (`fb_fotos`, origem "painel"): a importação do ERP e a da
+ * Nuvemshop não trocam mais as fotos deste produto.
+ */
+export async function mudarGaleriaDoProduto(
+  container: MedusaContainer,
+  id: string,
+  pedido: PedidoNaGaleria
+): Promise<(Feito & { galeria: ItemDaGaleria[] }) | Recusa> {
+  const logger = container.resolve(ContainerRegistrationKeys.LOGGER)
+  const r = await container.resolve(Modules.LOCKING).execute(
+    TRAVA(id),
+    async (): Promise<{ ok: true; handle: string; galeria: ItemDaGaleria[] } | Recusa> => {
+      const [produto] = await container
+        .resolve(Modules.PRODUCT)
+        .listProducts(
+          { id },
+          { select: ["id", "handle", "thumbnail", "metadata"], relations: ["images"], take: 1 }
+        )
+      if (!produto) return { ok: false, motivo: "nao_encontrado" }
+      const pdp = lerPdp(produto.metadata)
+      const mudou = mudarGaleria(
+        montarGaleria(fotosDoProduto(produto), pdp.videos),
+        pedido,
+        LIMITE_DE_VIDEOS
+      )
+      if (!mudou.ok) return mudou
+      const { fotos, videos } = desmontarGaleria(mudou.itens)
+      await updateProductsWorkflow(container).run({
+        input: {
+          selector: { id },
+          update: {
+            images: fotos.map((url, rank) => ({ url, rank })),
+            thumbnail: fotos[0] ?? null,
+            metadata: {
+              [MARCA_DAS_FOTOS]: {
+                origem: "painel",
+                fotos: fotos.map((url) => ({ chave: `painel:${url}`, url })),
+              },
+              [CHAVE_NO_METADATA]: lerPdp({ [CHAVE_NO_METADATA]: { ...pdp, videos } }),
+            },
+          },
+        },
+      })
+      return { ok: true, handle: produto.handle, galeria: mudou.itens }
     },
     { timeout: 30 }
   )

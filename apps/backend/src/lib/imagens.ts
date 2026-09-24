@@ -22,21 +22,27 @@ import type { Pdp } from "./pdp"
  * memória do servidor inteira.
  */
 
-export type UsoDaImagem = "fundo-computador" | "fundo-celular"
+export type UsoDaImagem = "fundo-computador" | "fundo-celular" | "galeria" | "poster" | "caso"
 
 /**
  * A medida máxima de cada uso, em px — a maior que a loja chega a mostrar.
  *
- *   computador: 2880 de largura, a tela de 1440 com densidade 2x (o fundo
- *     vai de ponta a ponta da tela; mais que isso só pesa, e o véu da
- *     seção por cima esconde a diferença);
- *   celular: 1290 de largura, o celular de 430 com densidade 3x.
+ *   fundo do computador: 2880 de largura, a tela de 1440 com densidade 2x
+ *     (o fundo vai de ponta a ponta da tela; mais que isso só pesa, e o véu
+ *     da seção por cima esconde a diferença);
+ *   fundo do celular: 1290 de largura, o celular de 430 com densidade 3x;
+ *   galeria: 2000 — o palco da dobra tem 620 de largura, e o zoom 860;
+ *   poster: 1920 — a capa de um vídeo, o primeiro quadro dele;
+ *   caso: a foto de antes ou de depois, 1200 × 1400 (o quadro é 6 × 7).
  *
  * A altura tem teto largo: quem define o corte é a loja (`cover`).
  */
 export const MEDIDA_MAXIMA: Record<UsoDaImagem, { largura: number; altura: number }> = {
   "fundo-computador": { largura: 2880, altura: 2400 },
   "fundo-celular": { largura: 1290, altura: 4000 },
+  galeria: { largura: 2000, altura: 2000 },
+  poster: { largura: 1920, altura: 1920 },
+  caso: { largura: 1200, altura: 1400 },
 }
 
 export const ehUsoDaImagem = (v: unknown): v is UsoDaImagem =>
