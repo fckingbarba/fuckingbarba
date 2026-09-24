@@ -10,6 +10,9 @@ está errado é o componente.
 `prototipo-pdp.html` é o protótipo da página de produto. Ele é **gerado**, não editado à
 mão — veja "A PDP" mais abaixo.
 
+`prototipo-painel.html` é o protótipo do painel da loja (o dashboard), aprovado em 23/09 — ver o
+4.5 do ESTADO. O comentário do topo diz o que é de verdade, o que é exemplo e o que o porte precisa.
+
 ## Fatiar o CSS
 
 ```bash
