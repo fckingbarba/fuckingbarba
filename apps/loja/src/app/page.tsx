@@ -11,11 +11,12 @@ import { Secoes } from "@/components/secoes"
  * ponta a ponta da tela e segura o próprio limite de largura por dentro
  * (1320px, como no protótipo). Centralizar aqui estreitaria o banner.
  *
- * Duas seções decidem sozinhas se existem, independente do olhinho do
- * painel: as ofertas só aparecem quando há promoção com prazo no catálogo, e
- * a prova social só quando há depoimento cadastrado. São dois eixos
+ * Uma seção decide sozinha se existe, independente do olhinho do painel: a
+ * prova social só aparece quando há depoimento cadastrado. São dois eixos
  * diferentes — "eu não quero esta seção" é o painel; "não há o que mostrar"
- * é o dado. Nenhuma das duas inventa conteúdo pra ocupar espaço.
+ * é o dado — e ela não inventa depoimento pra ocupar espaço. (As ofertas
+ * também decidiam até 24/09; agora ficam sempre ligadas, com o contador
+ * zerando à meia-noite — ver `components/home/ofertas.tsx`.)
  *
  * O `<h1>` da página está no bloco escuro de marca, que por isso é `fixo` no
  * registro: sem ele a home começaria em `<h2>`.

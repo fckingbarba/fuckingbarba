@@ -4,17 +4,23 @@ import { OfertasRelampago } from "./ofertas-relampago"
 /**
  * A faixa de ofertas relâmpago.
  *
- * Só aparece quando existe promoção **com data de fim** no catálogo. Sem
- * prazo não há contagem regressiva honesta — e contador que corre sem nada
- * acabando no fim é urgência inventada, que no Brasil não é só falta de
- * educação: é publicidade enganosa pelo CDC.
+ * Sempre ligada, com o contador zerando à meia-noite de Brasília todo dia —
+ * pedido da loja em 24/09. Antes ela só aparecia com promoção com data de fim
+ * no catálogo, porque contador que zera sem nenhum preço mudar pode ser lido
+ * como urgência inventada (publicidade enganosa, CDC art. 37). O risco foi
+ * explicado ao dono e ele escolheu o contador sempre ligado.
  *
- * Pra ligar: no admin do Medusa, Price Lists → a promoção → data de fim.
- * A seção acende sozinha e some sozinha quando a data passa. O título vem
- * do painel ("Layout da home").
+ * A promoção com prazo (admin do Medusa → Price Lists → data de fim) ainda
+ * conta num caso: se ela acabar antes da meia-noite, o contador vai até ela.
+ * O título vem do painel ("Layout da home"), que também liga e desliga a
+ * seção.
  */
 export async function Ofertas() {
   const [promocao, { conteudo }] = await Promise.all([buscarPromocao(), home()])
-  if (!promocao) return null
-  return <OfertasRelampago terminaEm={promocao.termina_em} titulo={conteudo.ofertas.titulo} />
+  return (
+    <OfertasRelampago
+      promocaoTerminaEm={promocao?.termina_em ?? null}
+      titulo={conteudo.ofertas.titulo}
+    />
+  )
 }

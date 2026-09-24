@@ -132,11 +132,8 @@ export const SECOES_DA_HOME: Record<IdDaSecaoDaHome, DefinicaoDaSecaoDaHome> = {
   },
   "home.ofertas": {
     nome: "Ofertas relâmpago",
-    descricao: "Só aparece quando existe promoção com data de fim no catálogo.",
-    campos: [
-      TITULO,
-      { tipo: "nota", texto: "Os produtos entram sozinhos: os que têm promoção com data de fim." },
-    ],
+    descricao: "Contador que zera todo dia à meia-noite (horário de Brasília).",
+    campos: [TITULO, { tipo: "nota", texto: "O botão leva pra todos os produtos." }],
   },
   "home.colecao": {
     nome: "Carrossel de coleção",

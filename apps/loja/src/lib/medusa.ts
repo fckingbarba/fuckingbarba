@@ -334,10 +334,10 @@ export type Promocao = { titulo: string; termina_em: string }
  * A promoção com prazo que está valendo, se houver.
  *
  * Vem de uma rota própria do Medusa (`/store/promocao`), porque a API de
- * produto devolve o preço promocional mas não diz até quando ele vale — e é a
- * data que o contador da vitrine precisa. Escrever essa data no código da
- * loja seria mais rápido e criaria a chance de o relógio zerar com o desconto
- * ainda valendo, ou o contrário. Aqui ela sai de onde o desconto mora.
+ * produto devolve o preço promocional mas não diz até quando ele vale. O
+ * contador da vitrine zera à meia-noite, mas se a promoção acabar antes, ele
+ * conta até ela: o relógio não pode seguir correndo com o desconto já
+ * encerrado. Por isso a data sai de onde o desconto mora.
  *
  * Cache curto: é o único dado da home que fica errado *por passagem de
  * tempo*, e não por alguém ter mudado algo no admin — então não dá pra
