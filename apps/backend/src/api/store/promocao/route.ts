@@ -4,20 +4,20 @@ import { Modules } from "@medusajs/framework/utils"
 /**
  * GET /store/promocao — quando a promoção que está valendo termina.
  *
- * Existe por um motivo específico: a vitrine tem um contador de "ofertas
- * relâmpago", e contador precisa de uma data. A tentação é escrever a data no
- * código da loja. O problema disso aparece no primeiro descompasso — o relógio
- * zera e o desconto continua no carrinho, ou o desconto acaba e o relógio
- * segue correndo. As duas versões são propaganda enganosa, e a segunda é
- * daquelas que o cliente descobre no checkout.
+ * A vitrine tem um contador de "ofertas relâmpago". Desde 24/09 ele fica
+ * sempre ligado e zera à meia-noite de Brasília, por decisão da loja (o risco
+ * de ser lido como urgência inventada, CDC art. 37, foi explicado e aceito).
  *
- * Então a data sai de onde o desconto mora: a lista de preço. Quem manda no
- * que a loja anuncia é o admin do Medusa, não uma constante no Next.
+ * Esta rota evita o pior descompasso: o desconto acabar e o relógio seguir
+ * correndo — daqueles que o cliente descobre no checkout. Se a promoção com
+ * prazo acaba antes da meia-noite, o contador vai até ela. Por isso a data
+ * sai de onde o desconto mora, a lista de preço, e não de uma constante no
+ * Next.
  *
- * Devolve `{ termina_em: null }` quando não há promoção com prazo — e aí a
- * vitrine simplesmente não mostra a seção. Promoção sem data de fim (como a
- * de lançamento) continua valendo no preço; ela só não vira contagem
- * regressiva, porque não há o que contar.
+ * Devolve `{ promocao: null }` quando não há promoção com prazo (aí o
+ * contador vai até a meia-noite). Promoção sem data de fim (como a de
+ * lançamento) continua valendo no preço; ela só não vira prazo, porque não
+ * há o que contar.
  */
 export async function GET(req: MedusaRequest, res: MedusaResponse) {
   const pricing = req.scope.resolve(Modules.PRICING)

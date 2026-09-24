@@ -100,7 +100,7 @@ export const SECOES: readonly Secao[] = [
     id: "home.ofertas",
     escopo: "home",
     nome: "Ofertas relâmpago",
-    descricao: "Só aparece quando existe promoção com data de fim no catálogo.",
+    descricao: "Contador que zera todo dia à meia-noite (horário de Brasília).",
     componente: Ofertas,
   },
   {
