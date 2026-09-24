@@ -36,16 +36,24 @@
  *   `body:has(.pagina)` seguia casando com ela;
  * - o resumo fechar no desktop, onde ele é a coluna do lado, e a seta dele
  *   cair pra baixo do total;
- * - o celular sem máscara.
+ * - o celular sem máscara;
+ * - o cartão ser autorizado por um total diferente do que o botão dizia, com
+ *   a sacola mudada em outra aba (24/09);
+ * - o CEP trocado na sacola manter o número da rua antiga e o checkout pular
+ *   pro pagamento; o CEP de uma cidade gravado com o endereço de outra;
+ * - a "Entrega expressa" cobrada sendo o mesmo serviço da econômica grátis;
+ * - cupom cadastrado em minúsculas nunca aplicar;
+ * - as 2 e 3 unidades seguirem o preço da promoção depois de ela acabar.
  *
  * Variáveis: MEDUSA_BACKEND_URL, NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY, CHROMIUM;
- * ADMIN_EMAIL e ADMIN_SENHA, opcionais, pro bump com a promoção desligada e
- * pra ler, no pedido, o registro da oferta.
+ * ADMIN_EMAIL e ADMIN_SENHA, opcionais, pro bump com a promoção desligada, pra
+ * ler no pedido o registro da oferta, pro cupom em minúsculas e pra promoção
+ * que acaba (que desliga e religa a promoção do óleo, esperando o job).
  */
 
 import { readFileSync } from "node:fs"
 import { chromium } from "playwright"
-import { subirFrenetFalsa } from "./frenet-falsa.mjs"
+import { SERVICOS, subirFrenetFalsa } from "./frenet-falsa.mjs"
 import { subirPagarmeFalso } from "./pagarme-falso.mjs"
 import { vigiarRecargaDoDev } from "./recarga-do-dev.mjs"
 
@@ -1028,6 +1036,118 @@ ok(
   "e não fica pendurado no carrinho"
 )
 
+/*
+  CÓDIGO CADASTRADO EM MINÚSCULAS VALE (24/09). A loja punha o que se
+  digitava em maiúsculas, e o Medusa procura o código exatamente como foi
+  cadastrado: um "bemvindo10" nunca aplicava. Cria um de 1% só pra isto,
+  aplica, tira pela tela e apaga — o resto do arquivo confere o total com o
+  bump, sem cupom nenhum.
+*/
+if (EMAIL_ADMIN && SENHA_ADMIN) {
+  const minusculo = `conf${Date.now().toString(36).slice(-5)}`
+  const { promotion: promocao } = await adm("/admin/promotions", {
+    method: "POST",
+    body: JSON.stringify({
+      code: minusculo,
+      type: "standard",
+      status: "active",
+      is_automatic: false,
+      application_method: {
+        type: "percentage",
+        target_type: "order",
+        value: 1,
+        allocation: "across",
+        currency_code: "brl",
+      },
+    }),
+  })
+  try {
+    await pagina.locator("#cupom").fill(minusculo)
+    await pagina.locator("#cupom-form button[type=submit]").click()
+    const aplicado = pagina.locator(".cupom__msg[data-tipo=ok]", { hasText: minusculo })
+    await aplicado.waitFor({ timeout: 15000 }).catch(() => null)
+    const comCupom = (await medusa(`/store/carts/${carrinhoId}?fields=*promotions`))?.cart
+    ok(
+      (comCupom?.promotions ?? []).some((p) => p.code === minusculo),
+      "cupom cadastrado em minúsculas aplica",
+      minusculo
+    )
+    // Sem o cupom na tela (o código de antes), não há o que tirar — e o
+    // `ok` de cima já falhou.
+    await aplicado
+      .locator("button")
+      .click({ timeout: 5000 })
+      .catch(() => null)
+    await aplicado.waitFor({ state: "detached", timeout: 15000 }).catch(() => null)
+    const semCupom = (await medusa(`/store/carts/${carrinhoId}?fields=*promotions`))?.cart
+    ok(
+      !(semCupom?.promotions ?? []).some((p) => p.code === minusculo),
+      "e sai pela tela, como entrou"
+    )
+  } finally {
+    await adm(`/admin/promotions/${promocao.id}`, { method: "DELETE" }).catch(() => null)
+  }
+} else {
+  console.log("    (sem ADMIN_EMAIL/ADMIN_SENHA: pulei o cupom em minúsculas)")
+}
+
+titulo("O total mudou por fora")
+/*
+  O TOTAL DO BOTÃO É O QUE SE COBRA (24/09). Com o passo 3 aberto, um item
+  entra no carrinho por fora — outra aba, a seta de voltar do navegador — e a
+  pessoa clica em pagar com o total velho na tela. Antes o cartão era
+  autorizado pelo total novo sem ninguém ver (R$ 128,50 com o botão dizendo
+  R$ 73,60); agora nada é cobrado, e a tela redesenha com o total de agora.
+  O item sai do mesmo jeito que entrou, e a página volta a ser o que era.
+*/
+{
+  await escolherForma("Pix")
+  const botao = pagina.locator("#form-pagamento button[type=submit]")
+  const noBotao = numero(await botao.innerText())
+  const varianteExtra = (await medusa("/store/products?handle=balm-para-barba&fields=*variants"))
+    ?.products?.[0]?.variants?.[0]?.id
+  const { json: comExtra } = await medusaCru(`/store/carts/${carrinhoId}/line-items`, {
+    metodo: "POST",
+    corpo: { variant_id: varianteExtra, quantity: 1 },
+  })
+  const totalNovo = Number(comExtra?.cart?.total)
+  const linhaExtra = (comExtra?.cart?.items ?? []).find((i) => i.variant_id === varianteExtra)
+  const cobrancasAntes = pagarme.pedidos.size
+  await botao.click()
+  const recado = pagina.locator("#form-pagamento [role=alert]", {
+    hasText: "total do pedido mudou",
+  })
+  await recado.waitFor({ timeout: 20000 }).catch(() => null)
+  ok(
+    !pagina.url().includes("/obrigado/") && pagarme.pedidos.size === cobrancasAntes,
+    "pagar com o total velho na tela não cobra nada",
+    `botão ${reais(noBotao)}, carrinho ${reais(totalNovo)}, ${pagarme.pedidos.size - cobrancasAntes} cobrança(s)`
+  )
+  const textoDoRecado = (await recado.innerText().catch(() => "")).replace(/ /g, " ")
+  ok(textoDoRecado.includes(reais(totalNovo)), "e diz o total novo", textoDoRecado || "sem recado")
+  await pagina
+    .waitForFunction(
+      (esperado) =>
+        document
+          .querySelector("#form-pagamento button[type=submit]")
+          ?.textContent?.includes(esperado),
+      reais(totalNovo).slice(3),
+      { timeout: 15000 }
+    )
+    .catch(() => null)
+  ok(
+    perto(numero(await botao.innerText()), totalNovo),
+    "e o botão já mostra o total de agora",
+    await botao.innerText()
+  )
+  if (linhaExtra) {
+    await medusaCru(`/store/carts/${carrinhoId}/line-items/${linhaExtra.id}`, { metodo: "DELETE" })
+  }
+  await pagina.reload({ waitUntil: "domcontentloaded" })
+  await semStreaming(pagina)
+  await pagina.locator("#form-pagamento").waitFor({ timeout: 25000 })
+}
+
 titulo("O pedido")
 const totalAntesDeFechar = Number(comBump.total)
 // De volta pro Pix: o cartão lá em cima ficou com um número recusado pelo
@@ -1335,7 +1455,341 @@ ok(naBarra[".barra__btn[aria-busy]"], "tocar na barra mostra que está salvando,
 ok(acoesDoCelular.length === 1, "dois toques, um envio", `${acoesDoCelular.length} envios`)
 await celular.close()
 
-/* ── 6. higiene ───────────────────────────────────────────────────────────── */
+/* ── 6. os consertos de 24/09: o CEP, a mesma entrega e a promoção que acaba ── */
+
+/** Um carrinho novo, montado pela API, com o cookie posto na aba — preparação. */
+async function carrinhoNovo(ctx, itens) {
+  const { regions = [] } = (await medusa("/store/regions")) ?? {}
+  const regiao = regions.find((r) => r.currency_code === "brl")
+  const { json } = await medusaCru("/store/carts", {
+    metodo: "POST",
+    corpo: { region_id: regiao.id },
+  })
+  const id = json.cart.id
+  for (const [handle, quantidade] of itens) await porNoCarrinho(id, handle, quantidade)
+  await ctx.addCookies([{ name: "carrinho", value: id, url: LOJA }])
+  return id
+}
+async function porNoCarrinho(id, handle, quantidade = 1) {
+  const variante = (await medusa(`/store/products?handle=${handle}&fields=*variants`))
+    ?.products?.[0]?.variants?.[0]?.id
+  return medusaCru(`/store/carts/${id}/line-items`, {
+    metodo: "POST",
+    corpo: { variant_id: variante, quantity: quantidade },
+  })
+}
+
+/** Os passos 1 e 2 pela tela, numa aba à parte. Para no 2 com `ate: "entrega"`. */
+async function contatoEEntrega(pag, email, { numero = "1578", complemento = "", ate = "" } = {}) {
+  const c = (n) => pag.locator(`.fluxo [name="${n}"]`)
+  await pag.goto(`${LOJA}/checkout`, { waitUntil: "domcontentloaded" })
+  await semStreaming(pag)
+  await pag.locator("#form-contato").waitFor({ timeout: 25000 })
+  await c("email").fill(email)
+  await c("nome").fill("Matheus")
+  await c("sobrenome").fill("da Silva Teste")
+  await c("telefone").fill("(11) 99999-9999")
+  await c("documento").fill(CPF)
+  await pag.locator("#form-contato button[type=submit]").click()
+  await pag.locator("#form-entrega").waitFor({ timeout: 25000 })
+  await c("cep").fill(CEP)
+  await pag.waitForFunction(
+    () => document.querySelector('.fluxo [name="rua"]')?.value?.length > 0,
+    null,
+    { timeout: 25000 }
+  )
+  await pag.locator("#form-entrega .opcao").first().waitFor({ timeout: 25000 })
+  if (ate === "entrega") return
+  await c("numero").fill(numero)
+  if (complemento) await c("complemento").fill(complemento)
+  await pag.locator("#form-entrega button[type=submit]").click()
+  await pag.locator("#form-pagamento").waitFor({ timeout: 25000 })
+}
+const passoAberto = (pag) =>
+  pag.evaluate(
+    () =>
+      [...document.querySelectorAll(".passos li")].findIndex(
+        (li) => li.getAttribute("aria-current") === "step"
+      ) + 1
+  )
+
+titulo("Trocar o CEP depois do passo 2")
+/*
+  O NÚMERO É DA RUA (24/09). Com o passo 2 feito na Paulista, trocar o CEP na
+  SACOLA pro Rio gravava "Praça Pio X, 1578 — apto 12": a rua nova com o
+  número e o complemento da antiga, e o checkout pulava pro pagamento com um
+  endereço que não existe. Agora o CEP novo leva os dois embora e o checkout
+  volta pro passo 2. E o endereço com a cidade de outro CEP é recusado — o
+  que sobrava de quem confirmava o passo com o CEP ainda sendo buscado (o
+  botão agora trava enquanto busca).
+*/
+{
+  const ctx = await navegador.newContext({ viewport: MESA })
+  const pag = await ctx.newPage()
+  const c = (n) => pag.locator(`.fluxo [name="${n}"]`)
+  const endereco = async (id) =>
+    (await medusa(`/store/carts/${id}?fields=*shipping_address`))?.cart?.shipping_address
+  try {
+    const id = await carrinhoNovo(ctx, [["shampoo-para-barba", 1]])
+    await contatoEEntrega(pag, "troca.cep@fuckingbarba.invalid", { complemento: "apto 12" })
+
+    await pag.goto(`${LOJA}/produtos/oleo-para-barba`, { waitUntil: "domcontentloaded" })
+    await pag
+      .waitForFunction(() => document.documentElement.dataset.hidratado !== undefined, null, {
+        timeout: 20000,
+      })
+      .catch(() => null)
+    await pag.locator('button[aria-controls="carrinho-gaveta"]').first().click()
+    const gaveta = pag.locator("#carrinho-gaveta")
+    await gaveta.waitFor({ state: "visible", timeout: 10000 })
+    // A gaveta abre cotando o CEP que o carrinho já tem; "alterar" mostra o campo.
+    const alterar = gaveta.locator(".sacolinha__cep-ok button", { hasText: "alterar" })
+    await alterar.waitFor({ timeout: 20000 }).catch(() => null)
+    if (await alterar.isVisible().catch(() => false)) await alterar.click()
+    await pag.locator("#carrinho-cep").fill("20040-020")
+    await gaveta.locator(".sacolinha__cep-botao:not([disabled])").click()
+    await gaveta
+      .locator(".sacolinha__cep-ok", { hasText: "20040-020" })
+      .waitFor({ timeout: 25000 })
+      .catch(() => null)
+    const a = await endereco(id)
+    ok(
+      a?.postal_code === "20040020" && !a?.metadata?.numero && !a?.metadata?.complemento,
+      "CEP trocado na sacola: o número e o complemento da rua antiga saem",
+      `${a?.address_1} · nº "${a?.metadata?.numero}" · "${a?.metadata?.complemento}" · ` +
+        `${a?.city}/${a?.province} · ${a?.postal_code}`
+    )
+
+    await pag.goto(`${LOJA}/checkout`, { waitUntil: "domcontentloaded" })
+    await semStreaming(pag)
+    await pag
+      .locator("#form-entrega")
+      .waitFor({ state: "visible", timeout: 25000 })
+      .catch(() => null)
+    const passo = await passoAberto(pag)
+    ok(
+      passo === 2,
+      "e o checkout volta pro passo 2, em vez de pular pro pagamento",
+      `passo ${passo}`
+    )
+    ok((await c("numero").inputValue()) === "", "com o número vazio, pra digitar o da rua nova")
+    // Se pulou pro pagamento (o defeito de antes), abre a entrega pra seguir conferindo.
+    if (passo !== 2) {
+      await pag
+        .locator("button", { hasText: /editar entrega/i })
+        .first()
+        .click()
+      await pag.locator("#form-entrega").waitFor({ state: "visible", timeout: 15000 })
+    }
+
+    await c("numero").fill("100")
+    await c("cidade").fill("São Paulo")
+    await c("uf").selectOption("SP")
+    await pag.locator("#form-entrega button[type=submit]").click()
+    const erroDoCep = pag.locator("#form-entrega .campo__erro", { hasText: "Rio de Janeiro" })
+    await erroDoCep.waitFor({ timeout: 15000 }).catch(() => null)
+    ok(
+      await erroDoCep.isVisible().catch(() => false),
+      "CEP do Rio com a cidade de São Paulo é recusado, e o recado diz de onde é o CEP",
+      (
+        await pag
+          .locator("#form-entrega .campo__erro")
+          .allInnerTexts()
+          .catch(() => [])
+      ).join(" | ")
+    )
+    const b = await endereco(id)
+    ok(
+      b?.city !== "São Paulo",
+      "e o endereço misturado não foi gravado",
+      `${b?.city}/${b?.province}`
+    )
+
+    // Aceito o endereço misturado (o defeito de antes), o passo fechou: abre de novo.
+    if (
+      !(await pag
+        .locator("#form-entrega")
+        .isVisible()
+        .catch(() => false))
+    ) {
+      await pag
+        .locator("button", { hasText: /editar entrega/i })
+        .first()
+        .click()
+      await pag.locator("#form-entrega").waitFor({ state: "visible", timeout: 15000 })
+    }
+    /*
+      Um CEP que ESTE carrinho nunca cotou: a cotação de um CEP já perguntado
+      volta da memória do backend em ~300 ms, e aí a busca acaba antes de
+      alguém olhar. Com a Frenet demorando, a busca dura segundos — e a
+      conferência é a de verdade: enquanto "Procurando o endereço…" está na
+      tela, o botão não pode estar solto.
+    */
+    frenet.roteiro = "demora"
+    await c("cep").fill("70040-010")
+    let buscou = false
+    let travou = true
+    for (const fim = Date.now() + 3000; Date.now() < fim; await pag.waitForTimeout(100)) {
+      const procurando = await pag
+        .locator("#form-entrega .aviso-frete", { hasText: "Procurando" })
+        .isVisible()
+        .catch(() => false)
+      if (!procurando) continue
+      buscou = true
+      if (!(await pag.locator("#form-entrega button[type=submit]").isDisabled())) travou = false
+    }
+    ok(
+      buscou && travou,
+      "com o CEP novo sendo buscado, confirmar o passo fica travado",
+      buscou ? "o botão ficou solto durante a busca" : "a busca nem apareceu na tela"
+    )
+    frenet.roteiro = "normal"
+    await pag
+      .locator("#form-entrega button[type=submit]:not([disabled])")
+      .waitFor({ timeout: 30000 })
+      .catch(() => null)
+  } finally {
+    frenet.roteiro = "normal"
+    await ctx.close()
+  }
+}
+
+titulo("Um serviço só, com frete grátis")
+/*
+  A MESMA ENTREGA NÃO SE COBRA DUAS VEZES (24/09). Quando a transportadora
+  responde um serviço só — ou a mais barata é também a mais rápida —, as duas
+  faixas são o mesmo PAC. Acima do piso só a econômica ficava grátis, e a
+  tela oferecia "Entrega expressa — R$ 23,70" pelo mesmo prazo: pagar por nada.
+*/
+if (PISO > 0) {
+  const guardados = SERVICOS.splice(1)
+  const ctx = await navegador.newContext({ viewport: MESA })
+  const pag = await ctx.newPage()
+  try {
+    const id = await carrinhoNovo(ctx, [
+      ["oleo-para-barba", 1],
+      ["balm-para-barba", 1],
+      ["shampoo-para-barba", 1],
+    ])
+    for (let i = 0; i < 6; i++) {
+      const doCarrinho = (await medusa(`/store/carts/${id}?fields=item_subtotal`))?.cart
+      if (Number(doCarrinho?.item_subtotal) > PISO) break
+      await porNoCarrinho(id, "fator-de-crescimento-para-barba", 1)
+    }
+    await contatoEEntrega(pag, "servico.unico@fuckingbarba.invalid", { ate: "entrega" })
+    const linhas = (await pag.locator("#form-entrega .opcao").allInnerTexts()).map((t) =>
+      t.replace(/\s+/g, " ")
+    )
+    ok(
+      linhas.length === 1 && /gr[áa]tis/i.test(linhas[0] ?? ""),
+      "o mesmo serviço aparece uma vez só, e grátis",
+      JSON.stringify(linhas)
+    )
+    const cotadas = await fretesCotados(id)
+    ok(
+      cotadas.length > 0 && cotadas.every((o) => Number(o.amount) === 0),
+      "e o Medusa cobra zero nas duas faixas",
+      cotadas.map((o) => `${o.name} ${reais(o.amount)}`).join(", ")
+    )
+  } finally {
+    SERVICOS.push(...guardados)
+    await ctx.close()
+  }
+} else {
+  console.log("    (sem promoção de frete: pulei o serviço único)")
+}
+
+titulo("A promoção que acaba")
+/*
+  A FAIXA DE QUANTIDADE ACOMPANHA A PROMOÇÃO (24/09). Com a promoção
+  desligada, 1 óleo voltava a R$ 79,90 e 2 continuavam saindo por R$ 104,90,
+  calculados sobre o preço dela — até o job, que rodava de 15 em 15 minutos.
+  Agora ele roda de minuto em minuto e avisa a loja. Desliga a promoção,
+  espera a faixa acompanhar (até 90 s), confere a página do produto, e religa
+  — esperando a faixa voltar, pra não deixar o banco no meio do caminho.
+*/
+if (EMAIL_ADMIN && SENHA_ADMIN) {
+  const { price_lists: listas = [] } = await adm(
+    "/admin/price-lists?fields=id,title,status,type&limit=100"
+  )
+  const promocao = listas.find(
+    (l) => l.status === "active" && l.type === "sale" && l.title !== "Desconto por quantidade"
+  )
+  const { regions = [] } = (await medusa("/store/regions")) ?? {}
+  const regiao = regions.find((r) => r.currency_code === "brl")
+  const variante = (await medusa("/store/products?handle=oleo-para-barba&fields=*variants"))
+    ?.products?.[0]?.variants?.[0]?.id
+  const unitario = async (quantidade) => {
+    const { json } = await medusaCru("/store/carts", {
+      metodo: "POST",
+      corpo: { region_id: regiao.id },
+    })
+    const { json: comItem } = await medusaCru(`/store/carts/${json.cart.id}/line-items`, {
+      metodo: "POST",
+      corpo: { variant_id: variante, quantity: quantidade },
+    })
+    return Number(comItem?.cart?.items?.[0]?.unit_price)
+  }
+  const esperar = (ms) => new Promise((pronto) => setTimeout(pronto, ms))
+  if (!promocao || !variante) {
+    console.log("    (sem promoção ativa no óleo: pulei a promoção que acaba)")
+  } else {
+    const antes1 = await unitario(1)
+    const antes2 = await unitario(2)
+    await adm(`/admin/price-lists/${promocao.id}`, {
+      method: "POST",
+      body: JSON.stringify({ status: "draft" }),
+    })
+    try {
+      const depois1 = await unitario(1)
+      let depois2 = await unitario(2)
+      for (const fim = Date.now() + 90000; Date.now() < fim && depois2 <= antes1;) {
+        await esperar(5000)
+        depois2 = await unitario(2)
+      }
+      ok(
+        depois1 > antes1,
+        "desligada a promoção, 1 unidade volta ao preço cheio na hora",
+        reais(depois1)
+      )
+      ok(
+        depois2 > antes1 && depois2 < depois1,
+        "e em até um minuto e meio as 2 unidades acompanham: acima da promoção, abaixo do cheio",
+        `2 un.: ${reais(antes2)} → ${reais(depois2)} cada (1 un. ${reais(depois1)})`
+      )
+      let naPagina = ""
+      for (let i = 0; i < 8 && !naPagina.includes(reais(depois1)); i++) {
+        const html = await (await fetch(`${LOJA}/produtos/oleo-para-barba?_=${Date.now()}`)).text()
+        naPagina = (html.match(/compra__por[^>]*>([^<]*)</)?.[1] ?? "").replace(/ /g, " ")
+        if (!naPagina.includes(reais(depois1))) await esperar(2000)
+      }
+      ok(
+        naPagina.includes(reais(depois1)),
+        "e a loja foi avisada: a página do produto mostra o preço de agora",
+        naPagina || "sem preço na página"
+      )
+    } finally {
+      await adm(`/admin/price-lists/${promocao.id}`, {
+        method: "POST",
+        body: JSON.stringify({ status: "active" }),
+      })
+      let volta = await unitario(2)
+      for (const fim = Date.now() + 90000; Date.now() < fim && !perto(volta, antes2);) {
+        await esperar(5000)
+        volta = await unitario(2)
+      }
+      ok(
+        perto(volta, antes2),
+        "religada a promoção, a faixa volta",
+        `${reais(volta)} × ${reais(antes2)}`
+      )
+    }
+  }
+} else {
+  console.log("    (sem ADMIN_EMAIL/ADMIN_SENHA: pulei a promoção que acaba)")
+}
+
+/* ── 7. higiene ───────────────────────────────────────────────────────────── */
 
 titulo("Higiene")
 ok(errosDeConsole.length === 0, "nenhum erro no console", errosDeConsole.slice(0, 3).join(" | "))

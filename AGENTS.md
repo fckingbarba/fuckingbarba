@@ -174,7 +174,13 @@ Railway roda `medusa start` e `medusa db:migrate`.
 venda → local de estoque → conjunto → zona → opção, e todo produto com perfil de envio. Um elo
 faltando dá lista vazia, sem erro nenhum; por isso o script confere a corrente no fim em vez de
 dizer "pronto". Preço cotado sai de `POST /store/shipping-options/:id/calculate`: o `GET` da lista
-não calcula. Peso e medidas moram na VARIANTE (`src/scripts/medidas.ts`), não no produto.
+não calcula. Peso e medidas moram na VARIANTE (`src/scripts/medidas.ts`), não no produto. As duas
+faixas (econômica e expressa) saem do mesmo `escolherFaixas`; quando a mais barata é também a mais
+rápida — ou a transportadora responde um serviço só —, as duas são A MESMA entrega, e o frete
+grátis vale nas duas (`aplicarPolitica` recebe o `servico` de cada faixa, no provider e na rota
+`/store/frete`). Antes só a econômica zerava, e a "expressa" cobrava pelo mesmo PAC e o mesmo
+prazo. No checkout, a econômica empatada em preço some (`semEntregaEmpatada`), a não ser que seja
+a gravada no carrinho.
 
 **Pagamento** é um provider próprio (`src/modules/pagarme/`, id `pp_pagarme_pagarme`): Pix e cartão
 em até 3x pelo Pagar.me, ligado na região por `npm run backend:pagamento` (que tira o provisório
@@ -198,7 +204,11 @@ da API pública, então o provedor grava o estado inteiro, com `null` explícito
 Pagar.me pelo CÓDIGO (o id da sessão), nunca pelo `data`; e o cartão aprovado no fechamento não
 emite `payment.captured` — quem emite é `src/subscribers/pedido-pago-na-hora.ts`. A loja manda o
 comprador em `data.entrada` (montado do carrinho, em `apps/loja/src/lib/pagamento.ts`) e o cartão
-só como token, gerado no navegador (`apps/loja/src/lib/pagarme.ts`).
+só como token, gerado no navegador (`apps/loja/src/lib/pagarme.ts`). E manda o total que o botão
+mostrou (`total_visto`): se o carrinho tiver outro — um item posto por outra aba, a seta de
+voltar do navegador —, o `finalizar` não abre o pagamento, redesenha a tela e diz o total novo.
+Sem isso o cartão era autorizado por um valor que ninguém viu. O cupom vai como foi digitado,
+depois em maiúsculas e em minúsculas: o Medusa procura o código exatamente como foi cadastrado.
 
 Três portas que o Medusa deixa abertas e o projeto fecha. (1) Abrir sessão de pagamento APAGA as
 anteriores da coleção, sem conferir se ela já é de um pedido: `src/api/middlewares.ts` recusa sessão
@@ -494,6 +504,17 @@ itens, pelas mesmas `somaDosProdutos` e `itensPraCotar` do provider. Sem ele (a 
 linhas que o carrinho teria: a mesma variante numa linha só, e o preço pedido com a quantidade
 (`calculated_price` com `quantity` no contexto) — com o preço de uma unidade, a PDP prometia frete
 grátis que o checkout não dava.
+TROCAR O CEP — na gaveta ou no passo 2 — passa pela `comCepNovo` (`lib/endereco.ts`, a mesma regra
+no servidor e na tela): CEP diferente leva embora o lugar do antigo e, a não ser na mesma rua, o
+número e o complemento; o checkout volta pro passo 2 pedindo o número. Antes o carrinho ficava
+com a rua nova e o número da antiga, e o checkout pulava pro pagamento. O passo 2 não envia com o
+CEP sendo buscado, e o `salvarEntrega` recusa CEP de outra cidade (`cepDeOutraCidade`).
+O DESCONTO POR QUANTIDADE (a lista "Desconto por quantidade", `apps/backend/src/lib/
+precos-por-quantidade.ts`) sai do preço de UMA unidade de agora, com promoção, e o job refaz de
+minuto em minuto. Promoção que acaba não emite evento nenhum — a data passa, ou alguém desliga no
+admin —, então é a rodada que percebe: ela compara a foto dos preços (uma unidade com e sem
+promoção, e as listas com as datas) com a anterior e, mudou, avisa a loja (`produtos` e
+`promocao`). De 15 em 15 minutos, 2 e 3 unidades seguiam o preço da promoção que tinha acabado.
 O **"leva junto"** da gaveta (`components/sacola/leva-junto.tsx`) sai de uma lista pronta do
 servidor: `vitrineDaSacola` (`lib/medusa.ts`, cacheada com a tag `produtos`) é lida no layout raiz
 e entregue à `<Gaveta>` junto com o modelo do motor de recomendação; a escolha de até três, na

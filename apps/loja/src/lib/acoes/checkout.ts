@@ -23,7 +23,8 @@ import {
 } from "@/lib/checkout-visivel"
 import { guardarDaCompra, lerCliente, lerSessao } from "@/lib/conta"
 import { conferirDocumento, type Documento } from "@/lib/documento"
-import { ehUf, lerEndereco, montarEndereco } from "@/lib/endereco"
+import { emReais } from "@/lib/formato"
+import { cepDeOutraCidade, comCepNovo, ehUf, lerEndereco, montarEndereco } from "@/lib/endereco"
 import { cliente } from "@/lib/medusa"
 import { depoisDaRecusa, entradaDoCarrinho } from "@/lib/pagamento"
 import { lerToken } from "@/lib/sessao"
@@ -101,6 +102,9 @@ function registrar(e: unknown, contexto: string) {
 /* ── validações ───────────────────────────────────────────────────────────── */
 
 const texto = (fd: FormData, campo: string) => String(fd.get(campo) ?? "").trim()
+
+/** Dinheiro se compara em centavos: 145.255 e 145.26 são o mesmo total na tela. */
+const emCentavos = (valor: number) => Math.round(valor * 100)
 
 /**
  * E-mail: só a forma, e de propósito. Dá pra ser muito mais rígido e o ganho é
@@ -219,6 +223,23 @@ export async function salvarEntrega(anterior: EstadoDaEtapa, fd: FormData): Prom
   if (!ehUf(uf)) erros.uf = "Estado em duas letras (SP, RJ, MG…)."
 
   if (Object.keys(erros).length) return erro(anterior, erros, "", fd)
+
+  /*
+    O CEP É DESTA CIDADE? Trocar o CEP e confirmar antes de a busca voltar
+    gravava o CEP novo com a rua e a cidade do antigo — "Avenida Paulista,
+    São Paulo" com um CEP do Rio (achado em 24/09). A tela agora trava o envio
+    durante a busca; isto é a segunda peneira, pra quem chega por outro
+    caminho. Só recusa com certeza: sem resposta do ViaCEP, passa.
+  */
+  const doCep = await buscarCep(cep)
+  if (doCep && cepDeOutraCidade(doCep, cidade, uf)) {
+    return erro(
+      anterior,
+      { cep: `Esse CEP é de ${doCep.cidade}/${doCep.uf}. Confere o CEP e a cidade.` },
+      "",
+      fd
+    )
+  }
 
   const atual = await carrinhoAtual()
   if (!atual) return erro(anterior, {}, EXPIROU, fd)
@@ -424,6 +445,28 @@ export async function finalizar(anterior: EstadoDaEtapa, fd: FormData): Promise<
     }
   }
 
+  /*
+    O TOTAL QUE A PESSOA VIU É O QUE SE COBRA. O botão diz "Pagar R$ X" com o
+    total da última vez que a tela desenhou, e o carrinho pode ter mudado
+    depois: um item posto pela sacola em outra aba, a seta de voltar do
+    navegador devolvendo um checkout guardado, um cupom tirado no mesmo
+    instante do clique. Sem esta conferência o cartão era autorizado pelo total
+    novo sem ninguém ver — R$ 128,50 com o botão dizendo R$ 73,60 (24/09).
+    Diferente, nada é cobrado: a tela redesenha com o total de agora e a
+    pessoa clica de novo. Sem o campo (aba aberta antes do deploy), não confere.
+  */
+  const visto = texto(fd, "total_visto")
+  if (visto && emCentavos(Number(visto)) !== emCentavos(Number(carrinho.total))) {
+    refresh()
+    return erro(
+      anterior,
+      {},
+      `O total do pedido mudou pra ${emReais(Number(carrinho.total))}. ` +
+        "Confere o resumo e clica em pagar de novo — nada foi cobrado.",
+      fd
+    )
+  }
+
   let dados: Record<string, unknown> | undefined
   if (cobra) {
     const montada = entradaDoCarrinho(carrinho, {
@@ -606,13 +649,8 @@ export async function consultarCep(cep: string): Promise<CepDoCheckout> {
   const atual = await carrinhoAtual()
   if (atual) {
     try {
-      const entrega: EnderecoVisivel = {
-        ...lerEndereco(atual.carrinho.shipping_address),
-        cep: limpo,
-        ...(achado
-          ? { cidade: achado.cidade, uf: achado.uf, rua: achado.logradouro, bairro: achado.bairro }
-          : {}),
-      }
+      // CEP novo apaga o número e o complemento da rua antiga — ver `comCepNovo`.
+      const entrega = comCepNovo(lerEndereco(atual.carrinho.shipping_address), limpo, achado)
       await atual.sdk.store.cart.update(
         atual.carrinho.id,
         { shipping_address: montarEndereco(entrega) },
@@ -660,22 +698,33 @@ export async function consultarCep(cep: string): Promise<CepDoCheckout> {
  * aplicar nada quando o código existe mas não vale pra este carrinho. Os dois
  * casos dão no mesmo pra quem está comprando — então a checagem que vale é
  * RELER o carrinho e ver se o código entrou na lista.
+ *
+ * MAIÚSCULA E MINÚSCULA NÃO IMPORTAM PRA QUEM DIGITA, e importam pro Medusa:
+ * ele procura o código exatamente como foi cadastrado. A loja punha tudo em
+ * maiúsculas, e um cupom cadastrado como "bemvindo10" nunca valia (24/09).
+ * Agora vai como foi digitado, depois em maiúsculas, depois em minúsculas —
+ * a primeira que entrar vale, e a conferência não liga pra caixa.
  */
 export async function aplicarCupom(anterior: EstadoDaEtapa, fd: FormData): Promise<EstadoDaEtapa> {
-  const codigo = texto(fd, "cupom").toUpperCase()
-  if (!codigo) return erro(anterior, { cupom: "Escreve o código." }, "", fd)
+  const digitado = texto(fd, "cupom")
+  if (!digitado) return erro(anterior, { cupom: "Escreve o código." }, "", fd)
 
   const atual = await carrinhoAtual()
   if (!atual) return erro(anterior, {}, EXPIROU, fd)
 
-  try {
-    await atual.sdk.store.cart.addPromotions(atual.carrinho.id, { promo_codes: [codigo] })
-  } catch {
-    // 400 é a resposta pra código inexistente. Não é exceção nossa.
+  const mesmoCodigo = (c: string | null | undefined) =>
+    (c ?? "").toLowerCase() === digitado.toLowerCase()
+  let entrou = false
+  for (const codigo of new Set([digitado, digitado.toUpperCase(), digitado.toLowerCase()])) {
+    try {
+      await atual.sdk.store.cart.addPromotions(atual.carrinho.id, { promo_codes: [codigo] })
+    } catch {
+      // 400 é a resposta pra código inexistente. Não é exceção nossa.
+    }
+    const depois = await lerCarrinho(CAMPOS_CHECKOUT)
+    entrou = (depois?.promotions ?? []).some((p) => mesmoCodigo(p?.code))
+    if (entrou) break
   }
-
-  const depois = await lerCarrinho(CAMPOS_CHECKOUT)
-  const entrou = (depois?.promotions ?? []).some((p) => p?.code === codigo)
 
   if (!entrou) {
     return erro(anterior, { cupom: "Esse cupom não vale pra este pedido." }, "", fd)

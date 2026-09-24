@@ -1,4 +1,6 @@
 import type { HttpTypes } from "@medusajs/types"
+import type { EnderecoDoCep } from "./cep"
+import { limparCep } from "./cep-formato"
 import type { EnderecoVisivel } from "./checkout-visivel"
 import type { EnderecoDaConta } from "./conta-visivel"
 import type { Documento } from "./documento"
@@ -122,6 +124,68 @@ export function lerEndereco(e: EnderecoDoMedusa): EnderecoVisivel {
     cidade: e?.city ?? "",
     uf: (e?.province ?? "").toUpperCase(),
   }
+}
+
+/** "Praça  Pio X" e "praca pio x" são a mesma rua (o `normalizar` é o dos endereços da conta). */
+const mesmoNome = (a: string, b: string) => normalizar(a) === normalizar(b)
+
+/**
+ * O ENDEREÇO QUANDO O CEP MUDA — na sacola, no passo 2 do checkout, no
+ * servidor e na tela: a mesma regra nos quatro.
+ *
+ * O número e o complemento são DAQUELA rua. Trocar o CEP e manter os dois
+ * fazia "Praça Pio X, 1578 — apto 12", no Rio, com o número da Paulista: o
+ * checkout via rua, número e frete preenchidos, pulava pro pagamento, e o
+ * pedido pago saía pra um endereço que não existe (achado em 24/09).
+ *
+ * Com o CEP DIFERENTE, o lugar é o que o ViaCEP disser (rua, bairro, cidade,
+ * estado) — o do CEP antigo sai, mesmo quando o ViaCEP não sabe: cidade de
+ * outro CEP é endereço errado. Número e complemento só ficam na MESMA rua (o
+ * CEP corrigido num dígito); rua diferente, ou desconhecida, apaga os dois, e
+ * o checkout volta pro passo 2 pedindo o número.
+ *
+ * Com o MESMO CEP nada se perde: entra só o que o ViaCEP souber. O CEP de
+ * cidade inteira volta sem rua, e a rua que a pessoa digitou fica.
+ *
+ * Nome e telefone são de quem recebe, não do lugar: ficam sempre.
+ */
+export function comCepNovo(
+  antigo: EnderecoVisivel,
+  cep: string,
+  achado: EnderecoDoCep | null
+): EnderecoVisivel {
+  if (limparCep(antigo.cep) === cep) {
+    return {
+      ...antigo,
+      cep,
+      ...(achado?.logradouro ? { rua: achado.logradouro } : {}),
+      ...(achado?.bairro ? { bairro: achado.bairro } : {}),
+      ...(achado?.cidade ? { cidade: achado.cidade } : {}),
+      ...(achado?.uf ? { uf: achado.uf } : {}),
+    }
+  }
+  const rua = achado?.logradouro ?? ""
+  const mesmaRua = Boolean(rua) && mesmoNome(rua, antigo.rua)
+  return {
+    ...antigo,
+    cep,
+    rua,
+    bairro: achado?.bairro ?? "",
+    cidade: achado?.cidade ?? "",
+    uf: achado?.uf ?? "",
+    numero: mesmaRua ? antigo.numero : "",
+    complemento: mesmaRua ? antigo.complemento : "",
+  }
+}
+
+/** O CEP é de outra cidade? Só diz que sim com certeza: sem o ViaCEP, não. */
+export function cepDeOutraCidade(
+  achado: EnderecoDoCep | null,
+  cidade: string,
+  uf: string
+): boolean {
+  if (!achado?.cidade || !achado.uf) return false
+  return achado.uf !== uf.toUpperCase() || !mesmoNome(achado.cidade, cidade)
 }
 
 /* ── os endereços da conta ────────────────────────────────────────────────── */

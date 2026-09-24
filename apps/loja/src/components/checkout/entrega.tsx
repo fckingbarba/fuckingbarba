@@ -12,14 +12,15 @@ import {
 } from "react"
 import { Mais, Raio } from "@/components/icones"
 import { adicionarOferta, consultarCep, escolherFrete, salvarEntrega } from "@/lib/acoes/checkout"
-import { mascararCep } from "@/lib/cep-formato"
+import { limparCep, mascararCep } from "@/lib/cep-formato"
 import {
+  ENDERECO_VAZIO,
   ESTADO_INICIAL,
   type CheckoutVisivel,
   type Oferta,
   type OpcaoDeFrete,
 } from "@/lib/checkout-visivel"
-import { UFS } from "@/lib/endereco"
+import { comCepNovo, UFS } from "@/lib/endereco"
 import { emReais } from "@/lib/formato"
 import { site } from "@/lib/site"
 import { Campo } from "./campo"
@@ -61,8 +62,9 @@ type Props = PropsDaEtapa & {
 
 export function Entrega({ checkout, fretes, sugestoes, falta, piso, aoSalvar, ...casca }: Props) {
   const [estado, acao, enviando] = useActionState(salvarEntrega, ESTADO_INICIAL)
+  const [buscando, buscar] = useTransition()
   useFechaQuandoSalva(estado, aoSalvar)
-  useAvisaOcupado(casca, enviando ? "Salvando…" : null)
+  useAvisaOcupado(casca, enviando ? "Salvando…" : buscando ? "Procurando o endereço…" : null)
   const formulario = useFocaNoErro(estado)
   const { recalcular, recalculando } = casca
 
@@ -70,8 +72,13 @@ export function Entrega({ checkout, fretes, sugestoes, falta, piso, aoSalvar, ..
   // caminho, e rádio travado não entra no FormData — o passo gravaria o
   // endereço sem a entrega. Os botões já travam; isto cobre o Enter num campo
   // de texto e o toque repetido na barra do celular.
+  //
+  // NEM COM O CEP SENDO BUSCADO: o formulário ainda tem a rua e a cidade do
+  // CEP anterior, e o envio gravava o CEP novo com elas — "Avenida Paulista,
+  // São Paulo" com um CEP do Rio (24/09). O servidor recusa de novo
+  // (`cepDeOutraCidade`), mas quem digita e aperta Enter nem chega lá.
   function aoEnviar(ev: FormEvent<HTMLFormElement>) {
-    if (enviando || recalculando) ev.preventDefault()
+    if (enviando || recalculando || buscando) ev.preventDefault()
   }
 
   const inicial = checkout.entrega
@@ -90,7 +97,6 @@ export function Entrega({ checkout, fretes, sugestoes, falta, piso, aoSalvar, ..
   // acabou de escolher. O atalho do CEP só dispara quando ele é digitado.
   const [abriu, setAbriu] = useState(Boolean(inicial.rua || inicial.numero || inicial.cep))
 
-  const [buscando, buscar] = useTransition()
   const [naoAchou, setNaoAchou] = useState(false)
   // O CEP não chegou no carrinho (rede, Medusa fora do ar). Sem isto, a lista
   // de entregas voltava vazia e a tela culpava o CEP da pessoa — ver o
@@ -98,8 +104,11 @@ export function Entrega({ checkout, fretes, sugestoes, falta, piso, aoSalvar, ..
   // pintura ninguém tentou gravar nada ainda.
   const [naoGravou, setNaoGravou] = useState(false)
   const numeroRef = useRef<HTMLInputElement>(null)
+  const complementoRef = useRef<HTMLInputElement>(null)
   const ufRef = useRef<HTMLSelectElement>(null)
   const ultimoBuscado = useRef("")
+  // De que CEP são a rua, o número e a cidade que estão nos campos agora.
+  const cepDosCampos = useRef(limparCep(inicial.cep))
   const querFoco = useRef(false)
 
   /*
@@ -133,21 +142,41 @@ export function Entrega({ checkout, fretes, sugestoes, falta, piso, aoSalvar, ..
       // pessoa precisa dos campos pra digitar à mão.
       setAbriu(true)
       setNaoGravou(!achado.gravado)
-      if (!achado.encontrado) {
-        setNaoAchou(true)
-        return
-      }
-      // Só preenche o que veio: CEP de rua única devolve logradouro, CEP de
-      // cidade inteira não — e apagar o que a pessoa já digitou por causa de
-      // um campo vazio na resposta seria trabalho perdido dela.
-      if (achado.rua) setRua(achado.rua)
-      if (achado.bairro) setBairro(achado.bairro)
-      if (achado.cidade) setCidade(achado.cidade)
-      if (achado.uf) setUf(achado.uf)
+      setNaoAchou(!achado.encontrado)
+      /*
+        A MESMA REGRA DO SERVIDOR (`comCepNovo`). Com o mesmo CEP, só entra o
+        que veio — o CEP de cidade inteira não traz rua, e apagar a que a
+        pessoa digitou seria trabalho perdido dela. Com CEP novo, o lugar é o
+        do CEP novo, e o número e o complemento saem, a não ser na mesma rua:
+        ficavam os da rua antiga, e o endereço gravado não existia.
+      */
+      const novo = comCepNovo(
+        {
+          ...ENDERECO_VAZIO,
+          cep: cepDosCampos.current,
+          rua,
+          bairro,
+          cidade,
+          uf,
+          numero: numeroRef.current?.value ?? "",
+          complemento: complementoRef.current?.value ?? "",
+        },
+        limpo,
+        achado.encontrado
+          ? { logradouro: achado.rua, bairro: achado.bairro, cidade: achado.cidade, uf: achado.uf }
+          : null
+      )
+      cepDosCampos.current = limpo
+      setRua(novo.rua)
+      setBairro(novo.bairro)
+      setCidade(novo.cidade)
+      setUf(novo.uf)
+      if (numeroRef.current) numeroRef.current.value = novo.numero
+      if (complementoRef.current) complementoRef.current.value = novo.complemento
       // O foco vai pro número num efeito, não aqui: neste ponto o bloco do
       // endereço ainda está com `hidden`, e focar elemento escondido não faz
       // nada. O `hidden` só sai no render que `setAbriu` provoca.
-      querFoco.current = true
+      if (achado.encontrado) querFoco.current = true
     })
   }
 
@@ -226,6 +255,7 @@ export function Entrega({ checkout, fretes, sugestoes, falta, piso, aoSalvar, ..
             rotulo="Complemento"
             nota="(opcional)"
             nome="complemento"
+            ref={complementoRef}
             largura="campo--4"
             autoComplete="address-line2"
             placeholder="Apto, bloco, referência"
@@ -313,7 +343,7 @@ export function Entrega({ checkout, fretes, sugestoes, falta, piso, aoSalvar, ..
           <button
             type="submit"
             className="btn"
-            disabled={enviando || recalculando}
+            disabled={enviando || recalculando || buscando}
             aria-busy={enviando || undefined}
           >
             {enviando ? <Giro /> : null}

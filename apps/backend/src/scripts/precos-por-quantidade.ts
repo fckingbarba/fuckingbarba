@@ -18,7 +18,7 @@ import { ondeEstou } from "./onde-estou"
  *
  * O QUE FAZ:
  *   1. monta a lista "Desconto por quantidade" (lib/precos-por-quantidade.ts)
- *      — o mesmo que o job faz de 15 em 15 minutos, só que agora;
+ *      — o mesmo que o job faz de minuto em minuto, só que agora;
  *   2. passa pra RASCUNHO os produtos-kit ("Kit 2 frascos — …"), que a página
  *      não usa mais. Rascunho e não apagar: pedido antigo aponta pra eles.
  *

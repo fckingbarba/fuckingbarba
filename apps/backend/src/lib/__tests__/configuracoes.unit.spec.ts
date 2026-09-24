@@ -1,4 +1,11 @@
-import { CHAVE_NO_METADATA, lerConfiguracoes, PADRAO, soOPublico } from "../configuracoes"
+import {
+  aplicarPolitica,
+  CHAVE_NO_METADATA,
+  lerConfiguracoes,
+  PADRAO,
+  soOPublico,
+  type PoliticaDeFrete,
+} from "../configuracoes"
 
 const com = (home: unknown) => lerConfiguracoes({ [CHAVE_NO_METADATA]: { home } })
 
@@ -34,5 +41,94 @@ describe("o vídeo da história da marca", () => {
 
   it("e a cotação de emergência continua fora do público", () => {
     expect(soOPublico(PADRAO)).not.toHaveProperty("cotacao")
+  })
+})
+
+describe("o frete grátis na mesma entrega (24/09)", () => {
+  const gratis: PoliticaDeFrete = {
+    modo: "gratis",
+    piso: 149.9,
+    alvo: "mais-barata",
+    tetoDeCusto: null,
+  }
+  const preco = (opcoes: ReturnType<typeof aplicarPolitica>, id: string) =>
+    opcoes.find((o) => o.id === id)?.preco
+
+  it("o mesmo serviço nas duas faixas: as duas ficam grátis", () => {
+    const r = aplicarPolitica(
+      gratis,
+      [
+        { id: "economica", preco: 23.7, servico: "04510" },
+        { id: "expressa", preco: 23.7, servico: "04510" },
+      ],
+      158.7
+    )
+    expect(preco(r, "economica")).toBe(0)
+    expect(preco(r, "expressa")).toBe(0)
+  })
+
+  it("serviços diferentes: só a mais barata fica grátis, a expressa segue cobrando", () => {
+    const r = aplicarPolitica(
+      gratis,
+      [
+        { id: "economica", preco: 23.7, servico: "04510" },
+        { id: "expressa", preco: 31.9, servico: "LOG01" },
+      ],
+      158.7
+    )
+    expect(preco(r, "economica")).toBe(0)
+    expect(preco(r, "expressa")).toBe(31.9)
+  })
+
+  it("mesmo preço, serviços diferentes: continua só a primeira", () => {
+    const r = aplicarPolitica(
+      gratis,
+      [
+        { id: "economica", preco: 23.7, servico: "04510" },
+        { id: "expressa", preco: 23.7, servico: "LOG01" },
+      ],
+      158.7
+    )
+    expect(preco(r, "economica")).toBe(0)
+    expect(preco(r, "expressa")).toBe(23.7)
+  })
+
+  it("sem o serviço informado, vale a regra de antes (só a primeira)", () => {
+    const r = aplicarPolitica(
+      gratis,
+      [
+        { id: "economica", preco: 23.7 },
+        { id: "expressa", preco: 23.7 },
+      ],
+      158.7
+    )
+    expect(preco(r, "economica")).toBe(0)
+    expect(preco(r, "expressa")).toBe(23.7)
+  })
+
+  it("abaixo do piso, ninguém muda", () => {
+    const r = aplicarPolitica(
+      gratis,
+      [
+        { id: "economica", preco: 23.7, servico: "04510" },
+        { id: "expressa", preco: 23.7, servico: "04510" },
+      ],
+      100
+    )
+    expect(preco(r, "economica")).toBe(23.7)
+    expect(preco(r, "expressa")).toBe(23.7)
+  })
+
+  it("o teto continua valendo pro mesmo serviço", () => {
+    const r = aplicarPolitica(
+      { ...gratis, tetoDeCusto: 20 },
+      [
+        { id: "economica", preco: 23.7, servico: "04510" },
+        { id: "expressa", preco: 23.7, servico: "04510" },
+      ],
+      158.7
+    )
+    expect(preco(r, "economica")).toBe(23.7)
+    expect(preco(r, "expressa")).toBe(23.7)
   })
 })

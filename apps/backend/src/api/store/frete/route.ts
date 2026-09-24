@@ -260,6 +260,8 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     const origem = locais.find((l) => l.address?.postal_code)?.address?.postal_code
 
     let faixas: FaixaCotada[] = []
+    /** Qual entrega está por trás de cada faixa — ver "O MESMO SERVIÇO" no `aplicarPolitica`. */
+    const servicoDaFaixa = new Map<string, string>()
     let emergencia = false
 
     /*
@@ -305,6 +307,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
 
       faixas = (["economica", "expressa"] as const).map((faixa) => {
         const s = escolhidas[faixa]
+        servicoDaFaixa.set(faixa, s.codigo)
         return {
           faixa,
           nome: NOMES[faixa],
@@ -332,6 +335,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
         return
       }
       emergencia = true
+      servicoDaFaixa.set("economica", "emergencia").set("expressa", "emergencia")
       faixas = (["economica", "expressa"] as const).map((faixa) => ({
         faixa,
         nome: NOMES[faixa],
@@ -349,7 +353,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     */
     const comPolitica = aplicarPolitica(
       politica,
-      faixas.map((f) => ({ id: f.faixa, preco: f.preco })),
+      faixas.map((f) => ({ id: f.faixa, preco: f.preco, servico: servicoDaFaixa.get(f.faixa) })),
       subtotal
     )
     const precoPorFaixa = new Map(comPolitica.map((o) => [o.id, o.preco]))
