@@ -303,8 +303,8 @@ function filaDoMarketing(dados: DadosDoInicio): ItemDaFila[] {
       titulo: semana
         ? `+${semana} na newsletter esta semana`
         : "Newsletter sem inscrição nova esta semana",
-      texto: `${total} ${total === 1 ? "inscrito" : "inscritos"} no total.`,
-      href: "/clientes",
+      texto: `${total} ${total === 1 ? "recebe" : "recebem"} ofertas por e-mail, do rodapé e da conta.`,
+      href: "/clientes/newsletter",
     })
   }
   return fila

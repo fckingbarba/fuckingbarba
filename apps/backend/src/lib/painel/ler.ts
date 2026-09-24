@@ -11,6 +11,13 @@ import type NewsletterService from "../../modules/newsletter/service"
 import { lerConexao, minutosDaJanela } from "../erp/conexao"
 import { erpDaLoja } from "../erp/erps"
 import { ACOES_NO_PEDIDO, type FeitoNoPedido } from "./acoes"
+import {
+  juntarPessoas,
+  newsletterDa,
+  type ClienteCru,
+  type InscricaoCrua,
+  type PedidoDoCliente,
+} from "./clientes"
 import { ACOES_NA_HOME, ALVO_DA_HOME } from "./home"
 import { ACOES_NO_PRODUTO, type FeitoNoProduto } from "./produtos"
 import { nomeCurto, type Contexto, type EnvioCru, type NotaCrua, type PedidoCru } from "./pedido"
@@ -287,18 +294,21 @@ export async function nomesDosProdutos(
   )
 }
 
-/** Marketing: a newsletter da semana e o total. */
+/**
+ * Marketing: quem recebe ofertas por e-mail — os novos da semana e o total.
+ * A mesma conta da aba Newsletter de Clientes (`newsletterDa`): o rodapé e a
+ * caixa da conta juntos, sem repetir o e-mail.
+ */
 export async function numerosDaNewsletter(
   container: MedusaContainer,
   agora = new Date()
 ): Promise<{ semana: number; total: number }> {
-  const servico = container.resolve<NewsletterService>(NEWSLETTER)
-  const [, total] = await servico.listAndCountInscricoes({}, { take: 1 })
-  const [, semana] = await servico.listAndCountInscricoes(
-    { created_at: { $gte: new Date(agora.getTime() - 7 * DIA_MS) } },
-    { take: 1 }
-  )
-  return { semana, total }
+  const [clientes, inscricoes] = await Promise.all([
+    lerClientes(container),
+    inscricoesDaNewsletter(container),
+  ])
+  const { numeros } = newsletterDa(juntarPessoas(clientes, [], inscricoes), inscricoes, agora)
+  return { semana: numeros.semana, total: numeros.total }
 }
 
 /** Marketing: quantos produtos esperam alguém completar (os rascunhos que vêm do Bling). */
@@ -310,4 +320,95 @@ export async function quantosRascunhos(container: MedusaContainer): Promise<numb
     pagination: { take: 1 },
   })
   return Number(metadata?.count ?? 0)
+}
+
+/* ── os clientes ──────────────────────────────────────────────────────────── */
+
+const CAMPOS_DO_CLIENTE = [
+  "id",
+  "email",
+  "first_name",
+  "last_name",
+  "phone",
+  "has_account",
+  "created_at",
+  "metadata",
+]
+
+/**
+ * O que a lista de clientes lê de cada pedido: só o que conta (quantos,
+ * quanto, quando) e a cidade. A lista trabalha com os últimos 2000 pedidos —
+ * a loja é pequena, e isso cobre com folga a vida de cada cliente.
+ */
+const CAMPOS_DO_PEDIDO_NA_LISTA = [
+  "id",
+  "created_at",
+  "status",
+  "email",
+  "customer_id",
+  "total",
+  "original_total",
+  "shipping_address.first_name",
+  "shipping_address.last_name",
+  "shipping_address.city",
+  "shipping_address.province",
+  "payment_collections.payments.captured_at",
+]
+
+/** Os clientes do Medusa (convidados e contas), os mais novos primeiro — até 5000. */
+export async function lerClientes(
+  container: MedusaContainer,
+  filtros: Record<string, unknown> = {}
+): Promise<ClienteCru[]> {
+  const { data } = await query(container).graph({
+    entity: "customer",
+    fields: CAMPOS_DO_CLIENTE,
+    filters: filtros,
+    pagination: { take: 5000, order: { created_at: "DESC" } },
+  })
+  return data as unknown as ClienteCru[]
+}
+
+/** Os últimos 2000 pedidos, só com o que a lista de clientes soma. */
+export async function pedidosDosClientes(container: MedusaContainer): Promise<PedidoDoCliente[]> {
+  const { data } = await query(container).graph({
+    entity: "order",
+    fields: CAMPOS_DO_PEDIDO_NA_LISTA,
+    filters: { is_draft_order: false },
+    pagination: { take: 2000, order: { created_at: "DESC" } },
+  })
+  return data as unknown as PedidoDoCliente[]
+}
+
+/** Os pedidos inteiros de uns clientes (a ficha): os da lista de pedidos, e o endereço com o documento. */
+export async function pedidosDe(
+  container: MedusaContainer,
+  clientes: string[]
+): Promise<PedidoDoCliente[]> {
+  if (!clientes.length) return []
+  const { data } = await query(container).graph({
+    entity: "order",
+    fields: [...CAMPOS_DO_DETALHE, "customer_id"],
+    filters: { customer_id: clientes, is_draft_order: false },
+    pagination: { take: 200, order: { created_at: "DESC" } },
+  })
+  return data as unknown as PedidoDoCliente[]
+}
+
+/** A newsletter inteira, os mais novos primeiro. */
+export async function inscricoesDaNewsletter(
+  container: MedusaContainer,
+  filtros: Record<string, unknown> = {}
+): Promise<InscricaoCrua[]> {
+  const servico = container.resolve<NewsletterService>(NEWSLETTER)
+  const inscricoes = await servico.listInscricoes(filtros, {
+    order: { consentido_em: "DESC" },
+    take: 10_000,
+  })
+  return inscricoes.map((i) => ({
+    id: i.id,
+    email: i.email,
+    origem: i.origem,
+    consentido_em: i.consentido_em,
+  }))
 }

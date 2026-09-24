@@ -148,7 +148,7 @@ const centavos = (v: number) => Math.round(v * 100) / 100
  * estorno vira crédito e desconta — o pedido estornado inteiro mostraria
  * R$ 0,00 ao lado de "o estorno de R$ 128,60 não saiu".
  */
-const totalDo = (o: PedidoCru) => numero(o.original_total) || numero(o.total)
+export const totalDo = (o: PedidoCru) => numero(o.original_total) || numero(o.total)
 const texto = (v: unknown) => (typeof v === "string" ? v.replace(/\s+/g, " ").trim() : "")
 const emData = (v: Quando): Date | null => {
   if (!v) return null
@@ -322,7 +322,7 @@ export function resumoDosItens(itens: ItemCru[]): string {
     .join(" · ")
 }
 
-const nomeDoCliente = (o: PedidoCru) =>
+export const nomeDoCliente = (o: PedidoCru) =>
   [texto(o.shipping_address?.first_name), texto(o.shipping_address?.last_name)]
     .filter(Boolean)
     .join(" ") ||
