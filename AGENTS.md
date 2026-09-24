@@ -570,7 +570,10 @@ layout): a frase sobrevive à página se refazendo. As visitas vêm do GA4 pela
 `GET /dashboard/visitas`, à parte do Início: `src/lib/painel/ga4.ts` fala com o Google (conta de
 serviço só leitura, JWT assinado com `node:crypto`, um `batchRunReports` e um `runRealtimeReport`,
 respostas guardadas `GA4_CACHE_SEGUNDOS`, token recusado pede outro uma vez) e `visitas.ts` (puro)
-lê as respostas; a operação recebe só o número. No painel, cada pedaço das visitas está num
+lê as respostas; a operação recebe só o número. **O Google soma o dia com horas de atraso** (4 ou
+mais, na propriedade comum): a comparação com ontem é só nas horas que ele já somou hoje
+(`comparacaoComOntem`), e hoje, ontem e a hora são os do fuso da propriedade (as perguntas usam
+"today"/"yesterday", e a resposta diz o fuso em `metadata.timeZone`). No painel, cada pedaço das visitas está num
 `<Suspense>` e o Início não espera o Google. Conferidores: `conferir-acoes.mjs` (Bling e Pagar.me
 falsos; o backend com o app do Bling apontando pro falso, como no conferir-erp — e o Bling fica
 conectado no banco local, como depois dele) e `conferir-visitas.mjs` (o `google-falso.mjs` sobe na
