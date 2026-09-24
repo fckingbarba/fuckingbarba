@@ -790,18 +790,34 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
   - **A "Entrega expressa" cobrada era o mesmo serviço da econômica grátis** quando a mais barata
     é também a mais rápida. Agora o grátis vale nas duas, e a tela mostra uma só.
   - **Cupom cadastrado em minúsculas nunca aplicava** (a loja punha em maiúsculas).
-- [ ] **O que a investigação achou e ficou pra depois** (entrega B, a combinar com a loja):
-  - sem internet por um instante, o "+" da sacola derruba o site inteiro, e o "Adicionar à
-    sacola" derruba a página (as ações não tratam a falha de rede);
-  - produto que esgota no meio do checkout vira "espera um minuto e clica em pagar de novo" pra
-    sempre, sem dizer que esgotou;
-  - com o Medusa reiniciando (todo deploy), a sacola aparece vazia, sem recado, e quem adiciona
-    de novo dobra a quantidade;
-  - a gaveta não relê o carrinho ao abrir: a oferta marcada no checkout não aparece nela;
-  - com a resposta da compra perdida e o pagamento recusado depois, `/checkout` e
-    `/checkout/retomar` mandam um pro outro sem fim;
-  - a segunda aba diz "nada foi cobrado, tenta de novo" com o pedido já feito na primeira;
-  - e-mail com mais de 64 caracteres trava o pagamento sem dizer por quê.
+- [x] **A sacola e o checkout mais resistentes** (entrega 0081, 24/09 — a "entrega B" da
+      investigação). Cada item com checagem no `conferir-checkout` (e o laço no
+      `conferir-pagamento`), que falha no código de antes:
+  - **Sem internet por um instante**, o "+" da sacola derrubava o site inteiro ("Essa página não
+    carregou"), e o "Adicionar à sacola", a página. Agora toda ação chamada do navegador passa
+    pelo `semQueda` (`lib/rede.ts`): a tela diz que a conexão caiu e fica de pé — a sacola, os
+    botões de comprar, os passos do checkout e o pagar.
+  - **Com o Medusa reiniciando** (todo deploy do backend), a sacola aparecia vazia, sem recado, e
+    quem pusesse tudo de novo ficava com o dobro. Agora ela fica com o que mostrava e diz que não
+    conseguiu falar com a loja; o contador não inventa um zero, e a gaveta diz "Não consegui abrir
+    sua sacola", com "Tentar de novo". O checkout, com o Medusa fora, diz que não carregou — não
+    que a sacola está vazia.
+  - **A gaveta mostrava a sacola de antes** da oferta marcada no checkout. Agora ela relê toda vez
+    que abre (por `GET /api/sacola`, fora da fila das ações), e o contador acompanha na saída do
+    checkout.
+  - **O produto que esgota no meio do checkout** virava "espera um minuto e clica em pagar de
+    novo" pra sempre. Agora o pedido desce até o que tem, e a frase diz o que mudou e o total
+    novo; nada é cobrado.
+  - **A segunda aba** dizia "nada foi cobrado, tenta de novo" com o pedido já feito na primeira.
+    Agora ela vai pro mesmo pedido.
+  - **A resposta da compra perdida, com o pagamento recusado depois**, deixava o `/checkout` e o
+    `/checkout/retomar` mandando um pro outro sem fim (71 idas em 8 segundos). Agora o pedido se
+    acha pela rota nova `/store/pedido-do-carrinho/:id` (o `complete` de novo não serve com o
+    pagamento cancelado), e o retomar sem pedido volta com um recado que não manda pra lá de novo.
+  - **E-mail com mais de 64 caracteres** travava o pagamento sem dizer por quê. O passo 1 recusa,
+    com o motivo (é o limite do Pagar.me).
+  - Ficou de fora, pra outra hora: as telas da CONTA (entrar, código, dados, endereços) ainda caem
+    na tela de erro se a internet cair no meio do envio — não é sacola nem checkout.
 - [ ] **Decisão da loja:** o piso do frete grátis vale sobre o valor PAGO (com cupom e oferta) ou
       sobre o CHEIO? Hoje o Medusa decide pelo cheio e o checkout mostra "faltam R$ X" pelo pago —
       com um cupom de 10%, a tela diz "Faltam R$ 7,07" ao lado da entrega "Grátis".

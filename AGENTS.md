@@ -209,6 +209,15 @@ mostrou (`total_visto`): se o carrinho tiver outro — um item posto por outra a
 voltar do navegador —, o `finalizar` não abre o pagamento, redesenha a tela e diz o total novo.
 Sem isso o cartão era autorizado por um valor que ninguém viu. O cupom vai como foi digitado,
 depois em maiúsculas e em minúsculas: o Medusa procura o código exatamente como foi cadastrado.
+Quando o `complete` recusa por falta de estoque ("Not enough stock available…"), o `finalizar`
+desce o pedido até o que tem (`ajustarAoEstoque`, em `apps/loja/src/lib/checkout.ts`: cada linha
+até o estoque de agora, e o que acabou sai — com o código da oferta dele) e a frase diz o que
+mudou e o total novo. Nada foi cobrado: o Medusa reserva o estoque antes de autorizar. Antes era
+"espera um minuto e clica de novo", pra sempre. A aba que paga depois de outra vai pro MESMO
+pedido: as abas dividem os cookies, e o pedido da primeira apaga a sacola das duas — a segunda se
+acha pelo crachá (o `carrinho_visto` do formulário contra o carrinho do cookie `pedido`) ou, se as
+duas pagaram juntas, pela sessão recusada com o carrinho já fechado. E-mail com mais de 64
+caracteres (o limite do Pagar.me) é recusado no passo 1, com o motivo.
 
 Três portas que o Medusa deixa abertas e o projeto fecha. (1) Abrir sessão de pagamento APAGA as
 anteriores da coleção, sem conferir se ela já é de um pedido: `src/api/middlewares.ts` recusa sessão
@@ -222,7 +231,12 @@ corpo cru da API pública. Os pedidos levam `metadata.origem` (hash do usuário,
 `DATABASE_URL`, nunca a senha), e a conciliação só fecha órfão da própria origem: duas instalações
 na mesma chave de teste não estornam as compras uma da outra. Ainda assim, uma chave por ambiente —
 a de produção só no Railway. Na loja, carrinho que fechou sem a confirmação chegar ao navegador
-volta pro pedido pelo `/checkout/retomar`, em vez de mostrar "sacola vazia".
+volta pro pedido pelo `/checkout/retomar`, em vez de mostrar "sacola vazia". Quem diz qual pedido
+saiu do carrinho é a rota `GET /store/pedido-do-carrinho/:id` (`pedidoDoCarrinho`, em
+`lib/carrinho.ts`), e não o `complete` de novo: o Medusa (2.21) confere as sessões de pagamento
+ANTES de ver que o pedido já existe, e com o pagamento cancelado — cartão reprovado na análise, Pix
+vencido — responde 400 pra sempre. Sem pedido, o retomar volta com `?retomar=falhou`, e o checkout
+mostra o recado em vez de mandar pra lá de novo: era um laço de 71 idas em 8 segundos.
 
 **O PAGAR.ME NÃO CANCELA PIX PENDENTE.** `DELETE /charges/:id` numa cobrança de Pix esperando
 pagamento responde **412** ("This charge cannot be canceled because is pending"), e Pix VENCIDO
@@ -515,6 +529,17 @@ minuto em minuto. Promoção que acaba não emite evento nenhum — a data passa
 admin —, então é a rodada que percebe: ela compara a foto dos preços (uma unidade com e sem
 promoção, e as listas com as datas) com a anterior e, mudou, avisa a loja (`produtos` e
 `promocao`). De 15 em 15 minutos, 2 e 3 unidades seguiam o preço da promoção que tinha acabado.
+A SACOLA NÃO SE DIZ VAZIA SEM SABER. A leitura (`GET /api/sacola`, com prazo de 10 s) separa "não
+tem carrinho" de "o Medusa não respondeu" (`leituraDoCarrinho`, em `lib/carrinho.ts`): sem
+resposta, o contador não mostra número e a gaveta diz que não conseguiu abrir, com "Tentar de
+novo"; e as ações devolvem `carrinho: null`, que a tela lê como "fica com o que tinha". Era a
+sacola vazia de todo deploy do backend — e quem pusesse tudo de novo ficava com o dobro. A leitura
+é GET, e não action, porque o Next roda as actions de uma aba UMA POR VEZ: uma leitura presa na
+rede segurava o "+" atrás dela. A gaveta relê toda vez que abre, e o checkout manda reler na saída
+(`<RecarregaSacola quando="sair" />`). E TODA action chamada do navegador passa pelo `semQueda`
+(`lib/rede.ts`): sem internet, a promessa rejeitada subia pro boundary de erro, e o "+" da sacola,
+que mora no layout raiz, derrubava o site inteiro. Action nova em componente de cliente entra por
+ele também (nos passos do checkout, com o `estadoSemResposta`, que devolve o que foi digitado).
 O **"leva junto"** da gaveta (`components/sacola/leva-junto.tsx`) sai de uma lista pronta do
 servidor: `vitrineDaSacola` (`lib/medusa.ts`, cacheada com a tag `produtos`) é lida no layout raiz
 e entregue à `<Gaveta>` junto com o modelo do motor de recomendação; a escolha de até três, na
