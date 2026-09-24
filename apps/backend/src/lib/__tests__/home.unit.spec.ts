@@ -88,10 +88,9 @@ describe("a home guardada", () => {
 
 describe("o editor da seção", () => {
   it("diz o que falta, com o caminho do item no grupo", () => {
-    expect(faltandoNaSecaoDaHome("banner", { slides: [{ chapeu: "x", titulo: "" }] })).toEqual([
+    expect(faltandoNaSecaoDaHome("banner", { slides: [{ produto: "kit", titulo: "" }] })).toEqual([
+      "slides.0.imagem",
       "slides.0.titulo",
-      "slides.0.chamada",
-      "slides.0.produto",
     ])
     expect(
       faltandoNaSecaoDaHome("hero", {
@@ -130,21 +129,24 @@ describe("o editor da seção", () => {
     expect(lerSecaoDaHome("vitrine", {}).faltando).toEqual(["titulo"])
   })
 
-  it("todo texto de fábrica passa pelo próprio editor", () => {
+  it("todo texto de fábrica passa pelo próprio editor; o banner de fábrica é banner nenhum", () => {
     for (const [chave, secao] of Object.entries(SEMENTE_DA_HOME)) {
+      if (chave === "banner") continue
       expect([chave, faltandoNaSecaoDaHome(chave as keyof typeof SEMENTE_DA_HOME, secao)]).toEqual([
         chave,
         [],
       ])
       expect(lerSecaoDaHome(chave as keyof typeof SEMENTE_DA_HOME, secao).secao).toEqual(secao)
     }
+    expect(SEMENTE_DA_HOME.banner.slides).toEqual([])
+    expect(faltandoNaSecaoDaHome("banner", SEMENTE_DA_HOME.banner)).toEqual(["slides"])
   })
 })
 
 const ARTE = "https://ref.supabase.co/storage/v1/object/public/produtos/home-arte.webp"
 
 describe("o banner com slides", () => {
-  it("o banner de antes (um slide, os campos soltos) vira o primeiro slide", () => {
+  it("o banner de texto de antes (sem arte) sai: sem arte, não há banner", () => {
     const h = home({
       publicado: {
         conteudo: {
@@ -152,26 +154,26 @@ describe("o banner com slides", () => {
         },
       },
     })
-    expect(h.publicado.conteudo.banner).toEqual({
-      slides: [{ chapeu: "Black", titulo: "Tudo 20%", chamada: "Ver", produto: "kit" }],
-      tempo: 7,
-    })
+    expect(h.publicado.conteudo.banner).toBeUndefined()
+    expect(homeDoSite(h).conteudo.banner).toEqual({ slides: [], tempo: 7 })
   })
 
-  it("com imagem, só o título é obrigatório; a do celular só vale com a do computador", () => {
+  it("cada slide pede a arte e a descrição; a do celular só vale com a do computador", () => {
     expect(faltandoNaSecaoDaHome("banner", { slides: [{ imagem: ARTE, titulo: "" }] })).toEqual([
       "slides.0.titulo",
     ])
-    const lido = lerSecaoDaHome("banner", {
-      slides: [
-        { imagem: ARTE, imagemCelular: `${ARTE}?cel`, titulo: "Semana do Cliente" },
-        { imagemCelular: `${ARTE}?cel`, titulo: "Sem a do computador", chapeu: "a", chamada: "b" },
-      ],
-      tempo: "5",
-    })
-    expect(lido.faltando).toEqual(["slides.1.produto"])
+    expect(
+      faltandoNaSecaoDaHome("banner", { slides: [{ imagemCelular: `${ARTE}?cel`, titulo: "x" }] })
+    ).toEqual(["slides.0.imagem"])
     const certo = lerSecaoDaHome("banner", {
-      slides: [{ imagem: ARTE, imagemCelular: `${ARTE}?cel`, titulo: "Semana do Cliente" }],
+      slides: [
+        {
+          imagem: ARTE,
+          imagemCelular: `${ARTE}?cel`,
+          titulo: "Semana do Cliente",
+          chapeu: "velho",
+        },
+      ],
       tempo: "5",
     })
     expect(certo.secao).toEqual({
@@ -181,14 +183,14 @@ describe("o banner com slides", () => {
   })
 
   it("até 5 slides; tempo fora da lista volta pro de fábrica; endereço que não é imagem cai", () => {
-    const slide = { titulo: "t", chapeu: "c", chamada: "b", produto: "p" }
+    const slide = { titulo: "t", imagem: ARTE }
     const h = home({
       publicado: {
         conteudo: {
           banner: {
             slides: [
-              ...Array.from({ length: 7 }, () => slide),
               { imagem: "javascript:alert(1)", titulo: "x" },
+              ...Array.from({ length: 7 }, () => slide),
             ],
             tempo: 3,
           },
@@ -196,6 +198,7 @@ describe("o banner com slides", () => {
       },
     })
     expect(h.publicado.conteudo.banner?.slides).toHaveLength(5)
+    expect(h.publicado.conteudo.banner?.slides[0]).toEqual(slide)
     expect(h.publicado.conteudo.banner?.tempo).toBe(7)
   })
 

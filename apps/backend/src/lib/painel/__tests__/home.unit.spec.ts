@@ -137,9 +137,14 @@ describe("a foto de fundo, no rascunho", () => {
     )
     expect(feito(salvarSecaoDaHome(h, "home.hero", SEMENTE_DA_HOME.hero, null)).rascunho).toBeNull()
     const banner = feito(
-      salvarSecaoDaHome(HOME_VAZIA, "home.banner", SEMENTE_DA_HOME.banner, { imagem: FOTO })
+      salvarSecaoDaHome(
+        HOME_VAZIA,
+        "home.banner",
+        { slides: [{ titulo: "Arte", imagem: FOTO }], tempo: 7 },
+        { imagem: FOTO }
+      )
     )
-    expect(banner.rascunho).toBeNull()
+    expect(banner.rascunho?.fundos).toEqual({})
     expect(secoesDaHome(HOME_VAZIA).find((s) => s.id === "home.banner")?.aceitaFundo).toBe(false)
   })
 })
