@@ -120,8 +120,8 @@ export function GaleriaDoProduto({ produto }: { produto: DetalheDoProduto }) {
     setAvisos([])
     const v = await video.subir(arquivo)
     if (!v) return
-    const { bytes, ...resto } = v
-    setAvisos(avisosDoVideo("galeria", { ...resto, bytes }))
+    const { bytes, codec, ...resto } = v
+    setAvisos(avisosDoVideo("galeria", { ...resto, bytes, codec }))
     mudar({ acao: "incluir", item: { tipo: "video", ...resto } })
   }
 
@@ -214,7 +214,7 @@ export function GaleriaDoProduto({ produto }: { produto: DetalheDoProduto }) {
                 <label className="galeria__nova" data-ocupado={ocupado ? "" : undefined}>
                   <Icone nome={video.progresso !== null ? "relogio" : "play"} />
                   {video.progresso !== null ? "Subindo…" : "Vídeo"}
-                  <small>MP4 ou WebM</small>
+                  <small>MP4, MOV ou WebM</small>
                   <input
                     type="file"
                     accept={ACEITA_VIDEO}
@@ -244,8 +244,8 @@ export function GaleriaDoProduto({ produto }: { produto: DetalheDoProduto }) {
         </p>
       ))}
       <p className="pequeno suave" style={{ margin: "12px 0 0" }}>
-        Fotos: JPG, PNG ou WebP, <b>quadradas, {medidaEmPx(MEDIDA_DA_GALERIA)}</b>. Vídeos: MP4 ou
-        WebM, até {VIDEO.maximoMB} MB e {VIDEO.idealSegundos} segundos —{" "}
+        Fotos: JPG, PNG ou WebP, <b>quadradas, {medidaEmPx(MEDIDA_DA_GALERIA)}</b>. Vídeos: MP4, MOV
+        ou WebM, até {VIDEO.maximoMB} MB e {VIDEO.idealSegundos} segundos —{" "}
         <b>quadrado, {medidaEmPx(MEDIDA_DO_VIDEO_DA_GALERIA)}</b>, ocupa o quadro inteiro; em pé
         também serve, com faixa escura dos lados. Na página, o vídeo toca sem som, em loop, e só
         baixa quando alguém escolhe.

@@ -20,15 +20,15 @@ import {
  * Quem autoriza é o BILHETE, pedido pelo painel com o papel conferido
  * (`POST /dashboard/produtos/:id/videos/envio`): assinado, vale uma vez, por
  * 15 minutos, pra um produto, um tipo e um tamanho exatos. O tipo sai dos
- * primeiros BYTES — um arquivo que não é MP4 nem WebM para no começo, e o
- * que foi gravado dele é apagado.
+ * primeiros BYTES — um arquivo que não é da família do MP4 (o .MOV do
+ * iPhone é) nem WebM para no começo, e o que foi gravado dele é apagado.
  *
  * CORS só pra origem do painel (`DASHBOARD_URL`): a página que manda é
  * dashboard.fuckingbarba.com.br.
  *
- * RESPOSTAS: 200 `{ url }`; 400 `tipo`, `tamanho` ou `nao_e_video` (com
- * `mov` pro vídeo do iPhone); 403 `bilhete_invalido`; 404
- * `nao_encontrado`; 409 `bilhete_usado`; 500 `falhou`.
+ * RESPOSTAS: 200 `{ url }`; 400 `tipo`, `tamanho` ou `nao_e_video`; 403
+ * `bilhete_invalido`; 404 `nao_encontrado`; 409 `bilhete_usado`; 500
+ * `falhou`.
  */
 
 function cors(req: MedusaRequest, res: MedusaResponse) {
@@ -58,7 +58,7 @@ class Porteiro extends Transform {
   bytes = 0
   private inicio = Buffer.alloc(0)
   private conferido = false
-  motivo: "nao_e_video" | "mov" | "tamanho" | null = null
+  motivo: "nao_e_video" | "tamanho" | null = null
 
   constructor(
     private readonly esperado: string,
@@ -79,7 +79,7 @@ class Porteiro extends Transform {
         this.conferido = true
         const tipo = tipoDoVideo(this.inicio)
         if (tipo !== this.esperado) {
-          this.motivo = tipo === "mov" ? "mov" : "nao_e_video"
+          this.motivo = "nao_e_video"
           return pronto(new Error("não é o vídeo prometido"))
         }
       }

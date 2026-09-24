@@ -255,7 +255,7 @@ export async function pedirEnvioDeVideo(
       texto:
         r!.corpo.message === "grande"
           ? "O vídeo passa de 50 MB. Encurte ou comprima antes."
-          : "Use um vídeo MP4 ou WebM.",
+          : "Use um vídeo MP4, MOV ou WebM.",
     }
   const base = process.env.MEDUSA_BACKEND_URL
   if (r!.status !== 200 || typeof r!.corpo.caminho !== "string" || !base)

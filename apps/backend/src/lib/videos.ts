@@ -17,9 +17,10 @@ import { createHmac, randomBytes, timingSafeEqual } from "node:crypto"
  *
  * O BILHETE vale uma vez, por 15 minutos, pra um produto, um tipo e um
  * tamanho exatos, e é assinado com uma chave que só o Medusa tem (derivada
- * do `JWT_SECRET`). O tipo sai dos BYTES do arquivo, não do nome: MP4 ou
- * WebM. O .MOV do iPhone é recusado com frase própria — ele não toca em
- * todo navegador.
+ * do `JWT_SECRET`). O tipo sai dos BYTES do arquivo, não do nome: a família
+ * do MP4 (o .MOV do iPhone é da mesma família e sobe como MP4) ou WebM.
+ * Quem olha o codec — H.264 toca em todo lugar; o HEVC do iPhone, quase — é
+ * o painel, antes de subir (`apps/dashboard/src/lib/video-no-navegador.ts`).
  */
 
 export const TIPOS_DE_VIDEO = { "video/mp4": "mp4", "video/webm": "webm" } as const
@@ -32,15 +33,13 @@ export const ehTipoDeVideo = (v: unknown): v is TipoDeVideo =>
 export const LIMITE_DO_VIDEO_EM_BYTES = 50 * 1024 * 1024
 
 /**
- * O tipo do vídeo pelos primeiros bytes. MP4 é uma caixa `ftyp` no byte 4,
- * com a marca logo depois — `qt  ` é o .MOV do iPhone, que tem a mesma
- * caixa e não toca no Chrome nem no Firefox. WebM começa com o cabeçalho
- * EBML (1A 45 DF A3).
+ * O tipo do vídeo pelos primeiros bytes. A família do MP4 começa com a
+ * caixa `ftyp` no byte 4 — o .MOV do iPhone (marca `qt  `) inclusive: é o
+ * mesmo formato de caixas, e o navegador que toca o codec dele toca o
+ * arquivo servido como MP4. WebM começa com o cabeçalho EBML (1A 45 DF A3).
  */
-export function tipoDoVideo(bytes: Buffer): TipoDeVideo | "mov" | null {
-  if (bytes.length >= 12 && bytes.subarray(4, 8).toString("latin1") === "ftyp") {
-    return bytes.subarray(8, 12).toString("latin1") === "qt  " ? "mov" : "video/mp4"
-  }
+export function tipoDoVideo(bytes: Buffer): TipoDeVideo | null {
+  if (bytes.length >= 12 && bytes.subarray(4, 8).toString("latin1") === "ftyp") return "video/mp4"
   if (bytes.length >= 4 && bytes.readUInt32BE(0) === 0x1a45dfa3) return "video/webm"
   return null
 }

@@ -22,10 +22,10 @@ const caixa = (marca: string) =>
   ])
 
 describe("o tipo do vídeo, pelos primeiros bytes", () => {
-  it("MP4 pela caixa ftyp; o .MOV do iPhone tem a marca qt; WebM pelo EBML", () => {
+  it("a família do MP4 pela caixa ftyp — o .MOV do iPhone (marca qt) também; WebM pelo EBML", () => {
     expect(tipoDoVideo(caixa("isom"))).toBe("video/mp4")
     expect(tipoDoVideo(caixa("mp42"))).toBe("video/mp4")
-    expect(tipoDoVideo(caixa("qt  "))).toBe("mov")
+    expect(tipoDoVideo(caixa("qt  "))).toBe("video/mp4")
     expect(tipoDoVideo(Buffer.from([0x1a, 0x45, 0xdf, 0xa3, 0x9f, 0x42]))).toBe("video/webm")
     expect(tipoDoVideo(Buffer.from("<html>não é vídeo</html>"))).toBeNull()
     expect(tipoDoVideo(Buffer.alloc(3))).toBeNull()

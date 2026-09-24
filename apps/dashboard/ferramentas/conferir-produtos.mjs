@@ -160,12 +160,13 @@ async function foto(largura, altura, formato, { girar = false } = {}) {
  * Um vídeo de teste, gravado no navegador: um canvas colorido mexendo, em
  * WebM. Volta os bytes, pra ir num `setInputFiles` como um arquivo qualquer.
  */
-async function gravarVideo(pagina, largura, altura, segundos = 2) {
+async function gravarVideo(pagina, largura, altura, segundos = 2, tipo = "video/webm") {
   const bytes = await pagina.evaluate(
-    async ([l, a, s]) => {
+    async ([l, a, s, tipo]) => {
+      if (!MediaRecorder.isTypeSupported(tipo)) return null
       const c = Object.assign(document.createElement("canvas"), { width: l, height: a })
       const ctx = c.getContext("2d")
-      const rec = new MediaRecorder(c.captureStream(24), { mimeType: "video/webm" })
+      const rec = new MediaRecorder(c.captureStream(24), { mimeType: tipo })
       const partes = []
       rec.ondataavailable = (e) => e.data.size && partes.push(e.data)
       rec.start(200)
@@ -187,9 +188,9 @@ async function gravarVideo(pagina, largura, altura, segundos = 2) {
       await new Promise((fim) => (rec.onstop = fim))
       return [...new Uint8Array(await new Blob(partes).arrayBuffer())]
     },
-    [largura, altura, segundos]
+    [largura, altura, segundos, tipo]
   )
-  return Buffer.from(bytes)
+  return bytes ? Buffer.from(bytes) : null
 }
 
 /* ── o produto da rodada, e o que volta ao que era ────────────────────────── */
@@ -536,15 +537,16 @@ try {
         deNovo.status === 409,
       "arquivo que não é vídeo é recusado pelos bytes, e o bilhete não vale duas vezes"
     )
+    // O formato sai dos bytes, não do nome: um arquivo qualquer chamado .mp4 não passa.
     await pagina.setInputFiles('[data-subir-galeria="video"]', {
-      name: "iphone.mov",
-      mimeType: "video/quicktime",
-      buffer: Buffer.alloc(100),
+      name: "nao-e-video.mp4",
+      mimeType: "video/mp4",
+      buffer: Buffer.alloc(3000, 7),
     })
     await pagina.waitForSelector("[data-galeria] .slot__erro")
     ok(
-      /\.MOV do iPhone/.test(await pagina.locator("[data-galeria] .slot__erro").textContent()),
-      "o .MOV do iPhone: a tela diz pra exportar como MP4"
+      /não é um vídeo/.test(await pagina.locator("[data-galeria] .slot__erro").textContent()),
+      "arquivo que não é vídeo, com nome de .mp4: a tela diz, antes de subir"
     )
 
     const html = await paginaDaLoja(HANDLE, (h) => h.includes("galeria__mini--video"))
@@ -569,6 +571,43 @@ try {
       "tirar a capa: a outra foto vem pra frente, na frente do vídeo",
       g.map((i) => i.tipo).join(",")
     )
+
+    /* O vídeo do iPhone: HEVC (o padrão da câmera) e .MOV. Os dois sobem; o
+       HEVC com o aviso de onde não toca. */
+    const subirVideo = async (arquivo) => {
+      const n = await itensNaTela().count()
+      await pagina.setInputFiles('[data-subir-galeria="video"]', arquivo)
+      await pagina.waitForFunction(
+        (n) =>
+          document.querySelectorAll("[data-galeria] .galeria__item").length > n ||
+          document.querySelector("[data-galeria] .slot__erro"),
+        n,
+        { timeout: 90000 }
+      )
+      return (await itensNaTela().count()) > n
+    }
+    const hevc = await gravarVideo(pagina, 480, 480, 2, "video/mp4;codecs=hvc1.1.6.L93.B0")
+    if (hevc) {
+      const subiu = await subirVideo({ name: "iphone.mp4", mimeType: "video/mp4", buffer: hevc })
+      ok(
+        subiu && /Em HEVC/.test(await pagina.locator("[data-galeria]").textContent()),
+        "vídeo em HEVC (o do iPhone) sobe, com o aviso de onde ele não toca"
+      )
+    } else ok(true, "vídeo em HEVC: este navegador não grava HEVC, ficou de fora")
+    const h264 = await gravarVideo(pagina, 480, 480, 2, "video/mp4;codecs=avc1")
+    if (h264) {
+      // A marca do QuickTime no cabeçalho: é assim que o .MOV do iPhone chega.
+      h264.write("qt  ", 8, "latin1")
+      const subiu = await subirVideo({
+        name: "iphone.mov",
+        mimeType: "video/quicktime",
+        buffer: h264,
+      })
+      ok(
+        subiu && !(await pagina.locator("[data-galeria] .slot__erro").count()),
+        "o .MOV (H.264, com a marca do QuickTime) sobe como qualquer MP4"
+      )
+    } else ok(true, "o .MOV: este navegador não grava MP4, ficou de fora")
   }
 
   /* ── uma seção: o que falta, e a lista ────────────────────────────────── */

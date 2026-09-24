@@ -696,9 +696,13 @@ export function avisosDaFoto(uso: "galeria" | "caso", largura: number, altura: n
 /** O que dizer do vídeo, antes de ele entrar: o peso, a duração e o formato pro lugar dele. */
 export function avisosDoVideo(
   onde: "galeria" | "uso",
-  v: { largura: number; altura: number; duracao: number; bytes?: number }
+  v: { largura: number; altura: number; duracao: number; bytes?: number; codec?: string }
 ): string[] {
   const avisos: string[] = []
+  if (v.codec === "hevc")
+    avisos.push(
+      "Em HEVC, o formato do iPhone: toca no iPhone, no Mac e na maioria dos celulares, mas o Firefox e aparelhos antigos mostram só a capa. Pra tocar em todo lugar, grave com Ajustes → Câmera → Formatos → Mais Compatível."
+    )
   if (v.bytes && v.bytes > VIDEO.pesadoMB * 1024 * 1024)
     avisos.push(
       `Pesado (${tamanhoDoArquivo(v.bytes)}): quem abre no celular espera ele carregar. Se der, comprima.`

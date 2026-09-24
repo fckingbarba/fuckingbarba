@@ -32,7 +32,9 @@ export function useSubirVideo(produtoId: string) {
   const [progresso, setProgresso] = useState<number | null>(null)
   const [erro, setErro] = useState<string | null>(null)
 
-  async function subir(arquivo: File): Promise<(VideoDaPdp & { bytes: number }) | null> {
+  async function subir(
+    arquivo: File
+  ): Promise<(VideoDaPdp & { bytes: number; codec: string }) | null> {
     setErro(null)
     setProgresso(0)
     try {
@@ -66,6 +68,7 @@ export function useSubirVideo(produtoId: string) {
         altura: lido.altura,
         duracao: Math.round(lido.duracao * 10) / 10,
         bytes: arquivo.size,
+        codec: lido.codec,
       }
     } catch {
       setErro("Não consegui subir o vídeo. Tente de novo.")
@@ -230,9 +233,11 @@ export function CampoDeVideo({
   aoSubir: (delta: 1 | -1) => void
 }) {
   const { subir, progresso, erro } = useSubirVideo(produtoId)
-  const [bytes, setBytes] = useState<{ url: string; n: number } | null>(null)
+  // O peso e o codec só se sabem na subida: o vídeo que já estava gravado chega sem eles.
+  const [subido, setSubido] = useState<{ url: string; n: number; codec: string } | null>(null)
+  const doSubido = subido?.url === video?.url ? subido : null
   const avisos = video
-    ? avisosDoVideo("uso", { ...video, bytes: bytes?.url === video.url ? bytes.n : undefined })
+    ? avisosDoVideo("uso", { ...video, bytes: doSubido?.n, codec: doSubido?.codec })
     : []
 
   async function escolher(arquivo: File | undefined) {
@@ -241,8 +246,8 @@ export function CampoDeVideo({
     try {
       const v = await subir(arquivo)
       if (!v) return
-      const { bytes: n, ...resto } = v
-      setBytes({ url: resto.url, n })
+      const { bytes: n, codec, ...resto } = v
+      setSubido({ url: resto.url, n, codec })
       mudar(resto)
     } finally {
       aoSubir(-1)
@@ -273,7 +278,7 @@ export function CampoDeVideo({
           <div>
             <p className="slot__info">
               {video.largura} × {video.altura} px · {duracaoCurta(video.duracao)}
-              {bytes?.url === video.url ? ` · ${tamanhoDoArquivo(bytes.n)}` : ""}
+              {doSubido ? ` · ${tamanhoDoArquivo(doSubido.n)}` : ""}
             </p>
             {avisos.map((a) => (
               <p className="slot__aviso" key={a}>
@@ -296,7 +301,7 @@ export function CampoDeVideo({
         <label className="slot__vazio slot__vazio--video">
           <Icone nome={progresso !== null ? "relogio" : "play"} />
           <span>{progresso !== null ? "Subindo…" : "Escolher vídeo"}</span>
-          <small>MP4 ou WebM · deitado, até {VIDEO.maximoMB} MB</small>
+          <small>MP4, MOV ou WebM · deitado, até {VIDEO.maximoMB} MB</small>
           {entrada}
         </label>
       )}
