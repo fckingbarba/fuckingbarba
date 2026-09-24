@@ -111,3 +111,35 @@ describe("o rascunho", () => {
     expect(lerHome({ fb_home: JSON.parse(JSON.stringify(h)) })).toEqual(h)
   })
 })
+
+describe("a foto de fundo, no rascunho", () => {
+  const FOTO = "https://ref.supabase.co/storage/v1/object/public/produtos/home-fundo.webp"
+
+  it("salvar com fundo põe no rascunho, e a seção conta como mudada", () => {
+    const h = feito(
+      salvarSecaoDaHome(HOME_VAZIA, "home.hero", SEMENTE_DA_HOME.hero, { imagem: FOTO, veu: 80 })
+    )
+    expect(h.rascunho?.fundos["home.hero"]).toEqual({ imagem: FOTO, veu: 80 })
+    expect(pendentesDaHome(h)).toEqual({ secoes: ["home.hero"], ordem: false })
+    expect(secoesDaHome(h).find((s) => s.id === "home.hero")).toMatchObject({
+      fundo: { imagem: FOTO, veu: 80 },
+      aceitaFundo: true,
+      mudou: true,
+    })
+  })
+
+  it("tirar o fundo (null) volta ao publicado; fundo ausente não mexe; seção sem véu não leva", () => {
+    const h = feito(
+      salvarSecaoDaHome(HOME_VAZIA, "home.hero", SEMENTE_DA_HOME.hero, { imagem: FOTO })
+    )
+    expect(feito(salvarSecaoDaHome(h, "home.hero", SEMENTE_DA_HOME.hero)).rascunho?.fundos).toEqual(
+      { "home.hero": { imagem: FOTO } }
+    )
+    expect(feito(salvarSecaoDaHome(h, "home.hero", SEMENTE_DA_HOME.hero, null)).rascunho).toBeNull()
+    const banner = feito(
+      salvarSecaoDaHome(HOME_VAZIA, "home.banner", SEMENTE_DA_HOME.banner, { imagem: FOTO })
+    )
+    expect(banner.rascunho).toBeNull()
+    expect(secoesDaHome(HOME_VAZIA).find((s) => s.id === "home.banner")?.aceitaFundo).toBe(false)
+  })
+})

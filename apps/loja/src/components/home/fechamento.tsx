@@ -1,4 +1,4 @@
-import Image from "next/image"
+import Image, { getImageProps } from "next/image"
 import Link from "next/link"
 import { Raio } from "@/components/icones"
 import { frasesDoFrete } from "@/lib/configuracoes"
@@ -24,12 +24,14 @@ function Certo() {
  *
  * As três garantias repetem o que a barra de vantagens e o rodapé já dizem, e
  * pela mesma fonte — se o frete grátis mudar, muda nos três lugares junto.
- * O chapéu, o título, o botão e de qual produto é a foto vêm do painel
- * ("Layout da home").
+ * O chapéu, o título, o botão e a foto vêm do painel ("Layout da home"): a
+ * foto própria da faixa (a do computador e a do celular, trocada no ponto
+ * em que a faixa vira uma coluna) ou, sem ela, a de um produto.
  */
 export async function Fechamento() {
   const { fechamento } = (await home()).conteudo
-  const produto = fechamento.fotoDe ? await buscarProdutoPorHandle(fechamento.fotoDe) : null
+  const produto =
+    !fechamento.imagem && fechamento.fotoDe ? await buscarProdutoPorHandle(fechamento.fotoDe) : null
 
   /*
    * A terceira linha era "Barba na cara ou sua grana de volta". Essa garantia
@@ -43,7 +45,9 @@ export async function Fechamento() {
 
   return (
     <section className="fechamento" aria-labelledby="fechamento-titulo">
-      {produto?.thumbnail ? (
+      {fechamento.imagem ? (
+        <FotoPropria computador={fechamento.imagem} celular={fechamento.imagemCelular} />
+      ) : produto?.thumbnail ? (
         <div className="fechamento__foto">
           <Image
             src={produto.thumbnail}
@@ -80,5 +84,25 @@ export async function Fechamento() {
         </ul>
       </div>
     </section>
+  )
+}
+
+/**
+ * A foto própria da faixa: um `<picture>` pelo `getImageProps` do Next (a
+ * "direção de arte"), com a do celular até 720 px — o corte em que a faixa
+ * vira uma coluna (`fechamento.css`). Sem a do celular, ele usa a do
+ * computador, cortada no meio.
+ */
+function FotoPropria({ computador, celular }: { computador: string; celular?: string }) {
+  const comum = { alt: "", fill: true, sizes: "100vw" } as const
+  const {
+    props: { srcSet: doComputador, ...imagem },
+  } = getImageProps({ ...comum, src: computador })
+  const doCelular = celular ? getImageProps({ ...comum, src: celular }).props.srcSet : null
+  return (
+    <picture className="fechamento__foto">
+      {doCelular ? <source media="(max-width: 720px)" srcSet={doCelular} sizes="100vw" /> : null}
+      <img {...imagem} srcSet={doComputador} alt="" loading="lazy" decoding="async" />
+    </picture>
   )
 }

@@ -5,7 +5,8 @@ import { useAvisar } from "@/components/avisos"
 import { Campos, type ContextoDoFormulario } from "@/components/formulario"
 import { Gaveta } from "@/components/gaveta"
 import { Icone } from "@/components/icones"
-import { salvarSecaoDaHome } from "@/lib/acoes/home"
+import { FundoDaSecao, type EstadoDoFundo } from "@/components/produto/fundo-da-secao"
+import { salvarSecaoDaHome, subirImagemDaHome } from "@/lib/acoes/home"
 import {
   abrirFormulario,
   abrirOsQueFaltam,
@@ -13,12 +14,13 @@ import {
   paraGravar,
   type Valores,
 } from "@/lib/formulario"
-import { SECOES_DA_HOME, type SecaoDaHome } from "@/lib/home"
-import type { NoCatalogo } from "@/lib/produtos"
+import { FUNDOS_DA_HOME, SECOES_DA_HOME, type SecaoDaHome } from "@/lib/home"
+import { VEU, type Fundo, type NoCatalogo } from "@/lib/produtos"
 
 /**
- * A GAVETA DE UMA SEÇÃO DA HOME — o texto dela, num "Salvar" só, que vai pro
- * RASCUNHO: o site só muda no "Publicar".
+ * A GAVETA DE UMA SEÇÃO DA HOME — o texto dela (e as imagens: as artes do
+ * banner, a foto da última chamada) e a foto de fundo, num "Salvar" só, que
+ * vai pro RASCUNHO: o site só muda no "Publicar".
  *
  * Os campos saem da definição da seção (`SECOES_DA_HOME`, em `lib/home.ts`)
  * e são desenhados pelo formulário comum (`components/formulario.tsx`, o
@@ -39,6 +41,7 @@ export function EditorDaHome({
   fechar: () => void
 }) {
   const def = SECOES_DA_HOME[secao.id]
+  const medidaDoFundo = secao.aceitaFundo ? FUNDOS_DA_HOME[secao.id] : undefined
   const avisar = useAvisar()
   const base = useId()
   const formulario = useRef<HTMLFormElement>(null)
@@ -46,6 +49,14 @@ export function EditorDaHome({
   const [faltando, setFaltando] = useState<string[]>([])
   const [erro, setErro] = useState<string | null>(null)
   const [voltou, setVoltou] = useState(false)
+  const [fundo, setFundo] = useState<EstadoDoFundo>(() => ({
+    computador: secao.fundo ? { url: secao.fundo.imagem } : null,
+    celular: secao.fundo?.imagemCelular ? { url: secao.fundo.imagemCelular } : null,
+    veu: secao.fundo?.veu ?? VEU.padrao,
+  }))
+  const [subindoFundo, setSubindoFundo] = useState(false)
+  const [subindoCampos, setSubindoCampos] = useState(0)
+  const subindo = subindoFundo || subindoCampos > 0
   const [salvando, comecar] = useTransition()
   const [foco, setFoco] = useState<string | null>(null)
 
@@ -57,9 +68,13 @@ export function EditorDaHome({
 
   function salvar(ev: FormEvent) {
     ev.preventDefault()
-    if (salvando) return
+    if (subindo || salvando) return
     comecar(async () => {
-      const r = await salvarSecaoDaHome(secao.id, paraGravar(def.campos, valores))
+      const r = await salvarSecaoDaHome(
+        secao.id,
+        paraGravar(def.campos, valores),
+        medidaDoFundo ? fundoParaGravar(fundo) : undefined
+      )
       if (r.ok) {
         avisar(r)
         fechar()
@@ -90,9 +105,10 @@ export function EditorDaHome({
     base,
     faltando: new Set(faltando),
     catalogo,
+    subir: subirImagemDaHome,
     mudar: setValores,
     focar: setFoco,
-    aoSubir: () => {},
+    aoSubir: (delta) => setSubindoCampos((n) => Math.max(0, n + delta)),
   }
 
   return (
@@ -104,6 +120,15 @@ export function EditorDaHome({
         <div className="campos">
           <Campos campos={def.campos} caminho={[]} valores={valores} ctx={contexto} />
         </div>
+        {medidaDoFundo ? (
+          <FundoDaSecao
+            subir={subirImagemDaHome}
+            medida={medidaDoFundo}
+            valor={fundo}
+            mudar={setFundo}
+            aoSubir={setSubindoFundo}
+          />
+        ) : null}
         {secao.propria || voltou ? (
           <p className="pequeno suave" style={{ margin: "14px 0 0" }}>
             {voltou ? (
@@ -133,13 +158,23 @@ export function EditorDaHome({
           <button
             type="submit"
             className="btn btn--menor"
-            disabled={salvando}
+            disabled={subindo || salvando}
             aria-busy={salvando || undefined}
           >
-            {salvando ? "Salvando…" : "Salvar"}
+            {subindo ? "Esperando subir…" : salvando ? "Salvando…" : "Salvar"}
           </button>
         </div>
       </form>
     </Gaveta>
   )
+}
+
+/** O fundo que vai pro Medusa: sem a foto do computador, não há fundo (a do celular é extra dela). */
+function fundoParaGravar(f: EstadoDoFundo): Fundo | null {
+  if (!f.computador) return null
+  return {
+    imagem: f.computador.url,
+    ...(f.celular ? { imagemCelular: f.celular.url } : {}),
+    veu: f.veu,
+  }
 }

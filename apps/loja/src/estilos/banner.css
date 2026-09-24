@@ -129,6 +129,171 @@
     margin-top: -22px;
   }
 }
+/*
+  A ARTE — o slide que é uma imagem só, com o texto dentro dela (como os
+  banners da loja na Nuvemshop). A caixa tem a proporção da arte: 1920 × 700
+  no computador e 4 × 5 no celular, abaixo de 768 px (sem a arte do
+  celular, fica a do computador, deitada). A imagem aparece INTEIRA
+  (`contain`): arte tem texto, e o `cover` cortaria a frase na borda. Arte
+  em outra proporção ganha faixa branca — o painel avisa antes.
+*/
+.banner-arte {
+  position: relative;
+  display: block;
+  aspect-ratio: 1920 / 700;
+  background: #ffffff;
+  overflow: hidden;
+}
+.banner-arte__link,
+.banner-arte picture {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.banner-arte img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.banner-arte__link:focus-visible {
+  outline: 3px solid var(--color-tinta);
+  outline-offset: -3px;
+}
+@media (max-width: 767px) {
+  .banner-arte:not(.banner-arte--sem-celular) {
+    aspect-ratio: 4 / 5;
+  }
+}
+
+/*
+  O CARROSSEL — o banner com mais de um slide. O trilho é rolagem com
+  encaixe, de ponta a ponta (o dedo arrasta sem JavaScript); cada slide
+  ocupa a largura inteira e estica até o mais alto, pra nada pular na
+  troca. As setas ficam por cima, só onde tem mouse; as bolinhas, embaixo,
+  numa pílula escura que não some em cima de arte clara nem de arte escura.
+*/
+.banner-carrossel {
+  position: relative;
+  background: #ffffff;
+}
+.banner-carrossel__trilho {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+.banner-carrossel__trilho::-webkit-scrollbar {
+  display: none;
+}
+.banner-carrossel__slide {
+  flex: 0 0 100%;
+  display: flex;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+.banner-carrossel__slide > .banner,
+.banner-carrossel__slide > .banner-arte {
+  flex: 1;
+  min-width: 0;
+}
+.banner-carrossel__seta {
+  position: absolute;
+  top: 50%;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin-top: -22px;
+  border: 2px solid var(--color-tinta);
+  background: rgb(255 255 255 / 0.92);
+  color: var(--color-tinta);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+.banner-carrossel__seta:hover {
+  background: var(--color-amarelo);
+}
+.banner-carrossel__seta:focus-visible {
+  outline: 3px solid var(--color-tinta);
+  outline-offset: 2px;
+}
+.banner-carrossel__seta svg {
+  width: 22px;
+  height: 22px;
+}
+.banner-carrossel__seta--antes {
+  left: 14px;
+}
+.banner-carrossel__seta--antes svg {
+  transform: scaleX(-1);
+}
+.banner-carrossel__seta--depois {
+  right: 14px;
+}
+.banner-carrossel__pontos {
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  z-index: 3;
+  display: flex;
+  gap: 6px;
+  padding: 6px 10px;
+  transform: translateX(-50%);
+  background: rgb(18 24 31 / 0.55);
+}
+.banner-carrossel__ponto {
+  width: 34px;
+  height: 12px;
+  padding: 4px 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+.banner-carrossel__ponto:focus-visible {
+  outline: 3px solid var(--color-amarelo);
+  outline-offset: 2px;
+}
+.banner-carrossel__ponto-barra {
+  position: relative;
+  display: block;
+  height: 4px;
+  overflow: hidden;
+  background: rgb(255 255 255 / 0.45);
+}
+.banner-carrossel__ponto-barra::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: #ffffff;
+  transform: scaleX(0);
+  transform-origin: left;
+}
+.banner-carrossel__ponto[aria-current="true"] .banner-carrossel__ponto-barra::after {
+  animation: ponto-enche var(--passo, 7000ms) linear forwards;
+}
+.banner-carrossel[data-parado] .banner-carrossel__ponto[aria-current="true"] .banner-carrossel__ponto-barra::after {
+  animation: none;
+  transform: scaleX(1);
+}
+/* Sem mouse, sem seta: o dedo arrasta, e as bolinhas ficam. */
+@media (hover: none), (max-width: 860px) {
+  .banner-carrossel__seta {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .banner-carrossel__trilho {
+    scroll-behavior: auto;
+  }
+  .banner-carrossel__ponto[aria-current="true"] .banner-carrossel__ponto-barra::after {
+    animation: none;
+    transform: scaleX(1);
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .banner * {
     transition: none !important;

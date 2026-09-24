@@ -1,5 +1,6 @@
 import { getImageProps } from "next/image"
 import type { CSSProperties, ReactNode } from "react"
+import { home } from "@/lib/medusa"
 import { lerFundos, type FundoDaSecao } from "@/lib/pdp"
 import { lerAjuste, resolver } from "@/lib/secoes/layout"
 import type { Escopo } from "@/lib/secoes/registro"
@@ -21,7 +22,13 @@ import type { Escopo } from "@/lib/secoes/registro"
 export async function Secoes({ escopo, handle }: { escopo: Escopo; handle?: string }) {
   const ajuste = await lerAjuste(escopo, handle)
 
-  const fundos = escopo === "produto" && handle ? await lerFundos(handle) : {}
+  // As fotos de fundo: as do produto (o `fb_pdp` dele) ou as da home publicada.
+  const fundos =
+    escopo === "produto" && handle
+      ? await lerFundos(handle)
+      : escopo === "home"
+        ? (await home()).fundos
+        : {}
 
   return resolver(escopo, ajuste).map((secao) => {
     // A união de `Secao` é o que garante, em tempo de compilação, que seção
@@ -35,7 +42,11 @@ export async function Secoes({ escopo, handle }: { escopo: Escopo; handle?: stri
       )
     }
     const Bloco = secao.componente
-    return <Bloco key={secao.id} />
+    return (
+      <Fundo key={secao.id} id={secao.id} fundo={fundos[secao.id]}>
+        <Bloco />
+      </Fundo>
+    )
   })
 }
 
@@ -53,6 +64,11 @@ const CELULAR_ATE: Record<string, number> = {
   "produto.quem": 859,
   "produto.rotina": 879,
   "produto.funciona": 899,
+  // As da home: as de `colecao.css`, `beneficios.css`, `vitrine.css` e `sobre.css`.
+  "home.colecao": 760,
+  "home.alta-performance": 720,
+  "home.vitrine": 760,
+  "home.sobre": 880,
 }
 const CELULAR_PADRAO = 767
 

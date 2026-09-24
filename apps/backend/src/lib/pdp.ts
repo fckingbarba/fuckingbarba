@@ -476,7 +476,7 @@ export function lerLayout(v: unknown): AjusteDeLayout {
  * pública. `javascript:` e `data:` numa url() de CSS são vetores conhecidos,
  * e este campo vem do formulário — ou seja, de fora.
  */
-function lerImagem(v: unknown): string | null {
+export function lerImagem(v: unknown): string | null {
   const u = txt(v)
   if (!u) return null
   try {

@@ -34,10 +34,15 @@ export const HOME_DE_FABRICA: ConteudoDaHome = {
     escrito à mão: o banner muda junto quando o preço muda no admin.
   */
   banner: {
-    chapeu: "Semana do Cliente",
-    titulo: "Nosso kit best seller",
-    chamada: "Comprar agora",
-    produto: "kit-completo-para-barba",
+    slides: [
+      {
+        chapeu: "Semana do Cliente",
+        titulo: "Nosso kit best seller",
+        chamada: "Comprar agora",
+        produto: "kit-completo-para-barba",
+      },
+    ],
+    tempo: 7,
   },
   trustbar: {
     vantagens: [

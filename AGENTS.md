@@ -697,6 +697,25 @@ da loja (tipo, peneira e a reserva) e o `SECOES_DA_HOME` do painel. Conferidor:
 `apps/dashboard/ferramentas/conferir-home.mjs` — guarda o `fb_home` do banco no começo, devolve no
 fim e avisa a loja.
 
+**As imagens da home** (fase 4, parte 2). O banner é `{ slides, tempo }` (até 5 slides; `tempo` em
+0, 5, 7 ou 10 s; o banner de antes, de campos soltos, é lido como um slide só): slide COM `imagem`
+é a arte, que ocupa o banner inteiro (só o `titulo` é obrigatório — é o `alt` —, e o `produto`,
+vazio, leva pra vitrine); SEM imagem, o banner de sempre (chapéu, título, botão e produto). Na
+loja, `components/home/slides-do-banner.tsx` desenha os dois jeitos sem hook (o servidor usa pro
+banner de um slide só) e `carrossel-do-banner.tsx` é o carrossel: o trilho do `useCarrossel`
+(rolagem com encaixe), a troca sozinha, e a imagem de cada slide montada só quando ele vai
+aparecer. A arte tem a proporção 1920 × 700 (4 × 5 abaixo de 768 px, com a do celular) e aparece
+inteira (`contain`). Foto de fundo nas seções de `SECOES_COM_FUNDO_DA_HOME` (`fundos` da versão,
+como o `fb_pdp.fundos`), embrulhadas pelo mesmo `Fundo` de `components/secoes.tsx` (o
+`CELULAR_ATE` ganhou as da home), com o véu em `estilos/fundo.css` — que agora entra pelo
+`globals.css`, e não só na PDP (sem ele, a foto vazava pra página inteira). A última chamada tem
+`imagem`/`imagemCelular` próprias. Na loja, toda imagem passa por `ehDoArmazenamento`, que saiu
+pra `lib/armazenamento.ts` (a PDP e a home usam; em `lib/pdp.ts` ela fazia ciclo de import com
+`lib/medusa.ts`). No painel, as imagens sobem por `POST /dashboard/home/imagens` (os usos do
+fundo) e o `FundoDaSecao` virou comum: recebe `subir` (pra onde sobe), `comVeu` e, na medida,
+`minimo` e `mostra: "inteira"` (a arte: avisa faixa, não corte). O formulário ganhou os campos
+`imagens` (a do computador em `c`, a do celular em `c` + "Celular") e `opcoes`.
+
 O CSS do painel segue o do protótipo, uma regra por linha, escrito à mão: o prettier fica nos
 `.ts`/`.tsx`/`.mjs` — rodado nos `.css` do painel, ele reescreve o arquivo inteiro. A gaveta
 (`components/gaveta.tsx`) mora no `<body>`, por portal: aberta de dentro de um `.bloco`, ela
