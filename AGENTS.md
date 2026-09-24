@@ -564,8 +564,8 @@ novo" e "Tentar o estorno de novo" são as funções que o admin já usava (`ten
 `tentarEstornoAgora`) atrás de `POST /dashboard/pedidos/:id/nota` e `/estorno`: a rota confere o
 papel (o estorno tem linha própria no `ACESSO`, `estornos`, só do dono) e se o pedido ainda está no
 estado do botão (`src/lib/painel/acoes.ts`, puro; senão 409 `nada_a_fazer`), faz, e grava a linha
-no registro da equipe (`workflows/equipe/anotar.ts`) — o histórico do pedido lê o registro e mostra
-o nome de quem apertou. O aviso de baixo das ações é um só pro painel inteiro (`ComAvisos`, no
+no registro da equipe (`lib/painel/anotar.ts`, com o `workflows/equipe/anotar-acao.ts`) — o
+histórico do pedido lê o registro e mostra o nome de quem apertou. O aviso de baixo das ações é um só pro painel inteiro (`ComAvisos`, no
 layout): a frase sobrevive à página se refazendo. As visitas vêm do GA4 pela
 `GET /dashboard/visitas`, à parte do Início: `src/lib/painel/ga4.ts` fala com o Google (conta de
 serviço só leitura, JWT assinado com `node:crypto`, um `batchRunReports` e um `runRealtimeReport`,
@@ -586,8 +586,48 @@ export GA4_CREDENCIAIS=$(node -e 'const{generateKeyPairSync:g}=require("node:cry
 # as mesmas no backend (antes do backend:dev) e no conferidor
 ```
 
+**Produtos** (fase 3, parte 1). `GET /dashboard/produtos` (a lista, com as fitas) e
+`GET /dashboard/produtos/:id` (o que vem do Bling, só pra ler; as seções com o texto e o fundo de
+cada uma; a caixa de compra; o catálogo pros seletores; as categorias; o `noSite` do "Ver no site"
+e o `historico`, lido do registro da equipe) abrem pra todo papel. Mudar é da linha
+`editarProdutos` do `ACESSO` (dono e marketing): `POST /dashboard/produtos/:id/secao` (o texto e o
+fundo de UMA seção, num "Salvar"), `/ordem` (ligar, desligar, subir ou descer uma — sem "Salvar"),
+`/caixa`, `/textos` (subtítulo e categoria), `/publicar` e `/imagens`. **Cada gravação é UMA
+mudança** sobre o `fb_pdp` lido na hora, dentro da trava `pdp:<id>` (`lib/painel/gravar-produto.ts`:
+`mudarPdp` grava só a chave `fb_pdp` — o `mergeMetadata` do Medusa é raso — e avisa a loja pelas
+etiquetas do produto, do layout dele e da vitrine): duas pessoas em seções diferentes não se
+atropelam. Seção pela metade não grava e volta em `422 { faltando }`, com as chaves dos campos
+(`faltandoNaSecao`, em `lib/pdp.ts`, a mesma regra do `lerPdp`); o painel troca pelos nomes da
+tela. O editor de cada seção é DADO: `SECOES`, em `apps/dashboard/src/lib/produtos.ts` (os campos,
+os nomes e a medida de cada fundo), gêmeo do `SECOES_DA_PAGINA` (`lib/painel/produtos.ts`) e do
+registro da loja (`apps/loja/src/lib/secoes/registro.ts`) — seção nova entra nos três.
+
+**As imagens de fundo.** O navegador encolhe a foto até a medida máxima (2880 de largura no
+computador, 1290 no celular) e manda como arquivo pra uma ação do servidor do painel (até 3,5 MB:
+`serverActions.bodySizeLimit` é 4 MB, e a Vercel não passa de 4,5); o painel repassa em base64 pra
+`POST /dashboard/produtos/:id/imagens` (corpo de até 17 MB, em `api/middlewares.ts`), que refaz com
+o `sharp` (`lib/imagens.ts`: o tipo sai dos bytes — JPG, PNG ou WebP —, o `rotate()` aplica a
+orientação e tira o EXIF, encolhe dentro da medida e grava WebP 82) e guarda no armazenamento da
+loja. Subir não grava: o endereço entra no fundo no "Salvar" da seção, que só aceita imagem do
+armazenamento (`ehDoArmazenamento`: o `S3_FILE_URL`, ou o `/static/` do Medusa local). A loja
+desenha o fundo como `<picture>` pelo `getImageProps` do Next (`components/secoes.tsx`), a do
+celular até o corte de cada seção (`CELULAR_ATE`), e descarta na leitura fundo de fora do
+armazenamento (`lib/pdp.ts`). As medidas que o painel sugere são as das seções medidas na loja
+(tela de 1440 a 2x; celular de 390 a 3x): mudou o desenho de uma seção, meça de novo e troque em
+`SECOES`. **A caixa de compra** é uma coisa OU outra (`combinada.modo`): "unidades" (os cartões,
+com a linha opcional do avulso) ou "junto" (até 2 produtos no site, nunca o próprio); o que foi
+salvo antes do `modo` vale como a loja mostrava — os cartões, a não ser com `kits: false`. O widget
+do admin (`src/admin/widgets/pdp.tsx`) agora só aponta pro painel; `GET/POST
+/admin/produtos/:id/pdp` fica pros conferidores e grava do mesmo jeito (trava, só `fb_pdp`, só
+fundo do armazenamento). Conferidor: `apps/dashboard/ferramentas/conferir-produtos.mjs` — precisa
+da loja no ar (`LOJA`), com o backend avisando ela (`LOJA_URL`), do admin local e da chave
+publicável; cria um produto em rascunho por rodada (e apaga no fim) e confere a caixa de compra no
+balm, devolvendo a página dele como estava.
+
 O CSS do painel segue o do protótipo, uma regra por linha, escrito à mão: o prettier fica nos
-`.ts`/`.tsx`/`.mjs` — rodado nos `.css` do painel, ele reescreve o arquivo inteiro.
+`.ts`/`.tsx`/`.mjs` — rodado nos `.css` do painel, ele reescreve o arquivo inteiro. A gaveta
+(`components/gaveta.tsx`) mora no `<body>`, por portal: aberta de dentro de um `.bloco`, ela
+herdava o recorte do chanfro dele.
 
 ## Fora dos limites
 
