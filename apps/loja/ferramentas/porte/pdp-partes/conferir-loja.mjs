@@ -296,13 +296,10 @@ await aoTopo(pagina)
 await kits.nth(quantos - 1).locator("input").check()
 await pagina.locator('.compra__qtd button[aria-label="Aumentar quantidade"]').click()
 await pagina.locator(".compra__comprar").click()
-await pagina.waitForFunction(
-  () => document.querySelector(".compra__recado")?.textContent?.trim(),
-  null,
-  { timeout: 15000 }
-)
+// Deu certo: a gaveta abre com o item, e a página não repete (o recado é só pro erro).
+await pagina.waitForSelector(".sacolinha__item", { timeout: 15000 })
 const recado = (await pagina.locator(".compra__recado").textContent())?.trim()
-ok(recado === "Na sacola.", `a página confirma ("${recado}")`)
+ok(recado === "", `a sacola abre, sem recado na página ("${recado}")`)
 
 const cookies = await contexto.cookies()
 const idCarrinho = cookies.find((c) => c.name === "carrinho")?.value
