@@ -8,20 +8,22 @@ está e o que vem a seguir: [ESTADO.md](./ESTADO.md)** — leia antes de começa
 
 ```
 apps/loja/       Next.js 16 (App Router, Cache Components, Tailwind v4) — Vercel
+apps/dashboard/  Next.js 16 — o painel da loja (dashboard.fuckingbarba.com.br), outro projeto na Vercel
 apps/backend/    Medusa v2 — Railway; feito pra server + worker, hoje um serviço só (ver ESTADO.md)
 supabase/        migrations do schema `loja` (nunca `public`) e Edge Functions (Deno)
 .github/         um workflow por área, disparado por caminho
 ```
 
-Os dois apps são workspaces npm da raiz (`apps/*`). O lockfile é o da raiz. Não crie outro.
+Os três apps são workspaces npm da raiz (`apps/*`). O lockfile é o da raiz. Não crie outro.
 
 ## Comandos
 
 ```bash
 npm install                    # sempre na raiz
-npm run dev | build | lint | typecheck        # turbo, nos dois apps
+npm run dev | build | lint | typecheck        # turbo, nos três apps
 npm run backend:dev | backend:migrate | backend:user -- --email x --password y
 npm run loja:dev
+npm run dashboard:dev                          # o painel, na porta 3100
 cd supabase/functions && deno check webhook-pagamento/index.ts vitals/index.ts && deno lint
 ```
 
@@ -524,9 +526,32 @@ tela; pausar sempre, som só quando o vídeo tem). Depois de salvar qualquer con
 visita ainda recebe a página velha — a loja refaz no fundo —, e conferidor que lê a tela logo
 depois de gravar precisa de uma visita de aquecimento (ver `conferir-configuracoes.mjs`).
 
+O **painel da loja** (`apps/dashboard`, em dashboard.fuckingbarba.com.br; o plano e a ordem das
+fases no ESTADO.md, 4.5) é um Next.js à parte que só fala com o Medusa do SERVIDOR: o navegador
+nunca chama o Medusa, o token da equipe mora num cookie `httpOnly` (`painel_sessao`) e toda chamada
+vai assinada com o `REVALIDAR_SEGREDO` (`apps/dashboard/src/lib/medusa.ts`). A equipe não é o
+`user` do admin do Medusa — que continua do dono, como reserva — e sim o ator `equipe`: módulo
+`src/modules/equipe/` (tabelas `equipe_membro` e `equipe_registro`, este o "quem fez o quê") e o
+provedor de auth `codigo-equipe` (`src/modules/codigo-equipe/`, o mesmo código por e-mail da conta,
+numa identidade à parte: o cliente que também é da equipe tem as duas, e uma não abre a outra).
+Entrar: `POST /dashboard/entrar/codigo` manda (só pra quem `podeEntrar`; quem não é da equipe ouve
+a mesma resposta, com os limites na memória), `POST /auth/equipe/codigo-equipe` confere,
+`POST /dashboard/vincular` liga o membro (e relê se ainda é da equipe) e `POST /auth/token/refresh`
+devolve o token com ele. O primeiro dono é o `DASHBOARD_DONO_EMAIL` do Railway, e só enquanto não
+houver dono ativo (`workflows/equipe/garantir-dono.ts`). **Quem abre o quê é UMA tabela**, `ACESSO`
+em `src/lib/equipe/regras.ts`, conferida no servidor; o painel só esconde o que ela nega. Todas as
+rotas `/dashboard/*` passam pela `portaDoPainel` (`src/lib/equipe/acesso.ts`): assinatura, token do
+ator `equipe` e o membro relido do BANCO a cada pedido — tirado da equipe, o token de 30 dias não
+abre mais nada no clique seguinte. Rota nova já nasce trancada; a área nova entra no `ACESSO`
+antes da rota, e a rota começa com `exigirArea(pedido, res, "<área>")`. Toda escrita na equipe
+passa pela trava `equipe` (uma só: dois donos se removendo juntos não deixam a loja sem dono) e
+deixa uma linha no registro. O conferidor é o `apps/dashboard/ferramentas/conferir-entrar.mjs`
+(Resend falso, como o da conta; `DASHBOARD_DONO_EMAIL` e `REVALIDAR_SEGREDO` iguais aos do backend,
+`PAINEL` apontando pro `next dev` do painel).
+
 ## Fora dos limites
 
-- `apps/backend/.medusa/`, `apps/loja/.next/`, `node_modules/` — gerados.
+- `apps/backend/.medusa/`, `apps/loja/.next/`, `apps/dashboard/.next/`, `node_modules/` — gerados.
 - **CSS que começa com "Gerado por …"** em `apps/loja/src/estilos/` (quase todo `pdp*.css` e
   `checkout*.css`). Sai de `ferramentas/porte/pdp-partes/agrupa-pdp.py` (fonte: `estilo.css` da mesma
   pasta) e de `ferramentas/porte/checkout-partes/agrupa-checkout.py` (fonte:

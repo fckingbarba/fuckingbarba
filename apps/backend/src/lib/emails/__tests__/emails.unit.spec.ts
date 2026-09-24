@@ -1,4 +1,5 @@
 import { emailDoCodigo } from "../codigo"
+import { emailDoConvite } from "../convite"
 import { emailDoEnvio, type EnvioDoAviso, type PedidoDoAviso } from "../envio"
 import { emReais, esc, urlDaLoja } from "../moldura"
 import { emailDaNotaComProblema, emailDaNotaParaConferir, emailDoPedidoParaDesfazer } from "../erp"
@@ -94,6 +95,87 @@ describe("e-mail do código", () => {
     const sem = emailDoCodigo({ para: "a@b.co", codigo: "123456", minutos: 10 })
     expect(sem.html).not.toMatch(/<img/)
     expect(sem.html).toContain("Fucking<span")
+  })
+})
+
+describe("e-mail do código do painel", () => {
+  it("diz que é do painel, no assunto e no texto, e segue sem link", () => {
+    const e = emailDoCodigo({
+      para: "carla@loja.com",
+      codigo: "482917",
+      minutos: 10,
+      onde: "painel",
+    })
+    expect(e.assunto).toBe("482917 é o seu código do painel da FuckingBarba")
+    expect(e.texto).toContain("Digite na tela do painel pra entrar.")
+    expect(e.texto).toContain("ninguém entra no painel")
+    expect(e.html).not.toMatch(/<a[\s>]/)
+  })
+})
+
+describe("e-mail do convite pro painel", () => {
+  const original = process.env.DASHBOARD_URL
+  afterEach(() => {
+    if (original === undefined) delete process.env.DASHBOARD_URL
+    else process.env.DASHBOARD_URL = original
+  })
+
+  it("diz quem chamou, o papel, o que ele abre e o prazo", () => {
+    process.env.DASHBOARD_URL = "https://dashboard.fuckingbarba.com.br/"
+    const e = emailDoConvite({
+      para: "carla@loja.com",
+      nome: "Carla Mendes",
+      papel: "operacao",
+      quem: "Matheus",
+    })
+    expect(e.assunto).toBe("Seu convite pro painel da FuckingBarba")
+    expect(e.texto).toContain("Oi, Carla!")
+    expect(e.texto).toContain(
+      "Matheus te chamou pra equipe do painel da FuckingBarba, com o papel Operação."
+    )
+    expect(e.texto).toContain("Pedidos")
+    expect(e.texto).not.toContain("Cupons")
+    expect(e.texto).toContain("abra dashboard.fuckingbarba.com.br")
+    expect(e.texto).toContain("O convite vale 7 dias")
+    expect(e.html).toContain('href="https://dashboard.fuckingbarba.com.br/entrar"')
+  })
+
+  it("o link é só o endereço — sem e-mail, sem token", () => {
+    process.env.DASHBOARD_URL = "https://dashboard.fuckingbarba.com.br"
+    const e = emailDoConvite({
+      para: "carla@loja.com",
+      nome: "Carla",
+      papel: "marketing",
+      quem: "Matheus",
+    })
+    const links = [...e.html.matchAll(/href="([^"]+)"/g)].map((m) => m[1])
+    expect(links.filter((l) => l.startsWith("https://dashboard"))).toEqual([
+      "https://dashboard.fuckingbarba.com.br/entrar",
+    ])
+    expect(e.html).not.toContain("carla@loja.com")
+  })
+
+  it("sem DASHBOARD_URL, sai sem botão", () => {
+    delete process.env.DASHBOARD_URL
+    const e = emailDoConvite({
+      para: "carla@loja.com",
+      nome: "Carla",
+      papel: "marketing",
+      quem: "Matheus",
+    })
+    expect(e.html).not.toContain("Entrar no painel")
+    expect(e.texto).toContain("abra o painel da loja")
+  })
+
+  it("escapa o nome de quem convidou e de quem foi convidado", () => {
+    const e = emailDoConvite({
+      para: "c@loja.com",
+      nome: "<b>Carla</b>",
+      papel: "dono",
+      quem: "<i>M</i>",
+    })
+    expect(e.html).not.toContain("<b>Carla")
+    expect(e.html).not.toContain("<i>M")
   })
 })
 

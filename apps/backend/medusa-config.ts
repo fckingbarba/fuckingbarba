@@ -182,6 +182,11 @@ const paymentModule = [
  * nosso (`src/modules/codigo/`) — a rota que manda o código é
  * `POST /store/conta/codigo`, e a que confere é `POST /auth/customer/codigo`.
  *
+ * O `codigo-equipe` é o mesmo código, pro painel da loja
+ * (`src/modules/codigo-equipe/`): manda por `POST /dashboard/entrar/codigo`,
+ * confere em `POST /auth/equipe/codigo-equipe`. Outra identidade — o
+ * cliente que também é da equipe tem as duas, e uma não abre a outra.
+ *
  * Quem usa qual está em `authMethodsPerActor`, logo abaixo.
  */
 const authModule = [
@@ -192,6 +197,7 @@ const authModule = [
       providers: [
         { resolve: "@medusajs/medusa/auth-emailpass", id: "emailpass" },
         { resolve: "./src/modules/codigo", id: "codigo" },
+        { resolve: "./src/modules/codigo-equipe", id: "codigo-equipe" },
       ],
     },
   },
@@ -217,6 +223,12 @@ const newsletterModule = [{ resolve: "./src/modules/newsletter" }]
  */
 const erpModule = [{ resolve: "./src/modules/erp" }]
 
+/**
+ * A EQUIPE DO PAINEL DA LOJA — quem entra, com que papel, e o registro de
+ * quem fez o quê (`src/modules/equipe/`). Ver o AGENTS.md, "Painel".
+ */
+const equipeModule = [{ resolve: "./src/modules/equipe" }]
+
 module.exports = defineConfig({
   projectConfig: {
     databaseUrl: process.env.DATABASE_URL,
@@ -230,12 +242,19 @@ module.exports = defineConfig({
       jwtSecret: process.env.JWT_SECRET,
       cookieSecret: process.env.COOKIE_SECRET,
       /*
-        Cliente entra SÓ pelo código; admin, só por e-mail e senha. Sem esta
-        lista, qualquer provedor vale pra qualquer um — inclusive
+        Cliente entra SÓ pelo código; admin, só por e-mail e senha; a equipe
+        do painel, só pelo código dela. Sem esta lista, qualquer provedor
+        vale pra qualquer um — inclusive
         `POST /auth/customer/emailpass/register`, que criaria conta de
         cliente com senha, sem provar o e-mail, numa loja que nem pede senha.
+        E um ator que não está aqui aceita TODOS os provedores: sem a linha
+        `equipe`, o código de cliente viraria token de equipe.
       */
-      authMethodsPerActor: { user: ["emailpass"], customer: ["codigo"] },
+      authMethodsPerActor: {
+        user: ["emailpass"],
+        customer: ["codigo"],
+        equipe: ["codigo-equipe"],
+      },
       /*
         30 dias, e não o 1 dia padrão. O token do cliente mora num cookie
         `httpOnly` da loja e só viaja de servidor pra servidor; com 1 dia, a
@@ -260,5 +279,6 @@ module.exports = defineConfig({
     ...enviosModule,
     ...newsletterModule,
     ...erpModule,
+    ...equipeModule,
   ],
 })

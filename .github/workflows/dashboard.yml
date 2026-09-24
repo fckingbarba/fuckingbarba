@@ -1,0 +1,47 @@
+name: dashboard
+
+on:
+  workflow_dispatch: # permite rodar na mão pela aba Actions
+  pull_request:
+    paths:
+      [
+        "apps/dashboard/**",
+        "package.json",
+        "package-lock.json",
+        "turbo.json",
+        ".github/workflows/dashboard.yml",
+      ]
+  push:
+    branches: [main, staging]
+    paths:
+      [
+        "apps/dashboard/**",
+        "package.json",
+        "package-lock.json",
+        "turbo.json",
+        ".github/workflows/dashboard.yml",
+      ]
+
+concurrency:
+  group: dashboard-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualidade:
+    name: tipos · lint · build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck -w @fuckingbarba/dashboard
+      - run: npm run lint -w @fuckingbarba/dashboard
+      # Sem Medusa: toda tela do painel é de quem entrou (dinâmica), e o build
+      # não pergunta nada a ninguém.
+      - run: npm run build -w @fuckingbarba/dashboard

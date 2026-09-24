@@ -1,0 +1,30 @@
+import { redirect } from "next/navigation"
+import type { ReactNode } from "react"
+import { Casca } from "@/components/casca"
+import { ForaDoAr } from "@/components/telas"
+import { lerMembro } from "@/lib/eu"
+
+/**
+ * TODA TELA DO PAINEL PASSA POR AQUI — a casca pergunta ao Medusa quem é.
+ *
+ * O proxy só olhou o cookie. Aqui é a pergunta de verdade: token recusado ou
+ * pessoa tirada da equipe vão pro `/sair` (que apaga o cookie e explica no
+ * "entrar"); Medusa fora do ar mostra o aviso, sem tirar ninguém do painel.
+ */
+export default async function LayoutDoPainel({ children }: { children: ReactNode }) {
+  const leitura = await lerMembro()
+  if (leitura.estado === "sem-sessao") redirect("/entrar")
+  if (leitura.estado === "fora") redirect(`/sair?motivo=${leitura.motivo}`)
+  if (leitura.estado === "fora-do-ar") {
+    return (
+      <main className="miolo">
+        <ForaDoAr />
+      </main>
+    )
+  }
+  return (
+    <Casca membro={leitura.membro} areas={leitura.areas}>
+      {children}
+    </Casca>
+  )
+}

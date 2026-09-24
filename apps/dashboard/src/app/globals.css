@@ -1,0 +1,32 @@
+@import "tailwindcss";
+
+/*
+  O desenho vem do protótipo do painel
+  (apps/loja/ferramentas/porte/prototipo-painel.html), em CSS por parte
+  (src/estilos/). Depois do Tailwind de propósito, como na loja: CSS sem
+  @layer ganha de qualquer camada — inclusive do preflight, que zera as
+  margens que essas regras assumem.
+*/
+@import "../estilos/base.css";
+@import "../estilos/casca.css";
+@import "../estilos/pecas.css";
+@import "../estilos/telas.css";
+@import "../estilos/painel.css";
+
+/*
+  Os tokens da marca pro Tailwind (bg-menta, text-tinta…) — os mesmos da
+  loja e do `:root` do base.css.
+*/
+@theme {
+  --color-menta: #4fe4b6;
+  --color-menta-clara: #e3f8f0;
+  --color-menta-escura: #0b7f62;
+  --color-amarelo: #ffd84d;
+  --color-amarelo-claro: #fff3c4;
+  --color-tinta: #12181f;
+  --color-tinta-suave: #566072;
+  --color-papel: #ffffff;
+  --color-cinza: #f2f3f4;
+  --color-erro: #b3261e;
+  --font-sans: var(--font-inter), "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+}

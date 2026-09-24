@@ -19,9 +19,13 @@ import type { MetadadosDoCodigo } from "../../modules/codigo/regras"
  * isto só escreve. A troca de e-mail (`api/store/conta/email/`) guarda o
  * código dela pelo mesmo caminho: é o mesmo `provider_metadata`, no campo
  * `troca`.
+ *
+ * `provedor` é de quem é a identidade: `codigo` (a conta do cliente, o
+ * padrão) ou `codigo-equipe` (o painel da loja, `api/dashboard/entrar/`).
+ * O mesmo e-mail pode ter as duas, e uma não enxerga o código da outra.
  */
 
-type Entrada = { email: string; metadados: MetadadosDoCodigo }
+type Entrada = { email: string; metadados: MetadadosDoCodigo; provedor?: string }
 
 type Desfazer =
   | { tipo: "criou"; id: string }
@@ -29,9 +33,9 @@ type Desfazer =
 
 const gravarCodigoStep = createStep(
   "gravar-codigo",
-  async ({ email, metadados }: Entrada, { container }) => {
+  async ({ email, metadados, provedor = "codigo" }: Entrada, { container }) => {
     const auth = container.resolve(Modules.AUTH)
-    const [existente] = await auth.listProviderIdentities({ provider: "codigo", entity_id: email })
+    const [existente] = await auth.listProviderIdentities({ provider: provedor, entity_id: email })
 
     if (existente) {
       await auth.updateProviderIdentities({ id: existente.id, provider_metadata: metadados })
@@ -43,7 +47,7 @@ const gravarCodigoStep = createStep(
     }
 
     const criada = await auth.createAuthIdentities({
-      provider_identities: [{ provider: "codigo", entity_id: email, provider_metadata: metadados }],
+      provider_identities: [{ provider: provedor, entity_id: email, provider_metadata: metadados }],
     })
     return new StepResponse<void, Desfazer>(undefined, { tipo: "criou", id: criada.id })
   },
