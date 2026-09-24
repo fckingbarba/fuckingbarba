@@ -301,7 +301,11 @@ export async function preencherDaConta(): Promise<void> {
  * pessoa via antes de o carrinho passar do piso. Sem isso, "Grátis" não diz
  * quanto foi economizado, e economia invisível não convence ninguém.
  */
-export async function listarFretes(carrinhoId: string): Promise<OpcaoDeFrete[]> {
+export async function listarFretes(
+  carrinhoId: string,
+  /** A opção gravada no carrinho: num empate de preço, é ela que fica. */
+  escolhida: string | null = null
+): Promise<OpcaoDeFrete[]> {
   const sdk = cliente()
   if (!sdk) return []
 
@@ -377,7 +381,7 @@ export async function listarFretes(carrinhoId: string): Promise<OpcaoDeFrete[]> 
       })
       .sort((a, b) => a.preco - b.preco)
 
-    return semEntregaEmpatada(opcoes)
+    return semEntregaEmpatada(opcoes, escolhida)
   } catch (e) {
     aviso(e, `fretes do carrinho ${carrinhoId}`)
     return []

@@ -229,8 +229,8 @@ export default class FrenetFulfillmentService extends AbstractFulfillmentProvide
       */
       return this.precoFinal(
         [
-          { id: "economica", preco: emergencia },
-          { id: "expressa", preco: emergencia },
+          { id: "economica", preco: emergencia, servico: "emergencia" },
+          { id: "expressa", preco: emergencia, servico: "emergencia" },
         ],
         faixa,
         politica,
@@ -247,8 +247,8 @@ export default class FrenetFulfillmentService extends AbstractFulfillmentProvide
       }
       return this.precoFinal(
         [
-          { id: "economica", preco: emergencia },
-          { id: "expressa", preco: emergencia },
+          { id: "economica", preco: emergencia, servico: "emergencia" },
+          { id: "expressa", preco: emergencia, servico: "emergencia" },
         ],
         faixa,
         politica,
@@ -262,11 +262,12 @@ export default class FrenetFulfillmentService extends AbstractFulfillmentProvide
     const { economica, expressa } = escolherFaixas(servicos)!
 
     /* A ordem importa: `aplicarPolitica` desempata pela primeira, e a
-       econômica tem que ser a que ganha o frete grátis. */
+       econômica tem que ser a que ganha o frete grátis. O `servico` diz
+       quando as duas são a mesma entrega — aí o grátis vale nas duas. */
     return this.precoFinal(
       [
-        { id: "economica", preco: economica.preco },
-        { id: "expressa", preco: expressa.preco },
+        { id: "economica", preco: economica.preco, servico: economica.codigo },
+        { id: "expressa", preco: expressa.preco, servico: expressa.codigo },
       ],
       faixa,
       politica,

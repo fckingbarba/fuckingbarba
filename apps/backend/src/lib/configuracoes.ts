@@ -304,7 +304,16 @@ export function lerConfiguracoes(metadata: unknown): Configuracoes {
  * não existe a versão em que a tela promete uma coisa e a cotação faz outra.
  */
 
-export type OpcaoCotada = { id: string; preco: number }
+export type OpcaoCotada = {
+  id: string
+  preco: number
+  /**
+   * Qual entrega está por trás da opção — o serviço da transportadora (ou a
+   * emergência). Duas faixas com o mesmo `servico` são A MESMA entrega: ver
+   * "O MESMO SERVIÇO" abaixo.
+   */
+  servico?: string
+}
 
 /**
  * Aplica a política a uma lista de opções já cotadas.
@@ -320,6 +329,12 @@ export type OpcaoCotada = { id: string; preco: number }
  *
  * E o fixo nunca COBRA MAIS que o preço real: se a transportadora pede R$ 8
  * e o fixo é R$ 9,90, vale R$ 8. Promoção que encarece não é promoção.
+ *
+ * O MESMO SERVIÇO GANHA O MESMO PREÇO. Quando a mais barata é também a mais
+ * rápida (ou a transportadora responde um serviço só), a econômica e a
+ * expressa são a mesma entrega. Só a primeira levava o grátis, e a tela
+ * mostrava "Econômica — Grátis" e "Expressa — R$ 23,70" com o mesmo PAC e o
+ * mesmo prazo: quem escolhia a expressa pagava por nada (achado em 24/09).
  */
 export function aplicarPolitica(
   politica: PoliticaDeFrete,
@@ -330,9 +345,11 @@ export function aplicarPolitica(
   if (subtotal < politica.piso) return opcoes
 
   const maisBarata = opcoes.reduce((a, b) => (b.preco < a.preco ? b : a))
+  const mesmaEntrega = (o: OpcaoCotada) =>
+    o.id === maisBarata.id || (Boolean(o.servico) && o.servico === maisBarata.servico)
 
   return opcoes.map((opcao) => {
-    const alvo = politica.alvo === "todas" || opcao.id === maisBarata.id
+    const alvo = politica.alvo === "todas" || mesmaEntrega(opcao)
     if (!alvo) return opcao
     if (politica.tetoDeCusto !== null && opcao.preco > politica.tetoDeCusto) return opcao
 
