@@ -22,7 +22,23 @@ import { avisarALoja } from "./revalidar"
  * │                                                                        │
  * │ O preço da faixa sai do preço ATUAL da unidade (o da promoção, se      │
  * │ houver). Mudou o preço no admin, o job `precos-por-quantidade` refaz   │
- * │ a lista em até 15 minutos e avisa a loja.                              │
+ * │ a lista em até 1 minuto e avisa a loja.                                │
+ * └────────────────────────────────────────────────────────────────────────┘
+ *
+ * ┌─ POR QUE DE MINUTO EM MINUTO ──────────────────────────────────────────┐
+ * │ Promoção que acaba (pela data de fim ou desligada no admin) não avisa  │
+ * │ ninguém: o Medusa não emite evento de lista de preço, e a data passa   │
+ * │ sozinha. Enquanto o job não rodava, as faixas continuavam calculadas   │
+ * │ sobre o preço da promoção: com o óleo voltando a R$ 79,90, 2 unidades  │
+ * │ saíam por R$ 104,90 em vez de R$ 152,90 (achado em 24/09) — até 15     │
+ * │ minutos de venda abaixo do preço a cada promoção encerrada. E a loja   │
+ * │ seguia mostrando o preço velho, porque nada a avisava.                 │
+ * │                                                                        │
+ * │ Agora a rodada é de minuto em minuto, e cada uma compara a FOTO dos    │
+ * │ preços (o de uma unidade, com e sem promoção, e as listas de preço com │
+ * │ as datas) com a da rodada anterior: mudou, a loja é avisada na hora    │
+ * │ (`produtos` e `promocao`, a das ofertas relâmpago da home). Sem nada   │
+ * │ mudando, a rodada só lê.                                               │
  * └────────────────────────────────────────────────────────────────────────┘
  *
  * SUBSTITUI OS KITS DE QUANTIDADE (o antigo `scripts/kits-de-quantidade.ts`), que eram
@@ -112,11 +128,46 @@ const chave = (conjunto: string, min: number | null, max: number | null) =>
   `${conjunto}|${min ?? ""}|${max ?? ""}`
 
 /**
+ * A foto da rodada anterior, na memória do processo. Depois de reiniciar, a
+ * primeira rodada só tira a foto — o deploy já derrubou o cache da loja.
+ */
+let fotoAnterior: string | null = null
+
+/** As etiquetas que um preço novo derruba na loja. */
+const ETIQUETAS_DE_PRECO = ["produtos", "promocao"]
+
+/**
+ * O que a loja mostra de preço, num texto só: o de uma unidade (com e sem
+ * promoção) de cada variação, e as listas de preço com situação e datas — a
+ * data de fim é o relógio das ofertas relâmpago da home. A lista das faixas
+ * fica de fora: quem escreve nela é esta rodada.
+ */
+function fotoDosPrecos(
+  atuais: { id: string; calculated_amount?: unknown; original_amount?: unknown }[],
+  listas: {
+    id: string
+    title?: string | null
+    status?: string | null
+    starts_at?: unknown
+    ends_at?: unknown
+  }[]
+): string {
+  const precos = atuais.map(
+    (a) => `${a.id}:${emNumero(a.calculated_amount)}:${emNumero(a.original_amount)}`
+  )
+  const datas = listas
+    .filter((l) => l.title !== TITULO_DA_LISTA)
+    .map((l) => `${l.id}:${l.status}:${String(l.starts_at ?? "")}:${String(l.ends_at ?? "")}`)
+  return [...precos.sort(), "|", ...datas.sort()].join(",")
+}
+
+/**
  * Refaz a lista "Desconto por quantidade" a partir dos preços atuais.
  *
  * Idempotente: só escreve o que mudou, e não escreve nada quando está tudo
- * certo — o job roda de 15 em 15 minutos e não pode encher o banco de
- * versões de preço iguais. Avisa a loja só quando alguma coisa mudou.
+ * certo — o job roda de minuto em minuto e não pode encher o banco de
+ * versões de preço iguais. Avisa a loja só quando alguma coisa mudou: as
+ * faixas, ou a foto dos preços.
  */
 export async function sincronizarPrecosPorQuantidade(container: MedusaContainer) {
   const logger = container.resolve(ContainerRegistrationKeys.LOGGER)
@@ -147,6 +198,18 @@ export async function sincronizarPrecosPorQuantidade(container: MedusaContainer)
   const atuais = conjuntos.length
     ? await pricing.calculatePrices({ id: conjuntos }, { context: { currency_code: MOEDA } })
     : []
+
+  // A foto desta rodada contra a da anterior — ver "POR QUE DE MINUTO EM MINUTO".
+  const todasAsListas = await pricing.listPriceLists(
+    {},
+    { select: ["id", "title", "status", "starts_at", "ends_at"], take: 1000 }
+  )
+  const foto = fotoDosPrecos(atuais, todasAsListas)
+  const precosMudaram = fotoAnterior !== null && foto !== fotoAnterior
+  fotoAnterior = foto
+  const avisar = async (faixasMudaram: boolean) => {
+    if (faixasMudaram || precosMudaram) await avisarALoja(ETIQUETAS_DE_PRECO, logger, "seconds")
+  }
 
   const desejados = new Map<string, PrecoDesejado>()
   for (const atual of atuais) {
@@ -179,7 +242,7 @@ export async function sincronizarPrecosPorQuantidade(container: MedusaContainer)
             title: TITULO_DA_LISTA,
             description:
               "Gerada pelo backend (lib/precos-por-quantidade.ts): 4% levando 2, 6% levando 3 " +
-              "ou mais. Não edite à mão — o job refaz a cada 15 minutos.",
+              "ou mais. Não edite à mão — o job refaz a cada minuto.",
             // Sem `type`: o padrão do Medusa é "sale", que é o que faz ele
             // ficar com o MENOR preço entre esta lista e as outras.
             status: PriceListStatus.ACTIVE,
@@ -189,7 +252,7 @@ export async function sincronizarPrecosPorQuantidade(container: MedusaContainer)
       },
     })
     logger.info(`[quantidade] lista criada com ${desejados.size} preço(s)`)
-    if (desejados.size) await avisarALoja(["produtos"], logger)
+    await avisar(desejados.size > 0)
     return { criados: desejados.size, atualizados: 0, removidos: 0 }
   }
 
@@ -234,6 +297,7 @@ export async function sincronizarPrecosPorQuantidade(container: MedusaContainer)
   }
 
   if (!create.length && !update.length && !remover.length) {
+    await avisar(false)
     return { criados: 0, atualizados: 0, removidos: 0 }
   }
 
@@ -244,6 +308,6 @@ export async function sincronizarPrecosPorQuantidade(container: MedusaContainer)
     `[quantidade] ${create.length} criado(s), ${update.length} atualizado(s), ` +
       `${remover.length} removido(s)`
   )
-  await avisarALoja(["produtos"], logger)
+  await avisar(true)
   return { criados: create.length, atualizados: update.length, removidos: remover.length }
 }
