@@ -43,7 +43,15 @@
  *   pro pagamento; o CEP de uma cidade gravado com o endereço de outra;
  * - a "Entrega expressa" cobrada sendo o mesmo serviço da econômica grátis;
  * - cupom cadastrado em minúsculas nunca aplicar;
- * - as 2 e 3 unidades seguirem o preço da promoção depois de ela acabar.
+ * - as 2 e 3 unidades seguirem o preço da promoção depois de ela acabar;
+ * - sem internet por um instante, o "+" da sacola derrubar o site inteiro, e
+ *   o "Adicionar à sacola" e o checkout, a página;
+ * - a sacola aparecer vazia, sem recado, com a loja sem responder (todo
+ *   deploy do backend) — e quem pusesse tudo de novo ficar com o dobro;
+ * - a gaveta mostrar a sacola de antes da oferta marcada no checkout;
+ * - o produto que esgota no meio virar "espera um minuto" pra sempre;
+ * - a segunda aba dizer "nada foi cobrado, tenta de novo" com o pedido feito;
+ * - e-mail com mais de 64 caracteres travar o pagamento sem dizer por quê.
  *
  * Variáveis: MEDUSA_BACKEND_URL, NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY, CHROMIUM;
  * ADMIN_EMAIL e ADMIN_SENHA, opcionais, pro bump com a promoção desligada, pra
@@ -301,9 +309,9 @@ pagina.on(
 
 // Cada ENVIO DE FORMULÁRIO que sai da página do checkout: server action é um
 // POST com o cabeçalho `next-action` pra própria rota, e a de formulário vai
-// em multipart (leva o FormData). As outras — a gaveta sincronizando, o bump
-// — vão em texto, e não entram na conta. É como se conta quantos pedidos um
-// clique, ou três, mandou.
+// em multipart (leva o FormData). As outras — o bump, os chips — vão em
+// texto, e não entram na conta (a sacola lê por GET, `/api/sacola`). É como
+// se conta quantos pedidos um clique, ou três, mandou.
 const acoesDoCheckout = []
 const contaAcoes = (pag, lista) =>
   pag.on("request", (r) => {
@@ -1789,7 +1797,444 @@ if (EMAIL_ADMIN && SENHA_ADMIN) {
   console.log("    (sem ADMIN_EMAIL/ADMIN_SENHA: pulei a promoção que acaba)")
 }
 
-/* ── 7. higiene ───────────────────────────────────────────────────────────── */
+/* ── 7. a entrega B de 24/09: sem internet, loja fora, estoque, duas abas ─── */
+
+/** Uma aba à parte, com o console vigiado — o que não for rede caída conta como erro. */
+async function abaVigiada() {
+  const ctx = await navegador.newContext({ viewport: MESA })
+  const pag = await ctx.newPage()
+  pag.on(
+    "console",
+    (m) =>
+      m.type() === "error" &&
+      !RUIDO_DE_DEV.test(m.text()) &&
+      !/ERR_INTERNET_DISCONNECTED|Failed to fetch|503 \(Service Unavailable\)/.test(m.text()) &&
+      !recargaDoDev(m) &&
+      errosDeConsole.push(m.text())
+  )
+  return { ctx, pag }
+}
+/** A PDP aberta, com a sacola já lida (o número do cabeçalho só aparece depois dela). */
+async function naPdp(pag, handle = "oleo-para-barba") {
+  await pag.goto(`${LOJA}/produtos/${handle}`, { waitUntil: "domcontentloaded" })
+  await pag.locator(".cabecalho__contador").first().waitFor({ timeout: 25000 })
+}
+const naoCarregou = async (pag) =>
+  /não carregou/i.test(
+    await pag
+      .locator("body")
+      .innerText()
+      .catch(() => "")
+  )
+
+titulo("Sem internet por um instante")
+/*
+  A AÇÃO QUE NEM VOLTA (24/09). Sem conexão, a server action rejeita no
+  navegador, e a rejeição dentro de uma transição sobe pro boundary de erro:
+  o "+" da sacola, que mora no layout raiz, trocava o site inteiro por "Essa
+  página não carregou"; o "Adicionar à sacola", a página. Agora cada tela diz
+  que a conexão caiu e fica de pé (`lib/rede.ts`).
+*/
+{
+  const { ctx, pag } = await abaVigiada()
+  try {
+    await carrinhoNovo(ctx, [["shampoo-para-barba", 1]])
+    await naPdp(pag)
+    await pag.locator('button[aria-controls="carrinho-gaveta"]').first().click()
+    const gaveta = pag.locator("#carrinho-gaveta")
+    const mais = gaveta.locator('button[aria-label^="Aumentar a quantidade"]').first()
+    await mais.waitFor({ timeout: 15000 })
+    await ctx.setOffline(true)
+    await mais.click()
+    await gaveta
+      .locator(".sacolinha__aviso", { hasText: "conexão caiu" })
+      .waitFor({ timeout: 15000 })
+      .catch(() => null)
+    ok(
+      !(await naoCarregou(pag)) && (await gaveta.isVisible()),
+      'sem internet, o "+" da sacola não derruba o site'
+    )
+    const aviso = await gaveta
+      .locator(".sacolinha__aviso")
+      .innerText()
+      .catch(() => "")
+    const qtd = await gaveta
+      .locator(".sacolinha__numero")
+      .first()
+      .innerText()
+      .catch(() => "?")
+    ok(
+      /conexão caiu/.test(aviso) && qtd.trim() === "1",
+      "e a sacola diz que a conexão caiu, com a quantidade de antes",
+      `"${aviso}" · quantidade ${qtd}`
+    )
+
+    // De uma PDP nova: cada caso começa de pé, mesmo se o anterior derrubou a página.
+    await ctx.setOffline(false)
+    await naPdp(pag)
+    await ctx.setOffline(true)
+    await pag.locator(".compra__comprar").first().click()
+    const recado = pag.locator(".compra__recado", { hasText: "conexão caiu" })
+    await recado.waitFor({ timeout: 15000 }).catch(() => null)
+    ok(
+      !(await naoCarregou(pag)) && (await recado.isVisible().catch(() => false)),
+      'e o "Adicionar à sacola" também não: a página fica, e diz o porquê',
+      await pag
+        .locator(".compra__recado")
+        .first()
+        .innerText()
+        .catch(() => "sem recado")
+    )
+    await ctx.setOffline(false)
+
+    // O checkout: o passo 1 e o pagar, sem internet.
+    const c = (n) => pag.locator(`.fluxo [name="${n}"]`)
+    await pag.goto(`${LOJA}/checkout`, { waitUntil: "domcontentloaded" })
+    await semStreaming(pag)
+    await pag.locator("#form-contato").waitFor({ timeout: 25000 })
+    await c("email").fill("sem.internet@fuckingbarba.invalid")
+    await c("nome").fill("Matheus")
+    await c("sobrenome").fill("da Silva Teste")
+    await c("telefone").fill("(11) 99999-9999")
+    await c("documento").fill(CPF)
+    await ctx.setOffline(true)
+    await pag.locator("#form-contato button[type=submit]").click()
+    const noPasso = pag.locator("#form-contato .erros-envio", { hasText: "conexão caiu" })
+    await noPasso.waitFor({ timeout: 15000 }).catch(() => null)
+    ok(
+      !(await naoCarregou(pag)) &&
+        (await noPasso.isVisible().catch(() => false)) &&
+        (await c("email")
+          .inputValue()
+          .catch(() => "")) === "sem.internet@fuckingbarba.invalid",
+      "no checkout, o passo 1 sem internet fica na tela, com o recado e o que foi digitado"
+    )
+    await ctx.setOffline(false)
+    await pag.goto(`${LOJA}/checkout`, { waitUntil: "domcontentloaded" })
+    await semStreaming(pag)
+    await pag.locator("#form-contato").waitFor({ timeout: 25000 })
+    await c("email").fill("sem.internet@fuckingbarba.invalid")
+    await c("nome").fill("Matheus")
+    await c("sobrenome").fill("da Silva Teste")
+    await c("telefone").fill("(11) 99999-9999")
+    await c("documento").fill(CPF)
+    await pag.locator("#form-contato button[type=submit]").click()
+    await pag.locator("#form-entrega").waitFor({ timeout: 25000 })
+    await c("cep").fill(CEP)
+    await pag.waitForFunction(
+      () => document.querySelector('.fluxo [name="rua"]')?.value?.length > 0,
+      null,
+      { timeout: 25000 }
+    )
+    await pag.locator("#form-entrega .opcao").first().waitFor({ timeout: 25000 })
+    await c("numero").fill("1578")
+    await pag.locator("#form-entrega button[type=submit]").click()
+    await pag.locator("#form-pagamento").waitFor({ timeout: 25000 })
+    const antes = pagarme.pedidos.size
+    await ctx.setOffline(true)
+    await pag.locator("#form-pagamento button[type=submit]").click()
+    const noPagar = pag.locator("#form-pagamento .erros-envio", { hasText: "conexão caiu" })
+    await noPagar.waitFor({ timeout: 15000 }).catch(() => null)
+    const frase = await noPagar.innerText().catch(() => "")
+    ok(
+      !(await naoCarregou(pag)) &&
+        /pagar de novo/.test(frase) &&
+        /direto pro pedido/.test(frase) &&
+        pagarme.pedidos.size === antes,
+      "e pagar sem internet também não: manda clicar de novo, sem prometer o que não sabe",
+      frase || "sem recado"
+    )
+  } finally {
+    await ctx.setOffline(false).catch(() => null)
+    await ctx.close()
+  }
+}
+
+titulo("A sacola quando a loja não responde")
+/*
+  A SACOLA VAZIA QUE NÃO ERA (24/09). Com o Medusa reiniciando — todo deploy
+  do backend —, a leitura da sacola voltava vazia, sem recado: o contador
+  dizia 0, a gaveta dizia "vazia", e quem pusesse os produtos de novo ficava
+  com o dobro. Aqui a leitura (`/api/sacola`) responde "sem resposta", como
+  quando o Medusa cai: o contador não inventa número, a gaveta diz que não
+  conseguiu abrir, e o "Tentar de novo" traz a sacola quando a loja volta.
+*/
+{
+  const { ctx, pag } = await abaVigiada()
+  try {
+    await carrinhoNovo(ctx, [["shampoo-para-barba", 2]])
+    const fora = (rota) =>
+      rota.fulfill({
+        status: 503,
+        contentType: "application/json",
+        body: JSON.stringify({ carrinho: null }),
+      })
+    await pag.route("**/api/sacola", fora)
+    await pag.goto(`${LOJA}/produtos/oleo-para-barba`, { waitUntil: "domcontentloaded" })
+    const botao = pag.locator('button[aria-controls="carrinho-gaveta"]').first()
+    await botao.waitFor({ timeout: 25000 })
+    await pag.waitForTimeout(2000)
+    ok(
+      (await pag.locator(".cabecalho__contador").count()) === 0 &&
+        (await botao.getAttribute("aria-label")) === "Sacola",
+      "com a loja sem responder, o contador não inventa um zero"
+    )
+    await botao.click()
+    const gaveta = pag.locator("#carrinho-gaveta")
+    const tituloVazio = gaveta.locator(".sacolinha__vazio-titulo")
+    await gaveta
+      .locator(".sacolinha__vazio-titulo", { hasText: "Não consegui" })
+      .waitFor({ timeout: 15000 })
+      .catch(() => null)
+    ok(
+      /não consegui abrir sua sacola/i.test(await tituloVazio.innerText().catch(() => "")),
+      'e a gaveta diz que não conseguiu abrir — não que a sacola está "vazia"',
+      await tituloVazio.innerText().catch(() => "?")
+    )
+    await pag.unroute("**/api/sacola", fora)
+    await gaveta
+      .locator(".sacolinha__vazio button", { hasText: "Tentar de novo" })
+      .click({ timeout: 5000 })
+      .catch(() => null)
+    await gaveta
+      .locator(".sacolinha__item")
+      .first()
+      .waitFor({ timeout: 15000 })
+      .catch(() => null)
+    ok(
+      (await gaveta.locator(".sacolinha__item").count()) === 1 &&
+        (await pag
+          .locator(".cabecalho__contador")
+          .first()
+          .innerText()
+          .catch(() => "")) === "2",
+      'o "Tentar de novo" traz a sacola, e o contador, quando a loja volta'
+    )
+  } finally {
+    await ctx.close()
+  }
+}
+
+titulo("A gaveta relê ao abrir")
+/*
+  A SACOLA MUDA POR FORA DA GAVETA (24/09): a oferta marcada no checkout, os
+  chips do frete grátis, outra aba. A gaveta mostrava a de antes — 1 item com
+  2 no pedido —, e o contador também. Agora ela relê toda vez que abre, e o
+  checkout manda reler na saída.
+*/
+{
+  const { ctx, pag } = await abaVigiada()
+  try {
+    const id = await carrinhoNovo(ctx, [["shampoo-para-barba", 1]])
+    await naPdp(pag)
+    // A primeira leitura da aba TERMINOU (o cabeçalho diz 1) antes de a sacola
+    // mudar por fora — senão a gaveta mostraria o item novo por ter lido tarde.
+    await pag.locator(".cabecalho__contador", { hasText: "1" }).first().waitFor({ timeout: 15000 })
+    await porNoCarrinho(id, "balm-para-barba", 1)
+    await pag.locator('button[aria-controls="carrinho-gaveta"]').first().click()
+    const gaveta = pag.locator("#carrinho-gaveta")
+    await gaveta
+      .locator(".sacolinha__item")
+      .nth(1)
+      .waitFor({ timeout: 15000 })
+      .catch(() => null)
+    ok(
+      (await gaveta.locator(".sacolinha__item").count()) === 2,
+      "a gaveta relê ao abrir: o que entrou por fora aparece"
+    )
+    const contador = pag.locator(".cabecalho__contador").first()
+    ok((await contador.innerText().catch(() => "")) === "2", "e o contador do cabeçalho acompanha")
+    await gaveta.locator(".sacolinha__fecha").click()
+
+    await pag.goto(`${LOJA}/checkout`, { waitUntil: "domcontentloaded" })
+    await semStreaming(pag)
+    await pag.locator("#form-contato").waitFor({ timeout: 25000 })
+    await porNoCarrinho(id, "oleo-para-barba", 1)
+    await pag.locator(".topo__voltar").click()
+    await pag.waitForURL((u) => new URL(u).pathname === "/", { timeout: 25000 })
+    await pag
+      .locator(".cabecalho__contador", { hasText: "3" })
+      .first()
+      .waitFor({ timeout: 15000 })
+      .catch(() => null)
+    ok(
+      (await contador.innerText().catch(() => "")) === "3",
+      "e quem sai do checkout pra loja encontra o contador de agora, sem abrir a gaveta",
+      await contador.innerText().catch(() => "?")
+    )
+  } finally {
+    await ctx.close()
+  }
+}
+
+titulo("O produto que esgota no meio do checkout")
+/*
+  ESGOTOU NO MEIO (24/09). O Medusa recusa fechar o carrinho, e a tela dizia
+  "espera um minuto e clica em pagar de novo" — pra sempre, sem dizer que
+  tinha esgotado. Agora o pedido desce até o que tem (`ajustarAoEstoque`), a
+  frase diz o que mudou e o total novo, e nada é cobrado. Deixa o balm com 1
+  unidade livre e paga 2; devolve o estoque no fim.
+*/
+if (EMAIL_ADMIN && SENHA_ADMIN) {
+  const { ctx, pag } = await abaVigiada()
+  const { products = [] } = await adm(
+    "/admin/products?handle=balm-para-barba&fields=id,variants.inventory_items.inventory_item_id"
+  )
+  const item = products[0]?.variants?.[0]?.inventory_items?.[0]?.inventory_item_id
+  const { inventory_levels: niveis = [] } = item
+    ? await adm(`/admin/inventory-items/${item}/location-levels`)
+    : {}
+  const nivel = niveis[0]
+  const nivelDoBalm = (estoque) =>
+    adm(`/admin/inventory-items/${item}/location-levels/${nivel.location_id}`, {
+      method: "POST",
+      body: JSON.stringify({ stocked_quantity: estoque }),
+    })
+  try {
+    if (!nivel) throw new Error("o balm sem nível de estoque")
+    const id = await carrinhoNovo(ctx, [["balm-para-barba", 2]])
+    await contatoEEntrega(pag, "esgotou@fuckingbarba.invalid")
+    await nivelDoBalm(nivel.reserved_quantity + 1)
+    const antes = pagarme.pedidos.size
+    await pag.locator("#form-pagamento button[type=submit]").click()
+    const recado = pag.locator("#form-pagamento .erros-envio", { hasText: "estoque" })
+    await recado.waitFor({ timeout: 30000 }).catch(() => null)
+    // O "R$" da tela tem espaço fixo (o do `Intl`); o `reais` daqui, espaço comum.
+    const frase = (await recado.innerText().catch(() => "")).replace(/\u00a0/g, " ")
+    ok(
+      /balm/i.test(frase) &&
+        /ficou com 1 \(eram 2\)/.test(frase) &&
+        /nada foi cobrado/i.test(frase) &&
+        pagarme.pedidos.size === antes,
+      "o produto que esgota no meio vira recado com o nome dele, e nada é cobrado",
+      frase || "sem recado"
+    )
+    const { cart } = (await medusa(`/store/carts/${id}?fields=id,total,*items`)) ?? {}
+    await pag
+      .locator("#form-pagamento button[type=submit]", { hasText: reais(cart?.total ?? 0) })
+      .waitFor({ timeout: 15000 })
+      .catch(() => null)
+    const botao = (
+      await pag
+        .locator("#form-pagamento button[type=submit]")
+        .innerText()
+        .catch(() => "")
+    ).replace(/\u00a0/g, " ")
+    ok(
+      cart?.items?.length === 1 &&
+        cart.items[0].quantity === 1 &&
+        botao.includes(reais(cart.total)) &&
+        frase.includes(reais(cart.total)),
+      "o pedido desce até o que tem, e a frase e o botão dizem o total novo",
+      `${cart?.items?.map((i) => `${i.quantity}× ${i.product_title}`).join(", ")} · botão "${botao}"`
+    )
+  } finally {
+    if (nivel) await nivelDoBalm(nivel.stocked_quantity)
+    await ctx.close()
+  }
+} else {
+  console.log("    (sem ADMIN_EMAIL/ADMIN_SENHA: pulei o produto que esgota)")
+}
+
+titulo("Duas abas pagando a mesma sacola")
+/*
+  A OUTRA ABA JÁ PAGOU (24/09). As abas dividem os cookies, e o pedido da
+  primeira apaga a sacola das duas. A segunda dizia "Nada foi cobrado —
+  tenta de novo", e depois "Sua sacola expirou", com o pedido feito. Agora
+  ela vai pro mesmo pedido: pagando junto (o carrinho fecha no meio da ação
+  dela) e pagando depois (o crachá do pedido diz de que carrinho ele saiu).
+*/
+{
+  const ctx = await navegador.newContext({ viewport: MESA })
+  try {
+    for (const [jeito, juntas] of [
+      ["no mesmo instante", true],
+      ["uma depois da outra", false],
+    ]) {
+      const a = await ctx.newPage()
+      await carrinhoNovo(ctx, [["shampoo-para-barba", 1]])
+      await contatoEEntrega(a, "duas.abas@fuckingbarba.invalid")
+      const b = await ctx.newPage()
+      await b.goto(`${LOJA}/checkout`, { waitUntil: "domcontentloaded" })
+      await semStreaming(b)
+      await b.locator("#form-pagamento").waitFor({ timeout: 25000 })
+      const antes = pagarme.pedidos.size
+      const pagarEm = (pag) => pag.locator("#form-pagamento button[type=submit]").click()
+      if (juntas) await Promise.all([pagarEm(a), pagarEm(b)])
+      else {
+        await pagarEm(a)
+        await a.waitForURL(/\/checkout\/obrigado\//, { timeout: 45000 })
+        await pagarEm(b)
+      }
+      await Promise.all(
+        [a, b].map((p) =>
+          p.waitForURL(/\/checkout\/obrigado\//, { timeout: 45000 }).catch(() => null)
+        )
+      )
+      ok(
+        /\/checkout\/obrigado\//.test(a.url()) && a.url() === b.url(),
+        `${jeito}: as duas abas vão pro MESMO pedido`,
+        `${a.url()} · ${b.url()} · recado na B: ${await b
+          .locator(".erros-envio")
+          .first()
+          .innerText()
+          .catch(() => "—")}`
+      )
+      ok(pagarme.pedidos.size - antes === 1, `${jeito}: e uma cobrança só`)
+      await a.close()
+      await b.close()
+    }
+  } finally {
+    await ctx.close()
+  }
+}
+
+titulo("O e-mail comprido")
+/*
+  O LIMITE DO PAGAR.ME (24/09): e-mail com mais de 64 caracteres passava no
+  passo 1 e travava o pagamento com "não consegui iniciar o pagamento", sem
+  dizer por quê. Agora o passo 1 recusa, com o motivo embaixo do campo.
+*/
+{
+  const { ctx, pag } = await abaVigiada()
+  try {
+    await carrinhoNovo(ctx, [["shampoo-para-barba", 1]])
+    const c = (n) => pag.locator(`.fluxo [name="${n}"]`)
+    await pag.goto(`${LOJA}/checkout`, { waitUntil: "domcontentloaded" })
+    await semStreaming(pag)
+    await pag.locator("#form-contato").waitFor({ timeout: 25000 })
+    const comprido = `${"a".repeat(40)}.comprido@fuckingbarba-teste.invalid`
+    await c("email").fill(comprido)
+    await c("nome").fill("Matheus")
+    await c("sobrenome").fill("da Silva Teste")
+    await c("telefone").fill("(11) 99999-9999")
+    await c("documento").fill(CPF)
+    await pag.locator("#form-contato button[type=submit]").click()
+    await pag
+      .locator("#form-contato", { hasText: "64 caracteres" })
+      .waitFor({ timeout: 15000 })
+      .catch(() => null)
+    const passo = await pag
+      .locator("#form-contato")
+      .innerText()
+      .catch(() => "")
+    ok(
+      /64 caracteres/.test(passo) && (await c("email").getAttribute("aria-invalid")) === "true",
+      `e-mail de ${comprido.length} caracteres é recusado no passo 1, com o motivo no campo`
+    )
+    ok(
+      !(await pag
+        .locator("#form-entrega")
+        .isVisible()
+        .catch(() => false)),
+      "e o checkout não passa pro passo 2 com ele"
+    )
+  } finally {
+    await ctx.close()
+  }
+}
+
+/* ── 8. higiene ───────────────────────────────────────────────────────────── */
 
 titulo("Higiene")
 ok(errosDeConsole.length === 0, "nenhum erro no console", errosDeConsole.slice(0, 3).join(" | "))

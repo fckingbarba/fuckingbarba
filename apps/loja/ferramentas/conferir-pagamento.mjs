@@ -43,6 +43,8 @@
  * │ • o dinheiro que entra pelo QR de um pedido cancelado no admin ficar   │
  * │   lá (o QR continua pagável — o Pagar.me não deixa matá-lo);           │
  * │ • a confirmação perdida no caminho virar "sacola vazia" e compra dupla;│
+ * │   e, com o pagamento cancelado depois, um laço sem fim entre o         │
+ * │   /checkout e o /checkout/retomar (24/09);                             │
  * │ • pedido pago ficar sem o e-mail "Pedido confirmado" — pelo aviso,     │
  * │   pelo cartão, pela conciliação, pelo "Check status" do admin, com o   │
  * │   Resend fora na hora — ou receber dois; e pedido que não foi pago     │
@@ -883,7 +885,9 @@ try {
   titulo("Cartão reprovado na análise depois: o pedido é cancelado, e nada é cobrado")
   {
     await longeDaConciliacaoAutomatica(90_000)
-    const { contexto, pagina } = await compraEmAnalise("analise-reprovada@fuckingbarba.invalid")
+    const { contexto, pagina, carrinhoId } = await compraEmAnalise(
+      "analise-reprovada@fuckingbarba.invalid"
+    )
     await pagina.waitForURL(/\/checkout\/obrigado\//, { timeout: 45000 })
     const pedido = await pedidoNoMedusa(idDaUrl(pagina))
     const la = noPagarme(pedido)
@@ -915,6 +919,55 @@ try {
       email?.subject ?? "sem e-mail"
     )
     await contexto.close()
+
+    /*
+      E SE A RESPOSTA DA COMPRA TIVESSE SE PERDIDO (24/09): o cookie da sacola
+      fica, e o carrinho já é pedido. Com o pagamento cancelado, o Medusa não
+      devolve mais o pedido pelo `complete` — e o /checkout mandava pro
+      /checkout/retomar, que mandava de volta: 71 idas em 8 segundos. Agora a
+      loja acha o pedido pela rota `/store/pedido-do-carrinho`.
+    */
+    const perdida = await navegador.newContext({ viewport: { width: 1280, height: 1000 } })
+    await perdida.addCookies([{ name: "carrinho", value: carrinhoId, url: LOJA }])
+    const volta = await perdida.newPage()
+    const idas = []
+    volta.on("request", (r) => {
+      if (r.isNavigationRequest() && r.frame() === volta.mainFrame())
+        idas.push(new URL(r.url()).pathname)
+    })
+    await volta.goto(`${LOJA}/checkout`, { waitUntil: "domcontentloaded" }).catch(() => null)
+    await volta.waitForURL(/\/checkout\/obrigado\//, { timeout: 20000 }).catch(() => null)
+    await esperar(3000)
+    ok(
+      idDaUrl(volta) === pedido.id && idas.length <= 4,
+      "com a resposta perdida e o cartão reprovado depois, o checkout leva pro pedido, sem laço",
+      `${idas.length} idas: ${idas.slice(0, 6).join(" → ")}`
+    )
+    await semStreaming(volta)
+    ok(
+      /cancelado/i.test((await tituloDoFeito(volta).catch(() => "")) ?? ""),
+      "e a tela do pedido diz que ele foi cancelado"
+    )
+    // A trava do laço, sozinha: com o recado de volta do retomar, o checkout
+    // fica na tela — não manda pra lá de novo, ache ou não o pedido.
+    await perdida.addCookies([{ name: "carrinho", value: carrinhoId, url: LOJA }])
+    idas.length = 0
+    await volta
+      .goto(`${LOJA}/checkout?retomar=falhou`, { waitUntil: "domcontentloaded" })
+      .catch(() => null)
+    await semStreaming(volta)
+    await esperar(3000)
+    const fica = await volta
+      .locator("main h1")
+      .first()
+      .textContent()
+      .catch(() => "")
+    ok(
+      new URL(volta.url()).pathname === "/checkout" && /virou pedido/i.test(fica ?? ""),
+      "e, voltando do /checkout/retomar sem pedido, o checkout fica na tela com o recado",
+      `${volta.url()} · "${fica}" · ${idas.length} idas`
+    )
+    await perdida.close()
   }
 
   titulo("A análise responde enquanto o checkout espera")
