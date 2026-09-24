@@ -714,8 +714,9 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
       levando 3 ou mais, arredondado pra baixo até o ",90" (no de 3, o ",90" que divide em
       centavos: o Fator fica R$ 152,90 e R$ 222,90). Quem cobra é o Medusa, pela quantidade da
       linha — ao adicionar, ao mudar na sacola, no checkout —, com a lista "Desconto por
-      quantidade" que o job `precos-por-quantidade` refaz de 15 em 15 minutos a partir do preço
-      atual (mudou o preço no admin, as faixas acompanham). A PDP pergunta os preços em
+      quantidade" que o job `precos-por-quantidade` refaz de minuto em minuto (era de 15 em 15 até
+      24/09 — ver a investigação da sacola e do checkout, abaixo) a partir do preço atual (mudou o
+      preço no admin, as faixas acompanham). A PDP pergunta os preços em
       `/store/precos-por-quantidade`, que usa a mesma conta do carrinho. Na tela: "Quantas
       unidades", e os cartões e o seletor de quantidade são a mesma coisa (clicar em "2 unidades"
       põe 2 no seletor; 4 ou 5 pagam o preço do de 3). Testado de ponta a ponta num Medusa local:
@@ -772,6 +773,43 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
   - Conferido numa pilha local (Medusa 9074, painel 3174): com a CPU do navegador 6× mais lenta
     só na remoção, o conferidor de antes falhou em 3 de 5 rodadas e o novo passou nas 5; sem a
     lentidão, o novo deu 60/60 em 15 rodadas (as três últimas já com a #56).
+- [x] **Investigação da sacola e do checkout** (24/09, a pedido da loja). Quatro revisões do
+      código em paralelo e compras de verdade numa loja local: 15 problemas reais, nenhum de
+      cobrança em dobro. A entrega 0077 consertou os de dinheiro e de endereço, cada um com
+      checagem nova no `conferir-checkout` (que falha no código de antes):
+  - **O cartão cobrava um total diferente do botão** — "Pagar R$ 73,60" e R$ 128,50 cobrados, com
+    um item posto por outra aba. Agora o `finalizar` confere o total que a tela mostrou.
+  - **Trocar o CEP na sacola mantinha o número da rua antiga** ("Praça Pio X, 1578 — apto 12",
+    no Rio) e o checkout pulava pro pagamento. Agora o CEP novo leva o número e o complemento, e o
+    checkout volta pro passo 2 (`comCepNovo`).
+  - **Confirmar o passo 2 com o CEP ainda sendo buscado** gravava o CEP novo com a rua e a cidade
+    do antigo. O botão trava durante a busca, e o servidor recusa CEP de outra cidade.
+  - **Promoção que acabava deixava 2 e 3 unidades no preço dela** até o job de 15 minutos (2 óleos
+    por R$ 104,90 com 1 a R$ 79,90), e nada avisava a loja de preço mudado no admin. O job roda de
+    minuto em minuto e avisa a loja quando os preços ou as datas das promoções mudam.
+  - **A "Entrega expressa" cobrada era o mesmo serviço da econômica grátis** quando a mais barata
+    é também a mais rápida. Agora o grátis vale nas duas, e a tela mostra uma só.
+  - **Cupom cadastrado em minúsculas nunca aplicava** (a loja punha em maiúsculas).
+- [ ] **O que a investigação achou e ficou pra depois** (entrega B, a combinar com a loja):
+  - sem internet por um instante, o "+" da sacola derruba o site inteiro, e o "Adicionar à
+    sacola" derruba a página (as ações não tratam a falha de rede);
+  - produto que esgota no meio do checkout vira "espera um minuto e clica em pagar de novo" pra
+    sempre, sem dizer que esgotou;
+  - com o Medusa reiniciando (todo deploy), a sacola aparece vazia, sem recado, e quem adiciona
+    de novo dobra a quantidade;
+  - a gaveta não relê o carrinho ao abrir: a oferta marcada no checkout não aparece nela;
+  - com a resposta da compra perdida e o pagamento recusado depois, `/checkout` e
+    `/checkout/retomar` mandam um pro outro sem fim;
+  - a segunda aba diz "nada foi cobrado, tenta de novo" com o pedido já feito na primeira;
+  - e-mail com mais de 64 caracteres trava o pagamento sem dizer por quê.
+- [ ] **Decisão da loja:** o piso do frete grátis vale sobre o valor PAGO (com cupom e oferta) ou
+      sobre o CHEIO? Hoje o Medusa decide pelo cheio e o checkout mostra "faltam R$ X" pelo pago —
+      com um cupom de 10%, a tela diz "Faltam R$ 7,07" ao lado da entrega "Grátis".
+- [ ] **Pagamento, casos raros lidos no código** (entrega C, com testes no Pagar.me falso): o
+      Pix pago depois do cancelamento é estornado direto no Pagar.me, sem registro no Medusa — se
+      o estorno falhar, ninguém fica sabendo; o "Check status" do admin rodando junto com o aviso
+      do Pagar.me pode estornar um pedido pago que segue pra envio; o pedido fica pendente pra
+      sempre (com o estoque preso) se o pagamento der erro fora da conciliação.
 - [ ] **Aposentar os dois kits do Fator** (produtos "Kit 2/3 frascos"), que a página não usa mais:
       no admin, mudar os dois pra Rascunho — ou, no Shell do Railway, de `.medusa/server`,
       `npx medusa exec ./src/scripts/precos-por-quantidade.js` (faz as faixas e passa os kits pra
