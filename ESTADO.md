@@ -3,18 +3,19 @@
 Atualizado em 23/09/2026, à noite: **a fase 5 (Operação) está quase fechada** — o que falta está no
 topo da seção 4. Em 23/09 o Bling foi conectado (estoque, catálogo e a nota fiscal, que sai 5
 minutos depois do pagamento — ver 1c), e o token de parceiro da Frenet entrou no Railway, junto com
-o `MEDUSA_BACKEND_URL` (ver 1b): o pedido pago passa a ir sozinho pro painel da Frenet. Em 22/09, o
-Pix vencido que prendia o estoque foi consertado (o #7 — ver o primeiro achado da revisão do
-pagamento) e a Minha conta ficou de pé na loja: endereços, meus dados, o checkout que abre
-preenchido pra quem está na conta (e guarda o endereço da compra), e o "Minha conta" do cabeçalho
-apontando pra ela. No mesmo dia, o estorno que o Pagar.me não faz (a conciliação confere,
-avisa e pede de novo), a API de pedido fechada pra quem só tem o id, o e-mail de pedido confirmado
-ligado, as páginas de Contato e Dúvidas no lugar do `/em-breve`, a busca de verdade na lupa do
-cabeçalho, o checkout mais enxuto (com o logo da bandeira no campo do cartão), a categoria
-estática e o CI medindo a loja com produto; em 21/09, o conserto do cache e o rastreio da Frenet
-chegando no pedido, na conta e no e-mail. O AGENTS.md diz **como** trabalhar aqui; este arquivo diz
-**onde** o projeto está. Leia os dois antes de começar e, ao terminar uma tarefa, atualize este: o
-que mudou de estado, o que saiu da lista, o que entrou.
+o `MEDUSA_BACKEND_URL` (ver 1b): o pedido pago passa a ir sozinho pro painel da Frenet. E o cartão
+passou a ser cobrado só depois da análise de fraude — a compra legítima que ela barra não aparece
+mais na fatura (ver 1). Em 22/09, o Pix vencido que prendia o estoque foi consertado (o #7 — ver o
+primeiro achado da revisão do pagamento) e a Minha conta ficou de pé na loja: endereços, meus
+dados, o checkout que abre preenchido pra quem está na conta (e guarda o endereço da compra), e o
+"Minha conta" do cabeçalho apontando pra ela. No mesmo dia, o estorno que o Pagar.me não faz (a
+conciliação confere, avisa e pede de novo), a API de pedido fechada pra quem só tem o id, o e-mail
+de pedido confirmado ligado, as páginas de Contato e Dúvidas no lugar do `/em-breve`, a busca de
+verdade na lupa do cabeçalho, o checkout mais enxuto (com o logo da bandeira no campo do cartão), a
+categoria estática e o CI medindo a loja com produto; em 21/09, o conserto do cache e o rastreio da
+Frenet chegando no pedido, na conta e no e-mail. O AGENTS.md diz **como** trabalhar aqui; este
+arquivo diz **onde** o projeto está. Leia os dois antes de começar e, ao terminar uma tarefa,
+atualize este: o que mudou de estado, o que saiu da lista, o que entrou.
 
 ## No ar hoje
 
@@ -127,13 +128,30 @@ sozinha a cada 5 minutos; se nem ela resolver, o log com `[conciliação]` diz o
       é o que o `ferramentas/pagarme-falso.mjs` já faz, com cartão que aprova
       (`4000000000000010`), cartão que recusa (`4000000000000028`) e CPF que cai na antifraude
       (`11111111111`).
-- [ ] Decidir o `auth_and_capture` — a conversa que travava essa decisão já aconteceu. Hoje a loja
-      captura junto com a autorização, então quando o antifraude dá falso positivo o valor **sai e
-      volta** na fatura de quem comprou de verdade. Autorizar primeiro e capturar depois da análise
-      troca isso por "o valor nem saiu", que é melhor pro cliente — e o Pagar.me já avisou que falso
-      positivo vai acontecer. O custo é um passo a mais no fluxo e uma janela em que o pedido existe
-      com o dinheiro só reservado. Não é urgente; é uma escolha que antes estava travada e agora
-      não está.
+- [x] **O cartão só é cobrado depois da análise de fraude** (decidido e feito em 23/09). Antes, a
+      loja cobrava junto com a autorização (`auth_and_capture`), e quando a análise reprovava uma
+      compra de verdade o valor saía e voltava na fatura. Agora:
+  - na compra, o cartão só é **autorizado**: o valor fica reservado no limite, fora da fatura;
+  - a loja espera uns segundos pela análise. Aprovada, cobra na hora e o pedido nasce pago;
+    reprovada, a tela pede outro cartão ou o Pix, e nada foi cobrado;
+  - se a análise demorar mais que isso, o pedido nasce **"Pagamento em análise"** (a tela e a conta
+    já diziam isso), e a loja cobra sozinha quando ela aprovar — pelo aviso do Pagar.me, em
+    segundos, ou pela conciliação, em até 5 minutos. Reprovada depois, o pedido é cancelado, a
+    reserva desfeita, e o e-mail diz que nada foi cobrado;
+  - nota, Bling e Frenet continuam andando só com o pedido **cobrado**;
+  - a análise manual (uma pessoa do Pagar.me, em até 48 horas úteis) cabe nos **5 dias** que a
+    autorização vale; passados 3, o log avisa. Sem resposta nenhuma da análise em 10 minutos, a
+    loja cobra assim mesmo, com uma linha no log — senão a venda morreria com a autorização;
+  - a tela de obrigado e as Dúvidas ("Meu cartão foi recusado") explicam a reserva.
+- [ ] **Depois do deploy — você:** no painel do Pagar.me, no webhook que já existe (o de
+      `order.paid` e `charge.paid`, a mesma URL), marque também o evento
+      **`charge.antifraud_approved`** — no modo produção e no modo teste. Sem ele tudo funciona,
+      só que a cobrança do cartão que ficou em análise espera a conciliação (até 5 minutos) em vez
+      de sair em segundos.
+- [ ] **Na primeira compra de verdade no cartão**, o log do Railway deve trazer
+      `[pagarme] or_… cobrado (… centavos) depois de a análise de fraude aprovar`. Se vier
+      `sem resposta da análise de fraude em 10 minutos`, a análise não está chegando onde a loja
+      procura (`antifraud_response`) — é caso pro Claude Code olhar, com o `conferir-cartao.mjs`.
 - [x] **O e-mail de cancelamento ia mentir pro cartão reprovado, e isso foi corrigido no mesmo dia
       em que nasceu (22/09).** Na antifraude o dinheiro sai e volta sem o Medusa ver nada: não há
       `captured_at` e ninguém pediu estorno, então a decisão caía em "sem-cobranca" e o e-mail dizia

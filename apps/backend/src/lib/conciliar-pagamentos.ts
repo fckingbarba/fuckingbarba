@@ -22,6 +22,8 @@ import {
 import {
   gravar,
   lerEstado,
+  podeCobrar,
+  reservaPraDesfazer,
   traduzir,
   type Estado,
   type Situacao,
@@ -44,7 +46,13 @@ import { conferirEstornos, estornoAndando, type RelatorioDeEstornos } from "./es
  *     depois de `expires_at` + 10 minutos, e relendo o estado antes, porque
  *     Pix pago no último minuto existe.
  *
- *   CARTÃO RECUSADO NA ANÁLISE, PIX QUE FALHOU → cancela o pedido aqui.
+ *   CARTÃO APROVADO NA ANÁLISE, AINDA SÓ RESERVADO → cobra, pelo mesmo
+ *     caminho do pago: o `processPaymentWorkflow` chama o `authorizePayment`
+ *     do provedor, que faz a cobrança (ver "A ANÁLISE ANTES DA COBRANÇA", no
+ *     `situacao.ts`). É a rede do aviso `charge.antifraud_approved`.
+ *
+ *   CARTÃO RECUSADO NA ANÁLISE, PIX QUE FALHOU → cancela o pedido aqui (e
+ *     desfaz a reserva do cartão, se o Pagar.me ainda não desfez).
  *
  *   PEDIDO CANCELADO NO ADMIN COM PIX AINDA ABERTO → o QR continua vivo (ver
  *     a caixa abaixo): a sessão fica VIGIADA, e o que for pago depois do
@@ -115,7 +123,10 @@ const FOLGA_DO_PIX_MS = 10 * 60 * 1000
 /** O mesmo padrão do provedor, pra quando nem o Pagar.me disser a validade. */
 const PIX_MINUTOS_PADRAO = 30
 
-/** Cartão em análise por mais que isto é caso pra gente olhar. */
+/**
+ * Cartão em análise por mais que isto é caso pra gente olhar: a autorização
+ * vence em 5 dias, e aí o Pagar.me solta a reserva e a venda se perde.
+ */
 const ANALISE_LONGA_MS = 3 * 24 * 60 * 60 * 1000
 
 /** Até onde olhar pra trás. Pendente mais velho que isso é caso pra gente. */
@@ -360,8 +371,25 @@ async function conciliarPendente(
     return
   }
 
+  /*
+    APROVADO NA ANÁLISE E AINDA NÃO COBRADO (o aviso não chegou): o mesmo
+    caminho do pago. Quem cobra é o `authorizePayment` do provedor, chamado
+    pelo `processPaymentWorkflow` — e a releitura diz se a cobrança saiu.
+  */
+  if (podeCobrar(pedido, agora).cobrar) {
+    await registrarPagamento(container, sessao.id, Number(pedido.amount))
+    const depois = traduzir(await cliente.lerPedido(pedido.id), estado.forma, estado.parcelas)
+    if (depois.status === PaymentSessionStatus.CAPTURED) {
+      relatorio.pagas.push(`${nome} (cartão cobrado depois da análise)`)
+    } else {
+      relatorio.avisos.push(`${nome}: aprovado na análise, e a cobrança não saiu (${pedido.id})`)
+    }
+    return
+  }
+
   if (lido.status === PaymentSessionStatus.ERROR || lido.status === PaymentSessionStatus.CANCELED) {
     await cancelarPedido(container, pedidoMedusa?.id)
+    await desfazerReserva(cliente, pedido, nome, relatorio)
     await anotar(container, sessao, lido.estado, lido.status)
     relatorio.canceladas.push(`${nome} (${lido.estado.situacao} no Pagar.me)`)
     return
@@ -374,9 +402,31 @@ async function conciliarPendente(
       return
     }
   } else if (agora.getTime() - new Date(sessao.created_at).getTime() > ANALISE_LONGA_MS) {
-    relatorio.avisos.push(`${nome}: cartão em análise há mais de 3 dias (${pedido.id})`)
+    relatorio.avisos.push(
+      `${nome}: cartão em análise há mais de 3 dias (${pedido.id}) — a reserva vence em 5`
+    )
   }
   relatorio.esperando++
+}
+
+/**
+ * A reserva que a análise reprovou e o Pagar.me ainda não desfez: desfaz (o
+ * mesmo `DELETE` do cancelamento, que numa autorização só solta o limite).
+ * Não segura o resto: se não der agora, o Pagar.me solta sozinho.
+ */
+async function desfazerReserva(
+  cliente: ClienteDoPagarme,
+  pedido: PedidoPagarme,
+  nome: string,
+  relatorio: Relatorio
+) {
+  const cobranca = reservaPraDesfazer(pedido)
+  if (!cobranca) return
+  try {
+    await cliente.cancelarCobranca(cobranca)
+  } catch (e) {
+    relatorio.avisos.push(`${nome}: a reserva reprovada não foi desfeita agora (${mensagemDe(e)})`)
+  }
 }
 
 /**
@@ -765,8 +815,10 @@ export type Fecho = "estornou" | "cancelou" | "vigiando" | "nada"
  *     não. Enquanto o QR vale, vigia; depois de vencido, não há mais nada a
  *     fechar lá — só anotar aqui.
  *
- *   CARTÃO PENDENTE (análise) → esse o DELETE cancela. E se vier 412
- *     assim mesmo, é o Pagar.me dizendo "ainda não": vigia.
+ *   CARTÃO PENDENTE (análise, com o valor só reservado — mesmo já aprovado
+ *     e ainda não cobrado) → esse o DELETE cancela, e a reserva é desfeita
+ *     sem nada entrar na fatura. E se vier 412 assim mesmo, é o Pagar.me
+ *     dizendo "ainda não": vigia.
  *
  * A cobrança é a do pedido LIDO, nunca um id que veio de outro lugar. O
  * `gravado` é o estado da sessão, e serve só pra saber quando o Pix vence.

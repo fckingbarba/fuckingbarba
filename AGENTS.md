@@ -167,12 +167,20 @@ não calcula. Peso e medidas moram na VARIANTE (`src/scripts/medidas.ts`), não 
 **Pagamento** é um provider próprio (`src/modules/pagarme/`, id `pp_pagarme_pagarme`): Pix e cartão
 em até 3x pelo Pagar.me, ligado na região por `npm run backend:pagamento` (que tira o provisório
 `pp_system_default` — o que aprova sem cobrar — e confere o que a loja enxerga; `-- voltar` desfaz).
-O pedido nasce no Pagar.me no `authorizePayment`, no fim do fechamento do carrinho: cartão aprovado
-fecha pago, Pix fecha aguardando, cartão recusado desfaz o pedido. O Pix pago chega pelo webhook
-(Pagar.me → Edge Function `webhook-pagamento` → `/hooks/payment/pagarme_pagarme`, que exige o
-`x-webhook-segredo` e relê o pedido na API antes de acreditar); o que o webhook não resolve — Pix
-vencido, aviso perdido, cobrança que sumiu no caminho — a conciliação resolve a cada 5 minutos no
-worker (`src/lib/conciliar-pagamentos.ts`, e `POST /admin/pagamentos/conciliar` pra rodar na hora).
+O pedido nasce no Pagar.me no `authorizePayment`, no fim do fechamento do carrinho: Pix fecha
+aguardando, cartão recusado desfaz o pedido. **O cartão só é AUTORIZADO ali** (`auth_only`: o valor
+fica reservado) e só é COBRADO (`POST /charges/:id/capture`) com a análise de fraude aprovada —
+quem decide é o `podeCobrar` (`modules/pagarme/situacao.ts`). O checkout espera uns 6 segundos
+pela análise: aprovada, cobra e fecha pago; reprovada, desfaz o pedido, como o recusado; ainda
+pensando, fecha aguardando ("em análise"), e a cobrança vem pelo aviso `charge.antifraud_approved`
+ou pela conciliação — os dois passam pelo `processPaymentWorkflow`, que chama o mesmo
+`authorizePayment`, e é ele que cobra. Reprovada depois, o pedido é cancelado e a reserva desfeita,
+sem nada na fatura; e reserva desfeita não é estorno (o `estornado` da sessão fica 0). O Pix pago
+chega pelo webhook (Pagar.me → Edge Function `webhook-pagamento` →
+`/hooks/payment/pagarme_pagarme`, que exige o `x-webhook-segredo` e relê o pedido na API antes de
+acreditar); o que o webhook não resolve — Pix vencido, aviso perdido, cobrança que sumiu no
+caminho — a conciliação resolve a cada 5 minutos no worker (`src/lib/conciliar-pagamentos.ts`, e
+`POST /admin/pagamentos/conciliar` pra rodar na hora).
 Duas armadilhas já pagas: o Medusa MISTURA (em profundidade) o `data` da sessão com o que chegou
 da API pública, então o provedor grava o estado inteiro, com `null` explícito, e acha o pedido do
 Pagar.me pelo CÓDIGO (o id da sessão), nunca pelo `data`; e o cartão aprovado no fechamento não

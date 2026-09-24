@@ -64,7 +64,7 @@ function cabecaDo(p: PagamentoVisivel): Cabeca {
         Icone: Relogio,
         titulo: "Pagamento em análise",
         frase:
-          "O Pagar.me está conferindo o pagamento — costuma levar poucos minutos, e esta página muda sozinha.",
+          "O cartão foi autorizado, e o valor fica só reservado até a conferência de segurança aprovar — costuma levar poucos minutos, e esta página muda sozinha.",
       }
     case "pago":
       return {
@@ -106,8 +106,8 @@ const PASSOS: Record<PagamentoVisivel["estado"], string[]> = {
     "O código de rastreio chega por e-mail assim que ela for postada.",
   ],
   analise: [
-    "O pagamento passa por uma conferência de segurança, que costuma levar poucos minutos.",
-    "Aprovado, a encomenda entra na fila de separação e é postada.",
+    "O pagamento passa por uma conferência de segurança, que costuma levar poucos minutos. Até lá, nada é cobrado.",
+    "Aprovado, o valor é cobrado e a encomenda entra na fila de separação. Se não for, a reserva é desfeita e nada é cobrado.",
     "O código de rastreio chega por e-mail assim que ela for postada.",
   ],
   pago: [
