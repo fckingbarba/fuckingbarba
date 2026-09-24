@@ -1148,14 +1148,57 @@ pro marketing e pro dono (a operação não abre):
 Até alguém publicar, a home é a "de fábrica": o mesmo texto que já estava no ar. Antes de publicar,
 confira as afirmações que o painel marca: "+1.000.000 clientes satisfeitos", "Aprovado em estudo
 interno", o ano de fundação e o "+1M clientes impactados". O vídeo da história da marca continua
-subindo no admin (Configurações da loja → Home) até a parte 2. Conferido pelo `conferir-home.mjs`
+subindo no admin (Configurações da loja → Home) até a parte 3. Conferido pelo `conferir-home.mjs`
 (43 checagens).
 
 Depois do deploy — **nada a fazer**: não tem variável nova.
 
-- [ ] **Parte 2:** as imagens — o banner com até 5 slides (a imagem do computador e a do
-      celular), a foto de fundo das seções, a foto da última chamada e o vídeo da história, tudo
-      no painel —, e a "Prova social" com os casos de antes e depois das páginas dos produtos.
+- [x] **Parte 2:** as imagens — logo abaixo.
+
+**Fase 4, parte 2: o banner com carrossel e as fotos da home — pronta em 24/09 (entrega 0073).** No
+"Layout da home" do painel:
+
+- **Banner principal com até 5 slides**, que passam sozinhos (a cada 5, 7 ou 10 segundos, ou só
+  quando a pessoa troca). Cada slide é de um jeito:
+  - **Com arte:** a imagem ocupa o banner inteiro, com o texto dentro dela — **as mesmas artes da
+    Nuvemshop servem**: 1920 × 700 no computador e 800 × 1000 (ou 1080 × 1350) no celular. A loja
+    mostra a arte inteira, sem cortar. O slide leva pro produto escolhido, ou pra vitrine. O
+    "Título" vira a descrição da imagem, pra quem não enxerga e pro Google: escreva o que a arte
+    diz.
+  - **Sem arte:** o banner de sempre, com o chapéu, o título, o preço e a foto do produto.
+- **Foto de fundo** no bloco escuro ("Fórmulas de alta performance…"), no carrossel de coleção, na
+  Alta performance, na vitrine e no "Sobre a marca" — computador e celular, com o véu da cor da
+  seção por cima, como na página do produto.
+- **Foto própria na "Última chamada"** (computador e celular), com o degradê escuro por cima. Sem
+  ela, continua a foto do produto.
+
+Tudo vai pro rascunho, como os textos: o site muda no "Publicar".
+
+Na loja: o carrossel troca sozinho, para de vez quando a pessoa mexe (toca, arrasta, aperta uma
+seta ou uma bolinha), espera com o mouse em cima e não troca fora da tela. Quem pediu menos
+movimento no celular ou no computador não vê troca nenhuma. A arte do primeiro slide baixa na
+frente de tudo (é o que o Google mede); a do próximo, só dois segundos antes de aparecer.
+
+**O tamanho certo de cada foto**, em pixels — a medida da seção na loja, com o texto e o catálogo
+de hoje (o painel mostra em cima de cada quadro):
+
+| Onde | Computador | Celular |
+| --- | --- | --- |
+| Arte do slide do banner | 1920 × 700 | 1080 × 1350 (ou 800 × 1000) |
+| Bloco escuro de marca | 2880 × 996 | 1170 × 1743 |
+| Carrossel de coleção | 2880 × 1503 | 1170 × 2136 |
+| Alta performance | 2880 × 939 | 1170 × 2867 |
+| Vitrine | 2880 × 2462 | 1170 × 4108 |
+| Sobre a marca | 2880 × 1049 | 1170 × 2710 |
+| Foto da última chamada | 2880 × 984 | 1170 × 1184 |
+
+A vitrine cresce com o catálogo, e o corte da foto dela muda junto. Conferido pelo
+`conferir-home.mjs` (58 checagens, com as imagens, o carrossel e o fundo no navegador).
+
+Depois do deploy — **nada a fazer**: não tem variável nova.
+
+- [ ] **Parte 3:** o vídeo da história da marca no painel (hoje ele sobe no admin) e a "Prova
+      social" com os casos de antes e depois das páginas dos produtos.
 
 ## Como seguir no Claude Code
 
