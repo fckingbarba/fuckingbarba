@@ -1,5 +1,5 @@
 /*
-  IMAGEM DE FUNDO NUMA SEÇÃO DA PDP.
+  IMAGEM DE FUNDO NUMA SEÇÃO — da PDP e da home.
 
   Sem imagem, nada disto existe: a seção sai exatamente como sempre saiu.
   Com imagem, ela aparece ATRÁS da seção — e a cor que a seção já tinha vem
@@ -91,6 +91,20 @@
 }
 .fundo--imagem:has(> .versus) {
   --secao-rgb: 255 216 77; /* amarelo */
+}
+
+/* As da home (`hero.css`, `colecao.css`, `beneficios.css`, `vitrine.css`, `sobre.css`). */
+.fundo--imagem:has(> .hero) {
+  /* O bloco escuro é um gradiente radial quase preto; o meio da elipse é este. */
+  --secao-rgb: 7 10 9;
+}
+.fundo--imagem:has(> .colecao),
+.fundo--imagem:has(> .vitrine) {
+  --secao-rgb: 255 255 255; /* papel */
+}
+.fundo--imagem:has(> .benefits),
+.fundo--imagem:has(> .sobre) {
+  --secao-rgb: 79 228 182; /* menta */
 }
 
 /*

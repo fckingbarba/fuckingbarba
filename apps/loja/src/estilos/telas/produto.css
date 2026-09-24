@@ -6,9 +6,6 @@
   AQUI", lá). A ordem é a mesma de quando morava lá.
 */
 
-/* O fundo por seção da PDP, escolhido no admin. */
-@import "../fundo.css";
-
 /* Gerados por ferramentas/porte/pdp-partes/agrupa-pdp.py; um arquivo por
    seção, na mesma ordem em que a página os monta. As migalhas também saem
    de lá, mas ficam no globals.css: aparecem na categoria e na busca. */

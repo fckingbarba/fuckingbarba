@@ -28,6 +28,10 @@
 @import "../estilos/institucional.css";
 @import "../estilos/sobre.css";
 @import "../estilos/fechamento.css";
+/* A foto de fundo por seção, com o véu da cor dela — da home e da PDP (as
+   duas escolhem no painel). Mora aqui, e não só na tela do produto, porque
+   a home também embrulha seção com fundo. */
+@import "../estilos/fundo.css";
 
 @import "../estilos/sacola.css";
 /* A espera: o que a gaveta faz enquanto o Medusa recalcula. Escrito à mão —
