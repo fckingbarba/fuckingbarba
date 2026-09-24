@@ -1,5 +1,4 @@
 import type { Papel } from "../equipe/regras"
-import { chaveDoDia, hora } from "./formato"
 
 /**
  * AS VISITAS DO DIA — o que o Google Analytics (GA4) conta, do jeito do
@@ -20,30 +19,37 @@ import { chaveDoDia, hora } from "./formato"
  * duas. Os produtos contam páginas vistas (`screenPageViews`) de
  * `/produtos/<handle>` — a loja não manda `view_item` (ainda).
  *
+ * ┌─ O GOOGLE SOMA COM HORAS DE ATRASO ────────────────────────────────────┐
+ * │ Na propriedade comum (não a 360), o dia de hoje chega aos relatórios   │
+ * │ com 4 horas ou mais de atraso; ontem já está (quase) inteiro. Comparar │
+ * │ o hoje incompleto com ontem "até esta hora" dava −92% em dia normal    │
+ * │ (24/09). A comparação é só nas horas que o Google já somou hoje, nos   │
+ * │ dois dias (`comparacaoComOntem`), e a tela diz até que hora.           │
+ * └────────────────────────────────────────────────────────────────────────┘
+ * O "no site agora" é o tempo real: esse chega na hora.
+ *
  * O FUSO É O DA PROPRIEDADE: o GA4 corta o dia e a hora no fuso escolhido
- * nela (Administrador → Detalhes da propriedade). Aqui, tudo supõe
- * Brasília, o da loja; em outro fuso, a virada do dia desalinha.
+ * nela (Administrador → Detalhes da propriedade). As perguntas usam
+ * "today"/"yesterday", que o Google resolve nesse fuso, e a resposta diz
+ * qual é (`metadata.timeZone`): hoje, ontem e a hora de agora são contados
+ * nele. Sem a resposta dizer, Brasília.
  */
 
 /* ── as perguntas ─────────────────────────────────────────────────────────── */
 
 const DIA_MS = 24 * 60 * 60 * 1000
-
-/** Hoje e ontem em Brasília, no formato da API ("2026-09-24"). */
-export function diasDaPergunta(agora: Date): { hoje: string; ontem: string } {
-  return { hoje: chaveDoDia(agora), ontem: chaveDoDia(agora.getTime() - DIA_MS) }
-}
+const BRASILIA = "America/Sao_Paulo"
 
 /**
  * As três perguntas do dia, num `batchRunReports` só: as visitas por hora
- * (ontem e hoje), de onde vieram (hoje) e as páginas de produto (hoje).
+ * (ontem e hoje), de onde vieram (hoje) e as páginas de produto (hoje) —
+ * "hoje" e "ontem" no fuso da propriedade, que o Google resolve.
  */
-export function perguntasDoDia(agora: Date) {
-  const { hoje, ontem } = diasDaPergunta(agora)
-  const soHoje = [{ startDate: hoje, endDate: hoje }]
+export function perguntasDoDia() {
+  const soHoje = [{ startDate: "today", endDate: "today" }]
   return [
     {
-      dateRanges: [{ startDate: ontem, endDate: hoje }],
+      dateRanges: [{ startDate: "yesterday", endDate: "today" }],
       dimensions: [{ name: "date" }, { name: "hour" }],
       metrics: [{ name: "sessions" }],
       limit: "100",
@@ -80,7 +86,11 @@ export type LinhaGa4 = {
   dimensionValues?: { value?: string }[] | null
   metricValues?: { value?: string }[] | null
 }
-export type RelatorioGa4 = { rows?: LinhaGa4[] | null }
+export type RelatorioGa4 = {
+  rows?: LinhaGa4[] | null
+  /** O fuso da propriedade ("America/Sao_Paulo"), que diz o que é hoje e a hora. */
+  metadata?: { timeZone?: string | null } | null
+}
 
 /** As quatro respostas, na ordem das perguntas — é o que o `ga4.ts` guarda. */
 export type RespostasDoGa4 = {
@@ -92,19 +102,26 @@ export type RespostasDoGa4 = {
 
 export type Barra = { nome: string; visitas: number }
 
+/**
+ * Hoje contra ontem, nas mesmas horas: da 0h até `ate`h (sem ela) — as
+ * horas que o Google já somou hoje. "−5% que ontem até as 9h".
+ */
+export type Comparacao = { ate: number; hoje: number; ontem: number }
+
 /** O que a operação recebe: só o número do dia. */
 export type NumeroDeVisitas = {
+  /** O que o Google já somou de hoje (com o atraso dele). */
   hoje: number
-  /** Ontem, da meia-noite até esta mesma hora — a base do "+12% que ontem a esta hora". */
-  ontemAteAgora: number
-  /** "21:10": até quando o número vale. */
-  ate: string
+  /** `null` enquanto o Google não somou nenhuma hora inteira de hoje. */
+  comparacao: Comparacao | null
 }
 
 /** O que o dono e o marketing recebem: o número e o bloco inteiro. */
 export type Visitas = NumeroDeVisitas & {
-  /** Hoje, hora a hora, da 0h até a hora de agora (a última está no meio). */
+  /** Hoje, hora a hora, da 0h até a hora de agora (as últimas, o Google ainda soma). */
   porHora: number[]
+  /** Ontem inteiro — pra conta de quantas viraram pedido pago, que hoje ainda não fecha. */
+  ontem: number
   /** Quem está no site: os últimos 30 minutos, no tempo real do GA4. */
   agora: number
   origens: Barra[]
@@ -134,12 +151,50 @@ export function horasDoDia(r: RelatorioGa4, dia: string): number[] {
   return horas
 }
 
-/** Ontem até esta hora: as horas inteiras antes, e o pedaço da hora de agora. */
-export function ateEstaHora(horas: number[], h: number, minuto: number): number {
-  let soma = 0
-  for (let i = 0; i < h; i++) soma += horas[i] ?? 0
-  return Math.round(soma + (horas[h] ?? 0) * (minuto / 60))
+const somar = (horas: number[], ate = horas.length) =>
+  horas.slice(0, ate).reduce((s, v) => s + v, 0)
+
+/**
+ * Hoje contra ontem, só nas horas inteiras que o Google já somou hoje.
+ *
+ * Com os dados em dia (a última hora com visita é a de agora ou a
+ * anterior), vale até a hora de agora. Atrasados, até a última hora com
+ * visita — sem ela, que pode estar pela metade. Loja pequena tem hora
+ * vazia de madrugada: aí a comparação fica mais curta, nunca errada.
+ */
+export function comparacaoComOntem(
+  hoje: number[],
+  ontem: number[],
+  horaAgora: number
+): Comparacao | null {
+  let ultima = -1
+  for (let h = 0; h <= horaAgora; h++) if ((hoje[h] ?? 0) > 0) ultima = h
+  const ate = ultima >= horaAgora - 1 ? horaAgora : ultima
+  if (ate < 1) return null
+  return { ate, hoje: somar(hoje, ate), ontem: somar(ontem, ate) }
 }
+
+/** O fuso que a resposta disse — se for um que o Node conhece; senão, Brasília. */
+export function fusoDa(r: RelatorioGa4 | null | undefined): string {
+  const fuso = r?.metadata?.timeZone
+  if (!fuso) return BRASILIA
+  try {
+    new Intl.DateTimeFormat("en-CA", { timeZone: fuso })
+    return fuso
+  } catch {
+    return BRASILIA
+  }
+}
+
+/** "2026-09-24" e a hora (0–23), no fuso dado. */
+const diaNoFuso = (d: Date | number, fuso: string) =>
+  new Intl.DateTimeFormat("en-CA", { timeZone: fuso }).format(d)
+const horaNoFuso = (d: Date, fuso: string) =>
+  Number(
+    new Intl.DateTimeFormat("en-GB", { timeZone: fuso, hour: "2-digit", hourCycle: "h23" }).format(
+      d
+    )
+  )
 
 /** Os nomes que o dono reconhece, pelo endereço de onde a pessoa veio. */
 const ORIGENS: [RegExp, string][] = [
@@ -227,22 +282,22 @@ export function montarVisitas(
   g: RespostasDoGa4,
   { agora, nomes }: { agora: Date; nomes: Map<string, string> }
 ): Visitas {
-  const { hoje, ontem } = diasDaPergunta(agora)
-  const [h, minuto] = hora(agora).split(":").map(Number)
-  const horasDeHoje = horasDoDia(g.horas, hoje)
+  const fuso = fusoDa(g.horas)
+  const horaAgora = horaNoFuso(agora, fuso)
+  const horasDeHoje = horasDoDia(g.horas, diaNoFuso(agora, fuso))
+  const horasDeOntem = horasDoDia(g.horas, diaNoFuso(agora.getTime() - DIA_MS, fuso))
   return {
-    hoje: horasDeHoje.reduce((s, v) => s + v, 0),
-    ontemAteAgora: ateEstaHora(horasDoDia(g.horas, ontem), h, minuto),
-    ate: hora(agora),
-    porHora: horasDeHoje.slice(0, h + 1),
+    hoje: somar(horasDeHoje),
+    comparacao: comparacaoComOntem(horasDeHoje, horasDeOntem, horaAgora),
+    porHora: horasDeHoje.slice(0, horaAgora + 1),
+    ontem: somar(horasDeOntem),
     agora: noSiteAgora(g.agora),
     origens: origensDe(g.origens),
     maisVistos: maisVistosDe(g.paginas, nomes),
   }
 }
 
-export const soONumero = ({ hoje, ontemAteAgora, ate }: NumeroDeVisitas): NumeroDeVisitas => ({
+export const soONumero = ({ hoje, comparacao }: NumeroDeVisitas): NumeroDeVisitas => ({
   hoje,
-  ontemAteAgora,
-  ate,
+  comparacao,
 })

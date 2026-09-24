@@ -8,6 +8,10 @@
  * contra a chave pública que o conferidor passa), o escopo só de leitura, o
  * `aud` e a validade de uma hora; o token em cada pergunta; e a propriedade.
  *
+ * As datas "today" e "yesterday" das perguntas valem no fuso da
+ * propriedade (`painel.fuso`, Brasília se ninguém mudar), e toda resposta
+ * diz qual é (`metadata.timeZone`), como a de verdade.
+ *
  * O TOKEN VALE ENTRE RODADAS, como o do Google vale uma hora: ele é assinado
  * aqui (HMAC), sem memória — o Medusa guarda o dele de uma rodada pra outra,
  * e um falso novo não pode recusar o token que o anterior deu. Pra testar o
@@ -53,6 +57,8 @@ export async function subirGoogleFalso({
      * `agora` (quem está no site).
      */
     dia: { horas: [], origens: [], paginas: [], agora: 0 },
+    /** O fuso da propriedade: resolve "today"/"yesterday" e vai em `metadata.timeZone`. */
+    fuso: "America/Sao_Paulo",
     validosDesde: 0,
   }
   painel.revogar = () => {
@@ -99,12 +105,21 @@ export async function subirGoogleFalso({
     metricValues: [{ value: String(valor) }],
   })
 
+  /** "today", "yesterday" ou "2026-09-24" → "20260924", no fuso da propriedade. */
+  const dataDaPergunta = (valor) => {
+    const dia = (ms) =>
+      new Intl.DateTimeFormat("en-CA", { timeZone: painel.fuso }).format(ms).replace(/-/g, "")
+    if (valor === "today") return dia(Date.now())
+    if (valor === "yesterday") return dia(Date.now() - 24 * 60 * 60 * 1000)
+    return String(valor ?? "").replace(/-/g, "")
+  }
+
   /** Um relatório, pelas dimensões pedidas — as três que o painel pergunta. */
   function relatorio(pedido) {
     const dims = (pedido.dimensions ?? []).map((d) => d.name).join(",")
     const periodo = pedido.dateRanges?.[0] ?? {}
-    const de = String(periodo.startDate ?? "").replace(/-/g, "")
-    const ate = String(periodo.endDate ?? "").replace(/-/g, "")
+    const de = dataDaPergunta(periodo.startDate)
+    const ate = dataDaPergunta(periodo.endDate)
     let rows = []
     if (dims === "date,hour")
       rows = painel.dia.horas
@@ -118,7 +133,12 @@ export async function subirGoogleFalso({
         .filter((p) => p.caminho.startsWith(prefixo))
         .map((p) => linha([p.caminho], p.vistas))
     }
-    return { rows, rowCount: rows.length, kind: "analyticsData#runReport" }
+    return {
+      rows,
+      rowCount: rows.length,
+      metadata: { timeZone: painel.fuso, currencyCode: "BRL" },
+      kind: "analyticsData#runReport",
+    }
   }
 
   const servidor = createServer((req, res) => {
@@ -182,6 +202,7 @@ export async function subirGoogleFalso({
       if (m[2] === "runRealtimeReport")
         return json(200, {
           rows: painel.dia.agora ? [linha([], painel.dia.agora)] : [],
+          metadata: { timeZone: painel.fuso },
           kind: "analyticsData#runRealtimeReport",
         })
       return json(200, {

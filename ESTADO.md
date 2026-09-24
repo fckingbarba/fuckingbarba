@@ -999,39 +999,47 @@ nota de novo" (a que a loja desistiu de emitir, depois de alguém corrigir o que
 e pra operação; "Tentar o estorno de novo", **só pro dono** — a operação vê a faixa, com "Estorno é
 com o dono". Cada clique fica no histórico do pedido com o nome de quem apertou e no que deu, e o
 estorno que falhou e depois saiu vira faixa verde. No Início, as **visitas do dia**, do Google
-Analytics: o número pra todos ("+12% que ontem a esta hora"); pro dono e o marketing, o bloco com
-a hora a hora, quem está no site agora, de onde vieram, os produtos mais vistos e quantas viraram
-pedido pago. Se o Google demorar ou cair, o resto do Início aparece do mesmo jeito. De quebra: o
+Analytics: o número pra todos ("−5% que ontem até as 9h"); pro dono e o marketing, o bloco com a
+hora a hora, quem está no site agora, de onde vieram, os produtos mais vistos e quantas viraram
+pedido pago ontem. Se o Google demorar ou cair, o resto do Início aparece do mesmo jeito.
+
+**O Google soma as visitas com horas de atraso** (4 ou mais, na conta comum do Analytics): o
+número de hoje é o que ele já somou, e o "no site agora" é na hora. No primeiro dia ligado (24/09)
+a comparação com ontem deu "−92%" num dia normal — hoje incompleto contra ontem inteiro. Corrigido
+na entrega 0062: a comparação é só nas horas que o Google já somou hoje, a tela diz até que hora,
+e o fuso é o da propriedade do Analytics. De quebra: o
 pedido estornado mostrava total R$ 0,00 (o Medusa desconta o estorno) — agora mostra o total que
 foi feito. Conferido pelos `conferir-acoes.mjs` (32 checagens) e `conferir-visitas.mjs` (36).
 
-Depois do deploy — **você**, pra ligar as visitas (as ações não precisam de nada). Qual
-propriedade: a do GA4 que a loja já usa hoje (a do `G-CS3QPK0QHL`, a da Nuvemshop) — assim o
-histórico continua quando o endereço passar pra loja nova.
+Depois do deploy — **você**, pra ligar as visitas (as ações não precisam de nada) — **feito em
+24/09**: uma conta de serviço só pra isso (no projeto "fuckingbarba" do Google Cloud, separada da
+do Firebase, que é de administrador), Leitor na propriedade, as duas variáveis no Railway e o
+`NEXT_PUBLIC_GA4_ID` na loja. Qual propriedade: a do GA4 que a loja já usa (a do `G-CS3QPK0QHL`, a
+da Nuvemshop) — assim o histórico continua quando o endereço passar pra loja nova.
 
-- [ ] **Google Cloud** (console.cloud.google.com, com o e-mail dono do Analytics): crie um projeto
+- [x] **Google Cloud** (console.cloud.google.com, com o e-mail dono do Analytics): crie um projeto
       (ex.: "fuckingbarba-painel"). Em "APIs e serviços" → "Biblioteca", procure **Google
       Analytics Data API** e clique em **Ativar**.
-- [ ] **A conta que só lê**: "IAM e administrador" → "Contas de serviço" → "Criar conta de
+- [x] **A conta que só lê**: "IAM e administrador" → "Contas de serviço" → "Criar conta de
       serviço", nome `painel-ga4`, e "Concluir" (não precisa dar papel nenhum). Abra a conta →
       aba "Chaves" → "Adicionar chave" → "Criar nova chave" → **JSON**. Baixa um arquivo `.json`:
       ele é uma SENHA — não mande pra ninguém, nem pra conversa. (Se o Google disser que a criação
       de chave está bloqueada pela organização, me mande um print da tela.)
-- [ ] **No Analytics** (analytics.google.com): Administrador (a engrenagem) → "Gerenciamento de
+- [x] **No Analytics** (analytics.google.com): Administrador (a engrenagem) → "Gerenciamento de
       acesso à propriedade" → "+" → "Adicionar usuários" → cole o e-mail da conta de serviço
       (termina em `.iam.gserviceaccount.com`), papel **Leitor**, desmarque "Notificar" →
       "Adicionar". Ainda no Administrador → "Detalhes da propriedade": copie o **ID da
       propriedade** (só números — não é o `G-…`) e confira o fuso: **Brasília**.
-- [ ] **Railway** (o backend), em Variables, onde está o `DASHBOARD_DONO_EMAIL`:
+- [x] **Railway** (o backend), em Variables, onde está o `DASHBOARD_DONO_EMAIL`:
       `GA4_PROPERTY_ID` = o número; `GA4_CREDENCIAIS` = abra o `.json` no TextEdit, copie TUDO e
       cole no valor. Salve (o Railway sobe de novo sozinho). Depois, apague o `.json` dos
       Downloads e da lixeira.
-- [ ] **Vercel, no projeto da LOJA** (não no do painel): hoje a loja nova não manda visita
+- [x] **Vercel, no projeto da LOJA** (não no do painel): hoje a loja nova não manda visita
       nenhuma pro Google — falta o `NEXT_PUBLIC_GA4_ID`. Em Settings → Environment Variables,
       `NEXT_PUBLIC_GA4_ID` = `G-CS3QPK0QHL`, e um Redeploy. Com ele, a loja passa a mostrar o aviso
       de cookies (é ele que decide quem entra na conta). Sem ele, o painel mostra só as visitas
       que o site da Nuvemshop ainda manda.
-- [ ] **Conferir**: abra o Início do painel. No lugar de "o Google Analytics ainda não está ligado"
+- [x] **Conferir**: abra o Início do painel. No lugar de "o Google Analytics ainda não está ligado"
       aparece o número de visitas de hoje. Se aparecer "o Google recusou a leitura", o e-mail da
       conta não está como Leitor na propriedade, ou a API não foi ativada no projeto.
 

@@ -138,11 +138,7 @@ async function tokenDoGoogle(c: Credenciais, agora = Date.now()): Promise<string
   return token.valor
 }
 
-async function perguntar(
-  cfg: ConfiguracaoDoGa4,
-  agora: Date,
-  deNovo = false
-): Promise<RespostasDoGa4> {
+async function perguntar(cfg: ConfiguracaoDoGa4): Promise<RespostasDoGa4> {
   const acesso = await tokenDoGoogle(cfg.credenciais)
   const api = (process.env.GA4_API_URL || API).replace(/\/+$/, "")
   const init = (corpo: unknown): RequestInit => ({
@@ -153,7 +149,7 @@ async function perguntar(
   const [dia, agoraNoSite] = await Promise.all([
     postar(
       `${propriedade}:batchRunReports`,
-      init({ requests: perguntasDoDia(agora) }),
+      init({ requests: perguntasDoDia() }),
       "relatórios"
     ) as Promise<{ reports?: RespostasDoGa4["horas"][] }>,
     postar(`${propriedade}:runRealtimeReport`, init(PERGUNTA_DO_AGORA), "tempo real") as Promise<
@@ -168,9 +164,9 @@ async function perguntar(
 }
 
 /** Token recusado no meio (revogado, relógio torto): pede outro e pergunta de novo, uma vez. */
-function perguntarComToken(cfg: ConfiguracaoDoGa4, agora: Date): Promise<RespostasDoGa4> {
-  return perguntar(cfg, agora).catch((e: unknown) => {
-    if (e instanceof ErroDoGa4 && e.status === 401) return perguntar(cfg, agora, true)
+function perguntarComToken(cfg: ConfiguracaoDoGa4): Promise<RespostasDoGa4> {
+  return perguntar(cfg).catch((e: unknown) => {
+    if (e instanceof ErroDoGa4 && e.status === 401) return perguntar(cfg)
     throw e
   })
 }
@@ -193,7 +189,7 @@ export function respostasDoDia(
   if (guardado?.chave === chave && Date.now() - guardado.em < segundosGuardado() * 1000)
     return Promise.resolve(guardado.respostas)
   if (andando?.chave === chave) return andando.promessa
-  const promessa = perguntarComToken(cfg, agora)
+  const promessa = perguntarComToken(cfg)
     .then((respostas) => {
       guardado = { chave, em: Date.now(), respostas }
       return respostas
