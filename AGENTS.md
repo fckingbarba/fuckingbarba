@@ -637,11 +637,15 @@ origem "painel": a importação do ERP e a da Nuvemshop não trocam mais). Rota:
 bilhete (`POST /dashboard/produtos/:id/videos/envio`, com o papel conferido; `lib/videos.ts`: HMAC
 com uma chave derivada do `JWT_SECRET`, 15 minutos, uso único, pra um produto, um tipo e um tamanho)
 e o navegador manda o arquivo cru direto pro Medusa, `PUT /painel-envio/:bilhete` — `bodyParser:
-false`, CORS só pra origem do `DASHBOARD_URL` —, que confere o tipo pelos primeiros bytes (MP4 pela
-caixa `ftyp`, WebM pelo EBML; o `.MOV` do iPhone recusado com frase própria) e grava EM FLUXO no
+false`, CORS só pra origem do `DASHBOARD_URL` —, que confere o tipo pelos primeiros bytes (a família
+do MP4 pela caixa `ftyp` — o `.MOV` do iPhone é da mesma família e sobe como MP4 —, WebM pelo EBML)
+e grava EM FLUXO no
 armazenamento (`getUploadStream` do módulo de arquivos: o arquivo nunca fica inteiro na memória);
-o que foi recusado no meio é apagado. A capa do vídeo (um quadro do começo, tirado no navegador)
-sobe como imagem, `uso: "poster"`. O vídeo do modo de uso é `funciona.usoVideo`; o antes e depois é
+o que foi recusado no meio é apagado. O CODEC o painel lê antes de subir, das caixas do próprio
+arquivo (`codecDoVideo`, em `apps/dashboard/src/lib/video-no-navegador.ts`): H.264 toca em todo
+lugar; o HEVC — o padrão da câmera do iPhone — sobe com aviso (o Firefox e aparelhos antigos mostram
+só a capa); outro codec é recusado. A capa do vídeo (um quadro do começo, tirado no navegador) sobe
+como imagem, `uso: "poster"`. O vídeo do modo de uso é `funciona.usoVideo`; o antes e depois é
 `conteudo.antesDepois` (até 3 casos; caso sem `autorizou: true` não existe, e o editor diz que
 falta), com as fotos em `uso: "caso"`; a rota da seção confere que toda foto e vídeo dela mora no
 armazenamento (`urlsDaSecao`). A loja lê os casos do produto (e só na falta deles o

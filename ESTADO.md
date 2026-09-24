@@ -1115,9 +1115,12 @@ Railway instala sozinho).
 | Vídeo do modo de uso | 1920 × 1080 px, deitado (16:9) |
 | Foto de antes e de depois | 900 × 1050 px, em pé (6 × 7) |
 
-Foto: JPG, PNG ou WebP. Vídeo: MP4 ou WebM, até 50 MB e, de preferência, até 30 segundos (acima
-de 20 MB ele pesa pra quem abre no celular). O .MOV do iPhone não toca em todo navegador: exporte
-como MP4 antes. Conferido pelo `conferir-produtos.mjs` (agora 82 checagens, com a galeria, os
+Foto: JPG, PNG ou WebP. Vídeo: MP4, MOV ou WebM, até 50 MB e, de preferência, até 30 segundos
+(acima de 20 MB ele pesa pra quem abre no celular). O vídeo do iPhone sobe direto, mas a câmera dele
+grava em HEVC, que o Firefox e aparelhos antigos não tocam (mostram só a capa) — o painel avisa. Pra
+tocar em todo lugar: no iPhone, Ajustes → Câmera → Formatos → **Mais Compatível** (vale pros
+vídeos gravados dali em diante). Até a entrega 0068, o painel recusava o vídeo do iPhone mesmo com
+o nome trocado pra .mp4 — ele olha o que o arquivo é por dentro. Conferido pelo `conferir-produtos.mjs` (agora 82 checagens, com a galeria, os
 vídeos e os casos).
 
 Depois do deploy — **nada a fazer**: não tem variável nova.
