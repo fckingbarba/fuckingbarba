@@ -374,7 +374,10 @@ try {
     const api = (await medusa("/dashboard/inicio", { metodo: "GET", token: tokenDoDono })).corpo
     await pagina.goto(`${PAINEL}/`)
     await pagina.waitForSelector(".numeros")
-    const valores = (await pagina.locator(".numero__valor").allTextContents()).map(semEspaco)
+    // Os três de dinheiro; o das visitas (do Google) tem conferidor próprio, o conferir-visitas.
+    const valores = (
+      await pagina.locator(".numeros .numero:not([data-visitas]) .numero__valor").allTextContents()
+    ).map(semEspaco)
     ok(
       valores.join(" | ") ===
         [api.numeros.vendasHoje.valor, api.numeros.esperando.valor, api.numeros.semana.valor]

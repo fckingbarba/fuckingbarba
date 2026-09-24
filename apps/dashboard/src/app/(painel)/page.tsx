@@ -1,20 +1,27 @@
 import type { Metadata } from "next"
 import { redirect } from "next/navigation"
+import { Suspense } from "react"
 import { Fila, Grafico, MaisVendidos, Numeros, PedidosDeHoje } from "@/components/inicio"
 import { Cabeca, ForaDoAr } from "@/components/telas"
+import { BlocoDasVisitas, NumeroDasVisitas, NumeroDeVisitas } from "@/components/visitas"
 import { lerMembro } from "@/lib/eu"
 import { medusa } from "@/lib/medusa"
 import type { Inicio } from "@/lib/pedidos"
+import { lerVisitas } from "@/lib/visitas"
 
 export const metadata: Metadata = { title: "Início" }
 
 /**
- * O INÍCIO — o que precisa de você hoje, as vendas e os pedidos do dia, do
- * jeito de cada papel: o dono e a operação veem a fila do dia e os pedidos
- * de hoje; o marketing, os números e os mais vendidos (o backend nem manda
- * nome de cliente pra ele — `apps/backend/src/lib/painel/inicio.ts`).
+ * O INÍCIO — o que precisa de você hoje, as vendas, as visitas e os
+ * pedidos do dia, do jeito de cada papel: o dono e a operação veem a fila
+ * do dia e os pedidos de hoje; o marketing, os números e os mais vendidos
+ * (o backend nem manda nome de cliente pra ele —
+ * `apps/backend/src/lib/painel/inicio.ts`).
  *
- * As visitas do dia (do Google Analytics) chegam na próxima entrega.
+ * AS VISITAS vêm do Google Analytics, numa pergunta à parte
+ * (`GET /dashboard/visitas`), e chegam depois do resto: cada pedaço delas
+ * está num `<Suspense>`, e o Início não espera o Google. O número é de
+ * todo papel; o bloco com o dia hora a hora, do dono e do marketing.
  */
 
 const FUSO = "America/Sao_Paulo"
@@ -52,6 +59,8 @@ export default async function PaginaInicio() {
   if (leitura.estado !== "ok") return null
   const { membro } = leitura
 
+  // As visitas saem junto com o Início, sem esperar por ele (a resposta fica no `cache`).
+  void lerVisitas()
   const r = await medusa("/dashboard/inicio", { metodo: "GET", token: "sessao" })
   if (r.status === 401)
     redirect(`/sair?motivo=${r.corpo.message === "fora_da_equipe" ? "fora" : "expirou"}`)
@@ -59,18 +68,37 @@ export default async function PaginaInicio() {
   const inicio = r.corpo as unknown as Inicio
 
   const { titulo, sub } = cabecalho(membro.nome, membro.papel)
+  const visitas = (
+    <Suspense fallback={null}>
+      <BlocoDasVisitas pedidosPagos={inicio.numeros.vendasHoje.pedidos} />
+    </Suspense>
+  )
 
   return (
     <div data-tela>
       <Cabeca titulo={titulo} sub={sub} />
-      <Numeros n={inicio.numeros} />
+      <Numeros
+        n={inicio.numeros}
+        visitas={
+          <Suspense fallback={<NumeroDeVisitas r={{ estado: "carregando" }} />}>
+            <NumeroDasVisitas />
+          </Suspense>
+        }
+      />
       <div className="grade-inicio">
         <div>
           <Fila fila={inicio.fila} />
           <Grafico dias={inicio.grafico} />
         </div>
         <div>
-          {inicio.pedidosDeHoje ? <PedidosDeHoje pedidos={inicio.pedidosDeHoje} /> : null}
+          {inicio.pedidosDeHoje ? (
+            <>
+              <PedidosDeHoje pedidos={inicio.pedidosDeHoje} />
+              {visitas}
+            </>
+          ) : (
+            visitas
+          )}
           <MaisVendidos itens={inicio.maisVendidos} />
         </div>
       </div>

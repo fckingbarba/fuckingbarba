@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { redirect } from "next/navigation"
+import { BotaoDoPedido } from "@/components/acoes-do-pedido"
 import { SoPara } from "@/components/area"
 import { Cpf } from "@/components/cpf"
 import { Icone } from "@/components/icones"
@@ -21,8 +22,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  * histórico, e do lado o pagamento, a entrega e o cliente. Tudo vem pronto
  * do backend (`GET /dashboard/pedidos/:id`); o CPF inteiro só pro dono.
  *
- * No celular vira uma coluna só, na ordem do que mais se procura: o
- * caminho, os itens, o pagamento, a entrega, o cliente e o histórico.
+ * No celular vira uma coluna só, na ordem do que mais se procura: o que
+ * fazer, o caminho, os itens, o pagamento, a entrega, o cliente e o
+ * histórico.
+ *
+ * OS BOTÕES — "Emitir a nota agora" (no "O que fazer"), "Tentar a nota de
+ * novo" e "Tentar o estorno de novo" (dentro da faixa do problema) — vêm do
+ * backend só quando o papel pode apertar e o pedido está no estado deles.
  */
 export default function Pagina({ params }: Props) {
   return (
@@ -63,6 +69,17 @@ async function Pedido({ params }: Props) {
           <div>
             <p className="faixa__titulo">{f.titulo}</p>
             <p>{f.texto}</p>
+            {f.botao ? (
+              <div className="faixa__acoes">
+                <BotaoDoPedido
+                  id={p.id}
+                  acao={f.botao}
+                  rotulo={f.botao === "nota" ? "Tentar a nota de novo" : undefined}
+                  estilo={f.botao === "estorno" ? "btn--perigo" : "btn--contorno"}
+                />
+              </div>
+            ) : null}
+            {f.rodape ? <p className="faixa__rodape">{f.rodape}</p> : null}
           </div>
         </div>
       ))}
@@ -163,6 +180,18 @@ async function Pedido({ params }: Props) {
         </div>
 
         <div className="detalhe__lado">
+          {p.acoes.nota === "agora" ? (
+            <section className="bloco" data-acoes>
+              <h2 className="rotulo">O que fazer</h2>
+              <div className="acoes-lado">
+                <BotaoDoPedido id={p.id} acao="nota" estilo="btn--bloco" />
+                {p.acoes.dica ? (
+                  <p className="pequeno suave acoes-lado__dica">{p.acoes.dica}</p>
+                ) : null}
+              </div>
+            </section>
+          ) : null}
+
           <section className="bloco">
             <h2 className="rotulo">Pagamento</h2>
             <p className="info">

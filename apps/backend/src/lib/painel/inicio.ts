@@ -1,7 +1,16 @@
 import type { Papel } from "../equipe/regras"
 import { lerRegistros as lerEstornos } from "../estornos"
 import { lerRegistroNoPedido } from "../envios/registro"
-import { chaveDoDia, dia, diaDaSemana, duracao, hora, minutosEntre, reais } from "./formato"
+import {
+  chaveDoDia,
+  dia,
+  diaDaSemana,
+  duracao,
+  emFrase,
+  hora,
+  minutosEntre,
+  reais,
+} from "./formato"
 import {
   linhaDaLista,
   nomeCurto,
@@ -229,11 +238,14 @@ function filaDaOperacao(
         icone: "nota",
         titulo: nota.cancelar
           ? `Cancelar a nota do #${l.numero} no Bling`
-          : `Nota com problema no pedido #${l.numero}`,
+          : nota.situacao === "a-emitir"
+            ? `A nota do #${l.numero} não sai sozinha`
+            : `Nota com problema no pedido #${l.numero}`,
         texto: nota.cancelar
           ? "O pedido foi cancelado depois da nota sair: a SEFAZ aceita o cancelamento até 24 horas depois da emissão."
-          : (nota.detalhe ?? nota.erro ?? "O Bling não emitiu a nota.") +
-            " Corrija no Bling e reenvie por lá — a loja percebe sozinha.",
+          : nota.situacao === "a-emitir"
+            ? `${emFrase(nota.erro ?? "O Bling recusou o pedido")} Corrija o que falta e tente de novo, no pedido.`
+            : `${emFrase(nota.detalhe ?? nota.erro ?? "O Bling não emitiu a nota")} Corrija no Bling e reenvie por lá — a loja percebe sozinha.`,
         href: pra(l.id),
       })
     }

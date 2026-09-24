@@ -3,7 +3,15 @@ import { lerRegistro as lerConfirmacao } from "../confirmar-pedido"
 import { lerRegistroNoPedido } from "../envios/registro"
 import { lerRegistros as lerEstornos } from "../estornos"
 import { lerEstado, type Estado } from "../../modules/pagarme/situacao"
-import { dia, hora, minutosEntre, duracao, quando, reais, type Data } from "./formato"
+import {
+  acaoDaNota,
+  estornoPraTentar,
+  eventoDoFeito,
+  notaSaiEm,
+  type AcaoDaNota,
+  type FeitoNoPedido,
+} from "./acoes"
+import { dia, emFrase, hora, minutosEntre, duracao, quando, reais, type Data } from "./formato"
 
 /**
  * O PEDIDO DO JEITO DO PAINEL — onde ele está, o que travou, e o caminho.
@@ -17,7 +25,8 @@ import { dia, hora, minutosEntre, duracao, quando, reais, type Data } from "./fo
  * ┌─ O QUE O PAPEL NÃO VÊ NÃO SAI DAQUI ───────────────────────────────────┐
  * │ O CPF inteiro só vai no detalhe do DONO (`verCpf`). Pra operação, sai  │
  * │ mascarado — e não é a tela que mascara: o número inteiro nem chega no  │
- * │ painel.                                                                │
+ * │ painel. Os botões também: o "Tentar o estorno de novo" só vem marcado  │
+ * │ pro dono (`Permissoes`), e a rota confere de novo antes de fazer.      │
  * └────────────────────────────────────────────────────────────────────────┘
  */
 
@@ -73,6 +82,8 @@ export type PedidoCru = {
   email?: string | null
   customer?: { has_account?: boolean | null } | null
   total?: unknown
+  /** O total do pedido como foi feito — o `total` cai quando há estorno (vira crédito). */
+  original_total?: unknown
   item_subtotal?: unknown
   discount_total?: unknown
   shipping_total?: unknown
@@ -132,6 +143,12 @@ const numero = (v: unknown) => {
 }
 /** Soma de preços em reais sem o lixo do ponto flutuante (0,1 + 0,2). */
 const centavos = (v: number) => Math.round(v * 100) / 100
+/**
+ * O total do pedido como foi feito. O `total` do Medusa é o que SOBROU: o
+ * estorno vira crédito e desconta — o pedido estornado inteiro mostraria
+ * R$ 0,00 ao lado de "o estorno de R$ 128,60 não saiu".
+ */
+const totalDo = (o: PedidoCru) => numero(o.original_total) || numero(o.total)
 const texto = (v: unknown) => (typeof v === "string" ? v.replace(/\s+/g, " ").trim() : "")
 const emData = (v: Quando): Date | null => {
   if (!v) return null
@@ -354,7 +371,7 @@ export function linhaDaLista(
     situacao,
     problema: problemaDo(o, nota, envios),
     despachar: prontoPraDespachar(situacao, nota, p.pagoEm, ctx),
-    total: numero(o.total),
+    total: totalDo(o),
   }
 }
 
@@ -411,6 +428,10 @@ export type Faixa = {
   nivel: "grave" | "atencao" | "info"
   titulo: string
   texto: string
+  /** O botão que resolve, dentro da faixa — só vem quando o papel pode apertar. */
+  botao?: "nota" | "estorno"
+  /** A linha pequena de baixo: pra quem vê a faixa e não aperta, de quem é. */
+  rodape?: string
 }
 
 export type Evento = { quando: string; em: string; titulo: string; detalhe: string }
@@ -446,6 +467,15 @@ export type Detalhe = {
     total: number
   }
   historico: Evento[]
+  /** Os botões do pedido, já conferidos contra o papel e o estado. */
+  acoes: {
+    /** "agora": a nota espera a janela. "de-novo": a loja desistiu de emitir. */
+    nota: AcaoDaNota | null
+    /** "Tentar o estorno de novo" (só o dono, só o estorno que a loja pede sozinha). */
+    estorno: boolean
+    /** A frase que vai com o "Emitir a nota agora". */
+    dica: string | null
+  }
   pagamento: { forma: string; detalhe: string }
   nota: string | null
   entrega: {
@@ -544,7 +574,7 @@ function textoDaNota(n: NotaCrua | null, pagoEm: Date | null, ctx: Contexto): st
     default: {
       if (n.definitivo) return `Não sai sozinha${n.erro ? `: ${n.erro}` : ""}`
       if (n.erro) return `Não saiu ainda (${n.erro}) — a loja tenta de novo`
-      const sai = pagoEm ? new Date(pagoEm.getTime() + ctx.janelaDaNota * 60000) : null
+      const sai = pagoEm ? notaSaiEm(pagoEm, ctx) : null
       return sai && sai.getTime() > ctx.agora.getTime()
         ? `Sai às ${hora(sai)} (${ctx.janelaDaNota} min depois do pagamento)`
         : "Saindo agora"
@@ -692,7 +722,8 @@ function historicoDo(
   p: Pagamento,
   nota: NotaCrua | null,
   envios: EnvioCru[],
-  ctx: Contexto
+  ctx: Contexto,
+  feitos: FeitoNoPedido[]
 ): Evento[] {
   const eventos: { em: Date; ordem: number; titulo: string; detalhe: string }[] = []
   const feito = emData(o.created_at)
@@ -781,6 +812,12 @@ function historicoDo(
       add(e.confirmado, "Estorno confirmado pelo Pagar.me", reais(e.devolvido / 100))
   }
 
+  // O que alguém da equipe fez pelo painel, com o nome (o registro da equipe).
+  for (const f of feitos) {
+    const evento = eventoDoFeito(f)
+    if (evento) add(f.em, evento.titulo, evento.detalhe)
+  }
+
   return eventos
     .sort((a, b) => a.em.getTime() - b.em.getTime() || a.ordem - b.ordem)
     .map((e) => ({
@@ -796,35 +833,65 @@ function faixasDo(
   p: Pagamento,
   situacao: Situacao,
   nota: NotaCrua | null,
-  envios: EnvioCru[]
+  envios: EnvioCru[],
+  { permissoes, acaoNota }: { permissoes: Permissoes; acaoNota: AcaoDaNota | null }
 ): Faixa[] {
   const faixas: Faixa[] = []
+  const depois: Faixa[] = []
+  let comBotao = false
   for (const e of Object.values(lerEstornos(o.metadata))) {
+    // O que falhou e depois saiu: a faixa verde, pra ninguém estornar de novo à mão.
+    const confirmado = emData(e.confirmado)
+    if (e.situacao === "devolvido" && e.desde && confirmado) {
+      depois.push({
+        nivel: "info",
+        titulo: "O estorno saiu",
+        texto:
+          `O Pagar.me confirmou em ${dia(confirmado)}, às ${hora(confirmado)}: ` +
+          `${reais(e.devolvido / 100)} voltaram pra quem comprou. Ele tinha falhado antes.`,
+      })
+      continue
+    }
     if (e.situacao !== "falhou") continue
     const falta = reais(Math.max(0, e.esperado - e.devolvido) / 100)
     const proxima = emData(e.proxima)
-    faixas.push({
+    const faixa: Faixa = {
       nivel: "grave",
       titulo: `O estorno de ${falta} não saiu`,
       texto:
         `O Pagar.me não devolveu${e.motivo ? `: ${e.motivo}` : ""}. ` +
-        (e.sozinha && proxima
-          ? `A loja pede de novo sozinha — a próxima tentativa é às ${hora(proxima)} de ${dia(proxima)}.`
-          : "Este a loja não pede de novo sozinha: estorne pelo painel do Pagar.me, na cobrança " +
-            `${e.cobranca}.`),
-    })
+        (!e.sozinha
+          ? "Este a loja não pede de novo sozinha: estorne pelo painel do Pagar.me, na cobrança " +
+            `${e.cobranca}.`
+          : proxima
+            ? `A loja pede de novo sozinha — a próxima tentativa é às ${hora(proxima)} de ${dia(proxima)}.`
+            : `A loja já pediu de novo ${e.tentativas} ${e.tentativas === 1 ? "vez" : "vezes"} e ` +
+              `parou de tentar sozinha: tente aqui, ou estorne pelo painel do Pagar.me, na cobrança ${e.cobranca}.`),
+    }
+    // Um botão só, mesmo com dois pagamentos: o pedido de novo confere o pedido inteiro.
+    if (!permissoes.estorno) faixa.rodape = "Estorno é com o dono."
+    else if (e.sozinha && !comBotao) {
+      faixa.botao = "estorno"
+      comBotao = true
+    }
+    faixas.push(faixa)
   }
   if (nota && notaTravada(nota)) {
+    const desistiu = !nota.cancelar && nota.situacao === "a-emitir"
     faixas.push({
       nivel: "grave",
       titulo: nota.cancelar
         ? "A nota precisa ser cancelada no Bling"
-        : nota.situacao === "a-emitir"
+        : desistiu
           ? "A nota não sai sozinha"
           : `A SEFAZ ${nota.situacao === "rejeitada" ? "rejeitou" : "denegou"} a nota`,
       texto: nota.cancelar
         ? `O pedido foi cancelado depois da nota${nota.numero ? ` ${nota.numero}` : ""} sair. Cancele no Bling em até 24 horas da emissão.`
-        : `${nota.detalhe ?? nota.erro ?? "Sem detalhe do Bling."} Corrija no Bling e reenvie por lá: a loja percebe sozinha e o pedido segue pra Frenet.`,
+        : desistiu
+          ? `A loja desistiu de emitir: ${emFrase(nota.erro ?? "o Bling recusou o pedido")} ` +
+            "Corrija o que falta e tente de novo — ou emita à mão no Bling."
+          : `${emFrase(nota.detalhe ?? nota.erro ?? "Sem detalhe do Bling")} Corrija no Bling e reenvie por lá: a loja percebe sozinha e o pedido segue pra Frenet.`,
+      ...(desistiu && acaoNota === "de-novo" && permissoes.nota ? { botao: "nota" as const } : {}),
     })
   }
   const parceiro = lerRegistroNoPedido(o.metadata)
@@ -873,7 +940,17 @@ function faixasDo(
         "O pedido é cancelado sozinho em alguns minutos e o estoque volta. Se a pessoa pagar um QR vencido, o Pagar.me recusa.",
     })
   }
-  return faixas
+  return [...faixas, ...depois]
+}
+
+/** O que o papel de quem pede pode ver e apertar no pedido. */
+export type Permissoes = {
+  /** O documento inteiro (só o dono). */
+  verCpf: boolean
+  /** "Emitir a nota agora" e "Tentar a nota de novo" (quem abre os pedidos). */
+  nota?: boolean
+  /** "Tentar o estorno de novo" (só o dono). */
+  estorno?: boolean
 }
 
 export function detalheDo(
@@ -881,10 +958,13 @@ export function detalheDo(
   nota: NotaCrua | null,
   envios: EnvioCru[],
   ctx: Contexto,
-  { verCpf }: { verCpf: boolean }
+  permissoes: Permissoes,
+  feitos: FeitoNoPedido[] = []
 ): Detalhe {
+  const { verCpf } = permissoes
   const p = pagamentoDo(o)
   const situacao = situacaoDo(o, p, ctx.agora)
+  const acaoNota = permissoes.nota ? acaoDaNota(nota, situacao, p.pagoEm, ctx) : null
   const itens = (o.items ?? []).map((i) => {
     const unitario = numero(i.unit_price)
     const cheio = numero(i.compare_at_unit_price)
@@ -947,8 +1027,8 @@ export function detalheDo(
     situacao,
     problema: problemaDo(o, nota, envios),
     despachar: prontoPraDespachar(situacao, nota, p.pagoEm, ctx),
-    total: numero(o.total),
-    faixas: faixasDo(o, p, situacao, nota, envios),
+    total: totalDo(o),
+    faixas: faixasDo(o, p, situacao, nota, envios, { permissoes, acaoNota }),
     caminho: caminhoDo(o, p, situacao, nota, envios, ctx),
     cancelado:
       situacao === "cancelado"
@@ -961,9 +1041,18 @@ export function detalheDo(
       cupons: [...cupons.entries()].map(([codigo, valor]) => ({ codigo, valor })),
       frete: numero(o.shipping_total),
       formaDeEntrega: texto(o.shipping_methods?.[0]?.name) || "Entrega",
-      total: numero(o.total),
+      total: totalDo(o),
     },
-    historico: historicoDo(o, p, nota, envios, ctx),
+    historico: historicoDo(o, p, nota, envios, ctx, feitos),
+    acoes: {
+      nota: acaoNota,
+      estorno: Boolean(permissoes.estorno) && estornoPraTentar(o.metadata),
+      dica:
+        acaoNota === "agora" && p.pagoEm
+          ? `Ela sai sozinha às ${hora(notaSaiEm(p.pagoEm, ctx))}. Precisa despachar antes? ` +
+            "Emita aqui — nunca à mão no Bling, senão ela sai duas vezes."
+          : null,
+    },
     pagamento: {
       forma: p.forma === "pix" ? "Pix" : p.forma === "cartao" ? "Cartão de crédito" : "A combinar",
       detalhe: textoDoPagamento(p, situacao),

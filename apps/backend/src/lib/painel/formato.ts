@@ -50,6 +50,13 @@ export function quando(d: Data, agora: Data = Date.now()): string {
   return `${dia(d)}, ${hora(d)}`
 }
 
+/** "o pedido não tem CPF" → "O pedido não tem CPF." — o erro do Bling (ou nosso) virando frase. */
+export function emFrase(t: string): string {
+  const limpo = t.trim()
+  if (!limpo) return ""
+  return `${limpo[0].toUpperCase()}${limpo.slice(1)}${/[.!?]$/.test(limpo) ? "" : "."}`
+}
+
 /** "R$ 109,80" (com o espaço fixo que o Intl põe). */
 export const reais = (valor: number) => REAIS.format(valor)
 

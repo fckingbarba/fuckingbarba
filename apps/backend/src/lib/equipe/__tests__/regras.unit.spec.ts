@@ -31,15 +31,21 @@ describe("podeAbrir — a matriz dos papéis", () => {
     expect(areasDo("dono")).toEqual(Object.keys(ACESSO))
   })
 
-  it("a operação não abre equipe, configurações, cupons nem home", () => {
-    for (const area of ["equipe", "configuracoes", "cupons", "home"] as const)
+  it("a operação não abre equipe, configurações, cupons nem home — nem estorna", () => {
+    for (const area of ["equipe", "configuracoes", "cupons", "home", "estornos"] as const)
       expect(podeAbrir("operacao", area)).toBe(false)
     expect(podeAbrir("operacao", "pedidos")).toBe(true)
     expect(podeAbrir("operacao", "observabilidade")).toBe(true)
   })
 
   it("o marketing não abre pedidos, observabilidade, equipe nem configurações", () => {
-    for (const area of ["pedidos", "observabilidade", "equipe", "configuracoes"] as const)
+    for (const area of [
+      "pedidos",
+      "estornos",
+      "observabilidade",
+      "equipe",
+      "configuracoes",
+    ] as const)
       expect(podeAbrir("marketing", area)).toBe(false)
     expect(podeAbrir("marketing", "cupons")).toBe(true)
     expect(podeAbrir("marketing", "home")).toBe(true)

@@ -135,14 +135,40 @@ a.filtro { text-decoration: none; }
 .mini .com-foto { gap: 10px; }
 .mini .foto { width: 40px; height: 40px; }
 
-/* Três números quando ainda não há visitas (elas chegam depois). */
-.numeros--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-@media (max-width: 760px) {
-  .numeros--3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .numeros--3 .numero--destaque { grid-column: 1 / -1; }
-}
 .vazio--curto { padding: 16px 0 4px; text-align: left; }
 
 /* A linha da lista curta que não é link (os mais vendidos). */
 .mini__linha { padding: 11px 0; border-bottom: 1px solid rgba(18, 24, 31, 0.1); }
 .mini__linha:last-child { border-bottom: 0; }
+
+/* As visitas (do protótipo): as barras deitadas, o "no site agora" e o número que leva ao bloco. */
+.barras-h { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.barras-h li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; font-size: 0.82rem; }
+.barras-h__nome { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.barras-h__num { font-weight: 800; font-variant-numeric: tabular-nums; }
+.barras-h__num small { font-weight: 600; color: var(--tinta-suave); }
+.barras-h__trilho { grid-column: 1 / -1; height: 8px; background: var(--cinza-2); }
+.barras-h__trilho i { display: block; height: 100%; background: var(--tinta); }
+.agora {
+  display: inline-flex; align-items: center; gap: 8px; padding: 5px 10px;
+  background: var(--menta-clara); color: var(--menta-escura);
+  font-size: 0.64rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap;
+}
+.agora i { width: 8px; height: 8px; background: var(--menta-escura); transform: rotate(45deg); animation: pisca 1.6s ease-in-out infinite; }
+@keyframes pisca { 50% { opacity: 0.25; } }
+.numero span { display: block; }
+.numero--botao { position: relative; width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer; text-decoration: none; }
+.numero--botao:hover, .numero--botao:focus-visible { background: var(--amarelo-palido); }
+.numero--botao > svg { position: absolute; top: 14px; right: 12px; width: 14px; height: 14px; fill: currentColor; }
+#visitas { scroll-margin-top: 16px; }
+#visitas:focus { outline: none; }
+@media (max-width: 1023px) { #visitas { scroll-margin-top: 76px; } }
+.rotulo--depois { margin-top: 20px; }
+.visitas__nota { margin: 16px 0 0; }
+
+/* As ações do pedido: a dica embaixo do botão, a linha de quem não aperta, o botão esperando a loja. */
+.acoes-lado__dica { margin: 0; }
+.faixa__rodape { font-size: 0.78rem; font-weight: 700; }
+.btn[disabled][aria-busy] { opacity: 0.7; cursor: progress; }
+.aviso[data-erro] { box-shadow: 5px 5px 0 0 var(--erro); }
+.aviso[data-erro] svg { fill: var(--amarelo); }
