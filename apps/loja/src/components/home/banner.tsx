@@ -3,7 +3,7 @@ import Link from "next/link"
 import { Raio } from "@/components/icones"
 import { BotaoComprar } from "@/components/produto/comprar"
 import { emReaisPartido } from "@/lib/formato"
-import { buscarProdutoPorHandle, precosDe, varianteDoCard } from "@/lib/medusa"
+import { buscarProdutoPorHandle, home, precosDe, varianteDoCard } from "@/lib/medusa"
 
 /**
  * O banner do topo. É o maior elemento visível quando a página abre — o que o
@@ -15,19 +15,12 @@ import { buscarProdutoPorHandle, precosDe, varianteDoCard } from "@/lib/medusa"
  * junto, em vez de anunciar R$ 99,90 pra um produto que agora custa outra
  * coisa — que é o tipo de erro que vira reclamação no atendimento.
  *
- * Só a campanha é escrita aqui. Quando houver mais de uma por mês, isto vira
- * conteúdo editável (uma coleção no Medusa); enquanto for uma, constante
- * resolve e não custa nada.
+ * A campanha (chapéu, título, o texto do botão e o produto) vem do painel,
+ * no "Layout da home" (`home()`).
  */
-const CAMPANHA = {
-  handle: "kit-completo-para-barba",
-  chapeu: "Semana do Cliente",
-  titulo: "Nosso kit best seller",
-  chamada: "Comprar agora",
-} as const
-
 export async function Banner() {
-  const produto = await buscarProdutoPorHandle(CAMPANHA.handle)
+  const campanha = (await home()).conteudo.banner
+  const produto = await buscarProdutoPorHandle(campanha.produto)
   const precos = produto ? precosDe(produto) : null
 
   // Sem o produto em destaque não há banner: melhor a home começar na barra
@@ -38,10 +31,10 @@ export async function Banner() {
   const variante = varianteDoCard(produto)
 
   return (
-    <section className="banner" aria-label={`${CAMPANHA.chapeu}: ${CAMPANHA.titulo}`}>
+    <section className="banner" aria-label={`${campanha.chapeu}: ${campanha.titulo}`}>
       <div className="banner__texto">
-        <p className="banner__kicker">{CAMPANHA.chapeu}</p>
-        <p className="banner__titulo">{CAMPANHA.titulo}</p>
+        <p className="banner__kicker">{campanha.chapeu}</p>
+        <p className="banner__titulo">{campanha.titulo}</p>
         <p className="banner__por">Por apenas</p>
         <p className="banner__preco">
           <span className="banner__preco-inteiro">{inteiro}</span>
@@ -55,12 +48,12 @@ export async function Banner() {
             varianteId={variante}
             nome={produto.title}
             className="btn btn--branco"
-            rotulo={CAMPANHA.chamada}
+            rotulo={campanha.chamada}
             icone={<Raio className="btn__bolt" />}
           />
         ) : (
           <Link href={`/produtos/${produto.handle}`} className="btn btn--branco">
-            {CAMPANHA.chamada}
+            {campanha.chamada}
             <Raio className="btn__bolt" />
           </Link>
         )}

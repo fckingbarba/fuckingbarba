@@ -1,6 +1,6 @@
 import { Caminhao, Cartao, Escudo, EscudoCerto } from "@/components/icones"
 import { frasesDoFrete } from "@/lib/configuracoes"
-import { configuracoes } from "@/lib/medusa"
+import { configuracoes, home } from "@/lib/medusa"
 import { parcelamento } from "@/lib/site"
 
 /**
@@ -12,26 +12,30 @@ import { parcelamento } from "@/lib/site"
  * número que a esteira, o rodapé e o CARRINHO usam. Sem promoção de frete, a
  * barra mostra três vantagens em vez de quatro — porque a alternativa seria
  * um card dizendo "Frete Grátis" numa loja que não dá frete grátis.
+ *
+ * Frete e parcelamento entram sozinhos; as outras duas (no máximo) vêm do
+ * painel ("Layout da home"). O ícone é o do lugar: o escudo na primeira, o
+ * escudo com o certo na segunda.
  */
-const OUTRAS = [
-  { Icone: Cartao, titulo: parcelamento, detalhe: "No cartão de crédito" },
-  { Icone: Escudo, titulo: "Loja Segura", detalhe: "Para suas compras" },
-  { Icone: EscudoCerto, titulo: "Compra Garantida", detalhe: "Satisfação garantida" },
-]
+const ICONES_DAS_OUTRAS = [Escudo, EscudoCerto]
 
 export async function Trustbar() {
-  const { frete } = await configuracoes()
+  const [{ frete }, { conteudo }] = await Promise.all([configuracoes(), home()])
   const frases = frasesDoFrete(frete)
 
-  const VANTAGENS = frases
-    ? [{ Icone: Caminhao, titulo: frases.selo, detalhe: frases.condicao }, ...OUTRAS]
-    : OUTRAS
+  const VANTAGENS = [
+    ...(frases ? [{ Icone: Caminhao, titulo: frases.selo, detalhe: frases.condicao }] : []),
+    { Icone: Cartao, titulo: parcelamento, detalhe: "No cartão de crédito" },
+    ...conteudo.trustbar.vantagens
+      .slice(0, ICONES_DAS_OUTRAS.length)
+      .map((v, i) => ({ Icone: ICONES_DAS_OUTRAS[i]!, ...v })),
+  ]
 
   return (
     <section className="trustbar" aria-label="Vantagens da compra">
       <ul className="trustbar__list">
-        {VANTAGENS.map(({ Icone, titulo, detalhe }) => (
-          <li className="trustbar__item" key={titulo}>
+        {VANTAGENS.map(({ Icone, titulo, detalhe }, i) => (
+          <li className="trustbar__item" key={`${i}-${titulo}`}>
             <span className="trustbar__icon-frame">
               <Icone className="trustbar__icon" />
             </span>

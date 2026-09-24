@@ -655,6 +655,32 @@ mudo, em loop, só quando aparece na tela (`preload="none"`), com a capa até to
 grava os vídeos de teste no próprio navegador (canvas + `MediaRecorder`, em WebM sem a duração no
 cabeçalho, como o de um Android — o painel acha a duração indo pro fim do vídeo).
 
+**A home** (fase 4, parte 1). O texto e a ordem da home saíram do código pro `metadata` da loja, na
+chave `fb_home` (`apps/backend/src/lib/home.ts`): duas versões, `publicado` (o que a loja mostra) e
+`rascunho` (`null` = nada esperando), cada uma com `conteudo` ESPARSO (só as seções salvas) e
+`layout` (`visibilidade`/`ordem`, o mesmo formato do produto). Seção que ninguém salvou mostra o
+texto de fábrica (`SEMENTE_DA_HOME`, o que estava no ar em 24/09). As regras do painel são puras
+(`lib/painel/home.ts`, com testes): toda mudança vai pro rascunho; o rascunho que fica igual ao
+publicado some; a ordem é a conta da loja (a fixa — o bloco escuro, que tem o `<h1>` — volta pro
+lugar dela no registro, no meio da página, e as outras passam por cima); o "Publicar" copia o
+rascunho e avisa a loja (`home` e `layout:home`). Rotas: `GET /dashboard/home` e
+`POST /dashboard/home/{secao,ordem,publicar,desfazer}` (área `home`: dono e marketing), e
+`GET /store/home` (só o publicado, com todas as seções completas). **O metadata da loja é gravado
+inteiro**: o módulo de loja do Medusa não junta o metadata (o de produto junta). Quem grava lê e
+grava dentro da trava `loja:metadata` (`mudarMetadataDaLoja`, `lib/metadata-da-loja.ts`); a home e
+as configurações do admin passam por ela. Na loja, `home()` (`lib/medusa.ts`, `"use cache"` com a
+tag `home`) lê a rota, com uma peneira menor (`lib/home.ts`); no 404 (um Medusa de antes da rota:
+o push sobe o Railway e a Vercel juntos) e na seção que chegar quebrada, vale a reserva
+`conteudo/home.ts`, cópia do texto de fábrica; o `lerAjuste("home")` usa o `layout` publicado. O
+Medusa falso do CI responde a home vazia (tudo de fábrica). No painel, os campos das seções moram em
+`SECOES_DA_HOME` (`apps/dashboard/src/lib/home.ts`), e o formulário é o mesmo da página do produto
+(`components/formulario.tsx` e `lib/formulario.ts`, com `max` nas listas, `minimo` nos grupos —
+`0`, o grupo pode ficar vazio — e `vazio` no seletor de produto). Seção nova da home entra em
+quatro lugares: o registro da loja, o `lib/home.ts` do backend (tipo, semente, leitor e `EXIGE`), o
+da loja (tipo, peneira e a reserva) e o `SECOES_DA_HOME` do painel. Conferidor:
+`apps/dashboard/ferramentas/conferir-home.mjs` — guarda o `fb_home` do banco no começo, devolve no
+fim e avisa a loja.
+
 O CSS do painel segue o do protótipo, uma regra por linha, escrito à mão: o prettier fica nos
 `.ts`/`.tsx`/`.mjs` — rodado nos `.css` do painel, ele reescreve o arquivo inteiro. A gaveta
 (`components/gaveta.tsx`) mora no `<body>`, por portal: aberta de dentro de um `.bloco`, ela

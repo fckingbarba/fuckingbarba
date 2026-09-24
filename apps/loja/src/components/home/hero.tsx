@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { Raio } from "@/components/icones"
-import { HERO } from "@/conteudo/home"
+import { home } from "@/lib/medusa"
 
 /** O "check" das garantias — o mesmo desenho do fechamento. */
 function Certo({ className }: { className?: string }) {
@@ -20,48 +20,56 @@ function Certo({ className }: { className?: string }) {
  * parece o título, mas é campanha — muda quando a promoção muda, e título de
  * página não pode depender disso.
  *
- * As afirmações vêm de `conteudo/home.ts`, onde está o aviso de que precisam
- * ser conferidas: "aprovado em estudo interno" é alegação sobre cosmético, e
- * isso no Brasil tem regra.
+ * O texto vem do painel ("Layout da home"), com o aviso de que as
+ * afirmações precisam ser conferidas: "aprovado em estudo interno" é
+ * alegação sobre cosmético, e isso no Brasil tem regra. O comparativo, as
+ * garantias e o aviso de baixo são opcionais: sem eles, a linha não sai.
  */
-export function Hero() {
+export async function Hero() {
+  const { hero } = (await home()).conteudo
   return (
     <section className="hero hero--com-faixa" aria-labelledby="hero-heading">
       <p className="hero__eyebrow">
         <Raio className="hero__eyebrow-bolt" />
-        {HERO.chapeu}
+        {hero.chapeu}
       </p>
 
       <h1 id="hero-heading" className="hero__title">
-        {HERO.titulo}
+        {hero.titulo}
       </h1>
 
-      <dl className="hero__compare">
-        {HERO.comparativo.map((item) => (
-          <div className="hero__compare-item" key={item.rotulo}>
-            <dt>{item.rotulo}</dt>
-            <dd>{item.valor}</dd>
-          </div>
-        ))}
-      </dl>
+      {hero.comparativo.length ? (
+        <dl className="hero__compare">
+          {hero.comparativo.map((item, i) => (
+            <div className="hero__compare-item" key={`${i}-${item.rotulo}`}>
+              <dt>{item.rotulo}</dt>
+              <dd>{item.valor}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : null}
 
       <Link href="#vitrine" className="btn btn--branco hero__cta">
-        {HERO.chamada}
+        {hero.chamada}
         <Raio className="btn__bolt" />
       </Link>
 
-      <hr className="hero__divider" aria-hidden="true" />
+      {hero.garantias.length ? (
+        <>
+          <hr className="hero__divider" aria-hidden="true" />
 
-      <ul className="hero__trust">
-        {HERO.garantias.map((g) => (
-          <li key={g}>
-            <Certo className="hero__check" />
-            <span>{g}</span>
-          </li>
-        ))}
-      </ul>
+          <ul className="hero__trust">
+            {hero.garantias.map((g, i) => (
+              <li key={`${i}-${g}`}>
+                <Certo className="hero__check" />
+                <span>{g}</span>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : null}
 
-      <p className="hero__disclaimer">{HERO.aviso}</p>
+      {hero.aviso ? <p className="hero__disclaimer">{hero.aviso}</p> : null}
     </section>
   )
 }

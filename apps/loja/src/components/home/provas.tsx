@@ -4,7 +4,7 @@ import Link from "next/link"
 import { Estrelas } from "@/components/estrelas"
 import { ANTES_E_DEPOIS, type AntesEDepois } from "@/conteudo/depoimentos"
 import { emReais } from "@/lib/formato"
-import { listarProdutos, porHandle, precosDe } from "@/lib/medusa"
+import { home, listarProdutos, porHandle, precosDe } from "@/lib/medusa"
 import { ProvasCarrossel } from "./provas-carrossel"
 
 /**
@@ -23,21 +23,25 @@ export async function Provas() {
   const depoimentos = ANTES_E_DEPOIS.filter((d) => d.fotos?.antes && d.fotos?.depois)
   if (!depoimentos.length) return null
 
-  const produtos = await listarProdutos({ limite: 48 })
+  const [produtos, { conteudo }] = await Promise.all([listarProdutos({ limite: 48 }), home()])
   const catalogo = porHandle(produtos)
 
   return (
     <section className="provas" aria-labelledby="provas-titulo">
       <div className="provas__wrap">
-        <p className="provas__tag">Resultados reais</p>
+        <p className="provas__tag">{conteudo.provas.tag}</p>
         <h2 className="provas__titulo" id="provas-titulo">
-          Antes e depois de quem levou a rotina a sério
+          {conteudo.provas.titulo}
         </h2>
         <hr className="provas__risco" />
 
         <ProvasCarrossel total={depoimentos.length}>
           {depoimentos.map((d, i) => (
-            <Depoimento key={`${d.nome}-${i}`} depoimento={d} produto={d.produtoHandle ? catalogo.get(d.produtoHandle) : undefined} />
+            <Depoimento
+              key={`${d.nome}-${i}`}
+              depoimento={d}
+              produto={d.produtoHandle ? catalogo.get(d.produtoHandle) : undefined}
+            />
           ))}
         </ProvasCarrossel>
       </div>
@@ -125,7 +129,9 @@ function Depoimento({
               <span className="minicard__rotulo">Produto usado</span>
               <span className="minicard__nome">{produto.title}</span>
               <span className="minicard__precos">
-                {precos.cheio != null ? <s className="minicard__de">{emReais(precos.cheio)}</s> : null}
+                {precos.cheio != null ? (
+                  <s className="minicard__de">{emReais(precos.cheio)}</s>
+                ) : null}
                 <span className="minicard__por">{emReais(precos.atual)}</span>
               </span>
             </span>

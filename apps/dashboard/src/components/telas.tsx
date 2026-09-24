@@ -76,15 +76,6 @@ export function SemAcesso({ area }: { area: Area }) {
 
 /** O que cada área vai fazer, e em que fase chega — a ordem do ESTADO.md, 4.5. */
 const O_QUE_VEM: Partial<Record<Area, { titulo: string; fase: number; itens: string[] }>> = {
-  home: {
-    titulo: "Layout da home",
-    fase: 4,
-    itens: [
-      "As seções da home: ligar, desligar, pôr em ordem e mudar os textos.",
-      "O banner com vários slides, cada um com a imagem do computador e a do celular.",
-      "Rascunho e “Publicar”: nada muda na loja antes de você mandar.",
-    ],
-  },
   carrinhos: {
     titulo: "Carrinhos abandonados",
     fase: 5,

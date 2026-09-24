@@ -5,6 +5,7 @@ import { cacheLife, cacheTag } from "next/cache"
 import type { SugestaoDaSacola } from "./carrinho-visivel"
 import { PADRAO, type Configuracoes } from "./configuracoes"
 import { emReais } from "./formato"
+import { HOME_DO_SITE_DE_FABRICA, lerHomeDoSite, type HomeDoSite } from "./home"
 import type { ModeloDeRecomendacao } from "./recomendacao"
 
 /**
@@ -80,6 +81,9 @@ export const TAGS = {
   /* O modelo do motor de recomendação. Ninguém derruba: vale uma hora, e a
      próxima leitura já traz o que os pedidos novos ensinaram. */
   recomendacoes: "recomendacoes",
+  /* O texto e a ordem da home, do painel. Derrubada pelo "Publicar" (junto
+     com `layout:home`, a da ordem — ver `lib/secoes/layout.ts`). */
+  home: "home",
 } as const
 
 /** Campos que a vitrine precisa; o resto fica no servidor. */
@@ -296,6 +300,32 @@ export async function configuracoes(): Promise<Configuracoes> {
   // `home` chegou depois: um Medusa de antes dele responde sem o campo, e a
   // loja segue com a foto em vez de quebrar a home.
   return c ? { ...c, home: c.home ?? PADRAO.home } : PADRAO
+}
+
+/**
+ * A HOME PUBLICADA — a ordem das seções e o texto de cada uma, do painel
+ * ("Layout da home"). O que está só no rascunho do painel não vem: a rota
+ * devolve o publicado, ou o texto de fábrica onde ninguém publicou nada.
+ *
+ * O 404 é o Medusa de ANTES da rota: o push sobe o Railway e a Vercel
+ * juntos, e o build da loja pode perguntar antes de o backend novo subir.
+ * Aí vale a home de fábrica (`conteudo/home.ts`) — a mesma que a loja
+ * mostrava —, e não uma home quebrada. Qualquer outra falha segue a regra
+ * das outras leituras: lança.
+ */
+export async function home(): Promise<HomeDoSite> {
+  "use cache"
+  cacheTag(TAGS.home)
+  cacheLife("days")
+  if (!sdk) return HOME_DO_SITE_DE_FABRICA
+  try {
+    const { home } = await lerDoMedusa<{ home: unknown }>("home", "/store/home")
+    return lerHomeDoSite(home)
+  } catch (e) {
+    const status = ((e as Error).cause as { status?: unknown } | undefined)?.status
+    if (status === 404) return HOME_DO_SITE_DE_FABRICA
+    throw e
+  }
 }
 
 export type Promocao = { titulo: string; termina_em: string }

@@ -1,76 +1,140 @@
-/**
- * O texto da home: o bloco do h1, a história da marca e a última chamada.
- *
- * ┌─ NÚMEROS: CONFERIR ANTES DE IR PRO AR ────────────────────────────────┐
- * │ Os três números abaixo vieram do protótipo e ninguém confirmou que    │
- * │ são verdade. Ano de fundação e quantidade de clientes são afirmações  │
- * │ sobre o negócio: se estiverem errados, é o tipo de coisa que um       │
- * │ concorrente aponta e que o consumidor cobra. Confira e corrija aqui.  │
- * └───────────────────────────────────────────────────────────────────────┘
- */
+import type { ConteudoDaHome } from "@/lib/home"
 
 /**
- * O bloco escuro do meio da home — o único que carrega o <h1> da página.
+ * A HOME DE FÁBRICA — o texto que a loja mostrava quando a home saiu do
+ * código (24/09).
  *
- * ┌─ AFIRMAÇÕES: CONFERIR ────────────────────────────────────────────────┐
+ * QUEM MANDA AGORA É O PAINEL ("Layout da home"): o que ele publica chega
+ * pelo Medusa (`home()`, em `lib/medusa.ts`), e o texto de fábrica de
+ * verdade mora no backend (`SEMENTE_DA_HOME`, em
+ * `apps/backend/src/lib/home.ts`) — é ele que a loja recebe enquanto
+ * ninguém publicou nada.
+ *
+ * ESTE ARQUIVO É A RESERVA, pra dois casos: um Medusa de antes da rota
+ * `/store/home` (o push sobe o Railway e a Vercel juntos, e o build da loja
+ * pode chegar antes), e uma seção que chegue quebrada — ela vira a daqui,
+ * em vez de um buraco. Mudar um texto AQUI não muda o site: mude no painel.
+ *
+ * ┌─ AFIRMAÇÕES: CONFERIR ANTES DE IR PRO AR ─────────────────────────────┐
  * │ "Aprovado em estudo interno" e "+1.000.000 clientes satisfeitos" são  │
- * │ afirmações, não slogan. A primeira é sobre o produto e cosmético no   │
+ * │ afirmações, não slogan. A primeira é sobre o produto, e cosmético no  │
  * │ Brasil tem regra pra isso (RDC da Anvisa): se o estudo existe, ótimo; │
- * │ se não existe, a frase sai. A segunda é a mesma do bloco "sobre" e    │
- * │ precisa bater com ela.                                                │
+ * │ se não existe, a frase sai. O ano de fundação e o "+1M clientes       │
+ * │ impactados" são sobre o negócio — o tipo de coisa que um concorrente  │
+ * │ aponta e que o consumidor cobra. O painel mostra o aviso em cada um.  │
+ * │                                                                       │
+ * │ No "resultado" do palco, "90 dias", "12 h" e afins também são         │
+ * │ afirmações sobre o produto: fale de uso e de acabamento, não de       │
+ * │ eficácia clínica.                                                     │
  * └───────────────────────────────────────────────────────────────────────┘
  */
-export const HERO = {
-  chapeu: "Alta Performance",
-  titulo: "Fórmulas de alta performance, resultado que você sente.",
-  /** CONFERIR — ver o aviso acima. */
-  comparativo: [
-    { rotulo: "Ativos", valor: "Alta concentração" },
-    { rotulo: "Testado", valor: "Aprovado em estudo interno" },
-  ],
-  chamada: "Ver produtos",
-  /** CONFERIR — o primeiro item é afirmação sobre o negócio. */
-  garantias: [
-    "+1.000.000 clientes satisfeitos",
-    "Loja oficial da marca",
-    "Cosméticos premium",
-  ],
-  aviso: "*Resultados podem variar conforme uso individual.",
-} as const
-
-export const SOBRE = {
-  titulo: "O cuidado que impõe presença",
-
-  /**
-   * O handle do produto cuja foto ilustra a seção. Com vídeo (subido no
-   * admin, em Configurações da loja), a foto vira a capa dele: é o que
-   * aparece até o vídeo começar.
-   */
-  fotoDe: "oleo-para-barba",
-
+export const HOME_DE_FABRICA: ConteudoDaHome = {
   /*
-    ENXUTO DE PROPÓSITO (23/09). Eram quatro parágrafos e dois gritos, e a
-    seção dizia a mesma coisa duas vezes. Ficou o essencial: de onde a marca
-    veio, o grito, e o que ela entrega.
+    A campanha do banner. Preço e foto saem do produto, não de texto
+    escrito à mão: o banner muda junto quando o preço muda no admin.
   */
-  paragrafos: [
-    "A FuckingBarba nasceu da revolta com produtos genéricos e marcas que tratam o cuidado pessoal como detalhe. Aqui, cuidar de si é ritual: presença, identidade e respeito com quem você é.",
-    { grito: "Somos mais do que cosméticos. Somos atitude." },
-    "Fórmulas de alta performance e ingredientes de qualidade, pra quem sabe que a aparência fala antes mesmo de você abrir a boca.",
-  ] satisfies (string | { grito: string })[],
-
-  /** CONFERIR — ver o aviso no topo do arquivo. */
-  numeros: [
-    { rotulo: "Ano de fundação", valor: "2016", ano: "2016" },
-    { rotulo: "Clientes impactados", valor: "+1M" },
-    { rotulo: "Presença nacional", valor: "BR", areaServed: true },
-  ],
-} as const
-
-export const FECHAMENTO = {
-  chapeu: "Última chamada",
-  titulo: "Cosméticos premium pra elevar sua presença — da barba ao cabelo.",
-  chamada: "Ver todos os produtos",
-  /** O handle do produto cuja foto vira o fundo. */
-  fotoDe: "kit-completo-para-barba",
-} as const
+  banner: {
+    chapeu: "Semana do Cliente",
+    titulo: "Nosso kit best seller",
+    chamada: "Comprar agora",
+    produto: "kit-completo-para-barba",
+  },
+  trustbar: {
+    vantagens: [
+      { titulo: "Loja Segura", detalhe: "Para suas compras" },
+      { titulo: "Compra Garantida", detalhe: "Satisfação garantida" },
+    ],
+  },
+  ofertas: { titulo: "Ofertas Relâmpago" },
+  colecao: { titulo: "Alta Performance: Barba e Cabelo" },
+  /* O bloco escuro do meio — o único que carrega o <h1> da página. */
+  hero: {
+    chapeu: "Alta Performance",
+    titulo: "Fórmulas de alta performance, resultado que você sente.",
+    comparativo: [
+      { rotulo: "Ativos", valor: "Alta concentração" },
+      { rotulo: "Testado", valor: "Aprovado em estudo interno" },
+    ],
+    chamada: "Ver produtos",
+    garantias: ["+1.000.000 clientes satisfeitos", "Loja oficial da marca", "Cosméticos premium"],
+    aviso: "*Resultados podem variar conforme uso individual.",
+  },
+  altaPerformance: {
+    produtos: [
+      {
+        produto: "kit-completo-para-barba",
+        nomeCurto: "Kit Completo FuckingBarba",
+        titulo: "A rotina inteira numa caixa só",
+        texto:
+          "Shampoo, óleo e balm juntos — você não precisa montar combinação nem descobrir sozinho a ordem certa.",
+        usoTitulo: "3 passos · 2 minutos",
+        usoTexto:
+          "No banho, shampoo. Barba ainda úmida, óleo. Pra fechar, balm modelando no sentido do fio.",
+        passos: ["Lavar", "Nutrir", "Finalizar"],
+        numero: "3",
+        unidade: "em 1",
+        legenda: "Rotina completa numa caixa",
+        resultado:
+          "Barba macia, alinhada e com cheiro que dura — sem pesar e sem deixar aspecto oleoso.",
+      },
+      {
+        produto: "fator-de-crescimento-para-barba",
+        nomeCurto: "Fator de Crescimento FuckingBarba",
+        titulo: "Uso diário, ativos concentrados",
+        texto:
+          "Loção leve que seca rápido, formulada pra quem busca uma barba de aspecto mais cheio e preenchido.",
+        usoTitulo: "2x ao dia · 30 segundos",
+        usoTexto:
+          "Manhã e noite, na pele limpa e seca. Espalhe nas falhas e massageie até secar. Não precisa enxaguar.",
+        passos: ["Limpar", "Aplicar", "Massagear"],
+        numero: "90",
+        unidade: "dias",
+        legenda: "Ciclo de uso recomendado",
+        resultado:
+          "Constância é o que conta: o ciclo do fio é lento, e por isso o frasco é pensado pra acompanhar 90 dias de rotina.",
+      },
+      {
+        produto: "spray-modelador-matte-100ml-fucking-barba",
+        nomeCurto: "Spray Matte Modelador para Cabelo",
+        titulo: "Textura sem o brilho de pomada",
+        texto:
+          "Fixação média com acabamento seco. Dá corpo e movimento sem deixar aquele aspecto engomado.",
+        usoTitulo: "Cabelo seco · 20 cm",
+        usoTexto:
+          "Borrife a 20 cm de distância, mecha por mecha, e modele com a mão. Quer mais firmeza? Uma segunda camada.",
+        passos: ["Borrifar", "Modelar", "Ajustar"],
+        numero: "12",
+        unidade: "h",
+        legenda: "Fixação que atravessa o dia",
+        resultado:
+          "Efeito matte de verdade: segura o penteado, não craquela e sai no banho com água e shampoo.",
+      },
+    ],
+  },
+  provas: {
+    tag: "Resultados reais",
+    titulo: "Antes e depois de quem levou a rotina a sério",
+  },
+  amam: { titulo: "Nossos clientes nos amam" },
+  vitrine: { titulo: "Todos os produtos" },
+  sobre: {
+    titulo: "O cuidado que impõe presença",
+    paragrafos: [
+      "A FuckingBarba nasceu da revolta com produtos genéricos e marcas que tratam o cuidado pessoal como detalhe. Aqui, cuidar de si é ritual: presença, identidade e respeito com quem você é.",
+      "Fórmulas de alta performance e ingredientes de qualidade, pra quem sabe que a aparência fala antes mesmo de você abrir a boca.",
+    ],
+    grito: "Somos mais do que cosméticos. Somos atitude.",
+    numeros: [
+      { valor: "2016", rotulo: "Ano de fundação" },
+      { valor: "+1M", rotulo: "Clientes impactados" },
+      { valor: "BR", rotulo: "Presença nacional" },
+    ],
+    fotoDe: "oleo-para-barba",
+  },
+  fechamento: {
+    chapeu: "Última chamada",
+    titulo: "Cosméticos premium pra elevar sua presença — da barba ao cabelo.",
+    chamada: "Ver todos os produtos",
+    fotoDe: "kit-completo-para-barba",
+  },
+}

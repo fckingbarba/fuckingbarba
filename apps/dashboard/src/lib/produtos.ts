@@ -8,7 +8,11 @@
  * daqui são cópia dos de lá — quem mudar um, muda o outro. Os NOMES das
  * seções são os do protótipo: servem pra qualquer produto (Benefícios,
  * Linha do tempo…); o título que aparece no site é um campo de cada um.
+ * Os campos (o tipo `Campo`, e a ida e volta do formulário) moram em
+ * `lib/formulario.ts`, que a home usa também.
  */
+
+import type { Campo } from "@/lib/formulario"
 
 export type Situacao = "publicado" | "rascunho" | "esgotado"
 
@@ -214,33 +218,6 @@ export const LIMITE_DA_NOTA = 48
 export const PISO_DO_FRETE_GRATIS = 149.9
 
 /* ── o editor de seção ─────────────────────────────────────────────────── */
-
-export type Campo =
-  | { tipo: "texto"; c: string; rot: string; ajuda?: string; meia?: boolean; exemplo?: string }
-  | { tipo: "area"; c: string; rot: string; ajuda?: string; linhas?: number }
-  /** Lista de textos, uma linha cada (`string[]`). */
-  | { tipo: "lista"; c: string; rot: string; item: string; ajuda?: string; grande?: boolean }
-  /** A resposta das dúvidas: parágrafos (`string[]`) numa caixa só, separados por linha em branco. */
-  | { tipo: "paragrafos"; c: string; rot: string; ajuda?: string }
-  /** Lista de itens com vários campos (as etapas, as perguntas…). `max`: quantos cabem. */
-  | {
-      tipo: "grupo"
-      c: string
-      rot: string
-      item: string
-      rotItem: string
-      campos: Campo[]
-      max?: number
-    }
-  /** Uma foto que sobe pelo painel (a de um caso de antes e depois): o endereço dela. */
-  | { tipo: "foto"; c: string; rot: string; meia?: boolean }
-  /** Um vídeo que sobe direto pro Medusa (o do modo de uso): `VideoDaPdp`, ou nada. */
-  | { tipo: "video"; c: string; rot: string; ajuda?: string }
-  /** Um produto do catálogo, pelo endereço (handle). `comEste`: oferece o próprio produto. */
-  | { tipo: "produto"; c: string; rot: string; ajuda?: string; comEste?: boolean; meia?: boolean }
-  /** Caixinha; `unico`: num grupo, marcar uma desmarca as outras (o marco da linha do tempo). */
-  | { tipo: "marcar"; c: string; rot: string; unico?: boolean }
-  | { tipo: "nota"; texto: string; atencao?: boolean }
 
 /**
  * A medida ideal da foto de fundo de uma seção, em px — computador e celular.
@@ -501,98 +478,6 @@ export const SECOES: Record<IdDaSecao, DefinicaoDaSecao> = {
     ],
   },
 }
-
-/** Uma linha em branco separa os parágrafos. */
-export const paragrafos = (texto: string): string[] =>
-  texto
-    .split(/\n\s*\n/)
-    .map((p) => p.trim())
-    .filter(Boolean)
-
-/**
- * O que falta, com os nomes da tela: o backend devolve as chaves dos campos
- * ("titulo", "passos.1.texto"), e aqui elas viram "Título" e "Etapa 2:
- * Texto".
- */
-export function oQueFalta(def: DefinicaoDaSecao, chave: string): string {
-  const [c, indice, sub] = chave.split(".")
-  const campo = def.campos.find((x) => "c" in x && x.c === c)
-  if (!campo || !("rot" in campo)) return chave
-  if (campo.tipo === "grupo") {
-    if (indice === undefined) return `${campo.rot} (pelo menos 1)`
-    const subcampo = campo.campos.find((x) => "c" in x && x.c === sub)
-    if (sub === "autorizou") return `${campo.item} ${Number(indice) + 1}: a autorização por escrito`
-    const rotulo = subcampo && "rot" in subcampo ? subcampo.rot : sub
-    return `${campo.item} ${Number(indice) + 1}: ${rotulo}`
-  }
-  return campo.rot.replace(/ \(opcional\)$/, "")
-}
-
-/* ── o formulário da seção ─────────────────────────────────────────────── */
-
-/**
- * Os valores como o formulário usa. Igual ao gravado, com duas diferenças:
- * a resposta das dúvidas é um texto só (parágrafos separados por linha em
- * branco), e todo item de grupo leva uma chave `__id` — é por ela que a
- * tela acompanha o item quando ele sobe ou desce. Nada que começa com `__`
- * vai pro backend.
- */
-export type Valores = Record<string, unknown>
-
-let proximo = 0
-export const novoId = () => `i${++proximo}`
-
-export function paraOFormulario(campos: Campo[], gravado: Valores | null): Valores {
-  const v: Valores = {}
-  for (const campo of campos) {
-    if (!("c" in campo)) continue
-    const bruto = gravado?.[campo.c]
-    if (campo.tipo === "lista")
-      v[campo.c] = Array.isArray(bruto) ? bruto.map((x) => (typeof x === "string" ? x : "")) : [""]
-    else if (campo.tipo === "paragrafos")
-      v[campo.c] = Array.isArray(bruto)
-        ? bruto.join("\n\n")
-        : typeof bruto === "string"
-          ? bruto
-          : ""
-    else if (campo.tipo === "grupo")
-      v[campo.c] = (Array.isArray(bruto) ? bruto : []).map((item) => ({
-        ...paraOFormulario(campo.campos, item && typeof item === "object" ? (item as Valores) : {}),
-        __id: novoId(),
-      }))
-    else if (campo.tipo === "marcar") v[campo.c] = bruto === true
-    else if (campo.tipo === "video")
-      v[campo.c] = bruto && typeof bruto === "object" ? (bruto as VideoDaPdp) : null
-    else v[campo.c] = typeof bruto === "string" ? bruto : ""
-  }
-  return v
-}
-
-/** O que vai pro backend: sem as chaves da tela, e a resposta de volta em parágrafos. */
-export function paraGravar(campos: Campo[], formulario: Valores): Valores {
-  const v: Valores = {}
-  for (const campo of campos) {
-    if (!("c" in campo)) continue
-    const valor = formulario[campo.c]
-    if (campo.tipo === "paragrafos") v[campo.c] = paragrafos(typeof valor === "string" ? valor : "")
-    else if (campo.tipo === "grupo")
-      v[campo.c] = (Array.isArray(valor) ? valor : []).map((item) =>
-        paraGravar(campo.campos, item as Valores)
-      )
-    else if (campo.tipo === "marcar") {
-      if (valor === true) v[campo.c] = true
-    } else if (campo.tipo === "video") {
-      if (valor) v[campo.c] = valor
-    } else v[campo.c] = valor
-  }
-  return v
-}
-
-/** Um item novo de grupo, vazio. */
-export const itemVazio = (campos: Campo[]): Valores => ({
-  ...paraOFormulario(campos, null),
-  __id: novoId(),
-})
 
 /* ── a imagem de fundo ─────────────────────────────────────────────────── */
 

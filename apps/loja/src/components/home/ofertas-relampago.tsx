@@ -43,7 +43,7 @@ const doisDigitos = (n: number) => String(n).padStart(2, "0")
  *    momento do build. Os números entram na hidratação, que é o único lugar
  *    onde existe "agora".
  */
-export function OfertasRelampago({ terminaEm }: { terminaEm: string }) {
+export function OfertasRelampago({ terminaEm, titulo }: { terminaEm: string; titulo: string }) {
   const frases = frasesDoFrete(useFrete())
 
   const fim = new Date(terminaEm).getTime()
@@ -86,11 +86,11 @@ export function OfertasRelampago({ terminaEm }: { terminaEm: string }) {
   const numero = (valor: number | null) => (valor === null ? "--" : doisDigitos(valor))
 
   return (
-    <section className="offers" aria-label="Ofertas relâmpago">
+    <section className="offers" aria-label={titulo}>
       <div className="offers__box">
         <p className="offers__tag">
           <Raio />
-          Ofertas Relâmpago
+          {titulo}
           <Raio />
         </p>
 

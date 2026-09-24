@@ -3,7 +3,7 @@ import Image from "next/image"
 import { ForaDaTela } from "@/components/layout/fora-da-tela"
 import { Estrelas } from "@/components/estrelas"
 import { AVALIACOES, notaMedia, type Avaliacao } from "@/conteudo/depoimentos"
-import { listarProdutos, porHandle } from "@/lib/medusa"
+import { home, listarProdutos, porHandle } from "@/lib/medusa"
 
 /**
  * "Nossos clientes nos amam": a esteira de avaliações.
@@ -25,7 +25,7 @@ export async function Amam() {
   if (!AVALIACOES.length) return null
 
   const media = notaMedia(AVALIACOES)
-  const produtos = await listarProdutos({ limite: 48 })
+  const [produtos, { conteudo }] = await Promise.all([listarProdutos({ limite: 48 }), home()])
   const catalogo = porHandle(produtos)
 
   // Fila curta demais deixa buraco visível no loop; repetimos até encher.
@@ -36,7 +36,7 @@ export async function Amam() {
     <section className="amam" aria-labelledby="amam-titulo">
       <div className="amam__topo">
         <h2 className="amam__titulo" id="amam-titulo">
-          Nossos clientes nos amam
+          {conteudo.amam.titulo}
         </h2>
         {media !== null ? (
           <p className="amam__nota">
@@ -76,7 +76,10 @@ function Fila({
     <ul className="amam__fila" aria-hidden={oculta || undefined}>
       {avaliacoes.map((a, i) => (
         <li key={`${a.nome}-${i}`}>
-          <Cartao avaliacao={a} produto={a.produtoHandle ? catalogo.get(a.produtoHandle) : undefined} />
+          <Cartao
+            avaliacao={a}
+            produto={a.produtoHandle ? catalogo.get(a.produtoHandle) : undefined}
+          />
         </li>
       ))}
     </ul>

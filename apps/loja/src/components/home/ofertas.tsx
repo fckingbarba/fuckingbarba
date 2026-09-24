@@ -1,4 +1,4 @@
-import { buscarPromocao } from "@/lib/medusa"
+import { buscarPromocao, home } from "@/lib/medusa"
 import { OfertasRelampago } from "./ofertas-relampago"
 
 /**
@@ -10,10 +10,11 @@ import { OfertasRelampago } from "./ofertas-relampago"
  * educação: é publicidade enganosa pelo CDC.
  *
  * Pra ligar: no admin do Medusa, Price Lists → a promoção → data de fim.
- * A seção acende sozinha e some sozinha quando a data passa.
+ * A seção acende sozinha e some sozinha quando a data passa. O título vem
+ * do painel ("Layout da home").
  */
 export async function Ofertas() {
-  const promocao = await buscarPromocao()
+  const [promocao, { conteudo }] = await Promise.all([buscarPromocao(), home()])
   if (!promocao) return null
-  return <OfertasRelampago terminaEm={promocao.termina_em} />
+  return <OfertasRelampago terminaEm={promocao.termina_em} titulo={conteudo.ofertas.titulo} />
 }

@@ -11,6 +11,7 @@ import type NewsletterService from "../../modules/newsletter/service"
 import { lerConexao, minutosDaJanela } from "../erp/conexao"
 import { erpDaLoja } from "../erp/erps"
 import { ACOES_NO_PEDIDO, type FeitoNoPedido } from "./acoes"
+import { ACOES_NA_HOME, ALVO_DA_HOME } from "./home"
 import { ACOES_NO_PRODUTO, type FeitoNoProduto } from "./produtos"
 import { nomeCurto, type Contexto, type EnvioCru, type NotaCrua, type PedidoCru } from "./pedido"
 
@@ -231,9 +232,22 @@ export async function feitosNoProduto(
   container: MedusaContainer,
   produtoId: string
 ): Promise<FeitoNoProduto[]> {
+  return feitosNoAlvo(container, produtoId, ACOES_NO_PRODUTO)
+}
+
+/** O mesmo, na home: as seções, a ordem, o "Publicar" e o "Desfazer". */
+export async function feitosNaHome(container: MedusaContainer): Promise<FeitoNoProduto[]> {
+  return feitosNoAlvo(container, ALVO_DA_HOME, ACOES_NA_HOME)
+}
+
+async function feitosNoAlvo(
+  container: MedusaContainer,
+  alvo: string,
+  acoes: readonly string[]
+): Promise<FeitoNoProduto[]> {
   const equipe = container.resolve<EquipeService>(EQUIPE)
   const linhas = (await equipe.listRegistros(
-    { alvo_id: produtoId, acao: [...ACOES_NO_PRODUTO] },
+    { alvo_id: alvo, acao: [...acoes] },
     { take: 20, order: { created_at: "DESC" } }
   )) as unknown as {
     membro_id: string | null

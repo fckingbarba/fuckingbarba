@@ -11,8 +11,8 @@ import {
   type ItemDaGaleria,
   type Resultado,
   type UsoDaImagem,
-  type Valores,
 } from "@/lib/produtos"
+import type { Valores } from "@/lib/formulario"
 
 /**
  * AS AÇÕES DO PRODUTO — a seção (texto e fundo), ligar/desligar e a ordem,
