@@ -14,9 +14,12 @@ import { site } from "@/lib/site"
  * quando a embalagem mudar. Sem a foto, a seção continua — o texto é o que
  * ela veio dizer.
  *
- * COM VÍDEO, O VÍDEO MANDA. O admin sobe um em Configurações da loja → Home
- * (`home.video` das configurações), e ele entra no lugar da foto — que vira a
- * capa dele até começar a tocar (`video-da-marca.tsx`).
+ * COM VÍDEO, O VÍDEO MANDA. Ele sobe pelo painel ("Layout da home" → Sobre
+ * a marca), vai pra home publicada junto do texto e entra no lugar da foto,
+ * com a capa dele (um quadro do começo) até começar a tocar
+ * (`video-da-marca.tsx`). O Medusa de antes da entrega 0080 não manda o
+ * vídeo na home (`sobre.video` sem a chave): aí vale o que o admin subia em
+ * Configurações da loja → Home, com a foto do produto de capa.
  *
  * ┌─ ENXUTA: TUDO AO LADO DA FOTO ─────────────────────────────────────────┐
  * │ Título, texto, números e o botão moram na coluna do lado da mídia, e   │
@@ -36,7 +39,7 @@ export async function Sobre() {
   const sobre = conteudo.sobre
   const produto = sobre.fotoDe ? await buscarProdutoPorHandle(sobre.fotoDe) : null
   const capa = produto?.thumbnail ?? null
-  const video = configs.home.video
+  const video = sobre.video !== undefined ? sobre.video : configs.home.video
 
   const midia = video ? (
     <VideoDaMarca video={video} capa={capa} titulo={sobre.titulo} />

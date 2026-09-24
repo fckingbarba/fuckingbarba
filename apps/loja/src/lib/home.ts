@@ -18,6 +18,12 @@ import type { AjusteDeLayout } from "@/lib/secoes/layout"
  * passar vira a de fábrica — nunca um buraco na home.
  */
 
+/**
+ * O vídeo da história da marca, no "Sobre a marca" (no lugar da foto). O do
+ * painel vem com a capa; o de antes dele (do admin), só com as medidas.
+ */
+export type VideoDaHistoria = { url: string; largura: number; altura: number; poster?: string }
+
 export type Vantagem = { titulo: string; detalhe: string }
 export type LinhaDoComparativo = { rotulo: string; valor: string }
 export type NumeroDaMarca = { valor: string; rotulo: string }
@@ -83,6 +89,12 @@ export type ConteudoDaHome = {
     numeros: NumeroDaMarca[]
     /** O handle do produto cuja foto ilustra a seção. */
     fotoDe?: string
+    /**
+     * O vídeo, ou `null` (sem vídeo). SEM A CHAVE, o Medusa é de antes da
+     * entrega 0080, que guardava o vídeo nas configurações: aí vale o
+     * `configuracoes().home.video` (ver `components/home/sobre.tsx`).
+     */
+    video?: VideoDaHistoria | null
   }
   fechamento: {
     chapeu: string
@@ -181,9 +193,29 @@ function lerFechamento(o: Record<string, unknown>): ConteudoDaHome["fechamento"]
   }
 }
 
+/** O vídeo: só com o arquivo no armazenamento e as medidas; a capa, se também morar lá. */
+function lerVideoDaHistoria(v: unknown): VideoDaHistoria | null {
+  const o = obj(v)
+  const url = o && imagem(o.url)
+  const medida = (n: unknown) => (typeof n === "number" && n > 0 ? n : null)
+  const largura = o && medida(o.largura)
+  const altura = o && medida(o.altura)
+  if (!o || !url || !largura || !altura) return null
+  const poster = imagem(o.poster)
+  return { url, largura, altura, ...(poster ? { poster } : {}) }
+}
+
+/** O "Sobre a marca": o texto como veio, e o vídeo peneirado — sem a chave, continua sem ela. */
+function lerSobre(o: Record<string, unknown>): ConteudoDaHome["sobre"] | null {
+  if (!PASSA.sobre(o)) return null
+  const { video, ...texto } = o
+  const sobre = texto as ConteudoDaHome["sobre"]
+  return "video" in o ? { ...sobre, video: lerVideoDaHistoria(video) } : sobre
+}
+
 const LEITURAS: {
   [K in keyof ConteudoDaHome]?: (o: Record<string, unknown>) => ConteudoDaHome[K] | null
-} = { banner: lerBanner, fechamento: lerFechamento }
+} = { banner: lerBanner, fechamento: lerFechamento, sobre: lerSobre }
 
 const PASSA: { [K in keyof ConteudoDaHome]: (o: Record<string, unknown>) => boolean } = {
   banner: () => false,

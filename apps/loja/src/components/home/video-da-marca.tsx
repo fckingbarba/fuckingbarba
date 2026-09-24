@@ -2,11 +2,11 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from "react"
 import { Pausar, SomDesligado, SomLigado, Tocar } from "@/components/icones"
-import type { VideoDaMarca as Video } from "@/lib/configuracoes"
+import type { VideoDaHistoria as Video } from "@/lib/home"
 
 /**
- * O VÍDEO DA HISTÓRIA DA MARCA — no lugar da foto, quando o admin subiu um
- * (Configurações da loja → Home).
+ * O VÍDEO DA HISTÓRIA DA MARCA — no lugar da foto, quando tem um (sobe pelo
+ * painel: "Layout da home" → Sobre a marca).
  *
  * ┌─ COMO ELE SE COMPORTA, E POR QUÊ ──────────────────────────────────────┐
  * │ Mudo, em loop, e só quando está na tela. Mudo porque é a única forma   │
@@ -15,9 +15,10 @@ import type { VideoDaMarca as Video } from "@/lib/configuracoes"
  * │ nem baixa antes (`preload="none"`): a seção fica no meio da home, e    │
  * │ quem não rola até ela não gasta o 4G com um vídeo que não viu.         │
  * │                                                                        │
- * │ Até começar, aparece a capa — a foto do produto que a seção sempre     │
- * │ mostrou. E o espaço já está reservado pelas medidas que o admin mediu  │
- * │ na hora de subir: nada pula quando o vídeo chega.                      │
+ * │ Até começar, aparece a capa: um quadro do começo do vídeo (o painel    │
+ * │ tira na subida), ou a foto do produto que a seção sempre mostrou. E o  │
+ * │ espaço já está reservado pelas medidas do vídeo: nada pula quando ele  │
+ * │ chega.                                                                 │
  * └────────────────────────────────────────────────────────────────────────┘
  *
  * Os botões: pausar (vídeo que se mexe sozinho por mais de cinco segundos
@@ -32,7 +33,7 @@ export function VideoDaMarca({
   titulo,
 }: {
   video: Video
-  /** A foto do produto — a capa, até o vídeo começar. */
+  /** A foto do produto — a capa, até o vídeo começar, quando ele não tem a dele. */
   capa: string | null
   titulo: string
 }) {
@@ -88,7 +89,7 @@ export function VideoDaMarca({
       <video
         ref={ref}
         src={video.url}
-        poster={capa ?? undefined}
+        poster={video.poster ?? capa ?? undefined}
         muted={!comSom}
         loop
         playsInline

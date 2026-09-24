@@ -23,6 +23,7 @@
  * lembra de sanitizar um campo que "sempre foi da equipe".
  */
 
+import { ANTES_E_DEPOIS } from "@/conteudo/depoimentos"
 import { pdpDoProduto } from "@/lib/pdp"
 
 export type PassoDoTempo = {
@@ -151,3 +152,32 @@ export type ConteudoDaPdp = {
 export async function conteudoDaPdp(handle: string): Promise<ConteudoDaPdp> {
   return (await pdpDoProduto(handle)).conteudo
 }
+
+/**
+ * OS CASOS DE ANTES E DEPOIS DE UM PRODUTO — os do painel (Produtos → a
+ * página → "Antes e depois"), ou, sem nenhum lá, os de
+ * `conteudo/depoimentos.ts`, o arquivo de antes (vazio hoje). A página do
+ * produto e a "Prova social" da home leem daqui: um caso vale nos dois
+ * lugares, e não em duas listas.
+ */
+export function casosDoProduto(handle: string, conteudo: ConteudoDaPdp): CasoAntesDepois[] {
+  const doPainel = conteudo.antesDepois?.casos ?? []
+  if (doPainel.length) return doPainel
+  return ANTES_E_DEPOIS.filter(
+    (d) => d.produtoHandle === handle && d.fotos?.antes && d.fotos?.depois
+  ).map((d) => ({
+    nome: d.nome,
+    tempo: "90 dias",
+    antes: d.fotos.antes,
+    depois: d.fotos.depois,
+    texto: d.texto,
+  }))
+}
+
+/**
+ * A RESSALVA QUE ACOMPANHA TODO ANTES E DEPOIS — na página do produto e na
+ * home. Faz parte das seções, e não de um lembrete: sem ela, não tem como
+ * publicar um caso. É o que Procon e CONAR olham primeiro.
+ */
+export const RESSALVA_DO_ANTES_E_DEPOIS =
+  "Fotos de clientes reais, publicadas com autorização. Mesma pessoa, mesmo ângulo, sem filtro. O resultado varia de pessoa pra pessoa e depende de uso diário."
