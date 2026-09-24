@@ -7,6 +7,7 @@ import {
   type MedusaResponse,
 } from "@medusajs/framework/http"
 import { ContainerRegistrationKeys, MedusaError } from "@medusajs/framework/utils"
+import { portaDoPainel } from "../lib/equipe/acesso"
 import { gerarHandle, HANDLE_VALIDO } from "../lib/handle"
 import {
   acessoAoPedido,
@@ -247,6 +248,13 @@ export default defineMiddlewares({
       method: ["POST"],
       bodyParser: { preserveRawBody: true },
     },
+    /*
+      O PAINEL DA LOJA (dashboard.fuckingbarba.com.br) — as rotas de
+      `api/dashboard/`. Uma porta só pra todas (`lib/equipe/acesso.ts`): a
+      assinatura do servidor do painel, e o token da equipe com membro ativo
+      em tudo que não é o caminho de entrar. Rota nova já nasce trancada.
+    */
+    { matcher: "/dashboard/*", middlewares: [portaDoPainel] },
     { matcher: "/admin/products", method: ["POST"], middlewares: [normalizaHandle] },
     { matcher: "/admin/products/:id", method: ["POST"], middlewares: [normalizaHandle] },
     { matcher: "/admin/product-categories", method: ["POST"], middlewares: [normalizaHandle] },

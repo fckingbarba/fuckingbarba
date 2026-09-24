@@ -24,26 +24,50 @@ import {
  * seis números na tela que a pessoa já tem aberta. E não depende do domínio
  * da loja estar no ar pra funcionar (a logo, se não carregar, vira o nome).
  * Os e-mails da troca de e-mail (`troca-de-email.ts`) seguem a mesma regra.
+ *
+ * `onde` é qual porta o código abre: a conta do cliente, na loja (o
+ * padrão), ou o painel da equipe (`api/dashboard/entrar/`). Só as frases
+ * mudam — o assunto também, pra quem é cliente E equipe nunca digitar um
+ * no lugar do outro.
  */
+const FRASES = {
+  loja: {
+    assunto: (codigo: string) => `${codigo} é o seu código da FuckingBarba`,
+    onde: "Digite na tela da loja pra entrar na sua conta.",
+    naoPediu: "Não pediu? Pode ignorar este e-mail: sem o código, ninguém entra na sua conta.",
+    rodape: "Você recebeu porque alguém pediu um código de acesso com este e-mail na FuckingBarba.",
+  },
+  painel: {
+    assunto: (codigo: string) => `${codigo} é o seu código do painel da FuckingBarba`,
+    onde: "Digite na tela do painel pra entrar.",
+    naoPediu: "Não pediu? Pode ignorar este e-mail: sem o código, ninguém entra no painel.",
+    rodape:
+      "Você recebeu porque alguém pediu um código pra entrar no painel da FuckingBarba com este e-mail.",
+  },
+} as const
+
 export function emailDoCodigo({
   para,
   codigo,
   minutos,
+  onde = "loja",
 }: {
   para: string
   codigo: string
   minutos: number
+  onde?: keyof typeof FRASES
 }): Email {
-  const assunto = `${codigo} é o seu código da FuckingBarba`
+  const frases = FRASES[onde]
+  const assunto = frases.assunto(codigo)
   const aviso = `Vale por ${minutos} minutos e só funciona uma vez.`
-  const naoPediu = "Não pediu? Pode ignorar este e-mail: sem o código, ninguém entra na sua conta."
+  const naoPediu = frases.naoPediu
 
   const texto = [
     "FuckingBarba",
     "",
     `Seu código de acesso: ${codigo}`,
     "",
-    "Digite na tela da loja pra entrar na sua conta.",
+    frases.onde,
     aviso,
     "",
     naoPediu,
@@ -52,7 +76,7 @@ export function emailDoCodigo({
   const conteudo = cartao(
     titulo("Seu código de acesso") +
       espaco(8) +
-      paragrafo("Digite na tela da loja pra entrar na sua conta.", { suave: true }) +
+      paragrafo(esc(frases.onde), { suave: true }) +
       espaco(24) +
       caixaDoCodigo(codigo) +
       espaco(22) +
@@ -69,7 +93,7 @@ export function emailDoCodigo({
     conteudo,
     // Sem o endereço escrito: o Gmail transformaria em link, e este e-mail
     // não tem link nenhum.
-    rodape: "Você recebeu porque alguém pediu um código de acesso com este e-mail na FuckingBarba.",
+    rodape: frases.rodape,
   })
 
   return { para, assunto, html, texto }
