@@ -267,23 +267,29 @@ export type PedidoNaGaleria =
   | { acao: "incluir"; item: ItemDaGaleria }
   | { acao: "mover"; url: string; para: "antes" | "depois" }
   | { acao: "tirar"; url: string }
+  | { acao: "titular"; url: string; titulo: string }
 
 const RECUSA_DA_GALERIA: Record<string, string> = {
-  repetido: "Essa já está na galeria.",
-  cheia: "A galeria está cheia: até 12 fotos e 4 vídeos. Tire uma antes.",
+  repetido: "Esse arquivo já está aqui.",
+  cheia: "Não cabe mais: até 12 fotos na galeria e 4 vídeos no Vê na prática. Tire um antes.",
   invalido: "Não deu: escolha o arquivo de novo.",
 }
 
 const FEITO_NA_GALERIA = (p: PedidoNaGaleria) =>
   p.acao === "incluir"
     ? p.item.tipo === "video"
-      ? "Vídeo na galeria — na página, ele toca sem som, em loop"
+      ? "Vídeo no Vê na prática — a página atualiza em alguns segundos"
       : "Foto na galeria — a página atualiza em alguns segundos"
     : p.acao === "tirar"
-      ? "Tirado da galeria — a página atualiza em alguns segundos"
-      : "Ordem salva — a página atualiza em alguns segundos"
+      ? "Tirado — a página atualiza em alguns segundos"
+      : p.acao === "titular"
+        ? "Nome salvo — a página atualiza em alguns segundos"
+        : "Ordem salva — a página atualiza em alguns segundos"
 
-/** UMA mudança nas fotos e vídeos da dobra (incluir, mover uma casa, tirar), na hora. */
+/**
+ * UMA mudança nas fotos da galeria ou nos vídeos do "Vê na prática" (incluir,
+ * mover uma casa, tirar, dar nome ao vídeo), na hora.
+ */
 export async function mudarGaleria(id: string, pedido: PedidoNaGaleria): Promise<Resultado> {
   const r = await chamar(id, "galeria", pedido)
   const erro = comum(r)

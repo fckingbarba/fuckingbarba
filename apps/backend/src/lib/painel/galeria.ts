@@ -1,17 +1,19 @@
-import type { VideoDaGaleria, VideoDaPdp } from "../pdp"
+import { tituloDoVideo, type VideoDaGaleria, type VideoDaPdp } from "../pdp"
 
 /**
- * A GALERIA DA DOBRA — as fotos e os vídeos, na ordem da página.
+ * AS FOTOS E OS VÍDEOS DO PRODUTO — o que o painel edita numa lista só.
  *
  * As FOTOS são as do produto no Medusa (`images`, pela ordem `rank`, e a
  * `thumbnail` = a primeira): é delas que a vitrine, o Google e o link no
- * WhatsApp tiram a imagem. Os VÍDEOS moram no `fb_pdp` (`videos`), cada um
- * com a posição dele na lista. Juntar as duas coisas aqui, num lugar só, é o
- * que garante que o painel e a loja mostram a mesma ordem (a loja faz a
- * mesma conta em `apps/loja/src/lib/pdp.ts`).
+ * WhatsApp tiram a imagem, e são elas que a galeria da dobra mostra. Os
+ * VÍDEOS moram no `fb_pdp` (`videos`) e vão pra faixa "Vê na prática", FORA
+ * da galeria (pedido da loja em 24/09) — cada um com a posição dele entre os
+ * vídeos.
  *
- * A CAPA É SEMPRE FOTO: vídeo nunca fica na frente da primeira foto. Código
- * puro, com testes.
+ * A lista junta as duas coisas, as fotos primeiro e os vídeos depois, e cada
+ * mudança anda DENTRO do tipo: mover uma foto troca com a foto vizinha,
+ * mover um vídeo troca com o vídeo vizinho. Assim a capa é sempre foto sem
+ * regra nenhuma a mais. Código puro, com testes.
  */
 
 export type ItemDaGaleria = { tipo: "foto"; url: string } | ({ tipo: "video" } & VideoDaPdp)
@@ -37,35 +39,33 @@ export function fotosDoProduto(p: {
 /** Fotos numa galeria — a dobra mostra as miniaturas numa fileira só. */
 export const LIMITE_DE_FOTOS = 12
 
+/** As fotos na ordem delas, e depois os vídeos, pela posição entre eles. */
 export function montarGaleria(
   fotos: readonly string[],
   videos: readonly VideoDaGaleria[]
 ): ItemDaGaleria[] {
-  const itens: ItemDaGaleria[] = fotos.map((url) => ({ tipo: "foto", url }))
-  let ultimo = -1
-  for (const { posicao, ...video } of [...videos].sort((a, b) => a.posicao - b.posicao)) {
-    // Depois da capa, e depois do vídeo anterior: a ordem entre eles não se inverte.
-    const onde = Math.min(Math.max(fotos.length ? 1 : 0, posicao, ultimo + 1), itens.length)
-    itens.splice(onde, 0, { tipo: "video", ...video })
-    ultimo = onde
-  }
-  return itens
+  return [
+    ...fotos.map((url): ItemDaGaleria => ({ tipo: "foto", url })),
+    ...[...videos]
+      .sort((a, b) => a.posicao - b.posicao)
+      .map(({ posicao: _posicao, ...video }): ItemDaGaleria => ({ tipo: "video", ...video })),
+  ]
 }
 
-/** O caminho de volta: as fotos na ordem, e cada vídeo com a posição dele. */
+/** O caminho de volta: as fotos na ordem, e cada vídeo com a posição dele ENTRE OS VÍDEOS. */
 export function desmontarGaleria(itens: readonly ItemDaGaleria[]): {
   fotos: string[]
   videos: VideoDaGaleria[]
 } {
   const fotos: string[] = []
   const videos: VideoDaGaleria[] = []
-  itens.forEach((item, posicao) => {
+  for (const item of itens) {
     if (item.tipo === "foto") fotos.push(item.url)
     else {
       const { tipo: _tipo, ...video } = item
-      videos.push({ ...video, posicao })
+      videos.push({ ...video, posicao: videos.length })
     }
-  })
+  }
   return { fotos, videos }
 }
 
@@ -73,45 +73,60 @@ export type PedidoNaGaleria =
   | { acao: "incluir"; item: ItemDaGaleria }
   | { acao: "mover"; url: string; para: "antes" | "depois" }
   | { acao: "tirar"; url: string }
+  /** O nome do vídeo na faixa "Vê na prática"; vazio tira o nome. */
+  | { acao: "titular"; url: string; titulo: string }
 
 export type GaleriaMudada =
   | { ok: true; itens: ItemDaGaleria[] }
   | { ok: false; motivo: "nao_achei" | "ponta" | "capa" | "repetido" | "cheia" }
 
-/** Com a primeira foto na frente, se um vídeo ficou lá (depois de tirar a capa). */
-function comCapa(itens: ItemDaGaleria[]): ItemDaGaleria[] {
-  const foto = itens.findIndex((i) => i.tipo === "foto")
-  if (foto <= 0) return itens
-  return [itens[foto]!, ...itens.filter((_, i) => i !== foto)]
+/** As fotos primeiro, os vídeos depois, cada grupo na ordem em que está. */
+function emOrdem(itens: readonly ItemDaGaleria[]): ItemDaGaleria[] {
+  return [...itens.filter((i) => i.tipo === "foto"), ...itens.filter((i) => i.tipo === "video")]
 }
 
 /**
- * UMA mudança na galeria, sobre a que está gravada AGORA: incluir no fim,
- * andar uma casa pra um lado, tirar. Mover que poria um vídeo na capa é
- * recusado (`capa`) — a tela nem oferece a seta.
+ * UMA mudança, sobre a lista gravada AGORA: incluir (a foto no fim das
+ * fotos, o vídeo no fim dos vídeos), andar uma casa entre os do MESMO tipo,
+ * tirar, e dar nome a um vídeo. Uma foto nunca passa pra depois de um vídeo,
+ * nem o contrário — a `capa` continua recusada por garantia, mas não acontece.
  */
 export function mudarGaleria(
   itens: readonly ItemDaGaleria[],
   pedido: PedidoNaGaleria,
   limiteDeVideos: number
 ): GaleriaMudada {
+  const atual = emOrdem(itens)
+
   if (pedido.acao === "incluir") {
     const { item } = pedido
-    if (itens.some((i) => i.url === item.url)) return { ok: false, motivo: "repetido" }
-    const mesmoTipo = itens.filter((i) => i.tipo === item.tipo).length
+    if (atual.some((i) => i.url === item.url)) return { ok: false, motivo: "repetido" }
+    const mesmoTipo = atual.filter((i) => i.tipo === item.tipo).length
     if (mesmoTipo >= (item.tipo === "foto" ? LIMITE_DE_FOTOS : limiteDeVideos))
       return { ok: false, motivo: "cheia" }
-    return { ok: true, itens: comCapa([...itens, item]) }
+    return { ok: true, itens: emOrdem([...atual, item]) }
   }
 
-  const i = itens.findIndex((x) => x.url === pedido.url)
+  const i = atual.findIndex((x) => x.url === pedido.url)
   if (i < 0) return { ok: false, motivo: "nao_achei" }
+  const alvo = atual[i]!
 
-  if (pedido.acao === "tirar") return { ok: true, itens: comCapa(itens.filter((_, k) => k !== i)) }
+  if (pedido.acao === "tirar") return { ok: true, itens: atual.filter((_, k) => k !== i) }
 
-  const j = pedido.para === "antes" ? i - 1 : i + 1
-  if (j < 0 || j >= itens.length) return { ok: false, motivo: "ponta" }
-  const novos = [...itens]
+  if (pedido.acao === "titular") {
+    if (alvo.tipo !== "video") return { ok: false, motivo: "nao_achei" }
+    const titulo = tituloDoVideo(pedido.titulo)
+    const { titulo: _antigo, ...semTitulo } = alvo
+    const novo: ItemDaGaleria = titulo ? { ...semTitulo, titulo } : semTitulo
+    return { ok: true, itens: atual.map((x, k) => (k === i ? novo : x)) }
+  }
+
+  // O vizinho do MESMO tipo, na direção pedida.
+  const passo = pedido.para === "antes" ? -1 : 1
+  let j = i + passo
+  while (j >= 0 && j < atual.length && atual[j]!.tipo !== alvo.tipo) j += passo
+  if (j < 0 || j >= atual.length) return { ok: false, motivo: "ponta" }
+  const novos = [...atual]
   ;[novos[i], novos[j]] = [novos[j]!, novos[i]!]
   if (novos[0]!.tipo === "video" && novos.some((x) => x.tipo === "foto"))
     return { ok: false, motivo: "capa" }

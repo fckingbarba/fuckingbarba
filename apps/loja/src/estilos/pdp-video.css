@@ -110,3 +110,19 @@
     clip-path: polygon(0 0, 100% 50%, 0 100%);
   }
 }
+
+/*
+  A JANELA DO "VÊ NA PRÁTICA" (`dialog.videos__tela`, desenhada no `pdp.css`
+  gerado; o componente é `components/produto/ve-na-pratica.tsx`). O reset da
+  loja zera a margem de todo elemento, e o <dialog> fica no meio da tela
+  justamente pela margem automática — sem isto, ele abria no canto de cima.
+  A altura cabe na tela baixa (notebook, celular deitado): o vídeo em pé
+  encolhe, e o que sobra dos lados fica preto.
+*/
+.videos__tela {
+  margin: auto;
+  max-height: calc(100dvh - 32px);
+}
+.videos__tela video {
+  max-height: calc(100dvh - 38px);
+}

@@ -59,7 +59,11 @@ export function modoDaCaixa(c: VendaCombinada): "unidades" | "junto" {
   return c.modo ?? (c.kits === false && c.produtos?.length ? "junto" : "unidades")
 }
 
-/** Um vídeo na galeria da dobra, com a posição dele entre as fotos (a capa é sempre foto). */
+/**
+ * Um vídeo da faixa "Vê na prática", com a posição dele ENTRE OS VÍDEOS. (Até
+ * 24/09 os vídeos entravam no meio da galeria de fotos, e a posição era a casa
+ * lá; a ordem entre eles continua a mesma.)
+ */
 export type VideoDaGaleria = VideoDaPdp & { posicao: number }
 
 export type Pdp = {
@@ -67,7 +71,7 @@ export type Pdp = {
   layout: AjusteDeLayout
   fundos: Record<string, FundoDaSecao>
   combinada: VendaCombinada
-  /** Os vídeos da galeria da dobra; as fotos são as do produto. */
+  /** Os vídeos da faixa "Vê na prática"; a galeria da dobra é só de fotos. */
   videos: VideoDaGaleria[]
 }
 
@@ -101,8 +105,11 @@ const LISTAS: Record<string, readonly string[]> = {
 function ehDoArmazenamento(url: string): boolean {
   const ref = process.env.NEXT_PUBLIC_SUPABASE_REF
   if (ref && url.startsWith(`https://${ref}.supabase.co/storage/v1/object/public/`)) return true
-  const medusaLocal = /\/\/(localhost|127\.0\.0\.1)/.test(process.env.MEDUSA_BACKEND_URL ?? "")
-  return medusaLocal && url.startsWith("http://localhost:9000/static/")
+  const medusa = (process.env.MEDUSA_BACKEND_URL ?? "").replace(/\/+$/, "")
+  if (!/\/\/(localhost|127\.0\.0\.1)/.test(medusa)) return false
+  // Na máquina de quem desenvolve: o disco do Medusa local, na 9000 ou na porta dele
+  // (sessões em paralelo sobem em portas próprias — `next.config.ts` libera as duas).
+  return url.startsWith("http://localhost:9000/static/") || url.startsWith(`${medusa}/static/`)
 }
 
 function ehObjeto(v: unknown): v is Record<string, unknown> {
@@ -118,11 +125,12 @@ const medida = (v: unknown, maximo: number) =>
  */
 function lerVideo(v: unknown): VideoDaPdp | null {
   if (!ehObjeto(v)) return null
-  const { url, poster, largura, altura, duracao } = v
+  const { url, poster, largura, altura, duracao, titulo } = v
   if (typeof url !== "string" || !ehDoArmazenamento(url)) return null
   if (typeof poster !== "string" || !ehDoArmazenamento(poster)) return null
   if (!medida(largura, 8000) || !medida(altura, 8000) || !medida(duracao, 600)) return null
-  return { url, poster, largura, altura, duracao } as VideoDaPdp
+  const nome = typeof titulo === "string" ? titulo.trim().slice(0, 40) : ""
+  return { url, poster, largura, altura, duracao, ...(nome ? { titulo: nome } : {}) } as VideoDaPdp
 }
 
 /** Os casos que a página mostra: com as duas fotos no armazenamento e a autorização marcada. */
@@ -241,26 +249,21 @@ export function lerPdp(metadata: unknown): Pdp {
 }
 
 /**
- * As fotos e os vídeos da dobra numa lista só — a mesma conta do painel
- * (`montarGaleria`, em `apps/backend/src/lib/painel/galeria.ts`): cada vídeo
- * na posição dele, nunca na frente da primeira foto, e sem inverter a ordem
- * entre dois vídeos seguidos.
+ * Os vídeos da faixa "Vê na prática", na ordem do painel. Ficam FORA da
+ * galeria de fotos (pedido da loja em 24/09): a galeria é do produto, e o
+ * vídeo é um mostruário à parte, que abre numa janela com som.
  */
-export function galeriaDaDobra<F extends object>(
-  fotos: readonly F[],
-  videos: readonly VideoDaGaleria[]
-): (({ tipo: "foto" } & F) | ({ tipo: "video" } & VideoDaPdp))[] {
-  const itens: (({ tipo: "foto" } & F) | ({ tipo: "video" } & VideoDaPdp))[] = fotos.map((f) => ({
-    tipo: "foto" as const,
-    ...f,
-  }))
-  let ultimo = -1
-  for (const { posicao, ...video } of [...videos].sort((a, b) => a.posicao - b.posicao)) {
-    const onde = Math.min(Math.max(fotos.length ? 1 : 0, posicao, ultimo + 1), itens.length)
-    itens.splice(onde, 0, { tipo: "video", ...video })
-    ultimo = onde
-  }
-  return itens
+export function videosDaFaixa(videos: readonly VideoDaGaleria[]): VideoDaPdp[] {
+  return [...videos]
+    .sort((a, b) => a.posicao - b.posicao)
+    .map(({ url, poster, largura, altura, duracao, titulo }) => ({
+      url,
+      poster,
+      largura,
+      altura,
+      duracao,
+      ...(titulo ? { titulo } : {}),
+    }))
 }
 
 /** Só os fundos, pro montador de seções. */
