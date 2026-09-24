@@ -2,16 +2,16 @@ import type { HttpTypes } from "@medusajs/types"
 import Link from "next/link"
 import { Raio } from "@/components/icones"
 import { CartaoProduto } from "@/components/produto/cartao"
-import { listarProdutos } from "@/lib/medusa"
+import { home, listarProdutos } from "@/lib/medusa"
 
 /**
  * A grade de produtos da home, com o mesmo card da faixa de coleção.
  *
- * Sobre o título: no protótipo era "Os mais pedidos da casa". Não dá pra
- * dizer isso ainda — a loja nova não vendeu nada, então não existe "mais
- * pedido". Fica "Todos os produtos", que é verdade hoje. Quando houver
- * histórico de pedidos no Medusa dá pra ordenar por venda de verdade e o
- * título volta, valendo.
+ * Sobre o título (do painel, "Layout da home"): no protótipo era "Os mais
+ * pedidos da casa". Não dá pra dizer isso ainda — a grade não é ordenada
+ * por venda, então não existe "mais pedido". O de fábrica é "Todos os
+ * produtos", que é verdade hoje; "mais pedidos" só quando a ordem for a de
+ * venda de verdade.
  *
  * "Pronta entrega" também é condicional: só entra quando todos os produtos
  * da grade têm estoque. Um esgotado no meio já derruba a frase, porque ela
@@ -20,7 +20,7 @@ import { listarProdutos } from "@/lib/medusa"
 const LIMITE = 12
 
 export async function Vitrine() {
-  const produtos = await listarProdutos({ limite: LIMITE })
+  const [produtos, { conteudo }] = await Promise.all([listarProdutos({ limite: LIMITE }), home()])
   if (!produtos.length) return null
 
   const todosEmEstoque = produtos.every(temEstoque)
@@ -31,7 +31,7 @@ export async function Vitrine() {
         <div className="vitrine__topo">
           <h2 className="vitrine__titulo" id="vitrine-titulo">
             <Raio />
-            Todos os produtos
+            {conteudo.vitrine.titulo}
           </h2>
           <p className="vitrine__contagem">
             {produtos.length} {produtos.length === 1 ? "produto" : "produtos"}

@@ -1,10 +1,9 @@
 import Image from "next/image"
 import Link from "next/link"
 import { Raio } from "@/components/icones"
-import { FECHAMENTO } from "@/conteudo/home"
 import { frasesDoFrete } from "@/lib/configuracoes"
 import { parcelamento } from "@/lib/site"
-import { buscarProdutoPorHandle, configuracoes } from "@/lib/medusa"
+import { buscarProdutoPorHandle, configuracoes, home } from "@/lib/medusa"
 
 /** O "check" das garantias — só aqui, não vale a pena virar ícone geral. */
 function Certo() {
@@ -25,9 +24,12 @@ function Certo() {
  *
  * As três garantias repetem o que a barra de vantagens e o rodapé já dizem, e
  * pela mesma fonte — se o frete grátis mudar, muda nos três lugares junto.
+ * O chapéu, o título, o botão e de qual produto é a foto vêm do painel
+ * ("Layout da home").
  */
 export async function Fechamento() {
-  const produto = await buscarProdutoPorHandle(FECHAMENTO.fotoDe)
+  const { fechamento } = (await home()).conteudo
+  const produto = fechamento.fotoDe ? await buscarProdutoPorHandle(fechamento.fotoDe) : null
 
   /*
    * A terceira linha era "Barba na cara ou sua grana de volta". Essa garantia
@@ -58,13 +60,13 @@ export async function Fechamento() {
       <div className="fechamento__wrap">
         <div className="fechamento__miolo">
           <p className="fechamento__kicker">
-            <Raio /> {FECHAMENTO.chapeu}
+            <Raio /> {fechamento.chapeu}
           </p>
           <h2 className="fechamento__titulo" id="fechamento-titulo">
-            {FECHAMENTO.titulo}
+            {fechamento.titulo}
           </h2>
           <Link href="#vitrine" className="btn">
-            {FECHAMENTO.chamada}
+            {fechamento.chamada}
             <Raio className="btn__bolt" />
           </Link>
         </div>

@@ -3,13 +3,9 @@ import Image from "next/image"
 import Link from "next/link"
 import { Carrinho, Cronometro, Curva, Frasco, Raio } from "@/components/icones"
 import { BotaoComprar } from "@/components/produto/comprar"
-import {
-  ALTA_PERFORMANCE,
-  ORDEM_ALTA_PERFORMANCE,
-  type Beneficios,
-} from "@/conteudo/alta-performance"
 import { emReais } from "@/lib/formato"
-import { buscarProdutoPorHandle, precosDe, varianteDoCard } from "@/lib/medusa"
+import type { ProdutoNoPalco } from "@/lib/home"
+import { buscarProdutoPorHandle, home, precosDe, varianteDoCard } from "@/lib/medusa"
 import { PARCELA_MINIMA, PARCELAS_SEM_JUROS } from "@/lib/site"
 import { PalcoAltaPerformance } from "./palco-alta-performance"
 
@@ -17,28 +13,32 @@ import { PalcoAltaPerformance } from "./palco-alta-performance"
  * "Alta Performance": um palco que troca de produto sozinho, e pra cada um
  * três cards — o que é, como se usa, o que esperar.
  *
- * A divisão de trabalho vale registrar: **o texto vem de
- * `conteudo/alta-performance.ts`, o resto vem do Medusa.** Nome, foto e preço
- * mudam no admin e mudam aqui junto; a redação muda por commit. No protótipo
- * os três preços estavam escritos no HTML — e já estavam errados em relação
- * ao catálogo quando fui conferir.
+ * A divisão de trabalho vale registrar: **o texto (e quais produtos, em que
+ * ordem) vem do painel, no "Layout da home"; o resto vem do catálogo.** Nome,
+ * foto e preço mudam no admin e mudam aqui junto. No protótipo os três
+ * preços estavam escritos no HTML — e já estavam errados em relação ao
+ * catálogo quando fui conferir.
  *
  * Produto que não existe no catálogo não vira slide, mesmo tendo texto. Com
  * menos de dois, a seção inteira sai: palco de um slide é só um bloco com
  * bolinha inútil embaixo.
  */
 export async function AltaPerformance() {
+  const { altaPerformance } = (await home()).conteudo
   const encontrados = await Promise.all(
-    ORDEM_ALTA_PERFORMANCE.map(async (handle) => {
-      const produto = await buscarProdutoPorHandle(handle)
-      return produto ? { produto, texto: ALTA_PERFORMANCE[handle] } : null
+    altaPerformance.produtos.map(async (texto) => {
+      const produto = await buscarProdutoPorHandle(texto.produto)
+      return produto ? { produto, texto } : null
     })
   )
-  const slides = encontrados.filter((s): s is NonNullable<typeof s> => s !== null)
+  // O mesmo produto duas vezes vira um slide só (o backend já grava assim; aqui é a garantia).
+  const slides = encontrados
+    .filter((s): s is NonNullable<typeof s> => s !== null)
+    .filter((s, i, todos) => todos.findIndex((o) => o.produto.id === s.produto.id) === i)
   if (slides.length < 2) return null
 
   return (
-    <PalcoAltaPerformance rotulos={slides.map((s) => s.texto.nomeCurto)}>
+    <PalcoAltaPerformance rotulos={slides.map((s) => s.texto.nomeCurto ?? s.produto.title)}>
       {slides.map(({ produto, texto }, i) => (
         <Slide key={produto.id} produto={produto} texto={texto} indice={i} total={slides.length} />
       ))}
@@ -53,7 +53,7 @@ function Slide({
   total,
 }: {
   produto: HttpTypes.StoreProduct
-  texto: Beneficios
+  texto: ProdutoNoPalco
   indice: number
   total: number
 }) {
@@ -68,7 +68,7 @@ function Slide({
       id={`perf-slide-${indice}`}
       role="group"
       aria-roledescription="slide"
-      aria-label={`${indice + 1} de ${total}: ${texto.nomeCurto}`}
+      aria-label={`${indice + 1} de ${total}: ${texto.nomeCurto ?? produto.title}`}
     >
       <div className="benefits__ficha">
         <span className="benefits__foto">
@@ -123,18 +123,18 @@ function Slide({
         <article className="benefit-card">
           <Frasco className="benefit-card__icon" />
           <Chapeu>O Produto</Chapeu>
-          <h4 className="benefit-card__heading">{texto.produto.titulo}</h4>
-          <p className="benefit-card__text">{texto.produto.texto}</p>
+          <h4 className="benefit-card__heading">{texto.titulo}</h4>
+          <p className="benefit-card__text">{texto.texto}</p>
         </article>
 
         <article className="benefit-card">
           <Cronometro className="benefit-card__icon" />
           <Chapeu>Modo de Uso</Chapeu>
-          <h4 className="benefit-card__heading">{texto.uso.titulo}</h4>
-          <p className="benefit-card__text">{texto.uso.texto}</p>
+          <h4 className="benefit-card__heading">{texto.usoTitulo}</h4>
+          <p className="benefit-card__text">{texto.usoTexto}</p>
           <ol className="benefit-card__steps">
-            {texto.uso.passos.map((passo, n) => (
-              <li key={passo}>
+            {texto.passos.map((passo, n) => (
+              <li key={`${n}-${passo}`}>
                 <span className="benefit-card__step-number" aria-hidden="true">
                   <span>{n + 1}</span>
                 </span>
@@ -147,15 +147,12 @@ function Slide({
         <article className="benefit-card">
           <Curva className="benefit-card__icon" />
           <Chapeu>O Resultado</Chapeu>
-          <p
-            className="benefit-card__stat"
-            aria-label={`${texto.resultado.numero} ${texto.resultado.unidade}`}
-          >
-            <span className="benefit-card__stat-number">{texto.resultado.numero}</span>
-            <span className="benefit-card__stat-unit">{texto.resultado.unidade}</span>
+          <p className="benefit-card__stat" aria-label={`${texto.numero} ${texto.unidade}`}>
+            <span className="benefit-card__stat-number">{texto.numero}</span>
+            <span className="benefit-card__stat-unit">{texto.unidade}</span>
           </p>
-          <p className="benefit-card__stat-caption">{texto.resultado.legenda}</p>
-          <p className="benefit-card__text">{texto.resultado.texto}</p>
+          <p className="benefit-card__stat-caption">{texto.legenda}</p>
+          <p className="benefit-card__text">{texto.resultado}</p>
         </article>
       </div>
     </div>

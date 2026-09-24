@@ -1,7 +1,7 @@
 import Link from "next/link"
 import { Raio } from "@/components/icones"
 import { CartaoProduto } from "@/components/produto/cartao"
-import { listarProdutos } from "@/lib/medusa"
+import { home, listarProdutos } from "@/lib/medusa"
 import { ColecaoCarrossel } from "./colecao-carrossel"
 
 /**
@@ -14,12 +14,12 @@ import { ColecaoCarrossel } from "./colecao-carrossel"
  * código. Enquanto são cinco produtos, coleção seria burocracia sem ganho.
  *
  * Sem produto, a seção não aparece — carrossel vazio com seta desabilitada é
- * pior que seção nenhuma.
+ * pior que seção nenhuma. O título vem do painel ("Layout da home").
  */
 const LIMITE = 12
 
 export async function Colecao() {
-  const produtos = await listarProdutos({ limite: LIMITE })
+  const [produtos, { conteudo }] = await Promise.all([listarProdutos({ limite: LIMITE }), home()])
   if (!produtos.length) return null
 
   return (
@@ -29,7 +29,7 @@ export async function Colecao() {
           titulo={
             <h2 className="colecao__titulo" id="colecao-titulo">
               <Raio />
-              Alta Performance: Barba e Cabelo
+              {conteudo.colecao.titulo}
             </h2>
           }
         >

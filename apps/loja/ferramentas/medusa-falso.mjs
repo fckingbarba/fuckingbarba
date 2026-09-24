@@ -28,7 +28,7 @@ import { crc32, deflateSync } from "node:zlib"
  * número da produção.
  *
  * Só leitura, e só o que a vitrine pede: regiões, categorias, produtos,
- * configurações, a promoção e os preços por quantidade. Nada de carrinho, conta ou pedido — o
+ * configurações, a home, a promoção e os preços por quantidade. Nada de carrinho, conta ou pedido — o
  * Lighthouse não compra. Rota que não existe aqui responde 404 e aparece no
  * log com `[medusa falso] sem rota`: se o build falhar por causa dela, é
  * porque alguma tela nova passou a pedir algo que o falso ainda não sabe.
@@ -252,6 +252,10 @@ export async function subirMedusaFalso({ porta = PORTA_PADRAO } = {}) {
         return json({ configuracoes: CONFIGURACOES })
       case "/store/promocao":
         return json({ promocao: null })
+      case "/store/home":
+        // Nada publicado: a ordem do registro, e cada seção com o texto de
+        // fábrica da loja (a peneira de `lib/home.ts` completa o que falta).
+        return json({ home: { layout: {}, conteudo: {} } })
       case "/store/precos-por-quantidade": {
         const precos = {}
         for (const id of valores(url, "variante")) {

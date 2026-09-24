@@ -1,9 +1,9 @@
 import Image from "next/image"
 import Link from "next/link"
+import { Fragment } from "react"
 import { VideoDaMarca } from "@/components/home/video-da-marca"
 import { Raio } from "@/components/icones"
-import { SOBRE } from "@/conteudo/home"
-import { buscarProdutoPorHandle, configuracoes } from "@/lib/medusa"
+import { buscarProdutoPorHandle, configuracoes, home } from "@/lib/medusa"
 import { site } from "@/lib/site"
 
 /**
@@ -25,20 +25,21 @@ import { site } from "@/lib/site"
  * │ título, mídia, texto.                                                  │
  * └────────────────────────────────────────────────────────────────────────┘
  *
- * Os números vêm de `conteudo/home.ts`, onde está o aviso de que precisam
- * ser conferidos: ano de fundação e clientes impactados são afirmações sobre
- * o negócio, não enfeite.
+ * O texto, os números e de qual produto é a foto vêm do painel ("Layout da
+ * home"), com o aviso de que os números precisam ser conferidos: ano de
+ * fundação e clientes impactados são afirmações sobre o negócio, não
+ * enfeite. A frase em destaque (o "grito") entra depois do primeiro
+ * parágrafo.
  */
 export async function Sobre() {
-  const [produto, { home }] = await Promise.all([
-    buscarProdutoPorHandle(SOBRE.fotoDe),
-    configuracoes(),
-  ])
+  const [{ conteudo }, configs] = await Promise.all([home(), configuracoes()])
+  const sobre = conteudo.sobre
+  const produto = sobre.fotoDe ? await buscarProdutoPorHandle(sobre.fotoDe) : null
   const capa = produto?.thumbnail ?? null
-  const video = home.video
+  const video = configs.home.video
 
   const midia = video ? (
-    <VideoDaMarca video={video} capa={capa} titulo={SOBRE.titulo} />
+    <VideoDaMarca video={video} capa={capa} titulo={sobre.titulo} />
   ) : capa ? (
     <div className="sobre__midia">
       <Image
@@ -65,30 +66,36 @@ export async function Sobre() {
       >
         <h2 className="sobre__titulo" id="sobre-titulo">
           <Raio />
-          {SOBRE.titulo}
+          {sobre.titulo}
         </h2>
 
         {midia}
 
         <div className="sobre__texto">
-          {SOBRE.paragrafos.map((p, i) =>
-            typeof p === "string" ? (
-              <p key={i}>{p}</p>
-            ) : (
-              <p className="sobre__grito" key={i}>
-                <Raio /> {p.grito}
-              </p>
-            )
-          )}
+          {sobre.paragrafos.map((p, i) => (
+            <Fragment key={i}>
+              <p>{p}</p>
+              {i === 0 && sobre.grito ? (
+                <p className="sobre__grito">
+                  <Raio /> {sobre.grito}
+                </p>
+              ) : null}
+            </Fragment>
+          ))}
 
-          <dl className="sobre__numeros">
-            {SOBRE.numeros.map((n) => (
-              <div className="sobre__numero" key={n.rotulo}>
-                <dt>{n.rotulo}</dt>
-                <dd>{"ano" in n ? <time dateTime={n.ano}>{n.valor}</time> : n.valor}</dd>
-              </div>
-            ))}
-          </dl>
+          {sobre.numeros.length ? (
+            <dl className="sobre__numeros">
+              {sobre.numeros.map((n, i) => (
+                <div className="sobre__numero" key={`${i}-${n.rotulo}`}>
+                  <dt>{n.rotulo}</dt>
+                  {/* Ano (quatro dígitos) vai marcado como data, pra quem lê a página por máquina. */}
+                  <dd>
+                    {/^\d{4}$/.test(n.valor) ? <time dateTime={n.valor}>{n.valor}</time> : n.valor}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          ) : null}
 
           <div className="sobre__fecho">
             <Link href={`/${site.categorias[2].handle}`} className="btn btn--preto">

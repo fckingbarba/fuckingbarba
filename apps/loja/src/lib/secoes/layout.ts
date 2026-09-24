@@ -1,4 +1,5 @@
 import { cacheLife, cacheTag } from "next/cache"
+import { home } from "@/lib/medusa"
 import { pdpDoProduto } from "@/lib/pdp"
 import { SECOES, type Escopo, type Secao } from "./registro"
 
@@ -21,13 +22,14 @@ import { SECOES, type Escopo, type Secao } from "./registro"
  * ordem do dia em que foram salvos. Assim, produto novo nasce configurado e
  * mudança no padrão alcança todo mundo que não pediu exceção.
  *
- * A FONTE, hoje: o `metadata` do produto no Medusa, editado no widget da
- * página do produto no admin. A home ainda não tem painel e continua
- * montando o padrão do registro.
+ * A FONTE, hoje: no produto, o `metadata` dele no Medusa (`fb_pdp`), que o
+ * painel edita na página de cada produto; na home, a versão PUBLICADA do
+ * "Layout da home" do painel (`home()`, que vem do `metadata` da loja).
  *
- * Salvar no admin derruba `layout:produto:<handle>` junto com
+ * Salvar no painel derruba `layout:produto:<handle>` junto com
  * `produto:<handle>` — as duas, porque texto e ordem são dados diferentes e
- * derrubar só uma deixaria a página com o texto novo na ordem velha.
+ * derrubar só uma deixaria a página com o texto novo na ordem velha. Na
+ * home, pelo mesmo motivo, o "Publicar" derruba `layout:home` e `home`.
  */
 
 export type AjusteDeLayout = {
@@ -61,10 +63,8 @@ export async function lerAjuste(escopo: Escopo, handle?: string): Promise<Ajuste
   if (handle) cacheTag(TAGS_LAYOUT.produto(handle))
   cacheLife("days")
 
-  // A home ainda não tem painel: o padrão do registro é a configuração dela.
-  if (escopo !== "produto" || !handle) return null
-
-  const { layout } = await pdpDoProduto(handle)
+  const layout: AjusteDeLayout =
+    escopo === "home" ? (await home()).layout : handle ? (await pdpDoProduto(handle)).layout : {}
 
   /*
     Ajuste vazio devolve `null`, e não `{}`. São a mesma coisa pro
