@@ -122,12 +122,13 @@ const FOTO_DA_ULTIMA_CHAMADA: MedidaDoFundo = {
 export const SECOES_DA_HOME: Record<IdDaSecaoDaHome, DefinicaoDaSecaoDaHome> = {
   "home.banner": {
     nome: "Banner principal",
-    descricao: "A peça grande do topo. Até 5 slides, que passam sozinhos.",
+    descricao:
+      "As artes do topo, até 5, que passam sozinhas. Sem arte, a home começa na barra de vantagens.",
     campos: [
       {
         tipo: "nota",
         texto:
-          "O primeiro slide é o que aparece primeiro — e o que o Google mede. Com mais de um, a loja mostra as bolinhas e as setas pra trocar, e para de passar sozinho quando a pessoa mexe.",
+          "Só imagem: a arte ocupa o banner inteiro, com o texto dentro dela — as mesmas da Nuvemshop servem. O primeiro slide é o que aparece primeiro, e o que o Google mede. Com mais de um, a loja mostra as bolinhas e as setas pra trocar, e para de passar sozinho quando a pessoa mexe.",
       },
       {
         tipo: "grupo",
@@ -140,42 +141,25 @@ export const SECOES_DA_HOME: Record<IdDaSecaoDaHome, DefinicaoDaSecaoDaHome> = {
           {
             tipo: "imagens",
             c: "imagem",
-            rot: "Arte do slide (opcional)",
+            rot: "Arte",
             medida: MEDIDA_DA_ARTE,
-            ajuda:
-              "Com arte, ela ocupa o banner inteiro, como na Nuvemshop: o texto vai na própria imagem, e o slide inteiro leva pro produto. Sem arte, a loja monta o banner de sempre, com o chapéu, o título, o preço e a foto do produto.",
+            ajuda: "A do computador, deitada, e a do celular, em pé.",
             rodape:
               "JPG, PNG ou WebP. A loja mostra a arte inteira, sem cortar. Sem a do celular, ele mostra a do computador, pequena.",
           },
           {
             tipo: "texto",
             c: "titulo",
-            rot: "Título",
-            exemplo: "Nosso kit best seller",
+            rot: "Descrição da arte",
+            exemplo: "Semana do Cliente: todo site por R$ 79",
             ajuda:
-              "Com arte, vira a descrição da imagem — pra quem não enxerga e pro Google. Escreva o que a arte diz.",
-          },
-          {
-            tipo: "texto",
-            c: "chapeu",
-            rot: "Chapéu (sem arte)",
-            exemplo: "Semana do Cliente",
-            ajuda: "A linha pequena em cima do título.",
-          },
-          {
-            tipo: "texto",
-            c: "chamada",
-            rot: "Texto do botão (sem arte)",
-            meia: true,
-            exemplo: "Comprar agora",
+              "Pra quem não enxerga e pro Google: escreva o que a arte diz. Não aparece na tela.",
           },
           {
             tipo: "produto",
             c: "produto",
-            rot: "Leva pro produto",
-            meia: true,
+            rot: "Quem clica vai pra",
             vazio: "Todos os produtos",
-            ajuda: "Sem arte, é dele o preço e a foto, e o botão põe ele na sacola.",
           },
         ],
       },
