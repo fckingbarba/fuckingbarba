@@ -712,6 +712,24 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
       põe 2 no seletor; 4 ou 5 pagam o preço do de 3). Testado de ponta a ponta num Medusa local:
       o carrinho cobra exatamente o que a página mostra. Os textos dos kits ("Dois meses de
       tratamento…") saíram com eles; os cartões dizem quanto se economiza.
+- [x] **Chave repetida nos cartões de quantidade da PDP** (achada e consertada em 23/09). Desde o
+      desconto por quantidade (o item acima), os cartões "1, 2 e 3 unidades" são a MESMA variante,
+      e cada um usava a variante como chave do React: três chaves iguais. No `next dev` eram dois
+      erros no console em toda PDP com os cartões, no computador e no celular — o que reprovava o
+      "nenhum erro no console" do `conferir-checkout`. Em produção não há aviso, mas chave repetida
+      deixa o React trocar ou perder um cartão quando a lista muda. Agora a chave é a quantidade.
+  - As outras listas com a variante na chave foram conferidas. O "Leve junto" da caixa de compra,
+    o "Leva junto" da sacola e os chips do frete grátis no checkout não repetem: um item por
+    produto (e o "Leve junto" já sai do admin e do backend sem repetido).
+  - **A rotina repetia.** Os handles dela são digitados no admin, e repetir um — ou pôr o próprio
+    produto — virava outro cartão da mesma variante, com as caixinhas marcando juntas: a cópia do
+    produto da página nascia marcada, e desmarcá-la desmarcava o fixo; "Levar a rotina" mandava a
+    variante duas vezes. Agora cada produto aparece uma vez só (`components/produto/rotina.tsx`).
+  - O `conferir-pdp` passou a olhar o console e a rotina repetida — as três checagens novas falham
+    no código de antes. E a da ressalva "vale na opção de entrega mais barata" foi pras Dúvidas:
+    ela falhava desde que a ressalva saiu da caixa de compra, a pedido da loja (23/09).
+  - Conferido numa loja local: `conferir-pdp` 50/50 (quatro rodadas), `conferir-checkout` 118/118
+    (três) e `conferir-links` 26/26.
 - [ ] **Aposentar os dois kits do Fator** (produtos "Kit 2/3 frascos"), que a página não usa mais:
       no admin, mudar os dois pra Rascunho — ou, no Shell do Railway, de `.medusa/server`,
       `npx medusa exec ./src/scripts/precos-por-quantidade.js` (faz as faixas e passa os kits pra
