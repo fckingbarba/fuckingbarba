@@ -24,6 +24,7 @@
 
 import { readFileSync } from "node:fs"
 import { chromium } from "playwright"
+import { vigiarRecargaDoDev } from "./recarga-do-dev.mjs"
 
 const LOJA = process.argv[2] ?? process.env.LOJA ?? "http://localhost:3000"
 const MEDUSA = process.env.MEDUSA_BACKEND_URL ?? "http://127.0.0.1:9000"
@@ -83,13 +84,20 @@ pagina.on("pageerror", (e) => erros.push(String(e)))
   `pageerror` —, é `console.error`: a chave repetida dos cartões de
   quantidade (desde 22/09) aparecia em toda PDP sem este arquivo ver, e quem
   achou foi o conferidor de checkout, de passagem. O websocket de recarga do
-  `next dev` não conecta aqui e não é erro da loja.
+  `next dev` não conecta aqui e não é erro da loja. Nem o aviso do React que a
+  recarga dele causa no meio da hidratação, quando um produto acabou de ser
+  publicado ou apagado (os conferidores do painel) — ver `recarga-do-dev.mjs`.
 */
 const noConsole = []
 const RUIDO_DE_DEV = /_next\/hmr|websocket/i
+const recargaDoDev = vigiarRecargaDoDev(contexto)
 contexto.on(
   "console",
-  (m) => m.type() === "error" && !RUIDO_DE_DEV.test(m.text()) && noConsole.push(m.text())
+  (m) =>
+    m.type() === "error" &&
+    !RUIDO_DE_DEV.test(m.text()) &&
+    !recargaDoDev(m) &&
+    noConsole.push(m.text())
 )
 
 const abrir = async (handle) => {
@@ -735,6 +743,8 @@ confere(
   noConsole.length === 0,
   [...new Set(noConsole.map((t) => t.split("\n")[0].slice(0, 160)))].slice(0, 3).join(" | ")
 )
+if (recargaDoDev.descontados.length)
+  console.log("  ·    descontado: o aviso do React da recarga do next dev (recarga-do-dev.mjs)")
 
 console.log(`\n${passou} passou, ${falhou} falhou\n`)
 process.exit(falhou ? 1 : 0)

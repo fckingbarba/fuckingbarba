@@ -394,10 +394,10 @@ try {
     await linha.locator(".confirma button", { hasText: "Tirar da equipe" }).click()
     await pagina.waitForSelector(`.aviso:not([data-fora])`, { timeout: 10000 })
     ok((await textoDe(pagina, ".aviso")).includes("saiu da equipe"), "o aviso confirma")
-    ok(
-      (await pagina.locator(".linha", { hasText: OPERACAO }).count()) === 0,
-      "a pessoa sai da lista"
-    )
+    // O aviso entra antes da lista refeita (uns 20 ms no `next dev`): espera a
+    // linha sair em vez de contar na hora. Se ela ficar, os 10 s passam e falha.
+    await linha.waitFor({ state: "detached", timeout: 10000 }).catch(() => {})
+    ok((await linha.count()) === 0, "a pessoa sai da lista")
 
     const { pagina: pOp } = op
     await pOp.goto(`${PAINEL}/`)

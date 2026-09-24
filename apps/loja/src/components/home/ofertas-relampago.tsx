@@ -9,17 +9,37 @@ import { frasesDoFrete } from "@/lib/configuracoes"
 /** A partir de quanto tempo restante o contador fica amarelo e pulsa. */
 const URGENCIA_MS = 60 * 60 * 1000
 
-type Restante = { dias: number; horas: number; minutos: number; segundos: number; ms: number }
+const DIA_MS = 24 * 60 * 60 * 1000
+/** Brasília é UTC−3 o ano todo (sem horário de verão desde 2019): a meia-noite de lá é 03:00 UTC. */
+const BRASILIA_MS = 3 * 60 * 60 * 1000
 
-function calcular(fim: number): Restante {
-  const ms = Math.max(0, fim - Date.now())
+/**
+ * A próxima meia-noite de Brasília a partir de `agora`. No milésimo exato da
+ * virada é o próprio `agora` — o relógio mostra 00:00:00 e só no tique
+ * seguinte recomeça em 23:59:59 (e não pula pra 24:00:00).
+ */
+function proximaMeiaNoite(agora: number): number {
+  return Math.ceil((agora - BRASILIA_MS) / DIA_MS) * DIA_MS + BRASILIA_MS
+}
+
+/**
+ * Até quando o contador conta: a próxima meia-noite — ou o fim da promoção
+ * com prazo do admin, se ela acabar antes. O relógio nunca promete mais tempo
+ * do que um desconto de verdade tem.
+ */
+function fimDoContador(agora: number, promocao: number | null): number {
+  const meiaNoite = proximaMeiaNoite(agora)
+  return promocao !== null && promocao > agora && promocao < meiaNoite ? promocao : meiaNoite
+}
+
+type Restante = { horas: number; minutos: number; segundos: number; ms: number }
+
+function calcular(fim: number, agora: number): Restante {
+  const ms = Math.max(0, fim - agora)
   const total = Math.floor(ms / 1000)
-  const dias = Math.floor(total / 86400)
   return {
     ms,
-    dias,
-    // Sem dias, as horas acumulam: 30 horas viram "30", não "06".
-    horas: dias > 0 ? Math.floor(total / 3600) % 24 : Math.floor(total / 3600),
+    horas: Math.floor(total / 3600),
     minutos: Math.floor((total % 3600) / 60),
     segundos: total % 60,
   }
@@ -30,12 +50,17 @@ const doisDigitos = (n: number) => String(n).padStart(2, "0")
 /**
  * O contador das ofertas.
  *
+ * Sempre ligado e zerando à meia-noite de Brasília, todo dia (pedido da loja
+ * em 24/09 — ver `ofertas.tsx`). Por isso não há mais a caixa de "Dias": o
+ * prazo nunca passa de 24 horas.
+ *
  * Três decisões que não são óbvias no código:
  *
- * 1. **Cada tique recalcula a partir da data final**, em vez de subtrair um
+ * 1. **Cada tique recalcula a partir do relógio**, em vez de subtrair um
  *    segundo do valor anterior. Timer de navegador atrasa (aba em segundo
  *    plano, celular dormindo); somando -1s o relógio derretia devagarinho e
- *    ninguém perceberia. Recalculando, ele volta certo sozinho.
+ *    ninguém perceberia. Recalculando, ele volta certo sozinho — e a virada
+ *    da meia-noite vem de graça: o tique seguinte já conta até a próxima.
  * 2. **A aba escondida não conta.** Nada muda na tela e, como o item 1 vale,
  *    ao voltar o número já aparece correto sem ter que recuperar nada.
  * 3. **O primeiro desenho é o do servidor: `--`.** O HTML é cacheado e
@@ -43,16 +68,24 @@ const doisDigitos = (n: number) => String(n).padStart(2, "0")
  *    momento do build. Os números entram na hidratação, que é o único lugar
  *    onde existe "agora".
  */
-export function OfertasRelampago({ terminaEm, titulo }: { terminaEm: string; titulo: string }) {
+export function OfertasRelampago({
+  promocaoTerminaEm,
+  titulo,
+}: {
+  /** O fim da promoção com prazo que está valendo (ISO), se houver. */
+  promocaoTerminaEm: string | null
+  titulo: string
+}) {
   const frases = frasesDoFrete(useFrete())
 
-  const fim = new Date(terminaEm).getTime()
-  const [restante, setRestante] = useState<Restante | null>(null)
+  const promocao = promocaoTerminaEm ? new Date(promocaoTerminaEm).getTime() : null
+  // O "agora" do navegador: `null` até a hidratação (item 3).
+  const [agora, setAgora] = useState<number | null>(null)
 
   useEffect(() => {
     let id: ReturnType<typeof setInterval> | null = null
 
-    const tique = () => setRestante(calcular(fim))
+    const tique = () => setAgora(Date.now())
     const comecar = () => {
       if (id) return
       tique()
@@ -70,18 +103,15 @@ export function OfertasRelampago({ terminaEm, titulo }: { terminaEm: string; tit
       parar()
       document.removeEventListener("visibilitychange", aoTrocarDeAba)
     }
-  }, [fim])
+  }, [])
 
-  // Acabou: a seção some inteira, como manda o desconto que já não existe.
-  if (restante && restante.ms <= 0) return null
+  const fim = agora === null ? null : fimDoContador(agora, promocao)
+  const restante = fim === null || agora === null ? null : calcular(fim, agora)
 
   const urgente = restante !== null && restante.ms <= URGENCIA_MS
-  // Caixa que não diz nada sai de cena: "Dias" só entra em promoção longa
-  // (senão apareceria "294 HORAS") e "Horas" some na última hora, deixando
-  // minutos e segundos sozinhos — que é o que importa ali. No primeiro
-  // desenho, antes de existir "agora", "Dias" começa fora, como no protótipo.
-  const mostraDias = restante !== null && restante.dias > 0
-  const mostraHoras = restante === null || restante.dias > 0 || restante.horas > 0
+  // "Horas" some na última hora, deixando minutos e segundos sozinhos — que é
+  // o que importa ali. No primeiro desenho, antes de existir "agora", ela fica.
+  const mostraHoras = restante === null || restante.horas > 0
 
   const numero = (valor: number | null) => (valor === null ? "--" : doisDigitos(valor))
 
@@ -106,15 +136,9 @@ export function OfertasRelampago({ terminaEm, titulo }: { terminaEm: string; tit
                   quem usa leitor de tela. A frase abaixo diz a mesma coisa
                   uma vez só. */}
               <div className={`offers__timer${urgente ? " is-urgente" : ""}`} aria-hidden="true">
-                <div className="offers__unit" hidden={!mostraDias}>
+                <div className="offers__unit" hidden={!mostraHoras}>
                   {/* A `key` que muda remonta o span, e é isso que faz a
                       animação de virada rodar de novo a cada segundo. */}
-                  <span className="offers__num is-tick" key={`d${restante?.dias}`}>
-                    {numero(restante?.dias ?? null)}
-                  </span>
-                  <span className="offers__unit-label">Dias</span>
-                </div>
-                <div className="offers__unit" hidden={!mostraHoras}>
                   <span className="offers__num is-tick" key={`h${restante?.horas}`}>
                     {numero(restante?.horas ?? null)}
                   </span>
@@ -136,26 +160,28 @@ export function OfertasRelampago({ terminaEm, titulo }: { terminaEm: string; tit
               <p className="offers__aviso">
                 {restante && restante.ms > 3600000 ? "Últimas horas" : "Últimos minutos"}
               </p>
-              <p className="sr-only">
-                Ofertas válidas até{" "}
-                {new Date(terminaEm).toLocaleString("pt-BR", {
-                  day: "2-digit",
-                  month: "long",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-                .
-              </p>
+              {/* Só depois da hidratação: a data depende do "agora" (item 3). */}
+              {fim !== null ? (
+                <p className="sr-only">
+                  Ofertas válidas até{" "}
+                  {new Date(fim).toLocaleString("pt-BR", {
+                    timeZone: "America/Sao_Paulo",
+                    day: "2-digit",
+                    month: "long",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                  .
+                </p>
+              ) : null}
             </div>
           </div>
 
           <div className="offers__action">
-            {/* "Ofertas" aqui é a loja ordenada por maior desconto — que é o
-                que a palavra significa pra quem clica. Não existe página de
-                ofertas curada porque não existe curadoria: inventar uma seria
-                uma segunda lista de produtos pra manter combinando com a
-                primeira. */}
-            <Link href="/produtos?ordem=desconto" className="btn">
+            {/* Todos os produtos (pedido da loja em 24/09): o contador é da
+                loja inteira, não de uma promoção — então o botão abre o
+                catálogo todo, na ordem de sempre. */}
+            <Link href="/produtos" className="btn">
               Aproveitar ofertas
               <Raio className="btn__bolt" />
             </Link>

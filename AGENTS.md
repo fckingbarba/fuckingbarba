@@ -90,6 +90,16 @@ não apontar pro `next dev` conferido, rode esse por último (ou reinicie o `nex
 checkout lê a política do teste. E pedido de teste reserva estoque: `insufficient_inventory` num
 conferidor é o estoque local acabando — reponha no admin local.
 
+Um terceiro, que também não é bug: publicar ou apagar um produto (o `conferir-produtos` do painel
+faz os dois) muda a lista do `generateStaticParams` da PDP, e o `next dev` manda
+`staticParamsChanged` pelo websocket pra toda aba aberta, que se recarrega sozinha. Se a mensagem
+cai no meio da hidratação, o React avisa "Can't perform a React state update on a component that
+hasn't mounted yet" — sobre o roteador do PRÓPRIO Next, não da loja; em produção não existe. Por
+isso o conferidor seguinte falhava às vezes no "nenhum erro no console". O de PDP e o de checkout
+descontam esse aviso só quando ele sai colado numa mensagem de recarga, na aba que a recebeu
+(`ferramentas/recarga-do-dev.mjs`, com a pilha); o de pagamento, o da conta e o de envio olham o
+console sem ele.
+
 O de pagamento liga o Pagar.me na região pelo admin e devolve como estava. O de checkout, com o
 checkout aberto (`CHECKOUT_ABERTO`), precisa do Pagar.me ligado na região local — o passo 3 não
 oferece mais o provisório —: `PAGARME_SECRET_KEY=sk_test_falsa npm run backend:pagamento`, uma vez. A conciliação automática roda a cada 5 minutos DENTRO do
@@ -566,7 +576,13 @@ papel (o estorno tem linha própria no `ACESSO`, `estornos`, só do dono) e se o
 estado do botão (`src/lib/painel/acoes.ts`, puro; senão 409 `nada_a_fazer`), faz, e grava a linha
 no registro da equipe (`lib/painel/anotar.ts`, com o `workflows/equipe/anotar-acao.ts`) — o
 histórico do pedido lê o registro e mostra o nome de quem apertou. O aviso de baixo das ações é um só pro painel inteiro (`ComAvisos`, no
-layout): a frase sobrevive à página se refazendo. As visitas vêm do GA4 pela
+layout): a frase sobrevive à página se refazendo — e chega ANTES dela. A resposta da ação traz o
+resultado primeiro e o aviso entra na hora; a tela refeita pelo `revalidatePath` entra numa
+segunda renderização, a da transição, uns 20 ms depois no `next dev` (perto de 100 ms com o
+navegador lento). Conferidor que lê a tela depois do aviso espera ela mudar (`waitFor`,
+`waitForFunction`, como o histórico no `conferir-acoes`): lida na hora, às vezes ainda é a de
+antes — era o "a pessoa sai da lista" do `conferir-entrar`, que falhava 1 em 3.
+As visitas vêm do GA4 pela
 `GET /dashboard/visitas`, à parte do Início: `src/lib/painel/ga4.ts` fala com o Google (conta de
 serviço só leitura, JWT assinado com `node:crypto`, um `batchRunReports` e um `runRealtimeReport`,
 respostas guardadas `GA4_CACHE_SEGUNDOS`, token recusado pede outro uma vez) e `visitas.ts` (puro)

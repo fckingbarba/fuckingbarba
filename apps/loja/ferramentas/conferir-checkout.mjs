@@ -47,6 +47,7 @@ import { readFileSync } from "node:fs"
 import { chromium } from "playwright"
 import { subirFrenetFalsa } from "./frenet-falsa.mjs"
 import { subirPagarmeFalso } from "./pagarme-falso.mjs"
+import { vigiarRecargaDoDev } from "./recarga-do-dev.mjs"
 
 /**
  * `localhost`, e NÃO `127.0.0.1`: o `next dev` recusa POST de origem que não
@@ -276,11 +277,18 @@ const pagina = await contexto.newPage()
 
 const errosDeConsole = []
 // O websocket de recarga do `next dev` não conecta neste ambiente e enche o
-// console de erro que não é da loja. Fora dele, erro no console é erro.
+// console de erro que não é da loja; e a recarga que ele manda quando um
+// produto é publicado ou apagado pode cair no meio da hidratação e fazer o
+// React avisar (ver `recarga-do-dev.mjs`). Fora isso, erro no console é erro.
 const RUIDO_DE_DEV = /_next\/hmr|websocket/i
+const recargaDoDev = vigiarRecargaDoDev(contexto)
 pagina.on(
   "console",
-  (m) => m.type() === "error" && !RUIDO_DE_DEV.test(m.text()) && errosDeConsole.push(m.text())
+  (m) =>
+    m.type() === "error" &&
+    !RUIDO_DE_DEV.test(m.text()) &&
+    !recargaDoDev(m) &&
+    errosDeConsole.push(m.text())
 )
 
 // Cada ENVIO DE FORMULÁRIO que sai da página do checkout: server action é um
@@ -1331,6 +1339,8 @@ await celular.close()
 
 titulo("Higiene")
 ok(errosDeConsole.length === 0, "nenhum erro no console", errosDeConsole.slice(0, 3).join(" | "))
+if (recargaDoDev.descontados.length)
+  console.log("  · descontado: o aviso do React da recarga do next dev (recarga-do-dev.mjs)")
 
 await navegador.close()
 frenet.fechar()

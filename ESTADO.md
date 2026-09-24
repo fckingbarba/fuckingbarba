@@ -739,6 +739,39 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
     ela falhava desde que a ressalva saiu da caixa de compra, a pedido da loja (23/09).
   - Conferido numa loja local: `conferir-pdp` 50/50 (quatro rodadas), `conferir-checkout` 118/118
     (três) e `conferir-links` 26/26.
+- [x] **O aviso do React que aparecia às vezes no `conferir-pdp`** (investigado em 24/09). Em
+      umas 2 de cada 10 rodadas, só quando ele rodava logo depois dos conferidores do painel, o
+      "nenhum erro no console" caía com "Can't perform a React state update on a component that
+      hasn't mounted yet". **Não era da loja** (nem da caixa de compra, nem da sacola, nem da
+      galeria): o `conferir-produtos` publica e apaga um produto; com `cacheComponents`, o `next dev`
+      percebe que a lista do `generateStaticParams` da PDP mudou e manda `staticParamsChanged` pra
+      toda aba aberta, que se recarrega (`hmrRefresh`). Caindo no meio da hidratação da primeira
+      PDP, quem ainda não montou é o roteador do próprio Next — a pilha inteira, capturada no
+      navegador: `hmrRefresh` → `dispatchAppRouterAction` → `nextDispatch` (use-action-queue) →
+      `startTransition` → `dispatchOptimisticSetState`. Em produção não existe: sem websocket não
+      há recarga, e o aviso é só de desenvolvimento. O `conferir-pdp` e o `conferir-checkout`
+      descontam esse aviso SÓ quando ele sai colado numa mensagem de recarga do `next dev`, na
+      aba que a recebeu (`ferramentas/recarga-do-dev.mjs`); sem a mensagem, continua reprovando.
+  - Conferido numa loja local, nove rodadas completas (os cinco do painel e depois o de PDP e o
+    de checkout; as três últimas já com a #52 e a #53, e a última também com a #54):
+    `conferir-pdp` 55/55 e `conferir-checkout` 118/118 nas nove — em quatro o aviso veio sozinho
+    e foi descontado. E uma prova à parte, com as mensagens de verdade do `next dev`: o aviso
+    colado na mensagem é descontado; o segundo na mesma mensagem, o de uma aba sem mensagem, o de
+    3 s depois e outro aviso qualquer continuam contando.
+- [x] **O "a pessoa sai da lista" que falhava às vezes no `conferir-entrar`** (painel, investigado
+      em 24/09). Em umas 3 de cada 10 rodadas completas, só essa checagem caía (59/60), e as de
+      logo depois — a pessoa volta pro "entrar", o token de 30 dias não abre mais nada — passavam.
+      **Não era a lista do painel ficando velha:** o conferidor contava as linhas no instante em
+      que o aviso "saiu da equipe" aparecia, e esse aviso sempre chega ANTES da lista refeita. A
+      resposta da ação traz o resultado primeiro, e o aviso entra na hora; a página refeita pelo
+      `revalidatePath` entra numa segunda renderização, a da transição do roteador. Medido dentro
+      da página, em 25 remoções no `next dev`: o aviso veio antes em todas, e a linha saiu 10 a
+      27 ms depois (com o navegador 6× mais lento, 71 a 105 ms) — em todas, sem recarregar. O
+      conferidor agora espera a linha sair (até 10 s) antes de contar: se a lista ficasse velha
+      de verdade, ele continua reprovando.
+  - Conferido numa pilha local (Medusa 9074, painel 3174): com a CPU do navegador 6× mais lenta
+    só na remoção, o conferidor de antes falhou em 3 de 5 rodadas e o novo passou nas 5; sem a
+    lentidão, o novo deu 60/60 em 15 rodadas (as três últimas já com a #56).
 - [ ] **Aposentar os dois kits do Fator** (produtos "Kit 2/3 frascos"), que a página não usa mais:
       no admin, mudar os dois pra Rascunho — ou, no Shell do Railway, de `.medusa/server`,
       `npx medusa exec ./src/scripts/precos-por-quantidade.js` (faz as faixas e passa os kits pra
