@@ -22,12 +22,16 @@
  * │   diferente da do painel;                                              │
  * │ • a faixa contando errado o que está esperando; o "Desfazer" que não   │
  * │   desfaz; o "Voltar ao texto original" que não volta;                  │
- * │ • a foto de fundo, a arte do banner e a foto da última chamada que    │
- * │   não chegam na loja, ou chegam antes do "Publicar"; a do celular     │
- * │   que não chega no celular; o carrossel que baixa a arte do segundo   │
- * │   slide antes de ele aparecer; arte sem a descrição;                  │
- * │ • a imagem arrastada do computador que não sobe, ou o quadro que não  │
- * │   acende (ou não apaga) com o arquivo em cima;                        │
+ * │ • a foto de fundo, a arte do banner e a foto da última chamada que     │
+ * │   não chegam na loja, ou chegam antes do "Publicar"; a do celular      │
+ * │   que não chega no celular; o carrossel que baixa a arte do segundo    │
+ * │   slide antes de ele aparecer; arte sem a descrição;                   │
+ * │ • a imagem arrastada do computador que não sobe, ou o quadro que não   │
+ * │   acende (ou não apaga) com o arquivo em cima;                         │
+ * │ • o vídeo da história que não sobe pro painel, não chega na loja (ou   │
+ * │   chega antes do "Publicar"), ou o vídeo do admin de antes voltando;   │
+ * │ • a prova social sem os casos dos produtos, sem a ressalva, sem o      │
+ * │   link pro produto; o caso que sai do produto e fica na home;          │
  * │ • a mudança sem linha no histórico; rolagem de lado no celular; erro   │
  * │   no console.                                                          │
  * └────────────────────────────────────────────────────────────────────────┘
@@ -43,6 +47,7 @@ import {
   esperar,
   exigirAmbiente,
   falhou,
+  gravarVideo,
   hidratado,
   medusa,
   MEDUSA,
@@ -176,6 +181,9 @@ async function apertar(pagina, alvo) {
 let loja = null
 let homeDeAntes
 let tokenDoDono = ""
+/** As configurações do admin (o vídeo de antes do painel mora nelas) e a página do óleo: voltam no fim. */
+let configuracoesDeAntes = null
+let pdpDeAntes = null
 
 async function guardarAHome() {
   const r = await adm("/admin/stores?fields=id,metadata")
@@ -185,6 +193,10 @@ async function guardarAHome() {
 }
 
 async function devolver() {
+  if (configuracoesDeAntes)
+    await adm("/admin/configuracoes", { metodo: "POST", corpo: configuracoesDeAntes })
+  if (pdpDeAntes)
+    await adm(`/admin/produtos/${pdpDeAntes.id}/pdp`, { metodo: "POST", corpo: pdpDeAntes.pdp })
   if (loja) {
     const agora = (await adm(`/admin/stores/${loja.id}?fields=id,metadata`)).corpo.store
     const metadata = { ...(agora?.metadata ?? {}) }
@@ -723,6 +735,182 @@ try {
       JSON.stringify(caixas)
     )
     await vitrine.contexto.close()
+  }
+
+  /* ── o vídeo da história ─────────────────────────────────────────────── */
+
+  titulo("O vídeo da história da marca")
+  {
+    /*
+      O vídeo que o admin subia antes do painel fica nas configurações. A
+      home de agora diz sempre se tem vídeo (nem que seja `null`): o do admin
+      não volta pro site por baixo — nem antes do vídeo novo, nem depois de
+      ele sair.
+    */
+    configuracoesDeAntes = (await adm("/admin/configuracoes")).corpo.configuracoes
+    const LEGADO = `legado-${RODADA}.mp4`
+    const legado = await adm("/admin/configuracoes", {
+      metodo: "POST",
+      corpo: {
+        ...configuracoesDeAntes,
+        home: { video: { url: `${MEDUSA}/static/${LEGADO}`, largura: 720, altura: 1280 } },
+      },
+    })
+    ok(legado.status === 200, "um vídeo antigo nas configurações do admin", String(legado.status))
+
+    await abrirHome()
+    await pagina.locator('[data-editar="home.sobre"]').click()
+    const sobre = pagina.locator('form[data-editor="home.sobre"]')
+    await sobre.waitFor()
+    const campo = sobre.locator('.slot--uso[data-video="historia"]')
+    ok(
+      semEspaco(await campo.locator(".slot__medida").textContent()) ===
+        "Ideal: 1080 × 1920 px em pé, ou 1920 × 1080 px deitado, até 30 segundos",
+      "o campo do vídeo no Sobre a marca: em pé ou deitado"
+    )
+    await sobre.locator('input[data-campo="video"]').setInputFiles({
+      name: "historia.webm",
+      mimeType: "video/webm",
+      buffer: await gravarVideo(pagina, 360, 640),
+    })
+    await campo.locator(".slot__previa video").waitFor({ timeout: 90000 })
+    ok(
+      !/Não é deitado/.test(await campo.textContent()),
+      "em pé não ganha aviso: a seção se ajeita ao vídeo"
+    )
+    const salvo = await apertar(pagina, sobre.locator('button[type="submit"]'))
+    ok(!salvo.erro && /No rascunho/.test(salvo.texto), "o vídeo, salvo no rascunho", salvo.texto)
+    const noRascunho = (
+      await medusa("/dashboard/home", { metodo: "GET", token: tokenMkt })
+    ).corpo.secoes?.find((x) => x.id === "home.sobre")?.valores?.video
+    ok(
+      /\/static\/.+home-video.*\.webm$/.test(noRascunho?.url ?? "") &&
+        /\/static\/.+home-poster.*\.webp$/.test(noRascunho?.poster ?? "") &&
+        noRascunho?.largura === 360 &&
+        noRascunho?.altura === 640,
+      "no rascunho: o vídeo no armazenamento, com a capa e as medidas",
+      JSON.stringify(noRascunho)
+    )
+    const comVideo = await pagina
+      .waitForFunction(() =>
+        /com vídeo/.test(
+          document.querySelector('.secao:has([data-editar="home.sobre"])')?.textContent ?? ""
+        )
+      )
+      .then(() => true)
+      .catch(() => false)
+    ok(comVideo, "a lista diz: com vídeo")
+    let html = await paginaDaLoja()
+    ok(
+      !html.includes("home-video") && !html.includes(LEGADO),
+      "o site ainda não mudou — e o vídeo do admin não aparece: a home diz que não tem vídeo"
+    )
+    const p = await apertar(pagina, "[data-faixa-home] [data-publicar-home]")
+    ok(!p.erro && /Publicada/.test(p.texto), "publicada", p.texto)
+    html = await paginaDaLoja((h) => h.includes("sobre__midia--video"))
+    ok(
+      html.includes(`src="${noRascunho?.url}"`) &&
+        html.includes(`poster="${noRascunho?.poster}"`) &&
+        html.includes("sobre__midia--em-pe"),
+      "na loja: o vídeo no lugar da foto, em pé, com a capa dele"
+    )
+
+    await pagina.locator('[data-editar="home.sobre"]').click()
+    await sobre.waitFor()
+    await campo.locator("button", { hasText: "Tirar" }).click()
+    const tirou = await apertar(pagina, sobre.locator('button[type="submit"]'))
+    const p2 = await apertar(pagina, "[data-faixa-home] [data-publicar-home]")
+    html = await paginaDaLoja((h) => !h.includes("sobre__midia--video"))
+    ok(
+      !tirou.erro &&
+        !p2.erro &&
+        !html.includes("sobre__midia--video") &&
+        html.includes("sobre__midia") &&
+        !html.includes(LEGADO),
+      "sem o vídeo, a seção volta pra foto — e não cai no do admin"
+    )
+  }
+
+  /* ── a prova social ──────────────────────────────────────────────────── */
+
+  titulo("A prova social: os casos dos produtos")
+  {
+    // Um caso de antes e depois no óleo, pelo admin local (como o conferir-produtos monta uma página).
+    const { corpo: busca } = await adm(
+      "/admin/products?handle=oleo-para-barba&fields=id,handle,thumbnail"
+    )
+    const oleo = busca.products?.[0]
+    const pdp = (await adm(`/admin/produtos/${oleo.id}/pdp`)).corpo.pdp
+    pdpDeAntes = { id: oleo.id, pdp }
+    const CASO = `Caso ${RODADA}`
+    const gravou = await adm(`/admin/produtos/${oleo.id}/pdp`, {
+      metodo: "POST",
+      corpo: {
+        ...pdp,
+        conteudo: {
+          ...pdp.conteudo,
+          antesDepois: {
+            casos: [
+              {
+                nome: CASO,
+                tempo: "60 dias",
+                antes: oleo.thumbnail,
+                depois: oleo.thumbnail,
+                texto: "A barba fechou.",
+                autorizou: true,
+              },
+            ],
+          },
+        },
+      },
+    })
+    ok(
+      gravou.corpo.pdp?.conteudo?.antesDepois?.casos?.length === 1,
+      "um caso no óleo, com a autorização",
+      JSON.stringify(gravou.corpo).slice(0, 200)
+    )
+
+    const html = await paginaDaLoja((h) => h.includes(CASO))
+    const secao = html.split('<section class="provas"')[1]?.split("</section>")[0] ?? ""
+    ok(
+      secao.includes(`${CASO}, antes`) &&
+        secao.includes(`${CASO}, depois de 60 dias de uso`) &&
+        secao.includes("60 dias de uso") &&
+        secao.includes("A barba fechou.") &&
+        secao.includes(`href="/produtos/${oleo.handle}"`) &&
+        secao.includes("O resultado varia de pessoa pra pessoa"),
+      "na loja: a prova social com o caso do óleo, o link pra ele e a ressalva"
+    )
+
+    const provas = (await medusa("/dashboard/home", { metodo: "GET", token: tokenMkt })).corpo
+      .provas
+    const total = (provas ?? []).reduce((n, x) => n + x.casos.length, 0)
+    ok(
+      (provas ?? []).some((x) => x.id === oleo.id && x.casos.some((c) => c.nome === CASO)),
+      "a rota do painel diz de onde vêm os casos",
+      JSON.stringify(provas).slice(0, 200)
+    )
+    await abrirHome()
+    ok(
+      semEspaco(await seloDe("home.provas").textContent()).includes(
+        total === 1 ? "1 caso" : `${total} casos`
+      ),
+      "a lista diz quantos casos a prova social tem"
+    )
+    await pagina.locator('[data-editar="home.provas"]').click()
+    const lista = pagina.locator("[data-casos-da-home]")
+    await lista.waitFor()
+    ok(
+      semEspaco(await lista.textContent()).includes(CASO) &&
+        (await lista.locator(`a[href="/produtos/${oleo.id}"]`).count()) === 1,
+      "a gaveta mostra o caso, com o link pra página do produto"
+    )
+    await pagina.locator("button", { hasText: "Cancelar" }).click()
+
+    await adm(`/admin/produtos/${oleo.id}/pdp`, { metodo: "POST", corpo: pdp })
+    pdpDeAntes = null
+    const semCaso = await paginaDaLoja((h) => !h.includes(CASO))
+    ok(!semCaso.includes(CASO), "o caso sai do produto, e sai da home junto")
   }
 
   /* ── o histórico e o celular ──────────────────────────────────────────── */

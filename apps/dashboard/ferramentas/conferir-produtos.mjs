@@ -51,6 +51,7 @@ import {
   esperar,
   exigirAmbiente,
   falhou,
+  gravarVideo,
   hidratado,
   medusa,
   MEDUSA,
@@ -157,42 +158,6 @@ async function foto(largura, altura, formato, { girar = false } = {}) {
   else s = s.png()
   if (girar) s = s.withMetadata({ orientation: 6 })
   return s.toBuffer()
-}
-
-/**
- * Um vídeo de teste, gravado no navegador: um canvas colorido mexendo, em
- * WebM. Volta os bytes, pra ir num `setInputFiles` como um arquivo qualquer.
- */
-async function gravarVideo(pagina, largura, altura, segundos = 2) {
-  const bytes = await pagina.evaluate(
-    async ([l, a, s]) => {
-      const c = Object.assign(document.createElement("canvas"), { width: l, height: a })
-      const ctx = c.getContext("2d")
-      const rec = new MediaRecorder(c.captureStream(24), { mimeType: "video/webm" })
-      const partes = []
-      rec.ondataavailable = (e) => e.data.size && partes.push(e.data)
-      rec.start(200)
-      const inicio = performance.now()
-      await new Promise((fim) => {
-        const quadro = setInterval(() => {
-          const t = (performance.now() - inicio) / 1000
-          ctx.fillStyle = `hsl(${(t * 140) % 360} 70% 45%)`
-          ctx.fillRect(0, 0, l, a)
-          ctx.fillStyle = "#ffd84d"
-          ctx.fillRect((t * 160) % l, a / 3, l / 6, a / 6)
-          if (t >= s) {
-            clearInterval(quadro)
-            fim()
-          }
-        }, 40)
-      })
-      rec.stop()
-      await new Promise((fim) => (rec.onstop = fim))
-      return [...new Uint8Array(await new Blob(partes).arrayBuffer())]
-    },
-    [largura, altura, segundos]
-  )
-  return Buffer.from(bytes)
 }
 
 /* ── o produto da rodada, e o que volta ao que era ────────────────────────── */

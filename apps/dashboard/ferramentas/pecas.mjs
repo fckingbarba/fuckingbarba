@@ -135,6 +135,42 @@ export async function hidratado(pagina, seletor) {
 }
 
 /**
+ * Um vídeo de teste, gravado no navegador: um canvas colorido mexendo, em
+ * WebM. Volta os bytes, pra ir num `setInputFiles` como um arquivo qualquer.
+ */
+export async function gravarVideo(pagina, largura, altura, segundos = 2) {
+  const bytes = await pagina.evaluate(
+    async ([l, a, s]) => {
+      const c = Object.assign(document.createElement("canvas"), { width: l, height: a })
+      const ctx = c.getContext("2d")
+      const rec = new MediaRecorder(c.captureStream(24), { mimeType: "video/webm" })
+      const partes = []
+      rec.ondataavailable = (e) => e.data.size && partes.push(e.data)
+      rec.start(200)
+      const inicio = performance.now()
+      await new Promise((fim) => {
+        const quadro = setInterval(() => {
+          const t = (performance.now() - inicio) / 1000
+          ctx.fillStyle = `hsl(${(t * 140) % 360} 70% 45%)`
+          ctx.fillRect(0, 0, l, a)
+          ctx.fillStyle = "#ffd84d"
+          ctx.fillRect((t * 160) % l, a / 3, l / 6, a / 6)
+          if (t >= s) {
+            clearInterval(quadro)
+            fim()
+          }
+        }, 40)
+      })
+      rec.stop()
+      await new Promise((fim) => (rec.onstop = fim))
+      return [...new Uint8Array(await new Blob(partes).arrayBuffer())]
+    },
+    [largura, altura, segundos]
+  )
+  return Buffer.from(bytes)
+}
+
+/**
  * Arrasta arquivos "do computador" até `alvo` (um locator) e solta: o
  * dragenter, o dragover e o drop, com os arquivos num DataTransfer — o que o
  * navegador manda quando alguém arrasta da área de trabalho. Com
