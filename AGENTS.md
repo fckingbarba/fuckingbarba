@@ -721,6 +721,20 @@ layout não tem cache próprio** (`lib/secoes/layout.ts`): era um `"use cache"` 
 guardava a ordem velha por dias. Leitura cacheada que depende de outra leitura cacheada, com as
 duas etiquetas caindo juntas, tem esse risco: prefira um cache só.
 
+**Arrastar e soltar** (entrega 0078). Todo quadro de subir foto ou vídeo do painel aceita o
+arquivo arrastado do computador: o `useArrastar` (`components/arrastar.tsx`) dá os eventos ao
+quadro (o `.slot` inteiro, ou o "+" da galeria) e chama o mesmo `escolher` do campo de arquivo —
+então a conferência de tipo e de tamanho é a mesma (`prepararNoNavegador`, `lerVideoNoNavegador`).
+Um arquivo por vez (`UmPorVez` avisa quando vieram vários). O `dragenter` e o `dragleave` chegam de
+cada filho do quadro: ele conta as entradas menos as saídas, e aceso (`data-arrastando`) os filhos
+ficam sem `pointer-events`. Não tire da árvore, no meio do arrasto, o elemento que está debaixo do
+ponteiro: o `dragleave` dele não chega mais no quadro, e a conta fica presa (o quadro não apaga).
+O `SoltarSoNoQuadro`, no layout do `(painel)`, cancela o `dragover`/`drop` de arquivo que nenhum
+quadro aceitou — sem ele, o navegador abre a foto no lugar do painel e some o que estava sem salvar
+na gaveta. Quadro novo de subir arquivo: use o `useArrastar`. Os conferidores soltam arquivos com o
+`arrastarArquivos` (`ferramentas/pecas.mjs`: o DataTransfer montado na página, e o dragenter, o
+dragover e o drop pelo `dispatchEvent`).
+
 O CSS do painel segue o do protótipo, uma regra por linha, escrito à mão: o prettier fica nos
 `.ts`/`.tsx`/`.mjs` — rodado nos `.css` do painel, ele reescreve o arquivo inteiro. A gaveta
 (`components/gaveta.tsx`) mora no `<body>`, por portal: aberta de dentro de um `.bloco`, ela

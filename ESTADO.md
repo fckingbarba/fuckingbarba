@@ -1237,6 +1237,19 @@ De quebra, um defeito da parte 1: depois do "Publicar", **a ordem e o liga/desli
 vezes não acompanhavam** — o texto mudava no site e a ordem ficava a velha, por dias. Corrigido (e
 valia também pra ordem das seções da página do produto).
 
+**Arrastar e soltar as fotos no painel — pronto em 24/09 (entrega 0078).** Em todo lugar do painel
+que sobe foto ou vídeo — o fundo das seções (produto e home), as artes do banner, a foto da última
+chamada, a galeria, o Vê na prática, as fotos de antes e depois e o vídeo do modo de uso —, dá pra
+arrastar o arquivo do computador e soltar em cima do quadro: ele acende ("Solte aqui") e o arquivo
+sobe como se tivesse sido escolhido, com as mesmas conferências. Solto em cima de uma foto que já
+está lá, troca. Um arquivo por vez: com vários, sobe o primeiro e o quadro avisa. Solto fora de um
+quadro, não acontece nada — antes, o navegador abria a foto no lugar do painel e perdia o que
+estava sem salvar na gaveta. Conferido pelo `conferir-produtos.mjs` (92 checagens) e pelo
+`conferir-home.mjs` (60), que agora também cobra a foto do celular do bloco escuro chegando no
+celular.
+
+Depois do deploy — **nada a fazer**.
+
 - [ ] **Parte 3:** o vídeo da história da marca no painel (hoje ele sobe no admin) e a "Prova
       social" com os casos de antes e depois das páginas dos produtos.
 
