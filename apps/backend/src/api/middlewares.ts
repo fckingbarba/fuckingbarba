@@ -265,6 +265,12 @@ export default defineMiddlewares({
       method: ["POST"],
       bodyParser: { sizeLimit: "17mb" },
     },
+    /*
+      O vídeo do painel chega cru, direto do navegador (`api/painel-envio/`,
+      `lib/videos.ts`): sem leitor de corpo — a rota grava em fluxo, e quem
+      autoriza é o bilhete no endereço.
+    */
+    { matcher: "/painel-envio/*", method: ["PUT"], bodyParser: false },
     { matcher: "/admin/products", method: ["POST"], middlewares: [normalizaHandle] },
     { matcher: "/admin/products/:id", method: ["POST"], middlewares: [normalizaHandle] },
     { matcher: "/admin/product-categories", method: ["POST"], middlewares: [normalizaHandle] },
