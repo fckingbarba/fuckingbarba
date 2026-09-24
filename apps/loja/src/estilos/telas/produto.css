@@ -27,3 +27,5 @@
 @import "../pdp-frete.css";
 /* Escrito à mão: os vídeos da galeria e do modo de uso. */
 @import "../pdp-video.css";
+/* Escrito à mão: as setas e o contador do zoom da foto. */
+@import "../pdp-zoom.css";
