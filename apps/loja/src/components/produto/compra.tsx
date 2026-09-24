@@ -559,9 +559,16 @@ function Degraus({
       <div className="compra__kits-lista">
         {degraus.map((d, i) => {
           const selo = tarja(d.preco)
+          /*
+            A CHAVE É A QUANTIDADE, e não a variante: desde que os kits viraram
+            desconto por quantidade, os três cartões são a MESMA variante (1, 2
+            e 3 unidades dela). Com a variante, as três chaves eram iguais — o
+            React avisava no console de toda PDP e podia trocar um cartão pelo
+            outro quando a lista mudasse.
+          */
           return (
             <label
-              key={d.varianteId}
+              key={d.unidades}
               className="compra__kit"
               data-esgotado={d.disponivel ? undefined : ""}
             >
