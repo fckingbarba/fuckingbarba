@@ -55,6 +55,8 @@ export type VideoDaPdp = {
   largura: number
   altura: number
   duracao: number
+  /** O nome do cartão na faixa "Vê na prática" ("Como aplicar"). Opcional. */
+  titulo?: string
 }
 
 /**

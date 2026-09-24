@@ -1094,11 +1094,16 @@ Railway instala sozinho).
 **Fase 3, parte 2: a galeria com vídeo, o vídeo do modo de uso e o antes e depois — pronta em 24/09
 (entrega 0064).** Na página do produto, no painel (marketing e dono; a operação vê):
 
-- **Fotos e vídeos** (a galeria do topo da página): subir foto e vídeo, pôr em ordem e tirar —
-  cada clique vale na hora. A capa é sempre foto: é ela que vai pra vitrine, pro Google e pro link
-  no WhatsApp. O vídeo sobe direto pro servidor da loja, com a barra de progresso; na página ele
-  toca sem som, em loop, e só baixa quando alguém escolhe a miniatura dele. Mexeu nas fotos aqui,
-  trazer o catálogo do Bling (ou da Nuvemshop) de novo não troca mais as fotos daquele produto.
+- **Galeria de fotos** (o topo da página): subir foto, pôr em ordem e tirar — cada clique vale na
+  hora. A capa é sempre a primeira foto: é ela que vai pra vitrine, pro Google e pro link no
+  WhatsApp. Mexeu nas fotos aqui, trazer o catálogo do Bling (ou da Nuvemshop) de novo não troca
+  mais as fotos daquele produto.
+- **Vê na prática** (os vídeos — FORA da galeria desde 24/09, entrega 0071; antes o vídeo entrava
+  no meio das fotos, escondido na última miniatura): no painel, uma caixa própria; na loja, a faixa
+  do protótipo, embaixo da caixa de compra. Cada vídeo vira um cartão em pé, com o nome (opcional,
+  até 40 letras: "Como aplicar", "A textura") e a duração; quem clica abre o vídeo numa janela, com
+  som e os controles (fecha no X, no Esc ou clicando fora). Até 4 vídeos, na ordem do painel. O
+  vídeo sobe direto pro servidor da loja, com a barra de progresso.
 - **Vídeo do modo de uso**: na seção "Como funciona e modo de uso", ele entra no lugar da foto do
   modo de uso.
 - **Antes e depois**: até 3 casos por produto — nome, tempo de uso, a foto de antes, a de depois e
@@ -1111,14 +1116,15 @@ Railway instala sozinho).
 | O quê | Tamanho ideal |
 | --- | --- |
 | Foto da galeria | 1200 × 1200 px, quadrada |
-| Vídeo da galeria | 1080 × 1080 px, quadrado — em pé também serve, com faixa escura dos lados |
+| Vídeo do Vê na prática | 1080 × 1920 px, em pé (9:16), como o do celular — quadrado ou deitado toca inteiro na janela, com faixa escura |
 | Vídeo do modo de uso | 1920 × 1080 px, deitado (16:9) |
 | Foto de antes e de depois | 900 × 1050 px, em pé (6 × 7) |
 
 Foto: JPG, PNG ou WebP. Vídeo: MP4 ou WebM, até 50 MB e, de preferência, até 30 segundos (acima
 de 20 MB ele pesa pra quem abre no celular). O .MOV do iPhone não toca em todo navegador: exporte
-como MP4 antes. Conferido pelo `conferir-produtos.mjs` (agora 82 checagens, com a galeria, os
-vídeos e os casos).
+como MP4 antes. Conferido pelo `conferir-produtos.mjs` (agora 89 checagens, com a galeria, o Vê na
+prática — na loja também: a faixa depois da caixa de compra, a janela que abre e o Esc que fecha —
+e os casos).
 
 Depois do deploy — **nada a fazer**: não tem variável nova.
 

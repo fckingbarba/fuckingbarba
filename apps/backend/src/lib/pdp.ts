@@ -52,13 +52,20 @@ export type VideoDaPdp = {
   largura: number
   altura: number
   duracao: number
+  /** O nome do cartão na faixa "Vê na prática" ("Como aplicar"). Opcional. */
+  titulo?: string
 }
 
+/** O nome de um vídeo da faixa: até 40 caracteres. */
+export const LIMITE_DO_TITULO_DO_VIDEO = 40
+
 /**
- * Um vídeo na galeria da dobra, na posição dele entre as fotos. As fotos são
- * as do produto no Medusa (a vitrine, o Google e o link no WhatsApp usam
- * elas); os vídeos moram aqui e entram entre elas — nunca na frente da
- * primeira foto, que é a capa.
+ * Um vídeo da faixa "Vê na prática", com a posição dele ENTRE OS VÍDEOS (0, 1,
+ * 2…). A faixa fica fora da galeria de fotos (pedido da loja em 24/09): as
+ * fotos são as do produto no Medusa (a vitrine, o Google e o link no WhatsApp
+ * usam elas), e os vídeos moram aqui. Até 24/09 o vídeo entrava entre as fotos
+ * e a posição era a casa dele na galeria; a ORDEM entre os vídeos continua a
+ * mesma, e a próxima mudança renumera.
  */
 export type VideoDaGaleria = VideoDaPdp & { posicao: number }
 
@@ -403,16 +410,25 @@ export function lerVideo(v: unknown): VideoDaPdp | null {
   const altura = medida(o.altura, 8000)
   const duracao = medida(o.duracao, 600)
   if (!url || !poster || !largura || !altura || !duracao) return null
+  const titulo = tituloDoVideo(o.titulo)
   return {
     url,
     poster,
     largura: Math.round(largura),
     altura: Math.round(altura),
     duracao: Math.round(duracao * 10) / 10,
+    ...(titulo ? { titulo } : {}),
   }
 }
 
-/** Vídeos na galeria de um produto. A página baixa cada um só quando alguém escolhe. */
+/** O nome do vídeo como a faixa mostra: uma linha, sem espaço sobrando, até o limite. */
+export function tituloDoVideo(v: unknown): string | null {
+  if (typeof v !== "string") return null
+  const t = v.replace(/\s+/g, " ").trim().slice(0, LIMITE_DO_TITULO_DO_VIDEO).trim()
+  return t || null
+}
+
+/** Vídeos na faixa "Vê na prática" de um produto. A página baixa cada um só quando alguém abre. */
 export const LIMITE_DE_VIDEOS = 4
 
 function lerVideos(v: unknown): VideoDaGaleria[] {
