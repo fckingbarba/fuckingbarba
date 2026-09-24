@@ -222,3 +222,21 @@ export type EstadoDaEtapa = {
  * quebra o build.
  */
 export const ESTADO_INICIAL: EstadoDaEtapa = { ok: false, erros: {}, mensagem: "", rodada: 0 }
+
+/**
+ * O estado de quando a ação NEM VOLTOU — sem internet, a loja fora do ar (ver
+ * `lib/rede.ts`). Devolve o que a pessoa tinha digitado, como o `erro` das
+ * ações, e pelo mesmo motivo: o reset do formulário. O token do cartão não
+ * volta — é de uso único, e pagar de novo pede outro.
+ */
+export function estadoSemResposta(
+  anterior: EstadoDaEtapa,
+  fd: FormData,
+  mensagem: string
+): EstadoDaEtapa {
+  const valores: Record<string, string> = {}
+  for (const [chave, valor] of fd.entries()) {
+    if (typeof valor === "string" && chave !== "token_cartao") valores[chave] = valor
+  }
+  return { ok: false, erros: {}, mensagem, rodada: anterior.rodada + 1, valores }
+}

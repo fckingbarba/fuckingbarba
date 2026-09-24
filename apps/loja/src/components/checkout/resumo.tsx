@@ -6,9 +6,15 @@ import { useActionState, useEffect, useRef, useState, useTransition } from "reac
 import { Caminhao, Cadeado, Escudo, Relogio, SetaBaixo, WhatsApp } from "@/components/icones"
 import { confiancaDoResumo, DEPOIMENTOS } from "@/conteudo/checkout"
 import { aplicarCupom, removerCupom } from "@/lib/acoes/checkout"
-import { ESTADO_INICIAL, type CheckoutVisivel } from "@/lib/checkout-visivel"
+import {
+  ESTADO_INICIAL,
+  estadoSemResposta,
+  type CheckoutVisivel,
+  type EstadoDaEtapa,
+} from "@/lib/checkout-visivel"
 import type { Configuracoes } from "@/lib/configuracoes"
 import { emReais } from "@/lib/formato"
+import { SEM_CONEXAO, semQueda } from "@/lib/rede"
 import { PARCELAS_SEM_JUROS, PARCELA_MINIMA } from "@/lib/site"
 
 /**
@@ -203,6 +209,13 @@ export function Resumo({
 
 /* ── cupom ────────────────────────────────────────────────────────────────── */
 
+/** Sem internet, a ação nem volta: o recado aparece no campo do cupom. */
+const aplicar = (anterior: EstadoDaEtapa, fd: FormData) =>
+  semQueda(
+    () => aplicarCupom(anterior, fd),
+    () => ({ ...estadoSemResposta(anterior, fd, ""), erros: { cupom: SEM_CONEXAO } })
+  )
+
 /**
  * QUEM VALIDA É O MEDUSA. Não existe lista de cupom neste código — cupom
  * escrito no navegador é desconto que qualquer um lê no código-fonte.
@@ -212,7 +225,7 @@ export function Resumo({
  * dessa tela" pra quem nem marcou.
  */
 function Cupom({ checkout }: { checkout: CheckoutVisivel }) {
-  const [estado, acao, enviando] = useActionState(aplicarCupom, ESTADO_INICIAL)
+  const [estado, acao, enviando] = useActionState(aplicar, ESTADO_INICIAL)
   const [aberto, setAberto] = useState(checkout.cupons.length > 0)
   const [tirando, comecar] = useTransition()
 
@@ -256,7 +269,15 @@ function Cupom({ checkout }: { checkout: CheckoutVisivel }) {
             type="button"
             className="cupom__abre"
             disabled={tirando}
-            onClick={() => comecar(async () => void (await removerCupom(c.codigo)))}
+            onClick={() =>
+              comecar(
+                async () =>
+                  void (await semQueda(
+                    () => removerCupom(c.codigo),
+                    () => {}
+                  ))
+              )
+            }
           >
             tirar
           </button>

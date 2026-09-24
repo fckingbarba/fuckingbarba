@@ -3,8 +3,14 @@
 import { useActionState, useState } from "react"
 import { Raio } from "@/components/icones"
 import { salvarContato } from "@/lib/acoes/checkout"
-import { ESTADO_INICIAL, type CheckoutVisivel } from "@/lib/checkout-visivel"
+import {
+  ESTADO_INICIAL,
+  estadoSemResposta,
+  type CheckoutVisivel,
+  type EstadoDaEtapa,
+} from "@/lib/checkout-visivel"
 import { mascararDocumento } from "@/lib/documento"
+import { SEM_CONEXAO, semQueda } from "@/lib/rede"
 import { mascararTelefone } from "@/lib/telefone"
 import { Campo } from "./campo"
 import {
@@ -16,6 +22,13 @@ import {
   useFocaNoErro,
   type PropsDaEtapa,
 } from "./etapas"
+
+/** Sem internet, a ação nem volta: o recado fica no passo, e nada do que foi digitado se perde. */
+const salvar = (anterior: EstadoDaEtapa, fd: FormData) =>
+  semQueda(
+    () => salvarContato(anterior, fd),
+    () => estadoSemResposta(anterior, fd, SEM_CONEXAO)
+  )
 
 /**
  * PASSO 1 — e-mail, nome, celular e documento.
@@ -34,7 +47,7 @@ export function Contato({
   aoSalvar,
   ...casca
 }: PropsDaEtapa & { checkout: CheckoutVisivel }) {
-  const [estado, acao, enviando] = useActionState(salvarContato, ESTADO_INICIAL)
+  const [estado, acao, enviando] = useActionState(salvar, ESTADO_INICIAL)
   useFechaQuandoSalva(estado, aoSalvar)
   useAvisaOcupado(casca, enviando ? "Salvando…" : null)
   const formulario = useFocaNoErro(estado)

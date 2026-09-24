@@ -2,16 +2,26 @@
 
 import type { HttpTypes } from "@medusajs/types"
 import { refresh } from "next/cache"
-import { headers } from "next/headers"
+import { cookies, headers } from "next/headers"
+import { redirect } from "next/navigation"
 import { after } from "next/server"
 import { codigoDoBump, ehCodigoDeBump } from "@/lib/bump"
 import { buscarCep, limparCep } from "@/lib/cep"
-import { lerCarrinho, pedidoDoCarrinhoFechado } from "@/lib/carrinho"
+import {
+  lerCarrinho,
+  pedidoDoCarrinho,
+  pedidoDoCarrinhoFechado,
+  type Carrinho,
+} from "@/lib/carrinho"
 import {
   abrirPedido,
+  ajustarAoEstoque,
   CAMPOS_CHECKOUT,
+  COOKIE_PEDIDO,
   donoDoCarrinho,
+  ehFaltaDeEstoque,
   garantirDonoDoCarrinho,
+  lerCracha,
   registrarOferta,
 } from "@/lib/checkout"
 import {
@@ -114,6 +124,15 @@ const emCentavos = (valor: number) => Math.round(valor * 100)
  */
 const ehEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v)
 
+/**
+ * O maior e-mail que o Pagar.me aceita. Acima disso ele recusa o pedido
+ * inteiro — e a loja só descobria no "pagar", com "não consegui iniciar o
+ * pagamento" e nenhuma pista do porquê (24/09). Recusado aqui, no passo 1, a
+ * pessoa lê o motivo embaixo do campo. (O backend confere de novo, em
+ * `modules/pagarme/pedido.ts`.)
+ */
+const EMAIL_MAXIMO = 64
+
 /* ── o carrinho, sempre do cookie ─────────────────────────────────────────── */
 
 async function carrinhoAtual() {
@@ -161,6 +180,8 @@ export async function salvarContato(anterior: EstadoDaEtapa, fd: FormData): Prom
   const erros: ErrosDoFormulario = {}
   if (!ehEmail(email)) {
     erros.email = "Escreve um e-mail que você abre — é por ele que as novidades do pedido chegam."
+  } else if (email.length > EMAIL_MAXIMO) {
+    erros.email = `Esse e-mail passa de ${EMAIL_MAXIMO} caracteres, o limite do pagamento. Usa outro, por favor.`
   }
   if (!nome) erros.nome = "Falta o nome."
   if (!sobrenome) erros.sobrenome = "Falta o sobrenome."
@@ -400,6 +421,18 @@ export async function finalizar(anterior: EstadoDaEtapa, fd: FormData): Promise<
     // pessoa leu "não consegui confirmar". Leva pra ele, sem cobrar de novo.
     const jaFechado = await pedidoDoCarrinhoFechado()
     if (jaFechado) return abrirPedido(jaFechado)
+    /*
+      A OUTRA ABA JÁ PAGOU. As abas dividem os cookies: quando uma fecha o
+      pedido, a sacola sai do cookie e o crachá do pedido entra (`abrirPedido`)
+      — pras duas. A que ficou aberta ainda mostrava o carrinho, e o clique
+      dela lia "Sua sacola expirou" com o pedido feito (24/09). O crachá diz
+      de que carrinho o pedido saiu: se é o desta tela, ela vai pro mesmo
+      pedido. Não abre nada novo — o crachá já estava neste navegador.
+    */
+    const cracha = lerCracha((await cookies()).get(COOKIE_PEDIDO)?.value)
+    if (cracha?.carrinho && cracha.carrinho === texto(fd, "carrinho_visto")) {
+      redirect(`/checkout/obrigado/${cracha.pedido}`)
+    }
     return erro(anterior, {}, EXPIROU, fd)
   }
 
@@ -486,6 +519,10 @@ export async function finalizar(anterior: EstadoDaEtapa, fd: FormData): Promise<
     })
   } catch (e) {
     registrar(e, "abrir a sessão de pagamento")
+    // A outra aba fechou o pedido no mesmo instante ("Cart … is already
+    // completed"): é ele, e não "nada foi cobrado, tenta de novo".
+    const jaFechado = await pedidoDoCarrinhoFechado()
+    if (jaFechado) return abrirPedido(jaFechado)
     return erro(
       anterior,
       {},
@@ -495,35 +532,39 @@ export async function finalizar(anterior: EstadoDaEtapa, fd: FormData): Promise<
   }
 
   let pedidoId: string | null = null
+  let recusa = ""
   try {
     const resposta = await sdk.store.cart.complete(carrinho.id)
     if (resposta.type === "order") pedidoId = resposta.order.id
-    else registrar(new Error(String(resposta.error?.message ?? "sem pedido")), "finalizar")
+    else {
+      recusa = String(resposta.error?.message ?? "sem pedido")
+      registrar(new Error(recusa), "finalizar")
+    }
   } catch (e) {
     // Cartão recusado chega AQUI, como 400 — não como `type: "cart"`. O
     // Medusa só devolve 200 pro erro genérico de autorização; a recusa de
     // um provedor que respondeu "error" sobe como exceção.
+    recusa = e instanceof Error ? e.message : String(e)
     registrar(e, "finalizar")
   }
 
   if (!pedidoId) {
     /*
-      Sem pedido na resposta, por um de dois motivos bem diferentes:
+      Sem pedido na resposta, por um de três motivos bem diferentes:
 
       • o carrinho FECHOU, e a resposta é que se perdeu (a conexão entre a
-        Vercel e o Railway caiu no meio). Perguntar de novo é seguro: o
-        `complete` de um carrinho já fechado devolve o MESMO pedido, sem
-        cobrar outra vez;
+        Vercel e o Railway caiu no meio). Perguntar qual pedido saiu dele é
+        seguro — `pedidoDoCarrinho` só lê, não cobra de novo;
+      • o estoque acabou (`aoFaltarEstoque`, logo abaixo) — o Medusa recusa
+        na reserva, antes de autorizar o pagamento;
       • o pagamento foi recusado — e aí a frase certa está gravada na sessão.
     */
     const depois = await depoisDaRecusa(sdk, carrinho.id)
+    if (!depois.fechado && ehFaltaDeEstoque(recusa)) {
+      return aoFaltarEstoque(anterior, fd, carrinho)
+    }
     if (depois.fechado) {
-      try {
-        const denovo = await sdk.store.cart.complete(carrinho.id)
-        if (denovo.type === "order") pedidoId = denovo.order.id
-      } catch (e) {
-        registrar(e, "finalizar, segunda pergunta")
-      }
+      pedidoId = await pedidoDoCarrinho(carrinho.id)
       if (!pedidoId) {
         return erro(
           anterior,
@@ -578,6 +619,64 @@ export async function finalizar(anterior: EstadoDaEtapa, fd: FormData): Promise<
   after(() => registrarOferta(pedido, fechado))
 
   return abrirPedido(pedidoId)
+}
+
+/** "a, b e c" */
+function emLista(partes: string[]): string {
+  return partes.length < 2
+    ? (partes[0] ?? "")
+    : `${partes.slice(0, -1).join(", ")} e ${partes.at(-1)}`
+}
+
+/**
+ * O "pagar" recusado por falta de estoque: o pedido desce até o que tem e a
+ * pessoa lê o que mudou (`ajustarAoEstoque`, em `lib/checkout.ts`). Nada foi
+ * cobrado — o Medusa recusa na reserva do estoque, antes de autorizar.
+ */
+async function aoFaltarEstoque(
+  anterior: EstadoDaEtapa,
+  fd: FormData,
+  carrinho: Carrinho
+): Promise<EstadoDaEtapa> {
+  const ajuste = await ajustarAoEstoque(carrinho)
+  refresh()
+  if (ajuste.tipo === "ajustado") {
+    const agora = await lerCarrinho(CAMPOS_CHECKOUT)
+    const total = agora ? ` O total agora é ${emReais(Number(agora.total))}:` : ""
+    return erro(
+      anterior,
+      {},
+      `Acabou o estoque enquanto você finalizava — ${emLista(ajuste.frases)}.${total} ` +
+        "confere o resumo e clica em pagar de novo. Nada foi cobrado.",
+      fd
+    )
+  }
+  if (ajuste.tipo === "esgotou-tudo") {
+    const esgotou = ajuste.nomes.length === 1 ? "esgotou" : "esgotaram"
+    return erro(
+      anterior,
+      {},
+      `${emLista(ajuste.nomes)} ${esgotou} enquanto você finalizava. Nada foi cobrado — ` +
+        "se quiser, escolhe outro produto na loja.",
+      fd
+    )
+  }
+  if (ajuste.tipo === "coube") {
+    return erro(
+      anterior,
+      {},
+      "O estoque mudou no meio do caminho, e já deu certo de novo. Clica em pagar de novo — " +
+        "nada foi cobrado.",
+      fd
+    )
+  }
+  return erro(
+    anterior,
+    {},
+    "Um produto do seu pedido esgotou enquanto você finalizava. Nada foi cobrado — volta pra " +
+      "sacola e confere as quantidades.",
+    fd
+  )
 }
 
 /* ── o atalho do CEP ──────────────────────────────────────────────────────── */
