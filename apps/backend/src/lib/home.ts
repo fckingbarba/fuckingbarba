@@ -1,4 +1,4 @@
-import { lerLayout, type AjusteDeLayout } from "./pdp"
+import { lerFundo, lerImagem, lerLayout, type AjusteDeLayout, type Fundo } from "./pdp"
 
 /**
  * A HOME DA LOJA — o texto e a ordem das seções, no `metadata` da loja.
@@ -81,8 +81,33 @@ export type ProdutoNoPalco = {
   resultado: string
 }
 
+/**
+ * UM SLIDE DO BANNER — de dois jeitos:
+ *
+ * - COM IMAGEM (`imagem`, e a do celular em `imagemCelular`): a arte ocupa
+ *   o banner inteiro, com o texto dentro dela, como os banners da loja na
+ *   Nuvemshop. O `titulo` vira a descrição da imagem (pra quem não enxerga e
+ *   pro Google), e o slide inteiro leva pro `produto` — ou pra vitrine
+ *   inteira, sem produto.
+ * - SEM IMAGEM: o banner de sempre, montado pela loja — o painel amarelo
+ *   com chapéu, título, o preço e o botão, e a foto do produto. Aí chapéu,
+ *   botão e produto são obrigatórios.
+ */
+export type SlideDoBanner = {
+  titulo: string
+  chapeu?: string
+  chamada?: string
+  produto?: string
+  imagem?: string
+  imagemCelular?: string
+}
+
+/** De quanto em quanto tempo o banner passa pro próximo slide, em segundos (0: só quando a pessoa troca). */
+export const TEMPOS_DO_BANNER = [0, 5, 7, 10] as const
+export type TempoDoBanner = (typeof TEMPOS_DO_BANNER)[number]
+
 export type ConteudoDaHome = {
-  banner: { chapeu: string; titulo: string; chamada: string; produto: string }
+  banner: { slides: SlideDoBanner[]; tempo: TempoDoBanner }
   /** As vantagens escritas à mão. O frete e o parcelamento entram sozinhos, antes delas. */
   trustbar: { vantagens: Vantagem[] }
   ofertas: { titulo: string }
@@ -108,7 +133,15 @@ export type ConteudoDaHome = {
     /** O handle do produto cuja foto ilustra a seção. */
     fotoDe?: string
   }
-  fechamento: { chapeu: string; titulo: string; chamada: string; fotoDe?: string }
+  fechamento: {
+    chapeu: string
+    titulo: string
+    chamada: string
+    /** A foto da faixa (computador; a do celular é extra dela). Sem ela, a do produto. */
+    imagem?: string
+    imagemCelular?: string
+    fotoDe?: string
+  }
 }
 export type ChaveDaHome = keyof ConteudoDaHome
 
@@ -129,6 +162,7 @@ export const CHAVE_DA_SECAO_DA_HOME: Record<IdDaSecaoDaHome, ChaveDaHome> = {
 
 /** Quantos cabem: a barra tem quatro lugares (frete e parcelamento são dois). */
 export const LIMITES_DA_HOME = {
+  slides: 5,
   vantagens: 2,
   comparativo: 3,
   garantias: 4,
@@ -154,10 +188,15 @@ export const LIMITES_DA_HOME = {
  */
 export const SEMENTE_DA_HOME: ConteudoDaHome = {
   banner: {
-    chapeu: "Semana do Cliente",
-    titulo: "Nosso kit best seller",
-    chamada: "Comprar agora",
-    produto: "kit-completo-para-barba",
+    slides: [
+      {
+        chapeu: "Semana do Cliente",
+        titulo: "Nosso kit best seller",
+        chamada: "Comprar agora",
+        produto: "kit-completo-para-barba",
+      },
+    ],
+    tempo: 7,
   },
   trustbar: {
     vantagens: [
@@ -260,8 +299,26 @@ export const SEMENTE_DA_HOME: ConteudoDaHome = {
 
 /* ── o que fica guardado ──────────────────────────────────────────────── */
 
-/** Uma versão da home: o texto (só das seções salvas) e a ordem. */
-export type VersaoDaHome = { conteudo: Partial<ConteudoDaHome>; layout: AjusteDeLayout }
+/**
+ * As seções da home que aceitam foto de fundo — as que têm cor de véu na
+ * loja (`apps/loja/src/estilos/fundo.css`). O banner e a última chamada têm
+ * imagem própria, no texto delas; a prova social e a esteira de avaliações
+ * ainda não aparecem na loja (não há caso nem avaliação cadastrada).
+ */
+export const SECOES_COM_FUNDO_DA_HOME: readonly IdDaSecaoDaHome[] = [
+  "home.colecao",
+  "home.hero",
+  "home.alta-performance",
+  "home.vitrine",
+  "home.sobre",
+]
+
+/** Uma versão da home: o texto (só das seções salvas), a ordem e as fotos de fundo. */
+export type VersaoDaHome = {
+  conteudo: Partial<ConteudoDaHome>
+  layout: AjusteDeLayout
+  fundos: Partial<Record<IdDaSecaoDaHome, Fundo>>
+}
 
 export type HomeGuardada = {
   /** O que a loja mostra. */
@@ -273,7 +330,7 @@ export type HomeGuardada = {
   publicadoPor: string | null
 }
 
-export const VERSAO_VAZIA: VersaoDaHome = { conteudo: {}, layout: {} }
+export const VERSAO_VAZIA: VersaoDaHome = { conteudo: {}, layout: {}, fundos: {} }
 
 export const HOME_VAZIA: HomeGuardada = {
   publicado: VERSAO_VAZIA,
@@ -335,10 +392,43 @@ const opcional = <K extends string>(k: K, v: unknown): Partial<Record<K, string>
 /** Com menos de dois produtos, o palco sai da página (ver `components/home/alta-performance.tsx`). */
 export const MINIMO_NO_PALCO = 2
 
+/**
+ * Um slide: com imagem, só o título é obrigatório (é a descrição dela); sem
+ * imagem, chapéu, título, botão e produto. A do celular só vale junto da do
+ * computador.
+ */
+function lerSlide(o: Record<string, unknown>): SlideDoBanner | null {
+  const titulo = txt(o.titulo)
+  if (!titulo) return null
+  const imagem = lerImagem(o.imagem)
+  if (!imagem) {
+    const t = textos(o, ["chapeu", "chamada", "produto"] as const)
+    return t ? { titulo, ...t } : null
+  }
+  const imagemCelular = lerImagem(o.imagemCelular)
+  return {
+    titulo,
+    ...opcional("chapeu", o.chapeu),
+    ...opcional("chamada", o.chamada),
+    ...opcional("produto", o.produto),
+    imagem,
+    ...(imagemCelular ? { imagemCelular } : {}),
+  }
+}
+
+const ehTempo = (v: unknown): v is TempoDoBanner =>
+  (TEMPOS_DO_BANNER as readonly unknown[]).includes(v)
+
 const LEITORES: { [K in ChaveDaHome]: (v: unknown) => ConteudoDaHome[K] | undefined } = {
   banner: (v) => {
     const o = obj(v)
-    return (o && textos(o, ["chapeu", "titulo", "chamada", "produto"] as const)) ?? undefined
+    if (!o) return undefined
+    // O banner de antes dos slides (um slide só, os campos soltos) vira o primeiro slide.
+    const brutos = Array.isArray(o.slides) ? o.slides : [o]
+    const slides = grupo(brutos, LIMITES_DA_HOME.slides, lerSlide)
+    if (!slides.length) return undefined
+    const tempo = typeof o.tempo === "string" ? Number(o.tempo) : o.tempo
+    return { slides, tempo: ehTempo(tempo) ? tempo : SEMENTE_DA_HOME.banner.tempo }
   },
 
   trustbar: (v) => {
@@ -431,7 +521,15 @@ const LEITORES: { [K in ChaveDaHome]: (v: unknown) => ConteudoDaHome[K] | undefi
   fechamento: (v) => {
     const o = obj(v)
     const t = o && textos(o, ["chapeu", "titulo", "chamada"] as const)
-    return o && t ? { ...t, ...opcional("fotoDe", o.fotoDe) } : undefined
+    if (!o || !t) return undefined
+    const imagem = lerImagem(o.imagem)
+    const imagemCelular = imagem ? lerImagem(o.imagemCelular) : null
+    return {
+      ...t,
+      ...(imagem ? { imagem } : {}),
+      ...(imagemCelular ? { imagemCelular } : {}),
+      ...opcional("fotoDe", o.fotoDe),
+    }
   },
 }
 
@@ -444,7 +542,13 @@ export function lerVersao(v: unknown): VersaoDaHome {
     const lido = LEITORES[chave](c[chave])
     if (lido) Object.assign(conteudo, { [chave]: lido })
   }
-  return { conteudo, layout: lerLayout(o.layout) }
+  const f = obj(o.fundos) ?? {}
+  const fundos: VersaoDaHome["fundos"] = {}
+  for (const id of SECOES_COM_FUNDO_DA_HOME) {
+    const fundo = lerFundo(f[id])
+    if (fundo) fundos[id] = fundo
+  }
+  return { conteudo, layout: lerLayout(o.layout), fundos }
 }
 
 /** Tira do `metadata` da loja a home, já peneirada. */
@@ -472,12 +576,16 @@ export function conteudoDaSecao<K extends ChaveDaHome>(
  * O QUE A LOJA RECEBE (`GET /store/home`): a versão publicada, com o texto
  * de TODAS as seções — a salva, ou a de fábrica. O rascunho nunca sai daqui.
  */
-export function homeDoSite(h: HomeGuardada): { layout: AjusteDeLayout; conteudo: ConteudoDaHome } {
+export function homeDoSite(h: HomeGuardada): {
+  layout: AjusteDeLayout
+  conteudo: ConteudoDaHome
+  fundos: VersaoDaHome["fundos"]
+} {
   const conteudo = {} as ConteudoDaHome
   for (const chave of Object.keys(SEMENTE_DA_HOME) as ChaveDaHome[]) {
     Object.assign(conteudo, { [chave]: conteudoDaSecao(h.publicado, chave) })
   }
-  return { layout: h.publicado.layout, conteudo }
+  return { layout: h.publicado.layout, conteudo, fundos: h.publicado.fundos }
 }
 
 /* ── uma seção de cada vez: o editor do painel ────────────────────────── */
@@ -494,7 +602,8 @@ const EXIGE: Record<
   ChaveDaHome,
   { textos?: string[]; listas?: string[]; grupos?: Record<string, Grupo> }
 > = {
-  banner: { textos: ["chapeu", "titulo", "chamada", "produto"] },
+  // O banner tem regra própria (`faltandoNoBanner`): o que é obrigatório depende de o slide ter imagem.
+  banner: {},
   trustbar: { grupos: { vantagens: { campos: ["titulo", "detalhe"] } } },
   ofertas: { textos: ["titulo"] },
   colecao: { textos: ["titulo"] },
@@ -554,6 +663,7 @@ const temTexto = (v: unknown): boolean =>
  */
 export function faltandoNaSecaoDaHome(chave: ChaveDaHome, valores: unknown): string[] {
   const o = obj(valores) ?? {}
+  if (chave === "banner") return faltandoNoBanner(o)
   const exige = EXIGE[chave]
   const faltando: string[] = []
   for (const campo of exige.textos ?? []) if (!txt(o[campo])) faltando.push(campo)
@@ -578,6 +688,43 @@ export function faltandoNaSecaoDaHome(chave: ChaveDaHome, valores: unknown): str
     if (inteiros < minimo && !faltando.some((f) => f.startsWith(`${nome}.`))) faltando.push(nome)
   }
   return faltando
+}
+
+/**
+ * O que falta no banner: pelo menos um slide inteiro; em cada slide
+ * começado, o título sempre, e — sem imagem — o chapéu, o botão e o produto.
+ * Chaves como as dos grupos: "slides.1.chamada", ou "slides" sem nenhum.
+ */
+function faltandoNoBanner(o: Record<string, unknown>): string[] {
+  const itens = Array.isArray(o.slides) ? o.slides : []
+  const faltando: string[] = []
+  let inteiros = 0
+  itens.forEach((item, i) => {
+    const q = obj(item) ?? {}
+    if (!Object.values(q).some(temTexto)) return
+    const exige = lerImagem(q.imagem) ? ["titulo"] : ["titulo", "chapeu", "chamada", "produto"]
+    const falta = exige.filter((c) => !txt(q[c]))
+    for (const c of falta) faltando.push(`slides.${i}.${c}`)
+    if (!falta.length) inteiros++
+  })
+  if (!inteiros && !faltando.length) faltando.push("slides")
+  return faltando
+}
+
+/**
+ * Os endereços de imagem que uma seção salva carrega — as do banner e a da
+ * última chamada. A rota confere que cada um mora no armazenamento da loja
+ * antes de gravar.
+ */
+export function urlsDaSecaoDaHome(chave: ChaveDaHome, secao: unknown): string[] {
+  const o = obj(secao) ?? {}
+  if (chave === "banner") {
+    const slides = (Array.isArray(o.slides) ? o.slides : []) as SlideDoBanner[]
+    return slides.flatMap((s) => [s.imagem, s.imagemCelular].filter((u): u is string => !!u))
+  }
+  if (chave === "fechamento")
+    return [o.imagem, o.imagemCelular].filter((u): u is string => typeof u === "string" && !!u)
+  return []
 }
 
 /** A seção pronta pra gravar, ou o que falta — aí não grava nada. */

@@ -4,13 +4,14 @@ import {
   ehIdDaSecaoDaHome,
   FIXAS_DA_HOME,
   lerSecaoDaHome,
+  SECOES_COM_FUNDO_DA_HOME,
   SECOES_DA_HOME,
   SEMENTE_DA_HOME,
   type HomeGuardada,
   type IdDaSecaoDaHome,
   type VersaoDaHome,
 } from "../home"
-import type { AjusteDeLayout } from "../pdp"
+import type { AjusteDeLayout, Fundo } from "../pdp"
 import { quando, type Data } from "./formato"
 import type { MudancaNaOrdem } from "./produtos"
 
@@ -99,13 +100,14 @@ const igual = (a: unknown, b: unknown) => estavel(a) === estavel(b)
 const ligadaEm = (v: VersaoDaHome, id: IdDaSecaoDaHome) =>
   FIXAS_DA_HOME.includes(id) || v.layout.visibilidade?.[id] !== false
 
-/** A seção mudou entre o rascunho e o publicado: o texto, ou se aparece. */
+/** A seção mudou entre o rascunho e o publicado: o texto, a foto de fundo, ou se aparece. */
 function secaoMudou(h: HomeGuardada, id: IdDaSecaoDaHome): boolean {
   if (!h.rascunho) return false
   const chave = CHAVE_DA_SECAO_DA_HOME[id]
   return (
     ligadaEm(h.rascunho, id) !== ligadaEm(h.publicado, id) ||
-    !igual(conteudoDaSecao(h.rascunho, chave), conteudoDaSecao(h.publicado, chave))
+    !igual(conteudoDaSecao(h.rascunho, chave), conteudoDaSecao(h.publicado, chave)) ||
+    !igual(h.rascunho.fundos[id] ?? null, h.publicado.fundos[id] ?? null)
   )
 }
 
@@ -145,6 +147,9 @@ export type SecaoDaHome = {
   propria: boolean
   /** Mudou no rascunho e ainda não foi pro site. */
   mudou: boolean
+  /** A foto de fundo, no rascunho, nas seções que aceitam. */
+  fundo: Fundo | null
+  aceitaFundo: boolean
 }
 
 /** As seções, na ordem do rascunho. */
@@ -162,6 +167,8 @@ export function secoesDaHome(h: HomeGuardada): SecaoDaHome[] {
       padrao,
       propria: !igual(valores, padrao),
       mudou: secaoMudou(h, id),
+      fundo: r.fundos[id] ?? null,
+      aceitaFundo: SECOES_COM_FUNDO_DA_HOME.includes(id),
     }
   })
 }
@@ -191,14 +198,17 @@ export function mudarOrdemNaHome(
 }
 
 /**
- * O texto de uma seção, no rascunho. Pela metade, não grava nada e diz o
- * que falta. Igual ao de fábrica, guarda SEM a seção: o de fábrica continua
- * valendo — e acompanha o código, se um dia ele mudar.
+ * O texto de uma seção, e a foto de fundo dela, no rascunho — um "Salvar"
+ * só, na gaveta. Pela metade, não grava nada e diz o que falta. Igual ao de
+ * fábrica, guarda SEM a seção: o de fábrica continua valendo — e acompanha
+ * o código, se um dia ele mudar. `fundo` ausente não mexe no fundo; `null`
+ * tira; e só vale nas seções que têm véu na loja.
  */
 export function salvarSecaoDaHome(
   h: HomeGuardada,
   id: IdDaSecaoDaHome,
-  valores: unknown
+  valores: unknown,
+  fundo?: Fundo | null
 ): Feito | Recusa<"faltando"> {
   const chave = CHAVE_DA_SECAO_DA_HOME[id]
   const lida = lerSecaoDaHome(chave, valores)
@@ -206,7 +216,12 @@ export function salvarSecaoDaHome(
   const r = rascunhoDa(h)
   const conteudo = { ...r.conteudo, [chave]: lida.secao }
   if (igual(lida.secao, SEMENTE_DA_HOME[chave])) delete conteudo[chave]
-  return { ok: true, home: comRascunho(h, { ...r, conteudo }) }
+  const fundos = { ...r.fundos }
+  if (fundo !== undefined && SECOES_COM_FUNDO_DA_HOME.includes(id)) {
+    if (fundo) fundos[id] = fundo
+    else delete fundos[id]
+  }
+  return { ok: true, home: comRascunho(h, { ...r, conteudo, fundos }) }
 }
 
 /** O rascunho vai pro site. Sem rascunho, não há o que publicar. */

@@ -265,6 +265,7 @@ export default defineMiddlewares({
       method: ["POST"],
       bodyParser: { sizeLimit: "17mb" },
     },
+    { matcher: "/dashboard/home/imagens", method: ["POST"], bodyParser: { sizeLimit: "17mb" } },
     /*
       O vídeo do painel chega cru, direto do navegador (`api/painel-envio/`,
       `lib/videos.ts`): sem leitor de corpo — a rota grava em fluxo, e quem

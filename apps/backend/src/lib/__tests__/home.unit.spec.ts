@@ -4,6 +4,7 @@ import {
   lerHome,
   lerSecaoDaHome,
   SEMENTE_DA_HOME,
+  urlsDaSecaoDaHome,
 } from "../home"
 
 /**
@@ -87,10 +88,10 @@ describe("a home guardada", () => {
 
 describe("o editor da seção", () => {
   it("diz o que falta, com o caminho do item no grupo", () => {
-    expect(faltandoNaSecaoDaHome("banner", { chapeu: "x", titulo: "" })).toEqual([
-      "titulo",
-      "chamada",
-      "produto",
+    expect(faltandoNaSecaoDaHome("banner", { slides: [{ chapeu: "x", titulo: "" }] })).toEqual([
+      "slides.0.titulo",
+      "slides.0.chamada",
+      "slides.0.produto",
     ])
     expect(
       faltandoNaSecaoDaHome("hero", {
@@ -137,5 +138,99 @@ describe("o editor da seção", () => {
       ])
       expect(lerSecaoDaHome(chave as keyof typeof SEMENTE_DA_HOME, secao).secao).toEqual(secao)
     }
+  })
+})
+
+const ARTE = "https://ref.supabase.co/storage/v1/object/public/produtos/home-arte.webp"
+
+describe("o banner com slides", () => {
+  it("o banner de antes (um slide, os campos soltos) vira o primeiro slide", () => {
+    const h = home({
+      publicado: {
+        conteudo: {
+          banner: { chapeu: "Black", titulo: "Tudo 20%", chamada: "Ver", produto: "kit" },
+        },
+      },
+    })
+    expect(h.publicado.conteudo.banner).toEqual({
+      slides: [{ chapeu: "Black", titulo: "Tudo 20%", chamada: "Ver", produto: "kit" }],
+      tempo: 7,
+    })
+  })
+
+  it("com imagem, só o título é obrigatório; a do celular só vale com a do computador", () => {
+    expect(faltandoNaSecaoDaHome("banner", { slides: [{ imagem: ARTE, titulo: "" }] })).toEqual([
+      "slides.0.titulo",
+    ])
+    const lido = lerSecaoDaHome("banner", {
+      slides: [
+        { imagem: ARTE, imagemCelular: `${ARTE}?cel`, titulo: "Semana do Cliente" },
+        { imagemCelular: `${ARTE}?cel`, titulo: "Sem a do computador", chapeu: "a", chamada: "b" },
+      ],
+      tempo: "5",
+    })
+    expect(lido.faltando).toEqual(["slides.1.produto"])
+    const certo = lerSecaoDaHome("banner", {
+      slides: [{ imagem: ARTE, imagemCelular: `${ARTE}?cel`, titulo: "Semana do Cliente" }],
+      tempo: "5",
+    })
+    expect(certo.secao).toEqual({
+      slides: [{ imagem: ARTE, imagemCelular: `${ARTE}?cel`, titulo: "Semana do Cliente" }],
+      tempo: 5,
+    })
+  })
+
+  it("até 5 slides; tempo fora da lista volta pro de fábrica; endereço que não é imagem cai", () => {
+    const slide = { titulo: "t", chapeu: "c", chamada: "b", produto: "p" }
+    const h = home({
+      publicado: {
+        conteudo: {
+          banner: {
+            slides: [
+              ...Array.from({ length: 7 }, () => slide),
+              { imagem: "javascript:alert(1)", titulo: "x" },
+            ],
+            tempo: 3,
+          },
+        },
+      },
+    })
+    expect(h.publicado.conteudo.banner?.slides).toHaveLength(5)
+    expect(h.publicado.conteudo.banner?.tempo).toBe(7)
+  })
+
+  it("as imagens que a rota confere: as do banner e a da última chamada", () => {
+    expect(
+      urlsDaSecaoDaHome("banner", {
+        slides: [{ imagem: ARTE, imagemCelular: `${ARTE}?cel` }, { titulo: "sem" }],
+      })
+    ).toEqual([ARTE, `${ARTE}?cel`])
+    expect(urlsDaSecaoDaHome("fechamento", { imagem: ARTE })).toEqual([ARTE])
+    expect(urlsDaSecaoDaHome("vitrine", { titulo: "x" })).toEqual([])
+  })
+})
+
+describe("a última chamada e os fundos", () => {
+  it("a foto da última chamada; a do celular só com a do computador", () => {
+    const base = { chapeu: "c", titulo: "t", chamada: "b" }
+    expect(lerSecaoDaHome("fechamento", { ...base, imagemCelular: ARTE }).secao).toEqual(base)
+    expect(lerSecaoDaHome("fechamento", { ...base, imagem: ARTE }).secao).toEqual({
+      ...base,
+      imagem: ARTE,
+    })
+  })
+
+  it("fundo só nas seções que têm véu na loja", () => {
+    const h = home({
+      publicado: {
+        fundos: {
+          "home.hero": { imagem: ARTE, veu: 70 },
+          "home.banner": { imagem: ARTE },
+          "home.vitrine": { imagem: "javascript:alert(1)" },
+        },
+      },
+    })
+    expect(h.publicado.fundos).toEqual({ "home.hero": { imagem: ARTE, veu: 70 } })
+    expect(homeDoSite(h).fundos).toEqual({ "home.hero": { imagem: ARTE, veu: 70 } })
   })
 })
