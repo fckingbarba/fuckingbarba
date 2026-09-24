@@ -7,13 +7,15 @@ import { mudarGaleriaDoProduto } from "../../../../../lib/painel/gravar-produto"
 import { lerVideo } from "../../../../../lib/pdp"
 
 /**
- * POST /dashboard/produtos/:id/galeria — UMA mudança nas fotos e vídeos da
- * dobra, na hora (sem "Salvar", como no protótipo):
+ * POST /dashboard/produtos/:id/galeria — UMA mudança nas fotos da dobra ou
+ * nos vídeos da faixa "Vê na prática", na hora (sem "Salvar", como no
+ * protótipo):
  *
- *   { acao: "incluir", item: { tipo: "foto", url } }                 — no fim
- *   { acao: "incluir", item: { tipo: "video", url, poster, largura, altura, duracao } }
- *   { acao: "mover", url, para: "antes" | "depois" }                  — uma casa
+ *   { acao: "incluir", item: { tipo: "foto", url } }                 — no fim das fotos
+ *   { acao: "incluir", item: { tipo: "video", url, poster, largura, altura, duracao, titulo? } }
+ *   { acao: "mover", url, para: "antes" | "depois" }                  — uma casa, entre os do mesmo tipo
  *   { acao: "tirar", url }
+ *   { acao: "titular", url, titulo }                                  — o nome do vídeo ("" tira)
  *
  * Aplicada sobre a galeria gravada AGORA, dentro da trava do produto
  * (`mudarGaleriaDoProduto`). Foto e vídeo têm que estar no armazenamento da
@@ -31,6 +33,10 @@ const obj = (v: unknown): Record<string, unknown> | null =>
 function lerPedido(corpo: Record<string, unknown>): PedidoNaGaleria | null {
   const url = typeof corpo.url === "string" && corpo.url ? corpo.url : null
   if (corpo.acao === "tirar") return url ? { acao: "tirar", url } : null
+  if (corpo.acao === "titular")
+    return url && typeof corpo.titulo === "string" && corpo.titulo.length <= 200
+      ? { acao: "titular", url, titulo: corpo.titulo }
+      : null
   if (corpo.acao === "mover")
     return url && (corpo.para === "antes" || corpo.para === "depois")
       ? { acao: "mover", url, para: corpo.para }
@@ -78,7 +84,7 @@ export async function POST(req: AuthenticatedMedusaRequest, res: MedusaResponse)
   const tipo =
     mudanca.acao === "incluir"
       ? mudanca.item.tipo
-      : /\.(mp4|webm)$/i.test(mudanca.url)
+      : mudanca.acao === "titular" || /\.(mp4|webm)$/i.test(mudanca.url)
         ? "video"
         : "foto"
   await anotar(pedido, "mudou-galeria", id, {

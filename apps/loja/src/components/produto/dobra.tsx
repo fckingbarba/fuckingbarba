@@ -1,9 +1,10 @@
 import { notFound } from "next/navigation"
 import { Compra } from "@/components/produto/compra"
-import { Galeria, type Foto } from "@/components/produto/galeria"
+import { Galeria, type Foto, type ItemDaGaleria } from "@/components/produto/galeria"
 import { Migalhas, type Migalha } from "@/components/produto/migalhas"
+import { VeNaPratica } from "@/components/produto/ve-na-pratica"
 import { buscarProdutoPorHandle, escadaDeQuantidade, precosDe } from "@/lib/medusa"
-import { galeriaDaDobra, modoDaCaixa, pdpDoProduto, produtosQueCombinam } from "@/lib/pdp"
+import { modoDaCaixa, pdpDoProduto, produtosQueCombinam, videosDaFaixa } from "@/lib/pdp"
 import { site } from "@/lib/site"
 
 /**
@@ -79,8 +80,13 @@ export async function Dobra({ handle }: { handle: string }) {
   if (!fotos.length && produto.thumbnail) {
     fotos.push({ url: produto.thumbnail, alt: legenda(produto.title, produto.subtitle) })
   }
-  // Os vídeos entre as fotos, na ordem do painel — a capa é sempre a primeira foto.
-  const itens = galeriaDaDobra(fotos, videos)
+  /*
+    A GALERIA É SÓ DE FOTOS. Os vídeos do painel vão pra faixa "Vê na
+    prática", no fim da coluna de compra (pedido da loja em 24/09): no meio
+    das fotos eles se misturavam com o produto e ficavam escondidos na
+    última miniatura.
+  */
+  const itens: ItemDaGaleria[] = fotos.map((f) => ({ tipo: "foto", ...f }))
 
   const categoria = produto.categories?.[0]
   const trilha: Migalha<CaminhoDaTrilha>[] = [{ nome: "Início", href: "/" }]
@@ -146,6 +152,7 @@ export async function Dobra({ handle }: { handle: string }) {
               estoque={estoque}
               mostrarDegraus={mostrarDegraus}
             />
+            <VeNaPratica videos={videosDaFaixa(videos)} produto={produto.title} />
           </div>
         </div>
       </section>

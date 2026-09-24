@@ -18,6 +18,21 @@ const supabaseRef = process.env.NEXT_PUBLIC_SUPABASE_REF // ex.: abcdefghijklmno
  */
 const medusaLocal = /\/\/(localhost|127\.0\.0\.1)/.test(process.env.MEDUSA_BACKEND_URL ?? "")
 
+/**
+ * A porta do Medusa local, quando não é a 9000: sessões em paralelo sobem o
+ * Medusa em portas próprias, e o disco dele (`/static`) é servido por ela. A
+ * 9000 continua liberada — as fotos do banco semeado apontam pra ela.
+ */
+const portaLocal = (() => {
+  if (!medusaLocal) return null
+  try {
+    const porta = new URL(process.env.MEDUSA_BACKEND_URL ?? "").port
+    return porta && porta !== "9000" ? porta : null
+  } catch {
+    return null
+  }
+})()
+
 const nextConfig: NextConfig = {
   // Next 16: cache por componente/função ("use cache"), PPR por padrão.
   cacheComponents: true,
@@ -40,6 +55,16 @@ const nextConfig: NextConfig = {
         : []),
       // Desenvolvimento: Medusa local servindo do disco.
       { protocol: "http" as const, hostname: "localhost", port: "9000", pathname: "/static/**" },
+      ...(portaLocal
+        ? [
+            {
+              protocol: "http" as const,
+              hostname: "localhost",
+              port: portaLocal,
+              pathname: "/static/**",
+            },
+          ]
+        : []),
     ],
     // Ver o comentário de `medusaLocal` lá em cima. Nunca liga na Vercel.
     dangerouslyAllowLocalIP: medusaLocal,

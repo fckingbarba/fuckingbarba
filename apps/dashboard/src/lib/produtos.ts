@@ -88,9 +88,17 @@ export type VideoDaPdp = {
   largura: number
   altura: number
   duracao: number
+  /** O nome do cartão na faixa "Vê na prática" ("Como aplicar"). Opcional. */
+  titulo?: string
 }
 
-/** Um item da galeria da dobra: foto (do Medusa) ou vídeo (do `fb_pdp`), na ordem da página. */
+/** O nome de um vídeo do "Vê na prática": até 40 caracteres (o mesmo limite do backend). */
+export const LIMITE_DO_TITULO_DO_VIDEO = 40
+
+/**
+ * Uma foto da galeria (do Medusa) ou um vídeo da faixa "Vê na prática" (do
+ * `fb_pdp`). A lista vem com as fotos primeiro e os vídeos depois.
+ */
 export type ItemDaGaleria = { tipo: "foto"; url: string } | ({ tipo: "video" } & VideoDaPdp)
 
 export type DetalheDoProduto = LinhaDoProduto & {
@@ -99,7 +107,7 @@ export type DetalheDoProduto = LinhaDoProduto & {
   peso: number | null
   categoriaId: string | null
   fotos: string[]
-  /** As fotos e os vídeos da dobra, na ordem da página (a primeira foto é a capa). */
+  /** As fotos da galeria (a primeira é a capa) e depois os vídeos do "Vê na prática". */
   galeria: ItemDaGaleria[]
   degraus: { unidades: number; total: number }[]
   caixa: Caixa
@@ -170,12 +178,21 @@ export function fraseDoHistorico(h: LinhaDoHistorico): { titulo: string; detalhe
     case "publicou":
       return { titulo: `${h.quem} publicou no site`, detalhe: "" }
     case "mudou-galeria": {
-      const oQue = h.tipo === "video" ? "um vídeo" : "uma foto"
+      const video = h.tipo === "video"
+      const onde = video ? "do Vê na prática" : "da galeria"
       if (h.galeria === "incluir")
-        return { titulo: `${h.quem} pôs ${oQue} na galeria`, detalhe: "" }
+        return {
+          titulo: `${h.quem} pôs ${video ? "um vídeo no Vê na prática" : "uma foto na galeria"}`,
+          detalhe: "",
+        }
       if (h.galeria === "tirar")
-        return { titulo: `${h.quem} tirou ${oQue} da galeria`, detalhe: "" }
-      return { titulo: `${h.quem} mudou a ordem da galeria`, detalhe: "" }
+        return { titulo: `${h.quem} tirou ${video ? "um vídeo" : "uma foto"} ${onde}`, detalhe: "" }
+      if (h.galeria === "titular")
+        return { titulo: `${h.quem} mudou o nome de um vídeo do Vê na prática`, detalhe: "" }
+      return {
+        titulo: `${h.quem} mudou a ordem ${video ? "dos vídeos" : "da galeria"}`,
+        detalhe: "",
+      }
     }
     default:
       return { titulo: `${h.quem} mudou o produto`, detalhe: "" }
@@ -550,15 +567,19 @@ export const VEU = { minimo: 40, maximo: 100, passo: 5, padrao: 85 } as const
 export const MEDIDA_DA_GALERIA = [1200, 1200] as const
 /** A foto de um caso de antes e depois: o quadro é 6 × 7, em pé, e corta o que sobra. */
 export const MEDIDA_DO_CASO = [900, 1050] as const
-/** O vídeo da galeria: no palco quadrado, o quadrado ocupa tudo. */
-export const MEDIDA_DO_VIDEO_DA_GALERIA = [1080, 1080] as const
+/**
+ * O vídeo do "Vê na prática": o cartão e a janela que abre são EM PÉ (9:16),
+ * como o vídeo de celular. Em pé ocupa tudo; quadrado ou deitado toca inteiro
+ * na janela, com faixa escura em cima e embaixo, e o cartão mostra o meio.
+ */
+export const MEDIDA_DO_VIDEO_DA_GALERIA = [1080, 1920] as const
 /** O vídeo do modo de uso: a caixa é 16:9, deitada, e corta o que sobra. */
 export const MEDIDA_DO_VIDEO_DO_USO = [1920, 1080] as const
 
 /** Até 50 MB (o mesmo limite do vídeo da home, no admin); acima de 20, pesa no celular. */
 export const VIDEO = { maximoMB: 50, pesadoMB: 20, idealSegundos: 30 } as const
 
-/** Fotos e vídeos que cabem na galeria (os mesmos limites do backend). */
+/** Fotos na galeria e vídeos no "Vê na prática" (os mesmos limites do backend). */
 export const LIMITES_DA_GALERIA = { fotos: 12, videos: 4 } as const
 
 /** O que dizer da foto da galeria ou do caso, antes de salvar. */
@@ -593,13 +614,9 @@ export function avisosDoVideo(
       `Tem ${Math.round(v.duracao)} segundos. Na página, até ${VIDEO.idealSegundos} funciona melhor.`
     )
   const proporcao = v.largura / v.altura
-  if (onde === "galeria" && proporcao < 0.9)
+  if (onde === "galeria" && proporcao > 0.7)
     avisos.push(
-      "Em pé: no quadro da galeria (quadrado) ele aparece inteiro, com faixa escura dos lados."
-    )
-  if (onde === "galeria" && proporcao > 1.1)
-    avisos.push(
-      "Deitado: no quadro da galeria (quadrado) ele aparece inteiro, com faixa escura em cima e embaixo."
+      "Não é em pé (9:16): na janela do Vê na prática ele toca inteiro, com faixa escura em cima e embaixo, e o cartão mostra só o meio."
     )
   if (onde === "uso" && proporcao < 1.5)
     avisos.push("Não é deitado (16:9): na caixa do modo de uso aparece só a faixa do meio.")

@@ -626,10 +626,15 @@ balm, devolvendo a página dele como estava.
 
 **A galeria, o vídeo do modo de uso e o antes e depois** (fase 3, parte 2). As FOTOS da galeria
 continuam sendo as do produto no Medusa (`images` pela ordem `rank`, e a `thumbnail` = a primeira):
-a vitrine, o Google e o link no WhatsApp leem elas. Os VÍDEOS moram no `fb_pdp.videos`, cada um com
-a `posicao` dele entre as fotos. `lib/painel/galeria.ts` (puro, com testes) junta as duas coisas numa
-lista só (`montarGaleria` — a loja faz a mesma conta em `galeriaDaDobra`, `apps/loja/src/lib/pdp.ts`),
-com a capa sempre foto, e aplica UMA mudança (incluir no fim, andar uma casa, tirar);
+a vitrine, o Google e o link no WhatsApp leem elas, e a galeria da dobra mostra SÓ elas. Os VÍDEOS
+moram no `fb_pdp.videos` (com `titulo` opcional, até 40 caracteres) e vão pra faixa "Vê na prática"
+(`components/produto/ve-na-pratica.tsx`, no fim da coluna de compra — o CSS é o `.videos` do
+`pdp.css` gerado; o clique abre o `dialog.videos__tela` com som, e a margem automática dele mora no
+`pdp-video.css`), cada um com a `posicao` dele ENTRE OS VÍDEOS (até 24/09 era a casa na galeria; a
+ordem entre eles se mantém). `lib/painel/galeria.ts` (puro, com testes) junta as duas coisas numa
+lista só pro painel — as fotos primeiro, os vídeos depois (`montarGaleria`; a loja só ordena os
+vídeos, `videosDaFaixa`) — e aplica UMA mudança dentro do tipo (incluir no fim do grupo, andar uma
+casa entre os do mesmo tipo, tirar, `titular`);
 `mudarGaleriaDoProduto` (`lib/painel/gravar-produto.ts`) grava as fotos com `rank`, a `thumbnail` e o
 `fb_pdp` num update só, dentro da trava do produto, e marca as fotos como escolhidas (`fb_fotos` com
 origem "painel": a importação do ERP e a da Nuvemshop não trocam mais). Rota:
@@ -645,8 +650,8 @@ sobe como imagem, `uso: "poster"`. O vídeo do modo de uso é `funciona.usoVideo
 `conteudo.antesDepois` (até 3 casos; caso sem `autorizou: true` não existe, e o editor diz que
 falta), com as fotos em `uso: "caso"`; a rota da seção confere que toda foto e vídeo dela mora no
 armazenamento (`urlsDaSecao`). A loja lê os casos do produto (e só na falta deles o
-`conteudo/depoimentos.ts` de antes) e toca os vídeos com `components/produto/video.tsx`: mudo, em
-loop, só quando aparece na tela (`preload="none"`), com a capa até tocar. O `conferir-produtos.mjs`
+`conteudo/depoimentos.ts` de antes) e toca o vídeo do modo de uso com `components/produto/video.tsx`:
+mudo, em loop, só quando aparece na tela (`preload="none"`), com a capa até tocar. O `conferir-produtos.mjs`
 grava os vídeos de teste no próprio navegador (canvas + `MediaRecorder`, em WebM sem a duração no
 cabeçalho, como o de um Android — o painel acha a duração indo pro fim do vídeo).
 
