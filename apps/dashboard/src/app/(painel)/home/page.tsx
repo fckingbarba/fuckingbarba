@@ -30,7 +30,7 @@ async function Home() {
     redirect(`/sair?motivo=${r.corpo.message === "fora_da_equipe" ? "fora" : "expirou"}`)
   if (r.status === 403) return <SemAcesso area="home" />
   if (r.status !== 200) return <ForaDoAr />
-  const { secoes, pendentes, publicacao, catalogo, noSite, historico } =
+  const { secoes, pendentes, publicacao, catalogo, provas, noSite, historico } =
     r.corpo as unknown as PaginaDaHome
 
   return (
@@ -59,7 +59,7 @@ async function Home() {
       <FaixaDaHome pendentes={pendentes} publicacao={publicacao} />
 
       <section className="bloco">
-        <SecoesDaHome secoes={secoes} catalogo={catalogo} />
+        <SecoesDaHome secoes={secoes} catalogo={catalogo} provas={provas ?? []} />
       </section>
 
       {historico.length ? (

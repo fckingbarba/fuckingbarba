@@ -11,7 +11,7 @@ import {
   type IdDaSecaoDaHome,
   type VersaoDaHome,
 } from "../home"
-import type { AjusteDeLayout, Fundo } from "../pdp"
+import { lerPdp, type AjusteDeLayout, type Fundo } from "../pdp"
 import { quando, type Data } from "./formato"
 import type { MudancaNaOrdem } from "./produtos"
 
@@ -179,6 +179,37 @@ export type Publicacao = { em: string; quando: string; quem: string | null } | n
 export function ultimaPublicacao(h: HomeGuardada, agora: Data): Publicacao {
   if (!h.publicadoEm) return null
   return { em: h.publicadoEm, quando: quando(h.publicadoEm, agora), quem: h.publicadoPor }
+}
+
+/**
+ * OS CASOS DA "PROVA SOCIAL" — os de antes e depois das páginas dos
+ * produtos no site (Produtos → a página → "Antes e depois"). A home não tem
+ * lista própria: um caso vale na página do produto e na home. Quem monta o
+ * carrossel é a loja (`apps/loja/src/components/home/provas.tsx`: até 8,
+ * alternando os produtos); o painel mostra de onde os casos vêm, com a
+ * foto do "depois" de cada um.
+ */
+export type ProdutoComCasos = {
+  id: string
+  nome: string
+  casos: { nome: string; tempo: string; foto: string }[]
+}
+
+export function provasDaHome(
+  produtos: { id: string; nome: string; metadata: unknown }[]
+): ProdutoComCasos[] {
+  return produtos.flatMap((p) => {
+    const casos = lerPdp(p.metadata).conteudo.antesDepois?.casos ?? []
+    return casos.length
+      ? [
+          {
+            id: p.id,
+            nome: p.nome,
+            casos: casos.map((c) => ({ nome: c.nome, tempo: c.tempo, foto: c.depois })),
+          },
+        ]
+      : []
+  })
 }
 
 /* ── as mudanças ──────────────────────────────────────────────────────── */

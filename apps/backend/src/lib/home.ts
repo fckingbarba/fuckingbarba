@@ -104,6 +104,21 @@ export type SlideDoBanner = {
 export const TEMPOS_DO_BANNER = [0, 5, 7, 10] as const
 export type TempoDoBanner = (typeof TEMPOS_DO_BANNER)[number]
 
+/**
+ * O VÍDEO DA HISTÓRIA DA MARCA — no "Sobre a marca", no lugar da foto. O
+ * que sobe pelo painel vem com a capa (um quadro do começo) e a duração; o
+ * que veio do admin, de antes do painel (`comVideoDoAdmin`), só com as
+ * medidas — e a loja usa a foto do produto de capa. Largura e altura
+ * reservam o espaço na página antes de o vídeo chegar.
+ */
+export type VideoDaHistoria = {
+  url: string
+  largura: number
+  altura: number
+  poster?: string
+  duracao?: number
+}
+
 export type ConteudoDaHome = {
   banner: { slides: SlideDoBanner[]; tempo: TempoDoBanner }
   /** As vantagens escritas à mão. O frete e o parcelamento entram sozinhos, antes delas. */
@@ -130,6 +145,8 @@ export type ConteudoDaHome = {
     numeros: NumeroDaMarca[]
     /** O handle do produto cuja foto ilustra a seção. */
     fotoDe?: string
+    /** Com vídeo, ele entra no lugar da foto. */
+    video?: VideoDaHistoria
   }
   fechamento: {
     chapeu: string
@@ -399,6 +416,27 @@ function lerSlide(o: Record<string, unknown>): SlideDoBanner | null {
   }
 }
 
+const medida = (v: unknown, maximo: number): number | null =>
+  typeof v === "number" && Number.isFinite(v) && v > 0 && v <= maximo ? v : null
+
+/** O vídeo da história: o endereço e as medidas; a capa e a duração, quando vieram. */
+export function lerVideoDaHistoria(v: unknown): VideoDaHistoria | null {
+  const o = obj(v)
+  const url = o && lerImagem(o.url)
+  const largura = o && medida(o.largura, 10_000)
+  const altura = o && medida(o.altura, 10_000)
+  if (!o || !url || !largura || !altura) return null
+  const poster = lerImagem(o.poster)
+  const duracao = medida(o.duracao, 3600)
+  return {
+    url,
+    largura: Math.round(largura),
+    altura: Math.round(altura),
+    ...(poster ? { poster } : {}),
+    ...(duracao ? { duracao: Math.round(duracao * 10) / 10 } : {}),
+  }
+}
+
 const ehTempo = (v: unknown): v is TempoDoBanner =>
   (TEMPOS_DO_BANNER as readonly unknown[]).includes(v)
 
@@ -490,6 +528,7 @@ const LEITORES: { [K in ChaveDaHome]: (v: unknown) => ConteudoDaHome[K] | undefi
     const titulo = o && txt(o.titulo)
     const paragrafos = o && lista(o.paragrafos, LIMITES_DA_HOME.paragrafos)
     if (!o || !titulo || !paragrafos) return undefined
+    const video = lerVideoDaHistoria(o.video)
     return {
       titulo,
       paragrafos,
@@ -498,6 +537,7 @@ const LEITORES: { [K in ChaveDaHome]: (v: unknown) => ConteudoDaHome[K] | undefi
         textos(i, ["valor", "rotulo"] as const)
       ),
       ...opcional("fotoDe", o.fotoDe),
+      ...(video ? { video } : {}),
     }
   },
 
@@ -555,20 +595,64 @@ export function conteudoDaSecao<K extends ChaveDaHome>(
   return (versao.conteudo[chave] as ConteudoDaHome[K] | undefined) ?? SEMENTE_DA_HOME[chave]
 }
 
+/** O texto que a loja recebe: o do "Sobre a marca" sempre com o `video` — `null` quando não tem. */
+export type ConteudoDoSite = Omit<ConteudoDaHome, "sobre"> & {
+  sobre: Omit<ConteudoDaHome["sobre"], "video"> & { video: VideoDaHistoria | null }
+}
+
 /**
  * O QUE A LOJA RECEBE (`GET /store/home`): a versão publicada, com o texto
  * de TODAS as seções — a salva, ou a de fábrica. O rascunho nunca sai daqui.
+ *
+ * O vídeo da história vai sempre, nem que seja `null`: é assim que a loja
+ * sabe que este Medusa já guarda o vídeo na home. O de antes da entrega
+ * 0080 não mandava a chave, e aí a loja usa o vídeo do admin
+ * (`fb_configuracoes`).
  */
 export function homeDoSite(h: HomeGuardada): {
   layout: AjusteDeLayout
-  conteudo: ConteudoDaHome
+  conteudo: ConteudoDoSite
   fundos: VersaoDaHome["fundos"]
 } {
   const conteudo = {} as ConteudoDaHome
   for (const chave of Object.keys(SEMENTE_DA_HOME) as ChaveDaHome[]) {
     Object.assign(conteudo, { [chave]: conteudoDaSecao(h.publicado, chave) })
   }
-  return { layout: h.publicado.layout, conteudo, fundos: h.publicado.fundos }
+  return {
+    layout: h.publicado.layout,
+    conteudo: { ...conteudo, sobre: { ...conteudo.sobre, video: conteudo.sobre.video ?? null } },
+    fundos: h.publicado.fundos,
+  }
+}
+
+/**
+ * O VÍDEO DA HISTÓRIA QUE VEIO DO ADMIN. Até a entrega 0080 ele subia em
+ * Configurações da loja → Home e morava no `fb_configuracoes`; agora é do
+ * painel, no "Sobre a marca". A migração
+ * (`migration-scripts/video-da-historia-no-painel.ts`) traz ele UMA vez pras
+ * duas versões — o publicado e o rascunho, se houver —, cada uma com o
+ * texto que já tinha: o site segue igual, e o painel mostra o vídeo que
+ * está no ar. Com vídeo já na home, ou sem vídeo no admin, não há o que
+ * trazer (`null`).
+ *
+ * O do admin fica onde está: a loja de antes da 0080 lê ele, e a de depois
+ * só quando o Medusa não manda o vídeo da home (um Medusa de antes).
+ */
+export function comVideoDoAdmin(
+  h: HomeGuardada,
+  video: VideoDaHistoria | null
+): HomeGuardada | null {
+  if (!video) return null
+  if ([h.publicado, h.rascunho].some((v) => v?.conteudo.sobre?.video)) return null
+  const comVideo = (v: VersaoDaHome): VersaoDaHome => ({
+    ...v,
+    conteudo: { ...v.conteudo, sobre: { ...conteudoDaSecao(v, "sobre"), video } },
+  })
+  return {
+    ...h,
+    publicado: comVideo(h.publicado),
+    rascunho: h.rascunho ? comVideo(h.rascunho) : null,
+  }
 }
 
 /* ── uma seção de cada vez: o editor do painel ────────────────────────── */
@@ -706,6 +790,10 @@ export function urlsDaSecaoDaHome(chave: ChaveDaHome, secao: unknown): string[] 
   }
   if (chave === "fechamento")
     return [o.imagem, o.imagemCelular].filter((u): u is string => typeof u === "string" && !!u)
+  if (chave === "sobre") {
+    const v = obj(o.video) ?? {}
+    return [v.url, v.poster].filter((u): u is string => typeof u === "string" && !!u)
+  }
   return []
 }
 

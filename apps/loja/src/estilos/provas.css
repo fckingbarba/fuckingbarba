@@ -2,8 +2,9 @@
   Prova social: o carrossel de antes e depois, a esteira de avaliações e as
   peças que os dois usam (estrelas, mini-card do produto, bolinhas).
 
-  As duas seções só aparecem quando houver depoimento de verdade em
-  conteudo/depoimentos.ts — o arquivo começa vazio e explica o porquê.
+  As duas seções só aparecem quando houver o que mostrar: o carrossel, com
+  caso de antes e depois nas páginas dos produtos (do painel); a esteira,
+  com avaliação de verdade em conteudo/depoimentos.ts.
 */
 
 /* Entrelinha padrão do navegador, como no protótipo: o preflight do
@@ -176,7 +177,7 @@
 }
 .depo__fotos {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 2px;
   background: var(--color-amarelo);
   height: 100%;
@@ -192,6 +193,24 @@
   height: 100%;
   object-fit: cover;
   display: block;
+}
+/* "Antes" e "Depois" em cima de cada foto, como na página do produto. */
+.depo__etiqueta {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  z-index: 1;
+  padding: 4px 8px;
+  background: var(--color-tinta);
+  color: #ffffff;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+.depo__etiqueta--depois {
+  background: var(--color-amarelo);
+  color: var(--color-tinta);
 }
 .depo__texto {
   margin: 0;
@@ -407,8 +426,10 @@
   background: var(--color-amarelo);
 }
 @media (max-width: 820px) {
+  /* `minmax(0, …)`: com `1fr` puro, o nome comprido do produto (numa linha só,
+     no mini-card) alargava a coluna, e o cartão vazava pro lado no celular. */
   .depo {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
   .depo__verificada {
     margin-left: 0;
@@ -491,4 +512,13 @@
     animation: none !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* A ressalva de todo antes e depois (a mesma da página do produto). */
+.provas__aviso {
+  max-width: 720px;
+  margin: 18px 0 0;
+  color: var(--color-tinta-suave);
+  font-size: 0.8rem;
+  line-height: 1.5;
 }

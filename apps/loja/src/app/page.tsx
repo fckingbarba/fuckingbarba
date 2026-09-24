@@ -12,9 +12,10 @@ import { Secoes } from "@/components/secoes"
  * (1320px, como no protótipo). Centralizar aqui estreitaria o banner.
  *
  * Uma seção decide sozinha se existe, independente do olhinho do painel: a
- * prova social só aparece quando há depoimento cadastrado. São dois eixos
- * diferentes — "eu não quero esta seção" é o painel; "não há o que mostrar"
- * é o dado — e ela não inventa depoimento pra ocupar espaço. (As ofertas
+ * prova social só aparece quando há caso de antes e depois nas páginas dos
+ * produtos. São dois eixos diferentes — "eu não quero esta seção" é o
+ * painel; "não há o que mostrar" é o dado — e ela não inventa caso pra
+ * ocupar espaço. (As ofertas
  * também decidiam até 24/09; agora ficam sempre ligadas, com o contador
  * zerando à meia-noite — ver `components/home/ofertas.tsx`.)
  *

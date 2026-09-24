@@ -1,30 +1,52 @@
 import type { HttpTypes } from "@medusajs/types"
 import Image from "next/image"
 import Link from "next/link"
-import { Estrelas } from "@/components/estrelas"
-import { ANTES_E_DEPOIS, type AntesEDepois } from "@/conteudo/depoimentos"
+import {
+  casosDoProduto,
+  RESSALVA_DO_ANTES_E_DEPOIS,
+  type CasoAntesDepois,
+} from "@/conteudo/produto"
 import { emReais } from "@/lib/formato"
-import { home, listarProdutos, porHandle, precosDe } from "@/lib/medusa"
+import { home, listarProdutos, precosDe } from "@/lib/medusa"
+import { lerPdp } from "@/lib/pdp"
 import { ProvasCarrossel } from "./provas-carrossel"
 
 /**
  * "Resultados reais": o carrossel de antes e depois.
  *
- * **Não aparece enquanto não houver depoimento com as duas fotos** em
- * `conteudo/depoimentos.ts` — o arquivo começa vazio e explica o porquê.
- * Aqui a exigência é ainda maior que na esteira: foto de rosto é dado
- * pessoal, e publicar sem autorização da pessoa é problema de LGPD além de
- * ser falta de respeito com quem confiou a imagem.
+ * OS CASOS SÃO OS DOS PRODUTOS — os do "Antes e depois" da página de cada
+ * um (`casosDoProduto`), cadastrados no painel com a autorização por escrito
+ * da pessoa. A home não tem lista própria: um caso vale na página do produto
+ * e aqui. **Sem caso nenhum, a seção não aparece** — nem título, nem moldura
+ * vazia. Foto de rosto é dado pessoal, e publicar sem autorização é problema
+ * de LGPD, além de falta de respeito com quem confiou a imagem.
  *
- * Cada depoimento fecha com o produto que a pessoa usou, levando pra página
- * dele. Prova social que não leva ao produto é prova desperdiçada.
+ * Até `CASOS_NA_HOME`, ALTERNANDO os produtos: o primeiro caso de cada um,
+ * depois o segundo de cada um. Os primeiros cartões mostram produtos
+ * diferentes, e um produto com três casos não toma o carrossel inteiro.
+ *
+ * Cada caso fecha com o produto que a pessoa usou, levando pra página dele.
+ * Prova social que não leva ao produto é prova desperdiçada. E a ressalva de
+ * "resultado varia" vem junto, como na página do produto.
+ *
+ * Quando um caso muda no painel, a página do produto avisa a loja com a
+ * etiqueta `produtos` — a mesma da lista daqui: a home refaz junto.
  */
-export async function Provas() {
-  const depoimentos = ANTES_E_DEPOIS.filter((d) => d.fotos?.antes && d.fotos?.depois)
-  if (!depoimentos.length) return null
 
+/** O bastante pra provar, pouco pra não virar álbum. O painel diz o mesmo número. */
+const CASOS_NA_HOME = 8
+
+export async function Provas() {
   const [produtos, { conteudo }] = await Promise.all([listarProdutos({ limite: 48 }), home()])
-  const catalogo = porHandle(produtos)
+  const casos = alternados(
+    produtos.map((produto) => ({
+      produto,
+      casos: produto.handle
+        ? casosDoProduto(produto.handle, lerPdp(produto.metadata).conteudo)
+        : [],
+    }))
+  ).slice(0, CASOS_NA_HOME)
+  if (!casos.length) return null
 
   return (
     <section className="provas" aria-labelledby="provas-titulo">
@@ -35,83 +57,80 @@ export async function Provas() {
         </h2>
         <hr className="provas__risco" />
 
-        <ProvasCarrossel total={depoimentos.length}>
-          {depoimentos.map((d, i) => (
-            <Depoimento
-              key={`${d.nome}-${i}`}
-              depoimento={d}
-              produto={d.produtoHandle ? catalogo.get(d.produtoHandle) : undefined}
-            />
+        <ProvasCarrossel total={casos.length}>
+          {casos.map(({ caso, produto }) => (
+            <Caso key={`${produto.id}-${caso.antes}`} caso={caso} produto={produto} />
           ))}
         </ProvasCarrossel>
+
+        <p className="provas__aviso">{RESSALVA_DO_ANTES_E_DEPOIS}</p>
       </div>
     </section>
   )
 }
 
-function Depoimento({
-  depoimento,
-  produto,
-}: {
-  depoimento: AntesEDepois
-  produto?: HttpTypes.StoreProduct
-}) {
-  const precos = produto ? precosDe(produto) : null
+/** O primeiro caso de cada produto, depois o segundo de cada um, e assim por diante. */
+function alternados<P>(
+  grupos: { produto: P; casos: CasoAntesDepois[] }[]
+): { produto: P; caso: CasoAntesDepois }[] {
+  const saida: { produto: P; caso: CasoAntesDepois }[] = []
+  for (let i = 0; grupos.some((g) => i < g.casos.length); i++) {
+    for (const g of grupos) {
+      const caso = g.casos[i]
+      if (caso) saida.push({ produto: g.produto, caso })
+    }
+  }
+  return saida
+}
+
+function Caso({ caso, produto }: { caso: CasoAntesDepois; produto: HttpTypes.StoreProduct }) {
+  const precos = precosDe(produto)
 
   return (
     <figure className="depo">
       <div className="depo__midia">
-        <span className="depo__uso">Uso contínuo</span>
+        <span className="depo__uso">{caso.tempo} de uso</span>
         <div className="depo__fotos">
           <div className="depo__foto">
             <Image
-              src={depoimento.fotos.antes}
-              alt={`${depoimento.nome} antes de usar os produtos`}
-              width={400}
-              height={500}
+              src={caso.antes}
+              alt={`${caso.nome}, antes`}
+              width={600}
+              height={700}
               loading="lazy"
-              sizes="(max-width: 700px) 45vw, 200px"
+              sizes="(max-width: 700px) 45vw, 300px"
             />
+            <span className="depo__etiqueta">Antes</span>
           </div>
           <div className="depo__foto">
             <Image
-              src={depoimento.fotos.depois}
-              alt={`${depoimento.nome} depois do uso contínuo dos produtos`}
-              width={400}
-              height={500}
+              src={caso.depois}
+              alt={`${caso.nome}, depois de ${caso.tempo} de uso`}
+              width={600}
+              height={700}
               loading="lazy"
-              sizes="(max-width: 700px) 45vw, 200px"
+              sizes="(max-width: 700px) 45vw, 300px"
             />
+            <span className="depo__etiqueta depo__etiqueta--depois">Depois</span>
           </div>
         </div>
       </div>
 
       <figcaption className="depo__texto">
-        <Estrelas nota={depoimento.nota} rotulo={`Avaliação ${depoimento.nota} de 5`} />
-        <h3 className="depo__titulo">{depoimento.titulo}</h3>
-        <blockquote className="depo__fala">
-          <p>{depoimento.texto}</p>
-        </blockquote>
+        {caso.texto ? (
+          <blockquote className="depo__fala">
+            <p>“{caso.texto}”</p>
+          </blockquote>
+        ) : null}
 
         <div className="depo__autor">
           <span className="depo__avatar" aria-hidden="true">
-            {depoimento.nome.slice(0, 1).toUpperCase()}
+            {caso.nome.slice(0, 1).toUpperCase()}
           </span>
-          <span>
-            <span className="depo__nome">{depoimento.nome}</span>
-            {depoimento.local ? <span className="depo__local">{depoimento.local}</span> : null}
-          </span>
-          {depoimento.compraVerificada ? (
-            <span className="depo__verificada">
-              <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
-                <path d="M9.15 19.55 1.75 12.15l1.6-1.6h2.5l3.3 3.3 8.5-8.5h2.5l1.6 1.6z" />
-              </svg>{" "}
-              Compra verificada
-            </span>
-          ) : null}
+          <span className="depo__nome">{caso.nome}</span>
         </div>
 
-        {produto && precos ? (
+        {precos ? (
           <Link className="minicard" href={`/produtos/${produto.handle}`}>
             <span className="minicard__foto">
               {produto.thumbnail ? (

@@ -40,7 +40,8 @@ export type Campo =
   /** Uma foto que sobe pelo painel (a de um caso de antes e depois): o endereço dela. */
   | { tipo: "foto"; c: string; rot: string; meia?: boolean }
   /** Um vídeo que sobe direto pro Medusa (o do modo de uso): `VideoDaPdp`, ou nada. */
-  | { tipo: "video"; c: string; rot: string; ajuda?: string }
+  /** `uso`: no modo de uso do produto (deitado, o padrão), ou na história da marca, na home. */
+  | { tipo: "video"; c: string; rot: string; ajuda?: string; uso?: "uso" | "historia" }
   /**
    * Um produto do catálogo, pelo endereço (handle). `comEste`: oferece o
    * próprio produto; `vazio`: o nome da opção sem produto, quando ela vale

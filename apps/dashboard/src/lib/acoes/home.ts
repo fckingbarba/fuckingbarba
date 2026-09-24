@@ -10,7 +10,8 @@ import type { ImagemQueSubiu, MudancaNaOrdem } from "@/lib/acoes/produtos"
 
 /**
  * AS AÇÕES DA HOME — o texto de uma seção, ligar/desligar e a ordem (tudo no
- * rascunho), o "Publicar" e o "Desfazer".
+ * rascunho), o "Publicar" e o "Desfazer"; e a subida das imagens e do vídeo
+ * da história da marca.
  *
  * Quem decide se pode é o Medusa (`/dashboard/home/*`): o papel (marketing e
  * dono) e se o que chegou faz sentido. Cada mudança é aplicada sobre o
@@ -120,16 +121,19 @@ export async function desfazerHome(): Promise<Resultado> {
   return { ok: true, texto: "Pronto — o painel voltou a mostrar a home que está no site" }
 }
 
-/** O lado da imagem no backend (`UsoDaImagem`, em `apps/backend/src/lib/imagens.ts`). */
+/** O uso da imagem no backend (`UsoDaImagem`, em `apps/backend/src/lib/imagens.ts`). */
 const USO_NO_BACKEND: Record<string, string> = {
   computador: "fundo-computador",
   celular: "fundo-celular",
+  // A capa do vídeo da história da marca (`useSubirVideo`).
+  poster: "poster",
 }
 
 /**
  * Sobe uma imagem da home — já preparada no navegador — e devolve o
  * endereço: o fundo de uma seção, a arte de um slide, a foto da última
- * chamada. Não grava nada: isso é o "Salvar" da gaveta.
+ * chamada, a capa do vídeo da história. Não grava nada: isso é o "Salvar"
+ * da gaveta.
  */
 export async function subirImagemDaHome(dados: FormData): Promise<ImagemQueSubiu> {
   const uso = dados.get("uso")
@@ -151,4 +155,30 @@ export async function subirImagemDaHome(dados: FormData): Promise<ImagemQueSubiu
     altura: Number(c.altura),
     bytes: Number(c.bytes),
   }
+}
+
+/**
+ * O bilhete pro vídeo da história da marca ir direto do navegador pro
+ * Medusa (`POST /dashboard/home/videos/envio`; o porquê em
+ * `apps/backend/src/lib/videos.ts`). Devolve o endereço inteiro do envio.
+ */
+export async function pedirEnvioDeVideoDaHome(video: {
+  tipo: string
+  tamanho: number
+}): Promise<{ ok: true; url: string } | { ok: false; texto: string }> {
+  const r = await chamar("videos/envio", video)
+  const erro = comum(r)
+  if (erro) return { ok: false, texto: erro.texto }
+  if (r.status === 400)
+    return {
+      ok: false,
+      texto:
+        r.corpo.message === "grande"
+          ? "O vídeo passa de 50 MB. Encurte ou comprima antes."
+          : "Use um vídeo MP4 ou WebM.",
+    }
+  const base = process.env.MEDUSA_BACKEND_URL
+  if (r.status !== 200 || typeof r.corpo.caminho !== "string" || !base)
+    return { ok: false, texto: GENERICO }
+  return { ok: true, url: new URL(r.corpo.caminho, base).toString() }
 }

@@ -18,8 +18,9 @@ import {
  * fluxo: nunca fica inteiro na memória.
  *
  * Quem autoriza é o BILHETE, pedido pelo painel com o papel conferido
- * (`POST /dashboard/produtos/:id/videos/envio`): assinado, vale uma vez, por
- * 15 minutos, pra um produto, um tipo e um tamanho exatos. O tipo sai dos
+ * (`POST /dashboard/produtos/:id/videos/envio`, ou o da home): assinado,
+ * vale uma vez, por 15 minutos, pra um destino (um produto, ou a home), um
+ * tipo e um tamanho exatos. O tipo sai dos
  * primeiros BYTES — um arquivo que não é MP4 nem WebM para no começo, e o
  * que foi gravado dele é apagado.
  *
@@ -121,17 +122,22 @@ export async function PUT(req: MedusaRequest, res: MedusaResponse) {
     res.status(409).json({ message: "bilhete_usado" })
     return
   }
-  const [produto] = await req.scope
-    .resolve(Modules.PRODUCT)
-    .listProducts({ id: envio.produtoId }, { select: ["id", "handle"], take: 1 })
-  if (!produto) {
-    res.status(404).json({ message: "nao_encontrado" })
-    return
+  // O nome do arquivo diz de onde ele é: o handle do produto, ou "home".
+  let nome = "home"
+  if (envio.destino !== "home") {
+    const [produto] = await req.scope
+      .resolve(Modules.PRODUCT)
+      .listProducts({ id: envio.destino }, { select: ["id", "handle"], take: 1 })
+    if (!produto) {
+      res.status(404).json({ message: "nao_encontrado" })
+      return
+    }
+    nome = produto.handle
   }
 
   const arquivos = req.scope.resolve(Modules.FILE)
   const destino = await arquivos.getUploadStream({
-    filename: `${produto.handle}-video.${TIPOS_DE_VIDEO[envio.tipo]}`,
+    filename: `${nome}-video.${TIPOS_DE_VIDEO[envio.tipo]}`,
     mimeType: envio.tipo,
     access: "public",
   })
@@ -162,7 +168,7 @@ export async function PUT(req: MedusaRequest, res: MedusaResponse) {
       res.status(400).json({ message: porteiro.motivo })
       return
     }
-    logger.warn(`[painel] o vídeo de ${produto.handle} não subiu: ${e}`)
+    logger.warn(`[painel] o vídeo de ${nome} não subiu: ${e}`)
     res.status(500).json({ message: "falhou" })
     return
   }

@@ -38,6 +38,6 @@ export async function POST(req: AuthenticatedMedusaRequest, res: MedusaResponse)
     res.status(404).json({ message: "nao_encontrado" })
     return
   }
-  const bilhete = emitirEnvio({ produtoId: id, membroId: pedido.membro.id, tipo, tamanho })
+  const bilhete = emitirEnvio({ destino: id, membroId: pedido.membro.id, tipo, tamanho })
   res.json({ caminho: `/painel-envio/${bilhete}` })
 }

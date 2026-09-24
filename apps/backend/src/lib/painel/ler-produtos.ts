@@ -39,6 +39,20 @@ type ComEstoque = ProdutoCru
 
 const query = (container: MedusaContainer) => container.resolve(ContainerRegistrationKeys.QUERY)
 
+/** O metadata dos produtos, pelo id — o que a página de cada um guarda (`fb_pdp`). */
+export async function metadataDos(
+  container: MedusaContainer,
+  ids: string[]
+): Promise<Map<string, unknown>> {
+  if (!ids.length) return new Map()
+  const { data } = await query(container).graph({
+    entity: "product",
+    fields: ["id", "metadata"],
+    filters: { id: ids },
+  })
+  return new Map((data as { id: string; metadata: unknown }[]).map((p) => [p.id, p.metadata]))
+}
+
 /** Todos os produtos, o mais novo primeiro. A loja tem poucos: a lista vem inteira. */
 export async function lerProdutos(container: MedusaContainer): Promise<ComEstoque[]> {
   const { data } = await query(container).graph({

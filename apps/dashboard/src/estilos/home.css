@@ -10,3 +10,12 @@
 /* A arte do banner: a loja mostra inteira (o texto dela não pode sair cortado), então a prévia também. */
 .fundo-form[data-mostra="inteira"] .slot__previa { background: var(--papel); }
 .fundo-form[data-mostra="inteira"] .slot__previa img { object-fit: contain; object-position: center; }
+
+/* A prova social: de onde vêm os casos — cada produto, com a foto do "depois" de cada caso dele. */
+.casos-da-home { margin-top: 18px; }
+.casos-da-home > ul { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 12px; }
+.casos-da-home > ul > li > .link { font-weight: 800; }
+.casos-da-home li ul { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.casos-da-home li li { display: flex; align-items: center; gap: 8px; padding: 4px 10px 4px 4px; background: var(--papel); border: 2px solid var(--tinta); font-size: 0.78rem; font-weight: 700; }
+.casos-da-home li li img { width: 36px; height: 42px; object-fit: cover; }
+.casos-da-home li li small { font-weight: 600; color: var(--tinta-suave); }

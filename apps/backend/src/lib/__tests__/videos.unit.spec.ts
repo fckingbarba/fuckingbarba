@@ -34,7 +34,7 @@ describe("o tipo do vídeo, pelos primeiros bytes", () => {
 
 describe("o bilhete", () => {
   const envio = {
-    produtoId: "prod_01",
+    destino: "prod_01",
     membroId: "mem_01",
     tipo: "video/mp4" as const,
     tamanho: 1234,
@@ -46,6 +46,11 @@ describe("o bilhete", () => {
     expect(lido).toMatchObject(envio)
     expect(gastarEnvio(lido!.n, 2_000)).toBe(true)
     expect(gastarEnvio(lido!.n, 3_000)).toBe(false)
+  })
+
+  it("o destino pode ser a home: o vídeo da história da marca", () => {
+    const lido = lerEnvio(emitirEnvio({ ...envio, destino: "home" }, 1_000), 2_000)
+    expect(lido?.destino).toBe("home")
   })
 
   it("mexido, com outra chave ou vencido: não vale", () => {

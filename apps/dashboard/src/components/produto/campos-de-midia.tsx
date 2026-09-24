@@ -3,13 +3,14 @@
 import { useState } from "react"
 import { UmPorVez, useArrastar } from "@/components/arrastar"
 import { Icone } from "@/components/icones"
-import { pedirEnvioDeVideo, subirImagem } from "@/lib/acoes/produtos"
+import { pedirEnvioDeVideo, subirImagem, type ImagemQueSubiu } from "@/lib/acoes/produtos"
 import { ACEITA, prepararNoNavegador } from "@/lib/imagem-no-navegador"
 import {
   avisosDaFoto,
   avisosDoVideo,
   duracaoCurta,
   MEDIDA_DO_CASO,
+  MEDIDA_DO_VIDEO_DA_GALERIA,
   MEDIDA_DO_VIDEO_DO_USO,
   medidaEmPx,
   tamanhoDoArquivo,
@@ -20,7 +21,8 @@ import { ACEITA_VIDEO, enviarVideo, lerVideoNoNavegador } from "@/lib/video-no-n
 
 /**
  * A FOTO E O VÍDEO QUE SOBEM PELO PAINEL — a foto de um caso de antes e
- * depois e o vídeo do modo de uso, na gaveta da seção; e o vídeo da galeria
+ * depois e o vídeo do modo de uso, na gaveta da seção; o vídeo da história
+ * da marca, na gaveta do "Sobre a marca" da home; e o vídeo da galeria
  * (`useSubirVideo`, aqui, que a galeria também usa).
  *
  * Sobem assim que são escolhidos (ou arrastados do computador e soltos em
@@ -30,8 +32,26 @@ import { ACEITA_VIDEO, enviarVideo, lerVideoNoNavegador } from "@/lib/video-no-n
  * "Salvar".
  */
 
+/**
+ * Pra onde o vídeo sobe: a capa (uma imagem, `uso: "poster"`) e o bilhete do
+ * arquivo, que vai direto do navegador pro Medusa.
+ */
+export type DestinoDoVideo = {
+  subirCapa: (dados: FormData) => Promise<ImagemQueSubiu>
+  pedirEnvio: (video: {
+    tipo: string
+    tamanho: number
+  }) => Promise<{ ok: true; url: string } | { ok: false; texto: string }>
+}
+
+/** O vídeo de um produto: a capa e o arquivo vão pra ele. */
+export const videoDoProduto = (id: string): DestinoDoVideo => ({
+  subirCapa: (dados) => subirImagem(id, dados),
+  pedirEnvio: (video) => pedirEnvioDeVideo(id, video),
+})
+
 /** O vídeo escolhido, até ele estar no armazenamento: o progresso (0 a 1) e o que deu errado. */
-export function useSubirVideo(produtoId: string) {
+export function useSubirVideo(destino: DestinoDoVideo) {
   const [progresso, setProgresso] = useState<number | null>(null)
   const [erro, setErro] = useState<string | null>(null)
 
@@ -47,12 +67,12 @@ export function useSubirVideo(produtoId: string) {
       const dados = new FormData()
       dados.set("uso", "poster")
       dados.set("arquivo", lido.capa, lido.capa.type === "image/webp" ? "capa.webp" : "capa.jpg")
-      const capa = await subirImagem(produtoId, dados)
+      const capa = await destino.subirCapa(dados)
       if (!capa.ok) {
         setErro(capa.texto)
         return null
       }
-      const envio = await pedirEnvioDeVideo(produtoId, { tipo: lido.tipo, tamanho: arquivo.size })
+      const envio = await destino.pedirEnvio({ tipo: lido.tipo, tamanho: arquivo.size })
       if (!envio.ok) {
         setErro(envio.texto)
         return null
@@ -219,8 +239,14 @@ export function CampoDeFoto({
   )
 }
 
+/**
+ * O vídeo de uma seção. `uso` diz onde ele entra: no modo de uso do produto
+ * (a caixa é deitada, 16:9) ou na história da marca, na home (em pé ou
+ * deitado: a seção se ajeita ao vídeo).
+ */
 export function CampoDeVideo({
-  produtoId,
+  destino,
+  uso,
   chave,
   rotulo,
   ajuda,
@@ -228,7 +254,8 @@ export function CampoDeVideo({
   mudar,
   aoSubir,
 }: {
-  produtoId: string
+  destino: DestinoDoVideo
+  uso: "uso" | "historia"
   chave: string
   rotulo: string
   ajuda?: string
@@ -236,10 +263,10 @@ export function CampoDeVideo({
   mudar: (video: VideoDaPdp | null) => void
   aoSubir: (delta: 1 | -1) => void
 }) {
-  const { subir, progresso, erro } = useSubirVideo(produtoId)
+  const { subir, progresso, erro } = useSubirVideo(destino)
   const [bytes, setBytes] = useState<{ url: string; n: number } | null>(null)
   const avisos = video
-    ? avisosDoVideo("uso", { ...video, bytes: bytes?.url === video.url ? bytes.n : undefined })
+    ? avisosDoVideo(uso, { ...video, bytes: bytes?.url === video.url ? bytes.n : undefined })
     : []
 
   async function escolher(arquivo: File | undefined) {
@@ -271,7 +298,7 @@ export function CampoDeVideo({
   )
 
   return (
-    <div className="campo slot slot--uso" {...arrastar.alvo}>
+    <div className="campo slot slot--uso" data-video={uso} {...arrastar.alvo}>
       <span className="campo__rot">{rotulo}</span>
       {video ? (
         <div className="video-form">
@@ -312,15 +339,24 @@ export function CampoDeVideo({
                 : "Escolher vídeo"}
           </span>
           <small>ou arraste pra cá</small>
-          <small>MP4 ou WebM · deitado, até {VIDEO.maximoMB} MB</small>
+          <small>
+            MP4 ou WebM · {uso === "uso" ? "deitado, " : ""}até {VIDEO.maximoMB} MB
+          </small>
           {entrada}
         </label>
       )}
       {progresso !== null ? <Subindo progresso={progresso} /> : null}
-      <p className="slot__medida">
-        Ideal: <b>{medidaEmPx(MEDIDA_DO_VIDEO_DO_USO)}</b> · deitado (16:9), até{" "}
-        {VIDEO.idealSegundos} segundos
-      </p>
+      {uso === "uso" ? (
+        <p className="slot__medida">
+          Ideal: <b>{medidaEmPx(MEDIDA_DO_VIDEO_DO_USO)}</b> · deitado (16:9), até{" "}
+          {VIDEO.idealSegundos} segundos
+        </p>
+      ) : (
+        <p className="slot__medida">
+          Ideal: <b>{medidaEmPx(MEDIDA_DO_VIDEO_DA_GALERIA)}</b> em pé, ou{" "}
+          <b>{medidaEmPx(MEDIDA_DO_VIDEO_DO_USO)}</b> deitado, até {VIDEO.idealSegundos} segundos
+        </p>
+      )}
       {ajuda ? <p className="campo__ajuda">{ajuda}</p> : null}
       <UmPorVez varios={arrastar.varios} />
       {erro ? (

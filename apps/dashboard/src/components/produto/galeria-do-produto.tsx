@@ -4,7 +4,7 @@ import { useEffect, useOptimistic, useRef, useState, useTransition } from "react
 import { UmPorVez, useArrastar } from "@/components/arrastar"
 import { useAvisar } from "@/components/avisos"
 import { Icone } from "@/components/icones"
-import { Subindo, useSubirVideo } from "@/components/produto/campos-de-midia"
+import { Subindo, useSubirVideo, videoDoProduto } from "@/components/produto/campos-de-midia"
 import { mudarGaleria, subirImagem, type PedidoNaGaleria } from "@/lib/acoes/produtos"
 import { ACEITA, prepararNoNavegador } from "@/lib/imagem-no-navegador"
 import {
@@ -45,7 +45,7 @@ export function GaleriaDoProduto({ produto }: { produto: DetalheDoProduto }) {
   const [erroDaFoto, setErroDaFoto] = useState<string | null>(null)
   const [avisosDaFotoNova, setAvisosDaFotoNova] = useState<string[]>([])
   const [avisosDoVideoNovo, setAvisosDoVideoNovo] = useState<string[]>([])
-  const video = useSubirVideo(produto.id)
+  const video = useSubirVideo(videoDoProduto(produto.id))
   const edita = produto.podeEditar
   const fotos = itens.filter((i) => i.tipo === "foto")
   const videos = itens.filter((i): i is Video => i.tipo === "video")

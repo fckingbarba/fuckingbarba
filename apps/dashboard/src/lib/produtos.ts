@@ -590,7 +590,7 @@ export const MEDIDA_DO_VIDEO_DA_GALERIA = [1080, 1920] as const
 /** O vídeo do modo de uso: a caixa é 16:9, deitada, e corta o que sobra. */
 export const MEDIDA_DO_VIDEO_DO_USO = [1920, 1080] as const
 
-/** Até 50 MB (o mesmo limite do vídeo da home, no admin); acima de 20, pesa no celular. */
+/** Até 50 MB (o limite do Medusa, `lib/videos.ts`); acima de 20, pesa no celular. */
 export const VIDEO = { maximoMB: 50, pesadoMB: 20, idealSegundos: 30 } as const
 
 /** Fotos na galeria e vídeos no "Vê na prática" (os mesmos limites do backend). */
@@ -614,8 +614,9 @@ export function avisosDaFoto(uso: "galeria" | "caso", largura: number, altura: n
 }
 
 /** O que dizer do vídeo, antes de ele entrar: o peso, a duração e o formato pro lugar dele. */
+/** `historia`: o vídeo da história da marca, na home — em pé ou deitado, tanto faz. */
 export function avisosDoVideo(
-  onde: "galeria" | "uso",
+  onde: "galeria" | "uso" | "historia",
   v: { largura: number; altura: number; duracao: number; bytes?: number }
 ): string[] {
   const avisos: string[] = []

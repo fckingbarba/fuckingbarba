@@ -31,11 +31,12 @@ import { useEffect, useState } from "react"
  * mostra uma tarja vermelha de "pendente" no lugar. É de propósito — CNPJ de
  * exemplo em página legal é pior que CNPJ ausente, porque parece verdadeiro.
  *
- * O VÍDEO DA HOME sobe pelo módulo de arquivos do Medusa (o mesmo das fotos
- * dos produtos) e é MEDIDO aqui, no navegador, antes de subir: a loja
- * precisa da largura e da altura pra reservar o espaço — e, se o navegador
- * não consegue nem abrir o arquivo pra medir, o do cliente também não vai
- * conseguir tocar.
+ * O VÍDEO DA HISTÓRIA DA MARCA SAIU DAQUI (entrega 0080): agora é do painel,
+ * no "Sobre a marca" do Layout da home — vai pro rascunho e entra no site no
+ * "Publicar", como o resto da home. A migração
+ * (`migration-scripts/video-da-historia-no-painel.ts`) levou o que estava
+ * aqui pro painel. O `home` que a leitura trouxe volta igual no "Salvar":
+ * esta tela não mexe mais nele.
  */
 
 export const config = defineRouteConfig({
@@ -44,15 +45,6 @@ export const config = defineRouteConfig({
 })
 
 type Modo = "nenhuma" | "gratis" | "fixo"
-
-type Video = { url: string; largura: number; altura: number }
-
-/** MP4 toca em todo navegador; WebM, em quase todos. .MOV do iPhone, não. */
-const TIPOS_DE_VIDEO = ["video/mp4", "video/webm"]
-/** Acima disso o upload nem começa. */
-const MAXIMO_MB = 50
-/** Acima disso sobe, mas com o aviso de que pesa pra quem abre no 4G. */
-const PESADO_MB = 20
 
 type Forma = {
   modo: Modo
@@ -96,8 +88,8 @@ const numero = (v: unknown) => (typeof v === "number" ? String(v) : "")
    referência, e declaração içada quebra o hot reload dele. */
 const Configuracoes = () => {
   const [forma, setForma] = useState<Forma>(VAZIA)
-  const [video, setVideo] = useState<Video | null>(null)
-  const [subindo, setSubindo] = useState(false)
+  // O `home` (o vídeo de antes do painel) volta igual no "Salvar": ver o comentário lá em cima.
+  const [home, setHome] = useState<unknown>(null)
   const [carregando, setCarregando] = useState(true)
   const [salvando, setSalvando] = useState(false)
 
@@ -123,7 +115,7 @@ const Configuracoes = () => {
           horario: (c?.atendimento?.horario ?? []).join("\n"),
           prazoDePostagem: texto(c?.atendimento?.prazoDePostagem),
         })
-        setVideo(c?.home?.video ?? null)
+        setHome(c?.home ?? null)
       })
       .catch(() => toast.error("Não consegui ler as configurações"))
       .finally(() => setCarregando(false))
@@ -131,42 +123,6 @@ const Configuracoes = () => {
 
   function mudar<K extends keyof Forma>(campo: K, valor: Forma[K]) {
     setForma((f) => ({ ...f, [campo]: valor }))
-  }
-
-  /**
-   * Escolheu o arquivo: confere o tipo e o tamanho, mede, e sobe. O vídeo só
-   * vai pra loja no "Salvar", como todo o resto da tela.
-   */
-  async function escolherVideo(arquivo: File) {
-    const mb = Math.round((arquivo.size / 1024 / 1024) * 10) / 10
-    if (!TIPOS_DE_VIDEO.includes(arquivo.type)) {
-      toast.error("Use um vídeo MP4. Se for .MOV do iPhone, exporte como MP4 antes.")
-      return
-    }
-    if (mb > MAXIMO_MB) {
-      toast.error(`O vídeo tem ${mb} MB, e o limite é ${MAXIMO_MB} MB. Encurte ou comprima antes.`)
-      return
-    }
-    setSubindo(true)
-    try {
-      const medidas = await medir(arquivo)
-      if (!medidas) {
-        toast.error(
-          "Esse vídeo não abre neste navegador — exporte como MP4 (H.264) e tente de novo."
-        )
-        return
-      }
-      const url = await subir(arquivo)
-      if (!url) return
-      setVideo({ url, ...medidas })
-      toast.success(
-        mb > PESADO_MB
-          ? `Vídeo carregado, mas com ${mb} MB ele pesa pra quem abre no celular — se der, comprima. Clique em Salvar pra ele ir pra loja.`
-          : "Vídeo carregado. Clique em Salvar pra ele ir pra loja."
-      )
-    } finally {
-      setSubindo(false)
-    }
   }
 
   async function salvar() {
@@ -202,7 +158,7 @@ const Configuracoes = () => {
             horario: forma.horario.split("\n").filter((l) => l.trim()),
             prazoDePostagem: forma.prazoDePostagem,
           },
-          home: { video },
+          home,
         }),
       })
       if (!resposta.ok) throw new Error(String(resposta.status))
@@ -437,39 +393,9 @@ const Configuracoes = () => {
       <div className="flex flex-col gap-4 px-6 py-5">
         <Heading level="h2">Home</Heading>
 
-        <Campo
-          rotulo="Vídeo da história da marca"
-          dica="Aparece no lugar da foto, na seção “O cuidado que impõe presença”. Toca sozinho e sem som quando a pessoa chega nele; se o vídeo tiver som, aparece um botão pra ligar."
-        >
-          {video ? (
-            <div className="flex flex-col gap-2">
-              <video
-                src={video.url}
-                controls
-                muted
-                playsInline
-                className="max-h-72 w-auto self-start rounded"
-              />
-              <Text size="xsmall" className="text-ui-fg-subtle">
-                {video.largura}×{video.altura}
-                {video.altura > video.largura ? " · em pé" : " · deitado"}
-              </Text>
-              <div className="flex gap-2">
-                <EscolherVideo rotulo="Trocar vídeo" subindo={subindo} aoEscolher={escolherVideo} />
-                <Button variant="transparent" size="small" onClick={() => setVideo(null)}>
-                  Tirar o vídeo
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <EscolherVideo rotulo="Escolher vídeo" subindo={subindo} aoEscolher={escolherVideo} />
-          )}
-        </Campo>
-
-        <Text size="xsmall" className="text-ui-fg-subtle">
-          MP4, de preferência em pé (do jeito que o celular grava) e curto — até uns 30 segundos e{" "}
-          {PESADO_MB} MB. Vídeo .MOV do iPhone não toca em todo navegador: exporte como MP4 antes.
-          Sem vídeo, a seção mostra a foto do óleo, como sempre.
+        <Text size="small" className="text-ui-fg-subtle">
+          O vídeo da história da marca agora é do painel: Layout da home → Sobre a marca → Editar.
+          Lá ele vai pro rascunho e entra no site no “Publicar”, como o resto da home.
         </Text>
       </div>
 
@@ -483,77 +409,6 @@ const Configuracoes = () => {
 }
 
 export default Configuracoes
-
-/**
- * Sobe pelo módulo de arquivos do Medusa — o mesmo das fotos dos produtos e
- * dos fundos da PDP. Devolve a URL pública, ou `null` (e o aviso na tela).
- */
-async function subir(arquivo: File): Promise<string | null> {
-  const corpo = new FormData()
-  corpo.append("files", arquivo)
-  try {
-    const r = await fetch("/admin/uploads", { method: "POST", credentials: "include", body: corpo })
-    if (!r.ok) throw new Error(String(r.status))
-    const { files } = await r.json()
-    return files?.[0]?.url ?? null
-  } catch {
-    toast.error("Não consegui subir o vídeo")
-    return null
-  }
-}
-
-/** A largura e a altura do vídeo — e a prova de que este navegador consegue abrir ele. */
-function medir(arquivo: File): Promise<{ largura: number; altura: number } | null> {
-  return new Promise((pronto) => {
-    const endereco = URL.createObjectURL(arquivo)
-    const video = document.createElement("video")
-    const fim = (medidas: { largura: number; altura: number } | null) => {
-      URL.revokeObjectURL(endereco)
-      pronto(medidas)
-    }
-    video.preload = "metadata"
-    video.muted = true
-    video.onloadedmetadata = () =>
-      fim(
-        video.videoWidth && video.videoHeight
-          ? { largura: video.videoWidth, altura: video.videoHeight }
-          : null
-      )
-    video.onerror = () => fim(null)
-    video.src = endereco
-  })
-}
-
-const EscolherVideo = ({
-  rotulo,
-  subindo,
-  aoEscolher,
-}: {
-  rotulo: string
-  subindo: boolean
-  aoEscolher: (arquivo: File) => void
-}) => {
-  return (
-    <label className="self-start">
-      <input
-        type="file"
-        accept="video/mp4,video/webm"
-        className="hidden"
-        disabled={subindo}
-        onChange={(e) => {
-          const arquivo = e.target.files?.[0]
-          // Zera o campo: escolher o MESMO arquivo de novo (depois de um erro)
-          // não dispararia o `onChange`.
-          e.target.value = ""
-          if (arquivo) aoEscolher(arquivo)
-        }}
-      />
-      <Button variant="secondary" size="small" asChild isLoading={subindo}>
-        <span>{subindo ? "Subindo…" : rotulo}</span>
-      </Button>
-    </label>
-  )
-}
 
 const Campo = ({
   rotulo,
