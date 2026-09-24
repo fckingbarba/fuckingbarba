@@ -433,7 +433,7 @@ function lerVideos(v: unknown): VideoDaGaleria[] {
     .slice(0, LIMITE_DE_VIDEOS)
 }
 
-function lerLayout(v: unknown): AjusteDeLayout {
+export function lerLayout(v: unknown): AjusteDeLayout {
   const o = obj(v)
   if (!o) return {}
 

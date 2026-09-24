@@ -1,12 +1,12 @@
 import type { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
-import { updateStoresWorkflow } from "@medusajs/medusa/core-flows"
 import {
   CHAVE_NO_METADATA,
   lerConfiguracoes,
   PADRAO,
   type Configuracoes,
 } from "../../../lib/configuracoes"
+import { mudarMetadataDaLoja } from "../../../lib/metadata-da-loja"
 import { avisarALoja } from "../../../lib/revalidar"
 
 /**
@@ -37,13 +37,6 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
 
 export async function POST(req: MedusaRequest, res: MedusaResponse) {
   const logger = req.scope.resolve(ContainerRegistrationKeys.LOGGER)
-  const service = req.scope.resolve(Modules.STORE)
-
-  const [loja] = await service.listStores({}, { select: ["id", "metadata"], take: 1 })
-  if (!loja) {
-    res.status(404).json({ erro: "nenhuma loja configurada no Medusa" })
-    return
-  }
 
   /*
     A peneira roda sobre o corpo embrulhado na mesma forma que o metadata
@@ -53,21 +46,19 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
   const limpas: Configuracoes = lerConfiguracoes({ [CHAVE_NO_METADATA]: req.body })
 
   /*
-    Pelo WORKFLOW, e não chamando o serviço direto: workflow do Medusa tem
-    passo compensável, então uma falha no meio desfaz o que já foi feito em
-    vez de deixar a loja com metade da configuração nova. É também o que a
-    regra de lint do próprio Medusa cobra — e ela cobra por esse motivo.
+    Dentro da trava do metadata da loja (`lib/metadata-da-loja.ts`): o
+    Medusa grava o metadata da loja inteiro, e a home do painel mora nele
+    também. Sem a trava, salvar aqui no mesmo segundo em que alguém publica
+    a home apagaria a home publicada.
   */
-  await updateStoresWorkflow(req.scope).run({
-    input: {
-      selector: { id: loja.id },
-      update: {
-        // Espalha o metadata existente: gravar só a nossa chave APAGARIA o
-        // que qualquer outra parte do Medusa tenha guardado aí.
-        metadata: { ...(loja.metadata ?? {}), [CHAVE_NO_METADATA]: limpas },
-      },
-    },
-  })
+  const gravou = await mudarMetadataDaLoja(req.scope, () => ({
+    gravar: { [CHAVE_NO_METADATA]: limpas },
+    resultado: true,
+  }))
+  if (!gravou) {
+    res.status(404).json({ erro: "nenhuma loja configurada no Medusa" })
+    return
+  }
 
   const aviso = await avisarALoja([TAG], logger, "seconds")
   logger.info(`[configuracoes] salvas (frete: ${limpas.frete.modo})`)
