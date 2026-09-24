@@ -8,11 +8,10 @@
  *   DASHBOARD_DONO_EMAIL=dono@painel.teste REVALIDAR_SEGREDO=… \
  *     node apps/dashboard/ferramentas/conferir-entrar.mjs
  *
- * Variáveis: PAINEL (padrão http://localhost:3100), MEDUSA_BACKEND_URL
- * (padrão http://127.0.0.1:9000), REVALIDAR_SEGREDO (o mesmo do backend e
- * do painel), DASHBOARD_DONO_EMAIL (o mesmo do backend), PORTA_RESEND (4330),
+ * Variáveis: as de `pecas.mjs` (PAINEL, MEDUSA_BACKEND_URL, REVALIDAR_SEGREDO,
+ * DASHBOARD_DONO_EMAIL, PORTA_RESEND, CHROMIUM) e
  * NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY (opcional: sem ela, pula a prova de que
- * o código da loja não abre o painel) e CHROMIUM.
+ * o código da loja não abre o painel).
  *
  * Cria membros de teste com e-mails que nunca se repetem
  * (`op.<hora>@painel.teste`…) e tira todos da equipe no fim. O dono do
@@ -36,152 +35,49 @@
  * └────────────────────────────────────────────────────────────────────────┘
  */
 
-import { chromium } from "playwright"
-import { subirResendFalso } from "../../loja/ferramentas/resend-falso.mjs"
+import {
+  abrirNavegador,
+  caixaDoResend,
+  caminho,
+  codigoDe,
+  digitarCodigo,
+  DONO,
+  doConvite,
+  doPainel,
+  entrar as entrarPelaTela,
+  esperar,
+  exigirAmbiente,
+  falhou,
+  hidratado,
+  medusa,
+  MEDUSA,
+  menu,
+  ok,
+  PAINEL,
+  pedirCodigo,
+  resumo,
+  RODADA,
+  semRolagemDeLado,
+  subirResend,
+  textoDe,
+  titulo,
+} from "./pecas.mjs"
 
-const PAINEL = process.env.PAINEL ?? "http://localhost:3100"
-const MEDUSA = process.env.MEDUSA_BACKEND_URL ?? "http://127.0.0.1:9000"
-const SEGREDO = process.env.REVALIDAR_SEGREDO ?? ""
-const DONO = (process.env.DASHBOARD_DONO_EMAIL ?? "").trim().toLowerCase()
 const CHAVE_DA_LOJA = process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY ?? ""
+exigirAmbiente()
 
-if (!SEGREDO || !DONO) {
-  console.log("  ⚠  faltam REVALIDAR_SEGREDO e DASHBOARD_DONO_EMAIL (os mesmos do backend)")
-  process.exit(1)
-}
-
-let falhas = 0
-let testes = 0
-const ok = (cond, texto, det = "") => {
-  testes++
-  if (cond) console.log(`  ✓ ${texto}`)
-  else {
-    falhas++
-    console.log(`  ✗ ${texto}${det ? ` — ${det}` : ""}`)
-  }
-}
-const titulo = (t) => console.log(`\n${t}`)
-const esperar = (ms) => new Promise((r) => setTimeout(r, ms))
-
-const RODADA = Date.now().toString(36)
-/** Um IP inventado por rodada: o limite por IP de uma rodada não pesa na seguinte. */
-const IP = `10.${(Date.now() >> 16) % 250}.${(Date.now() >> 8) % 250}.${Date.now() % 250}`
 const OPERACAO = `op.${RODADA}@painel.teste`
 const MARKETING = `mkt.${RODADA}@painel.teste`
 const DE_FORA = `fora.${RODADA}@painel.teste`
 
-/* ── o Resend falso e a API ──────────────────────────────────────────────── */
-
-const resend = await subirResendFalso().catch((e) => {
-  console.log(`  ⚠  não consegui subir o Resend falso (${e.message}) — porta ocupada?`)
-  process.exit(1)
-})
+const resend = await subirResend()
 console.log(`  ⚙  Resend falso :${resend.porta} · painel ${PAINEL} · Medusa ${MEDUSA}`)
+const { quantos, esperarEmail } = caixaDoResend(resend)
+const { navegador, novaAba, errosDeConsole } = await abrirNavegador()
 
-async function medusa(
-  caminho,
-  { metodo = "POST", corpo, token, assinado = true, extras = {} } = {}
-) {
-  const r = await fetch(`${MEDUSA}${caminho}`, {
-    method: metodo,
-    headers: {
-      "content-type": "application/json",
-      ...(assinado ? { "x-loja-segredo": SEGREDO, "x-cliente-ip": IP } : {}),
-      ...(token ? { authorization: `Bearer ${token}` } : {}),
-      ...extras,
-    },
-    body: corpo === undefined ? undefined : JSON.stringify(corpo),
-  })
-  return { status: r.status, corpo: await r.json().catch(() => ({})) }
-}
-
-const doPainel = (e) => /^\d{6} é o seu código do painel/.test(e.subject ?? "")
-const doConvite = (e) => e.subject === "Seu convite pro painel da FuckingBarba"
-const quantos = (email, filtro) =>
-  resend.emails.filter((e) => e.to?.includes(email) && filtro(e)).length
-
-async function esperarEmail(email, filtro, antes, ms = 8000) {
-  const fim = Date.now() + ms
-  while (Date.now() < fim) {
-    const deste = resend.emails.filter((e) => e.to?.includes(email) && filtro(e))
-    if (deste.length > antes) return deste.at(-1)
-    await esperar(150)
-  }
-  return undefined
-}
-const codigoDe = (email) => email?.subject?.match(/^(\d{6})/)?.[1]
-
-/* ── o navegador ──────────────────────────────────────────────────────────── */
-
-const navegador = await chromium.launch(
-  process.env.CHROMIUM ? { executablePath: process.env.CHROMIUM } : {}
-)
-const errosDeConsole = []
-async function novaAba(viewport = { width: 1280, height: 900 }) {
-  const contexto = await navegador.newContext({ viewport, extraHTTPHeaders: { "x-real-ip": IP } })
-  const pagina = await contexto.newPage()
-  pagina.on("pageerror", (e) => errosDeConsole.push(`${pagina.url()}: ${e.message}`))
-  pagina.on("console", (m) => {
-    if (m.type() === "error") errosDeConsole.push(`${pagina.url()}: ${m.text()}`)
-  })
-  return { contexto, pagina }
-}
-
-/** Espera o React assumir o elemento — digitado antes, o valor some na hidratação. */
-async function hidratado(pagina, seletor) {
-  await pagina.waitForFunction(
-    (s) => {
-      const el = document.querySelector(s)
-      return Boolean(el && Object.keys(el).some((k) => k.startsWith("__reactProps$")))
-    },
-    seletor,
-    { timeout: 15000 }
-  )
-}
-
-const caminho = (pagina) => new URL(pagina.url()).pathname
-const textoDe = async (pagina, seletor) =>
-  (
-    (await pagina
-      .locator(seletor)
-      .first()
-      .textContent()
-      .catch(() => "")) ?? ""
-  ).trim()
-
-/** Pede o código pela tela e espera chegar na tela do código. */
-async function pedirCodigo(pagina, email) {
-  await pagina.goto(`${PAINEL}/entrar`)
-  await hidratado(pagina, "input[name=email]")
-  await pagina.fill("input[name=email]", email)
-  await pagina.click("button[type=submit]")
-  await pagina.waitForURL(/\/entrar\/codigo$/, { timeout: 15000 })
-  await hidratado(pagina, "input[name=codigo]")
-}
-
-async function digitarCodigo(pagina, codigo) {
-  await pagina.fill("input[name=codigo]", "")
-  await pagina.locator("input[name=codigo]").pressSequentially(codigo, { delay: 20 })
-}
-
-/** Entra pela tela, do e-mail ao Início. Devolve o token do cookie (pra testar a API com ele). */
-async function entrar(pagina, contexto, email) {
-  const antes = quantos(email, doPainel)
-  await pedirCodigo(pagina, email)
-  const codigo = codigoDe(await esperarEmail(email, doPainel, antes))
-  if (!codigo) return null
-  await digitarCodigo(pagina, codigo)
-  await pagina.waitForURL((u) => u.pathname === "/", { timeout: 15000 }).catch(() => {})
-  const cookie = (await contexto.cookies()).find((c) => c.name === "painel_sessao")
-  return cookie ?? null
-}
-
-const menu = async (pagina) =>
-  (await pagina.locator(".lateral .nav a").allTextContents()).map((t) => t.trim())
-
-async function semRolagemDeLado(pagina) {
-  return pagina.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)
-}
+/** Entra pela tela, do e-mail ao Início. Devolve o cookie (pra testar a API com o token). */
+const entrar = (pagina, contexto, email) =>
+  entrarPelaTela({ pagina, contexto }, email, { quantos, esperarEmail })
 
 /* ════════════════════════════════════════════════════════════════════════ */
 
@@ -263,7 +159,7 @@ try {
     await digitarCodigo(pagina, codigoDe(email))
     await pagina.waitForURL((u) => u.pathname === "/", { timeout: 15000 }).catch(() => {})
     ok(caminho(pagina) === "/", "o código certo entra", pagina.url())
-    ok((await textoDe(pagina, "h1")).startsWith("Oi, "), "o Início cumprimenta")
+    ok(/^(Bom dia|Boa tarde|Boa noite), /.test(await textoDe(pagina, "h1")), "o Início cumprimenta")
 
     const cookie = (await contexto.cookies()).find((c) => c.name === "painel_sessao")
     ok(Boolean(cookie?.httpOnly), "o token mora num cookie httpOnly")
@@ -577,8 +473,7 @@ try {
   titulo("Console")
   ok(errosDeConsole.length === 0, "nenhum erro no console", errosDeConsole.slice(0, 5).join(" | "))
 } catch (e) {
-  falhas++
-  console.log(`\n  ✗ parou no meio: ${e instanceof Error ? e.message : String(e)}`)
+  falhou(e instanceof Error ? e.message : String(e))
 } finally {
   // Arruma a casa: quem esta rodada convidou sai da equipe. O token do dono
   // ainda vale no Medusa depois do "Sair" — ele só existia no cookie.
@@ -595,5 +490,4 @@ try {
   await resend.fechar()
 }
 
-console.log(`\n${testes - falhas}/${testes} conferidos${falhas ? ` — ${falhas} falharam` : ""}`)
-process.exit(falhas ? 1 : 0)
+process.exit(resumo())
