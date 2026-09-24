@@ -758,6 +758,20 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
     e foi descontado. E uma prova à parte, com as mensagens de verdade do `next dev`: o aviso
     colado na mensagem é descontado; o segundo na mesma mensagem, o de uma aba sem mensagem, o de
     3 s depois e outro aviso qualquer continuam contando.
+- [x] **O "a pessoa sai da lista" que falhava às vezes no `conferir-entrar`** (painel, investigado
+      em 24/09). Em umas 3 de cada 10 rodadas completas, só essa checagem caía (59/60), e as de
+      logo depois — a pessoa volta pro "entrar", o token de 30 dias não abre mais nada — passavam.
+      **Não era a lista do painel ficando velha:** o conferidor contava as linhas no instante em
+      que o aviso "saiu da equipe" aparecia, e esse aviso sempre chega ANTES da lista refeita. A
+      resposta da ação traz o resultado primeiro, e o aviso entra na hora; a página refeita pelo
+      `revalidatePath` entra numa segunda renderização, a da transição do roteador. Medido dentro
+      da página, em 25 remoções no `next dev`: o aviso veio antes em todas, e a linha saiu 10 a
+      27 ms depois (com o navegador 6× mais lento, 71 a 105 ms) — em todas, sem recarregar. O
+      conferidor agora espera a linha sair (até 10 s) antes de contar: se a lista ficasse velha
+      de verdade, ele continua reprovando.
+  - Conferido numa pilha local (Medusa 9074, painel 3174): com a CPU do navegador 6× mais lenta
+    só na remoção, o conferidor de antes falhou em 3 de 5 rodadas e o novo passou nas 5; sem a
+    lentidão, o novo deu 60/60 em 15 rodadas (as três últimas já com a #56).
 - [ ] **Aposentar os dois kits do Fator** (produtos "Kit 2/3 frascos"), que a página não usa mais:
       no admin, mudar os dois pra Rascunho — ou, no Shell do Railway, de `.medusa/server`,
       `npx medusa exec ./src/scripts/precos-por-quantidade.js` (faz as faixas e passa os kits pra
