@@ -57,9 +57,10 @@ export async function Duvidas({ handle }: { handle: string }) {
 
       <script
         type="application/ld+json"
-        // O conteúdo é nosso e é texto puro (o tipo não deixa entrar HTML),
-        // então não há entrada de terceiro pra escapar aqui.
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(faq) }}
+        // O texto vem do painel, escrito pela equipe: um "</script>" numa
+        // pergunta fecharia a tag e o resto viraria HTML da página. O "<"
+        // escapado vale o mesmo pro Google (é JSON) e não fecha nada.
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faq).replace(/</g, "\\u003c") }}
       />
     </section>
   )

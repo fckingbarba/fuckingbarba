@@ -98,9 +98,13 @@ export function resolver(escopo: Escopo, ajuste?: AjusteDeLayout | null): Secao[
  * quando uma seção é removida do código com ajuste salvo apontando pra ela,
  * o segundo quando uma seção nova entra depois de alguém já ter salvo uma
  * ordem. Nos dois, a página tem que continuar de pé.
+ *
+ * A seção `fixo` volta pro lugar dela no registro (o topo da página do
+ * produto), mesmo que a ordem salva a cite em outro — ou não a cite: uma
+ * ordem que esquecesse o topo o mandaria pro fim da página.
  */
 function aplicarOrdem(secoes: Secao[], ordem: readonly string[]): Secao[] {
-  const porId = new Map(secoes.map((s) => [s.id, s]))
+  const porId = new Map(secoes.filter((s) => !s.fixo).map((s) => [s.id, s]))
   const postas: Secao[] = []
 
   for (const id of ordem) {
@@ -110,5 +114,9 @@ function aplicarOrdem(secoes: Secao[], ordem: readonly string[]): Secao[] {
     postas.push(s)
   }
 
-  return [...postas, ...porId.values()]
+  const resultado = [...postas, ...porId.values()]
+  secoes.forEach((s, i) => {
+    if (s.fixo) resultado.splice(i, 0, s)
+  })
+  return resultado
 }

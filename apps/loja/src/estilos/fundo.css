@@ -34,19 +34,28 @@
   background: transparent;
 }
 
-.fundo--imagem::before,
+/*
+  A foto é um <picture> (o do computador e o do celular, trocados pelo
+  corte da seção — ver `components/secoes.tsx`), atrás de tudo. O véu vem
+  depois dela, no ::after: mesma camada, e o que vem depois pinta por cima.
+*/
+.fundo__imagem,
 .fundo--imagem::after {
-  content: "";
   position: absolute;
   inset: 0;
   z-index: -1;
 }
 
-.fundo--imagem::before {
-  background-image: var(--fundo-imagem);
-  background-size: cover;
+.fundo--imagem::after {
+  content: "";
+}
+
+.fundo__imagem img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
   /* 40% a partir do topo: em foto de gente, é onde o rosto costuma cair. */
-  background-position: center 40%;
+  object-position: center 40%;
 }
 
 /*
