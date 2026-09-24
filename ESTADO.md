@@ -463,6 +463,13 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
       mesmo molde (ver a fase 5).
 - [ ] **Documentação do deploy:** README e AGENTS ainda descrevem server + worker. Acertar quando
       decidir se produção fica em `shared`.
+- [ ] **Duas escritas no `metadata` do mesmo pedido, no mesmo instante, apagam uma à outra**
+      (achado em 23/09, rodando o `conferir-pagamento`). O Medusa lê o `metadata`, mistura na
+      memória e grava a coluna inteira, sem trava. A gravação da oferta do checkout (`fb_bump`,
+      logo depois da compra) apagou o registro do e-mail de confirmação gravado junto. Hoje isso
+      não chega ao cliente — a chave de idempotência do Resend segura o e-mail repetido —, mas o
+      mesmo pode acontecer com o `fb_parceiro` do registro na Frenet (o pedido em dobro no painel)
+      ou com o `estornos`. O conserto é uma trava por pedido pra toda escrita no `metadata`.
 
 ### 3. Pendências da loja
 
