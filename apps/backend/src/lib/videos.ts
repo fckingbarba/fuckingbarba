@@ -2,24 +2,26 @@ import { MedusaError } from "@medusajs/framework/utils"
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto"
 
 /**
- * O VÍDEO QUE SOBE PELO PAINEL — da galeria da dobra ou do modo de uso.
+ * O VÍDEO QUE SOBE PELO PAINEL — da galeria da dobra, do modo de uso ou da
+ * história da marca, na home.
  *
  * ┌─ POR QUE ELE NÃO PASSA PELO PAINEL ────────────────────────────────────┐
  * │ A foto vai do navegador pro painel (Vercel) e dele pro Medusa. Vídeo   │
  * │ não cabe nesse caminho: a Vercel não deixa passar pedido maior que     │
  * │ 4,5 MB, e um vídeo de 20 segundos tem 20. Então o painel pede ao       │
- * │ Medusa um BILHETE (`/dashboard/produtos/:id/videos/envio`, com o papel │
- * │ conferido) e o navegador manda o arquivo direto pro Medusa, com o      │
- * │ bilhete no endereço (`PUT /painel-envio/:bilhete`). O Medusa grava em  │
- * │ fluxo no armazenamento da loja — o arquivo não fica inteiro na memória │
- * │ — e devolve o endereço, que o painel grava na galeria ou na seção.     │
+ * │ Medusa um BILHETE (`/dashboard/produtos/:id/videos/envio`, ou          │
+ * │ `/dashboard/home/videos/envio`, com o papel conferido) e o navegador   │
+ * │ manda o arquivo direto pro Medusa, com o bilhete no endereço           │
+ * │ (`PUT /painel-envio/:bilhete`). O Medusa grava em fluxo no             │
+ * │ armazenamento da loja — o arquivo não fica inteiro na memória — e      │
+ * │ devolve o endereço, que o painel grava na galeria ou na seção.         │
  * └────────────────────────────────────────────────────────────────────────┘
  *
- * O BILHETE vale uma vez, por 15 minutos, pra um produto, um tipo e um
- * tamanho exatos, e é assinado com uma chave que só o Medusa tem (derivada
- * do `JWT_SECRET`). O tipo sai dos BYTES do arquivo, não do nome: MP4 ou
- * WebM. O .MOV do iPhone é recusado com frase própria — ele não toca em
- * todo navegador.
+ * O BILHETE vale uma vez, por 15 minutos, pra um destino (um produto, ou
+ * a home), um tipo e um tamanho exatos, e é assinado com uma chave que só
+ * o Medusa tem (derivada do `JWT_SECRET`). O tipo sai dos BYTES do
+ * arquivo, não do nome: MP4 ou WebM. O .MOV do iPhone é recusado com frase
+ * própria — ele não toca em todo navegador.
  */
 
 export const TIPOS_DE_VIDEO = { "video/mp4": "mp4", "video/webm": "webm" } as const
@@ -48,7 +50,8 @@ export function tipoDoVideo(bytes: Buffer): TipoDeVideo | "mov" | null {
 /* ── o bilhete ────────────────────────────────────────────────────────────── */
 
 export type Envio = {
-  produtoId: string
+  /** O id do produto (`prod_…`), ou `"home"`: o vídeo da história da marca. */
+  destino: string
   membroId: string
   tipo: TipoDeVideo
   tamanho: number
@@ -91,7 +94,7 @@ export function lerEnvio(bilhete: string, agora = Date.now()): (Envio & { n: str
     >
     if (typeof e.expira !== "number" || e.expira < agora) return null
     if (
-      typeof e.produtoId !== "string" ||
+      typeof e.destino !== "string" ||
       typeof e.membroId !== "string" ||
       !ehTipoDeVideo(e.tipo) ||
       typeof e.tamanho !== "number" ||
@@ -99,7 +102,7 @@ export function lerEnvio(bilhete: string, agora = Date.now()): (Envio & { n: str
     )
       return null
     return {
-      produtoId: e.produtoId,
+      destino: e.destino,
       membroId: e.membroId,
       tipo: e.tipo,
       tamanho: e.tamanho,

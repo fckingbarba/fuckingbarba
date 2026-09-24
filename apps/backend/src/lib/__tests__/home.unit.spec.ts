@@ -1,4 +1,5 @@
 import {
+  comVideoDoAdmin,
   faltandoNaSecaoDaHome,
   homeDoSite,
   lerHome,
@@ -18,7 +19,11 @@ const home = (fb_home: unknown) => lerHome({ fb_home })
 describe("a home guardada", () => {
   it("sem nada guardado, a loja recebe a home de fábrica, na ordem do registro", () => {
     const site = homeDoSite(lerHome({}))
-    expect(site.conteudo).toEqual(SEMENTE_DA_HOME)
+    // O vídeo da história vai sempre, nem que seja `null` (ver `homeDoSite`).
+    expect(site.conteudo).toEqual({
+      ...SEMENTE_DA_HOME,
+      sobre: { ...SEMENTE_DA_HOME.sobre, video: null },
+    })
     expect(site.layout).toEqual({})
   })
 
@@ -235,5 +240,55 @@ describe("a última chamada e os fundos", () => {
     })
     expect(h.publicado.fundos).toEqual({ "home.hero": { imagem: ARTE, veu: 70 } })
     expect(homeDoSite(h).fundos).toEqual({ "home.hero": { imagem: ARTE, veu: 70 } })
+  })
+})
+
+describe("o vídeo da história da marca", () => {
+  const VIDEO = { url: `${ARTE}.mp4`, poster: ARTE, largura: 1080, altura: 1920, duracao: 21.37 }
+  const sobre = (video: unknown) => ({ ...SEMENTE_DA_HOME.sobre, video })
+
+  it("o do painel vai inteiro; sem as medidas, ou com endereço que não é arquivo, cai", () => {
+    expect(lerSecaoDaHome("sobre", sobre(VIDEO)).secao?.video).toEqual({ ...VIDEO, duracao: 21.4 })
+    expect(lerSecaoDaHome("sobre", sobre({ url: VIDEO.url })).secao).toEqual(SEMENTE_DA_HOME.sobre)
+    expect(lerSecaoDaHome("sobre", sobre({ ...VIDEO, url: "javascript:alert(1)" })).secao).toEqual(
+      SEMENTE_DA_HOME.sobre
+    )
+    // O do admin, de antes do painel: só as medidas, sem capa nem duração.
+    const doAdmin = { url: VIDEO.url, largura: 720, altura: 1280 }
+    expect(lerSecaoDaHome("sobre", sobre(doAdmin)).secao?.video).toEqual(doAdmin)
+  })
+
+  it("a loja sempre recebe a chave: o vídeo publicado, ou `null`", () => {
+    const h = home({ publicado: { conteudo: { sobre: sobre(VIDEO) } } })
+    expect(homeDoSite(h).conteudo.sobre.video?.url).toBe(VIDEO.url)
+    expect(homeDoSite(home({})).conteudo.sobre.video).toBeNull()
+  })
+
+  it("a rota confere o vídeo e a capa", () => {
+    expect(urlsDaSecaoDaHome("sobre", sobre(VIDEO))).toEqual([VIDEO.url, ARTE])
+    expect(urlsDaSecaoDaHome("sobre", SEMENTE_DA_HOME.sobre)).toEqual([])
+  })
+
+  it("o vídeo do admin vem pro publicado e pro rascunho, cada um com o texto que tinha", () => {
+    const doAdmin = { url: VIDEO.url, largura: 720, altura: 1280 }
+    const h = home({
+      publicado: { conteudo: { vitrine: { titulo: "Vitrine" } } },
+      rascunho: { conteudo: { sobre: { ...SEMENTE_DA_HOME.sobre, titulo: "Nossa história" } } },
+    })
+    const novo = comVideoDoAdmin(h, doAdmin)!
+    expect(novo.publicado.conteudo.sobre).toEqual({ ...SEMENTE_DA_HOME.sobre, video: doAdmin })
+    expect(novo.publicado.conteudo.vitrine).toEqual({ titulo: "Vitrine" })
+    expect(novo.rascunho?.conteudo.sobre?.titulo).toBe("Nossa história")
+    expect(novo.rascunho?.conteudo.sobre?.video).toEqual(doAdmin)
+    // Gravado e lido de volta, é o mesmo: a peneira não derruba o vídeo.
+    expect(lerHome({ fb_home: novo })).toEqual(novo)
+  })
+
+  it("sem vídeo no admin, ou com vídeo já na home, não há o que trazer", () => {
+    expect(comVideoDoAdmin(home({}), null)).toBeNull()
+    const comVideo = home({ publicado: { conteudo: { sobre: sobre(VIDEO) } } })
+    expect(comVideoDoAdmin(comVideo, { url: `${ARTE}-2.mp4`, largura: 1, altura: 1 })).toBeNull()
+    const semRascunho = comVideoDoAdmin(home({}), { url: VIDEO.url, largura: 720, altura: 1280 })
+    expect(semRascunho?.rascunho).toBeNull()
   })
 })
