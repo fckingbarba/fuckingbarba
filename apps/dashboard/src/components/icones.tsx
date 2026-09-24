@@ -50,6 +50,7 @@ const CAMINHOS = {
   celular: "M6.5 1.6h11v20.8h-11zM8.9 4v13.8h6.2V4zM11 19h2v1.6h-2z",
   cima: "M12 1.8 21.2 11v1.6l-1.6 1.6-5-5v12.2H9.4V9.2l-5 5-1.6-1.6V11z",
   baixo: "M12 22.2 2.8 13v-1.6l1.6-1.6 5 5V2.6h5.2v12.2l5-5 1.6 1.6V13z",
+  play: "M7 3.5v17L21 12z",
 } as const
 
 export type NomeDoIcone = keyof typeof CAMINHOS

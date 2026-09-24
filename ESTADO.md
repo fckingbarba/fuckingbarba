@@ -1088,9 +1088,39 @@ pelo `conferir-pdp.mjs` da loja (54).
 Depois do deploy — **nada a fazer**: não tem variável nova (o backend ganhou o `sharp`, que o
 Railway instala sozinho).
 
-- [ ] **Parte 2:** as fotos e os vídeos da galeria (subir, pôr em ordem, tirar; vídeo em MP4 ou
-      WebM), o vídeo do "modo de uso" e os casos de antes e depois (com a autorização da pessoa, por
-      escrito).
+- [x] **Parte 2:** as fotos e os vídeos da galeria, o vídeo do "modo de uso" e os casos de antes e
+      depois — logo abaixo.
+
+**Fase 3, parte 2: a galeria com vídeo, o vídeo do modo de uso e o antes e depois — pronta em 24/09
+(entrega 0064).** Na página do produto, no painel (marketing e dono; a operação vê):
+
+- **Fotos e vídeos** (a galeria do topo da página): subir foto e vídeo, pôr em ordem e tirar —
+  cada clique vale na hora. A capa é sempre foto: é ela que vai pra vitrine, pro Google e pro link
+  no WhatsApp. O vídeo sobe direto pro servidor da loja, com a barra de progresso; na página ele
+  toca sem som, em loop, e só baixa quando alguém escolhe a miniatura dele. Mexeu nas fotos aqui,
+  trazer o catálogo do Bling (ou da Nuvemshop) de novo não troca mais as fotos daquele produto.
+- **Vídeo do modo de uso**: na seção "Como funciona e modo de uso", ele entra no lugar da foto do
+  modo de uso.
+- **Antes e depois**: até 3 casos por produto — nome, tempo de uso, a foto de antes, a de depois e
+  o que a pessoa disse. **Só grava com a caixinha da autorização por escrito marcada** (LGPD:
+  "mandou no WhatsApp" não é autorização). A ressalva "o resultado varia" vai sempre junto na
+  página. No site pode; em anúncio (Meta, Google), antes e depois não pode.
+
+**O tamanho certo de cada um** (o painel mostra junto de cada quadro):
+
+| O quê | Tamanho ideal |
+| --- | --- |
+| Foto da galeria | 1200 × 1200 px, quadrada |
+| Vídeo da galeria | 1080 × 1080 px, quadrado — em pé também serve, com faixa escura dos lados |
+| Vídeo do modo de uso | 1920 × 1080 px, deitado (16:9) |
+| Foto de antes e de depois | 900 × 1050 px, em pé (6 × 7) |
+
+Foto: JPG, PNG ou WebP. Vídeo: MP4 ou WebM, até 50 MB e, de preferência, até 30 segundos (acima
+de 20 MB ele pesa pra quem abre no celular). O .MOV do iPhone não toca em todo navegador: exporte
+como MP4 antes. Conferido pelo `conferir-produtos.mjs` (agora 82 checagens, com a galeria, os
+vídeos e os casos).
+
+Depois do deploy — **nada a fazer**: não tem variável nova.
 
 ## Como seguir no Claude Code
 

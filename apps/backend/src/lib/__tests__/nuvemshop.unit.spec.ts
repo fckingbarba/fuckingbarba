@@ -196,6 +196,31 @@ describe("o plano: o que muda em cada produto daqui", () => {
     expect(i).toMatchObject({ endereco: null, trocaFotos: false, categoria: null, pronto: true })
   })
 
+  it("galeria mexida no painel: as fotos de lá não entram mais", () => {
+    const [i] = planejarNuvemshop(
+      [daNuvemshop({ slug: "oleo-para-barba", skus: ["FBOL01"] })],
+      [
+        produtoDoSite({
+          id: "p2",
+          handle: "oleo-para-barba",
+          skus: ["FBOL01"],
+          categorias: [{ id: "cat_barba", nome: "Barba" }],
+          fotos: ["https://loja/escolhida.webp"],
+          metadata: {
+            fb_fotos: {
+              origem: "painel",
+              fotos: [
+                { chave: "painel:https://loja/escolhida.webp", url: "https://loja/escolhida.webp" },
+              ],
+            },
+          },
+        }),
+      ],
+      CATEGORIAS
+    )
+    expect(i).toMatchObject({ trocaFotos: false, pronto: true })
+  })
+
   it("sem produto com o código: não dá; código em dois produtos daqui: não dá", () => {
     const [sem, dois] = planejarNuvemshop(
       [

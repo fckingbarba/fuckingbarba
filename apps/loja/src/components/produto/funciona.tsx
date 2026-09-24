@@ -1,5 +1,6 @@
 import Image from "next/image"
 import { Raio, Relogio } from "@/components/icones"
+import { VideoDoProduto } from "@/components/produto/video"
 import { Realce } from "@/components/realce"
 import { conteudoDaPdp } from "@/conteudo/produto"
 import { buscarProdutoPorHandle } from "@/lib/medusa"
@@ -19,6 +20,9 @@ import { buscarProdutoPorHandle } from "@/lib/medusa"
  * banho" são as duas instruções que mais mudam o resultado — e a dica do
  * banho existe pra criar hábito, que é o que impede de esquecer no dia 20.
  * Quem não esquece, vê resultado; quem vê resultado, recompra.
+ *
+ * COM VÍDEO (o painel, "Vídeo do modo de uso"), ele entra no lugar da foto
+ * do modo de uso: mudo, em loop, e só quando a caixa aparece na tela.
  */
 export async function Funciona({ handle }: { handle: string }) {
   const c = (await conteudoDaPdp(handle)).funciona
@@ -66,7 +70,15 @@ export async function Funciona({ handle }: { handle: string }) {
             {c.usoTitulo}
           </h2>
 
-          {fotoUso ? (
+          {c.usoVideo ? (
+            <div className="funciona__foto funciona__foto--video">
+              <VideoDoProduto
+                video={c.usoVideo}
+                rotulo={`Vídeo: ${c.usoTitulo}`}
+                enquadrar="cover"
+              />
+            </div>
+          ) : fotoUso ? (
             <div className="funciona__foto">
               <Image
                 src={fotoUso}

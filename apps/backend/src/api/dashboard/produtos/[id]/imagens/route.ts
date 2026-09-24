@@ -12,10 +12,11 @@ const MOTIVO = {
 
 /**
  * POST /dashboard/produtos/:id/imagens — `{ uso, arquivo }` (o arquivo em
- * base64): sobe uma imagem de fundo de seção, JÁ PRONTA pra loja — WebP, na
- * orientação certa, sem o EXIF e no máximo do tamanho que a loja mostra
- * (`lib/imagens.ts`). Devolve o endereço, que o "Salvar" da seção grava.
- * Dono e marketing.
+ * base64): sobe uma imagem JÁ PRONTA pra loja — WebP, na orientação certa,
+ * sem o EXIF e no máximo do tamanho que a loja mostra (`lib/imagens.ts`).
+ * `uso`: o fundo de uma seção (computador ou celular), uma foto da galeria,
+ * a capa de um vídeo ou uma foto de caso de antes e depois. Devolve o
+ * endereço, que o "Salvar" da seção (ou a galeria) grava. Dono e marketing.
  *
  * Sobe e não grava: quem desiste na gaveta deixa um arquivo solto no
  * armazenamento, e isso é barato; gravar na hora mudaria a página antes do

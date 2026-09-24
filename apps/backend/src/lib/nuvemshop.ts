@@ -32,7 +32,9 @@ import { avisarALoja } from "./revalidar"
  *     publicado não é mexido, e a prévia avisa;
  *   - as fotos passam a ser as da galeria de lá, copiadas pro armazenamento da
  *     loja (o CDN da Nuvemshop some com ela), com a marca `fb_fotos` — e a
- *     importação do ERP nunca mais troca essas fotos;
+ *     importação do ERP nunca mais troca essas fotos. Menos no produto cuja
+ *     galeria já foi mexida no painel (`fb_fotos` com origem "painel"): essa
+ *     fica como está;
  *   - a categoria, SÓ no produto que está sem nenhuma (o novo que veio do ERP).
  * Nome, preço, peso e o resto: nada — é do ERP.
  *
@@ -360,7 +362,11 @@ export function planejarNuvemshop(
       atuais.length === chaves.length &&
       atuais.every((c, k) => c === chaves[k]) &&
       s.fotos.length === chaves.length
-    const trocaFotos = n.fotos.length > 0 && !mesmasFotos
+    // Foto escolhida no painel (a galeria do produto) fica: a loja antiga não manda mais nela.
+    const doPainel =
+      ((s.metadata as Record<string, unknown> | null)?.[MARCA_DAS_FOTOS] as { origem?: unknown })
+        ?.origem === "painel"
+    const trocaFotos = n.fotos.length > 0 && !mesmasFotos && !doPainel
     const categoria = s.categorias.length ? null : categoriaCorrespondente(n.categoria, categorias)
     return {
       ...base,

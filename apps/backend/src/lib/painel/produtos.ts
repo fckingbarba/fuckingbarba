@@ -10,6 +10,7 @@ import {
   type VendaCombinada,
 } from "../pdp"
 import { FAIXAS, totalDaFaixa } from "../precos-por-quantidade"
+import { fotosDoProduto, montarGaleria, type ItemDaGaleria } from "./galeria"
 import { quando, type Data } from "./formato"
 import { nomeCurto } from "./pedido"
 
@@ -62,7 +63,7 @@ const FIXAS: readonly string[] = ["produto.dobra"]
 export const CHAVE_DA_SECAO: Record<IdDaSecao, ChaveDeConteudo | null> = {
   "produto.dobra": null,
   "produto.promessa": "promessa",
-  "produto.antes-depois": null,
+  "produto.antes-depois": "antesDepois",
   "produto.tempo": "tempo",
   "produto.faixa": "faixa",
   "produto.rotina": "rotina",
@@ -240,7 +241,7 @@ export type ProdutoCru = {
   status?: string | null
   thumbnail?: string | null
   weight?: number | string | null
-  images?: { url?: string | null }[] | null
+  images?: { url?: string | null; rank?: number | null }[] | null
   categories?: { id: string; name?: string | null; handle?: string | null }[] | null
   variants?:
     | {
@@ -325,6 +326,8 @@ export type DetalheDoProduto = LinhaDoProduto & {
   peso: number | null
   categoriaId: string | null
   fotos: string[]
+  /** As fotos e os vídeos da dobra, na ordem da página (a primeira foto é a capa). */
+  galeria: ItemDaGaleria[]
   /** "1 unidade", "2 unidades", "3 unidades" — os totais do desconto por quantidade. */
   degraus: { unidades: number; total: number }[]
   caixa: Caixa
@@ -354,6 +357,7 @@ export function detalheDoProduto(
     peso: Number.isFinite(peso) && peso > 0 ? peso : null,
     categoriaId: p.categories?.[0]?.id ?? null,
     fotos,
+    galeria: montarGaleria(fotosDoProduto(p), pdp.videos),
     degraus: preco
       ? [
           { unidades: 1, total: preco },
@@ -388,6 +392,7 @@ export const ACOES_NO_PRODUTO = [
   "mudou-caixa",
   "editou-textos",
   "publicou",
+  "mudou-galeria",
 ] as const
 
 /** Uma ação da equipe no produto, lida do registro. */
@@ -413,6 +418,9 @@ export type LinhaDoHistorico = {
   mudanca?: string
   fundo?: boolean
   modo?: string
+  /** Na galeria: "incluir", "mover" ou "tirar", e se foi foto ou vídeo. */
+  galeria?: string
+  tipo?: string
 }
 
 export function linhaDoHistorico(f: FeitoNoProduto, agora: Data): LinhaDoHistorico {
@@ -427,5 +435,7 @@ export function linhaDoHistorico(f: FeitoNoProduto, agora: Data): LinhaDoHistori
     ...(texto(d.mudanca) ? { mudanca: texto(d.mudanca) } : {}),
     ...(typeof d.fundo === "boolean" ? { fundo: d.fundo } : {}),
     ...(texto(d.modo) ? { modo: texto(d.modo) } : {}),
+    ...(texto(d.galeria) ? { galeria: texto(d.galeria) } : {}),
+    ...(texto(d.tipo) ? { tipo: texto(d.tipo) } : {}),
   }
 }

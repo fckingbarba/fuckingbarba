@@ -3,7 +3,7 @@ import { Compra } from "@/components/produto/compra"
 import { Galeria, type Foto } from "@/components/produto/galeria"
 import { Migalhas, type Migalha } from "@/components/produto/migalhas"
 import { buscarProdutoPorHandle, escadaDeQuantidade, precosDe } from "@/lib/medusa"
-import { modoDaCaixa, pdpDoProduto, produtosQueCombinam } from "@/lib/pdp"
+import { galeriaDaDobra, modoDaCaixa, pdpDoProduto, produtosQueCombinam } from "@/lib/pdp"
 import { site } from "@/lib/site"
 
 /**
@@ -29,7 +29,7 @@ export async function Dobra({ handle }: { handle: string }) {
   const produto = await buscarProdutoPorHandle(handle)
   if (!produto) notFound()
 
-  const { combinada } = await pdpDoProduto(handle)
+  const { combinada, videos } = await pdpDoProduto(handle)
   const escada = await escadaDeQuantidade(handle)
 
   /*
@@ -79,6 +79,8 @@ export async function Dobra({ handle }: { handle: string }) {
   if (!fotos.length && produto.thumbnail) {
     fotos.push({ url: produto.thumbnail, alt: legenda(produto.title, produto.subtitle) })
   }
+  // Os vídeos entre as fotos, na ordem do painel — a capa é sempre a primeira foto.
+  const itens = galeriaDaDobra(fotos, videos)
 
   const categoria = produto.categories?.[0]
   const trilha: Migalha<CaminhoDaTrilha>[] = [{ nome: "Início", href: "/" }]
@@ -129,7 +131,7 @@ export async function Dobra({ handle }: { handle: string }) {
           </div>
 
           <Galeria
-            fotos={fotos}
+            itens={itens}
             alvo={legenda(produto.title, produto.subtitle)}
             desconto={desconto}
           />

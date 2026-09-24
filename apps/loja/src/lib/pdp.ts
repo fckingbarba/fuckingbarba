@@ -1,5 +1,5 @@
 import "server-only"
-import type { ConteudoDaPdp } from "@/conteudo/produto"
+import type { CasoAntesDepois, ConteudoDaPdp, VideoDaPdp } from "@/conteudo/produto"
 import type { AjusteDeLayout } from "@/lib/secoes/layout"
 import { buscarProdutoPorHandle, precosDe, temEstoque } from "./medusa"
 
@@ -59,14 +59,19 @@ export function modoDaCaixa(c: VendaCombinada): "unidades" | "junto" {
   return c.modo ?? (c.kits === false && c.produtos?.length ? "junto" : "unidades")
 }
 
+/** Um vídeo na galeria da dobra, com a posição dele entre as fotos (a capa é sempre foto). */
+export type VideoDaGaleria = VideoDaPdp & { posicao: number }
+
 export type Pdp = {
   conteudo: ConteudoDaPdp
   layout: AjusteDeLayout
   fundos: Record<string, FundoDaSecao>
   combinada: VendaCombinada
+  /** Os vídeos da galeria da dobra; as fotos são as do produto. */
+  videos: VideoDaGaleria[]
 }
 
-export const PDP_VAZIA: Pdp = { conteudo: {}, layout: {}, fundos: {}, combinada: {} }
+export const PDP_VAZIA: Pdp = { conteudo: {}, layout: {}, fundos: {}, combinada: {}, videos: [] }
 
 /**
  * As listas que cada seção percorre com `.map`.
@@ -83,6 +88,7 @@ const LISTAS: Record<string, readonly string[]> = {
   versus: ["nosso", "deles"],
   quem: ["sim", "nao"],
   duvidas: ["perguntas"],
+  antesDepois: ["casos"],
 }
 
 /**
@@ -101,6 +107,45 @@ function ehDoArmazenamento(url: string): boolean {
 
 function ehObjeto(v: unknown): v is Record<string, unknown> {
   return Boolean(v) && typeof v === "object" && !Array.isArray(v)
+}
+
+const medida = (v: unknown, maximo: number) =>
+  typeof v === "number" && Number.isFinite(v) && v > 0 && v <= maximo
+
+/**
+ * Um vídeo que a página pode tocar: arquivo e capa no armazenamento da loja,
+ * e as medidas — são elas que reservam o espaço antes de ele carregar.
+ */
+function lerVideo(v: unknown): VideoDaPdp | null {
+  if (!ehObjeto(v)) return null
+  const { url, poster, largura, altura, duracao } = v
+  if (typeof url !== "string" || !ehDoArmazenamento(url)) return null
+  if (typeof poster !== "string" || !ehDoArmazenamento(poster)) return null
+  if (!medida(largura, 8000) || !medida(altura, 8000) || !medida(duracao, 600)) return null
+  return { url, poster, largura, altura, duracao } as VideoDaPdp
+}
+
+/** Os casos que a página mostra: com as duas fotos no armazenamento e a autorização marcada. */
+function lerCasos(v: unknown): CasoAntesDepois[] {
+  return (Array.isArray(v) ? v : [])
+    .flatMap((c): CasoAntesDepois[] => {
+      if (!ehObjeto(c) || c.autorizou !== true) return []
+      const { nome, tempo, antes, depois, texto } = c
+      if (typeof nome !== "string" || !nome.trim() || typeof tempo !== "string" || !tempo.trim())
+        return []
+      if (typeof antes !== "string" || !ehDoArmazenamento(antes)) return []
+      if (typeof depois !== "string" || !ehDoArmazenamento(depois)) return []
+      return [
+        {
+          nome,
+          tempo,
+          antes,
+          depois,
+          ...(typeof texto === "string" && texto.trim() ? { texto } : {}),
+        },
+      ]
+    })
+    .slice(0, 3)
 }
 
 export function lerPdp(metadata: unknown): Pdp {
@@ -124,6 +169,26 @@ export function lerPdp(metadata: unknown): Pdp {
     }
 
     conteudo[nome] = secao
+  }
+
+  // O vídeo do modo de uso que não abre sai sozinho: a seção fica com a foto.
+  const funciona = conteudo.funciona as Record<string, unknown> | undefined
+  if (funciona && "usoVideo" in funciona) {
+    const usoVideo = lerVideo(funciona.usoVideo)
+    conteudo.funciona = { ...funciona, usoVideo: usoVideo ?? undefined }
+    if (!usoVideo) delete (conteudo.funciona as Record<string, unknown>).usoVideo
+  }
+  if (conteudo.antesDepois) {
+    const bruto = conteudo.antesDepois as Record<string, unknown>
+    const casos = lerCasos(bruto.casos)
+    if (casos.length)
+      conteudo.antesDepois = {
+        ...(typeof bruto.titulo === "string" && bruto.titulo.trim()
+          ? { titulo: bruto.titulo }
+          : {}),
+        casos,
+      }
+    else delete conteudo.antesDepois
   }
 
   const l = ehObjeto(raiz.layout) ? raiz.layout : {}
@@ -166,7 +231,36 @@ export function lerPdp(metadata: unknown): Pdp {
       : {}),
   }
 
-  return { conteudo: conteudo as ConteudoDaPdp, layout, fundos, combinada }
+  const videos = (Array.isArray(raiz.videos) ? raiz.videos : []).flatMap((v): VideoDaGaleria[] => {
+    const video = lerVideo(v)
+    const posicao = ehObjeto(v) && typeof v.posicao === "number" ? v.posicao : 99
+    return video ? [{ ...video, posicao }] : []
+  })
+
+  return { conteudo: conteudo as ConteudoDaPdp, layout, fundos, combinada, videos }
+}
+
+/**
+ * As fotos e os vídeos da dobra numa lista só — a mesma conta do painel
+ * (`montarGaleria`, em `apps/backend/src/lib/painel/galeria.ts`): cada vídeo
+ * na posição dele, nunca na frente da primeira foto, e sem inverter a ordem
+ * entre dois vídeos seguidos.
+ */
+export function galeriaDaDobra<F extends object>(
+  fotos: readonly F[],
+  videos: readonly VideoDaGaleria[]
+): (({ tipo: "foto" } & F) | ({ tipo: "video" } & VideoDaPdp))[] {
+  const itens: (({ tipo: "foto" } & F) | ({ tipo: "video" } & VideoDaPdp))[] = fotos.map((f) => ({
+    tipo: "foto" as const,
+    ...f,
+  }))
+  let ultimo = -1
+  for (const { posicao, ...video } of [...videos].sort((a, b) => a.posicao - b.posicao)) {
+    const onde = Math.min(Math.max(fotos.length ? 1 : 0, posicao, ultimo + 1), itens.length)
+    itens.splice(onde, 0, { tipo: "video", ...video })
+    ultimo = onde
+  }
+  return itens
 }
 
 /** Só os fundos, pro montador de seções. */

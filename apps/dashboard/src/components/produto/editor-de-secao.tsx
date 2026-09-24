@@ -13,6 +13,7 @@ import {
 import { useAvisar } from "@/components/avisos"
 import { Gaveta } from "@/components/gaveta"
 import { Icone } from "@/components/icones"
+import { CampoDeFoto, CampoDeVideo } from "@/components/produto/campos-de-midia"
 import { FundoDaSecao, type EstadoDoFundo } from "@/components/produto/fundo-da-secao"
 import { salvarSecao } from "@/lib/acoes/produtos"
 import {
@@ -28,6 +29,7 @@ import {
   type NoCatalogo,
   type SecaoDaPagina,
   type Valores,
+  type VideoDaPdp,
 } from "@/lib/produtos"
 
 /**
@@ -73,6 +75,8 @@ type Contexto = {
   mudar: Dispatch<SetStateAction<Valores>>
   /** O que focar depois do próximo desenho (o item que subiu, o que entrou). */
   focar: (seletor: string) => void
+  /** Uma foto ou um vídeo começou (+1) ou acabou (-1) de subir: o "Salvar" espera. */
+  aoSubir: (delta: 1 | -1) => void
 }
 
 export function EditorDeSecao({
@@ -96,7 +100,9 @@ export function EditorDeSecao({
     celular: secao.fundo?.imagemCelular ? { url: secao.fundo.imagemCelular } : null,
     veu: secao.fundo?.veu ?? VEU.padrao,
   }))
-  const [subindo, setSubindo] = useState(false)
+  const [subindoFundo, setSubindoFundo] = useState(false)
+  const [subindoCampos, setSubindoCampos] = useState(0)
+  const subindo = subindoFundo || subindoCampos > 0
   const [faltando, setFaltando] = useState<string[]>([])
   const [erro, setErro] = useState<string | null>(null)
   const [salvando, comecar] = useTransition()
@@ -148,6 +154,7 @@ export function EditorDeSecao({
     catalogo,
     mudar: setValores,
     focar: setFoco,
+    aoSubir: (delta) => setSubindoCampos((n) => Math.max(0, n + delta)),
   }
 
   return (
@@ -173,7 +180,7 @@ export function EditorDeSecao({
             medida={def.fundo}
             valor={fundo}
             mudar={setFundo}
-            aoSubir={setSubindo}
+            aoSubir={setSubindoFundo}
           />
         ) : null}
         {erro ? (
@@ -192,7 +199,7 @@ export function EditorDeSecao({
             disabled={subindo || salvando}
             aria-busy={salvando || undefined}
           >
-            {subindo ? "Esperando a foto subir…" : salvando ? "Salvando…" : "Salvar"}
+            {subindo ? "Esperando subir…" : salvando ? "Salvando…" : "Salvar"}
           </button>
         </div>
       </form>
@@ -463,8 +470,36 @@ function UmCampo({
     )
   }
 
+  if (campo.tipo === "foto")
+    return (
+      <CampoDeFoto
+        produtoId={ctx.produto.id}
+        chave={chave}
+        rotulo={campo.rot}
+        meia={campo.meia}
+        url={typeof valor === "string" ? valor : ""}
+        falta={falta}
+        mudar={mudar}
+        aoSubir={ctx.aoSubir}
+      />
+    )
+
+  if (campo.tipo === "video")
+    return (
+      <CampoDeVideo
+        produtoId={ctx.produto.id}
+        chave={chave}
+        rotulo={campo.rot}
+        ajuda={campo.ajuda}
+        video={valor && typeof valor === "object" ? (valor as VideoDaPdp) : null}
+        mudar={mudar}
+        aoSubir={ctx.aoSubir}
+      />
+    )
+
   // grupo
   const itens = Array.isArray(valor) ? (valor as Valores[]) : []
+  const cheio = campo.max !== undefined && itens.length >= campo.max
   return (
     <fieldset className="campo grupo-form" data-falta={falta ? "" : undefined} tabIndex={-1}>
       <legend className="campo__rot">{campo.rot}</legend>
@@ -524,18 +559,24 @@ function UmCampo({
           </div>
         )
       })}
-      <button
-        type="button"
-        className="btn btn--menor btn--contorno"
-        data-mais={chave}
-        onClick={() => {
-          mudar([...itens, { ...itemVazio(campo.campos), __aberto: true }])
-          ctx.focar(`[data-item="${chave}.${itens.length}"] :is(input, select, textarea)`)
-        }}
-      >
-        <Icone nome="mais" />
-        Adicionar {campo.item.toLowerCase()}
-      </button>
+      {cheio ? (
+        <p className="campo__ajuda">
+          Até {campo.max} — {campo.item.toLowerCase()} a mais vira álbum, e ninguém olha.
+        </p>
+      ) : (
+        <button
+          type="button"
+          className="btn btn--menor btn--contorno"
+          data-mais={chave}
+          onClick={() => {
+            mudar([...itens, { ...itemVazio(campo.campos), __aberto: true }])
+            ctx.focar(`[data-item="${chave}.${itens.length}"] :is(input, select, textarea)`)
+          }}
+        >
+          <Icone nome="mais" />
+          Adicionar {campo.item.toLowerCase()}
+        </button>
+      )}
     </fieldset>
   )
 }

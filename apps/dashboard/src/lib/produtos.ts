@@ -77,12 +77,26 @@ export type SecaoDaPagina = {
 
 export type Caixa = { modo: "unidades" | "junto"; nota: string; junto: string[] }
 
+/** Um vídeo da página: o arquivo, a capa (o primeiro quadro), as medidas e a duração (s). */
+export type VideoDaPdp = {
+  url: string
+  poster: string
+  largura: number
+  altura: number
+  duracao: number
+}
+
+/** Um item da galeria da dobra: foto (do Medusa) ou vídeo (do `fb_pdp`), na ordem da página. */
+export type ItemDaGaleria = { tipo: "foto"; url: string } | ({ tipo: "video" } & VideoDaPdp)
+
 export type DetalheDoProduto = LinhaDoProduto & {
   subtitulo: string
   descricao: string
   peso: number | null
   categoriaId: string | null
   fotos: string[]
+  /** As fotos e os vídeos da dobra, na ordem da página (a primeira foto é a capa). */
+  galeria: ItemDaGaleria[]
   degraus: { unidades: number; total: number }[]
   caixa: Caixa
   secoes: SecaoDaPagina[]
@@ -118,6 +132,9 @@ export type LinhaDoHistorico = {
   mudanca?: string
   fundo?: boolean
   modo?: string
+  /** Na galeria: "incluir", "mover" ou "tirar", e se foi foto ou vídeo. */
+  galeria?: string
+  tipo?: string
 }
 
 const MUDOU: Record<string, string> = {
@@ -148,6 +165,14 @@ export function fraseDoHistorico(h: LinhaDoHistorico): { titulo: string; detalhe
       return { titulo: `${h.quem} mudou o subtítulo ou a categoria`, detalhe: "" }
     case "publicou":
       return { titulo: `${h.quem} publicou no site`, detalhe: "" }
+    case "mudou-galeria": {
+      const oQue = h.tipo === "video" ? "um vídeo" : "uma foto"
+      if (h.galeria === "incluir")
+        return { titulo: `${h.quem} pôs ${oQue} na galeria`, detalhe: "" }
+      if (h.galeria === "tirar")
+        return { titulo: `${h.quem} tirou ${oQue} da galeria`, detalhe: "" }
+      return { titulo: `${h.quem} mudou a ordem da galeria`, detalhe: "" }
+    }
     default:
       return { titulo: `${h.quem} mudou o produto`, detalhe: "" }
   }
@@ -180,8 +205,20 @@ export type Campo =
   | { tipo: "lista"; c: string; rot: string; item: string; ajuda?: string; grande?: boolean }
   /** A resposta das dúvidas: parágrafos (`string[]`) numa caixa só, separados por linha em branco. */
   | { tipo: "paragrafos"; c: string; rot: string; ajuda?: string }
-  /** Lista de itens com vários campos (as etapas, as perguntas…). */
-  | { tipo: "grupo"; c: string; rot: string; item: string; rotItem: string; campos: Campo[] }
+  /** Lista de itens com vários campos (as etapas, as perguntas…). `max`: quantos cabem. */
+  | {
+      tipo: "grupo"
+      c: string
+      rot: string
+      item: string
+      rotItem: string
+      campos: Campo[]
+      max?: number
+    }
+  /** Uma foto que sobe pelo painel (a de um caso de antes e depois): o endereço dela. */
+  | { tipo: "foto"; c: string; rot: string; meia?: boolean }
+  /** Um vídeo que sobe direto pro Medusa (o do modo de uso): `VideoDaPdp`, ou nada. */
+  | { tipo: "video"; c: string; rot: string; ajuda?: string }
   /** Um produto do catálogo, pelo endereço (handle). `comEste`: oferece o próprio produto. */
   | { tipo: "produto"; c: string; rot: string; ajuda?: string; comEste?: boolean; meia?: boolean }
   /** Caixinha; `unico`: num grupo, marcar uma desmarca as outras (o marco da linha do tempo). */
@@ -256,9 +293,42 @@ export const SECOES: Record<IdDaSecao, DefinicaoDaSecao> = {
   },
   "produto.antes-depois": {
     nome: "Antes e depois",
-    descricao: "Casos de clientes com as duas fotos.",
-    campos: [],
-    soCom: "Só aparece com caso cadastrado — os casos chegam numa próxima entrega.",
+    descricao: "Casos de clientes, com a foto de antes e a de depois. Até 3.",
+    campos: [
+      {
+        tipo: "texto",
+        c: "titulo",
+        rot: "Título (opcional)",
+        exemplo: "Antes e depois, sem truque",
+        ajuda: "Vazio, fica o de sempre: “Antes e depois, sem truque”.",
+      },
+      {
+        tipo: "nota",
+        atencao: true,
+        texto:
+          "Foto de rosto só com a autorização POR ESCRITO da pessoa (LGPD) — “mandou no WhatsApp” não é autorização pra publicar. A mesma pessoa nas duas fotos, mesmo ângulo, sem filtro. No site pode; em anúncio (Meta, Google), não.",
+      },
+      {
+        tipo: "grupo",
+        c: "casos",
+        rot: "Casos",
+        item: "Caso",
+        rotItem: "nome",
+        max: 3,
+        campos: [
+          { tipo: "texto", c: "nome", rot: "Nome", meia: true, exemplo: "André B." },
+          { tipo: "texto", c: "tempo", rot: "Tempo de uso", meia: true, exemplo: "90 dias" },
+          { tipo: "foto", c: "antes", rot: "Antes", meia: true },
+          { tipo: "foto", c: "depois", rot: "Depois", meia: true },
+          { tipo: "area", c: "texto", rot: "O que a pessoa disse (opcional)", linhas: 2 },
+          {
+            tipo: "marcar",
+            c: "autorizou",
+            rot: "Tenho a autorização por escrito dessa pessoa pra publicar as fotos",
+          },
+        ],
+      },
+    ],
   },
   "produto.tempo": {
     nome: "Linha do tempo",
@@ -330,6 +400,13 @@ export const SECOES: Record<IdDaSecao, DefinicaoDaSecao> = {
       { tipo: "texto", c: "usoTitulo", rot: "Título do modo de uso" },
       { tipo: "lista", c: "usoPassos", rot: "Passos", item: "Passo" },
       { tipo: "produto", c: "usoFotoDe", rot: "Foto do modo de uso: a do produto", comEste: true },
+      {
+        tipo: "video",
+        c: "usoVideo",
+        rot: "Vídeo do modo de uso (opcional)",
+        ajuda:
+          "Com vídeo, ele entra no lugar da foto do modo de uso: mudo, em loop, quando aparece na tela.",
+      },
       { tipo: "area", c: "dica", rot: "Dica (opcional)" },
     ],
     fundo: { cor: "menta", computador: [2880, 1542], celular: [1170, 3273] },
@@ -427,6 +504,7 @@ export function oQueFalta(def: DefinicaoDaSecao, chave: string): string {
   if (campo.tipo === "grupo") {
     if (indice === undefined) return `${campo.rot} (pelo menos 1)`
     const subcampo = campo.campos.find((x) => "c" in x && x.c === sub)
+    if (sub === "autorizou") return `${campo.item} ${Number(indice) + 1}: a autorização por escrito`
     const rotulo = subcampo && "rot" in subcampo ? subcampo.rot : sub
     return `${campo.item} ${Number(indice) + 1}: ${rotulo}`
   }
@@ -466,6 +544,8 @@ export function paraOFormulario(campos: Campo[], gravado: Valores | null): Valor
         __id: novoId(),
       }))
     else if (campo.tipo === "marcar") v[campo.c] = bruto === true
+    else if (campo.tipo === "video")
+      v[campo.c] = bruto && typeof bruto === "object" ? (bruto as VideoDaPdp) : null
     else v[campo.c] = typeof bruto === "string" ? bruto : ""
   }
   return v
@@ -484,6 +564,8 @@ export function paraGravar(campos: Campo[], formulario: Valores): Valores {
       )
     else if (campo.tipo === "marcar") {
       if (valor === true) v[campo.c] = true
+    } else if (campo.tipo === "video") {
+      if (valor) v[campo.c] = valor
     } else v[campo.c] = valor
   }
   return v
@@ -499,14 +581,20 @@ export const itemVazio = (campos: Campo[]): Valores => ({
 
 export type Lado = "computador" | "celular"
 
+/** Pra que serve a imagem que sobe: o fundo (um lado), a galeria, a capa de um vídeo, um caso. */
+export type UsoDaImagem = Lado | "galeria" | "poster" | "caso"
+
 /**
- * A medida máxima que sobe, por lado — a mesma do backend (`MEDIDA_MAXIMA`,
+ * A medida máxima que sobe, por uso — a mesma do backend (`MEDIDA_MAXIMA`,
  * em `apps/backend/src/lib/imagens.ts`): o navegador já encolhe até aqui
  * antes de mandar, e o servidor confere de novo.
  */
-export const MEDIDA_MAXIMA: Record<Lado, { largura: number; altura: number }> = {
+export const MEDIDA_MAXIMA: Record<UsoDaImagem, { largura: number; altura: number }> = {
   computador: { largura: 2880, altura: 2400 },
   celular: { largura: 1290, altura: 4000 },
+  galeria: { largura: 2000, altura: 2000 },
+  poster: { largura: 1920, altura: 1920 },
+  caso: { largura: 1200, altura: 1400 },
 }
 
 /** Abaixo disso, a foto estica na tela e fica borrada (1920: tela de 1280 a 1,5x; 828: celular de 414 a 2x). */
@@ -566,3 +654,75 @@ export const tamanhoDoArquivo = (bytes: number) =>
 
 /** O véu: de 40 a 100 (100 = a cor da seção inteira, sem foto à vista). O padrão da loja é 85. */
 export const VEU = { minimo: 40, maximo: 100, passo: 5, padrao: 85 } as const
+
+/* ── as fotos e os vídeos da galeria, e as fotos dos casos ─────────────── */
+
+/**
+ * A foto da galeria: o palco da dobra é QUADRADO (620 de largura no
+ * computador, a 2x) e mostra a foto inteira, com faixa branca se ela não
+ * for quadrada.
+ */
+export const MEDIDA_DA_GALERIA = [1200, 1200] as const
+/** A foto de um caso de antes e depois: o quadro é 6 × 7, em pé, e corta o que sobra. */
+export const MEDIDA_DO_CASO = [900, 1050] as const
+/** O vídeo da galeria: no palco quadrado, o quadrado ocupa tudo. */
+export const MEDIDA_DO_VIDEO_DA_GALERIA = [1080, 1080] as const
+/** O vídeo do modo de uso: a caixa é 16:9, deitada, e corta o que sobra. */
+export const MEDIDA_DO_VIDEO_DO_USO = [1920, 1080] as const
+
+/** Até 50 MB (o mesmo limite do vídeo da home, no admin); acima de 20, pesa no celular. */
+export const VIDEO = { maximoMB: 50, pesadoMB: 20, idealSegundos: 30 } as const
+
+/** Fotos e vídeos que cabem na galeria (os mesmos limites do backend). */
+export const LIMITES_DA_GALERIA = { fotos: 12, videos: 4 } as const
+
+/** O que dizer da foto da galeria ou do caso, antes de salvar. */
+export function avisosDaFoto(uso: "galeria" | "caso", largura: number, altura: number): string[] {
+  const avisos: string[] = []
+  const [l, a] = uso === "galeria" ? MEDIDA_DA_GALERIA : MEDIDA_DO_CASO
+  if (largura < l * 0.66)
+    avisos.push(`Pequena (${largura} × ${altura}): fica borrada na tela. O ideal é ${l} × ${a}.`)
+  const daFoto = largura / altura
+  const doQuadro = l / a
+  if (uso === "galeria" && Math.abs(daFoto - 1) > 0.05)
+    avisos.push("Não é quadrada: na página ela aparece inteira, com faixa branca dos lados.")
+  if (uso === "caso" && daFoto > doQuadro / 0.85)
+    avisos.push("Mais larga que o quadro (6 × 7, em pé): as laterais saem.")
+  if (uso === "caso" && daFoto < doQuadro * 0.85)
+    avisos.push("Mais alta que o quadro (6 × 7): aparece a faixa do meio.")
+  return avisos
+}
+
+/** O que dizer do vídeo, antes de ele entrar: o peso, a duração e o formato pro lugar dele. */
+export function avisosDoVideo(
+  onde: "galeria" | "uso",
+  v: { largura: number; altura: number; duracao: number; bytes?: number }
+): string[] {
+  const avisos: string[] = []
+  if (v.bytes && v.bytes > VIDEO.pesadoMB * 1024 * 1024)
+    avisos.push(
+      `Pesado (${tamanhoDoArquivo(v.bytes)}): quem abre no celular espera ele carregar. Se der, comprima.`
+    )
+  if (v.duracao > VIDEO.idealSegundos)
+    avisos.push(
+      `Tem ${Math.round(v.duracao)} segundos. Na página, até ${VIDEO.idealSegundos} funciona melhor.`
+    )
+  const proporcao = v.largura / v.altura
+  if (onde === "galeria" && proporcao < 0.9)
+    avisos.push(
+      "Em pé: no quadro da galeria (quadrado) ele aparece inteiro, com faixa escura dos lados."
+    )
+  if (onde === "galeria" && proporcao > 1.1)
+    avisos.push(
+      "Deitado: no quadro da galeria (quadrado) ele aparece inteiro, com faixa escura em cima e embaixo."
+    )
+  if (onde === "uso" && proporcao < 1.5)
+    avisos.push("Não é deitado (16:9): na caixa do modo de uso aparece só a faixa do meio.")
+  return avisos
+}
+
+/** "0:12" */
+export const duracaoCurta = (segundos: number) => {
+  const s = Math.max(1, Math.round(segundos))
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`
+}

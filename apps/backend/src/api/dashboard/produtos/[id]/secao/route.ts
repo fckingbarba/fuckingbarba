@@ -3,8 +3,13 @@ import { exigirArea, type PedidoDaEquipe } from "../../../../../lib/equipe/acess
 import { comFundosDoArmazenamento, ehDoArmazenamento } from "../../../../../lib/imagens"
 import { anotar } from "../../../../../lib/painel/anotar"
 import { mudarPdp } from "../../../../../lib/painel/gravar-produto"
-import { ehIdDaSecao, salvarSecao, secoesDaPagina } from "../../../../../lib/painel/produtos"
-import { lerFundo, type Fundo } from "../../../../../lib/pdp"
+import {
+  CHAVE_DA_SECAO,
+  ehIdDaSecao,
+  salvarSecao,
+  secoesDaPagina,
+} from "../../../../../lib/painel/produtos"
+import { lerFundo, lerSecao, urlsDaSecao, type Fundo } from "../../../../../lib/pdp"
 
 /**
  * POST /dashboard/produtos/:id/secao — `{ secao, valores, fundo? }`: o texto
@@ -16,8 +21,12 @@ import { lerFundo, type Fundo } from "../../../../../lib/pdp"
  * não mexe no fundo; `null` tira; e as imagens têm que estar no
  * armazenamento da loja — as que subiram por `/imagens`.
  *
+ * As fotos dos casos de antes e depois e o vídeo do modo de uso também têm
+ * que estar no armazenamento (`imagem_invalida`).
+ *
  * RESPOSTAS: 200 `{ secao, lojaAvisada }`; 400 `secao_invalida`,
- * `fundo_invalido` ou `sem_texto`; 404 `nao_encontrado`; 422 `faltando`.
+ * `fundo_invalido`, `imagem_invalida` ou `sem_texto`; 404 `nao_encontrado`;
+ * 422 `faltando`.
  */
 export async function POST(req: AuthenticatedMedusaRequest, res: MedusaResponse) {
   const pedido = req as PedidoDaEquipe
@@ -39,6 +48,14 @@ export async function POST(req: AuthenticatedMedusaRequest, res: MedusaResponse)
       return
     }
     fundo = lido
+  }
+
+  // As fotos dos casos e o vídeo do modo de uso: só os que subiram pelo painel.
+  const chave = CHAVE_DA_SECAO[secao]
+  const lida = chave ? lerSecao(chave, corpo.valores).secao : null
+  if (chave && lida && !urlsDaSecao(chave, lida).every((u) => ehDoArmazenamento(u))) {
+    res.status(400).json({ message: "imagem_invalida" })
+    return
   }
 
   const r = await mudarPdp(req.scope, req.params.id, (pdp) =>

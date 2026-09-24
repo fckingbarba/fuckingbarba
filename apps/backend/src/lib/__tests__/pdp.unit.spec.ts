@@ -1,4 +1,4 @@
-import { faltandoNaSecao, lerPdp, lerSecao } from "../pdp"
+import { faltandoNaSecao, lerPdp, lerSecao, lerVideo, urlsDaSecao } from "../pdp"
 
 /**
  * A página do produto (`fb_pdp`) como a loja e o painel leem: o que passa,
@@ -102,6 +102,15 @@ describe("o que falta numa seção (o editor do painel)", () => {
     expect(faltandoNaSecao("tempo", { titulo: "Quando", passos: [] })).toEqual(["passos"])
   })
 
+  it("escrita só no grupo (as etapas, sem o título) conta como começada: falta o título", () => {
+    expect(
+      faltandoNaSecao("tempo", {
+        titulo: "",
+        passos: [{ quando: "1 mês", titulo: "A", texto: "B" }],
+      })
+    ).toEqual(["titulo"])
+  })
+
   it("a resposta das dúvidas é lista de parágrafos", () => {
     const { secao, faltando } = lerSecao("duvidas", {
       titulo: "Dúvidas",
@@ -112,5 +121,90 @@ describe("o que falta numa seção (o editor do painel)", () => {
       titulo: "Dúvidas",
       perguntas: [{ pergunta: "Arde?", resposta: ["Não.", "Nunca."] }],
     })
+  })
+})
+
+const VIDEO = {
+  url: "https://ref.supabase.co/storage/v1/object/public/produtos/uso.mp4",
+  poster: FOTO,
+  largura: 1080,
+  altura: 1920,
+  duracao: 12.34,
+}
+
+describe("os vídeos", () => {
+  it("vídeo só com tudo: o arquivo, a capa, as medidas e a duração", () => {
+    expect(lerVideo(VIDEO)).toEqual({ ...VIDEO, duracao: 12.3 })
+    expect(lerVideo({ ...VIDEO, poster: undefined })).toBeNull()
+    expect(lerVideo({ ...VIDEO, largura: 0 })).toBeNull()
+    expect(lerVideo({ ...VIDEO, duracao: 601 })).toBeNull()
+    expect(lerVideo({ ...VIDEO, url: "javascript:alert(1)" })).toBeNull()
+  })
+
+  it("na galeria: com a posição, sem repetir, até 4", () => {
+    const outro = (n: number) => ({ ...VIDEO, url: `${VIDEO.url}?${n}`, posicao: n })
+    const { videos } = pdp({
+      videos: [
+        { ...VIDEO, posicao: 2 },
+        { ...VIDEO, posicao: 5 },
+        outro(1),
+        outro(3),
+        outro(4),
+        outro(6),
+      ],
+    })
+    expect(videos.map((v) => v.posicao)).toEqual([2, 1, 3, 4])
+    expect(videos[0]).toEqual({ ...VIDEO, duracao: 12.3, posicao: 2 })
+  })
+
+  it("no modo de uso: entra junto da seção, e a rota confere o endereço dele", () => {
+    const funciona = {
+      comoTitulo: "Como",
+      comoFotoDe: "oleo",
+      comoTexto: ["Um"],
+      usoTitulo: "Uso",
+      usoFotoDe: "oleo",
+      usoPassos: ["Passo"],
+      usoVideo: VIDEO,
+    }
+    const { conteudo } = pdp({ conteudo: { funciona } })
+    expect(conteudo.funciona?.usoVideo).toEqual({ ...VIDEO, duracao: 12.3 })
+    expect(urlsDaSecao("funciona", conteudo.funciona)).toEqual([VIDEO.url, VIDEO.poster])
+  })
+})
+
+describe("o antes e depois", () => {
+  const caso = {
+    nome: "André B.",
+    tempo: "90 dias",
+    antes: FOTO,
+    depois: `${FOTO}?d`,
+    autorizou: true,
+  }
+
+  it("caso sem a autorização marcada não existe; até 3", () => {
+    const { conteudo } = pdp({
+      conteudo: {
+        antesDepois: {
+          titulo: "Resultados",
+          casos: [caso, { ...caso, autorizou: false }, { ...caso, texto: "Valeu" }, caso, caso],
+        },
+      },
+    })
+    expect(conteudo.antesDepois?.titulo).toBe("Resultados")
+    expect(conteudo.antesDepois?.casos).toEqual([caso, { ...caso, texto: "Valeu" }, caso])
+  })
+
+  it("o editor avisa a autorização que falta, e a foto de cada lado", () => {
+    expect(faltandoNaSecao("antesDepois", { casos: [{ ...caso, autorizou: false }] })).toEqual([
+      "casos.0.autorizou",
+    ])
+    expect(faltandoNaSecao("antesDepois", { casos: [{ ...caso, depois: "" }] })).toEqual([
+      "casos.0.depois",
+    ])
+    // Só o título: falta o caso inteiro.
+    expect(faltandoNaSecao("antesDepois", { titulo: "Resultados", casos: [] })).toEqual(["casos"])
+    const { secao } = lerSecao("antesDepois", { casos: [caso] })
+    expect(urlsDaSecao("antesDepois", secao)).toEqual([FOTO, `${FOTO}?d`])
   })
 })

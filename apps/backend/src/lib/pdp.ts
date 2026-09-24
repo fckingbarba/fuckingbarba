@@ -40,6 +40,45 @@ export type ItemDaRotina = {
 
 export type Pergunta = { pergunta: string; resposta: string[] }
 
+/**
+ * Um vídeo da página: o arquivo (MP4 ou WebM, no armazenamento da loja), a
+ * capa — o primeiro quadro, em WebP, que aparece até ele tocar e na
+ * miniatura —, as medidas e a duração em segundos. As medidas reservam o
+ * espaço na loja: nada pula quando o vídeo chega.
+ */
+export type VideoDaPdp = {
+  url: string
+  poster: string
+  largura: number
+  altura: number
+  duracao: number
+}
+
+/**
+ * Um vídeo na galeria da dobra, na posição dele entre as fotos. As fotos são
+ * as do produto no Medusa (a vitrine, o Google e o link no WhatsApp usam
+ * elas); os vídeos moram aqui e entram entre elas — nunca na frente da
+ * primeira foto, que é a capa.
+ */
+export type VideoDaGaleria = VideoDaPdp & { posicao: number }
+
+/**
+ * Um caso de antes e depois — a mesma pessoa, antes e depois do uso. SÓ
+ * EXISTE COM A AUTORIZAÇÃO POR ESCRITO dela (LGPD, art. 11: a aparência é
+ * dado sensível; "mandou no WhatsApp" não é autorização pra publicar):
+ * `autorizou` é sempre `true` — caso sem ela não é gravado.
+ */
+export type CasoAntesDepois = {
+  nome: string
+  /** Quanto tempo de uso separa as duas fotos: "90 dias". */
+  tempo: string
+  antes: string
+  depois: string
+  /** O que a pessoa disse, como ela escreveu. */
+  texto?: string
+  autorizou: true
+}
+
 export type ConteudoDaPdp = {
   promessa?: { chapeu: string; titulo: string; itens: string[]; rodape?: string }
   tempo?: { titulo: string; passos: PassoDoTempo[]; aviso?: string }
@@ -53,6 +92,8 @@ export type ConteudoDaPdp = {
     usoFotoDe: string
     usoPassos: string[]
     dica?: string
+    /** Com vídeo, ele entra no lugar da foto do modo de uso. */
+    usoVideo?: VideoDaPdp
   }
   versus?: {
     titulo: string
@@ -68,6 +109,8 @@ export type ConteudoDaPdp = {
    * produto, só o título que aparece no site.
    */
   relacionados?: { titulo: string }
+  /** Os casos de antes e depois deste produto — até 3. Sem caso, a seção não aparece. */
+  antesDepois?: { titulo?: string; casos: CasoAntesDepois[] }
 }
 
 /**
@@ -162,9 +205,11 @@ export type Pdp = {
   /** Por id de seção do registro: "produto.promessa", "produto.quem"… */
   fundos: Record<string, Fundo>
   combinada: VendaCombinada
+  /** Os vídeos da galeria da dobra (as fotos são as do produto). */
+  videos: VideoDaGaleria[]
 }
 
-export const PDP_VAZIA: Pdp = { conteudo: {}, layout: {}, fundos: {}, combinada: {} }
+export const PDP_VAZIA: Pdp = { conteudo: {}, layout: {}, fundos: {}, combinada: {}, videos: [] }
 
 /* ── leitura defensiva ─────────────────────────────────────────────────── */
 
@@ -264,6 +309,7 @@ function lerFunciona(v: unknown): ConteudoDaPdp["funciona"] {
   if (!comoTitulo || !comoFotoDe || !comoTexto || !usoTitulo || !usoFotoDe || !usoPassos) {
     return undefined
   }
+  const usoVideo = lerVideo(o.usoVideo)
   return {
     comoTitulo,
     comoFotoDe,
@@ -272,6 +318,7 @@ function lerFunciona(v: unknown): ConteudoDaPdp["funciona"] {
     usoFotoDe,
     usoPassos,
     ...(txt(o.dica) ? { dica: txt(o.dica)! } : {}),
+    ...(usoVideo ? { usoVideo } : {}),
   }
 }
 
@@ -316,6 +363,74 @@ function lerDuvidas(v: unknown): ConteudoDaPdp["duvidas"] {
 function lerRelacionados(v: unknown): ConteudoDaPdp["relacionados"] {
   const titulo = txt(obj(v)?.titulo)
   return titulo ? { titulo } : undefined
+}
+
+/** Casos de antes e depois numa página: dois ou três bastam — mais que isso vira álbum. */
+export const LIMITE_DE_CASOS = 3
+
+function lerAntesDepois(v: unknown): ConteudoDaPdp["antesDepois"] {
+  const o = obj(v)
+  if (!o) return undefined
+  const casos = (Array.isArray(o.casos) ? o.casos : [])
+    .map((c): CasoAntesDepois | null => {
+      const q = obj(c)
+      const nome = q && txt(q.nome)
+      const tempo = q && txt(q.tempo)
+      const antes = q && lerImagem(q.antes)
+      const depois = q && lerImagem(q.depois)
+      // Sem a autorização marcada, o caso não existe — nem pela metade.
+      if (!nome || !tempo || !antes || !depois || q!.autorizou !== true) return null
+      const texto = txt(q!.texto)
+      return { nome, tempo, antes, depois, ...(texto ? { texto } : {}), autorizou: true }
+    })
+    .filter((c): c is CasoAntesDepois => c !== null)
+    .slice(0, LIMITE_DE_CASOS)
+  if (!casos.length) return undefined
+  const titulo = txt(o.titulo)
+  return { ...(titulo ? { titulo } : {}), casos }
+}
+
+const medida = (v: unknown, maximo: number): number | null =>
+  typeof v === "number" && Number.isFinite(v) && v > 0 && v <= maximo ? v : null
+
+/** Um vídeo com tudo: o arquivo, a capa, as medidas e a duração (até 10 minutos). */
+export function lerVideo(v: unknown): VideoDaPdp | null {
+  const o = obj(v)
+  if (!o) return null
+  const url = lerImagem(o.url)
+  const poster = lerImagem(o.poster)
+  const largura = medida(o.largura, 8000)
+  const altura = medida(o.altura, 8000)
+  const duracao = medida(o.duracao, 600)
+  if (!url || !poster || !largura || !altura || !duracao) return null
+  return {
+    url,
+    poster,
+    largura: Math.round(largura),
+    altura: Math.round(altura),
+    duracao: Math.round(duracao * 10) / 10,
+  }
+}
+
+/** Vídeos na galeria de um produto. A página baixa cada um só quando alguém escolhe. */
+export const LIMITE_DE_VIDEOS = 4
+
+function lerVideos(v: unknown): VideoDaGaleria[] {
+  const vistos = new Set<string>()
+  return (Array.isArray(v) ? v : [])
+    .map((x): VideoDaGaleria | null => {
+      const video = lerVideo(x)
+      const posicao = obj(x)?.posicao
+      if (!video || vistos.has(video.url)) return null
+      vistos.add(video.url)
+      return {
+        ...video,
+        posicao:
+          typeof posicao === "number" && Number.isInteger(posicao) && posicao >= 0 ? posicao : 99,
+      }
+    })
+    .filter((x): x is VideoDaGaleria => x !== null)
+    .slice(0, LIMITE_DE_VIDEOS)
 }
 
 function lerLayout(v: unknown): AjusteDeLayout {
@@ -431,6 +546,7 @@ export function lerPdp(metadata: unknown): Pdp {
     quem: lerQuem(c.quem),
     duvidas: lerDuvidas(c.duvidas),
     relacionados: lerRelacionados(c.relacionados),
+    antesDepois: lerAntesDepois(c.antesDepois),
   }
   for (const [nome, valor] of Object.entries(secoes)) {
     if (valor) Object.assign(conteudo, { [nome]: valor })
@@ -441,6 +557,7 @@ export function lerPdp(metadata: unknown): Pdp {
     layout: lerLayout(o.layout),
     fundos: lerFundos(o.fundos),
     combinada: lerCombinada(o.combinada),
+    videos: lerVideos(o.videos),
   }
 }
 
@@ -463,6 +580,7 @@ export const SECOES_DE_CONTEUDO = [
   "quem",
   "duvidas",
   "relacionados",
+  "antesDepois",
 ] as const
 export type ChaveDeConteudo = (typeof SECOES_DE_CONTEUDO)[number]
 
@@ -479,6 +597,7 @@ const LEITORES: Record<ChaveDeConteudo, (v: unknown) => unknown> = {
   quem: lerQuem,
   duvidas: lerDuvidas,
   relacionados: lerRelacionados,
+  antesDepois: lerAntesDepois,
 }
 
 /**
@@ -501,11 +620,26 @@ const EXIGE: Record<
   quem: { textos: ["titulo"], listas: ["sim", "nao"] },
   duvidas: { textos: ["titulo"], grupos: { perguntas: ["pergunta", "resposta"] } },
   relacionados: { textos: ["titulo"] },
+  // O título é opcional (sem ele, o de sempre); a autorização entra como campo que falta.
+  antesDepois: { grupos: { casos: ["nome", "tempo", "antes", "depois", "autorizou"] } },
 }
 
-/** Tem texto de verdade: string com letra, ou lista com pelo menos uma. */
+/**
+ * Tem valor de verdade: string com letra, caixinha marcada, ou lista (ou
+ * item de grupo) com pelo menos um. Olhar dentro dos itens é o que faz a
+ * seção escrita só na lista — as etapas, sem o título — contar como
+ * começada: sem isso ela passava por vazia e saía da página, calada.
+ */
 const temTexto = (v: unknown): boolean =>
-  typeof v === "string" ? v.trim().length > 0 : Array.isArray(v) ? v.some(temTexto) : false
+  typeof v === "string"
+    ? v.trim().length > 0
+    : v === true
+      ? true
+      : Array.isArray(v)
+        ? v.some(temTexto)
+        : v !== null && typeof v === "object"
+          ? Object.values(v).some(temTexto)
+          : false
 
 /**
  * O que falta pra seção existir. As chaves são as dos campos — "titulo",
@@ -547,4 +681,21 @@ export function lerSecao(
   const faltando = faltandoNaSecao(chave, valores)
   if (faltando.length) return { secao: null, faltando }
   return { secao: LEITORES[chave](valores) ?? null, faltando: [] }
+}
+
+/**
+ * Os endereços de imagem e de vídeo que uma seção salva carrega — as fotos
+ * dos casos de antes e depois, o vídeo do modo de uso e a capa dele. A rota
+ * confere que cada um mora no armazenamento da loja antes de gravar.
+ */
+export function urlsDaSecao(chave: ChaveDeConteudo, secao: unknown): string[] {
+  if (chave === "antesDepois") {
+    const casos = (secao as ConteudoDaPdp["antesDepois"])?.casos ?? []
+    return casos.flatMap((c) => [c.antes, c.depois])
+  }
+  if (chave === "funciona") {
+    const v = (secao as ConteudoDaPdp["funciona"])?.usoVideo
+    return v ? [v.url, v.poster] : []
+  }
+  return []
 }

@@ -44,6 +44,33 @@ export type ItemDaRotina = {
 
 export type Pergunta = { pergunta: string; resposta: string[] }
 
+/**
+ * Um vídeo da página (a galeria da dobra, o modo de uso): o arquivo, a capa
+ * — o primeiro quadro, que aparece até ele tocar —, as medidas e a duração
+ * em segundos. Sobe pelo painel; o gêmeo está em `apps/backend/src/lib/pdp.ts`.
+ */
+export type VideoDaPdp = {
+  url: string
+  poster: string
+  largura: number
+  altura: number
+  duracao: number
+}
+
+/**
+ * Um caso de antes e depois: a mesma pessoa, antes e depois do uso, com a
+ * autorização por escrito dela (o painel não grava caso sem ela).
+ */
+export type CasoAntesDepois = {
+  nome: string
+  /** Quanto tempo de uso separa as duas fotos: "90 dias". */
+  tempo: string
+  antes: string
+  depois: string
+  /** O que a pessoa disse, como ela escreveu. */
+  texto?: string
+}
+
 export type ConteudoDaPdp = {
   promessa?: {
     chapeu: string
@@ -77,6 +104,8 @@ export type ConteudoDaPdp = {
     usoFotoDe: string
     usoPassos: string[]
     dica?: string
+    /** Com vídeo, ele entra no lugar da foto do modo de uso. */
+    usoVideo?: VideoDaPdp
   }
   versus?: {
     titulo: string
@@ -96,6 +125,8 @@ export type ConteudoDaPdp = {
   }
   /** Os produtos entram sozinhos (o motor); do produto, só o título do site. */
   relacionados?: { titulo: string }
+  /** Os casos de antes e depois deste produto (até 3). */
+  antesDepois?: { titulo?: string; casos: CasoAntesDepois[] }
 }
 
 /**
