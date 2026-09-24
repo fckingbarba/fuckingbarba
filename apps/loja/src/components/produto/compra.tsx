@@ -167,7 +167,13 @@ export function Compra({
           ? `Na sacola, com ${marcados.length === 1 ? "o item" : "os itens"} que combinam.`
           : "Na sacola.",
       })
-      setJuntos(new Set())
+      /*
+        O "leve junto" CONTINUA MARCADO depois do clique, como as unidades
+        escolhidas continuam na tela. Desmarcar na hora em que a sacola abre
+        (era assim até 24/09) fazia parecer que os itens não tinham ido — a
+        loja viu e pediu pra manter. Um segundo clique leva de novo o que
+        está marcado, do mesmo jeito que leva de novo as unidades.
+      */
       avisarSacola(r.carrinho)
     })
   }
