@@ -2,7 +2,11 @@
 
 import { useCallback, useEffect, useRef, type Dispatch, type SetStateAction } from "react"
 import { Icone } from "@/components/icones"
-import { CampoDeFoto, CampoDeVideo } from "@/components/produto/campos-de-midia"
+import {
+  CampoDeFoto,
+  CampoDeVideo,
+  type DestinoDoVideo,
+} from "@/components/produto/campos-de-midia"
 import {
   FundoDaSecao,
   type EstadoDoFundo,
@@ -39,6 +43,8 @@ export type ContextoDoFormulario = {
   produto?: { id: string; handle: string; nome: string }
   /** Pra onde sobe a imagem de um campo de imagens (a arte do banner, a foto da última chamada). */
   subir?: SubirImagem
+  /** Pra onde sobe o vídeo de um campo de vídeo: o produto da página, ou a home. */
+  video?: DestinoDoVideo
   mudar: Dispatch<SetStateAction<Valores>>
   /** O que focar depois do próximo desenho (o item que subiu, o que entrou). */
   focar: (seletor: string) => void
@@ -272,8 +278,9 @@ function UmCampo({
     )
   }
 
-  // Foto e vídeo sobem pro produto da página: fora dela (a home), o campo não existe ainda.
-  if ((campo.tipo === "foto" || campo.tipo === "video") && !ctx.produto) return null
+  // A foto sobe pro produto da página: fora dela (a home), o campo não existe. O vídeo, pra onde o contexto diz.
+  if (campo.tipo === "foto" && !ctx.produto) return null
+  if (campo.tipo === "video" && !ctx.video) return null
 
   if (campo.tipo === "foto")
     return (
@@ -292,7 +299,8 @@ function UmCampo({
   if (campo.tipo === "video")
     return (
       <CampoDeVideo
-        produtoId={ctx.produto!.id}
+        destino={ctx.video!}
+        uso={campo.uso ?? "uso"}
         chave={chave}
         rotulo={campo.rot}
         ajuda={campo.ajuda}

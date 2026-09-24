@@ -55,10 +55,29 @@ export type PaginaDaHome = {
   /** O último "Publicar" — `null` enquanto a home é a de fábrica. */
   publicacao: { em: string; quando: string; quem: string | null } | null
   catalogo: NoCatalogo[]
+  /** Os produtos no site com caso de antes e depois: é deles que a "Prova social" mostra. */
+  provas: ProdutoComCasos[]
   /** O endereço da loja, pro "Ver a home" (`null` sem `LOJA_URL` no Medusa). */
   noSite: string | null
   historico: LinhaDoHistorico[]
 }
+
+/**
+ * Um produto com casos de antes e depois (os autorizados, das páginas dos
+ * produtos): o nome, o tempo e a foto do "depois" de cada um. O mesmo de
+ * `provasDaHome`, no backend (`lib/painel/home.ts`).
+ */
+export type ProdutoComCasos = {
+  id: string
+  nome: string
+  casos: { nome: string; tempo: string; foto: string }[]
+}
+
+/**
+ * Quantos casos a "Prova social" mostra, alternando os produtos — o mesmo
+ * número da loja (`apps/loja/src/components/home/provas.tsx`).
+ */
+export const CASOS_NA_HOME = 8
 
 /** Quantas mudanças: cada seção conta uma, e a ordem, uma. */
 export const quantasMudancas = (p: Pendentes) => p.secoes.length + (p.ordem ? 1 : 0)
@@ -296,14 +315,14 @@ export const SECOES_DA_HOME: Record<IdDaSecaoDaHome, DefinicaoDaSecaoDaHome> = {
   },
   "home.provas": {
     nome: "Prova social",
-    descricao: "Casos de antes e depois de clientes. Só aparece quando existe caso cadastrado.",
+    descricao:
+      "Os casos de antes e depois das páginas dos produtos. Sem caso nenhum, a seção não aparece.",
     campos: [
       { tipo: "texto", c: "tag", rot: "Chapéu", exemplo: "Resultados reais" },
       TITULO,
       {
         tipo: "nota",
-        texto:
-          "Os casos vão ser os mesmos do “Antes e depois” das páginas dos produtos — chega na próxima entrega.",
+        texto: `Os casos são os mesmos do “Antes e depois” das páginas dos produtos: um caso vale na página dele e aqui. A home mostra até ${CASOS_NA_HOME}, alternando os produtos, e cada um leva pro produto que a pessoa usou. Caso novo entra pela página do produto (Produtos → o produto → Antes e depois), com a autorização por escrito.`,
       },
     ],
   },
@@ -328,7 +347,7 @@ export const SECOES_DA_HOME: Record<IdDaSecaoDaHome, DefinicaoDaSecaoDaHome> = {
   },
   "home.sobre": {
     nome: "Sobre a marca",
-    descricao: "A história, com foto — ou o vídeo, quando tem — e números.",
+    descricao: "A história, com o vídeo (ou a foto de um produto) e números.",
     campos: [
       TITULO,
       {
@@ -365,12 +384,19 @@ export const SECOES_DA_HOME: Record<IdDaSecaoDaHome, DefinicaoDaSecaoDaHome> = {
           "A conferir antes de publicar: o ano de fundação e o “+1M clientes impactados” vieram do protótipo, e ninguém confirmou.",
       },
       {
+        tipo: "video",
+        c: "video",
+        rot: "Vídeo da história (opcional)",
+        uso: "historia",
+        ajuda:
+          "Entra no lugar da foto. Toca sozinho, sem som, quando a pessoa chega na seção; se o vídeo tiver som, aparece um botão pra ligar. Em pé ou deitado: a seção se ajeita a ele.",
+      },
+      {
         tipo: "produto",
         c: "fotoDe",
         rot: "Foto da seção: a do produto",
         vazio: "Sem foto",
-        ajuda:
-          "Com o vídeo da história (sobe no admin, em Configurações da loja → Home), a foto vira a capa dele.",
+        ajuda: "Aparece quando não tem vídeo.",
       },
     ],
   },

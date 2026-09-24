@@ -5,6 +5,7 @@ import { useAvisar } from "@/components/avisos"
 import { Campos, type ContextoDoFormulario } from "@/components/formulario"
 import { Gaveta } from "@/components/gaveta"
 import { Icone } from "@/components/icones"
+import { videoDoProduto } from "@/components/produto/campos-de-midia"
 import { FundoDaSecao, type EstadoDoFundo } from "@/components/produto/fundo-da-secao"
 import { salvarSecao, subirImagem } from "@/lib/acoes/produtos"
 import {
@@ -107,6 +108,7 @@ export function EditorDeSecao({
     faltando: new Set(faltando),
     produto,
     catalogo,
+    video: videoDoProduto(produto.id),
     mudar: setValores,
     focar: setFoco,
     aoSubir: (delta) => setSubindoCampos((n) => Math.max(0, n + delta)),

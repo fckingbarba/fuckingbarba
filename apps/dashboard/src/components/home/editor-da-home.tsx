@@ -1,12 +1,14 @@
 "use client"
 
+import type { Route } from "next"
+import Link from "next/link"
 import { useEffect, useId, useRef, useState, useTransition, type FormEvent } from "react"
 import { useAvisar } from "@/components/avisos"
 import { Campos, type ContextoDoFormulario } from "@/components/formulario"
 import { Gaveta } from "@/components/gaveta"
 import { Icone } from "@/components/icones"
 import { FundoDaSecao, type EstadoDoFundo } from "@/components/produto/fundo-da-secao"
-import { salvarSecaoDaHome, subirImagemDaHome } from "@/lib/acoes/home"
+import { pedirEnvioDeVideoDaHome, salvarSecaoDaHome, subirImagemDaHome } from "@/lib/acoes/home"
 import {
   abrirFormulario,
   abrirOsQueFaltam,
@@ -14,13 +16,21 @@ import {
   paraGravar,
   type Valores,
 } from "@/lib/formulario"
-import { FUNDOS_DA_HOME, SECOES_DA_HOME, type SecaoDaHome } from "@/lib/home"
+import {
+  CASOS_NA_HOME,
+  FUNDOS_DA_HOME,
+  SECOES_DA_HOME,
+  type ProdutoComCasos,
+  type SecaoDaHome,
+} from "@/lib/home"
 import { VEU, type Fundo, type NoCatalogo } from "@/lib/produtos"
 
 /**
  * A GAVETA DE UMA SEÇÃO DA HOME — o texto dela (e as imagens: as artes do
- * banner, a foto da última chamada) e a foto de fundo, num "Salvar" só, que
- * vai pro RASCUNHO: o site só muda no "Publicar".
+ * banner, a foto da última chamada; e o vídeo da história da marca) e a
+ * foto de fundo, num "Salvar" só, que vai pro RASCUNHO: o site só muda no
+ * "Publicar". A da "Prova social" mostra também de onde vêm os casos: das
+ * páginas dos produtos.
  *
  * Os campos saem da definição da seção (`SECOES_DA_HOME`, em `lib/home.ts`)
  * e são desenhados pelo formulário comum (`components/formulario.tsx`, o
@@ -34,10 +44,12 @@ import { VEU, type Fundo, type NoCatalogo } from "@/lib/produtos"
 export function EditorDaHome({
   secao,
   catalogo,
+  provas,
   fechar,
 }: {
   secao: SecaoDaHome
   catalogo: NoCatalogo[]
+  provas: ProdutoComCasos[]
   fechar: () => void
 }) {
   const def = SECOES_DA_HOME[secao.id]
@@ -106,6 +118,7 @@ export function EditorDaHome({
     faltando: new Set(faltando),
     catalogo,
     subir: subirImagemDaHome,
+    video: { subirCapa: subirImagemDaHome, pedirEnvio: pedirEnvioDeVideoDaHome },
     mudar: setValores,
     focar: setFoco,
     aoSubir: (delta) => setSubindoCampos((n) => Math.max(0, n + delta)),
@@ -120,6 +133,7 @@ export function EditorDaHome({
         <div className="campos">
           <Campos campos={def.campos} caminho={[]} valores={valores} ctx={contexto} />
         </div>
+        {secao.id === "home.provas" ? <CasosDosProdutos provas={provas} /> : null}
         {medidaDoFundo ? (
           <FundoDaSecao
             subir={subirImagemDaHome}
@@ -166,6 +180,54 @@ export function EditorDaHome({
         </div>
       </form>
     </Gaveta>
+  )
+}
+
+/**
+ * De onde vêm os casos da "Prova social": os produtos no site com caso de
+ * antes e depois, cada um com a foto do "depois", o nome e o tempo. O link
+ * leva pra página do produto, onde o caso se edita.
+ */
+function CasosDosProdutos({ provas }: { provas: ProdutoComCasos[] }) {
+  const total = provas.reduce((n, p) => n + p.casos.length, 0)
+  return (
+    <div className="campo casos-da-home" data-casos-da-home>
+      <span className="campo__rot">Os casos, hoje</span>
+      {provas.length ? (
+        <>
+          <ul>
+            {provas.map((p) => (
+              <li key={p.id}>
+                <Link className="link" href={`/produtos/${p.id}` as Route}>
+                  {p.nome}
+                </Link>
+                <ul>
+                  {p.casos.map((c, i) => (
+                    <li key={`${c.foto}-${i}`}>
+                      {/* eslint-disable-next-line @next/next/no-img-element -- a foto do armazenamento */}
+                      <img src={c.foto} alt="" loading="lazy" />
+                      <span>
+                        {c.nome} <small>· {c.tempo}</small>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            ))}
+          </ul>
+          {total > CASOS_NA_HOME ? (
+            <p className="campo__ajuda">
+              São {total}: a home mostra {CASOS_NA_HOME}, alternando os produtos.
+            </p>
+          ) : null}
+        </>
+      ) : (
+        <p className="campo__ajuda">
+          Nenhum ainda — e sem caso a seção não aparece no site. O caso entra pela página do
+          produto: Produtos → o produto → Antes e depois.
+        </p>
+      )}
+    </div>
   )
 }
 

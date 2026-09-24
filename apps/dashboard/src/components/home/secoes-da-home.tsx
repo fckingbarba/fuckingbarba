@@ -6,7 +6,12 @@ import { EditorDaHome } from "@/components/home/editor-da-home"
 import { Icone } from "@/components/icones"
 import { mudarSecaoDaHome } from "@/lib/acoes/home"
 import type { MudancaNaOrdem } from "@/lib/acoes/produtos"
-import { SECOES_DA_HOME, type IdDaSecaoDaHome, type SecaoDaHome } from "@/lib/home"
+import {
+  SECOES_DA_HOME,
+  type IdDaSecaoDaHome,
+  type ProdutoComCasos,
+  type SecaoDaHome,
+} from "@/lib/home"
 import type { NoCatalogo } from "@/lib/produtos"
 
 /**
@@ -22,10 +27,14 @@ import type { NoCatalogo } from "@/lib/produtos"
 export function SecoesDaHome({
   secoes: gravadas,
   catalogo,
+  provas,
 }: {
   secoes: SecaoDaHome[]
   catalogo: NoCatalogo[]
+  /** Os produtos com caso de antes e depois: a "Prova social" mostra eles. */
+  provas: ProdutoComCasos[]
 }) {
+  const casos = provas.reduce((n, p) => n + p.casos.length, 0)
   const avisar = useAvisar()
   const [indo, comecar] = useTransition()
   const [secoes, aplicar] = useOptimistic(gravadas, mover)
@@ -106,7 +115,7 @@ export function SecoesDaHome({
               <span>
                 <p className="secao__nome">{def.nome}</p>
                 <p className="secao__desc">{def.descricao}</p>
-                {s.mudou || s.propria || selos(s).length ? (
+                {s.mudou || s.propria || selos(s, casos).length ? (
                   <span className="secao__selos">
                     {s.mudou ? (
                       <span className="selo selo--pendente" data-pendente>
@@ -114,7 +123,7 @@ export function SecoesDaHome({
                       </span>
                     ) : null}
                     {s.propria ? <span className="selo">texto próprio</span> : null}
-                    {selos(s).map((t) => (
+                    {selos(s, casos).map((t) => (
                       <span className="selo" key={t}>
                         {t}
                       </span>
@@ -150,7 +159,13 @@ export function SecoesDaHome({
         })}
       </ul>
       {aberta ? (
-        <EditorDaHome key={aberta.id} secao={aberta} catalogo={catalogo} fechar={fechar} />
+        <EditorDaHome
+          key={aberta.id}
+          secao={aberta}
+          catalogo={catalogo}
+          provas={provas}
+          fechar={fechar}
+        />
       ) : null}
     </>
   )
@@ -180,12 +195,20 @@ function mover(
   return nova
 }
 
-/** "3 slides" · "com imagem": o que a seção tem além do texto, como no protótipo. */
-function selos(s: SecaoDaHome): string[] {
-  const v = s.valores as { slides?: { imagem?: string }[]; imagem?: string }
+/**
+ * "3 slides" · "com imagem" · "com vídeo" · "5 casos": o que a seção tem
+ * além do texto, como no protótipo. Os casos são os dos produtos (`casos`):
+ * sem nenhum, a prova social não aparece no site, e o selo diz.
+ */
+function selos(s: SecaoDaHome, casos: number): string[] {
+  const v = s.valores as { slides?: { imagem?: string }[]; imagem?: string; video?: unknown }
   const slides = Array.isArray(v.slides) ? v.slides : []
   const comImagem = Boolean(s.fundo || v.imagem || slides.some((sl) => sl.imagem))
   return [
+    ...(s.id === "home.provas"
+      ? [casos === 0 ? "sem casos" : casos === 1 ? "1 caso" : `${casos} casos`]
+      : []),
+    ...(v.video ? ["com vídeo"] : []),
     ...(s.id === "home.banner"
       ? [
           slides.length === 0
