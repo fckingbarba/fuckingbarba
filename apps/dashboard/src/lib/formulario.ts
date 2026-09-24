@@ -1,4 +1,4 @@
-import type { VideoDaPdp } from "@/lib/produtos"
+import type { ImagemDoFundo, MedidaDoFundo, VideoDaPdp } from "@/lib/produtos"
 
 /**
  * O FORMULÁRIO DE UMA SEÇÃO — os campos, e a ida e a volta entre o que o
@@ -57,6 +57,28 @@ export type Campo =
     }
   /** Caixinha; `unico`: num grupo, marcar uma desmarca as outras (o marco da linha do tempo). */
   | { tipo: "marcar"; c: string; rot: string; unico?: boolean }
+  /**
+   * Uma imagem em duas versões, a do computador e a do celular (a arte de um
+   * slide do banner, a foto da última chamada). Grava os endereços em `c` e
+   * em `c` + "Celular"; `medida` é o quadro de cada lado, como a loja mostra.
+   */
+  | {
+      tipo: "imagens"
+      c: string
+      rot: string
+      medida: MedidaDoFundo
+      ajuda?: string
+      rodape?: string
+    }
+  /** Uma escolha entre poucas, `[valor, rótulo]` (de quanto em quanto tempo o banner passa). */
+  | {
+      tipo: "opcoes"
+      c: string
+      rot: string
+      opcoes: readonly (readonly [string, string])[]
+      ajuda?: string
+      meia?: boolean
+    }
   | { tipo: "nota"; texto: string; atencao?: boolean }
 
 /** Uma linha em branco separa os parágrafos. */
@@ -120,10 +142,21 @@ export function paraOFormulario(campos: Campo[], gravado: Valores | null): Valor
     else if (campo.tipo === "marcar") v[campo.c] = bruto === true
     else if (campo.tipo === "video")
       v[campo.c] = bruto && typeof bruto === "object" ? (bruto as VideoDaPdp) : null
+    else if (campo.tipo === "imagens") {
+      const celular = gravado?.[`${campo.c}Celular`]
+      v[campo.c] = {
+        computador: typeof bruto === "string" && bruto ? { url: bruto } : null,
+        celular: typeof celular === "string" && celular ? { url: celular } : null,
+      } satisfies ImagensDoCampo
+    } else if (campo.tipo === "opcoes")
+      v[campo.c] = typeof bruto === "number" || typeof bruto === "string" ? String(bruto) : ""
     else v[campo.c] = typeof bruto === "string" ? bruto : ""
   }
   return v
 }
+
+/** O valor de um campo de imagens no formulário: cada lado com a medida, quando se sabe. */
+export type ImagensDoCampo = { computador: ImagemDoFundo | null; celular: ImagemDoFundo | null }
 
 /** O que vai pro backend: sem as chaves da tela, e a resposta de volta em parágrafos. */
 export function paraGravar(campos: Campo[], formulario: Valores): Valores {
@@ -140,6 +173,13 @@ export function paraGravar(campos: Campo[], formulario: Valores): Valores {
       if (valor === true) v[campo.c] = true
     } else if (campo.tipo === "video") {
       if (valor) v[campo.c] = valor
+    } else if (campo.tipo === "imagens") {
+      // Sem a do computador não há imagem: a do celular é extra dela.
+      const { computador, celular } = (valor ?? {}) as Partial<ImagensDoCampo>
+      if (computador) {
+        v[campo.c] = computador.url
+        if (celular) v[`${campo.c}Celular`] = celular.url
+      }
     } else v[campo.c] = valor
   }
   return v

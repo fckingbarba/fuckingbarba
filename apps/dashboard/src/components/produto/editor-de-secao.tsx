@@ -6,7 +6,7 @@ import { Campos, type ContextoDoFormulario } from "@/components/formulario"
 import { Gaveta } from "@/components/gaveta"
 import { Icone } from "@/components/icones"
 import { FundoDaSecao, type EstadoDoFundo } from "@/components/produto/fundo-da-secao"
-import { salvarSecao } from "@/lib/acoes/produtos"
+import { salvarSecao, subirImagem } from "@/lib/acoes/produtos"
 import {
   abrirFormulario,
   abrirOsQueFaltam,
@@ -131,7 +131,7 @@ export function EditorDeSecao({
         ) : null}
         {comFundo && def.fundo ? (
           <FundoDaSecao
-            produtoId={produto.id}
+            subir={(dados) => subirImagem(produto.id, dados)}
             medida={def.fundo}
             valor={fundo}
             mudar={setFundo}

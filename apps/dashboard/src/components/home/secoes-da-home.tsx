@@ -106,7 +106,7 @@ export function SecoesDaHome({
               <span>
                 <p className="secao__nome">{def.nome}</p>
                 <p className="secao__desc">{def.descricao}</p>
-                {s.mudou || s.propria ? (
+                {s.mudou || s.propria || selos(s).length ? (
                   <span className="secao__selos">
                     {s.mudou ? (
                       <span className="selo selo--pendente" data-pendente>
@@ -114,6 +114,11 @@ export function SecoesDaHome({
                       </span>
                     ) : null}
                     {s.propria ? <span className="selo">texto próprio</span> : null}
+                    {selos(s).map((t) => (
+                      <span className="selo" key={t}>
+                        {t}
+                      </span>
+                    ))}
                   </span>
                 ) : null}
               </span>
@@ -173,4 +178,17 @@ function mover(
     if (s.fixa) nova.splice(k, 0, s)
   })
   return nova
+}
+
+/** "3 slides" · "com imagem": o que a seção tem além do texto, como no protótipo. */
+function selos(s: SecaoDaHome): string[] {
+  const v = s.valores as { slides?: { imagem?: string }[]; imagem?: string }
+  const slides = Array.isArray(v.slides) ? v.slides : []
+  const comImagem = Boolean(s.fundo || v.imagem || slides.some((sl) => sl.imagem))
+  return [
+    ...(s.id === "home.banner"
+      ? [slides.length === 1 ? "1 slide" : `${slides.length} slides`]
+      : []),
+    ...(comImagem ? ["com imagem"] : []),
+  ]
 }

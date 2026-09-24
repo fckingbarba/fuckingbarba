@@ -238,6 +238,13 @@ export type MedidaDoFundo = {
   cor: "escuro" | "menta" | "papel" | "amarelo"
   computador: readonly [number, number]
   celular: readonly [number, number]
+  /** Abaixo disso, "fica borrada"; sem ele, o de cada lado (`MINIMO`). */
+  minimo?: Partial<Record<"computador" | "celular", number>>
+  /**
+   * `"inteira"`: a loja mostra a imagem INTEIRA, sem cortar (a arte do
+   * banner, que tem texto): a proporção diferente vira faixa, não corte.
+   */
+  mostra?: "inteira"
 }
 
 /** A cor do véu, em RGB (a mesma de `apps/loja/src/estilos/fundo.css`). */
@@ -528,13 +535,20 @@ export function avisosDaImagem(
     avisos.push("Essa é em pé. Pro computador, use uma deitada: a seção é larga e baixa.")
   if (lado === "celular" && largura > altura)
     avisos.push("Essa é deitada. Pro celular, use uma em pé: deitada, ela perde os lados.")
-  if (largura < MINIMO[lado])
+  if (largura < (medida.minimo?.[lado] ?? MINIMO[lado]))
     avisos.push(
       `Pequena (${largura} × ${altura}): fica borrada na tela. O ideal é ${idealL} × ${idealA}.`
     )
   const daFoto = largura / altura
   const daSecao = idealL / idealA
-  if (daFoto < daSecao * 0.85) {
+  if (medida.mostra === "inteira") {
+    if (daFoto > daSecao * 1.05)
+      avisos.push(
+        "Mais larga que a arte: a loja mostra inteira, com faixa branca em cima e embaixo."
+      )
+    else if (daFoto < daSecao / 1.05)
+      avisos.push("Mais alta que a arte: a loja mostra inteira, com faixa branca dos lados.")
+  } else if (daFoto < daSecao * 0.85) {
     const parte = Math.round((daFoto / daSecao) * 100)
     avisos.push(
       `Mais alta que a seção: aparece uma faixa de ${parte}% da altura — a do quadro acima.`

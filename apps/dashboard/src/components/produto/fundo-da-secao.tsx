@@ -7,10 +7,11 @@ import {
   useTransition,
   type CSSProperties,
   type Dispatch,
+  type ReactNode,
   type SetStateAction,
 } from "react"
 import { Icone } from "@/components/icones"
-import { subirImagem } from "@/lib/acoes/produtos"
+import type { ImagemQueSubiu } from "@/lib/acoes/produtos"
 import { ACEITA, prepararNoNavegador } from "@/lib/imagem-no-navegador"
 import {
   avisosDaImagem,
@@ -32,8 +33,15 @@ import {
  * que aparece no site. Em cima de cada quadro, a medida ideal em px.
  *
  * A foto sobe assim que é escolhida (encolhida no navegador, e de novo no
- * servidor), mas só vai pra página no "Salvar" da gaveta.
+ * servidor), mas só vai pra página no "Salvar" da gaveta. Pra onde ela sobe
+ * é de quem chama (`subir`): a página do produto, ou a home.
+ *
+ * Sem véu (`comVeu: false`) serve pra imagem que não é fundo com a cor da
+ * seção por cima: a arte de um slide do banner, a foto da última chamada.
  */
+
+/** Sobe a imagem já preparada no navegador (`uso` e `arquivo` no FormData). */
+export type SubirImagem = (dados: FormData) => Promise<ImagemQueSubiu>
 
 export type EstadoDoFundo = {
   computador: ImagemDoFundo | null
@@ -44,17 +52,25 @@ export type EstadoDoFundo = {
 const ROTULO: Record<Lado, string> = { computador: "Computador", celular: "Celular" }
 
 export function FundoDaSecao({
-  produtoId,
+  subir,
   medida,
   valor,
   mudar,
   aoSubir,
+  comVeu = true,
+  legenda = "Imagem de fundo (opcional)",
+  ajuda = "A foto fica atrás da seção, com a cor dela por cima. Cada quadro tem o formato da seção no site: o que fica fora dele não aparece.",
+  rodape = "JPG, PNG ou WebP. A loja guarda em WebP, no tamanho certo pra cada tela. Sem a do celular, ele usa a do computador, cortada no meio. Com mais texto na seção, ela cresce e o corte muda um pouco.",
 }: {
-  produtoId: string
+  subir: SubirImagem
   medida: MedidaDoFundo
   valor: EstadoDoFundo
   mudar: Dispatch<SetStateAction<EstadoDoFundo>>
   aoSubir: (subindo: boolean) => void
+  comVeu?: boolean
+  legenda?: string
+  ajuda?: ReactNode
+  rodape?: ReactNode
 }) {
   const id = useId()
   const [subindo, setSubindo] = useState<Record<Lado, boolean>>({
@@ -65,22 +81,26 @@ export function FundoDaSecao({
 
   const estilo = {
     "--rgb": RGB_DO_VEU[medida.cor],
-    "--veu": valor.computador ? valor.veu : 0,
+    "--veu": comVeu && valor.computador ? valor.veu : 0,
   } as CSSProperties
 
   return (
-    <fieldset className="campo fundo-form" data-cor={medida.cor} style={estilo}>
-      <legend className="campo__rot">Imagem de fundo (opcional)</legend>
-      <p className="campo__ajuda fundo-form__ajuda">
-        A foto fica atrás da seção, com a cor dela por cima. Cada quadro tem o formato da seção no
-        site: o que fica fora dele não aparece.
-      </p>
+    <fieldset
+      className="campo fundo-form"
+      data-cor={medida.cor}
+      data-sem-veu={comVeu ? undefined : ""}
+      data-mostra={medida.mostra}
+      style={estilo}
+    >
+      <legend className="campo__rot">{legenda}</legend>
+      <p className="campo__ajuda fundo-form__ajuda">{ajuda}</p>
       <div className="fundo-form__lados">
         {(["computador", "celular"] as const).map((lado) => (
           <UmLado
             key={lado}
             lado={lado}
-            produtoId={produtoId}
+            subir={subir}
+            comAmostra={comVeu}
             medida={medida}
             imagem={valor[lado]}
             desligado={lado === "celular" && !valor.computador}
@@ -98,7 +118,7 @@ export function FundoDaSecao({
           />
         ))}
       </div>
-      {valor.computador ? (
+      {comVeu && valor.computador ? (
         <>
           <label className="veu" htmlFor={`${id}-veu`}>
             Véu <b>{valor.veu}%</b>{" "}
@@ -119,18 +139,15 @@ export function FundoDaSecao({
           />
         </>
       ) : null}
-      <p className="campo__ajuda">
-        JPG, PNG ou WebP. A loja guarda em WebP, no tamanho certo pra cada tela. Sem a do celular,
-        ele usa a do computador, cortada no meio. Com mais texto na seção, ela cresce e o corte muda
-        um pouco.
-      </p>
+      <p className="campo__ajuda">{rodape}</p>
     </fieldset>
   )
 }
 
 function UmLado({
   lado,
-  produtoId,
+  subir,
+  comAmostra,
   medida,
   imagem,
   desligado,
@@ -140,7 +157,8 @@ function UmLado({
   tirar,
 }: {
   lado: Lado
-  produtoId: string
+  subir: SubirImagem
+  comAmostra: boolean
   medida: MedidaDoFundo
   imagem: ImagemDoFundo | null
   desligado: boolean
@@ -174,7 +192,7 @@ function UmLado({
           pronta.arquivo,
           pronta.arquivo.type === "image/webp" ? "f.webp" : "f.jpg"
         )
-        const r = await subirImagem(produtoId, dados)
+        const r = await subir(dados)
         if (!r.ok) return setErro(r.texto)
         trocar({ url: r.url, largura: r.largura, altura: r.altura, bytes: r.bytes })
       } catch {
@@ -224,9 +242,11 @@ function UmLado({
                 })
               }
             />
-            <span className="slot__amostra" aria-hidden="true">
-              Aa
-            </span>
+            {comAmostra ? (
+              <span className="slot__amostra" aria-hidden="true">
+                Aa
+              </span>
+            ) : null}
           </div>
         ) : (
           <label

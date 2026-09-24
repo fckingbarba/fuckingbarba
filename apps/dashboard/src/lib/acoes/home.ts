@@ -5,8 +5,8 @@ import { redirect } from "next/navigation"
 import type { Valores } from "@/lib/formulario"
 import type { IdDaSecaoDaHome } from "@/lib/home"
 import { medusa, type Resposta } from "@/lib/medusa"
-import type { Resultado } from "@/lib/produtos"
-import type { MudancaNaOrdem } from "@/lib/acoes/produtos"
+import type { Fundo, Resultado } from "@/lib/produtos"
+import type { ImagemQueSubiu, MudancaNaOrdem } from "@/lib/acoes/produtos"
 
 /**
  * AS AÇÕES DA HOME — o texto de uma seção, ligar/desligar e a ordem (tudo no
@@ -26,7 +26,11 @@ const SEM_PAPEL = "O layout da home é do marketing e do dono."
 const NO_RASCUNHO = "No rascunho — vai pro site quando alguém apertar “Publicar”"
 
 async function chamar(acao: string, corpo: unknown): Promise<Resposta> {
-  const r = await medusa(`/dashboard/home/${acao}`, { token: "sessao", corpo, tempoLimite: 20_000 })
+  const r = await medusa(`/dashboard/home/${acao}`, {
+    token: "sessao",
+    corpo,
+    tempoLimite: acao === "imagens" ? 60_000 : 20_000,
+  })
   if (r.status === 401)
     redirect(`/sair?motivo=${r.corpo.message === "fora_da_equipe" ? "fora" : "expirou"}`)
   return r
@@ -45,9 +49,10 @@ function comum(r: Resposta): Resultado | null {
 
 export async function salvarSecaoDaHome(
   secao: IdDaSecaoDaHome,
-  valores: Valores
+  valores: Valores,
+  fundo?: Fundo | null
 ): Promise<Resultado> {
-  const r = await chamar("secao", { secao, valores })
+  const r = await chamar("secao", { secao, valores, ...(fundo !== undefined ? { fundo } : {}) })
   const erro = comum(r)
   if (erro) return erro
   if (r.status === 422 && Array.isArray(r.corpo.faltando))
@@ -55,6 +60,16 @@ export async function salvarSecaoDaHome(
       ok: false,
       texto: "Falta preencher o que está marcado.",
       faltando: (r.corpo.faltando as unknown[]).filter((f): f is string => typeof f === "string"),
+    }
+  if (r.status === 400 && r.corpo.message === "fundo_invalido")
+    return {
+      ok: false,
+      texto: "A imagem de fundo não veio do armazenamento da loja. Escolha a foto de novo.",
+    }
+  if (r.status === 400 && r.corpo.message === "imagem_invalida")
+    return {
+      ok: false,
+      texto: "Uma das imagens não veio do armazenamento da loja. Escolha de novo.",
     }
   if (r.status !== 200) return { ok: false, texto: GENERICO }
   revalidatePath("/home")
@@ -103,4 +118,37 @@ export async function desfazerHome(): Promise<Resultado> {
   if (r.status !== 200 && r.status !== 409) return { ok: false, texto: GENERICO }
   revalidatePath("/home")
   return { ok: true, texto: "Pronto — o painel voltou a mostrar a home que está no site" }
+}
+
+/** O lado da imagem no backend (`UsoDaImagem`, em `apps/backend/src/lib/imagens.ts`). */
+const USO_NO_BACKEND: Record<string, string> = {
+  computador: "fundo-computador",
+  celular: "fundo-celular",
+}
+
+/**
+ * Sobe uma imagem da home — já preparada no navegador — e devolve o
+ * endereço: o fundo de uma seção, a arte de um slide, a foto da última
+ * chamada. Não grava nada: isso é o "Salvar" da gaveta.
+ */
+export async function subirImagemDaHome(dados: FormData): Promise<ImagemQueSubiu> {
+  const uso = dados.get("uso")
+  const arquivo = dados.get("arquivo")
+  if (typeof uso !== "string" || !(uso in USO_NO_BACKEND) || !(arquivo instanceof Blob))
+    return { ok: false, texto: "Escolha a foto de novo." }
+  const base64 = Buffer.from(await arquivo.arrayBuffer()).toString("base64")
+  const r = await chamar("imagens", { uso: USO_NO_BACKEND[uso], arquivo: base64 })
+  const erro = comum(r)
+  if (erro) return { ok: false, texto: erro.texto }
+  if (r.status === 400 && typeof r.corpo.texto === "string")
+    return { ok: false, texto: r.corpo.texto }
+  const c = r.corpo
+  if (r.status !== 200 || typeof c.url !== "string") return { ok: false, texto: GENERICO }
+  return {
+    ok: true,
+    url: c.url,
+    largura: Number(c.largura),
+    altura: Number(c.altura),
+    bytes: Number(c.bytes),
+  }
 }

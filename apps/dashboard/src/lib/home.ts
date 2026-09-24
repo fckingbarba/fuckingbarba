@@ -1,5 +1,5 @@
 import type { Campo } from "@/lib/formulario"
-import type { LinhaDoHistorico, NoCatalogo } from "@/lib/produtos"
+import type { Fundo, LinhaDoHistorico, MedidaDoFundo, NoCatalogo } from "@/lib/produtos"
 
 /**
  * A HOME, do lado do painel — o formato da resposta de `GET /dashboard/home`,
@@ -41,6 +41,9 @@ export type SecaoDaHome = {
   propria: boolean
   /** Mudou no rascunho e ainda não foi pro site. */
   mudou: boolean
+  /** A foto de fundo, no rascunho, nas seções que aceitam. */
+  fundo: Fundo | null
+  aceitaFundo: boolean
 }
 
 /** O que está esperando o "Publicar": as seções que mudaram, e se a ordem mudou. */
@@ -79,31 +82,113 @@ export type DefinicaoDaSecaoDaHome = {
 
 const TITULO: Campo = { tipo: "texto", c: "titulo", rot: "Título" }
 
+/**
+ * A ARTE DE UM SLIDE DO BANNER — a mesma proporção dos banners da loja na
+ * Nuvemshop (1920 × 700 no computador, 4 × 5 no celular), pra servir a arte
+ * que já existe. A loja mostra a arte inteira, na proporção dela
+ * (`apps/loja/src/components/home/slides-do-banner.tsx`): outra proporção
+ * ganha faixa branca, e o painel avisa.
+ */
+const MEDIDA_DA_ARTE: MedidaDoFundo = {
+  cor: "papel",
+  computador: [1920, 700],
+  celular: [1080, 1350],
+  // A arte de celular da Nuvemshop tem 800 de largura: serve (é a de um celular de 390 a 2x).
+  minimo: { celular: 780 },
+  mostra: "inteira",
+}
+
+/**
+ * AS FOTOS DE FUNDO DAS SEÇÕES DA HOME, e a foto da última chamada — a caixa
+ * de cada seção na loja, medida no navegador com o texto e o catálogo de
+ * hoje (24/09): o computador numa tela de 1440 a 2x, o celular numa de 390 a
+ * 3x (a mesma conta das seções da página do produto, em `lib/produtos.ts`).
+ * A vitrine cresce com o catálogo, e o corte dela muda junto.
+ */
+export const FUNDOS_DA_HOME: Partial<Record<IdDaSecaoDaHome, MedidaDoFundo>> = {
+  "home.colecao": { cor: "papel", computador: [2880, 1503], celular: [1170, 2136] },
+  "home.hero": { cor: "escuro", computador: [2880, 996], celular: [1170, 1743] },
+  "home.alta-performance": { cor: "menta", computador: [2880, 939], celular: [1170, 2867] },
+  "home.vitrine": { cor: "papel", computador: [2880, 2462], celular: [1170, 4108] },
+  "home.sobre": { cor: "menta", computador: [2880, 1049], celular: [1170, 2710] },
+}
+
+const FOTO_DA_ULTIMA_CHAMADA: MedidaDoFundo = {
+  cor: "escuro",
+  computador: [2880, 984],
+  celular: [1170, 1184],
+}
+
 export const SECOES_DA_HOME: Record<IdDaSecaoDaHome, DefinicaoDaSecaoDaHome> = {
   "home.banner": {
     nome: "Banner principal",
-    descricao: "A peça grande do topo: a campanha da vez, com o preço e a foto do produto.",
+    descricao: "A peça grande do topo. Até 5 slides, que passam sozinhos.",
     campos: [
       {
         tipo: "nota",
         texto:
-          "É a primeira coisa que aparece, e o que o Google mede primeiro. O preço e a foto saem do produto escolhido: mudou o preço, o banner muda junto. Produto sem foto, sem preço ou fora do site tira o banner da página.",
+          "O primeiro slide é o que aparece primeiro — e o que o Google mede. Com mais de um, a loja mostra as bolinhas e as setas pra trocar, e para de passar sozinho quando a pessoa mexe.",
       },
       {
-        tipo: "texto",
-        c: "chapeu",
-        rot: "Chapéu",
-        exemplo: "Semana do Cliente",
-        ajuda: "A linha pequena em cima do título.",
+        tipo: "grupo",
+        c: "slides",
+        rot: "Slides, nesta ordem",
+        item: "Slide",
+        rotItem: "titulo",
+        max: 5,
+        campos: [
+          {
+            tipo: "imagens",
+            c: "imagem",
+            rot: "Arte do slide (opcional)",
+            medida: MEDIDA_DA_ARTE,
+            ajuda:
+              "Com arte, ela ocupa o banner inteiro, como na Nuvemshop: o texto vai na própria imagem, e o slide inteiro leva pro produto. Sem arte, a loja monta o banner de sempre, com o chapéu, o título, o preço e a foto do produto.",
+            rodape:
+              "JPG, PNG ou WebP. A loja mostra a arte inteira, sem cortar. Sem a do celular, ele mostra a do computador, pequena.",
+          },
+          {
+            tipo: "texto",
+            c: "titulo",
+            rot: "Título",
+            exemplo: "Nosso kit best seller",
+            ajuda:
+              "Com arte, vira a descrição da imagem — pra quem não enxerga e pro Google. Escreva o que a arte diz.",
+          },
+          {
+            tipo: "texto",
+            c: "chapeu",
+            rot: "Chapéu (sem arte)",
+            exemplo: "Semana do Cliente",
+            ajuda: "A linha pequena em cima do título.",
+          },
+          {
+            tipo: "texto",
+            c: "chamada",
+            rot: "Texto do botão (sem arte)",
+            meia: true,
+            exemplo: "Comprar agora",
+          },
+          {
+            tipo: "produto",
+            c: "produto",
+            rot: "Leva pro produto",
+            meia: true,
+            vazio: "Todos os produtos",
+            ajuda: "Sem arte, é dele o preço e a foto, e o botão põe ele na sacola.",
+          },
+        ],
       },
-      TITULO,
-      { tipo: "texto", c: "chamada", rot: "Texto do botão", meia: true, exemplo: "Comprar agora" },
       {
-        tipo: "produto",
-        c: "produto",
-        rot: "Produto da campanha",
-        meia: true,
-        ajuda: "O botão põe ele na sacola.",
+        tipo: "opcoes",
+        c: "tempo",
+        rot: "Passa pro próximo sozinho",
+        opcoes: [
+          ["0", "Não — só quando a pessoa troca"],
+          ["5", "A cada 5 segundos"],
+          ["7", "A cada 7 segundos"],
+          ["10", "A cada 10 segundos"],
+        ],
       },
     ],
   },
@@ -316,9 +401,17 @@ export const SECOES_DA_HOME: Record<IdDaSecaoDaHome, DefinicaoDaSecaoDaHome> = {
       { tipo: "area", c: "titulo", rot: "Título", linhas: 2 },
       { tipo: "texto", c: "chamada", rot: "Texto do botão", exemplo: "Ver todos os produtos" },
       {
+        tipo: "imagens",
+        c: "imagem",
+        rot: "Foto da faixa (opcional)",
+        medida: FOTO_DA_ULTIMA_CHAMADA,
+        ajuda:
+          "A foto fica atrás do texto, com o degradê escuro por cima — é ele que garante a leitura. O assunto da foto vai na direita: a esquerda fica quase preta.",
+      },
+      {
         tipo: "produto",
         c: "fotoDe",
-        rot: "A foto do fundo: a do produto",
+        rot: "Sem foto própria, a do produto",
         vazio: "Sem foto (fica no escuro)",
       },
       {
@@ -346,7 +439,15 @@ export function fraseDoHistoricoDaHome(h: LinhaDoHistorico): { titulo: string; d
       : "uma seção"
   switch (h.acao) {
     case "editou-secao-da-home":
-      return { titulo: `${h.quem} editou ${secao}`, detalhe: "no rascunho" }
+      return {
+        titulo: `${h.quem} editou ${secao}`,
+        detalhe:
+          h.fundo === true
+            ? "no rascunho, com imagem de fundo"
+            : h.fundo === false
+              ? "no rascunho, sem imagem de fundo"
+              : "no rascunho",
+      }
     case "mudou-secao-da-home":
       return {
         titulo: `${h.quem} ${MUDOU[h.mudanca ?? ""] ?? "mexeu em"} ${secao}`,

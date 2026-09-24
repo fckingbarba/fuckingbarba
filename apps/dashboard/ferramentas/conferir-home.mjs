@@ -22,11 +22,16 @@
  * │   diferente da do painel;                                              │
  * │ • a faixa contando errado o que está esperando; o "Desfazer" que não   │
  * │   desfaz; o "Voltar ao texto original" que não volta;                  │
+ * │ • a foto de fundo, a arte do banner e a foto da última chamada que    │
+ * │   não chegam na loja, ou chegam antes do "Publicar"; o carrossel que  │
+ * │   baixa a arte do segundo slide antes de ele aparecer; arte sem a     │
+ * │   descrição;                                                           │
  * │ • a mudança sem linha no histórico; rolagem de lado no celular; erro   │
  * │   no console.                                                          │
  * └────────────────────────────────────────────────────────────────────────┘
  */
 
+import { createRequire } from "node:module"
 import {
   abrirNavegador,
   caixaDoResend,
@@ -48,6 +53,8 @@ import {
   subirResend,
   titulo,
 } from "./pecas.mjs"
+
+const sharp = createRequire(new URL("../../backend/package.json", import.meta.url))("sharp")
 
 exigirAmbiente()
 const LOJA = (process.env.LOJA ?? "http://localhost:3000").replace(/\/+$/, "")
@@ -121,6 +128,25 @@ async function avisarALoja() {
     headers: { "content-type": "application/json", "x-revalidar-segredo": SEGREDO },
     body: JSON.stringify({ tags: ["home", "layout:home"], perfil: "seconds" }),
   }).catch(() => {})
+}
+
+/** Uma imagem de teste: listras, pra ter conteúdo. */
+async function foto(largura, altura, formato) {
+  const listras = Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${largura}" height="${altura}"><rect width="100%" height="100%" fill="#2a6f5a"/><rect width="50%" height="100%" fill="#ffd84d"/></svg>`
+  )
+  const s = sharp(listras)
+  return (formato === "jpeg" ? s.jpeg({ quality: 90 }) : s.png()).toBuffer()
+}
+
+/** Sobe um lado de um quadro de imagem (fundo ou campo de imagens) e espera a prévia. */
+async function subir(quadro, lado, buffer, nome) {
+  await quadro.locator(`input[data-subir="${lado}"]`).setInputFiles({
+    name: nome,
+    mimeType: nome.endsWith(".png") ? "image/png" : "image/jpeg",
+    buffer,
+  })
+  await quadro.locator(`.slot--${lado} .slot__previa img`).waitFor({ timeout: 60000 })
 }
 
 /** Aperta e devolve a frase do aviso de baixo — o novo, deste clique. */
@@ -337,14 +363,17 @@ try {
     await pagina.locator('[data-editar="home.banner"]').click()
     const form = pagina.locator('form[data-editor="home.banner"]')
     await form.waitFor()
-    await form.locator('[data-campo="titulo"]').fill("")
+    await form.locator('[data-campo="slides.0.titulo"]').fill("")
     await form.locator('button[type="submit"]').click()
     await form.locator(".gaveta__erro").waitFor()
     ok(
-      /Falta preencher: Título/.test(
+      /Falta preencher: Slide 1: Título/.test(
         semEspaco(await form.locator(".gaveta__erro").textContent())
-      ) && (await form.locator('[data-campo="titulo"]').getAttribute("aria-invalid")) === "true",
-      "diz o que falta, e marca o campo"
+      ) &&
+        (await form.locator('[data-campo="slides.0.titulo"]').getAttribute("aria-invalid")) ===
+          "true",
+      "diz o que falta, e marca o campo",
+      semEspaco(await form.locator(".gaveta__erro").textContent())
     )
     await form.locator("button", { hasText: "Cancelar" }).click()
     const um = { ...antes.conteudo.altaPerformance.produtos[0] }
@@ -482,6 +511,172 @@ try {
     ok(html.includes(VITRINE), "e o site não mudou")
   }
 
+  /* ── as imagens ───────────────────────────────────────────────────────── */
+
+  titulo("As imagens: o fundo, o carrossel e a última chamada")
+  {
+    const ARTE = `Semana do Cliente ${RODADA}: todo site por R$ 79`
+    await abrirHome()
+
+    await pagina.locator('[data-editar="home.hero"]').click()
+    const hero = pagina.locator('form[data-editor="home.hero"]')
+    await hero.waitFor()
+    const fundo = hero.locator(".fundo-form").last()
+    ok(
+      semEspaco(await fundo.locator('[data-ideal="computador"]').textContent()) ===
+        "2880 × 996 px" &&
+        semEspaco(await fundo.locator('[data-ideal="celular"]').textContent()) === "1170 × 1743 px",
+      "o fundo do bloco escuro: a medida ideal, a da seção na loja"
+    )
+    await subir(fundo, "computador", await foto(2880, 996, "png"), "fundo.png")
+    await subir(fundo, "celular", await foto(1170, 1743, "jpeg"), "celular.jpg")
+    const r1 = await apertar(pagina, hero.locator('button[type="submit"]'))
+    ok(!r1.erro && /No rascunho/.test(r1.texto), "o fundo, salvo no rascunho", r1.texto)
+
+    await pagina.locator('[data-editar="home.banner"]').click()
+    const banner = pagina.locator('form[data-editor="home.banner"]')
+    await banner.waitFor()
+    await banner.locator('[data-mais="slides"]').click()
+    const arte = banner.locator('[data-imagens="slides.1.imagem"]')
+    await arte.waitFor()
+    ok(
+      semEspaco(await arte.locator('[data-ideal="computador"]').textContent()) ===
+        "1920 × 700 px" &&
+        semEspaco(await arte.locator('[data-ideal="celular"]').textContent()) === "1080 × 1350 px",
+      "a arte do slide: as medidas da arte da Nuvemshop"
+    )
+    await subir(arte, "computador", await foto(1920, 700, "png"), "arte.png")
+    await subir(arte, "celular", await foto(1080, 1350, "jpeg"), "arte-celular.jpg")
+    await banner.locator('button[type="submit"]').click()
+    await banner.locator(".gaveta__erro").waitFor()
+    ok(
+      /Slide 2: Título/.test(semEspaco(await banner.locator(".gaveta__erro").textContent())),
+      "arte sem título: diz que falta a descrição (e só ela)",
+      semEspaco(await banner.locator(".gaveta__erro").textContent())
+    )
+    await banner.locator('[data-campo="slides.1.titulo"]').fill(ARTE)
+    await banner.locator('[data-campo="tempo"]').selectOption("5")
+    const r2 = await apertar(pagina, banner.locator('button[type="submit"]'))
+    ok(!r2.erro, "o carrossel, salvo no rascunho", r2.texto)
+    await pagina.waitForFunction(() =>
+      /2 slides/.test(
+        document.querySelector('.secao:has([data-editar="home.banner"])')?.textContent ?? ""
+      )
+    )
+    ok(
+      /com imagem/.test(semEspaco(await seloDe("home.banner").textContent())) &&
+        /com imagem/.test(semEspaco(await seloDe("home.hero").textContent())),
+      "a lista diz: 2 slides, com imagem"
+    )
+
+    await pagina.locator('[data-editar="home.fechamento"]').click()
+    const fech = pagina.locator('form[data-editor="home.fechamento"]')
+    await fech.waitFor()
+    const foto3 = fech.locator('[data-imagens="imagem"]')
+    ok(
+      semEspaco(await foto3.locator('[data-ideal="computador"]').textContent()) === "2880 × 984 px",
+      "a foto da última chamada: a medida da faixa na loja"
+    )
+    await subir(foto3, "computador", await foto(2880, 984, "png"), "faixa.png")
+    const r3 = await apertar(pagina, fech.locator('button[type="submit"]'))
+    ok(!r3.erro, "a foto da última chamada, salva no rascunho", r3.texto)
+
+    await esperar(2500)
+    html = await paginaDaLoja()
+    ok(
+      !html.includes("fundo--imagem") &&
+        !html.includes("banner-carrossel") &&
+        !html.includes('<picture class="fechamento__foto"'),
+      "a loja ainda não mudou: as imagens estão no rascunho"
+    )
+
+    const p = await apertar(pagina, "[data-faixa-home] [data-publicar-home]")
+    ok(!p.erro && /Publicada/.test(p.texto), "publicada", p.texto)
+    html = await paginaDaLoja(
+      (h) =>
+        h.includes("banner-carrossel") &&
+        h.includes("fundo--imagem") &&
+        h.includes('<picture class="fechamento__foto"')
+    )
+    ok(
+      /<div class="fundo fundo--imagem"[^>]*>\s*<picture class="fundo__imagem">[\s\S]*?<\/picture>\s*<section class="hero/.test(
+        html
+      ),
+      "na loja: o bloco escuro com a foto de fundo, e a do celular"
+    )
+    const slides = html.split('class="banner-carrossel__slide"').slice(1)
+    ok(
+      slides.length === 2 &&
+        /class="banner"/.test(slides[0]) &&
+        /fetchpriority="high"/i.test(slides[0]) &&
+        /class="banner-arte"/.test(slides[1]) &&
+        !/<img/.test(slides[1].split("banner-carrossel__seta")[0]),
+      "na loja: o carrossel — o primeiro slide com a foto na frente da fila, a arte do segundo ainda sem baixar"
+    )
+    ok(
+      html.includes('<picture class="fechamento__foto"'),
+      "na loja: a foto própria da última chamada"
+    )
+
+    const vitrine = await novaAba({ width: 1280, height: 900 })
+    await vitrine.pagina.goto(`${LOJA}/`)
+    await hidratado(vitrine.pagina, ".banner-carrossel__ponto")
+    await vitrine.pagina.locator(".banner-carrossel__ponto").nth(1).click()
+    const segundo = vitrine.pagina.locator(".banner-carrossel__slide").nth(1)
+    await segundo.locator(".banner-arte img").waitFor({ timeout: 20000 })
+    await vitrine.pagina.waitForFunction(
+      () =>
+        (document.querySelectorAll(".banner-carrossel__slide")[1]?.querySelector("img")
+          ?.naturalWidth ?? 0) > 0,
+      null,
+      { timeout: 20000 }
+    )
+    // A rolagem é suave: a bolinha marca quando o slide encaixa, meio segundo depois.
+    await vitrine.pagina
+      .waitForFunction(
+        () =>
+          document.querySelectorAll(".banner-carrossel__ponto")[1]?.getAttribute("aria-current") ===
+          "true",
+        null,
+        { timeout: 5000 }
+      )
+      .catch(() => {})
+    const doCarrossel = {
+      atual: await vitrine.pagina
+        .locator(".banner-carrossel__ponto")
+        .nth(1)
+        .getAttribute("aria-current"),
+      alt: await segundo.locator(".banner-arte img").getAttribute("alt"),
+      celular: await segundo.locator('source[media="(max-width: 767px)"]').count(),
+      link: await segundo.locator("a").getAttribute("href"),
+    }
+    ok(
+      doCarrossel.atual === "true" &&
+        doCarrossel.alt === ARTE &&
+        doCarrossel.celular === 1 &&
+        doCarrossel.link === "/produtos",
+      "no navegador: a bolinha leva pro slide, a arte baixa aí, com a do celular e o link pra vitrine",
+      JSON.stringify(doCarrossel)
+    )
+    // O fundo fica DENTRO da seção: sem o CSS dos fundos na home, a foto vazava pra página inteira.
+    const caixas = await vitrine.pagina.evaluate(() => {
+      const f = document.querySelector(".fundo--imagem:has(> .hero)")
+      const foto = f?.querySelector(".fundo__imagem img")?.getBoundingClientRect()
+      const secao = f?.querySelector(".hero")?.getBoundingClientRect()
+      return foto && secao
+        ? { foto: [foto.top, foto.height], secao: [secao.top, secao.height] }
+        : null
+    })
+    ok(
+      caixas !== null &&
+        Math.abs(caixas.foto[0] - caixas.secao[0]) < 2 &&
+        Math.abs(caixas.foto[1] - caixas.secao[1]) < 2,
+      "no navegador: a foto de fundo fica dentro do bloco escuro, do tamanho dele",
+      JSON.stringify(caixas)
+    )
+    await vitrine.contexto.close()
+  }
+
   /* ── o histórico e o celular ──────────────────────────────────────────── */
 
   titulo("O que a equipe mudou")
@@ -496,7 +691,12 @@ try {
         tem("Marketing Teste desceu Carrossel de coleção") &&
         tem("Marketing Teste desligou Barra de vantagens") &&
         tem("Marketing Teste publicou a home") &&
-        tem("Marketing Teste desfez o rascunho"),
+        tem("Marketing Teste desfez o rascunho") &&
+        linhas.some(
+          (l) =>
+            l.includes("Marketing Teste editou Bloco escuro de marca") &&
+            l.includes("com imagem de fundo")
+        ),
       "cada mudança numa linha, com o nome de quem fez",
       linhas.slice(0, 6).join(" | ")
     )

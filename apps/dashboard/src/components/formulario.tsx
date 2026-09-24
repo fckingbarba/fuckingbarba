@@ -1,8 +1,13 @@
 "use client"
 
-import type { Dispatch, SetStateAction } from "react"
+import { useCallback, useEffect, useRef, type Dispatch, type SetStateAction } from "react"
 import { Icone } from "@/components/icones"
 import { CampoDeFoto, CampoDeVideo } from "@/components/produto/campos-de-midia"
+import {
+  FundoDaSecao,
+  type EstadoDoFundo,
+  type SubirImagem,
+} from "@/components/produto/fundo-da-secao"
 import {
   chaveDe,
   gravar,
@@ -10,9 +15,10 @@ import {
   ler,
   type Caminho,
   type Campo,
+  type ImagensDoCampo,
   type Valores,
 } from "@/lib/formulario"
-import type { NoCatalogo, VideoDaPdp } from "@/lib/produtos"
+import { VEU, type NoCatalogo, type VideoDaPdp } from "@/lib/produtos"
 
 /**
  * OS CAMPOS DE UMA SEÇÃO, na gaveta — o mesmo desenho pra página do produto
@@ -31,6 +37,8 @@ export type ContextoDoFormulario = {
   catalogo: NoCatalogo[]
   /** O produto da página: o "Este produto" dos seletores, e pra onde sobem foto e vídeo. */
   produto?: { id: string; handle: string; nome: string }
+  /** Pra onde sobe a imagem de um campo de imagens (a arte do banner, a foto da última chamada). */
+  subir?: SubirImagem
   mudar: Dispatch<SetStateAction<Valores>>
   /** O que focar depois do próximo desenho (o item que subiu, o que entrou). */
   focar: (seletor: string) => void
@@ -294,6 +302,46 @@ function UmCampo({
       />
     )
 
+  if (campo.tipo === "opcoes")
+    return (
+      <div className={`campo${campo.meia ? " campo--3" : ""}`}>
+        <label htmlFor={id}>{campo.rot}</label>
+        <select
+          id={id}
+          data-campo={chave}
+          value={typeof valor === "string" ? valor : ""}
+          aria-describedby={idAjuda}
+          onChange={(e) => mudar(e.target.value)}
+        >
+          {campo.opcoes.map(([v, rotulo]) => (
+            <option key={v} value={v}>
+              {rotulo}
+            </option>
+          ))}
+        </select>
+        {ajuda ? (
+          <p className="campo__ajuda" id={idAjuda}>
+            {ajuda}
+          </p>
+        ) : null}
+      </div>
+    )
+
+  if (campo.tipo === "imagens")
+    return ctx.subir ? (
+      <CampoDeImagens
+        campo={campo}
+        chave={chave}
+        valor={(valor ?? SEM_IMAGEM) as ImagensDoCampo}
+        // Sobre o valor que está no formulário AGORA: a foto termina de subir depois.
+        mudar={(f) =>
+          ctx.mudar((v) => gravar(v, caminho, f((ler(v, caminho) ?? SEM_IMAGEM) as ImagensDoCampo)))
+        }
+        subir={ctx.subir}
+        aoSubir={ctx.aoSubir}
+      />
+    ) : null
+
   // grupo
   const itens = Array.isArray(valor) ? (valor as Valores[]) : []
   const cheio = campo.max !== undefined && itens.length >= campo.max
@@ -435,5 +483,66 @@ function BotoesDoItem({
         <Icone nome="fechar" />
       </button>
     </span>
+  )
+}
+
+/**
+ * O campo de imagens: o mesmo quadro do fundo das seções (computador e
+ * celular, no formato que a loja mostra, com os avisos de tamanho), sem o
+ * véu — a arte de um slide e a foto da última chamada não levam a cor da
+ * seção por cima.
+ */
+const SEM_IMAGEM: ImagensDoCampo = { computador: null, celular: null }
+
+function CampoDeImagens({
+  campo,
+  chave,
+  valor,
+  mudar,
+  subir,
+  aoSubir,
+}: {
+  campo: Extract<Campo, { tipo: "imagens" }>
+  chave: string
+  valor: ImagensDoCampo
+  mudar: (f: (anterior: ImagensDoCampo) => ImagensDoCampo) => void
+  subir: SubirImagem
+  aoSubir: (delta: 1 | -1) => void
+}) {
+  const mudarEstado: Dispatch<SetStateAction<EstadoDoFundo>> = (f) =>
+    mudar((anterior) => {
+      const novo = typeof f === "function" ? f({ ...anterior, veu: VEU.padrao }) : f
+      return { computador: novo.computador, celular: novo.celular }
+    })
+
+  // O quadro avisa "subindo" a cada desenho; o formulário quer só a mudança (+1, e −1 no fim).
+  const subindo = useRef(false)
+  const avisar = useRef(aoSubir)
+  useEffect(() => {
+    avisar.current = aoSubir
+  })
+  const aoMudarSubida = useCallback((agora: boolean) => {
+    if (agora === subindo.current) return
+    subindo.current = agora
+    avisar.current(agora ? 1 : -1)
+  }, [])
+
+  return (
+    <div className="campo" data-imagens={chave}>
+      <FundoDaSecao
+        subir={subir}
+        medida={campo.medida}
+        valor={{ ...valor, veu: VEU.padrao }}
+        mudar={mudarEstado}
+        aoSubir={aoMudarSubida}
+        comVeu={false}
+        legenda={campo.rot}
+        ajuda={campo.ajuda ?? ""}
+        rodape={
+          campo.rodape ??
+          "JPG, PNG ou WebP. A loja guarda em WebP, no tamanho certo pra cada tela. Sem a do celular, ele usa a do computador."
+        }
+      />
+    </div>
   )
 }
