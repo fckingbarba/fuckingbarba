@@ -1250,8 +1250,40 @@ celular.
 
 Depois do deploy — **nada a fazer**.
 
-- [ ] **Parte 3:** o vídeo da história da marca no painel (hoje ele sobe no admin) e a "Prova
-      social" com os casos de antes e depois das páginas dos produtos.
+- [x] **Parte 3:** o vídeo da história da marca no painel (hoje ele sobe no admin) e a "Prova
+      social" com os casos de antes e depois das páginas dos produtos — logo abaixo.
+
+**Parte 3: o vídeo da história e a prova social — pronto em 24/09 (entrega 0080).**
+
+- **O vídeo da história da marca mudou pro painel.** Fica em Layout da home → Sobre a marca →
+  Editar, no campo "Vídeo da história". Ele sobe como o vídeo do modo de uso: dá pra arrastar, a
+  capa é um quadro do começo e o limite é de 50 MB. Vai pro rascunho e entra no site no
+  "Publicar", como o resto da home. Pode ser em pé ou deitado, que a seção se ajeita. Sem vídeo, a
+  seção mostra a foto do produto escolhido.
+- **O vídeo que está no ar vem sozinho.** O deploy leva pro painel o vídeo que foi subido no admin
+  (Configurações da loja → Home), no publicado e no rascunho. O site não muda, e o painel já abre
+  com ele. A tela do admin agora só avisa que o vídeo mora no painel.
+- **A "Prova social" da home mostra os casos das páginas dos produtos.** São os mesmos do "Antes e
+  depois" de cada produto, com a autorização por escrito. A home não tem lista própria: um caso
+  vale na página do produto e na home. Ela mostra até 8 casos, alternando os produtos. Cada cartão
+  leva pro produto que a pessoa usou e vem com a ressalva de que o resultado varia. **Sem caso
+  nenhum, a seção não aparece.**
+- No painel, a gaveta da Prova social mostra de onde vêm os casos: cada produto, com a foto do
+  "depois". A lista diz quantos casos há ("3 casos", "sem casos").
+- De quebra, no celular o cartão do antes e depois vazava pro lado quando o nome do produto era
+  comprido. Ele nunca tinha aparecido na loja; agora cabe na tela.
+
+Conferido pelo `conferir-home.mjs` (76 checagens). Entre elas: o vídeo antigo do admin não volta
+por baixo quando a home não tem vídeo, e o caso que sai do produto some da home. A migração foi
+rodada no banco local: trouxe o vídeo pro publicado e pro rascunho, e rodada de novo não mexeu em
+nada.
+
+Depois do deploy — **nada a configurar.** Pra testar, espere uns 10 minutos (o Railway sobe o
+backend novo):
+
+1. Painel → Layout da home → Sobre a marca → Editar. O vídeo de hoje já tem que estar lá.
+2. A Prova social só aparece no site quando algum produto tiver caso: Produtos → o produto → Antes e
+   depois. Depois de salvar o caso, a home mostra ele em segundos.
 
 ## Como seguir no Claude Code
 

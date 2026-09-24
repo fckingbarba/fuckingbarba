@@ -735,6 +735,25 @@ na gaveta. Quadro novo de subir arquivo: use o `useArrastar`. Os conferidores so
 `arrastarArquivos` (`ferramentas/pecas.mjs`: o DataTransfer montado na página, e o dragenter, o
 dragover e o drop pelo `dispatchEvent`).
 
+**O vídeo da história e a prova social** (fase 4, parte 3, entrega 0080). O vídeo da história da
+marca é o `sobre.video` da home (`VideoDaHistoria`: url, largura e altura; `poster` e `duracao`
+quando subiu pelo painel). Sobe como o vídeo do produto: o bilhete vem de
+`POST /dashboard/home/videos/envio`, com destino `"home"` no bilhete de `lib/videos.ts`, e o
+`PUT /painel-envio/:bilhete` grava `home-video.<ext>`. A capa vai em `POST /dashboard/home/imagens`
+com `uso: "poster"`. No painel, o `CampoDeVideo` sobe pro `DestinoDoVideo` do contexto do formulário:
+`videoDoProduto(id)` na página do produto, o da home na gaveta dela. O campo `video` tem `uso`:
+"uso" é deitado, "historia" tanto faz. O `GET /store/home` manda sempre o `sobre.video` (o vídeo, ou
+`null`). Sem a chave, o Medusa é de antes, e a loja usa o `configuracoes().home.video`, o do admin.
+A migração `migration-scripts/video-da-historia-no-painel.ts` roda uma vez no `db:migrate` e copia o
+vídeo do admin pro publicado e pro rascunho (`comVideoDoAdmin`, com testes). O
+`fb_configuracoes.home.video` ficou lá, parado: a tela do admin só aponta pro painel e devolve o
+`home` como leu. A prova social lê os casos dos produtos com `casosDoProduto`
+(`conteudo/produto.ts`), o mesmo da PDP, com a reserva do `conteudo/depoimentos.ts`. Os casos saem
+da lista de produtos, que já traz o `metadata`: até 8, alternando os produtos. A ressalva é a
+`RESSALVA_DO_ANTES_E_DEPOIS`. Salvar a página de um produto derruba a etiqueta `produtos`, e com ela
+a home. O painel recebe `provas` no `GET /dashboard/home` (`provasDaHome`: os produtos no site com
+caso) e mostra na gaveta. O número 8 está nos dois lados (`CASOS_NA_HOME`).
+
 O CSS do painel segue o do protótipo, uma regra por linha, escrito à mão: o prettier fica nos
 `.ts`/`.tsx`/`.mjs` — rodado nos `.css` do painel, ele reescreve o arquivo inteiro. A gaveta
 (`components/gaveta.tsx`) mora no `<body>`, por portal: aberta de dentro de um `.bloco`, ela
