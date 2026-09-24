@@ -68,7 +68,8 @@ export function Compra({
   const frases = frasesDoFrete(politica)
   const [juntos, setJuntos] = useState<Set<string>>(new Set())
   const [unidades, setUnidades] = useState(1)
-  const [recado, setRecado] = useState<{ tipo: "ok" | "erro"; texto: string } | null>(null)
+  /** O que deu errado no clique. Dando certo, a gaveta abre e mostra — a página não repete. */
+  const [recado, setRecado] = useState<string | null>(null)
   const [enviando, comecar] = useTransition()
   const botao = useRef<HTMLButtonElement>(null)
 
@@ -158,15 +159,15 @@ export function Compra({
         : await adicionar(base.varianteId, unidades)
 
       if (!r.ok) {
-        setRecado({ tipo: "erro", texto: r.erro })
+        setRecado(r.erro)
         return
       }
-      setRecado({
-        tipo: "ok",
-        texto: marcados.length
-          ? `Na sacola, com ${marcados.length === 1 ? "o item" : "os itens"} que combinam.`
-          : "Na sacola.",
-      })
+      /*
+        Deu certo: nada escrito aqui. A gaveta que abre já mostra o que foi
+        pra sacola, e o "Na sacola, com os itens que combinam." embaixo do
+        botão só ocupava espaço (pedido da loja em 24/09) — como a rotina e o
+        "Comprar" da vitrine, o recado da dobra só fala quando dá errado.
+      */
       /*
         O "leve junto" CONTINUA MARCADO depois do clique, como as unidades
         escolhidas continuam na tela. Desmarcar na hora em que a sacola abre
@@ -363,11 +364,11 @@ export function Compra({
         junto com o texto costuma não ser anunciada.
       */}
       <p
-        className={recado ? `compra__recado compra__recado--${recado.tipo}` : "compra__recado"}
+        className={recado ? "compra__recado compra__recado--erro" : "compra__recado"}
         role="status"
         aria-live="polite"
       >
-        {recado?.texto ?? ""}
+        {recado ?? ""}
       </p>
 
       <Escassez unidades={estoque} />

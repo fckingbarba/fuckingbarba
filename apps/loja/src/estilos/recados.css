@@ -9,9 +9,9 @@
   São cinco lugares, com o mesmo desenho: embaixo do botão da dobra
   (`compra__recado`), na soma da rotina (`rotina__recado`), no pé da gaveta
   (`sacolinha__aviso`), embaixo do "Comprar" da vitrine (`comprar__recado`)
-  e no "leva junto" da gaveta (`sacolinha__leve-recado`). O da rotina e os
-  dois últimos só falam quando dá errado — dando certo, a gaveta abre e a
-  sacola já mostra. Cada um leva o nome do próprio bloco em vez de
+  e no "leva junto" da gaveta (`sacolinha__leve-recado`). O da dobra, o da
+  rotina e os dois últimos só falam quando dá errado — dando certo, a gaveta
+  abre e a sacola já mostra (o "Na sacola." da dobra saiu em 24/09). Cada um leva o nome do próprio bloco em vez de
   reaproveitar a classe do vizinho — foi o que quebrou um teste que procurava
   "o recado" e achou dois.
 
@@ -55,12 +55,6 @@
   padding: 8px 11px;
   border: 2px solid var(--color-tinta);
   clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
-}
-
-/* Deu certo: menta, a cor que a marca usa pra confirmar. (A rotina não diz
-   "deu certo": a gaveta que abre já diz.) */
-.compra__recado--ok {
-  background: var(--color-menta);
 }
 
 /*
