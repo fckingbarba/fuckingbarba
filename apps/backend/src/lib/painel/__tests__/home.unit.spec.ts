@@ -5,6 +5,7 @@ import {
   mudarOrdemNaHome,
   ordemDaHome,
   pendentesDaHome,
+  provasDaHome,
   publicarHome,
   salvarSecaoDaHome,
   secoesDaHome,
@@ -146,5 +147,38 @@ describe("a foto de fundo, no rascunho", () => {
     )
     expect(banner.rascunho?.fundos).toEqual({})
     expect(secoesDaHome(HOME_VAZIA).find((s) => s.id === "home.banner")?.aceitaFundo).toBe(false)
+  })
+})
+
+describe("a prova social: os casos dos produtos", () => {
+  const FOTO = "http://localhost:9000/static/1-caso.webp"
+  const caso = (nome: string, extra: Record<string, unknown> = {}) => ({
+    nome,
+    tempo: "90 dias",
+    antes: FOTO,
+    depois: `${FOTO}?depois`,
+    autorizou: true,
+    ...extra,
+  })
+  const comCasos = (casos: unknown[]) => ({
+    fb_pdp: { conteudo: { antesDepois: { casos } } },
+  })
+
+  it("só os produtos com caso autorizado, com o nome, o tempo e a foto do depois", () => {
+    const provas = provasDaHome([
+      { id: "prod_1", nome: "Óleo", metadata: comCasos([caso("André"), caso("Bruno")]) },
+      { id: "prod_2", nome: "Balm", metadata: comCasos([caso("Caio", { autorizou: false })]) },
+      { id: "prod_3", nome: "Pomada", metadata: null },
+    ])
+    expect(provas).toEqual([
+      {
+        id: "prod_1",
+        nome: "Óleo",
+        casos: [
+          { nome: "André", tempo: "90 dias", foto: `${FOTO}?depois` },
+          { nome: "Bruno", tempo: "90 dias", foto: `${FOTO}?depois` },
+        ],
+      },
+    ])
   })
 })
