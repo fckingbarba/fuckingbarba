@@ -261,6 +261,9 @@ export function Pagamento({ checkout, provedores, bump, atendimento, aoSalvar, .
               a pessoa escolhe é a FORMA (Pix ou cartão); o provedor é um só
               pros dois. */}
           <input type="hidden" name="provedor" value={provedor?.id ?? ""} />
+          {/* O total que esta tela mostra no botão: a ação cobra só se ainda
+              for o do carrinho — ver "O TOTAL QUE A PESSOA VIU" em `finalizar`. */}
+          <input type="hidden" name="total_visto" value={String(checkout.total)} />
 
           {cobra || !CHECKOUT_ABERTO ? (
             <Formas

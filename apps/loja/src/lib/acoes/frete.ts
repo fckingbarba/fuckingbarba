@@ -3,7 +3,7 @@
 import type { HttpTypes } from "@medusajs/types"
 import { buscarCep, limparCep } from "@/lib/cep"
 import { CAMPOS_CARRINHO, lerCarrinho, paraVisivel, type CarrinhoVisivel } from "@/lib/carrinho"
-import { lerEndereco, montarEndereco } from "@/lib/endereco"
+import { comCepNovo, lerEndereco, montarEndereco } from "@/lib/endereco"
 import { semEntregaEmpatada } from "@/lib/frete"
 import { cliente } from "@/lib/medusa"
 
@@ -279,14 +279,8 @@ export async function calcularNaSacola(cepDigitado: string): Promise<FreteDaSaco
   */
   let comCep: Carrinho
   try {
-    const achado = await buscarCep(cep)
-    const entrega = {
-      ...lerEndereco(atual.shipping_address),
-      cep,
-      ...(achado
-        ? { cidade: achado.cidade, uf: achado.uf, rua: achado.logradouro, bairro: achado.bairro }
-        : {}),
-    }
+    // CEP novo apaga o número e o complemento da rua antiga — ver `comCepNovo`.
+    const entrega = comCepNovo(lerEndereco(atual.shipping_address), cep, await buscarCep(cep))
     const { cart } = await sdk.store.cart.update(
       atual.id,
       { shipping_address: montarEndereco(entrega) },
