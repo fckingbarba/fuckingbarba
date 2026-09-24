@@ -29,7 +29,8 @@
 
 export const CHAVE_NO_METADATA = "fb_pdp"
 
-export type PassoDoTempo = { quando: string; titulo: string; texto: string }
+/** `alvo`: a etapa que a página destaca como o marco — uma só. */
+export type PassoDoTempo = { quando: string; titulo: string; texto: string; alvo?: boolean }
 
 export type ItemDaRotina = {
   handle: string
@@ -62,6 +63,11 @@ export type ConteudoDaPdp = {
   }
   quem?: { titulo: string; sim: string[]; nao: string[] }
   duvidas?: { titulo: string; perguntas: Pergunta[] }
+  /**
+   * Os produtos relacionados entram sozinhos (o motor de recomendação); do
+   * produto, só o título que aparece no site.
+   */
+  relacionados?: { titulo: string }
 }
 
 /**
@@ -89,31 +95,48 @@ export type AjusteDeLayout = {
  * fundo claro faz o cartão sumir e o texto solto virar escuro sobre escuro.
  */
 export type Fundo = {
-  /** URL da imagem. É a única coisa que liga o fundo. */
+  /** URL da imagem do computador. É a única coisa que liga o fundo. */
   imagem: string
+  /**
+   * A do celular, em pé. Sem ela, o celular usa a do computador cortada no
+   * meio — numa tela estreita e alta, uma foto deitada perde as laterais.
+   */
+  imagemCelular?: string
   /** Opacidade do véu, de 40 a 100. 100 = a tela de hoje, sem foto à vista. */
   veu?: number
 }
 
 /**
- * QUEM APARECE DEPOIS DO PREÇO.
+ * As seções que aceitam foto de fundo — as que têm cor de véu na loja
+ * (`apps/loja/src/estilos/fundo.css`). A faixa tem foto própria; as outras
+ * não têm conteúdo do produto pra ficar por cima.
+ */
+export const SECOES_COM_FUNDO = [
+  "produto.promessa",
+  "produto.tempo",
+  "produto.rotina",
+  "produto.funciona",
+  "produto.versus",
+  "produto.quem",
+  "produto.duvidas",
+] as const
+
+/**
+ * A CAIXA DE COMPRA — o que aparece logo abaixo do preço. UMA COISA OU
+ * OUTRA, no mesmo lugar (decidido em 23/09: as duas juntas deixam a caixa
+ * grande demais):
  *
- * Duas coisas diferentes que costumam ser confundidas:
+ *   "unidades" — os cartões "Quantas unidades" (1, 2 ou 3, com o desconto
+ *     por quantidade, que vale em todo produto: é o "order bump" da página);
+ *   "junto"    — o "Leve junto": até 2 produtos DIFERENTES, escolhidos a
+ *     dedo, que a pessoa marca e leva no mesmo clique (o cross-sell).
  *
- *   KITS (upsell) — mais unidades do MESMO produto. Já é automático: sai
- *     do catálogo, pela metadata `kit-quantidade`, e aparece sozinho em
- *     quem tem kit cadastrado. A chavinha aqui só DESLIGA, porque ligar
- *     não é decisão de tela: ou existe kit, ou não existe;
- *   PRODUTOS QUE COMBINAM (cross-sell) — produtos DIFERENTES. Hoje a
- *     escolha é "o resto do catálogo, mesma categoria primeiro", o que com
- *     seis produtos é honesto e com sessenta deixa de ser.
- *
- * ESCOLHA VAZIA CAI NO AUTOMÁTICO, e não em seção vazia. Se a lista vazia
- * significasse "não mostre nada", ligar este campo esvaziaria a seção no
- * catálogo inteiro de uma vez — em todo produto que ninguém curou ainda.
+ * Sem `modo` (o que foi salvo antes dele), vale o de antes: os cartões, a
+ * não ser que `kits` seja `false`.
  */
 export type VendaCombinada = {
-  /** `false` esconde os kits de quantidade neste produto. */
+  modo?: "unidades" | "junto"
+  /** Antes do `modo`: `false` escondia os cartões. Com `modo`, não vale mais. */
   kits?: boolean
   /**
    * A linha embaixo de "1 frasco" no cartão de quantidade.
@@ -129,7 +152,7 @@ export type VendaCombinada = {
    * uso", "Pra experimentar".
    */
   notaDoAvulso?: string
-  /** Handles escolhidos a dedo. Vazio = automático. */
+  /** Os do "Leve junto", por handle — até 2. */
   produtos?: string[]
 }
 
@@ -180,13 +203,18 @@ function lerTempo(v: unknown): ConteudoDaPdp["tempo"] {
   const o = obj(v)
   if (!o) return undefined
   const titulo = txt(o.titulo)
+  let marco = false
   const passos = (Array.isArray(o.passos) ? o.passos : [])
     .map((p) => {
       const q = obj(p)
       const quando = q && txt(q.quando)
       const t = q && txt(q.titulo)
       const texto = q && txt(q.texto)
-      return quando && t && texto ? { quando, titulo: t, texto } : null
+      if (!quando || !t || !texto) return null
+      // O marco é UMA etapa: a primeira marcada leva, as outras não.
+      const alvo = q!.alvo === true && !marco
+      if (alvo) marco = true
+      return { quando, titulo: t, texto, ...(alvo ? { alvo: true } : {}) }
     })
     .filter((p): p is PassoDoTempo => p !== null)
   if (!titulo || !passos.length) return undefined
@@ -285,6 +313,11 @@ function lerDuvidas(v: unknown): ConteudoDaPdp["duvidas"] {
   return { titulo, perguntas }
 }
 
+function lerRelacionados(v: unknown): ConteudoDaPdp["relacionados"] {
+  const titulo = txt(obj(v)?.titulo)
+  return titulo ? { titulo } : undefined
+}
+
 function lerLayout(v: unknown): AjusteDeLayout {
   const o = obj(v)
   if (!o) return {}
@@ -325,35 +358,47 @@ function lerImagem(v: unknown): string | null {
   }
 }
 
+export function lerFundo(v: unknown): Fundo | null {
+  const f = obj(v)
+  // Sem imagem válida não há fundo: a seção volta à cor que ela já tinha,
+  // que é o comportamento certo e o mesmo de nunca ter configurado nada.
+  const imagem = f && lerImagem(f.imagem)
+  if (!imagem) return null
+  const imagemCelular = lerImagem(f!.imagemCelular)
+  const bruto = typeof f!.veu === "number" ? Math.round(f!.veu as number) : NaN
+  const veu = Number.isFinite(bruto) ? Math.min(100, Math.max(40, bruto)) : undefined
+  return {
+    imagem,
+    ...(imagemCelular ? { imagemCelular } : {}),
+    ...(veu !== undefined ? { veu } : {}),
+  }
+}
+
 function lerFundos(v: unknown): Record<string, Fundo> {
   const o = obj(v)
   if (!o) return {}
   const fundos: Record<string, Fundo> = {}
-
   for (const [id, valor] of Object.entries(o)) {
-    const f = obj(valor)
-    // Sem imagem válida não há fundo: a seção volta à cor que ela já tinha,
-    // que é o comportamento certo e o mesmo de nunca ter configurado nada.
-    const imagem = f && lerImagem(f.imagem)
-    if (!imagem) continue
-
-    const bruto = typeof f!.veu === "number" ? Math.round(f!.veu as number) : NaN
-    const veu = Number.isFinite(bruto) ? Math.min(100, Math.max(40, bruto)) : undefined
-    fundos[id] = { imagem, ...(veu !== undefined ? { veu } : {}) }
+    // Só as seções que têm véu na loja: fundo em outra ficaria sem cor por cima.
+    if (!(SECOES_COM_FUNDO as readonly string[]).includes(id)) continue
+    const fundo = lerFundo(valor)
+    if (fundo) fundos[id] = fundo
   }
-
   return fundos
 }
 
 function lerCombinada(v: unknown): VendaCombinada {
   const o = obj(v)
   if (!o) return {}
-  const produtos = Array.isArray(o.produtos)
+  const modo = o.modo === "unidades" || o.modo === "junto" ? o.modo : undefined
+  const todos = Array.isArray(o.produtos)
     ? [...new Set(o.produtos.map(txt).filter((h): h is string => h !== null))]
     : []
+  // Com a escolha feita, o "Leve junto" leva no máximo 2: a caixa é pequena.
+  const produtos = modo ? todos.slice(0, LIMITE_DO_LEVE_JUNTO) : todos
   const nota = txt(o.notaDoAvulso)
   return {
-    ...(o.kits === false ? { kits: false } : {}),
+    ...(modo ? { modo } : o.kits === false ? { kits: false } : {}),
     /* Cortado no tamanho de uma linha: o cartão tem ~150px e um texto longo
        empurra o preço pra baixo nos três, porque a grade é compartilhada. */
     ...(nota ? { notaDoAvulso: nota.slice(0, LIMITE_DA_NOTA) } : {}),
@@ -363,6 +408,9 @@ function lerCombinada(v: unknown): VendaCombinada {
 
 /** Caracteres da linha de apoio do avulso. Duas linhas no cartão, no máximo. */
 export const LIMITE_DA_NOTA = 48
+
+/** Produtos no "Leve junto". */
+export const LIMITE_DO_LEVE_JUNTO = 2
 
 /** Tira do `metadata` do produto a PDP, já peneirada. */
 export function lerPdp(metadata: unknown): Pdp {
@@ -382,6 +430,7 @@ export function lerPdp(metadata: unknown): Pdp {
     versus: lerVersus(c.versus),
     quem: lerQuem(c.quem),
     duvidas: lerDuvidas(c.duvidas),
+    relacionados: lerRelacionados(c.relacionados),
   }
   for (const [nome, valor] of Object.entries(secoes)) {
     if (valor) Object.assign(conteudo, { [nome]: valor })
@@ -393,4 +442,109 @@ export function lerPdp(metadata: unknown): Pdp {
     fundos: lerFundos(o.fundos),
     combinada: lerCombinada(o.combinada),
   }
+}
+
+/* ── uma seção de cada vez: o editor do painel ────────────────────────────
+ *
+ * O `lerPdp` DESCARTA a seção meio preenchida, calado — é o certo pra loja
+ * (um cabeçalho solto parece defeito), e o errado pra quem está escrevendo:
+ * salvou, a seção sumiu, ninguém disse por quê. O painel pergunta antes o
+ * que falta, e mostra.
+ */
+
+/** As seções com texto do produto, pela chave em `conteudo`. */
+export const SECOES_DE_CONTEUDO = [
+  "promessa",
+  "tempo",
+  "faixa",
+  "rotina",
+  "funciona",
+  "versus",
+  "quem",
+  "duvidas",
+  "relacionados",
+] as const
+export type ChaveDeConteudo = (typeof SECOES_DE_CONTEUDO)[number]
+
+export const ehChaveDeConteudo = (v: unknown): v is ChaveDeConteudo =>
+  typeof v === "string" && (SECOES_DE_CONTEUDO as readonly string[]).includes(v)
+
+const LEITORES: Record<ChaveDeConteudo, (v: unknown) => unknown> = {
+  promessa: lerPromessa,
+  tempo: lerTempo,
+  faixa: lerFaixa,
+  rotina: lerRotina,
+  funciona: lerFunciona,
+  versus: lerVersus,
+  quem: lerQuem,
+  duvidas: lerDuvidas,
+  relacionados: lerRelacionados,
+}
+
+/**
+ * O que cada seção exige pra existir — o mesmo dos `lerX` lá de cima, em
+ * tabela: texto, lista de textos, ou grupo (e os campos de cada item dele).
+ */
+const EXIGE: Record<
+  ChaveDeConteudo,
+  { textos?: string[]; listas?: string[]; grupos?: Record<string, string[]> }
+> = {
+  promessa: { textos: ["chapeu", "titulo"], listas: ["itens"] },
+  tempo: { textos: ["titulo"], grupos: { passos: ["quando", "titulo", "texto"] } },
+  faixa: { textos: ["chapeu", "titulo", "texto", "chamada", "fotoDe"] },
+  rotina: { textos: ["titulo"], grupos: { itens: ["handle", "passo", "para"] } },
+  funciona: {
+    textos: ["comoTitulo", "comoFotoDe", "usoTitulo", "usoFotoDe"],
+    listas: ["comoTexto", "usoPassos"],
+  },
+  versus: { textos: ["titulo", "nomeDeles", "descricaoDeles"], listas: ["nosso", "deles"] },
+  quem: { textos: ["titulo"], listas: ["sim", "nao"] },
+  duvidas: { textos: ["titulo"], grupos: { perguntas: ["pergunta", "resposta"] } },
+  relacionados: { textos: ["titulo"] },
+}
+
+/** Tem texto de verdade: string com letra, ou lista com pelo menos uma. */
+const temTexto = (v: unknown): boolean =>
+  typeof v === "string" ? v.trim().length > 0 : Array.isArray(v) ? v.some(temTexto) : false
+
+/**
+ * O que falta pra seção existir. As chaves são as dos campos — "titulo",
+ * "itens" — e, nos grupos, grupo.índice.campo ("passos.1.texto"); o painel
+ * troca pelos nomes da tela. Seção toda vazia não falta nada: é "sem texto
+ * neste produto", e sai da página.
+ */
+export function faltandoNaSecao(chave: ChaveDeConteudo, valores: unknown): string[] {
+  const o = obj(valores) ?? {}
+  if (!Object.values(o).some(temTexto)) return []
+  const exige = EXIGE[chave]
+  const faltando: string[] = []
+  for (const campo of exige.textos ?? []) if (!txt(o[campo])) faltando.push(campo)
+  for (const campo of exige.listas ?? []) if (!lista(o[campo])) faltando.push(campo)
+  for (const [grupo, campos] of Object.entries(exige.grupos ?? {})) {
+    const itens = Array.isArray(o[grupo]) ? (o[grupo] as unknown[]) : []
+    let inteiros = 0
+    itens.forEach((item, i) => {
+      const q = obj(item) ?? {}
+      // Item todo vazio é linha que sobrou no formulário: fica de fora, sem aviso.
+      if (!Object.values(q).some(temTexto)) return
+      const falta = campos.filter((c) => !temTexto(q[c]))
+      for (const c of falta) faltando.push(`${grupo}.${i}.${c}`)
+      if (!falta.length) inteiros++
+    })
+    if (!inteiros && !faltando.some((f) => f.startsWith(`${grupo}.`))) faltando.push(grupo)
+  }
+  return faltando
+}
+
+/**
+ * A seção pronta pra gravar: `null` quando vazia (sai da página), ou o que
+ * falta quando está pela metade — aí não grava nada.
+ */
+export function lerSecao(
+  chave: ChaveDeConteudo,
+  valores: unknown
+): { secao: unknown | null; faltando: string[] } {
+  const faltando = faltandoNaSecao(chave, valores)
+  if (faltando.length) return { secao: null, faltando }
+  return { secao: LEITORES[chave](valores) ?? null, faltando: [] }
 }

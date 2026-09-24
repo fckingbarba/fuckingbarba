@@ -3,7 +3,7 @@ import { Compra } from "@/components/produto/compra"
 import { Galeria, type Foto } from "@/components/produto/galeria"
 import { Migalhas, type Migalha } from "@/components/produto/migalhas"
 import { buscarProdutoPorHandle, escadaDeQuantidade, precosDe } from "@/lib/medusa"
-import { pdpDoProduto, produtosQueCombinam } from "@/lib/pdp"
+import { modoDaCaixa, pdpDoProduto, produtosQueCombinam } from "@/lib/pdp"
 import { site } from "@/lib/site"
 
 /**
@@ -41,7 +41,9 @@ export async function Dobra({ handle }: { handle: string }) {
     quantidade — e a chave só decide se a escolha "1, 2, 3 unidades"
     aparece.
   */
-  const mostrarDegraus = combinada.kits !== false
+  const modo = modoDaCaixa(combinada)
+  // Sem `modo` (o salvo antes dele), `kits: false` ainda esconde os cartões.
+  const mostrarDegraus = modo === "unidades" && combinada.kits !== false
 
   /*
     A LINHA DE APOIO DO AVULSO vem do admin, e não do `subtitle` do produto.
@@ -59,7 +61,15 @@ export async function Dobra({ handle }: { handle: string }) {
     Os produtos que combinam, pra caixa de compra. Vêm resolvidos aqui — a
     `Compra` roda no navegador e não fala com o Medusa.
   */
-  const combinam = await produtosQueCombinam(combinada.produtos ?? [], handle)
+  /*
+    UMA COISA OU OUTRA: com o "Leve junto" escolhido, os cartões saem (quem
+    aumentar a quantidade no seletor continua com o desconto); com os
+    cartões, o "Leve junto" não aparece. Até 2 produtos — a caixa é pequena.
+  */
+  const combinam =
+    modo === "junto"
+      ? await produtosQueCombinam((combinada.produtos ?? []).slice(0, 2), handle)
+      : []
   const precos = precosDe(produto)
   const variante = produto.variants?.[0]
 

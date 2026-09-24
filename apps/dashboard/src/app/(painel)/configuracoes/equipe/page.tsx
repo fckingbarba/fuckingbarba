@@ -73,6 +73,7 @@ const NOME_DA_LINHA: Record<Area, string> = {
   estornos: "Estornos",
   carrinhos: "Carrinhos abandonados",
   produtos: "Produtos",
+  editarProdutos: "Produtos: editar a página",
   cupons: "Cupons e descontos",
   clientes: "Clientes",
   home: "Layout da home",

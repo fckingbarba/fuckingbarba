@@ -1,0 +1,181 @@
+/*
+  PRODUTOS — a lista, a página do produto (as seções, a caixa de compra, o
+  preço do Bling) e a gaveta de uma seção (os campos e a imagem de fundo).
+  Copiados do protótipo (apps/loja/ferramentas/porte/prototipo-painel.html);
+  o que o protótipo não tinha está no fim.
+*/
+
+/* As fotos do produto (a galeria completa, com vídeo, chega na próxima entrega). */
+.galeria { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; }
+.galeria__item { position: relative; aspect-ratio: 1; overflow: hidden; background: var(--cinza); border: 2px solid var(--tinta); }
+.galeria__item img { width: 100%; height: 100%; object-fit: cover; }
+.galeria__capa { position: absolute; left: 0; bottom: 0; padding: 2px 6px; background: var(--amarelo); font-size: 0.56rem; font-weight: 800; text-transform: uppercase; }
+.preco-bling { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 640px) { .preco-bling { grid-template-columns: minmax(0, 1fr); } }
+.preco-bling div { padding: 12px 14px; background: var(--cinza); }
+.preco-bling b { display: block; font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+.preco-bling small { font-size: 0.72rem; color: var(--tinta-suave); }
+
+.secoes { list-style: none; margin: 0; padding: 0; }
+.secao { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid rgba(18, 24, 31, 0.1); }
+.secao:last-child { border-bottom: 0; }
+.secao__ordem { display: flex; flex-direction: column; gap: 2px; }
+.secao__ordem button { width: 30px; height: 24px; display: flex; align-items: center; justify-content: center; padding: 0; background: var(--papel); border: 2px solid var(--tinta); color: var(--tinta); cursor: pointer; }
+.secao__ordem button svg { width: 12px; height: 12px; fill: currentColor; }
+.secao__ordem button[disabled] { opacity: 0.25; cursor: default; }
+.secao__nome { margin: 0; font-size: 0.86rem; font-weight: 800; text-transform: uppercase; }
+.secao__desc { margin: 2px 0 0; font-size: 0.78rem; color: var(--tinta-suave); }
+.secao__lado { display: flex; align-items: center; gap: 12px; }
+.secao[data-desligada] .secao__nome, .secao[data-desligada] .secao__desc { opacity: 0.5; }
+.secao__fixa { font-size: 0.66rem; font-weight: 800; text-transform: uppercase; color: var(--tinta-suave); }
+.secao__selos { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+/* O topo da página do produto não mexe: cadeado no lugar das setas. */
+.secao__trava { display: flex; align-items: center; justify-content: center; width: 30px; height: 50px; color: var(--tinta-suave); }
+.secao__trava svg { width: 16px; height: 16px; fill: currentColor; }
+
+/* O EDITOR DE SEÇÃO, na gaveta */
+.dica-realce { margin: 0 0 16px; padding: 10px 12px; background: var(--papel); border-left: 4px solid var(--amarelo); font-size: 0.8rem; }
+.dica-realce code { font-family: inherit; font-weight: 700; padding: 1px 4px; background: var(--cinza-2); }
+.gaveta__produto { margin: 0 0 12px; font-size: 0.8rem; color: var(--tinta-suave); }
+.gaveta__produto b { color: var(--tinta); }
+.nota-form { margin: 0; padding: 10px 12px; background: var(--papel); border: 1px dashed var(--linha); font-size: 0.8rem; color: var(--tinta-suave); }
+.nota-form--atencao { border: 0; border-left: 4px solid var(--amarelo-borda); background: var(--amarelo-palido); color: var(--tinta); }
+fieldset.campo { margin: 0; padding: 0; border: 0; }
+fieldset.campo > legend { padding: 0; margin: 0 0 6px; }
+.lista-form__linha { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; align-items: start; margin-bottom: 6px; }
+.lista-form__botoes { display: flex; gap: 3px; }
+.lista-form__botoes button { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; padding: 0; background: var(--papel); border: 2px solid var(--tinta); color: var(--tinta); cursor: pointer; }
+.lista-form__botoes button svg { width: 12px; height: 12px; fill: currentColor; }
+.lista-form__botoes button[disabled] { opacity: 0.25; cursor: default; }
+.lista-form > .btn, .grupo-form > .btn { justify-self: start; width: fit-content; margin-top: 2px; }
+.grupo-form__item { margin-bottom: 8px; background: var(--papel); border: 2px solid var(--tinta); }
+.grupo-form__topo { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 5px 6px 5px 0; }
+.grupo-form__abre { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 8px 10px; background: none; border: 0; cursor: pointer; color: var(--tinta); font: inherit; font-size: 0.8rem; font-weight: 800; text-align: left; }
+.grupo-form__abre svg { width: 12px; height: 12px; flex-shrink: 0; fill: currentColor; transition: transform 0.15s ease; }
+.grupo-form__abre[aria-expanded="true"] svg { transform: rotate(90deg); }
+.grupo-form__abre span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.grupo-form__corpo { padding: 12px 12px 14px; border-top: 1px solid rgba(18, 24, 31, 0.12); }
+
+/* A imagem de fundo: cada quadro no formato da seção no site. */
+.slot { position: relative; min-width: 0; }
+.slot__rot { display: flex; align-items: center; flex-wrap: wrap; gap: 2px 6px; margin: 0 0 6px; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; }
+.slot__rot svg { width: 14px; height: 14px; fill: currentColor; }
+.slot__rot small { width: 100%; font-size: 0.78rem; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--tinta-suave); }
+.slot__rot small b { color: var(--tinta); font-weight: 800; font-variant-numeric: tabular-nums; }
+.slot__vazio { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 10px; background: var(--papel); border: 2px dashed var(--tinta); cursor: pointer; text-align: center; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; }
+.slot__vazio small { font-weight: 600; text-transform: none; color: var(--tinta-suave); }
+.slot__vazio svg { width: 18px; height: 18px; fill: currentColor; }
+.slot__vazio:hover, .slot__vazio:has(:focus-visible) { background: var(--amarelo-palido); }
+.slot__vazio:has(:focus-visible) { outline: 3px solid var(--amarelo); outline-offset: 2px; }
+.slot__previa { position: relative; overflow: hidden; background: var(--cinza-2); border: 2px solid var(--tinta); }
+.slot__previa img { width: 100%; height: 100%; object-fit: cover; object-position: center 40%; }
+.slot__amostra { position: absolute; z-index: 1; left: 8px; bottom: 5px; font-size: 1.05rem; font-weight: 800; font-style: italic; color: var(--tinta); }
+.fundo-form[data-cor="escuro"] .slot__amostra { color: #fff; }
+.slot__info { margin: 6px 0 0; font-size: 0.7rem; color: var(--tinta-suave); overflow-wrap: anywhere; }
+.slot__aviso { display: flex; gap: 6px; margin: 6px 0 0; font-size: 0.72rem; color: var(--aviso-txt); }
+.slot__aviso svg { width: 13px; height: 13px; flex-shrink: 0; margin-top: 1px; fill: currentColor; }
+.slot__erro { margin: 6px 0 0; font-size: 0.74rem; font-weight: 700; color: var(--erro); }
+.slot__acoes { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; }
+.slot__acoes label { position: relative; cursor: pointer; }
+.slot__acoes label:has(:focus-visible) { outline: 3px solid var(--amarelo); outline-offset: 2px; }
+/* O botão de arquivo fica escondido dentro do rótulo, que é quem recebe o toque. */
+.slot input[type="file"] { position: absolute; width: 1px; height: 1px; padding: 0; opacity: 0; overflow: hidden; }
+/* "Trocar" é link, não rótulo de campo: a mesma letra do "Tirar" do lado. */
+.campo label.link { font-size: 0.8rem; font-weight: 700; letter-spacing: 0; text-transform: none; }
+.veu { display: block; margin: 14px 0 4px; font-size: 0.7rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; }
+.veu small { font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--tinta-suave); }
+.fundo-form input[type="range"] { width: 100%; accent-color: var(--tinta); }
+
+/* A caixa de compra da PDP: "quantas unidades" OU "leve junto", no mesmo lugar */
+.escolha { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+@media (max-width: 640px) { .escolha { grid-template-columns: minmax(0, 1fr); } }
+.escolha label { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; align-items: start; padding: 12px 14px; background: var(--papel); border: 2px solid var(--linha); cursor: pointer; }
+.escolha label:hover { border-color: var(--tinta); }
+.escolha label:has(input:checked) { border-color: var(--tinta); background: var(--amarelo-palido); box-shadow: 4px 4px 0 0 var(--amarelo); }
+.escolha input { width: 18px; height: 18px; margin: 2px 0 0; accent-color: var(--tinta); }
+.escolha b { display: block; font-size: 0.9rem; font-weight: 800; }
+.escolha em { display: block; font-size: 0.62rem; font-style: normal; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--tinta-suave); }
+.escolha small { display: block; margin-top: 4px; font-size: 0.78rem; color: var(--tinta-suave); }
+.oferta__atual { margin: 0 0 10px; }
+.oferta__vazia { margin: 0; font-size: 0.8rem; font-weight: 700; color: var(--aviso-txt); }
+.previa-compra__rot { margin: 0 0 8px; font-size: 0.62rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--tinta-suave); }
+/* A prévia imita a página: o fundo menta da caixa de compra, os cartões e as tarjas de lá. */
+.pdp-previa { margin-top: 12px; padding: 12px; background: color-mix(in srgb, var(--menta) 72%, #fff); }
+.pdp-previa .previa-compra__rot { color: #075c47; }
+.unid-previa__titulo { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-size: 0.8rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+.unid-previa__titulo svg { width: 14px; height: 14px; fill: currentColor; }
+.unid-previa__cartoes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; align-items: stretch; }
+.unid-cartao { position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0; padding: 12px 4px 10px; text-align: center; background: var(--papel); border: 3px solid var(--linha); clip-path: polygon(10px 0, 100% 0, 100% 100%, 0 100%, 0 10px); }
+.unid-cartao[data-sel] { border-color: var(--tinta); }
+.unid-cartao[data-topo] { padding-top: 30px; }
+.unid-cartao__topo { position: absolute; top: 0; left: 0; right: 0; display: flex; align-items: center; justify-content: center; gap: 4px; padding: 4px 2px; background: var(--amarelo); font-size: 0.56rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
+.unid-cartao__topo svg { width: 10px; height: 10px; fill: currentColor; }
+/* O rádio da loja é redondo: aqui a prévia copia a loja, não a marca do painel. */
+.unid-cartao__radio { width: 16px; height: 16px; border: 2px solid #6b7280; border-radius: 50%; }
+.unid-cartao[data-sel] .unid-cartao__radio { border-color: var(--tinta); background: radial-gradient(circle, var(--tinta) 0 40%, transparent 46%); }
+.unid-cartao__qtd { font-size: 0.86rem; font-weight: 800; }
+.unid-cartao__cada { font-size: 0.7rem; color: var(--tinta-suave); }
+.unid-cartao__preco { margin-top: 4px; font-size: 1rem; font-weight: 800; font-style: italic; font-variant-numeric: tabular-nums; }
+.unid-cartao__frete { display: inline-flex; align-items: center; gap: 3px; margin-top: 6px; padding: 2px 8px; background: color-mix(in srgb, var(--menta) 70%, #fff); font-size: 0.56rem; font-weight: 800; font-style: italic; text-transform: uppercase; clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%); }
+.unid-cartao__frete svg { width: 9px; height: 9px; fill: currentColor; }
+/* No celular, três cartões lado a lado: preço, faixa e tarja numa linha só. */
+.unid-cartao__preco, .unid-cartao__topo, .unid-cartao__frete { white-space: nowrap; }
+.unid-cartao__preco { font-size: clamp(0.8rem, 3.4vw, 1rem); }
+@media (max-width: 480px) {
+  .unid-previa__cartoes { gap: 6px; }
+  .unid-cartao { padding-right: 2px; padding-left: 2px; }
+  .unid-cartao__topo { font-size: 0.5rem; letter-spacing: 0.02em; }
+  .unid-cartao__cada { font-size: 0.64rem; }
+  .unid-cartao__frete { padding: 2px 4px; font-size: 0.5rem; }
+  .unid-cartao__frete svg { display: none; }
+}
+.junto-previa { padding: 10px 12px; background: var(--papel); border: 2px solid var(--tinta); }
+.junto-previa .unid-previa__titulo { margin-bottom: 6px; }
+.junto-previa__item { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 7px 0; border-top: 1px solid rgba(18, 24, 31, 0.1); font-size: 0.82rem; }
+.junto-previa__item[data-esgotado] { opacity: 0.75; }
+.junto-previa__item .foto { width: 40px; height: 40px; }
+.junto-previa__nome { display: flex; flex-direction: column; gap: 3px; min-width: 0; font-weight: 700; }
+.junto-previa__nome .slot__aviso { margin: 0; font-weight: 600; }
+.caixinha { flex-shrink: 0; width: 18px; height: 18px; background: var(--papel); border: 2px solid var(--tinta); }
+.tarja-frete { display: inline-flex; align-items: center; gap: 4px; width: fit-content; padding: 1px 6px; background: var(--menta-clara); color: var(--menta-escura); font-size: 0.62rem; font-weight: 800; text-transform: uppercase; }
+.tarja-frete svg { width: 11px; height: 11px; fill: currentColor; }
+
+/* ── o que o protótipo não tinha ── */
+
+/* O estoque na lista: 0 em vermelho, pouco em amarelo. */
+.estoque--zero { color: var(--erro); }
+.estoque--pouco { color: var(--aviso-txt); }
+.tabela__sub--linha { display: inline; }
+.cartao__miolo { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
+.cartao__miolo .cartao__titulo { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* A descrição do Bling, só pra ler. */
+.campo textarea[readonly] { background: var(--cinza); border-style: dashed; }
+
+/* O que falta na seção: o campo marcado e a frase embaixo, perto do "Salvar". */
+.campo textarea[aria-invalid="true"] { border-color: var(--erro); }
+fieldset.campo[data-falta] > legend { color: var(--erro); }
+fieldset.campo[data-falta]:focus-visible { outline: 3px solid var(--amarelo); outline-offset: 4px; }
+.campo__ajuda--falta { color: var(--erro); font-weight: 700; }
+.gaveta__erro { display: flex; gap: 8px; align-items: flex-start; margin: 16px 0 0; padding: 10px 12px; background: var(--erro-claro); border-left: 4px solid var(--erro); color: var(--erro); font-size: 0.8rem; font-weight: 700; }
+.gaveta__erro svg { width: 15px; height: 15px; flex-shrink: 0; margin-top: 1px; fill: currentColor; }
+
+/*
+  A imagem de fundo, com as medidas da seção: o quadro do computador na
+  largura toda (a seção é larga e baixa), o do celular estreito, com as
+  informações do lado. O véu é a cor da seção (--rgb) na força escolhida
+  (--veu), por cima da foto — como a loja faz em apps/loja/src/estilos/fundo.css.
+*/
+fieldset.campo.fundo-form { margin-top: 26px; }
+.fundo-form__ajuda { margin-bottom: 12px; }
+.fundo-form__lados { display: grid; gap: 16px; }
+.slot__opcional { font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--tinta-suave); }
+.slot--celular .slot__corpo { display: grid; grid-template-columns: 132px minmax(0, 1fr); gap: 12px; align-items: start; }
+.slot--celular .slot__lado > :first-child { margin-top: 0; }
+.slot__previa::after { content: ""; position: absolute; inset: 0; background: rgb(var(--rgb, 255 255 255) / calc(var(--veu, 0) * 1%)); }
+.slot__vazio[data-desligado] { cursor: default; border-style: dotted; color: var(--tinta-suave); background: var(--cinza); }
+.slot__vazio[data-desligado]:hover { background: var(--cinza); }
+
+/* Publicar sem foto ou sem categoria: a pergunta no lugar do botão. */
+.publicar-pergunta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.publicar-pergunta p { margin: 0; }

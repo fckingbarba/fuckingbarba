@@ -10,7 +10,7 @@ import {
 } from "../../../../../lib/painel/acoes"
 import { lerContexto, notasDos, pedidoPorId } from "../../../../../lib/painel/ler"
 import { pagamentoDo, situacaoDo } from "../../../../../lib/painel/pedido"
-import { anotarNoPedidoWorkflow } from "../../../../../workflows/equipe/anotar"
+import { anotarAcaoWorkflow } from "../../../../../workflows/equipe/anotar-acao"
 
 /**
  * POST /dashboard/pedidos/:id/nota — "Emitir a nota agora" (a nota esperando
@@ -47,7 +47,7 @@ export async function POST(req: AuthenticatedMedusaRequest, res: MedusaResponse)
   }
 
   const resultado = await tentarDeNovo(req.scope, id)
-  await anotarNoPedidoWorkflow(req.scope)
+  await anotarAcaoWorkflow(req.scope)
     .run({
       input: {
         membro_id: pedido.membro.id,

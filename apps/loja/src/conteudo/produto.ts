@@ -94,6 +94,8 @@ export type ConteudoDaPdp = {
     titulo: string
     perguntas: Pergunta[]
   }
+  /** Os produtos entram sozinhos (o motor); do produto, só o título do site. */
+  relacionados?: { titulo: string }
 }
 
 /**

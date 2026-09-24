@@ -941,8 +941,8 @@ O que o protótipo tem, aprovado em 23/09:
 
 Em aberto:
 
-- [ ] Aceitar JPG nas imagens também (a foto do celular quase sempre é JPG), convertendo pra WebP
-      na subida? O pedido foi PNG e WebP.
+- [x] Aceitar JPG nas imagens também (a foto do celular quase sempre é JPG), convertendo pra WebP
+      na subida? **Sim (24/09):** JPG, PNG e WebP; a loja guarda sempre em WebP.
 - [x] Confirmar a ordem do desenvolvimento, logo abaixo — confirmada em 23/09.
 
 A ordem proposta, uma entrega pequena por vez:
@@ -1042,6 +1042,55 @@ da Nuvemshop) — assim o histórico continua quando o endereço passar pra loja
 - [x] **Conferir**: abra o Início do painel. No lugar de "o Google Analytics ainda não está ligado"
       aparece o número de visitas de hoje. Se aparecer "o Google recusou a leitura", o e-mail da
       conta não está como Leitor na propriedade, ou a API não foi ativada no projeto.
+
+**Fase 3, parte 1: Produtos — pronta em 24/09 (entrega 0063).** Em Produtos: a lista (preço e
+estoque do Bling, só pra ver; as fitas No site, Rascunhos e Esgotados) e a página de cada produto.
+Nela, pro marketing e pro dono — a operação vê, sem mexer:
+
+- **A página do produto, seção por seção**, na ordem do site: ligar, desligar, subir e descer
+  valem na hora. "Editar" abre o texto da seção e a **imagem de fundo**: uma pro computador e
+  outra pro celular, em JPG, PNG ou WebP (a loja guarda sempre em WebP, no tamanho certo e sem a
+  localização que a foto do celular carrega). Cada quadro tem o formato da seção no site, com o
+  véu da cor dela por cima: o que aparece no quadro é o que aparece na página. Seção pela metade
+  não salva, e a tela diz o que falta. O topo (fotos, preço e compra) é fixo.
+- **A caixa de compra**: "Quantas unidades" (com a linha opcional embaixo de "1 unidade") ou "Leve
+  junto" (até 2 produtos), com a prévia de como fica.
+- **Subtítulo e categoria.** Nome, descrição, preço, peso e estoque vêm do Bling e só aparecem.
+- **Publicar** o produto novo que chega do Bling em rascunho (sem foto ou sem categoria, a tela
+  pergunta antes).
+- **O que a equipe mudou**: cada mudança, com o nome de quem fez.
+
+O quadro "Página do produto" do admin do Medusa agora só aponta pro painel.
+
+**O tamanho certo de cada foto de fundo**, em pixels — a medida da seção na loja, com o texto de
+hoje (o painel mostra em cima de cada quadro):
+
+| Seção | Computador | Celular |
+| --- | --- | --- |
+| Benefícios | 2880 × 890 | 1170 × 1644 |
+| Linha do tempo | 2880 × 820 | 1170 × 2448 |
+| Rotina com outros produtos | 2880 × 1010 | 1170 × 2568 |
+| Como funciona e modo de uso | 2880 × 1542 | 1170 × 3273 |
+| Comparação | 2880 × 796 | 1170 × 1821 |
+| Pra quem é | 2880 × 768 | 1170 × 1614 |
+| Perguntas frequentes | 2880 × 1342 | 1170 × 2232 |
+
+O assunto da foto vai no meio, um pouco acima do centro: a loja corta o que sobra nas bordas. Com
+mais texto a seção cresce, e o corte muda um pouco. Foto em outra proporção também serve — o painel
+diz quanto dela fica de fora. A faixa com foto não tem fundo (ela já usa a foto de um produto).
+
+Na loja, de quebra: a foto de fundo passa pelo otimizador de imagem (cada tela baixa o tamanho
+dela, e só quando chega perto) e troca pela do celular no ponto em que cada seção vira uma coluna;
+o título dos "Produtos relacionados" é editável; e uma pergunta das Dúvidas com `</script>` não
+quebra mais a página. Conferido pelo `conferir-produtos.mjs` (62 checagens, com a loja rodando) e
+pelo `conferir-pdp.mjs` da loja (54).
+
+Depois do deploy — **nada a fazer**: não tem variável nova (o backend ganhou o `sharp`, que o
+Railway instala sozinho).
+
+- [ ] **Parte 2:** as fotos e os vídeos da galeria (subir, pôr em ordem, tirar; vídeo em MP4 ou
+      WebM), o vídeo do "modo de uso" e os casos de antes e depois (com a autorização da pessoa, por
+      escrito).
 
 ## Como seguir no Claude Code
 

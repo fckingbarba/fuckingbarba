@@ -1,3 +1,4 @@
+import { getImageProps } from "next/image"
 import type { CSSProperties, ReactNode } from "react"
 import { lerFundos, type FundoDaSecao } from "@/lib/pdp"
 import { lerAjuste, resolver } from "@/lib/secoes/layout"
@@ -28,7 +29,7 @@ export async function Secoes({ escopo, handle }: { escopo: Escopo; handle?: stri
     if (secao.escopo === "produto") {
       const Bloco = secao.componente
       return (
-        <Fundo key={secao.id} fundo={fundos[secao.id]}>
+        <Fundo key={secao.id} id={secao.id} fundo={fundos[secao.id]}>
           <Bloco handle={handle ?? ""} />
         </Fundo>
       )
@@ -39,26 +40,61 @@ export async function Secoes({ escopo, handle }: { escopo: Escopo; handle?: stri
 }
 
 /**
+ * ATÉ QUE LARGURA A FOTO DO CELULAR VALE, seção por seção — a largura em
+ * que a seção ainda está numa coluna só, alta e estreita. Um corte só (768)
+ * daria a foto deitada do computador pra seção que no tablet ainda é uma
+ * coluna comprida: o "como funciona" mostraria um terço da foto, esticada.
+ * Os números são os das grades de cada seção (`pdp-*.css`); as que não
+ * mudam de coluna ficam no 767. O painel sugere as medidas pelas mesmas
+ * contas (`apps/dashboard/src/lib/produtos.ts`).
+ */
+const CELULAR_ATE: Record<string, number> = {
+  "produto.versus": 759,
+  "produto.quem": 859,
+  "produto.rotina": 879,
+  "produto.funciona": 899,
+}
+const CELULAR_PADRAO = 767
+
+/**
  * O EMBRULHO QUE DÁ COR À SEÇÃO.
  *
  * Sem fundo escolhido, NÃO EMBRULHA NADA — devolve a seção como ela é. Não é
  * economia de DOM: um `<div>` a mais em volta de toda seção mudaria o que
  * `> *` e `+` alcançam no CSS já escrito, e a esmagadora maioria das seções
  * não tem fundo próprio. O caso comum tem que sair exatamente como saía.
+ *
+ * A FOTO É UM `<picture>`, e não mais um `background-image`: passa pelo
+ * otimizador de imagem do Next (cada tela baixa o tamanho dela, em AVIF ou
+ * WebP), só carrega quando chega perto da tela (`lazy`), e troca pela do
+ * celular abaixo do corte da seção. O fundo em CSS baixava o arquivo
+ * inteiro, em todo aparelho, assim que a página abria.
  */
-function Fundo({ fundo, children }: { fundo?: FundoDaSecao; children: ReactNode }) {
+function Fundo({ id, fundo, children }: { id: string; fundo?: FundoDaSecao; children: ReactNode }) {
   if (!fundo) return <>{children}</>
 
-  // A URL vem validada do backend (só http, https ou caminho relativo) — mas
-  // as aspas aqui também impedem que um parêntese no nome do arquivo quebre
-  // o `url()`.
-  const estilo = {
-    "--fundo-imagem": `url("${fundo.imagem}")`,
-    ...(fundo.veu ? { "--veu": String(fundo.veu) } : {}),
-  } as CSSProperties
+  const comum = { alt: "", fill: true, sizes: "100vw" } as const
+  const {
+    props: { srcSet: doComputador, ...imagem },
+  } = getImageProps({ ...comum, src: fundo.imagem })
+  const doCelular = fundo.imagemCelular
+    ? getImageProps({ ...comum, src: fundo.imagemCelular }).props.srcSet
+    : null
+  const estilo = fundo.veu ? ({ "--veu": String(fundo.veu) } as CSSProperties) : undefined
 
   return (
     <div className="fundo fundo--imagem" style={estilo}>
+      <picture className="fundo__imagem">
+        {doCelular ? (
+          <source
+            media={`(max-width: ${CELULAR_ATE[id] ?? CELULAR_PADRAO}px)`}
+            srcSet={doCelular}
+            sizes="100vw"
+          />
+        ) : null}
+        {/* A "direção de arte" do Next: `getImageProps` + <picture>, pra ter as duas fotos. */}
+        <img {...imagem} srcSet={doComputador} alt="" loading="lazy" decoding="async" />
+      </picture>
       {children}
     </div>
   )

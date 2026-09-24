@@ -2,6 +2,7 @@ import { Raio } from "@/components/icones"
 import { ColecaoCarrossel } from "@/components/home/colecao-carrossel"
 import { CartaoProduto } from "@/components/produto/cartao"
 import type { HttpTypes } from "@medusajs/types"
+import { conteudoDaPdp } from "@/conteudo/produto"
 import { buscarProdutoPorHandle, listarProdutos, modeloDeRecomendacao } from "@/lib/medusa"
 import { ordenarParaAPagina } from "@/lib/recomendacao"
 
@@ -43,14 +44,18 @@ import { ordenarParaAPagina } from "@/lib/recomendacao"
  */
 const LIMITE = 12
 
+/** O título de sempre; cada produto pode ter o seu (o painel, "Produtos relacionados"). */
+const TITULO = "Quem leva este, leva junto"
+
 export async function Relacionados({ handle }: { handle: string }) {
   // O catálogo da vitrine (a mesma leitura cacheada), e não só os doze
   // primeiros: o corte vem DEPOIS da ordem, senão o que mais combina podia
   // ficar de fora só por ter entrado tarde no catálogo.
-  const [produtos, proprio, modelo] = await Promise.all([
+  const [produtos, proprio, modelo, conteudo] = await Promise.all([
     listarProdutos(),
     buscarProdutoPorHandle(handle),
     modeloDeRecomendacao(),
+    conteudoDaPdp(handle),
   ])
 
   const outros = produtos.filter((p) => p.handle !== handle)
@@ -73,10 +78,15 @@ export async function Relacionados({ handle }: { handle: string }) {
 
   if (!ordenados.length) return null
 
-  return <Carrossel produtos={ordenados.slice(0, LIMITE)} />
+  return (
+    <Carrossel
+      produtos={ordenados.slice(0, LIMITE)}
+      titulo={conteudo.relacionados?.titulo ?? TITULO}
+    />
+  )
 }
 
-function Carrossel({ produtos }: { produtos: HttpTypes.StoreProduct[] }) {
+function Carrossel({ produtos, titulo }: { produtos: HttpTypes.StoreProduct[]; titulo: string }) {
   return (
     <section className="colecao colecao--relacionados" aria-labelledby="relacionados-titulo">
       <div className="colecao__wrap">
@@ -84,7 +94,7 @@ function Carrossel({ produtos }: { produtos: HttpTypes.StoreProduct[] }) {
           titulo={
             <h2 className="colecao__titulo" id="relacionados-titulo">
               <Raio />
-              Quem leva este, leva junto
+              {titulo}
             </h2>
           }
         >

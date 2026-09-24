@@ -32,7 +32,7 @@ export async function Faixa({ handle }: { handle: string }) {
     <section className="faixa" aria-labelledby="faixa-titulo">
       {foto ? (
         <div className="faixa__foto">
-          <Image src={foto} alt="" width={1600} height={900} loading="lazy" />
+          <Image src={foto} alt="" width={1600} height={900} sizes="100vw" loading="lazy" />
         </div>
       ) : null}
 

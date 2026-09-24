@@ -14,6 +14,12 @@ import type { NextConfig } from "next"
 const nextConfig: NextConfig = {
   typedRoutes: true,
   poweredByHeader: false,
+  experimental: {
+    // A foto de fundo sobe por uma ação do servidor, já encolhida no navegador
+    // (até 3,5 MB — `lib/imagem-no-navegador.ts`). O padrão é 1 MB; a Vercel
+    // não passa de 4,5.
+    serverActions: { bodySizeLimit: "4mb" },
+  },
   async headers() {
     return [
       {

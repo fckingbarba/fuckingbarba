@@ -31,17 +31,33 @@ import { buscarProdutoPorHandle, precosDe, temEstoque } from "./medusa"
 
 export const CHAVE_NO_METADATA = "fb_pdp"
 
-/** A imagem de fundo de uma seção. Sem ela, a seção fica como sempre foi. */
-export type FundoDaSecao = { imagem: string; veu?: number }
+/**
+ * A imagem de fundo de uma seção. Sem ela, a seção fica como sempre foi.
+ * `imagemCelular`: a do celular, em pé — sem ela, o celular usa a do
+ * computador, cortada no meio.
+ */
+export type FundoDaSecao = { imagem: string; imagemCelular?: string; veu?: number }
 
 /**
- * Quem aparece depois do preço. Lista vazia = automático, não vazio.
+ * A CAIXA DE COMPRA, logo abaixo do preço: UMA coisa ou outra (decidido em
+ * 23/09) — os cartões "Quantas unidades" (`modo: "unidades"`) ou o "Leve
+ * junto" (`modo: "junto"`, com os `produtos`, até 2). Sem `modo` (o que foi
+ * salvo antes dele), os cartões, a não ser que `kits` seja `false`.
  *
- * `notaDoAvulso` é a linha embaixo de "1 frasco": os kits tiram a deles do
- * `subtitle` do próprio kit, e o avulso não pode, porque o `subtitle` dele
- * descreve o PRODUTO e não a quantidade.
+ * `notaDoAvulso` é a linha embaixo de "1 unidade": o `subtitle` do produto
+ * descreve o PRODUTO, e não a quantidade.
  */
-export type VendaCombinada = { kits?: boolean; notaDoAvulso?: string; produtos?: string[] }
+export type VendaCombinada = {
+  modo?: "unidades" | "junto"
+  kits?: boolean
+  notaDoAvulso?: string
+  produtos?: string[]
+}
+
+/** O que a caixa mostra, com o de antes do `modo` resolvido. */
+export function modoDaCaixa(c: VendaCombinada): "unidades" | "junto" {
+  return c.modo ?? (c.kits === false && c.produtos?.length ? "junto" : "unidades")
+}
 
 export type Pdp = {
   conteudo: ConteudoDaPdp
@@ -67,6 +83,20 @@ const LISTAS: Record<string, readonly string[]> = {
   versus: ["nosso", "deles"],
   quem: ["sim", "nao"],
   duvidas: ["perguntas"],
+}
+
+/**
+ * A foto de fundo passa pelo otimizador de imagem do Next, que só abre os
+ * hosts de `next.config.ts`: o Supabase Storage e, na máquina de quem
+ * desenvolve, o Medusa local. Endereço de fora (o admin antigo aceitava
+ * qualquer um) quebraria a página em desenvolvimento e sairia como imagem
+ * quebrada em produção — fica de fora, e a seção sai com a cor dela.
+ */
+function ehDoArmazenamento(url: string): boolean {
+  const ref = process.env.NEXT_PUBLIC_SUPABASE_REF
+  if (ref && url.startsWith(`https://${ref}.supabase.co/storage/v1/object/public/`)) return true
+  const medusaLocal = /\/\/(localhost|127\.0\.0\.1)/.test(process.env.MEDUSA_BACKEND_URL ?? "")
+  return medusaLocal && url.startsWith("http://localhost:9000/static/")
 }
 
 function ehObjeto(v: unknown): v is Record<string, unknown> {
@@ -106,18 +136,27 @@ export function lerPdp(metadata: unknown): Pdp {
 
   /*
     O backend já validou a URL e a faixa do véu na gravação. Aqui só sobra
-    conferir que existe imagem: sem ela o embrulho desenharia um retângulo
-    translúcido por cima de nada, escurecendo a seção sem motivo.
+    conferir que existe imagem — sem ela o embrulho desenharia um retângulo
+    translúcido por cima de nada, escurecendo a seção sem motivo — e que ela
+    mora onde o otimizador de imagem abre (`ehDoArmazenamento`).
   */
   const fundos: Record<string, FundoDaSecao> = {}
   const f = ehObjeto(raiz.fundos) ? raiz.fundos : {}
   for (const [id, valor] of Object.entries(f)) {
-    if (!ehObjeto(valor) || typeof valor.imagem !== "string" || !valor.imagem) continue
-    fundos[id] = valor as unknown as FundoDaSecao
+    if (!ehObjeto(valor) || typeof valor.imagem !== "string") continue
+    if (!ehDoArmazenamento(valor.imagem)) continue
+    fundos[id] = {
+      imagem: valor.imagem,
+      ...(typeof valor.imagemCelular === "string" && ehDoArmazenamento(valor.imagemCelular)
+        ? { imagemCelular: valor.imagemCelular }
+        : {}),
+      ...(typeof valor.veu === "number" ? { veu: valor.veu } : {}),
+    }
   }
 
   const c = ehObjeto(raiz.combinada) ? raiz.combinada : {}
   const combinada: VendaCombinada = {
+    ...(c.modo === "unidades" || c.modo === "junto" ? { modo: c.modo } : {}),
     ...(c.kits === false ? { kits: false } : {}),
     ...(typeof c.notaDoAvulso === "string" && c.notaDoAvulso.trim()
       ? { notaDoAvulso: c.notaDoAvulso.trim() }

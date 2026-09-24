@@ -224,7 +224,8 @@ try {
 
     const emDigitos = (s) => Number(s.replace(/[^\d,]/g, "").replace(",", "."))
 
-    async function conferirTarjas() {
+    /** `caixa(modo)`: grava a caixa de compra com os cartões ("unidades") ou o leve junto. */
+    async function conferirTarjas(caixa) {
       const config = await configuracoesDaLoja()
       const original = config.frete
       const PISO = 139.9
@@ -235,6 +236,7 @@ try {
           { modo: "gratis", piso: PISO, alvo: "mais-barata", tetoDeCusto: null },
           config
         )
+        await caixa("unidades")
         await abrir(COM_CONTEUDO)
 
         /*
@@ -290,6 +292,8 @@ try {
           um faz o outro alcançar. É o caso que prova que a tarja depende do
           que está marcado, e não de uma conta fixa por produto.
         */
+        await caixa("junto")
+        await abrir(COM_CONTEUDO)
         confere(
           "nenhum item que combina fecha a conta sozinho",
           (await pagina.$$(".junto__item .tarja-frete")).length === 0
@@ -329,6 +333,7 @@ try {
           { modo: "fixo", piso: PISO, preco: 9.9, alvo: "todas", tetoDeCusto: null },
           config
         )
+        await caixa("unidades")
         await abrir(COM_CONTEUDO)
         const fixas = await pagina.$$eval(".tarja-frete", (n) =>
           n.map((e) => e.textContent?.trim() ?? "")
@@ -448,20 +453,49 @@ try {
         (await secoesNaTela()).join(", ")
       )
 
-      /* ── fundo de imagem: entra, e a cor da seção continua mandando ── */
-      const FOTO =
-        "https://acdn-us.mitiendanube.com/stores/006/689/600/products/pdp-1000x1000-22670c28eafa37f5ea17755696867196-1024-1024.webp"
-      await gravar({ ...antes, fundos: { "produto.quem": { imagem: FOTO, veu: 70 } } })
+      /* ── fundo de imagem: entra, e a cor da seção continua mandando ──
+       *
+       * A foto tem que morar no armazenamento da loja: endereço de fora o
+       * admin descarta na gravação, e a loja na leitura (o otimizador de
+       * imagem só abre os hosts dela). Serve a foto do próprio produto. */
+      const { products: comFoto } = await (
+        await fetch(`${MEDUSA}/store/products?handle=${COM_CONTEUDO}&fields=thumbnail`, {
+          headers: { "x-publishable-api-key": CHAVE },
+        })
+      ).json()
+      const FOTO = comFoto[0].thumbnail
+      const ARQUIVO = new URL(FOTO).pathname.split("/").pop()
+      await gravar({
+        ...antes,
+        fundos: { "produto.quem": { imagem: FOTO, imagemCelular: FOTO, veu: 70 } },
+      })
       await abrir(COM_CONTEUDO)
       const embrulho = await pagina.$(".fundo--imagem > .quem")
       confere("seção com imagem ganha o embrulho de fundo", embrulho !== null)
       confere(
-        "e a imagem escolhida é a que entra no CSS",
-        (
-          await pagina.$eval(".fundo--imagem", (e) =>
-            getComputedStyle(e).getPropertyValue("--fundo-imagem")
+        "e a imagem escolhida é a que entra, pelo otimizador de imagem",
+        await pagina.$eval(
+          ".fundo--imagem .fundo__imagem img",
+          (img, arquivo) => decodeURIComponent(img.getAttribute("src") ?? "").includes(arquivo),
+          ARQUIVO
+        )
+      )
+      /* O "Pra quem é" vira uma coluna só até 859 px (pdp-quem.css): é até
+         aí que a foto do celular vale, e não no 767 das outras. */
+      confere(
+        "a do celular vale até o corte desta seção (859 px)",
+        (await pagina.$eval(".fundo__imagem source", (s) => s.media)) === "(max-width: 859px)"
+      )
+      confere(
+        "a foto fica atrás, cobrindo a seção, e o véu é o escolhido (70)",
+        await pagina.$eval(".fundo--imagem", (e) => {
+          const foto = getComputedStyle(e.querySelector(".fundo__imagem"))
+          return (
+            foto.position === "absolute" &&
+            foto.zIndex === "-1" &&
+            getComputedStyle(e).getPropertyValue("--veu").trim() === "70"
           )
-        ).includes("pdp-1000x1000")
+        })
       )
       /* O véu é o que preserva o contraste: sem ele a foto crua fica atrás
          do texto. Se um dia alguém tirar o ::after, isto pega. */
@@ -497,14 +531,28 @@ try {
       )
       confere("e a caixa de compra não oferece nada junto", (await noJunto()).length === 0)
 
+      /* A CAIXA DE COMPRA É UMA COISA OU OUTRA (decidido em 23/09): os
+         cartões de quantidade OU o leve junto, no mesmo lugar. Salvo antes
+         da escolha (sem `modo`), vale o que a loja mostrava: os cartões. */
       const DOIS = ["oleo-para-barba", "shampoo-para-barba"]
       await gravar({ ...antes, combinada: { produtos: DOIS } })
+      await abrir(COM_CONTEUDO)
+      confere(
+        "salvo antes da escolha, com produtos: os cartões, sem leve junto",
+        (await pagina.$$(".compra__kit")).length === 3 && (await noJunto()).length === 0
+      )
+      await gravar({ ...antes, combinada: { modo: "junto", produtos: DOIS } })
       await abrir(COM_CONTEUDO)
       const dupla = await noJunto()
       confere(
         "os dois escolhidos aparecem na caixa de compra",
         dupla.length === 2,
         dupla.join(" | ")
+      )
+      confere(
+        "e os cartões de quantidade saem do lugar",
+        (await pagina.$$(".compra__kits")).length === 0 &&
+          (await pagina.$$(".compra__comprar")).length === 1
       )
       confere(
         "cada um com o próprio preço, pra somar sem abrir outra página",
@@ -536,7 +584,7 @@ try {
 
       await gravar({
         ...antes,
-        combinada: { produtos: ["nao-existe-este-handle", "oleo-para-barba"] },
+        combinada: { modo: "junto", produtos: ["nao-existe-este-handle", "oleo-para-barba"] },
       })
       await abrir(COM_CONTEUDO)
       confere(
@@ -545,7 +593,7 @@ try {
       )
 
       /* ── o clique leva o que foi marcado, na MESMA ida ───────────────── */
-      await gravar({ ...antes, combinada: { produtos: DOIS } })
+      await gravar({ ...antes, combinada: { modo: "junto", produtos: DOIS } })
       /* Sacola nova: sem isto o teste conta o que sobrou de rodadas passadas. */
       await contexto.clearCookies()
       await abrir(COM_CONTEUDO)
@@ -564,11 +612,10 @@ try {
       await contexto.clearCookies()
 
       /* ── a tarja de frete: nos kits e nos que combinam ───────────────── */
-      await gravar({ ...antes, combinada: { produtos: DOIS } })
-      await conferirTarjas()
+      await conferirTarjas((modo) => gravar({ ...antes, combinada: { modo, produtos: DOIS } }))
 
       /* ── os três cartões de quantidade formam uma grade só ───────────── */
-      await gravar({ ...antes, combinada: { notaDoAvulso: "1 mês de uso", produtos: DOIS } })
+      await gravar({ ...antes, combinada: { modo: "unidades", notaDoAvulso: "1 mês de uso" } })
       await conferirAlinhamento()
 
       /* ── kits: a chave esconde OS DEGRAUS, não a compra ──────────────── */
