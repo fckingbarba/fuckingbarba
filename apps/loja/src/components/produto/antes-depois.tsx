@@ -1,6 +1,7 @@
 import Image from "next/image"
 import { Raio } from "@/components/icones"
 import { ANTES_E_DEPOIS } from "@/conteudo/depoimentos"
+import { conteudoDaPdp, type CasoAntesDepois } from "@/conteudo/produto"
 
 /**
  * ANTES E DEPOIS.
@@ -10,9 +11,12 @@ import { ANTES_E_DEPOIS } from "@/conteudo/depoimentos"
  * SEM CASO CADASTRADO, NÃO RENDERIZA NADA. Nem título, nem moldura vazia,
  * nem "em breve".
  *
- * Os casos saem de `conteudo/depoimentos.ts` — o MESMO arquivo que alimenta
- * a home. Um cliente que mandou foto vale nos dois lugares, e duas listas
- * separadas é como uma delas acaba com um caso que a outra já tirou do ar.
+ * Os casos são do PRODUTO: cadastrados no painel (Produtos → a página →
+ * "Antes e depois"), com a autorização por escrito da pessoa marcada — sem
+ * ela o painel não grava. Produto sem caso no painel ainda olha
+ * `conteudo/depoimentos.ts`, o arquivo de antes (vazio hoje). Quando a home
+ * ganhar o editor dela (fase 4), a "Prova social" lê os mesmos casos, dos
+ * produtos: um caso vale nos dois lugares, e não em duas listas.
  *
  * ┌─ O QUE UM CASO PRECISA TER PRA PODER SUBIR ────────────────────────────┐
  * │  1. MESMA PESSOA nas duas fotos. Antes/depois com pessoas diferentes é │
@@ -39,10 +43,22 @@ import { ANTES_E_DEPOIS } from "@/conteudo/depoimentos"
  * lendo.
  */
 const MAXIMO = 3
+const TITULO = "Antes e depois, sem truque"
 
-export function AntesDepois({ handle }: { handle: string }) {
-  const casos = ANTES_E_DEPOIS.filter(
-    (d) => d.produtoHandle === handle && d.fotos?.antes && d.fotos?.depois
+export async function AntesDepois({ handle }: { handle: string }) {
+  const doProduto = (await conteudoDaPdp(handle)).antesDepois
+  const casos: CasoAntesDepois[] = (
+    doProduto?.casos.length
+      ? doProduto.casos
+      : ANTES_E_DEPOIS.filter(
+          (d) => d.produtoHandle === handle && d.fotos?.antes && d.fotos?.depois
+        ).map((d) => ({
+          nome: d.nome,
+          tempo: "90 dias",
+          antes: d.fotos.antes,
+          depois: d.fotos.depois,
+          texto: d.texto,
+        }))
   ).slice(0, MAXIMO)
 
   if (!casos.length) return null
@@ -52,34 +68,44 @@ export function AntesDepois({ handle }: { handle: string }) {
       <div className="antesdepois__wrap">
         <h2 className="antesdepois__titulo" id="antesdepois-titulo">
           <Raio />
-          Antes e depois, sem truque
+          {doProduto?.titulo ?? TITULO}
         </h2>
 
         <div className="antesdepois__casos">
           {casos.map((caso) => (
-            <figure className="caso" key={caso.fotos.antes}>
+            <figure className="caso" key={caso.antes}>
               <div className="caso__par">
                 <div className="caso__lado">
                   <Image
-                    src={caso.fotos.antes}
-                    alt={`${caso.nome} antes do tratamento`}
+                    src={caso.antes}
+                    alt={`${caso.nome}, antes`}
                     width={600}
                     height={700}
+                    sizes="(min-width: 860px) 300px, 50vw"
                     loading="lazy"
                   />
-                  <span className="caso__etiqueta">Antes · dia 0</span>
+                  <span className="caso__etiqueta">Antes</span>
                 </div>
                 <div className="caso__lado">
                   <Image
-                    src={caso.fotos.depois}
-                    alt={`${caso.nome} depois do tratamento`}
+                    src={caso.depois}
+                    alt={`${caso.nome}, depois de ${caso.tempo} de uso`}
                     width={600}
                     height={700}
+                    sizes="(min-width: 860px) 300px, 50vw"
                     loading="lazy"
                   />
-                  <span className="caso__etiqueta caso__etiqueta--depois">Depois · dia 90</span>
+                  <span className="caso__etiqueta caso__etiqueta--depois">
+                    Depois · {caso.tempo}
+                  </span>
                 </div>
               </div>
+              <figcaption className="caso__pe">
+                <p className="caso__quem">
+                  {caso.nome} <span>· {caso.tempo} de uso</span>
+                </p>
+                {caso.texto ? <p className="caso__fala">“{caso.texto}”</p> : null}
+              </figcaption>
             </figure>
           ))}
         </div>
@@ -88,7 +114,7 @@ export function AntesDepois({ handle }: { handle: string }) {
           Não saia daqui. Uma linha de texto contra uma multa — e contra a
           reclamação de quem comprou esperando a foto e não chegou lá.
         */}
-        <p className="antesdepois__ressalva">
+        <p className="antesdepois__aviso">
           Fotos de clientes reais, publicadas com autorização. Mesma pessoa, mesmo ângulo, sem
           filtro. O resultado varia de pessoa pra pessoa e depende de uso diário.
         </p>
