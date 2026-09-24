@@ -6,8 +6,9 @@ minutos depois do pagamento — ver 1c), e o token de parceiro da Frenet entrou 
 o `MEDUSA_BACKEND_URL` (ver 1b): o pedido pago passa a ir sozinho pro painel da Frenet. E o cartão
 passou a ser cobrado só depois da análise de fraude — a compra legítima que ela barra não aparece
 mais na fatura (ver 1). No fim do dia, ficou decidido o **painel próprio da loja**, em
-`dashboard.fuckingbarba.com.br`, com o protótipo aprovado — e, na madrugada de 24/09, a primeira
-fase dele ficou pronta (entrar por código, os papéis e a equipe), esperando o deploy (ver 4.5). Em 22/09, o Pix vencido que prendia o estoque foi consertado (o #7 — ver o
+`dashboard.fuckingbarba.com.br`, com o protótipo aprovado. Em 24/09 a primeira fase dele entrou
+no ar (entrar por código, os papéis e a equipe — o dono já entrou), e a fase 2 começou: o Início
+e os pedidos, só leitura (ver 4.5). Em 22/09, o Pix vencido que prendia o estoque foi consertado (o #7 — ver o
 primeiro achado da revisão do pagamento) e a Minha conta ficou de pé na loja: endereços, meus
 dados, o checkout que abre preenchido pra quem está na conta (e guarda o endereço da compra), e o
 "Minha conta" do cabeçalho apontando pra ela. No mesmo dia, o estorno que o Pagar.me não faz (a
@@ -957,7 +958,7 @@ A ordem proposta, uma entrega pequena por vez:
 6. **Cupons, clientes, newsletter, configurações e equipe.**
 7. **Observabilidade:** guardar numa tabela o que hoje só vai pro log.
 
-**Fase 1, a base — pronta em 24/09 (entrega 0059), falta o deploy.** O painel entra por código no
+**Fase 1, a base — no ar desde 24/09 (entrega 0059, PR #43).** O painel entra por código no
 e-mail, só pra quem é da equipe (quem não é ouve a mesma resposta e não recebe nada); o primeiro
 dono é o e-mail do `DASHBOARD_DONO_EMAIL`, no Railway; o dono convida (o convite chega por e-mail e
 vale 7 dias), muda o papel e tira da equipe — e o acesso cai no clique seguinte, mesmo com o
@@ -966,19 +967,34 @@ tela dizem o que vão ter e em que fase chegam. Conferido de ponta a ponta pelo
 `apps/dashboard/ferramentas/conferir-entrar.mjs` (60 checagens). O técnico está no AGENTS.md
 ("O painel da loja").
 
-Depois do deploy — **você**, uma vez (o Claude Code acompanha, se quiser):
+Depois do deploy — **você**, uma vez (feito em 24/09: o dono já entrou):
 
-- [ ] **Railway** (o backend): em Variables, `DASHBOARD_DONO_EMAIL` = o seu e-mail, o que você vai
+- [x] **Railway** (o backend): em Variables, `DASHBOARD_DONO_EMAIL` = o seu e-mail, o que você vai
       usar pra entrar, e `DASHBOARD_URL` = `https://dashboard.fuckingbarba.com.br`. As tabelas da
       equipe nascem sozinhas no pré-deploy.
-- [ ] **Vercel**: um projeto novo, do mesmo repositório, com Root Directory `apps/dashboard`. Nas
+- [x] **Vercel**: um projeto novo, do mesmo repositório, com Root Directory `apps/dashboard`. Nas
       variáveis: `MEDUSA_BACKEND_URL` (o mesmo endereço do Railway que a loja usa) e
       `REVALIDAR_SEGREDO` (o mesmo valor do Railway e da loja — sem ele, o painel não fala com o
       Medusa).
-- [ ] **O endereço**: no projeto novo da Vercel, Settings → Domains → `dashboard.fuckingbarba.com.br`.
+- [x] **O endereço**: no projeto novo da Vercel, Settings → Domains → `dashboard.fuckingbarba.com.br`.
       A Vercel mostra um registro CNAME; ele vai no DNS da GoDaddy (onde já estão os do Resend).
-- [ ] **Entrar**: abrir `dashboard.fuckingbarba.com.br`, digitar o e-mail do `DASHBOARD_DONO_EMAIL`
+- [x] **Entrar**: abrir `dashboard.fuckingbarba.com.br`, digitar o e-mail do `DASHBOARD_DONO_EMAIL`
       e o código que chega. Depois, Configurações → Equipe e acessos → Convidar pessoa.
+
+**Fase 2, parte 1: Pedidos e Início, só leitura — pronta em 24/09 (entrega 0060).** O Início
+mostra o que precisa de alguém hoje (os pedidos pra despachar e por quê, nota com problema,
+estorno que falhou — esse só pro dono —, cartão em análise), as vendas pagas de hoje e da semana,
+o gráfico dos 7 dias, os pedidos do dia e os mais vendidos. Pedidos: a lista com busca e as fitas
+de filtro, e o pedido inteiro — o caminho de seis passos (pedido feito, pagamento, nota, Frenet,
+enviado, entregue), o que foi comprado, o histórico, o pagamento, a entrega e o cliente. O CPF
+inteiro só o dono vê (e abre mascarado, até pra ele); o marketing não vê pedido nem nome de
+cliente — só os números e os mais vendidos. Conferido pelo
+`apps/dashboard/ferramentas/conferir-pedidos.mjs` (69 checagens, com um pedido de cada jeito).
+
+- [ ] **Parte 2 (a próxima entrega):** as ações que já existem no admin — "Emitir a nota agora" e
+      "Tentar o estorno de novo" —, cada uma registrada com nome e hora, e as **visitas do dia**
+      no Início (do Google Analytics, com uma conta de serviço só de leitura — o passo a passo
+      vem junto).
 
 ## Como seguir no Claude Code
 
