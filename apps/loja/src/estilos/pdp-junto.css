@@ -6,12 +6,16 @@
   coisa escrita lá some na próxima vez que o script rodar. Esta peça não veio
   do protótipo — ela nasceu do editor do admin —, então mora fora do gerado.
 
-  Segue a mesma gramática dos degraus de quantidade logo abaixo: caixa
-  branca, borda de 2px, chanfro. As duas escolhas têm que parecer do mesmo
-  sistema, e não duas ideias empilhadas na mesma coluna.
+  Segue a mesma gramática dos degraus de quantidade: caixa branca, borda de
+  2px, chanfro. As duas escolhas têm que parecer do mesmo sistema, e não
+  duas ideias empilhadas na mesma coluna.
+
+  O espaço de cima é o `gap` da caixa de compra, igual ao dos outros blocos.
+  Uma margem própria aqui somava com ele e afastava o "Leve junto" do cartão
+  de frete (visto pela loja em 24/09).
 */
 .junto {
-  margin: 18px 0 0;
+  margin: 0;
   padding: 0;
   border: 0;
 }
@@ -28,10 +32,11 @@
   letter-spacing: 0.04em;
   color: var(--color-tinta);
 }
+/* O raio na cor do texto, como o dos degraus (pedido da loja em 24/09). */
 .junto__titulo svg {
   width: 15px;
   height: 15px;
-  fill: var(--color-amarelo-escuro);
+  fill: currentColor;
   flex-shrink: 0;
 }
 .junto__lista {
@@ -42,6 +47,17 @@
   padding: 0;
   list-style: none;
 }
+/*
+  A sombra dura do item marcado mora no <li>, e não no cartão: o chanfro é
+  `clip-path`, e ele corta tudo o que passa da caixa — inclusive a sombra.
+  No pai, o `drop-shadow` segue o desenho já chanfrado.
+*/
+.junto__lista > li {
+  transition: filter 0.12s ease;
+}
+.junto__lista > li:has(input:checked) {
+  filter: drop-shadow(4px 4px 0 var(--color-tinta));
+}
 .junto__item {
   display: flex;
   align-items: center;
@@ -51,18 +67,46 @@
   clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px);
   padding: 8px 12px 8px 10px;
   cursor: pointer;
-  transition: transform 0.12s ease;
+  transition:
+    transform 0.12s ease,
+    background-color 0.12s ease;
 }
 .junto__item:hover,
 .junto__item:focus-within {
   transform: translate(-2px, -2px);
 }
+/* Marcado: o amarelo claro é o destaque de ESCOLHA da marca (ver `pdp-frete.css`). */
+.junto__item:has(input:checked) {
+  background: var(--color-amarelo-claro);
+  transform: translate(-2px, -2px);
+}
+/*
+  O SELETOR — um quadrado da marca no lugar da caixinha do navegador, que
+  vinha cinza e de canto redondo, destoando do resto. Continua sendo um
+  <input type="checkbox"> de verdade (teclado e leitor de tela iguais); só o
+  desenho é daqui. Marcado, fica preto com o visto amarelo, as cores do botão
+  de comprar logo abaixo.
+*/
 .junto__item input {
-  width: 17px;
-  height: 17px;
+  appearance: none;
+  -webkit-appearance: none;
+  display: block;
+  width: 22px;
+  height: 22px;
+  margin: 0;
   flex-shrink: 0;
-  accent-color: var(--color-tinta);
+  border: 2px solid var(--color-tinta);
+  background: var(--color-papel) center / 15px 15px no-repeat;
   cursor: pointer;
+  transition: background-color 0.12s ease;
+}
+.junto__item input:checked {
+  background-color: var(--color-tinta);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M2.5 8.6l3.6 3.4L13.6 4' fill='none' stroke='%23ffd84d' stroke-width='2.8'/%3E%3C/svg%3E");
+}
+.junto__item input:focus-visible {
+  outline: 3px solid var(--color-tinta);
+  outline-offset: 2px;
 }
 .junto__item img,
 .junto__sem-foto {
@@ -71,6 +115,15 @@
   flex-shrink: 0;
   object-fit: contain;
   background: var(--color-cinza);
+}
+/*
+  A foto vem com fundo branco: no cartão marcado (amarelo claro) ela virava
+  um quadrado branco. Multiplicada, o branco dela assume a cor do cartão, e o
+  produto (escuro) continua igual.
+*/
+.junto__item img {
+  background: none;
+  mix-blend-mode: multiply;
 }
 .junto__nome {
   flex: 1;
@@ -85,11 +138,16 @@
   letter-spacing: -0.01em;
 }
 @media (prefers-reduced-motion: reduce) {
-  .junto__item {
+  .junto__item,
+  .junto__item input,
+  .junto__lista > li {
     transition: none;
   }
   .junto__item:hover,
   .junto__item:focus-within {
     transform: none;
+  }
+  .junto__item:has(input:checked) {
+    transform: translate(-2px, -2px);
   }
 }
