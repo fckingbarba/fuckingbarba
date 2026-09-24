@@ -5,7 +5,8 @@ topo da seção 4. Em 23/09 o Bling foi conectado (estoque, catálogo e a nota f
 minutos depois do pagamento — ver 1c), e o token de parceiro da Frenet entrou no Railway, junto com
 o `MEDUSA_BACKEND_URL` (ver 1b): o pedido pago passa a ir sozinho pro painel da Frenet. E o cartão
 passou a ser cobrado só depois da análise de fraude — a compra legítima que ela barra não aparece
-mais na fatura (ver 1). Em 22/09, o Pix vencido que prendia o estoque foi consertado (o #7 — ver o
+mais na fatura (ver 1). No fim do dia, ficou decidido o **painel próprio da loja**, em
+`dashboard.fuckingbarba.com.br`, com o protótipo aprovado (ver 4.5). Em 22/09, o Pix vencido que prendia o estoque foi consertado (o #7 — ver o
 primeiro achado da revisão do pagamento) e a Minha conta ficou de pé na loja: endereços, meus
 dados, o checkout que abre preenchido pra quem está na conta (e guarda o endereço da compra), e o
 "Minha conta" do cabeçalho apontando pra ela. No mesmo dia, o estorno que o Pagar.me não faz (a
@@ -128,6 +129,11 @@ sozinha a cada 5 minutos; se nem ela resolver, o log com `[conciliação]` diz o
       é o que o `ferramentas/pagarme-falso.mjs` já faz, com cartão que aprova
       (`4000000000000010`), cartão que recusa (`4000000000000028`) e CPF que cai na antifraude
       (`11111111111`).
+- [x] **A Stone ajustou a análise de fraude (23/09, à noite).** A Stone Digital respondeu por
+      e-mail que ajustou a análise "ao modelo de negócio" da loja, valendo dali em diante — sem
+      garantia de aprovar tudo; se as recusas continuarem, eles acompanham. A prova é uma compra no
+      cartão de alguém de fora: compra com os dados do titular da conta continua barrada por regra
+      (a resposta de 22/09, acima).
 - [x] **O cartão só é cobrado depois da análise de fraude** (decidido e feito em 23/09). Antes, a
       loja cobrava junto com a autorização (`auth_and_capture`), e quando a análise reprovava uma
       compra de verdade o valor saía e voltava na fatura. Agora:
@@ -378,11 +384,11 @@ Como funciona, em uma linha cada:
 - [ ] **Conferir o primeiro pedido pago de verdade:** FB-<número> no Bling, a nota autorizada, o
       estoque — e, agora com o token, o pedido no painel da Frenet (ver 1b). É a prova que fecha a
       fase 5 (ver a seção 4). O FB-15, de teste, já saiu com a nota autorizada (23/09).
-- [ ] **Cancelar à mão, no Bling, a nota do FB-15** — o pedido de teste de 23/09: NF-e 003321
-      autorizada, pedido de venda 3336 "Atendido". O pedido já foi cancelado no admin; a nota só
-      se cancela no painel do Bling, e **em até 24 horas da autorização** (a tela ERP mostra o
-      prazo na pendência do FB-15). Cancelada a nota, a loja cancela o pedido de venda sozinha em
-      até 5 minutos — a varredura olha os pedidos cancelados dos últimos 7 dias.
+- [x] **Cancelar à mão, no Bling, a nota do FB-15** — feito em 23/09, por volta das 21h (NF-e
+      003321, do pedido de teste; o pedido já estava cancelado no admin).
+- [ ] **Conferir no Bling que o pedido de venda 3336 (o do FB-15) virou "Cancelado".** Cancelada a
+      nota, a loja cancela o pedido de venda sozinha em até 5 minutos — a varredura olha os pedidos
+      cancelados dos últimos 7 dias. Se ele continuar "Atendido", é caso pro Claude Code.
 - [ ] **O #14 foi cancelado?** A pendência dele na tela ERP ("A loja desistiu de emitir") sumiu
       sem explicação. Ela some quando o pedido é cancelado, ou quando alguém manda tentar de novo e
       a nota sai. Falta você dizer se ele foi cancelado; se não foi, conferir no Bling se o FB-14
@@ -879,6 +885,75 @@ O que já está de pé:
   - o "entregue + pedido de avaliação" sete dias depois, do doc de arquitetura — um assinante do
     `envio.mudou`;
   - limpar envios sem dono antigos, se a conta da Frenet seguir avisando os da Nuvemshop.
+
+### 4.5. O painel próprio da loja (dashboard)
+
+**Decidido em 23/09.** A loja ganha um painel próprio, com a cara do site, no lugar do admin do
+Medusa no dia a dia. Três motivos: a experiência do admin do Medusa é ruim; vai ter gente de
+marketing e de operação, com níveis de acesso diferentes; e precisa funcionar no celular. O admin
+do Medusa continua no ar, pro dono, como reserva.
+
+- **Endereço:** `dashboard.fuckingbarba.com.br`, separado da loja — o login da equipe não se
+  mistura com o dos clientes, o Google não indexa e um erro no painel não derruba a loja. É um app
+  novo no monorepo (`apps/dashboard`, Next.js, com o design da loja), falando com o Medusa por
+  rotas próprias. Da sua parte, na hora: criar o endereço `dashboard` onde o domínio está
+  registrado (o Claude Code manda o passo a passo).
+- **Entrar:** e-mail e um código de 6 dígitos, sem senha — igual à conta do cliente, mas numa
+  identidade própria da equipe (nem a do cliente, nem a do admin do Medusa). O primeiro acesso é o
+  do dono; ele convida o resto; cada pessoa entra com o próprio e-mail; tirou da equipe, o acesso
+  cai na hora. No celular, "Adicionar à tela de início" deixa um ícone que abre como aplicativo.
+- **Papéis:** Dono, Operação e Marketing. **A permissão vale no servidor**: cada rota confere o
+  papel antes de responder, e o que o papel não vê (CPF inteiro, telefone, endereço) nem sai do
+  servidor — esconder botão não é permissão. O Medusa 2.21 tem controle de papéis ainda
+  experimental (`MEDUSA_FF_RBAC`, desligado): avaliar antes de escolher entre ele e rotas
+  próprias. Toda mudança fica registrada, com nome e hora.
+- **O protótipo:** `apps/loja/ferramentas/porte/prototipo-painel.html` — abre no navegador, sem
+  internet (e está publicado, privado, em
+  <https://claude.ai/artifact/5peAY5NUDWrwtE1rZpdhqP>). A barra de cima troca o papel ("Ver
+  como") e pula de tela. Os pedidos, clientes e números são exemplo; as regras (Pix, nota,
+  desconto por quantidade, jobs, e-mails, o que vem do Bling) são as de verdade, conferidas no
+  código. O comentário do topo do arquivo diz o que o porte precisa, tela por tela.
+
+O que o protótipo tem, aprovado em 23/09:
+
+- **Início:** o que precisa de você hoje, as vendas e as **visitas do dia** (do GA4 — conferir se
+  o `NEXT_PUBLIC_GA4_ID` está ligado na Vercel; quem recusa os cookies fica fora da conta).
+- **Pedidos:** o caminho de cada um (pagamento → nota → Frenet → entrega) e o que travou.
+- **Produtos:** fotos **e vídeos** (MP4 ou WebM), textos, e as seções da página com **nomes que
+  servem pra qualquer produto** e o título do site editável por produto; cada seção com imagem de
+  fundo em **duas versões, computador e celular** (PNG ou WebP). A **caixa de compra** da página
+  mostra uma coisa **ou** outra, no mesmo lugar abaixo do preço: os cartões "Quantas unidades" (o
+  order bump da página) ou o "Leve junto" (o cross-sell, 2 produtos). O topo da página é fixo e
+  não se edita.
+- **Layout da home:** as seções editáveis, o **banner principal com até 5 slides**, e nada vai pro
+  site sem "Publicar".
+- **Carrinhos abandonados:** **5 e-mails** — 1 hora, 1 dia, 2 dias (com cupom), 3 dias (o cupom
+  vence amanhã) e 5 dias (última chamada) —, só e-mail por enquanto, com os textos editáveis e a
+  prévia.
+- **Cupons, Clientes e Newsletter, Configurações e Equipe.**
+- **Observabilidade:** os problemas abertos em frase, com o que fazer; as integrações; os 8 jobs
+  com a última rodada; a velocidade do site.
+- **Marketing** (funil, canais, produtos, ofertas, clientes por estado, pagamento e frete) está
+  **escondido** por enquanto — volta mais pra frente.
+
+Em aberto:
+
+- [ ] Aceitar JPG nas imagens também (a foto do celular quase sempre é JPG), convertendo pra WebP
+      na subida? O pedido foi PNG e WebP.
+- [ ] Confirmar a ordem do desenvolvimento, logo abaixo.
+
+A ordem proposta, uma entrega pequena por vez:
+
+1. **A base:** `apps/dashboard`, o login por código, os papéis no servidor, a casca (menu,
+   celular) e o deploy com o endereço.
+2. **Pedidos e Início:** primeiro só leitura; depois as ações que já existem no admin (emitir a
+   nota agora, tentar o estorno de novo).
+3. **Produtos:** textos, seções e fundos (o `fb_pdp` que já existe), a caixa de compra e os vídeos.
+4. **Home:** a fonte da home no metadata da loja (hoje é código), o banner com slides e o
+   "Publicar".
+5. **Carrinho abandonado:** os 5 e-mails — é também o item de código que falta na fase 5.
+6. **Cupons, clientes, newsletter, configurações e equipe.**
+7. **Observabilidade:** guardar numa tabela o que hoje só vai pro log.
 
 ## Como seguir no Claude Code
 
