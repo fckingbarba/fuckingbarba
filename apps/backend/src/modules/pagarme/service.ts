@@ -38,13 +38,15 @@ import {
   type ClienteDoPagarme,
   type PedidoPagarme,
 } from "./client"
-import { conferirEntrada, montarPedido, type EntradaDaLoja } from "./pedido"
+import { conferirEntrada, montarPedido, type EntradaDaLoja, type Forma } from "./pedido"
 import {
   CHAVE_DA_ENTRADA,
   estadoNovo,
   gravar,
   lerEstado,
+  podeCobrar,
   RECUSAS,
+  reservaPraDesfazer,
   traduzir,
   type Estado,
   type Situacao,
@@ -64,22 +66,28 @@ import {
  * │                                                                         │
  * │ 2. A loja manda fechar o carrinho. O Medusa cria o pedido, reserva o   │
  * │    estoque e, por ÚLTIMO, chama `authorizePayment` — que é onde o      │
- * │    pedido nasce no Pagar.me:                                           │
- * │      • cartão aprovado → `captured`: pedido pago na hora;              │
- * │      • Pix gerado, ou cartão em análise → `pending_authorization`: o   │
- * │        pedido existe, aguardando pagamento, com o estoque reservado;   │
- * │      • cartão recusado → `error`: o Medusa DESFAZ o pedido, devolve o  │
- * │        estoque, e o carrinho continua aberto pra outra tentativa.      │
+ * │    pedido nasce no Pagar.me. O cartão só é AUTORIZADO (o valor fica    │
+ * │    reservado), e a espera pela análise de fraude é de uns segundos:    │
+ * │      • análise aprovada → o cartão é COBRADO aqui, e `captured`:       │
+ * │        pedido pago na hora;                                            │
+ * │      • Pix gerado, ou cartão ainda em análise → `pending_authorization`│
+ * │        : o pedido existe, aguardando pagamento, com o estoque          │
+ * │        reservado (o cartão, só com a reserva — nada na fatura);        │
+ * │      • cartão recusado, pelo banco ou pela análise → `error`: o Medusa │
+ * │        DESFAZ o pedido, devolve o estoque, e o carrinho continua       │
+ * │        aberto pra outra tentativa.                                     │
  * │                                                                         │
- * │ 3. O Pix é pago. O Pagar.me avisa a Edge Function, que avisa o Medusa  │
- * │    (`/hooks/payment/pagarme_pagarme`). `getWebhookActionAndData` NÃO   │
- * │    ACREDITA no aviso: busca o pedido na API e só diz "pago" se a API   │
- * │    disser. O Medusa então chama `authorizePayment` de novo, que agora  │
- * │    responde `captured`, e o pagamento é registrado.                    │
+ * │ 3. O Pix é pago, ou a análise aprova o cartão. O Pagar.me avisa a Edge │
+ * │    Function, que avisa o Medusa (`/hooks/payment/pagarme_pagarme`).    │
+ * │    `getWebhookActionAndData` NÃO ACREDITA no aviso: busca o pedido na  │
+ * │    API e só age se a API disser "pago" (ou "aprovado, falta cobrar").  │
+ * │    O Medusa então chama `authorizePayment` de novo, que cobra o cartão │
+ * │    se for o caso e responde `captured`, e o pagamento é registrado.    │
  * │                                                                         │
  * │ 4. O que o webhook não resolve — Pix que venceu, cartão que a análise  │
- * │    recusou, aviso que nunca chegou — a conciliação resolve, a cada     │
- * │    5 minutos, no worker (`src/lib/conciliar-pagamentos.ts`).           │
+ * │    recusou ou aprovou sem aviso, aviso que nunca chegou — a            │
+ * │    conciliação resolve, a cada 5 minutos, no worker                    │
+ * │    (`src/lib/conciliar-pagamentos.ts`).                                │
  * └─────────────────────────────────────────────────────────────────────────┘
  *
  * O PEDIDO DO PAGAR.ME É ACHADO PELO CÓDIGO, NUNCA PELOS DADOS DA SESSÃO. O
@@ -116,7 +124,19 @@ const PIX_MINUTOS_PADRAO = 30
  */
 const REPERGUNTAS_MS = [2_000, 5_000]
 
+/**
+ * No checkout, quanto esperar pela análise de fraude do cartão, releitura a
+ * releitura: uns 6 segundos no total. As análises que se viram responderam
+ * em 2 a 6 segundos (e uma, em um minuto). Quem espera aqui sai da tela com
+ * a resposta: pago, ou "tenta outro cartão" com o carrinho aberto — em vez
+ * de um pedido que nasce e é cancelado minutos depois. Mais que isso, o
+ * pedido nasce em análise e a cobrança vem depois (ver o passo 3 lá em cima).
+ */
+const ESPERAS_DA_ANALISE_MS = [1_500, 2_000, 2_500]
+
 const esperar = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+const mensagemDe = (e: unknown) => (e instanceof Error ? e.message : String(e))
 
 /** O id de sessão do Medusa — é ele que vira o `code` do pedido no Pagar.me. */
 const CODIGO_DE_SESSAO = /^payses_[A-Za-z0-9]+$/
@@ -245,7 +265,6 @@ export default class PagarmeServico extends AbstractPaymentProvider<Opcoes> {
     }
 
     if (pedido) {
-      const traduzido = traduzir(pedido, estado.forma, estado.parcelas)
       /*
         SESSÃO QUE JÁ TEVE FIM NÃO RESSUSCITA. "Incerto" é a criação que
         sumiu no caminho — a tela disse "tenta de novo, e o que foi cobrado
@@ -254,9 +273,12 @@ export default class PagarmeServico extends AbstractPaymentProvider<Opcoes> {
         webhook faz com carrinho sem pedido) ao mesmo tempo em que a
         conciliação estorna: pedido pago, dinheiro devolvido, encomenda
         enviada de graça. Então quem decide o destino dessas é UM só — a
-        conciliação, que estorna. O mesmo pra cancelada e estornada.
+        conciliação, que estorna. O mesmo pra cancelada e estornada. E
+        cartão de sessão assim não é COBRADO aqui, nem com a análise
+        aprovada: a conciliação desfaz a reserva.
       */
       if (SEM_VOLTA.has(estado.situacao)) {
+        const traduzido = traduzir(pedido, estado.forma, estado.parcelas)
         if (traduzido.status === PaymentSessionStatus.CAPTURED) {
           this.logger.error(
             `[pagarme] ${pedido.id} consta PAGO, e a sessão ${codigo} já tinha terminado como ` +
@@ -268,7 +290,10 @@ export default class PagarmeServico extends AbstractPaymentProvider<Opcoes> {
           data: gravar({ ...traduzido.estado, situacao: estado.situacao, recusa: estado.recusa }),
         }
       }
-      return this.responder(traduzido)
+      // O cartão que a análise aprovou é cobrado aqui: no checkout (a
+      // resposta da criação que se perdeu), no aviso e na conciliação.
+      pedido = await this.cobrarSePuder(pedido, codigo)
+      return this.responder(traduzir(pedido, estado.forma, estado.parcelas))
     }
 
     if (estado.situacao !== "nova") {
@@ -349,6 +374,7 @@ export default class PagarmeServico extends AbstractPaymentProvider<Opcoes> {
       return this.falha(estado, "valor divergente", RECUSAS.fora)
     }
 
+    pedido = await this.esperarAAnalise(pedido, entrada.forma, codigo)
     const traduzido = traduzir(pedido, entrada.forma, entrada.parcelas)
     this.logger.info(
       `[pagarme] ${codigo} → ${pedido.id}: ${traduzido.estado.situacao} ` +
@@ -366,14 +392,16 @@ export default class PagarmeServico extends AbstractPaymentProvider<Opcoes> {
   */
 
   /**
-   * Só é chamado pra pagamento que não veio capturado — e com
-   * `auth_and_capture` todo pagamento registrado já vem. Se um dia chegar
-   * aqui, confere que o Pagar.me diz "pago" antes de deixar o Medusa marcar.
+   * Só é chamado pra pagamento registrado sem estar capturado — e este
+   * provedor nunca registra assim: ele cobra o cartão ANTES de responder
+   * `captured` (ver `cobrarSePuder`), e até lá a sessão fica pendente. Se um
+   * dia chegar aqui (o "Capture" do admin), cobra se a análise deixou, e só
+   * deixa o Medusa marcar se o Pagar.me disser "pago".
    */
   async capturePayment({ data }: CapturePaymentInput): Promise<CapturePaymentOutput> {
     const estado = this.exigirPedido(data)
     const lido = traduzir(
-      await this.cliente.lerPedido(estado.pedido!),
+      await this.cobrarSePuder(await this.cliente.lerPedido(estado.pedido!), estado.pedido!),
       estado.forma,
       estado.parcelas
     )
@@ -528,8 +556,10 @@ export default class PagarmeServico extends AbstractPaymentProvider<Opcoes> {
    * │ E a sessão vem do `code` do pedido lido na API — nunca do corpo.       │
    * └─────────────────────────────────────────────────────────────────────────┘
    *
-   * Só "pago" vira ação: o Medusa ignora falha e cancelamento vindos de
-   * webhook, e quem cuida deles é a conciliação.
+   * Só "pago" vira ação — e o cartão que a análise aprovou e ainda não foi
+   * cobrado (`charge.antifraud_approved`): o Medusa chama o
+   * `authorizePayment`, e é lá que ele é cobrado. O Medusa ignora falha e
+   * cancelamento vindos de webhook, e quem cuida deles é a conciliação.
    */
   async getWebhookActionAndData(
     payload: ProviderWebhookPayload["payload"]
@@ -559,13 +589,93 @@ export default class PagarmeServico extends AbstractPaymentProvider<Opcoes> {
 
     // A forma não muda o que é "pago"; só o nome da situação.
     const pago = traduzir(pedido, "pix").status === PaymentSessionStatus.CAPTURED
-    this.logger.info(`[pagarme] aviso ${tipo} de ${pedido.id}: ${pago ? "pago" : pedido.status}`)
-    if (!pago) return nada
+    const aCobrar = !pago && podeCobrar(pedido).cobrar
+    this.logger.info(
+      `[pagarme] aviso ${tipo} de ${pedido.id}: ` +
+        (pago ? "pago" : aCobrar ? "aprovado na análise — vai ser cobrado" : pedido.status)
+    )
+    if (!pago && !aCobrar) return nada
 
     return {
       action: PaymentActions.SUCCESSFUL,
       data: { session_id: sessao, amount: emReais(Number(pedido.amount)) },
     }
+  }
+
+  /* ── a cobrança do cartão, depois da análise ─────────────────────────────── */
+
+  /**
+   * NO CHECKOUT, uns segundos de espera pela análise de fraude do cartão
+   * recém-autorizado (`ESPERAS_DA_ANALISE_MS`), relendo o pedido — e cobra,
+   * se ela aprovar. Resposta "manual" (uma pessoa analisando) não chega em
+   * segundos: não espera. Pix passa direto.
+   */
+  private async esperarAAnalise(
+    pedido: PedidoPagarme,
+    forma: Forma,
+    codigo: string
+  ): Promise<PedidoPagarme> {
+    if (forma !== "cartao") return pedido
+    let atual = pedido
+    for (const ms of ESPERAS_DA_ANALISE_MS) {
+      const decisao = podeCobrar(atual)
+      if (decisao.cobrar || (decisao.porque !== "pendente" && decisao.porque !== "sem-resposta")) {
+        break
+      }
+      await esperar(ms)
+      atual = await this.cliente.lerPedido(atual.id).catch(() => atual)
+    }
+    return this.cobrarSePuder(atual, codigo)
+  }
+
+  /**
+   * COBRA O CARTÃO se a análise deixou (`podeCobrar`), e devolve o pedido
+   * RELIDO: é a leitura que diz se cobrou. A cobrança pode ter saído e a
+   * resposta se perdido, ou ter sido feita um instante antes por outro
+   * caminho (o aviso e a conciliação chegando juntos). Sem conseguir reler,
+   * volta o pedido de antes — a sessão continua em análise, e a próxima
+   * passada (aviso ou conciliação) confere.
+   *
+   * E desfaz a reserva que a análise reprovou e o Pagar.me não desfez.
+   */
+  private async cobrarSePuder(pedido: PedidoPagarme, codigo: string): Promise<PedidoPagarme> {
+    const reprovada = reservaPraDesfazer(pedido)
+    if (reprovada) {
+      await this.cliente.cancelarCobranca(reprovada).catch((e) => {
+        this.logger.warn(
+          `[pagarme] a análise reprovou ${pedido.id} e a reserva no cartão não foi desfeita agora ` +
+            `(${mensagemDe(e)}) — o Pagar.me solta sozinho, e a conciliação tenta de novo`
+        )
+      })
+      return pedido
+    }
+
+    const decisao = podeCobrar(pedido)
+    if (!decisao.cobrar) return pedido
+    try {
+      await this.cliente.capturarCobranca(decisao.cobranca, decisao.valor)
+    } catch (e) {
+      this.logger.warn(
+        `[pagarme] a cobrança do cartão de ${pedido.id} (${codigo}) não respondeu certo: ` +
+          `${mensagemDe(e)} — conferindo no Pagar.me`
+      )
+    }
+    const relido = await this.cliente.lerPedido(pedido.id).catch(() => null)
+    if (!relido) return pedido
+    if (traduzir(relido, "cartao").status === PaymentSessionStatus.CAPTURED) {
+      this.logger.info(
+        `[pagarme] ${pedido.id} cobrado (${decisao.valor} centavos) ` +
+          (decisao.porque === "aprovada"
+            ? "depois de a análise de fraude aprovar"
+            : "sem resposta da análise de fraude em 10 minutos")
+      )
+    } else {
+      this.logger.warn(
+        `[pagarme] ${pedido.id} continua sem cobrança depois de pedir a captura ` +
+          `(${relido.charges?.[0]?.status ?? "?"}) — a conciliação tenta de novo`
+      )
+    }
+    return relido
   }
 
   /* ── utilidades ─────────────────────────────────────────────────────────── */

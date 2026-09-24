@@ -35,6 +35,18 @@ import { createServer } from "node:http"
  *   Pix acima de R$ 500     → falha na criação
  *   DELETE em Pix pendente  → 412, sempre (nem vencido cancela)
  *
+ * O CARTÃO SÓ AUTORIZADO (`auth_only`, que é o que a loja manda): "aprovado"
+ * nasce autorizado e com a análise de fraude aprovada, esperando a cobrança
+ * — `POST /charges/:id/capture`, que o backend faz, e que fica anotada em
+ * `capturas` (com o que a análise dizia na hora). "Em análise" nasce
+ * autorizado com a análise pendente: o teste decide com `aprovarAnalise` e
+ * `reprovarAnalise` (que avisam como o Pagar.me avisa, `charge.antifraud_*`),
+ * ou deixa o falso decidir sozinho uns segundos depois, com
+ * `decisaoDaAnalise` — é assim que se testa a espera do checkout. Reprovada,
+ * a reserva é desfeita (`voided`, com o `canceled_amount` do valor inteiro:
+ * reserva desfeita não é estorno, e o backend não pode confundir). Com
+ * `auth_and_capture`, o falso segue cobrando na criação, como antes.
+ *
  * E o que a API deles exige e o falso também exige — senão o teste passaria
  * aqui e quebraria lá: token de cartão vale 60 segundos e UMA vez; tokenizar
  * com cabeçalho `Authorization` é recusado; cartão sem endereço de cobrança
@@ -94,6 +106,14 @@ export async function subirPagarmeFalso({ porta = PORTA_PADRAO, webhook = null }
     /** Toda chamada que chegou, pra conferir quem falou o quê. */
     chamadas: [],
     cancelamentos: [],
+    /** Toda cobrança de cartão autorizado: { cobranca, pedido, valor, analise, recusada }. */
+    capturas: [],
+    /**
+     * A ANÁLISE QUE SE DECIDE SOZINHA, pro próximo cartão "em análise":
+     * `{ depoisDe: ms, resultado: "aprova" | "reprova" }`. `null` é o teste
+     * decidir. Vale pra um pedido só: o falso zera depois de usar.
+     */
+    decisaoDaAnalise: null,
     webhooksEnviados: [],
     /**
      * "normal": o estorno sai na hora. "segura": o estorno fica "aguardando
@@ -153,7 +173,9 @@ export async function subirPagarmeFalso({ porta = PORTA_PADRAO, webhook = null }
       account: { id: "acc_falsa", name: "FuckingBarba (falso)" },
       type: tipo,
       created_at: agora(),
-      data: pedido,
+      // Como o de verdade: aviso de pedido leva o pedido; o de cobrança leva
+      // a cobrança, com o pedido dentro (`data.order.id`).
+      data: tipo.startsWith("charge.") ? cobrancaDo(pedido) : pedido,
     }
     const cabecalhos = { "content-type": "application/json" }
     if (painel.webhook.segredo !== undefined)
@@ -165,6 +187,32 @@ export async function subirPagarmeFalso({ porta = PORTA_PADRAO, webhook = null }
     }).catch((e) => ({ status: 0, erro: String(e) }))
     painel.webhooksEnviados.push({ tipo, pedido: pedido.id, status: r.status })
     return r.status
+  }
+
+  /**
+   * A análise de fraude decide um cartão autorizado. Aprovada, ele continua
+   * AUTORIZADO, esperando a cobrança; reprovada, a reserva é desfeita — ou,
+   * com `desfaz: false`, fica pendurada, pro teste ver o backend desfazer.
+   */
+  async function decidirAnalise(pedido, resultado, { semAviso = false, desfaz = true } = {}) {
+    const c = cobrancaDo(pedido)
+    const t = c.last_transaction
+    if (resultado === "aprova") {
+      t.antifraud_response = { status: "approved", return_message: "aprovado" }
+    } else {
+      t.antifraud_response = { status: "reproved", return_message: "reprovado" }
+      if (desfaz && t.status === "authorized_pending_capture") {
+        mudar(pedido, "failed", { status: "voided" })
+        c.canceled_amount = c.amount
+      }
+    }
+    c.updated_at = agora()
+    return semAviso
+      ? null
+      : avisar(
+          pedido,
+          resultado === "aprova" ? "charge.antifraud_approved" : "charge.antifraud_reproved"
+        )
   }
 
   function criarPedido(corpo) {
@@ -264,9 +312,11 @@ export async function subirPagarmeFalso({ porta = PORTA_PADRAO, webhook = null }
         })
       }
     } else {
+      const soAutoriza = pagamento.credit_card.operation_type === "auth_only"
       Object.assign(t, {
         installments: pagamento.credit_card.installments ?? 1,
         statement_descriptor: pagamento.credit_card.statement_descriptor,
+        operation_type: pagamento.credit_card.operation_type ?? "auth_and_capture",
         card: {
           brand: bandeira(cartao.numero),
           last_four_digits: cartao.numero.slice(-4),
@@ -285,8 +335,23 @@ export async function subirPagarmeFalso({ porta = PORTA_PADRAO, webhook = null }
           acquirer_return_code: "51",
         })
       } else if (cartao.numero === CARTOES.analise) {
-        mudar(pedido, "pending", { status: "authorized_pending_capture" })
-        cobranca.status = "processing"
+        mudar(pedido, "pending", {
+          status: "authorized_pending_capture",
+          ...(soAutoriza ? { antifraud_response: { status: "pending" } } : {}),
+        })
+        cobranca.status = soAutoriza ? "pending" : "processing"
+        const decisao = soAutoriza ? painel.decisaoDaAnalise : null
+        if (decisao) {
+          painel.decisaoDaAnalise = null
+          setTimeout(() => void decidirAnalise(pedido, decisao.resultado), decisao.depoisDe)
+        }
+      } else if (soAutoriza) {
+        // Autorizado, e a análise aprovou na hora: falta só a cobrança.
+        mudar(pedido, "pending", {
+          status: "authorized_pending_capture",
+          acquirer_message: "Transação autorizada com sucesso",
+          antifraud_response: { status: "approved", return_message: "aprovado" },
+        })
       } else {
         mudar(pedido, "paid", {
           status: "captured",
@@ -417,6 +482,14 @@ export async function subirPagarmeFalso({ porta = PORTA_PADRAO, webhook = null }
           json(200, { pedido, aviso: status })
           return
         }
+        if (acao === "aprovar" || acao === "reprovar") {
+          const status = await decidirAnalise(pedido, acao === "aprovar" ? "aprova" : "reprova", {
+            semAviso: Boolean(corpo?.semAviso),
+            desfaz: corpo?.desfaz !== false,
+          })
+          json(200, { pedido, aviso: status })
+          return
+        }
         if (acao === "envelhecer") {
           // Uma hora atrás: o QR venceu, e o pedido passou da idade em que a
           // conciliação já pode chamá-lo de órfão.
@@ -504,6 +577,45 @@ export async function subirPagarmeFalso({ porta = PORTA_PADRAO, webhook = null }
         return
       }
 
+      /*
+        A COBRANÇA DO CARTÃO AUTORIZADO. Só o que está autorizado e não foi
+        cobrado se cobra; o resto é recusado, como lá. Cada pedido fica
+        anotado com o que a análise dizia NA HORA — é essa anotação que prova
+        que a loja não cobrou antes da análise aprovar.
+      */
+      const capturando = caminho.match(/^\/core\/v5\/charges\/([^/]+)\/capture$/)
+      if (req.method === "POST" && capturando) {
+        const registro = [...painel.pedidos.values()].find(
+          (r) => cobrancaDo(r.pedido).id === capturando[1]
+        )
+        if (!registro) {
+          json(404, { message: "Charge not found" })
+          return
+        }
+        const c = cobrancaDo(registro.pedido)
+        const t = c.last_transaction
+        const podia = c.status === "pending" && t.status === "authorized_pending_capture"
+        painel.capturas.push({
+          cobranca: c.id,
+          pedido: registro.pedido.id,
+          valor: corpo?.amount ?? c.amount,
+          analise: t.antifraud_response?.status ?? null,
+          recusada: !podia,
+        })
+        if (!podia) {
+          json(412, { message: "This charge can not be captured." })
+          return
+        }
+        mudar(registro.pedido, "paid", {
+          status: "captured",
+          acquirer_message: "Transação capturada com sucesso",
+        })
+        json(200, c)
+        // Como o de verdade: o aviso de pago vem depois, por fora da resposta.
+        setTimeout(() => void avisar(registro.pedido, "order.paid"), 200)
+        return
+      }
+
       const cancelando = caminho.match(/^\/core\/v5\/charges\/([^/]+)$/)
       if (req.method === "DELETE" && cancelando) {
         const registro = [...painel.pedidos.values()].find(
@@ -553,6 +665,14 @@ export async function subirPagarmeFalso({ porta = PORTA_PADRAO, webhook = null }
           } else {
             devolver(c, valor)
           }
+        } else if (c.last_transaction.status === "authorized_pending_capture") {
+          // A reserva desfeita: nada foi cobrado, e o `canceled_amount` vem
+          // com o valor inteiro mesmo assim — não é estorno.
+          c.status = "canceled"
+          registro.pedido.status = "canceled"
+          c.last_transaction.status = "voided"
+          c.canceled_amount = c.amount
+          c.updated_at = agora()
         } else {
           c.status = "canceled"
           registro.pedido.status = "canceled"
@@ -611,6 +731,23 @@ export async function subirPagarmeFalso({ porta = PORTA_PADRAO, webhook = null }
     (
       await fetch(`http://127.0.0.1:${porta}/__falso/envelhecer/${pedidoId}`, { method: "POST" })
     ).json()
+  /**
+   * A análise de fraude decide o cartão "em análise". `semAviso`: o
+   * Pagar.me não avisa (quem descobre é a conciliação). `desfaz: false`, na
+   * reprovação: a reserva fica pendurada, pro teste ver o backend desfazer.
+   */
+  const decidir =
+    (acao) =>
+    async (pedidoId, opcoes = {}) =>
+      (
+        await fetch(`http://127.0.0.1:${porta}/__falso/${acao}/${pedidoId}`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(opcoes),
+        })
+      ).json()
+  painel.aprovarAnalise = decidir("aprovar")
+  painel.reprovarAnalise = decidir("reprovar")
 
   return painel
 }

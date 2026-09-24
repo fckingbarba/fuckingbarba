@@ -149,7 +149,7 @@ export function duvidasDaLoja({ frete, atendimento }: Configuracoes): GrupoDeDuv
           pergunta: "Meu cartão foi recusado. O que aconteceu?",
           resposta: [
             "Quem recusa é o banco do cartão ou a análise de segurança do pagamento, e nem a gente fica sabendo o motivo exato. Recusado, o pedido não segue: dá pra tentar de novo com outro cartão ou pagar no Pix.",
-            "Às vezes o valor chega a aparecer no app do banco e some logo depois — é a análise desfazendo a cobrança. O estorno é automático e pode aparecer nesta fatura ou na próxima.",
+            "O cartão só é cobrado depois que a análise aprova. Até lá, o valor fica reservado — às vezes aparece no app do banco e some logo depois, quando a análise recusa. É a reserva sendo desfeita: nada entra na fatura.",
           ],
         },
         {

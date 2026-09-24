@@ -320,9 +320,11 @@ export function montarPedido(
             credit_card: {
               installments: entrada.parcelas,
               statement_descriptor: DESCRITOR_NA_FATURA,
-              // Captura junto com a autorização: o Medusa recebe "pago" na
-              // hora, sem um segundo passo que alguém esqueceria de dar.
-              operation_type: "auth_and_capture",
+              // SÓ AUTORIZA. A cobrança vem depois de a análise de fraude
+              // aprovar (`podeCobrar`, no `situacao.ts`): com
+              // `auth_and_capture`, a compra que a análise reprovava era
+              // cobrada e devolvida — o valor aparecia e sumia da fatura.
+              operation_type: "auth_only",
               card_token: entrada.token ?? "",
               card: { billing_address: cobranca },
             },
