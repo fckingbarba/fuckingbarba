@@ -111,23 +111,14 @@ export function fabricaDePedidos({ medusa, chave, tokenAdmin, pagarme }) {
     ).order
 
   /**
-   * Um pedido com o Pix esperando. `itens` é uma lista de handles com
-   * quantidade: [["shampoo-para-barba", 2], ["balm-para-barba", 1]].
-   *
-   * `validadeSegundos` manda no `expires_at` que o Pagar.me falso devolve.
-   * NEGATIVO faz um Pix que já nasce vencido — é assim que o conferidor da
-   * conta desenha a tela do "Pix vencido" sem esperar meia hora. Ele ainda
-   * tem os 10 minutos de folga da conciliação antes de virar cancelado, que
-   * é tempo de sobra pro teste.
+   * O carrinho pronto pra pagar: os itens, o e-mail, o endereço (com o CPF
+   * no de cobrança, se vier) e o frete mais barato. `itens` é uma lista de
+   * handles com quantidade: [["shampoo-para-barba", 2], ["balm-para-barba", 1]].
    *
    * `documento` põe o CPF no endereço de cobrança, como o checkout da loja
    * grava (`montarEndereco`) — é de lá que a nota fiscal tira o CPF.
    */
-  async function pedidoPix(
-    email,
-    itens = [["shampoo-para-barba", 1]],
-    { validadeSegundos = null, documento = null } = {}
-  ) {
+  async function carrinhoPronto(email, itens, documento) {
     await variante(itens[0][0]) // a região vem junto
     const { cart } = await loja("/store/carts", {
       method: "POST",
@@ -161,21 +152,79 @@ export function fabricaDePedidos({ medusa, chave, tokenAdmin, pagarme }) {
       method: "POST",
       body: JSON.stringify({ cart_id: cart.id }),
     })
+    return { cart, colecao: payment_collection }
+  }
+
+  /** A sessão do Pagar.me com esta `entrada`, e o `complete` — o que a loja faz no "Finalizar". */
+  async function fechar(cart, colecao, entrada) {
     const antes = new Set(pagarme.pedidos.keys())
-    pagarme.validadeDoPix = validadeSegundos
-    try {
-      await loja(`/store/payment-collections/${payment_collection.id}/payment-sessions`, {
-        method: "POST",
-        body: JSON.stringify({ provider_id: PAGARME, data: { entrada: entradaDoPix(email) } }),
-      })
-    } finally {
-      pagarme.validadeDoPix = null
-    }
+    await loja(`/store/payment-collections/${colecao.id}/payment-sessions`, {
+      method: "POST",
+      body: JSON.stringify({ provider_id: PAGARME, data: { entrada } }),
+    })
     const fim = await loja(`/store/carts/${cart.id}/complete`, { method: "POST" })
     if (fim?.type !== "order")
       throw new Error(`o carrinho não virou pedido: ${JSON.stringify(fim)}`)
     const noPagarme = [...pagarme.pedidos.keys()].find((k) => !antes.has(k)) ?? null
     return { id: fim.order.id, numero: fim.order.display_id, noPagarme }
+  }
+
+  /**
+   * Um pedido com o Pix esperando.
+   *
+   * `validadeSegundos` manda no `expires_at` que o Pagar.me falso devolve.
+   * NEGATIVO faz um Pix que já nasce vencido — é assim que o conferidor da
+   * conta desenha a tela do "Pix vencido" sem esperar meia hora. Ele ainda
+   * tem os 10 minutos de folga da conciliação antes de virar cancelado, que
+   * é tempo de sobra pro teste. A validade fica valendo até o `complete`:
+   * é nele (no `authorizePayment`) que o pedido nasce no Pagar.me, e não na
+   * sessão.
+   */
+  async function pedidoPix(
+    email,
+    itens = [["shampoo-para-barba", 1]],
+    { validadeSegundos = null, documento = null } = {}
+  ) {
+    const { cart, colecao } = await carrinhoPronto(email, itens, documento)
+    pagarme.validadeDoPix = validadeSegundos
+    try {
+      return await fechar(cart, colecao, entradaDoPix(email))
+    } finally {
+      pagarme.validadeDoPix = null
+    }
+  }
+
+  /**
+   * Um pedido no cartão, como a loja faz: o número vira token no Pagar.me
+   * (o falso, com a chave PÚBLICA na query, como o navegador), e a sessão
+   * vai com o token. O `cartao` escolhe o fim, pelas regras do falso:
+   * "4000000000000036" nasce em análise (o teste decide depois, com
+   * `pagarme.aprovarAnalise` ou `reprovarAnalise`), "4000000000000010" é
+   * aprovado e "4000000000000028", recusado.
+   */
+  async function pedidoCartao(
+    email,
+    itens = [["shampoo-para-barba", 1]],
+    { cartao = "4000000000000036", parcelas = 2, documento = "11144477735" } = {}
+  ) {
+    const { cart, colecao } = await carrinhoPronto(email, itens, documento)
+    const r = await fetch(`http://127.0.0.1:${pagarme.porta}/core/v5/tokens?appId=pk_test_falsa`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        type: "card",
+        card: {
+          number: cartao,
+          holder_name: "RAFAEL TESTE",
+          exp_month: 12,
+          exp_year: 2030,
+          cvv: "123",
+        },
+      }),
+    })
+    const token = (await r.json())?.id
+    if (!token) throw new Error(`o Pagar.me falso não tokenizou o cartão (${r.status})`)
+    return fechar(cart, colecao, { ...entradaDoPix(email), forma: "cartao", parcelas, token })
   }
 
   /** O Pix cai: o falso paga e avisa o Medusa pelo webhook. Espera o Medusa registrar. */
@@ -232,5 +281,5 @@ export function fabricaDePedidos({ medusa, chave, tokenAdmin, pagarme }) {
     await adm(`/admin/orders/${pedido.id}/cancel`, { method: "POST" })
   }
 
-  return { pedidoPix, pagar, separar, enviar, entregar, cancelar, noAdmin }
+  return { pedidoPix, pedidoCartao, pagar, separar, enviar, entregar, cancelar, noAdmin }
 }

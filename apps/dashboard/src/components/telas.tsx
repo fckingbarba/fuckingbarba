@@ -11,11 +11,14 @@ import { DONOS_DA_AREA, type Area } from "@/lib/equipe"
 
 export function Cabeca({
   titulo,
+  selo,
   sub,
   acoes,
   voltar,
 }: {
   titulo: string
+  /** O selo ao lado do título (a situação do pedido). */
+  selo?: ReactNode
   sub?: ReactNode
   acoes?: ReactNode
   voltar?: { href: Route; texto: string }
@@ -30,7 +33,14 @@ export function Cabeca({
       ) : null}
       <div className="cabeca">
         <div>
-          <h1>{titulo}</h1>
+          {selo ? (
+            <div className="titulo-status">
+              <h1>{titulo}</h1>
+              {selo}
+            </div>
+          ) : (
+            <h1>{titulo}</h1>
+          )}
           {sub ? <p className="cabeca__sub">{sub}</p> : null}
         </div>
         {acoes ? <div className="cabeca__acoes">{acoes}</div> : null}
@@ -66,15 +76,6 @@ export function SemAcesso({ area }: { area: Area }) {
 
 /** O que cada área vai fazer, e em que fase chega — a ordem do ESTADO.md, 4.5. */
 const O_QUE_VEM: Partial<Record<Area, { titulo: string; fase: number; itens: string[] }>> = {
-  pedidos: {
-    titulo: "Pedidos",
-    fase: 2,
-    itens: [
-      "A lista, com o que falta despachar no alto e o que precisa de você.",
-      "O pedido inteiro: pagamento, nota no Bling, envio e rastreio, no caminho de seis passos.",
-      "Despachar, conferir a nota e reenviar o e-mail do pedido.",
-    ],
-  },
   produtos: {
     titulo: "Produtos",
     fase: 3,

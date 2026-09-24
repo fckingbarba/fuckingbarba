@@ -56,24 +56,6 @@
 .em-breve ul { margin: 10px 0 0; padding-left: 18px; font-size: 0.86rem; }
 .em-breve li { margin-bottom: 4px; }
 
-/* As fases do painel, no Início. */
-.fases { list-style: none; margin: 0; padding: 0; counter-reset: fase; }
-.fases li {
-  display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 12px; align-items: start;
-  padding: 12px 0; border-bottom: 1px solid rgba(18, 24, 31, 0.1);
-}
-.fases li:last-child { border-bottom: 0; }
-.fases__num {
-  width: 34px; height: 34px; display: flex; align-items: center; justify-content: center;
-  background: var(--cinza-2); color: var(--tinta); font-size: 0.84rem; font-weight: 800;
-  clip-path: var(--chanfro-p);
-}
-.fases li[data-feita] .fases__num { background: var(--menta-escura); color: #fff; }
-.fases__num svg { width: 16px; height: 16px; fill: currentColor; }
-.fases li[data-agora] .fases__num { background: var(--amarelo); }
-.fases__titulo { margin: 0; font-size: 0.86rem; font-weight: 800; text-transform: uppercase; }
-.fases__txt { margin: 2px 0 0; font-size: 0.8rem; color: var(--tinta-suave); }
-
 /* A equipe: a linha de cada pessoa e o que dá pra fazer com ela. */
 .pessoa__lado { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px 10px; }
 .pessoa__mudar { display: grid; gap: 12px; margin-top: 12px; padding: 14px 16px; background: var(--cinza); border: 2px solid var(--tinta); }

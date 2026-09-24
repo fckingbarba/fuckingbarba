@@ -1,0 +1,148 @@
+/*
+  INÍCIO E PEDIDOS — os números, o gráfico da semana, a lista curta, e o
+  pedido inteiro (o caminho, os itens, os totais, o histórico). Copiados do
+  protótipo (apps/loja/ferramentas/porte/prototipo-painel.html); o que o
+  protótipo não tinha está no fim.
+*/
+
+.numeros { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 0 0 16px; }
+@media (max-width: 760px) { .numeros { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.numero { padding: 14px 16px; background: var(--papel); border: 2px solid var(--tinta); clip-path: var(--chanfro-p); min-width: 0; }
+.numero__rot { margin: 0; font-size: 0.62rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--tinta-suave); }
+.numero__valor { margin: 6px 0 2px; font-size: clamp(1.25rem, 2.4vw, 1.6rem); font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+.numero__sub { margin: 0; font-size: 0.74rem; color: var(--tinta-suave); }
+.numero--destaque { background: var(--tinta); color: #fff; }
+.numero--destaque .numero__rot, .numero--destaque .numero__sub { color: #aeb7c2; }
+.numero--destaque .numero__valor { color: var(--amarelo); }
+
+/* Gráfico de barras em HTML, não SVG: o texto fica do mesmo tamanho em qualquer largura. */
+.barras-v {
+  --altura: 150px;
+  display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); column-gap: 8px;
+  padding-top: 18px;
+  background: linear-gradient(var(--tinta), var(--tinta)) no-repeat 0 calc(18px + var(--altura)) / 100% 2px;
+}
+.barras-v--fino { column-gap: 3px; }
+.barras-v__col { display: grid; grid-template-rows: var(--altura) 26px; justify-items: center; min-width: 0; }
+.barras-v__col > i { align-self: end; position: relative; width: 100%; max-width: 44px; background: var(--tinta); }
+.barras-v__col > i[data-agora] { background: var(--amarelo); box-shadow: inset 0 0 0 2px var(--tinta); }
+.barras-v__col > i[data-v]::before {
+  content: attr(data-v); position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
+  padding-bottom: 3px; font-size: 0.7rem; font-weight: 800; font-style: normal; font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.barras-v__rot { align-self: end; font-size: 0.62rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; }
+
+.mini { display: grid; gap: 0; }
+.mini a {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; align-items: center;
+  padding: 11px 0; border-bottom: 1px solid rgba(18, 24, 31, 0.1); text-decoration: none; color: inherit;
+}
+.mini a:last-child { border-bottom: 0; }
+.mini a:hover .mini__titulo { text-decoration: underline; text-underline-offset: 3px; }
+.mini__titulo { margin: 0; font-size: 0.84rem; font-weight: 800; }
+.mini__txt { margin: 0; font-size: 0.76rem; color: var(--tinta-suave); }
+
+.detalhe { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 0 16px; align-items: start; }
+@media (max-width: 1100px) {
+  .detalhe { grid-template-columns: minmax(0, 1fr); }
+  /* Numa coluna só, o que fazer sobe pro topo; cancelar continua no fim. */
+  .detalhe > div { display: contents; }
+  .detalhe [data-acoes] { order: -1; }
+}
+.titulo-status { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; }
+
+/* O caminho do pedido: os seis passos que a loja faz sozinha. */
+.caminho { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); margin: 4px 0 0; padding: 0; list-style: none; }
+.caminho li { position: relative; padding: 28px 8px 0 0; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.03em; color: var(--tinta-suave); }
+.caminho li::before {
+  content: ""; position: absolute; left: 3px; top: 3px; width: 14px; height: 14px; z-index: 1;
+  border: 2px solid var(--tinta-suave); background: var(--papel); transform: rotate(45deg);
+}
+.caminho li::after { content: ""; position: absolute; left: 18px; right: 0; top: 9px; height: 2px; background: var(--linha); }
+.caminho li:last-child::after { content: none; }
+.caminho li[data-feito] { color: var(--tinta); }
+.caminho li[data-feito]::before { background: var(--tinta); border-color: var(--tinta); }
+.caminho li[data-feito]::after { background: var(--tinta); }
+.caminho li[data-agora] { color: var(--tinta); }
+.caminho li[data-agora]::before { background: var(--amarelo); border-color: var(--tinta); }
+.caminho li[data-erro] { color: var(--erro); }
+.caminho li[data-erro]::before { background: var(--erro); border-color: var(--erro); }
+.caminho small { display: block; margin-top: 3px; font-size: 0.7rem; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--tinta-suave); }
+.caminho li[data-erro] small { color: var(--erro); font-weight: 700; }
+@media (max-width: 760px) {
+  .caminho { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .caminho li { padding: 0 0 0 30px; }
+  .caminho li::after { left: 9px; right: auto; top: 18px; bottom: -14px; width: 2px; height: auto; }
+}
+
+.itens { list-style: none; margin: 0; padding: 0; }
+.item { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid rgba(18, 24, 31, 0.1); }
+.item .foto { width: 48px; height: 48px; }
+.item__nome { margin: 0; font-size: 0.8rem; font-weight: 800; text-transform: uppercase; line-height: 1.25; }
+.item__un { margin: 2px 0 0; font-size: 0.72rem; color: var(--tinta-suave); }
+.item__valor { font-size: 0.86rem; font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.totais { margin: 12px 0 0; padding-top: 10px; border-top: 2px solid var(--tinta); }
+.totais div { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 5px; font-size: 0.82rem; }
+.totais dt { color: var(--tinta-suave); font-weight: 600; }
+.totais dd { margin: 0; font-weight: 700; font-variant-numeric: tabular-nums; }
+.totais .verde dd { color: var(--menta-escura); }
+.totais .total { margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(18, 24, 31, 0.15); }
+.totais .total dt { color: var(--tinta); font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; }
+.totais .total dd { font-size: 1.25rem; font-weight: 800; }
+
+.info { margin: 0; font-style: normal; font-size: 0.86rem; line-height: 1.55; overflow-wrap: anywhere; }
+.info small { display: block; color: var(--tinta-suave); font-size: 0.76rem; }
+.pares { display: grid; gap: 8px; margin: 0; }
+.pares div { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 10px; font-size: 0.84rem; }
+.pares dt { color: var(--tinta-suave); font-weight: 600; }
+.pares dd { margin: 0; font-weight: 700; overflow-wrap: anywhere; }
+.oculto { color: var(--tinta-suave); font-weight: 600; letter-spacing: 0.04em; }
+.acoes-lado { display: grid; gap: 12px; }
+
+.historico { list-style: none; margin: 0; padding: 0; }
+.historico li { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 10px; padding: 8px 0; border-bottom: 1px dashed rgba(18, 24, 31, 0.15); font-size: 0.8rem; }
+.historico li:last-child { border-bottom: 0; }
+.historico time { font-weight: 800; font-variant-numeric: tabular-nums; }
+.historico small { display: block; color: var(--tinta-suave); }
+
+/* ── o que o protótipo não tinha ── */
+
+/* O filtro é link (a lista é do servidor): marcado com aria-current, como o botão do protótipo. */
+a.filtro { text-decoration: none; }
+.filtro[aria-current="page"] { background: var(--tinta); color: #fff; }
+.filtro[aria-current="page"] b { background: var(--amarelo); color: var(--tinta); }
+.busca { margin-bottom: 14px; }
+.busca button { padding: 0; border: 0; background: none; cursor: pointer; color: var(--tinta); font: inherit; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; }
+
+/* A linha inteira da tabela abre o pedido: o link do número se estica sobre ela. */
+.tabela tbody tr { position: relative; }
+.tabela tbody tr:hover { background: var(--amarelo-palido); }
+.tabela__link { color: inherit; text-decoration: none; }
+.tabela__link::after { content: ""; position: absolute; inset: 0; }
+.tabela__link:focus-visible { outline: none; }
+.tabela tbody tr:has(.tabela__link:focus-visible) { outline: 3px solid var(--amarelo); outline-offset: -3px; }
+.lista-nota { margin: 12px 0 0; font-size: 0.78rem; color: var(--tinta-suave); }
+
+/* O histórico mostra "hoje, 07:29": a coluna da hora cresce. */
+.historico li { grid-template-columns: 96px minmax(0, 1fr); }
+.historico time { font-size: 0.76rem; }
+
+/* O CPF que o dono pede pra ver. */
+.cpf { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* A foto do item e do mais vendido (a do produto, quando tem). */
+.item .foto img, .mini .foto img { width: 100%; height: 100%; object-fit: cover; }
+.mini .com-foto { gap: 10px; }
+.mini .foto { width: 40px; height: 40px; }
+
+/* Três números quando ainda não há visitas (elas chegam depois). */
+.numeros--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 760px) {
+  .numeros--3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .numeros--3 .numero--destaque { grid-column: 1 / -1; }
+}
+.vazio--curto { padding: 16px 0 4px; text-align: left; }
+
+/* A linha da lista curta que não é link (os mais vendidos). */
+.mini__linha { padding: 11px 0; border-bottom: 1px solid rgba(18, 24, 31, 0.1); }
+.mini__linha:last-child { border-bottom: 0; }

@@ -545,9 +545,19 @@ ator `equipe` e o membro relido do BANCO a cada pedido — tirado da equipe, o t
 abre mais nada no clique seguinte. Rota nova já nasce trancada; a área nova entra no `ACESSO`
 antes da rota, e a rota começa com `exigirArea(pedido, res, "<área>")`. Toda escrita na equipe
 passa pela trava `equipe` (uma só: dois donos se removendo juntos não deixam a loja sem dono) e
-deixa uma linha no registro. O conferidor é o `apps/dashboard/ferramentas/conferir-entrar.mjs`
-(Resend falso, como o da conta; `DASHBOARD_DONO_EMAIL` e `REVALIDAR_SEGREDO` iguais aos do backend,
-`PAINEL` apontando pro `next dev` do painel).
+deixa uma linha no registro. **Pedidos e Início** moram em `src/lib/painel/`: `pedido.ts` (puro,
+com testes) decide onde o pedido está, o que travou, o caminho de seis passos e o histórico, a
+partir do pedido do Medusa, da nota (`erp_nota`) e dos envios (`envio`); `inicio.ts` monta o
+Início por papel; `ler.ts` é o que lê do banco (os 300 pedidos mais recentes pra lista, os de 45
+dias pro Início, e o mais velho pelo número). O que o papel não vê não sai da rota: o CPF inteiro
+só vai no detalhe do dono, e o marketing recebe o Início sem nome de cliente. As frases (as do
+caminho, da fila, do histórico) nascem no backend, na hora de Brasília (`formato.ts`) — o painel
+só desenha. Os conferidores são o `apps/dashboard/ferramentas/conferir-entrar.mjs` e o
+`conferir-pedidos.mjs` (as peças comuns em `pecas.mjs`): Resend falso, como o da conta;
+`DASHBOARD_DONO_EMAIL` e `REVALIDAR_SEGREDO` iguais aos do backend, `PAINEL` apontando pro
+`next dev` do painel; o de pedidos faz sete pedidos com a Frenet e o Pagar.me falsos
+(`pedido-de-teste.mjs`, que ganhou o `pedidoCartao` — o cartão em análise) e usa o admin local
+(`ADMIN_EMAIL`/`ADMIN_SENHA`) e a chave publicável.
 
 ## Fora dos limites
 

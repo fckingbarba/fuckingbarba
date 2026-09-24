@@ -12,6 +12,7 @@
 @import "../estilos/pecas.css";
 @import "../estilos/telas.css";
 @import "../estilos/painel.css";
+@import "../estilos/inicio-e-pedidos.css";
 
 /*
   Os tokens da marca pro Tailwind (bg-menta, text-tinta…) — os mesmos da
