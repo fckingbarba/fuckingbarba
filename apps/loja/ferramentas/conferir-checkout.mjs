@@ -1618,12 +1618,30 @@ titulo("Trocar o CEP depois do passo 2")
         .click()
       await pag.locator("#form-entrega").waitFor({ state: "visible", timeout: 15000 })
     }
+    /*
+      Um CEP que ESTE carrinho nunca cotou: a cotação de um CEP já perguntado
+      volta da memória do backend em ~300 ms, e aí a busca acaba antes de
+      alguém olhar. Com a Frenet demorando, a busca dura segundos — e a
+      conferência é a de verdade: enquanto "Procurando o endereço…" está na
+      tela, o botão não pode estar solto.
+    */
     frenet.roteiro = "demora"
-    await c("cep").fill("01310-100")
-    await pag.waitForTimeout(400)
+    await c("cep").fill("70040-010")
+    let buscou = false
+    let travou = true
+    for (const fim = Date.now() + 3000; Date.now() < fim; await pag.waitForTimeout(100)) {
+      const procurando = await pag
+        .locator("#form-entrega .aviso-frete", { hasText: "Procurando" })
+        .isVisible()
+        .catch(() => false)
+      if (!procurando) continue
+      buscou = true
+      if (!(await pag.locator("#form-entrega button[type=submit]").isDisabled())) travou = false
+    }
     ok(
-      await pag.locator("#form-entrega button[type=submit]").isDisabled(),
-      "com o CEP novo sendo buscado, confirmar o passo fica travado"
+      buscou && travou,
+      "com o CEP novo sendo buscado, confirmar o passo fica travado",
+      buscou ? "o botão ficou solto durante a busca" : "a busca nem apareceu na tela"
     )
     frenet.roteiro = "normal"
     await pag
