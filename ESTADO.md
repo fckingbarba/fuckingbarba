@@ -6,9 +6,10 @@ minutos depois do pagamento — ver 1c), e o token de parceiro da Frenet entrou 
 o `MEDUSA_BACKEND_URL` (ver 1b): o pedido pago passa a ir sozinho pro painel da Frenet. E o cartão
 passou a ser cobrado só depois da análise de fraude — a compra legítima que ela barra não aparece
 mais na fatura (ver 1). No fim do dia, ficou decidido o **painel próprio da loja**, em
-`dashboard.fuckingbarba.com.br`, com o protótipo aprovado. Em 24/09 a primeira fase dele entrou
-no ar (entrar por código, os papéis e a equipe — o dono já entrou), e a fase 2 começou: o Início
-e os pedidos, só leitura (ver 4.5). Em 22/09, o Pix vencido que prendia o estoque foi consertado (o #7 — ver o
+`dashboard.fuckingbarba.com.br`, com o protótipo aprovado. Em 24/09 as três primeiras fases dele
+entraram no ar (entrar por código, os papéis e a equipe; o Início e os pedidos; os produtos, com
+fotos, vídeos e as seções da página), e a fase 4 começou: a home, com rascunho e "Publicar" (ver
+4.5). Em 22/09, o Pix vencido que prendia o estoque foi consertado (o #7 — ver o
 primeiro achado da revisão do pagamento) e a Minha conta ficou de pé na loja: endereços, meus
 dados, o checkout que abre preenchido pra quem está na conta (e guarda o endereço da compra), e o
 "Minha conta" do cabeçalho apontando pra ela. No mesmo dia, o estorno que o Pagar.me não faz (a
@@ -1121,6 +1122,34 @@ como MP4 antes. Conferido pelo `conferir-produtos.mjs` (agora 82 checagens, com 
 vídeos e os casos).
 
 Depois do deploy — **nada a fazer**: não tem variável nova.
+
+**Fase 4, parte 1: a home sai do código — pronta em 24/09 (entrega 0070).** Em "Layout da home",
+pro marketing e pro dono (a operação não abre):
+
+- **As 11 seções da home, na ordem do site:** ligar, desligar, subir e descer. O bloco escuro (o
+  título da home pro Google) é fixo e fica no meio da página: quem desce passa por cima dele.
+- **"Editar" abre o texto de cada seção:** o banner (chapéu, título, o texto do botão e o produto
+  da campanha), a barra de vantagens (as duas escritas à mão; frete e parcelamento entram
+  sozinhos), os títulos das faixas, o bloco escuro, os produtos do palco "Alta performance" (pelo
+  menos 2, com o texto de cada um), a história da marca (os parágrafos, a frase em destaque, os
+  números e a foto) e a última chamada. Seção pela metade não salva, e a tela diz o que falta.
+  "Voltar ao texto original" põe de volta o texto de fábrica.
+- **Rascunho e "Publicar":** tudo o que se mexe vai pro rascunho, e a loja continua mostrando a
+  home de antes. A faixa amarela diz quantas mudanças estão esperando, e quais. "Publicar" manda
+  pro site, que muda em segundos; "Desfazer as mudanças" joga o rascunho fora, e o site não muda.
+- **O que a equipe mudou:** cada mudança, com o nome de quem fez.
+
+Até alguém publicar, a home é a "de fábrica": o mesmo texto que já estava no ar. Antes de publicar,
+confira as afirmações que o painel marca: "+1.000.000 clientes satisfeitos", "Aprovado em estudo
+interno", o ano de fundação e o "+1M clientes impactados". O vídeo da história da marca continua
+subindo no admin (Configurações da loja → Home) até a parte 2. Conferido pelo `conferir-home.mjs`
+(43 checagens).
+
+Depois do deploy — **nada a fazer**: não tem variável nova.
+
+- [ ] **Parte 2:** as imagens — o banner com até 5 slides (a imagem do computador e a do
+      celular), a foto de fundo das seções, a foto da última chamada e o vídeo da história, tudo
+      no painel —, e a "Prova social" com os casos de antes e depois das páginas dos produtos.
 
 ## Como seguir no Claude Code
 
