@@ -187,7 +187,13 @@ function selos(s: SecaoDaHome): string[] {
   const comImagem = Boolean(s.fundo || v.imagem || slides.some((sl) => sl.imagem))
   return [
     ...(s.id === "home.banner"
-      ? [slides.length === 1 ? "1 slide" : `${slides.length} slides`]
+      ? [
+          slides.length === 0
+            ? "sem arte"
+            : slides.length === 1
+              ? "1 slide"
+              : `${slides.length} slides`,
+        ]
       : []),
     ...(comImagem ? ["com imagem"] : []),
   ]

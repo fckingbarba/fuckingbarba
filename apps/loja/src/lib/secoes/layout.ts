@@ -1,4 +1,3 @@
-import { cacheLife, cacheTag } from "next/cache"
 import { home } from "@/lib/medusa"
 import { pdpDoProduto } from "@/lib/pdp"
 import { SECOES, type Escopo, type Secao } from "./registro"
@@ -26,10 +25,19 @@ import { SECOES, type Escopo, type Secao } from "./registro"
  * painel edita na página de cada produto; na home, a versão PUBLICADA do
  * "Layout da home" do painel (`home()`, que vem do `metadata` da loja).
  *
- * Salvar no painel derruba `layout:produto:<handle>` junto com
- * `produto:<handle>` — as duas, porque texto e ordem são dados diferentes e
- * derrubar só uma deixaria a página com o texto novo na ordem velha. Na
- * home, pelo mesmo motivo, o "Publicar" derruba `layout:home` e `home`.
+ * ┌─ SEM CACHE PRÓPRIO, DE PROPÓSITO (24/09) ──────────────────────────────┐
+ * │ O ajuste era um `"use cache"` com etiqueta própria (`layout:home`,      │
+ * │ `layout:produto:<handle>`) que lia OUTRO `"use cache"` — o `home()`,    │
+ * │ o produto. No "Publicar" as duas etiquetas caíam juntas; o de fora     │
+ * │ se refazia lendo o de dentro AINDA VENCIDO, e guardava a ordem velha   │
+ * │ como nova, por dias: o texto mudava no site, e a ordem não. Visto na   │
+ * │ home, com a barra de vantagens desligada que não voltava.              │
+ * │                                                                         │
+ * │ Agora o ajuste lê direto da fonte, que já é cacheada (a etiqueta       │
+ * │ `home`; a `produto:<handle>`): um cache só, que o "Salvar" e o         │
+ * │ "Publicar" derrubam. O backend ainda manda as etiquetas `layout:*` —    │
+ * │ derrubar etiqueta que ninguém usa não faz nada.                        │
+ * └─────────────────────────────────────────────────────────────────────────┘
  */
 
 export type AjusteDeLayout = {
@@ -47,28 +55,17 @@ export type AjusteDeLayout = {
   ordem?: readonly string[]
 }
 
-export const TAGS_LAYOUT = {
-  home: "layout:home",
-  produto: (handle: string) => `layout:produto:${handle}`,
-  produtoPadrao: "layout:produto",
-} as const
-
 /**
- * A fonte da configuração. Cacheada com tag própria pra que publicar no
- * painel derrube só a página afetada, e não o catálogo inteiro.
+ * A fonte da configuração: dado puro, lido do que a loja já guarda em cache
+ * (ver o quadro lá em cima — o ajuste não tem cache próprio).
  */
 export async function lerAjuste(escopo: Escopo, handle?: string): Promise<AjusteDeLayout | null> {
-  "use cache"
-  cacheTag(escopo === "home" ? TAGS_LAYOUT.home : TAGS_LAYOUT.produtoPadrao)
-  if (handle) cacheTag(TAGS_LAYOUT.produto(handle))
-  cacheLife("days")
-
   const layout: AjusteDeLayout =
     escopo === "home" ? (await home()).layout : handle ? (await pdpDoProduto(handle)).layout : {}
 
   /*
     Ajuste vazio devolve `null`, e não `{}`. São a mesma coisa pro
-    `resolver`, mas `null` diz "este produto não pediu exceção nenhuma" —
+    `resolver`, mas `null` diz "esta página não pediu exceção nenhuma" —
     que é o caso da esmagadora maioria e é o que o ajuste esparso existe pra
     representar.
   */

@@ -363,16 +363,15 @@ try {
     await pagina.locator('[data-editar="home.banner"]').click()
     const form = pagina.locator('form[data-editor="home.banner"]')
     await form.waitFor()
-    await form.locator('[data-campo="slides.0.titulo"]').fill("")
+    // O banner de fábrica não tem arte: a gaveta abre com um slide vazio.
+    await form.locator('[data-campo="slides.0.titulo"]').fill("Sem a arte")
     await form.locator('button[type="submit"]').click()
     await form.locator(".gaveta__erro").waitFor()
     ok(
-      /Falta preencher: Slide 1: Título/.test(
+      /Falta preencher: Slide 1: Arte\./.test(
         semEspaco(await form.locator(".gaveta__erro").textContent())
-      ) &&
-        (await form.locator('[data-campo="slides.0.titulo"]').getAttribute("aria-invalid")) ===
-          "true",
-      "diz o que falta, e marca o campo",
+      ),
+      "slide sem arte: diz que falta a arte (o banner é só imagem)",
       semEspaco(await form.locator(".gaveta__erro").textContent())
     )
     await form.locator("button", { hasText: "Cancelar" }).click()
@@ -536,22 +535,29 @@ try {
     await pagina.locator('[data-editar="home.banner"]').click()
     const banner = pagina.locator('form[data-editor="home.banner"]')
     await banner.waitFor()
+    const primeira = banner.locator('[data-imagens="slides.0.imagem"]')
+    await primeira.waitFor()
+    ok(
+      semEspaco(await primeira.locator('[data-ideal="computador"]').textContent()) ===
+        "1920 × 700 px" &&
+        semEspaco(await primeira.locator('[data-ideal="celular"]').textContent()) ===
+          "1080 × 1350 px",
+      "a arte do slide: as medidas da arte da Nuvemshop"
+    )
+    await subir(primeira, "computador", await foto(1920, 700, "png"), "arte-1.png")
+    await banner.locator('[data-campo="slides.0.titulo"]').fill(`Primeira arte ${RODADA}`)
     await banner.locator('[data-mais="slides"]').click()
     const arte = banner.locator('[data-imagens="slides.1.imagem"]')
     await arte.waitFor()
-    ok(
-      semEspaco(await arte.locator('[data-ideal="computador"]').textContent()) ===
-        "1920 × 700 px" &&
-        semEspaco(await arte.locator('[data-ideal="celular"]').textContent()) === "1080 × 1350 px",
-      "a arte do slide: as medidas da arte da Nuvemshop"
-    )
-    await subir(arte, "computador", await foto(1920, 700, "png"), "arte.png")
-    await subir(arte, "celular", await foto(1080, 1350, "jpeg"), "arte-celular.jpg")
+    await subir(arte, "computador", await foto(1920, 700, "jpeg"), "arte-2.jpg")
+    await subir(arte, "celular", await foto(1080, 1350, "jpeg"), "arte-2-celular.jpg")
     await banner.locator('button[type="submit"]').click()
     await banner.locator(".gaveta__erro").waitFor()
     ok(
-      /Slide 2: Título/.test(semEspaco(await banner.locator(".gaveta__erro").textContent())),
-      "arte sem título: diz que falta a descrição (e só ela)",
+      /Slide 2: Descrição da arte/.test(
+        semEspaco(await banner.locator(".gaveta__erro").textContent())
+      ),
+      "arte sem descrição: diz que falta (e só ela)",
       semEspaco(await banner.locator(".gaveta__erro").textContent())
     )
     await banner.locator('[data-campo="slides.1.titulo"]').fill(ARTE)
@@ -607,11 +613,12 @@ try {
     const slides = html.split('class="banner-carrossel__slide"').slice(1)
     ok(
       slides.length === 2 &&
-        /class="banner"/.test(slides[0]) &&
-        /fetchpriority="high"/i.test(slides[0]) &&
+        /class="banner-arte/.test(slides[0]) &&
+        /<img[^>]*fetchpriority="high"/i.test(slides[0]) &&
         /class="banner-arte"/.test(slides[1]) &&
-        !/<img/.test(slides[1].split("banner-carrossel__seta")[0]),
-      "na loja: o carrossel — o primeiro slide com a foto na frente da fila, a arte do segundo ainda sem baixar"
+        !/<img/.test(slides[1].split("banner-carrossel__seta")[0]) &&
+        !/banner__preco|Comprar agora/.test(html),
+      "na loja: o carrossel só de arte — a do primeiro slide na frente da fila, a do segundo ainda sem baixar"
     )
     ok(
       html.includes('<picture class="fechamento__foto"'),

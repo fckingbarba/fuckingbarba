@@ -1192,13 +1192,11 @@ Depois do deploy — **nada a fazer**: não tem variável nova.
 "Layout da home" do painel:
 
 - **Banner principal com até 5 slides**, que passam sozinhos (a cada 5, 7 ou 10 segundos, ou só
-  quando a pessoa troca). Cada slide é de um jeito:
-  - **Com arte:** a imagem ocupa o banner inteiro, com o texto dentro dela — **as mesmas artes da
-    Nuvemshop servem**: 1920 × 700 no computador e 800 × 1000 (ou 1080 × 1350) no celular. A loja
-    mostra a arte inteira, sem cortar. O slide leva pro produto escolhido, ou pra vitrine. O
-    "Título" vira a descrição da imagem, pra quem não enxerga e pro Google: escreva o que a arte
-    diz.
-  - **Sem arte:** o banner de sempre, com o chapéu, o título, o preço e a foto do produto.
+  quando a pessoa troca). **Cada slide é só a arte** (desde a entrega 0076, logo abaixo): a imagem
+  ocupa o banner inteiro, com o texto dentro dela — **as mesmas artes da Nuvemshop servem**: 1920 ×
+  700 no computador e 800 × 1000 (ou 1080 × 1350) no celular. A loja mostra a arte inteira, sem
+  cortar. O slide leva pro produto escolhido, ou pra vitrine. A "Descrição da arte" é pra quem não
+  enxerga e pro Google: escreva o que a arte diz.
 - **Foto de fundo** no bloco escuro ("Fórmulas de alta performance…"), no carrossel de coleção, na
   Alta performance, na vitrine e no "Sobre a marca" — computador e celular, com o véu da cor da
   seção por cima, como na página do produto.
@@ -1229,6 +1227,15 @@ A vitrine cresce com o catálogo, e o corte da foto dela muda junto. Conferido p
 `conferir-home.mjs` (58 checagens, com as imagens, o carrossel e o fundo no navegador).
 
 Depois do deploy — **nada a fazer**: não tem variável nova.
+
+**O banner só com imagem — pronto em 24/09 (entrega 0076).** A pedido: sai o banner montado pela
+loja (o painel amarelo com o chapéu, o título, o preço e o botão "Comprar agora"). Cada slide é só a
+arte, com a descrição e pra onde leva. **Sem arte publicada, a home não tem banner** e começa na
+barra de vantagens — é como ela fica no ar logo depois do deploy, até você publicar a primeira arte.
+
+De quebra, um defeito da parte 1: depois do "Publicar", **a ordem e o liga/desliga das seções às
+vezes não acompanhavam** — o texto mudava no site e a ordem ficava a velha, por dias. Corrigido (e
+valia também pra ordem das seções da página do produto).
 
 - [ ] **Parte 3:** o vídeo da história da marca no painel (hoje ele sobe no admin) e a "Prova
       social" com os casos de antes e depois das páginas dos produtos.

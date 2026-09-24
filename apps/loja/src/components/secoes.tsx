@@ -15,9 +15,9 @@ import type { Escopo } from "@/lib/secoes/registro"
  *
  * Não leva `"use cache"` de propósito. Marcar aqui cacharia o HTML de TODAS
  * as seções como um bloco só, e cada uma tem o próprio tempo de vida (o
- * catálogo muda numa cadência, o texto editorial em outra). Como a única
- * coisa que esta função espera é o `lerAjuste`, que é cacheado, ela continua
- * pré-renderizável.
+ * catálogo muda numa cadência, o texto editorial em outra). Como o que esta
+ * função espera (o ajuste e os fundos) sai de leituras cacheadas — `home()`
+ * e o produto —, ela continua pré-renderizável.
  */
 export async function Secoes({ escopo, handle }: { escopo: Escopo; handle?: string }) {
   const ajuste = await lerAjuste(escopo, handle)

@@ -30,20 +30,11 @@ import type { ConteudoDaHome } from "@/lib/home"
  */
 export const HOME_DE_FABRICA: ConteudoDaHome = {
   /*
-    A campanha do banner. Preço e foto saem do produto, não de texto
-    escrito à mão: o banner muda junto quando o preço muda no admin.
+    O banner é SÓ ARTE (decidido em 24/09): a imagem com o texto dentro,
+    subida no painel. De fábrica não há arte — então não há banner, e a
+    home começa na barra de vantagens até alguém publicar a primeira.
   */
-  banner: {
-    slides: [
-      {
-        chapeu: "Semana do Cliente",
-        titulo: "Nosso kit best seller",
-        chamada: "Comprar agora",
-        produto: "kit-completo-para-barba",
-      },
-    ],
-    tempo: 7,
-  },
+  banner: { slides: [], tempo: 7 },
   trustbar: {
     vantagens: [
       { titulo: "Loja Segura", detalhe: "Para suas compras" },
