@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation"
 import type { ReactNode } from "react"
+import { SoltarSoNoQuadro } from "@/components/arrastar"
 import { ComAvisos } from "@/components/avisos"
 import { Casca } from "@/components/casca"
 import { ForaDoAr } from "@/components/telas"
@@ -13,7 +14,9 @@ import { lerMembro } from "@/lib/eu"
  * "entrar"); Medusa fora do ar mostra o aviso, sem tirar ninguém do painel.
  *
  * O aviso de baixo (`ComAvisos`) mora aqui, acima das telas: a frase de uma
- * ação sobrevive à tela se refazendo depois dela.
+ * ação sobrevive à tela se refazendo depois dela. E o arquivo arrastado que
+ * cai fora de um quadro de foto não abre no lugar do painel
+ * (`SoltarSoNoQuadro`).
  */
 export default async function LayoutDoPainel({ children }: { children: ReactNode }) {
   const leitura = await lerMembro()
@@ -28,6 +31,7 @@ export default async function LayoutDoPainel({ children }: { children: ReactNode
   }
   return (
     <Casca membro={leitura.membro} areas={leitura.areas}>
+      <SoltarSoNoQuadro />
       <ComAvisos>{children}</ComAvisos>
     </Casca>
   )

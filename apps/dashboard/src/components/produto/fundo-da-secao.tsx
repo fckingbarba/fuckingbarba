@@ -10,6 +10,7 @@ import {
   type ReactNode,
   type SetStateAction,
 } from "react"
+import { UmPorVez, useArrastar } from "@/components/arrastar"
 import { Icone } from "@/components/icones"
 import type { ImagemQueSubiu } from "@/lib/acoes/produtos"
 import { ACEITA, prepararNoNavegador } from "@/lib/imagem-no-navegador"
@@ -32,9 +33,10 @@ import {
  * do topo), com o véu da cor da seção por cima: o que aparece no quadro é o
  * que aparece no site. Em cima de cada quadro, a medida ideal em px.
  *
- * A foto sobe assim que é escolhida (encolhida no navegador, e de novo no
- * servidor), mas só vai pra página no "Salvar" da gaveta. Pra onde ela sobe
- * é de quem chama (`subir`): a página do produto, ou a home.
+ * A foto sobe assim que é escolhida — ou arrastada do computador e solta em
+ * cima do quadro (`components/arrastar.tsx`) — encolhida no navegador, e de
+ * novo no servidor, mas só vai pra página no "Salvar" da gaveta. Pra onde
+ * ela sobe é de quem chama (`subir`): a página do produto, ou a home.
  *
  * Sem véu (`comVeu: false`) serve pra imagem que não é fundo com a cor da
  * seção por cima: a arte de um slide do banner, a foto da última chamada.
@@ -202,6 +204,7 @@ function UmLado({
       }
     })
   }
+  const arrastar = useArrastar(escolher, subindo || desligado)
 
   const entrada = (
     <input
@@ -217,7 +220,7 @@ function UmLado({
   )
 
   return (
-    <div className={`slot slot--${lado}`} data-lado={lado}>
+    <div className={`slot slot--${lado}`} data-lado={lado} {...arrastar.alvo}>
       <p className="slot__rot">
         <Icone nome={lado === "computador" ? "tela" : "celular"} />
         {ROTULO[lado]}
@@ -247,6 +250,7 @@ function UmLado({
                 Aa
               </span>
             ) : null}
+            {arrastar.arrastando ? <span className="slot__soltar">Solte pra trocar</span> : null}
           </div>
         ) : (
           <label
@@ -256,9 +260,20 @@ function UmLado({
           >
             <Icone nome={subindo ? "relogio" : "mais"} />
             <span>
-              {subindo ? "Subindo…" : desligado ? "Primeiro a do computador" : "Escolher"}
+              {subindo
+                ? "Subindo…"
+                : desligado
+                  ? "Primeiro a do computador"
+                  : arrastar.arrastando
+                    ? "Solte aqui"
+                    : "Escolher"}
             </span>
-            {desligado ? null : <small>JPG, PNG ou WebP</small>}
+            {desligado ? null : (
+              <>
+                <small>ou arraste pra cá</small>
+                <small>JPG, PNG ou WebP</small>
+              </>
+            )}
             {entrada}
           </label>
         )}
@@ -292,6 +307,7 @@ function UmLado({
               </div>
             </>
           ) : null}
+          <UmPorVez varios={arrastar.varios} />
           {erro ? (
             <p className="slot__erro" role="alert">
               {erro}

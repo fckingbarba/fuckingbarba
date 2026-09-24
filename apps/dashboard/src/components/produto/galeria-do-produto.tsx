@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useOptimistic, useRef, useState, useTransition } from "react"
+import { UmPorVez, useArrastar } from "@/components/arrastar"
 import { useAvisar } from "@/components/avisos"
 import { Icone } from "@/components/icones"
 import { Subindo, useSubirVideo } from "@/components/produto/campos-de-midia"
@@ -28,7 +29,8 @@ type Video = Extract<ItemDaGaleria, { tipo: "video" }>
  * loja são duas coisas: a galeria da dobra é só de fotos, e os vídeos ficam
  * numa faixa própria embaixo da caixa de compra (pedido da loja em 24/09).
  *
- * Cada clique vale na hora (sem "Salvar"): subir, andar uma casa, tirar, dar
+ * Cada clique vale na hora (sem "Salvar"): subir (escolhendo, ou arrastando
+ * o arquivo do computador pro quadro de "+"), andar uma casa, tirar, dar
  * nome ao vídeo. A tela já mostra a mudança enquanto ela vai
  * (`useOptimistic`); se o Medusa recusar, volta sozinha. Foto anda entre
  * fotos, vídeo entre vídeos — a capa é sempre a primeira foto, a que vai pra
@@ -122,6 +124,8 @@ export function GaleriaDoProduto({ produto }: { produto: DetalheDoProduto }) {
   }
 
   const ocupado = subindoFoto || video.progresso !== null
+  const arrastarFoto = useArrastar((arquivo) => void escolherFoto(arquivo), ocupado)
+  const arrastarVideo = useArrastar((arquivo) => void escolherVideo(arquivo), ocupado)
 
   /** Os botões de um item: andar uma casa entre os do mesmo tipo, e tirar. */
   const botoes = (lista: readonly ItemDaGaleria[], i: number, nome: string) => (
@@ -184,9 +188,14 @@ export function GaleriaDoProduto({ produto }: { produto: DetalheDoProduto }) {
           ))}
           {edita && fotos.length < LIMITES_DA_GALERIA.fotos ? (
             <li>
-              <label className="galeria__nova" data-ocupado={ocupado ? "" : undefined}>
+              <label
+                className="galeria__nova"
+                data-ocupado={ocupado ? "" : undefined}
+                {...arrastarFoto.alvo}
+              >
                 <Icone nome={subindoFoto ? "relogio" : "mais"} />
-                {subindoFoto ? "Subindo…" : "Foto"}
+                {subindoFoto ? "Subindo…" : arrastarFoto.arrastando ? "Solte aqui" : "Foto"}
+                <small>ou arraste pra cá</small>
                 <small>JPG, PNG ou WebP</small>
                 <input
                   type="file"
@@ -202,6 +211,7 @@ export function GaleriaDoProduto({ produto }: { produto: DetalheDoProduto }) {
             </li>
           ) : null}
         </ul>
+        <UmPorVez varios={arrastarFoto.varios} />
         {erroDaFoto ? (
           <p className="slot__erro" role="alert">
             {erroDaFoto}
@@ -264,9 +274,15 @@ export function GaleriaDoProduto({ produto }: { produto: DetalheDoProduto }) {
                 <label
                   className="galeria__nova galeria__nova--video"
                   data-ocupado={ocupado ? "" : undefined}
+                  {...arrastarVideo.alvo}
                 >
                   <Icone nome={video.progresso !== null ? "relogio" : "play"} />
-                  {video.progresso !== null ? "Subindo…" : "Vídeo"}
+                  {video.progresso !== null
+                    ? "Subindo…"
+                    : arrastarVideo.arrastando
+                      ? "Solte aqui"
+                      : "Vídeo"}
+                  <small>ou arraste pra cá</small>
                   <small>MP4 ou WebM</small>
                   <input
                     type="file"
@@ -286,6 +302,7 @@ export function GaleriaDoProduto({ produto }: { produto: DetalheDoProduto }) {
           <p className="pequeno suave">Nenhum vídeo ainda.</p>
         )}
         {video.progresso !== null ? <Subindo progresso={video.progresso} /> : null}
+        <UmPorVez varios={arrastarVideo.varios} />
         {video.erro ? (
           <p className="slot__erro" role="alert">
             {video.erro}
