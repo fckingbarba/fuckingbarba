@@ -12,8 +12,9 @@
  * a assinatura com a chave pública da GA4_CREDENCIAIS.
  *
  * ┌─ O QUE ESTE ARQUIVO EXISTE PRA TRAVAR ─────────────────────────────────┐
- * │ • o número da tela diferente do que o Google contou, ou a conta do     │
- * │   "que ontem a esta hora" errada;                                      │
+ * │ • o número da tela diferente do que o Google contou, ou a comparação   │
+ * │   com ontem em horas que o Google ainda não somou hoje (o atraso dele  │
+ * │   deu "−92%" num dia normal, em 24/09), ou fora do fuso da propriedade;│
  * │ • a chave assinando errado, pedindo mais que leitura, ou um token novo │
  * │   a cada pergunta; o token revogado virando erro na tela;              │
  * │ • a operação recebendo o bloco (de onde vieram, os mais vistos) — na   │
@@ -125,10 +126,7 @@ const PROTOTIPO = [
 ]
 const hora = (h) => String(h).padStart(2, "0")
 google.dia = {
-  horas: [
-    ...PROTOTIPO.slice(0, HORA_AGORA + 1).map((v, h) => ({ dia: HOJE, hora: hora(h), visitas: v })),
-    ...PROTOTIPO.map((v, h) => ({ dia: ONTEM, hora: hora(h), visitas: Math.max(1, v - 2) })),
-  ],
+  horas: [],
   origens: [
     { fonte: "l.instagram.com", meio: "referral", visitas: 100 },
     { fonte: "instagram", meio: "social", visitas: 88 },
@@ -165,18 +163,36 @@ const MAIS_VISTOS = [
   ["Produto que saiu", 5],
 ]
 
-/** O "ontem até esta hora" que o backend tem que ter feito, pela hora que ele escreveu. */
-function ontemAte(ate) {
-  const [h, m] = ate.split(":").map(Number)
-  let soma = 0
-  for (let i = 0; i < h; i++) soma += ONTEM_POR_HORA[i]
-  return Math.round(soma + ONTEM_POR_HORA[h] * (m / 60))
+const ONTEM_TOTAL = ONTEM_POR_HORA.reduce((s, v) => s + v, 0)
+const somar = (horas, ate) => horas.slice(0, ate).reduce((s, v) => s + v, 0)
+/** As 24 horas de hoje que o Google falso vai contar (as de `ate` pra frente, zero). */
+const horasDeHoje = (ate) => PROTOTIPO.map((v, h) => (h <= ate ? v : 0))
+/**
+ * A comparação que o backend tem que devolver, pela hora em que ele respondeu
+ * (a regra de `comparacaoComOntem`, que tem os testes de unidade — aqui é o
+ * caminho até a tela que se confere).
+ */
+function comparacaoEsperada(hoje, horaAgora) {
+  let ultima = -1
+  for (let h = 0; h <= horaAgora; h++) if (hoje[h] > 0) ultima = h
+  const ate = ultima >= horaAgora - 1 ? horaAgora : ultima
+  return ate < 1 ? null : { ate, hoje: somar(hoje, ate), ontem: somar(ONTEM_POR_HORA, ate) }
 }
-function comparacao(hoje, ontem) {
-  if (!ontem) return hoje ? "ontem a esta hora: nenhuma" : "ninguém ainda hoje"
-  const d = Math.round((hoje / ontem - 1) * 100)
-  return `${d >= 0 ? "+" : "−"}${Math.abs(d)}% que ontem a esta hora`
+/** A frase do número — a mesma do painel (`components/visitas.tsx`). */
+function frase(hoje, c) {
+  if (!c) return hoje ? "o Google ainda está somando as de hoje" : "nenhuma somada ainda hoje"
+  if (!c.ontem) return c.hoje ? `ontem até as ${c.ate}h: nenhuma` : `nenhuma até as ${c.ate}h`
+  const d = Math.round((c.hoje / c.ontem - 1) * 100)
+  return `${d >= 0 ? "+" : "−"}${Math.abs(d)}% que ontem até as ${c.ate}h`
 }
+const linhasDeHoje = (ate) =>
+  PROTOTIPO.slice(0, ate + 1).map((v, h) => ({ dia: HOJE, hora: hora(h), visitas: v }))
+const linhasDeOntem = PROTOTIPO.map((v, h) => ({
+  dia: ONTEM,
+  hora: hora(h),
+  visitas: Math.max(1, v - 2),
+}))
+google.dia.horas = [...linhasDeHoje(HORA_AGORA), ...linhasDeOntem]
 
 let tokenDoDono = ""
 
@@ -215,17 +231,21 @@ try {
     JSON.stringify(doDono.corpo).slice(0, 200)
   )
   ok(v.hoje === HOJE_TOTAL, `hoje: ${HOJE_TOTAL} visitas, a soma das horas`, String(v.hoje))
+  const horaDaResposta = (v.porHora?.length ?? 0) - 1
   ok(
-    /^\d\d:\d\d$/.test(v.ate ?? "") && v.ontemAteAgora === ontemAte(v.ate),
-    "ontem até esta hora: as horas inteiras e o pedaço da de agora",
-    `${v.ontemAteAgora} (esperado ${v.ate ? ontemAte(v.ate) : "?"})`
-  )
-  const horaDaResposta = Number((v.ate ?? "0").slice(0, 2))
-  ok(
-    v.porHora?.length === horaDaResposta + 1 && v.porHora?.[0] === PROTOTIPO[0],
+    horaDaResposta >= HORA_AGORA &&
+      horaDaResposta <= HORA_AGORA + 1 &&
+      v.porHora?.[0] === PROTOTIPO[0],
     "hora a hora, da meia-noite até agora",
     JSON.stringify(v.porHora)
   )
+  ok(
+    JSON.stringify(v.comparacao) ===
+      JSON.stringify(comparacaoEsperada(horasDeHoje(HORA_AGORA), horaDaResposta)),
+    "em dia, a comparação com ontem vai até a hora de agora (sem ela, que está pela metade)",
+    JSON.stringify(v.comparacao)
+  )
+  ok(v.ontem === ONTEM_TOTAL, `ontem inteiro: ${ONTEM_TOTAL}`, String(v.ontem))
   ok(v.agora === 9, "9 no site agora (o tempo real)", String(v.agora))
   ok(
     JSON.stringify((v.origens ?? []).map((o) => [o.nome, o.visitas])) === JSON.stringify(ORIGENS),
@@ -240,13 +260,12 @@ try {
   )
   const lote = google.perguntas.find((p) => p.tipo === "batchRunReports")
   const [pHoras, pOrigens, pPaginas] = lote?.corpo.requests ?? []
-  const diaDaApi = (d) => d.replace(/-/g, "")
   ok(
-    diaDaApi(pHoras?.dateRanges?.[0]?.startDate ?? "") === ONTEM &&
-      diaDaApi(pHoras?.dateRanges?.[0]?.endDate ?? "") === HOJE &&
-      diaDaApi(pOrigens?.dateRanges?.[0]?.startDate ?? "") === HOJE &&
+    pHoras?.dateRanges?.[0]?.startDate === "yesterday" &&
+      pHoras?.dateRanges?.[0]?.endDate === "today" &&
+      pOrigens?.dateRanges?.[0]?.startDate === "today" &&
       pPaginas?.dimensionFilter?.filter?.stringFilter?.value === "/produtos/",
-    "três relatórios numa chamada só, com ontem e hoje de Brasília",
+    "três relatórios numa chamada só, com o hoje e o ontem da propriedade (o Google resolve)",
     JSON.stringify(lote?.corpo).slice(0, 200)
   )
   ok(
@@ -261,7 +280,7 @@ try {
     ok(
       r.corpo.estado === "ok" &&
         JSON.stringify(Object.keys(r.corpo.visitas ?? {}).sort()) ===
-          JSON.stringify(["ate", "hoje", "ontemAteAgora"]),
+          JSON.stringify(["comparacao", "hoje"]),
       "a resposta da operação nem traz de onde vieram, os mais vistos ou a hora a hora",
       JSON.stringify(r.corpo)
     )
@@ -285,7 +304,8 @@ try {
   {
     const { pagina } = dono
     const inicio = await medusa("/dashboard/inicio", { metodo: "GET", token: tokenDoDono })
-    const pagos = inicio.corpo.numeros?.vendasHoje?.pedidos ?? 0
+    const semana = inicio.corpo.grafico ?? []
+    const pagosOntem = semana[semana.findIndex((d) => d.hoje) - 1]?.pedidos ?? 0
     await pagina.goto(`${PAINEL}/`)
     await pagina.waitForSelector("#visitas")
     const agora = await medusa("/dashboard/visitas", { metodo: "GET", token: tokenDoDono })
@@ -299,18 +319,19 @@ try {
     )
     ok(
       semEspaco(await numero.locator(".numero__sub").textContent()) ===
-        comparacao(vv.hoje, vv.ontemAteAgora),
-      `a comparação com ontem: “${comparacao(vv.hoje, vv.ontemAteAgora)}”`,
+        frase(vv.hoje, vv.comparacao),
+      `a comparação com ontem: “${frase(vv.hoje, vv.comparacao)}”`,
       await numero.locator(".numero__sub").textContent()
     )
     const bloco = pagina.locator("#visitas")
-    const sub = semEspaco(await bloco.locator(".bloco__sub").textContent())
+    const sub = semEspaco(await bloco.locator(".bloco__sub").first().textContent())
+    const ontem = semEspaco(await bloco.locator("[data-ontem]").textContent())
     ok(
-      new RegExp(
-        `^${INTEIRO.format(HOJE_TOTAL)} até as \\d\\d:\\d\\d · ${PORCENTO.format((pagos / HOJE_TOTAL) * 100).replace(".", "\\.")}% viraram pedido pago$`
-      ).test(sub),
-      "o bloco diz até que horas, e quantas viraram pedido pago (os pagos de hoje do Início)",
-      sub
+      sub === `${INTEIRO.format(HOJE_TOTAL)} somadas pelo Google até agora` &&
+        ontem ===
+          `Ontem: ${INTEIRO.format(ONTEM_TOTAL)} visitas · ${PORCENTO.format((pagosOntem / ONTEM_TOTAL) * 100)}% viraram pedido pago`,
+      "o bloco diz o que o Google já somou, e a conta do pedido pago é a de ontem (que fechou)",
+      `${sub} | ${ontem}`
     )
     ok(
       semEspaco(await bloco.locator(".agora").textContent()) === "9 no site agora",
@@ -339,8 +360,9 @@ try {
       "os mais vistos, na tela"
     )
     ok(
-      /Quem recusa os cookies fica de fora/.test(await bloco.textContent()),
-      "o bloco avisa que quem recusa os cookies fica de fora"
+      /algumas horas de atraso/.test(await bloco.textContent()) &&
+        /Quem recusa os cookies fica de fora/.test(await bloco.textContent()),
+      "o bloco avisa do atraso do Google e de quem recusa os cookies"
     )
     const lado = await pagina
       .locator(".grade-inicio > div:nth-child(2) > section .bloco__titulo")
@@ -388,6 +410,60 @@ try {
       "token revogado: o backend pede outro e pergunta de novo — a tela nem percebe",
       `${r.corpo.estado} · tokens ${google.tokensDados}`
     )
+  }
+
+  titulo("O Google atrasado: a comparação só nas horas que ele já somou")
+  {
+    // Como em 24/09: o Google só somou até 3 horas atrás (o resto chega depois).
+    const ultima = Math.max(0, HORA_AGORA - 3)
+    google.dia.horas = [...linhasDeHoje(ultima), ...linhasDeOntem]
+    const r = await medusa("/dashboard/visitas", { metodo: "GET", token: tokenDoDono })
+    const v = r.corpo.visitas ?? {}
+    const h = (v.porHora?.length ?? 0) - 1
+    const esperada = comparacaoEsperada(horasDeHoje(ultima), h)
+    ok(
+      JSON.stringify(v.comparacao) === JSON.stringify(esperada),
+      "a comparação para na última hora que o Google somou — nada de −92% num dia normal",
+      `${JSON.stringify(v.comparacao)} (esperada ${JSON.stringify(esperada)})`
+    )
+    const { pagina } = dono
+    await pagina.goto(`${PAINEL}/`)
+    await pagina.waitForSelector("#visitas")
+    ok(
+      semEspaco(await pagina.locator('[data-visitas="ok"] .numero__sub').textContent()) ===
+        frase(v.hoje, esperada),
+      `a tela diz até que hora compara: “${frase(v.hoje, esperada)}”`
+    )
+    const titulos = await pagina
+      .locator("#visitas .barras-v__col")
+      .evaluateAll((cs) => cs.map((c) => c.getAttribute("title") ?? ""))
+    ok(
+      titulos.slice(ultima + 1, h + 1).every((t) => t.endsWith("o Google ainda está somando")),
+      "as horas que ele ainda não somou dizem isso, em vez de parecer que ninguém entrou",
+      titulos.slice(ultima, h + 1).join(" | ")
+    )
+
+    // A propriedade em outro fuso: o "hoje" e a hora são os dela, não os de Brasília.
+    google.dia.horas = [...linhasDeHoje(HORA_AGORA), ...linhasDeOntem]
+    google.fuso = "America/Manaus"
+    const horaEm = () =>
+      Number(
+        new Intl.DateTimeFormat("en-GB", {
+          timeZone: "America/Manaus",
+          hour: "2-digit",
+          hourCycle: "h23",
+        }).format(Date.now())
+      )
+    const antes = horaEm()
+    const emManaus = (await medusa("/dashboard/visitas", { metodo: "GET", token: tokenDoDono }))
+      .corpo.visitas
+    const horaDela = (emManaus?.porHora?.length ?? 0) - 1
+    ok(
+      horaDela === antes || horaDela === horaEm(),
+      "no fuso que a propriedade disser: a hora de agora é a de lá",
+      `${horaDela} (em Manaus: ${antes})`
+    )
+    google.fuso = "America/Sao_Paulo"
   }
 
   titulo("Quando o Google falha, o Início não")
