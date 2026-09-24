@@ -16,7 +16,9 @@
  * SKU novo do Bling — e é apagado no fim. A caixa de compra é conferida no
  * balm (os cartões de quantidade precisam das faixas de preço, que o job
  * cria em até 15 minutos pra produto novo); a página dele volta ao que era.
- * As imagens de teste são feitas aqui, na hora (o `sharp` do backend).
+ * As imagens de teste são feitas aqui, na hora (o `sharp` do backend); os
+ * vídeos, no próprio navegador (um canvas gravado pelo `MediaRecorder`, em
+ * WebM — sem duração no cabeçalho, como o de um celular Android).
  *
  * ┌─ O QUE ESTE ARQUIVO EXISTE PRA TRAVAR ─────────────────────────────────┐
  * │ • a operação editando (botão na tela, ou a rota aceitando);            │
@@ -27,7 +29,11 @@
  * │ • a medida sugerida diferente da medida da seção na loja;              │
  * │ • o que se salva no painel e não chega na loja (texto, fundo, a foto   │
  * │   do celular no corte certo, a ordem, ligar/desligar, a caixa, o       │
- * │   título dos relacionados, o subtítulo, o "Publicar");                 │
+ * │   título dos relacionados, o subtítulo, o "Publicar", as fotos e os    │
+ * │   vídeos da galeria, o vídeo do modo de uso, os casos de antes e       │
+ * │   depois);                                                             │
+ * │ • vídeo na capa; vídeo que não é vídeo subindo; o bilhete da subida    │
+ * │   valendo duas vezes; caso de antes e depois sem a autorização;        │
  * │ • o topo saindo do lugar; o `</script>` de uma dúvida quebrando a      │
  * │   página; a mudança sem linha no histórico; erro no console.           │
  * └────────────────────────────────────────────────────────────────────────┘
@@ -148,6 +154,42 @@ async function foto(largura, altura, formato, { girar = false } = {}) {
   else s = s.png()
   if (girar) s = s.withMetadata({ orientation: 6 })
   return s.toBuffer()
+}
+
+/**
+ * Um vídeo de teste, gravado no navegador: um canvas colorido mexendo, em
+ * WebM. Volta os bytes, pra ir num `setInputFiles` como um arquivo qualquer.
+ */
+async function gravarVideo(pagina, largura, altura, segundos = 2) {
+  const bytes = await pagina.evaluate(
+    async ([l, a, s]) => {
+      const c = Object.assign(document.createElement("canvas"), { width: l, height: a })
+      const ctx = c.getContext("2d")
+      const rec = new MediaRecorder(c.captureStream(24), { mimeType: "video/webm" })
+      const partes = []
+      rec.ondataavailable = (e) => e.data.size && partes.push(e.data)
+      rec.start(200)
+      const inicio = performance.now()
+      await new Promise((fim) => {
+        const quadro = setInterval(() => {
+          const t = (performance.now() - inicio) / 1000
+          ctx.fillStyle = `hsl(${(t * 140) % 360} 70% 45%)`
+          ctx.fillRect(0, 0, l, a)
+          ctx.fillStyle = "#ffd84d"
+          ctx.fillRect((t * 160) % l, a / 3, l / 6, a / 6)
+          if (t >= s) {
+            clearInterval(quadro)
+            fim()
+          }
+        }, 40)
+      })
+      rec.stop()
+      await new Promise((fim) => (rec.onstop = fim))
+      return [...new Uint8Array(await new Blob(partes).arrayBuffer())]
+    },
+    [largura, altura, segundos]
+  )
+  return Buffer.from(bytes)
 }
 
 /* ── o produto da rodada, e o que volta ao que era ────────────────────────── */
@@ -292,8 +334,9 @@ try {
         (await pagina.locator("[data-publicar]").count()) === 0 &&
         (await pagina.locator(".escolha").count()) === 0 &&
         (await pagina.locator(".secao .chave:not([disabled])").count()) === 0 &&
-        (await pagina.locator("[data-subtitulo]").getAttribute("readonly")) !== null,
-      "na tela dela: sem Editar, sem Publicar, chaves e caixa só pra ver"
+        (await pagina.locator("[data-subtitulo]").getAttribute("readonly")) !== null &&
+        (await pagina.locator("[data-subir-galeria], .galeria__botoes").count()) === 0,
+      "na tela dela: sem Editar, sem Publicar, chaves, caixa e galeria só pra ver"
     )
     const d = await detalhe(tokenOp, produtoId)
     ok(d.produto?.podeEditar === false, "e o backend diz que ela não edita")
@@ -305,11 +348,13 @@ try {
       ["textos", { subtitulo: "x", categoriaId: "" }],
       ["publicar", {}],
       ["imagens", { uso: "fundo-computador", arquivo: "AAAA" }],
+      ["galeria", { acao: "tirar", url: "x" }],
+      ["videos/envio", { tipo: "video/mp4", tamanho: 10 }],
     ]) {
       const r = await medusa(`/dashboard/produtos/${produtoId}/${acao}`, { token: tokenOp, corpo })
       if (r.status !== 403) recusas.push(`${acao}: ${r.status}`)
     }
-    ok(!recusas.length, "as seis rotas de mudar recusam a operação (403)", recusas.join(", "))
+    ok(!recusas.length, "as oito rotas de mudar recusam a operação (403)", recusas.join(", "))
   }
 
   /* ── publicar o rascunho ──────────────────────────────────────────────── */
@@ -372,6 +417,158 @@ try {
     )
     const html = await paginaDaLoja(HANDLE, (h) => h.includes(SUBTITULO))
     ok(html.includes(SUBTITULO), "o subtítulo aparece na página do produto")
+  }
+
+  /* ── as fotos e os vídeos da galeria ──────────────────────────────────── */
+
+  titulo("A galeria: fotos e vídeos")
+  {
+    await abrirProduto()
+    const galeria = async () => (await detalhe(tokenMkt, produtoId)).produto?.galeria ?? []
+    const itensNaTela = () => pagina.locator("[data-galeria] .galeria__item")
+    ok(
+      /Sem foto de capa/.test(await pagina.locator("[data-galeria]").textContent()),
+      "sem foto, a tela avisa que a vitrine fica sem imagem"
+    )
+    const subirFoto = async (buffer, nome = "foto.png") => {
+      const antes = await itensNaTela().count()
+      await pagina.setInputFiles('[data-subir-galeria="foto"]', {
+        name: nome,
+        mimeType: nome.endsWith(".jpg") ? "image/jpeg" : "image/png",
+        buffer,
+      })
+      await pagina.waitForFunction(
+        (n) => document.querySelectorAll("[data-galeria] .galeria__item").length > n,
+        antes,
+        { timeout: 60000 }
+      )
+    }
+    await subirFoto(await foto(1600, 1600, "png"))
+    let g = await galeria()
+    ok(
+      g.length === 1 &&
+        g[0].tipo === "foto" &&
+        /\/static\/.+-galeria.*\.webp$/.test(g[0].url) &&
+        (await pagina.locator("[data-galeria] .galeria__capa").count()) === 1,
+      "a primeira foto sobe em WebP e vira a capa",
+      JSON.stringify(g)
+    )
+    const capa = g[0].url
+    const { corpo: adminProduto } = await adm(
+      `/admin/products/${produtoId}?fields=thumbnail,metadata,images.url,images.rank`
+    )
+    ok(
+      adminProduto.product?.thumbnail === capa &&
+        adminProduto.product?.metadata?.fb_fotos?.origem === "painel",
+      "no Medusa: a thumbnail é a capa, e as fotos ficam marcadas como escolhidas no painel",
+      JSON.stringify({
+        thumb: adminProduto.product?.thumbnail,
+        marca: adminProduto.product?.metadata?.fb_fotos?.origem,
+      })
+    )
+    await subirFoto(await foto(1600, 1000, "jpeg"), "deitada.jpg")
+    ok(
+      /Não é quadrada/.test(await pagina.locator("[data-galeria]").textContent()),
+      "foto que não é quadrada: a tela avisa da faixa branca"
+    )
+
+    const videoQuadrado = await gravarVideo(pagina, 480, 480)
+    const antes = await itensNaTela().count()
+    await pagina.setInputFiles('[data-subir-galeria="video"]', {
+      name: "video.webm",
+      mimeType: "video/webm",
+      buffer: videoQuadrado,
+    })
+    await pagina.waitForFunction(
+      (n) => document.querySelectorAll("[data-galeria] .galeria__item").length > n,
+      antes,
+      { timeout: 90000 }
+    )
+    g = await galeria()
+    const video = g.find((i) => i.tipo === "video")
+    ok(
+      g.length === 3 &&
+        g[2]?.tipo === "video" &&
+        /\/static\/.+-video.*\.webm$/.test(video?.url ?? "") &&
+        /\/static\/.+-poster.*\.webp$/.test(video?.poster ?? "") &&
+        video?.largura === 480 &&
+        video?.altura === 480 &&
+        video?.duracao >= 1 &&
+        video?.duracao <= 4,
+      "o vídeo sobe direto pro Medusa, com a capa, as medidas e a duração (o WebM sem duração no cabeçalho)",
+      JSON.stringify(video)
+    )
+
+    const setaDoVideo = (para) =>
+      pagina.locator(`li[data-url="${video.url}"] [data-mover-galeria="${para}"]`)
+    await apertar(pagina, setaDoVideo("antes"))
+    g = await galeria()
+    ok(
+      g.map((i) => i.tipo).join(",") === "foto,video,foto" &&
+        (await setaDoVideo("antes").isDisabled()),
+      "o vídeo anda pra esquerda; na frente da capa ele não vai (a seta desliga)",
+      g.map((i) => i.tipo).join(",")
+    )
+    const naCapa = await medusa(`/dashboard/produtos/${produtoId}/galeria`, {
+      token: tokenMkt,
+      corpo: { acao: "mover", url: video.url, para: "antes" },
+    })
+    ok(naCapa.status === 409 && naCapa.corpo.message === "capa", "e a rota também não deixa (409)")
+
+    const bilhete = await medusa(`/dashboard/produtos/${produtoId}/videos/envio`, {
+      token: tokenMkt,
+      corpo: { tipo: "video/mp4", tamanho: 4000 },
+    })
+    const destino = `${MEDUSA}${bilhete.corpo.caminho}`
+    const falso = await fetch(destino, {
+      method: "PUT",
+      headers: { "content-type": "video/mp4" },
+      body: Buffer.alloc(4000, 65),
+    })
+    const deNovo = await fetch(destino, {
+      method: "PUT",
+      headers: { "content-type": "video/mp4" },
+      body: Buffer.alloc(4000, 65),
+    })
+    ok(
+      falso.status === 400 &&
+        (await falso.json()).message === "nao_e_video" &&
+        deNovo.status === 409,
+      "arquivo que não é vídeo é recusado pelos bytes, e o bilhete não vale duas vezes"
+    )
+    await pagina.setInputFiles('[data-subir-galeria="video"]', {
+      name: "iphone.mov",
+      mimeType: "video/quicktime",
+      buffer: Buffer.alloc(100),
+    })
+    await pagina.waitForSelector("[data-galeria] .slot__erro")
+    ok(
+      /\.MOV do iPhone/.test(await pagina.locator("[data-galeria] .slot__erro").textContent()),
+      "o .MOV do iPhone: a tela diz pra exportar como MP4"
+    )
+
+    const html = await paginaDaLoja(HANDLE, (h) => h.includes("galeria__mini--video"))
+    ok(
+      html.includes("galeria__mini--video") &&
+        html.indexOf("galeria__mini--video") < html.lastIndexOf("galeria__mini"),
+      "na loja: o vídeo entre as miniaturas, na ordem do painel"
+    )
+    const loja = await novaAba({ width: 1280, height: 900 })
+    await loja.pagina.goto(`${LOJA}/produtos/${HANDLE}`)
+    await loja.pagina.locator(".galeria__mini--video").click()
+    const noPalco = await loja.pagina
+      .locator(".galeria__palco--video video")
+      .getAttribute("src", { timeout: 15000 })
+    ok(noPalco === video.url, "escolhido, o vídeo toca no palco da dobra", noPalco ?? "")
+    await loja.contexto.close()
+
+    await apertar(pagina, pagina.locator(`li[data-url="${capa}"] [data-tirar-galeria]`))
+    g = await galeria()
+    ok(
+      g.length === 2 && g[0].tipo === "foto" && g[0].url !== capa && g[1].tipo === "video",
+      "tirar a capa: a outra foto vem pra frente, na frente do vídeo",
+      g.map((i) => i.tipo).join(",")
+    )
   }
 
   /* ── uma seção: o que falta, e a lista ────────────────────────────────── */
@@ -513,13 +710,12 @@ try {
       )
     }
     await pagina.waitForSelector(".gaveta", { state: "detached" })
-    ok(
-      (await pagina
-        .locator(".secao", { hasText: "Benefícios" })
-        .locator(".selo", { hasText: "com imagem" })
-        .count()) === 1,
-      "na lista, a seção ganha o selo “com imagem”"
-    )
+    // A lista se refaz logo depois da gaveta fechar: espera o selo, sem contar antes da hora.
+    const comImagem = pagina
+      .locator(".secao", { hasText: "Benefícios" })
+      .locator(".selo", { hasText: "com imagem" })
+    await comImagem.waitFor({ timeout: 15000 }).catch(() => {})
+    ok((await comImagem.count()) === 1, "na lista, a seção ganha o selo “com imagem”")
     const html = await paginaDaLoja(HANDLE, (h) => h.includes("fundo__imagem"))
     const trecho = html.slice(html.indexOf('class="fundo fundo--imagem"'))
     const nome = (u) => encodeURIComponent(new URL(u).pathname.split("/").pop())
@@ -640,6 +836,104 @@ try {
     ok(!r.erro && /Combina com o conferidor/.test(html), "o título novo na loja", r.texto)
   }
 
+  /* ── o vídeo do modo de uso ───────────────────────────────────────────── */
+
+  titulo("O vídeo do modo de uso")
+  {
+    await abrirProduto()
+    await pagina.locator('[data-editar="produto.funciona"]').click()
+    await hidratado(pagina, '[data-campo="comoTitulo"]')
+    await pagina.fill('[data-campo="comoTitulo"]', "Como funciona")
+    await pagina.fill('[data-campo="comoTexto.0"]', "Age na raiz.")
+    await pagina.selectOption('[data-campo="comoFotoDe"]', HANDLE)
+    await pagina.fill('[data-campo="usoTitulo"]', "Modo de uso")
+    await pagina.fill('[data-campo="usoPassos.0"]', "Aplique depois do banho.")
+    await pagina.selectOption('[data-campo="usoFotoDe"]', HANDLE)
+    await pagina.setInputFiles('input[data-campo="usoVideo"]', {
+      name: "uso.webm",
+      mimeType: "video/webm",
+      buffer: await gravarVideo(pagina, 640, 360),
+    })
+    await pagina.waitForSelector(".slot--uso .slot__previa video", { timeout: 90000 })
+    ok(
+      !/Não é deitado/.test(await pagina.locator(".slot--uso").textContent()),
+      "o vídeo deitado (16:9) sobe sem aviso de corte"
+    )
+    const r = await apertar(pagina, '[data-editor] button[type="submit"]')
+    const d = await detalhe(tokenMkt, produtoId)
+    const funciona = d.produto?.secoes?.find((x) => x.id === "produto.funciona")
+    const usoVideo = funciona?.valores?.usoVideo
+    ok(
+      !r.erro && /\.webm$/.test(usoVideo?.url ?? "") && usoVideo?.largura === 640,
+      "salvo: o vídeo vai junto da seção",
+      JSON.stringify(usoVideo)
+    )
+    const selo = pagina
+      .locator(".secao", { hasText: "Como funciona e modo de uso" })
+      .locator(".selo", { hasText: "com vídeo" })
+    await selo.waitFor({ timeout: 15000 }).catch(() => {})
+    ok((await selo.count()) === 1, "na lista, a seção ganha o selo “com vídeo”")
+    const html = await paginaDaLoja(HANDLE, (h) => h.includes("funciona__foto--video"))
+    ok(
+      html.includes("funciona__foto--video") && html.includes(usoVideo?.url ?? "ø"),
+      "na loja: o vídeo no lugar da foto do modo de uso"
+    )
+  }
+
+  /* ── o antes e depois ─────────────────────────────────────────────────── */
+
+  titulo("Antes e depois")
+  {
+    await abrirProduto()
+    await pagina.locator('[data-editar="produto.antes-depois"]').click()
+    await hidratado(pagina, '[data-campo="casos.0.nome"]')
+    await pagina.fill('[data-campo="casos.0.nome"]', "André B.")
+    await pagina.fill('[data-campo="casos.0.tempo"]', "90 dias")
+    for (const lado of ["antes", "depois"]) {
+      await pagina.setInputFiles(`input[data-campo="casos.0.${lado}"]`, {
+        name: `${lado}.jpg`,
+        mimeType: "image/jpeg",
+        buffer: await foto(900, 1050, "jpeg"),
+      })
+    }
+    await pagina.waitForFunction(
+      () => document.querySelectorAll(".slot--caso .slot__previa img").length === 2,
+      null,
+      { timeout: 60000 }
+    )
+    ok(
+      semEspaco(await pagina.locator(".slot--caso .slot__medida").first().textContent()) ===
+        "Ideal: 900 × 1050 px · em pé",
+      "cada foto com a medida do quadro da loja (6 × 7)"
+    )
+    await pagina.locator('[data-editor] button[type="submit"]').click()
+    await pagina.waitForSelector(".gaveta__erro")
+    ok(
+      semEspaco(await pagina.locator(".gaveta__erro").textContent()) ===
+        "Falta preencher: Caso 1: a autorização por escrito.",
+      "sem a autorização marcada, o caso não grava (LGPD)"
+    )
+    await pagina.locator('[data-campo="casos.0.autorizou"]').check()
+    const r = await apertar(pagina, '[data-editor] button[type="submit"]')
+    const d = await detalhe(tokenMkt, produtoId)
+    const casos = d.produto?.secoes?.find((x) => x.id === "produto.antes-depois")?.valores?.casos
+    ok(
+      !r.erro &&
+        casos?.length === 1 &&
+        casos[0].autorizou === true &&
+        /-caso.*\.webp$/.test(casos[0].antes),
+      "com a autorização: gravado, com as fotos em WebP",
+      JSON.stringify(casos)
+    )
+    const html = await paginaDaLoja(HANDLE, (h) => h.includes('class="antesdepois"'))
+    ok(
+      html.includes('class="antesdepois"') &&
+        /Depois · (<!-- -->)?90 dias/.test(html) &&
+        html.includes("antesdepois__aviso"),
+      "na loja: o caso com as duas fotos, o tempo e a ressalva"
+    )
+  }
+
   /* ── a caixa de compra ────────────────────────────────────────────────── */
 
   titulo("A caixa de compra (no balm)")
@@ -714,7 +1008,11 @@ try {
         ) &&
         tem("Marketing Teste desligou Benefícios") &&
         tem("Marketing Teste subiu Perguntas frequentes") &&
-        tem("Marketing Teste mudou o subtítulo ou a categoria"),
+        tem("Marketing Teste mudou o subtítulo ou a categoria") &&
+        tem("Marketing Teste pôs um vídeo na galeria") &&
+        tem("Marketing Teste pôs uma foto na galeria") &&
+        tem("Marketing Teste mudou a ordem da galeria") &&
+        tem("Marketing Teste tirou uma foto da galeria"),
       "cada mudança numa linha, com o nome de quem fez",
       linhas.slice(0, 6).join(" | ")
     )

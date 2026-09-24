@@ -4,6 +4,7 @@ import { redirect } from "next/navigation"
 import { SoPara } from "@/components/area"
 import { Icone } from "@/components/icones"
 import { CaixaDeCompra } from "@/components/produto/caixa-de-compra"
+import { GaleriaDoProduto } from "@/components/produto/galeria-do-produto"
 import { Publicar } from "@/components/produto/publicar"
 import { SecoesDaPagina } from "@/components/produto/secoes-da-pagina"
 import { TextosDoProduto } from "@/components/produto/textos-do-produto"
@@ -110,32 +111,7 @@ async function Produto({ params }: Props) {
             produto={p}
             categorias={categorias}
           />
-          <section className="bloco">
-            <div className="bloco__cabeca">
-              <h2 className="bloco__titulo">Fotos</h2>
-              <span className="selo">a primeira é a capa</span>
-            </div>
-            {p.fotos.length ? (
-              <ul className="galeria">
-                {p.fotos.map((f, i) => (
-                  <li className="galeria__item" key={f}>
-                    {/* eslint-disable-next-line @next/next/no-img-element -- foto do Medusa, de qualquer host */}
-                    <img src={f} alt="" loading="lazy" />
-                    {i === 0 ? <span className="galeria__capa">Capa</span> : null}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="slot__aviso" style={{ margin: 0 }}>
-                <Icone nome="alerta" />
-                Sem foto: a vitrine, o Google e o link no WhatsApp ficam sem imagem.
-              </p>
-            )}
-            <p className="pequeno suave" style={{ margin: "12px 0 0" }}>
-              As fotos vêm do Bling, na primeira vez que o produto chega. Trocar, pôr em ordem e
-              subir vídeo chega na próxima entrega.
-            </p>
-          </section>
+          <GaleriaDoProduto produto={p} />
         </div>
 
         <div>

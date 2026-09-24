@@ -168,7 +168,7 @@ function UmLado({
         const pronta = await prepararNoNavegador(arquivo, lado)
         if (!pronta.ok) return setErro(pronta.texto)
         const dados = new FormData()
-        dados.set("lado", lado)
+        dados.set("uso", lado)
         dados.set(
           "arquivo",
           pronta.arquivo,

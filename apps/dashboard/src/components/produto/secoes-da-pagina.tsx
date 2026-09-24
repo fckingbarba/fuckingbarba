@@ -80,8 +80,12 @@ export function SecoesDaPagina({
           const def = SECOES[s.id]
           const editavel = edita && def.campos.length > 0
           const desc = s.vazia
-            ? "Sem texto neste produto — não aparece no site até alguém escrever."
+            ? s.id === "produto.antes-depois"
+              ? "Sem caso neste produto — não aparece no site até alguém cadastrar."
+              : "Sem texto neste produto — não aparece no site até alguém escrever."
             : (def.soCom ?? def.descricao)
+          const comVideo = Boolean((s.valores as { usoVideo?: unknown } | null)?.usoVideo)
+          const casos = ((s.valores as { casos?: unknown[] } | null)?.casos ?? []).length
           return (
             <li key={s.id} className="secao" data-desligada={s.ligada && !s.vazia ? undefined : ""}>
               {s.fixa ? (
@@ -115,10 +119,14 @@ export function SecoesDaPagina({
               <span>
                 <p className="secao__nome">{def.nome}</p>
                 <p className="secao__desc">{desc}</p>
-                {s.vazia || s.fundo ? (
+                {s.vazia || s.fundo || comVideo || casos ? (
                   <span className="secao__selos">
                     {s.vazia ? <span className="selo">vazia</span> : null}
                     {s.fundo ? <span className="selo">com imagem</span> : null}
+                    {comVideo ? <span className="selo">com vídeo</span> : null}
+                    {casos ? (
+                      <span className="selo">{casos === 1 ? "1 caso" : `${casos} casos`}</span>
+                    ) : null}
                   </span>
                 ) : null}
               </span>

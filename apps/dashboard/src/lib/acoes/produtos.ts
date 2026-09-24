@@ -8,8 +8,9 @@ import {
   type Caixa,
   type Fundo,
   type IdDaSecao,
-  type Lado,
+  type ItemDaGaleria,
   type Resultado,
+  type UsoDaImagem,
   type Valores,
 } from "@/lib/produtos"
 
@@ -90,6 +91,11 @@ export async function salvarSecao(
     return {
       ok: false,
       texto: "A imagem de fundo não veio do armazenamento da loja. Escolha a foto de novo.",
+    }
+  if (r!.status === 400 && r!.corpo.message === "imagem_invalida")
+    return {
+      ok: false,
+      texto: "Uma foto ou o vídeo não veio do armazenamento da loja. Escolha de novo.",
     }
   if (r!.status !== 200) return { ok: false, texto: GENERICO }
   refazer(id)
@@ -190,18 +196,31 @@ export type ImagemQueSubiu =
   | { ok: true; url: string; largura: number; altura: number; bytes: number }
   | { ok: false; texto: string }
 
+/** O nome de cada uso no backend (`UsoDaImagem`, em `apps/backend/src/lib/imagens.ts`). */
+const USO_NO_BACKEND: Record<UsoDaImagem, string> = {
+  computador: "fundo-computador",
+  celular: "fundo-celular",
+  galeria: "galeria",
+  poster: "poster",
+  caso: "caso",
+}
+
 /**
- * Sobe a foto de um lado do fundo — já preparada no navegador
- * (`imagem-no-navegador.ts`) — e devolve o endereço. Não grava na página:
- * isso é o "Salvar" da gaveta.
+ * Sobe uma imagem — já preparada no navegador (`imagem-no-navegador.ts`) —
+ * e devolve o endereço: um lado do fundo, uma foto da galeria, a capa de um
+ * vídeo, a foto de um caso. Não grava na página: isso é o "Salvar" da
+ * gaveta, ou a galeria.
  */
 export async function subirImagem(id: string, dados: FormData): Promise<ImagemQueSubiu> {
-  const lado = dados.get("lado") as Lado | null
+  const uso = dados.get("uso")
   const arquivo = dados.get("arquivo")
-  if ((lado !== "computador" && lado !== "celular") || !(arquivo instanceof Blob))
+  if (typeof uso !== "string" || !(uso in USO_NO_BACKEND) || !(arquivo instanceof Blob))
     return { ok: false, texto: "Escolha a foto de novo." }
   const base64 = Buffer.from(await arquivo.arrayBuffer()).toString("base64")
-  const r = await chamar(id, "imagens", { uso: `fundo-${lado}`, arquivo: base64 })
+  const r = await chamar(id, "imagens", {
+    uso: USO_NO_BACKEND[uso as UsoDaImagem],
+    arquivo: base64,
+  })
   const erro = comum(r)
   if (erro) return erro
   if (r!.status === 400 && typeof r!.corpo.texto === "string")
@@ -215,4 +234,70 @@ export async function subirImagem(id: string, dados: FormData): Promise<ImagemQu
     altura: Number(c.altura),
     bytes: Number(c.bytes),
   }
+}
+
+/**
+ * O endereço pra o navegador mandar um vídeo DIRETO pro Medusa — com o
+ * bilhete, que vale uma vez, por 15 minutos (`apps/backend/src/lib/videos.ts`).
+ * O vídeo não passa por aqui: a Vercel não deixa passar pedido maior que
+ * 4,5 MB.
+ */
+export async function pedirEnvioDeVideo(
+  id: string,
+  video: { tipo: string; tamanho: number }
+): Promise<{ ok: true; url: string } | { ok: false; texto: string }> {
+  const r = await chamar(id, "videos/envio", video)
+  const erro = comum(r)
+  if (erro) return erro
+  if (r!.status === 400)
+    return {
+      ok: false,
+      texto:
+        r!.corpo.message === "grande"
+          ? "O vídeo passa de 50 MB. Encurte ou comprima antes."
+          : "Use um vídeo MP4 ou WebM.",
+    }
+  const base = process.env.MEDUSA_BACKEND_URL
+  if (r!.status !== 200 || typeof r!.corpo.caminho !== "string" || !base)
+    return { ok: false, texto: GENERICO }
+  return { ok: true, url: new URL(r!.corpo.caminho, base).toString() }
+}
+
+export type PedidoNaGaleria =
+  | { acao: "incluir"; item: ItemDaGaleria }
+  | { acao: "mover"; url: string; para: "antes" | "depois" }
+  | { acao: "tirar"; url: string }
+
+const RECUSA_DA_GALERIA: Record<string, string> = {
+  repetido: "Essa já está na galeria.",
+  cheia: "A galeria está cheia: até 12 fotos e 4 vídeos. Tire uma antes.",
+  invalido: "Não deu: escolha o arquivo de novo.",
+}
+
+const FEITO_NA_GALERIA = (p: PedidoNaGaleria) =>
+  p.acao === "incluir"
+    ? p.item.tipo === "video"
+      ? "Vídeo na galeria — na página, ele toca sem som, em loop"
+      : "Foto na galeria — a página atualiza em alguns segundos"
+    : p.acao === "tirar"
+      ? "Tirado da galeria — a página atualiza em alguns segundos"
+      : "Ordem salva — a página atualiza em alguns segundos"
+
+/** UMA mudança nas fotos e vídeos da dobra (incluir, mover uma casa, tirar), na hora. */
+export async function mudarGaleria(id: string, pedido: PedidoNaGaleria): Promise<Resultado> {
+  const r = await chamar(id, "galeria", pedido)
+  const erro = comum(r)
+  if (erro) return erro
+  if (r!.status === 409) {
+    refazer(id)
+    return {
+      ok: false,
+      texto: "Não deu: a galeria mudou desde que você abriu. Ela já mostra como está agora.",
+    }
+  }
+  if (r!.status === 400)
+    return { ok: false, texto: RECUSA_DA_GALERIA[String(r!.corpo.message)] ?? GENERICO }
+  if (r!.status !== 200) return { ok: false, texto: GENERICO }
+  refazer(id)
+  return feito(r!, FEITO_NA_GALERIA(pedido))
 }

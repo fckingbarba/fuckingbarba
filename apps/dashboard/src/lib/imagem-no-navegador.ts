@@ -1,4 +1,4 @@
-import { MEDIDA_MAXIMA, type Lado } from "@/lib/produtos"
+import { MEDIDA_MAXIMA, type UsoDaImagem } from "@/lib/produtos"
 
 /**
  * A FOTO ESCOLHIDA, PREPARADA NO NAVEGADOR — antes de subir.
@@ -6,7 +6,7 @@ import { MEDIDA_MAXIMA, type Lado } from "@/lib/produtos"
  * Foto de celular tem 4000 px e 5 a 12 MB; a Vercel não deixa passar pedido
  * maior que 4,5 MB. Então o navegador faz a primeira parte: abre a foto (já
  * na orientação certa — a do celular vem "deitada" com uma etiqueta dizendo
- * pra girar), encolhe até a medida máxima do lado e salva em WebP (ou JPG,
+ * pra girar), encolhe até a medida máxima do uso e salva em WebP (ou JPG,
  * no navegador que não grava WebP). O servidor da loja refaz tudo
  * (`apps/backend/src/lib/imagens.ts`): aqui é só pra caber no caminho.
  *
@@ -27,7 +27,7 @@ const LIMITE_DO_ENVIO = 3.5 * 1024 * 1024
 export type Preparada =
   { ok: true; arquivo: Blob; largura: number; altura: number } | { ok: false; texto: string }
 
-export async function prepararNoNavegador(arquivo: File, lado: Lado): Promise<Preparada> {
+export async function prepararNoNavegador(arquivo: File, uso: UsoDaImagem): Promise<Preparada> {
   const extensao = (arquivo.name.split(".").pop() ?? "").toLowerCase()
   if (extensao === "heic" || extensao === "heif" || /hei[cf]/.test(arquivo.type))
     return {
@@ -51,7 +51,7 @@ export async function prepararNoNavegador(arquivo: File, lado: Lado): Promise<Pr
         "Não deu pra abrir essa imagem. Salve de novo como JPG, PNG ou WebP e tente outra vez.",
     }
   try {
-    const { largura: maxL, altura: maxA } = MEDIDA_MAXIMA[lado]
+    const { largura: maxL, altura: maxA } = MEDIDA_MAXIMA[uso]
     const escala = Math.min(1, maxL / aberta.largura, maxA / aberta.altura)
 
     // Qualidade caindo aos poucos até caber; em último caso, a foto encolhe.
@@ -59,7 +59,7 @@ export async function prepararNoNavegador(arquivo: File, lado: Lado): Promise<Pr
       const largura = Math.max(1, Math.round(aberta.largura * escala * reduzir))
       const altura = Math.max(1, Math.round(aberta.altura * escala * reduzir))
       for (const qualidade of [0.9, 0.82, 0.72]) {
-        const blob = await desenhar(aberta.imagem, largura, altura, qualidade)
+        const blob = await desenharEmArquivo(aberta.imagem, largura, altura, qualidade)
         if (blob && blob.size <= LIMITE_DO_ENVIO)
           return { ok: true, arquivo: blob, largura, altura }
       }
@@ -111,7 +111,8 @@ async function abrir(arquivo: Blob): Promise<Aberta | null> {
   }
 }
 
-async function desenhar(
+/** Desenha a imagem (uma foto, um quadro de vídeo) no tamanho pedido e salva em WebP — ou JPG. */
+export async function desenharEmArquivo(
   imagem: CanvasImageSource,
   largura: number,
   altura: number,
