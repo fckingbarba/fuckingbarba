@@ -4,6 +4,7 @@ import { lerEstado } from "../modules/pagarme/situacao"
 import { whatsappDaLoja } from "./atendimento"
 import { emailNoLog, enviarEmail } from "./email"
 import { emailDePedidoConfirmado, type PedidoDoEmail } from "./emails/pedido-confirmado"
+import { gravarNoMetadataDoPedido } from "./metadata-do-pedido"
 
 /**
  * O E-MAIL DE PEDIDO CONFIRMADO — uma vez por pedido, quando o pagamento cai.
@@ -33,7 +34,9 @@ import { emailDePedidoConfirmado, type PedidoDoEmail } from "./emails/pedido-con
  * cima de tudo. Três travas, em ordem:
  *   1. a trava do Medusa (Redis) por pedido — dois ao mesmo tempo, um espera;
  *   2. o registro no pedido (`metadata.emails.confirmado`), lido DENTRO da
- *      trava — quem chega depois encontra "já foi" e não manda;
+ *      trava — quem chega depois encontra "já foi" e não manda. Ele é
+ *      gravado pela porta do metadata (`metadata-do-pedido.ts`): gravado
+ *      direto, a oferta do checkout chegando junto o apagava (o #467);
  *   3. a chave de idempotência do Resend (`pedido-confirmado/<id>`), que
  *      cobre o instante entre o Resend aceitar e o registro ser gravado.
  *
@@ -150,14 +153,13 @@ export function lerRegistro(metadata: unknown): Registro | null {
   return r as Registro
 }
 
+/**
+ * Só o `emails.confirmado`, relido na hora de gravar: o `pedido` foi lido
+ * antes do Resend responder, e o `emails.cancelado`, a oferta e os outros
+ * registros podem ter chegado no meio.
+ */
 async function registrar(container: MedusaContainer, pedido: PedidoLido, registro: Registro) {
-  const meta = pedido.metadata ?? {}
-  const emails = meta.emails && typeof meta.emails === "object" ? meta.emails : {}
-  await container
-    .resolve(Modules.ORDER)
-    .updateOrders([
-      { id: pedido.id, metadata: { ...meta, emails: { ...emails, confirmado: registro } } },
-    ])
+  await gravarNoMetadataDoPedido(container, pedido.id, ["emails", "confirmado"], registro)
 }
 
 /* ── a decisão, sem efeito nenhum ─────────────────────────────────────────── */

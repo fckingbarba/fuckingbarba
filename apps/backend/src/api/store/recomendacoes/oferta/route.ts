@@ -1,7 +1,6 @@
 import type { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import { daLoja } from "../../../../lib/quem-pede"
-import { lerOferta } from "../../../../lib/recomendacao"
 import { registrarOfertaWorkflow } from "../../../../workflows/recomendacao/registrar-oferta"
 
 /**
@@ -42,26 +41,18 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
   }
 
   const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
-  const { data } = await query.graph({
-    entity: "order",
-    fields: ["id", "metadata"],
-    filters: { id: pedido },
-  })
-  const encontrado = data[0]
-  if (!encontrado) {
+  const { data } = await query.graph({ entity: "order", fields: ["id"], filters: { id: pedido } })
+  if (!data[0]) {
     res.status(404).json({ message: "pedido_nao_existe" })
     return
   }
-  if (lerOferta(encontrado.metadata)) {
-    res.json({ gravado: false })
-    return
-  }
 
-  await registrarOfertaWorkflow(req.scope).run({
+  // "Já tem oferta?" é pergunta do workflow, dentro da trava do metadata.
+  const { result } = await registrarOfertaWorkflow(req.scope).run({
     input: {
       pedidoId: pedido,
       oferta: { produto, aceito: corpo.aceito, em: new Date().toISOString() },
     },
   })
-  res.json({ gravado: true })
+  res.json({ gravado: result.gravada })
 }

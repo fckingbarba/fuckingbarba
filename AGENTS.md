@@ -344,7 +344,8 @@ a varredura `registrarPendentes` (job `registrar-pedidos`, de 10 em 10 minutos, 
 cancelados, sem envio criado no admin e pagos DEPOIS de o registro ligar — o "desde" fica no
 metadata da loja (`fb_parceiros`), gravado na primeira rodada ligada, pra não duplicar no painel o
 pedido que já teve etiqueta à mão. Uma vez só: trava por pedido e o registro em
-`metadata.fb_parceiro`, relido antes de gravar (outros registros moram no mesmo metadata).
+`metadata.fb_parceiro`, gravado pela porta do metadata do pedido (ver **O metadata do pedido**,
+abaixo) — registro perdido aqui é o mesmo pedido entrando duas vezes no painel.
 Recusa da Frenet (400, erro no item) é definitiva e o log pede a etiqueta à mão; queda, tempo e
 token recusado voltam na varredura, com espera crescente (10 min até 6 h), por três dias. No
 painel o pedido se chama **FB-<número>** (`referenciaDoPedido`) — a Nuvemshop segue na mesma conta,
@@ -456,6 +457,20 @@ depois do cancelamento (admin cancelando e estornando em dois cliques), e o lado
 corrida é um e-mail dizendo "nada foi cobrado" pra quem acabou de ver o dinheiro sair da conta. A
 outra ponta, a cobrança que o Pagar.me recebeu e o Medusa nunca soube, quem descobre é o
 `fecharCobrancasDoPedido` do subscriber — por isso ele roda ANTES e passa o `estornouLa`.
+
+**O metadata do pedido** tem vários donos — `emails.confirmado`, `emails.cancelado`, `estornos`,
+`fb_parceiro` e `fb_bump` — e UMA porta de escrita: `gravarNoMetadataDoPedido`
+(`src/lib/metadata-do-pedido.ts`). O `updateOrders` do Medusa lê o pedido, mistura o metadata na
+memória (só no primeiro nível) e grava a coluna inteira: dois donos gravando juntos, o último
+apaga o que o primeiro gravou — foi o registro da confirmação sumindo debaixo do `fb_bump`, gravado
+uns 10 ms depois, e a varredura mandando de novo. A porta segura uma trava por pedido, a mesma pra todos
+(`metadata-do-pedido:<id>`), relê o metadata dentro dela e manda pro Medusa só a chave de quem
+grava. A chave pode ser um caminho (`["emails", "confirmado"]` grava ao lado do `cancelado`), e o
+valor, uma função que recebe o que está lá agora e devolve o novo — `undefined` não grava (é assim
+que a oferta entra uma vez só). É sempre a trava de DENTRO: a de cada dono (a do e-mail, a do
+estorno, a do parceiro) segura o trabalho inteiro, por fora, e nada dentro da porta pega outra. Um
+registro novo no pedido entra por ela; o `metadata-do-pedido.unit.spec.ts` falha se alguém chamar o
+`updateOrders` em outro lugar. Fora do alcance: o JSON do pedido editado à mão no admin do Medusa.
 
 A **sacola** grava CEP e entrega no carrinho (`apps/loja/src/lib/acoes/frete.ts`), e o pé da
 gaveta mostra o frete e o total que o Medusa calculou com ela — o checkout abre com os dois. Com

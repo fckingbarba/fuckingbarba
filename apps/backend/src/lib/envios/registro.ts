@@ -13,6 +13,7 @@ import {
   type EnderecoDoMedusa,
 } from "../dados-do-pedido"
 import { notaParaAEtiqueta, type NotaParaAEtiqueta } from "../erp/notas"
+import { gravarNoMetadataDoPedido } from "../metadata-do-pedido"
 import { referenciaDoPedido, type ParceiroDeEntrega, type PedidoParaOParceiro } from "./parceiro"
 import { parceiroDeEntrega, parceiroQueRegistra } from "./parceiros"
 
@@ -112,22 +113,15 @@ export function lerRegistroNoPedido(metadata: unknown): RegistroNoPedido | null 
 }
 
 /**
- * Relê o metadata na hora de gravar, e troca só a chave do registro: o
- * e-mail de confirmação, a oferta do checkout e os estornos moram no mesmo
- * metadata, e podem ter sido gravados enquanto o parceiro respondia.
+ * Troca só a chave do registro, pela porta do metadata do pedido
+ * (`metadata-do-pedido.ts`): o e-mail de confirmação, a oferta do checkout e
+ * os estornos moram no mesmo metadata, e podem ser gravados enquanto o
+ * parceiro responde. Relido sem a trava de lá, um registro gravado junto
+ * com outro ainda se perdia — e registro perdido aqui é o pedido entrando
+ * de novo no painel.
  */
 async function gravar(container: MedusaContainer, pedidoId: string, registro: RegistroNoPedido) {
-  const pedidos = container.resolve(Modules.ORDER)
-  const atual = await pedidos.retrieveOrder(pedidoId, { select: ["id", "metadata"] })
-  await pedidos.updateOrders([
-    {
-      id: pedidoId,
-      metadata: {
-        ...((atual.metadata as Record<string, unknown> | null) ?? {}),
-        [CHAVE_NO_PEDIDO]: registro,
-      },
-    },
-  ])
+  await gravarNoMetadataDoPedido(container, pedidoId, CHAVE_NO_PEDIDO, registro)
 }
 
 /* ── o pedido, como o Medusa devolve ──────────────────────────────────────── */

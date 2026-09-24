@@ -1,11 +1,11 @@
-import { Modules } from "@medusajs/framework/utils"
 import {
   createStep,
   createWorkflow,
   StepResponse,
   WorkflowResponse,
 } from "@medusajs/framework/workflows-sdk"
-import { CHAVE_DA_OFERTA } from "../../lib/recomendacao"
+import { gravarNoMetadataDoPedido } from "../../lib/metadata-do-pedido"
+import { CHAVE_DA_OFERTA, lerOferta } from "../../lib/recomendacao"
 
 /**
  * REGISTRAR A OFERTA DO CHECKOUT NO PEDIDO — `metadata.fb_bump`.
@@ -14,8 +14,12 @@ import { CHAVE_DA_OFERTA } from "../../lib/recomendacao"
  * produto a produto, quantas vezes ela apareceu e quantas foi aceita.
  *
  * Em workflow, e não direto na rota, porque é assim que o Medusa quer toda
- * escrita (o lint do build avisa). O resto do metadata do pedido fica como
- * estava — os registros de e-mail e de estorno moram lá também.
+ * escrita (o lint do build avisa). Grava pela porta do metadata do pedido
+ * (`lib/metadata-do-pedido.ts`), só a chave `fb_bump`: a loja chama isto
+ * logo depois de fechar o pedido, no mesmo instante em que o pagamento
+ * grava o registro da confirmação — gravando direto, um apagava o outro (o
+ * #467). E UMA VEZ: a pergunta "já tem oferta?" é feita dentro da trava, e
+ * dois avisos juntos não transformam "aceitou" em "recusou".
  */
 
 type Entrada = {
@@ -23,31 +27,21 @@ type Entrada = {
   oferta: { produto: string; aceito: boolean; em: string }
 }
 
-type Desfazer = { pedidoId: string; antes: Record<string, unknown> | null }
-
 const gravarOfertaNoPedidoStep = createStep(
   "gravar-oferta-no-pedido",
   async ({ pedidoId, oferta }: Entrada, { container }) => {
-    const pedidos = container.resolve(Modules.ORDER)
-    const pedido = await pedidos.retrieveOrder(pedidoId, { select: ["id", "metadata"] })
-    const antes = (pedido.metadata as Record<string, unknown> | null) ?? null
-    await pedidos.updateOrders([
-      { id: pedidoId, metadata: { ...(antes ?? {}), [CHAVE_DA_OFERTA]: oferta } },
-    ])
-    return new StepResponse<void, Desfazer>(undefined, { pedidoId, antes })
+    const gravada = await gravarNoMetadataDoPedido(container, pedidoId, CHAVE_DA_OFERTA, (atual) =>
+      lerOferta({ [CHAVE_DA_OFERTA]: atual }) ? undefined : oferta
+    )
+    return new StepResponse({ gravada }, gravada ? pedidoId : null)
   },
-  async (desfazer, { container }) => {
-    if (!desfazer) return
-    await container.resolve(Modules.ORDER).updateOrders([
-      {
-        id: desfazer.pedidoId,
-        metadata: { ...(desfazer.antes ?? {}), [CHAVE_DA_OFERTA]: null },
-      },
-    ])
+  async (pedidoId, { container }) => {
+    if (!pedidoId) return
+    await gravarNoMetadataDoPedido(container, pedidoId, CHAVE_DA_OFERTA, null)
   }
 )
 
-export const registrarOfertaWorkflow = createWorkflow("registrar-oferta", (entrada: Entrada) => {
-  gravarOfertaNoPedidoStep(entrada)
-  return new WorkflowResponse(undefined)
-})
+export const registrarOfertaWorkflow = createWorkflow(
+  "registrar-oferta",
+  (entrada: Entrada) => new WorkflowResponse(gravarOfertaNoPedidoStep(entrada))
+)
