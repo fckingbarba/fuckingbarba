@@ -1,0 +1,8 @@
+/*
+  O LAYOUT DA HOME — só o que a tela da home tem de seu. A lista de seções,
+  a gaveta, a faixa e o histórico são as peças de sempre (pecas.css e
+  produtos.css).
+*/
+
+/* A seção mexida no rascunho, que ainda não foi pro site: o amarelo da faixa. */
+.selo--pendente { color: var(--aviso-txt); background: var(--amarelo-claro); border-color: var(--amarelo-borda); }
