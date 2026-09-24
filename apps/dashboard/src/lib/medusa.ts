@@ -27,6 +27,8 @@ const TEMPO_LIMITE_MS = 10_000
  * é JSON viram `status: 0`. Quem chama decide a frase.
  *
  * `token: "sessao"` usa o do cookie — é o caso de quase toda tela.
+ * `tempoLimite`: o das ações que falam com o Bling ou o Pagar.me, que
+ * podem demorar mais que uma leitura.
  */
 export async function medusa(
   caminho: string,
@@ -34,7 +36,13 @@ export async function medusa(
     metodo = "POST",
     corpo,
     token,
-  }: { metodo?: "GET" | "POST"; corpo?: unknown; token?: string | "sessao" } = {}
+    tempoLimite = TEMPO_LIMITE_MS,
+  }: {
+    metodo?: "GET" | "POST"
+    corpo?: unknown
+    token?: string | "sessao"
+    tempoLimite?: number
+  } = {}
 ): Promise<Resposta> {
   // Cookie e cabeçalhos primeiro: é o que diz ao Next que a tela é de quem
   // pediu (dinâmica) — e ele nem tenta montar a página no build.
@@ -62,7 +70,7 @@ export async function medusa(
       headers: cabecalhos,
       body: corpo === undefined ? undefined : JSON.stringify(corpo),
       cache: "no-store",
-      signal: AbortSignal.timeout(TEMPO_LIMITE_MS),
+      signal: AbortSignal.timeout(tempoLimite),
     })
     const json = (await r.json().catch(() => ({}))) as Record<string, unknown>
     return { status: r.status, corpo: json && typeof json === "object" ? json : {} }

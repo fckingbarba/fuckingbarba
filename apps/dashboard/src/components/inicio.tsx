@@ -1,5 +1,6 @@
 import type { Route } from "next"
 import Link from "next/link"
+import type { ReactNode } from "react"
 import { Icone } from "@/components/icones"
 import { Status } from "@/components/pedidos"
 import { reais, reaisCurto, type Inicio } from "@/lib/pedidos"
@@ -12,7 +13,8 @@ import { reais, reaisCurto, type Inicio } from "@/lib/pedidos"
 
 const vezes = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um : varios}`
 
-export function Numeros({ n }: { n: Inicio["numeros"] }) {
+/** Os quatro números de cima. As visitas chegam à parte (`visitas`): o Google pode demorar. */
+export function Numeros({ n, visitas }: { n: Inicio["numeros"]; visitas: ReactNode }) {
   const esperando = [
     n.esperando.pix ? vezes(n.esperando.pix, "Pix", "Pix") : "",
     n.esperando.analise
@@ -20,12 +22,13 @@ export function Numeros({ n }: { n: Inicio["numeros"] }) {
       : "",
   ].filter(Boolean)
   return (
-    <div className="numeros numeros--3">
+    <div className="numeros">
       <div className="numero numero--destaque">
         <p className="numero__rot">Vendas hoje</p>
         <p className="numero__valor">{reais(n.vendasHoje.valor)}</p>
         <p className="numero__sub">{vezes(n.vendasHoje.pedidos, "pedido pago", "pedidos pagos")}</p>
       </div>
+      {visitas}
       <div className="numero">
         <p className="numero__rot">Esperando pagamento</p>
         <p className="numero__valor">{reais(n.esperando.valor)}</p>

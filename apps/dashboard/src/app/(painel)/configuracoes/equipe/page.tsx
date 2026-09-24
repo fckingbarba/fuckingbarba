@@ -70,6 +70,7 @@ export default async function Pagina() {
 const NOME_DA_LINHA: Record<Area, string> = {
   inicio: "Início",
   pedidos: "Pedidos",
+  estornos: "Estornos",
   carrinhos: "Carrinhos abandonados",
   produtos: "Produtos",
   cupons: "Cupons e descontos",

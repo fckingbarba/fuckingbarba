@@ -15,6 +15,7 @@ export type Situacao = "convidado" | "ativo" | "removido"
 export type Area =
   | "inicio"
   | "pedidos"
+  | "estornos"
   | "carrinhos"
   | "produtos"
   | "cupons"
@@ -101,6 +102,7 @@ export const ABAS_DO_CELULAR: Record<Papel, Area[]> = {
 export const TITULO_CURTO: Record<Area, string> = {
   inicio: "Início",
   pedidos: "Pedidos",
+  estornos: "Estornos",
   carrinhos: "Carrinhos",
   produtos: "Produtos",
   cupons: "Cupons",
@@ -138,6 +140,7 @@ export function iniciais(nome: string): string {
 /** Quem pode mexer em quê, em uma frase — pra tela "sem acesso". */
 export const DONOS_DA_AREA: Partial<Record<Area, string>> = {
   pedidos: "Pedidos são da operação e do dono.",
+  estornos: "Estorno é com o dono.",
   cupons: "Cupons são do marketing e do dono.",
   home: "O layout da home é do marketing e do dono.",
   observabilidade: "A observabilidade é da operação e do dono.",

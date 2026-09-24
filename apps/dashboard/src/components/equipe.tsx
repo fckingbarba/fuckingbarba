@@ -1,6 +1,7 @@
 "use client"
 
 import { useActionState, useCallback, useEffect, useState, useTransition } from "react"
+import { useAvisar } from "@/components/avisos"
 import { Gaveta } from "@/components/gaveta"
 import { Icone } from "@/components/icones"
 import { convidar, mudarPapel, reenviarConvite, tirarDaEquipe } from "@/lib/acoes/equipe"
@@ -26,14 +27,9 @@ export type PessoaDaLista = Membro & { estado: string; conviteVencido: boolean }
 export function Equipe({ membros, eu }: { membros: PessoaDaLista[]; eu: string }) {
   const [convidando, setConvidando] = useState(false)
   const [aberto, setAberto] = useState<string | null>(null)
-  const [aviso, setAviso] = useState("")
-
-  // O aviso some sozinho depois de uns segundos.
-  useEffect(() => {
-    if (!aviso) return
-    const t = setTimeout(() => setAviso(""), 5000)
-    return () => clearTimeout(t)
-  }, [aviso])
+  // O aviso de baixo é o do painel inteiro (`ComAvisos`, no layout).
+  const avisarNoPainel = useAvisar()
+  const mostrarAviso = (texto: string) => avisarNoPainel({ ok: true, texto })
 
   const fecharConvite = useCallback(() => setConvidando(false), [])
 
@@ -61,7 +57,7 @@ export function Equipe({ membros, eu }: { membros: PessoaDaLista[]; eu: string }
               aberta={aberto === m.id}
               abrir={() => setAberto(aberto === m.id ? null : m.id)}
               avisar={(texto) => {
-                setAviso(texto)
+                mostrarAviso(texto)
                 setAberto(null)
               }}
             />
@@ -75,16 +71,11 @@ export function Equipe({ membros, eu }: { membros: PessoaDaLista[]; eu: string }
             fechar={fecharConvite}
             aoConvidar={(texto) => {
               setConvidando(false)
-              setAviso(texto)
+              mostrarAviso(texto)
             }}
           />
         </Gaveta>
       ) : null}
-
-      <div className="aviso" data-fora={aviso ? undefined : ""} role="status" aria-live="polite">
-        <Icone nome="check" />
-        <span>{aviso}</span>
-      </div>
     </>
   )
 }

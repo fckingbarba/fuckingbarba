@@ -63,7 +63,15 @@ export type DetalheDoPedido = {
   problema: Problema | null
   despachar: boolean
   total: number
-  faixas: { nivel: "grave" | "atencao" | "info"; titulo: string; texto: string }[]
+  faixas: {
+    nivel: "grave" | "atencao" | "info"
+    titulo: string
+    texto: string
+    /** O botão que resolve, dentro da faixa (só vem quando o papel pode apertar). */
+    botao?: AcaoDoPedido
+    /** Pra quem vê e não aperta: de quem é. */
+    rodape?: string
+  }[]
   caminho: Passo[]
   cancelado: string | null
   itens: {
@@ -84,6 +92,8 @@ export type DetalheDoPedido = {
     total: number
   }
   historico: { quando: string; em: string; titulo: string; detalhe: string }[]
+  /** Os botões, já conferidos no backend contra o papel e o estado do pedido. */
+  acoes: { nota: "agora" | "de-novo" | null; estorno: boolean; dica: string | null }
   pagamento: { forma: string; detalhe: string }
   nota: string | null
   entrega: {
@@ -104,6 +114,12 @@ export type DetalheDoPedido = {
     conta: boolean
   }
 }
+
+/** As ações do pedido no painel: "Emitir a nota agora" e "Tentar o estorno de novo". */
+export type AcaoDoPedido = "nota" | "estorno"
+
+/** O que a ação devolve pra tela: deu (ou não), e a frase. */
+export type Frase = { ok: boolean; texto: string }
 
 export type ItemDaFila = {
   nivel: "grave" | "atencao" | "" | "ok"
