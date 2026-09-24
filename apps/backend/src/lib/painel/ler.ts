@@ -11,6 +11,7 @@ import type NewsletterService from "../../modules/newsletter/service"
 import { lerConexao, minutosDaJanela } from "../erp/conexao"
 import { erpDaLoja } from "../erp/erps"
 import { ACOES_NO_PEDIDO, type FeitoNoPedido } from "./acoes"
+import { ACOES_NO_PRODUTO, type FeitoNoProduto } from "./produtos"
 import { nomeCurto, type Contexto, type EnvioCru, type NotaCrua, type PedidoCru } from "./pedido"
 
 /**
@@ -199,6 +200,41 @@ export async function feitosNoPedido(
   const linhas = (await equipe.listRegistros(
     { alvo_id: pedidoId, acao: ACOES_NO_PEDIDO },
     { take: 50, order: { created_at: "ASC" } }
+  )) as unknown as {
+    membro_id: string | null
+    acao: string
+    detalhe: Record<string, unknown> | null
+    created_at: Date
+  }[]
+  const ids = [...new Set(linhas.map((l) => l.membro_id).filter((id): id is string => !!id))]
+  const membros = ids.length
+    ? ((await equipe.listMembros({ id: ids }, { take: ids.length })) as {
+        id: string
+        nome: string
+      }[])
+    : []
+  const nomes = new Map(membros.map((m) => [m.id, m.nome]))
+  return linhas.map((l) => ({
+    em: l.created_at,
+    acao: l.acao,
+    quem: (l.membro_id && nomes.get(l.membro_id)) || "Alguém da equipe",
+    detalhe: l.detalhe,
+  }))
+}
+
+/**
+ * O que a equipe mudou no produto pelo painel (uma seção, a ordem, a caixa
+ * de compra, os textos, o "Publicar"), do registro, o mais novo primeiro —
+ * com o nome de quem fez.
+ */
+export async function feitosNoProduto(
+  container: MedusaContainer,
+  produtoId: string
+): Promise<FeitoNoProduto[]> {
+  const equipe = container.resolve<EquipeService>(EQUIPE)
+  const linhas = (await equipe.listRegistros(
+    { alvo_id: produtoId, acao: [...ACOES_NO_PRODUTO] },
+    { take: 20, order: { created_at: "DESC" } }
   )) as unknown as {
     membro_id: string | null
     acao: string

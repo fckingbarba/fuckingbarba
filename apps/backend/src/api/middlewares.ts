@@ -255,6 +255,16 @@ export default defineMiddlewares({
       em tudo que não é o caminho de entrar. Rota nova já nasce trancada.
     */
     { matcher: "/dashboard/*", middlewares: [portaDoPainel] },
+    /*
+      A imagem de fundo sobe em base64 dentro do JSON: o limite padrão do
+      corpo (100 KB) não passa uma foto. O painel já encolhe antes de mandar;
+      o teto aqui é pro arquivo estranho chegar e ser recusado com frase.
+    */
+    {
+      matcher: "/dashboard/produtos/:id/imagens",
+      method: ["POST"],
+      bodyParser: { sizeLimit: "17mb" },
+    },
     { matcher: "/admin/products", method: ["POST"], middlewares: [normalizaHandle] },
     { matcher: "/admin/products/:id", method: ["POST"], middlewares: [normalizaHandle] },
     { matcher: "/admin/product-categories", method: ["POST"], middlewares: [normalizaHandle] },

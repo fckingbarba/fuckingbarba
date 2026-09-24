@@ -34,7 +34,9 @@ export function ehPapel(valor: unknown): valor is Papel {
  *
  * Nem toda linha é tela: `estornos` é o botão "Tentar o estorno de novo",
  * dentro do pedido — mexe em dinheiro de cliente, então tem linha própria
- * (a operação vê o pedido e a faixa do estorno, mas não aperta).
+ * (a operação vê o pedido e a faixa do estorno, mas não aperta). E
+ * `editarProdutos` é mexer na página do produto (textos, seções, fundos,
+ * caixa de compra, publicar): a operação abre os produtos e só lê.
  */
 export const ACESSO = {
   inicio: ["dono", "operacao", "marketing"],
@@ -42,6 +44,7 @@ export const ACESSO = {
   estornos: ["dono"],
   carrinhos: ["dono", "operacao", "marketing"],
   produtos: ["dono", "operacao", "marketing"],
+  editarProdutos: ["dono", "marketing"],
   cupons: ["dono", "marketing"],
   clientes: ["dono", "operacao", "marketing"],
   home: ["dono", "marketing"],
@@ -59,6 +62,7 @@ export const NOME_DA_AREA: Record<Area, string> = {
   estornos: "Estornos",
   carrinhos: "Carrinhos abandonados",
   produtos: "Produtos",
+  editarProdutos: "Editar produtos",
   cupons: "Cupons e descontos",
   clientes: "Clientes",
   home: "Layout da home",

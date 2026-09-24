@@ -32,7 +32,14 @@ describe("podeAbrir — a matriz dos papéis", () => {
   })
 
   it("a operação não abre equipe, configurações, cupons nem home — nem estorna", () => {
-    for (const area of ["equipe", "configuracoes", "cupons", "home", "estornos"] as const)
+    for (const area of [
+      "equipe",
+      "configuracoes",
+      "cupons",
+      "home",
+      "estornos",
+      "editarProdutos",
+    ] as const)
       expect(podeAbrir("operacao", area)).toBe(false)
     expect(podeAbrir("operacao", "pedidos")).toBe(true)
     expect(podeAbrir("operacao", "observabilidade")).toBe(true)

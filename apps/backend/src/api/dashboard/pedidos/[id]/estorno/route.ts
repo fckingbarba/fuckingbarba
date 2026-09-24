@@ -9,7 +9,7 @@ import {
   registroDoEstorno,
 } from "../../../../../lib/painel/acoes"
 import { pedidoPorId } from "../../../../../lib/painel/ler"
-import { anotarNoPedidoWorkflow } from "../../../../../workflows/equipe/anotar"
+import { anotarAcaoWorkflow } from "../../../../../workflows/equipe/anotar-acao"
 
 /**
  * POST /dashboard/pedidos/:id/estorno — "Tentar o estorno de novo", o botão
@@ -42,7 +42,7 @@ export async function POST(req: AuthenticatedMedusaRequest, res: MedusaResponse)
   }
 
   const tentativa = await tentarEstornoAgora(req.scope, id)
-  await anotarNoPedidoWorkflow(req.scope)
+  await anotarAcaoWorkflow(req.scope)
     .run({
       input: {
         membro_id: pedido.membro.id,

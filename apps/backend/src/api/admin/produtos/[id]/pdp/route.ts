@@ -1,16 +1,19 @@
 import type { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { ContainerRegistrationKeys, MedusaError, Modules } from "@medusajs/framework/utils"
-import { updateProductsWorkflow } from "@medusajs/medusa/core-flows"
+import { urlDoPainel } from "../../../../../lib/emails/convite"
+import { ehDoArmazenamento } from "../../../../../lib/imagens"
+import { mudarPdp } from "../../../../../lib/painel/gravar-produto"
 import { CHAVE_NO_METADATA, lerPdp, type Pdp } from "../../../../../lib/pdp"
-import { avisarALoja } from "../../../../../lib/revalidar"
 
 /**
- * GET/POST /admin/produtos/:id/pdp — o conteúdo editorial da página do produto.
+ * GET/POST /admin/produtos/:id/pdp — a página do produto (`fb_pdp`) inteira.
  *
- * O editor vive DENTRO da página do produto no admin (um widget em
- * `product.details.after`), e não numa tela separada, por um motivo prático:
- * preço, foto, estoque e texto da PDP são a mesma tarefa — publicar um
- * produto. Separar em duas telas obriga a pessoa a lembrar da segunda.
+ * Quem edita a página agora é o painel (`/dashboard/produtos/:id/*`, uma
+ * mudança de cada vez); o widget do admin só aponta pra lá (o GET devolve o
+ * endereço, `painel`). Esta rota fica pros conferidores, que montam a
+ * página de um produto de uma vez — e grava do mesmo jeito que o painel:
+ * dentro da trava do produto, só a chave `fb_pdp` (`mudarPdp`), e só fundo
+ * que está no armazenamento da loja.
  *
  * GRAVA O QUE PASSOU PELA MESMA PENEIRA DA LEITURA. `lerPdp` é reaproveitada
  * inteira: uma seção com campo obrigatório faltando não entra, em vez de
@@ -26,37 +29,30 @@ import { avisarALoja } from "../../../../../lib/revalidar"
 
 export async function GET(req: MedusaRequest, res: MedusaResponse) {
   const produto = await buscar(req)
-  res.json({ pdp: lerPdp(produto.metadata) })
+  res.json({ pdp: lerPdp(produto.metadata), painel: urlDoPainel() })
 }
 
 export async function POST(req: MedusaRequest, res: MedusaResponse) {
   const logger = req.scope.resolve(ContainerRegistrationKeys.LOGGER)
   const produto = await buscar(req)
 
-  const limpa: Pdp = lerPdp({ [CHAVE_NO_METADATA]: req.body })
-
-  await updateProductsWorkflow(req.scope).run({
-    input: {
-      selector: { id: produto.id },
-      update: {
-        // Espalha o metadata existente: os kits de quantidade guardam a
-        // própria marcação aí (`tipo: "kit-quantidade"`), e sobrescrever a
-        // chave inteira apagaria isso — o kit sumiria da PDP do avulso.
-        metadata: { ...(produto.metadata ?? {}), [CHAVE_NO_METADATA]: limpa },
-      },
-    },
-  })
-
-  const aviso = await avisarALoja(
-    [`produto:${produto.handle}`, `layout:produto:${produto.handle}`, "produtos"],
-    logger,
-    "seconds"
+  const pedida: Pdp = lerPdp({ [CHAVE_NO_METADATA]: req.body })
+  // O fundo com imagem de fora sai: a loja só mostra o que está no armazenamento dela.
+  const fundos = Object.fromEntries(
+    Object.entries(pedida.fundos).filter(([, f]) =>
+      [f.imagem, f.imagemCelular].every((u) => !u || ehDoArmazenamento(u))
+    )
   )
+  const r = await mudarPdp(req.scope, produto.id, () => ({
+    ok: true,
+    pdp: { ...pedida, fundos },
+  }))
+  if (!r.ok) throw new MedusaError(MedusaError.Types.NOT_FOUND, `Produto ${produto.id} não existe`)
 
-  const secoes = Object.keys(limpa.conteudo)
+  const secoes = Object.keys(r.pdp.conteudo)
   logger.info(`[pdp] ${produto.handle}: ${secoes.length ? secoes.join(", ") : "sem seções"}`)
 
-  res.json({ pdp: limpa, loja_avisada: aviso.avisou })
+  res.json({ pdp: r.pdp, loja_avisada: r.lojaAvisada })
 }
 
 async function buscar(req: MedusaRequest) {
