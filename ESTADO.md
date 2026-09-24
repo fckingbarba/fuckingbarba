@@ -6,7 +6,8 @@ minutos depois do pagamento — ver 1c), e o token de parceiro da Frenet entrou 
 o `MEDUSA_BACKEND_URL` (ver 1b): o pedido pago passa a ir sozinho pro painel da Frenet. E o cartão
 passou a ser cobrado só depois da análise de fraude — a compra legítima que ela barra não aparece
 mais na fatura (ver 1). No fim do dia, ficou decidido o **painel próprio da loja**, em
-`dashboard.fuckingbarba.com.br`, com o protótipo aprovado (ver 4.5). Em 22/09, o Pix vencido que prendia o estoque foi consertado (o #7 — ver o
+`dashboard.fuckingbarba.com.br`, com o protótipo aprovado — e, na madrugada de 24/09, a primeira
+fase dele ficou pronta (entrar por código, os papéis e a equipe), esperando o deploy (ver 4.5). Em 22/09, o Pix vencido que prendia o estoque foi consertado (o #7 — ver o
 primeiro achado da revisão do pagamento) e a Minha conta ficou de pé na loja: endereços, meus
 dados, o checkout que abre preenchido pra quem está na conta (e guarda o endereço da compra), e o
 "Minha conta" do cabeçalho apontando pra ela. No mesmo dia, o estorno que o Pagar.me não faz (a
@@ -904,9 +905,10 @@ do Medusa continua no ar, pro dono, como reserva.
   cai na hora. No celular, "Adicionar à tela de início" deixa um ícone que abre como aplicativo.
 - **Papéis:** Dono, Operação e Marketing. **A permissão vale no servidor**: cada rota confere o
   papel antes de responder, e o que o papel não vê (CPF inteiro, telefone, endereço) nem sai do
-  servidor — esconder botão não é permissão. O Medusa 2.21 tem controle de papéis ainda
-  experimental (`MEDUSA_FF_RBAC`, desligado): avaliar antes de escolher entre ele e rotas
-  próprias. Toda mudança fica registrada, com nome e hora.
+  servidor — esconder botão não é permissão. Decidido na fase 1: rotas próprias (`/dashboard/*`)
+  e uma tabela só de quem abre o quê (`ACESSO`, no backend); o controle de papéis do Medusa 2.21
+  segue experimental (`MEDUSA_FF_RBAC`, desligado) e ficou de fora. Toda mudança fica registrada,
+  com nome e hora.
 - **O protótipo:** `apps/loja/ferramentas/porte/prototipo-painel.html` — abre no navegador, sem
   internet (e está publicado, privado, em
   <https://claude.ai/artifact/5peAY5NUDWrwtE1rZpdhqP>). A barra de cima troca o papel ("Ver
@@ -940,7 +942,7 @@ Em aberto:
 
 - [ ] Aceitar JPG nas imagens também (a foto do celular quase sempre é JPG), convertendo pra WebP
       na subida? O pedido foi PNG e WebP.
-- [ ] Confirmar a ordem do desenvolvimento, logo abaixo.
+- [x] Confirmar a ordem do desenvolvimento, logo abaixo — confirmada em 23/09.
 
 A ordem proposta, uma entrega pequena por vez:
 
@@ -954,6 +956,29 @@ A ordem proposta, uma entrega pequena por vez:
 5. **Carrinho abandonado:** os 5 e-mails — é também o item de código que falta na fase 5.
 6. **Cupons, clientes, newsletter, configurações e equipe.**
 7. **Observabilidade:** guardar numa tabela o que hoje só vai pro log.
+
+**Fase 1, a base — pronta em 24/09 (entrega 0059), falta o deploy.** O painel entra por código no
+e-mail, só pra quem é da equipe (quem não é ouve a mesma resposta e não recebe nada); o primeiro
+dono é o e-mail do `DASHBOARD_DONO_EMAIL`, no Railway; o dono convida (o convite chega por e-mail e
+vale 7 dias), muda o papel e tira da equipe — e o acesso cai no clique seguinte, mesmo com o
+painel aberto. A casca é a do protótipo, no computador e no celular; as áreas que ainda não têm
+tela dizem o que vão ter e em que fase chegam. Conferido de ponta a ponta pelo
+`apps/dashboard/ferramentas/conferir-entrar.mjs` (60 checagens). O técnico está no AGENTS.md
+("O painel da loja").
+
+Depois do deploy — **você**, uma vez (o Claude Code acompanha, se quiser):
+
+- [ ] **Railway** (o backend): em Variables, `DASHBOARD_DONO_EMAIL` = o seu e-mail, o que você vai
+      usar pra entrar, e `DASHBOARD_URL` = `https://dashboard.fuckingbarba.com.br`. As tabelas da
+      equipe nascem sozinhas no pré-deploy.
+- [ ] **Vercel**: um projeto novo, do mesmo repositório, com Root Directory `apps/dashboard`. Nas
+      variáveis: `MEDUSA_BACKEND_URL` (o mesmo endereço do Railway que a loja usa) e
+      `REVALIDAR_SEGREDO` (o mesmo valor do Railway e da loja — sem ele, o painel não fala com o
+      Medusa).
+- [ ] **O endereço**: no projeto novo da Vercel, Settings → Domains → `dashboard.fuckingbarba.com.br`.
+      A Vercel mostra um registro CNAME; ele vai no DNS da GoDaddy (onde já estão os do Resend).
+- [ ] **Entrar**: abrir `dashboard.fuckingbarba.com.br`, digitar o e-mail do `DASHBOARD_DONO_EMAIL`
+      e o código que chega. Depois, Configurações → Equipe e acessos → Convidar pessoa.
 
 ## Como seguir no Claude Code
 
