@@ -51,7 +51,21 @@ export async function Rotina({ handle }: { handle: string }) {
     })
   )
 
-  const acompanhantes = buscados.filter((i) => i !== null)
+  /*
+    CADA PRODUTO UMA VEZ SÓ, e o desta página só como o fixo. Os handles da
+    rotina são digitados no admin, e nada impede repetir um ou pôr o próprio
+    produto (a dica de lá só pede que não). Repetido, eram dois cartões da
+    MESMA variante: a chave do React repetia, as caixinhas marcavam e
+    desmarcavam juntas — a cópia do produto da página nascia marcada, e
+    desmarcá-la desmarcava o fixo — e o botão mandava a variante duas vezes.
+    Fica a primeira aparição, na ordem do conteúdo.
+  */
+  const vistas = new Set([varianteDele.id])
+  const acompanhantes = buscados.flatMap((i) => {
+    if (!i || vistas.has(i.varianteId)) return []
+    vistas.add(i.varianteId)
+    return [i]
+  })
 
   const proprioNaRotina: ItemEscolhivel = {
     varianteId: varianteDele.id,

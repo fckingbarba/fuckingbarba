@@ -78,6 +78,19 @@ const contexto = await navegador.newContext({
 const pagina = await contexto.newPage()
 const erros = []
 pagina.on("pageerror", (e) => erros.push(String(e)))
+/*
+  E O CONSOLE, de todas as abas. Aviso do React não é exceção — não cai no
+  `pageerror` —, é `console.error`: a chave repetida dos cartões de
+  quantidade (desde 22/09) aparecia em toda PDP sem este arquivo ver, e quem
+  achou foi o conferidor de checkout, de passagem. O websocket de recarga do
+  `next dev` não conecta aqui e não é erro da loja.
+*/
+const noConsole = []
+const RUIDO_DE_DEV = /_next\/hmr|websocket/i
+contexto.on(
+  "console",
+  (m) => m.type() === "error" && !RUIDO_DE_DEV.test(m.text()) && noConsole.push(m.text())
+)
 
 const abrir = async (handle) => {
   const r = await pagina.goto(`${LOJA}/produtos/${handle}?_=${Date.now()}`, {
@@ -242,13 +255,19 @@ try {
         )
         /*
           A ressalva do "vale só na opção mais barata" mudou de casa junto
-          com o medidor: agora ela vai no selo das garantias, que é o que a
-          página afirma antes de qualquer CEP.
+          com o medidor, e mudou de novo em 23/09: saiu das garantias da
+          caixa de compra a pedido da loja — qual entrega sai de graça a
+          pessoa vê em números na calculadora, e de novo na sacola e no
+          checkout, onde escolhe. Ela continua valendo, e continua escrita
+          nas Dúvidas (a resposta sobre o frete). É lá que se confere agora:
+          aqui, desde então, esta checagem falhava cobrando o texto tirado.
         */
+        await pagina.goto(`${LOJA}/duvidas?_=${Date.now()}`, { waitUntil: "networkidle" })
         confere(
-          "a ressalva do alvo continua escrita em algum lugar",
+          "a ressalva do alvo continua escrita em algum lugar — nas Dúvidas",
           (await textoDaPagina()).includes("opção de entrega mais barata")
         )
+        await abrir(COM_CONTEUDO)
 
         const kits = await pagina.$$eval(".compra__kit", (n) =>
           n.map((e) => ({
@@ -579,6 +598,55 @@ try {
         await pagina.$eval(".compra__comprar", (e) => !e.disabled)
       )
 
+      /* ── a rotina: cada produto uma vez só ─────────────────────────────
+       *
+       * Os handles da rotina são digitados no admin, e nada impede repetir
+       * um ou pôr o próprio produto. Antes, cada repetido virava outro
+       * cartão da MESMA variante: chave repetida no React, e as caixinhas
+       * marcando e desmarcando juntas — a cópia do produto da página nascia
+       * marcada, e desmarcá-la desmarcava o fixo.
+       */
+      const cartoesDaRotina = () =>
+        pagina.$$eval(".rotina__item", (n) =>
+          n.map((e) => ({
+            nome: e.querySelector(".rotina__nome")?.textContent?.trim() ?? "",
+            fixo: e.classList.contains("rotina__item--fixo"),
+            marcado: e.querySelector("input")?.checked ?? false,
+          }))
+        )
+      const nomes = (cartoes) => cartoes.map((c) => c.nome).join(" | ")
+      await gravar(antes)
+      await abrir(COM_CONTEUDO)
+      const rotinaCerta = await cartoesDaRotina()
+      const { rotina } = antes.conteudo
+      await gravar({
+        ...antes,
+        conteudo: {
+          ...antes.conteudo,
+          rotina: {
+            ...rotina,
+            itens: [
+              ...rotina.itens,
+              { handle: COM_CONTEUDO, passo: "Passo 4 · de novo", para: "O produto da página." },
+              { ...rotina.itens[0], passo: "Passo 5 · de novo" },
+            ],
+          },
+        },
+      })
+      await abrir(COM_CONTEUDO)
+      const rotinaRepetida = await cartoesDaRotina()
+      confere(
+        "rotina com produto repetido no admin mostra cada um uma vez só",
+        rotinaCerta.length > 1 && nomes(rotinaRepetida) === nomes(rotinaCerta),
+        `sem repetir: ${nomes(rotinaCerta)} · repetindo: ${nomes(rotinaRepetida)}`
+      )
+      confere(
+        "e só o produto da página nasce marcado, travado",
+        rotinaRepetida.filter((c) => c.marcado).length === 1 &&
+          rotinaRepetida.every((c) => c.marcado === c.fixo),
+        JSON.stringify(rotinaRepetida)
+      )
+
       /* lixo no metadata não derruba a PDP: a seção some, a página fica */
       const sujo = await gravar({
         ...antes,
@@ -609,6 +677,12 @@ try {
 } finally {
   await navegador.close()
 }
+
+confere(
+  "nenhum erro no console",
+  noConsole.length === 0,
+  [...new Set(noConsole.map((t) => t.split("\n")[0].slice(0, 160)))].slice(0, 3).join(" | ")
+)
 
 console.log(`\n${passou} passou, ${falhou} falhou\n`)
 process.exit(falhou ? 1 : 0)
