@@ -576,7 +576,13 @@ papel (o estorno tem linha própria no `ACESSO`, `estornos`, só do dono) e se o
 estado do botão (`src/lib/painel/acoes.ts`, puro; senão 409 `nada_a_fazer`), faz, e grava a linha
 no registro da equipe (`lib/painel/anotar.ts`, com o `workflows/equipe/anotar-acao.ts`) — o
 histórico do pedido lê o registro e mostra o nome de quem apertou. O aviso de baixo das ações é um só pro painel inteiro (`ComAvisos`, no
-layout): a frase sobrevive à página se refazendo. As visitas vêm do GA4 pela
+layout): a frase sobrevive à página se refazendo — e chega ANTES dela. A resposta da ação traz o
+resultado primeiro e o aviso entra na hora; a tela refeita pelo `revalidatePath` entra numa
+segunda renderização, a da transição, uns 20 ms depois no `next dev` (perto de 100 ms com o
+navegador lento). Conferidor que lê a tela depois do aviso espera ela mudar (`waitFor`,
+`waitForFunction`, como o histórico no `conferir-acoes`): lida na hora, às vezes ainda é a de
+antes — era o "a pessoa sai da lista" do `conferir-entrar`, que falhava 1 em 3.
+As visitas vêm do GA4 pela
 `GET /dashboard/visitas`, à parte do Início: `src/lib/painel/ga4.ts` fala com o Google (conta de
 serviço só leitura, JWT assinado com `node:crypto`, um `batchRunReports` e um `runRealtimeReport`,
 respostas guardadas `GA4_CACHE_SEGUNDOS`, token recusado pede outro uma vez) e `visitas.ts` (puro)
