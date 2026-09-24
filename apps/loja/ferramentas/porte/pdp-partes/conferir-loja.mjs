@@ -278,9 +278,70 @@ const cabe = await zoom.evaluate((el) => {
   return r.height <= window.innerHeight + 1 && r.width <= window.innerWidth + 1
 })
 ok(cabe, "a foto ampliada cabe na tela, sem scroll")
+
+/* As fotos passam dentro do zoom (pedido da loja em 24/09): setas, teclado e
+   dedo. Depois da última vem a primeira, e fechando, o palco fica na última vista. */
+const quantasNoZoom = (await pagina.locator(".galeria__mini:not(.galeria__mini--video)").count()) || 1
+const contador = async (alvo) =>
+  pagina
+    .waitForFunction(
+      (a) => document.querySelector('.galeria__zoom-conta [aria-hidden="true"]')?.textContent === a,
+      alvo,
+      { timeout: 3000 }
+    )
+    .then(
+      () => true,
+      () => false
+    )
+const fotoDoZoom = () => zoom.locator("img").evaluate((i) => i.getAttribute("src"))
+if (quantasNoZoom > 1) {
+  const n = quantasNoZoom
+  ok(await contador(`1 / ${n}`), `o contador começa na foto do palco (1 / ${n})`)
+  const primeira = await fotoDoZoom()
+  await zoom.getByRole("button", { name: "Próxima foto" }).click()
+  ok(
+    (await contador(`2 / ${n}`)) && (await fotoDoZoom()) !== primeira,
+    "a seta troca a foto sem fechar o zoom"
+  )
+  await pagina.keyboard.press("ArrowLeft")
+  ok(await contador(`1 / ${n}`), "← volta uma")
+  await pagina.keyboard.press("ArrowLeft")
+  ok(await contador(`${n} / ${n}`), "da primeira, ← vai pra última")
+  // O dedo arrastando pra esquerda é a próxima (daqui, a primeira de novo).
+  await zoom.evaluate((el) => {
+    const dedo = (tipo, x) => {
+      const t = new Touch({ identifier: 1, target: el, clientX: x, clientY: 300 })
+      el.dispatchEvent(
+        new TouchEvent(tipo, {
+          bubbles: true,
+          touches: tipo === "touchend" ? [] : [t],
+          changedTouches: [t],
+        })
+      )
+    }
+    dedo("touchstart", 300)
+    dedo("touchend", 150)
+  })
+  ok(await contador(`1 / ${n}`), "o dedo arrastando pra esquerda passa a foto")
+  await zoom.getByRole("button", { name: "Próxima foto" }).click()
+  await contador(`2 / ${n}`)
+} else {
+  ok(!(await zoom.locator(".galeria__zoom-seta").count()), "com uma foto só, o zoom fica sem setas")
+}
+
 await pagina.keyboard.press("Escape")
 await pagina.waitForTimeout(250)
 ok(!(await zoom.isVisible()), "Esc fecha")
+if (quantasNoZoom > 1) {
+  const naSegunda = await pagina
+    .locator(".galeria__miniaturas li")
+    .nth(1)
+    .locator("button")
+    .getAttribute("aria-current")
+  ok(naSegunda === "true", "fechando, a foto grande é a última vista no zoom")
+  // Volta o palco pra primeira: o resto do roteiro parte dela.
+  await pagina.locator(".galeria__miniaturas li").first().locator("button").click()
+}
 
 /* ------------------------------------------------------------------ */
 titulo("COMPRAR — o clique tem que chegar no Medusa")

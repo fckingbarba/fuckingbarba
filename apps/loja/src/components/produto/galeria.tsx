@@ -1,8 +1,8 @@
 "use client"
 
-import Image from "next/image"
-import { useEffect, useRef, useState } from "react"
-import { Fechar, Lupa, Tocar } from "@/components/icones"
+import Image, { getImageProps } from "next/image"
+import { type KeyboardEvent, type TouchEvent, useEffect, useMemo, useRef, useState } from "react"
+import { Fechar, Lupa, SetaDireita, SetaEsquerda, Tocar } from "@/components/icones"
 import { duracaoCurta, VideoDoProduto } from "@/components/produto/video"
 import type { VideoDaPdp } from "@/conteudo/produto"
 
@@ -18,18 +18,29 @@ import type { VideoDaPdp } from "@/conteudo/produto"
  * foco que quase sempre têm um buraco — e o buraco só aparece pra quem
  * navega por teclado, que é justamente quem não vai reclamar.
  *
- * COM UMA FOTO SÓ a tira de miniaturas some: uma miniatura sozinha não é
- * escolha, é enfeite que ocupa 64px da primeira tela do celular.
+ * NO ZOOM AS FOTOS PASSAM (pedido da loja em 24/09 — antes ele mostrava uma
+ * só, e pra ver outra era fechar e abrir de novo): setas dos lados, ← e → do
+ * teclado e o dedo arrastando de lado no celular. Depois da última vem a
+ * primeira. Fechando, a foto grande da página é a última vista no zoom. As
+ * vizinhas da foto aberta são baixadas antes, e a troca não espera a rede.
  *
- * OS VÍDEOS (painel → Produtos → Fotos e vídeos) entram entre as fotos, na
- * ordem escolhida — nunca na capa, que é a foto que abre a página, vai pro
- * Google e é o LCP. A miniatura dele é a capa do vídeo com o play e a
- * duração; escolhido, ele toca no palco, mudo e em loop (`VideoDoProduto`),
- * e só então baixa.
+ * COM UMA FOTO SÓ a tira de miniaturas some — uma miniatura sozinha não é
+ * escolha, é enfeite que ocupa 64px da primeira tela do celular — e o zoom
+ * fica sem setas.
+ *
+ * OS VÍDEOS saíram daqui em 24/09 pro "Vê na prática" (`ve-na-pratica.tsx`):
+ * a dobra só manda fotos. O tipo ainda aceita vídeo — toca no palco, mudo e
+ * em loop (`VideoDoProduto`) —, mas o zoom passa só pelas fotos: vídeo não
+ * amplia.
  */
 
 export type Foto = { url: string; alt: string }
 export type ItemDaGaleria = ({ tipo: "foto" } & Foto) | ({ tipo: "video" } & VideoDaPdp)
+
+/** O `sizes` da foto ampliada: o mesmo na tela e no download antecipado das vizinhas. */
+const TAMANHOS_DO_ZOOM = "(min-width: 900px) 860px, 92vw"
+/** Quanto o dedo anda de lado (px) pra trocar a foto do zoom. */
+const ARRASTO_MINIMO = 50
 
 export function Galeria({
   itens,
@@ -44,10 +55,20 @@ export function Galeria({
 }) {
   const [atual, setAtual] = useState(0)
   const zoom = useRef<HTMLDialogElement>(null)
+  // Onde o dedo encostou no zoom; `null` quando não é arrasto de um dedo só.
+  const toque = useRef<{ x: number; y: number } | null>(null)
+
+  // As fotos, cada uma com a posição dela em `itens`: o zoom passa só por elas.
+  const fotos = useMemo(
+    () => itens.flatMap((f, i) => (f.tipo === "foto" ? [{ ...f, i }] : [])),
+    [itens]
+  )
+  // Qual foto o zoom mostra (posição em `fotos`), e se ele está aberto.
+  const [noZoom, setNoZoom] = useState(0)
+  const [aberto, setAberto] = useState(false)
 
   const item = itens[atual] ?? itens[0]
-  // O zoom mostra a última FOTO vista: vídeo não amplia.
-  const foto = item?.tipo === "foto" ? item : itens.find((i) => i.tipo === "foto")
+  const foto = fotos[noZoom] ?? fotos[0]
 
   /*
    * `showModal()` não existe como atributo, só como método — então abrir
@@ -65,8 +86,73 @@ export function Galeria({
     return () => el.removeEventListener("click", fecha)
   }, [])
 
+  // Com o zoom aberto, a anterior e a próxima já vêm baixando: a troca é na hora.
+  useEffect(() => {
+    if (!aberto || fotos.length < 2) return
+    const n = fotos.length
+    for (const vizinha of new Set([(noZoom + 1) % n, (noZoom - 1 + n) % n])) {
+      const { props } = getImageProps({
+        src: fotos[vizinha].url,
+        alt: "",
+        width: 900,
+        height: 900,
+        sizes: TAMANHOS_DO_ZOOM,
+      })
+      const img = new window.Image()
+      img.sizes = props.sizes ?? ""
+      img.srcset = props.srcSet ?? ""
+      img.src = props.src
+    }
+  }, [aberto, noZoom, fotos])
+
   if (!item) {
     return <div className="galeria" aria-hidden="true" />
+  }
+
+  function abrirZoom() {
+    const naFoto = fotos.findIndex((f) => f.i === atual)
+    setNoZoom(Math.max(0, naFoto))
+    setAberto(true)
+    zoom.current?.showModal()
+  }
+
+  function passar(passo: 1 | -1) {
+    if (fotos.length < 2) return
+    setNoZoom((n) => (n + passo + fotos.length) % fotos.length)
+  }
+
+  function aoFechar() {
+    setAberto(false)
+    // A foto grande da página fica na última vista no zoom.
+    const vista = fotos[noZoom]
+    if (vista) setAtual(vista.i)
+  }
+
+  function aoTeclar(e: KeyboardEvent<HTMLDialogElement>) {
+    if (e.key === "ArrowRight") passar(1)
+    else if (e.key === "ArrowLeft") passar(-1)
+    else return
+    e.preventDefault()
+  }
+
+  function aoEncostar(e: TouchEvent<HTMLDialogElement>) {
+    // Dois dedos é pinça (o zoom do próprio celular), não troca de foto.
+    const t = e.touches[0]
+    toque.current = e.touches.length === 1 && t ? { x: t.clientX, y: t.clientY } : null
+  }
+
+  function aoSoltar(e: TouchEvent<HTMLDialogElement>) {
+    const inicio = toque.current
+    toque.current = null
+    const fim = e.changedTouches[0]
+    if (!inicio || !fim || e.touches.length > 0) return
+    // Com a tela ampliada pela pinça, arrastar é passear pela foto, não trocar.
+    if ((window.visualViewport?.scale ?? 1) > 1.05) return
+    const dx = fim.clientX - inicio.x
+    const dy = fim.clientY - inicio.y
+    if (Math.abs(dx) >= ARRASTO_MINIMO && Math.abs(dx) > 1.5 * Math.abs(dy)) {
+      passar(dx < 0 ? 1 : -1)
+    }
   }
 
   return (
@@ -85,7 +171,7 @@ export function Galeria({
           type="button"
           className="galeria__palco"
           aria-label="Ampliar a foto do produto"
-          onClick={() => zoom.current?.showModal()}
+          onClick={abrirZoom}
         >
           {/*
           `aria-hidden`: o selo mora DENTRO do botão, e o que se lê em voz
@@ -157,7 +243,15 @@ export function Galeria({
         </ul>
       ) : null}
 
-      <dialog className="galeria__zoom" ref={zoom} aria-label="Foto ampliada do produto">
+      <dialog
+        className="galeria__zoom"
+        ref={zoom}
+        aria-label="Foto ampliada do produto"
+        onClose={aoFechar}
+        onKeyDown={aoTeclar}
+        onTouchStart={aoEncostar}
+        onTouchEnd={aoSoltar}
+      >
         <button
           type="button"
           className="galeria__zoom-fecha"
@@ -168,16 +262,46 @@ export function Galeria({
         </button>
         {/*
           `unoptimized` não: a foto ampliada é a mesma URL, então o otimizador
-          já tem a versão grande em cache de quando o palco a pediu.
+          já tem a versão grande em cache de quando o palco a pediu. E sem
+          `key`: trocando de foto, o <img> é o mesmo e o navegador segura a
+          anterior na tela até a nova chegar — não pisca em branco.
         */}
         {foto ? (
           <Image
             src={foto.url}
-            alt={`${alvo}, foto ampliada`}
+            alt={`${foto.alt || alvo}, foto ampliada`}
             width={900}
             height={900}
-            sizes="(min-width: 900px) 860px, 92vw"
+            sizes={TAMANHOS_DO_ZOOM}
           />
+        ) : null}
+        {fotos.length > 1 ? (
+          <>
+            <button
+              type="button"
+              className="galeria__zoom-seta galeria__zoom-seta--antes"
+              aria-label="Foto anterior"
+              onClick={() => passar(-1)}
+            >
+              <SetaEsquerda />
+            </button>
+            <button
+              type="button"
+              className="galeria__zoom-seta galeria__zoom-seta--depois"
+              aria-label="Próxima foto"
+              onClick={() => passar(1)}
+            >
+              <SetaDireita />
+            </button>
+            <p className="galeria__zoom-conta" aria-live="polite">
+              <span aria-hidden="true">
+                {noZoom + 1} / {fotos.length}
+              </span>
+              <span className="sr-only">
+                Foto {noZoom + 1} de {fotos.length}
+              </span>
+            </p>
+          </>
         ) : null}
       </dialog>
     </div>
