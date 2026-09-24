@@ -445,6 +445,20 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
       mesmo molde (ver a fase 5).
 - [ ] **Documentação do deploy:** README e AGENTS ainda descrevem server + worker. Acertar quando
       decidir se produção fica em `shared`.
+- [x] **Duas escritas no `metadata` do mesmo pedido, no mesmo instante, apagavam uma à outra**
+      (achado em 23/09 rodando o `conferir-pagamento`, consertado no mesmo dia). O Medusa lê o
+      `metadata`, mistura na memória e grava a coluna inteira, sem trava: no #467 local, a oferta
+      do checkout (`fb_bump`, gravada logo depois da compra) apagou o registro do e-mail de
+      confirmação gravado uns 10 ms antes, e a varredura seguinte "mandou" de novo — a chave de
+      idempotência do Resend segurou o e-mail repetido, e ninguém recebeu dois. O mesmo podia
+      acontecer com o `fb_parceiro` (o pedido em dobro no painel da Frenet) e com o `estornos`.
+      Agora todo registro no metadata do pedido passa por uma porta só
+      (`apps/backend/src/lib/metadata-do-pedido.ts`): uma trava por pedido, a mesma pra todos, o
+      metadata relido dentro dela e só a chave de quem grava indo pro Medusa. Contra o Medusa e o
+      Postgres locais, cinco escritas juntas no mesmo pedido, 20 vezes: direto, 80 das 100 se
+      perderam; pela porta, nenhuma. Nada a fazer depois do deploy. Fica de fora o JSON do pedido
+      editado à mão no admin do Medusa, que grava pelo caminho do próprio Medusa: não edite o
+      metadata de um pedido que ainda está andando (pagamento, cancelamento, envio).
 
 ### 3. Pendências da loja
 
