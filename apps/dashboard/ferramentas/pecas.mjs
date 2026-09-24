@@ -134,6 +134,33 @@ export async function hidratado(pagina, seletor) {
   )
 }
 
+/**
+ * Arrasta arquivos "do computador" até `alvo` (um locator) e solta: o
+ * dragenter, o dragover e o drop, com os arquivos num DataTransfer — o que o
+ * navegador manda quando alguém arrasta da área de trabalho. Com
+ * `soltar: false`, para em cima (pra ver o quadro aceso). Devolve o
+ * DataTransfer, pro dragleave.
+ */
+export async function arrastarArquivos(alvo, arquivos, { soltar = true } = {}) {
+  const dados = await alvo.page().evaluateHandle(
+    (lista) => {
+      const dt = new DataTransfer()
+      for (const a of lista)
+        dt.items.add(
+          new File([Uint8Array.from(atob(a.b64), (c) => c.charCodeAt(0))], a.nome, {
+            type: a.tipo,
+          })
+        )
+      return dt
+    },
+    arquivos.map((a) => ({ nome: a.name, tipo: a.mimeType, b64: a.buffer.toString("base64") }))
+  )
+  await alvo.dispatchEvent("dragenter", { dataTransfer: dados })
+  await alvo.dispatchEvent("dragover", { dataTransfer: dados })
+  if (soltar) await alvo.dispatchEvent("drop", { dataTransfer: dados })
+  return dados
+}
+
 export const caminho = (pagina) => new URL(pagina.url()).pathname
 export const textoDe = async (pagina, seletor) =>
   (
