@@ -1,0 +1,56 @@
+/*
+  A BASE — os tokens da marca e o chão de tudo, como no protótipo
+  (apps/loja/ferramentas/porte/prototipo-painel.html). A fonte é a Inter do
+  next/font (layout.tsx), servida do próprio domínio.
+*/
+
+:root {
+  --menta: #4fe4b6;
+  --menta-botao: #4fe0b9;
+  --menta-clara: #e3f8f0;
+  --menta-escura: #0b7f62;
+  --amarelo: #ffd84d;
+  --amarelo-borda: #e0b800;
+  --amarelo-claro: #fff3c4;
+  --amarelo-palido: #fffbe6;
+  --aviso-txt: #6f5500;
+  --tinta: #12181f;
+  --tinta-suave: #566072;
+  --papel: #ffffff;
+  --cinza: #f2f3f4;
+  --cinza-2: #e6e8eb;
+  --linha: #cfd5dc;
+  --erro: #b3261e;
+  --erro-claro: #fcebea;
+  --preto: #000000;
+  --lateral-sel: #1b232c;
+  --lateral-txt: #aeb7c2;
+  --fonte: var(--font-inter), "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  --suave: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --chanfro: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
+  --chanfro-p: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+  color-scheme: light;
+}
+
+*, *::before, *::after { box-sizing: border-box; border-radius: 0; }
+[hidden] { display: none !important; }
+body {
+  margin: 0;
+  background: var(--cinza);
+  color: var(--tinta);
+  font-family: var(--fonte);
+  font-size: 15px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "ss01", "cv11";
+}
+img, svg { display: block; }
+h1, h2, h3 { text-wrap: balance; }
+button { font-family: inherit; }
+a { color: inherit; }
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+:focus-visible { outline: 3px solid var(--amarelo); outline-offset: 2px; }
+.num { font-variant-numeric: tabular-nums; }

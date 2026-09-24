@@ -1,0 +1,102 @@
+/*
+  O QUE O PROTÓTIPO NÃO TINHA — escrito à mão, com as peças dele.
+
+  O protótipo não tinha servidor: não tinha erro de campo, espera, recado
+  depois de sair, tela que ainda não existe. O desenho segue o dele (e o da
+  loja, de onde vêm o `.giro` e o `.campo__erro`).
+*/
+
+/* O erro embaixo do campo — o do checkout da loja. */
+.campo input[aria-invalid="true"], .campo select[aria-invalid="true"] { border-color: var(--erro); }
+.campo__erro { display: none; margin: 0; font-size: 0.72rem; font-weight: 700; color: var(--erro); }
+.campo__erro:not(:empty) { display: block; }
+
+/* O quadrado girando, na cor do texto de quem o contém. */
+.giro {
+  display: inline-block; flex-shrink: 0; box-sizing: border-box; width: 14px; height: 14px;
+  border: 2px solid color-mix(in srgb, currentColor 25%, transparent); border-top-color: currentColor;
+  animation: painel-gira 0.7s linear infinite;
+}
+@keyframes painel-gira { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .giro { animation-duration: 2s; } }
+
+/* O recado no alto do "entrar": saiu, a sessão venceu, o acesso acabou. */
+.entrar__recado {
+  display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; align-items: start;
+  margin: 0 0 14px; padding: 12px 14px; font-size: 0.84rem; font-weight: 600;
+  background: var(--menta-clara); color: var(--tinta); border-left: 4px solid var(--menta-escura);
+}
+.entrar__recado svg { width: 16px; height: 16px; fill: var(--menta-escura); margin-top: 2px; }
+.entrar__recado[data-nivel="atencao"] { background: var(--amarelo-palido); border-left-color: var(--amarelo-borda); }
+.entrar__recado[data-nivel="atencao"] svg { fill: var(--aviso-txt); }
+
+.codigo__reenviar { margin: 14px 0 0; font-size: 0.8rem; color: var(--tinta-suave); }
+.codigo__reenviar[data-destaque] { color: var(--tinta); font-weight: 700; }
+.codigo__reenviar .link[disabled] { color: var(--tinta-suave); text-decoration: none; cursor: default; }
+.codigo__aviso { margin: 6px 0 0; font-size: 0.8rem; font-weight: 700; color: var(--menta-escura); }
+.codigo__aviso:empty { display: none; }
+
+/* "Pular pro conteúdo": escondido, e aparece no alto quando o Tab chega nele. */
+.pular {
+  position: fixed; left: 8px; top: -80px; z-index: 100; padding: 10px 14px;
+  background: var(--amarelo); color: var(--tinta); font-size: 0.8rem; font-weight: 800; text-decoration: none;
+}
+.pular:focus { top: 8px; }
+
+/* O "Sair" é um formulário (a ação é POST): o botão ocupa o lugar do de antes. */
+.quem form { display: contents; }
+
+/* A tela que ainda não existe: o que ela vai fazer, e quando. */
+.em-breve { max-width: 640px; }
+.em-breve__fase {
+  display: inline-block; margin: 0 0 10px; padding: 3px 8px;
+  background: var(--amarelo); color: var(--tinta);
+  font-size: 0.64rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
+}
+.em-breve ul { margin: 10px 0 0; padding-left: 18px; font-size: 0.86rem; }
+.em-breve li { margin-bottom: 4px; }
+
+/* As fases do painel, no Início. */
+.fases { list-style: none; margin: 0; padding: 0; counter-reset: fase; }
+.fases li {
+  display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 12px; align-items: start;
+  padding: 12px 0; border-bottom: 1px solid rgba(18, 24, 31, 0.1);
+}
+.fases li:last-child { border-bottom: 0; }
+.fases__num {
+  width: 34px; height: 34px; display: flex; align-items: center; justify-content: center;
+  background: var(--cinza-2); color: var(--tinta); font-size: 0.84rem; font-weight: 800;
+  clip-path: var(--chanfro-p);
+}
+.fases li[data-feita] .fases__num { background: var(--menta-escura); color: #fff; }
+.fases__num svg { width: 16px; height: 16px; fill: currentColor; }
+.fases li[data-agora] .fases__num { background: var(--amarelo); }
+.fases__titulo { margin: 0; font-size: 0.86rem; font-weight: 800; text-transform: uppercase; }
+.fases__txt { margin: 2px 0 0; font-size: 0.8rem; color: var(--tinta-suave); }
+
+/* A equipe: a linha de cada pessoa e o que dá pra fazer com ela. */
+.pessoa__lado { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px 10px; }
+.pessoa__mudar { display: grid; gap: 12px; margin-top: 12px; padding: 14px 16px; background: var(--cinza); border: 2px solid var(--tinta); }
+.pessoa__mudar .segmento { background: var(--papel); }
+.pessoa__mudar-acoes { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; }
+.pessoa__erro { margin: 0; font-size: 0.8rem; font-weight: 700; color: var(--erro); }
+.linha--aberta { grid-template-columns: minmax(0, 1fr); }
+@media (max-width: 640px) {
+  .equipe .linha { grid-template-columns: minmax(0, 1fr); }
+  .pessoa__lado { justify-content: flex-start; }
+}
+
+/* Página que não existe, e a loja fora do ar. */
+.fora { max-width: 520px; margin: 24px auto 0; text-align: center; }
+.fora .fila__ico { width: 52px; height: 52px; margin: 0 auto 14px; }
+.fora .fila__ico svg { width: 24px; height: 24px; }
+.fora h1 { margin: 0 0 8px; font-size: 1.2rem; font-weight: 800; font-style: italic; text-transform: uppercase; }
+.fora p { margin: 0 0 12px; color: var(--tinta-suave); font-size: 0.9rem; }
+
+/* A tabela dos papéis cabe no celular: menos respiro, e a área quebra a linha. */
+@media (max-width: 640px) {
+  .matriz th, .matriz td { padding: 9px 6px; }
+  .matriz thead th { letter-spacing: 0.03em; }
+  .matriz tbody th { width: auto; }
+  .matriz th:first-child, .matriz td:first-child { padding-left: 12px; }
+}

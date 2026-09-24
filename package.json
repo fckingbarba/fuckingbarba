@@ -23,6 +23,8 @@
     "backend:promocoes": "npm run promocoes -w @fuckingbarba/backend",
     "loja:dev": "turbo dev --filter=@fuckingbarba/loja",
     "loja:build": "turbo build --filter=@fuckingbarba/loja",
+    "dashboard:dev": "turbo dev --filter=@fuckingbarba/dashboard",
+    "dashboard:build": "turbo build --filter=@fuckingbarba/dashboard",
     "backend:configuracoes": "npm run configuracoes -w @fuckingbarba/backend",
     "backend:pdp": "npm run pdp -w @fuckingbarba/backend",
     "backend:medidas": "npm run medidas -w @fuckingbarba/backend",
