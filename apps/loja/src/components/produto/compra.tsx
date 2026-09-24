@@ -4,12 +4,13 @@ import Image from "next/image"
 import { useEffect, useId, useRef, useState, useTransition } from "react"
 import { Caminhao, Cartao, EscudoCerto, Raio, Sacola, Triangulo } from "@/components/icones"
 import { EVENTO_SACOLA } from "@/components/sacola/contexto"
-import { adicionar, adicionarVarios } from "@/lib/acoes/carrinho"
+import { adicionar, adicionarVarios, type Resultado } from "@/lib/acoes/carrinho"
 import type { CarrinhoVisivel } from "@/lib/carrinho-visivel"
 import { emReais } from "@/lib/formato"
 import type { DegrauDeQuantidade } from "@/lib/medusa"
 import { useFrete } from "@/components/configuracoes/contexto"
 import { alcancaOPiso, fechaOPiso, frasesDoFrete, pisoVale } from "@/lib/configuracoes"
+import { SEM_CONEXAO, semQueda } from "@/lib/rede"
 import { CalculadoraDeFrete } from "@/components/produto/calculadora"
 import type { ProdutoQueCombina } from "@/lib/pdp"
 import { PARCELA_MINIMA, PARCELAS_SEM_JUROS } from "@/lib/site"
@@ -151,12 +152,16 @@ export function Compra({
         passar e a segunda falhar — e aí a sacola fica com metade do que a
         pessoa pediu, sem ela saber qual metade.
       */
-      const r = marcados.length
-        ? await adicionarVarios([
-            { varianteId: base.varianteId, quantidade: unidades },
-            ...marcados.map((c) => ({ varianteId: c.varianteId, quantidade: 1 })),
-          ])
-        : await adicionar(base.varianteId, unidades)
+      const r = await semQueda(
+        () =>
+          marcados.length
+            ? adicionarVarios([
+                { varianteId: base.varianteId, quantidade: unidades },
+                ...marcados.map((c) => ({ varianteId: c.varianteId, quantidade: 1 })),
+              ])
+            : adicionar(base.varianteId, unidades),
+        (): Resultado => ({ ok: false, erro: SEM_CONEXAO, carrinho: null })
+      )
 
       if (!r.ok) {
         setRecado(r.erro)

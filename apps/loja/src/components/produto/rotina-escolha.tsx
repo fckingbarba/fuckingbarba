@@ -4,10 +4,11 @@ import Image from "next/image"
 import { useState, useTransition } from "react"
 import { Raio } from "@/components/icones"
 import { EVENTO_SACOLA } from "@/components/sacola/contexto"
-import { adicionarVarios } from "@/lib/acoes/carrinho"
+import { adicionarVarios, type Resultado } from "@/lib/acoes/carrinho"
 import { emReais } from "@/lib/formato"
 import { useFrete } from "@/components/configuracoes/contexto"
 import { faltaPraPromocao, frasesDoFrete, progressoDaPromocao } from "@/lib/configuracoes"
+import { SEM_CONEXAO, semQueda } from "@/lib/rede"
 
 /**
  * A ESCOLHA DA ROTINA — as caixinhas, a soma e o botão.
@@ -69,7 +70,10 @@ export function RotinaEscolha({ itens }: { itens: readonly ItemEscolhivel[] }) {
   function levar() {
     setErro("")
     comecar(async () => {
-      const r = await adicionarVarios(escolhidos.map((i) => ({ varianteId: i.varianteId })))
+      const r = await semQueda(
+        () => adicionarVarios(escolhidos.map((i) => ({ varianteId: i.varianteId }))),
+        (): Resultado => ({ ok: false, erro: SEM_CONEXAO, carrinho: null })
+      )
       if (!r.ok) {
         setErro(r.erro)
         return

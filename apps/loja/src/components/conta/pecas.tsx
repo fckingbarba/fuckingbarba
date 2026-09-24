@@ -7,6 +7,8 @@ import { useCallback, useEffect, useState, useTransition, type ReactNode } from 
 import { Raio } from "@/components/icones"
 import { EVENTO_SACOLA } from "@/components/sacola/contexto"
 import { comprarDeNovo } from "@/lib/acoes/pedido"
+import type { DeNovo } from "@/lib/conta-visivel"
+import { SEM_CONEXAO, semQueda } from "@/lib/rede"
 
 /**
  * AS PEÇAS DA CONTA QUE PRECISAM DO NAVEGADOR — cada uma pequena, pra que
@@ -116,7 +118,10 @@ export function ComprarDeNovo({
   function comprar() {
     setAviso(null)
     comecar(async () => {
-      const r = await comprarDeNovo(pedidoId)
+      const r = await semQueda(
+        () => comprarDeNovo(pedidoId),
+        (): DeNovo => ({ ok: false, texto: SEM_CONEXAO, carrinho: null })
+      )
       if (r.carrinho) {
         window.dispatchEvent(new CustomEvent(EVENTO_SACOLA, { detail: r.carrinho }))
       }

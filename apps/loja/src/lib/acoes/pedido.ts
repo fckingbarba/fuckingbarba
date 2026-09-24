@@ -54,7 +54,8 @@ export async function comprarDeNovo(pedidoId: string): Promise<DeNovo> {
       continue
     }
     const r = await adicionar(item.varianteId, item.quantidade)
-    carrinho = r.carrinho
+    // `null` é "não consegui ler": fica a última sacola que veio.
+    if (r.carrinho) carrinho = r.carrinho
     if (r.ok) unidades += item.quantidade
     else ficaram.push(item.nome)
   }
