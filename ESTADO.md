@@ -739,6 +739,25 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
     ela falhava desde que a ressalva saiu da caixa de compra, a pedido da loja (23/09).
   - Conferido numa loja local: `conferir-pdp` 50/50 (quatro rodadas), `conferir-checkout` 118/118
     (três) e `conferir-links` 26/26.
+- [x] **O aviso do React que aparecia às vezes no `conferir-pdp`** (investigado em 24/09). Em
+      umas 2 de cada 10 rodadas, só quando ele rodava logo depois dos conferidores do painel, o
+      "nenhum erro no console" caía com "Can't perform a React state update on a component that
+      hasn't mounted yet". **Não era da loja** (nem da caixa de compra, nem da sacola, nem da
+      galeria): o `conferir-produtos` publica e apaga um produto; com `cacheComponents`, o `next dev`
+      percebe que a lista do `generateStaticParams` da PDP mudou e manda `staticParamsChanged` pra
+      toda aba aberta, que se recarrega (`hmrRefresh`). Caindo no meio da hidratação da primeira
+      PDP, quem ainda não montou é o roteador do próprio Next — a pilha inteira, capturada no
+      navegador: `hmrRefresh` → `dispatchAppRouterAction` → `nextDispatch` (use-action-queue) →
+      `startTransition` → `dispatchOptimisticSetState`. Em produção não existe: sem websocket não
+      há recarga, e o aviso é só de desenvolvimento. O `conferir-pdp` e o `conferir-checkout`
+      descontam esse aviso SÓ quando ele sai colado numa mensagem de recarga do `next dev`, na
+      aba que a recebeu (`ferramentas/recarga-do-dev.mjs`); sem a mensagem, continua reprovando.
+  - Conferido numa loja local, nove rodadas completas (os cinco do painel e depois o de PDP e o
+    de checkout; as três últimas já com a #52 e a #53, e a última também com a #54):
+    `conferir-pdp` 55/55 e `conferir-checkout` 118/118 nas nove — em quatro o aviso veio sozinho
+    e foi descontado. E uma prova à parte, com as mensagens de verdade do `next dev`: o aviso
+    colado na mensagem é descontado; o segundo na mesma mensagem, o de uma aba sem mensagem, o de
+    3 s depois e outro aviso qualquer continuam contando.
 - [ ] **Aposentar os dois kits do Fator** (produtos "Kit 2/3 frascos"), que a página não usa mais:
       no admin, mudar os dois pra Rascunho — ou, no Shell do Railway, de `.medusa/server`,
       `npx medusa exec ./src/scripts/precos-por-quantidade.js` (faz as faixas e passa os kits pra

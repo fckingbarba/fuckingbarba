@@ -90,6 +90,16 @@ não apontar pro `next dev` conferido, rode esse por último (ou reinicie o `nex
 checkout lê a política do teste. E pedido de teste reserva estoque: `insufficient_inventory` num
 conferidor é o estoque local acabando — reponha no admin local.
 
+Um terceiro, que também não é bug: publicar ou apagar um produto (o `conferir-produtos` do painel
+faz os dois) muda a lista do `generateStaticParams` da PDP, e o `next dev` manda
+`staticParamsChanged` pelo websocket pra toda aba aberta, que se recarrega sozinha. Se a mensagem
+cai no meio da hidratação, o React avisa "Can't perform a React state update on a component that
+hasn't mounted yet" — sobre o roteador do PRÓPRIO Next, não da loja; em produção não existe. Por
+isso o conferidor seguinte falhava às vezes no "nenhum erro no console". O de PDP e o de checkout
+descontam esse aviso só quando ele sai colado numa mensagem de recarga, na aba que a recebeu
+(`ferramentas/recarga-do-dev.mjs`, com a pilha); o de pagamento, o da conta e o de envio olham o
+console sem ele.
+
 O de pagamento liga o Pagar.me na região pelo admin e devolve como estava. O de checkout, com o
 checkout aberto (`CHECKOUT_ABERTO`), precisa do Pagar.me ligado na região local — o passo 3 não
 oferece mais o provisório —: `PAGARME_SECRET_KEY=sk_test_falsa npm run backend:pagamento`, uma vez. A conciliação automática roda a cada 5 minutos DENTRO do
