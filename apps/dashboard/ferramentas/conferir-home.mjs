@@ -23,9 +23,11 @@
  * │ • a faixa contando errado o que está esperando; o "Desfazer" que não   │
  * │   desfaz; o "Voltar ao texto original" que não volta;                  │
  * │ • a foto de fundo, a arte do banner e a foto da última chamada que    │
- * │   não chegam na loja, ou chegam antes do "Publicar"; o carrossel que  │
- * │   baixa a arte do segundo slide antes de ele aparecer; arte sem a     │
- * │   descrição;                                                           │
+ * │   não chegam na loja, ou chegam antes do "Publicar"; a do celular     │
+ * │   que não chega no celular; o carrossel que baixa a arte do segundo   │
+ * │   slide antes de ele aparecer; arte sem a descrição;                  │
+ * │ • a imagem arrastada do computador que não sobe, ou o quadro que não  │
+ * │   acende (ou não apaga) com o arquivo em cima;                        │
  * │ • a mudança sem linha no histórico; rolagem de lado no celular; erro   │
  * │   no console.                                                          │
  * └────────────────────────────────────────────────────────────────────────┘
@@ -34,6 +36,7 @@
 import { createRequire } from "node:module"
 import {
   abrirNavegador,
+  arrastarArquivos,
   caixaDoResend,
   DONO,
   entrar as entrarPelaTela,
@@ -544,7 +547,45 @@ try {
           "1080 × 1350 px",
       "a arte do slide: as medidas da arte da Nuvemshop"
     )
-    await subir(primeira, "computador", await foto(1920, 700, "png"), "arte-1.png")
+    /*
+      A primeira arte vem ARRASTADA do computador: o quadro acende com o
+      arquivo em cima, apaga quando ele sai, e o arquivo solto sobe como o
+      escolhido. Com dois arquivos, sobe o primeiro e o quadro avisa.
+    */
+    const vazio = primeira.locator(".slot--computador .slot__vazio")
+    const arte1 = {
+      name: "arte-1.png",
+      mimeType: "image/png",
+      buffer: await foto(1920, 700, "png"),
+    }
+    const emCima = await arrastarArquivos(vazio, [arte1], { soltar: false })
+    const aceso = primeira.locator(".slot--computador[data-arrastando]")
+    await aceso.waitFor({ timeout: 5000 }).catch(() => {})
+    const noAr = {
+      aceso: await aceso.count(),
+      texto: semEspaco(await vazio.locator("span").first().textContent()),
+    }
+    await vazio.dispatchEvent("dragleave", { dataTransfer: emCima })
+    await aceso.waitFor({ state: "detached", timeout: 5000 }).catch(() => {})
+    const apagou = (await aceso.count()) === 0
+    ok(
+      noAr.aceso === 1 && noAr.texto === "Solte aqui" && apagou,
+      "arrastando uma arte do computador: o quadro acende em cima e apaga quando ela sai",
+      JSON.stringify({ ...noAr, apagou })
+    )
+    await arrastarArquivos(vazio, [
+      arte1,
+      { name: "sobra.png", mimeType: "image/png", buffer: await foto(800, 800, "png") },
+    ])
+    await primeira.locator(".slot--computador .slot__previa img").waitFor({ timeout: 60000 })
+    const subiu = semEspaco(
+      await primeira.locator(".slot--computador .slot__info").first().textContent()
+    )
+    ok(
+      /^1920 × 700 px/.test(subiu) && (await primeira.locator("[data-um-por-vez]").count()) === 1,
+      "solta, a arte sobe como a escolhida; com dois arquivos, sobe o primeiro e o quadro avisa",
+      subiu
+    )
     await banner.locator('[data-campo="slides.0.titulo"]').fill(`Primeira arte ${RODADA}`)
     await banner.locator('[data-mais="slides"]').click()
     const arte = banner.locator('[data-imagens="slides.1.imagem"]')
@@ -605,10 +646,10 @@ try {
         h.includes('<picture class="fechamento__foto"')
     )
     ok(
-      /<div class="fundo fundo--imagem"[^>]*>\s*<picture class="fundo__imagem">[\s\S]*?<\/picture>\s*<section class="hero/.test(
+      /<div class="fundo fundo--imagem"[^>]*>\s*<picture class="fundo__imagem">\s*<source media="\(max-width: 767px\)" srcSet="[^"]*home-fundo-celular[^"]*"[^>]*>\s*<img[^>]*home-fundo-computador[\s\S]*?<\/picture>\s*<section class="hero/i.test(
         html
       ),
-      "na loja: o bloco escuro com a foto de fundo, e a do celular"
+      "na loja: o bloco escuro com a foto de fundo, e a do celular abaixo de 768 px"
     )
     const slides = html.split('class="banner-carrossel__slide"').slice(1)
     ok(

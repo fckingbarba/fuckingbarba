@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { UmPorVez, useArrastar } from "@/components/arrastar"
 import { Icone } from "@/components/icones"
 import { pedirEnvioDeVideo, subirImagem } from "@/lib/acoes/produtos"
 import { ACEITA, prepararNoNavegador } from "@/lib/imagem-no-navegador"
@@ -22,9 +23,11 @@ import { ACEITA_VIDEO, enviarVideo, lerVideoNoNavegador } from "@/lib/video-no-n
  * depois e o vídeo do modo de uso, na gaveta da seção; e o vídeo da galeria
  * (`useSubirVideo`, aqui, que a galeria também usa).
  *
- * Sobem assim que são escolhidos — a foto encolhida no navegador e refeita
- * no servidor; o vídeo direto pro Medusa, com o bilhete, e a capa dele (um
- * quadro do começo) como imagem —, mas só vão pra página no "Salvar".
+ * Sobem assim que são escolhidos (ou arrastados do computador e soltos em
+ * cima do quadro: `components/arrastar.tsx`) — a foto encolhida no navegador
+ * e refeita no servidor; o vídeo direto pro Medusa, com o bilhete, e a capa
+ * dele (um quadro do começo) como imagem —, mas só vão pra página no
+ * "Salvar".
  */
 
 /** O vídeo escolhido, até ele estar no armazenamento: o progresso (0 a 1) e o que deu errado. */
@@ -141,6 +144,7 @@ export function CampoDeFoto({
       aoSubir(-1)
     }
   }
+  const arrastar = useArrastar((arquivo) => void escolher(arquivo), subindo)
 
   const entrada = (
     <input
@@ -157,7 +161,7 @@ export function CampoDeFoto({
   )
 
   return (
-    <div className={`campo slot slot--caso${meia ? " campo--3" : ""}`}>
+    <div className={`campo slot slot--caso${meia ? " campo--3" : ""}`} {...arrastar.alvo}>
       <span className="campo__rot">{rotulo}</span>
       {url ? (
         <>
@@ -174,6 +178,7 @@ export function CampoDeFoto({
                 })
               }
             />
+            {arrastar.arrastando ? <span className="slot__soltar">Solte pra trocar</span> : null}
           </div>
           {lida ? <p className="slot__info">{`${lida.l} × ${lida.a} px`}</p> : null}
           {avisos.map((a) => (
@@ -195,7 +200,8 @@ export function CampoDeFoto({
       ) : (
         <label className="slot__vazio" data-falta={falta ? "" : undefined}>
           <Icone nome={subindo ? "relogio" : "mais"} />
-          <span>{subindo ? "Subindo…" : "Escolher"}</span>
+          <span>{subindo ? "Subindo…" : arrastar.arrastando ? "Solte aqui" : "Escolher"}</span>
+          <small>ou arraste pra cá</small>
           <small>JPG, PNG ou WebP</small>
           {entrada}
         </label>
@@ -203,6 +209,7 @@ export function CampoDeFoto({
       <p className="slot__medida">
         Ideal: <b>{medidaEmPx(MEDIDA_DO_CASO)}</b> · em pé
       </p>
+      <UmPorVez varios={arrastar.varios} />
       {erro ? (
         <p className="slot__erro" role="alert">
           {erro}
@@ -248,6 +255,7 @@ export function CampoDeVideo({
       aoSubir(-1)
     }
   }
+  const arrastar = useArrastar((arquivo) => void escolher(arquivo), progresso !== null)
 
   const entrada = (
     <input
@@ -263,12 +271,13 @@ export function CampoDeVideo({
   )
 
   return (
-    <div className="campo slot slot--uso">
+    <div className="campo slot slot--uso" {...arrastar.alvo}>
       <span className="campo__rot">{rotulo}</span>
       {video ? (
         <div className="video-form">
           <div className="slot__previa">
             <video src={video.url} poster={video.poster} muted loop playsInline autoPlay />
+            {arrastar.arrastando ? <span className="slot__soltar">Solte pra trocar</span> : null}
           </div>
           <div>
             <p className="slot__info">
@@ -295,7 +304,14 @@ export function CampoDeVideo({
       ) : (
         <label className="slot__vazio slot__vazio--video">
           <Icone nome={progresso !== null ? "relogio" : "play"} />
-          <span>{progresso !== null ? "Subindo…" : "Escolher vídeo"}</span>
+          <span>
+            {progresso !== null
+              ? "Subindo…"
+              : arrastar.arrastando
+                ? "Solte aqui"
+                : "Escolher vídeo"}
+          </span>
+          <small>ou arraste pra cá</small>
           <small>MP4 ou WebM · deitado, até {VIDEO.maximoMB} MB</small>
           {entrada}
         </label>
@@ -306,6 +322,7 @@ export function CampoDeVideo({
         {VIDEO.idealSegundos} segundos
       </p>
       {ajuda ? <p className="campo__ajuda">{ajuda}</p> : null}
+      <UmPorVez varios={arrastar.varios} />
       {erro ? (
         <p className="slot__erro" role="alert">
           {erro}

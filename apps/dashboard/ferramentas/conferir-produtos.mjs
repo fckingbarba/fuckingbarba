@@ -34,6 +34,8 @@
  * │   depois);                                                             │
  * │ • vídeo na capa; vídeo que não é vídeo subindo; o bilhete da subida    │
  * │   valendo duas vezes; caso de antes e depois sem a autorização;        │
+ * │ • a foto arrastada do computador que não sobe; o arquivo solto fora    │
+ * │   de um quadro abrindo no lugar do painel;                             │
  * │ • o topo saindo do lugar; o `</script>` de uma dúvida quebrando a      │
  * │   página; a mudança sem linha no histórico; erro no console.           │
  * └────────────────────────────────────────────────────────────────────────┘
@@ -42,6 +44,7 @@
 import { createRequire } from "node:module"
 import {
   abrirNavegador,
+  arrastarArquivos,
   caixaDoResend,
   DONO,
   entrar as entrarPelaTela,
@@ -430,13 +433,16 @@ try {
       /Sem foto de capa/.test(await pagina.locator("[data-galeria]").textContent()),
       "sem foto, a tela avisa que a vitrine fica sem imagem"
     )
-    const subirFoto = async (buffer, nome = "foto.png") => {
+    const subirFoto = async (buffer, nome = "foto.png", { arrastando = false } = {}) => {
       const antes = await itensNaTela().count()
-      await pagina.setInputFiles('[data-subir-galeria="foto"]', {
+      const arquivo = {
         name: nome,
         mimeType: nome.endsWith(".jpg") ? "image/jpeg" : "image/png",
         buffer,
-      })
+      }
+      if (arrastando)
+        await arrastarArquivos(pagina.locator("[data-galeria] .galeria__nova"), [arquivo])
+      else await pagina.setInputFiles('[data-subir-galeria="foto"]', arquivo)
       await pagina.waitForFunction(
         (n) => document.querySelectorAll("[data-galeria] .galeria__item").length > n,
         antes,
@@ -466,7 +472,12 @@ try {
         marca: adminProduto.product?.metadata?.fb_fotos?.origem,
       })
     )
-    await subirFoto(await foto(1600, 1000, "jpeg"), "deitada.jpg")
+    // A segunda vem ARRASTADA do computador e é solta no quadro do "+".
+    await subirFoto(await foto(1600, 1000, "jpeg"), "deitada.jpg", { arrastando: true })
+    ok(
+      (await galeria()).length === 2,
+      "arrastada do computador e solta no quadro do “+”, a foto sobe como a escolhida"
+    )
     ok(
       /Não é quadrada/.test(await pagina.locator("[data-galeria]").textContent()),
       "foto que não é quadrada: a tela avisa da faixa branca"
@@ -491,6 +502,35 @@ try {
         { timeout: 90000 }
       )
     }
+    await arrastarArquivos(pagina.locator("[data-ve-na-pratica] .galeria__nova"), [
+      { name: "foto.png", mimeType: "image/png", buffer: await foto(400, 400, "png") },
+    ])
+    const recusa = pagina.locator("[data-ve-na-pratica] .slot__erro")
+    await recusa.waitFor({ timeout: 10000 }).catch(() => {})
+    ok(
+      semEspaco(await recusa.textContent().catch(() => "")) === "Use um vídeo MP4 ou WebM." &&
+        (await galeria()).length === 2,
+      "foto solta no quadro do vídeo: não sobe, e a tela diz o que vale ali"
+    )
+    // Solto FORA de um quadro, o arquivo não abre no lugar do painel (e o cursor diz que ali não).
+    const fora = await pagina.evaluate(() => {
+      const dt = new DataTransfer()
+      dt.items.add(new File(["x"], "solta.png", { type: "image/png" }))
+      dt.dropEffect = "copy"
+      const alvo = document.querySelector("main") ?? document.body
+      const sobre = new DragEvent("dragover", { bubbles: true, cancelable: true, dataTransfer: dt })
+      alvo.dispatchEvent(sobre)
+      const efeito = dt.dropEffect
+      const solta = new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: dt })
+      alvo.dispatchEvent(solta)
+      return { barrou: sobre.defaultPrevented && solta.defaultPrevented, efeito }
+    })
+    ok(
+      fora.barrou && fora.efeito === "none",
+      "arquivo solto fora de um quadro: o painel barra, e o navegador não abre a foto no lugar da tela",
+      JSON.stringify(fora)
+    )
+
     await subirVideo(await gravarVideo(pagina, 480, 480))
     g = await galeria()
     const video = g.find((i) => i.tipo === "video")
@@ -965,13 +1005,17 @@ try {
     await hidratado(pagina, '[data-campo="casos.0.nome"]')
     await pagina.fill('[data-campo="casos.0.nome"]', "André B.")
     await pagina.fill('[data-campo="casos.0.tempo"]', "90 dias")
-    for (const lado of ["antes", "depois"]) {
-      await pagina.setInputFiles(`input[data-campo="casos.0.${lado}"]`, {
-        name: `${lado}.jpg`,
-        mimeType: "image/jpeg",
-        buffer: await foto(900, 1050, "jpeg"),
-      })
-    }
+    const fotoDoCaso = async (lado) => ({
+      name: `${lado}.jpg`,
+      mimeType: "image/jpeg",
+      buffer: await foto(900, 1050, "jpeg"),
+    })
+    await pagina.setInputFiles('input[data-campo="casos.0.antes"]', await fotoDoCaso("antes"))
+    // O "depois" vem arrastado do computador, solto em cima do quadro.
+    await arrastarArquivos(
+      pagina.locator('.slot--caso:has(input[data-campo="casos.0.depois"]) .slot__vazio'),
+      [await fotoDoCaso("depois")]
+    )
     await pagina.waitForFunction(
       () => document.querySelectorAll(".slot--caso .slot__previa img").length === 2,
       null,
