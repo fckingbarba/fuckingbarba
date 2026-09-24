@@ -624,6 +624,32 @@ da loja no ar (`LOJA`), com o backend avisando ela (`LOJA_URL`), do admin local 
 publicável; cria um produto em rascunho por rodada (e apaga no fim) e confere a caixa de compra no
 balm, devolvendo a página dele como estava.
 
+**A galeria, o vídeo do modo de uso e o antes e depois** (fase 3, parte 2). As FOTOS da galeria
+continuam sendo as do produto no Medusa (`images` pela ordem `rank`, e a `thumbnail` = a primeira):
+a vitrine, o Google e o link no WhatsApp leem elas. Os VÍDEOS moram no `fb_pdp.videos`, cada um com
+a `posicao` dele entre as fotos. `lib/painel/galeria.ts` (puro, com testes) junta as duas coisas numa
+lista só (`montarGaleria` — a loja faz a mesma conta em `galeriaDaDobra`, `apps/loja/src/lib/pdp.ts`),
+com a capa sempre foto, e aplica UMA mudança (incluir no fim, andar uma casa, tirar);
+`mudarGaleriaDoProduto` (`lib/painel/gravar-produto.ts`) grava as fotos com `rank`, a `thumbnail` e o
+`fb_pdp` num update só, dentro da trava do produto, e marca as fotos como escolhidas (`fb_fotos` com
+origem "painel": a importação do ERP e a da Nuvemshop não trocam mais). Rota:
+`POST /dashboard/produtos/:id/galeria`. **O vídeo não passa pela Vercel** (4,5 MB): o painel pede um
+bilhete (`POST /dashboard/produtos/:id/videos/envio`, com o papel conferido; `lib/videos.ts`: HMAC
+com uma chave derivada do `JWT_SECRET`, 15 minutos, uso único, pra um produto, um tipo e um tamanho)
+e o navegador manda o arquivo cru direto pro Medusa, `PUT /painel-envio/:bilhete` — `bodyParser:
+false`, CORS só pra origem do `DASHBOARD_URL` —, que confere o tipo pelos primeiros bytes (MP4 pela
+caixa `ftyp`, WebM pelo EBML; o `.MOV` do iPhone recusado com frase própria) e grava EM FLUXO no
+armazenamento (`getUploadStream` do módulo de arquivos: o arquivo nunca fica inteiro na memória);
+o que foi recusado no meio é apagado. A capa do vídeo (um quadro do começo, tirado no navegador)
+sobe como imagem, `uso: "poster"`. O vídeo do modo de uso é `funciona.usoVideo`; o antes e depois é
+`conteudo.antesDepois` (até 3 casos; caso sem `autorizou: true` não existe, e o editor diz que
+falta), com as fotos em `uso: "caso"`; a rota da seção confere que toda foto e vídeo dela mora no
+armazenamento (`urlsDaSecao`). A loja lê os casos do produto (e só na falta deles o
+`conteudo/depoimentos.ts` de antes) e toca os vídeos com `components/produto/video.tsx`: mudo, em
+loop, só quando aparece na tela (`preload="none"`), com a capa até tocar. O `conferir-produtos.mjs`
+grava os vídeos de teste no próprio navegador (canvas + `MediaRecorder`, em WebM sem a duração no
+cabeçalho, como o de um Android — o painel acha a duração indo pro fim do vídeo).
+
 O CSS do painel segue o do protótipo, uma regra por linha, escrito à mão: o prettier fica nos
 `.ts`/`.tsx`/`.mjs` — rodado nos `.css` do painel, ele reescreve o arquivo inteiro. A gaveta
 (`components/gaveta.tsx`) mora no `<body>`, por portal: aberta de dentro de um `.bloco`, ela
