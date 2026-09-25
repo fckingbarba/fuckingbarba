@@ -1472,6 +1472,22 @@ Conferido pelo `conferir-observabilidade.mjs` (27 checagens, novo).
 Depois do deploy — **nada a configurar.** O Railway cria as tabelas sozinho. Nos primeiros minutos,
 as rotinas de hora em hora aparecem como "Ainda não rodou"; as outras entram na primeira rodada.
 
+**O total do pedido no painel é o cobrado — consertado em 25/09 (entrega 0088).** O painel
+mostrava, como total do pedido, a conta de ANTES dos descontos: o pedido com cupom ou com a oferta
+do checkout aparecia com o valor cheio. No banco local, um pedido cobrado R$ 153,01 aparecia como
+R$ 158,50. Isso valia pra lista de pedidos, o pedido aberto, as vendas do Início (hoje, a semana,
+o ticket e o gráfico), o "gastou" dos clientes e o "vendeu" dos cupons. Agora todos mostram o que
+foi cobrado, com os descontos — e o pedido cancelado e estornado continua mostrando o que foi
+cobrado, e não R$ 0,00. O técnico está no AGENTS.md ("O total do pedido é o cobrado").
+
+Conferido pelo `conferir-pedidos.mjs` (77 checagens, agora com oito pedidos: o pago e um estornado
+levam a oferta do checkout), pelo `conferir-clientes.mjs` (37) e pelo `conferir-cupons.mjs` (25). Os
+três comparam o total do painel com o que o Pagar.me cobrou; com o código de antes, essas checagens
+falham.
+
+Depois do deploy — **nada a configurar.** As vendas do Início e o "gastou" podem aparecer um pouco
+menores que antes: a diferença é o desconto que a loja deu.
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os onze conferidores (contra o Medusa local, com

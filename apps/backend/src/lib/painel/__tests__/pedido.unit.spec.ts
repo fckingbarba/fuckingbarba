@@ -1,3 +1,4 @@
+import { emCentavos } from "../../../modules/pagarme/client"
 import { duracao, quando, reais } from "../formato"
 import { montarInicio } from "../inicio"
 import {
@@ -13,6 +14,7 @@ import {
   problemaDo,
   prontoPraDespachar,
   situacaoDo,
+  totalDo,
   type Contexto,
   type NotaCrua,
   type PedidoCru,
@@ -413,6 +415,41 @@ describe("o pedido inteiro", () => {
     expect(d.itens[0].cheio).toBe(79.9)
   })
 
+  it("o total é o cobrado, com o cupom e a oferta descontados — não a conta de antes deles", () => {
+    // Como o Medusa devolve: o `original_total` é a conta de ANTES do desconto.
+    const doMedusa = { total: 118.11, original_total: 128.6, discount_total: 10.49 }
+    const o = pedido(
+      {
+        ...doMedusa,
+        items: [
+          {
+            id: "item_1",
+            product_title: "Óleo",
+            quantity: 2,
+            unit_price: 52.45,
+            total: 94.41,
+            adjustments: [{ code: "BUMP-OLEO-1a2b3c4d", amount: 10.49 }],
+          },
+        ],
+      },
+      true
+    )
+    const d = detalheDo(o, null, [], SEM_ERP, { verCpf: false })
+    expect(d.total).toBe(118.11)
+    expect(d.totais.total).toBe(118.11)
+    // A conta da tela fecha: os produtos, menos o desconto, mais o frete.
+    expect(d.totais.produtos - d.totais.cupons[0].valor + d.totais.frete).toBeCloseTo(118.11, 2)
+    expect(linhaDaLista(o, null, [], SEM_ERP).total).toBe(118.11)
+  })
+
+  it("a fração de centavo do Medusa vira o centavo que o Pagar.me cobrou", () => {
+    // A oferta dá 10% de R$ 52,45 = R$ 5,245: o pedido fica em R$ 123,355, e o Pix, em R$ 123,36.
+    const cobrado = emCentavos(123.355) / 100
+    expect(cobrado).toBe(123.36)
+    expect(linhaDaLista(pedido({ total: 123.355 }, true), null, [], SEM_ERP).total).toBe(cobrado)
+    expect(totalDo({ total: 0, credit_line_total: 123.355 })).toBe(cobrado)
+  })
+
   it("a faixa do estorno que falhou diz quando a loja tenta de novo", () => {
     const o = pedido(
       {
@@ -547,8 +584,8 @@ describe("os botões do pedido", () => {
     })
   })
 
-  it("o pedido estornado mostra o total que foi feito, não o que sobrou (zero)", () => {
-    // O estorno vira crédito no Medusa: o `total` cai pra zero; o `original_total`, não.
+  it("o pedido estornado mostra o total que foi cobrado, não o que sobrou (zero)", () => {
+    // O estorno vira crédito no Medusa: o `total` cai pra zero, e o `credit_line_total` é o que voltou.
     const d = detalheDo(
       estorno({ situacao: "devolvido", devolvido: 7760 }),
       null,
@@ -557,9 +594,14 @@ describe("os botões do pedido", () => {
       DONO
     )
     expect(d.total).toBe(128.6)
-    const zerado = { ...estorno(), total: 0, original_total: 128.6 }
+    const zerado = { ...estorno(), total: 0, credit_line_total: 128.6 }
     expect(detalheDo(zerado, null, [], SEM_ERP, DONO).totais.total).toBe(128.6)
     expect(linhaDaLista(zerado, null, [], SEM_ERP).total).toBe(128.6)
+    // Com cupom: o que foi cobrado e voltou — nem zero, nem a conta de antes do desconto.
+    const doMedusa = { total: 0, original_total: 128.6, credit_line_total: 118.11 }
+    const comCupom = { ...estorno(), ...doMedusa }
+    expect(detalheDo(comCupom, null, [], SEM_ERP, DONO).totais.total).toBe(118.11)
+    expect(linhaDaLista(comCupom, null, [], SEM_ERP).total).toBe(118.11)
   })
 
   it("o que a equipe fez entra no histórico, com o nome e na hora certa", () => {
@@ -646,6 +688,16 @@ describe("o Início", () => {
     expect(i.numeros.esperando).toEqual({ valor: 257.2, pix: 2, analise: 0 })
     expect(i.grafico).toHaveLength(7)
     expect(i.grafico[6]).toMatchObject({ hoje: true, valor: 100, pedidos: 1 })
+  })
+
+  it("a venda conta o cobrado, com o cupom descontado — não a conta de antes dele", () => {
+    const doMedusa = { original_total: 100, discount_total: 10 }
+    const i = montarInicio(
+      "dono",
+      { pedidos: [venda("order_A", 10, 90, doMedusa)], notas: new Map(), envios: new Map() },
+      SEM_ERP
+    )
+    expect(i.numeros.vendasHoje).toEqual({ valor: 90, pedidos: 1 })
   })
 
   it("o estorno que falhou só aparece pro dono", () => {

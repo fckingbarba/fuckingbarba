@@ -24,8 +24,9 @@
  * │   com o "uma vez por atributo" dele); o cupom que não sai quando o     │
  * │   e-mail chega;                                                        │
  * │ • o cupom pausado que continua valendo;                                │
- * │ • a lista contando errado (usos, desconto, vendido) ou mostrando a     │
- * │   oferta do checkout como cupom; a operação abrindo os cupons;         │
+ * │ • a lista contando errado (usos, desconto, vendido — que é o cobrado,  │
+ * │   com o desconto do cupom) ou mostrando a oferta do checkout como      │
+ * │   cupom; a operação abrindo os cupons;                                 │
  * │ • rolagem de lado no celular; erro no console.                         │
  * └────────────────────────────────────────────────────────────────────────┘
  */
@@ -379,13 +380,15 @@ try {
   titulo("A lista (API)")
   const lista = (await medusa("/dashboard/cupons", { metodo: "GET", token: tokenMkt })).corpo
   const noP = lista.cupons?.find((c) => c.codigo === P)
+  // O vendido é o que o Pagar.me cobrou no pedido pago: com o desconto do próprio cupom.
+  const cobradoE1 = await fabrica.cobrado(pedidoE1)
   ok(
     noP?.usos === "2 de 2 usos" &&
       noP?.situacao === "esgotado" &&
       noP?.pedidos === 2 &&
       noP?.desconto > 0 &&
-      noP?.vendeu > 0,
-    "o P: 2 de 2 usos, esgotado, com o desconto dado e o vendido (o pedido pago)",
+      noP?.vendeu === cobradoE1,
+    `o P: 2 de 2 usos, esgotado, com o desconto dado e o vendido (o cobrado no pedido pago, ${cobradoE1})`,
     JSON.stringify(noP)
   )
   ok(

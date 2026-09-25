@@ -179,7 +179,8 @@ export function fabricaDePedidos({ medusa, chave, tokenAdmin, pagarme }) {
    * Um pedido com o Pix esperando.
    *
    * `cupom` põe um código no carrinho antes da cobrança, como a loja faz
-   * (o conferidor dos cupons do painel).
+   * (o conferidor dos cupons do painel) — ou o da oferta do checkout, do
+   * `codigoDaOferta` (os de pedidos e de clientes).
    *
    * `validadeSegundos` manda no `expires_at` que o Pagar.me falso devolve.
    * NEGATIVO faz um Pix que já nasce vencido — é assim que o conferidor da
@@ -290,5 +291,50 @@ export function fabricaDePedidos({ medusa, chave, tokenAdmin, pagarme }) {
     await adm(`/admin/orders/${pedido.id}/cancel`, { method: "POST" })
   }
 
-  return { pedidoPix, pedidoCartao, pagar, separar, enviar, entregar, cancelar, noAdmin }
+  /**
+   * O código da oferta do checkout de um produto: a promoção `BUMP-<HANDLE>-…`
+   * que o job `bumps` mantém (10% numa unidade). Vai no `cupom` do
+   * `pedidoPix`, e o pedido nasce com desconto — o `total` do Medusa abaixo
+   * do `original_total`, como o de quem marca a oferta na loja.
+   */
+  async function codigoDaOferta(handle) {
+    const prefixo = `BUMP-${handle.toUpperCase()}-`
+    const { promotions } = await adm(`/admin/promotions?q=${prefixo}&fields=code,status&limit=50`)
+    const codigo = promotions.find(
+      (p) => p.status === "active" && p.code?.startsWith(prefixo)
+    )?.code
+    if (!codigo)
+      throw new Error(`sem a oferta do checkout do ${handle} no banco (o job "bumps" cria)`)
+    return codigo
+  }
+
+  /**
+   * O que o Pagar.me cobrou (o Pix, o cartão), em reais: o `valor` em
+   * centavos que o provedor gravou na sessão — com os descontos, antes de
+   * estorno. Não é o `amount` da cobrança do Medusa: ele guarda fração de
+   * centavo (a oferta dá 10% de R$ 52,45 = R$ 5,245, e o pedido fica em
+   * R$ 123,355), e o Pagar.me cobra R$ 123,36.
+   */
+  async function cobrado(pedido) {
+    const { order } = await adm(
+      `/admin/orders/${pedido.id}?fields=payment_collections.payment_sessions.data`
+    )
+    const sessoes = (order.payment_collections ?? []).flatMap((c) => c.payment_sessions ?? [])
+    const centavos = sessoes.map((s) => s.data?.pagarme?.valor).find((v) => Number.isFinite(v))
+    if (centavos === undefined) throw new Error(`o pedido #${pedido.numero} não tem cobrança`)
+    return centavos / 100
+  }
+
+  return {
+    pedidoPix,
+    pedidoCartao,
+    pagar,
+    separar,
+    enviar,
+    entregar,
+    cancelar,
+    noAdmin,
+    codigoDaOferta,
+    cobrado,
+  }
 }

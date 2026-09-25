@@ -640,11 +640,21 @@ Início por papel; `ler.ts` é o que lê do banco (os 300 pedidos mais recentes 
 dias pro Início, e o mais velho pelo número). O que o papel não vê não sai da rota: o CPF inteiro
 só vai no detalhe do dono, e o marketing recebe o Início sem nome de cliente. As frases (as do
 caminho, da fila, do histórico) nascem no backend, na hora de Brasília (`formato.ts`) — o painel
-só desenha. Os conferidores são o `apps/dashboard/ferramentas/conferir-entrar.mjs` e o
-`conferir-pedidos.mjs` (as peças comuns em `pecas.mjs`): Resend falso, como o da conta;
-`DASHBOARD_DONO_EMAIL` e `REVALIDAR_SEGREDO` iguais aos do backend, `PAINEL` apontando pro
-`next dev` do painel; o de pedidos faz sete pedidos com a Frenet e o Pagar.me falsos
-(`pedido-de-teste.mjs`, que ganhou o `pedidoCartao` — o cartão em análise) e usa o admin local
+só desenha. **O total do pedido é o cobrado** (`totalDo`, em `pedido.ts`, com a conta do e-mail de
+cancelado, o `totalDoPedido`): o `total` do Medusa mais o `credit_line_total`, na lista, no
+pedido, nas vendas do Início, no "gastou" dos clientes e no "vendeu" dos cupons. O
+`original_total` é a conta de ANTES dos descontos (o cupom e a oferta do checkout entram como
+ajuste) — com ele, o pedido de R$ 153,01 aparecia como R$ 158,50. E o `total` sozinho zera no
+pedido estornado: o cancelamento do Medusa grava a devolução como crédito. O painel arredonda em
+centavos, como o Pagar.me cobra (`emCentavos`): a oferta deixa fração no Medusa (R$ 123,355), e o
+Pix sai de R$ 123,36. Leitura de pedido nova pro painel pede os dois campos (`total` e
+`credit_line_total`). Os conferidores são
+o `apps/dashboard/ferramentas/conferir-entrar.mjs` e o `conferir-pedidos.mjs` (as peças comuns em
+`pecas.mjs`): Resend falso, como o da conta; `DASHBOARD_DONO_EMAIL` e `REVALIDAR_SEGREDO` iguais
+aos do backend, `PAINEL` apontando pro `next dev` do painel; o de pedidos faz oito pedidos com a
+Frenet e o Pagar.me falsos (`pedido-de-teste.mjs`, que ganhou o `pedidoCartao` — o cartão em
+análise —, o `codigoDaOferta` e o `cobrado`: o pago e o estornado levam a oferta do checkout, e o
+total do painel é conferido contra o que o Pagar.me cobrou) e usa o admin local
 (`ADMIN_EMAIL`/`ADMIN_SENHA`) e a chave publicável. **Frase com relógio não se compara inteira:**
 a idade do cartão em análise no título da fila ("há 11 min") é a do instante em que o backend
 respondeu, e a tela e o conferidor fazem dois pedidos a ele. Com dezenas de cartões parados em
