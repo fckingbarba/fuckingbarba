@@ -14,6 +14,7 @@ import { SEM_CONEXAO, semQueda } from "@/lib/rede"
 import { CalculadoraDeFrete } from "@/components/produto/calculadora"
 import type { ProdutoQueCombina } from "@/lib/pdp"
 import { PARCELA_MINIMA, PARCELAS_SEM_JUROS } from "@/lib/site"
+import { rastrear } from "@/lib/rastrear"
 
 /**
  * A COLUNA DE COMPRA
@@ -73,6 +74,21 @@ export function Compra({
   const [recado, setRecado] = useState<string | null>(null)
   const [enviando, comecar] = useTransition()
   const botao = useRef<HTMLButtonElement>(null)
+
+  // A visita ao produto, uma por produto (a ViewContent da Meta e do TikTok).
+  const primeiro = degraus[0]
+  useEffect(() => {
+    if (!primeiro) return
+    rastrear("view_item", {
+      currency: "BRL",
+      value: primeiro.porUnidade,
+      items: [
+        { item_id: primeiro.varianteId, item_name: nome, price: primeiro.porUnidade, quantity: 1 },
+      ],
+    })
+    // Uma vez por variante: o nome e o preço não mudam sem ela mudar.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [primeiro?.varianteId])
 
   const base = degraus[0]
   if (!base) return null

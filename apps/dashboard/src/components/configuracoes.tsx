@@ -10,12 +10,15 @@ import {
   salvarEmergencia,
   salvarEmpresa,
   salvarFrete,
+  salvarIntegracoes,
   type ResultadoDoFormulario,
 } from "@/lib/acoes/configuracoes"
 import {
   ABAS,
+  type CampoDaIntegracao,
   type FormularioDaEmergencia as DadosDaEmergencia,
   type FormularioDaEmpresa as DadosDaEmpresa,
+  type FormularioDasIntegracoes as DadosDasIntegracoes,
   type FormularioDoFrete as DadosDoFrete,
 } from "@/lib/configuracoes"
 
@@ -353,5 +356,58 @@ export function JanelaDaNota({
         Bling sozinho. Depois, a nota se cancela no Bling em até 24 h.
       </p>
     </div>
+  )
+}
+
+/**
+ * Os códigos das integrações: cola o código, ou o trecho inteiro que a
+ * plataforma deu — quem acha o código dentro é o Medusa. Em branco desliga.
+ */
+export function FormularioDasIntegracoes({
+  inicial,
+  campos,
+}: {
+  inicial: DadosDasIntegracoes
+  campos: CampoDaIntegracao[]
+}) {
+  const { f, mudar, erros, salvando, salvar } = useFormulario(inicial, salvarIntegracoes)
+  return (
+    <form className="bloco" onSubmit={salvar} noValidate data-form="integracoes">
+      <Bloco
+        titulo="Os códigos"
+        sub="Cole o código, ou o trecho inteiro que a plataforma deu. Em branco, a integração fica desligada."
+      >
+        <div className="campos">
+          {campos.map((c) => (
+            <div className="campo campo--3" key={c.chave}>
+              <label htmlFor={`cfg-${c.chave}`}>{c.nome}</label>
+              <input
+                id={`cfg-${c.chave}`}
+                name={c.chave}
+                data-campo={c.chave}
+                value={f[c.chave]}
+                placeholder={c.exemplo}
+                autoComplete="off"
+                spellCheck={false}
+                aria-invalid={erros[c.chave] ? true : undefined}
+                aria-describedby={`cfg-${c.chave}-ajuda${erros[c.chave] ? ` cfg-${c.chave}-erro` : ""}`}
+                onChange={(e) => mudar(c.chave, e.target.value)}
+              />
+              <p className="campo__ajuda" id={`cfg-${c.chave}-ajuda`}>
+                {c.onde}
+              </p>
+              <p
+                className="campo__erro"
+                id={`cfg-${c.chave}-erro`}
+                role={erros[c.chave] ? "alert" : undefined}
+              >
+                {erros[c.chave] ?? ""}
+              </p>
+            </div>
+          ))}
+        </div>
+        <Acoes salvando={salvando} nota="A loja carrega depois do “Aceitar” dos cookies." />
+      </Bloco>
+    </form>
   )
 }

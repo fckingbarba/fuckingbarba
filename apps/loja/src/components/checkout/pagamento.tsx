@@ -25,6 +25,7 @@ import {
 } from "@/components/icones"
 import { FORMAS, garantiasDoPagamento, type FormaDePagamento } from "@/conteudo/checkout"
 import { alternarBump, finalizar } from "@/lib/acoes/checkout"
+import { comASacola, rastrear } from "@/lib/rastrear"
 import { bandeiraDe, cvvOk, luhn, mascararCartao, mascararValidade, validadeOk } from "@/lib/cartao"
 import {
   ESTADO_INICIAL,
@@ -204,7 +205,13 @@ export function Pagamento({ checkout, provedores, bump, atendimento, aoSalvar, .
       e.preventDefault()
       return
     }
-    if (!cobra || forma !== "cartao") return
+    // A forma escolhida (a AddPaymentInfo da Meta e do TikTok), a cada tentativa de pagar.
+    const avisar = () =>
+      rastrear("add_payment_info", { ...comASacola(checkout.itens), payment_type: forma })
+    if (!cobra || forma !== "cartao") {
+      if (cobra) avisar()
+      return
+    }
     e.preventDefault()
 
     const problema = problemaNoCartao(cartao)
@@ -213,6 +220,7 @@ export function Pagamento({ checkout, provedores, bump, atendimento, aoSalvar, .
       setErroDoCartao(problema)
       return
     }
+    avisar()
 
     /*
       O FormData é lido AGORA, antes de qualquer mudança de estado: enquanto

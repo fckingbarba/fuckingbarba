@@ -127,12 +127,51 @@ export type VideoDaMarca = { url: string; largura: number; altura: number }
 
 export type Home = { video: VideoDaMarca | null }
 
+/**
+ * AS INTEGRAÇÕES DE MEDIÇÃO E ANÚNCIO — o código que cada plataforma dá, e
+ * só ele. A loja monta a tag com isto (`components/analytics/tags.tsx`), e o
+ * backend manda a compra pelo servidor (`lib/anuncios/`).
+ *
+ * São PÚBLICOS: o código de um pixel aparece no HTML de qualquer loja que o
+ * usa. O que é segredo — a chave da API de conversões da Meta, o segredo do
+ * Measurement Protocol, o token do TikTok — nunca mora aqui: fica nas
+ * variáveis do Railway, que a rota pública não enxerga.
+ *
+ * E VÃO PRA DENTRO DE UM <script>. Por isso a leitura aceita cada um só no
+ * formato da plataforma (`FORMATO_DAS_INTEGRACOES`): nada de aspas, espaço
+ * ou sinal — o que não passa vira `null`, e a tag não nasce.
+ */
+export type Integracoes = {
+  /** GA4: o código de medição, "G-XXXXXXXXXX". */
+  ga4: string | null
+  /** Google Ads: o código da conta, "AW-123456789". */
+  googleAds: string | null
+  /** O rótulo da conversão de compra no Google Ads — vira "AW-123456789/rótulo". */
+  googleAdsCompra: string | null
+  /** Pixel da Meta (Facebook e Instagram): só números. */
+  metaPixel: string | null
+  /** Microsoft Clarity: o código do projeto. */
+  clarity: string | null
+  /** Pixel do TikTok: o código do pixel. */
+  tiktok: string | null
+}
+
+export const FORMATO_DAS_INTEGRACOES: Record<keyof Integracoes, RegExp> = {
+  ga4: /^G-[A-Z0-9]{4,20}$/,
+  googleAds: /^AW-\d{6,15}$/,
+  googleAdsCompra: /^[A-Za-z0-9_-]{4,64}$/,
+  metaPixel: /^\d{10,20}$/,
+  clarity: /^[a-z0-9]{6,20}$/,
+  tiktok: /^[A-Z0-9]{15,30}$/,
+}
+
 export type Configuracoes = {
   frete: PoliticaDeFrete
   empresa: Empresa
   atendimento: Atendimento
   cotacao: Cotacao
   home: Home
+  integracoes: Integracoes
 }
 
 /**
@@ -147,11 +186,17 @@ export type Configuracoes = {
  */
 export type ConfiguracoesPublicas = Pick<
   Configuracoes,
-  "frete" | "empresa" | "atendimento" | "home"
+  "frete" | "empresa" | "atendimento" | "home" | "integracoes"
 >
 
 export function soOPublico(c: Configuracoes): ConfiguracoesPublicas {
-  return { frete: c.frete, empresa: c.empresa, atendimento: c.atendimento, home: c.home }
+  return {
+    frete: c.frete,
+    empresa: c.empresa,
+    atendimento: c.atendimento,
+    home: c.home,
+    integracoes: c.integracoes,
+  }
 }
 
 /**
@@ -176,6 +221,14 @@ export const PADRAO: Configuracoes = {
   atendimento: { whatsapp: null, email: null, horario: null, prazoDePostagem: null },
   cotacao: { precoDeEmergencia: null, prazoDeEmergencia: null },
   home: { video: null },
+  integracoes: {
+    ga4: null,
+    googleAds: null,
+    googleAdsCompra: null,
+    metaPixel: null,
+    clarity: null,
+    tiktok: null,
+  },
 }
 
 /** Chave única dentro do `metadata` da loja, pra não brigar com mais nada. */
@@ -253,6 +306,23 @@ function lerVideo(v: unknown): VideoDaMarca | null {
   return { url, largura, altura }
 }
 
+/** Cada código só no formato da plataforma: o resto vira `null` (ver `Integracoes`). */
+function lerIntegracoes(v: unknown): Integracoes {
+  const o = (v && typeof v === "object" ? v : {}) as Record<string, unknown>
+  const ler = (chave: keyof Integracoes) => {
+    const bruto = o[chave]
+    return typeof bruto === "string" && FORMATO_DAS_INTEGRACOES[chave].test(bruto) ? bruto : null
+  }
+  return {
+    ga4: ler("ga4"),
+    googleAds: ler("googleAds"),
+    googleAdsCompra: ler("googleAdsCompra"),
+    metaPixel: ler("metaPixel"),
+    clarity: ler("clarity"),
+    tiktok: ler("tiktok"),
+  }
+}
+
 export function lerConfiguracoes(metadata: unknown): Configuracoes {
   const raiz =
     metadata && typeof metadata === "object"
@@ -293,6 +363,7 @@ export function lerConfiguracoes(metadata: unknown): Configuracoes {
         : null,
     },
     home: { video: lerVideo(home.video) },
+    integracoes: lerIntegracoes(o.integracoes),
   }
 }
 

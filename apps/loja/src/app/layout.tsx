@@ -84,7 +84,7 @@ export const viewport: Viewport = {
  * └────────────────────────────────────────────────────────────────────────┘
  */
 export default async function RootLayout({ children }: LayoutProps<"/">) {
-  const { frete } = await configuracoes()
+  const { frete, integracoes } = await configuracoes()
   // O "leva junto" da sacola: os produtos, cacheados como a vitrine (ver
   // `vitrineDaSacola`), e o modelo que escolhe entre eles (`lib/recomendacao.ts`).
   const vitrine = await vitrineDaSacola()
@@ -121,7 +121,13 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
             <Gaveta vitrine={vitrine} modelo={modelo} />
           </ProvedorDaSacola>
         </ProvedorDoFrete>
-        <Tags />
+        {/* O GA4 da variável da Vercel segue valendo até alguém pôr o código no painel. */}
+        <Tags
+          integracoes={{
+            ...integracoes,
+            ga4: integracoes.ga4 ?? process.env.NEXT_PUBLIC_GA4_ID ?? null,
+          }}
+        />
         {/* A velocidade da visita, a página que não existe e o erro, pro painel. */}
         <Telemetria />
       </body>

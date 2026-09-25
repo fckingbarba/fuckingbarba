@@ -10,6 +10,7 @@ import {
   lerEmergencia,
   lerEmpresa,
   lerFrete,
+  lerIntegracoes,
   MAX_PENDENCIAS,
   pendenciasEmFrase,
   telaDasConfiguracoes,
@@ -163,6 +164,63 @@ describe("o frete", () => {
   })
 })
 
+describe("as integrações", () => {
+  it("acha o código no trecho que a plataforma deu, e acerta a caixa", () => {
+    const lido = lerIntegracoes({
+      ga4: `<script async src="https://www.googletagmanager.com/gtag/js?id=g-cs3qpk0qhl"></script>`,
+      googleAds: " aw-123456789 ",
+      googleAdsCompra: "gtag('event', 'conversion', {'send_to': 'AW-123456789/AbC-D_efG-h12'});",
+      metaPixel: "fbq('init', '123456789012345');\nfbq('track', 'PageView');",
+      clarity: `(function(c,l,a,r,i,t,y){ })(window, document, "clarity", "script", "ABCDE12345");`,
+      tiktok: `w.TiktokAnalyticsObject=t; ttq.load('c4abcdefgh1234567890'); ttq.page();`,
+    })
+    expect(lido).toEqual({
+      ok: true,
+      valor: {
+        ga4: "G-CS3QPK0QHL",
+        googleAds: "AW-123456789",
+        googleAdsCompra: "AbC-D_efG-h12",
+        metaPixel: "123456789012345",
+        clarity: "abcde12345",
+        tiktok: "C4ABCDEFGH1234567890",
+      },
+    })
+  })
+
+  it("só o código também vale; em branco desliga", () => {
+    expect(
+      lerIntegracoes({ ga4: "G-CS3QPK0QHL", metaPixel: "", clarity: "abcde12345", tiktok: "  " })
+    ).toEqual({
+      ok: true,
+      valor: {
+        ga4: "G-CS3QPK0QHL",
+        googleAds: null,
+        googleAdsCompra: null,
+        metaPixel: null,
+        clarity: "abcde12345",
+        tiktok: null,
+      },
+    })
+  })
+
+  it("o que não é código diz o que esperava, campo a campo", () => {
+    const lido = lerIntegracoes({
+      ga4: "UA-12345-1",
+      metaPixel: "1234",
+      clarity: "</script>",
+      tiktok: "TiktokAnalyticsObject",
+      googleAdsCompra: "AbC-D_efG-h12",
+    })
+    expect(lido.ok).toBe(false)
+    if (lido.ok) return
+    expect(Object.keys(lido.erros).sort()).toEqual(
+      ["clarity", "ga4", "googleAds", "metaPixel", "tiktok"].sort()
+    )
+    // O rótulo sozinho não vale: falta a conta.
+    expect(lido.erros.googleAds).toMatch(/AW-/)
+  })
+})
+
 describe("pra quem vai o aviso da equipe", () => {
   const membros: MembroParaAviso[] = [
     { nome: "Ana", email: "Ana@loja.com", papel: "dono", situacao: "ativo" },
@@ -229,6 +287,7 @@ describe("a tela", () => {
     membros: [{ nome: "Ana", email: "ana@loja.com", papel: "dono", situacao: "ativo" }],
     usuariosDoAdmin: [],
     remetente: "FuckingBarba <nao-responda@fuckingbarba.com.br>",
+    anuncios: { meta: false, ga4: false, tiktok: false },
     ...extra,
   })
 

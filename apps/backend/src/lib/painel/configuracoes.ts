@@ -1,10 +1,12 @@
-import type {
-  AlvoDoFrete,
-  Atendimento,
-  Configuracoes,
-  Cotacao,
-  Empresa,
-  PoliticaDeFrete,
+import {
+  FORMATO_DAS_INTEGRACOES,
+  type AlvoDoFrete,
+  type Atendimento,
+  type Configuracoes,
+  type Cotacao,
+  type Empresa,
+  type Integracoes,
+  type PoliticaDeFrete,
 } from "../configuracoes"
 import { numeroBrasileiro } from "../cupons"
 import { NOME_DO_PAPEL, type Papel } from "../equipe/regras"
@@ -255,6 +257,129 @@ export const JANELAS = [
 
 export const ehJanela = (v: unknown): v is number => JANELAS.some((j) => j.minutos === v)
 
+/* ── as integrações ─────────────────────────────────────────────────────── */
+
+export type FormularioDasIntegracoes = Record<keyof Integracoes, string>
+
+/**
+ * Cada integração, na ordem da tela: o nome, o exemplo e o que procurar no
+ * que a pessoa colar. Quem cola quase nunca cola só o código — vem o trecho
+ * inteiro que a plataforma deu, com espaço, em minúscula —, então a leitura
+ * tenta cada `achar` na ordem (o grupo 1 é o código) e fica com o primeiro
+ * que casar. O formato final quem confere é o `FORMATO_DAS_INTEGRACOES`, o
+ * mesmo da leitura que a loja usa.
+ */
+export const INTEGRACOES: {
+  chave: keyof Integracoes
+  nome: string
+  exemplo: string
+  /** Onde a pessoa acha o código, na plataforma. */
+  onde: string
+  achar: RegExp[]
+  caixa: "alta" | "baixa" | "como-veio"
+  erro: string
+}[] = [
+  {
+    chave: "ga4",
+    nome: "Google Analytics (GA4)",
+    exemplo: "G-XXXXXXXXXX",
+    onde: "Google Analytics → Administrador → Fluxos de dados → o site → ID da métrica.",
+    achar: [/\b(G-[A-Z0-9]{4,20})\b/i],
+    caixa: "alta",
+    erro: "O código do GA4 começa com G- (G-XXXXXXXXXX).",
+  },
+  {
+    chave: "googleAds",
+    nome: "Google Ads",
+    exemplo: "AW-123456789",
+    onde: "Google Ads → Metas → Conversões → a conversão de compra → Configuração da tag → Instalar a tag por conta própria.",
+    achar: [/\b(AW-\d{6,15})\b/i],
+    caixa: "alta",
+    erro: "O código do Google Ads começa com AW- e segue com números.",
+  },
+  {
+    chave: "googleAdsCompra",
+    nome: "Rótulo da conversão de compra (Google Ads)",
+    exemplo: "AbC-D_efG-h12",
+    onde: 'No mesmo lugar do AW-: o que vem depois da barra no "send_to". Pode colar o trecho do evento inteiro.',
+    // Colado o trecho do evento ("send_to': 'AW-123/rótulo'"), vale o que vem depois da barra.
+    achar: [/AW-\d{6,15}\/([A-Za-z0-9_-]{4,64})/i, /^([A-Za-z0-9_-]{4,64})$/],
+    caixa: "como-veio",
+    erro: "O rótulo tem só letras, números, - e _ (é o que vem depois da barra em AW-…/rótulo).",
+  },
+  {
+    chave: "metaPixel",
+    nome: "Pixel da Meta",
+    exemplo: "123456789012345",
+    onde: "Gerenciador de Eventos da Meta → Fontes de dados → o pixel → a identificação (só números).",
+    achar: [
+      /fbq\(\s*["']init["']\s*,\s*["'](\d{10,20})["']/,
+      /[?&]id=(\d{10,20})\b/,
+      /^(\d{10,20})$/,
+    ],
+    caixa: "como-veio",
+    erro: "O pixel da Meta é só número, com 15 ou 16 dígitos.",
+  },
+  {
+    chave: "clarity",
+    nome: "Microsoft Clarity",
+    exemplo: "abcde12345",
+    onde: "clarity.microsoft.com → o projeto → Settings → Overview → Project ID.",
+    achar: [
+      /["']script["']\s*,\s*["']([a-z0-9]{6,20})["']/i,
+      /clarity\.ms\/tag\/([a-z0-9]{6,20})\b/i,
+      /^([a-z0-9]{6,20})$/i,
+    ],
+    caixa: "baixa",
+    erro: "O código da Clarity tem letras e números, uns 10 (Settings → Setup, no site da Clarity).",
+  },
+  {
+    chave: "tiktok",
+    nome: "Pixel do TikTok",
+    exemplo: "C4ABCDEFGH1234567890",
+    onde: "TikTok Ads Manager → Ferramentas → Eventos → Web → o pixel → o ID do pixel.",
+    // Sozinho, só com algum número: "TiktokAnalyticsObject", do próprio trecho, não é código.
+    achar: [/ttq\.load\(\s*["']([A-Z0-9]{15,30})["']/i, /^(?=[A-Z0-9]*\d)([A-Z0-9]{15,30})$/i],
+    caixa: "alta",
+    erro: "O código do pixel do TikTok tem uns 20 caracteres, letras e números.",
+  },
+]
+
+export function formularioDasIntegracoes(c: Configuracoes): FormularioDasIntegracoes {
+  return Object.fromEntries(
+    INTEGRACOES.map((i) => [i.chave, c.integracoes[i.chave] ?? ""])
+  ) as FormularioDasIntegracoes
+}
+
+/**
+ * O formulário das integrações: em branco desliga; preenchido, só no
+ * formato. O rótulo da compra do Google Ads só vale com o código da conta.
+ */
+export function lerIntegracoes(v: unknown): Leitura<Integracoes> {
+  const o = (v && typeof v === "object" ? v : {}) as Record<string, unknown>
+  const erros: Record<string, string> = {}
+  const valor = {} as Integracoes
+  for (const i of INTEGRACOES) {
+    const bruto = texto(o[i.chave])
+    valor[i.chave] = null
+    if (!bruto) continue
+    const achado =
+      bruto.length <= 5000 ? i.achar.map((r) => r.exec(bruto)?.[1]).find(Boolean) : null
+    const codigo = !achado
+      ? ""
+      : i.caixa === "alta"
+        ? achado.toUpperCase()
+        : i.caixa === "baixa"
+          ? achado.toLowerCase()
+          : achado
+    if (!FORMATO_DAS_INTEGRACOES[i.chave].test(codigo)) erros[i.chave] = i.erro
+    else valor[i.chave] = codigo
+  }
+  if (valor.googleAdsCompra && !valor.googleAds && !erros.googleAds)
+    erros.googleAds = "Sem o código da conta (AW-…), o rótulo da compra não vale."
+  return Object.keys(erros).length ? { ok: false, erros } : { ok: true, valor }
+}
+
 /* ── os e-mails ─────────────────────────────────────────────────────────── */
 
 /**
@@ -387,6 +512,12 @@ export type TelaDasConfiguracoes = {
     cliente: { nome: string; texto: string; saindo: boolean }[]
     equipe: { nome: string; texto: string; papeis: Papel[]; quem: string }[]
   }
+  integracoes: {
+    formulario: FormularioDasIntegracoes
+    campos: { chave: keyof Integracoes; nome: string; exemplo: string; onde: string }[]
+    /** A compra, plataforma a plataforma: por onde sai e o que falta. */
+    compra: LinhaDeStatus[]
+  }
 }
 
 export type DadosDasConfiguracoes = {
@@ -413,6 +544,8 @@ export type DadosDasConfiguracoes = {
   usuariosDoAdmin: string[]
   /** O `EMAIL_REMETENTE` (`remetenteDosEmails`), com o nome ou sem. */
   remetente: string
+  /** Quais chaves da compra pelo servidor estão no Railway (`lib/anuncios/`). */
+  anuncios: { meta: boolean; ga4: boolean; tiktok: boolean }
 }
 
 const quandoFoi = (iso: string | null) => (iso ? new Date(iso) : null)
@@ -512,7 +645,86 @@ export function telaDasConfiguracoes(d: DadosDasConfiguracoes): TelaDasConfigura
         quem: destinatarios(a.papeis, d.membros, d.usuariosDoAdmin).quem,
       })),
     },
+    integracoes: {
+      formulario: formularioDasIntegracoes(c),
+      campos: INTEGRACOES.map(({ chave, nome, exemplo, onde }) => ({ chave, nome, exemplo, onde })),
+      compra: compraEmFrase(c.integracoes, d.anuncios),
+    },
   }
+}
+
+/**
+ * A COMPRA, PLATAFORMA A PLATAFORMA — em frase, com o que falta. A da Meta,
+ * a do GA4 e a do TikTok saem do servidor quando o pagamento entra
+ * (`lib/anuncios/`): contam o Pix pago depois e quem usa bloqueador, e
+ * precisam de uma chave no Railway além do código. A do Google Ads sai da
+ * tela de obrigado, com o rótulo da compra.
+ */
+export function compraEmFrase(
+  i: Integracoes,
+  chaves: DadosDasConfiguracoes["anuncios"]
+): LinhaDeStatus[] {
+  const peloServidor = (
+    titulo: string,
+    codigo: string | null,
+    temChave: boolean,
+    variavel: string,
+    semCodigo: string
+  ): LinhaDeStatus =>
+    !codigo
+      ? { titulo, texto: semCodigo, ligado: null }
+      : temChave
+        ? {
+            titulo,
+            texto: "Sai do servidor quando o pagamento entra, só de quem aceitou os cookies.",
+            ligado: true,
+          }
+        : {
+            titulo,
+            texto: `Falta a chave no Railway (${variavel}): sem ela, a compra não sai.`,
+            ligado: false,
+          }
+  return [
+    peloServidor(
+      "Meta — API de Conversões",
+      i.metaPixel,
+      chaves.meta,
+      "META_CAPI_TOKEN",
+      "Sem o pixel da Meta."
+    ),
+    peloServidor(
+      "GA4 — Measurement Protocol",
+      i.ga4,
+      chaves.ga4,
+      "GA4_API_SECRET",
+      "Sem o código do GA4."
+    ),
+    peloServidor(
+      "TikTok — Events API",
+      i.tiktok,
+      chaves.tiktok,
+      "TIKTOK_EVENTS_TOKEN",
+      "Sem o pixel do TikTok."
+    ),
+    !i.googleAds
+      ? {
+          titulo: "Google Ads — conversão de compra",
+          texto: "Sem o código do Google Ads.",
+          ligado: null,
+        }
+      : i.googleAdsCompra
+        ? {
+            titulo: "Google Ads — conversão de compra",
+            texto:
+              "Sai da tela de obrigado quando o pagamento entra, de quem aceitou os cookies. O Pix pago com a tela fechada não conta.",
+            ligado: true,
+          }
+        : {
+            titulo: "Google Ads — conversão de compra",
+            texto: "Falta o rótulo da compra: o Google Ads mede as visitas, mas não a compra.",
+            ligado: false,
+          },
+  ]
 }
 
 /** Mais do que isso na tela vira "e mais N": a lista inteira fica na tela do ERP, no admin. */

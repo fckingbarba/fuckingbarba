@@ -1,46 +1,32 @@
-import Script from "next/script"
-import { GoogleAnalytics } from "@next/third-parties/google"
-import { Consentimento, COOKIE_CONSENTIMENTO } from "./consentimento"
+"use client"
+
+import { useEffect, useMemo } from "react"
+import type { Integracoes } from "@/lib/configuracoes"
+import { parceirosDe } from "@/lib/consentimento"
+import { Consentimento, useConsentimento } from "./consentimento"
+import { ligarIntegracoes } from "./integracoes"
 
 /**
- * Tags de terceiros — só GA4 na fase 1, e só se NEXT_PUBLIC_GA4_ID existir.
+ * AS TAGS DE TERCEIROS — GA4, Google Ads, Pixel da Meta, Pixel do TikTok e
+ * Microsoft Clarity, com os códigos do painel (Configurações → Integrações;
+ * o layout raiz passa).
  *
- * Ordem importa:
- *  1. `consent default` roda ANTES de qualquer tag (beforeInteractive), com
- *     os quatro sinais do Consent Mode v2 negados. Se o visitante já aceitou
- *     antes (cookie), vira granted no mesmo script, ainda antes do gtag.
- *  2. O GA4 carrega depois da hidratação via @next/third-parties. Negado, ele
- *     manda pings sem cookie (modelagem); aceito, mede normal.
- *  3. O Pixel da Meta entra na fase 3, no mesmo lugar, e só com aceite.
+ * NADA CARREGA ANTES DO "ACEITAR". Até a fase 6, o GA4 carregava com o
+ * consentimento negado e mandava visita sem cookie — e a política de
+ * privacidade prometia que nenhum script de medição carregava sem o aceite.
+ * Agora a promessa vale: sem o sim, a página não tem script de nenhum deles,
+ * e com o sim, `ligarIntegracoes` monta tudo na hora, sem recarregar.
+ *
+ * Sem nenhuma integração ligada, não há o que perguntar: nem faixa.
  */
-export function Tags() {
-  const ga4 = process.env.NEXT_PUBLIC_GA4_ID
-  if (!ga4) return null
+export function Tags({ integracoes }: { integracoes: Integracoes }) {
+  const parceiros = useMemo(() => parceirosDe(integracoes), [integracoes])
+  const estado = useConsentimento(parceiros)
 
-  const scriptConsentimento = `
-window.dataLayer = window.dataLayer || [];
-function gtag(){dataLayer.push(arguments);}
-(function(){
-  var aceitou = document.cookie.split('; ').some(function(c){ return c === '${COOKIE_CONSENTIMENTO}=sim'; });
-  var estado = aceitou ? 'granted' : 'denied';
-  gtag('consent', 'default', {
-    ad_storage: estado,
-    analytics_storage: estado,
-    ad_user_data: estado,
-    ad_personalization: estado,
-    wait_for_update: 500
-  });
-})();`.trim()
+  useEffect(() => {
+    if (estado === "sim") ligarIntegracoes(integracoes)
+  }, [estado, integracoes])
 
-  return (
-    <>
-      {/* No App Router, beforeInteractive é permitido a partir do layout raiz; a regra é do Pages Router. */}
-      {/* eslint-disable-next-line @next/next/no-before-interactive-script-outside-document */}
-      <Script id="consentimento-padrao" strategy="beforeInteractive">
-        {scriptConsentimento}
-      </Script>
-      <GoogleAnalytics gaId={ga4} />
-      <Consentimento />
-    </>
-  )
+  if (!parceiros.length) return null
+  return <Consentimento parceiros={parceiros} estado={estado} />
 }

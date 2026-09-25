@@ -43,18 +43,33 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     tem, pra reaproveitar `lerConfiguracoes` inteiro em vez de escrever uma
     segunda validação que pode divergir da primeira.
   */
-  const limpas: Configuracoes = lerConfiguracoes({ [CHAVE_NO_METADATA]: req.body })
+  const novas: Configuracoes = lerConfiguracoes({ [CHAVE_NO_METADATA]: req.body })
+  const corpo = (req.body && typeof req.body === "object" ? req.body : {}) as Record<
+    string,
+    unknown
+  >
 
   /*
     Dentro da trava do metadata da loja (`lib/metadata-da-loja.ts`): o
     Medusa grava o metadata da loja inteiro, e a home do painel mora nele
     também. Sem a trava, salvar aqui no mesmo segundo em que alguém publica
     a home apagaria a home publicada.
+
+    O QUE O CORPO NÃO TROUXE FICA COMO ESTÁ. Esta tela não conhece tudo o que
+    mora aqui — as integrações, por exemplo, só o painel edita —, e o
+    "Salvar" dela zerava o que não mandava.
   */
-  const gravou = await mudarMetadataDaLoja(req.scope, () => ({
-    gravar: { [CHAVE_NO_METADATA]: limpas },
-    resultado: true,
-  }))
+  let limpas = novas
+  const gravou = await mudarMetadataDaLoja(req.scope, (metadata) => {
+    const atual = lerConfiguracoes(metadata)
+    limpas = Object.fromEntries(
+      (Object.keys(novas) as (keyof Configuracoes)[]).map((chave) => [
+        chave,
+        chave in corpo ? novas[chave] : atual[chave],
+      ])
+    ) as Configuracoes
+    return { gravar: { [CHAVE_NO_METADATA]: limpas }, resultado: true }
+  })
   if (!gravou) {
     res.status(404).json({ erro: "nenhuma loja configurada no Medusa" })
     return

@@ -1,6 +1,11 @@
 import { ExecArgs } from "@medusajs/framework/types"
 import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
-import { CHAVE_NO_METADATA, lerConfiguracoes, type Configuracoes } from "../lib/configuracoes"
+import {
+  CHAVE_NO_METADATA,
+  lerConfiguracoes,
+  PADRAO,
+  type Configuracoes,
+} from "../lib/configuracoes"
 import { ondeEstou } from "./onde-estou"
 
 /**
@@ -41,6 +46,8 @@ const SEMENTE: Configuracoes = {
   // Sem vídeo: a seção da história da marca mostra a foto até alguém subir
   // um pelo admin.
   home: { video: null },
+  // Sem integração: cada código entra pelo painel (Configurações → Integrações).
+  integracoes: PADRAO.integracoes,
 }
 
 /**

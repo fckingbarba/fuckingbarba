@@ -27,6 +27,16 @@ export type FormularioDoFrete = {
 }
 export type FormularioDaEmergencia = { preco: string; prazo: string }
 
+export type ChaveDaIntegracao =
+  "ga4" | "googleAds" | "googleAdsCompra" | "metaPixel" | "clarity" | "tiktok"
+export type FormularioDasIntegracoes = Record<ChaveDaIntegracao, string>
+export type CampoDaIntegracao = {
+  chave: ChaveDaIntegracao
+  nome: string
+  exemplo: string
+  onde: string
+}
+
 export type LinhaDeStatus = { titulo: string; texto: string; ligado: boolean | null }
 /** `pedidoId` nulo: a linha junta vários pedidos (a mesma queda, ou o que passou do teto). */
 export type PendenciaDaNota = {
@@ -58,6 +68,11 @@ export type TelaDasConfiguracoes = {
     cliente: { nome: string; texto: string; saindo: boolean }[]
     equipe: { nome: string; texto: string; papeis: Papel[]; quem: string }[]
   }
+  integracoes: {
+    formulario: FormularioDasIntegracoes
+    campos: CampoDaIntegracao[]
+    compra: LinhaDeStatus[]
+  }
 }
 
 /** As abas, na ordem do protótipo. */
@@ -68,5 +83,6 @@ export const ABAS = [
   { href: "/configuracoes/nota", nome: "Nota fiscal" },
   { href: "/configuracoes/entrega", nome: "Entrega" },
   { href: "/configuracoes/emails", nome: "E-mails" },
+  { href: "/configuracoes/integracoes", nome: "Integrações" },
   { href: "/configuracoes/equipe", nome: "Equipe e acessos" },
 ] as const

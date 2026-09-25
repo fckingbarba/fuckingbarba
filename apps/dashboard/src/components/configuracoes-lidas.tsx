@@ -4,9 +4,27 @@ import type { LinhaDeStatus } from "@/lib/configuracoes"
  * As abas que só se conferem (o pagamento, a entrega): uma linha por coisa,
  * com o selo de ligado ou desligado quando é algo que liga.
  */
-export function LinhasDeStatus({ linhas, dado }: { linhas: LinhaDeStatus[]; dado: string }) {
+export function LinhasDeStatus({
+  linhas,
+  dado,
+  titulo,
+  sub,
+}: {
+  linhas: LinhaDeStatus[]
+  dado: string
+  titulo?: string
+  sub?: string
+}) {
   return (
     <section className="bloco" data-linhas={dado}>
+      {titulo ? (
+        <div className="bloco__cabeca">
+          <div>
+            <h2 className="bloco__titulo">{titulo}</h2>
+            {sub ? <p className="bloco__sub">{sub}</p> : null}
+          </div>
+        </div>
+      ) : null}
       <div className="linhas">
         {linhas.map((l) => (
           <div className="linha" key={l.titulo}>

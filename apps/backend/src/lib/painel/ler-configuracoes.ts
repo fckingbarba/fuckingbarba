@@ -1,6 +1,7 @@
 import type { MedusaContainer } from "@medusajs/framework/types"
 import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
 import { CHAVE_NO_METADATA, lerConfiguracoes, type Configuracoes } from "../configuracoes"
+import { chavesDosAnuncios } from "../anuncios/chaves"
 import { remetenteDosEmails } from "../email"
 import { situacaoDaConexao } from "../erp/conexao"
 import { erpDaTela } from "../erp/erps"
@@ -74,6 +75,7 @@ export async function lerTelaDasConfiguracoes(
     membros: membros as unknown as MembroParaAviso[],
     usuariosDoAdmin: usuarios.map((u) => u.email).filter(Boolean) as string[],
     remetente: remetenteDosEmails(),
+    anuncios: chavesDosAnuncios(),
   })
 }
 

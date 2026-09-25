@@ -14,6 +14,7 @@ import {
 } from "react"
 import { mudarQuantidade, remover, type Resultado } from "@/lib/acoes/carrinho"
 import { CARRINHO_VAZIO, type CarrinhoVisivel } from "@/lib/carrinho-visivel"
+import { rastrearMudancaDaSacola } from "@/lib/rastrear"
 import { SEM_CONEXAO, semQueda } from "@/lib/rede"
 
 /**
@@ -182,9 +183,19 @@ export function ProvedorDaSacola({ children }: { children: ReactNode }) {
    */
   const vez = useRef(0)
 
+  /**
+   * A última sacola confirmada, e se ela já foi lida do servidor: o que
+   * entrou e saiu (o rastreio) é a diferença pra ela — antes da primeira
+   * leitura não há com o que comparar, e a sacola inteira contaria como
+   * "adicionada".
+   */
+  const ultima = useRef<CarrinhoVisivel | null>(null)
+
   /** A sacola que o servidor mandou: de uma ação, ou de quem adicionou. */
   const receber = useCallback((c: CarrinhoVisivel) => {
     vez.current++
+    if (ultima.current) rastrearMudancaDaSacola(ultima.current.itens, c.itens)
+    ultima.current = c
     setConfirmado(c)
     setLeitura("feita")
   }, [])
@@ -193,6 +204,7 @@ export function ProvedorDaSacola({ children }: { children: ReactNode }) {
   const aplicarLeitura = useCallback((minha: number, c: CarrinhoVisivel | null) => {
     if (minha !== vez.current) return
     if (c) {
+      ultima.current = c
       setConfirmado(c)
       setLeitura("feita")
     } else {
