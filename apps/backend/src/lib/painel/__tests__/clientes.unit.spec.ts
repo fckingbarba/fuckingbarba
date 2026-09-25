@@ -42,7 +42,6 @@ const pedido = (
   email: "x@exemplo.com",
   customer_id,
   total,
-  original_total: total,
   shipping_address: {
     first_name: "Rafael",
     last_name: "Souza",
@@ -130,6 +129,18 @@ describe("a lista", () => {
     })
     expect(l.total).toBe(3)
     expect(l.comOfertas).toBe(2)
+  })
+
+  it("o gasto é o que foi cobrado, com o cupom descontado — não a conta de antes dele", () => {
+    // Como o Medusa devolve um pedido com cupom: o `original_total` é de antes do desconto.
+    const doMedusa = { total: 118.11, original_total: 128.6, credit_line_total: 0 }
+    const [p] = juntarPessoas(
+      [cliente("cus_a", "ana@exemplo.com")],
+      [{ ...pedido("o1", "cus_a", "2026-09-24T20:52:00-03:00"), ...doMedusa }],
+      []
+    )
+    expect(listaDeClientes([p!], "dono", AGORA).clientes[0]!.gastou).toBe(118.11)
+    expect(fichaDoCliente(p!, "dono", ctx, new Map(), new Map())!.resumo.gastou).toBe(118.11)
   })
 
   it("marketing: só quem aceitou ofertas, e sem a cidade", () => {

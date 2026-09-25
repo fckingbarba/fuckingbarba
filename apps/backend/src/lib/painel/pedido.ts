@@ -1,3 +1,4 @@
+import { totalDoPedido } from "../avisar-cancelamento"
 import { documentoDoPedido, lerEndereco, telefone, type EnderecoDoMedusa } from "../dados-do-pedido"
 import { lerRegistro as lerConfirmacao } from "../confirmar-pedido"
 import { lerRegistroNoPedido } from "../envios/registro"
@@ -82,8 +83,8 @@ export type PedidoCru = {
   email?: string | null
   customer?: { has_account?: boolean | null } | null
   total?: unknown
-  /** O total do pedido como foi feito — o `total` cai quando há estorno (vira crédito). */
-  original_total?: unknown
+  /** O estorno, que o Medusa grava como crédito e desconta do `total` — ver `totalDo`. */
+  credit_line_total?: unknown
   item_subtotal?: unknown
   discount_total?: unknown
   shipping_total?: unknown
@@ -144,11 +145,22 @@ const numero = (v: unknown) => {
 /** Soma de preços em reais sem o lixo do ponto flutuante (0,1 + 0,2). */
 const centavos = (v: number) => Math.round(v * 100) / 100
 /**
- * O total do pedido como foi feito. O `total` do Medusa é o que SOBROU: o
- * estorno vira crédito e desconta — o pedido estornado inteiro mostraria
- * R$ 0,00 ao lado de "o estorno de R$ 128,60 não saiu".
+ * O total do pedido: o que foi cobrado, com o cupom e a oferta do checkout
+ * descontados — a conta do e-mail de cancelado (`totalDoPedido`). Dois
+ * cuidados com os números do Medusa:
+ *
+ * - o `total` é o que SOBROU: o estorno vira crédito (`credit_line_total`)
+ *   e desconta — o pedido estornado inteiro mostraria R$ 0,00 ao lado de
+ *   "o estorno de R$ 128,60 não saiu". Por isso o crédito volta pra conta;
+ * - o `original_total` é a conta de ANTES dos descontos (cupom e oferta): o
+ *   pedido de R$ 153,01 aparecia como R$ 158,50. Não serve.
+ *
+ * Em centavos: com a oferta, o Medusa guarda fração (10% de R$ 52,45 é
+ * R$ 5,245, e o pedido fica em R$ 123,355), e o Pagar.me cobra o
+ * arredondado (`emCentavos`: R$ 123,36) — é ele que aparece.
  */
-export const totalDo = (o: PedidoCru) => numero(o.original_total) || numero(o.total)
+export const totalDo = (o: Pick<PedidoCru, "total" | "credit_line_total">) =>
+  centavos(numero(totalDoPedido(o)))
 const texto = (v: unknown) => (typeof v === "string" ? v.replace(/\s+/g, " ").trim() : "")
 const emData = (v: Quando): Date | null => {
   if (!v) return null

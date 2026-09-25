@@ -14,6 +14,7 @@ import {
 import { exigirArea, type PedidoDaEquipe } from "../../../lib/equipe/acesso"
 import { anotar } from "../../../lib/painel/anotar"
 import { descontosAutomaticos } from "../../../lib/painel/cupons"
+import { totalDo } from "../../../lib/painel/pedido"
 
 /**
  * GET /dashboard/cupons — os cupons de campanha (com o que os pedidos dizem
@@ -46,7 +47,7 @@ type PedidoComAjustes = {
   status?: string | null
   created_at?: string | Date
   total?: unknown
-  original_total?: unknown
+  credit_line_total?: unknown
   payment_collections?: { payments?: { captured_at?: unknown }[] | null }[] | null
   items?: { adjustments?: { code?: string | null; amount?: unknown }[] | null }[] | null
   shipping_methods?: { adjustments?: { code?: string | null; amount?: unknown }[] | null }[] | null
@@ -72,7 +73,7 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
         "status",
         "created_at",
         "total",
-        "original_total",
+        "credit_line_total",
         "payment_collections.payments.captured_at",
         "items.adjustments.code",
         "items.adjustments.amount",
@@ -89,7 +90,8 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
     status: o.status,
     criado: new Date(o.created_at ?? 0).getTime(),
     pago: (o.payment_collections ?? []).some((c) => (c.payments ?? []).some((p) => p.captured_at)),
-    total: Number(o.original_total ?? o.total ?? 0),
+    // O cobrado, com o desconto do próprio cupom: o `original_total` é de antes dele.
+    total: totalDo(o),
     ajustes: [...(o.items ?? []), ...(o.shipping_methods ?? [])].flatMap(
       (l) => l.adjustments ?? []
     ),
