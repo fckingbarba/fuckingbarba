@@ -1,9 +1,11 @@
 /**
- * CONFERIDOR DA PROMOÇÃO — o "de/por" de cada produto, mudado na lista de
- * Produtos do painel: o campo que abre ali mesmo, o desconto enquanto a
- * pessoa digita, o que o Medusa recusa, o que a loja cobra depois (uma
- * unidade, e 2 e 3 com o desconto por quantidade em cima da promoção), o
- * histórico do produto, e quem não edita.
+ * CONFERIDOR DO PREÇO E DA PROMOÇÃO — os dois campos de cada produto na lista
+ * de Produtos do painel, "Preço" e "Promocional", como na Nuvemshop: o valor
+ * escrito e salvo com Enter, o desconto enquanto a pessoa digita, o que o
+ * Medusa recusa (com o campo que errou), o Esc, o que a loja cobra depois
+ * (uma unidade, e 2 e 3 com o desconto por quantidade em cima da promoção), a
+ * marca que segura o preço contra a importação do Bling, o histórico, e quem
+ * não edita.
  *
  *   (Medusa local; painel e loja no ar)
  *   node apps/dashboard/ferramentas/conferir-promocao.mjs
@@ -14,15 +16,17 @@
  * O BANCO LOCAL TEM A "PROMOÇÃO DE LANÇAMENTO" antiga (a produção não tem
  * mais: saiu na importação do Bling). O conferidor usa ela pra conferir que
  * o painel manda no de/por — gravar tira o produto dela —, e no fim devolve
- * o preço dela como estava, e espera o desconto por quantidade voltar: os
- * outros conferidores contam com esses preços.
+ * tudo como estava (o preço, a marca, a promoção antiga) e espera o desconto
+ * por quantidade voltar: os outros conferidores contam com esses preços.
  *
  * ┌─ O QUE ESTE ARQUIVO EXISTE PRA TRAVAR ─────────────────────────────────┐
- * │ • o botão coberto pelo link da linha (a linha inteira é um link);      │
- * │ • o "por" maior que o "de", o dedo errado (93% de desconto), o texto;  │
+ * │ • o campo coberto pelo link da linha (a linha inteira é um link);      │
+ * │ • o promocional maior que o preço, o dedo errado nos dois campos;      │
+ * │ • o Esc salvando o que foi digitado;                                   │
  * │ • a loja cobrando outro preço que o painel mostra;                     │
  * │ • "2 unidades" calculado do preço sem a promoção;                      │
  * │ • duas listas com preço pro mesmo produto (a antiga e a do painel);    │
+ * │ • o preço do painel sem a marca (a importação do Bling o trocaria);    │
  * │ • a operação mudando preço; rolagem de lado no celular; erro no        │
  * │   console.                                                             │
  * └────────────────────────────────────────────────────────────────────────┘
@@ -116,6 +120,9 @@ let tokenDoDono = ""
 /** A linha do produto antes de mexer: é por ela que o fim devolve a promoção antiga. */
 let antes = null
 
+/** O campo de um produto, na tabela ou no cartão. */
+const campo = (escopo, qual) => escopo.locator(`[data-campo-preco="${qual}"]`)
+
 try {
   titulo("Quem entra")
   const dono = await novaAba()
@@ -135,6 +142,9 @@ try {
     (
       await medusa("/dashboard/produtos", { metodo: "GET", token: tokenDoDono })
     ).corpo.produtos.find((p) => p.id === produtoId)
+  const detalheDaApi = async () =>
+    (await medusa(`/dashboard/produtos/${produtoId}`, { metodo: "GET", token: tokenDoDono })).corpo
+      .produto
   antes = await linhaDaApi()
   const de = antes.preco
   ok(
@@ -143,56 +153,74 @@ try {
     JSON.stringify(antes.promocao)
   )
 
-  titulo("O campo, na lista")
+  titulo("O promocional, na lista")
   const { pagina } = dono
   await pagina.goto(`${PAINEL}/produtos`)
   const linha = pagina.locator(`tr[data-produto="${produtoId}"]`)
-  await linha.locator("[data-promocao-abrir]").waitFor()
-  await linha.locator("[data-promocao-abrir]").click()
-  const campo = linha.locator("[data-promocao-form] input")
-  await campo.waitFor()
-  await campo.fill("5,00")
-  const noventa = semEspaco(await linha.locator(".promo-form__desconto").textContent())
-  await linha.locator("button[type=submit]").click()
-  const erroDoDedo = linha.locator(".promo-form__erro")
-  await erroDoDedo.waitFor()
+  const promocional = campo(linha, "promocional")
+  const preco = campo(linha, "preco")
+  await promocional.locator("input").waitFor()
+  const erroDo = (c) => c.locator(".campo-preco__erro")
+  await promocional.locator("input").fill("5,00")
+  const noventa = semEspaco(await promocional.locator(".campo-preco__desconto").textContent())
+  await promocional.locator("input").press("Enter")
+  await erroDo(promocional).waitFor()
   ok(
-    /^−9\d%$/.test(noventa) && semEspaco(await erroDoDedo.textContent()).includes("80%"),
+    /^−9\d%$/.test(noventa) && semEspaco(await erroDo(promocional).textContent()).includes("80%"),
     "o desconto aparece enquanto digita, e o dedo errado (mais de 80%) é recusado ali mesmo",
-    `${noventa} · ${await erroDoDedo.textContent()}`
+    `${noventa} · ${await erroDo(promocional).textContent()}`
   )
-  await campo.fill(String(de + 10).replace(".", ","))
-  const naoE = semEspaco(await linha.locator(".promo-form__desconto").textContent())
-  await linha.locator("button[type=submit]").click()
+  await promocional.locator("input").fill(String(de + 10).replace(".", ","))
+  await promocional.locator("input").press("Enter")
   await pagina.waitForFunction(
     (id) =>
       document
-        .querySelector(`tr[data-produto="${id}"] .promo-form__erro`)
-        ?.textContent?.includes("abaixo do preço do Bling"),
+        .querySelector(
+          `tr[data-produto="${id}"] [data-campo-preco="promocional"] .campo-preco__erro`
+        )
+        ?.textContent?.includes("abaixo do preço"),
     produtoId
   )
-  ok(naoE === "não é desconto", "o 'por' maior que o 'de' também não passa", naoE)
+  ok(true, "o promocional maior que o preço também não passa")
+
+  // O Esc volta o que estava, e não salva nada — nem saindo do campo.
+  const valorAntes = await promocional.locator("input").inputValue()
+  // Um valor que o Medusa aceitaria: se o Esc salvasse, a promoção mudaria de verdade.
+  await promocional.locator("input").fill("44,40")
+  await promocional.locator("input").press("Escape")
+  await esperar(1500)
+  const depoisDoEsc = await linhaDaApi()
+  ok(
+    (await promocional.locator("input").inputValue()) !== "44,40" &&
+      depoisDoEsc.promocao?.por === antes.promocao?.por,
+    "o Esc volta o valor de antes e não salva",
+    `${valorAntes} → ${await promocional.locator("input").inputValue()}`
+  )
 
   const POR = 39.9
-  await campo.fill("39,90")
-  await linha.locator("button[type=submit]").click()
+  await promocional.locator("input").fill("39,90")
+  await promocional.locator("input").press("Enter")
+  // Pela API: o desconto já aparece enquanto se digita, então a tela sozinha não diz que gravou.
+  let depois = await linhaDaApi()
+  for (let i = 0; i < 20 && depois.promocao?.deOutraLista !== false; i++) {
+    await esperar(500)
+    depois = await linhaDaApi()
+  }
   await pagina.waitForFunction(
     (id) =>
-      document
-        .querySelector(`tr[data-produto="${id}"] [data-preco]`)
-        ?.textContent?.includes("39,90"),
+      !document.querySelector(
+        `tr[data-produto="${id}"] [data-campo-preco="promocional"] .campo-preco__nota`
+      ),
     produtoId,
     { timeout: 20000 }
   )
-  const naTela = semEspaco(await linha.locator("[data-preco]").textContent())
-  const depois = await linhaDaApi()
   ok(
     depois.promocao?.por === POR &&
       depois.promocao.deOutraLista === false &&
-      naTela.includes(`−${depois.promocao.desconto}%`) &&
-      !naTela.includes("lista de preço do admin"),
-    "salvo: o de riscado, o por e o desconto, e agora é a promoção do painel",
-    naTela
+      (await preco.getAttribute("data-riscado")) !== null &&
+      semEspaco(await promocional.textContent()).includes("−45%"),
+    "salvo com Enter: o preço fica riscado, o promocional com o desconto, e agora é do painel",
+    JSON.stringify(depois.promocao)
   )
 
   titulo("O que a loja cobra")
@@ -205,7 +233,7 @@ try {
   }
   ok(
     umaUnidade.atual === POR && umaUnidade.cheio === de,
-    "a loja cobra o 'por' e risca o 'de'",
+    "a loja cobra o promocional e risca o preço",
     JSON.stringify(umaUnidade)
   )
   ok(
@@ -223,29 +251,81 @@ try {
     "a página do produto na loja mostra o de/por em segundos (o Medusa avisa a loja)"
   )
 
+  titulo("O preço, na lista")
+  await preco.locator("input").fill("5,00")
+  await preco.locator("input").press("Enter")
+  await erroDo(preco).waitFor()
+  const muitoDeUmaVez = semEspaco(await erroDo(preco).textContent())
+  await preco.locator("input").fill("30,00")
+  await preco.locator("input").press("Enter")
+  await pagina.waitForFunction(
+    (id) =>
+      document
+        .querySelector(`tr[data-produto="${id}"] [data-campo-preco="preco"] .campo-preco__erro`)
+        ?.textContent?.includes("abaixo do promocional"),
+    produtoId
+  )
+  ok(
+    muitoDeUmaVez.includes("demais"),
+    "o preço que muda demais de uma vez, e o que passa por baixo do promocional, são recusados",
+    muitoDeUmaVez
+  )
+  const NOVO = 79.9
+  await preco.locator("input").fill("79,90")
+  await preco.locator("input").press("Enter")
+  let comPrecoNovo = await linhaDaApi()
+  for (let i = 0; i < 20 && comPrecoNovo.preco !== NOVO; i++) {
+    await esperar(500)
+    comPrecoNovo = await linhaDaApi()
+  }
+  const noCaixa = await naLoja()
+  ok(
+    comPrecoNovo.preco === NOVO &&
+      comPrecoNovo.promocao?.por === POR &&
+      noCaixa.cheio === NOVO &&
+      noCaixa.atual === POR,
+    "o preço novo vale na loja, e a promoção continua (a loja risca o preço novo)",
+    JSON.stringify({ painel: comPrecoNovo.preco, loja: noCaixa })
+  )
+  ok(
+    (await detalheDaApi()).precoDoPainel === true,
+    "o produto ganhou a marca: a importação do Bling não troca mais esse preço"
+  )
+
   titulo("O histórico e o detalhe")
   await pagina.goto(`${PAINEL}/produtos/${produtoId}`)
   await pagina.waitForSelector("[data-promocao-no-detalhe]")
+  const precoNoDetalhe = semEspaco(await pagina.locator("[data-preco-no-detalhe]").textContent())
   const noDetalhe = semEspaco(await pagina.locator("[data-promocao-no-detalhe]").textContent())
   const historico = semEspaco(await pagina.locator("[data-historico]").textContent())
   ok(
-    noDetalhe.includes("39,90") &&
+    precoNoDetalhe.includes("mudado no painel") &&
+      precoNoDetalhe.includes("79,90") &&
+      noDetalhe.includes("39,90") &&
+      historico.includes("mudou o preço") &&
+      historico.includes("de R$ 72,40 pra R$ 79,90") &&
       historico.includes("pôs a promoção") &&
-      historico.includes("de R$ 72,40 por R$ 39,90"),
-    "o detalhe mostra a promoção, e o histórico diz quem pôs, de quanto por quanto",
-    `${noDetalhe} · ${historico.slice(0, 160)}`
+      historico.includes("por R$ 39,90"),
+    "o detalhe diz de onde vem o preço, e o histórico diz quem mudou o quê, de quanto pra quanto",
+    `${precoNoDetalhe} · ${noDetalhe} · ${historico.slice(0, 200)}`
   )
 
   titulo("A operação")
   await op.pagina.goto(`${PAINEL}/produtos`)
-  await op.pagina.waitForSelector(`tr[data-produto="${produtoId}"] [data-preco]`)
-  const mudarOp = await medusa(`/dashboard/produtos/${produtoId}/promocao`, {
+  await op.pagina.waitForSelector(`tr[data-produto="${produtoId}"] [data-campo-preco="preco"]`)
+  const mudarOp = await medusa(`/dashboard/produtos/${produtoId}/preco`, {
     token: cookieOp.value,
-    corpo: { por: "10,00" },
+    corpo: { promocional: "10,00" },
   })
   ok(
-    (await op.pagina.locator("[data-promocao-abrir]").count()) === 0 && mudarOp.status === 403,
-    "a operação vê o preço, sem o botão, e não muda (403)",
+    (await op.pagina.locator("[data-campo-preco] input").count()) === 0 &&
+      semEspaco(
+        await op.pagina
+          .locator(`tr[data-produto="${produtoId}"] [data-campo-preco="promocional"]`)
+          .textContent()
+      ).includes("39,90") &&
+      mudarOp.status === 403,
+    "a operação vê os dois valores, sem campo, e não muda (403)",
     String(mudarOp.status)
   )
 
@@ -254,26 +334,26 @@ try {
   await cel.contexto.addCookies(await dono.contexto.cookies())
   await cel.pagina.goto(`${PAINEL}/produtos`)
   const cartao = cel.pagina.locator(`.cartao--produto[data-produto="${produtoId}"]`)
-  await cartao.locator("[data-promocao-abrir]").waitFor()
-  await cartao.locator("[data-promocao-abrir]").click()
-  await cartao.locator("[data-promocao-form] input").waitFor()
-  ok(await semRolagemDeLado(cel.pagina), "no celular, o campo abre no cartão, sem rolagem de lado")
+  await campo(cartao, "promocional").locator("input").waitFor()
+  ok(
+    (await campo(cartao, "preco").locator("input").inputValue()) === "79,90" &&
+      (await semRolagemDeLado(cel.pagina)),
+    "no celular, os dois campos no cartão, sem rolagem de lado"
+  )
 
   titulo("Tirar")
-  await cartao.locator("[data-promocao-tirar]").click()
-  await cel.pagina.waitForFunction(
-    (id) => {
-      const el = document.querySelector(`.cartao--produto[data-produto="${id}"] [data-preco]`)
-      return Boolean(el && !el.textContent.includes("39,90"))
-    },
-    produtoId,
-    { timeout: 20000 }
-  )
+  await campo(cartao, "promocional").locator("input").fill("")
+  await campo(cartao, "promocional").locator("input").press("Enter")
+  let semPromocaoNoPainel = await linhaDaApi()
+  for (let i = 0; i < 20 && semPromocaoNoPainel.promocao !== null; i++) {
+    await esperar(500)
+    semPromocaoNoPainel = await linhaDaApi()
+  }
   const semPromocao = await naLoja()
   // Se a de lançamento tivesse ficado, a loja cobraria ela aqui: o painel tirou o produto dela.
   ok(
-    (await linhaDaApi()).promocao === null && semPromocao.atual === de,
-    "tirada: sem promoção nenhuma (nem a antiga), e a loja volta ao preço do Bling",
+    semPromocaoNoPainel.promocao === null && semPromocao.atual === NOVO,
+    "promocional apagado: sem promoção nenhuma (nem a antiga), e a loja cobra o preço",
     JSON.stringify(semPromocao)
   )
 
@@ -282,11 +362,15 @@ try {
 } catch (err) {
   falhou(`o conferidor quebrou: ${err instanceof Error ? err.stack : err}`)
 } finally {
-  // Sem a promoção do painel (tirar tira de todas as listas), e a de lançamento como estava.
+  // Tudo como estava: o preço (e sem a marca), sem a promoção do painel, e a de lançamento.
   if (tokenDoDono && antes) {
-    await medusa(`/dashboard/produtos/${produtoId}/promocao`, {
+    await medusa(`/dashboard/produtos/${produtoId}/preco`, {
       token: tokenDoDono,
-      corpo: { por: null },
+      corpo: { preco: String(antes.preco).replace(".", ","), promocional: "" },
+    })
+    await adm(`/admin/products/${produtoId}`, {
+      metodo: "POST",
+      corpo: { metadata: { fb_preco: "" } },
     })
   }
   if (lancamento && antes?.promocao?.deOutraLista) {
