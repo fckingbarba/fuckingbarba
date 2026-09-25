@@ -1362,6 +1362,39 @@ Conferido pelo `conferir-clientes.mjs` (37 checagens, novo).
 
 Depois do deploy — **nada a configurar.**
 
+**Fase 6, parte 2: Cupons e descontos — pronto em 24/09 (entrega 0085).**
+
+- **Cupom novo pelo painel:** Cupons e descontos → Novo cupom. Você escolhe:
+  - o código, que é o que a pessoa digita (o painel grava em maiúsculas; na loja, tanto faz);
+  - o tipo: % do pedido ou R$ fixo;
+  - o pedido mínimo, contado nos produtos, sem o frete — a mesma conta do frete grátis;
+  - até quando vale (até o fim do dia, no horário de Brasília);
+  - o limite de usos no total;
+  - "uma vez por cliente" e "só na primeira compra", pelo e-mail da compra.
+- A gaveta mostra a frase do cupom antes de criar. Criou, já vale no checkout.
+- **Quem confere é a loja, não a tela.** O mínimo, a data, o limite e o "uma vez" são conferidos
+  no carrinho, a cada mudança. Se a pessoa tira um produto e fica abaixo do mínimo, o cupom sai
+  sozinho. Se ela digita o cupom antes do e-mail, a loja confere de novo quando o e-mail chega.
+  Cupom recusado diz "Esse cupom não vale pra este pedido."
+- **A lista:** cada cupom em frase, os usos ("23 de 100 usos"), quanto deu de desconto, quanto
+  vendeu em pedidos pagos e a situação: valendo, pausado, vencido ou esgotado. A chave pausa e liga
+  na hora. Vencido e esgotado não têm chave: pra valer de novo, crie outro cupom. Os cupons que já
+  existiam no Medusa aparecem também.
+- **Os descontos automáticos**, embaixo, em frase: o desconto por quantidade, a oferta do checkout
+  (com em quantos pedidos pagos ela entrou nos últimos 7 dias) e o frete grátis de hoje.
+- **Quem vê:** o dono e o marketing. Criar, pausar e ligar fica no registro da equipe.
+
+Ficou pra depois:
+
+- [ ] O cupom de **frete grátis**: o resumo do checkout mostraria o desconto do frete duas vezes
+      (no frete e no desconto). Entra quando o resumo mudar. O frete grátis pelo valor mínimo
+      segue valendo.
+- [ ] O botão **"Mudar"** do desconto por quantidade: as faixas ainda mudam só no código.
+
+Conferido pelo `conferir-cupons.mjs` (25 checagens, novo).
+
+Depois do deploy — **nada a configurar.**
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os onze conferidores (contra o Medusa local, com
