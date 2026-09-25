@@ -892,6 +892,47 @@ mostra `shipping_total` e `discount_total`, e o desconto do frete apareceria nos
 conferidor é o `apps/dashboard/ferramentas/conferir-cupons.mjs`: cria os cupons pelo painel,
 aplica pela Store API e faz os pedidos com o `pedidoPix(..., { cupom })` do `pedido-de-teste.mjs`.
 
+**Observabilidade** (fase 7, entrega 0087). O módulo `src/modules/observabilidade/` guarda três
+tabelas: `obs_rotina` (a última rodada de cada job), `obs_problema` e `obs_sinal` (o dia de cada
+integração). A regra mora em `src/lib/painel/observabilidade.ts`, puro, com testes:
+
+- `ROTINAS`: os jobs de `src/jobs`, em frase, com a agenda. O teste confere que cada job está na
+  lista com o mesmo `config`: job novo entra nela, ou o teste falha;
+- os problemas: `problemasDosPedidos` (estorno, nota, Frenet, entrega, os mesmos do Início),
+  `problemaDoErp`, `problemasDasRotinas` (falhando seguido, parada) e `problemasDosSinais` (um por
+  integração e por dia);
+- `conciliarProblemas`: o que muda na tabela. Cria o novo, atualiza o aberto, reabre o que voltou e
+  resolve sozinho o de estado que sumiu. O de pedido fora da janela lida não some;
+- a tela (`telaDaObservabilidade`), conforme o papel. `so_dono` é o estorno, como no Início.
+
+O resto é assim:
+
+- **A rodada.** Todo job exporta `comRodada(config.name, fn)` (`lib/observabilidade/rodada.ts`):
+  começo, fim e erro em `obs_rotina`, e o erro segue pro Medusa como antes. Anotar nunca derruba o
+  job.
+- **O sinal.** `sinal({ integracao, ok, resumo, detalhe })` (`lib/observabilidade/sinal.ts`) mora
+  em cada chamada de fora: o `enviarEmail`, o `perguntar` da cotação da Frenet, o `chamar` do
+  Pagar.me e o aviso (webhook), o `chamarBling` e o token, o `postar` do Google e o `avisarALoja`.
+  É uma porta global, que o construtor do serviço liga (essas funções não recebem o container).
+  Nunca espera e nunca lança. O `semDadoPessoal` cobre e-mail e CPF, e o assunto do e-mail vai com
+  o código de seis dígitos coberto. A soma do dia é do banco (`insert … on conflict`, no serviço).
+- **O vigia** (`lib/observabilidade/vigia.ts`). Roda no job `vigiar-a-loja` (minutos 1, 6, 11…) e
+  na tela, no máximo a cada 30 segundos, um de cada vez. Lê os pedidos dos últimos 45 dias (até 500)
+  com as notas e os envios, a conexão do ERP, as rotinas e os sinais de hoje e de ontem. Apaga os
+  sinais de mais de 60 dias e os problemas resolvidos há mais de 90.
+- **Os dois tipos.** O problema de estado (`sozinho`) não se marca: a rota responde 409
+  `sai_sozinho`. O de evento se marca pelo `resolverProblemaWorkflow`, e volta se acontecer de novo
+  depois. As rotinas todas paradas (o vigia também) viram um problema na hora da leitura, sem
+  tabela: é o worker fora do ar.
+- **As rotas**, na área `observabilidade` (dono e operação): `GET /dashboard/observabilidade`
+  (`lib/observabilidade/tela.ts`: a loja agora pelo `LOJA_URL`, guardada 1 minuto; o Medusa ligado
+  desde; a conexão do ERP e a última nota) e `POST /dashboard/observabilidade/problemas/:id`
+  `{ acao: "resolver" }`. O `GET /dashboard/eu` devolve `avisos.observabilidade`: os graves que o
+  papel vê, pro número vermelho do menu.
+
+O conferidor é o `apps/dashboard/ferramentas/conferir-observabilidade.mjs`. Ele cria as falhas nos
+falsos: o Resend recusa, a Frenet cai, e o Pagar.me não estorna.
+
 O CSS do painel segue o do protótipo, uma regra por linha, escrito à mão: o prettier fica nos
 `.ts`/`.tsx`/`.mjs` — rodado nos `.css` do painel, ele reescreve o arquivo inteiro. A gaveta
 (`components/gaveta.tsx`) mora no `<body>`, por portal: aberta de dentro de um `.bloco`, ela
