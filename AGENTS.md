@@ -316,7 +316,13 @@ achou. O rastreio vem de
 abaixo) com o mesmo filtro de dono — a API da loja nem sabe que eles existem, e corta as etiquetas
 dos fulfillments. O id do pedido no endereço não passa pra minúscula (`CAMINHOS_COM_ID`, no `proxy.ts`). O
 conferidor da conta monta pedidos de verdade em cada estado com `ferramentas/pedido-de-teste.mjs`
-— por isso pede `ADMIN_EMAIL`/`ADMIN_SENHA`, como os de frete e pagamento. Quem decide a situação
+— por isso pede `ADMIN_EMAIL`/`ADMIN_SENHA`, como os de frete e pagamento. **O total do pedido é
+o cobrado**, na conta e na tela de obrigado (`totalCobrado`, em `lib/pedido.ts`): o `total` do
+Medusa mais o `credit_line_total`, arredondado no centavo como o Pagar.me cobra — a mesma conta do
+painel e do e-mail de cancelamento. O `total` sozinho zera no pedido estornado (o cancelamento
+grava a devolução como crédito), e o `original_total` é a conta de antes do cupom e da oferta do
+checkout. O conferidor compara cada total com o que o Pagar.me falso cobrou, com um pedido pago
+com a oferta e cancelado na lista. Quem decide a situação
 de cada pedido é o servidor (`situacaoDe`), com a hora dele: Pix que passou do `expiraEm` não é
 `pix`, é **`vencido`** — selo "Pix vencido", "O Pix venceu — o pedido vai ser cancelado" e "Ver
 pedido" no lugar de "Pagar o Pix". Quem está com a tela aberta na hora em que vence vê a troca sem

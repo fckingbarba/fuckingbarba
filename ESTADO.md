@@ -862,6 +862,14 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
       Só pra quem ouviu "nada foi cobrado"; quem recebeu o "cancelado e estornado" já sabe do
       dinheiro. De quebra: o e-mail de cancelado e estornado mostrava "Total R$ 0,00" (o Medusa
       grava a devolução como crédito e zera o total); agora mostra o que foi pago.
+- [x] **O total do pedido cancelado com desconto, na Minha conta e na tela de obrigado** (entrega
+      0089, 25/09). O pedido com cupom ou com a oferta do checkout, pago e depois cancelado,
+      aparecia com o valor de ANTES do desconto: no banco local, cobrado R$ 153,01 e mostrado
+      R$ 158,50, logo abaixo do "Desconto −R$ 5,49". Agora a lista de pedidos, o pedido aberto e a
+      tela de obrigado mostram o que foi cobrado — a mesma conta do painel (entrega 0088) e do
+      e-mail de cancelamento (0086). O `conferir-conta` ganhou um pedido pago com a oferta e
+      cancelado, e compara o total de cada pedido com o que o Pagar.me cobrou; com o código de
+      antes, as quatro checagens do total falham. Nada a configurar depois do deploy.
 - [ ] **Pagamento, o que a revisão achou e ficou pra depois** (baixo risco, sem dinheiro preso):
   - estorno ou contestação feitos do lado do Pagar.me depois do pagamento (pelo painel deles,
     chargeback) não são percebidos: o pedido segue pago, pro envio.
