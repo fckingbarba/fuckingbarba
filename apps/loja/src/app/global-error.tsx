@@ -1,6 +1,8 @@
 "use client"
 
+import { useEffect } from "react"
 import { TelaDeErro } from "@/components/tela-de-erro"
+import { avisarTelaDeErro } from "@/components/telemetria/telemetria"
 import { site } from "@/lib/site"
 import "./globals.css"
 
@@ -14,11 +16,13 @@ import "./globals.css"
  * layout que acabou de cair.
  */
 export default function ErroGeral({
+  error,
   retry,
 }: {
   error: Error & { digest?: string }
   retry: () => void
 }) {
+  useEffect(() => avisarTelaDeErro(error), [error])
   return (
     <html lang="pt-BR" className="h-full antialiased">
       <body className="flex min-h-full flex-col">

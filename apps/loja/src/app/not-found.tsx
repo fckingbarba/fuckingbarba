@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { Avisar404 } from "@/components/telemetria/avisar-404"
 
 export default function NaoEncontrada() {
   return (
@@ -6,6 +7,7 @@ export default function NaoEncontrada() {
       id="conteudo"
       className="mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center px-4 py-16 sm:px-6"
     >
+        <Avisar404 />
         <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-tinta">Erro 404</p>
         <h1 className="titulo-marca mt-2 text-5xl text-tinta sm:text-7xl">
           Essa página não existe.

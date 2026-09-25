@@ -9,6 +9,7 @@ import { SemZoomNoCampo } from "@/components/layout/sem-zoom-no-campo"
 import { ProvedorDoFrete } from "@/components/configuracoes/contexto"
 import { ProvedorDaSacola } from "@/components/sacola/contexto"
 import { Gaveta } from "@/components/sacola/gaveta"
+import { Telemetria } from "@/components/telemetria/telemetria"
 import { configuracoes, modeloDeRecomendacao, vitrineDaSacola } from "@/lib/medusa"
 import { emProducao, site } from "@/lib/site"
 import "./globals.css"
@@ -121,6 +122,8 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
           </ProvedorDaSacola>
         </ProvedorDoFrete>
         <Tags />
+        {/* A velocidade da visita, a página que não existe e o erro, pro painel. */}
+        <Telemetria />
       </body>
     </html>
   )
