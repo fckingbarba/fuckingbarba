@@ -1058,12 +1058,16 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
 - [ ] **Os preços, antes da virada — você.** A loja nova usa o preço do Bling, e em 25/09 ele
       estava acima do que a Nuvemshop cobra hoje em todos os produtos: a Nuvemshop mostra um
       "de/por", e a promoção não veio na importação do Bling (23/09). Com a promoção no painel
-      (entrega 0098), é pôr o "por" de hoje em cada um — Painel → Produtos → **Pôr em promoção**.
+      (entregas 0098 e 0102), é pôr o "por" de hoje no **Promocional** de cada um — Painel → Produtos.
       O "por" de cada um na Nuvemshop, em 25/09: Óleo R$ 54,90 · Balm R$ 53,90 · Shampoo R$ 49,90 ·
       Spray Matte R$ 49,90 · Fator R$ 79,90 · Kit Completo R$ 99,90 · Kit 2x Fator R$ 149,90 · Kit 3x
       Fator R$ 222,90 · Kit 6x Fator R$ 410,90 · Pastas Matte e Brilho R$ 59,90 · Kit Shampoo Duplo
       R$ 89,90 · Kit Hidratação R$ 99,90 · Kit Essencial R$ 99,90 · Kit Fator + Shampoo R$ 109,90.
-      Se os preços do Bling forem de propósito, é só não pôr.
+      E o "de" riscado de lá, pra quem quiser o mesmo no **Preço**: Óleo R$ 79,90 · Balm R$ 78,90 ·
+      Shampoo R$ 72,40 · Spray Matte R$ 119,90 · Fator R$ 133,20 · Kit Completo R$ 189,90 · Kit 2x
+      Fator R$ 255,70 · Kit 3x Fator R$ 363,70 · Kit 6x Fator R$ 695,40 · Pastas R$ 74,90 · Kit
+      Shampoo Duplo R$ 140,40 · Kit Hidratação R$ 144,80 · Kit Essencial R$ 140,80 · Kit Fator +
+      Shampoo R$ 183,20. Se os preços do Bling forem de propósito, é só não pôr.
 - [ ] **Os endereços antigos que não são de produto — Claude Code.** Conferidos em 25/09 contra o
       mapa do site da Nuvemshop, dão "página não encontrada" na loja nova: `/produtos-para-a-barba/`
       (e `/balm/`, `/fator-de-crescimento/`, `/oleo/` e `/shampoo/` dentro dela), `/kits-para-barba/`,
@@ -1179,7 +1183,8 @@ O que o protótipo tem, aprovado em 23/09:
   fundo em **duas versões, computador e celular** (PNG ou WebP). A **caixa de compra** da página
   mostra uma coisa **ou** outra, no mesmo lugar abaixo do preço: os cartões "Quantas unidades" (o
   order bump da página) ou o "Leve junto" (o cross-sell, 2 produtos). O topo da página é fixo e
-  não se edita. E a **promoção** (o "de/por"), direto na lista (desde 25/09, entrega 0098).
+  não se edita. E o **preço e o promocional** (o "de/por"), direto na lista (desde 25/09, entregas
+  0098 e 0102).
 - **Layout da home:** as seções editáveis, o **banner principal com até 5 slides**, e nada vai pro
   site sem "Publicar".
 - **Carrinhos abandonados:** a lista — quem parou, em que passo do checkout, e o botão pra chamar
@@ -1811,32 +1816,38 @@ da régua (11).
 Depois do deploy — **nada a configurar.** Pra testar: Painel → **Carrinhos abandonados**. Enquanto
 o domínio for da Nuvemshop, quase só os seus testes aparecem ali.
 
-**Produtos: a promoção (o "de/por") na lista — pronta em 25/09 (entrega 0098).** Até aqui o preço
-era só o do Bling, e a promoção da loja antiga não veio na importação. Agora cada produto da lista
-de Produtos do painel tem **Pôr em promoção**, ali mesmo, sem abrir o produto.
+**Produtos: o preço e o promocional na lista — prontos em 25/09 (entregas 0098 e 0102).** Até aqui
+o preço era só o do Bling, e a promoção da loja antiga não veio na importação. A 0098 pôs a
+promoção atrás de um botão ("Pôr em promoção"); a pedido da loja, a 0102 trocou pelos dois campos,
+como na Nuvemshop — **Preço** e **Promocional** —, e o preço também passou a se mudar no painel.
 
-- **Como:** Painel → Produtos → no preço do produto, **Pôr em promoção** → escreva o "por" (59,90)
-  → **Salvar**. O desconto aparece enquanto você digita. **Mudar promoção** troca o valor; **Tirar
-  promoção** volta ao preço do Bling.
-- **O "de" é o preço do Bling**; o "por" é o que você escreveu. A loja mostra os dois — o de
-  riscado, com a % — na página do produto, nas vitrines e na busca, em segundos.
-- **"Quantas unidades"** (2 e 3 unidades) sai do preço da promoção, na hora. O cupom e a oferta do
-  checkout descontam em cima dela.
-- **O painel recusa** o "por" igual ou maior que o "de", e desconto de mais de 80% (quase sempre é
-  dedo errado: 5,99 no lugar de 59,90).
-- **Quem muda:** dono e marketing; a operação vê. Fica no histórico do produto: "Fulano pôs a
-  promoção — de R$ 72,40 por R$ 39,90". O detalhe do produto mostra a promoção, sem editar lá.
-- **O painel manda no de/por:** uma promoção antiga (feita no admin do Medusa) aparece na lista com
-  "de uma lista de preço do admin"; salvar ou tirar pelo painel substitui ela.
-- Se o Bling baixar o preço pra menos que a promoção, a lista avisa que ela não vale. Trazer o
-  catálogo do Bling de novo não mexe na promoção.
+- **Como:** Painel → Produtos → escreva no campo e aperte **Enter** (ou saia do campo): salva. O
+  **Esc** volta o valor de antes. **Promocional vazio** é sem promoção. O desconto aparece embaixo
+  do promocional enquanto você digita.
+- **Com promocional, o preço fica riscado** — na lista e na loja, que mostra os dois (o riscado,
+  com a %) na página do produto, nas vitrines e na busca, em segundos.
+- **O preço mudado no painel é do painel:** a importação do catálogo do Bling não troca mais o
+  preço daquele produto (o nome, a descrição, o peso e as medidas continuam vindo de lá). O
+  detalhe do produto diz de onde vem o preço — "mudado no painel" ou "do Bling". O preço do Bling
+  continua lá, no Bling; a nota fiscal sai com o preço do pedido.
+- **"Quantas unidades"** (2 e 3 unidades) sai do preço de hoje — o promocional, se houver —, na
+  hora. O cupom e a oferta do checkout descontam em cima dele.
+- **O painel recusa**, com o recado embaixo do campo: promocional igual ou maior que o preço;
+  desconto de mais de 80% (5,99 no lugar de 59,90); preço que muda mais de 5 vezes de uma vez
+  (8,99 ou 899,00 no lugar de 89,90); e preço que passaria por baixo do promocional.
+- **Quem muda:** dono e marketing; a operação vê os dois valores, sem campo. Fica no histórico do
+  produto: "Fulano mudou o preço — de R$ 72,40 pra R$ 79,90", "Fulano pôs a promoção — de R$ 79,90
+  por R$ 39,90".
+- **O painel manda no de/por:** uma promoção antiga (feita no admin do Medusa) aparece com "de uma
+  lista de preço do admin"; mudar o promocional pelo painel substitui ela.
 - **De quebra, um conserto nos Carrinhos (0096):** na linha de quem voltou e comprou, o link do
   pedido cobria a linha inteira, e o botão do WhatsApp não abria. Consertado.
 
-Conferido pelo `conferir-promocao.mjs` (13 checagens, novo: o campo na lista, o que é recusado, o
-que a loja cobra por 1, 2 e 3 unidades, a página da loja, o histórico, a operação, o celular e o
-tirar) e pelo `conferir-carrinhos.mjs`, que ganhou a do botão (12). E pelos testes de unidade da
-promoção (8) e das faixas saindo do preço dela.
+Conferido pelo `conferir-promocao.mjs` (17 checagens, novo: os dois campos, o Enter e o Esc, o que
+é recusado, o que a loja cobra por 1, 2 e 3 unidades, a página da loja, a marca contra a
+importação, o histórico, a operação e o celular) e pelo `conferir-carrinhos.mjs`, que ganhou a do
+botão (12). E pelos testes de unidade do preço e da promoção, das faixas saindo do preço de hoje e
+da importação deixando o preço do painel.
 
 Depois do deploy — **o que você faz:**
 
