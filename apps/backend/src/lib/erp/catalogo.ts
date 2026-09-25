@@ -18,7 +18,13 @@ import type { Acesso, ErpDaLoja, FotoNoErp, MedidasDaCaixa, ProdutoNoErp } from 
 import { erpDaLoja } from "./erps"
 import { sincronizarEstoque } from "./estoque"
 import { baixarFoto, guardarFoto } from "./fotos"
-import { MARCA_DAS_FOTOS, MARCA_DO_ERP, MARCA_DO_NOME, temNomeDaLoja } from "./marcas"
+import {
+  MARCA_DAS_FOTOS,
+  MARCA_DO_ERP,
+  MARCA_DO_NOME,
+  MARCA_DO_PRECO,
+  temNomeDaLoja,
+} from "./marcas"
 
 /**
  * OS PRODUTOS DO SITE VÊM DO ERP — a importação do catálogo (decidida em
@@ -75,7 +81,14 @@ import { MARCA_DAS_FOTOS, MARCA_DO_ERP, MARCA_DO_NOME, temNomeDaLoja } from "./m
  * loja é avisada.
  */
 
-export { MARCA_DAS_FOTOS, MARCA_DO_ERP, MARCA_DO_NOME, nomeNoErp, temNomeDaLoja } from "./marcas"
+export {
+  MARCA_DAS_FOTOS,
+  MARCA_DO_ERP,
+  MARCA_DO_NOME,
+  MARCA_DO_PRECO,
+  nomeNoErp,
+  temNomeDaLoja,
+} from "./marcas"
 const MOEDA = "brl"
 
 export type FotoCopiada = { chave: string; url: string }
@@ -281,6 +294,8 @@ export type ItemDoPlano = {
    * entra. Null é o nome do ERP, como sempre.
    */
   nomeDaLoja: string | null
+  /** O preço foi mudado no painel (`MARCA_DO_PRECO`): o do ERP não entra. */
+  precoDoPainel: boolean
   /** Por que não entra. */
   bloqueio: string | null
   avisos: string[]
@@ -402,6 +417,7 @@ export function planejar(doErp: ProdutoNoErp[], doSite: ProdutoDoSite[]): ItemDo
       primeira: true,
       fotosDoErp: false,
       nomeDaLoja: null,
+      precoDoPainel: false,
       bloqueio,
       avisos,
     }
@@ -457,7 +473,10 @@ export function planejar(doErp: ProdutoNoErp[], doSite: ProdutoDoSite[]): ItemDo
     i.primeira = i.como !== "atualiza" || !marcaDe(deHoje?.metadata)
     i.fotosDoErp = i.erp.fotos.length > 0 && !(temFoto && escolhidas) && (i.primeira || !temFoto)
     i.nomeDaLoja = deHoje && temNomeDaLoja(deHoje.metadata) ? deHoje.titulo : null
+    i.precoDoPainel =
+      !i.primeira && Boolean((deHoje?.metadata as Record<string, unknown>)?.[MARCA_DO_PRECO])
     i.avisos.push(...avisosDosCampos(i, temFoto))
+    if (i.precoDoPainel) i.avisos.push("preço mudado no painel: fica o de hoje")
   }
   return itens
 }
@@ -479,6 +498,8 @@ export type ProdutoNaPrevia = {
   noSite: string[]
   /** Em reais: o menor e o maior das variações. */
   preco: { de: number; ate: number } | null
+  /** O preço foi mudado no painel: o do ERP não entra (a prévia mostra o de hoje). */
+  precoDoPainel: boolean
   pesoGramas: number | null
   medidas: MedidasDaCaixa | null
   /** Os links do ERP, pra ver na prévia (os que sobem pra loja são outros). */
@@ -588,6 +609,7 @@ export async function lerPrevia(
         preco:
           faixa(i.variacoes.map((v) => v.preco)) ??
           (i.erp.preco ? { de: i.erp.preco, ate: i.erp.preco } : null),
+        precoDoPainel: i.precoDoPainel,
         pesoGramas: i.variacoes[0]?.pesoGramas ?? i.erp.pesoGramas,
         medidas: i.variacoes[0]?.medidas ?? i.erp.medidas,
         fotos: i.erp.fotos.map((f) => f.url),
@@ -755,7 +777,8 @@ async function atualizarNoLugar(
         return [
           {
             id: v.id,
-            prices: [{ amount: p.preco, currency_code: MOEDA }],
+            // O preço mudado no painel fica: o do ERP só entra no que não tem a marca.
+            ...(i.precoDoPainel ? {} : { prices: [{ amount: p.preco, currency_code: MOEDA }] }),
             ...(p.pesoGramas ? { weight: p.pesoGramas } : {}),
             ...medidasPraMedusa(p.medidas),
           },

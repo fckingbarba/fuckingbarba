@@ -41,6 +41,8 @@ type ProdutoDoErp = {
   avisos: string[]
   noSite: string[]
   preco: { de: number; ate: number } | null
+  /** O preço foi mudado no painel: o do ERP não entra. */
+  precoDoPainel: boolean
   pesoGramas: number | null
   medidas: Medidas | null
   fotos: string[]
@@ -265,7 +267,9 @@ const CatalogoDoErp = () => {
             <Table.Body>
               {previa.produtos.map((p) => {
                 const hoje = doSite.get(p.noSite[0] ?? "")
-                const precoHoje = hoje?.preco ?? null
+                // O preço do produto (o "de", quando há promoção): é ele que o ERP troca, e a
+                // promoção fica.
+                const precoHoje = hoje ? (hoje.precoDe ?? hoje.preco) : null
                 const fora = !p.bloqueio && !marcados.has(p.id)
                 return (
                   <Table.Row key={p.id} className={`align-top ${fora ? "opacity-60" : ""}`}>
@@ -307,8 +311,14 @@ const CatalogoDoErp = () => {
                     <Table.Cell className="whitespace-nowrap py-3">
                       <Troca
                         antes={precoHoje !== null ? reais(precoHoje) : null}
-                        depois={faixa(p.preco)}
-                        muda={precoHoje !== null && (!p.preco || p.preco.de !== precoHoje)}
+                        depois={
+                          p.precoDoPainel && precoHoje !== null ? reais(precoHoje) : faixa(p.preco)
+                        }
+                        muda={
+                          !p.precoDoPainel &&
+                          precoHoje !== null &&
+                          (!p.preco || p.preco.de !== precoHoje)
+                        }
                       />
                       {hoje?.precoDe && p.como !== "novo" && p.primeira ? (
                         <Text size="xsmall" className="text-ui-fg-muted">
@@ -442,11 +452,15 @@ const CatalogoDoErp = () => {
                 Na primeira vez de cada produto, saem o subtítulo, os textos da página (os blocos
                 editados no admin) e o preço “de/por”
                 {comTextos ? ` — ${comTextos} produto(s) têm esses textos hoje` : ""}. Promoção nova
-                se cria no admin.
+                se cria no painel, na lista de produtos (o promocional).
               </li>
               <li>
                 O que já veio do {nome} antes (“Atualiza”) muda só nome, descrição, preço, peso e
                 medidas: as fotos, os textos e as promoções de hoje ficam.
+              </li>
+              <li>
+                O preço mudado no painel (na lista de produtos) fica: o do {nome} não entra nesse
+                produto.
               </li>
               <li>
                 A descrição do {nome} vai pro Google e pra busca da loja. A página do produto não

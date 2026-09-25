@@ -292,6 +292,23 @@ describe("o plano: o que acontece com cada produto do ERP", () => {
     expect(novo!.nomeDaLoja).toBeNull()
   })
 
+  it("o preço mudado no painel fica: o do ERP não entra (da segunda vez em diante)", () => {
+    const erp = doErp({ id: "1", nome: "Óleo", sku: "FBOL01", preco: 79.9 })
+    const marcado = {
+      fb_erp: { erp: "bling", id: "1", fotos: [] },
+      fb_preco: { origem: "painel", em: "2026-09-25T20:00:00.000Z" },
+    }
+    const [doPainel] = planejar([erp], [{ ...site[0]!, metadata: marcado }])
+    expect(doPainel).toMatchObject({ primeira: false, precoDoPainel: true })
+    expect(doPainel!.avisos).toContain("preço mudado no painel: fica o de hoje")
+
+    const [semMarca] = planejar([erp], [{ ...site[0]!, metadata: { fb_erp: marcado.fb_erp } }])
+    expect(semMarca).toMatchObject({ precoDoPainel: false })
+    // Na primeira vez é "do zero": a marca não segura o preço.
+    const [primeira] = planejar([erp], [{ ...site[0]!, metadata: { fb_preco: marcado.fb_preco } }])
+    expect(primeira).toMatchObject({ primeira: true, precoDoPainel: false })
+  })
+
   it("o bloqueado não gasta endereço, e o produto do site que ele cobre continua coberto", () => {
     const [i] = planejar([doErp({ id: "1", nome: "Óleo", sku: "FBOL01", preco: null })], site)
     expect(i).toMatchObject({
