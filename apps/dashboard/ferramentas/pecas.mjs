@@ -2,7 +2,9 @@
  * AS PEÇAS DOS CONFERIDORES DO PAINEL — o que o `conferir-entrar.mjs` e o
  * `conferir-pedidos.mjs` fazem igual: a contagem dos ✓ e ✗, o Resend de
  * mentira (de onde sai o código de entrar), a API assinada, o navegador e o
- * caminho de entrar pela tela.
+ * caminho de entrar pela tela. O navegador não conta como erro de console a
+ * medida do React que o relógio atrasado do `next dev` quebra — e só ela
+ * (`loja/ferramentas/relogio-do-dev.mjs`); o `resumo()` diz quando descontou.
  *
  * Variáveis: PAINEL (padrão http://localhost:3100), MEDUSA_BACKEND_URL
  * (padrão http://127.0.0.1:9000), REVALIDAR_SEGREDO e DASHBOARD_DONO_EMAIL
@@ -10,6 +12,7 @@
  */
 
 import { chromium } from "playwright"
+import { vigiarRelogioDoDev } from "../../loja/ferramentas/relogio-do-dev.mjs"
 import { subirResendFalso } from "../../loja/ferramentas/resend-falso.mjs"
 
 export const PAINEL = process.env.PAINEL ?? "http://localhost:3100"
@@ -26,6 +29,8 @@ export const esperar = (ms) => new Promise((r) => setTimeout(r, ms))
 /* ── a contagem ───────────────────────────────────────────────────────────── */
 
 const placar = { falhas: 0, testes: 0 }
+/** O erro do React que o relógio do `next dev` causa, descontado do console (`relogio-do-dev.mjs`). */
+const descontadosDoDev = []
 
 export const ok = (cond, texto, det = "") => {
   placar.testes++
@@ -43,6 +48,7 @@ export const titulo = (t) => console.log(`\n${t}`)
 
 /** A última linha, e o código de saída: 1 se algo falhou. */
 export function resumo() {
+  for (const d of descontadosDoDev) console.log(`  · descontado (relogio-do-dev.mjs): ${d}`)
   console.log(
     `\n${placar.testes - placar.falhas}/${placar.testes} conferidos${
       placar.falhas ? ` — ${placar.falhas} falharam` : ""
@@ -112,8 +118,12 @@ export async function abrirNavegador() {
   const errosDeConsole = []
   async function novaAba(viewport = { width: 1280, height: 900 }) {
     const contexto = await navegador.newContext({ viewport, extraHTTPHeaders: { "x-real-ip": IP } })
+    const relogioDoDev = vigiarRelogioDoDev(contexto, descontadosDoDev)
     const pagina = await contexto.newPage()
-    pagina.on("pageerror", (e) => errosDeConsole.push(`${pagina.url()}: ${e.message}`))
+    pagina.on(
+      "pageerror",
+      (e) => relogioDoDev(e, pagina) || errosDeConsole.push(`${pagina.url()}: ${e.message}`)
+    )
     pagina.on("console", (m) => {
       if (m.type() === "error") errosDeConsole.push(`${pagina.url()}: ${m.text()}`)
     })
