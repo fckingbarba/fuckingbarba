@@ -39,6 +39,9 @@
  * │ • um estado de pedido com o rótulo, o total ou a linha do tempo        │
  * │   errados; o Pix pendente sem o código de verdade, ou a página que não │
  * │   muda sozinha quando ele cai;                                         │
+ * │ • o total do pedido diferente do que foi cobrado — o cancelado         │
+ * │   depois de pago, com a oferta do checkout, aparecendo com o valor     │
+ * │   cheio (ou com zero);                                                 │
  * │ • o Pix que VENCEU continuar dizendo "Aguardando Pix" e oferecendo     │
  * │   pagar um QR que não aceita mais nada (foi o pedido #7);              │
  * │ • endereço salvo sem o número e o bairro separados, dois principais,   │
@@ -758,6 +761,7 @@ const deixados = []
 let pagarme = null
 let frenet = null
 let fabrica = null
+let tokenAdmin = null
 if (!ADMIN_EMAIL || !ADMIN_SENHA) {
   ok(false, "montar pedidos de teste precisa de ADMIN_EMAIL e ADMIN_SENHA (o admin LOCAL)")
 } else {
@@ -773,9 +777,15 @@ if (!ADMIN_EMAIL || !ADMIN_SENHA) {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ email: ADMIN_EMAIL, password: ADMIN_SENHA }),
   })
-  const { token: tokenAdmin } = await entrou.json()
+  tokenAdmin = (await entrou.json()).token
   fabrica = fabricaDePedidos({ medusa: MEDUSA, chave: CHAVE, tokenAdmin, pagarme })
 }
+
+/** O pedido como o admin lê — os totais que a loja NÃO usa, pra conferir o cenário. */
+const peloAdmin = async (caminho) =>
+  (
+    await fetch(`${MEDUSA}${caminho}`, { headers: { authorization: `Bearer ${tokenAdmin}` } })
+  ).json()
 
 if (fabrica) {
   const COMPRADOR = novoEmail()
@@ -794,6 +804,25 @@ if (fabrica) {
     ["spray-modelador-matte-100ml-fucking-barba", 1],
   ])
   await fabrica.cancelar(cancelado)
+  /*
+    O CANCELADO DEPOIS DE PAGO, COM A OFERTA DO CHECKOUT. Os dois totais do
+    Medusa enganam aqui: o `total` zera (o estorno vira crédito no pedido) e
+    o `original_total` é a conta de antes do desconto. Até 25/09 a conta
+    mostrava este pedido com o valor cheio — R$ 158,50 no lugar dos
+    R$ 153,01 cobrados.
+  */
+  const oferta = await fabrica.codigoDaOferta("oleo-para-barba").catch(() => null)
+  ok(Boolean(oferta), "a oferta do checkout do óleo existe no banco (o job 'bumps' cria)")
+  const estornado = await fabrica.pedidoPix(
+    COMPRADOR,
+    [
+      ["fator-de-crescimento-para-barba", 1],
+      ["oleo-para-barba", 1],
+    ],
+    { cupom: oferta }
+  )
+  await fabrica.pagar(estornado)
+  await fabrica.cancelar(estornado)
   const pago = await fabrica.pedidoPix(COMPRADOR, [["oleo-para-barba", 1]])
   await fabrica.pagar(pago)
   deixados.push(pago)
@@ -874,23 +903,37 @@ if (fabrica) {
     await textoDe(pagina, "[data-bloco-de-novo] .de-novo__txt")
   )
   await pagina
-    .waitForFunction(() => window.__visivel("[data-conta-pedidos]")?.textContent === "6", null, {
+    .waitForFunction(() => window.__visivel("[data-conta-pedidos]")?.textContent === "7", null, {
       timeout: 10000,
     })
     .catch(() => null)
-  ok((await textoDe(pagina, "[data-conta-pedidos]")) === "6", "o menu conta os seis pedidos")
+  ok((await textoDe(pagina, "[data-conta-pedidos]")) === "7", "o menu conta os sete pedidos")
 
-  /* ── a lista, contra o Medusa ── */
+  /* ── a lista, contra o que foi cobrado ── */
   titulo("A lista de pedidos")
   const token = (await sessaoDo(contexto))?.value
-  const daApi = await medusa(
-    "/store/orders?limit=50&order=-created_at&fields=id,display_id,status,total,original_total",
-    { metodo: "GET", token }
+  /*
+    O TOTAL É O QUE A COBRANÇA PEDIU: o valor do pedido no Pagar.me (o falso),
+    em centavos, que o provedor do Medusa calculou do carrinho — com o cupom e
+    a oferta, e que não muda com o estorno. Nenhum total do Medusa serve de
+    régua sozinho: o do estornado é zero, e o `original_total` é de antes do
+    desconto.
+  */
+  const cobrado = (p) => (pagarme.pedidos.get(p.noPagarme)?.pedido.amount ?? Number.NaN) / 100
+  const reais = (v) => `R$ ${v.toFixed(2).replace(".", ",")}`
+  const cenario = (
+    await peloAdmin(
+      `/admin/orders/${estornado.id}?fields=payment_status,total,original_total,discount_total`
+    )
+  ).order
+  ok(
+    cenario?.payment_status === "refunded" &&
+      Number(cenario.total) === 0 &&
+      Number(cenario.discount_total) > 0 &&
+      Math.round(Number(cenario.original_total) * 100) > Math.round(cobrado(estornado) * 100),
+    `o estornado tem os dois totais que enganam: zero no total, ${reais(Number(cenario?.original_total))} antes do desconto (cobrados ${reais(cobrado(estornado))})`,
+    JSON.stringify(cenario)
   )
-  const esperados = (daApi.corpo.orders ?? []).map((o) => ({
-    id: o.id,
-    total: Number(o.status === "canceled" ? o.original_total : o.total),
-  }))
   await pagina.goto(`${LOJA}/conta/pedidos`)
   await visivel(pagina, "article.pedido-card").first().waitFor({ timeout: 15000 })
   const cartoes = await pagina.evaluate(() =>
@@ -902,27 +945,30 @@ if (fabrica) {
         total: e.querySelector(".pedido-card__total")?.textContent?.trim(),
       }))
   )
+  const meus = [pix, vencido, pago, estornado, cancelado, enviado, entregue]
   ok(
-    cartoes.map((c) => c.id).join() ===
-      [pix, vencido, pago, cancelado, enviado, entregue].map((p) => p.id).join(),
-    "os seis, do mais novo pro mais velho — e nenhum de outra pessoa",
+    cartoes.map((c) => c.id).join() === meus.map((p) => p.id).join(),
+    "os sete, do mais novo pro mais velho — e nenhum de outra pessoa",
     cartoes.map((c) => c.id.slice(-6)).join(",")
   )
   ok(
     cartoes.map((c) => c.status).join(",") ===
-      "Aguardando Pix,Pix vencido,Em separação,Cancelado,Enviado,Entregue",
+      "Aguardando Pix,Pix vencido,Em separação,Cancelado,Cancelado,Enviado,Entregue",
     "cada um com o selo do estado dele",
     cartoes.map((c) => c.status).join(",")
   )
-  const reais = (v) => `R$ ${v.toFixed(2).replace(".", ",")}`
-  const totaisCertos = cartoes.every((c) => {
-    const e = esperados.find((x) => x.id === c.id)
-    return e && c.total.replace(/\s/g, " ") === reais(e.total)
-  })
+  const totalNaTela = (c) => c?.total?.replace(/\s/g, " ")
   ok(
-    totaisCertos,
-    "os totais são os do Medusa (o cancelado com o valor que tinha, e não zero)",
-    cartoes.map((c) => c.total).join(" | ")
+    meus.every((p) => totalNaTela(cartoes.find((c) => c.id === p.id)) === reais(cobrado(p))),
+    "cada total é o que a cobrança pediu",
+    meus
+      .map((p) => `${totalNaTela(cartoes.find((c) => c.id === p.id))} × ${reais(cobrado(p))}`)
+      .join(" | ")
+  )
+  ok(
+    totalNaTela(cartoes.find((c) => c.id === estornado.id)) === reais(cobrado(estornado)),
+    "o cancelado depois de pago, com a oferta, mostra o cobrado — nem o valor cheio, nem zero",
+    totalNaTela(cartoes.find((c) => c.id === estornado.id))
   )
   const cartaoVencido = await pagina.evaluate((id) => {
     const c = document.querySelector(`article.pedido-card[data-pedido="${id}"]`)
@@ -994,6 +1040,41 @@ if (fabrica) {
     "e o pagamento diz o que houve",
     await textoDe(pagina, "#t-pagamento + .info")
   )
+
+  await abrir(estornado)
+  const totalDoDetalhe = (p) => textoDe(p, ".totais__total dd").then((t) => t.replace(/\s/g, " "))
+  ok(
+    (await totalDoDetalhe(pagina)) === reais(cobrado(estornado)) &&
+      (await visivel(pagina, ".totais__linha[data-desconto]").count()) === 1,
+    "estornado: o total é o cobrado, embaixo do desconto da oferta",
+    await totalDoDetalhe(pagina)
+  )
+  ok(
+    (await textoDe(pagina, "#t-pagamento + .info")) === "Pix — estornado",
+    "e o pagamento diz que voltou",
+    await textoDe(pagina, "#t-pagamento + .info")
+  )
+  {
+    // A tela de obrigado do mesmo pedido, com o crachá de quem comprou
+    // (`<pedido>.<carrinho>`): a mesma tradução do pedido, o mesmo total.
+    const doCarrinho = (
+      await medusa(`/store/orders?id=${estornado.id}&fields=id,cart.id`, { metodo: "GET", token })
+    ).corpo.orders?.[0]?.cart?.id
+    const obrigado = await novaAba()
+    await obrigado.contexto.addCookies([
+      { name: "pedido", value: `${estornado.id}.${doCarrinho}`, url: LOJA },
+    ])
+    await obrigado.pagina.goto(`${LOJA}/checkout/obrigado/${estornado.id}`)
+    await visivel(obrigado.pagina, "main.obrigado .totais__total dd")
+      .waitFor({ timeout: 15000 })
+      .catch(() => null)
+    ok(
+      Boolean(doCarrinho) && (await totalDoDetalhe(obrigado.pagina)) === reais(cobrado(estornado)),
+      "e a tela de obrigado dele, no navegador de quem comprou, também",
+      `${doCarrinho ? "" : "sem o carrinho do pedido · "}${await totalDoDetalhe(obrigado.pagina)}`
+    )
+    await obrigado.contexto.close()
+  }
 
   await abrir(vencido)
   ok(
