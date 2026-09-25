@@ -47,17 +47,52 @@ export type RotinaNaTela = {
   proxima: string
 }
 
+/** Bom, precisa melhorar ou ruim — os limites do Google. */
+export type Faixa = "bom" | "medio" | "ruim"
+
+export type MedidorNaTela = {
+  valor: string
+  s: Faixa
+  n: number
+  /** Onde fica o ponto no trilho (0–100) e o tamanho das faixas boa e média. */
+  ponto: number
+  faixaBoa: number
+  faixaMedia: number
+}
+
+export type VitalNaTela = {
+  metrica: string
+  nome: string
+  ajuda: string
+  celular: MedidorNaTela | null
+  computador: MedidorNaTela | null
+}
+
 export type TelaDaObservabilidade = {
   geral: { nivel: Nivel; titulo: string; texto: string }
   numeros: {
     problemas: { abertos: number; graves: number; olhar: number }
     rotinas: { ok: number; total: number }
-    integracoes: { ok: number; total: number }
-    emails: { hoje: number; falhas: number }
+    noAr: { valor: string | null; texto: string }
+    carregar: { valor: string | null; s: Faixa | null; texto: string }
   }
   problemas: ProblemaNaTela[]
   integracoes: IntegracaoNaTela[]
   rotinas: RotinaNaTela[]
+  velocidade: { vitais: VitalNaTela[]; visitas: number; maisLenta: string | null }
+}
+
+export const NOME_DA_FAIXA: Record<Faixa, string> = {
+  bom: "Bom",
+  medio: "Precisa melhorar",
+  ruim: "Ruim",
+}
+
+/** A cor do selo de cada faixa, com os `status` que o painel já tem. */
+export const COR_DA_FAIXA: Record<Faixa, string> = {
+  bom: "publicado",
+  medio: "analise",
+  ruim: "problema",
 }
 
 export const NOME_DO_NIVEL: Record<Nivel, string> = {
