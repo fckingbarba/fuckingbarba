@@ -118,7 +118,7 @@ export function fabricaDePedidos({ medusa, chave, tokenAdmin, pagarme }) {
    * `documento` põe o CPF no endereço de cobrança, como o checkout da loja
    * grava (`montarEndereco`) — é de lá que a nota fiscal tira o CPF.
    */
-  async function carrinhoPronto(email, itens, documento) {
+  async function carrinhoPronto(email, itens, documento, cupom = null) {
     await variante(itens[0][0]) // a região vem junto
     const { cart } = await loja("/store/carts", {
       method: "POST",
@@ -148,6 +148,12 @@ export function fabricaDePedidos({ medusa, chave, tokenAdmin, pagarme }) {
       method: "POST",
       body: JSON.stringify({ option_id: shipping_options[0].id }),
     })
+    // O cupom antes da cobrança: o valor do Pix já sai com o desconto, como na loja.
+    if (cupom)
+      await loja(`/store/carts/${cart.id}/promotions`, {
+        method: "POST",
+        body: JSON.stringify({ promo_codes: [cupom] }),
+      })
     const { payment_collection } = await loja("/store/payment-collections", {
       method: "POST",
       body: JSON.stringify({ cart_id: cart.id }),
@@ -172,6 +178,9 @@ export function fabricaDePedidos({ medusa, chave, tokenAdmin, pagarme }) {
   /**
    * Um pedido com o Pix esperando.
    *
+   * `cupom` põe um código no carrinho antes da cobrança, como a loja faz
+   * (o conferidor dos cupons do painel).
+   *
    * `validadeSegundos` manda no `expires_at` que o Pagar.me falso devolve.
    * NEGATIVO faz um Pix que já nasce vencido — é assim que o conferidor da
    * conta desenha a tela do "Pix vencido" sem esperar meia hora. Ele ainda
@@ -183,9 +192,9 @@ export function fabricaDePedidos({ medusa, chave, tokenAdmin, pagarme }) {
   async function pedidoPix(
     email,
     itens = [["shampoo-para-barba", 1]],
-    { validadeSegundos = null, documento = null } = {}
+    { validadeSegundos = null, documento = null, cupom = null } = {}
   ) {
-    const { cart, colecao } = await carrinhoPronto(email, itens, documento)
+    const { cart, colecao } = await carrinhoPronto(email, itens, documento, cupom)
     pagarme.validadeDoPix = validadeSegundos
     try {
       return await fechar(cart, colecao, entradaDoPix(email))
