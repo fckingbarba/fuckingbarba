@@ -172,7 +172,8 @@ export function fabricaDePedidos({ medusa, chave, tokenAdmin, pagarme }) {
     if (fim?.type !== "order")
       throw new Error(`o carrinho não virou pedido: ${JSON.stringify(fim)}`)
     const noPagarme = [...pagarme.pedidos.keys()].find((k) => !antes.has(k)) ?? null
-    return { id: fim.order.id, numero: fim.order.display_id, noPagarme }
+    // O carrinho vai junto: com ele, o conferidor monta o crachá da tela de obrigado.
+    return { id: fim.order.id, numero: fim.order.display_id, noPagarme, carrinho: cart.id }
   }
 
   /**
