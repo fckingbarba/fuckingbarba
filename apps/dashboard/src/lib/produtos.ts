@@ -117,6 +117,10 @@ export const LIMITE_DO_TITULO_DO_VIDEO = 40
 export type ItemDaGaleria = { tipo: "foto"; url: string } | ({ tipo: "video" } & VideoDaPdp)
 
 export type DetalheDoProduto = LinhaDoProduto & {
+  /** O nome foi dado no painel: a importação do Bling não troca mais. */
+  nomeDaLoja: boolean
+  /** O nome no Bling, da última importação (produto que nunca veio dele: null). */
+  nomeNoBling: string | null
   subtitulo: string
   descricao: string
   peso: number | null
@@ -165,6 +169,8 @@ export type LinhaDoHistorico = {
   /** Na promoção: o "por" gravado (`null` = tirou) e o "de" daquela hora. */
   por?: number | null
   de?: number
+  /** Nos textos: o nome novo, quando o nome mudou. */
+  nome?: string
 }
 
 const MUDOU: Record<string, string> = {
@@ -192,7 +198,9 @@ export function fraseDoHistorico(h: LinhaDoHistorico): { titulo: string; detalhe
         detalhe: h.modo === "junto" ? "Leve junto" : "Quantas unidades",
       }
     case "editou-textos":
-      return { titulo: `${h.quem} mudou o subtítulo ou a categoria`, detalhe: "" }
+      return h.nome
+        ? { titulo: `${h.quem} mudou o nome`, detalhe: `pra “${h.nome}”` }
+        : { titulo: `${h.quem} mudou o subtítulo ou a categoria`, detalhe: "" }
     case "publicou":
       return { titulo: `${h.quem} publicou no site`, detalhe: "" }
     case "mudou-galeria": {

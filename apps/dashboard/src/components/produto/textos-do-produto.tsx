@@ -7,11 +7,25 @@ import type { Categoria, DetalheDoProduto } from "@/lib/produtos"
 
 /** A linha embaixo do nome: curta (o mesmo limite do backend). */
 const LIMITE_DO_SUBTITULO = 120
+/** O nome: o mesmo limite do backend (`LIMITE_DO_NOME`). */
+const LIMITE_DO_NOME = 80
+/**
+ * Até aqui, o nome cabe em 2 linhas no título da página — medido em 25/09 com
+ * a fonte da loja, do celular de 360 px ao computador. Depende das palavras:
+ * acima disso, a tela avisa, mas deixa salvar.
+ */
+const CABE_EM_DUAS = 36
+
+const juntar = (s: string) => s.replace(/\s+/g, " ").trim()
 
 /**
- * OS TEXTOS DO PRODUTO — o nome e a descrição vêm do Bling e só aparecem;
- * daqui são o subtítulo (a linha embaixo do nome, na página e no card) e a
- * categoria (a vitrine em que ele aparece: Barba, Cabelo, Kits).
+ * OS TEXTOS DO PRODUTO — o nome da loja (o título da página e da vitrine), o
+ * subtítulo (a linha embaixo do nome, na página e no card) e a categoria (a
+ * vitrine em que ele aparece: Barba, Cabelo, Kits). A descrição vem do Bling
+ * e só aparece.
+ *
+ * O NOME é da loja: mudado aqui, a importação do Bling não troca mais — o
+ * Bling segue com o dele (a nota, os marketplaces). "Usar o do Bling" devolve.
  */
 export function TextosDoProduto({
   produto,
@@ -22,19 +36,23 @@ export function TextosDoProduto({
 }) {
   const avisar = useAvisar()
   const [salvando, comecar] = useTransition()
+  const [nome, setNome] = useState(produto.nome)
   const [subtitulo, setSubtitulo] = useState(produto.subtitulo)
   const [categoriaId, setCategoriaId] = useState(produto.categoriaId ?? "")
   const edita = produto.podeEditar
   const mudou =
-    subtitulo.replace(/\s+/g, " ").trim() !== produto.subtitulo ||
+    juntar(nome) !== produto.nome ||
+    juntar(subtitulo) !== produto.subtitulo ||
     categoriaId !== (produto.categoriaId ?? "")
   const id = `textos-${produto.id}`
+  const tamanho = juntar(nome).length
+  const doBling = produto.nomeNoBling
 
   function salvar(ev: FormEvent) {
     ev.preventDefault()
     if (!mudou || salvando) return
     comecar(async () => {
-      avisar(await salvarTextos(produto.id, { subtitulo, categoriaId }))
+      avisar(await salvarTextos(produto.id, { nome, subtitulo, categoriaId }))
     })
   }
 
@@ -46,9 +64,44 @@ export function TextosDoProduto({
       <div className="campos">
         <div className="campo">
           <label htmlFor={`${id}-nome`}>
-            Nome <small>— vem do Bling</small>
+            Nome na loja <small>— o título da página e da vitrine</small>
           </label>
-          <input id={`${id}-nome`} value={produto.nome} readOnly />
+          <input
+            id={`${id}-nome`}
+            data-nome
+            value={nome}
+            maxLength={LIMITE_DO_NOME}
+            readOnly={!edita}
+            aria-describedby={`${id}-nome-ajuda`}
+            onChange={(e) => setNome(e.target.value)}
+          />
+          <p className="campo__ajuda" id={`${id}-nome-ajuda`} data-nome-ajuda>
+            {tamanho} letras —{" "}
+            {tamanho > CABE_EM_DUAS ? (
+              <b>pode passar de 2 linhas no título da página.</b>
+            ) : (
+              "cabe em 2 linhas no título da página."
+            )}{" "}
+            {produto.nomeDaLoja
+              ? "O Bling não troca este nome."
+              : "Enquanto for o do Bling, ele muda quando o catálogo vem de novo."}
+            {doBling && juntar(nome) !== doBling ? (
+              <>
+                {" "}
+                No Bling: “{doBling}”.{" "}
+                {edita ? (
+                  <button
+                    type="button"
+                    className="link"
+                    data-usar-o-do-bling
+                    onClick={() => setNome(doBling)}
+                  >
+                    Usar o do Bling
+                  </button>
+                ) : null}
+              </>
+            ) : null}
+          </p>
         </div>
         <div className="campo">
           <label htmlFor={`${id}-sub`}>
