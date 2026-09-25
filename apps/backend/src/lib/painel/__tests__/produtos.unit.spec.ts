@@ -172,4 +172,23 @@ describe("a lista e a página do produto", () => {
     expect(d.preco).toBe(54.9)
     expect(d.caixa.modo).toBe("unidades")
   })
+
+  it("com promoção: a lista leva o de/por, e as faixas saem do preço da promoção", () => {
+    const preco = {
+      promocao: { por: 44.9, desconto: 18, deOutraLista: false },
+      semEfeito: null,
+      hoje: 44.9,
+    }
+    const linha = linhaDoProduto(produto(), 5, preco)
+    expect(linha).toMatchObject({ preco: 54.9, promocao: preco.promocao, promocaoSemEfeito: null })
+    const d = detalheDoProduto(produto(), PDP_VAZIA, 5, true, preco)
+    // O "de" continua o do Bling; 2 e 3 unidades, com 4% e 6% sobre os R$ 44,90 (o de 3
+    // desce até um ",90" que divida por 3: R$ 123,90 = 3 x R$ 41,30).
+    expect(d.preco).toBe(54.9)
+    expect(d.degraus).toEqual([
+      { unidades: 1, total: 44.9 },
+      { unidades: 2, total: 85.9 },
+      { unidades: 3, total: 123.9 },
+    ])
+  })
 })
