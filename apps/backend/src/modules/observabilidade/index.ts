@@ -8,7 +8,9 @@ import ObservabilidadeService from "./service"
  *   - `obs_rotina`: a última rodada de cada job de `src/jobs`;
  *   - `obs_problema`: os problemas, abertos e resolvidos, com quem resolveu;
  *   - `obs_sinal`: o dia de cada integração (Resend, Frenet, Pagar.me, Bling,
- *     Google, a loja) — quantas vezes deu certo, quantas falhou, e a última.
+ *     Google, a loja) — quantas vezes deu certo, quantas falhou, e a última;
+ *   - `obs_medida`: a velocidade medida nas visitas de verdade;
+ *   - `obs_ocorrencia`: a página que não existe e o erro no navegador, por dia.
  *
  * Quem escreve é o código de fora: `lib/observabilidade/` (a rodada, o
  * sinal e o vigia). A regra do que é problema mora em

@@ -8,10 +8,12 @@ import { enviosDos, notasDos, pedidosRecentes } from "../painel/ler"
 import {
   conciliarProblemas,
   problemaDoErp,
+  problemasDasOcorrencias,
   problemasDasRotinas,
   problemasDosPedidos,
   problemasDosSinais,
   SOZINHA,
+  type LinhaDaOcorrencia,
   type LinhaDaRotina,
   type LinhaDoSinal,
   type ProblemaAchado,
@@ -29,8 +31,9 @@ import { semDadoPessoal } from "./sinal"
  * sozinho o de estado que sumiu.
  *
  * Lê o mesmo que o Início: os pedidos dos últimos 45 dias (até 500), com as
- * notas e os envios. E a conexão do ERP, as rotinas e os sinais de hoje e de
- * ontem (a falha das 23:58 não fica pra trás na virada do dia).
+ * notas e os envios. E a conexão do ERP, as rotinas, os sinais e o que o
+ * navegador mandou (a página que não existe, o erro) de hoje e de ontem — a
+ * falha das 23:58 não fica pra trás na virada do dia.
  */
 
 const DIA = 24 * 60 * 60 * 1000
@@ -47,16 +50,15 @@ async function vigiarAgora(container: MedusaContainer, agora: Date): Promise<voi
 
   const pedidos = await pedidosRecentes(container, { limite: 500, dias: 45, agora })
   const ids = pedidos.map((o) => o.id)
-  const [notas, envios, conexao, rotinas, sinais, lojas] = await Promise.all([
+  const dias = [chaveDoDia(agora), chaveDoDia(agora.getTime() - DIA)]
+  const [notas, envios, conexao, rotinas, sinais, lojas, ocorrencias] = await Promise.all([
     notasDos(container, ids),
     enviosDos(container, ids),
     erp ? lerConexao(container, erp) : null,
     obs.listRotinas({}, { take: 50 }),
-    obs.listSinaisDasIntegracoes(
-      { dia: [chaveDoDia(agora), chaveDoDia(agora.getTime() - DIA)] },
-      { take: 50 }
-    ),
+    obs.listSinaisDasIntegracoes({ dia: dias }, { take: 50 }),
     container.resolve(Modules.STORE).listStores({}, { select: ["metadata"], take: 1 }),
+    obs.listOcorrencias({ dia: dias }, { take: 500, order: { vezes: "DESC" } }),
   ])
   const admin = urlDoAdmin()
 
@@ -83,6 +85,7 @@ async function vigiarAgora(container: MedusaContainer, agora: Date): Promise<voi
       emergencia: lerConfiguracoes(lojas[0]?.metadata).cotacao.precoDeEmergencia,
       admin,
     }),
+    ...problemasDasOcorrencias(ocorrencias as unknown as LinhaDaOcorrencia[], agora),
   ]
 
   const chaves = achados.map((a) => a.chave)
@@ -147,6 +150,36 @@ async function vigiarAgora(container: MedusaContainer, agora: Date): Promise<voi
   }
 
   await obs.limpar(agora)
+}
+
+/**
+ * A LOJA ESTÁ NO AR? Uma ida à home (`LOJA_URL`), de 5 em 5 minutos, no job
+ * do vigia: é daqui que sai o "site no ar" dos últimos 30 dias, e o problema
+ * da loja fora. Responder 404 ou redirecionar é estar no ar; 5xx e silêncio
+ * (10 segundos) não é.
+ */
+export async function conferirALoja(container: MedusaContainer): Promise<void> {
+  const url = (process.env.LOJA_URL ?? "").trim()
+  if (!/^https?:\/\//.test(url)) return
+  let motivo: string | null = null
+  try {
+    const r = await fetch(url, { redirect: "manual", signal: AbortSignal.timeout(10_000) })
+    await r.body?.cancel().catch(() => undefined)
+    if (r.status >= 500) motivo = `a loja respondeu ${r.status}`
+  } catch (e) {
+    const tempo = e instanceof Error && (e.name === "TimeoutError" || e.name === "AbortError")
+    motivo = tempo ? "a loja não respondeu em 10 segundos" : "a loja não atendeu"
+  }
+  await container.resolve<ObservabilidadeService>(OBSERVABILIDADE).anotarSinal(
+    motivo
+      ? {
+          integracao: "loja-no-ar",
+          ok: false,
+          resumo: motivo,
+          detalhe: `[vigia] GET ${url}: ${motivo}`,
+        }
+      : { integracao: "loja-no-ar", ok: true }
+  )
 }
 
 /*
