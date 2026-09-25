@@ -7,6 +7,7 @@ import {
   type MedusaResponse,
 } from "@medusajs/framework/http"
 import { ContainerRegistrationKeys, MedusaError } from "@medusajs/framework/utils"
+import { checkStatusNaTravaDoCarrinho } from "../lib/check-status-na-trava"
 import { portaDoPainel } from "../lib/equipe/acesso"
 import { gerarHandle, HANDLE_VALIDO } from "../lib/handle"
 import {
@@ -197,6 +198,15 @@ export default defineMiddlewares({
       middlewares: [rotaQueALojaNaoUsa],
     },
     { matcher: "/store/returns", method: ["POST"], middlewares: [rotaQueALojaNaoUsa] },
+    /*
+      O "Check status" do admin pega a trava do carrinho, a mesma do aviso do
+      Pagar.me e da conciliação — ver `lib/check-status-na-trava.ts`.
+    */
+    {
+      matcher: "/admin/orders/:id/payment-sessions/authorize",
+      method: ["POST"],
+      middlewares: [checkStatusNaTravaDoCarrinho],
+    },
     /*
       O token que chega aqui ainda não tem cliente (é pra isso que a rota
       existe), então `allowUnregistered`. Só `bearer`: quem chama é o

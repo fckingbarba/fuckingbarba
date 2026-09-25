@@ -394,6 +394,70 @@ describe("authorizePayment, com o pedido já no Pagar.me", () => {
   })
 })
 
+describe('authorizePayment, com o pedido já cancelado aqui ("cancelando")', () => {
+  beforeEach(() => jest.useFakeTimers({ now: depoisDe(60_000) }))
+  afterEach(() => jest.useRealTimers())
+
+  /*
+    O pedido foi cancelado e o DELETE da reserva não passou na hora (412, rede):
+    a sessão ficou pendente, marcada. Até 24/09 a aprovação da análise que
+    chegasse depois — o aviso, ou o "Check status" do admin — COBRAVA o cartão.
+  */
+  const cancelando = () =>
+    gravar({
+      ...estadoNovo("cartao", 6258, 1),
+      situacao: "cancelando",
+      pedido: "or_1",
+      cobranca: "ch_1",
+    })
+
+  it("a análise aprova com a reserva de pé: desfaz a reserva e NÃO cobra", async () => {
+    const { servico, cliente } = montar()
+    cliente.buscarPorCodigo.mockResolvedValue(cartao({ analise: "approved" }))
+    const r = await autorizar(servico, cancelando())
+    expect(cliente.capturarCobranca).not.toHaveBeenCalled()
+    expect(cliente.cancelarCobranca).toHaveBeenCalledWith("ch_1")
+    expect(r.status).toBe(PaymentSessionStatus.CANCELED)
+    expect((r.data as { pagarme: { situacao: string } }).pagarme.situacao).toBe("cancelado")
+  })
+
+  it("o Pagar.me ainda não deixa desfazer: estoura, sem cobrar — a conciliação tenta de novo", async () => {
+    const { servico, cliente } = montar()
+    cliente.buscarPorCodigo.mockResolvedValue(cartao({ analise: "approved" }))
+    cliente.cancelarCobranca.mockRejectedValueOnce(new Error("412"))
+    // O `catch` preso já na criação: a recusa chega enquanto os relógios andam.
+    const resultado = servico
+      .authorizePayment({ data: cancelando(), context: { idempotency_key: CODIGO } })
+      .then(
+        () => "autorizou",
+        (e: Error) => e.message
+      )
+    await jest.advanceTimersByTimeAsync(20_000)
+    expect(await resultado).toMatch(/foi cancelado/)
+    expect(cliente.capturarCobranca).not.toHaveBeenCalled()
+  })
+
+  it("dinheiro já tirado lá: diz pago — o Medusa registra, e a conciliação devolve pelo Medusa", async () => {
+    const { servico, cliente } = montar()
+    cliente.buscarPorCodigo.mockResolvedValue(cobrado())
+    const r = await autorizar(servico, cancelando())
+    expect(cliente.capturarCobranca).not.toHaveBeenCalled()
+    expect(cliente.cancelarCobranca).not.toHaveBeenCalled()
+    expect(r.status).toBe(PaymentSessionStatus.CAPTURED)
+  })
+
+  it("a análise reprovou e o Pagar.me já desfez: fecha com o que ele diz, sem DELETE", async () => {
+    const { servico, cliente } = montar()
+    cliente.buscarPorCodigo.mockResolvedValue(
+      cartao({ analise: "reproved", cobranca: "failed", transacao: "voided", pedido: "failed" })
+    )
+    const r = await autorizar(servico, cancelando())
+    expect(cliente.capturarCobranca).not.toHaveBeenCalled()
+    expect(cliente.cancelarCobranca).not.toHaveBeenCalled()
+    expect(r.status).toBe(PaymentSessionStatus.ERROR)
+  })
+})
+
 describe("o aviso do Pagar.me", () => {
   const aviso = (tipo: string, segredo = "segredo") => ({
     data: { type: tipo, data: { id: "ch_1", order: { id: "or_1" } } },
