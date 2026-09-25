@@ -791,6 +791,49 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
     nas 14, e em 2 delas a idade virou entre a API e a tela (o de antes teria falhado). E três
     rodadas completas dos sete conferidores do painel, todas verdes (entrar 60, pedidos 69, ações
     32, visitas 41, produtos 92, home 76, clientes 37).
+- [x] **O "nenhum erro no console" que falhava às vezes no `conferir-clientes`** (painel,
+      investigado em 25/09). Em 2 de 3 voltas, com o backend da main e com o da 0088, só essa
+      checagem caía (36/37), com "Failed to execute 'measure' on 'Performance': 'Ficha' cannot have
+      a negative time stamp." — sempre na visita do marketing à ficha de quem não aceitou ofertas,
+      que dá 404 de propósito. **Não era a ficha nem o painel: era o relógio do `next dev`, mais uma
+      trava que falta no React.** Em desenvolvimento, o React desenha os componentes do servidor
+      no painel de desempenho do navegador. O servidor manda, pelo websocket do HMR, a hora em que
+      começou a página, no relógio do processo Node, e o navegador conta dali. O Node anda pelo
+      relógio monotônico desde que subiu, e o do sistema vai sendo acertado: um processo Node
+      novo, medido por 30 minutos, foi ficando 1 ms por minuto atrás do relógio do sistema e
+      depois pulou 68 ms de uma vez; dois `next dev` de três horas estavam 300 a 380 ms atrás do
+      navegador. Com o servidor atrás, a ficha "termina antes de a página começar". O componente
+      que terminou bem, o React pula; o que deu erro (o `notFound()` da ficha) ou foi abortado,
+      ele mede mesmo assim, e o `performance.measure` lança (react/react#37561, com as PRs #37563 e
+      #37572 abertas; vercel/next.js#99032). Lança uns 100 ms depois de a página carregar: se o
+      conferidor já saiu dela, não sai nada — por isso o "às vezes". Em produção não existe: o
+      cliente de produção do React nem tem esse código. Os conferidores do painel e o da conta
+      descontam esse erro (`apps/loja/ferramentas/relogio-do-dev.mjs`, ligado no `pecas.mjs` e no
+      `novaAba` do `conferir-conta`) só com a frase exata, a pilha inteira no cliente de RSC do
+      React, o servidor tendo dito que começou ANTES da página, e um por página carregada; o que
+      foi descontado sai numa linha no fim.
+  - Provado com o relógio do Node atrasado de propósito (um `--require` no `NODE_OPTIONS` do
+    `next dev` que troca o `performance.timeOrigin` por um menor): 3 s atrás, o erro em 4 de 4
+    visitas à ficha (o fim dela em −2.556 ms; o começo, o React trava em 0); 250 ms atrás, em 7 de
+    8 (escapou a primeira, que o servidor demorou pra montar); com o relógio certo, em nenhuma
+    (6 de 6). O `conferir-clientes` de antes, com 3 s: 36/37, a mesma frase. O painel em
+    `next build` + `next start`, com os mesmos 3 s atrás: nenhuma medida do React na página e o
+    `conferir-clientes` 37/37. E uma prova à parte do desconto, com páginas de verdade: o erro do
+    React é descontado; a mesma frase lançada pela página, antes ou depois dele, conta; a frase e
+    a pilha de verdade do React numa página com o relógio certo não são descontadas. No log do
+    `next dev` da 0088, 4 das 11 visitas à ficha 404 tinham dado o erro.
+  - Conferido numa pilha local (Medusa 9091, painel 3191, loja 3091): três rodadas completas dos
+    nove conferidores do painel, todas verdes e sem nada descontado (entrar 60, pedidos 77, ações
+    32, visitas 41, produtos 92, home 76, clientes 37, cupons 25, observabilidade 33); com o
+    relógio do painel 3 s atrás, o `conferir-clientes` passou em 4 de 4 (37/37); na volta em que
+    o erro veio, descontou um ("pelo menos 2927 ms atrás"), e nas outras saiu da ficha antes.
+  - Na loja, o mesmo erro sai com componentes "[Prerender]" (MenuDaConta e Miolo no
+    `conferir-conta`, 4 em 5 rodadas com o `next dev` de uma hora, visto pela sessão da 0089;
+    Conteudo no checkout). O `conferir-conta` ganhou o mesmo desconto, a pedido dela. Com a
+    loja 3 s atrás, o de antes deu 208/209 (as duas frases, Miolo e MenuDaConta); o novo,
+    209/209, com as duas descontadas; com o relógio certo, 209/209 sem nada descontado. E, no
+    `next dev`, a telemetria da loja (0090) conta esse erro como da loja — é script da mesma
+    origem. Em produção, nada disso existe.
 - [x] **Investigação da sacola e do checkout** (24/09, a pedido da loja). Quatro revisões do
       código em paralelo e compras de verdade numa loja local: 15 problemas reais, nenhum de
       cobrança em dobro. A entrega 0077 consertou os de dinheiro e de endereço, cada um com

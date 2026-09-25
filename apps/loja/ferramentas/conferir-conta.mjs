@@ -65,6 +65,7 @@ import { chromium } from "playwright"
 import { subirFrenetFalsa } from "./frenet-falsa.mjs"
 import { subirPagarmeFalso } from "./pagarme-falso.mjs"
 import { fabricaDePedidos } from "./pedido-de-teste.mjs"
+import { vigiarRelogioDoDev } from "./relogio-do-dev.mjs"
 import { subirResendFalso } from "./resend-falso.mjs"
 
 const LOJA =
@@ -167,8 +168,11 @@ const navegador = await chromium.launch(
   process.env.CHROMIUM ? { executablePath: process.env.CHROMIUM } : {}
 )
 const errosDeConsole = []
+/** O erro do React que o relógio do `next dev` causa (`relogio-do-dev.mjs`): não conta, mas se diz. */
+const descontadosDoDev = []
 async function novaAba(viewport = { width: 1280, height: 900 }) {
   const contexto = await navegador.newContext({ viewport, extraHTTPHeaders: { "x-real-ip": IP } })
+  const relogioDoDev = vigiarRelogioDoDev(contexto, descontadosDoDev)
   /*
     O Next guarda as páginas visitadas no documento, escondidas (é o
     `<Activity>`), então um `querySelector` pode achar a cópia guardada de
@@ -179,7 +183,7 @@ async function novaAba(viewport = { width: 1280, height: 900 }) {
       [...document.querySelectorAll(sel)].find((el) => el.checkVisibility()) ?? null
   })
   const pagina = await contexto.newPage()
-  pagina.on("pageerror", (e) => errosDeConsole.push(e.message))
+  pagina.on("pageerror", (e) => relogioDoDev(e, pagina) || errosDeConsole.push(e.message))
   pagina.on("console", (m) => {
     if (m.type() === "error") errosDeConsole.push(m.text())
   })
@@ -2264,6 +2268,7 @@ if (!regiaoBrl || !shampoo) {
 
 titulo("Higiene")
 ok(errosDeConsole.length === 0, "nenhum erro no console", errosDeConsole.slice(0, 3).join(" | "))
+for (const d of descontadosDoDev) console.log(`  · descontado (relogio-do-dev.mjs): ${d}`)
 
 // O que dá pra cancelar volta pro estoque. Os postados ficam.
 for (const p of deixados) await fabrica?.cancelar(p).catch(() => null)
