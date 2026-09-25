@@ -448,9 +448,10 @@ try {
     ok((await pagina.locator(".folha").count()) === 0, "o “Mais” fecha no Esc")
     await pagina.click(".topo-cel .avatar")
     await pagina.click(".folha .nav a:has-text('Configurações')")
-    await pagina.waitForURL(/\/configuracoes\/equipe$/, { timeout: 15000 })
+    // As Configurações abrem na primeira aba, a dos dados da empresa.
+    await pagina.waitForURL(/\/configuracoes\/empresa$/, { timeout: 15000 })
     ok((await pagina.locator(".folha").count()) === 0, "escolher pra onde ir fecha o “Mais”")
-    ok(await semRolagemDeLado(pagina), "sem rolagem de lado na equipe")
+    ok(await semRolagemDeLado(pagina), "sem rolagem de lado nas configurações")
     await contexto.close()
   }
 

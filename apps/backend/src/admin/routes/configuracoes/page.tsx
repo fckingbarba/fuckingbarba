@@ -200,6 +200,10 @@ const Configuracoes = () => {
           O que está aqui aparece na loja. Campo vazio vira uma tarja de &quot;pendente&quot; nas
           páginas legais, em vez de um valor de exemplo.
         </Text>
+        <Text size="small" className="text-ui-fg-subtle mt-1">
+          Agora estas configurações moram no painel da loja (Configurações), com cada campo
+          conferido na hora. Esta tela fica de reserva: as duas gravam o mesmo lugar.
+        </Text>
       </div>
 
       {/* ── FRETE ────────────────────────────────────────────────────── */}

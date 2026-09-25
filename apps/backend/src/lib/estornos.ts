@@ -12,6 +12,7 @@ import {
 import { lerEstado } from "../modules/pagarme/situacao"
 import { emailNoLog, enviarEmail } from "./email"
 import { emailDoEstornoQueFalhou } from "./emails/estorno-falhou"
+import { emailsPraAvisar } from "./equipe/avisados"
 import { gravarNoMetadataDoPedido } from "./metadata-do-pedido"
 
 /**
@@ -581,7 +582,8 @@ async function conferirPedido(
 /* ── o aviso ──────────────────────────────────────────────────────────────── */
 
 /**
- * Um e-mail pra cada usuário do admin — quem resolve é quem entra no painel.
+ * Um e-mail pra cada dono da equipe do painel (`lib/equipe/avisados.ts`; sem
+ * o painel, os usuários do admin) — quem resolve é quem entra no Pagar.me.
  * Devolve se saiu pra pelo menos um; sem ninguém, a linha `[estorno]` do log
  * e a faixa no admin são o aviso.
  */
@@ -593,13 +595,9 @@ async function avisarAEquipe(
   sozinha: boolean
 ): Promise<boolean> {
   const logger = container.resolve<Logger>(ContainerRegistrationKeys.LOGGER)
-  const usuarios = await container
-    .resolve(Modules.USER)
-    .listUsers({}, { select: ["email"], take: 20 })
-    .catch(() => [])
-  const emails = [...new Set(usuarios.map((u) => u.email).filter(Boolean))] as string[]
+  const emails = await emailsPraAvisar(container, ["dono"])
   if (!emails.length) {
-    logger.warn(`[estorno] #${grupo.numero}: nenhum usuário no admin pra avisar por e-mail`)
+    logger.warn(`[estorno] #${grupo.numero}: ninguém na equipe nem no admin pra avisar por e-mail`)
     return false
   }
 

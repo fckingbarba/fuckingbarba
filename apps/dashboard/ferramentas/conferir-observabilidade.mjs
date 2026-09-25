@@ -208,6 +208,16 @@ try {
     `o estorno do #${E.numero} falhou no Pagar.me`,
     JSON.stringify(r1.relatorio?.estornos)
   )
+  // Quem recebe o aviso é o papel que resolve (Configurações → E-mails): o estorno, o dono.
+  const emailsDoEstorno = resend.emails.filter((e) =>
+    (e.subject ?? "").startsWith(`O estorno do pedido #${E.numero} não saiu`)
+  )
+  ok(
+    emailsDoEstorno.some((e) => e.to?.includes(DONO)) &&
+      !emailsDoEstorno.some((e) => e.to?.includes(OP)),
+    "o e-mail do estorno vai pro dono do painel, e não pra operação",
+    JSON.stringify(emailsDoEstorno.map((e) => e.to))
+  )
 
   /* ── os problemas na API ─────────────────────────────────────────────── */
 
@@ -438,11 +448,24 @@ try {
   await computador.pagina.waitForTimeout(800)
   await computador.pagina.goto(`${LOJA}/`, { waitUntil: "load" })
   await computador.pagina.mouse.click(5, 300)
-  await computador.pagina.evaluate((r) => {
-    setTimeout(() => {
-      throw new Error(`erro de teste ${r} pra ana@x.com.br`)
-    }, 0)
-  }, RODADA)
+  // O ouvinte do erro nasce na hidratação (um efeito da telemetria, no layout
+  // raiz): o erro jogado antes dela não sai. Com a máquina ocupada, o "load"
+  // chega antes — então o mesmo erro vai de novo até o recado sair (o cartão
+  // soma as vezes). Na página inicial, sem sair dela, só o erro manda recado.
+  for (let vez = 0; vez < 10; vez++) {
+    const saiu = computador.pagina
+      .waitForRequest((r) => r.url().endsWith("/api/telemetria"), { timeout: 700 })
+      .then(
+        () => true,
+        () => false
+      )
+    await computador.pagina.evaluate((r) => {
+      setTimeout(() => {
+        throw new Error(`erro de teste ${r} pra ana@x.com.br`)
+      }, 0)
+    }, RODADA)
+    if (await saiu) break
+  }
   await computador.pagina.waitForTimeout(800)
   await computador.pagina.goto(`${LOJA}/barba`, { waitUntil: "load" })
   const celular = await visita({ width: 390, height: 844 })

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation"
 
-/** Por enquanto, a única aba é a equipe. */
+/** A primeira aba é a dos dados da empresa. */
 export default function Pagina() {
-  redirect("/configuracoes/equipe")
+  redirect("/configuracoes/empresa")
 }

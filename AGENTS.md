@@ -1013,7 +1013,41 @@ falsos: o Resend recusa, a Frenet cai, e o Pagar.me não estorna.
 - **O que expira:** a medida, em 28 dias; a ocorrência, em 60.
 
 O conferidor (`conferir-observabilidade.mjs`) abre a loja local (`LOJA`) num 404, num erro de
-propósito e em duas visitas (celular e computador).
+propósito e em duas visitas (celular e computador). O erro de propósito vai de novo até o recado
+sair: o ouvinte nasce na hidratação, e o erro jogado antes dela não é visto — com a máquina
+ocupada, o "load" chega antes. É um limite da loja também: o erro de antes da hidratação não conta.
+
+**Configurações** (fase 6, entrega 0093). As abas do protótipo, na área `configuracoes` (só o
+dono). A regra mora em `src/lib/painel/configuracoes.ts`, puro, com testes:
+
+- **A leitura do formulário, campo a campo:** `lerEmpresa` (CNPJ pelos dígitos, WhatsApp com o 55
+  na frente, horário uma frase por linha), `lerFrete` (guarda o `tetoDeCusto` que já estava: a tela
+  não mostra) e `lerEmergencia` (em branco, a loja não vende; com preço, o prazo é obrigatório).
+  Errado, a rota responde 422 com `erros` por campo, e nada é gravado. Os números em reais passam
+  pelo `numeroBrasileiro` de `lib/cupons.ts`.
+- **A gravação:** `gravarConfiguracoes` (`lib/painel/ler-configuracoes.ts`) junta a parte nova no
+  `fb_configuracoes` dentro da trava do metadata da loja (`mudarMetadataDaLoja`) e avisa a loja
+  (`avisarALoja(["configuracoes"])`). É o mesmo lugar do admin do Medusa, que segue de reserva, e a
+  mesma peneira da rota pública (`lib/configuracoes.ts`). A rota do frete confere antes da trava e
+  lê de novo dentro dela (a `atual` pode ter mudado no meio).
+- **A janela da nota** grava na conexão do ERP (`atualizarConexao`), só as da lista (`JANELAS`: as
+  mesmas da tela do ERP no admin). Outra, gravada pela API, aparece marcada no fim, como "N min".
+- **A tela** (`telaDasConfiguracoes`): pagamento e entrega em frase, das variáveis (o Pix, as
+  parcelas, os estornos, o token da Frenet); as pendências da nota (`pendenciasEmFrase`: primeiro
+  o que tem prazo na SEFAZ, depois o que precisa de alguém; da mesma queda, 4 ou mais viram uma
+  linha, e a lista para em `MAX_PENDENCIAS`); os e-mails, com o remetente do `remetenteDosEmails`
+  (`lib/email.ts`, o mesmo do `enviarEmail`).
+- **Pra quem vai o aviso da equipe:** `AVISOS_DA_EQUIPE` diz o papel de cada um (a nota: operação e
+  dono; o Bling caído e o estorno: dono), e `destinatarios` escolhe os e-mails — quem está ativo no
+  papel; sem ninguém, o dono; sem ninguém no painel, os usuários do admin, como antes. O
+  `avisarAEquipe` do ERP e o dos estornos chamam o `emailsPraAvisar` (`lib/equipe/avisados.ts`).
+
+As rotas: `GET /dashboard/configuracoes` e
+`POST /dashboard/configuracoes/{empresa,frete,emergencia,nota}`. Todas anotam no registro da
+equipe. O conferidor é o `apps/dashboard/ferramentas/conferir-configuracoes.mjs` — o do painel,
+que não é o `apps/loja/ferramentas/conferir-configuracoes.mjs` da loja. Ele guarda as configurações
+e a janela no começo e devolve no fim, mesmo quando falha. O `conferir-observabilidade.mjs` confere
+que o e-mail do estorno vai pro dono, e não pra operação.
 
 O CSS do painel segue o do protótipo, uma regra por linha, escrito à mão: o prettier fica nos
 `.ts`/`.tsx`/`.mjs` — rodado nos `.css` do painel, ele reescreve o arquivo inteiro. A gaveta
