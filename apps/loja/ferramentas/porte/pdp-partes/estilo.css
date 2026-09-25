@@ -2048,12 +2048,29 @@
 
 /* ======================================================
      RELACIONADOS — reusa .colecao e .produto da home.
-     Só troca o fundo pra não repetir a faixa branca das
-     avaliações logo acima.
+     Troca o fundo pra não repetir a faixa branca das
+     avaliações logo acima (e, no menta, o raio e o botão).
      ====================================================== */
 
 .colecao--relacionados {
   background: var(--color-bg);
+}
+
+/* No menta, o raio do título vai na cor do texto, e o "Comprar" dos cards
+   vai amarelo: o menta do botão sumia no menta da seção (pedido da loja,
+   25/09). O hover continua o de sempre — escuro, com letra branca —, e
+   repetido aqui porque a regra amarela acima empataria com a dele. */
+.colecao--relacionados .colecao__titulo svg {
+  fill: currentColor;
+}
+.colecao--relacionados .produto__comprar {
+  background: var(--color-accent);
+}
+.colecao--relacionados .produto__comprar:hover,
+.colecao--relacionados .produto__comprar:focus-visible,
+.colecao--relacionados .produto__comprar:active {
+  background: var(--color-text);
+  color: #ffffff;
 }
 
 @media (prefers-reduced-motion: reduce) {
