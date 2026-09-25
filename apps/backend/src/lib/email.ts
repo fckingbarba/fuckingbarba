@@ -51,6 +51,10 @@ export function emailNoLog(email: string): string {
   return `${(nome ?? "").slice(0, 1)}•••@${dominio ?? ""}`
 }
 
+/** Quem manda os e-mails da loja (`EMAIL_REMETENTE`). A aba E-mails das Configurações mostra. */
+export const remetenteDosEmails = () =>
+  process.env.EMAIL_REMETENTE || "FuckingBarba <nao-responda@fuckingbarba.com.br>"
+
 /**
  * `idempotencia` vai no cabeçalho `Idempotency-Key` do Resend, que guarda a
  * chave por 24 horas: a mesma chave com o mesmo e-mail devolve o id do
@@ -65,7 +69,7 @@ export async function enviarEmail(
   { idempotencia }: { idempotencia?: string } = {}
 ): Promise<Enviado> {
   const chave = process.env.RESEND_API_KEY
-  const remetente = process.env.EMAIL_REMETENTE || "FuckingBarba <nao-responda@fuckingbarba.com.br>"
+  const remetente = remetenteDosEmails()
   const base = (process.env.RESEND_URL || "https://api.resend.com").replace(/\/+$/, "")
 
   if (!chave) {

@@ -127,7 +127,8 @@ const CODIGO = /^[A-Z0-9][A-Z0-9-]{2,29}$/
 export const normalizarCodigo = (v: unknown) =>
   typeof v === "string" ? v.replace(/\s+/g, "").toUpperCase() : ""
 
-const numero = (v: unknown): number | null => {
+/** "R$ 1.234,56" → 1234.56. Também serve às configurações (`lib/painel/configuracoes.ts`). */
+export const numeroBrasileiro = (v: unknown): number | null => {
   if (typeof v === "number") return Number.isFinite(v) ? v : null
   if (typeof v !== "string" || !v.trim()) return null
   // "R$ 1.234,56" e "99,90": a vírgula é o decimal.
@@ -161,7 +162,7 @@ export function lerCupomNovo(v: unknown, agora: Date): Leitura {
   const tipo: TipoDeCupom | null = o.tipo === "porcento" || o.tipo === "reais" ? o.tipo : null
   if (!tipo) erros.tipo = "Escolha o tipo."
 
-  const valor = numero(o.valor)
+  const valor = numeroBrasileiro(o.valor)
   if (
     tipo === "porcento" &&
     (valor === null || !Number.isInteger(valor) || valor < 1 || valor > 100)
@@ -170,7 +171,7 @@ export function lerCupomNovo(v: unknown, agora: Date): Leitura {
   if (tipo === "reais" && (valor === null || valor <= 0 || valor > 10_000))
     erros.valor = "Um valor em reais, maior que zero."
 
-  const minimo = numero(o.minimo)
+  const minimo = numeroBrasileiro(o.minimo)
   if (minimo !== null && (minimo < 0 || minimo > 100_000)) erros.minimo = "Um valor em reais."
   if (tipo === "reais" && valor !== null && minimo !== null && minimo > 0 && minimo < valor)
     erros.minimo = "O pedido mínimo tem que ser maior que o desconto."
@@ -180,7 +181,7 @@ export function lerCupomNovo(v: unknown, agora: Date): Leitura {
     erros.ate = "Uma data."
   else if (ate !== null && ate < hojeEmBrasilia(agora)) erros.ate = "Essa data já passou."
 
-  const limite = numero(o.limite)
+  const limite = numeroBrasileiro(o.limite)
   if (limite !== null && (!Number.isInteger(limite) || limite < 1 || limite > 1_000_000))
     erros.limite = "Um número inteiro, de 1 pra cima."
 

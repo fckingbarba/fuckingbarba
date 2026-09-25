@@ -1,10 +1,12 @@
 import type { MedusaContainer } from "@medusajs/framework/types"
-import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
+import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import { emailNoLog, enviarEmail, type Email } from "../email"
+import { emailsPraAvisar } from "../equipe/avisados"
 
 /**
- * O E-MAIL PRA EQUIPE — um pra cada usuário do admin, como o do estorno que
- * falhou (`lib/estornos.ts`): quem resolve é quem entra no painel do ERP.
+ * O E-MAIL PRA EQUIPE — um pra cada pessoa do papel que resolve
+ * (`lib/equipe/avisados.ts`): a conexão caída (`erp-caiu/…`) vai pro dono; a
+ * nota (`nota-…`), pra operação e pro dono.
  *
  * `chave` vira a idempotência do Resend (com o destinatário no fim): o mesmo
  * aviso, disparado duas vezes no mesmo dia pelo evento e pela varredura,
@@ -16,13 +18,12 @@ export async function avisarAEquipe(
   chave: string
 ): Promise<boolean> {
   const logger = container.resolve(ContainerRegistrationKeys.LOGGER)
-  const usuarios = await container
-    .resolve(Modules.USER)
-    .listUsers({}, { select: ["email"], take: 20 })
-    .catch(() => [])
-  const emails = [...new Set(usuarios.map((u) => u.email).filter(Boolean))] as string[]
+  const emails = await emailsPraAvisar(
+    container,
+    chave.startsWith("erp-caiu/") ? ["dono"] : ["operacao", "dono"]
+  )
   if (!emails.length) {
-    logger.warn(`[erp] nenhum usuário no admin pra avisar por e-mail (${chave})`)
+    logger.warn(`[erp] ninguém na equipe nem no admin pra avisar por e-mail (${chave})`)
     return false
   }
   let saiu = false
