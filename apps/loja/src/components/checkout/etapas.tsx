@@ -22,6 +22,7 @@ import {
 } from "@/lib/checkout-visivel"
 import type { Configuracoes } from "@/lib/configuracoes"
 import { emReais } from "@/lib/formato"
+import { comASacola, rastrear } from "@/lib/rastrear"
 import { Contato } from "./contato"
 import { Entrega } from "./entrega"
 import { Pagamento } from "./pagamento"
@@ -77,6 +78,23 @@ export function Etapas({
   const sugerida = etapaDoCarrinho(checkout)
   const [editando, setEditando] = useState<Etapa | null>(null)
   const aberta = editando ?? sugerida
+
+  // O começo do checkout (a InitiateCheckout da Meta e do TikTok), uma vez por carrinho.
+  useEffect(() => {
+    rastrear("begin_checkout", comASacola(checkout.itens))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [checkout.id])
+
+  // A entrega escolhida, uma vez por opção: é quando o passo 2 fecha.
+  useEffect(() => {
+    if (!checkout.freteEscolhido) return
+    rastrear("add_shipping_info", {
+      ...comASacola(checkout.itens),
+      shipping_tier:
+        fretes.find((f) => f.id === checkout.freteEscolhido)?.nome ?? checkout.freteEscolhido,
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [checkout.freteEscolhido])
 
   /*
    * O TOTAL MUDANDO SEM SAIR DO PASSO. Trocar o frete, marcar o bump e pôr

@@ -79,7 +79,8 @@ export default function Pagina({ searchParams }: PageProps<"/checkout">) {
         </div>
       </header>
 
-      <main className="pagina" id="conteudo">
+      {/* Na gravação da Clarity, o que a pessoa digita e o resumo ficam cobertos. */}
+      <main className="pagina" id="conteudo" data-clarity-mask="true">
         <Suspense fallback={<Esqueleto />}>
           <Conteudo searchParams={searchParams} />
         </Suspense>

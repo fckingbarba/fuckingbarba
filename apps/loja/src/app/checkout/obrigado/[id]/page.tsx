@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import Image from "next/image"
 import Link from "next/link"
 import { Suspense } from "react"
+import { ConversaoDoGoogleAds } from "@/components/analytics/conversao-google-ads"
 import { EsperaDoPagamento } from "@/components/checkout/espera"
 import { Pix } from "@/components/checkout/pix"
 import { MarcaDaTela } from "@/components/marca-da-tela"
@@ -167,7 +168,8 @@ export default function Pagina({ params }: Props) {
         </div>
       </header>
 
-      <main className="obrigado" id="conteudo">
+      {/* Na gravação da Clarity, os dados do pedido ficam cobertos. */}
+      <main className="obrigado" id="conteudo" data-clarity-mask="true">
         <Suspense fallback={<p className="bloco">Buscando seu pedido…</p>}>
           <Conteudo params={params} />
         </Suspense>
@@ -197,7 +199,12 @@ async function Conteudo({ params }: { params: Props["params"] }) {
   }
 
   const { pedido, meu } = leitura
-  const { atendimento } = await configuracoes()
+  const { atendimento, integracoes } = await configuracoes()
+  // "AW-123/rótulo": a conversão de compra do Google Ads, quando o pagamento entrou.
+  const conversao =
+    integracoes.googleAds && integracoes.googleAdsCompra
+      ? `${integracoes.googleAds}/${integracoes.googleAdsCompra}`
+      : null
   const zap = linkDoWhatsapp(atendimento.whatsapp)
   const { pagamento } = pedido
   const { Icone, titulo, frase } = cabecaDo(pagamento)
@@ -208,6 +215,9 @@ async function Conteudo({ params }: { params: Props["params"] }) {
     <>
       {/* A compra acabou: o contador do cabeçalho precisa saber. */}
       <RecarregaSacola />
+      {meu && conversao && pagamento.estado === "pago" ? (
+        <ConversaoDoGoogleAds envio={conversao} pedido={{ id: pedido.id, total: pedido.total }} />
+      ) : null}
 
       <div className="feito" data-ativo="" data-pagamento={pagamento.estado}>
         <div className="bloco">

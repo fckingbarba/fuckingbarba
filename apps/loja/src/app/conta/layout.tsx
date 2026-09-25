@@ -24,7 +24,8 @@ export const metadata: Metadata = {
 
 export default function LayoutDaConta({ children }: { children: ReactNode }) {
   return (
-    <main className="conta" id="conteudo">
+    // Na gravação da Clarity, os dados da conta ficam cobertos.
+    <main className="conta" id="conteudo" data-clarity-mask="true">
       <MarcaDaTela tela="conta" />
       <div className="conta__wrap">{children}</div>
     </main>

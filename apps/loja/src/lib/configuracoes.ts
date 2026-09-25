@@ -48,6 +48,22 @@ export type PoliticaDeFrete =
  */
 export type VideoDaMarca = { url: string; largura: number; altura: number }
 
+/**
+ * O código de cada integração de medição e anúncio, do painel
+ * (Configurações → Integrações). Nulo = desligada. Contrato: `Integracoes`,
+ * em `apps/backend/src/lib/configuracoes.ts` — lá a leitura já só aceita o
+ * formato de cada plataforma; `components/analytics/integracoes.ts` confere
+ * de novo antes de pôr qualquer um numa tag.
+ */
+export type Integracoes = {
+  ga4: string | null
+  googleAds: string | null
+  googleAdsCompra: string | null
+  metaPixel: string | null
+  clarity: string | null
+  tiktok: string | null
+}
+
 export type Configuracoes = {
   frete: PoliticaDeFrete
   empresa: { razaoSocial: string | null; cnpj: string | null; endereco: string | null }
@@ -58,6 +74,7 @@ export type Configuracoes = {
     prazoDePostagem: string | null
   }
   home: { video: VideoDaMarca | null }
+  integracoes: Integracoes
 }
 
 /**
@@ -74,6 +91,14 @@ export const PADRAO: Configuracoes = {
   empresa: { razaoSocial: null, cnpj: null, endereco: null },
   atendimento: { whatsapp: null, email: null, horario: null, prazoDePostagem: null },
   home: { video: null },
+  integracoes: {
+    ga4: null,
+    googleAds: null,
+    googleAdsCompra: null,
+    metaPixel: null,
+    clarity: null,
+    tiktok: null,
+  },
 }
 
 /* ── as frases ───────────────────────────────────────────────────────────

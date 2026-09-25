@@ -297,9 +297,15 @@ export async function configuracoes(): Promise<Configuracoes> {
     "configurações",
     "/store/configuracoes"
   )
-  // `home` chegou depois: um Medusa de antes dele responde sem o campo, e a
-  // loja segue com a foto em vez de quebrar a home.
-  return c ? { ...c, home: c.home ?? PADRAO.home } : PADRAO
+  // `home` e `integracoes` chegaram depois: um Medusa de antes deles responde
+  // sem o campo, e a loja segue com a foto (e sem tag) em vez de quebrar.
+  return c
+    ? {
+        ...c,
+        home: c.home ?? PADRAO.home,
+        integracoes: { ...PADRAO.integracoes, ...c.integracoes },
+      }
+    : PADRAO
 }
 
 /**
