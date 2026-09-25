@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation"
 import { useEffect, useRef, useState, type ReactNode } from "react"
 import { Icone, Logo } from "@/components/icones"
 import { sair } from "@/lib/acoes/sair"
+import type { Avisos } from "@/lib/eu"
 import {
   ABAS_DO_CELULAR,
   areaDoCaminho,
@@ -24,15 +25,19 @@ import {
  *
  * O menu mostra só as áreas que o Medusa disse que o papel abre (`areas`,
  * de `GET /dashboard/eu`). Esconder não é a permissão — quem barra é cada
- * rota do Medusa —, é só não oferecer a porta que não abre.
+ * rota do Medusa —, é só não oferecer a porta que não abre. O número
+ * vermelho ao lado de uma área (`avisos`) é o que precisa de alguém lá: os
+ * problemas graves da Observabilidade.
  */
 export function Casca({
   membro,
   areas,
+  avisos = {},
   children,
 }: {
   membro: Membro
   areas: Area[]
+  avisos?: Avisos
   children: ReactNode
 }) {
   const caminho = usePathname()
@@ -53,7 +58,7 @@ export function Casca({
               FuckingBarba <small>Painel da loja</small>
             </span>
           </Link>
-          <Nav atual={atual} pode={pode} />
+          <Nav atual={atual} pode={pode} avisos={avisos} />
           <Quem membro={membro} />
         </aside>
 
@@ -96,7 +101,13 @@ export function Casca({
       </div>
 
       {maisAberto ? (
-        <FolhaMais membro={membro} atual={atual} pode={pode} fechar={() => setMaisAberto(false)} />
+        <FolhaMais
+          membro={membro}
+          atual={atual}
+          pode={pode}
+          avisos={avisos}
+          fechar={() => setMaisAberto(false)}
+        />
       ) : null}
     </>
   )
@@ -105,10 +116,12 @@ export function Casca({
 function Nav({
   atual,
   pode,
+  avisos,
   aoIr,
 }: {
   atual: Area
   pode: (area: Area) => boolean
+  avisos: Avisos
   aoIr?: () => void
 }) {
   return (
@@ -129,6 +142,16 @@ function Nav({
                   >
                     <Icone nome={i.icone} />
                     <span>{i.nome}</span>
+                    {avisos[i.area] ? (
+                      <span
+                        className="nav__num"
+                        data-grave
+                        data-aviso={i.area}
+                        aria-label={`${avisos[i.area]} ${avisos[i.area] === 1 ? "problema grave" : "problemas graves"}`}
+                      >
+                        {avisos[i.area]}
+                      </span>
+                    ) : null}
                   </Link>
                 </li>
               ))}
@@ -173,11 +196,13 @@ function FolhaMais({
   membro,
   atual,
   pode,
+  avisos,
   fechar,
 }: {
   membro: Membro
   atual: Area
   pode: (area: Area) => boolean
+  avisos: Avisos
   fechar: () => void
 }) {
   const folha = useRef<HTMLDivElement>(null)
@@ -229,7 +254,7 @@ function FolhaMais({
           <Icone nome="fechar" />
         </button>
       </div>
-      <Nav atual={atual} pode={pode} aoIr={fechar} />
+      <Nav atual={atual} pode={pode} avisos={avisos} aoIr={fechar} />
       <Quem membro={membro} />
     </div>
   )

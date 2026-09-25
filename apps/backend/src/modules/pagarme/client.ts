@@ -1,6 +1,7 @@
 import { createHash, timingSafeEqual } from "node:crypto"
 import type { BigNumberInput } from "@medusajs/framework/types"
 import { BigNumber } from "@medusajs/framework/utils"
+import { sinal } from "../../lib/observabilidade/sinal"
 
 /**
  * O CLIENTE DO PAGAR.ME — a API v5, e só o formato DELES.
@@ -318,15 +319,27 @@ export function clienteDoPagarme(chaveSecreta: string, url = ENDERECO_PADRAO) {
       })
     } catch (e) {
       const abortou = e instanceof Error && e.name === "AbortError"
-      throw new ErroDoPagarme(
-        abortou
-          ? `o Pagar.me não respondeu em ${tempoLimite / 1000}s (${metodo} ${caminho})`
-          : `falha de rede falando com o Pagar.me (${metodo} ${caminho})`,
-        "rede"
-      )
+      const motivo = abortou
+        ? `o Pagar.me não respondeu em ${tempoLimite / 1000}s (${metodo} ${caminho})`
+        : `falha de rede falando com o Pagar.me (${metodo} ${caminho})`
+      sinal({ integracao: "pagarme", ok: false, resumo: motivo, detalhe: `[pagarme] ${motivo}` })
+      throw new ErroDoPagarme(motivo, "rede")
     } finally {
       clearTimeout(relogio)
     }
+
+    // Erro de negócio (4xx) é o Pagar.me respondendo; fora do ar é 5xx, e a chave é 401/403.
+    const status = resposta.status
+    sinal(
+      status >= 500 || status === 401 || status === 403
+        ? {
+            integracao: "pagarme",
+            ok: false,
+            resumo: `o Pagar.me respondeu ${status}`,
+            detalhe: `[pagarme] ${metodo} ${caminho.split("?")[0]} → ${status}`,
+          }
+        : { integracao: "pagarme", ok: true }
+    )
 
     const texto = await resposta.text()
     let json: unknown = null

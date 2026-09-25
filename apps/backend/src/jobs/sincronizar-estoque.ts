@@ -1,5 +1,6 @@
 import type { MedusaContainer } from "@medusajs/framework/types"
 import { sincronizarEstoque } from "../lib/erp/estoque"
+import { comRodada } from "../lib/observabilidade/rodada"
 
 /**
  * De 5 em 5 minutos, no worker: o estoque da loja espelha o do ERP
@@ -8,7 +9,7 @@ import { sincronizarEstoque } from "../lib/erp/estoque"
  *
  * Sem ERP conectado, volta na primeira linha. Nos minutos 3, 8, 13…
  */
-export default async function sincronizarEstoqueDoErp(container: MedusaContainer) {
+async function sincronizarEstoqueDoErp(container: MedusaContainer) {
   await sincronizarEstoque(container)
 }
 
@@ -16,3 +17,5 @@ export const config = {
   name: "sincronizar-estoque",
   schedule: "3-59/5 * * * *",
 }
+
+export default comRodada(config.name, sincronizarEstoqueDoErp)

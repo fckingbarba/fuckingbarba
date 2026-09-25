@@ -229,6 +229,13 @@ const erpModule = [{ resolve: "./src/modules/erp" }]
  */
 const equipeModule = [{ resolve: "./src/modules/equipe" }]
 
+/**
+ * A SAÚDE DA LOJA PRO PAINEL — as rodadas dos jobs, os problemas e o sinal
+ * de cada integração (`src/modules/observabilidade/`). Ver o AGENTS.md,
+ * "Observabilidade".
+ */
+const observabilidadeModule = [{ resolve: "./src/modules/observabilidade" }]
+
 module.exports = defineConfig({
   projectConfig: {
     databaseUrl: process.env.DATABASE_URL,
@@ -280,5 +287,6 @@ module.exports = defineConfig({
     ...newsletterModule,
     ...erpModule,
     ...equipeModule,
+    ...observabilidadeModule,
   ],
 })

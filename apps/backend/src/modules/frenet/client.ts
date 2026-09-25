@@ -1,3 +1,5 @@
+import { sinal } from "../../lib/observabilidade/sinal"
+
 /**
  * O CLIENTE DA FRENET — uma função, uma chamada HTTP.
  *
@@ -394,10 +396,14 @@ async function perguntar(
     })
   } catch (e) {
     const abortou = e instanceof Error && e.name === "AbortError"
-    throw new ErroDaFrenet(
-      abortou ? `a Frenet não respondeu em ${tempoLimite}ms` : `falha de rede: ${e}`,
-      true
-    )
+    const motivo = abortou ? `a Frenet não respondeu em ${tempoLimite}ms` : `falha de rede: ${e}`
+    sinal({
+      integracao: "frenet",
+      ok: false,
+      resumo: motivo,
+      detalhe: `[frenet] cotação: ${motivo}`,
+    })
+    throw new ErroDaFrenet(motivo, true)
   } finally {
     clearTimeout(relogio)
   }
@@ -408,8 +414,16 @@ async function perguntar(
       temporário — tentar de novo só gasta o tempo do cliente no checkout.
     */
     const autenticacao = resposta.status === 401 || resposta.status === 403
-    throw new ErroDaFrenet(`a Frenet respondeu ${resposta.status}`, !autenticacao)
+    const motivo = `a Frenet respondeu ${resposta.status}`
+    sinal({
+      integracao: "frenet",
+      ok: false,
+      resumo: motivo,
+      detalhe: `[frenet] cotação: ${motivo}`,
+    })
+    throw new ErroDaFrenet(motivo, !autenticacao)
   }
+  sinal({ integracao: "frenet", ok: true })
 
   const dados = (await resposta.json()) as {
     ShippingSevicesArray?: unknown

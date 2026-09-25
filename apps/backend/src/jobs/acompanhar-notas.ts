@@ -1,5 +1,6 @@
 import type { MedusaContainer } from "@medusajs/framework/types"
 import { acompanharNotas } from "../lib/erp/notas"
+import { comRodada } from "../lib/observabilidade/rodada"
 
 /**
  * De 5 em 5 minutos, no worker: as notas fiscais (`lib/erp/notas.ts`) —
@@ -10,7 +11,7 @@ import { acompanharNotas } from "../lib/erp/notas"
  *
  * Sem ERP conectado, volta na primeira linha. Nos minutos 4, 9, 14…
  */
-export default async function acompanharNotasDoErp(container: MedusaContainer) {
+async function acompanharNotasDoErp(container: MedusaContainer) {
   await acompanharNotas(container)
 }
 
@@ -18,3 +19,5 @@ export const config = {
   name: "acompanhar-notas",
   schedule: "4-59/5 * * * *",
 }
+
+export default comRodada(config.name, acompanharNotasDoErp)

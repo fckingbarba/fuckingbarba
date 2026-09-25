@@ -1,3 +1,5 @@
+import { sinal } from "./observabilidade/sinal"
+
 /**
  * AVISAR A LOJA QUE UM DADO MUDOU.
  *
@@ -46,12 +48,25 @@ export async function avisarALoja(
       // hora de investigar.
       const motivo = `loja respondeu ${resposta.status}`
       logger?.warn(`[revalidar] não consegui avisar a loja (${tags.join(", ")}): ${motivo}`)
+      sinal({
+        integracao: "loja",
+        ok: false,
+        resumo: motivo,
+        detalhe: `[revalidar] ${tags.join(", ")}: ${motivo}`,
+      })
       return { avisou: false, motivo }
     }
+    sinal({ integracao: "loja", ok: true })
     return { avisou: true }
   } catch (e) {
     const motivo = e instanceof Error ? e.message : String(e)
     logger?.warn(`[revalidar] não consegui avisar a loja (${tags.join(", ")}): ${motivo}`)
+    sinal({
+      integracao: "loja",
+      ok: false,
+      resumo: motivo,
+      detalhe: `[revalidar] ${tags.join(", ")}: ${motivo}`,
+    })
     return { avisou: false, motivo }
   }
 }

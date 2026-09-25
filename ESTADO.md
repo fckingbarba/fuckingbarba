@@ -1436,6 +1436,42 @@ Conferido pelo `conferir-cupons.mjs` (25 checagens, novo).
 
 Depois do deploy — **nada a configurar.**
 
+**Fase 7, parte 1: Observabilidade — pronto em 25/09 (entrega 0087).** A saúde da loja num lugar só,
+em frase, com o que fazer. A parte 2 (o site) vem depois.
+
+- **Os problemas:** a tela junta o que quebrou.
+  - Nos pedidos: o estorno que não saiu (só o dono vê, como no Início), a nota travada, o pedido que
+    a Frenet recusou e o pacote que não chegou.
+  - A conexão com o Bling caída, e a rotina automática que está falhando ou parou.
+  - E o que aconteceu e passou: a cotação do frete que falhou, o e-mail que não saiu, o Pagar.me e
+    o Bling que não responderam. Um cartão por dia, contando as vezes.
+- **Dois tipos de problema:**
+  - os que dependem de um estado da loja (o estorno, a nota, o Bling, as rotinas) **saem sozinhos**
+    quando forem resolvidos. A loja confere de 5 em 5 minutos, e na hora em que alguém abre a tela;
+  - os que aconteceram e passaram ficam até alguém **marcar como visto**. Se acontecer de novo
+    depois disso, o cartão volta. Quem marcou fica registrado.
+- **O número vermelho no menu** diz quantos problemas graves estão abertos.
+- **As integrações:** a loja, o Medusa, o Pagar.me, o Bling, a Frenet, o Resend e o Google, cada um
+  com o último sinal ("14 e-mails hoje · 1 não saiu", "Último aviso hoje, 21:08").
+- **As rotinas automáticas:** as 9 que a loja faz sozinha — quando rodaram, quanto levaram, se deram
+  certo e a próxima. Se todas pararem, a tela avisa e diz o que fazer: reiniciar o Medusa no
+  Railway.
+- **Quem vê:** o dono e a operação. O marketing não vê a área.
+- Nada de dado de cliente fica guardado: o e-mail vai mascarado, e o código de acesso, coberto.
+
+Ficou pra parte 2:
+
+- [ ] As páginas que não existem (404) e os erros no navegador, mandados pela loja.
+- [ ] A velocidade medida nas visitas de verdade: carregar, responder ao toque, não pular na tela.
+- [ ] O "site no ar" dos últimos 30 dias.
+- [ ] Quem é avisado por e-mail, por papel. Hoje, o estorno, a nota e o Bling vão pros usuários do
+      admin do Medusa. Entra junto das Configurações.
+
+Conferido pelo `conferir-observabilidade.mjs` (27 checagens, novo).
+
+Depois do deploy — **nada a configurar.** O Railway cria as tabelas sozinho. Nos primeiros minutos,
+as rotinas de hora em hora aparecem como "Ainda não rodou"; as outras entram na primeira rodada.
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os onze conferidores (contra o Medusa local, com

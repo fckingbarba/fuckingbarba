@@ -7,6 +7,7 @@ import { perguntarAosParceiros } from "../lib/envios/consultas"
 import { acompanharDeNovo } from "../lib/envios/nucleo"
 import { noPainelSemPostagem } from "../lib/envios/registro"
 import { avisoPendente, lerAvisos, type SituacaoDoEnvio } from "../lib/envios/situacao"
+import { comRodada } from "../lib/observabilidade/rodada"
 
 /**
  * DE HORA EM HORA, no worker: o que ficou pra trás nos envios.
@@ -40,7 +41,7 @@ const EM_ANDAMENTO: SituacaoDoEnvio[] = [
 ]
 const COM_AVISO: SituacaoDoEnvio[] = [...EM_ANDAMENTO, "entregue"]
 
-export default async function acompanharEnvios(container: MedusaContainer) {
+async function acompanharEnvios(container: MedusaContainer) {
   const envios = container.resolve<EnviosService>(ENVIOS)
   const logger = container.resolve(ContainerRegistrationKeys.LOGGER)
   const agora = new Date()
@@ -125,3 +126,5 @@ export const config = {
   name: "acompanhar-envios",
   schedule: "23 * * * *",
 }
+
+export default comRodada(config.name, acompanharEnvios)

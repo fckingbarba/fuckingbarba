@@ -1,5 +1,6 @@
 import type { Credenciais, Renovacao, ResultadoDaAutorizacao } from "../../lib/erp/contrato"
 import { motivoDoErro, urlDaApi } from "./api"
+import { sinal } from "../../lib/observabilidade/sinal"
 
 /**
  * A AUTORIZAÇÃO DO BLING — OAuth 2.0, código de autorização.
@@ -60,21 +61,17 @@ async function pedirToken(corpo: URLSearchParams): Promise<Token> {
       signal: AbortSignal.timeout(15_000),
     })
   } catch (e) {
-    return {
-      ok: false,
-      status: 0,
-      motivo: `o Bling não atendeu (${e instanceof Error ? e.message : e})`,
-    }
+    const motivo = `o Bling não atendeu (${e instanceof Error ? e.message : e})`
+    sinal({ integracao: "bling", ok: false, resumo: motivo, detalhe: `[erp] token: ${motivo}` })
+    return { ok: false, status: 0, motivo }
   }
   const json = (await resposta.json().catch(() => null)) as Record<string, unknown> | null
   const acesso = json?.access_token
   const renovacao = json?.refresh_token
   if (!resposta.ok || typeof acesso !== "string" || typeof renovacao !== "string") {
-    return {
-      ok: false,
-      status: resposta.status,
-      motivo: motivoDoErro(json) ?? `o Bling respondeu ${resposta.status} ao pedido de token`,
-    }
+    const motivo = motivoDoErro(json) ?? `o Bling respondeu ${resposta.status} ao pedido de token`
+    sinal({ integracao: "bling", ok: false, resumo: motivo, detalhe: `[erp] token: ${motivo}` })
+    return { ok: false, status: resposta.status, motivo }
   }
   const segundos = Number(json?.expires_in) > 0 ? Number(json?.expires_in) : 21_600
   return {

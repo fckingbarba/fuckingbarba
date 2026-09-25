@@ -207,8 +207,13 @@ export const textoDe = async (pagina, seletor) =>
       .catch(() => "")) ?? ""
   ).trim()
 
+/** Os nomes do menu, sem o número vermelho ao lado (`.nav__num`). */
 export const menu = async (pagina) =>
-  (await pagina.locator(".lateral .nav a").allTextContents()).map((t) => t.trim())
+  pagina
+    .locator(".lateral .nav a")
+    .evaluateAll((links) =>
+      links.map((a) => (a.querySelector("span:not(.nav__num)") ?? a).textContent.trim())
+    )
 
 export async function semRolagemDeLado(pagina) {
   return pagina.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)
