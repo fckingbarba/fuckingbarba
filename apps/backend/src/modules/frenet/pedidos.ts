@@ -159,14 +159,18 @@ export function corpoDoPedido(
           },
         },
       },
-      Volumes: [
-        {
-          ...caixaDoPedido(p.itens),
-          Price: centavos(p.valorDosProdutos),
-          DeclaredValue: centavos(p.valorDosProdutos),
-          OrderItemsId: p.itens.map((i) => i.id),
-        },
-      ],
+      /*
+        UM volume, e OBJETO, não lista: no esquema da documentação deles
+        (`ShipmentBase.Volumes` → `Volume`, em "Inserir pedidos na Frenet").
+        A lista com um volume dentro a Frenet recusava com 400 antes de ler o
+        pedido — foi o #19, o primeiro de verdade (25/09).
+      */
+      Volumes: {
+        ...caixaDoPedido(p.itens),
+        Price: centavos(p.valorDosProdutos),
+        DeclaredValue: centavos(p.valorDosProdutos),
+        OrderItemsId: p.itens.map((i) => i.id),
+      },
       ...(p.servico
         ? {
             Quotation: {
@@ -183,15 +187,49 @@ export function corpoDoPedido(
 
 /* ── a resposta ───────────────────────────────────────────────────────────── */
 
-/** `{Message, Details: [{Code, Message}]}` → uma linha. */
-function motivoDoErro(corpo: unknown): string | null {
-  if (!corpo || typeof corpo !== "object") return null
-  const c = corpo as { Message?: unknown; Details?: unknown }
-  const detalhes = (Array.isArray(c.Details) ? c.Details : [])
-    .map((d) => texto((d as { Message?: unknown } | null)?.Message))
-    .filter(Boolean)
-  const partes = [texto(c.Message), ...detalhes].filter(Boolean)
-  return partes.length ? partes.join(" — ") : null
+/**
+ * A chave em qualquer caixa. A documentação mostra as duas: o erro em
+ * `Message`/`Details`, e a resposta do lote em `statusBatch`/`items`/
+ * `shipmentId` (o JSON do ASP.NET, deles, sai em camelCase). Lendo só uma, o
+ * pedido que ENTROU parecia não ter entrado — e a varredura mandaria de novo.
+ */
+function campo(o: unknown, nome: string): unknown {
+  if (!o || typeof o !== "object" || Array.isArray(o)) return undefined
+  const alvo = nome.toLowerCase()
+  const chave = Object.keys(o).find((k) => k.toLowerCase() === alvo)
+  return chave === undefined ? undefined : (o as Record<string, unknown>)[chave]
+}
+
+const lista = (v: unknown): unknown[] => (Array.isArray(v) ? v : [])
+
+/**
+ * O porquê do erro, numa linha — e nunca "sem motivo" se a Frenet disse
+ * alguma coisa:
+ * - `{Message, Details: [{Code, Message}]}`: o erro da documentação;
+ * - `{title, errors: {"$[0].Volumes": ["…"]}}`: a validação do ASP.NET, que
+ *   recusa o corpo antes de o código deles ler (foi o caso do #19, que ficou
+ *   "sem motivo na resposta" porque só a primeira forma era lida);
+ * - o que vier fora disso: o começo da resposta crua.
+ */
+function motivoDoErro(corpo: unknown, bruto = ""): string | null {
+  const detalhes = lista(campo(corpo, "Details")).map((d) => texto(campo(d, "Message")))
+  const erros = campo(corpo, "errors")
+  const deValidacao =
+    erros && typeof erros === "object" && !Array.isArray(erros)
+      ? Object.entries(erros).flatMap(([onde, msgs]) =>
+          (Array.isArray(msgs) ? msgs : [msgs]).map((m) =>
+            texto(m) ? `${onde}: ${texto(m)}` : null
+          )
+        )
+      : lista(erros).map((e) => texto(campo(e, "Message")) ?? texto(e))
+  const partes = [
+    texto(campo(corpo, "Message")),
+    texto(campo(corpo, "title")),
+    ...detalhes,
+    ...deValidacao,
+  ].filter((v): v is string => Boolean(v))
+  if (partes.length) return [...new Set(partes)].join(" — ").slice(0, 500)
+  return texto(bruto, 300)
 }
 
 /**
@@ -204,7 +242,8 @@ function motivoDoErro(corpo: unknown): string | null {
 export function lerResposta(
   status: number,
   corpo: unknown,
-  referencia: string
+  referencia: string,
+  bruto = ""
 ): RegistroNoParceiro {
   if (status === 401 || status === 403) {
     return {
@@ -213,26 +252,26 @@ export function lerResposta(
       definitivo: false,
     }
   }
+  const motivo = motivoDoErro(corpo, bruto)
   if (status === 400) {
     return {
       ok: false,
-      motivo: `a Frenet recusou o pedido: ${motivoDoErro(corpo) ?? "sem motivo na resposta"}`,
+      motivo: `a Frenet recusou o pedido: ${motivo ?? "sem motivo na resposta"}`,
       definitivo: true,
     }
   }
   if (status < 200 || status >= 300) {
     return {
       ok: false,
-      motivo: `a Frenet respondeu ${status}${motivoDoErro(corpo) ? `: ${motivoDoErro(corpo)}` : ""}`,
+      motivo: `a Frenet respondeu ${status}${motivo ? `: ${motivo}` : ""}`,
       definitivo: false,
     }
   }
 
-  const lote = (corpo ?? {}) as { StatusBatch?: unknown; Items?: unknown }
-  const itens = (Array.isArray(lote.Items) ? lote.Items : []) as Record<string, unknown>[]
-  const item = itens.find((i) => texto(i?.OrderId) === referencia) ?? itens[0]
-  const erros = (Array.isArray(item?.Errors) ? item.Errors : [])
-    .map((e) => texto((e as { Message?: unknown } | null)?.Message))
+  const itens = lista(campo(corpo, "Items"))
+  const item = itens.find((i) => texto(campo(i, "OrderId")) === referencia) ?? itens[0]
+  const erros = lista(campo(item, "Errors"))
+    .map((e) => texto(campo(e, "Message")))
     .filter((m): m is string => Boolean(m))
   if (erros.length) {
     return {
@@ -241,9 +280,9 @@ export function lerResposta(
       definitivo: true,
     }
   }
-  const id = texto(item?.ShipmentId, 40)
+  const id = texto(campo(item, "ShipmentId"), 40)
   if (id && id !== "0") return { ok: true, idNoParceiro: id }
-  if (lote.StatusBatch === "Erro") {
+  if (texto(campo(corpo, "StatusBatch"))?.toLowerCase() === "erro") {
     return { ok: false, motivo: "a Frenet recusou o lote, sem dizer por quê", definitivo: true }
   }
   return { ok: false, motivo: "a Frenet respondeu sem o id do envio", definitivo: false }
@@ -251,7 +290,8 @@ export function lerResposta(
 
 /* ── as chamadas ──────────────────────────────────────────────────────────── */
 
-type Resposta = { status: number; corpo: unknown } | { falhou: string }
+/** `bruto` é o texto da resposta, pro motivo que não vem em JSON (`motivoDoErro`). */
+type Resposta = { status: number; corpo: unknown; bruto: string } | { falhou: string }
 
 async function chamar(
   metodo: "POST" | "DELETE",
@@ -279,7 +319,7 @@ async function chamar(
     } catch {
       lido = null
     }
-    return { status: r.status, corpo: lido }
+    return { status: r.status, corpo: lido, bruto }
   } catch (e) {
     return {
       falhou: desistir.signal.aborted
@@ -301,7 +341,7 @@ export async function registrarPedido(p: PedidoParaOParceiro): Promise<RegistroN
     corpoDoPedido(p, { aviso: urlDoAviso(p.referencia) })
   )
   if ("falhou" in r) return { ok: false, motivo: r.falhou, definitivo: false }
-  return lerResposta(r.status, r.corpo, p.referencia)
+  return lerResposta(r.status, r.corpo, p.referencia, r.bruto)
 }
 
 /**
@@ -318,7 +358,7 @@ export async function tirarPedido(
   const falha = (r: Resposta) =>
     "falhou" in r
       ? r.falhou
-      : `${r.status}${motivoDoErro(r.corpo) ? ` (${motivoDoErro(r.corpo)})` : ""}`
+      : `${r.status}${motivoDoErro(r.corpo, r.bruto) ? ` (${motivoDoErro(r.corpo, r.bruto)})` : ""}`
 
   const cancelar = await chamar("POST", `/v1/shipments/${id}/cancel`)
   if (!("falhou" in cancelar) && cancelar.status >= 200 && cancelar.status < 300)

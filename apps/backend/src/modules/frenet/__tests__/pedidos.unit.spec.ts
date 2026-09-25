@@ -186,18 +186,16 @@ describe("a caixa", () => {
     ).toEqual({ Length: 16, Width: 11, Height: 2 })
   })
 
-  it("vai no volume com o valor declarado dos produtos e as linhas dentro dela", () => {
-    expect(corpoDoPedido(PEDIDO)[0].Volumes).toEqual([
-      {
-        Weight: 0.32,
-        Length: 16,
-        Width: 11,
-        Height: 28,
-        Price: 129.8,
-        DeclaredValue: 129.8,
-        OrderItemsId: ["ordli_1", "ordli_2"],
-      },
-    ])
+  it("vai no volume — um objeto, e não lista (o #19) — com o valor declarado e as linhas dentro dela", () => {
+    expect(corpoDoPedido(PEDIDO)[0].Volumes).toEqual({
+      Weight: 0.32,
+      Length: 16,
+      Width: 11,
+      Height: 28,
+      Price: 129.8,
+      DeclaredValue: 129.8,
+      OrderItemsId: ["ordli_1", "ordli_2"],
+    })
   })
 })
 
@@ -264,6 +262,54 @@ describe("a resposta da Frenet", () => {
     expect(lerResposta(200, lote({ ShipmentId: 0 }), "FB-1042")).toMatchObject({
       ok: false,
       definitivo: false,
+    })
+  })
+
+  it("lê a resposta em camelCase, como a documentação mostra (senão o que entrou iria de novo)", () => {
+    expect(
+      lerResposta(
+        200,
+        {
+          statusBatch: "Processado",
+          items: [{ shipmentId: 12682, orderId: "FB-1042", shipmentStatus: 1, errors: null }],
+        },
+        "FB-1042"
+      )
+    ).toEqual({ ok: true, idNoParceiro: "12682" })
+    expect(
+      lerResposta(
+        200,
+        {
+          statusBatch: "Erro",
+          items: [{ orderId: "FB-1042", errors: [{ code: 2011, message: "Rua inválida" }] }],
+        },
+        "FB-1042"
+      )
+    ).toEqual({ ok: false, motivo: "a Frenet recusou o pedido: Rua inválida", definitivo: true })
+  })
+
+  it("o 400 da validação do ASP.NET diz o campo, em vez de 'sem motivo' (o #19)", () => {
+    const validacao = {
+      type: "https://tools.ietf.org/html/rfc9110#section-15.5.1",
+      title: "One or more validation errors occurred.",
+      status: 400,
+      errors: { "$[0].Volumes": ["The JSON value could not be converted to Volume."] },
+    }
+    const r = lerResposta(400, validacao, "FB-1042")
+    expect(r).toMatchObject({ ok: false, definitivo: true })
+    expect(!r.ok && r.motivo).toBe(
+      "a Frenet recusou o pedido: One or more validation errors occurred. — $[0].Volumes: The JSON value could not be converted to Volume."
+    )
+    // Fora de qualquer forma conhecida, vale o começo da resposta crua.
+    expect(lerResposta(400, null, "FB-1042", "Bad Request: Volumes inválido")).toEqual({
+      ok: false,
+      motivo: "a Frenet recusou o pedido: Bad Request: Volumes inválido",
+      definitivo: true,
+    })
+    expect(lerResposta(400, null, "FB-1042", "")).toEqual({
+      ok: false,
+      motivo: "a Frenet recusou o pedido: sem motivo na resposta",
+      definitivo: true,
     })
   })
 })
