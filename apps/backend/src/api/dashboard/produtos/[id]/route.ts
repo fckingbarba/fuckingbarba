@@ -2,6 +2,7 @@ import type { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/frame
 import { exigirArea, type PedidoDaEquipe } from "../../../../lib/equipe/acesso"
 import { podeAbrir } from "../../../../lib/equipe/regras"
 import { urlDaLoja } from "../../../../lib/emails/moldura"
+import { MARCA_DO_PRECO } from "../../../../lib/erp/marcas"
 import { comFundosDoArmazenamento } from "../../../../lib/imagens"
 import {
   estoquesDos,
@@ -52,7 +53,10 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
       comFundosDoArmazenamento(lerPdp(p.metadata)),
       estoques.get(p.id) ?? null,
       podeAbrir(pedido.membro.papel, "editarProdutos"),
-      precos.get(p.id)
+      {
+        preco: precos.get(p.id),
+        precoDoPainel: Boolean((p.metadata as Record<string, unknown> | null)?.[MARCA_DO_PRECO]),
+      }
     ),
     // Os que podem ir num seletor: no site, com endereço, e não o próprio —
     // com o preço de hoje (a promoção), que é o que a prévia do frete soma.

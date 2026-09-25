@@ -12,8 +12,8 @@ type Busca = Promise<{ filtro?: string }>
 
 /**
  * PRODUTOS — a lista, com as fitas de filtro no endereço (`?filtro=rascunho`).
- * Preço e estoque vêm do Bling e só aparecem; a promoção (o "por" do
- * de/por) se muda aqui mesmo, no preço de cada um. O resto do que se edita
+ * O preço e o promocional se mudam aqui mesmo, nos dois campos de cada
+ * produto; o estoque vem do Bling e só aparece. O resto do que se edita
  * fica na página de cada produto.
  */
 export default function Pagina({ searchParams }: { searchParams: Busca }) {
@@ -41,10 +41,9 @@ async function Lista({ searchParams }: { searchParams: Busca }) {
         titulo="Produtos"
         sub={
           <>
-            Nome, descrição, preço, peso e medidas vêm do <b>Bling</b>: mudam lá e chegam quando
-            alguém traz o catálogo de novo. O estoque vem sozinho, de 5 em 5 minutos. Aqui ficam a
-            promoção (o &ldquo;de/por&rdquo;, no preço de cada um), o subtítulo, a categoria, a
-            página do produto e o que está no site.
+            <b>Preço e promocional se mudam aqui:</b> escreva no campo e aperte Enter. Promocional
+            vazio é sem promoção. O preço mudado aqui a importação do Bling não troca mais. Nome,
+            descrição, peso e medidas vêm do <b>Bling</b>; o estoque, sozinho, de 5 em 5 minutos.
           </>
         }
       />

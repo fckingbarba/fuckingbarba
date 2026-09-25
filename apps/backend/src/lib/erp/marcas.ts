@@ -23,6 +23,14 @@ export const MARCA_DAS_FOTOS = "fb_fotos"
  */
 export const MARCA_DO_NOME = "fb_nome"
 
+/**
+ * O preço mudado no painel (a lista de Produtos, `lib/painel/gravar-preco.ts`):
+ * `{ origem, em }`. Da segunda importação em diante, produto com esta marca
+ * fica com o preço de hoje — o do ERP não entra. Na primeira ("do zero"), a
+ * marca sai junto com as outras chaves (entrega 0102).
+ */
+export const MARCA_DO_PRECO = "fb_preco"
+
 const objeto = (v: unknown) =>
   v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null
 

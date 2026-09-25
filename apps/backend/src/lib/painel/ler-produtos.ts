@@ -1,6 +1,6 @@
 import type { MedusaContainer } from "@medusajs/framework/types"
 import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
-import { acharListaDaPromocao } from "./gravar-promocao"
+import { acharListaDaPromocao } from "./gravar-preco"
 import { precoDo, type ProdutoCru } from "./produtos"
 import { precoDoProduto, type PrecoDoProduto } from "./promocao"
 

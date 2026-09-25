@@ -132,6 +132,8 @@ export type DetalheDoProduto = LinhaDoProduto & {
   caixa: Caixa
   secoes: SecaoDaPagina[]
   podeEditar: boolean
+  /** O preço foi mudado no painel: a importação do Bling não troca mais. */
+  precoDoPainel: boolean
 }
 
 export type NoCatalogo = {
@@ -166,9 +168,10 @@ export type LinhaDoHistorico = {
   /** Na galeria: "incluir", "mover" ou "tirar", e se foi foto ou vídeo. */
   galeria?: string
   tipo?: string
-  /** Na promoção: o "por" gravado (`null` = tirou) e o "de" daquela hora. */
-  por?: number | null
+  /** No preço: o de antes (`de`) e o novo (`para`). Na promoção: o "de" e o "por" (`null` = tirou). */
   de?: number
+  para?: number
+  por?: number | null
   /** Nos textos: o nome novo, quando o nome mudou. */
   nome?: string
 }
@@ -220,6 +223,14 @@ export function fraseDoHistorico(h: LinhaDoHistorico): { titulo: string; detalhe
         detalhe: "",
       }
     }
+    case "mudou-preco":
+      return {
+        titulo: `${h.quem} mudou o preço`,
+        detalhe:
+          typeof h.de === "number" && typeof h.para === "number"
+            ? `de ${reais(h.de)} pra ${reais(h.para)}`
+            : "",
+      }
     case "mudou-promocao":
       return typeof h.por === "number"
         ? {
