@@ -36,6 +36,10 @@ import { whatsappNaTela } from "./pedido-confirmado"
  * O PRAZO DO ESTORNO É O DO BANCO, e a loja não manda nele: o texto diz o que
  * costuma acontecer, sem prometer dia. Prometer "cai amanhã" e não cair é
  * pior do que não ter dito nada.
+ *
+ * E O SEGUNDO E-MAIL DE UM PEDIDO CANCELADO mora aqui também, no fim: o do
+ * pagamento que chegou DEPOIS do cancelamento (`emailDePagamentoDevolvido`).
+ * Os dois dividem o topo, a lista do pedido e o caminho de volta pra loja.
  */
 
 export type MotivoDoCancelamento = "estornado" | "pix-vencido" | "sem-cobranca"
@@ -61,20 +65,52 @@ export function porQueCancelou(motivo: MotivoDoCancelamento): string {
 }
 
 /**
+ * O caminho de volta do dinheiro, que muda com a forma: Pix cai na conta que
+ * pagou; cartão volta pela fatura, e aí quem manda no prazo é o banco.
+ */
+export function voltaDoDinheiro({ valor, forma }: { valor: number; forma: "pix" | "cartao" }) {
+  const reais = emReais(valor)
+  return forma === "pix"
+    ? `Os ${reais} do Pix voltam pra conta que pagou, na mesma chave. ` +
+        "O Pagar.me devolve, e costuma cair em até um dia útil."
+    : `Os ${reais} voltam pro mesmo cartão. O estorno já foi pedido; quem manda no prazo ` +
+        "daí pra frente é o banco — pode aparecer nesta fatura ou na próxima."
+}
+
+/**
  * O QUE ACONTECE COM O DINHEIRO — a parte que a pessoa abre o e-mail pra ler.
  *
- * Sem cobrança, é uma frase só e ela resolve tudo. Com estorno, o caminho de
- * volta muda com a forma: Pix cai na conta que pagou; cartão volta pela
- * fatura, e aí quem manda no prazo é o banco.
+ * Sem cobrança, é uma frase só e ela resolve tudo. Com estorno, é o caminho
+ * de volta (`voltaDoDinheiro`).
  */
 export function oQueAconteceComODinheiro(c: CancelamentoDoEmail): string {
   if (!c.estorno) return "Nada foi cobrado de você — não há nada a pagar nem a receber."
-  const valor = emReais(c.estorno.valor)
-  return c.estorno.forma === "pix"
-    ? `Os ${valor} do Pix voltam pra conta que pagou, na mesma chave. ` +
-        "O Pagar.me devolve, e costuma cair em até um dia útil."
-    : `Os ${valor} voltam pro mesmo cartão. O estorno já foi pedido; quem manda no prazo ` +
-        "daí pra frente é o banco — pode aparecer nesta fatura ou na próxima."
+  return voltaDoDinheiro(c.estorno)
+}
+
+/** Quando o dinheiro volta: o que fazer se ele não aparecer. */
+const seDemorar = (numero: string) =>
+  "Se passar desse prazo e o valor não tiver aparecido, responda este e-mail " +
+  `com o número ${numero}: a gente corre atrás.`
+
+/* ── as partes que os dois e-mails dividem ────────────────────────────────── */
+
+/** O topo: o título, o número em destaque e a linha do que houve. */
+function cabecalho(texto: string, numero: string, linha: string): string {
+  return (
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>` +
+    `<td align="center" style="text-align:center;">` +
+    titulo(texto) +
+    espaco(10) +
+    paragrafo(
+      `Número <span style="background:${COR.amarelo};color:${COR.tinta};font-weight:800;` +
+        `padding:2px 7px;white-space:nowrap;">${esc(numero)}</span>`,
+      { tamanho: 15 }
+    ) +
+    espaco(6) +
+    paragrafo(esc(linha), { suave: true, tamanho: 14 }) +
+    `</td></tr></table>`
+  )
 }
 
 function linhaDoItem(item: ItemDoEmail): string {
@@ -95,6 +131,80 @@ function linhaDoItem(item: ItemDoEmail): string {
   )
 }
 
+/** O que estava no pedido. Sem itens, nada — cartão vazio não. */
+function cartaoDoPedido(itens: ItemDoEmail[], total: number): string {
+  if (!itens.length) return ""
+  return cartao(
+    rotulo("O que estava no pedido") +
+      espaco(4) +
+      itens.map(linhaDoItem).join(divisor()) +
+      espaco(10) +
+      divisor() +
+      espaco(14) +
+      `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>` +
+      `<td>${paragrafo("Total", { suave: true, tamanho: 14 })}</td>` +
+      `<td align="right" style="text-align:right;white-space:nowrap;">` +
+      paragrafo(esc(emReais(total)), { tamanho: 16, peso: 800 }) +
+      `</td></tr></table>`
+  )
+}
+
+function pedidoEmTexto(itens: ItemDoEmail[], total: number): string[] {
+  if (!itens.length) return []
+  return [
+    "",
+    "O QUE ESTAVA NO PEDIDO",
+    ...itens.map(
+      (i) =>
+        `- ${i.nome}${i.variante ? ` (${i.variante})` : ""}: ${i.quantidade} × ${emReais(i.precoUnitario)} = ${emReais(i.total)}`
+    ),
+    `Total: ${emReais(total)}`,
+  ]
+}
+
+function botaoDaLoja(loja: string | null): string {
+  return loja
+    ? espaco(22) +
+        `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>` +
+        `<td align="center">${botao({ texto: "Voltar pra loja", href: loja })}</td>` +
+        `</tr></table>`
+    : ""
+}
+
+function ajuda(numero: string, whatsapp: string | null): string {
+  return whatsapp
+    ? `Qualquer dúvida, chama no WhatsApp <a href="https://wa.me/${esc(whatsapp)}" target="_blank" ` +
+        `style="color:${COR.tinta};font-weight:700;text-decoration:underline;white-space:nowrap;" class="fb-texto">` +
+        `${esc(whatsappNaTela(whatsapp))}</a> com o número <b>${esc(numero)}</b>.`
+    : `Qualquer dúvida, responda este e-mail com o número <b>${esc(numero)}</b>.`
+}
+
+const ajudaEmTexto = (numero: string, whatsapp: string | null) =>
+  whatsapp
+    ? `Qualquer dúvida, chama no WhatsApp ${whatsappNaTela(whatsapp)} com o número ${numero}.`
+    : `Qualquer dúvida, responda este e-mail com o número ${numero}.`
+
+function naMoldura(
+  { assunto, previa, conteudo }: { assunto: string; previa: string; conteudo: string },
+  numero: string,
+  loja: string | null
+): string {
+  return moldura({
+    assunto,
+    previa,
+    conteudo,
+    rodape: `Você recebeu porque fez o pedido ${esc(numero)} na FuckingBarba.`,
+    links: loja
+      ? [
+          { texto: "Loja", href: loja },
+          { texto: "Instagram", href: INSTAGRAM },
+        ]
+      : [{ texto: "Instagram", href: INSTAGRAM }],
+  })
+}
+
+/* ── o pedido cancelado ───────────────────────────────────────────────────── */
+
 export function emailDePedidoCancelado({
   cancelamento: c,
   whatsapp,
@@ -113,18 +223,7 @@ export function emailDePedidoCancelado({
 
   /* 1. o que houve, e o que acontece com o dinheiro */
   const topo = cartao(
-    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>` +
-      `<td align="center" style="text-align:center;">` +
-      titulo("Pedido cancelado") +
-      espaco(10) +
-      paragrafo(
-        `Número <span style="background:${COR.amarelo};color:${COR.tinta};font-weight:800;` +
-          `padding:2px 7px;white-space:nowrap;">${esc(numero)}</span>`,
-        { tamanho: 15 }
-      ) +
-      espaco(6) +
-      paragrafo(esc(porque), { suave: true, tamanho: 14 }) +
-      `</td></tr></table>` +
+    cabecalho("Pedido cancelado", numero, porque) +
       espaco(22) +
       divisor() +
       espaco(20) +
@@ -132,40 +231,15 @@ export function emailDePedidoCancelado({
       espaco(10) +
       paragrafo(esc(dinheiro), { tamanho: 14 }) +
       (c.estorno
-        ? espaco(12) +
-          paragrafo(
-            "Se passar desse prazo e o valor não tiver aparecido, responda este e-mail " +
-              `com o número ${esc(numero)}: a gente corre atrás.`,
-            { suave: true, tamanho: 13 }
-          )
+        ? espaco(12) + paragrafo(esc(seDemorar(numero)), { suave: true, tamanho: 13 })
         : ""),
     { respiro: "32px 28px 30px" }
   )
 
   /* 2. o que estava no pedido */
-  const compra = c.itens.length
-    ? cartao(
-        rotulo("O que estava no pedido") +
-          espaco(4) +
-          c.itens.map(linhaDoItem).join(divisor()) +
-          espaco(10) +
-          divisor() +
-          espaco(14) +
-          `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>` +
-          `<td>${paragrafo("Total", { suave: true, tamanho: 14 })}</td>` +
-          `<td align="right" style="text-align:right;white-space:nowrap;">` +
-          paragrafo(esc(emReais(c.total)), { tamanho: 16, peso: 800 }) +
-          `</td></tr></table>`
-      )
-    : ""
+  const compra = cartaoDoPedido(c.itens, c.total)
 
   /* 3. como comprar de novo */
-  const ajuda = whatsapp
-    ? `Qualquer dúvida, chama no WhatsApp <a href="https://wa.me/${esc(whatsapp)}" target="_blank" ` +
-      `style="color:${COR.tinta};font-weight:700;text-decoration:underline;white-space:nowrap;" class="fb-texto">` +
-      `${esc(whatsappNaTela(whatsapp))}</a> com o número <b>${esc(numero)}</b>.`
-    : `Qualquer dúvida, responda este e-mail com o número <b>${esc(numero)}</b>.`
-
   const depois = cartao(
     rotulo("Quer fazer de novo?") +
       espaco(12) +
@@ -175,28 +249,16 @@ export function emailDePedidoCancelado({
           : "Os produtos voltaram pro estoque e continuam à venda.",
         { tamanho: 14 }
       ) +
-      (loja
-        ? espaco(22) +
-          `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>` +
-          `<td align="center">${botao({ texto: "Voltar pra loja", href: loja })}</td>` +
-          `</tr></table>`
-        : "") +
+      botaoDaLoja(loja) +
       espaco(20) +
-      paragrafo(ajuda, { suave: true, tamanho: 13 })
+      paragrafo(ajuda(numero, whatsapp), { suave: true, tamanho: 13 })
   )
 
-  const html = moldura({
-    assunto,
-    previa: dinheiro,
-    conteudo: topo + compra + depois,
-    rodape: `Você recebeu porque fez o pedido ${esc(numero)} na FuckingBarba.`,
-    links: loja
-      ? [
-          { texto: "Loja", href: loja },
-          { texto: "Instagram", href: INSTAGRAM },
-        ]
-      : [{ texto: "Instagram", href: INSTAGRAM }],
-  })
+  const html = naMoldura(
+    { assunto, previa: dinheiro, conteudo: topo + compra + depois },
+    numero,
+    loja
+  )
 
   const texto = [
     `FuckingBarba — pedido ${numero} cancelado`,
@@ -204,33 +266,131 @@ export function emailDePedidoCancelado({
     porque,
     "",
     dinheiro,
-    ...(c.estorno
-      ? [
-          "",
-          `Se passar desse prazo e o valor não tiver aparecido, responda este e-mail com o número ${numero}: a gente corre atrás.`,
-        ]
-      : []),
-    ...(c.itens.length
-      ? [
-          "",
-          "O QUE ESTAVA NO PEDIDO",
-          ...c.itens.map(
-            (i) =>
-              `- ${i.nome}${i.variante ? ` (${i.variante})` : ""}: ${i.quantidade} × ${emReais(i.precoUnitario)} = ${emReais(i.total)}`
-          ),
-          `Total: ${emReais(c.total)}`,
-        ]
-      : []),
+    ...(c.estorno ? ["", seDemorar(numero)] : []),
+    ...pedidoEmTexto(c.itens, c.total),
     "",
     c.motivo === "pix-vencido"
       ? "Os produtos voltaram pro estoque. É só refazer o pedido — um Pix novo nasce na hora."
       : "Os produtos voltaram pro estoque e continuam à venda.",
     ...(loja ? ["", `A loja: ${loja}`] : []),
     "",
-    whatsapp
-      ? `Qualquer dúvida, chama no WhatsApp ${whatsappNaTela(whatsapp)} com o número ${numero}.`
-      : `Qualquer dúvida, responda este e-mail com o número ${numero}.`,
+    ajudaEmTexto(numero, whatsapp),
   ].join("\n")
 
   return { para: c.email, assunto, html, texto }
+}
+
+/* ── o pagamento que chegou depois do cancelamento ────────────────────────── */
+
+/**
+ * O PAGAMENTO QUE CHEGOU DEPOIS — o segundo e-mail de um pedido cancelado, e
+ * só de alguns.
+ *
+ * Cancelar o pedido não mata o QR do Pix (o Pagar.me não cancela Pix
+ * pendente), e quem estava com ele aberto ainda paga. O dinheiro entra num
+ * pedido cancelado, e a conciliação devolve. Até 25/09, calada: o último
+ * e-mail que a pessoa tinha recebido dizia "Nada foi cobrado de você", e aí
+ * ela via o dinheiro sair da conta — e, um dia depois, voltar.
+ *
+ * O e-mail de antes não mentiu (quando saiu, não tinha sido cobrado nada), e
+ * este não finge que ele não existiu: conta o que mudou depois dele.
+ *
+ * Quem manda, quando e quantas vezes (uma) é o `lib/avisar-devolucao.ts`.
+ */
+export type DevolucaoDoEmail = {
+  id: string
+  numero: number
+  email: string
+  itens: ItemDoEmail[]
+  total: number
+  /** O que entrou depois do cancelamento e está voltando. */
+  devolvido: { valor: number; forma: "pix" | "cartao" }
+}
+
+/** O que houve, pra quem leu "nada foi cobrado" e depois viu o dinheiro sair. */
+export function oQueHouveDepois(d: DevolucaoDoEmail): string {
+  const pagou = d.devolvido.forma === "pix" ? "O Pix foi pago" : "O pagamento no cartão entrou"
+  return (
+    `Quando o pedido #${d.numero} foi cancelado, ele ainda não tinha sido pago — e foi isso ` +
+    `que o e-mail do cancelamento disse. ${pagou} depois, e o pedido continua cancelado: ` +
+    "o valor volta inteiro pra você."
+  )
+}
+
+export function emailDePagamentoDevolvido({
+  devolucao: d,
+  whatsapp,
+}: {
+  devolucao: DevolucaoDoEmail
+  /** Só dígitos, com DDI (5547999990000) — o das configurações da loja. */
+  whatsapp: string | null
+}): Email {
+  const numero = `#${d.numero}`
+  const noPix = d.devolvido.forma === "pix"
+  const oQue = noPix ? "Pix" : "pagamento"
+  const assunto = `Pedido ${numero}: devolvemos o seu ${oQue}`
+  const linha = "O pagamento chegou depois do cancelamento."
+  const houve = oQueHouveDepois(d)
+  const dinheiro = voltaDoDinheiro(d.devolvido)
+  const deNovo = noPix
+    ? "Eles continuam à venda. É só refazer o pedido — um Pix novo nasce na hora."
+    : "Eles continuam à venda. É só refazer o pedido."
+  const loja = urlDaLoja()
+
+  /* 1. o que houve depois do cancelamento, e o caminho do dinheiro */
+  const topo = cartao(
+    cabecalho(`Devolvemos o seu ${oQue}`, numero, linha) +
+      espaco(22) +
+      divisor() +
+      espaco(20) +
+      rotulo("O que aconteceu") +
+      espaco(10) +
+      paragrafo(esc(houve), { tamanho: 14 }) +
+      espaco(20) +
+      rotulo("O seu dinheiro") +
+      espaco(10) +
+      paragrafo(esc(dinheiro), { tamanho: 14 }) +
+      espaco(12) +
+      paragrafo(esc(seDemorar(numero)), { suave: true, tamanho: 13 }),
+    { respiro: "32px 28px 30px" }
+  )
+
+  /* 2. o que estava no pedido */
+  const compra = cartaoDoPedido(d.itens, d.total)
+
+  /* 3. quem pagou queria os produtos: o caminho pra comprar de novo */
+  const depois = cartao(
+    rotulo("Ainda quer os produtos?") +
+      espaco(12) +
+      paragrafo(deNovo, { tamanho: 14 }) +
+      botaoDaLoja(loja) +
+      espaco(20) +
+      paragrafo(ajuda(numero, whatsapp), { suave: true, tamanho: 13 })
+  )
+
+  const html = naMoldura(
+    { assunto, previa: dinheiro, conteudo: topo + compra + depois },
+    numero,
+    loja
+  )
+
+  const texto = [
+    `FuckingBarba — pedido ${numero}: devolvemos o seu ${oQue}`,
+    "",
+    linha,
+    "",
+    houve,
+    "",
+    dinheiro,
+    "",
+    seDemorar(numero),
+    ...pedidoEmTexto(d.itens, d.total),
+    "",
+    `Ainda quer os produtos? ${deNovo}`,
+    ...(loja ? ["", `A loja: ${loja}`] : []),
+    "",
+    ajudaEmTexto(numero, whatsapp),
+  ].join("\n")
+
+  return { para: d.email, assunto, html, texto }
 }

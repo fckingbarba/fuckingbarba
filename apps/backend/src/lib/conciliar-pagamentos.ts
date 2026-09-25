@@ -28,6 +28,7 @@ import {
   type Estado,
   type Situacao,
 } from "../modules/pagarme/situacao"
+import { avisarDevolucao } from "./avisar-devolucao"
 import { conferirEstornos, estornoAndando, type RelatorioDeEstornos } from "./estornos"
 
 /**
@@ -66,7 +67,8 @@ import { conferirEstornos, estornoAndando, type RelatorioDeEstornos } from "./es
  *   PAGO NUM PEDIDO CANCELADO → todo pedido cancelado nos últimos 7 dias é
  *     olhado: pagamento capturado e não devolvido é devolvido pelo
  *     `refundPaymentsWorkflow` — o do QR pago depois, e o que o aviso
- *     registrou no meio do cancelamento.
+ *     registrou no meio do cancelamento. E quem pagou fica sabendo (ver
+ *     `avisarQuemPagou`).
  *
  *   "INCERTO" — a criação que sumiu no caminho, sem resposta (ver o
  *     `authorizePayment`). A tela prometeu: "se aparecer alguma cobrança,
@@ -113,11 +115,13 @@ import { conferirEstornos, estornoAndando, type RelatorioDeEstornos } from "./es
  * │   análise que aprovar depois não cobra nada (`authorizePayment`).      │
  * └────────────────────────────────────────────────────────────────────────┘
  *
- * ┌─ NÃO FALA COM O CLIENTE, SÓ COM O PAGAR.ME E O MEDUSA ─────────────────┐
- * │ E-mail de "seu Pix venceu" é fase 5, com o Resend. O que esta função   │
- * │ garante é que o estoque não fica preso e que nenhum dinheiro fica sem  │
- * │ pedido — o resto é comunicação. O único e-mail que sai daqui é pra     │
- * │ quem cuida da loja: o do estorno que o Pagar.me não fez.               │
+ * ┌─ NÃO ESCREVE PRO CLIENTE, SÓ FALA COM O PAGAR.ME E O MEDUSA ───────────┐
+ * │ O que esta função garante é que o estoque não fica preso e que nenhum  │
+ * │ dinheiro fica sem pedido — o resto é comunicação, e mora nos módulos   │
+ * │ de e-mail. O único que ela mesma manda é pra quem cuida da loja: o do  │
+ * │ estorno que o Pagar.me não fez. E ela dá a HORA de um: o do pagamento  │
+ * │ devolvido, logo depois do estorno — quem decide se ele sai e o que ele │
+ * │ diz é o `lib/avisar-devolucao.ts`.                                     │
  * └────────────────────────────────────────────────────────────────────────┘
  *
  * A chave é a mesma do provedor, lida do mesmo lugar. Sem ela, não há o que
@@ -905,6 +909,9 @@ type Cancelado = {
  * enquanto o cancelamento rodava — ele lê os pagamentos no começo e grava o
  * `canceled_at` no fim. Até 24/09 só o capturado depois do `canceled_at`
  * voltava; o do meio ficava com a loja, e o e-mail dizia "estornado".
+ *
+ * Devolvido, quem pagou é avisado (`avisarQuemPagou`) — até 25/09 o dinheiro
+ * voltava calado, depois de um e-mail dizendo "nada foi cobrado".
  */
 async function devolverDoCancelado(
   container: MedusaContainer,
@@ -913,6 +920,7 @@ async function devolverDoCancelado(
 ) {
   const cancelado = Date.parse(pedido.canceled_at ?? "")
   const nome = `#${pedido.display_id ?? pedido.id}`
+  let devolveu = false
 
   for (const pagamento of (pedido.payment_collections ?? []).flatMap((c) => c?.payments ?? [])) {
     if (pagamento.provider_id !== PROVEDOR) continue
@@ -933,9 +941,37 @@ async function devolverDoCancelado(
         input: [{ payment_id: pagamento.id, amount: resta, note: quando }],
       })
       relatorio.estornadas.push(`${nome} (${quando})`)
+      devolveu = true
     } catch (e) {
       relatorio.avisos.push(`${nome}: ${quando}, e o estorno ${mensagemDe(e)}`)
     }
+  }
+
+  if (devolveu) await avisarQuemPagou(container, pedido.id, nome, relatorio)
+}
+
+/**
+ * E QUEM PAGOU FICA SABENDO — o e-mail do pagamento devolvido.
+ *
+ * A conciliação não escreve e-mail: quem decide se ele sai (só pra quem
+ * ouviu "nada foi cobrado" e pagou depois) e o que ele diz é o
+ * `lib/avisar-devolucao.ts`. Daqui sai só a hora certa, que é logo depois do
+ * estorno. Se o e-mail não sair agora, não desfaz nada: a varredura dos
+ * e-mails (`confirmar-pedidos`) tenta de novo.
+ */
+async function avisarQuemPagou(
+  container: MedusaContainer,
+  pedidoId: string,
+  nome: string,
+  relatorio: Relatorio
+) {
+  try {
+    const r = await avisarDevolucao(container, pedidoId)
+    if (r.resultado === "falhou") {
+      relatorio.avisos.push(`${nome}: o e-mail da devolução não saiu agora (${r.motivo})`)
+    }
+  } catch (e) {
+    relatorio.avisos.push(`${nome}: o e-mail da devolução não saiu agora (${mensagemDe(e)})`)
   }
 }
 

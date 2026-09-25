@@ -854,9 +854,15 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
     cancela, e o estoque volta.
   - E dois ainda mais raros: o pagamento registrado NO MEIO do cancelamento agora também volta; e a
     autorização que parou no meio (o processo caiu) vira pagamento do pedido, ou o cancela.
+- [x] **O e-mail do Pix pago depois do cancelamento** (entrega 0086, 25/09). Cancelar um pedido
+      não mata o QR do Pix, e quem paga depois recebia o dinheiro de volta calado — o último
+      e-mail dizia "Nada foi cobrado de você". Agora, logo depois da devolução, sai
+      **"Pedido #N: devolvemos o seu Pix"**: o que aconteceu (o pedido foi cancelado antes de ser
+      pago, e o Pix entrou depois), o valor e o caminho de volta, e o convite pra refazer o pedido.
+      Só pra quem ouviu "nada foi cobrado"; quem recebeu o "cancelado e estornado" já sabe do
+      dinheiro. De quebra: o e-mail de cancelado e estornado mostrava "Total R$ 0,00" (o Medusa
+      grava a devolução como crédito e zera o total); agora mostra o que foi pago.
 - [ ] **Pagamento, o que a revisão achou e ficou pra depois** (baixo risco, sem dinheiro preso):
-  - quem paga o QR de um pedido já cancelado recebe o dinheiro de volta sem e-mail nenhum — o
-    último que recebeu dizia "cancelado antes do pagamento";
   - estorno ou contestação feitos do lado do Pagar.me depois do pagamento (pelo painel deles,
     chargeback) não são percebidos: o pedido segue pago, pro envio.
 - [ ] **Aposentar os dois kits do Fator** (produtos "Kit 2/3 frascos"), que a página não usa mais:
@@ -994,10 +1000,12 @@ O que já está de pé:
   - **Por que ele existe:** o #10. Um Pix pago de verdade, cancelado e estornado no admin, e o
     cliente não recebeu uma palavra — viu o dinheiro sair e voltar sem explicação. O e-mail de
     confirmação existia desde o começo; este nunca tinha sido escrito.
-  - **A ponta que fica:** Pix pago DEPOIS do cancelamento (o QR continua pagável até vencer — ver o
-    #7). Na hora do cancelamento o `fecharCobrancasDoPedido` do subscriber pega o que já tinha
-    entrado e avisa certo; o que cair mais tarde é estornado pela conciliação, mas o e-mail daquele
-    pedido já saiu dizendo "nada foi cobrado" e o registro impede um segundo. É raro e é conhecido.
+  - **O Pix pago DEPOIS do cancelamento** (o QR continua pagável até vencer — ver o #7). Na hora
+    do cancelamento o `fecharCobrancasDoPedido` do subscriber pega o que já tinha entrado e avisa
+    certo. O que cai mais tarde é devolvido pela conciliação — e, desde 25/09 (entrega 0086), ganha
+    o segundo e-mail, "Pedido #N: devolvemos o seu Pix" (`src/lib/avisar-devolucao.ts`, registro
+    em `metadata.emails.devolvido`, log `[pedido] o pagamento de R$ X que entrou no #N depois do
+    cancelamento foi devolvido`). Antes, o dinheiro voltava calado depois do "nada foi cobrado".
 - Os e-mails do caminho da encomenda (`envio.ts`) já saem.
 - **Envios — o que o desenho já tem lugar pra receber** (o contrato do parceiro está em
   `apps/backend/src/lib/envios/parceiro.ts`). Os dois primeiros desta lista saíram em 23/09 — a

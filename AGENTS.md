@@ -513,9 +513,22 @@ corrida é um e-mail dizendo "nada foi cobrado" pra quem acabou de ver o dinheir
 outra ponta, a cobrança que o Pagar.me recebeu e o Medusa nunca soube, quem descobre é o
 `fecharCobrancasDoPedido` do subscriber — por isso ele roda ANTES e passa o `estornouLa`.
 
-**O metadata do pedido** tem vários donos — `emails.confirmado`, `emails.cancelado`, `estornos`,
-`fb_parceiro` e `fb_bump` — e UMA porta de escrita: `gravarNoMetadataDoPedido`
-(`src/lib/metadata-do-pedido.ts`). O `updateOrders` do Medusa lê o pedido, mistura o metadata na
+O de **pagamento devolvido** (`src/lib/avisar-devolucao.ts`; o desenho mora ao lado do cancelado,
+em `emails/pedido-cancelado.ts`) é o segundo e-mail de um pedido cancelado, e só de alguns:
+cancelar não mata o QR do Pix (o Pagar.me responde 412), a pessoa paga depois, e a conciliação
+devolve. **A régua é o que o e-mail de cancelamento DISSE**, não a hora de nada: sai quando o
+`emails.cancelado` diz que não houve cobrança (`porque` ≠ `estornado`), há pagamento do Pagar.me
+capturado, e o estorno do Medusa já cobre tudo (o e-mail diz "devolvemos"). Na hora, pela
+conciliação, logo depois do estorno (`devolverDoCancelado`); embaixo, a varredura do
+`confirmar-pedidos`, 7 dias pra trás. Registro em `metadata.emails.devolvido`, e a trava é a do
+aviso de cancelamento (`travaDosAvisos`): um de cada vez, pra este ler o que aquele gravou. O
+total que os dois mostram é o `totalDoPedido` — o cancelamento do Medusa grava a devolução como
+CRÉDITO no pedido, e o `total` de um pedido cancelado e estornado é zero (o `original_total` não
+serve: é a conta antes do cupom).
+
+**O metadata do pedido** tem vários donos — `emails.confirmado`, `emails.cancelado`,
+`emails.devolvido`, `estornos`, `fb_parceiro` e `fb_bump` — e UMA porta de escrita:
+`gravarNoMetadataDoPedido` (`src/lib/metadata-do-pedido.ts`). O `updateOrders` do Medusa lê o pedido, mistura o metadata na
 memória (só no primeiro nível) e grava a coluna inteira: dois donos gravando juntos, o último
 apaga o que o primeiro gravou — foi o registro da confirmação sumindo debaixo do `fb_bump`, gravado
 uns 10 ms depois, e a varredura mandando de novo. A porta segura uma trava por pedido, a mesma pra todos

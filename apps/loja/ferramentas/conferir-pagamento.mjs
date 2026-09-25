@@ -1477,6 +1477,15 @@ try {
       vigiada
     )
 
+    // O e-mail do cancelamento, na hora: ninguém tinha pago.
+    const numero = pedido.display_id
+    const doCancelamento = await emailComAssunto(`Pedido #${numero} cancelado`, 10000)
+    ok(
+      textoDo(doCancelamento).includes("Nada foi cobrado de você"),
+      'o e-mail do cancelamento sai dizendo "Nada foi cobrado de você"',
+      textoDo(doCancelamento).slice(0, 160)
+    )
+
     // E a pessoa paga o QR velho.
     await pagarme.pagar(criado.pedido.id)
     await esperar(6000)
@@ -1490,6 +1499,48 @@ try {
       (cobranca.refunded_amount ?? 0) >= cobranca.amount || cobranca.status === "refunded",
       "e o dinheiro está de volta no Pagar.me",
       `${cobranca.status} ${cobranca.refunded_amount}/${cobranca.amount}`
+    )
+
+    /*
+      E QUEM PAGOU FICA SABENDO. Até 25/09 o dinheiro voltava calado: o último
+      e-mail que a pessoa tinha recebido era o "Nada foi cobrado de você", e
+      aí ela via o Pix sair da conta — e voltar.
+    */
+    const assuntoDaDevolucao = `Pedido #${numero}: devolvemos o seu Pix`
+    const devolucoes = () => resend.emails.filter((e) => e.subject === assuntoDaDevolucao)
+    const devolucao = await emailComAssunto(assuntoDaDevolucao, 10000)
+    ok(
+      devolucao?.to?.[0] === "esperto@fuckingbarba.invalid",
+      `"${assuntoDaDevolucao}" sai pra quem pagou, logo depois da devolução`,
+      resend.emails
+        .slice(-3)
+        .map((e) => e.subject)
+        .join(" | ")
+    )
+    const texto = textoDo(devolucao)
+    ok(
+      texto.includes(`Os ${reais(cobranca.amount / 100)} do Pix voltam pra conta que pagou`),
+      "com o valor que entrou e o caminho de volta",
+      texto.match(/Os R\$[^\n]*/)?.[0]
+    )
+    ok(
+      texto.includes("foi isso que o e-mail do cancelamento disse") &&
+        !texto.includes("Nada foi cobrado"),
+      "contando o que mudou depois do e-mail do cancelamento, sem desmenti-lo"
+    )
+    const registro = (await adm(`/admin/orders/${pedido.id}?fields=id,metadata`)).order?.metadata
+      ?.emails?.devolvido
+    ok(
+      registro?.como === "email" && registro?.valor === cobranca.amount / 100,
+      "e fica registrado no pedido",
+      JSON.stringify(registro)
+    )
+    const varredura = await adm("/admin/pedidos/confirmar", { method: "POST" })
+    await conciliar()
+    ok(
+      devolucoes().length === 1 && !varredura.devolucoes?.mandados?.includes(`#${numero}`),
+      "uma vez só: nem a varredura dos e-mails nem a conciliação seguinte mandam de novo",
+      `${devolucoes().length} e-mail(s) · ${JSON.stringify(varredura.devolucoes)}`
     )
   }
 
@@ -1549,6 +1600,7 @@ try {
 
   titulo("Cancelar no admin um pedido pago devolve o dinheiro")
   if (pedidoDoCartao?.id) {
+    const pago = await pedidoNoMedusa(pedidoDoCartao.id)
     await adm(`/admin/orders/${pedidoDoCartao.id}/cancel`, { method: "POST" })
     ok(
       pagarme.cancelamentos.some(
@@ -1564,6 +1616,17 @@ try {
       cancelado?.status === "canceled" && cancelado?.payment_status === "refunded",
       "e o pedido fica cancelado e estornado",
       `${cancelado?.status} ${cancelado?.payment_status}`
+    )
+    /*
+      O cancelamento grava a devolução como CRÉDITO no pedido, e o `total` do
+      Medusa passa a ser zero. Até 25/09 o e-mail dizia "Os R$ 130,00 voltam
+      pro mesmo cartão" em cima de "Total R$ 0,00".
+    */
+    const aviso = await emailComAssunto(`Pedido #${pago.display_id} cancelado e estornado`, 10000)
+    ok(
+      textoDo(aviso).includes(`Total: ${reais(pago.total)}`),
+      `o e-mail do cancelamento mostra o total que foi pago (${reais(pago.total)}), e não zero`,
+      textoDo(aviso).match(/Total: [^\n]*/)?.[0] ?? "sem e-mail"
     )
   }
 
@@ -1730,9 +1793,18 @@ try {
     const la = noPagarme(aberto)
     await adm(`/admin/orders/${aberto.id}/cancel`, { method: "POST" })
     await esperar(1500) // o subscriber do cancelamento: o Pix pendente fica vigiado
+    // O "Nada foi cobrado de você" sai antes do Resend cair, logo abaixo.
+    await emailComAssunto(`Pedido #${aberto.display_id} cancelado`, 10000)
     pagarme.estornos = "segura"
     await pagarme.pagar(la.pedido.id, { semAviso: true })
-    const r = await conciliar()
+    // O Resend fora bem na hora da devolução: o e-mail dela fica pra varredura.
+    resend.roteiro.cair = true
+    let r
+    try {
+      r = await conciliar()
+    } finally {
+      resend.roteiro.cair = false
+    }
     const lido = await adm(
       `/admin/orders/${aberto.id}?fields=id,payment_collections.payments.id,` +
         "payment_collections.payments.captured_at,payment_collections.payments.refunds.amount"
@@ -1742,6 +1814,22 @@ try {
       pagamentos.some((p) => p.captured_at && (p.refunds ?? []).length > 0),
       "o dinheiro que entrou no pedido cancelado é registrado no Medusa, e devolvido por ele",
       JSON.stringify({ pagamentos, pagas: r.pagas, estornadas: r.estornadas, avisos: r.avisos })
+    )
+    const assuntoDaDevolucao = `Pedido #${aberto.display_id}: devolvemos o seu Pix`
+    ok(
+      resend.recusados.includes(assuntoDaDevolucao) &&
+        r.avisos.some((a) => a.includes("o e-mail da devolução não saiu agora")),
+      "o e-mail da devolução foi tentado na hora, e o Resend recusou — a conciliação segue",
+      // Só os avisos deste pedido: o banco local tem pedidos de teste antigos que o Pagar.me
+      // falso não conhece, e cada um vira um aviso.
+      JSON.stringify(r.avisos.filter((a) => a.startsWith(`#${aberto.display_id}:`)))
+    )
+    const varredura = await adm("/admin/pedidos/confirmar", { method: "POST" })
+    ok(
+      varredura.devolucoes?.mandados?.includes(`#${aberto.display_id}`) &&
+        resend.emails.filter((e) => e.subject === assuntoDaDevolucao).length === 1,
+      "a varredura dos e-mails manda depois, uma vez",
+      JSON.stringify(varredura.devolucoes)
     )
     pagarme.falharEstorno(la.pedido.id)
     const r2 = await conciliar()

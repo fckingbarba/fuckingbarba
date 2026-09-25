@@ -8,6 +8,7 @@ import {
   type CancelamentoDoEmail,
   type MotivoDoCancelamento,
 } from "./emails/pedido-cancelado"
+import type { ItemDoEmail } from "./emails/pedido-confirmado"
 import { gravarNoMetadataDoPedido } from "./metadata-do-pedido"
 
 /**
@@ -55,6 +56,7 @@ export type PedidoLido = {
   status?: string | null
   metadata?: Record<string, unknown> | null
   total?: unknown
+  credit_line_total?: unknown
   items?:
     | ({
         title?: string | null
@@ -81,6 +83,7 @@ const CAMPOS = [
   "status",
   "metadata",
   "total",
+  "credit_line_total",
   "items.*",
   "payment_collections.payments.amount",
   "payment_collections.payments.captured_at",
@@ -155,7 +158,7 @@ export function decidir(o: PedidoLido, { estornouLa = false, agora = new Date() 
     centavos. Sem ele, cai no total do pedido, que é o mesmo número.
   */
   if (estornouLa) {
-    const valor = estado?.valor ? estado.valor / 100 : Number(o.total ?? 0)
+    const valor = estado?.valor ? estado.valor / 100 : totalDoPedido(o)
     return { mandar: true, motivo: "estornado", estorno: { valor, forma } }
   }
 
@@ -192,22 +195,43 @@ export function decidir(o: PedidoLido, { estornouLa = false, agora = new Date() 
 
 /* ── o pedido no formato do e-mail ────────────────────────────────────────── */
 
+/**
+ * QUANTO O PEDIDO CUSTOU — que num pedido cancelado e estornado não é o
+ * `total`.
+ *
+ * O cancelamento do Medusa, quando devolve um pagamento, grava a devolução
+ * como CRÉDITO no pedido (`createOrderRefundCreditLinesWorkflow`), e o
+ * `total` é a conta já com o crédito descontado: zero. Até 25/09 o e-mail de
+ * "cancelado e estornado" saía com "Total R$ 0,00" embaixo de "Os R$ 62,58
+ * voltam pra conta que pagou". Somando o crédito de volta, é o que a pessoa
+ * pagou, com o desconto do cupom e tudo. (O `original_total` não serve: ele
+ * é a conta ANTES do cupom.)
+ */
+export function totalDoPedido(o: Pick<PedidoLido, "total" | "credit_line_total">): number {
+  return Number(o.total ?? 0) + Number(o.credit_line_total ?? 0)
+}
+
+/** Os itens como o e-mail mostra — também os do pagamento devolvido. */
+export function itensDoEmail(o: Pick<PedidoLido, "items">): ItemDoEmail[] {
+  return (o.items ?? [])
+    .filter((i): i is NonNullable<typeof i> => Boolean(i))
+    .map((i) => ({
+      nome: i.product_title ?? i.title ?? "Produto",
+      variante: i.variant_title && i.variant_title !== "Único" ? i.variant_title : null,
+      imagem: i.thumbnail ?? null,
+      quantidade: Number(i.quantity ?? 0),
+      precoUnitario: Number(i.unit_price ?? 0),
+      total: Number(i.total ?? 0),
+    }))
+}
+
 export function paraCancelamentoDoEmail(o: PedidoLido, decisao: Decisao): CancelamentoDoEmail {
   return {
     id: o.id,
     numero: Number(o.display_id ?? 0),
     email: o.email ?? "",
-    itens: (o.items ?? [])
-      .filter((i): i is NonNullable<typeof i> => Boolean(i))
-      .map((i) => ({
-        nome: i.product_title ?? i.title ?? "Produto",
-        variante: i.variant_title && i.variant_title !== "Único" ? i.variant_title : null,
-        imagem: i.thumbnail ?? null,
-        quantidade: Number(i.quantity ?? 0),
-        precoUnitario: Number(i.unit_price ?? 0),
-        total: Number(i.total ?? 0),
-      })),
-    total: Number(o.total ?? 0),
+    itens: itensDoEmail(o),
+    total: totalDoPedido(o),
     motivo: decisao.mandar ? decisao.motivo : "sem-cobranca",
     estorno: decisao.mandar ? decisao.estorno : null,
   }
@@ -226,6 +250,13 @@ async function lerPedido(container: MedusaContainer, id: string): Promise<Pedido
   return (data[0] as unknown as PedidoLido | undefined) ?? null
 }
 
+/**
+ * A trava dos e-mails de um pedido cancelado — este e o do pagamento que
+ * chegou depois (`avisar-devolucao.ts`). Um de cada vez: o segundo lê o que o
+ * primeiro disse, e precisa ler o registro já gravado.
+ */
+export const travaDosAvisos = (pedidoId: string) => `pedido-cancelado:${pedidoId}`
+
 /** Manda o aviso de cancelamento, se for o caso e se ainda não foi. */
 export async function avisarCancelamento(
   container: MedusaContainer,
@@ -236,7 +267,7 @@ export async function avisarCancelamento(
   const logger = container.resolve(ContainerRegistrationKeys.LOGGER)
 
   return trava.execute(
-    `pedido-cancelado:${pedidoId}`,
+    travaDosAvisos(pedidoId),
     async (): Promise<Aviso> => {
       const pedido = await lerPedido(container, pedidoId)
       if (!pedido) return { resultado: "nada", motivo: "pedido não existe" }
