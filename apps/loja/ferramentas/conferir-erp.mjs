@@ -1295,6 +1295,36 @@ try {
       "sem produto repetido, e a situação que a pessoa escolheu (publicado) fica"
     )
 
+    // A equipe dá o nome da loja (o painel grava a marca `fb_nome`); no
+    // Bling, o nome muda de novo — e não pode mais chegar no site.
+    await adm(`/admin/products/${oleo.id}`, {
+      method: "POST",
+      body: JSON.stringify({
+        title: `Óleo da loja ${R}`,
+        metadata: { fb_nome: { em: new Date().toISOString(), por: "conferir-erp" } },
+      }),
+    })
+    bling.produto(`TIMP-OL-${R}`, 9, { nome: `Óleo do Bling ${R} v3`, preco: 64.9 })
+    const { corpo: previa3 } = await adm("/admin/erp/catalogo")
+    const oleoNaPrevia3 = previa3.produtos?.find((x) => x.id === String(bOleo.id))
+    ok(
+      oleoNaPrevia3?.nomeDaLoja === `Óleo da loja ${R}`,
+      "a prévia avisa: fica o nome da loja, o dado no painel",
+      JSON.stringify(oleoNaPrevia3).slice(0, 200)
+    )
+    await adm("/admin/erp/catalogo", {
+      method: "POST",
+      body: JSON.stringify({ importar: [String(bOleo.id)], remover: [] }),
+    })
+    const o3 = await produtoNoAdmin(oleo.id, "title,metadata")
+    ok(
+      o3?.title === `Óleo da loja ${R}` &&
+        o3.metadata?.fb_nome?.por === "conferir-erp" &&
+        o3.metadata?.fb_erp?.nome === `Óleo do Bling ${R} v3`,
+      "com o nome da loja, a importação não troca o nome — e guarda o do Bling, pro painel mostrar",
+      JSON.stringify({ t: o3?.title, nome: o3?.metadata?.fb_nome, erp: o3?.metadata?.fb_erp?.nome })
+    )
+
     /* ── 10. os endereços e as fotos da Nuvemshop ─────────────────────────── */
 
     titulo("Os endereços e as fotos vêm da Nuvemshop")
