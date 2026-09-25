@@ -6,7 +6,7 @@ import { medusa } from "./medusa"
 import { COOKIE_SESSAO } from "./sessao"
 
 export type LeituraDoMembro =
-  | { estado: "ok"; membro: Membro; areas: Area[] }
+  | { estado: "ok"; membro: Membro; areas: Area[]; avisos: Avisos }
   | { estado: "sem-sessao" }
   /**
    * O Medusa recusou. `fora`: a pessoa saiu da equipe (ou o convite venceu
@@ -24,6 +24,9 @@ export type LeituraDoMembro =
  * só por carregamento. A resposta é do banco, na hora: papel trocado ou
  * pessoa removida valem no próximo clique.
  */
+/** O número vermelho de uma área no menu (os problemas graves da Observabilidade). */
+export type Avisos = Partial<Record<Area, number>>
+
 export const lerMembro = cache(async (): Promise<LeituraDoMembro> => {
   if (!(await cookies()).get(COOKIE_SESSAO)?.value) return { estado: "sem-sessao" }
   const r = await medusa("/dashboard/eu", { metodo: "GET", token: "sessao" })
@@ -33,5 +36,6 @@ export const lerMembro = cache(async (): Promise<LeituraDoMembro> => {
   const membro = r.corpo.membro as Membro | undefined
   const areas = r.corpo.areas as Area[] | undefined
   if (!membro || !Array.isArray(areas)) return { estado: "fora-do-ar" }
-  return { estado: "ok", membro, areas }
+  const avisos = (r.corpo.avisos ?? {}) as Avisos
+  return { estado: "ok", membro, areas, avisos }
 })

@@ -1,0 +1,48 @@
+/* OBSERVABILIDADE — do protótipo (telaObservabilidade): os problemas, a luz das integrações e das rotinas. */
+.numero--grave { background: var(--erro-claro); border-color: var(--erro); }
+.numero--grave .numero__valor { color: var(--erro); }
+
+.luz { display: inline-block; flex-shrink: 0; width: 10px; height: 10px; vertical-align: middle; background: var(--menta-escura); transform: rotate(45deg); }
+.luz[data-s="atencao"] { background: var(--amarelo-borda); }
+.luz[data-s="erro"] { background: var(--erro); }
+.luz[data-s="off"], .luz[data-s="espera"] { background: var(--cinza-2); outline: 1px solid var(--tinta-suave); }
+.luz__txt { margin-left: 8px; font-weight: 700; }
+
+.integracoes { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr)); gap: 10px; }
+.integracao { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px; align-items: start; padding: 12px 14px; background: var(--cinza); border-left: 5px solid var(--menta-escura); }
+.integracao .luz { margin-top: 5px; }
+.integracao[data-s="atencao"] { background: var(--amarelo-palido); border-left-color: var(--amarelo-borda); }
+.integracao[data-s="erro"] { background: var(--erro-claro); border-left-color: var(--erro); }
+.integracao[data-s="off"] { border-left-color: var(--cinza-2); color: var(--tinta-suave); }
+.integracao__nome { margin: 0; font-size: 0.86rem; font-weight: 800; }
+.integracao__nome small { display: block; font-size: 0.7rem; font-weight: 600; color: var(--tinta-suave); }
+.integracao__txt { margin: 4px 0 0; font-size: 0.8rem; overflow-wrap: anywhere; }
+.integracao__sinal { margin: 4px 0 0; font-size: 0.66rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; color: var(--tinta-suave); }
+
+.problemas { display: grid; gap: 10px; }
+.problema { min-width: 0; padding: 14px 16px; background: var(--papel); border: 2px solid var(--tinta); border-left-width: 6px; }
+.problema[data-nivel="grave"] { border-left-color: var(--erro); }
+.problema[data-nivel="atencao"] { border-left-color: var(--amarelo-borda); }
+.problema[data-nivel="info"] { border-left-color: var(--cinza-2); }
+.problema[data-resolvido] { border-left-color: var(--menta-escura); }
+.problema__topo { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.problema__nivel { font-size: 0.64rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--tinta-suave); }
+.problema[data-nivel="grave"] .problema__nivel { color: var(--erro); }
+.problema[data-nivel="atencao"] .problema__nivel { color: var(--aviso-txt); }
+.problema[data-resolvido] .problema__nivel { color: var(--menta-escura); }
+.problema__titulo { margin: 0; font-size: 0.95rem; font-weight: 800; }
+.problema__txt { margin: 4px 0 0; font-size: 0.84rem; overflow-wrap: anywhere; }
+.problema__meta { display: flex; align-items: center; gap: 6px; margin: 8px 0 0; font-size: 0.74rem; color: var(--tinta-suave); }
+.problema__meta svg { width: 13px; height: 13px; flex-shrink: 0; fill: currentColor; }
+.problema__acoes { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-top: 12px; }
+.problema__acoes:empty { display: none; }
+.log { margin-top: 10px; font-size: 0.74rem; }
+.log summary { cursor: pointer; font-weight: 700; color: var(--tinta-suave); }
+.log pre {
+  margin: 8px 0 0; padding: 10px 12px; overflow-x: auto; background: var(--tinta); color: #d7dde4;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.72rem; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere;
+}
+
+/* A rotina no celular: a luz não quebra de linha, e o texto da falha cabe inteiro. */
+.rotina__como { flex-shrink: 0; font-size: 0.8rem; white-space: nowrap; }
+.rotina__texto { margin: 0; font-size: 0.8rem; overflow-wrap: anywhere; }

@@ -85,14 +85,6 @@ const O_QUE_VEM: Partial<Record<Area, { titulo: string; fase: number; itens: str
       "O que voltou em venda.",
     ],
   },
-  observabilidade: {
-    titulo: "Observabilidade",
-    fase: 7,
-    itens: [
-      "Os erros da loja num lugar só, com o estado de cada um: aberto ou resolvido.",
-      "As rotinas (pagamento, nota, estoque, envio): quando rodaram e se deram certo.",
-    ],
-  },
 }
 
 export function EmBreve({ area }: { area: Area }) {

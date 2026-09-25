@@ -30,7 +30,7 @@ export default async function LayoutDoPainel({ children }: { children: ReactNode
     )
   }
   return (
-    <Casca membro={leitura.membro} areas={leitura.areas}>
+    <Casca membro={leitura.membro} areas={leitura.areas} avisos={leitura.avisos}>
       <SoltarSoNoQuadro />
       <ComAvisos>{children}</ComAvisos>
     </Casca>
