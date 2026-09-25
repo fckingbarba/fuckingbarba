@@ -7,7 +7,7 @@
  *   BLING_AUTORIZACAO_URL=http://127.0.0.1:4340/Api/v3/oauth/authorize \
  *   NUVEMSHOP_LOJA_URL=http://127.0.0.1:4350 \
  *   MEDUSA_BACKEND_URL=http://127.0.0.1:9000 (e os falsos de sempre, ver AGENTS.md) npm run backend:dev
- *   ADMIN_EMAIL=… ADMIN_SENHA=… node ferramentas/conferir-erp.mjs
+ *   ADMIN_EMAIL=… ADMIN_SENHA=… DASHBOARD_DONO_EMAIL=… node ferramentas/conferir-erp.mjs
  *
  * Com o registro no painel da Frenet ligado no Medusa (FRENET_PARCEIRO_TOKEN
  * e FRENET_WHITELABEL_URL, como no conferir-envio) e o mesmo
@@ -15,7 +15,9 @@
  * pedido pro painel.
  *
  * Os pedidos nascem como na loja (`pedido-de-teste.mjs`), com Pix pago pelo
- * Pagar.me falso; os e-mails pra equipe caem no Resend falso. O Bling falso
+ * Pagar.me falso; os e-mails pra equipe caem no Resend falso, e ele os lê na
+ * caixa do dono do painel (o DASHBOARD_DONO_EMAIL do backend) ou, num banco
+ * sem ninguém no painel, na do admin local — ver `praEquipe`. O Bling falso
  * (`bling-falso.mjs`) é novo a cada rodada — por isso a primeira coisa é
  * conectar de novo, como alguém faria no admin.
  *
@@ -154,9 +156,37 @@ const nuvem = await subirNuvemshopFalsa()
 const fabrica = fabricaDePedidos({ medusa: MEDUSA, chave: CHAVE, tokenAdmin, pagarme })
 const AVISO = `${MEDUSA}/hooks/erp/bling`
 
-/** Os e-mails pra equipe (o admin local) com este assunto. */
-const praEquipe = (assunto) =>
-  resend.emails.filter((e) => e.to?.includes(ADMIN_EMAIL) && e.subject === assunto)
+/**
+ * Os e-mails pra equipe com este assunto, numa caixa só. Desde a entrega 0093
+ * o aviso vai pra quem está ativo no painel com o papel que resolve — a nota,
+ * operação e dono; a conexão caída, só o dono — e, sem ninguém no painel, pros
+ * usuários do admin (`destinatarios`, em `lib/painel/configuracoes.ts`). O
+ * dono recebe todos os daqui, então a caixa lida é a dele (o
+ * DASHBOARD_DONO_EMAIL do backend) ou, num banco sem ninguém no painel, a do
+ * admin local. O primeiro aviso diz qual, e ela vale pra rodada toda. Sai um
+ * e-mail por pessoa: contado numa caixa só, o "sem mandar de novo" vale.
+ */
+const DONO = (process.env.DASHBOARD_DONO_EMAIL ?? "").trim().toLowerCase()
+let caixaDaEquipe = null
+function praEquipe(assunto) {
+  const doAssunto = resend.emails.filter((e) => e.subject === assunto)
+  if (!caixaDaEquipe) {
+    caixaDaEquipe = [DONO, ADMIN_EMAIL.trim().toLowerCase()].find(
+      (caixa) => caixa && doAssunto.some((e) => e.to?.includes(caixa))
+    )
+    if (caixaDaEquipe)
+      console.log(
+        `  ·  os avisos da equipe chegam ${caixaDaEquipe === DONO ? "ao dono do painel" : "ao admin local (ninguém no painel)"}`
+      )
+  }
+  return caixaDaEquipe ? doAssunto.filter((e) => e.to?.includes(caixaDaEquipe)) : []
+}
+/** Pra quem foi o e-mail com este assunto: o detalhe do ✗, quando ele não chega à caixa da equipe. */
+function paraQuem(assunto) {
+  const para = resend.emails.filter((e) => e.subject === assunto).flatMap((e) => e.to ?? [])
+  if (!para.length) return "nenhum e-mail com esse assunto"
+  return `foi pra ${para.join(", ")}${DONO ? "" : " (com gente no painel, rode com o DASHBOARD_DONO_EMAIL do backend)"}`
+}
 const pendencias = async () => (await adm("/admin/erp")).corpo.pendencias ?? []
 
 /* ── o estoque de antes, pra devolver no fim ──────────────────────────────── */
@@ -500,9 +530,11 @@ try {
       Boolean(await esperarQue(() => bling.notaDoPedidoDeVenda(refC)?.situacao === 4)),
       "a SEFAZ rejeita"
     )
+    const naoSaiuC = `A nota do pedido #${C.numero} não saiu`
     ok(
-      Boolean(await esperarQue(() => praEquipe(`A nota do pedido #${C.numero} não saiu`).length)),
-      "a equipe recebe o e-mail de que a nota não saiu"
+      Boolean(await esperarQue(() => praEquipe(naoSaiuC).length)),
+      "a equipe recebe o e-mail de que a nota não saiu",
+      paraQuem(naoSaiuC)
     )
     ok(
       (await pendencias()).some((p) => p.referencia === refC && p.tipo === "rejeitada"),
@@ -1480,7 +1512,8 @@ try {
     )
     ok(
       Boolean(await esperarQue(() => praEquipe("A conexão com o Bling caiu").length)),
-      "e a equipe recebe o e-mail pra conectar de novo"
+      "e a equipe recebe o e-mail pra conectar de novo",
+      paraQuem("A conexão com o Bling caiu")
     )
   }
 } finally {
