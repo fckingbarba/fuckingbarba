@@ -357,6 +357,8 @@ export type DetalheDoProduto = LinhaDoProduto & {
   secoes: SecaoDaPagina[]
   /** Dono e marketing; a operação vê. */
   podeEditar: boolean
+  /** O preço foi mudado no painel (`fb_preco`): a importação do Bling não troca mais. */
+  precoDoPainel: boolean
 }
 
 export function detalheDoProduto(
@@ -364,7 +366,10 @@ export function detalheDoProduto(
   pdp: Pdp,
   estoque: number | null,
   podeEditar: boolean,
-  precoDeHoje?: PrecoDoProduto
+  {
+    preco: precoDeHoje,
+    precoDoPainel = false,
+  }: { preco?: PrecoDoProduto; precoDoPainel?: boolean } = {}
 ): DetalheDoProduto {
   const linha = linhaDoProduto(p, estoque, precoDeHoje)
   // As faixas saem do preço de hoje, com a promoção — como o job as calcula.
@@ -397,6 +402,7 @@ export function detalheDoProduto(
     caixa: caixaDo(pdp.combinada),
     secoes: secoesDaPagina(pdp),
     podeEditar,
+    precoDoPainel,
   }
 }
 
@@ -459,6 +465,7 @@ export const ACOES_NO_PRODUTO = [
   "editou-textos",
   "publicou",
   "mudou-galeria",
+  "mudou-preco",
   "mudou-promocao",
 ] as const
 
@@ -488,9 +495,10 @@ export type LinhaDoHistorico = {
   /** Na galeria: "incluir", "mover" ou "tirar", e se foi foto ou vídeo. */
   galeria?: string
   tipo?: string
-  /** Na promoção: o "por" gravado (`null` = tirou) e o "de" daquela hora. */
-  por?: number | null
+  /** No preço: o de antes (`de`) e o novo (`para`). Na promoção: o "de" e o "por" (`null` = tirou). */
   de?: number
+  para?: number
+  por?: number | null
   /** Nos textos: o nome novo, quando o nome mudou. */
   nome?: string
 }
@@ -511,6 +519,7 @@ export function linhaDoHistorico(f: FeitoNoProduto, agora: Data): LinhaDoHistori
     ...(texto(d.tipo) ? { tipo: texto(d.tipo) } : {}),
     ...(typeof d.por === "number" || d.por === null ? { por: d.por as number | null } : {}),
     ...(typeof d.de === "number" ? { de: d.de } : {}),
+    ...(typeof d.para === "number" ? { para: d.para } : {}),
     ...(texto(d.nome) ? { nome: texto(d.nome) } : {}),
   }
 }
