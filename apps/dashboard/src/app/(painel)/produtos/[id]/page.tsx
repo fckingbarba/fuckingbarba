@@ -136,15 +136,15 @@ async function Produto({ params }: Props) {
           <section className="bloco">
             <div className="bloco__cabeca">
               <h2 className="bloco__titulo">Preço e estoque</h2>
-              <span className="selo selo--bling">vem do Bling</span>
+              <span className="selo selo--bling">estoque do Bling</span>
             </div>
             <div className="preco-bling">
-              <div>
-                <small>Preço</small>
+              <div data-preco-no-detalhe>
+                <small>Preço {p.precoDoPainel ? "(mudado no painel)" : "(do Bling)"}</small>
                 <b>{p.preco ? reais(p.preco) : "—"}</b>
               </div>
               <div data-promocao-no-detalhe>
-                <small>Promoção</small>
+                <small>Promocional</small>
                 <b>
                   {p.promocao
                     ? `${reais(p.promocao.por)} (−${p.promocao.desconto}%)`
@@ -161,13 +161,13 @@ async function Produto({ params }: Props) {
               </div>
             </div>
             <p className="pequeno suave" style={{ margin: "12px 0 0" }}>
-              O estoque o site copia sozinho, de 5 em 5 minutos. Preço, peso e medidas chegam quando
-              alguém traz o catálogo do Bling de novo — mudar aqui criaria dois preços. A promoção
-              (o &ldquo;por&rdquo; do de/por) se muda na{" "}
+              O preço e o promocional se mudam na{" "}
               <Link className="link" href="/produtos">
                 lista de produtos
               </Link>
-              , no preço.
+              ; o preço mudado lá a importação do Bling não troca mais. O estoque o site copia
+              sozinho, de 5 em 5 minutos, e peso e medidas chegam quando alguém traz o catálogo do
+              Bling de novo.
             </p>
           </section>
 

@@ -1,7 +1,7 @@
 import type { Route } from "next"
 import Link from "next/link"
 import { Icone } from "@/components/icones"
-import { PrecoNaLista } from "@/components/produto/preco-na-lista"
+import { CamposDePreco, CelulasDePreco } from "@/components/produto/campos-de-preco"
 import {
   FILTROS_DE_PRODUTO,
   NOME_DA_SITUACAO,
@@ -12,8 +12,8 @@ import {
 
 /**
  * AS PEÇAS DA LISTA DE PRODUTOS — o selo, as fitas de filtro e a lista
- * (tabela no computador, cartões no celular), como no protótipo. O preço,
- * com a promoção, se muda na própria lista (`PrecoNaLista`).
+ * (tabela no computador, cartões no celular), como no protótipo. O preço e
+ * o promocional se mudam na própria lista (`campos-de-preco.tsx`).
  */
 
 export function SeloDoProduto({ p }: { p: Pick<LinhaDoProduto, "situacao"> }) {
@@ -92,9 +92,8 @@ export function ListaDosProdutos({
             <tr>
               <th>Produto</th>
               <th>Categoria</th>
-              <th>
-                Preço <span className="selo selo--bling">Bling</span>
-              </th>
+              <th>Preço</th>
+              <th>Promocional</th>
               <th>
                 Estoque <span className="selo selo--bling">Bling</span>
               </th>
@@ -116,9 +115,7 @@ export function ListaDosProdutos({
                   </span>
                 </td>
                 <td>{p.categoria ?? <span className="suave">sem categoria</span>}</td>
-                <td className="num">
-                  <PrecoNaLista p={p} podeEditar={podeEditar} />
-                </td>
+                <CelulasDePreco p={p} podeEditar={podeEditar} />
                 <td className="num">
                   <Estoque n={p.estoque} />
                 </td>
@@ -147,7 +144,7 @@ export function ListaDosProdutos({
                 </span>
               </span>
             </Link>
-            <PrecoNaLista p={p} podeEditar={podeEditar} />
+            <CamposDePreco p={p} podeEditar={podeEditar} />
           </div>
         ))}
       </div>

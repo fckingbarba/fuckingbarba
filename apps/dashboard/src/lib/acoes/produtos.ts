@@ -17,8 +17,8 @@ import type { Valores } from "@/lib/formulario"
 
 /**
  * AS AÇÕES DO PRODUTO — a seção (texto e fundo), ligar/desligar e a ordem,
- * a caixa de compra, subtítulo e categoria, publicar, a imagem que sobe e a
- * promoção (o "por" do de/por, que se muda na lista de produtos).
+ * a caixa de compra, subtítulo e categoria, publicar, a imagem que sobe, e o
+ * preço e o promocional (que se mudam na lista de produtos).
  *
  * Quem decide se pode é o Medusa (`/dashboard/produtos/:id/*`): o papel
  * (dono e marketing editam; a operação vê) e se o que chegou faz sentido. A
@@ -195,38 +195,50 @@ export async function publicar(id: string): Promise<Resultado> {
   return feito(r!, "No site — o produto aparece na loja em alguns segundos")
 }
 
-const RECUSA_DA_PROMOCAO: Record<string, string> = {
+const RECUSA_DO_PRECO: Record<string, string> = {
   valor_invalido: "Não entendi o valor. Escreva o preço assim: 59,90.",
-  nao_e_desconto: "A promoção tem que ficar abaixo do preço do Bling.",
+  nao_e_desconto: "O promocional tem que ficar abaixo do preço.",
   desconto_demais: "Isso dá mais de 80% de desconto. Confira o valor.",
-  sem_preco: "Esse produto está sem preço no Bling.",
+  mudanca_demais: "O preço mudou demais de uma vez (mais de 5 vezes). Confira o valor.",
+  promocao_acima: "O preço ficaria abaixo do promocional. Mude ou apague o promocional antes.",
+  sem_preco: "Esse produto está sem preço.",
   precos_diferentes:
-    "As variações deste produto têm preços diferentes no Bling: a promoção por aqui é pra produto de preço único.",
+    "As variações deste produto têm preços diferentes: aqui é só pra produto de preço único.",
 }
 
+export type ResultadoDoPreco = Resultado & { campo?: "preco" | "promocional" }
+
 /**
- * Põe (`por`, em reais: "59,90") ou tira (`null`) a promoção do produto. O
- * "de" é o preço do Bling; o backend confere o valor e refaz o desconto por
- * quantidade na hora.
+ * Os dois campos da lista de produtos: o preço e o promocional, em reais
+ * ("59,90"). Campo que não vem não muda; o promocional vazio tira a
+ * promoção. O backend confere o par, e refaz o desconto por quantidade na
+ * hora.
  */
-export async function mudarPromocao(id: string, por: string | null): Promise<Resultado> {
-  const r = await chamar(id, "promocao", { por })
+export async function mudarPreco(
+  id: string,
+  campos: { preco?: string; promocional?: string }
+): Promise<ResultadoDoPreco> {
+  const r = await chamar(id, "preco", campos)
   const erro = comum(r)
   if (erro) return erro
   if (r!.status === 400 || r!.status === 409)
     return {
       ok: false,
-      texto: RECUSA_DA_PROMOCAO[String(r!.corpo.message)] ?? GENERICO,
+      texto: RECUSA_DO_PRECO[String(r!.corpo.message)] ?? GENERICO,
+      campo:
+        r!.corpo.campo === "preco" || r!.corpo.campo === "promocional" ? r!.corpo.campo : undefined,
     }
   if (r!.status !== 200) return { ok: false, texto: GENERICO }
   refazer(id)
-  const valendo = (r!.corpo.promocao as { por?: unknown } | null)?.por
-  return feito(
-    r!,
-    typeof valendo === "number"
-      ? `Promoção salva: por ${reais(valendo)} — o site muda em alguns segundos`
-      : "Promoção tirada: o site volta ao preço do Bling em alguns segundos"
-  )
+  const preco = r!.corpo.preco
+  const promocao = r!.corpo.promocao as { por?: unknown; desconto?: unknown } | null
+  const texto =
+    campos.promocional !== undefined
+      ? typeof promocao?.por === "number"
+        ? `Promocional salvo: ${reais(promocao.por)} (−${String(promocao.desconto)}%)`
+        : "Promoção tirada: vale o preço"
+      : `Preço salvo: ${typeof preco === "number" ? reais(preco) : ""}`
+  return feito(r!, `${texto} — o site muda em alguns segundos`)
 }
 
 export type ImagemQueSubiu =
