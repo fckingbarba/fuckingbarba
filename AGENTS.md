@@ -1166,6 +1166,34 @@ API da loja, um parado em cada passo, e o pedido de quem voltou pela `fabricaDeP
 `wa.me` vira uma página de mentira (o `route` do Playwright). Carrinho recém-criado cai em "No site
 agora", e é nesse filtro que ele confere.
 
+**A promoção do painel** (entrega 0098): o "por" do de/por, mudado na lista de Produtos. Mora numa
+lista de preço do Medusa, "Promoção do painel" (tipo sale, sem data, criada na primeira gravação):
+o Medusa fica com o menor preço e devolve o original, e a loja já desenha o de/por (`precosDe`). A
+regra é `lib/painel/promocao.ts`, pura: `lerPromocao` ("59,90"; recusa o que não é desconto e o de
+mais de 80%) e `precoDoProduto` (o que a lista mostra).
+
+- **A gravação** (`gravar-promocao.ts`, na trava `promocao-do-painel`) tira o preço do produto das
+  OUTRAS listas — fora a do desconto por quantidade; é a regra da importação do Bling na primeira
+  vez —, grava um preço por variação na do painel, avisa a loja (`tagsDoProduto`) e roda
+  `sincronizarPrecosPorQuantidade` na hora, pra "2 unidades" não esperar o job do minuto.
+- **A leitura** (`precosDos`, em `ler-produtos.ts`) junta o `calculatePrices` de uma unidade (o que
+  a loja cobra), o preço da variação (o do Bling: `variants.prices` não traz os de lista) e o da
+  lista do painel. `deOutraLista`: quem ganha é outra lista (a de lançamento, que o banco local
+  ainda tem). `semEfeito`: o Bling baixou pra menos que a promoção. As faixas do detalhe e o preço
+  do catálogo dos seletores saem do preço de hoje.
+- **As rotas:** `GET /dashboard/produtos` (com `promocao`, `promocaoSemEfeito` e `podeEditar`) e
+  `POST /dashboard/produtos/:id/promocao` `{ por }` — área `editarProdutos`; 400 `valor_invalido`,
+  `nao_e_desconto` ou `desconto_demais`; 409 `sem_preco` ou `precos_diferentes`; registro
+  "mudou-promocao" com o de, o por e o de antes. Na tela, `components/produto/preco-na-lista.tsx`.
+- **A linha da tabela é um link esticado** (`.tabela__link::after`, `inset: 0`, com a `tr` em
+  `position: relative`): o que for clicável dentro dela precisa de `position: relative; z-index: 1`,
+  senão o clique vai pro link. Era o que escondia o botão do WhatsApp na linha de quem voltou, nos
+  carrinhos — lá o link do pedido virou `link` comum.
+
+O conferidor é o `apps/dashboard/ferramentas/conferir-promocao.mjs` (13). Ele usa a "Promoção de
+lançamento" do banco local pra conferir que o painel manda no de/por, e no fim devolve o preço dela
+e espera o job refazer "2 unidades": os outros conferidores contam com esses preços.
+
 O CSS do painel segue o do protótipo, uma regra por linha, escrito à mão: o prettier fica nos
 `.ts`/`.tsx`/`.mjs` — rodado nos `.css` do painel, ele reescreve o arquivo inteiro. A gaveta
 (`components/gaveta.tsx`) mora no `<body>`, por portal: aberta de dentro de um `.bloco`, ela

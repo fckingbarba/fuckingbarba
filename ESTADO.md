@@ -388,6 +388,13 @@ Como funciona, em uma linha cada:
 - [ ] **Publicar os rascunhos novos do Bling:** os produtos que o site não tinha entraram em
       rascunho, sem categoria. No admin, em Produtos, revise cada um, ponha a categoria e publique
       os que forem de vender — de preferência depois das fotos da Nuvemshop, logo acima.
+      **Em 25/09 eram nove.** Oito são os da loja antiga que faltam na nova (o link deles dá "página
+      não encontrada" até sair do rascunho): Kit 3x e Kit 6x Fator, Kit Essencial, Kit Hidratação,
+      Kit Shampoo Duplo, Kit Fator + Shampoo e as Pastas Modeladoras Brilho e Matte (FBKIT06,
+      FBKIT07, FBKIT02, FBKIT04, FBKIT03, FBKIT08, FBPBR01, FBPMT01) — já com as fotos e a categoria
+      de lá: é Painel → Produtos → Rascunhos → **Publicar no site**, e depois admin → ERP → Estoque
+      → **Sincronizar agora** (rascunho não puxa estoque). O nono, o Kit Dupla Performance
+      (FBKIT10), não existia na loja antiga e está sem foto: fica em rascunho até ter.
 - [ ] **Conferir o primeiro pedido pago de verdade:** FB-<número> no Bling, a nota autorizada, o
       estoque — e, agora com o token, o pedido no painel da Frenet (ver 1b). É a prova que fecha a
       fase 5 (ver a seção 4). O FB-15, de teste, já saiu com a nota autorizada (23/09).
@@ -539,11 +546,9 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
         estão marcados como CONFERIR desde o protótipo (`apps/loja/src/conteudo/home.ts`), junto
         do "+1.000.000 clientes satisfeitos" do bloco do meio. Se o +1M for alcance nas redes, e
         não cliente, o rótulo precisa dizer isso.
-- [ ] Dados reais da empresa no painel, em Configurações → Dados da empresa (desde a entrega 0093;
+- [x] Dados reais da empresa no painel, em Configurações → Dados da empresa (desde a entrega 0093;
       o admin segue de reserva): CNPJ, razão social, endereço, WhatsApp, e-mail, horário e prazo de
-      postagem. **Hoje nenhum está preenchido em produção**: o rodapé mostra "Entrar em contato" sem
-      nada embaixo, e o `/contato` tem só o Instagram como canal (mais seis tarjas de pendente).
-      Preenchido, tudo aparece sozinho — nada a mexer no código.
+      postagem. **Preenchidos em 25/09** — o rodapé e o `/contato` da loja já mostram tudo.
 - [ ] Catálogo da Nuvemshop (fase 2). **Com ele importado, conferir o teto:** a `/produtos` lista
       até 48 produtos, e a busca vê exatamente essa lista (`apps/loja/src/lib/busca.ts`). Os quinze
       da Nuvemshop cabem com folga; passando de 48, a `/produtos` precisa de paginação e a busca vai
@@ -1020,6 +1025,20 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
 - [ ] O checkout não pede mais aceite das regras de troca (a linha embaixo do botão de pagar saiu
       no enxugamento de 21/09), e desde 22/09 também não fala mais em desistência. As regras seguem
       publicadas no `/trocas`, com link no rodapé.
+- [ ] **Os preços, antes da virada — você.** A loja nova usa o preço do Bling, e em 25/09 ele
+      estava acima do que a Nuvemshop cobra hoje em todos os produtos: a Nuvemshop mostra um
+      "de/por", e a promoção não veio na importação do Bling (23/09). Com a promoção no painel
+      (entrega 0098), é pôr o "por" de hoje em cada um — Painel → Produtos → **Pôr em promoção**.
+      O "por" de cada um na Nuvemshop, em 25/09: Óleo R$ 54,90 · Balm R$ 53,90 · Shampoo R$ 49,90 ·
+      Spray Matte R$ 49,90 · Fator R$ 79,90 · Kit Completo R$ 99,90 · Kit 2x Fator R$ 149,90 · Kit 3x
+      Fator R$ 222,90 · Kit 6x Fator R$ 410,90 · Pastas Matte e Brilho R$ 59,90 · Kit Shampoo Duplo
+      R$ 89,90 · Kit Hidratação R$ 99,90 · Kit Essencial R$ 99,90 · Kit Fator + Shampoo R$ 109,90.
+      Se os preços do Bling forem de propósito, é só não pôr.
+- [ ] **Os endereços antigos que não são de produto — Claude Code.** Conferidos em 25/09 contra o
+      mapa do site da Nuvemshop, dão "página não encontrada" na loja nova: `/produtos-para-a-barba/`
+      (e `/balm/`, `/fator-de-crescimento/`, `/oleo/` e `/shampoo/` dentro dela), `/kits-para-barba/`,
+      `/para-o-cabelo/`, `/quem-somos/` e `/politica-de-envio/`. Entram no
+      `apps/loja/src/redirects.json` antes da virada. Os de produto são os oito rascunhos acima.
 - [ ] Troca de domínio (fase 6). O que depende do endereço da loja: `NEXT_PUBLIC_SITE_URL` na
       Vercel, `STORE_CORS`/`AUTH_CORS` e `LOJA_URL` (revalidação, logo e links dos e-mails) no
       Railway, `SITE_ORIGENS` no Supabase, a indexação, e o domínio no Pagar.me se ele passar a
@@ -1130,7 +1149,7 @@ O que o protótipo tem, aprovado em 23/09:
   fundo em **duas versões, computador e celular** (PNG ou WebP). A **caixa de compra** da página
   mostra uma coisa **ou** outra, no mesmo lugar abaixo do preço: os cartões "Quantas unidades" (o
   order bump da página) ou o "Leve junto" (o cross-sell, 2 produtos). O topo da página é fixo e
-  não se edita.
+  não se edita. E a **promoção** (o "de/por"), direto na lista (desde 25/09, entrega 0098).
 - **Layout da home:** as seções editáveis, o **banner principal com até 5 slides**, e nada vai pro
   site sem "Publicar".
 - **Carrinhos abandonados:** a lista — quem parou, em que passo do checkout, e o botão pra chamar
@@ -1678,20 +1697,25 @@ telefone embaralhados, quem pode receber).
 
 Depois do deploy — **o que você faz:**
 
-- [ ] Painel → Configurações → **Integrações**: cole os códigos e clique em Salvar. O do GA4 é o de
-      hoje, `G-CS3QPK0QHL` (até você pôr no painel, vale o da variável da Vercel).
-- [ ] No Railway, no serviço do Medusa → Variables, as três chaves da compra pelo servidor (o
-      passo a passo de cada uma está no `apps/backend/.env.example`):
+- [x] Painel → Configurações → **Integrações**: cole os códigos e clique em Salvar. O do GA4 é o de
+      hoje, `G-CS3QPK0QHL` (até você pôr no painel, vale o da variável da Vercel). **Feito em
+      25/09:** GA4, Pixel da Meta e Google Ads (com o rótulo da compra), os mesmos do site antigo.
+      TikTok e Clarity ficaram desligados de propósito.
+- [x] No Railway, no serviço do Medusa → Variables, as três chaves da compra pelo servidor (o
+      passo a passo de cada uma está no `apps/backend/.env.example`). **Feito em 25/09** com as da
+      Meta e do GA4; a do TikTok fica pra quando ele for ligado:
   - `META_CAPI_TOKEN`: Gerenciador de Eventos → o pixel → Configurações → API de Conversões →
     Gerar token de acesso;
   - `GA4_API_SECRET`: GA4 → Administrador → Fluxos de dados → o site → Chaves secretas da API do
     Measurement Protocol → Criar;
   - `TIKTOK_EVENTS_TOKEN`: TikTok Ads Manager → Ferramentas → Eventos → o pixel → Configurações →
     Gerar token de acesso.
-- [ ] Conferir na aba Integrações: "A compra" com **Ligado** em cada plataforma que você usa.
+- [x] Conferir na aba Integrações: "A compra" com **Ligado** em cada plataforma que você usa —
+      Meta, GA4 e Google Ads, em 25/09.
 - [ ] No Google Ads, deixe **uma** conversão de compra como principal: a da tela de obrigado (o
       rótulo) ou a importada do GA4 — as duas juntas contam a compra em dobro.
-- [ ] Na Clarity, Settings → Setup: o mascaramento em "Balanced" (o padrão) ou "Strict".
+- [ ] Quando ligar a Clarity: Settings → Setup, o mascaramento em "Balanced" (o padrão) ou
+      "Strict".
 
 Chave nunca passa pela conversa. Enquanto o domínio for da Nuvemshop, quase ninguém visita a loja
 nova: os números de verdade começam depois da virada.
@@ -1756,6 +1780,37 @@ da régua (11).
 
 Depois do deploy — **nada a configurar.** Pra testar: Painel → **Carrinhos abandonados**. Enquanto
 o domínio for da Nuvemshop, quase só os seus testes aparecem ali.
+
+**Produtos: a promoção (o "de/por") na lista — pronta em 25/09 (entrega 0098).** Até aqui o preço
+era só o do Bling, e a promoção da loja antiga não veio na importação. Agora cada produto da lista
+de Produtos do painel tem **Pôr em promoção**, ali mesmo, sem abrir o produto.
+
+- **Como:** Painel → Produtos → no preço do produto, **Pôr em promoção** → escreva o "por" (59,90)
+  → **Salvar**. O desconto aparece enquanto você digita. **Mudar promoção** troca o valor; **Tirar
+  promoção** volta ao preço do Bling.
+- **O "de" é o preço do Bling**; o "por" é o que você escreveu. A loja mostra os dois — o de
+  riscado, com a % — na página do produto, nas vitrines e na busca, em segundos.
+- **"Quantas unidades"** (2 e 3 unidades) sai do preço da promoção, na hora. O cupom e a oferta do
+  checkout descontam em cima dela.
+- **O painel recusa** o "por" igual ou maior que o "de", e desconto de mais de 80% (quase sempre é
+  dedo errado: 5,99 no lugar de 59,90).
+- **Quem muda:** dono e marketing; a operação vê. Fica no histórico do produto: "Fulano pôs a
+  promoção — de R$ 72,40 por R$ 39,90". O detalhe do produto mostra a promoção, sem editar lá.
+- **O painel manda no de/por:** uma promoção antiga (feita no admin do Medusa) aparece na lista com
+  "de uma lista de preço do admin"; salvar ou tirar pelo painel substitui ela.
+- Se o Bling baixar o preço pra menos que a promoção, a lista avisa que ela não vale. Trazer o
+  catálogo do Bling de novo não mexe na promoção.
+- **De quebra, um conserto nos Carrinhos (0096):** na linha de quem voltou e comprou, o link do
+  pedido cobria a linha inteira, e o botão do WhatsApp não abria. Consertado.
+
+Conferido pelo `conferir-promocao.mjs` (13 checagens, novo: o campo na lista, o que é recusado, o
+que a loja cobra por 1, 2 e 3 unidades, a página da loja, o histórico, a operação, o celular e o
+tirar) e pelo `conferir-carrinhos.mjs`, que ganhou a do botão (12). E pelos testes de unidade da
+promoção (8) e das faixas saindo do preço dela.
+
+Depois do deploy — **o que você faz:**
+
+- [ ] Os preços de hoje, antes da virada: ver "Os preços, antes da virada", na seção 3.
 
 ## Como seguir no Claude Code
 
