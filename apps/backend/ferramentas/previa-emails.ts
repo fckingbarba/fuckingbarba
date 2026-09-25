@@ -4,6 +4,7 @@ import { emailDoCodigo } from "../src/lib/emails/codigo"
 import { emailDoEnvio } from "../src/lib/emails/envio"
 import { emailDoEstornoQueFalhou } from "../src/lib/emails/estorno-falhou"
 import {
+  emailDePagamentoDevolvido,
   emailDePedidoCancelado,
   type CancelamentoDoEmail,
 } from "../src/lib/emails/pedido-cancelado"
@@ -230,6 +231,20 @@ function main() {
   const pixVencido = cancelado("pix-vencido", null)
   const semCobranca = cancelado("sem-cobranca", null)
 
+  // O segundo e-mail do "cancelado antes do pagamento": o QR foi pago depois.
+  const p = exemploDePedido()
+  const pixDevolvido = emailDePagamentoDevolvido({
+    devolucao: {
+      id: p.id,
+      numero: p.numero,
+      email: p.email,
+      itens: p.itens,
+      total: p.total,
+      devolvido: { valor: p.total, forma: "pix" },
+    },
+    whatsapp: "5547999990000",
+  })
+
   const pagina = `<!doctype html>
 <html lang="pt-BR">
 <head>
@@ -270,6 +285,7 @@ ${secao("Cancelado, Pix estornado", estornadoPix, { pc: 1240, celular: 1340 })}
 ${secao("Cancelado, cartão estornado", estornadoCartao, { pc: 1240, celular: 1360 })}
 ${secao("Pix venceu", pixVencido, { pc: 1120, celular: 1220 })}
 ${secao("Cancelado antes do pagamento", semCobranca, { pc: 1120, celular: 1220 })}
+${secao("Pix pago depois do cancelamento, devolvido", pixDevolvido, { pc: 1400, celular: 1560 })}
 ${secao("Estorno que não saiu (pra equipe)", estorno, { pc: 760, celular: 900 })}
 </body>
 </html>`
@@ -288,6 +304,7 @@ ${secao("Estorno que não saiu (pra equipe)", estorno, { pc: 760, celular: 900 }
     ["cancelado-estornado-cartao", estornadoCartao],
     ["cancelado-pix-vencido", pixVencido],
     ["cancelado-sem-cobranca", semCobranca],
+    ["pix-devolvido", pixDevolvido],
     ["estorno-falhou", estorno],
   ] as const) {
     writeFileSync(join(saida, `${nome}.html`), comImagensEmbutidas(e.html))

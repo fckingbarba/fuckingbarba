@@ -3,7 +3,12 @@ import { emailDoConvite } from "../convite"
 import { emailDoEnvio, type EnvioDoAviso, type PedidoDoAviso } from "../envio"
 import { emReais, esc, urlDaLoja } from "../moldura"
 import { emailDaNotaComProblema, emailDaNotaParaConferir, emailDoPedidoParaDesfazer } from "../erp"
-import { emailDePedidoCancelado, type CancelamentoDoEmail } from "../pedido-cancelado"
+import {
+  emailDePagamentoDevolvido,
+  emailDePedidoCancelado,
+  type CancelamentoDoEmail,
+  type DevolucaoDoEmail,
+} from "../pedido-cancelado"
 import { emailDePedidoConfirmado, rotuloDaEntrega, type PedidoDoEmail } from "../pedido-confirmado"
 import { emailDaTroca, emailDeEmailTrocado } from "../troca-de-email"
 
@@ -402,6 +407,115 @@ describe("e-mail de pedido cancelado", () => {
   it("a versão em texto tem o que importa", () => {
     const e = montar({}, "5547999990000")
     expect(e.texto).toContain("pedido #1042 cancelado")
+    expect(e.texto).toContain(`Total: ${emReais(109.8)}`)
+    expect(e.texto).toContain("(47) 99999-0000")
+    expect(e.para).toBe("rafael@exemplo.com")
+  })
+})
+
+describe("e-mail do pagamento que chegou depois do cancelamento", () => {
+  /*
+    Quem recebe este já recebeu o de cancelamento, dizendo "Nada foi cobrado
+    de você" — e depois pagou o QR que ainda valia. O e-mail precisa dizer o
+    que mudou, sem desmentir o outro.
+  */
+  const devolucao = (extra: Partial<DevolucaoDoEmail> = {}): DevolucaoDoEmail => {
+    const p = pedido()
+    return {
+      id: p.id,
+      numero: p.numero,
+      email: p.email,
+      itens: p.itens,
+      total: p.total,
+      devolvido: { valor: 109.8, forma: "pix" },
+      ...extra,
+    }
+  }
+  const montar = (extra: Partial<DevolucaoDoEmail> = {}, whatsapp: string | null = null) =>
+    emailDePagamentoDevolvido({ devolucao: devolucao(extra), whatsapp })
+
+  it("o assunto diz o que houve com o dinheiro, e o número do pedido", () => {
+    expect(montar().assunto).toBe("Pedido #1042: devolvemos o seu Pix")
+    expect(montar({ devolvido: { valor: 109.8, forma: "cartao" } }).assunto).toBe(
+      "Pedido #1042: devolvemos o seu pagamento"
+    )
+  })
+
+  it("conta o que mudou depois do e-mail do cancelamento, sem desmenti-lo", () => {
+    const e = montar()
+    expect(e.html).toContain("O pagamento chegou depois do cancelamento.")
+    expect(e.html).toContain("ainda não tinha sido pago — e foi isso que o e-mail do cancelamento")
+    expect(e.html).toContain("O Pix foi pago depois")
+    expect(e.html).not.toContain("Nada foi cobrado")
+  })
+
+  it("diz o valor e o caminho de volta — as mesmas frases do cancelado e estornado", () => {
+    const e = montar()
+    expect(e.html).toContain(emReais(109.8))
+    expect(e.html).toContain("voltam pra conta que pagou")
+    expect(e.html).toContain("corre atrás")
+
+    const noCartao = montar({ devolvido: { valor: 109.8, forma: "cartao" } })
+    expect(noCartao.html).toContain("voltam pro mesmo cartão")
+    expect(noCartao.html).toContain("O pagamento no cartão entrou depois")
+  })
+
+  it("a prévia da caixa de entrada é o dinheiro", () => {
+    const e = montar()
+    expect(e.html).toMatch(/Os R\$\s109,80 do Pix voltam pra conta que pagou/)
+  })
+
+  it("nenhuma promessa de dia — o prazo é do banco", () => {
+    for (const forma of ["pix", "cartao"] as const) {
+      const e = montar({ devolvido: { valor: 109.8, forma } })
+      expect(e.html).not.toMatch(/\b(amanhã|hoje|em \d+ dias?\b)/i)
+    }
+  })
+
+  it("quem pagou queria os produtos: o caminho de volta pra loja", () => {
+    const e = montar()
+    expect(e.html).toContain("Ainda quer os produtos?")
+    expect(e.html).toContain("um Pix novo nasce na hora")
+    expect(e.html).toContain(`href="${LOJA}"`)
+    expect(montar({ devolvido: { valor: 109.8, forma: "cartao" } }).html).not.toContain(
+      "um Pix novo"
+    )
+  })
+
+  it("escapa nome de produto", () => {
+    const e = montar({
+      itens: [
+        {
+          nome: "<script>alert(1)</script>",
+          variante: null,
+          imagem: null,
+          quantidade: 1,
+          precoUnitario: 10,
+          total: 10,
+        },
+      ],
+    })
+    expect(e.html).not.toContain("<script>")
+    expect(e.html).toContain("&lt;script&gt;")
+  })
+
+  it("pedido sem itens não deixa cartão vazio", () => {
+    const e = montar({ itens: [] })
+    expect(e.html).not.toContain("O que estava no pedido")
+    expect(e.texto).not.toContain("O QUE ESTAVA NO PEDIDO")
+  })
+
+  it("cabe no Gmail (corta acima de 102 KB) mesmo com dez produtos", () => {
+    const p = pedido()
+    const e = montar({ itens: Array.from({ length: 10 }, () => p.itens[0]) })
+    expect(Buffer.byteLength(e.html)).toBeLessThan(102 * 1024)
+  })
+
+  it("a versão em texto tem o que importa", () => {
+    const e = montar({}, "5547999990000")
+    expect(e.texto).toContain("pedido #1042: devolvemos o seu Pix")
+    expect(e.texto).toContain("O Pix foi pago depois")
+    expect(e.texto).toContain(`Os ${emReais(109.8)} do Pix voltam pra conta que pagou`)
     expect(e.texto).toContain(`Total: ${emReais(109.8)}`)
     expect(e.texto).toContain("(47) 99999-0000")
     expect(e.para).toBe("rafael@exemplo.com")

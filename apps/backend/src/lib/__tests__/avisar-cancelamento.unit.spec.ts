@@ -2,6 +2,7 @@ import {
   decidir,
   lerRegistro,
   paraCancelamentoDoEmail,
+  totalDoPedido,
   type PedidoLido,
 } from "../avisar-cancelamento"
 import { oQueAconteceComODinheiro, porQueCancelou } from "../emails/pedido-cancelado"
@@ -270,6 +271,32 @@ describe("o cancelamento no formato do e-mail", () => {
         total: 49.9,
       },
     ])
+  })
+})
+
+describe("o total de um pedido cancelado e estornado", () => {
+  it("é o que o pedido custou, e não o zero que sobra depois do crédito da devolução", () => {
+    /*
+      O cancelamento do Medusa grava a devolução como crédito no pedido, e o
+      `total` já sai com ela descontada: zero. O e-mail dizia "Os R$ 62,58
+      voltam" em cima de "Total R$ 0,00".
+    */
+    const estornado = pedido({ ...pago(), total: 0, credit_line_total: 62.58 })
+    const c = paraCancelamentoDoEmail(estornado, decidir(estornado, { agora: AGORA }))
+    expect(c.total).toBe(62.58)
+    expect(totalDoPedido({ total: 62.58, credit_line_total: 0 })).toBe(62.58)
+    expect(totalDoPedido({ total: 62.58 })).toBe(62.58)
+  })
+
+  it("o valor do estorno feito lá, sem o que ficou na sessão, também sai da conta certa", () => {
+    const semValor = pedido({
+      total: 0,
+      credit_line_total: 62.58,
+      payment_collections: [{ payments: [], payment_sessions: [pagarme({ valor: 0 })] }],
+    })
+    expect(decidir(semValor, { estornouLa: true, agora: AGORA })).toMatchObject({
+      estorno: { valor: 62.58 },
+    })
   })
 })
 
