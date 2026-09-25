@@ -75,7 +75,8 @@ ADMIN_EMAIL=<admin local> ADMIN_SENHA=<senha local> node ferramentas/conferir-fr
 O admin é um usuário do banco LOCAL (`npm run backend:user`). `CHROMIUM=<caminho>` quando o
 Playwright não achar o navegador. Layout de componente interativo se confere com foto, não com
 asserção — `ferramentas/retrato-calculadora.mjs` é o modelo (e `retrato-pagamento.mjs`, o do passo 3
-e da tela de obrigado), e roda contra `next build` + `next start`. Os conferidores, ao contrário,
+e da tela de obrigado, e `retrato-consentimento.mjs`, a faixa de cookies em cima das barras presas
+embaixo), e roda contra `next build` + `next start`. Os conferidores, ao contrário,
 rodam contra o `next dev` (`LOJA`, padrão `localhost:3000`): com o cache de produção o de PDP lê o
 conteúdo de antes da edição e falha sem bug nenhum. Os `apps/backend/ferramentas/conferir-{frete,pedido}.mjs` são de antes da Frenet (esperam
 "Correios PAC" fixo e não sobem a falsa) — os que valem são os onze da loja.
@@ -1085,6 +1086,14 @@ cookies e a compra pelo servidor:
   um sim sem um parceiro que entrou depois volta a ser "perguntar" (`respostaQueVale`); o "não"
   vale pra qualquer lista. A versão sobe com parceiro ou finalidade nova — a política promete
   avisar antes de valer.
+- **O pé da tela** (entrega 0097): a faixa (`components/analytics/consentimento.tsx`) mora no pé
+  da tela, EM CIMA da barra que estiver presa lá — a de compra da PDP, a do total no checkout do
+  celular. Cada barra diz a própria altura em `--pe-da-tela`, no `<html>`, pelo `usePeDaTela`
+  (`lib/use-pe-da-tela.ts`: medida com `ResizeObserver`, num registro em que vale a maior — o
+  Next guarda telas visitadas escondidas, e a cópia que se esconde não pode apagar a medida da
+  que está na tela). Barra nova presa embaixo: use o `usePeDaTela`. Até 25/09 a barra da PDP
+  (z-index 60) cobria os botões da faixa, e a faixa (z-50, depois no DOM) cobria o botão do
+  checkout. No celular a faixa é menor: letra de 12 px e cada botão numa linha.
 - **As tags** (`components/analytics/`): `tags.tsx` (no layout raiz, com o GA4 da Vercel de
   reserva) só chama `ligarIntegracoes` (`integracoes.ts`) com o sim — o modo básico: antes dele,
   nenhum script de fora na página. Os trechos são os oficiais, com o código conferido de novo. As
@@ -1119,7 +1128,9 @@ cookies e a compra pelo servidor:
   tela de obrigado, com o pagamento entrado (o `transaction_id` descarta a repetida).
 - **A Clarity** fica coberta (`data-clarity-mask`) no checkout, na conta e na tela de obrigado.
 
-O conferidor é o `apps/dashboard/ferramentas/conferir-integracoes.mjs` (24). Ele troca os scripts de
+O conferidor é o `apps/dashboard/ferramentas/conferir-integracoes.mjs` (29; a seção "A faixa e as
+barras do pé da tela" confere, no celular e no computador, que o meio de cada botão da faixa e o da
+barra é o próprio botão, e o tamanho da faixa no celular). Ele troca os scripts de
 fora por um de mentira (o `route` do Playwright) e lê as filas dos trechos (`dataLayer`,
 `fbq.queue`, `ttq`, `clarity.q`); a compra, no `apps/loja/ferramentas/anuncios-falsos.mjs` (4370,
 `PORTA_ANUNCIOS`), com os pedidos da `fabricaDePedidos` (que devolve o `carrinho` pro crachá da
