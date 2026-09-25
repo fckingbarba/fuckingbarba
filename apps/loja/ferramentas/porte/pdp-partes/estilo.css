@@ -561,8 +561,10 @@
 .compra__nome {
   margin: 0;
   /* piso menor que o da v1 (era 1.85rem): a 390px o título ocupava três
-     linhas e cada linha aqui custa 30px de distância até o botão */
-  font-size: clamp(1.45rem, 4.6vw, 2.6rem);
+     linhas e cada linha aqui custa 30px de distância até o botão. Teto de
+     38px (era 2.6rem, 42px): no computador a coluna tem 470px, e o nome da
+     loja cabe em 2 linhas (entrega 0099, com os nomes curtos) */
+  font-size: clamp(1.45rem, 4.6vw, 2.375rem);
   font-weight: 800;
   font-style: italic;
   text-transform: uppercase;
