@@ -1,3 +1,4 @@
+import type { ResultadoDoRegistro } from "../envios/registro"
 import type { ResultadoDaNota } from "../erp/notas"
 import { lerRegistros as lerEstornos, type Tentativa } from "../estornos"
 import { hora, reais, type Data } from "./formato"
@@ -29,7 +30,8 @@ export type AcaoDaNota = "agora" | "de-novo"
 /** Os códigos das ações no pedido, no registro da equipe (`equipe_registro.acao`). */
 export const EMITIU_NOTA = "emitiu-nota"
 export const PEDIU_ESTORNO = "pediu-estorno"
-export const ACOES_NO_PEDIDO = [EMITIU_NOTA, PEDIU_ESTORNO]
+export const MANDOU_PRA_FRENET = "mandou-pra-frenet"
+export const ACOES_NO_PEDIDO = [EMITIU_NOTA, PEDIU_ESTORNO, MANDOU_PRA_FRENET]
 
 /** Quando a nota sai sozinha: o pagamento, mais a janela de cancelamento. */
 export const notaSaiEm = (pagoEm: Date, ctx: Pick<Contexto, "janelaDaNota">) =>
@@ -54,6 +56,17 @@ export function estornoPraTentar(metadata: unknown): boolean {
   return Object.values(lerEstornos(metadata)).some(
     (e) => e.situacao === "falhou" && e.sozinha === true
   )
+}
+
+/**
+ * O pedido que a Frenet recusou e dá pra mandar de novo — depois de corrigir
+ * o que ela apontou (ou o nosso lado, como no #19). A loja não manda de novo
+ * sozinha: a recusa é definitiva até alguém apertar.
+ */
+export function frenetPraTentar(o: { status?: string | null; metadata?: unknown }): boolean {
+  const r = (o.metadata as Record<string, unknown> | null | undefined)?.fb_parceiro as
+    { entrou?: unknown; definitivo?: unknown } | undefined
+  return o.status !== "canceled" && Boolean(r) && r?.entrou === false && r?.definitivo === true
 }
 
 /* ── a frase depois do clique ─────────────────────────────────────────────── */
@@ -151,6 +164,48 @@ export function registroDoEstorno(t: Tentativa, numero: number) {
   }
 }
 
+/** O motivo sem o "a Frenet recusou o pedido:" da frente — quem lê já está na faixa que diz isso. */
+export const motivoDaFrenet = (motivo: string) =>
+  motivo.replace(/^a Frenet recusou o pedido:\s*/i, "")
+
+const NADA_NA_FRENET: Record<string, string> = {
+  "ja-entrou": "ele já está no painel da Frenet",
+  "ja-tem-envio": "o pedido já tem envio no admin — alguém está cuidando dele à mão",
+  "esperando-nota": "a nota ainda não saiu, e o pedido vai pra Frenet junto com ela",
+  cancelado: "o pedido foi cancelado",
+  "nao-pago": "o pedido ainda não foi pago",
+  "pago-antes": "o pedido foi pago antes de o registro na Frenet ligar",
+  desligado: "o registro na Frenet está desligado (sem o token de parceiro)",
+}
+
+/** A frase depois de "Mandar pra Frenet de novo". */
+export function fraseDaFrenet(r: ResultadoDoRegistro): { ok: boolean; texto: string } {
+  if (r.resultado === "entrou")
+    return {
+      ok: true,
+      texto: `O #${r.numero} entrou no painel da Frenet. É só gerar a etiqueta lá.`,
+    }
+  if (r.resultado === "falhou")
+    return {
+      ok: false,
+      texto: r.definitivo
+        ? `A Frenet recusou de novo: ${motivoDaFrenet(r.motivo)}. Faça a etiqueta à mão no painel da Frenet.`
+        : `A Frenet não respondeu agora (${r.motivo}). A loja tenta de novo sozinha.`,
+    }
+  return { ok: false, texto: `Nada a fazer: ${NADA_NA_FRENET[r.motivo] ?? r.motivo}.` }
+}
+
+/** A linha do registro da equipe. */
+export function registroDaFrenet(r: ResultadoDoRegistro, numero: number): Record<string, unknown> {
+  return {
+    numero,
+    resultado: r.resultado,
+    ...(r.resultado === "entrou" ? { envio: r.id } : {}),
+    ...(r.resultado === "falhou" ? { motivo: r.motivo, definitivo: r.definitivo } : {}),
+    ...(r.resultado === "nada" ? { motivo: r.motivo } : {}),
+  }
+}
+
 /** Uma ação da equipe no pedido, lida do registro. */
 export type FeitoNoPedido = {
   em: Data
@@ -190,6 +245,16 @@ export function eventoDoFeito(f: FeitoNoPedido): { titulo: string; detalhe: stri
       "nao-da": `não deu: ${motivo}`,
     }
     return { titulo: `${f.quem} pediu o estorno de novo`, detalhe: deu[resultado] ?? "" }
+  }
+  if (f.acao === MANDOU_PRA_FRENET) {
+    const deu: Record<string, string> = {
+      entrou: "entrou no painel da Frenet",
+      falhou: d.definitivo
+        ? `a Frenet recusou de novo: ${motivoDaFrenet(motivo)}`
+        : `a Frenet não respondeu: ${motivo}`,
+      nada: `nada a fazer: ${NADA_NA_FRENET[motivo] ?? motivo}`,
+    }
+    return { titulo: `${f.quem} mandou o pedido pra Frenet de novo`, detalhe: deu[resultado] ?? "" }
   }
   return null
 }

@@ -2,9 +2,12 @@ import {
   acaoDaNota,
   estornoPraTentar,
   eventoDoFeito,
+  fraseDaFrenet,
   fraseDaNota,
   fraseDoEstorno,
+  frenetPraTentar,
   motivoLegivel,
+  registroDaFrenet,
   registroDaNota,
   registroDoEstorno,
 } from "../acoes"
@@ -187,5 +190,79 @@ describe("o registro e o histórico", () => {
       detalhe: "o Pagar.me aceitou — confirma em minutos",
     })
     expect(eventoDoFeito({ em, acao: "convidou", quem: "Matheus", detalhe: null })).toBeNull()
+  })
+})
+
+describe("mandar pra Frenet de novo", () => {
+  const recusado = { entrou: false, definitivo: true, erro: "a Frenet recusou o pedido: x" }
+
+  it("o botão só no pedido que a Frenet recusou (e não cancelado)", () => {
+    expect(frenetPraTentar({ status: "pending", metadata: { fb_parceiro: recusado } })).toBe(true)
+    expect(frenetPraTentar({ status: "canceled", metadata: { fb_parceiro: recusado } })).toBe(false)
+    expect(
+      frenetPraTentar({
+        status: "pending",
+        metadata: { fb_parceiro: { ...recusado, entrou: true } },
+      })
+    ).toBe(false)
+    expect(
+      frenetPraTentar({
+        status: "pending",
+        metadata: { fb_parceiro: { ...recusado, definitivo: false } },
+      })
+    ).toBe(false)
+    expect(frenetPraTentar({ status: "pending", metadata: {} })).toBe(false)
+  })
+
+  it("a frase: entrou, recusou de novo, não respondeu, ou nada a fazer", () => {
+    expect(fraseDaFrenet({ resultado: "entrou", numero: 19, id: "7" })).toEqual({
+      ok: true,
+      texto: "O #19 entrou no painel da Frenet. É só gerar a etiqueta lá.",
+    })
+    expect(
+      fraseDaFrenet({
+        resultado: "falhou",
+        numero: 19,
+        motivo: "a Frenet recusou o pedido: CEP inválido",
+        definitivo: true,
+      })
+    ).toEqual({
+      ok: false,
+      texto: "A Frenet recusou de novo: CEP inválido. Faça a etiqueta à mão no painel da Frenet.",
+    })
+    expect(
+      fraseDaFrenet({ resultado: "falhou", numero: 19, motivo: "fora do ar", definitivo: false })
+        .texto
+    ).toMatch(/tenta de novo sozinha/)
+    expect(fraseDaFrenet({ resultado: "nada", motivo: "ja-tem-envio" }).texto).toBe(
+      "Nada a fazer: o pedido já tem envio no admin — alguém está cuidando dele à mão."
+    )
+  })
+
+  it("no registro e no histórico, com quem apertou", () => {
+    const detalhe = registroDaFrenet(
+      { resultado: "falhou", numero: 19, motivo: "CEP inválido", definitivo: true },
+      19
+    )
+    expect(detalhe).toEqual({
+      numero: 19,
+      resultado: "falhou",
+      motivo: "CEP inválido",
+      definitivo: true,
+    })
+    expect(
+      eventoDoFeito({ em: antes(1), acao: "mandou-pra-frenet", quem: "Matheus", detalhe })
+    ).toEqual({
+      titulo: "Matheus mandou o pedido pra Frenet de novo",
+      detalhe: "a Frenet recusou de novo: CEP inválido",
+    })
+    expect(
+      eventoDoFeito({
+        em: antes(1),
+        acao: "mandou-pra-frenet",
+        quem: "Matheus",
+        detalhe: registroDaFrenet({ resultado: "entrou", numero: 19, id: "7" }, 19),
+      })?.detalhe
+    ).toBe("entrou no painel da Frenet")
   })
 })
