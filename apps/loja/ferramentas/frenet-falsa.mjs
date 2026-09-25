@@ -23,9 +23,14 @@ import { createServer } from "node:http"
  * cotações.
  *
  * E A API DE PEDIDOS (`POST /v1/orders`, a do token de parceiro): guarda
- * cada pedido que chega em `painel.pedidos` e devolve um `ShipmentId` novo
+ * cada pedido que chega em `painel.pedidos` e devolve um `shipmentId` novo
  * pra cada um — ou a recusa, com `painel.roteiroDosPedidos = "recusa"`, ou
- * 500, com "queda". Sem os dois tokens nos cabeçalhos, 401. Cancelar e
+ * 500, com "queda". Sem os dois tokens nos cabeçalhos, 401. O formato é o da
+ * documentação deles ("Inserir pedidos na Frenet"): o lote é uma LISTA, cada
+ * envio com `Order` e `Volumes` — um OBJETO, não lista — e a resposta em
+ * camelCase (`statusBatch`, `items`, `shipmentId`). Fora disso, o 400 da
+ * validação do ASP.NET, como a de verdade (`title` + `errors`): foi assim
+ * que o #19 voltou em produção (25/09). Cancelar e
  * apagar um envio (`/v1/shipments/:id/cancel` e `DELETE /v1/shipments/:id`)
  * ficam em `painel.retirados`. Nada disso conta em `chamadas`.
  *
@@ -102,12 +107,17 @@ export async function subirFrenetFalsa({ porta = PORTA_PADRAO } = {}) {
     rastreios: new Map(),
     /** cada consulta de rastreio que chegou: `{ token, corpo }` */
     consultas: [],
-    /** "normal", "recusa" (erro no item do lote) ou "queda" (500) */
+    /**
+     * "normal", "recusa" (erro no item do lote), "validacao" (o 400 do
+     * ASP.NET, com o campo em `errors`) ou "queda" (500)
+     */
     roteiroDosPedidos: "normal",
     /** cada pedido que chegou pela API de pedidos: `{ token, parceiro, envio, corpo }` */
     pedidos: [],
     /** cada envio cancelado ou apagado: `{ como: "cancelar" | "apagar", id }` */
     retirados: [],
+    /** cada lote fora do esquema (o 400 da validação): os campos e as mensagens */
+    recusados: [],
   }
   /* O id do envio é único na Frenet de verdade, e o banco local guarda os
      das rodadas anteriores: começar sempre do mesmo número faria o aviso
@@ -168,27 +178,59 @@ export async function subirFrenetFalsa({ porta = PORTA_PADRAO } = {}) {
             json(500, { Message: "Erro interno" })
             return
           }
-          let lote = []
+          let lote = null
           try {
             lote = JSON.parse(corpo)
           } catch {}
-          const itens = (Array.isArray(lote) ? lote : []).map((envio) => {
-            const id = envio?.Order?.Id ?? null
+          // A validação do ASP.NET deles: o corpo fora do esquema nem chega no código da Frenet.
+          const invalidos =
+            painel.roteiroDosPedidos === "validacao"
+              ? { "$[0].Order.To.Address.ZipCode": ["The ZipCode field is required."] }
+              : !Array.isArray(lote)
+                ? { $: ["The JSON value could not be converted to List<ShipmentBase>."] }
+                : Object.fromEntries(
+                    lote.flatMap((envio, i) =>
+                      !envio?.Volumes ||
+                      typeof envio.Volumes !== "object" ||
+                      Array.isArray(envio.Volumes)
+                        ? [
+                            [
+                              `$[${i}].Volumes`,
+                              ["The JSON value could not be converted to Volume."],
+                            ],
+                          ]
+                        : !envio?.Order?.Id
+                          ? [[`$[${i}].Order.Id`, ["The Id field is required."]]]
+                          : []
+                    )
+                  )
+          if (Object.keys(invalidos).length) {
+            painel.recusados.push(invalidos)
+            json(400, {
+              type: "https://tools.ietf.org/html/rfc9110#section-15.5.1",
+              title: "One or more validation errors occurred.",
+              status: 400,
+              errors: invalidos,
+            })
+            return
+          }
+          const itens = lote.map((envio) => {
+            const orderId = envio.Order.Id
             if (painel.roteiroDosPedidos === "recusa") {
-              return { OrderId: id, Errors: [{ Code: 12, Message: "CEP de destino inválido" }] }
+              return { orderId, errors: [{ code: 2012, message: "CEP de destino inválido" }] }
             }
-            const ShipmentId = ++ultimoEnvio
+            const shipmentId = ++ultimoEnvio
             painel.pedidos.push({
               token: req.headers.token,
               parceiro: req.headers["x-partner-token"],
-              envio: ShipmentId,
+              envio: shipmentId,
               corpo: envio,
             })
-            return { OrderId: id, ShipmentId, ShipmentStatus: 1, Errors: [] }
+            return { shipmentId, orderId, shipmentStatus: 1, errors: null }
           })
           json(200, {
-            StatusBatch: itens.some((i) => i.Errors.length) ? "Erro" : "Processado",
-            Items: itens,
+            statusBatch: itens.some((i) => i.errors?.length) ? "Erro" : "Processado",
+            items: itens,
           })
           return
         }
