@@ -36,7 +36,10 @@ export function ehPapel(valor: unknown): valor is Papel {
  * dentro do pedido — mexe em dinheiro de cliente, então tem linha própria
  * (a operação vê o pedido e a faixa do estorno, mas não aperta). E
  * `editarProdutos` é mexer na página do produto (textos, seções, fundos,
- * caixa de compra, publicar): a operação abre os produtos e só lê.
+ * caixa de compra, publicar): a operação abre os produtos e só lê. A
+ * `newsletter` é a aba de Clientes com quem aceitou ofertas por e-mail: do
+ * marketing e do dono, que baixam e tiram da lista — a operação vê os
+ * clientes, e não a lista de e-mails.
  */
 export const ACESSO = {
   inicio: ["dono", "operacao", "marketing"],
@@ -47,6 +50,7 @@ export const ACESSO = {
   editarProdutos: ["dono", "marketing"],
   cupons: ["dono", "marketing"],
   clientes: ["dono", "operacao", "marketing"],
+  newsletter: ["dono", "marketing"],
   home: ["dono", "marketing"],
   observabilidade: ["dono", "operacao"],
   configuracoes: ["dono"],
@@ -65,6 +69,7 @@ export const NOME_DA_AREA: Record<Area, string> = {
   editarProdutos: "Editar produtos",
   cupons: "Cupons e descontos",
   clientes: "Clientes",
+  newsletter: "Newsletter",
   home: "Layout da home",
   observabilidade: "Observabilidade",
   configuracoes: "Configurações",

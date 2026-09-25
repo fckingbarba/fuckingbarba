@@ -90,11 +90,6 @@ const O_QUE_VEM: Partial<Record<Area, { titulo: string; fase: number; itens: str
     fase: 6,
     itens: ["Criar, pausar e acompanhar os cupons.", "O desconto por quantidade de cada produto."],
   },
-  clientes: {
-    titulo: "Clientes",
-    fase: 6,
-    itens: ["Quem comprou, quanto e quando.", "A newsletter, pra baixar a lista."],
-  },
   observabilidade: {
     titulo: "Observabilidade",
     fase: 7,

@@ -775,6 +775,34 @@ da lista de produtos, que já traz o `metadata`: até 8, alternando os produtos.
 a home. O painel recebe `provas` no `GET /dashboard/home` (`provasDaHome`: os produtos no site com
 caso) e mostra na gaveta. O número 8 está nos dois lados (`CASOS_NA_HOME`).
 
+**Clientes e newsletter** (fase 6, entrega 0082). `src/lib/painel/clientes.ts` é puro, com
+testes, e faz o seguinte:
+
+- junta os clientes do Medusa pelo e-mail (`juntarPessoas`). O convidado de cada checkout sem conta
+  e o da conta são a mesma pessoa, e os pedidos dos dois somam;
+- junta os consentimentos (`consentimentosDa`): a caixa de "Meus dados" (o `metadata.ofertas` do
+  cliente, `{ email, whatsapp }`, cada um com a data do primeiro "sim") e a `newsletter_inscricao`
+  do rodapé;
+- corta a lista e a ficha por papel (`listaDeClientes`, `fichaDoCliente`): o marketing só vê quem
+  aceitou ofertas, sem cidade, celular, CPF, endereço e pedidos, e a ficha de quem não aceitou dá
+  404 pra ele. O CPF inteiro só sai pro dono;
+- monta a aba Newsletter (`newsletterDa`) com o rodapé e a conta numa lista só, sem repetir e-mail.
+
+As rotas são estas:
+
+- `GET /dashboard/clientes?busca=` e `GET /dashboard/clientes/:id`, na área `clientes`;
+- `GET /dashboard/newsletter` e `POST /dashboard/newsletter/tirar` `{ email }`, na área nova
+  `newsletter`, que é do dono e do marketing.
+
+O "tirar" apaga a inscrição (`removerDaNewsletterWorkflow`) e desmarca só o e-mail no
+`metadata.ofertas` da conta, deixando o WhatsApp. Ele anota no registro da equipe com o e-mail
+mascarado (`emailMascarado`). A lista lê até 5000 clientes e os últimos 2000 pedidos, só com os
+campos que ela soma. A ficha lê os pedidos inteiros de todos os cadastros da pessoa, até 200. O
+`numerosDaNewsletter` do Início usa a mesma conta da aba. O plano de CRM ("Ciclo da Barba") vai
+ler os mesmos consentimentos e pôr as 5 etiquetas da pessoa na ficha, num bloco a mais. O
+conferidor é o `apps/dashboard/ferramentas/conferir-clientes.mjs`, com os mesmos falsos e variáveis
+do `conferir-pedidos`.
+
 O CSS do painel segue o do protótipo, uma regra por linha, escrito à mão: o prettier fica nos
 `.ts`/`.tsx`/`.mjs` — rodado nos `.css` do painel, ele reescreve o arquivo inteiro. A gaveta
 (`components/gaveta.tsx`) mora no `<body>`, por portal: aberta de dentro de um `.bloco`, ela

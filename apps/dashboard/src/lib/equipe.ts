@@ -21,6 +21,7 @@ export type Area =
   | "editarProdutos"
   | "cupons"
   | "clientes"
+  | "newsletter"
   | "home"
   | "observabilidade"
   | "configuracoes"
@@ -109,6 +110,7 @@ export const TITULO_CURTO: Record<Area, string> = {
   editarProdutos: "Produtos",
   cupons: "Cupons",
   clientes: "Clientes",
+  newsletter: "Newsletter",
   home: "Layout da home",
   observabilidade: "Observabilidade",
   configuracoes: "Configurações",
@@ -145,6 +147,7 @@ export const DONOS_DA_AREA: Partial<Record<Area, string>> = {
   estornos: "Estorno é com o dono.",
   editarProdutos: "Quem edita produto é o marketing ou o dono.",
   cupons: "Cupons são do marketing e do dono.",
+  newsletter: "A newsletter é do marketing e do dono.",
   home: "O layout da home é do marketing e do dono.",
   observabilidade: "A observabilidade é da operação e do dono.",
   configuracoes: "Configurações são só do dono.",

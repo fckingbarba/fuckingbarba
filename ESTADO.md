@@ -1323,6 +1323,29 @@ backend novo):
 2. A Prova social só aparece no site quando algum produto tiver caso: Produtos → o produto → Antes e
    depois. Depois de salvar o caso, a home mostra ele em segundos.
 
+**Fase 6, parte 1: Clientes — pronto em 24/09 (entrega 0082).** A fase 6 começa pelos clientes, a
+pedido.
+
+- **A lista:** quem já comprou ou tem conta na loja, com quantos pedidos, quanto gastou (só o que
+  foi pago), a cidade e se aceita ofertas. A busca é por nome ou e-mail. Quando a mesma pessoa tem
+  dois cadastros no Medusa (o de uma compra sem conta e o da conta), ela aparece numa linha só.
+- **A ficha:** e-mail, celular, CPF (inteiro só pro dono, no clique), endereço, as ofertas que a
+  pessoa aceitou (onde e desde quando) e os pedidos dela.
+- **A aba Newsletter:** quem aceitou receber ofertas por e-mail, juntando a newsletter do rodapé e
+  a caixa de "Meus dados" da conta. Tem os números, o link pra ficha de quem é cliente, "Baixar
+  CSV" e "Tirar". Tirar apaga de verdade, dos dois lugares; a caixa do WhatsApp fica.
+- **Quem vê o quê:**
+  - o dono vê tudo;
+  - a operação não vê a aba Newsletter e vê o CPF mascarado;
+  - o marketing só vê quem aceitou ofertas, e sem cidade, celular, CPF, endereço e pedidos.
+- O pedido de exclusão de dados (LGPD) aparece na ficha, desligado, esperando a revisão jurídica.
+- O Início do marketing agora conta o mesmo número da aba (rodapé e conta juntos) e leva pra ela.
+- A ficha tem lugar pras etiquetas do CRM (o plano "Ciclo da Barba"), quando ele chegar.
+
+Conferido pelo `conferir-clientes.mjs` (37 checagens, novo).
+
+Depois do deploy — **nada a configurar.**
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os onze conferidores (contra o Medusa local, com
