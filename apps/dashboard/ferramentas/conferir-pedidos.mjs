@@ -72,6 +72,22 @@ const semEspaco = (s) =>
   String(s ?? "")
     .replace(/\s+/g, " ")
     .trim()
+/**
+ * O título da fila do Início sem a IDADE: "Cartão em análise há 4 min — #23"
+ * vira "Cartão em análise há … — #23". A idade é contada na hora em que o
+ * backend responde, e a tela e este conferidor fazem dois pedidos, em dois
+ * instantes: com dezenas de cartões parados em análise no banco local, algum
+ * vira o minuto entre uma leitura e outra. Ler a API depois da tela não
+ * resolve — continuam dois instantes. Da idade, só a forma é conferida.
+ */
+const semIdade = (titulo) =>
+  semEspaco(titulo).replace(/ há \d+ (?:min|h(?: \d{2})?) — /, " há … — ")
+/** Onde a lista da tela se separa da da API — a falha diz o item, não a lista inteira. */
+function primeiraDiferenca(tela, api) {
+  let i = 0
+  while (i < Math.max(tela.length, api.length) && tela[i] === api[i]) i++
+  return `item ${i + 1}: tela “${tela[i] ?? "—"}”, API “${api[i] ?? "—"}”`
+}
 
 const NOME_DA_SITUACAO = {
   pix: "Aguardando Pix",
@@ -386,11 +402,12 @@ try {
       "os números da tela são os da API",
       valores.join(" | ")
     )
-    const fila = (await pagina.locator(".fila__titulo").allTextContents()).map(semEspaco)
+    const fila = (await pagina.locator(".fila__titulo").allTextContents()).map(semIdade)
+    const filaDaApi = api.fila.map((f) => semIdade(f.titulo))
     ok(
-      fila.join(" | ") === api.fila.map((f) => semEspaco(f.titulo)).join(" | "),
+      fila.join(" | ") === filaDaApi.join(" | "),
       "a fila é a da API",
-      fila.join(" | ")
+      primeiraDiferenca(fila, filaDaApi)
     )
     const hoje = await pagina.locator(".mini a .mini__titulo").allTextContents()
     ok(
