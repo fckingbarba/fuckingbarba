@@ -13,6 +13,7 @@ import { FAIXAS, totalDaFaixa } from "../precos-por-quantidade"
 import { fotosDoProduto, montarGaleria, type ItemDaGaleria } from "./galeria"
 import { quando, type Data } from "./formato"
 import { nomeCurto } from "./pedido"
+import type { PrecoDoProduto, Promocao } from "./promocao"
 
 /**
  * OS PRODUTOS DO JEITO DO PAINEL — a lista, a página de cada um e as regras
@@ -27,7 +28,9 @@ import { nomeCurto } from "./pedido"
  * │ Nome, descrição, preço, peso e medidas vêm do Bling (a importação do   │
  * │ catálogo); o estoque, de 5 em 5 minutos. O painel MOSTRA e não muda:   │
  * │ mudar aqui criaria dois preços. Daqui são o subtítulo, a categoria, se │
- * │ está no site, e a página do produto (`fb_pdp`).                        │
+ * │ está no site, a página do produto (`fb_pdp`) e a PROMOÇÃO — o "por" do │
+ * │ de/por, numa lista de preço à parte (`promocao.ts`): o "de" continua   │
+ * │ sendo o do Bling.                                                      │
  * └────────────────────────────────────────────────────────────────────────┘
  */
 
@@ -248,6 +251,7 @@ export type ProdutoCru = {
         id: string
         sku?: string | null
         manage_inventory?: boolean | null
+        price_set?: { id?: string | null } | null
         prices?: { amount?: unknown; currency_code?: string | null }[] | null
         inventory_items?:
           { inventory_item_id?: string | null; required_quantity?: number | null }[] | null
@@ -267,7 +271,12 @@ export type LinhaDoProduto = {
   situacao: Situacao
   publicado: boolean
   categoria: string | null
+  /** O do Bling: o "de", quando há promoção. */
   preco: number | null
+  /** A promoção valendo hoje (o "por"), do painel ou de outra lista de preço. */
+  promocao: Promocao | null
+  /** A promoção do painel que não vale: o preço do Bling já está igual ou menor. */
+  promocaoSemEfeito: number | null
   /** `null` quando o produto não controla estoque. */
   estoque: number | null
 }
@@ -281,7 +290,11 @@ export function precoDo(p: ProdutoCru): number | null {
   return Number.isFinite(n) && n > 0 ? n : null
 }
 
-export function linhaDoProduto(p: ProdutoCru, estoque: number | null): LinhaDoProduto {
+export function linhaDoProduto(
+  p: ProdutoCru,
+  estoque: number | null,
+  preco?: PrecoDoProduto
+): LinhaDoProduto {
   const publicado = p.status === "published"
   return {
     id: p.id,
@@ -293,6 +306,8 @@ export function linhaDoProduto(p: ProdutoCru, estoque: number | null): LinhaDoPr
     publicado,
     categoria: p.categories?.[0]?.name ?? null,
     preco: precoDo(p),
+    promocao: preco?.promocao ?? null,
+    promocaoSemEfeito: preco?.semEfeito ?? null,
     estoque,
   }
 }
@@ -340,10 +355,12 @@ export function detalheDoProduto(
   p: ProdutoCru,
   pdp: Pdp,
   estoque: number | null,
-  podeEditar: boolean
+  podeEditar: boolean,
+  precoDeHoje?: PrecoDoProduto
 ): DetalheDoProduto {
-  const linha = linhaDoProduto(p, estoque)
-  const preco = linha.preco
+  const linha = linhaDoProduto(p, estoque, precoDeHoje)
+  // As faixas saem do preço de hoje, com a promoção — como o job as calcula.
+  const preco = precoDeHoje?.hoje ?? linha.preco
   const peso = Number(p.weight)
   const fotos = [
     ...new Set(
@@ -373,12 +390,17 @@ export function detalheDoProduto(
   }
 }
 
-export function noCatalogo(p: ProdutoCru, estoque: number | null): NoCatalogo {
+/** `hoje`: o que a loja cobra por uma unidade, com a promoção (sem ele, o do Bling). */
+export function noCatalogo(
+  p: ProdutoCru,
+  estoque: number | null,
+  hoje?: number | null
+): NoCatalogo {
   return {
     handle: p.handle ?? "",
     nome: nomeCurto(p.title ?? ""),
     foto: primeiraFoto(p),
-    preco: precoDo(p),
+    preco: hoje ?? precoDo(p),
     esgotado: estoque === 0,
   }
 }
@@ -393,6 +415,7 @@ export const ACOES_NO_PRODUTO = [
   "editou-textos",
   "publicou",
   "mudou-galeria",
+  "mudou-promocao",
 ] as const
 
 /** Uma ação da equipe no produto, lida do registro. */
@@ -421,6 +444,9 @@ export type LinhaDoHistorico = {
   /** Na galeria: "incluir", "mover" ou "tirar", e se foi foto ou vídeo. */
   galeria?: string
   tipo?: string
+  /** Na promoção: o "por" gravado (`null` = tirou) e o "de" daquela hora. */
+  por?: number | null
+  de?: number
 }
 
 export function linhaDoHistorico(f: FeitoNoProduto, agora: Data): LinhaDoHistorico {
@@ -437,5 +463,7 @@ export function linhaDoHistorico(f: FeitoNoProduto, agora: Data): LinhaDoHistori
     ...(texto(d.modo) ? { modo: texto(d.modo) } : {}),
     ...(texto(d.galeria) ? { galeria: texto(d.galeria) } : {}),
     ...(texto(d.tipo) ? { tipo: texto(d.tipo) } : {}),
+    ...(typeof d.por === "number" || d.por === null ? { por: d.por as number | null } : {}),
+    ...(typeof d.de === "number" ? { de: d.de } : {}),
   }
 }

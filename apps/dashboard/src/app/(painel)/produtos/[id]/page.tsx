@@ -143,6 +143,14 @@ async function Produto({ params }: Props) {
                 <small>Preço</small>
                 <b>{p.preco ? reais(p.preco) : "—"}</b>
               </div>
+              <div data-promocao-no-detalhe>
+                <small>Promoção</small>
+                <b>
+                  {p.promocao
+                    ? `${reais(p.promocao.por)} (−${p.promocao.desconto}%)`
+                    : "Sem promoção"}
+                </b>
+              </div>
               <div>
                 <small>Estoque</small>
                 <b>{p.estoque === null ? "—" : `${p.estoque} un.`}</b>
@@ -154,7 +162,12 @@ async function Produto({ params }: Props) {
             </div>
             <p className="pequeno suave" style={{ margin: "12px 0 0" }}>
               O estoque o site copia sozinho, de 5 em 5 minutos. Preço, peso e medidas chegam quando
-              alguém traz o catálogo do Bling de novo — mudar aqui criaria dois preços.
+              alguém traz o catálogo do Bling de novo — mudar aqui criaria dois preços. A promoção
+              (o &ldquo;por&rdquo; do de/por) se muda na{" "}
+              <Link className="link" href="/produtos">
+                lista de produtos
+              </Link>
+              , no preço.
             </p>
           </section>
 
@@ -180,8 +193,8 @@ async function Produto({ params }: Props) {
                 ))}
               </dl>
               <p className="pequeno suave" style={{ margin: "12px 0 0" }}>
-                4% levando 2, 6% levando 3, calculado do preço do Bling e arredondado pra baixo até
-                um “,90” que divida certo. Vale pra todo produto.
+                4% levando 2, 6% levando 3, calculado do preço de hoje (o da promoção, se houver) e
+                arredondado pra baixo até um “,90” que divida certo. Vale pra todo produto.
               </p>
             </section>
           ) : null}

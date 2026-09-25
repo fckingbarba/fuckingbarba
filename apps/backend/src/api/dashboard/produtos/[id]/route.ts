@@ -8,6 +8,7 @@ import {
   lerCategorias,
   lerProduto,
   lerProdutos,
+  precosDos,
 } from "../../../../lib/painel/ler-produtos"
 import { feitosNoProduto } from "../../../../lib/painel/ler"
 import { detalheDoProduto, linhaDoHistorico, noCatalogo } from "../../../../lib/painel/produtos"
@@ -41,18 +42,23 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
     lerCategorias(req.scope),
     feitosNoProduto(req.scope, p.id),
   ])
-  const estoques = await estoquesDos(req.scope, [...todos, p])
+  const [estoques, precos] = await Promise.all([
+    estoquesDos(req.scope, [...todos, p]),
+    precosDos(req.scope, [...todos.filter((o) => o.id !== p.id), p]),
+  ])
   res.json({
     produto: detalheDoProduto(
       p,
       comFundosDoArmazenamento(lerPdp(p.metadata)),
       estoques.get(p.id) ?? null,
-      podeAbrir(pedido.membro.papel, "editarProdutos")
+      podeAbrir(pedido.membro.papel, "editarProdutos"),
+      precos.get(p.id)
     ),
-    // Os que podem ir num seletor: no site, com endereço, e não o próprio.
+    // Os que podem ir num seletor: no site, com endereço, e não o próprio —
+    // com o preço de hoje (a promoção), que é o que a prévia do frete soma.
     catalogo: todos
       .filter((o) => o.status === "published" && o.handle && o.id !== p.id)
-      .map((o) => noCatalogo(o, estoques.get(o.id) ?? null)),
+      .map((o) => noCatalogo(o, estoques.get(o.id) ?? null, precos.get(o.id)?.hoje)),
     categorias,
     noSite: urlDaLoja() && p.handle ? `${urlDaLoja()}/produtos/${p.handle}` : null,
     historico: feitos.map((f) => linhaDoHistorico(f, Date.now())),

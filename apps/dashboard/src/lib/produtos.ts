@@ -16,6 +16,15 @@ import type { Campo } from "@/lib/formulario"
 
 export type Situacao = "publicado" | "rascunho" | "esgotado"
 
+/** A promoção valendo hoje: o "por" do de/por (`apps/backend/src/lib/painel/promocao.ts`). */
+export type Promocao = {
+  por: number
+  /** Em %, arredondado. */
+  desconto: number
+  /** Veio de outra lista de preço (a de lançamento, uma do admin) e não do painel. */
+  deOutraLista: boolean
+}
+
 export type LinhaDoProduto = {
   id: string
   handle: string
@@ -25,7 +34,11 @@ export type LinhaDoProduto = {
   situacao: Situacao
   publicado: boolean
   categoria: string | null
+  /** O do Bling: o "de", quando há promoção. */
   preco: number | null
+  promocao: Promocao | null
+  /** A promoção do painel que não vale: o preço do Bling já está igual ou menor. */
+  promocaoSemEfeito: number | null
   /** `null`: não controla estoque. */
   estoque: number | null
 }
@@ -45,6 +58,8 @@ export type ListaDeProdutos = {
   produtos: LinhaDoProduto[]
   contagem: Record<FiltroDeProduto, number>
   filtro: FiltroDeProduto
+  /** Dono e marketing mudam a promoção; a operação vê. */
+  podeEditar: boolean
 }
 
 export const NOME_DA_SITUACAO: Record<Situacao, string> = {
@@ -147,6 +162,9 @@ export type LinhaDoHistorico = {
   /** Na galeria: "incluir", "mover" ou "tirar", e se foi foto ou vídeo. */
   galeria?: string
   tipo?: string
+  /** Na promoção: o "por" gravado (`null` = tirou) e o "de" daquela hora. */
+  por?: number | null
+  de?: number
 }
 
 const MUDOU: Record<string, string> = {
@@ -194,9 +212,37 @@ export function fraseDoHistorico(h: LinhaDoHistorico): { titulo: string; detalhe
         detalhe: "",
       }
     }
+    case "mudou-promocao":
+      return typeof h.por === "number"
+        ? {
+            titulo: `${h.quem} pôs a promoção`,
+            detalhe: typeof h.de === "number" ? `de ${reais(h.de)} por ${reais(h.por)}` : "",
+          }
+        : {
+            titulo: `${h.quem} tirou a promoção`,
+            detalhe: typeof h.de === "number" ? `volta a ${reais(h.de)}` : "",
+          }
     default:
       return { titulo: `${h.quem} mudou o produto`, detalhe: "" }
   }
+}
+
+/** Em reais pro campo: 59.9 → "59,90". */
+export const emTextoDeReais = (v: number) => v.toFixed(2).replace(".", ",")
+
+/**
+ * "R$ 59,90", "59,90", "59.90" → 59.9 — a mesma leitura do backend
+ * (`numeroBrasileiro`), pra tela dizer o desconto enquanto a pessoa digita.
+ * `null`: vazio ou não é um preço.
+ */
+export function lerReais(v: string): number | null {
+  if (!v.trim()) return null
+  const limpo = v
+    .replace(/[^\d,.-]/g, "")
+    .replace(/\.(?=\d{3}(\D|$))/g, "")
+    .replace(",", ".")
+  const n = Number(limpo)
+  return Number.isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : null
 }
 
 /** O que uma ação do produto devolve pra tela. */

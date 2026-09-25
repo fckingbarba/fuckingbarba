@@ -1,6 +1,8 @@
 import type { MedusaContainer } from "@medusajs/framework/types"
 import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
-import type { ProdutoCru } from "./produtos"
+import { acharListaDaPromocao } from "./gravar-promocao"
+import { precoDo, type ProdutoCru } from "./produtos"
+import { precoDoProduto, type PrecoDoProduto } from "./promocao"
 
 /**
  * O QUE O PAINEL LÊ DOS PRODUTOS — o produto do Medusa e o estoque, que
@@ -20,6 +22,7 @@ const CAMPOS_DA_LISTA = [
   "variants.id",
   "variants.sku",
   "variants.manage_inventory",
+  "variants.price_set.id",
   "variants.prices.amount",
   "variants.prices.currency_code",
   "variants.inventory_items.inventory_item_id",
@@ -146,4 +149,60 @@ export async function estoquesDos(
     porProduto.set(p.id, total)
   }
   return porProduto
+}
+
+/**
+ * O preço de cada produto como a lista mostra (`precoDoProduto`): o do Bling,
+ * o que a loja cobra hoje por uma unidade (o Medusa calcula, com as listas
+ * de preço) e o da promoção do painel. Pela primeira variação, como o preço
+ * da lista.
+ */
+export async function precosDos(
+  container: MedusaContainer,
+  produtos: ComEstoque[]
+): Promise<Map<string, PrecoDoProduto>> {
+  const conjuntoDe = new Map(
+    produtos.flatMap((p) => {
+      const conjunto = p.variants?.[0]?.price_set?.id
+      return conjunto ? [[p.id, conjunto] as const] : []
+    })
+  )
+  const conjuntos = [...new Set(conjuntoDe.values())]
+  const pricing = container.resolve(Modules.PRICING)
+  const [calculados, lista] = await Promise.all([
+    conjuntos.length
+      ? pricing.calculatePrices({ id: conjuntos }, { context: { currency_code: "brl" } })
+      : Promise.resolve([]),
+    acharListaDaPromocao(container),
+  ])
+  const naLista =
+    lista && conjuntos.length
+      ? await pricing.listPrices(
+          { price_list_id: [lista.id], price_set_id: conjuntos },
+          { select: ["price_set_id", "amount", "currency_code"], take: 5000 }
+        )
+      : []
+  const numero = (v: unknown) => {
+    const n = Number(v)
+    return v !== null && v !== undefined && Number.isFinite(n) && n > 0 ? n : null
+  }
+  const vale = new Map(calculados.map((c) => [c.id, numero(c.calculated_amount)]))
+  const doPainel = new Map(
+    naLista
+      .filter((p) => p.currency_code?.toLowerCase() === "brl")
+      .map((p) => [p.price_set_id, numero(p.amount)])
+  )
+  return new Map(
+    produtos.map((p) => {
+      const conjunto = conjuntoDe.get(p.id)
+      return [
+        p.id,
+        precoDoProduto({
+          de: precoDo(p),
+          vale: conjunto ? (vale.get(conjunto) ?? null) : null,
+          doPainel: conjunto ? (doPainel.get(conjunto) ?? null) : null,
+        }),
+      ]
+    })
+  )
 }

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation"
 import { medusa, type Resposta } from "@/lib/medusa"
 import {
   ehIdDeProduto,
+  reais,
   type Caixa,
   type Fundo,
   type IdDaSecao,
@@ -16,7 +17,8 @@ import type { Valores } from "@/lib/formulario"
 
 /**
  * AS AÇÕES DO PRODUTO — a seção (texto e fundo), ligar/desligar e a ordem,
- * a caixa de compra, subtítulo e categoria, publicar, e a imagem que sobe.
+ * a caixa de compra, subtítulo e categoria, publicar, a imagem que sobe e a
+ * promoção (o "por" do de/por, que se muda na lista de produtos).
  *
  * Quem decide se pode é o Medusa (`/dashboard/produtos/:id/*`): o papel
  * (dono e marketing editam; a operação vê) e se o que chegou faz sentido. A
@@ -190,6 +192,40 @@ export async function publicar(id: string): Promise<Resultado> {
   if (r!.status !== 200) return { ok: false, texto: GENERICO }
   refazer(id)
   return feito(r!, "No site — o produto aparece na loja em alguns segundos")
+}
+
+const RECUSA_DA_PROMOCAO: Record<string, string> = {
+  valor_invalido: "Não entendi o valor. Escreva o preço assim: 59,90.",
+  nao_e_desconto: "A promoção tem que ficar abaixo do preço do Bling.",
+  desconto_demais: "Isso dá mais de 80% de desconto. Confira o valor.",
+  sem_preco: "Esse produto está sem preço no Bling.",
+  precos_diferentes:
+    "As variações deste produto têm preços diferentes no Bling: a promoção por aqui é pra produto de preço único.",
+}
+
+/**
+ * Põe (`por`, em reais: "59,90") ou tira (`null`) a promoção do produto. O
+ * "de" é o preço do Bling; o backend confere o valor e refaz o desconto por
+ * quantidade na hora.
+ */
+export async function mudarPromocao(id: string, por: string | null): Promise<Resultado> {
+  const r = await chamar(id, "promocao", { por })
+  const erro = comum(r)
+  if (erro) return erro
+  if (r!.status === 400 || r!.status === 409)
+    return {
+      ok: false,
+      texto: RECUSA_DA_PROMOCAO[String(r!.corpo.message)] ?? GENERICO,
+    }
+  if (r!.status !== 200) return { ok: false, texto: GENERICO }
+  refazer(id)
+  const valendo = (r!.corpo.promocao as { por?: unknown } | null)?.por
+  return feito(
+    r!,
+    typeof valendo === "number"
+      ? `Promoção salva: por ${reais(valendo)} — o site muda em alguns segundos`
+      : "Promoção tirada: o site volta ao preço do Bling em alguns segundos"
+  )
 }
 
 export type ImagemQueSubiu =
