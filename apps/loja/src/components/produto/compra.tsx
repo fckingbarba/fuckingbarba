@@ -15,6 +15,7 @@ import { CalculadoraDeFrete } from "@/components/produto/calculadora"
 import type { ProdutoQueCombina } from "@/lib/pdp"
 import { PARCELA_MINIMA, PARCELAS_SEM_JUROS } from "@/lib/site"
 import { rastrear } from "@/lib/rastrear"
+import { usePeDaTela } from "@/lib/use-pe-da-tela"
 
 /**
  * A COLUNA DE COMPRA
@@ -731,6 +732,9 @@ function BarraFixa({
   aoComprar: () => void
 }) {
   const [mostra, setMostra] = useState(false)
+  // À vista, a barra ocupa o pé da tela: a faixa de cookies sobe pra cima dela.
+  const barra = useRef<HTMLDivElement>(null)
+  usePeDaTela(barra, mostra)
 
   useEffect(() => {
     const el = alvo.current
@@ -747,7 +751,7 @@ function BarraFixa({
   }, [alvo])
 
   return (
-    <div className={mostra ? "barra-compra e-visivel" : "barra-compra"}>
+    <div ref={barra} className={mostra ? "barra-compra e-visivel" : "barra-compra"}>
       {foto || juntos.length ? (
         <span className="barra-compra__fotos" data-juntos={juntos.length || undefined}>
           {/* Os de trás primeiro: o último da lista fica mais longe da principal. */}

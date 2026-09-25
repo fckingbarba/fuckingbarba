@@ -30,6 +30,9 @@
  * │   que não); o "Só o necessário" carregando alguma coisa;               │
  * │ • a resposta de antes (a v1, ou sem um parceiro novo) valendo sem a    │
  * │   faixa perguntar de novo;                                             │
+ * │ • a faixa embaixo da barra de compra da PDP (25/09: o "Aceitar" sumia  │
+ * │   atrás dela no celular), ou cobrindo o botão da barra do checkout; a  │
+ * │   faixa grande no celular;                                             │
  * │ • o produto, a sacola e a compra que não chegam em cada plataforma;    │
  * │ • a compra de quem NÃO aceitou saindo pelo servidor; a recusa da       │
  * │   plataforma sem virar problema na Observabilidade;                    │
@@ -168,8 +171,8 @@ const RASTREADORES =
   /(googletagmanager\.com|google-analytics\.com|doubleclick\.net|facebook\.(net|com)|tiktok\.com|clarity\.ms|bing\.com)$/
 
 /** Uma visita à loja: os scripts de fora trocados por um de mentira, e anotados. */
-async function visitaNaLoja(cookies = []) {
-  const contexto = await navegador.newContext({ viewport: { width: 1280, height: 900 } })
+async function visitaNaLoja(cookies = [], tela = {}) {
+  const contexto = await navegador.newContext({ viewport: { width: 1280, height: 900 }, ...tela })
   const pedidos = []
   await contexto.route(/^https?:\/\/(?!localhost|127\.0\.0\.1)/, (rota) => {
     const url = rota.request().url()
@@ -415,6 +418,115 @@ try {
     soGoogle.pedidos.join(" ")
   )
   await soGoogle.contexto.close()
+
+  titulo("A faixa e as barras do pé da tela")
+  const CELULAR = { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true }
+  const BOTOES_DA_FAIXA = [
+    "[data-faixa-de-cookies] button:nth-of-type(1)",
+    "[data-faixa-de-cookies] button:nth-of-type(2)",
+  ]
+  /** Os que NÃO estão livres: no meio do botão, o navegador acha outra coisa. */
+  const presos = (pagina, seletores) =>
+    pagina.evaluate((lista) => {
+      // O indicador do `next dev` mora no canto de baixo e não existe em produção.
+      const dev = [...document.querySelectorAll("nextjs-portal")]
+      dev.forEach((e) => (e.style.display = "none"))
+      const saida = lista.filter((sel) => {
+        const el = [...document.querySelectorAll(sel)].find((e) => e.checkVisibility())
+        const r = el?.getBoundingClientRect()
+        const achado = r && document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)
+        return !achado || (achado !== el && !el.contains(achado))
+      })
+      dev.forEach((e) => (e.style.display = ""))
+      return saida
+    }, seletores)
+  const medidaDaFaixa = (pagina) =>
+    pagina.evaluate(() => {
+      const faixa = document.querySelector("[data-faixa-de-cookies]")
+      const r = faixa.getBoundingClientRect()
+      return {
+        altura: Math.round(r.height),
+        folga: Math.round(innerHeight - r.bottom),
+        letra: getComputedStyle(faixa.querySelector("p")).fontSize,
+        botoes: [...faixa.querySelectorAll("button")].map((b) =>
+          Math.round(b.getBoundingClientRect().height)
+        ),
+      }
+    })
+  // A faixa acompanha a barra, que desliza em 0,26 s.
+  const assentar = () => esperar(700)
+
+  const cel = await visitaNaLoja([], CELULAR)
+  await cel.pagina.goto(`${LOJA}/produtos/shampoo-para-barba`)
+  await cel.pagina.locator("[data-faixa-de-cookies]").waitFor({ timeout: 20000 })
+  await cel.pagina.locator(".barra-compra.e-visivel").waitFor({ timeout: 15000 })
+  await assentar()
+  const naPdp = await presos(cel.pagina, [...BOTOES_DA_FAIXA, ".barra-compra .btn"])
+  ok(
+    !naPdp.length,
+    "a PDP no celular: a faixa fica em cima da barra de compra, com os botões das duas livres",
+    `presos: ${naPdp.join(", ")}`
+  )
+  const compacta = await medidaDaFaixa(cel.pagina)
+  ok(
+    compacta.altura <= 150 && compacta.letra === "12px" && compacta.botoes.every((a) => a <= 40),
+    "no celular a faixa é pequena: letra de 12 px, cada botão numa linha, até 150 px",
+    JSON.stringify(compacta)
+  )
+  await cel.pagina
+    .locator(".compra__comprar")
+    .evaluate((b) => b.scrollIntoView({ block: "center" }))
+  await cel.pagina
+    .locator(".barra-compra:not(.e-visivel)")
+    .waitFor({ state: "attached", timeout: 10000 })
+  await assentar()
+  const semBarra = await medidaDaFaixa(cel.pagina)
+  ok(
+    semBarra.folga <= 16,
+    "com o botão da página à vista, a barra some e a faixa desce pro pé da tela",
+    JSON.stringify(semBarra)
+  )
+
+  // O checkout precisa de sacola: o item entra com uma resposta dada (sem
+  // faixa no caminho), e a resposta sai antes de abrir o checkout.
+  await cel.contexto.addCookies([{ name: "fb_consentimento", value: "nao.2.gmtc", url: LOJA }])
+  await cel.pagina.goto(`${LOJA}/produtos/shampoo-para-barba`)
+  await hidratado(cel.pagina, ".compra__comprar")
+  await cel.pagina.locator(".compra__comprar").click()
+  const fim = Date.now() + 15000
+  while (Date.now() < fim && !(await cel.contexto.cookies(LOJA)).some((c) => c.name === "carrinho"))
+    await esperar(200)
+  await cel.contexto.clearCookies({ name: "fb_consentimento" })
+  await cel.pagina.goto(`${LOJA}/checkout`)
+  await cel.pagina.locator("[data-faixa-de-cookies]").waitFor({ timeout: 20000 })
+  // O Next pode guardar uma cópia escondida da tela: a que vale é a visível.
+  await cel.pagina
+    .locator(".barra .barra__btn")
+    .filter({ visible: true })
+    .first()
+    .waitFor({ timeout: 20000 })
+  await assentar()
+  const noCheckout = await presos(cel.pagina, [...BOTOES_DA_FAIXA, ".barra .barra__btn"])
+  ok(
+    !noCheckout.length,
+    "o checkout no celular: a faixa em cima da barra do total, com o botão do passo livre",
+    `presos: ${noCheckout.join(", ")}`
+  )
+  await cel.contexto.close()
+
+  const computador = await visitaNaLoja()
+  await computador.pagina.goto(`${LOJA}/produtos/shampoo-para-barba`)
+  await computador.pagina.locator("[data-faixa-de-cookies]").waitFor({ timeout: 20000 })
+  await computador.pagina.mouse.wheel(0, 1600)
+  await computador.pagina.locator(".barra-compra.e-visivel").waitFor({ timeout: 15000 })
+  await assentar()
+  const noComputador = await presos(computador.pagina, [...BOTOES_DA_FAIXA, ".barra-compra .btn"])
+  ok(
+    !noComputador.length,
+    "a PDP no computador, rolada até a barra aparecer: os botões das duas livres",
+    `presos: ${noComputador.join(", ")}`
+  )
+  await computador.contexto.close()
 
   /* ── a compra pelo servidor ───────────────────────────────────────────── */
 

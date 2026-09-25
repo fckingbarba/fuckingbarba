@@ -58,6 +58,11 @@ const emLista = (nomes: string[]) =>
  * painel —, e a resposta vive num cookie próprio por 12 meses. No checkout,
  * ela vai gravada no pedido (`fb_rastro.consentimento`): a compra só sai pelo
  * servidor pros parceiros que ouviram sim.
+ *
+ * Mora no pé da tela, EM CIMA da barra que estiver presa lá — a de compra da
+ * PDP, a do total no checkout do celular —, que diz a altura em
+ * `--pe-da-tela` (`lib/use-pe-da-tela.ts`); sobe e desce junto com ela. No
+ * celular é menor: letra de 12 px e os botões numa linha só.
  */
 export function Consentimento({ parceiros, estado }: { parceiros: Parceiro[]; estado: Estado }) {
   if (estado !== "sem-resposta") return null
@@ -69,27 +74,27 @@ export function Consentimento({ parceiros, estado }: { parceiros: Parceiro[]; es
       role="region"
       aria-label="Aviso de cookies"
       data-faixa-de-cookies
-      className="fixed inset-x-3 bottom-3 z-50 mx-auto max-w-xl border-2 border-tinta bg-papel p-4 shadow-dura-sm sm:inset-x-4 sm:bottom-4"
+      className="fixed inset-x-2 bottom-[calc(var(--pe-da-tela,0px)_+_0.5rem)] z-50 mx-auto max-w-xl border-2 border-tinta bg-papel p-3 shadow-dura-sm transition-[bottom] duration-[260ms] ease-[cubic-bezier(0.22,0.61,0.36,1)] motion-reduce:transition-none sm:inset-x-4 sm:bottom-[calc(var(--pe-da-tela,0px)_+_1rem)] sm:p-4"
     >
-      <p className="text-sm leading-snug text-tinta">
+      <p className="text-xs leading-snug text-tinta sm:text-sm">
         Usamos cookies {nomes} pra medir o que funciona na loja
         {anuncio ? " e mostrar anúncios menos aleatórios" : ""}. Você escolhe.{" "}
         <Link href="/privacidade" className="font-bold underline underline-offset-2">
           Como usamos seus dados
         </Link>
       </p>
-      <div className="mt-3 grid grid-cols-2 gap-2">
+      <div className="mt-2 grid grid-cols-2 gap-2 sm:mt-3">
         <button
           type="button"
           onClick={() => responder("nao", parceiros)}
-          className="chanfro-sm border-2 border-tinta bg-papel px-3 py-2 text-sm font-extrabold uppercase tracking-wide text-tinta"
+          className="chanfro-sm border-2 border-tinta bg-papel px-2 py-2 text-[0.7rem] font-extrabold uppercase tracking-wide text-tinta sm:px-3 sm:text-sm"
         >
           Só o necessário
         </button>
         <button
           type="button"
           onClick={() => responder("sim", parceiros)}
-          className="chanfro-sm border-2 border-tinta bg-amarelo px-3 py-2 text-sm font-extrabold uppercase tracking-wide text-tinta"
+          className="chanfro-sm border-2 border-tinta bg-amarelo px-2 py-2 text-[0.7rem] font-extrabold uppercase tracking-wide text-tinta sm:px-3 sm:text-sm"
         >
           Aceitar
         </button>

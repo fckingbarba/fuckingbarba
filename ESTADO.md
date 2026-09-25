@@ -839,6 +839,20 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
     209/209, com as duas descontadas; com o relógio certo, 209/209 sem nada descontado. E, no
     `next dev`, a telemetria da loja (0090) conta esse erro como da loja — é script da mesma
     origem. Em produção, nada disso existe.
+- [x] **A faixa de cookies ficava embaixo da barra de compra** (visto pela loja no celular, em
+      25/09, logo depois das integrações). Na PDP do celular a barra "Comprar" aparece de cara, e
+      os botões "Só o necessário" e "Aceitar" ficavam atrás dela: a barra tem z-index 60, e a
+      faixa, 50. No computador, o mesmo depois de rolar. No checkout do celular era o contrário:
+      a faixa cobria o "Continuar" da barra do total. Agora a faixa fica em cima da barra que
+      estiver presa no pé da tela (cada barra diz a altura, `lib/use-pe-da-tela.ts`), sobe e desce
+      junto com ela, e no celular ficou menor e mais discreta: de 185 pra 122 px, letra de 12 px e
+      os dois botões numa linha só (o "Só o necessário" quebrava em duas).
+  - Conferido numa loja local com o Google e a Meta ligados, como em produção: o
+    `conferir-integracoes` do painel ganhou a seção "A faixa e as barras do pé da tela" (5
+    checagens: PDP no celular e no computador, checkout no celular, o tamanho no celular e a faixa
+    descendo quando a barra some) — 29/29; no código de antes, 4 das 5 falham. Fotos em
+    `next build` + `next start` com o `ferramentas/retrato-consentimento.mjs` (novo). E o
+    `conferir-pdp` e o `conferir-checkout` da loja passaram.
 - [x] **Investigação da sacola e do checkout** (24/09, a pedido da loja). Quatro revisões do
       código em paralelo e compras de verdade numa loja local: 15 problemas reais, nenhum de
       cobrança em dobro. A entrega 0077 consertou os de dinheiro e de endereço, cada um com
