@@ -535,10 +535,11 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
         estão marcados como CONFERIR desde o protótipo (`apps/loja/src/conteudo/home.ts`), junto
         do "+1.000.000 clientes satisfeitos" do bloco do meio. Se o +1M for alcance nas redes, e
         não cliente, o rótulo precisa dizer isso.
-- [ ] Dados reais da empresa no admin, em Configurações: CNPJ, razão social, endereço, WhatsApp,
-      e-mail, horário e prazo de postagem. **Hoje nenhum está preenchido em produção**: o rodapé
-      mostra "Entrar em contato" sem nada embaixo, e o `/contato` tem só o Instagram como canal
-      (mais seis tarjas de pendente). Preenchido, tudo aparece sozinho — nada a mexer no código.
+- [ ] Dados reais da empresa no painel, em Configurações → Dados da empresa (desde a entrega 0093;
+      o admin segue de reserva): CNPJ, razão social, endereço, WhatsApp, e-mail, horário e prazo de
+      postagem. **Hoje nenhum está preenchido em produção**: o rodapé mostra "Entrar em contato" sem
+      nada embaixo, e o `/contato` tem só o Instagram como canal (mais seis tarjas de pendente).
+      Preenchido, tudo aparece sozinho — nada a mexer no código.
 - [ ] Catálogo da Nuvemshop (fase 2). **Com ele importado, conferir o teto:** a `/produtos` lista
       até 48 produtos, e a busca vê exatamente essa lista (`apps/loja/src/lib/busca.ts`). Os quinze
       da Nuvemshop cabem com folga; passando de 48, a `/produtos` precisa de paginação e a busca vai
@@ -1518,8 +1519,8 @@ Ficou pra parte 2:
 - [x] A velocidade medida nas visitas de verdade: carregar, responder ao toque, não pular na tela —
       parte 2.
 - [x] O "site no ar" dos últimos 30 dias — parte 2.
-- [ ] Quem é avisado por e-mail, por papel. Hoje, o estorno, a nota e o Bling vão pros usuários do
-      admin do Medusa. Entra junto das Configurações.
+- [x] Quem é avisado por e-mail, por papel — com as Configurações (entrega 0093): a nota vai pra
+      operação e o dono; o Bling e o estorno, pro dono.
 
 Conferido pelo `conferir-observabilidade.mjs` (27 checagens, novo).
 
@@ -1579,6 +1580,44 @@ subir não mudaram: a autorização por escrito (o painel não grava sem ela) e 
 mesmo ângulo. Conferido pelos `conferir-home.mjs` (76) e `conferir-produtos.mjs` (92).
 
 Depois do deploy — **nada a configurar.**
+
+**Fase 6, parte 3: Configurações — pronto em 25/09 (entrega 0093).** O que muda como a loja
+funciona, no painel, com as abas do protótipo. Só o dono entra.
+
+- **Dados da empresa:** razão social, CNPJ, endereço, WhatsApp, e-mail, horário e prazo de
+  postagem. Cada campo é conferido na hora: o CNPJ pelos dígitos, o WhatsApp com DDD, o e-mail. O
+  que está errado aparece embaixo do campo, e nada é gravado pela metade. Salvou, a loja mostra em
+  alguns segundos, no rodapé, no `/contato` e nas páginas legais. A faixa amarela do alto diz o que
+  ainda está em branco na loja.
+- **Frete:** a promoção (nenhuma, frete grátis ou preço fixo), a partir de quanto em produtos, e se
+  vale na opção mais barata ou em todas. A frase "Hoje: …" diz a regra que está valendo. Embaixo,
+  **"Se a Frenet cair"**: o preço e o prazo de emergência. Em branco, a loja para de vender até a
+  cotação voltar; com preço, o prazo é obrigatório.
+- **Pagamento e Entrega:** só pra conferir, em frase — o Pagar.me, o Pix (vale 30 minutos), as
+  parcelas, os estornos, a cotação da Frenet, o pedido que vai sozinho pro painel da Frenet e o
+  rastreio. Mudar isso é no código e nas variáveis do Railway.
+- **Nota fiscal:** o Bling (conectado ou caído), **"Quando a nota sai"** (na hora, 5, 15 ou 30
+  minutos, 1, 2 ou 4 horas — as mesmas da tela do ERP no admin) e as pendências, cada uma com o
+  "Ver" do pedido. O que tem prazo na SEFAZ vem primeiro. Com o Bling fora do ar, as notas que não
+  saíram pela mesma razão viram uma linha só ("112 notas ainda não saíram"), e a lista tem teto de
+  30 linhas.
+- **E-mails:** os do cliente (o que sai e o que ainda não) e os da equipe, cada um com o papel que
+  recebe e quem recebe hoje.
+- **Quem é avisado, por papel:** a nota que não saiu, a nota pra conferir e a nota pra cancelar vão
+  pra operação e pro dono; a conexão do Bling caída e o estorno que não saiu, só pro dono. Sem
+  ninguém do papel no painel, vai pro dono; sem ninguém no painel, pros usuários do admin do Medusa,
+  como antes.
+- **A tela de Configurações do admin do Medusa fica de reserva.** As duas gravam o mesmo lugar; o
+  painel confere campo a campo, o admin só descartava o valor ruim em silêncio.
+- Cada mudança fica no registro da equipe.
+
+Conferido pelo `conferir-configuracoes.mjs` do painel (18 checagens, novo; ele desfaz o que mudou,
+mesmo quando falha) e pelo `conferir-observabilidade.mjs` (34: o e-mail do estorno vai pro dono, e
+não pra operação). De quebra, o de observabilidade parou de falhar às vezes: ele jogava o erro de
+teste antes de a loja ficar pronta pra ouvir.
+
+Depois do deploy — **nada a configurar.** Pra testar: Painel → Configurações → Dados da empresa,
+preencha e Salvar; o rodapé da loja mostra em alguns segundos.
 
 ## Como seguir no Claude Code
 
