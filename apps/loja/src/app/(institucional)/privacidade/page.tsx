@@ -71,7 +71,9 @@ export default async function Privacidade() {
         <P>
           O CPF não é curiosidade nossa: sem ele não sai nota fiscal, e nota fiscal é obrigação de
           quem vende. O telefone é pro caso de a entrega dar problema, e o e-mail é por onde vai a
-          confirmação e o código de rastreio.
+          confirmação e o código de rastreio. Se você deixar uma compra no meio do caminho, a gente
+          pode te chamar no WhatsApp, uma pessoa da loja, pra ver se ficou alguma dúvida — é só
+          responder que não quer, e a gente não chama mais.
         </P>
         <P>
           <b>Se você assinar a newsletter</b>: só o e-mail. Dá pra sair em qualquer mensagem que a
@@ -106,8 +108,8 @@ export default async function Privacidade() {
             perder nada do resto.
           </li>
           <li>
-            <b>Legítimo interesse</b> — segurança da loja e prevenção a fraude, sempre com o mínimo
-            de dado possível.
+            <b>Legítimo interesse</b> — segurança da loja e prevenção a fraude, e a mensagem no
+            WhatsApp sobre uma compra que você deixou no meio, sempre com o mínimo de dado possível.
           </li>
         </Lista>
       </Secao>

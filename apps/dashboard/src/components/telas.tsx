@@ -5,8 +5,8 @@ import { Icone } from "@/components/icones"
 import { DONOS_DA_AREA, type Area } from "@/lib/equipe"
 
 /**
- * AS PEÇAS DE TODA TELA — a cabeça (título, frase, ações), o "sem acesso",
- * o "em breve" e a loja fora do ar. Os desenhos são os do protótipo.
+ * AS PEÇAS DE TODA TELA — a cabeça (título, frase, ações), o "sem acesso"
+ * e a loja fora do ar. Os desenhos são os do protótipo.
  */
 
 export function Cabeca({
@@ -70,38 +70,6 @@ export function SemAcesso({ area }: { area: Area }) {
           Voltar pro início
         </Link>
       </div>
-    </div>
-  )
-}
-
-/** O que cada área vai fazer, e em que fase chega — a ordem do ESTADO.md, 4.5. */
-const O_QUE_VEM: Partial<Record<Area, { titulo: string; fase: number; itens: string[] }>> = {
-  carrinhos: {
-    titulo: "Carrinhos abandonados",
-    fase: 5,
-    itens: [
-      "Quem deixou a sacola, com o quê e quanto.",
-      "Os 5 e-mails que chamam a pessoa de volta — com os textos editáveis.",
-      "O que voltou em venda.",
-    ],
-  },
-}
-
-export function EmBreve({ area }: { area: Area }) {
-  const vem = O_QUE_VEM[area]
-  if (!vem) return null
-  return (
-    <div data-tela>
-      <Cabeca titulo={vem.titulo} />
-      <section className="bloco em-breve">
-        <p className="em-breve__fase">Chega na fase {vem.fase}</p>
-        <h2 className="bloco__titulo">O que vai ter aqui</h2>
-        <ul>
-          {vem.itens.map((i) => (
-            <li key={i}>{i}</li>
-          ))}
-        </ul>
-      </section>
     </div>
   )
 }

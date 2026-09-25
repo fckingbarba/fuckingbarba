@@ -1125,6 +1125,36 @@ fora por um de mentira (o `route` do Playwright) e lê as filas dos trechos (`da
 `PORTA_ANUNCIOS`), com os pedidos da `fabricaDePedidos` (que devolve o `carrinho` pro crachá da
 tela de obrigado).
 
+**Os carrinhos abandonados** (entrega 0096 — só a lista; os e-mails vêm depois).
+`GET /dashboard/carrinhos?filtro=parados|agora|voltaram` (área `carrinhos`) monta a tela em
+`apps/backend/src/lib/painel/carrinhos.ts`, puro e com testes; a leitura é `ler-carrinhos.ts`:
+
+- **O que lê:** os carrinhos sem `completed_at` mexidos nos últimos 30 dias, em duas leituras, com
+  e sem e-mail — os sem e-mail são a maioria e, na mesma leitura, empurrariam pra fora do limite os
+  que dá pra chamar; os pedidos do mês inteiro (o banco compara e-mail letra por letra, e a
+  comparação sem maiúsculas é a do código); e o registro da equipe com a ação `chamou-no-whatsapp`.
+- **O passo** (`ondeParou`) é a régua do checkout (`etapaDoCarrinho`, em
+  `apps/loja/src/lib/checkout-visivel.ts`): sem e-mail, sacola; sem o documento no
+  `billing_address.metadata`, contato; sem CEP, rua, número ou frete, entrega; o resto, pagamento
+  — a sessão em `error` é "o pagamento não passou". Funciona porque o passo do contato grava
+  e-mail, os dois endereços e o CPF de uma vez, e a conta aberta preenche o carrinho quando o
+  checkout abre (`preencherDaConta`): e-mail sem CPF é quem viu o passo do contato. Se o checkout
+  mudar o que grava em cada passo, a régua muda junto.
+- **Uma linha por pessoa:** o carrinho mais recente por e-mail (ou telefone, sem e-mail). Sem
+  nenhum dos dois, só conta em "sem contato". **Voltou** = pedido não cancelado com o mesmo e-mail,
+  feito depois do `updated_at` do carrinho. **Parado** = 30 minutos sem mexer (`PARADO_MIN`); antes,
+  "no site agora".
+- **O WhatsApp:** `wa.me/55…?text=` com a mensagem pronta (`mensagemDoWhatsapp`). O botão
+  (`components/carrinhos-whatsapp.tsx`) abre numa aba nova e, no mesmo clique, a ação
+  `anotarWhatsapp` faz `POST /dashboard/carrinhos/:id/whatsapp`, que grava no registro da equipe.
+  O marketing lê a lista com o e-mail mascarado (`emailMascarado`, o dos clientes), sem telefone e
+  sem link, e leva 403 no `POST`.
+
+O conferidor é o `apps/dashboard/ferramentas/conferir-carrinhos.mjs` (11): cria os carrinhos pela
+API da loja, um parado em cada passo, e o pedido de quem voltou pela `fabricaDePedidos`; o
+`wa.me` vira uma página de mentira (o `route` do Playwright). Carrinho recém-criado cai em "No site
+agora", e é nesse filtro que ele confere.
+
 O CSS do painel segue o do protótipo, uma regra por linha, escrito à mão: o prettier fica nos
 `.ts`/`.tsx`/`.mjs` — rodado nos `.css` do painel, ele reescreve o arquivo inteiro. A gaveta
 (`components/gaveta.tsx`) mora no `<body>`, por portal: aberta de dentro de um `.bloco`, ela

@@ -46,16 +46,6 @@
 /* O "Sair" é um formulário (a ação é POST): o botão ocupa o lugar do de antes. */
 .quem form { display: contents; }
 
-/* A tela que ainda não existe: o que ela vai fazer, e quando. */
-.em-breve { max-width: 640px; }
-.em-breve__fase {
-  display: inline-block; margin: 0 0 10px; padding: 3px 8px;
-  background: var(--amarelo); color: var(--tinta);
-  font-size: 0.64rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
-}
-.em-breve ul { margin: 10px 0 0; padding-left: 18px; font-size: 0.86rem; }
-.em-breve li { margin-bottom: 4px; }
-
 /* A equipe: a linha de cada pessoa e o que dá pra fazer com ela. */
 .pessoa__lado { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px 10px; }
 .pessoa__mudar { display: grid; gap: 12px; margin-top: 12px; padding: 14px 16px; background: var(--cinza); border: 2px solid var(--tinta); }
