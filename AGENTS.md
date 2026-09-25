@@ -481,6 +481,11 @@ pedido antes (já cancelado, não manda de novo) e passa pelo 404 da nota que el
 marca `cancelar` é gravada antes da trava, e a varredura marca o cancelado cujo evento se perdeu.
 Falha no desfazer que precisa de alguém (o 403 inclusive) vira o e-mail "Cancele no <ERP> o pedido
 #N" e a pendência "desfazer"; a loja segue tentando. O conferidor é o `conferir-erp.mjs`, com o `bling-falso.mjs`.
+Os e-mails pra equipe ele lê numa caixa só (`praEquipe`): a do dono do painel (o
+`DASHBOARD_DONO_EMAIL` do backend, que vai no ambiente dele também) ou, num banco sem ninguém no
+painel, a do admin local. É que, desde a 0093, o aviso vai pro papel que resolve
+(`lib/equipe/avisados.ts`), e o dono recebe todos os do ERP; até a 0101 o conferidor olhava só o
+`ADMIN_EMAIL`, e em banco com equipe no painel 9 checagens falhavam com a loja certa.
 O **403 do Bling é escopo que falta no app** (e a resposta de produção veio sem corpo): o
 `chamarBling` põe na mensagem o escopo que o caminho pede (`escopoDoCaminho`, com o nome da tela de
 escopos do app) e marca `semPermissao`; na nota isso NÃO é definitivo (`precisaDeGente`): a equipe
