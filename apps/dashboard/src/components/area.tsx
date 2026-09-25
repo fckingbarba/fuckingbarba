@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import { EmBreve, SemAcesso } from "@/components/telas"
+import { SemAcesso } from "@/components/telas"
 import type { Area } from "@/lib/equipe"
 import { lerMembro } from "@/lib/eu"
 
@@ -14,13 +14,4 @@ export async function SoPara({ area, children }: { area: Area; children: ReactNo
   if (leitura.estado !== "ok") return null
   if (!leitura.areas.includes(area)) return <SemAcesso area={area} />
   return children
-}
-
-/** A área que ainda não tem tela: o que ela vai fazer, e em que fase chega. */
-export function AreaEmBreve({ area }: { area: Area }) {
-  return (
-    <SoPara area={area}>
-      <EmBreve area={area} />
-    </SoPara>
-  )
 }
