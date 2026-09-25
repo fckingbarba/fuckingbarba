@@ -1,6 +1,14 @@
 import type { Metadata } from "next"
 import Link from "next/link"
-import { Abertura, Atualizado, Dado, Lista, P, Secao, Titulo } from "@/components/institucional/texto"
+import {
+  Abertura,
+  Atualizado,
+  Dado,
+  Lista,
+  P,
+  Secao,
+  Titulo,
+} from "@/components/institucional/texto"
 import { whatsappNaTela } from "@/lib/configuracoes"
 import { configuracoes } from "@/lib/medusa"
 import { site } from "@/lib/site"
@@ -18,16 +26,18 @@ export const metadata: Metadata = {
  * `components/checkout/contato.tsx` e `entrega.tsx`, os cookies de
  * `lib/carrinho.ts`, `lib/checkout.ts` e `components/analytics/`, e os
  * terceiros de quem a loja realmente chama (ViaCEP, Vercel, Railway,
- * Supabase, GA4). Política genérica é pior que nenhuma: ela promete coisas
- * que o sistema não faz e esconde as que ele faz.
+ * Supabase, Pagar.me, Resend, Frenet, Bling e, só com o aceite, Google,
+ * Meta, TikTok e Microsoft Clarity — `components/analytics/tags.tsx` e
+ * `apps/backend/src/lib/anuncios/`). Política genérica é pior que nenhuma:
+ * ela promete coisas que o sistema não faz e esconde as que ele faz.
  *
  * DUAS COISAS QUE ESTA PÁGINA NÃO É: revisão de advogado, e definitiva. O que
- * ela é: verdadeira sobre o estado de hoje. Quando o Pagar.me, o e-mail
- * transacional e a transportadora entrarem, os terceiros mudam e este texto
- * muda junto — está anotado no README.
+ * ela é: verdadeira sobre o estado de hoje. Terceiro novo muda este texto
+ * junto — e a versão da faixa de cookies (`VERSAO_DO_CONSENTIMENTO`), que
+ * pergunta de novo antes de valer, como a última seção promete.
  */
 
-const ATUALIZADO = "20 de setembro de 2026"
+const ATUALIZADO = "25 de setembro de 2026"
 
 export default async function Privacidade() {
   const { empresa, atendimento } = await configuracoes()
@@ -39,8 +49,8 @@ export default async function Privacidade() {
 
       <Abertura>
         A gente coleta o mínimo pra conseguir entregar seu pedido e falar com você sobre ele. Não
-        vendemos seus dados, não repassamos pra anunciante e não guardamos o número do seu cartão —
-        ele não passa nem pelo nosso servidor.
+        vendemos seus dados e não guardamos o número do seu cartão — ele não passa nem pelo nosso
+        servidor. Medição e anúncio, só se você aceitar os cookies.
       </Abertura>
 
       <Secao titulo="Quem é o responsável">
@@ -68,6 +78,12 @@ export default async function Privacidade() {
           gente mandar.
         </P>
         <P>
+          <b>Se você aceitar os cookies</b>: as páginas e os produtos que você vê, o que entra e sai
+          da sacola e o caminho do checkout. Na compra, junto do valor e dos produtos, vão os
+          códigos desses cookies — e, pra Meta e pro TikTok, o IP e o navegador. É o que diz pra
+          cada um que a compra veio de um anúncio dele.
+        </P>
+        <P>
           <b>O que a gente NÃO coleta:</b> número de cartão, validade e CVV. Esses campos, quando
           existirem, ficam no seu navegador e vão direto pro processador de pagamento — o servidor
           da loja não recebe, não registra e não teria como guardar.
@@ -85,8 +101,9 @@ export default async function Privacidade() {
             guardar.
           </li>
           <li>
-            <b>Consentimento</b> — cookies de medição e a newsletter. Você escolhe, e pode voltar
-            atrás a qualquer momento sem perder nada do resto.
+            <b>Consentimento</b> — cookies de medição e anúncio, o aviso da compra pras plataformas
+            de anúncio e a newsletter. Você escolhe, e pode voltar atrás a qualquer momento sem
+            perder nada do resto.
           </li>
           <li>
             <b>Legítimo interesse</b> — segurança da loja e prevenção a fraude, sempre com o mínimo
@@ -103,17 +120,21 @@ export default async function Privacidade() {
           guarda a sua resposta sobre os cookies — pra não perguntar de novo toda visita.
         </P>
         <P>
-          Os de medição (Google Analytics) só são criados se você clicar em aceitar na faixa. Se
-          recusar, nenhum script de medição é carregado — não é um script que roda em silêncio. Pra
-          mudar de ideia depois, é só apagar os cookies do site no seu navegador e responder de
-          novo.
+          Os de medição e anúncio — Google Analytics, Google Ads, Meta (Facebook e Instagram),
+          TikTok e Microsoft Clarity — só são criados se você clicar em aceitar na faixa. Se
+          recusar, nenhum desses scripts é carregado — não é um script que roda em silêncio — e a
+          sua compra também não é avisada a ninguém. Pra mudar de ideia depois, é só apagar os
+          cookies do site no seu navegador e responder de novo.
+        </P>
+        <P>
+          A Microsoft Clarity grava como a página é usada — cliques, rolagem, o movimento na tela —
+          pra gente ver onde a loja atrapalha. O que você digita e os seus dados no checkout e na
+          sua conta ficam cobertos na gravação.
         </P>
       </Secao>
 
       <Secao titulo="Quem mais vê seus dados">
-        <P>
-          Só quem precisa ver pra loja funcionar, e cada um só a parte que lhe cabe:
-        </P>
+        <P>Pra loja funcionar, cada um só a parte que lhe cabe:</P>
         <Lista>
           <li>
             <b>Vercel</b> (hospedagem do site) e <b>Railway</b> (onde ficam os pedidos) — guardam os
@@ -128,16 +149,38 @@ export default async function Privacidade() {
             documento não vão junto.
           </li>
           <li>
-            <b>Google Analytics</b> — só se você aceitar, e só com dado de navegação.
+            <b>Pagar.me</b> — o pagamento: nome, CPF ou CNPJ, e-mail, telefone, endereço e o IP da
+            compra, pra cobrar e pra análise de fraude. O número do cartão vai do seu navegador
+            direto pra eles.
           </li>
           <li>
-            <b>Transportadora</b> — nome, endereço e telefone, pra entregar. Sem isso a encomenda
-            não sai.
+            <b>Resend</b> — manda os e-mails da loja: o seu e-mail e o que vai escrito neles.
+          </li>
+          <li>
+            <b>Frenet e a transportadora</b> — o CEP pra cotar o frete; nome, endereço e telefone
+            pra entregar. Sem isso a encomenda não sai.
+          </li>
+          <li>
+            <b>Bling</b> — emite a nota fiscal: nome, CPF ou CNPJ, endereço e o que você comprou.
+          </li>
+        </Lista>
+        <P>Só se você aceitar os cookies, pra medir e pra anúncio:</P>
+        <Lista>
+          <li>
+            <b>Google</b> (Analytics e Ads), <b>Meta</b> (Facebook e Instagram) e <b>TikTok</b> — o
+            que você vê e põe na sacola e, na compra, o valor, os produtos e os códigos dos cookies.
+            A Meta e o TikTok recebem também o seu e-mail e o telefone, embaralhados (em hash): eles
+            só conseguem comparar com os que já têm, não ler.
+          </li>
+          <li>
+            <b>Microsoft Clarity</b> — a gravação de como a página é usada, com os seus dados
+            cobertos.
           </li>
         </Lista>
         <P>
-          A gente não vende seus dados, não troca com parceiro e não usa pra montar público de
-          anúncio.
+          A gente não vende seus dados. Com o seu aceite, o Google, a Meta e o TikTok podem usar o
+          que você viu e comprou pra medir os anúncios e mostrar anúncios da loja pra você. Sem o
+          aceite, não.
         </P>
       </Secao>
 
