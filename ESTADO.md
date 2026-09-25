@@ -821,11 +821,26 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
 - [ ] **Decisão da loja:** o piso do frete grátis vale sobre o valor PAGO (com cupom e oferta) ou
       sobre o CHEIO? Hoje o Medusa decide pelo cheio e o checkout mostra "faltam R$ X" pelo pago —
       com um cupom de 10%, a tela diz "Faltam R$ 7,07" ao lado da entrega "Grátis".
-- [ ] **Pagamento, casos raros lidos no código** (entrega C, com testes no Pagar.me falso): o
-      Pix pago depois do cancelamento é estornado direto no Pagar.me, sem registro no Medusa — se
-      o estorno falhar, ninguém fica sabendo; o "Check status" do admin rodando junto com o aviso
-      do Pagar.me pode estornar um pedido pago que segue pra envio; o pedido fica pendente pra
-      sempre (com o estoque preso) se o pagamento der erro fora da conciliação.
+- [x] **Pagamento, os casos raros** (entrega 0083, 24/09 — a "entrega C" da investigação). Lidos no
+      código por uma revisão, reproduzidos no Pagar.me falso e conferidos no `conferir-pagamento`:
+  - **O Pix pago com o pedido já cancelado** era estornado direto no Pagar.me, sem nada no Medusa —
+    se o estorno falhasse (o Pix recém-pago, fora do saldo), o dinheiro ficava com a loja, calado.
+    Agora ele é registrado no pedido cancelado e devolvido pelo Medusa, e o estorno é conferido
+    como os outros: faixa vermelha no admin, e-mail pra equipe, nova tentativa.
+  - **O "Check status" do admin junto com o aviso do Pagar.me** (ou a conciliação) estornava um
+    pedido pago, que seguia pro envio. Agora o botão espera a vez dele, na mesma trava do aviso.
+  - **O cartão em análise de um pedido cancelado** era cobrado quando a análise aprovava depois
+    (o valor aparecia e sumia da fatura). Agora ele nunca é cobrado: a reserva é desfeita.
+  - **O pedido ficava "aguardando" pra sempre, com o estoque preso**, quando o pagamento terminava
+    recusado fora da conciliação (o "Check status" num cartão reprovado). Agora a conciliação
+    cancela, e o estoque volta.
+  - E dois ainda mais raros: o pagamento registrado NO MEIO do cancelamento agora também volta; e a
+    autorização que parou no meio (o processo caiu) vira pagamento do pedido, ou o cancela.
+- [ ] **Pagamento, o que a revisão achou e ficou pra depois** (baixo risco, sem dinheiro preso):
+  - quem paga o QR de um pedido já cancelado recebe o dinheiro de volta sem e-mail nenhum — o
+    último que recebeu dizia "cancelado antes do pagamento";
+  - estorno ou contestação feitos do lado do Pagar.me depois do pagamento (pelo painel deles,
+    chargeback) não são percebidos: o pedido segue pago, pro envio.
 - [ ] **Aposentar os dois kits do Fator** (produtos "Kit 2/3 frascos"), que a página não usa mais:
       no admin, mudar os dois pra Rascunho — ou, no Shell do Railway, de `.medusa/server`,
       `npx medusa exec ./src/scripts/precos-por-quantidade.js` (faz as faixas e passa os kits pra

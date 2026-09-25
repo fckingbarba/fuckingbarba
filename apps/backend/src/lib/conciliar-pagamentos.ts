@@ -54,13 +54,19 @@ import { conferirEstornos, estornoAndando, type RelatorioDeEstornos } from "./es
  *   CARTÃO RECUSADO NA ANÁLISE, PIX QUE FALHOU → cancela o pedido aqui (e
  *     desfaz a reserva do cartão, se o Pagar.me ainda não desfez).
  *
- *   PEDIDO CANCELADO NO ADMIN COM PIX AINDA ABERTO → o QR continua vivo (ver
- *     a caixa abaixo): a sessão fica VIGIADA, e o que for pago depois do
- *     cancelamento é estornado.
+ *   PAGAMENTO QUE TERMINOU POR FORA — recusado ou cancelado sem passar por
+ *     aqui (o "Check status" do admin num cartão reprovado) — com o pedido
+ *     ainda aberto → cancela o pedido, e o estoque volta (`pedidoPreso`).
  *
- *   PAGO DEPOIS DE CANCELADO → todo pedido cancelado nos últimos 7 dias é
- *     olhado: pagamento capturado DEPOIS do `canceled_at` é devolvido pelo
- *     `refundPaymentsWorkflow`. É a outra ponta do QR que não morre.
+ *   PEDIDO CANCELADO NO ADMIN COM PIX AINDA ABERTO → o QR continua vivo (ver
+ *     a caixa abaixo): a sessão fica VIGIADA. O que for pago nela é
+ *     REGISTRADO no pedido cancelado e devolvido pelo Medusa — nunca estornado
+ *     direto lá, onde ninguém confere (ver `fecharDePedidoCancelado`).
+ *
+ *   PAGO NUM PEDIDO CANCELADO → todo pedido cancelado nos últimos 7 dias é
+ *     olhado: pagamento capturado e não devolvido é devolvido pelo
+ *     `refundPaymentsWorkflow` — o do QR pago depois, e o que o aviso
+ *     registrou no meio do cancelamento.
  *
  *   "INCERTO" — a criação que sumiu no caminho, sem resposta (ver o
  *     `authorizePayment`). A tela prometeu: "se aparecer alguma cobrança,
@@ -74,7 +80,9 @@ import { conferirEstornos, estornoAndando, type RelatorioDeEstornos } from "./es
  *     procura a sessão de cada um no banco. Sem dono, pago é estornado e
  *     pendente é cancelado. É também por isso que o provedor não cancela
  *     nada ao apagar sessão (ver `deletePayment`): aqui a decisão sai só do
- *     banco e do Pagar.me, nunca de um dado que veio de fora.
+ *     banco e do Pagar.me, nunca de um dado que veio de fora. A sessão que
+ *     parou no meio COM PEDIDO criado é retomada: paga, vira pagamento do
+ *     pedido; se não, o pedido é cancelado (`retomarAutorizacaoParada`).
  *
  *   ESTORNO QUE NÃO ACONTECEU — o Medusa registrou o estorno e o Pagar.me
  *     não fez (o de Pix sai do saldo disponível, e às vezes ele não tem).
@@ -100,8 +108,9 @@ import { conferirEstornos, estornoAndando, type RelatorioDeEstornos } from "./es
  * │   `pending_authorization`, VIGIADA. Se a pessoa pagar, o dinheiro      │
  * │   entra num pedido cancelado — e a varredura de "pago depois de        │
  * │   cancelado" devolve.                                                  │
- * │ • cartão pendente (análise) ainda se cancela com DELETE; se vier 412,  │
- * │   vira vigiado também.                                                 │
+ * │ • cartão pendente (análise) ainda se cancela com DELETE — e a sessão   │
+ * │   é marcada "cancelando" antes: se vier 412, ela fica vigiada, e a     │
+ * │   análise que aprovar depois não cobra nada (`authorizePayment`).      │
  * └────────────────────────────────────────────────────────────────────────┘
  *
  * ┌─ NÃO FALA COM O CLIENTE, SÓ COM O PAGAR.ME E O MEDUSA ─────────────────┐
@@ -255,6 +264,32 @@ export async function conciliarPagamentos(
     }
   }
 
+  const { data: encerradas } = await query.graph({
+    entity: "payment_session",
+    fields: [
+      ...campos,
+      "payment_collection.payment_sessions.id",
+      "payment_collection.payment_sessions.status",
+      "payment_collection.payments.id",
+      "payment_collection.payments.canceled_at",
+    ],
+    filters: {
+      provider_id: PROVEDOR,
+      status: [PaymentSessionStatus.ERROR, PaymentSessionStatus.CANCELED],
+      created_at: { $gte: new Date(agora.getTime() - JANELA_PENDENTES_MS) },
+    },
+  })
+
+  for (const sessao of encerradas as unknown as SessaoEncerrada[]) {
+    if (!pedidoPreso(sessao)) continue
+    relatorio.conferidas++
+    try {
+      await soltarPedidoPreso(container, cliente, sessao, relatorio)
+    } catch (e) {
+      relatorio.avisos.push(`${sessao.id}: ${mensagemDe(e)}`)
+    }
+  }
+
   try {
     await conciliarOrfaos(container, cliente, agora, relatorio)
   } catch (e) {
@@ -345,23 +380,16 @@ async function conciliarPendente(
   // Pedido cancelado aqui com a cobrança ainda viva lá: fecha lá. Quem
   // costuma chegar antes é o subscriber de pedido cancelado; isto é a rede.
   if (pedidoMedusa?.status === "canceled") {
-    const { feito, situacao } = await fecharCobranca(cliente, pedido, lido, agora, estado)
-    /*
-      VIGIANDO: o Pix ainda vale (não se cancela lá), ou há estorno andando.
-      A sessão fica como está — pendente — pra próxima rodada olhar de novo.
-      Se a pessoa pagar esse QR, quem devolve é a varredura de pagos depois
-      de cancelados.
-    */
-    if (feito === "vigiando") {
-      relatorio.esperando++
-      return
-    }
-    await anotar(container, sessao, { ...lido.estado, situacao }, "canceled")
-    if (feito !== "nada") {
-      ;(feito === "estornou" ? relatorio.estornadas : relatorio.canceladas).push(
-        `${nome} (cancelado aqui; cobrança ${feito === "estornou" ? "estornada" : "cancelada"} lá)`
-      )
-    }
+    await fecharDePedidoCancelado(container, cliente, {
+      sessao,
+      estado,
+      pedido,
+      lido,
+      pedidoId: pedidoMedusa.id,
+      nome,
+      agora,
+      relatorio,
+    })
     return
   }
 
@@ -508,6 +536,100 @@ function minutosDoPix(): number {
   return Number.isInteger(n) && n >= 5 ? n : PIX_MINUTOS_PADRAO
 }
 
+/* ── o pedido preso num pagamento que já acabou ────────────────────────────── */
+
+/** Uma sessão recusada ou cancelada, com a coleção de pagamento e o pedido dela. */
+export type SessaoEncerrada = Omit<Sessao, "payment_collection"> & {
+  payment_collection?:
+    | (NonNullable<Sessao["payment_collection"]> & {
+        payment_sessions?: { id: string; status: string }[] | null
+        payments?: { id: string; canceled_at?: string | Date | null }[] | null
+      })
+    | null
+}
+
+/** Sessões que ainda podem virar (ou já viraram) dinheiro. */
+const VIVAS = new Set<string>([
+  PaymentSessionStatus.PENDING,
+  PaymentSessionStatus.PENDING_AUTHORIZATION,
+  PaymentSessionStatus.REQUIRES_MORE,
+  PaymentSessionStatus.AUTHORIZED,
+  PaymentSessionStatus.CAPTURED,
+])
+
+/**
+ * O PEDIDO QUE FICOU ESPERANDO UM PAGAMENTO QUE JÁ ACABOU.
+ *
+ * A sessão terminou recusada ou cancelada POR FORA da conciliação — o "Check
+ * status" do admin num cartão que a análise reprovou grava a sessão como erro
+ * na hora —, e a rodada de pendentes, que só olha sessão pendente, nunca mais
+ * passava por ela: o pedido ficava "aguardando" pra sempre, com o estoque
+ * reservado e sem e-mail nenhum (24/09).
+ *
+ * Preso é o pedido AINDA ABERTO, sem pagamento registrado de pé e sem outra
+ * sessão viva na mesma coleção. O resto não é com esta rodada: pedido
+ * cancelado já soltou o estoque, e pedido com pagamento pagou.
+ */
+export function pedidoPreso(sessao: SessaoEncerrada): boolean {
+  const colecao = sessao.payment_collection
+  const pedido = colecao?.order
+  if (!pedido?.id || pedido.status !== "pending") return false
+  if (
+    sessao.status !== PaymentSessionStatus.ERROR &&
+    sessao.status !== PaymentSessionStatus.CANCELED
+  ) {
+    return false
+  }
+  if ((colecao?.payment_sessions ?? []).some((s) => VIVAS.has(s?.status))) return false
+  if ((colecao?.payments ?? []).some((p) => p && !p.canceled_at)) return false
+  return true
+}
+
+/**
+ * Cancela o pedido preso, e o estoque volta (o e-mail de cancelamento sai
+ * pelo subscriber). Antes, confere no Pagar.me: dinheiro de pé lá, com a
+ * sessão encerrada aqui, é caso pra gente olhar — não se cancela sozinho. E
+ * a reserva que a análise reprovou e o Pagar.me não desfez, desfaz.
+ */
+async function soltarPedidoPreso(
+  container: MedusaContainer,
+  cliente: ClienteDoPagarme,
+  sessao: SessaoEncerrada,
+  relatorio: Relatorio
+) {
+  const pedidoMedusa = sessao.payment_collection!.order!
+  const nome = pedidoMedusa.display_id ? `#${pedidoMedusa.display_id}` : pedidoMedusa.id
+  const estado = lerEstado(sessao.data)
+
+  if (estado?.pedido) {
+    let pedido: PedidoPagarme
+    try {
+      pedido = await cliente.lerPedido(estado.pedido)
+    } catch (e) {
+      if (!(e instanceof ErroDoPagarme && e.tipo === "nao_encontrado")) throw e
+      relatorio.avisos.push(
+        `${nome}: o pedido está aberto e o Pagar.me não conhece ${estado.pedido} — chave de ` +
+          "outra conta? Nada foi feito."
+      )
+      return
+    }
+    if (traduzir(pedido, estado.forma, estado.parcelas).status === PaymentSessionStatus.CAPTURED) {
+      relatorio.avisos.push(
+        `${nome}: a sessão ${sessao.id} terminou "${sessao.status}" aqui, e o Pagar.me diz ` +
+          `PAGO (${pedido.id}) — confira antes de cancelar`
+      )
+      return
+    }
+    await desfazerReserva(cliente, pedido, nome, relatorio)
+  }
+
+  await cancelarPedido(container, pedidoMedusa.id)
+  relatorio.canceladas.push(
+    `${nome} (o pagamento terminou ${sessao.status === PaymentSessionStatus.ERROR ? "recusado" : "cancelado"} ` +
+      "fora da conciliação)"
+  )
+}
+
 /* ── incerta: a criação que sumiu no caminho ──────────────────────────────── */
 
 async function conciliarIncerta(
@@ -576,9 +698,25 @@ async function conciliarOrfaos(
   const query = container.resolve(ContainerRegistrationKeys.QUERY)
   const { data: sessoes } = await query.graph({
     entity: "payment_session",
-    fields: ["id", "status"],
+    fields: [
+      "id",
+      "status",
+      "amount",
+      "currency_code",
+      "data",
+      "created_at",
+      "payment_collection.id",
+      "payment_collection.order.id",
+      "payment_collection.order.status",
+      "payment_collection.order.display_id",
+    ],
     filters: { id: candidatos.map((p) => p.code as string) },
   })
+  const paradas = new Map(
+    (sessoes as unknown as Sessao[])
+      .filter((s) => s.status === PaymentSessionStatus.PENDING)
+      .map((s) => [s.id, s])
+  )
   /*
     Tem dono quem tem sessão num estado que alguém acompanha: pendente de
     autorização (a rodada de pendentes), autorizada/capturada (pago e
@@ -603,6 +741,16 @@ async function conciliarOrfaos(
     relatorio.conferidas++
     const metodo = String(pedido.charges?.[0]?.payment_method ?? "").toLowerCase()
     const lido = traduzir(pedido, metodo === "pix" ? "pix" : "cartao")
+    const parada = paradas.get(pedido.code as string)
+    const doPedido = parada?.payment_collection?.order
+    if (parada && doPedido?.id && doPedido.status !== "canceled") {
+      try {
+        await retomarAutorizacaoParada(container, cliente, parada, pedido, lido, agora, relatorio)
+      } catch (e) {
+        relatorio.avisos.push(`${pedido.id}: ${mensagemDe(e)}`)
+      }
+      continue
+    }
     try {
       const { feito } = await fecharCobranca(cliente, pedido, lido, agora)
       if (feito === "estornou" || feito === "cancelou") {
@@ -616,6 +764,56 @@ async function conciliarOrfaos(
   }
 }
 
+/**
+ * A AUTORIZAÇÃO QUE PAROU NO MEIO, com o pedido já criado: o processo caiu
+ * (deploy, memória) depois de o Pagar.me responder e antes de o Medusa gravar.
+ * A sessão ficou `pending`, que nenhuma rodada olha, e o pedido, aberto e com
+ * o estoque reservado. Até 24/09 a cobrança era fechada lá, como órfã, e o
+ * pedido ficava aqui, aguardando pra sempre.
+ *
+ *   PAGO → registra no pedido, pelo mesmo caminho do aviso: a compra valeu.
+ *   AINDA VALENDO (o Pix no prazo) → espera; se for pago, cai no caso acima.
+ *   O RESTO → fecha a cobrança lá, como órfã, e cancela o pedido aqui.
+ */
+async function retomarAutorizacaoParada(
+  container: MedusaContainer,
+  cliente: ClienteDoPagarme,
+  sessao: Sessao,
+  pedido: PedidoPagarme,
+  lido: ReturnType<typeof traduzir>,
+  agora: Date,
+  relatorio: Relatorio
+) {
+  const pedidoMedusa = sessao.payment_collection!.order!
+  const nome = pedidoMedusa.display_id ? `#${pedidoMedusa.display_id}` : pedidoMedusa.id
+  if (
+    lido.status === PaymentSessionStatus.CAPTURED &&
+    !estornoAndando(pedido.charges?.[0] ?? {}) &&
+    lido.estado.estornado === 0
+  ) {
+    await registrarPagamento(container, sessao.id, Number(pedido.amount))
+    relatorio.pagas.push(`${nome} (a autorização tinha parado no meio)`)
+    return
+  }
+  const { feito, situacao } = await fecharCobranca(
+    cliente,
+    pedido,
+    lido,
+    agora,
+    lerEstado(sessao.data)
+  )
+  if (feito === "vigiando") {
+    relatorio.esperando++
+    return
+  }
+  await cancelarPedido(container, pedidoMedusa.id)
+  await anotar(container, sessao, { ...lido.estado, situacao }, "canceled")
+  relatorio.canceladas.push(
+    `${nome} (a autorização tinha parado no meio; cobrança ` +
+      `${feito === "estornou" ? "estornada" : feito === "cancelou" ? "cancelada" : "sem nada a fechar"} lá)`
+  )
+}
+
 /* ── pago depois de cancelado ─────────────────────────────────────────────── */
 
 /**
@@ -624,12 +822,12 @@ async function conciliarOrfaos(
  * É a outra ponta do QR que não morre: cancelar o pedido não cancela o Pix
  * pendente lá (412), então a pessoa ainda pode pagar — e paga, porque o QR
  * está no WhatsApp dela desde ontem. O pagamento entra pela sessão vigiada,
- * o webhook registra, e o dinheiro fica num pedido cancelado.
+ * o webhook (ou a conciliação) registra, e o dinheiro fica num pedido
+ * cancelado.
  *
- * Esta varredura olha todo pedido cancelado dos últimos 7 dias e devolve o
- * que foi CAPTURADO DEPOIS do `canceled_at`. O que foi capturado antes não é
- * problema dela: quem cancela pedido pago no admin já pede o estorno, e
- * quem confere se ele aconteceu é o `lib/estornos.ts`.
+ * Esta varredura olha todo pedido cancelado dos últimos 7 dias e devolve,
+ * pelo Medusa, o que estiver capturado e não devolvido — ver
+ * `devolverDoCancelado`.
  *
  * ┌─ `refundPaymentsWorkflow`, no PLURAL ──────────────────────────────────┐
  * │ O singular (`refundPaymentWorkflow`) valida o pedido antes e recusa:   │
@@ -645,65 +843,98 @@ async function devolverPagosDepoisDoCancelamento(
   const query = container.resolve(ContainerRegistrationKeys.QUERY)
   const { data: pedidos } = await query.graph({
     entity: "order",
-    fields: [
-      "id",
-      "display_id",
-      "canceled_at",
-      "payment_collections.payments.id",
-      "payment_collections.payments.provider_id",
-      "payment_collections.payments.amount",
-      "payment_collections.payments.captured_at",
-      "payment_collections.payments.refunds.amount",
-    ],
+    fields: CAMPOS_DO_CANCELADO,
     filters: {
       status: "canceled",
       canceled_at: { $gte: new Date(agora.getTime() - JANELA_CANCELADOS_MS) },
     },
   })
-
-  type Pagamento = {
-    id: string
-    provider_id?: string
-    amount: unknown
-    captured_at?: string | null
-    refunds?: { amount: unknown }[]
-  }
-  type Cancelado = {
-    id: string
-    display_id?: number
-    canceled_at?: string | null
-    payment_collections?: { payments?: Pagamento[] }[]
-  }
-
   for (const pedido of pedidos as unknown as Cancelado[]) {
-    const cancelado = Date.parse(pedido.canceled_at ?? "")
-    if (!Number.isFinite(cancelado)) continue
-    const nome = `#${pedido.display_id ?? pedido.id}`
+    await devolverDoCancelado(container, pedido, relatorio)
+  }
+}
 
-    for (const pagamento of (pedido.payment_collections ?? []).flatMap((c) => c?.payments ?? [])) {
-      if (pagamento.provider_id !== PROVEDOR) continue
-      const capturado = Date.parse(pagamento.captured_at ?? "")
-      if (!Number.isFinite(capturado) || capturado <= cancelado) continue
+/** O mesmo, pra um pedido só: o dinheiro registrado agora num pedido cancelado. */
+async function devolverDoPedidoCancelado(
+  container: MedusaContainer,
+  pedidoId: string,
+  relatorio: Relatorio
+) {
+  const query = container.resolve(ContainerRegistrationKeys.QUERY)
+  const { data } = await query.graph({
+    entity: "order",
+    fields: CAMPOS_DO_CANCELADO,
+    filters: { id: pedidoId, status: "canceled" },
+  })
+  const pedido = data[0] as unknown as Cancelado | undefined
+  if (pedido) await devolverDoCancelado(container, pedido, relatorio)
+}
 
-      const devolvido = (pagamento.refunds ?? []).reduce((s, r) => s + Number(r.amount ?? 0), 0)
-      const resta = Number(pagamento.amount) - devolvido
-      if (!(resta > 0)) continue
+const CAMPOS_DO_CANCELADO = [
+  "id",
+  "display_id",
+  "canceled_at",
+  "payment_collections.payments.id",
+  "payment_collections.payments.provider_id",
+  "payment_collections.payments.amount",
+  "payment_collections.payments.captured_at",
+  "payment_collections.payments.refunds.amount",
+]
 
-      relatorio.conferidas++
-      try {
-        await refundPaymentsWorkflow(container).run({
-          input: [
-            {
-              payment_id: pagamento.id,
-              amount: resta,
-              note: "pago depois de o pedido ser cancelado",
-            },
-          ],
-        })
-        relatorio.estornadas.push(`${nome} (pago depois de cancelado)`)
-      } catch (e) {
-        relatorio.avisos.push(`${nome}: pago depois de cancelado, e o estorno ${mensagemDe(e)}`)
-      }
+type PagamentoDoCancelado = {
+  id: string
+  provider_id?: string
+  amount: unknown
+  captured_at?: string | null
+  refunds?: { amount: unknown }[]
+}
+type Cancelado = {
+  id: string
+  display_id?: number
+  canceled_at?: string | null
+  payment_collections?: { payments?: PagamentoDoCancelado[] }[]
+}
+
+/**
+ * Devolve, pelo Medusa, todo pagamento do Pagar.me CAPTURADO e ainda não
+ * devolvido de um pedido cancelado — capturado quando for.
+ *
+ * O cancelamento do Medusa estorna tudo o que vê pago
+ * (`refundCapturedPaymentsWorkflow`), então o que sobra só pode ter entrado
+ * DEPOIS dele (o QR pago depois) ou NO MEIO dele: o aviso registrando o Pix
+ * enquanto o cancelamento rodava — ele lê os pagamentos no começo e grava o
+ * `canceled_at` no fim. Até 24/09 só o capturado depois do `canceled_at`
+ * voltava; o do meio ficava com a loja, e o e-mail dizia "estornado".
+ */
+async function devolverDoCancelado(
+  container: MedusaContainer,
+  pedido: Cancelado,
+  relatorio: Relatorio
+) {
+  const cancelado = Date.parse(pedido.canceled_at ?? "")
+  const nome = `#${pedido.display_id ?? pedido.id}`
+
+  for (const pagamento of (pedido.payment_collections ?? []).flatMap((c) => c?.payments ?? [])) {
+    if (pagamento.provider_id !== PROVEDOR) continue
+    const capturado = Date.parse(pagamento.captured_at ?? "")
+    if (!Number.isFinite(capturado)) continue
+
+    const devolvido = (pagamento.refunds ?? []).reduce((s, r) => s + Number(r.amount ?? 0), 0)
+    const resta = Number(pagamento.amount) - devolvido
+    if (!(resta > 0)) continue
+
+    const quando =
+      Number.isFinite(cancelado) && capturado <= cancelado
+        ? "pago no meio do cancelamento"
+        : "pago depois de o pedido ser cancelado"
+    relatorio.conferidas++
+    try {
+      await refundPaymentsWorkflow(container).run({
+        input: [{ payment_id: pagamento.id, amount: resta, note: quando }],
+      })
+      relatorio.estornadas.push(`${nome} (${quando})`)
+    } catch (e) {
+      relatorio.avisos.push(`${nome}: ${quando}, e o estorno ${mensagemDe(e)}`)
     }
   }
 }
@@ -766,24 +997,101 @@ export async function fecharCobrancasDoPedido(
       const estado = lerEstado(sessao.data)
       const pedido = await cliente.buscarPorCodigo(sessao.id)
       if (!estado || !pedido) continue
-      const lido = traduzir(pedido, estado.forma, estado.parcelas)
-      const { feito, situacao } = await fecharCobranca(cliente, pedido, lido, agora, estado)
-      // O Pix ainda vale: a sessão continua pendente, e vigiada.
-      if (feito === "vigiando") {
-        relatorio.esperando++
-        continue
-      }
-      await anotar(container, sessao, { ...lido.estado, situacao }, "canceled")
-      if (feito !== "nada") {
-        ;(feito === "estornou" ? relatorio.estornadas : relatorio.canceladas).push(
-          `#${pedidoMedusa?.display_id ?? pedidoId} (${pedido.id})`
-        )
-      }
+      await fecharDePedidoCancelado(container, cliente, {
+        sessao,
+        estado,
+        pedido,
+        lido: traduzir(pedido, estado.forma, estado.parcelas),
+        pedidoId,
+        nome: `#${pedidoMedusa?.display_id ?? pedidoId}`,
+        agora,
+        relatorio,
+      })
     } catch (e) {
       relatorio.avisos.push(`${sessao.id}: ${mensagemDe(e)}`)
     }
   }
   return relatorio
+}
+
+/**
+ * A COBRANÇA DE UM PEDIDO JÁ CANCELADO — pelo subscriber, na hora do
+ * cancelamento, e pela rodada de pendentes, como rede.
+ *
+ *   PAGA → o pagamento é REGISTRADO no pedido cancelado, pelo mesmo caminho do
+ *     aviso, e DEVOLVIDO PELO MEDUSA (`devolverDoPedidoCancelado`). Até 24/09 o
+ *     estorno saía direto no Pagar.me e não ficava em lugar nenhum: se ele
+ *     falhasse (o Pix recém-pago, que ainda não está no saldo — foi o #6), o
+ *     dinheiro ficava com a loja sem faixa no admin, sem e-mail e sem nova
+ *     tentativa. Registrado, ele é conferido como qualquer outro estorno
+ *     (`lib/estornos.ts`). Com estorno andando lá, ou dinheiro já devolvido
+ *     por fora, NÃO registra — o Medusa pediria de novo o que já voltou —, e
+ *     segue o caminho de antes (`fecharCobranca`).
+ *
+ *   CARTÃO PENDENTE → a sessão é marcada "cancelando" ANTES do `DELETE`: se
+ *     ele não passar agora (412, rede), a análise que aprovar depois não cobra
+ *     nada (ver o `authorizePayment`), e a rodada seguinte tenta de novo.
+ *
+ *   PIX PENDENTE → vigia, como sempre: lá não se cancela (412), e o que for
+ *     pago cai no primeiro caso.
+ */
+async function fecharDePedidoCancelado(
+  container: MedusaContainer,
+  cliente: ClienteDoPagarme,
+  {
+    sessao,
+    estado,
+    pedido,
+    lido,
+    pedidoId,
+    nome,
+    agora,
+    relatorio,
+  }: {
+    sessao: Sessao
+    estado: Estado
+    pedido: PedidoPagarme
+    lido: ReturnType<typeof traduzir>
+    pedidoId: string
+    nome: string
+    agora: Date
+    relatorio: Relatorio
+  }
+) {
+  if (
+    lido.status === PaymentSessionStatus.CAPTURED &&
+    !estornoAndando(pedido.charges?.[0] ?? {}) &&
+    lido.estado.estornado === 0
+  ) {
+    await registrarPagamento(container, sessao.id, Number(pedido.amount))
+    relatorio.pagas.push(`${nome} (pago com o pedido já cancelado)`)
+    await devolverDoPedidoCancelado(container, pedidoId, relatorio)
+    return
+  }
+
+  if (
+    estado.forma === "cartao" &&
+    lido.status === PaymentSessionStatus.PENDING_AUTHORIZATION &&
+    estado.situacao !== "cancelando"
+  ) {
+    await anotar(container, sessao, { ...lido.estado, situacao: "cancelando" }, "pendente")
+  }
+
+  const { feito, situacao } = await fecharCobranca(cliente, pedido, lido, agora, estado)
+  /*
+    VIGIANDO: o Pix ainda vale (não se cancela lá), o 412 disse "ainda não",
+    ou há estorno andando. A sessão fica pendente pra próxima rodada olhar.
+  */
+  if (feito === "vigiando") {
+    relatorio.esperando++
+    return
+  }
+  await anotar(container, sessao, { ...lido.estado, situacao }, "canceled")
+  if (feito !== "nada") {
+    ;(feito === "estornou" ? relatorio.estornadas : relatorio.canceladas).push(
+      `${nome} (cancelado aqui; cobrança ${feito === "estornou" ? "estornada" : "cancelada"} lá)`
+    )
+  }
 }
 
 /**
@@ -918,7 +1226,7 @@ async function anotar(
   container: MedusaContainer,
   sessao: Sessao,
   estado: Estado,
-  status: "canceled" | "error"
+  status: "canceled" | "error" | "pendente"
 ) {
   const pagamento = container.resolve(Modules.PAYMENT)
   await pagamento.updatePaymentSession({
@@ -926,6 +1234,11 @@ async function anotar(
     data: { ...(sessao.data ?? {}), ...gravar(estado) },
     amount: sessao.amount as number,
     currency_code: sessao.currency_code,
-    status: status === "canceled" ? PaymentSessionStatus.CANCELED : PaymentSessionStatus.ERROR,
+    status:
+      status === "canceled"
+        ? PaymentSessionStatus.CANCELED
+        : status === "error"
+          ? PaymentSessionStatus.ERROR
+          : PaymentSessionStatus.PENDING_AUTHORIZATION,
   })
 }

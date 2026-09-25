@@ -1714,12 +1714,183 @@ try {
       `${JSON.stringify(deNovo)} · ${pedidosDeEstorno().length}`
     )
   }
+
+  /* ── 10. os casos raros de 24/09 ──────────────────────────────────────── */
+
+  titulo("O Pix pago com o pedido já cancelado passa pelo Medusa — e o estorno dele é conferido")
+  {
+    /*
+      Até 24/09, a conciliação que achasse o Pix pago antes do aviso estornava
+      direto no Pagar.me, sem nada no Medusa: se o estorno falhasse (o Pix
+      recém-pago, fora do saldo), o dinheiro ficava com a loja, calado.
+    */
+    await longeDaConciliacaoAutomatica(60_000)
+    const email = "pago-cancelado@fuckingbarba.invalid"
+    const aberto = await fecharPelaApi(await carrinhoPelaApi(email), email)
+    const la = noPagarme(aberto)
+    await adm(`/admin/orders/${aberto.id}/cancel`, { method: "POST" })
+    await esperar(1500) // o subscriber do cancelamento: o Pix pendente fica vigiado
+    pagarme.estornos = "segura"
+    await pagarme.pagar(la.pedido.id, { semAviso: true })
+    const r = await conciliar()
+    const lido = await adm(
+      `/admin/orders/${aberto.id}?fields=id,payment_collections.payments.id,` +
+        "payment_collections.payments.captured_at,payment_collections.payments.refunds.amount"
+    )
+    const pagamentos = (lido.order?.payment_collections ?? []).flatMap((c) => c?.payments ?? [])
+    ok(
+      pagamentos.some((p) => p.captured_at && (p.refunds ?? []).length > 0),
+      "o dinheiro que entrou no pedido cancelado é registrado no Medusa, e devolvido por ele",
+      JSON.stringify({ pagamentos, pagas: r.pagas, estornadas: r.estornadas, avisos: r.avisos })
+    )
+    pagarme.falharEstorno(la.pedido.id)
+    const r2 = await conciliar()
+    const anotado = Object.values(
+      (await adm(`/admin/orders/${aberto.id}?fields=id,metadata`)).order?.metadata?.estornos ?? {}
+    )[0]
+    ok(
+      anotado?.situacao === "falhou" &&
+        r2.estornos.falharam.some((x) => x.startsWith(`#${aberto.display_id} `)),
+      "e o estorno que falha lá fica anotado no pedido, com o aviso pra equipe",
+      JSON.stringify({ anotado, estornos: r2.estornos })
+    )
+    pagarme.estornos = "normal"
+  }
+
+  titulo('O "Check status" do admin junto com a conciliação não estorna o pedido pago')
+  {
+    /*
+      Os dois registravam o mesmo pagamento ao mesmo tempo: o segundo batia no
+      índice único, e o Medusa chamava o `cancelPayment` do provedor, que
+      estornava a cobrança paga — com o pedido seguindo pago pro envio. O
+      Pagar.me lento na busca por código põe os dois juntos no provedor.
+    */
+    await longeDaConciliacaoAutomatica(60_000)
+    const email = "check-junto@fuckingbarba.invalid"
+    const aberto = await fecharPelaApi(await carrinhoPelaApi(email), email)
+    const la = noPagarme(aberto)
+    const sessao = aberto.payment_collections[0].payment_sessions[0].id
+    await pagarme.pagar(la.pedido.id, { semAviso: true })
+    const antes = pagarme.cancelamentos.length
+    pagarme.atrasoNaBusca = 1500
+    let doBotao = null
+    try {
+      ;[doBotao] = await Promise.all([
+        fetch(`${MEDUSA}/admin/orders/${aberto.id}/payment-sessions/authorize`, {
+          method: "POST",
+          headers: cabAdmin,
+          body: JSON.stringify({ payment_session_id: sessao }),
+        }).then(async (resposta) => `${resposta.status} ${(await resposta.text()).slice(0, 120)}`),
+        conciliar().catch((e) => String(e)),
+      ])
+    } finally {
+      pagarme.atrasoNaBusca = 0
+    }
+    await esperar(1500)
+    const estornos = pagarme.cancelamentos.slice(antes).filter((c) => c.pedido === la.pedido.id)
+    ok(
+      estornos.length === 0 && la.pedido.charges[0].status === "paid",
+      "o botão e a conciliação juntos: nenhum estorno lá, e a cobrança continua paga",
+      JSON.stringify({ estornos, doBotao })
+    )
+    const depois = await pedidoNoMedusa(aberto.id)
+    ok(depois?.payment_status === "captured", "e o pedido fica pago aqui", depois?.payment_status)
+  }
+
+  titulo("O cartão em análise de um pedido cancelado não é cobrado quando a análise aprova")
+  {
+    /*
+      O admin cancela, e o DELETE da reserva não passa na hora (412). A sessão
+      ficava pendente sem marca nenhuma, e a análise que aprovasse depois
+      cobrava o cartão — o valor aparecia na fatura e sumia no estorno.
+    */
+    await longeDaConciliacaoAutomatica(90_000)
+    const { contexto, pagina } = await compraEmAnalise("cancelado-em-analise@fuckingbarba.invalid")
+    await pagina.waitForURL(/\/checkout\/obrigado\//, { timeout: 45000 })
+    const pedido = await pedidoNoMedusa(idDaUrl(pagina))
+    const la = noPagarme(pedido)
+    pagarme.proximoCancelamento = "412"
+    await adm(`/admin/orders/${pedido.id}/cancel`, { method: "POST" })
+    const situacaoDaSessao = async () =>
+      (await pedidoNoMedusa(pedido.id))?.payment_collections?.[0]?.payment_sessions?.[0]?.data
+        ?.pagarme?.situacao
+    let situacao = null
+    for (let i = 0; i < 40 && situacao !== "cancelando"; i++) {
+      await esperar(250)
+      situacao = await situacaoDaSessao()
+    }
+    ok(
+      situacao === "cancelando",
+      'o Pagar.me diz "ainda não" ao cancelamento: a sessão fica marcada, à espera',
+      String(situacao)
+    )
+    const capturasAntes = pagarme.capturas.filter((c) => c.pedido === la.pedido.id && !c.recusada)
+    await pagarme.aprovarAnalise(la.pedido.id)
+    // O Medusa processa o aviso uns 5 s depois de receber: espera a cobrança mudar.
+    const c = la.pedido.charges[0]
+    for (let i = 0; i < 60 && c.last_transaction.status === "authorized_pending_capture"; i++) {
+      await esperar(250)
+    }
+    await esperar(1000)
+    const cobradas = pagarme.capturas.filter((c) => c.pedido === la.pedido.id && !c.recusada)
+    ok(
+      cobradas.length === capturasAntes.length && c.last_transaction.status === "voided",
+      "a análise aprova depois: o cartão NÃO é cobrado, e a reserva é desfeita",
+      `${cobradas.length - capturasAntes.length} cobrança(s) · ${c.status}/${c.last_transaction.status}`
+    )
+    await contexto.close()
+  }
+
+  titulo('O "Check status" num cartão reprovado não deixa o pedido preso pra sempre')
+  {
+    /*
+      O botão grava a recusa na sessão na hora, e a rodada de pendentes, que só
+      olha sessão pendente, nunca mais passava por ela: o pedido ficava
+      "aguardando" pra sempre, com o estoque reservado.
+    */
+    await longeDaConciliacaoAutomatica(90_000)
+    const { contexto, pagina } = await compraEmAnalise("preso@fuckingbarba.invalid")
+    await pagina.waitForURL(/\/checkout\/obrigado\//, { timeout: 45000 })
+    const pedido = await pedidoNoMedusa(idDaUrl(pagina))
+    const la = noPagarme(pedido)
+    await pagarme.reprovarAnalise(la.pedido.id, { semAviso: true, desfaz: false })
+    const sessao = pedido.payment_collections[0].payment_sessions[0].id
+    const botao = await fetch(`${MEDUSA}/admin/orders/${pedido.id}/payment-sessions/authorize`, {
+      method: "POST",
+      headers: cabAdmin,
+      body: JSON.stringify({ payment_session_id: sessao }),
+    })
+    const aberto = await pedidoNoMedusa(pedido.id)
+    const status = aberto?.payment_collections?.[0]?.payment_sessions?.[0]?.status
+    ok(
+      !botao.ok && aberto?.status === "pending" && status === "error",
+      'o "Check status" grava a recusa na sessão, e o pedido fica aberto',
+      `${botao.status} · ${aberto?.status} · ${status}`
+    )
+    const r = await conciliar()
+    const depois = await pedidoNoMedusa(pedido.id)
+    ok(
+      depois?.status === "canceled" &&
+        r.canceladas.some((x) => x.startsWith(`#${pedido.display_id} `)),
+      "a conciliação solta o pedido: cancelado, e o estoque volta",
+      `${depois?.status} · ${JSON.stringify(r.canceladas)}`
+    )
+    ok(
+      la.pedido.charges[0].last_transaction.status === "voided" &&
+        !pagarme.capturas.some((c) => c.pedido === la.pedido.id && !c.recusada),
+      "e nada foi cobrado: a reserva reprovada foi desfeita",
+      la.pedido.charges[0].last_transaction.status
+    )
+    await contexto.close()
+  }
 } catch (e) {
   falhas++
   console.log(`\n  ✗ o conferidor quebrou no meio: ${e instanceof Error ? e.stack : e}`)
 } finally {
   resend.roteiro.cair = false
   pagarme.estornos = "normal"
+  pagarme.atrasoNaBusca = 0
+  pagarme.proximoCancelamento = null
   // Os pedidos que o teste criou e ficaram de pé: cancelados, estoque de volta.
   for (const id of pedidosDoTeste) {
     const o = (await loja(`/store/orders/${id}?fields=id,status`)).json?.order

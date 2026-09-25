@@ -131,6 +131,20 @@ export async function subirPagarmeFalso({ porta = PORTA_PADRAO, webhook = null }
      * o pedido recém-nascido.
      */
     validadeDoPix: null,
+    /**
+     * A BUSCA POR CÓDIGO LENTA (`GET /orders?code=`), em ms — é a pergunta que
+     * o provedor faz a cada autorização. Com ela, dois caminhos autorizando a
+     * mesma sessão chegam juntos no provedor: é assim que o conferidor
+     * reproduz a corrida do "Check status" com o aviso (24/09). `0` é normal.
+     */
+    atrasoNaBusca: 0,
+    /**
+     * O PRÓXIMO CANCELAMENTO QUE NÃO PASSA: `"412"` (o Pagar.me dizendo "ainda
+     * não") ou `"queda"` (500). Vale pra um `DELETE` só — o falso zera depois
+     * de usar. É o cancelamento do cartão em análise que falha na hora do
+     * pedido cancelado.
+     */
+    proximoCancelamento: null,
   }
 
   const cobrancaDo = (pedido) => pedido.charges[0]
@@ -539,6 +553,9 @@ export async function subirPagarmeFalso({ porta = PORTA_PADRAO, webhook = null }
         // Como a listagem deles: filtros por código e por data de criação,
         // mais novos primeiro, em páginas, com `paging.next` quando há mais.
         const codigo = url.searchParams.get("code")
+        if (codigo && painel.atrasoNaBusca > 0) {
+          await new Promise((pronto) => setTimeout(pronto, painel.atrasoNaBusca))
+        }
         const desde = Date.parse(url.searchParams.get("created_since") ?? "")
         const pagina = Math.max(1, Number(url.searchParams.get("page")) || 1)
         const tamanho = Math.min(30, Math.max(1, Number(url.searchParams.get("size")) || 10))
@@ -627,6 +644,20 @@ export async function subirPagarmeFalso({ porta = PORTA_PADRAO, webhook = null }
         }
         const c = cobrancaDo(registro.pedido)
         const valor = corpo?.amount ?? c.amount
+        if (painel.proximoCancelamento) {
+          const como = painel.proximoCancelamento
+          painel.proximoCancelamento = null
+          painel.cancelamentos.push({
+            cobranca: c.id,
+            pedido: registro.pedido.id,
+            status: c.status,
+            valor,
+            recusado: true,
+          })
+          if (como === "412") json(412, { message: "This charge can not be canceled." })
+          else json(500, { message: "An error has occurred." })
+          return
+        }
         /*
           O PAGAR.ME NÃO CANCELA PIX ESPERANDO PAGAMENTO — e nem Pix vencido,
           que continua `pending` lá. Responde 412, com esta frase, pra

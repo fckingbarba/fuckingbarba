@@ -265,6 +265,10 @@ export default class PagarmeServico extends AbstractPaymentProvider<Opcoes> {
     }
 
     if (pedido) {
+      // O pedido desta sessão foi cancelado aqui, e a cobrança lá ainda não
+      // fechou: não cobra de jeito nenhum (ver `naoCobrar`).
+      if (estado.situacao === "cancelando") return this.naoCobrar(pedido, estado, codigo)
+
       /*
         SESSÃO QUE JÁ TEVE FIM NÃO RESSUSCITA. "Incerto" é a criação que
         sumiu no caminho — a tela disse "tenta de novo, e o que foi cobrado
@@ -600,6 +604,66 @@ export default class PagarmeServico extends AbstractPaymentProvider<Opcoes> {
       action: PaymentActions.SUCCESSFUL,
       data: { session_id: sessao, amount: emReais(Number(pedido.amount)) },
     }
+  }
+
+  /**
+   * A SESSÃO DE UM PEDIDO JÁ CANCELADO ("cancelando"), chamada de novo — pelo
+   * aviso de que a análise aprovou, ou pelo "Check status" do admin. Até
+   * 24/09 ela cobrava o cartão: a conciliação não tinha conseguido desfazer a
+   * reserva (412, rede), a sessão ficava pendente sem marca nenhuma, e a
+   * aprovação da análise virava cobrança de um pedido que não existia mais —
+   * o valor aparecia na fatura e sumia no estorno seguinte.
+   *
+   *   RESERVA DE PÉ → desfaz AGORA (o mesmo `DELETE` da conciliação), e a
+   *     sessão fecha como cancelada. Se não der, ESTOURA: o Medusa não mexe na
+   *     sessão, e a rodada seguinte da conciliação tenta de novo.
+   *   DINHEIRO JÁ TIRADO (cobrado por fora) → `captured`: o pagamento entra no
+   *     pedido cancelado e a conciliação devolve pelo Medusa, onde o estorno é
+   *     conferido (`lib/estornos.ts`).
+   *   JÁ FECHADA LÁ (reprovada, desfeita, estornada) → fecha aqui também.
+   */
+  private async naoCobrar(
+    pedido: PedidoPagarme,
+    estado: Estado,
+    codigo: string
+  ): Promise<AuthorizePaymentOutput> {
+    const lido = traduzir(pedido, estado.forma, estado.parcelas)
+    if (lido.status === PaymentSessionStatus.CAPTURED) return this.responder(lido)
+
+    const reserva =
+      estado.forma === "cartao" &&
+      (lido.status === PaymentSessionStatus.PENDING_AUTHORIZATION || reservaPraDesfazer(pedido))
+        ? lido.estado.cobranca
+        : null
+    if (reserva) {
+      try {
+        await this.cliente.cancelarCobranca(reserva)
+      } catch (e) {
+        throw new MedusaError(
+          MedusaError.Types.NOT_ALLOWED,
+          `O pedido da sessão ${codigo} foi cancelado: o cartão não é cobrado, e a reserva ` +
+            `(${pedido.id}) é desfeita pela conciliação — agora o Pagar.me não deixou ` +
+            `(${mensagemDe(e)}).`
+        )
+      }
+      this.logger.info(
+        `[pagarme] ${pedido.id}: o pedido da sessão ${codigo} foi cancelado — reserva desfeita, ` +
+          "sem cobrar"
+      )
+      return {
+        status: PaymentSessionStatus.CANCELED,
+        data: gravar({ ...lido.estado, situacao: "cancelado" }),
+      }
+    }
+
+    if (lido.status === PaymentSessionStatus.PENDING_AUTHORIZATION) {
+      throw new MedusaError(
+        MedusaError.Types.NOT_ALLOWED,
+        `O pedido da sessão ${codigo} foi cancelado: nada é cobrado, e a conciliação fecha ` +
+          `${pedido.id}.`
+      )
+    }
+    return { status: lido.status, data: gravar(lido.estado) }
   }
 
   /* ── a cobrança do cartão, depois da análise ─────────────────────────────── */

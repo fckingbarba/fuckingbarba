@@ -245,13 +245,32 @@ cancelamento do pedido vinha depois do DELETE, e o DELETE estourava de 5 em 5 mi
 ninguém manda DELETE em Pix pendente — nem a conciliação, nem o `cancelPayment` do provedor, nem o
 subscriber. No lugar disso, **Pix vencido cancela só o pedido aqui** (com os 10 minutos de folga, e
 relendo o pagamento antes — pago no limite existe), e **pedido cancelado com o Pix ainda valendo
-deixa a sessão pendente e VIGIADA**: o QR continua pagável, e a varredura de pagos-depois-de-
-cancelados (todo pedido cancelado dos últimos 7 dias) devolve o que entrar, pelo
-`refundPaymentsWorkflow` — no PLURAL, porque o singular recusa pedido cancelado. Cartão em análise
-ainda se cancela com DELETE; se vier 412, vira vigiado também. Quando o Pix vence sai de três
+deixa a sessão pendente e VIGIADA**: o QR continua pagável, e a varredura de pagos em pedido
+cancelado (todo pedido cancelado dos últimos 7 dias) devolve o que estiver capturado e não devolvido
+— entrado quando for —, pelo `refundPaymentsWorkflow`: no PLURAL, porque o singular recusa pedido
+cancelado. Cartão em análise ainda se cancela com DELETE; se vier 412, vira vigiado também, com a
+sessão marcada "cancelando" (ver abaixo). Quando o Pix vence sai de três
 camadas, nesta ordem: o `expires_at` que o Pagar.me acabou de dizer, o gravado na sessão (juntos com
 `||`, e não `??`: o lido nasce string VAZIA) e o `created_at` de lá + `PAGARME_PIX_MINUTOS`. Sem
 nenhuma das três, o Pix não vence — antes o estoque preso que a venda cancelada à toa.
+
+**DINHEIRO DE PEDIDO CANCELADO PASSA PELO MEDUSA** (entrega 0083, os casos raros de 24/09). O Pix
+pago numa sessão vigiada, achado pela conciliação ou pelo subscriber antes do aviso, é REGISTRADO no
+pedido cancelado (`processPaymentWorkflow`, o caminho do aviso) e devolvido pelo Medusa
+(`fecharDePedidoCancelado` → `devolverDoCancelado`) — nunca estornado direto no Pagar.me, onde
+ninguém conferia: o estorno de Pix recém-pago falha (saldo), e o dinheiro ficava com a loja,
+calado. Registrado, ele cai no `lib/estornos.ts` como qualquer estorno. Direto lá só sobra pra quem
+não tem pedido aqui (órfã, incerta), e com estorno andando ou dinheiro já devolvido por fora.
+Cartão em análise de pedido cancelado: a sessão fica `situacao: "cancelando"` ANTES do DELETE, e o
+`authorizePayment` nunca cobra uma sessão assim (`naoCobrar`: desfaz a reserva, ou estoura pra
+conciliação tentar de novo). O "Check status" do admin (`POST /admin/orders/:id/payment-sessions/
+authorize`) pega a trava do carrinho, a mesma do aviso e da conciliação
+(`lib/check-status-na-trava.ts`): sem ela, os dois registravam juntos, o segundo batia no índice
+único e o Medusa chamava o `cancelPayment`, que estornava um pedido pago. A conciliação também
+solta o pedido preso numa sessão que terminou recusada ou cancelada por fora dela (`pedidoPreso`) e
+retoma a autorização que parou no meio com o pedido já criado (`retomarAutorizacaoParada`: paga,
+vira pagamento; se não, cancela). O Pagar.me falso tem `atrasoNaBusca` (a corrida do Check status)
+e `proximoCancelamento` ("412" ou "queda").
 
 O **estorno** é pedido na hora (cancelar pedido pago no admin chama o `refundPayment`) e o Medusa
 marca "Refunded" na hora — mas anda DEPOIS, no Pagar.me, e pode falhar: o de Pix sai do saldo

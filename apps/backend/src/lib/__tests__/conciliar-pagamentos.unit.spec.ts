@@ -5,7 +5,12 @@ import {
   type PedidoPagarme,
 } from "../../modules/pagarme/client"
 import { traduzir, type Estado } from "../../modules/pagarme/situacao"
-import { fecharCobranca, venceuOPix } from "../conciliar-pagamentos"
+import {
+  fecharCobranca,
+  pedidoPreso,
+  venceuOPix,
+  type SessaoEncerrada,
+} from "../conciliar-pagamentos"
 
 /**
  * O QUE PRENDEU O ESTOQUE DO #7 — e o que ficou no lugar.
@@ -231,5 +236,78 @@ describe("fechar a cobrança de um pedido que não vira mais venda", () => {
     const r = await fechar(p)
     expect(r).toMatchObject({ feito: "nada", situacao: "falhou" })
     expect(r.cancelar).not.toHaveBeenCalled()
+  })
+})
+
+describe("o pedido preso num pagamento que já acabou", () => {
+  /*
+    O "Check status" do admin num cartão reprovado grava a sessão como erro na
+    hora, e a rodada de pendentes nunca mais passava por ela: o pedido ficava
+    "aguardando" pra sempre, com o estoque reservado (24/09).
+  */
+  const encerrada = ({
+    status = PaymentSessionStatus.ERROR as string,
+    pedido = { id: "order_1", status: "pending", display_id: 12 } as {
+      id: string
+      status: string
+      display_id: number
+    } | null,
+    outras = [] as { id: string; status: string }[],
+    pagamentos = [] as { id: string; canceled_at?: string | null }[],
+  } = {}): SessaoEncerrada => ({
+    id: "payses_1",
+    amount: 62.58,
+    currency_code: "brl",
+    status,
+    data: null,
+    created_at: NASCEU,
+    payment_collection: {
+      id: "pay_col_1",
+      order: pedido,
+      payment_sessions: [{ id: "payses_1", status }, ...outras],
+      payments: pagamentos,
+    },
+  })
+
+  it("pedido aberto, sessão recusada ou cancelada, e nada mais na coleção: preso", () => {
+    expect(pedidoPreso(encerrada())).toBe(true)
+    expect(pedidoPreso(encerrada({ status: PaymentSessionStatus.CANCELED }))).toBe(true)
+  })
+
+  it("pedido já cancelado ou concluído não é com esta rodada", () => {
+    expect(
+      pedidoPreso(encerrada({ pedido: { id: "order_1", status: "canceled", display_id: 12 } }))
+    ).toBe(false)
+    expect(
+      pedidoPreso(encerrada({ pedido: { id: "order_1", status: "completed", display_id: 12 } }))
+    ).toBe(false)
+  })
+
+  it("outra sessão ainda viva na mesma coleção: o pedido ainda pode ser pago", () => {
+    for (const status of [
+      PaymentSessionStatus.PENDING,
+      PaymentSessionStatus.PENDING_AUTHORIZATION,
+      PaymentSessionStatus.AUTHORIZED,
+      PaymentSessionStatus.CAPTURED,
+    ]) {
+      expect(pedidoPreso(encerrada({ outras: [{ id: "payses_2", status }] }))).toBe(false)
+    }
+  })
+
+  it("pagamento registrado de pé: o pedido pagou; o pagamento cancelado não conta", () => {
+    expect(pedidoPreso(encerrada({ pagamentos: [{ id: "pay_1", canceled_at: null }] }))).toBe(false)
+    expect(
+      pedidoPreso(encerrada({ pagamentos: [{ id: "pay_1", canceled_at: "2026-09-24T12:00:00Z" }] }))
+    ).toBe(true)
+  })
+
+  it("sessão sem pedido — a recusa do checkout, a incerta — não tem pedido pra soltar", () => {
+    expect(pedidoPreso(encerrada({ pedido: null }))).toBe(false)
+  })
+
+  it("sessão ainda pendente não é encerrada", () => {
+    expect(pedidoPreso(encerrada({ status: PaymentSessionStatus.PENDING_AUTHORIZATION }))).toBe(
+      false
+    )
   })
 })

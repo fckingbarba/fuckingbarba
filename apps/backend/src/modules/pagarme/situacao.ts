@@ -65,6 +65,16 @@ export type Situacao =
    * cobrou. A conciliação procura pelo código e estorna o que achar.
    */
   | "incerto"
+  /**
+   * O PEDIDO FOI CANCELADO AQUI, e a reserva do cartão ainda não foi desfeita
+   * lá (o `DELETE` respondeu 412, ou não respondeu). A sessão continua
+   * pendente, e a conciliação tenta de novo a cada rodada. Enquanto isso, o
+   * cartão NUNCA é cobrado: sem esta marca, a análise que aprovasse depois
+   * (o aviso `charge.antifraud_approved`, ou o "Check status" do admin) cobrava
+   * a compra de um pedido que não existe mais — e o dinheiro aparecia e
+   * sumia da fatura (ver `authorizePayment`).
+   */
+  | "cancelando"
 
 /** O que fica em `data.pagarme`. Sempre com todas as chaves — ver a caixa acima. */
 export type Estado = {
