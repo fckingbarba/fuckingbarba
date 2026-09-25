@@ -74,11 +74,26 @@ export async function mudarPdp(
   return { ...r, lojaAvisada: aviso.avisou }
 }
 
-/** Subtítulo, categoria e se está no site — campos do produto, não da página. */
+/** Os campos do produto que o painel muda (o `metadata` é juntado, não trocado). */
+type MudancaNoProduto = {
+  title?: string
+  subtitle?: string | null
+  category_ids?: string[]
+  status?: ProductStatus
+  metadata?: Record<string, unknown>
+}
+
+/**
+ * Nome, subtítulo, categoria e se está no site — campos do produto, não da
+ * página. A mudança pode depender do produto de agora (o nome depende do
+ * nome e das marcas de hoje): aí ela é uma função, chamada dentro da trava.
+ */
 export async function mudarProduto(
   container: MedusaContainer,
   id: string,
-  update: { subtitle?: string | null; category_ids?: string[]; status?: ProductStatus }
+  update:
+    | MudancaNoProduto
+    | ((atual: { titulo: string; metadata: Record<string, unknown> }) => MudancaNoProduto)
 ): Promise<Feito | Recusa> {
   const logger = container.resolve(ContainerRegistrationKeys.LOGGER)
   const r = await container.resolve(Modules.LOCKING).execute(
@@ -86,10 +101,14 @@ export async function mudarProduto(
     async (): Promise<{ ok: true; handle: string } | Recusa> => {
       const [produto] = await container
         .resolve(Modules.PRODUCT)
-        .listProducts({ id }, { select: ["id", "handle"], take: 1 })
+        .listProducts({ id }, { select: ["id", "handle", "title", "metadata"], take: 1 })
       if (!produto) return { ok: false, motivo: "nao_encontrado" }
+      const mudanca =
+        typeof update === "function"
+          ? update({ titulo: produto.title ?? "", metadata: produto.metadata ?? {} })
+          : update
       await updateProductsWorkflow(container).run({
-        input: { selector: { id }, update },
+        input: { selector: { id }, update: mudanca },
       })
       return { ok: true, handle: produto.handle }
     },
