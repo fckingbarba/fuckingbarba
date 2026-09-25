@@ -44,6 +44,40 @@ describe("o vídeo da história da marca", () => {
   })
 })
 
+describe("as integrações (vão pra dentro de um <script>)", () => {
+  const integracoes = (v: unknown) =>
+    lerConfiguracoes({ [CHAVE_NO_METADATA]: { integracoes: v } }).integracoes
+  const boas = {
+    ga4: "G-CS3QPK0QHL",
+    googleAds: "AW-123456789",
+    googleAdsCompra: "AbC-D_efG-h12",
+    metaPixel: "123456789012345",
+    clarity: "abcde12345",
+    tiktok: "C4ABCDEFGH1234567890",
+  }
+
+  it("cada código no formato da plataforma passa como veio, e é público", () => {
+    expect(integracoes(boas)).toEqual(boas)
+    expect(
+      soOPublico(lerConfiguracoes({ [CHAVE_NO_METADATA]: { integracoes: boas } }))
+    ).toMatchObject({ integracoes: boas })
+  })
+
+  it("fora do formato vira nulo: nada de aspas, espaço ou sinal dentro da tag", () => {
+    const ruins = {
+      ga4: "G-ABC'); alert(1); //",
+      googleAds: "AW-12345 ",
+      googleAdsCompra: "rótulo com espaço",
+      metaPixel: "12345",
+      clarity: "</script><script>",
+      tiktok: "c4abcdefgh1234567890",
+    }
+    expect(integracoes(ruins)).toEqual(PADRAO.integracoes)
+    expect(integracoes("G-CS3QPK0QHL")).toEqual(PADRAO.integracoes)
+    expect(lerConfiguracoes({}).integracoes).toEqual(PADRAO.integracoes)
+  })
+})
+
 describe("o frete grátis na mesma entrega (24/09)", () => {
   const gratis: PoliticaDeFrete = {
     modo: "gratis",
