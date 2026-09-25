@@ -14,16 +14,20 @@
  * aviso do Pix pago), PORTA_FALSA e PORTA_PAGARME_FALSO (as da Frenet e do
  * Pagar.me falsos, se o backend apontar pra outras).
  *
- * Faz sete pedidos de verdade, um em cada canto da vida deles — Pix
- * esperando, Pix vencido, cartão em análise, pago, enviado, entregue e
- * cancelado —, com e-mails que nunca se repetem, e compara o que a tela
- * mostra com o que a API do painel responde. Os pedidos ficam no banco
- * local (como os do `conferir-conta.mjs`); os membros da rodada saem da
- * equipe no fim.
+ * Faz oito pedidos de verdade, um em cada canto da vida deles — Pix
+ * esperando, Pix vencido, cartão em análise, pago, enviado, entregue,
+ * cancelado e estornado —, com e-mails que nunca se repetem, e compara o que
+ * a tela mostra com o que a API do painel responde. O pago e o estornado
+ * levam a oferta do checkout (um desconto, como o do cupom): o total do
+ * painel é conferido contra o que o Pagar.me cobrou. Os pedidos
+ * ficam no banco local (como os do `conferir-conta.mjs`); os membros da
+ * rodada saem da equipe no fim.
  *
  * ┌─ O QUE ESTE ARQUIVO EXISTE PRA TRAVAR ─────────────────────────────────┐
  * │ • um pedido na situação errada (o Pix vencido como esperando, o pago   │
  * │   que não aparece pra despachar, o cartão em análise como pago);       │
+ * │ • o total que não é o cobrado (a conta de antes do cupom ou da         │
+ * │   oferta; o zero do pedido estornado);                                 │
  * │ • a tela dizendo uma coisa e a API outra — selo, caminho, total;       │
  * │ • as fitas de filtro contando errado, ou o filtro deixando passar;     │
  * │ • o CPF inteiro chegando pra operação (na tela OU na resposta);        │
@@ -154,6 +158,7 @@ try {
     })
   ).json()
   const [a, b, c] = products.map((p) => p.handle)
+  const oferta = await fabrica.codigoDaOferta(a)
 
   const pedidos = {}
   pedidos.pix = await fabrica.pedidoPix(email("pix"), [[a, 1]], { documento: CPF })
@@ -162,7 +167,10 @@ try {
     documento: CPF,
   })
   pedidos.analise = await fabrica.pedidoCartao(email("analise"), [[c, 1]])
-  pedidos.pago = await fabrica.pedidoPix(email("pago"), [[a, 2]], { documento: CPF })
+  pedidos.pago = await fabrica.pedidoPix(email("pago"), [[a, 2]], {
+    documento: CPF,
+    cupom: oferta,
+  })
   await fabrica.pagar(pedidos.pago)
   pedidos.enviado = await fabrica.pedidoPix(
     email("enviado"),
@@ -182,9 +190,16 @@ try {
   )
   pedidos.cancelado = await fabrica.pedidoPix(email("cancelado"), [[a, 1]], { documento: CPF })
   await fabrica.cancelar(pedidos.cancelado)
+  // Pago e cancelado: o Medusa estorna e grava a devolução como crédito — o `total` dele vira zero.
+  pedidos.estornado = await fabrica.pedidoPix(email("estornado"), [[a, 1]], {
+    documento: CPF,
+    cupom: oferta,
+  })
+  await fabrica.pagar(pedidos.estornado)
+  await fabrica.cancelar(pedidos.estornado)
   ok(
     Object.values(pedidos).every((p) => p.id),
-    "sete pedidos feitos pela API da loja"
+    "oito pedidos feitos pela API da loja"
   )
 
   titulo("Quem entra")
@@ -226,10 +241,27 @@ try {
     enviado: "enviado",
     entregue: "entregue",
     cancelado: "cancelado",
+    estornado: "cancelado",
   }
   for (const [quem, situacao] of Object.entries(esperado))
     ok(linha(quem)?.situacao === situacao, `${quem}: ${situacao}`, JSON.stringify(linha(quem)))
   ok(linha("analise")?.forma === "cartao", "o cartão aparece como cartão")
+
+  titulo("O total é o cobrado (API)")
+  for (const quem of ["pago", "estornado"]) {
+    const cobrado = await fabrica.cobrado(pedidos[quem])
+    const d = (
+      await medusa(`/dashboard/pedidos/${pedidos[quem].id}`, { metodo: "GET", token: tokenDoDono })
+    ).corpo.pedido
+    ok(
+      (d?.totais?.cupons ?? []).some((c) => c.codigo === oferta) &&
+        linha(quem)?.total === cobrado &&
+        d?.total === cobrado &&
+        d?.totais?.total === cobrado,
+      `${quem}: com a oferta descontada, a lista e o pedido mostram o cobrado (${reais(cobrado)})`,
+      JSON.stringify({ lista: linha(quem)?.total, pedido: d?.totais, cobrado })
+    )
+  }
 
   titulo("A lista, na tela do dono")
   {
@@ -282,7 +314,7 @@ try {
   }
 
   titulo("O pedido inteiro, na tela do dono")
-  for (const quem of ["pix", "analise", "pago", "enviado", "cancelado"]) {
+  for (const quem of ["pix", "analise", "pago", "enviado", "cancelado", "estornado"]) {
     const { pagina } = dono
     const api = await medusa(`/dashboard/pedidos/${pedidos[quem].id}`, {
       metodo: "GET",

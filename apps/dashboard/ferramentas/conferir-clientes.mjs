@@ -10,14 +10,16 @@
  * cliente), MEDUSA_WEBHOOK_SEGREDO, PORTA_FALSA e PORTA_PAGARME_FALSO.
  *
  * Monta quatro pessoas com e-mails que nunca se repetem: a Ana (dois
- * pedidos, um pago, com CPF; não aceita ofertas), o Bruno (um pedido pago e
- * a newsletter do rodapé), o Caio (um Pix esperando e a caixa de ofertas da
- * conta, por e-mail e WhatsApp) e o Leo (só a newsletter, sem pedido). Os
- * pedidos ficam no banco local; os membros da rodada saem da equipe e os
- * e-mails da rodada saem da newsletter no fim.
+ * pedidos, um pago com a oferta do checkout — um desconto —, com CPF; não
+ * aceita ofertas), o Bruno (um pedido pago e a newsletter do rodapé), o Caio
+ * (um Pix esperando e a caixa de ofertas da conta, por e-mail e WhatsApp) e
+ * o Leo (só a newsletter, sem pedido). Os pedidos ficam no banco local; os
+ * membros da rodada saem da equipe e os e-mails da rodada saem da newsletter
+ * no fim.
  *
  * ┌─ O QUE ESTE ARQUIVO EXISTE PRA TRAVAR ─────────────────────────────────┐
- * │ • o gasto contando pedido não pago; a lista na ordem errada;           │
+ * │ • o gasto contando pedido não pago, ou a conta de antes do desconto    │
+ * │   (o cobrado é o que vale); a lista na ordem errada;                   │
  * │ • o CPF inteiro chegando pra operação (na tela OU na resposta);        │
  * │ • o marketing vendo quem não aceitou ofertas, a cidade, o celular, o   │
  * │   CPF, o endereço ou os pedidos — ou abrindo a ficha pelo endereço;    │
@@ -143,7 +145,10 @@ try {
     })
   ).json()
   const [a, b] = products.map((p) => p.handle)
-  const anaPaga = await fabrica.pedidoPix(ANA, [[a, 1]], { documento: CPF })
+  const anaPaga = await fabrica.pedidoPix(ANA, [[a, 1]], {
+    documento: CPF,
+    cupom: await fabrica.codigoDaOferta(a),
+  })
   await fabrica.pagar(anaPaga)
   const anaPix = await fabrica.pedidoPix(ANA, [[b, 1]], { documento: CPF })
   const brunoPago = await fabrica.pedidoPix(BRUNO, [[a, 2]])
@@ -166,8 +171,8 @@ try {
     corpo: { metadata: { ofertas: { email: agora, whatsapp: agora } } },
   })
   ok(marcou.status === 200, "o Caio com a caixa de ofertas da conta (e-mail e WhatsApp)")
-  const pedidoDaAna = await adm(`/admin/orders/${anaPaga.id}?fields=total`)
-  const gastoDaAna = Number(pedidoDaAna.corpo.order?.total ?? 0)
+  // O que o Pagar.me cobrou, com a oferta descontada — não a conta de antes dela.
+  const gastoDaAna = await fabrica.cobrado(anaPaga)
 
   titulo("Quem entra")
   const dono = await novaAba()
@@ -214,7 +219,7 @@ try {
       Math.abs(ana.gastou - gastoDaAna) < 0.01 &&
       ana.cidade === "Blumenau/SC" &&
       ana.ofertas === null,
-    "a Ana: dois pedidos, o gasto só do pago, a cidade, e não aceita ofertas",
+    "a Ana: dois pedidos, o gasto só do pago (o cobrado, com a oferta descontada), a cidade, e não aceita ofertas",
     JSON.stringify(ana)
   )
   ok(
