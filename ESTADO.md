@@ -250,9 +250,12 @@ plataforma nova.
     como palpite** (o peso das variantes e os produtos empilhados, nunca menor que 16×11×2 cm) —
     corrigir no painel se a caixa de verdade for outra;
   - se a Frenet recusar um pedido (um endereço que ela não aceita, por exemplo), o log diz
-    `[envio] o #N não entrou no painel da Frenet, e não vou tentar de novo` — esse vai à mão. Frenet
-    fora do ar não é recusa: a varredura tenta de novo sozinha. Pra rodar a varredura na hora:
-    `POST /admin/envios/registrar`;
+    `[envio] o #N não entrou no painel da Frenet, e não vou tentar de novo`, e o pedido no painel
+    mostra o motivo, com o botão **"Mandar pra Frenet de novo"** (desde 25/09, entrega 0095) — ou
+    vai à mão. Frenet fora do ar não é recusa: a varredura tenta de novo sozinha. Pra rodar a
+    varredura na hora: `POST /admin/envios/registrar`;
+  - **o primeiro foi o #19 (25/09), e a Frenet recusou por um erro NOSSO**: a loja mandava a caixa
+    (`Volumes`) como lista, e a documentação dela pede um objeto. Consertado na entrega 0095;
   - **não criar envio no admin** pros pedidos que estão no painel: pedido com envio criado à mão
     fica fora do registro (é o sinal de que alguém já está cuidando dele).
 - [ ] **Os pedidos pagos antes de o registro ligar** seguem como antes: depois de gerar a etiqueta
@@ -1674,6 +1677,32 @@ Depois do deploy — **o que você faz:**
 
 Chave nunca passa pela conversa. Enquanto o domínio for da Nuvemshop, quase ninguém visita a loja
 nova: os números de verdade começam depois da virada.
+
+**O pedido #19 que a Frenet recusou — consertado em 25/09 (entrega 0095).** O #19 foi o primeiro
+pedido a ir sozinho pro painel da Frenet, e voltou recusado "sem motivo na resposta".
+
+- **O motivo era nosso:** a loja mandava a caixa do pedido (`Volumes`) como uma lista com uma caixa
+  dentro, e a documentação da Frenet pede a caixa sozinha. A Frenet recusou antes de ler o pedido,
+  num formato de erro que a loja não sabia ler — por isso "sem motivo".
+- **Consertado:** a caixa vai como a documentação pede. E a loja agora lê o motivo em qualquer
+  formato que a Frenet mandar: se ela recusar outro pedido, a faixa diz o campo.
+- **E a resposta de sucesso** passou a ser lida nos dois formatos da documentação. Lendo só um, um
+  pedido que entrou pareceria não ter entrado, e a loja mandaria de novo — o mesmo pedido duas
+  vezes no painel da Frenet.
+- **Botão novo:** no pedido que a Frenet recusou, a faixa vermelha tem **"Mandar pra Frenet de
+  novo"** (dono e operação). Fica no histórico do pedido, com o nome de quem apertou.
+- Se você já fez a etiqueta de um pedido à mão no painel da Frenet, **não aperte** o botão nele: o
+  pedido apareceria duas vezes lá.
+
+Conferido pelo `conferir-frenet.mjs` (9 checagens, novo: a recusa com o campo, o botão, o
+histórico) e pelo `conferir-envio.mjs` da loja com o registro ligado (82), com a Frenet falsa agora
+seguindo o formato da documentação — com o código de antes, ela recusa como a de verdade recusou.
+
+Depois do deploy — **o que você faz:**
+
+- [ ] Painel → Pedidos → **#19** → **"Mandar pra Frenet de novo"** — só se você ainda não fez a
+      etiqueta dele à mão. Deu "entrou", é só gerar a etiqueta no painel da Frenet. Se ela recusar
+      de novo, o aviso diz o motivo: me manda um print.
 
 ## Como seguir no Claude Code
 

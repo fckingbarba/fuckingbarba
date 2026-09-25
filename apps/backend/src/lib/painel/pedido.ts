@@ -8,6 +8,7 @@ import {
   acaoDaNota,
   estornoPraTentar,
   eventoDoFeito,
+  motivoDaFrenet,
   notaSaiEm,
   type AcaoDaNota,
   type FeitoNoPedido,
@@ -441,7 +442,7 @@ export type Faixa = {
   titulo: string
   texto: string
   /** O botão que resolve, dentro da faixa — só vem quando o papel pode apertar. */
-  botao?: "nota" | "estorno"
+  botao?: "nota" | "estorno" | "frenet"
   /** A linha pequena de baixo: pra quem vê a faixa e não aperta, de quem é. */
   rodape?: string
 }
@@ -911,7 +912,10 @@ function faixasDo(
     faixas.push({
       nivel: "grave",
       titulo: "A Frenet recusou o pedido",
-      texto: `${parceiro.erro ?? "Sem detalhe."} Faça a etiqueta à mão no painel da Frenet.`,
+      texto:
+        `${emFrase(motivoDaFrenet(parceiro.erro ?? "Sem detalhe"))} Corrigido o que ela apontou, mande de novo; ` +
+        "ou faça a etiqueta à mão no painel da Frenet — e aí não mande de novo, senão o pedido aparece duas vezes lá.",
+      ...(permissoes.frenet ? { botao: "frenet" as const } : {}),
     })
   }
   const ruim = envios.find(
@@ -963,6 +967,8 @@ export type Permissoes = {
   nota?: boolean
   /** "Tentar o estorno de novo" (só o dono). */
   estorno?: boolean
+  /** "Mandar pra Frenet de novo" (quem abre os pedidos). */
+  frenet?: boolean
 }
 
 export function detalheDo(

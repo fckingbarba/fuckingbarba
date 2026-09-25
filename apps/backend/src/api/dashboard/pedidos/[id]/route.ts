@@ -47,6 +47,7 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
         verCpf: papel === "dono",
         nota: podeAbrir(papel, "pedidos"),
         estorno: podeAbrir(papel, "estornos"),
+        frenet: podeAbrir(papel, "pedidos"),
       },
       feitos
     ),

@@ -3,19 +3,26 @@
 import { useTransition } from "react"
 import { useAvisar } from "@/components/avisos"
 import { Icone } from "@/components/icones"
-import { emitirNota, tentarEstorno } from "@/lib/acoes/pedidos"
-import type { AcaoDoPedido } from "@/lib/pedidos"
+import { emitirNota, mandarPraFrenet, tentarEstorno } from "@/lib/acoes/pedidos"
+import type { AcaoDoPedido, Frase } from "@/lib/pedidos"
 
 const ROTULO: Record<AcaoDoPedido, { normal: string; fazendo: string }> = {
   nota: { normal: "Emitir a nota agora", fazendo: "Emitindo a nota…" },
   estorno: { normal: "Tentar o estorno de novo", fazendo: "Pedindo ao Pagar.me…" },
+  frenet: { normal: "Mandar pra Frenet de novo", fazendo: "Mandando pra Frenet…" },
+}
+
+const FAZER: Record<AcaoDoPedido, (id: string) => Promise<Frase>> = {
+  nota: emitirNota,
+  estorno: tentarEstorno,
+  frenet: mandarPraFrenet,
 }
 
 /**
- * UM BOTÃO DO PEDIDO — a nota ou o estorno. Só aparece quando o backend
+ * UM BOTÃO DO PEDIDO — a nota, o estorno ou a Frenet. Só aparece quando o backend
  * disse que o papel pode e o pedido está no estado certo (`acoes` e o
  * `botao` da faixa); ainda assim, quem decide de novo é a rota, na hora do
- * clique. Enquanto a loja fala com o Bling ou o Pagar.me, ele fica
+ * clique. Enquanto a loja fala com o Bling, o Pagar.me ou a Frenet, ele fica
  * apertado — um clique, uma tentativa.
  */
 export function BotaoDoPedido({
@@ -41,7 +48,7 @@ export function BotaoDoPedido({
       data-acao={acao}
       onClick={() =>
         comecar(async () => {
-          avisar(await (acao === "nota" ? emitirNota(id) : tentarEstorno(id)))
+          avisar(await FAZER[acao](id))
         })
       }
     >

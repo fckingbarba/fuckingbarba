@@ -683,11 +683,15 @@ titulo("O pedido pago vai sozinho pro painel da Frenet (o token de parceiro)")
       "os dois itens, com a quantidade e a linha do pedido",
       JSON.stringify(itens.map((i) => [i.ProductName, i.Quantity]))
     )
-    const [caixa] = envio.Volumes ?? []
+    const caixa = envio.Volumes
     ok(
-      caixa?.OrderItemsId?.length === 2 && caixa.Length >= 16 && caixa.DeclaredValue > 0,
-      "uma caixa, nunca menor que o mínimo dos Correios, com o valor declarado",
-      JSON.stringify(caixa)
+      !Array.isArray(caixa) &&
+        caixa?.OrderItemsId?.length === 2 &&
+        caixa.Length >= 16 &&
+        caixa.DeclaredValue > 0 &&
+        frenet.recusados.length === 0,
+      "uma caixa (um objeto, como a Frenet pede — a lista era recusada), nunca menor que o mínimo dos Correios, com o valor declarado",
+      JSON.stringify({ caixa, recusados: frenet.recusados })
     )
     ok(
       ["04510", "LOG01"].includes(envio.Quotation?.ShippingServiceCode),

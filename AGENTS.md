@@ -426,6 +426,23 @@ mostra nem pergunta por ele. Cada pedido leva o `TrackingNotificationUrl` dele, 
 daquele pedido (`lerAviso`). A chave da porta nunca vai em URL. No conferidor de envio, a seção 7c
 roda das duas formas (ver o cabeçalho dele).
 
+O formato é o da documentação deles ("Inserir pedidos na Frenet", `docs.frenet.com.br/reference/
+createorderasync`): o lote é uma lista de `ShipmentBase`, cada um com `Order` e **`Volumes` — um
+OBJETO, não lista**. A lista foi o #19 (25/09), o primeiro pedido de verdade: a validação do ASP.NET
+deles recusou com 400 no formato `{title, errors}`, que a loja não lia — a faixa ficou "sem
+motivo na resposta". Agora `motivoDoErro` lê as duas formas (`Message`/`Details` e
+`title`/`errors`) e, fora delas, o começo da resposta crua; e a resposta do lote é lida em qualquer
+caixa (`campo`): a
+documentação mostra `statusBatch`/`items`/`shipmentId`, e lendo só `StatusBatch` o pedido que entrou
+pareceria não ter entrado — e iria de novo. A Frenet falsa segue o mesmo esquema (e responde o 400
+da validação, `roteiroDosPedidos = "validacao"`). A recusa não se refaz sozinha: o botão
+**"Mandar pra Frenet de novo"** da faixa do pedido (`POST /dashboard/pedidos/:id/frenet`, dono e
+operação, só com `frenetPraTentar`) chama o `registrarNoParceiro` com `deNovo` — que passa por cima
+da recusa e da espera, e só delas — e fica no registro da equipe (`mandou-pra-frenet`). O conferidor
+é o `apps/dashboard/ferramentas/conferir-frenet.mjs`, com o Medusa de registro ligado (o
+`FRENET_PARCEIRO_TOKEN`, o `FRENET_WHITELABEL_URL` na falsa) e SEM as variáveis do Bling (senão o
+pedido espera a nota) — fora da rodada normal, como a seção 7c ligada.
+
 **O ERP** (hoje, o Bling) mora em duas pastas, no mesmo molde dos envios. `src/lib/erp/` é a
 regra da loja, na língua dela: o contrato (`contrato.ts`: `lerSaldos`, `emitirNota`,
 `consultarNota`, `desfazerNota`, o OAuth), a conexão (`conexao.ts`: tokens cifrados com AES-GCM por

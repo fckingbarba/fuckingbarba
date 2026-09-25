@@ -121,10 +121,27 @@ describe("quais pedidos vão pro painel", () => {
     })
   })
 
-  it("recusado pelo parceiro, não insiste", () => {
-    expect(decidir({ metadata: registro({ definitivo: true, erro: "CEP" }) })).toMatchObject({
+  it("recusado pelo parceiro, não insiste — só o botão 'Mandar pra Frenet de novo' passa", () => {
+    const recusado = { ...PEDIDO, metadata: registro({ definitivo: true, erro: "CEP" }) }
+    expect(decidirRegistro(recusado, { desde: DESDE, agora: AGORA })).toMatchObject({
       motivo: "recusado",
     })
+    expect(decidirRegistro(recusado, { desde: DESDE, agora: AGORA, deNovo: true })).toEqual({
+      registrar: true,
+    })
+    // O de novo não passa por cima do resto: cancelado, com envio no admin, esperando a nota.
+    expect(
+      decidirRegistro(
+        { ...recusado, fulfillments: [{ canceled_at: null }] },
+        { desde: DESDE, agora: AGORA, deNovo: true }
+      )
+    ).toMatchObject({ motivo: "ja-tem-envio" })
+    expect(
+      decidirRegistro(
+        { ...recusado, status: "canceled" },
+        { desde: DESDE, agora: AGORA, deNovo: true }
+      )
+    ).toMatchObject({ motivo: "cancelado" })
   })
 
   it("depois de uma falha, espera cada vez mais antes de tentar de novo", () => {

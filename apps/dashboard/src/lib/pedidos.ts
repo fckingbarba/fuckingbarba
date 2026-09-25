@@ -116,7 +116,7 @@ export type DetalheDoPedido = {
 }
 
 /** As ações do pedido no painel: "Emitir a nota agora" e "Tentar o estorno de novo". */
-export type AcaoDoPedido = "nota" | "estorno"
+export type AcaoDoPedido = "nota" | "estorno" | "frenet"
 
 /** O que a ação devolve pra tela: deu (ou não), e a frase. */
 export type Frase = { ok: boolean; texto: string }

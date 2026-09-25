@@ -226,7 +226,8 @@ export function decidirRegistro(
     desde,
     agora,
     nota = { esperar: false, nota: null },
-  }: { desde: Date; agora: Date; nota?: NotaParaAEtiqueta }
+    deNovo = false,
+  }: { desde: Date; agora: Date; nota?: NotaParaAEtiqueta; deNovo?: boolean }
 ): DecisaoDoRegistro {
   const r = lerRegistroNoPedido(o.metadata)
   if (r?.entrou) return { registrar: false, motivo: "ja-entrou" }
@@ -238,8 +239,9 @@ export function decidirRegistro(
   if ((o.fulfillments ?? []).some((f) => f && !f.canceled_at)) {
     return { registrar: false, motivo: "ja-tem-envio" }
   }
-  if (r?.definitivo) return { registrar: false, motivo: "recusado" }
-  if (r && emEspera(r, agora)) return { registrar: false, motivo: "esperando" }
+  // "Mandar de novo" (o botão do painel): passa por cima da recusa e da espera.
+  if (r?.definitivo && !deNovo) return { registrar: false, motivo: "recusado" }
+  if (r && !deNovo && emEspera(r, agora)) return { registrar: false, motivo: "esperando" }
   // Com o ERP emitindo, a etiqueta espera a nota: ela vai junto pro painel.
   if (nota.esperar) return { registrar: false, motivo: "esperando-nota" }
   return { registrar: true }
@@ -399,7 +401,8 @@ export async function registrarNoParceiro(
     agora = new Date(),
     quieto = false,
     desde,
-  }: { agora?: Date; quieto?: boolean; desde?: Date } = {}
+    deNovo = false,
+  }: { agora?: Date; quieto?: boolean; desde?: Date; deNovo?: boolean } = {}
 ): Promise<ResultadoDoRegistro> {
   const parceiro = parceiroQueRegistra()
   if (!parceiro?.registrarPedido) return { resultado: "nada", motivo: "desligado" }
@@ -413,7 +416,7 @@ export async function registrarNoParceiro(
       const pedido = await lerPedido(container, pedidoId)
       if (!pedido) return { resultado: "nada", motivo: "pedido não existe" }
       const nota = await notaParaAEtiqueta(container, pedidoId, capturasDo(pedido))
-      const decisao = decidirRegistro(pedido, { desde: valeDesde, agora, nota })
+      const decisao = decidirRegistro(pedido, { desde: valeDesde, agora, nota, deNovo })
       if (!decisao.registrar) return { resultado: "nada", motivo: decisao.motivo }
 
       const numero = Number(pedido.display_id ?? 0)

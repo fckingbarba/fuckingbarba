@@ -6,11 +6,11 @@ import { medusa } from "@/lib/medusa"
 import { ehIdDePedido, type AcaoDoPedido, type Frase } from "@/lib/pedidos"
 
 /**
- * AS AÇÕES DO PEDIDO — "Emitir a nota agora" (e "Tentar a nota de novo") e
- * "Tentar o estorno de novo".
+ * AS AÇÕES DO PEDIDO — "Emitir a nota agora" (e "Tentar a nota de novo"),
+ * "Tentar o estorno de novo" e "Mandar pra Frenet de novo".
  *
- * Quem decide se pode é o Medusa (`POST /dashboard/pedidos/:id/nota` e
- * `/estorno`): o papel, e se o pedido ainda está no estado do botão — a
+ * Quem decide se pode é o Medusa (`POST /dashboard/pedidos/:id/nota`,
+ * `/estorno` e `/frenet`): o papel, e se o pedido ainda está no estado do botão — a
  * tela pode estar aberta há uma hora. Quem faz, também: são as funções que
  * o admin já usava. A frase de cada resultado vem pronta de lá; aqui moram
  * só as das recusas.
@@ -25,7 +25,7 @@ async function fazer(id: string, acao: AcaoDoPedido): Promise<Frase> {
   // Só um id de pedido vai pro endereço — nada de barra ou de caminho no meio.
   if (!ehIdDePedido(id)) return { ok: false, texto: "Não achei esse pedido. Recarregue a página." }
 
-  // O Bling e o Pagar.me podem demorar: a ação espera mais que uma leitura.
+  // O Bling, o Pagar.me e a Frenet podem demorar: a ação espera mais que uma leitura.
   const r = await medusa(`/dashboard/pedidos/${id}/${acao}`, {
     token: "sessao",
     tempoLimite: 60_000,
@@ -62,4 +62,8 @@ export async function emitirNota(id: string): Promise<Frase> {
 
 export async function tentarEstorno(id: string): Promise<Frase> {
   return fazer(id, "estorno")
+}
+
+export async function mandarPraFrenet(id: string): Promise<Frase> {
+  return fazer(id, "frenet")
 }
