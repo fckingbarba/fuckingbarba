@@ -1,10 +1,10 @@
 import type { Route } from "next"
 import Link from "next/link"
 import { Icone } from "@/components/icones"
+import { PrecoNaLista } from "@/components/produto/preco-na-lista"
 import {
   FILTROS_DE_PRODUTO,
   NOME_DA_SITUACAO,
-  reais,
   type FiltroDeProduto,
   type LinhaDoProduto,
   type ListaDeProdutos,
@@ -12,7 +12,8 @@ import {
 
 /**
  * AS PEÇAS DA LISTA DE PRODUTOS — o selo, as fitas de filtro e a lista
- * (tabela no computador, cartões no celular), como no protótipo.
+ * (tabela no computador, cartões no celular), como no protótipo. O preço,
+ * com a promoção, se muda na própria lista (`PrecoNaLista`).
  */
 
 export function SeloDoProduto({ p }: { p: Pick<LinhaDoProduto, "situacao"> }) {
@@ -70,7 +71,13 @@ export function FiltrosDosProdutos({ lista }: { lista: ListaDeProdutos }) {
   )
 }
 
-export function ListaDosProdutos({ produtos }: { produtos: LinhaDoProduto[] }) {
+export function ListaDosProdutos({
+  produtos,
+  podeEditar,
+}: {
+  produtos: LinhaDoProduto[]
+  podeEditar: boolean
+}) {
   if (!produtos.length)
     return (
       <div className="vazio">
@@ -96,7 +103,7 @@ export function ListaDosProdutos({ produtos }: { produtos: LinhaDoProduto[] }) {
           </thead>
           <tbody>
             {produtos.map((p) => (
-              <tr key={p.id}>
+              <tr key={p.id} data-produto={p.id}>
                 <td>
                   <span className="com-foto">
                     <FotoDoProduto foto={p.foto} />
@@ -109,7 +116,9 @@ export function ListaDosProdutos({ produtos }: { produtos: LinhaDoProduto[] }) {
                   </span>
                 </td>
                 <td>{p.categoria ?? <span className="suave">sem categoria</span>}</td>
-                <td className="num">{p.preco ? reais(p.preco) : "—"}</td>
+                <td className="num">
+                  <PrecoNaLista p={p} podeEditar={podeEditar} />
+                </td>
                 <td className="num">
                   <Estoque n={p.estoque} />
                 </td>
@@ -122,22 +131,24 @@ export function ListaDosProdutos({ produtos }: { produtos: LinhaDoProduto[] }) {
         </table>
       </div>
       <div className="cartoes">
+        {/* O cartão não é mais um link inteiro: dentro dele mora o campo da
+            promoção. O link é a parte de cima (a foto e o nome). */}
         {produtos.map((p) => (
-          <Link key={p.id} className="cartao" href={`/produtos/${p.id}` as Route}>
-            <span className="com-foto">
+          <div key={p.id} className="cartao cartao--produto" data-produto={p.id}>
+            <Link className="com-foto cartao__ir" href={`/produtos/${p.id}` as Route}>
               <FotoDoProduto foto={p.foto} />
               <span className="cartao__miolo">
                 <span className="cartao__titulo">{p.nome}</span>
                 <span className="cartao__linha">
                   <span className="cartao__txt">
-                    {p.preco ? reais(p.preco) : "sem preço"}
-                    {p.estoque !== null ? ` · estoque ${p.estoque}` : ""}
+                    {p.estoque !== null ? `Estoque ${p.estoque}` : "Sem controle de estoque"}
                   </span>
                   <SeloDoProduto p={p} />
                 </span>
               </span>
-            </span>
-          </Link>
+            </Link>
+            <PrecoNaLista p={p} podeEditar={podeEditar} />
+          </div>
         ))}
       </div>
     </>
