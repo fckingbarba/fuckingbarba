@@ -7,7 +7,10 @@ import {
 } from "@medusajs/framework/utils"
 import type { EntityManager } from "@medusajs/framework/mikro-orm/knex"
 import { ligarSinais, type Sinal as SinalRecebido } from "../../lib/observabilidade/sinal"
+import { chaveDaOcorrencia, type EventoLido } from "../../lib/observabilidade/telemetria"
 import { chaveDoDia } from "../../lib/painel/formato"
+import { Medida } from "./models/medida"
+import { Ocorrencia } from "./models/ocorrencia"
 import { Problema } from "./models/problema"
 import { Rotina } from "./models/rotina"
 import { Sinal } from "./models/sinal"
@@ -29,6 +32,8 @@ const Tabelas = MedusaService({
   Rotinas: Rotina,
   Problemas: Problema,
   SinaisDasIntegracoes: Sinal,
+  Medidas: Medida,
+  Ocorrencias: Ocorrencia,
 })
 
 export default class ObservabilidadeService extends Tabelas {
@@ -122,7 +127,99 @@ export default class ObservabilidadeService extends Tabelas {
   }
 
   /**
-   * O que não precisa ficar: os sinais de mais de 60 dias e os problemas
+   * O que o navegador mandou (`POST /store/telemetria`): as medidas entram
+   * uma por linha; a página que não existe e o erro somam no dia — na conta
+   * do banco, como o sinal.
+   */
+  @InjectManager()
+  async anotarTelemetria(eventos: EventoLido[], @MedusaContext() ctx: Contexto = {}) {
+    const medidas = eventos.flatMap((e) =>
+      e.tipo === "vital"
+        ? [{ metrica: e.metrica, valor: e.valor, aparelho: e.aparelho, pagina: e.pagina }]
+        : []
+    )
+    if (medidas.length) await this.createMedidas(medidas, ctx)
+
+    const agora = new Date()
+    const somadas = new Map<string, { e: EventoLido; vezes: number; internas: number }>()
+    for (const e of eventos) {
+      if (e.tipo === "vital") continue
+      const chave = `${e.tipo}|${chaveDaOcorrencia(e)}`
+      const atual = somadas.get(chave) ?? { e, vezes: 0, internas: 0 }
+      atual.vezes++
+      if (e.tipo === "404" && e.interna) atual.internas++
+      atual.e = e
+      somadas.set(chave, atual)
+    }
+    for (const { e, vezes, internas } of somadas.values()) {
+      if (e.tipo === "vital") continue
+      await ctx.manager!.execute(
+        `insert into obs_ocorrencia
+           (id, tipo, chave, dia, pagina, detalhe, vezes, internas, primeira_em, ultima_em,
+            created_at, updated_at)
+         values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now(), now())
+         on conflict (tipo, chave, dia) where deleted_at is null do update set
+           vezes = obs_ocorrencia.vezes + excluded.vezes,
+           internas = obs_ocorrencia.internas + excluded.internas,
+           detalhe = coalesce(excluded.detalhe, obs_ocorrencia.detalhe),
+           ultima_em = excluded.ultima_em,
+           updated_at = now()`,
+        [
+          generateEntityId(undefined, "oco"),
+          e.tipo,
+          chaveDaOcorrencia(e),
+          chaveDoDia(agora),
+          e.pagina,
+          e.tipo === "404" ? e.origem : e.mensagem,
+          vezes,
+          internas,
+          agora,
+          agora,
+        ]
+      )
+    }
+  }
+
+  /**
+   * A velocidade de verdade desde `desde`: o p75 de cada medida (como o
+   * Google conta — 3 de cada 4 visitas foram pelo menos tão rápidas), por
+   * aparelho, e a página mais lenta pra carregar no celular (com 5 visitas
+   * medidas, no mínimo).
+   */
+  @InjectManager()
+  async velocidade(desde: Date, @MedusaContext() ctx: Contexto = {}) {
+    const medidas = (await ctx.manager!.execute(
+      `select metrica, aparelho,
+              percentile_cont(0.75) within group (order by valor) as p75,
+              count(*)::int as n
+         from obs_medida
+        where created_at >= ? and deleted_at is null
+        group by metrica, aparelho`,
+      [desde]
+    )) as { metrica: string; aparelho: string; p75: number; n: number }[]
+    const [maisLenta] = (await ctx.manager!.execute(
+      `select pagina,
+              percentile_cont(0.75) within group (order by valor) as p75,
+              count(*)::int as n
+         from obs_medida
+        where metrica = 'LCP' and aparelho = 'celular' and created_at >= ? and deleted_at is null
+        group by pagina
+       having count(*) >= 5
+        order by p75 desc
+        limit 1`,
+      [desde]
+    )) as { pagina: string; p75: number; n: number }[]
+    return {
+      medidas: medidas.map((m) => ({ ...m, p75: Number(m.p75), n: Number(m.n) })),
+      maisLenta: maisLenta
+        ? { pagina: maisLenta.pagina, p75: Number(maisLenta.p75), n: Number(maisLenta.n) }
+        : null,
+    }
+  }
+
+  /**
+   * O que não precisa ficar: os sinais e as ocorrências de mais de 60 dias,
+   * as medidas de mais de 28 (a conta da velocidade é de 28) e os problemas
    * resolvidos há mais de 90. Apaga de verdade — é registro de máquina.
    */
   @InjectManager()
@@ -130,6 +227,12 @@ export default class ObservabilidadeService extends Tabelas {
     const DIA = 24 * 60 * 60 * 1000
     await ctx.manager!.execute(`delete from obs_sinal where dia < ?`, [
       chaveDoDia(agora.getTime() - 60 * DIA),
+    ])
+    await ctx.manager!.execute(`delete from obs_ocorrencia where dia < ?`, [
+      chaveDoDia(agora.getTime() - 60 * DIA),
+    ])
+    await ctx.manager!.execute(`delete from obs_medida where created_at < ?`, [
+      new Date(agora.getTime() - 28 * DIA),
     ])
     await ctx.manager!.execute(
       `delete from obs_problema where situacao = 'resolvido' and resolvido_em < ?`,

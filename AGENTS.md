@@ -956,6 +956,34 @@ O resto é assim:
 O conferidor é o `apps/dashboard/ferramentas/conferir-observabilidade.mjs`. Ele cria as falhas nos
 falsos: o Resend recusa, a Frenet cai, e o Pagar.me não estorna.
 
+**A parte 2: o que o navegador manda** (entrega 0090). A loja mede e manda, e o painel mostra:
+
+- **Na loja:** `components/telemetria/telemetria.tsx` mora no layout raiz. Ele guarda o LCP, o INP
+  e o CLS do `useReportWebVitals` (uma de cada por envio, pelo nome: no desenvolvimento, o React
+  liga o medidor duas vezes) e o erro dos scripts da própria loja (`error` e
+  `unhandledrejection`). O `avisar-404.tsx` mora no `not-found.tsx`, e as telas de erro contam o
+  que caiu (`avisarTelaDeErro`). Tudo vai pelo `sendBeacon` pra `POST /api/telemetria`, que responde
+  204 na hora e repassa depois (`after`), assinado. Ele descarta o corpo acima de 8 KB, o robô
+  (inclusive o Lighthouse) e o preview da Vercel.
+- **A ordem de sair da página importa.** O envio escuta o `visibilitychange` no `window`, e não no
+  `document`: o Next conta o CLS e o INP finais no `document`, e o evento só sobe pro `window`
+  depois. Trocando de página, o `pagehide` vem ANTES do `visibilitychange`, então os dois mandam.
+- **No backend:** `POST /store/telemetria` só aceita a loja (`daLoja`) e limita 60 recados por
+  minuto por visitante, e 3.000 pra loja inteira. O `lerEventos` (`lib/observabilidade/telemetria.ts`)
+  confere cada evento: tira a busca e o que identifica alguém da página (id do Medusa, número
+  comprido, e-mail), guarda da origem só o domínio, e passa o erro no `semDadoPessoal`.
+- **As tabelas:** `obs_medida` guarda uma linha por medida, e `velocidade()` tira o p75 dos últimos
+  28 dias com `percentile_cont`. `obs_ocorrencia` soma a página que não existe e o erro por dia.
+- **O vigia:** `problemasDasOcorrencias` faz um cartão por dia pro 404 (atenção quando o link veio
+  da própria loja) e outro pro erro.
+- **O site no ar:** o job `vigiar-a-loja` confere a loja antes do vigia (`conferirALoja`, no
+  `LOJA_URL`), e anota no sinal `loja-no-ar`. O problema `loja-fora/<dia>` é grave enquanto a
+  loja não volta. O `noArNaTela` soma 30 dias, arredondando pra baixo.
+- **O que expira:** a medida, em 28 dias; a ocorrência, em 60.
+
+O conferidor (`conferir-observabilidade.mjs`) abre a loja local (`LOJA`) num 404, num erro de
+propósito e em duas visitas (celular e computador).
+
 O CSS do painel segue o do protótipo, uma regra por linha, escrito à mão: o prettier fica nos
 `.ts`/`.tsx`/`.mjs` — rodado nos `.css` do painel, ele reescreve o arquivo inteiro. A gaveta
 (`components/gaveta.tsx`) mora no `<body>`, por portal: aberta de dentro de um `.bloco`, ela

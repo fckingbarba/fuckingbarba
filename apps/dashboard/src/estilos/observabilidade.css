@@ -46,3 +46,20 @@
 /* A rotina no celular: a luz não quebra de linha, e o texto da falha cabe inteiro. */
 .rotina__como { flex-shrink: 0; font-size: 0.8rem; white-space: nowrap; }
 .rotina__texto { margin: 0; font-size: 0.8rem; overflow-wrap: anywhere; }
+
+/* A velocidade do site: as três medidas, cada uma com o trilho do Google (bom, precisa melhorar, ruim). */
+.vitais { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 900px) { .vitais { grid-template-columns: minmax(0, 1fr); } }
+.vital { min-width: 0; padding: 12px 14px; background: var(--cinza); }
+.vital__nome { margin: 0; font-size: 0.86rem; font-weight: 800; }
+.vital__nome small { font-size: 0.64rem; letter-spacing: 0.06em; color: var(--tinta-suave); }
+.vital__ajuda { margin: 2px 0 4px; font-size: 0.74rem; color: var(--tinta-suave); }
+.medidor { margin-top: 12px; }
+.medidor__topo { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: 0.78rem; }
+.medidor__topo b { font-size: 0.95rem; }
+.medidor__trilho { position: relative; display: flex; height: 8px; margin-top: 6px; }
+.medidor__trilho i { display: block; height: 100%; }
+.medidor__trilho i[data-z="bom"] { background: #9fe3cd; }
+.medidor__trilho i[data-z="medio"] { background: var(--amarelo); }
+.medidor__trilho i[data-z="ruim"] { flex: 1; background: #f0a8a3; }
+.medidor__ponto { position: absolute; top: -4px; width: 4px; height: 16px; margin-left: -2px; background: var(--tinta); }

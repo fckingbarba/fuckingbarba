@@ -929,7 +929,9 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
         um dia acontecer, é uma ação no admin.
   - [ ] **A política de privacidade não fala da conta** — os endereços e dados guardados, as
         ofertas por e-mail e WhatsApp com o consentimento, o cookie da sessão —, nem do Resend e do
-        Pagar.me, que entraram depois dela. Vai junto do item 4, pela mesma revisão jurídica.
+        Pagar.me, que entraram depois dela. Vai junto do item 4, pela mesma revisão jurídica. Desde
+        25/09, cabe também uma linha sobre a medida da velocidade e dos erros da loja (fase 7,
+        parte 2 do painel): anônima, sem cookie e sem identificar ninguém.
   - [ ] **As ofertas ainda não vão pra lugar nenhum:** a escolha fica no cliente do Medusa
         (`metadata.ofertas`, com a data), e nada manda oferta hoje. Quando a newsletter ou o
         WhatsApp de ofertas existirem, é de lá que sai a lista.
@@ -1461,9 +1463,10 @@ em frase, com o que fazer. A parte 2 (o site) vem depois.
 
 Ficou pra parte 2:
 
-- [ ] As páginas que não existem (404) e os erros no navegador, mandados pela loja.
-- [ ] A velocidade medida nas visitas de verdade: carregar, responder ao toque, não pular na tela.
-- [ ] O "site no ar" dos últimos 30 dias.
+- [x] As páginas que não existem (404) e os erros no navegador, mandados pela loja — parte 2.
+- [x] A velocidade medida nas visitas de verdade: carregar, responder ao toque, não pular na tela —
+      parte 2.
+- [x] O "site no ar" dos últimos 30 dias — parte 2.
 - [ ] Quem é avisado por e-mail, por papel. Hoje, o estorno, a nota e o Bling vão pros usuários do
       admin do Medusa. Entra junto das Configurações.
 
@@ -1487,6 +1490,34 @@ falham.
 
 Depois do deploy — **nada a configurar.** As vendas do Início e o "gastou" podem aparecer um pouco
 menores que antes: a diferença é o desconto que a loja deu.
+
+**Fase 7, parte 2: o site — pronto em 25/09 (entrega 0090).** O que acontece no navegador de quem
+visita a loja, na mesma tela.
+
+- **A página que não existe:** quem cai numa página que não existe vira um cartão do dia, com as
+  páginas e quantas visitas. Se o link veio da própria loja, é link quebrado nosso (pra olhar); de
+  fora — link antigo, digitado, buscador —, é pra saber. Na virada (fase 6), é aqui que aparecem os
+  links antigos da Nuvemshop que ainda faltam redirecionar.
+- **O erro no navegador:** o erro que estourou na tela de quem visitava vira um cartão do dia, com o
+  mais comum e a página.
+- **A velocidade de verdade:** cada visita mede três coisas e manda sozinha — o tempo pra carregar,
+  pra responder ao toque, e o quanto a tela pula. A tela mostra os últimos 28 dias, no celular e no
+  computador, com a régua do Google (bom, precisa melhorar, ruim), e a página mais lenta no
+  celular.
+- **O site no ar:** a loja é conferida de 5 em 5 minutos. A tela mostra a porcentagem dos últimos
+  30 dias e a última queda; se a loja cair, vira problema — grave enquanto estiver fora.
+- Os números do alto agora são os do protótipo: problemas, rotinas, site no ar e o carregar no
+  celular. Os e-mails do dia seguem no cartão do Resend, nas integrações.
+- Nada identifica quem visita: sem cookie, sem IP guardado, a página sem a busca e sem o id do
+  pedido, e, do link de onde a pessoa veio, só o domínio ("google.com").
+
+**Enquanto o domínio for da Nuvemshop, quase ninguém visita a loja nova:** a velocidade e as páginas
+que não existem só ganham número de verdade depois da virada. Até lá, são as suas visitas e as de
+teste.
+
+Conferido pelo `conferir-observabilidade.mjs` (33 checagens: 6 novas, que abrem a loja local).
+
+Depois do deploy — **nada a configurar.**
 
 ## Como seguir no Claude Code
 

@@ -7,11 +7,15 @@ import { useAvisar } from "@/components/avisos"
 import { Icone } from "@/components/icones"
 import { resolverProblema } from "@/lib/acoes/observabilidade"
 import {
+  COR_DA_FAIXA,
+  NOME_DA_FAIXA,
   NOME_DA_SITUACAO,
   NOME_DO_NIVEL,
   type IntegracaoNaTela,
+  type MedidorNaTela,
   type ProblemaNaTela,
   type RotinaNaTela,
+  type VitalNaTela,
 } from "@/lib/observabilidade"
 
 /**
@@ -235,5 +239,52 @@ export function Rotinas({ rotinas }: { rotinas: RotinaNaTela[] }) {
         ))}
       </div>
     </>
+  )
+}
+
+function Medidor({ rotulo, m }: { rotulo: string; m: MedidorNaTela | null }) {
+  if (!m)
+    return (
+      <div className="medidor" data-medidor={rotulo}>
+        <div className="medidor__topo">
+          <span>{rotulo}</span>
+          <span className="suave">sem visitas medidas</span>
+        </div>
+      </div>
+    )
+  return (
+    <div className="medidor" data-medidor={rotulo} data-s={m.s}>
+      <div className="medidor__topo">
+        <span>{rotulo}</span>
+        <b className="num">{m.valor}</b>
+        <span className="status" data-s={COR_DA_FAIXA[m.s]}>
+          {NOME_DA_FAIXA[m.s]}
+        </span>
+      </div>
+      <div className="medidor__trilho" aria-hidden="true">
+        <i data-z="bom" style={{ width: `${m.faixaBoa}%` }} />
+        <i data-z="medio" style={{ width: `${m.faixaMedia}%` }} />
+        <i data-z="ruim" />
+        <span className="medidor__ponto" style={{ left: `${m.ponto}%` }} />
+      </div>
+    </div>
+  )
+}
+
+/** A velocidade medida nas visitas de verdade: as três medidas, no celular e no computador. */
+export function Velocidade({ vitais }: { vitais: VitalNaTela[] }) {
+  return (
+    <div className="vitais">
+      {vitais.map((v) => (
+        <div className="vital" key={v.metrica} data-vital={v.metrica}>
+          <p className="vital__nome">
+            {v.nome} <small>{v.metrica}</small>
+          </p>
+          <p className="vital__ajuda">{v.ajuda}</p>
+          <Medidor rotulo="Celular" m={v.celular} />
+          <Medidor rotulo="Computador" m={v.computador} />
+        </div>
+      ))}
+    </div>
   )
 }

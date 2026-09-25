@@ -6,6 +6,7 @@ import { erpDaTela } from "../erp/erps"
 import { configuracaoDoGa4 } from "../painel/ga4"
 import { chaveDoDia } from "../painel/formato"
 import {
+  noArNaTela,
   problemaDasRotinasParadas,
   podeVer,
   telaDaObservabilidade,
@@ -23,7 +24,8 @@ import { vigiarNaTela } from "./vigia"
 /**
  * O QUE A TELA DE OBSERVABILIDADE LÊ — a tabela em dia (o vigia, se não
  * rodou há pouco), os problemas abertos e os resolvidos nos últimos 30 dias,
- * as rotinas, os sinais de hoje, a conexão do ERP e a loja agora.
+ * as rotinas, os sinais de hoje, a conexão do ERP, a loja agora, o tempo no
+ * ar dos últimos 30 dias e a velocidade dos últimos 28.
  */
 
 const DIA = 24 * 60 * 60 * 1000
@@ -35,6 +37,10 @@ const LIGADO_EM = new Date(Date.now() - process.uptime() * 1000)
   aberta em várias abas não vira uma visita por aba.
 */
 type Loja = { configurada: boolean; ok: boolean; ms: number | null; motivo: string | null }
+
+/** Os dias da conferência da loja (o job do vigia, de 5 em 5 minutos) dos últimos 30. */
+const TRINTA_DIAS = 29 * 24 * 60 * 60 * 1000
+const VINTE_E_OITO_DIAS = 28 * 24 * 60 * 60 * 1000
 let lojaGuardada: { em: number; loja: Loja } | null = null
 
 async function lojaAgora(agora: Date): Promise<Loja> {
@@ -75,7 +81,7 @@ export async function lerTela(
   )
   const obs = container.resolve<ObservabilidadeService>(OBSERVABILIDADE)
   const erp = erpDaTela()
-  const [problemas, rotinas, sinais, conexao, notas, loja] = await Promise.all([
+  const [problemas, rotinas, sinais, conexao, notas, loja, noAr, velocidade] = await Promise.all([
     obs.listProblemas(
       {
         $or: [
@@ -96,7 +102,13 @@ export async function lerTela(
       )
       .catch(() => []),
     lojaAgora(agora),
+    obs.listSinaisDasIntegracoes(
+      { integracao: "loja-no-ar", dia: { $gte: chaveDoDia(agora.getTime() - TRINTA_DIAS) } },
+      { take: 40 }
+    ),
+    obs.velocidade(new Date(agora.getTime() - VINTE_E_OITO_DIAS)),
   ])
+  const diasNoAr = noAr as unknown as LinhaDoSinal[]
   const ultimaNota = (notas as { emitida_em?: Date | string | null }[])[0]?.emitida_em
 
   return telaDaObservabilidade(papel, {
@@ -106,7 +118,7 @@ export async function lerTela(
     integracoes: {
       agora,
       producao: process.env.NODE_ENV === "production",
-      loja,
+      loja: { ...loja, noAr: noArNaTela(diasNoAr, agora).valor },
       medusaDesde: LIGADO_EM,
       pagarme: Boolean(process.env.PAGARME_SECRET_KEY),
       frenet: Boolean(process.env.FRENET_TOKEN),
@@ -121,6 +133,8 @@ export async function lerTela(
       },
       sinais: sinais as unknown as LinhaDoSinal[],
     },
+    velocidade,
+    noAr: diasNoAr,
   })
 }
 

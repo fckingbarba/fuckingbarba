@@ -448,7 +448,7 @@ export function problemasDasRotinas(linhas: LinhaDaRotina[], agora: Date): Probl
 
 /** As integrações que mandam sinal (`lib/observabilidade/sinal.ts`). */
 export type Integracao =
-  "resend" | "frenet" | "pagarme" | "pagarme-aviso" | "bling" | "ga4" | "loja"
+  "resend" | "frenet" | "pagarme" | "pagarme-aviso" | "bling" | "ga4" | "loja" | "loja-no-ar"
 
 /** Uma linha da tabela `obs_sinal`: o dia de uma integração. */
 export type LinhaDoSinal = {
@@ -542,6 +542,22 @@ export function problemasDosSinais(
         texto: `${emFrase(faixa)} A conciliação confere os pagamentos de 5 em 5 minutos e acerta o que ficou pra trás.`,
         acao: null,
       })
+    } else if (s.integracao === "loja-no-ar") {
+      // A conferência é de 5 em 5 minutos (o job `vigiar-a-loja`): cada falha, uns 5 minutos.
+      const foraAgora = !s.ultimo_ok_em || data(s.ultima_falha_em) > data(s.ultimo_ok_em)
+      achados.push({
+        ...comum,
+        chave: `loja-fora/${s.dia}`,
+        nivel: foraAgora ? "grave" : "atencao",
+        area: "Site",
+        titulo: foraAgora ? "A loja está fora do ar" : "A loja ficou fora do ar",
+        texto: foraAgora
+          ? `Não respondeu na última conferência, às ${hora(s.ultima_falha_em)}: ninguém consegue comprar. Veja na Vercel se o último deploy falhou.`
+          : `Uns ${s.falhas * 5} minutos fora ${faixa}. Voltou sozinha.`,
+        acao: foraAgora
+          ? { texto: "Abrir a Vercel", href: "https://vercel.com/dashboard", externo: true }
+          : null,
+      })
     } else if (s.integracao === "bling") {
       achados.push({
         ...comum,
@@ -555,6 +571,238 @@ export function problemasDosSinais(
     }
   }
   return achados
+}
+
+/* ── o que o navegador mandou ─────────────────────────────────────────── */
+
+/** Uma linha da tabela `obs_ocorrencia`: a página que não existe, ou o erro, num dia. */
+export type LinhaDaOcorrencia = {
+  tipo: string
+  chave: string
+  dia: string
+  pagina: string
+  /** A mensagem do erro; no 404, o domínio de onde veio. */
+  detalhe?: string | null
+  vezes: number
+  internas?: number | null
+  primeira_em: Quando
+  ultima_em: Quando
+}
+
+/**
+ * Um cartão por dia pra página que não existe e outro pro erro no navegador.
+ * O 404 vindo de um link da própria loja é link quebrado nosso (atenção); o
+ * de fora — link antigo, digitado, buscador — é pra saber.
+ */
+export function problemasDasOcorrencias(
+  linhas: LinhaDaOcorrencia[],
+  agora: Date
+): ProblemaAchado[] {
+  const grupos = new Map<string, LinhaDaOcorrencia[]>()
+  for (const l of linhas) {
+    if (l.tipo !== "404" && l.tipo !== "erro") continue
+    const chave = `${l.tipo}|${l.dia}`
+    grupos.set(chave, [...(grupos.get(chave) ?? []), l])
+  }
+  const achados: ProblemaAchado[] = []
+  for (const [chave, grupo] of grupos) {
+    const [tipo, dia] = chave.split("|")
+    // Os que mais aconteceram primeiro; no empate, o mais recente.
+    const top = [...grupo].sort(
+      (a, b) =>
+        b.vezes - a.vezes ||
+        data(b.ultima_em ?? agora).getTime() - data(a.ultima_em ?? agora).getTime()
+    )
+    const total = grupo.reduce((s, l) => s + l.vezes, 0)
+    if (!total) continue
+    const ultima = new Date(Math.max(...grupo.map((l) => data(l.ultima_em ?? agora).getTime())))
+    const comum = {
+      area: "Site" as const,
+      acao: null,
+      pedidoId: null,
+      vezes: total,
+      ocorreu: ultima,
+      sozinho: false,
+      soDono: false,
+    }
+    if (tipo === "404") {
+      const internas = grupo.reduce((s, l) => s + Number(l.internas ?? 0), 0)
+      const paginas = top
+        .slice(0, 3)
+        .map((l) => `${l.pagina} (${l.vezes})`)
+        .join(", ")
+      achados.push({
+        ...comum,
+        chave: `404/${dia}`,
+        nivel: internas ? "atencao" : "info",
+        titulo:
+          total === 1
+            ? "1 visita caiu numa página que não existe"
+            : `${total} visitas caíram em páginas que não existem`,
+        texto:
+          `${paginas}${top.length > 3 ? ` e mais ${top.length - 3}` : ""}. ` +
+          (internas
+            ? `${internas === 1 ? "Uma veio" : `${internas} vieram`} de um link da própria loja: é link quebrado, pra consertar.`
+            : "Vieram de fora: link antigo, digitado ou de buscador."),
+        detalhe: top
+          .slice(0, 20)
+          .map((l) => `GET ${l.pagina} → 404 (${l.vezes}x${l.detalhe ? `, de ${l.detalhe}` : ""})`)
+          .join("\n"),
+      })
+    } else {
+      const [primeiro] = top
+      achados.push({
+        ...comum,
+        chave: `erro-navegador/${dia}`,
+        nivel: "atencao",
+        titulo:
+          total === 1
+            ? "1 erro no navegador de quem visitou"
+            : `${total} erros no navegador de quem visitou`,
+        texto:
+          `O mais comum: "${primeiro.detalhe ?? "sem mensagem"}", em ${primeiro.pagina} (${vezes(primeiro.vezes)}). ` +
+          "A página pode ter parado de funcionar pra essas pessoas.",
+        detalhe: top
+          .slice(0, 20)
+          .map((l) => `${l.detalhe ?? "sem mensagem"} — ${l.pagina} (${l.vezes}x)`)
+          .join("\n"),
+      })
+    }
+  }
+  return achados
+}
+
+/* ── a velocidade e o tempo no ar ─────────────────────────────────────── */
+
+/** Os limites do Google pra cada medida: até `bom`, bom; acima de `ruim`, ruim. */
+export const VITAIS = [
+  {
+    metrica: "LCP",
+    nome: "Carregar a página",
+    ajuda: "quanto tempo até aparecer o principal da tela",
+    bom: 2500,
+    ruim: 4000,
+  },
+  {
+    metrica: "INP",
+    nome: "Responder ao toque",
+    ajuda: "quanto demora pra reagir quando a pessoa toca",
+    bom: 200,
+    ruim: 500,
+  },
+  {
+    metrica: "CLS",
+    nome: "Não pular na tela",
+    ajuda: "quanto as coisas mudam de lugar enquanto carrega",
+    bom: 0.1,
+    ruim: 0.25,
+  },
+] as const
+
+export type LinhaDaVelocidade = { metrica: string; aparelho: string; p75: number; n: number }
+
+export type MedidorNaTela = {
+  valor: string
+  s: "bom" | "medio" | "ruim"
+  /** Quantas medidas somaram. */
+  n: number
+  /** Onde fica o ponto no trilho, de 0 a 100, e o tamanho das faixas boa e média. */
+  ponto: number
+  faixaBoa: number
+  faixaMedia: number
+}
+
+export type VitalNaTela = {
+  metrica: string
+  nome: string
+  ajuda: string
+  celular: MedidorNaTela | null
+  computador: MedidorNaTela | null
+}
+
+/** "2,6 s" · "180 ms" · "0,03" */
+export function medidaEmFrase(metrica: string, v: number): string {
+  if (metrica === "CLS") return v.toFixed(2).replace(".", ",")
+  if (metrica === "LCP") return `${(v / 1000).toFixed(1).replace(".", ",")} s`
+  return `${Math.round(v)} ms`
+}
+
+function medidor(vital: (typeof VITAIS)[number], linha: LinhaDaVelocidade | undefined) {
+  if (!linha?.n) return null
+  const escala = vital.ruim * 1.25
+  const um = (x: number) => Math.round((x / escala) * 1000) / 10
+  return {
+    valor: medidaEmFrase(vital.metrica, linha.p75),
+    s: linha.p75 <= vital.bom ? "bom" : linha.p75 <= vital.ruim ? "medio" : "ruim",
+    n: linha.n,
+    ponto: Math.min(98, um(linha.p75)),
+    faixaBoa: um(vital.bom),
+    faixaMedia: um(vital.ruim - vital.bom),
+  } satisfies MedidorNaTela
+}
+
+export type VelocidadeNaTela = {
+  vitais: VitalNaTela[]
+  /** Quantas páginas abertas foram medidas (uma medida de carregar por página). */
+  visitas: number
+  /** "A página mais lenta no celular é /produtos/fator: 3,1 s pra carregar, em 12 visitas." */
+  maisLenta: string | null
+}
+
+export function velocidadeNaTela({
+  medidas,
+  maisLenta,
+}: {
+  medidas: LinhaDaVelocidade[]
+  maisLenta: { pagina: string; p75: number; n: number } | null
+}): VelocidadeNaTela {
+  const de = (metrica: string, aparelho: string) =>
+    medidas.find((m) => m.metrica === metrica && m.aparelho === aparelho)
+  return {
+    vitais: VITAIS.map((v) => ({
+      metrica: v.metrica,
+      nome: v.nome,
+      ajuda: v.ajuda,
+      celular: medidor(v, de(v.metrica, "celular")),
+      computador: medidor(v, de(v.metrica, "computador")),
+    })),
+    visitas: medidas.filter((m) => m.metrica === "LCP").reduce((s, m) => s + m.n, 0),
+    maisLenta:
+      maisLenta && maisLenta.p75 > VITAIS[0].bom
+        ? `A página mais lenta no celular é ${maisLenta.pagina}: ${medidaEmFrase("LCP", maisLenta.p75)} pra carregar, em ${maisLenta.n} visitas. A foto grande do topo costuma ser a culpada.`
+        : null,
+  }
+}
+
+/**
+ * O tempo no ar dos últimos 30 dias, pela conferência de 5 em 5 minutos do
+ * vigia (`loja-no-ar`). "99,98%" (pra baixo: 99,999% não vira 100%).
+ */
+export function noArNaTela(
+  sinais: LinhaDoSinal[],
+  agora: Date
+): { valor: string | null; texto: string } {
+  const dias = sinais.filter((s) => s.integracao === "loja-no-ar")
+  const ok = dias.reduce((s, d) => s + d.ok, 0)
+  const falhas = dias.reduce((s, d) => s + d.falhas, 0)
+  if (!ok && !falhas) return { valor: null, texto: "medindo: a loja é conferida de 5 em 5 min" }
+  const pct = Math.floor((ok / (ok + falhas)) * 10000) / 100
+  const primeiro = dias.map((d) => d.dia).sort()[0]
+  const desde =
+    primeiro > chaveDoDia(agora.getTime() - 29 * 24 * 60 * 60 * 1000)
+      ? `desde ${primeiro.slice(8, 10)}/${primeiro.slice(5, 7)}`
+      : "30 dias"
+  const ultimaQueda = dias
+    .filter((d) => d.falhas)
+    .map((d) => d.dia)
+    .sort()
+    .at(-1)
+  return {
+    valor: `${pct.toString().replace(".", ",")}%`,
+    texto: falhas
+      ? `${desde} · ${falhas * 5} min fora, a última em ${ultimaQueda!.slice(8, 10)}/${ultimaQueda!.slice(5, 7)}`
+      : `${desde} · nenhuma queda`,
+  }
 }
 
 /* ── o que muda na tabela ──────────────────────────────────────────────── */
@@ -641,7 +889,14 @@ export type IntegracaoNaTela = {
 export type EstadoDasIntegracoes = {
   agora: Date
   producao: boolean
-  loja: { configurada: boolean; ok: boolean; ms: number | null; motivo: string | null }
+  loja: {
+    configurada: boolean
+    ok: boolean
+    ms: number | null
+    motivo: string | null
+    /** O tempo no ar dos últimos 30 dias ("99,98%"), ou null enquanto mede. */
+    noAr: string | null
+  }
   /** Quando o Medusa (este processo) ligou. */
   medusaDesde: Date
   pagarme: boolean
@@ -715,7 +970,7 @@ export function integracoesNaTela(e: EstadoDasIntegracoes): IntegracaoNaTela[] {
             onde: "Vercel",
             s: loja.falhas ? "atencao" : "ok",
             texto:
-              `No ar · respondeu em ${e.loja.ms ?? 0} ms` +
+              `No ar${e.loja.noAr ? ` · ${e.loja.noAr} em 30 dias` : ""} · respondeu em ${e.loja.ms ?? 0} ms` +
               (loja.falhas
                 ? ` · ${loja.falhas === 1 ? "1 aviso de mudança não chegou" : `${loja.falhas} avisos de mudança não chegaram`} hoje`
                 : ""),
@@ -922,12 +1177,14 @@ export type TelaDaObservabilidade = {
   numeros: {
     problemas: { abertos: number; graves: number; olhar: number }
     rotinas: { ok: number; total: number }
-    integracoes: { ok: number; total: number }
-    emails: { hoje: number; falhas: number }
+    noAr: { valor: string | null; texto: string }
+    /** O carregar no celular (LCP, p75 de 28 dias), o número que o Google mais olha. */
+    carregar: { valor: string | null; s: MedidorNaTela["s"] | null; texto: string }
   }
   problemas: ProblemaNaTela[]
   integracoes: IntegracaoNaTela[]
   rotinas: RotinaNaTela[]
+  velocidade: VelocidadeNaTela
 }
 
 const ORDEM: Record<Nivel, number> = { grave: 0, atencao: 1, info: 2 }
@@ -1010,12 +1267,18 @@ export function telaDaObservabilidade(
     problemas,
     rotinas,
     integracoes,
+    velocidade,
+    noAr,
   }: {
     agora: Date
     /** Os abertos e os resolvidos recentes, da tabela. */
     problemas: LinhaDoProblema[]
     rotinas: LinhaDaRotina[]
     integracoes: EstadoDasIntegracoes
+    /** As medidas dos últimos 28 dias (`velocidade`, no serviço). */
+    velocidade: Parameters<typeof velocidadeNaTela>[0]
+    /** Os dias da conferência da loja (`loja-no-ar`) dos últimos 30. */
+    noAr: LinhaDoSinal[]
   }
 ): TelaDaObservabilidade {
   const paradas = problemaDasRotinasParadas(rotinas, agora)
@@ -1039,7 +1302,8 @@ export function telaDaObservabilidade(
     )
   )
   const integracoesNaLista = integracoesNaTela(integracoes)
-  const resend = integracoes.sinais.find((s) => s.integracao === "resend") ?? VAZIO
+  const naVelocidade = velocidadeNaTela(velocidade)
+  const carregar = naVelocidade.vitais[0].celular
 
   return {
     geral: graves
@@ -1068,14 +1332,18 @@ export function telaDaObservabilidade(
         ok: rotinasNaTela.filter((r) => r.s === "ok").length,
         total: rotinasNaTela.length,
       },
-      integracoes: {
-        ok: integracoesNaLista.filter((i) => i.s === "ok").length,
-        total: integracoesNaLista.filter((i) => i.s !== "off").length,
-      },
-      emails: { hoje: resend.ok, falhas: resend.falhas },
+      noAr: noArNaTela(noAr, agora),
+      carregar: carregar
+        ? {
+            valor: carregar.valor,
+            s: carregar.s,
+            texto: carregar.s === "bom" ? "bom: até 2,5 s" : "o ideal é até 2,5 s",
+          }
+        : { valor: null, s: null, texto: "sem visitas medidas ainda" },
     },
     problemas: naTela,
     integracoes: integracoesNaLista,
     rotinas: rotinasNaTela,
+    velocidade: naVelocidade,
   }
 }

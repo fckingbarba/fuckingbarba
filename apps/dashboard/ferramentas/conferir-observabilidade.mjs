@@ -14,6 +14,10 @@
  * problema dele sai sozinho quando o estorno sai, no fim. Os membros da
  * rodada saem da equipe.
  *
+ * E A PARTE 2, na loja local (`LOJA`): uma página que não existe, um erro
+ * no navegador e a velocidade de duas visitas (celular e computador),
+ * mandados pela própria loja e somados na tela.
+ *
  * ┌─ O QUE ESTE ARQUIVO EXISTE PRA TRAVAR ─────────────────────────────────┐
  * │ • a falha que não vira problema (o e-mail, a cotação, o estorno), e o  │
  * │   problema de estado que não sai sozinho quando o estado muda;         │
@@ -65,6 +69,8 @@ const semEspaco = (s) =>
 const email = (quem) => `obs.${RODADA}.${quem}@teste.fuckingbarba.dev`
 const OP = `op.${RODADA}@painel.teste`
 const MKT = `mkt.${RODADA}@painel.teste`
+/** A loja local (a parte 2 abre páginas nela: o 404, o erro e a velocidade). */
+const LOJA = (process.env.LOJA ?? "http://localhost:3000").replace(/\/+$/, "")
 
 /* ── os falsos e o admin ──────────────────────────────────────────────────── */
 
@@ -405,6 +411,100 @@ try {
       /^Saiu sozinho hoje, \d\d:\d\d$/.test(saiu.resolvido ?? ""),
     "o estorno saiu: o problema vai pros resolvidos, 'saiu sozinho'",
     `${pediu.status} ${JSON.stringify(saiu)}`
+  )
+
+  /* ── a parte 2: o que o navegador de quem visita manda ─────────────────── */
+
+  titulo("O site: a página que não existe, o erro e a velocidade")
+  const semAssinatura = await fetch(`${MEDUSA}/store/telemetria`, {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-publishable-api-key": CHAVE },
+    body: JSON.stringify({ eventos: [{ tipo: "404", pagina: "/fora-da-loja" }] }),
+  })
+  ok(
+    semAssinatura.status === 401,
+    "o Medusa só aceita o recado assinado pela loja",
+    String(semAssinatura.status)
+  )
+
+  // Fora do `novaAba`: o erro de propósito não pode contar como erro do conferidor.
+  const visita = async (viewport) => {
+    const contexto = await navegador.newContext({ viewport })
+    return { contexto, pagina: await contexto.newPage() }
+  }
+  const computador = await visita({ width: 1280, height: 900 })
+  const inexistente = `/nao-existe-${RODADA}`
+  await computador.pagina.goto(`${LOJA}${inexistente}`, { waitUntil: "load" })
+  await computador.pagina.waitForTimeout(800)
+  await computador.pagina.goto(`${LOJA}/`, { waitUntil: "load" })
+  await computador.pagina.mouse.click(5, 300)
+  await computador.pagina.evaluate((r) => {
+    setTimeout(() => {
+      throw new Error(`erro de teste ${r} pra ana@x.com.br`)
+    }, 0)
+  }, RODADA)
+  await computador.pagina.waitForTimeout(800)
+  await computador.pagina.goto(`${LOJA}/barba`, { waitUntil: "load" })
+  const celular = await visita({ width: 390, height: 844 })
+  await celular.pagina.goto(`${LOJA}/`, { waitUntil: "load" })
+  await celular.pagina.mouse.click(5, 300)
+  await celular.pagina.waitForTimeout(800)
+  await celular.pagina.goto(`${LOJA}/barba`, { waitUntil: "load" })
+  await celular.pagina.waitForTimeout(1500)
+  await computador.contexto.close()
+  await celular.contexto.close()
+
+  const doSite = (p) => p.area === "Site" && p.situacao === "aberto"
+  const t3 = await telaAte(
+    tokenDoDono,
+    (t) =>
+      problema(t, (p) => doSite(p) && p.detalhe?.includes(`GET ${inexistente} → 404`)) &&
+      problema(t, (p) => doSite(p) && p.detalhe?.includes(`erro de teste ${RODADA}`)) &&
+      t.velocidade?.vitais?.[0]?.celular &&
+      t.velocidade?.vitais?.[0]?.computador &&
+      t.velocidade?.vitais?.[2]?.celular
+  )
+  const de404 = problema(t3, (p) => doSite(p) && p.detalhe?.includes(`GET ${inexistente} → 404`))
+  const deErro = problema(t3, (p) => doSite(p) && p.detalhe?.includes(`erro de teste ${RODADA}`))
+  ok(
+    /visitas? ca(iu|íram) (numa página|em páginas) que não existe/.test(de404?.titulo ?? "") &&
+      de404.podeMarcar &&
+      de404.detalhe?.includes(`GET ${inexistente} → 404`),
+    "a página que não existe vira cartão do dia, com o caminho",
+    JSON.stringify(de404)
+  )
+  ok(
+    /erros? no navegador/.test(deErro?.titulo ?? "") &&
+      deErro.texto.startsWith('O mais comum: "') &&
+      deErro.detalhe.includes(`erro de teste ${RODADA} pra a•••@x.com.br — /`) &&
+      !JSON.stringify(deErro).includes("ana@x.com.br"),
+    "o erro no navegador vira cartão, com o e-mail mascarado",
+    JSON.stringify(deErro)
+  )
+  const [lcp, , cls] = t3.velocidade?.vitais ?? []
+  ok(
+    /^\d+,\d s$/.test(lcp?.celular?.valor ?? "") &&
+      /^\d+,\d s$/.test(lcp?.computador?.valor ?? "") &&
+      ["bom", "medio", "ruim"].includes(lcp.celular.s) &&
+      /^\d+,\d\d$/.test(cls?.celular?.valor ?? "") &&
+      t3.velocidade.visitas >= 2,
+    "a velocidade medida nas visitas: o carregar (celular e computador) e o pular na tela, que só vem quando a pessoa sai da página",
+    JSON.stringify(t3.velocidade?.vitais)
+  )
+  ok(
+    /^\d+,\d s$/.test(t3.numeros.carregar.valor ?? "") &&
+      (t3.numeros.noAr.valor === null ||
+        (/^\d{1,3}(,\d{1,2})?%$/.test(t3.numeros.noAr.valor) &&
+          /em 30 dias/.test(integ(t3, "loja")?.texto ?? ""))),
+    "os números: o carregar no celular, e o site no ar (ou medindo)",
+    JSON.stringify(t3.numeros)
+  )
+  await pagina.goto(`${PAINEL}/observabilidade`)
+  await hidratado(pagina, "[data-velocidade]")
+  ok(
+    (await pagina.locator('[data-vital="LCP"] [data-medidor="Celular"][data-s]').count()) === 1 &&
+      (await pagina.locator("[data-vital]").count()) === 3,
+    "a tela mostra as três medidas, com o trilho do celular"
   )
 
   titulo("A operação e o celular")

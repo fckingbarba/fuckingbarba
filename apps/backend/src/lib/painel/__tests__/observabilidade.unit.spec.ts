@@ -5,7 +5,9 @@ import {
   integracoesNaTela,
   intervaloDaAgenda,
   minutosDaAgenda,
+  noArNaTela,
   problemaDoErp,
+  problemasDasOcorrencias,
   problemasDasRotinas,
   problemasDosPedidos,
   problemasDosSinais,
@@ -13,6 +15,7 @@ import {
   ROTINAS,
   rotinaNaTela,
   telaDaObservabilidade,
+  velocidadeNaTela,
   type EstadoDasIntegracoes,
   type LinhaDoProblema,
   type ProblemaAchado,
@@ -396,11 +399,13 @@ describe("o que o vigia grava", () => {
   })
 })
 
+const SEM_MEDIDAS = { medidas: [], maisLenta: null }
+
 describe("a tela", () => {
   const integracoes = (extra: Partial<EstadoDasIntegracoes> = {}): EstadoDasIntegracoes => ({
     agora: AGORA,
     producao: true,
-    loja: { configurada: true, ok: true, ms: 180, motivo: null },
+    loja: { configurada: true, ok: true, ms: 180, motivo: null, noAr: "99,98%" },
     medusaDesde: min(150),
     pagarme: true,
     frenet: true,
@@ -435,7 +440,7 @@ describe("a tela", () => {
     const de = (id: string) => lista.find((i) => i.id === id)!
     expect(de("loja")).toMatchObject({
       s: "ok",
-      texto: "No ar · respondeu em 180 ms",
+      texto: "No ar · 99,98% em 30 dias · respondeu em 180 ms",
       sinal: "agora",
     })
     expect(de("medusa").texto).toBe("No ar · ligado hoje, 18:40")
@@ -454,7 +459,7 @@ describe("a tela", () => {
 
     const caida = integracoesNaTela(
       integracoes({
-        loja: { configurada: true, ok: false, ms: null, motivo: "tempo esgotado" },
+        loja: { configurada: true, ok: false, ms: null, motivo: "tempo esgotado", noAr: null },
         erp: {
           nome: "Bling",
           configurado: true,
@@ -517,13 +522,22 @@ describe("a tela", () => {
       problemas,
       rotinas,
       integracoes: integracoes(),
+      velocidade: SEM_MEDIDAS,
+      noAr: [],
     })
     expect(dono.problemas.map((p) => p.id)).toEqual(["estorno", "nota", "frete", "antigo", "visto"])
     expect(dono.geral).toMatchObject({ nivel: "grave", titulo: "2 problemas graves agora" })
     expect(dono.numeros.problemas).toEqual({ abertos: 3, graves: 2, olhar: 1 })
     expect(dono.numeros.rotinas).toEqual({ ok: 9, total: 9 })
-    expect(dono.numeros.integracoes).toEqual({ ok: 4, total: 6 })
-    expect(dono.numeros.emails).toEqual({ hoje: 38, falhas: 1 })
+    expect(dono.numeros.noAr).toEqual({
+      valor: null,
+      texto: "medindo: a loja é conferida de 5 em 5 min",
+    })
+    expect(dono.numeros.carregar).toEqual({
+      valor: null,
+      s: null,
+      texto: "sem visitas medidas ainda",
+    })
     const frete = dono.problemas.find((p) => p.id === "frete")!
     expect(frete).toMatchObject({ podeMarcar: true, meta: "3 vezes · a última hoje, 21:09" })
     expect(dono.problemas.find((p) => p.id === "nota")).toMatchObject({
@@ -542,6 +556,8 @@ describe("a tela", () => {
       problemas,
       rotinas,
       integracoes: integracoes(),
+      velocidade: SEM_MEDIDAS,
+      noAr: [],
     })
     expect(operacao.problemas.map((p) => p.id)).not.toContain("estorno")
     expect(operacao.geral.titulo).toBe("1 problema grave agora")
@@ -559,6 +575,8 @@ describe("a tela", () => {
         problemas: [],
         rotinas: rodando,
         integracoes: integracoes(),
+        velocidade: SEM_MEDIDAS,
+        noAr: [],
       }).geral
     ).toMatchObject({
       nivel: "info",
@@ -574,6 +592,8 @@ describe("a tela", () => {
       problemas: [],
       rotinas: paradas,
       integracoes: integracoes(),
+      velocidade: SEM_MEDIDAS,
+      noAr: [],
     })
     expect(tela.problemas[0]).toMatchObject({
       id: "rotinas-paradas",
@@ -583,5 +603,204 @@ describe("a tela", () => {
     })
     expect(tela.problemas[0].texto).toMatch(/^Nenhuma roda desde hoje, 20:30\./)
     expect(tela.numeros.rotinas.ok).toBe(2)
+  })
+})
+
+describe("o site (parte 2)", () => {
+  const dia = "2026-09-25"
+  const quando = (h: string) => new Date(`2026-09-25T${h}:00-03:00`)
+
+  it("a página que não existe: um cartão por dia, e o link quebrado nosso é atenção", () => {
+    const [de404, deErro] = problemasDasOcorrencias(
+      [
+        {
+          tipo: "404",
+          chave: "/pomada-60g",
+          dia,
+          pagina: "/pomada-60g",
+          detalhe: "google.com",
+          vezes: 12,
+          internas: 0,
+          primeira_em: quando("09:00"),
+          ultima_em: quando("20:40"),
+        },
+        {
+          tipo: "404",
+          chave: "/kitz",
+          dia,
+          pagina: "/kitz",
+          detalhe: "loja.fuckingbarba.com.br",
+          vezes: 2,
+          internas: 2,
+          primeira_em: quando("10:00"),
+          ultima_em: quando("11:00"),
+        },
+        {
+          tipo: "erro",
+          chave: "x @ /checkout",
+          dia,
+          pagina: "/checkout",
+          detalhe: "Cannot read properties of undefined",
+          vezes: 3,
+          primeira_em: quando("12:00"),
+          ultima_em: quando("12:30"),
+        },
+      ],
+      AGORA
+    )
+    expect(de404).toMatchObject({
+      chave: "404/2026-09-25",
+      nivel: "atencao",
+      area: "Site",
+      sozinho: false,
+      vezes: 14,
+      titulo: "14 visitas caíram em páginas que não existem",
+      texto:
+        "/pomada-60g (12), /kitz (2). 2 vieram de um link da própria loja: é link quebrado, pra consertar.",
+    })
+    expect(de404.detalhe).toBe(
+      "GET /pomada-60g → 404 (12x, de google.com)\nGET /kitz → 404 (2x, de loja.fuckingbarba.com.br)"
+    )
+    expect(deErro).toMatchObject({
+      chave: "erro-navegador/2026-09-25",
+      nivel: "atencao",
+      titulo: "3 erros no navegador de quem visitou",
+    })
+    expect(deErro.texto).toMatch(
+      /^O mais comum: "Cannot read properties of undefined", em \/checkout \(3 vezes\)\./
+    )
+    const [soDeFora] = problemasDasOcorrencias(
+      [
+        {
+          tipo: "404",
+          chave: "/x",
+          dia,
+          pagina: "/x",
+          vezes: 1,
+          internas: 0,
+          primeira_em: quando("09:00"),
+          ultima_em: quando("09:00"),
+        },
+      ],
+      AGORA
+    )
+    expect(soDeFora).toMatchObject({
+      nivel: "info",
+      titulo: "1 visita caiu numa página que não existe",
+    })
+  })
+
+  it("a loja fora do ar: grave enquanto não volta; atenção depois", () => {
+    const fora = (extra = {}) => ({
+      integracao: "loja-no-ar",
+      dia,
+      ok: 200,
+      falhas: 2,
+      primeira_falha_em: quando("14:02"),
+      ultima_falha_em: quando("14:07"),
+      ultimo_ok_em: quando("21:05"),
+      ...extra,
+    })
+    const [voltou] = problemasDosSinais([fora()], { agora: AGORA, emergencia: null, admin: null })
+    expect(voltou).toMatchObject({
+      chave: "loja-fora/2026-09-25",
+      nivel: "atencao",
+      titulo: "A loja ficou fora do ar",
+      texto: "Uns 10 minutos fora hoje, entre 14:02 e 14:07. Voltou sozinha.",
+    })
+    const [agora] = problemasDosSinais([fora({ ultimo_ok_em: quando("14:00") })], {
+      agora: AGORA,
+      emergencia: null,
+      admin: null,
+    })
+    expect(agora).toMatchObject({
+      nivel: "grave",
+      titulo: "A loja está fora do ar",
+      acao: { texto: "Abrir a Vercel", externo: true },
+    })
+    expect(agora.texto).toMatch(/^Não respondeu na última conferência, às 14:07/)
+  })
+
+  it("a velocidade: o p75 em frase, a faixa do Google, e a página mais lenta quando passa do bom", () => {
+    const v = velocidadeNaTela({
+      medidas: [
+        { metrica: "LCP", aparelho: "celular", p75: 2640, n: 30 },
+        { metrica: "LCP", aparelho: "computador", p75: 1400, n: 12 },
+        { metrica: "INP", aparelho: "celular", p75: 180, n: 20 },
+        { metrica: "CLS", aparelho: "celular", p75: 0.31, n: 30 },
+      ],
+      maisLenta: { pagina: "/produtos/fator", p75: 3120, n: 8 },
+    })
+    const [lcp, inp, cls] = v.vitais
+    expect(lcp.celular).toEqual({
+      valor: "2,6 s",
+      s: "medio",
+      n: 30,
+      ponto: 52.8,
+      faixaBoa: 50,
+      faixaMedia: 30,
+    })
+    expect(lcp.computador).toMatchObject({ valor: "1,4 s", s: "bom" })
+    expect(inp.celular).toMatchObject({ valor: "180 ms", s: "bom" })
+    expect(inp.computador).toBeNull()
+    expect(cls.celular).toMatchObject({ valor: "0,31", s: "ruim" })
+    expect(v.visitas).toBe(42)
+    expect(v.maisLenta).toBe(
+      "A página mais lenta no celular é /produtos/fator: 3,1 s pra carregar, em 8 visitas. A foto grande do topo costuma ser a culpada."
+    )
+    expect(
+      velocidadeNaTela({ medidas: [], maisLenta: { pagina: "/", p75: 1200, n: 9 } }).maisLenta
+    ).toBeNull()
+  })
+
+  it("o tempo no ar: pra baixo, com as quedas; desde quando mede, se faz menos de 30 dias", () => {
+    const dias = [
+      { integracao: "loja-no-ar", dia: "2026-09-20", ok: 287, falhas: 1 },
+      { integracao: "loja-no-ar", dia: "2026-09-25", ok: 288, falhas: 0 },
+      { integracao: "resend", dia: "2026-09-25", ok: 9, falhas: 9 },
+    ]
+    expect(noArNaTela(dias, AGORA)).toEqual({
+      valor: "99,82%",
+      texto: "desde 20/09 · 5 min fora, a última em 20/09",
+    })
+    expect(
+      noArNaTela([{ integracao: "loja-no-ar", dia: "2026-08-01", ok: 10, falhas: 0 }], AGORA)
+    ).toEqual({
+      valor: "100%",
+      texto: "30 dias · nenhuma queda",
+    })
+    expect(noArNaTela([], AGORA).valor).toBeNull()
+  })
+
+  it("na tela: o carregar no celular e o tempo no ar nos números", () => {
+    const t = telaDaObservabilidade("dono", {
+      agora: AGORA,
+      problemas: [],
+      rotinas: ROTINAS.map((r) => ({
+        nome: r.nome,
+        ultima_inicio: min(0.5),
+        ultima_situacao: "ok",
+      })),
+      integracoes: {
+        agora: AGORA,
+        producao: true,
+        loja: { configurada: true, ok: true, ms: 120, motivo: null, noAr: "100%" },
+        medusaDesde: min(60),
+        pagarme: true,
+        frenet: true,
+        resend: true,
+        ga4: true,
+        erp: { nome: "Bling", configurado: false, conectado: false, queda: null, ultimaNota: null },
+        sinais: [],
+      },
+      velocidade: {
+        medidas: [{ metrica: "LCP", aparelho: "celular", p75: 2100, n: 5 }],
+        maisLenta: null,
+      },
+      noAr: [{ integracao: "loja-no-ar", dia: "2026-09-25", ok: 12, falhas: 0 }],
+    })
+    expect(t.numeros.carregar).toEqual({ valor: "2,1 s", s: "bom", texto: "bom: até 2,5 s" })
+    expect(t.numeros.noAr).toEqual({ valor: "100%", texto: "desde 25/09 · nenhuma queda" })
+    expect(t.velocidade.visitas).toBe(5)
   })
 })

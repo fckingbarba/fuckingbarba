@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import { redirect } from "next/navigation"
 import { SoPara } from "@/components/area"
 import { Icone } from "@/components/icones"
-import { Integracoes, Problemas, Rotinas } from "@/components/observabilidade"
+import { Integracoes, Problemas, Rotinas, Velocidade } from "@/components/observabilidade"
 import { Cabeca, ForaDoAr, SemAcesso } from "@/components/telas"
 import { medusa } from "@/lib/medusa"
 import type { TelaDaObservabilidade } from "@/lib/observabilidade"
@@ -32,7 +32,7 @@ async function Observabilidade() {
   if (r.status === 403) return <SemAcesso area="observabilidade" />
   if (r.status !== 200) return <ForaDoAr />
   const t = r.corpo as unknown as TelaDaObservabilidade
-  const { problemas, rotinas, integracoes, emails } = t.numeros
+  const { problemas, rotinas, noAr, carregar } = t.numeros
 
   return (
     <div data-tela>
@@ -65,19 +65,18 @@ async function Observabilidade() {
           </p>
           <p className="numero__sub">rodaram bem na última vez</p>
         </div>
-        <div className="numero" data-numero="integracoes">
-          <p className="numero__rot">Integrações</p>
-          <p className="numero__valor">
-            {integracoes.ok} de {integracoes.total}
-          </p>
-          <p className="numero__sub">com sinal bom agora</p>
+        <div className="numero" data-numero="no-ar">
+          <p className="numero__rot">Site no ar</p>
+          <p className="numero__valor">{noAr.valor ?? "—"}</p>
+          <p className="numero__sub">{noAr.texto}</p>
         </div>
-        <div className="numero" data-numero="emails">
-          <p className="numero__rot">E-mails hoje</p>
-          <p className="numero__valor">{emails.hoje}</p>
-          <p className="numero__sub">
-            {emails.falhas ? mais(emails.falhas, "não saiu", "não saíram") : "nenhum falhou"}
-          </p>
+        <div
+          className={`numero${carregar.s === "ruim" ? " numero--grave" : ""}`}
+          data-numero="carregar"
+        >
+          <p className="numero__rot">Carregar, no celular</p>
+          <p className="numero__valor">{carregar.valor ?? "—"}</p>
+          <p className="numero__sub">{carregar.texto}</p>
         </div>
       </div>
 
@@ -116,6 +115,27 @@ async function Observabilidade() {
           </div>
         </div>
         <Rotinas rotinas={t.rotinas} />
+      </section>
+
+      <section className="bloco" data-velocidade>
+        <div className="bloco__cabeca">
+          <div>
+            <h2 className="bloco__titulo">Velocidade do site</h2>
+            <p className="bloco__sub">
+              Medida nas visitas de verdade, nos últimos 28 dias — é o que o Google usa pra
+              ranquear.{" "}
+              {t.velocidade.visitas
+                ? `${mais(t.velocidade.visitas, "página aberta", "páginas abertas")} medidas.`
+                : "Nenhuma visita medida ainda: os números chegam quando alguém usar a loja."}
+            </p>
+          </div>
+        </div>
+        <Velocidade vitais={t.velocidade.vitais} />
+        {t.velocidade.maisLenta ? (
+          <p className="pequeno" style={{ margin: "14px 0 0" }} data-mais-lenta>
+            {t.velocidade.maisLenta}
+          </p>
+        ) : null}
       </section>
 
       <section className="bloco" data-avisados>
