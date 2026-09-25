@@ -69,7 +69,7 @@ export type PedidoVisivel = {
 /** Os campos que a tela de obrigado (e a conta, com mais alguns) lê do pedido. */
 export const CAMPOS_DO_PEDIDO =
   "id,display_id,email,created_at,currency_code,subtotal,item_subtotal,item_total," +
-  "discount_total,shipping_total,total,original_total,*items,*items.variant,*items.product," +
+  "discount_total,shipping_total,total,credit_line_total,*items,*items.variant,*items.product," +
   `*shipping_methods,*shipping_address,${CAMPOS_DO_PAGAMENTO}`
 
 /** O que a versão pública do pedido tem — ver `lerPedido`. */
@@ -139,6 +139,26 @@ export async function lerPedido(id: string): Promise<LeituraDoPedido | null> {
 }
 
 /**
+ * O TOTAL DO PEDIDO É O QUE FOI COBRADO — com o cupom e a oferta do checkout
+ * descontados, cancelado ou não. Dois números do Medusa parecem servir, e
+ * nenhum serve sozinho:
+ *
+ * - o `total` é o que SOBROU: cancelar um pedido pago grava a devolução como
+ *   crédito (`credit_line_total`), que desconta — o estornado inteiro daria
+ *   R$ 0,00. Por isso o crédito volta pra conta;
+ * - o `original_total` é a conta de ANTES dos descontos: o cancelado cobrado
+ *   R$ 153,01 aparecia como R$ 158,50, logo abaixo do "Desconto −R$ 5,49".
+ *
+ * Arredondado no centavo como o Pagar.me cobra (`emCentavos`, no provedor do
+ * backend): a oferta é 10% de uma unidade, e o Medusa guarda fração de
+ * centavo. É a mesma conta do painel e do e-mail de cancelamento.
+ */
+function totalCobrado(order: HttpTypes.StoreOrder): number {
+  const reais = Number(order.total ?? 0) + Number(order.credit_line_total ?? 0)
+  return Math.round(reais * 100) / 100
+}
+
+/**
  * O pedido do Medusa no formato das telas. Uma tradução só, pra tela de
  * obrigado e pra conta: o mesmo pedido não pode aparecer com um total num
  * lugar e outro no outro.
@@ -169,9 +189,7 @@ export function paraPedidoVisivel(order: HttpTypes.StoreOrder): PedidoVisivel {
     subtotal: Number(order.item_subtotal ?? order.subtotal ?? 0),
     desconto: Number(order.discount_total ?? 0),
     frete: Number(order.shipping_total ?? 0),
-    // Pedido cancelado e estornado tem `total` zero (o estorno entra como
-    // crédito e zera a conta). O que a pessoa quer ver é quanto ele era.
-    total: Number((order.status === "canceled" ? order.original_total : null) ?? order.total ?? 0),
+    total: totalCobrado(order),
     entrega: e
       ? {
           nome: [e.first_name, e.last_name].filter(Boolean).join(" "),
