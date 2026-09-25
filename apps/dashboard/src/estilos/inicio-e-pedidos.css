@@ -172,3 +172,21 @@ a.filtro { text-decoration: none; }
 .btn[disabled][aria-busy] { opacity: 0.7; cursor: progress; }
 .aviso[data-erro] { box-shadow: 5px 5px 0 0 var(--erro); }
 .aviso[data-erro] svg { fill: var(--amarelo); }
+
+/* Os carrinhos abandonados: os quatro passos do checkout (o que a pessoa parou, em amarelo) e o botão do WhatsApp. */
+[data-carrinhos] td { vertical-align: top; }
+.etapas-carrinho { display: grid; gap: 4px; }
+.etapas-carrinho__passos { display: flex; gap: 3px; }
+.etapas-carrinho__passos i { width: 20px; height: 6px; background: var(--cinza-2); }
+.etapas-carrinho__passos i[data-feito] { background: var(--tinta); }
+.etapas-carrinho__passos i[data-parou] { background: var(--amarelo); box-shadow: inset 0 0 0 1px var(--tinta); }
+.etapas-carrinho__nome { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
+.etapas-carrinho .tabela__sub { margin: 0; }
+.cartao .etapas-carrinho { margin: 8px 0; }
+.btn--whatsapp { background: var(--menta-escura); border-color: var(--menta-escura); color: #fff; white-space: nowrap; }
+[data-chamado] { margin-top: 6px; }
+[data-carrinhos] [data-telefone] { white-space: nowrap; }
+/* No cartão do celular: o e-mail no lugar do nome quebra em vez de empurrar o valor pra fora; a hora não encolhe. */
+.cartao[data-carrinho] .cartao__titulo { min-width: 0; overflow-wrap: anywhere; }
+.cartao[data-carrinho] [data-parou-em] { white-space: nowrap; }
+.cartao[data-carrinho] .cartao__linha > .pequeno:last-child { text-align: right; }
