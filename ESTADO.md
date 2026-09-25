@@ -967,6 +967,14 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
       amarelo, ficou na cor do texto. Só nessa seção: a "Alta Performance" da home, de fundo
       branco, continua como era. A regra mora na fonte do CSS da PDP
       (`ferramentas/porte/pdp-partes/estilo.css`, que gera o `pdp-relacionados.css`).
+- [x] **O conferidor do ERP procurava o aviso da equipe na caixa errada** (entrega 0101, 25/09).
+      Desde as Configurações (entrega 0093), o e-mail da equipe — a nota que não saiu, a nota pra
+      conferir ou pra cancelar, o Bling caído — vai pra quem está no painel com o papel que
+      resolve, e o dono recebe todos. O `conferir-erp` seguia procurando esses e-mails na caixa do
+      admin do Medusa: em todo banco local com gente no painel, 9 checagens falhavam, com o código
+      da main e com o de qualquer entrega. A loja estava certa — no log, cada aviso saiu pro dono.
+      Agora ele lê a caixa do dono do painel ou, num banco sem ninguém no painel, a do admin, como
+      antes. Só o conferidor mudou: nada muda na loja, e nada a configurar.
 - [ ] **Pagamento, o que a revisão achou e ficou pra depois** (baixo risco, sem dinheiro preso):
   - estorno ou contestação feitos do lado do Pagar.me depois do pagamento (pelo painel deles,
     chargeback) não são percebidos: o pedido segue pago, pro envio.
