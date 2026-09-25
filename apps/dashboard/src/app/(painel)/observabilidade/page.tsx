@@ -144,8 +144,8 @@ async function Observabilidade() {
             <h2 className="bloco__titulo">Quem é avisado</h2>
             <p className="bloco__sub">
               O estorno que não sai, a nota travada e a conexão do Bling caída também vão por
-              e-mail, na hora, pros usuários do admin do Medusa. O resto fica só aqui, e no número
-              vermelho do menu quando é grave.
+              e-mail, na hora, pro papel que resolve (Configurações → E-mails). O resto fica só
+              aqui, e no número vermelho do menu quando é grave.
             </p>
           </div>
         </div>
