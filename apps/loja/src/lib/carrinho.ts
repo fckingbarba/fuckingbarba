@@ -115,11 +115,33 @@ export function paraVisivel(carrinho: Carrinho | null): CarrinhoVisivel {
  * ambiente. É o caso que acontece toda vez que alguém volta ao site depois
  * de comprar, e tratar como "não tem carrinho" é o certo.
  *
+ * E null quando o Medusa não respondeu. Quem precisa separar os dois casos
+ * usa a `leituraDoCarrinho`, logo abaixo.
+ *
  * `campos` existe porque o checkout precisa de mais coisa que a gaveta
  * (endereço, cobrança, método de frete) e a gaveta não tem por que carregar
  * isso em toda página. O padrão continua sendo o da gaveta.
  */
 export async function lerCarrinho(campos = CAMPOS_CARRINHO): Promise<Carrinho | null> {
+  const lido = await leituraDoCarrinho(campos)
+  return lido === "sem-resposta" ? null : lido
+}
+
+/**
+ * O carrinho, "não tem" (null) ou "não deu pra saber" (`"sem-resposta"`).
+ *
+ * Pra quem desenha a sacola, os dois últimos são opostos: um é "sacola
+ * vazia", o outro é "a sacola está lá, só não consegui ver agora". Tratados
+ * igual, todo deploy do backend (o Medusa reinicia) mostrava a sacola vazia,
+ * sem recado — e quem pusesse os produtos de novo ficava com o dobro, porque
+ * o carrinho de antes continuava lá (24/09).
+ *
+ * `"sem-resposta"` é rede, prazo, 5xx ou 429 (`falhaPassageira`). O resto que
+ * dá errado — 404, carrinho de outro ambiente — é "não tem", como sempre foi.
+ */
+export async function leituraDoCarrinho(
+  campos = CAMPOS_CARRINHO
+): Promise<Carrinho | null | "sem-resposta"> {
   const sdk = cliente()
   if (!sdk) return null
 
@@ -144,7 +166,7 @@ export async function lerCarrinho(campos = CAMPOS_CARRINHO): Promise<Carrinho | 
     return cart ?? null
   } catch (e) {
     aviso(e, `carrinho ${id}`)
-    return null
+    return falhaPassageira(e) ? "sem-resposta" : null
   }
 }
 
@@ -157,8 +179,7 @@ export async function lerCarrinho(campos = CAMPOS_CARRINHO): Promise<Carrinho | 
  * não chegou. Sem isto, a pessoa recarrega o checkout, encontra a sacola
  * vazia e compra de novo.
  *
- * `complete` num carrinho já fechado devolve o MESMO pedido, sem cobrar outra
- * vez: é o jeito que a API pública tem de dizer que pedido saiu dele.
+ * Qual pedido: `pedidoDoCarrinho`, mais abaixo.
  */
 export async function carrinhoFechado(): Promise<boolean> {
   const sdk = cliente()
@@ -173,9 +194,42 @@ export async function carrinhoFechado(): Promise<boolean> {
 }
 
 export async function pedidoDoCarrinhoFechado(): Promise<string | null> {
-  const sdk = cliente()
   const id = (await cookies()).get(COOKIE_CARRINHO)?.value
-  if (!sdk || !id || !(await carrinhoFechado())) return null
+  if (!id || !(await carrinhoFechado())) return null
+  return pedidoDoCarrinho(id)
+}
+
+/**
+ * O pedido que saiu de um carrinho já fechado, ou null.
+ *
+ * PRIMEIRO PERGUNTA, SEM MEXER EM NADA: `/store/pedido-do-carrinho/:id`, rota
+ * nossa no Medusa. O `complete` só devolve o pedido de um carrinho fechado
+ * enquanto o pagamento dele segue de pé — o Medusa (2.21) confere as sessões
+ * de pagamento ANTES de ver que o pedido já existe. Com o cartão reprovado
+ * na análise, ou o Pix vencido, a sessão vira "canceled" e o `complete`
+ * responde 400 pra sempre. Era o laço de 24/09: o /checkout mandava pro
+ * /checkout/retomar, que não achava o pedido e mandava de volta — 71 idas
+ * em 8 segundos.
+ *
+ * O `complete` fica pro backend de antes da rota (404) — é o jeito que a
+ * API pública do Medusa tem de dizer que pedido saiu dele, sem cobrar de
+ * novo.
+ */
+export async function pedidoDoCarrinho(id: string): Promise<string | null> {
+  const sdk = cliente()
+  if (!sdk) return null
+  try {
+    const { pedido } = await sdk.client.fetch<{ pedido: string | null }>(
+      `/store/pedido-do-carrinho/${encodeURIComponent(id)}`,
+      { cache: "no-store" }
+    )
+    return pedido
+  } catch (e) {
+    if ((e as { status?: unknown } | null)?.status !== 404) {
+      aviso(e, `pedido do carrinho ${id}`)
+      return null
+    }
+  }
   try {
     const resposta = await sdk.store.cart.complete(id)
     return resposta.type === "order" ? resposta.order.id : null

@@ -76,7 +76,8 @@ export function Gaveta({
 
   if (!sacola) return null
 
-  const { carrinho, ocupada, mexendo, erro, fechar, mudar, tirar } = sacola
+  const { carrinho, leitura, relendo, ocupada, mexendo, erro, fechar, mudar, tirar, recarregar } =
+    sacola
   const vazia = carrinho.itens.length === 0
 
   /*
@@ -145,14 +146,37 @@ export function Gaveta({
 
         <MedidorDeFrete subtotal={carrinho.subtotal} />
 
-        <div className="sacolinha__vazio">
+        {/*
+          "Vazia" só quando o servidor disse que está. Antes da primeira
+          resposta, ou sem resposta nenhuma, o vazio da tela é o de partida —
+          e a sacola da pessoa pode estar cheia lá no Medusa (ver `leitura`).
+        */}
+        <div className="sacolinha__vazio" data-leitura={leitura}>
           <IconeSacola />
-          <p className="sacolinha__vazio-titulo">Sua sacola está vazia</p>
-          <p>Escolhe alguma coisa boa ali embaixo que a gente cuida do resto.</p>
-          <button type="button" className="btn" onClick={fechar}>
-            Ver produtos
-            <Raio className="btn__bolt" />
-          </button>
+          {leitura === "feita" ? (
+            <>
+              <p className="sacolinha__vazio-titulo">Sua sacola está vazia</p>
+              <p>Escolhe alguma coisa boa ali embaixo que a gente cuida do resto.</p>
+              <button type="button" className="btn" onClick={fechar}>
+                Ver produtos
+                <Raio className="btn__bolt" />
+              </button>
+            </>
+          ) : leitura === "falhou" ? (
+            <>
+              <p className="sacolinha__vazio-titulo">Não consegui abrir sua sacola</p>
+              <p>
+                Ela continua guardada: foi a loja que não respondeu agora. Tenta de novo em
+                instantes.
+              </p>
+              <button type="button" className="btn" onClick={recarregar} disabled={relendo}>
+                {relendo ? "Tentando…" : "Tentar de novo"}
+                <Raio className="btn__bolt" />
+              </button>
+            </>
+          ) : (
+            <p className="sacolinha__vazio-titulo">Abrindo sua sacola…</p>
+          )}
         </div>
 
         <div className="sacolinha__corpo">

@@ -2,7 +2,8 @@
 
 import { useState, useTransition, type ReactNode } from "react"
 import { EVENTO_SACOLA } from "@/components/sacola/contexto"
-import { adicionar } from "@/lib/acoes/carrinho"
+import { adicionar, type Resultado } from "@/lib/acoes/carrinho"
+import { SEM_CONEXAO, semQueda } from "@/lib/rede"
 
 /**
  * O "COMPRAR" DA VITRINE — põe uma unidade na sacola e abre a gaveta, sem
@@ -37,7 +38,10 @@ export function BotaoComprar({
   function comprar() {
     setErro("")
     comecar(async () => {
-      const r = await adicionar(varianteId, 1)
+      const r = await semQueda(
+        () => adicionar(varianteId, 1),
+        (): Resultado => ({ ok: false, erro: SEM_CONEXAO, carrinho: null })
+      )
       if (!r.ok) {
         setErro(r.erro)
         return

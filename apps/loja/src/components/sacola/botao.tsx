@@ -26,7 +26,10 @@ export function BotaoDaSacola() {
     )
   }
 
-  const { carrinho, abrir, aberta } = sacola
+  const { carrinho, leitura, abrir, aberta } = sacola
+  // Antes da primeira resposta do servidor, o número seria o zero de partida,
+  // e não o da pessoa — com o Medusa fora, um "0" mentiroso (ver `leitura`).
+  const sabe = leitura === "feita"
 
   return (
     <button
@@ -37,9 +40,11 @@ export function BotaoDaSacola() {
       aria-expanded={aberta}
       aria-controls="carrinho-gaveta"
       aria-label={
-        carrinho.unidades === 1
-          ? "Sacola com 1 item"
-          : `Sacola com ${carrinho.unidades} ${carrinho.unidades === 0 ? "item" : "itens"}`
+        !sabe
+          ? "Sacola"
+          : carrinho.unidades === 1
+            ? "Sacola com 1 item"
+            : `Sacola com ${carrinho.unidades} ${carrinho.unidades === 0 ? "item" : "itens"}`
       }
     >
       <Sacola />
@@ -47,9 +52,11 @@ export function BotaoDaSacola() {
         O número é `aria-hidden` porque o `aria-label` do botão já o diz por
         extenso. Sem isso o leitor de tela anuncia "Sacola com 2 itens, 2".
       */}
-      <span className="cabecalho__contador" aria-hidden="true">
-        {carrinho.unidades}
-      </span>
+      {sabe ? (
+        <span className="cabecalho__contador" aria-hidden="true">
+          {carrinho.unidades}
+        </span>
+      ) : null}
     </button>
   )
 }

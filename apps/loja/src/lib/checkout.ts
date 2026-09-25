@@ -7,6 +7,7 @@ import { ehCodigoDeBump, handleDoBump } from "./bump"
 import {
   COOKIE_CARRINHO,
   lerCarrinho,
+  leituraDoCarrinho,
   paraVisivel,
   type Carrinho,
   type ItemDoCarrinho,
@@ -105,7 +106,16 @@ function paraDocumento(e: HttpTypes.StoreCartAddress | null | undefined): string
 
 /** O carrinho no formato que as etapas desenham, ou null se não há carrinho. */
 export async function lerCheckout(): Promise<CheckoutVisivel | null> {
-  const carrinho = await lerCarrinho(CAMPOS_CHECKOUT)
+  const carrinho = await leituraDoCarrinho(CAMPOS_CHECKOUT)
+  /*
+    O MEDUSA NÃO RESPONDEU — todo deploy do backend tem uns segundos assim. A
+    sacola pode estar cheia lá, e o checkout dizia "Sua sacola está vazia"
+    (24/09). Lança: a página cai no "Essa página não carregou", com "Tentar
+    de novo" (`app/error.tsx`), que é a verdade.
+  */
+  if (carrinho === "sem-resposta") {
+    throw new Error("[checkout] o Medusa não respondeu a leitura do carrinho")
+  }
   if (!carrinho) return null
 
   const base = paraVisivel(carrinho)
@@ -643,6 +653,106 @@ export async function listarSugestoes(
   return site.categorias
     .map((c) => porCategoria.get(c.handle))
     .filter((o): o is Oferta => Boolean(o))
+}
+
+/* ── o estoque que acabou no meio do caminho ──────────────────────────────── */
+
+/** A recusa do Medusa no `complete` por falta de estoque ("Not enough stock available…"). */
+export const ehFaltaDeEstoque = (mensagem: string) =>
+  /not enough stock|required inventory|insufficient.?inventory/i.test(mensagem)
+
+export type AjusteDoEstoque =
+  /** o pedido desceu até o que tem; uma frase por produto que mudou */
+  | { tipo: "ajustado"; frases: string[] }
+  /** nada do pedido tem estoque — ajustar deixaria o pedido vazio, então nada mudou */
+  | { tipo: "esgotou-tudo"; nomes: string[] }
+  /** o estoque de agora cobre o pedido: a falta foi de um instante */
+  | { tipo: "coube" }
+  | { tipo: "sem-resposta" }
+
+/**
+ * O PEDIDO VIRA O QUE AINDA TEM.
+ *
+ * O produto esgota entre a sacola e o "pagar" — outra pessoa levou o último,
+ * a loja zerou no admin —, e o Medusa recusa fechar o carrinho. A loja dizia
+ * "espera um minuto e clica em pagar de novo", e o segundo clique dava na
+ * mesma, pra sempre, sem ninguém contar que tinha esgotado (24/09).
+ *
+ * Aqui a quantidade de cada linha desce até o que tem, e o que acabou sai do
+ * pedido — com o código da oferta dele, se era o da caixinha do passo 3 (o
+ * código sai antes, como no `alternarBump`, senão fica pendurado no resumo).
+ * A pessoa lê o que mudou e o total novo, e paga de novo se quiser: o total
+ * que ela viu é conferido no clique (`total_visto`).
+ *
+ * Nada foi cobrado nesse caminho: o Medusa reserva o estoque antes de
+ * autorizar o pagamento, e é na reserva que ele recusa.
+ */
+export async function ajustarAoEstoque(carrinho: Carrinho): Promise<AjusteDoEstoque> {
+  const sdk = cliente()
+  const itens = carrinho.items ?? []
+  const produtos = [...new Set(itens.flatMap((i) => (i.product_id ? [i.product_id] : [])))]
+  if (!sdk || !produtos.length) return { tipo: "sem-resposta" }
+
+  let variantes: Map<string, HttpTypes.StoreProductVariant>
+  try {
+    const { products } = await sdk.store.product.list({
+      id: produtos,
+      limit: produtos.length,
+      fields: "id,*variants,+variants.inventory_quantity,+variants.manage_inventory",
+    })
+    variantes = new Map((products ?? []).flatMap((p) => (p.variants ?? []).map((v) => [v.id, v])))
+  } catch (e) {
+    aviso(e, "estoque do carrinho")
+    return { tipo: "sem-resposta" }
+  }
+
+  // O que ainda cabe de cada variante, repartido entre as linhas dela, na ordem.
+  const cabe = new Map<string, number>()
+  const mudancas: { linha: string; nome: string; quer: number; fica: number; handle: string }[] = []
+  for (const i of itens) {
+    const v = i.variant_id ? variantes.get(i.variant_id) : undefined
+    if (!v?.manage_inventory || v.allow_backorder || typeof v.inventory_quantity !== "number") {
+      continue
+    }
+    const resta = cabe.get(v.id) ?? Math.max(0, Math.trunc(v.inventory_quantity))
+    const quer = i.quantity ?? 0
+    const fica = Math.min(quer, resta)
+    cabe.set(v.id, resta - fica)
+    if (fica < quer) {
+      const nome = i.product_title ?? i.title ?? "Um produto"
+      mudancas.push({ linha: i.id, nome, quer, fica, handle: i.product_handle ?? "" })
+    }
+  }
+
+  if (!mudancas.length) return { tipo: "coube" }
+  const saem = mudancas.filter((m) => m.fica === 0)
+  if (saem.length === itens.length) return { tipo: "esgotou-tudo", nomes: saem.map((m) => m.nome) }
+
+  try {
+    const handlesQueSaem = new Set(saem.map((m) => m.handle))
+    const codigos = (carrinho.promotions ?? []).flatMap((p) =>
+      p?.code && handlesQueSaem.has(handleDoBump(p.code) ?? "") ? [p.code] : []
+    )
+    if (codigos.length) await sdk.store.cart.removePromotions(carrinho.id, { promo_codes: codigos })
+    // Em série: o Medusa refaz o carrinho inteiro a cada mudança.
+    for (const m of mudancas) {
+      if (m.fica > 0)
+        await sdk.store.cart.updateLineItem(carrinho.id, m.linha, { quantity: m.fica })
+      else await sdk.store.cart.deleteLineItem(carrinho.id, m.linha)
+    }
+  } catch (e) {
+    aviso(e, "ajustar o carrinho ao estoque")
+    return { tipo: "sem-resposta" }
+  }
+
+  return {
+    tipo: "ajustado",
+    frases: mudancas.map((m) =>
+      m.fica > 0
+        ? `${m.nome} ficou com ${m.fica} (eram ${m.quer})`
+        : `${m.nome} esgotou e saiu do pedido`
+    ),
+  }
 }
 
 /* ── o pedido recém-fechado ───────────────────────────────────────────────── */

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation"
 import { Fragment, Suspense } from "react"
 import { Etapas } from "@/components/checkout/etapas"
 import { MarcaDaTela } from "@/components/marca-da-tela"
+import { RecarregaSacola } from "@/components/sacola/recarrega"
 import { Cadeado, Raio } from "@/components/icones"
 import { LogoCurta } from "@/components/marca"
 import {
@@ -46,12 +47,15 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 }
 
-export default function Pagina() {
+export default function Pagina({ searchParams }: PageProps<"/checkout">) {
   return (
     <>
       {/* Tira a carcaça da loja (cabeçalho, esteira, rodapé) e põe o fundo
           cinza enquanto esta página está na tela — `checkout-loja.css`. */}
       <MarcaDaTela tela="checkout" />
+      {/* Quem sai do checkout pra loja encontra o cabeçalho com a sacola de
+          agora — a oferta e os chips daqui mexem nela por fora da gaveta. */}
+      <RecarregaSacola quando="sair" />
 
       {/*
         Cabeçalho próprio, e curto. O da loja tem menu, busca e sacola — três
@@ -77,14 +81,14 @@ export default function Pagina() {
 
       <main className="pagina" id="conteudo">
         <Suspense fallback={<Esqueleto />}>
-          <Conteudo />
+          <Conteudo searchParams={searchParams} />
         </Suspense>
       </main>
     </>
   )
 }
 
-async function Conteudo() {
+async function Conteudo({ searchParams }: Pick<PageProps<"/checkout">, "searchParams">) {
   // Com a conta aberta: o carrinho passa pro nome dela, e o que estiver
   // vazio vem de "Meus dados" e do endereço principal. Antes de ler — é o
   // carrinho já preenchido que decide em que passo o checkout abre.
@@ -93,8 +97,12 @@ async function Conteudo() {
 
   // Carrinho que já virou pedido, com a confirmação perdida no caminho: vai
   // buscar o pedido em vez de dizer "sacola vazia" — senão a pessoa compra
-  // de novo. Ver `/checkout/retomar`.
-  if (!checkout && (await carrinhoFechado())) redirect("/checkout/retomar")
+  // de novo. Ver `/checkout/retomar`. Se de lá voltou sem pedido, fica aqui,
+  // com o recado: mandar de novo era o laço de 24/09.
+  if (!checkout && (await carrinhoFechado())) {
+    if ((await searchParams).retomar === "falhou") return <PedidoSemConfirmacao />
+    redirect("/checkout/retomar")
+  }
   if (!checkout || checkout.itens.length === 0) return <Vazio />
 
   /*
@@ -162,6 +170,30 @@ function Vazio() {
       </p>
       <Link className="btn" href="/">
         Ver os produtos
+        <Raio className="btn__bolt" />
+      </Link>
+    </div>
+  )
+}
+
+/**
+ * A sacola já virou pedido, mas o pedido não se deixou achar agora (o Medusa
+ * fora do ar, quase sempre). Não é "sacola vazia" — ela foi comprada —, e
+ * mandar comprar de novo seria a compra dupla que o `/checkout/retomar`
+ * existe pra evitar.
+ */
+function PedidoSemConfirmacao() {
+  return (
+    <div className="bloco checkout__vazio">
+      <h1>Essa sacola já virou pedido</h1>
+      <p>
+        Não consegui abrir a confirmação dele agora. Se o pagamento passou, ela também chega no seu
+        e-mail. Tenta de novo em instantes — e, se preferir, chama a gente no WhatsApp.
+      </p>
+      {/* Sem prefetch: a rota grava cookie (o crachá do pedido) — buscada
+          antes do clique, abriria o pedido sozinha. */}
+      <Link className="btn" href="/checkout/retomar" prefetch={false}>
+        Tentar de novo
         <Raio className="btn__bolt" />
       </Link>
     </div>

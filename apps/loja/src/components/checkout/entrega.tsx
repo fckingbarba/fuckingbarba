@@ -16,12 +16,15 @@ import { limparCep, mascararCep } from "@/lib/cep-formato"
 import {
   ENDERECO_VAZIO,
   ESTADO_INICIAL,
+  estadoSemResposta,
   type CheckoutVisivel,
+  type EstadoDaEtapa,
   type Oferta,
   type OpcaoDeFrete,
 } from "@/lib/checkout-visivel"
 import { comCepNovo, UFS } from "@/lib/endereco"
 import { emReais } from "@/lib/formato"
+import { SEM_CONEXAO, semQueda } from "@/lib/rede"
 import { site } from "@/lib/site"
 import { Campo } from "./campo"
 import {
@@ -33,6 +36,13 @@ import {
   useFocaNoErro,
   type PropsDaEtapa,
 } from "./etapas"
+
+/** Sem internet, a ação nem volta: o recado fica no passo, e nada do que foi digitado se perde. */
+const salvar = (anterior: EstadoDaEtapa, fd: FormData) =>
+  semQueda(
+    () => salvarEntrega(anterior, fd),
+    () => estadoSemResposta(anterior, fd, SEM_CONEXAO)
+  )
 
 /**
  * PASSO 2 — o endereço e o frete.
@@ -61,7 +71,7 @@ type Props = PropsDaEtapa & {
 }
 
 export function Entrega({ checkout, fretes, sugestoes, falta, piso, aoSalvar, ...casca }: Props) {
-  const [estado, acao, enviando] = useActionState(salvarEntrega, ESTADO_INICIAL)
+  const [estado, acao, enviando] = useActionState(salvar, ESTADO_INICIAL)
   const [buscando, buscar] = useTransition()
   useFechaQuandoSalva(estado, aoSalvar)
   useAvisaOcupado(casca, enviando ? "Salvando…" : buscando ? "Procurando o endereço…" : null)
@@ -137,10 +147,21 @@ export function Entrega({ checkout, fretes, sugestoes, falta, piso, aoSalvar, ..
       /* Além de preencher os campos, isto grava o CEP no carrinho e pede
          o `refresh()` — é o que traz as opções de entrega, que agora só
          existem depois de a transportadora cotar pra este CEP. */
-      const achado = await consultarCep(limpo)
+      const achado = await semQueda(
+        () => consultarCep(limpo),
+        () => null
+      )
       // Abre de qualquer jeito: CEP que o ViaCEP não conhece existe, e a
       // pessoa precisa dos campos pra digitar à mão.
       setAbriu(true)
+      if (!achado) {
+        // A consulta nem voltou (sem internet): os campos ficam como estão,
+        // o recado de "não consegui calcular a entrega" aparece, e o mesmo
+        // CEP pode ser procurado de novo.
+        ultimoBuscado.current = ""
+        setNaoGravou(true)
+        return
+      }
       setNaoGravou(!achado.gravado)
       setNaoAchou(!achado.encontrado)
       /*
@@ -421,7 +442,10 @@ function Fretes({
       preverMarca(id)
       const fd = new FormData()
       fd.set("opcao", id)
-      const r = await escolherFrete(ESTADO_INICIAL, fd)
+      const r = await semQueda(
+        () => escolherFrete(ESTADO_INICIAL, fd),
+        () => estadoSemResposta(ESTADO_INICIAL, fd, SEM_CONEXAO)
+      )
       if (!r.ok) setErro(r.mensagem || "Não consegui trocar a entrega agora. Tenta de novo.")
     })
   }
@@ -555,7 +579,10 @@ function Completa({
               onClick={() =>
                 recalcular(async () => {
                   marcarPondo(o.varianteId)
-                  const r = await adicionarOferta(o.varianteId)
+                  const r = await semQueda(
+                    () => adicionarOferta(o.varianteId),
+                    () => ESTADO_INICIAL
+                  )
                   setFalhou(r.ok ? "" : o.nome)
                   setAviso(
                     r.ok

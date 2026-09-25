@@ -28,14 +28,17 @@ import { alternarBump, finalizar } from "@/lib/acoes/checkout"
 import { bandeiraDe, cvvOk, luhn, mascararCartao, mascararValidade, validadeOk } from "@/lib/cartao"
 import {
   ESTADO_INICIAL,
+  estadoSemResposta,
   PROVEDOR_PAGARME,
   type CheckoutVisivel,
+  type EstadoDaEtapa,
   type OfertaDoBump,
   type ProvedorDePagamento,
 } from "@/lib/checkout-visivel"
 import type { Configuracoes } from "@/lib/configuracoes"
 import { emReais } from "@/lib/formato"
 import { nomeNoCartao, tokenizar } from "@/lib/pagarme"
+import { semQueda } from "@/lib/rede"
 import { CHECKOUT_ABERTO, PARCELA_MINIMA, PARCELAS_SEM_JUROS } from "@/lib/site"
 import { LogoDaBandeira } from "@/components/bandeira"
 import { Campo } from "./campo"
@@ -115,12 +118,28 @@ function parcelasPossiveis(total: number): number[] {
   )
 }
 
+/**
+ * Sem internet, a ação de pagar nem volta — e aqui não dá pra dizer "nada foi
+ * cobrado": a conexão pode ter caído DEPOIS de o pedido fechar. O clique
+ * seguinte é seguro nos dois casos (se fechou, `finalizar` leva pro pedido),
+ * e é isso que a frase pede.
+ */
+const SEM_CONEXAO_NO_PAGAMENTO =
+  "A conexão caiu antes da resposta. Confere a internet e clica em pagar de novo: " +
+  "se o pagamento tiver passado, você vai direto pro pedido, sem pagar duas vezes."
+
+const pagar = (anterior: EstadoDaEtapa, fd: FormData) =>
+  semQueda(
+    () => finalizar(anterior, fd),
+    () => estadoSemResposta(anterior, fd, SEM_CONEXAO_NO_PAGAMENTO)
+  )
+
 // `aoSalvar` é desestruturado e não usado de propósito: este passo não fecha
 // quando dá certo — a ação redireciona pra tela de obrigado e esta página
 // deixa de existir. Tirar da prop quebraria a assinatura comum das etapas.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function Pagamento({ checkout, provedores, bump, atendimento, aoSalvar, ...casca }: Props) {
-  const [estado, acao, enviando] = useActionState(finalizar, ESTADO_INICIAL)
+  const [estado, acao, enviando] = useActionState(pagar, ESTADO_INICIAL)
   const [forma, setForma] = useState<FormaDePagamento["id"]>("pix")
   const [cartao, setCartao] = useState<CartaoNaTela>(CARTAO_VAZIO)
   const [tocado, setTocado] = useState<Record<string, boolean>>({})
@@ -264,6 +283,9 @@ export function Pagamento({ checkout, provedores, bump, atendimento, aoSalvar, .
           {/* O total que esta tela mostra no botão: a ação cobra só se ainda
               for o do carrinho — ver "O TOTAL QUE A PESSOA VIU" em `finalizar`. */}
           <input type="hidden" name="total_visto" value={String(checkout.total)} />
+          {/* O carrinho desta tela: se outra aba já pagou, a ação acha o
+              pedido pelo crachá — ver "A OUTRA ABA JÁ PAGOU" em `finalizar`. */}
+          <input type="hidden" name="carrinho_visto" value={checkout.id} />
 
           {cobra || !CHECKOUT_ABERTO ? (
             <Formas
@@ -686,7 +708,10 @@ function Bump({
             // descarta o otimista antes de o servidor responder.
             recalcular(async () => {
               preverMarca(marcar)
-              const r = await alternarBump(bump.varianteId, marcar)
+              const r = await semQueda(
+                () => alternarBump(bump.varianteId, marcar),
+                () => ESTADO_INICIAL
+              )
               if (!r.ok) setErro(r.mensagem || "Não consegui mexer na oferta agora.")
             })
           }}

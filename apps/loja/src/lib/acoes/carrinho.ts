@@ -4,7 +4,7 @@ import {
   CAMPOS_CARRINHO,
   CARRINHO_VAZIO,
   garantirCarrinho,
-  lerCarrinho,
+  leituraDoCarrinho,
   paraVisivel,
   type CarrinhoVisivel,
 } from "@/lib/carrinho"
@@ -33,15 +33,23 @@ import { cliente } from "@/lib/medusa"
  * exceção: ação que estoura atravessa o boundary do React como "An error
  * occurred in the Server Components render", e aí o cliente não tem o que
  * mostrar além de "algo deu errado".
+ *
+ * NA FALHA, `carrinho: null` quer dizer "não consegui ler" — o Medusa não
+ * respondeu —, e a tela fica com a sacola que já mostrava. Não é a sacola
+ * vazia: com o vazio no lugar, cada deploy do backend esvaziava a gaveta de
+ * quem mexia nela, e quem pusesse os produtos de novo ficava com o dobro.
  */
 
 export type Resultado =
-  { ok: true; carrinho: CarrinhoVisivel } | { ok: false; erro: string; carrinho: CarrinhoVisivel }
+  | { ok: true; carrinho: CarrinhoVisivel }
+  | { ok: false; erro: string; carrinho: CarrinhoVisivel | null }
 
 const GENERICO = "Não consegui falar com a loja agora. Tenta de novo em instantes."
 
-async function agora(): Promise<CarrinhoVisivel> {
-  return paraVisivel(await lerCarrinho())
+/** A sacola de agora, ou null se o Medusa não respondeu. */
+async function agora(): Promise<CarrinhoVisivel | null> {
+  const lido = await leituraDoCarrinho()
+  return lido === "sem-resposta" ? null : paraVisivel(lido)
 }
 
 /**
@@ -69,13 +77,13 @@ async function falha(erro: unknown, contexto: string): Promise<Resultado> {
 /** Põe (ou soma) uma variante na sacola. O Medusa junta linhas da mesma variante. */
 export async function adicionar(varianteId: string, quantidade = 1): Promise<Resultado> {
   const sdk = cliente()
-  if (!sdk) return { ok: false, erro: GENERICO, carrinho: CARRINHO_VAZIO }
+  if (!sdk) return { ok: false, erro: GENERICO, carrinho: null }
 
   const qtd = Math.max(1, Math.min(Math.trunc(quantidade) || 1, 99))
 
   try {
     const id = await garantirCarrinho()
-    if (!id) return { ok: false, erro: GENERICO, carrinho: CARRINHO_VAZIO }
+    if (!id) return { ok: false, erro: GENERICO, carrinho: null }
 
     const { cart } = await sdk.store.cart.createLineItem(
       id,
@@ -105,7 +113,10 @@ export async function adicionar(varianteId: string, quantidade = 1): Promise<Res
 export async function adicionarVarios(
   variantes: { varianteId: string; quantidade?: number }[]
 ): Promise<Resultado> {
-  if (!variantes.length) return { ok: true, carrinho: await agora() }
+  if (!variantes.length) {
+    const carrinho = await agora()
+    return carrinho ? { ok: true, carrinho } : { ok: false, erro: GENERICO, carrinho: null }
+  }
 
   let ultimo: Resultado = { ok: true, carrinho: CARRINHO_VAZIO }
   for (const v of variantes) {
@@ -121,10 +132,11 @@ export async function mudarQuantidade(linhaId: string, quantidade: number): Prom
   if (qtd <= 0) return remover(linhaId)
 
   const sdk = cliente()
-  if (!sdk) return { ok: false, erro: GENERICO, carrinho: CARRINHO_VAZIO }
+  if (!sdk) return { ok: false, erro: GENERICO, carrinho: null }
 
   try {
-    const carrinho = await lerCarrinho()
+    const carrinho = await leituraDoCarrinho()
+    if (carrinho === "sem-resposta") return { ok: false, erro: GENERICO, carrinho: null }
     if (!carrinho) return { ok: false, erro: GENERICO, carrinho: CARRINHO_VAZIO }
 
     const { cart } = await sdk.store.cart.updateLineItem(
@@ -141,20 +153,27 @@ export async function mudarQuantidade(linhaId: string, quantidade: number): Prom
 
 export async function remover(linhaId: string): Promise<Resultado> {
   const sdk = cliente()
-  if (!sdk) return { ok: false, erro: GENERICO, carrinho: CARRINHO_VAZIO }
+  if (!sdk) return { ok: false, erro: GENERICO, carrinho: null }
 
   try {
-    const carrinho = await lerCarrinho()
+    const carrinho = await leituraDoCarrinho()
+    if (carrinho === "sem-resposta") return { ok: false, erro: GENERICO, carrinho: null }
     if (!carrinho) return { ok: false, erro: GENERICO, carrinho: CARRINHO_VAZIO }
 
-    await sdk.store.cart.deleteLineItem(carrinho.id, linhaId)
-    return { ok: true, carrinho: await agora() }
+    // A resposta da remoção já traz o carrinho de depois (`parent`), com os
+    // campos da gaveta — sem uma segunda ida só pra reler.
+    const { parent } = await sdk.store.cart.deleteLineItem(carrinho.id, linhaId, {
+      fields: CAMPOS_CARRINHO,
+    })
+    const depois = parent ? paraVisivel(parent) : await agora()
+    return depois ? { ok: true, carrinho: depois } : { ok: false, erro: GENERICO, carrinho: null }
   } catch (e) {
     return falha(e, `remover ${linhaId}`)
   }
 }
 
-/** A gaveta pede isto quando abre, pra não confiar num estado velho da aba. */
-export async function sincronizar(): Promise<CarrinhoVisivel> {
-  return agora()
-}
+/*
+ * A LEITURA NÃO MORA AQUI. Era a `sincronizar`, uma action — e o Next roda as
+ * actions de uma aba uma por vez: uma leitura presa na rede segurava o "+"
+ * atrás dela. Quem lê é o GET `/api/sacola`.
+ */

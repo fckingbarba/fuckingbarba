@@ -56,6 +56,15 @@ export function entradaDoCarrinho(
   const documento = texto(doc?.valor)
   if (!nome || !documento) return { ok: false, mensagem: "Falta o seu nome ou o CPF lá em cima." }
   if (!texto(e?.phone)) return { ok: false, mensagem: "Falta o seu telefone lá em cima." }
+  // O limite do Pagar.me pro e-mail. O passo 1 já recusa; isto é o carrinho
+  // que chegou aqui com um maior (gravado antes, ou vindo da conta).
+  if ((carrinho.email ?? "").length > 64) {
+    return {
+      ok: false,
+      mensagem:
+        "Seu e-mail passa de 64 caracteres, o limite do pagamento. Troca ele no passo 1 (Contato).",
+    }
+  }
 
   const endereco = {
     rua: texto(meta.rua) || texto(e?.address_1).replace(/,\s*[^,]*$/, ""),
