@@ -2,3 +2,15 @@
 .colecao--relacionados {
   background: var(--color-menta);
 }
+.colecao--relacionados .colecao__titulo svg {
+  fill: currentColor;
+}
+.colecao--relacionados .produto__comprar {
+  background: var(--color-amarelo);
+}
+.colecao--relacionados .produto__comprar:hover,
+.colecao--relacionados .produto__comprar:focus-visible,
+.colecao--relacionados .produto__comprar:active {
+  background: var(--color-tinta);
+  color: #ffffff;
+}
