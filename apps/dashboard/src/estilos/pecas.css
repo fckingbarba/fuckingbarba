@@ -243,3 +243,8 @@
 .confirma p { margin: 0 0 10px; font-size: 0.84rem; }
 .confirma ul { margin: 0 0 12px; padding-left: 18px; font-size: 0.82rem; color: var(--tinta-suave); }
 .confirma__acoes { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; }
+
+/* A prévia de um formulário (o cupom novo): a frase do que vai valer, antes de criar. */
+.previa { margin: 16px 0 0; padding: 12px 14px; background: var(--amarelo-palido); border-left: 4px solid var(--amarelo-borda); font-size: 0.82rem; }
+/* Os cupons: o selo e a chave, lado a lado, à direita da linha. */
+.cupom__lado { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }

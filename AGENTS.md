@@ -828,6 +828,45 @@ ler os mesmos consentimentos e pôr as 5 etiquetas da pessoa na ficha, num bloco
 conferidor é o `apps/dashboard/ferramentas/conferir-clientes.mjs`, com os mesmos falsos e variáveis
 do `conferir-pedidos`.
 
+**Cupons e descontos** (fase 6, entrega 0085). Cupom é promoção do Medusa com código: quem aplica
+e recusa é o Medusa, no carrinho. `src/lib/cupons.ts` é puro, com testes, e faz o seguinte:
+
+- lê o formulário (`lerCupomNovo`): código em maiúsculas, sem o prefixo `BUMP-` das ofertas,
+  número em reais do jeito brasileiro, data de hoje em diante (Brasília);
+- monta a promoção (`promocaoDoCupom`): porcentagem em `items` com `allocation: across` (o `each`
+  do 2.21 pede `max_quantity`), reais em `order`, o limite total no `limit` do Medusa (conta no
+  pedido feito) e a forma do cupom no `metadata.fb_cupom`, de onde a lista lê;
+- faz das condições que o Medusa não tem regras comuns (`regrasDoCupom`), sobre campos que o gancho
+  `setPromotionContext` do `updateCartPromotionsWorkflow`
+  (`src/workflows/hooks/contexto-dos-cupons.ts`) põe no contexto (`contextoDosCupons`):
+  `fb_cupons.produtos` (o `somaDosProdutos`, a medida do frete grátis), `fb_cupons.agora`, e
+  `fb_cupons.pedidos` e `fb_cupons.usados` (os pedidos não cancelados do e-mail do carrinho, numa
+  consulta);
+- põe junto de toda condição a trava `fb_cupons.conferido = "sim"`, que o gancho só escreve quando
+  leu tudo. O Medusa lê número que falta como zero (`MathBN`): sem a trava, uma conta sem o gancho
+  (ou com a consulta dos pedidos falhando) deixaria passar o "vale até" e o "uma vez". O teste
+  roda as regras no avaliador do próprio Medusa (`areRulesValidForContext`).
+
+Sem e-mail, a lista de pedidos é vazia e "uma vez"/"primeira compra" deixam aplicar. O workflow
+refaz os códigos do carrinho a cada mudança e tira o que deixou de valer (o e-mail chegou, o
+produto saiu). O `use_by_attribute` do orçamento de campanha do Medusa não serve: sem e-mail no
+carrinho, ele derruba a conta com erro.
+
+As rotas ficam na área `cupons` (dono e marketing):
+
+- `GET /dashboard/cupons`: os cupons de campanha (`ehCupomDeCampanha`: com código, não automático,
+  sem `BUMP-`), os usos por código nos ajustes dos pedidos (`usosPorCodigo`: não cancelados; o
+  vendido, só dos pagos) e os descontos automáticos em frase (`src/lib/painel/cupons.ts`);
+- `POST /dashboard/cupons`: 422 com os erros por campo, 409 se o código já existe (em qualquer
+  caixa);
+- `POST /dashboard/cupons/:id` `{ acao: "pausar" | "ligar" }`: só cupom de campanha; muda o
+  `status`.
+
+As três anotam no registro da equipe. O cupom de frete grátis ficou de fora: o resumo do checkout
+mostra `shipping_total` e `discount_total`, e o desconto do frete apareceria nos dois. O
+conferidor é o `apps/dashboard/ferramentas/conferir-cupons.mjs`: cria os cupons pelo painel,
+aplica pela Store API e faz os pedidos com o `pedidoPix(..., { cupom })` do `pedido-de-teste.mjs`.
+
 O CSS do painel segue o do protótipo, uma regra por linha, escrito à mão: o prettier fica nos
 `.ts`/`.tsx`/`.mjs` — rodado nos `.css` do painel, ele reescreve o arquivo inteiro. A gaveta
 (`components/gaveta.tsx`) mora no `<body>`, por portal: aberta de dentro de um `.bloco`, ela

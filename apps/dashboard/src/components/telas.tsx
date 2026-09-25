@@ -85,11 +85,6 @@ const O_QUE_VEM: Partial<Record<Area, { titulo: string; fase: number; itens: str
       "O que voltou em venda.",
     ],
   },
-  cupons: {
-    titulo: "Cupons e descontos",
-    fase: 6,
-    itens: ["Criar, pausar e acompanhar os cupons.", "O desconto por quantidade de cada produto."],
-  },
   observabilidade: {
     titulo: "Observabilidade",
     fase: 7,
