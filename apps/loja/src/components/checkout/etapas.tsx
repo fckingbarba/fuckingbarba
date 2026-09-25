@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useRef,
   useState,
   useTransition,
   type TransitionStartFunction,
@@ -23,6 +24,7 @@ import {
 import type { Configuracoes } from "@/lib/configuracoes"
 import { emReais } from "@/lib/formato"
 import { comASacola, rastrear } from "@/lib/rastrear"
+import { usePeDaTela } from "@/lib/use-pe-da-tela"
 import { Contato } from "./contato"
 import { Entrega } from "./entrega"
 import { Pagamento } from "./pagamento"
@@ -301,9 +303,13 @@ function Barra({
     entrega: "Ir pro pagamento",
     pagamento: "Fazer o pedido",
   }
+  // No celular a barra ocupa o pé da tela: a faixa de cookies sobe pra cima
+  // dela (acima de 900 px ela some, e a medida é zero).
+  const barra = useRef<HTMLDivElement>(null)
+  usePeDaTela(barra, true)
 
   return (
-    <div className="barra">
+    <div ref={barra} className="barra">
       <span className="barra__total" data-recalculando={recalculando ? "" : undefined}>
         <small>Total</small>
         <b>{emReais(checkout.total)}</b>
