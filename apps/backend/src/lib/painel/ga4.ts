@@ -1,6 +1,7 @@
 import { createSign } from "node:crypto"
 import { chaveDoDia } from "./formato"
 import { PERGUNTA_DO_AGORA, perguntasDoDia, type RespostasDoGa4 } from "./visitas"
+import { sinal } from "../observabilidade/sinal"
 
 /**
  * A CONVERSA COM O GOOGLE ANALYTICS — só leitura, do servidor.
@@ -101,9 +102,21 @@ async function postar(url: string, init: RequestInit, onde: string): Promise<unk
   try {
     r = await fetch(url, { ...init, method: "POST", signal: AbortSignal.timeout(TEMPO_LIMITE_MS) })
   } catch (e) {
-    throw new ErroDoGa4("fora", `${onde}: ${e instanceof Error ? e.message : String(e)}`)
+    const motivo = `${onde}: ${e instanceof Error ? e.message : String(e)}`
+    sinal({ integracao: "ga4", ok: false, resumo: "o Google não respondeu", detalhe: motivo })
+    throw new ErroDoGa4("fora", motivo)
   }
   const corpo = (await r.json().catch(() => ({}))) as Record<string, unknown>
+  sinal(
+    r.ok
+      ? { integracao: "ga4", ok: true }
+      : {
+          integracao: "ga4",
+          ok: false,
+          resumo: `o Google respondeu ${r.status}`,
+          detalhe: `${onde}: ${r.status}`,
+        }
+  )
   if (r.ok) return corpo
   const erro = corpo.error as { message?: string } | string | undefined
   const detalhe =

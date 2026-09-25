@@ -1,5 +1,6 @@
 import type { MedusaContainer } from "@medusajs/framework/types"
 import { conciliarPagamentos } from "../lib/conciliar-pagamentos"
+import { comRodada } from "../lib/observabilidade/rodada"
 
 /**
  * A cada 5 minutos, no worker: põe o Medusa e o Pagar.me de acordo.
@@ -12,7 +13,7 @@ import { conciliarPagamentos } from "../lib/conciliar-pagamentos"
  * (segundos); isto aqui é a rede embaixo dele. Mais frequente só gastaria o
  * limite de leitura da API sem mudar nada que alguém veja.
  */
-export default async function conciliar(container: MedusaContainer) {
+async function conciliar(container: MedusaContainer) {
   await conciliarPagamentos(container)
 }
 
@@ -20,3 +21,5 @@ export const config = {
   name: "conciliar-pagamentos",
   schedule: "*/5 * * * *",
 }
+
+export default comRodada(config.name, conciliar)

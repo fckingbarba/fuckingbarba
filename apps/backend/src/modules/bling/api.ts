@@ -1,4 +1,5 @@
 import type { Acesso } from "../../lib/erp/contrato"
+import { sinal } from "../../lib/observabilidade/sinal"
 
 /**
  * O TELEFONE DO BLING — toda chamada da API v3 passa por aqui.
@@ -169,14 +170,16 @@ export async function chamarBling<T = unknown>(
       )
     } catch (e) {
       const tempo = e instanceof Error && (e.name === "TimeoutError" || e.name === "AbortError")
-      throw new ErroDoBling(
-        0,
-        tempo
-          ? "o Bling não respondeu a tempo"
-          : `o Bling não atendeu (${e instanceof Error ? e.message : e})`,
-        null,
-        true
-      )
+      const motivo = tempo
+        ? "o Bling não respondeu a tempo"
+        : `o Bling não atendeu (${e instanceof Error ? e.message : e})`
+      sinal({
+        integracao: "bling",
+        ok: false,
+        resumo: motivo,
+        detalhe: `[erp] ${metodo} ${caminho}: ${motivo}`,
+      })
+      throw new ErroDoBling(0, motivo, null, true)
     }
 
     const texto = await resposta.text()
@@ -196,6 +199,18 @@ export async function chamarBling<T = unknown>(
       await esperar(1000 * tentativa)
       continue
     }
+    // Erro de negócio (4xx) é o Bling respondendo; fora do ar é 5xx, e a permissão é 401/403.
+    const fora = resposta.status >= 500 || [401, 403, 429].includes(resposta.status)
+    sinal(
+      fora
+        ? {
+            integracao: "bling",
+            ok: false,
+            resumo: `o Bling respondeu ${resposta.status}`,
+            detalhe: `[erp] ${metodo} ${caminho} → ${resposta.status}`,
+          }
+        : { integracao: "bling", ok: true }
+    )
     if (resposta.ok) return { status: resposta.status, corpo: lido as T }
 
     const motivo = motivoDoErro(lido) ?? textoCurto(texto)

@@ -1,5 +1,6 @@
 import type { MedusaContainer } from "@medusajs/framework/types"
 import { registrarPendentes } from "../lib/envios/registro"
+import { comRodada } from "../lib/observabilidade/rodada"
 
 /**
  * De 10 em 10 minutos, no worker: o pedido pago que ainda não entrou no
@@ -16,7 +17,7 @@ import { registrarPendentes } from "../lib/envios/registro"
  * 10… da conciliação: o pedido que elas acabaram de resolver chega aqui
  * com o pagamento já registrado.
  */
-export default async function registrarPedidos(container: MedusaContainer) {
+async function registrarPedidos(container: MedusaContainer) {
   await registrarPendentes(container)
 }
 
@@ -24,3 +25,5 @@ export const config = {
   name: "registrar-pedidos",
   schedule: "6-59/10 * * * *",
 }
+
+export default comRodada(config.name, registrarPedidos)

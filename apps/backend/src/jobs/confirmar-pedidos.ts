@@ -1,6 +1,7 @@
 import type { MedusaContainer } from "@medusajs/framework/types"
 import { avisarCancelamentosRecentes } from "../lib/avisar-cancelamento"
 import { confirmarPedidosPagos } from "../lib/confirmar-pedido"
+import { comRodada } from "../lib/observabilidade/rodada"
 
 /**
  * De 5 em 5 minutos, no worker: todo pedido pago nas últimas 24 horas recebe
@@ -17,7 +18,7 @@ import { confirmarPedidosPagos } from "../lib/confirmar-pedido"
  * registrar um Pix pago — ou cancelar um Pix vencido — bem nessa hora, e aí
  * o evento dela já resolve.
  */
-export default async function confirmarPedidos(container: MedusaContainer) {
+async function confirmarPedidos(container: MedusaContainer) {
   await confirmarPedidosPagos(container)
   await avisarCancelamentosRecentes(container)
 }
@@ -26,3 +27,5 @@ export const config = {
   name: "confirmar-pedidos",
   schedule: "2-59/5 * * * *",
 }
+
+export default comRodada(config.name, confirmarPedidos)

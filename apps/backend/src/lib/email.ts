@@ -1,3 +1,5 @@
+import { sinal } from "./observabilidade/sinal"
+
 /**
  * MANDAR E-MAIL — pelo Resend.
  *
@@ -69,6 +71,12 @@ export async function enviarEmail(
   if (!chave) {
     if (process.env.NODE_ENV === "production") {
       logger.error("[email] RESEND_API_KEY não configurada: nenhum e-mail sai (ver .env.example)")
+      sinal({
+        integracao: "resend",
+        ok: false,
+        resumo: resumoDo(email),
+        detalhe: "sem RESEND_API_KEY",
+      })
       return { ok: false, motivo: "sem RESEND_API_KEY" }
     }
     logger.info(
@@ -116,13 +124,35 @@ export async function enviarEmail(
       logger.warn(
         `[email] o Resend recusou (${resposta.status}) o e-mail pra ${emailNoLog(email.para)}: ${corpo.slice(0, 300)}`
       )
+      sinal({
+        integracao: "resend",
+        ok: false,
+        resumo: resumoDo(email),
+        detalhe: `o Resend recusou (${resposta.status}): ${corpo.slice(0, 300)}`,
+      })
       return { ok: false, motivo: `Resend ${resposta.status}`, status: resposta.status }
     }
     const { id } = (await resposta.json().catch(() => ({}))) as { id?: string }
+    sinal({ integracao: "resend", ok: true })
     return { ok: true, id }
   } catch (e) {
     const motivo = e instanceof Error ? e.message : String(e)
     logger.warn(`[email] não consegui falar com o Resend (${emailNoLog(email.para)}): ${motivo}`)
+    sinal({
+      integracao: "resend",
+      ok: false,
+      resumo: resumoDo(email),
+      detalhe: `não consegui falar com o Resend: ${motivo}`,
+    })
     return { ok: false, motivo }
   }
+}
+
+/**
+ * O e-mail na tela de Observabilidade: o assunto e o endereço mascarado. O
+ * código de acesso vai NO ASSUNTO ("123456 é o seu código…") — sai coberto,
+ * como qualquer número de seis dígitos.
+ */
+function resumoDo(email: Email): string {
+  return `"${email.assunto.replace(/\b\d{6}\b/g, "••••••")}", pra ${emailNoLog(email.para)}`
 }

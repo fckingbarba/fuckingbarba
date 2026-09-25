@@ -52,6 +52,7 @@ import {
   type Situacao,
   type Traduzido,
 } from "./situacao"
+import { sinal } from "../../lib/observabilidade/sinal"
 
 /**
  * O PROVEDOR DE PAGAMENTO — Pix e cartão em até 3x, pelo Pagar.me.
@@ -576,6 +577,7 @@ export default class PagarmeServico extends AbstractPaymentProvider<Opcoes> {
       this.logger.warn("[pagarme] aviso sem o segredo certo — ignorado")
       return nada
     }
+    sinal({ integracao: "pagarme-aviso", ok: true })
 
     const corpo = (payload.data ?? {}) as {
       type?: unknown
