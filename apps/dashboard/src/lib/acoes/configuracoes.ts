@@ -6,6 +6,7 @@ import type {
   FormularioDaEmergencia,
   FormularioDaEmpresa,
   FormularioDoFrete,
+  FormularioDasIntegracoes,
 } from "@/lib/configuracoes"
 import { medusa, type Resposta } from "@/lib/medusa"
 import type { Resultado } from "@/lib/produtos"
@@ -50,6 +51,18 @@ const naLoja = (r: Resposta) =>
   r.corpo.lojaAvisada === false
     ? " A loja não respondeu ao aviso: a mudança aparece lá em até algumas horas."
     : " A loja já mostra."
+
+export async function salvarIntegracoes(f: FormularioDasIntegracoes) {
+  return salvar(
+    "integracoes",
+    f,
+    (r) =>
+      "Integrações salvas. Elas carregam na loja depois do “Aceitar” da faixa de cookies." +
+      (r.corpo.lojaAvisada === false
+        ? " A loja não respondeu ao aviso: a mudança aparece lá em até algumas horas."
+        : "")
+  )
+}
 
 export async function salvarEmpresa(f: FormularioDaEmpresa) {
   return salvar("empresa", f, (r) => `Dados da empresa salvos.${naLoja(r)}`)
