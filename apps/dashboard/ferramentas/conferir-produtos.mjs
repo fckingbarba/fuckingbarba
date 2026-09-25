@@ -1104,6 +1104,87 @@ try {
     )
   }
 
+  // Depois do histórico: as gravações daqui empurrariam as de cima pra fora dos 20 dele.
+  /* ── o nome da loja ───────────────────────────────────────────────────── */
+
+  titulo("O nome da loja")
+  const NOME_DA_LOJA = `Nome curto ${RODADA}`
+  {
+    // Como se o produto tivesse vindo do Bling com o nome de hoje.
+    await adm(`/admin/products/${produtoId}`, {
+      metodo: "POST",
+      corpo: { metadata: { fb_erp: { erp: "bling", id: "conferidor", fotos: [], nome: NOME } } },
+    })
+    await abrirProduto()
+    const antes = semEspaco(await pagina.locator("[data-nome-ajuda]").textContent())
+    ok(
+      antes.includes("Enquanto for o do Bling, ele muda quando o catálogo vem de novo") &&
+        (await pagina.locator("[data-usar-o-do-bling]").count()) === 0,
+      "com o nome do Bling, a tela diz que ele muda com o catálogo",
+      antes
+    )
+    await pagina.fill("[data-nome]", "Um nome comprido demais pra caber em duas linhas no título")
+    ok(
+      /pode passar de 2 linhas no título da página/.test(
+        await pagina.locator("[data-nome-ajuda]").textContent()
+      ),
+      "o nome comprido: a tela avisa que passa de 2 linhas"
+    )
+    await pagina.fill("[data-nome]", NOME_DA_LOJA)
+    const r = await apertar(pagina, "[data-textos] button[type=submit]")
+    ok(!r.erro && r.texto.startsWith("Salvo"), "salvo", r.texto)
+    const d = await detalhe(tokenMkt, produtoId)
+    ok(
+      d.produto?.nome === NOME_DA_LOJA &&
+        d.produto?.nomeDaLoja === true &&
+        d.produto?.nomeNoBling === NOME,
+      "o Medusa guardou o nome da loja, com a marca; o do Bling continua sabido",
+      JSON.stringify({ nome: d.produto?.nome, daLoja: d.produto?.nomeDaLoja })
+    )
+    const html = await paginaDaLoja(HANDLE, (h) => h.includes(NOME_DA_LOJA))
+    ok(
+      html.includes(`>${NOME_DA_LOJA}</h1>`) && html.includes(`<title>${NOME_DA_LOJA} ·`),
+      "a página do produto: o título e a aba com o nome da loja"
+    )
+    const vazio = await medusa(`/dashboard/produtos/${produtoId}/textos`, {
+      token: tokenMkt,
+      corpo: { nome: "  ", subtitulo: SUBTITULO, categoriaId: "" },
+    })
+    const longo = await medusa(`/dashboard/produtos/${produtoId}/textos`, {
+      token: tokenMkt,
+      corpo: { nome: "x".repeat(81), subtitulo: SUBTITULO, categoriaId: "" },
+    })
+    ok(
+      vazio.corpo.message === "nome_vazio" && longo.corpo.message === "nome_longo",
+      "nome vazio e comprido demais: 400, com o motivo",
+      `${vazio.status} ${vazio.corpo.message} · ${longo.status} ${longo.corpo.message}`
+    )
+
+    await abrirProduto()
+    const historico = (
+      await pagina.locator("[data-historico] .historico li").allTextContents()
+    ).map(semEspaco)
+    ok(
+      historico.some((l) => l.includes("Marketing Teste mudou o nome") && l.includes(NOME_DA_LOJA)),
+      "o histórico diz quem mudou o nome, e pra qual",
+      historico.slice(0, 2).join(" | ")
+    )
+    const depois = semEspaco(await pagina.locator("[data-nome-ajuda]").textContent())
+    ok(
+      depois.includes("O Bling não troca este nome") && depois.includes(`No Bling: “${NOME}”`),
+      "com o nome da loja, a tela diz que o Bling não troca, e mostra o de lá",
+      depois
+    )
+    await pagina.locator("[data-usar-o-do-bling]").click()
+    const devolve = await apertar(pagina, "[data-textos] button[type=submit]")
+    const d2 = await detalhe(tokenMkt, produtoId)
+    ok(
+      !devolve.erro && d2.produto?.nome === NOME && d2.produto?.nomeDaLoja === false,
+      "“Usar o do Bling”: o nome volta, e a marca sai (o Bling volta a mandar)",
+      JSON.stringify({ nome: d2.produto?.nome, daLoja: d2.produto?.nomeDaLoja })
+    )
+  }
+
   titulo("Console")
   ok(!errosDeConsole.length, "nenhum erro no console", errosDeConsole.slice(0, 3).join(" | "))
 } catch (e) {

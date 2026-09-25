@@ -18,6 +18,7 @@ import type { Acesso, ErpDaLoja, FotoNoErp, MedidasDaCaixa, ProdutoNoErp } from 
 import { erpDaLoja } from "./erps"
 import { sincronizarEstoque } from "./estoque"
 import { baixarFoto, guardarFoto } from "./fotos"
+import { MARCA_DAS_FOTOS, MARCA_DO_ERP, MARCA_DO_NOME, temNomeDaLoja } from "./marcas"
 
 /**
  * OS PRODUTOS DO SITE VÊM DO ERP — a importação do catálogo (decidida em
@@ -74,17 +75,12 @@ import { baixarFoto, guardarFoto } from "./fotos"
  * loja é avisada.
  */
 
-export const MARCA_DO_ERP = "fb_erp"
-/**
- * As fotos que a equipe escolheu pra loja (as da Nuvemshop, `lib/nuvemshop.ts`).
- * Produto com esta marca nunca tem as fotos trocadas pelas do ERP — nem na
- * primeira importação.
- */
-export const MARCA_DAS_FOTOS = "fb_fotos"
+export { MARCA_DAS_FOTOS, MARCA_DO_ERP, MARCA_DO_NOME, nomeNoErp, temNomeDaLoja } from "./marcas"
 const MOEDA = "brl"
 
 export type FotoCopiada = { chave: string; url: string }
-type MarcaDoErp = { erp: string; id: string; fotos: FotoCopiada[] }
+/** `nome`: o do ERP na última importação — o painel mostra ao lado do nome da loja. */
+type MarcaDoErp = { erp: string; id: string; fotos: FotoCopiada[]; nome?: string }
 
 function marcaDe(metadata: unknown): MarcaDoErp | null {
   const m = (metadata as Record<string, unknown> | null)?.[MARCA_DO_ERP] as
@@ -96,6 +92,7 @@ function marcaDe(metadata: unknown): MarcaDoErp | null {
     fotos: (Array.isArray(m.fotos) ? m.fotos : []).filter(
       (f): f is FotoCopiada => typeof f?.chave === "string" && typeof f?.url === "string"
     ),
+    ...(typeof m.nome === "string" && m.nome ? { nome: m.nome } : {}),
   }
 }
 
@@ -279,6 +276,11 @@ export type ItemDoPlano = {
   primeira: boolean
   /** As fotos do ERP entram (na primeira vez, ou no produto que está sem foto). */
   fotosDoErp: boolean
+  /**
+   * O nome que a equipe deu no painel (`fb_nome`): ele fica, e o do ERP não
+   * entra. Null é o nome do ERP, como sempre.
+   */
+  nomeDaLoja: string | null
   /** Por que não entra. */
   bloqueio: string | null
   avisos: string[]
@@ -399,6 +401,7 @@ export function planejar(doErp: ProdutoNoErp[], doSite: ProdutoDoSite[]): ItemDo
       variacoes,
       primeira: true,
       fotosDoErp: false,
+      nomeDaLoja: null,
       bloqueio,
       avisos,
     }
@@ -453,6 +456,7 @@ export function planejar(doErp: ProdutoNoErp[], doSite: ProdutoDoSite[]): ItemDo
     const escolhidas = Boolean((deHoje?.metadata as Record<string, unknown>)?.[MARCA_DAS_FOTOS])
     i.primeira = i.como !== "atualiza" || !marcaDe(deHoje?.metadata)
     i.fotosDoErp = i.erp.fotos.length > 0 && !(temFoto && escolhidas) && (i.primeira || !temFoto)
+    i.nomeDaLoja = deHoje && temNomeDaLoja(deHoje.metadata) ? deHoje.titulo : null
     i.avisos.push(...avisosDosCampos(i, temFoto))
   }
   return itens
@@ -468,6 +472,8 @@ export type ProdutoNaPrevia = {
   handle: string
   /** A primeira vez que ele vem do ERP (ver `ItemDoPlano.primeira`). */
   primeira: boolean
+  /** O nome da loja, que fica no lugar do `nome` do ERP (ver `ItemDoPlano.nomeDaLoja`). */
+  nomeDaLoja: string | null
   bloqueio: string | null
   avisos: string[]
   noSite: string[]
@@ -575,6 +581,7 @@ export async function lerPrevia(
         como: i.como,
         handle: i.handle,
         primeira: i.primeira,
+        nomeDaLoja: i.nomeDaLoja,
         bloqueio: i.bloqueio,
         avisos: i.avisos,
         noSite: i.noSite,
@@ -704,7 +711,7 @@ async function copiarFotos(
 const semAsChavesDeHoje = (metadata: Record<string, unknown>) =>
   Object.fromEntries(
     Object.keys(metadata)
-      .filter((k) => k !== MARCA_DAS_FOTOS)
+      .filter((k) => k !== MARCA_DAS_FOTOS && k !== MARCA_DO_NOME)
       .map((k) => [k, ""])
   )
 
@@ -723,7 +730,7 @@ async function atualizarNoLugar(
     input: {
       selector: { id: s.id },
       update: {
-        title: i.erp.nome,
+        title: i.nomeDaLoja ?? i.erp.nome,
         ...(i.primeira ? { subtitle: null } : {}),
         ...(i.erp.descricao ? { description: i.erp.descricao } : {}),
         ...(fotos.length
@@ -769,6 +776,8 @@ type Heranca = {
   fotos: string[]
   pesoGramas: number | null
   medidas: MedidasDaCaixa | null
+  /** A marca `fb_nome` do produto que sai: o nome da loja passa pro novo. */
+  marcaDoNome: unknown
 }
 
 async function criarProduto(
@@ -787,7 +796,7 @@ async function criarProduto(
     input: {
       products: [
         {
-          title: i.erp.nome,
+          title: i.nomeDaLoja ?? i.erp.nome,
           handle: h.handle,
           status: h.status,
           ...((i.erp.descricao ?? h.descricao)
@@ -801,7 +810,10 @@ async function criarProduto(
           ...(h.perfil ? { shipping_profile_id: h.perfil } : {}),
           category_ids: h.categorias,
           sales_channels: h.canais.map((id) => ({ id })),
-          metadata: { [MARCA_DO_ERP]: marca },
+          metadata: {
+            [MARCA_DO_ERP]: marca,
+            ...(i.nomeDaLoja && h.marcaDoNome ? { [MARCA_DO_NOME]: h.marcaDoNome } : {}),
+          },
           options: titulos.map((t) => ({
             title: t,
             values: [...new Set(i.variacoes.map((v) => v.opcoes[t]!))],
@@ -976,6 +988,7 @@ async function recriar(
         perfil: principal.perfil ?? contexto.perfil,
         descricao: principal.descricao,
         fotos: principal.fotos,
+        marcaDoNome: principal.metadata[MARCA_DO_NOME] ?? null,
         pesoGramas: principal.variacoes[0]?.pesoGramas ?? null,
         medidas: principal.variacoes[0]?.medidas ?? null,
       },
@@ -1103,6 +1116,7 @@ async function importar(
     marcas.set(i, {
       erp: erp.id,
       id: i.erp.id,
+      nome: i.erp.nome,
       // Quem fica com as fotos de hoje não baixa nada: a marca guarda as do ERP de antes.
       fotos: i.fotosDoErp
         ? await copiarFotos(container, i.handle, i.erp.fotos, anteriores, relatorio)
@@ -1183,6 +1197,7 @@ async function importar(
           fotos: [],
           pesoGramas: null,
           medidas: null,
+          marcaDoNome: null,
         },
         marcas.get(i)!,
         contexto

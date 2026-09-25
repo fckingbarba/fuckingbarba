@@ -267,6 +267,31 @@ describe("o plano: o que acontece com cada produto do ERP", () => {
     expect(novo).toMatchObject({ como: "novo", primeira: true, fotosDoErp: true })
   })
 
+  it("o nome dado no painel (`fb_nome`) fica, na primeira vez e nas outras; sem a marca, vale o do ERP", () => {
+    const doBling = "Óleo para Barba FuckingBarba 30ml — Nutrição, Brilho e Maciez Premium"
+    const marca = { fb_nome: { em: "2026-09-25T15:00:00.000Z", por: "mem_1" } }
+    const comNome = { ...site[0]!, titulo: "Óleo para Barba 30ml", metadata: marca }
+
+    const [primeira] = planejar([doErp({ id: "1", nome: doBling, sku: "FBOL01" })], [comNome])
+    expect(primeira).toMatchObject({
+      como: "atualiza",
+      primeira: true,
+      nomeDaLoja: "Óleo para Barba 30ml",
+    })
+
+    const jaVeio = { ...marca, fb_erp: { erp: "bling", id: "1", fotos: [], nome: doBling } }
+    const [segunda] = planejar(
+      [doErp({ id: "1", nome: doBling, sku: "FBOL01" })],
+      [{ ...comNome, metadata: jaVeio }]
+    )
+    expect(segunda).toMatchObject({ primeira: false, nomeDaLoja: "Óleo para Barba 30ml" })
+
+    const [semMarca] = planejar([doErp({ id: "1", nome: doBling, sku: "FBOL01" })], site)
+    expect(semMarca!.nomeDaLoja).toBeNull()
+    const [novo] = planejar([doErp({ id: "2", nome: "Novo", sku: "N1" })], [comNome])
+    expect(novo!.nomeDaLoja).toBeNull()
+  })
+
   it("o bloqueado não gasta endereço, e o produto do site que ele cobre continua coberto", () => {
     const [i] = planejar([doErp({ id: "1", nome: "Óleo", sku: "FBOL01", preco: null })], site)
     expect(i).toMatchObject({

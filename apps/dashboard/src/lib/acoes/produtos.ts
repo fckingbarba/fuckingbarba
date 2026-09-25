@@ -155,21 +155,22 @@ export async function salvarCaixa(id: string, caixa: Caixa): Promise<Resultado> 
   )
 }
 
+const RECUSA_DOS_TEXTOS: Record<string, string> = {
+  nome_vazio: "O nome precisa de pelo menos 2 letras.",
+  nome_longo: "O nome tem até 80 letras.",
+  subtitulo_longo: "O subtítulo tem até 120 letras.",
+  categoria_invalida: "Essa categoria não existe mais. Recarregue a página.",
+}
+
 export async function salvarTextos(
   id: string,
-  textos: { subtitulo: string; categoriaId: string }
+  textos: { nome: string; subtitulo: string; categoriaId: string }
 ): Promise<Resultado> {
   const r = await chamar(id, "textos", textos)
   const erro = comum(r)
   if (erro) return erro
   if (r!.status === 400)
-    return {
-      ok: false,
-      texto:
-        r!.corpo.message === "subtitulo_longo"
-          ? "O subtítulo tem até 120 letras."
-          : "Essa categoria não existe mais. Recarregue a página.",
-    }
+    return { ok: false, texto: RECUSA_DOS_TEXTOS[String(r!.corpo.message)] ?? GENERICO }
   if (r!.status !== 200) return { ok: false, texto: GENERICO }
   refazer(id)
   return feito(r!, "Salvo — a página do produto atualiza em alguns segundos")

@@ -1,3 +1,4 @@
+import { nomeNoErp, temNomeDaLoja } from "../erp/marcas"
 import {
   lerSecao,
   LIMITE_DA_NOTA,
@@ -336,6 +337,13 @@ export type NoCatalogo = {
 }
 
 export type DetalheDoProduto = LinhaDoProduto & {
+  /**
+   * O nome foi dado no painel (a marca `fb_nome`): a importação do Bling não
+   * troca mais. Sem ela, o nome é o do Bling e muda quando o catálogo vem.
+   */
+  nomeDaLoja: boolean
+  /** O nome no Bling, da última importação (produto que nunca veio dele: null). */
+  nomeNoBling: string | null
   subtitulo: string
   descricao: string
   peso: number | null
@@ -369,6 +377,8 @@ export function detalheDoProduto(
   ]
   return {
     ...linha,
+    nomeDaLoja: temNomeDaLoja(p.metadata),
+    nomeNoBling: nomeNoErp(p.metadata),
     subtitulo: (p.subtitle ?? "").trim(),
     descricao: (p.description ?? "").trim(),
     peso: Number.isFinite(peso) && peso > 0 ? peso : null,
@@ -388,6 +398,40 @@ export function detalheDoProduto(
     secoes: secoesDaPagina(pdp),
     podeEditar,
   }
+}
+
+/* ── o nome da loja ───────────────────────────────────────────────────── */
+
+/**
+ * O nome tem até 80 letras — o painel avisa bem antes: passando de uns 36, ele
+ * já não cabe em duas linhas no título da página (medido em 25/09, do celular
+ * de 360 px ao computador).
+ */
+export const LIMITE_DO_NOME = 80
+
+export function lerNome(
+  v: unknown
+): { ok: true; nome: string } | { ok: false; motivo: "nome_vazio" | "nome_longo" } {
+  const nome = typeof v === "string" ? v.replace(/\s+/g, " ").trim() : ""
+  if (nome.length < 2) return { ok: false, motivo: "nome_vazio" }
+  if (nome.length > LIMITE_DO_NOME) return { ok: false, motivo: "nome_longo" }
+  return { ok: true, nome }
+}
+
+/**
+ * O que gravar no produto quando o painel manda um nome. Nome novo põe a
+ * marca `fb_nome` (a importação do Bling não troca mais); o nome igual ao do
+ * Bling TIRA a marca — é o jeito de devolver o nome pro Bling. O mesmo nome
+ * de hoje não muda nada (salvar o subtítulo não prende o nome).
+ */
+export function mudancaDoNome(
+  novo: string,
+  atual: { titulo: string; nomeDaLoja: boolean; nomeNoBling: string | null }
+): { titulo: string; marca: boolean } | null {
+  if (atual.nomeNoBling && novo === atual.nomeNoBling)
+    return novo === atual.titulo && !atual.nomeDaLoja ? null : { titulo: novo, marca: false }
+  if (novo === atual.titulo) return null
+  return { titulo: novo, marca: true }
 }
 
 /** `hoje`: o que a loja cobra por uma unidade, com a promoção (sem ele, o do Bling). */
@@ -447,6 +491,8 @@ export type LinhaDoHistorico = {
   /** Na promoção: o "por" gravado (`null` = tirou) e o "de" daquela hora. */
   por?: number | null
   de?: number
+  /** Nos textos: o nome novo, quando o nome mudou. */
+  nome?: string
 }
 
 export function linhaDoHistorico(f: FeitoNoProduto, agora: Data): LinhaDoHistorico {
@@ -465,5 +511,6 @@ export function linhaDoHistorico(f: FeitoNoProduto, agora: Data): LinhaDoHistori
     ...(texto(d.tipo) ? { tipo: texto(d.tipo) } : {}),
     ...(typeof d.por === "number" || d.por === null ? { por: d.por as number | null } : {}),
     ...(typeof d.de === "number" ? { de: d.de } : {}),
+    ...(texto(d.nome) ? { nome: texto(d.nome) } : {}),
   }
 }

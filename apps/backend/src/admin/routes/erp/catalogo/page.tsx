@@ -35,6 +35,8 @@ type ProdutoDoErp = {
   como: "atualiza" | "recria" | "novo"
   handle: string
   primeira: boolean
+  /** O nome dado no painel: fica no lugar do nome do ERP. */
+  nomeDaLoja: string | null
   bloqueio: string | null
   avisos: string[]
   noSite: string[]
@@ -367,7 +369,13 @@ const CatalogoDoErp = () => {
                           </Text>
                           {!p.primeira ? (
                             <Text size="xsmall" className="text-ui-fg-muted">
-                              Já veio do {nome}: muda só nome, descrição, preço, peso e medidas.
+                              Já veio do {nome}: muda só {p.nomeDaLoja ? "" : "nome, "}descrição,
+                              preço, peso e medidas.
+                            </Text>
+                          ) : null}
+                          {p.nomeDaLoja ? (
+                            <Text size="xsmall" className="text-ui-fg-muted">
+                              O nome na loja fica “{p.nomeDaLoja}” (dado no painel).
                             </Text>
                           ) : null}
                         </>
