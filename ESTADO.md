@@ -1519,6 +1519,16 @@ Conferido pelo `conferir-observabilidade.mjs` (33 checagens: 6 novas, que abrem 
 
 Depois do deploy — **nada a configurar.**
 
+**A ressalva do antes e depois ficou curta — 25/09 (entrega 0092).** A pedido, embaixo dos casos
+de antes e depois (na página do produto e na Prova social da home) fica só "O resultado varia de
+pessoa pra pessoa." Saiu "Fotos de clientes reais, publicadas com autorização. Mesma pessoa, mesmo
+ângulo, sem filtro." O "resultado varia" ficou porque é a proteção contra reclamação de propaganda
+enganosa (CDC art. 37) — foi a escolha, depois de ouvir o risco de tirar tudo. As regras pra um caso
+subir não mudaram: a autorização por escrito (o painel não grava sem ela) e a mesma pessoa, no
+mesmo ângulo. Conferido pelos `conferir-home.mjs` (76) e `conferir-produtos.mjs` (92).
+
+Depois do deploy — **nada a configurar.**
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os onze conferidores (contra o Medusa local, com
