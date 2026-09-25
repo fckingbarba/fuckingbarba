@@ -932,6 +932,12 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
       e-mail de cancelamento (0086). O `conferir-conta` ganhou um pedido pago com a oferta e
       cancelado, e compara o total de cada pedido com o que o Pagar.me cobrou; com o código de
       antes, as quatro checagens do total falham. Nada a configurar depois do deploy.
+- [x] **PDP, "Quem leva este, leva junto": o raio e o botão** (entrega 0100, 25/09, pedido da
+      loja). No fundo menta da seção, o "Comprar" dos cards era menta também e sumia; agora é
+      amarelo (com o mouse em cima, continua escuro com letra branca). O raio do título, que era
+      amarelo, ficou na cor do texto. Só nessa seção: a "Alta Performance" da home, de fundo
+      branco, continua como era. A regra mora na fonte do CSS da PDP
+      (`ferramentas/porte/pdp-partes/estilo.css`, que gera o `pdp-relacionados.css`).
 - [ ] **Pagamento, o que a revisão achou e ficou pra depois** (baixo risco, sem dinheiro preso):
   - estorno ou contestação feitos do lado do Pagar.me depois do pagamento (pelo painel deles,
     chargeback) não são percebidos: o pedido segue pago, pro envio.
