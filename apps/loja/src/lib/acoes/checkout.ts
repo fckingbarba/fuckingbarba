@@ -35,8 +35,9 @@ import { guardarDaCompra, lerCliente, lerSessao } from "@/lib/conta"
 import { conferirDocumento, type Documento } from "@/lib/documento"
 import { emReais } from "@/lib/formato"
 import { cepDeOutraCidade, comCepNovo, ehUf, lerEndereco, montarEndereco } from "@/lib/endereco"
-import { cliente } from "@/lib/medusa"
+import { cliente, configuracoes } from "@/lib/medusa"
 import { depoisDaRecusa, entradaDoCarrinho } from "@/lib/pagamento"
+import { rastroDaCompra, registrarRastro } from "@/lib/rastro"
 import { lerToken } from "@/lib/sessao"
 import { CHECKOUT_ABERTO } from "@/lib/site"
 import { conferirTelefone } from "@/lib/telefone"
@@ -163,12 +164,12 @@ function documentoGravado(e: HttpTypes.StoreCartAddress | null | undefined): Doc
  * E-mail, nome, telefone e documento.
  *
  * O DOCUMENTO VAI NO ENDEREÇO DE COBRANÇA, e isto foi medido, não escolhido:
- * o `metadata` do CARRINHO é descartado quando o carrinho vira pedido — o
- * pedido nasce com `metadata: null`. O do endereço sobrevive. Guardar o CPF no
- * carrinho seria perdê-lo exatamente no instante em que ele passa a valer, e
- * descobrir isso no dia de emitir a primeira nota.
+ * numa versão de antes do Medusa, o `metadata` do CARRINHO era descartado
+ * quando o carrinho virava pedido — o pedido nascia com `metadata: null`. O
+ * do endereço sobrevivia. (No 2.21 o do carrinho passa pro pedido — conferido
+ * em 25/09 —, mas o CPF segue no endereço: é de lá que a nota lê.)
  *
- * (`apps/backend/ferramentas/conferir-pedido.mjs` trava as duas metades disso.)
+ * (`apps/backend/ferramentas/conferir-pedido.mjs`, de antes da Frenet, é o que mediu.)
  */
 export async function salvarContato(anterior: EstadoDaEtapa, fd: FormData): Promise<EstadoDaEtapa> {
   const email = texto(fd, "email").toLowerCase()
@@ -500,13 +501,14 @@ export async function finalizar(anterior: EstadoDaEtapa, fd: FormData): Promise<
     )
   }
 
+  const ip = await ipDeQuemCompra()
   let dados: Record<string, unknown> | undefined
   if (cobra) {
     const montada = entradaDoCarrinho(carrinho, {
       forma: forma as "pix" | "cartao",
       parcelas: Number.isInteger(parcelas) && parcelas > 0 ? parcelas : 1,
       token: forma === "cartao" ? token : null,
-      ip: await ipDeQuemCompra(),
+      ip,
     })
     if (!montada.ok) return erro(anterior, {}, montada.mensagem, fd)
     dados = { entrada: montada.entrada }
@@ -530,6 +532,13 @@ export async function finalizar(anterior: EstadoDaEtapa, fd: FormData): Promise<
       fd
     )
   }
+
+  /*
+    O RASTRO DA COMPRA é lido agora — os cookies e o navegador só existem
+    neste pedido — e vai pro pedido depois da resposta (`lib/rastro.ts`).
+  */
+  const { integracoes } = await configuracoes()
+  const rastro = await rastroDaCompra(integracoes.ga4 ?? process.env.NEXT_PUBLIC_GA4_ID ?? null, ip)
 
   let pedidoId: string | null = null
   let recusa = ""
@@ -617,6 +626,12 @@ export async function finalizar(anterior: EstadoDaEtapa, fd: FormData): Promise<
   const pedido = pedidoId
   const fechado = carrinho
   after(() => registrarOferta(pedido, fechado))
+
+  /*
+    E OS ANÚNCIOS FICAM SABENDO, pelo servidor, quando o pagamento entrar — só
+    de quem aceitou os cookies. O rastro vai depois da resposta, como a oferta.
+  */
+  after(() => registrarRastro(pedido, rastro))
 
   return abrirPedido(pedidoId)
 }
