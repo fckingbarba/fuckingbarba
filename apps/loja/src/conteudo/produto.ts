@@ -178,6 +178,10 @@ export function casosDoProduto(handle: string, conteudo: ConteudoDaPdp): CasoAnt
  * A RESSALVA QUE ACOMPANHA TODO ANTES E DEPOIS — na página do produto e na
  * home. Faz parte das seções, e não de um lembrete: sem ela, não tem como
  * publicar um caso. É o que Procon e CONAR olham primeiro.
+ *
+ * Só o "resultado varia", desde 25/09 (pedido do dono): o "fotos reais, com
+ * autorização, mesmo ângulo, sem filtro" saiu da página. As regras continuam
+ * valendo pro caso subir — a autorização por escrito, que o painel exige, e
+ * a mesma pessoa no mesmo ângulo (ver `components/produto/antes-depois.tsx`).
  */
-export const RESSALVA_DO_ANTES_E_DEPOIS =
-  "Fotos de clientes reais, publicadas com autorização. Mesma pessoa, mesmo ângulo, sem filtro. O resultado varia de pessoa pra pessoa e depende de uso diário."
+export const RESSALVA_DO_ANTES_E_DEPOIS = "O resultado varia de pessoa pra pessoa."
