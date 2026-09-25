@@ -58,6 +58,10 @@ RESEND_URL=http://127.0.0.1:4330 RESEND_API_KEY=re_teste_falsa npm run backend:d
 # pro conferir-erp (o Bling falso na 4340), acrescente: BLING_CLIENT_ID=cliente-de-teste
 # BLING_CLIENT_SECRET=segredo-de-teste BLING_URL=http://127.0.0.1:4340/Api/v3
 # BLING_AUTORIZACAO_URL=http://127.0.0.1:4340/Api/v3/oauth/authorize
+# pro conferir-integracoes do painel (a Meta, o GA4 e o TikTok falsos, na 4370), acrescente:
+# META_GRAPH_URL=http://127.0.0.1:4370 GA4_MP_URL=http://127.0.0.1:4370
+# TIKTOK_EVENTS_URL=http://127.0.0.1:4370 META_CAPI_TOKEN=token-de-teste
+# GA4_API_SECRET=segredo-de-teste TIKTOK_EVENTS_TOKEN=token-de-teste
 # NUVEMSHOP_LOJA_URL=http://127.0.0.1:4350 (a Nuvemshop falsa) — e rode o conferir-envio
 # SEM elas: com o ERP conectado, a etiqueta espera a nota, e ali não há Bling pra emitir
 # e a loja tokeniza no falso: no .env.development.local,
@@ -1048,6 +1052,61 @@ equipe. O conferidor é o `apps/dashboard/ferramentas/conferir-configuracoes.mjs
 que não é o `apps/loja/ferramentas/conferir-configuracoes.mjs` da loja. Ele guarda as configurações
 e a janela no começo e devolve no fim, mesmo quando falha. O `conferir-observabilidade.mjs` confere
 que o e-mail do estorno vai pro dono, e não pra operação.
+
+**Integrações** (Configurações, entrega 0094). Os códigos de medição e anúncio, a faixa de
+cookies e a compra pelo servidor:
+
+- **O contrato:** `integracoes` em `fb_configuracoes` (`lib/configuracoes.ts`): GA4, Google Ads e o
+  rótulo da compra, Pixel da Meta, Clarity e Pixel do TikTok. É PÚBLICO (`soOPublico`) — o código
+  de um pixel está no HTML de qualquer loja —, e a leitura só aceita o formato de cada plataforma
+  (`FORMATO_DAS_INTEGRACOES`), porque o código vai pra dentro de um `<script>`. O painel acha o
+  código no trecho colado (`INTEGRACOES[].achar`, em `lib/painel/configuracoes.ts`) e grava por
+  `POST /dashboard/configuracoes/integracoes`. O `POST /admin/configuracoes` passou a gravar só as
+  seções que o corpo traz: a tela do admin não conhece as integrações, e o "Salvar" dela zerava.
+- **A faixa** (`apps/loja/src/lib/consentimento.ts`): o cookie `fb_consentimento` guarda a resposta,
+  a versão e os parceiros — `sim.2.gmtc`. Resposta de outra versão (`VERSAO_DO_CONSENTIMENTO`) ou
+  um sim sem um parceiro que entrou depois volta a ser "perguntar" (`respostaQueVale`); o "não"
+  vale pra qualquer lista. A versão sobe com parceiro ou finalidade nova — a política promete
+  avisar antes de valer.
+- **As tags** (`components/analytics/`): `tags.tsx` (no layout raiz, com o GA4 da Vercel de
+  reserva) só chama `ligarIntegracoes` (`integracoes.ts`) com o sim — o modo básico: antes dele,
+  nenhum script de fora na página. Os trechos são os oficiais, com o código conferido de novo. As
+  trocas de página cada plataforma conta sozinha (GA4, Meta, TikTok e Clarity escutam o histórico):
+  não mande `page_view` à mão.
+- **Os eventos** saem só por `lib/rastrear.ts`: `gtag('event', …)` pro GA4 e o Ads (o
+  `dataLayer.push` de objeto, sem GTM, o gtag.js ignora), os padrões da Meta e do TikTok, e marcas
+  na Clarity. Até as tags ligarem, o evento espera numa fila da página (o efeito do produto roda
+  antes do das tags); sem o sim, morre com ela. Onde nascem: `view_item` na caixa de compra,
+  `add_to_cart`/`remove_from_cart` pela diferença da sacola no provedor
+  (`rastrearMudancaDaSacola` — pega a página do produto, o leva junto, a oferta e o "+"),
+  `begin_checkout` e `add_shipping_info` nas etapas, `add_payment_info` no pagar. O `item_id` é o
+  id da variante, o mesmo da compra do servidor.
+- **O rastro da compra** (`apps/loja/src/lib/rastro.ts`): a ação de finalizar lê a resposta sobre
+  os cookies e, só com o sim, `_ga`/`_ga_<código>`, `_fbp`/`_fbc`, `_ttp`, o IP e o navegador; e
+  manda DEPOIS da resposta (`after()`) pra `POST /store/pedidos/rastro` (só a loja, `daLoja`;
+  `registrarRastroWorkflow` grava `fb_rastro` uma vez). NÃO vai no metadata do carrinho — que o
+  2.21 copia pro pedido (conferido em 25/09) —, porque qualquer update do carrinho roda o
+  `refreshCartItemsWorkflow`: cota o frete de novo e refaz a coleção de pagamento, na hora de
+  pagar.
+- **A compra pelo servidor** (`apps/backend/src/lib/anuncios/`): `compra.ts` é puro — `decidir`
+  (código no painel, chave no Railway, o sim pra aquele parceiro; sem rastro, espera 30 minutos) e
+  o formato de cada um (a Meta na Graph `v26.0`, o GA4 no Measurement Protocol, o TikTok na Events
+  API; o id do pedido é o `event_id`/`transaction_id` de todos). `enviar.ts` manda, dentro da trava
+  `anuncios-compra:<pedido>`, e grava `fb_anuncios.compra.<plataforma>` (enviada, dispensada ou
+  recusada); queda não grava, e a varredura do `confirmar-pedidos` tenta por 24 horas. Chamam: o
+  `pagamento-capturado`, a rota do rastro (pedido já pago) e a varredura. As chaves são
+  `META_CAPI_TOKEN`, `GA4_API_SECRET` e `TIKTOK_EVENTS_TOKEN` (`chaves.ts`); o endereço da Meta
+  leva o token na query e nunca vai pro log. A falha manda o sinal `anuncios` — o problema
+  "compra não chegou nos anúncios", só pro dono.
+- **O Google Ads** não recebe compra do servidor sem a API dele: `converterCompraNoGoogleAds`, na
+  tela de obrigado, com o pagamento entrado (o `transaction_id` descarta a repetida).
+- **A Clarity** fica coberta (`data-clarity-mask`) no checkout, na conta e na tela de obrigado.
+
+O conferidor é o `apps/dashboard/ferramentas/conferir-integracoes.mjs` (24). Ele troca os scripts de
+fora por um de mentira (o `route` do Playwright) e lê as filas dos trechos (`dataLayer`,
+`fbq.queue`, `ttq`, `clarity.q`); a compra, no `apps/loja/ferramentas/anuncios-falsos.mjs` (4370,
+`PORTA_ANUNCIOS`), com os pedidos da `fabricaDePedidos` (que devolve o `carrinho` pro crachá da
+tela de obrigado).
 
 O CSS do painel segue o do protótipo, uma regra por linha, escrito à mão: o prettier fica nos
 `.ts`/`.tsx`/`.mjs` — rodado nos `.css` do painel, ele reescreve o arquivo inteiro. A gaveta

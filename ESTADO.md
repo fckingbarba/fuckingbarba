@@ -980,8 +980,9 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
         admin do Medusa muda o e-mail do cliente, não a chave de entrar (a identidade `codigo`). Se
         um dia acontecer, é uma ação no admin.
   - [ ] **A política de privacidade não fala da conta** — os endereços e dados guardados, as
-        ofertas por e-mail e WhatsApp com o consentimento, o cookie da sessão —, nem do Resend e do
-        Pagar.me, que entraram depois dela. Vai junto do item 4, pela mesma revisão jurídica. Desde
+        ofertas por e-mail e WhatsApp com o consentimento, o cookie da sessão. (O Resend, o
+        Pagar.me, a Frenet e o Bling entraram nela em 25/09, com as integrações de anúncio — entrega
+        0094.) Vai junto do item 4, pela mesma revisão jurídica. Desde
         25/09, cabe também uma linha sobre a medida da velocidade e dos erros da loja (fase 7,
         parte 2 do painel): anônima, sem cookie e sem identificar ninguém.
   - [ ] **As ofertas ainda não vão pra lugar nenhum:** a escolha fica no cliente do Medusa
@@ -1013,8 +1014,8 @@ delas está nas listas acima), e a 5 — Operação — está quase fechada. Ela
 de verdade sair com nota, etiqueta e rastreio sem ninguém tocar nele**: o primeiro pago depois do
 token da Frenet é esse teste (ver 1b e 1c). Falta:
 
-- **no código:** o e-mail de carrinho abandonado e o evento de compra (`purchase`) pro Google e pra
-  Meta;
+- **no código:** o e-mail de carrinho abandonado (o evento de compra pro Google, a Meta e o TikTok
+  saiu em 25/09, na entrega 0094);
 - **da sua parte:** os dados da empresa no admin (todos vazios em produção — seção 3), publicar os
   rascunhos novos do Bling (1c), o número do último pedido da Nuvemshop e a revisão jurídica da
   exclusão de conta e da política de privacidade (esses dois estão na Minha conta, seção 3).
@@ -1040,8 +1041,8 @@ O que já está de pé:
   tabela `erp_nota`. Quando ela estiver saindo de verdade, a pergunta
   "recebo nota fiscal?" entra nas Dúvidas (`apps/loja/src/conteudo/duvidas.ts`) e o bloco "Nota
   fiscal" na página do pedido da conta (o protótipo já tem) — antes disso, prometeriam o que não
-  sai. O `purchase` pro GA4 e pra Meta segue pendente, no mesmo gancho
-  (`apps/backend/src/subscribers/pagamento-capturado.ts`) e no mesmo molde.
+  sai. O `purchase` pro GA4, a Meta e o TikTok sai desde 25/09 (entrega 0094), no mesmo gancho
+  (`apps/backend/src/subscribers/pagamento-capturado.ts`) e na mesma varredura.
 - **O e-mail de pedido cancelado sai** (22/09), uma vez por pedido: no `order.canceled`, pelo
   `subscribers/pedido-cancelado.ts`, e pela mesma varredura de 5 em 5 minutos do `confirmar-pedidos`
   (últimas 24 horas). Ele diz três coisas diferentes, e a escolha está em `src/lib/avisar-cancelamento.ts`:
@@ -1618,6 +1619,61 @@ teste antes de a loja ficar pronta pra ouvir.
 
 Depois do deploy — **nada a configurar.** Pra testar: Painel → Configurações → Dados da empresa,
 preencha e Salvar; o rodapé da loja mostra em alguns segundos.
+
+**Configurações, parte 2: Integrações — pronto em 25/09 (entrega 0094).** Uma aba nova em
+Configurações pros códigos de medição e anúncio, a compra avisada a cada plataforma, e a faixa de
+cookies valendo de verdade.
+
+- **Os códigos:** GA4, Google Ads (e o rótulo da conversão de compra), Pixel da Meta, Microsoft
+  Clarity e Pixel do TikTok. Pode colar só o código ou o trecho inteiro que a plataforma dá: o
+  painel acha o código dentro. Em branco, a integração fica desligada. Embaixo de cada campo, onde
+  achar o código na plataforma.
+- **Nada carrega antes do "Aceitar".** Até hoje o GA4 carregava antes da resposta, e a política de
+  privacidade prometia que não — **consertado**. A faixa agora diz a quem a pessoa está dizendo sim
+  ("do Google, da Meta, do TikTok e da Microsoft") e **pergunta de novo a todo mundo uma vez**: a
+  resposta de antes era só pro Google Analytics. Se entrar um parceiro novo no painel, ela pergunta
+  de novo; o "não" vale pra sempre.
+- **O que cada plataforma recebe**, só de quem aceitou: o produto visto, o que entra e sai da
+  sacola, o começo do checkout, a entrega escolhida e a forma de pagamento.
+- **A compra sai do servidor** pra Meta, o GA4 e o TikTok quando o pagamento entra — conta o Pix
+  pago depois e quem usa bloqueador. Só de quem aceitou os cookies, e só pra plataforma com o
+  código no painel e a chave no Railway. Uma vez por pedido; se a plataforma estiver fora do ar, a
+  loja tenta de novo sozinha, por 24 horas. Se ela recusar (a chave errada), vira problema na
+  Observabilidade, só pro dono.
+- **A compra no Google Ads** sai da tela de obrigado, quando o pagamento entra (o Google Ads não
+  recebe compra do servidor sem a API dele). O Pix pago com a tela fechada não conta ali.
+- **A Clarity** grava como a página é usada, com os dados cobertos no checkout, na conta e na tela
+  de obrigado.
+- **A política de privacidade foi reescrita** com o que a loja faz hoje: os terceiros de sempre
+  (Pagar.me, Resend, Frenet, Bling, que faltavam) e, só com o aceite, Google, Meta, TikTok e
+  Microsoft. Saiu "não usa pra montar público de anúncio" — com o aceite, usa. **Vale passar pro
+  jurídico**, junto da revisão que já estava pendente (seção 3).
+- A aba **"A compra"** mostra, plataforma a plataforma, se a compra está saindo e o que falta.
+
+Conferido pelo `conferir-integracoes.mjs` (24 checagens, novo): o painel, a loja antes e depois do
+"Aceitar" (com os scripts de fora trocados por um de mentira) e a compra pelo servidor, com a Meta,
+o GA4 e o TikTok falsos. E pelos testes de unidade da compra (formato de cada plataforma, e-mail e
+telefone embaralhados, quem pode receber).
+
+Depois do deploy — **o que você faz:**
+
+- [ ] Painel → Configurações → **Integrações**: cole os códigos e clique em Salvar. O do GA4 é o de
+      hoje, `G-CS3QPK0QHL` (até você pôr no painel, vale o da variável da Vercel).
+- [ ] No Railway, no serviço do Medusa → Variables, as três chaves da compra pelo servidor (o
+      passo a passo de cada uma está no `apps/backend/.env.example`):
+  - `META_CAPI_TOKEN`: Gerenciador de Eventos → o pixel → Configurações → API de Conversões →
+    Gerar token de acesso;
+  - `GA4_API_SECRET`: GA4 → Administrador → Fluxos de dados → o site → Chaves secretas da API do
+    Measurement Protocol → Criar;
+  - `TIKTOK_EVENTS_TOKEN`: TikTok Ads Manager → Ferramentas → Eventos → o pixel → Configurações →
+    Gerar token de acesso.
+- [ ] Conferir na aba Integrações: "A compra" com **Ligado** em cada plataforma que você usa.
+- [ ] No Google Ads, deixe **uma** conversão de compra como principal: a da tela de obrigado (o
+      rótulo) ou a importada do GA4 — as duas juntas contam a compra em dobro.
+- [ ] Na Clarity, Settings → Setup: o mascaramento em "Balanced" (o padrão) ou "Strict".
+
+Chave nunca passa pela conversa. Enquanto o domínio for da Nuvemshop, quase ninguém visita a loja
+nova: os números de verdade começam depois da virada.
 
 ## Como seguir no Claude Code
 
