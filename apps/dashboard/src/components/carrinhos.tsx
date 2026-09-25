@@ -64,7 +64,9 @@ function Quem({ l }: { l: LinhaDoCarrinho }) {
         {l.situacao === "voltaram" && l.pedido ? (
           <>
             Comprou depois:{" "}
-            <Link className="tabela__link" href={`/pedidos/${l.pedido.id}` as Route}>
+            {/* Link comum, e não o `tabela__link` (que estica por cima da linha
+                inteira e cobriria o botão do WhatsApp). */}
+            <Link className="link" href={`/pedidos/${l.pedido.id}` as Route}>
               #{l.pedido.numero}
             </Link>
           </>
