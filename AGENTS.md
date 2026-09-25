@@ -100,6 +100,11 @@ descontam esse aviso só quando ele sai colado numa mensagem de recarga, na aba 
 (`ferramentas/recarga-do-dev.mjs`, com a pilha); o de pagamento, o da conta e o de envio olham o
 console sem ele.
 
+Um quarto, também do `next dev`: "Failed to execute 'measure' on 'Performance': '<componente>'
+cannot have a negative time stamp.", quando o relógio do `next dev`, no ar há horas, fica atrás
+do navegador. O da conta e os do painel descontam esse erro (`ferramentas/relogio-do-dev.mjs`);
+a explicação está no parágrafo do painel, mais abaixo.
+
 O de pagamento liga o Pagar.me na região pelo admin e devolve como estava. O de checkout, com o
 checkout aberto (`CHECKOUT_ABERTO`), precisa do Pagar.me ligado na região local — o passo 3 não
 oferece mais o provisório —: `PAGARME_SECRET_KEY=sk_test_falsa npm run backend:pagamento`, uma vez. A conciliação automática roda a cada 5 minutos DENTRO do
@@ -668,6 +673,26 @@ análise no banco local (cada rodada do `conferir-pedidos` deixa um), algum vira
 duas leituras — era o "a fila é a da API" que falhava umas 3 vezes em 10 (24/09). Ler a API
 depois da tela não resolve, continuam dois instantes: o conferidor compara a fila sem a idade
 (`semIdade`). Vale pra toda frase que muda com a hora sem ninguém mexer no pedido.
+
+**O erro do React que o relógio do `next dev` causa** (entrega 0091). Em desenvolvimento, o React
+desenha os componentes do servidor no painel de desempenho do navegador: o servidor manda, pelo
+websocket do HMR, a hora em que começou a página (no relógio do processo Node) e o tempo de cada
+componente contado dali. O Node conta pelo relógio monotônico desde que subiu, e o do sistema vai
+sendo acertado: um `next dev` no ar há horas fica atrás do navegador que o conferidor acabou de
+abrir (em 25/09, dois de três horas estavam 300 a 380 ms atrás). Com o servidor atrás, o tempo do
+componente cai antes do começo da página, e o React 19.2.8 mede o componente que deu erro (ou foi
+abortado) sem conferir isso (react/react#37561): o `notFound()` da ficha que o marketing não abre
+virava "Failed to execute 'measure' on 'Performance': 'Ficha' cannot have a negative time stamp."
+(o nome vem com um espaço de largura zero na frente) — erro não tratado da página, uns 100 ms
+depois de ela carregar, e só se o conferidor ainda estiver nela. Era o "nenhum erro no console"
+do `conferir-clientes` que falhava 2 em 3 voltas. Em produção não existe: o cliente de produção do
+React nem tem esse código. Os conferidores do painel descontam esse erro no `abrirNavegador` do
+`pecas.mjs`, com o `apps/loja/ferramentas/relogio-do-dev.mjs`: só essa frase, só com a pilha
+inteira no cliente de RSC do React, só quando o servidor disse ter começado ANTES da página, e um
+por página carregada; o `resumo()` diz o que descontou. Reiniciar o `next dev` zera o atraso. Na
+loja, o mesmo erro aparece com componentes "[Prerender]" (a conta, o checkout): o
+`conferir-conta` usa o mesmo desconto, e os outros conferidores da loja ainda não. Quando o Next
+trouxer um React com a trava, o desconto sai.
 
 **As ações do pedido e as visitas** (fase 2, parte 2). "Emitir a nota agora" / "Tentar a nota de
 novo" e "Tentar o estorno de novo" são as funções que o admin já usava (`tentarDeNovo`,
