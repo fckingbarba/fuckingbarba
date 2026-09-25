@@ -506,7 +506,12 @@ baixa outra vez. E a lista de produtos do Bling pergunta pelos três `filtroSald
 especificação dá padrão "só saldo positivo", que esconderia o esgotado da sincronização. O "do
 zero" (subtítulo, textos, "de/por" e fotos) vale só na PRIMEIRA vez de cada produto — sem a marca
 `fb_erp`; rodar de novo atualiza nome, descrição, preço, peso e medidas e deixa o resto, e foto
-do ERP nunca entra em produto com a marca `fb_fotos`.
+do ERP nunca entra em produto com a marca `fb_fotos`. O NOME também tem marca (entrega 0099):
+produto com `fb_nome` — o nome dado no painel — fica com o nome dele em toda importação, a
+primeira inclusive, e no recriado também (a prévia diz "O nome na loja fica"); o Bling segue com
+o seu (a nota, os marketplaces). A marca `fb_erp` guarda o `nome` do ERP da última vez, pro painel
+mostrar ao lado. As marcas moram em `lib/erp/marcas.ts`, sem dependência (o painel lê de lá); o
+`catalogo.ts` reexporta.
 
 Os **endereços e as fotos da Nuvemshop** (`src/lib/nuvemshop.ts`; a tela é `admin/routes/nuvemshop`)
 vêm da loja antiga no ar, sem API e sem senha: o `/sitemap.xml` diz os produtos, e a página de cada
@@ -755,7 +760,12 @@ cada uma; a caixa de compra; o catálogo pros seletores; as categorias; o `noSit
 e o `historico`, lido do registro da equipe) abrem pra todo papel. Mudar é da linha
 `editarProdutos` do `ACESSO` (dono e marketing): `POST /dashboard/produtos/:id/secao` (o texto e o
 fundo de UMA seção, num "Salvar"), `/ordem` (ligar, desligar, subir ou descer uma — sem "Salvar"),
-`/caixa`, `/textos` (subtítulo e categoria), `/publicar` e `/imagens`. **Cada gravação é UMA
+`/caixa`, `/textos` (o nome da loja, o subtítulo e a categoria), `/publicar` e `/imagens`. **O
+nome** mudado ali ganha a marca `fb_nome` (a importação do Bling não troca mais), e o nome igual
+ao do Bling tira a marca — o botão "Usar o do Bling" (`mudancaDoNome`, em
+`lib/painel/produtos.ts`, com testes). Nome da loja é curto: até uns 36 caracteres cabe em 2
+linhas no título da PDP, do celular de 360 px ao computador (o título tem teto de 38 px no
+`pdp.css`); o painel avisa acima disso. **Cada gravação é UMA
 mudança** sobre o `fb_pdp` lido na hora, dentro da trava `pdp:<id>` (`lib/painel/gravar-produto.ts`:
 `mudarPdp` grava só a chave `fb_pdp` — o `mergeMetadata` do Medusa é raso — e avisa a loja pelas
 etiquetas do produto, do layout dele e da vitrine): duas pessoas em seções diferentes não se

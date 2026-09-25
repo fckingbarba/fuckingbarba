@@ -351,7 +351,8 @@ Como funciona, em uma linha cada:
     descrição. O desconto por quantidade e as ofertas do checkout se refazem na hora.
   - **Rodar de novo** (mudou preço ou nome no Bling): o "do zero" é só da primeira vez. Depois,
     muda nome, descrição, preço, peso e medidas; o subtítulo, os textos, as promoções e as fotos
-    que a equipe pôs ficam.
+    que a equipe pôs ficam. **O nome dado no painel também fica** (desde a 0099, em qualquer
+    importação): o Bling segue com o nome dele, e a loja com o dela.
 - **Endereços e fotos da Nuvemshop (23/09):** na tela ERP, "Endereços e fotos da Nuvemshop" lê a
   loja antiga no ar (o mapa do site e a página de cada produto, sem senha) e casa pelo SKU. Cada
   produto daqui fica com o **mesmo endereço** de lá (`/produtos/<slug>` — o link que circula
@@ -858,6 +859,29 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
     descendo quando a barra some) — 29/29; no código de antes, 4 das 5 falham. Fotos em
     `next build` + `next start` com o `ferramentas/retrato-consentimento.mjs` (novo). E o
     `conferir-pdp` e o `conferir-checkout` da loja passaram.
+- [x] **Os nomes dos produtos cabem em 2 linhas na página** (pedido da loja em 25/09). Os nomes
+      vinham do Bling com 43 a 88 letras ("Fator de Crescimento para Barba 30ml — Crescimento,
+      Densidade e Preenchimento da Barba") e o título da PDP dava 4 linhas no celular e até 7 no
+      computador. Agora o NOME É DA LOJA: editável no painel (Produtos → Textos, com o aviso de
+      quando passa de 2 linhas), e a importação do Bling não troca mais o nome editado — o Bling
+      segue com o dele (a nota, os marketplaces, que ele usa só pro estoque). "Usar o do Bling"
+      devolve. O título da PDP no computador tem teto de 38 px (era 42). Os 7 nomes, aprovados por
+      ele, entram sozinhos no deploy (`migration-scripts/nomes-curtos-na-loja.ts`, com a marca):
+  - Balm Modelador para Barba 90g · Óleo para Barba 30ml · Shampoo para Barba 120ml · Kit
+    Completo para Barba · Spray Modelador Matte para Cabelo · Fator de Crescimento para Barba
+    30ml · Kit 2x Fator de Crescimento. Medidos com a fonte da loja: no máximo 2 linhas de 360 a
+    1440 px. Os dois kits encurtaram mais pra caber com os 38 px, e o spray ganhou "para Cabelo"
+    (a descrição diz que é pra cabelo).
+  - SEO: no Google, o título da aba tinha 84 a 103 letras e saía cortado, sem a marca; agora tem
+    35 a 51, inteiro, com "· FuckingBarba" no fim. O que a pessoa busca abre cada nome; as
+    frases de benefício continuam nas seções e na descrição; os endereços não mudam.
+  - Conferido numa pilha local: `conferir-produtos` 101/101 (9 novas: o aviso das 2 linhas,
+    salvar, a página e a aba com o nome, o histórico, os recusados, "Usar o do Bling");
+    `conferir-erp` com a importação que mantém o nome e a prévia que avisa (as 2 novas passam; as
+    9 checagens de e-mail pra equipe falham igual na main neste banco — o conferidor procura os
+    avisos no e-mail do admin, e desde a 0093 eles vão pra equipe do painel); a migração rodada
+    no banco local (6 de 6 com a marca); 9 testes novos no backend; a rodada completa
+    dos 12 conferidores do painel verde, e o `conferir-pdp` da loja 55/55.
 - [x] **Investigação da sacola e do checkout** (24/09, a pedido da loja). Quatro revisões do
       código em paralelo e compras de verdade numa loja local: 15 problemas reais, nenhum de
       cobrança em dobro. A entrega 0077 consertou os de dinheiro e de endereço, cada um com
