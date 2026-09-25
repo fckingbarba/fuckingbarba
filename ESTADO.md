@@ -773,6 +773,24 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
   - Conferido numa pilha local (Medusa 9074, painel 3174): com a CPU do navegador 6× mais lenta
     só na remoção, o conferidor de antes falhou em 3 de 5 rodadas e o novo passou nas 5; sem a
     lentidão, o novo deu 60/60 em 15 rodadas (as três últimas já com a #56).
+- [x] **O "a fila é a da API" que falhava às vezes no `conferir-pedidos`** (painel, investigado
+      em 24/09). No banco local da 0061, só essa checagem caía (68/69): três vezes em onze
+      rodadas, duas dentro da rodada completa e uma com ele sozinho. **Não era o Início, nem job
+      mexendo nos pedidos, nem sobra do `conferir-entrar`: era o relógio.** O título "Cartão em
+      análise há 11 min — #11" traz a idade contada na hora em que o backend responde, e o
+      conferidor lia a API e depois a tela — dois pedidos, 0,1 a 0,5 s um do outro. Cada rodada
+      deixa um cartão parado em análise no banco local; com dezenas deles, algum vira o minuto
+      entre as duas leituras. Pego com as listas impressas: 42 itens iguais menos um — a API,
+      lida 50 ms antes de o #11 virar o minuto, com "há 11 min", e a tela com "há 12 min". O
+      conferidor agora compara a fila sem a idade (confere só que ela está lá, no formato do
+      `duracao`), e a falha diz o item que difere em vez da lista inteira da tela.
+  - Conferido numa pilha local (Medusa 9083, painel 3183) com 30 cartões semeados em análise,
+    como no banco da 0061. Com a virada do minuto forçada entre as duas leituras, o conferidor
+    de antes falhou em 5 de 5 rodadas e o novo passou nas 5 — nas 10, a lista sem a máscara
+    mostrou a idade virada. Sem forçar, 14 rodadas do `conferir-entrar` seguido do novo: 69/69
+    nas 14, e em 2 delas a idade virou entre a API e a tela (o de antes teria falhado). E três
+    rodadas completas dos sete conferidores do painel, todas verdes (entrar 60, pedidos 69, ações
+    32, visitas 41, produtos 92, home 76, clientes 37).
 - [x] **Investigação da sacola e do checkout** (24/09, a pedido da loja). Quatro revisões do
       código em paralelo e compras de verdade numa loja local: 15 problemas reais, nenhum de
       cobrança em dobro. A entrega 0077 consertou os de dinheiro e de endereço, cada um com

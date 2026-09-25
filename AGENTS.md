@@ -613,7 +613,13 @@ só desenha. Os conferidores são o `apps/dashboard/ferramentas/conferir-entrar.
 `DASHBOARD_DONO_EMAIL` e `REVALIDAR_SEGREDO` iguais aos do backend, `PAINEL` apontando pro
 `next dev` do painel; o de pedidos faz sete pedidos com a Frenet e o Pagar.me falsos
 (`pedido-de-teste.mjs`, que ganhou o `pedidoCartao` — o cartão em análise) e usa o admin local
-(`ADMIN_EMAIL`/`ADMIN_SENHA`) e a chave publicável.
+(`ADMIN_EMAIL`/`ADMIN_SENHA`) e a chave publicável. **Frase com relógio não se compara inteira:**
+a idade do cartão em análise no título da fila ("há 11 min") é a do instante em que o backend
+respondeu, e a tela e o conferidor fazem dois pedidos a ele. Com dezenas de cartões parados em
+análise no banco local (cada rodada do `conferir-pedidos` deixa um), algum vira o minuto entre as
+duas leituras — era o "a fila é a da API" que falhava umas 3 vezes em 10 (24/09). Ler a API
+depois da tela não resolve, continuam dois instantes: o conferidor compara a fila sem a idade
+(`semIdade`). Vale pra toda frase que muda com a hora sem ninguém mexer no pedido.
 
 **As ações do pedido e as visitas** (fase 2, parte 2). "Emitir a nota agora" / "Tentar a nota de
 novo" e "Tentar o estorno de novo" são as funções que o admin já usava (`tentarDeNovo`,
