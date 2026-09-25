@@ -58,7 +58,7 @@ export const ROTINAS: readonly DefinicaoDaRotina[] = [
   },
   {
     nome: "confirmar-pedidos",
-    frase: "Manda os e-mails de pedido pago e cancelado",
+    frase: "Manda os e-mails de pedido pago e cancelado, e a compra pros anúncios",
     agenda: "2-59/5 * * * *",
     cada: "a cada 5 min",
   },
@@ -243,7 +243,7 @@ export function rotinaNaTela(
 export type Nivel = "grave" | "atencao" | "info"
 
 export type AreaDoProblema =
-  "Pagamento" | "Nota fiscal" | "Frete" | "Entrega" | "E-mail" | "Rotinas" | "Site"
+  "Pagamento" | "Nota fiscal" | "Frete" | "Entrega" | "E-mail" | "Rotinas" | "Site" | "Anúncios"
 
 export type Acao = { texto: string; href: string; externo?: boolean }
 
@@ -448,7 +448,16 @@ export function problemasDasRotinas(linhas: LinhaDaRotina[], agora: Date): Probl
 
 /** As integrações que mandam sinal (`lib/observabilidade/sinal.ts`). */
 export type Integracao =
-  "resend" | "frenet" | "pagarme" | "pagarme-aviso" | "bling" | "ga4" | "loja" | "loja-no-ar"
+  | "resend"
+  | "frenet"
+  | "pagarme"
+  | "pagarme-aviso"
+  | "bling"
+  | "ga4"
+  | "loja"
+  | "loja-no-ar"
+  /** A compra pelo servidor pra Meta, GA4 e TikTok (`lib/anuncios/enviar.ts`). */
+  | "anuncios"
 
 /** Uma linha da tabela `obs_sinal`: o dia de uma integração. */
 export type LinhaDoSinal = {
@@ -557,6 +566,24 @@ export function problemasDosSinais(
         acao: foraAgora
           ? { texto: "Abrir a Vercel", href: "https://vercel.com/dashboard", externo: true }
           : null,
+      })
+    } else if (s.integracao === "anuncios") {
+      achados.push({
+        ...comum,
+        chave: `anuncios/${s.dia}`,
+        // Quem resolve é o dono (a chave no Railway, a aba das integrações).
+        soDono: true,
+        nivel: "atencao",
+        area: "Anúncios",
+        titulo:
+          s.falhas === 1
+            ? "Uma compra não chegou nos anúncios"
+            : `${s.falhas} compras não chegaram nos anúncios`,
+        texto:
+          `A plataforma não aceitou ${faixa}` +
+          (s.ultima_falha_resumo ? ` — a última foi ${s.ultima_falha_resumo}` : "") +
+          ". Se ela estava fora do ar, a loja tenta de novo sozinha; se recusou, confira a chave no Railway (Configurações → Integrações diz qual).",
+        acao: { texto: "Abrir as integrações", href: "/configuracoes/integracoes", externo: false },
       })
     } else if (s.integracao === "bling") {
       achados.push({

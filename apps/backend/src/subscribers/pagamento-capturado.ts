@@ -1,6 +1,7 @@
 import type { SubscriberArgs, SubscriberConfig } from "@medusajs/framework"
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import { confirmarPedido, pedidoDoPagamento } from "../lib/confirmar-pedido"
+import { mandarCompra } from "../lib/anuncios/enviar"
 import { registrarNoParceiro } from "../lib/envios/registro"
 import { emitirNotaDoPedido } from "../lib/erp/notas"
 
@@ -21,12 +22,11 @@ import { emitirNotaDoPedido } from "../lib/erp/notas"
  *      faz nada. Com o ERP emitindo, ele espera a nota, que vai junto (o
  *      `nota-autorizada.ts` registra quando ela chega). Se falhar, a
  *      varredura de 10 em 10 minutos tenta de novo.
+ *   4. a compra pra Meta, o GA4 e o TikTok (`lib/anuncios/enviar.ts`) — só de
+ *      quem aceitou os cookies (o rastro que a loja grava no pedido), e só
+ *      pra plataforma com o código no painel e a chave no Railway. Nunca
+ *      pela tela de obrigado: o Pix pago depois não passaria por ela.
  *      Um não espera o outro dar certo: cada um no seu `try`.
- *
- * O que ainda vem pra cá, na fase 5:
- *   - emitir a NF-e no Bling
- *   - enviar o `purchase` pra Meta (Conversions API) e pro GA4 (Measurement
- *     Protocol) com o client_id gravado no pedido — nunca pela tela de obrigado
  *
  * O MESMO PAGAMENTO PODE PASSAR AQUI MAIS DE UMA VEZ: o aviso do Pagar.me e a
  * conciliação chegam pelo mesmo caminho, e um Pix pago dispara os dois. O
@@ -68,6 +68,14 @@ export default async function pagamentoCapturado({
     } catch (e) {
       logger.warn(
         `[envio] o pedido ${pedidoId} ficou pra varredura do painel do parceiro: ` +
+          (e instanceof Error ? e.message : String(e))
+      )
+    }
+    try {
+      await mandarCompra(container, pedidoId)
+    } catch (e) {
+      logger.warn(
+        `[anuncios] a compra do pedido ${pedidoId} ficou pra varredura: ` +
           (e instanceof Error ? e.message : String(e))
       )
     }
