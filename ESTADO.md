@@ -152,11 +152,12 @@ sozinha a cada 5 minutos; se nem ela resolver, o log com `[conciliação]` diz o
     autorização vale; passados 3, o log avisa. Sem resposta nenhuma da análise em 10 minutos, a
     loja cobra assim mesmo, com uma linha no log — senão a venda morreria com a autorização;
   - a tela de obrigado e as Dúvidas ("Meu cartão foi recusado") explicam a reserva.
-- [ ] **Depois do deploy — você:** no painel do Pagar.me, no webhook que já existe (o de
+- [x] **Depois do deploy — você:** no painel do Pagar.me, no webhook que já existe (o de
       `order.paid` e `charge.paid`, a mesma URL), marque também o evento
-      **`charge.antifraud_approved`** — no modo produção e no modo teste. Sem ele tudo funciona,
-      só que a cobrança do cartão que ficou em análise espera a conciliação (até 5 minutos) em vez
-      de sair em segundos.
+      **`charge.antifraud_approved`**. Sem ele tudo funciona, só que a cobrança do cartão que
+      ficou em análise espera a conciliação (até 5 minutos) em vez de sair em segundos. **Feito no
+      modo produção em 25/09.**
+- [ ] O mesmo no **modo teste** do Pagar.me, pra os testes andarem como a produção.
 - [ ] **Na primeira compra de verdade no cartão**, o log do Railway deve trazer
       `[pagarme] or_… cobrado (… centavos) depois de a análise de fraude aprovar`. Se vier
       `sem resposta da análise de fraude em 10 minutos`, a análise não está chegando onde a loja
@@ -1017,8 +1018,9 @@ delas está nas listas acima), e a 5 — Operação — está quase fechada. Ela
 de verdade sair com nota, etiqueta e rastreio sem ninguém tocar nele**: o primeiro pago depois do
 token da Frenet é esse teste (ver 1b e 1c). Falta:
 
-- **no código:** o e-mail de carrinho abandonado (o evento de compra pro Google, a Meta e o TikTok
-  saiu em 25/09, na entrega 0094);
+- **no código:** os e-mails de carrinho abandonado (a lista no painel, com o passo em que cada
+  pessoa parou e o botão do WhatsApp, saiu em 25/09, na entrega 0096; o evento de compra pro
+  Google, a Meta e o TikTok, na 0094);
 - **da sua parte:** os dados da empresa no admin (todos vazios em produção — seção 3), publicar os
   rascunhos novos do Bling (1c), o número do último pedido da Nuvemshop e a revisão jurídica da
   exclusão de conta e da política de privacidade (esses dois estão na Minha conta, seção 3).
@@ -1117,8 +1119,9 @@ O que o protótipo tem, aprovado em 23/09:
   não se edita.
 - **Layout da home:** as seções editáveis, o **banner principal com até 5 slides**, e nada vai pro
   site sem "Publicar".
-- **Carrinhos abandonados:** **5 e-mails** — 1 hora, 1 dia, 2 dias (com cupom), 3 dias (o cupom
-  vence amanhã) e 5 dias (última chamada) —, só e-mail por enquanto, com os textos editáveis e a
+- **Carrinhos abandonados:** a lista — quem parou, em que passo do checkout, e o botão pra chamar
+  no WhatsApp (pronta em 25/09, entrega 0096). Depois, **5 e-mails** — 1 hora, 1 dia, 2 dias (com
+  cupom), 3 dias (o cupom vence amanhã) e 5 dias (última chamada) —, com os textos editáveis e a
   prévia.
 - **Cupons, Clientes e Newsletter, Configurações e Equipe.**
 - **Observabilidade:** os problemas abertos em frase, com o que fazer; as integrações; os 8 jobs
@@ -1141,7 +1144,8 @@ A ordem proposta, uma entrega pequena por vez:
 3. **Produtos:** textos, seções e fundos (o `fb_pdp` que já existe), a caixa de compra e os vídeos.
 4. **Home:** a fonte da home no metadata da loja (hoje é código), o banner com slides e o
    "Publicar".
-5. **Carrinho abandonado:** os 5 e-mails — é também o item de código que falta na fase 5.
+5. **Carrinho abandonado:** a lista, com o passo e o WhatsApp (feita em 25/09, entrega 0096); os
+   5 e-mails ficaram pra depois — são também o item de código que falta na fase 5.
 6. **Cupons, clientes, newsletter, configurações e equipe.**
 7. **Observabilidade:** guardar numa tabela o que hoje só vai pro log.
 
@@ -1700,14 +1704,50 @@ seguindo o formato da documentação — com o código de antes, ela recusa como
 
 Depois do deploy — **o que você faz:**
 
-- [ ] Painel → Pedidos → **#19** → **"Mandar pra Frenet de novo"** — só se você ainda não fez a
+- [x] Painel → Pedidos → **#19** → **"Mandar pra Frenet de novo"** — só se você ainda não fez a
       etiqueta dele à mão. Deu "entrou", é só gerar a etiqueta no painel da Frenet. Se ela recusar
-      de novo, o aviso diz o motivo: me manda um print.
+      de novo, o aviso diz o motivo: me manda um print. **Feito em 25/09: funcionou.**
+
+**Carrinhos abandonados, parte 1: a lista — pronta em 25/09 (entrega 0096).** A área Carrinhos
+abandonados do painel deixou de ser "em breve". Os e-mails automáticos ficam pra outra entrega,
+como combinado.
+
+- **Quem aparece:** quem pôs produto na sacola e não fechou a compra, nos últimos 30 dias. Uma
+  linha por pessoa, com a sacola mais recente dela (a mesma pessoa abre mais de uma: outro
+  aparelho, outro dia).
+- **Em que passo parou:** Sacola › Contato › Entrega › Pagamento, com o passo em amarelo e uma
+  frase — "Parou no contato, o primeiro passo", "Deu o contato e parou na entrega", "Chegou no
+  pagamento e não pagou", "Tentou pagar e não fechou" ou "Tentou pagar e o pagamento não passou"
+  (o cartão recusado, por exemplo). A régua é a mesma do checkout da loja.
+- **O botão do WhatsApp:** abre o WhatsApp (no computador, o WhatsApp Web ou o aplicativo) com o
+  número da pessoa e uma mensagem pronta, com o primeiro nome e o produto — dá pra mudar antes de
+  mandar. **Quem manda é você**, do seu WhatsApp: o painel não manda nada sozinho. Depois do
+  clique, a linha mostra "Chamado por (nome), (quando)", pra ninguém da equipe chamar a mesma
+  pessoa duas vezes.
+- **Os filtros:** **Parados** (mais de 30 minutos sem mexer na sacola), **No site agora** (mexeu há
+  menos de 30 minutos — pode estar comprando neste minuto; melhor esperar) e **Voltaram e
+  compraram** (fez um pedido depois, com o mesmo e-mail).
+- **Sem contato:** quem pôs na sacola e nem deu o e-mail — é a maioria em toda loja. Vira só um
+  número: não há com quem falar.
+- **Quem vê:** dono e operação veem tudo e chamam; o marketing vê a lista com o e-mail mascarado,
+  sem o telefone e sem o botão.
+- **A política de privacidade** ganhou uma linha: quem deixar a compra no meio do caminho pode ser
+  chamado no WhatsApp por uma pessoa da loja, e basta responder que não quer. Vai junto da revisão
+  jurídica que já estava pendente.
+
+Conferido pelo `conferir-carrinhos.mjs` (11 checagens, novo): um carrinho parado em cada passo,
+feito pela API da loja como o checkout faz, a mesma pessoa com dois carrinhos, quem voltou e
+comprou, o link do WhatsApp, o clique anotado, o marketing e o celular. E pelos testes de unidade
+da régua (11).
+
+Depois do deploy — **nada a configurar.** Pra testar: Painel → **Carrinhos abandonados**. Enquanto
+o domínio for da Nuvemshop, quase só os seus testes aparecem ali.
 
 ## Como seguir no Claude Code
 
-- O operacional está no AGENTS.md: comandos, os onze conferidores (contra o Medusa local, com
-  Frenet, Pagar.me, Resend e Bling falsos) e as regras. Rode os conferidores antes de subir.
+- O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa
+  local, com Frenet, Pagar.me, Resend e Bling falsos) e as regras. Rode os conferidores antes de
+  subir.
 - O que mexe em produção — variável, painel, script no Railway — quem faz é você; o Claude Code
   prepara e diz o comando.
 - Chave nunca passa pela conversa. Cuidado com texto copiado de painel: o link pode levar o valor
