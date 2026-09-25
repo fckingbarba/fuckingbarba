@@ -17,6 +17,7 @@
  * │ • a mesma pessoa em duas linhas; quem comprou depois contado parado;   │
  * │ • o link do WhatsApp sem o número certo ou sem a mensagem;             │
  * │ • o clique sem ficar anotado (quem já chamou, pra não chamar de novo); │
+ * │ • o botão coberto pelo link do pedido, na linha de quem voltou;        │
  * │ • o marketing vendo e-mail inteiro, telefone ou o botão;               │
  * │ • rolagem de lado no celular; erro no console.                         │
  * └────────────────────────────────────────────────────────────────────────┘
@@ -253,6 +254,21 @@ try {
       ).startsWith(`Chamado por ${nomeDoDono}`),
     "o botão abre o WhatsApp numa aba nova e fica anotado quem chamou",
     JSON.stringify({ url: aba.url(), chamado })
+  )
+
+  // A linha de quem voltou tem o link do pedido: ele não pode cobrir a linha inteira (o
+  // `tabela__link` estica por cima dela) e engolir o botão do WhatsApp.
+  await pagina.goto(`${PAINEL}/carrinhos?filtro=voltaram`)
+  const botaoDeQuemVoltou = pagina.locator(`tr[data-carrinho="${volta}"] [data-whatsapp]`)
+  await botaoDeQuemVoltou.waitFor()
+  await botaoDeQuemVoltou.scrollIntoViewIfNeeded()
+  ok(
+    await botaoDeQuemVoltou.evaluate((el) => {
+      const r = el.getBoundingClientRect()
+      const noPonto = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)
+      return el === noPonto || el.contains(noPonto)
+    }),
+    "na linha de quem voltou, o botão do WhatsApp continua clicável (o link do pedido não cobre a linha)"
   )
 
   titulo("O marketing")
