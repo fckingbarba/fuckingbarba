@@ -23,6 +23,10 @@ import { home, listarProdutos, porHandle } from "@/lib/medusa"
  * O movimento é o mesmo da faixa de avisos: duas filas idênticas correndo
  * -50%, a cópia com `aria-hidden` pra não ser lida duas vezes, e a esteira
  * para quando sai da tela.
+ *
+ * Os TEXTOS não saem daqui: a esteira os busca sozinha quando a seção chega
+ * perto (ver `esteira-de-avaliacoes.tsx`). Daqui vão só as fotos — mandar a
+ * lista pronta punha os 160 trechos dentro do HTML de toda visita à home.
  */
 export async function Amam() {
   const publicadas = semRepetidas(AVALIACOES)
@@ -64,7 +68,7 @@ export async function Amam() {
         )}
       </div>
 
-      <EsteiraDeAvaliacoes depoimentos={depoimentos} fotos={fotos} />
+      <EsteiraDeAvaliacoes fotos={fotos} />
     </section>
   )
 }

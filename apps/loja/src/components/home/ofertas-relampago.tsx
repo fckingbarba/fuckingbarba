@@ -118,6 +118,8 @@ export function OfertasRelampago({
   return (
     <section className="offers" aria-label={titulo}>
       <div className="offers__box">
+        {/* O raio do fundo (só enfeite) — ver .offers__raio em ofertas.css. */}
+        <span className="offers__raio" aria-hidden="true" />
         <p className="offers__tag">
           <Raio />
           {titulo}

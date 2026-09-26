@@ -18,7 +18,8 @@ import type { Depoimento } from "../conteudo/depoimentos"
  * Só TIPO vem de `conteudo/depoimentos`: a esteira roda no navegador, e um
  * valor importado de lá levaria o arquivo inteiro, com os textos, pro
  * JavaScript da página (e este arquivo é lido direto pelo conferidor, sem
- * bundler).
+ * bundler). A esteira busca aquele arquivo com `import()`, num pedaço à
+ * parte, só quando a seção chega perto da tela.
  */
 export const POR_PRODUTO_NA_ESTEIRA = 4
 

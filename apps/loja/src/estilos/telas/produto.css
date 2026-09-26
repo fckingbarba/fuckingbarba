@@ -6,9 +6,14 @@
   AQUI", lá). A ordem é a mesma de quando morava lá.
 */
 
+/* As migalhas saem do agrupa-pdp.py também, e aparecem na categoria e na
+   busca: moravam no globals.css por isso, e a home baixava a regra delas sem
+   ter migalha nenhuma. Agora vêm aqui e em telas/catalogo.css — aqui antes
+   do resto da PDP, como quando vinham do globals.css. */
+@import "../migalhas.css";
+
 /* Gerados por ferramentas/porte/pdp-partes/agrupa-pdp.py; um arquivo por
-   seção, na mesma ordem em que a página os monta. As migalhas também saem
-   de lá, mas ficam no globals.css: aparecem na categoria e na busca. */
+   seção, na mesma ordem em que a página os monta. */
 @import "../pdp.css";
 @import "../pdp-promessa.css";
 @import "../pdp-antesdepois.css";

@@ -10,6 +10,7 @@ import {
   POR_PRODUTO_NA_ESTEIRA,
   SEGUNDOS_POR_CARTAO,
   encherAFila,
+  semRepetidas,
   sequencia,
   sortearDaEsteira,
 } from "@/lib/avaliacoes"
@@ -37,10 +38,23 @@ import {
  * │ página de cada produto.                                                │
  * └────────────────────────────────────────────────────────────────────────┘
  *
+ * ┌─ E OS TEXTOS SÓ VÊM NESSA HORA TAMBÉM ─────────────────────────────────┐
+ * │ Os 160 trechos iam como propriedade deste componente — e propriedade   │
+ * │ de componente do navegador viaja DENTRO do HTML da home (os dados do   │
+ * │ React, no fim da página): 26 KB de texto, 5 KB comprimidos, em toda    │
+ * │ visita, pra uma seção lá embaixo. No Lighthouse do CI, o HTML e o CSS  │
+ * │ chegam juntos nas primeiras voltas da conexão, e esses 5 KB a mais     │
+ * │ empurravam o CSS pra volta seguinte: +0,3 s no LCP da home.            │
+ * │                                                                        │
+ * │ Agora `conteudo/depoimentos.ts` é importado aqui com `import()`: o     │
+ * │ arquivo vira um pedaço de JavaScript à parte, que o navegador só pede  │
+ * │ quando a seção chega perto (`carregarDepoimentos`). Do servidor vêm só │
+ * │ as fotos dos produtos.                                                 │
+ * └────────────────────────────────────────────────────────────────────────┘
+ *
  * Avaliação e trecho de entrevista passam na mesma esteira, cada um como é:
  * a avaliação com nome, estrela e selo; o trecho com "Entrevista com
  * cliente" no lugar do nome, e nada de estrela (`conteudo/depoimentos.ts`).
- * Daquele arquivo, aqui só entra TIPO — ver o topo de `lib/avaliacoes.ts`.
  *
  * ┌─ A FOTO DO CARTÃO É UM <img> SIMPLES, NO TAMANHO DA CAIXA ─────────────┐
  * │ Com o `<Image>` do Next e `sizes="80px"`, cada cartão levava uma lista │
@@ -65,35 +79,58 @@ function semente(): number {
 }
 const semAssinatura = () => () => {}
 
+/**
+ * As avaliações publicadas e os trechos, cada um uma vez só — buscados na
+ * hora em que a seção chega perto (ver a segunda caixa lá em cima).
+ */
+async function carregarDepoimentos(): Promise<Depoimento[]> {
+  const { AVALIACOES, TRECHOS } = await import("@/conteudo/depoimentos")
+  return [...semRepetidas(AVALIACOES), ...semRepetidas(TRECHOS)]
+}
+
 export function EsteiraDeAvaliacoes({
-  depoimentos,
   fotos,
 }: {
-  depoimentos: Depoimento[]
   /** A foto de cada produto, pelo handle. */
   fotos: Record<string, string>
 }) {
   const lugar = useRef<HTMLDivElement>(null)
-  const [perto, setPerto] = useState(false)
+  // Vazia até a seção chegar perto e os textos chegarem.
+  const [depoimentos, setDepoimentos] = useState<Depoimento[]>([])
   useEffect(() => {
     const alvo = lugar.current
     if (!alvo) return
-    // Navegador sem o observador (antigo): desenha logo, fora do efeito.
+    let vivo = true
+    const carregar = () =>
+      carregarDepoimentos().then(
+        (lista) => {
+          if (vivo) setDepoimentos(lista)
+        },
+        // Sem os textos (a rede caiu no meio), a seção fica como sem
+        // JavaScript: título e pílula.
+        () => {}
+      )
+    // Navegador sem o observador (antigo): busca logo.
     if (typeof IntersectionObserver === "undefined") {
-      queueMicrotask(() => setPerto(true))
-      return
+      carregar()
+      return () => {
+        vivo = false
+      }
     }
     const vigia = new IntersectionObserver(
       ([entrada]) => {
         if (!entrada.isIntersecting) return
-        setPerto(true)
         vigia.disconnect()
+        carregar()
       },
       // Uma tela inteira antes: quando a pessoa chega, os cartões já estão lá.
       { rootMargin: "100% 0px" }
     )
     vigia.observe(alvo)
-    return () => vigia.disconnect()
+    return () => {
+      vivo = false
+      vigia.disconnect()
+    }
   }, [])
 
   const s = useSyncExternalStore(semAssinatura, semente, () => SEMENTE_DO_SERVIDOR)
@@ -109,13 +146,11 @@ export function EsteiraDeAvaliacoes({
   )
   const fila = useMemo(
     () =>
-      perto
-        ? encherAFila(
-            sortearDaEsteira(depoimentos, POR_PRODUTO_NA_ESTEIRA, sequencia(s)),
-            MINIMO_NA_FILA
-          )
-        : [],
-    [perto, depoimentos, s]
+      encherAFila(
+        sortearDaEsteira(depoimentos, POR_PRODUTO_NA_ESTEIRA, sequencia(s)),
+        MINIMO_NA_FILA
+      ),
+    [depoimentos, s]
   )
 
   return (

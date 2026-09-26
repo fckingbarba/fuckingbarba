@@ -3,6 +3,7 @@ import { notFound } from "next/navigation"
 import { TelaDaLojaInteira } from "@/components/catalogo/tela"
 import { lerOrdem, ORDENS_COM_PAGINA } from "@/lib/ordens"
 import { site } from "@/lib/site"
+import "@/estilos/telas/catalogo.css"
 
 /**
  * `/produtos?ordem=barato`, por dentro — o mesmo arranjo da categoria (ver

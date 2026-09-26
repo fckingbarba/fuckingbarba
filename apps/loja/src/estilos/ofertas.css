@@ -26,10 +26,31 @@
   margin: 0 auto;
   border: 2px solid #4fe0b9;
   padding: clamp(24px, 3vw, 32px) clamp(18px, 3vw, 34px) clamp(22px, 3vw, 28px);
-  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z" fill="%234fe0b9" fill-opacity="0.09"/></svg>');
-  background-repeat: no-repeat;
-  background-position: right 40px center;
-  background-size: auto 170%;
+}
+/*
+  O raio grande do fundo da caixa. Era uma camada de fundo da própria caixa
+  (imagem data:, à direita, 170% da altura); virou recorte — ver --raio em
+  base.css. Como o ::before e o ::after da caixa já são as quinas brancas, o
+  raio mora num <span> vazio, primeiro filho da caixa: ocupa a área interna
+  dela e corta o que passa (o fundo antigo também era cortado na borda). Vem
+  antes do resto no HTML, então pinta por baixo da etiqueta e do conteúdo.
+*/
+.offers__raio {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.offers__raio::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 40px;
+  height: 170%;
+  aspect-ratio: 1;
+  transform: translateY(-50%);
+  background: rgb(79 224 185 / 0.09);
+  clip-path: var(--raio);
 }
 .offers__box::before,
 .offers__box::after {

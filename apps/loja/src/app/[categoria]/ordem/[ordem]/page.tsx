@@ -3,6 +3,7 @@ import { notFound } from "next/navigation"
 import { metadadosDaCategoria, TelaDaCategoria } from "@/components/catalogo/tela"
 import { lerOrdem, ORDENS_COM_PAGINA } from "@/lib/ordens"
 import { site } from "@/lib/site"
+import "@/estilos/telas/catalogo.css"
 
 /**
  * `/barba?ordem=barato`, por dentro.

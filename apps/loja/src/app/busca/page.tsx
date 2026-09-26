@@ -10,6 +10,7 @@ import { buscar, lerBusca } from "@/lib/busca"
 import { prateleiras, type Prateleira } from "@/lib/catalogo"
 import { listarProdutos } from "@/lib/medusa"
 import { site } from "@/lib/site"
+import "@/estilos/telas/catalogo.css"
 
 /**
  * /busca?q=… — o destino da lupa do cabeçalho.

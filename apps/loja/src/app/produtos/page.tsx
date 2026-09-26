@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { TelaDaLojaInteira } from "@/components/catalogo/tela"
 import { site } from "@/lib/site"
+import "@/estilos/telas/catalogo.css"
 
 /**
  * /produtos — a loja inteira, sem filtro de categoria.

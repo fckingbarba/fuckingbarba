@@ -46,9 +46,9 @@
   width: 460px;
   height: 460px;
   transform: translateX(-50%);
-  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z" fill="%234fe0b9"/></svg>');
-  background-repeat: no-repeat;
-  background-size: contain;
+  /* Recorte, não imagem data: — ver --raio em base.css. */
+  background: #4fe0b9;
+  clip-path: var(--raio);
   opacity: 0.035;
   pointer-events: none;
   z-index: 0;

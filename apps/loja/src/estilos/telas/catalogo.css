@@ -1,0 +1,19 @@
+/*
+  O CSS DA TELA DE CATEGORIA E DA BUSCA — importado pelas páginas que montam
+  essa tela: app/[categoria]/page.tsx, app/produtos/page.tsx, as duas de
+  ordem (…/ordem/[ordem]/page.tsx) e app/busca/page.tsx.
+
+  Morava no globals.css, e aí a home baixava o estilo de uma tela que ela
+  não tem antes de pintar a primeira coisa: 1,6 KB comprimidos a mais no CSS
+  de toda página. No Lighthouse do CI isso pesava: o CSS chega junto com o
+  HTML nas primeiras voltas da conexão, e o que passa da conta vai pra volta
+  seguinte — 0,3 s a mais no LCP da home (o porquê está no quadro "O QUE NÃO
+  MORA AQUI", no globals.css).
+
+  A ordem é a de quando morava lá: o catálogo depois do card (produto.css e
+  vitrine.css, que seguem globais), e as migalhas depois do catálogo.
+*/
+@import "../catalogo.css";
+/* A trilha "Início / Barba". A PDP também tem: ela importa o mesmo arquivo
+   em telas/produto.css. */
+@import "../migalhas.css";
