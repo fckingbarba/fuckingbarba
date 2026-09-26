@@ -66,8 +66,8 @@
   fill: currentColor;
 }
 
-/* O palco da galeria com vídeo: a mesma moldura do palco da foto, sem o zoom. */
-.galeria__palco--video {
+/* O vídeo no palco da galeria: a mesma moldura da foto, sem o zoom. */
+.galeria__slide--video {
   cursor: default;
 }
 

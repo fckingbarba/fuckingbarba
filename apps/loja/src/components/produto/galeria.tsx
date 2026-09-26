@@ -1,7 +1,16 @@
 "use client"
 
 import Image, { getImageProps } from "next/image"
-import { type KeyboardEvent, type TouchEvent, useEffect, useMemo, useRef, useState } from "react"
+import {
+  type KeyboardEvent,
+  type TouchEvent,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
 import { Fechar, Lupa, SetaDireita, SetaEsquerda, Tocar } from "@/components/icones"
 import { duracaoCurta, VideoDoProduto } from "@/components/produto/video"
 import type { VideoDaPdp } from "@/conteudo/produto"
@@ -11,6 +20,18 @@ import type { VideoDaPdp } from "@/conteudo/produto"
  *
  * Miniatura troca a foto grande; a foto grande abre o zoom. Quantas fotos o
  * produto tiver — o componente lê a lista, não um número fixo.
+ *
+ * A FOTO GRANDE PASSA NO DEDO (pedido da loja em 26/09 — no celular, só os
+ * pontos embaixo dela trocavam a foto): o palco é um trilho com encaixe,
+ * como o do banner da home. A foto acompanha o dedo e para inteira na
+ * próxima, sem JavaScript nenhum; a miniatura (o ponto, no celular) e as
+ * setas do teclado rolam o trilho até a foto. A foto da vez é a que está à
+ * vista: é ela que o toque amplia e que a miniatura marca.
+ *
+ * SÓ A PRIMEIRA FOTO VEM NO HTML — é o LCP da página. A segunda entra quando
+ * a página termina de carregar, e as vizinhas da vez quando a pessoa encosta
+ * no palco ou chega numa foto: baixar todas junto com a primeira seria
+ * dividir a banda com ela.
  *
  * O ZOOM É <dialog>, e isso não é preciosismo: o elemento nativo prende o
  * foco dentro dele, fecha no Esc e devolve o foco pro botão que abriu,
@@ -53,7 +74,13 @@ export function Galeria({
   /** Só aparece quando há preço cheio maior que o atual. */
   desconto: number | null
 }) {
+  /** A foto à vista no palco (posição em `itens`). Quem manda nela é a rolagem do trilho. */
   const [atual, setAtual] = useState(0)
+  const trilho = useRef<HTMLDivElement>(null)
+  // Quais fotos do palco já têm a imagem: a primeira vem no HTML.
+  const [montados, setMontados] = useState<ReadonlySet<number>>(() => new Set([0]))
+  // A seta do teclado passou a foto: o foco vai junto pra que entrou.
+  const focarNaVez = useRef(false)
   const zoom = useRef<HTMLDialogElement>(null)
   // Onde o dedo encostou no zoom; `null` quando não é arrasto de um dedo só.
   const toque = useRef<{ x: number; y: number } | null>(null)
@@ -67,8 +94,18 @@ export function Galeria({
   const [noZoom, setNoZoom] = useState(0)
   const [aberto, setAberto] = useState(false)
 
-  const item = itens[atual] ?? itens[0]
+  const total = itens.length
   const foto = fotos[noZoom] ?? fotos[0]
+
+  const montar = useCallback(
+    (...quais: number[]) => {
+      setMontados((m) => {
+        const novos = quais.filter((i) => i >= 0 && i < total && !m.has(i))
+        return novos.length ? new Set([...m, ...novos]) : m
+      })
+    },
+    [total]
+  )
 
   /*
    * `showModal()` não existe como atributo, só como método — então abrir
@@ -85,6 +122,43 @@ export function Galeria({
     el.addEventListener("click", fecha)
     return () => el.removeEventListener("click", fecha)
   }, [])
+
+  // O trilho rolou (o dedo, a miniatura, o teclado): a foto da vez é a que ficou à vista, e a
+  // anterior e a próxima dela já vêm baixando — o próximo arrasto não acha o vazio.
+  useEffect(() => {
+    const el = trilho.current
+    if (!el || total < 2) return
+    const ver = () => {
+      const i = Math.round(el.scrollLeft / Math.max(1, el.clientWidth))
+      const vez = Math.min(total - 1, Math.max(0, i))
+      setAtual(vez)
+      montar(vez - 1, vez, vez + 1)
+    }
+    el.addEventListener("scroll", ver, { passive: true })
+    return () => el.removeEventListener("scroll", ver)
+  }, [total, montar])
+
+  // A segunda foto entra quando a página termina de carregar: antes, dividiria a banda com a primeira.
+  useEffect(() => {
+    if (total < 2) return
+    let espera: number | undefined
+    const depois = () => {
+      espera = window.setTimeout(() => montar(1), 300)
+    }
+    if (document.readyState === "complete") depois()
+    else window.addEventListener("load", depois, { once: true })
+    return () => {
+      window.removeEventListener("load", depois)
+      window.clearTimeout(espera)
+    }
+  }, [total, montar])
+
+  // Depois da seta do teclado, o foco segue a foto que entrou: a que saiu de vista fica inerte.
+  useLayoutEffect(() => {
+    if (!focarNaVez.current) return
+    focarNaVez.current = false
+    trilho.current?.children[atual]?.querySelector("button")?.focus({ preventScroll: true })
+  }, [atual])
 
   // Com o zoom aberto, a anterior e a próxima já vêm baixando: a troca é na hora.
   useEffect(() => {
@@ -105,8 +179,31 @@ export function Galeria({
     }
   }, [aberto, noZoom, fotos])
 
-  if (!item) {
+  if (!total) {
     return <div className="galeria" aria-hidden="true" />
+  }
+
+  /** Rola o palco até a foto `i`: suave na miniatura e no teclado; na hora, fechando o zoom. */
+  function irPara(i: number, naHora = false) {
+    const el = trilho.current
+    const alvoDaRolagem = el?.children[i]
+    if (!el || !alvoDaRolagem) return
+    montar(i)
+    const left =
+      el.scrollLeft + alvoDaRolagem.getBoundingClientRect().left - el.getBoundingClientRect().left
+    if (naHora) el.scrollTo({ left, behavior: "instant" })
+    else el.scrollTo({ left })
+  }
+
+  function aoTeclarNoPalco(e: KeyboardEvent<HTMLDivElement>) {
+    const passo = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0
+    if (!passo) return
+    // Sem isto a seta rola o trilho uns pixels, o encaixe leva pra outra foto e o foco se perde.
+    e.preventDefault()
+    const i = atual + passo
+    if (i < 0 || i >= total) return
+    focarNaVez.current = true
+    irPara(i)
   }
 
   function abrirZoom() {
@@ -125,7 +222,10 @@ export function Galeria({
     setAberto(false)
     // A foto grande da página fica na última vista no zoom.
     const vista = fotos[noZoom]
-    if (vista) setAtual(vista.i)
+    if (vista && vista.i !== atual) {
+      setAtual(vista.i)
+      irPara(vista.i, true)
+    }
   }
 
   function aoTeclar(e: KeyboardEvent<HTMLDialogElement>) {
@@ -157,59 +257,81 @@ export function Galeria({
 
   return (
     <div className="galeria">
-      {item.tipo === "video" ? (
-        <div className="galeria__palco galeria__palco--video">
-          <VideoDoProduto
-            key={item.url}
-            video={item}
-            rotulo={`Vídeo: ${alvo}`}
-            enquadrar="contain"
-          />
-        </div>
-      ) : (
-        <button
-          type="button"
-          className="galeria__palco"
-          aria-label="Ampliar a foto do produto"
-          onClick={abrirZoom}
-        >
-          {/*
-          `aria-hidden`: o selo mora DENTRO do botão, e o que se lê em voz
-          alta é o nome do botão ("Ampliar a foto do produto"). Um "-31%"
-          visível fora desse nome é o que o Lighthouse reprova (quem usa voz
-          pra comandar a tela diz o que vê, e o botão não atende). O desconto
-          já é dito no preço, do lado — aqui ele é só desenho.
+      <div className="galeria__palco">
+        {/*
+          `aria-hidden`: o desconto já é dito no preço, do lado — aqui ele é
+          só desenho. (Quando o selo morava dentro do botão da foto, um
+          "-31%" visível fora do nome do botão era o que o Lighthouse
+          reprovava: quem usa voz pra comandar a tela diz o que vê.)
         */}
-          {desconto ? (
-            <ul className="galeria__selos" aria-hidden="true">
-              <li className="galeria__selo galeria__selo--desconto">-{desconto}%</li>
-            </ul>
-          ) : null}
+        {desconto ? (
+          <ul className="galeria__selos" aria-hidden="true">
+            <li className="galeria__selo galeria__selo--desconto">-{desconto}%</li>
+          </ul>
+        ) : null}
 
-          <span className="galeria__lupa">
-            <Lupa />
-          </span>
+        <span className="galeria__lupa" aria-hidden="true">
+          <Lupa />
+        </span>
 
-          <Image
-            key={item.url}
-            id="galeria-foto"
-            itemProp="image"
-            src={item.url}
-            alt={item.alt || alvo}
-            width={900}
-            height={900}
-            // `fetchPriority="high"` + `eager`, e não `priority`: no Next 16 o
-            // `priority` foi descontinuado e só punha um preload de prioridade
-            // BAIXA no <head> — a foto principal entrava na fila atrás dos
-            // scripts. É ela o LCP da página.
-            loading="eager"
-            fetchPriority="high"
-            sizes="(min-width: 1000px) 620px, 100vw"
-          />
-        </button>
-      )}
+        <div
+          ref={trilho}
+          className="galeria__trilho"
+          // Encostou: a anterior e a próxima já vêm baixando (o dedo pode arrastar a qualquer momento).
+          onPointerDown={() => montar(atual - 1, atual + 1)}
+          onKeyDown={aoTeclarNoPalco}
+        >
+          {itens.map((f, i) => (
+            <div
+              key={f.url}
+              className={
+                f.tipo === "video" ? "galeria__slide galeria__slide--video" : "galeria__slide"
+              }
+              // A foto fora de vista sai da ordem do Tab e do leitor de tela: sem isso
+              // o foco cai numa foto que não está à vista.
+              inert={i !== atual}
+            >
+              {f.tipo === "video" ? (
+                montados.has(i) ? (
+                  <VideoDoProduto video={f} rotulo={`Vídeo: ${alvo}`} enquadrar="contain" />
+                ) : (
+                  <div className="video video--contain" />
+                )
+              ) : (
+                <button
+                  type="button"
+                  className="galeria__foto"
+                  aria-label={
+                    total > 1 ? `Ampliar a foto ${i + 1} de ${total}` : "Ampliar a foto do produto"
+                  }
+                  onClick={abrirZoom}
+                >
+                  {montados.has(i) ? (
+                    <Image
+                      id={i === 0 ? "galeria-foto" : undefined}
+                      itemProp={i === 0 ? "image" : undefined}
+                      src={f.url}
+                      alt={f.alt || alvo}
+                      width={900}
+                      height={900}
+                      // `fetchPriority="high"` + `eager`, e não `priority`: no Next 16 o
+                      // `priority` foi descontinuado e só punha um preload de prioridade
+                      // BAIXA no <head> — a foto principal entrava na fila atrás dos
+                      // scripts. A primeira é o LCP da página; as outras só são montadas
+                      // quando é pra baixar (ver o topo), então também não esperam.
+                      loading="eager"
+                      fetchPriority={i === 0 ? "high" : undefined}
+                      sizes="(min-width: 1000px) 620px, 100vw"
+                    />
+                  ) : null}
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
 
-      {itens.length > 1 ? (
+      {total > 1 ? (
         <ul className="galeria__miniaturas">
           {itens.map((f, i) => (
             <li key={f.url}>
@@ -219,7 +341,7 @@ export function Galeria({
                   className="galeria__mini galeria__mini--video"
                   aria-current={i === atual ? true : undefined}
                   aria-label={`Ver o vídeo ${i + 1} (${duracaoCurta(f.duracao)}): ${alvo}`}
-                  onClick={() => setAtual(i)}
+                  onClick={() => irPara(i)}
                 >
                   <Image src={f.poster} alt="" width={150} height={150} loading="lazy" />
                   <span className="galeria__mini-play" aria-hidden="true">
@@ -233,7 +355,7 @@ export function Galeria({
                   className="galeria__mini"
                   aria-current={i === atual ? true : undefined}
                   aria-label={`Ver foto ${i + 1}: ${f.alt || alvo}`}
-                  onClick={() => setAtual(i)}
+                  onClick={() => irPara(i)}
                 >
                   <Image src={f.url} alt="" width={150} height={150} loading="lazy" />
                 </button>
