@@ -68,10 +68,11 @@ async function lerPedidoDoAviso(
       "display_id",
       "email",
       "status",
-      "items.title",
-      "items.product_title",
-      "items.variant_title",
-      "items.quantity",
+      // O item inteiro, não campo a campo: a quantidade mora no `detail` do
+      // item, e o Medusa (2.21) procura `items.quantity` na linha, onde ela
+      // não existe — sem um total na lista, voltava vazia, e o e-mail dizia
+      // "0×" (o #19, em 25/09). A mesma regra do `lerPedido` de `medusa.ts`.
+      "items.*",
       "shipping_address.*",
     ],
     filters: { id },
