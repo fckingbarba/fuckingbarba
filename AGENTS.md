@@ -108,7 +108,9 @@ recalculada como num 4G lento (150 ms de ida e volta, 1,6 Mbit/s). Três regras 
    + 29,2). Na 0117 a home tem 23,8 KB de HTML e 19,2 KB de CSS (43,0 KB) e mede 2,26 s; com 1,2 KB
    a mais em qualquer um dos dois, o CSS vai pra terceira volta, a primeira pintura atrasa e o LCP
    pula pra 2,56 s — reprova. É o degrau mais perigoso da home: veja o que a mudança soma ao HTML e
-   ao CSS dela antes da PR.
+   ao CSS dela antes da PR. Depois da 0118 (o rodapé em sanfona no celular, +0,1 KB de HTML e
+   +0,24 KB de CSS em toda página), a home soma 43,3 KB: sobra menos de meio KB. Conferido pelo
+   método abaixo nos três traces: com a 0118 o LCP não muda; com +0,5 KB a mais, pula 300 ms.
 
 Imagem `data:` em CSS é pedido "sem conexão" pro Lantern e derruba a conta pessimista (ver `--raio`
 em `estilos/base.css`). Pra medir uma mudança sem o ruído da máquina (aqui o Lighthouse oscila meio
