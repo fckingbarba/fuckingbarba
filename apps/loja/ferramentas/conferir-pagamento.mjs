@@ -60,8 +60,8 @@
  * └─────────────────────────────────────────────────────────────────────────┘
  */
 
-import { comAFaixaRespondida } from "./faixa-respondida.mjs"
 import { readFileSync } from "node:fs"
+import { comAFaixaRespondida } from "./faixa-respondida.mjs"
 import { subirFrenetFalsa } from "./frenet-falsa.mjs"
 import { CARTOES, subirPagarmeFalso } from "./pagarme-falso.mjs"
 import { subirResendFalso } from "./resend-falso.mjs"

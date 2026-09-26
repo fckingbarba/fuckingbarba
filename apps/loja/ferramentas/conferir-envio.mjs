@@ -55,10 +55,10 @@
  * └─────────────────────────────────────────────────────────────────────────┘
  */
 
-import { comAFaixaRespondida } from "./faixa-respondida.mjs"
 import { readFileSync } from "node:fs"
 import { isDeepStrictEqual } from "node:util"
 import { chromium } from "playwright"
+import { comAFaixaRespondida } from "./faixa-respondida.mjs"
 import { subirFrenetFalsa } from "./frenet-falsa.mjs"
 import { subirPagarmeFalso } from "./pagarme-falso.mjs"
 import { fabricaDePedidos } from "./pedido-de-teste.mjs"

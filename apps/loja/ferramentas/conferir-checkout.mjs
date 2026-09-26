@@ -59,9 +59,9 @@
  * que acaba (que desliga e religa a promoção do óleo, esperando o job).
  */
 
-import { comAFaixaRespondida } from "./faixa-respondida.mjs"
 import { readFileSync } from "node:fs"
 import { chromium } from "playwright"
+import { comAFaixaRespondida } from "./faixa-respondida.mjs"
 import { SERVICOS, subirFrenetFalsa } from "./frenet-falsa.mjs"
 import { subirPagarmeFalso } from "./pagarme-falso.mjs"
 import { vigiarRecargaDoDev } from "./recarga-do-dev.mjs"

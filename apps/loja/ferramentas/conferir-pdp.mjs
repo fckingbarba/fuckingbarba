@@ -26,9 +26,9 @@
  * meio. Sem credencial de admin, ela é pulada.
  */
 
-import { comAFaixaRespondida } from "./faixa-respondida.mjs"
 import { readFileSync } from "node:fs"
 import { chromium } from "playwright"
+import { comAFaixaRespondida } from "./faixa-respondida.mjs"
 import { vigiarRecargaDoDev } from "./recarga-do-dev.mjs"
 
 const LOJA = process.argv[2] ?? process.env.LOJA ?? "http://localhost:3000"
