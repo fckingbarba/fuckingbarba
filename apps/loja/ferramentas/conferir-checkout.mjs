@@ -1112,7 +1112,22 @@ titulo("O total mudou por fora")
   await escolherForma("Pix")
   const botao = pagina.locator("#form-pagamento button[type=submit]")
   const noBotao = numero(await botao.innerText())
-  const varianteExtra = (await medusa("/store/products?handle=balm-para-barba&fields=*variants"))
+  /*
+    O extra NÃO pode ser um produto que já está no pedido: o Medusa junta a
+    mesma variante numa linha só, e tirar o extra no fim tiraria junto a
+    oferta marcada — num banco sem pedidos, a oferta do motor é o balm, que
+    era o extra fixo daqui (26/09, banco novo da entrega 0104).
+  */
+  const jaNoPedido = new Set(
+    ((await medusa(`/store/carts/${carrinhoId}?fields=id,*items`))?.cart?.items ?? []).map(
+      (i) => i.product_handle
+    )
+  )
+  const handleExtra =
+    ["balm-para-barba", "oleo-para-barba", "fator-de-crescimento-para-barba"].find(
+      (h) => !jaNoPedido.has(h)
+    ) ?? "balm-para-barba"
+  const varianteExtra = (await medusa(`/store/products?handle=${handleExtra}&fields=*variants`))
     ?.products?.[0]?.variants?.[0]?.id
   const { json: comExtra } = await medusaCru(`/store/carts/${carrinhoId}/line-items`, {
     metodo: "POST",
@@ -2061,6 +2076,154 @@ titulo("A gaveta relê ao abrir")
       (await contador.innerText().catch(() => "")) === "3",
       "e quem sai do checkout pra loja encontra o contador de agora, sem abrir a gaveta",
       await contador.innerText().catch(() => "?")
+    )
+  } finally {
+    await ctx.close()
+  }
+}
+
+titulo("A sacola responde no clique")
+/*
+  A SACOLA NA HORA (26/09, entrega 0104). Na produção, cada escrita na sacola
+  leva perto de um segundo no Medusa — preço, estoque, promoção, frete e
+  imposto refeitos —, e a pessoa ficava olhando o "Adicionando…", ou
+  apertava "+" de novo e o botão travado não pegava. Agora a gaveta abre no
+  clique, com a linha que a página já sabia desenhar; os botões não travam;
+  e a fila junta os cliques: vai só o último número. Aqui cada ação da loja
+  sai do navegador com 1,5 s de atraso, pra dar pra ver a tela antes da
+  resposta.
+*/
+{
+  const { ctx, pag } = await abaVigiada()
+  let idas = 0
+  await pag.route("**/*", async (rota) => {
+    const r = rota.request()
+    if (r.method() === "POST" && r.headers()["next-action"]) {
+      idas++
+      await new Promise((pronto) => setTimeout(pronto, 1500))
+    }
+    await rota.continue().catch(() => null)
+  })
+  const gaveta = pag.locator("#carrinho-gaveta")
+  const livre = () =>
+    pag.waitForFunction(() => !document.querySelector(".sacolinha[data-ocupada]"), null, {
+      timeout: 30000,
+    })
+  const naTela = async () => ({
+    qtd: (
+      await gaveta
+        .locator(".sacolinha__numero")
+        .first()
+        .innerText()
+        .catch(() => "?")
+    ).trim(),
+    total: (
+      await gaveta
+        .locator(".sacolinha__soma-valor")
+        .innerText()
+        .catch(() => "")
+    ).replace(/\u00a0/g, " "),
+  })
+  try {
+    // Sacola nova, e a primeira leitura dela já feita (o botão diz "0 item").
+    await pag.goto(`${LOJA}/produtos/balm-para-barba`, { waitUntil: "domcontentloaded" })
+    await pag
+      .locator('button[aria-controls="carrinho-gaveta"][aria-label="Sacola com 0 item"]')
+      .first()
+      .waitFor({ timeout: 25000 })
+    await pag.waitForFunction(
+      () => {
+        const b = document.querySelector(".compra__comprar")
+        return b && !b.disabled && Object.keys(b).some((k) => k.startsWith("__react"))
+      },
+      null,
+      { timeout: 25000 }
+    )
+    await pag.locator(".compra__comprar").click()
+    const chegou = await gaveta
+      .locator(".sacolinha__item[data-chegando]")
+      .first()
+      .waitFor({ timeout: 1000 })
+      .then(() => true)
+      .catch(() => false)
+    const antes = {
+      nome: await gaveta
+        .locator(".sacolinha__nome")
+        .first()
+        .innerText()
+        .catch(() => ""),
+      contador: await pag
+        .locator(".cabecalho__contador")
+        .first()
+        .innerText()
+        .catch(() => ""),
+      esmaecido: await pag.locator(".sacolinha[data-ocupada]").count(),
+      travado: await gaveta
+        .locator('.sacolinha__item[data-chegando] button[aria-label^="Aumentar"]')
+        .isDisabled()
+        .catch(() => false),
+      cookie: (await ctx.cookies()).some((c) => c.name === "carrinho"),
+    }
+    ok(
+      chegou && /balm/i.test(antes.nome) && antes.contador === "1" && !antes.cookie,
+      "a gaveta abre no clique, com o produto e o contador, antes de a loja responder",
+      JSON.stringify(antes)
+    )
+    ok(
+      antes.esmaecido === 1 && antes.travado,
+      "com o dinheiro esmaecido, e os botões da linha nova esperando o id de verdade",
+      JSON.stringify(antes)
+    )
+    await livre()
+    const id = (await ctx.cookies()).find((c) => c.name === "carrinho")?.value
+    const c1 = id ? (await medusa(`/store/carts/${id}?fields=id,total,*items`))?.cart : null
+    const t1 = await naTela()
+    ok(
+      c1?.items?.length === 1 &&
+        c1.items[0].quantity === 1 &&
+        t1.total === reais(c1.total) &&
+        (await gaveta.locator("[data-chegando]").count()) === 0 &&
+        idas === 1,
+      "a resposta troca a linha pela do Medusa, com o total dele",
+      `${t1.total} × ${reais(c1?.total ?? 0)} · ${idas} ida(s)`
+    )
+
+    idas = 0
+    const mais = gaveta.locator('button[aria-label^="Aumentar a quantidade"]').first()
+    // Os três antes de qualquer resposta (cada ação sai 1,5 s atrasada): com
+    // o botão travado, o Playwright esperaria ele destravar pra clicar.
+    const t0 = Date.now()
+    await mais.click({ timeout: 1000 }).catch(() => null)
+    await mais.click({ timeout: 1000 }).catch(() => null)
+    await mais.click({ timeout: 1000 }).catch(() => null)
+    const cliques = Date.now() - t0
+    const logo = await naTela()
+    ok(
+      logo.qtd === "4" && cliques < 1500,
+      'três "+" seguidos: os botões não travam, e a tela diz 4 na hora, sem esperar a loja',
+      `tela ${logo.qtd} · os três cliques em ${cliques} ms`
+    )
+    await livre()
+    const c2 = (await medusa(`/store/carts/${id}?fields=id,total,*items`))?.cart
+    const t2 = await naTela()
+    ok(
+      c2?.items?.[0]?.quantity === 4 &&
+        t2.qtd === "4" &&
+        t2.total === reais(c2.total) &&
+        idas === 2,
+      "e a fila junta os cliques: duas idas à loja, não três, e a tela fecha com o Medusa",
+      `${idas} idas · Medusa ${c2?.items?.[0]?.quantity} · ${t2.total} × ${reais(c2?.total ?? 0)}`
+    )
+
+    idas = 0
+    await gaveta.locator('.sacolinha__tira[aria-label^="Remover"]').first().click()
+    const naHora = await gaveta.locator(".sacolinha__item").count()
+    await livre()
+    const c3 = (await medusa(`/store/carts/${id}?fields=id,*items`))?.cart
+    ok(
+      naHora === 0 && c3?.items?.length === 0 && idas === 1,
+      "remover tira a linha no clique, e o Medusa confirma",
+      `na hora ${naHora} linha(s) · Medusa ${c3?.items?.length} · ${idas} ida(s)`
     )
   } finally {
     await ctx.close()
