@@ -1168,11 +1168,10 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
       Fator R$ 255,70 · Kit 3x Fator R$ 363,70 · Kit 6x Fator R$ 695,40 · Pastas R$ 74,90 · Kit
       Shampoo Duplo R$ 140,40 · Kit Hidratação R$ 144,80 · Kit Essencial R$ 140,80 · Kit Fator +
       Shampoo R$ 183,20. Se os preços do Bling forem de propósito, é só não pôr.
-- [ ] **Os endereços antigos que não são de produto — Claude Code.** Conferidos em 25/09 contra o
-      mapa do site da Nuvemshop, dão "página não encontrada" na loja nova: `/produtos-para-a-barba/`
-      (e `/balm/`, `/fator-de-crescimento/`, `/oleo/` e `/shampoo/` dentro dela), `/kits-para-barba/`,
-      `/para-o-cabelo/`, `/quem-somos/` e `/politica-de-envio/`. Entram no
-      `apps/loja/src/redirects.json` antes da virada. Os de produto são os oito rascunhos acima.
+- [x] **Os endereços antigos que não são de produto — Claude Code.** Feito em 26/09 (entrega
+      0125): os endereços do mapa do site da Nuvemshop (15 produtos, e 15 páginas e categorias),
+      mais a busca, o carrinho e a conta de lá, levam à página certa da loja nova (ver a seção da
+      0125, no fim). Os produtos têm o mesmo endereço nas duas lojas, e os 15 estão publicados.
 - [ ] **Os cupons da Nuvemshop, de novo na virada — Claude Code.** A cópia é a lista de 26/09
       (entrega 0126): cupom criado lá depois disso não está aqui, e o de 1 uso que alguém gastar lá
       até a virada ainda vale uma vez aqui. Na véspera, a lista de lá de novo e uma migração nova só
@@ -1180,7 +1179,10 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
 - [ ] Troca de domínio (fase 6). O que depende do endereço da loja: `NEXT_PUBLIC_SITE_URL` na
       Vercel, `STORE_CORS`/`AUTH_CORS` e `LOJA_URL` (revalidação, logo e links dos e-mails) no
       Railway (ele também diz ao Marketing de que endereço contar as visitas), `SITE_ORIGENS` no
-      Supabase, a indexação, e o domínio no Pagar.me se ele passar a exigir.
+      Supabase, a indexação, e o domínio no Pagar.me se ele passar a exigir. Logo depois da troca,
+      o Claude Code roda o `conferir-enderecos-antigos.mjs` contra o domínio: todo endereço da loja
+      antiga tem que abrir. E, nas semanas seguintes, o cartão "página que não existe" da
+      Observabilidade mostra o link antigo que ainda faltar (vindo de fora).
 
 ### 4. Fase 5
 
@@ -2281,6 +2283,30 @@ abas, a ordem, nenhuma perdida, o atalho que abre a aba, o celular e o Google fo
 de unidade (6 novos).
 
 Depois do deploy — **nada a configurar.**
+
+**Loja: os links antigos da Nuvemshop — prontos em 26/09 (entrega 0125).** Pra quando o domínio
+passar pra loja nova (fase 6): cada endereço que a loja antiga tinha, e que o Google e os links
+salvos conhecem, abre a página certa, e não "página não encontrada".
+
+- **Os produtos** têm o mesmo endereço nas duas lojas (`/produtos/oleo-para-barba`): nada a fazer,
+  os 15 abrem.
+- **As categorias:** "Produtos para a barba" vai pra Barba, "Kits para barba" pra Kits e "Para o
+  cabelo" pra Cabelo. As quatro de dentro da barba (balm, shampoo, óleo, fator de crescimento) vão
+  direto pra página do produto delas, que já mostra os kits dele.
+- **As páginas:** Trocas e devoluções, Política de privacidade, Contato e Todos os produtos têm a
+  página igual. A Política de envio abre as Dúvidas já no bloco "Entrega". O Quem somos e o Blog
+  (que estava vazio) vão pra home, porque a loja nova não tem página própria pra eles.
+- **O sistema de lá:** a busca (`/search?q=…`) vira a busca daqui, com o mesmo termo; o carrinho
+  vai pra Todos os produtos; "Minha conta", entrar e cadastrar vão pro "Entrar" daqui (que também
+  cria a conta).
+- O redirect é permanente (o Google passa a relevância pra página nova) e leva junto a campanha do
+  link (`?utm_…`).
+- A lista inteira da loja antiga está no `apps/loja/ferramentas/conferir-enderecos-antigos.mjs`,
+  que confere um por um. Hoje, na loja no ar, 15 desses endereços dariam "página não encontrada";
+  com esta entrega, nenhum.
+
+Depois do deploy — **nada a configurar.** Só vale de verdade na troca de domínio; até lá, dá pra
+testar no endereço da Vercel: `…vercel.app/produtos-para-a-barba/` abre a Barba.
 
 **Os cupons da Nuvemshop na loja nova — pronto em 26/09 (entrega 0126).** Pedido dele, com a lista
 dos cupons ativos da Nuvemshop: "poderia criar para gente?".
