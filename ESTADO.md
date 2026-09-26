@@ -2458,9 +2458,9 @@ Conferido pelo `conferir-cupons.mjs` do painel (41 checagens; as 16 novas: os se
 formulário novo, o frete grátis zerando o frete uma vez só, o da mais barata, a pergunta do frete
 fechada pra quem não é a loja, categoria e produto com todo o carrinho, o "não combina" no produto
 em promoção e no frete da loja, por cliente, o agendado, um cupom por pedido, as frases, o link e
-a tela), pelo `conferir-checkout.mjs` (167; as 7 novas: um por pedido, o de frete guardado e
+a tela), pelo `conferir-checkout.mjs` (173; as 7 novas: um por pedido, o de frete guardado e
 entrando com a entrega, o resumo sem desconto repetido, o link com e sem sacola), pelo
-`conferir-pagamento.mjs` (181) e pelo `conferir-conta.mjs` (209), e pelos testes de unidade (15
+`conferir-pagamento.mjs` (200) e pelo `conferir-conta.mjs` (209), e pelos testes de unidade (15
 novos nos cupons).
 
 Depois do deploy — **nada a configurar.** Pra testar: Painel → Cupons e descontos → Novo cupom.
