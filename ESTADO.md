@@ -2537,6 +2537,40 @@ apontam pro endereço da loja, e o Google confere o preço nessa página.
 - [ ] Um dia depois das duas: olhar o Diagnóstico do Merchant Center e o da Meta — o Claude Code
       lê os avisos e acerta o que for do arquivo.
 
+**O vigia de fora — pronto em 26/09 (entrega 0137).** Item 7 do levantamento, a parte que não
+depende da Vercel no Pro. A Observabilidade mora dentro do servidor da loja: se ele cai, nenhum
+aviso sai, e ninguém fica sabendo até um cliente reclamar. Agora um serviço de fora, o UptimeRobot
+(grátis, e o plano grátis deles permite loja), vigia a loja, o servidor e o painel de 5 em 5
+minutos, e avisa no seu celular quando um deles não responde. E o servidor manda um "estou viva"
+pra ele a cada 5 minutos, depois de rodar as rotinas: se o recado para (o servidor caiu, as rotinas
+travaram, o banco não responde), o aviso chega também. Na Observabilidade, a linha "Vigia de fora"
+das integrações diz quando foi o último "estou viva".
+
+Conferido pelos testes de unidade (6 novos: o endereço, o recado que chega, o que não chega, e a
+linha das integrações), por um vigia de mentira na máquina (o recado chegou na hora da rotina) e
+pelos conferidores do painel (observabilidade 35/35, com as 8 integrações; configurações 18/18).
+
+Depois do deploy — **você, uns 15 minutos:**
+
+- [ ] **A conta:** uptimerobot.com → criar a conta grátis, com o e-mail da loja. No celular,
+      instalar o app **UptimeRobot** e entrar com a mesma conta: é por ele que o aviso chega.
+- [ ] **Os três endereços** — "New monitor", tipo **HTTP(s)**, de 5 em 5 minutos, com o aviso por
+      e-mail e pelo app:
+  - Loja: `https://fuckingbarba-loja.vercel.app` (na virada, trocar por
+    `https://www.fuckingbarba.com.br`);
+  - Servidor: `https://fuckingbarbabackend-production.up.railway.app/health`;
+  - Painel: `https://dashboard.fuckingbarba.com.br/entrar`.
+- [ ] **O "estou viva"** — "New monitor", tipo **Heartbeat** (ou "Cron job"), nome "Rotinas da
+      loja", intervalo de **10 minutos** (um recado atrasado não vira alarme; dois, sim). Copiar o
+      endereço que ele mostra e colar no Railway → serviço do Medusa → Variables → nova variável
+      `VIGIA_DE_FORA_URL`. Não colar esse endereço na conversa: quem tem ele finge que a loja está
+      viva. O Railway publica de novo sozinho.
+- [ ] Em até 10 minutos: Painel → Observabilidade → Integrações → "Vigia de fora" fica verde, e o
+      monitor "Rotinas da loja" fica "Up" no UptimeRobot.
+
+Se o UptimeRobot pedir plano pago pro Heartbeat, os três endereços já valem sozinhos; aí o "estou
+viva" vai pro Better Stack (10 grátis) — é só trocar o endereço da variável.
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa
