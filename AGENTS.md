@@ -781,6 +781,29 @@ export GA4_CREDENCIAIS=$(node -e 'const{generateKeyPairSync:g}=require("node:cry
 # as mesmas no backend (antes do backend:dev) e no conferidor
 ```
 
+**Marketing** (a área do protótipo, em partes; parte 1, entrega 0108: o Resumo e a meta do mês).
+No `ACESSO`, `marketing` é do dono e do marketing, e `metaDoMes` (mudar a meta) só do dono.
+`src/lib/painel/marketing.ts` é puro, com testes: o período (`hoje`, `7d`, `30d`, `90d`; o resto
+vira 30d) e o de antes, do mesmo tamanho e terminando na mesma hora (`janelasDo`); venda é pedido
+pago e não cancelado, no instante da captura, com o frete (a regra do Início, `vendasDos`); os
+números com a variação (`null` sem nada antes); o gráfico (por hora, por dia, ou por semana nos 90
+dias); os mais vendidos em reais (`items.total`); e a meta (`fb_metas` no metadata da loja, um valor
+por mês — `{ "2026-09": 12000 }` —, gravada pelo `mudarMetadataDaLoja`). `GET /dashboard/marketing
+?periodo=` devolve o Resumo (e `mudaAMeta`); `GET /dashboard/marketing/visitas`, as visitas do
+período e do de antes numa pergunta só ao GA4 (`visitasDoMarketing`, em `ga4.ts`, guardada como as
+do dia: `date`+`hour` de `2n−1daysAgo` a `today`, até 4.320 linhas) e a conversão com os pedidos NO
+MESMO CORTE de hora das visitas (`visitasDoPeriodo` — o Google soma hoje com atraso); `POST
+/dashboard/marketing/meta` `{ valor }` (vazio tira) grava e anota `mudou-meta`. **As visitas
+contam só o endereço da loja** (`hostsDaLoja(LOJA_URL)`, filtro `hostName` na pergunta): o GA4 é o
+mesmo do site da Nuvemshop, que segue no ar até a virada — o `LOJA_URL` troca na virada, e o
+filtro junto (o Início ainda conta os dois sites). No painel, `app/(painel)/marketing`, com
+`components/marketing.tsx` (visitas e conversão num `<Suspense>`) e `mudar-meta.tsx`. O gráfico
+fino (30 barras no celular: 8 px cada) usa `.barras-v--pontas`: a coluna de dentro de cada barra
+crescia até a largura do rótulo e empurrava a barra pra fora da caixa. Conferidor:
+`conferir-marketing.mjs` (o Google falso do `conferir-visitas`, que agora entende "13daysAgo"). As
+próximas partes: Funil e Canais (com o montador de link de campanha), Produtos e Ofertas, Clientes
+e Pagamento e frete — o protótipo tem tudo, em `telaMarketing`.
+
 **Produtos** (fase 3, parte 1). `GET /dashboard/produtos` (a lista, com as fitas) e
 `GET /dashboard/produtos/:id` (o que vem do Bling, só pra ler; as seções com o texto e o fundo de
 cada uma; a caixa de compra; o catálogo pros seletores; as categorias; o `noSite` do "Ver no site"

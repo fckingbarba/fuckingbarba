@@ -1096,8 +1096,8 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
       `apps/loja/src/redirects.json` antes da virada. Os de produto são os oito rascunhos acima.
 - [ ] Troca de domínio (fase 6). O que depende do endereço da loja: `NEXT_PUBLIC_SITE_URL` na
       Vercel, `STORE_CORS`/`AUTH_CORS` e `LOJA_URL` (revalidação, logo e links dos e-mails) no
-      Railway, `SITE_ORIGENS` no Supabase, a indexação, e o domínio no Pagar.me se ele passar a
-      exigir.
+      Railway (ele também diz ao Marketing de que endereço contar as visitas), `SITE_ORIGENS` no
+      Supabase, a indexação, e o domínio no Pagar.me se ele passar a exigir.
 
 ### 4. Fase 5
 
@@ -1215,8 +1215,9 @@ O que o protótipo tem, aprovado em 23/09:
 - **Cupons, Clientes e Newsletter, Configurações e Equipe.**
 - **Observabilidade:** os problemas abertos em frase, com o que fazer; as integrações; os 8 jobs
   com a última rodada; a velocidade do site.
-- **Marketing** (funil, canais, produtos, ofertas, clientes por estado, pagamento e frete) está
-  **escondido** por enquanto — volta mais pra frente.
+- **Marketing** (resumo, funil, canais, produtos, ofertas, clientes por estado, pagamento e frete)
+  ficou escondido de início, e volta em partes desde 26/09 (a parte 1, o Resumo e a meta do mês, na
+  entrega 0108).
 
 Em aberto:
 
@@ -1939,6 +1940,36 @@ escondida, fora da tela, foco do teclado, bolinha clicada, "menos movimento" e o
 no celular). O banner continua igual (os mesmos casos, de novo).
 
 Depois do deploy — **nada a configurar.**
+
+**Painel: Marketing, parte 1 — o Resumo e a meta do mês — pronto em 26/09 (entrega 0108).**
+
+A área Marketing do protótipo volta, em partes. A primeira fica no menu, em Análise → Marketing
+(dono e marketing; a operação não vê):
+
+- **Os cinco números do período** — hoje, 7, 30 ou 90 dias —, contra o período de antes, do mesmo
+  tamanho: receita, pedidos pagos, visitas, conversão e ticket médio. "7 dias" é contra os 7 dias
+  antes, até a mesma hora; "hoje", contra ontem a esta hora.
+- **A meta do mês:** quanto já foi vendido, a barra, onde o mês fecha no ritmo de agora e quanto
+  falta por dia (contando hoje). Só o dono define ou muda; o marketing vê.
+- **A receita no tempo** (por hora, por dia ou por semana) e **os produtos que mais venderam**, em
+  reais.
+- **As visitas contam só a loja nova.** O Google Analytics é o mesmo do site da Nuvemshop, que
+  segue no ar: o painel pergunta só as do endereço da loja. Até a virada, os números são pequenos.
+  O Início ainda conta as dos dois sites.
+- O Google soma as visitas com algumas horas de atraso: a conversão (pedidos ÷ visitas) corta os
+  pedidos na mesma hora que ele já somou.
+
+As próximas partes, uma por entrega: Funil e Canais (com o montador de link de campanha), Produtos
+e Ofertas, Clientes, e Pagamento e frete — com "O que os dados dizem" crescendo a cada uma.
+
+Conferido pelo `conferir-marketing.mjs` (42 checagens: quem abre, as contas por dentro, as visitas
+do Google falso, a meta pela API e pela tela, o Google fora e o celular) e pelos testes de unidade
+das contas (24).
+
+Depois do deploy — **o que você faz:**
+
+- [ ] Painel → Marketing → **Definir a meta**: a meta de vendas deste mês. Vale pro mês; no mês
+      que vem, uma nova.
 
 ## Como seguir no Claude Code
 

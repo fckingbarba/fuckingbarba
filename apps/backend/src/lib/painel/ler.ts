@@ -116,6 +116,39 @@ export async function lerContexto(
 
 const query = (container: MedusaContainer) => container.resolve(ContainerRegistrationKeys.QUERY)
 
+/**
+ * O que o Marketing lê de cada pedido: só o que as contas usam — o total, os
+ * itens com o valor de cada um e quando o dinheiro entrou. Nada de cliente:
+ * a resposta sai só com números.
+ */
+const CAMPOS_DAS_VENDAS = [
+  "id",
+  "created_at",
+  "status",
+  "total",
+  "credit_line_total",
+  "items.id",
+  "items.title",
+  "items.product_title",
+  "items.product_id",
+  "items.thumbnail",
+  "items.quantity",
+  "items.total",
+  "items.unit_price",
+  "payment_collections.payments.captured_at",
+]
+
+/** Os pedidos feitos desde `desde` — pro Marketing, que soma períodos de até 180 dias. */
+export async function pedidosDesde(container: MedusaContainer, desde: Date): Promise<PedidoCru[]> {
+  const { data } = await query(container).graph({
+    entity: "order",
+    fields: CAMPOS_DAS_VENDAS,
+    filters: { is_draft_order: false, created_at: { $gte: desde } },
+    pagination: { take: 10_000, order: { created_at: "DESC" } },
+  })
+  return data as unknown as PedidoCru[]
+}
+
 /** Os pedidos mais novos primeiro: os `limite` últimos, ou os dos últimos `dias`. */
 export async function pedidosRecentes(
   container: MedusaContainer,

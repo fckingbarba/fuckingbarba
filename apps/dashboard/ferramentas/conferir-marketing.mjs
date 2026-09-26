@@ -1,0 +1,466 @@
+/**
+ * CONFERIDOR DO MARKETING — o Resumo (os cinco números do período, a meta
+ * do mês, a receita no tempo e os mais vendidos), pela tela e pela API,
+ * com as visitas de um Google falso (`google-falso.mjs`).
+ *
+ *   (o backend com as variáveis do GA4 apontando pro falso — as mesmas do
+ *   `conferir-visitas.mjs`, com GA4_CACHE_SEGUNDOS=0)
+ *   node apps/dashboard/ferramentas/conferir-marketing.mjs
+ *
+ * Variáveis: as de `pecas.mjs`, e GA4_PROPERTY_ID, GA4_CREDENCIAIS e
+ * GA4_API_URL do backend. Os pedidos são os do banco local: o conferidor
+ * confere a conta por dentro (o gráfico soma o número de cima, o ticket é
+ * a receita ÷ os pedidos, a conversão é pedidos ÷ visitas) — a regra de
+ * cada número tem os testes de unidade do backend
+ * (`lib/painel/__tests__/marketing.unit.spec.ts`).
+ *
+ * ┌─ O QUE ESTE ARQUIVO EXISTE PRA TRAVAR ─────────────────────────────────┐
+ * │ • a operação abrindo o Marketing (tela, menu ou API), ou o marketing   │
+ * │   mudando a meta;                                                      │
+ * │ • o número de cima diferente do gráfico, ou o período errado (7 barras │
+ * │   no "7 dias", 13 semanas nos 90);                                     │
+ * │ • as visitas do período fora do que o Google contou, ou comparadas em  │
+ * │   horas que ele ainda não somou; a pergunta sem o filtro do endereço   │
+ * │   da loja (o Analytics é o mesmo do site antigo);                      │
+ * │ • a meta que não salva, não volta, ou aceita "abc";                    │
+ * │ • o Google fora quebrando a tela; dado de cliente na resposta;         │
+ * │ • rolagem de lado no celular; erro no console.                         │
+ * └────────────────────────────────────────────────────────────────────────┘
+ */
+
+import { createPrivateKey, createPublicKey } from "node:crypto"
+import { subirGoogleFalso } from "./google-falso.mjs"
+import {
+  abrirNavegador,
+  caixaDoResend,
+  caminho,
+  DONO,
+  doConvite,
+  entrar as entrarPelaTela,
+  esperar,
+  exigirAmbiente,
+  falhou,
+  medusa,
+  menu,
+  ok,
+  PAINEL,
+  resumo,
+  RODADA,
+  semRolagemDeLado,
+  subirResend,
+  textoDe,
+  titulo,
+} from "./pecas.mjs"
+
+exigirAmbiente()
+
+function lerChave(bruto) {
+  let texto = String(bruto ?? "").trim()
+  if (!texto) return null
+  if (!texto.startsWith("{")) texto = Buffer.from(texto, "base64").toString("utf8")
+  try {
+    return JSON.parse(texto)
+  } catch {
+    return null
+  }
+}
+const conta = lerChave(process.env.GA4_CREDENCIAIS)
+const PROPRIEDADE = (process.env.GA4_PROPERTY_ID ?? "").trim()
+const API = process.env.GA4_API_URL ?? ""
+if (!conta?.private_key || !PROPRIEDADE || !API) {
+  console.log(
+    "  ⚠  faltam GA4_CREDENCIAIS, GA4_PROPERTY_ID e GA4_API_URL (as mesmas do backend, apontando " +
+      "pro Google falso) — ver AGENTS.md"
+  )
+  process.exit(1)
+}
+
+const semEspaco = (s) =>
+  String(s ?? "")
+    .replace(/\s+/g, " ")
+    .trim()
+const INTEIRO = new Intl.NumberFormat("pt-BR")
+const REAIS = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
+const reais = (v) => REAIS.format(v).replace(/\s/g, " ")
+const centavos = (v) => Math.round(v * 100) / 100
+const perto = (a, b) => Math.abs(a - b) < 0.011
+
+/* ── o Google falso: 14 dias inteiros e o hoje até agora ─────────────────── */
+
+const DIA_MS = 24 * 60 * 60 * 1000
+const DIA = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" })
+const HORA = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "America/Sao_Paulo",
+  hour: "2-digit",
+  hourCycle: "h23",
+})
+const diaDoGa4 = (atras) => DIA.format(Date.now() - atras * DIA_MS).replace(/-/g, "")
+const HORA_AGORA = Number(HORA.format(Date.now()))
+/** Quantas visitas por hora o dia de `atras` dias atrás tem (hoje: 5). */
+const porHora = (atras) => (atras === 0 ? 5 : 10 + atras)
+
+const google = await subirGoogleFalso({
+  porta: Number(new URL(API).port),
+  propriedade: PROPRIEDADE,
+  chavePublica: createPublicKey(createPrivateKey(conta.private_key)),
+  email: conta.client_email,
+  aud: conta.token_uri,
+})
+google.dia = {
+  horas: Array.from({ length: 14 }, (_, atras) =>
+    Array.from({ length: atras === 0 ? HORA_AGORA + 1 : 24 }, (_, h) => ({
+      dia: diaDoGa4(atras),
+      hora: String(h).padStart(2, "0"),
+      visitas: porHora(atras),
+    }))
+  ).flat(),
+  origens: [],
+  paginas: [],
+  agora: 0,
+}
+/**
+ * As visitas de 7 dias que o backend tem que contar: os 6 dias inteiros de
+ * antes e o hoje até a hora de agora (sem ela — o Google em dia); o de antes,
+ * os 6 dias inteiros antes dele e o dia de 7 atrás até a mesma hora.
+ */
+const ATE = HORA_AGORA
+const SETE_DIAS = porHora(0) * ATE + [1, 2, 3, 4, 5, 6].reduce((s, a) => s + porHora(a) * 24, 0)
+const SETE_ANTES =
+  porHora(7) * ATE + [8, 9, 10, 11, 12, 13].reduce((s, a) => s + porHora(a) * 24, 0)
+
+const resend = await subirResend()
+const caixa = caixaDoResend(resend)
+const { navegador, novaAba, errosDeConsole } = await abrirNavegador()
+console.log(`  ⚙  Google falso :${google.porta} · Resend :${resend.porta} · painel ${PAINEL}`)
+
+let tokenDoDono = ""
+let metaDeAntes = null
+let mexeuNaMeta = false
+
+try {
+  titulo("Quem entra")
+  const dono = await novaAba()
+  const cookieDono = await entrarPelaTela(dono, DONO, caixa)
+  if (!cookieDono) throw new Error("o dono não entrou (o código não chegou no Resend falso?)")
+  tokenDoDono = cookieDono.value
+  for (const [papel, quem] of [
+    ["operacao", `op.${RODADA}@painel.teste`],
+    ["marketing", `mkt.${RODADA}@painel.teste`],
+  ]) {
+    const r = await medusa("/dashboard/equipe", {
+      token: tokenDoDono,
+      corpo: {
+        nome: papel === "operacao" ? "Operação Teste" : "Marketing Teste",
+        email: quem,
+        papel,
+      },
+    })
+    ok(r.status === 200, `convite de ${papel}`, JSON.stringify(r.corpo))
+  }
+  const convite = await caixa.esperarEmail(`mkt.${RODADA}@painel.teste`, doConvite, 0)
+  ok(
+    /Marketing/.test(
+      semEspaco(`${convite?.text ?? ""} ${convite?.html ?? ""}`.replace(/<[^>]+>/g, " "))
+    ),
+    "o convite do marketing já lista a área Marketing"
+  )
+  const op = await novaAba()
+  const cookieOp = await entrarPelaTela(op, `op.${RODADA}@painel.teste`, caixa)
+  const mkt = await novaAba({ width: 375, height: 812 })
+  const cookieMkt = await entrarPelaTela(mkt, `mkt.${RODADA}@painel.teste`, caixa)
+  ok(Boolean(cookieOp && cookieMkt), "operação e marketing entram")
+
+  titulo("Quem abre o Marketing")
+  ok((await menu(dono.pagina)).includes("Marketing"), "o menu do dono tem o Marketing")
+  ok(!(await menu(op.pagina)).includes("Marketing"), "o da operação, não")
+  await op.pagina.goto(`${PAINEL}/marketing`)
+  ok(
+    (await textoDe(op.pagina, "h1")) === "Essa área não é do seu papel",
+    "a operação, pelo endereço na mão, vê “sem acesso”"
+  )
+  for (const rota of ["/dashboard/marketing", "/dashboard/marketing/visitas"]) {
+    const r = await medusa(rota, { metodo: "GET", token: cookieOp.value })
+    ok(r.status === 403, `a API responde 403 pra operação (${rota})`, String(r.status))
+  }
+
+  titulo("O Resumo, pela API")
+  const ler = async (periodo, token = tokenDoDono) =>
+    await medusa(`/dashboard/marketing${periodo ? `?periodo=${periodo}` : ""}`, {
+      metodo: "GET",
+      token,
+    })
+  const r30 = await ler("30d")
+  const t = r30.corpo
+  metaDeAntes = t.meta?.valor ?? null
+  ok(
+    r30.status === 200 && t.periodo === "30d" && t.mudaAMeta === true,
+    "o dono recebe o Resumo, e pode mudar a meta",
+    JSON.stringify(t).slice(0, 200)
+  )
+  ok((await ler()).corpo.periodo === "30d", "sem período, 30 dias (o protótipo)")
+  ok((await ler("1ano")).corpo.periodo === "30d", "período que não existe, 30 dias")
+  const barras = t.serie?.barras ?? []
+  ok(
+    barras.length === 30 && barras.at(-1)?.rotulo === "hoje",
+    "30 dias: 30 barras, a última é hoje",
+    String(barras.length)
+  )
+  ok(
+    perto(
+      barras.reduce((s, b) => s + b.valor, 0),
+      t.numeros.receita.valor
+    ) && barras.reduce((s, b) => s + b.pedidos, 0) === t.numeros.pedidos.valor,
+    "o gráfico soma o número de cima (a receita e os pedidos)",
+    `${t.numeros.receita.valor} · ${t.numeros.pedidos.valor}`
+  )
+  ok(
+    t.numeros.pedidos.valor
+      ? perto(t.numeros.ticket.valor, centavos(t.numeros.receita.valor / t.numeros.pedidos.valor))
+      : t.numeros.ticket.valor === 0,
+    "o ticket é a receita ÷ os pedidos",
+    JSON.stringify(t.numeros.ticket)
+  )
+  ok(
+    t.numeros.receita.antes > 0
+      ? t.numeros.receita.variacao ===
+          Math.round(
+            ((t.numeros.receita.valor - t.numeros.receita.antes) / t.numeros.receita.antes) * 100
+          )
+      : t.numeros.receita.variacao === null,
+    "a comparação com o período de antes (e nenhuma, sem nada antes)",
+    JSON.stringify(t.numeros.receita)
+  )
+  ok(
+    (t.maisVendidos ?? []).length <= 5 &&
+      (t.maisVendidos ?? []).every((p, i, l) => i === 0 || l[i - 1].receita >= p.receita),
+    "os mais vendidos: até 5, do que mais vendeu pro que menos",
+    JSON.stringify(t.maisVendidos).slice(0, 200)
+  )
+  ok(!JSON.stringify(t).includes("@"), "nenhum e-mail de cliente na resposta")
+  const r7 = (await ler("7d")).corpo
+  const r90 = (await ler("90d")).corpo
+  const rHoje = (await ler("hoje")).corpo
+  ok(
+    r7.serie.barras.length === 7 &&
+      r90.serie.barras.length === 13 &&
+      r90.serie.barras.at(-1).rotulo === "esta" &&
+      rHoje.serie.barras.length >= HORA_AGORA + 1 &&
+      rHoje.serie.barras.length <= HORA_AGORA + 2,
+    "7 dias: 7 barras; 90: 13 semanas; hoje: hora a hora até agora",
+    [r7.serie.barras.length, r90.serie.barras.length, rHoje.serie.barras.length].join(" · ")
+  )
+  const doMkt = await ler("30d", cookieMkt.value)
+  ok(
+    doMkt.status === 200 && doMkt.corpo.mudaAMeta === false,
+    "o marketing recebe o Resumo, mas não muda a meta",
+    String(doMkt.status)
+  )
+
+  titulo("As visitas e a conversão, do Google")
+  {
+    const r = await medusa("/dashboard/marketing/visitas?periodo=7d", {
+      metodo: "GET",
+      token: tokenDoDono,
+    })
+    const v = r.corpo
+    ok(
+      v.estado === "ok" && v.visitas.valor === SETE_DIAS && v.visitas.antes === SETE_ANTES,
+      `7 dias: ${SETE_DIAS} visitas, contra ${SETE_ANTES} — o hoje até a hora que o Google somou, nos dois`,
+      JSON.stringify(v).slice(0, 220)
+    )
+    ok(
+      v.visitas.valor
+        ? v.conversao.valor === Math.round((v.pedidos.valor / v.visitas.valor) * 10_000) / 100
+        : v.conversao.valor === null,
+      "a conversão é pedidos pagos ÷ visitas, no mesmo corte",
+      JSON.stringify(v.conversao)
+    )
+    ok(
+      v.pedidos.valor <= r7.numeros.pedidos.valor,
+      "os pedidos da conversão param na hora das visitas (nunca mais que os do período)",
+      `${v.pedidos.valor} · ${r7.numeros.pedidos.valor}`
+    )
+    const pergunta = google.perguntas.filter((p) => p.tipo === "batchRunReports").at(-1)?.corpo
+      ?.requests?.[0]
+    ok(
+      pergunta?.dateRanges?.[0]?.startDate === "13daysAgo" &&
+        pergunta?.dateRanges?.[0]?.endDate === "today" &&
+        pergunta?.dimensionFilter?.filter?.fieldName === "hostName" &&
+        (pergunta?.dimensionFilter?.filter?.inListFilter?.values ?? []).length > 0,
+      "a pergunta: os 14 dias numa chamada, só do endereço da loja",
+      JSON.stringify(pergunta).slice(0, 220)
+    )
+    const hoje = (
+      await medusa("/dashboard/marketing/visitas?periodo=hoje", {
+        metodo: "GET",
+        token: tokenDoDono,
+      })
+    ).corpo
+    ok(
+      hoje.estado === "ok" &&
+        hoje.visitas.valor === porHora(0) * ATE &&
+        hoje.visitas.antes === porHora(1) * ATE &&
+        hoje.ate === ATE,
+      "hoje: contra ontem até a mesma hora",
+      JSON.stringify(hoje).slice(0, 200)
+    )
+  }
+
+  titulo("A tela do dono")
+  {
+    const { pagina } = dono
+    await pagina.goto(`${PAINEL}/marketing`)
+    await pagina.waitForSelector('[data-kpi="visitas"] .kpi__valor')
+    await pagina.waitForFunction(
+      () => document.querySelector('[data-kpi="visitas"] .kpi__valor')?.textContent !== "…",
+      null,
+      { timeout: 15000 }
+    )
+    ok((await textoDe(pagina, "h1")) === "Marketing", "a tela abre")
+    ok(
+      semEspaco(await textoDe(pagina, '[data-kpi="receita"] .kpi__valor')) ===
+        reais(t.numeros.receita.valor),
+      "a receita da tela é a da API",
+      await textoDe(pagina, '[data-kpi="receita"]')
+    )
+    ok(
+      (await pagina.locator('.filtro[aria-current="page"]').getAttribute("data-periodo")) === "30d",
+      "abre nos 30 dias"
+    )
+    await pagina.locator('.filtro[data-periodo="7d"]').click()
+    await pagina.waitForURL(/periodo=7d/)
+    await pagina.waitForSelector('.barras-v[data-barras="7"]')
+    await pagina.waitForFunction(
+      () => document.querySelector('[data-kpi="visitas"] .kpi__valor')?.textContent !== "…",
+      null,
+      { timeout: 15000 }
+    )
+    ok(
+      semEspaco(await textoDe(pagina, '[data-kpi="visitas"] .kpi__valor')) ===
+        INTEIRO.format(SETE_DIAS),
+      "no “7 dias”: o gráfico de 7 barras e as visitas do Google",
+      await textoDe(pagina, '[data-kpi="visitas"]')
+    )
+    ok(
+      /%|—/.test(await textoDe(pagina, '[data-kpi="conversao"] .kpi__valor')),
+      "a conversão aparece",
+      await textoDe(pagina, '[data-kpi="conversao"]')
+    )
+  }
+
+  titulo("A meta do mês")
+  {
+    let r = await medusa("/dashboard/marketing/meta", {
+      token: cookieMkt.value,
+      corpo: { valor: "1000" },
+    })
+    ok(r.status === 403, "o marketing não muda a meta (403)", String(r.status))
+    r = await medusa("/dashboard/marketing/meta", { token: tokenDoDono, corpo: { valor: "abc" } })
+    ok(r.status === 422 && r.corpo.erro === "valor_invalido", "“abc” é recusado", String(r.status))
+    mexeuNaMeta = true
+    r = await medusa("/dashboard/marketing/meta", {
+      token: tokenDoDono,
+      corpo: { valor: "12.345,67" },
+    })
+    ok(
+      r.status === 200 && r.corpo.valor === 12345.67,
+      "o dono salva “12.345,67”",
+      JSON.stringify(r.corpo)
+    )
+    const m = (await ler("30d")).corpo.meta
+    ok(
+      m.valor === 12345.67 &&
+        (m.feito >= m.valor
+          ? m.porDia === null
+          : perto(m.porDia, centavos((m.valor - m.feito) / m.restam))),
+      "a meta volta no Resumo, com quanto falta por dia (contando hoje)",
+      JSON.stringify(m)
+    )
+
+    const { pagina } = dono
+    await pagina.goto(`${PAINEL}/marketing`)
+    await pagina.locator("[data-mudar-meta]").click()
+    const campo = pagina.locator(".meta-form input")
+    await campo.fill("15.000")
+    await campo.press("Enter")
+    await pagina.waitForFunction(
+      () =>
+        /R\$\s?15\.000,00/.test(
+          document.querySelector('[data-meta="com"] .bloco__sub')?.textContent ?? ""
+        ),
+      null,
+      { timeout: 15000 }
+    )
+    ok(
+      /Meta do mês salva/.test(semEspaco(await textoDe(pagina, ".aviso"))),
+      "pela tela: “Mudar a meta”, 15.000 e Enter — o aviso e o bloco novo",
+      await textoDe(pagina, '[data-meta="com"]')
+    )
+    await pagina.locator("[data-mudar-meta]").click()
+    await pagina.locator(".meta-form input").press("Escape")
+    ok((await pagina.locator(".meta-form").count()) === 0, "Esc desiste do campo")
+
+    const { pagina: celular } = mkt
+    await celular.goto(`${PAINEL}/marketing`)
+    await celular.waitForSelector('[data-meta="com"]')
+    ok(
+      (await celular.locator("[data-mudar-meta]").count()) === 0,
+      "o marketing vê a meta, sem o botão de mudar"
+    )
+    ok(await semRolagemDeLado(celular), "no celular, sem rolar de lado")
+    ok(
+      caminho(celular) === "/marketing" && (await menu(celular)).includes("Marketing"),
+      "o menu do marketing tem o Marketing"
+    )
+  }
+
+  titulo("O Google fora")
+  {
+    google.recusar = 500
+    const r = await medusa("/dashboard/marketing/visitas?periodo=30d", {
+      metodo: "GET",
+      token: tokenDoDono,
+    })
+    ok(r.corpo.estado === "fora", "a API diz “fora”", JSON.stringify(r.corpo))
+    const { pagina } = dono
+    await pagina.goto(`${PAINEL}/marketing?periodo=90d`)
+    await pagina.waitForFunction(
+      () => document.querySelector('[data-kpi="visitas"] .kpi__valor')?.textContent === "—",
+      null,
+      { timeout: 15000 }
+    )
+    ok(
+      /o Google não respondeu agora/.test(await textoDe(pagina, '[data-kpi="visitas"]')) &&
+        (await pagina.locator('.barras-v[data-barras="13"]').count()) === 1,
+      "a tela segue inteira, e a visita diz que o Google não respondeu",
+      await textoDe(pagina, '[data-kpi="visitas"]')
+    )
+    google.recusar = null
+  }
+
+  ok(errosDeConsole.length === 0, "nenhum erro no console", errosDeConsole.slice(0, 5).join(" | "))
+} catch (e) {
+  falhou(e instanceof Error ? e.message : String(e))
+} finally {
+  if (tokenDoDono) {
+    // A meta volta a ser a de antes (ou nenhuma).
+    if (mexeuNaMeta)
+      await medusa("/dashboard/marketing/meta", {
+        token: tokenDoDono,
+        corpo: { valor: metaDeAntes === null ? "" : String(metaDeAntes) },
+      })
+    const r = await medusa("/dashboard/equipe", { metodo: "GET", token: tokenDoDono })
+    for (const m of r.corpo.membros ?? [])
+      if (m.email.includes(RODADA))
+        await medusa(`/dashboard/equipe/${m.id}`, {
+          token: tokenDoDono,
+          corpo: { acao: "remover" },
+        })
+  }
+  await navegador.close()
+  await resend.fechar()
+  await google.fechar()
+  await esperar(50)
+}
+
+process.exit(resumo())

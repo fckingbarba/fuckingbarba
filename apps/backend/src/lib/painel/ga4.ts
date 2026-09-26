@@ -1,6 +1,14 @@
 import { createSign } from "node:crypto"
+import type { MedusaContainer } from "@medusajs/framework/types"
+import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import { chaveDoDia } from "./formato"
-import { PERGUNTA_DO_AGORA, perguntasDoDia, type RespostasDoGa4 } from "./visitas"
+import { perguntaDasVisitas, type Periodo } from "./marketing"
+import {
+  PERGUNTA_DO_AGORA,
+  perguntasDoDia,
+  type RelatorioGa4,
+  type RespostasDoGa4,
+} from "./visitas"
 import { sinal } from "../observabilidade/sinal"
 
 /**
@@ -212,4 +220,89 @@ export function respostasDoDia(
     })
   andando = { chave, promessa }
   return promessa
+}
+
+/* ── o Marketing: as visitas de um período ────────────────────────────────── */
+
+/** Uma pergunta só (num `batchRunReports`, como as do dia), com o token da conta. */
+async function perguntarUma(
+  cfg: ConfiguracaoDoGa4,
+  pergunta: unknown,
+  onde: string
+): Promise<RelatorioGa4> {
+  const acesso = await tokenDoGoogle(cfg.credenciais)
+  const api = (process.env.GA4_API_URL || API).replace(/\/+$/, "")
+  const resposta = (await postar(
+    `${api}/properties/${cfg.propriedade}:batchRunReports`,
+    {
+      headers: { authorization: `Bearer ${acesso}`, "content-type": "application/json" },
+      body: JSON.stringify({ requests: [pergunta] }),
+    },
+    onde
+  ).catch((e: unknown) => {
+    if (e instanceof ErroDoGa4 && e.status === 401) token = null
+    throw e
+  })) as { reports?: RelatorioGa4[] }
+  return resposta.reports?.[0] ?? {}
+}
+
+const guardadasDoMarketing = new Map<string, { em: number; relatorio: RelatorioGa4 }>()
+const andandoNoMarketing = new Map<string, Promise<RelatorioGa4>>()
+
+/**
+ * As visitas do período e do de antes, hora a hora, pro Marketing
+ * (`perguntaDasVisitas`) — guardadas `GA4_CACHE_SEGUNDOS` como as do dia, uma
+ * por período, e perguntadas uma vez só por quem chega junto.
+ */
+export function visitasDoMarketing(
+  cfg: ConfiguracaoDoGa4,
+  periodo: Periodo,
+  hosts: string[],
+  agora = new Date()
+): Promise<RelatorioGa4> {
+  const dia = chaveDoDia(agora)
+  const chave = `${cfg.propriedade}:${dia}:${periodo}:${hosts.join(",")}`
+  const guardada = guardadasDoMarketing.get(chave)
+  if (guardada && Date.now() - guardada.em < segundosGuardado() * 1000)
+    return Promise.resolve(guardada.relatorio)
+  const andando = andandoNoMarketing.get(chave)
+  if (andando) return andando
+  const pergunta = perguntaDasVisitas(periodo, hosts)
+  const promessa = perguntarUma(cfg, pergunta, "visitas do marketing")
+    .catch((e: unknown) => {
+      // Token recusado no meio: pede outro e pergunta de novo, uma vez.
+      if (e instanceof ErroDoGa4 && e.status === 401)
+        return perguntarUma(cfg, pergunta, "visitas do marketing")
+      throw e
+    })
+    .then((relatorio) => {
+      // As de outro dia não valem mais: saem daqui.
+      for (const k of guardadasDoMarketing.keys())
+        if (!k.includes(`:${dia}:`)) guardadasDoMarketing.delete(k)
+      guardadasDoMarketing.set(chave, { em: Date.now(), relatorio })
+      return relatorio
+    })
+    .finally(() => andandoNoMarketing.delete(chave))
+  andandoNoMarketing.set(chave, promessa)
+  return promessa
+}
+
+const ultimoAviso = new Map<string, number>()
+
+/**
+ * Uma linha no log quando o Google não responde, no máximo uma por hora por
+ * motivo: o Início e o Marketing abrem o dia todo.
+ */
+export function avisarNoLog(
+  container: MedusaContainer,
+  oQue: string,
+  tipo: string,
+  mensagem: string
+) {
+  const chave = `${oQue}:${tipo}`
+  if (Date.now() - (ultimoAviso.get(chave) ?? 0) < 60 * 60 * 1000) return
+  ultimoAviso.set(chave, Date.now())
+  container
+    .resolve(ContainerRegistrationKeys.LOGGER)
+    .warn(`[ga4] ${oQue} não vieram (${tipo}): ${mensagem}`)
 }

@@ -16,6 +16,7 @@
 @import "../estilos/produtos.css";
 @import "../estilos/home.css";
 @import "../estilos/observabilidade.css";
+@import "../estilos/marketing.css";
 
 /*
   Os tokens da marca pro Tailwind (bg-menta, text-tinta…) — os mesmos da
