@@ -64,7 +64,17 @@ export type SlideDoBanner = {
 export const TEMPOS_DO_BANNER = [0, 5, 7, 10] as const
 export type TempoDoBanner = (typeof TEMPOS_DO_BANNER)[number]
 
+/**
+ * A barra de avisos — a esteira amarela do topo de TODA página
+ * (`components/layout/anuncio.tsx`), editada no "Layout da home" do painel.
+ * Com `frete`, o aviso do frete entra primeiro, escrito pela loja a partir
+ * das configurações (e some sem promoção); os `avisos` são os do painel,
+ * pelo menos um.
+ */
+export type AnuncioDoSite = { frete: boolean; avisos: string[] }
+
 export type ConteudoDaHome = {
+  anuncio: AnuncioDoSite
   banner: { slides: SlideDoBanner[]; tempo: TempoDoBanner }
   /** As vantagens escritas no painel. O frete e o parcelamento entram antes, sozinhos. */
   trustbar: { vantagens: Vantagem[] }
@@ -214,11 +224,18 @@ function lerSobre(o: Record<string, unknown>): ConteudoDaHome["sobre"] | null {
   return "video" in o ? { ...sobre, video: lerVideoDaHistoria(video) } : sobre
 }
 
+/** A barra de avisos: os avisos com texto, pelo menos um; o do frete, só com `true`. */
+function lerAnuncio(o: Record<string, unknown>): ConteudoDaHome["anuncio"] | null {
+  const avisos = Array.isArray(o.avisos) ? o.avisos.filter(ehTexto) : []
+  return avisos.length ? { frete: o.frete === true, avisos } : null
+}
+
 const LEITURAS: {
   [K in keyof ConteudoDaHome]?: (o: Record<string, unknown>) => ConteudoDaHome[K] | null
-} = { banner: lerBanner, fechamento: lerFechamento, sobre: lerSobre }
+} = { anuncio: lerAnuncio, banner: lerBanner, fechamento: lerFechamento, sobre: lerSobre }
 
 const PASSA: { [K in keyof ConteudoDaHome]: (o: Record<string, unknown>) => boolean } = {
+  anuncio: () => false,
   banner: () => false,
   trustbar: (o) => ehListaDe(o.vantagens, ["titulo", "detalhe"]),
   ofertas: (o) => temTextos(o, ["titulo"]),
