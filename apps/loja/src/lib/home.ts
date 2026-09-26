@@ -48,11 +48,12 @@ export type ProdutoNoPalco = {
 
 /**
  * Um slide do banner: SÓ A ARTE (decidido em 24/09). A imagem ocupa o banner
- * inteiro, com o texto dentro dela; o `titulo` é a descrição da arte. Sem
- * arte, não há slide.
+ * inteiro, com o texto dentro dela; o `titulo` é a descrição da arte —
+ * opcional desde 26/09 (sem ela, o slide é descrito pelo produto do link,
+ * em `components/home/banner.tsx`). Sem arte, não há slide.
  */
 export type SlideDoBanner = {
-  titulo: string
+  titulo?: string
   imagem: string
   imagemCelular?: string
   /** Pra onde o slide leva. Sem ele, a vitrine inteira. */
@@ -153,18 +154,18 @@ const ehListaDeTextos = (v: unknown) => Array.isArray(v) && v.every(ehTexto)
 const imagem = (v: unknown) => (typeof v === "string" && ehDoArmazenamento(v) ? v : null)
 
 /**
- * O banner: fica cada slide com a arte no armazenamento e a descrição.
- * Nenhum sobrando, vale o de fábrica — que é banner nenhum.
+ * O banner: fica cada slide com a arte no armazenamento (a descrição, se
+ * tiver). Nenhum sobrando, vale o de fábrica — que é banner nenhum.
  */
 function lerBanner(o: Record<string, unknown>): ConteudoDaHome["banner"] | null {
   const slides = (Array.isArray(o.slides) ? o.slides : []).flatMap((bruto): SlideDoBanner[] => {
     const s = obj(bruto)
     const pc = s && imagem(s.imagem)
-    if (!s || !pc || !ehTexto(s.titulo)) return []
+    if (!s || !pc) return []
     const cel = imagem(s.imagemCelular)
     return [
       {
-        titulo: s.titulo,
+        ...(ehTexto(s.titulo) ? { titulo: s.titulo } : {}),
         imagem: pc,
         ...(cel ? { imagemCelular: cel } : {}),
         ...(ehTexto(s.produto) ? { produto: s.produto } : {}),
