@@ -62,6 +62,7 @@ export type Conversao = { valor: number | null; antes: number | null; variacao: 
 
 export type VisitasDoPeriodo = {
   visitas: Comparado
+  /** As compras que o Google viu (só de quem aceitou os cookies, como as visitas): o que a conversão divide. */
   pedidos: Comparado
   conversao: Conversao
   /** As visitas de hoje contam até esta hora (o Google soma com atraso); `null`: nada de hoje ainda. */

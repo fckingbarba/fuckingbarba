@@ -212,7 +212,7 @@ async function NumerosDoGoogle({ periodo }: { periodo: Periodo }) {
         <Kpi rot="Conversão" valor="—" sub="precisa das visitas" ajuda="" dados="conversao" />
       </>
     )
-  const { visitas, conversao } = r
+  const { visitas, pedidos, conversao } = r
   // Hoje, o Google ainda está somando: a comparação é só até a hora que ele já somou.
   const hojeSemNada = periodo === "hoje" && r.ate === null
   const antes = periodo === "hoje" ? `ontem até as ${r.ate}h` : ANTES[periodo]
@@ -247,11 +247,15 @@ async function NumerosDoGoogle({ periodo }: { periodo: Periodo }) {
                 ? "sem visitas no período"
                 : conversao.antes === null
                   ? "sem visitas no período antes"
-                  : "nenhum pedido pago no período antes"
+                  : "nenhum pedido visto pelo Google no período antes"
             }
           />
         }
-        ajuda="De cada 100 visitas, quantas viraram pedido pago."
+        ajuda={
+          `De cada 100 visitas, quantas viraram pedido pago: ` +
+          `${vezes(pedidos.valor, "pedido", "pedidos")} em ${vezes(visitas.valor, "visita", "visitas")}. ` +
+          "As duas contas são do Google, só de quem aceitou os cookies — como nos Canais."
+        }
         dados="conversao"
       />
     </>
@@ -261,7 +265,8 @@ async function NumerosDoGoogle({ periodo }: { periodo: Periodo }) {
 export function Glossario() {
   return (
     <p className="glossario">
-      <b>Conversão:</b> de cada 100 visitas, quantas viraram pedido pago. <b>Ticket médio:</b>{" "}
+      <b>Conversão:</b> de cada 100 visitas, quantas viraram pedido pago — contando só quem aceitou
+      os cookies, nas visitas e nos pedidos (o Google não vê quem recusa). <b>Ticket médio:</b>{" "}
       quanto cada pedido pago deixa, com o frete.
     </p>
   )
