@@ -1,4 +1,3 @@
-import Link from "next/link"
 import { Raio } from "@/components/icones"
 import { Realce } from "@/components/realce"
 import { conteudoDaPdp } from "@/conteudo/produto"
@@ -10,11 +9,10 @@ import { conteudoDaPdp } from "@/conteudo/produto"
  * só convence depois. Na loja de hoje isso está no meio de um textão que
  * ninguém lê.
  *
- * O RODAPÉ NÃO É LETRA MIÚDA. "Resultado varia" e "não faz nascer onde não
- * existe folículo" são o que separa cosmético de promessa de milagre — e é
- * o que evita a compra que vira reembolso. Ele fica dentro da mesma seção da
- * lista de benefícios porque promessa e ressalva têm que ser lidas juntas;
- * jogada pro pé da página, a ressalva não cumpre função nenhuma.
+ * SEM A RESSALVA EMBAIXO, desde 26/09 (entrega 0105, pedido da loja: a
+ * seção fica mais enxuta). O "resultado varia" e o "não faz nascer onde não
+ * existe folículo" continuam na página: nas Perguntas frequentes e no "Pra
+ * quem é" de cada produto, e embaixo dos casos de antes e depois.
  */
 export async function Promessa({ handle }: { handle: string }) {
   const c = (await conteudoDaPdp(handle)).promessa
@@ -39,16 +37,6 @@ export async function Promessa({ handle }: { handle: string }) {
             </li>
           ))}
         </ul>
-
-        {c.rodape ? (
-          <p className="promessa__rodape">
-            {c.rodape}{" "}
-            <Link href="#duvidas" style={{ color: "inherit" }}>
-              leia isto antes
-            </Link>
-            .
-          </p>
-        ) : null}
       </div>
     </section>
   )

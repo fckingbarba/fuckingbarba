@@ -175,7 +175,7 @@ export const SECOES: readonly Secao[] = [
     id: "produto.promessa",
     escopo: "produto",
     nome: "Benefícios",
-    descricao: "A lista de benefícios, com a ressalva de que o resultado varia.",
+    descricao: "A lista de benefícios.",
     componente: Promessa,
   },
   {
