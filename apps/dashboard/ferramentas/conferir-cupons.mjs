@@ -28,6 +28,14 @@
  * │   com o desconto do cupom) ou mostrando a oferta do checkout como      │
  * │   cupom; a operação abrindo os cupons;                                 │
  * │ • rolagem de lado no celular; erro no console.                         │
+ * │ Do jeito da Nuvemshop (0128):                                          │
+ * │ • o frete grátis que não zera o frete, ou que aparece duas vezes no    │
+ * │   desconto; o "só na mais barata" que vale na expressa;                │
+ * │ • o "só com produtos de" que deixa passar um produto de fora;          │
+ * │ • o "não combina" que vale com preço promocional;                      │
+ * │ • o "por cliente" que deixa usar de novo; o agendado que já vale;      │
+ * │ • dois cupons no mesmo pedido; a pergunta do frete aberta a qualquer   │
+ * │   um; o formulário novo e o link do cupom.                             │
  * └────────────────────────────────────────────────────────────────────────┘
  */
 
@@ -42,6 +50,7 @@ import {
   exigirAmbiente,
   falhou,
   hidratado,
+  IP,
   medusa,
   MEDUSA,
   ok,
@@ -73,6 +82,9 @@ const P = `P${sufixo}`
 const R = `R${sufixo}`
 const F = `F${sufixo}`
 const U = `U${sufixo}`
+/* Os do jeito da Nuvemshop: frete (N), frete na mais barata (B), categoria (K),
+   produto (D), não combina (S), por cliente (L), agendado (A). */
+const [N, B, K, D, S, L, A] = ["N", "B", "K", "D", "S", "L", "A"].map((l) => `${l}${sufixo}`)
 
 /** "2026-10-01": daqui a `dias`, em Brasília. */
 const diaDaqui = (dias) =>
@@ -169,8 +181,53 @@ async function aplicar(id, codigo) {
   return { status: r.status, ...(await lerCarrinho(id)) }
 }
 
+/** O endereço de teste (o mesmo do `pedido-de-teste.mjs`): a Frenet falsa cota pra ele. */
+const ENDERECO = {
+  first_name: "Rafael",
+  last_name: "Teste",
+  phone: "+5511988887777",
+  address_1: "Rua Doutor Pedro Zimmermann, 99",
+  city: "Blumenau",
+  province: "SC",
+  postal_code: "89036370",
+  country_code: "br",
+}
+
+/** Pendura a entrega "economica" ou "expressa" (pelo nome da opção) no carrinho. */
+async function comEntrega(id, faixa) {
+  await loja(`/store/carts/${id}`, { metodo: "POST", corpo: { shipping_address: ENDERECO } })
+  const { corpo } = await loja(`/store/shipping-options?cart_id=${id}`)
+  const nome = faixa === "expressa" ? /expressa/i : /econ[ôo]mica/i
+  const opcao = (corpo.shipping_options ?? []).find((o) => nome.test(o.name))
+  const r = await loja(`/store/carts/${id}/shipping-methods`, {
+    metodo: "POST",
+    corpo: { option_id: opcao?.id },
+  })
+  return r.status === 200 && Boolean(opcao)
+}
+
+/** O frete do carrinho: o cobrado, o de antes do desconto, e os descontos. */
+async function freteDo(id) {
+  const { corpo } = await loja(
+    `/store/carts/${id}?fields=shipping_total,shipping_subtotal,shipping_discount_total,discount_total,*promotions`
+  )
+  const c = corpo.cart ?? {}
+  return {
+    codigos: (c.promotions ?? []).map((p) => p.code),
+    frete: centavos(c.shipping_total),
+    antes: centavos(c.shipping_subtotal),
+    descontoDoFrete: centavos(c.shipping_discount_total),
+    desconto: centavos(c.discount_total),
+  }
+}
+
+/** "2026-10-01T00:00" daqui a `dias`, em Brasília — o campo de data e hora do formulário. */
+const diaEHora = (dias, hora = "00:00") => `${diaDaqui(dias)}T${hora}`
+
 let tokenDoDono = ""
 const criados = []
+/** O preço da "Promoção de lançamento" que o teste do "não combina" tirou, pra devolver no fim. */
+let devolverPromocao = null
 
 try {
   titulo("Quem entra")
@@ -375,6 +432,252 @@ try {
     JSON.stringify(esgotado)
   )
 
+  /* ── do jeito da Nuvemshop ─────────────────────────────────────────────── */
+
+  titulo("Do jeito da Nuvemshop (API): frete, a quem vale, combinar, por cliente, período")
+  const catalogo = (await medusa("/dashboard/cupons", { metodo: "GET", token: tokenMkt })).corpo
+    .catalogo
+  const { corpo: comCategorias } = await loja("/store/products?fields=handle,*categories&limit=50")
+  const categoriaDe = (h) =>
+    comCategorias.products.find((p) => p.handle === h)?.categories?.[0]?.id ?? null
+  // Dois produtos de categorias diferentes: o do kit (K) e um de fora dela.
+  const doKit =
+    comCategorias.products.find((p) => /kit/i.test(p.handle) && p.categories?.length)?.handle ?? a
+  const deFora =
+    comCategorias.products.find(
+      (p) => categoriaDe(p.handle) && categoriaDe(p.handle) !== categoriaDe(doKit)
+    )?.handle ?? b
+  const idDoProduto = async (h) =>
+    (await loja(`/store/products?handle=${h}&fields=id`)).corpo.products?.[0]?.id
+  const NOVO = {
+    tipo: "porcento",
+    valor: "10",
+    soMaisBarato: false,
+    aplicarA: "loja",
+    alvos: [],
+    combina: true,
+    porCupom: "ilimitado",
+    limite: "",
+    porCliente: "ilimitado",
+    usosPorCliente: "",
+    data: "ilimitado",
+    de: "",
+    ate: "",
+    minimo: "",
+  }
+  const novos = await Promise.all([
+    criar({ ...NOVO, codigo: N, tipo: "frete", valor: "" }),
+    criar({ ...NOVO, codigo: B, tipo: "frete", valor: "", soMaisBarato: true }),
+    criar({ ...NOVO, codigo: K, aplicarA: "categorias", alvos: [categoriaDe(doKit)] }),
+    criar({ ...NOVO, codigo: D, aplicarA: "produtos", alvos: [await idDoProduto(deFora)] }),
+    criar({ ...NOVO, codigo: S, combina: false }),
+    criar({ ...NOVO, codigo: L, porCliente: "limitado", usosPorCliente: "1" }),
+    criar({ ...NOVO, codigo: A, data: "periodo", de: diaEHora(1), ate: diaEHora(8, "23:59") }),
+  ])
+  for (const r of novos) if (r.corpo.cupom?.id) criados.push(r.corpo.cupom.id)
+  ok(
+    novos.every((r) => r.status === 200) &&
+      novos.map((r) => r.corpo.cupom?.codigo).join() === [N, B, K, D, S, L, A].join(),
+    "sete cupons pelo formulário novo: frete, frete na mais barata, categoria, produto, não combina, por cliente, agendado",
+    JSON.stringify(novos.map((r) => [r.status, r.corpo.erros ?? r.corpo.cupom?.codigo]))
+  )
+
+  // Frete grátis: sem entrega escolhida o Medusa não tem o que descontar (por
+  // isso a loja guarda o cupom); com ela, o frete zera — uma vez só.
+  const idN = await carrinho([[a, 1]], email("frete"))
+  const semEntrega = await aplicar(idN, N)
+  await comEntrega(idN, "expressa")
+  await aplicar(idN, N)
+  const comN = await freteDo(idN)
+  ok(
+    !semEntrega.codigos.includes(N) &&
+      comN.codigos.includes(N) &&
+      comN.antes > 0 &&
+      comN.frete === 0 &&
+      comN.descontoDoFrete === comN.antes &&
+      comN.desconto === comN.antes,
+    "frete grátis: sem entrega não entra; com ela, o frete zera e o desconto é só o do frete",
+    JSON.stringify({ semEntrega, comN })
+  )
+
+  const idB = await carrinho([[a, 1]], email("barata"))
+  await comEntrega(idB, "expressa")
+  const naExpressa = await aplicar(idB, B)
+  await comEntrega(idB, "economica")
+  await aplicar(idB, B)
+  const naEconomica = await freteDo(idB)
+  ok(
+    !naExpressa.codigos.includes(B) &&
+      naEconomica.codigos.includes(B) &&
+      naEconomica.frete === 0 &&
+      naEconomica.antes > 0,
+    "frete grátis só na mais barata: na expressa não entra; na econômica, zera",
+    JSON.stringify({ naExpressa, naEconomica })
+  )
+
+  // A loja pergunta se o código é de frete (pra guardar o cupom até a entrega).
+  const perguntar = (codigo, assinada) =>
+    fetch(`${MEDUSA}/store/cupons/frete?codigo=${encodeURIComponent(codigo)}`, {
+      headers: {
+        "x-publishable-api-key": CHAVE,
+        ...(assinada
+          ? { "x-loja-segredo": process.env.REVALIDAR_SEGREDO ?? "", "x-cliente-ip": IP }
+          : {}),
+      },
+    }).then(async (r) => ({ status: r.status, corpo: await r.json().catch(() => ({})) }))
+  const [ehN, ehB, ehF, semAssinatura] = await Promise.all([
+    perguntar(N.toLowerCase(), true),
+    perguntar(B, true),
+    perguntar(F, true),
+    perguntar(N, false),
+  ])
+  ok(
+    ehN.corpo.frete === true &&
+      ehN.corpo.soMaisBarato === false &&
+      ehB.corpo.soMaisBarato === true &&
+      ehF.corpo.frete === false &&
+      semAssinatura.status === 403,
+    "a pergunta do frete: diz o de frete (e o da mais barata), não o de produto; sem a assinatura da loja, 403",
+    JSON.stringify({ ehN, ehB, ehF, semAssinatura })
+  )
+
+  const soKit = await aplicar(await carrinho([[doKit, 1]], email("kit")), K)
+  const kitEFora = await aplicar(
+    await carrinho(
+      [
+        [doKit, 1],
+        [deFora, 1],
+      ],
+      email("kit2")
+    ),
+    K
+  )
+  ok(
+    doKit !== deFora && soKit.codigos.includes(K) && !kitEFora.codigos.includes(K),
+    `só com produtos da categoria: o carrinho só com ${doKit} entra; com ${deFora} junto, não`,
+    JSON.stringify({ soKit, kitEFora })
+  )
+
+  const soProduto = await aplicar(await carrinho([[deFora, 1]], email("prod")), D)
+  const produtoEOutro = await aplicar(
+    await carrinho(
+      [
+        [deFora, 1],
+        [doKit, 1],
+      ],
+      email("prod2")
+    ),
+    D
+  )
+  ok(
+    soProduto.codigos.includes(D) && !produtoEOutro.codigos.includes(D),
+    "só com o produto: sozinho entra; com outro produto junto, não",
+    JSON.stringify({ soProduto, produtoEOutro })
+  )
+
+  // Não combina (como na Nuvemshop): não desconta o produto em promoção, e não
+  // vale no pedido que já ganhou o frete grátis da loja. O banco local tem
+  // todos na "Promoção de lançamento": um produto sai dela durante o teste (e
+  // volta no fim), pra ter um de preço cheio. Os dois juntos ficam abaixo do
+  // piso do frete grátis; com o kit, passam dele.
+  const handles = comCategorias.products.map((p) => p.handle)
+  const cheio = handles.includes("shampoo-para-barba") ? "shampoo-para-barba" : deFora
+  const emPromo =
+    ["oleo-para-barba", "balm-para-barba"].find((h) => handles.includes(h) && h !== cheio) ?? doKit
+  const lancamento = (
+    await adm("/admin/price-lists?limit=50&fields=id,title")
+  ).corpo.price_lists?.find((l) => /lançamento/i.test(l.title))
+  if (lancamento) {
+    const { corpo: lista } = await adm(
+      `/admin/price-lists/${lancamento.id}?fields=prices.id,prices.amount,prices.currency_code,prices.price_set.variant.id`
+    )
+    const vCheio = await variante(cheio)
+    const preco = (lista.price_list?.prices ?? []).find((x) => x.variant_id === vCheio)
+    if (preco) {
+      const r = await adm(`/admin/price-lists/${lancamento.id}/prices/batch`, {
+        metodo: "POST",
+        corpo: { delete: [preco.id] },
+      })
+      if (r.status === 200)
+        devolverPromocao = {
+          lista: lancamento.id,
+          variant_id: vCheio,
+          amount: preco.amount,
+          currency_code: preco.currency_code ?? "brl",
+        }
+    }
+  }
+  const linhasDo = async (id) =>
+    (
+      await loja(
+        `/store/carts/${id}?fields=items.unit_price,items.compare_at_unit_price,items.variant_id`
+      )
+    ).corpo.cart?.items ?? []
+  const idMisto = await carrinho(
+    [
+      [cheio, 1],
+      [emPromo, 1],
+    ],
+    email("s1")
+  )
+  const vCheio = await variante(cheio)
+  const ls = await linhasDo(idMisto)
+  const linhaCheia = ls.find((l) => l.variant_id === vCheio)
+  const linhaPromo = ls.find((l) => l.variant_id !== vCheio)
+  const misto = await aplicar(idMisto, S)
+  const soPromocao = await aplicar(await carrinho([[emPromo, 1]], email("s2")), S)
+  const controle = await aplicar(await carrinho([[emPromo, 1]], email("s3")), F)
+  ok(
+    Boolean(linhaCheia) &&
+      !(Number(linhaCheia?.compare_at_unit_price) > Number(linhaCheia?.unit_price)) &&
+      Number(linhaPromo?.compare_at_unit_price) > Number(linhaPromo?.unit_price) &&
+      misto.produtos < 149.9 &&
+      misto.codigos.includes(S) &&
+      Math.abs(misto.desconto - centavos(Number(linhaCheia?.unit_price) * 0.1)) <= 0.02 &&
+      !soPromocao.codigos.includes(S) &&
+      controle.codigos.includes(F),
+    "não combina: desconta só o produto de preço cheio; carrinho só com promoção, não entra (o que combina, entra)",
+    JSON.stringify({ linhaCheia, linhaPromo, misto, soPromocao, controle })
+  )
+  const comFreteDaLoja = await aplicar(
+    await carrinho(
+      [
+        [cheio, 1],
+        [doKit, 1],
+      ],
+      email("s4")
+    ),
+    S
+  )
+  ok(
+    comFreteDaLoja.produtos >= 149.9 && !comFreteDaLoja.codigos.includes(S),
+    "não combina: no pedido que já ganhou o frete grátis da loja, não entra",
+    JSON.stringify(comFreteDaLoja)
+  )
+
+  const E5 = email("cinco")
+  const pedidoE5 = await fabrica.pedidoPix(E5, [[a, 1]], { cupom: L })
+  const deNovoL = await aplicar(await carrinho([[a, 1]], E5), L)
+  const outroL = await aplicar(await carrinho([[a, 1]], email("seis")), L)
+  ok(
+    pedidoE5.id && !deNovoL.codigos.includes(L) && outroL.codigos.includes(L),
+    "por cliente, limitado a 1: quem já usou não usa de novo; outro cliente usa",
+    JSON.stringify({ deNovoL, outroL })
+  )
+
+  const agendado = await aplicar(await carrinho([[a, 1]], email("agenda")), A)
+  ok(!agendado.codigos.includes(A), "agendado: antes do começo não vale", JSON.stringify(agendado))
+
+  // Um cupom por pedido: o segundo, pela API da loja, é recusado; o primeiro fica.
+  const idUm = await carrinho([[a, 1]], email("um-so"))
+  await aplicar(idUm, F)
+  const segundo = await aplicar(idUm, S)
+  ok(
+    segundo.status === 400 && segundo.codigos.includes(F) && !segundo.codigos.includes(S),
+    "um cupom por pedido: o segundo é recusado, e o primeiro continua",
+    JSON.stringify(segundo)
+  )
+
   /* ── a lista ───────────────────────────────────────────────────────────── */
 
   titulo("A lista (API)")
@@ -401,6 +704,34 @@ try {
     !(lista.cupons ?? []).some((c) => c.codigo.startsWith("BUMP-")) &&
       lista.automaticos?.map((d) => d.id).join(",") === "quantidade,oferta,frete",
     "a oferta do checkout não aparece como cupom; os três descontos automáticos, sim"
+  )
+  const naLista = (codigo) => lista.cupons?.find((c) => c.codigo === codigo) ?? {}
+  const nomeDaCategoria = catalogo?.categorias?.find((c) => c.id === categoriaDe(doKit))?.nome
+  ok(
+    naLista(N).descricao === "Frete grátis em qualquer pedido" &&
+      naLista(B).descricao === "Frete grátis na opção mais barata em qualquer pedido" &&
+      naLista(K).descricao === `10% só com produtos de ${nomeDaCategoria}` &&
+      /^10% só com /.test(naLista(D).descricao ?? "") &&
+      naLista(S).regra === "sem data de fim · não combina com outras promoções" &&
+      naLista(L).regra === "sem data de fim · uma vez por cliente" &&
+      naLista(A).situacao === "agendado" &&
+      naLista(A).regra ===
+        `de ${diaDaqui(1).slice(8, 10)}/${diaDaqui(1).slice(5, 7)} às 00:00 até ${diaDaqui(8).slice(8, 10)}/${diaDaqui(8).slice(5, 7)} às 23:59`,
+    "os do jeito da Nuvemshop, em frase: frete, mais barata, categoria, produto, combinar, por cliente e o agendado",
+    JSON.stringify(
+      [N, B, K, D, S, L, A].map((c) => [
+        naLista(c).descricao,
+        naLista(c).regra,
+        naLista(c).situacao,
+      ])
+    )
+  )
+  ok(
+    typeof lista.loja === "string" &&
+      (lista.catalogo?.categorias ?? []).length > 0 &&
+      (lista.catalogo?.produtos ?? []).length > 0,
+    'a página traz o endereço da loja (o link do cupom) e o que o "Aplicar a" escolhe',
+    JSON.stringify({ loja: lista.loja, categorias: lista.catalogo?.categorias?.length })
   )
 
   /* ── a tela ────────────────────────────────────────────────────────────── */
@@ -436,13 +767,33 @@ try {
     const ate = diaDaqui(3)
     await form.locator('[data-campo="valor"]').fill("15")
     await form.locator('[data-campo="minimo"]').fill("100,00")
-    await form.locator('[data-campo="ate"]').fill(ate)
+    await form.locator('[data-escolha="data:periodo"]').check({ force: true })
+    await form.locator('[data-campo="de"]').fill(`${diaDaqui(0)}T00:00`)
+    await form.locator('[data-campo="ate"]').fill(`${ate}T23:59`)
+    await form.locator('[data-escolha="porCupom:limitado"]').check({ force: true })
     await form.locator('[data-campo="limite"]').fill("50")
-    await form.locator('[data-campo="primeiraCompra"]').check()
+    await form.locator('[data-escolha="porCliente:primeira"]').check({ force: true })
+    // A quem vale: escolhe a categoria, vê a frase, e volta pra loja toda.
+    await form.locator('[data-escolha="aplicarA:categorias"]').check({ force: true })
+    const nomeCat = catalogo?.categorias?.[0]?.nome ?? ""
+    await form.locator(`[data-alvo="${nomeCat}"]`).check()
+    const comCategoria = semEspaco(await form.locator("[data-previa-cupom]").textContent())
+    await form.locator('[data-escolha="aplicarA:loja"]').check({ force: true })
+    ok(
+      comCategoria.includes(`só com produtos de ${nomeCat}`),
+      "aplicar a categorias: a lista pra marcar, e a prévia diz a categoria",
+      comCategoria
+    )
+    const link = semEspaco(await form.locator("[data-link-cupom] code").textContent())
+    ok(
+      link === `${lista.loja}/discount/${U}`,
+      "o link do cupom, como o da Nuvemshop: <loja>/discount/<CÓDIGO>",
+      link
+    )
     const previa = semEspaco(await form.locator("[data-previa-cupom]").textContent())
     ok(
       previa ===
-        `${U}: R$ 15,00 de desconto em pedidos a partir de R$ 100,00 · até ${ate.slice(8, 10)}/${ate.slice(5, 7)} · 50 usos no total · uma vez por cliente · só na primeira compra`,
+        `${U}: R$ 15,00 de desconto em pedidos a partir de R$ 100,00 · de ${diaDaqui(0).slice(8, 10)}/${diaDaqui(0).slice(5, 7)} às 00:00 até ${ate.slice(8, 10)}/${ate.slice(5, 7)} às 23:59 · 50 usos no total · só na primeira compra`,
       "a prévia diz o cupom inteiro, antes de criar",
       previa
     )
@@ -462,6 +813,10 @@ try {
           semEspaco(await linhaDe(U).textContent())
         ),
       "criado pela gaveta: o aviso, a gaveta fecha, e o cupom entra na lista"
+    )
+    ok(
+      (await linhaDe(U).locator(`[data-copiar-link="${U}"]`).count()) === 1,
+      "na lista, cada cupom tem o botão do link"
     )
 
     const vez2 = await aviso.getAttribute("data-vez")
@@ -500,6 +855,17 @@ try {
 } catch (e) {
   falhou(`o conferidor quebrou: ${e instanceof Error ? e.stack : e}`)
 } finally {
+  if (devolverPromocao) {
+    const { lista, ...preco } = devolverPromocao
+    const r = await adm(`/admin/price-lists/${lista}/prices/batch`, {
+      metodo: "POST",
+      corpo: { create: [preco] },
+    })
+    if (r.status !== 200)
+      console.log(
+        `  ⚠  não devolvi a "Promoção de lançamento" (${r.status}): ${JSON.stringify(preco)}`
+      )
+  }
   // Os cupons da rodada saem do Medusa (os pedidos ficam, como nos outros conferidores).
   const { corpo } = await adm(`/admin/promotions?limit=200&fields=id,code`)
   for (const p of corpo.promotions ?? [])
