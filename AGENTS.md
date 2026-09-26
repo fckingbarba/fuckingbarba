@@ -144,7 +144,12 @@ cannot have a negative time stamp.", quando o relógio do `next dev`, no ar há 
 do navegador. O da conta e os do painel descontam esse erro (`ferramentas/relogio-do-dev.mjs`);
 a explicação está no parágrafo do painel, mais abaixo.
 
-O de pagamento liga o Pagar.me na região pelo admin e devolve como estava. O de checkout, com o
+O de pagamento liga o Pagar.me na região pelo admin e devolve como estava. O aviso do estorno
+que não saiu ele lê numa caixa só (`caixaDaEquipe`), como o do ERP: a do dono do painel (o
+`DASHBOARD_DONO_EMAIL` do backend, que vai no ambiente dele também) ou, num banco sem ninguém no
+painel, a do admin local — desde a 0093 o aviso vai pro papel que resolve
+(`lib/equipe/avisados.ts`), e o do estorno é do dono. Até a 0121 ele olhava só o `ADMIN_EMAIL`, e
+em banco com gente no painel 2 checagens falhavam com a loja certa. O de checkout, com o
 checkout aberto (`CHECKOUT_ABERTO`), precisa do Pagar.me ligado na região local — o passo 3 não
 oferece mais o provisório —: `PAGARME_SECRET_KEY=sk_test_falsa npm run backend:pagamento`, uma vez. A conciliação automática roda a cada 5 minutos DENTRO do
 `medusa develop` (o worker é o mesmo processo): teste que depende de "ninguém mexeu nisso ainda"
@@ -326,7 +331,8 @@ disponível. A conciliação confere todo estorno dos últimos 7 dias na cobran�
 que o Medusa diz que voltou contra `canceled_amount`/`refunded_amount`; "aguardando cancelamento"
 é esperar) — `src/lib/estornos.ts`. O que falhou fica em `metadata.estornos` do pedido, vira uma
 faixa vermelha no pedido no admin (`src/admin/widgets/estorno.tsx`, com "Tentar o estorno de
-novo" → `POST /admin/pedidos/:id/estorno`) e UM e-mail pra cada usuário do admin; o do pagamento
+novo" → `POST /admin/pedidos/:id/estorno`) e UM e-mail pra cada dono do painel (sem ninguém no
+painel, pra cada usuário do admin — `lib/equipe/avisados.ts`); o do pagamento
 inteiro é pedido de novo sozinho de 6 em 6 horas, até 8 vezes. Parcial, nunca sozinho. No
 conferidor, o Pagar.me falso segura o estorno (`pagarme.estornos = "segura"`) e faz ele falhar
 (`falharEstorno`) ou sair (`concluirEstorno`).
@@ -720,23 +726,30 @@ tabela `loja.newsletter` do Supabase, do plano antigo, ficou sem uso.
 
 A **esteira de avaliações** da home ("Nossos clientes nos amam", `components/home/amam.tsx`) mostra
 até quatro depoimentos de cada produto — avaliação ou trecho de entrevista —, sorteados a cada
-visita, e o mesmo depoimento posto em vários produtos (a mesma pessoa, o mesmo texto) conta uma vez
-só — na esteira e na nota média (`lib/avaliacoes.ts`). O sorteio é no navegador
+visita e repartidos em DUAS FILEIRAS, como no protótipo: a de cima corre pra esquerda e a de baixo
+pra direita (`.amam__esteira--volta`), cada uma com metade dos de cada produto (`emDuasFileiras`).
+O mesmo depoimento posto em vários produtos (a mesma pessoa, o mesmo texto) conta uma vez só — na
+esteira e na nota média (`lib/avaliacoes.ts`). O sorteio é no navegador
 (`components/home/esteira-de-avaliacoes.tsx`): a home continua estática, e a semente da visita entra
-por `useSyncExternalStore`. Os cartões só são desenhados quando a seção chega a uma tela de
-distância: no carregamento vai só o lugar, com a altura da faixa reservada (`.amam__lugar`), e os
-TEXTOS só vêm nessa hora — a esteira busca `conteudo/depoimentos.ts` com `import()`, e do servidor
-vêm só as fotos (por prop, os 160 trechos iam dentro do HTML da home: 5 KB comprimidos, 0,3 s de
-LCP no CI). A foto do cartão é `getImageProps` no tamanho da caixa (54 px, só 1x e 2x). A volta
-dura 7,5 s por cartão (o ritmo do protótipo): com mais depoimentos, ela fica mais longa, e não mais
-rápida.
-`ferramentas/conferir-esteira.mjs` confere a conta e a lista de trechos, sem servidor.
+por `useSyncExternalStore` (`lib/use-semente-da-visita.ts`). Os cartões só são desenhados quando a
+seção chega a uma tela de distância: no carregamento vai só o lugar, com a altura das duas fileiras
+reservada (`.amam__lugar`), e os TEXTOS só vêm nessa hora — a esteira busca
+`conteudo/depoimentos.ts` com `import()`, e do servidor vêm só as fotos (por prop, os 160 trechos
+iam dentro do HTML da home: 5 KB comprimidos, 0,3 s de LCP no CI). A foto do cartão é
+`getImageProps` no tamanho da caixa (54 px, só 1x e 2x). A volta dura 7,5 s por cartão na fileira
+de cima e 9,5 s na de baixo (o ritmo do protótipo): com mais depoimentos, ela fica mais longa, e não
+mais rápida. A página do produto mostra TRÊS depoimentos dele, sorteados com a mesma semente
+(`components/produto/depoimentos-sorteados.tsx`): o HTML sai com os três da semente fixa, e o
+navegador troca pelos da visita logo depois da hidratação. O cartão é o mesmo nas duas
+(`components/depoimento.tsx`). `ferramentas/conferir-esteira.mjs` confere os sorteios e a lista de
+trechos, sem servidor.
 
 **Trecho de entrevista não é avaliação** (`TRECHOS`, em `conteudo/depoimentos.ts`): aparece como
 "Entrevista com cliente", sem nome, sem estrela e sem selo, e fica fora da nota média e do
-`AggregateRating` — na esteira e na seção "O que diz quem usou" da página do produto de que ele
-fala (uma vez só; os do Fator não se repetem nos kits). Avaliação de verdade, com o nome e a nota
-que a pessoa deu, vai em `AVALIACOES`. As regras estão no topo do próprio arquivo.
+`AggregateRating` — na esteira e na seção "O que diz quem usou" (três por visita) da página do
+produto de que ele fala (uma vez só; os do Fator não se repetem nos kits). Avaliação de verdade,
+com o nome e a nota que a pessoa deu, vai em `AVALIACOES`. As regras estão no topo do próprio
+arquivo.
 
 O **vídeo da história da marca** (a seção "O cuidado que impõe presença" da home) é `home.video`
 nas configurações da loja (`fb_configuracoes`): sobe no admin, em Configurações da loja → Home, com
@@ -1179,6 +1192,31 @@ da lista de produtos, que já traz o `metadata`: até 8, alternando os produtos.
 `RESSALVA_DO_ANTES_E_DEPOIS`. Salvar a página de um produto derruba a etiqueta `produtos`, e com ela
 a home. O painel recebe `provas` no `GET /dashboard/home` (`provasDaHome`: os produtos no site com
 caso) e mostra na gaveta. O número 8 está nos dois lados (`CASOS_NA_HOME`).
+
+**A barra de avisos do topo** (entrega 0119). A esteira amarela de toda página
+(`apps/loja/src/components/layout/anuncio.tsx`) é editada no "Layout da home" e vai no rascunho e no
+"Publicar" da home, mas NÃO é seção: não está no registro nem no `SECOES_DA_HOME` (não tem ordem nem
+chave). Mora no conteúdo da versão, como `anuncio` (`AnuncioDoSite`: `{ frete, avisos }`, até 4
+avisos, pelo menos um — a esteira nunca fica vazia; o `id="inicio"` dela é o "voltar ao topo" do
+rodapé). O aviso do frete a loja escreve (`frasesDoFrete(...).completa` + "*"): o painel só liga e
+desliga. O `marcar` do formulário não manda a chave desmarcado (`paraGravar`), então o leitor lê
+`frete === true` nos dois lados. No painel/backend: `pendentes.anuncio` (uma mudança a mais —
+`quantasMudancasNaHome`), `anuncioDaHome` (o formato de uma seção, sempre ligada e fixa, com o
+`avisoDoFrete` de hoje: GÊMEO da frase da loja, e o `conferir-home` compara a prévia da gaveta com
+a esteira), `POST /dashboard/home/anuncio` e a linha do registro `editou-secao-da-home` com `secao:
+"anuncio"`. No painel, a linha `[data-anuncio]` fica em cima e FORA da `.secoes`, e a gaveta é o
+`EditorDaHome` (com a prévia, `ComoFicaAFaixa`). Parte da home que não é seção entra no `lib/home.ts`
+do backend (tipo, semente, leitor e `EXIGE`), no da loja (tipo, leitura e a reserva
+`conteudo/home.ts`) e no painel (definição própria, como o `ANUNCIO_DA_HOME`). **A esteira lê o
+`home()` no layout**: o "Publicar" da home refaz TODA página (a etiqueta `home`), não só a inicial.
+**A velocidade não depende do texto**: `pista()` tira as voltas (cada lista com pelo menos 200
+letras, que cobre a tela de 1440) e o ciclo do tamanho dos avisos, contados em letras; a régua é a
+esteira de sempre (o frete e a "Compra 100% segura", 3 voltas em 38 s, o ciclo do `anuncio.css`), e
+com ela a pista sai SEM `style` — o HTML de antes, byte a byte. Medido: 39–44 px/s de um aviso curto
+a quatro compridos (sem o ajuste, 17–146). Mudou o ciclo do CSS, mude o `CICLO_DO_CSS`. A chave de
+cada `<li>` é a posição: dois avisos iguais no painel não se fundem. No `conferir-home`, a seção da
+barra vem DEPOIS do histórico: o histórico mostra as 20 últimas linhas, e cada "Salvar"/"Publicar"
+dela empurraria as da rodada pra fora.
 
 **Clientes e newsletter** (fase 6, entrega 0082). `src/lib/painel/clientes.ts` é puro, com
 testes, e faz o seguinte:

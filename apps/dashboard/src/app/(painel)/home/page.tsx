@@ -12,7 +12,8 @@ export const metadata: Metadata = { title: "Layout da home" }
 
 /**
  * O LAYOUT DA HOME — as seções da página inicial, na ordem em que aparecem:
- * ligar, desligar, subir, descer e o texto de cada uma. Tudo vai pro
+ * ligar, desligar, subir, descer e o texto de cada uma; e, em cima delas, a
+ * barra de avisos do topo (a esteira amarela de toda página). Tudo vai pro
  * RASCUNHO; a loja só muda no "Publicar". Vem pronto do backend
  * (`GET /dashboard/home`). Marketing e dono.
  */
@@ -30,14 +31,14 @@ async function Home() {
     redirect(`/sair?motivo=${r.corpo.message === "fora_da_equipe" ? "fora" : "expirou"}`)
   if (r.status === 403) return <SemAcesso area="home" />
   if (r.status !== 200) return <ForaDoAr />
-  const { secoes, pendentes, publicacao, catalogo, provas, noSite, historico } =
+  const { secoes, anuncio, pendentes, publicacao, catalogo, provas, noSite, historico } =
     r.corpo as unknown as PaginaDaHome
 
   return (
     <div data-tela>
       <Cabeca
         titulo="Layout da home"
-        sub="As seções da página inicial, na ordem em que aparecem. Em “Editar” fica o texto de cada uma."
+        sub="A barra de avisos do topo e as seções da página inicial, na ordem em que aparecem. Em “Editar” fica o texto de cada uma."
         acoes={
           <>
             {noSite ? (
@@ -59,7 +60,7 @@ async function Home() {
       <FaixaDaHome pendentes={pendentes} publicacao={publicacao} />
 
       <section className="bloco">
-        <SecoesDaHome secoes={secoes} catalogo={catalogo} provas={provas ?? []} />
+        <SecoesDaHome secoes={secoes} anuncio={anuncio} catalogo={catalogo} provas={provas ?? []} />
       </section>
 
       {historico.length ? (

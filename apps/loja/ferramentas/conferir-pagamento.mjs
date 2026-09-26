@@ -12,12 +12,14 @@
  *   #   NEXT_PUBLIC_PAGARME_API=http://127.0.0.1:4320/core/v5
  *   npm run loja:dev
  *
- *   ADMIN_EMAIL=… ADMIN_SENHA=… node ferramentas/conferir-pagamento.mjs
+ *   ADMIN_EMAIL=… ADMIN_SENHA=… DASHBOARD_DONO_EMAIL=… node ferramentas/conferir-pagamento.mjs
  *
  * Variáveis: LOJA (padrão http://localhost:3000), MEDUSA_BACKEND_URL,
  * NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY, ADMIN_EMAIL, ADMIN_SENHA,
- * MEDUSA_WEBHOOK_SEGREDO (o mesmo do backend; padrão "segredo-de-teste") e
- * CHROMIUM.
+ * DASHBOARD_DONO_EMAIL (o mesmo do backend: com gente no painel, o aviso do
+ * estorno que não saiu vai pro dono, e é na caixa dele que se lê — ver
+ * `caixaDaEquipe`), MEDUSA_WEBHOOK_SEGREDO (o mesmo do backend; padrão
+ * "segredo-de-teste") e CHROMIUM.
  *
  * Liga o Pagar.me na região pelo admin e DEVOLVE a região como estava no
  * fim, mesmo se falhar no meio.
@@ -66,6 +68,7 @@ const MEDUSA = process.env.MEDUSA_BACKEND_URL ?? "http://127.0.0.1:9000"
 const SEGREDO = process.env.MEDUSA_WEBHOOK_SEGREDO ?? "segredo-de-teste"
 const EMAIL_ADMIN = process.env.ADMIN_EMAIL
 const SENHA_ADMIN = process.env.ADMIN_SENHA
+const DONO = (process.env.DASHBOARD_DONO_EMAIL ?? "").trim().toLowerCase()
 const PAGARME = "pp_pagarme_pagarme"
 
 const CHAVE =
@@ -166,6 +169,35 @@ const reais = (v) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
     .format(Number(v))
     .replace(/\u00a0/g, " ")
+
+/* ── o aviso da equipe ────────────────────────────────────────────────────── */
+
+/**
+ * A caixa onde se lê o aviso do estorno que não saiu. Desde a entrega 0093 ele
+ * vai pro papel que resolve — o estorno, o dono do painel — e, sem ninguém no
+ * painel, pra cada usuário do admin (`destinatarios`, em
+ * `lib/painel/configuracoes.ts` do backend). A caixa é a do dono (o
+ * DASHBOARD_DONO_EMAIL do backend) ou, num banco sem ninguém no painel, a do
+ * admin local: a que recebeu. Até a entrega 0121 era só a do admin, e em banco
+ * com gente no painel o aviso, que tinha ido certo pro dono, não era achado.
+ */
+function caixaDaEquipe(emails) {
+  const para = emails.flatMap((e) => e.to ?? [])
+  const caixa = [DONO, EMAIL_ADMIN.trim().toLowerCase()].find((c) => c && para.includes(c))
+  if (caixa)
+    console.log(
+      `  ·  o aviso da equipe chega ${caixa === DONO ? "ao dono do painel" : "ao admin local (ninguém no painel)"}`
+    )
+  return caixa
+}
+/** Pra quem foi o aviso: o detalhe do ✗, quando ele não chega à caixa da equipe (ou chega duas vezes). */
+function paraQuem(para, caixa) {
+  if (!para.length) return "nenhum e-mail com esse assunto"
+  const dica =
+    caixa || DONO ? "" : " (com gente no painel, rode com o DASHBOARD_DONO_EMAIL do backend)"
+  return `foi pra ${para.join(", ")}${dica}`
+}
+
 /**
  * Todo pedido que o teste lê fica anotado: no fim, os que sobraram de pé são
  * cancelados, e o estoque volta. Sem isso, cada rodada deixava umas dez
@@ -1696,22 +1728,26 @@ try {
       "com a próxima tentativa sozinha daqui a 6 horas",
       String(anotado?.proxima)
     )
-    // Um pra cada usuário do admin (o banco local tem mais de um) — e um só pra cada.
-    const pra = avisos().map((e) => e.to?.[0])
-    const aviso = avisos().find((e) => e.to?.[0] === EMAIL_ADMIN)
+    // Um pra cada dono do painel ou, sem ninguém no painel, um pra cada usuário
+    // do admin (o banco local tem mais de um) — e um só pra cada.
+    const pra = avisos().flatMap((e) => e.to ?? [])
+    const caixa = caixaDaEquipe(avisos())
+    const aviso = avisos().find((e) => e.to?.includes(caixa))
     ok(
       Boolean(aviso) && new Set(pra).size === pra.length,
-      "quem tem acesso ao admin recebe UM e-mail",
-      pra.join(", ")
+      "a equipe recebe UM e-mail",
+      paraQuem(pra, caixa)
     )
-    const quantosAvisos = pra.length
+    const quantosAvisos = avisos().length
     ok(
       textoDo(aviso).includes(reais(pago.total)) && textoDo(aviso).includes(cobranca.id),
       "com o valor e a cobrança, pra achar no painel do Pagar.me",
       textoDo(aviso).slice(0, 160)
     )
     ok(
-      !textoDo(aviso).includes(email) && !/Paulista|11144477735|Fulano/.test(textoDo(aviso)),
+      Boolean(aviso) &&
+        !textoDo(aviso).includes(email) &&
+        !/Paulista|11144477735|Fulano/.test(textoDo(aviso)),
       "e sem dado de quem comprou"
     )
 

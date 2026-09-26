@@ -46,11 +46,27 @@ export type SecaoDaHome = {
   aceitaFundo: boolean
 }
 
-/** O que está esperando o "Publicar": as seções que mudaram, e se a ordem mudou. */
-export type Pendentes = { secoes: IdDaSecaoDaHome[]; ordem: boolean }
+/**
+ * A BARRA DE AVISOS DO TOPO no painel — no mesmo formato de uma seção
+ * (sempre ligada, fixa, sem fundo), pra abrir na mesma gaveta; mais o aviso
+ * do frete que a loja escreve hoje (`null`: sem promoção de frete). O mesmo
+ * de `anuncioDaHome`, no backend (`lib/painel/home.ts`).
+ */
+export type AnuncioDaHome = Omit<SecaoDaHome, "id"> & {
+  id: "anuncio"
+  avisoDoFrete: string | null
+}
+
+/**
+ * O que está esperando o "Publicar": as seções que mudaram, se a ordem
+ * mudou e se a barra de avisos mudou (sem a chave, o Medusa é de antes dela).
+ */
+export type Pendentes = { secoes: IdDaSecaoDaHome[]; ordem: boolean; anuncio?: boolean }
 
 export type PaginaDaHome = {
   secoes: SecaoDaHome[]
+  /** A barra de avisos do topo. Sem ela, o Medusa é de antes (a tela não mostra a linha). */
+  anuncio?: AnuncioDaHome
   pendentes: Pendentes
   /** O último "Publicar" — `null` enquanto a home é a de fábrica. */
   publicacao: { em: string; quando: string; quem: string | null } | null
@@ -79,12 +95,14 @@ export type ProdutoComCasos = {
  */
 export const CASOS_NA_HOME = 8
 
-/** Quantas mudanças: cada seção conta uma, e a ordem, uma. */
-export const quantasMudancas = (p: Pendentes) => p.secoes.length + (p.ordem ? 1 : 0)
+/** Quantas mudanças: cada seção conta uma; a ordem, uma; a barra de avisos, uma. */
+export const quantasMudancas = (p: Pendentes) =>
+  p.secoes.length + (p.ordem ? 1 : 0) + (p.anuncio ? 1 : 0)
 
-/** "Banner principal, Vitrine e a ordem das seções" — o que a faixa diz que vai pro site. */
+/** "Barra de avisos, Vitrine e a ordem das seções" — o que a faixa diz que vai pro site. */
 export function oQueMudou(p: Pendentes): string {
   const nomes = [
+    ...(p.anuncio ? [ANUNCIO_DA_HOME.nome] : []),
     ...p.secoes.map((id) => SECOES_DA_HOME[id].nome),
     ...(p.ordem ? ["a ordem das seções"] : []),
   ]
@@ -429,6 +447,46 @@ export const SECOES_DA_HOME: Record<IdDaSecaoDaHome, DefinicaoDaSecaoDaHome> = {
   },
 }
 
+/**
+ * A BARRA DE AVISOS — a esteira amarela do topo, em TODA página da loja
+ * (`apps/loja/src/components/layout/anuncio.tsx`), não só na home. Não tem
+ * ordem nem chave: fica sempre no topo. O texto vai pro rascunho e sai no
+ * "Publicar", como o das seções. O limite de 4 é o do backend
+ * (`LIMITES_DA_HOME.avisos`).
+ *
+ * O aviso do frete a loja escreve sozinha, das configurações: aqui ele só
+ * liga e desliga. Escrito à mão, o valor ficaria velho no dia em que o frete
+ * mudasse — e a faixa do topo anunciaria uma oferta que não existe mais.
+ */
+export const ANUNCIO_DA_HOME: DefinicaoDaSecaoDaHome = {
+  nome: "Barra de avisos",
+  descricao: "A faixa amarela que passa no topo de todas as páginas da loja.",
+  campos: [
+    { tipo: "nota", texto: "Aparece no topo de todas as páginas, não só na home." },
+    { tipo: "marcar", c: "frete", rot: "Começar pelo aviso do frete" },
+    {
+      tipo: "nota",
+      texto:
+        "O aviso do frete vem de Configurações → Frete: muda sozinho quando o frete muda, e some quando não há promoção. Melhor que escrever o valor à mão.",
+    },
+    {
+      tipo: "lista",
+      c: "avisos",
+      rot: "Os avisos, nesta ordem",
+      item: "Aviso",
+      max: 4,
+      ajuda:
+        "Frases curtas: passam uma atrás da outra, com um raio entre elas, sempre na mesma velocidade.",
+    },
+    {
+      tipo: "nota",
+      atencao: true,
+      texto:
+        "O que a faixa promete vale como oferta (Código de Defesa do Consumidor, art. 30): garantia, prazo ou desconto só se a loja cumprir.",
+    },
+  ],
+}
+
 /* ── o que a equipe mudou ─────────────────────────────────────────────── */
 
 const MUDOU: Record<string, string> = {
@@ -441,9 +499,11 @@ const MUDOU: Record<string, string> = {
 /** A linha do histórico em frase: "Ana editou Vitrine" · "no rascunho". */
 export function fraseDoHistoricoDaHome(h: LinhaDoHistorico): { titulo: string; detalhe: string } {
   const secao =
-    h.secao && h.secao in SECOES_DA_HOME
-      ? SECOES_DA_HOME[h.secao as IdDaSecaoDaHome].nome
-      : "uma seção"
+    h.secao === "anuncio"
+      ? ANUNCIO_DA_HOME.nome
+      : h.secao && h.secao in SECOES_DA_HOME
+        ? SECOES_DA_HOME[h.secao as IdDaSecaoDaHome].nome
+        : "uma seção"
   switch (h.acao) {
     case "editou-secao-da-home":
       return {

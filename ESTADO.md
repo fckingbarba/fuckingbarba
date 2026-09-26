@@ -1014,6 +1014,16 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
         carregar a medida de velocidade (a telemetria) depois da página pronta e tirar o logo do
         JavaScript, deixa a home passando mesmo depois desse degrau (2,41 s no simulador). É
         trabalho à parte.
+- [x] **Duas fileiras na esteira da home, a listra de cima amarela e três depoimentos na página do
+      produto** (entrega 0120, 26/09, pedido da loja). "Nossos clientes nos amam" ficou como o
+      protótipo: duas fileiras, a de cima correndo pra esquerda e a de baixo pra direita, um pouco
+      mais devagar (7,5 s e 9,5 s por cartão; com o mouse em cima, as duas param). São os mesmos
+      até 4 por produto da 0109, repartidos entre as duas — hoje, 16 cartões em cada, dois de cada
+      produto. A listra no alto da seção era preta e branca (veio assim do protótipo); agora é
+      preta e amarela, como a das outras seções, e o protótipo mudou junto. Na página do produto,
+      "O que diz quem usou" mostra 3 depoimentos sorteados a cada visita, e não mais os 20: o HTML
+      sai com três (o que lê quem abre sem JavaScript, e o Google), e o navegador sorteia os da
+      visita logo depois. Nada a configurar depois do deploy.
 - [x] **O conferidor do ERP procurava o aviso da equipe na caixa errada** (entrega 0101, 25/09).
       Desde as Configurações (entrega 0093), o e-mail da equipe — a nota que não saiu, a nota pra
       conferir ou pra cancelar, o Bling caído — vai pra quem está no painel com o papel que
@@ -1022,6 +1032,15 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
       da main e com o de qualquer entrega. A loja estava certa — no log, cada aviso saiu pro dono.
       Agora ele lê a caixa do dono do painel ou, num banco sem ninguém no painel, a do admin, como
       antes. Só o conferidor mudou: nada muda na loja, e nada a configurar.
+- [x] **O conferidor do pagamento procurava o aviso do estorno na caixa errada** (entrega 0121,
+      26/09). O mesmo caso da 0101, no `conferir-pagamento`: o e-mail "O estorno do pedido #N não
+      saiu" vai pro dono do painel desde as Configurações (entrega 0093), e o conferidor o
+      procurava na caixa do admin do Medusa. Em todo banco local com gente no painel, 2 checagens
+      falhavam ("quem tem acesso ao admin recebe UM e-mail" e "com o valor e a cobrança"), com a
+      loja certa — o aviso tinha saído, um só, pro dono. Agora ele lê a caixa do dono do painel
+      ou, num banco sem ninguém no painel, a do admin, como antes. Nenhum outro conferidor procura
+      aviso da equipe no admin (o do painel já lia a caixa do dono). Só o conferidor mudou: nada
+      muda na loja, e nada a configurar.
 - [x] **A sacola responde no clique** (entrega 0104, 26/09, pedido da loja: "adicionar ou remover
       do carrinho está demorando"). Medido na produção: adicionar levava 1,3 s (2,4 s o primeiro,
       que cria o carrinho), o "+" 1,1 s e remover 0,9 s — quase tudo no Medusa, que refaz o
@@ -1266,8 +1285,8 @@ O que o protótipo tem, aprovado em 23/09:
   order bump da página) ou o "Leve junto" (o cross-sell, 2 produtos). O topo da página é fixo e
   não se edita. E o **preço e o promocional** (o "de/por"), direto na lista (desde 25/09, entregas
   0098 e 0102).
-- **Layout da home:** as seções editáveis, o **banner principal com até 5 slides**, e nada vai pro
-  site sem "Publicar".
+- **Layout da home:** as seções editáveis, o **banner principal com até 5 slides**, a **barra de
+  avisos do topo** (desde 26/09, entrega 0119), e nada vai pro site sem "Publicar".
 - **Carrinhos abandonados:** a lista — quem parou, em que passo do checkout, e o botão pra chamar
   no WhatsApp (pronta em 25/09, entrega 0096). Depois, **5 e-mails** — 1 hora, 1 dia, 2 dias (com
   cupom), 3 dias (o cupom vence amanhã) e 5 dias (última chamada) —, com os textos editáveis e a
@@ -2210,6 +2229,32 @@ fechar o zoom e o ponto.
 
 Depois do deploy — **nada a configurar.** Pra conferir: abrir um produto no celular e arrastar a
 foto; na home, o banner encosta na barra de vantagens.
+
+**Painel: a barra de avisos do topo, no Layout da home — pronto em 26/09 (entrega 0119).** Pedido
+dele, com print da faixa amarela: "no dashboard na parte de layout da home, não conseguimos editar
+essa barra".
+
+- **Layout da home → Barra de avisos**, em cima das seções: os avisos que passam na faixa amarela,
+  até 4, na ordem, e a caixinha do aviso do frete. A faixa fica no topo de TODAS as páginas da loja,
+  e muda em todas no "Publicar", como o resto da home.
+- **O aviso do frete continua vindo de Configurações → Frete.** A caixinha só liga e desliga: o
+  valor muda sozinho quando o frete muda, e o aviso some quando não há promoção. A gaveta mostra
+  como a faixa vai ficar, com o texto do frete de hoje.
+- **Pelo menos um aviso escrito:** o do frete some sem promoção, e a faixa não pode ficar vazia.
+- **A faixa anda na mesma velocidade com qualquer texto** (medido na loja local: de 39 a 44 px/s,
+  de um aviso curto a quatro compridos com o frete; sem o ajuste, iria de 17 a 146 px/s), e cada
+  volta cobre a tela.
+- Enquanto ninguém mexer, a faixa é a de hoje — o frete e a "Compra 100% segura" —, com o HTML igual
+  ao de antes (a home, que vive no limite do LCP, não ganha nem um byte).
+
+Conferido pelo `conferir-home.mjs` (101 checagens; as 19 novas: a linha no painel, a gaveta e a
+prévia contra a loja, o que falta, o rascunho que não vai pro site, o "Publicar" mudando a home, a
+vitrine e a página do produto, a velocidade, o "Voltar ao texto original" com o HTML de antes, o
+histórico e o celular), pelo `conferir-configuracoes.mjs` da loja (a faixa com e sem promoção de
+frete) e pelos testes de unidade (8 novos).
+
+Depois do deploy — **nada a configurar.** Pra testar: Painel → Layout da home → Barra de avisos →
+Editar → mude um aviso → Salvar → Publicar. Em alguns segundos a faixa muda em todas as páginas.
 
 **Painel: Marketing — "O que os dados dizem" no Resumo — pronto em 26/09 (entrega 0122).**
 
