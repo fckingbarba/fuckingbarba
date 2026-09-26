@@ -91,6 +91,11 @@ export default async function Privacidade() {
           cada um que a compra veio de um anúncio dele.
         </P>
         <P>
+          <b>Quando você tenta pagar com cartão</b>: pra barrar robô testando cartão roubado, a loja
+          anota cada tentativa — a sacola, o valor, se passou, e um código tirado do seu IP (não o
+          IP), que só serve pra contar as tentativas da mesma pessoa.
+        </P>
+        <P>
           <b>O que a gente NÃO coleta:</b> número de cartão, validade e CVV. Esses campos, quando
           existirem, ficam no seu navegador e vão direto pro processador de pagamento — o servidor
           da loja não recebe, não registra e não teria como guardar.
@@ -196,8 +201,9 @@ export default async function Privacidade() {
           Dados de venda ficam <b>cinco anos</b>, que é o que a legislação fiscal e o Código de
           Defesa do Consumidor exigem de quem vende. E-mail de newsletter fica até você pedir pra
           sair. O do aviso de produto esgotado fica até o aviso sair — ou seis meses, se o produto
-          não voltar. Cookies de medição duram no máximo dois anos; os necessários somem quando a
-          sessão acaba, menos o da sacola e o da sua resposta sobre cookies.
+          não voltar. O registro das tentativas de pagar com cartão fica 30 dias. Cookies de medição
+          duram no máximo dois anos; os necessários somem quando a sessão acaba, menos o da sacola e
+          o da sua resposta sobre cookies.
         </P>
       </Secao>
 
