@@ -8,7 +8,12 @@ import { Campos, type ContextoDoFormulario } from "@/components/formulario"
 import { Gaveta } from "@/components/gaveta"
 import { Icone } from "@/components/icones"
 import { FundoDaSecao, type EstadoDoFundo } from "@/components/produto/fundo-da-secao"
-import { pedirEnvioDeVideoDaHome, salvarSecaoDaHome, subirImagemDaHome } from "@/lib/acoes/home"
+import {
+  pedirEnvioDeVideoDaHome,
+  salvarAnuncioDaHome,
+  salvarSecaoDaHome,
+  subirImagemDaHome,
+} from "@/lib/acoes/home"
 import {
   abrirFormulario,
   abrirOsQueFaltam,
@@ -17,9 +22,11 @@ import {
   type Valores,
 } from "@/lib/formulario"
 import {
+  ANUNCIO_DA_HOME,
   CASOS_NA_HOME,
   FUNDOS_DA_HOME,
   SECOES_DA_HOME,
+  type AnuncioDaHome,
   type ProdutoComCasos,
   type SecaoDaHome,
 } from "@/lib/home"
@@ -30,12 +37,14 @@ import { VEU, type Fundo, type NoCatalogo } from "@/lib/produtos"
  * banner, a foto da última chamada; e o vídeo da história da marca) e a
  * foto de fundo, num "Salvar" só, que vai pro RASCUNHO: o site só muda no
  * "Publicar". A da "Prova social" mostra também de onde vêm os casos: das
- * páginas dos produtos.
+ * páginas dos produtos. A da barra de avisos do topo (`AnuncioDaHome`) é a
+ * mesma gaveta, sem fundo, com a faixa como vai ficar na loja.
  *
- * Os campos saem da definição da seção (`SECOES_DA_HOME`, em `lib/home.ts`)
- * e são desenhados pelo formulário comum (`components/formulario.tsx`, o
- * mesmo da página do produto). Quem confere se está completo é o Medusa,
- * que devolve o que falta — e aqui o que falta fica marcado.
+ * Os campos saem da definição da seção (`SECOES_DA_HOME`, ou o
+ * `ANUNCIO_DA_HOME`, em `lib/home.ts`) e são desenhados pelo formulário
+ * comum (`components/formulario.tsx`, o mesmo da página do produto). Quem
+ * confere se está completo é o Medusa, que devolve o que falta — e aqui o
+ * que falta fica marcado.
  *
  * "Voltar ao texto original" põe no formulário o texto de fábrica (o que a
  * loja tinha quando a home saiu do código); vale depois do "Salvar", como
@@ -47,13 +56,14 @@ export function EditorDaHome({
   provas,
   fechar,
 }: {
-  secao: SecaoDaHome
+  secao: SecaoDaHome | AnuncioDaHome
   catalogo: NoCatalogo[]
   provas: ProdutoComCasos[]
   fechar: () => void
 }) {
-  const def = SECOES_DA_HOME[secao.id]
-  const medidaDoFundo = secao.aceitaFundo ? FUNDOS_DA_HOME[secao.id] : undefined
+  const def = secao.id === "anuncio" ? ANUNCIO_DA_HOME : SECOES_DA_HOME[secao.id]
+  const medidaDoFundo =
+    secao.id !== "anuncio" && secao.aceitaFundo ? FUNDOS_DA_HOME[secao.id] : undefined
   const avisar = useAvisar()
   const base = useId()
   const formulario = useRef<HTMLFormElement>(null)
@@ -82,11 +92,14 @@ export function EditorDaHome({
     ev.preventDefault()
     if (subindo || salvando) return
     comecar(async () => {
-      const r = await salvarSecaoDaHome(
-        secao.id,
-        paraGravar(def.campos, valores),
-        medidaDoFundo ? fundoParaGravar(fundo) : undefined
-      )
+      const r =
+        secao.id === "anuncio"
+          ? await salvarAnuncioDaHome(paraGravar(def.campos, valores))
+          : await salvarSecaoDaHome(
+              secao.id,
+              paraGravar(def.campos, valores),
+              medidaDoFundo ? fundoParaGravar(fundo) : undefined
+            )
       if (r.ok) {
         avisar(r)
         fechar()
@@ -134,6 +147,9 @@ export function EditorDaHome({
           <Campos campos={def.campos} caminho={[]} valores={valores} ctx={contexto} />
         </div>
         {secao.id === "home.provas" ? <CasosDosProdutos provas={provas} /> : null}
+        {secao.id === "anuncio" ? (
+          <ComoFicaAFaixa valores={valores} avisoDoFrete={secao.avisoDoFrete} />
+        ) : null}
         {medidaDoFundo ? (
           <FundoDaSecao
             subir={subirImagemDaHome}
@@ -225,6 +241,49 @@ function CasosDosProdutos({ provas }: { provas: ProdutoComCasos[] }) {
         <p className="campo__ajuda">
           Nenhum ainda — e sem caso a seção não aparece no site. O caso entra pela página do
           produto: Produtos → o produto → Antes e depois.
+        </p>
+      )}
+    </div>
+  )
+}
+
+/**
+ * A BARRA DE AVISOS COMO VAI FICAR NA LOJA — parada, com o que está no
+ * formulário agora: o aviso do frete (o texto que a loja escreve hoje, se a
+ * caixinha estiver marcada e houver promoção) e os escritos, na ordem, com
+ * o raio entre eles. Na loja ela anda; aqui quebra a linha pra caber.
+ */
+function ComoFicaAFaixa({
+  valores,
+  avisoDoFrete,
+}: {
+  valores: Valores
+  avisoDoFrete: string | null
+}) {
+  const comFrete = valores.frete === true
+  const escritos = (Array.isArray(valores.avisos) ? valores.avisos : [])
+    .filter((a): a is string => typeof a === "string" && a.trim().length > 0)
+    .map((a) => a.trim())
+  const avisos = [...(comFrete && avisoDoFrete ? [avisoDoFrete] : []), ...escritos]
+  return (
+    <div className="campo faixa-da-loja" data-previa-da-faixa>
+      <span className="campo__rot">Como fica na loja</span>
+      {avisos.length ? (
+        <ul className="faixa-da-loja__avisos">
+          {avisos.map((a, i) => (
+            <li key={i}>{a}</li>
+          ))}
+        </ul>
+      ) : null}
+      {comFrete && !avisoDoFrete ? (
+        <p className="campo__ajuda" data-sem-frete>
+          Hoje a loja não tem promoção de frete: o aviso do frete não aparece.
+        </p>
+      ) : null}
+      {escritos.length ? null : (
+        <p className="campo__ajuda">
+          Escreva pelo menos um aviso: o do frete some quando não há promoção, e a faixa não pode
+          ficar vazia.
         </p>
       )}
     </div>

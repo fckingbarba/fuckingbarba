@@ -2,7 +2,12 @@ import type { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/frame
 import { exigirArea, type PedidoDaEquipe } from "../../../../lib/equipe/acesso"
 import { anotar } from "../../../../lib/painel/anotar"
 import { avisarDaHome, mudarHome } from "../../../../lib/painel/gravar-home"
-import { ALVO_DA_HOME, pendentesDaHome, publicarHome } from "../../../../lib/painel/home"
+import {
+  ALVO_DA_HOME,
+  pendentesDaHome,
+  publicarHome,
+  quantasMudancasNaHome,
+} from "../../../../lib/painel/home"
 
 /**
  * POST /dashboard/home/publicar — o rascunho vai pro site, e a loja é
@@ -16,8 +21,7 @@ export async function POST(req: AuthenticatedMedusaRequest, res: MedusaResponse)
 
   let mudancas = 0
   const r = await mudarHome(req.scope, (home) => {
-    const { secoes, ordem } = pendentesDaHome(home)
-    mudancas = secoes.length + (ordem ? 1 : 0)
+    mudancas = quantasMudancasNaHome(pendentesDaHome(home))
     return publicarHome(home, new Date(), pedido.membro.nome)
   })
   if (!r.ok) {

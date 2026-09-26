@@ -1276,8 +1276,8 @@ O que o protótipo tem, aprovado em 23/09:
   order bump da página) ou o "Leve junto" (o cross-sell, 2 produtos). O topo da página é fixo e
   não se edita. E o **preço e o promocional** (o "de/por"), direto na lista (desde 25/09, entregas
   0098 e 0102).
-- **Layout da home:** as seções editáveis, o **banner principal com até 5 slides**, e nada vai pro
-  site sem "Publicar".
+- **Layout da home:** as seções editáveis, o **banner principal com até 5 slides**, a **barra de
+  avisos do topo** (desde 26/09, entrega 0119), e nada vai pro site sem "Publicar".
 - **Carrinhos abandonados:** a lista — quem parou, em que passo do checkout, e o botão pra chamar
   no WhatsApp (pronta em 25/09, entrega 0096). Depois, **5 e-mails** — 1 hora, 1 dia, 2 dias (com
   cupom), 3 dias (o cupom vence amanhã) e 5 dias (última chamada) —, com os textos editáveis e a
@@ -2219,6 +2219,32 @@ fechar o zoom e o ponto.
 
 Depois do deploy — **nada a configurar.** Pra conferir: abrir um produto no celular e arrastar a
 foto; na home, o banner encosta na barra de vantagens.
+
+**Painel: a barra de avisos do topo, no Layout da home — pronto em 26/09 (entrega 0119).** Pedido
+dele, com print da faixa amarela: "no dashboard na parte de layout da home, não conseguimos editar
+essa barra".
+
+- **Layout da home → Barra de avisos**, em cima das seções: os avisos que passam na faixa amarela,
+  até 4, na ordem, e a caixinha do aviso do frete. A faixa fica no topo de TODAS as páginas da loja,
+  e muda em todas no "Publicar", como o resto da home.
+- **O aviso do frete continua vindo de Configurações → Frete.** A caixinha só liga e desliga: o
+  valor muda sozinho quando o frete muda, e o aviso some quando não há promoção. A gaveta mostra
+  como a faixa vai ficar, com o texto do frete de hoje.
+- **Pelo menos um aviso escrito:** o do frete some sem promoção, e a faixa não pode ficar vazia.
+- **A faixa anda na mesma velocidade com qualquer texto** (medido na loja local: de 39 a 44 px/s,
+  de um aviso curto a quatro compridos com o frete; sem o ajuste, iria de 17 a 146 px/s), e cada
+  volta cobre a tela.
+- Enquanto ninguém mexer, a faixa é a de hoje — o frete e a "Compra 100% segura" —, com o HTML igual
+  ao de antes (a home, que vive no limite do LCP, não ganha nem um byte).
+
+Conferido pelo `conferir-home.mjs` (101 checagens; as 19 novas: a linha no painel, a gaveta e a
+prévia contra a loja, o que falta, o rascunho que não vai pro site, o "Publicar" mudando a home, a
+vitrine e a página do produto, a velocidade, o "Voltar ao texto original" com o HTML de antes, o
+histórico e o celular), pelo `conferir-configuracoes.mjs` da loja (a faixa com e sem promoção de
+frete) e pelos testes de unidade (8 novos).
+
+Depois do deploy — **nada a configurar.** Pra testar: Painel → Layout da home → Barra de avisos →
+Editar → mude um aviso → Salvar → Publicar. Em alguns segundos a faixa muda em todas as páginas.
 
 ## Como seguir no Claude Code
 
