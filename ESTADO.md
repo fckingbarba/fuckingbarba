@@ -1041,6 +1041,13 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
       ou, num banco sem ninguém no painel, a do admin, como antes. Nenhum outro conferidor procura
       aviso da equipe no admin (o do painel já lia a caixa do dono). Só o conferidor mudou: nada
       muda na loja, e nada a configurar.
+- [x] **O teste do bilhete de vídeo caía 1 vez em 64** (entrega 0131, 26/09). No
+      `videos.unit.spec.ts`, o "mexido, com outra chave ou vencido: não vale" estragava a
+      assinatura trocando a primeira letra por "x". O bilhete leva um `n` sorteado, e a assinatura
+      muda junto: quando ela já começava com "x", a "estragada" era a mesma, e o `lerEnvio` a
+      aceitava — com razão. Agora a letra trocada é sempre outra. Provado com o `n` forçado a dar
+      assinatura com "x" na frente: o teste de antes falha, o novo passa. Só o teste mudou: nada
+      muda na loja, e nada a configurar.
 - [x] **A sacola responde no clique** (entrega 0104, 26/09, pedido da loja: "adicionar ou remover
       do carrinho está demorando"). Medido na produção: adicionar levava 1,3 s (2,4 s o primeiro,
       que cria o carrinho), o "+" 1,1 s e remover 0,9 s — quase tudo no Medusa, que refaz o
