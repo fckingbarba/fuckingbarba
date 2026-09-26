@@ -105,6 +105,45 @@ async function Observabilidade() {
         <Integracoes integracoes={t.integracoes} />
       </section>
 
+      {t.cartao ? (
+        <section className="bloco" data-cartao>
+          <div className="bloco__cabeca">
+            <div>
+              <h2 className="bloco__titulo">Cartão</h2>
+              <p className="bloco__sub">
+                As tentativas de pagar com cartão nas últimas 24 horas. Quem tenta demais — o robô
+                que testa cartão roubado — a loja segura antes de chegar no Pagar.me.
+              </p>
+            </div>
+          </div>
+          <div className="numeros">
+            <div className="numero" data-numero="tentativas">
+              <p className="numero__rot">Tentativas</p>
+              <p className="numero__valor">{t.cartao.tentativas}</p>
+              <p className="numero__sub">foram pro Pagar.me</p>
+            </div>
+            <div className="numero" data-numero="aprovadas">
+              <p className="numero__rot">Aprovadas</p>
+              <p className="numero__valor">{t.cartao.aprovadas}</p>
+              <p className="numero__sub">o banco disse sim</p>
+            </div>
+            <div className="numero" data-numero="recusadas">
+              <p className="numero__rot">Recusadas</p>
+              <p className="numero__valor">{t.cartao.recusadas}</p>
+              <p className="numero__sub">o banco, a análise ou o dado do cartão</p>
+            </div>
+            <div className="numero" data-numero="barradas">
+              <p className="numero__rot">Barradas</p>
+              <p className="numero__valor">{t.cartao.barradas}</p>
+              <p className="numero__sub">a loja segurou antes</p>
+            </div>
+          </div>
+          <p className="pequeno" data-freio={t.cartao.freio.ligado ? "ligado" : "desligado"}>
+            {t.cartao.freio.texto}
+          </p>
+        </section>
+      ) : null}
+
       <section className="bloco bloco--sem-pad" data-rotinas>
         <div className="bloco__cabeca">
           <div>
@@ -143,9 +182,9 @@ async function Observabilidade() {
           <div>
             <h2 className="bloco__titulo">Quem é avisado</h2>
             <p className="bloco__sub">
-              O estorno que não sai, a nota travada e a conexão do Bling caída também vão por
-              e-mail, na hora, pro papel que resolve (Configurações → E-mails). O resto fica só
-              aqui, e no número vermelho do menu quando é grave.
+              O estorno que não sai, a nota travada, a conexão do Bling caída e o robô testando
+              cartão também vão por e-mail, na hora, pro papel que resolve (Configurações →
+              E-mails). O resto fica só aqui, e no número vermelho do menu quando é grave.
             </p>
           </div>
         </div>
