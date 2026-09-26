@@ -185,9 +185,12 @@ async function esperarVenda(pedido, ms = 20000) {
   }
   return []
 }
-/** A varredura dos avisos de venda — a mesma rota da das confirmações —, agora. */
+/**
+ * A varredura dos avisos de venda — a mesma rota da das confirmações —, agora.
+ * Nula num backend sem o aviso (o relatório `vendas` não vem).
+ */
 const vendasPendentes = async () =>
-  (await adm("/admin/pedidos/confirmar", { method: "POST" })).vendas
+  (await adm("/admin/pedidos/confirmar", { method: "POST" })).vendas ?? null
 /** O registro do aviso no pedido (`metadata.emails.venda`), esperando ele ser gravado. */
 async function registroDaVenda(pedidoId, ms = 10000) {
   for (const fim = Date.now() + ms; Date.now() < fim; await esperar(250)) {
@@ -546,12 +549,13 @@ try {
     let vendasAntigas = 0
     for (let i = 0; i < 20; i++) {
       const rodada = await vendasPendentes()
+      if (!rodada) break
       vendasAntigas += rodada.mandados.length
       if (!rodada.pendentes || (!rodada.mandados.length && !rodada.dispensados)) break
     }
     const restoDasVendas = await vendasPendentes()
     ok(
-      restoDasVendas.pendentes === 0,
+      restoDasVendas?.pendentes === 0,
       `nenhum pedido pago esperando o aviso de venda${vendasAntigas ? ` (${vendasAntigas} de rodadas antigas saíram agora)` : ""}`,
       JSON.stringify(restoDasVendas)
     )
