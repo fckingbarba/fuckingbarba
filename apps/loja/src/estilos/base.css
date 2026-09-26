@@ -92,10 +92,6 @@
   width: 100%;
   justify-content: center;
 }
-@keyframes ponto-enche{
-    from { transform: scaleX(0); }
-    to   { transform: scaleX(1); }
-  }
 section[id],
 footer[id],
 [id^="produto-"] {

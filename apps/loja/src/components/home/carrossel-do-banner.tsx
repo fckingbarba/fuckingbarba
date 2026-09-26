@@ -1,7 +1,8 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { SlideDoBanner, type SlidePronto } from "@/components/home/slides-do-banner"
+import { useBarraRelogio } from "@/components/home/use-barra-relogio"
 import { useCarrossel } from "@/components/home/use-carrossel"
 import { useMovimentoReduzido } from "@/lib/use-preferencia"
 
@@ -26,30 +27,12 @@ import { useMovimentoReduzido } from "@/lib/use-preferencia"
  * antes da troca, ou assim que a pessoa encosta no banner (o dedo pode
  * arrastar a qualquer momento).
  *
- * A BARRINHA É O RELÓGIO DA TROCA (26/09). Antes eram dois relógios: a
- * barra, uma animação do CSS que começava a encher já no HTML do servidor, e
- * a troca, um `setTimeout` que só começava a contar quando o JavaScript
- * chegava — no celular, segundos depois. E com o mouse em cima a troca
- * esperava e a barra, não. A pessoa via a barra cheia e o slide parado. Agora
- * a barra é uma animação do navegador (`Element.animate`), e o slide troca
- * quando ELA termina: o mouse em cima, o banner fora da tela ou a aba
- * escondida seguram a barra onde está, e ela continua de onde parou.
+ * A BARRINHA É O RELÓGIO DA TROCA (26/09): o slide troca quando ela termina
+ * de encher, e o que segura a troca segura a barra — ver `useBarraRelogio`.
  *
  * AS BOLINHAS FICAM EMBAIXO DA ARTE, numa faixa escura (26/09): por cima,
  * cobriam o botão desenhado na arte do celular.
  */
-
-/** A aba à vista: escondida, a barra (e a troca) espera. */
-function useAbaAVista(): boolean {
-  return useSyncExternalStore(
-    (aoMudar) => {
-      document.addEventListener("visibilitychange", aoMudar)
-      return () => document.removeEventListener("visibilitychange", aoMudar)
-    },
-    () => document.visibilityState === "visible",
-    () => true
-  )
-}
 
 export function CarrosselDoBanner({
   slides,
@@ -61,21 +44,17 @@ export function CarrosselDoBanner({
 }) {
   const { trilho, atual, irPara } = useCarrossel()
   const secao = useRef<HTMLElement>(null)
-  /** A barrinha do slide da vez — a que enche — e a animação dela. */
+  /** A barrinha do slide da vez — a que enche. */
   const barra = useRef<HTMLSpanElement>(null)
-  const contagem = useRef<Animation | null>(null)
   const [montados, setMontados] = useState<ReadonlySet<number>>(() => new Set([0]))
   const [mexeu, setMexeu] = useState(false)
   const [emCima, setEmCima] = useState(false)
   const [naTela, setNaTela] = useState(true)
   const movimentoReduzido = useMovimentoReduzido()
-  const abaAVista = useAbaAVista()
 
   const total = slides.length
   const proximo = (atual + 1) % total
   const parado = mexeu || movimentoReduzido || tempo === 0
-  /** Dá pra ver o banner, e ninguém está nele: a barra enche. */
-  const andando = !parado && !emCima && naTela && abaAVista
 
   const montar = useCallback((...quais: number[]) => {
     setMontados((m) => (quais.every((i) => m.has(i)) ? m : new Set([...m, ...quais])))
@@ -92,41 +71,16 @@ export function CarrosselDoBanner({
   }, [])
 
   // A troca sozinha: a barrinha do slide enche no tempo escolhido e, cheia, troca.
-  // Nasce parada — quem manda andar é o efeito de baixo.
-  useEffect(() => {
-    const el = barra.current
-    if (parado || !el || typeof el.animate !== "function") return
-    const enche = el.animate([{ transform: "scaleX(0)" }, { transform: "scaleX(1)" }], {
-      duration: tempo * 1000,
-      fill: "forwards",
-    })
-    enche.pause()
-    contagem.current = enche
-    enche.finished.then(
-      () => irPara(proximo),
-      // Cancelada: o slide mudou, ou a pessoa assumiu.
-      () => {}
-    )
-    return () => {
-      contagem.current = null
-      enche.cancel()
-    }
-  }, [atual, proximo, parado, tempo, irPara])
-
-  // Anda só quando dá pra ver; parada, fica onde está. O próximo slide começa a
-  // baixar dois segundos antes de a barra encher.
-  useEffect(() => {
-    const enche = contagem.current
-    if (!enche || enche.playState === "finished") return
-    if (!andando) {
-      enche.pause()
-      return
-    }
-    enche.play()
-    const andou = typeof enche.currentTime === "number" ? enche.currentTime : 0
-    const antes = setTimeout(() => montar(proximo), Math.max(0, tempo * 1000 - 2000 - andou))
-    return () => clearTimeout(antes)
-  }, [andando, atual, proximo, parado, tempo, montar])
+  // O próximo slide começa a baixar dois segundos antes.
+  useBarraRelogio({
+    barra,
+    vez: atual,
+    ms: tempo * 1000,
+    parado,
+    andando: !emCima && naTela,
+    aoEncher: () => irPara(proximo),
+    quase: { antes: 2000, fazer: () => montar(proximo) },
+  })
 
   /** A pessoa assumiu: para de trocar sozinho, e os vizinhos já baixam. */
   const assumir = () => {
