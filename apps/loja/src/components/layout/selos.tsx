@@ -59,26 +59,33 @@ const SELOS = [
   endereço com a classe `.selo`, e o CSS dela carrega DEPOIS do rodapé. As
   duas brigavam, e a da conta ganhava — `inline-block`, maiúsculas, borda
   cinza: o rodapé nunca mostrou este desenho, mostrava a etiqueta esticada.
+
+  No celular é mais um grupo da sanfona do rodapé (`rodape__grupo`): o
+  `<summary>` só aparece lá, o `<h2>` só no computador — o porquê está no
+  comentário de `rodape.tsx`.
 */
 export function Selos() {
   return (
     <section className="selos" aria-labelledby="selos-titulo">
-      <h2 className="selos__titulo" id="selos-titulo">
-        Compra segura
-      </h2>
-      <ul className="selos__lista">
-        {SELOS.map(({ Icone, titulo, detalhe }) => (
-          <li className="selos__item" key={titulo}>
-            <span className="selos__icone" aria-hidden="true">
-              <Icone />
-            </span>
-            <span className="selos__texto">
-              <b>{titulo}</b>
-              <small>{detalhe}</small>
-            </span>
-          </li>
-        ))}
-      </ul>
+      <details className="rodape__grupo">
+        <summary>Compra segura</summary>
+        <h2 className="selos__titulo" id="selos-titulo">
+          Compra segura
+        </h2>
+        <ul className="selos__lista">
+          {SELOS.map(({ Icone, titulo, detalhe }) => (
+            <li className="selos__item" key={titulo}>
+              <span className="selos__icone" aria-hidden="true">
+                <Icone />
+              </span>
+              <span className="selos__texto">
+                <b>{titulo}</b>
+                <small>{detalhe}</small>
+              </span>
+            </li>
+          ))}
+        </ul>
+      </details>
     </section>
   )
 }
