@@ -988,6 +988,16 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
         AGENTS.md, perto do Lighthouse): qualquer seção a mais na home sobe o simulado um degrau
         de ~220 ms. A folga de verdade vem de aliviar a primeira tela — o HTML, o CSS e a fonte que
         dividem a conexão —, e é trabalho à parte.
+- [x] **Duas fileiras na esteira da home, a listra de cima amarela e três depoimentos na página do
+      produto** (entrega 0120, 26/09, pedido da loja). "Nossos clientes nos amam" ficou como o
+      protótipo: duas fileiras, a de cima correndo pra esquerda e a de baixo pra direita, um pouco
+      mais devagar (7,5 s e 9,5 s por cartão; com o mouse em cima, as duas param). São os mesmos
+      até 4 por produto da 0109, repartidos entre as duas — hoje, 16 cartões em cada, dois de cada
+      produto. A listra no alto da seção era preta e branca (veio assim do protótipo); agora é
+      preta e amarela, como a das outras seções, e o protótipo mudou junto. Na página do produto,
+      "O que diz quem usou" mostra 3 depoimentos sorteados a cada visita, e não mais os 20: o HTML
+      sai com três (o que lê quem abre sem JavaScript, e o Google), e o navegador sorteia os da
+      visita logo depois. Nada a configurar depois do deploy.
 - [x] **O conferidor do ERP procurava o aviso da equipe na caixa errada** (entrega 0101, 25/09).
       Desde as Configurações (entrega 0093), o e-mail da equipe — a nota que não saiu, a nota pra
       conferir ou pra cancelar, o Bling caído — vai pra quem está no painel com o papel que

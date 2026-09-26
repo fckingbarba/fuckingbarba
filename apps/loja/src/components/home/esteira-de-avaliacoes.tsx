@@ -1,29 +1,31 @@
 "use client"
 
 import { getImageProps } from "next/image"
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
-import { Estrelas } from "@/components/estrelas"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { CartaoDeDepoimento, FOTO_DO_CARTAO, type Miniatura } from "@/components/depoimento"
 import { ForaDaTela } from "@/components/layout/fora-da-tela"
-import type { Avaliacao, Depoimento, Trecho } from "@/conteudo/depoimentos"
+import type { Depoimento } from "@/conteudo/depoimentos"
 import {
   MINIMO_NA_FILA,
   POR_PRODUTO_NA_ESTEIRA,
   SEGUNDOS_POR_CARTAO,
+  SEGUNDOS_POR_CARTAO_NA_VOLTA,
+  emDuasFileiras,
   encherAFila,
   sequencia,
   sortearDaEsteira,
 } from "@/lib/avaliacoes"
+import { useSementeDaVisita } from "@/lib/use-semente-da-visita"
 
 /**
  * A esteira de "Nossos clientes nos amam", com o sorteio da visita: até
- * quatro avaliações de cada produto (`lib/avaliacoes.ts`).
+ * quatro avaliações de cada produto (`lib/avaliacoes.ts`), repartidas em
+ * DUAS FILEIRAS, como no protótipo — a de cima corre pra esquerda, a de
+ * baixo pra direita (`.amam__esteira--volta`), um pouco mais devagar.
  *
- * O SORTEIO É NO NAVEGADOR. A home é estática — sai pronta do build, pela
- * CDN —, e sortear no servidor a cada visita faria dela uma página dinâmica:
- * uma função rodando em toda entrada na loja, por causa de uma seção lá
- * embaixo. A semente da visita entra por `useSyncExternalStore`, como o CEP
- * guardado da calculadora da PDP — uma por carregamento, sem `setState`
- * dentro de efeito.
+ * O SORTEIO É NO NAVEGADOR, com a semente da visita
+ * (`lib/use-semente-da-visita.ts`): a home continua estática, pronta do
+ * build na CDN, e cada visita vê um sorteio.
  *
  * ┌─ OS CARTÕES SÓ SÃO DESENHADOS QUANDO A SEÇÃO CHEGA PERTO DA TELA ──────┐
  * │ A esteira fica lá embaixo da home, e desenhada no carregamento ela     │
@@ -31,40 +33,24 @@ import {
  * │ resto. Com os 160 trechos, o LCP da home foi de 2,27 s pra 2,48 s no   │
  * │ Lighthouse do CI rodado aqui — e o CI já vivia no limite de 2,5 s (a   │
  * │ mediana da #93 lá deu 2,64 s). Então o servidor manda o LUGAR, com a   │
- * │ altura da faixa reservada (`.amam__lugar`, pra nada pular), e os       │
- * │ cartões entram quando a seção está a uma tela de distância. Sem        │
- * │ JavaScript, a seção fica com o título e a pílula — os trechos estão na │
- * │ página de cada produto.                                                │
+ * │ altura das duas fileiras reservada (`.amam__lugar`, pra nada pular), e │
+ * │ os cartões entram quando a seção está a uma tela de distância. Sem     │
+ * │ JavaScript, a seção fica com o título e a pílula — e cada página de    │
+ * │ produto mostra três trechos dele.                                      │
  * └────────────────────────────────────────────────────────────────────────┘
  *
- * Avaliação e trecho de entrevista passam na mesma esteira, cada um como é:
- * a avaliação com nome, estrela e selo; o trecho com "Entrevista com
- * cliente" no lugar do nome, e nada de estrela (`conteudo/depoimentos.ts`).
- * Daquele arquivo, aqui só entra TIPO — ver o topo de `lib/avaliacoes.ts`.
+ * Avaliação e trecho de entrevista passam na mesma esteira, cada um como é
+ * (`components/depoimento.tsx`). De `conteudo/depoimentos`, aqui só entra
+ * TIPO — ver o topo de `lib/avaliacoes.ts`.
  *
  * ┌─ A FOTO DO CARTÃO É UM <img> SIMPLES, NO TAMANHO DA CAIXA ─────────────┐
  * │ Com o `<Image>` do Next e `sizes="80px"`, cada cartão levava uma lista │
  * │ de 16 tamanhos (de 32 a 3.840 px) pra uma caixa de 54 px: 2 KB de HTML │
  * │ por cartão, e um componente com estado pra ativar em cada um dos 64.   │
- * │ Agora é `getImageProps` no tamanho da caixa (`FOTO`): só 1x e 2x, e a  │
- * │ mesma conta feita uma vez por produto, não por cartão.                 │
+ * │ Agora é `getImageProps` no tamanho da caixa (`FOTO_DO_CARTAO`): só 1x  │
+ * │ e 2x, e a mesma conta feita uma vez por produto, não por cartão.       │
  * └────────────────────────────────────────────────────────────────────────┘
  */
-const SEMENTE_DO_SERVIDOR = 1
-
-/** A caixa da foto no cartão (`.avaliacao__foto`, em `estilos/provas.css`). */
-const FOTO = 54
-
-type Miniatura = ReturnType<typeof getImageProps>["props"]
-
-let sementeDaVisita: number | null = null
-/** Sorteada uma vez por carregamento da página: é a "visita". */
-function semente(): number {
-  if (sementeDaVisita === null) sementeDaVisita = Math.floor(Math.random() * 0x100000000)
-  return sementeDaVisita
-}
-const semAssinatura = () => () => {}
-
 export function EsteiraDeAvaliacoes({
   depoimentos,
   fotos,
@@ -96,39 +82,46 @@ export function EsteiraDeAvaliacoes({
     return () => vigia.disconnect()
   }, [])
 
-  const s = useSyncExternalStore(semAssinatura, semente, () => SEMENTE_DO_SERVIDOR)
+  const s = useSementeDaVisita()
   const miniaturas = useMemo(
     () =>
       Object.fromEntries(
         Object.entries(fotos).map(([handle, src]) => [
           handle,
-          getImageProps({ src, alt: "", width: FOTO, height: FOTO }).props,
+          getImageProps({ src, alt: "", width: FOTO_DO_CARTAO, height: FOTO_DO_CARTAO }).props,
         ])
       ) as Record<string, Miniatura>,
     [fotos]
   )
-  const fila = useMemo(
-    () =>
-      perto
-        ? encherAFila(
-            sortearDaEsteira(depoimentos, POR_PRODUTO_NA_ESTEIRA, sequencia(s)),
-            MINIMO_NA_FILA
-          )
-        : [],
-    [perto, depoimentos, s]
-  )
+  const fileiras = useMemo(() => {
+    if (!perto) return []
+    const aleatorio = sequencia(s)
+    return emDuasFileiras(
+      sortearDaEsteira(depoimentos, POR_PRODUTO_NA_ESTEIRA, aleatorio),
+      aleatorio
+    )
+      .filter((fileira) => fileira.length)
+      .map((fileira) => encherAFila(fileira, MINIMO_NA_FILA))
+  }, [perto, depoimentos, s])
 
   return (
     <div ref={lugar} className="amam__lugar">
-      {fila.length ? (
+      {fileiras.length ? (
         <ForaDaTela className="amam__esteiras">
-          <div
-            className="amam__esteira"
-            style={{ animationDuration: `${fila.length * SEGUNDOS_POR_CARTAO}s` }}
-          >
-            <Fila depoimentos={fila} miniaturas={miniaturas} />
-            <Fila depoimentos={fila} miniaturas={miniaturas} oculta />
-          </div>
+          {fileiras.map((fila, i) => (
+            <div
+              key={i}
+              className={i ? "amam__esteira amam__esteira--volta" : "amam__esteira"}
+              style={{
+                animationDuration: `${
+                  fila.length * (i ? SEGUNDOS_POR_CARTAO_NA_VOLTA : SEGUNDOS_POR_CARTAO)
+                }s`,
+              }}
+            >
+              <Fila depoimentos={fila} miniaturas={miniaturas} />
+              <Fila depoimentos={fila} miniaturas={miniaturas} oculta />
+            </div>
+          ))}
         </ForaDaTela>
       ) : null}
     </div>
@@ -146,74 +139,14 @@ function Fila({
 }) {
   return (
     <ul className="amam__fila" aria-hidden={oculta || undefined}>
-      {depoimentos.map((d, i) => {
-        const foto = d.produtoHandle ? miniaturas[d.produtoHandle] : undefined
-        return (
-          <li key={`${"nome" in d ? d.nome : "trecho"}-${i}`}>
-            {"nota" in d ? (
-              <Cartao avaliacao={d} foto={foto} />
-            ) : (
-              <CartaoDeTrecho trecho={d} foto={foto} />
-            )}
-          </li>
-        )
-      })}
-    </ul>
-  )
-}
-
-function Foto({ foto }: { foto?: Miniatura }) {
-  return foto ? (
-    <span className="avaliacao__foto">
-      {/* eslint-disable-next-line @next/next/no-img-element -- getImageProps: a foto já sai otimizada, sem o componente — ver a caixa lá em cima */}
-      <img {...foto} alt="" loading="lazy" />
-    </span>
-  ) : null
-}
-
-function Cartao({ avaliacao, foto }: { avaliacao: Avaliacao; foto?: Miniatura }) {
-  return (
-    <article className="avaliacao">
-      <Foto foto={foto} />
-      <div className="avaliacao__corpo">
-        <p className="avaliacao__topo">
-          <span className="avaliacao__nome">{avaliacao.nome}</span>
-          {avaliacao.compraVerificada ? <SeloVerificado /> : null}
-          <Estrelas
-            nota={avaliacao.nota}
-            rotulo={`Nota ${avaliacao.nota} de 5${
-              avaliacao.compraVerificada ? ", compra verificada" : ""
-            }`}
+      {depoimentos.map((d, i) => (
+        <li key={`${"nome" in d ? d.nome : "trecho"}-${i}`}>
+          <CartaoDeDepoimento
+            depoimento={d}
+            foto={d.produtoHandle ? miniaturas[d.produtoHandle] : undefined}
           />
-        </p>
-        <p className="avaliacao__texto">{avaliacao.texto}</p>
-      </div>
-    </article>
-  )
-}
-
-/** O trecho de entrevista: sem nome, sem estrela e sem selo — é o que ele é. */
-function CartaoDeTrecho({ trecho, foto }: { trecho: Trecho; foto?: Miniatura }) {
-  return (
-    <article className="avaliacao">
-      <Foto foto={foto} />
-      <div className="avaliacao__corpo">
-        <p className="avaliacao__topo">
-          <span className="avaliacao__nome">Entrevista com cliente</span>
-        </p>
-        <p className="avaliacao__texto">{trecho.texto}</p>
-      </div>
-    </article>
-  )
-}
-
-function SeloVerificado() {
-  return (
-    <svg className="avaliacao__selo" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
-      <path
-        fillRule="evenodd"
-        d="M8.4 1.8h7.2l5 5v7.2l-5 5H8.4l-5-5V6.8zm-.6 9.9 1.4-1.4h1.2l1.4 1.4 3.4-3.4h1.2l1.4 1.4-6 6z"
-      />
-    </svg>
+        </li>
+      ))}
+    </ul>
   )
 }
