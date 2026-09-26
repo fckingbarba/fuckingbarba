@@ -1907,6 +1907,26 @@ verdade na loja local (aba escondida, banner fora da tela, foco do teclado, boli
 
 Depois do deploy — **nada a configurar.**
 
+**Home: o palco da Alta Performance no compasso da barrinha — pronto em 26/09 (entrega 0107).**
+
+O mesmo conserto do banner (0106), no palco dos produtos:
+
+- **A barrinha começa quando a pessoa chega no palco.** Antes ela enchia desde o carregamento da
+  página: lá embaixo, a pessoa chegava com a barra já cheia, e o produto só trocava uns 5 segundos
+  depois (medido na loja no ar: 5,8 s).
+- **O produto troca quando a barrinha enche** (medido: uns 10 milésimos depois).
+- **O mouse em cima segura** (novo no palco): quem está lendo o card, ou indo pro "Comprar", não vê
+  o produto trocar debaixo do mouse. O foco do teclado dentro do palco, o palco fora da tela e a
+  aba escondida também seguram; a barra continua de onde parou. Escolher um produto pelas bolinhas
+  continua parando de vez.
+
+Conferido pelo `conferir-home.mjs` (82 checagens; as 2 novas: a barrinha começando na chegada e o
+produto trocando quando ela enche; o mouse em cima segurando) e pelos casos no navegador (aba
+escondida, fora da tela, foco do teclado, bolinha clicada, "menos movimento" e o passo mais longo
+no celular). O banner continua igual (os mesmos casos, de novo).
+
+Depois do deploy — **nada a configurar.**
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa

@@ -868,12 +868,15 @@ imagem — como os de texto de antes — cai na leitura (no backend e na loja), 
 `slides: []`: sem arte, a home começa na barra de vantagens. Na loja, `components/home/slides-do-banner.tsx` desenha a arte sem hook (o servidor usa
 pro banner de um slide só) e `carrossel-do-banner.tsx` é o carrossel: o trilho do `useCarrossel`
 (rolagem com encaixe), a troca sozinha, e a imagem de cada slide montada só quando ele vai
-aparecer. Na troca sozinha, a barrinha da bolinha da vez é o RELÓGIO (0106): uma animação do
-navegador (`Element.animate`), e o slide troca quando ela termina (`finished`); o mouse ou o foco
-em cima, o banner fora da tela e a aba escondida pausam ela (`andando`), e ela continua de onde
-parou. Não volte pra barra no CSS com `setTimeout` do lado: eram dois relógios — a barra começava
-no HTML do servidor e a contagem só depois da hidratação, e a barra enchia com o slide parado (o
-palco da Alta Performance ainda é assim). As bolinhas ficam numa faixa escura EMBAIXO da arte
+aparecer. Na troca sozinha, a barrinha da bolinha da vez é o RELÓGIO (0106; o palco da Alta
+Performance também, desde a 0107): `components/home/use-barra-relogio.ts` (`useBarraRelogio`),
+comum aos dois — uma animação do navegador (`Element.animate`) na `…__ponto-cheia` da bolinha da
+vez, e o slide troca quando ela termina (`finished`); o mouse ou o foco em cima, a seção fora da
+tela e a aba escondida pausam ela (`andando`), e ela continua de onde parou; `quase` faz algo
+antes de encher (o banner baixa a arte do próximo). Não volte pra barra no CSS com `setTimeout` ou
+`setInterval` do lado: eram dois relógios — a barra começava no HTML do servidor e a contagem só
+depois da hidratação (o palco, lá embaixo, chegava com a barra cheia), e a barra enchia com o
+slide parado. As bolinhas ficam numa faixa escura EMBAIXO da arte
 (`--faixa-dos-pontos`, 24 px), não em cima: cobriam o botão desenhado na arte do celular. A caixa é 1920 × 630 (1080 × 1275 abaixo de 768 px, com a do celular) — mais baixa desde
 a 0103 (era 1920 × 700 e 4 × 5) — e a arte a PREENCHE (`cover`, pelo centro): sem faixa branca, e
 a arte de outra medida perde um pouco das bordas. Sem a do celular, no celular, a do computador

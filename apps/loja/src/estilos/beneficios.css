@@ -345,19 +345,20 @@
   background: rgba(18, 24, 31, 0.3);
   overflow: hidden;
 }
-.benefits__ponto-barra::after {
-  content: "";
+/*
+  A parte que enche. Quem anima é o palco (`Element.animate`, em
+  `useBarraRelogio`), e o produto troca quando ela termina de encher — o CSS
+  só diz como ela começa.
+*/
+.benefits__ponto-cheia {
   position: absolute;
   inset: 0;
   background: var(--color-tinta);
   transform: scaleX(0);
   transform-origin: left;
 }
-.benefits__ponto[aria-current="true"] .benefits__ponto-barra::after {
-  animation: ponto-enche var(--passo, 5500ms) linear forwards;
-}
-.benefits[data-parado] .benefits__ponto[aria-current="true"] .benefits__ponto-barra::after {
-  animation: none;
+/* Sem troca sozinha, a da vez fica cheia. */
+.benefits[data-parado] .benefits__ponto[aria-current="true"] .benefits__ponto-cheia {
   transform: scaleX(1);
 }
 .benefits__ponto:focus-visible {
@@ -368,8 +369,7 @@
   .benefits__trilho {
     transition: none;
   }
-  .benefits__ponto[aria-current="true"] .benefits__ponto-barra::after {
-    animation: none;
+  .benefits__ponto[aria-current="true"] .benefits__ponto-cheia {
     transform: scaleX(1);
   }
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react"
 import { Raio } from "@/components/icones"
+import { useBarraRelogio } from "@/components/home/use-barra-relogio"
 import { useMovimentoReduzido } from "@/lib/use-preferencia"
 
 /** Quanto tempo cada produto fica na tela. */
@@ -22,6 +23,12 @@ const PASSO_LONGO = PASSO + 2000
  * - **Fora da tela não gira.** Enquanto ninguém está vendo, o movimento é
  *   bateria gasta à toa; e voltar pro slide 1 depois de três trocas
  *   invisíveis é pior que ficar parado.
+ * - **Espera enquanto o mouse está em cima ou o foco está dentro** (26/09):
+ *   quem está lendo o card, ou indo pro "Comprar", não quer o produto
+ *   trocando debaixo do mouse. Saiu, continua de onde parou.
+ * - **A barrinha é o relógio** (26/09): o produto troca quando ela enche
+ *   (`useBarraRelogio`). Antes ela era do CSS e enchia desde o carregamento
+ *   da página — chegava cheia aqui embaixo, e a troca vinha segundos depois.
  * - **Quem pediu menos movimento não vê movimento nenhum**
  *   (`prefers-reduced-motion`): fica no primeiro, e navega pelas bolinhas.
  * - **O slide escondido leva `inert`.** Some da ordem de tabulação e da
@@ -41,8 +48,12 @@ export function PalcoAltaPerformance({
   const [atual, setAtual] = useState(0)
   const [escolheu, setEscolheu] = useState(false)
   const [passo, setPasso] = useState(PASSO)
+  const [naTela, setNaTela] = useState(false)
+  const [emCima, setEmCima] = useState(false)
   const secao = useRef<HTMLElement>(null)
   const trilho = useRef<HTMLDivElement>(null)
+  /** A barrinha do produto da vez — a que enche. */
+  const barra = useRef<HTMLSpanElement>(null)
 
   const total = rotulos.length
   // O hook vem antes do `||`: com o curto-circuito ele deixaria de ser
@@ -52,6 +63,15 @@ export function PalcoAltaPerformance({
   // Parado por escolha da pessoa ou por preferência do sistema — os dois
   // valem igual, e nenhum dos dois volta a girar sozinho.
   const parado = escolheu || movimentoReduzido
+
+  useBarraRelogio({
+    barra,
+    vez: atual,
+    ms: passo,
+    parado,
+    andando: naTela && !emCima,
+    aoEncher: () => setAtual((i) => (i + 1) % total),
+  })
 
   // `inert` é atributo de DOM e os slides já vieram renderizados do
   // servidor: mexer neles por ref é mais honesto que clonar elemento.
@@ -67,33 +87,21 @@ export function PalcoAltaPerformance({
     const el = secao.current
     if (!el) return
 
-    const medirPasso = () =>
-      setPasso(el.offsetHeight > window.innerHeight ? PASSO_LONGO : PASSO)
+    const medirPasso = () => setPasso(el.offsetHeight > window.innerHeight ? PASSO_LONGO : PASSO)
     medirPasso()
     window.addEventListener("resize", medirPasso)
 
-    let relogio: ReturnType<typeof setInterval> | null = null
-    const parar = () => {
-      if (relogio) clearInterval(relogio)
-      relogio = null
-    }
-    const girar = () => {
-      parar()
-      relogio = setInterval(() => setAtual((i) => (i + 1) % total), passo)
-    }
-
     const vigia = new IntersectionObserver(
-      ([entrada]) => (entrada.isIntersecting && !parado ? girar() : parar()),
+      ([entrada]) => setNaTela(Boolean(entrada?.isIntersecting)),
       { threshold: 0.2 }
     )
     vigia.observe(el)
 
     return () => {
-      parar()
       vigia.disconnect()
       window.removeEventListener("resize", medirPasso)
     }
-  }, [parado, passo, total])
+  }, [])
 
   function escolher(i: number) {
     setAtual(i)
@@ -107,7 +115,16 @@ export function PalcoAltaPerformance({
       aria-labelledby="benefits-heading"
       aria-roledescription="carrossel"
       data-parado={parado ? "" : undefined}
-      style={{ "--passo": `${passo}ms` } as React.CSSProperties}
+      onPointerEnter={(e) => {
+        if (e.pointerType === "mouse") setEmCima(true)
+      }}
+      onPointerLeave={(e) => {
+        if (e.pointerType === "mouse") setEmCima(false)
+      }}
+      onFocus={() => setEmCima(true)}
+      onBlur={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget)) setEmCima(false)
+      }}
     >
       <div className="benefits__topo">
         <h2 id="benefits-heading" className="benefits__title">
@@ -140,9 +157,9 @@ export function PalcoAltaPerformance({
             aria-controls={`perf-slide-${i}`}
             aria-current={i === atual ? "true" : undefined}
           >
-            {/* A barrinha enche no compasso do passo; a `key` que muda
-                reinicia a animação a cada troca. */}
-            <span className="benefits__ponto-barra" aria-hidden="true" key={`${i}-${atual}`} />
+            <span className="benefits__ponto-barra" aria-hidden="true">
+              <span className="benefits__ponto-cheia" ref={i === atual ? barra : undefined} />
+            </span>
           </button>
         ))}
       </div>
