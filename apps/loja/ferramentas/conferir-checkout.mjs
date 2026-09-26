@@ -2523,6 +2523,170 @@ titulo("O e-mail comprido")
   }
 }
 
+/* ── 7b. cupons do jeito da Nuvemshop (0128) ──────────────────────────────── */
+
+titulo("Cupons do jeito da Nuvemshop: um por pedido, o de frete guardado, o link")
+/*
+  UM CUPOM POR PEDIDO, como na Nuvemshop: o segundo troca o primeiro. O
+  CUPOM DE FRETE GRÁTIS digitado antes da entrega: o Medusa só desconta o
+  frete de uma entrega escolhida, então a loja guarda o código e ele entra
+  sozinho quando a entrega é escolhida — no resumo, o frete aparece grátis e
+  NÃO volta como desconto (o `discount_total` do Medusa soma o do frete). O
+  LINK DO CUPOM (`/discount/<CÓDIGO>`, o caminho da Nuvemshop): com sacola, o
+  cupom entra na hora; sem, fica guardado e entra quando o checkout abre.
+  Três cupons criados pelo admin pra isto, apagados no fim.
+*/
+if (EMAIL_ADMIN && SENHA_ADMIN) {
+  const sufixo = Date.now().toString(36).slice(-5).toUpperCase()
+  const [C1, C2, FR] = [`UM${sufixo}`, `DOIS${sufixo}`, `FRETE${sufixo}`]
+  const porcento = (value) => ({
+    type: "percentage",
+    target_type: "items",
+    allocation: "across",
+    value,
+    target_rules: [],
+  })
+  const promos = []
+  for (const [code, metodo] of [
+    [C1, porcento(1)],
+    [C2, porcento(2)],
+    [
+      FR,
+      {
+        type: "percentage",
+        target_type: "shipping_methods",
+        allocation: "across",
+        value: 100,
+        target_rules: [],
+      },
+    ],
+  ])
+    promos.push(
+      (
+        await adm("/admin/promotions", {
+          method: "POST",
+          body: JSON.stringify({
+            code,
+            type: "standard",
+            status: "active",
+            is_automatic: false,
+            application_method: metodo,
+          }),
+        })
+      ).promotion
+    )
+  const { ctx, pag } = await abaVigiada()
+  const ctx2 = await navegador.newContext({ viewport: MESA })
+  const pag2 = await ctx2.newPage()
+  const codigosDo = async (id) =>
+    ((await medusa(`/store/carts/${id}?fields=*promotions`))?.cart?.promotions ?? []).map(
+      (p) => p.code
+    )
+  const digitar = async (aba, codigo) => {
+    if (!(await aba.locator("#cupom-form[data-aberto]").count()))
+      await aba.locator(".cupom__abre").first().click()
+    await aba.locator("#cupom").fill(codigo)
+    await aba.locator("#cupom-form button[type=submit]").click()
+  }
+  try {
+    const id = await carrinhoNovo(ctx, [["shampoo-para-barba", 1]])
+    await pag.goto(`${LOJA}/checkout`, { waitUntil: "domcontentloaded" })
+    await semStreaming(pag)
+    await pag.locator("#form-contato").waitFor({ timeout: 25000 })
+
+    await digitar(pag, C1)
+    await pag.locator(".cupom__msg[data-tipo=ok]", { hasText: C1 }).waitFor({ timeout: 15000 })
+    await digitar(pag, C2.toLowerCase())
+    await pag.locator(".cupom__msg[data-tipo=ok]", { hasText: C2 }).waitFor({ timeout: 15000 })
+    const depoisDoSegundo = await codigosDo(id)
+    ok(
+      depoisDoSegundo.join() === C2 &&
+        (await pag.locator(".cupom__msg[data-tipo=ok]").count()) === 1,
+      "um cupom por pedido: o segundo troca o primeiro",
+      depoisDoSegundo.join()
+    )
+
+    await digitar(pag, FR)
+    const guardado = pag.locator(`[data-cupom-guardado="${FR}"]`)
+    await guardado.waitFor({ timeout: 15000 }).catch(() => null)
+    const textoGuardado = await guardado.innerText().catch(() => "")
+    ok(
+      /entra quando você escolher a entrega/.test(textoGuardado) &&
+        (await codigosDo(id)).length === 0,
+      'frete grátis antes da entrega: fica guardado (e o outro cupom sai), sem "não vale"',
+      `${textoGuardado} | ${(await codigosDo(id)).join()}`
+    )
+
+    await contatoEEntrega(pag, `cupom.${sufixo.toLowerCase()}@fuckingbarba.invalid`)
+    await semStreaming(pag)
+    const carrinho = (
+      await medusa(
+        `/store/carts/${id}?fields=total,item_total,item_subtotal,shipping_total,shipping_subtotal,discount_total,shipping_discount_total,*promotions`
+      )
+    )?.cart
+    ok(
+      (carrinho?.promotions ?? []).some((p) => p.code === FR) &&
+        carrinho.shipping_total === 0 &&
+        carrinho.shipping_subtotal > 0 &&
+        perto(carrinho.total, carrinho.item_total),
+      "escolhida a entrega, o cupom de frete entra sozinho: o frete zera e o total é o dos produtos",
+      JSON.stringify(carrinho)
+    )
+    const freteNaTela = await pag
+      .locator(".totais__linha dd[data-gratis]")
+      .first()
+      .innerText()
+      .catch(() => "")
+    const descontoNaTela = await pag.locator(".totais__linha[data-desconto]").first().isHidden()
+    const totalNaTela = numero(await pag.locator(".totais__total dd").first().innerText())
+    ok(
+      /grátis/i.test(freteNaTela) && descontoNaTela && perto(totalNaTela, carrinho.total),
+      'no resumo: o frete "Grátis", sem linha de desconto repetindo o frete, e o total de verdade',
+      `frete "${freteNaTela}" · desconto escondido ${descontoNaTela} · total ${totalNaTela} × ${carrinho.total}`
+    )
+    ok((await pag.locator("[data-cupom-guardado]").count()) === 0, "e o guardado some da tela")
+
+    // O link, com sacola: o cupom entra na hora (o de frete sai antes, pela tela).
+    const tirarFrete = pag.locator(".cupom__msg[data-tipo=ok]", { hasText: FR }).locator("button")
+    await tirarFrete.click()
+    await pag
+      .locator(".cupom__msg[data-tipo=ok]", { hasText: FR })
+      .waitFor({ state: "detached", timeout: 15000 })
+      .catch(() => null)
+    await pag.goto(`${LOJA}/discount/${C1.toLowerCase()}`, { waitUntil: "domcontentloaded" })
+    ok(
+      new URL(pag.url()).pathname === "/" &&
+        (await codigosDo(id)).includes(C1) &&
+        !(await ctx.cookies()).some((c) => c.name === "cupom"),
+      "o link do cupom (/discount/…): vai pra home, e o cupom entra na sacola que já existe",
+      `${pag.url()} · ${(await codigosDo(id)).join()}`
+    )
+
+    // O link, sem sacola: fica guardado e entra quando o checkout abre.
+    await pag2.goto(`${LOJA}/discount/${C2}`, { waitUntil: "domcontentloaded" })
+    const noCookie = (await ctx2.cookies()).find((c) => c.name === "cupom")?.value
+    const id2 = await carrinhoNovo(ctx2, [["shampoo-para-barba", 1]])
+    await pag2.goto(`${LOJA}/checkout`, { waitUntil: "domcontentloaded" })
+    await semStreaming(pag2)
+    await pag2
+      .locator(".cupom__msg[data-tipo=ok]", { hasText: C2 })
+      .waitFor({ timeout: 15000 })
+      .catch(() => null)
+    ok(
+      noCookie === C2 && (await codigosDo(id2)).includes(C2),
+      "o link sem sacola: o cupom fica guardado e entra quando o checkout abre",
+      `${noCookie} · ${(await codigosDo(id2)).join()}`
+    )
+  } finally {
+    for (const p of promos)
+      await adm(`/admin/promotions/${p.id}`, { method: "DELETE" }).catch(() => null)
+    await ctx.close()
+    await ctx2.close()
+  }
+} else {
+  console.log("    (sem ADMIN_EMAIL/ADMIN_SENHA: pulei os cupons do jeito da Nuvemshop)")
+}
+
 /* ── 8. higiene ───────────────────────────────────────────────────────────── */
 
 titulo("Higiene")

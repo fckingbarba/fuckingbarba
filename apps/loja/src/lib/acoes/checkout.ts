@@ -32,6 +32,15 @@ import {
   type EstadoDaEtapa,
 } from "@/lib/checkout-visivel"
 import { guardarDaCompra, lerCliente, lerSessao } from "@/lib/conta"
+import {
+  codigoDoCupom,
+  cuponsDoCarrinho,
+  ehCupomDeFrete,
+  esquecerCupomPendente,
+  guardarCupomPendente,
+  lerCupomPendente,
+  tentarCupomPendente,
+} from "@/lib/cupom-pendente"
 import { conferirDocumento, type Documento } from "@/lib/documento"
 import { emReais } from "@/lib/formato"
 import { cepDeOutraCidade, comCepNovo, ehUf, lerEndereco, montarEndereco } from "@/lib/endereco"
@@ -317,6 +326,7 @@ export async function salvarEntrega(anterior: EstadoDaEtapa, fd: FormData): Prom
         fd
       )
     }
+    await cupomGuardadoDepoisDaEntrega()
   }
 
   refresh()
@@ -342,6 +352,7 @@ export async function escolherFrete(anterior: EstadoDaEtapa, fd: FormData): Prom
     registrar(e, `frete ${opcao}`)
     return erro(anterior, {}, "Essa forma de entrega não está mais disponível. Escolhe outra.", fd)
   }
+  await cupomGuardadoDepoisDaEntrega()
 
   refresh()
   return certo(anterior)
@@ -818,6 +829,15 @@ export async function consultarCep(cep: string): Promise<CepDoCheckout> {
  * maiúsculas, e um cupom cadastrado como "bemvindo10" nunca valia (24/09).
  * Agora vai como foi digitado, depois em maiúsculas, depois em minúsculas —
  * a primeira que entrar vale, e a conferência não liga pra caixa.
+ *
+ * UM CUPOM POR PEDIDO, como na Nuvemshop (0128): o novo troca o de antes. O
+ * de antes sai primeiro — o Medusa recusa um segundo cupom no carrinho — e
+ * volta se o novo não entrar.
+ *
+ * FRETE GRÁTIS ANTES DA ENTREGA: o Medusa só desconta o frete de uma entrega
+ * escolhida, e sem ela recusa o cupom como se não existisse. Quando o código
+ * é de frete (o Medusa diz, `ehCupomDeFrete`), ele fica guardado e entra
+ * sozinho quando a entrega for escolhida (`lib/cupom-pendente.ts`).
  */
 export async function aplicarCupom(anterior: EstadoDaEtapa, fd: FormData): Promise<EstadoDaEtapa> {
   const digitado = texto(fd, "cupom")
@@ -828,6 +848,19 @@ export async function aplicarCupom(anterior: EstadoDaEtapa, fd: FormData): Promi
 
   const mesmoCodigo = (c: string | null | undefined) =>
     (c ?? "").toLowerCase() === digitado.toLowerCase()
+  const antes = cuponsDoCarrinho(atual.carrinho.promotions)
+  if (antes.some(mesmoCodigo)) {
+    refresh()
+    return certo(anterior)
+  }
+  if (antes.length) {
+    try {
+      await atual.sdk.store.cart.removePromotions(atual.carrinho.id, { promo_codes: antes })
+    } catch (e) {
+      registrar(e, `tirar o cupom de antes (${antes.join(", ")})`)
+    }
+  }
+
   let entrou = false
   for (const codigo of new Set([digitado, digitado.toUpperCase(), digitado.toLowerCase()])) {
     try {
@@ -840,12 +873,35 @@ export async function aplicarCupom(anterior: EstadoDaEtapa, fd: FormData): Promi
     if (entrou) break
   }
 
-  if (!entrou) {
-    return erro(anterior, { cupom: "Esse cupom não vale pra este pedido." }, "", fd)
+  if (entrou) {
+    // O que a pessoa digitou manda: um cupom guardado de antes (o do link) sai.
+    await esquecerCupomPendente()
+    refresh()
+    return certo(anterior)
   }
 
-  refresh()
-  return certo(anterior)
+  const codigo = codigoDoCupom(digitado)
+  const semEntrega = !atual.carrinho.shipping_methods?.length
+  if (codigo) {
+    const tipo = await ehCupomDeFrete(codigo)
+    // Sem entrega, qualquer cupom de frete espera; com ela, o "só na mais
+    // barata" espera a pessoa escolher a econômica. O de antes NÃO volta: a
+    // pessoa trocou por este, e com dois o guardado nunca entraria.
+    if (tipo.frete && (semEntrega || tipo.soMaisBarato)) {
+      await guardarCupomPendente({ codigo, ...tipo })
+      refresh()
+      return certo(anterior)
+    }
+  }
+
+  if (antes.length) {
+    try {
+      await atual.sdk.store.cart.addPromotions(atual.carrinho.id, { promo_codes: antes })
+    } catch (e) {
+      registrar(e, `devolver o cupom de antes (${antes.join(", ")})`)
+    }
+  }
+  return erro(anterior, { cupom: "Esse cupom não vale pra este pedido." }, "", fd)
 }
 
 export async function removerCupom(codigo: string): Promise<void> {
@@ -857,7 +913,27 @@ export async function removerCupom(codigo: string): Promise<void> {
   } catch (e) {
     registrar(e, `remover cupom ${codigo}`)
   }
+  // Tirado o cupom, o guardado (o mesmo, vindo do link) não volta sozinho.
+  if ((await lerCupomPendente())?.codigo === codigoDoCupom(codigo)) await esquecerCupomPendente()
   refresh()
+}
+
+/** O "x" do cupom guardado: a pessoa desistiu dele. */
+export async function esquecerCupomGuardado(): Promise<void> {
+  await esquecerCupomPendente()
+  refresh()
+}
+
+/**
+ * Depois de pendurar uma entrega: o cupom guardado (o de frete, o do link)
+ * tenta entrar. Entrou, sai do cookie.
+ */
+async function cupomGuardadoDepoisDaEntrega() {
+  try {
+    if ((await tentarCupomPendente()) === "entrou") await esquecerCupomPendente()
+  } catch (e) {
+    registrar(e, "cupom guardado depois da entrega")
+  }
 }
 
 /* ── as ofertas: chips do frete grátis e order bump ───────────────────────── */

@@ -38,9 +38,9 @@ verdade.
 ### Conferidores
 
 `apps/loja/ferramentas/conferir-*.mjs` abrem a loja num Chromium de verdade e comparam o que está na
-tela com o que a API do Medusa responde — nunca com outra conta feita no próprio teste. São onze:
-frete, pdp, checkout, pagamento, catálogo, links, configurações, documento, conta, envio e erp (este
-sem navegador: o Bling falso e o admin). Rode os que
+tela com o que a API do Medusa responde — nunca com outra conta feita no próprio teste. São doze:
+frete, pdp, checkout, pagamento, catálogo, links, configurações, documento, conta, envio, erp (este
+sem navegador: o Bling falso e o admin) e avise-me. Rode os que
 tocam no que você mexeu, e todos antes de entregar. Os que escrevem no admin desfazem o que mudaram
 no fim, mesmo quando falham.
 
@@ -767,6 +767,33 @@ lista, e os limites por IP assinado do código da conta) e se vê, baixa em CSV 
 "Newsletter". Remover APAGA — é o "pode sair quando quiser" e o pedido de exclusão da LGPD. A
 tabela `loja.newsletter` do Supabase, do plano antigo, ficou sem uso.
 
+O **produto esgotado e o avise-me** (entrega 0124). Esgotado é OUTRA caixa de compra
+(`CompraEsgotada`, em `components/produto/compra.tsx`): o preço, a faixa "Esgotado" e o "avise-me
+quando chegar" (`components/produto/avise-me.tsx`, a ação `lib/acoes/avise-me.ts`) no lugar do
+botão — sem frete, unidades, leve junto e garantias; a barra fixa vira "Avise-me" e leva pro campo.
+A régua é a de sempre (`temEstoque`, `esgotado` em `lib/medusa.ts`; com `allow_backorder` a variante
+vende e o número não limita); a `Dobra` põe o selo na foto e o "enquanto isso" pra categoria. O card
+diz "Esgotado" e "Avise-me" sem CSS novo (ele mora na home, que não tem folga), e o carrossel da PDP
+põe o esgotado no fim. No backend, o módulo `src/modules/avise-me/` (tabela `aviso_de_estoque`: o
+e-mail, a variante e a data do pedido) recebe `POST /store/avise-me` — só produto no site e
+esgotado (o com estoque é 409 `tem_estoque`, e a rota avisa a loja da página velha), a mesma
+resposta pra quem já esperava, os limites da newsletter. O job `avisar-quem-espera` (4-59/5, um
+minuto depois da cópia do Bling; `POST /admin/avise-me/rodar` é o gêmeo) faz, nesta ordem: (1)
+avisa a loja do produto que esgotou ou voltou desde a rodada anterior (a foto fica na memória; a
+primeira rodada depois de subir avisa todos) — a última unidade vendida é reserva, não mexe no
+nível, e ninguém avisava a loja: a PDP seguia com "Adicionar à sacola" por até uma hora; (2) manda o
+"Voltou pro estoque" (`lib/emails/avise-me.ts`, com UTM `utm_campaign=avise-me`) pra quem espera
+um produto que voltou, de quem pediu primeiro, 60 por rodada, com `idempotencia` `avise-me/<id>`;
+enviado, a linha fica sem o e-mail (`avisado_em`) — 422 apaga, queda conta `falhas` e para a rodada.
+O aviso à loja usa o perfil `"agora"` do `/api/revalidar` (`{ expire: 0 }`): o `"seconds"` ainda
+serve a página velha por até um minuto, e quem clica no e-mail logo que ele chega cairia no
+"Esgotado". A regra pura (`planoDaRodada`, `produtosQueMudaram`, `vendeAgora`) tem teste. O painel
+lê `avisos` em `GET /dashboard/produtos/:id` (esperando e avisados), e o "Tirar" da newsletter apaga
+os pedidos de aviso do e-mail. O conferidor é o `ferramentas/conferir-avise-me.mjs`: esgota um
+produto pelo admin (o spray, ou `ESGOTAR`) e devolve no fim, lê os pedidos em `GET /admin/avise-me`
+e os e-mails no Resend falso (`PORTA_RESEND`, a do `RESEND_URL` do backend), com a loja no
+`LOJA_URL` do backend — senão a rodada não tem pra quem avisar e a página não vira.
+
 A **esteira de avaliações** da home ("Nossos clientes nos amam", `components/home/amam.tsx`) mostra
 até quatro depoimentos de cada produto — avaliação ou trecho de entrevista —, sorteados a cada
 visita e repartidos em DUAS FILEIRAS, como no protótipo: a de cima corre pra esquerda e a de baixo
@@ -1289,44 +1316,86 @@ ler os mesmos consentimentos e pôr as 5 etiquetas da pessoa na ficha, num bloco
 conferidor é o `apps/dashboard/ferramentas/conferir-clientes.mjs`, com os mesmos falsos e variáveis
 do `conferir-pedidos`.
 
-**Cupons e descontos** (fase 6, entrega 0085). Cupom é promoção do Medusa com código: quem aplica
-e recusa é o Medusa, no carrinho. `src/lib/cupons.ts` é puro, com testes, e faz o seguinte:
+**Cupons e descontos** (fase 6, entrega 0085; do jeito da Nuvemshop desde a 0128). Cupom é
+promoção do Medusa com código: quem aplica e recusa é o Medusa, no carrinho. `src/lib/cupons.ts` é
+puro, com testes, e faz o seguinte:
 
-- lê o formulário (`lerCupomNovo`): código em maiúsculas, sem o prefixo `BUMP-` das ofertas,
-  número em reais do jeito brasileiro, data de hoje em diante (Brasília);
+- lê o formulário (`lerCupomNovo`), que é o "Criar cupom" da Nuvemshop: código (letras, números,
+  "-" e "_", sem o prefixo `BUMP-` das ofertas), tipo (`porcento`, `reais` ou `frete`, este com o
+  `soMaisBarato`), a quem vale (`aplicarA` loja/categorias/produtos, com os `alvos` conferidos no
+  catálogo), `combina`, por cupom (`limite`), por cliente (`porCliente` N ou `primeiraCompra`),
+  o período (`de`/`ate`, "AAAA-MM-DDTHH:MM" em Brasília) e o valor do carrinho (`minimo`). Aceita
+  também o formulário de antes (o painel e o backend sobem em horas diferentes);
 - monta a promoção (`promocaoDoCupom`): porcentagem em `items` com `allocation: across` (o `each`
-  do 2.21 pede `max_quantity`), reais em `order`, o limite total no `limit` do Medusa (conta no
-  pedido feito) e a forma do cupom no `metadata.fb_cupom`, de onde a lista lê;
+  do 2.21 pede `max_quantity`), reais em `order`, frete grátis como 100% em `shipping_methods`
+  (`across`; o "só na mais barata" é uma regra de alvo `shipping_methods.shipping_option_id` com os
+  ids da entrega econômica, que a rota acha pela `faixa`), o limite total no `limit` do Medusa e a
+  forma do cupom no `metadata.fb_cupom` (`cupomGuardado` lê também o de antes da 0128:
+  `umaVezPorCliente` e o "vale até" só com a data);
 - faz das condições que o Medusa não tem regras comuns (`regrasDoCupom`), sobre campos que o gancho
   `setPromotionContext` do `updateCartPromotionsWorkflow`
   (`src/workflows/hooks/contexto-dos-cupons.ts`) põe no contexto (`contextoDosCupons`):
-  `fb_cupons.produtos` (o `somaDosProdutos`, a medida do frete grátis), `fb_cupons.agora`, e
-  `fb_cupons.pedidos` e `fb_cupons.usados` (os pedidos não cancelados do e-mail do carrinho, numa
-  consulta);
+  `fb_cupons.produtos` (o `somaDosProdutos`, a medida do frete grátis), `fb_cupons.agora`,
+  `fb_cupons.pedidos`, `fb_cupons.usados` e `fb_cupons.vezes.<CÓDIGO>` (os pedidos não
+  cancelados do e-mail do carrinho, numa consulta), `fb_cupons.itens.produtos` e
+  `fb_cupons.itens.categorias` (o "só com produtos de" é um `eq` sobre a lista — no Medusa, `eq`
+  com lista quer dizer "todos entre os escolhidos", como a Nuvemshop pede; produto sem categoria
+  entra como `sem-categoria`) e `fb_cupons.frete_da_loja` (o pedido já ganhou o frete grátis ou
+  fixo pelo valor; sem a política, "sim");
 - põe junto de toda condição a trava `fb_cupons.conferido = "sim"`, que o gancho só escreve quando
   leu tudo. O Medusa lê número que falta como zero (`MathBN`): sem a trava, uma conta sem o gancho
-  (ou com a consulta dos pedidos falhando) deixaria passar o "vale até" e o "uma vez". O teste
+  (ou com a consulta dos pedidos falhando) deixaria passar o "vale até" e o "por cliente". O teste
   roda as regras no avaliador do próprio Medusa (`areRulesValidForContext`).
 
-Sem e-mail, a lista de pedidos é vazia e "uma vez"/"primeira compra" deixam aplicar. O workflow
-refaz os códigos do carrinho a cada mudança e tira o que deixou de valer (o e-mail chegou, o
-produto saiu). O `use_by_attribute` do orçamento de campanha do Medusa não serve: sem e-mail no
-carrinho, ele derruba a conta com erro.
+O "não combina" da Nuvemshop: o cupom não desconta produto com preço promocional e não vale no
+pedido com o frete da loja. O produto sai por uma regra de ALVO, `items.fb_promocional = "nao"`:
+o gancho devolve `items` com essa marca em cada linha (`linhasMarcadas`, o `compare_at_unit_price`
+acima do preço), e o Medusa mescla o que o gancho devolve por cima do carrinho (espalhar raso, em
+`getActionsToComputeFromPromotionsStep`) — as linhas são as mesmas, espalhadas, com a marca a mais.
+
+UM CUPOM POR PEDIDO: o gancho `validate` do mesmo workflow recusa (`NOT_ALLOWED`) um segundo
+código de campanha quando alguém PÕE um código (`add`, o que a API da loja faz); a oferta do
+checkout não conta, e a conta a cada mudança no carrinho (`replace`) passa direto
+(`outroCupomNoCarrinho`).
+
+Sem e-mail, a lista de pedidos é vazia e "por cliente"/"primeira compra" deixam aplicar. O
+workflow refaz os códigos do carrinho a cada mudança e tira o que deixou de valer (o e-mail chegou,
+o produto saiu) — e tira também o código que não gerou nenhum ajuste: o cupom de FRETE sem entrega
+escolhida é recusado como se não existisse. Por isso a loja guarda esse código
+(`apps/loja/src/lib/cupom-pendente.ts`, cookie `cupom`) depois de perguntar ao Medusa se ele é de
+frete (`GET /store/cupons/frete`, só a loja pergunta — `daLoja` — e com limite por IP), e tenta de
+novo quando o checkout abre e depois de pendurar a entrega (`salvarEntrega`, `escolherFrete`). O
+mesmo cookie serve o LINK DO CUPOM: `apps/loja/src/app/discount/[codigo]/route.ts` (o caminho da
+Nuvemshop, fora do "tudo em minúscula" do `proxy.ts`) guarda o código, põe na sacola se houver, e
+manda pra home. O `use_by_attribute` do orçamento de campanha do Medusa não serve: sem e-mail no
+carrinho, ele derruba a conta com erro. O "incluir o custo de envio no desconto" e o "valor máximo
+de desconto" da Nuvemshop não existem aqui: uma promoção desconta os produtos OU o frete, e a
+porcentagem do Medusa não tem teto.
+
+O DESCONTO DO FRETE NÃO SE REPETE: o `discount_total` do Medusa soma o do frete, e o
+`shipping_total` já vem descontado. Onde a tela ou o e-mail mostram "Desconto" junto do frete
+(resumo do checkout, obrigado e conta — `apps/loja/src/lib/desconto.ts` —, e o e-mail do pedido —
+`descontoDosProdutos` em `src/lib/confirmar-pedido.ts`), o desconto é `discount_total −
+shipping_discount_total`. A sacola não mostra desconto (soma `item_total` + frete), a nota fiscal
+fecha a conta pelo total, e o Pagar.me recebe os itens e o frete já descontados.
 
 As rotas ficam na área `cupons` (dono e marketing):
 
 - `GET /dashboard/cupons`: os cupons de campanha (`ehCupomDeCampanha`: com código, não automático,
   sem `BUMP-`), os usos por código nos ajustes dos pedidos (`usosPorCodigo`: não cancelados; o
-  vendido, só dos pagos) e os descontos automáticos em frase (`src/lib/painel/cupons.ts`);
+  vendido, só dos pagos), os descontos automáticos em frase (`src/lib/painel/cupons.ts`), o
+  `catalogo` (categorias e produtos, pro "Aplicar a") e a `loja` (o `LOJA_URL`, pro link do cupom);
 - `POST /dashboard/cupons`: 422 com os erros por campo, 409 se o código já existe (em qualquer
   caixa);
 - `POST /dashboard/cupons/:id` `{ acao: "pausar" | "ligar" }`: só cupom de campanha; muda o
   `status`.
 
-As três anotam no registro da equipe. O cupom de frete grátis ficou de fora: o resumo do checkout
-mostra `shipping_total` e `discount_total`, e o desconto do frete apareceria nos dois. O
-conferidor é o `apps/dashboard/ferramentas/conferir-cupons.mjs`: cria os cupons pelo painel,
-aplica pela Store API e faz os pedidos com o `pedidoPix(..., { cupom })` do `pedido-de-teste.mjs`.
+As três anotam no registro da equipe. Os conferidores são o
+`apps/dashboard/ferramentas/conferir-cupons.mjs` (cria os cupons pelo painel, aplica pela Store
+API, faz os pedidos com o `pedidoPix(..., { cupom })` do `pedido-de-teste.mjs`; o do "não combina"
+tira um produto da "Promoção de lançamento" do banco local durante o teste e devolve no fim) e a
+seção "Cupons do jeito da Nuvemshop" do `apps/loja/ferramentas/conferir-checkout.mjs` (um por
+pedido, o de frete guardado, o link).
 
 **Os cupons da Nuvemshop** (entrega 0126). `src/lib/cupons-da-nuvemshop.ts` guarda a lista de
 26/09 escrita como a Nuvemshop mostra (desconto, usos, vigência, limites) e a lê no `CupomNovo` do

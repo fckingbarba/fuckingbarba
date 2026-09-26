@@ -11,7 +11,13 @@ import { TextosDoProduto } from "@/components/produto/textos-do-produto"
 import { SeloDoProduto } from "@/components/produtos"
 import { Cabeca, ForaDoAr, SemAcesso } from "@/components/telas"
 import { medusa } from "@/lib/medusa"
-import { ehIdDeProduto, fraseDoHistorico, reais, type PaginaDoProduto } from "@/lib/produtos"
+import {
+  ehIdDeProduto,
+  fraseDoHistorico,
+  fraseDosAvisos,
+  reais,
+  type PaginaDoProduto,
+} from "@/lib/produtos"
 
 type Props = { params: Promise<{ id: string }> }
 
@@ -53,7 +59,9 @@ async function Produto({ params }: Props) {
     categorias,
     noSite,
     historico,
+    avisos,
   } = r.corpo as unknown as PaginaDoProduto
+  const frasesDosAvisos = fraseDosAvisos(avisos)
 
   const acoes =
     p.podeEditar && !p.publicado ? (
@@ -95,9 +103,19 @@ async function Produto({ params }: Props) {
           <div>
             <p className="faixa__titulo">Esgotado</p>
             <p>
-              O Bling diz 0 unidades. O site mostra “esgotado” e não vende. Deu entrada no Bling, a
-              loja copia em até 5 minutos.
+              O Bling diz 0 unidades. O site mostra “esgotado”, com o “avise-me quando chegar” no
+              lugar do botão de comprar. Deu entrada no Bling, a loja copia em até 5 minutos — e
+              manda o e-mail de volta pra quem pediu.
             </p>
+            {avisos?.esperando ? (
+              <p data-avisos-na-faixa>
+                <b>
+                  {avisos.esperando === 1
+                    ? "1 pessoa pediu o aviso."
+                    : `${avisos.esperando} pessoas pediram o aviso.`}
+                </b>
+              </p>
+            ) : null}
           </div>
         </div>
       ) : null}
@@ -160,6 +178,11 @@ async function Produto({ params }: Props) {
                 <b>{p.peso ? `${p.peso} g` : "—"}</b>
               </div>
             </div>
+            {frasesDosAvisos ? (
+              <p className="pequeno" data-avisos style={{ margin: "12px 0 0" }}>
+                <b>Avise-me:</b> {frasesDosAvisos}.
+              </p>
+            ) : null}
             <p className="pequeno suave" style={{ margin: "12px 0 0" }}>
               O preço e o promocional se mudam na{" "}
               <Link className="link" href="/produtos">

@@ -156,6 +156,28 @@ export type PaginaDoProduto = {
   noSite: string | null
   /** O que a equipe mudou por aqui, o mais novo primeiro. */
   historico: LinhaDoHistorico[]
+  /**
+   * O "avise-me quando chegar" da página esgotada: quantos esperam o e-mail
+   * de volta e quantos já foram avisados (nos últimos 90 dias). Sem a chave,
+   * o Medusa é de antes do avise-me.
+   */
+  avisos?: AvisosDoProduto
+}
+
+export type AvisosDoProduto = { esperando: number; avisados: number }
+
+/** "3 pessoas esperam o aviso de volta · 12 já avisadas", ou `null` sem nenhum dos dois. */
+export function fraseDosAvisos(a: AvisosDoProduto | undefined): string | null {
+  if (!a) return null
+  const partes = [
+    a.esperando === 1
+      ? "1 pessoa espera o aviso de volta"
+      : a.esperando > 1
+        ? `${a.esperando} pessoas esperam o aviso de volta`
+        : null,
+    a.avisados === 1 ? "1 já avisada" : a.avisados > 1 ? `${a.avisados} já avisadas` : null,
+  ].filter(Boolean)
+  return partes.length ? partes.join(" · ") : null
 }
 
 export type LinhaDoHistorico = {

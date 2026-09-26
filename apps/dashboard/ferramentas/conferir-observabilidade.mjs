@@ -354,9 +354,9 @@ try {
     `${await pagina.locator(`[data-aviso="observabilidade"]`).textContent()} · ${agoraNoMenu}`
   )
   ok(
-    (await pagina.locator("[data-rotina]").count()) === 10 &&
+    (await pagina.locator("[data-rotina]").count()) === 11 &&
       (await pagina.locator("[data-integracao]").count()) === 7,
-    "as 10 rotinas e as 7 integrações"
+    "as 11 rotinas e as 7 integrações"
   )
 
   // A cotação que falhou, marcada pela tela.
@@ -398,7 +398,7 @@ try {
   )
   const precos = (tRotinas.rotinas ?? []).find((r) => r.nome === "precos-por-quantidade")
   ok(
-    tRotinas.rotinas?.length === 10 &&
+    tRotinas.rotinas?.length === 11 &&
       precos?.s === "ok" &&
       /^hoje, \d\d:\d\d$/.test(precos.ultima ?? "") &&
       /^\d+,\d s$/.test(precos.duracao ?? "") &&

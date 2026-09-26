@@ -90,10 +90,14 @@ function normaliza(caminho: string): string {
  * pra TODA compra. Aconteceu; está travado em `conferir-checkout.mjs` — e
  * o pedido da conta tem o mesmo id no endereço (`conferir-conta.mjs`).
  *
+ * O link do cupom (`/discount/<CÓDIGO>`, o da Nuvemshop) também passa como
+ * veio: o código não liga pra caixa, mas baixar a caixa custava um
+ * redirecionamento a mais pra todo link que circula (0128).
+ *
  * Handle de produto e de categoria continua minúsculo por construção (o
  * middleware do backend garante), então a regra segue valendo pro resto.
  */
-const CAMINHOS_COM_ID = ["/checkout/obrigado/", "/conta/pedidos/"]
+const CAMINHOS_COM_ID = ["/checkout/obrigado/", "/conta/pedidos/", "/discount/"]
 
 export function proxy(req: NextRequest) {
   const bruto = semBarraFinal(req.nextUrl.pathname)

@@ -246,5 +246,20 @@
 
 /* A prévia de um formulário (o cupom novo): a frase do que vai valer, antes de criar. */
 .previa { margin: 16px 0 0; padding: 12px 14px; background: var(--amarelo-palido); border-left: 4px solid var(--amarelo-borda); font-size: 0.82rem; }
-/* Os cupons: o selo e a chave, lado a lado, à direita da linha. */
+/* Os cupons: o link, o selo e a chave, lado a lado, à direita da linha. */
 .cupom__lado { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.cupom__link { padding: 6px 10px; }
+@media (max-width: 640px) { .cupom__lado { flex-wrap: wrap; justify-content: flex-end; } }
+/* O cupom novo, como o "Criar cupom" da Nuvemshop: um cartão por seção. */
+.cupom-secao { margin: 0 0 12px; padding: 14px 14px 16px; background: var(--papel); border: 2px solid var(--tinta); }
+.cupom-secao__titulo { margin: 0 0 12px; font-size: 0.86rem; font-weight: 800; font-style: italic; text-transform: uppercase; }
+.cupom-secao__sub { margin: -6px 0 12px; }
+.cupom-link { margin-top: 14px; }
+.cupom-link .link-pronto { margin-top: 1px; }
+/* No celular, as escolhas de 3 (tipo, a quem vale, por cliente) não cabem numa linha: colunas iguais. */
+@media (max-width: 640px) {
+  .cupom-secao .segmento { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); width: 100%; }
+  .cupom-secao .segmento label { display: flex; }
+  .cupom-secao .segmento span { flex: 1; display: flex; align-items: center; justify-content: center; padding: 9px 6px; text-align: center; letter-spacing: 0.02em; }
+}
+.cupom-escolhas { display: grid; gap: 8px; max-height: 240px; overflow-y: auto; padding: 10px 12px; background: var(--cinza); border: 2px solid var(--linha); }

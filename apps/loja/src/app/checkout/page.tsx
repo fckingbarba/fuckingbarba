@@ -16,6 +16,7 @@ import {
   preencherDaConta,
 } from "@/lib/checkout"
 import { carrinhoFechado } from "@/lib/carrinho"
+import { tentarCupomPendente } from "@/lib/cupom-pendente"
 import { faltaPraGratis } from "@/lib/checkout-visivel"
 import { site } from "@/lib/site"
 import { configuracoes } from "@/lib/medusa"
@@ -94,6 +95,10 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/checkout">, "searchPa
   // vazio vem de "Meus dados" e do endereço principal. Antes de ler — é o
   // carrinho já preenchido que decide em que passo o checkout abre.
   await preencherDaConta()
+  // O cupom guardado (o do link, o de frete) tenta entrar antes de a tela ler
+  // o carrinho — ver `lib/cupom-pendente.ts`. A página não apaga o cookie;
+  // o cupom que já está no carrinho não é posto de novo.
+  await tentarCupomPendente()
   const checkout = await lerCheckout()
 
   // Carrinho que já virou pedido, com a confirmação perdida no caminho: vai
@@ -117,7 +122,10 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/checkout">, "searchPa
   */
   const { frete: politica, atendimento } = await configuracoes()
   const piso = politica.modo === "nenhuma" ? 0 : politica.piso
-  const falta = politica.modo === "nenhuma" ? 0 : faltaPraGratis(checkout, piso)
+  // Frete que já sai de graça (o cupom de frete, aplicado ou esperando a
+  // entrega) não tem "faltam R$ X pro frete grátis".
+  const freteJaGratis = checkout.frete === 0 || Boolean(checkout.cupomGuardado?.frete)
+  const falta = politica.modo === "nenhuma" || freteJaGratis ? 0 : faltaPraGratis(checkout, piso)
 
   // Em série, e não em paralelo: tudo isto conversa com o mesmo carrinho, e
   // pedir ao mesmo tempo multiplica escritas concorrentes — que é como um

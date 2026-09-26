@@ -5,7 +5,7 @@ import Link from "next/link"
 import { useActionState, useEffect, useRef, useState, useTransition } from "react"
 import { Caminhao, Cadeado, Escudo, Relogio, SetaBaixo, WhatsApp } from "@/components/icones"
 import { confiancaDoResumo, DEPOIMENTOS } from "@/conteudo/checkout"
-import { aplicarCupom, removerCupom } from "@/lib/acoes/checkout"
+import { aplicarCupom, esquecerCupomGuardado, removerCupom } from "@/lib/acoes/checkout"
 import {
   ESTADO_INICIAL,
   estadoSemResposta,
@@ -226,7 +226,9 @@ const aplicar = (anterior: EstadoDaEtapa, fd: FormData) =>
  */
 function Cupom({ checkout }: { checkout: CheckoutVisivel }) {
   const [estado, acao, enviando] = useActionState(aplicar, ESTADO_INICIAL)
-  const [aberto, setAberto] = useState(checkout.cupons.length > 0)
+  const [aberto, setAberto] = useState(
+    checkout.cupons.length > 0 || Boolean(checkout.cupomGuardado)
+  )
   const [tirando, comecar] = useTransition()
 
   return (
@@ -283,6 +285,42 @@ function Cupom({ checkout }: { checkout: CheckoutVisivel }) {
           </button>
         </p>
       ))}
+
+      {/*
+        O CUPOM GUARDADO (lib/cupom-pendente.ts): o de frete grátis digitado
+        antes da entrega, ou o do link, esperando o pedido caber nas regras
+        dele. Entra sozinho; o "tirar" é pra quem desistiu.
+      */}
+      {checkout.cupomGuardado ? (
+        <p
+          className="cupom__msg"
+          data-tipo="espera"
+          data-cupom-guardado={checkout.cupomGuardado.codigo}
+        >
+          {checkout.cupomGuardado.codigo}{" "}
+          {checkout.cupomGuardado.soMaisBarato
+            ? "guardado: frete grátis na entrega econômica — entra quando ela for escolhida."
+            : checkout.cupomGuardado.frete
+              ? "guardado: frete grátis — entra quando você escolher a entrega."
+              : "guardado: entra sozinho quando o pedido estiver nas regras dele."}{" "}
+          <button
+            type="button"
+            className="cupom__abre"
+            disabled={tirando}
+            onClick={() =>
+              comecar(
+                async () =>
+                  void (await semQueda(
+                    () => esquecerCupomGuardado(),
+                    () => {}
+                  ))
+              )
+            }
+          >
+            tirar
+          </button>
+        </p>
+      ) : null}
     </div>
   )
 }

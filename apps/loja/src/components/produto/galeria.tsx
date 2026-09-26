@@ -67,12 +67,18 @@ export function Galeria({
   itens,
   alvo,
   desconto,
+  esgotado = false,
 }: {
   itens: readonly ItemDaGaleria[]
   /** Texto alternativo de reserva, quando a foto não tem o seu. */
   alvo: string
   /** Só aparece quando há preço cheio maior que o atual. */
   desconto: number | null
+  /**
+   * O selo preto "Esgotado", em cima do de desconto: no celular a foto vem
+   * antes do preço, e é a primeira coisa que a pessoa vê.
+   */
+  esgotado?: boolean
 }) {
   /** A foto à vista no palco (posição em `itens`). Quem manda nela é a rolagem do trilho. */
   const [atual, setAtual] = useState(0)
@@ -275,9 +281,12 @@ export function Galeria({
           "-31%" visível fora do nome do botão era o que o Lighthouse
           reprovava: quem usa voz pra comandar a tela diz o que vê.)
         */}
-        {desconto ? (
+        {desconto || esgotado ? (
           <ul className="galeria__selos" aria-hidden="true">
-            <li className="galeria__selo galeria__selo--desconto">-{desconto}%</li>
+            {esgotado ? <li className="galeria__selo">Esgotado</li> : null}
+            {desconto ? (
+              <li className="galeria__selo galeria__selo--desconto">-{desconto}%</li>
+            ) : null}
           </ul>
         ) : null}
 

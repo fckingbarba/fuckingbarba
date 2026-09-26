@@ -1041,6 +1041,13 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
       ou, num banco sem ninguém no painel, a do admin, como antes. Nenhum outro conferidor procura
       aviso da equipe no admin (o do painel já lia a caixa do dono). Só o conferidor mudou: nada
       muda na loja, e nada a configurar.
+- [x] **O teste do bilhete de vídeo caía 1 vez em 64** (entrega 0131, 26/09). No
+      `videos.unit.spec.ts`, o "mexido, com outra chave ou vencido: não vale" estragava a
+      assinatura trocando a primeira letra por "x". O bilhete leva um `n` sorteado, e a assinatura
+      muda junto: quando ela já começava com "x", a "estragada" era a mesma, e o `lerEnvio` a
+      aceitava — com razão. Agora a letra trocada é sempre outra. Provado com o `n` forçado a dar
+      assinatura com "x" na frente: o teste de antes falha, o novo passa. Só o teste mudou: nada
+      muda na loja, e nada a configurar.
 - [x] **A sacola responde no clique** (entrega 0104, 26/09, pedido da loja: "adicionar ou remover
       do carrinho está demorando"). Medido na produção: adicionar levava 1,3 s (2,4 s o primeiro,
       que cria o carrinho), o "+" 1,1 s e remover 0,9 s — quase tudo no Medusa, que refaz o
@@ -1666,10 +1673,8 @@ Depois do deploy — **nada a configurar.**
 
 Ficou pra depois:
 
-- [ ] O cupom de **frete grátis**: o resumo do checkout mostraria o desconto do frete duas vezes
-      (no frete e no desconto). Entra quando o resumo mudar. O frete grátis pelo valor mínimo
-      segue valendo.
-      Os dois de frete grátis da Nuvemshop (FRETEG e FRETEGRATISDOM) esperam por ele (0126).
+- [x] O cupom de **frete grátis**: feito na entrega 0128 (ver "Cupons do jeito da Nuvemshop", no
+      fim) — o resumo, o e-mail e a conta mostram o frete grátis sem repetir o desconto.
 - [ ] O botão **"Mudar"** do desconto por quantidade: as faixas ainda mudam só no código.
 
 Conferido pelo `conferir-cupons.mjs` (25 checagens, novo).
@@ -2321,9 +2326,9 @@ dos cupons ativos da Nuvemshop: "poderia criar para gente?".
   RIBEIRO): a lista não diz qual é o limite, e o cupom sem ele daria desconto a mais.
 - Os 12 de poucos dias (ARTIDA10_7XGS, MARIA10_T5AL…) vencem entre 26 e 29/09; o que já tiver
   vencido no dia do deploy fica de fora.
-- [ ] **O "1 limite" dos cinco — você.** Na Nuvemshop, abrir cada um e dizer qual é (pedido mínimo,
-      só na primeira compra, uma vez por cliente ou só alguns produtos). Com a resposta, eles entram
-      pela `condicao` em `lib/cupons-da-nuvemshop.ts`.
+- [ ] **O "1 limite" dos cinco e os dois de frete — você.** Na Nuvemshop, o print de cada um
+      aberto (10PILA, ITAPEMA25, KIT15, PRIMEIRA10, RIBEIRO, FRETEG e FRETEGRATISDOM). Com eles,
+      os sete entram numa migração nova (a 0126 já rodou), com as opções da 0128.
 
 Conferido no banco local: a migração criou os 104 (rodando de novo, nenhum a mais), cada tipo de
 cupom aplicado num carrinho de verdade pela API da loja, a tela de Cupons no computador e no celular,
@@ -2380,6 +2385,86 @@ pelos testes de unidade (21 novos). Os e-mails que já existiam saem byte por by
 Depois do deploy — **nada a configurar.** Pra ver: a próxima venda paga chega na caixa do dono do
 painel; e Configurações → E-mails → "Pra equipe" mostra a linha "Venda nova" e quem recebe.
 
+**Loja: a página do produto esgotado, com o "avise-me quando chegar" — pronta em 26/09 (entrega
+0124).** Pedido dele: "valide se a PDP tem página de produto fora de estoque, caso não tenha vamos
+criar" — e, na pergunta, "com avise-me". Validado antes: não tinha. O produto esgotado mostrava a
+página inteira como se vendesse (frete, parcelas, 1, 2 e 3 unidades), e só o botão virava
+"Esgotado" — preto, com cara de clicável, sem fazer nada. No ar, em 26/09, nenhum dos 15 estava
+esgotado.
+
+- **A página do esgotado:** o preço (com o "de" riscado), a faixa "Esgotado" e, no lugar do botão,
+  a caixa "Avise-me quando chegar", onde a pessoa deixa o e-mail. Saem o frete, as unidades, o leve
+  junto e as garantias. A foto ganha o selo "Esgotado", embaixo vem "Enquanto isso, veja o que mais
+  tem em <categoria>", e a barra que gruda embaixo vira "Avise-me".
+- **Quando o Bling tiver estoque de novo:** em até 5 minutos a página volta a vender e sai UM
+  e-mail pra cada pessoa — "Voltou: <produto>", com a foto, o preço e o botão "Comprar agora" (e
+  Instagram e TikTok no rodapé). Na ordem de quem pediu primeiro. Depois do aviso, o e-mail sai da
+  lista de espera; quem espera mais de 6 meses também sai.
+- **A página vira sozinha nos dois sentidos:** o produto que esgota (a última unidade vendida)
+  mostra "Esgotado" em até 5 minutos. Antes podia seguir com "Adicionar à sacola" por até uma hora,
+  e o erro só aparecia na sacola.
+- **Nos cards** (home, categorias, "Quem leva este, leva junto"): o selo diz "Esgotado" e o botão,
+  "Avise-me". No carrossel da página do produto, o esgotado vai pro fim.
+- **No painel:** Produtos → o produto → a faixa "Esgotado" diz quantas pessoas pediram o aviso, e o
+  bloco "Preço e estoque" mostra quantas esperam e quantas já foram avisadas. O "Tirar" da
+  newsletter tira a pessoa da lista de espera também.
+- **Marketing → Canais:** a visita e a compra que vêm do e-mail aparecem como "E-mail", campanha
+  "avise-me".
+- **A Política de Privacidade** conta o dado novo (o e-mail e o produto, até o aviso sair).
+
+Conferido pelo `conferir-avise-me.mjs` (novo, 32 checagens: a página esgotada no celular, a barra,
+o pedido com e-mail errado, repetido e em maiúsculas, nada saindo com o produto esgotado, o card e
+o carrossel, a volta com os e-mails e a página vendendo na primeira visita, a página velha que se
+refaz, o Resend fora e o limite por pessoa), pelos de sempre na mesma base (pdp 68/70 — as 2 de
+antes, do banco local —, checkout 160/160, catálogo 34/34, frete 70/70, configurações 17/17, links
+26/26; no painel, produtos 101/101, clientes 37/37, observabilidade 34/34) e pelos testes de
+unidade (949, 24 novos). No Lighthouse, A/B com a main: a home e a PDP do óleo seguem em 2,26 s, e
+o HTML da PDP com estoque saiu igual.
+
+Depois do deploy — **nada a configurar**: a tabela nova nasce na migração do Railway, e a rotina
+aparece em Observabilidade ("Avisa quem pediu um produto esgotado que voltou"). Não dá pra ver no
+ar sem esgotar um produto de verdade — e zerar no Bling mexe no estoque de todo lugar que lê dele.
+Quando um esgotar, a página já aparece assim, e o painel mostra quem pediu.
+
+**Cupons do jeito da Nuvemshop — pronto em 26/09 (entrega 0128).** Pedido dele, com o print do
+"Criar cupom" da Nuvemshop: "nossos cupons tem que ser bem estilo os da nuvemshop".
+
+- **O "Novo cupom" do painel tem as seções de lá**, na mesma ordem: Código do cupom (com o **link
+  do cupom** pra copiar), Tipo de desconto (Porcentagem, Valor fixo ou **Frete grátis** — este
+  também "só na opção de envio de menor custo"), **Aplicar a** (toda a loja, categorias ou
+  produtos) e **Limites de uso**: permitir combinar com outras promoções, por cupom (ilimitado ou
+  limitado), **por cliente** (ilimitado, limitado a N vezes ou primeira compra), **data** (período
+  com começo e fim, com hora) e valor do carrinho. A prévia diz o cupom inteiro em frase.
+- **Como na Nuvemshop:** "aplicar a" categorias ou produtos só aceita o cupom se TODOS os
+  produtos do carrinho forem deles; sem "combinar", o cupom não desconta o produto em promoção
+  (a promoção do painel, o desconto por quantidade) e não vale no pedido que já ganhou o frete
+  grátis da loja.
+- **Um cupom por pedido**, como lá: digitar outro troca o de antes. O Medusa também recusa o
+  segundo, pra ninguém somar cupons chamando a API direto.
+- **O link do cupom** é o mesmo caminho da Nuvemshop, `/discount/<CÓDIGO>`: os links que já
+  circulam (bio, e-mail, story) seguem valendo depois da virada. Com sacola, o cupom entra na
+  hora; sem, fica guardado e entra quando o checkout abre.
+- **O cupom de frete grátis digitado antes da entrega fica guardado** ("entra quando você escolher
+  a entrega") e entra sozinho quando a entrega é escolhida — o Medusa só desconta o frete de uma
+  entrega escolhida. No resumo, no e-mail e na conta, o frete aparece "Grátis" e o desconto dele
+  NÃO se repete na linha de desconto.
+- A lista de cupons: frase nova pra cada opção, a situação "Agendado" (período que ainda não
+  começou) e o botão "Link" em cada cupom.
+- **Ficaram de fora duas opções do print**, porque o Medusa não faz: "incluir o custo de envio no
+  desconto" (uma promoção desconta os produtos OU o frete) e "valor máximo de desconto" (a
+  porcentagem dele não tem teto). Nenhum dos 111 cupons da Nuvemshop usava as duas.
+
+Conferido pelo `conferir-cupons.mjs` do painel (41 checagens; as 16 novas: os sete tipos pelo
+formulário novo, o frete grátis zerando o frete uma vez só, o da mais barata, a pergunta do frete
+fechada pra quem não é a loja, categoria e produto com todo o carrinho, o "não combina" no produto
+em promoção e no frete da loja, por cliente, o agendado, um cupom por pedido, as frases, o link e
+a tela), pelo `conferir-checkout.mjs` (173; as 7 novas: um por pedido, o de frete guardado e
+entrando com a entrega, o resumo sem desconto repetido, o link com e sem sacola), pelo
+`conferir-pagamento.mjs` (200) e pelo `conferir-conta.mjs` (209), e pelos testes de unidade (15
+novos nos cupons).
+
+Depois do deploy — **nada a configurar.** Pra testar: Painel → Cupons e descontos → Novo cupom.
+
 **CRM, parte 1: a loja anota o que cada pessoa faz — pronto em 26/09 (entrega 0130).** A primeira
 parte da Fundação do "Ciclo da Barba" (o protótipo da aba CRM:
 https://claude.ai/artifact/XDWBkcweP6y6WVJd3m4sty).
@@ -2400,7 +2485,8 @@ https://claude.ai/artifact/XDWBkcweP6y6WVJd3m4sty).
   mascarado. Período: hoje, 7 dias ou 30 dias.
 - **A política de privacidade** ganhou o que a loja anota, os 13 meses e o botão "Mudar minha
   resposta sobre os cookies".
-- A Observabilidade ganhou a rotina "Apaga o que o CRM anotou há mais de 13 meses" (10 rotinas).
+- A Observabilidade ganhou a rotina "Apaga o que o CRM anotou há mais de 13 meses" (11 rotinas,
+  com a do avise-me da 0124).
 
 Conferido pelo `conferir-crm.mjs` (50 checagens: a faixa, o "não" sem nada anotado, o "sim" da
 chegada até o e-mail do checkout, a newsletter, a conta, a tela de cada papel e o "não" depois do
