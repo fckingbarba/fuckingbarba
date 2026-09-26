@@ -1,13 +1,14 @@
 import type { Depoimento } from "../conteudo/depoimentos"
 
 /**
- * A ESTEIRA DE AVALIAÇÕES DA HOME ("Nossos clientes nos amam") — o que ela
- * mostra, sem servidor nem navegador: dá pra conferir com o
- * `ferramentas/conferir-esteira.mjs`.
+ * OS SORTEIOS DE DEPOIMENTO — a esteira da home ("Nossos clientes nos amam")
+ * e os três da página do produto —, sem servidor nem navegador: dá pra
+ * conferir com o `ferramentas/conferir-esteira.mjs`.
  *
- * Até `POR_PRODUTO_NA_ESTEIRA` de cada produto, sorteadas a cada visita, e a
- * ordem embaralhada. Com todas as avaliações da loja na esteira, ela crescia
- * sem fim e corria cada vez mais rápido (a volta inteira tinha tempo fixo).
+ * Na esteira, até `POR_PRODUTO_NA_ESTEIRA` de cada produto, sorteadas a cada
+ * visita, repartidas em duas fileiras e a ordem embaralhada. Com todas as
+ * avaliações da loja na esteira, ela crescia sem fim e corria cada vez mais
+ * rápido (a volta inteira tinha tempo fixo).
  *
  * Vale igual pra avaliação e pra trecho de entrevista (`Depoimento`): o
  * sorteio só olha o produto. Sem este limite, as 245 entradas da PR #90 (os
@@ -15,7 +16,7 @@ import type { Depoimento } from "../conteudo/depoimentos"
  * home — tudo, três vezes, mais a cópia da esteira —, e o Lighthouse do CI
  * caiu pra 0,54.
  *
- * Só TIPO vem de `conteudo/depoimentos`: a esteira roda no navegador, e um
+ * Só TIPO vem de `conteudo/depoimentos`: os sorteios rodam no navegador, e um
  * valor importado de lá levaria o arquivo inteiro, com os textos, pro
  * JavaScript da página (e este arquivo é lido direto pelo conferidor, sem
  * bundler).
@@ -36,6 +37,20 @@ export const MINIMO_NA_FILA = 8
  * ela fica mais longa, e não mais rápida.
  */
 export const SEGUNDOS_POR_CARTAO = 7.5
+
+/**
+ * O ritmo da SEGUNDA fileira, a que corre pro outro lado: o do protótipo
+ * (seis cartões em 58s). Um pouco mais lenta que a primeira, como lá — as
+ * duas não andam no mesmo compasso.
+ */
+export const SEGUNDOS_POR_CARTAO_NA_VOLTA = 9.5
+
+/**
+ * Quantos depoimentos a página do produto mostra: três, sorteados a cada
+ * visita — a grade do protótipo. Com todos, a página de cada produto com
+ * trechos terminava numa parede de vinte cartões de texto inteiro.
+ */
+export const NA_PAGINA_DO_PRODUTO = 3
 
 /** Trecho não tem nome: aí o texto sozinho é a chave. */
 const chave = (a: Depoimento) =>
@@ -71,6 +86,17 @@ function embaralhar<T>(lista: T[], aleatorio: () => number): T[] {
   return copia
 }
 
+/** Os depoimentos de cada produto, na ordem da lista; os sem produto fazem um grupo deles. */
+function gruposPorProduto<T extends Depoimento>(lista: T[]): T[][] {
+  const grupos = new Map<string, T[]>()
+  for (const a of lista) {
+    const grupo = grupos.get(a.produtoHandle ?? "")
+    if (grupo) grupo.push(a)
+    else grupos.set(a.produtoHandle ?? "", [a])
+  }
+  return [...grupos.values()]
+}
+
 /**
  * Até `porProduto` de cada produto (as sem produto fazem um grupo delas),
  * sorteadas, e a lista toda embaralhada — os produtos se alternam na esteira.
@@ -81,16 +107,41 @@ export function sortearDaEsteira<T extends Depoimento>(
   porProduto: number,
   aleatorio: () => number
 ): T[] {
-  const grupos = new Map<string, T[]>()
-  for (const a of avaliacoes) {
-    const grupo = grupos.get(a.produtoHandle ?? "")
-    if (grupo) grupo.push(a)
-    else grupos.set(a.produtoHandle ?? "", [a])
-  }
-  const escolhidas = [...grupos.values()].flatMap((grupo) =>
+  const escolhidas = gruposPorProduto(avaliacoes).flatMap((grupo) =>
     embaralhar(grupo, aleatorio).slice(0, porProduto)
   )
   return embaralhar(escolhidas, aleatorio)
+}
+
+/**
+ * As DUAS FILEIRAS da esteira, como no protótipo: a primeira corre pra
+ * esquerda e a segunda pra direita (`.amam__esteira--volta`). O sorteio se
+ * reparte produto por produto, um cartão pra cada lado: cada fileira fica
+ * com a metade dos de cada produto, as duas com o mesmo tanto (uma com um a
+ * mais, no máximo), e a partir de dois cartões nenhuma fica vazia. Cada uma
+ * sai embaralhada de novo — repartidos assim, os produtos andariam em bloco.
+ */
+export function emDuasFileiras<T extends Depoimento>(
+  sorteio: T[],
+  aleatorio: () => number
+): [T[], T[]] {
+  const fileiras: [T[], T[]] = [[], []]
+  let lado = 0
+  for (const grupo of gruposPorProduto(sorteio))
+    for (const a of grupo) {
+      fileiras[lado].push(a)
+      lado = 1 - lado
+    }
+  return [embaralhar(fileiras[0], aleatorio), embaralhar(fileiras[1], aleatorio)]
+}
+
+/**
+ * `quantos` da lista, sorteados e em ordem sorteada — a lista inteira, se
+ * ela tiver menos. É o sorteio da página do produto: avaliação e trecho com
+ * a mesma chance, sem escolher "os melhores".
+ */
+export function sortear<T>(lista: T[], quantos: number, aleatorio: () => number): T[] {
+  return embaralhar(lista, aleatorio).slice(0, quantos)
 }
 
 /**
