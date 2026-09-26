@@ -28,8 +28,10 @@
  * │   que não chega no celular; o carrossel que baixa a arte do segundo    │
  * │   slide antes de ele aparecer; o slide sem descrição caindo; o banner  │
  * │   com faixa branca ou na altura antiga; a barrinha do carrossel cheia  │
- * │   com o slide parado, ou enchendo com o mouse em cima; as bolinhas em  │
- * │   cima da arte (cobriam o botão desenhado nela);                       │
+ * │   com o slide parado, ou enchendo com o mouse em cima; as bolinhas     │
+ * │   fora do canto de baixo à esquerda da arte (no meio, cobriam o botão  │
+ * │   desenhado nela; numa faixa embaixo, abriam um vão até a seção        │
+ * │   seguinte);                                                           │
  * │ • a imagem arrastada do computador que não sobe, ou o quadro que não   │
  * │   acende (ou não apaga) com o arquivo em cima;                         │
  * │ • o vídeo da história que não sobe pro painel, não chega na loja (ou   │
@@ -174,6 +176,39 @@ async function caixaDoBanner(pagina, n) {
       semCelular: Boolean(caixa?.classList.contains("banner-arte--sem-celular")),
     }
   }, n)
+}
+
+/**
+ * Onde as bolinhas do banner ficam, em px: POR CIMA da arte, no canto de baixo à esquerda (26/09).
+ * No meio, cobriam o botão desenhado na arte do celular; numa faixa embaixo dela, abriam um vão
+ * entre o banner e a seção de baixo (`vao`: o que o banner tem além da arte).
+ */
+async function ondeFicamAsBolinhas(pagina) {
+  return pagina.evaluate(() => {
+    const banner = document.querySelector(".banner-carrossel")?.getBoundingClientRect()
+    const arte = document.querySelector(".banner-carrossel__trilho")?.getBoundingClientRect()
+    const pontos = document.querySelector(".banner-carrossel__pontos")?.getBoundingClientRect()
+    return banner && arte && pontos
+      ? {
+          vao: Math.round(banner.bottom - arte.bottom),
+          daEsquerda: Math.round(pontos.left - arte.left),
+          deBaixo: Math.round(arte.bottom - pontos.bottom),
+          ateOMeio: Math.round(arte.left + arte.width / 2 - pontos.right),
+        }
+      : null
+  })
+}
+
+function bolinhasNoLugar(b) {
+  return (
+    b !== null &&
+    Math.abs(b.vao) <= 1 &&
+    b.daEsquerda >= 0 &&
+    b.daEsquerda <= 24 &&
+    b.deBaixo >= 0 &&
+    b.deBaixo <= 24 &&
+    b.ateOMeio > 0
+  )
 }
 
 /**
@@ -773,6 +808,12 @@ try {
       "no computador: o banner na altura nova, com a arte preenchendo (sem faixa branca)",
       JSON.stringify(bannerNoComputador)
     )
+    const bolinhasNoComputador = await ondeFicamAsBolinhas(vitrine.pagina)
+    ok(
+      bolinhasNoLugar(bolinhasNoComputador),
+      "no computador: as bolinhas por cima da arte, no canto de baixo à esquerda, e nenhum vão embaixo do banner",
+      JSON.stringify(bolinhasNoComputador)
+    )
     await vitrine.contexto.close()
 
     // No celular: o slide com a arte do celular na caixa nova (1080 × 1275), preenchendo; o sem
@@ -798,18 +839,11 @@ try {
       "no celular: a arte do celular preenche a caixa nova; sem ela, a do computador aparece inteira",
       JSON.stringify({ comArteDoCelular, semArteDoCelular })
     )
-    // As bolinhas numa faixa embaixo da arte: por cima, cobriam o botão desenhado nela.
-    const bolinhas = await cel.pagina.evaluate(() => {
-      const arte = document.querySelector(".banner-carrossel__trilho")?.getBoundingClientRect()
-      const pontos = document.querySelector(".banner-carrossel__pontos")?.getBoundingClientRect()
-      return arte && pontos
-        ? { arteAcaba: Math.round(arte.bottom), pontosComecam: Math.round(pontos.top) }
-        : null
-    })
+    const bolinhasNoCelular = await ondeFicamAsBolinhas(cel.pagina)
     ok(
-      bolinhas !== null && bolinhas.pontosComecam >= bolinhas.arteAcaba - 1,
-      "no celular: as bolinhas embaixo da arte, e não em cima dela",
-      JSON.stringify(bolinhas)
+      bolinhasNoLugar(bolinhasNoCelular),
+      "no celular: as bolinhas por cima da arte, no canto de baixo à esquerda, e nenhum vão entre o banner e a seção de baixo",
+      JSON.stringify(bolinhasNoCelular)
     )
     await cel.contexto.close()
 
