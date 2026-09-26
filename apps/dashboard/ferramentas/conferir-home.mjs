@@ -910,10 +910,15 @@ try {
 
     // O palco da Alta Performance no mesmo relógio. Ele fica lá embaixo: a barrinha começa quando
     // a pessoa chega nele (antes, era do CSS e já chegava cheia), o produto troca quando ela
-    // enche, e o mouse em cima segura. Aba nova, sem mexer o mouse até a hora.
-    const abaDoPalco = await novaAba({ width: 1280, height: 900 })
+    // enche, e o mouse em cima segura. Aba nova, sem mexer o mouse até a hora — e BAIXA, pro palco
+    // começar fora da tela: nesta home de teste (o banner e as ofertas em cima dele), numa aba de
+    // 900 px ele já aparece 22% ao abrir, e aí a barrinha começa na hora, como deve.
+    const abaDoPalco = await novaAba({ width: 1280, height: 600 })
     await abaDoPalco.pagina.goto(`${LOJA}/`)
     await hidratado(abaDoPalco.pagina, ".benefits__ponto")
+    const palcoForaDaTela = await abaDoPalco.pagina.evaluate(
+      () => document.querySelector(".benefits").getBoundingClientRect().top > innerHeight
+    )
     await esperar(3000)
     await abaDoPalco.pagina
       .locator(".benefits")
@@ -942,12 +947,14 @@ try {
         })
     )
     ok(
-      chegando.barra < 0.2 &&
+      palcoForaDaTela &&
+        chegando.barra < 0.2 &&
         trocaNoPalco.encheuEm !== null &&
         trocaNoPalco.trocouEm !== null &&
         trocaNoPalco.trocouEm - trocaNoPalco.encheuEm < 250,
       "na loja: o palco começa a barrinha quando a pessoa chega nele, e troca quando ela enche",
       JSON.stringify({
+        palcoForaDaTela,
         chegando,
         atraso:
           trocaNoPalco.trocouEm &&
