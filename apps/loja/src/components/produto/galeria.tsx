@@ -135,7 +135,15 @@ export function Galeria({
       montar(vez - 1, vez, vez + 1)
     }
     el.addEventListener("scroll", ver, { passive: true })
-    return () => el.removeEventListener("scroll", ver)
+    // O dedo pode ter arrastado antes do JavaScript chegar: a vez começa de onde o trilho está.
+    // (Na primeira foto não: aí a segunda espera a página carregar, logo abaixo.)
+    const quadro = requestAnimationFrame(() => {
+      if (el.scrollLeft > 0) ver()
+    })
+    return () => {
+      el.removeEventListener("scroll", ver)
+      cancelAnimationFrame(quadro)
+    }
   }, [total, montar])
 
   // A segunda foto entra quando a página termina de carregar: antes, dividiria a banda com a primeira.
@@ -191,8 +199,11 @@ export function Galeria({
     montar(i)
     const left =
       el.scrollLeft + alvoDaRolagem.getBoundingClientRect().left - el.getBoundingClientRect().left
-    if (naHora) el.scrollTo({ left, behavior: "instant" })
-    else el.scrollTo({ left })
+    if (!naHora) return el.scrollTo({ left })
+    // Na hora: o `scroll-behavior: smooth` do CSS sai só pra este pulo.
+    el.style.scrollBehavior = "auto"
+    el.scrollLeft = left
+    el.style.scrollBehavior = ""
   }
 
   function aoTeclarNoPalco(e: KeyboardEvent<HTMLDivElement>) {
