@@ -1186,7 +1186,8 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
 - [ ] Troca de domínio (fase 6). O que depende do endereço da loja: `NEXT_PUBLIC_SITE_URL` na
       Vercel, `STORE_CORS`/`AUTH_CORS` e `LOJA_URL` (revalidação, logo e links dos e-mails) no
       Railway (ele também diz ao Marketing de que endereço contar as visitas), `SITE_ORIGENS` no
-      Supabase, a indexação, e o domínio no Pagar.me se ele passar a exigir. Logo depois da troca,
+      Supabase, a indexação, o domínio no Pagar.me se ele passar a exigir, e o catálogo no Merchant
+      Center e na Meta (ver a seção da 0134). Logo depois da troca,
       o Claude Code roda o `conferir-enderecos-antigos.mjs` contra o domínio: todo endereço da loja
       antiga tem que abrir. E, nas semanas seguintes, o cartão "página que não existe" da
       Observabilidade mostra o link antigo que ainda faltar (vindo de fora).
@@ -2501,6 +2502,40 @@ Observabilidade → "Cartão", com zeros; a próxima compra no cartão aparece l
 - [ ] **Parte 2: a verificação invisível de robô** — o "não sou um robô" sem clicar em nada, no
       passo do pagamento (BotID, da Vercel, ou Turnstile, da Cloudflare). Com a Vercel no Pro, o
       BotID tem a análise profunda; decidir junto do plano.
+
+**O catálogo pro Google Shopping e pra Meta — pronto em 26/09 (entrega 0134).** Item 4 do
+levantamento do que a Nuvemshop faz e a loja nova não fazia: a Nuvemshop manda os produtos sozinha
+pro Google (Shopping) e pra Meta (o catálogo do Instagram e do Facebook). A loja nova não mandava
+nada — e, na virada, o anúncio de catálogo, o remarketing dinâmico e o Shopping parariam.
+
+- **O arquivo:** `https://<a loja>/catalogo.xml`, um arquivo só pros dois, com todos os produtos
+  publicados: nome, descrição, link, foto, preço (com o "de/por" da promoção), estoque (esgotado
+  aparece como esgotado), marca, SKU e a categoria do Google. Ele se atualiza sozinho quando um
+  produto, um preço ou o estoque mudam.
+- **O código de cada produto é o mesmo que o pixel da Meta e o Google já mandam** (`variant_…`): é
+  o que faz o anúncio mostrar o produto que a pessoa viu no site.
+- **A foto vai em JPEG** (a Meta não aceita WebP, que é o formato das fotos da loja), só a principal
+  — as artes com antes e depois derrubam conta de anúncio.
+- **Sem código de barras:** nenhum produto tem EAN cadastrado, e o arquivo diz isso pro Google (é o
+  aceito pra marca própria). Se os produtos tiverem EAN na embalagem, cadastrar melhora o Shopping.
+
+Conferido pelo `conferir-feed.mjs` (novo, 14 checagens: o XML lido como o Google lê, cada produto
+contra a API do Medusa, os links e as fotos abrindo em JPEG), pelos testes de unidade da foto (6
+novos) e pelo `next build` da loja (a rota sai pronta no build).
+
+Depois do deploy — **nada a configurar agora.** O arquivo só serve DEPOIS da virada: os links dele
+apontam pro endereço da loja, e o Google confere o preço nessa página.
+
+- [ ] **Na virada — você, no Google Merchant Center:** Produtos → Fontes de dados → Adicionar →
+      arquivo com busca programada, diária, no `https://www.fuckingbarba.com.br/catalogo.xml`. Se
+      a Nuvemshop manda os produtos pra lá hoje (o app Google Shopping), desligar a fonte dela no
+      mesmo dia, senão fica tudo em dobro. Em Envio: frete grátis a partir do piso da loja.
+- [ ] **Na virada — você, na Meta:** Gerenciador de Comércio → o catálogo → Fontes de dados →
+      Adicionar itens → Feed de dados → URL programada (a cada hora), no mesmo endereço; e em
+      Eventos, ligar o pixel 1284769389617301 a este catálogo. O catálogo que a Nuvemshop alimenta
+      usa outros códigos: desligar a integração dela.
+- [ ] Um dia depois das duas: olhar o Diagnóstico do Merchant Center e o da Meta — o Claude Code
+      lê os avisos e acerta o que for do arquivo.
 
 ## Como seguir no Claude Code
 
