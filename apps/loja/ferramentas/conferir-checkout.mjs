@@ -59,6 +59,7 @@
  * que acaba (que desliga e religa a promoção do óleo, esperando o job).
  */
 
+import { comAFaixaRespondida } from "./faixa-respondida.mjs"
 import { readFileSync } from "node:fs"
 import { chromium } from "playwright"
 import { SERVICOS, subirFrenetFalsa } from "./frenet-falsa.mjs"
@@ -320,6 +321,7 @@ async function faixasDoCarrinho(carrinhoId) {
 const navegador = await chromium.launch(
   process.env.CHROMIUM ? { executablePath: process.env.CHROMIUM } : {}
 )
+comAFaixaRespondida(navegador, LOJA)
 const contexto = await navegador.newContext({ viewport: MESA })
 const pagina = await contexto.newPage()
 

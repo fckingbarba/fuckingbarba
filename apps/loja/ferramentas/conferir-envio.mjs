@@ -55,6 +55,7 @@
  * └─────────────────────────────────────────────────────────────────────────┘
  */
 
+import { comAFaixaRespondida } from "./faixa-respondida.mjs"
 import { readFileSync } from "node:fs"
 import { isDeepStrictEqual } from "node:util"
 import { chromium } from "playwright"
@@ -924,6 +925,7 @@ titulo("Na conta")
 const navegador = await chromium.launch(
   process.env.CHROMIUM ? { executablePath: process.env.CHROMIUM } : {}
 )
+comAFaixaRespondida(navegador, LOJA)
 const errosDeConsole = []
 const contexto = await navegador.newContext({ viewport: { width: 1280, height: 900 } })
 const pagina = await contexto.newPage()

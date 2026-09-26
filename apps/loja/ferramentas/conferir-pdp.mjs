@@ -26,6 +26,7 @@
  * meio. Sem credencial de admin, ela é pulada.
  */
 
+import { comAFaixaRespondida } from "./faixa-respondida.mjs"
 import { readFileSync } from "node:fs"
 import { chromium } from "playwright"
 import { vigiarRecargaDoDev } from "./recarga-do-dev.mjs"
@@ -90,6 +91,7 @@ const normaliza = (s) =>
     .toLocaleUpperCase("pt-BR")
 
 const navegador = await chromium.launch(CROMO ? { executablePath: CROMO } : {})
+comAFaixaRespondida(navegador, LOJA)
 const contexto = await navegador.newContext({
   viewport: { width: 1440, height: 900 },
   extraHTTPHeaders: { "cache-control": "no-cache", pragma: "no-cache" },
