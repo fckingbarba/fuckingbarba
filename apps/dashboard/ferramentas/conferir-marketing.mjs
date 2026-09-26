@@ -10,8 +10,8 @@
  * Variáveis: as de `pecas.mjs`, e GA4_PROPERTY_ID, GA4_CREDENCIAIS e
  * GA4_API_URL do backend. Os pedidos são os do banco local: o conferidor
  * confere a conta por dentro (o gráfico soma o número de cima, o ticket é
- * a receita ÷ os pedidos, a conversão é pedidos ÷ visitas) — a regra de
- * cada número tem os testes de unidade do backend
+ * a receita ÷ os pedidos, a conversão é compras que o Google viu ÷ visitas)
+ * — a regra de cada número tem os testes de unidade do backend
  * (`lib/painel/__tests__/marketing.unit.spec.ts`).
  *
  * ┌─ O QUE ESTE ARQUIVO EXISTE PRA TRAVAR ─────────────────────────────────┐
@@ -22,6 +22,8 @@
  * │ • as visitas do período fora do que o Google contou, ou comparadas em  │
  * │   horas que ele ainda não somou; a pergunta sem o filtro do endereço   │
  * │   da loja (o Analytics é o mesmo do site antigo);                      │
+ * │ • a conversão com o pedido de quem recusou os cookies (ela divide as   │
+ * │   compras que o Google viu, no mesmo corte das visitas);               │
  * │ • a meta que não salva, não volta, ou aceita "abc";                    │
  * │ • o funil sem a maior perda, fora de ordem, ou contando o page_view;   │
  * │ • o produto sem as visitas das variantes dele, ou fora de ordem; a     │
@@ -117,6 +119,8 @@ const diaDoGa4 = (atras) => DIA.format(Date.now() - atras * DIA_MS).replace(/-/g
 const HORA_AGORA = Number(HORA.format(Date.now()))
 /** Quantas visitas por hora o dia de `atras` dias atrás tem (hoje: 5). */
 const porHora = (atras) => (atras === 0 ? 5 : 10 + atras)
+/** Quantas compras o Google viu às 10h do dia de `atras` dias atrás: uma nos ímpares, duas nos pares. */
+const comprasDe = (atras) => (atras % 2 ? 1 : 2)
 
 const google = await subirGoogleFalso({
   porta: Number(new URL(API).port),
@@ -136,6 +140,17 @@ google.dia = {
   origens: [],
   paginas: [],
   agora: 0,
+  // As compras que o Google viu (só de quem aceitou os cookies): às 10h de cada dia de antes;
+  // hoje, uma à meia-noite e cinco na hora de agora — essas cinco, fora do corte.
+  compras: [
+    ...Array.from({ length: 13 }, (_, i) => ({
+      dia: diaDoGa4(i + 1),
+      hora: "10",
+      compras: comprasDe(i + 1),
+    })),
+    { dia: diaDoGa4(0), hora: "00", compras: 1 },
+    { dia: diaDoGa4(0), hora: String(HORA_AGORA).padStart(2, "0"), compras: 5 },
+  ],
 }
 /**
  * As visitas de 7 dias que o backend tem que contar: os 6 dias inteiros de
@@ -146,6 +161,10 @@ const ATE = HORA_AGORA
 const SETE_DIAS = porHora(0) * ATE + [1, 2, 3, 4, 5, 6].reduce((s, a) => s + porHora(a) * 24, 0)
 const SETE_ANTES =
   porHora(7) * ATE + [8, 9, 10, 11, 12, 13].reduce((s, a) => s + porHora(a) * 24, 0)
+/** As compras dos mesmos 7 dias, no mesmo corte: a da meia-noite de hoje só com a hora já somada. */
+const SETE_COMPRAS = [1, 2, 3, 4, 5, 6].reduce((s, a) => s + comprasDe(a), 0) + (ATE > 0 ? 1 : 0)
+const SETE_COMPRAS_ANTES =
+  [8, 9, 10, 11, 12, 13].reduce((s, a) => s + comprasDe(a), 0) + (ATE > 10 ? comprasDe(7) : 0)
 
 const resend = await subirResend()
 const caixa = caixaDoResend(resend)
@@ -288,19 +307,21 @@ try {
       JSON.stringify(v).slice(0, 220)
     )
     ok(
-      v.visitas.valor
-        ? v.conversao.valor === Math.round((v.pedidos.valor / v.visitas.valor) * 10_000) / 100
-        : v.conversao.valor === null,
-      "a conversão é pedidos pagos ÷ visitas, no mesmo corte",
-      JSON.stringify(v.conversao)
+      v.estado === "ok" &&
+        v.pedidos.valor === SETE_COMPRAS &&
+        v.pedidos.antes === SETE_COMPRAS_ANTES,
+      `7 dias: ${SETE_COMPRAS} compras que o Google viu, contra ${SETE_COMPRAS_ANTES} — no mesmo corte das visitas`,
+      JSON.stringify(v.pedidos)
     )
     ok(
-      v.pedidos.valor <= r7.numeros.pedidos.valor,
-      "os pedidos da conversão param na hora das visitas (nunca mais que os do período)",
-      `${v.pedidos.valor} · ${r7.numeros.pedidos.valor}`
+      v.conversao.valor === Math.round((SETE_COMPRAS / SETE_DIAS) * 10_000) / 100 &&
+        v.conversao.antes === Math.round((SETE_COMPRAS_ANTES / SETE_ANTES) * 10_000) / 100,
+      "a conversão é compras que o Google viu ÷ visitas — as duas só de quem aceitou os cookies",
+      JSON.stringify(v.conversao)
     )
-    const pergunta = google.perguntas.filter((p) => p.tipo === "batchRunReports").at(-1)?.corpo
-      ?.requests?.[0]
+    const lote = google.perguntas.filter((p) => p.tipo === "batchRunReports").at(-1)
+      ?.corpo?.requests
+    const [pergunta, compras] = lote ?? []
     ok(
       pergunta?.dateRanges?.[0]?.startDate === "13daysAgo" &&
         pergunta?.dateRanges?.[0]?.endDate === "today" &&
@@ -308,6 +329,15 @@ try {
         (pergunta?.dimensionFilter?.filter?.inListFilter?.values ?? []).length > 0,
       "a pergunta: os 14 dias numa chamada, só do endereço da loja",
       JSON.stringify(pergunta).slice(0, 220)
+    )
+    ok(
+      lote?.length === 2 &&
+        compras?.metrics?.[0]?.name === "ecommercePurchases" &&
+        compras?.dimensionFilter?.filter?.fieldName === "transactionId" &&
+        compras?.dimensionFilter?.filter?.stringFilter?.value === "order_" &&
+        JSON.stringify(compras?.dateRanges) === JSON.stringify(pergunta?.dateRanges),
+      "as compras na mesma chamada, nas mesmas datas, só as da loja (pelo id do pedido)",
+      JSON.stringify(compras).slice(0, 220)
     )
     const hoje = (
       await medusa("/dashboard/marketing/visitas?periodo=hoje", {
@@ -322,6 +352,12 @@ try {
         hoje.ate === ATE,
       "hoje: contra ontem até a mesma hora",
       JSON.stringify(hoje).slice(0, 200)
+    )
+    ok(
+      hoje.pedidos?.valor === (ATE > 0 ? 1 : 0) &&
+        hoje.pedidos?.antes === (ATE > 10 ? comprasDe(1) : 0),
+      "hoje: as compras da hora que o Google ainda está somando ficam de fora",
+      JSON.stringify(hoje.pedidos)
     )
   }
 
@@ -360,10 +396,22 @@ try {
       "no “7 dias”: o gráfico de 7 barras e as visitas do Google",
       await textoDe(pagina, '[data-kpi="visitas"]')
     )
+    const conversao = Math.round((SETE_COMPRAS / SETE_DIAS) * 10_000) / 100
     ok(
-      /%|—/.test(await textoDe(pagina, '[data-kpi="conversao"] .kpi__valor')),
-      "a conversão aparece",
+      semEspaco(await textoDe(pagina, '[data-kpi="conversao"] .kpi__valor')) ===
+        `${conversao.toFixed(2).replace(".", ",")}%`,
+      "a conversão da tela é a das compras que o Google viu ÷ visitas",
       await textoDe(pagina, '[data-kpi="conversao"]')
+    )
+    const ajuda = (await pagina.locator('[data-kpi="conversao"]').getAttribute("title")) ?? ""
+    ok(
+      ajuda.includes(
+        `${INTEIRO.format(SETE_COMPRAS)} pedidos em ${INTEIRO.format(SETE_DIAS)} visitas`
+      ) &&
+        /aceitou os cookies/.test(ajuda) &&
+        /aceitou/.test(await textoDe(pagina, ".glossario")),
+      "a ajuda da conversão diz a conta, e ela e o glossário dizem que é só de quem aceitou os cookies",
+      ajuda || "(sem ajuda)"
     )
   }
 

@@ -53,10 +53,11 @@ export async function subirGoogleFalso({
     demora: 0,
     /**
      * O dia, como o GA4 contaria: `horas` ({ dia: "20260924", hora: "08", visitas }),
-     * `origens` ({ fonte, meio, visitas }), `paginas` ({ caminho, vistas }) e
-     * `agora` (quem está no site).
+     * `origens` ({ fonte, meio, visitas }), `paginas` ({ caminho, vistas }),
+     * `agora` (quem está no site) e `compras` ({ dia, hora, compras }: as
+     * compras da loja por dia e hora, as da conversão do Resumo).
      */
-    dia: { horas: [], origens: [], paginas: [], agora: 0 },
+    dia: { horas: [], origens: [], paginas: [], agora: 0, compras: [] },
     /**
      * O Marketing (o Funil e os Canais): as sessões do período (`sessoes`),
      * as sessões com cada evento (`eventos`: { view_item: 600, … }), as
@@ -168,6 +169,10 @@ export async function subirGoogleFalso({
         metricas === "sessions"
           ? m.origens.map((o) => linha([o.fonte, o.meio, o.campanha], o.visitas))
           : m.vendas.map((v) => linha([v.fonte, v.meio, v.campanha], v.pedidos, v.receita))
+    else if (dims === "date,hour" && metricas === "ecommercePurchases")
+      rows = (painel.dia.compras ?? [])
+        .filter((c) => c.dia >= de && c.dia <= ate)
+        .map((c) => linha([c.dia, c.hora], c.compras))
     else if (dims === "date,hour")
       rows = painel.dia.horas
         .filter((h) => h.dia >= de && h.dia <= ate)
