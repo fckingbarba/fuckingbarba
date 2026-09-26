@@ -5,6 +5,12 @@ import {
   type PedidoPagarme,
   type TransacaoPagarme,
 } from "./client"
+import {
+  lerEstado as lerEstadoNaChave,
+  type Estado,
+  type Situacao,
+} from "../../lib/pagamento/estado"
+import { PAGARME } from "../../lib/pagamento/parceiros"
 import type { EntradaDaLoja, Forma } from "./pedido"
 
 /**
@@ -42,60 +48,17 @@ import type { EntradaDaLoja, Forma } from "./pedido"
  * └─────────────────────────────────────────────────────────────────────────┘
  */
 
-export type Situacao =
-  /** Sessão aberta, nada enviado ao Pagar.me ainda. */
-  | "nova"
-  /** Pix gerado, esperando o pagamento. */
-  | "aguardando"
-  /**
-   * Cartão autorizado, com o valor só RESERVADO: esperando a análise de
-   * fraude (ou, aprovada, a cobrança) — pode virar pago ou recusado. Ver
-   * "A ANÁLISE ANTES DA COBRANÇA", lá embaixo.
-   */
-  | "analise"
-  | "pago"
-  /** Cartão não autorizado (banco ou antifraude). */
-  | "recusado"
-  /** Não deu pra criar a cobrança (Pix fora do ar, dado inválido). */
-  | "falhou"
-  | "cancelado"
-  | "estornado"
-  /**
-   * A criação sumiu no caminho (rede, 5xx) e a gente NÃO SABE se o Pagar.me
-   * cobrou. A conciliação procura pelo código e estorna o que achar.
-   */
-  | "incerto"
-  /**
-   * O PEDIDO FOI CANCELADO AQUI, e a reserva do cartão ainda não foi desfeita
-   * lá (o `DELETE` respondeu 412, ou não respondeu). A sessão continua
-   * pendente, e a conciliação tenta de novo a cada rodada. Enquanto isso, o
-   * cartão NUNCA é cobrado: sem esta marca, a análise que aprovasse depois
-   * (o aviso `charge.antifraud_approved`, ou o "Check status" do admin) cobrava
-   * a compra de um pedido que não existe mais — e o dinheiro aparecia e
-   * sumia da fatura (ver `authorizePayment`).
-   */
-  | "cancelando"
+/*
+ * A SITUAÇÃO E O ESTADO moram em `lib/pagamento/estado.ts`: são a língua
+ * comum de todo parceiro de pagamento, não só do Pagar.me — a tela, os
+ * e-mails e o painel leem o mesmo formato de qualquer um
+ * (`lib/pagamento/parceiros.ts`). Continuam saindo daqui também, pra quem
+ * já importava deste arquivo.
+ */
+export type { Estado, Situacao }
 
-/** O que fica em `data.pagarme`. Sempre com todas as chaves — ver a caixa acima. */
-export type Estado = {
-  forma: Forma
-  situacao: Situacao
-  /** Centavos. Antes de autorizar, o da sessão; depois, o do pedido no Pagar.me. */
-  valor: number
-  /** `or_…` — o pedido no Pagar.me. */
-  pedido: string | null
-  /** `ch_…` — é nela que se cancela e estorna. */
-  cobranca: string | null
-  parcelas: number
-  pix: { copiaECola: string; imagem: string; expiraEm: string } | null
-  cartao: { bandeira: string; final: string } | null
-  /** O que dizer pra quem teve o pagamento recusado. Frase pronta. */
-  recusa: string | null
-  /** Centavos já devolvidos. */
-  estornado: number
-}
-
-export const CHAVE = "pagarme"
+/** Onde o Pagar.me grava o estado na sessão (`data.pagarme`): a do registro dos parceiros. */
+export const CHAVE = PAGARME.chave
 export const CHAVE_DA_ENTRADA = "entrada"
 
 export function estadoNovo(forma: Forma, valor: number, parcelas: number): Estado {
@@ -118,25 +81,9 @@ export function gravar(estado: Estado, entrada: EntradaDaLoja | null = null) {
   return { [CHAVE]: estado, [CHAVE_DA_ENTRADA]: entrada }
 }
 
-/** O estado gravado na sessão, ou null se a sessão não é nossa. */
+/** O estado gravado numa sessão do Pagar.me, ou null se não há um em `data.pagarme`. */
 export function lerEstado(data: Record<string, unknown> | null | undefined): Estado | null {
-  const d = data?.[CHAVE]
-  if (!d || typeof d !== "object") return null
-  const e = d as Partial<Estado>
-  if (e.forma !== "pix" && e.forma !== "cartao") return null
-  const texto = (v: unknown) => (typeof v === "string" && v ? v : null)
-  return {
-    forma: e.forma,
-    situacao: (e.situacao ?? "nova") as Situacao,
-    valor: Number(e.valor ?? 0),
-    pedido: texto(e.pedido),
-    cobranca: texto(e.cobranca),
-    parcelas: Number(e.parcelas ?? 1),
-    pix: e.pix && typeof e.pix === "object" ? e.pix : null,
-    cartao: e.cartao && typeof e.cartao === "object" ? e.cartao : null,
-    recusa: texto(e.recusa),
-    estornado: Number(e.estornado ?? 0),
-  }
+  return lerEstadoNaChave(data, CHAVE)
 }
 
 /* ── as frases ────────────────────────────────────────────────────────────── */
