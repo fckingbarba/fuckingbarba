@@ -346,6 +346,8 @@ export type DetalheDoProduto = LinhaDoProduto & {
   nomeNoBling: string | null
   subtitulo: string
   descricao: string
+  /** O que o Google mostra embaixo do nome (`fb_pdp.seo`); vazio: o começo da descrição. */
+  descricaoGoogle: string
   peso: number | null
   categoriaId: string | null
   fotos: string[]
@@ -386,6 +388,7 @@ export function detalheDoProduto(
     nomeNoBling: nomeNoErp(p.metadata),
     subtitulo: (p.subtitle ?? "").trim(),
     descricao: (p.description ?? "").trim(),
+    descricaoGoogle: pdp.seo?.descricao ?? "",
     peso: Number.isFinite(peso) && peso > 0 ? peso : null,
     categoriaId: p.categories?.[0]?.id ?? null,
     fotos,

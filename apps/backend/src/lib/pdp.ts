@@ -90,7 +90,17 @@ export type ConteudoDaPdp = {
   promessa?: { chapeu: string; titulo: string; itens: string[]; rodape?: string }
   tempo?: { titulo: string; passos: PassoDoTempo[]; aviso?: string }
   faixa?: { chapeu: string; titulo: string; texto: string; chamada: string; fotoDe: string }
-  rotina?: { titulo: string; itens: ItemDaRotina[] }
+  rotina?: {
+    titulo: string
+    itens: ItemDaRotina[]
+    /**
+     * O passo DESTE produto na rotina ("Passo 3 · hidrata") e pra que ele
+     * serve nela. Sem eles, a loja usa os do Fator, que foi o primeiro
+     * produto com rotina ("Passo 2 · trata").
+     */
+    passoDeste?: string
+    paraDeste?: string
+  }
   funciona?: {
     comoTitulo: string
     comoFotoDe: string
@@ -101,6 +111,13 @@ export type ConteudoDaPdp = {
     dica?: string
     /** Com vídeo, ele entra no lugar da foto do modo de uso. */
     usoVideo?: VideoDaPdp
+    /**
+     * A foto exata de cada caixa, do armazenamento da loja. Sem ela, a loja
+     * mostra a 2ª foto do produto de `comoFotoDe`/`usoFotoDe` — que pode ser
+     * uma arte de anúncio, com texto por cima.
+     */
+    comoFoto?: string
+    usoFoto?: string
   }
   versus?: {
     titulo: string
@@ -214,7 +231,15 @@ export type Pdp = {
   combinada: VendaCombinada
   /** Os vídeos da galeria da dobra (as fotos são as do produto). */
   videos: VideoDaGaleria[]
+  /**
+   * O que o Google mostra embaixo do nome do produto (a `meta description`).
+   * Sem ela, a loja tira um pedaço da descrição que vem do Bling.
+   */
+  seo?: { descricao: string }
 }
+
+/** A descrição do Google corta perto disso; mais que isso some com "…". */
+export const LIMITE_DA_DESCRICAO = 160
 
 export const PDP_VAZIA: Pdp = { conteudo: {}, layout: {}, fundos: {}, combinada: {}, videos: [] }
 
@@ -301,7 +326,14 @@ function lerRotina(v: unknown): ConteudoDaPdp["rotina"] {
     })
     .filter((i): i is ItemDaRotina => i !== null)
   if (!titulo || !itens.length) return undefined
-  return { titulo, itens }
+  const passoDeste = txt(o.passoDeste)
+  const paraDeste = txt(o.paraDeste)
+  return {
+    titulo,
+    itens,
+    ...(passoDeste ? { passoDeste } : {}),
+    ...(paraDeste ? { paraDeste } : {}),
+  }
 }
 
 function lerFunciona(v: unknown): ConteudoDaPdp["funciona"] {
@@ -317,6 +349,8 @@ function lerFunciona(v: unknown): ConteudoDaPdp["funciona"] {
     return undefined
   }
   const usoVideo = lerVideo(o.usoVideo)
+  const comoFoto = lerImagem(o.comoFoto)
+  const usoFoto = lerImagem(o.usoFoto)
   return {
     comoTitulo,
     comoFotoDe,
@@ -326,6 +360,8 @@ function lerFunciona(v: unknown): ConteudoDaPdp["funciona"] {
     usoPassos,
     ...(txt(o.dica) ? { dica: txt(o.dica)! } : {}),
     ...(usoVideo ? { usoVideo } : {}),
+    ...(comoFoto ? { comoFoto } : {}),
+    ...(usoFoto ? { usoFoto } : {}),
   }
 }
 
@@ -568,13 +604,23 @@ export function lerPdp(metadata: unknown): Pdp {
     if (valor) Object.assign(conteudo, { [nome]: valor })
   }
 
+  const seo = lerSeo(o.seo)
   return {
     conteudo,
     layout: lerLayout(o.layout),
     fundos: lerFundos(o.fundos),
     combinada: lerCombinada(o.combinada),
     videos: lerVideos(o.videos),
+    ...(seo ? { seo } : {}),
   }
+}
+
+/** A descrição do Google numa linha só, sem espaço sobrando, até o limite. */
+export function lerSeo(v: unknown): Pdp["seo"] {
+  const bruto = obj(v)?.descricao
+  if (typeof bruto !== "string") return undefined
+  const descricao = bruto.replace(/\s+/g, " ").trim().slice(0, LIMITE_DA_DESCRICAO).trim()
+  return descricao ? { descricao } : undefined
 }
 
 /* ── uma seção de cada vez: o editor do painel ────────────────────────────
@@ -701,7 +747,8 @@ export function lerSecao(
 
 /**
  * Os endereços de imagem e de vídeo que uma seção salva carrega — as fotos
- * dos casos de antes e depois, o vídeo do modo de uso e a capa dele. A rota
+ * dos casos de antes e depois; o vídeo do modo de uso, a capa dele e as fotos
+ * escolhidas pra "como funciona" e pro modo de uso. A rota
  * confere que cada um mora no armazenamento da loja antes de gravar.
  */
 export function urlsDaSecao(chave: ChaveDeConteudo, secao: unknown): string[] {
@@ -710,8 +757,11 @@ export function urlsDaSecao(chave: ChaveDeConteudo, secao: unknown): string[] {
     return casos.flatMap((c) => [c.antes, c.depois])
   }
   if (chave === "funciona") {
-    const v = (secao as ConteudoDaPdp["funciona"])?.usoVideo
-    return v ? [v.url, v.poster] : []
+    const f = secao as ConteudoDaPdp["funciona"]
+    const v = f?.usoVideo
+    return [...(v ? [v.url, v.poster] : []), f?.comoFoto, f?.usoFoto].filter((u): u is string =>
+      Boolean(u)
+    )
   }
   return []
 }

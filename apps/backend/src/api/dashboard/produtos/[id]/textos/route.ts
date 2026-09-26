@@ -2,17 +2,21 @@ import type { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/frame
 import { exigirArea, type PedidoDaEquipe } from "../../../../../lib/equipe/acesso"
 import { MARCA_DO_NOME, nomeNoErp, temNomeDaLoja } from "../../../../../lib/erp/marcas"
 import { anotar } from "../../../../../lib/painel/anotar"
-import { mudarProduto } from "../../../../../lib/painel/gravar-produto"
+import { mudarPdp, mudarProduto } from "../../../../../lib/painel/gravar-produto"
 import { lerCategorias } from "../../../../../lib/painel/ler-produtos"
 import { lerNome, mudancaDoNome } from "../../../../../lib/painel/produtos"
+import { LIMITE_DA_DESCRICAO, lerSeo } from "../../../../../lib/pdp"
 
 /** A linha embaixo do nome: curta, uma frase. */
 const LIMITE_DO_SUBTITULO = 120
 
 /**
- * POST /dashboard/produtos/:id/textos — `{ nome, subtitulo, categoriaId }`:
- * o nome da loja, o subtítulo (a linha embaixo do nome) e a categoria do
- * produto. A descrição vem do Bling e não se muda aqui. Dono e marketing.
+ * POST /dashboard/produtos/:id/textos — `{ nome, subtitulo, categoriaId,
+ * descricaoGoogle }`: o nome da loja, o subtítulo (a linha embaixo do nome),
+ * a categoria do produto e o que o Google mostra embaixo do nome (a `meta
+ * description`, no `fb_pdp.seo`; vazia, a loja usa o começo da descrição). A
+ * descrição vem do Bling e não se muda aqui. Dono e marketing. Sem
+ * `descricaoGoogle` no corpo, ela não muda.
  *
  * O NOME é o da loja: mudado aqui, ele ganha a marca `fb_nome`, e a
  * importação do Bling não troca mais (o Bling segue com o dele — a nota, os
@@ -20,13 +24,19 @@ const LIMITE_DO_SUBTITULO = 120
  * corpo, o nome não muda.
  *
  * RESPOSTAS: 200 `{ lojaAvisada }`; 400 `nome_vazio`, `nome_longo`,
- * `subtitulo_longo` ou `categoria_invalida`; 404 `nao_encontrado`.
+ * `subtitulo_longo`, `descricao_longa` ou `categoria_invalida`; 404
+ * `nao_encontrado`.
  */
 export async function POST(req: AuthenticatedMedusaRequest, res: MedusaResponse) {
   const pedido = req as PedidoDaEquipe
   if (!exigirArea(pedido, res, "editarProdutos")) return
 
-  const corpo = (req.body ?? {}) as { nome?: unknown; subtitulo?: unknown; categoriaId?: unknown }
+  const corpo = (req.body ?? {}) as {
+    nome?: unknown
+    subtitulo?: unknown
+    categoriaId?: unknown
+    descricaoGoogle?: unknown
+  }
   let nome: string | null = null
   if (corpo.nome !== undefined) {
     const lido = lerNome(corpo.nome)
@@ -40,6 +50,16 @@ export async function POST(req: AuthenticatedMedusaRequest, res: MedusaResponse)
     typeof corpo.subtitulo === "string" ? corpo.subtitulo.replace(/\s+/g, " ").trim() : ""
   if (subtitulo.length > LIMITE_DO_SUBTITULO) {
     res.status(400).json({ message: "subtitulo_longo" })
+    return
+  }
+  const descricaoGoogle =
+    corpo.descricaoGoogle === undefined
+      ? undefined
+      : typeof corpo.descricaoGoogle === "string"
+        ? corpo.descricaoGoogle.replace(/\s+/g, " ").trim()
+        : ""
+  if (descricaoGoogle && descricaoGoogle.length > LIMITE_DA_DESCRICAO) {
+    res.status(400).json({ message: "descricao_longa" })
     return
   }
   const categoriaId =
@@ -80,9 +100,20 @@ export async function POST(req: AuthenticatedMedusaRequest, res: MedusaResponse)
     res.status(404).json({ message: r.motivo })
     return
   }
+  let lojaAvisada = r.lojaAvisada
+  if (descricaoGoogle !== undefined) {
+    const d = await mudarPdp(req.scope, req.params.id, (pdp) => {
+      // Vazia, sai: a loja volta pro começo da descrição do Bling.
+      const seo = lerSeo({ descricao: descricaoGoogle })
+      const semSeo = { ...pdp }
+      delete semSeo.seo
+      return { ok: true, pdp: seo ? { ...semSeo, seo } : semSeo }
+    })
+    if (d.ok) lojaAvisada = lojaAvisada && d.lojaAvisada
+  }
   await anotar(pedido, "editou-textos", req.params.id, {
     categoria: categoriaId,
     ...(nomeNovo ? { nome: nomeNovo } : {}),
   })
-  res.json({ lojaAvisada: r.lojaAvisada })
+  res.json({ lojaAvisada })
 }

@@ -1,4 +1,12 @@
-import { faltandoNaSecao, lerPdp, lerSecao, lerVideo, urlsDaSecao } from "../pdp"
+import {
+  faltandoNaSecao,
+  LIMITE_DA_DESCRICAO,
+  lerPdp,
+  lerSecao,
+  lerSeo,
+  lerVideo,
+  urlsDaSecao,
+} from "../pdp"
 
 /**
  * A página do produto (`fb_pdp`) como a loja e o painel leem: o que passa,
@@ -206,5 +214,69 @@ describe("o antes e depois", () => {
     expect(faltandoNaSecao("antesDepois", { titulo: "Resultados", casos: [] })).toEqual(["casos"])
     const { secao } = lerSecao("antesDepois", { casos: [caso] })
     expect(urlsDaSecao("antesDepois", secao)).toEqual([FOTO, `${FOTO}?d`])
+  })
+})
+
+describe("a rotina: o passo do produto da página", () => {
+  const rotina = {
+    titulo: "A rotina",
+    itens: [{ handle: "shampoo", passo: "Passo 1 · limpa", para: "Limpa." }],
+  }
+
+  it("entra quando vem; sem ele, a loja usa o do Fator", () => {
+    const com = pdp({
+      conteudo: { rotina: { ...rotina, passoDeste: " Passo 3 · hidrata ", paraDeste: "Gotas." } },
+    })
+    expect(com.conteudo.rotina).toEqual({
+      ...rotina,
+      passoDeste: "Passo 3 · hidrata",
+      paraDeste: "Gotas.",
+    })
+    expect(pdp({ conteudo: { rotina } }).conteudo.rotina).toEqual(rotina)
+    // Não é obrigatório: a seção sem ele não fica pela metade.
+    expect(faltandoNaSecao("rotina", rotina)).toEqual([])
+  })
+})
+
+describe("as fotos de “como funciona” e do modo de uso", () => {
+  const funciona = {
+    comoTitulo: "Como",
+    comoFotoDe: "oleo",
+    comoTexto: ["Um"],
+    usoTitulo: "Uso",
+    usoFotoDe: "oleo",
+    usoPassos: ["Passo"],
+  }
+
+  it("a escolhida entra, e a rota confere que ela mora no armazenamento", () => {
+    const { secao } = lerSecao("funciona", { ...funciona, comoFoto: FOTO, usoFoto: `${FOTO}?u` })
+    expect(secao).toMatchObject({ comoFoto: FOTO, usoFoto: `${FOTO}?u` })
+    expect(urlsDaSecao("funciona", secao)).toEqual([FOTO, `${FOTO}?u`])
+  })
+
+  it("endereço que não é de imagem sai; sem foto escolhida, a seção vale do mesmo jeito", () => {
+    const { conteudo } = pdp({ conteudo: { funciona: { ...funciona, comoFoto: "javascript:x" } } })
+    expect(conteudo.funciona).toEqual(funciona)
+    expect(urlsDaSecao("funciona", conteudo.funciona)).toEqual([])
+  })
+})
+
+describe("a descrição do Google", () => {
+  it("numa linha só, até o limite; vazia não existe", () => {
+    expect(lerSeo({ descricao: "  Óleo para barba\n com   argan. " })).toEqual({
+      descricao: "Óleo para barba com argan.",
+    })
+    expect(lerSeo({ descricao: "x".repeat(LIMITE_DA_DESCRICAO + 30) })?.descricao).toHaveLength(
+      LIMITE_DA_DESCRICAO
+    )
+    expect(lerSeo({ descricao: "   " })).toBeUndefined()
+    expect(lerSeo("texto solto")).toBeUndefined()
+  })
+
+  it("mora no fb_pdp, e a página sem ela não ganha a chave", () => {
+    expect(pdp({ seo: { descricao: "Balm para barba." } }).seo).toEqual({
+      descricao: "Balm para barba.",
+    })
+    expect("seo" in pdp({ conteudo: {} })).toBe(false)
   })
 })
