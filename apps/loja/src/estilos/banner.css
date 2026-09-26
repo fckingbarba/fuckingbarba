@@ -62,10 +62,14 @@
   O CARROSSEL — o banner com mais de um slide. O trilho é rolagem com
   encaixe, de ponta a ponta (o dedo arrasta sem JavaScript); cada slide
   ocupa a largura inteira e estica até o mais alto (arte com e sem a do
-  celular), pra nada pular na troca. As setas ficam por cima, só onde tem mouse; as bolinhas, embaixo,
-  numa pílula escura que não some em cima de arte clara nem de arte escura.
+  celular), pra nada pular na troca. As setas ficam por cima, só onde tem mouse.
+
+  As bolinhas ficam EMBAIXO da arte, numa faixa escura, e não em cima dela
+  (26/09): a pílula de antes cobria o botão desenhado na arte do celular. A
+  faixa é da cor da barra de vantagens, que vem logo depois na home.
 */
 .banner-carrossel {
+  --faixa-dos-pontos: 24px;
   position: relative;
   background: #ffffff;
 }
@@ -92,7 +96,8 @@
 }
 .banner-carrossel__seta {
   position: absolute;
-  top: 50%;
+  /* No meio da arte, sem contar a faixa das bolinhas. */
+  top: calc((100% - var(--faixa-dos-pontos)) / 2);
   z-index: 3;
   display: grid;
   place-items: center;
@@ -126,48 +131,44 @@
   right: 14px;
 }
 .banner-carrossel__pontos {
-  position: absolute;
-  left: 50%;
-  bottom: 12px;
-  z-index: 3;
   display: flex;
+  justify-content: center;
   gap: 6px;
-  padding: 6px 10px;
-  transform: translateX(-50%);
-  background: rgb(18 24 31 / 0.55);
+  height: var(--faixa-dos-pontos);
+  background: #070a09;
 }
 .banner-carrossel__ponto {
   width: 34px;
-  height: 12px;
-  padding: 4px 0;
+  height: 100%;
+  padding: 10px 0;
   border: none;
   background: none;
   cursor: pointer;
 }
 .banner-carrossel__ponto:focus-visible {
-  outline: 3px solid var(--color-amarelo);
-  outline-offset: 2px;
+  outline: 2px solid var(--color-amarelo);
+  outline-offset: -2px;
 }
 .banner-carrossel__ponto-barra {
   position: relative;
   display: block;
   height: 4px;
   overflow: hidden;
-  background: rgb(255 255 255 / 0.45);
+  background: rgb(255 255 255 / 0.3);
 }
-.banner-carrossel__ponto-barra::after {
-  content: "";
+/*
+  A parte que enche. Quem anima é o carrossel (`Element.animate`), e a troca
+  acontece quando ela termina de encher — o CSS só diz como ela começa.
+*/
+.banner-carrossel__ponto-cheia {
   position: absolute;
   inset: 0;
-  background: #ffffff;
+  background: var(--color-amarelo);
   transform: scaleX(0);
   transform-origin: left;
 }
-.banner-carrossel__ponto[aria-current="true"] .banner-carrossel__ponto-barra::after {
-  animation: ponto-enche var(--passo, 7000ms) linear forwards;
-}
-.banner-carrossel[data-parado] .banner-carrossel__ponto[aria-current="true"] .banner-carrossel__ponto-barra::after {
-  animation: none;
+/* Sem troca sozinha, a da vez fica cheia. */
+.banner-carrossel[data-parado] .banner-carrossel__ponto[aria-current="true"] .banner-carrossel__ponto-cheia {
   transform: scaleX(1);
 }
 /* Sem mouse, sem seta: o dedo arrasta, e as bolinhas ficam. */
@@ -180,8 +181,7 @@
   .banner-carrossel__trilho {
     scroll-behavior: auto;
   }
-  .banner-carrossel__ponto[aria-current="true"] .banner-carrossel__ponto-barra::after {
-    animation: none;
+  .banner-carrossel__ponto[aria-current="true"] .banner-carrossel__ponto-cheia {
     transform: scaleX(1);
   }
 }
