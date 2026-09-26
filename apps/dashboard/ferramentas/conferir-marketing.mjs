@@ -29,6 +29,10 @@
  * │ • o canal que soma errado, o anúncio junto da busca, as compras do     │
  * │   site antigo entrando (o filtro é o id do pedido), o link de campanha │
  * │   com acento ou sem a página;                                          │
+ * │ • a primeira compra e a volta fora dos pedidos do Resumo (ou passando  │
+ * │   de 100%), o estado que não soma a receita, a newsletter diferente;   │
+ * │ • o Pix ou o cartão fora da conta (a tentativa sem motivo, os pagos    │
+ * │   fora dos pedidos do Resumo), o atalho do frete pra quem não é dono;  │
  * │ • o Google fora quebrando a tela; dado de cliente na resposta;         │
  * │ • rolagem de lado no celular; erro no console.                         │
  * └────────────────────────────────────────────────────────────────────────┘
@@ -91,6 +95,12 @@ const REAIS = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL
 const reais = (v) => REAIS.format(v).replace(/\s/g, " ")
 const centavos = (v) => Math.round(v * 100) / 100
 const perto = (a, b) => Math.abs(a - b) < 0.011
+/** A aba acesa inteira à vista na fileira (no celular a fileira rola de lado). */
+const abaAcesaAVista = () => {
+  const n = document.querySelector(".abas")?.getBoundingClientRect()
+  const a = document.querySelector('.abas [aria-current="page"]')?.getBoundingClientRect()
+  return Boolean(n && a && a.left >= n.left - 1 && a.right <= n.right + 1)
+}
 
 /* ── o Google falso: 14 dias inteiros e o hoje até agora ─────────────────── */
 
@@ -788,11 +798,222 @@ try {
       "a tela: a caixa de cada produto, os quatro números e os cupons"
     )
     ok(
-      (await pagina.locator(".abas a[data-aba]").count()) === 5 &&
+      (await pagina.locator(".abas a[data-aba]").count()) === 7 &&
         (await pagina.locator('.abas a[aria-current="page"]').getAttribute("data-aba")) ===
           "ofertas",
-      "as cinco abas, com a das ofertas acesa"
+      "as sete abas, com a das ofertas acesa"
     )
+  }
+
+  titulo("Os Clientes")
+  {
+    const r = await medusa("/dashboard/marketing/clientes?periodo=30d", {
+      metodo: "GET",
+      token: tokenDoDono,
+    })
+    const c = r.corpo
+    const resumo30 = (
+      await medusa("/dashboard/marketing?periodo=30d", { metodo: "GET", token: tokenDoDono })
+    ).corpo
+    const pedidos = resumo30.numeros.pedidos.valor
+    ok(
+      r.status === 200 &&
+        c.periodo === "30d" &&
+        c.primeira.pedidos + c.voltaram.pedidos === pedidos &&
+        (pedidos
+          ? c.primeira.parte + c.voltaram.parte === 100
+          : c.primeira.parte === null && c.voltaram.parte === null),
+      "a primeira compra e a volta: os pedidos do Resumo, em partes que somam 100%",
+      JSON.stringify([c.primeira, c.voltaram, pedidos])
+    )
+    ok(
+      c.primeira.pedidos <= c.compraram && c.compraram <= pedidos,
+      "quem comprou: uma pessoa por primeira compra, no máximo uma por pedido",
+      JSON.stringify([c.compraram, c.primeira.pedidos, pedidos])
+    )
+    ok(
+      c.estados.reduce((s, e) => s + e.pedidos, 0) === pedidos &&
+        perto(
+          c.estados.reduce((s, e) => s + e.receita, 0),
+          resumo30.numeros.receita.valor
+        ) &&
+        c.estados.length <= 9 &&
+        c.estados
+          .filter((e) => !e.uf.startsWith("Outros"))
+          .every((e, i, l) => i === 0 || l[i - 1].receita >= e.receita),
+      "por estado: somam os pedidos e a receita do Resumo, do que mais vendeu pro que menos",
+      JSON.stringify(c.estados).slice(0, 300)
+    )
+    ok(
+      c.segunda === null || (c.segunda.dias >= 0 && c.segunda.pessoas >= 1),
+      "a 2ª compra: em dias, de quem voltou",
+      JSON.stringify(c.segunda)
+    )
+    const newsletter = (
+      await medusa("/dashboard/newsletter", { metodo: "GET", token: tokenDoDono })
+    ).corpo
+    ok(
+      c.newsletter.total === newsletter.numeros?.total &&
+        c.newsletter.semana === newsletter.numeros?.semana,
+      "a newsletter: os números da tela dela",
+      JSON.stringify([c.newsletter, newsletter.numeros])
+    )
+    ok(!JSON.stringify(c).includes("@"), "nenhum e-mail de cliente na resposta")
+    const daOperacao = await medusa("/dashboard/marketing/clientes", {
+      metodo: "GET",
+      token: cookieOp.value,
+    })
+    const doMkt = await medusa("/dashboard/marketing/clientes", {
+      metodo: "GET",
+      token: cookieMkt.value,
+    })
+    ok(
+      daOperacao.status === 403 && doMkt.status === 200,
+      "a operação não abre os clientes do Marketing (403); o marketing abre",
+      `${daOperacao.status} · ${doMkt.status}`
+    )
+
+    const { pagina } = dono
+    await pagina.goto(`${PAINEL}/marketing/clientes?periodo=30d`)
+    await pagina.waitForSelector("[data-numeros-dos-clientes]", { timeout: 20000 })
+    const parte = (v) => (v === null ? "—" : `${v}%`)
+    ok(
+      semEspaco(await textoDe(pagina, '[data-numero="compraram"] .numero__valor')) ===
+        INTEIRO.format(c.compraram) &&
+        semEspaco(await textoDe(pagina, '[data-numero="primeira"] .numero__valor')) ===
+          parte(c.primeira.parte) &&
+        semEspaco(await textoDe(pagina, '[data-numero="voltaram"] .numero__valor')) ===
+          parte(c.voltaram.parte) &&
+        (await pagina.locator('[data-bloco="estados"] tbody tr[data-estado]').count()) ===
+          c.estados.length,
+      "a tela: os números da API e um estado por linha",
+      await textoDe(pagina, "[data-numeros-dos-clientes]")
+    )
+    await pagina.locator('[data-bloco="newsletter"] a').click()
+    await pagina.waitForURL((u) => u.pathname === "/clientes/newsletter", { timeout: 20000 })
+    ok(caminho(pagina) === "/clientes/newsletter", "o Abrir da newsletter leva pra lista dela")
+
+    const { pagina: celular } = mkt
+    await celular.goto(`${PAINEL}/marketing/clientes?periodo=30d`)
+    await celular.waitForSelector("[data-numeros-dos-clientes]", { timeout: 20000 })
+    ok(await semRolagemDeLado(celular), "no celular: os clientes, sem rolar de lado")
+    await celular.waitForFunction(abaAcesaAVista, null, { timeout: 10000 }).catch(() => {})
+    ok(
+      await celular.evaluate(abaAcesaAVista),
+      "no celular, a fileira de abas rola até a acesa (a sexta)"
+    )
+  }
+
+  titulo("O Pagamento e o frete")
+  {
+    const r = await medusa("/dashboard/marketing/pagamento?periodo=30d", {
+      metodo: "GET",
+      token: tokenDoDono,
+    })
+    const p = r.corpo
+    const resumo30 = (
+      await medusa("/dashboard/marketing?periodo=30d", { metodo: "GET", token: tokenDoDono })
+    ).corpo
+    const pedidos = resumo30.numeros.pedidos.valor
+    ok(
+      r.status === 200 &&
+        p.periodo === "30d" &&
+        p.comoPagaram.pix + p.comoPagaram.cartao === pedidos &&
+        p.frete.pedidos === pedidos,
+      "como pagaram: os pedidos pagos do Resumo, cada um no Pix ou no cartão",
+      JSON.stringify([p.comoPagaram, p.frete.pedidos, pedidos])
+    )
+    ok(
+      p.pix.pagos + p.pix.venceram + p.pix.esperando === p.pix.gerados && p.pix.esperando >= 0,
+      "o Pix: pago, vencido ou esperando — nada fora, nada duas vezes",
+      JSON.stringify(p.pix)
+    )
+    const { total: tentativas, ...motivos } = p.cartao
+    ok(
+      Object.values(motivos).reduce((s, n) => s + n, 0) === tentativas,
+      "o cartão: cada tentativa num motivo só",
+      JSON.stringify(p.cartao)
+    )
+    ok(
+      p.parcelas.reduce((s, x) => s + x.pedidos, 0) === p.comoPagaram.cartao &&
+        p.parcelas.every(
+          (x, i, l) => x.parcelas >= 1 && (i === 0 || l[i - 1].parcelas < x.parcelas)
+        ),
+      "as parcelas: os pedidos pagos no cartão, de 1x pra cima",
+      JSON.stringify(p.parcelas)
+    )
+    // A tela das Configurações dá o piso escrito ("149,90").
+    const politica = (
+      await medusa("/dashboard/configuracoes", { metodo: "GET", token: tokenDoDono })
+    ).corpo.frete
+    const piso =
+      politica?.modo === "gratis"
+        ? Number(String(politica.piso).replace(/\./g, "").replace(",", "."))
+        : null
+    ok(
+      p.frete.gratis <= p.frete.pedidos &&
+        p.frete.parteGratis ===
+          (p.frete.pedidos ? Math.round((p.frete.gratis / p.frete.pedidos) * 100) : null) &&
+        p.frete.piso === piso,
+      "o frete: a parte grátis, e o piso é o das Configurações",
+      JSON.stringify([p.frete, politica?.modo, politica?.piso])
+    )
+    const recusados = p.cartao.antifraude + p.cartao.banco + p.cartao.dados + p.cartao.outros
+    ok(
+      p.achados.every((a) => {
+        const t = semEspaco(a.titulo)
+        const [, x, y] = t.match(/^(\d+) de (\d+) /) ?? []
+        if (/tentativas no cartão/.test(t)) return +x === recusados && +y === tentativas
+        if (/Pix gerados/.test(t)) return +x === p.pix.venceram && +y === p.pix.gerados
+        if (/pagaram frete/.test(t)) return t.startsWith(`${p.frete.quaseLa} pedidos`)
+        return a.tipo === "info"
+      }),
+      "os achados batem com os números",
+      JSON.stringify(p.achados.map((a) => a.titulo))
+    )
+    const daOperacao = await medusa("/dashboard/marketing/pagamento", {
+      metodo: "GET",
+      token: cookieOp.value,
+    })
+    ok(
+      daOperacao.status === 403,
+      "a operação não abre o pagamento do Marketing (403)",
+      String(daOperacao.status)
+    )
+
+    const { pagina } = dono
+    await pagina.goto(`${PAINEL}/marketing/pagamento?periodo=30d`)
+    await pagina.waitForSelector('[data-bloco="frete"] [data-numero="gratis"]', {
+      timeout: 20000,
+    })
+    ok(
+      semEspaco(await textoDe(pagina, '[data-numero="gratis"] .numero__valor')) ===
+        (p.frete.parteGratis === null ? "—" : `${p.frete.parteGratis}%`) &&
+        (await pagina.locator('[data-barras="forma"] li').count()) === 2 &&
+        (await pagina.locator('[data-barras="cartao"] li').count()) ===
+          (tentativas ? 4 + (p.cartao.emAnalise ? 1 : 0) + (p.cartao.outros ? 1 : 0) : 0),
+      "a tela: como pagaram, o cartão por motivo e o frete da API",
+      await textoDe(pagina, '[data-bloco="cartao"]')
+    )
+    ok(
+      (await pagina.locator('[data-bloco="frete"] a[href="/configuracoes/frete"]').count()) === 1 &&
+        (await pagina.locator('.abas a[aria-current="page"]').getAttribute("data-aba")) ===
+          "pagamento",
+      "o dono tem o atalho pro frete grátis; a aba acesa é a do pagamento"
+    )
+
+    const { pagina: celular } = mkt
+    await celular.goto(`${PAINEL}/marketing/pagamento?periodo=30d`)
+    await celular.waitForSelector('[data-bloco="frete"] [data-numero="gratis"]', {
+      timeout: 20000,
+    })
+    ok(
+      (await celular.locator('[data-bloco="frete"] a').count()) === 0,
+      "o marketing não tem o atalho (as Configurações são do dono)"
+    )
+    ok(await semRolagemDeLado(celular), "no celular: o pagamento, sem rolar de lado")
+    await celular.waitForFunction(abaAcesaAVista, null, { timeout: 10000 }).catch(() => {})
+    ok(await celular.evaluate(abaAcesaAVista), "e a sétima aba, a última, também aparece")
   }
 
   titulo("O Google fora")
@@ -836,6 +1057,17 @@ try {
       (await pagina.locator("[data-montar-link] input").count()) === 1 &&
         (await pagina.locator("[data-total-da-loja]").count()) === 1,
       "nos canais: diz que o Google não respondeu, e o total da loja e o montador seguem"
+    )
+    await pagina.goto(`${PAINEL}/marketing/clientes?periodo=7d`)
+    await pagina.waitForSelector("[data-numeros-dos-clientes]", { timeout: 20000 })
+    const semGoogleNosClientes = await pagina.locator("[data-sem-google]").count()
+    await pagina.goto(`${PAINEL}/marketing/pagamento?periodo=7d`)
+    await pagina.waitForSelector('[data-bloco="frete"] [data-numero="gratis"]', {
+      timeout: 20000,
+    })
+    ok(
+      semGoogleNosClientes === 0 && (await pagina.locator("[data-sem-google]").count()) === 0,
+      "nos clientes e no pagamento, nada muda: não perguntam ao Google"
     )
     google.recusar = null
   }
