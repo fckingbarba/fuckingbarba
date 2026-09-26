@@ -105,12 +105,14 @@ export async function subirGoogleFalso({
     metricValues: [{ value: String(valor) }],
   })
 
-  /** "today", "yesterday" ou "2026-09-24" → "20260924", no fuso da propriedade. */
+  /** "today", "yesterday", "13daysAgo" ou "2026-09-24" → "20260924", no fuso da propriedade. */
   const dataDaPergunta = (valor) => {
     const dia = (ms) =>
       new Intl.DateTimeFormat("en-CA", { timeZone: painel.fuso }).format(ms).replace(/-/g, "")
     if (valor === "today") return dia(Date.now())
     if (valor === "yesterday") return dia(Date.now() - 24 * 60 * 60 * 1000)
+    const atras = /^(\d+)daysAgo$/.exec(String(valor ?? ""))
+    if (atras) return dia(Date.now() - Number(atras[1]) * 24 * 60 * 60 * 1000)
     return String(valor ?? "").replace(/-/g, "")
   }
 
