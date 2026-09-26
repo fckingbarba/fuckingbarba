@@ -1032,6 +1032,15 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
       da main e com o de qualquer entrega. A loja estava certa — no log, cada aviso saiu pro dono.
       Agora ele lê a caixa do dono do painel ou, num banco sem ninguém no painel, a do admin, como
       antes. Só o conferidor mudou: nada muda na loja, e nada a configurar.
+- [x] **O conferidor do pagamento procurava o aviso do estorno na caixa errada** (entrega 0121,
+      26/09). O mesmo caso da 0101, no `conferir-pagamento`: o e-mail "O estorno do pedido #N não
+      saiu" vai pro dono do painel desde as Configurações (entrega 0093), e o conferidor o
+      procurava na caixa do admin do Medusa. Em todo banco local com gente no painel, 2 checagens
+      falhavam ("quem tem acesso ao admin recebe UM e-mail" e "com o valor e a cobrança"), com a
+      loja certa — o aviso tinha saído, um só, pro dono. Agora ele lê a caixa do dono do painel
+      ou, num banco sem ninguém no painel, a do admin, como antes. Nenhum outro conferidor procura
+      aviso da equipe no admin (o do painel já lia a caixa do dono). Só o conferidor mudou: nada
+      muda na loja, e nada a configurar.
 - [x] **A sacola responde no clique** (entrega 0104, 26/09, pedido da loja: "adicionar ou remover
       do carrinho está demorando"). Medido na produção: adicionar levava 1,3 s (2,4 s o primeiro,
       que cria o carrinho), o "+" 1,1 s e remover 0,9 s — quase tudo no Medusa, que refaz o

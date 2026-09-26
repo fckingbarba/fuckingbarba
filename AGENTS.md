@@ -144,7 +144,12 @@ cannot have a negative time stamp.", quando o relógio do `next dev`, no ar há 
 do navegador. O da conta e os do painel descontam esse erro (`ferramentas/relogio-do-dev.mjs`);
 a explicação está no parágrafo do painel, mais abaixo.
 
-O de pagamento liga o Pagar.me na região pelo admin e devolve como estava. O de checkout, com o
+O de pagamento liga o Pagar.me na região pelo admin e devolve como estava. O aviso do estorno
+que não saiu ele lê numa caixa só (`caixaDaEquipe`), como o do ERP: a do dono do painel (o
+`DASHBOARD_DONO_EMAIL` do backend, que vai no ambiente dele também) ou, num banco sem ninguém no
+painel, a do admin local — desde a 0093 o aviso vai pro papel que resolve
+(`lib/equipe/avisados.ts`), e o do estorno é do dono. Até a 0121 ele olhava só o `ADMIN_EMAIL`, e
+em banco com gente no painel 2 checagens falhavam com a loja certa. O de checkout, com o
 checkout aberto (`CHECKOUT_ABERTO`), precisa do Pagar.me ligado na região local — o passo 3 não
 oferece mais o provisório —: `PAGARME_SECRET_KEY=sk_test_falsa npm run backend:pagamento`, uma vez. A conciliação automática roda a cada 5 minutos DENTRO do
 `medusa develop` (o worker é o mesmo processo): teste que depende de "ninguém mexeu nisso ainda"
@@ -326,7 +331,8 @@ disponível. A conciliação confere todo estorno dos últimos 7 dias na cobran�
 que o Medusa diz que voltou contra `canceled_amount`/`refunded_amount`; "aguardando cancelamento"
 é esperar) — `src/lib/estornos.ts`. O que falhou fica em `metadata.estornos` do pedido, vira uma
 faixa vermelha no pedido no admin (`src/admin/widgets/estorno.tsx`, com "Tentar o estorno de
-novo" → `POST /admin/pedidos/:id/estorno`) e UM e-mail pra cada usuário do admin; o do pagamento
+novo" → `POST /admin/pedidos/:id/estorno`) e UM e-mail pra cada dono do painel (sem ninguém no
+painel, pra cada usuário do admin — `lib/equipe/avisados.ts`); o do pagamento
 inteiro é pedido de novo sozinho de 6 em 6 horas, até 8 vezes. Parcial, nunca sozinho. No
 conferidor, o Pagar.me falso segura o estorno (`pagarme.estornos = "segura"`) e faz ele falhar
 (`falharEstorno`) ou sair (`concluirEstorno`).
