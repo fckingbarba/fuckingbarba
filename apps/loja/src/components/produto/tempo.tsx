@@ -14,9 +14,11 @@ import { conteudoDaPdp } from "@/conteudo/produto"
  * sem precisar empurrar nada. Quem entende que o marco é o dia 90 faz a
  * conta sozinho.
  *
- * `<dl>` e não `<ul>`: cada passo é um par prazo/o-que-acontece, que é
- * exatamente o que uma lista de definição descreve. Leitor de tela anuncia
- * os dois ligados.
+ * Cada passo é um item de `<ol>` — é uma sequência no tempo — com o par
+ * título/texto num `<dl>` dele. Leitor de tela anuncia "lista, 4 itens" e,
+ * em cada um, os dois ligados. Até a entrega 0105 era um `<dl>` só com o
+ * prazo (`<p>`) solto dentro de cada grupo, o que o `<dl>` não aceita: o
+ * Lighthouse tirava 3 pontos de acessibilidade de toda página com a seção.
  */
 export async function Tempo({ handle }: { handle: string }) {
   const c = (await conteudoDaPdp(handle)).tempo
@@ -30,20 +32,22 @@ export async function Tempo({ handle }: { handle: string }) {
           {c.titulo}
         </h2>
 
-        <dl className="tempo__trilha">
+        <ol className="tempo__trilha">
           {c.passos.map((p) => (
-            <div
+            <li
               key={p.quando}
               className={p.alvo ? "tempo__passo tempo__passo--alvo" : "tempo__passo"}
             >
               <p className="tempo__quando">
                 <Raio /> {p.quando}
               </p>
-              <dt>{p.titulo}</dt>
-              <dd>{p.texto}</dd>
-            </div>
+              <dl>
+                <dt>{p.titulo}</dt>
+                <dd>{p.texto}</dd>
+              </dl>
+            </li>
           ))}
-        </dl>
+        </ol>
 
         {c.aviso ? (
           <p className="tempo__aviso">

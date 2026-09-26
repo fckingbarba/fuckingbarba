@@ -98,6 +98,10 @@ export type ConteudoDaPdp = {
     titulo: string
     /** o produto DESTA página entra sozinho; não repita ele aqui */
     itens: ItemDaRotina[]
+    /** o passo do produto desta página ("Passo 3 · hidrata"); sem ele, o do Fator */
+    passoDeste?: string
+    /** pra que o produto desta página serve na rotina */
+    paraDeste?: string
   }
   funciona?: {
     comoTitulo: string
@@ -109,6 +113,9 @@ export type ConteudoDaPdp = {
     dica?: string
     /** Com vídeo, ele entra no lugar da foto do modo de uso. */
     usoVideo?: VideoDaPdp
+    /** A foto exata de cada caixa; sem ela, a 2ª foto do produto de `comoFotoDe`/`usoFotoDe`. */
+    comoFoto?: string
+    usoFoto?: string
   }
   versus?: {
     titulo: string
