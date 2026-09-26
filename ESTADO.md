@@ -967,6 +967,13 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
       amarelo, ficou na cor do texto. Só nessa seção: a "Alta Performance" da home, de fundo
       branco, continua como era. A regra mora na fonte do CSS da PDP
       (`ferramentas/porte/pdp-partes/estilo.css`, que gera o `pdp-relacionados.css`).
+- [x] **A esteira de avaliações da home sorteia a cada visita** (entrega 0109, 26/09, pedido da
+      loja). "Nossos clientes nos amam" mostra até 4 avaliações de cada produto, sorteadas de novo
+      a cada visita, com os produtos misturados — antes entravam todas, repetidas três vezes. A
+      mesma avaliação posta em vários produtos (a do Fator nos kits) aparece uma vez só, e conta
+      uma vez só na nota média e no "em N avaliações". A esteira anda no ritmo do protótipo com
+      qualquer número de avaliações (antes, quanto mais avaliação, mais rápido ela corria). Só
+      aparece com avaliação publicada em `conteudo/depoimentos.ts`.
 - [x] **O conferidor do ERP procurava o aviso da equipe na caixa errada** (entrega 0101, 25/09).
       Desde as Configurações (entrega 0093), o e-mail da equipe — a nota que não saiu, a nota pra
       conferir ou pra cancelar, o Bling caído — vai pra quem está no painel com o papel que

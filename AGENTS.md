@@ -671,6 +671,15 @@ lista, e os limites por IP assinado do código da conta) e se vê, baixa em CSV 
 "Newsletter". Remover APAGA — é o "pode sair quando quiser" e o pedido de exclusão da LGPD. A
 tabela `loja.newsletter` do Supabase, do plano antigo, ficou sem uso.
 
+A **esteira de avaliações** da home ("Nossos clientes nos amam", `components/home/amam.tsx`) mostra
+até quatro avaliações de cada produto, sorteadas a cada visita, e a mesma avaliação posta em vários
+produtos (a mesma pessoa, o mesmo texto) conta uma vez só — na esteira e na nota média
+(`lib/avaliacoes.ts`). O sorteio é no navegador (`components/home/esteira-de-avaliacoes.tsx`): a
+home continua estática. O servidor desenha o sorteio de uma semente fixa, e o navegador troca pela
+semente da visita por `useSyncExternalStore` — sem diferença na hidratação e sem `setState` em
+efeito. A volta dura 7,5 s por cartão (o ritmo do protótipo): com mais avaliações, ela fica mais
+longa, e não mais rápida. `ferramentas/conferir-esteira.mjs` confere a conta, sem servidor.
+
 O **vídeo da história da marca** (a seção "O cuidado que impõe presença" da home) é `home.video`
 nas configurações da loja (`fb_configuracoes`): sobe no admin, em Configurações da loja → Home, com
 a largura e a altura medidas no navegador (a loja reserva o espaço com elas), e a home troca a foto
