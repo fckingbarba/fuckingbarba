@@ -689,19 +689,26 @@ tabela `loja.newsletter` do Supabase, do plano antigo, ficou sem uso.
 
 A **esteira de avaliações** da home ("Nossos clientes nos amam", `components/home/amam.tsx`) mostra
 até quatro depoimentos de cada produto — avaliação ou trecho de entrevista —, sorteados a cada
-visita, e o mesmo depoimento posto em vários produtos (a mesma pessoa, o mesmo texto) conta uma vez
-só — na esteira e na nota média (`lib/avaliacoes.ts`). O sorteio é no navegador
+visita e repartidos em DUAS FILEIRAS, como no protótipo: a de cima corre pra esquerda e a de baixo
+pra direita (`.amam__esteira--volta`), cada uma com metade dos de cada produto (`emDuasFileiras`).
+O mesmo depoimento posto em vários produtos (a mesma pessoa, o mesmo texto) conta uma vez só — na
+esteira e na nota média (`lib/avaliacoes.ts`). O sorteio é no navegador
 (`components/home/esteira-de-avaliacoes.tsx`): a home continua estática, e a semente da visita entra
-por `useSyncExternalStore`. Os cartões só são desenhados quando a seção chega a uma tela de
-distância: no carregamento vai só o lugar, com a altura da faixa reservada (`.amam__lugar`); e a
-foto do cartão é `getImageProps` no tamanho da caixa (54 px, só 1x e 2x). A volta dura 7,5 s por
-cartão (o ritmo do protótipo): com mais depoimentos, ela fica mais longa, e não mais rápida.
-`ferramentas/conferir-esteira.mjs` confere a conta e a lista de trechos, sem servidor.
+por `useSyncExternalStore` (`lib/use-semente-da-visita.ts`). Os cartões só são desenhados quando a
+seção chega a uma tela de distância: no carregamento vai só o lugar, com a altura das duas fileiras
+reservada (`.amam__lugar`); e a foto do cartão é `getImageProps` no tamanho da caixa (54 px, só 1x
+e 2x). A volta dura 7,5 s por cartão na fileira de cima e 9,5 s na de baixo (o ritmo do
+protótipo): com mais depoimentos, ela fica mais longa, e não mais rápida. A página do produto
+mostra TRÊS depoimentos dele, sorteados com a mesma semente
+(`components/produto/depoimentos-sorteados.tsx`): o HTML sai com os três da semente fixa, e o
+navegador troca pelos da visita logo depois da hidratação. O cartão é o mesmo nas duas
+(`components/depoimento.tsx`). `ferramentas/conferir-esteira.mjs` confere os sorteios e a lista de
+trechos, sem servidor.
 
 **Trecho de entrevista não é avaliação** (`TRECHOS`, em `conteudo/depoimentos.ts`): aparece como
 "Entrevista com cliente", sem nome, sem estrela e sem selo, e fica fora da nota média e do
-`AggregateRating` — na esteira e na seção "O que diz quem usou" da página do produto de que ele
-fala (uma vez só; os do Fator não se repetem nos kits). Avaliação de verdade, com o nome e a nota
+`AggregateRating` — na esteira e na seção "O que diz quem usou" (três por visita) da página do
+produto de que ele fala (uma vez só; os do Fator não se repetem nos kits). Avaliação de verdade, com o nome e a nota
 que a pessoa deu, vai em `AVALIACOES`. As regras estão no topo do próprio arquivo.
 
 O **vídeo da história da marca** (a seção "O cuidado que impõe presença" da home) é `home.video`
