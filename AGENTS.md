@@ -880,8 +880,33 @@ sessão de quem comprou porque a compra vai com o `session_id` do rastro.
   `items.product_handle` e `items.adjustments.*` no `pedidosDesde`).
 - Rotas `GET /dashboard/marketing/produtos` e `/ofertas` (esta, só da loja). No painel,
   `marketing/produtos` e `marketing/ofertas`, `components/marketing-produtos.tsx` (a linha abre o
-  produto no painel) e `marketing-ofertas.tsx`. A última parte: Clientes e Pagamento e frete — o
-  protótipo tem tudo, em `telaMarketing`.
+  produto no painel) e `marketing-ofertas.tsx`.
+
+**Marketing, parte 4: os Clientes e o Pagamento e frete** (entrega 0115). As duas últimas abas do
+protótipo; as duas só da loja (sem o Google).
+- `lib/painel/marketing-clientes.ts` (puro, com testes): a pessoa é o e-mail do pedido
+  (minúsculo), na história inteira da loja nova (`pedidosComPagamento(container, null)`). Primeira
+  compra e volta são partes dos PEDIDOS pagos no período, a mesma regra do Resumo (a volta é 100
+  menos a primeira: as duas somam 100); a 2ª compra é a média de dias entre a primeira e a
+  segunda, de toda a história. O estado sai do `shipping_address.province` (`ufDe`: a sigla ou o
+  nome, com ou sem acento): os 8 de mais receita e "Outros N". Achados: a 2ª compra (com 5
+  pessoas ou mais) e o estado com frete médio acima de R$ 30 (3 pedidos ou mais); abaixo de 10
+  pedidos, "ainda é pouco".
+- `lib/painel/marketing-pagamento.ts` (puro, com testes): o estado que o Pagar.me grava na sessão
+  (`lerEstado`). Os pedidos PAGOS são os do Resumo — pagos no período, sem os cancelados; a rota lê
+  com a folga do `lerPedidosDesde` —; o Pix e o cartão são as TENTATIVAS feitas no período. O Pix:
+  pago, vencido (passou do `pix.expiraEm`; sem ele, uma hora; ou o pedido já cancelado) ou
+  esperando. O cartão: a última sessão que não é "nova" de cada pedido e de cada carrinho que não
+  fechou (`carrinhosComPagamento`: o recusado na hora não vira pedido); o motivo é a frase da
+  recusa (`RECUSAS`). **O Medusa apaga a sessão recusada quando a pessoa tenta de novo no mesmo
+  carrinho** (`deletePaymentSession`, sem lixeira): conta a última tentativa de cada carrinho. O
+  frete: a parte grátis, o médio de quem pagou, quem desiste (carrinho com CEP e sem entrega
+  escolhida) e o "quase lá" (pagou frete a menos de R$ 30 do piso do `fb_configuracoes`).
+- Rotas `GET /dashboard/marketing/clientes` (com os números da newsletter, `numerosDaNewsletter`)
+  e `/pagamento`. No painel, `marketing/clientes` e `marketing/pagamento`,
+  `components/marketing-clientes.tsx` e `marketing-pagamento.tsx` (o atalho "Mudar o frete
+  grátis" só pra quem abre as Configurações). No celular a fileira de abas rola de lado e começa
+  com a acesa à vista (`components/abas-que-rolam.tsx`).
 
 **Produtos** (fase 3, parte 1). `GET /dashboard/produtos` (a lista, com as fitas) e
 `GET /dashboard/produtos/:id` (o que vem do Bling, só pra ler; as seções com o texto e o fundo de

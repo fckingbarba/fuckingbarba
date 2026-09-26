@@ -252,3 +252,61 @@ export const lerProdutosDoMarketing = cache((periodo: Periodo) =>
 
 /** As ofertas do período — tudo da loja. */
 export const lerOfertas = cache((periodo: Periodo) => lerAba<Ofertas>("ofertas", periodo))
+
+/* ── os Clientes e o Pagamento e frete (a parte 4) ────────────────────────── */
+
+export type LinhaDoEstado = {
+  uf: string
+  pedidos: number
+  receita: number
+  ticket: number
+  frete: number
+}
+
+export type ClientesDoMarketing = {
+  periodo: Periodo
+  compraram: number
+  primeira: { pedidos: number; parte: number | null; ticket: number }
+  voltaram: { pedidos: number; parte: number | null; ticket: number }
+  segunda: { dias: number; pessoas: number } | null
+  estados: LinhaDoEstado[]
+  achados: Achado[]
+  /** Quem recebe ofertas por e-mail: os novos da semana e o total. */
+  newsletter: { semana: number; total: number }
+}
+
+export type PagamentoEFrete = {
+  periodo: Periodo
+  comoPagaram: { pix: number; cartao: number }
+  pix: { gerados: number; pagos: number; venceram: number; esperando: number }
+  cartao: {
+    total: number
+    aprovados: number
+    emAnalise: number
+    antifraude: number
+    banco: number
+    dados: number
+    outros: number
+  }
+  parcelas: { parcelas: number; pedidos: number }[]
+  frete: {
+    pedidos: number
+    gratis: number
+    parteGratis: number | null
+    medioPago: number | null
+    desistem: number | null
+    quaseLa: number | null
+    piso: number | null
+  }
+  achados: Achado[]
+}
+
+/** Os clientes do período (a história inteira da loja por trás). */
+export const lerClientesDoMarketing = cache((periodo: Periodo) =>
+  lerAba<ClientesDoMarketing>("clientes", periodo)
+)
+
+/** O pagamento e o frete do período — tudo da loja. */
+export const lerPagamento = cache((periodo: Periodo) =>
+  lerAba<PagamentoEFrete>("pagamento", periodo)
+)

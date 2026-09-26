@@ -117,3 +117,13 @@
 .ofertas__resultado { white-space: normal; }
 [data-numeros-das-ofertas] { margin-top: 16px; }
 .ofertas__nota { margin: 12px 0 16px; }
+
+/* --------------------------------------------------------------------------
+   A PARTE 4 — os Clientes e o Pagamento e frete.
+   -------------------------------------------------------------------------- */
+.numeros--dentro { margin: 0; }
+.barras-h__trilho i[data-cor="bom"] { background: var(--menta-escura); }
+.barras-h__trilho i[data-cor="erro"] { background: var(--erro); }
+.pagamento__rotulo { margin-top: 18px; }
+[data-numeros-dos-clientes] { margin-bottom: 16px; }
+[data-bloco="newsletter"] .bloco__cabeca { margin-bottom: 0; }

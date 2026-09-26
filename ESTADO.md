@@ -1237,9 +1237,9 @@ O que o protótipo tem, aprovado em 23/09:
 - **Observabilidade:** os problemas abertos em frase, com o que fazer; as integrações; os 8 jobs
   com a última rodada; a velocidade do site.
 - **Marketing** (resumo, funil, canais, produtos, ofertas, clientes por estado, pagamento e frete)
-  ficou escondido de início, e volta em partes desde 26/09 (a parte 1, o Resumo e a meta do mês, na
-  entrega 0108; a parte 2, o Funil e os Canais, na 0110; a parte 3, os Produtos e as Ofertas, na
-  0113).
+  ficou escondido de início e voltou em quatro partes em 26/09: o Resumo e a meta do mês (entrega
+  0108), o Funil e os Canais (0110), os Produtos e as Ofertas (0113), e os Clientes e o Pagamento e
+  frete (0115).
 
 Em aberto:
 
@@ -2115,6 +2115,36 @@ Conferido pelo `conferir-envio.mjs` (63 checagens; 84 com o registro no painel d
 pedido do caminho todo agora leva 2 unidades de um produto e 1 de outro, e os três e-mails dele são
 conferidos contra o pedido no admin. Com o código de antes, as duas checagens novas falham
 ("faltam: 2× Óleo para Barba 30ml, 1× Balm Modelador para Barba 90g").
+
+Depois do deploy — **nada a configurar.**
+
+**Painel: Marketing, parte 4 — os Clientes e o Pagamento e frete — pronto em 26/09 (entrega 0115).**
+
+Com as duas últimas, as sete abas do protótipo estão no painel. Do protótipo, falta só o bloco "O
+que os dados dizem" do Resumo (as frases de todas as abas juntas, da que mais pesa pra que menos).
+
+- **Clientes — quem compra, se volta, em quanto tempo e de onde:** quantas pessoas compraram no
+  período; de cada 100 pedidos, quantos foram a primeira compra da pessoa e quantos a volta (com o
+  ticket de cada um); em quantos dias, em média, vem a segunda compra; e os estados — pedidos,
+  receita, ticket e o frete médio (em vermelho acima de R$ 30). Embaixo, a newsletter, com o
+  atalho pra lista.
+- **Pagamento e frete — como as pessoas pagam e o que não passa:**
+  - como pagaram, Pix ou cartão — os mesmos pedidos do Resumo;
+  - o Pix: de cada Pix gerado, quantos foram pagos e quantos venceram sem pagar;
+  - o cartão: cada tentativa — aprovada, em análise, barrada pela análise de fraude, recusada pelo
+    banco ou com os dados errados — e as parcelas;
+  - o frete: quantos pedidos saíram com frete grátis, o frete médio de quem pagou, quantos
+    desistem quando veem o frete, e o "quase lá" — quem pagou frete a menos de R$ 30 do grátis. O
+    dono tem ali o atalho "Mudar o frete grátis".
+- A pessoa é o e-mail do pedido: quem já comprava na Nuvemshop conta como cliente novo aqui (a
+  loja nova não tem o histórico de lá).
+- O cartão recusado que a pessoa tenta de novo no mesmo carrinho não fica guardado (o sistema de
+  pagamento apaga a tentativa): conta a última tentativa de cada carrinho.
+- No celular, a fileira de abas do Marketing rola até a aba aberta.
+
+Conferido pelo `conferir-marketing.mjs` (104 checagens; as 24 novas: os clientes e o pagamento
+pela API, batendo com o Resumo e com a newsletter, pela tela e no celular, e as duas abas com o
+Google fora) e pelos testes de unidade (16 novos).
 
 Depois do deploy — **nada a configurar.**
 

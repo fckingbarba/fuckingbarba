@@ -1,6 +1,7 @@
 import type { Route } from "next"
 import Link from "next/link"
 import { Suspense, type ReactNode } from "react"
+import { AbasQueRolam } from "@/components/abas-que-rolam"
 import { Icone } from "@/components/icones"
 import { MudarMeta } from "@/components/mudar-meta"
 import {
@@ -38,19 +39,21 @@ const ANTES: Record<Periodo, string> = {
   "90d": "os 90 dias antes",
 }
 
-/** As abas da área, na ordem do protótipo — as que já existem. O período vai junto. */
+/** As abas da área, na ordem do protótipo. O período vai junto. */
 const ABAS = [
   ["resumo", "Resumo", "/marketing"],
   ["funil", "Funil", "/marketing/funil"],
   ["canais", "Canais", "/marketing/canais"],
   ["produtos", "Produtos", "/marketing/produtos"],
   ["ofertas", "Ofertas", "/marketing/ofertas"],
+  ["clientes", "Clientes", "/marketing/clientes"],
+  ["pagamento", "Pagamento e frete", "/marketing/pagamento"],
 ] as const
 export type Aba = (typeof ABAS)[number][0]
 
 export function AbasDoMarketing({ atual, periodo }: { atual: Aba; periodo: Periodo }) {
   return (
-    <nav className="abas" aria-label="Marketing">
+    <AbasQueRolam rotulo="Marketing" acesa={atual}>
       {ABAS.map(([aba, nome, caminho]) => (
         <Link
           key={aba}
@@ -61,7 +64,7 @@ export function AbasDoMarketing({ atual, periodo }: { atual: Aba; periodo: Perio
           {nome}
         </Link>
       ))}
-    </nav>
+    </AbasQueRolam>
   )
 }
 
