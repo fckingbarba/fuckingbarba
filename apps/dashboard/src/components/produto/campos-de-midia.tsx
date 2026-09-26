@@ -9,6 +9,7 @@ import {
   avisosDaFoto,
   avisosDoVideo,
   duracaoCurta,
+  MEDIDA_DA_FOTO_DEITADA,
   MEDIDA_DO_CASO,
   MEDIDA_DO_VIDEO_DA_GALERIA,
   MEDIDA_DO_VIDEO_DO_USO,
@@ -112,11 +113,18 @@ export function Subindo({ progresso }: { progresso: number }) {
   )
 }
 
+/**
+ * Uma foto da seção. `forma`: a de um caso de antes e depois (6 × 7, em pé —
+ * o padrão) ou a de uma caixa deitada (3 × 2: "como funciona" e o modo de
+ * uso), que sobe como foto de galeria.
+ */
 export function CampoDeFoto({
   produtoId,
   chave,
   rotulo,
   meia,
+  forma = "caso",
+  ajuda,
   url,
   falta,
   mudar,
@@ -126,17 +134,20 @@ export function CampoDeFoto({
   chave: string
   rotulo: string
   meia?: boolean
+  forma?: "caso" | "deitada"
+  ajuda?: string
   url: string
   falta?: boolean
   mudar: (url: string) => void
   aoSubir: (delta: 1 | -1) => void
 }) {
+  const uso = forma === "deitada" ? "galeria" : "caso"
   const [erro, setErro] = useState<string | null>(null)
   const [subindo, setSubindo] = useState(false)
   // A foto gravada chega só com o endereço: a medida sai dela, quando carrega.
   const [medida, setMedida] = useState<{ url: string; l: number; a: number } | null>(null)
   const lida = medida?.url === url ? medida : null
-  const avisos = lida ? avisosDaFoto("caso", lida.l, lida.a) : []
+  const avisos = lida ? avisosDaFoto(forma, lida.l, lida.a) : []
 
   async function escolher(arquivo: File | undefined) {
     if (!arquivo) return
@@ -144,10 +155,10 @@ export function CampoDeFoto({
     setSubindo(true)
     aoSubir(1)
     try {
-      const pronta = await prepararNoNavegador(arquivo, "caso")
+      const pronta = await prepararNoNavegador(arquivo, uso)
       if (!pronta.ok) return setErro(pronta.texto)
       const dados = new FormData()
-      dados.set("uso", "caso")
+      dados.set("uso", uso)
       dados.set(
         "arquivo",
         pronta.arquivo,
@@ -181,7 +192,7 @@ export function CampoDeFoto({
   )
 
   return (
-    <div className={`campo slot slot--caso${meia ? " campo--3" : ""}`} {...arrastar.alvo}>
+    <div className={`campo slot slot--${forma}${meia ? " campo--3" : ""}`} {...arrastar.alvo}>
       <span className="campo__rot">{rotulo}</span>
       {url ? (
         <>
@@ -227,8 +238,17 @@ export function CampoDeFoto({
         </label>
       )}
       <p className="slot__medida">
-        Ideal: <b>{medidaEmPx(MEDIDA_DO_CASO)}</b> · em pé
+        {forma === "deitada" ? (
+          <>
+            Ideal: <b>{medidaEmPx(MEDIDA_DA_FOTO_DEITADA)}</b> · deitada
+          </>
+        ) : (
+          <>
+            Ideal: <b>{medidaEmPx(MEDIDA_DO_CASO)}</b> · em pé
+          </>
+        )}
       </p>
+      {ajuda ? <p className="campo__ajuda">{ajuda}</p> : null}
       <UmPorVez varios={arrastar.varios} />
       {erro ? (
         <p className="slot__erro" role="alert">

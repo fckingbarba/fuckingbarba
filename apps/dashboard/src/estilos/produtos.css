@@ -217,6 +217,7 @@ fieldset.campo.fundo-form { margin-top: 26px; }
 
 /* A foto do caso: o quadro 6 × 7 da loja, cortado como ela corta. */
 .slot--caso .slot__vazio, .slot--caso .slot__previa { aspect-ratio: 6 / 7; }
+.slot--deitada .slot__vazio, .slot--deitada .slot__previa { aspect-ratio: 3 / 2; }
 .slot--caso .slot__vazio[data-falta] { border-color: var(--erro); }
 .slot--caso .slot__previa img { object-position: center; }
 

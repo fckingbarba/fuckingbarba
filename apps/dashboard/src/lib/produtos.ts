@@ -123,6 +123,8 @@ export type DetalheDoProduto = LinhaDoProduto & {
   nomeNoBling: string | null
   subtitulo: string
   descricao: string
+  /** O que o Google mostra embaixo do nome; vazio: o começo da descrição do Bling. */
+  descricaoGoogle: string
   peso: number | null
   categoriaId: string | null
   fotos: string[]
@@ -437,7 +439,25 @@ export const SECOES: Record<IdDaSecao, DefinicaoDaSecao> = {
     descricao: "Os produtos que completam este, com o passo de cada um.",
     campos: [
       TITULO,
-      { tipo: "nota", texto: "Este produto entra sozinho na rotina — não repita ele aqui." },
+      {
+        tipo: "nota",
+        texto:
+          "Este produto entra sozinho na rotina — não repita ele aqui. Diga o passo dele logo abaixo; em branco, fica “Passo 2 · trata”.",
+      },
+      {
+        tipo: "texto",
+        c: "passoDeste",
+        rot: "O passo deste produto",
+        meia: true,
+        exemplo: "Passo 3 · hidrata",
+      },
+      {
+        tipo: "texto",
+        c: "paraDeste",
+        rot: "Pra que ele serve na rotina",
+        meia: true,
+        exemplo: "Algumas gotas na barba seca.",
+      },
       {
         tipo: "grupo",
         c: "itens",
@@ -465,9 +485,24 @@ export const SECOES: Record<IdDaSecao, DefinicaoDaSecao> = {
         rot: "Foto de “como funciona”: a do produto",
         comEste: true,
       },
+      {
+        tipo: "foto",
+        c: "comoFoto",
+        rot: "Foto de “como funciona” (opcional)",
+        forma: "deitada",
+        ajuda: "Sem ela, a página mostra a 2ª foto do produto escolhido acima.",
+      },
       { tipo: "texto", c: "usoTitulo", rot: "Título do modo de uso" },
       { tipo: "lista", c: "usoPassos", rot: "Passos", item: "Passo" },
       { tipo: "produto", c: "usoFotoDe", rot: "Foto do modo de uso: a do produto", comEste: true },
+      {
+        tipo: "foto",
+        c: "usoFoto",
+        rot: "Foto do modo de uso (opcional)",
+        forma: "deitada",
+        ajuda:
+          "Sem ela, a página mostra a 2ª foto do produto escolhido acima. O vídeo, quando tem, entra no lugar.",
+      },
       {
         tipo: "video",
         c: "usoVideo",
@@ -653,6 +688,11 @@ export const MEDIDA_DA_GALERIA = [1200, 1200] as const
 /** A foto de um caso de antes e depois: o quadro é 6 × 7, em pé, e corta o que sobra. */
 export const MEDIDA_DO_CASO = [900, 1050] as const
 /**
+ * A foto de "como funciona" e a do modo de uso: a caixa é 3 × 2, deitada (900
+ * × 600 na loja; o dobro pra tela nítida), e corta o que sobra.
+ */
+export const MEDIDA_DA_FOTO_DEITADA = [1800, 1200] as const
+/**
  * O vídeo do "Vê na prática": o cartão e a janela que abre são EM PÉ (9:16),
  * como o vídeo de celular. Em pé ocupa tudo; quadrado ou deitado toca inteiro
  * na janela, com faixa escura em cima e embaixo, e o cartão mostra o meio.
@@ -667,10 +707,19 @@ export const VIDEO = { maximoMB: 50, pesadoMB: 20, idealSegundos: 30 } as const
 /** Fotos na galeria e vídeos no "Vê na prática" (os mesmos limites do backend). */
 export const LIMITES_DA_GALERIA = { fotos: 12, videos: 4 } as const
 
-/** O que dizer da foto da galeria ou do caso, antes de salvar. */
-export function avisosDaFoto(uso: "galeria" | "caso", largura: number, altura: number): string[] {
+/** O que dizer da foto da galeria, do caso ou da caixa deitada, antes de salvar. */
+export function avisosDaFoto(
+  uso: "galeria" | "caso" | "deitada",
+  largura: number,
+  altura: number
+): string[] {
   const avisos: string[] = []
-  const [l, a] = uso === "galeria" ? MEDIDA_DA_GALERIA : MEDIDA_DO_CASO
+  const [l, a] =
+    uso === "galeria"
+      ? MEDIDA_DA_GALERIA
+      : uso === "deitada"
+        ? MEDIDA_DA_FOTO_DEITADA
+        : MEDIDA_DO_CASO
   if (largura < l * 0.66)
     avisos.push(`Pequena (${largura} × ${altura}): fica borrada na tela. O ideal é ${l} × ${a}.`)
   const daFoto = largura / altura
@@ -681,6 +730,10 @@ export function avisosDaFoto(uso: "galeria" | "caso", largura: number, altura: n
     avisos.push("Mais larga que o quadro (6 × 7, em pé): as laterais saem.")
   if (uso === "caso" && daFoto < doQuadro * 0.85)
     avisos.push("Mais alta que o quadro (6 × 7): aparece a faixa do meio.")
+  if (uso === "deitada" && Math.abs(daFoto - doQuadro) > doQuadro * 0.15)
+    avisos.push(
+      "Fora do formato da caixa (3 × 2, deitada): a página mostra o meio e corta o resto."
+    )
   return avisos
 }
 
