@@ -465,7 +465,7 @@ export function textoDoPagamento(p: PedidoDaConta): string {
  * No cartão, o estorno diz QUANDO aparece, como o e-mail de cancelamento: é
  * a pergunta seguinte de quem viu o valor sair — inclusive o de quem teve o
  * cartão reprovado pela análise depois de capturado, que agora também é
- * `estornado` (ver `devolvidoNoPagarme`).
+ * `estornado` (ver `devolvidoNoParceiro`).
  */
 export function fraseDoCancelado(p: PedidoDaConta): string {
   if (p.estornado)

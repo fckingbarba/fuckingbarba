@@ -112,6 +112,27 @@ export const PROVEDOR_PAGARME = "pp_pagarme_pagarme"
 export const PROVEDOR_PROVISORIO = "pp_system_default"
 
 /**
+ * OS PARCEIROS QUE COBRAM — o provedor no Medusa, o nome, e a chave onde ele
+ * grava o estado na sessão (`data[chave]`: a forma, a situação, o QR do Pix,
+ * o final do cartão, a recusa). Todo parceiro grava o mesmo formato, e é por
+ * esta lista que a tela de obrigado, a conta e a recusa do passo 3 acham o
+ * pagamento sem saber quem cobrou.
+ *
+ * A MESMA LISTA do backend (`apps/backend/src/lib/pagamento/parceiros.ts`):
+ * parceiro novo entra nas duas — o teste de lá confere. O provisório não é
+ * parceiro: ele não cobra.
+ */
+export type ParceiroDePagamento = { id: string; nome: string; chave: string }
+
+export const PARCEIROS: readonly ParceiroDePagamento[] = [
+  { id: PROVEDOR_PAGARME, nome: "Pagar.me", chave: "pagarme" },
+]
+
+export function parceiroDe(id: unknown): ParceiroDePagamento | null {
+  return PARCEIROS.find((p) => p.id === id) ?? null
+}
+
+/**
  * O pagamento de um pedido já fechado, como a tela de obrigado desenha.
  *
  * `estado` é a pergunta que a pessoa faz ao olhar a tela ("e o meu
