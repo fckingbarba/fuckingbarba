@@ -2098,6 +2098,26 @@ unidade (13 novos).
 
 Depois do deploy — **nada a configurar.**
 
+**Os e-mails do caminho da encomenda com a quantidade certa — pronto em 26/09 (entrega 0116).**
+Pedido dele, com print do e-mail do #19: "0× Balm Modelador…" em "O que vai na caixa".
+
+- **O que estava errado:** os quatro e-mails do caminho (a caminho, saiu pra entrega, esperando
+  retirada, entregue) diziam "0×" em todo item. O pedido estava certo: só esses e-mails pediam a
+  quantidade ao Medusa de um jeito que ele devolve vazio (ver o AGENTS, no parágrafo dos envios).
+- **O que muda:** os próximos saem com a quantidade de cada item ("1× Balm…", "2× Óleo…"). O
+  "a caminho" do #19 que já saiu fica como está; o "saiu pra entrega" e o "entregue" dele, se
+  ainda não saíram, saem certos.
+- **Nada mais tinha o erro:** a nota fiscal, o pedido no painel da Frenet, as compras mandadas pros
+  anúncios, o painel e os e-mails de confirmação e de cancelamento leem a quantidade certa —
+  conferido um por um, com as consultas de verdade, no banco local.
+
+Conferido pelo `conferir-envio.mjs` (63 checagens; 84 com o registro no painel da Frenet ligado): o
+pedido do caminho todo agora leva 2 unidades de um produto e 1 de outro, e os três e-mails dele são
+conferidos contra o pedido no admin. Com o código de antes, as duas checagens novas falham
+("faltam: 2× Óleo para Barba 30ml, 1× Balm Modelador para Barba 90g").
+
+Depois do deploy — **nada a configurar.**
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa
