@@ -1,1172 +1,3 @@
-export const AVALIACOES: Avaliacao[] = [
-  // ==========================================
-  // FATOR DE CRESCIMENTO E KITS
-  // ==========================================
-  ...[
-    "fator-de-crescimento-para-barba",
-    "kit-2-fator-de-crescimento-para-barba",
-    "kit-3-fator-de-crescimento-para-barba",
-    "kit-6-fator-de-crescimento-para-barba",
-    "kit-fator-de-crescimento-para-barba-e-shampoo",
-  ].flatMap((handle) => [
-    {
-      nome: "André B.",
-      nota: 5,
-      texto: "Usei por 1 mês e não vi muita coisa, mais continuei e no terceiro mês começou aparecer novos fios, valeu a paciência.",
-      compraVerificada: true,
-      produtoHandle: handle,
-    },
-    {
-      nome: "Wesley R.",
-      nota: 5,
-      texto: "Estou usando faz umas 3 semanas e já achei que preencheu melhor algumas falhas.",
-      compraVerificada: true,
-      produtoHandle: handle,
-    },
-    {
-      nome: "Cauã S.",
-      nota: 4,
-      texto: "No começo achei que não ia fazer diferença, mas agora tô percebendo uns fiozinhos novos.",
-      compraVerificada: true,
-      produtoHandle: handle,
-    },
-    {
-      nome: "Júlio A.",
-      nota: 5,
-      texto: "Comecei a usar e gostei bastante. A barba parece estar ficando mais uniforme.",
-      compraVerificada: true,
-      produtoHandle: handle,
-    },
-    {
-      nome: "Murilo G.",
-      nota: 4,
-      texto: "Estou usando todo dia e já consigo perceber uma diferença boa nas áreas que eram mais falhadas.",
-      compraVerificada: true,
-      produtoHandle: handle,
-    },
-    {
-      nome: "Ítalo F.",
-      nota: 4,
-      texto: "Demorou um pouco pra eu notar, mas agora já vejo bastante diferença. Vou continuar usando.",
-      compraVerificada: true,
-      produtoHandle: handle,
-    },
-    {
-      nome: "Ruan D.",
-      nota: 5,
-      texto: "Minha barba sempre teve algumas falhas e comecei a perceber uns fios novos depois de algumas semanas.",
-      compraVerificada: true,
-      produtoHandle: handle,
-    },
-    {
-      nome: "Heitor V.",
-      nota: 5,
-      texto: "Achei bem fácil de aplicar e não fica aquela sensação oleosa na barba.",
-      compraVerificada: true,
-      produtoHandle: handle,
-    },
-    {
-      nome: "Nathan P.",
-      nota: 4,
-      texto: "Estou no primeiro frasco ainda, mas já gostei bastante do resultado nas laterais.",
-      compraVerificada: true,
-      produtoHandle: handle,
-    },
-    {
-      nome: "Breno N.",
-      nota: 5,
-      texto: "Comprei sem esperar muito e me surpreendeu. Principalmente onde tinha mais falha.",
-      compraVerificada: true,
-      produtoHandle: handle,
-    },
-    {
-      nome: "Yuri C.",
-      nota: 4,
-      texto: "Estou usando certinho todos os dias e já comecei a perceber alguns fios aparecendo.",
-      compraVerificada: true,
-      produtoHandle: handle,
-    },
-    {
-      nome: "Leandro M.",
-      nota: 5,
-      texto: "Gostei bastante da aplicação, seca rápido e não deixa a barba pesada.",
-      compraVerificada: true,
-      produtoHandle: handle,
-    },
-    {
-      nome: "Adriel B.",
-      nota: 4,
-      texto: "No meu caso comecei a perceber diferença depois de algumas semanas. Vou continuar usando.",
-      compraVerificada: true,
-      produtoHandle: handle,
-    },
-    {
-      nome: "Kaique L.",
-      nota: 5,
-      texto: "Minha barba era bem falhada de um lado, agora já tá começando a ficar mais uniforme.",
-      compraVerificada: true,
-      produtoHandle: handle,
-    },
-    {
-      nome: "Otávio E.",
-      nota: 5,
-      texto: "Já estou no segundo frasco. Gostei bastante da evolução até agora.",
-      compraVerificada: true,
-      produtoHandle: handle,
-    },
-    {
-      nome: "Wallace T.",
-      nota: 4,
-      texto: "Estou usando diariamente e percebi uma melhora boa principalmente nas falhas da lateral.",
-      compraVerificada: true,
-      produtoHandle: handle,
-    },
-    {
-      nome: "Érick H.",
-      nota: 5,
-      texto: "Gostei bastante do produto, fácil de usar e não fica com aspecto oleoso.",
-      compraVerificada: true,
-      produtoHandle: handle,
-    },
-    {
-      nome: "Maicon J.",
-      nota: 4,
-      texto: "No começo não percebi muita coisa, mas depois de um tempo comecei a notar vários fiozinhos novos.",
-      compraVerificada: true,
-      produtoHandle: handle,
-    },
-    {
-      nome: "Emanuel K.",
-      nota: 5,
-      texto: "Estou gostando bastante. A barba parece estar mais cheia e com menos espaços.",
-      compraVerificada: true,
-      produtoHandle: handle,
-    },
-    {
-      nome: "Cristian W.",
-      nota: 4,
-      texto: "Primeiro frasco ainda, mas já estou vendo uma evolução boa. Vou seguir usando.",
-      compraVerificada: true,
-      produtoHandle: handle,
-    },
-    {
-      nome: "Jonatas F.",
-      nota: 5,
-      texto: "Curti bastante o produto. Na região que tinha mais falha já comecei a perceber alguns fios novos.",
-      compraVerificada: true,
-      produtoHandle: handle,
-    },
-  ]),
-
-  // ==========================================
-  // KIT COMPLETO
-  // ==========================================
-  {
-    nome: "André C.",
-    nota: 5,
-    texto: "Peguei o kit completo e gostei bastante. Minha barba fica bem mais cuidada no dia a dia.",
-    compraVerificada: true,
-    produtoHandle: "kit-completo-para-barba",
-  },
-  {
-    nome: "Wesley H.",
-    nota: 4,
-    texto: "Eu tinha bastante coceira na barba, principalmente depois do banho. Comecei a cuidar melhor e senti uma diferença boa.",
-    compraVerificada: true,
-    produtoHandle: "kit-completo-para-barba",
-  },
-  {
-    nome: "Cauã B.",
-    nota: 5,
-    texto: "O shampoo foi o que mais gostei. Minha barba ficava com bastante descamação e agora tá bem melhor.",
-    compraVerificada: true,
-    produtoHandle: "kit-completo-para-barba",
-  },
-  {
-    nome: "Bruno K.",
-    nota: 5,
-    texto: "Curti muito o kit, principalmente o óleo e o balm. Deixa a barba bem mais macia.",
-    compraVerificada: true,
-    produtoHandle: "kit-completo-para-barba",
-  },
-  {
-    nome: "Henrique P.",
-    nota: 4,
-    texto: "Minha barba costumava coçar bastante durante o dia. Depois que comecei a cuidar melhor da rotina, melhorou bastante.",
-    compraVerificada: true,
-    produtoHandle: "kit-completo-para-barba",
-  },
-  {
-    nome: "Murilo J.",
-    nota: 4,
-    texto: "Gostei dos produtos, principalmente pq minha barba ficava muito ressecada e soltava umas casquinhas.",
-    compraVerificada: true,
-    produtoHandle: "kit-completo-para-barba",
-  },
-  {
-    nome: "Ítalo W.",
-    nota: 5,
-    texto: "Comprei o kit completo pra testar a linha toda e gostei. O shampoo entrou de vez na minha rotina.",
-    compraVerificada: true,
-    produtoHandle: "kit-completo-para-barba",
-  },
-  {
-    nome: "Davi F.",
-    nota: 4,
-    texto: "Eu tinha bastante caspa na barba e resolvi começar a cuidar melhor. Achei que melhorou bastante a aparência.",
-    compraVerificada: true,
-    produtoHandle: "kit-completo-para-barba",
-  },
-  {
-    nome: "Leandro N.",
-    nota: 5,
-    texto: "Já usava o óleo e resolvi pegar o kit completo. A barba fica muito mais macia e fácil de cuidar.",
-    compraVerificada: true,
-    produtoHandle: "kit-completo-para-barba",
-  },
-  {
-    nome: "Adriel V.",
-    nota: 4,
-    texto: "Minha barba vivia coçando e eu nem sabia que precisava ter uma rotina de cuidados. O kit ajudou bastante no dia a dia.",
-    compraVerificada: true,
-    produtoHandle: "kit-completo-para-barba",
-  },
-  {
-    nome: "João M.",
-    nota: 5,
-    texto: "Chegou tudo certinho. Gostei principalmente do shampoo, minha barba fica bem limpa sem ficar ressecada.",
-    compraVerificada: true,
-    produtoHandle: "kit-completo-para-barba",
-  },
-  {
-    nome: "Otávio R.",
-    nota: 4,
-    texto: "O kit facilitou muito minha rotina. Antes tinha bastante descamação na barba, hoje percebo bem menos.",
-    compraVerificada: true,
-    produtoHandle: "kit-completo-para-barba",
-  },
-  {
-    nome: "Kaique M.",
-    nota: 5,
-    texto: "Comecei a cuidar mais da barba e fez diferença. Principalmente na coceira que eu sentia.",
-    compraVerificada: true,
-    produtoHandle: "kit-completo-para-barba",
-  },
-  {
-    nome: "Gustavo D.",
-    nota: 5,
-    texto: "Gostei muito do acabamento, principalmente usando o óleo e depois o balm. A barba fica bem mais alinhada.",
-    compraVerificada: true,
-    produtoHandle: "kit-completo-para-barba",
-  },
-  {
-    nome: "Ruan S.",
-    nota: 4,
-    texto: "Comprei meio na dúvida e gostei bastante. Minha barba era bem seca e às vezes coçava muito.",
-    compraVerificada: true,
-    produtoHandle: "kit-completo-para-barba",
-  },
-  {
-    nome: "Felipe T.",
-    nota: 5,
-    texto: "A pomada matte virou minha favorita. Segura bem e não deixa aquele brilho exagerado.",
-    compraVerificada: true,
-    produtoHandle: "kit-completo-para-barba",
-  },
-  {
-    nome: "Emanuel A.",
-    nota: 5,
-    texto: "O kit chegou bem embalado e os produtos são muito bons. Estou usando praticamente todo dia.",
-    compraVerificada: true,
-    produtoHandle: "kit-completo-para-barba",
-  },
-  {
-    nome: "Renan G.",
-    nota: 4,
-    texto: "Eu tinha bastante descamação e minha barba ficava com aspecto seco. Com a rotina de cuidados melhorou bastante.",
-    compraVerificada: true,
-    produtoHandle: "kit-completo-para-barba",
-  },
-  {
-    nome: "Wallace E.",
-    nota: 4,
-    texto: "Minha barba sempre ficava meio bagunçada e coçando. Agora tô cuidando certinho e gostei bastante da diferença.",
-    compraVerificada: true,
-    produtoHandle: "kit-completo-para-barba",
-  },
-  {
-    nome: "Lucas Z.",
-    nota: 5,
-    texto: "Pra quem quer começar a cuidar melhor da barba, gostei muito do kit. Tem produto pra montar uma rotina completa.",
-    compraVerificada: true,
-    produtoHandle: "kit-completo-para-barba",
-  },
-
-  // ==========================================
-  // SHAMPOO PARA BARBA
-  // ==========================================
-  {
-    nome: "Alessandro Q.",
-    nota: 5,
-    texto: "Gostei bastante do shampoo, limpa bem e não deixa a barba ressecada.",
-    compraVerificada: true,
-    produtoHandle: "shampoo-para-barba",
-  },
-  {
-    nome: "Vitor Y.",
-    nota: 4,
-    texto: "Minha barba ficava coçando bastante, principalmente no calor. Com o shampoo achei que melhorou bastante.",
-    compraVerificada: true,
-    produtoHandle: "shampoo-para-barba",
-  },
-  {
-    nome: "Lorenzo X.",
-    nota: 5,
-    texto: "Eu tinha bastante descamação na barba e comecei a usar esse shampoo. A aparência melhorou muito.",
-    compraVerificada: true,
-    produtoHandle: "shampoo-para-barba",
-  },
-  {
-    nome: "Douglas U.",
-    nota: 5,
-    texto: "O cheiro é bem agradável e deixa a barba bem macia depois do banho.",
-    compraVerificada: true,
-    produtoHandle: "shampoo-para-barba",
-  },
-  {
-    nome: "Rogério I.",
-    nota: 4,
-    texto: "Gostei pq limpa bem sem deixar aquela sensação de barba seca.",
-    compraVerificada: true,
-    produtoHandle: "shampoo-para-barba",
-  },
-  {
-    nome: "Sandro O.",
-    nota: 4,
-    texto: "Minha barba vivia com umas casquinhas, comecei a usar o shampoo e percebi uma diferença boa.",
-    compraVerificada: true,
-    produtoHandle: "shampoo-para-barba",
-  },
-  {
-    nome: "Alex Z.",
-    nota: 5,
-    texto: "Uso umas 3 vezes por semana e gostei bastante. A barba fica limpa e leve.",
-    compraVerificada: true,
-    produtoHandle: "shampoo-para-barba",
-  },
-  {
-    nome: "Luiz X.",
-    nota: 4,
-    texto: "Eu não dava muita atenção pra shampoo de barba, mas depois que comecei a usar percebi bastante diferença.",
-    compraVerificada: true,
-    produtoHandle: "shampoo-para-barba",
-  },
-  {
-    nome: "Marcelo Q.",
-    nota: 5,
-    texto: "Minha barba é bem grossa e esse shampoo deixou ela bem mais macia.",
-    compraVerificada: true,
-    produtoHandle: "shampoo-para-barba",
-  },
-  {
-    nome: "Nicolas Y.",
-    nota: 4,
-    texto: "Tinha bastante coceira na região do queixo, principalmente depois de alguns dias sem lavar. Gostei bastante desse shampoo.",
-    compraVerificada: true,
-    produtoHandle: "shampoo-para-barba",
-  },
-  {
-    nome: "Fabrício U.",
-    nota: 5,
-    texto: "Faz bastante espuma e rende bem. Um pouquinho já dá pra lavar a barba toda.",
-    compraVerificada: true,
-    produtoHandle: "shampoo-para-barba",
-  },
-  {
-    nome: "Cristóvão I.",
-    nota: 4,
-    texto: "Minha barba ficava muito seca depois de lavar, com esse aqui não tive esse problema.",
-    compraVerificada: true,
-    produtoHandle: "shampoo-para-barba",
-  },
-  {
-    nome: "Augusto O.",
-    nota: 4,
-    texto: "Depois de algumas lavagens já achei a barba com um aspecto bem melhor.",
-    compraVerificada: true,
-    produtoHandle: "shampoo-para-barba",
-  },
-  {
-    nome: "Samuel Z.",
-    nota: 5,
-    texto: "Gostei bastante da textura e do cheiro. Deixa a barba limpa sem ficar áspera.",
-    compraVerificada: true,
-    produtoHandle: "shampoo-para-barba",
-  },
-  {
-    nome: "Robson X.",
-    nota: 4,
-    texto: "Comecei a usar pq minha barba tava descamando bastante. Até agora estou gostando do resultado.",
-    compraVerificada: true,
-    produtoHandle: "shampoo-para-barba",
-  },
-  {
-    nome: "Márcio Q.",
-    nota: 5,
-    texto: "Produto muito bom, principalmente pra quem deixa a barba maior. Ajuda bastante na rotina.",
-    compraVerificada: true,
-    produtoHandle: "shampoo-para-barba",
-  },
-  {
-    nome: "Valter Y.",
-    nota: 5,
-    texto: "Minha barba ficou bem mais macia depois que comecei a usar. Agora faz parte do banho.",
-    compraVerificada: true,
-    produtoHandle: "shampoo-para-barba",
-  },
-  {
-    nome: "Renato U.",
-    nota: 4,
-    texto: "Eu tinha bastante coceira e ressecamento na barba. Com o uso frequente achei que melhorou bastante.",
-    compraVerificada: true,
-    produtoHandle: "shampoo-para-barba",
-  },
-  {
-    nome: "César I.",
-    nota: 5,
-    texto: "Gostei bastante, limpa bem e não deixa aquele cheiro forte depois.",
-    compraVerificada: true,
-    produtoHandle: "shampoo-para-barba",
-  },
-  {
-    nome: "Jeferson O.",
-    nota: 5,
-    texto: "Comprei pra testar e já gostei na primeira lavagem. A barba fica bem limpa e macia.",
-    compraVerificada: true,
-    produtoHandle: "shampoo-para-barba",
-  },
-
-  // ==========================================
-  // BALM PARA BARBA
-  // ==========================================
-  {
-    nome: "Alexandre K.",
-    nota: 5,
-    texto: "O que mais gostei foi que diminuiu bastante o frizz, minha barba fica bem mais alinhada.",
-    compraVerificada: true,
-    produtoHandle: "balm-para-barba",
-  },
-  {
-    nome: "Vinícius A.",
-    nota: 4,
-    texto: "Minha barba ficava cheia de fio espetado, o balm ajudou bastante a deixar tudo no lugar.",
-    compraVerificada: true,
-    produtoHandle: "balm-para-barba",
-  },
-  {
-    nome: "Leonardo V.",
-    nota: 5,
-    texto: "Curti muito pra modelar, consigo deixar a barba no formato que gosto sem ficar dura.",
-    compraVerificada: true,
-    produtoHandle: "balm-para-barba",
-  },
-  {
-    nome: "Daniel M.",
-    nota: 5,
-    texto: "Tenho bastante frizz na barba e esse balm ajudou demais no controle dos fios.",
-    compraVerificada: true,
-    produtoHandle: "balm-para-barba",
-  },
-  {
-    nome: "Ricardo P.",
-    nota: 4,
-    texto: "Uso de manhã pra modelar e segura bem durante o dia. Não fica com aquele aspecto pesado.",
-    compraVerificada: true,
-    produtoHandle: "balm-para-barba",
-  },
-  {
-    nome: "Sergio T.",
-    nota: 4,
-    texto: "Minha barba é bem rebelde, principalmente nas laterais. Com o balm consigo deixar bem mais alinhada.",
-    compraVerificada: true,
-    produtoHandle: "balm-para-barba",
-  },
-  {
-    nome: "Arthur L.",
-    nota: 5,
-    texto: "Gostei pq controla os fios arrepiados sem deixar a barba dura igual algumas pomadas.",
-    compraVerificada: true,
-    produtoHandle: "balm-para-barba",
-  },
-  {
-    nome: "Luan F.",
-    nota: 4,
-    texto: "Pra modelar a barba ficou muito bom. Passo pouco produto e já consigo ajeitar os fios.",
-    compraVerificada: true,
-    produtoHandle: "balm-para-barba",
-  },
-  {
-    nome: "Mateus B.",
-    nota: 5,
-    texto: "Minha barba tem bastante frizz e ficava toda bagunçada depois de algumas horas. Com o balm fica bem mais controlada.",
-    compraVerificada: true,
-    produtoHandle: "balm-para-barba",
-  },
-  {
-    nome: "Natan H.",
-    nota: 4,
-    texto: "Comecei a usar pra controlar os fios rebeldes e gostei bastante do resultado.",
-    compraVerificada: true,
-    produtoHandle: "balm-para-barba",
-  },
-  {
-    nome: "Fernando S.",
-    nota: 5,
-    texto: "Gostei do acabamento, consigo modelar sem perder aquele aspecto natural da barba.",
-    compraVerificada: true,
-    produtoHandle: "balm-para-barba",
-  },
-  {
-    nome: "Caio D.",
-    nota: 4,
-    texto: "Depois do banho minha barba ficava toda espetada, agora passo o balm e consigo modelar bem mais fácil.",
-    compraVerificada: true,
-    produtoHandle: "balm-para-barba",
-  },
-  {
-    nome: "Alan R.",
-    nota: 5,
-    texto: "Um dos produtos que mais gostei. Ajuda no frizz e deixa os fios bem mais comportados.",
-    compraVerificada: true,
-    produtoHandle: "balm-para-barba",
-  },
-  {
-    nome: "Saulo G.",
-    nota: 5,
-    texto: "Uso junto com o óleo e depois modelo com o pente. Fica bem alinhada e sem aqueles fios voando.",
-    compraVerificada: true,
-    produtoHandle: "balm-para-barba",
-  },
-  {
-    nome: "Raul W.",
-    nota: 4,
-    texto: "Tenho a barba grossa e difícil de controlar, o balm ajudou bastante na modelação.",
-    compraVerificada: true,
-    produtoHandle: "balm-para-barba",
-  },
-  {
-    nome: "Mário N.",
-    nota: 5,
-    texto: "Não precisa passar muito. Um pouco já ajuda a controlar o frizz e deixar a barba no formato.",
-    compraVerificada: true,
-    produtoHandle: "balm-para-barba",
-  },
-  {
-    nome: "Valdir C.",
-    nota: 4,
-    texto: "Gostei pq consigo modelar a barba sem deixar ela com aparência artificial.",
-    compraVerificada: true,
-    produtoHandle: "balm-para-barba",
-  },
-  {
-    nome: "Ramon E.",
-    nota: 4,
-    texto: "Minha barba ficava muito arrepiada durante o dia. O balm segura bem os fios e diminui bastante o frizz.",
-    compraVerificada: true,
-    produtoHandle: "balm-para-barba",
-  },
-  {
-    nome: "Cassio J.",
-    nota: 5,
-    texto: "Pra quem gosta de barba mais alinhada, achei muito bom. Modela bem e não deixa os fios duros.",
-    compraVerificada: true,
-    produtoHandle: "balm-para-barba",
-  },
-  {
-    nome: "Juliano O.",
-    nota: 5,
-    texto: "Virou parte da minha rotina. Passo de manhã, modelo rapidinho e a barba fica bem mais organizada.",
-    compraVerificada: true,
-    produtoHandle: "balm-para-barba",
-  },
-
-  // ==========================================
-  // ÓLEO DE BARBA
-  // ==========================================
-  {
-    nome: "Matheus Q.",
-    nota: 5,
-    texto: "Minha barba ficou bem mais macia depois que comecei a usar o óleo, principalmente nas pontas.",
-    compraVerificada: true,
-    produtoHandle: "oleo-para-barba",
-  },
-  {
-    nome: "Diego Y.",
-    nota: 5,
-    texto: "Gostei bastante, não fica com aquele aspecto de barba encharcada e o cheiro é muito bom.",
-    compraVerificada: true,
-    produtoHandle: "oleo-para-barba",
-  },
-  {
-    nome: "Luciano X.",
-    nota: 4,
-    texto: "Minha barba é bem seca e o óleo ajudou muito a deixar os fios mais macios.",
-    compraVerificada: true,
-    produtoHandle: "oleo-para-barba",
-  },
-  {
-    nome: "Anderson U.",
-    nota: 4,
-    texto: "Uso depois do banho e percebo que a barba fica bem mais fácil de pentear.",
-    compraVerificada: true,
-    produtoHandle: "oleo-para-barba",
-  },
-  {
-    nome: "Rodrigo I.",
-    nota: 5,
-    texto: "Curti bastante o acabamento, deixa um brilho leve sem parecer oleoso demais.",
-    compraVerificada: true,
-    produtoHandle: "oleo-para-barba",
-  },
-  {
-    nome: "Sebastião O.",
-    nota: 4,
-    texto: "Minha barba ficava muito áspera, principalmente nas pontas. Com o óleo melhorou bastante.",
-    compraVerificada: true,
-    produtoHandle: "oleo-para-barba",
-  },
-  {
-    nome: "Alisson Z.",
-    nota: 5,
-    texto: "O cheiro é muito bom e fica bem suave depois de um tempo. Gostei bastante.",
-    compraVerificada: true,
-    produtoHandle: "oleo-para-barba",
-  },
-  {
-    nome: "Luiz V.",
-    nota: 5,
-    texto: "Comecei a usar todos os dias e minha barba tá bem mais macia e hidratada.",
-    compraVerificada: true,
-    produtoHandle: "oleo-para-barba",
-  },
-  {
-    nome: "Marcelo G.",
-    nota: 4,
-    texto: "Tenho a barba mais cheia e o óleo ajuda bastante a deixar os fios mais comportados.",
-    compraVerificada: true,
-    produtoHandle: "oleo-para-barba",
-  },
-  {
-    nome: "Nelson Y.",
-    nota: 4,
-    texto: "Gostei porque hidrata sem deixar aquela sensação pesada. Algumas gotas já são suficientes.",
-    compraVerificada: true,
-    produtoHandle: "oleo-para-barba",
-  },
-  {
-    nome: "Fábio U.",
-    nota: 5,
-    texto: "Minha barba tava bem ressecada, principalmente no inverno. O óleo fez bastante diferença na rotina.",
-    compraVerificada: true,
-    produtoHandle: "oleo-para-barba",
-  },
-  {
-    nome: "Cleber I.",
-    nota: 4,
-    texto: "Depois do banho passo algumas gotas e penteio. A barba fica muito mais alinhada.",
-    compraVerificada: true,
-    produtoHandle: "oleo-para-barba",
-  },
-  {
-    nome: "Agnaldo O.",
-    nota: 5,
-    texto: "Gostei muito do resultado, deixa os fios macios e com uma aparência bem cuidada.",
-    compraVerificada: true,
-    produtoHandle: "oleo-para-barba",
-  },
-  {
-    nome: "Simão Z.",
-    nota: 5,
-    texto: "Uso junto com o balm e fica uma combinação muito boa. O óleo deixa a barba bem hidratada.",
-    compraVerificada: true,
-    produtoHandle: "oleo-para-barba",
-  },
-  {
-    nome: "Rodolfo X.",
-    nota: 4,
-    texto: "Tenho barba grossa e o óleo ajudou bastante com aqueles fios mais secos e rebeldes.",
-    compraVerificada: true,
-    produtoHandle: "oleo-para-barba",
-  },
-  {
-    nome: "Moacir Q.",
-    nota: 5,
-    texto: "Rende bastante, não precisa exagerar. Com poucas gotas já consigo passar na barba toda.",
-    compraVerificada: true,
-    produtoHandle: "oleo-para-barba",
-  },
-  {
-    nome: "Vagner Y.",
-    nota: 4,
-    texto: "Depois que comecei a usar senti a barba bem menos áspera e com um aspecto melhor.",
-    compraVerificada: true,
-    produtoHandle: "oleo-para-barba",
-  },
-  {
-    nome: "Reinaldo U.",
-    nota: 5,
-    texto: "Curti bastante, principalmente pelo cheiro e pela maciez que deixa nos fios.",
-    compraVerificada: true,
-    produtoHandle: "oleo-para-barba",
-  },
-  {
-    nome: "Célio I.",
-    nota: 4,
-    texto: "Minha barba ficava com bastante frizz, o óleo ajuda a deixar os fios mais controlados.",
-    compraVerificada: true,
-    produtoHandle: "oleo-para-barba",
-  },
-  {
-    nome: "Jaime O.",
-    nota: 5,
-    texto: "Virou parte da minha rotina. Passo depois do banho e a barba fica muito mais macia e fácil de cuidar.",
-    compraVerificada: true,
-    produtoHandle: "oleo-para-barba",
-  },
-
-  // ==========================================
-  // POMADA MATTE — CABELO
-  // ==========================================
-  {
-    nome: "Gabriel Q.",
-    nota: 5,
-    texto: "Gostei bastante da fixação, consigo deixar o cabelo no formato que quero sem ficar brilhando.",
-    compraVerificada: true,
-    produtoHandle: "pasta-modeladora-matte-80g-fucking-barba",
-  },
-  {
-    nome: "Eduardo Y.",
-    nota: 5,
-    texto: "Era exatamente o que eu procurava, segura bem e deixa aquele aspecto natural.",
-    compraVerificada: true,
-    produtoHandle: "pasta-modeladora-matte-80g-fucking-barba",
-  },
-  {
-    nome: "Luan X.",
-    nota: 4,
-    texto: "Curti muito o efeito matte, não fica com aparência de cabelo cheio de produto.",
-    compraVerificada: true,
-    produtoHandle: "pasta-modeladora-matte-80g-fucking-barba",
-  },
-  {
-    nome: "Andress U.",
-    nota: 4,
-    texto: "Meu cabelo é bem difícil de modelar e essa pomada segurou muito bem.",
-    compraVerificada: true,
-    produtoHandle: "pasta-modeladora-matte-80g-fucking-barba",
-  },
-  {
-    nome: "Ronaldo I.",
-    nota: 5,
-    texto: "Gostei da fixação, principalmente nas laterais. O penteado fica no lugar por bastante tempo.",
-    compraVerificada: true,
-    produtoHandle: "pasta-modeladora-matte-80g-fucking-barba",
-  },
-  {
-    nome: "Savio O.",
-    nota: 5,
-    texto: "O que mais gostei foi que não deixa brilho. Fica arrumado mas com aspecto natural.",
-    compraVerificada: true,
-    produtoHandle: "pasta-modeladora-matte-80g-fucking-barba",
-  },
-  {
-    nome: "Aldo Z.",
-    nota: 4,
-    texto: "Uso todo dia pra modelar e funciona muito bem. Um pouco de produto já resolve.",
-    compraVerificada: true,
-    produtoHandle: "pasta-modeladora-matte-80g-fucking-barba",
-  },
-  {
-    nome: "Luiz M.",
-    nota: 4,
-    texto: "Tenho bastante fio arrepiado e a pomada controla bem sem deixar o cabelo duro.",
-    compraVerificada: true,
-    produtoHandle: "pasta-modeladora-matte-80g-fucking-barba",
-  },
-  {
-    nome: "Maurício Q.",
-    nota: 5,
-    texto: "Curti bastante o acabamento matte, fica bem discreto e segura o penteado durante o dia.",
-    compraVerificada: true,
-    produtoHandle: "pasta-modeladora-matte-80g-fucking-barba",
-  },
-  {
-    nome: "Nivaldo Y.",
-    nota: 4,
-    texto: "Meu cabelo nunca ficava no lugar por muito tempo, com essa pomada consigo manter o formato bem melhor.",
-    compraVerificada: true,
-    produtoHandle: "pasta-modeladora-matte-80g-fucking-barba",
-  },
-  {
-    nome: "Flávio U.",
-    nota: 5,
-    texto: "Gostei bastante da textura, espalha fácil e não deixa aquela sensação pesada.",
-    compraVerificada: true,
-    produtoHandle: "pasta-modeladora-matte-80g-fucking-barba",
-  },
-  {
-    nome: "Cássio I.",
-    nota: 4,
-    texto: "Pra modelar o cabelo é muito boa. Consigo definir o penteado sem deixar com cara de molhado.",
-    compraVerificada: true,
-    produtoHandle: "pasta-modeladora-matte-80g-fucking-barba",
-  },
-  {
-    nome: "Ailton O.",
-    nota: 5,
-    texto: "A fixação me surpreendeu. Passei de manhã e o cabelo continuou bem alinhado durante o dia.",
-    compraVerificada: true,
-    produtoHandle: "pasta-modeladora-matte-80g-fucking-barba",
-  },
-  {
-    nome: "Sidney Z.",
-    nota: 4,
-    texto: "Uso quando quero um penteado mais arrumado, mas sem aquele brilho de pomada tradicional.",
-    compraVerificada: true,
-    produtoHandle: "pasta-modeladora-matte-80g-fucking-barba",
-  },
-  {
-    nome: "Rubens X.",
-    nota: 5,
-    texto: "Tenho bastante cabelo e precisava de algo que segurasse bem. Essa pomada resolveu.",
-    compraVerificada: true,
-    produtoHandle: "pasta-modeladora-matte-80g-fucking-barba",
-  },
-  {
-    nome: "Marcos Q.",
-    nota: 4,
-    texto: "Não precisa passar muito, uma quantidade pequena já dá uma boa modelada.",
-    compraVerificada: true,
-    produtoHandle: "pasta-modeladora-matte-80g-fucking-barba",
-  },
-  {
-    nome: "Vilmar Y.",
-    nota: 5,
-    texto: "Gostei principalmente porque segura sem deixar o cabelo duro. Fica bem natural.",
-    compraVerificada: true,
-    produtoHandle: "pasta-modeladora-matte-80g-fucking-barba",
-  },
-  {
-    nome: "Rene U.",
-    nota: 4,
-    texto: "O efeito matte é muito bom, não curto produto que deixa o cabelo brilhando demais.",
-    compraVerificada: true,
-    produtoHandle: "pasta-modeladora-matte-80g-fucking-barba",
-  },
-  {
-    nome: "Crisostomo I.",
-    nota: 4,
-    texto: "Meu cabelo tem bastante frizz e a pomada ajuda muito a deixar os fios no lugar.",
-    compraVerificada: true,
-    produtoHandle: "pasta-modeladora-matte-80g-fucking-barba",
-  },
-  {
-    nome: "Jonas O.",
-    nota: 5,
-    texto: "Virou meu produto pra finalizar o cabelo. Modelo rápido e fica com um acabamento bem natural.",
-    compraVerificada: true,
-    produtoHandle: "pasta-modeladora-matte-80g-fucking-barba",
-  },
-
-  // ==========================================
-  // POMADA BRILHO — CABELO
-  // ==========================================
-  {
-    nome: "Matheus P.",
-    nota: 5,
-    texto: "Gostei bastante, deixa aquele aspecto molhado que eu curto e segura bem o penteado.",
-    compraVerificada: true,
-    produtoHandle: "pasta-modeladora-brilho-80g-fucking-barba",
-  },
-  {
-    nome: "Diego B.",
-    nota: 5,
-    texto: "O efeito molhado fica muito bom, principalmente quando quero deixar o cabelo mais alinhado.",
-    compraVerificada: true,
-    produtoHandle: "pasta-modeladora-brilho-80g-fucking-barba",
-  },
-  {
-    nome: "Lorenzo F.",
-    nota: 4,
-    texto: "Curti demais o acabamento, fica com bastante brilho e aquele visual de cabelo molhado.",
-    compraVerificada: true,
-    produtoHandle: "pasta-modeladora-brilho-80g-fucking-barba",
-  },
-  {
-    nome: "Anderson D.",
-    nota: 5,
-    texto: "Era exatamente o que eu procurava. Deixa o cabelo com aspecto molhado e bem modelado.",
-    compraVerificada: true,
-    produtoHandle: "pasta-modeladora-brilho-80g-fucking-barba",
-  },
-  {
-    nome: "Rodrigo C.",
-    nota: 4,
-    texto: "Gostei da fixação e principalmente do efeito molhado, fica bem diferente da pomada matte.",
-    compraVerificada: true,
-    produtoHandle: "pasta-modeladora-brilho-80g-fucking-barba",
-  },
-  {
-    nome: "Sandro E.",
-    nota: 4,
-    texto: "Meu cabelo fica com aspecto mais alinhado e com aquele brilho de molhado que eu gosto.",
-    compraVerificada: true,
-    produtoHandle: "pasta-modeladora-brilho-80g-fucking-barba",
-  },
-  {
-    nome: "Alex T.",
-    nota: 5,
-    texto: "Uso quando quero um visual mais arrumado. O efeito molhado deixa o penteado bem destacado.",
-    compraVerificada: true,
-    produtoHandle: "pasta-modeladora-brilho-80g-fucking-barba",
-  },
-  {
-    nome: "Luiz C.",
-    nota: 4,
-    texto: "Curti bastante, espalha fácil e deixa aquele aspecto molhado sem precisar exagerar na quantidade.",
-    compraVerificada: true,
-    produtoHandle: "pasta-modeladora-brilho-80g-fucking-barba",
-  },
-  {
-    nome: "Marcelo V.",
-    nota: 5,
-    texto: "Tenho bastante cabelo e gostei muito do resultado. Fica bem alinhado e com efeito molhado.",
-    compraVerificada: true,
-    produtoHandle: "pasta-modeladora-brilho-80g-fucking-barba",
-  },
-  {
-    nome: "Nicolas A.",
-    nota: 5,
-    texto: "Pra sair à noite é a que eu mais uso. Deixa aquele visual molhado e bem alinhado.",
-    compraVerificada: true,
-    produtoHandle: "pasta-modeladora-brilho-80g-fucking-barba",
-  },
-  {
-    nome: "Fabrício G.",
-    nota: 4,
-    texto: "O brilho é bem forte e o aspecto molhado fica muito bom no cabelo.",
-    compraVerificada: true,
-    produtoHandle: "pasta-modeladora-brilho-80g-fucking-barba",
-  },
-  {
-    nome: "Cristóvão M.",
-    nota: 5,
-    texto: "Meu cabelo fica muito mais arrumado usando essa pomada. O efeito molhado dá um acabamento muito bom.",
-    compraVerificada: true,
-    produtoHandle: "pasta-modeladora-brilho-80g-fucking-barba",
-  },
-  {
-    nome: "Augusto L.",
-    nota: 4,
-    texto: "Gostei bastante da fixação, segura os fios e mantém o aspecto molhado por bastante tempo.",
-    compraVerificada: true,
-    produtoHandle: "pasta-modeladora-brilho-80g-fucking-barba",
-  },
-  {
-    nome: "Samuel H.",
-    nota: 5,
-    texto: "Eu gosto de cabelo com aquele visual molhado e essa pomada entrega exatamente isso.",
-    compraVerificada: true,
-    produtoHandle: "pasta-modeladora-brilho-80g-fucking-barba",
-  },
-  {
-    nome: "Robson J.",
-    nota: 4,
-    texto: "Tenho bastante fio rebelde e a pomada controla bem. O efeito molhado deixa o resultado ainda melhor.",
-    compraVerificada: true,
-    produtoHandle: "pasta-modeladora-brilho-80g-fucking-barba",
-  },
-  {
-    nome: "Márcio K.",
-    nota: 4,
-    texto: "Não precisa passar muito produto, com pouco já consigo modelar e deixar o aspecto molhado.",
-    compraVerificada: true,
-    produtoHandle: "pasta-modeladora-brilho-80g-fucking-barba",
-  },
-  {
-    nome: "Valter S.",
-    nota: 5,
-    texto: "Pra quem gosta de brilho e efeito molhado, gostei bastante. Deixa o cabelo bem destacado.",
-    compraVerificada: true,
-    produtoHandle: "pasta-modeladora-brilho-80g-fucking-barba",
-  },
-  {
-    nome: "Renato F.",
-    nota: 5,
-    texto: "O que mais gostei foi justamente o aspecto molhado. Fica aquele visual de cabelo recém arrumado.",
-    compraVerificada: true,
-    produtoHandle: "pasta-modeladora-brilho-80g-fucking-barba",
-  },
-  {
-    nome: "César G.",
-    nota: 4,
-    texto: "Meu cabelo fica bem mais alinhado e com um brilho forte, o efeito molhado ficou muito bom.",
-    compraVerificada: true,
-    produtoHandle: "pasta-modeladora-brilho-80g-fucking-barba",
-  },
-  {
-    nome: "Jeferson T.",
-    nota: 5,
-    texto: "Virou minha favorita pra quando quero um visual diferente. Fica bem modelado, brilhando e com aspecto molhado.",
-    compraVerificada: true,
-    produtoHandle: "pasta-modeladora-brilho-80g-fucking-barba",
-  },
-
-  // ==========================================
-  // SPRAY MODELADOR MATTE — CABELO
-  // ==========================================
-  {
-    nome: "Thiago Q.",
-    nota: 5,
-    texto: "Gostei bastante do spray, deixa o cabelo no lugar sem ficar com aquele brilho de gel.",
-    compraVerificada: true,
-    produtoHandle: "spray-modelador-matte-100ml-fucking-barba",
-  },
-  {
-    nome: "Vinícius Y.",
-    nota: 4,
-    texto: "Muito prático pra usar no dia a dia. Borrifo, modelo com a mão e já fica do jeito que gosto.",
-    compraVerificada: true,
-    produtoHandle: "spray-modelador-matte-100ml-fucking-barba",
-  },
-  {
-    nome: "Lucas F.",
-    nota: 5,
-    texto: "Curti o efeito matte, deixa o cabelo com textura e aspecto bem natural.",
-    compraVerificada: true,
-    produtoHandle: "spray-modelador-matte-100ml-fucking-barba",
-  },
-  {
-    nome: "André U.",
-    nota: 4,
-    texto: "Meu cabelo é bem liso e difícil de dar volume, o spray ajudou bastante nisso.",
-    compraVerificada: true,
-    produtoHandle: "spray-modelador-matte-100ml-fucking-barba",
-  },
-  {
-    nome: "Rafael I.",
-    nota: 5,
-    texto: "O que mais gostei foi que não deixa aspecto molhado. Fica bem seco e natural.",
-    compraVerificada: true,
-    produtoHandle: "spray-modelador-matte-100ml-fucking-barba",
-  },
-  {
-    nome: "Sergio O.",
-    nota: 4,
-    texto: "Uso antes de sair e segura bem o penteado durante o dia. Bem prático.",
-    compraVerificada: true,
-    produtoHandle: "spray-modelador-matte-100ml-fucking-barba",
-  },
-  {
-    nome: "Alan Z.",
-    nota: 5,
-    texto: "Gostei bastante da textura que deixa no cabelo, dá mais volume sem pesar.",
-    compraVerificada: true,
-    produtoHandle: "spray-modelador-matte-100ml-fucking-barba",
-  },
-  {
-    nome: "Luciano M.",
-    nota: 4,
-    texto: "Pra quem não gosta de produto com brilho, esse spray é muito bom. O acabamento fica bem matte.",
-    compraVerificada: true,
-    produtoHandle: "spray-modelador-matte-100ml-fucking-barba",
-  },
-  {
-    nome: "Marcio C.",
-    nota: 5,
-    texto: "Meu cabelo perde o formato rápido, com o spray consigo deixar o penteado no lugar por muito mais tempo.",
-    compraVerificada: true,
-    produtoHandle: "spray-modelador-matte-100ml-fucking-barba",
-  },
-  {
-    nome: "Nasser Y.",
-    nota: 4,
-    texto: "Achei muito fácil de aplicar e seca rápido. Depois é só modelar com a mão.",
-    compraVerificada: true,
-    produtoHandle: "spray-modelador-matte-100ml-fucking-barba",
-  },
-  {
-    nome: "Filipe U.",
-    nota: 5,
-    texto: "Gostei da fixação, principalmente porque não deixa o cabelo com aparência dura.",
-    compraVerificada: true,
-    produtoHandle: "spray-modelador-matte-100ml-fucking-barba",
-  },
-  {
-    nome: "Christian I.",
-    nota: 4,
-    texto: "Uso pra dar textura depois do banho. O acabamento matte ficou muito bom.",
-    compraVerificada: true,
-    produtoHandle: "spray-modelador-matte-100ml-fucking-barba",
-  },
-  {
-    nome: "Aureliano O.",
-    nota: 4,
-    texto: "Meu cabelo ficou com mais volume e textura usando o spray, gostei bastante.",
-    compraVerificada: true,
-    produtoHandle: "spray-modelador-matte-100ml-fucking-barba",
-  },
-  {
-    nome: "Sandro Z.",
-    nota: 5,
-    texto: "Curti porque consigo passar uma camada e, se precisar, reforçar depois sem pesar.",
-    compraVerificada: true,
-    produtoHandle: "spray-modelador-matte-100ml-fucking-barba",
-  },
-  {
-    nome: "Romário X.",
-    nota: 4,
-    texto: "Tenho bastante cabelo e gosto de deixar mais bagunçado. O spray ajuda muito na modelação.",
-    compraVerificada: true,
-    produtoHandle: "spray-modelador-matte-100ml-fucking-barba",
-  },
-  {
-    nome: "Manoel Q.",
-    nota: 5,
-    texto: "Muito mais rápido de usar que pomada. Borrifo, modelo e pronto.",
-    compraVerificada: true,
-    produtoHandle: "spray-modelador-matte-100ml-fucking-barba",
-  },
-  {
-    nome: "Vicente Y.",
-    nota: 4,
-    texto: "O efeito seco é o diferencial pra mim. Não gosto quando o cabelo fica com aparência molhada.",
-    compraVerificada: true,
-    produtoHandle: "spray-modelador-matte-100ml-fucking-barba",
-  },
-  {
-    nome: "Reginaldo U.",
-    nota: 5,
-    texto: "Gostei bastante da fixação e do acabamento. O cabelo fica arrumado mas continua natural.",
-    compraVerificada: true,
-    produtoHandle: "spray-modelador-matte-100ml-fucking-barba",
-  },
-  {
-    nome: "Caio I.",
-    nota: 4,
-    texto: "Uso quando quero mais volume e textura. Dá uma diferença boa sem deixar o cabelo brilhando.",
-    compraVerificada: true,
-    produtoHandle: "spray-modelador-matte-100ml-fucking-barba",
-  },
-  {
-    nome: "Juarez O.",
-    nota: 5,
-    texto: "Virou meu favorito pra finalizar o cabelo. É rápido, não pesa e deixa aquele acabamento matte que eu gosto.",
-    compraVerificada: true,
-    produtoHandle: "spray-modelador-matte-100ml-fucking-barba",
-  },
-]
-
 export type Avaliacao = {
   nome: string
   /** De 1 a 5, como a pessoa deu. */
@@ -1184,13 +15,1350 @@ export type AntesEDepois = Avaliacao & {
   titulo: string
   local?: string
   /** Caminhos em `public/`. Sem as duas fotos, o depoimento não entra. */
-  fotos: { antes: string; depois: string }
+  fotos: {
+    antes: string
+    depois: string
+  }
 }
 
-/** A esteira de avaliações ("Nossos clientes nos amam"). */
-export const AVALIACOES: Avaliacao[] = []
+// ==========================================
+// AVALIAÇÕES
+// ==========================================
 
-/** O carrossel de antes e depois ("Resultados reais"). */
+export const AVALIACOES: Avaliacao[] = [
+  // ==========================================
+  // FATOR DE CRESCIMENTO E KITS
+  // ==========================================
+  ...[
+    "fator-de-crescimento-para-barba",
+    "kit-2-fator-de-crescimento-para-barba",
+    "kit-3-fator-de-crescimento-para-barba",
+    "kit-6-fator-de-crescimento-para-barba",
+    "kit-fator-de-crescimento-para-barba-e-shampoo",
+  ].flatMap((handle): Avaliacao[] => [
+    {
+      nome: "André B.",
+      nota: 5,
+      texto:
+        "Usei por 1 mês e não vi muita coisa, mais continuei e no terceiro mês começou aparecer novos fios, valeu a paciência.",
+      compraVerificada: true,
+      produtoHandle: handle,
+    },
+    {
+      nome: "Wesley R.",
+      nota: 5,
+      texto:
+        "Estou usando faz umas 3 semanas e já achei que preencheu melhor algumas falhas.",
+      compraVerificada: true,
+      produtoHandle: handle,
+    },
+    {
+      nome: "Cauã S.",
+      nota: 4,
+      texto:
+        "No começo achei que não ia fazer diferença, mas agora tô percebendo uns fiozinhos novos.",
+      compraVerificada: true,
+      produtoHandle: handle,
+    },
+    {
+      nome: "Júlio A.",
+      nota: 5,
+      texto:
+        "Comecei a usar e gostei bastante. A barba parece estar ficando mais uniforme.",
+      compraVerificada: true,
+      produtoHandle: handle,
+    },
+    {
+      nome: "Murilo G.",
+      nota: 4,
+      texto:
+        "Estou usando todo dia e já consigo perceber uma diferença boa nas áreas que eram mais falhadas.",
+      compraVerificada: true,
+      produtoHandle: handle,
+    },
+    {
+      nome: "Ítalo F.",
+      nota: 4,
+      texto:
+        "Demorou um pouco pra eu notar, mas agora já vejo bastante diferença. Vou continuar usando.",
+      compraVerificada: true,
+      produtoHandle: handle,
+    },
+    {
+      nome: "Ruan D.",
+      nota: 5,
+      texto:
+        "Minha barba sempre teve algumas falhas e comecei a perceber uns fios novos depois de algumas semanas.",
+      compraVerificada: true,
+      produtoHandle: handle,
+    },
+    {
+      nome: "Heitor V.",
+      nota: 5,
+      texto:
+        "Achei bem fácil de aplicar e não fica aquela sensação oleosa na barba.",
+      compraVerificada: true,
+      produtoHandle: handle,
+    },
+    {
+      nome: "Nathan P.",
+      nota: 4,
+      texto:
+        "Estou no primeiro frasco ainda, mas já gostei bastante do resultado nas laterais.",
+      compraVerificada: true,
+      produtoHandle: handle,
+    },
+    {
+      nome: "Breno N.",
+      nota: 5,
+      texto:
+        "Comprei sem esperar muito e me surpreendeu. Principalmente onde tinha mais falha.",
+      compraVerificada: true,
+      produtoHandle: handle,
+    },
+    {
+      nome: "Yuri C.",
+      nota: 4,
+      texto:
+        "Estou usando certinho todos os dias e já comecei a perceber alguns fios aparecendo.",
+      compraVerificada: true,
+      produtoHandle: handle,
+    },
+    {
+      nome: "Leandro M.",
+      nota: 5,
+      texto:
+        "Gostei bastante da aplicação, seca rápido e não deixa a barba pesada.",
+      compraVerificada: true,
+      produtoHandle: handle,
+    },
+    {
+      nome: "Adriel B.",
+      nota: 4,
+      texto:
+        "No meu caso comecei a perceber diferença depois de algumas semanas. Vou continuar usando.",
+      compraVerificada: true,
+      produtoHandle: handle,
+    },
+    {
+      nome: "Kaique L.",
+      nota: 5,
+      texto:
+        "Minha barba era bem falhada de um lado, agora já tá começando a ficar mais uniforme.",
+      compraVerificada: true,
+      produtoHandle: handle,
+    },
+    {
+      nome: "Otávio E.",
+      nota: 5,
+      texto:
+        "Já estou no segundo frasco. Gostei bastante da evolução até agora.",
+      compraVerificada: true,
+      produtoHandle: handle,
+    },
+    {
+      nome: "Wallace T.",
+      nota: 4,
+      texto:
+        "Estou usando diariamente e percebi uma melhora boa principalmente nas falhas da lateral.",
+      compraVerificada: true,
+      produtoHandle: handle,
+    },
+    {
+      nome: "Érick H.",
+      nota: 5,
+      texto:
+        "Gostei bastante do produto, fácil de usar e não fica com aspecto oleoso.",
+      compraVerificada: true,
+      produtoHandle: handle,
+    },
+    {
+      nome: "Maicon J.",
+      nota: 4,
+      texto:
+        "No começo não percebi muita coisa, mas depois de um tempo comecei a notar vários fiozinhos novos.",
+      compraVerificada: true,
+      produtoHandle: handle,
+    },
+    {
+      nome: "Emanuel K.",
+      nota: 5,
+      texto:
+        "Estou gostando bastante. A barba parece estar mais cheia e com menos espaços.",
+      compraVerificada: true,
+      produtoHandle: handle,
+    },
+    {
+      nome: "Cristian W.",
+      nota: 4,
+      texto:
+        "Primeiro frasco ainda, mas já estou vendo uma evolução boa. Vou seguir usando.",
+      compraVerificada: true,
+      produtoHandle: handle,
+    },
+    {
+      nome: "Jonatas F.",
+      nota: 5,
+      texto:
+        "Curti bastante o produto. Na região que tinha mais falha já comecei a perceber alguns fios novos.",
+      compraVerificada: true,
+      produtoHandle: handle,
+    },
+  ]),
+
+  // ==========================================
+  // KIT COMPLETO
+  // ==========================================
+  {
+    nome: "André C.",
+    nota: 5,
+    texto:
+      "Peguei o kit completo e gostei bastante. Minha barba fica bem mais cuidada no dia a dia.",
+    compraVerificada: true,
+    produtoHandle: "kit-completo-para-barba",
+  },
+  {
+    nome: "Wesley H.",
+    nota: 4,
+    texto:
+      "Eu tinha bastante coceira na barba, principalmente depois do banho. Comecei a cuidar melhor e senti uma diferença boa.",
+    compraVerificada: true,
+    produtoHandle: "kit-completo-para-barba",
+  },
+  {
+    nome: "Cauã B.",
+    nota: 5,
+    texto:
+      "O shampoo foi o que mais gostei. Minha barba ficava com bastante descamação e agora tá bem melhor.",
+    compraVerificada: true,
+    produtoHandle: "kit-completo-para-barba",
+  },
+  {
+    nome: "Bruno K.",
+    nota: 5,
+    texto:
+      "Curti muito o kit, principalmente o óleo e o balm. Deixa a barba bem mais macia.",
+    compraVerificada: true,
+    produtoHandle: "kit-completo-para-barba",
+  },
+  {
+    nome: "Henrique P.",
+    nota: 4,
+    texto:
+      "Minha barba costumava coçar bastante durante o dia. Depois que comecei a cuidar melhor da rotina, melhorou bastante.",
+    compraVerificada: true,
+    produtoHandle: "kit-completo-para-barba",
+  },
+  {
+    nome: "Murilo J.",
+    nota: 4,
+    texto:
+      "Gostei dos produtos, principalmente pq minha barba ficava muito ressecada e soltava umas casquinhas.",
+    compraVerificada: true,
+    produtoHandle: "kit-completo-para-barba",
+  },
+  {
+    nome: "Ítalo W.",
+    nota: 5,
+    texto:
+      "Comprei o kit completo pra testar a linha toda e gostei. O shampoo entrou de vez na minha rotina.",
+    compraVerificada: true,
+    produtoHandle: "kit-completo-para-barba",
+  },
+  {
+    nome: "Davi F.",
+    nota: 4,
+    texto:
+      "Eu tinha bastante caspa na barba e resolvi começar a cuidar melhor. Achei que melhorou bastante a aparência.",
+    compraVerificada: true,
+    produtoHandle: "kit-completo-para-barba",
+  },
+  {
+    nome: "Leandro N.",
+    nota: 5,
+    texto:
+      "Já usava o óleo e resolvi pegar o kit completo. A barba fica muito mais macia e fácil de cuidar.",
+    compraVerificada: true,
+    produtoHandle: "kit-completo-para-barba",
+  },
+  {
+    nome: "Adriel V.",
+    nota: 4,
+    texto:
+      "Minha barba vivia coçando e eu nem sabia que precisava ter uma rotina de cuidados. O kit ajudou bastante no dia a dia.",
+    compraVerificada: true,
+    produtoHandle: "kit-completo-para-barba",
+  },
+  {
+    nome: "João M.",
+    nota: 5,
+    texto:
+      "Chegou tudo certinho. Gostei principalmente do shampoo, minha barba fica bem limpa sem ficar ressecada.",
+    compraVerificada: true,
+    produtoHandle: "kit-completo-para-barba",
+  },
+  {
+    nome: "Otávio R.",
+    nota: 4,
+    texto:
+      "O kit facilitou muito minha rotina. Antes tinha bastante descamação na barba, hoje percebo bem menos.",
+    compraVerificada: true,
+    produtoHandle: "kit-completo-para-barba",
+  },
+  {
+    nome: "Kaique M.",
+    nota: 5,
+    texto:
+      "Comecei a cuidar mais da barba e fez diferença. Principalmente na coceira que eu sentia.",
+    compraVerificada: true,
+    produtoHandle: "kit-completo-para-barba",
+  },
+  {
+    nome: "Gustavo D.",
+    nota: 5,
+    texto:
+      "Gostei muito do acabamento, principalmente usando o óleo e depois o balm. A barba fica bem mais alinhada.",
+    compraVerificada: true,
+    produtoHandle: "kit-completo-para-barba",
+  },
+  {
+    nome: "Ruan S.",
+    nota: 4,
+    texto:
+      "Comprei meio na dúvida e gostei bastante. Minha barba era bem seca e às vezes coçava muito.",
+    compraVerificada: true,
+    produtoHandle: "kit-completo-para-barba",
+  },
+  {
+    nome: "Felipe T.",
+    nota: 5,
+    texto:
+      "A pomada matte virou minha favorita. Segura bem e não deixa aquele brilho exagerado.",
+    compraVerificada: true,
+    produtoHandle: "kit-completo-para-barba",
+  },
+  {
+    nome: "Emanuel A.",
+    nota: 5,
+    texto:
+      "O kit chegou bem embalado e os produtos são muito bons. Estou usando praticamente todo dia.",
+    compraVerificada: true,
+    produtoHandle: "kit-completo-para-barba",
+  },
+  {
+    nome: "Renan G.",
+    nota: 4,
+    texto:
+      "Eu tinha bastante descamação e minha barba ficava com aspecto seco. Com a rotina de cuidados melhorou bastante.",
+    compraVerificada: true,
+    produtoHandle: "kit-completo-para-barba",
+  },
+  {
+    nome: "Wallace E.",
+    nota: 4,
+    texto:
+      "Minha barba sempre ficava meio bagunçada e coçando. Agora tô cuidando certinho e gostei bastante da diferença.",
+    compraVerificada: true,
+    produtoHandle: "kit-completo-para-barba",
+  },
+  {
+    nome: "Lucas Z.",
+    nota: 5,
+    texto:
+      "Pra quem quer começar a cuidar melhor da barba, gostei muito do kit. Tem produto pra montar uma rotina completa.",
+    compraVerificada: true,
+    produtoHandle: "kit-completo-para-barba",
+  },
+
+  // ==========================================
+  // SHAMPOO PARA BARBA
+  // ==========================================
+  {
+    nome: "Alessandro Q.",
+    nota: 5,
+    texto:
+      "Gostei bastante do shampoo, limpa bem e não deixa a barba ressecada.",
+    compraVerificada: true,
+    produtoHandle: "shampoo-para-barba",
+  },
+  {
+    nome: "Vitor Y.",
+    nota: 4,
+    texto:
+      "Minha barba ficava coçando bastante, principalmente no calor. Com o shampoo achei que melhorou bastante.",
+    compraVerificada: true,
+    produtoHandle: "shampoo-para-barba",
+  },
+  {
+    nome: "Lorenzo X.",
+    nota: 5,
+    texto:
+      "Eu tinha bastante descamação na barba e comecei a usar esse shampoo. A aparência melhorou muito.",
+    compraVerificada: true,
+    produtoHandle: "shampoo-para-barba",
+  },
+  {
+    nome: "Douglas U.",
+    nota: 5,
+    texto:
+      "O cheiro é bem agradável e deixa a barba bem macia depois do banho.",
+    compraVerificada: true,
+    produtoHandle: "shampoo-para-barba",
+  },
+  {
+    nome: "Rogério I.",
+    nota: 4,
+    texto:
+      "Gostei pq limpa bem sem deixar aquela sensação de barba seca.",
+    compraVerificada: true,
+    produtoHandle: "shampoo-para-barba",
+  },
+  {
+    nome: "Sandro O.",
+    nota: 4,
+    texto:
+      "Minha barba vivia com umas casquinhas, comecei a usar o shampoo e percebi uma diferença boa.",
+    compraVerificada: true,
+    produtoHandle: "shampoo-para-barba",
+  },
+  {
+    nome: "Alex Z.",
+    nota: 5,
+    texto:
+      "Uso umas 3 vezes por semana e gostei bastante. A barba fica limpa e leve.",
+    compraVerificada: true,
+    produtoHandle: "shampoo-para-barba",
+  },
+  {
+    nome: "Luiz X.",
+    nota: 4,
+    texto:
+      "Eu não dava muita atenção pra shampoo de barba, mas depois que comecei a usar percebi bastante diferença.",
+    compraVerificada: true,
+    produtoHandle: "shampoo-para-barba",
+  },
+  {
+    nome: "Marcelo Q.",
+    nota: 5,
+    texto:
+      "Minha barba é bem grossa e esse shampoo deixou ela bem mais macia.",
+    compraVerificada: true,
+    produtoHandle: "shampoo-para-barba",
+  },
+  {
+    nome: "Nicolas Y.",
+    nota: 4,
+    texto:
+      "Tinha bastante coceira na região do queixo, principalmente depois de alguns dias sem lavar. Gostei bastante desse shampoo.",
+    compraVerificada: true,
+    produtoHandle: "shampoo-para-barba",
+  },
+  {
+    nome: "Fabrício U.",
+    nota: 5,
+    texto:
+      "Faz bastante espuma e rende bem. Um pouquinho já dá pra lavar a barba toda.",
+    compraVerificada: true,
+    produtoHandle: "shampoo-para-barba",
+  },
+  {
+    nome: "Cristóvão I.",
+    nota: 4,
+    texto:
+      "Minha barba ficava muito seca depois de lavar, com esse aqui não tive esse problema.",
+    compraVerificada: true,
+    produtoHandle: "shampoo-para-barba",
+  },
+  {
+    nome: "Augusto O.",
+    nota: 4,
+    texto:
+      "Depois de algumas lavagens já achei a barba com um aspecto bem melhor.",
+    compraVerificada: true,
+    produtoHandle: "shampoo-para-barba",
+  },
+  {
+    nome: "Samuel Z.",
+    nota: 5,
+    texto:
+      "Gostei bastante da textura e do cheiro. Deixa a barba limpa sem ficar áspera.",
+    compraVerificada: true,
+    produtoHandle: "shampoo-para-barba",
+  },
+  {
+    nome: "Robson X.",
+    nota: 4,
+    texto:
+      "Comecei a usar pq minha barba tava descamando bastante. Até agora estou gostando do resultado.",
+    compraVerificada: true,
+    produtoHandle: "shampoo-para-barba",
+  },
+  {
+    nome: "Márcio Q.",
+    nota: 5,
+    texto:
+      "Produto muito bom, principalmente pra quem deixa a barba maior. Ajuda bastante na rotina.",
+    compraVerificada: true,
+    produtoHandle: "shampoo-para-barba",
+  },
+  {
+    nome: "Valter Y.",
+    nota: 5,
+    texto:
+      "Minha barba ficou bem mais macia depois que comecei a usar. Agora faz parte do banho.",
+    compraVerificada: true,
+    produtoHandle: "shampoo-para-barba",
+  },
+  {
+    nome: "Renato U.",
+    nota: 4,
+    texto:
+      "Eu tinha bastante coceira e ressecamento na barba. Com o uso frequente achei que melhorou bastante.",
+    compraVerificada: true,
+    produtoHandle: "shampoo-para-barba",
+  },
+  {
+    nome: "César I.",
+    nota: 5,
+    texto:
+      "Gostei bastante, limpa bem e não deixa aquele cheiro forte depois.",
+    compraVerificada: true,
+    produtoHandle: "shampoo-para-barba",
+  },
+  {
+    nome: "Jeferson O.",
+    nota: 5,
+    texto:
+      "Comprei pra testar e já gostei na primeira lavagem. A barba fica bem limpa e macia.",
+    compraVerificada: true,
+    produtoHandle: "shampoo-para-barba",
+  },
+
+  // ==========================================
+  // BALM PARA BARBA
+  // ==========================================
+  {
+    nome: "Alexandre K.",
+    nota: 5,
+    texto:
+      "O que mais gostei foi que diminuiu bastante o frizz, minha barba fica bem mais alinhada.",
+    compraVerificada: true,
+    produtoHandle: "balm-para-barba",
+  },
+  {
+    nome: "Vinícius A.",
+    nota: 4,
+    texto:
+      "Minha barba ficava cheia de fio espetado, o balm ajudou bastante a deixar tudo no lugar.",
+    compraVerificada: true,
+    produtoHandle: "balm-para-barba",
+  },
+  {
+    nome: "Leonardo V.",
+    nota: 5,
+    texto:
+      "Curti muito pra modelar, consigo deixar a barba no formato que gosto sem ficar dura.",
+    compraVerificada: true,
+    produtoHandle: "balm-para-barba",
+  },
+  {
+    nome: "Daniel M.",
+    nota: 5,
+    texto:
+      "Tenho bastante frizz na barba e esse balm ajudou demais no controle dos fios.",
+    compraVerificada: true,
+    produtoHandle: "balm-para-barba",
+  },
+  {
+    nome: "Ricardo P.",
+    nota: 4,
+    texto:
+      "Uso de manhã pra modelar e segura bem durante o dia. Não fica com aquele aspecto pesado.",
+    compraVerificada: true,
+    produtoHandle: "balm-para-barba",
+  },
+  {
+    nome: "Sergio T.",
+    nota: 4,
+    texto:
+      "Minha barba é bem rebelde, principalmente nas laterais. Com o balm consigo deixar bem mais alinhada.",
+    compraVerificada: true,
+    produtoHandle: "balm-para-barba",
+  },
+  {
+    nome: "Arthur L.",
+    nota: 5,
+    texto:
+      "Gostei pq controla os fios arrepiados sem deixar a barba dura igual algumas pomadas.",
+    compraVerificada: true,
+    produtoHandle: "balm-para-barba",
+  },
+  {
+    nome: "Luan F.",
+    nota: 4,
+    texto:
+      "Pra modelar a barba ficou muito bom. Passo pouco produto e já consigo ajeitar os fios.",
+    compraVerificada: true,
+    produtoHandle: "balm-para-barba",
+  },
+  {
+    nome: "Mateus B.",
+    nota: 5,
+    texto:
+      "Minha barba tem bastante frizz e ficava toda bagunçada depois de algumas horas. Com o balm fica bem mais controlada.",
+    compraVerificada: true,
+    produtoHandle: "balm-para-barba",
+  },
+  {
+    nome: "Natan H.",
+    nota: 4,
+    texto:
+      "Comecei a usar pra controlar os fios rebeldes e gostei bastante do resultado.",
+    compraVerificada: true,
+    produtoHandle: "balm-para-barba",
+  },
+  {
+    nome: "Fernando S.",
+    nota: 5,
+    texto:
+      "Gostei do acabamento, consigo modelar sem perder aquele aspecto natural da barba.",
+    compraVerificada: true,
+    produtoHandle: "balm-para-barba",
+  },
+  {
+    nome: "Caio D.",
+    nota: 4,
+    texto:
+      "Depois do banho minha barba ficava toda espetada, agora passo o balm e consigo modelar bem mais fácil.",
+    compraVerificada: true,
+    produtoHandle: "balm-para-barba",
+  },
+  {
+    nome: "Alan R.",
+    nota: 5,
+    texto:
+      "Um dos produtos que mais gostei. Ajuda no frizz e deixa os fios bem mais comportados.",
+    compraVerificada: true,
+    produtoHandle: "balm-para-barba",
+  },
+  {
+    nome: "Saulo G.",
+    nota: 5,
+    texto:
+      "Uso junto com o óleo e depois modelo com o pente. Fica bem alinhada e sem aqueles fios voando.",
+    compraVerificada: true,
+    produtoHandle: "balm-para-barba",
+  },
+  {
+    nome: "Raul W.",
+    nota: 4,
+    texto:
+      "Tenho a barba grossa e difícil de controlar, o balm ajudou bastante na modelação.",
+    compraVerificada: true,
+    produtoHandle: "balm-para-barba",
+  },
+  {
+    nome: "Mário N.",
+    nota: 5,
+    texto:
+      "Não precisa passar muito. Um pouco já ajuda a controlar o frizz e deixar a barba no formato.",
+    compraVerificada: true,
+    produtoHandle: "balm-para-barba",
+  },
+  {
+    nome: "Valdir C.",
+    nota: 4,
+    texto:
+      "Gostei pq consigo modelar a barba sem deixar ela com aparência artificial.",
+    compraVerificada: true,
+    produtoHandle: "balm-para-barba",
+  },
+  {
+    nome: "Ramon E.",
+    nota: 4,
+    texto:
+      "Minha barba ficava muito arrepiada durante o dia. O balm segura bem os fios e diminui bastante o frizz.",
+    compraVerificada: true,
+    produtoHandle: "balm-para-barba",
+  },
+  {
+    nome: "Cassio J.",
+    nota: 5,
+    texto:
+      "Pra quem gosta de barba mais alinhada, achei muito bom. Modela bem e não deixa os fios duros.",
+    compraVerificada: true,
+    produtoHandle: "balm-para-barba",
+  },
+  {
+    nome: "Juliano O.",
+    nota: 5,
+    texto:
+      "Virou parte da minha rotina. Passo de manhã, modelo rapidinho e a barba fica bem mais organizada.",
+    compraVerificada: true,
+    produtoHandle: "balm-para-barba",
+  },
+
+  // ==========================================
+  // ÓLEO DE BARBA
+  // ==========================================
+  {
+    nome: "Matheus Q.",
+    nota: 5,
+    texto:
+      "Minha barba ficou bem mais macia depois que comecei a usar o óleo, principalmente nas pontas.",
+    compraVerificada: true,
+    produtoHandle: "oleo-para-barba",
+  },
+  {
+    nome: "Diego Y.",
+    nota: 5,
+    texto:
+      "Gostei bastante, não fica com aquele aspecto de barba encharcada e o cheiro é muito bom.",
+    compraVerificada: true,
+    produtoHandle: "oleo-para-barba",
+  },
+  {
+    nome: "Luciano X.",
+    nota: 4,
+    texto:
+      "Minha barba é bem seca e o óleo ajudou muito a deixar os fios mais macios.",
+    compraVerificada: true,
+    produtoHandle: "oleo-para-barba",
+  },
+  {
+    nome: "Anderson U.",
+    nota: 4,
+    texto:
+      "Uso depois do banho e percebo que a barba fica bem mais fácil de pentear.",
+    compraVerificada: true,
+    produtoHandle: "oleo-para-barba",
+  },
+  {
+    nome: "Rodrigo I.",
+    nota: 5,
+    texto:
+      "Curti bastante o acabamento, deixa um brilho leve sem parecer oleoso demais.",
+    compraVerificada: true,
+    produtoHandle: "oleo-para-barba",
+  },
+  {
+    nome: "Sebastião O.",
+    nota: 4,
+    texto:
+      "Minha barba ficava muito áspera, principalmente nas pontas. Com o óleo melhorou bastante.",
+    compraVerificada: true,
+    produtoHandle: "oleo-para-barba",
+  },
+  {
+    nome: "Alisson Z.",
+    nota: 5,
+    texto:
+      "O cheiro é muito bom e fica bem suave depois de um tempo. Gostei bastante.",
+    compraVerificada: true,
+    produtoHandle: "oleo-para-barba",
+  },
+  {
+    nome: "Luiz V.",
+    nota: 5,
+    texto:
+      "Comecei a usar todos os dias e minha barba tá bem mais macia e hidratada.",
+    compraVerificada: true,
+    produtoHandle: "oleo-para-barba",
+  },
+  {
+    nome: "Marcelo G.",
+    nota: 4,
+    texto:
+      "Tenho a barba mais cheia e o óleo ajuda bastante a deixar os fios mais comportados.",
+    compraVerificada: true,
+    produtoHandle: "oleo-para-barba",
+  },
+  {
+    nome: "Nelson Y.",
+    nota: 4,
+    texto:
+      "Gostei porque hidrata sem deixar aquela sensação pesada. Algumas gotas já são suficientes.",
+    compraVerificada: true,
+    produtoHandle: "oleo-para-barba",
+  },
+  {
+    nome: "Fábio U.",
+    nota: 5,
+    texto:
+      "Minha barba tava bem ressecada, principalmente no inverno. O óleo fez bastante diferença na rotina.",
+    compraVerificada: true,
+    produtoHandle: "oleo-para-barba",
+  },
+  {
+    nome: "Cleber I.",
+    nota: 4,
+    texto:
+      "Depois do banho passo algumas gotas e penteio. A barba fica muito mais alinhada.",
+    compraVerificada: true,
+    produtoHandle: "oleo-para-barba",
+  },
+  {
+    nome: "Agnaldo O.",
+    nota: 5,
+    texto:
+      "Gostei muito do resultado, deixa os fios macios e com uma aparência bem cuidada.",
+    compraVerificada: true,
+    produtoHandle: "oleo-para-barba",
+  },
+  {
+    nome: "Simão Z.",
+    nota: 5,
+    texto:
+      "Uso junto com o balm e fica uma combinação muito boa. O óleo deixa a barba bem hidratada.",
+    compraVerificada: true,
+    produtoHandle: "oleo-para-barba",
+  },
+  {
+    nome: "Rodolfo X.",
+    nota: 4,
+    texto:
+      "Tenho barba grossa e o óleo ajudou bastante com aqueles fios mais secos e rebeldes.",
+    compraVerificada: true,
+    produtoHandle: "oleo-para-barba",
+  },
+  {
+    nome: "Moacir Q.",
+    nota: 5,
+    texto:
+      "Rende bastante, não precisa exagerar. Com poucas gotas já consigo passar na barba toda.",
+    compraVerificada: true,
+    produtoHandle: "oleo-para-barba",
+  },
+  {
+    nome: "Vagner Y.",
+    nota: 4,
+    texto:
+      "Depois que comecei a usar senti a barba bem menos áspera e com um aspecto melhor.",
+    compraVerificada: true,
+    produtoHandle: "oleo-para-barba",
+  },
+  {
+    nome: "Reinaldo U.",
+    nota: 5,
+    texto:
+      "Curti bastante, principalmente pelo cheiro e pela maciez que deixa nos fios.",
+    compraVerificada: true,
+    produtoHandle: "oleo-para-barba",
+  },
+  {
+    nome: "Célio I.",
+    nota: 4,
+    texto:
+      "Minha barba ficava com bastante frizz, o óleo ajuda a deixar os fios mais controlados.",
+    compraVerificada: true,
+    produtoHandle: "oleo-para-barba",
+  },
+  {
+    nome: "Jaime O.",
+    nota: 5,
+    texto:
+      "Virou parte da minha rotina. Passo depois do banho e a barba fica muito mais macia e fácil de cuidar.",
+    compraVerificada: true,
+    produtoHandle: "oleo-para-barba",
+  },
+
+  // ==========================================
+  // POMADA MATTE — CABELO
+  // ==========================================
+  {
+    nome: "Gabriel Q.",
+    nota: 5,
+    texto:
+      "Gostei bastante da fixação, consigo deixar o cabelo no formato que quero sem ficar brilhando.",
+    compraVerificada: true,
+    produtoHandle: "pasta-modeladora-matte-80g-fucking-barba",
+  },
+  {
+    nome: "Eduardo Y.",
+    nota: 5,
+    texto:
+      "Era exatamente o que eu procurava, segura bem e deixa aquele aspecto natural.",
+    compraVerificada: true,
+    produtoHandle: "pasta-modeladora-matte-80g-fucking-barba",
+  },
+  {
+    nome: "Luan X.",
+    nota: 4,
+    texto:
+      "Curti muito o efeito matte, não fica com aparência de cabelo cheio de produto.",
+    compraVerificada: true,
+    produtoHandle: "pasta-modeladora-matte-80g-fucking-barba",
+  },
+  {
+    nome: "Andress U.",
+    nota: 4,
+    texto:
+      "Meu cabelo é bem difícil de modelar e essa pomada segurou muito bem.",
+    compraVerificada: true,
+    produtoHandle: "pasta-modeladora-matte-80g-fucking-barba",
+  },
+  {
+    nome: "Ronaldo I.",
+    nota: 5,
+    texto:
+      "Gostei da fixação, principalmente nas laterais. O penteado fica no lugar por bastante tempo.",
+    compraVerificada: true,
+    produtoHandle: "pasta-modeladora-matte-80g-fucking-barba",
+  },
+  {
+    nome: "Savio O.",
+    nota: 5,
+    texto:
+      "O que mais gostei foi que não deixa brilho. Fica arrumado mas com aspecto natural.",
+    compraVerificada: true,
+    produtoHandle: "pasta-modeladora-matte-80g-fucking-barba",
+  },
+  {
+    nome: "Aldo Z.",
+    nota: 4,
+    texto:
+      "Uso todo dia pra modelar e funciona muito bem. Um pouco de produto já resolve.",
+    compraVerificada: true,
+    produtoHandle: "pasta-modeladora-matte-80g-fucking-barba",
+  },
+  {
+    nome: "Luiz M.",
+    nota: 4,
+    texto:
+      "Tenho bastante fio arrepiado e a pomada controla bem sem deixar o cabelo duro.",
+    compraVerificada: true,
+    produtoHandle: "pasta-modeladora-matte-80g-fucking-barba",
+  },
+  {
+    nome: "Maurício Q.",
+    nota: 5,
+    texto:
+      "Curti bastante o acabamento matte, fica bem discreto e segura o penteado durante o dia.",
+    compraVerificada: true,
+    produtoHandle: "pasta-modeladora-matte-80g-fucking-barba",
+  },
+  {
+    nome: "Nivaldo Y.",
+    nota: 4,
+    texto:
+      "Meu cabelo nunca ficava no lugar por muito tempo, com essa pomada consigo manter o formato bem melhor.",
+    compraVerificada: true,
+    produtoHandle: "pasta-modeladora-matte-80g-fucking-barba",
+  },
+  {
+    nome: "Flávio U.",
+    nota: 5,
+    texto:
+      "Gostei bastante da textura, espalha fácil e não deixa aquela sensação pesada.",
+    compraVerificada: true,
+    produtoHandle: "pasta-modeladora-matte-80g-fucking-barba",
+  },
+  {
+    nome: "Cássio I.",
+    nota: 4,
+    texto:
+      "Pra modelar o cabelo é muito boa. Consigo definir o penteado sem deixar com cara de molhado.",
+    compraVerificada: true,
+    produtoHandle: "pasta-modeladora-matte-80g-fucking-barba",
+  },
+  {
+    nome: "Ailton O.",
+    nota: 5,
+    texto:
+      "A fixação me surpreendeu. Passei de manhã e o cabelo continuou bem alinhado durante o dia.",
+    compraVerificada: true,
+    produtoHandle: "pasta-modeladora-matte-80g-fucking-barba",
+  },
+  {
+    nome: "Sidney Z.",
+    nota: 4,
+    texto:
+      "Uso quando quero um penteado mais arrumado, mas sem aquele brilho de pomada tradicional.",
+    compraVerificada: true,
+    produtoHandle: "pasta-modeladora-matte-80g-fucking-barba",
+  },
+  {
+    nome: "Rubens X.",
+    nota: 5,
+    texto:
+      "Tenho bastante cabelo e precisava de algo que segurasse bem. Essa pomada resolveu.",
+    compraVerificada: true,
+    produtoHandle: "pasta-modeladora-matte-80g-fucking-barba",
+  },
+  {
+    nome: "Marcos Q.",
+    nota: 4,
+    texto:
+      "Não precisa passar muito, uma quantidade pequena já dá uma boa modelada.",
+    compraVerificada: true,
+    produtoHandle: "pasta-modeladora-matte-80g-fucking-barba",
+  },
+  {
+    nome: "Vilmar Y.",
+    nota: 5,
+    texto:
+      "Gostei principalmente porque segura sem deixar o cabelo duro. Fica bem natural.",
+    compraVerificada: true,
+    produtoHandle: "pasta-modeladora-matte-80g-fucking-barba",
+  },
+  {
+    nome: "Rene U.",
+    nota: 4,
+    texto:
+      "O efeito matte é muito bom, não curto produto que deixa o cabelo brilhando demais.",
+    compraVerificada: true,
+    produtoHandle: "pasta-modeladora-matte-80g-fucking-barba",
+  },
+  {
+    nome: "Crisostomo I.",
+    nota: 4,
+    texto:
+      "Meu cabelo tem bastante frizz e a pomada ajuda muito a deixar os fios no lugar.",
+    compraVerificada: true,
+    produtoHandle: "pasta-modeladora-matte-80g-fucking-barba",
+  },
+  {
+    nome: "Jonas O.",
+    nota: 5,
+    texto:
+      "Virou meu produto pra finalizar o cabelo. Modelo rápido e fica com um acabamento bem natural.",
+    compraVerificada: true,
+    produtoHandle: "pasta-modeladora-matte-80g-fucking-barba",
+  },
+
+  // ==========================================
+  // POMADA BRILHO — CABELO
+  // ==========================================
+  {
+    nome: "Matheus P.",
+    nota: 5,
+    texto:
+      "Gostei bastante, deixa aquele aspecto molhado que eu curto e segura bem o penteado.",
+    compraVerificada: true,
+    produtoHandle: "pasta-modeladora-brilho-80g-fucking-barba",
+  },
+  {
+    nome: "Diego B.",
+    nota: 5,
+    texto:
+      "O efeito molhado fica muito bom, principalmente quando quero deixar o cabelo mais alinhado.",
+    compraVerificada: true,
+    produtoHandle: "pasta-modeladora-brilho-80g-fucking-barba",
+  },
+  {
+    nome: "Lorenzo F.",
+    nota: 4,
+    texto:
+      "Curti demais o acabamento, fica com bastante brilho e aquele visual de cabelo molhado.",
+    compraVerificada: true,
+    produtoHandle: "pasta-modeladora-brilho-80g-fucking-barba",
+  },
+  {
+    nome: "Anderson D.",
+    nota: 5,
+    texto:
+      "Era exatamente o que eu procurava. Deixa o cabelo com aspecto molhado e bem modelado.",
+    compraVerificada: true,
+    produtoHandle: "pasta-modeladora-brilho-80g-fucking-barba",
+  },
+  {
+    nome: "Rodrigo C.",
+    nota: 4,
+    texto:
+      "Gostei da fixação e principalmente do efeito molhado, fica bem diferente da pomada matte.",
+    compraVerificada: true,
+    produtoHandle: "pasta-modeladora-brilho-80g-fucking-barba",
+  },
+  {
+    nome: "Sandro E.",
+    nota: 4,
+    texto:
+      "Meu cabelo fica com aspecto mais alinhado e com aquele brilho de molhado que eu gosto.",
+    compraVerificada: true,
+    produtoHandle: "pasta-modeladora-brilho-80g-fucking-barba",
+  },
+  {
+    nome: "Alex T.",
+    nota: 5,
+    texto:
+      "Uso quando quero um visual mais arrumado. O efeito molhado deixa o penteado bem destacado.",
+    compraVerificada: true,
+    produtoHandle: "pasta-modeladora-brilho-80g-fucking-barba",
+  },
+  {
+    nome: "Luiz C.",
+    nota: 4,
+    texto:
+      "Curti bastante, espalha fácil e deixa aquele aspecto molhado sem precisar exagerar na quantidade.",
+    compraVerificada: true,
+    produtoHandle: "pasta-modeladora-brilho-80g-fucking-barba",
+  },
+  {
+    nome: "Marcelo V.",
+    nota: 5,
+    texto:
+      "Tenho bastante cabelo e gostei muito do resultado. Fica bem alinhado e com efeito molhado.",
+    compraVerificada: true,
+    produtoHandle: "pasta-modeladora-brilho-80g-fucking-barba",
+  },
+  {
+    nome: "Nicolas A.",
+    nota: 5,
+    texto:
+      "Pra sair à noite é a que eu mais uso. Deixa aquele visual molhado e bem alinhado.",
+    compraVerificada: true,
+    produtoHandle: "pasta-modeladora-brilho-80g-fucking-barba",
+  },
+  {
+    nome: "Fabrício G.",
+    nota: 4,
+    texto:
+      "O brilho é bem forte e o aspecto molhado fica muito bom no cabelo.",
+    compraVerificada: true,
+    produtoHandle: "pasta-modeladora-brilho-80g-fucking-barba",
+  },
+  {
+    nome: "Cristóvão M.",
+    nota: 5,
+    texto:
+      "Meu cabelo fica muito mais arrumado usando essa pomada. O efeito molhado dá um acabamento muito bom.",
+    compraVerificada: true,
+    produtoHandle: "pasta-modeladora-brilho-80g-fucking-barba",
+  },
+  {
+    nome: "Augusto L.",
+    nota: 4,
+    texto:
+      "Gostei bastante da fixação, segura os fios e mantém o aspecto molhado por bastante tempo.",
+    compraVerificada: true,
+    produtoHandle: "pasta-modeladora-brilho-80g-fucking-barba",
+  },
+  {
+    nome: "Samuel H.",
+    nota: 5,
+    texto:
+      "Eu gosto de cabelo com aquele visual molhado e essa pomada entrega exatamente isso.",
+    compraVerificada: true,
+    produtoHandle: "pasta-modeladora-brilho-80g-fucking-barba",
+  },
+  {
+    nome: "Robson J.",
+    nota: 4,
+    texto:
+      "Tenho bastante fio rebelde e a pomada controla bem. O efeito molhado deixa o resultado ainda melhor.",
+    compraVerificada: true,
+    produtoHandle: "pasta-modeladora-brilho-80g-fucking-barba",
+  },
+  {
+    nome: "Márcio K.",
+    nota: 4,
+    texto:
+      "Não precisa passar muito produto, com pouco já consigo modelar e deixar o aspecto molhado.",
+    compraVerificada: true,
+    produtoHandle: "pasta-modeladora-brilho-80g-fucking-barba",
+  },
+  {
+    nome: "Valter S.",
+    nota: 5,
+    texto:
+      "Pra quem gosta de brilho e efeito molhado, gostei bastante. Deixa o cabelo bem destacado.",
+    compraVerificada: true,
+    produtoHandle: "pasta-modeladora-brilho-80g-fucking-barba",
+  },
+  {
+    nome: "Renato F.",
+    nota: 5,
+    texto:
+      "O que mais gostei foi justamente o aspecto molhado. Fica aquele visual de cabelo recém arrumado.",
+    compraVerificada: true,
+    produtoHandle: "pasta-modeladora-brilho-80g-fucking-barba",
+  },
+  {
+    nome: "César G.",
+    nota: 4,
+    texto:
+      "Meu cabelo fica bem mais alinhado e com um brilho forte, o efeito molhado ficou muito bom.",
+    compraVerificada: true,
+    produtoHandle: "pasta-modeladora-brilho-80g-fucking-barba",
+  },
+  {
+    nome: "Jeferson T.",
+    nota: 5,
+    texto:
+      "Virou minha favorita pra quando quero um visual diferente. Fica bem modelado, brilhando e com aspecto molhado.",
+    compraVerificada: true,
+    produtoHandle: "pasta-modeladora-brilho-80g-fucking-barba",
+  },
+
+  // ==========================================
+  // SPRAY MODELADOR MATTE — CABELO
+  // ==========================================
+  {
+    nome: "Thiago Q.",
+    nota: 5,
+    texto:
+      "Gostei bastante do spray, deixa o cabelo no lugar sem ficar com aquele brilho de gel.",
+    compraVerificada: true,
+    produtoHandle: "spray-modelador-matte-100ml-fucking-barba",
+  },
+  {
+    nome: "Vinícius Y.",
+    nota: 4,
+    texto:
+      "Muito prático pra usar no dia a dia. Borrifo, modelo com a mão e já fica do jeito que gosto.",
+    compraVerificada: true,
+    produtoHandle: "spray-modelador-matte-100ml-fucking-barba",
+  },
+  {
+    nome: "Lucas F.",
+    nota: 5,
+    texto:
+      "Curti o efeito matte, deixa o cabelo com textura e aspecto bem natural.",
+    compraVerificada: true,
+    produtoHandle: "spray-modelador-matte-100ml-fucking-barba",
+  },
+  {
+    nome: "André U.",
+    nota: 4,
+    texto:
+      "Meu cabelo é bem liso e difícil de dar volume, o spray ajudou bastante nisso.",
+    compraVerificada: true,
+    produtoHandle: "spray-modelador-matte-100ml-fucking-barba",
+  },
+  {
+    nome: "Rafael I.",
+    nota: 5,
+    texto:
+      "O que mais gostei foi que não deixa aspecto molhado. Fica bem seco e natural.",
+    compraVerificada: true,
+    produtoHandle: "spray-modelador-matte-100ml-fucking-barba",
+  },
+  {
+    nome: "Sergio O.",
+    nota: 4,
+    texto:
+      "Uso antes de sair e segura bem o penteado durante o dia. Bem prático.",
+    compraVerificada: true,
+    produtoHandle: "spray-modelador-matte-100ml-fucking-barba",
+  },
+  {
+    nome: "Alan Z.",
+    nota: 5,
+    texto:
+      "Gostei bastante da textura que deixa no cabelo, dá mais volume sem pesar.",
+    compraVerificada: true,
+    produtoHandle: "spray-modelador-matte-100ml-fucking-barba",
+  },
+  {
+    nome: "Luciano M.",
+    nota: 4,
+    texto:
+      "Pra quem não gosta de produto com brilho, esse spray é muito bom. O acabamento fica bem matte.",
+    compraVerificada: true,
+    produtoHandle: "spray-modelador-matte-100ml-fucking-barba",
+  },
+  {
+    nome: "Marcio C.",
+    nota: 5,
+    texto:
+      "Meu cabelo perde o formato rápido, com o spray consigo deixar o penteado no lugar por muito mais tempo.",
+    compraVerificada: true,
+    produtoHandle: "spray-modelador-matte-100ml-fucking-barba",
+  },
+  {
+    nome: "Nasser Y.",
+    nota: 4,
+    texto:
+      "Achei muito fácil de aplicar e seca rápido. Depois é só modelar com a mão.",
+    compraVerificada: true,
+    produtoHandle: "spray-modelador-matte-100ml-fucking-barba",
+  },
+  {
+    nome: "Filipe U.",
+    nota: 5,
+    texto:
+      "Gostei da fixação, principalmente porque não deixa o cabelo com aparência dura.",
+    compraVerificada: true,
+    produtoHandle: "spray-modelador-matte-100ml-fucking-barba",
+  },
+  {
+    nome: "Christian I.",
+    nota: 4,
+    texto:
+      "Uso pra dar textura depois do banho. O acabamento matte ficou muito bom.",
+    compraVerificada: true,
+    produtoHandle: "spray-modelador-matte-100ml-fucking-barba",
+  },
+  {
+    nome: "Aureliano O.",
+    nota: 4,
+    texto:
+      "Meu cabelo ficou com mais volume e textura usando o spray, gostei bastante.",
+    compraVerificada: true,
+    produtoHandle: "spray-modelador-matte-100ml-fucking-barba",
+  },
+  {
+    nome: "Sandro Z.",
+    nota: 5,
+    texto:
+      "Curti porque consigo passar uma camada e, se precisar, reforçar depois sem pesar.",
+    compraVerificada: true,
+    produtoHandle: "spray-modelador-matte-100ml-fucking-barba",
+  },
+  {
+    nome: "Romário X.",
+    nota: 4,
+    texto:
+      "Tenho bastante cabelo e gosto de deixar mais bagunçado. O spray ajuda muito na modelação.",
+    compraVerificada: true,
+    produtoHandle: "spray-modelador-matte-100ml-fucking-barba",
+  },
+  {
+    nome: "Manoel Q.",
+    nota: 5,
+    texto:
+      "Muito mais rápido de usar que pomada. Borrifo, modelo e pronto.",
+    compraVerificada: true,
+    produtoHandle: "spray-modelador-matte-100ml-fucking-barba",
+  },
+  {
+    nome: "Vicente Y.",
+    nota: 4,
+    texto:
+      "O efeito seco é o diferencial pra mim. Não gosto quando o cabelo fica com aparência molhada.",
+    compraVerificada: true,
+    produtoHandle: "spray-modelador-matte-100ml-fucking-barba",
+  },
+  {
+    nome: "Reginaldo U.",
+    nota: 5,
+    texto:
+      "Gostei bastante da fixação e do acabamento. O cabelo fica arrumado mas continua natural.",
+    compraVerificada: true,
+    produtoHandle: "spray-modelador-matte-100ml-fucking-barba",
+  },
+  {
+    nome: "Caio I.",
+    nota: 4,
+    texto:
+      "Uso quando quero mais volume e textura. Dá uma diferença boa sem deixar o cabelo brilhando.",
+    compraVerificada: true,
+    produtoHandle: "spray-modelador-matte-100ml-fucking-barba",
+  },
+  {
+    nome: "Juarez O.",
+    nota: 5,
+    texto:
+      "Virou meu favorito pra finalizar o cabelo. É rápido, não pesa e deixa aquele acabamento matte que eu gosto.",
+    compraVerificada: true,
+    produtoHandle: "spray-modelador-matte-100ml-fucking-barba",
+  },
+]
+
+// ==========================================
+// ANTES E DEPOIS
+// ==========================================
+
 export const ANTES_E_DEPOIS: AntesEDepois[] = []
 
 /**
@@ -1199,7 +1367,13 @@ export const ANTES_E_DEPOIS: AntesEDepois[] = []
  * que é a única coisa que dá pra provar olhando a própria página.
  */
 export function notaMedia(avaliacoes: Avaliacao[]): number | null {
-  if (!avaliacoes.length) return null
-  const soma = avaliacoes.reduce((t, a) => t + a.nota, 0)
+  if (avaliacoes.length === 0) {
+    return null
+  }
+
+  const soma = avaliacoes.reduce((total, avaliacao) => {
+    return total + avaliacao.nota
+  }, 0)
+
   return soma / avaliacoes.length
 }
