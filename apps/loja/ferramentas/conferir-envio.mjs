@@ -24,8 +24,8 @@
  * FRENET_WEBHOOK_TOKEN (padrão `token-de-teste`, o mesmo do backend),
  * ADMIN_EMAIL, ADMIN_SENHA e CHROMIUM.
  *
- * Os pedidos pagos e postados ficam (levam uma unidade de estoque cada); o
- * cancelado já nasce cancelado.
+ * Os pedidos pagos e postados ficam (levam estoque: uma unidade cada, e três
+ * o do caminho todo); o cancelado já nasce cancelado.
  *
  * ┌─ O QUE ESTE ARQUIVO EXISTE PRA TRAVAR ─────────────────────────────────┐
  * │ • aviso sem a chave, ou de parceiro que a loja não conhece, entrando;  │
@@ -39,6 +39,7 @@
  * │ • aviso sem dono perdido, em vez de ligar quando o código aparece;     │
  * │ • e-mail que não sai, que sai duas vezes, ou que sai quando o admin    │
  * │   pediu pra não avisar;                                                │
+ * │ • e-mail com outra quantidade no que vai na caixa (o "0×" do #19);     │
  * │ • e-mail de atraso ou de pedido cancelado (esses a loja conversa), ou  │
  * │   aviso mexendo em pedido cancelado;                                   │
  * │ • a conta sem a situação e o caminho do pacote, ou a rota com o bruto  │
@@ -219,6 +220,27 @@ async function esperarAssunto(email, assunto, ms = 10000) {
   }
   return undefined
 }
+/**
+ * O que vai na caixa, como o pedido diz (lido no admin): cada item com a
+ * quantidade, no texto ("- 2× Nome") e no HTML ("<b>2×</b>"). Devolve as
+ * linhas que faltam. Travado depois do "0×" do #19 (25/09): a consulta do
+ * e-mail pedia `items.quantity` campo a campo, e o Medusa devolvia o item
+ * sem a quantidade.
+ */
+async function faltandoNaCaixa(pedido, email) {
+  const itens = ((await fabrica.noAdmin(pedido.id)).items ?? []).map((i) => ({
+    quantidade: Number(i.quantity),
+    nome: i.product_title ?? i.title,
+  }))
+  if (!itens.length) return ["(o admin devolveu o pedido sem itens)"]
+  return itens
+    .filter(
+      (i) =>
+        !email?.text?.includes(`- ${i.quantidade}× ${i.nome}`) ||
+        !email?.html?.includes(`<b>${i.quantidade}×</b>`)
+    )
+    .map((i) => `${i.quantidade}× ${i.nome}`)
+}
 /** O tempo de um e-mail que NÃO devia sair ter saído, se fosse sair. */
 const silencio = () => esperar(3000)
 
@@ -254,7 +276,10 @@ titulo("A porta dos avisos")
 
 titulo("O pacote contado pela Frenet, do ponto de coleta à entrega")
 const CLIENTE = novoEmail()
-const A = await fabrica.pedidoPix(CLIENTE, [["oleo-para-barba", 1]])
+const A = await fabrica.pedidoPix(CLIENTE, [
+  ["oleo-para-barba", 2],
+  ["balm-para-barba", 1],
+])
 await fabrica.pagar(A)
 const COD_A = novoCodigo("QS")
 const SHIP_A = novoShipmentId()
@@ -283,6 +308,12 @@ const doA = (eventos) => avisoDe({ pedido: A, codigo: COD_A, shipment: SHIP_A, e
   ok(etiqueta?.tracking_url === urlDe(COD_A), "com o código e o link da Frenet na etiqueta")
   const aCaminho = await esperarAssunto(CLIENTE, `Pedido #${A.numero} a caminho`)
   ok(Boolean(aCaminho?.html?.includes(COD_A)), "e o e-mail 'a caminho' sai, com o código")
+  let faltam = await faltandoNaCaixa(A, aCaminho)
+  ok(
+    faltam.length === 0,
+    "com o que vai na caixa: cada item com a quantidade do pedido (2× e 1×, nunca 0×)",
+    `faltam: ${faltam.join(", ")}`
+  )
 
   r = await aviso(doA(coleta))
   ok(r.corpo.envios?.[0]?.novos === 0, "o mesmo aviso de novo não vira evento de novo")
@@ -302,17 +333,22 @@ const doA = (eventos) => avisoDe({ pedido: A, codigo: COD_A, shipment: SHIP_A, e
   )
 
   await aviso(doA([evento(5, 60, "Objeto saiu para entrega ao destinatário", "Joinville-SC")]))
-  ok(
-    Boolean(await esperarAssunto(CLIENTE, `Pedido #${A.numero} saiu pra entrega`)),
-    "saiu pra entrega: e-mail"
-  )
+  const saiu = await esperarAssunto(CLIENTE, `Pedido #${A.numero} saiu pra entrega`)
+  ok(Boolean(saiu), "saiu pra entrega: e-mail")
   r = await aviso(doA([evento(9, 5, "Objeto entregue ao destinatário", "Joinville-SC")]))
   ok(r.corpo.envios?.[0]?.situacao === "entregue", "entregue")
   o = await fabrica.noAdmin(A.id)
   ok(o.fulfillment_status === "delivered", "o Medusa marca como entregue", o.fulfillment_status)
+  const entregue = await esperarAssunto(CLIENTE, `Pedido #${A.numero} entregue`)
+  ok(Boolean(entregue), "e o e-mail de entregue sai")
+  faltam = [
+    ...(await faltandoNaCaixa(A, saiu)).map((l) => `saiu pra entrega: ${l}`),
+    ...(await faltandoNaCaixa(A, entregue)).map((l) => `entregue: ${l}`),
+  ]
   ok(
-    Boolean(await esperarAssunto(CLIENTE, `Pedido #${A.numero} entregue`)),
-    "e o e-mail de entregue sai"
+    faltam.length === 0,
+    "o saiu pra entrega e o entregue também, com a quantidade de cada item",
+    `faltam: ${faltam.join(", ")}`
   )
   ok(
     dePedido(CLIENTE).length === 3,
