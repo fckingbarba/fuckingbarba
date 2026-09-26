@@ -72,6 +72,7 @@ export type PedidoLido = {
   item_subtotal?: unknown
   subtotal?: unknown
   discount_total?: unknown
+  shipping_discount_total?: unknown
   shipping_total?: unknown
   total?: unknown
   items?:
@@ -118,6 +119,7 @@ const CAMPOS = [
   "item_subtotal",
   "subtotal",
   "discount_total",
+  "shipping_discount_total",
   "shipping_total",
   "total",
   "items.*",
@@ -228,7 +230,9 @@ export function paraPedidoDoEmail(o: PedidoLido): PedidoDoEmail {
         total: Number(i.total ?? 0),
       })),
     subtotal: Number(o.item_subtotal ?? o.subtotal ?? 0),
-    desconto: Number(o.discount_total ?? 0),
+    // O desconto do frete (cupom de frete grátis) já está no frete, que vem
+    // com ele: contado também aqui, apareceria duas vezes (0128).
+    desconto: descontoDosProdutos(o),
     frete: Number(o.shipping_total ?? 0),
     total: Number(o.total ?? 0),
     formaDeEntrega: o.shipping_methods?.[0]?.name ?? "",
@@ -444,4 +448,16 @@ export async function confirmarPedidosPagos(
     )
   }
   return relatorio
+}
+
+/**
+ * O desconto dos produtos: o `discount_total` do Medusa soma também o do
+ * frete, que o `shipping_total` já traz descontado.
+ */
+export function descontoDosProdutos(o: {
+  discount_total?: unknown
+  shipping_discount_total?: unknown
+}): number {
+  const d = Number(o.discount_total ?? 0) - Number(o.shipping_discount_total ?? 0)
+  return Number.isFinite(d) && d > 0 ? Math.round(d * 100) / 100 : 0
 }
