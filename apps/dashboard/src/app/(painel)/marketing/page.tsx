@@ -1,6 +1,9 @@
 import type { Metadata } from "next"
+import { Suspense } from "react"
 import { SoPara } from "@/components/area"
 import {
+  AbasDoMarketing,
+  CanaisQueMaisVenderam,
   FonteDosDados,
   Glossario,
   Grafico,
@@ -17,10 +20,10 @@ export const metadata: Metadata = { title: "Marketing" }
 type Busca = Promise<{ periodo?: string }>
 
 /**
- * MARKETING — de onde vem a venda e como o mês está indo. Por enquanto, o
- * Resumo (a parte 1 da área do protótipo): os cinco números do período
- * contra o de antes, a meta do mês, a receita no tempo e os produtos que
- * mais venderam. O período fica no endereço (`?periodo=7d`): o voltar do
+ * MARKETING — de onde vem a venda e como o mês está indo. A aba do Resumo
+ * (a parte 1 da área do protótipo): os cinco números do período contra o de
+ * antes, a meta do mês, a receita no tempo, os canais e os produtos que mais
+ * venderam. As outras abas: Funil e Canais (a parte 2). O período fica no endereço (`?periodo=7d`): o voltar do
  * celular volta pro de antes. Dono e marketing; a meta, só o dono muda.
  *
  * As visitas vêm do Google, à parte, e chegam depois do resto
@@ -46,12 +49,18 @@ async function Marketing({ searchParams }: { searchParams: Busca }) {
   return (
     <div data-tela>
       <Cabeca titulo="Marketing" sub="De onde vem a venda e como o mês está indo." />
+      <AbasDoMarketing atual="resumo" periodo={periodo} />
       <Periodos atual={periodo} />
       <Numeros resumo={resumo} />
       <Glossario />
       <Meta meta={resumo.meta} muda={resumo.mudaAMeta} />
       <Grafico serie={resumo.serie} />
-      <MaisVendidos produtos={resumo.maisVendidos} />
+      <div className="duas">
+        <Suspense fallback={<section className="bloco" data-canais-do-resumo="carregando" />}>
+          <CanaisQueMaisVenderam periodo={periodo} />
+        </Suspense>
+        <MaisVendidos produtos={resumo.maisVendidos} />
+      </div>
       <FonteDosDados />
     </div>
   )

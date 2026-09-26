@@ -20,6 +20,7 @@ import {
 } from "./clientes"
 import { ACOES_NA_HOME, ALVO_DA_HOME } from "./home"
 import { ACOES_NO_PRODUTO, type FeitoNoProduto } from "./produtos"
+import type { CarrinhoDoFunil } from "./marketing-funil"
 import { nomeCurto, type Contexto, type EnvioCru, type NotaCrua, type PedidoCru } from "./pedido"
 
 /**
@@ -138,15 +139,65 @@ const CAMPOS_DAS_VENDAS = [
   "payment_collections.payments.captured_at",
 ]
 
-/** Os pedidos feitos desde `desde` — pro Marketing, que soma períodos de até 180 dias. */
-export async function pedidosDesde(container: MedusaContainer, desde: Date): Promise<PedidoCru[]> {
+/**
+ * Os pedidos feitos desde `desde` — pro Marketing, que soma períodos de até
+ * 180 dias. `comMetadata`: o funil lê o navegador do rastro da compra
+ * (`fb_rastro`); o metadata não sai da rota, só a conta.
+ */
+export async function pedidosDesde(
+  container: MedusaContainer,
+  desde: Date,
+  { comMetadata = false }: { comMetadata?: boolean } = {}
+): Promise<PedidoCru[]> {
   const { data } = await query(container).graph({
     entity: "order",
-    fields: CAMPOS_DAS_VENDAS,
+    fields: comMetadata ? [...CAMPOS_DAS_VENDAS, "metadata"] : CAMPOS_DAS_VENDAS,
     filters: { is_draft_order: false, created_at: { $gte: desde } },
     pagination: { take: 10_000, order: { created_at: "DESC" } },
   })
   return data as unknown as PedidoCru[]
+}
+
+/**
+ * Os carrinhos criados desde `desde`, com o que o funil do Marketing usa: o
+ * e-mail, o CEP, o frete escolhido, se fechou e o pedido que virou
+ * (`funilDoCheckout`). Nada de nome, endereço ou telefone.
+ */
+export async function carrinhosDesde(
+  container: MedusaContainer,
+  desde: Date
+): Promise<CarrinhoDoFunil[]> {
+  const { data } = await query(container).graph({
+    entity: "cart",
+    fields: [
+      "id",
+      "created_at",
+      "email",
+      "completed_at",
+      "items.id",
+      "shipping_address.postal_code",
+      "shipping_methods.id",
+      "order.id",
+    ],
+    filters: { created_at: { $gte: desde } },
+    pagination: { take: 20_000, order: { created_at: "DESC" } },
+  })
+  return data as unknown as CarrinhoDoFunil[]
+}
+
+/** Os produtos publicados (o endereço e o nome curto) — as páginas do montador de link. */
+export async function produtosPublicados(
+  container: MedusaContainer
+): Promise<{ handle: string; nome: string }[]> {
+  const { data } = await query(container).graph({
+    entity: "product",
+    fields: ["handle", "title"],
+    filters: { status: "published" },
+    pagination: { take: 200, order: { title: "ASC" } },
+  })
+  return (data as { handle: string; title: string }[])
+    .filter((p) => p.handle)
+    .map((p) => ({ handle: p.handle, nome: nomeCurto(p.title) }))
 }
 
 /** Os pedidos mais novos primeiro: os `limite` últimos, ou os dos últimos `dias`. */

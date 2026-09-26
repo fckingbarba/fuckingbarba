@@ -23,6 +23,10 @@
  * │   horas que ele ainda não somou; a pergunta sem o filtro do endereço   │
  * │   da loja (o Analytics é o mesmo do site antigo);                      │
  * │ • a meta que não salva, não volta, ou aceita "abc";                    │
+ * │ • o funil sem a maior perda, fora de ordem, ou contando o page_view;   │
+ * │ • o canal que soma errado, o anúncio junto da busca, as compras do     │
+ * │   site antigo entrando (o filtro é o id do pedido), o link de campanha │
+ * │   com acento ou sem a página;                                          │
  * │ • o Google fora quebrando a tela; dado de cliente na resposta;         │
  * │ • rolagem de lado no celular; erro no console.                         │
  * └────────────────────────────────────────────────────────────────────────┘
@@ -414,6 +418,232 @@ try {
     )
   }
 
+  titulo("O Funil")
+  google.marketing = {
+    sessoes: 1000,
+    // O page_view não é passo: a pergunta pede só os cinco eventos do funil.
+    eventos: {
+      page_view: 5000,
+      view_item: 600,
+      add_to_cart: 120,
+      begin_checkout: 50,
+      add_shipping_info: 40,
+      add_payment_info: 30,
+    },
+    compras: 10,
+    aparelhos: { mobile: 700, tablet: 50, desktop: 250 },
+    origens: [
+      { fonte: "instagram", meio: "social", campanha: "stories-setembro", visitas: 100 },
+      { fonte: "l.instagram.com", meio: "referral", campanha: "(referral)", visitas: 50 },
+      { fonte: "google", meio: "organic", campanha: "(organic)", visitas: 80 },
+      { fonte: "google", meio: "cpc", campanha: "black-friday", visitas: 20 },
+      { fonte: "(direct)", meio: "(none)", campanha: "(direct)", visitas: 30 },
+    ],
+    vendas: [
+      {
+        fonte: "instagram",
+        meio: "social",
+        campanha: "stories-setembro",
+        pedidos: 3,
+        receita: 300,
+      },
+      { fonte: "google", meio: "organic", campanha: "(organic)", pedidos: 2, receita: 200 },
+      { fonte: "google", meio: "cpc", campanha: "black-friday", pedidos: 1, receita: 150 },
+    ],
+  }
+  {
+    const r = await medusa("/dashboard/marketing/funil?periodo=30d", {
+      metodo: "GET",
+      token: tokenDoDono,
+    })
+    const f = r.corpo
+    ok(
+      r.status === 200 &&
+        f.estado === "ok" &&
+        JSON.stringify(f.site?.map((p) => p.n)) ===
+          JSON.stringify([1000, 600, 120, 50, 40, 30, 10]),
+      "do site até o pagamento: as sessões de cada passo, e as compras da loja no fim",
+      JSON.stringify(f.site?.map((p) => p.n))
+    )
+    ok(
+      f.site?.findIndex((p) => p.pior) === 2 &&
+        f.achados?.[0]?.titulo === "8 em cada 10 que veem um produto não põem na sacola",
+      "a maior perda, marcada e em frase",
+      JSON.stringify(f.achados)
+    )
+    const passos = (f.checkout ?? []).map((p) => p.n)
+    ok(
+      passos.length === 6 && passos.every((n, i) => i === 0 || n <= passos[i - 1]),
+      "da sacola ao pagamento: 6 passos, cada um cabe no anterior (os carrinhos do banco)",
+      JSON.stringify(passos)
+    )
+    ok(
+      f.aparelhos?.[0]?.nome === "Celular" &&
+        f.aparelhos[0].visitas === 750 &&
+        f.aparelhos[0].parte === 75 &&
+        f.aparelhos[1].visitas === 250 &&
+        f.aparelhos.every(
+          (a) => a.conversao === Math.round((a.pedidos / a.visitas) * 10_000) / 100
+        ),
+      "celular e computador: o tablet é celular, e a conversão é pedidos ÷ visitas",
+      JSON.stringify(f.aparelhos)
+    )
+    const lote = google.perguntas
+      .filter((p) => p.tipo === "batchRunReports")
+      .map((p) => p.corpo.requests)
+      .find((rs) => rs?.length === 4)
+    ok(
+      lote?.[0]?.dateRanges?.[0]?.startDate === "29daysAgo" &&
+        lote?.[1]?.dimensionFilter?.andGroup?.expressions?.length === 2 &&
+        lote?.[2]?.dimensionFilter?.filter?.fieldName === "transactionId",
+      "as quatro perguntas numa chamada: os eventos só do endereço da loja, as compras pelo id do pedido",
+      JSON.stringify(lote?.[1]?.dimensionFilter).slice(0, 200)
+    )
+    const daOperacao = await medusa("/dashboard/marketing/funil", {
+      metodo: "GET",
+      token: cookieOp.value,
+    })
+    ok(daOperacao.status === 403, "a operação não abre o funil (403)", String(daOperacao.status))
+
+    const { pagina } = dono
+    await pagina.goto(`${PAINEL}/marketing/funil?periodo=30d`)
+    await pagina.waitForSelector('[data-funil="site"]', { timeout: 20000 })
+    ok(
+      (await pagina.locator('[data-funil="site"] .funil__passo').count()) === 7 &&
+        /a maior perda: 80% saem aqui/.test(
+          await textoDe(pagina, '[data-funil="site"] .funil__passo[data-pior]')
+        ),
+      "a tela: os 7 passos, e a maior perda em vermelho",
+      await textoDe(pagina, '[data-funil="site"] .funil__passo[data-pior]')
+    )
+    ok(
+      /75%/.test(await textoDe(pagina, '[data-aparelho="Celular"]')) &&
+        (await pagina.locator('.abas a[aria-current="page"]').getAttribute("data-aba")) === "funil",
+      "o celular com 75% das visitas, e a aba do funil acesa"
+    )
+    await pagina.locator('.filtro[data-periodo="7d"]').click()
+    await pagina.waitForURL(/\/marketing\/funil\?periodo=7d/)
+    await pagina.locator('.abas a[data-aba="canais"]').click()
+    await pagina.waitForURL(/\/marketing\/canais\?periodo=7d/)
+    ok(
+      caminho(pagina) === "/marketing/canais" &&
+        new URL(pagina.url()).searchParams.get("periodo") === "7d",
+      "o período troca sem sair da aba, e a aba nova leva o período junto",
+      pagina.url()
+    )
+  }
+
+  titulo("Os Canais")
+  {
+    const r = await medusa("/dashboard/marketing/canais?periodo=30d", {
+      metodo: "GET",
+      token: tokenDoDono,
+    })
+    const c = r.corpo
+    ok(
+      r.status === 200 &&
+        c.estado === "ok" &&
+        JSON.stringify(
+          c.canais.map((l) => [l.nome, l.visitas, l.pedidos, l.receita, l.conversao])
+        ) ===
+          JSON.stringify([
+            ["Instagram", 150, 3, 300, 2],
+            ["Google (busca)", 80, 2, 200, 2.5],
+            ["Google (anúncio)", 20, 1, 150, 5],
+            ["Direto", 30, 0, 0, 0],
+          ]),
+      "os canais: somados pelo nome, com o anúncio separado da busca",
+      JSON.stringify(c.canais)
+    )
+    ok(
+      JSON.stringify(c.campanhas?.map((x) => [x.nome, x.canal])) ===
+        JSON.stringify([
+          ["stories-setembro", "Instagram"],
+          ["black-friday", "Google (anúncio)"],
+        ]),
+      "as campanhas: só as do link com UTM, com o canal",
+      JSON.stringify(c.campanhas)
+    )
+    ok(
+      c.semOrigem?.pedidos === Math.max(0, c.pagos.pedidos - 6) &&
+        perto(c.semOrigem.receita, Math.max(0, centavos(c.pagos.receita - 650))),
+      "o que a loja vendeu e o Google não viu fica sem origem",
+      JSON.stringify([c.pagos, c.semOrigem])
+    )
+    ok(
+      typeof c.loja === "string" &&
+        c.paginas?.[0]?.caminho === "/" &&
+        c.paginas.some((p) => p.caminho.startsWith("/produtos/")),
+      "o endereço da loja e as páginas, pro montador de link",
+      JSON.stringify(c.paginas?.slice(0, 3))
+    )
+    const lote = google.perguntas
+      .filter((p) => p.tipo === "batchRunReports")
+      .map((p) => p.corpo.requests)
+      .find((rs) => rs?.length === 2)
+    ok(
+      lote?.[0]?.dimensionFilter?.filter?.fieldName === "hostName" &&
+        lote?.[1]?.dimensionFilter?.filter?.fieldName === "transactionId",
+      "as visitas só do endereço da loja; as vendas, pelo id do pedido",
+      JSON.stringify(lote).slice(0, 200)
+    )
+
+    const { pagina, contexto } = dono
+    await contexto.grantPermissions(["clipboard-read", "clipboard-write"], { origin: PAINEL })
+    await pagina.goto(`${PAINEL}/marketing/canais?periodo=30d`)
+    await pagina.waitForSelector('[data-bloco="canais"] tbody tr[data-canal]', { timeout: 20000 })
+    ok(
+      (await pagina.locator('[data-bloco="canais"] tbody tr[data-canal]').count()) ===
+        4 + (c.semOrigem.pedidos ? 1 : 0) &&
+        (await pagina.locator('[data-bloco="campanhas"] tbody tr').count()) === 2,
+      "as tabelas: os canais (e a linha sem origem, quando houver) e as campanhas"
+    )
+    ok(
+      (await textoDe(pagina, "[data-achados] .achado__titulo")) ===
+        "Google (busca) vende mais por visita; Instagram traz mais gente",
+      "o achado dos canais",
+      await textoDe(pagina, "[data-achados]")
+    )
+    const montador = pagina.locator("[data-montar-link]")
+    await montador.locator("input").fill("Stories de Outubro!")
+    await montador.locator("select").first().selectOption("influenciador|social")
+    const produto = c.paginas.find((p) => p.caminho.startsWith("/produtos/"))
+    await montador.locator("select").nth(1).selectOption(produto.caminho)
+    const montado = await montador.locator("code").getAttribute("data-link")
+    ok(
+      montado ===
+        `${c.loja}${produto.caminho}?utm_source=influenciador&utm_medium=social&utm_campaign=stories-de-outubro`,
+      "o montador de link: o nome sem acento, a origem e a página",
+      montado
+    )
+    await montador.locator("button").click()
+    await pagina.waitForFunction(
+      () => /Link copiado/.test(document.querySelector(".aviso")?.textContent ?? ""),
+      null,
+      { timeout: 5000 }
+    )
+    ok(
+      (await pagina.evaluate(() => navigator.clipboard.readText())) === montado,
+      "o Copiar põe o link na área de transferência"
+    )
+
+    await pagina.goto(`${PAINEL}/marketing?periodo=30d`)
+    await pagina.waitForSelector("[data-canais-do-resumo] .topo3 li", { timeout: 20000 })
+    ok(
+      /^1\s*Instagram/.test(semEspaco(await textoDe(pagina, "[data-canais-do-resumo] .topo3 li"))),
+      "no Resumo, os canais que mais venderam",
+      await textoDe(pagina, "[data-canais-do-resumo]")
+    )
+
+    const { pagina: celular } = mkt
+    await celular.goto(`${PAINEL}/marketing/canais?periodo=30d`)
+    await celular.waitForSelector('.cartoes [data-canal="Instagram"]', { timeout: 20000 })
+    ok(await semRolagemDeLado(celular), "no celular: os canais em cartões, sem rolar de lado")
+    await celular.goto(`${PAINEL}/marketing/funil?periodo=30d`)
+    await celular.waitForSelector('[data-funil="site"]', { timeout: 20000 })
+    ok(await semRolagemDeLado(celular), "e o funil também")
+  }
+
   titulo("O Google fora")
   {
     google.recusar = 500
@@ -434,6 +664,21 @@ try {
         (await pagina.locator('.barras-v[data-barras="13"]').count()) === 1,
       "a tela segue inteira, e a visita diz que o Google não respondeu",
       await textoDe(pagina, '[data-kpi="visitas"]')
+    )
+    await pagina.goto(`${PAINEL}/marketing/funil?periodo=7d`)
+    await pagina.waitForSelector('[data-bloco="site"] [data-sem-google]', { timeout: 20000 })
+    ok(
+      (await pagina
+        .locator('[data-bloco="checkout"] .funil, [data-bloco="checkout"] .sem-dados')
+        .count()) === 1,
+      "no funil: o do site diz que o Google não respondeu, e o da sacola (a loja) segue"
+    )
+    await pagina.goto(`${PAINEL}/marketing/canais?periodo=7d`)
+    await pagina.waitForSelector('[data-bloco="canais"] [data-sem-google]', { timeout: 20000 })
+    ok(
+      (await pagina.locator("[data-montar-link] input").count()) === 1 &&
+        (await pagina.locator("[data-total-da-loja]").count()) === 1,
+      "nos canais: diz que o Google não respondeu, e o total da loja e o montador seguem"
     )
     google.recusar = null
   }

@@ -4,14 +4,16 @@ import { Suspense, type ReactNode } from "react"
 import { Icone } from "@/components/icones"
 import { MudarMeta } from "@/components/mudar-meta"
 import {
+  lerCanais,
   lerVisitasDoMarketing,
   PERIODOS,
+  type Achado,
   type Comparado,
   type MetaDoMes,
   type Periodo,
   type ProdutoVendido,
-  type RespostaDasVisitas,
   type Resumo,
+  type SemGoogle,
 } from "@/lib/marketing"
 import { reais, reaisCurto } from "@/lib/pedidos"
 
@@ -36,14 +38,40 @@ const ANTES: Record<Periodo, string> = {
   "90d": "os 90 dias antes",
 }
 
-export function Periodos({ atual }: { atual: Periodo }) {
+/** As abas da área, na ordem do protótipo — as que já existem. O período vai junto. */
+const ABAS = [
+  ["resumo", "Resumo", "/marketing"],
+  ["funil", "Funil", "/marketing/funil"],
+  ["canais", "Canais", "/marketing/canais"],
+] as const
+export type Aba = (typeof ABAS)[number][0]
+
+export function AbasDoMarketing({ atual, periodo }: { atual: Aba; periodo: Periodo }) {
+  return (
+    <nav className="abas" aria-label="Marketing">
+      {ABAS.map(([aba, nome, caminho]) => (
+        <Link
+          key={aba}
+          href={`${caminho}?periodo=${periodo}` as Route}
+          aria-current={aba === atual ? "page" : undefined}
+          data-aba={aba}
+        >
+          {nome}
+        </Link>
+      ))}
+    </nav>
+  )
+}
+
+/** Os períodos, sem sair da aba (`caminho`). */
+export function Periodos({ atual, caminho = "/marketing" }: { atual: Periodo; caminho?: string }) {
   return (
     <nav className="filtros" aria-label="Período">
       {PERIODOS.map(([p, nome]) => (
         <Link
           key={p}
           className="filtro"
-          href={`/marketing?periodo=${p}` as Route}
+          href={`${caminho}?periodo=${p}` as Route}
           aria-current={p === atual ? "page" : undefined}
           data-periodo={p}
         >
@@ -160,8 +188,8 @@ export function Numeros({ resumo }: { resumo: Resumo }) {
   )
 }
 
-/** Sem visitas pra mostrar: o porquê, numa linha (os do Início). */
-const SEM_VISITAS: Record<Exclude<RespostaDasVisitas["estado"], "ok">, string> = {
+/** Sem o Google: o porquê, numa linha (os do Início). */
+export const SEM_VISITAS: Record<SemGoogle, string> = {
   desligado: "o Google Analytics ainda não está ligado",
   invalida: "a chave do Google Analytics não se lê",
   recusado: "o Google recusou a leitura",
@@ -382,5 +410,86 @@ export function FonteDosDados() {
       recusa os cookies fica de fora, então as visitas de verdade são um pouco mais; e o Google soma
       com algumas horas de atraso); pedidos e receita — a loja, só pedido pago.
     </p>
+  )
+}
+
+/** "Um dia só é pouco pra concluir" — nas abas de análise, com o período de hoje (o protótipo). */
+export function UmDiaEPouco() {
+  return (
+    <div className="faixa" data-nivel="info" data-um-dia>
+      <Icone nome="relogio" />
+      <div>
+        <p className="faixa__titulo">Um dia só é pouco pra concluir</p>
+        <p>
+          Com os números de hoje, qualquer diferença pode ser acaso. Pra decidir, use 7 ou 30 dias.
+        </p>
+      </div>
+    </div>
+  )
+}
+
+const ICONE_DO_ACHADO: Record<Achado["tipo"], "alerta" | "check" | "grafico" | "relogio"> = {
+  problema: "alerta",
+  oportunidade: "grafico",
+  bom: "check",
+  info: "relogio",
+}
+
+/** O que os números querem dizer, em frase — cada aba começa por aqui (o protótipo). */
+export function Achados({ achados }: { achados: Achado[] }) {
+  if (!achados.length) return null
+  return (
+    <div className={`achados${achados.length === 1 ? " achados--um" : ""}`} data-achados>
+      {achados.map((a) => (
+        <article className="achado" data-tipo={a.tipo} key={a.titulo}>
+          <span className="achado__ico">
+            <Icone nome={ICONE_DO_ACHADO[a.tipo]} />
+          </span>
+          <div>
+            <h3 className="achado__titulo">{a.titulo}</h3>
+            <p className="achado__txt">{a.texto}</p>
+          </div>
+        </article>
+      ))}
+    </div>
+  )
+}
+
+/** Os três canais que mais venderam no período — no Resumo, do lado dos produtos. */
+export async function CanaisQueMaisVenderam({ periodo }: { periodo: Periodo }) {
+  const c = await lerCanais(periodo)
+  const canais = c?.estado === "ok" ? c.canais.filter((l) => l.receita > 0).slice(0, 3) : []
+  return (
+    <section className="bloco" data-canais-do-resumo>
+      <div className="bloco__cabeca">
+        <div>
+          <h2 className="bloco__titulo">Canais que mais venderam</h2>
+          <p className="bloco__sub">Das vendas que o Google Analytics viu.</p>
+        </div>
+      </div>
+      {canais.length ? (
+        <ol className="topo3">
+          {canais.map((l, i) => (
+            <li key={l.nome}>
+              <span className="topo3__n">{i + 1}</span>
+              <span className="topo3__nome">
+                <span className="topo3__texto">
+                  <b>{l.nome}</b>
+                  <span className="topo3__sub">{vezes(l.pedidos, "pedido", "pedidos")}</span>
+                </span>
+              </span>
+              <b className="num">{reais(l.receita)}</b>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p className="fila__vazia">
+          {!c || c.estado === "ok" ? "Nenhuma venda com origem no período." : SEM_VISITAS[c.estado]}
+        </p>
+      )}
+      <Link className="link pequeno" href={`/marketing/canais?periodo=${periodo}` as Route}>
+        Ver os canais →
+      </Link>
+    </section>
   )
 }

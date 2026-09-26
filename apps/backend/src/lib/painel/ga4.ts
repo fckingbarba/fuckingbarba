@@ -222,70 +222,87 @@ export function respostasDoDia(
   return promessa
 }
 
-/* ── o Marketing: as visitas de um período ────────────────────────────────── */
+/* ── o Marketing: as perguntas de cada aba ────────────────────────────────── */
 
-/** Uma pergunta só (num `batchRunReports`, como as do dia), com o token da conta. */
-async function perguntarUma(
+/** Até 5 perguntas numa chamada (o limite do `batchRunReports`), com o token da conta. */
+async function perguntarVarias(
   cfg: ConfiguracaoDoGa4,
-  pergunta: unknown,
+  perguntas: unknown[],
   onde: string
-): Promise<RelatorioGa4> {
+): Promise<RelatorioGa4[]> {
   const acesso = await tokenDoGoogle(cfg.credenciais)
   const api = (process.env.GA4_API_URL || API).replace(/\/+$/, "")
   const resposta = (await postar(
     `${api}/properties/${cfg.propriedade}:batchRunReports`,
     {
       headers: { authorization: `Bearer ${acesso}`, "content-type": "application/json" },
-      body: JSON.stringify({ requests: [pergunta] }),
+      body: JSON.stringify({ requests: perguntas }),
     },
     onde
   ).catch((e: unknown) => {
     if (e instanceof ErroDoGa4 && e.status === 401) token = null
     throw e
   })) as { reports?: RelatorioGa4[] }
-  return resposta.reports?.[0] ?? {}
+  return perguntas.map((_, i) => resposta.reports?.[i] ?? {})
 }
 
-const guardadasDoMarketing = new Map<string, { em: number; relatorio: RelatorioGa4 }>()
-const andandoNoMarketing = new Map<string, Promise<RelatorioGa4>>()
+const guardadasDoMarketing = new Map<string, { em: number; relatorios: RelatorioGa4[] }>()
+const andandoNoMarketing = new Map<string, Promise<RelatorioGa4[]>>()
 
 /**
- * As visitas do período e do de antes, hora a hora, pro Marketing
- * (`perguntaDasVisitas`) — guardadas `GA4_CACHE_SEGUNDOS` como as do dia, uma
- * por período, e perguntadas uma vez só por quem chega junto.
+ * As perguntas de uma aba do Marketing (`chave`: a aba, o período e os
+ * endereços), numa chamada só — guardadas `GA4_CACHE_SEGUNDOS` como as do
+ * dia, e perguntadas uma vez só por quem chega junto.
  */
-export function visitasDoMarketing(
+export function relatoriosDoMarketing(
+  cfg: ConfiguracaoDoGa4,
+  chave: string,
+  perguntas: unknown[],
+  agora = new Date()
+): Promise<RelatorioGa4[]> {
+  const dia = chaveDoDia(agora)
+  const guardar = `${cfg.propriedade}:${dia}:${chave}`
+  const guardada = guardadasDoMarketing.get(guardar)
+  if (guardada && Date.now() - guardada.em < segundosGuardado() * 1000)
+    return Promise.resolve(guardada.relatorios)
+  const andando = andandoNoMarketing.get(guardar)
+  if (andando) return andando
+  const onde = `marketing (${chave.split(":")[0]})`
+  const promessa = perguntarVarias(cfg, perguntas, onde)
+    .catch((e: unknown) => {
+      // Token recusado no meio: pede outro e pergunta de novo, uma vez.
+      if (e instanceof ErroDoGa4 && e.status === 401) return perguntarVarias(cfg, perguntas, onde)
+      throw e
+    })
+    .then((relatorios) => {
+      // As de outro dia não valem mais: saem daqui.
+      for (const k of guardadasDoMarketing.keys())
+        if (!k.includes(`:${dia}:`)) guardadasDoMarketing.delete(k)
+      guardadasDoMarketing.set(guardar, { em: Date.now(), relatorios })
+      return relatorios
+    })
+    .finally(() => andandoNoMarketing.delete(guardar))
+  andandoNoMarketing.set(guardar, promessa)
+  return promessa
+}
+
+const primeiroRelatorio = (p: Promise<RelatorioGa4[]>) => p.then((r) => r[0] ?? {})
+
+/** As visitas do período e do de antes, hora a hora, pro Resumo (`perguntaDasVisitas`). */
+export const visitasDoMarketing = (
   cfg: ConfiguracaoDoGa4,
   periodo: Periodo,
   hosts: string[],
   agora = new Date()
-): Promise<RelatorioGa4> {
-  const dia = chaveDoDia(agora)
-  const chave = `${cfg.propriedade}:${dia}:${periodo}:${hosts.join(",")}`
-  const guardada = guardadasDoMarketing.get(chave)
-  if (guardada && Date.now() - guardada.em < segundosGuardado() * 1000)
-    return Promise.resolve(guardada.relatorio)
-  const andando = andandoNoMarketing.get(chave)
-  if (andando) return andando
-  const pergunta = perguntaDasVisitas(periodo, hosts)
-  const promessa = perguntarUma(cfg, pergunta, "visitas do marketing")
-    .catch((e: unknown) => {
-      // Token recusado no meio: pede outro e pergunta de novo, uma vez.
-      if (e instanceof ErroDoGa4 && e.status === 401)
-        return perguntarUma(cfg, pergunta, "visitas do marketing")
-      throw e
-    })
-    .then((relatorio) => {
-      // As de outro dia não valem mais: saem daqui.
-      for (const k of guardadasDoMarketing.keys())
-        if (!k.includes(`:${dia}:`)) guardadasDoMarketing.delete(k)
-      guardadasDoMarketing.set(chave, { em: Date.now(), relatorio })
-      return relatorio
-    })
-    .finally(() => andandoNoMarketing.delete(chave))
-  andandoNoMarketing.set(chave, promessa)
-  return promessa
-}
+): Promise<RelatorioGa4> =>
+  primeiroRelatorio(
+    relatoriosDoMarketing(
+      cfg,
+      `resumo:${periodo}:${hosts.join(",")}`,
+      [perguntaDasVisitas(periodo, hosts)],
+      agora
+    )
+  )
 
 const ultimoAviso = new Map<string, number>()
 

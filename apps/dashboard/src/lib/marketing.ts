@@ -107,3 +107,89 @@ export const lerVisitasDoMarketing = cache(
     return { estado: "fora" }
   }
 )
+
+/* ── o Funil e os Canais (a parte 2) ──────────────────────────────────────── */
+
+export type Achado = {
+  tipo: "bom" | "problema" | "oportunidade" | "info"
+  titulo: string
+  texto: string
+}
+
+/** Por que o Google não respondeu (os mesmos estados das visitas). */
+export type SemGoogle = "desligado" | "invalida" | "recusado" | "fora"
+
+export type Passo = {
+  nome: string
+  n: number
+  /** Quanto passou do passo anterior, em %; `null` no primeiro. */
+  taxa: number | null
+  /** A maior perda do funil. */
+  pior: boolean
+}
+
+export type Aparelho = {
+  nome: "Celular" | "Computador"
+  visitas: number
+  pedidos: number
+  parte: number
+  conversao: number | null
+}
+
+export type Funil = { periodo: Periodo; checkout: Passo[]; achados: Achado[] } & (
+  { estado: "ok"; site: Passo[]; aparelhos: Aparelho[] | null } | { estado: SemGoogle }
+)
+
+export type LinhaDoCanal = {
+  nome: string
+  visitas: number
+  pedidos: number
+  receita: number
+  conversao: number | null
+}
+
+export type Campanha = {
+  nome: string
+  canal: string
+  visitas: number
+  pedidos: number
+  receita: number
+}
+
+export type Pagina = { nome: string; caminho: string }
+
+export type Canais = {
+  periodo: Periodo
+  /** Os pedidos pagos da loja no período (o Medusa). */
+  pagos: { receita: number; pedidos: number }
+  /** O endereço da loja, pros links de campanha; `null` sem o `LOJA_URL` no backend. */
+  loja: string | null
+  paginas: Pagina[]
+} & (
+  | {
+      estado: "ok"
+      canais: LinhaDoCanal[]
+      campanhas: Campanha[]
+      totais: { visitas: number; pedidos: number; receita: number }
+      semOrigem: { pedidos: number; receita: number }
+      achado: Achado | null
+    }
+  | { estado: SemGoogle }
+)
+
+/** Uma aba do Marketing: a resposta, ou `null` se a loja não respondeu. */
+async function lerAba<T>(aba: string, periodo: Periodo): Promise<T | null> {
+  const r = await medusa(`/dashboard/marketing/${aba}?periodo=${periodo}`, {
+    metodo: "GET",
+    token: "sessao",
+  })
+  if (r.status === 401)
+    redirect(`/sair?motivo=${r.corpo.message === "fora_da_equipe" ? "fora" : "expirou"}`)
+  return r.status === 200 ? (r.corpo as unknown as T) : null
+}
+
+/** O funil do período (os carrinhos da loja vêm sempre; o site, se o Google responder). */
+export const lerFunil = cache((periodo: Periodo) => lerAba<Funil>("funil", periodo))
+
+/** Os canais do período — o Resumo usa os três que mais venderam. */
+export const lerCanais = cache((periodo: Periodo) => lerAba<Canais>("canais", periodo))

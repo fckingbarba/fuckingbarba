@@ -42,6 +42,8 @@ export type Periodo = (typeof PERIODOS)[number]
 export const PERIODO_PADRAO: Periodo = "30d"
 
 const DIAS: Record<Periodo, number> = { hoje: 1, "7d": 7, "30d": 30, "90d": 90 }
+/** Quantos dias o período tem (o hoje conta como um). */
+export const diasDo = (p: Periodo) => DIAS[p]
 
 export const lerPeriodo = (v: unknown): Periodo =>
   (PERIODOS as readonly unknown[]).includes(v) ? (v as Periodo) : PERIODO_PADRAO
@@ -73,7 +75,7 @@ export function meiaNoite(chave: string, fuso = FUSO): Date {
 
 export type Janela = { de: Date; ate: Date }
 
-const dentro = (d: Date, j: Janela) => d >= j.de && d < j.ate
+export const dentro = (d: Date, j: Janela) => d >= j.de && d < j.ate
 
 /** O período (do começo do primeiro dia até agora), os dias dele e o de antes, do mesmo tamanho. */
 export function janelasDo(periodo: Periodo, agora: Date) {
@@ -112,7 +114,7 @@ export type ItemVendido = {
   unidades: number
   receita: number
 }
-export type Venda = { pagoEm: Date; total: number; itens: ItemVendido[] }
+export type Venda = { id: string; pagoEm: Date; total: number; itens: ItemVendido[] }
 
 /** Os pedidos pagos (e não cancelados), com a hora em que o dinheiro entrou. */
 export function vendasDos(pedidos: PedidoCru[]): Venda[] {
@@ -129,7 +131,7 @@ export function vendasDos(pedidos: PedidoCru[]): Venda[] {
         receita: centavos(numero(i.total) || numero(i.unit_price) * unidades),
       }
     })
-    return [{ pagoEm, total: totalDo(o), itens }]
+    return [{ id: o.id, pagoEm, total: totalDo(o), itens }]
   })
 }
 
@@ -145,7 +147,8 @@ const comparar = (valor: number, antes: number): Comparado => ({
   variacao: variacao(valor, antes),
 })
 
-function somaNa(vendas: Venda[], j: Janela) {
+/** A receita e os pedidos pagos numa janela. */
+export function somaNa(vendas: Venda[], j: Janela) {
   const nela = vendas.filter((v) => dentro(v.pagoEm, j))
   return { receita: centavos(nela.reduce((s, v) => s + v.total, 0)), pedidos: nela.length }
 }
@@ -402,16 +405,36 @@ export function hostsDaLoja(url: string | undefined): string[] {
   return [...new Set([host, sem, `www.${sem}`])]
 }
 
+/** O filtro das visitas: só as páginas do endereço da loja (sem endereço, tudo). */
+export const soDoEndereco = (hosts: string[]) =>
+  hosts.length ? { filter: { fieldName: "hostName", inListFilter: { values: hosts } } } : null
+
+/**
+ * O filtro das compras: as que a loja manda pro GA4 pelo servidor. Elas não
+ * têm página (e o filtro do endereço as deixaria de fora); o `transactionId`
+ * é o id do pedido no Medusa, "order_…" — as do site antigo são números.
+ */
+export const SO_AS_COMPRAS_DA_LOJA = {
+  filter: {
+    fieldName: "transactionId",
+    stringFilter: { matchType: "BEGINS_WITH", value: "order_" },
+  },
+}
+
+/** O período inteiro, pro GA4: do primeiro dia até hoje, no fuso da propriedade. */
+export const datasDo = (periodo: Periodo) => [
+  { startDate: `${DIAS[periodo] - 1}daysAgo`, endDate: "today" },
+]
+
 /** A pergunta ao GA4: as visitas por dia e hora, do período e do de antes. */
 export function perguntaDasVisitas(periodo: Periodo, hosts: string[]) {
   const n = DIAS[periodo]
+  const endereco = soDoEndereco(hosts)
   return {
     dateRanges: [{ startDate: `${2 * n - 1}daysAgo`, endDate: "today" }],
     dimensions: [{ name: "date" }, { name: "hour" }],
     metrics: [{ name: "sessions" }],
-    ...(hosts.length
-      ? { dimensionFilter: { filter: { fieldName: "hostName", inListFilter: { values: hosts } } } }
-      : {}),
+    ...(endereco ? { dimensionFilter: endereco } : {}),
     // 90 dias e os 90 de antes, hora a hora: 4.320 linhas.
     limit: "10000",
   }
@@ -491,5 +514,14 @@ export function visitasDoPeriodo(
       variacao: valor !== null && antes !== null ? variacao(valor, antes) : null,
     },
     ate: ultima < 0 ? null : ate,
+  }
+}
+
+/** O endereço da loja pros links de campanha (o `LOJA_URL`, que troca na virada); `null` sem ele. */
+export function enderecoDaLoja(url: string | undefined): string | null {
+  try {
+    return new URL(url ?? "").origin
+  } catch {
+    return null
   }
 }

@@ -809,9 +809,37 @@ filtro junto (o Início ainda conta os dois sites). No painel, `app/(painel)/mar
 `components/marketing.tsx` (visitas e conversão num `<Suspense>`) e `mudar-meta.tsx`. O gráfico
 fino (30 barras no celular: 8 px cada) usa `.barras-v--pontas`: a coluna de dentro de cada barra
 crescia até a largura do rótulo e empurrava a barra pra fora da caixa. Conferidor:
-`conferir-marketing.mjs` (o Google falso do `conferir-visitas`, que agora entende "13daysAgo"). As
-próximas partes: Funil e Canais (com o montador de link de campanha), Produtos e Ofertas, Clientes
-e Pagamento e frete — o protótipo tem tudo, em `telaMarketing`.
+`conferir-marketing.mjs` (o Google falso do `conferir-visitas`, que agora entende "13daysAgo").
+
+**Marketing, parte 2: o Funil e os Canais** (entrega 0110). As abas (`AbasDoMarketing`) levam o
+período junto, e cada aba tem a rota dela, que responde mesmo sem o Google (os dados da loja vêm
+sempre; o do Google com `estado`). As perguntas de uma aba vão numa chamada só
+(`relatoriosDoMarketing`, em `ga4.ts`: até 5 num `batchRunReports`, guardadas por aba, período e
+endereços). **As compras que a loja manda pelo servidor não têm página**: o filtro do endereço
+(`hostName`) as deixaria de fora, então o delas é o `transactionId` começando com "order_" (o id do
+pedido no Medusa — as do site antigo são números: `SO_AS_COMPRAS_DA_LOJA`). O GA4 dá a origem da
+sessão de quem comprou porque a compra vai com o `session_id` do rastro.
+- `lib/painel/marketing-funil.ts` (puro, com testes): do site até o pagamento — as sessões, as
+  sessões com cada um dos 5 eventos da loja (`view_item` … `add_payment_info`; o filtro pede só
+  eles) e as compras —, com a maior perda (`passosDo`); da sacola ao pagamento pelos carrinhos do
+  período (`carrinhosDesde`, com o `order.id` pela ligação `order_cart`: cada passo exige os de
+  antes); celular × computador (as sessões por `deviceCategory`, o tablet como celular, e os
+  pedidos pagos pelo navegador do `fb_rastro` — só com o sim, como as visitas); os achados.
+- `lib/painel/marketing-canais.ts` (puro, com testes): as sessões e as compras por origem, meio e
+  campanha; `canalDe` é o `nomeDaOrigem` do Início com o anúncio separado da busca ("Google
+  (anúncio)", o meio `cpc`/`paid`) e "Influenciadores"; campanha é a do link com UTM (as do GA4
+  vêm entre parênteses); `semOrigem` = os pedidos pagos da loja − as compras que o GA4 viu (quem
+  recusou os cookies); o achado (o canal que converte mais contra o que traz mais gente, com um
+  mínimo de visitas — abaixo dele, "ainda é pouco").
+- Rotas `GET /dashboard/marketing/funil` e `/canais` (esta com `loja` — a origem do `LOJA_URL` — e
+  `paginas`, a home, a vitrine e os produtos publicados, pro montador). No painel,
+  `marketing/funil` e `marketing/canais`, `components/marketing-funil.tsx`,
+  `marketing-canais.tsx` e `montar-link.tsx` (o link com UTM: as origens e os meios batem com o
+  `canalDe`; o nome sem acento, `\p{Diacritic}`); no Resumo, "Canais que mais venderam".
+- O Google falso responde as perguntas do Marketing pelo `painel.marketing` (sessões, eventos,
+  compras, aparelhos, origens e vendas). As próximas partes: Produtos e Ofertas (o leve junto e a
+  oferta do checkout ainda não ficam marcados no item do pedido), Clientes e Pagamento e frete — o
+  protótipo tem tudo, em `telaMarketing`.
 
 **Produtos** (fase 3, parte 1). `GET /dashboard/produtos` (a lista, com as fitas) e
 `GET /dashboard/produtos/:id` (o que vem do Bling, só pra ler; as seções com o texto e o fundo de

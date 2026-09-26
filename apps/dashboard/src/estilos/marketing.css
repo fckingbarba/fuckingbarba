@@ -55,3 +55,55 @@
 
 .fonte-dados { margin: 8px 0 0; padding: 12px 0 0; border-top: 2px solid var(--linha); font-size: 0.76rem; color: var(--tinta-suave); }
 .fonte-dados b { color: var(--tinta); }
+
+/* --------------------------------------------------------------------------
+   A PARTE 2 — o Funil e os Canais.
+   -------------------------------------------------------------------------- */
+
+/* Os achados: o que os números querem dizer, em frase (cada aba começa por eles). */
+.achados { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; margin: 0 0 16px; }
+.achados--um { grid-template-columns: minmax(0, 1fr); }
+.achado { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px; padding: 14px; background: var(--papel); border: 2px solid var(--tinta); border-left-width: 6px; }
+.achado[data-tipo="problema"] { border-left-color: var(--erro); }
+.achado[data-tipo="oportunidade"] { border-left-color: var(--amarelo-borda); }
+.achado[data-tipo="bom"] { border-left-color: var(--menta-escura); }
+.achado[data-tipo="info"] { border-left-color: var(--linha); }
+.achado__ico { width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; background: var(--tinta); color: var(--amarelo); clip-path: var(--chanfro-p); }
+.achado[data-tipo="problema"] .achado__ico { background: var(--erro); color: #fff; }
+.achado[data-tipo="bom"] .achado__ico { background: var(--menta-escura); color: #fff; }
+.achado[data-tipo="info"] .achado__ico { background: var(--cinza-2); color: var(--tinta); }
+.achado__ico svg { width: 17px; height: 17px; fill: currentColor; }
+.achado__titulo { margin: 0; font-size: 0.9rem; font-weight: 800; }
+.achado__txt { margin: 4px 0 0; font-size: 0.82rem; color: var(--tinta-suave); }
+
+/* O funil: cada passo, a barra (do tamanho do maior) e quanto passou do anterior. */
+.trilho { display: block; height: 8px; margin-top: 5px; background: var(--cinza-2); }
+.trilho i { display: block; height: 100%; background: var(--tinta); }
+.trilho i[data-cor="erro"] { background: var(--erro); }
+.funil { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+.funil__topo { display: flex; justify-content: space-between; gap: 10px; font-size: 0.86rem; }
+.funil__nome { font-weight: 700; }
+.funil__n { font-size: 0.95rem; }
+.funil .trilho { height: 14px; }
+.funil__taxa { margin: 4px 0 0; font-size: 0.74rem; color: var(--tinta-suave); }
+.funil__passo[data-pior] .funil__taxa b { color: var(--erro); }
+.aparelhos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.aparelho { min-width: 0; padding: 12px; background: var(--cinza); }
+.aparelho__nome { display: flex; align-items: center; gap: 6px; margin: 0 0 8px; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; }
+.aparelho__nome svg { width: 16px; height: 16px; fill: currentColor; }
+.aparelho__n { margin: 8px 0 0; font-size: 0.8rem; color: var(--tinta-suave); }
+.aparelho__n b { font-size: 1.1rem; color: var(--tinta); font-variant-numeric: tabular-nums; }
+.aparelhos__nota { margin: 12px 0 0; }
+
+/* Os canais: a conversão boa e a ruim, o total da loja e o link pronto. */
+.bom { color: var(--menta-escura); font-weight: 800; }
+.ruim { color: var(--erro); font-weight: 800; }
+.canais__total { margin: -6px 0 16px; }
+.link-pronto { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; margin-top: 14px; padding: 10px 12px; background: var(--cinza); border: 2px dashed var(--tinta); }
+.link-pronto code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.78rem; overflow-wrap: anywhere; }
+@media (max-width: 640px) { .link-pronto { grid-template-columns: minmax(0, 1fr); } }
+[data-canais-do-resumo] .link { display: inline-block; margin-top: 12px; }
+
+/* Sem dado (o Google fora, nada no período): uma linha, dentro do bloco. */
+.sem-dados { margin: 0; font-size: 0.84rem; color: var(--tinta-suave); }
+.bloco--sem-pad > .sem-dados { padding: 0 clamp(16px, 2.2vw, 22px) 16px; }
