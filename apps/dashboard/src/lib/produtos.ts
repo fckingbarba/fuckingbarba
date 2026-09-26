@@ -346,17 +346,11 @@ export const SECOES: Record<IdDaSecao, DefinicaoDaSecao> = {
   },
   "produto.promessa": {
     nome: "Benefícios",
-    descricao: "O que o produto faz, em lista, com uma ressalva no fim.",
+    descricao: "O que o produto faz, em lista.",
     campos: [
       { tipo: "texto", c: "chapeu", rot: "Chapéu", ajuda: "A linha pequena em cima do título." },
       TITULO,
       { tipo: "lista", c: "itens", rot: "Benefícios", item: "Benefício" },
-      {
-        tipo: "area",
-        c: "rodape",
-        rot: "Ressalva (opcional)",
-        ajuda: "O que o produto não faz, ou do que o resultado depende.",
-      },
     ],
     fundo: { cor: "escuro", computador: [2880, 890], celular: [1170, 1644] },
     realce: "no título",
@@ -418,7 +412,6 @@ export const SECOES: Record<IdDaSecao, DefinicaoDaSecao> = {
           { tipo: "marcar", c: "alvo", rot: "É o marco da página (uma etapa só)", unico: true },
         ],
       },
-      { tipo: "area", c: "aviso", rot: "Aviso embaixo (opcional)" },
     ],
     fundo: { cor: "menta", computador: [2880, 820], celular: [1170, 2448] },
   },
