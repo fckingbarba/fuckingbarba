@@ -2043,6 +2043,21 @@ de unidade (16 novos).
 Depois do deploy — **nada a configurar.** Pra testar o montador, crie um link, abra ele no celular
 e veja a visita chegar em Campanhas no dia seguinte (o Google soma com atraso).
 
+**A página do produto mais enxuta — pronto em 26/09 (entrega 0112).** Pedido dele, com print do óleo:
+tirar o texto embaixo dos Benefícios e o embaixo da Linha do tempo.
+
+- **Saíram, em todos os produtos:** a ressalva embaixo dos Benefícios (a do óleo era "O óleo cuida do
+  fio que já existe… leia isto antes.") e o aviso embaixo da Linha do tempo (a do óleo era "Barba
+  curta pede poucas gotas…"). O painel também não oferece mais esses dois campos.
+- **O "resultado varia" do Fator continua na página:** nas Perguntas ("Em quanto tempo vejo
+  resultado?", "Funciona pra barba que não nasce nada?"), no "Pra quem é" e embaixo dos casos de antes e
+  depois.
+- Os kits 2x, 3x e 6x do Fator agora são exatamente o Fator (o aviso era a única diferença).
+
+Conferido pelo `conferir-pdp.mjs` (69) e pelo `conferir-produtos.mjs` do painel (101).
+
+Depois do deploy — **nada a configurar.**
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa
