@@ -186,6 +186,7 @@
   .opcao__valor { font-size: 0.9rem; font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; text-align: right; }
   .opcao__valor[data-gratis] { color: var(--menta-escura); }
   .opcao__valor s { display: block; font-size: 0.66rem; font-weight: 600; color: var(--color-text-muted); }
+  .opcoes__nota { margin: 0; font-size: 0.7rem; color: var(--color-text-muted); }
   .opcao__selo { position: absolute; top: -9px; left: 12px; padding: 2px 8px 2px 6px; background: var(--color-accent); color: var(--color-text); font-size: 0.56rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 50%, calc(100% - 6px) 100%, 0 100%); }
   .pagamento__painel { display: none; padding: 14px 0 2px; }
   .pagamento__painel[data-ativo] { display: block; }
@@ -197,7 +198,8 @@
 
   /* ---------- completa o frete grátis (passo 2) ----------
      Discreto de propósito: uma linha cinza, texto pequeno, chips com
-     borda, sem foto. É informação útil, não banner. */
+     borda. É informação útil, não banner. A foto pequena em cada chip
+     (26/09, pedido da loja) é pra reconhecer o produto sem ler o nome. */
   .completa { margin: 10px 0 0; padding: 10px 12px 11px; background: var(--fundo); border-left: 3px solid var(--color-accent); }
   .completa__topo { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
   .completa__txt { margin: 0; font-size: 0.76rem; line-height: 1.4; color: var(--color-text-muted); }
@@ -211,6 +213,9 @@
   .completa__chip small { font-weight: 600; color: var(--color-text-muted); }
   .completa__chip:hover small, .completa__chip:focus-visible small { color: var(--color-text); }
   .completa__chip svg { width: 11px; height: 11px; fill: currentColor; flex-shrink: 0; }
+  .completa__chip:has(.completa__foto) { padding-left: 5px; }
+  .completa__foto { flex-shrink: 0; width: 44px; height: 44px; overflow: hidden; background: #fff; border: 1.5px solid var(--color-text); clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px); }
+  .completa__foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .completa__cat { font-size: 0.58rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--menta-escura); }
   .completa[data-ok] { border-left-color: var(--menta-escura); background: #e3f8f0; }
   .completa[data-ok] .completa__txt { color: #075c47; }
@@ -965,7 +970,7 @@
       return '<label class="opcao"><input type="radio" name="frete" value="' + escapa(o.id) + '"' + (o.id === pedido.frete ? ' checked' : '') + '>' +
         '<span><span class="opcao__nome">' + escapa(o.nome) + '</span><span class="opcao__desc">' + escapa(prazo(o)) + '</span></span>' +
         '<span class="opcao__valor"' + (g ? ' data-gratis' : '') + '>' + (g ? 'Grátis<s>' + brl(o.preco) + '</s>' : brl(o.preco)) + '</span></label>';
-    }).join('');
+    }).join('') + (pedido.opcoes.length ? '<p class="opcoes__nota">Dias úteis, contados da postagem.</p>' : '');
     atualizaResumo();
   }
   function valorFrete() {
@@ -1031,6 +1036,7 @@
     $('[data-completa-chips]').innerHTML = opcoes.map(function (p) {
       return '<li><button type="button" class="completa__chip" data-completa-add="' + escapa(p.id) + '" ' +
         'aria-label="Adicionar ' + escapa(p.nome) + ' por ' + brl(p.preco) + ' e liberar o frete grátis">' +
+        '<span class="completa__foto"><img src="' + escapa(p.imagem || 'imagens/fuckingbarba-shampoo.webp') + '" alt="" width="44" height="44"></span>' +
         '<span><span class="completa__cat">' + escapa(CATEGORIAS[p.categoria]) + '</span><br>' + escapa(p.nome) + ' <small>' + brl(p.preco) + '</small></span>' +
         '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.6 3h2.8v7.6H21v2.8h-7.6V21h-2.8v-7.6H3v-2.8h7.6z"/></svg></button></li>';
     }).join('');
