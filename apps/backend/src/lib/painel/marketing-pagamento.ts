@@ -1,5 +1,7 @@
 import type { PoliticaDeFrete } from "../configuracoes"
-import { lerEstado, RECUSAS, type Estado } from "../../modules/pagarme/situacao"
+import { RECUSAS } from "../../modules/pagarme/situacao"
+import type { Estado } from "../pagamento/estado"
+import { estadoDaSessao } from "../pagamento/parceiros"
 import { reais } from "./formato"
 import { dentro, type Janela } from "./marketing"
 import type { Achado } from "./marketing-canais"
@@ -10,8 +12,8 @@ import { pagamentoDo, totalDo, type PedidoCru } from "./pedido"
  * passa, e o que o frete faz com a venda. A aba "Pagamento e frete" do
  * protótipo. Código puro, com testes (`__tests__/marketing-pagamento.unit.spec.ts`).
  *
- * TUDO DA LOJA, pelo estado que o Pagar.me deixa na sessão de pagamento
- * (`lerEstado`: a forma, a situação, as parcelas e a frase da recusa). Os
+ * TUDO DA LOJA, pelo estado que o parceiro deixa na sessão de pagamento
+ * (`estadoDaSessao`: a forma, a situação, as parcelas e a frase da recusa). Os
  * PEDIDOS PAGOS são os do Resumo — pagos no período, sem os cancelados (o
  * cartão que ficou em análise conta no dia que passou); as TENTATIVAS, as
  * feitas no período:
@@ -71,18 +73,16 @@ const numero = (v: unknown) => {
   const n = Number(v ?? 0)
   return Number.isFinite(n) ? n : 0
 }
-const PAGARME = "pp_pagarme_pagarme"
-
 type Sessao = {
   provider_id?: string | null
   status?: string | null
   data?: Record<string, unknown> | null
 } | null
 
-/** Os estados do Pagar.me nas sessões de uma coleção de pagamento. */
+/** Os estados que os parceiros gravaram nas sessões de uma coleção de pagamento. */
 const estadosDas = (sessoes: Sessao[] | null | undefined): Estado[] =>
   (sessoes ?? []).flatMap((s) => {
-    const e = s?.provider_id === PAGARME ? lerEstado(s.data ?? null) : null
+    const e = estadoDaSessao(s)
     return e ? [e] : []
   })
 
