@@ -23,7 +23,7 @@ import {
 } from "@/lib/checkout-visivel"
 import type { Configuracoes } from "@/lib/configuracoes"
 import { emReais } from "@/lib/formato"
-import { comASacola, rastrear } from "@/lib/rastrear"
+import { anotarNaLoja, comASacola, rastrear } from "@/lib/rastrear"
 import { usePeDaTela } from "@/lib/use-pe-da-tela"
 import { Contato } from "./contato"
 import { Entrega } from "./entrega"
@@ -86,6 +86,12 @@ export function Etapas({
     rastrear("begin_checkout", comASacola(checkout.itens))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [checkout.id])
+
+  // O e-mail no passo 1: o CRM da loja lê do carrinho e liga o que a pessoa fez a ele.
+  // Uma vez por carrinho na visita — voltar pro checkout não conta de novo.
+  useEffect(() => {
+    if (checkout.email) anotarNaLoja("contato_informado", {}, { umaVez: `contato:${checkout.id}` })
+  }, [checkout.id, checkout.email])
 
   // A entrega escolhida, uma vez por opção: é quando o passo 2 fecha.
   useEffect(() => {

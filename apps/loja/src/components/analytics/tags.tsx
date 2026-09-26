@@ -1,8 +1,10 @@
 "use client"
 
 import { useEffect, useMemo } from "react"
+import { chegadaDaVisita } from "@/lib/anotar"
 import type { Integracoes } from "@/lib/configuracoes"
 import { parceirosDe } from "@/lib/consentimento"
+import { anotarNaLoja } from "@/lib/rastrear"
 import { Consentimento, useConsentimento } from "./consentimento"
 import { ligarIntegracoes } from "./integracoes"
 
@@ -17,7 +19,10 @@ import { ligarIntegracoes } from "./integracoes"
  * Agora a promessa vale: sem o sim, a página não tem script de nenhum deles,
  * e com o sim, `ligarIntegracoes` monta tudo na hora, sem recarregar.
  *
- * Sem nenhuma integração ligada, não há o que perguntar: nem faixa.
+ * A FAIXA APARECE SEMPRE, com ou sem parceiro ligado no painel: a própria
+ * loja anota o que a pessoa faz pro CRM (`lib/anotar.ts`), e isso também
+ * espera o sim. A chegada da visita (a campanha do link, de onde veio) é
+ * anotada daqui, uma vez por sessão.
  */
 export function Tags({ integracoes }: { integracoes: Integracoes }) {
   const parceiros = useMemo(() => parceirosDe(integracoes), [integracoes])
@@ -27,6 +32,11 @@ export function Tags({ integracoes }: { integracoes: Integracoes }) {
     if (estado === "sim") ligarIntegracoes(integracoes)
   }, [estado, integracoes])
 
-  if (!parceiros.length) return null
+  // A chegada: guardada já na primeira página, e anotada quando vier o sim.
+  useEffect(() => {
+    const chegada = chegadaDaVisita()
+    if (chegada) anotarNaLoja("visita", chegada.dados, { onde: chegada.onde })
+  }, [])
+
   return <Consentimento parceiros={parceiros} estado={estado} />
 }

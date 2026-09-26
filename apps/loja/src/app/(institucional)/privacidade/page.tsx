@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import Link from "next/link"
+import { MudarResposta } from "@/components/analytics/mudar-resposta"
 import {
   Abertura,
   Atualizado,
@@ -28,7 +29,9 @@ export const metadata: Metadata = {
  * terceiros de quem a loja realmente chama (ViaCEP, Vercel, Railway,
  * Supabase, Pagar.me, Resend, Frenet, Bling e, só com o aceite, Google,
  * Meta, TikTok e Microsoft Clarity — `components/analytics/tags.tsx` e
- * `apps/backend/src/lib/anuncios/`). Política genérica é pior que nenhuma:
+ * `apps/backend/src/lib/anuncios/`). O que a própria loja anota pro CRM, só
+ * com o aceite, é `lib/anotar.ts` e `apps/backend/src/lib/crm/eventos.ts`
+ * (o prazo de 13 meses é o job `limpar-o-crm`). Política genérica é pior que nenhuma:
  * ela promete coisas que o sistema não faz e esconde as que ele faz.
  *
  * DUAS COISAS QUE ESTA PÁGINA NÃO É: revisão de advogado, e definitiva. O que
@@ -37,7 +40,7 @@ export const metadata: Metadata = {
  * pergunta de novo antes de valer, como a última seção promete.
  */
 
-const ATUALIZADO = "25 de setembro de 2026"
+const ATUALIZADO = "26 de setembro de 2026"
 
 export default async function Privacidade() {
   const { empresa, atendimento } = await configuracoes()
@@ -50,7 +53,8 @@ export default async function Privacidade() {
       <Abertura>
         A gente coleta o mínimo pra conseguir entregar seu pedido e falar com você sobre ele. Não
         vendemos seus dados e não guardamos o número do seu cartão — ele não passa nem pelo nosso
-        servidor. Medição e anúncio, só se você aceitar os cookies.
+        servidor. Medição, anúncio e o que a loja anota do que você faz nela, só se você aceitar os
+        cookies.
       </Abertura>
 
       <Secao titulo="Quem é o responsável">
@@ -86,6 +90,14 @@ export default async function Privacidade() {
           cada um que a compra veio de um anúncio dele.
         </P>
         <P>
+          <b>O que a própria loja anota, também só se você aceitar</b>: de onde você chegou (o site
+          ou a campanha do link), os produtos que viu, o que entrou e saiu da sacola e os passos do
+          checkout — ligado a um código aleatório deste navegador, guardado num cookie da loja.
+          Quando você entra na conta, deixa o e-mail no checkout ou assina a newsletter, o que foi
+          anotado passa a ficar ligado ao seu e-mail. É o que deixa a loja lembrar o que interessa
+          pra você. E-mail de oferta continua dependendo do seu sim a ele, separado deste.
+        </P>
+        <P>
           <b>O que a gente NÃO coleta:</b> número de cartão, validade e CVV. Esses campos, quando
           existirem, ficam no seu navegador e vão direto pro processador de pagamento — o servidor
           da loja não recebe, não registra e não teria como guardar.
@@ -103,9 +115,9 @@ export default async function Privacidade() {
             guardar.
           </li>
           <li>
-            <b>Consentimento</b> — cookies de medição e anúncio, o aviso da compra pras plataformas
-            de anúncio e a newsletter. Você escolhe, e pode voltar atrás a qualquer momento sem
-            perder nada do resto.
+            <b>Consentimento</b> — cookies de medição e anúncio, o que a loja anota do que você faz
+            nela, o aviso da compra pras plataformas de anúncio e a newsletter. Você escolhe, e pode
+            voltar atrás a qualquer momento sem perder nada do resto.
           </li>
           <li>
             <b>Legítimo interesse</b> — segurança da loja e prevenção a fraude, e a mensagem no
@@ -123,11 +135,16 @@ export default async function Privacidade() {
         </P>
         <P>
           Os de medição e anúncio — Google Analytics, Google Ads, Meta (Facebook e Instagram),
-          TikTok e Microsoft Clarity — só são criados se você clicar em aceitar na faixa. Se
-          recusar, nenhum desses scripts é carregado — não é um script que roda em silêncio — e a
-          sua compra também não é avisada a ninguém. Pra mudar de ideia depois, é só apagar os
-          cookies do site no seu navegador e responder de novo.
+          TikTok e Microsoft Clarity — e o da própria loja, com o código deste navegador, só são
+          criados se você clicar em aceitar na faixa. Se recusar, nenhum desses scripts é carregado
+          — não é um script que roda em silêncio —, a loja não anota nada, e a sua compra também não
+          é avisada a ninguém.
         </P>
+        <P>
+          Pra mudar de ideia depois, é só a faixa perguntar de novo. Se agora você disser não, a
+          loja apaga o que anotou deste navegador.
+        </P>
+        <MudarResposta />
         <P>
           A Microsoft Clarity grava como a página é usada — cliques, rolagem, o movimento na tela —
           pra gente ver onde a loja atrapalha. O que você digita e os seus dados no checkout e na
@@ -190,8 +207,10 @@ export default async function Privacidade() {
         <P>
           Dados de venda ficam <b>cinco anos</b>, que é o que a legislação fiscal e o Código de
           Defesa do Consumidor exigem de quem vende. E-mail de newsletter fica até você pedir pra
-          sair. Cookies de medição duram no máximo dois anos; os necessários somem quando a sessão
-          acaba, menos o da sacola e o da sua resposta sobre cookies.
+          sair. O que a loja anota do que você faz nela fica <b>13 meses</b> e depois é apagado.
+          Cookies de medição duram no máximo dois anos, e o código deste navegador, um ano; os
+          necessários somem quando a sessão acaba, menos o da sacola e o da sua resposta sobre
+          cookies.
         </P>
       </Secao>
 
