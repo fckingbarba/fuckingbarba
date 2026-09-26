@@ -74,6 +74,12 @@
 .amam__nota .estrelas__cheias svg {
   fill: var(--color-amarelo);
 }
+/* O lugar da esteira, com a altura da faixa (um cartão de três linhas) já
+   reservada: os cartões só entram quando a seção chega perto da tela
+   (components/home/esteira-de-avaliacoes.tsx), e nada abaixo pode pular. */
+.amam__lugar {
+  min-height: 111px;
+}
 .amam__esteiras {
   display: flex;
   flex-direction: column;

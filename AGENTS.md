@@ -89,6 +89,13 @@ aqui do mesmo jeito: `node ferramentas/medusa-falso.mjs` num terminal; no outro,
 as variáveis do job (`.github/workflows/loja.yml`), rode o `next build` e depois
 `npx lhci collect && npx lhci assert` em `apps/loja` (sem `autorun`, que publica o relatório).
 
+**O LCP da home vive no limite de 2,5 s.** O simulado (4G lento) anda em degraus: com poucas
+centenas de bytes a mais no HTML da home, a primeira pintura passa pra outra ida e volta na conexão
+que o HTML, o CSS e a fonte dividem, e o LCP sobe uns 220 ms. Em 26/09, a home da #93 media 2,26
+ou 2,41 s aqui e 2,64 s de mediana no CI; qualquer seção a mais (mesmo vazia) dava 2,48 ou 2,63 s
+aqui (entrega 0111). Seção nova na home se mede antes da PR, e a folga de verdade vem de aliviar a
+primeira tela — não da seção nova.
+
 Dois tropeços de ambiente, que não são bug: o de configurações muda a política de frete pelo admin,
 e quem derruba o cache da loja depois é o backend, pelo `LOJA_URL` do `apps/backend/.env`; se ele
 não apontar pro `next dev` conferido, rode esse por último (ou reinicie o `next dev`), senão o de
@@ -672,13 +679,21 @@ lista, e os limites por IP assinado do código da conta) e se vê, baixa em CSV 
 tabela `loja.newsletter` do Supabase, do plano antigo, ficou sem uso.
 
 A **esteira de avaliações** da home ("Nossos clientes nos amam", `components/home/amam.tsx`) mostra
-até quatro avaliações de cada produto, sorteadas a cada visita, e a mesma avaliação posta em vários
-produtos (a mesma pessoa, o mesmo texto) conta uma vez só — na esteira e na nota média
-(`lib/avaliacoes.ts`). O sorteio é no navegador (`components/home/esteira-de-avaliacoes.tsx`): a
-home continua estática. O servidor desenha o sorteio de uma semente fixa, e o navegador troca pela
-semente da visita por `useSyncExternalStore` — sem diferença na hidratação e sem `setState` em
-efeito. A volta dura 7,5 s por cartão (o ritmo do protótipo): com mais avaliações, ela fica mais
-longa, e não mais rápida. `ferramentas/conferir-esteira.mjs` confere a conta, sem servidor.
+até quatro depoimentos de cada produto — avaliação ou trecho de entrevista —, sorteados a cada
+visita, e o mesmo depoimento posto em vários produtos (a mesma pessoa, o mesmo texto) conta uma vez
+só — na esteira e na nota média (`lib/avaliacoes.ts`). O sorteio é no navegador
+(`components/home/esteira-de-avaliacoes.tsx`): a home continua estática, e a semente da visita entra
+por `useSyncExternalStore`. Os cartões só são desenhados quando a seção chega a uma tela de
+distância: no carregamento vai só o lugar, com a altura da faixa reservada (`.amam__lugar`); e a
+foto do cartão é `getImageProps` no tamanho da caixa (54 px, só 1x e 2x). A volta dura 7,5 s por
+cartão (o ritmo do protótipo): com mais depoimentos, ela fica mais longa, e não mais rápida.
+`ferramentas/conferir-esteira.mjs` confere a conta e a lista de trechos, sem servidor.
+
+**Trecho de entrevista não é avaliação** (`TRECHOS`, em `conteudo/depoimentos.ts`): aparece como
+"Entrevista com cliente", sem nome, sem estrela e sem selo, e fica fora da nota média e do
+`AggregateRating` — na esteira e na seção "O que diz quem usou" da página do produto de que ele
+fala (uma vez só; os do Fator não se repetem nos kits). Avaliação de verdade, com o nome e a nota
+que a pessoa deu, vai em `AVALIACOES`. As regras estão no topo do próprio arquivo.
 
 O **vídeo da história da marca** (a seção "O cuidado que impõe presença" da home) é `home.video`
 nas configurações da loja (`fb_configuracoes`): sobe no admin, em Configurações da loja → Home, com

@@ -136,7 +136,8 @@ export const SECOES: readonly Secao[] = [
     id: "home.amam",
     escopo: "home",
     nome: "Esteira de avaliações",
-    descricao: "Avaliações passando de lado, em duas faixas.",
+    descricao:
+      "Avaliações e trechos de entrevistas com clientes passando de lado — até quatro de cada produto por visita.",
     componente: Amam,
   },
   {
@@ -238,7 +239,8 @@ export const SECOES: readonly Secao[] = [
     id: "produto.avaliacoes",
     escopo: "produto",
     nome: "Avaliações",
-    descricao: "Só aparece quando existe avaliação de verdade cadastrada pro produto.",
+    descricao:
+      "Avaliações e trechos de entrevistas com clientes do produto. Só aparece quando existe um dos dois.",
     componente: Avaliacoes,
   },
   {

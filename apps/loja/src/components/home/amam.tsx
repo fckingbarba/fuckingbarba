@@ -1,20 +1,24 @@
 import { Estrelas } from "@/components/estrelas"
 import { EsteiraDeAvaliacoes } from "@/components/home/esteira-de-avaliacoes"
-import { AVALIACOES, notaMedia } from "@/conteudo/depoimentos"
+import { AVALIACOES, TRECHOS, notaMedia, type Depoimento } from "@/conteudo/depoimentos"
 import { semRepetidas } from "@/lib/avaliacoes"
 import { home, listarProdutos, porHandle } from "@/lib/medusa"
 
 /**
  * "Nossos clientes nos amam": a esteira de avaliações.
  *
- * **Não aparece enquanto não houver avaliação de verdade** em
- * `conteudo/depoimentos.ts`. Esse arquivo começa vazio e explica por quê.
+ * **Não aparece enquanto não houver depoimento de verdade** em
+ * `conteudo/depoimentos.ts` — avaliação ou trecho de entrevista.
  *
- * A esteira mostra até quatro avaliações de cada produto, sorteadas a cada
- * visita (`esteira-de-avaliacoes.tsx`). A nota do topo é a média de TODAS
- * as publicadas — cada uma uma vez só, mesmo a que está em vários produtos
- * —, e não só das sorteadas: é a mesma conta em toda visita, e cada
+ * A esteira mostra até quatro de cada produto, sorteados a cada visita
+ * (`esteira-de-avaliacoes.tsx`). A nota do topo é a média de TODAS as
+ * avaliações publicadas — cada uma uma vez só, mesmo a que está em vários
+ * produtos —, e não só das sorteadas: é a mesma conta em toda visita, e cada
  * avaliação que entra nela está na página do produto dela.
+ *
+ * TRECHO DE ENTREVISTA NÃO TEM NOTA, e não entra nela. Sem avaliação, o topo
+ * diz o que a esteira mostra — "Trechos de entrevistas com clientes" — no
+ * lugar da nota; e cada cartão de trecho diz o mesmo, no lugar do nome.
  *
  * O movimento é o mesmo da faixa de avisos: duas filas idênticas correndo
  * -50%, a cópia com `aria-hidden` pra não ser lida duas vezes, e a esteira
@@ -22,7 +26,9 @@ import { home, listarProdutos, porHandle } from "@/lib/medusa"
  */
 export async function Amam() {
   const publicadas = semRepetidas(AVALIACOES)
-  if (!publicadas.length) return null
+  const trechos = semRepetidas(TRECHOS)
+  const depoimentos: Depoimento[] = [...publicadas, ...trechos]
+  if (!depoimentos.length) return null
 
   const media = notaMedia(publicadas)
   const [produtos, { conteudo }] = await Promise.all([listarProdutos({ limite: 48 }), home()])
@@ -30,7 +36,7 @@ export async function Amam() {
 
   // Só a foto de cada produto vai pro navegador — não o produto inteiro.
   const fotos: Record<string, string> = {}
-  for (const { produtoHandle } of publicadas) {
+  for (const { produtoHandle } of depoimentos) {
     const foto = produtoHandle ? catalogo.get(produtoHandle)?.thumbnail : null
     if (produtoHandle && foto) fotos[produtoHandle] = foto
   }
@@ -53,10 +59,12 @@ export async function Amam() {
               <b>{formatar(media)}</b> estrelas nas avaliações publicadas aqui
             </span>
           </p>
-        ) : null}
+        ) : (
+          <p className="amam__nota">Trechos de entrevistas com clientes</p>
+        )}
       </div>
 
-      <EsteiraDeAvaliacoes avaliacoes={publicadas} fotos={fotos} />
+      <EsteiraDeAvaliacoes depoimentos={depoimentos} fotos={fotos} />
     </section>
   )
 }
