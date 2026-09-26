@@ -43,6 +43,8 @@ const ABAS = [
   ["resumo", "Resumo", "/marketing"],
   ["funil", "Funil", "/marketing/funil"],
   ["canais", "Canais", "/marketing/canais"],
+  ["produtos", "Produtos", "/marketing/produtos"],
+  ["ofertas", "Ofertas", "/marketing/ofertas"],
 ] as const
 export type Aba = (typeof ABAS)[number][0]
 

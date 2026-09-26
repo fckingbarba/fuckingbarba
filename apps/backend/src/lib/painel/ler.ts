@@ -136,6 +136,9 @@ const CAMPOS_DAS_VENDAS = [
   "items.quantity",
   "items.total",
   "items.unit_price",
+  "items.product_handle",
+  "items.adjustments.code",
+  "items.adjustments.amount",
   "payment_collections.payments.captured_at",
 ]
 

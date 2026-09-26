@@ -193,3 +193,62 @@ export const lerFunil = cache((periodo: Periodo) => lerAba<Funil>("funil", perio
 
 /** Os canais do período — o Resumo usa os três que mais venderam. */
 export const lerCanais = cache((periodo: Periodo) => lerAba<Canais>("canais", periodo))
+
+/* ── os Produtos e as Ofertas (a parte 3) ─────────────────────────────────── */
+
+export type Sinal = "esgotado" | "acabando" | "pouca-sacola" | "vendendo" | "sem-venda"
+
+export type ProdutoNoMarketing = {
+  id: string
+  nome: string
+  imagem: string | null
+  /** Quantas vezes a página foi vista; `null` sem o Google. */
+  visitas: number | null
+  /** De cada 100 vezes que a página foi vista, quantas viraram sacola. */
+  sacola: number | null
+  vendidos: number
+  receita: number
+  estoque: number | null
+  sinais: Sinal[]
+}
+
+export type ProdutosDoMarketing = {
+  periodo: Periodo
+  estado: "ok" | SemGoogle
+  produtos: ProdutoNoMarketing[]
+  achado: Achado | null
+}
+
+export type ResultadoDaCaixa =
+  | { modo: "unidades"; pedidos: number; comMais: number; parte: number | null }
+  | { modo: "junto"; pedidos: number; comJunto: number; parte: number | null; somou: number }
+
+export type OfertaDoProduto = {
+  id: string
+  nome: string
+  imagem: string | null
+  junto: string[]
+  resultado: ResultadoDaCaixa
+}
+
+export type Cupom = { codigo: string; usos: number; desconto: number; vendeu: number }
+
+export type Ofertas = {
+  periodo: Periodo
+  porProduto: OfertaDoProduto[]
+  numeros: {
+    unidades: { pedidos: number; comMais: number; parte: number | null }
+    junto: { vezes: number; somou: number }
+    checkout: { pedidos: number; deCada: number | null; somou: number }
+  }
+  cupons: Cupom[]
+  achados: Achado[]
+}
+
+/** Os produtos do período (o vendido e o estoque vêm sempre; as visitas, se o Google responder). */
+export const lerProdutosDoMarketing = cache((periodo: Periodo) =>
+  lerAba<ProdutosDoMarketing>("produtos", periodo)
+)
+
+/** As ofertas do período — tudo da loja. */
+export const lerOfertas = cache((periodo: Periodo) => lerAba<Ofertas>("ofertas", periodo))

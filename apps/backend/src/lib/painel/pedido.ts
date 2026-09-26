@@ -56,6 +56,7 @@ export type ItemCru = {
   title?: string | null
   product_title?: string | null
   product_id?: string | null
+  product_handle?: string | null
   variant_title?: string | null
   variant_sku?: string | null
   thumbnail?: string | null

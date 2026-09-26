@@ -1224,7 +1224,8 @@ O que o protótipo tem, aprovado em 23/09:
   com a última rodada; a velocidade do site.
 - **Marketing** (resumo, funil, canais, produtos, ofertas, clientes por estado, pagamento e frete)
   ficou escondido de início, e volta em partes desde 26/09 (a parte 1, o Resumo e a meta do mês, na
-  entrega 0108; a parte 2, o Funil e os Canais, na 0110).
+  entrega 0108; a parte 2, o Funil e os Canais, na 0110; a parte 3, os Produtos e as Ofertas, na
+  0113).
 
 Em aberto:
 
@@ -2055,6 +2056,31 @@ tirar o texto embaixo dos Benefícios e o embaixo da Linha do tempo.
 - Os kits 2x, 3x e 6x do Fator agora são exatamente o Fator (o aviso era a única diferença).
 
 Conferido pelo `conferir-pdp.mjs` (69) e pelo `conferir-produtos.mjs` do painel (101).
+
+Depois do deploy — **nada a configurar.**
+
+**Painel: Marketing, parte 3 — os Produtos e as Ofertas — pronto em 26/09 (entrega 0113).**
+
+Mais duas abas no Marketing:
+
+- **Produtos — o que cada produto atrai, põe na sacola e vende:** quantas vezes a página dele foi
+  vista, de cada 100 quantas viraram sacola, quantos vendeu e quanto somou, e um sinal: esgotado,
+  acabando (menos de 10), "muita visita, pouca sacola" ou vendendo. A frase de cima aponta o produto
+  muito visto que pouca gente põe na sacola — e quanto seria se chegasse na média. Tocar num produto
+  abre a página dele no painel.
+- **Ofertas — o que cada oferta soma:**
+  - abaixo do preço de cada produto (os cartões de quantidade ou o leve junto): quantos levaram 2 ou
+    mais, ou quantos levaram junto;
+  - a oferta do checkout (a caixinha antes de pagar): quantos pedidos aceitaram — "1 em cada 6" — e
+    quanto somou;
+  - os cupons: quantas vezes cada um foi usado em pedido pago, quanto deu de desconto e quanto os
+    pedidos somaram.
+- O leve junto conta o pedido que levou o produto e um dos de junto, pelo caminho que for: a loja
+  não marca de onde o item veio. A oferta do checkout, sim (o código dela vai no pedido).
+
+Conferido pelo `conferir-marketing.mjs` (80 checagens; as 15 novas: os produtos pela API e pela
+tela, a receita batendo com o Resumo, as ofertas e os cupons, e o Google fora) e pelos testes de
+unidade (13 novos).
 
 Depois do deploy — **nada a configurar.**
 

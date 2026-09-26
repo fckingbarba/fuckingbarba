@@ -837,8 +837,26 @@ sessão de quem comprou porque a compra vai com o `session_id` do rastro.
   `marketing-canais.tsx` e `montar-link.tsx` (o link com UTM: as origens e os meios batem com o
   `canalDe`; o nome sem acento, `\p{Diacritic}`); no Resumo, "Canais que mais venderam".
 - O Google falso responde as perguntas do Marketing pelo `painel.marketing` (sessões, eventos,
-  compras, aparelhos, origens e vendas). As próximas partes: Produtos e Ofertas (o leve junto e a
-  oferta do checkout ainda não ficam marcados no item do pedido), Clientes e Pagamento e frete — o
+  compras, aparelhos, origens, vendas e, desde a parte 3, `itens`).
+
+**Marketing, parte 3: os Produtos e as Ofertas** (entrega 0113).
+- `lib/painel/marketing-produtos.ts` (puro, com testes): as métricas de item do GA4
+  (`itemsViewed`, `itemsAddedToCart`) por `itemId` — o id da variante no Medusa, que a loja manda
+  nos eventos; o filtro é `itemId` começando com "variant_" (`SO_AS_VARIANTES_DA_LOJA`: as do
+  site antigo são números) —, somadas por produto (`catalogoDos`, de `lerProdutos` e
+  `estoquesDos`); o vendido e a receita dos pedidos pagos; os sinais (esgotado, acabando com menos
+  de 10, "muita visita, pouca sacola" abaixo de 60% da média com 30 visitas ou mais, vendendo, sem
+  venda) e o achado. Sem o Google, a lista vem igual, com as visitas nulas.
+- `lib/painel/marketing-ofertas.ts` (puro, com testes): a caixa de compra de cada produto
+  publicado (`caixasDos`: o `fb_pdp` pelo `lerPdp` e o `caixaDo`) — "quantas unidades" funcionou
+  quando o pedido leva 2 ou mais do produto; "leve junto", quando leva o produto e um dos de junto
+  (a loja não marca a origem do item: é a conta possível) —; a oferta do checkout pelo ajuste
+  "BUMP-" no item (`PREFIXO_DO_BUMP`), com certeza; os cupons pelos outros códigos dos ajustes.
+  Os itens de venda (`vendasDos`) passaram a trazer o `handle` e os `ajustes` (os campos
+  `items.product_handle` e `items.adjustments.*` no `pedidosDesde`).
+- Rotas `GET /dashboard/marketing/produtos` e `/ofertas` (esta, só da loja). No painel,
+  `marketing/produtos` e `marketing/ofertas`, `components/marketing-produtos.tsx` (a linha abre o
+  produto no painel) e `marketing-ofertas.tsx`. A última parte: Clientes e Pagamento e frete — o
   protótipo tem tudo, em `telaMarketing`.
 
 **Produtos** (fase 3, parte 1). `GET /dashboard/produtos` (a lista, com as fitas) e
