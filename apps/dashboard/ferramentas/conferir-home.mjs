@@ -26,7 +26,9 @@
  * │   não chegam na loja, ou chegam antes do "Publicar"; a do celular      │
  * │   que não chega no celular; o carrossel que baixa a arte do segundo    │
  * │   slide antes de ele aparecer; o slide sem descrição caindo; o banner  │
- * │   com faixa branca ou na altura antiga;                                │
+ * │   com faixa branca ou na altura antiga; a barrinha do carrossel cheia  │
+ * │   com o slide parado, ou enchendo com o mouse em cima; as bolinhas em  │
+ * │   cima da arte (cobriam o botão desenhado nela);                       │
  * │ • a imagem arrastada do computador que não sobe, ou o quadro que não   │
  * │   acende (ou não apaga) com o arquivo em cima;                         │
  * │ • o vídeo da história que não sobe pro painel, não chega na loja (ou   │
@@ -171,6 +173,21 @@ async function caixaDoBanner(pagina, n) {
       semCelular: Boolean(caixa?.classList.contains("banner-arte--sem-celular")),
     }
   }, n)
+}
+
+/** A bolinha da vez no carrossel do banner e quanto a barrinha dela já encheu (0 a 1). */
+async function barraDaVez(pagina) {
+  return pagina.evaluate(() => {
+    const pontos = [...document.querySelectorAll(".banner-carrossel__ponto")]
+    const i = pontos.findIndex((b) => b.getAttribute("aria-current") === "true")
+    const t =
+      pontos[i] &&
+      getComputedStyle(pontos[i].querySelector(".banner-carrossel__ponto-cheia")).transform
+    return {
+      slide: i + 1,
+      barra: t && t !== "none" ? Number(t.match(/matrix\(([^,]+)/)?.[1] ?? 0) : 0,
+    }
+  })
 }
 
 async function apertar(pagina, alvo) {
@@ -779,7 +796,81 @@ try {
       "no celular: a arte do celular preenche a caixa nova; sem ela, a do computador aparece inteira",
       JSON.stringify({ comArteDoCelular, semArteDoCelular })
     )
+    // As bolinhas numa faixa embaixo da arte: por cima, cobriam o botão desenhado nela.
+    const bolinhas = await cel.pagina.evaluate(() => {
+      const arte = document.querySelector(".banner-carrossel__trilho")?.getBoundingClientRect()
+      const pontos = document.querySelector(".banner-carrossel__pontos")?.getBoundingClientRect()
+      return arte && pontos
+        ? { arteAcaba: Math.round(arte.bottom), pontosComecam: Math.round(pontos.top) }
+        : null
+    })
+    ok(
+      bolinhas !== null && bolinhas.pontosComecam >= bolinhas.arteAcaba - 1,
+      "no celular: as bolinhas embaixo da arte, e não em cima dela",
+      JSON.stringify(bolinhas)
+    )
     await cel.contexto.close()
+
+    // A barrinha é o relógio da troca: o mouse em cima segura a barra (e o slide); saindo, ela
+    // continua, e o slide passa quando ela enche — não segundos depois.
+    const relogio = await novaAba({ width: 1280, height: 900 })
+    await relogio.pagina.goto(`${LOJA}/`)
+    await hidratado(relogio.pagina, ".banner-carrossel__ponto")
+    await relogio.pagina.mouse.move(2, 2)
+    await relogio.pagina.waitForFunction(
+      () => {
+        const el = document.querySelector(
+          '.banner-carrossel__ponto[aria-current="true"] .banner-carrossel__ponto-cheia'
+        )
+        const t = el && getComputedStyle(el).transform
+        return Boolean(t && t !== "none" && Number(t.match(/matrix\(([^,]+)/)?.[1] ?? 0) > 0.05)
+      },
+      null,
+      { timeout: 10000 }
+    )
+    const doBanner = await relogio.pagina.locator(".banner-carrossel").boundingBox()
+    await relogio.pagina.mouse.move(
+      doBanner.x + doBanner.width / 2,
+      doBanner.y + doBanner.height / 3
+    )
+    await esperar(300)
+    const segura = await barraDaVez(relogio.pagina)
+    await esperar(2500)
+    const seguraDepois = await barraDaVez(relogio.pagina)
+    ok(
+      segura.slide === seguraDepois.slide && Math.abs(segura.barra - seguraDepois.barra) < 0.01,
+      "na loja: o mouse em cima do banner segura a barrinha e o slide",
+      JSON.stringify({ segura, seguraDepois })
+    )
+    await relogio.pagina.mouse.move(2, 2)
+    const troca = await relogio.pagina.evaluate(
+      () =>
+        new Promise((pronto) => {
+          const trilho = document.querySelector(".banner-carrossel__trilho")
+          const inicio = trilho.scrollLeft
+          let encheuEm = null
+          const passo = (agora) => {
+            const el = document.querySelector(
+              '.banner-carrossel__ponto[aria-current="true"] .banner-carrossel__ponto-cheia'
+            )
+            const t = el && getComputedStyle(el).transform
+            const barra = t && t !== "none" ? Number(t.match(/matrix\(([^,]+)/)?.[1] ?? 0) : 0
+            if (encheuEm === null && barra >= 0.999) encheuEm = agora
+            if (trilho.scrollLeft !== inicio) return pronto({ encheuEm, andouEm: agora })
+            requestAnimationFrame(passo)
+          }
+          requestAnimationFrame(passo)
+          setTimeout(() => pronto({ encheuEm, andouEm: null }), 10000)
+        })
+    )
+    ok(
+      troca.encheuEm !== null && troca.andouEm !== null && troca.andouEm - troca.encheuEm < 250,
+      "na loja: o slide passa quando a barrinha enche",
+      JSON.stringify({
+        atraso: troca.andouEm && troca.encheuEm && Math.round(troca.andouEm - troca.encheuEm),
+      })
+    )
+    await relogio.contexto.close()
   }
 
   /* ── o vídeo da história ─────────────────────────────────────────────── */
