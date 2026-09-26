@@ -38,9 +38,9 @@ verdade.
 ### Conferidores
 
 `apps/loja/ferramentas/conferir-*.mjs` abrem a loja num Chromium de verdade e comparam o que está na
-tela com o que a API do Medusa responde — nunca com outra conta feita no próprio teste. São onze:
-frete, pdp, checkout, pagamento, catálogo, links, configurações, documento, conta, envio e erp (este
-sem navegador: o Bling falso e o admin). Rode os que
+tela com o que a API do Medusa responde — nunca com outra conta feita no próprio teste. São doze:
+frete, pdp, checkout, pagamento, catálogo, links, configurações, documento, conta, envio, erp (este
+sem navegador: o Bling falso e o admin) e avise-me. Rode os que
 tocam no que você mexeu, e todos antes de entregar. Os que escrevem no admin desfazem o que mudaram
 no fim, mesmo quando falham.
 
@@ -759,6 +759,33 @@ Privacidade promete. Entra por `POST /store/newsletter` (a mesma resposta pra qu
 lista, e os limites por IP assinado do código da conta) e se vê, baixa em CSV e remove no admin, em
 "Newsletter". Remover APAGA — é o "pode sair quando quiser" e o pedido de exclusão da LGPD. A
 tabela `loja.newsletter` do Supabase, do plano antigo, ficou sem uso.
+
+O **produto esgotado e o avise-me** (entrega 0124). Esgotado é OUTRA caixa de compra
+(`CompraEsgotada`, em `components/produto/compra.tsx`): o preço, a faixa "Esgotado" e o "avise-me
+quando chegar" (`components/produto/avise-me.tsx`, a ação `lib/acoes/avise-me.ts`) no lugar do
+botão — sem frete, unidades, leve junto e garantias; a barra fixa vira "Avise-me" e leva pro campo.
+A régua é a de sempre (`temEstoque`, `esgotado` em `lib/medusa.ts`; com `allow_backorder` a variante
+vende e o número não limita); a `Dobra` põe o selo na foto e o "enquanto isso" pra categoria. O card
+diz "Esgotado" e "Avise-me" sem CSS novo (ele mora na home, que não tem folga), e o carrossel da PDP
+põe o esgotado no fim. No backend, o módulo `src/modules/avise-me/` (tabela `aviso_de_estoque`: o
+e-mail, a variante e a data do pedido) recebe `POST /store/avise-me` — só produto no site e
+esgotado (o com estoque é 409 `tem_estoque`, e a rota avisa a loja da página velha), a mesma
+resposta pra quem já esperava, os limites da newsletter. O job `avisar-quem-espera` (4-59/5, um
+minuto depois da cópia do Bling; `POST /admin/avise-me/rodar` é o gêmeo) faz, nesta ordem: (1)
+avisa a loja do produto que esgotou ou voltou desde a rodada anterior (a foto fica na memória; a
+primeira rodada depois de subir avisa todos) — a última unidade vendida é reserva, não mexe no
+nível, e ninguém avisava a loja: a PDP seguia com "Adicionar à sacola" por até uma hora; (2) manda o
+"Voltou pro estoque" (`lib/emails/avise-me.ts`, com UTM `utm_campaign=avise-me`) pra quem espera
+um produto que voltou, de quem pediu primeiro, 60 por rodada, com `idempotencia` `avise-me/<id>`;
+enviado, a linha fica sem o e-mail (`avisado_em`) — 422 apaga, queda conta `falhas` e para a rodada.
+O aviso à loja usa o perfil `"agora"` do `/api/revalidar` (`{ expire: 0 }`): o `"seconds"` ainda
+serve a página velha por até um minuto, e quem clica no e-mail logo que ele chega cairia no
+"Esgotado". A regra pura (`planoDaRodada`, `produtosQueMudaram`, `vendeAgora`) tem teste. O painel
+lê `avisos` em `GET /dashboard/produtos/:id` (esperando e avisados), e o "Tirar" da newsletter apaga
+os pedidos de aviso do e-mail. O conferidor é o `ferramentas/conferir-avise-me.mjs`: esgota um
+produto pelo admin (o spray, ou `ESGOTAR`) e devolve no fim, lê os pedidos em `GET /admin/avise-me`
+e os e-mails no Resend falso (`PORTA_RESEND`, a do `RESEND_URL` do backend), com a loja no
+`LOJA_URL` do backend — senão a rodada não tem pra quem avisar e a página não vira.
 
 A **esteira de avaliações** da home ("Nossos clientes nos amam", `components/home/amam.tsx`) mostra
 até quatro depoimentos de cada produto — avaliação ou trecho de entrevista —, sorteados a cada

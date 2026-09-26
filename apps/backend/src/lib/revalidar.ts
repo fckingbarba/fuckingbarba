@@ -26,9 +26,12 @@ export async function avisarALoja(
    * `"seconds"` pra configuração: quem salvou vai abrir o site pra conferir,
    * e o padrão `"max"` serviria o valor antigo por mais uma visita — o
    * suficiente pra pessoa achar que não salvou, e pra loja anunciar por mais
-   * um tempo um piso que o carrinho não pratica mais.
+   * um tempo um piso que o carrinho não pratica mais. `"agora"` pro estoque
+   * (o avise-me): a próxima visita espera a página nova, sem nem um minuto
+   * de velha — ver `apps/loja/src/app/api/revalidar/route.ts`. Loja de antes
+   * do `"agora"` lê como `"max"`.
    */
-  perfil: "seconds" | "max" = "max"
+  perfil: "agora" | "seconds" | "max" = "max"
 ) {
   const url = process.env.LOJA_URL
   const segredo = process.env.REVALIDAR_SEGREDO

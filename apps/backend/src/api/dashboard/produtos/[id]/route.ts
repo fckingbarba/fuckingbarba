@@ -1,4 +1,5 @@
 import type { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/framework/http"
+import { avisosDoProduto } from "../../../../lib/avise-me"
 import { exigirArea, type PedidoDaEquipe } from "../../../../lib/equipe/acesso"
 import { podeAbrir } from "../../../../lib/equipe/regras"
 import { urlDaLoja } from "../../../../lib/emails/moldura"
@@ -23,10 +24,12 @@ import { lerPdp } from "../../../../lib/pdp"
  * produto: a rotina, o "Leve junto") e as categorias.
  *
  * `noSite`: o endereço da página na loja (`LOJA_URL`), pro "Ver no site";
- * `historico`: o que a equipe mudou por aqui, o mais novo primeiro.
+ * `historico`: o que a equipe mudou por aqui, o mais novo primeiro;
+ * `avisos`: quantos pediram o "avise-me" na página esgotada e esperam, e
+ * quantos já foram avisados (`lib/avise-me.ts`).
  *
- * RESPOSTAS: 200 `{ produto, catalogo, categorias, noSite, historico }`; 404
- * `nao_encontrado`.
+ * RESPOSTAS: 200 `{ produto, catalogo, categorias, noSite, historico, avisos }`;
+ * 404 `nao_encontrado`.
  */
 export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) {
   const pedido = req as PedidoDaEquipe
@@ -38,10 +41,11 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
     res.status(404).json({ message: "nao_encontrado" })
     return
   }
-  const [todos, categorias, feitos] = await Promise.all([
+  const [todos, categorias, feitos, avisos] = await Promise.all([
     lerProdutos(req.scope),
     lerCategorias(req.scope),
     feitosNoProduto(req.scope, p.id),
+    avisosDoProduto(req.scope, p.id),
   ])
   const [estoques, precos] = await Promise.all([
     estoquesDos(req.scope, [...todos, p]),
@@ -66,5 +70,6 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
     categorias,
     noSite: urlDaLoja() && p.handle ? `${urlDaLoja()}/produtos/${p.handle}` : null,
     historico: feitos.map((f) => linhaDoHistorico(f, Date.now())),
+    avisos,
   })
 }

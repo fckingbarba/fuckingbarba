@@ -37,7 +37,7 @@ export const metadata: Metadata = {
  * pergunta de novo antes de valer, como a última seção promete.
  */
 
-const ATUALIZADO = "25 de setembro de 2026"
+const ATUALIZADO = "26 de setembro de 2026"
 
 export default async function Privacidade() {
   const { empresa, atendimento } = await configuracoes()
@@ -80,6 +80,11 @@ export default async function Privacidade() {
           gente mandar.
         </P>
         <P>
+          <b>Se você pedir aviso de um produto esgotado</b> (o &ldquo;avise-me quando chegar&rdquo;,
+          na página dele): o e-mail e o produto. Sai um e-mail só, quando ele voltar pro estoque — e
+          aí o seu endereço sai da lista de espera. Não é a newsletter: não vem mais nada depois.
+        </P>
+        <P>
           <b>Se você aceitar os cookies</b>: as páginas e os produtos que você vê, o que entra e sai
           da sacola e o caminho do checkout. Na compra, junto do valor e dos produtos, vão os
           códigos desses cookies — e, pra Meta e pro TikTok, o IP e o navegador. É o que diz pra
@@ -104,8 +109,8 @@ export default async function Privacidade() {
           </li>
           <li>
             <b>Consentimento</b> — cookies de medição e anúncio, o aviso da compra pras plataformas
-            de anúncio e a newsletter. Você escolhe, e pode voltar atrás a qualquer momento sem
-            perder nada do resto.
+            de anúncio, a newsletter e o aviso de produto esgotado. Você escolhe, e pode voltar
+            atrás a qualquer momento sem perder nada do resto.
           </li>
           <li>
             <b>Legítimo interesse</b> — segurança da loja e prevenção a fraude, e a mensagem no
@@ -190,8 +195,9 @@ export default async function Privacidade() {
         <P>
           Dados de venda ficam <b>cinco anos</b>, que é o que a legislação fiscal e o Código de
           Defesa do Consumidor exigem de quem vende. E-mail de newsletter fica até você pedir pra
-          sair. Cookies de medição duram no máximo dois anos; os necessários somem quando a sessão
-          acaba, menos o da sacola e o da sua resposta sobre cookies.
+          sair. O do aviso de produto esgotado fica até o aviso sair — ou seis meses, se o produto
+          não voltar. Cookies de medição duram no máximo dois anos; os necessários somem quando a
+          sessão acaba, menos o da sacola e o da sua resposta sobre cookies.
         </P>
       </Secao>
 

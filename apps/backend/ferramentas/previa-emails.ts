@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs"
 import { extname, join, resolve } from "node:path"
+import { emailDeVolta } from "../src/lib/emails/avise-me"
 import { emailDoCodigo } from "../src/lib/emails/codigo"
 import { emailDoEnvio } from "../src/lib/emails/envio"
 import { emailDoEstornoQueFalhou } from "../src/lib/emails/estorno-falhou"
@@ -248,6 +249,18 @@ function main() {
   const pixVencido = cancelado("pix-vencido", null)
   const semCobranca = cancelado("sem-cobranca", null)
 
+  // O avise-me: o produto esgotado voltou (com o "de" da promoção).
+  const voltou = emailDeVolta({
+    para: "rafael.souza@email.com",
+    produto: {
+      nome: "Spray Modelador Matte para Cabelo",
+      handle: "spray-modelador-matte-100ml-fucking-barba",
+      imagem: fotos()[0],
+      preco: 49.9,
+      precoCheio: 119.9,
+    },
+  })
+
   // O segundo e-mail do "cancelado antes do pagamento": o QR foi pago depois.
   const p = exemploDePedido()
   const pixDevolvido = emailDePagamentoDevolvido({
@@ -305,6 +318,7 @@ ${secao("Cancelado antes do pagamento", semCobranca, { pc: 1120, celular: 1220 }
 ${secao("Pix pago depois do cancelamento, devolvido", pixDevolvido, { pc: 1400, celular: 1560 })}
 ${secao("Estorno que não saiu (pra equipe)", estorno, { pc: 760, celular: 900 })}
 ${secao("Venda nova (pra equipe)", vendaNova, { pc: 1300, celular: 1400 })}
+${secao("Avise-me: o produto voltou", voltou, { pc: 1000, celular: 1100 })}
 </body>
 </html>`
 
@@ -325,6 +339,7 @@ ${secao("Venda nova (pra equipe)", vendaNova, { pc: 1300, celular: 1400 })}
     ["pix-devolvido", pixDevolvido],
     ["estorno-falhou", estorno],
     ["venda-nova", vendaNova],
+    ["avise-me", voltou],
   ] as const) {
     writeFileSync(join(saida, `${nome}.html`), comImagensEmbutidas(e.html))
     writeFileSync(join(saida, `${nome}.escuro.html`), escuro(comImagensEmbutidas(e.html)))

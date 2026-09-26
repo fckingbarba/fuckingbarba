@@ -23,10 +23,19 @@ import { NextResponse, type NextRequest } from "next/server"
  * │ Por isso o perfil é escolhido por QUEM CHAMA, e o padrão continua       │
  * │ sendo `"max"` — quem precisa de urgência pede.                          │
  * └──────────────────────────────────────────────────────────────────────────┘
+ *
+ * `"agora"` é o `{ expire: 0 }` do Next: a próxima visita NUNCA recebe o
+ * velho — ela espera a página se refazer. Nem o `"seconds"` faz isso: ele
+ * ainda serve o velho por até um minuto depois do aviso, enquanto refaz por
+ * trás. É o do ESTOQUE (o avise-me, `apps/backend/src/lib/avise-me.ts`): o
+ * produto que esgotou não pode seguir com "Adicionar à sacola" pra próxima
+ * pessoa, e quem clica no e-mail "voltou pro estoque" segundos depois de ele
+ * sair não pode cair na página "Esgotado". Custa a espera de UMA visita por
+ * página — e estoque que vira é coisa de poucas vezes por dia.
  */
 
 /** Perfis aceitos. Lista fechada: o valor vem de fora. */
-const PERFIS = ["seconds", "minutes", "hours", "days", "weeks", "max", "default"] as const
+const PERFIS = ["agora", "seconds", "minutes", "hours", "days", "weeks", "max", "default"] as const
 type Perfil = (typeof PERFIS)[number]
 export async function POST(req: NextRequest) {
   const segredo = process.env.REVALIDAR_SEGREDO
@@ -48,10 +57,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ erro: "informe tags: string[]" }, { status: 400 })
   }
 
-  const perfil: Perfil = PERFIS.includes(corpo.perfil as Perfil)
-    ? (corpo.perfil as Perfil)
-    : "max"
+  const perfil: Perfil = PERFIS.includes(corpo.perfil as Perfil) ? (corpo.perfil as Perfil) : "max"
 
-  for (const tag of tags) revalidateTag(tag, perfil)
+  for (const tag of tags) revalidateTag(tag, perfil === "agora" ? { expire: 0 } : perfil)
   return NextResponse.json({ ok: true, tags, perfil, em: new Date().toISOString() })
 }
