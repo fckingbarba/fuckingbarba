@@ -67,9 +67,9 @@
   As bolinhas ficam POR CIMA da arte, no canto de baixo à esquerda (26/09, a
   pedido da loja). Numa faixa embaixo dela, como estavam, abriam um vão entre
   o banner e a barra de vantagens; e no meio, como a pílula de antes, cobriam
-  o botão desenhado na arte do celular. No canto, num selo escuro que não
-  some em arte clara nem escura — e o painel pede pra deixar esse canto sem
-  texto.
+  o botão desenhado na arte do celular. No canto, num selo preto de canto
+  cortado (translúcido, ele ficava encardido em cima do amarelo) — e o
+  painel pede pra deixar esse canto sem texto.
 */
 .banner-carrossel {
   position: relative;
@@ -139,7 +139,8 @@
   display: flex;
   gap: 4px;
   padding: 0 8px;
-  background: rgb(7 10 9 / 0.7);
+  background: #070a09;
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
 }
 /* O botão tem 24 px de altura pro dedo; a barrinha, 4 px no meio dele. */
 .banner-carrossel__ponto {
@@ -169,7 +170,7 @@
   display: block;
   height: 4px;
   overflow: hidden;
-  background: rgb(255 255 255 / 0.4);
+  background: rgb(255 255 255 / 0.35);
 }
 /*
   A parte que enche. Quem anima é o carrossel (`Element.animate`), e a troca
