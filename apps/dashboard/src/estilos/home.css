@@ -7,9 +7,8 @@
 /* A seção mexida no rascunho, que ainda não foi pro site: o amarelo da faixa. */
 .selo--pendente { color: var(--aviso-txt); background: var(--amarelo-claro); border-color: var(--amarelo-borda); }
 
-/* A arte do banner: a loja mostra inteira (o texto dela não pode sair cortado), então a prévia também. */
-.fundo-form[data-mostra="inteira"] .slot__previa { background: var(--papel); }
-.fundo-form[data-mostra="inteira"] .slot__previa img { object-fit: contain; object-position: center; }
+/* A arte do banner: a loja preenche o banner e corta pelo centro o que sobra — a prévia mostra igual. */
+.fundo-form[data-mostra="centro"] .slot__previa img { object-position: center; }
 
 /* A prova social: de onde vêm os casos — cada produto, com a foto do "depois" de cada caso dele. */
 .casos-da-home { margin-top: 18px; }
