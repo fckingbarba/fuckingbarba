@@ -2380,6 +2380,47 @@ pelos testes de unidade (21 novos). Os e-mails que já existiam saem byte por by
 Depois do deploy — **nada a configurar.** Pra ver: a próxima venda paga chega na caixa do dono do
 painel; e Configurações → E-mails → "Pra equipe" mostra a linha "Venda nova" e quem recebe.
 
+**Loja: a página do produto esgotado, com o "avise-me quando chegar" — pronta em 26/09 (entrega
+0124).** Pedido dele: "valide se a PDP tem página de produto fora de estoque, caso não tenha vamos
+criar" — e, na pergunta, "com avise-me". Validado antes: não tinha. O produto esgotado mostrava a
+página inteira como se vendesse (frete, parcelas, 1, 2 e 3 unidades), e só o botão virava
+"Esgotado" — preto, com cara de clicável, sem fazer nada. No ar, em 26/09, nenhum dos 15 estava
+esgotado.
+
+- **A página do esgotado:** o preço (com o "de" riscado), a faixa "Esgotado" e, no lugar do botão,
+  a caixa "Avise-me quando chegar", onde a pessoa deixa o e-mail. Saem o frete, as unidades, o leve
+  junto e as garantias. A foto ganha o selo "Esgotado", embaixo vem "Enquanto isso, veja o que mais
+  tem em <categoria>", e a barra que gruda embaixo vira "Avise-me".
+- **Quando o Bling tiver estoque de novo:** em até 5 minutos a página volta a vender e sai UM
+  e-mail pra cada pessoa — "Voltou: <produto>", com a foto, o preço e o botão "Comprar agora" (e
+  Instagram e TikTok no rodapé). Na ordem de quem pediu primeiro. Depois do aviso, o e-mail sai da
+  lista de espera; quem espera mais de 6 meses também sai.
+- **A página vira sozinha nos dois sentidos:** o produto que esgota (a última unidade vendida)
+  mostra "Esgotado" em até 5 minutos. Antes podia seguir com "Adicionar à sacola" por até uma hora,
+  e o erro só aparecia na sacola.
+- **Nos cards** (home, categorias, "Quem leva este, leva junto"): o selo diz "Esgotado" e o botão,
+  "Avise-me". No carrossel da página do produto, o esgotado vai pro fim.
+- **No painel:** Produtos → o produto → a faixa "Esgotado" diz quantas pessoas pediram o aviso, e o
+  bloco "Preço e estoque" mostra quantas esperam e quantas já foram avisadas. O "Tirar" da
+  newsletter tira a pessoa da lista de espera também.
+- **Marketing → Canais:** a visita e a compra que vêm do e-mail aparecem como "E-mail", campanha
+  "avise-me".
+- **A Política de Privacidade** conta o dado novo (o e-mail e o produto, até o aviso sair).
+
+Conferido pelo `conferir-avise-me.mjs` (novo, 32 checagens: a página esgotada no celular, a barra,
+o pedido com e-mail errado, repetido e em maiúsculas, nada saindo com o produto esgotado, o card e
+o carrossel, a volta com os e-mails e a página vendendo na primeira visita, a página velha que se
+refaz, o Resend fora e o limite por pessoa), pelos de sempre na mesma base (pdp 68/70 — as 2 de
+antes, do banco local —, checkout 160/160, catálogo 34/34, frete 70/70, configurações 17/17, links
+26/26; no painel, produtos 101/101, clientes 37/37, observabilidade 34/34) e pelos testes de
+unidade (949, 24 novos). No Lighthouse, A/B com a main: a home e a PDP do óleo seguem em 2,26 s, e
+o HTML da PDP com estoque saiu igual.
+
+Depois do deploy — **nada a configurar**: a tabela nova nasce na migração do Railway, e a rotina
+aparece em Observabilidade ("Avisa quem pediu um produto esgotado que voltou"). Não dá pra ver no
+ar sem esgotar um produto de verdade — e zerar no Bling mexe no estoque de todo lugar que lê dele.
+Quando um esgotar, a página já aparece assim, e o painel mostra quem pediu.
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa
