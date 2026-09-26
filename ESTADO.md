@@ -1885,6 +1885,28 @@ quatro sem perder texto.
 
 Depois do deploy — **nada a configurar.**
 
+**Home: as bolinhas do banner embaixo da arte, e o slide passando quando a barrinha enche — pronto
+em 26/09 (entrega 0106).**
+
+Os dois pontos que ficaram do banner da 0103:
+
+- **As bolinhas saíram de cima da arte:** ficam numa faixa escura logo embaixo dela — em cima,
+  cobriam o botão desenhado na arte do celular. A faixa soma 24 px: com dois slides ou mais, o
+  banner inteiro fica com 484 px no celular e 497 numa tela de 1440 — ainda menos que antes da 0103
+  (488 e 525).
+- **O slide passa quando a barrinha enche.** Antes eram dois relógios: a barra começava a encher
+  antes de a página terminar de carregar, e no celular o slide levava mais um tempo pra passar; com
+  o mouse em cima, a barra seguia enchendo com o slide parado. Agora a barra é o relógio (medido: o
+  slide anda uns 10 a 20 milésimos depois de ela encher). O mouse em cima, o banner fora da tela ou
+  a aba escondida seguram a barra onde está, e ela continua de onde parou.
+
+Conferido pelo `conferir-home.mjs` (80 checagens; as 3 novas: as bolinhas embaixo da arte, o mouse
+em cima segurando a barra, o slide passando quando ela enche) e pelo carrossel com as artes de
+verdade na loja local (aba escondida, banner fora da tela, foco do teclado, bolinha clicada e
+"menos movimento" no sistema).
+
+Depois do deploy — **nada a configurar.**
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa
