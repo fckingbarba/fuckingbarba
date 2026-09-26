@@ -1009,6 +1009,17 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
       checagens, com as ações seguradas 1,5 s; com o código de antes, 4 falham) e deixou de usar o
       balm como item "por fora" quando o balm é a própria oferta (num banco sem pedidos, é — e
       tirar o extra tirava a oferta junto). Nada a configurar depois do deploy.
+- [x] **O rodapé do celular virou sanfona** (entrega 0118, 26/09, pedido da loja, com o print de
+      outra loja: "o nosso fica muito longo"). No celular, Links úteis, Políticas, Entrar em
+      contato, Compra segura e Formas de pagamento viram linhas que abrem no toque (o "+" vira
+      "−"); a newsletter, a logo com as redes e a linha do CNPJ seguem abertas. O rodapé caiu de
+      1.617 px (duas telas de rolagem) pra 1.018. No computador e no tablet nada muda — a foto do
+      rodapé no computador saiu idêntica, byte a byte. É `<details>`, sem JavaScript: abre antes
+      de a página hidratar, e o que está fechado segue no HTML (o Google lê igual). Safari de
+      computador anterior ao 18.4 mostra a sanfona também lá (funciona, só não fica em coluna
+      aberta). Lighthouse: acessibilidade e SEO 100; a home ganhou 37 bytes de HTML e 217 de CSS,
+      comprimidos, e o LCP simulado não se mexe (ver o AGENTS.md, perto do Lighthouse). Nada a
+      configurar depois do deploy.
 - [ ] **Pagamento, o que a revisão achou e ficou pra depois** (baixo risco, sem dinheiro preso):
   - estorno ou contestação feitos do lado do Pagar.me depois do pagamento (pelo painel deles,
     chargeback) não são percebidos: o pedido segue pago, pro envio.

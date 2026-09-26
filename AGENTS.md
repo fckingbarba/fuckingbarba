@@ -96,6 +96,16 @@ ou 2,41 s aqui e 2,64 s de mediana no CI; qualquer seção a mais (mesmo vazia) 
 aqui (entrega 0111). Seção nova na home se mede antes da PR, e a folga de verdade vem de aliviar a
 primeira tela — não da seção nova.
 
+Com a máquina ocupada (outras sessões, `next dev` no ar), o Lighthouse daqui oscila meio segundo
+entre duas rodadas do MESMO build — em 26/09, a home da main deu de 2,48 a 3,07 s em cinco. Pra
+saber se só os bytes a mais (HTML ou CSS) mudam o LCP simulado, sem esse ruído: grave os artefatos
+do antes (`node node_modules/lighthouse/cli/index.js <url> -G=<pasta>`), some os bytes no
+`encodedDataLength` dos eventos `ResourceFinish` do `defaultPass.trace.json` (é do trace que o
+Lantern do Lighthouse 12 lê a rede, não do `devtoolslog`) e rode com `-A=<cópia da pasta>`: mesmo
+trace, mesma CPU, só a rede muda. Nos três traces da home de 26/09 (entrega 0118), até +6 KB de CSS
+e +4 KB de HTML, comprimidos, não mexeram no LCP nem no FCP; +12 KB de CSS subiu uns 75 ms. Bytes
+de uma seção nova não são o único custo dela (DOM, fotos, CPU) — isto mede só a rede.
+
 Dois tropeços de ambiente, que não são bug: o de configurações muda a política de frete pelo admin,
 e quem derruba o cache da loja depois é o backend, pelo `LOJA_URL` do `apps/backend/.env`; se ele
 não apontar pro `next dev` conferido, rode esse por último (ou reinicie o `next dev`), senão o de
