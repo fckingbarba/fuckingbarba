@@ -219,12 +219,14 @@ try {
     `${janelaErrada.status} ${janela.status} ${tela.nota?.janela}`
   )
   ok(
-    tela.emails?.equipe?.length === 5 &&
+    tela.emails?.equipe?.length === 6 &&
       tela.emails.equipe.every((e) => /\(dono\)|\(operação\)/.test(e.quem)) &&
-      tela.emails.equipe.slice(0, 3).every((e) => e.quem.includes("(operação)")) &&
-      !tela.emails.equipe[4].quem.includes("(operação)"),
-    "os avisos da equipe: a nota pra operação e o dono; o estorno só pro dono",
-    JSON.stringify(tela.emails?.equipe?.map((e) => e.quem))
+      tela.emails.equipe[0].nome === "Venda nova" &&
+      !tela.emails.equipe[0].quem.includes("(operação)") &&
+      tela.emails.equipe.slice(1, 4).every((e) => e.quem.includes("(operação)")) &&
+      !tela.emails.equipe[5].quem.includes("(operação)"),
+    "os avisos da equipe: a venda nova e o estorno só pro dono; a nota pra operação e o dono",
+    JSON.stringify(tela.emails?.equipe?.map((e) => `${e.nome}: ${e.quem}`))
   )
 
   /* ── a tela ───────────────────────────────────────────────────────────── */
@@ -327,10 +329,16 @@ try {
     await pagina.goto(`${PAINEL}/configuracoes/${aba}`)
     await pagina.waitForSelector(seletor)
   }
+  const primeiroAviso = semEspaco(
+    (await pagina.locator("[data-aviso-da-equipe]").first().textContent()) ?? ""
+  )
   ok(
-    (await pagina.locator("[data-aviso-da-equipe]").count()) === 5 &&
-      (await pagina.locator("[data-emails-cliente] .linha").count()) === 6,
-    "as abas de conferir: pagamento, entrega e os e-mails (5 avisos da equipe, 6 do cliente)"
+    (await pagina.locator("[data-aviso-da-equipe]").count()) === 6 &&
+      (await pagina.locator("[data-emails-cliente] .linha").count()) === 6 &&
+      /^Venda nova/.test(primeiroAviso) &&
+      /vai pra: dono$/.test(primeiroAviso),
+    "as abas de conferir: pagamento, entrega e os e-mails (6 avisos da equipe, a venda nova primeiro e só pro dono; 6 do cliente)",
+    primeiroAviso
   )
 
   titulo("A operação e o celular")
