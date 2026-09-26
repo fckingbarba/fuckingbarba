@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react"
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react"
 import { SlideDoBanner, type SlidePronto } from "@/components/home/slides-do-banner"
 import { useCarrossel } from "@/components/home/use-carrossel"
 import { useMovimentoReduzido } from "@/lib/use-preferencia"
@@ -25,7 +25,32 @@ import { useMovimentoReduzido } from "@/lib/use-preferencia"
  * LCP da home e vem com o HTML; o próximo começa a baixar dois segundos
  * antes da troca, ou assim que a pessoa encosta no banner (o dedo pode
  * arrastar a qualquer momento).
+ *
+ * A BARRINHA É O RELÓGIO DA TROCA (26/09). Antes eram dois relógios: a
+ * barra, uma animação do CSS que começava a encher já no HTML do servidor, e
+ * a troca, um `setTimeout` que só começava a contar quando o JavaScript
+ * chegava — no celular, segundos depois. E com o mouse em cima a troca
+ * esperava e a barra, não. A pessoa via a barra cheia e o slide parado. Agora
+ * a barra é uma animação do navegador (`Element.animate`), e o slide troca
+ * quando ELA termina: o mouse em cima, o banner fora da tela ou a aba
+ * escondida seguram a barra onde está, e ela continua de onde parou.
+ *
+ * AS BOLINHAS FICAM EMBAIXO DA ARTE, numa faixa escura (26/09): por cima,
+ * cobriam o botão desenhado na arte do celular.
  */
+
+/** A aba à vista: escondida, a barra (e a troca) espera. */
+function useAbaAVista(): boolean {
+  return useSyncExternalStore(
+    (aoMudar) => {
+      document.addEventListener("visibilitychange", aoMudar)
+      return () => document.removeEventListener("visibilitychange", aoMudar)
+    },
+    () => document.visibilityState === "visible",
+    () => true
+  )
+}
+
 export function CarrosselDoBanner({
   slides,
   tempo,
@@ -36,15 +61,21 @@ export function CarrosselDoBanner({
 }) {
   const { trilho, atual, irPara } = useCarrossel()
   const secao = useRef<HTMLElement>(null)
+  /** A barrinha do slide da vez — a que enche — e a animação dela. */
+  const barra = useRef<HTMLSpanElement>(null)
+  const contagem = useRef<Animation | null>(null)
   const [montados, setMontados] = useState<ReadonlySet<number>>(() => new Set([0]))
   const [mexeu, setMexeu] = useState(false)
   const [emCima, setEmCima] = useState(false)
   const [naTela, setNaTela] = useState(true)
   const movimentoReduzido = useMovimentoReduzido()
+  const abaAVista = useAbaAVista()
 
   const total = slides.length
   const proximo = (atual + 1) % total
   const parado = mexeu || movimentoReduzido || tempo === 0
+  /** Dá pra ver o banner, e ninguém está nele: a barra enche. */
+  const andando = !parado && !emCima && naTela && abaAVista
 
   const montar = useCallback((...quais: number[]) => {
     setMontados((m) => (quais.every((i) => m.has(i)) ? m : new Set([...m, ...quais])))
@@ -60,19 +91,42 @@ export function CarrosselDoBanner({
     return () => vigia.disconnect()
   }, [])
 
-  // A troca sozinha: baixa o próximo dois segundos antes, e troca.
+  // A troca sozinha: a barrinha do slide enche no tempo escolhido e, cheia, troca.
+  // Nasce parada — quem manda andar é o efeito de baixo.
   useEffect(() => {
-    if (parado || emCima || !naTela) return
-    const ms = tempo * 1000
-    const antes = setTimeout(() => montar(proximo), Math.max(0, ms - 2000))
-    const troca = setTimeout(() => {
-      if (document.visibilityState === "visible") irPara(proximo)
-    }, ms)
+    const el = barra.current
+    if (parado || !el || typeof el.animate !== "function") return
+    const enche = el.animate([{ transform: "scaleX(0)" }, { transform: "scaleX(1)" }], {
+      duration: tempo * 1000,
+      fill: "forwards",
+    })
+    enche.pause()
+    contagem.current = enche
+    enche.finished.then(
+      () => irPara(proximo),
+      // Cancelada: o slide mudou, ou a pessoa assumiu.
+      () => {}
+    )
     return () => {
-      clearTimeout(antes)
-      clearTimeout(troca)
+      contagem.current = null
+      enche.cancel()
     }
-  }, [atual, proximo, parado, emCima, naTela, tempo, montar, irPara])
+  }, [atual, proximo, parado, tempo, irPara])
+
+  // Anda só quando dá pra ver; parada, fica onde está. O próximo slide começa a
+  // baixar dois segundos antes de a barra encher.
+  useEffect(() => {
+    const enche = contagem.current
+    if (!enche || enche.playState === "finished") return
+    if (!andando) {
+      enche.pause()
+      return
+    }
+    enche.play()
+    const andou = typeof enche.currentTime === "number" ? enche.currentTime : 0
+    const antes = setTimeout(() => montar(proximo), Math.max(0, tempo * 1000 - 2000 - andou))
+    return () => clearTimeout(antes)
+  }, [andando, atual, proximo, parado, tempo, montar])
 
   /** A pessoa assumiu: para de trocar sozinho, e os vizinhos já baixam. */
   const assumir = () => {
@@ -93,7 +147,6 @@ export function CarrosselDoBanner({
       aria-roledescription="carrossel"
       aria-label="Destaques"
       data-parado={parado ? "" : undefined}
-      style={{ "--passo": `${tempo * 1000}ms` } as CSSProperties}
       onPointerEnter={(e) => {
         if (e.pointerType === "mouse") setEmCima(true)
         montar(proximo)
@@ -163,12 +216,12 @@ export function CarrosselDoBanner({
             aria-current={i === atual ? "true" : undefined}
             onClick={() => ir(i)}
           >
-            {/* A barrinha enche no compasso da troca; a `key` que muda reinicia a animação. */}
-            <span
-              className="banner-carrossel__ponto-barra"
-              aria-hidden="true"
-              key={`${i}-${atual}`}
-            />
+            <span className="banner-carrossel__ponto-barra" aria-hidden="true">
+              <span
+                className="banner-carrossel__ponto-cheia"
+                ref={i === atual ? barra : undefined}
+              />
+            </span>
           </button>
         ))}
       </div>
