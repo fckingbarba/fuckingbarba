@@ -2,7 +2,7 @@
 
 import Image from "next/image"
 import Link from "next/link"
-import { useMemo, useState, type MouseEvent } from "react"
+import { useMemo, type MouseEvent } from "react"
 import { useFrete } from "@/components/configuracoes/contexto"
 import { Mais, Raio } from "@/components/icones"
 import { useSacola } from "@/components/sacola/contexto"
@@ -27,10 +27,11 @@ import { escolherLevaJunto, sacolaDe, type ModeloDeRecomendacao } from "@/lib/re
  * `modeloDeRecomendacao`, no layout raiz): a gaveta só decide, na hora, com
  * o que está na sacola. Abrir a sacola não espera ninguém.
  *
- * "Adicionar" entra na MESMA fila das quantidades (`comCarrinho`): com um
- * produto entrando, os botões de quantidade e de frete esperam, e o total
- * que volta substitui o da tela inteiro. O produto que entrou sai da lista
- * sozinho — ele agora está na sacola.
+ * "Adicionar" entra na MESMA fila das quantidades (o `adicionar` do
+ * contexto): a linha aparece na sacola no clique, o total esmaece até o
+ * Medusa responder, e o que volta substitui o da tela inteiro. O produto que
+ * entrou sai da lista na hora — ele agora está na sacola. Se não entrar, ele
+ * volta pra lista, e o recado sai no pé da gaveta (entrega 0104).
  *
  * Sacola vazia não tem leva junto: ali quem fala é o "Ver produtos".
  */
@@ -46,8 +47,6 @@ export function LevaJunto({
 }) {
   const sacola = useSacola()
   const politica = useFrete()
-  const [adicionando, setAdicionando] = useState<string | null>(null)
-  const [erro, setErro] = useState("")
 
   const carrinho = sacola?.carrinho
   const escolhidos = useMemo(() => {
@@ -61,16 +60,20 @@ export function LevaJunto({
   }, [vitrine, modelo, carrinho, politica])
 
   if (!sacola || !carrinho || !carrinho.itens.length || !escolhidos.length) return null
-  const { comCarrinho, ocupada } = sacola
-
-  async function levar(s: SugestaoDaSacola) {
-    if (ocupada) return
-    setErro("")
-    setAdicionando(s.varianteId)
-    const r = await comCarrinho(() => adicionar(s.varianteId, 1)).catch(() => null)
-    setAdicionando(null)
-    if (!r) setErro("Não consegui falar com a loja agora. Tenta de novo em instantes.")
-    else if (!r.ok) setErro(r.erro)
+  function levar(s: SugestaoDaSacola) {
+    void sacola?.adicionar(
+      [
+        {
+          varianteId: s.varianteId,
+          nome: s.nome,
+          handle: s.handle,
+          imagem: s.imagem,
+          quantidade: 1,
+          precoUnitario: s.preco,
+        },
+      ],
+      () => adicionar(s.varianteId, 1)
+    )
   }
 
   return (
@@ -108,21 +111,16 @@ export function LevaJunto({
                 type="button"
                 className="sacolinha__leve-add"
                 onClick={() => levar(s)}
-                disabled={ocupada}
-                aria-busy={adicionando === s.varianteId || undefined}
                 aria-label={`Adicionar ${s.nome} à sacola${s.libera ? ", libera o frete grátis" : ""}`}
                 data-leva-junto={s.varianteId}
               >
                 <Mais />
-                {adicionando === s.varianteId ? "Adicionando…" : "Adicionar"}
+                Adicionar
               </button>
             </div>
           </li>
         ))}
       </ul>
-      <p className="sacolinha__leve-recado" role="status">
-        {erro}
-      </p>
     </section>
   )
 }

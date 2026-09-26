@@ -133,7 +133,7 @@ precisa sair da janela dela — ver `longeDaConciliacaoAutomatica` no conferidor
   era a vitrine vazia por horas. Erro não entra em cache: a página no ar fica com a última versão
   boa, a que não estava pronta mostra o `app/error.tsx`, e o build com o Medusa fora falha (a loja
   anterior segue no ar; Redeploy quando o Railway voltar). Padrão no lugar da resposta, só fora do
-  cache e em quem chama (`garantirCarrinho`, `buscarCep`).
+  cache e em quem chama (`criarCarrinhoCom`, `buscarCep`).
 - **Página é dado, não JSX.** Quais seções uma página monta, e em que ordem, vem do registro
   (`apps/loja/src/lib/secoes/registro.ts`); a rota só escreve `<Secoes escopo="..." />`. A ordem do
   array é a ordem padrão — não existe segunda lista, e o banco guardará só a diferença
@@ -619,8 +619,30 @@ O **"leva junto"** da gaveta (`components/sacola/leva-junto.tsx`) sai de uma lis
 servidor: `vitrineDaSacola` (`lib/medusa.ts`, cacheada com a tag `produtos`) é lida no layout raiz
 e entregue à `<Gaveta>` junto com o modelo do motor de recomendação; a escolha de até três, na
 hora, é `escolherLevaJunto` (`lib/recomendacao.ts`). "Adicionar" entra na fila das quantidades
-(`comCarrinho`). Os logos das bandeiras são os oficiais, em arquivo (`public/bandeiras/`, MPL-2.0
-— ver o `LICENCA.txt` de lá).
+(o `adicionar` do contexto, logo abaixo). Os logos das bandeiras são os oficiais, em arquivo
+(`public/bandeiras/`, MPL-2.0 — ver o `LICENCA.txt` de lá).
+A SACOLA RESPONDE NO CLIQUE (entrega 0104). Na produção, cada escrita no carrinho é um workflow
+inteiro do Medusa — preço, estoque, promoção, frete e imposto refeitos, umas cem idas e voltas ao
+banco — e leva de 0,6 a 0,9 s; o clique inteiro, de 0,9 a 2,4 s (medido em 26/09). Três partes:
+(1) os botões de comprar (a dobra, o "Comprar" da vitrine, a rotina e o leva junto) chamam o
+`adicionar` do contexto (`components/sacola/contexto.tsx`), que abre a gaveta NO CLIQUE com a linha
+que a página já sabe desenhar (`ItemChegando`: nome, foto, preço da unidade e o total do degrau). A
+linha nova vem com `chegando`, e os botões dela esperam o id de verdade; o dinheiro esmaece como no
+"+". Chame no evento de clique, NUNCA de dentro de uma transição: o que muda dentro de uma transição
+assíncrona o React só mostra quando ela termina, e a gaveta abriria junto com a resposta (quem quer
+o "Adicionando…" guarda a promessa e espera na própria transição). A previsão não pode somar duas
+vezes — o React refaz as previsões pendentes sobre cada resposta até a última transição acabar —,
+então ela guarda `antes` (quanto daquela variante a sacola tinha no clique) e só cresce a linha que
+ainda está nesse número (`chegar`). (2) Os botões da gaveta não travam mais: as escritas andam numa
+fila do contexto (`naFila`), e a de quantidade que chega na vez dela com um clique mais novo na
+mesma linha não sai (`PULOU`) — três "+" seguidos são duas idas ao Medusa. (3) No servidor
+(`lib/acoes/carrinho.ts`), uma ida ao Medusa por clique: sem carrinho, `criarCarrinhoCom` cria já
+com o item; adicionar e mudar a quantidade escrevem direto no id do cookie, e o próprio Medusa
+recusa carrinho que virou pedido (`carrinhoAcabou`: 400 "is already completed", 404 "Cart id not
+found"); remover pergunta antes, curto (`situacaoDoCarrinho`), porque a remoção de linha do Medusa
+2.21 não confere isso. O `CAMPOS_CARRINHO` não pede mais `*items.product` nem `*items.variant` (a
+linha já guarda nome, handle, variante e foto). O conferidor é o `conferir-checkout` ("A sacola
+responde no clique", com cada ação segurada 1,5 s no navegador pra ver a tela antes da resposta).
 
 O **motor de recomendação** (o "leva junto" da gaveta, os chips do frete grátis e a oferta do
 checkout, e o carrossel "Quem leva este, leva junto" da PDP; nada se escolhe no admin) tem duas

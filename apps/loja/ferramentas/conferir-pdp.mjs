@@ -608,7 +608,17 @@ try {
       await pagina.check(".junto__lista li:first-child input")
       await pagina.click(".compra__comprar")
       await pagina.waitForSelector(".sacolinha__item", { timeout: 20_000 })
-      await pagina.waitForTimeout(600)
+      /* A gaveta abre no clique, com as linhas que a página já sabia desenhar
+         (entrega 0104): o que conta é a sacola DEPOIS da resposta do Medusa —
+         e limpar os cookies com a ação em voo deixaria o carrinho dela pra
+         próxima conferência. */
+      await pagina.waitForFunction(
+        () =>
+          !document.querySelector(".sacolinha[data-ocupada]") &&
+          !document.querySelector(".sacolinha__item[data-chegando]"),
+        null,
+        { timeout: 20_000 }
+      )
       const naSacola = await pagina.$$eval(".sacolinha__nome", (n) =>
         n.map((e) => e.textContent.trim())
       )

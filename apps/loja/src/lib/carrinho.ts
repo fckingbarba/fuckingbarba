@@ -45,9 +45,12 @@ export const OPCOES_COOKIE = {
 } as const
 
 /**
- * Campos que a gaveta precisa. `*items.variant` e `*items.product` trazem
- * foto e handle pra linha do carrinho poder linkar de volta pro produto sem
- * uma segunda consulta por item.
+ * Campos que a gaveta precisa. A linha do carrinho já guarda o nome, o
+ * handle, a variante e a foto do produto (`product_title`, `product_handle`,
+ * `variant_title`, `thumbnail`), então `*items` basta pra linkar de volta pro
+ * produto. Pedir `*items.variant` e `*items.product` junto (era assim até a
+ * entrega 0104) trazia o produto inteiro de cada linha — descrição, as seções
+ * da página no `metadata` — em toda resposta da sacola, sem ninguém ler.
  *
  * `*shipping_methods` e o CEP do endereço entram porque a gaveta tem o bloco
  * "Frete e prazo": a entrega que a pessoa escolhe ali fica NO CARRINHO, e o
@@ -55,8 +58,7 @@ export const OPCOES_COOKIE = {
  */
 const CAMPOS_CARRINHO =
   "id,region_id,currency_code,email,subtotal,discount_total,shipping_total,tax_total,total," +
-  "item_subtotal,item_total,*items,*items.variant,*items.product,*items.thumbnail," +
-  "*shipping_methods,shipping_address.postal_code"
+  "item_subtotal,item_total,*items,*shipping_methods,shipping_address.postal_code"
 
 function aviso(erro: unknown, contexto: string) {
   const msg = erro instanceof Error ? erro.message : String(erro)
@@ -244,19 +246,28 @@ export function quantasUnidades(carrinho: Carrinho | null): number {
   return (carrinho?.items ?? []).reduce((soma, item) => soma + (item.quantity ?? 0), 0)
 }
 
+/** O id do carrinho no cookie, sem perguntar nada ao Medusa — ou null. */
+export async function idDoCarrinho(): Promise<string | null> {
+  return (await cookies()).get(COOKIE_CARRINHO)?.value ?? null
+}
+
 /**
- * O carrinho do cookie ainda serve pra escrever?
+ * O carrinho do cookie ainda serve pra escrever? Uma pergunta curta ao
+ * Medusa (`id,completed_at`), e não a leitura da gaveta inteira.
+ *
+ * Quem precisa é o `remover`: a remoção de linha do Medusa (2.21) NÃO confere
+ * se o carrinho já virou pedido — ela apaga a linha e refaz o carrinho, a
+ * cobrança junto. Adicionar e mudar a quantidade conferem sozinhos (ver
+ * `carrinhoAcabou`, logo abaixo) e não perguntam antes.
  *
  * "sem-resposta" é o Medusa fora do ar, e aí não dá pra saber. A diferença
- * pesa: o `lerCarrinho` devolve null pros dois casos, e o `garantirCarrinho`
- * apagava o cookie em qualquer null. Um clique em "Adicionar" durante um
- * restart do backend jogava fora a sacola inteira, que continuava lá no
- * Medusa, só que sem ninguém que soubesse o id dela.
+ * pesa: tratado como "acabou", um clique durante um restart do backend jogava
+ * fora a sacola inteira, que continuava lá no Medusa, só que sem ninguém que
+ * soubesse o id dela.
  */
-async function situacaoDoCarrinho(
-  sdk: NonNullable<ReturnType<typeof cliente>>,
-  id: string
-): Promise<"vale" | "acabou" | "sem-resposta"> {
+export async function situacaoDoCarrinho(id: string): Promise<"vale" | "acabou" | "sem-resposta"> {
+  const sdk = cliente()
+  if (!sdk) return "sem-resposta"
   try {
     const { cart } = await sdk.store.cart.retrieve(id, { fields: "id,completed_at" })
     return cart && !cart.completed_at ? "vale" : "acabou"
@@ -271,27 +282,46 @@ async function situacaoDoCarrinho(
 }
 
 /**
- * O id do carrinho pra escrever, criando um se ainda não existe.
+ * A ESCRITA VOLTOU DIZENDO QUE O CARRINHO ACABOU — virou pedido, ou o Medusa
+ * não conhece o id (banco recriado, outro ambiente). Adicionar e mudar a
+ * quantidade conferem isso ANTES de escrever (o `validateCartStep` do
+ * Medusa), então a escrita vai direto, sem uma pergunta antes: a resposta
+ * errada é que conta. As duas frases, conferidas no Medusa 2.21:
+ *   400 "Cart cart_… is already completed."
+ *   404 "Cart id not found: cart_…"
+ */
+export function carrinhoAcabou(erro: unknown): boolean {
+  const status = (erro as { status?: unknown } | null)?.status
+  const msg = erro instanceof Error ? erro.message : String(erro)
+  return (
+    (status === 400 && /is already completed/i.test(msg)) ||
+    (status === 404 && /cart id not found/i.test(msg))
+  )
+}
+
+/**
+ * CRIA O CARRINHO JÁ COM O ITEM, numa ida só, e grava o cookie.
+ *
+ * Era em duas (criar vazio, depois adicionar), e cada uma é um workflow
+ * inteiro no Medusa: a primeira vez que alguém punha um produto na sacola
+ * levava 2,4 s na produção, contra 1,2 s das seguintes (medido em 26/09,
+ * entrega 0104). Junto, o Medusa confere o estoque e o preço do item na
+ * mesma conta de criar.
  *
  * Só serve dentro de ação ou route handler: fora deles o Next não deixa
  * gravar cookie, e sem gravar o carrinho recém-criado se perderia no fim da
  * requisição.
  *
- * `null` é "agora não deu" — quem chama já diz isso na tela. Nunca lança.
+ * `null` é "agora não deu" (o Medusa fora, sem região) — quem chama já diz
+ * isso na tela. O erro do próprio item (estoque, produto fora) LANÇA, pra
+ * quem chama traduzir a frase.
  */
-export async function garantirCarrinho(): Promise<string | null> {
+export async function criarCarrinhoCom(
+  item: { variant_id: string; quantity: number },
+  campos = CAMPOS_CARRINHO
+): Promise<Carrinho | null> {
   const sdk = cliente()
   if (!sdk) return null
-
-  const jar = await cookies()
-  const existente = jar.get(COOKIE_CARRINHO)?.value
-  if (existente) {
-    const situacao = await situacaoDoCarrinho(sdk, existente)
-    if (situacao === "vale") return existente
-    // A sacola fica no cookie pra quando o Medusa voltar.
-    if (situacao === "sem-resposta") return null
-    jar.delete(COOKIE_CARRINHO)
-  }
 
   let regiao: Awaited<ReturnType<typeof regiaoBrasil>>
   try {
@@ -306,14 +336,12 @@ export async function garantirCarrinho(): Promise<string | null> {
     return null
   }
 
-  try {
-    const { cart } = await sdk.store.cart.create({ region_id: regiao.id })
-    jar.set(COOKIE_CARRINHO, cart.id, OPCOES_COOKIE)
-    return cart.id
-  } catch (e) {
-    aviso(e, "criar")
-    return null
-  }
+  const { cart } = await sdk.store.cart.create(
+    { region_id: regiao.id, items: [item] },
+    { fields: campos }
+  )
+  ;(await cookies()).set(COOKIE_CARRINHO, cart.id, OPCOES_COOKIE)
+  return cart
 }
 
 export { CAMPOS_CARRINHO }

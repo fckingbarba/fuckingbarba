@@ -122,6 +122,11 @@ export async function CartaoProduto({
         <BotaoComprar
           varianteId={variante}
           nome={produto.title}
+          previa={
+            precos
+              ? { handle: produto.handle, imagem: produto.thumbnail ?? null, preco: precos.atual }
+              : undefined
+          }
           className="btn produto__comprar"
           icone={<Carrinho className="btn__icone" />}
         />

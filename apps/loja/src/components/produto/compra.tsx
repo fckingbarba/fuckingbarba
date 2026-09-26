@@ -3,7 +3,7 @@
 import Image from "next/image"
 import { useEffect, useId, useRef, useState, useTransition } from "react"
 import { Caminhao, Cartao, EscudoCerto, Raio, Sacola, Triangulo } from "@/components/icones"
-import { EVENTO_SACOLA } from "@/components/sacola/contexto"
+import { EVENTO_SACOLA, useSacola } from "@/components/sacola/contexto"
 import { adicionar, adicionarVarios, type Resultado } from "@/lib/acoes/carrinho"
 import type { CarrinhoVisivel } from "@/lib/carrinho-visivel"
 import { emReais } from "@/lib/formato"
@@ -75,6 +75,7 @@ export function Compra({
   const [recado, setRecado] = useState<string | null>(null)
   const [enviando, comecar] = useTransition()
   const botao = useRef<HTMLButtonElement>(null)
+  const sacola = useSacola()
 
   // A visita ao produto, uma por produto (a ViewContent da Meta e do TikTok).
   const primeiro = degraus[0]
@@ -162,23 +163,63 @@ export function Compra({
 
   function comprar() {
     setRecado(null)
+    /*
+      UMA IDA SÓ pro servidor, com tudo que foi marcado. Duas chamadas
+      (o produto, depois os que combinam) dariam a chance de a primeira
+      passar e a segunda falhar — e aí a sacola fica com metade do que a
+      pessoa pediu, sem ela saber qual metade.
+    */
+    const chamar = () =>
+      marcados.length
+        ? adicionarVarios([
+            { varianteId: base.varianteId, quantidade: unidades },
+            ...marcados.map((c) => ({ varianteId: c.varianteId, quantidade: 1 })),
+          ])
+        : adicionar(base.varianteId, unidades)
+    /*
+      A GAVETA ABRE NO CLIQUE (entrega 0104), com o que esta caixa já
+      mostra: a foto, o nome, o preço da unidade no degrau e o total dele.
+      O total da sacola esmaece até o Medusa responder — na produção, de
+      um a dois segundos, que antes a pessoa passava olhando o
+      "Adicionando…". Fora do provedor, o caminho de antes.
+
+      O `adicionar` do contexto é chamado AQUI, no clique, e não dentro do
+      `comecar` logo abaixo: o que muda dentro de uma transição assíncrona
+      o React só mostra quando ela termina — a gaveta abriria junto com a
+      resposta, como antes. A transição daqui só espera, pro "Adicionando…".
+    */
+    const feito = sacola
+      ? sacola.adicionar(
+          [
+            {
+              varianteId: base.varianteId,
+              nome,
+              handle: base.handle,
+              imagem: foto,
+              quantidade: unidades,
+              precoUnitario: degrau.porUnidade,
+              total,
+            },
+            ...marcados.map((c) => ({
+              varianteId: c.varianteId,
+              nome: c.nome,
+              handle: c.handle,
+              imagem: c.foto,
+              quantidade: 1,
+              precoUnitario: c.preco,
+            })),
+          ],
+          chamar
+        )
+      : null
     comecar(async () => {
-      /*
-        UMA IDA SÓ pro servidor, com tudo que foi marcado. Duas chamadas
-        (o produto, depois os que combinam) dariam a chance de a primeira
-        passar e a segunda falhar — e aí a sacola fica com metade do que a
-        pessoa pediu, sem ela saber qual metade.
-      */
-      const r = await semQueda(
-        () =>
-          marcados.length
-            ? adicionarVarios([
-                { varianteId: base.varianteId, quantidade: unidades },
-                ...marcados.map((c) => ({ varianteId: c.varianteId, quantidade: 1 })),
-              ])
-            : adicionar(base.varianteId, unidades),
-        (): Resultado => ({ ok: false, erro: SEM_CONEXAO, carrinho: null })
-      )
+      const r = feito
+        ? await feito
+        : await semQueda(chamar, (): Resultado => ({
+            ok: false,
+            erro: SEM_CONEXAO,
+            carrinho: null,
+          }))
 
       if (!r.ok) {
         setRecado(r.erro)
@@ -197,7 +238,7 @@ export function Compra({
         loja viu e pediu pra manter. Um segundo clique leva de novo o que
         está marcado, do mesmo jeito que leva de novo as unidades.
       */
-      avisarSacola(r.carrinho)
+      if (!feito) avisarSacola(r.carrinho)
     })
   }
 
@@ -811,12 +852,10 @@ function BarraFixa({
 }
 
 /**
- * Avisa que a sacola mudou. Quem escuta é o provedor no layout — o contador
- * do cabeçalho e a gaveta se atualizam juntos, e a gaveta abre.
- *
- * É evento de DOM, e não uma chamada ao contexto, pra que a dobra não
- * dependa dele: ela adiciona, avisa, e segue funcionando numa página que não
- * tenha gaveta nenhuma.
+ * Avisa que a sacola mudou, quando a dobra está FORA do provedor (sem
+ * gaveta pra abrir no clique). Quem escuta é o provedor no layout — o
+ * contador do cabeçalho e a gaveta se atualizam juntos, e a gaveta abre.
+ * Dentro dele, quem avisa é o `adicionar` do contexto, antes da resposta.
  */
 function avisarSacola(carrinho: CarrinhoVisivel) {
   window.dispatchEvent(new CustomEvent(EVENTO_SACOLA, { detail: carrinho }))

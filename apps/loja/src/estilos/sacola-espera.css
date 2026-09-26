@@ -8,7 +8,8 @@
 
     quantidade e total da linha já mudaram — o número que a pessoa pediu e a
       multiplicação dele pelo unitário que está logo acima. Não é
-      "carregando", é feito;
+      "carregando", é feito. A linha nova de um "Adicionar" também já está
+      lá, com a barrinha correndo até o Medusa confirmar;
 
     o total do carrinho está recalculando — ele, a parcela, o medidor de
       frete e o preço de cada entrega do bloco "Frete e prazo" são do
@@ -80,17 +81,16 @@
 }
 
 /*
-  Os passos de quantidade continuam legíveis enquanto travados: `disabled`
+  Os botões NÃO travam enquanto o Medusa recalcula (desde a entrega 0104): o
+  clique muda a tela na hora e a escrita entra na fila (`contexto.tsx`). Só
+  trava a linha que ainda está chegando — a que um "Adicionar" pôs, sem id de
+  verdade até a resposta. Travados, eles continuam legíveis: `disabled`
   sozinho deixa o botão com cara de quebrado, e ele não está quebrado — está
   esperando. Cursor de espera diz isso melhor que cinza.
 */
-.sacolinha[data-ocupada] .sacolinha__passo,
-.sacolinha[data-ocupada] .sacolinha__tira {
+.sacolinha__passo:disabled,
+.sacolinha__tira:disabled {
   cursor: progress;
-}
-
-.sacolinha[data-ocupada] .sacolinha__passo:disabled,
-.sacolinha[data-ocupada] .sacolinha__tira:disabled {
   opacity: 0.55;
 }
 
