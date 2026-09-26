@@ -5,9 +5,11 @@ import { AbasQueRolam } from "@/components/abas-que-rolam"
 import { Icone } from "@/components/icones"
 import { MudarMeta } from "@/components/mudar-meta"
 import {
+  lerAchadosDoMarketing,
   lerCanais,
   lerVisitasDoMarketing,
   PERIODOS,
+  type AbaComAchados,
   type Achado,
   type Comparado,
   type MetaDoMes,
@@ -440,23 +442,119 @@ const ICONE_DO_ACHADO: Record<Achado["tipo"], "alerta" | "check" | "grafico" | "
   info: "relogio",
 }
 
-/** O que os números querem dizer, em frase — cada aba começa por aqui (o protótipo). */
-export function Achados({ achados }: { achados: Achado[] }) {
+/** O atalho de cada frase do Resumo pra aba de onde ela veio. */
+const ATALHO: Record<AbaComAchados, string> = {
+  funil: "Ver o funil",
+  canais: "Ver os canais",
+  produtos: "Ver os produtos",
+  ofertas: "Ver as ofertas",
+  clientes: "Ver os clientes",
+  pagamento: "Ver pagamento e frete",
+}
+
+/**
+ * O que os números querem dizer, em frase — cada aba começa por aqui (o
+ * protótipo). No Resumo, cada frase vem com a aba de onde saiu (`aba`) e
+ * ganha o atalho pra ela, no mesmo período.
+ */
+export function Achados({
+  achados,
+  periodo,
+}: {
+  achados: (Achado & { aba?: AbaComAchados | null })[]
+  periodo?: Periodo
+}) {
   if (!achados.length) return null
   return (
     <div className={`achados${achados.length === 1 ? " achados--um" : ""}`} data-achados>
       {achados.map((a) => (
-        <article className="achado" data-tipo={a.tipo} key={a.titulo}>
+        <article
+          className="achado"
+          data-tipo={a.tipo}
+          data-aba={a.aba ?? undefined}
+          key={`${a.aba}:${a.titulo}`}
+        >
           <span className="achado__ico">
             <Icone nome={ICONE_DO_ACHADO[a.tipo]} />
           </span>
           <div>
             <h3 className="achado__titulo">{a.titulo}</h3>
             <p className="achado__txt">{a.texto}</p>
+            {a.aba && periodo ? (
+              <Link
+                className="link pequeno achado__atalho"
+                href={`${ABAS.find(([aba]) => aba === a.aba)![2]}?periodo=${periodo}` as Route}
+              >
+                {ATALHO[a.aba]} →
+              </Link>
+            ) : null}
           </div>
         </article>
       ))}
     </div>
+  )
+}
+
+/** "Olhando os últimos 30 dias." */
+const OLHANDO: Record<Periodo, string> = {
+  hoje: "Olhando hoje",
+  "7d": "Olhando os últimos 7 dias",
+  "30d": "Olhando os últimos 30 dias",
+  "90d": "Olhando os últimos 90 dias",
+}
+
+function CabecaDoQueDizem({ periodo }: { periodo: Periodo }) {
+  return (
+    <div className="bloco__cabeca">
+      <div>
+        <h2 className="bloco__titulo">O que os dados dizem</h2>
+        <p className="bloco__sub">
+          {OLHANDO[periodo]}. Primeiro o que pede conserto, depois as oportunidades e o que vai bem.
+        </p>
+      </div>
+    </div>
+  )
+}
+
+/** Enquanto as contas de todas as abas correm. */
+export function OQueOsDadosDizemCarregando({ periodo }: { periodo: Periodo }) {
+  return (
+    <section className="bloco" data-bloco="o-que-dizem" data-carregando>
+      <CabecaDoQueDizem periodo={periodo} />
+      <p className="sem-dados">Juntando as frases de todas as abas…</p>
+    </section>
+  )
+}
+
+/**
+ * O QUE OS DADOS DIZEM — as frases de todas as abas juntas, do que pede
+ * conserto pro que vai bem, cada uma com o atalho pra aba dela (a regra e a
+ * ordem são do backend: `lib/painel/marketing-achados.ts`). Chega à parte,
+ * num `<Suspense>`: são as contas de todas as abas.
+ */
+export async function OQueOsDadosDizem({ periodo }: { periodo: Periodo }) {
+  const r = await lerAchadosDoMarketing(periodo)
+  return (
+    <section className="bloco" data-bloco="o-que-dizem">
+      <CabecaDoQueDizem periodo={periodo} />
+      {r ? (
+        <>
+          <Achados achados={r.achados} periodo={periodo} />
+          {r.semGoogle ? (
+            <p className="pequeno suave o-que-dizem__nota" data-sem-google={r.semGoogle}>
+              Sem as frases do funil, dos canais e dos produtos: {SEM_VISITAS[r.semGoogle]}.
+            </p>
+          ) : null}
+          {r.mais ? (
+            <p className="pequeno suave o-que-dizem__nota" data-mais={r.mais}>
+              Mais {r.mais} {r.mais === 1 ? "frase" : "frases"} nas abas.
+            </p>
+          ) : null}
+        </>
+      ) : (
+        <p className="sem-dados">Não consegui juntar as frases agora. Recarregue daqui a pouco.</p>
+      )}
+    </section>
   )
 }
 

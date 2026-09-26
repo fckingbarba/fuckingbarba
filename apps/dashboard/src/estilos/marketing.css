@@ -75,6 +75,7 @@
 .achado__ico svg { width: 17px; height: 17px; fill: currentColor; }
 .achado__titulo { margin: 0; font-size: 0.9rem; font-weight: 800; }
 .achado__txt { margin: 4px 0 0; font-size: 0.82rem; color: var(--tinta-suave); }
+.achado__atalho { display: inline-block; margin-top: 8px; }
 
 /* O funil: cada passo, a barra (do tamanho do maior) e quanto passou do anterior. */
 .trilho { display: block; height: 8px; margin-top: 5px; background: var(--cinza-2); }
@@ -127,3 +128,9 @@
 .pagamento__rotulo { margin-top: 18px; }
 [data-numeros-dos-clientes] { margin-bottom: 16px; }
 [data-bloco="newsletter"] .bloco__cabeca { margin-bottom: 0; }
+
+/* --------------------------------------------------------------------------
+   O QUE OS DADOS DIZEM — as frases de todas as abas, no Resumo.
+   -------------------------------------------------------------------------- */
+[data-bloco="o-que-dizem"] .achados { margin: 0; }
+.o-que-dizem__nota { margin: 12px 0 0; }

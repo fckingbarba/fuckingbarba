@@ -310,3 +310,24 @@ export const lerClientesDoMarketing = cache((periodo: Periodo) =>
 export const lerPagamento = cache((periodo: Periodo) =>
   lerAba<PagamentoEFrete>("pagamento", periodo)
 )
+
+/* ── O que os dados dizem (o Resumo) ──────────────────────────────────────── */
+
+export type AbaComAchados = "funil" | "canais" | "produtos" | "ofertas" | "clientes" | "pagamento"
+
+/** Uma frase do Resumo, com a aba de onde veio; `null` na de "ainda é pouco". */
+export type AchadoDoResumo = Achado & { aba: AbaComAchados | null }
+
+export type AchadosDoResumo = {
+  periodo: Periodo
+  achados: AchadoDoResumo[]
+  /** As frases que não couberam: continuam nas abas. */
+  mais: number
+  /** Sem o Google, faltam as frases do funil, dos canais e dos produtos. */
+  semGoogle: SemGoogle | null
+}
+
+/** As frases de todas as abas juntas, na ordem do backend — o "O que os dados dizem". */
+export const lerAchadosDoMarketing = cache((periodo: Periodo) =>
+  lerAba<AchadosDoResumo>("achados", periodo)
+)
