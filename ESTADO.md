@@ -1278,7 +1278,8 @@ O que o protótipo tem, aprovado em 23/09:
 - **Marketing** (resumo, funil, canais, produtos, ofertas, clientes por estado, pagamento e frete)
   ficou escondido de início e voltou em quatro partes em 26/09: o Resumo e a meta do mês (entrega
   0108), o Funil e os Canais (0110), os Produtos e as Ofertas (0113), e os Clientes e o Pagamento e
-  frete (0115).
+  frete (0115). Com o "O que os dados dizem" do Resumo (0122), o Marketing do protótipo está
+  inteiro no painel.
 
 Em aberto:
 
@@ -2209,6 +2210,27 @@ fechar o zoom e o ponto.
 
 Depois do deploy — **nada a configurar.** Pra conferir: abrir um produto no celular e arrastar a
 foto; na home, o banner encosta na barra de vantagens.
+
+**Painel: Marketing — "O que os dados dizem" no Resumo — pronto em 26/09 (entrega 0122).**
+
+A última peça do protótipo do Marketing. No Resumo, entre a meta do mês e o gráfico:
+
+- as frases de todas as abas juntas: o que pede conserto primeiro, depois as oportunidades e o que
+  vai bem;
+- cada frase com o atalho pra aba de onde veio ("Ver o funil →", "Ver pagamento e frete →"), no
+  mesmo período;
+- cabem 6; quando há mais, o bloco diz quantas ficaram nas abas;
+- o "ainda é pouco" de cada aba fica na aba; se todas disserem isso, aparece uma frase só;
+- sem o Google, as frases da loja (ofertas, clientes, pagamento) seguem, e o bloco diz por que
+  faltam as do funil, dos canais e dos produtos.
+
+As frases são as mesmas das abas: a conta é feita num lugar só.
+
+Conferido pelo `conferir-marketing.mjs` (114 checagens; as 10 novas: as frases batendo com as das
+abas, a ordem, nenhuma perdida, o atalho que abre a aba, o celular e o Google fora) e pelos testes
+de unidade (6 novos).
+
+Depois do deploy — **nada a configurar.**
 
 ## Como seguir no Claude Code
 

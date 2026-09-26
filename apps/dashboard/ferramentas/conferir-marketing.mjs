@@ -33,6 +33,8 @@
  * │   de 100%), o estado que não soma a receita, a newsletter diferente;   │
  * │ • o Pix ou o cartão fora da conta (a tentativa sem motivo, os pagos    │
  * │   fora dos pedidos do Resumo), o atalho do frete pra quem não é dono;  │
+ * │ • o "O que os dados dizem" diferente das abas, fora de ordem, ou       │
+ * │   perdendo frase; o atalho que não abre a aba;                         │
  * │ • o Google fora quebrando a tela; dado de cliente na resposta;         │
  * │ • rolagem de lado no celular; erro no console.                         │
  * └────────────────────────────────────────────────────────────────────────┘
@@ -1016,6 +1018,133 @@ try {
     ok(await celular.evaluate(abaAcesaAVista), "e a sétima aba, a última, também aparece")
   }
 
+  titulo("O que os dados dizem")
+  {
+    const ABAS = ["funil", "canais", "produtos", "ofertas", "clientes", "pagamento"]
+    const ORDEM = { problema: 0, oportunidade: 1, bom: 2, info: 3 }
+    const r = await medusa("/dashboard/marketing/achados?periodo=30d", {
+      metodo: "GET",
+      token: tokenDoDono,
+    })
+    const a = r.corpo
+    const abas = await Promise.all(
+      ABAS.map(
+        async (aba) =>
+          (
+            await medusa(`/dashboard/marketing/${aba}?periodo=30d`, {
+              metodo: "GET",
+              token: tokenDoDono,
+            })
+          ).corpo
+      )
+    )
+    const [funil, canais, produtos, ofertas, clientes, pagamento] = abas
+    const porAba = {
+      funil: funil.achados ?? [],
+      canais: canais.achado ? [canais.achado] : [],
+      produtos: produtos.achado ? [produtos.achado] : [],
+      ofertas: ofertas.achados ?? [],
+      clientes: clientes.achados ?? [],
+      pagamento: pagamento.achados ?? [],
+    }
+    const comConclusao = Object.values(porAba)
+      .flat()
+      .filter((x) => x.tipo !== "info")
+    ok(
+      r.status === 200 &&
+        a.periodo === "30d" &&
+        a.semGoogle === null &&
+        a.achados.length > 0 &&
+        a.achados.length <= 6,
+      "o dono recebe as frases de todas as abas (até 6), com o Google",
+      JSON.stringify(a).slice(0, 300)
+    )
+    ok(
+      a.achados.every(
+        (x) =>
+          ABAS.includes(x.aba) &&
+          porAba[x.aba].some((y) => y.titulo === x.titulo && y.texto === x.texto)
+      ),
+      "cada frase do Resumo é a mesma da aba de onde veio",
+      JSON.stringify(a.achados.map((x) => [x.aba, x.titulo]))
+    )
+    ok(
+      a.achados.length + a.mais === comConclusao.length,
+      "nenhuma frase com conclusão se perde: a que não cabe conta no “mais” (o “ainda é pouco” fica na aba)",
+      `${a.achados.length} + ${a.mais} · ${comConclusao.length}`
+    )
+    ok(
+      a.achados.every((x, i, l) => i === 0 || ORDEM[l[i - 1].tipo] <= ORDEM[x.tipo]) &&
+        a.achados.every(
+          (x, i, l) =>
+            i === 0 ||
+            ORDEM[l[i - 1].tipo] < ORDEM[x.tipo] ||
+            ABAS.indexOf(l[i - 1].aba) <= ABAS.indexOf(x.aba)
+        ),
+      "primeiro o que pede conserto, depois as oportunidades e o que vai bem; no mesmo tipo, a ordem das abas",
+      JSON.stringify(a.achados.map((x) => [x.tipo, x.aba]))
+    )
+    const daOperacao = await medusa("/dashboard/marketing/achados", {
+      metodo: "GET",
+      token: cookieOp.value,
+    })
+    ok(daOperacao.status === 403, "a operação não abre as frases (403)", String(daOperacao.status))
+
+    const { pagina } = dono
+    await pagina.goto(`${PAINEL}/marketing?periodo=30d`)
+    await pagina.waitForSelector('[data-bloco="o-que-dizem"]:not([data-carregando])', {
+      timeout: 30000,
+    })
+    const naTela = await pagina.$$eval('[data-bloco="o-que-dizem"] .achado', (l) =>
+      l.map((e) => ({
+        aba: e.getAttribute("data-aba"),
+        titulo: e.querySelector(".achado__titulo")?.textContent ?? "",
+        href: e.querySelector("a.achado__atalho")?.getAttribute("href") ?? null,
+      }))
+    )
+    ok(
+      naTela.length === a.achados.length &&
+        naTela.every(
+          (x, i) =>
+            semEspaco(x.titulo) === semEspaco(a.achados[i].titulo) &&
+            x.aba === a.achados[i].aba &&
+            x.href === `/marketing/${x.aba}?periodo=30d`
+        ),
+      "a tela: as frases na ordem da API, cada uma com o atalho pra aba dela",
+      JSON.stringify(naTela).slice(0, 300)
+    )
+    ok(
+      a.mais
+        ? semEspaco(await textoDe(pagina, "[data-mais]")) ===
+            `Mais ${a.mais} ${a.mais === 1 ? "frase" : "frases"} nas abas.`
+        : (await pagina.locator("[data-mais]").count()) === 0,
+      "o “mais” diz quantas ficaram nas abas",
+      String(a.mais)
+    )
+    const [primeira] = naTela
+    await pagina.locator('[data-bloco="o-que-dizem"] a.achado__atalho').first().click()
+    await pagina.waitForURL((u) => u.pathname === `/marketing/${primeira.aba}`, {
+      timeout: 20000,
+    })
+    ok(
+      caminho(pagina) === `/marketing/${primeira.aba}` &&
+        new URL(pagina.url()).searchParams.get("periodo") === "30d",
+      "tocar no atalho abre a aba da frase, no mesmo período",
+      pagina.url()
+    )
+
+    const { pagina: celular } = mkt
+    await celular.goto(`${PAINEL}/marketing?periodo=30d`)
+    await celular.waitForSelector('[data-bloco="o-que-dizem"]:not([data-carregando])', {
+      timeout: 30000,
+    })
+    ok(
+      (await celular.locator('[data-bloco="o-que-dizem"] .achado').count()) === a.achados.length &&
+        (await semRolagemDeLado(celular)),
+      "no celular (o marketing): as mesmas frases, sem rolar de lado"
+    )
+  }
+
   titulo("O Google fora")
   {
     google.recusar = 500
@@ -1036,6 +1165,23 @@ try {
         (await pagina.locator('.barras-v[data-barras="13"]').count()) === 1,
       "a tela segue inteira, e a visita diz que o Google não respondeu",
       await textoDe(pagina, '[data-kpi="visitas"]')
+    )
+    const semOGoogle = (
+      await medusa("/dashboard/marketing/achados?periodo=90d", {
+        metodo: "GET",
+        token: tokenDoDono,
+      })
+    ).corpo
+    await pagina.waitForSelector('[data-bloco="o-que-dizem"] [data-sem-google="fora"]', {
+      timeout: 30000,
+    })
+    ok(
+      semOGoogle.semGoogle === "fora" &&
+        semOGoogle.achados.every((x) => !["funil", "canais", "produtos"].includes(x.aba)) &&
+        (await pagina.locator('[data-bloco="o-que-dizem"] .achado').count()) ===
+          semOGoogle.achados.length,
+      "o que os dados dizem: sem o Google, só as frases da loja, e diz por que faltam as outras",
+      JSON.stringify(semOGoogle).slice(0, 240)
     )
     await pagina.goto(`${PAINEL}/marketing/funil?periodo=7d`)
     await pagina.waitForSelector('[data-bloco="site"] [data-sem-google]', { timeout: 20000 })
