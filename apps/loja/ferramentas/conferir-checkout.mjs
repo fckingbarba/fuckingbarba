@@ -285,6 +285,38 @@ async function fretesCotados(carrinhoId) {
   return saida
 }
 
+/**
+ * EM QUANTOS DIAS CADA FAIXA CHEGA, pela rota da calculadora — a mesma
+ * pergunta que a loja faz (`prazosDasFaixas`, em `lib/checkout.ts`), pelo
+ * carrinho. A cotação do Medusa não traz prazo; a tela tem que dizer o que a
+ * ROTA diz, e não uma conta deste arquivo. As duas faixas no mesmo serviço
+ * voltam como uma entrega só, e o prazo dela vale pras duas.
+ */
+async function prazosDaRota(carrinhoId) {
+  const c = (await medusa(`/store/carts/${carrinhoId}?fields=*items,*shipping_address`))?.cart
+  const r = await medusaCru("/store/frete", {
+    metodo: "POST",
+    corpo: {
+      cep: c?.shipping_address?.postal_code ?? "",
+      itens: (c?.items ?? []).map((i) => ({ variante_id: i.variant_id, quantidade: i.quantity })),
+      cart_id: carrinhoId,
+    },
+  })
+  const opcoes = r.json?.frete?.opcoes ?? []
+  const prazos = new Map(opcoes.filter((o) => o.prazo).map((o) => [o.faixa, o.prazo]))
+  if (opcoes.length === 1 && opcoes[0].prazo) {
+    prazos.set("economica", opcoes[0].prazo).set("expressa", opcoes[0].prazo)
+  }
+  return prazos
+}
+
+/** A faixa de cada opção do carrinho: o `data.faixa` que o `scripts/frete.ts` grava. */
+async function faixasDoCarrinho(carrinhoId) {
+  const { shipping_options: lista = [] } =
+    (await medusa(`/store/shipping-options?cart_id=${carrinhoId}`)) ?? {}
+  return new Map(lista.map((o) => [o.id, o.data?.faixa ?? o.type?.code ?? null]))
+}
+
 const navegador = await chromium.launch(
   process.env.CHROMIUM ? { executablePath: process.env.CHROMIUM } : {}
 )
@@ -671,6 +703,47 @@ for (const opcao of opcoesApi) {
 }
 
 /*
+  EM QUANTOS DIAS CHEGA (26/09). A linha de apoio dizia "A mais barata para
+  o seu CEP"; agora diz o prazo da cotação, como a sacola e a PDP.
+*/
+const prazosDoPasso = await prazosDaRota(carrinhoId)
+const faixaDe = await faixasDoCarrinho(carrinhoId)
+for (const opcao of opcoesApi) {
+  const prazo = prazosDoPasso.get(faixaDe.get(opcao.id))
+  const linha = pagina.locator("#form-entrega .opcao", { hasText: opcao.name }).first()
+  const desc = await linha.locator(".opcao__desc").innerText()
+  ok(
+    Boolean(prazo) && desc === `Chega em ${prazo}`,
+    `${opcao.name}: a tela diz em quantos dias chega, o prazo da cotação (${prazo})`,
+    desc
+  )
+}
+const notaDoPrazo = pagina.locator("#form-entrega .opcoes__nota")
+ok(
+  (await notaDoPrazo.count()) === 1 &&
+    (await notaDoPrazo.innerText()).includes("Dias úteis, contados da postagem"),
+  "e embaixo, que são dias úteis contados da postagem"
+)
+
+/*
+  O PRAZO NÃO CUSTA UMA COTAÇÃO A MAIS. A loja pergunta à rota da calculadora
+  PELO CARRINHO, e a pergunta é a mesma que o Medusa faz ao cotar as opções:
+  as duas entram na mesma viagem à Frenet (`deUmaViagemSo`, no backend, que
+  guarda a viagem por 10 s). Com qualquer byte diferente na pergunta, abrir o
+  passo 2 seriam duas viagens.
+*/
+await pagina.waitForTimeout(10_500)
+const viagensAntes = frenet.chamadas
+await pagina.reload({ waitUntil: "domcontentloaded" })
+await semStreaming(pagina)
+await pagina.locator("#form-entrega .opcao").first().waitFor({ timeout: 25000 })
+ok(
+  frenet.chamadas - viagensAntes === 1,
+  "abrir o passo 2 é UMA viagem à Frenet, com o prazo junto",
+  `${frenet.chamadas - viagensAntes} viagem(ns)`
+)
+
+/*
   TROCAR A ENTREGA NÃO PODE PISCAR A PÁGINA. A troca chamava a ação fora de
   uma transição, e o <Suspense> do checkout trocava a tela INTEIRA pelo
   esqueleto até o servidor responder. A espera certa é pequena: a barrinha
@@ -734,6 +807,50 @@ for (let i = 0; i < quantosChips; i++) {
   if (preco < faltaNaTela) todosFecham = false
 }
 ok(todosFecham, "e todo chip sugerido fecha a conta sozinho")
+
+/*
+  A FOTO DE CADA CHIP (26/09): a do produto no catálogo (o `thumbnail`), e
+  carregada — foto quebrada num botão de comprar é pior que foto nenhuma.
+  Produto sem foto no catálogo sai sem foto, só com o texto.
+*/
+const { products: comFoto = [] } =
+  (await medusa("/store/products?limit=100&fields=title,thumbnail")) ?? {}
+await pagina
+  .waitForFunction(
+    () =>
+      [...document.querySelectorAll(".completa__foto img")].every(
+        (i) => i.complete && i.naturalWidth > 0
+      ),
+    null,
+    { timeout: 15000 }
+  )
+  .catch(() => null)
+const fotosDosChips = []
+for (let i = 0; i < quantosChips; i++) {
+  const chip = chips.nth(i)
+  const nome = (await chip.getAttribute("aria-label"))?.match(/^Adicionar (.+) por /)?.[1] ?? ""
+  const doCatalogo = comFoto.find((p) => p.title === nome)?.thumbnail ?? null
+  const foto = chip.locator(".completa__foto img")
+  const naTela = (await foto.count())
+    ? await foto.evaluate((el) => {
+        // Pelo otimizador do Next, a foto de verdade vai no `?url=`.
+        const src = new URL(el.currentSrc || el.src, location.href)
+        return {
+          url: src.searchParams.get("url") ?? src.href,
+          carregou: el.complete && el.naturalWidth > 0,
+        }
+      })
+    : null
+  fotosDosChips.push({ nome, doCatalogo, naTela })
+}
+ok(
+  fotosDosChips.some((c) => c.doCatalogo) &&
+    fotosDosChips.every((c) =>
+      c.doCatalogo ? c.naTela?.url === c.doCatalogo && c.naTela.carregou : c.naTela === null
+    ),
+  "cada chip mostra a foto do produto, carregada",
+  JSON.stringify(fotosDosChips)
+)
 
 /**
  * Tenta os chips em ordem até um pegar.
@@ -1706,6 +1823,13 @@ if (PISO > 0) {
     ok(
       linhas.length === 1 && /gr[áa]tis/i.test(linhas[0] ?? ""),
       "o mesmo serviço aparece uma vez só, e grátis",
+      JSON.stringify(linhas)
+    )
+    // A rota junta as duas faixas numa entrega só; o prazo dela vale pra linha que ficou.
+    const [prazoUnico] = [...new Set((await prazosDaRota(id)).values())]
+    ok(
+      Boolean(prazoUnico) && (linhas[0] ?? "").includes(`Chega em ${prazoUnico}`),
+      `e diz em quantos dias chega, o prazo do serviço (${prazoUnico})`,
       JSON.stringify(linhas)
     )
     const cotadas = await fretesCotados(id)

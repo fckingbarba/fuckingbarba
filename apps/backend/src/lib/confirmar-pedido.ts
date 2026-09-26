@@ -108,9 +108,10 @@ export type PedidoLido = {
 
 /**
  * Os campos do pedido. Os totais saem da mesma conta que a tela de obrigado
- * vê (o `getOrderDetailWorkflow` da API da loja usa esta mesma consulta).
+ * vê (o `getOrderDetailWorkflow` da API da loja usa esta mesma consulta). O
+ * aviso de venda nova (`avisar-venda.ts`) lê estes, mais os cupons.
  */
-const CAMPOS = [
+export const CAMPOS = [
   "id",
   "display_id",
   "email",

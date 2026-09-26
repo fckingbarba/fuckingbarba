@@ -3,6 +3,7 @@ import type { HttpTypes } from "@medusajs/types"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import { BUMP } from "@/conteudo/checkout"
+import { cotarFrete } from "./acoes/frete"
 import { ehCodigoDeBump, handleDoBump } from "./bump"
 import {
   COOKIE_CARRINHO,
@@ -317,14 +318,16 @@ export async function preencherDaConta(): Promise<void> {
  * que aquela opção já mostrou nesta mesma tela — ou seja, do preço que a
  * pessoa via antes de o carrinho passar do piso. Sem isso, "Grátis" não diz
  * quanto foi economizado, e economia invisível não convence ninguém.
+ *
+ * O `prazo` ("8 dias úteis") vem de outro lugar, em paralelo — ver
+ * `prazosDasFaixas`. Num empate de preço, fica a opção gravada no carrinho
+ * (`freteEscolhido`).
  */
-export async function listarFretes(
-  carrinhoId: string,
-  /** A opção gravada no carrinho: num empate de preço, é ela que fica. */
-  escolhida: string | null = null
-): Promise<OpcaoDeFrete[]> {
+export async function listarFretes(checkout: BaseDoFrete): Promise<OpcaoDeFrete[]> {
   const sdk = cliente()
   if (!sdk) return []
+  const carrinhoId = checkout.id
+  const prazos = prazosDasFaixas(checkout).catch(() => new Map<string, string>())
 
   try {
     const { shipping_options } = await sdk.store.fulfillment.listCartOptions({
@@ -382,6 +385,7 @@ export async function listarFretes(
       da Frenet lê o primeiro. Ela não vai pra tela: quem usa é a regra do
       `semEntregaEmpatada`, logo abaixo.
     */
+    const prazoDa = await prazos
     const opcoes = cotadas
       .filter((o): o is NonNullable<typeof o> => o !== null)
       .map((o) => {
@@ -391,18 +395,58 @@ export async function listarFretes(
           id: o.id,
           nome: o.name,
           faixa,
-          prazo: o.type?.description ?? "",
+          descricao: o.type?.description ?? "",
+          prazo: (faixa && prazoDa.get(faixa)) || null,
           preco: Number(o.amount ?? 0),
           precoCheio: null as number | null,
         }
       })
       .sort((a, b) => a.preco - b.preco)
 
-    return semEntregaEmpatada(opcoes, escolhida)
+    return semEntregaEmpatada(opcoes, checkout.freteEscolhido)
   } catch (e) {
     aviso(e, `fretes do carrinho ${carrinhoId}`)
     return []
   }
+}
+
+/** O que as opções de frete precisam saber do carrinho — o `CheckoutVisivel` serve. */
+type BaseDoFrete = Pick<CheckoutVisivel, "id" | "itens" | "entrega" | "freteEscolhido">
+
+/**
+ * EM QUANTOS DIAS CADA FAIXA CHEGA — o "8 dias úteis" da transportadora.
+ *
+ * A cotação do Medusa não traz o prazo: o contrato do provedor devolve só o
+ * preço (`calculated_amount`), e o "Correios PAC · 8 dias" que a Frenet
+ * manda se perde no caminho. Quem sabe o prazo é a rota da calculadora
+ * (`POST /store/frete`), a mesma da sacola e da PDP — e, perguntada PELO
+ * CARRINHO, ela faz à Frenet a mesma pergunta que o Medusa faz ao cotar as
+ * opções: as duas entram na mesma viagem (`deUmaViagemSo`, no backend). O
+ * prazo não custa uma cotação a mais.
+ *
+ * Só o prazo sai daqui; o preço continua sendo o do Medusa, que é o que o
+ * carrinho cobra.
+ *
+ * Quando as duas faixas caem no MESMO serviço, a rota responde uma entrega só
+ * (o `enxugar` dela), na faixa econômica — e o checkout, que tem as duas
+ * opções cadastradas, pode estar mostrando a expressa (`semEntregaEmpatada`).
+ * O prazo é o mesmo, e vale pras duas.
+ *
+ * Sem resposta, o mapa volta vazio e a tela fica com a descrição da opção
+ * ("A mais barata para o seu CEP"), como antes.
+ */
+async function prazosDasFaixas(checkout: BaseDoFrete): Promise<Map<string, string>> {
+  const prazos = new Map<string, string>()
+  const itens = checkout.itens.map((i) => ({ varianteId: i.varianteId, quantidade: i.quantidade }))
+  const cotacao = await cotarFrete(checkout.entrega.cep, itens, checkout.id)
+  if (!cotacao.ok) return prazos
+
+  for (const o of cotacao.opcoes) if (o.prazo) prazos.set(o.faixa, o.prazo)
+  const [unica] = cotacao.opcoes
+  if (cotacao.opcoes.length === 1 && unica?.prazo) {
+    prazos.set("economica", unica.prazo).set("expressa", unica.prazo)
+  }
+  return prazos
 }
 
 /**

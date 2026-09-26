@@ -3,7 +3,12 @@ import { ColecaoCarrossel } from "@/components/home/colecao-carrossel"
 import { CartaoProduto } from "@/components/produto/cartao"
 import type { HttpTypes } from "@medusajs/types"
 import { conteudoDaPdp } from "@/conteudo/produto"
-import { buscarProdutoPorHandle, listarProdutos, modeloDeRecomendacao } from "@/lib/medusa"
+import {
+  buscarProdutoPorHandle,
+  esgotado,
+  listarProdutos,
+  modeloDeRecomendacao,
+} from "@/lib/medusa"
 import { ordenarParaAPagina } from "@/lib/recomendacao"
 
 /**
@@ -41,6 +46,10 @@ import { ordenarParaAPagina } from "@/lib/recomendacao"
  * dizer a verdade. Continua sendo o resto do catálogo: o que não faz sentido
  * levar junto (as peças, na página do kit) vai pro fim em vez de sumir.
  * Ninguém escolhe no admin.
+ *
+ * O ESGOTADO VAI PRO FIM, na ordem que tinha: recomendar primeiro o que não
+ * dá pra comprar é gastar a melhor vaga do carrossel — e na página de um
+ * produto esgotado, este carrossel é o "enquanto isso" de quem chegou.
  */
 const LIMITE = 12
 
@@ -77,10 +86,14 @@ export async function Relacionados({ handle }: { handle: string }) {
       : outros
 
   if (!ordenados.length) return null
+  const primeiroOsQueVendem = [
+    ...ordenados.filter((p) => !esgotado(p)),
+    ...ordenados.filter((p) => esgotado(p)),
+  ]
 
   return (
     <Carrossel
-      produtos={ordenados.slice(0, LIMITE)}
+      produtos={primeiroOsQueVendem.slice(0, LIMITE)}
       titulo={conteudo.relacionados?.titulo ?? TITULO}
     />
   )

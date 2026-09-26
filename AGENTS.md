@@ -38,9 +38,9 @@ verdade.
 ### Conferidores
 
 `apps/loja/ferramentas/conferir-*.mjs` abrem a loja num Chromium de verdade e comparam o que está na
-tela com o que a API do Medusa responde — nunca com outra conta feita no próprio teste. São onze:
-frete, pdp, checkout, pagamento, catálogo, links, configurações, documento, conta, envio e erp (este
-sem navegador: o Bling falso e o admin). Rode os que
+tela com o que a API do Medusa responde — nunca com outra conta feita no próprio teste. São doze:
+frete, pdp, checkout, pagamento, catálogo, links, configurações, documento, conta, envio, erp (este
+sem navegador: o Bling falso e o admin) e avise-me. Rode os que
 tocam no que você mexeu, e todos antes de entregar. Os que escrevem no admin desfazem o que mudaram
 no fim, mesmo quando falham.
 
@@ -144,6 +144,12 @@ cannot have a negative time stamp.", quando o relógio do `next dev`, no ar há 
 do navegador. O da conta e os do painel descontam esse erro (`ferramentas/relogio-do-dev.mjs`);
 a explicação está no parágrafo do painel, mais abaixo.
 
+Um quinto, de banco copiado: o código da oferta do checkout é assinado com o `REVALIDAR_SEGREDO`
+(`lib/bumps.ts`), e um backend com outro segredo não acha nenhuma oferta valendo — o modelo do
+motor vem com `bump: {}`, e o de checkout para em "a caixinha aparece". O job `bumps` refaz as
+promoções de hora em hora; na hora, `medusa exec ./src/scripts/promocoes.ts` no banco local e
+reinicie o Medusa e o `next dev` (o modelo fica guardado uma hora nos dois).
+
 O de pagamento liga o Pagar.me na região pelo admin e devolve como estava. O aviso do estorno
 que não saiu ele lê numa caixa só (`caixaDaEquipe`), como o do ERP: a do dono do painel (o
 `DASHBOARD_DONO_EMAIL` do backend, que vai no ambiente dele também) ou, num banco sem ninguém no
@@ -241,7 +247,13 @@ rápida — ou a transportadora responde um serviço só —, as duas são A MES
 grátis vale nas duas (`aplicarPolitica` recebe o `servico` de cada faixa, no provider e na rota
 `/store/frete`). Antes só a econômica zerava, e a "expressa" cobrava pelo mesmo PAC e o mesmo
 prazo. No checkout, a econômica empatada em preço some (`semEntregaEmpatada`), a não ser que seja
-a gravada no carrinho.
+a gravada no carrinho. O PRAZO ("Chega em 8 dias úteis") o checkout não tem como tirar da cotação
+do Medusa, que devolve só o preço: ele pergunta à rota da calculadora (`POST /store/frete`, com o
+`cart_id`), em paralelo, e junta por faixa (`prazosDasFaixas`, em `lib/checkout.ts`; entrega
+0123). Pelo carrinho, a pergunta é a mesma do Medusa, e as duas dividem a viagem à Frenet — o
+`conferir-checkout` confere que abrir o passo 2 é uma viagem só. Quando as duas faixas são o
+mesmo serviço, a rota responde uma entrega só, e o prazo dela vale pras duas. Sem resposta da rota,
+a linha volta pra descrição do tipo ("A mais barata para o seu CEP").
 
 **Pagamento** é um provider próprio (`src/modules/pagarme/`, id `pp_pagarme_pagarme`): Pix e cartão
 em até 3x pelo Pagar.me, ligado na região por `npm run backend:pagamento` (que tira o provisório
@@ -608,6 +620,22 @@ cancelado, sem o Pagar.me ou que já saiu pra entrega. Todo e-mail de pedido nov
 — evento na hora, varredura embaixo, registro no pedido —, e a nota fiscal e o `purchase` também:
 o `payment.captured` sozinho perde o "Check status".
 
+O **aviso de venda nova** (`src/lib/avisar-venda.ts`; o desenho em `emails/venda-nova.ts`) é esse
+molde, pro dono: sai no `pagamento-capturado.ts` logo depois da confirmação do cliente, e pela mesma
+varredura — no fim do job `confirmar-pedidos` e no `POST /admin/pedidos/confirmar`, que devolve o
+relatório `vendas`. Vai pro papel dono (`emailsPraAvisar`; a linha "Venda nova" de
+`AVISOS_DA_EQUIPE`), um e-mail por pessoa, com a chave `venda-nova/<id>/<para>`. O registro
+(`metadata.emails.venda`) só é gravado quando todos receberam: com um dono recebendo e o outro não,
+a varredura manda de novo, e a chave segura o repetido de quem já tinha. Sem dado de quem comprou,
+como os outros avisos da equipe: os itens e os totais são os do e-mail do cliente
+(`paraPedidoDoEmail`, `linhaDoItem`, `totais`), e o `VendaDoAviso` não tem onde pôr nome, endereço
+nem o final do cartão. Não sai pra pedido cancelado (o Pix pago num pedido já cancelado volta pra
+quem pagou — não é venda), sem o Pagar.me ou que já saiu pra entrega; o cartão em análise só avisa
+quando é cobrado. O botão abre o pedido no painel (`DASHBOARD_URL`) ou, sem ele, no admin. O
+`conferir-pagamento` confere o aviso em cada caminho: Pix pelo aviso, cartão na hora e depois da
+análise, o Resend fora, o "Check status", e nenhum pro Pix vencido, pro reprovado e pro Pix pago
+depois do cancelamento.
+
 O de **pedido cancelado** (`src/lib/avisar-cancelamento.ts`) é o mesmo molde, com o `order.canceled`
 no lugar do `payment.captured` e a mesma varredura embaixo; o registro é `metadata.emails.cancelado`.
 Ele diz três coisas — estornado, Pix vencido, cancelado antes do pagamento —, e **a pergunta "houve
@@ -631,7 +659,7 @@ CRÉDITO no pedido, e o `total` de um pedido cancelado e estornado é zero (o `o
 serve: é a conta antes do cupom).
 
 **O metadata do pedido** tem vários donos — `emails.confirmado`, `emails.cancelado`,
-`emails.devolvido`, `estornos`, `fb_parceiro` e `fb_bump` — e UMA porta de escrita:
+`emails.devolvido`, `emails.venda`, `estornos`, `fb_parceiro` e `fb_bump` — e UMA porta de escrita:
 `gravarNoMetadataDoPedido` (`src/lib/metadata-do-pedido.ts`). O `updateOrders` do Medusa lê o pedido, mistura o metadata na
 memória (só no primeiro nível) e grava a coluna inteira: dois donos gravando juntos, o último
 apaga o que o primeiro gravou — foi o registro da confirmação sumindo debaixo do `fb_bump`, gravado
@@ -731,6 +759,33 @@ Privacidade promete. Entra por `POST /store/newsletter` (a mesma resposta pra qu
 lista, e os limites por IP assinado do código da conta) e se vê, baixa em CSV e remove no admin, em
 "Newsletter". Remover APAGA — é o "pode sair quando quiser" e o pedido de exclusão da LGPD. A
 tabela `loja.newsletter` do Supabase, do plano antigo, ficou sem uso.
+
+O **produto esgotado e o avise-me** (entrega 0124). Esgotado é OUTRA caixa de compra
+(`CompraEsgotada`, em `components/produto/compra.tsx`): o preço, a faixa "Esgotado" e o "avise-me
+quando chegar" (`components/produto/avise-me.tsx`, a ação `lib/acoes/avise-me.ts`) no lugar do
+botão — sem frete, unidades, leve junto e garantias; a barra fixa vira "Avise-me" e leva pro campo.
+A régua é a de sempre (`temEstoque`, `esgotado` em `lib/medusa.ts`; com `allow_backorder` a variante
+vende e o número não limita); a `Dobra` põe o selo na foto e o "enquanto isso" pra categoria. O card
+diz "Esgotado" e "Avise-me" sem CSS novo (ele mora na home, que não tem folga), e o carrossel da PDP
+põe o esgotado no fim. No backend, o módulo `src/modules/avise-me/` (tabela `aviso_de_estoque`: o
+e-mail, a variante e a data do pedido) recebe `POST /store/avise-me` — só produto no site e
+esgotado (o com estoque é 409 `tem_estoque`, e a rota avisa a loja da página velha), a mesma
+resposta pra quem já esperava, os limites da newsletter. O job `avisar-quem-espera` (4-59/5, um
+minuto depois da cópia do Bling; `POST /admin/avise-me/rodar` é o gêmeo) faz, nesta ordem: (1)
+avisa a loja do produto que esgotou ou voltou desde a rodada anterior (a foto fica na memória; a
+primeira rodada depois de subir avisa todos) — a última unidade vendida é reserva, não mexe no
+nível, e ninguém avisava a loja: a PDP seguia com "Adicionar à sacola" por até uma hora; (2) manda o
+"Voltou pro estoque" (`lib/emails/avise-me.ts`, com UTM `utm_campaign=avise-me`) pra quem espera
+um produto que voltou, de quem pediu primeiro, 60 por rodada, com `idempotencia` `avise-me/<id>`;
+enviado, a linha fica sem o e-mail (`avisado_em`) — 422 apaga, queda conta `falhas` e para a rodada.
+O aviso à loja usa o perfil `"agora"` do `/api/revalidar` (`{ expire: 0 }`): o `"seconds"` ainda
+serve a página velha por até um minuto, e quem clica no e-mail logo que ele chega cairia no
+"Esgotado". A regra pura (`planoDaRodada`, `produtosQueMudaram`, `vendeAgora`) tem teste. O painel
+lê `avisos` em `GET /dashboard/produtos/:id` (esperando e avisados), e o "Tirar" da newsletter apaga
+os pedidos de aviso do e-mail. O conferidor é o `ferramentas/conferir-avise-me.mjs`: esgota um
+produto pelo admin (o spray, ou `ESGOTAR`) e devolve no fim, lê os pedidos em `GET /admin/avise-me`
+e os e-mails no Resend falso (`PORTA_RESEND`, a do `RESEND_URL` do backend), com a loja no
+`LOJA_URL` do backend — senão a rodada não tem pra quem avisar e a página não vira.
 
 A **esteira de avaliações** da home ("Nossos clientes nos amam", `components/home/amam.tsx`) mostra
 até quatro depoimentos de cada produto — avaliação ou trecho de entrevista —, sorteados a cada
@@ -1438,9 +1493,10 @@ dono). A regra mora em `src/lib/painel/configuracoes.ts`, puro, com testes:
   linha, e a lista para em `MAX_PENDENCIAS`); os e-mails, com o remetente do `remetenteDosEmails`
   (`lib/email.ts`, o mesmo do `enviarEmail`).
 - **Pra quem vai o aviso da equipe:** `AVISOS_DA_EQUIPE` diz o papel de cada um (a nota: operação e
-  dono; o Bling caído e o estorno: dono), e `destinatarios` escolhe os e-mails — quem está ativo no
-  papel; sem ninguém, o dono; sem ninguém no painel, os usuários do admin, como antes. O
-  `avisarAEquipe` do ERP e o dos estornos chamam o `emailsPraAvisar` (`lib/equipe/avisados.ts`).
+  dono; a venda nova, o Bling caído e o estorno: dono), e `destinatarios` escolhe os e-mails — quem
+  está ativo no papel; sem ninguém, o dono; sem ninguém no painel, os usuários do admin, como antes.
+  O `avisarAEquipe` do ERP, o dos estornos e o `avisarVenda` chamam o `emailsPraAvisar`
+  (`lib/equipe/avisados.ts`).
 
 As rotas: `GET /dashboard/configuracoes` e
 `POST /dashboard/configuracoes/{empresa,frete,emergencia,nota}`. Todas anotam no registro da

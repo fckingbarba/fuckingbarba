@@ -2,7 +2,16 @@
 
 import Image from "next/image"
 import { useEffect, useId, useRef, useState, useTransition } from "react"
-import { Caminhao, Cartao, EscudoCerto, Raio, Sacola, Triangulo } from "@/components/icones"
+import {
+  Caminhao,
+  Cartao,
+  Envelope,
+  EscudoCerto,
+  Raio,
+  Sacola,
+  Triangulo,
+} from "@/components/icones"
+import { AviseMe } from "@/components/produto/avise-me"
 import { EVENTO_SACOLA, useSacola } from "@/components/sacola/contexto"
 import { adicionar, adicionarVarios, type Resultado } from "@/lib/acoes/carrinho"
 import type { CarrinhoVisivel } from "@/lib/carrinho-visivel"
@@ -33,6 +42,12 @@ import { usePeDaTela } from "@/lib/use-pe-da-tela"
  * que vai ser cobrado é o que o Medusa calcular no carrinho pra essa mesma
  * quantidade — os dois saem da mesma conta. A única multiplicação daqui é
  * unidades x preço da unidade, que é a que o carrinho também faz.
+ *
+ * ESGOTADO, É OUTRA CAIXA (`CompraEsgotada`, lá embaixo): o preço, a faixa
+ * "Esgotado" e o "avise-me quando chegar" no lugar do botão. Some tudo o que
+ * só serve pra quem compra agora — o frete, as unidades, o leve junto, o
+ * botão e as garantias. Até 26/09 a caixa continuava inteira, com um botão
+ * "Esgotado" preto que parecia clicável e não fazia nada.
  */
 
 const MAX = 10
@@ -75,6 +90,8 @@ export function Compra({
   const [recado, setRecado] = useState<string | null>(null)
   const [enviando, comecar] = useTransition()
   const botao = useRef<HTMLButtonElement>(null)
+  // A caixa do avise-me, quando esgotado: é pra ela que a barra fixa leva.
+  const caixaDoAviso = useRef<HTMLDivElement>(null)
   const sacola = useSacola()
 
   // A visita ao produto, uma por produto (a ViewContent da Meta e do TikTok).
@@ -106,6 +123,19 @@ export function Compra({
   const disponivel = estoque === null ? base.disponivel : estoque >= unidades
   // Tem pelo menos uma pra mandar — é o que "envio imediato" promete.
   const temEstoque = estoque === null ? base.disponivel : estoque >= 1
+
+  if (!temEstoque) {
+    return (
+      <CompraEsgotada
+        nome={nome}
+        foto={foto}
+        varianteId={base.varianteId}
+        preco={base.preco}
+        precoCheio={precoCheio}
+        caixa={caixaDoAviso}
+      />
+    )
+  }
 
   const total = emCentavos(degrau.porUnidade * unidades)
   const parcela = total / PARCELAS_SEM_JUROS
@@ -245,48 +275,10 @@ export function Compra({
   return (
     <>
       <div itemProp="offers" itemScope itemType="https://schema.org/Offer">
-        <meta itemProp="priceCurrency" content="BRL" />
-        {/*
-          O preço indexado é o do produto DESTA página — uma unidade —, e não
-          o do degrau escolhido. O Google lê o HTML que sai do servidor; um
-          número que muda no clique não chega nele, e o preço de 3 unidades no
-          lugar do de uma faria o resultado de busca anunciar R$ 222,90 por
-          uma unidade.
-        */}
-        <meta itemProp="price" content={(degraus[0]?.preco ?? 0).toFixed(2)} />
-        <link
-          itemProp="availability"
-          href={
-            degraus[0]?.disponivel ? "https://schema.org/InStock" : "https://schema.org/OutOfStock"
-          }
+        <DadosDaOferta
+          preco={degraus[0]?.preco ?? 0}
+          disponivel={degraus[0]?.disponivel ?? false}
         />
-        <meta itemProp="itemCondition" content="https://schema.org/NewCondition" />
-
-        {/*
-          Sem isto o Search Console acusa "campo ausente" e a ficha de produto
-          sai crua, sem o selo de devolução. São os 7 dias do art. 49 do CDC,
-          que valem pra toda compra pela internet e não dependem de política
-          nossa — por isso podem ser declarados antes de existir qualquer
-          política escrita.
-
-          `shippingDetails` fica de fora até o Frenet entrar: declarar um
-          frete fixo aqui faria o Google anunciar um valor que o checkout não
-          vai cobrar, e aí a reclamação chega antes do pedido.
-        */}
-        <div
-          itemProp="hasMerchantReturnPolicy"
-          itemScope
-          itemType="https://schema.org/MerchantReturnPolicy"
-        >
-          <meta itemProp="applicableCountry" content="BR" />
-          <link
-            itemProp="returnPolicyCategory"
-            href="https://schema.org/MerchantReturnFiniteReturnWindow"
-          />
-          <meta itemProp="merchantReturnDays" content="7" />
-          <link itemProp="returnMethod" href="https://schema.org/ReturnByMail" />
-          <link itemProp="returnFees" href="https://schema.org/FreeReturn" />
-        </div>
 
         {/*
           O PREÇO QUE SE PAGA VEM PRIMEIRO, grande; o "de" riscado e a
@@ -499,6 +491,136 @@ export function Compra({
       />
     </>
   )
+}
+
+/**
+ * O QUE O GOOGLE LÊ DA OFERTA — preço, disponibilidade, condição e a política
+ * de devolução, em microdata. Mora dentro do `itemProp="offers"` das duas
+ * caixas, a de comprar e a do esgotado.
+ */
+function DadosDaOferta({ preco, disponivel }: { preco: number; disponivel: boolean }) {
+  return (
+    <>
+      <meta itemProp="priceCurrency" content="BRL" />
+      {/*
+        O preço indexado é o do produto DESTA página — uma unidade —, e não
+        o do degrau escolhido. O Google lê o HTML que sai do servidor; um
+        número que muda no clique não chega nele, e o preço de 3 unidades no
+        lugar do de uma faria o resultado de busca anunciar R$ 222,90 por
+        uma unidade.
+      */}
+      <meta itemProp="price" content={preco.toFixed(2)} />
+      <link
+        itemProp="availability"
+        href={disponivel ? "https://schema.org/InStock" : "https://schema.org/OutOfStock"}
+      />
+      <meta itemProp="itemCondition" content="https://schema.org/NewCondition" />
+
+      {/*
+        Sem isto o Search Console acusa "campo ausente" e a ficha de produto
+        sai crua, sem o selo de devolução. São os 7 dias do art. 49 do CDC,
+        que valem pra toda compra pela internet e não dependem de política
+        nossa — por isso podem ser declarados antes de existir qualquer
+        política escrita.
+
+        `shippingDetails` fica de fora até o Frenet entrar: declarar um
+        frete fixo aqui faria o Google anunciar um valor que o checkout não
+        vai cobrar, e aí a reclamação chega antes do pedido.
+      */}
+      <div
+        itemProp="hasMerchantReturnPolicy"
+        itemScope
+        itemType="https://schema.org/MerchantReturnPolicy"
+      >
+        <meta itemProp="applicableCountry" content="BR" />
+        <link
+          itemProp="returnPolicyCategory"
+          href="https://schema.org/MerchantReturnFiniteReturnWindow"
+        />
+        <meta itemProp="merchantReturnDays" content="7" />
+        <link itemProp="returnMethod" href="https://schema.org/ReturnByMail" />
+        <link itemProp="returnFees" href="https://schema.org/FreeReturn" />
+      </div>
+    </>
+  )
+}
+
+/**
+ * A CAIXA DO ESGOTADO — o preço (que é informação: a pessoa quer saber
+ * quanto vai custar quando voltar), a faixa "Esgotado" e o avise-me no lugar
+ * do botão. O frete, as unidades, o leve junto e as garantias ficam de fora:
+ * são perguntas de quem compra agora.
+ *
+ * A BARRA FIXA CONTINUA, com "Avise-me" no lugar do "Comprar": quem rolou
+ * a página lendo as seções e decidiu que quer tem o mesmo atalho de volta —
+ * só que pra caixa do aviso.
+ *
+ * O "de" riscado fica, e a economia não: "Economiza R$ 70" de uma coisa que
+ * não dá pra comprar é promessa sem objeto.
+ */
+function CompraEsgotada({
+  nome,
+  foto,
+  varianteId,
+  preco,
+  precoCheio,
+  caixa,
+}: {
+  nome: string
+  foto: string | null
+  varianteId: string
+  preco: number
+  precoCheio: number | null
+  caixa: React.RefObject<HTMLDivElement | null>
+}) {
+  const riscado = precoCheio && precoCheio > preco ? precoCheio : null
+  return (
+    <>
+      <div itemProp="offers" itemScope itemType="https://schema.org/Offer">
+        <DadosDaOferta preco={preco} disponivel={false} />
+        <p className="compra__precos">
+          <span className="compra__por">{emReais(preco)}</span>
+          {riscado ? (
+            <span className="compra__de">
+              <span className="sr-only">antes </span>
+              {emReais(riscado)}
+            </span>
+          ) : null}
+        </p>
+        <p className="compra__esgotado">
+          <b>Esgotado</b>
+          <span>Acabou o estoque deste produto.</span>
+        </p>
+      </div>
+
+      <AviseMe varianteId={varianteId} nome={nome} caixa={caixa} />
+
+      <BarraFixa
+        nome={nome}
+        foto={foto}
+        juntos={[]}
+        preco={preco}
+        riscado={riscado}
+        alvo={caixa}
+        ocupado={false}
+        disponivel={false}
+        aoComprar={() => irParaOAviso(caixa)}
+        aviso
+      />
+    </>
+  )
+}
+
+/**
+ * O "Avise-me" da barra fixa: rola até a caixa e põe o cursor no campo. O
+ * foco vai sem rolar de novo (`preventScroll`), senão ele pula a caixa pro
+ * topo da tela, por cima da rolagem suave.
+ */
+function irParaOAviso(caixa: React.RefObject<HTMLDivElement | null>) {
+  const el = caixa.current
+  if (!el) return
+  el.scrollIntoView({ behavior: "smooth", block: "center" })
+  el.querySelector<HTMLInputElement>('input[type="email"]')?.focus({ preventScroll: true })
 }
 
 function textoDoBotao(enviando: boolean, disponivel: boolean) {
@@ -760,6 +882,7 @@ function BarraFixa({
   ocupado,
   disponivel,
   aoComprar,
+  aviso = false,
 }: {
   nome: string
   foto: string | null
@@ -767,10 +890,13 @@ function BarraFixa({
   juntos: readonly ProdutoQueCombina[]
   preco: number
   riscado: number | null
-  alvo: React.RefObject<HTMLButtonElement | null>
+  /** O que, saindo de vista, faz a barra aparecer: o botão de comprar, ou a caixa do aviso. */
+  alvo: React.RefObject<HTMLElement | null>
   ocupado: boolean
   disponivel: boolean
   aoComprar: () => void
+  /** Esgotado: o botão vira "Avise-me" e leva pra caixa do aviso (`aoComprar`). */
+  aviso?: boolean
 }) {
   const [mostra, setMostra] = useState(false)
   // À vista, a barra ocupa o pé da tela: a faixa de cookies sobe pra cima dela.
@@ -843,10 +969,17 @@ function BarraFixa({
         </span>
       </span>
 
-      <button type="button" className="btn" onClick={aoComprar} disabled={ocupado || !disponivel}>
-        {disponivel ? (ocupado ? "Adicionando…" : "Comprar") : "Esgotado"}
-        <Sacola className="btn__icone" />
-      </button>
+      {aviso ? (
+        <button type="button" className="btn" onClick={aoComprar}>
+          Avise-me
+          <Envelope className="btn__icone" />
+        </button>
+      ) : (
+        <button type="button" className="btn" onClick={aoComprar} disabled={ocupado || !disponivel}>
+          {disponivel ? (ocupado ? "Adicionando…" : "Comprar") : "Esgotado"}
+          <Sacola className="btn__icone" />
+        </button>
+      )}
     </div>
   )
 }

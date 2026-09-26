@@ -514,6 +514,11 @@
   font-weight: 600;
   color: var(--color-tinta-suave);
 }
+.opcoes__nota {
+  margin: 0;
+  font-size: 0.7rem;
+  color: var(--color-tinta-suave);
+}
 .opcao__selo {
   position: absolute;
   top: -9px;
@@ -654,6 +659,24 @@
   height: 11px;
   fill: currentColor;
   flex-shrink: 0;
+}
+.completa__chip:has(.completa__foto) {
+  padding-left: 5px;
+}
+.completa__foto {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  overflow: hidden;
+  background: #fff;
+  border: 1.5px solid var(--color-tinta);
+  clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px);
+}
+.completa__foto img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 .completa__cat {
   font-size: 0.58rem;

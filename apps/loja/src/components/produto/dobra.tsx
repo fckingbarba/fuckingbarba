@@ -1,9 +1,10 @@
+import Link from "next/link"
 import { notFound } from "next/navigation"
 import { Compra } from "@/components/produto/compra"
 import { Galeria, type Foto, type ItemDaGaleria } from "@/components/produto/galeria"
 import { Migalhas, type Migalha } from "@/components/produto/migalhas"
 import { VeNaPratica } from "@/components/produto/ve-na-pratica"
-import { buscarProdutoPorHandle, escadaDeQuantidade, precosDe } from "@/lib/medusa"
+import { buscarProdutoPorHandle, escadaDeQuantidade, precosDe, temEstoque } from "@/lib/medusa"
 import { modoDaCaixa, pdpDoProduto, produtosQueCombinam, videosDaFaixa } from "@/lib/pdp"
 import { site } from "@/lib/site"
 
@@ -108,12 +109,26 @@ export async function Dobra({ handle }: { handle: string }) {
   /*
    * O número da escassez só existe quando o Medusa controla o estoque desta
    * variante. Com `manage_inventory` desligado não há número nenhum pra
-   * mostrar, e inventar um é o começo da página deixar de ser confiável.
+   * mostrar, e inventar um é o começo da página deixar de ser confiável. Com
+   * venda sem estoque (`allow_backorder`) também não: o número não limita
+   * nada, e com ele a caixa de compra se diria esgotada de um produto que
+   * vende.
    */
   const estoque =
-    variante?.manage_inventory && typeof variante.inventory_quantity === "number"
+    variante?.manage_inventory &&
+    !variante.allow_backorder &&
+    typeof variante.inventory_quantity === "number"
       ? variante.inventory_quantity
       : null
+
+  /*
+   * ESGOTADO: a mesma conta da caixa de compra (`temEstoque` da variante,
+   * que é o que a `Compra` recebe nos degraus). A caixa troca o botão pelo
+   * avise-me; daqui saem o selo da foto e o atalho pros outros produtos da
+   * mesma categoria — quem chegou aqui queria algo desse tipo.
+   */
+  const esgotado = variante ? !temEstoque(variante) : false
+  const categoriaDaTrilha = trilha.length > 2 ? trilha[1] : null
 
   return (
     <>
@@ -140,6 +155,7 @@ export async function Dobra({ handle }: { handle: string }) {
             itens={itens}
             alvo={legenda(produto.title, produto.subtitle)}
             desconto={desconto}
+            esgotado={esgotado}
           />
 
           <div className="compra">
@@ -152,6 +168,19 @@ export async function Dobra({ handle }: { handle: string }) {
               estoque={estoque}
               mostrarDegraus={mostrarDegraus}
             />
+            {esgotado ? (
+              <p className="compra__outros">
+                Enquanto isso,{" "}
+                {categoriaDaTrilha?.href ? (
+                  <Link href={categoriaDaTrilha.href}>
+                    veja o que mais tem em {categoriaDaTrilha.nome}
+                  </Link>
+                ) : (
+                  <Link href="/produtos">veja os outros produtos</Link>
+                )}
+                .
+              </p>
+            ) : null}
             <VeNaPratica videos={videosDaFaixa(videos)} produto={produto.title} />
           </div>
         </div>

@@ -388,6 +388,11 @@ export function lerIntegracoes(v: unknown): Leitura<Integracoes> {
  */
 export const AVISOS_DA_EQUIPE = [
   {
+    nome: "Venda nova",
+    texto: "Um por pedido, logo que o pagamento entra (Pix pago, cartão aprovado).",
+    papeis: ["dono"],
+  },
+  {
     nome: "A nota do pedido não saiu",
     texto: "Rejeitada, denegada, ou o Bling recusou o pedido.",
     papeis: ["operacao", "dono"],

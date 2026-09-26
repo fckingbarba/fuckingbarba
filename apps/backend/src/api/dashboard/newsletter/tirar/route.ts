@@ -1,5 +1,6 @@
 import type { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { updateCustomersWorkflow } from "@medusajs/medusa/core-flows"
+import { tirarDoAviseMe } from "../../../../lib/avise-me"
 import { exigirArea, type PedidoDaEquipe } from "../../../../lib/equipe/acesso"
 import { anotar } from "../../../../lib/painel/anotar"
 import { emailMascarado } from "../../../../lib/painel/clientes"
@@ -13,12 +14,15 @@ import { removerDaNewsletterWorkflow } from "../../../../workflows/newsletter/re
  * mora: a inscrição da newsletter é APAGADA (como no admin: sem marca de
  * cancelado), e a caixa de ofertas por e-mail da conta desmarca (a do
  * WhatsApp fica como está). Se a pessoa quiser de novo depois, é um "sim"
- * novo, com data nova.
+ * novo, com data nova. Junto, os pedidos de aviso de produto esgotado que ela
+ * ainda espera (o avise-me, `lib/avise-me.ts`) são apagados: quem pede pra
+ * sair não recebe o "voltou" depois.
  *
  * Fica no registro da equipe, com o e-mail mascarado. Marketing e dono.
  *
- * RESPOSTAS: 200 `{ ok, newsletter, contas }` (o que saiu de cada lugar);
- * 400 `email`; 404 `nao_encontrado` (o e-mail não estava na lista).
+ * RESPOSTAS: 200 `{ ok, newsletter, contas, avisos }` (o que saiu de cada
+ * lugar); 400 `email`; 404 `nao_encontrado` (o e-mail não estava em lugar
+ * nenhum).
  */
 export async function POST(req: AuthenticatedMedusaRequest, res: MedusaResponse) {
   const pedido = req as PedidoDaEquipe
@@ -39,7 +43,8 @@ export async function POST(req: AuthenticatedMedusaRequest, res: MedusaResponse)
     const ofertas = (c.metadata?.ofertas ?? null) as Record<string, unknown> | null
     return Boolean(ofertas?.email)
   })
-  if (!inscricoes.length && !comCaixa.length) {
+  const avisos = await tirarDoAviseMe(req.scope, email)
+  if (!inscricoes.length && !comCaixa.length && !avisos) {
     res.status(404).json({ message: "nao_encontrado" })
     return
   }
@@ -60,6 +65,7 @@ export async function POST(req: AuthenticatedMedusaRequest, res: MedusaResponse)
     email: emailMascarado(email),
     newsletter: inscricoes.length > 0,
     contas: comCaixa.length,
+    avisos,
   })
-  res.json({ ok: true, newsletter: inscricoes.length > 0, contas: comCaixa.length })
+  res.json({ ok: true, newsletter: inscricoes.length > 0, contas: comCaixa.length, avisos })
 }

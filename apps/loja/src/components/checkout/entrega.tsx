@@ -10,6 +10,7 @@ import {
   type FormEvent,
   type TransitionStartFunction,
 } from "react"
+import Image from "next/image"
 import { Mais, Raio } from "@/components/icones"
 import { adicionarOferta, consultarCep, escolherFrete, salvarEntrega } from "@/lib/acoes/checkout"
 import { limparCep, mascararCep } from "@/lib/cep-formato"
@@ -380,10 +381,12 @@ export function Entrega({ checkout, fretes, sugestoes, falta, piso, aoSalvar, ..
 /* ── as opções de frete ───────────────────────────────────────────────────── */
 
 /**
- * A LISTA VEM DO MEDUSA, INTEIRA. Preço e prazo saem de lá já resolvidos pra
- * este carrinho — inclusive o frete grátis, que no Medusa é um segundo preço
- * da mesma opção com regra no valor dos itens. A loja não sabe que existe
- * piso nenhum: ela escreve "Grátis" quando o preço volta zero.
+ * A LISTA VEM DO MEDUSA, INTEIRA. O preço sai de lá já resolvido pra este
+ * carrinho — inclusive o frete grátis, que no Medusa é um segundo preço da
+ * mesma opção com regra no valor dos itens. A loja não sabe que existe piso
+ * nenhum: ela escreve "Grátis" quando o preço volta zero. O prazo ("Chega em
+ * 8 dias úteis") vem da cotação da sacola, pela mesma viagem à Frenet — ver
+ * `prazosDasFaixas`, em `lib/checkout.ts`.
  *
  * A ESCOLHA GRAVA NA HORA, sem esperar o botão: o valor do frete entra no
  * resumo ao lado, e um total que só atualiza no clique seguinte é um total em
@@ -495,7 +498,7 @@ function Fretes({
             />
             <span>
               <span className="opcao__nome">{f.nome}</span>
-              <span className="opcao__desc">{f.prazo}</span>
+              <span className="opcao__desc">{f.prazo ? `Chega em ${f.prazo}` : f.descricao}</span>
             </span>
             <span className="opcao__valor" data-gratis={f.preco === 0 ? "" : undefined}>
               {f.preco === 0 ? "Grátis" : emReais(f.preco)}
@@ -504,6 +507,15 @@ function Fretes({
           </label>
         ))
       )}
+
+      {/*
+        O prazo da transportadora conta da POSTAGEM, não do pagamento — a
+        mesma ressalva da sacola e da calculadora da PDP. Só com prazo na tela:
+        sem ele, não há o que ressalvar.
+      */}
+      {fretes.some((f) => f.prazo) ? (
+        <p className="opcoes__nota">Dias úteis, contados da postagem.</p>
+      ) : null}
 
       {erro ? (
         <p className="campo__erro" role="alert">
@@ -525,8 +537,10 @@ function Fretes({
  * pessoa clicar duas vezes pra descobrir que ainda não deu — e aí a promessa
  * do chip era mentira.
  *
- * Discreto de propósito: uma faixa cinza com texto pequeno e chips de borda,
- * sem foto. É informação útil, não banner.
+ * Discreto de propósito: uma faixa cinza com texto pequeno e chips de borda.
+ * É informação útil, não banner. A foto pequena em cada chip (26/09, pedido
+ * da loja) é pra reconhecer o produto sem ler o nome; sem foto no catálogo, o
+ * chip sai só com o texto, como antes.
  */
 function Completa({
   sugestoes,
@@ -592,6 +606,11 @@ function Completa({
                 })
               }
             >
+              {o.imagem ? (
+                <span className="completa__foto">
+                  <Image src={o.imagem} alt="" width={44} height={44} sizes="44px" />
+                </span>
+              ) : null}
               <span>
                 <span className="completa__cat">{nomeDaCategoria(o.categoria)}</span>
                 <br />

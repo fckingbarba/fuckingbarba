@@ -217,6 +217,13 @@ const enviosModule = [{ resolve: "./src/modules/envios" }]
 const newsletterModule = [{ resolve: "./src/modules/newsletter" }]
 
 /**
+ * O "avise-me quando chegar" dos produtos esgotados (`src/modules/avise-me`):
+ * o e-mail e o produto de quem pediu, até o aviso sair. Ver o AGENTS.md,
+ * "O avise-me".
+ */
+const aviseMeModule = [{ resolve: "./src/modules/avise-me" }]
+
+/**
  * O ERP — a conexão (tokens cifrados) e a nota fiscal de cada pedido. Quem
  * fala com o ERP é o tradutor dele (`src/modules/bling/`); quem decide é
  * `src/lib/erp/`. Ver o AGENTS.md, "ERP".
@@ -285,6 +292,7 @@ module.exports = defineConfig({
     ...authModule,
     ...enviosModule,
     ...newsletterModule,
+    ...aviseMeModule,
     ...erpModule,
     ...equipeModule,
     ...observabilidadeModule,

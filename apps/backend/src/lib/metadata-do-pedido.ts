@@ -5,11 +5,12 @@ import { MedusaError, Modules } from "@medusajs/framework/utils"
  * O METADATA DO PEDIDO TEM VÁRIOS DONOS — e uma porta só pra escrever nele.
  *
  * Moram no mesmo JSON do pedido: os registros dos e-mails de confirmação e
- * de cancelamento (`emails.confirmado`, `emails.cancelado`), os estornos
- * (`estornos`), o registro no painel do parceiro de entrega (`fb_parceiro`)
- * e a oferta do checkout (`fb_bump`). Cada dono tem a trava dele, que
- * segura o trabalho inteiro (o e-mail, o Pagar.me, o parceiro) — mas a
- * coluna é uma só, e ninguém segurava a coluna.
+ * de cancelamento (`emails.confirmado`, `emails.cancelado`) e o do aviso de
+ * venda nova pro dono (`emails.venda`), os estornos (`estornos`), o registro
+ * no painel do parceiro de entrega (`fb_parceiro`) e a oferta do checkout
+ * (`fb_bump`). Cada dono tem a trava dele, que segura o trabalho inteiro (o
+ * e-mail, o Pagar.me, o parceiro) — mas a coluna é uma só, e ninguém
+ * segurava a coluna.
  *
  * ┌─ COMO UM REGISTRO SE PERDIA (o #467, local, em 23/09) ─────────────────┐
  * │ O `updateOrders` do Medusa lê o pedido, mistura o metadata na memória  │

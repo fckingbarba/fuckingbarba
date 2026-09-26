@@ -1041,6 +1041,13 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
       ou, num banco sem ninguém no painel, a do admin, como antes. Nenhum outro conferidor procura
       aviso da equipe no admin (o do painel já lia a caixa do dono). Só o conferidor mudou: nada
       muda na loja, e nada a configurar.
+- [x] **O teste do bilhete de vídeo caía 1 vez em 64** (entrega 0131, 26/09). No
+      `videos.unit.spec.ts`, o "mexido, com outra chave ou vencido: não vale" estragava a
+      assinatura trocando a primeira letra por "x". O bilhete leva um `n` sorteado, e a assinatura
+      muda junto: quando ela já começava com "x", a "estragada" era a mesma, e o `lerEnvio` a
+      aceitava — com razão. Agora a letra trocada é sempre outra. Provado com o `n` forçado a dar
+      assinatura com "x" na frente: o teste de antes falha, o novo passa. Só o teste mudou: nada
+      muda na loja, e nada a configurar.
 - [x] **A sacola responde no clique** (entrega 0104, 26/09, pedido da loja: "adicionar ou remover
       do carrinho está demorando"). Medido na produção: adicionar levava 1,3 s (2,4 s o primeiro,
       que cria o carrinho), o "+" 1,1 s e remover 0,9 s — quase tudo no Medusa, que refaz o
@@ -2329,6 +2336,95 @@ o `conferir-cupons.mjs` (25/25) com eles no banco e os testes de unidade (15 nov
 
 Depois do deploy — **nada a configurar.** Pra conferir: Painel → Cupons e descontos — a lista começa
 em 0P2XSB e termina em ZKVI3I.
+
+**Checkout: em quantos dias chega, e a foto nos produtos do "Completa com" — pronto em 26/09
+(entrega 0123).** Pedido dele, com print do passo 2.
+
+- **Em quantos dias chega:** cada opção de entrega diz "Chega em 8 dias úteis" (o prazo da
+  transportadora pro CEP), no lugar de "A mais barata para o seu CEP" — como a sacola e a página do
+  produto já diziam, e como o protótipo desenhou. Embaixo das opções, "Dias úteis, contados da
+  postagem." Não custa nada a mais na Frenet: o prazo vem na mesma consulta do preço.
+- **A foto nos produtos do "Completa com":** cada produto sugerido pra completar o frete grátis ganha
+  a foto pequena, do lado do nome. Produto sem foto no catálogo aparece só com o nome, como antes.
+
+Conferido pelo `conferir-checkout.mjs` (as checagens novas: o prazo de cada opção igual ao da
+cotação, a frase dos dias úteis, abrir o passo 2 com uma consulta só à Frenet, a foto certa e
+carregada em cada chip, e o prazo quando as duas entregas são o mesmo serviço). Com a loja de
+antes, as checagens do prazo e da foto falham.
+
+Depois do deploy — **nada a configurar.**
+
+**Aviso de venda nova pro dono — pronto em 26/09 (entrega 0127).** Pedido dele: "verifique se toda
+compra manda um e-mail pra mim, o administrador; se não, crie — logo depois do pagamento aprovado".
+
+- **Como estava:** a cada pedido pago, só o cliente recebia e-mail ("Pedido #N confirmado"). O dono
+  só via a venda abrindo o painel; os e-mails da equipe eram só de problema (a nota, o Bling, o
+  estorno).
+- **O que muda:** a cada venda paga, o dono recebe "Venda nova: pedido #N, R$ X no Pix" (ou "no
+  cartão"), logo depois do e-mail do cliente. Dentro: o valor, a hora do pagamento, a forma (no
+  cartão, a bandeira e as parcelas), o que foi vendido, os totais, o cupom e o botão "Abrir o pedido
+  no painel". Nada de quem comprou — nem nome, nem e-mail, nem endereço, nem o final do cartão —,
+  como nos outros e-mails da equipe: isso está no pedido, no painel.
+- **Quando sai:** quando o dinheiro entra — o Pix pago; o cartão aprovado (o que cai na análise de
+  fraude só avisa quando ela aprova e ele é cobrado). Não sai pro Pix que venceu, pro cartão
+  recusado nem pro Pix pago num pedido já cancelado (esse dinheiro volta pra quem pagou).
+- **Pra quem:** quem está como dono no painel — Configurações → E-mails mostra, na linha nova
+  "Venda nova"; sem ninguém no painel, os usuários do admin do Medusa. Um e-mail por pessoa, uma
+  vez por pedido.
+- **Se o e-mail falhar na hora** (o Resend fora), a varredura de 5 em 5 minutos manda depois, com a
+  hora certa do pagamento — a mesma que cobre o "Check status" do admin.
+- **No deploy**, os pedidos pagos nas 24 horas anteriores também recebem o aviso, uma vez cada (é a
+  varredura alcançando): podem chegar alguns de uma vez, cada um com a hora do seu pagamento.
+
+Conferido pelo `conferir-pagamento.mjs` (200 checagens; as 19 novas: o aviso do Pix, do cartão na
+hora e depois da análise, com o Resend fora, depois do "Check status"; nenhum pro Pix vencido, pro
+cartão reprovado nem pro Pix pago depois do cancelamento; nada de quem comprou; uma vez por pessoa
+em toda a rodada), pelo `conferir-configuracoes.mjs` do painel (a linha "Venda nova", só pro dono) e
+pelos testes de unidade (21 novos). Os e-mails que já existiam saem byte por byte iguais.
+
+Depois do deploy — **nada a configurar.** Pra ver: a próxima venda paga chega na caixa do dono do
+painel; e Configurações → E-mails → "Pra equipe" mostra a linha "Venda nova" e quem recebe.
+
+**Loja: a página do produto esgotado, com o "avise-me quando chegar" — pronta em 26/09 (entrega
+0124).** Pedido dele: "valide se a PDP tem página de produto fora de estoque, caso não tenha vamos
+criar" — e, na pergunta, "com avise-me". Validado antes: não tinha. O produto esgotado mostrava a
+página inteira como se vendesse (frete, parcelas, 1, 2 e 3 unidades), e só o botão virava
+"Esgotado" — preto, com cara de clicável, sem fazer nada. No ar, em 26/09, nenhum dos 15 estava
+esgotado.
+
+- **A página do esgotado:** o preço (com o "de" riscado), a faixa "Esgotado" e, no lugar do botão,
+  a caixa "Avise-me quando chegar", onde a pessoa deixa o e-mail. Saem o frete, as unidades, o leve
+  junto e as garantias. A foto ganha o selo "Esgotado", embaixo vem "Enquanto isso, veja o que mais
+  tem em <categoria>", e a barra que gruda embaixo vira "Avise-me".
+- **Quando o Bling tiver estoque de novo:** em até 5 minutos a página volta a vender e sai UM
+  e-mail pra cada pessoa — "Voltou: <produto>", com a foto, o preço e o botão "Comprar agora" (e
+  Instagram e TikTok no rodapé). Na ordem de quem pediu primeiro. Depois do aviso, o e-mail sai da
+  lista de espera; quem espera mais de 6 meses também sai.
+- **A página vira sozinha nos dois sentidos:** o produto que esgota (a última unidade vendida)
+  mostra "Esgotado" em até 5 minutos. Antes podia seguir com "Adicionar à sacola" por até uma hora,
+  e o erro só aparecia na sacola.
+- **Nos cards** (home, categorias, "Quem leva este, leva junto"): o selo diz "Esgotado" e o botão,
+  "Avise-me". No carrossel da página do produto, o esgotado vai pro fim.
+- **No painel:** Produtos → o produto → a faixa "Esgotado" diz quantas pessoas pediram o aviso, e o
+  bloco "Preço e estoque" mostra quantas esperam e quantas já foram avisadas. O "Tirar" da
+  newsletter tira a pessoa da lista de espera também.
+- **Marketing → Canais:** a visita e a compra que vêm do e-mail aparecem como "E-mail", campanha
+  "avise-me".
+- **A Política de Privacidade** conta o dado novo (o e-mail e o produto, até o aviso sair).
+
+Conferido pelo `conferir-avise-me.mjs` (novo, 32 checagens: a página esgotada no celular, a barra,
+o pedido com e-mail errado, repetido e em maiúsculas, nada saindo com o produto esgotado, o card e
+o carrossel, a volta com os e-mails e a página vendendo na primeira visita, a página velha que se
+refaz, o Resend fora e o limite por pessoa), pelos de sempre na mesma base (pdp 68/70 — as 2 de
+antes, do banco local —, checkout 160/160, catálogo 34/34, frete 70/70, configurações 17/17, links
+26/26; no painel, produtos 101/101, clientes 37/37, observabilidade 34/34) e pelos testes de
+unidade (949, 24 novos). No Lighthouse, A/B com a main: a home e a PDP do óleo seguem em 2,26 s, e
+o HTML da PDP com estoque saiu igual.
+
+Depois do deploy — **nada a configurar**: a tabela nova nasce na migração do Railway, e a rotina
+aparece em Observabilidade ("Avisa quem pediu um produto esgotado que voltou"). Não dá pra ver no
+ar sem esgotar um produto de verdade — e zerar no Bling mexe no estoque de todo lugar que lê dele.
+Quando um esgotar, a página já aparece assim, e o painel mostra quem pediu.
 
 **Cupons do jeito da Nuvemshop — pronto em 26/09 (entrega 0128).** Pedido dele, com o print do
 "Criar cupom" da Nuvemshop: "nossos cupons tem que ser bem estilo os da nuvemshop".

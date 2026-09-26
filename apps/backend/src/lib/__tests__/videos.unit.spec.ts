@@ -60,7 +60,10 @@ describe("o bilhete", () => {
       JSON.stringify({ ...JSON.parse(Buffer.from(corpo!, "base64url").toString()), tamanho: 99 })
     ).toString("base64url")
     expect(lerEnvio(`${outro}.${assinatura}`, 2_000)).toBeNull()
-    expect(lerEnvio(`${corpo}.x${assinatura!.slice(1)}`, 2_000)).toBeNull()
+    // O `n` é sorteado, e a assinatura junto: 1 vez em 64 ela já começa com "x",
+    // e trocar a primeira letra por "x" devolvia o bilhete intacto.
+    const trocada = assinatura![0] === "x" ? "y" : "x"
+    expect(lerEnvio(`${corpo}.${trocada}${assinatura!.slice(1)}`, 2_000)).toBeNull()
     expect(lerEnvio(b, 1_000 + 16 * 60 * 1000)).toBeNull()
     process.env.JWT_SECRET = "outro-segredo"
     expect(lerEnvio(b, 2_000)).toBeNull()

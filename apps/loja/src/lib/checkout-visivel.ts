@@ -70,8 +70,15 @@ export type OpcaoDeFrete = {
    * banco e ninguém aqui pode jurar o que tem lá dentro.
    */
   faixa: string | null
-  /** "5 a 10 dias úteis" — vem do tipo da opção, cadastrado no Medusa. */
-  prazo: string
+  /** "A mais barata para o seu CEP" — a linha de apoio, do tipo da opção cadastrado no Medusa. */
+  descricao: string
+  /**
+   * "8 dias úteis" — em quantos dias a transportadora entrega, contados da
+   * postagem. Não vem da opção do Medusa (a cotação dele devolve só o preço):
+   * vem da rota da calculadora, a mesma da sacola — ver `prazosDasFaixas`.
+   * `null` quando ela não respondeu, e aí a tela fica com a `descricao`.
+   */
+  prazo: string | null
   /** Em reais. Zero é frete grátis, e a tela escreve isso com todas as letras. */
   preco: number
   /**

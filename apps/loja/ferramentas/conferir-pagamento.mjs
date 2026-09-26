@@ -52,7 +52,11 @@
  * │   Resend fora na hora — ou receber dois; e pedido que não foi pago     │
  * │   receber um;                                                          │
  * │ • o estorno que o Pagar.me não fez (o Pix sem saldo) passar calado,    │
- * │   com o admin dizendo que devolveu — ou ser pedido duas vezes.         │
+ * │   com o admin dizendo que devolveu — ou ser pedido duas vezes;         │
+ * │ • pedido pago ficar sem o aviso de venda pro dono — pelos mesmos       │
+ * │   caminhos da confirmação —, ou o dono receber dois; o aviso levar     │
+ * │   dado de quem comprou; e pedido não pago (ou pago depois de           │
+ * │   cancelado) virar venda nova.                                         │
  * └─────────────────────────────────────────────────────────────────────────┘
  */
 
@@ -162,6 +166,43 @@ async function esperarConfirmacao(pedido, ms = 20000) {
   }
   return []
 }
+
+/* ── o aviso de venda nova (pra equipe) ───────────────────────────────────── */
+
+/**
+ * Os avisos de venda nova de um pedido — pelo número, como as confirmações. O
+ * aviso vai pro dono do painel (sem ninguém no painel, pra cada usuário do
+ * admin): a caixa lida é a do `caixaDaEquipe`, lá embaixo.
+ */
+const vendasDo = (pedido) =>
+  resend.emails.filter((e) =>
+    (e.subject ?? "").startsWith(`Venda nova: pedido #${pedido.display_id},`)
+  )
+async function esperarVenda(pedido, ms = 20000) {
+  for (const fim = Date.now() + ms; Date.now() < fim; await esperar(250)) {
+    const achadas = vendasDo(pedido)
+    if (achadas.length) return achadas
+  }
+  return []
+}
+/**
+ * A varredura dos avisos de venda — a mesma rota da das confirmações —, agora.
+ * Nula num backend sem o aviso (o relatório `vendas` não vem).
+ */
+const vendasPendentes = async () =>
+  (await adm("/admin/pedidos/confirmar", { method: "POST" })).vendas ?? null
+/** O registro do aviso no pedido (`metadata.emails.venda`), esperando ele ser gravado. */
+async function registroDaVenda(pedidoId, ms = 10000) {
+  for (const fim = Date.now() + ms; Date.now() < fim; await esperar(250)) {
+    const r = (await adm(`/admin/orders/${pedidoId}?fields=id,metadata`)).order?.metadata?.emails
+      ?.venda
+    if (r) return r
+  }
+  return null
+}
+/** Pra quem foram os avisos de venda de um pedido — sem repetir ninguém, se tudo deu certo. */
+const praQuemVenda = (pedido) => vendasDo(pedido).flatMap((e) => e.to ?? [])
+const semRepetir = (lista) => new Set(lista).size === lista.length
 
 /** O texto do e-mail com os espaços fixos dos valores trocados por espaço comum. */
 const textoDo = (email) => (email?.text ?? "").replace(/\u00a0/g, " ")
@@ -503,6 +544,21 @@ try {
       `nenhum pedido pago esperando confirmação${antigos ? ` (${antigos} de rodadas antigas saíram agora)` : ""}`,
       JSON.stringify(resto)
     )
+    // O mesmo pros avisos de venda nova: os pedidos pagos de rodadas antigas,
+    // ou de antes de o aviso existir, saem aqui, antes dos cenários.
+    let vendasAntigas = 0
+    for (let i = 0; i < 20; i++) {
+      const rodada = await vendasPendentes()
+      if (!rodada) break
+      vendasAntigas += rodada.mandados.length
+      if (!rodada.pendentes || (!rodada.mandados.length && !rodada.dispensados)) break
+    }
+    const restoDasVendas = await vendasPendentes()
+    ok(
+      restoDasVendas?.pendentes === 0,
+      `nenhum pedido pago esperando o aviso de venda${vendasAntigas ? ` (${vendasAntigas} de rodadas antigas saíram agora)` : ""}`,
+      JSON.stringify(restoDasVendas)
+    )
   }
 
   titulo("A região")
@@ -656,6 +712,63 @@ try {
       "uma vez só: o aviso do Pagar.me e a varredura passam pelo mesmo registro",
       String(confirmacoesDo(pago).length)
     )
+
+    titulo("O aviso de venda pro dono")
+    await esperarVenda(pago)
+    // Com dois donos, o registro só é gravado depois dos dois e-mails.
+    const anotado = await registroDaVenda(pedidoId)
+    const pra = praQuemVenda(pago)
+    const caixa = caixaDaEquipe(vendasDo(pago))
+    const venda = vendasDo(pago).find((e) => e.to?.includes(caixa))
+    ok(
+      Boolean(venda) && semRepetir(pra),
+      `"Venda nova: pedido #${pago.display_id}…" chega à equipe quando o Pix cai — um por pessoa`,
+      paraQuem(pra, caixa)
+    )
+    ok(!pra.includes("pix@fuckingbarba.invalid"), "e não pra quem comprou", pra.join(", "))
+    ok(
+      (venda?.subject ?? "").replace(/\u00a0/g, " ") ===
+        `Venda nova: pedido #${pago.display_id}, ${reais(pago.total)} no Pix`,
+      "o assunto diz o número, o valor e a forma",
+      venda?.subject
+    )
+    const textoDaVenda = textoDo(venda)
+    ok(
+      textoDaVenda.includes(`Total: ${reais(pago.total)}`) &&
+        /Pix pago às \d\d:\d\d de \d\d\/\d\d\./.test(textoDaVenda),
+      "com o total do Medusa e a hora em que o Pix caiu",
+      textoDaVenda.split("\n").slice(0, 4).join(" | ")
+    )
+    ok(
+      Boolean(venda) &&
+        !textoDaVenda.includes("pix@fuckingbarba.invalid") &&
+        !(venda.html ?? "").includes("pix@fuckingbarba.invalid") &&
+        !/Paulista|11144477735|Fulano/.test(textoDaVenda + (venda.html ?? "")),
+      "e sem dado de quem comprou"
+    )
+    const botao = /Abrir o pedido no (painel|admin)/.test(venda?.html ?? "")
+    if (!botao)
+      console.log("  ·  sem DASHBOARD_URL nem MEDUSA_BACKEND_URL no backend: o aviso sai sem botão")
+    ok(
+      !botao || new RegExp(`/(pedidos|app/orders)/${pedidoId}"`).test(venda?.html ?? ""),
+      "o botão abre este pedido no painel (ou no admin)"
+    )
+    ok(
+      venda?.chave === `venda-nova/${pedidoId}/${caixa}`,
+      "com a chave de idempotência do pedido e de quem recebe",
+      String(venda?.chave)
+    )
+    ok(
+      anotado?.como === "email" && anotado?.para === pra.length,
+      "e fica registrado no pedido",
+      JSON.stringify(anotado)
+    )
+    await vendasPendentes()
+    ok(
+      praQuemVenda(pago).length === pra.length,
+      "uma vez só: o evento e a varredura passam pelo mesmo registro",
+      String(praQuemVenda(pago).length)
+    )
     await contexto.close()
   }
 
@@ -738,6 +851,20 @@ try {
       /final 0010, em 3x sem juros/.test(textoDo(confirmacao)),
       "com o final do cartão e as parcelas",
       textoDo(confirmacao).split("\n")[2]
+    )
+    const [venda] = await esperarVenda(pedido)
+    // Sem as linhas com endereço: o id do pedido e as fotos podem ter "0010".
+    const semLinks = textoDo(venda)
+      .split("\n")
+      .filter((l) => !l.includes("http"))
+      .join("\n")
+    ok(
+      (venda?.subject ?? "").endsWith(" no cartão") &&
+        /Cartão( \S+)? em 3x, aprovado às \d\d:\d\d/.test(semLinks) &&
+        !semLinks.includes("0010") &&
+        !/final 0010/.test(venda?.html ?? ""),
+      "e o aviso de venda pro dono sai na hora também — o cartão e as parcelas, sem o final do cartão",
+      `${venda?.subject ?? "sem aviso"} · ${semLinks.split("\n")[3] ?? ""}`
     )
     await contexto.close()
   }
@@ -855,6 +982,7 @@ try {
     )
     await esperar(1500)
     ok(confirmacoesDo(pedido).length === 0, "nenhum e-mail de confirmação antes de cobrar")
+    ok(vendasDo(pedido).length === 0, "nem aviso de venda pro dono: ainda não é venda")
 
     const aviso = await pagarme.aprovarAnalise(la.pedido.id)
     ok(aviso?.aviso === 200, "a análise aprova, e o Pagar.me avisa (charge.antifraud_approved)")
@@ -873,6 +1001,11 @@ try {
       JSON.stringify(cobrancas)
     )
     ok((await esperarConfirmacao(pago)).length === 1, "e o e-mail de confirmação sai")
+    ok(
+      (await esperarVenda(pago)).length >= 1 && semRepetir(praQuemVenda(pago)),
+      "e o aviso de venda pro dono sai quando a análise aprova",
+      String(praQuemVenda(pago).length)
+    )
     await pagina
       .waitForFunction(
         () => document.querySelector(".feito h1")?.textContent?.trim() === "Pedido confirmado",
@@ -950,6 +1083,8 @@ try {
       'o e-mail diz "nada foi cobrado" — reserva desfeita não é estorno',
       email?.subject ?? "sem e-mail"
     )
+    await vendasPendentes()
+    ok(vendasDo(pedido).length === 0, "e nenhum aviso de venda pro dono: nada foi cobrado")
     await contexto.close()
 
     /*
@@ -1093,6 +1228,7 @@ try {
     )
     await confirmarPendentes()
     ok(confirmacoesDo(pedido).length === 0, "e nenhum 'Pedido confirmado' sai pro Pix que venceu")
+    ok(vendasDo(pedido).length === 0, "nem aviso de venda pro dono")
     await contexto.close()
   }
 
@@ -1171,6 +1307,11 @@ try {
       "uma vez: a rodada depois dela não manda de novo",
       `${confirmacoesDo(pedido).length} e-mails · ${JSON.stringify(outra)}`
     )
+    ok(
+      praQuemVenda(pedido).length >= 1 && semRepetir(praQuemVenda(pedido)),
+      "e o aviso de venda pro dono chega também — na hora ou pela varredura —, um por pessoa",
+      `${praQuemVenda(pedido).length} aviso(s): ${praQuemVenda(pedido).join(", ")}`
+    )
     await contexto.close()
   }
 
@@ -1201,7 +1342,7 @@ try {
     ok(pago?.payment_status === "captured", "o pedido fica pago", pago?.payment_status)
     await esperar(3000)
     ok(
-      confirmacoesDo(pago).length === 0,
+      confirmacoesDo(pago).length === 0 && vendasDo(pago).length === 0,
       "e nenhum evento sai dali — é o buraco que a varredura existe pra cobrir"
     )
     const rodada = await confirmarPendentes()
@@ -1209,6 +1350,11 @@ try {
       rodada.mandados.includes(`#${pago.display_id}`) && confirmacoesDo(pago).length === 1,
       "a varredura acha o pedido pago sem confirmação e manda, uma vez",
       JSON.stringify(rodada)
+    )
+    ok(
+      praQuemVenda(pago).length >= 1 && semRepetir(praQuemVenda(pago)),
+      "e a mesma varredura manda o aviso de venda pro dono",
+      String(praQuemVenda(pago).length)
     )
     await contexto.close()
   }
@@ -1573,6 +1719,10 @@ try {
       devolucoes().length === 1 && !varredura.devolucoes?.mandados?.includes(`#${numero}`),
       "uma vez só: nem a varredura dos e-mails nem a conciliação seguinte mandam de novo",
       `${devolucoes().length} e-mail(s) · ${JSON.stringify(varredura.devolucoes)}`
+    )
+    ok(
+      !resend.emails.some((e) => (e.subject ?? "").startsWith(`Venda nova: pedido #${numero},`)),
+      "e o Pix que entrou no pedido cancelado não vira aviso de venda — voltou pra quem pagou"
     )
   }
 
@@ -2006,6 +2156,26 @@ try {
       la.pedido.charges[0].last_transaction.status
     )
     await contexto.close()
+  }
+
+  titulo("Os avisos de venda da rodada inteira")
+  {
+    // Toda compra da rodada — a da resposta perdida, a da confirmação que se
+    // perdeu, a cobrança órfã… — passou pelo evento e pelas varreduras.
+    await vendasPendentes()
+    const vezes = new Map()
+    for (const e of resend.emails) {
+      const numero = (e.subject ?? "").match(/^Venda nova: pedido #(\d+),/)?.[1]
+      if (!numero) continue
+      for (const para of e.to ?? [])
+        vezes.set(`#${numero} → ${para}`, (vezes.get(`#${numero} → ${para}`) ?? 0) + 1)
+    }
+    const repetidos = [...vezes].filter(([, n]) => n > 1).map(([k, n]) => `${k} (${n}x)`)
+    ok(
+      vezes.size > 0 && !repetidos.length,
+      `${vezes.size} avisos de venda na rodada, nenhum repetido pra mesma pessoa`,
+      repetidos.join("; ")
+    )
   }
 } catch (e) {
   falhas++

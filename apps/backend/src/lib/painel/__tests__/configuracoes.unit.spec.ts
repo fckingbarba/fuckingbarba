@@ -249,8 +249,9 @@ describe("pra quem vai o aviso da equipe", () => {
     })
   })
 
-  it("a nota vai pra operação e o dono; o Bling e o estorno, pro dono", () => {
+  it("a nota vai pra operação e o dono; a venda nova, o Bling e o estorno, pro dono", () => {
     expect(AVISOS_DA_EQUIPE.map((a) => [a.nome, a.papeis.join("+")])).toEqual([
+      ["Venda nova", "dono"],
       ["A nota do pedido não saiu", "operacao+dono"],
       ["Confira a nota do pedido", "operacao+dono"],
       ["Cancele a nota (ou o pedido) no Bling", "operacao+dono"],
@@ -321,9 +322,11 @@ describe("a tela", () => {
     expect(telaDasConfiguracoes(dados({ remetente: "loja@x.com" })).emails.remetente).toBe(
       "loja@x.com"
     )
-    // A nota também é do dono: a Ana recebe direto, mesmo sem ninguém da operação.
-    expect(t.emails.equipe[0].quem).toBe("Ana (dono)")
-    expect(t.emails.equipe[4].quem).toBe("Ana (dono)")
+    // A venda nova é do dono; e a nota também: a Ana recebe direto, mesmo sem
+    // ninguém da operação.
+    expect(t.emails.equipe[0]).toMatchObject({ nome: "Venda nova", quem: "Ana (dono)" })
+    expect(t.emails.equipe[1].quem).toBe("Ana (dono)")
+    expect(t.emails.equipe[5].quem).toBe("Ana (dono)")
   })
 })
 
