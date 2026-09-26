@@ -27,21 +27,21 @@ async function Cupons() {
     redirect(`/sair?motivo=${r.corpo.message === "fora_da_equipe" ? "fora" : "expirou"}`)
   if (r.status === 403) return <SemAcesso area="cupons" />
   if (r.status !== 200) return <ForaDoAr />
-  const { cupons, automaticos } = r.corpo as unknown as PaginaDeCupons
+  const { cupons, automaticos, catalogo, loja = null } = r.corpo as unknown as PaginaDeCupons
 
   return (
     <div data-tela>
       <Cabeca
         titulo="Cupons e descontos"
         sub="Os cupons que alguém digita no checkout, e os descontos que a loja aplica sozinha."
-        acoes={<NovoCupom />}
+        acoes={<NovoCupom catalogo={catalogo} loja={loja} />}
       />
       <section className="bloco" data-cupons>
         <div className="bloco__cabeca">
           <h2 className="bloco__titulo">Cupons</h2>
           <span className="selo">quem valida é a loja, não a tela</span>
         </div>
-        <ListaDeCupons cupons={cupons} />
+        <ListaDeCupons cupons={cupons} loja={loja} />
       </section>
       <section className="bloco" data-automaticos>
         <div className="bloco__cabeca">
