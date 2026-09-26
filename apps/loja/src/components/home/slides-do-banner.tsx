@@ -37,6 +37,19 @@ export type SlidePronto = {
 export const ARTE_DO_COMPUTADOR = [1920, 630] as const
 export const ARTE_DO_CELULAR = [1080, 1275] as const
 
+/**
+ * A ARTE SAI EM QUALIDADE 60, e não nos 75 de toda foto da loja. Ela é a
+ * maior imagem da home e é o LCP: no celular, a primeira coisa que a pessoa
+ * espera ver. Em AVIF, 60 e 75 não se distinguem nem com o dobro de zoom
+ * (conferido em 26/09 nas duas artes do Kit Premium, inclusive nas letras
+ * miúdas dos rótulos), e a arte fica quase um terço mais leve: a do celular,
+ * de 57 pra 40 KB na tela do Lighthouse (e de 76 pra 56 KB num celular de
+ * tela 2x ou 3x); a do computador, de 95 pra 68 KB.
+ *
+ * Mexer aqui pede o valor novo em `images.qualities`, no next.config.ts.
+ */
+export const QUALIDADE_DA_ARTE = 60
+
 export function SlideDoBanner({
   slide,
   primeiro,
@@ -50,7 +63,7 @@ export function SlideDoBanner({
   /** `section` no banner de um slide só; `div` dentro do carrossel, que já é a seção. */
   raiz: "section" | "div"
 }) {
-  const comum = { alt: slide.titulo, sizes: "100vw" } as const
+  const comum = { alt: slide.titulo, sizes: "100vw", quality: QUALIDADE_DA_ARTE } as const
   const { props: doComputador } = getImageProps({
     ...comum,
     src: slide.computador,

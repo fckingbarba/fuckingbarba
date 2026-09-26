@@ -55,9 +55,9 @@
   right: -4%;
   width: 480px;
   height: 480px;
-  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z" fill="%2312181f" fill-opacity="0.05"/></svg>');
-  background-repeat: no-repeat;
-  background-size: contain;
+  /* Recorte, não imagem data: — ver --raio em base.css. */
+  background: rgb(18 24 31 / 0.05);
+  clip-path: var(--raio);
   pointer-events: none;
   z-index: 0;
 }

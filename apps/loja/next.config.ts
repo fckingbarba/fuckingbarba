@@ -40,6 +40,10 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   images: {
     formats: ["image/avif", "image/webp"],
+    // 75 é o de sempre; 60 é só a arte do banner da home (QUALIDADE_DA_ARTE,
+    // em components/home/slides-do-banner.tsx, com o porquê). Qualidade fora
+    // desta lista o Next arredonda pra mais perto, e o otimizador recusa.
+    qualities: [60, 75],
     // 1 ano: a URL da imagem muda quando o arquivo muda (Supabase Storage).
     minimumCacheTTL: 60 * 60 * 24 * 365,
     remotePatterns: [

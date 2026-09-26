@@ -16,6 +16,36 @@
   primeiro o Tailwind já dá, o segundo virou a utility `sr-only-focusable`.
 */
 
+/*
+  ┌─ O RAIO DE FUNDO É RECORTE, NÃO IMAGEM `data:` ──────────────────────────┐
+  │ O raio decorativo (aviso do topo, ofertas, benefícios, hero, sobre e     │
+  │ rodapé) era um `background-image: url("data:image/svg+xml,…")`. Pra o    │
+  │ navegador isso é um pedido de imagem — e o Lighthouse do CI, que estima  │
+  │ o LCP simulando um 4G, conta pedido `data:` como pedido que não usa      │
+  │ conexão: enquanto ele "baixa", a banda da conexão de verdade é dividida  │
+  │ por ele, e a janela dela encolhe e demora a crescer de novo. Na home,    │
+  │ os cinco raios custavam 0,45 s na conta pessimista do LCP (0,22 s na     │
+  │ nota), só por existirem.                                                 │
+  │                                                                          │
+  │ Agora o raio é um bloco da cor dele recortado neste polígono — o mesmo   │
+  │ desenho do caminho "M13 2 3 14h7l-1 8 10-12h-7l1-8z" num quadrado de 24, │
+  │ em porcentagem. Vale pra qualquer caixa QUADRADA: é o que o `contain`    │
+  │ fazia com o SVG. Transparência vai na cor (o `fill-opacity` de antes).   │
+  │                                                                          │
+  │ NÃO VOLTE a pôr imagem `data:` em CSS de coisa que aparece na carga.     │
+  └──────────────────────────────────────────────────────────────────────────┘
+*/
+:root {
+  --raio: polygon(
+    54.1667% 8.3333%,
+    12.5% 58.3333%,
+    41.6667% 58.3333%,
+    37.5% 91.6667%,
+    79.1667% 41.6667%,
+    50% 41.6667%
+  );
+}
+
 .btn {
   display: inline-flex;
   align-items: center;

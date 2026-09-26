@@ -1,4 +1,5 @@
 import { MarcaDaTela } from "@/components/marca-da-tela"
+import "@/estilos/institucional.css"
 
 /**
  * Páginas de texto (privacidade, termos, trocas, contato, dúvidas). O

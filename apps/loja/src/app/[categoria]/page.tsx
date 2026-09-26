@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { metadadosDaCategoria, TelaDaCategoria } from "@/components/catalogo/tela"
 import { site } from "@/lib/site"
+import "@/estilos/telas/catalogo.css"
 
 /**
  * /barba, /cabelo, /kits — categoria no primeiro nível da URL.
