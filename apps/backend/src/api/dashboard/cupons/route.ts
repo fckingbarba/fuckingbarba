@@ -9,8 +9,10 @@ import {
   lerCupomNovo,
   promocaoDoCupom,
   usosPorCodigo,
+  type Catalogo,
   type PromocaoCrua,
 } from "../../../lib/cupons"
+import { urlDaLoja } from "../../../lib/emails/moldura"
 import { exigirArea, type PedidoDaEquipe } from "../../../lib/equipe/acesso"
 import { anotar } from "../../../lib/painel/anotar"
 import { descontosAutomaticos } from "../../../lib/painel/cupons"
@@ -18,13 +20,15 @@ import { totalDo } from "../../../lib/painel/pedido"
 
 /**
  * GET /dashboard/cupons — os cupons de campanha (com o que os pedidos dizem
- * de cada um) e os descontos que a loja aplica sozinha.
+ * de cada um), os descontos que a loja aplica sozinha, as categorias e os
+ * produtos que o "Aplicar a" escolhe, e o endereço da loja (o link do
+ * cupom é `<loja>/discount/<CÓDIGO>`, como na Nuvemshop).
  * POST /dashboard/cupons — cria um cupom (`lib/cupons.ts`: o código, o tipo,
- * o valor, o mínimo, a data, o limite e as regras de cliente).
+ * a quem vale e os limites de uso, como no "Criar cupom" da Nuvemshop).
  * Marketing e dono.
  *
- * RESPOSTAS: GET 200 `{ cupons, automaticos }`. POST 200 `{ cupom }`; 422
- * `{ erros }` (campo → frase); 409 `codigo_existe`.
+ * RESPOSTAS: GET 200 `{ cupons, automaticos, catalogo, loja }`. POST 200
+ * `{ cupom }`; 422 `{ erros }` (campo → frase); 409 `codigo_existe`.
  */
 
 const CAMPOS_DA_PROMOCAO = [
@@ -59,7 +63,7 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
 
   const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
   const agora = new Date()
-  const [{ data: promocoes }, { data: pedidos }, [loja]] = await Promise.all([
+  const [{ data: promocoes }, { data: pedidos }, [loja], catalogo] = await Promise.all([
     query.graph({
       entity: "promotion",
       fields: CAMPOS_DA_PROMOCAO,
@@ -84,6 +88,7 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
       pagination: { take: 2000, order: { created_at: "DESC" } },
     }),
     req.scope.resolve(Modules.STORE).listStores({}, { select: ["id", "metadata"], take: 1 }),
+    catalogoDaLoja(query),
   ])
 
   const lidos = (pedidos as PedidoComAjustes[]).map((o) => ({
@@ -120,6 +125,8 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
         pedidos: semana.length,
       },
     }),
+    catalogo,
+    loja: urlDaLoja(),
   })
 }
 
@@ -128,15 +135,33 @@ export async function POST(req: AuthenticatedMedusaRequest, res: MedusaResponse)
   if (!exigirArea(pedido, res, "cupons")) return
 
   const agora = new Date()
-  const lido = lerCupomNovo(req.body, agora)
+  const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
+  const lido = lerCupomNovo(req.body, agora, await catalogoDaLoja(query))
   if (!lido.ok) {
     res.status(422).json({ erros: lido.erros })
     return
   }
   const c = lido.cupom
 
+  // Frete grátis só na opção mais barata: a entrega econômica (`faixa`, no Frenet).
+  let maisBaratas: string[] = []
+  if (c.tipo === "frete" && c.soMaisBarato) {
+    const { data: opcoes } = await query.graph({
+      entity: "shipping_option",
+      fields: ["id", "data"],
+    })
+    maisBaratas = (opcoes as { id: string; data?: Record<string, unknown> | null }[])
+      .filter((o) => o.data?.faixa !== "expressa")
+      .map((o) => o.id)
+    if (!maisBaratas.length) {
+      res.status(422).json({
+        erros: { soMaisBarato: "A loja não tem a entrega econômica: desmarque esta opção." },
+      })
+      return
+    }
+  }
+
   // O Medusa procura o código como foi gravado; a loja tenta as três caixas: nenhuma pode repetir.
-  const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
   const { data: iguais } = await query.graph({
     entity: "promotion",
     fields: ["id"],
@@ -148,7 +173,9 @@ export async function POST(req: AuthenticatedMedusaRequest, res: MedusaResponse)
   }
 
   const { result } = await createPromotionsWorkflow(req.scope).run({
-    input: { promotionsData: [promocaoDoCupom(c, pedido.membro.nome, agora)] as never },
+    input: {
+      promotionsData: [promocaoDoCupom(c, pedido.membro.nome, agora, maisBaratas)] as never,
+    },
   })
   const criada = result[0] as unknown as PromocaoCrua
   await anotar(pedido, "criou-cupom", criada.id, { codigo: c.codigo })
@@ -159,4 +186,28 @@ export async function POST(req: AuthenticatedMedusaRequest, res: MedusaResponse)
       agora
     ),
   })
+}
+
+/**
+ * O que o "Aplicar a" escolhe: as categorias e os produtos da loja (os
+ * rascunhos também — o cupom pode nascer antes de o produto ir pro ar), em
+ * ordem de nome.
+ */
+async function catalogoDaLoja(query: {
+  graph: (a: object) => Promise<{ data: unknown[] }>
+}): Promise<Catalogo> {
+  const [{ data: categorias }, { data: produtos }] = await Promise.all([
+    query.graph({ entity: "product_category", fields: ["id", "name"] }),
+    query.graph({ entity: "product", fields: ["id", "title"] }),
+  ])
+  const porNome = (a: { nome: string }, b: { nome: string }) =>
+    a.nome.localeCompare(b.nome, "pt-BR")
+  return {
+    categorias: (categorias as { id: string; name?: string | null }[])
+      .map((c) => ({ id: c.id, nome: c.name ?? c.id }))
+      .sort(porNome),
+    produtos: (produtos as { id: string; title?: string | null }[])
+      .map((p) => ({ id: p.id, nome: p.title ?? p.id }))
+      .sort(porNome),
+  }
 }
