@@ -10,8 +10,7 @@
         "Fios mais grossos e encorpados",
         "Barba mais uniforme e definida",
         "Melhora geral na qualidade dos fios"
-      ],
-      "rodape": "Resultado varia de pessoa pra pessoa e depende de usar todo dia. Não faz nascer barba onde não existe folículo."
+      ]
     },
     "tempo": {
       "titulo": "Quando o resultado aparece",
@@ -37,8 +36,7 @@
           "titulo": "Resultado cheio",
           "texto": "O máximo que a sua genética permite. Daí em diante é manutenção."
         }
-      ],
-      "aviso": "Um frasco cobre cerca de um mês. Se o plano é chegar no dia 90, sai mais barato levar os três de uma vez."
+      ]
     },
     "rotina": {
       "titulo": "A rotina que faz o produto render",
@@ -153,130 +151,22 @@
 
   "kit-2-fator-de-crescimento-para-barba": {
     "copiaDe": "fator-de-crescimento-para-barba",
-    "seo": "Kit com 2 frascos de Fator de Crescimento para Barba: cerca de dois meses de tratamento diário na pele, pra estimular o crescimento e preencher falhas.",
-    "tempo": {
-      "titulo": "Quando o resultado aparece",
-      "passos": [
-        {
-          "quando": "Semanas 1 e 2",
-          "titulo": "Textura",
-          "texto": "O fio fica mais forte ao toque. Ainda não cresceu nada — e é normal."
-        },
-        {
-          "quando": "Dia 30",
-          "titulo": "Começa a encher",
-          "texto": "Primeiros fios novos nas áreas de falha. Aqui é onde a maioria desiste cedo demais."
-        },
-        {
-          "quando": "Dia 90",
-          "titulo": "Densidade",
-          "texto": "Barba visivelmente mais cheia e uniforme. É o marco que vale a foto do antes e depois.",
-          "alvo": true
-        },
-        {
-          "quando": "3 a 6 meses",
-          "titulo": "Resultado cheio",
-          "texto": "O máximo que a sua genética permite. Daí em diante é manutenção."
-        }
-      ],
-      "aviso": "Os dois frascos do kit cobrem cerca de dois meses de uso. Pra chegar no dia 90 sem interromper, conta um terceiro."
-    }
+    "seo": "Kit com 2 frascos de Fator de Crescimento para Barba: cerca de dois meses de tratamento diário na pele, pra estimular o crescimento e preencher falhas."
   },
 
   "kit-3-fator-de-crescimento-para-barba": {
     "copiaDe": "fator-de-crescimento-para-barba",
-    "seo": "Kit com 3 frascos de Fator de Crescimento para Barba: cerca de três meses de uso diário, o tempo de chegar no dia 90 do tratamento sem interromper.",
-    "tempo": {
-      "titulo": "Quando o resultado aparece",
-      "passos": [
-        {
-          "quando": "Semanas 1 e 2",
-          "titulo": "Textura",
-          "texto": "O fio fica mais forte ao toque. Ainda não cresceu nada — e é normal."
-        },
-        {
-          "quando": "Dia 30",
-          "titulo": "Começa a encher",
-          "texto": "Primeiros fios novos nas áreas de falha. Aqui é onde a maioria desiste cedo demais."
-        },
-        {
-          "quando": "Dia 90",
-          "titulo": "Densidade",
-          "texto": "Barba visivelmente mais cheia e uniforme. É o marco que vale a foto do antes e depois.",
-          "alvo": true
-        },
-        {
-          "quando": "3 a 6 meses",
-          "titulo": "Resultado cheio",
-          "texto": "O máximo que a sua genética permite. Daí em diante é manutenção."
-        }
-      ],
-      "aviso": "Os três frascos do kit cobrem cerca de três meses: o tempo de chegar no dia 90 sem interromper o tratamento."
-    }
+    "seo": "Kit com 3 frascos de Fator de Crescimento para Barba: cerca de três meses de uso diário, o tempo de chegar no dia 90 do tratamento sem interromper."
   },
 
   "kit-6-fator-de-crescimento-para-barba": {
     "copiaDe": "fator-de-crescimento-para-barba",
-    "seo": "Kit com 6 frascos de Fator de Crescimento para Barba: cerca de seis meses de tratamento diário, o ciclo completo até o resultado cheio da sua barba.",
-    "tempo": {
-      "titulo": "Quando o resultado aparece",
-      "passos": [
-        {
-          "quando": "Semanas 1 e 2",
-          "titulo": "Textura",
-          "texto": "O fio fica mais forte ao toque. Ainda não cresceu nada — e é normal."
-        },
-        {
-          "quando": "Dia 30",
-          "titulo": "Começa a encher",
-          "texto": "Primeiros fios novos nas áreas de falha. Aqui é onde a maioria desiste cedo demais."
-        },
-        {
-          "quando": "Dia 90",
-          "titulo": "Densidade",
-          "texto": "Barba visivelmente mais cheia e uniforme. É o marco que vale a foto do antes e depois.",
-          "alvo": true
-        },
-        {
-          "quando": "3 a 6 meses",
-          "titulo": "Resultado cheio",
-          "texto": "O máximo que a sua genética permite. Daí em diante é manutenção."
-        }
-      ],
-      "aviso": "Os seis frascos do kit cobrem cerca de seis meses: o ciclo inteiro, até o resultado cheio, sem parar no meio."
-    }
+    "seo": "Kit com 6 frascos de Fator de Crescimento para Barba: cerca de seis meses de tratamento diário, o ciclo completo até o resultado cheio da sua barba."
   },
 
   "kit-fator-de-crescimento-para-barba-e-shampoo": {
     "copiaDe": "fator-de-crescimento-para-barba",
     "seo": "Fator de Crescimento e Shampoo para Barba num kit: a pele limpa pro tratamento diário que estimula o crescimento e ajuda a preencher as falhas.",
-    "tempo": {
-      "titulo": "Quando o resultado aparece",
-      "passos": [
-        {
-          "quando": "Semanas 1 e 2",
-          "titulo": "Textura",
-          "texto": "O fio fica mais forte ao toque. Ainda não cresceu nada — e é normal."
-        },
-        {
-          "quando": "Dia 30",
-          "titulo": "Começa a encher",
-          "texto": "Primeiros fios novos nas áreas de falha. Aqui é onde a maioria desiste cedo demais."
-        },
-        {
-          "quando": "Dia 90",
-          "titulo": "Densidade",
-          "texto": "Barba visivelmente mais cheia e uniforme. É o marco que vale a foto do antes e depois.",
-          "alvo": true
-        },
-        {
-          "quando": "3 a 6 meses",
-          "titulo": "Resultado cheio",
-          "texto": "O máximo que a sua genética permite. Daí em diante é manutenção."
-        }
-      ],
-      "aviso": "O kit traz um Fator, que cobre cerca de um mês, e um Shampoo. Pra chegar no dia 90, o tratamento pede três frascos de Fator."
-    },
     "rotina": {
       "titulo": "O que completa o kit",
       "passoDeste": "Passos 1 e 2 · limpa e trata",
@@ -377,8 +267,7 @@
         "Brilho natural, sem aspecto engordurado",
         "Pele sob a barba hidratada",
         "Perfume amadeirado que fica na barba"
-      ],
-      "rodape": "O óleo cuida do fio que já existe: hidrata, amacia e disciplina — não faz a barba crescer. Pra falha, o produto é o Fator de Crescimento."
+      ]
     },
     "tempo": {
       "titulo": "O que você sente, e quando",
@@ -404,8 +293,7 @@
           "titulo": "Manutenção",
           "texto": "Vira hábito: umas gotas por dia mantêm a barba macia e com o perfume dela."
         }
-      ],
-      "aviso": "Barba curta pede poucas gotas; comprida, mais. Comece com 3 e ajuste — se ficou brilhando demais, foi óleo além da conta."
+      ]
     },
     "rotina": {
       "titulo": "A rotina que deixa a barba no ponto",
@@ -540,8 +428,7 @@
         "Hidrata o fio e a pele embaixo da barba",
         "Maciez ao toque, sem pesar",
         "Perfume amadeirado marcante"
-      ],
-      "rodape": "O balm cuida e modela o fio que já existe — não faz a barba crescer. A fixação é natural: segura sem travar."
+      ]
     },
     "tempo": {
       "titulo": "O que você sente, e quando",
@@ -567,8 +454,7 @@
           "texto": "Com uso diário, a barba fica mais fácil de pentear e de manter alinhada.",
           "alvo": true
         }
-      ],
-      "aviso": "Pouco produto rende: uma quantidade do tamanho de uma ervilha já cobre uma barba curta."
+      ]
     },
     "rotina": {
       "titulo": "A rotina que deixa a barba no ponto",
@@ -692,8 +578,7 @@
         "Controle da oleosidade da pele sob a barba",
         "Fios soltos e leves depois do banho",
         "Base limpa pro óleo, o balm e o Fator"
-      ],
-      "rodape": "É um shampoo feito pra barba: limpa e refresca, mas não trata falha nem faz crescer."
+      ]
     },
     "tempo": {
       "titulo": "O que você sente, e quando",
@@ -719,8 +604,7 @@
           "titulo": "Base pronta",
           "texto": "Barba limpa recebe melhor o que vem depois: o óleo, o balm e o Fator."
         }
-      ],
-      "aviso": "Use com a barba molhada e enxágue bem: resto de shampoo na pele é o que resseca."
+      ]
     },
     "rotina": {
       "titulo": "O que vem depois da limpeza",
@@ -912,8 +796,7 @@
         "Barba macia, com brilho natural",
         "Forma e contorno com o balm",
         "Perfume amadeirado marcante"
-      ],
-      "rodape": "O kit limpa, hidrata e modela a barba que você já tem — não faz crescer. Pra falha, o produto é o Fator de Crescimento."
+      ]
     },
     "tempo": {
       "titulo": "A rotina, do banho à rua",
@@ -939,8 +822,7 @@
           "titulo": "Hábito",
           "texto": "Os três juntos, todo dia, mantêm a barba limpa, macia e no lugar."
         }
-      ],
-      "aviso": "Cada produto tem um papel: o shampoo limpa, o óleo hidrata e o balm modela. Juntos, a barba fica pronta em poucos minutos."
+      ]
     },
     "rotina": {
       "titulo": "Quer ir além?",
@@ -1058,8 +940,7 @@
         "Barba alinhada, com contorno",
         "Controle do frizz, sem pesar",
         "Perfume amadeirado marcante"
-      ],
-      "rodape": "O kit limpa e modela a barba que você já tem — não faz crescer. Pra falha, o produto é o Fator de Crescimento."
+      ]
     },
     "tempo": {
       "titulo": "A rotina, do banho à rua",
@@ -1199,8 +1080,7 @@
         "Fios macios e fáceis de pentear",
         "Brilho natural, sem aspecto engordurado",
         "Pele sob a barba hidratada"
-      ],
-      "rodape": "O kit limpa e hidrata a barba que você já tem — não faz crescer. Pra falha, o produto é o Fator de Crescimento."
+      ]
     },
     "tempo": {
       "titulo": "A rotina, do banho à rua",
@@ -1339,8 +1219,7 @@
         "Segura o penteado e deixa remodelar",
         "Leve: não pesa no cabelo",
         "Pra cabelo curto, médio ou comprido"
-      ],
-      "rodape": "O resultado muda com o tipo e o comprimento do cabelo: comece com pouco produto e ajuste."
+      ]
     },
     "tempo": {
       "titulo": "O seu cabelo, ao longo do dia",
@@ -1366,8 +1245,7 @@
           "titulo": "Versátil",
           "texto": "Do clássico alinhado ao despojado: muda o penteado, não muda o produto."
         }
-      ],
-      "aviso": "Pouco produto rende: comece com uma quantidade pequena e aumente se precisar de mais controle."
+      ]
     },
     "rotina": {
       "titulo": "Pra combinar com a pasta",
@@ -1482,8 +1360,7 @@
         "Modelagem flexível, sem endurecer",
         "Espalha fácil e não pesa",
         "Do clássico ao moderno"
-      ],
-      "rodape": "O resultado muda com o tipo e o comprimento do cabelo: comece com pouco produto e ajuste."
+      ]
     },
     "tempo": {
       "titulo": "O seu cabelo, ao longo do dia",
@@ -1509,8 +1386,7 @@
           "titulo": "Versátil",
           "texto": "Do topete ao penteado pra trás: muda o estilo, não muda o produto."
         }
-      ],
-      "aviso": "Pouco produto rende: comece com uma quantidade pequena e aumente se precisar de mais controle."
+      ]
     },
     "rotina": {
       "titulo": "Cabelo e barba, no mesmo capricho",
@@ -1632,8 +1508,7 @@
         "Acabamento seco, sem brilho",
         "Seca rápido e não pesa",
         "Sozinho ou com pasta"
-      ],
-      "rodape": "O resultado muda com o tipo e o comprimento do cabelo — e com a quantidade: comece com poucos borrifos."
+      ]
     },
     "tempo": {
       "titulo": "O seu cabelo, ao longo do dia",
@@ -1659,8 +1534,7 @@
           "titulo": "Firme, sem travar",
           "texto": "O penteado se mantém sem deixar o cabelo rígido."
         }
-      ],
-      "aviso": "Pra mais controle, finalize com a Pasta Modeladora Matte depois de secar."
+      ]
     },
     "rotina": {
       "titulo": "Pra combinar com o spray",

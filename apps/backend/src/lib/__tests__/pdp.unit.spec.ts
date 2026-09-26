@@ -91,10 +91,7 @@ describe("o que falta numa seção (o editor do painel)", () => {
   })
 
   it("pela metade diz os campos", () => {
-    expect(faltandoNaSecao("promessa", { titulo: "Barba cheia", rodape: "Varia" })).toEqual([
-      "chapeu",
-      "itens",
-    ])
+    expect(faltandoNaSecao("promessa", { titulo: "Barba cheia" })).toEqual(["chapeu", "itens"])
   })
 
   it("nos grupos, o item e o campo — a linha toda vazia fica de fora sem aviso", () => {
@@ -278,5 +275,25 @@ describe("a descrição do Google", () => {
       descricao: "Balm para barba.",
     })
     expect("seo" in pdp({ conteudo: {} })).toBe(false)
+  })
+})
+
+describe("a ressalva dos Benefícios e o aviso da Linha do tempo (fora desde 26/09)", () => {
+  it("o que ainda estiver gravado sai na leitura — e na próxima gravação da seção", () => {
+    const { conteudo } = pdp({
+      conteudo: {
+        promessa: { chapeu: "C", titulo: "T", itens: ["Um"], rodape: "Resultado varia." },
+        tempo: {
+          titulo: "Quando",
+          passos: [{ quando: "Dia 1", titulo: "Começo", texto: "Texto." }],
+          aviso: "Um frasco dura um mês.",
+        },
+      },
+    })
+    expect(conteudo.promessa).toEqual({ chapeu: "C", titulo: "T", itens: ["Um"] })
+    expect(conteudo.tempo).toEqual({
+      titulo: "Quando",
+      passos: [{ quando: "Dia 1", titulo: "Começo", texto: "Texto." }],
+    })
   })
 })

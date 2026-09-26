@@ -87,8 +87,13 @@ export type CasoAntesDepois = {
 }
 
 export type ConteudoDaPdp = {
-  promessa?: { chapeu: string; titulo: string; itens: string[]; rodape?: string }
-  tempo?: { titulo: string; passos: PassoDoTempo[]; aviso?: string }
+  /**
+   * Sem a ressalva embaixo (`rodape`) e a Linha do tempo sem o aviso
+   * (`aviso`) desde 26/09, a pedido da loja: a página fica mais enxuta. O
+   * que ainda estiver gravado nos produtos sai na próxima gravação da seção.
+   */
+  promessa?: { chapeu: string; titulo: string; itens: string[] }
+  tempo?: { titulo: string; passos: PassoDoTempo[] }
   faixa?: { chapeu: string; titulo: string; texto: string; chamada: string; fotoDe: string }
   rotina?: {
     titulo: string
@@ -273,7 +278,7 @@ function lerPromessa(v: unknown): ConteudoDaPdp["promessa"] {
   const titulo = txt(o.titulo)
   const itens = lista(o.itens)
   if (!chapeu || !titulo || !itens) return undefined
-  return { chapeu, titulo, itens, ...(txt(o.rodape) ? { rodape: txt(o.rodape)! } : {}) }
+  return { chapeu, titulo, itens }
 }
 
 function lerTempo(v: unknown): ConteudoDaPdp["tempo"] {
@@ -295,7 +300,7 @@ function lerTempo(v: unknown): ConteudoDaPdp["tempo"] {
     })
     .filter((p): p is PassoDoTempo => p !== null)
   if (!titulo || !passos.length) return undefined
-  return { titulo, passos, ...(txt(o.aviso) ? { aviso: txt(o.aviso)! } : {}) }
+  return { titulo, passos }
 }
 
 function lerFaixa(v: unknown): ConteudoDaPdp["faixa"] {
