@@ -236,6 +236,13 @@ const equipeModule = [{ resolve: "./src/modules/equipe" }]
  */
 const observabilidadeModule = [{ resolve: "./src/modules/observabilidade" }]
 
+/**
+ * O CRM — o que cada pessoa faz na loja (só de quem disse sim aos cookies) e
+ * de quem ela é, quando deixa o e-mail (`src/modules/crm/`). Ver o AGENTS.md,
+ * "CRM".
+ */
+const crmModule = [{ resolve: "./src/modules/crm" }]
+
 module.exports = defineConfig({
   projectConfig: {
     databaseUrl: process.env.DATABASE_URL,
@@ -288,5 +295,6 @@ module.exports = defineConfig({
     ...erpModule,
     ...equipeModule,
     ...observabilidadeModule,
+    ...crmModule,
   ],
 })

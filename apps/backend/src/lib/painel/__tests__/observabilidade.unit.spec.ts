@@ -48,7 +48,9 @@ describe("as rotinas", () => {
     expect(minutosDaAgenda("2-59/5 * * * *").slice(0, 3)).toEqual([2, 7, 12])
     expect(minutosDaAgenda("23 * * * *")).toEqual([23])
     expect(minutosDaAgenda("* * * * *")).toHaveLength(60)
-    expect(ROTINAS.map((r) => intervaloDaAgenda(r.agenda))).toEqual([1, 5, 5, 5, 5, 5, 10, 60, 60])
+    expect(ROTINAS.map((r) => intervaloDaAgenda(r.agenda))).toEqual([
+      1, 5, 5, 5, 5, 5, 10, 60, 60, 60,
+    ])
     expect(proximaRodada("2-59/5 * * * *", AGORA).toISOString()).toBe("2026-09-26T00:12:00.000Z")
     expect(proximaRodada("23 * * * *", AGORA).toISOString()).toBe("2026-09-26T00:23:00.000Z")
     expect(() => minutosDaAgenda("0 3 * * *")).toThrow(/fora do formato/)
@@ -528,7 +530,7 @@ describe("a tela", () => {
     expect(dono.problemas.map((p) => p.id)).toEqual(["estorno", "nota", "frete", "antigo", "visto"])
     expect(dono.geral).toMatchObject({ nivel: "grave", titulo: "2 problemas graves agora" })
     expect(dono.numeros.problemas).toEqual({ abertos: 3, graves: 2, olhar: 1 })
-    expect(dono.numeros.rotinas).toEqual({ ok: 9, total: 9 })
+    expect(dono.numeros.rotinas).toEqual({ ok: 10, total: 10 })
     expect(dono.numeros.noAr).toEqual({
       valor: null,
       texto: "medindo: a loja é conferida de 5 em 5 min",
@@ -602,7 +604,8 @@ describe("a tela", () => {
       podeMarcar: false,
     })
     expect(tela.problemas[0].texto).toMatch(/^Nenhuma roda desde hoje, 20:30\./)
-    expect(tela.numeros.rotinas.ok).toBe(2)
+    // As de hora em hora (o rastreio, as ofertas e a limpeza do CRM) ainda estão no prazo.
+    expect(tela.numeros.rotinas.ok).toBe(3)
   })
 })
 
