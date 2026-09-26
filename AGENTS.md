@@ -119,6 +119,14 @@ recalculada como num 4G lento (150 ms de ida e volta, 1,6 Mbit/s). Três regras 
    +0,24 KB de CSS em toda página), a home soma 43,3 KB: sobra menos de meio KB. Conferido pelo
    método abaixo nos três traces: com a 0118 o LCP não muda; com +0,5 KB a mais, pula 300 ms.
 
+**O degrau da 0130** (medido em 26/09, com `lhci` como o CI e o Medusa falso na 9100): a home da
+main já estava na beira de um degrau — 250 bytes a mais de JavaScript levavam o LCP local de 2,26 s
+pra 2,41 s, e o `lighthouse` avulso, sem mudança nenhuma, oscilava entre 2,32 e 2,46. A faixa de
+cookies em toda primeira tela e o CRM somam ~0,8 KB de JavaScript à home, mesmo com o envio só
+depois do sim e sem o prefetch da política: a home local mede 2,41 s (a /barba e a PDP não mudam).
+No CI, a main da #114 media 1,97 s na home. Quem somar JavaScript à home depois disto: meça antes
+da PR — o próximo degrau local é 2,56 s, acima do orçamento.
+
 Imagem `data:` em CSS é pedido "sem conexão" pro Lantern e derruba a conta pessimista (ver `--raio`
 em `estilos/base.css`). Pra medir uma mudança sem o ruído da máquina (aqui o Lighthouse oscila meio
 segundo entre rodadas do mesmo build): grave os artefatos com `node_modules/.bin/lighthouse <url>
@@ -1646,12 +1654,15 @@ Barba"). Só de quem disse sim à faixa de cookies, e ligado ao e-mail da pessoa
 - **No navegador** (`apps/loja/src/lib/anotar.ts`): o mesmo evento que vai pro Google sai também
   pro CRM — `mandar()`, em `lib/rastrear.ts`, chama `anotar` — e dois são só daqui, por
   `anotarNaLoja`: a `visita` (uma por sessão, com a campanha do link e o domínio de onde veio,
-  guardados na aba desde a primeira página — `chegadaDaVisita`, no `tags.tsx`) e o
+  guardados na aba desde a primeira página — `chegadaDaVisita`, em `lib/chegada.ts`, no
+  `tags.tsx`) e o
   `contato_informado` (o e-mail no passo 1 do checkout, nas etapas; uma vez por carrinho na
   sessão, `umaVez`). Tudo espera o mesmo
   "Aceitar" das tags. Junta 2 segundos num envio (até 20), manda pelo `sendBeacon` ao sair da
   página, e o mesmo produto visto duas vezes em 2 segundos conta uma (o efeito dobrado do React no
-  desenvolvimento).
+  desenvolvimento). O `anotar.ts` só baixa depois do sim (`import()` no `rastrear`); o que precisa
+  existir antes (guardar a chegada e o "onde") é o `chegada.ts`, pequeno. No `next dev` recém-subido
+  o primeiro envio espera a compilação desse pedaço.
 - **Na loja** (`app/api/eventos/route.ts` e `lib/crm.ts`): o POST confere o sim NO SERVIDOR (o
   cookie da resposta) — sem ele, 204 e nada. Com ele, o visitante é o cookie `fb_visitante`
   (`httpOnly`, um UUID, um ano renovado a cada recado), e vão juntos o carrinho e o token de quem
@@ -1677,8 +1688,11 @@ Barba"). Só de quem disse sim à faixa de cookies, e ligado ao e-mail da pessoa
   (visitantes, com e-mail, pessoas, anotações), o caminho em etapas com os 11 tipos e as 30
   últimas em frase, com o e-mail mascarado (`emailNoLog`).
 - **Mudar de ideia:** a política de privacidade tem o botão "Mudar minha resposta sobre os
-  cookies" (`components/analytics/mudar-resposta.tsx`): a faixa volta, e o "não" apaga o que foi
-  anotado; se as tags já estavam na página, ela recarrega pra tirá-las.
+  cookies" (`components/analytics/mudar-resposta.tsx`): apaga a resposta e recarrega, a faixa
+  volta, e o "não" apaga o que foi anotado (se as tags já estavam na página, o "não" recarrega de
+  novo pra tirá-las). O link "Como usamos seus dados" da faixa não pré-carrega a política
+  (`prefetch={false}`): com a faixa em toda primeira tela, o prefetch baixava o HTML, o CSS e o JS
+  das páginas institucionais no meio do carregamento.
 
 O conferidor é o `apps/dashboard/ferramentas/conferir-crm.mjs` (50): a rota (assinatura, lote,
 esquecer), a loja com "Só o necessário" (nada sai, nenhum cookie) e com "Aceitar" (a chegada com a

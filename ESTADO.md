@@ -2524,6 +2524,9 @@ https://claude.ai/artifact/XDWBkcweP6y6WVJd3m4sty).
   resposta sobre os cookies".
 - A Observabilidade ganhou a rotina "Apaga o que o CRM anotou há mais de 13 meses" (11 rotinas,
   com a do avise-me da 0124).
+- A página inicial ficou uns 0,15 s mais lenta no teste de velocidade (o do GitHub, medido aqui do
+  mesmo jeito), porque a faixa de cookies agora aparece pra todo mundo. Continua dentro do limite,
+  mas sobra pouco pra próxima mudança que pese na home.
 
 Conferido pelo `conferir-crm.mjs` (50 checagens: a faixa, o "não" sem nada anotado, o "sim" da
 chegada até o e-mail do checkout, a newsletter, a conta, a tela de cada papel e o "não" depois do

@@ -80,8 +80,12 @@ let tokenDoDono = ""
 /** A tela do CRM, pela API, como o dono vê. */
 const tela = async (periodo = "hoje") =>
   (await medusa(`/dashboard/crm?periodo=${periodo}`, { metodo: "GET", token: tokenDoDono })).corpo
-/** Espera a tela do CRM satisfazer `cond` (o recado passa pela loja e pelo `after`). */
-async function esperarTela(cond, ms = 20000) {
+/**
+ * Espera a tela do CRM satisfazer `cond` (o recado passa pela loja e pelo
+ * `after`). Até 40 s: no `next dev` recém-subido, o envio do CRM (que só baixa
+ * depois do sim) compila na primeira vez que alguém aceita.
+ */
+async function esperarTela(cond, ms = 40000) {
   const fim = Date.now() + ms
   let t = await tela()
   while (!cond(t) && Date.now() < fim) {
