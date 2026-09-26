@@ -1224,7 +1224,7 @@ O que o protótipo tem, aprovado em 23/09:
   com a última rodada; a velocidade do site.
 - **Marketing** (resumo, funil, canais, produtos, ofertas, clientes por estado, pagamento e frete)
   ficou escondido de início, e volta em partes desde 26/09 (a parte 1, o Resumo e a meta do mês, na
-  entrega 0108).
+  entrega 0108; a parte 2, o Funil e os Canais, na 0110).
 
 Em aberto:
 
@@ -2013,6 +2013,35 @@ Textos pra revisar, produto a produto: página "Seções dos 15 produtos" (link 
 enxuta num produto esvaziado de propósito) e pelo `conferir-produtos.mjs` do painel (101).
 
 Depois do deploy — **nada a configurar.** Pra conferir: abrir 2 ou 3 produtos na loja e rolar a página.
+
+**Painel: Marketing, parte 2 — o Funil e os Canais — pronto em 26/09 (entrega 0110).**
+
+Duas abas novas no Marketing, ao lado do Resumo (o período escolhido vai junto):
+
+- **Funil — onde as pessoas desistem:**
+  - do site até o pagamento: quantas visitas viram um produto, puseram na sacola, começaram o
+    checkout, escolheram a entrega, foram pagar e pagaram — com a maior perda em vermelho;
+  - da sacola ao pagamento, pelos carrinhos da loja: de todo mundo, com cookie ou sem;
+  - celular × computador: quanto das visitas vem de cada um, e quanto compra.
+- **Canais — de onde vêm as visitas e as vendas:** Instagram, Google (busca e anúncio), Direto,
+  E-mail, WhatsApp… com visitas, pedidos, conversão e receita. Os pedidos de quem recusou os cookies
+  ficam numa linha à parte ("sem origem conhecida"): a soma bate com o que a loja vendeu.
+- **Campanhas e o montador de link:** escolha onde o link vai (Instagram, e-mail, WhatsApp,
+  influenciador, anúncio), o nome da campanha e a página, e copie. A venda que vier do link aparece
+  em Campanhas, com esse nome.
+- **Cada aba começa pelo que os números querem dizer**, em frase — a maior perda do funil, o canal
+  que mais vende por visita. Com pouca visita (até a virada), a frase diz que ainda é cedo.
+- No Resumo, **os canais que mais venderam**, do lado dos produtos.
+
+As compras que a loja manda pro Google pelo servidor levam a sessão de quem comprou: é assim que o
+Google sabe de onde a venda veio. As do site da Nuvemshop ficam de fora.
+
+Conferido pelo `conferir-marketing.mjs` (65 checagens; as 23 novas: o funil pela API e pela tela,
+os canais, as campanhas, o montador de link com o Copiar, o Google fora e o celular) e pelos testes
+de unidade (16 novos).
+
+Depois do deploy — **nada a configurar.** Pra testar o montador, crie um link, abra ele no celular
+e veja a visita chegar em Campanhas no dia seguinte (o Google soma com atraso).
 
 ## Como seguir no Claude Code
 
