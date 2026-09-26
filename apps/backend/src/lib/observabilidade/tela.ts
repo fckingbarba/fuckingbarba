@@ -1,5 +1,6 @@
 import type { MedusaContainer } from "@medusajs/framework/types"
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
+import { RESUMO_VAZIO } from "../cartao/robo"
 import type { Papel } from "../equipe/regras"
 import { situacaoDaConexao } from "../erp/conexao"
 import { erpDaTela } from "../erp/erps"
@@ -81,7 +82,8 @@ export async function lerTela(
   )
   const obs = container.resolve<ObservabilidadeService>(OBSERVABILIDADE)
   const erp = erpDaTela()
-  const [problemas, rotinas, sinais, conexao, notas, loja, noAr, velocidade] = await Promise.all([
+  const [problemas, rotinas, sinais, conexao, notas, loja, noAr, velocidade, cartao] =
+    await Promise.all([
     obs.listProblemas(
       {
         $or: [
@@ -107,7 +109,9 @@ export async function lerTela(
       { take: 40 }
     ),
     obs.velocidade(new Date(agora.getTime() - VINTE_E_OITO_DIAS)),
-  ])
+      // Sem a tabela das tentativas (a migração ainda não rodou), o bloco sai zerado.
+      obs.resumoDoCartao().catch(() => RESUMO_VAZIO),
+    ])
   const diasNoAr = noAr as unknown as LinhaDoSinal[]
   const ultimaNota = (notas as { emitida_em?: Date | string | null }[])[0]?.emitida_em
 
@@ -135,6 +139,7 @@ export async function lerTela(
     },
     velocidade,
     noAr: diasNoAr,
+    cartao,
   })
 }
 

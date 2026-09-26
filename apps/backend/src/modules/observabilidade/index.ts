@@ -10,11 +10,13 @@ import ObservabilidadeService from "./service"
  *   - `obs_sinal`: o dia de cada integração (Resend, Frenet, Pagar.me, Bling,
  *     Google, a loja) — quantas vezes deu certo, quantas falhou, e a última;
  *   - `obs_medida`: a velocidade medida nas visitas de verdade;
- *   - `obs_ocorrencia`: a página que não existe e o erro no navegador, por dia.
+ *   - `obs_ocorrencia`: a página que não existe e o erro no navegador, por dia;
+ *   - `obs_tentativa`: cada tentativa de pagar com cartão, pras travas contra
+ *     o robô testando cartão.
  *
  * Quem escreve é o código de fora: `lib/observabilidade/` (a rodada, o
- * sinal e o vigia). A regra do que é problema mora em
- * `lib/painel/observabilidade.ts`.
+ * sinal e o vigia) e `lib/cartao/porta.ts` (as tentativas). A regra do que é
+ * problema mora em `lib/painel/observabilidade.ts`.
  */
 export const OBSERVABILIDADE = "observabilidade"
 
