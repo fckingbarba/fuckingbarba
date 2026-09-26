@@ -1,8 +1,7 @@
 import type { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { exigirArea, type PedidoDaEquipe } from "../../../../lib/equipe/acesso"
-import { numerosDaNewsletter, pedidosComPagamento } from "../../../../lib/painel/ler"
-import { janelasDo, lerPeriodo } from "../../../../lib/painel/marketing"
-import { montarClientes } from "../../../../lib/painel/marketing-clientes"
+import { lerClientesDoMarketing } from "../../../../lib/painel/ler-marketing"
+import { lerPeriodo } from "../../../../lib/painel/marketing"
 
 /**
  * GET /dashboard/marketing/clientes?periodo=30d — quem compra, se volta, em
@@ -12,18 +11,6 @@ import { montarClientes } from "../../../../lib/painel/marketing-clientes"
  * e-mail sai daqui, só a conta.
  */
 export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) {
-  const pedido = req as PedidoDaEquipe
-  if (!exigirArea(pedido, res, "marketing")) return
-
-  const periodo = lerPeriodo(req.query.periodo)
-  const agora = new Date()
-  const [pedidos, newsletter] = await Promise.all([
-    pedidosComPagamento(req.scope, null),
-    numerosDaNewsletter(req.scope, agora),
-  ])
-  res.json({
-    periodo,
-    newsletter,
-    ...montarClientes(pedidos, janelasDo(periodo, agora).atual),
-  })
+  if (!exigirArea(req as PedidoDaEquipe, res, "marketing")) return
+  res.json(await lerClientesDoMarketing(req.scope, lerPeriodo(req.query.periodo), new Date()))
 }
