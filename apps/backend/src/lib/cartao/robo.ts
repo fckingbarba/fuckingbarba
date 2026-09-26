@@ -83,7 +83,8 @@ export type Contagem = {
 
 export function freioLigado(c: Pick<Contagem, "recusas" | "terminadas">): boolean {
   return (
-    c.recusas >= LIMITES.freio.recusas && c.recusas >= LIMITES.freio.parte * Math.max(c.terminadas, 1)
+    c.recusas >= LIMITES.freio.recusas &&
+    c.recusas >= LIMITES.freio.parte * Math.max(c.terminadas, 1)
   )
 }
 
@@ -181,14 +182,7 @@ export function sessaoDeCartao(
  * ("soltar"), e as contas só olham o que veio depois dela.
  */
 export type Resultado =
-  | "andando"
-  | "aprovada"
-  | "analise"
-  | "recusada"
-  | "erro"
-  | "parou"
-  | "barrada"
-  | "solta"
+  "andando" | "aprovada" | "analise" | "recusada" | "erro" | "parou" | "barrada" | "solta"
 
 /** As que foram (ou podem ter ido) pro Pagar.me — as que contam pras travas. */
 export const CONTAM: readonly Resultado[] = ["andando", "aprovada", "analise", "recusada", "erro"]

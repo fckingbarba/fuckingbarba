@@ -35,7 +35,11 @@ const com = (extra: Partial<Contagem>): Contagem => ({ ...zerada, ...extra })
 const estado = (extra: Partial<Estado>): Estado => ({ ...estadoNovo("cartao", 8990, 1), ...extra })
 
 describe("a sessão que vai pro Pagar.me", () => {
-  const sessao = (id: string, data: Record<string, unknown>, provider_id = PROVEDOR_DO_PAGARME) => ({
+  const sessao = (
+    id: string,
+    data: Record<string, unknown>,
+    provider_id = PROVEDOR_DO_PAGARME
+  ) => ({
     id,
     provider_id,
     data,
@@ -56,7 +60,9 @@ describe("a sessão que vai pro Pagar.me", () => {
     )
     expect(
       sessaoDeCartao(
-        carrinho(sessao("payses_1", gravar(estado({ situacao: "recusado", recusa: RECUSAS.banco }))))
+        carrinho(
+          sessao("payses_1", gravar(estado({ situacao: "recusado", recusa: RECUSAS.banco })))
+        )
       )
     ).toBe(null)
     expect(
@@ -168,9 +174,9 @@ describe("como a tentativa terminou", () => {
       resultado: "recusada",
       motivo: "banco",
     })
-    expect(
-      resultadoDaSessao(estado({ situacao: "recusado", recusa: RECUSAS.antifraude }))
-    ).toEqual({ resultado: "recusada", motivo: "antifraude" })
+    expect(resultadoDaSessao(estado({ situacao: "recusado", recusa: RECUSAS.antifraude }))).toEqual(
+      { resultado: "recusada", motivo: "antifraude" }
+    )
     expect(resultadoDaSessao(estado({ situacao: "falhou", recusa: RECUSAS.dados }))).toEqual({
       resultado: "recusada",
       motivo: "dados",

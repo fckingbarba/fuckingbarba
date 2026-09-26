@@ -44,7 +44,16 @@ async function estado(req: AuthenticatedMedusaRequest) {
     obs.listTentativas(
       {},
       {
-        select: ["id", "carrinho", "quem", "assinada", "resultado", "motivo", "valor", "created_at"],
+        select: [
+          "id",
+          "carrinho",
+          "quem",
+          "assinada",
+          "resultado",
+          "motivo",
+          "valor",
+          "created_at",
+        ],
         order: { created_at: "DESC" },
         take: 20,
       }

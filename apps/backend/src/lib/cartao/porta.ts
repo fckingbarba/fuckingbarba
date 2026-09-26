@@ -69,7 +69,9 @@ export async function portaDoCartao(
     })
     sessao = sessaoDeCartao(data[0] as Parameters<typeof sessaoDeCartao>[0])
   } catch (e) {
-    logger.error(`[cartão] não consegui ler a sessão do ${carrinho} (${mensagem(e)}) — seguiu sem a trava`)
+    logger.error(
+      `[cartão] não consegui ler a sessão do ${carrinho} (${mensagem(e)}) — seguiu sem a trava`
+    )
     return next()
   }
   if (!sessao) return next()
@@ -90,7 +92,9 @@ export async function portaDoCartao(
     })
     contagem = await obs.contarTentativas({ carrinho, quem })
   } catch (e) {
-    logger.error(`[cartão] não consegui anotar a tentativa do ${carrinho} (${mensagem(e)}) — seguiu sem a trava`)
+    logger.error(
+      `[cartão] não consegui anotar a tentativa do ${carrinho} (${mensagem(e)}) — seguiu sem a trava`
+    )
     return next()
   }
 
