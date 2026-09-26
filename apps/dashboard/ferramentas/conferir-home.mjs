@@ -17,7 +17,8 @@
  * │ • o rascunho indo pro site antes do "Publicar" (texto, ordem, chave);  │
  * │ • o "Publicar" que não chega na loja, ou chega pela metade;            │
  * │ • a seção pela metade gravada calada, ou recusada sem dizer o que      │
- * │   falta (o palco com um produto só);                                   │
+ * │   falta (o palco com um produto só); a barrinha do palco chegando      │
+ * │   cheia, ou o produto trocando debaixo do mouse;                       │
  * │ • o bloco escuro (o <h1>) saindo do lugar, ou a ordem da loja          │
  * │   diferente da do painel;                                              │
  * │ • a faixa contando errado o que está esperando; o "Desfazer" que não   │
@@ -175,19 +176,20 @@ async function caixaDoBanner(pagina, n) {
   }, n)
 }
 
-/** A bolinha da vez no carrossel do banner e quanto a barrinha dela já encheu (0 a 1). */
-async function barraDaVez(pagina) {
-  return pagina.evaluate(() => {
-    const pontos = [...document.querySelectorAll(".banner-carrossel__ponto")]
+/**
+ * A bolinha da vez num carrossel da home — o banner (`banner-carrossel`) ou o palco da Alta
+ * Performance (`benefits`) — e quanto a barrinha dela já encheu (0 a 1).
+ */
+async function barraDaVez(pagina, carrossel = "banner-carrossel") {
+  return pagina.evaluate((c) => {
+    const pontos = [...document.querySelectorAll(`.${c}__ponto`)]
     const i = pontos.findIndex((b) => b.getAttribute("aria-current") === "true")
-    const t =
-      pontos[i] &&
-      getComputedStyle(pontos[i].querySelector(".banner-carrossel__ponto-cheia")).transform
+    const t = pontos[i] && getComputedStyle(pontos[i].querySelector(`.${c}__ponto-cheia`)).transform
     return {
       slide: i + 1,
       barra: t && t !== "none" ? Number(t.match(/matrix\(([^,]+)/)?.[1] ?? 0) : 0,
     }
-  })
+  }, carrossel)
 }
 
 async function apertar(pagina, alvo) {
@@ -871,6 +873,69 @@ try {
       })
     )
     await relogio.contexto.close()
+
+    // O palco da Alta Performance no mesmo relógio. Ele fica lá embaixo: a barrinha começa quando
+    // a pessoa chega nele (antes, era do CSS e já chegava cheia), o produto troca quando ela
+    // enche, e o mouse em cima segura. Aba nova, sem mexer o mouse até a hora.
+    const abaDoPalco = await novaAba({ width: 1280, height: 900 })
+    await abaDoPalco.pagina.goto(`${LOJA}/`)
+    await hidratado(abaDoPalco.pagina, ".benefits__ponto")
+    await esperar(3000)
+    await abaDoPalco.pagina
+      .locator(".benefits")
+      .evaluate((el) => el.scrollIntoView({ block: "center" }))
+    await esperar(400)
+    const chegando = await barraDaVez(abaDoPalco.pagina, "benefits")
+    const trocaNoPalco = await abaDoPalco.pagina.evaluate(
+      () =>
+        new Promise((pronto) => {
+          const vez = () =>
+            [...document.querySelectorAll(".benefits__ponto")].findIndex(
+              (b) => b.getAttribute("aria-current") === "true"
+            )
+          const antes = vez()
+          let encheuEm = null
+          const passo = (agora) => {
+            const el = document.querySelectorAll(".benefits__ponto-cheia")[antes]
+            const t = el && getComputedStyle(el).transform
+            const barra = t && t !== "none" ? Number(t.match(/matrix\(([^,]+)/)?.[1] ?? 0) : 0
+            if (encheuEm === null && barra >= 0.999) encheuEm = agora
+            if (vez() !== antes) return pronto({ encheuEm, trocouEm: agora })
+            requestAnimationFrame(passo)
+          }
+          requestAnimationFrame(passo)
+          setTimeout(() => pronto({ encheuEm, trocouEm: null }), 12000)
+        })
+    )
+    ok(
+      chegando.barra < 0.2 &&
+        trocaNoPalco.encheuEm !== null &&
+        trocaNoPalco.trocouEm !== null &&
+        trocaNoPalco.trocouEm - trocaNoPalco.encheuEm < 250,
+      "na loja: o palco começa a barrinha quando a pessoa chega nele, e troca quando ela enche",
+      JSON.stringify({
+        chegando,
+        atraso:
+          trocaNoPalco.trocouEm &&
+          trocaNoPalco.encheuEm &&
+          Math.round(trocaNoPalco.trocouEm - trocaNoPalco.encheuEm),
+      })
+    )
+    const doPalco = await abaDoPalco.pagina.locator(".benefits").boundingBox()
+    await abaDoPalco.pagina.mouse.move(
+      doPalco.x + doPalco.width / 2,
+      doPalco.y + doPalco.height / 2
+    )
+    await esperar(300)
+    const noPalco = await barraDaVez(abaDoPalco.pagina, "benefits")
+    await esperar(2500)
+    const noPalcoDepois = await barraDaVez(abaDoPalco.pagina, "benefits")
+    ok(
+      noPalco.slide === noPalcoDepois.slide && Math.abs(noPalco.barra - noPalcoDepois.barra) < 0.01,
+      "na loja: o mouse em cima do palco segura a barrinha e o produto",
+      JSON.stringify({ noPalco, noPalcoDepois })
+    )
+    await abaDoPalco.contexto.close()
   }
 
   /* ── o vídeo da história ─────────────────────────────────────────────── */
