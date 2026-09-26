@@ -24,6 +24,8 @@
  * │   da loja (o Analytics é o mesmo do site antigo);                      │
  * │ • a meta que não salva, não volta, ou aceita "abc";                    │
  * │ • o funil sem a maior perda, fora de ordem, ou contando o page_view;   │
+ * │ • o produto sem as visitas das variantes dele, ou fora de ordem; a     │
+ * │   oferta do checkout sem o código BUMP-, o cupom contando ela;         │
  * │ • o canal que soma errado, o anúncio junto da busca, as compras do     │
  * │   site antigo entrando (o filtro é o id do pedido), o link de campanha │
  * │   com acento ou sem a página;                                          │
@@ -45,6 +47,7 @@ import {
   exigirAmbiente,
   falhou,
   medusa,
+  MEDUSA,
   menu,
   ok,
   PAINEL,
@@ -644,6 +647,154 @@ try {
     ok(await semRolagemDeLado(celular), "e o funil também")
   }
 
+  titulo("Os Produtos")
+  {
+    const CHAVE = process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY ?? ""
+    const { products } = await (
+      await fetch(`${MEDUSA}/store/products?fields=id,handle,title,*variants&limit=50`, {
+        headers: { "x-publishable-api-key": CHAVE },
+      })
+    ).json()
+    const [p1, p2] = products.filter((p) => p.variants?.length)
+    google.marketing.itens = {
+      [p1.variants[0].id]: [300, 15],
+      [p2.variants[0].id]: [100, 20],
+    }
+    const r = await medusa("/dashboard/marketing/produtos?periodo=30d", {
+      metodo: "GET",
+      token: tokenDoDono,
+    })
+    const lista = r.corpo.produtos ?? []
+    const um = lista.find((p) => p.id === p1.id)
+    const dois = lista.find((p) => p.id === p2.id)
+    ok(
+      r.status === 200 &&
+        r.corpo.estado === "ok" &&
+        um?.visitas === 300 &&
+        um?.sacola === 5 &&
+        dois?.visitas === 100 &&
+        dois?.sacola === 20,
+      "as visitas e a sacola de cada produto, pelas variantes",
+      JSON.stringify([um, dois])
+    )
+    ok(
+      lista.length > 0 &&
+        lista.every((p, i) => i === 0 || lista[i - 1].receita >= p.receita) &&
+        lista.every((p) => p.sinais?.length),
+      "do que mais vendeu pro que menos, cada um com o sinal",
+      JSON.stringify(lista.map((p) => [p.nome, p.receita, p.sinais])).slice(0, 300)
+    )
+    const resumo30 = (
+      await medusa("/dashboard/marketing?periodo=30d", { metodo: "GET", token: tokenDoDono })
+    ).corpo
+    ok(
+      resumo30.maisVendidos.every((m) => lista.some((p) => perto(p.receita, m.receita))),
+      "a receita de cada produto bate com os mais vendidos do Resumo",
+      JSON.stringify(resumo30.maisVendidos.map((m) => [m.nome, m.receita]))
+    )
+    const pergunta = google.perguntas
+      .filter((p) => p.tipo === "batchRunReports")
+      .map((p) => p.corpo.requests?.[0])
+      .find((q) => q?.dimensions?.[0]?.name === "itemId")
+    ok(
+      pergunta?.dimensionFilter?.filter?.fieldName === "itemId" &&
+        pergunta?.dimensionFilter?.filter?.stringFilter?.value === "variant_" &&
+        JSON.stringify(pergunta?.metrics?.map((m) => m.name)) ===
+          JSON.stringify(["itemsViewed", "itemsAddedToCart"]),
+      "a pergunta: as vezes vista e posta na sacola, só das variantes da loja",
+      JSON.stringify(pergunta).slice(0, 200)
+    )
+    const daOperacao = await medusa("/dashboard/marketing/produtos", {
+      metodo: "GET",
+      token: cookieOp.value,
+    })
+    ok(
+      daOperacao.status === 403,
+      "a operação não abre os produtos (403)",
+      String(daOperacao.status)
+    )
+
+    const { pagina } = dono
+    await pagina.goto(`${PAINEL}/marketing/produtos?periodo=30d`)
+    await pagina.waitForSelector('[data-bloco="produtos"] tbody tr[data-produto]', {
+      timeout: 20000,
+    })
+    ok(
+      (await pagina.locator('[data-bloco="produtos"] tbody tr[data-produto]').count()) ===
+        lista.length && (await textoDe(pagina, `tr[data-produto="${p1.id}"]`)).includes("300"),
+      "a tela: um produto por linha, com as visitas",
+      await textoDe(pagina, `tr[data-produto="${p1.id}"]`)
+    )
+    await pagina.locator(`tr[data-produto="${p1.id}"] a`).click()
+    await pagina.waitForURL((u) => u.pathname === `/produtos/${p1.id}`, { timeout: 20000 })
+    ok(caminho(pagina) === `/produtos/${p1.id}`, "tocar no produto abre a página dele no painel")
+
+    const { pagina: celular } = mkt
+    await celular.goto(`${PAINEL}/marketing/produtos?periodo=30d`)
+    await celular.waitForSelector(`.cartoes [data-produto="${p1.id}"]`, { timeout: 20000 })
+    ok(await semRolagemDeLado(celular), "no celular: os produtos em cartões, sem rolar de lado")
+  }
+
+  titulo("As Ofertas")
+  {
+    const r = await medusa("/dashboard/marketing/ofertas?periodo=30d", {
+      metodo: "GET",
+      token: tokenDoDono,
+    })
+    const o = r.corpo
+    const resumo30 = (
+      await medusa("/dashboard/marketing?periodo=30d", { metodo: "GET", token: tokenDoDono })
+    ).corpo
+    const { unidades, checkout } = o.numeros ?? {}
+    ok(
+      r.status === 200 &&
+        o.porProduto?.length > 0 &&
+        o.porProduto.every(
+          (p) => p.resultado.modo === "unidades" || p.resultado.modo === "junto"
+        ) &&
+        unidades.parte ===
+          (unidades.pedidos ? Math.round((unidades.comMais / unidades.pedidos) * 100) : null),
+      "a caixa de cada produto publicado, e a conta dos cartões de quantidade",
+      JSON.stringify(o.numeros)
+    )
+    ok(
+      checkout.pedidos <= resumo30.numeros.pedidos.valor &&
+        checkout.deCada ===
+          (checkout.pedidos ? Math.round(resumo30.numeros.pedidos.valor / checkout.pedidos) : null),
+      "a oferta do checkout: 1 em cada N dos pedidos pagos do período",
+      JSON.stringify([checkout, resumo30.numeros.pedidos])
+    )
+    ok(
+      (o.cupons ?? []).every((c) => c.usos >= 1 && !c.codigo.startsWith("BUMP-")),
+      "os cupons: os códigos usados, sem os da oferta do checkout",
+      JSON.stringify(o.cupons).slice(0, 200)
+    )
+    const daOperacao = await medusa("/dashboard/marketing/ofertas", {
+      metodo: "GET",
+      token: cookieOp.value,
+    })
+    ok(daOperacao.status === 403, "a operação não abre as ofertas (403)", String(daOperacao.status))
+
+    const { pagina } = dono
+    await pagina.goto(`${PAINEL}/marketing/ofertas?periodo=30d`)
+    await pagina.waitForSelector('[data-bloco="caixas"] tbody tr[data-oferta]', { timeout: 20000 })
+    ok(
+      (await pagina.locator('[data-bloco="caixas"] tbody tr[data-oferta]').count()) ===
+        o.porProduto.length &&
+        (await pagina.locator("[data-numeros-das-ofertas] .numero").count()) === 4 &&
+        (await pagina
+          .locator('[data-bloco="cupons"] tbody tr[data-cupom], [data-bloco="cupons"] .sem-dados')
+          .count()) >= 1,
+      "a tela: a caixa de cada produto, os quatro números e os cupons"
+    )
+    ok(
+      (await pagina.locator(".abas a[data-aba]").count()) === 5 &&
+        (await pagina.locator('.abas a[aria-current="page"]').getAttribute("data-aba")) ===
+          "ofertas",
+      "as cinco abas, com a das ofertas acesa"
+    )
+  }
+
   titulo("O Google fora")
   {
     google.recusar = 500
@@ -672,6 +823,12 @@ try {
         .locator('[data-bloco="checkout"] .funil, [data-bloco="checkout"] .sem-dados')
         .count()) === 1,
       "no funil: o do site diz que o Google não respondeu, e o da sacola (a loja) segue"
+    )
+    await pagina.goto(`${PAINEL}/marketing/produtos?periodo=7d`)
+    await pagina.waitForSelector("[data-sem-google]", { timeout: 20000 })
+    ok(
+      (await pagina.locator('[data-bloco="produtos"] tbody tr[data-produto]').count()) > 0,
+      "nos produtos: diz que o Google não respondeu, e a lista (o vendido, o estoque) segue"
     )
     await pagina.goto(`${PAINEL}/marketing/canais?periodo=7d`)
     await pagina.waitForSelector('[data-bloco="canais"] [data-sem-google]', { timeout: 20000 })

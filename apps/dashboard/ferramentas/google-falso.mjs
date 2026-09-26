@@ -65,7 +65,16 @@ export async function subirGoogleFalso({
      * { fonte, meio, campanha, visitas }) e as vendas por origem (`vendas`:
      * { fonte, meio, campanha, pedidos, receita }).
      */
-    marketing: { sessoes: 0, eventos: {}, compras: 0, aparelhos: {}, origens: [], vendas: [] },
+    marketing: {
+      sessoes: 0,
+      eventos: {},
+      compras: 0,
+      aparelhos: {},
+      origens: [],
+      vendas: [],
+      /** Por variante: `[vezes vista, vezes posta na sacola]`. */
+      itens: {},
+    },
     /** O fuso da propriedade: resolve "today"/"yesterday" e vai em `metadata.timeZone`. */
     fuso: "America/Sao_Paulo",
     validosDesde: 0,
@@ -148,7 +157,11 @@ export async function subirGoogleFalso({
       rows = Object.entries(m.eventos)
         .filter(([e]) => !pedidos || pedidos.includes(e))
         .map(([e, n]) => linha([e], n))
-    } else if (dims === "deviceCategory")
+    } else if (dims === "itemId")
+      rows = Object.entries(m.itens ?? {}).map(([id, [vistas, sacola]]) =>
+        linha([id], vistas, sacola)
+      )
+    else if (dims === "deviceCategory")
       rows = Object.entries(m.aparelhos).map(([a, n]) => linha([a], n))
     else if (dims === "sessionSource,sessionMedium,sessionCampaignName")
       rows =
