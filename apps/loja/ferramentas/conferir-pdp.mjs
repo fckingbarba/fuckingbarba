@@ -19,6 +19,9 @@
  * │ produto que existe no banco local (a semente tem seis; o ar, 15).      │
  * └─────────────────────────────────────────────────────────────────────────┘
  *
+ * Desde a entrega 0114 ele também passa o DEDO na foto grande, no celular
+ * (bloco 2): no celular, só os pontos embaixo dela trocavam a foto.
+ *
  * A parte que edita mexe no banco e RESTAURA no fim, inclusive se falhar no
  * meio. Sem credencial de admin, ela é pulada.
  */
@@ -168,6 +171,186 @@ try {
     )
   }
   confere("o banco local tem produto com o texto do arquivo", conferidos > 0, "nenhum achado")
+
+  /* ── 2. a foto grande passa no dedo, no celular ─────────────────────────
+     O arrasto vai pelo CDP (`Input.dispatchTouchEvent`), que passa pela
+     rolagem de verdade do navegador: um TouchEvent montado no DOM não rola
+     nada, e deixaria passar o trilho quebrado. */
+  const { products: comFotos = [] } = await (
+    await fetch(`${MEDUSA}/store/products?limit=50&fields=handle,images.url`, {
+      headers: { "x-publishable-api-key": CHAVE },
+    })
+  ).json()
+  const doDedo = comFotos
+    .filter((p) => (p.images?.length ?? 0) >= 2)
+    .sort((a, b) => b.images.length - a.images.length)[0]
+  if (!doDedo) {
+    console.log("\n  ⚠  nenhum produto com duas fotos no banco — o dedo na galeria não foi testado")
+  } else {
+    const handle = doDedo.handle
+    const total = doDedo.images.length
+    const html = await (await fetch(`${LOJA}/produtos/${handle}?_=${Date.now()}`)).text()
+    const noTrilho =
+      html.split('class="galeria__trilho"')[1]?.split('class="galeria__miniaturas"')[0] ?? ""
+    const fotosNoHtml = (noTrilho.match(/class="galeria__slide/g) ?? []).length
+    const imagensNoHtml = (noTrilho.match(/<img/g) ?? []).length
+    confere(
+      `${handle}: das ${total} fotos do palco, só a primeira vem no HTML (é o LCP)`,
+      fotosNoHtml === total && imagensNoHtml === 1 && /fetchpriority="high"/i.test(noTrilho),
+      JSON.stringify({ fotosNoHtml, imagensNoHtml })
+    )
+
+    const celular = await navegador.newContext({
+      viewport: { width: 390, height: 844 },
+      isMobile: true,
+      hasTouch: true,
+      extraHTTPHeaders: { "cache-control": "no-cache", pragma: "no-cache" },
+    })
+    const recargaNoCelular = vigiarRecargaDoDev(celular)
+    celular.on(
+      "console",
+      (m) =>
+        m.type() === "error" &&
+        !RUIDO_DE_DEV.test(m.text()) &&
+        !recargaNoCelular(m) &&
+        noConsole.push(m.text())
+    )
+    try {
+      const cel = await celular.newPage()
+      const cdp = await celular.newCDPSession(cel)
+      await cel.goto(`${LOJA}/produtos/${handle}?_=${Date.now()}`, { waitUntil: "load" })
+      const estado = () =>
+        cel.evaluate(() => {
+          const t = document.querySelector(".galeria__trilho")
+          return {
+            // Sem trilho (o palco de antes, parado), a foto é -1: as checagens falham sem derrubar a rodada.
+            foto: t ? Math.round((t.scrollLeft / t.clientWidth) * 100) / 100 : -1,
+            ponto: [...document.querySelectorAll(".galeria__mini")].findIndex(
+              (b) => b.getAttribute("aria-current") === "true"
+            ),
+            y: Math.round(scrollY),
+          }
+        })
+      /** Espera o trilho parar inteiro na foto `i`, com o ponto marcando ela. */
+      const parouEm = async (i) => {
+        for (let n = 0; n < 40; n++) {
+          const e = await estado()
+          if (e.foto === i && e.ponto === i) return true
+          await cel.waitForTimeout(100)
+        }
+        return false
+      }
+      const dedo = async (de, ate, passos = 12) => {
+        await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [de] })
+        for (let k = 1; k <= passos; k++) {
+          const x = de.x + ((ate.x - de.x) * k) / passos
+          const y = de.y + ((ate.y - de.y) * k) / passos
+          await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x, y }] })
+          await cel.waitForTimeout(16)
+        }
+      }
+      const soltar = async () => {
+        await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })
+        await cel.waitForTimeout(900)
+      }
+
+      // A primeira foto é o LCP: a segunda só é PEDIDA depois que a página carregou.
+      const segunda = await cel
+        .waitForFunction(
+          () => {
+            const img = document.querySelectorAll(".galeria__slide")[1]?.querySelector("img")
+            return Boolean(img?.complete && img.naturalWidth > 0)
+          },
+          null,
+          { timeout: 15000 }
+        )
+        .then(
+          () =>
+            cel.evaluate(() => {
+              const img = document.querySelectorAll(".galeria__slide")[1].querySelector("img")
+              const pedido = performance.getEntriesByName(img.currentSrc)[0]
+              const pagina = performance.getEntriesByType("navigation")[0]
+              return {
+                pediuEm: Math.round(pedido?.startTime ?? -1),
+                carregouEm: Math.round(pagina?.loadEventStart ?? -1),
+              }
+            }),
+          () => null
+        )
+      confere(
+        "a segunda foto baixa, mas só é pedida depois que a página carregou",
+        segunda !== null && segunda.carregouEm > 0 && segunda.pediuEm >= segunda.carregouEm,
+        JSON.stringify(segunda)
+      )
+      const palco = await cel.locator(".galeria__palco").boundingBox()
+      const meio = { x: palco.x + palco.width / 2, y: palco.y + palco.height / 2 }
+      const direita = { x: palco.x + palco.width * 0.85, y: meio.y }
+      const esquerda = { x: palco.x + palco.width * 0.15, y: meio.y }
+
+      await dedo(direita, { x: direita.x - 90, y: meio.y }, 6)
+      // O dedo para antes de soltar: sem impulso, o arrasto curto volta (o peteleco rápido passa).
+      await cel.waitForTimeout(200)
+      const noMeioDoArrasto = (await estado()).foto
+      await soltar()
+      confere(
+        "a foto acompanha o dedo, e o arrasto curto e lento volta pra mesma",
+        noMeioDoArrasto > 0.05 && (await parouEm(0)),
+        JSON.stringify({ noMeioDoArrasto, depois: await estado() })
+      )
+      await dedo(direita, esquerda)
+      await soltar()
+      confere(
+        "o dedo pra esquerda passa pra próxima foto, e o ponto marca ela",
+        await parouEm(1),
+        JSON.stringify(await estado())
+      )
+      await dedo(esquerda, direita)
+      await soltar()
+      confere("o dedo pra direita volta uma", await parouEm(0), JSON.stringify(await estado()))
+      const antes = await estado()
+      await dedo({ x: meio.x, y: meio.y + 150 }, { x: meio.x + 4, y: meio.y - 150 })
+      await soltar()
+      const depois = await estado()
+      confere(
+        "arrastar pra cima em cima da foto rola a página, e a foto fica",
+        depois.y > antes.y + 100 && depois.foto === 0 && depois.ponto === 0,
+        JSON.stringify({ antes, depois })
+      )
+      await cel.evaluate(() => scrollTo(0, 0))
+      await cel.waitForTimeout(300)
+
+      await dedo(direita, esquerda)
+      await soltar()
+      await parouEm(1)
+      await cel.touchscreen.tap(meio.x, meio.y)
+      const contador = cel.locator('.galeria__zoom-conta [aria-hidden="true"]')
+      const noZoom = async () => (await contador.textContent())?.replace(/\s+/g, " ").trim()
+      await contador.waitFor({ timeout: 3000 }).catch(() => {})
+      confere(
+        "o toque amplia a foto que está à vista",
+        (await cel.evaluate(() => document.querySelector(".galeria__zoom")?.open)) &&
+          (await noZoom()) === `2 / ${total}`,
+        await noZoom()
+      )
+      await cel.locator(".galeria__zoom-seta--depois").click()
+      await cel.keyboard.press("Escape")
+      const ultimaVista = 2 % total
+      confere(
+        "fechando o zoom, a foto grande é a última vista nele",
+        await parouEm(ultimaVista),
+        JSON.stringify(await estado())
+      )
+      const outra = ultimaVista === 0 ? 1 : 0
+      await cel.locator(".galeria__mini").nth(outra).tap()
+      confere("o ponto leva até a foto", await parouEm(outra), JSON.stringify(await estado()))
+      confere(
+        "a página não rola de lado",
+        await cel.evaluate(() => document.documentElement.scrollWidth <= innerWidth)
+      )
+    } finally {
+      await celular.close()
+    }
+  }
 
   /* ── 3. editar no admin muda a loja ──────────────────────────────────── */
   if (!EMAIL || !SENHA) {

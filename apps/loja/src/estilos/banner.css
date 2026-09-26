@@ -64,12 +64,14 @@
   ocupa a largura inteira e estica até o mais alto (arte com e sem a do
   celular), pra nada pular na troca. As setas ficam por cima, só onde tem mouse.
 
-  As bolinhas ficam EMBAIXO da arte, numa faixa escura, e não em cima dela
-  (26/09): a pílula de antes cobria o botão desenhado na arte do celular. A
-  faixa é da cor da barra de vantagens, que vem logo depois na home.
+  As bolinhas ficam POR CIMA da arte, no canto de baixo à esquerda (26/09, a
+  pedido da loja). Numa faixa embaixo dela, como estavam, abriam um vão entre
+  o banner e a barra de vantagens; e no meio, como a pílula de antes, cobriam
+  o botão desenhado na arte do celular. No canto, num selo preto de canto
+  cortado (translúcido, ele ficava encardido em cima do amarelo) — e o
+  painel pede pra deixar esse canto sem texto.
 */
 .banner-carrossel {
-  --faixa-dos-pontos: 24px;
   position: relative;
   background: #ffffff;
 }
@@ -96,8 +98,7 @@
 }
 .banner-carrossel__seta {
   position: absolute;
-  /* No meio da arte, sem contar a faixa das bolinhas. */
-  top: calc((100% - var(--faixa-dos-pontos)) / 2);
+  top: 50%;
   z-index: 3;
   display: grid;
   place-items: center;
@@ -131,19 +132,34 @@
   right: 14px;
 }
 .banner-carrossel__pontos {
+  position: absolute;
+  left: 16px;
+  bottom: 16px;
+  z-index: 3;
   display: flex;
-  justify-content: center;
-  gap: 6px;
-  height: var(--faixa-dos-pontos);
+  gap: 4px;
+  padding: 0 8px;
   background: #070a09;
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
 }
+/* O botão tem 24 px de altura pro dedo; a barrinha, 4 px no meio dele. */
 .banner-carrossel__ponto {
-  width: 34px;
-  height: 100%;
+  width: 26px;
+  height: 24px;
   padding: 10px 0;
   border: none;
   background: none;
   cursor: pointer;
+}
+@media (max-width: 767px) {
+  .banner-carrossel__pontos {
+    left: 10px;
+    bottom: 10px;
+    padding: 0 7px;
+  }
+  .banner-carrossel__ponto {
+    width: 20px;
+  }
 }
 .banner-carrossel__ponto:focus-visible {
   outline: 2px solid var(--color-amarelo);
@@ -154,7 +170,7 @@
   display: block;
   height: 4px;
   overflow: hidden;
-  background: rgb(255 255 255 / 0.3);
+  background: rgb(255 255 255 / 0.35);
 }
 /*
   A parte que enche. Quem anima é o carrossel (`Element.animate`), e a troca
