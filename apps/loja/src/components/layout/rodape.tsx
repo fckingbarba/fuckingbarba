@@ -23,6 +23,20 @@ import { formasDePagamento, navegacao, parcelamento, redes, site } from "@/lib/s
  * barra legal. Componente de servidor — o único pedaço com JS é o formulário
  * de novidades, que é ilha à parte.
  *
+ * NO CELULAR, OS GRUPOS VIRAM SANFONA: links, políticas, contato, selos e
+ * pagamento. Aberto, o rodapé dava duas telas inteiras de rolagem. Cada grupo
+ * é um `<details className="rodape__grupo">`, sem JavaScript — a sanfona abre
+ * antes de a página hidratar e o rodapé segue saindo pronto do cache. Ele
+ * nasce FECHADO, porque quem manda é o celular; no computador quem abre é o
+ * CSS (`::details-content`, em `rodape.css`).
+ *
+ * E O TÍTULO VEM DUAS VEZES, de propósito: o `<summary>` é o botão da
+ * sanfona e só aparece no celular; o `<h2>` é o título da coluna e só
+ * aparece no computador. Com um só, o computador teria um botão que não abre
+ * nem fecha nada, anunciado como "recolhido" pro leitor de tela ao lado da
+ * lista que está na cara. O `display: none` tira o que sobra de cada lado da
+ * tela, do teclado e do leitor de tela.
+ *
  * A faixa zebrada do topo e o raio gigante d'água são `::before` e `::after`
  * no CSS: nenhuma imagem extra pra baixar num bloco que aparece em toda
  * página e que ninguém rola até o fim na primeira visita.
@@ -111,32 +125,39 @@ export async function Rodape() {
           </div>
 
           <nav aria-labelledby="rod-uteis">
-            <h2 className="rodape__titulo" id="rod-uteis">
-              Links úteis
-            </h2>
-            <ul className="rodape__lista">
-              {navegacao.uteis.map((item) => (
-                <li key={item.texto}>
-                  <Link href={item.href}>{item.texto}</Link>
-                </li>
-              ))}
-            </ul>
+            <details className="rodape__grupo">
+              <summary>Links úteis</summary>
+              <h2 className="rodape__titulo" id="rod-uteis">
+                Links úteis
+              </h2>
+              <ul className="rodape__lista">
+                {navegacao.uteis.map((item) => (
+                  <li key={item.texto}>
+                    <Link href={item.href}>{item.texto}</Link>
+                  </li>
+                ))}
+              </ul>
+            </details>
           </nav>
 
           <nav aria-labelledby="rod-politicas">
-            <h2 className="rodape__titulo" id="rod-politicas">
-              Políticas
-            </h2>
-            <ul className="rodape__lista">
-              {navegacao.politicas.map((item) => (
-                <li key={item.texto}>
-                  <Link href={item.href}>{item.texto}</Link>
-                </li>
-              ))}
-            </ul>
+            <details className="rodape__grupo">
+              <summary>Políticas</summary>
+              <h2 className="rodape__titulo" id="rod-politicas">
+                Políticas
+              </h2>
+              <ul className="rodape__lista">
+                {navegacao.politicas.map((item) => (
+                  <li key={item.texto}>
+                    <Link href={item.href}>{item.texto}</Link>
+                  </li>
+                ))}
+              </ul>
+            </details>
           </nav>
 
-          <div id="rodape-contato">
+          <details className="rodape__grupo" id="rodape-contato">
+            <summary>Entrar em contato</summary>
             <h2 className="rodape__titulo">Entrar em contato</h2>
             <ul className="rodape__lista">
               {zap && zapNaTela ? (
@@ -166,33 +187,40 @@ export async function Rodape() {
                 ))}
               </p>
             ) : null}
-          </div>
+          </details>
         </div>
 
         <Selos />
 
         <section className="rodape__pagamento" aria-labelledby="rod-pag">
-          <h2 className="rodape__pagamento-titulo" id="rod-pag">
-            Formas de pagamento
-          </h2>
-          <ul className="rodape__formas">
-            {formasDePagamento.map((forma) => (
-              <li key={forma}>{forma}</li>
-            ))}
-            <li>
-              Cartão em até <b>{parcelamento}</b>
-            </li>
-          </ul>
-          {/* As mesmas bandeiras que o campo do cartão reconhece no checkout
-              (`lib/cartao.ts`): a que o rodapé anuncia e a que o checkout
-              aceita saem da mesma lista. */}
-          <ul className="rodape__bandeiras" aria-label="Bandeiras aceitas no cartão">
-            {BANDEIRAS_ACEITAS.map((b) => (
-              <li key={b}>
-                <LogoDaBandeira bandeira={b} />
-              </li>
-            ))}
-          </ul>
+          <details className="rodape__grupo">
+            <summary>Formas de pagamento</summary>
+            {/* A linha é quem põe título, formas e bandeiras lado a lado no
+                computador: o miolo do `<details>` é um bloco só. */}
+            <div className="rodape__pagamento-linha">
+              <h2 className="rodape__pagamento-titulo" id="rod-pag">
+                Formas de pagamento
+              </h2>
+              <ul className="rodape__formas">
+                {formasDePagamento.map((forma) => (
+                  <li key={forma}>{forma}</li>
+                ))}
+                <li>
+                  Cartão em até <b>{parcelamento}</b>
+                </li>
+              </ul>
+              {/* As mesmas bandeiras que o campo do cartão reconhece no checkout
+                  (`lib/cartao.ts`): a que o rodapé anuncia e a que o checkout
+                  aceita saem da mesma lista. */}
+              <ul className="rodape__bandeiras" aria-label="Bandeiras aceitas no cartão">
+                {BANDEIRAS_ACEITAS.map((b) => (
+                  <li key={b}>
+                    <LogoDaBandeira bandeira={b} />
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </details>
         </section>
       </div>
 
