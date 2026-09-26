@@ -1601,6 +1601,28 @@ fora por um de mentira (o `route` do Playwright) e lê as filas dos trechos (`da
 `PORTA_ANUNCIOS`), com os pedidos da `fabricaDePedidos` (que devolve o `carrinho` pro crachá da
 tela de obrigado).
 
+**O catálogo pros anúncios** (entrega 0134). `/catalogo.xml` (`apps/loja/src/app/catalogo.xml/
+route.ts`, montado em `src/lib/feed-de-produtos.ts`) é o arquivo que o Google Merchant Center
+(Shopping, Performance Max) e o Gerenciador de Comércio da Meta (anúncio de catálogo, remarketing
+dinâmico, Instagram Shopping) buscam: RSS 2.0 com os campos `g:` do Google, que a Meta também lê.
+Uma linha por VARIAÇÃO, com o id `variant_…` — o mesmo do `item_id`/`content_ids` do
+`lib/rastrear.ts` e da compra pelo servidor (`backend/src/lib/anuncios/enviar.ts`, `variant_id`);
+id diferente e o remarketing dinâmico não acha o produto. O preço é o do card: sem promoção,
+`g:price`; com ela, `g:price` é o cheio e `g:sale_price` o que se paga. Sem EAN no Medusa (a
+importação do Bling não traz), `identifier_exists: no` com a marca e o SKU no `mpn`; com EAN
+(`ean`, `upc` ou `barcode` da variação), `g:gtin`. A categoria do Google vem da categoria da loja
+(`CATEGORIA_DO_GOOGLE`: cabelo 1901, o resto 528). Vai SÓ a foto principal — as artes a mais
+(antes e depois, "88% de eficácia") derrubam conta de anúncio —, e em JPEG, pelo Medusa:
+`GET /catalogo/fotos/<handle>.jpg` (`backend/src/api/catalogo/fotos/[foto]/route.ts`,
+`lib/foto-do-catalogo.ts`), fora de `/store` porque o robô não manda a chave publicável; a Meta
+não aceita WebP no catálogo, e as fotos da loja são WebP. As convertidas ficam na memória (60, um
+dia); o `?v=` do catálogo é um resumo do endereço da original, então foto nova vira endereço novo.
+A rota sai pronta no build e segue a marca `produtos` da vitrine (o `listarProdutos` do sitemap).
+O proxy não passa por ela (o `matcher` pula `.xml`). Os links usam o `NEXT_PUBLIC_SITE_URL`: só
+servem pro Merchant Center e pra Meta DEPOIS da virada, no domínio verificado. O conferidor é o
+`apps/loja/ferramentas/conferir-feed.mjs` (só lê: o XML num `DOMParser` de verdade, cada linha
+contra a API, e os links e as fotos abrindo).
+
 **Os carrinhos abandonados** (entrega 0096 — só a lista; os e-mails vêm depois).
 `GET /dashboard/carrinhos?filtro=parados|agora|voltaram` (área `carrinhos`) monta a tela em
 `apps/backend/src/lib/painel/carrinhos.ts`, puro e com testes; a leitura é `ler-carrinhos.ts`:
