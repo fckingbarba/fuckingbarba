@@ -1172,6 +1172,10 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
       0125): os endereços do mapa do site da Nuvemshop (15 produtos, e 15 páginas e categorias),
       mais a busca, o carrinho e a conta de lá, levam à página certa da loja nova (ver a seção da
       0125, no fim). Os produtos têm o mesmo endereço nas duas lojas, e os 15 estão publicados.
+- [ ] **Os cupons da Nuvemshop, de novo na virada — Claude Code.** A cópia é a lista de 26/09
+      (entrega 0126): cupom criado lá depois disso não está aqui, e o de 1 uso que alguém gastar lá
+      até a virada ainda vale uma vez aqui. Na véspera, a lista de lá de novo e uma migração nova só
+      com o que mudou (esta já rodou).
 - [ ] Troca de domínio (fase 6). O que depende do endereço da loja: `NEXT_PUBLIC_SITE_URL` na
       Vercel, `STORE_CORS`/`AUTH_CORS` e `LOJA_URL` (revalidação, logo e links dos e-mails) no
       Railway (ele também diz ao Marketing de que endereço contar as visitas), `SITE_ORIGENS` no
@@ -1665,6 +1669,7 @@ Ficou pra depois:
 - [ ] O cupom de **frete grátis**: o resumo do checkout mostraria o desconto do frete duas vezes
       (no frete e no desconto). Entra quando o resumo mudar. O frete grátis pelo valor mínimo
       segue valendo.
+      Os dois de frete grátis da Nuvemshop (FRETEG e FRETEGRATISDOM) esperam por ele (0126).
 - [ ] O botão **"Mudar"** do desconto por quantidade: as faixas ainda mudam só no código.
 
 Conferido pelo `conferir-cupons.mjs` (25 checagens, novo).
@@ -2302,6 +2307,30 @@ salvos conhecem, abre a página certa, e não "página não encontrada".
 
 Depois do deploy — **nada a configurar.** Só vale de verdade na troca de domínio; até lá, dá pra
 testar no endereço da Vercel: `…vercel.app/produtos-para-a-barba/` abre a Barba.
+
+**Os cupons da Nuvemshop na loja nova — pronto em 26/09 (entrega 0126).** Pedido dele, com a lista
+dos cupons ativos da Nuvemshop: "poderia criar para gente?".
+
+- **104 dos 111 entram sozinhos no deploy**, iguais aos de lá: o código (com o "_" e tudo), o
+  desconto (10%, 15% ou R$ 20, sem o frete), o limite de usos ("0 de 1" vira 1 uso no total) e a
+  data de fim. Aparecem em Cupons e descontos, com a chave de pausar, e valem no checkout — digitados
+  em maiúsculas ou minúsculas.
+- **Os usos de lá não vêm:** o PRIMEIRACOMPRA (170 usos na Nuvemshop) começa do zero aqui.
+- **Ficam de fora (7):** os dois de frete grátis (FRETEG e FRETEGRATISDOM — o cupom de frete ainda
+  não existe aqui) e os cinco com "1 limite" na Nuvemshop (10PILA, ITAPEMA25, KIT15, PRIMEIRA10 e
+  RIBEIRO): a lista não diz qual é o limite, e o cupom sem ele daria desconto a mais.
+- Os 12 de poucos dias (ARTIDA10_7XGS, MARIA10_T5AL…) vencem entre 26 e 29/09; o que já tiver
+  vencido no dia do deploy fica de fora.
+- [ ] **O "1 limite" dos cinco — você.** Na Nuvemshop, abrir cada um e dizer qual é (pedido mínimo,
+      só na primeira compra, uma vez por cliente ou só alguns produtos). Com a resposta, eles entram
+      pela `condicao` em `lib/cupons-da-nuvemshop.ts`.
+
+Conferido no banco local: a migração criou os 104 (rodando de novo, nenhum a mais), cada tipo de
+cupom aplicado num carrinho de verdade pela API da loja, a tela de Cupons no computador e no celular,
+o `conferir-cupons.mjs` (25/25) com eles no banco e os testes de unidade (15 novos).
+
+Depois do deploy — **nada a configurar.** Pra conferir: Painel → Cupons e descontos — a lista começa
+em 0P2XSB e termina em ZKVI3I.
 
 ## Como seguir no Claude Code
 
