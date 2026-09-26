@@ -878,6 +878,31 @@ mudo, em loop, só quando aparece na tela (`preload="none"`), com a capa até to
 grava os vídeos de teste no próprio navegador (canvas + `MediaRecorder`, em WebM sem a duração no
 cabeçalho, como o de um Android — o painel acha a duração indo pro fim do vídeo).
 
+**As sete seções de todos os produtos** (entrega 0105). O texto de Benefícios, Linha do tempo,
+Rotina, Como funciona e modo de uso, Comparação, Pra quem é e Perguntas frequentes dos 15 produtos
+mora em `backend/src/scripts/dados/secoes-da-pdp.json`, por handle (os kits do Fator e o Kit 2x
+Shampoo dizem `copiaDe` e trazem só o que muda), com a descrição do Google no `seo`. A regra é
+`lib/painel/secoes-da-pdp.ts` (`comOsTextos`, pura, com testes): troca só as sete seções, tira o
+`false` da visibilidade delas e guarda o que havia (pro log); antes e depois, faixa, fundos, caixa de
+compra, vídeos e ordem ficam. A migração `migration-scripts/secoes-da-pdp.ts` aplica UMA vez, no
+deploy, pelo `mudarPdp` (na trava, só o `fb_pdp`, a loja avisada). Três campos novos no `fb_pdp`, todos
+opcionais: `rotina.passoDeste`/`paraDeste` (o passo do produto da página; sem eles, o "Passo 2 · trata"
+do Fator, que era fixo no `rotina.tsx`; a rotina ordena pelo NÚMERO do passo, e o passo sem número vai
+depois), `funciona.comoFoto`/`usoFoto` (a foto exata de cada caixa, do armazenamento — no arquivo é
+`{ de, n }`, a foto N do produto X, resolvida na migração; sem ela, a 2ª foto do produto, que em vários é
+arte de anúncio) e `seo.descricao` (até 160 letras; o painel edita nos Textos, "Descrição no Google";
+sem ela, a loja usa o começo da descrição do Bling numa linha e sem cortar palavra, `descricaoDoGoogle`
+em `lib/formato.ts`). O `alt` das duas fotos é o nome do produto delas. A linha do tempo virou `<ol>` com
+um `<dl>` por passo: o `<dl>` único com o prazo num `<p>` solto dentro do grupo tirava 3 pontos de
+acessibilidade do Lighthouse. **SEO 100** nas 15 PDPs (e acessibilidade e boas práticas 100) com a loja
+indexável, como no CI (`SITE_INDEXAVEL=true`); em produção é 69 de propósito até a virada (o bloqueio
+do Google). **O CI mede a PDP do óleo SEM as seções** (o `medusa-falso.mjs` não tem `fb_pdp`): com as
+sete, o HTML da PDP vai de 90 pra 139 KB (o texto aparece no HTML e de novo no payload do React) e o
+LCP simulado sobe ~200 ms (2,33 → 2,55 s, A/B local), acima do orçamento de 2,5 s — sem ninguém ter
+errado. `content-visibility: auto` nas seções de baixo não mudou nada (o custo não é o layout, é o
+tamanho do documento). O `conferir-pdp.mjs` confere cada frase do arquivo na página de cada produto que
+existe no banco local, e a página enxuta num produto esvaziado de propósito (e devolvido no fim).
+
 **A home** (fase 4, parte 1). O texto e a ordem da home saíram do código pro `metadata` da loja, na
 chave `fb_home` (`apps/backend/src/lib/home.ts`): duas versões, `publicado` (o que a loja mostra) e
 `rascunho` (`null` = nada esperando), cada uma com `conteudo` ESPARSO (só as seções salvas) e

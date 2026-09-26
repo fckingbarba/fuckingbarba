@@ -1,0 +1,1764 @@
+{
+  "fator-de-crescimento-para-barba": {
+    "seo": "Estimule o crescimento da barba, preencha falhas e ganhe volume com uso diário. Resultado progressivo, fios mais fortes e barba mais densa.",
+    "promessa": {
+      "chapeu": "Uso diário, na pele",
+      "titulo": "O que muda na *sua cara*",
+      "itens": [
+        "Estímulo ao crescimento dos fios",
+        "Preenchimento das falhas",
+        "Fios mais grossos e encorpados",
+        "Barba mais uniforme e definida",
+        "Melhora geral na qualidade dos fios"
+      ],
+      "rodape": "Resultado varia de pessoa pra pessoa e depende de usar todo dia. Não faz nascer barba onde não existe folículo."
+    },
+    "tempo": {
+      "titulo": "Quando o resultado aparece",
+      "passos": [
+        {
+          "quando": "Semanas 1 e 2",
+          "titulo": "Textura",
+          "texto": "O fio fica mais forte ao toque. Ainda não cresceu nada — e é normal."
+        },
+        {
+          "quando": "Dia 30",
+          "titulo": "Começa a encher",
+          "texto": "Primeiros fios novos nas áreas de falha. Aqui é onde a maioria desiste cedo demais."
+        },
+        {
+          "quando": "Dia 90",
+          "titulo": "Densidade",
+          "texto": "Barba visivelmente mais cheia e uniforme. É o marco que vale a foto do antes e depois.",
+          "alvo": true
+        },
+        {
+          "quando": "3 a 6 meses",
+          "titulo": "Resultado cheio",
+          "texto": "O máximo que a sua genética permite. Daí em diante é manutenção."
+        }
+      ],
+      "aviso": "Um frasco cobre cerca de um mês. Se o plano é chegar no dia 90, sai mais barato levar os três de uma vez."
+    },
+    "rotina": {
+      "titulo": "A rotina que faz o produto render",
+      "passoDeste": "Passo 2 · trata",
+      "paraDeste": "O tratamento. Na pele, todo dia, sem enxaguar.",
+      "itens": [
+        {
+          "handle": "shampoo-para-barba",
+          "passo": "Passo 1 · limpa",
+          "para": "Tira sebo e resíduo: a pele limpa recebe melhor o tratamento."
+        },
+        {
+          "handle": "oleo-para-barba",
+          "passo": "Passo 3 · hidrata",
+          "para": "Fecha o ciclo. Fio novo nasce, óleo mantém macio."
+        }
+      ]
+    },
+    "funciona": {
+      "comoTitulo": "Como funciona",
+      "comoFotoDe": "fator-de-crescimento-para-barba",
+      "comoFoto": { "de": "fator-de-crescimento-para-barba", "n": 1 },
+      "comoTexto": [
+        "A fórmula age *na pele*, que é onde o crescimento acontece — não no fio. Estimula a circulação local e cria o ambiente pro folículo trabalhar melhor.",
+        "Não é efeito imediato e não escurece nada pra parecer mais cheio."
+      ],
+      "usoTitulo": "Modo de uso",
+      "usoFotoDe": "fator-de-crescimento-para-barba",
+      "usoFoto": { "de": "fator-de-crescimento-para-barba", "n": 7 },
+      "usoPassos": [
+        "Pele da barba *limpa e seca*.",
+        "Aplique direto na pele, de 1 a 2 vezes ao dia.",
+        "Espalhe e *massageie* bem a região.",
+        "*Não enxágue.* Deixe agir."
+      ],
+      "dica": "Aplique *depois do banho*: a pele quente absorve melhor, e vira hábito — que é o que impede de esquecer no dia 20."
+    },
+    "versus": {
+      "titulo": "O nosso e o genérico, lado a lado",
+      "nomeDeles": "Frasco genérico",
+      "descricaoDeles": "Sem marca, sem laudo",
+      "nosso": [
+        "Formulado pra barba, do zero",
+        "Age na pele, onde o fio nasce",
+        "Prazo publicado: 90 dias, com calendário nesta página"
+      ],
+      "deles": [
+        "Fórmula de prateleira, serve pra tudo",
+        "Age no fio, por cima",
+        "“Resultados rápidos”, sem dizer em quanto tempo"
+      ]
+    },
+    "quem": {
+      "titulo": "Isto é pra você?",
+      "sim": [
+        "Tem barba que cresce, mas com falha",
+        "Quer mais volume e densidade",
+        "Acha o fio fino e sem corpo",
+        "Topa aplicar todo dia por três meses"
+      ],
+      "nao": [
+        "Espera resultado em uma semana",
+        "Não tem folículo na região (aí nada faz nascer)",
+        "Sabe que vai esquecer de aplicar",
+        "Quer só perfumar ou modelar (aí é óleo ou balm)"
+      ]
+    },
+    "duvidas": {
+      "titulo": "Perguntas que todo mundo faz",
+      "perguntas": [
+        {
+          "pergunta": "Em quanto tempo vejo resultado?",
+          "resposta": [
+            "Textura melhora nas primeiras duas semanas. Crescimento novo começa lá pelo dia 30. Densidade de verdade, dia 90. O resultado cheio vem entre 3 e 6 meses.",
+            "Varia de pessoa pra pessoa, e depende de usar todo dia — sem constância não tem resultado."
+          ]
+        },
+        {
+          "pergunta": "Funciona pra barba que não nasce nada?",
+          "resposta": [
+            "Não. O produto trabalha em cima do folículo que já existe: ele estimula, fortalece e ajuda a preencher falha. Onde não tem folículo, nada faz nascer — nem isto, nem nada que você comprar por aí.",
+            "Se a sua barba não nasce em regiões inteiras desde sempre, o caminho é conversar com um dermatologista antes de gastar com cosmético."
+          ]
+        },
+        {
+          "pergunta": "Posso usar junto com minoxidil?",
+          "resposta": [
+            "Minoxidil é medicamento, e quem responde por combinação de medicamento é médico — não é a gente. Não damos essa orientação.",
+            "Se você já usa, leva a pergunta pro seu dermatologista."
+          ]
+        },
+        {
+          "pergunta": "Quantos dias dura um frasco?",
+          "resposta": ["Cerca de 30 dias, usando de 1 a 2 vezes ao dia."]
+        },
+        {
+          "pergunta": "Dá pra usar com pele sensível?",
+          "resposta": [
+            "É um cosmético de uso diário, de absorção rápida. Se você tem pele reativa, faça o teste de sempre: uma gota atrás da orelha, espera 24 horas.",
+            "Qualquer ardência, vermelhidão ou coceira que não passa, suspende o uso e procura um dermatologista."
+          ]
+        },
+        {
+          "pergunta": "E se não funcionar comigo?",
+          "resposta": [
+            "Você tem 7 dias corridos a partir do recebimento pra desistir da compra, por direito (art. 49 do Código de Defesa do Consumidor). É só pedir, sem precisar justificar."
+          ]
+        }
+      ]
+    }
+  },
+
+  "kit-2-fator-de-crescimento-para-barba": {
+    "copiaDe": "fator-de-crescimento-para-barba",
+    "seo": "Kit com 2 frascos de Fator de Crescimento para Barba: cerca de dois meses de tratamento diário na pele, pra estimular o crescimento e preencher falhas.",
+    "tempo": {
+      "titulo": "Quando o resultado aparece",
+      "passos": [
+        {
+          "quando": "Semanas 1 e 2",
+          "titulo": "Textura",
+          "texto": "O fio fica mais forte ao toque. Ainda não cresceu nada — e é normal."
+        },
+        {
+          "quando": "Dia 30",
+          "titulo": "Começa a encher",
+          "texto": "Primeiros fios novos nas áreas de falha. Aqui é onde a maioria desiste cedo demais."
+        },
+        {
+          "quando": "Dia 90",
+          "titulo": "Densidade",
+          "texto": "Barba visivelmente mais cheia e uniforme. É o marco que vale a foto do antes e depois.",
+          "alvo": true
+        },
+        {
+          "quando": "3 a 6 meses",
+          "titulo": "Resultado cheio",
+          "texto": "O máximo que a sua genética permite. Daí em diante é manutenção."
+        }
+      ],
+      "aviso": "Os dois frascos do kit cobrem cerca de dois meses de uso. Pra chegar no dia 90 sem interromper, conta um terceiro."
+    }
+  },
+
+  "kit-3-fator-de-crescimento-para-barba": {
+    "copiaDe": "fator-de-crescimento-para-barba",
+    "seo": "Kit com 3 frascos de Fator de Crescimento para Barba: cerca de três meses de uso diário, o tempo de chegar no dia 90 do tratamento sem interromper.",
+    "tempo": {
+      "titulo": "Quando o resultado aparece",
+      "passos": [
+        {
+          "quando": "Semanas 1 e 2",
+          "titulo": "Textura",
+          "texto": "O fio fica mais forte ao toque. Ainda não cresceu nada — e é normal."
+        },
+        {
+          "quando": "Dia 30",
+          "titulo": "Começa a encher",
+          "texto": "Primeiros fios novos nas áreas de falha. Aqui é onde a maioria desiste cedo demais."
+        },
+        {
+          "quando": "Dia 90",
+          "titulo": "Densidade",
+          "texto": "Barba visivelmente mais cheia e uniforme. É o marco que vale a foto do antes e depois.",
+          "alvo": true
+        },
+        {
+          "quando": "3 a 6 meses",
+          "titulo": "Resultado cheio",
+          "texto": "O máximo que a sua genética permite. Daí em diante é manutenção."
+        }
+      ],
+      "aviso": "Os três frascos do kit cobrem cerca de três meses: o tempo de chegar no dia 90 sem interromper o tratamento."
+    }
+  },
+
+  "kit-6-fator-de-crescimento-para-barba": {
+    "copiaDe": "fator-de-crescimento-para-barba",
+    "seo": "Kit com 6 frascos de Fator de Crescimento para Barba: cerca de seis meses de tratamento diário, o ciclo completo até o resultado cheio da sua barba.",
+    "tempo": {
+      "titulo": "Quando o resultado aparece",
+      "passos": [
+        {
+          "quando": "Semanas 1 e 2",
+          "titulo": "Textura",
+          "texto": "O fio fica mais forte ao toque. Ainda não cresceu nada — e é normal."
+        },
+        {
+          "quando": "Dia 30",
+          "titulo": "Começa a encher",
+          "texto": "Primeiros fios novos nas áreas de falha. Aqui é onde a maioria desiste cedo demais."
+        },
+        {
+          "quando": "Dia 90",
+          "titulo": "Densidade",
+          "texto": "Barba visivelmente mais cheia e uniforme. É o marco que vale a foto do antes e depois.",
+          "alvo": true
+        },
+        {
+          "quando": "3 a 6 meses",
+          "titulo": "Resultado cheio",
+          "texto": "O máximo que a sua genética permite. Daí em diante é manutenção."
+        }
+      ],
+      "aviso": "Os seis frascos do kit cobrem cerca de seis meses: o ciclo inteiro, até o resultado cheio, sem parar no meio."
+    }
+  },
+
+  "kit-fator-de-crescimento-para-barba-e-shampoo": {
+    "copiaDe": "fator-de-crescimento-para-barba",
+    "seo": "Fator de Crescimento e Shampoo para Barba num kit: a pele limpa pro tratamento diário que estimula o crescimento e ajuda a preencher as falhas.",
+    "tempo": {
+      "titulo": "Quando o resultado aparece",
+      "passos": [
+        {
+          "quando": "Semanas 1 e 2",
+          "titulo": "Textura",
+          "texto": "O fio fica mais forte ao toque. Ainda não cresceu nada — e é normal."
+        },
+        {
+          "quando": "Dia 30",
+          "titulo": "Começa a encher",
+          "texto": "Primeiros fios novos nas áreas de falha. Aqui é onde a maioria desiste cedo demais."
+        },
+        {
+          "quando": "Dia 90",
+          "titulo": "Densidade",
+          "texto": "Barba visivelmente mais cheia e uniforme. É o marco que vale a foto do antes e depois.",
+          "alvo": true
+        },
+        {
+          "quando": "3 a 6 meses",
+          "titulo": "Resultado cheio",
+          "texto": "O máximo que a sua genética permite. Daí em diante é manutenção."
+        }
+      ],
+      "aviso": "O kit traz um Fator, que cobre cerca de um mês, e um Shampoo. Pra chegar no dia 90, o tratamento pede três frascos de Fator."
+    },
+    "rotina": {
+      "titulo": "O que completa o kit",
+      "passoDeste": "Passos 1 e 2 · limpa e trata",
+      "paraDeste": "O Shampoo prepara a pele; o Fator trata, todo dia, sem enxaguar.",
+      "itens": [
+        {
+          "handle": "oleo-para-barba",
+          "passo": "Passo 3 · hidrata",
+          "para": "Fecha o ciclo. Fio novo nasce, óleo mantém macio."
+        },
+        {
+          "handle": "balm-para-barba",
+          "passo": "Passo 4 · modela",
+          "para": "Pra quem quer forma: alinha e segura o fio no lugar."
+        }
+      ]
+    },
+    "funciona": {
+      "comoTitulo": "Como funciona",
+      "comoFotoDe": "shampoo-para-barba",
+      "comoFoto": { "de": "shampoo-para-barba", "n": 2 },
+      "comoTexto": [
+        "O *Shampoo* tira sebo, suor e resíduo da pele sob a barba: o terreno fica limpo pro tratamento.",
+        "O *Fator* age na pele, que é onde o crescimento acontece — não no fio. Não é efeito imediato e não escurece nada pra parecer mais cheio."
+      ],
+      "usoTitulo": "Modo de uso",
+      "usoFotoDe": "fator-de-crescimento-para-barba",
+      "usoFoto": { "de": "fator-de-crescimento-para-barba", "n": 7 },
+      "usoPassos": [
+        "Com a barba molhada, lave com o *Shampoo*, massageie e enxágue.",
+        "Seque bem: o Fator vai na pele *seca*.",
+        "Aplique o *Fator* direto na pele, de 1 a 2 vezes ao dia, e massageie.",
+        "*Não enxágue* o Fator. Deixe agir."
+      ],
+      "dica": "Faça tudo *depois do banho*: a pele limpa e quente absorve melhor, e a rotina vira hábito."
+    },
+    "duvidas": {
+      "titulo": "Perguntas que todo mundo faz",
+      "perguntas": [
+        {
+          "pergunta": "Em quanto tempo vejo resultado?",
+          "resposta": [
+            "Textura melhora nas primeiras duas semanas. Crescimento novo começa lá pelo dia 30. Densidade de verdade, dia 90. O resultado cheio vem entre 3 e 6 meses.",
+            "Varia de pessoa pra pessoa, e depende de usar todo dia — sem constância não tem resultado."
+          ]
+        },
+        {
+          "pergunta": "Pra que serve o shampoo no tratamento?",
+          "resposta": [
+            "Pra deixar a pele da barba limpa antes do Fator: sem sebo, suor e resíduo por cima, o tratamento vai direto na pele, que é onde ele age."
+          ]
+        },
+        {
+          "pergunta": "Funciona pra barba que não nasce nada?",
+          "resposta": [
+            "Não. O produto trabalha em cima do folículo que já existe: ele estimula, fortalece e ajuda a preencher falha. Onde não tem folículo, nada faz nascer — nem isto, nem nada que você comprar por aí.",
+            "Se a sua barba não nasce em regiões inteiras desde sempre, o caminho é conversar com um dermatologista antes de gastar com cosmético."
+          ]
+        },
+        {
+          "pergunta": "Posso usar junto com minoxidil?",
+          "resposta": [
+            "Minoxidil é medicamento, e quem responde por combinação de medicamento é médico — não é a gente. Não damos essa orientação.",
+            "Se você já usa, leva a pergunta pro seu dermatologista."
+          ]
+        },
+        {
+          "pergunta": "Posso lavar a barba com o shampoo todo dia?",
+          "resposta": [
+            "Pode: ele é de uso diário. Se a pele da barba ressecar, lave em dias alternados — e mantenha o Fator todo dia."
+          ]
+        },
+        {
+          "pergunta": "Dá pra usar com pele sensível?",
+          "resposta": [
+            "São cosméticos de uso diário. Se você tem pele reativa, faça o teste de sempre: um pouco atrás da orelha, espera 24 horas.",
+            "Qualquer ardência, vermelhidão ou coceira que não passa, suspende o uso e procura um dermatologista."
+          ]
+        },
+        {
+          "pergunta": "E se não funcionar comigo?",
+          "resposta": [
+            "Você tem 7 dias corridos a partir do recebimento pra desistir da compra, por direito (art. 49 do Código de Defesa do Consumidor). É só pedir, sem precisar justificar."
+          ]
+        }
+      ]
+    }
+  },
+
+  "oleo-para-barba": {
+    "seo": "Óleo para barba com abacate, argan, semente de uva e vitamina E: barba macia, sem frizz e com brilho natural, sem ficar oleosa. Perfume amadeirado.",
+    "promessa": {
+      "chapeu": "Todo dia, na barba seca",
+      "titulo": "Macia, alinhada e *sem cara de oleosa*",
+      "itens": [
+        "Fios mais macios e fáceis de pentear",
+        "Menos frizz e fio arrepiado",
+        "Brilho natural, sem aspecto engordurado",
+        "Pele sob a barba hidratada",
+        "Perfume amadeirado que fica na barba"
+      ],
+      "rodape": "O óleo cuida do fio que já existe: hidrata, amacia e disciplina — não faz a barba crescer. Pra falha, o produto é o Fator de Crescimento."
+    },
+    "tempo": {
+      "titulo": "O que você sente, e quando",
+      "passos": [
+        {
+          "quando": "Na hora",
+          "titulo": "Maciez",
+          "texto": "O fio fica macio e alinhado já na primeira aplicação, com brilho de barba cuidada."
+        },
+        {
+          "quando": "Primeira semana",
+          "titulo": "Pele confortável",
+          "texto": "Com a pele hidratada todo dia, o ressecamento e aquela sensação de repuxar embaixo da barba diminuem."
+        },
+        {
+          "quando": "Um mês",
+          "titulo": "Barba disciplinada",
+          "texto": "O uso diário deixa o fio mais fácil de pentear e de manter no lugar — menos frizz, menos fio rebelde.",
+          "alvo": true
+        },
+        {
+          "quando": "Daí em diante",
+          "titulo": "Manutenção",
+          "texto": "Vira hábito: umas gotas por dia mantêm a barba macia e com o perfume dela."
+        }
+      ],
+      "aviso": "Barba curta pede poucas gotas; comprida, mais. Comece com 3 e ajuste — se ficou brilhando demais, foi óleo além da conta."
+    },
+    "rotina": {
+      "titulo": "A rotina que deixa a barba no ponto",
+      "passoDeste": "Passo 3 · hidrata",
+      "paraDeste": "Algumas gotas na barba seca, todo dia.",
+      "itens": [
+        {
+          "handle": "shampoo-para-barba",
+          "passo": "Passo 1 · limpa",
+          "para": "Tira sebo, suor e resíduo: óleo em barba suja só pesa."
+        },
+        {
+          "handle": "fator-de-crescimento-para-barba",
+          "passo": "Passo 2 · trata",
+          "para": "Pra barba com falha: o tratamento vai na pele, antes do óleo."
+        },
+        {
+          "handle": "balm-para-barba",
+          "passo": "Passo 4 · modela",
+          "para": "Pra quem quer forma: alinha e segura o fio no lugar."
+        }
+      ]
+    },
+    "funciona": {
+      "comoTitulo": "Como funciona",
+      "comoFotoDe": "oleo-para-barba",
+      "comoFoto": { "de": "oleo-para-barba", "n": 2 },
+      "comoTexto": [
+        "Óleos de *abacate, argan e semente de uva*, com vitamina E: hidratam o fio e a pele embaixo da barba.",
+        "O de semente de uva é leve e absorve rápido — a barba fica macia sem ficar pesada ou brilhando de gordura."
+      ],
+      "usoTitulo": "Modo de uso",
+      "usoFotoDe": "oleo-para-barba",
+      "usoFoto": { "de": "oleo-para-barba", "n": 3 },
+      "usoPassos": [
+        "Barba *limpa e seca*.",
+        "Pingue *algumas gotas* na palma da mão.",
+        "Espalhe entre as mãos e *massageie* da raiz às pontas.",
+        "Penteie pra alinhar. Não precisa enxaguar."
+      ],
+      "dica": "Aplique *depois do banho*, com a barba já seca — e vira hábito de todo dia, que é o que mantém a barba macia."
+    },
+    "versus": {
+      "titulo": "O nosso e o genérico, lado a lado",
+      "nomeDeles": "Óleo genérico",
+      "descricaoDeles": "Sem marca, sem fórmula à vista",
+      "nosso": [
+        "Abacate, argan e semente de uva, com vitamina E — escrito no rótulo",
+        "Absorve rápido: barba macia, sem pesar",
+        "Perfume amadeirado, feito pra barba"
+      ],
+      "deles": [
+        "Não diz o que tem dentro",
+        "Fica por cima do fio, pesado e brilhando",
+        "Cheiro de prateleira"
+      ]
+    },
+    "quem": {
+      "titulo": "Isto é pra você?",
+      "sim": [
+        "Quer a barba macia e fácil de pentear",
+        "Sofre com frizz e fio arrepiado",
+        "Sente a pele repuxar embaixo da barba",
+        "Quer brilho de barba cuidada, sem cara de oleosa"
+      ],
+      "nao": [
+        "Quer fazer a barba crescer (aí é o Fator)",
+        "Quer fixação pra modelar (aí é o balm)",
+        "Não gosta de perfume na barba",
+        "Tem alergia a algum ingrediente da fórmula"
+      ]
+    },
+    "duvidas": {
+      "titulo": "Perguntas que todo mundo faz",
+      "perguntas": [
+        {
+          "pergunta": "Deixa a barba oleosa?",
+          "resposta": [
+            "Na dose certa, não. A fórmula leva óleo de semente de uva, que é leve e absorve rápido — a barba fica macia, sem brilho de gordura.",
+            "Se ficou pesada, foi óleo demais: da próxima vez, use menos gotas."
+          ]
+        },
+        {
+          "pergunta": "Quantas gotas eu uso?",
+          "resposta": [
+            "Depende do tamanho da barba. Comece com 3 gotas e ajuste: barba curta pede menos, comprida pede mais."
+          ]
+        },
+        {
+          "pergunta": "Faz a barba crescer?",
+          "resposta": [
+            "Não. O óleo hidrata, amacia e disciplina o fio que já existe. Pra estimular o crescimento e preencher falhas, o produto é o Fator de Crescimento — e os dois vão juntos: o Fator na pele, o óleo no fio."
+          ]
+        },
+        {
+          "pergunta": "Posso usar junto com o balm?",
+          "resposta": [
+            "Pode. O óleo hidrata e o balm dá forma: aplique o óleo primeiro, espere absorver e finalize com o balm."
+          ]
+        },
+        {
+          "pergunta": "Tem cheiro?",
+          "resposta": [
+            "Tem: um perfume amadeirado, marcante, que fica na barba. Se você prefere sem cheiro nenhum, este não é o seu óleo."
+          ]
+        },
+        {
+          "pergunta": "Dá pra usar com pele sensível?",
+          "resposta": [
+            "Faça o teste antes: uma gota atrás da orelha, espera 24 horas.",
+            "Qualquer ardência, vermelhidão ou coceira que não passa, suspende o uso e procura um dermatologista."
+          ]
+        },
+        {
+          "pergunta": "E se eu não gostar?",
+          "resposta": [
+            "Você tem 7 dias corridos a partir do recebimento pra desistir da compra, por direito (art. 49 do Código de Defesa do Consumidor). É só pedir, sem precisar justificar."
+          ]
+        }
+      ]
+    }
+  },
+
+  "balm-para-barba": {
+    "seo": "Balm modelador para barba com cera de abelha, karité, coco e vitamina E: hidrata, alinha e segura a forma sem deixar a barba dura. Pote de 90 g.",
+    "promessa": {
+      "chapeu": "Hidrata e modela",
+      "titulo": "Barba no lugar, *sem ficar dura*",
+      "itens": [
+        "Alinha os fios e segura a forma",
+        "Controla o frizz e o fio arrepiado",
+        "Hidrata o fio e a pele embaixo da barba",
+        "Maciez ao toque, sem pesar",
+        "Perfume amadeirado marcante"
+      ],
+      "rodape": "O balm cuida e modela o fio que já existe — não faz a barba crescer. A fixação é natural: segura sem travar."
+    },
+    "tempo": {
+      "titulo": "O que você sente, e quando",
+      "passos": [
+        {
+          "quando": "Na hora",
+          "titulo": "Forma",
+          "texto": "A barba fica alinhada e com o contorno no lugar assim que você penteia."
+        },
+        {
+          "quando": "Durante o dia",
+          "titulo": "Controle",
+          "texto": "A cera de abelha ajuda a manter o fio no lugar, e a manteiga de karité mantém o toque macio."
+        },
+        {
+          "quando": "Primeiras semanas",
+          "titulo": "Pele confortável",
+          "texto": "Com a hidratação diária, o ressecamento e o repuxar embaixo da barba diminuem."
+        },
+        {
+          "quando": "Um mês",
+          "titulo": "Barba disciplinada",
+          "texto": "Com uso diário, a barba fica mais fácil de pentear e de manter alinhada.",
+          "alvo": true
+        }
+      ],
+      "aviso": "Pouco produto rende: uma quantidade do tamanho de uma ervilha já cobre uma barba curta."
+    },
+    "rotina": {
+      "titulo": "A rotina que deixa a barba no ponto",
+      "passoDeste": "Passo 3 · modela",
+      "paraDeste": "Por último: alinha, segura e deixa o perfume.",
+      "itens": [
+        {
+          "handle": "shampoo-para-barba",
+          "passo": "Passo 1 · limpa",
+          "para": "Barba limpa segura melhor a forma."
+        },
+        {
+          "handle": "oleo-para-barba",
+          "passo": "Passo 2 · hidrata",
+          "para": "Umas gotas antes do balm: o fio fica macio por dentro."
+        }
+      ]
+    },
+    "funciona": {
+      "comoTitulo": "Como funciona",
+      "comoFotoDe": "balm-para-barba",
+      "comoFoto": { "de": "balm-para-barba", "n": 2 },
+      "comoTexto": [
+        "*Cera de abelha* dá a fixação: segura o fio no lugar de um jeito natural, sem deixar a barba dura.",
+        "*Manteiga de karité, óleo de coco, glicerina vegetal e vitamina E* hidratam o fio e a pele embaixo dele — é o que tira o frizz e a sensação de barba áspera."
+      ],
+      "usoTitulo": "Modo de uso",
+      "usoFotoDe": "balm-para-barba",
+      "usoFoto": { "de": "balm-para-barba", "n": 4 },
+      "usoPassos": [
+        "Barba *limpa e seca*.",
+        "Pegue *pouco produto* com a ponta dos dedos e esquente entre as mãos.",
+        "Espalhe por toda a barba, da raiz às pontas.",
+        "Finalize com um *pente*, pra distribuir e desenhar o contorno."
+      ],
+      "dica": "Use *de manhã*: o balm segura a forma durante o dia. Barba comprida? Uma gota de óleo antes deixa tudo mais macio."
+    },
+    "versus": {
+      "titulo": "O nosso e o genérico, lado a lado",
+      "nomeDeles": "Balm genérico",
+      "descricaoDeles": "Sem marca, sem fórmula à vista",
+      "nosso": [
+        "Cera de abelha, karité, coco e vitamina E — escrito no rótulo",
+        "Segura a forma e hidrata ao mesmo tempo",
+        "Textura leve, que espalha fácil"
+      ],
+      "deles": [
+        "Não diz o que tem dentro",
+        "Ou só segura, ou só hidrata",
+        "Massa dura, que embola na barba"
+      ]
+    },
+    "quem": {
+      "titulo": "Isto é pra você?",
+      "sim": [
+        "Quer a barba alinhada e com contorno",
+        "Briga com frizz e fio rebelde",
+        "Quer hidratar e modelar num produto só",
+        "Gosta de perfume amadeirado"
+      ],
+      "nao": [
+        "Quer fixação forte, de pomada",
+        "Quer fazer a barba crescer (aí é o Fator)",
+        "Não gosta de perfume na barba",
+        "Tem alergia a algum ingrediente da fórmula"
+      ]
+    },
+    "duvidas": {
+      "titulo": "Perguntas que todo mundo faz",
+      "perguntas": [
+        {
+          "pergunta": "Deixa a barba dura?",
+          "resposta": [
+            "Não. A cera de abelha dá uma fixação natural: segura a forma, mas a barba continua macia e com movimento."
+          ]
+        },
+        {
+          "pergunta": "Qual a diferença pro óleo?",
+          "resposta": [
+            "O óleo hidrata e dá brilho; o balm hidrata e modela. Se você quer a barba no lugar, é o balm. Se quer só maciez, é o óleo.",
+            "Dá pra usar os dois: primeiro o óleo, depois o balm."
+          ]
+        },
+        {
+          "pergunta": "Quanto eu uso?",
+          "resposta": [
+            "Pouco. Uma quantidade do tamanho de uma ervilha pra barba curta; um pouco mais pra barba comprida. Esquente entre as mãos antes de aplicar."
+          ]
+        },
+        {
+          "pergunta": "Serve pra barba curta?",
+          "resposta": [
+            "Serve. Na barba curta, ele hidrata e deixa o contorno alinhado; na comprida, dá forma e segura os fios."
+          ]
+        },
+        {
+          "pergunta": "Dá pra usar com pele sensível?",
+          "resposta": [
+            "Faça o teste antes: um pouco atrás da orelha, espera 24 horas.",
+            "Qualquer ardência, vermelhidão ou coceira que não passa, suspende o uso e procura um dermatologista."
+          ]
+        },
+        {
+          "pergunta": "E se eu não gostar?",
+          "resposta": [
+            "Você tem 7 dias corridos a partir do recebimento pra desistir da compra, por direito (art. 49 do Código de Defesa do Consumidor). É só pedir, sem precisar justificar."
+          ]
+        }
+      ]
+    }
+  },
+
+  "shampoo-para-barba": {
+    "seo": "Shampoo para barba com argila verde, melaleuca, mentol, alecrim e aloe vera: limpa o sebo e o resíduo da pele sob a barba, com frescor. 120 ml.",
+    "promessa": {
+      "chapeu": "Uso diário, no banho",
+      "titulo": "Barba limpa, *pele em paz*",
+      "itens": [
+        "Limpeza que tira sebo, suor e resíduo",
+        "Sensação de frescor com mentol",
+        "Controle da oleosidade da pele sob a barba",
+        "Fios soltos e leves depois do banho",
+        "Base limpa pro óleo, o balm e o Fator"
+      ],
+      "rodape": "É um shampoo feito pra barba: limpa e refresca, mas não trata falha nem faz crescer."
+    },
+    "tempo": {
+      "titulo": "O que você sente, e quando",
+      "passos": [
+        {
+          "quando": "No banho",
+          "titulo": "Frescor",
+          "texto": "O mentol dá aquela sensação gelada na pele, e a espuma tira o sebo e o resíduo do dia."
+        },
+        {
+          "quando": "Depois do banho",
+          "titulo": "Barba leve",
+          "texto": "Os fios secam soltos, sem a sensação de barba pesada ou grudada."
+        },
+        {
+          "quando": "Primeiras semanas",
+          "titulo": "Pele equilibrada",
+          "texto": "Lavando todo dia, a pele sob a barba fica menos oleosa e sem resíduo acumulado.",
+          "alvo": true
+        },
+        {
+          "quando": "Na rotina",
+          "titulo": "Base pronta",
+          "texto": "Barba limpa recebe melhor o que vem depois: o óleo, o balm e o Fator."
+        }
+      ],
+      "aviso": "Use com a barba molhada e enxágue bem: resto de shampoo na pele é o que resseca."
+    },
+    "rotina": {
+      "titulo": "O que vem depois da limpeza",
+      "passoDeste": "Passo 1 · limpa",
+      "paraDeste": "Com a barba molhada, no banho, todo dia.",
+      "itens": [
+        {
+          "handle": "fator-de-crescimento-para-barba",
+          "passo": "Passo 2 · trata",
+          "para": "Pra barba com falha: o tratamento vai na pele limpa e seca."
+        },
+        {
+          "handle": "oleo-para-barba",
+          "passo": "Passo 3 · hidrata",
+          "para": "Umas gotas na barba seca: macia e com brilho."
+        },
+        {
+          "handle": "balm-para-barba",
+          "passo": "Passo 4 · modela",
+          "para": "Pra quem quer forma: alinha e segura o fio no lugar."
+        }
+      ]
+    },
+    "funciona": {
+      "comoTitulo": "Como funciona",
+      "comoFotoDe": "shampoo-para-barba",
+      "comoFoto": { "de": "shampoo-para-barba", "n": 2 },
+      "comoTexto": [
+        "*Argila verde e óleo de melaleuca* tiram a impureza e o excesso de oleosidade da pele sob a barba.",
+        "*Mentol* refresca, *alecrim* revitaliza e *aloe vera* hidrata: limpeza de verdade, sem deixar a pele repuxando."
+      ],
+      "usoTitulo": "Modo de uso",
+      "usoFotoDe": "shampoo-para-barba",
+      "usoFoto": { "de": "shampoo-para-barba", "n": 3 },
+      "usoPassos": [
+        "Molhe bem a barba.",
+        "Aplique um pouco de shampoo e *massageie até fazer espuma*, chegando na pele.",
+        "*Enxágue bem*, até não sobrar produto.",
+        "Seque com a toalha e siga a rotina."
+      ],
+      "dica": "Massageie *a pele*, não só os fios: é embaixo da barba que o sebo e o resíduo se acumulam."
+    },
+    "versus": {
+      "titulo": "O nosso e o sabonete, lado a lado",
+      "nomeDeles": "Sabonete comum",
+      "descricaoDeles": "O do banho, pra tudo",
+      "nosso": [
+        "Feito pra pele e pro fio da barba",
+        "Argila verde, melaleuca, mentol, alecrim e aloe vera",
+        "Limpa sem deixar a barba áspera"
+      ],
+      "deles": [
+        "Feito pra pele do corpo",
+        "Fórmula genérica, pra qualquer coisa",
+        "Pode deixar o fio seco e áspero"
+      ]
+    },
+    "quem": {
+      "titulo": "Isto é pra você?",
+      "sim": [
+        "Lava a barba com sabonete e sente ela áspera",
+        "Tem a pele oleosa embaixo da barba",
+        "Quer a barba limpa e com cheiro de limpa",
+        "Usa óleo, balm ou o Fator e quer tirar o resíduo"
+      ],
+      "nao": [
+        "Procura tratamento pra caspa ou dermatite (aí é dermatologista)",
+        "Não gosta da sensação gelada do mentol",
+        "Procura shampoo pro cabelo — este é pra barba",
+        "Tem alergia a algum ingrediente da fórmula"
+      ]
+    },
+    "duvidas": {
+      "titulo": "Perguntas que todo mundo faz",
+      "perguntas": [
+        {
+          "pergunta": "Posso usar todo dia?",
+          "resposta": [
+            "Pode: ele foi feito pra uso diário, no banho. Se a pele da barba ressecar, lave em dias alternados."
+          ]
+        },
+        {
+          "pergunta": "Por que não lavar a barba com sabonete?",
+          "resposta": [
+            "Sabonete é feito pra pele do corpo e tende a deixar o fio da barba seco e áspero. O shampoo de barba limpa a pele e o fio sem essa sensação."
+          ]
+        },
+        {
+          "pergunta": "O mentol arde?",
+          "resposta": [
+            "Ele dá uma sensação gelada, de frescor, que passa depois do enxágue. Se a sua pele é sensível ao mentol, teste antes numa área pequena."
+          ]
+        },
+        {
+          "pergunta": "E se cair no olho?",
+          "resposta": [
+            "Enxágue na hora, com bastante água. Como todo shampoo, ele arde se entrar no olho."
+          ]
+        },
+        {
+          "pergunta": "Dá pra usar com pele sensível?",
+          "resposta": [
+            "Faça o teste antes: um pouco atrás da orelha, espera 24 horas.",
+            "Qualquer ardência, vermelhidão ou coceira que não passa, suspende o uso e procura um dermatologista."
+          ]
+        },
+        {
+          "pergunta": "E se eu não gostar?",
+          "resposta": [
+            "Você tem 7 dias corridos a partir do recebimento pra desistir da compra, por direito (art. 49 do Código de Defesa do Consumidor). É só pedir, sem precisar justificar."
+          ]
+        }
+      ]
+    }
+  },
+
+  "kit-shampoo-para-barba-duplo-fuckingbarba": {
+    "copiaDe": "shampoo-para-barba",
+    "seo": "Dois Shampoos para Barba de 120 ml, com argila verde, melaleuca, mentol, alecrim e aloe vera: limpeza diária da pele e do fio, com frescor de mentol.",
+    "funciona": {
+      "comoTitulo": "Como funciona",
+      "comoFotoDe": "kit-shampoo-para-barba-duplo-fuckingbarba",
+      "comoFoto": { "de": "kit-shampoo-para-barba-duplo-fuckingbarba", "n": 2 },
+      "comoTexto": [
+        "*Argila verde e óleo de melaleuca* tiram a impureza e o excesso de oleosidade da pele sob a barba.",
+        "*Mentol* refresca, *alecrim* revitaliza e *aloe vera* hidrata: limpeza de verdade, sem deixar a pele repuxando."
+      ],
+      "usoTitulo": "Modo de uso",
+      "usoFotoDe": "kit-shampoo-para-barba-duplo-fuckingbarba",
+      "usoFoto": { "de": "kit-shampoo-para-barba-duplo-fuckingbarba", "n": 3 },
+      "usoPassos": [
+        "Molhe bem a barba.",
+        "Aplique um pouco de shampoo e *massageie até fazer espuma*, chegando na pele.",
+        "*Enxágue bem*, até não sobrar produto.",
+        "Seque com a toalha e siga a rotina."
+      ],
+      "dica": "Massageie *a pele*, não só os fios: é embaixo da barba que o sebo e o resíduo se acumulam."
+    },
+    "duvidas": {
+      "titulo": "Perguntas que todo mundo faz",
+      "perguntas": [
+        {
+          "pergunta": "O que vem no kit?",
+          "resposta": ["Dois Shampoos para Barba, de 120 ml cada."]
+        },
+        {
+          "pergunta": "Posso usar todo dia?",
+          "resposta": [
+            "Pode: ele foi feito pra uso diário, no banho. Se a pele da barba ressecar, lave em dias alternados."
+          ]
+        },
+        {
+          "pergunta": "Por que não lavar a barba com sabonete?",
+          "resposta": [
+            "Sabonete é feito pra pele do corpo e tende a deixar o fio da barba seco e áspero. O shampoo de barba limpa a pele e o fio sem essa sensação."
+          ]
+        },
+        {
+          "pergunta": "O mentol arde?",
+          "resposta": [
+            "Ele dá uma sensação gelada, de frescor, que passa depois do enxágue. Se a sua pele é sensível ao mentol, teste antes numa área pequena."
+          ]
+        },
+        {
+          "pergunta": "Dá pra usar com pele sensível?",
+          "resposta": [
+            "Faça o teste antes: um pouco atrás da orelha, espera 24 horas.",
+            "Qualquer ardência, vermelhidão ou coceira que não passa, suspende o uso e procura um dermatologista."
+          ]
+        },
+        {
+          "pergunta": "E se eu não gostar?",
+          "resposta": [
+            "Você tem 7 dias corridos a partir do recebimento pra desistir da compra, por direito (art. 49 do Código de Defesa do Consumidor). É só pedir, sem precisar justificar."
+          ]
+        }
+      ]
+    }
+  },
+
+  "kit-completo-para-barba": {
+    "seo": "Kit com Shampoo, Óleo e Balm para barba: limpa, hidrata e modela, com perfume amadeirado. A rotina completa pra barba macia e no lugar, numa caixa.",
+    "promessa": {
+      "chapeu": "Shampoo, óleo e balm",
+      "titulo": "A rotina inteira, *numa caixa*",
+      "itens": [
+        "Limpeza que tira sebo, suor e resíduo",
+        "Hidratação do fio e da pele sob a barba",
+        "Barba macia, com brilho natural",
+        "Forma e contorno com o balm",
+        "Perfume amadeirado marcante"
+      ],
+      "rodape": "O kit limpa, hidrata e modela a barba que você já tem — não faz crescer. Pra falha, o produto é o Fator de Crescimento."
+    },
+    "tempo": {
+      "titulo": "A rotina, do banho à rua",
+      "passos": [
+        {
+          "quando": "No banho",
+          "titulo": "Limpa",
+          "texto": "O shampoo tira sebo, suor e resíduo, com o frescor do mentol."
+        },
+        {
+          "quando": "Barba seca",
+          "titulo": "Hidrata",
+          "texto": "Algumas gotas de óleo deixam o fio macio e a pele confortável."
+        },
+        {
+          "quando": "Antes de sair",
+          "titulo": "Modela",
+          "texto": "O balm alinha e segura o contorno, sem deixar a barba dura.",
+          "alvo": true
+        },
+        {
+          "quando": "Todo dia",
+          "titulo": "Hábito",
+          "texto": "Os três juntos, todo dia, mantêm a barba limpa, macia e no lugar."
+        }
+      ],
+      "aviso": "Cada produto tem um papel: o shampoo limpa, o óleo hidrata e o balm modela. Juntos, a barba fica pronta em poucos minutos."
+    },
+    "rotina": {
+      "titulo": "Quer ir além?",
+      "passoDeste": "O kit · limpa, hidrata e modela",
+      "paraDeste": "Shampoo no banho, óleo na barba seca, balm pra finalizar.",
+      "itens": [
+        {
+          "handle": "fator-de-crescimento-para-barba",
+          "passo": "Mais um passo · trata",
+          "para": "Pra barba com falha: o Fator vai na pele, depois do shampoo e antes do óleo."
+        }
+      ]
+    },
+    "funciona": {
+      "comoTitulo": "Como funciona",
+      "comoFotoDe": "kit-completo-para-barba",
+      "comoFoto": { "de": "kit-completo-para-barba", "n": 2 },
+      "comoTexto": [
+        "*Shampoo*: argila verde, melaleuca e mentol tiram o sebo e o resíduo, com frescor.",
+        "*Óleo*: abacate, argan e semente de uva, com vitamina E, hidratam e dão brilho sem pesar.",
+        "*Balm*: cera de abelha segura a forma; karité e coco mantêm o fio macio."
+      ],
+      "usoTitulo": "Modo de uso",
+      "usoFotoDe": "kit-completo-para-barba",
+      "usoFoto": { "de": "kit-completo-para-barba", "n": 5 },
+      "usoPassos": [
+        "No banho, lave a barba com o *Shampoo* e enxágue bem.",
+        "Com a barba *seca*, aplique algumas gotas do *Óleo* e massageie.",
+        "Finalize com um pouco de *Balm*: espalhe e penteie.",
+        "Repita todo dia."
+      ],
+      "dica": "Óleo primeiro, balm por último: o óleo hidrata o fio, e o balm fecha com forma e perfume."
+    },
+    "versus": {
+      "titulo": "O kit e o improviso, lado a lado",
+      "nomeDeles": "Rotina improvisada",
+      "descricaoDeles": "Sabonete e o que tiver em casa",
+      "nosso": [
+        "Três produtos feitos pra barba, que se completam",
+        "Limpa, hidrata e modela, sem pesar",
+        "Um perfume só, do começo ao fim"
+      ],
+      "deles": [
+        "Sabonete do corpo e creme de cabelo",
+        "Barba seca de um lado, pesada do outro",
+        "Um cheiro diferente em cada produto"
+      ]
+    },
+    "quem": {
+      "titulo": "Isto é pra você?",
+      "sim": [
+        "Quer começar a cuidar da barba do jeito certo",
+        "Quer a rotina completa sem montar produto por produto",
+        "Quer a barba limpa, macia e alinhada todo dia",
+        "Procura um presente pra quem tem barba"
+      ],
+      "nao": [
+        "Quer fazer a barba crescer (aí é o Fator)",
+        "Só precisa de um dos três produtos",
+        "Não gosta de perfume na barba",
+        "Tem alergia a algum ingrediente das fórmulas"
+      ]
+    },
+    "duvidas": {
+      "titulo": "Perguntas que todo mundo faz",
+      "perguntas": [
+        {
+          "pergunta": "O que vem no kit?",
+          "resposta": [
+            "Shampoo para Barba (120 ml), Óleo para Barba (30 ml) e Balm Modelador para Barba (90 g)."
+          ]
+        },
+        {
+          "pergunta": "Em que ordem eu uso?",
+          "resposta": [
+            "Shampoo no banho, com a barba molhada. Depois, com a barba seca, o óleo. Por último, o balm, pra modelar."
+          ]
+        },
+        {
+          "pergunta": "Preciso usar os três todo dia?",
+          "resposta": [
+            "O shampoo e o óleo, sim: é o básico da barba limpa e hidratada. O balm entra quando você quer a barba modelada e com o contorno no lugar."
+          ]
+        },
+        {
+          "pergunta": "Serve pra barba curta?",
+          "resposta": [
+            "Serve. Na barba curta, poucas gotas de óleo e pouco balm bastam; a limpeza é a mesma."
+          ]
+        },
+        {
+          "pergunta": "Faz a barba crescer?",
+          "resposta": [
+            "Não. O kit limpa, hidrata e modela. Pra estimular o crescimento e preencher falha, o produto é o Fator de Crescimento, que entra na rotina depois do shampoo."
+          ]
+        },
+        {
+          "pergunta": "E se eu não gostar?",
+          "resposta": [
+            "Você tem 7 dias corridos a partir do recebimento pra desistir da compra, por direito (art. 49 do Código de Defesa do Consumidor). É só pedir, sem precisar justificar."
+          ]
+        }
+      ]
+    }
+  },
+
+  "kit-essencial-fuckingbarba-shampoo-balm": {
+    "seo": "Kit com Shampoo e Balm para barba: limpeza com frescor de mentol e um balm que hidrata, alinha e segura a forma sem deixar a barba dura.",
+    "promessa": {
+      "chapeu": "Shampoo e balm",
+      "titulo": "O essencial pra barba *ficar no lugar*",
+      "itens": [
+        "Limpeza que tira sebo, suor e resíduo",
+        "Frescor do mentol no banho",
+        "Barba alinhada, com contorno",
+        "Controle do frizz, sem pesar",
+        "Perfume amadeirado marcante"
+      ],
+      "rodape": "O kit limpa e modela a barba que você já tem — não faz crescer. Pra falha, o produto é o Fator de Crescimento."
+    },
+    "tempo": {
+      "titulo": "A rotina, do banho à rua",
+      "passos": [
+        {
+          "quando": "No banho",
+          "titulo": "Limpa",
+          "texto": "O shampoo tira sebo, suor e resíduo, com o frescor do mentol."
+        },
+        {
+          "quando": "Barba seca",
+          "titulo": "Modela",
+          "texto": "O balm hidrata, alinha e segura o contorno, sem deixar a barba dura.",
+          "alvo": true
+        },
+        {
+          "quando": "Durante o dia",
+          "titulo": "Controle",
+          "texto": "A cera de abelha ajuda a manter o fio no lugar, e o karité mantém o toque macio."
+        },
+        {
+          "quando": "Todo dia",
+          "titulo": "Hábito",
+          "texto": "Dois passos, poucos minutos: barba limpa e no lugar."
+        }
+      ]
+    },
+    "rotina": {
+      "titulo": "O que completa o kit",
+      "passoDeste": "O kit · limpa e modela",
+      "paraDeste": "Shampoo no banho; balm na barba seca.",
+      "itens": [
+        {
+          "handle": "oleo-para-barba",
+          "passo": "Mais um passo · hidrata",
+          "para": "Umas gotas antes do balm: o fio fica macio e com brilho."
+        },
+        {
+          "handle": "fator-de-crescimento-para-barba",
+          "passo": "Mais um passo · trata",
+          "para": "Pra barba com falha: o Fator vai na pele, depois do shampoo."
+        }
+      ]
+    },
+    "funciona": {
+      "comoTitulo": "Como funciona",
+      "comoFotoDe": "kit-essencial-fuckingbarba-shampoo-balm",
+      "comoFoto": { "de": "kit-essencial-fuckingbarba-shampoo-balm", "n": 3 },
+      "comoTexto": [
+        "*Shampoo*: argila verde, melaleuca e mentol limpam a pele e o fio, com frescor.",
+        "*Balm*: cera de abelha segura a forma de um jeito natural; karité, coco e vitamina E hidratam e tiram o frizz."
+      ],
+      "usoTitulo": "Modo de uso",
+      "usoFotoDe": "kit-essencial-fuckingbarba-shampoo-balm",
+      "usoFoto": { "de": "kit-essencial-fuckingbarba-shampoo-balm", "n": 2 },
+      "usoPassos": [
+        "No banho, lave a barba com o *Shampoo* e enxágue bem.",
+        "Seque a barba.",
+        "Pegue *pouco Balm*, esquente entre as mãos e espalhe da raiz às pontas.",
+        "Finalize com um *pente*."
+      ],
+      "dica": "Use o balm *de manhã*: ele segura a forma durante o dia."
+    },
+    "versus": {
+      "titulo": "O kit e o improviso, lado a lado",
+      "nomeDeles": "Sabonete e gel",
+      "descricaoDeles": "O improviso de sempre",
+      "nosso": [
+        "Shampoo feito pra pele e pro fio da barba",
+        "Balm que hidrata e modela ao mesmo tempo",
+        "Barba no lugar e macia ao toque"
+      ],
+      "deles": [
+        "Sabonete do corpo, que pode ressecar o fio",
+        "Gel que endurece e pode esfarelar",
+        "Barba dura, com cara de molhada"
+      ]
+    },
+    "quem": {
+      "titulo": "Isto é pra você?",
+      "sim": [
+        "Quer a barba limpa e alinhada todo dia",
+        "Briga com frizz e fio rebelde",
+        "Quer uma rotina rápida, de dois passos",
+        "Gosta de perfume amadeirado"
+      ],
+      "nao": [
+        "Quer fazer a barba crescer (aí é o Fator)",
+        "Quer fixação forte, de pomada",
+        "Não gosta de perfume na barba",
+        "Tem alergia a algum ingrediente das fórmulas"
+      ]
+    },
+    "duvidas": {
+      "titulo": "Perguntas que todo mundo faz",
+      "perguntas": [
+        {
+          "pergunta": "O que vem no kit?",
+          "resposta": ["Shampoo para Barba (120 ml) e Balm Modelador para Barba (90 g)."]
+        },
+        {
+          "pergunta": "Em que ordem eu uso?",
+          "resposta": [
+            "Primeiro o shampoo, no banho, com a barba molhada. Depois de secar, o balm, pra hidratar e modelar."
+          ]
+        },
+        {
+          "pergunta": "O balm deixa a barba dura?",
+          "resposta": [
+            "Não. A cera de abelha dá uma fixação natural: segura a forma, mas a barba continua macia e com movimento."
+          ]
+        },
+        {
+          "pergunta": "Qual a diferença pro Kit Completo?",
+          "resposta": [
+            "O Completo traz também o Óleo para Barba, que hidrata e dá brilho. O Essencial é o básico: limpar e modelar."
+          ]
+        },
+        {
+          "pergunta": "E se eu não gostar?",
+          "resposta": [
+            "Você tem 7 dias corridos a partir do recebimento pra desistir da compra, por direito (art. 49 do Código de Defesa do Consumidor). É só pedir, sem precisar justificar."
+          ]
+        }
+      ]
+    }
+  },
+
+  "kit-hidratacao-fuckingbarba-shampoo-oleo": {
+    "seo": "Kit com Shampoo e Óleo para barba: limpeza com frescor de mentol e óleo com abacate, argan e vitamina E pra barba macia, sem ficar oleosa.",
+    "promessa": {
+      "chapeu": "Shampoo e óleo",
+      "titulo": "Barba limpa e *macia de verdade*",
+      "itens": [
+        "Limpeza que tira sebo, suor e resíduo",
+        "Frescor do mentol no banho",
+        "Fios macios e fáceis de pentear",
+        "Brilho natural, sem aspecto engordurado",
+        "Pele sob a barba hidratada"
+      ],
+      "rodape": "O kit limpa e hidrata a barba que você já tem — não faz crescer. Pra falha, o produto é o Fator de Crescimento."
+    },
+    "tempo": {
+      "titulo": "A rotina, do banho à rua",
+      "passos": [
+        {
+          "quando": "No banho",
+          "titulo": "Limpa",
+          "texto": "O shampoo tira sebo, suor e resíduo, com o frescor do mentol."
+        },
+        {
+          "quando": "Barba seca",
+          "titulo": "Hidrata",
+          "texto": "Algumas gotas de óleo: o fio fica macio e a pele, confortável."
+        },
+        {
+          "quando": "Primeira semana",
+          "titulo": "Pele confortável",
+          "texto": "Com limpeza e hidratação todo dia, o ressecamento e o repuxar embaixo da barba diminuem.",
+          "alvo": true
+        },
+        {
+          "quando": "Todo dia",
+          "titulo": "Hábito",
+          "texto": "Dois passos, poucos minutos: barba limpa, macia e com brilho."
+        }
+      ]
+    },
+    "rotina": {
+      "titulo": "O que completa o kit",
+      "passoDeste": "O kit · limpa e hidrata",
+      "paraDeste": "Shampoo no banho; óleo na barba seca.",
+      "itens": [
+        {
+          "handle": "balm-para-barba",
+          "passo": "Mais um passo · modela",
+          "para": "Pra quem quer forma: alinha e segura o fio no lugar."
+        },
+        {
+          "handle": "fator-de-crescimento-para-barba",
+          "passo": "Mais um passo · trata",
+          "para": "Pra barba com falha: o Fator vai na pele, depois do shampoo e antes do óleo."
+        }
+      ]
+    },
+    "funciona": {
+      "comoTitulo": "Como funciona",
+      "comoFotoDe": "kit-hidratacao-fuckingbarba-shampoo-oleo",
+      "comoFoto": { "de": "kit-hidratacao-fuckingbarba-shampoo-oleo", "n": 3 },
+      "comoTexto": [
+        "*Shampoo*: argila verde, melaleuca e mentol limpam a pele e o fio, com frescor.",
+        "*Óleo*: abacate, argan e semente de uva, com vitamina E, hidratam e amaciam sem deixar a barba oleosa."
+      ],
+      "usoTitulo": "Modo de uso",
+      "usoFotoDe": "kit-hidratacao-fuckingbarba-shampoo-oleo",
+      "usoFoto": { "de": "kit-hidratacao-fuckingbarba-shampoo-oleo", "n": 2 },
+      "usoPassos": [
+        "No banho, lave a barba com o *Shampoo* e enxágue bem.",
+        "Seque a barba.",
+        "Pingue *algumas gotas* de Óleo na palma, espalhe e massageie da raiz às pontas.",
+        "Penteie pra alinhar."
+      ],
+      "dica": "Barba curta pede poucas gotas; comprida, mais. Se ficou brilhando demais, foi *óleo além da conta*."
+    },
+    "versus": {
+      "titulo": "O kit e o improviso, lado a lado",
+      "nomeDeles": "Sabonete e óleo genérico",
+      "descricaoDeles": "O improviso de sempre",
+      "nosso": [
+        "Shampoo feito pra pele e pro fio da barba",
+        "Óleo leve, que absorve rápido",
+        "Os dois com o mesmo perfume amadeirado"
+      ],
+      "deles": [
+        "Sabonete do corpo, que pode ressecar o fio",
+        "Óleo pesado, que deixa a barba brilhando",
+        "Cada um com um cheiro"
+      ]
+    },
+    "quem": {
+      "titulo": "Isto é pra você?",
+      "sim": [
+        "Sente a barba áspera e seca",
+        "Sofre com frizz e fio arrepiado",
+        "Quer a barba macia sem cara de oleosa",
+        "Quer uma rotina rápida, de dois passos"
+      ],
+      "nao": [
+        "Quer fazer a barba crescer (aí é o Fator)",
+        "Quer modelar e fixar (aí é o balm)",
+        "Não gosta de perfume na barba",
+        "Tem alergia a algum ingrediente das fórmulas"
+      ]
+    },
+    "duvidas": {
+      "titulo": "Perguntas que todo mundo faz",
+      "perguntas": [
+        {
+          "pergunta": "O que vem no kit?",
+          "resposta": ["Shampoo para Barba (120 ml) e Óleo para Barba (30 ml)."]
+        },
+        {
+          "pergunta": "Em que ordem eu uso?",
+          "resposta": ["Shampoo no banho, com a barba molhada. Depois de secar, o óleo."]
+        },
+        {
+          "pergunta": "O óleo deixa a barba oleosa?",
+          "resposta": [
+            "Na dose certa, não. A fórmula leva óleo de semente de uva, que é leve e absorve rápido — a barba fica macia, sem brilho de gordura.",
+            "Se ficou pesada, foi óleo demais: da próxima vez, use menos gotas."
+          ]
+        },
+        {
+          "pergunta": "Qual a diferença pro Kit Completo?",
+          "resposta": [
+            "O Completo traz também o Balm Modelador, que dá forma e segura o contorno. O Hidratação é o básico: limpar e hidratar."
+          ]
+        },
+        {
+          "pergunta": "E se eu não gostar?",
+          "resposta": [
+            "Você tem 7 dias corridos a partir do recebimento pra desistir da compra, por direito (art. 49 do Código de Defesa do Consumidor). É só pedir, sem precisar justificar."
+          ]
+        }
+      ]
+    }
+  },
+
+  "pasta-modeladora-matte-80g-fucking-barba": {
+    "seo": "Pasta modeladora matte para cabelo: textura, definição e acabamento seco e natural, sem brilho. Segura o penteado, não pesa e deixa remodelar. 80 g.",
+    "promessa": {
+      "chapeu": "Cabelo, acabamento seco",
+      "titulo": "Penteado no lugar, *sem brilho*",
+      "itens": [
+        "Efeito matte: acabamento seco e natural",
+        "Textura e definição pros fios",
+        "Segura o penteado e deixa remodelar",
+        "Leve: não pesa no cabelo",
+        "Pra cabelo curto, médio ou comprido"
+      ],
+      "rodape": "O resultado muda com o tipo e o comprimento do cabelo: comece com pouco produto e ajuste."
+    },
+    "tempo": {
+      "titulo": "O seu cabelo, ao longo do dia",
+      "passos": [
+        {
+          "quando": "Na aplicação",
+          "titulo": "Textura",
+          "texto": "Espalhada entre as mãos, a pasta dá textura e deixa os fios fáceis de modelar."
+        },
+        {
+          "quando": "Ao sair de casa",
+          "titulo": "Acabamento seco",
+          "texto": "O penteado fica definido, com aspecto natural e sem brilho de molhado.",
+          "alvo": true
+        },
+        {
+          "quando": "Durante o dia",
+          "titulo": "Remodela",
+          "texto": "Se o penteado sair do lugar, dá pra arrumar de novo passando os dedos."
+        },
+        {
+          "quando": "Todo dia",
+          "titulo": "Versátil",
+          "texto": "Do clássico alinhado ao despojado: muda o penteado, não muda o produto."
+        }
+      ],
+      "aviso": "Pouco produto rende: comece com uma quantidade pequena e aumente se precisar de mais controle."
+    },
+    "rotina": {
+      "titulo": "Pra combinar com a pasta",
+      "passoDeste": "Passo 2 · define",
+      "paraDeste": "Com o cabelo seco, define o penteado com acabamento matte.",
+      "itens": [
+        {
+          "handle": "spray-modelador-matte-100ml-fucking-barba",
+          "passo": "Passo 1 · volume",
+          "para": "No cabelo úmido, antes de secar: dá volume e textura de base."
+        }
+      ]
+    },
+    "funciona": {
+      "comoTitulo": "Como funciona",
+      "comoFotoDe": "pasta-modeladora-matte-80g-fucking-barba",
+      "comoFoto": { "de": "pasta-modeladora-matte-80g-fucking-barba", "n": 2 },
+      "comoTexto": [
+        "A pasta dá *textura e definição* aos fios e segura o penteado com acabamento *seco e natural*, sem aquele brilho de cabelo molhado.",
+        "A textura é leve e espalha fácil: não pesa e ajuda a tirar o brilho excessivo do cabelo."
+      ],
+      "usoTitulo": "Modo de uso",
+      "usoFotoDe": "pasta-modeladora-matte-80g-fucking-barba",
+      "usoFoto": { "de": "pasta-modeladora-matte-80g-fucking-barba", "n": 1 },
+      "usoPassos": [
+        "Cabelo *seco* ou levemente úmido.",
+        "Pegue *pouco produto* com a ponta dos dedos e esquente entre as mãos.",
+        "Espalhe da raiz às pontas.",
+        "*Modele com os dedos* ou com um pente."
+      ],
+      "dica": "Pra mais volume, borrife o *Spray Modelador* no cabelo úmido, seque, e finalize com a pasta."
+    },
+    "versus": {
+      "titulo": "A nossa e a genérica, lado a lado",
+      "nomeDeles": "Pomada genérica",
+      "descricaoDeles": "Sem marca, sem fórmula à vista",
+      "nosso": [
+        "Acabamento seco e natural, sem brilho",
+        "Leve: segura sem pesar",
+        "Deixa remodelar durante o dia"
+      ],
+      "deles": [
+        "Brilho de cabelo molhado",
+        "Pesa e deixa o fio grudado",
+        "Endurece e não deixa arrumar"
+      ]
+    },
+    "quem": {
+      "titulo": "Isto é pra você?",
+      "sim": [
+        "Quer um visual natural, sem cara de gel",
+        "Tem cabelo que perde a forma durante o dia",
+        "Tem o cabelo oleoso e quer tirar o brilho",
+        "Muda de penteado e quer um produto que acompanha"
+      ],
+      "nao": [
+        "Quer o efeito molhado, com brilho (aí é a Pasta Brilho)",
+        "Quer um penteado duro, que não mexe",
+        "Procura produto pra barba",
+        "Tem alergia a algum ingrediente da fórmula"
+      ]
+    },
+    "duvidas": {
+      "titulo": "Perguntas que todo mundo faz",
+      "perguntas": [
+        {
+          "pergunta": "Deixa o cabelo com brilho?",
+          "resposta": [
+            "Não. O acabamento é matte: seco, natural, sem brilho. Se você quer o efeito molhado, a escolha é a Pasta Modeladora Brilho."
+          ]
+        },
+        {
+          "pergunta": "Aplico com o cabelo molhado ou seco?",
+          "resposta": ["Seco ou levemente úmido: é assim que ela dá mais textura e controle."]
+        },
+        {
+          "pergunta": "Quanto produto eu uso?",
+          "resposta": [
+            "Pouco. Comece com uma quantidade pequena, esquente entre as mãos e aumente só se precisar de mais controle — produto demais pesa o cabelo."
+          ]
+        },
+        {
+          "pergunta": "Dá pra usar com o Spray Modelador?",
+          "resposta": [
+            "Dá. O spray vai no cabelo úmido, pra dar volume e textura; depois de secar, a pasta define e segura o penteado."
+          ]
+        },
+        {
+          "pergunta": "Tenho pele sensível. Posso usar?",
+          "resposta": [
+            "Faça um teste de contato antes do primeiro uso e, se irritar, suspenda. Com alergia, pele sensível, gravidez ou amamentação, confira a lista de ingredientes antes de usar."
+          ]
+        },
+        {
+          "pergunta": "E se eu não gostar?",
+          "resposta": [
+            "Você tem 7 dias corridos a partir do recebimento pra desistir da compra, por direito (art. 49 do Código de Defesa do Consumidor). É só pedir, sem precisar justificar."
+          ]
+        }
+      ]
+    }
+  },
+
+  "pasta-modeladora-brilho-80g-fucking-barba": {
+    "seo": "Pasta modeladora brilho para cabelo: efeito molhado de recém-modelado, com modelagem flexível que segura o penteado sem endurecer. Pote de 80 g.",
+    "promessa": {
+      "chapeu": "Cabelo, efeito molhado",
+      "titulo": "Penteado alinhado, *com brilho*",
+      "itens": [
+        "Brilho de cabelo recém-modelado",
+        "Penteado alinhado e definido",
+        "Modelagem flexível, sem endurecer",
+        "Espalha fácil e não pesa",
+        "Do clássico ao moderno"
+      ],
+      "rodape": "O resultado muda com o tipo e o comprimento do cabelo: comece com pouco produto e ajuste."
+    },
+    "tempo": {
+      "titulo": "O seu cabelo, ao longo do dia",
+      "passos": [
+        {
+          "quando": "Na aplicação",
+          "titulo": "Controle",
+          "texto": "Espalhada entre as mãos, a pasta alinha os fios e deixa o cabelo fácil de pentear."
+        },
+        {
+          "quando": "Ao sair de casa",
+          "titulo": "Brilho",
+          "texto": "O penteado fica definido, com o brilho de quem acabou de arrumar o cabelo.",
+          "alvo": true
+        },
+        {
+          "quando": "Durante o dia",
+          "titulo": "Movimento",
+          "texto": "A modelagem é flexível: o cabelo fica no lugar sem ficar duro."
+        },
+        {
+          "quando": "Todo dia",
+          "titulo": "Versátil",
+          "texto": "Do topete ao penteado pra trás: muda o estilo, não muda o produto."
+        }
+      ],
+      "aviso": "Pouco produto rende: comece com uma quantidade pequena e aumente se precisar de mais controle."
+    },
+    "rotina": {
+      "titulo": "Cabelo e barba, no mesmo capricho",
+      "passoDeste": "Cabelo · modela",
+      "paraDeste": "Alinha o penteado e dá brilho.",
+      "itens": [
+        {
+          "handle": "oleo-para-barba",
+          "passo": "Barba · hidrata",
+          "para": "Umas gotas na barba seca: macia e com brilho natural."
+        },
+        {
+          "handle": "balm-para-barba",
+          "passo": "Barba · modela",
+          "para": "Pra barba alinhada, no mesmo capricho do cabelo."
+        }
+      ]
+    },
+    "funciona": {
+      "comoTitulo": "Como funciona",
+      "comoFotoDe": "pasta-modeladora-brilho-80g-fucking-barba",
+      "comoFoto": { "de": "pasta-modeladora-brilho-80g-fucking-barba", "n": 2 },
+      "comoTexto": [
+        "A pasta alinha e define os fios com *brilho de cabelo molhado* — o acabamento de quem acabou de sair do barbeiro.",
+        "A modelagem é *flexível*: segura o penteado sem endurecer, e espalha fácil, sem deixar resíduo nem pesar."
+      ],
+      "usoTitulo": "Modo de uso",
+      "usoFotoDe": "pasta-modeladora-brilho-80g-fucking-barba",
+      "usoFoto": { "de": "pasta-modeladora-brilho-80g-fucking-barba", "n": 1 },
+      "usoPassos": [
+        "Cabelo *seco ou levemente úmido*.",
+        "Pegue *pouco produto* com a ponta dos dedos e esquente entre as mãos.",
+        "Espalhe da raiz às pontas.",
+        "*Penteie* pra alinhar e definir o estilo."
+      ],
+      "dica": "Com o cabelo *levemente úmido*, o efeito molhado fica mais aparente."
+    },
+    "versus": {
+      "titulo": "A nossa e o gel, lado a lado",
+      "nomeDeles": "Gel comum",
+      "descricaoDeles": "O de sempre, sem marca",
+      "nosso": [
+        "Brilho de recém-modelado, sem cara de gel",
+        "Modelagem flexível: o cabelo mexe",
+        "Espalha fácil e não deixa resíduo"
+      ],
+      "deles": [
+        "Brilho duro, de cabelo plastificado",
+        "Seca duro e trava o penteado",
+        "Pode esfarelar e deixar resíduo branco"
+      ]
+    },
+    "quem": {
+      "titulo": "Isto é pra você?",
+      "sim": [
+        "Gosta de penteado alinhado, com brilho",
+        "Quer o efeito molhado sem cabelo duro",
+        "Usa penteado pra trás, topete ou risca",
+        "Quer um produto que espalha fácil"
+      ],
+      "nao": [
+        "Quer acabamento seco, sem brilho (aí é a Pasta Matte)",
+        "Quer um penteado travado, que não mexe",
+        "Procura produto pra barba",
+        "Tem alergia a algum ingrediente da fórmula"
+      ]
+    },
+    "duvidas": {
+      "titulo": "Perguntas que todo mundo faz",
+      "perguntas": [
+        {
+          "pergunta": "Deixa o cabelo duro?",
+          "resposta": [
+            "Não. A modelagem é flexível: segura o penteado e mantém o movimento dos fios."
+          ]
+        },
+        {
+          "pergunta": "Qual a diferença pra Pasta Matte?",
+          "resposta": [
+            "O acabamento. A Brilho deixa o cabelo com aspecto molhado, de recém-modelado. A Matte deixa seco e natural, sem brilho."
+          ]
+        },
+        {
+          "pergunta": "Aplico com o cabelo molhado ou seco?",
+          "resposta": [
+            "Seco ou levemente úmido. Com o cabelo levemente úmido, o efeito molhado aparece mais."
+          ]
+        },
+        {
+          "pergunta": "Quanto produto eu uso?",
+          "resposta": [
+            "Pouco. Comece com uma quantidade pequena, esquente entre as mãos e aumente só se precisar de mais controle — produto demais pesa o cabelo."
+          ]
+        },
+        {
+          "pergunta": "Tenho pele sensível. Posso usar?",
+          "resposta": [
+            "Faça um teste de contato antes do primeiro uso e, se irritar, suspenda. Com alergia, pele sensível, gravidez ou amamentação, confira a lista de ingredientes antes de usar."
+          ]
+        },
+        {
+          "pergunta": "E se eu não gostar?",
+          "resposta": [
+            "Você tem 7 dias corridos a partir do recebimento pra desistir da compra, por direito (art. 49 do Código de Defesa do Consumidor). É só pedir, sem precisar justificar."
+          ]
+        }
+      ]
+    }
+  },
+
+  "spray-modelador-matte-100ml-fucking-barba": {
+    "seo": "Spray modelador matte para cabelo: volume e textura com acabamento seco, sem brilho. Seca rápido, não pesa e combina com pasta pra mais controle.",
+    "promessa": {
+      "chapeu": "Cabelo, acabamento seco",
+      "titulo": "Volume e textura *num borrifo*",
+      "itens": [
+        "Mais volume desde a raiz",
+        "Textura e definição pros fios",
+        "Acabamento seco, sem brilho",
+        "Seca rápido e não pesa",
+        "Sozinho ou com pasta"
+      ],
+      "rodape": "O resultado muda com o tipo e o comprimento do cabelo — e com a quantidade: comece com poucos borrifos."
+    },
+    "tempo": {
+      "titulo": "O seu cabelo, ao longo do dia",
+      "passos": [
+        {
+          "quando": "Depois do banho",
+          "titulo": "Base",
+          "texto": "Borrifado no cabelo úmido, o spray prepara os fios pra ganhar volume."
+        },
+        {
+          "quando": "Na secagem",
+          "titulo": "Volume",
+          "texto": "Secando com o secador ou com as mãos, o volume e a textura aparecem.",
+          "alvo": true
+        },
+        {
+          "quando": "Ao sair de casa",
+          "titulo": "Acabamento",
+          "texto": "Penteado com textura, aspecto natural e sem brilho de molhado."
+        },
+        {
+          "quando": "Durante o dia",
+          "titulo": "Firme, sem travar",
+          "texto": "O penteado se mantém sem deixar o cabelo rígido."
+        }
+      ],
+      "aviso": "Pra mais controle, finalize com a Pasta Modeladora Matte depois de secar."
+    },
+    "rotina": {
+      "titulo": "Pra combinar com o spray",
+      "passoDeste": "Passo 1 · volume",
+      "paraDeste": "No cabelo úmido, depois do banho.",
+      "itens": [
+        {
+          "handle": "pasta-modeladora-matte-80g-fucking-barba",
+          "passo": "Passo 2 · define",
+          "para": "Com o cabelo seco: define e segura o penteado, também sem brilho."
+        }
+      ]
+    },
+    "funciona": {
+      "comoTitulo": "Como funciona",
+      "comoFotoDe": "spray-modelador-matte-100ml-fucking-barba",
+      "comoFoto": { "de": "spray-modelador-matte-100ml-fucking-barba", "n": 1 },
+      "comoTexto": [
+        "O spray deixa uma camada leve nos fios que dá *volume e textura* — e seca rápido, com acabamento *seco e sem brilho*.",
+        "Sozinho, dá um visual despojado. Com uma pasta por cima, o penteado ganha mais controle."
+      ],
+      "usoTitulo": "Modo de uso",
+      "usoFotoDe": "spray-modelador-matte-100ml-fucking-barba",
+      "usoFoto": { "de": "spray-modelador-matte-100ml-fucking-barba", "n": 2 },
+      "usoPassos": [
+        "Depois do banho, tire o excesso de água do cabelo.",
+        "Borrife *da raiz às pontas*, em mechas.",
+        "Seque com o secador ou deixe secar *modelando com as mãos*.",
+        "Pra mais controle, finalize com uma pasta."
+      ],
+      "dica": "Pra *volume de verdade*, seque puxando os fios da raiz pra cima com os dedos."
+    },
+    "versus": {
+      "titulo": "O nosso e o genérico, lado a lado",
+      "nomeDeles": "Spray fixador genérico",
+      "descricaoDeles": "O laquê de sempre",
+      "nosso": [
+        "Dá volume e textura, não só fixa",
+        "Acabamento seco, sem brilho",
+        "Cabelo firme sem ficar rígido"
+      ],
+      "deles": ["Só trava o penteado", "Deixa brilho de laquê", "Cabelo duro, com cara de capacete"]
+    },
+    "quem": {
+      "titulo": "Isto é pra você?",
+      "sim": [
+        "Tem o cabelo baixo e sem volume",
+        "Quer textura com visual natural",
+        "Gosta de um penteado despojado",
+        "Quer um produto rápido de aplicar"
+      ],
+      "nao": [
+        "Quer o efeito molhado, com brilho (aí é a Pasta Brilho)",
+        "Quer o cabelo travado, que não mexe",
+        "Procura produto pra barba",
+        "Tem alergia a algum ingrediente da fórmula"
+      ]
+    },
+    "duvidas": {
+      "titulo": "Perguntas que todo mundo faz",
+      "perguntas": [
+        {
+          "pergunta": "Uso com o cabelo molhado ou seco?",
+          "resposta": [
+            "O melhor é no cabelo úmido, depois do banho e antes de secar: é aí que ele dá base pro volume."
+          ]
+        },
+        {
+          "pergunta": "Deixa o cabelo duro?",
+          "resposta": [
+            "Não. O penteado fica firme, mas o cabelo não fica rígido — e o acabamento é seco, sem brilho."
+          ]
+        },
+        {
+          "pergunta": "Posso usar junto com pasta?",
+          "resposta": [
+            "Pode, e é a combinação de quem quer mais controle: o spray no cabelo úmido, pra volume, e a pasta no cabelo seco, pra definir."
+          ]
+        },
+        {
+          "pergunta": "Serve pra cabelo curto?",
+          "resposta": [
+            "Serve pra cabelo curto, médio ou comprido. O que muda é a quantidade: cabelo curto pede poucos borrifos."
+          ]
+        },
+        {
+          "pergunta": "Tenho pele sensível. Posso usar?",
+          "resposta": [
+            "Faça um teste de contato antes do primeiro uso e, se irritar, suspenda. Com alergia, pele sensível, gravidez ou amamentação, confira a lista de ingredientes antes de usar."
+          ]
+        },
+        {
+          "pergunta": "E se eu não gostar?",
+          "resposta": [
+            "Você tem 7 dias corridos a partir do recebimento pra desistir da compra, por direito (art. 49 do Código de Defesa do Consumidor). É só pedir, sem precisar justificar."
+          ]
+        }
+      ]
+    }
+  }
+}

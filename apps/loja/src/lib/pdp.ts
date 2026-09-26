@@ -74,6 +74,8 @@ export type Pdp = {
   combinada: VendaCombinada
   /** Os vídeos da faixa "Vê na prática"; a galeria da dobra é só de fotos. */
   videos: VideoDaGaleria[]
+  /** O que o Google mostra embaixo do nome (a `meta description`), do painel. */
+  seo?: { descricao: string }
 }
 
 export const PDP_VAZIA: Pdp = { conteudo: {}, layout: {}, fundos: {}, combinada: {}, videos: [] }
@@ -170,6 +172,16 @@ export function lerPdp(metadata: unknown): Pdp {
     conteudo.funciona = { ...funciona, usoVideo: usoVideo ?? undefined }
     if (!usoVideo) delete (conteudo.funciona as Record<string, unknown>).usoVideo
   }
+  // A foto escolhida de fora do armazenamento sai: o otimizador de imagem não abre ela.
+  for (const campo of ["comoFoto", "usoFoto"]) {
+    const f = conteudo.funciona as Record<string, unknown> | undefined
+    const url = f?.[campo]
+    if (f && url !== undefined && (typeof url !== "string" || !ehDoArmazenamento(url))) {
+      const resto = { ...f }
+      delete resto[campo]
+      conteudo.funciona = resto
+    }
+  }
   if (conteudo.antesDepois) {
     const bruto = conteudo.antesDepois as Record<string, unknown>
     const casos = lerCasos(bruto.casos)
@@ -229,7 +241,19 @@ export function lerPdp(metadata: unknown): Pdp {
     return video ? [{ ...video, posicao }] : []
   })
 
-  return { conteudo: conteudo as ConteudoDaPdp, layout, fundos, combinada, videos }
+  const seo =
+    ehObjeto(raiz.seo) && typeof raiz.seo.descricao === "string" && raiz.seo.descricao.trim()
+      ? { descricao: raiz.seo.descricao.trim() }
+      : undefined
+
+  return {
+    conteudo: conteudo as ConteudoDaPdp,
+    layout,
+    fundos,
+    combinada,
+    videos,
+    ...(seo ? { seo } : {}),
+  }
 }
 
 /**

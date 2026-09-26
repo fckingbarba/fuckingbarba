@@ -289,6 +289,8 @@ function UmCampo({
         chave={chave}
         rotulo={campo.rot}
         meia={campo.meia}
+        forma={campo.forma}
+        ajuda={campo.ajuda}
         url={typeof valor === "string" ? valor : ""}
         falta={falta}
         mudar={mudar}

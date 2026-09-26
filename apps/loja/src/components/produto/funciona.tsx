@@ -23,6 +23,11 @@ import { buscarProdutoPorHandle } from "@/lib/medusa"
  *
  * COM VÍDEO (o painel, "Vídeo do modo de uso"), ele entra no lugar da foto
  * do modo de uso: mudo, em loop, e só quando a caixa aparece na tela.
+ *
+ * A FOTO DE CADA CAIXA é a escolhida no painel (`comoFoto`, `usoFoto`) ou,
+ * sem ela, a 2ª foto do produto de `comoFotoDe`/`usoFotoDe`. O texto
+ * alternativo é o nome desse produto: a foto é dele, e a gente não sabe o
+ * que ela mostra — "textura saindo do frasco" mentia quando era a embalagem.
  */
 export async function Funciona({ handle }: { handle: string }) {
   const c = (await conteudoDaPdp(handle)).funciona
@@ -33,8 +38,8 @@ export async function Funciona({ handle }: { handle: string }) {
     buscarProdutoPorHandle(c.usoFotoDe),
   ])
 
-  const fotoComo = como?.images?.[1]?.url ?? como?.thumbnail ?? null
-  const fotoUso = uso?.images?.[1]?.url ?? uso?.thumbnail ?? null
+  const fotoComo = c.comoFoto ?? como?.images?.[1]?.url ?? como?.thumbnail ?? null
+  const fotoUso = c.usoFoto ?? uso?.images?.[1]?.url ?? uso?.thumbnail ?? null
 
   return (
     <section className="funciona" aria-label={`${c.comoTitulo} e ${c.usoTitulo.toLowerCase()}`}>
@@ -49,7 +54,7 @@ export async function Funciona({ handle }: { handle: string }) {
             <div className="funciona__foto">
               <Image
                 src={fotoComo}
-                alt="Textura do produto FuckingBarba saindo do frasco"
+                alt={como?.title ?? "Produto FuckingBarba"}
                 width={900}
                 height={600}
                 loading="lazy"
@@ -82,7 +87,7 @@ export async function Funciona({ handle }: { handle: string }) {
             <div className="funciona__foto">
               <Image
                 src={fotoUso}
-                alt="Produto FuckingBarba sendo aplicado na mão"
+                alt={uso?.title ?? "Produto FuckingBarba"}
                 width={900}
                 height={600}
                 loading="lazy"

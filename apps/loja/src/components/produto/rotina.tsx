@@ -10,8 +10,10 @@ import { buscarProdutoPorHandle, precosDe, temEstoque } from "@/lib/medusa"
  * absorve melhor e o fio novo precisa de óleo pra não ficar áspero. A
  * sequência é argumento de uso antes de ser oferta.
  *
- * O PRODUTO DESTA PÁGINA ENTRA SOZINHO, marcado e travado. Ele é o passo 2 e
- * não faz sentido desmarcar — quem está aqui já decidiu por ele. Os outros
+ * O PRODUTO DESTA PÁGINA ENTRA SOZINHO, marcado e travado — quem está aqui
+ * já decidiu por ele, e não faz sentido desmarcar. O passo dele e pra que ele
+ * serve vêm do conteúdo (`passoDeste`, `paraDeste`); sem eles, os do Fator,
+ * que foi o primeiro produto com rotina ("Passo 2 · trata"). Os outros
  * nascem desmarcados: rotina que vem com tudo marcado é caixinha
  * pré-selecionada, e disso o cliente desconfia com razão.
  *
@@ -75,21 +77,21 @@ export async function Rotina({ handle }: { handle: string }) {
     foto: proprio.thumbnail ?? proprio.images?.[0]?.url ?? null,
     preco: precoDele.atual,
     cheio: precoDele.cheio,
-    // O passo do produto da página sai do conteúdo dos outros: se o shampoo
-    // é o 1 e o óleo é o 3, o daqui é o 2. Escrever "Passo 2" à mão num
-    // campo separado seria mais um lugar pra desencontrar.
-    passo: "Passo 2 · trata",
-    para: "O tratamento. Na pele, todo dia, sem enxaguar.",
+    passo: c.passoDeste ?? "Passo 2 · trata",
+    para: c.paraDeste ?? "O tratamento. Na pele, todo dia, sem enxaguar.",
     fixo: true,
   }
 
   /*
-   * A ordem é a do conteúdo, com o produto da página no meio — não no
-   * começo. A rotina se lê como sequência de uso, e o tratamento vem depois
-   * da limpeza. Pôr o "nosso" em primeiro seria vitrine, não rotina.
+   * A ordem é a do conteúdo, com o produto da página no lugar do passo dele
+   * — não no começo. A rotina se lê como sequência de uso, e o tratamento
+   * vem depois da limpeza. Pôr o "nosso" em primeiro seria vitrine, não
+   * rotina. Quem decide é o NÚMERO do passo ("Passos 1 e 2" é o 1); passo
+   * sem número ("Mais um passo · trata") fica depois do produto da página.
    */
-  const antes = acompanhantes.filter((i) => i.passo < proprioNaRotina.passo)
-  const depois = acompanhantes.filter((i) => i.passo >= proprioNaRotina.passo)
+  const deste = numeroDoPasso(proprioNaRotina.passo)
+  const antes = acompanhantes.filter((i) => numeroDoPasso(i.passo) < deste)
+  const depois = acompanhantes.filter((i) => numeroDoPasso(i.passo) >= deste)
   const itens = [...antes, proprioNaRotina, ...depois]
 
   // Sozinho ele não é rotina, é o produto de novo.
@@ -107,4 +109,10 @@ export async function Rotina({ handle }: { handle: string }) {
       </div>
     </section>
   )
+}
+
+/** "Passo 3 · hidrata" → 3; sem número, vai pro fim (na ordem do conteúdo). */
+export function numeroDoPasso(passo: string): number {
+  const n = passo.match(/\d+/)?.[0]
+  return n ? Number(n) : Infinity
 }

@@ -37,8 +37,19 @@ export type Campo =
       max?: number
       minimo?: number
     }
-  /** Uma foto que sobe pelo painel (a de um caso de antes e depois): o endereço dela. */
-  | { tipo: "foto"; c: string; rot: string; meia?: boolean }
+  /**
+   * Uma foto que sobe pelo painel: o endereço dela. `forma`: a de um caso de
+   * antes e depois (6 × 7, em pé — o padrão) ou a de uma caixa deitada (3 × 2:
+   * "como funciona" e o modo de uso).
+   */
+  | {
+      tipo: "foto"
+      c: string
+      rot: string
+      meia?: boolean
+      forma?: "caso" | "deitada"
+      ajuda?: string
+    }
   /** Um vídeo que sobe direto pro Medusa (o do modo de uso): `VideoDaPdp`, ou nada. */
   /** `uso`: no modo de uso do produto (deitado, o padrão), ou na história da marca, na home. */
   | { tipo: "video"; c: string; rot: string; ajuda?: string; uso?: "uso" | "historia" }

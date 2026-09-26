@@ -1971,6 +1971,42 @@ Depois do deploy — **o que você faz:**
 - [ ] Painel → Marketing → **Definir a meta**: a meta de vendas deste mês. Vale pro mês; no mês
       que vem, uma nova.
 
+**As sete seções em todos os produtos, e SEO 100 — pronto em 26/09 (entrega 0105).** Pedido dele:
+"ative e escreva" Benefícios, Linha do tempo, Rotina com outros produtos, Como funciona e modo de uso,
+Comparação, Pra quem é e Perguntas frequentes em todos os produtos, os kits do Fator iguais ao Fator,
+e "SEO 100 em todas as PDP".
+
+- **Os 15 produtos ganham as sete seções**, escritas a partir da descrição de cada um (a do Bling e
+  a da loja antiga): o que tem na fórmula, como usar, pra quem é e pra quem não é. Os kits 2x, 3x e
+  6x do Fator são o Fator (muda só o aviso de quantos meses o kit cobre); o Kit 2x Shampoo é o
+  Shampoo. Entram sozinhas no deploy, uma vez; depois, muda-se no painel, seção por seção. No ar, só
+  o Fator tinha uma seção, a Linha do tempo de teste ("Essa é a linha do tempo") — ela é trocada.
+- **Fora de propósito:** o "88% de eficácia" e o "9 a cada 10 homens" (sem o laudo do teste, podem ser
+  cobrados); e a fixação das pastas (o Bling diz média, a loja antiga dizia alta — o texto diz só
+  "segura o penteado").
+- **A Rotina diz o passo de cada produto** (antes, todo produto aparecia como "Passo 2 · trata — na
+  pele, sem enxaguar", que é o do Fator), e ordena pelo número do passo.
+- **A foto de "como funciona" e a do modo de uso** passam a ser escolhidas, uma a uma (no painel, em
+  "Como funciona e modo de uso"): a 2ª foto do produto, que era a de sempre, é arte de anúncio em
+  vários produtos.
+- **"Descrição no Google"**, nos Textos de cada produto: o que aparece embaixo do nome na busca. Cada
+  produto ganhou uma, de até 160 letras. Sem ela, a loja usa o começo da descrição do Bling, agora
+  numa linha e sem cortar palavra (antes: cortada no 155º caractere, no meio da palavra).
+- **SEO 100 nas 15 páginas de produto** (e acessibilidade e boas práticas 100), medido com a loja
+  liberada pro Google, como fica na virada. No ar hoje é 69 em todas, e isso é de propósito: o site
+  novo está fechado pro Google até a troca de domínio. De quebra, a Linha do tempo tinha um erro de
+  marcação que tirava 3 pontos de acessibilidade.
+- **O custo:** a página do produto ficou mais longa, e num celular simulado lento a foto do topo
+  aparece uns 0,2 s depois (velocidade 97). O CI continua medindo a página do óleo sem as seções.
+- [ ] **Na virada (fase 6):** liberar o Google (`SITE_INDEXAVEL=true` na Vercel da loja) — é o que
+      leva o SEO do ar de 69 pra 100.
+
+Textos pra revisar, produto a produto: página "Seções dos 15 produtos" (link na PR). Conferido pelo
+`conferir-pdp.mjs` (69 checagens, agora nos 15 produtos: cada frase do arquivo na página, e a página
+enxuta num produto esvaziado de propósito) e pelo `conferir-produtos.mjs` do painel (101).
+
+Depois do deploy — **nada a configurar.** Pra conferir: abrir 2 ou 3 produtos na loja e rolar a página.
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa

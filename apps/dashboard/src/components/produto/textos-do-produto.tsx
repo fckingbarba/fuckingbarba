@@ -7,6 +7,10 @@ import type { Categoria, DetalheDoProduto } from "@/lib/produtos"
 
 /** A linha embaixo do nome: curta (o mesmo limite do backend). */
 const LIMITE_DO_SUBTITULO = 120
+/** A descrição no Google: o mesmo limite do backend (`LIMITE_DA_DESCRICAO`). */
+const LIMITE_DA_DESCRICAO = 160
+/** A busca mostra mais ou menos até aqui; o resto some em "…". */
+const CABE_NO_GOOGLE = 155
 /** O nome: o mesmo limite do backend (`LIMITE_DO_NOME`). */
 const LIMITE_DO_NOME = 80
 /**
@@ -21,8 +25,9 @@ const juntar = (s: string) => s.replace(/\s+/g, " ").trim()
 /**
  * OS TEXTOS DO PRODUTO — o nome da loja (o título da página e da vitrine), o
  * subtítulo (a linha embaixo do nome, na página e no card) e a categoria (a
- * vitrine em que ele aparece: Barba, Cabelo, Kits). A descrição vem do Bling
- * e só aparece.
+ * vitrine em que ele aparece: Barba, Cabelo, Kits) e a descrição no Google
+ * (o que aparece embaixo do nome na busca). A descrição vem do Bling e só
+ * aparece.
  *
  * O NOME é da loja: mudado aqui, a importação do Bling não troca mais — o
  * Bling segue com o dele (a nota, os marketplaces). "Usar o do Bling" devolve.
@@ -39,20 +44,23 @@ export function TextosDoProduto({
   const [nome, setNome] = useState(produto.nome)
   const [subtitulo, setSubtitulo] = useState(produto.subtitulo)
   const [categoriaId, setCategoriaId] = useState(produto.categoriaId ?? "")
+  const [descricaoGoogle, setDescricaoGoogle] = useState(produto.descricaoGoogle)
   const edita = produto.podeEditar
   const mudou =
     juntar(nome) !== produto.nome ||
     juntar(subtitulo) !== produto.subtitulo ||
-    categoriaId !== (produto.categoriaId ?? "")
+    categoriaId !== (produto.categoriaId ?? "") ||
+    juntar(descricaoGoogle) !== produto.descricaoGoogle
   const id = `textos-${produto.id}`
   const tamanho = juntar(nome).length
   const doBling = produto.nomeNoBling
+  const noGoogle = juntar(descricaoGoogle).length
 
   function salvar(ev: FormEvent) {
     ev.preventDefault()
     if (!mudou || salvando) return
     comecar(async () => {
-      avisar(await salvarTextos(produto.id, { nome, subtitulo, categoriaId }))
+      avisar(await salvarTextos(produto.id, { nome, subtitulo, categoriaId, descricaoGoogle }))
     })
   }
 
@@ -139,8 +147,29 @@ export function TextosDoProduto({
           <input id={`${id}-end`} value={`/produtos/${produto.handle}`} readOnly />
         </div>
         <div className="campo">
+          <label htmlFor={`${id}-google`}>
+            Descrição no Google <small>— o que aparece embaixo do nome, na busca</small>
+          </label>
+          <textarea
+            id={`${id}-google`}
+            data-descricao-google
+            value={descricaoGoogle}
+            maxLength={LIMITE_DA_DESCRICAO}
+            rows={3}
+            readOnly={!edita}
+            placeholder="Ex.: Óleo para barba com argan e vitamina E: macia, sem frizz e sem ficar oleosa."
+            aria-describedby={`${id}-google-ajuda`}
+            onChange={(e) => setDescricaoGoogle(e.target.value)}
+          />
+          <p className="campo__ajuda" id={`${id}-google-ajuda`}>
+            {noGoogle
+              ? `${noGoogle} letras — ${noGoogle > CABE_NO_GOOGLE ? "o fim pode sumir em “…” na busca." : "cabe inteira na busca."}`
+              : "Em branco, o Google mostra o começo da descrição do Bling."}
+          </p>
+        </div>
+        <div className="campo">
           <label htmlFor={`${id}-desc`}>
-            Descrição <small>— vem do Bling; é o que o Google lê</small>
+            Descrição <small>— vem do Bling</small>
           </label>
           <textarea id={`${id}-desc`} value={produto.descricao} readOnly rows={4} />
         </div>

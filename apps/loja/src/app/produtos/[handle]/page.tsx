@@ -1,6 +1,8 @@
 import type { Metadata } from "next"
 import { Secoes } from "@/components/secoes"
+import { descricaoDoGoogle } from "@/lib/formato"
 import { buscarProdutoPorHandle, listarProdutos } from "@/lib/medusa"
+import { lerPdp } from "@/lib/pdp"
 // Só aqui, e não no globals.css: ver "O QUE NÃO MORA AQUI" lá.
 import "@/estilos/telas/produto.css"
 
@@ -50,10 +52,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { handle } = await params
   const produto = await buscarProdutoPorHandle(handle)
   if (!produto) return { title: "Produto não encontrado", robots: { index: false } }
+  // A do painel (Textos → "Descrição no Google"); sem ela, o começo da do Bling.
   return {
     title: produto.title,
     description:
-      produto.description?.slice(0, 155) ||
+      lerPdp(produto.metadata).seo?.descricao ??
+      descricaoDoGoogle(produto.description) ??
       `${produto.title}${produto.subtitle ? ` — ${produto.subtitle}` : ""}. Compre na FuckingBarba.`,
     alternates: { canonical: `/produtos/${produto.handle}` },
     openGraph: produto.thumbnail ? { images: [{ url: produto.thumbnail }] } : undefined,

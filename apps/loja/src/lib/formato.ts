@@ -94,3 +94,20 @@ export function quando(iso: string | null | undefined, agora: Date = new Date())
   }
   return `${DIA_E_ANO.format(d)}, ${HORA.format(d)}`
 }
+
+/**
+ * A descrição que o Google mostra embaixo do nome (a `meta description`),
+ * tirada de um texto longo — a descrição do produto que vem do Bling: numa
+ * linha só (as quebras de parágrafo viravam o texto colado) e cortada no fim
+ * de uma palavra, com "…", perto dos 155 caracteres que a busca mostra.
+ * Antes era o texto cru cortado no 155º caractere, no meio da palavra.
+ */
+export function descricaoDoGoogle(texto: string | null | undefined, limite = 155): string | null {
+  const t = (texto ?? "").replace(/\s+/g, " ").trim()
+  if (!t) return null
+  if (t.length <= limite) return t
+  const corte = t.slice(0, limite - 1)
+  const espaco = corte.lastIndexOf(" ")
+  const inteiro = espaco > limite * 0.6 ? corte.slice(0, espaco) : corte
+  return `${inteiro.replace(/[\s,;:.—–-]+$/, "")}…`
+}
