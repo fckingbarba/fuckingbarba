@@ -21,6 +21,7 @@ import {
 import { ACOES_NA_HOME, ALVO_DA_HOME } from "./home"
 import { ACOES_NO_PRODUTO, type FeitoNoProduto } from "./produtos"
 import type { CarrinhoDoFunil } from "./marketing-funil"
+import type { CarrinhoDoPagamento, PedidoDoPagamento } from "./marketing-pagamento"
 import { nomeCurto, type Contexto, type EnvioCru, type NotaCrua, type PedidoCru } from "./pedido"
 
 /**
@@ -186,6 +187,63 @@ export async function carrinhosDesde(
     pagination: { take: 20_000, order: { created_at: "DESC" } },
   })
   return data as unknown as CarrinhoDoFunil[]
+}
+
+/**
+ * Os pedidos com o que as abas Clientes e Pagamento e frete do Marketing
+ * usam: o e-mail (a pessoa), o estado, o frete, os produtos e o estado do
+ * Pagar.me em cada sessão (a forma, as parcelas, a recusa). `desde` nulo: a
+ * história inteira (a primeira compra de cada pessoa pode ser antiga). Nada
+ * disso sai da rota: a resposta é só conta.
+ */
+export async function pedidosComPagamento(
+  container: MedusaContainer,
+  desde: Date | null
+): Promise<PedidoDoPagamento[]> {
+  const { data } = await query(container).graph({
+    entity: "order",
+    fields: [
+      "id",
+      "created_at",
+      "status",
+      "email",
+      "total",
+      "credit_line_total",
+      "shipping_total",
+      "item_subtotal",
+      "shipping_address.province",
+      "payment_collections.payments.captured_at",
+      "payment_collections.payment_sessions.provider_id",
+      "payment_collections.payment_sessions.status",
+      "payment_collections.payment_sessions.data",
+    ],
+    filters: { is_draft_order: false, ...(desde ? { created_at: { $gte: desde } } : {}) },
+    pagination: { take: 20_000, order: { created_at: "DESC" } },
+  })
+  return data as unknown as PedidoDoPagamento[]
+}
+
+/** Os carrinhos do período com a sessão de pagamento — o cartão recusado não vira pedido. */
+export async function carrinhosComPagamento(
+  container: MedusaContainer,
+  desde: Date
+): Promise<CarrinhoDoPagamento[]> {
+  const { data } = await query(container).graph({
+    entity: "cart",
+    fields: [
+      "id",
+      "created_at",
+      "completed_at",
+      "shipping_address.postal_code",
+      "shipping_methods.id",
+      "payment_collection.payment_sessions.provider_id",
+      "payment_collection.payment_sessions.status",
+      "payment_collection.payment_sessions.data",
+    ],
+    filters: { created_at: { $gte: desde } },
+    pagination: { take: 20_000, order: { created_at: "DESC" } },
+  })
+  return data as unknown as CarrinhoDoPagamento[]
 }
 
 /** Os produtos publicados (o endereço e o nome curto) — as páginas do montador de link. */
