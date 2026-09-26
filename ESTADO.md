@@ -2332,6 +2332,37 @@ o `conferir-cupons.mjs` (25/25) com eles no banco e os testes de unidade (15 nov
 Depois do deploy — **nada a configurar.** Pra conferir: Painel → Cupons e descontos — a lista começa
 em 0P2XSB e termina em ZKVI3I.
 
+**Aviso de venda nova pro dono — pronto em 26/09 (entrega 0127).** Pedido dele: "verifique se toda
+compra manda um e-mail pra mim, o administrador; se não, crie — logo depois do pagamento aprovado".
+
+- **Como estava:** a cada pedido pago, só o cliente recebia e-mail ("Pedido #N confirmado"). O dono
+  só via a venda abrindo o painel; os e-mails da equipe eram só de problema (a nota, o Bling, o
+  estorno).
+- **O que muda:** a cada venda paga, o dono recebe "Venda nova: pedido #N, R$ X no Pix" (ou "no
+  cartão"), logo depois do e-mail do cliente. Dentro: o valor, a hora do pagamento, a forma (no
+  cartão, a bandeira e as parcelas), o que foi vendido, os totais, o cupom e o botão "Abrir o pedido
+  no painel". Nada de quem comprou — nem nome, nem e-mail, nem endereço, nem o final do cartão —,
+  como nos outros e-mails da equipe: isso está no pedido, no painel.
+- **Quando sai:** quando o dinheiro entra — o Pix pago; o cartão aprovado (o que cai na análise de
+  fraude só avisa quando ela aprova e ele é cobrado). Não sai pro Pix que venceu, pro cartão
+  recusado nem pro Pix pago num pedido já cancelado (esse dinheiro volta pra quem pagou).
+- **Pra quem:** quem está como dono no painel — Configurações → E-mails mostra, na linha nova
+  "Venda nova"; sem ninguém no painel, os usuários do admin do Medusa. Um e-mail por pessoa, uma
+  vez por pedido.
+- **Se o e-mail falhar na hora** (o Resend fora), a varredura de 5 em 5 minutos manda depois, com a
+  hora certa do pagamento — a mesma que cobre o "Check status" do admin.
+- **No deploy**, os pedidos pagos nas 24 horas anteriores também recebem o aviso, uma vez cada (é a
+  varredura alcançando): podem chegar alguns de uma vez, cada um com a hora do seu pagamento.
+
+Conferido pelo `conferir-pagamento.mjs` (200 checagens; as 19 novas: o aviso do Pix, do cartão na
+hora e depois da análise, com o Resend fora, depois do "Check status"; nenhum pro Pix vencido, pro
+cartão reprovado nem pro Pix pago depois do cancelamento; nada de quem comprou; uma vez por pessoa
+em toda a rodada), pelo `conferir-configuracoes.mjs` do painel (a linha "Venda nova", só pro dono) e
+pelos testes de unidade (21 novos). Os e-mails que já existiam saem byte por byte iguais.
+
+Depois do deploy — **nada a configurar.** Pra ver: a próxima venda paga chega na caixa do dono do
+painel; e Configurações → E-mails → "Pra equipe" mostra a linha "Venda nova" e quem recebe.
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa

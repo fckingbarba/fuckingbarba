@@ -608,6 +608,22 @@ cancelado, sem o Pagar.me ou que já saiu pra entrega. Todo e-mail de pedido nov
 — evento na hora, varredura embaixo, registro no pedido —, e a nota fiscal e o `purchase` também:
 o `payment.captured` sozinho perde o "Check status".
 
+O **aviso de venda nova** (`src/lib/avisar-venda.ts`; o desenho em `emails/venda-nova.ts`) é esse
+molde, pro dono: sai no `pagamento-capturado.ts` logo depois da confirmação do cliente, e pela mesma
+varredura — no fim do job `confirmar-pedidos` e no `POST /admin/pedidos/confirmar`, que devolve o
+relatório `vendas`. Vai pro papel dono (`emailsPraAvisar`; a linha "Venda nova" de
+`AVISOS_DA_EQUIPE`), um e-mail por pessoa, com a chave `venda-nova/<id>/<para>`. O registro
+(`metadata.emails.venda`) só é gravado quando todos receberam: com um dono recebendo e o outro não,
+a varredura manda de novo, e a chave segura o repetido de quem já tinha. Sem dado de quem comprou,
+como os outros avisos da equipe: os itens e os totais são os do e-mail do cliente
+(`paraPedidoDoEmail`, `linhaDoItem`, `totais`), e o `VendaDoAviso` não tem onde pôr nome, endereço
+nem o final do cartão. Não sai pra pedido cancelado (o Pix pago num pedido já cancelado volta pra
+quem pagou — não é venda), sem o Pagar.me ou que já saiu pra entrega; o cartão em análise só avisa
+quando é cobrado. O botão abre o pedido no painel (`DASHBOARD_URL`) ou, sem ele, no admin. O
+`conferir-pagamento` confere o aviso em cada caminho: Pix pelo aviso, cartão na hora e depois da
+análise, o Resend fora, o "Check status", e nenhum pro Pix vencido, pro reprovado e pro Pix pago
+depois do cancelamento.
+
 O de **pedido cancelado** (`src/lib/avisar-cancelamento.ts`) é o mesmo molde, com o `order.canceled`
 no lugar do `payment.captured` e a mesma varredura embaixo; o registro é `metadata.emails.cancelado`.
 Ele diz três coisas — estornado, Pix vencido, cancelado antes do pagamento —, e **a pergunta "houve
@@ -631,7 +647,7 @@ CRÉDITO no pedido, e o `total` de um pedido cancelado e estornado é zero (o `o
 serve: é a conta antes do cupom).
 
 **O metadata do pedido** tem vários donos — `emails.confirmado`, `emails.cancelado`,
-`emails.devolvido`, `estornos`, `fb_parceiro` e `fb_bump` — e UMA porta de escrita:
+`emails.devolvido`, `emails.venda`, `estornos`, `fb_parceiro` e `fb_bump` — e UMA porta de escrita:
 `gravarNoMetadataDoPedido` (`src/lib/metadata-do-pedido.ts`). O `updateOrders` do Medusa lê o pedido, mistura o metadata na
 memória (só no primeiro nível) e grava a coluna inteira: dois donos gravando juntos, o último
 apaga o que o primeiro gravou — foi o registro da confirmação sumindo debaixo do `fb_bump`, gravado
@@ -1396,9 +1412,10 @@ dono). A regra mora em `src/lib/painel/configuracoes.ts`, puro, com testes:
   linha, e a lista para em `MAX_PENDENCIAS`); os e-mails, com o remetente do `remetenteDosEmails`
   (`lib/email.ts`, o mesmo do `enviarEmail`).
 - **Pra quem vai o aviso da equipe:** `AVISOS_DA_EQUIPE` diz o papel de cada um (a nota: operação e
-  dono; o Bling caído e o estorno: dono), e `destinatarios` escolhe os e-mails — quem está ativo no
-  papel; sem ninguém, o dono; sem ninguém no painel, os usuários do admin, como antes. O
-  `avisarAEquipe` do ERP e o dos estornos chamam o `emailsPraAvisar` (`lib/equipe/avisados.ts`).
+  dono; a venda nova, o Bling caído e o estorno: dono), e `destinatarios` escolhe os e-mails — quem
+  está ativo no papel; sem ninguém, o dono; sem ninguém no painel, os usuários do admin, como antes.
+  O `avisarAEquipe` do ERP, o dos estornos e o `avisarVenda` chamam o `emailsPraAvisar`
+  (`lib/equipe/avisados.ts`).
 
 As rotas: `GET /dashboard/configuracoes` e
 `POST /dashboard/configuracoes/{empresa,frete,emergencia,nota}`. Todas anotam no registro da
