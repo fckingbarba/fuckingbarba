@@ -400,6 +400,15 @@ trânsito" de volta); e a Frenet escreve `ServiceDescrition`, sem o "p". A chave
 é o `FRENET_WEBHOOK_TOKEN`, no cabeçalho `x-webhook-token` ou em `?chave=`; sem ela, nenhum aviso
 entra.
 
+**A quantidade do item do pedido, no `query.graph`, só vem com o item inteiro.** Ela mora no
+`detail` do item (a tabela `order_item`), não na linha (`order_line_item`), e o Medusa (2.21) procura
+`items.quantity` na linha: pedido campo a campo, sem nenhum total na lista, o item volta SEM a
+quantidade. Com um total (`total`, `item_total`, `shipping_total`…) funciona por tabela — o Medusa
+carrega o item inteiro pra fazer a conta —, e é por isso que a nota, a Frenet, os anúncios e o
+painel nunca erraram. Foi o que pôs "0×" nos e-mails do caminho da encomenda (o #19, em 25/09;
+entrega 0116). Pedido lido pra mostrar item: `items.*`, como a confirmação, o cancelamento e o
+`lerPedido` de `lib/envios/medusa.ts`. O `conferir-envio` confere a quantidade nos três e-mails.
+
 **A etiqueta feita à mão no painel da Frenet não manda aviso** (resposta deles, 23/09: o aviso só
 vale pros pedidos que entram pela API de pedidos, que exige o token de parceiro). Pra ela, a loja
 PERGUNTA: o `consultar` do contrato (`parceiro.ts`), que na Frenet é `POST /tracking/trackinginfo`
