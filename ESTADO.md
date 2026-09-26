@@ -2118,6 +2118,29 @@ conferidos contra o pedido no admin. Com o código de antes, as duas checagens n
 
 Depois do deploy — **nada a configurar.**
 
+**Home e página do produto no celular: as bolinhas do banner por cima da arte, e a foto passando no
+dedo — pronto em 26/09 (entrega 0114).** Dois pedidos dele, com print da home.
+
+- **As bolinhas do banner ficam por cima da arte, no canto de baixo à esquerda**, num selo preto de
+  canto cortado. A faixa escura que ficava embaixo do banner saiu — e com ela o vão até a barra de
+  vantagens. No canto, elas não cobrem o botão desenhado no meio da arte do celular (era por isso
+  que tinham ido pra baixo). O painel agora avisa, no banner: deixe o canto de baixo à esquerda da
+  arte sem texto.
+- **A foto grande da página do produto passa no dedo:** arrastando de lado, a foto acompanha o dedo
+  e para inteira na próxima. Antes, no celular, só os pontos embaixo dela trocavam a foto. Os pontos
+  continuam e marcam a foto da vez; tocar amplia a que está à vista. No computador, a miniatura
+  troca a foto deslizando.
+- A página continua abrindo com uma foto só, que é o que o Google mede: a segunda baixa quando a
+  página termina de carregar, e as outras quando a pessoa chega perto.
+
+Conferido pelo `conferir-home.mjs` (as bolinhas no canto, sem vão embaixo do banner, no celular e
+no computador) e pelo `conferir-pdp.mjs`, que agora passa o dedo na foto no celular: arrastar pros
+dois lados, o arrasto curto que volta, rolar a página com o dedo em cima da foto, tocar pra ampliar,
+fechar o zoom e o ponto.
+
+Depois do deploy — **nada a configurar.** Pra conferir: abrir um produto no celular e arrastar a
+foto; na home, o banner encosta na barra de vantagens.
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa

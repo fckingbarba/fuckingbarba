@@ -147,7 +147,7 @@ export const SECOES_DA_HOME: Record<IdDaSecaoDaHome, DefinicaoDaSecaoDaHome> = {
       {
         tipo: "nota",
         texto:
-          "Só imagem: a arte ocupa o banner inteiro, com o texto dentro dela — as mesmas da Nuvemshop servem. O primeiro slide é o que aparece primeiro, e o que o Google mede. Com mais de um, a loja mostra as bolinhas e as setas pra trocar, e para de passar sozinho quando a pessoa mexe.",
+          "Só imagem: a arte ocupa o banner inteiro, com o texto dentro dela — as mesmas da Nuvemshop servem. O primeiro slide é o que aparece primeiro, e o que o Google mede. Com mais de um, a loja mostra as bolinhas e as setas pra trocar, e para de passar sozinho quando a pessoa mexe. As bolinhas ficam por cima da arte, no canto de baixo à esquerda: deixe esse canto sem texto.",
       },
       {
         tipo: "grupo",

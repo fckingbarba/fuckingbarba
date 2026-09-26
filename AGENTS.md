@@ -957,6 +957,18 @@ mudo, em loop, só quando aparece na tela (`preload="none"`), com a capa até to
 grava os vídeos de teste no próprio navegador (canvas + `MediaRecorder`, em WebM sem a duração no
 cabeçalho, como o de um Android — o painel acha a duração indo pro fim do vídeo).
 
+**A foto grande da dobra passa no dedo** (entrega 0114). O palco de `components/produto/galeria.tsx`
+é um trilho com encaixe (o do banner da home) dentro da moldura `.galeria__palco` — a borda, o canto
+cortado, o selo e a lupa continuam no `pdp.css` gerado; o trilho mora no `pdp-galeria.css`, escrito
+à mão. A foto da vez (`atual`) SAI DA ROLAGEM (`scrollLeft / clientWidth`): a miniatura (o ponto,
+abaixo de 1000 px), as setas do teclado e o zoom fechando rolam o trilho (`irPara`), não trocam
+estado. Cada foto é um botão que abre o zoom na foto à vista; as fora de vista ficam `inert`, e a
+seta do teclado leva o foco junto (`useLayoutEffect`). SÓ A PRIMEIRA FOTO VEM NO HTML (é o LCP, com
+`fetchPriority="high"`): a segunda é montada 300 ms depois do `load`, e as vizinhas da vez quando a
+pessoa encosta no palco ou o trilho rola (`montados`) — mandar todas no HTML dividiria a banda com a
+primeira. O `conferir-pdp.mjs` passa o dedo pelo CDP (`Input.dispatchTouchEvent`, que passa pela
+rolagem de verdade; um TouchEvent montado no DOM não rola nada), no produto com mais fotos do banco.
+
 **As sete seções de todos os produtos** (entrega 0105). O texto de Benefícios, Linha do tempo,
 Rotina, Como funciona e modo de uso, Comparação, Pra quem é e Perguntas frequentes dos 15 produtos
 mora em `backend/src/scripts/dados/secoes-da-pdp.json`, por handle (os kits do Fator e o Kit 2x
@@ -1030,8 +1042,14 @@ tela e a aba escondida pausam ela (`andando`), e ela continua de onde parou; `qu
 antes de encher (o banner baixa a arte do próximo). Não volte pra barra no CSS com `setTimeout` ou
 `setInterval` do lado: eram dois relógios — a barra começava no HTML do servidor e a contagem só
 depois da hidratação (o palco, lá embaixo, chegava com a barra cheia), e a barra enchia com o
-slide parado. As bolinhas ficam numa faixa escura EMBAIXO da arte
-(`--faixa-dos-pontos`, 24 px), não em cima: cobriam o botão desenhado na arte do celular. A caixa é 1920 × 630 (1080 × 1275 abaixo de 768 px, com a do celular) — mais baixa desde
+slide parado. As bolinhas ficam POR CIMA da arte, no canto de baixo à esquerda (0114), num selo
+preto de canto cortado: numa faixa embaixo da arte (da 0106 à 0114) abriam um vão até a barra de
+vantagens, e no meio (a pílula de antes da 0106) cobriam o botão desenhado na arte do celular; o
+painel pede pra deixar o canto sem texto. Translúcido, o selo fica encardido no amarelo. Sem a
+faixa, a home do `conferir-home` (o banner e as ofertas em cima do palco da Alta Performance)
+mostra 22% do palco ao abrir numa aba de 900 px — e o palco conta a partir de 20%
+(`IntersectionObserver`): o teste do palco abre numa aba de 600 px e confere que ele começou fora
+da tela. A caixa é 1920 × 630 (1080 × 1275 abaixo de 768 px, com a do celular) — mais baixa desde
 a 0103 (era 1920 × 700 e 4 × 5) — e a arte a PREENCHE (`cover`, pelo centro): sem faixa branca, e
 a arte de outra medida perde um pouco das bordas. Sem a do celular, no celular, a do computador
 aparece inteira (`contain`): no carrossel o slide estica até o mais alto, e preencher cortaria o
