@@ -135,9 +135,7 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/checkout">, "searchPa
     com o carrinho de antes. Pra quem está chegando agora, quem traz as
     opções é o `consultarCep`, no instante em que o CEP é digitado.
   */
-  const fretes = checkout.entrega.cep
-    ? await listarFretes(checkout.id, checkout.freteEscolhido)
-    : []
+  const fretes = checkout.entrega.cep ? await listarFretes(checkout) : []
   const provedores = await listarProvedores(checkout.regiaoId)
   const bump = await lerBump(checkout)
   const sugestoes = await listarSugestoes(checkout, falta)
