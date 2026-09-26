@@ -13,9 +13,10 @@
  * │ ela simplesmente não desenha, e a página continua bonita e mais curta. │
  * │                                                                         │
  * │ Então a conferência não é "a API devolve o que gravei" (isso é         │
- * │ tautologia). É: CADA FRASE da semente aparece na PÁGINA RENDERIZADA.   │
- * │ A semente é o arquivo que foi extraído do TypeScript antes da          │
- * │ migração — ou seja, o texto que estava no ar.                          │
+ * │ tautologia). É: CADA FRASE do arquivo aparece na PÁGINA RENDERIZADA.   │
+ * │ Desde a entrega 0105 o arquivo é o `secoes-da-pdp.json` — as sete      │
+ * │ seções de todos os produtos, que a migração grava —, conferido em cada │
+ * │ produto que existe no banco local (a semente tem seis; o ar, 15).      │
  * └─────────────────────────────────────────────────────────────────────────┘
  *
  * A parte que edita mexe no banco e RESTAURA no fim, inclusive se falhar no
@@ -33,11 +34,25 @@ const CROMO = process.env.CHROMIUM || undefined
 const EMAIL = process.env.ADMIN_EMAIL
 const SENHA = process.env.ADMIN_SENHA
 
-const SEMENTE = JSON.parse(
-  readFileSync(new URL("../../backend/src/scripts/dados/pdp-inicial.json", import.meta.url), "utf8")
+/** As sete seções de cada produto, como a migração `secoes-da-pdp.ts` grava. */
+const ARQUIVO = JSON.parse(
+  readFileSync(
+    new URL("../../backend/src/scripts/dados/secoes-da-pdp.json", import.meta.url),
+    "utf8"
+  )
 )
+const SECOES_ESCRITAS = ["promessa", "tempo", "rotina", "funciona", "versus", "quem", "duvidas"]
+/** O texto de um produto, com o `copiaDe` dos kits resolvido. */
+function textosDe(handle) {
+  const proprio = ARQUIVO[handle] ?? {}
+  const base = proprio.copiaDe ? textosDe(proprio.copiaDe) : {}
+  return Object.fromEntries(
+    SECOES_ESCRITAS.map((s) => [s, proprio[s] ?? base[s]]).filter(([, v]) => v)
+  )
+}
 const COM_CONTEUDO = "fator-de-crescimento-para-barba"
-const SEM_CONTEUDO = "oleo-para-barba"
+/** O produto que o teste da página enxuta esvazia (e devolve no fim). */
+const ENXUTO = "oleo-para-barba"
 
 let passou = 0
 let falhou = 0
@@ -129,42 +144,30 @@ const secoesNaTela = () =>
   ])
 
 try {
-  /* ── 1. nada se perdeu na mudança de endereço ────────────────────────── */
-  confere(`/produtos/${COM_CONTEUDO} responde 200`, (await abrir(COM_CONTEUDO)) === 200)
-
-  const texto = normaliza(await textoDaPagina())
-  const frases = frasesDe(SEMENTE[COM_CONTEUDO])
-  /* Handle de produto e nome de foto são referência, não texto exibido —
-     eles viram link e imagem, não aparecem escritos na tela. */
-  const exibidas = frases.filter((f) => f.includes(" ") && f.length > 3)
-  const sumidas = exibidas.filter((f) => !texto.includes(normaliza(f)))
-
-  confere(
-    `as ${exibidas.length} frases da semente aparecem na página`,
-    sumidas.length === 0,
-    sumidas
-      .slice(0, 3)
-      .map((f) => `sumiu: "${f.slice(0, 70)}…"`)
-      .join("\n         ")
-  )
-
-  const secoes = await secoesNaTela()
-  const esperadas = Object.keys(SEMENTE[COM_CONTEUDO])
-  confere(
-    `as ${esperadas.length} seções desenham`,
-    esperadas.every((s) => secoes.includes(s)),
-    `na tela: ${secoes.join(", ")}`
-  )
-
-  /* ── 2. produto sem conteúdo tem PDP enxuta, e isso não é erro ───────── */
-  confere(`/produtos/${SEM_CONTEUDO} responde 200`, (await abrir(SEM_CONTEUDO)) === 200)
-  const enxuta = await secoesNaTela()
-  confere(
-    "produto sem conteúdo não desenha seção editorial nenhuma",
-    !esperadas.some((s) => enxuta.includes(s)),
-    enxuta.join(", ")
-  )
-  confere("mas a dobra continua de pé", enxuta.includes("pdp"), enxuta.join(", "))
+  /* ── 1. o texto de cada produto chegou na página dele ────────────────── */
+  const esperadas = SECOES_ESCRITAS
+  let conferidos = 0
+  for (const handle of Object.keys(ARQUIVO)) {
+    const status = await abrir(handle)
+    // O banco local da semente tem seis produtos; os outros nove só existem no ar.
+    if (status === 404) continue
+    conferidos++
+    const texto = normaliza(await textoDaPagina())
+    /* Handle de produto e foto escolhida são referência, não texto exibido —
+       eles viram link e imagem, não aparecem escritos na tela. */
+    const exibidas = frasesDe(textosDe(handle)).filter((f) => f.includes(" ") && f.length > 3)
+    const sumidas = exibidas.filter((f) => !texto.includes(normaliza(f)))
+    const naTela = await secoesNaTela()
+    confere(
+      `${handle}: as ${esperadas.length} seções desenham, com as ${exibidas.length} frases do arquivo`,
+      status === 200 && sumidas.length === 0 && esperadas.every((s) => naTela.includes(s)),
+      [
+        `HTTP ${status} · na tela: ${naTela.join(", ")}`,
+        ...sumidas.slice(0, 3).map((f) => `sumiu: "${f.slice(0, 70)}…"`),
+      ].join("\n         ")
+    )
+  }
+  confere("o banco local tem produto com o texto do arquivo", conferidos > 0, "nenhum achado")
 
   /* ── 3. editar no admin muda a loja ──────────────────────────────────── */
   if (!EMAIL || !SENHA) {
@@ -454,11 +457,13 @@ try {
       await abrir(COM_CONTEUDO)
       confere("seção desligada no layout some da página", !(await secoesNaTela()).includes("quem"))
 
-      /* e as outras continuam lá — desligar uma não derruba a página */
+      /* e as outras continuam lá — desligar uma não derruba a página (olhando a
+         tela de AGORA: até a 0105 olhava a de antes de desligar, e passava sempre) */
+      const semQuem = await secoesNaTela()
       confere(
-        "e as outras sete continuam desenhando",
-        esperadas.filter((s) => s !== "quem").every((s) => secoes.includes(s)),
-        (await secoesNaTela()).join(", ")
+        `e as outras ${esperadas.length - 1} continuam desenhando`,
+        esperadas.filter((s) => s !== "quem").every((s) => semQuem.includes(s)),
+        semQuem.join(", ")
       )
 
       /* ── fundo de imagem: entra, e a cor da seção continua mandando ──
@@ -743,6 +748,44 @@ try {
       JSON.stringify(depois) === JSON.stringify(antes),
       "algo ficou diferente depois do teste"
     )
+
+    /* ── produto sem texto tem PDP enxuta, e isso não é erro ──────────────
+     *
+     * Desde a 0105 todo produto do catálogo tem as sete seções; o produto
+     * sem texto é o que nasce no painel. Pra conferir a página dele, o
+     * teste esvazia o conteúdo de um e devolve no fim, mesmo se falhar. */
+    const { products: enxutos } = await (
+      await fetch(`${MEDUSA}/store/products?handle=${ENXUTO}&fields=id`, {
+        headers: { "x-publishable-api-key": CHAVE },
+      })
+    ).json()
+    const idEnxuto = enxutos?.[0]?.id
+    if (idEnxuto) {
+      const rota = `${MEDUSA}/admin/produtos/${idEnxuto}/pdp`
+      const doEnxuto = (await (await fetch(rota, { headers: cab })).json()).pdp
+      try {
+        await fetch(rota, {
+          method: "POST",
+          headers: cab,
+          body: JSON.stringify({ ...doEnxuto, conteudo: {} }),
+        })
+        confere(`/produtos/${ENXUTO}, sem texto, responde 200`, (await abrir(ENXUTO)) === 200)
+        const enxuta = await secoesNaTela()
+        confere(
+          "produto sem texto não desenha seção editorial nenhuma",
+          !esperadas.some((s) => enxuta.includes(s)),
+          enxuta.join(", ")
+        )
+        confere("mas a dobra continua de pé", enxuta.includes("pdp"), enxuta.join(", "))
+      } finally {
+        await fetch(rota, { method: "POST", headers: cab, body: JSON.stringify(doEnxuto) })
+      }
+      const voltou = (await (await fetch(rota, { headers: cab })).json()).pdp
+      confere(
+        `o texto do ${ENXUTO} voltou ao que era`,
+        JSON.stringify(voltou) === JSON.stringify(doEnxuto)
+      )
+    }
   }
 } finally {
   await navegador.close()
