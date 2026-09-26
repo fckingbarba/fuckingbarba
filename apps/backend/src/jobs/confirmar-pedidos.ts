@@ -2,6 +2,7 @@ import type { MedusaContainer } from "@medusajs/framework/types"
 import { mandarComprasPendentes } from "../lib/anuncios/enviar"
 import { avisarCancelamentosRecentes } from "../lib/avisar-cancelamento"
 import { avisarDevolucoesRecentes } from "../lib/avisar-devolucao"
+import { avisarVendasRecentes } from "../lib/avisar-venda"
 import { confirmarPedidosPagos } from "../lib/confirmar-pedido"
 import { comRodada } from "../lib/observabilidade/rodada"
 
@@ -11,13 +12,17 @@ import { comRodada } from "../lib/observabilidade/rodada"
  * recebe o aviso de cancelamento — um de cada, por pedido. E o pagamento que
  * entrou num pedido já cancelado, e voltou, é avisado (olhando 7 dias). E a
  * compra que ficou devendo à Meta, ao GA4 ou ao TikTok sai (`lib/anuncios/`).
+ * E o dono recebe o aviso de venda nova que ficou pra trás (`lib/avisar-venda.ts`)
+ * — por último: ele é da equipe, e nada que falhe nele segura um e-mail de
+ * cliente.
  *
  * Os eventos `payment.captured` e `order.canceled` já mandam quase todos na
  * hora (e a conciliação, o da devolução, logo depois de devolver); esta é a
  * rede embaixo deles — o "Check status" do admin (que captura sem evento), o
  * e-mail que o Resend recusou por um instante, o evento que se perdeu. O
  * porquê de cada caso está em `src/lib/confirmar-pedido.ts`,
- * `src/lib/avisar-cancelamento.ts` e `src/lib/avisar-devolucao.ts`.
+ * `src/lib/avisar-cancelamento.ts`, `src/lib/avisar-devolucao.ts` e
+ * `src/lib/avisar-venda.ts`.
  *
  * Nos minutos 2, 7, 12… e não junto com a conciliação (0, 5, 10…): ela pode
  * registrar um Pix pago — ou cancelar um Pix vencido — bem nessa hora, e aí
@@ -28,6 +33,7 @@ async function confirmarPedidos(container: MedusaContainer) {
   await avisarCancelamentosRecentes(container)
   await avisarDevolucoesRecentes(container)
   await mandarComprasPendentes(container)
+  await avisarVendasRecentes(container)
 }
 
 export const config = {

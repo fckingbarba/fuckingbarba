@@ -6,10 +6,11 @@ import { destinatarios, type MembroParaAviso } from "../painel/configuracoes"
 import type { Papel } from "./regras"
 
 /**
- * PRA QUEM VAI O AVISO DA EQUIPE — o e-mail da nota que não saiu, da conexão
- * do Bling caída, do estorno que não voltou. Vai pro papel que resolve (a
- * tabela é a da aba E-mails das Configurações, `AVISOS_DA_EQUIPE`): a nota
- * pra operação e pro dono; o Bling e o estorno, pro dono.
+ * PRA QUEM VAI O AVISO DA EQUIPE — o e-mail da venda nova, da nota que não
+ * saiu, da conexão do Bling caída, do estorno que não voltou. Vai pro papel
+ * que resolve (a tabela é a da aba E-mails das Configurações,
+ * `AVISOS_DA_EQUIPE`): a nota pra operação e pro dono; a venda, o Bling e o
+ * estorno, pro dono.
  *
  * Antes do painel ia pra todo mundo com login no admin do Medusa. Continua
  * indo pra lá enquanto o painel não tiver ninguém — e, sem ninguém do papel,

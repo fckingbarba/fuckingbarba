@@ -2,6 +2,7 @@ import type { SubscriberArgs, SubscriberConfig } from "@medusajs/framework"
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import { confirmarPedido, pedidoDoPagamento } from "../lib/confirmar-pedido"
 import { mandarCompra } from "../lib/anuncios/enviar"
+import { avisarVenda } from "../lib/avisar-venda"
 import { registrarNoParceiro } from "../lib/envios/registro"
 import { emitirNotaDoPedido } from "../lib/erp/notas"
 
@@ -12,17 +13,19 @@ import { emitirNotaDoPedido } from "../lib/erp/notas"
  * Hoje, nesta ordem:
  *   1. o e-mail de pedido confirmado (`lib/confirmar-pedido.ts`), na hora.
  *      Se ele falhar aqui, a varredura de 5 em 5 minutos manda depois;
- *   2. o pedido de venda no ERP (`lib/erp/notas.ts`) — só com o ERP
+ *   2. o aviso de venda nova pro dono (`lib/avisar-venda.ts`), logo em
+ *      seguida — a mesma varredura manda o que falhar aqui;
+ *   3. o pedido de venda no ERP (`lib/erp/notas.ts`) — só com o ERP
  *      conectado. A nota fica pra quando a janela de cancelamento fechar
  *      (5 minutos, na tela do ERP; a varredura de 5 em 5 minutos emite), ou
  *      sai aqui mesmo, até a SEFAZ, com a janela em "na hora". Se falhar, a
  *      varredura tenta de novo;
- *   3. o pedido no painel da Frenet (`lib/envios/registro.ts`), pra etiqueta
+ *   4. o pedido no painel da Frenet (`lib/envios/registro.ts`), pra etiqueta
  *      sair sem ninguém digitar — só com o token de parceiro; sem ele, não
  *      faz nada. Com o ERP emitindo, ele espera a nota, que vai junto (o
  *      `nota-autorizada.ts` registra quando ela chega). Se falhar, a
  *      varredura de 10 em 10 minutos tenta de novo.
- *   4. a compra pra Meta, o GA4 e o TikTok (`lib/anuncios/enviar.ts`) — só de
+ *   5. a compra pra Meta, o GA4 e o TikTok (`lib/anuncios/enviar.ts`) — só de
  *      quem aceitou os cookies (o rastro que a loja grava no pedido), e só
  *      pra plataforma com o código no painel e a chave no Railway. Nunca
  *      pela tela de obrigado: o Pix pago depois não passaria por ela.
@@ -31,7 +34,7 @@ import { emitirNotaDoPedido } from "../lib/erp/notas"
  * O MESMO PAGAMENTO PODE PASSAR AQUI MAIS DE UMA VEZ: o aviso do Pagar.me e a
  * conciliação chegam pelo mesmo caminho, e um Pix pago dispara os dois. O
  * Medusa não captura duas vezes, mas o evento sai de novo. Por isso cada
- * coisa que sai daqui é idempotente pelo pedido — o e-mail já é; nota fiscal
+ * coisa que sai daqui é idempotente pelo pedido — os e-mails já são; nota fiscal
  * emitida duas vezes é problema com a Receita. E o "Check status" do admin
  * captura SEM soltar este evento: o que não pode faltar precisa da mesma
  * varredura que o e-mail tem.
@@ -52,6 +55,14 @@ export default async function pagamentoCapturado({
     } catch (e) {
       logger.warn(
         `[pedido] a confirmação do pagamento ${data.id} ficou pra varredura: ` +
+          (e instanceof Error ? e.message : String(e))
+      )
+    }
+    try {
+      await avisarVenda(container, pedidoId)
+    } catch (e) {
+      logger.warn(
+        `[venda] o aviso de venda do pedido ${pedidoId} ficou pra varredura: ` +
           (e instanceof Error ? e.message : String(e))
       )
     }

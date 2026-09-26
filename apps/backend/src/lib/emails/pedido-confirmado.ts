@@ -113,7 +113,8 @@ export function whatsappNaTela(digitos: string): string {
 /** Os quatro passos do protótipo da conta — os mesmos do e-mail de envio. */
 export const PASSOS_DO_PEDIDO = ["Pedido feito", "Pagamento aprovado", "Enviado", "Entregue"]
 
-function linhaDoItem(item: ItemDoEmail): string {
+/** Uma linha do "O que você comprou" — o aviso de venda nova (`venda-nova.ts`) usa a mesma. */
+export function linhaDoItem(item: ItemDoEmail): string {
   const detalhe = [item.variante, `${item.quantidade} × ${emReais(item.precoUnitario)}`]
     .filter(Boolean)
     .map(esc)
@@ -152,7 +153,10 @@ function linhaDoTotal(rotuloHtml: string, valorHtml: string, { verde = false } =
   )
 }
 
-function totais(p: PedidoDoEmail): string {
+/** Os totais, como na tela de obrigado — o aviso de venda nova usa os mesmos. */
+export function totais(
+  p: Pick<PedidoDoEmail, "subtotal" | "desconto" | "frete" | "total" | "formaDeEntrega">
+): string {
   const bordaDoTotal = `border-top:2px solid ${COR.tinta};padding-top:14px;`
   return (
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">` +

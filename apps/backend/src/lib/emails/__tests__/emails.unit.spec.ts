@@ -11,6 +11,7 @@ import {
 } from "../pedido-cancelado"
 import { emailDePedidoConfirmado, rotuloDaEntrega, type PedidoDoEmail } from "../pedido-confirmado"
 import { emailDaTroca, emailDeEmailTrocado } from "../troca-de-email"
+import { emailDeVendaNova, fraseDaVenda, type VendaDoAviso } from "../venda-nova"
 
 const LOJA = "https://fuckingbarba-loja.vercel.app"
 const original = process.env.LOJA_URL
@@ -699,5 +700,151 @@ describe("o pedido cancelado que a loja não desfez no ERP (pra equipe)", () => 
     expect(e.texto).toContain("o Bling negou a permissão pro pedido de venda (403)")
     expect(e.texto).toContain("A loja segue tentando")
     expect(e.texto).not.toMatch(/emita/)
+  })
+})
+
+describe("o aviso de venda nova (pra equipe)", () => {
+  const painel = process.env.DASHBOARD_URL
+  const backend = process.env.MEDUSA_BACKEND_URL
+  beforeEach(() => {
+    process.env.DASHBOARD_URL = "https://dashboard.fuckingbarba.com.br/"
+    process.env.MEDUSA_BACKEND_URL = "https://api.fuckingbarba.com.br"
+  })
+  afterAll(() => {
+    if (painel === undefined) delete process.env.DASHBOARD_URL
+    else process.env.DASHBOARD_URL = painel
+    if (backend === undefined) delete process.env.MEDUSA_BACKEND_URL
+    else process.env.MEDUSA_BACKEND_URL = backend
+  })
+
+  const venda = (extra: Partial<VendaDoAviso> = {}): VendaDoAviso => {
+    const p = pedido()
+    return {
+      id: p.id,
+      numero: p.numero,
+      itens: p.itens,
+      subtotal: 109.8,
+      desconto: 0,
+      frete: 0,
+      total: 109.8,
+      formaDeEntrega: p.formaDeEntrega,
+      pagamento: { forma: "pix" },
+      // 12:00 em UTC é 09:00 em Brasília.
+      pagoEm: new Date("2026-09-22T12:00:00.000Z"),
+      cupons: [],
+      ...extra,
+    }
+  }
+
+  it("o assunto diz o número, o valor e a forma — pra ler na notificação do celular", () => {
+    expect(emailDeVendaNova("dono@loja.com", venda()).assunto).toBe(
+      `Venda nova: pedido #1042, ${emReais(109.8)} no Pix`
+    )
+    const cartao = venda({ pagamento: { forma: "cartao", bandeira: "Visa", parcelas: 3 } })
+    expect(emailDeVendaNova("dono@loja.com", cartao).assunto).toBe(
+      `Venda nova: pedido #1042, ${emReais(109.8)} no cartão`
+    )
+    expect(emailDeVendaNova("dono@loja.com", venda()).para).toBe("dono@loja.com")
+  })
+
+  it("diz quando e como foi paga, no horário de Brasília", () => {
+    const quando = new Date("2026-09-22T12:00:00.000Z")
+    expect(fraseDaVenda({ pagamento: { forma: "pix" }, pagoEm: quando })).toBe(
+      "Pix pago às 09:00 de 22/09."
+    )
+    expect(
+      fraseDaVenda({
+        pagamento: { forma: "cartao", bandeira: "Visa", parcelas: 3 },
+        pagoEm: quando,
+      })
+    ).toBe("Cartão Visa em 3x, aprovado às 09:00 de 22/09.")
+    expect(
+      fraseDaVenda({ pagamento: { forma: "cartao", bandeira: "", parcelas: 1 }, pagoEm: quando })
+    ).toBe("Cartão aprovado às 09:00 de 22/09.")
+    // Perto da meia-noite, o dia é o de Brasília, não o de Greenwich.
+    expect(
+      fraseDaVenda({ pagamento: { forma: "pix" }, pagoEm: new Date("2026-09-27T02:30:00.000Z") })
+    ).toBe("Pix pago às 23:30 de 26/09.")
+  })
+
+  it("o botão abre o pedido no painel; sem o painel, no admin; sem os dois, não tem botão", () => {
+    const noPainel = emailDeVendaNova("dono@loja.com", venda())
+    expect(noPainel.html).toContain(
+      'href="https://dashboard.fuckingbarba.com.br/pedidos/order_01ABC"'
+    )
+    expect(noPainel.texto).toContain(
+      "Abrir o pedido no painel: https://dashboard.fuckingbarba.com.br/pedidos/order_01ABC"
+    )
+
+    delete process.env.DASHBOARD_URL
+    const noAdmin = emailDeVendaNova("dono@loja.com", venda())
+    expect(noAdmin.html).toContain('href="https://api.fuckingbarba.com.br/app/orders/order_01ABC"')
+    expect(noAdmin.html).not.toContain("/pedidos/order_01ABC")
+
+    delete process.env.MEDUSA_BACKEND_URL
+    const semBotao = emailDeVendaNova("dono@loja.com", venda())
+    expect(semBotao.html).not.toContain("order_01ABC")
+    expect(semBotao.texto).not.toContain("Abrir o pedido")
+  })
+
+  it("o que foi vendido e a conta, como no e-mail do cliente; cupom só quando há", () => {
+    const sem = emailDeVendaNova("dono@loja.com", venda())
+    expect(sem.html).toContain("Óleo para Barba 30ml")
+    expect(sem.html).toContain(`2 × ${emReais(54.9)}`)
+    expect(sem.html).toContain("Grátis")
+    expect(sem.html).not.toContain("Desconto")
+    expect(sem.html).not.toContain("Cupom")
+
+    const com = emailDeVendaNova(
+      "dono@loja.com",
+      venda({ desconto: 10.98, frete: 23.7, total: 122.52, cupons: ["BARBA10"] })
+    )
+    expect(com.html).toContain("Desconto")
+    expect(com.html).toContain(emReais(23.7))
+    expect(com.texto).toContain(`Total: ${emReais(122.52)}`)
+    expect(com.texto).toContain("Cupom: BARBA10")
+    expect(emailDeVendaNova("d@l.com", venda({ cupons: ["A", "B"] })).texto).toContain(
+      "Cupons: A, B"
+    )
+  })
+
+  it("escapa o que vem de fora: nome de produto e cupom", () => {
+    const e = emailDeVendaNova(
+      "dono@loja.com",
+      venda({
+        itens: [
+          {
+            nome: "<script>alert(1)</script>",
+            variante: `<a href="https://golpe.exemplo">x</a>`,
+            imagem: null,
+            quantidade: 1,
+            precoUnitario: 10,
+            total: 10,
+          },
+        ],
+        cupons: ["<b>CUPOM</b>"],
+      })
+    )
+    expect(e.html).not.toContain("<script>")
+    expect(e.html).toContain("&lt;script&gt;")
+    expect(e.html).not.toContain(`href="https://golpe.exemplo"`)
+    expect(e.html).not.toContain("<b>CUPOM")
+  })
+
+  it("cabe no Gmail (corta acima de 102 KB) mesmo com dez produtos", () => {
+    const v = venda()
+    const e = emailDeVendaNova("dono@loja.com", {
+      ...v,
+      itens: Array.from({ length: 10 }, () => v.itens[0]),
+    })
+    expect(Buffer.byteLength(e.html)).toBeLessThan(102 * 1024)
+  })
+
+  it("a versão em texto tem o que importa", () => {
+    const e = emailDeVendaNova("dono@loja.com", venda())
+    expect(e.texto).toContain("Venda nova — pedido #1042")
+    expect(e.texto).toContain("Pix pago às 09:00 de 22/09.")
+    expect(e.texto).toContain(`- Óleo para Barba 30ml: 2 × ${emReais(54.9)} = ${emReais(109.8)}`)
+    expect(e.texto).toContain(`Total: ${emReais(109.8)}`)
   })
 })
