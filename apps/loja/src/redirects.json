@@ -1,12 +1,23 @@
 {
-  "_comentario": "Mapa Nuvemshop → loja nova, servido como 301 pelo proxy.ts. Caminho antigo em minúsculas, sem barra final. Exportar TODAS as URLs da Nuvemshop (produtos, categorias, páginas, posts) na fase 6 e mapear uma a uma; URL sem equivalente vai pra categoria mais próxima, nunca pra 404. As linhas abaixo são exemplos.",
+  "_comentario": "Mapa Nuvemshop → loja nova, servido como 301 pelo proxy.ts. Caminho antigo em minúsculas, sem barra final; o destino pode levar âncora (#entrega). Os produtos não entram: o endereço é o mesmo nas duas (/produtos/<handle>). Tirado do mapa do site da Nuvemshop (sitemap.xml) em 26/09, mais os endereços do sistema dela (busca, carrinho, conta). A lista inteira de lá, e a conferência de cada um, estão no ferramentas/conferir-enderecos-antigos.mjs. Endereço sem equivalente vai pra página mais próxima, nunca pra 404.",
   "rotas": {
-    "/produtos/oleo-para-barba-30ml": "/produtos/oleo-para-barba",
-    "/barba/oleos": "/barba",
-    "/cabelo/pomadas": "/cabelo",
-    "/kits-e-combos": "/kits",
-    "/politica-de-privacidade": "/privacidade",
+    "/produtos-para-a-barba": "/barba",
+    "/produtos-para-a-barba/balm": "/produtos/balm-para-barba",
+    "/produtos-para-a-barba/shampoo": "/produtos/shampoo-para-barba",
+    "/produtos-para-a-barba/oleo": "/produtos/oleo-para-barba",
+    "/produtos-para-a-barba/fator-de-crescimento": "/produtos/fator-de-crescimento-para-barba",
+    "/kits-para-barba": "/kits",
+    "/para-o-cabelo": "/cabelo",
+    "/quem-somos": "/",
     "/trocas-e-devolucoes": "/trocas",
-    "/blog": "/"
+    "/politica-de-privacidade": "/privacidade",
+    "/politica-de-envio": "/duvidas#entrega",
+    "/blog": "/",
+    "/search": "/busca",
+    "/comprar": "/produtos",
+    "/account": "/conta",
+    "/account/login": "/conta/entrar",
+    "/account/register": "/conta/entrar",
+    "/account/reset": "/conta/entrar"
   }
 }

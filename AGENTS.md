@@ -181,6 +181,14 @@ precisa sair da janela dela — ver `longeDaConciliacaoAutomatica` no conferidor
 - **404 real no primeiro nível é no proxy** (`apps/loja/src/proxy.ts`); com Cache Components, rota
   dinâmica manda o shell com 200. Ao criar uma página nova de primeiro nível, adicione o segmento em
   `PAGINAS_RAIZ` do proxy.
+- **Os endereços da Nuvemshop** (`apps/loja/src/redirects.json`, servidos como 301 pelo proxy; o
+  destino pode levar âncora, `/duvidas#entrega`). O endereço antigo vem com a barra no fim: o Next
+  responde 308 pra sem barra, e só então o proxy faz o 301 — dois saltos, e o Google segue. O
+  `conferir-enderecos-antigos.mjs` confere a lista inteira da loja antiga (o mapa do site dela em
+  26/09, mais a busca, o carrinho e a conta): cada um abre, o redirect é permanente, a query e a
+  âncora vão junto, e nenhuma linha leva pra outra. Os produtos têm o mesmo endereço nas duas
+  lojas, e dependem do catálogo: no local (onde faltam produtos) rode com `SEM_PRODUTOS=1`; contra
+  a loja no ar, sem — e de novo logo depois da troca de domínio.
 - **A vitrine não lê `searchParams`.** `/barba`, `/cabelo`, `/kits` e `/produtos` são estáticas, e o
   `?ordem=` é trocado pelo proxy por `/<página>/ordem/<ordem>` (estática também, sem mudar a URL).
   Ler `searchParams` numa delas a torna dinâmica: esqueleto, streaming, rodapé pulando e LCP
@@ -1538,4 +1546,6 @@ herdava o recorte do chanfro dele.
   `prototipo-checkout.html`). Edite a fonte e rode o script — o que se escreve no gerado some na
   próxima rodada. Arquivo sem o cabeçalho é escrito à mão e se edita direto.
 - Schema `public` do Supabase — do Medusa; migra pelo `medusa db:migrate`, nunca por SQL manual.
-- `redirects.json` — só cresce; nunca remova uma linha (é o que preserva o Google).
+- `redirects.json` — só cresce; nunca remova uma linha (é o que preserva o Google). As linhas de
+  exemplo do começo, de endereços que nunca existiram, saíram na 0125: o mapa agora é o da
+  Nuvemshop, conferido pelo `apps/loja/ferramentas/conferir-enderecos-antigos.mjs`.

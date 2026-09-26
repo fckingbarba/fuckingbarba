@@ -9,7 +9,10 @@ import { emProducao, site } from "@/lib/site"
  *
  * 1. Redirects 301 da Nuvemshop (redirects.json). É a tarefa mais importante
  *    da virada: cada URL antiga que o Google conhece precisa apontar pra nova.
- *    A query (?utm_*) é preservada — a atribuição sobrevive ao redirect.
+ *    A query (?utm_*) é preservada — a atribuição sobrevive ao redirect. O
+ *    destino pode levar âncora (`/duvidas#entrega`): cai direto no trecho.
+ *    Quem confere o mapa inteiro, contra a lista da Nuvemshop, é o
+ *    `ferramentas/conferir-enderecos-antigos.mjs`.
  *
  * 2. 404 de verdade no primeiro nível. Com Cache Components, uma rota
  *    dinâmica manda o shell com status 200 antes de saber se o conteúdo
@@ -107,7 +110,10 @@ export function proxy(req: NextRequest) {
   const destino = rotasAntigas.get(caminho)
   if (destino) {
     const url = req.nextUrl.clone()
-    url.pathname = destino
+    // A âncora vai no `hash`: no `pathname`, o "#" viraria "%23" e a página daria 404.
+    const [pagina, ancora] = destino.split("#")
+    url.pathname = pagina
+    url.hash = ancora ? `#${ancora}` : ""
     return NextResponse.redirect(url, 301)
   }
 
