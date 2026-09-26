@@ -3,6 +3,7 @@ import type { HttpTypes } from "@medusajs/types"
 import { cookies } from "next/headers"
 import type { ItemDoCarrinho } from "./carrinho-visivel"
 import { mascararCep } from "./cep-formato"
+import { descontoDosProdutos } from "./desconto"
 import { COOKIE_PEDIDO, lerCracha } from "./checkout"
 import type { PagamentoVisivel } from "./checkout-visivel"
 import { cliente } from "./medusa"
@@ -69,7 +70,8 @@ export type PedidoVisivel = {
 /** Os campos que a tela de obrigado (e a conta, com mais alguns) lê do pedido. */
 export const CAMPOS_DO_PEDIDO =
   "id,display_id,email,created_at,currency_code,subtotal,item_subtotal,item_total," +
-  "discount_total,shipping_total,total,credit_line_total,*items,*items.variant,*items.product," +
+  "discount_total,shipping_discount_total,shipping_total,total,credit_line_total," +
+  "*items,*items.variant,*items.product," +
   `*shipping_methods,*shipping_address,${CAMPOS_DO_PAGAMENTO}`
 
 /** O que a versão pública do pedido tem — ver `lerPedido`. */
@@ -187,7 +189,7 @@ export function paraPedidoVisivel(order: HttpTypes.StoreOrder): PedidoVisivel {
     quando: order.created_at ? String(order.created_at) : "",
     itens,
     subtotal: Number(order.item_subtotal ?? order.subtotal ?? 0),
-    desconto: Number(order.discount_total ?? 0),
+    desconto: descontoDosProdutos(order),
     frete: Number(order.shipping_total ?? 0),
     total: totalCobrado(order),
     entrega: e
