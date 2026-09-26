@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo } from "react"
-import { chegadaDaVisita } from "@/lib/anotar"
+import { chegadaDaVisita } from "@/lib/chegada"
 import type { Integracoes } from "@/lib/configuracoes"
 import { parceirosDe } from "@/lib/consentimento"
 import { anotarNaLoja } from "@/lib/rastrear"

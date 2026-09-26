@@ -1,14 +1,22 @@
 "use client"
 
-import { perguntarDeNovo } from "./consentimento"
+import { COOKIE_CONSENTIMENTO } from "@/lib/consentimento"
 
 /**
- * "Mudar minha resposta" — na política de privacidade: a faixa de cookies
- * volta a perguntar. Dizer não, agora, apaga o que a loja anotou deste
- * navegador (`responder`, em `consentimento.tsx`). É o "retirar o
- * consentimento a qualquer momento" da LGPD, sem precisar apagar os cookies
- * do navegador na mão.
+ * "Mudar minha resposta" — na política de privacidade: a resposta sai e a
+ * página recarrega, com a faixa de cookies perguntando de novo. Dizer não,
+ * agora, apaga o que a loja anotou deste navegador (`responder`, em
+ * `consentimento.tsx`). É o "retirar o consentimento a qualquer momento" da
+ * LGPD, sem precisar apagar os cookies do navegador na mão.
+ *
+ * Recarrega em vez de avisar a faixa: assim nada disto vai no código da
+ * faixa, que toda página carrega (a home mede cada byte no Lighthouse).
  */
+function perguntarDeNovo() {
+  document.cookie = `${COOKIE_CONSENTIMENTO}=; Max-Age=0; Path=/; SameSite=Lax; Secure`
+  window.location.reload()
+}
+
 export function MudarResposta() {
   return (
     <button

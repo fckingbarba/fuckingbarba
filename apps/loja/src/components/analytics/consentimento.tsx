@@ -58,15 +58,6 @@ function responder(resposta: Resposta, parceiros: Parceiro[]) {
   }
 }
 
-/**
- * "Mudar minha resposta" (a política de privacidade): a resposta sai, e a
- * faixa volta a perguntar — com o "não" apagando o que a loja anotou.
- */
-export function perguntarDeNovo() {
-  document.cookie = `${COOKIE_CONSENTIMENTO}=; Max-Age=0; Path=/; SameSite=Lax; Secure`
-  ouvintes.forEach((cb) => cb())
-}
-
 /** "do Google", "da Meta", "do TikTok", "da Microsoft". */
 const ARTIGO: Record<Parceiro, string> = { google: "do", meta: "da", tiktok: "do", clarity: "da" }
 
@@ -107,7 +98,17 @@ export function Consentimento({ parceiros, estado }: { parceiros: Parceiro[]; es
           ? ", medir o que funciona e mostrar anúncios menos aleatórios"
           : " e medir o que funciona"}
         . Você escolhe.{" "}
-        <Link href="/privacidade" className="font-bold underline underline-offset-2">
+        {/*
+          Sem pré-carregar: a faixa aparece na primeira tela de todo mundo, e o
+          prefetch baixaria a política (o HTML dela, o CSS e o JS das páginas
+          institucionais) no meio do carregamento da página — na home, isso
+          custava um degrau inteiro no LCP do Lighthouse (entrega 0130).
+        */}
+        <Link
+          href="/privacidade"
+          prefetch={false}
+          className="font-bold underline underline-offset-2"
+        >
           Como usamos seus dados
         </Link>
       </p>

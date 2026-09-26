@@ -7,7 +7,10 @@
  * QUEM CHAMA É `lib/rastrear.ts`, e só depois do "Aceitar" — a mesma fila
  * das tags: o evento é o mesmo que vai pro Google (a loja tem uma porta de
  * saída só), mais os dois que são só daqui (a chegada e o e-mail no
- * checkout). Sem o sim, nada chega aqui.
+ * checkout). Sem o sim, nada chega aqui — e este arquivo nem baixa: o
+ * `rastrear` o importa na hora (`import()`), e a página inicial, que o
+ * Lighthouse do CI mede com orçamento curto, não carrega um byte do CRM.
+ * O que precisa existir antes do sim (a chegada) mora em `lib/chegada.ts`.
  *
  * JUNTA E MANDA: o que acontece em 2 segundos vai num envio só (até 20); a
  * pessoa saindo da página (a aba escondida, o `pagehide`) manda na hora,
@@ -19,6 +22,8 @@
  * não vira duas visitas ao produto. Na sacola não: dois "+" rápidos são duas
  * unidades de verdade.
  */
+
+import { marcarAVisita, sessao, type Onde } from "./chegada"
 
 const ENDERECO = "/api/eventos"
 const ESPERA_MS = 2000
@@ -37,11 +42,6 @@ const DO_CRM = new Set([
   "add_payment_info",
   "pix_copiado",
 ])
-
-/** Onde e quando aconteceu — guardado na hora, e não quando a fila do "Aceitar" sai. */
-export type Onde = { pagina: string; t: number }
-
-export const ondeAgora = (): Onde => ({ pagina: window.location.pathname, t: Date.now() })
 
 type Guardado = { nome: string; dados: unknown; onde: Onde }
 
@@ -113,22 +113,7 @@ function ouvirASaida() {
   })
 }
 
-/* ── a chegada: uma visita por sessão, com a origem da primeira página ───── */
-
-const CHEGADA = "fb_chegada"
-const VISITA_ANOTADA = "fb_visita_anotada"
-/** A chegada desta página já foi pra fila (o efeito que roda duas vezes pede uma vez só). */
-let chegadaNaFila = false
-
-type Chegada = { dados: Record<string, string>; onde: Onde }
-
-function sessao(): Storage | null {
-  try {
-    return window.sessionStorage
-  } catch {
-    return null
-  }
-}
+/* ── uma vez por sessão ─────────────────────────────────────────────────── */
 
 const UMA_VEZ = "fb_crm_uma_vez"
 const feitasNestaPagina = new Set<string>()
@@ -149,47 +134,4 @@ export function primeiraVezNaSessao(chave: string): boolean {
     // guardada estragada, ou sem sessionStorage: vale a desta página
   }
   return true
-}
-
-function marcarAVisita() {
-  try {
-    sessao()?.setItem(VISITA_ANOTADA, "1")
-  } catch {
-    // sem sessionStorage (aba anônima travada): a próxima página anota de novo
-  }
-}
-
-/**
- * A CHEGADA DESTA VISITA, se ainda não foi anotada: a primeira página da
- * sessão, a campanha do link (`?utm_…`) e o endereço de onde veio. Fica
- * guardada na aba (`sessionStorage`) desde a primeira página — sem sair do
- * navegador —, pra quem aceita os cookies três páginas depois não perder de
- * onde chegou (a campanha some da barra na primeira troca de página). Nulo:
- * a visita desta sessão já foi anotada.
- */
-export function chegadaDaVisita(): Chegada | null {
-  if (typeof window === "undefined" || chegadaNaFila) return null
-  chegadaNaFila = true
-  const s = sessao()
-  try {
-    if (s?.getItem(VISITA_ANOTADA)) return null
-    const guardada = s?.getItem(CHEGADA)
-    if (guardada) return JSON.parse(guardada) as Chegada
-  } catch {
-    // guardada estragada: mede de novo
-  }
-  const busca = new URLSearchParams(window.location.search)
-  const dados: Record<string, string> = {}
-  for (const campo of ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"]) {
-    const v = busca.get(campo)
-    if (v) dados[campo] = v.slice(0, 80)
-  }
-  if (document.referrer) dados.de = document.referrer.slice(0, 300)
-  const chegada: Chegada = { dados, onde: ondeAgora() }
-  try {
-    s?.setItem(CHEGADA, JSON.stringify(chegada))
-  } catch {
-    // sem sessionStorage: a chegada vale só nesta página
-  }
-  return chegada
 }

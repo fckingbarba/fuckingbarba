@@ -30,7 +30,13 @@
  * `anotarNaLoja`, que espera o mesmo "Aceitar".
  */
 
-import { anotar, ondeAgora, primeiraVezNaSessao, type Onde } from "./anotar"
+import { ondeAgora, type Onde } from "./chegada"
+
+/**
+ * O CRM da loja (`lib/anotar.ts`) só baixa depois do "Aceitar": sem o sim, não
+ * pesa na página — a inicial tem orçamento curto no Lighthouse do CI.
+ */
+const crm = () => import("./anotar")
 
 export type ItemRastreado = {
   item_id: string
@@ -137,13 +143,21 @@ export function anotarNaLoja(
   }
   const quando = onde ?? ondeAgora()
   quandoLigadas(() => {
-    if (!umaVez || primeiraVezNaSessao(umaVez)) anotar(nome, dados, quando)
+    crm().then(
+      (m) => {
+        if (!umaVez || m.primeiraVezNaSessao(umaVez)) m.anotar(nome, dados, quando)
+      },
+      () => undefined
+    )
   })
 }
 
 function mandar(nome: EventoRastreado["nome"], dados: EventoRastreado["dados"], onde: Onde) {
   const w = window
-  anotar(nome, dados, onde)
+  crm().then(
+    (m) => m.anotar(nome, dados, onde),
+    () => undefined
+  )
 
   w.gtag?.("event", nome, dados)
 
