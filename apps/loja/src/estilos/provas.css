@@ -506,6 +506,14 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+/* Na página do produto a pessoa LÊ o depoimento: o texto aparece inteiro.
+   As três linhas acima são da esteira da home, onde os cartões passam lado
+   a lado e precisam da mesma altura. */
+.avaliacoes__grade .avaliacao__texto {
+  display: block;
+  -webkit-line-clamp: none;
+  overflow: visible;
+}
 @media (prefers-reduced-motion: reduce) {
   .provas * {
     transition: none !important;

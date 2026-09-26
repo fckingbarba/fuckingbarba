@@ -1,34 +1,47 @@
-import Image from "next/image"
+import { getImageProps } from "next/image"
 import { Estrelas } from "@/components/estrelas"
 import { Raio } from "@/components/icones"
-import { AVALIACOES, notaMedia } from "@/conteudo/depoimentos"
+import { AVALIACOES, TRECHOS, notaMedia } from "@/conteudo/depoimentos"
 import { buscarProdutoPorHandle } from "@/lib/medusa"
 
 /**
  * O QUE DIZ QUEM USOU.
  *
  * Sai do mesmo `conteudo/depoimentos.ts` da home, filtrado por produto, e
- * **não aparece enquanto não houver avaliação de verdade** — o arquivo
- * começa vazio e explica o porquê. Estrela inventada é art. 37 do CDC, e
- * quando vai junto de dado estruturado o Google derruba o rich snippet da
- * LOJA INTEIRA, não só da página.
+ * **não aparece enquanto não houver depoimento de verdade** — avaliação ou
+ * trecho de entrevista. Estrela inventada é art. 37 do CDC, e quando vai
+ * junto de dado estruturado o Google derruba o rich snippet da LOJA INTEIRA,
+ * não só da página.
  *
  * DIFERENTE DA HOME, AQUI NÃO ANDA SOZINHO. Na home as avaliações passam
  * numa esteira porque são enfeite de confiança; numa página de produto a
  * pessoa LÊ avaliação, e texto que se move enquanto se lê é hostil. Aqui é
- * lista parada.
+ * lista parada — na grade do protótipo (`avaliacoes__grade`).
  *
  * O `AggregateRating` é a média DO QUE ESTÁ PUBLICADO nesta página, e não
  * "a nota da loja" — é a única coisa que dá pra provar olhando a própria
- * tela, que é exatamente o critério do Google pra essa marcação.
+ * tela, que é exatamente o critério do Google pra essa marcação. Só das
+ * AVALIAÇÕES: trecho de entrevista não tem nota, entra na lista como é
+ * ("Entrevista com cliente", sem nome e sem estrela) e fica fora da conta.
+ *
+ * A foto do cartão é um `<img>` do `getImageProps`, no tamanho da caixa
+ * (54 px): o mesmo motivo da esteira da home — ver o topo de
+ * `components/home/esteira-de-avaliacoes.tsx`.
  */
 export async function Avaliacoes({ handle }: { handle: string }) {
   const avaliacoes = AVALIACOES.filter((a) => a.produtoHandle === handle)
-  if (!avaliacoes.length) return null
+  const trechos = TRECHOS.filter((t) => t.produtoHandle === handle)
+  if (!avaliacoes.length && !trechos.length) return null
 
   const media = notaMedia(avaliacoes)
   const produto = await buscarProdutoPorHandle(handle)
   const foto = produto?.thumbnail ?? produto?.images?.[0]?.url ?? null
+  const miniatura = foto ? (
+    <span className="avaliacao__foto">
+      {/* eslint-disable-next-line @next/next/no-img-element -- getImageProps: a foto já sai otimizada, sem o componente */}
+      <img {...getImageProps({ src: foto, alt: "", width: 54, height: 54 }).props} alt="" />
+    </span>
+  ) : null
 
   return (
     <section className="avaliacoes" id="avaliacoes" aria-labelledby="avaliacoes-titulo">
@@ -56,15 +69,11 @@ export async function Avaliacoes({ handle }: { handle: string }) {
           </p>
         ) : null}
 
-        <ul className="avaliacoes__lista">
+        <ul className="avaliacoes__grade">
           {avaliacoes.map((a) => (
             <li key={`${a.nome}-${a.texto.slice(0, 24)}`}>
               <article className="avaliacao">
-                {foto ? (
-                  <span className="avaliacao__foto">
-                    <Image src={foto} alt="" width={160} height={160} loading="lazy" />
-                  </span>
-                ) : null}
+                {miniatura}
 
                 <div className="avaliacao__corpo">
                   <p className="avaliacao__topo">
@@ -81,6 +90,20 @@ export async function Avaliacoes({ handle }: { handle: string }) {
                       transforma depoimento em anúncio com nome de outra
                       pessoa — e o leitor percebe. */}
                   <p className="avaliacao__texto">{a.texto}</p>
+                </div>
+              </article>
+            </li>
+          ))}
+          {trechos.map((t, i) => (
+            <li key={`trecho-${i}`}>
+              <article className="avaliacao">
+                {miniatura}
+
+                <div className="avaliacao__corpo">
+                  <p className="avaliacao__topo">
+                    <span className="avaliacao__nome">Entrevista com cliente</span>
+                  </p>
+                  <p className="avaliacao__texto">{t.texto}</p>
                 </div>
               </article>
             </li>

@@ -1,4 +1,4 @@
-import type { Avaliacao } from "../conteudo/depoimentos"
+import type { Depoimento } from "../conteudo/depoimentos"
 
 /**
  * A ESTEIRA DE AVALIAÇÕES DA HOME ("Nossos clientes nos amam") — o que ela
@@ -8,6 +8,17 @@ import type { Avaliacao } from "../conteudo/depoimentos"
  * Até `POR_PRODUTO_NA_ESTEIRA` de cada produto, sorteadas a cada visita, e a
  * ordem embaralhada. Com todas as avaliações da loja na esteira, ela crescia
  * sem fim e corria cada vez mais rápido (a volta inteira tinha tempo fixo).
+ *
+ * Vale igual pra avaliação e pra trecho de entrevista (`Depoimento`): o
+ * sorteio só olha o produto. Sem este limite, as 245 entradas da PR #90 (os
+ * trechos de hoje, com as cópias do Fator nos kits) viravam 1.470 cartões na
+ * home — tudo, três vezes, mais a cópia da esteira —, e o Lighthouse do CI
+ * caiu pra 0,54.
+ *
+ * Só TIPO vem de `conteudo/depoimentos`: a esteira roda no navegador, e um
+ * valor importado de lá levaria o arquivo inteiro, com os textos, pro
+ * JavaScript da página (e este arquivo é lido direto pelo conferidor, sem
+ * bundler).
  */
 export const POR_PRODUTO_NA_ESTEIRA = 4
 
@@ -26,16 +37,21 @@ export const MINIMO_NA_FILA = 8
  */
 export const SEGUNDOS_POR_CARTAO = 7.5
 
-const chave = (a: Avaliacao) =>
-  `${a.nome.trim().toLowerCase()}|${a.texto.replace(/\s+/g, " ").trim().toLowerCase()}`
+/** Trecho não tem nome: aí o texto sozinho é a chave. */
+const chave = (a: Depoimento) =>
+  `${"nome" in a ? a.nome.trim().toLowerCase() : ""}|${a.texto
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase()}`
 
 /**
  * A MESMA AVALIAÇÃO EM VÁRIOS PRODUTOS CONTA UMA VEZ SÓ — a mesma pessoa com
  * o mesmo texto, posta no produto e nos kits dele. Fica a primeira, com o
  * produto dela. Sem isto, a esteira podia mostrar o mesmo cartão duas vezes
- * lado a lado, e a nota média dizia "em 100 avaliações" com 20 escritas.
+ * lado a lado, e a nota média dizia "em 100 avaliações" com 20 escritas. O
+ * mesmo texto de trecho, idem.
  */
-export function semRepetidas(avaliacoes: Avaliacao[]): Avaliacao[] {
+export function semRepetidas<T extends Depoimento>(avaliacoes: T[]): T[] {
   const vistas = new Set<string>()
   return avaliacoes.filter((a) => {
     const k = chave(a)
@@ -60,12 +76,12 @@ function embaralhar<T>(lista: T[], aleatorio: () => number): T[] {
  * sorteadas, e a lista toda embaralhada — os produtos se alternam na esteira.
  * `aleatorio` decide o sorteio: a mesma sequência dá o mesmo resultado.
  */
-export function sortearDaEsteira(
-  avaliacoes: Avaliacao[],
+export function sortearDaEsteira<T extends Depoimento>(
+  avaliacoes: T[],
   porProduto: number,
   aleatorio: () => number
-): Avaliacao[] {
-  const grupos = new Map<string, Avaliacao[]>()
+): T[] {
+  const grupos = new Map<string, T[]>()
   for (const a of avaliacoes) {
     const grupo = grupos.get(a.produtoHandle ?? "")
     if (grupo) grupo.push(a)

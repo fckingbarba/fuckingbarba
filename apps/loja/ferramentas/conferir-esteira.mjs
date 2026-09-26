@@ -8,8 +8,14 @@
  * As avaliações daqui são de mentira, montadas só pro teste ("Teste …"): o
  * que se confere é a conta, não o conteúdo. As sementes são fixas, então o
  * resultado é o mesmo a cada rodada.
+ *
+ * A parte dos TRECHOS DE ENTREVISTA lê a lista de verdade
+ * (`conteudo/depoimentos.ts`): que nenhum trecho carrega nome, nota ou selo,
+ * que cada um entra uma vez, no produto dele, e que a home desenha dezenas de
+ * cartões com eles, e não mil.
  */
 
+import { AVALIACOES, TRECHOS } from "../src/conteudo/depoimentos.ts"
 import {
   MINIMO_NA_FILA,
   POR_PRODUTO_NA_ESTEIRA,
@@ -139,6 +145,62 @@ ok(
 ok(
   SEGUNDOS_POR_CARTAO * 6 >= 40 && SEGUNDOS_POR_CARTAO * 6 <= 50,
   "o ritmo é o do protótipo (seis cartões em uns 46 s), com qualquer número de avaliações"
+)
+
+titulo("Os trechos de entrevista")
+const semEspaco = (t) => t.replace(/\s+/g, " ").trim().toLowerCase()
+ok(TRECHOS.length > 0, "a lista de trechos tem trecho", String(TRECHOS.length))
+const camposForaDoLugar = TRECHOS.filter(
+  (t) => Object.keys(t).some((k) => k !== "texto" && k !== "produtoHandle") || !t.produtoHandle
+)
+ok(
+  camposForaDoLugar.length === 0,
+  "nenhum trecho tem nome, nota ou selo — só o texto e o produto",
+  JSON.stringify(camposForaDoLugar[0] ?? "")
+)
+ok(
+  new Set(TRECHOS.map((t) => semEspaco(t.texto))).size === TRECHOS.length,
+  "cada trecho entra uma vez",
+  `${TRECHOS.length - new Set(TRECHOS.map((t) => semEspaco(t.texto))).size} repetido(s)`
+)
+const kitsDoFator = [
+  "kit-2-fator-de-crescimento-para-barba",
+  "kit-3-fator-de-crescimento-para-barba",
+  "kit-6-fator-de-crescimento-para-barba",
+  "kit-fator-de-crescimento-para-barba-e-shampoo",
+]
+ok(
+  !TRECHOS.some((t) => kitsDoFator.includes(t.produtoHandle)) &&
+    TRECHOS.some((t) => t.produtoHandle === "fator-de-crescimento-para-barba"),
+  "os do Fator ficam no Fator — nenhuma cópia nos kits dele"
+)
+const EXEMPLO = "Usei por 1 mês e não vi muita coisa"
+ok(
+  !TRECHOS.some((t) => t.texto.startsWith(EXEMPLO)) &&
+    !AVALIACOES.some((a) => a.texto.startsWith(EXEMPLO)),
+  "o exemplo do arquivo (o do André B.) não virou depoimento"
+)
+ok(
+  semRepetidas([
+    { texto: "Gostei", produtoHandle: "balm" },
+    { texto: " gostei ", produtoHandle: "balm" },
+  ]).length === 1,
+  "trecho com o mesmo texto conta uma vez"
+)
+const naHome = sortearDaEsteira(TRECHOS, POR_PRODUTO_NA_ESTEIRA, sequencia(1))
+const produtosComTrecho = new Set(TRECHOS.map((t) => t.produtoHandle)).size
+const contaNaHome = porProduto(naHome)
+ok(
+  [...contaNaHome.values()].every((n) => n <= POR_PRODUTO_NA_ESTEIRA) &&
+    naHome.length === Math.min(TRECHOS.length, POR_PRODUTO_NA_ESTEIRA * produtosComTrecho),
+  "a esteira mostra até quatro trechos de cada produto",
+  JSON.stringify([...contaNaHome])
+)
+const cartoes = 2 * encherAFila(naHome, MINIMO_NA_FILA).length
+ok(
+  cartoes <= 2 * POR_PRODUTO_NA_ESTEIRA * produtosComTrecho,
+  "a home desenha dezenas de cartões (a fila e a cópia), e não mil",
+  `${cartoes} cartões`
 )
 
 titulo("A sequência")

@@ -974,6 +974,20 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
       uma vez só na nota média e no "em N avaliações". A esteira anda no ritmo do protótipo com
       qualquer número de avaliações (antes, quanto mais avaliação, mais rápido ela corria). Só
       aparece com avaliação publicada em `conteudo/depoimentos.ts`.
+- [x] **Os trechos das entrevistas com clientes, no lugar da PR #90** (entrega 0111, 26/09). As
+      160 frases entram como "Entrevista com cliente": sem nome, sem estrela, sem selo de compra
+      verificada, e fora da nota média e do Google — na esteira da home e na seção "O que diz quem
+      usou" de cada produto (20 por produto; as do Fator só no Fator, sem as cópias nos quatro
+      kits; o exemplo do André B., que estava na lista, ficou de fora). A PR #90 publicava as
+      mesmas frases como avaliação, e a home dela media 0,54 no Lighthouse do CI (1.470 cartões,
+      2,2 s de bloqueio). Agora a esteira desenha os cartões só quando a seção chega perto da tela,
+      com a foto no tamanho da caixa: no teste igual ao do CI, rodado aqui, a home ficou em 0,97,
+      com 10–25 ms de bloqueio. Na página do produto, a seção ganhou a grade do protótipo (a lista
+      saía sem estilo) e mostra o texto inteiro. Falta fechar a PR #90.
+  - [ ] **Folga pro LCP da home no Lighthouse do CI.** Ele vive no limite de 2,5 s (ver o
+        AGENTS.md, perto do Lighthouse): qualquer seção a mais na home sobe o simulado um degrau
+        de ~220 ms. A folga de verdade vem de aliviar a primeira tela — o HTML, o CSS e a fonte que
+        dividem a conexão —, e é trabalho à parte.
 - [x] **O conferidor do ERP procurava o aviso da equipe na caixa errada** (entrega 0101, 25/09).
       Desde as Configurações (entrega 0093), o e-mail da equipe — a nota que não saiu, a nota pra
       conferir ou pra cancelar, o Bling caído — vai pra quem está no painel com o papel que
