@@ -14,6 +14,8 @@ import {
   type ItemDoCarrinho,
 } from "./carrinho"
 import { mascararCep } from "./cep-formato"
+import { COOKIE_DO_CUPOM, lerCupomPendente } from "./cupom-pendente"
+import { descontoDosProdutos } from "./desconto"
 import {
   ENDERECO_VAZIO,
   type CheckoutVisivel,
@@ -59,7 +61,8 @@ import { CHECKOUT_ABERTO, site } from "./site"
  * finalizar confere se é da conta aberta (`garantirDonoDoCarrinho`).
  */
 export const CAMPOS_CHECKOUT =
-  "id,region_id,currency_code,email,subtotal,discount_total,shipping_total,tax_total,total," +
+  "id,region_id,currency_code,email,subtotal,discount_total,shipping_discount_total," +
+  "shipping_total,tax_total,total," +
   "item_subtotal,item_total,*items,*items.variant,*items.product,*items.thumbnail," +
   "*shipping_address,*billing_address,*shipping_methods,*promotions,customer.id"
 
@@ -124,6 +127,7 @@ export async function lerCheckout(): Promise<CheckoutVisivel | null> {
   const cupons = (carrinho.promotions ?? [])
     .map((p) => ({ codigo: p?.code ?? "" }))
     .filter((c) => c.codigo)
+  const guardado = await lerCupomPendente()
 
   return {
     id: base.id,
@@ -131,7 +135,8 @@ export async function lerCheckout(): Promise<CheckoutVisivel | null> {
     itens: base.itens,
     unidades: base.unidades,
     subtotal: base.subtotal,
-    desconto: Number(carrinho.discount_total ?? 0),
+    // Só o dos produtos: o do frete (cupom de frete grátis) já vem no frete.
+    desconto: descontoDosProdutos(carrinho),
     // `undefined` vira null: "ainda não escolheu" e "escolheu e é grátis" são
     // coisas diferentes, e zero significa a segunda.
     frete: metodo ? Number(carrinho.shipping_total ?? 0) : null,
@@ -143,6 +148,8 @@ export async function lerCheckout(): Promise<CheckoutVisivel | null> {
     // O código do bump é um cupom como outro qualquer pro Medusa; quem sabe
     // que ele é o bump é a loja (`lib/bump.ts`).
     cupons: cupons.filter((c) => !ehCodigoDeBump(c.codigo)),
+    cupomGuardado:
+      guardado && !cupons.some((c) => c.codigo.toUpperCase() === guardado.codigo) ? guardado : null,
     bumpAplicado: bumpDoCarrinho(carrinho),
   }
 }
@@ -856,6 +863,8 @@ export async function abrirPedido(pedidoId: string): Promise<never> {
   // A sacola acabou. Sem isto, quem comprou volta pro site e encontra a
   // própria compra parada na gaveta.
   jar.delete(COOKIE_CARRINHO)
+  // O cupom guardado era desta compra: não vai sozinho pra próxima.
+  if (jar.get(COOKIE_DO_CUPOM)) jar.delete(COOKIE_DO_CUPOM)
   // O crachá de quem comprou — a tela de obrigado só mostra endereço,
   // documento e o QR do Pix pra quem tem ele.
   jar.set(COOKIE_PEDIDO, carrinhoId ? `${pedidoId}.${carrinhoId}` : pedidoId, OPCOES_COOKIE_PEDIDO)

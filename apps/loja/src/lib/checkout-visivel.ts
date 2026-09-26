@@ -143,6 +143,12 @@ export type OfertaDoBump = Oferta & { texto: string }
 
 export type CupomAplicado = { codigo: string }
 
+/**
+ * O cupom guardado que ainda não entrou (`lib/cupom-pendente.ts`): o do link,
+ * ou o de frete grátis esperando a entrega.
+ */
+export type CupomGuardado = { codigo: string; frete: boolean; soMaisBarato: boolean }
+
 export type CheckoutVisivel = {
   id: string
   regiaoId: string
@@ -159,6 +165,8 @@ export type CheckoutVisivel = {
   /** id da opção de frete já pendurada no carrinho. */
   freteEscolhido: string | null
   cupons: CupomAplicado[]
+  /** O cupom guardado que ainda não entrou — `null` quando não há, ou quando já entrou. */
+  cupomGuardado: CupomGuardado | null
   /**
    * O produto da oferta do checkout que está MARCADA — o código dela está no
    * carrinho —, ou `null`. É o que mantém a caixinha no mesmo produto depois

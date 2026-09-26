@@ -1673,10 +1673,8 @@ Depois do deploy — **nada a configurar.**
 
 Ficou pra depois:
 
-- [ ] O cupom de **frete grátis**: o resumo do checkout mostraria o desconto do frete duas vezes
-      (no frete e no desconto). Entra quando o resumo mudar. O frete grátis pelo valor mínimo
-      segue valendo.
-      Os dois de frete grátis da Nuvemshop (FRETEG e FRETEGRATISDOM) esperam por ele (0126).
+- [x] O cupom de **frete grátis**: feito na entrega 0128 (ver "Cupons do jeito da Nuvemshop", no
+      fim) — o resumo, o e-mail e a conta mostram o frete grátis sem repetir o desconto.
 - [ ] O botão **"Mudar"** do desconto por quantidade: as faixas ainda mudam só no código.
 
 Conferido pelo `conferir-cupons.mjs` (25 checagens, novo).
@@ -2328,9 +2326,9 @@ dos cupons ativos da Nuvemshop: "poderia criar para gente?".
   RIBEIRO): a lista não diz qual é o limite, e o cupom sem ele daria desconto a mais.
 - Os 12 de poucos dias (ARTIDA10_7XGS, MARIA10_T5AL…) vencem entre 26 e 29/09; o que já tiver
   vencido no dia do deploy fica de fora.
-- [ ] **O "1 limite" dos cinco — você.** Na Nuvemshop, abrir cada um e dizer qual é (pedido mínimo,
-      só na primeira compra, uma vez por cliente ou só alguns produtos). Com a resposta, eles entram
-      pela `condicao` em `lib/cupons-da-nuvemshop.ts`.
+- [ ] **O "1 limite" dos cinco e os dois de frete — você.** Na Nuvemshop, o print de cada um
+      aberto (10PILA, ITAPEMA25, KIT15, PRIMEIRA10, RIBEIRO, FRETEG e FRETEGRATISDOM). Com eles,
+      os sete entram numa migração nova (a 0126 já rodou), com as opções da 0128.
 
 Conferido no banco local: a migração criou os 104 (rodando de novo, nenhum a mais), cada tipo de
 cupom aplicado num carrinho de verdade pela API da loja, a tela de Cupons no computador e no celular,
@@ -2427,6 +2425,45 @@ Depois do deploy — **nada a configurar**: a tabela nova nasce na migração do
 aparece em Observabilidade ("Avisa quem pediu um produto esgotado que voltou"). Não dá pra ver no
 ar sem esgotar um produto de verdade — e zerar no Bling mexe no estoque de todo lugar que lê dele.
 Quando um esgotar, a página já aparece assim, e o painel mostra quem pediu.
+
+**Cupons do jeito da Nuvemshop — pronto em 26/09 (entrega 0128).** Pedido dele, com o print do
+"Criar cupom" da Nuvemshop: "nossos cupons tem que ser bem estilo os da nuvemshop".
+
+- **O "Novo cupom" do painel tem as seções de lá**, na mesma ordem: Código do cupom (com o **link
+  do cupom** pra copiar), Tipo de desconto (Porcentagem, Valor fixo ou **Frete grátis** — este
+  também "só na opção de envio de menor custo"), **Aplicar a** (toda a loja, categorias ou
+  produtos) e **Limites de uso**: permitir combinar com outras promoções, por cupom (ilimitado ou
+  limitado), **por cliente** (ilimitado, limitado a N vezes ou primeira compra), **data** (período
+  com começo e fim, com hora) e valor do carrinho. A prévia diz o cupom inteiro em frase.
+- **Como na Nuvemshop:** "aplicar a" categorias ou produtos só aceita o cupom se TODOS os
+  produtos do carrinho forem deles; sem "combinar", o cupom não desconta o produto em promoção
+  (a promoção do painel, o desconto por quantidade) e não vale no pedido que já ganhou o frete
+  grátis da loja.
+- **Um cupom por pedido**, como lá: digitar outro troca o de antes. O Medusa também recusa o
+  segundo, pra ninguém somar cupons chamando a API direto.
+- **O link do cupom** é o mesmo caminho da Nuvemshop, `/discount/<CÓDIGO>`: os links que já
+  circulam (bio, e-mail, story) seguem valendo depois da virada. Com sacola, o cupom entra na
+  hora; sem, fica guardado e entra quando o checkout abre.
+- **O cupom de frete grátis digitado antes da entrega fica guardado** ("entra quando você escolher
+  a entrega") e entra sozinho quando a entrega é escolhida — o Medusa só desconta o frete de uma
+  entrega escolhida. No resumo, no e-mail e na conta, o frete aparece "Grátis" e o desconto dele
+  NÃO se repete na linha de desconto.
+- A lista de cupons: frase nova pra cada opção, a situação "Agendado" (período que ainda não
+  começou) e o botão "Link" em cada cupom.
+- **Ficaram de fora duas opções do print**, porque o Medusa não faz: "incluir o custo de envio no
+  desconto" (uma promoção desconta os produtos OU o frete) e "valor máximo de desconto" (a
+  porcentagem dele não tem teto). Nenhum dos 111 cupons da Nuvemshop usava as duas.
+
+Conferido pelo `conferir-cupons.mjs` do painel (41 checagens; as 16 novas: os sete tipos pelo
+formulário novo, o frete grátis zerando o frete uma vez só, o da mais barata, a pergunta do frete
+fechada pra quem não é a loja, categoria e produto com todo o carrinho, o "não combina" no produto
+em promoção e no frete da loja, por cliente, o agendado, um cupom por pedido, as frases, o link e
+a tela), pelo `conferir-checkout.mjs` (173; as 7 novas: um por pedido, o de frete guardado e
+entrando com a entrega, o resumo sem desconto repetido, o link com e sem sacola), pelo
+`conferir-pagamento.mjs` (200) e pelo `conferir-conta.mjs` (209), e pelos testes de unidade (15
+novos nos cupons).
+
+Depois do deploy — **nada a configurar.** Pra testar: Painel → Cupons e descontos → Novo cupom.
 
 ## Como seguir no Claude Code
 

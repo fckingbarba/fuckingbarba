@@ -44,11 +44,16 @@ describe("cada coluna de lá vira o cupom do painel", () => {
         codigo: "0P2XSB",
         tipo: "porcento",
         valor: 10,
-        minimo: null,
-        ate: null,
+        soMaisBarato: false,
+        aplicarA: "loja",
+        alvos: [],
+        combina: true,
         limite: 1,
-        umaVezPorCliente: false,
+        porCliente: null,
         primeiraCompra: false,
+        de: null,
+        ate: null,
+        minimo: null,
       },
     })
     const primeira = lerCupomDaNuvemshop(linha("PRIMEIRACOMPRA"))
@@ -89,14 +94,14 @@ describe("cada coluna de lá vira o cupom do painel", () => {
     })
     const comCondicao: CupomDaNuvemshop = {
       ...linha("ITAPEMA25"),
-      condicao: { minimo: 150, umaVezPorCliente: true },
+      condicao: { minimo: 150, porCliente: 1 },
     }
     const r = lerCupomDaNuvemshop(comCondicao)
     expect(r.ok && r.cupom).toMatchObject({
       tipo: "reais",
       valor: 25,
       minimo: 150,
-      umaVezPorCliente: true,
+      porCliente: 1,
       primeiraCompra: false,
       limite: null,
     })

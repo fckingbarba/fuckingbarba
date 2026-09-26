@@ -175,6 +175,9 @@
 .cupom__msg[data-tipo="erro"] {
   color: var(--color-erro);
 }
+.cupom__msg[data-tipo="espera"] {
+  color: var(--color-tinta-suave);
+}
 .totais {
   margin: 14px 0 0;
   padding-top: 12px;

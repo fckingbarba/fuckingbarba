@@ -45,7 +45,7 @@ export type CupomDaNuvemshop = {
   /** Quando não é "Sem limites": "1 limite". */
   limites?: string
   /** O que o "1 limite" quer dizer: a lista não mostra, e quem diz é o dono. */
-  condicao?: Partial<Pick<CupomNovo, "minimo" | "umaVezPorCliente" | "primeiraCompra">>
+  condicao?: Partial<Pick<CupomNovo, "minimo" | "porCliente" | "primeiraCompra" | "combina">>
 }
 
 /** O dia da lista: o que ela diz de usos e de "ativo" é desse dia. */
@@ -209,11 +209,16 @@ export function lerCupomDaNuvemshop(c: CupomDaNuvemshop): LeituraDaNuvemshop {
       codigo: c.codigo,
       tipo: porcento ? "porcento" : "reais",
       valor,
-      minimo: c.condicao?.minimo ?? null,
-      ate: fim ? `${fim[3]}-${fim[2]}-${fim[1]}` : null,
+      soMaisBarato: false,
+      aplicarA: "loja",
+      alvos: [],
+      combina: c.condicao?.combina !== false,
       limite,
-      umaVezPorCliente: c.condicao?.umaVezPorCliente === true,
+      porCliente: c.condicao?.porCliente ?? null,
       primeiraCompra: c.condicao?.primeiraCompra === true,
+      de: null,
+      ate: fim ? `${fim[3]}-${fim[2]}-${fim[1]}` : null,
+      minimo: c.condicao?.minimo ?? null,
     },
   }
 }
