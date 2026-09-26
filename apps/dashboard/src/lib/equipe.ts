@@ -22,6 +22,7 @@ export type Area =
   | "cupons"
   | "clientes"
   | "newsletter"
+  | "crm"
   | "home"
   | "marketing"
   | "metaDoMes"
@@ -52,7 +53,7 @@ export const NOME_DO_PAPEL: Record<Papel, string> = {
 export const RESUMO_DO_PAPEL: Record<Papel, string> = {
   dono: "tudo, com a equipe e as configurações",
   operacao: "pedidos, despacho, rastreio e os erros da loja",
-  marketing: "os números de venda, home, cupons, carrinhos, newsletter e produtos",
+  marketing: "os números de venda, CRM, home, cupons, carrinhos, newsletter e produtos",
 }
 
 type Item = { area: Area; nome: string; href: Route; icone: NomeDoIcone }
@@ -75,7 +76,10 @@ export const MENU: { grupo: string | null; itens: Item[] }[] = [
   },
   {
     grupo: "Pessoas",
-    itens: [{ area: "clientes", nome: "Clientes", href: "/clientes", icone: "clientes" }],
+    itens: [
+      { area: "clientes", nome: "Clientes", href: "/clientes", icone: "clientes" },
+      { area: "crm", nome: "CRM", href: "/crm", icone: "email" },
+    ],
   },
   {
     grupo: "Site",
@@ -114,6 +118,7 @@ export const TITULO_CURTO: Record<Area, string> = {
   cupons: "Cupons",
   clientes: "Clientes",
   newsletter: "Newsletter",
+  crm: "CRM",
   home: "Layout da home",
   marketing: "Marketing",
   metaDoMes: "Marketing",
@@ -153,6 +158,7 @@ export const DONOS_DA_AREA: Partial<Record<Area, string>> = {
   editarProdutos: "Quem edita produto é o marketing ou o dono.",
   cupons: "Cupons são do marketing e do dono.",
   newsletter: "A newsletter é do marketing e do dono.",
+  crm: "O CRM é do marketing e do dono.",
   home: "O layout da home é do marketing e do dono.",
   observabilidade: "A observabilidade é da operação e do dono.",
   configuracoes: "Configurações são só do dono.",

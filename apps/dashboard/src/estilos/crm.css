@@ -1,0 +1,33 @@
+/*
+  O CRM (a primeira tela): o caminho da pessoa na loja, em etapas, e as
+  últimas anotações. As peças são as do painel: o bloco, o número e o
+  ícone chanfrado da fila do Início (`.fila__ico`).
+*/
+
+.trilha { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 1180px) { .trilha { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .trilha { grid-template-columns: minmax(0, 1fr); } }
+.trilha__etapa { min-width: 0; padding: 12px 14px 14px; background: var(--cinza); border-top: 4px solid var(--tinta); }
+.trilha__nome { margin: 0 0 10px; font-size: 0.62rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--tinta-suave); }
+.trilha__lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.trilha__item { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; align-items: start; }
+.trilha__item .fila__ico { width: 30px; height: 30px; }
+.trilha__n { margin: 0; font-size: 1.15rem; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+.trilha__txt { margin: 3px 0 0; font-size: 0.76rem; font-weight: 700; line-height: 1.25; }
+.trilha__sub { margin: 1px 0 0; font-size: 0.7rem; line-height: 1.25; color: var(--tinta-suave); }
+.trilha__item[data-zero] .trilha__txt { font-weight: 600; color: var(--tinta-suave); }
+.trilha__item[data-zero] .trilha__n { color: var(--tinta-suave); }
+.trilha__item[data-zero] .fila__ico { background: var(--cinza-2); color: var(--tinta-suave); }
+
+.anotacoes { list-style: none; margin: 0; padding: 0; }
+.anotacao { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid rgba(18, 24, 31, 0.1); }
+.anotacao:last-child { border-bottom: 0; }
+.anotacao .fila__ico { width: 30px; height: 30px; }
+.anotacao__txt { margin: 0; font-size: 0.84rem; line-height: 1.35; }
+.anotacao__quem { font-weight: 800; }
+.anotacao__quem[data-anonimo] { font-weight: 700; color: var(--tinta-suave); }
+.anotacao time { font-size: 0.74rem; font-weight: 700; color: var(--tinta-suave); white-space: nowrap; font-variant-numeric: tabular-nums; }
+@media (max-width: 640px) {
+  .anotacao { grid-template-columns: auto minmax(0, 1fr); row-gap: 2px; }
+  .anotacao time { grid-column: 2; }
+}
