@@ -26,10 +26,17 @@ import { diaNoFuso, fusoDa, horaNoFuso, type RelatorioGa4 } from "./visitas"
  *
  * AS VISITAS SÃO DO GOOGLE, com o atraso dele (horas — ver `visitas.ts`):
  * as de hoje contam até a hora que ele já somou, e o período de antes, até
- * a mesma hora. A conversão (pedidos pagos ÷ visitas) usa o mesmo corte nos
- * pedidos: senão, os pedidos da última hora entrariam sem as visitas dela.
- * E só as visitas do endereço da loja (`hostsDaLoja`): o Analytics é o
- * mesmo do site antigo, da Nuvemshop, que segue no ar até a virada.
+ * a mesma hora. E só as visitas do endereço da loja (`hostsDaLoja`): o
+ * Analytics é o mesmo do site antigo, da Nuvemshop, que segue no ar até a
+ * virada.
+ *
+ * ┌─ A CONVERSÃO COMPARA GENTE IGUAL ──────────────────────────────────────┐
+ * │ O Google só vê quem aceitou os cookies. A conversão divide as compras  │
+ * │ que ele viu (as que a loja manda pelo servidor, com o sim) pelas       │
+ * │ visitas — as duas do Google, no mesmo corte de hora, como nos Canais.  │
+ * │ Até a 0135 ela dividia TODOS os pedidos pagos pelas visitas de quem    │
+ * │ aceitou: quem recusa compra, mas não vira visita, e a conversão subia. │
+ * └────────────────────────────────────────────────────────────────────────┘
  */
 
 const FUSO = "America/Sao_Paulo"
@@ -448,29 +455,40 @@ export function perguntaDasVisitas(periodo: Periodo, hosts: string[]) {
   }
 }
 
+/**
+ * A pergunta das compras da conversão: as que a loja manda pro GA4 pelo
+ * servidor (`SO_AS_COMPRAS_DA_LOJA`, só com o sim dos cookies), por dia e
+ * hora, nas mesmas datas das visitas — o corte de hora vale pras duas.
+ */
+export function perguntaDasCompras(periodo: Periodo) {
+  const n = DIAS[periodo]
+  return {
+    dateRanges: [{ startDate: `${2 * n - 1}daysAgo`, endDate: "today" }],
+    dimensions: [{ name: "date" }, { name: "hour" }],
+    metrics: [{ name: "ecommercePurchases" }],
+    dimensionFilter: SO_AS_COMPRAS_DA_LOJA,
+    limit: "10000",
+  }
+}
+
 export type Conversao = { valor: number | null; antes: number | null; variacao: number | null }
 
 export type VisitasDoPeriodo = {
   visitas: Comparado
-  /** Os pedidos pagos no mesmo corte das visitas: é o que a conversão divide. */
+  /**
+   * As compras que o Google viu, no mesmo corte das visitas: é o que a
+   * conversão divide. Só de quem aceitou os cookies, como as visitas — os
+   * pedidos pagos de todo mundo são os do Resumo (`numerosDo`).
+   */
   pedidos: Comparado
-  /** De cada 100 visitas, quantas viraram pedido pago (duas casas). */
+  /** De cada 100 visitas, quantas viraram pedido pago (duas casas), as duas contas do Google. */
   conversao: Conversao
   /** As visitas de hoje contam até esta hora (sem ela); `null` enquanto o Google não somou nada de hoje. */
   ate: number | null
 }
 
-export function visitasDoPeriodo(
-  r: RelatorioGa4,
-  periodo: Periodo,
-  vendas: Venda[],
-  agora: Date
-): VisitasDoPeriodo {
-  const n = DIAS[periodo]
-  const fuso = fusoDa(r)
-  const hoje = diaNoFuso(agora, fuso)
-  const horaAgora = horaNoFuso(agora, fuso)
-
+/** Um relatório do GA4 por dia e hora, como `{ "2026-09-24": [24 horas] }`. */
+function porDiaEHora(r: RelatorioGa4): Map<string, number[]> {
   const porDia = new Map<string, number[]>()
   for (const l of r.rows ?? []) {
     const d = l.dimensionValues?.[0]?.value ?? ""
@@ -482,33 +500,43 @@ export function visitasDoPeriodo(
     horas[h] += v
     porDia.set(chave, horas)
   }
-  const doDia = (chave: string, ate = 24) =>
-    (porDia.get(chave) ?? []).slice(0, ate).reduce((s, v) => s + v, 0)
+  return porDia
+}
+
+/**
+ * As visitas e a conversão do período, contra o de antes. `visitas` e
+ * `compras`: as respostas de `perguntaDasVisitas` e `perguntaDasCompras`.
+ */
+export function visitasDoPeriodo(
+  r: { visitas: RelatorioGa4; compras: RelatorioGa4 },
+  periodo: Periodo,
+  agora: Date
+): VisitasDoPeriodo {
+  const n = DIAS[periodo]
+  const fuso = fusoDa(r.visitas)
+  const hoje = diaNoFuso(agora, fuso)
+  const horaAgora = horaNoFuso(agora, fuso)
+  const sessoes = porDiaEHora(r.visitas)
+  const compras = porDiaEHora(r.compras)
 
   // Até que hora o Google já somou hoje — a regra do Início (`comparacaoComOntem`): em dia, até
   // a hora de agora (sem ela, pela metade); atrasado, até a última hora com visita.
-  const deHoje = porDia.get(hoje) ?? []
+  const deHoje = sessoes.get(hoje) ?? []
   let ultima = -1
   for (let h = 0; h <= horaAgora; h++) if ((deHoje[h] ?? 0) > 0) ultima = h
   const ate = Math.max(0, ultima >= horaAgora - 1 ? horaAgora : ultima)
 
-  const contar = (ultimoDia: string) => {
+  // O período termina em `ultimoDia`: os dias inteiros de antes e esse dia até a hora `ate`. As
+  // compras cortam na mesma hora: senão, as da última hora entrariam sem as visitas dela.
+  const contar = (porDia: Map<string, number[]>, ultimoDia: string) => {
+    const doDia = (chave: string, horas = 24) =>
+      (porDia.get(chave) ?? []).slice(0, horas).reduce((s, v) => s + v, 0)
     let soma = doDia(ultimoDia, ate)
     for (let i = 1; i < n; i++) soma += doDia(somarDias(ultimoDia, -i))
     return soma
   }
-  const visitas = comparar(contar(hoje), contar(somarDias(hoje, -n)))
-
-  // Os pedidos no mesmo corte: do começo do período até a hora `ate` de hoje.
-  const corte = new Date(meiaNoite(hoje, fuso).getTime() + ate * HORA_MS)
-  const de = meiaNoite(somarDias(hoje, 1 - n), fuso)
-  const pedidos = comparar(
-    somaNa(vendas, { de, ate: corte }).pedidos,
-    somaNa(vendas, {
-      de: new Date(de.getTime() - n * DIA_MS),
-      ate: new Date(corte.getTime() - n * DIA_MS),
-    }).pedidos
-  )
+  const visitas = comparar(contar(sessoes, hoje), contar(sessoes, somarDias(hoje, -n)))
+  const pedidos = comparar(contar(compras, hoje), contar(compras, somarDias(hoje, -n)))
 
   const taxa = (p: number, v: number) => (v > 0 ? Math.round((p / v) * 10_000) / 100 : null)
   const valor = taxa(pedidos.valor, visitas.valor)
