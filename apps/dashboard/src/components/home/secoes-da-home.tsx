@@ -7,7 +7,9 @@ import { Icone } from "@/components/icones"
 import { mudarSecaoDaHome } from "@/lib/acoes/home"
 import type { MudancaNaOrdem } from "@/lib/acoes/produtos"
 import {
+  ANUNCIO_DA_HOME,
   SECOES_DA_HOME,
+  type AnuncioDaHome,
   type IdDaSecaoDaHome,
   type ProdutoComCasos,
   type SecaoDaHome,
@@ -23,13 +25,19 @@ import type { NoCatalogo } from "@/lib/produtos"
  * O bloco escuro (o título da home pro Google) é fixo e fica no MEIO da
  * página: quem desce da quarta posição passa por cima dele, e ele não sai do
  * lugar — a mesma conta da loja.
+ *
+ * Em cima da lista, a BARRA DE AVISOS (a esteira amarela do topo): fixa, fora
+ * da lista — ela não é da home, é de toda página —, com a mesma gaveta.
  */
 export function SecoesDaHome({
   secoes: gravadas,
+  anuncio,
   catalogo,
   provas,
 }: {
   secoes: SecaoDaHome[]
+  /** A barra de avisos; sem ela (um Medusa de antes), a linha não aparece. */
+  anuncio?: AnuncioDaHome
   catalogo: NoCatalogo[]
   /** Os produtos com caso de antes e depois: a "Prova social" mostra eles. */
   provas: ProdutoComCasos[]
@@ -38,7 +46,7 @@ export function SecoesDaHome({
   const avisar = useAvisar()
   const [indo, comecar] = useTransition()
   const [secoes, aplicar] = useOptimistic(gravadas, mover)
-  const [editando, setEditando] = useState<IdDaSecaoDaHome | null>(null)
+  const [editando, setEditando] = useState<IdDaSecaoDaHome | "anuncio" | null>(null)
   const fechar = useCallback(() => setEditando(null), [])
   const soltas = secoes.filter((s) => !s.fixa)
 
@@ -74,10 +82,42 @@ export function SecoesDaHome({
     })
   }
 
-  const aberta = editando ? secoes.find((s) => s.id === editando) : null
+  const aberta =
+    editando === "anuncio" ? anuncio : editando ? secoes.find((s) => s.id === editando) : null
 
   return (
     <>
+      {anuncio ? (
+        <div className="secao" data-anuncio>
+          <span className="secao__trava" title="Fixa: fica no topo de todas as páginas">
+            <Icone nome="cadeado" />
+          </span>
+          <span>
+            <p className="secao__nome">{ANUNCIO_DA_HOME.nome}</p>
+            <p className="secao__desc">{ANUNCIO_DA_HOME.descricao}</p>
+            <span className="secao__selos">
+              {anuncio.mudou ? (
+                <span className="selo selo--pendente" data-pendente>
+                  não publicado
+                </span>
+              ) : null}
+              {anuncio.propria ? <span className="selo">texto próprio</span> : null}
+              <span className="selo">{quantosAvisos(anuncio)}</span>
+            </span>
+          </span>
+          <span className="secao__lado">
+            <button
+              type="button"
+              className="btn btn--fantasma"
+              data-editar="anuncio"
+              onClick={() => setEditando("anuncio")}
+            >
+              Editar
+            </button>
+            <span className="secao__fixa">Fixa</span>
+          </span>
+        </div>
+      ) : null}
       <ul className="secoes" aria-busy={indo || undefined} ref={lista}>
         {secoes.map((s) => {
           const def = SECOES_DA_HOME[s.id]
@@ -193,6 +233,13 @@ function mover(
     if (s.fixa) nova.splice(k, 0, s)
   })
   return nova
+}
+
+/** "frete + 2 avisos" · "1 aviso": o que a barra de avisos tem, no rascunho. */
+function quantosAvisos(a: AnuncioDaHome): string {
+  const n = Array.isArray(a.valores.avisos) ? a.valores.avisos.length : 0
+  const escritos = n === 1 ? "1 aviso" : `${n} avisos`
+  return a.valores.frete === true ? `frete + ${escritos}` : escritos
 }
 
 /**

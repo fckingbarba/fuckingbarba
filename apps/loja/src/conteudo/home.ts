@@ -30,6 +30,13 @@ import type { ConteudoDaHome } from "@/lib/home"
  */
 export const HOME_DE_FABRICA: ConteudoDaHome = {
   /*
+    A esteira amarela do topo, a de antes do painel: o aviso do frete
+    (quando há promoção) e a segurança. Por que "Barba na cara ou sua grana
+    de volta" e os 7 dias de arrependimento saíram dela: no
+    `components/layout/anuncio.tsx`.
+  */
+  anuncio: { frete: true, avisos: ["Compra 100% segura"] },
+  /*
     O banner é SÓ ARTE (decidido em 24/09): a imagem com o texto dentro,
     subida no painel. De fábrica não há arte — então não há banner, e a
     home começa na barra de vantagens até alguém publicar a primeira.

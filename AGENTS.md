@@ -1085,6 +1085,31 @@ da lista de produtos, que já traz o `metadata`: até 8, alternando os produtos.
 a home. O painel recebe `provas` no `GET /dashboard/home` (`provasDaHome`: os produtos no site com
 caso) e mostra na gaveta. O número 8 está nos dois lados (`CASOS_NA_HOME`).
 
+**A barra de avisos do topo** (entrega 0119). A esteira amarela de toda página
+(`apps/loja/src/components/layout/anuncio.tsx`) é editada no "Layout da home" e vai no rascunho e no
+"Publicar" da home, mas NÃO é seção: não está no registro nem no `SECOES_DA_HOME` (não tem ordem nem
+chave). Mora no conteúdo da versão, como `anuncio` (`AnuncioDoSite`: `{ frete, avisos }`, até 4
+avisos, pelo menos um — a esteira nunca fica vazia; o `id="inicio"` dela é o "voltar ao topo" do
+rodapé). O aviso do frete a loja escreve (`frasesDoFrete(...).completa` + "*"): o painel só liga e
+desliga. O `marcar` do formulário não manda a chave desmarcado (`paraGravar`), então o leitor lê
+`frete === true` nos dois lados. No painel/backend: `pendentes.anuncio` (uma mudança a mais —
+`quantasMudancasNaHome`), `anuncioDaHome` (o formato de uma seção, sempre ligada e fixa, com o
+`avisoDoFrete` de hoje: GÊMEO da frase da loja, e o `conferir-home` compara a prévia da gaveta com
+a esteira), `POST /dashboard/home/anuncio` e a linha do registro `editou-secao-da-home` com `secao:
+"anuncio"`. No painel, a linha `[data-anuncio]` fica em cima e FORA da `.secoes`, e a gaveta é o
+`EditorDaHome` (com a prévia, `ComoFicaAFaixa`). Parte da home que não é seção entra no `lib/home.ts`
+do backend (tipo, semente, leitor e `EXIGE`), no da loja (tipo, leitura e a reserva
+`conteudo/home.ts`) e no painel (definição própria, como o `ANUNCIO_DA_HOME`). **A esteira lê o
+`home()` no layout**: o "Publicar" da home refaz TODA página (a etiqueta `home`), não só a inicial.
+**A velocidade não depende do texto**: `pista()` tira as voltas (cada lista com pelo menos 200
+letras, que cobre a tela de 1440) e o ciclo do tamanho dos avisos, contados em letras; a régua é a
+esteira de sempre (o frete e a "Compra 100% segura", 3 voltas em 38 s, o ciclo do `anuncio.css`), e
+com ela a pista sai SEM `style` — o HTML de antes, byte a byte. Medido: 39–44 px/s de um aviso curto
+a quatro compridos (sem o ajuste, 17–146). Mudou o ciclo do CSS, mude o `CICLO_DO_CSS`. A chave de
+cada `<li>` é a posição: dois avisos iguais no painel não se fundem. No `conferir-home`, a seção da
+barra vem DEPOIS do histórico: o histórico mostra as 20 últimas linhas, e cada "Salvar"/"Publicar"
+dela empurraria as da rodada pra fora.
+
 **Clientes e newsletter** (fase 6, entrega 0082). `src/lib/painel/clientes.ts` é puro, com
 testes, e faz o seguinte:
 

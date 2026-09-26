@@ -1,5 +1,7 @@
 import { HOME_VAZIA, lerHome, SEMENTE_DA_HOME, type HomeGuardada } from "../../home"
 import {
+  anuncioDaHome,
+  avisoDoFrete,
   desfazerRascunho,
   mudarNaOrdemDaHome,
   mudarOrdemNaHome,
@@ -7,14 +9,16 @@ import {
   pendentesDaHome,
   provasDaHome,
   publicarHome,
+  quantasMudancasNaHome,
+  salvarAnuncioDaHome,
   salvarSecaoDaHome,
   secoesDaHome,
   ultimaPublicacao,
 } from "../home"
 
 /**
- * A home no painel: a ordem (com o bloco escuro fixo no meio), o rascunho e
- * o que espera o "Publicar".
+ * A home no painel: a ordem (com o bloco escuro fixo no meio), o rascunho, o
+ * que espera o "Publicar" e a barra de avisos do topo.
  */
 
 const feito = (r: { ok: boolean; home?: HomeGuardada }) => {
@@ -54,7 +58,7 @@ describe("o rascunho", () => {
     const h = feito(mudarOrdemNaHome(HOME_VAZIA, "home.amam", "desligar"))
     expect(h.publicado).toEqual(HOME_VAZIA.publicado)
     expect(h.rascunho?.layout.visibilidade).toEqual({ "home.amam": false })
-    expect(pendentesDaHome(h)).toEqual({ secoes: ["home.amam"], ordem: false })
+    expect(pendentesDaHome(h)).toEqual({ secoes: ["home.amam"], ordem: false, anuncio: false })
     expect(secoesDaHome(h).find((s) => s.id === "home.amam")).toMatchObject({
       ligada: false,
       mudou: true,
@@ -65,12 +69,12 @@ describe("o rascunho", () => {
     const h = feito(mudarOrdemNaHome(HOME_VAZIA, "home.amam", "desligar"))
     const de_volta = feito(mudarOrdemNaHome(h, "home.amam", "ligar"))
     expect(de_volta.rascunho).toBeNull()
-    expect(pendentesDaHome(de_volta)).toEqual({ secoes: [], ordem: false })
+    expect(pendentesDaHome(de_volta)).toEqual({ secoes: [], ordem: false, anuncio: false })
   })
 
   it("a ordem conta como uma mudança só", () => {
     const h = feito(mudarOrdemNaHome(HOME_VAZIA, "home.vitrine", "subir"))
-    expect(pendentesDaHome(h)).toEqual({ secoes: [], ordem: true })
+    expect(pendentesDaHome(h)).toEqual({ secoes: [], ordem: true, anuncio: false })
   })
 
   it("salvar o texto: pela metade não grava; igual ao de fábrica não guarda a seção", () => {
@@ -113,6 +117,91 @@ describe("o rascunho", () => {
   })
 })
 
+describe("a barra de avisos do topo", () => {
+  const GRATIS = { modo: "gratis", piso: 139.9, alvo: "mais-barata", tetoDeCusto: null } as const
+
+  it("de fábrica: o frete e a 'Compra 100% segura', sem nada esperando", () => {
+    expect(anuncioDaHome(HOME_VAZIA, GRATIS)).toMatchObject({
+      id: "anuncio",
+      valores: { frete: true, avisos: ["Compra 100% segura"] },
+      propria: false,
+      mudou: false,
+      fundo: null,
+      aceitaFundo: false,
+    })
+    // Não é seção: não entra na lista (nem na ordem) da home.
+    expect(secoesDaHome(HOME_VAZIA).map((s) => s.id)).not.toContain("anuncio")
+  })
+
+  it("salvar vai pro rascunho e conta como uma mudança; o site segue com a de antes", () => {
+    const h = feito(
+      salvarAnuncioDaHome(HOME_VAZIA, {
+        frete: true,
+        avisos: ["  Parcele em até 6x  ", "", "Envio em 24 h"],
+      })
+    )
+    expect(h.rascunho?.conteudo.anuncio).toEqual({
+      frete: true,
+      avisos: ["Parcele em até 6x", "Envio em 24 h"],
+    })
+    expect(h.publicado).toEqual(HOME_VAZIA.publicado)
+    const pendentes = pendentesDaHome(h)
+    expect(pendentes).toEqual({ secoes: [], ordem: false, anuncio: true })
+    expect(quantasMudancasNaHome(pendentes)).toBe(1)
+    expect(anuncioDaHome(h, GRATIS)).toMatchObject({ propria: true, mudou: true })
+    const publicada = feito(publicarHome(h, new Date("2026-09-26T15:00:00.000Z"), "Ana"))
+    expect(publicada.publicado.conteudo.anuncio?.avisos).toEqual([
+      "Parcele em até 6x",
+      "Envio em 24 h",
+    ])
+    expect(anuncioDaHome(publicada, GRATIS)).toMatchObject({ propria: true, mudou: false })
+  })
+
+  it("a caixinha desmarcada não vem (o painel não manda a chave): sem o frete", () => {
+    const h = feito(salvarAnuncioDaHome(HOME_VAZIA, { avisos: ["Compra 100% segura"] }))
+    expect(h.rascunho?.conteudo.anuncio).toEqual({ frete: false, avisos: ["Compra 100% segura"] })
+  })
+
+  it("sem aviso escrito não grava (a esteira nunca fica vazia); até 4", () => {
+    expect(salvarAnuncioDaHome(HOME_VAZIA, { frete: true, avisos: ["", "  "] })).toEqual({
+      ok: false,
+      motivo: "faltando",
+      faltando: ["avisos"],
+    })
+    const h = feito(
+      salvarAnuncioDaHome(HOME_VAZIA, { frete: true, avisos: ["a", "b", "c", "d", "e"] })
+    )
+    expect(h.rascunho?.conteudo.anuncio?.avisos).toEqual(["a", "b", "c", "d"])
+  })
+
+  it("igual ao de fábrica, volta a ser o de fábrica (não guarda nada)", () => {
+    const h = feito(salvarAnuncioDaHome(HOME_VAZIA, { frete: true, avisos: ["Outro"] }))
+    const de_volta = feito(salvarAnuncioDaHome(h, SEMENTE_DA_HOME.anuncio))
+    expect(de_volta.rascunho).toBeNull()
+    expect(pendentesDaHome(de_volta).anuncio).toBe(false)
+  })
+
+  it("junto com uma seção e a ordem: três mudanças", () => {
+    const a = feito(salvarAnuncioDaHome(HOME_VAZIA, { avisos: ["Só este"] }))
+    const b = feito(salvarSecaoDaHome(a, "home.vitrine", { titulo: "Novo" }))
+    const c = feito(mudarOrdemNaHome(b, "home.vitrine", "subir"))
+    expect(quantasMudancasNaHome(pendentesDaHome(c))).toBe(3)
+    expect(lerHome({ fb_home: JSON.parse(JSON.stringify(c)) })).toEqual(c)
+  })
+
+  it("o aviso do frete, como a loja escreve (o espaço depois do R$ é o fixo)", () => {
+    expect(avisoDoFrete({ modo: "nenhuma" })).toBeNull()
+    expect(avisoDoFrete(GRATIS)).toBe("Frete grátis a partir de R$\u00a0139,90*")
+    expect(avisoDoFrete({ ...GRATIS, piso: 0 })).toBe("Frete grátis para todo o Brasil*")
+    const fixo = { modo: "fixo", piso: 99.9, preco: 9.9, alvo: "todas", tetoDeCusto: null } as const
+    expect(avisoDoFrete(fixo)).toBe("Frete R$\u00a09,90 a partir de R$\u00a099,90*")
+    expect(avisoDoFrete({ ...fixo, piso: 0 })).toBe(
+      "Frete fixo de R$\u00a09,90 para todo o Brasil*"
+    )
+    expect(anuncioDaHome(HOME_VAZIA, { modo: "nenhuma" }).avisoDoFrete).toBeNull()
+  })
+})
+
 describe("a foto de fundo, no rascunho", () => {
   const FOTO = "https://ref.supabase.co/storage/v1/object/public/produtos/home-fundo.webp"
 
@@ -121,7 +210,7 @@ describe("a foto de fundo, no rascunho", () => {
       salvarSecaoDaHome(HOME_VAZIA, "home.hero", SEMENTE_DA_HOME.hero, { imagem: FOTO, veu: 80 })
     )
     expect(h.rascunho?.fundos["home.hero"]).toEqual({ imagem: FOTO, veu: 80 })
-    expect(pendentesDaHome(h)).toEqual({ secoes: ["home.hero"], ordem: false })
+    expect(pendentesDaHome(h)).toEqual({ secoes: ["home.hero"], ordem: false, anuncio: false })
     expect(secoesDaHome(h).find((s) => s.id === "home.hero")).toMatchObject({
       fundo: { imagem: FOTO, veu: 80 },
       aceitaFundo: true,
