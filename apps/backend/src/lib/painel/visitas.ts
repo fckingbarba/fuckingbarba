@@ -186,10 +186,10 @@ export function fusoDa(r: RelatorioGa4 | null | undefined): string {
   }
 }
 
-/** "2026-09-24" e a hora (0–23), no fuso dado. */
-const diaNoFuso = (d: Date | number, fuso: string) =>
+/** "2026-09-24" e a hora (0–23), no fuso dado. O Marketing conta com eles também. */
+export const diaNoFuso = (d: Date | number, fuso: string) =>
   new Intl.DateTimeFormat("en-CA", { timeZone: fuso }).format(d)
-const horaNoFuso = (d: Date, fuso: string) =>
+export const horaNoFuso = (d: Date, fuso: string) =>
   Number(
     new Intl.DateTimeFormat("en-GB", { timeZone: fuso, hour: "2-digit", hourCycle: "h23" }).format(
       d

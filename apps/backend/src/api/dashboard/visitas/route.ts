@@ -1,7 +1,6 @@
 import type { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/framework/http"
-import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import { exigirArea, type PedidoDaEquipe } from "../../../lib/equipe/acesso"
-import { configuracaoDoGa4, ErroDoGa4, respostasDoDia } from "../../../lib/painel/ga4"
+import { avisarNoLog, configuracaoDoGa4, ErroDoGa4, respostasDoDia } from "../../../lib/painel/ga4"
 import { nomesDosProdutos } from "../../../lib/painel/ler"
 import {
   handlesDe,
@@ -9,6 +8,10 @@ import {
   soONumero,
   veOBlocoDasVisitas,
 } from "../../../lib/painel/visitas"
+
+/** O motivo de verdade vai pro log, no máximo uma linha por hora por motivo. */
+const avisar = (req: AuthenticatedMedusaRequest, tipo: string, mensagem: string) =>
+  avisarNoLog(req.scope, "as visitas", tipo, mensagem)
 
 /**
  * GET /dashboard/visitas — as visitas do dia, do Google Analytics, pro
@@ -61,16 +64,4 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
     avisar(req, tipo, e instanceof Error ? e.message : String(e))
     res.json({ estado: tipo })
   }
-}
-
-const ultimoAviso = new Map<string, number>()
-
-/** Uma linha no log por motivo, no máximo uma por hora: o Início abre o dia todo. */
-function avisar(req: AuthenticatedMedusaRequest, tipo: string, mensagem: string) {
-  const antes = ultimoAviso.get(tipo) ?? 0
-  if (Date.now() - antes < 60 * 60 * 1000) return
-  ultimoAviso.set(tipo, Date.now())
-  req.scope
-    .resolve(ContainerRegistrationKeys.LOGGER)
-    .warn(`[ga4] as visitas não vieram (${tipo}): ${mensagem}`)
 }

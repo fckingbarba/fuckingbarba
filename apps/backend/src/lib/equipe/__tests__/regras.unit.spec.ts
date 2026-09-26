@@ -43,6 +43,9 @@ describe("podeAbrir — a matriz dos papéis", () => {
       expect(podeAbrir("operacao", area)).toBe(false)
     expect(podeAbrir("operacao", "pedidos")).toBe(true)
     expect(podeAbrir("operacao", "observabilidade")).toBe(true)
+    // Os números de marketing não são da operação.
+    expect(podeAbrir("operacao", "marketing")).toBe(false)
+    expect(podeAbrir("operacao", "metaDoMes")).toBe(false)
   })
 
   it("o marketing não abre pedidos, observabilidade, equipe nem configurações", () => {
@@ -56,6 +59,9 @@ describe("podeAbrir — a matriz dos papéis", () => {
       expect(podeAbrir("marketing", area)).toBe(false)
     expect(podeAbrir("marketing", "cupons")).toBe(true)
     expect(podeAbrir("marketing", "home")).toBe(true)
+    // Vê o Marketing; a meta, quem muda é o dono.
+    expect(podeAbrir("marketing", "marketing")).toBe(true)
+    expect(podeAbrir("marketing", "metaDoMes")).toBe(false)
   })
 
   it("todo papel abre o início", () => {
