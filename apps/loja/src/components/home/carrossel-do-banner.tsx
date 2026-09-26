@@ -30,7 +30,8 @@ import { useMovimentoReduzido } from "@/lib/use-preferencia"
  * A BARRINHA É O RELÓGIO DA TROCA (26/09): o slide troca quando ela termina
  * de encher, e o que segura a troca segura a barra — ver `useBarraRelogio`.
  *
- * AS BOLINHAS FICAM EMBAIXO DA ARTE, numa faixa escura (26/09): por cima,
+ * AS BOLINHAS FICAM POR CIMA DA ARTE, no canto de baixo à esquerda (26/09):
+ * numa faixa embaixo dela, abriam um vão até a seção seguinte; no meio,
  * cobriam o botão desenhado na arte do celular.
  */
 
