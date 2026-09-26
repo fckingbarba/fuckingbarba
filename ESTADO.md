@@ -1861,8 +1861,8 @@ Depois do deploy — **o que você faz:**
 
 - [ ] Os preços de hoje, antes da virada: ver "Os preços, antes da virada", na seção 3.
 
-**Home: o banner mais baixo, sem faixa branca, e a descrição opcional — pronto em 26/09 (entrega
-0103).**
+**Home: o banner mais baixo, sem faixa branca, a descrição opcional e o carrossel no compasso —
+pronto em 26/09 (entrega 0103).**
 
 - **A descrição da arte ficou opcional.** O slide salva só com a arte. Sem a descrição, a loja
   descreve o slide (pra quem não enxerga e pro Google) pelo nome do produto pra onde ele leva — ou
@@ -1877,9 +1877,18 @@ Depois do deploy — **o que você faz:**
   de cada quadro). Arte noutra medida entra do mesmo jeito: o painel avisa quanto sai de cada borda
   — deixe o texto longe delas.
 - Sem a arte do celular, o celular mostra a do computador inteira (pequena), como antes.
+- **As bolinhas saíram de cima da arte:** ficam numa faixa escura logo embaixo dela — em cima,
+  cobriam o botão desenhado na arte do celular. No carrossel, a faixa soma 24 px: o banner inteiro
+  fica com 484 px no celular e 497 numa tela de 1440 — ainda menos que antes (488 e 525).
+- **O slide passa quando a barrinha enche.** Antes eram dois relógios: a barra começava a encher
+  antes de a página terminar de carregar, e no celular o slide levava mais um tempo pra passar; com
+  o mouse em cima, a barra seguia enchendo com o slide parado. Agora a barra é o relógio (medido: o
+  slide anda uns 10 a 20 milésimos depois de ela encher). O mouse em cima, o banner fora da tela ou
+  a aba escondida seguram a barra onde está, e ela continua de onde parou.
 
-Conferido pelo `conferir-home.mjs` (77 checagens: o slide sem descrição salva e a loja usa o texto
-do link; a caixa na altura nova e a arte preenchendo, no computador e no celular). As medidas
+Conferido pelo `conferir-home.mjs` (80 checagens: o slide sem descrição salva e a loja usa o texto
+do link; a caixa na altura nova e a arte preenchendo, no computador e no celular; as bolinhas
+embaixo da arte; o mouse em cima segurando a barra; o slide passando quando ela enche). As medidas
 foram tiradas das artes no ar, e a prévia com o CSS novo aplicado na loja de verdade mostrou as
 quatro sem perder texto.
 
