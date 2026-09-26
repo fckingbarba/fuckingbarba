@@ -82,19 +82,44 @@ conteúdo de antes da edição e falha sem bug nenhum. Os `apps/backend/ferramen
 "Correios PAC" fixo e não sobem a falsa) — os que valem são os onze da loja.
 
 O **Lighthouse do CI** roda contra `apps/loja/ferramentas/medusa-falso.mjs` — um Medusa só de
-leitura, na porta 9000, com os seis produtos de verdade e fotos desenhadas na hora —, porque sem
-Medusa o build sai com o catálogo vazio e o orçamento mediria uma vitrine que ninguém vê. Pra medir
+leitura, na porta 9000, com os seis produtos de verdade, fotos desenhadas na hora e o banner da home
+(uma arte que pesa o mesmo que a da loja em AVIF, na qualidade do banner; recalibre se a da loja
+mudar muito) —, porque sem Medusa o build sai com o catálogo vazio e o orçamento mediria uma
+vitrine que ninguém vê. Até a 0117 a home falsa não tinha banner, e o LCP medido era a foto de um
+produto cortada no pé da tela: nem era a home da loja. Pra medir
 aqui do mesmo jeito: `node ferramentas/medusa-falso.mjs` num terminal; no outro, exporte
 `MEDUSA_BACKEND_URL=http://localhost:9000`, `NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY=pk_medusa_falso` e
 as variáveis do job (`.github/workflows/loja.yml`), rode o `next build` e depois
 `npx lhci collect && npx lhci assert` em `apps/loja` (sem `autorun`, que publica o relatório).
 
-**O LCP da home vive no limite de 2,5 s.** O simulado (4G lento) anda em degraus: com poucas
-centenas de bytes a mais no HTML da home, a primeira pintura passa pra outra ida e volta na conexão
-que o HTML, o CSS e a fonte dividem, e o LCP sobe uns 220 ms. Em 26/09, a home da #93 media 2,26
-ou 2,41 s aqui e 2,64 s de mediana no CI; qualquer seção a mais (mesmo vazia) dava 2,48 ou 2,63 s
-aqui (entrega 0111). Seção nova na home se mede antes da PR, e a folga de verdade vem de aliviar a
-primeira tela — não da seção nova.
+**Como o CI chega no LCP, e por que ele anda em degraus** (medido na entrega 0117). O número é
+SIMULADO (Lantern, do Lighthouse 12.6.1 que o `lhci` usa): a carga é gravada numa rede rápida e
+recalculada como num 4G lento (150 ms de ida e volta, 1,6 Mbit/s). Três regras mandam nele:
+
+1. **Todo script que rodou antes da pintura do LCP na gravação entra na conta.** Com o servidor na
+   mesma máquina, os ~15 pedaços de JavaScript da página (~180 KB comprimidos) chegam antes da
+   pintura quase sempre, e o LCP da home vira o tempo de baixar HTML, CSS, fonte, banner E todo o
+   JavaScript. (Quando o servidor atrasa os scripts, a gravação pinta antes deles e o número cai pra
+   ~2 s — não conte com isso.)
+2. **Na mesma origem em HTTP/2, o simulador baixa um pedido de cada vez**, em degraus de 150 ms de
+   ~30 KB cada, e o LCP cai no degrau em que termina o último script. Bytes a mais só custam quando
+   cruzam um degrau — e aí custam 150 ms de uma vez.
+3. **O HTML e o CSS dividem as duas primeiras voltas da conexão: cabem 43,8 KB** comprimidos (14,6
+   + 29,2). Na 0117 a home tem 23,8 KB de HTML e 19,2 KB de CSS (43,0 KB) e mede 2,26 s; com 1,2 KB
+   a mais em qualquer um dos dois, o CSS vai pra terceira volta, a primeira pintura atrasa e o LCP
+   pula pra 2,56 s — reprova. É o degrau mais perigoso da home: veja o que a mudança soma ao HTML e
+   ao CSS dela antes da PR.
+
+Imagem `data:` em CSS é pedido "sem conexão" pro Lantern e derruba a conta pessimista (ver `--raio`
+em `estilos/base.css`). Pra medir uma mudança sem o ruído da máquina (aqui o Lighthouse oscila meio
+segundo entre rodadas do mesmo build): grave os artefatos com `node_modules/.bin/lighthouse <url>
+-G=<pasta> --only-categories=performance --chrome-flags="--headless=new
+--ignore-certificate-errors"`, copie a pasta, mude o tamanho do pedido no
+`defaultPass.devtoolslog.json` (o `encodedDataLength` do `Network.loadingFinished` dele, e o dos
+`Network.dataReceived` na mesma proporção; tirar os eventos do pedido = ele não existir) e rode
+`lighthouse <url> -A=<cópia>`. O Lantern lê a rede do **devtoolslog**, não do trace: mudar o
+`ResourceFinish` do `defaultPass.trace.json` não mexe no número (só com `INTERNAL_LANTERN_USE_TRACE`
+definido).
 
 Dois tropeços de ambiente, que não são bug: o de configurações muda a política de frete pelo admin,
 e quem derruba o cache da loja depois é o backend, pelo `LOJA_URL` do `apps/backend/.env`; se ele
@@ -166,8 +191,12 @@ precisa sair da janela dela — ver `longeDaConciliacaoAutomatica` no conferidor
 - **Estilo**: sem `border-radius` (a marca é chanfro e sombra dura); tokens em `globals.css`
   (`@theme`); em fundo menta só `text-tinta`/`text-papel` (contraste AA).
 - **CSS de uma tela só não entra no `globals.css`.** Tudo que ele importa, toda página baixa antes
-  de pintar. PDP, checkout e conta importam o seu por `src/estilos/telas/` — ver o quadro "O QUE
-  NÃO MORA AQUI" no próprio `globals.css` antes de mover mais alguma coisa.
+  de pintar. PDP, checkout, conta, categoria e busca importam o seu por `src/estilos/telas/`, e as
+  páginas de texto pelo layout delas — ver o quadro "O QUE NÃO MORA AQUI" no próprio `globals.css`
+  antes de mover mais alguma coisa.
+- **Nada de imagem `data:` em CSS de coisa que aparece na carga** (ícone, raio de fundo): no
+  Lighthouse do CI ela atrasa a fonte e sobe o LCP. O raio decorativo é recorte (`--raio`, em
+  `estilos/base.css`).
 - Prettier na raiz (`.prettierrc`: sem ponto e vírgula, 100 colunas). ESLint por app.
 
 ## Next.js 16 — leia antes de escrever código de front
@@ -693,9 +722,12 @@ visita, e o mesmo depoimento posto em vários produtos (a mesma pessoa, o mesmo 
 só — na esteira e na nota média (`lib/avaliacoes.ts`). O sorteio é no navegador
 (`components/home/esteira-de-avaliacoes.tsx`): a home continua estática, e a semente da visita entra
 por `useSyncExternalStore`. Os cartões só são desenhados quando a seção chega a uma tela de
-distância: no carregamento vai só o lugar, com a altura da faixa reservada (`.amam__lugar`); e a
-foto do cartão é `getImageProps` no tamanho da caixa (54 px, só 1x e 2x). A volta dura 7,5 s por
-cartão (o ritmo do protótipo): com mais depoimentos, ela fica mais longa, e não mais rápida.
+distância: no carregamento vai só o lugar, com a altura da faixa reservada (`.amam__lugar`), e os
+TEXTOS só vêm nessa hora — a esteira busca `conteudo/depoimentos.ts` com `import()`, e do servidor
+vêm só as fotos (por prop, os 160 trechos iam dentro do HTML da home: 5 KB comprimidos, 0,3 s de
+LCP no CI). A foto do cartão é `getImageProps` no tamanho da caixa (54 px, só 1x e 2x). A volta
+dura 7,5 s por cartão (o ritmo do protótipo): com mais depoimentos, ela fica mais longa, e não mais
+rápida.
 `ferramentas/conferir-esteira.mjs` confere a conta e a lista de trechos, sem servidor.
 
 **Trecho de entrevista não é avaliação** (`TRECHOS`, em `conteudo/depoimentos.ts`): aparece como
@@ -1020,7 +1052,9 @@ o `titulo` (o `alt`; opcional desde a 0103 — sem ele, o `montar` do `banner.ts
 produto do link, ou "Ver todos os produtos") e o `produto` (vazio, leva pra vitrine); slide sem
 imagem — como os de texto de antes — cai na leitura (no backend e na loja), e o banner de fábrica é
 `slides: []`: sem arte, a home começa na barra de vantagens. Na loja, `components/home/slides-do-banner.tsx` desenha a arte sem hook (o servidor usa
-pro banner de um slide só) e `carrossel-do-banner.tsx` é o carrossel: o trilho do `useCarrossel`
+pro banner de um slide só), em qualidade 60 (`QUALIDADE_DA_ARTE`, 0117: a arte do celular cai de
+57 pra 40 KB sem diferença visível; qualidade nova pede o valor em `images.qualities`, no
+`next.config.ts`), e `carrossel-do-banner.tsx` é o carrossel: o trilho do `useCarrossel`
 (rolagem com encaixe), a troca sozinha, e a imagem de cada slide montada só quando ele vai
 aparecer. Na troca sozinha, a barrinha da bolinha da vez é o RELÓGIO (0106; o palco da Alta
 Performance também, desde a 0107): `components/home/use-barra-relogio.ts` (`useBarraRelogio`),

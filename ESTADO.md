@@ -984,10 +984,36 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
       com a foto no tamanho da caixa: no teste igual ao do CI, rodado aqui, a home ficou em 0,97,
       com 10–25 ms de bloqueio. Na página do produto, a seção ganhou a grade do protótipo (a lista
       saía sem estilo) e mostra o texto inteiro. Falta fechar a PR #90.
-  - [ ] **Folga pro LCP da home no Lighthouse do CI.** Ele vive no limite de 2,5 s (ver o
-        AGENTS.md, perto do Lighthouse): qualquer seção a mais na home sobe o simulado um degrau
-        de ~220 ms. A folga de verdade vem de aliviar a primeira tela — o HTML, o CSS e a fonte que
-        dividem a conexão —, e é trabalho à parte.
+  - [x] **Folga pro LCP da home no Lighthouse do CI.** Feito na entrega 0117 (item logo abaixo).
+- [x] **A home abre mais rápido no celular, e o teste mede a home de verdade** (entrega 0117,
+      26/09). O teste de velocidade do CI media uma home sem banner — a primeira coisa que o
+      cliente vê na loja — e mesmo assim estava no limite (2,56 s na main, reprovando; o máximo é
+      2,5 s). Com o banner, dava 2,8 s. Agora o teste tem banner (uma arte que pesa o mesmo que a
+      do Kit Premium), e a home mede **2,26 s** em todas as rodadas. Quatro mudanças, nenhuma
+      visível:
+      - **o banner ficou quase um terço mais leve**: a arte sai em qualidade 60, e não 75. Lado a
+        lado, ampliado duas vezes, não dá pra ver diferença — nem nas letras miúdas dos rótulos. No
+        celular, de 57 pra 40 KB (num celular de tela boa, de 76 pra 56 KB); no computador, de 95
+        pra 68 KB;
+      - **os raios de enfeite** (no aviso do topo, nas ofertas, nos benefícios, no bloco escuro, no
+        "sobre" e no rodapé) viraram recorte no CSS, e não imagem — no mesmo formato e lugar, pixel
+        a pixel. Como imagem, eles atrasavam a fonte no teste e custavam 0,2 s;
+      - **os 160 trechos das entrevistas** não vão mais dentro da página: a esteira busca os textos
+        quando a pessoa chega perto dela. A página da home ficou 17% menor (de 28 pra 23 KB);
+      - **o estilo da categoria, da busca e das páginas de texto** saiu do pacote que toda página
+        baixa antes de aparecer: cada uma carrega o seu.
+      A categoria (/barba) e a página do produto também ficaram mais rápidas no teste (2,18 → 2,10 s
+      e 2,33 → 2,26 s).
+  - [ ] **Mais folga pro LCP da home.** O teste simula um 4G lento que baixa uma coisa de cada vez,
+        em degraus de 0,15 s, e a home ficou logo abaixo de um degrau: se o HTML ou o CSS dela
+        crescerem 1,2 KB (comprimidos), ela pula pra 2,56 s e reprova (ver o AGENTS.md, perto do
+        Lighthouse). A PR #99 (rodapé) soma 0,35 KB e ainda cabe. Pra folga de verdade, é aliviar
+        o JavaScript da primeira tela: a home baixa o código da página do produto (a calculadora
+        de frete, a galeria, a rotina e os vídeos — uns 6,5 KB comprimidos), porque as duas
+        páginas montam as seções pelo mesmo registro; separar esse registro por página, mais
+        carregar a medida de velocidade (a telemetria) depois da página pronta e tirar o logo do
+        JavaScript, deixa a home passando mesmo depois desse degrau (2,41 s no simulador). É
+        trabalho à parte.
 - [x] **O conferidor do ERP procurava o aviso da equipe na caixa errada** (entrega 0101, 25/09).
       Desde as Configurações (entrega 0093), o e-mail da equipe — a nota que não saiu, a nota pra
       conferir ou pra cancelar, o Bling caído — vai pra quem está no painel com o papel que
