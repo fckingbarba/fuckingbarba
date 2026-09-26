@@ -36,6 +36,10 @@
  * │   chega antes do "Publicar"), ou o vídeo do admin de antes voltando;   │
  * │ • a prova social sem os casos dos produtos, sem a ressalva, sem o      │
  * │   link pro produto; o caso que sai do produto e fica na home;          │
+ * │ • a barra de avisos do topo que não muda em toda página no "Publicar"  │
+ * │   (ou muda antes), aceita ficar sem aviso escrito, anuncia o frete     │
+ * │   desligado, corre mais com mais texto, ou ganha bytes no HTML de      │
+ * │   sempre; a prévia da gaveta diferente da esteira da loja;             │
  * │ • a mudança sem linha no histórico; rolagem de lado no celular; erro   │
  * │   no console.                                                          │
  * └────────────────────────────────────────────────────────────────────────┘
@@ -1139,6 +1143,215 @@ try {
     )
   }
 
+  /*
+    A BARRA DE AVISOS DO TOPO (entrega 0119) — DEPOIS do histórico de cima:
+    cada "Salvar" e "Publicar" daqui é uma linha a mais, e o histórico só
+    mostra as 20 últimas (as da rodada lá de cima sairiam da tela).
+  */
+  titulo("A barra de avisos do topo (em toda página)")
+  {
+    /** A esteira no HTML da loja: os avisos da lista que se lê (a outra é cópia) e o `style` da pista. */
+    const esteiraDe = (html) => {
+      const lista = html.match(/<ul class="anuncio__lista">([\s\S]*?)<\/ul>/)?.[1] ?? ""
+      return {
+        avisos: [...lista.matchAll(/<li>([\s\S]*?)<\/li>/g)].map((m) => semEspaco(m[1])),
+        estilo: html.match(/<div class="anuncio__pista"(?: style="([^"]*)")?>/)?.[1] ?? null,
+      }
+    }
+    /** Uma volta da esteira: os avisos até repetir (a lista tem as voltas inteiras). */
+    const umaVolta = (avisos, n) => (avisos.length % n === 0 ? avisos.slice(0, n) : avisos)
+    /** O HTML de uma página da loja, esperando a condição (a loja refaz a página no fundo). */
+    const htmlDaLoja = async (caminho, condicao = () => true) => {
+      let html = ""
+      await esperarQue(async () => {
+        const r = await fetch(`${LOJA}${caminho}`, { cache: "no-store" })
+        html = r.status === 200 ? await r.text() : ""
+        return html && condicao(html) ? html : null
+      }, 25000)
+      return html
+    }
+    const pdp = (
+      await (
+        await fetch(`${MEDUSA}/store/products?limit=1&fields=handle`, {
+          headers: { "x-publishable-api-key": CHAVE },
+        })
+      ).json()
+    ).products?.[0]?.handle
+    const PAGINAS = ["/", "/produtos", `/produtos/${pdp}`]
+
+    /** A esteira no navegador: os avisos, a largura de uma lista e quanto o ciclo dura. */
+    const loja = await novaAba({ width: 1440, height: 900 })
+    const medir = async () => {
+      await loja.pagina.goto(`${LOJA}/?_=${Date.now()}`)
+      await loja.pagina.waitForSelector(".anuncio__lista li")
+      return loja.pagina.evaluate(() => {
+        const lista = document.querySelector(".anuncio__lista")
+        return {
+          avisos: [...lista.querySelectorAll("li")].map((li) =>
+            li.textContent.replace(/\s+/g, " ").trim()
+          ),
+          largura: lista.getBoundingClientRect().width,
+          ciclo: parseFloat(
+            getComputedStyle(document.querySelector(".anuncio__pista")).animationDuration
+          ),
+        }
+      })
+    }
+
+    await abrirHome()
+    const linha = pagina.locator("[data-anuncio]")
+    ok(
+      (await linha.count()) === 1 &&
+        semEspaco(await linha.locator(".secao__nome").textContent()) === "Barra de avisos" &&
+        (await linha.locator(".secao__fixa").count()) === 1 &&
+        (await linha.locator('[role="switch"], [data-mover]').count()) === 0 &&
+        (await pagina.locator(".secoes [data-anuncio]").count()) === 0,
+      "no painel: a barra de avisos numa linha fixa, em cima das seções e fora da lista delas"
+    )
+
+    const noSite = (await homeDaLoja()).conteudo.anuncio
+    const antes = await medir()
+    const voltaAntes = umaVolta(antes.avisos, noSite.avisos.length + (noSite.frete ? 1 : 0))
+    ok(
+      noSite.frete === true &&
+        voltaAntes.at(-1) === noSite.avisos.at(-1) &&
+        /^Frete .*\*$/.test(voltaAntes[0] ?? ""),
+      "na loja: a esteira de antes — o aviso do frete primeiro, depois os do painel",
+      voltaAntes.join(" | ")
+    )
+
+    await pagina.locator('[data-editar="anuncio"]').click()
+    const form = pagina.locator('form[data-editor="anuncio"]')
+    await form.waitFor()
+    const previa = async () =>
+      (await form.locator("[data-previa-da-faixa] li").allTextContents()).map(semEspaco)
+    ok(
+      (await form.locator('[data-campo="frete"]').isChecked()) &&
+        (await form.locator('[data-campo="avisos.0"]').inputValue()) === noSite.avisos[0] &&
+        JSON.stringify(await previa()) === JSON.stringify(voltaAntes),
+      "a gaveta abre com o que está no site, e a prévia é a esteira da loja (o frete com o valor das configurações)",
+      `${(await previa()).join(" | ")} × ${voltaAntes.join(" | ")}`
+    )
+
+    // Sem aviso escrito não grava: a esteira nunca fica vazia (o do frete some sem promoção).
+    for (let i = noSite.avisos.length - 1; i > 0; i--)
+      await form.locator('[data-tirar="avisos"]').nth(i).click()
+    await form.locator('[data-campo="avisos.0"]').fill("")
+    await form.locator('button[type="submit"]').click()
+    await form.locator(".gaveta__erro").waitFor()
+    const recusa = await medusa("/dashboard/home/anuncio", {
+      token: tokenMkt,
+      corpo: { valores: { frete: true, avisos: ["  "] } },
+    })
+    const daOperacao = await medusa("/dashboard/home/anuncio", {
+      token: tokenOp,
+      corpo: { valores: { frete: true, avisos: ["Da operação"] } },
+    })
+    ok(
+      /Falta preencher: Os avisos, nesta ordem\./.test(
+        semEspaco(await form.locator(".gaveta__erro").textContent())
+      ) &&
+        recusa.status === 422 &&
+        JSON.stringify(recusa.corpo.faltando) === '["avisos"]' &&
+        daOperacao.status === 403,
+      "sem aviso escrito não grava (a tela diz o que falta, a rota recusa), e a operação não mexe",
+      `${semEspaco(await form.locator(".gaveta__erro").textContent())} · ${recusa.status} · ${daOperacao.status}`
+    )
+
+    // Sem o frete, três avisos — um curto, um comprido e o curto de novo (a chave de cada um é a posição).
+    const CURTO = `Teste ${RODADA}`
+    const COMPRIDO = `Um aviso bem mais comprido que os outros, pra medir a esteira ${RODADA}`
+    await form.locator('[data-campo="frete"]').uncheck()
+    await form.locator('[data-campo="avisos.0"]').fill(CURTO)
+    for (const [i, texto] of [
+      [1, COMPRIDO],
+      [2, CURTO],
+    ]) {
+      await form.locator('[data-mais="avisos"]').click()
+      await form.locator(`[data-campo="avisos.${i}"]`).fill(texto)
+    }
+    ok(
+      JSON.stringify(await previa()) === JSON.stringify([CURTO, COMPRIDO, CURTO]),
+      "a prévia acompanha o formulário: sem o frete, os três na ordem",
+      (await previa()).join(" | ")
+    )
+    const salvo = await apertar(pagina, form.locator('button[type="submit"]'))
+    ok(!salvo.erro && /No rascunho/.test(salvo.texto), "salvo no rascunho", salvo.texto)
+    await pagina.locator("[data-faixa-home=esperando]").waitFor()
+    await pagina.waitForFunction(() =>
+      /não publicado/.test(document.querySelector("[data-anuncio]")?.textContent ?? "")
+    )
+    ok(
+      /1 mudança esperando/.test(await faixa()) &&
+        /Barra de avisos/.test(await faixa()) &&
+        semEspaco(await linha.textContent()).includes("3 avisos") &&
+        !semEspaco(await linha.textContent()).includes("frete"),
+      "a faixa conta 1 mudança (a barra), e a linha diz 'não publicado' e quantos avisos",
+      `${await faixa()} · ${semEspaco(await linha.textContent())}`
+    )
+    await esperar(2500)
+    ok(
+      !(await htmlDaLoja("/")).includes(CURTO) &&
+        JSON.stringify((await homeDaLoja()).conteudo.anuncio) === JSON.stringify(noSite),
+      "a loja NÃO mudou: o rascunho da barra não sai do painel"
+    )
+
+    const publicou = await apertar(pagina, "[data-faixa-home] [data-publicar-home]")
+    ok(!publicou.erro && /Publicada/.test(publicou.texto), "publicada", publicou.texto)
+    for (const caminho of PAGINAS) {
+      const { avisos, estilo } = esteiraDe(await htmlDaLoja(caminho, (h) => h.includes(CURTO)))
+      ok(
+        JSON.stringify(umaVolta(avisos, 3)) === JSON.stringify([CURTO, COMPRIDO, CURTO]) &&
+          !avisos.some((a) => /frete/i.test(a)) &&
+          /^animation-duration:\d+s$/.test(estilo ?? ""),
+        `na loja, em ${caminho}: os três avisos na ordem, sem o do frete, e o ciclo da esteira ajustado`,
+        `${umaVolta(avisos, 3).join(" | ")} · ${estilo}`
+      )
+    }
+    const depois = await medir()
+    const [v0, v1] = [antes.largura / antes.ciclo, depois.largura / depois.ciclo]
+    ok(
+      Math.abs(v1 / v0 - 1) < 0.25 && depois.largura >= 1440 && antes.largura >= 1440,
+      "no navegador: a esteira anda na mesma velocidade de antes, e cada lista cobre a tela",
+      `${v0.toFixed(1)} → ${v1.toFixed(1)} px/s · listas de ${Math.round(antes.largura)} e ${Math.round(depois.largura)} px`
+    )
+
+    // "Voltar ao texto original": o frete e a "Compra 100% segura" — e o HTML de antes, sem `style`.
+    await pagina.locator('[data-editar="anuncio"]').click()
+    await form.waitFor()
+    await form.locator("[data-voltar-ao-original]").click()
+    ok(
+      (await form.locator('[data-campo="frete"]').isChecked()) &&
+        (await form.locator('[data-campo="avisos.0"]').inputValue()) === "Compra 100% segura" &&
+        (await form.locator('[data-campo="avisos.1"]').count()) === 0,
+      "'Voltar ao texto original' põe a esteira de fábrica no formulário"
+    )
+    const volta = await apertar(pagina, form.locator('button[type="submit"]'))
+    ok(!volta.erro, "salvo", volta.texto)
+    await pagina.locator("[data-faixa-home=esperando]").waitFor()
+    const publicouDeNovo = await apertar(pagina, "[data-faixa-home] [data-publicar-home]")
+    ok(!publicouDeNovo.erro, "publicada de novo", publicouDeNovo.texto)
+    const deFabrica = esteiraDe(await htmlDaLoja(`/produtos/${pdp}`, (h) => !h.includes(CURTO)))
+    ok(
+      /^Frete .*\*$/.test(deFabrica.avisos[0] ?? "") &&
+        deFabrica.avisos[1] === "Compra 100% segura" &&
+        deFabrica.estilo === null,
+      "na loja: a esteira de fábrica de volta — o frete primeiro, e sem o `style` (o HTML de antes)",
+      `${deFabrica.avisos.slice(0, 2).join(" | ")} · ${deFabrica.estilo}`
+    )
+
+    await abrirHome()
+    const linhas = (
+      await pagina.locator("[data-historico] .historico li span").allTextContents()
+    ).map(semEspaco)
+    ok(
+      linhas.some((l) => l.includes("Marketing Teste editou Barra de avisos")),
+      "o histórico diz quem editou a barra de avisos",
+      linhas.slice(0, 4).join(" | ")
+    )
+    await loja.contexto.close()
+  }
+
   titulo("No celular")
   {
     const celular = await novaAba({ width: 390, height: 844 })
@@ -1150,6 +1363,16 @@ try {
     await celular.pagina.locator('[data-editar="home.alta-performance"]').click()
     await celular.pagina.locator('form[data-editor="home.alta-performance"]').waitFor()
     ok(await semRolagemDeLado(celular.pagina), "a gaveta do palco, sem rolar de lado")
+    await celular.pagina.locator("button", { hasText: "Cancelar" }).click()
+    await celular.pagina.locator('[data-editar="anuncio"]').click()
+    await celular.pagina
+      .locator('form[data-editor="anuncio"] [data-previa-da-faixa] li')
+      .first()
+      .waitFor()
+    ok(
+      await semRolagemDeLado(celular.pagina),
+      "a gaveta da barra de avisos, com a prévia da faixa, sem rolar de lado"
+    )
     await celular.contexto.close()
   }
 
