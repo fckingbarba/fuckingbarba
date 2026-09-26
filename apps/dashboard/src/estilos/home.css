@@ -18,3 +18,9 @@
 .casos-da-home li li { display: flex; align-items: center; gap: 8px; padding: 4px 10px 4px 4px; background: var(--papel); border: 2px solid var(--tinta); font-size: 0.78rem; font-weight: 700; }
 .casos-da-home li li img { width: 36px; height: 42px; object-fit: cover; }
 .casos-da-home li li small { font-weight: 600; color: var(--tinta-suave); }
+
+/* A barra de avisos: a faixa amarela do topo da loja, como vai ficar — parada (na loja ela anda), quebrando a linha pra caber. */
+.faixa-da-loja { margin-top: 18px; }
+.faixa-da-loja__avisos { list-style: none; margin: 4px 0 0; padding: 9px 12px; display: flex; flex-wrap: wrap; align-items: center; row-gap: 6px; background: var(--amarelo); color: var(--tinta); }
+.faixa-da-loja__avisos li { display: flex; align-items: center; gap: 14px; padding-right: 14px; font-size: 0.82rem; font-weight: 800; }
+.faixa-da-loja__avisos li:not(:last-child)::after { content: ""; width: 9px; height: 9px; background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z" fill="%2312181f"/></svg>') no-repeat center / contain; opacity: 0.55; }

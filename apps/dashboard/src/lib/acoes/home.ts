@@ -9,9 +9,9 @@ import type { Fundo, Resultado } from "@/lib/produtos"
 import type { ImagemQueSubiu, MudancaNaOrdem } from "@/lib/acoes/produtos"
 
 /**
- * AS AÇÕES DA HOME — o texto de uma seção, ligar/desligar e a ordem (tudo no
- * rascunho), o "Publicar" e o "Desfazer"; e a subida das imagens e do vídeo
- * da história da marca.
+ * AS AÇÕES DA HOME — o texto de uma seção e o da barra de avisos do topo,
+ * ligar/desligar e a ordem (tudo no rascunho), o "Publicar" e o "Desfazer";
+ * e a subida das imagens e do vídeo da história da marca.
  *
  * Quem decide se pode é o Medusa (`/dashboard/home/*`): o papel (marketing e
  * dono) e se o que chegou faz sentido. Cada mudança é aplicada sobre o
@@ -71,6 +71,22 @@ export async function salvarSecaoDaHome(
     return {
       ok: false,
       texto: "Uma das imagens não veio do armazenamento da loja. Escolha de novo.",
+    }
+  if (r.status !== 200) return { ok: false, texto: GENERICO }
+  revalidatePath("/home")
+  return { ok: true, texto: `Salvo. ${NO_RASCUNHO}` }
+}
+
+/** A barra de avisos do topo (`{ frete, avisos }`), no rascunho — como o texto de uma seção. */
+export async function salvarAnuncioDaHome(valores: Valores): Promise<Resultado> {
+  const r = await chamar("anuncio", { valores })
+  const erro = comum(r)
+  if (erro) return erro
+  if (r.status === 422 && Array.isArray(r.corpo.faltando))
+    return {
+      ok: false,
+      texto: "Falta preencher o que está marcado.",
+      faltando: (r.corpo.faltando as unknown[]).filter((f): f is string => typeof f === "string"),
     }
   if (r.status !== 200) return { ok: false, texto: GENERICO }
   revalidatePath("/home")
