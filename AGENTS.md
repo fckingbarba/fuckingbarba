@@ -1285,6 +1285,17 @@ mostra `shipping_total` e `discount_total`, e o desconto do frete apareceria nos
 conferidor é o `apps/dashboard/ferramentas/conferir-cupons.mjs`: cria os cupons pelo painel,
 aplica pela Store API e faz os pedidos com o `pedidoPix(..., { cupom })` do `pedido-de-teste.mjs`.
 
+**Os cupons da Nuvemshop** (entrega 0126). `src/lib/cupons-da-nuvemshop.ts` guarda a lista de
+26/09 escrita como a Nuvemshop mostra (desconto, usos, vigência, limites) e a lê no `CupomNovo` do
+painel (`lerCupomDaNuvemshop`). `planoDosCupons` diz o que criar (de Z a A: a lista do painel põe o
+mais novo em cima e lê de A a Z), o que já existe (em qualquer caixa) e o que fica de fora, com o
+motivo: frete grátis, "1 limite" sem a `condicao`, vencido no dia do deploy. A migração
+`src/migration-scripts/cupons-da-nuvemshop.ts` cria um por um com o `promocaoDoCupom` e guarda a
+linha de lá em `metadata.fb_nuvemshop`; cupom recusado pelo Medusa vai pro log sem parar o deploy.
+Os códigos mantêm o "_" (o formulário do painel não aceita; o Medusa e a loja, sim). Pra rodar de
+novo no banco local, apague a linha dela em `script_migrations`. Lista nova é migração nova, com
+outro nome: esta já rodou em produção.
+
 **Observabilidade** (fase 7, entrega 0087). O módulo `src/modules/observabilidade/` guarda três
 tabelas: `obs_rotina` (a última rodada de cada job), `obs_problema` e `obs_sinal` (o dia de cada
 integração). A regra mora em `src/lib/painel/observabilidade.ts`, puro, com testes:
