@@ -23,6 +23,8 @@ export type Area =
   | "clientes"
   | "newsletter"
   | "home"
+  | "marketing"
+  | "metaDoMes"
   | "observabilidade"
   | "configuracoes"
   | "equipe"
@@ -50,7 +52,7 @@ export const NOME_DO_PAPEL: Record<Papel, string> = {
 export const RESUMO_DO_PAPEL: Record<Papel, string> = {
   dono: "tudo, com a equipe e as configurações",
   operacao: "pedidos, despacho, rastreio e os erros da loja",
-  marketing: "home, cupons, carrinhos, newsletter e produtos",
+  marketing: "os números de venda, home, cupons, carrinhos, newsletter e produtos",
 }
 
 type Item = { area: Area; nome: string; href: Route; icone: NomeDoIcone }
@@ -82,6 +84,7 @@ export const MENU: { grupo: string | null; itens: Item[] }[] = [
   {
     grupo: "Análise",
     itens: [
+      { area: "marketing", nome: "Marketing", href: "/marketing", icone: "grafico" },
       { area: "observabilidade", nome: "Observabilidade", href: "/observabilidade", icone: "olho" },
     ],
   },
@@ -112,6 +115,8 @@ export const TITULO_CURTO: Record<Area, string> = {
   clientes: "Clientes",
   newsletter: "Newsletter",
   home: "Layout da home",
+  marketing: "Marketing",
+  metaDoMes: "Marketing",
   observabilidade: "Observabilidade",
   configuracoes: "Configurações",
   equipe: "Equipe",

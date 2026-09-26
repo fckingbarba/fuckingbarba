@@ -1,0 +1,57 @@
+/* --------------------------------------------------------------------------
+   MARKETING — os números do período, a meta do mês e os mais vendidos
+   (os desenhos do protótipo, apps/loja/ferramentas/porte/prototipo-painel.html).
+   -------------------------------------------------------------------------- */
+.kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin: 0 0 8px; }
+@media (max-width: 1180px) { .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 640px) {
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kpis .kpi:first-child { grid-column: 1 / -1; }
+}
+.kpi { min-width: 0; padding: 14px 16px; background: var(--papel); border: 2px solid var(--tinta); clip-path: var(--chanfro-p); }
+.kpi:first-child { background: var(--tinta); color: #fff; }
+.kpi__rot { margin: 0; font-size: 0.62rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--tinta-suave); }
+.kpi:first-child .kpi__rot, .kpi:first-child .kpi__sub { color: #aeb7c2; }
+.kpi:first-child .kpi__valor { color: var(--amarelo); }
+.kpi__valor { margin: 6px 0; font-size: clamp(1.2rem, 2.2vw, 1.5rem); font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+.kpi__sub { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin: 0; font-size: 0.72rem; color: var(--tinta-suave); }
+.delta { display: inline-flex; align-items: center; gap: 2px; padding: 2px 6px; background: var(--cinza-2); color: var(--tinta); font-size: 0.7rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.delta svg { width: 10px; height: 10px; fill: currentColor; }
+.delta[data-bom] { background: var(--menta-clara); color: var(--menta-escura); }
+.delta[data-ruim] { background: var(--erro-claro); color: var(--erro); }
+.glossario { margin: 0 0 16px; font-size: 0.76rem; color: var(--tinta-suave); }
+.glossario b { color: var(--tinta); }
+
+.meta__trilho { position: relative; height: 16px; background: var(--cinza-2); border: 2px solid var(--tinta); }
+.meta__trilho i { display: block; height: 100%; background: var(--menta-botao); }
+.meta__ritmo { position: absolute; top: -7px; bottom: -7px; width: 3px; margin-left: -1px; background: var(--tinta); }
+.meta__txt { margin: 12px 0 0; font-size: 0.86rem; }
+.meta-form { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.meta-form__campo { display: inline-flex; align-items: center; gap: 6px; padding: 0 10px; background: var(--papel); border: 2px solid var(--tinta); font-weight: 800; }
+.meta-form__campo input { width: 120px; padding: 8px 0; border: 0; background: none; font: inherit; font-variant-numeric: tabular-nums; outline: none; }
+.meta-form__campo:focus-within { box-shadow: 0 0 0 3px var(--amarelo); }
+.meta-form[aria-busy] { opacity: 0.6; }
+
+/*
+  O gráfico com muitas barras (30 dias no celular: 8 px cada). A coluna de
+  dentro de cada barra crescia até a largura do rótulo e empurrava a barra
+  pra fora da caixa: ela fica do tamanho da barra, e o rótulo e o valor das
+  pontas se alinham pra dentro.
+*/
+.barras-v--pontas .barras-v__col { grid-template-columns: minmax(0, 1fr); }
+.barras-v--pontas.barras-v--fino .barras-v__col:first-child .barras-v__rot { justify-self: start; }
+.barras-v--pontas.barras-v--fino .barras-v__col:last-child .barras-v__rot { justify-self: end; }
+.barras-v--pontas.barras-v--fino .barras-v__col:last-child > i[data-v]::before { left: auto; right: 0; transform: none; }
+
+.topo3 { list-style: none; margin: 0; padding: 0; }
+.topo3 li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid rgba(18, 24, 31, 0.1); font-size: 0.86rem; }
+.topo3 li:last-child { border-bottom: 0; }
+.topo3__n { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; background: var(--amarelo); font-size: 0.72rem; font-weight: 800; }
+.topo3__nome { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.topo3__texto { display: grid; min-width: 0; }
+.topo3__texto b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.topo3__sub { font-size: 0.74rem; color: var(--tinta-suave); }
+.topo3 .foto { width: 34px; height: 34px; flex-shrink: 0; }
+
+.fonte-dados { margin: 8px 0 0; padding: 12px 0 0; border-top: 2px solid var(--linha); font-size: 0.76rem; color: var(--tinta-suave); }
+.fonte-dados b { color: var(--tinta); }

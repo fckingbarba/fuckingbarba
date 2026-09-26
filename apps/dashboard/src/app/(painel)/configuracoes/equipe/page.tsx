@@ -78,6 +78,8 @@ const NOME_DA_LINHA: Record<Area, string> = {
   clientes: "Clientes",
   newsletter: "Clientes: a newsletter",
   home: "Layout da home",
+  marketing: "Marketing",
+  metaDoMes: "Marketing: mudar a meta do mês",
   observabilidade: "Observabilidade",
   configuracoes: "Configurações",
   equipe: "Equipe e acessos",
