@@ -2332,6 +2332,23 @@ o `conferir-cupons.mjs` (25/25) com eles no banco e os testes de unidade (15 nov
 Depois do deploy — **nada a configurar.** Pra conferir: Painel → Cupons e descontos — a lista começa
 em 0P2XSB e termina em ZKVI3I.
 
+**Checkout: em quantos dias chega, e a foto nos produtos do "Completa com" — pronto em 26/09
+(entrega 0123).** Pedido dele, com print do passo 2.
+
+- **Em quantos dias chega:** cada opção de entrega diz "Chega em 8 dias úteis" (o prazo da
+  transportadora pro CEP), no lugar de "A mais barata para o seu CEP" — como a sacola e a página do
+  produto já diziam, e como o protótipo desenhou. Embaixo das opções, "Dias úteis, contados da
+  postagem." Não custa nada a mais na Frenet: o prazo vem na mesma consulta do preço.
+- **A foto nos produtos do "Completa com":** cada produto sugerido pra completar o frete grátis ganha
+  a foto pequena, do lado do nome. Produto sem foto no catálogo aparece só com o nome, como antes.
+
+Conferido pelo `conferir-checkout.mjs` (as checagens novas: o prazo de cada opção igual ao da
+cotação, a frase dos dias úteis, abrir o passo 2 com uma consulta só à Frenet, a foto certa e
+carregada em cada chip, e o prazo quando as duas entregas são o mesmo serviço). Com a loja de
+antes, as checagens do prazo e da foto falham.
+
+Depois do deploy — **nada a configurar.**
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa

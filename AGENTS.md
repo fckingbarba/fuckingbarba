@@ -144,6 +144,12 @@ cannot have a negative time stamp.", quando o relógio do `next dev`, no ar há 
 do navegador. O da conta e os do painel descontam esse erro (`ferramentas/relogio-do-dev.mjs`);
 a explicação está no parágrafo do painel, mais abaixo.
 
+Um quinto, de banco copiado: o código da oferta do checkout é assinado com o `REVALIDAR_SEGREDO`
+(`lib/bumps.ts`), e um backend com outro segredo não acha nenhuma oferta valendo — o modelo do
+motor vem com `bump: {}`, e o de checkout para em "a caixinha aparece". O job `bumps` refaz as
+promoções de hora em hora; na hora, `medusa exec ./src/scripts/promocoes.ts` no banco local e
+reinicie o Medusa e o `next dev` (o modelo fica guardado uma hora nos dois).
+
 O de pagamento liga o Pagar.me na região pelo admin e devolve como estava. O aviso do estorno
 que não saiu ele lê numa caixa só (`caixaDaEquipe`), como o do ERP: a do dono do painel (o
 `DASHBOARD_DONO_EMAIL` do backend, que vai no ambiente dele também) ou, num banco sem ninguém no
@@ -241,7 +247,13 @@ rápida — ou a transportadora responde um serviço só —, as duas são A MES
 grátis vale nas duas (`aplicarPolitica` recebe o `servico` de cada faixa, no provider e na rota
 `/store/frete`). Antes só a econômica zerava, e a "expressa" cobrava pelo mesmo PAC e o mesmo
 prazo. No checkout, a econômica empatada em preço some (`semEntregaEmpatada`), a não ser que seja
-a gravada no carrinho.
+a gravada no carrinho. O PRAZO ("Chega em 8 dias úteis") o checkout não tem como tirar da cotação
+do Medusa, que devolve só o preço: ele pergunta à rota da calculadora (`POST /store/frete`, com o
+`cart_id`), em paralelo, e junta por faixa (`prazosDasFaixas`, em `lib/checkout.ts`; entrega
+0123). Pelo carrinho, a pergunta é a mesma do Medusa, e as duas dividem a viagem à Frenet — o
+`conferir-checkout` confere que abrir o passo 2 é uma viagem só. Quando as duas faixas são o
+mesmo serviço, a rota responde uma entrega só, e o prazo dela vale pras duas. Sem resposta da rota,
+a linha volta pra descrição do tipo ("A mais barata para o seu CEP").
 
 **Pagamento** é um provider próprio (`src/modules/pagarme/`, id `pp_pagarme_pagarme`): Pix e cartão
 em até 3x pelo Pagar.me, ligado na região por `npm run backend:pagamento` (que tira o provisório
