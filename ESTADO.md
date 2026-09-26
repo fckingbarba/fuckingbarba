@@ -975,6 +975,19 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
       da main e com o de qualquer entrega. A loja estava certa — no log, cada aviso saiu pro dono.
       Agora ele lê a caixa do dono do painel ou, num banco sem ninguém no painel, a do admin, como
       antes. Só o conferidor mudou: nada muda na loja, e nada a configurar.
+- [x] **A sacola responde no clique** (entrega 0104, 26/09, pedido da loja: "adicionar ou remover
+      do carrinho está demorando"). Medido na produção: adicionar levava 1,3 s (2,4 s o primeiro,
+      que cria o carrinho), o "+" 1,1 s e remover 0,9 s — quase tudo no Medusa, que refaz o
+      carrinho inteiro a cada escrita (umas cem idas e voltas ao banco; uma leitura simples custa
+      60 ms). Agora a gaveta abre no clique com o produto (a foto, o nome e o preço que a página já
+      mostrava) e o total esmaece até o Medusa responder; os botões de "+" e "−" não travam mais, e
+      os cliques seguidos se juntam (três "+" são duas idas, não três); e cada clique faz uma ida
+      ao Medusa em vez de duas — a primeira compra, que criava o carrinho vazio e depois punha o
+      item, agora cria já com ele. Vale na página do produto, no "Comprar" da vitrine, na rotina e
+      no "Leva junto" da gaveta. O `conferir-checkout` ganhou "A sacola responde no clique" (6
+      checagens, com as ações seguradas 1,5 s; com o código de antes, 4 falham) e deixou de usar o
+      balm como item "por fora" quando o balm é a própria oferta (num banco sem pedidos, é — e
+      tirar o extra tirava a oferta junto). Nada a configurar depois do deploy.
 - [ ] **Pagamento, o que a revisão achou e ficou pra depois** (baixo risco, sem dinheiro preso):
   - estorno ou contestação feitos do lado do Pagar.me depois do pagamento (pelo painel deles,
     chargeback) não são percebidos: o pedido segue pago, pro envio.
