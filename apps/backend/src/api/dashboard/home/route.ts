@@ -1,9 +1,11 @@
 import type { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { Modules } from "@medusajs/framework/utils"
 import { exigirArea, type PedidoDaEquipe } from "../../../lib/equipe/acesso"
+import { lerConfiguracoes } from "../../../lib/configuracoes"
 import { urlDaLoja } from "../../../lib/emails/moldura"
 import { lerHome } from "../../../lib/home"
 import {
+  anuncioDaHome,
   pendentesDaHome,
   provasDaHome,
   secoesDaHome,
@@ -16,16 +18,17 @@ import { linhaDoHistorico, noCatalogo } from "../../../lib/painel/produtos"
 
 /**
  * GET /dashboard/home — o "Layout da home" do painel: as seções na ordem do
- * rascunho (ligada, fixa, o texto de cada uma e o de fábrica), o que está
- * esperando o "Publicar", o último "Publicar", o catálogo (pros seletores de
- * produto: o banner, o palco, a foto do "Sobre"), os casos de antes e
- * depois dos produtos (a "Prova social" mostra eles) e o que a equipe
- * mudou. Dono e marketing.
+ * rascunho (ligada, fixa, o texto de cada uma e o de fábrica), a barra de
+ * avisos do topo (no mesmo formato, com o aviso do frete que a loja escreve
+ * hoje), o que está esperando o "Publicar", o último "Publicar", o catálogo
+ * (pros seletores de produto: o banner, o palco, a foto do "Sobre"), os
+ * casos de antes e depois dos produtos (a "Prova social" mostra eles) e o
+ * que a equipe mudou. Dono e marketing.
  *
  * `noSite`: o endereço da loja (`LOJA_URL`), pro "Ver a home".
  *
- * RESPOSTAS: 200 `{ secoes, pendentes, publicacao, catalogo, provas, noSite,
- * historico }`.
+ * RESPOSTAS: 200 `{ secoes, anuncio, pendentes, publicacao, catalogo, provas,
+ * noSite, historico }`.
  */
 export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) {
   const pedido = req as PedidoDaEquipe
@@ -49,6 +52,7 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
 
   res.json({
     secoes: secoesDaHome(home),
+    anuncio: anuncioDaHome(home, lerConfiguracoes(loja?.metadata).frete),
     pendentes: pendentesDaHome(home),
     publicacao: ultimaPublicacao(home, agora),
     catalogo: noSite.map((p) => noCatalogo(p, estoques.get(p.id) ?? null)),

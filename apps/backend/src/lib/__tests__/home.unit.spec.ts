@@ -61,6 +61,22 @@ describe("a home guardada", () => {
     expect(home({ publicadoEm: "ontem" }).publicadoEm).toBeNull()
   })
 
+  it("a barra de avisos vai pra loja; sem aviso escrito, volta a de fábrica", () => {
+    const comAnuncio = (anuncio: unknown) =>
+      homeDoSite(home({ publicado: { conteudo: { anuncio }, layout: {} } })).conteudo.anuncio
+    expect(comAnuncio({ frete: true, avisos: [" Envio em 24 h "] })).toEqual({
+      frete: true,
+      avisos: ["Envio em 24 h"],
+    })
+    expect(comAnuncio({ frete: "sim", avisos: ["Envio em 24 h"] })).toEqual({
+      frete: false,
+      avisos: ["Envio em 24 h"],
+    })
+    expect(comAnuncio({ frete: true, avisos: [""] })).toEqual(SEMENTE_DA_HOME.anuncio)
+    expect(comAnuncio(["Envio em 24 h"])).toEqual(SEMENTE_DA_HOME.anuncio)
+    expect(faltandoNaSecaoDaHome("anuncio", { frete: true, avisos: [] })).toEqual(["avisos"])
+  })
+
   it("os limites: duas vantagens, três passos, palco de pelo menos dois", () => {
     const palco = (n: number) =>
       Array.from({ length: n }, (_, i) => ({

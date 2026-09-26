@@ -31,6 +31,10 @@ import { lerFundo, lerImagem, lerLayout, type AjusteDeLayout, type Fundo } from 
  * GÊMEO NA LOJA: `apps/loja/src/lib/home.ts` tem os mesmos tipos e uma
  * peneira menor (só o que evita quebrar a página). A lista das seções e a
  * ordem padrão são as do registro da loja (`lib/secoes/registro.ts`).
+ *
+ * A BARRA DE AVISOS (`anuncio`, a esteira amarela do topo) vai junto no
+ * rascunho e no "Publicar", mas NÃO é seção: mora no layout da loja, em toda
+ * página, e não tem ordem nem chave de desligar (ver `AnuncioDoSite`).
  */
 
 export const CHAVE_NO_METADATA = "fb_home"
@@ -120,7 +124,22 @@ export type VideoDaHistoria = {
   duracao?: number
 }
 
+/**
+ * A BARRA DE AVISOS — a esteira amarela colada no topo de TODA página da
+ * loja (`apps/loja/src/components/layout/anuncio.tsx`), editada no "Layout
+ * da home" desde a entrega 0119. Não é seção da home: não sai do topo nem
+ * desliga — o `id="inicio"` dela é o alvo do "voltar ao topo" do rodapé.
+ *
+ * O aviso do frete é o único que a LOJA escreve: com `frete`, ele entra
+ * primeiro, com o valor das configurações (Configurações → Frete), e some
+ * sozinho quando não há promoção — nunca um "frete grátis a partir de
+ * R$ 0,00", nem um valor velho escrito à mão. Os `avisos` são os do
+ * painel, pelo menos um: a esteira nunca fica vazia.
+ */
+export type AnuncioDoSite = { frete: boolean; avisos: string[] }
+
 export type ConteudoDaHome = {
+  anuncio: AnuncioDoSite
   banner: { slides: SlideDoBanner[]; tempo: TempoDoBanner }
   /** As vantagens escritas à mão. O frete e o parcelamento entram sozinhos, antes delas. */
   trustbar: { vantagens: Vantagem[] }
@@ -176,8 +195,10 @@ export const CHAVE_DA_SECAO_DA_HOME: Record<IdDaSecaoDaHome, ChaveDaHome> = {
   "home.fechamento": "fechamento",
 }
 
-/** Quantos cabem: a barra tem quatro lugares (frete e parcelamento são dois). */
+/** Quantos cabem: a barra de vantagens tem quatro lugares (frete e parcelamento são dois). */
 export const LIMITES_DA_HOME = {
+  /** Os da barra de avisos escritos no painel; o do frete é um a mais. */
+  avisos: 4,
   slides: 5,
   vantagens: 2,
   comparativo: 3,
@@ -203,6 +224,8 @@ export const LIMITES_DA_HOME = {
  * └───────────────────────────────────────────────────────────────────────┘
  */
 export const SEMENTE_DA_HOME: ConteudoDaHome = {
+  // A esteira de antes do painel: o frete (quando há promoção) e a segurança.
+  anuncio: { frete: true, avisos: ["Compra 100% segura"] },
   // Sem arte, sem banner: ele só aparece quando alguém publicar a primeira.
   banner: { slides: [], tempo: 7 },
   trustbar: {
@@ -441,6 +464,13 @@ const ehTempo = (v: unknown): v is TempoDoBanner =>
   (TEMPOS_DO_BANNER as readonly unknown[]).includes(v)
 
 const LEITORES: { [K in ChaveDaHome]: (v: unknown) => ConteudoDaHome[K] | undefined } = {
+  anuncio: (v) => {
+    const o = obj(v)
+    const avisos = o && lista(o.avisos, LIMITES_DA_HOME.avisos)
+    // Caixinha desmarcada, o painel não manda a chave (`paraGravar`): sem ela, sem o frete.
+    return o && avisos ? { frete: o.frete === true, avisos } : undefined
+  },
+
   banner: (v) => {
     const o = obj(v)
     if (!o) return undefined
@@ -669,6 +699,7 @@ const EXIGE: Record<
   ChaveDaHome,
   { textos?: string[]; listas?: string[]; grupos?: Record<string, Grupo> }
 > = {
+  anuncio: { listas: ["avisos"] },
   // O banner tem regra própria (`faltandoNoBanner`): a arte de cada slide começado.
   banner: {},
   trustbar: { grupos: { vantagens: { campos: ["titulo", "detalhe"] } } },

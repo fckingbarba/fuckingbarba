@@ -7,10 +7,13 @@ import {
   SECOES_COM_FUNDO_DA_HOME,
   SECOES_DA_HOME,
   SEMENTE_DA_HOME,
+  type ChaveDaHome,
+  type ConteudoDaHome,
   type HomeGuardada,
   type IdDaSecaoDaHome,
   type VersaoDaHome,
 } from "../home"
+import type { PoliticaDeFrete } from "../configuracoes"
 import { lerPdp, type AjusteDeLayout, type Fundo } from "../pdp"
 import { quando, type Data } from "./formato"
 import type { MudancaNaOrdem } from "./produtos"
@@ -111,23 +114,38 @@ function secaoMudou(h: HomeGuardada, id: IdDaSecaoDaHome): boolean {
   )
 }
 
+/** A barra de avisos (a esteira do topo) mudou entre o rascunho e o publicado. */
+function anuncioMudou(h: HomeGuardada): boolean {
+  return (
+    !!h.rascunho &&
+    !igual(conteudoDaSecao(h.rascunho, "anuncio"), conteudoDaSecao(h.publicado, "anuncio"))
+  )
+}
+
+export type PendentesDaHome = { secoes: IdDaSecaoDaHome[]; ordem: boolean; anuncio: boolean }
+
 /**
  * O QUE ESTÁ ESPERANDO O "PUBLICAR": as seções que mudaram (o texto, ou
- * se aparecem) e se a ordem mudou. É o que a faixa amarela conta e lista.
+ * se aparecem), se a ordem mudou e se a barra de avisos mudou. É o que a
+ * faixa amarela conta e lista.
  */
-export function pendentesDaHome(h: HomeGuardada): { secoes: IdDaSecaoDaHome[]; ordem: boolean } {
-  if (!h.rascunho) return { secoes: [], ordem: false }
+export function pendentesDaHome(h: HomeGuardada): PendentesDaHome {
+  if (!h.rascunho) return { secoes: [], ordem: false, anuncio: false }
   return {
     secoes: SECOES_DA_HOME.filter((id) => secaoMudou(h, id)),
     ordem: !igual(ordemDaHome(h.rascunho.layout), ordemDaHome(h.publicado.layout)),
+    anuncio: anuncioMudou(h),
   }
 }
+
+/** Quantas mudanças: cada seção conta uma; a ordem, uma; a barra de avisos, uma. */
+export const quantasMudancasNaHome = (p: PendentesDaHome) =>
+  p.secoes.length + (p.ordem ? 1 : 0) + (p.anuncio ? 1 : 0)
 
 /** O rascunho na mão; se ele não mudou nada em relação ao publicado, some. */
 function comRascunho(h: HomeGuardada, rascunho: VersaoDaHome): HomeGuardada {
   const provisoria = { ...h, rascunho }
-  const { secoes, ordem } = pendentesDaHome(provisoria)
-  return secoes.length || ordem ? provisoria : { ...h, rascunho: null }
+  return quantasMudancasNaHome(pendentesDaHome(provisoria)) ? provisoria : { ...h, rascunho: null }
 }
 
 export const rascunhoDa = (h: HomeGuardada): VersaoDaHome => h.rascunho ?? h.publicado
@@ -171,6 +189,59 @@ export function secoesDaHome(h: HomeGuardada): SecaoDaHome[] {
       aceitaFundo: SECOES_COM_FUNDO_DA_HOME.includes(id),
     }
   })
+}
+
+/** A barra de avisos no `detalhe` do registro (lá, no lugar do id da seção). */
+export const ID_DO_ANUNCIO = "anuncio"
+
+/**
+ * A BARRA DE AVISOS NA TELA: o mesmo formato de uma seção — sempre ligada,
+ * fixa e sem fundo —, pra abrir na mesma gaveta. Não entra na lista das
+ * seções (`secoesDaHome`): ela não é da home, é do topo de toda página.
+ *
+ * `avisoDoFrete`: o que a loja escreve hoje no aviso do frete, pra gaveta
+ * mostrar o que a caixinha liga (`null`: sem promoção, ele não aparece).
+ */
+export type AnuncioDaHome = Omit<SecaoDaHome, "id"> & {
+  id: typeof ID_DO_ANUNCIO
+  avisoDoFrete: string | null
+}
+
+export function anuncioDaHome(h: HomeGuardada, frete: PoliticaDeFrete): AnuncioDaHome {
+  const valores = conteudoDaSecao(rascunhoDa(h), "anuncio")
+  return {
+    id: ID_DO_ANUNCIO,
+    ligada: true,
+    fixa: true,
+    valores,
+    padrao: SEMENTE_DA_HOME.anuncio,
+    propria: !igual(valores, SEMENTE_DA_HOME.anuncio),
+    mudou: anuncioMudou(h),
+    fundo: null,
+    aceitaFundo: false,
+    avisoDoFrete: avisoDoFrete(frete),
+  }
+}
+
+/** O espaço depois do "R$" é o fixo (U+00A0), como no `emReais` da loja. */
+const REAIS = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
+
+/**
+ * O AVISO DO FRETE NA ESTEIRA, como a loja escreve: "Frete grátis a partir
+ * de R$ 139,90*". GÊMEO de `frasesDoFrete(p).completa` + "*"
+ * (`apps/loja/src/lib/configuracoes.ts` e `components/layout/anuncio.tsx`):
+ * mudou lá, muda aqui — o `conferir-home` compara a gaveta com a loja.
+ */
+export function avisoDoFrete(p: PoliticaDeFrete): string | null {
+  if (p.modo === "nenhuma") return null
+  const selo = p.modo === "gratis" ? "Frete grátis" : `Frete ${REAIS.format(p.preco)}`
+  const completa =
+    p.piso > 0
+      ? `${selo} a partir de ${REAIS.format(p.piso)}`
+      : p.modo === "gratis"
+        ? "Frete grátis para todo o Brasil"
+        : `Frete fixo de ${REAIS.format(p.preco)} para todo o Brasil`
+  return `${completa}*`
 }
 
 export type Publicacao = { em: string; quando: string; quem: string | null } | null
@@ -229,11 +300,25 @@ export function mudarOrdemNaHome(
 }
 
 /**
+ * O conteúdo do rascunho com o texto novo de uma parte. Igual ao de fábrica,
+ * guarda SEM ela: o de fábrica continua valendo — e acompanha o código, se
+ * um dia ele mudar.
+ */
+function comTexto<K extends ChaveDaHome>(
+  r: VersaoDaHome,
+  chave: K,
+  texto: ConteudoDaHome[K]
+): VersaoDaHome["conteudo"] {
+  const conteudo = { ...r.conteudo, [chave]: texto }
+  if (igual(texto, SEMENTE_DA_HOME[chave])) delete conteudo[chave]
+  return conteudo
+}
+
+/**
  * O texto de uma seção, e a foto de fundo dela, no rascunho — um "Salvar"
  * só, na gaveta. Pela metade, não grava nada e diz o que falta. Igual ao de
- * fábrica, guarda SEM a seção: o de fábrica continua valendo — e acompanha
- * o código, se um dia ele mudar. `fundo` ausente não mexe no fundo; `null`
- * tira; e só vale nas seções que têm véu na loja.
+ * fábrica, guarda SEM a seção (`comTexto`). `fundo` ausente não mexe no
+ * fundo; `null` tira; e só vale nas seções que têm véu na loja.
  */
 export function salvarSecaoDaHome(
   h: HomeGuardada,
@@ -245,14 +330,21 @@ export function salvarSecaoDaHome(
   const lida = lerSecaoDaHome(chave, valores)
   if (!lida.secao) return { ok: false, motivo: "faltando", faltando: lida.faltando }
   const r = rascunhoDa(h)
-  const conteudo = { ...r.conteudo, [chave]: lida.secao }
-  if (igual(lida.secao, SEMENTE_DA_HOME[chave])) delete conteudo[chave]
+  const conteudo = comTexto(r, chave, lida.secao)
   const fundos = { ...r.fundos }
   if (fundo !== undefined && SECOES_COM_FUNDO_DA_HOME.includes(id)) {
     if (fundo) fundos[id] = fundo
     else delete fundos[id]
   }
   return { ok: true, home: comRascunho(h, { ...r, conteudo, fundos }) }
+}
+
+/** A barra de avisos, no rascunho: como o texto de uma seção, sem fundo. */
+export function salvarAnuncioDaHome(h: HomeGuardada, valores: unknown): Feito | Recusa<"faltando"> {
+  const lida = lerSecaoDaHome("anuncio", valores)
+  if (!lida.secao) return { ok: false, motivo: "faltando", faltando: lida.faltando }
+  const r = rascunhoDa(h)
+  return { ok: true, home: comRascunho(h, { ...r, conteudo: comTexto(r, "anuncio", lida.secao) }) }
 }
 
 /** O rascunho vai pro site. Sem rascunho, não há o que publicar. */
