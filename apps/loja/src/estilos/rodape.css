@@ -1,7 +1,8 @@
 /*
   Rodapé escuro: newsletter, quatro colunas, formas de pagamento e a barra
   legal. A faixa zebrada do topo e o raio d'água gigante são ::before e
-  ::after — nada de imagem extra pra baixar.
+  ::after — nada de imagem extra pra baixar. No celular, as colunas, os selos
+  e o pagamento viram sanfona (ver "OS GRUPOS", no fim do arquivo).
 */
 
 /* Entrelinha padrão do navegador, como no protótipo: o preflight do
@@ -247,12 +248,14 @@
   fill: currentColor;
 }
 .rodape__pagamento {
+  padding: 18px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+.rodape__pagamento-linha {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 10px 14px;
-  padding: 18px 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
 }
 .rodape__pagamento-titulo {
   margin: 0 6px 0 0;
@@ -447,4 +450,109 @@
   font-size: 0.74rem;
   line-height: 1.3;
   color: #a3acb4;
+}
+
+/* ======================================================
+   OS GRUPOS — coluna no computador, sanfona no celular
+
+   Cada grupo é um `<details class="rodape__grupo">` que
+   nasce fechado, com o título duas vezes: o `summary` (o
+   botão da sanfona) e o `h2` (o título da coluna) — o
+   porquê está em `rodape.tsx`. Do 641px pra cima, o CSS
+   abre o miolo e troca um título pelo outro. Sem
+   JavaScript: vale desde a primeira pintura.
+
+   O "abrir no computador" fica atrás do `@supports`: é o
+   `::details-content` que deixa o CSS mostrar o miolo de um
+   `<details>` fechado. Navegador que não o conhece (Safari
+   antes do 18.4) mostra a sanfona também no computador —
+   funciona, só não fica em coluna aberta. Sem o `@supports`
+   ele esconderia o botão e nunca mostraria o miolo: o grupo
+   sumiria da tela.
+
+   Fica no fim do arquivo porque o celular desfaz o espaço
+   e a linha de cima dos `.selos`, que são declarados logo
+   acima: com o mesmo peso, ganha quem vem depois.
+   ====================================================== */
+.rodape__grupo > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  list-style: none;
+  color: var(--color-amarelo);
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+.rodape__grupo > summary::-webkit-details-marker {
+  display: none;
+}
+/* O "+" que vira "−": duas barras desenhadas no fundo, sem ícone a mais no
+   HTML de toda página. Abrir encolhe a barra de pé até sumir (quem pede
+   menos movimento não vê a transição: a regra geral do `globals.css`). */
+.rodape__grupo > summary::after {
+  content: "";
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  background-image: linear-gradient(#ffffff, #ffffff), linear-gradient(#ffffff, #ffffff);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size:
+    100% 2px,
+    2px 100%;
+  transition: background-size 0.2s ease;
+}
+.rodape__grupo[open] > summary::after {
+  background-size:
+    100% 2px,
+    2px 0;
+}
+/* O contorno de foco geral é tinta, que some no fundo escuro. */
+.rodape__grupo > summary:focus-visible {
+  outline-color: #4fe0b9;
+}
+/* No celular quem diz o nome do grupo é o `summary`: o `h2` aberto logo
+   embaixo dele seria o mesmo nome duas vezes. */
+.rodape__grupo h2 {
+  display: none;
+}
+@supports selector(::details-content) {
+  @media (min-width: 641px) {
+    .rodape__grupo > summary {
+      display: none;
+    }
+    .rodape__grupo h2 {
+      display: block;
+    }
+    .rodape__grupo::details-content {
+      content-visibility: visible;
+    }
+  }
+}
+@media (max-width: 640px) {
+  .rodape__colunas {
+    gap: 0;
+    padding-bottom: 0;
+  }
+  /* A marca e as redes seguem abertas; a sanfona começa embaixo delas. */
+  .rodape__colunas > :first-child {
+    padding-bottom: 24px;
+  }
+  /* Quem separa um grupo do outro, aqui, é a linha do `summary`. */
+  .selos,
+  .rodape__pagamento {
+    padding: 0;
+    border-top: 0;
+  }
+  .rodape__grupo > summary {
+    padding: 18px 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+  }
+  .rodape__grupo[open] {
+    padding-bottom: 20px;
+  }
 }
