@@ -939,6 +939,11 @@ LCP simulado sobe ~200 ms (2,33 → 2,55 s, A/B local), acima do orçamento de 2
 errado. `content-visibility: auto` nas seções de baixo não mudou nada (o custo não é o layout, é o
 tamanho do documento). O `conferir-pdp.mjs` confere cada frase do arquivo na página de cada produto que
 existe no banco local, e a página enxuta num produto esvaziado de propósito (e devolvido no fim).
+Desde a 0112 (pedido da loja, "mais enxuto"), a Benefícios não tem mais a ressalva (`rodape`, com o
+link "leia isto antes") nem a Linha do tempo o aviso (`aviso`): o contrato não lê os dois (o que ainda
+estiver gravado sai na próxima gravação da seção), o painel não edita e a loja não desenha. O
+"resultado varia" do Fator segue nas Perguntas e no "Pra quem é". As regras `.promessa__rodape` e
+`.tempo__aviso` ficaram sem uso no CSS gerado do protótipo (`porte/pdp-partes`).
 
 **A home** (fase 4, parte 1). O texto e a ordem da home saíram do código pro `metadata` da loja, na
 chave `fb_home` (`apps/backend/src/lib/home.ts`): duas versões, `publicado` (o que a loja mostra) e

@@ -79,12 +79,10 @@ export type ConteudoDaPdp = {
     chapeu: string
     titulo: string
     itens: string[]
-    rodape?: string
   }
   tempo?: {
     titulo: string
     passos: PassoDoTempo[]
-    aviso?: string
   }
   faixa?: {
     chapeu: string

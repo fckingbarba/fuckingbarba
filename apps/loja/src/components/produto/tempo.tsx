@@ -19,6 +19,8 @@ import { conteudoDaPdp } from "@/conteudo/produto"
  * em cada um, os dois ligados. Até a entrega 0105 era um `<dl>` só com o
  * prazo (`<p>`) solto dentro de cada grupo, o que o `<dl>` não aceita: o
  * Lighthouse tirava 3 pontos de acessibilidade de toda página com a seção.
+ *
+ * Sem o aviso embaixo, desde 26/09 (pedido da loja: a seção fica mais enxuta).
  */
 export async function Tempo({ handle }: { handle: string }) {
   const c = (await conteudoDaPdp(handle)).tempo
@@ -48,13 +50,6 @@ export async function Tempo({ handle }: { handle: string }) {
             </li>
           ))}
         </ol>
-
-        {c.aviso ? (
-          <p className="tempo__aviso">
-            <Raio />
-            <span>{c.aviso}</span>
-          </p>
-        ) : null}
       </div>
     </section>
   )

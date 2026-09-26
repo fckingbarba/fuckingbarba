@@ -72,15 +72,20 @@ describe("os textos do arquivo", () => {
     }
   })
 
-  it("os kits do Fator são o Fator: só muda o aviso de quantos meses o kit cobre", () => {
-    const fator = textosDoProduto("fator-de-crescimento-para-barba")!
+  it("os kits do Fator são o Fator: as sete seções iguais (muda só a descrição do Google)", () => {
+    const { seo: seoDoFator, ...fator } = textosDoProduto("fator-de-crescimento-para-barba")!
     for (const kit of ["kit-2", "kit-3", "kit-6"]) {
-      const t = textosDoProduto(`${kit}-fator-de-crescimento-para-barba`)!
-      for (const chave of ["promessa", "rotina", "funciona", "versus", "quem", "duvidas"] as const)
-        expect(t[chave]).toEqual(fator[chave])
-      const tempo = t.tempo as { passos: unknown[]; aviso: string }
-      expect(tempo.passos).toEqual((fator.tempo as { passos: unknown[] }).passos)
-      expect(tempo.aviso).not.toEqual((fator.tempo as { aviso: string }).aviso)
+      const { seo, ...t } = textosDoProduto(`${kit}-fator-de-crescimento-para-barba`)!
+      expect(t).toEqual(fator)
+      expect(seo).not.toEqual(seoDoFator)
+    }
+  })
+
+  it("sem a ressalva dos Benefícios e sem o aviso da Linha do tempo (26/09)", () => {
+    for (const handle of NO_AR) {
+      const { promessa, tempo } = gravado(comOsTextos(PDP_VAZIA, handle, todas)!.pdp).conteudo
+      expect(promessa).not.toHaveProperty("rodape")
+      expect(tempo).not.toHaveProperty("aviso")
     }
   })
 })
