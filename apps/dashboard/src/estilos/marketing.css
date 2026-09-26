@@ -107,3 +107,13 @@
 /* Sem dado (o Google fora, nada no período): uma linha, dentro do bloco. */
 .sem-dados { margin: 0; font-size: 0.84rem; color: var(--tinta-suave); }
 .bloco--sem-pad > .sem-dados { padding: 0 clamp(16px, 2.2vw, 22px) 16px; }
+
+/* --------------------------------------------------------------------------
+   A PARTE 3 — os Produtos e as Ofertas.
+   -------------------------------------------------------------------------- */
+.sinais { display: flex; flex-wrap: wrap; gap: 4px; }
+.produtos__sem-google { margin: 0 0 12px; }
+.tabela__link.com-foto { display: inline-flex; }
+.ofertas__resultado { white-space: normal; }
+[data-numeros-das-ofertas] { margin-top: 16px; }
+.ofertas__nota { margin: 12px 0 16px; }
