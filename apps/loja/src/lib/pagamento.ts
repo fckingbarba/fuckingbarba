@@ -116,6 +116,32 @@ export function entradaDoCarrinho(
 }
 
 /**
+ * A PORTA DO CARTÃO barrou antes do Pagar.me (`backend/src/lib/cartao/`): o
+ * robô testando cartão roubado não passa, e quem é de verdade lê o que
+ * fazer. Nada foi cobrado — a tentativa nem saiu da loja. O Medusa responde
+ * 429 com o motivo no `message`; qualquer outra coisa, `null`.
+ *
+ * A frase não diz qual trava foi: pra quem compra, importa que o Pix
+ * funciona agora e que o cartão volta depois.
+ */
+export function recusaDaPorta(e: unknown): string | null {
+  const motivo = e instanceof Error ? e.message : ""
+  if (motivo === "cartao_limite") {
+    return (
+      "Foram muitas tentativas com cartão, e por segurança o cartão ficou pausado nesta compra. " +
+      "Paga no Pix agora ou tenta o cartão de novo daqui a uma hora — nada foi cobrado."
+    )
+  }
+  if (motivo === "cartao_freio") {
+    return (
+      "O pagamento com cartão está numa pausa de segurança de alguns minutos. O Pix funciona " +
+      "normal — ou tenta o cartão de novo daqui a pouco. Nada foi cobrado."
+    )
+  }
+  return null
+}
+
+/**
  * Depois de um `complete` que não deu pedido: o carrinho fechou mesmo assim
  * (a resposta se perdeu no caminho), ou a sessão foi recusada — e com qual
  * frase.

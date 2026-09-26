@@ -31,7 +31,7 @@ import {
   type ErrosDoFormulario,
   type EstadoDaEtapa,
 } from "@/lib/checkout-visivel"
-import { guardarDaCompra, lerCliente, lerSessao } from "@/lib/conta"
+import { cabecalhosDeQuemPede, guardarDaCompra, lerCliente, lerSessao } from "@/lib/conta"
 import {
   codigoDoCupom,
   cuponsDoCarrinho,
@@ -45,7 +45,7 @@ import { conferirDocumento, type Documento } from "@/lib/documento"
 import { emReais } from "@/lib/formato"
 import { cepDeOutraCidade, comCepNovo, ehUf, lerEndereco, montarEndereco } from "@/lib/endereco"
 import { cliente, configuracoes } from "@/lib/medusa"
-import { depoisDaRecusa, entradaDoCarrinho } from "@/lib/pagamento"
+import { depoisDaRecusa, entradaDoCarrinho, recusaDaPorta } from "@/lib/pagamento"
 import { rastroDaCompra, registrarRastro } from "@/lib/rastro"
 import { lerToken } from "@/lib/sessao"
 import { CHECKOUT_ABERTO } from "@/lib/site"
@@ -554,7 +554,18 @@ export async function finalizar(anterior: EstadoDaEtapa, fd: FormData): Promise<
   let pedidoId: string | null = null
   let recusa = ""
   try {
-    const resposta = await sdk.store.cart.complete(carrinho.id)
+    /*
+      QUEM PAGA VAI ASSINADO: o IP de quem está do outro lado, com o segredo
+      que a loja e o Medusa dividem (`cabecalhosDeQuemPede`). É por ele que a
+      porta do cartão conta as tentativas de cada pessoa — sem ele, todo
+      mundo cairia no balde pequeno de quem chega sem passar pela loja (ver
+      `backend/src/lib/cartao/robo.ts`).
+    */
+    const resposta = await sdk.store.cart.complete(
+      carrinho.id,
+      undefined,
+      await cabecalhosDeQuemPede()
+    )
     if (resposta.type === "order") pedidoId = resposta.order.id
     else {
       recusa = String(resposta.error?.message ?? "sem pedido")
@@ -566,6 +577,10 @@ export async function finalizar(anterior: EstadoDaEtapa, fd: FormData): Promise<
     // um provedor que respondeu "error" sobe como exceção.
     recusa = e instanceof Error ? e.message : String(e)
     registrar(e, "finalizar")
+    // A porta do cartão barrou antes do Pagar.me: nada saiu da loja, e a
+    // frase diz o que fazer — o Pix, ou o cartão mais tarde.
+    const daPorta = recusaDaPorta(e)
+    if (daPorta) return erro(anterior, {}, daPorta, fd)
   }
 
   if (!pedidoId) {
