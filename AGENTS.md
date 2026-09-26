@@ -47,8 +47,9 @@ no fim, mesmo quando falham.
 A faixa de cookies aparece pra todo mundo desde a 0130 (a própria loja pergunta, pro CRM), por cima
 do pé da tela — e o clique no botão de baixo caía nela. Os conferidores que não são dela chamam
 `comAFaixaRespondida(navegador, LOJA)` (`ferramentas/faixa-respondida.mjs`) logo depois do
-`chromium.launch`: todo contexto nasce com o "Só o necessário", a loja de antes. Conferidor novo da
-loja que abre navegador: faça o mesmo. Quem confere a faixa são o `conferir-integracoes` e o
+`chromium.launch`: todo contexto nasce com o "Só o necessário", a loja de antes. Conferidor novo que
+abre páginas da loja no navegador: faça o mesmo (o `conferir-feed` não precisa — o navegador dele só
+lê o XML numa página em branco). Quem confere a faixa são o `conferir-integracoes` e o
 `conferir-crm` do painel.
 
 ```bash
