@@ -1,6 +1,8 @@
 /*
-  A esteira de avaliações. Mesmo movimento da faixa de avisos: duas filas
-  idênticas correndo -50%, e para quando sai da tela.
+  A esteira de avaliações, em duas fileiras como no protótipo: a de cima
+  corre pra esquerda e a de baixo pra direita. Cada uma com o movimento da
+  faixa de avisos — duas filas idênticas correndo -50% —, e as duas param
+  quando a seção sai da tela.
 */
 
 /* Entrelinha padrão do navegador, como no protótipo: o preflight do
@@ -21,6 +23,8 @@
   padding: clamp(30px, 3.6vw, 46px) 0 clamp(24px, 3vw, 36px);
   overflow: hidden;
 }
+/* A listra de cima: preto e amarelo, como a das outras seções (era preto e
+   branco, do protótipo). */
 .amam::before {
   content: "";
   position: absolute;
@@ -31,7 +35,7 @@
   background: repeating-linear-gradient(
       -45deg,
       var(--color-tinta) 0 14px,
-      #ffffff 14px 28px
+      var(--color-amarelo) 14px 28px
     );
 }
 .amam__topo {
@@ -74,11 +78,12 @@
 .amam__nota .estrelas__cheias svg {
   fill: var(--color-amarelo);
 }
-/* O lugar da esteira, com a altura da faixa (um cartão de três linhas) já
-   reservada: os cartões só entram quando a seção chega perto da tela
+/* O lugar da esteira, com a altura das duas fileiras (um cartão de três
+   linhas em cada, 111px, e o vão entre elas) já reservada: os cartões só
+   entram quando a seção chega perto da tela
    (components/home/esteira-de-avaliacoes.tsx), e nada abaixo pode pular. */
 .amam__lugar {
-  min-height: 111px;
+  min-height: calc(2 * 111px + 14px);
 }
 .amam__esteiras {
   display: flex;
@@ -91,6 +96,10 @@
   gap: 14px;
   animation: amamCorre 46s linear infinite;
 }
+/* A segunda fileira corre no sentido contrário. Duas correndo pro mesmo
+   lado parecem a mesma coisa duplicada; em sentidos opostos, a leitura é de
+   movimento proposital. A duração de cada fileira vem do componente, pelo
+   número de cartões. */
 .amam__esteira--volta {
   animation-duration: 58s;
   animation-direction: reverse;
