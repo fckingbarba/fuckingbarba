@@ -1,0 +1,54 @@
+/*
+  O TRILHO DA FOTO GRANDE (`components/produto/galeria.tsx`). Escrito à mão
+  (não sai do agrupa-pdp.py). Pedido da loja em 26/09: no celular, a foto
+  passa no dedo — antes, só os pontos embaixo dela trocavam.
+
+  O palco (`.galeria__palco`, no `pdp.css` gerado) continua sendo a moldura:
+  a borda, o canto cortado, a sombra, o selo e a lupa. Dentro dele, o trilho
+  rola na horizontal com encaixe, como o do banner da home: a foto
+  acompanha o dedo e para inteira na próxima, sem JavaScript nenhum. Cada
+  foto é um botão que abre o zoom, e a caixa dela é quadrada antes de a
+  imagem chegar — nada pula.
+*/
+.galeria__trilho {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+.galeria__trilho::-webkit-scrollbar {
+  display: none;
+}
+.galeria__slide {
+  flex: 0 0 100%;
+  min-width: 0;
+  overflow: hidden;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+.galeria__foto {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  padding: 0;
+  border: 0;
+  background: var(--color-papel);
+  cursor: zoom-in;
+}
+.galeria__foto:focus-visible {
+  outline: 3px solid var(--color-tinta);
+  outline-offset: -6px;
+}
+/* A foto crescendo com o mouse em cima é do computador: no dedo, ela passa parada. */
+@media (hover: none) {
+  .galeria__palco:hover img {
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .galeria__trilho {
+    scroll-behavior: auto;
+  }
+}

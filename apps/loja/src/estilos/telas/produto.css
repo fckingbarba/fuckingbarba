@@ -29,3 +29,5 @@
 @import "../pdp-video.css";
 /* Escrito à mão: as setas e o contador do zoom da foto. */
 @import "../pdp-zoom.css";
+/* Escrito à mão: o trilho da foto grande, que passa no dedo. */
+@import "../pdp-galeria.css";
