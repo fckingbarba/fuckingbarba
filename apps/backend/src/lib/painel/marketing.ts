@@ -109,10 +109,14 @@ export function lerPedidosDesde(periodo: Periodo, agora: Date): Date {
 
 export type ItemVendido = {
   produto: string
+  /** O endereço do produto ("oleo-para-barba"): o leve junto de cada um é por endereço. */
+  handle: string | null
   nome: string
   imagem: string | null
   unidades: number
   receita: number
+  /** Os descontos com código: o cupom e a oferta do checkout ("BUMP-…"). */
+  ajustes: { codigo: string; valor: number }[]
 }
 export type Venda = { id: string; pagoEm: Date; total: number; itens: ItemVendido[] }
 
@@ -125,10 +129,14 @@ export function vendasDos(pedidos: PedidoCru[]): Venda[] {
       const unidades = numero(i.quantity)
       return {
         produto: i.product_id ?? i.product_title ?? i.title ?? i.id,
+        handle: i.product_handle ?? null,
         nome: nomeCurto(i.product_title ?? i.title ?? "Produto"),
         imagem: i.thumbnail ?? null,
         unidades,
         receita: centavos(numero(i.total) || numero(i.unit_price) * unidades),
+        ajustes: (i.adjustments ?? []).flatMap((a) =>
+          a?.code ? [{ codigo: a.code, valor: centavos(numero(a.amount)) }] : []
+        ),
       }
     })
     return [{ id: o.id, pagoEm, total: totalDo(o), itens }]
