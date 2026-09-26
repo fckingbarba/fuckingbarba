@@ -9,6 +9,7 @@ import {
   conciliarProblemas,
   problemaDoErp,
   problemasDasOcorrencias,
+  problemasDoCartao,
   problemasDasRotinas,
   problemasDosPedidos,
   problemasDosSinais,
@@ -33,7 +34,8 @@ import { semDadoPessoal } from "./sinal"
  * Lê o mesmo que o Início: os pedidos dos últimos 45 dias (até 500), com as
  * notas e os envios. E a conexão do ERP, as rotinas, os sinais e o que o
  * navegador mandou (a página que não existe, o erro) de hoje e de ontem — a
- * falha das 23:58 não fica pra trás na virada do dia.
+ * falha das 23:58 não fica pra trás na virada do dia. E as tentativas de
+ * cartão: o freio contra o robô, e as que chegaram sem passar pela loja.
  */
 
 const DIA = 24 * 60 * 60 * 1000
@@ -51,7 +53,7 @@ async function vigiarAgora(container: MedusaContainer, agora: Date): Promise<voi
   const pedidos = await pedidosRecentes(container, { limite: 500, dias: 45, agora })
   const ids = pedidos.map((o) => o.id)
   const dias = [chaveDoDia(agora), chaveDoDia(agora.getTime() - DIA)]
-  const [notas, envios, conexao, rotinas, sinais, lojas, ocorrencias] = await Promise.all([
+  const [notas, envios, conexao, rotinas, sinais, lojas, ocorrencias, cartao] = await Promise.all([
     notasDos(container, ids),
     enviosDos(container, ids),
     erp ? lerConexao(container, erp) : null,
@@ -59,6 +61,8 @@ async function vigiarAgora(container: MedusaContainer, agora: Date): Promise<voi
     obs.listSinaisDasIntegracoes({ dia: dias }, { take: 50 }),
     container.resolve(Modules.STORE).listStores({}, { select: ["metadata"], take: 1 }),
     obs.listOcorrencias({ dia: dias }, { take: 500, order: { vezes: "DESC" } }),
+    // Sem a tabela (a migração ainda não rodou), o resto do vigia segue.
+    obs.resumoDoCartao().catch(() => null),
   ])
   const admin = urlDoAdmin()
 
@@ -86,6 +90,7 @@ async function vigiarAgora(container: MedusaContainer, agora: Date): Promise<voi
       admin,
     }),
     ...problemasDasOcorrencias(ocorrencias as unknown as LinhaDaOcorrencia[], agora),
+    ...(cartao ? problemasDoCartao(cartao, agora) : []),
   ]
 
   const chaves = achados.map((a) => a.chave)

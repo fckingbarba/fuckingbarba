@@ -2465,6 +2465,43 @@ novos nos cupons).
 
 Depois do deploy — **nada a configurar.** Pra testar: Painel → Cupons e descontos → Novo cupom.
 
+**Cartão: a porta contra o robô testando cartão — pronta em 26/09 (entrega 0129).** Pedido dele,
+depois do levantamento do que a Nuvemshop e a Shopify têm e a loja não tinha ("me explica como
+esse robô testando cartão vai funcionar" → "bora"). O golpe: quem compra uma lista de cartões
+roubados usa uma loja pequena pra descobrir quais funcionam — um cartão atrás do outro, centenas
+por hora, com as recusas saindo no nome da loja (e o Pagar.me pode segurar a conta por isso). Até
+aqui o pagamento não tinha limite nenhum: a mesma sacola aceitava cartão novo sem fim, e ninguém
+via — o painel guardava só a última tentativa de cada sacola.
+
+- **A porta:** antes de o cartão ir pro Pagar.me, a loja confere a mesma sacola (até 5 tentativas
+  por hora), a mesma pessoa (o IP, até 8) e quem tenta sem passar pela loja, direto no servidor (3
+  por hora, todo mundo junto). Barrada, a pessoa lê que pode pagar no Pix agora ou tentar o cartão
+  depois — e que nada foi cobrado. O Pix não passa por nada disso.
+- **O freio:** muita recusa em pouco tempo (8 em 30 minutos, quase só recusa) é o robô que troca de
+  IP e de sacola a cada tentativa. A loja liga o freio sozinha: o cartão da loja toda passa poucas
+  tentativas por vez (3 a cada 10 minutos), e o dono recebe UM e-mail, "Robô testando cartão na
+  loja". Desliga sozinho quando as recusas param. Uma tarde boa de vendas, com recusa de gente no
+  meio, não liga: precisa ser quase tudo recusa.
+- **O registro:** cada tentativa de cartão fica guardada 30 dias, sem o IP de ninguém. Na
+  Observabilidade, o bloco "Cartão" mostra as das últimas 24 horas (aprovadas, recusadas,
+  barradas) e o freio; o freio ligado vira problema grave, e a tentativa que chega sem passar pela
+  loja, "pra olhar" (é robô — ou o `REVALIDAR_SEGREDO` diferente entre a Vercel e o Railway).
+- **Soltar na mão:** se o freio ligar por engano, o Claude Code solta pelo admin
+  (`POST /admin/cartao`, "soltar") — ou é esperar os 30 minutos.
+
+Conferido pelo `conferir-pagamento.mjs` (a seção nova do robô: a mesma sacola pela tela, o robô que
+pula a loja, o freio com 8 recusas de pessoas e sacolas diferentes, o e-mail do dono, o Pix com o
+freio ligado, a frase na tela e o soltar), pelo `conferir-observabilidade.mjs` do painel (o bloco
+Cartão conta igual ao admin), pelo `conferir-configuracoes.mjs` (7 avisos da equipe) e pelos testes
+de unidade.
+
+Depois do deploy — **nada a configurar**: a tabela nova nasce na migração do Railway. Pra ver:
+Observabilidade → "Cartão", com zeros; a próxima compra no cartão aparece lá como aprovada.
+
+- [ ] **Parte 2: a verificação invisível de robô** — o "não sou um robô" sem clicar em nada, no
+      passo do pagamento (BotID, da Vercel, ou Turnstile, da Cloudflare). Com a Vercel no Pro, o
+      BotID tem a análise profunda; decidir junto do plano.
+
 **CRM, parte 1: a loja anota o que cada pessoa faz — pronto em 26/09 (entrega 0130).** A primeira
 parte da Fundação do "Ciclo da Barba" (o protótipo da aba CRM:
 https://claude.ai/artifact/XDWBkcweP6y6WVJd3m4sty).

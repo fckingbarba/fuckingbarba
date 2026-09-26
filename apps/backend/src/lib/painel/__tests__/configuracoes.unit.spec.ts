@@ -249,7 +249,7 @@ describe("pra quem vai o aviso da equipe", () => {
     })
   })
 
-  it("a nota vai pra operação e o dono; a venda nova, o Bling e o estorno, pro dono", () => {
+  it("a nota vai pra operação e o dono; a venda nova, o Bling, o estorno e o robô no cartão, pro dono", () => {
     expect(AVISOS_DA_EQUIPE.map((a) => [a.nome, a.papeis.join("+")])).toEqual([
       ["Venda nova", "dono"],
       ["A nota do pedido não saiu", "operacao+dono"],
@@ -257,6 +257,7 @@ describe("pra quem vai o aviso da equipe", () => {
       ["Cancele a nota (ou o pedido) no Bling", "operacao+dono"],
       ["A conexão com o Bling caiu", "dono"],
       ["O estorno do pedido não saiu", "dono"],
+      ["Robô testando cartão", "dono"],
     ])
   })
 })

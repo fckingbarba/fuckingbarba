@@ -318,6 +318,37 @@ ANTES de ver que o pedido já existe, e com o pagamento cancelado — cartão re
 vencido — responde 400 pra sempre. Sem pedido, o retomar volta com `?retomar=falhou`, e o checkout
 mostra o recado em vez de mandar pra lá de novo: era um laço de 71 idas em 8 segundos.
 
+**O ROBÔ TESTANDO CARTÃO** (entrega 0129) — quem tem uma lista de cartões roubados tenta um atrás do
+outro numa loja pequena, pra descobrir quais funcionam; as recusas saem no nome da loja, e o
+Pagar.me pode segurar a conta. A porta do `complete` (`src/lib/cartao/porta.ts`, no
+`api/middlewares.ts`) segura a tentativa ANTES de o Medusa chamar o `authorizePayment`, e só a que
+vai pro Pagar.me: a sessão do nosso provedor, no cartão, ainda `nova` (Pix e sessão que já foi nem
+passam por ela). A regra é pura, com teste (`src/lib/cartao/robo.ts`, `LIMITES`): por sacola, 5 por
+hora; por pessoa, 8 — a pessoa é o `quemPede`, o IP que a loja manda em `x-cliente-ip` assinado com
+o `REVALIDAR_SEGREDO` (o `finalizar` manda os dois, pelo `cabecalhosDeQuemPede`); o que chega sem a
+assinatura, todo mundo junto, 3 por hora; e o FREIO: 8 recusas nos últimos 30 minutos, sendo pelo
+menos 3 de cada 4 das que terminaram — com ele, a loja toda passa 3 tentativas a cada 10 minutos, e
+2 por sacola e por pessoa. Recusa é o banco, a análise de fraude e o dado do cartão que o Pagar.me
+não aceitou; o Pagar.me fora do ar é erro, e não liga o freio. Barrada, a resposta é 429 com
+`cartao_limite` ou `cartao_freio` no `message`, e quem escreve a frase é a loja (`recusaDaPorta`, em
+`apps/loja/src/lib/pagamento.ts`): o Pix agora, ou o cartão depois — nada foi cobrado. Cada
+tentativa é uma linha em `obs_tentativa` (módulo observabilidade): "andando" ANTES de contar — dez
+ao mesmo tempo viram dez linhas antes de qualquer conta —, e fechada quando a resposta sai, lendo a
+sessão. O IP não vai pro banco: o `quem` é um HMAC dele com o segredo (`semOIp`). Se anotar ou
+contar falhar (a migração ainda não rodou), a tentativa segue sem a trava, com `[cartão]` no log. A
+recusa que liga o freio manda UM e-mail por hora pro dono (`lib/cartao/aviso.ts`; "Robô testando
+cartão" no `AVISOS_DA_EQUIPE`), e o vigia faz dois problemas de estado: `robo-no-cartao` (grave,
+enquanto o freio estiver ligado) e `cartao-sem-a-loja` (atenção: tentativa sem a assinatura nas
+últimas 24 horas — robô, ou o `REVALIDAR_SEGREDO` diferente entre a Vercel e o Railway). A
+Observabilidade do painel tem o bloco "Cartão" (as últimas 24 horas); o vigia apaga o que passa de
+30 dias. `GET /admin/cartao` mostra as 24 horas, o freio e as 20 últimas tentativas;
+`POST /admin/cartao` com `{"acao": "soltar"}` recomeça as contas (uma linha "solta", com quem
+soltou). NO LOCAL: a loja precisa do mesmo `REVALIDAR_SEGREDO` do backend — sem ele, todo cartão cai
+no balde das sem assinatura, 3 por hora —; o `conferir-pagamento` solta o cartão no começo e no fim
+(a seção do robô liga o freio de propósito) e precisa do segredo no ambiente dele também; e o
+`pedido-de-teste.mjs` assina o `complete` quando o segredo está no ambiente, com um IP por pedido.
+Falta a verificação invisível de robô (BotID ou Turnstile) — ver o ESTADO.
+
 **O PAGAR.ME NÃO CANCELA PIX PENDENTE.** `DELETE /charges/:id` numa cobrança de Pix esperando
 pagamento responde **412** ("This charge cannot be canceled because is pending"), e Pix VENCIDO
 continua `pending` lá — o 412 não passa nunca. Foi o que prendeu o estoque do #7 por um dia: o

@@ -1,5 +1,6 @@
 import type { MedusaContainer } from "@medusajs/framework/types"
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
+import { RESUMO_VAZIO } from "../cartao/robo"
 import type { Papel } from "../equipe/regras"
 import { situacaoDaConexao } from "../erp/conexao"
 import { erpDaTela } from "../erp/erps"
@@ -81,33 +82,36 @@ export async function lerTela(
   )
   const obs = container.resolve<ObservabilidadeService>(OBSERVABILIDADE)
   const erp = erpDaTela()
-  const [problemas, rotinas, sinais, conexao, notas, loja, noAr, velocidade] = await Promise.all([
-    obs.listProblemas(
-      {
-        $or: [
-          { situacao: "aberto" },
-          { resolvido_em: { $gte: new Date(agora.getTime() - 30 * DIA) } },
-        ],
-      },
-      { take: 300, order: { ultima_em: "DESC" } }
-    ),
-    obs.listRotinas({}, { take: 50 }),
-    obs.listSinaisDasIntegracoes({ dia: chaveDoDia(agora) }, { take: 50 }),
-    situacaoDaConexao(container, erp),
-    container
-      .resolve<ErpService>(ERP)
-      .listNotas(
-        { situacao: "autorizada" },
-        { select: ["emitida_em"], order: { emitida_em: "DESC" }, take: 1 }
-      )
-      .catch(() => []),
-    lojaAgora(agora),
-    obs.listSinaisDasIntegracoes(
-      { integracao: "loja-no-ar", dia: { $gte: chaveDoDia(agora.getTime() - TRINTA_DIAS) } },
-      { take: 40 }
-    ),
-    obs.velocidade(new Date(agora.getTime() - VINTE_E_OITO_DIAS)),
-  ])
+  const [problemas, rotinas, sinais, conexao, notas, loja, noAr, velocidade, cartao] =
+    await Promise.all([
+      obs.listProblemas(
+        {
+          $or: [
+            { situacao: "aberto" },
+            { resolvido_em: { $gte: new Date(agora.getTime() - 30 * DIA) } },
+          ],
+        },
+        { take: 300, order: { ultima_em: "DESC" } }
+      ),
+      obs.listRotinas({}, { take: 50 }),
+      obs.listSinaisDasIntegracoes({ dia: chaveDoDia(agora) }, { take: 50 }),
+      situacaoDaConexao(container, erp),
+      container
+        .resolve<ErpService>(ERP)
+        .listNotas(
+          { situacao: "autorizada" },
+          { select: ["emitida_em"], order: { emitida_em: "DESC" }, take: 1 }
+        )
+        .catch(() => []),
+      lojaAgora(agora),
+      obs.listSinaisDasIntegracoes(
+        { integracao: "loja-no-ar", dia: { $gte: chaveDoDia(agora.getTime() - TRINTA_DIAS) } },
+        { take: 40 }
+      ),
+      obs.velocidade(new Date(agora.getTime() - VINTE_E_OITO_DIAS)),
+      // Sem a tabela das tentativas (a migração ainda não rodou), o bloco sai zerado.
+      obs.resumoDoCartao().catch(() => RESUMO_VAZIO),
+    ])
   const diasNoAr = noAr as unknown as LinhaDoSinal[]
   const ultimaNota = (notas as { emitida_em?: Date | string | null }[])[0]?.emitida_em
 
@@ -135,6 +139,7 @@ export async function lerTela(
     },
     velocidade,
     noAr: diasNoAr,
+    cartao,
   })
 }
 

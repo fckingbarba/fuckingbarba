@@ -1,4 +1,5 @@
 import { MedusaError } from "@medusajs/framework/utils"
+import { freioLigado, LIMITES, RESUMO_VAZIO, type ResumoDoCartao } from "../cartao/robo"
 import type { Papel } from "../equipe/regras"
 import { lerRegistroNoPedido } from "../envios/registro"
 import { lerRegistros as lerEstornos } from "../estornos"
@@ -711,6 +712,95 @@ export function problemasDasOcorrencias(
   return achados
 }
 
+/* ── o cartão: o robô testando cartão (`lib/cartao/`) ─────────────────── */
+
+/**
+ * Dois problemas, os dois de estado (saem sozinhos):
+ *
+ *   - o FREIO LIGADO é grave: muita recusa, e quase só recusa, nos últimos
+ *     30 minutos. Sai quando as recusas passam da janela, ou quando alguém
+ *     solta pelo admin (`POST /admin/cartao`);
+ *   - a tentativa SEM A ASSINATURA DA LOJA nas últimas 24 horas é atenção:
+ *     robô falando direto com o Medusa (a trava já segurou), ou o
+ *     `REVALIDAR_SEGREDO` diferente entre a Vercel e o Railway — que é o
+ *     caso de agir, porque aí o cartão da loja inteira cai no balde pequeno.
+ */
+export function problemasDoCartao(r: ResumoDoCartao, agora: Date): ProblemaAchado[] {
+  const comum = {
+    area: "Pagamento" as const,
+    acao: null,
+    pedidoId: null,
+    vezes: 1,
+    sozinho: true,
+    soDono: false,
+  }
+  const achados: ProblemaAchado[] = []
+  if (freioLigado(r.freio)) {
+    achados.push({
+      ...comum,
+      chave: "robo-no-cartao",
+      nivel: "grave",
+      titulo: "Robô testando cartão: o cartão está mais restrito",
+      texto:
+        `Nos últimos ${LIMITES.freio.minutos} minutos, ${r.freio.recusas} de ${r.freio.terminadas} ` +
+        "tentativas de cartão foram recusadas — é o jeito de um robô testando cartão roubado. A " +
+        "loja segura o cartão sozinha (poucas tentativas por vez), e o Pix segue normal. Sai " +
+        "sozinho quando as recusas pararem.",
+      detalhe:
+        `[cartão] ${r.freio.recusas} recusas de ${r.freio.terminadas} em ${LIMITES.freio.minutos} ` +
+        `min; nas últimas 24 h, ${r.recusadas} recusadas e ${r.barradas} barradas`,
+      ocorreu: r.freio.desde ? data(r.freio.desde) : agora,
+    })
+  }
+  if (r.diretas > 0) {
+    achados.push({
+      ...comum,
+      chave: "cartao-sem-a-loja",
+      nivel: "atencao",
+      titulo:
+        r.diretas === 1
+          ? "1 tentativa de cartão sem passar pela loja"
+          : `${r.diretas} tentativas de cartão sem passar pela loja`,
+      texto:
+        "Chegaram direto no servidor, sem a assinatura da loja, nas últimas 24 horas. Ou é robô " +
+        "pulando a loja — e a trava já segurou —, ou o REVALIDAR_SEGREDO está diferente entre a " +
+        "Vercel e o Railway. Se o cartão parou de vender pelo site, é o segredo: confira os dois.",
+      detalhe: `[cartão] ${r.diretas} tentativas sem o x-loja-segredo nas últimas 24 h`,
+      ocorreu: agora,
+    })
+  }
+  return achados
+}
+
+export type CartaoNaTela = {
+  /** Nas últimas 24 horas. */
+  tentativas: number
+  /** Com as em análise: o banco disse sim. */
+  aprovadas: number
+  recusadas: number
+  barradas: number
+  freio: { ligado: boolean; texto: string }
+}
+
+export function cartaoNaTela(r: ResumoDoCartao): CartaoNaTela {
+  const ligado = freioLigado(r.freio)
+  return {
+    tentativas: r.tentativas,
+    aprovadas: r.aprovadas + r.analise,
+    recusadas: r.recusadas,
+    barradas: r.barradas,
+    freio: {
+      ligado,
+      texto: ligado
+        ? `Freio ligado${r.freio.desde ? ` desde ${hora(r.freio.desde)}` : ""}: ` +
+          `${r.freio.recusas} recusas de ${r.freio.terminadas} tentativas em ` +
+          `${LIMITES.freio.minutos} minutos. O cartão aceita poucas tentativas por vez; o Pix ` +
+          "segue normal."
+        : "Freio desligado: nenhum sinal de robô testando cartão.",
+    },
+  }
+}
+
 /* ── a velocidade e o tempo no ar ─────────────────────────────────────── */
 
 /** Os limites do Google pra cada medida: até `bom`, bom; acima de `ruim`, ruim. */
@@ -1222,6 +1312,8 @@ export type TelaDaObservabilidade = {
   }
   problemas: ProblemaNaTela[]
   integracoes: IntegracaoNaTela[]
+  /** As tentativas de cartão das últimas 24 horas, e o freio (`lib/cartao/`). */
+  cartao: CartaoNaTela
   rotinas: RotinaNaTela[]
   velocidade: VelocidadeNaTela
 }
@@ -1308,6 +1400,7 @@ export function telaDaObservabilidade(
     integracoes,
     velocidade,
     noAr,
+    cartao = RESUMO_VAZIO,
   }: {
     agora: Date
     /** Os abertos e os resolvidos recentes, da tabela. */
@@ -1318,6 +1411,8 @@ export function telaDaObservabilidade(
     velocidade: Parameters<typeof velocidadeNaTela>[0]
     /** Os dias da conferência da loja (`loja-no-ar`) dos últimos 30. */
     noAr: LinhaDoSinal[]
+    /** As tentativas de cartão (`resumoDoCartao`, no serviço). */
+    cartao?: ResumoDoCartao
   }
 ): TelaDaObservabilidade {
   const paradas = problemaDasRotinasParadas(rotinas, agora)
@@ -1382,6 +1477,7 @@ export function telaDaObservabilidade(
     },
     problemas: naTela,
     integracoes: integracoesNaLista,
+    cartao: cartaoNaTela(cartao),
     rotinas: rotinasNaTela,
     velocidade: naVelocidade,
   }
