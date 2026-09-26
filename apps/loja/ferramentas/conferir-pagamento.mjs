@@ -281,8 +281,25 @@ const navegador = await chromium.launch(
 const errosDeConsole = []
 const RUIDO_DE_DEV = /_next\/hmr|websocket|favicon/i
 
+/*
+  CADA ABA É UMA PESSOA (entrega 0129). A porta do cartão conta as tentativas
+  por pessoa — o IP que a loja manda pro Medusa, assinado, e que ela lê do
+  `x-real-ip` (o que a Vercel escreve). Sem isto, toda aba seria o mesmo
+  "::1", e a rodada, que paga com cartão umas 16 vezes, bateria no limite de
+  8 por hora da mesma pessoa. O cabeçalho vai só nos pedidos pra loja: no
+  Pagar.me falso, um cabeçalho a mais pediria uma licença (CORS) que ele não
+  dá, e o cartão não viraria token.
+*/
+let pessoaDaAba = 0
+const ORIGEM_DA_LOJA = new URL(LOJA).origin
+
 async function novaAba() {
   const contexto = await navegador.newContext({ viewport: { width: 1280, height: 1000 } })
+  const ip = `198.51.100.${(pessoaDaAba++ % 250) + 1}`
+  await contexto.route(
+    (url) => url.origin === ORIGEM_DA_LOJA,
+    (rota) => rota.continue({ headers: { ...rota.request().headers(), "x-real-ip": ip } })
+  )
   await contexto.grantPermissions(["clipboard-read", "clipboard-write"], { origin: LOJA })
   const pagina = await contexto.newPage()
   pagina.on(
@@ -2193,7 +2210,13 @@ try {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         type: "card",
-        card: { number: numero, holder_name: "ROBO TESTE", exp_month: 12, exp_year: 2030, cvv: CVV },
+        card: {
+          number: numero,
+          holder_name: "ROBO TESTE",
+          exp_month: 12,
+          exp_year: 2030,
+          cvv: CVV,
+        },
       }),
     })
     return (await r.json())?.id
@@ -2278,13 +2301,14 @@ try {
     for (let i = 1; i <= vezes; i++) {
       if (i > 1) await pagina.locator(".pagamento__painel[data-ativo] input").nth(3).fill(CVV)
       await pagar(pagina)
-      for (const fim = Date.now() + 45000; noPagarmeDoEmail() < i && Date.now() < fim; )
+      for (const fim = Date.now() + 45000; noPagarmeDoEmail() < i && Date.now() < fim;)
         await esperar(200)
       await recado.waitFor({ timeout: 45000 })
       await botaoLivre()
     }
     ok(
-      noPagarmeDoEmail() === vezes && /banco do cartão não autorizou/i.test(await recado.innerText()),
+      noPagarmeDoEmail() === vezes &&
+        /banco do cartão não autorizou/i.test(await recado.innerText()),
       `${vezes} tentativas recusadas na mesma sacola: as ${vezes} foram pro Pagar.me`,
       `${noPagarmeDoEmail()} · ${await recado.innerText()}`
     )
@@ -2303,7 +2327,9 @@ try {
       .then(() => true)
       .catch(() => false)
     ok(
-      barrou && /Pix/.test(await recado.innerText()) && /nada foi cobrado/i.test(await recado.innerText()),
+      barrou &&
+        /Pix/.test(await recado.innerText()) &&
+        /nada foi cobrado/i.test(await recado.innerText()),
       "a 6ª é barrada: a frase manda pro Pix, e diz que nada foi cobrado",
       await recado.innerText()
     )
@@ -2312,7 +2338,9 @@ try {
     const { json: aberto } = await loja(`/store/carts/${carrinhoId}?fields=id,completed_at`)
     ok(aberto?.cart && !aberto.cart.completed_at, "a sacola continua aberta, sem pedido")
     const p = await esperarProtecao(
-      (x) => x.ultimas.filter((t) => t.carrinho === carrinhoId && t.resultado === "recusada").length === vezes
+      (x) =>
+        x.ultimas.filter((t) => t.carrinho === carrinhoId && t.resultado === "recusada").length ===
+        vezes
     )
     const daSacola = p.ultimas.filter((t) => t.carrinho === carrinhoId)
     ok(
@@ -2330,7 +2358,8 @@ try {
     {
       await soltarOCartao()
       const r = []
-      for (let i = 0; i < 4; i++) r.push(await tentativaPelaApi(CARTOES.recusado, { assinada: false }))
+      for (let i = 0; i < 4; i++)
+        r.push(await tentativaPelaApi(CARTOES.recusado, { assinada: false }))
       ok(
         r.slice(0, 3).every((x) => x.status === 400) &&
           r[3].status === 429 &&
@@ -2414,7 +2443,10 @@ try {
       ok(
         pausa && aba.pagina.url().endsWith("/checkout"),
         "na tela: a pausa de segurança, com o Pix de saída — e a pessoa segue no checkout",
-        await aba.pagina.locator("#form-pagamento .erros-envio").innerText().catch(() => "")
+        await aba.pagina
+          .locator("#form-pagamento .erros-envio")
+          .innerText()
+          .catch(() => "")
       )
       await aba.contexto.close()
 

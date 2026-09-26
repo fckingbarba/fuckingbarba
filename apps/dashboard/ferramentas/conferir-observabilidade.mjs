@@ -25,6 +25,7 @@
  * │   problema que sai sozinho, ou num que o papel não vê;                 │
  * │ • o código de acesso do e-mail guardado no problema;                   │
  * │ • as rotinas sem a rodada anotada; o número vermelho do menu;          │
+ * │ • o bloco Cartão contando diferente do `GET /admin/cartao`;            │
  * │ • a operação sem a tela, o marketing com ela; rolagem de lado no       │
  * │   celular; erro no console.                                            │
  * └────────────────────────────────────────────────────────────────────────┘
@@ -357,6 +358,30 @@ try {
     (await pagina.locator("[data-rotina]").count()) === 10 &&
       (await pagina.locator("[data-integracao]").count()) === 7,
     "as 10 rotinas e as 7 integrações"
+  )
+  // O bloco Cartão (entrega 0129): os números das últimas 24 horas, como o admin conta.
+  const doCartao = (await adm("/admin/cartao")).corpo
+  const noBloco = async (nome) =>
+    Number(
+      (
+        await pagina.locator(`[data-cartao] [data-numero="${nome}"] .numero__valor`).textContent()
+      )?.trim()
+    )
+  const naTela = {
+    tentativas: await noBloco("tentativas"),
+    aprovadas: await noBloco("aprovadas"),
+    recusadas: await noBloco("recusadas"),
+    barradas: await noBloco("barradas"),
+    freio: await pagina.locator("[data-cartao] [data-freio]").getAttribute("data-freio"),
+  }
+  ok(
+    naTela.tentativas === doCartao.tentativas &&
+      naTela.aprovadas === doCartao.aprovadas + doCartao.analise &&
+      naTela.recusadas === doCartao.recusadas &&
+      naTela.barradas === doCartao.barradas &&
+      naTela.freio === (doCartao.freio?.ligado ? "ligado" : "desligado"),
+    "o bloco Cartão: as tentativas das últimas 24 horas e o freio, como o admin conta",
+    `${JSON.stringify(naTela)} · ${JSON.stringify({ ...doCartao, limites: undefined, ultimas: undefined })}`
   )
 
   // A cotação que falhou, marcada pela tela.
