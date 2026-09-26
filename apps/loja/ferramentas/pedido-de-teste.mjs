@@ -63,6 +63,24 @@ const entradaDoPix = (email) => ({
 
 const esperar = (ms) => new Promise((r) => setTimeout(r, ms))
 
+/*
+  O `complete` VAI ASSINADO COMO A LOJA MANDA: o de cartão passa pela porta
+  do cartão (`backend/src/lib/cartao/`), que conta as tentativas de cada
+  pessoa pelo IP que a loja assina com o `REVALIDAR_SEGREDO`. Aqui cada pedido
+  é uma pessoa diferente (um IP de documentação, 198.51.100.x). Sem o segredo
+  do backend no ambiente, o pedido de cartão cai no balde de quem chega sem
+  passar pela loja — 3 por hora, pra todo mundo junto.
+*/
+const SEGREDO_DA_LOJA = process.env.REVALIDAR_SEGREDO ?? ""
+let proximoIp = 0
+const assinadoComoALoja = () =>
+  SEGREDO_DA_LOJA
+    ? {
+        "x-loja-segredo": SEGREDO_DA_LOJA,
+        "x-cliente-ip": `198.51.100.${(proximoIp++ % 250) + 1}`,
+      }
+    : {}
+
 /**
  * @param {{ medusa: string, chave: string, tokenAdmin: string, pagarme: any }} o
  */
@@ -168,7 +186,10 @@ export function fabricaDePedidos({ medusa, chave, tokenAdmin, pagarme }) {
       method: "POST",
       body: JSON.stringify({ provider_id: PAGARME, data: { entrada } }),
     })
-    const fim = await loja(`/store/carts/${cart.id}/complete`, { method: "POST" })
+    const fim = await loja(`/store/carts/${cart.id}/complete`, {
+      method: "POST",
+      headers: { ...cabLoja, ...assinadoComoALoja() },
+    })
     if (fim?.type !== "order")
       throw new Error(`o carrinho não virou pedido: ${JSON.stringify(fim)}`)
     const noPagarme = [...pagarme.pedidos.keys()].find((k) => !antes.has(k)) ?? null
