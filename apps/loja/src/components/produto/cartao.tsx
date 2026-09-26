@@ -1,12 +1,12 @@
 import type { HttpTypes } from "@medusajs/types"
 import Image from "next/image"
 import Link from "next/link"
-import { Carrinho } from "@/components/icones"
+import { Carrinho, Envelope } from "@/components/icones"
 import { BotaoComprar } from "@/components/produto/comprar"
 import { emReais } from "@/lib/formato"
 import { frasesDoFrete, produtoSozinhoQualifica } from "@/lib/configuracoes"
 import { PARCELA_MINIMA, PARCELAS_SEM_JUROS } from "@/lib/site"
-import { configuracoes, precosDe, varianteDoCard } from "@/lib/medusa"
+import { configuracoes, esgotado, precosDe, varianteDoCard } from "@/lib/medusa"
 
 /**
  * O card de produto — o mesmo na faixa de coleção e, depois, na vitrine.
@@ -23,7 +23,12 @@ import { configuracoes, precosDe, varianteDoCard } from "@/lib/medusa"
  *   diz o que a política diz: com frete fixo ela mostra "Frete R$ 9,90", e
  *   sem política nenhuma ela não existe;
  * - **o parcelamento** sai do preço e do número de parcelas que o rodapé
- *   promete, então os dois não têm como discordar.
+ *   promete, então os dois não têm como discordar;
+ * - **esgotado**, o selo diz "Esgotado" (no lugar do desconto, que o preço
+ *   riscado continua mostrando) e o botão, "Avise-me": ele leva pra página do
+ *   produto, onde mora o avise-me. "Comprar" num produto que não dá pra
+ *   comprar era um clique pra descobrir isso. Sem CSS novo: o selo e o botão
+ *   são os de sempre — este card mora na home, que não tem folga de CSS.
  *
  * O que NÃO tem aqui, e no protótipo tinha: a nota em estrelas. Aquilo era
  * 4,8 com 128 avaliações escritos no HTML, de exemplo. Avaliação inventada
@@ -55,6 +60,7 @@ export async function CartaoProduto({
     precos?.cheio != null ? Math.round((1 - precos.atual / precos.cheio) * 100) : null
 
   const variante = varianteDoCard(produto)
+  const semEstoque = esgotado(produto)
   const temTarja = precos != null && produtoSozinhoQualifica(frete, precos.atual)
   const parcela = precos ? precos.atual / PARCELAS_SEM_JUROS : 0
   const mostraParcela = parcela >= PARCELA_MINIMA
@@ -83,7 +89,11 @@ export async function CartaoProduto({
           ) : null}
         </Link>
 
-        {desconto ? <span className="produto__selo">-{desconto}%</span> : null}
+        {semEstoque ? (
+          <span className="produto__selo">Esgotado</span>
+        ) : desconto ? (
+          <span className="produto__selo">-{desconto}%</span>
+        ) : null}
 
         {/* Era "Frete grátis" alternando com "Envio imediato" — e a loja não
             posta na hora: o prazo é o de postagem que ela configura no admin,
@@ -130,6 +140,11 @@ export async function CartaoProduto({
           className="btn produto__comprar"
           icone={<Carrinho className="btn__icone" />}
         />
+      ) : semEstoque ? (
+        <Link href={caminho} className="btn produto__comprar">
+          Avise-me
+          <Envelope className="btn__icone" />
+        </Link>
       ) : (
         <Link href={caminho} className="btn produto__comprar">
           Comprar

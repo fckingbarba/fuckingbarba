@@ -36,3 +36,5 @@
 @import "../pdp-zoom.css";
 /* Escrito à mão: o trilho da foto grande, que passa no dedo. */
 @import "../pdp-galeria.css";
+/* Escrito à mão: o produto esgotado — a faixa e o "avise-me quando chegar". */
+@import "../pdp-esgotado.css";

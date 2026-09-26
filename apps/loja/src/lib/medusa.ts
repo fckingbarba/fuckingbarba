@@ -611,6 +611,17 @@ export function temEstoque(variante: HttpTypes.StoreProductVariant, unidades = 1
 }
 
 /**
+ * O produto inteiro está sem estoque: nenhuma variação vende agora
+ * (`temEstoque`). É o que troca o "Comprar" do card por "Avise-me" e manda o
+ * produto pro fim do "Quem leva este, leva junto". Sem variação nenhuma não é
+ * esgotado — é produto sem preço, e o card já não oferece compra.
+ */
+export function esgotado(produto: HttpTypes.StoreProduct): boolean {
+  const variantes = produto.variants ?? []
+  return variantes.length > 0 && variantes.every((v) => !temEstoque(v))
+}
+
+/**
  * OS PRODUTOS DO "LEVA JUNTO" DA SACOLA, prontos pra gaveta escolher
  * (`escolherLevaJunto`, em `lib/recomendacao.ts`): os mesmos da
  * vitrine, só os que vão pra sacola num clique (`varianteDoCard`, logo
