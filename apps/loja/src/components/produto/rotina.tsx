@@ -40,6 +40,7 @@ export async function Rotina({ handle }: { handle: string }) {
 
       return {
         varianteId: variante.id,
+        handle: p.handle ?? item.handle,
         nome: p.title,
         foto: p.thumbnail ?? p.images?.[0]?.url ?? null,
         preco: precos.atual,
@@ -69,6 +70,7 @@ export async function Rotina({ handle }: { handle: string }) {
 
   const proprioNaRotina: ItemEscolhivel = {
     varianteId: varianteDele.id,
+    handle,
     nome: proprio.title,
     foto: proprio.thumbnail ?? proprio.images?.[0]?.url ?? null,
     preco: precoDele.atual,

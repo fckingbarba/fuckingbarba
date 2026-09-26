@@ -3,7 +3,7 @@
 import Image from "next/image"
 import { useState, useTransition } from "react"
 import { Raio } from "@/components/icones"
-import { EVENTO_SACOLA } from "@/components/sacola/contexto"
+import { EVENTO_SACOLA, useSacola } from "@/components/sacola/contexto"
 import { adicionarVarios, type Resultado } from "@/lib/acoes/carrinho"
 import { emReais } from "@/lib/formato"
 import { useFrete } from "@/components/configuracoes/contexto"
@@ -25,6 +25,8 @@ import { SEM_CONEXAO, semQueda } from "@/lib/rede"
 
 export type ItemEscolhivel = {
   varianteId: string
+  /** pra linha que entra na sacola no clique já linkar de volta pro produto */
+  handle: string
   nome: string
   foto: string | null
   preco: number
@@ -47,6 +49,7 @@ export function RotinaEscolha({ itens }: { itens: readonly ItemEscolhivel[] }) {
   */
   const [erro, setErro] = useState("")
   const [enviando, comecar] = useTransition()
+  const sacola = useSacola()
 
   const escolhidos = itens.filter((i) => marcados.has(i.varianteId))
   const total = escolhidos.reduce((s, i) => s + i.preco, 0)
@@ -69,19 +72,39 @@ export function RotinaEscolha({ itens }: { itens: readonly ItemEscolhivel[] }) {
 
   function levar() {
     setErro("")
+    const chamar = () => adicionarVarios(escolhidos.map((i) => ({ varianteId: i.varianteId })))
+    // A gaveta abre no clique, com os produtos marcados (ver o `adicionar`
+    // do contexto); o total espera o Medusa. Chamado aqui, fora da transição:
+    // dentro dela a gaveta só abriria com a resposta (ver a dobra,
+    // `compra.tsx`). Fora do provedor, o caminho de antes.
+    const feito = sacola
+      ? sacola.adicionar(
+          escolhidos.map((i) => ({
+            varianteId: i.varianteId,
+            nome: i.nome,
+            handle: i.handle,
+            imagem: i.foto,
+            quantidade: 1,
+            precoUnitario: i.preco,
+          })),
+          chamar
+        )
+      : null
     comecar(async () => {
-      const r = await semQueda(
-        () => adicionarVarios(escolhidos.map((i) => ({ varianteId: i.varianteId }))),
-        (): Resultado => ({ ok: false, erro: SEM_CONEXAO, carrinho: null })
-      )
+      const r = feito
+        ? await feito
+        : await semQueda(chamar, (): Resultado => ({
+            ok: false,
+            erro: SEM_CONEXAO,
+            carrinho: null,
+          }))
       if (!r.ok) {
         setErro(r.erro)
         return
       }
-      window.dispatchEvent(new CustomEvent(EVENTO_SACOLA, { detail: r.carrinho }))
+      if (!feito) window.dispatchEvent(new CustomEvent(EVENTO_SACOLA, { detail: r.carrinho }))
     })
   }
-
   return (
     <>
       <div className="rotina__grade">

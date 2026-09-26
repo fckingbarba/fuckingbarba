@@ -29,6 +29,30 @@ export type ItemDoCarrinho = {
   quantidade: number
   precoUnitario: number
   total: number
+  /**
+   * Só na tela: a linha que um "Adicionar" acabou de pôr, antes de o Medusa
+   * confirmar (ver `contexto.tsx`). Nova, ela ainda nem tem id de verdade —
+   * por isso os botões dela esperam a resposta. O servidor nunca manda isto.
+   */
+  chegando?: true
+}
+
+/**
+ * O QUE UM BOTÃO DE COMPRAR JÁ SABE DO PRODUTO, pra sacola abrir na hora com
+ * a linha, enquanto o Medusa faz a conta (entrega 0104). Nada disto é
+ * cobrado: é o que a página já estava mostrando — o nome, a foto, o preço de
+ * uma unidade e, na PDP, o total do degrau escolhido ("3 unidades").
+ */
+export type ItemChegando = {
+  varianteId: string
+  nome: string
+  variante?: string | null
+  handle: string | null
+  imagem: string | null
+  quantidade: number
+  precoUnitario: number
+  /** O total que a página mostrava pra essa quantidade; sem ele, unitário × quantidade. */
+  total?: number
 }
 
 export type CarrinhoVisivel = {

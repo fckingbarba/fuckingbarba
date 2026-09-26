@@ -13,7 +13,12 @@ import {
   type ReactNode,
 } from "react"
 import { mudarQuantidade, remover, type Resultado } from "@/lib/acoes/carrinho"
-import { CARRINHO_VAZIO, type CarrinhoVisivel } from "@/lib/carrinho-visivel"
+import {
+  CARRINHO_VAZIO,
+  type CarrinhoVisivel,
+  type ItemChegando,
+  type ItemDoCarrinho,
+} from "@/lib/carrinho-visivel"
 import { rastrearMudancaDaSacola } from "@/lib/rastrear"
 import { SEM_CONEXAO, semQueda } from "@/lib/rede"
 
@@ -62,24 +67,42 @@ import { SEM_CONEXAO, semQueda } from "@/lib/rede"
  *   desconto, que é onde o cliente mais olha. Um número que pula duas vezes
  *   é pior que um número que demora 300 ms, e a loja inteira foi escrita em
  *   cima da regra de que quem faz conta de dinheiro é o Medusa.
+ *
+ *   A LINHA NOVA DE UM "ADICIONAR" também entra na hora (entrega 0104): a
+ *   gaveta abre no clique, com a foto, o nome e o preço que a página já
+ *   mostrava. Na produção, cada escrita na sacola leva de 0,6 a 0,9 s no
+ *   Medusa (a primeira, que cria o carrinho, mais), e o "Adicionando…" do
+ *   botão era tudo que a pessoa via nesse tempo. O total, de novo, espera.
+ *
+ * "300 ms num dia bom" era a conta do Medusa local. Medido na produção em
+ * 26/09: 0,9 a 1,2 s por clique, quase tudo no Medusa.
  */
+type Adicionado = ItemChegando & {
+  /** Quanto desta variante a sacola na tela tinha no clique (ver `chegar`). */
+  antes: number
+}
+
 type Mudanca =
-  { tipo: "quantidade"; linhaId: string; quantidade: number } | { tipo: "remover"; linhaId: string }
+  | { tipo: "quantidade"; linhaId: string; quantidade: number }
+  | { tipo: "remover"; linhaId: string }
+  | { tipo: "adicionar"; itens: Adicionado[] }
 
 function prever(carrinho: CarrinhoVisivel, m: Mudanca): CarrinhoVisivel {
   const itens =
-    m.tipo === "remover"
-      ? carrinho.itens.filter((i) => i.id !== m.linhaId)
-      : carrinho.itens.map((i) =>
-          i.id === m.linhaId
-            ? // O total DA LINHA acompanha, e isso não é chutar preço: é
-              // multiplicar dois números que já estão na tela, sendo que o
-              // unitário está escrito logo acima ("R$ 149,90 cada"). Deixar
-              // ele parado mostraria 149,90 ao lado de uma quantidade 2 —
-              // um número visivelmente errado, só que esmaecido.
-              { ...i, quantidade: m.quantidade, total: i.precoUnitario * m.quantidade }
-            : i
-        )
+    m.tipo === "adicionar"
+      ? chegar(carrinho.itens, m.itens)
+      : m.tipo === "remover"
+        ? carrinho.itens.filter((i) => i.id !== m.linhaId)
+        : carrinho.itens.map((i) =>
+            i.id === m.linhaId
+              ? // O total DA LINHA acompanha, e isso não é chutar preço: é
+                // multiplicar dois números que já estão na tela, sendo que o
+                // unitário está escrito logo acima ("R$ 149,90 cada"). Deixar
+                // ele parado mostraria 149,90 ao lado de uma quantidade 2 —
+                // um número visivelmente errado, só que esmaecido.
+                { ...i, quantidade: m.quantidade, total: i.precoUnitario * m.quantidade }
+              : i
+          )
 
   return {
     ...carrinho,
@@ -90,6 +113,55 @@ function prever(carrinho: CarrinhoVisivel, m: Mudanca): CarrinhoVisivel {
     // deles não é multiplicação — é onde entram promoção, piso de frete
     // grátis e cupom, e é justamente onde um palpite erraria.
   }
+}
+
+/**
+ * AS LINHAS QUE UM "ADICIONAR" PÕE NA TELA antes da resposta.
+ *
+ * A previsão NÃO PODE SOMAR DUAS VEZES, e isso não é detalhe: o React refaz
+ * as previsões pendentes em cima de cada sacola que chega enquanto a
+ * transição não termina — e várias transições em voo terminam juntas (o
+ * React as agrupa). Uma resposta que já conta o produto receberia a previsão
+ * por cima, e o 1 viraria 2 até o fim da fila.
+ *
+ * Por isso a previsão guarda `antes`: quanto daquela variante a sacola da
+ * tela tinha no clique. A linha só cresce se ainda estiver com esse número;
+ * com o servidor já contando o item, ela passa reto e vale o número dele.
+ * Linha que não existe nasce com um id provisório e `chegando` — sem id de
+ * verdade, os botões dela esperam (ver a gaveta).
+ */
+function chegar(itens: ItemDoCarrinho[], novos: Adicionado[]): ItemDoCarrinho[] {
+  let lista = itens
+  for (const n of novos) {
+    const linha = lista.find((i) => i.varianteId === n.varianteId)
+    if (!linha) {
+      // Tinha no clique e sumiu (uma remoção no meio): não ressuscita.
+      if (n.antes > 0) continue
+      lista = [
+        ...lista,
+        {
+          id: `chegando:${n.varianteId}`,
+          varianteId: n.varianteId,
+          nome: n.nome,
+          variante: n.variante ?? null,
+          handle: n.handle,
+          imagem: n.imagem,
+          quantidade: n.quantidade,
+          precoUnitario: n.precoUnitario,
+          total: n.total ?? n.precoUnitario * n.quantidade,
+          chegando: true,
+        },
+      ]
+    } else if (linha.quantidade === n.antes) {
+      const quantidade = n.antes + n.quantidade
+      lista = lista.map((i) =>
+        i === linha
+          ? { ...i, quantidade, total: i.precoUnitario * quantidade, chegando: true as const }
+          : i
+      )
+    }
+  }
+  return lista
 }
 
 /**
@@ -133,7 +205,7 @@ type Sacola = {
   carrinho: CarrinhoVisivel
   leitura: LeituraDaSacola
   aberta: boolean
-  /** true enquanto uma ação está em voo — trava os botões e esmaece o dinheiro */
+  /** true enquanto uma escrita está em voo — esmaece o dinheiro (os botões seguem valendo) */
   ocupada: boolean
   /** a linha em que a pessoa acabou de mexer, pra ela mostrar que está ocupada */
   mexendo: string | null
@@ -142,6 +214,18 @@ type Sacola = {
   fechar: () => void
   mudar: (linhaId: string, quantidade: number) => void
   tirar: (linhaId: string) => void
+  /**
+   * Põe na sacola: abre a gaveta NA HORA, com as linhas que a página já sabe
+   * desenhar, e chama a ação (`adicionar`/`adicionarVarios`) na fila das
+   * escritas. Devolve o resultado da ação, pra quem clicou dizer o erro
+   * perto do botão também.
+   *
+   * CHAME NO CLIQUE, NUNCA DE DENTRO DE UMA TRANSIÇÃO: o que muda dentro de
+   * uma transição assíncrona o React só mostra quando ela termina, e a
+   * gaveta abriria junto com a resposta. Quem quer o "Adicionando…" guarda a
+   * promessa e espera ela na própria transição (ver a dobra, `compra.tsx`).
+   */
+  adicionar: (itens: ItemChegando[], chamar: () => Promise<Resultado>) => Promise<Resultado>
   /** Relê a sacola no servidor. Ver o porquê no provedor. */
   recarregar: () => void
   /** true enquanto uma releitura pedida está no caminho (o "Tentar de novo") */
@@ -159,11 +243,17 @@ type Sacola = {
 const Contexto = createContext<Sacola | null>(null)
 
 /**
- * O recado de "mudou a sacola", disparado por quem adiciona (hoje o botão da
- * PDP). É evento de DOM, e não uma função deste contexto, pra que a dobra não
- * precise importar nada daqui: ela adiciona, avisa, e quem quiser que escute.
+ * O recado de "mudou a sacola", disparado por quem escreve nela sem passar
+ * pela gaveta (hoje, o "comprar de novo" da conta). É evento de DOM, e não
+ * uma função deste contexto, pra que quem avisa não precise importar nada
+ * daqui: ele escreve, avisa, e quem quiser que escute. Os botões de comprar
+ * usam o `adicionar` do contexto, que abre a gaveta antes da resposta — e
+ * caem neste evento só fora do provedor.
  */
 export const EVENTO_SACOLA = "sacola:mudou"
+
+/** A escrita que chegou na vez dela já não era a última pedida pra linha: não foi. */
+const PULOU = Symbol("pulou")
 
 export function ProvedorDaSacola({ children }: { children: ReactNode }) {
   const [confirmado, setConfirmado] = useState<CarrinhoVisivel>(CARRINHO_VAZIO)
@@ -290,28 +380,84 @@ export function ProvedorDaSacola({ children }: { children: ReactNode }) {
   }, [aberta])
 
   /**
+   * AS ESCRITAS ANDAM EM FILA, E OS CLIQUES NÃO ESPERAM POR ELA (entrega 0104).
+   *
+   * Uma escrita de cada vez no carrinho, sempre: duas ao mesmo tempo e a
+   * resposta que chegar por último sobrescreve a outra na tela, com o total
+   * de um carrinho que já não existe. Até a 0104 quem garantia isso eram os
+   * botões, travados enquanto qualquer escrita estava em voo — e na produção
+   * cada uma leva perto de um segundo: o segundo "+" seguido não pegava.
+   *
+   * Agora os botões ficam soltos, a tela muda no clique, e a fila garante a
+   * ordem. E ela JUNTA os cliques: na vez de uma escrita de quantidade, se a
+   * pessoa já pediu outro número pra mesma linha, ela nem sai (`PULOU`) — vai
+   * só o último. Três "+" seguidos são duas idas ao Medusa, não três.
+   */
+  const fila = useRef<Promise<unknown>>(Promise.resolve())
+  const naFila = useCallback(<T,>(tarefa: () => Promise<T>): Promise<T> => {
+    const vez = fila.current.then(tarefa)
+    fila.current = vez.catch(() => undefined)
+    return vez
+  }, [])
+
+  /** A última quantidade pedida em cada linha — é ela que a fila escreve. */
+  const pedida = useRef(new Map<string, number>())
+
+  /** Quantas escritas ainda estão em voo — a barrinha da linha só sai com a última. */
+  const emVoo = useRef(0)
+
+  /**
    * A previsão e a chamada vão na MESMA transição — é o que faz o React
    * segurar a previsão até a resposta chegar e só então trocar pelo real.
    * Fora da transição, ela seria descartada no próximo render e o número
    * voltaria sozinho antes da hora.
    *
    * Sem resposta (`carrinho: null`, ou a ação que nem voltou), a previsão se
-   * desfaz no fim da transição e a sacola de antes volta, com o recado.
+   * desfaz no fim da transição e a sacola de antes volta, com o recado. A
+   * escrita que a fila pulou não mexe em nada: a mais nova responde por ela.
    */
-  function aplicar(mudanca: Mudanca, chamar: () => Promise<Resultado>) {
+  function aplicar(
+    mudanca: Mudanca,
+    linha: string | null,
+    chamar: () => Promise<Resultado | typeof PULOU>
+  ): Promise<Resultado | null> {
     setErro(null)
-    setMexendo(mudanca.linhaId)
-    comecar(async () => {
-      prevendo(mudanca)
-      const r = await semQueda(chamar, (): Resultado => ({
-        ok: false,
-        erro: SEM_CONEXAO,
-        carrinho: null,
-      }))
-      if (r.carrinho) receber(r.carrinho)
-      setErro(r.ok ? null : r.erro)
-      setMexendo(null)
+    if (linha) setMexendo(linha)
+    emVoo.current++
+    return new Promise((resolver) => {
+      comecar(async () => {
+        prevendo(mudanca)
+        const r = await semQueda(chamar, (): Resultado => ({
+          ok: false,
+          erro: SEM_CONEXAO,
+          carrinho: null,
+        }))
+        if (--emVoo.current === 0) setMexendo(null)
+        if (r === PULOU) return resolver(null)
+        if (r.carrinho) receber(r.carrinho)
+        setErro(r.ok ? null : r.erro)
+        resolver(r)
+      })
     })
+  }
+
+  /** Muda (ou tira, com zero) uma linha: a tela no clique, a escrita na fila. */
+  function mudarLinha(linhaId: string, quantidade: number) {
+    pedida.current.set(linhaId, quantidade)
+    const mudanca: Mudanca =
+      quantidade <= 0 ? { tipo: "remover", linhaId } : { tipo: "quantidade", linhaId, quantidade }
+    void aplicar(mudanca, linhaId, () =>
+      naFila(async () => {
+        if (pedida.current.get(linhaId) !== quantidade) return PULOU
+        try {
+          return quantidade <= 0
+            ? await remover(linhaId)
+            : await mudarQuantidade(linhaId, quantidade)
+        } finally {
+          if (pedida.current.get(linhaId) === quantidade) pedida.current.delete(linhaId)
+        }
+      })
+    )
   }
 
   /**
@@ -323,8 +469,7 @@ export function ProvedorDaSacola({ children }: { children: ReactNode }) {
    * resposta que chegar por último sobrescreve a outra na tela, com o total
    * de um carrinho que já não existe.
    *
-   * Dentro da transição daqui, os botões de quantidade travam enquanto o
-   * frete grava (e vice-versa), o dinheiro esmaece como em qualquer outra
+   * Dentro da transição daqui, o dinheiro esmaece como em qualquer outra
    * conta do servidor, e o carrinho que volta substitui o da tela inteiro.
    * Quem chamou recebe a resposta de volta — as opções de entrega que a
    * ação cotou são dela, não da sacola.
@@ -334,7 +479,7 @@ export function ProvedorDaSacola({ children }: { children: ReactNode }) {
       new Promise<T>((resolver, recusar) => {
         comecar(async () => {
           try {
-            const r = await chamar()
+            const r = await naFila(chamar)
             if (r.carrinho) receber(r.carrinho)
             resolver(r)
           } catch (e) {
@@ -342,7 +487,7 @@ export function ProvedorDaSacola({ children }: { children: ReactNode }) {
           }
         })
       }),
-    [receber]
+    [receber, naFila]
   )
 
   const valor = useMemo<Sacola>(
@@ -361,13 +506,26 @@ export function ProvedorDaSacola({ children }: { children: ReactNode }) {
         recarregar()
       },
       fechar: () => setAberta(false),
-      mudar: (linhaId, quantidade) =>
-        quantidade <= 0
-          ? aplicar({ tipo: "remover", linhaId }, () => remover(linhaId))
-          : aplicar({ tipo: "quantidade", linhaId, quantidade }, () =>
-              mudarQuantidade(linhaId, quantidade)
-            ),
-      tirar: (linhaId) => aplicar({ tipo: "remover", linhaId }, () => remover(linhaId)),
+      mudar: mudarLinha,
+      tirar: (linhaId) => mudarLinha(linhaId, 0),
+      // Abre SEM reler: a leitura voltaria com a sacola de antes do clique.
+      // `antes` é o que a sacola da tela tem agora — ver `chegar`.
+      adicionar: async (itens, chamar) => {
+        setAberta(true)
+        const r = await aplicar(
+          {
+            tipo: "adicionar",
+            itens: itens.map((i) => ({
+              ...i,
+              antes: carrinho.itens.find((l) => l.varianteId === i.varianteId)?.quantidade ?? 0,
+            })),
+          },
+          null,
+          () => naFila(chamar)
+        )
+        // Adicionar nunca é pulado; o `null` só existe pra quantidade.
+        return r ?? { ok: false, erro: SEM_CONEXAO, carrinho: null }
+      },
       recarregar,
       comCarrinho,
     }),

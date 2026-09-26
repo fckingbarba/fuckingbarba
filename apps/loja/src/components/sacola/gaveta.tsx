@@ -185,7 +185,8 @@ export function Gaveta({
               <li
                 className="sacolinha__item"
                 key={item.id}
-                data-mexendo={mexendo === item.id ? "" : undefined}
+                data-mexendo={mexendo === item.id || item.chegando ? "" : undefined}
+                data-chegando={item.chegando ? "" : undefined}
               >
                 {item.imagem ? (
                   <Link
@@ -220,7 +221,7 @@ export function Gaveta({
                     <button
                       type="button"
                       className="sacolinha__passo"
-                      disabled={ocupada}
+                      disabled={item.chegando}
                       onClick={() =>
                         item.quantidade <= 1 ? tirar(item.id) : mudar(item.id, item.quantidade - 1)
                       }
@@ -239,7 +240,7 @@ export function Gaveta({
                     <button
                       type="button"
                       className="sacolinha__passo"
-                      disabled={ocupada}
+                      disabled={item.chegando}
                       onClick={() => mudar(item.id, item.quantidade + 1)}
                       aria-label={`Aumentar a quantidade de ${item.nome}`}
                     >
@@ -257,7 +258,7 @@ export function Gaveta({
                   <button
                     type="button"
                     className="sacolinha__tira"
-                    disabled={ocupada}
+                    disabled={item.chegando}
                     onClick={() => tirar(item.id)}
                     aria-label={`Remover ${item.nome} da sacola`}
                   >

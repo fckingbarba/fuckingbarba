@@ -108,6 +108,11 @@ function Slide({
           <BotaoComprar
             varianteId={variante}
             nome={produto.title}
+            previa={
+              precos
+                ? { handle: produto.handle, imagem: produto.thumbnail ?? null, preco: precos.atual }
+                : undefined
+            }
             className="btn benefits__compra"
             icone={<Carrinho className="btn__icone" />}
           />
