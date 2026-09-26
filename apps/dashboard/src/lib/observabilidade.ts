@@ -78,8 +78,24 @@ export type TelaDaObservabilidade = {
   }
   problemas: ProblemaNaTela[]
   integracoes: IntegracaoNaTela[]
+  /**
+   * As tentativas de pagar com cartão nas últimas 24 horas, e o freio contra
+   * o robô testando cartão (`apps/backend/src/lib/cartao/`). Opcional: o
+   * Medusa de antes da entrega 0129 não manda.
+   */
+  cartao?: CartaoNaTela
   rotinas: RotinaNaTela[]
   velocidade: { vitais: VitalNaTela[]; visitas: number; maisLenta: string | null }
+}
+
+export type CartaoNaTela = {
+  tentativas: number
+  /** Com as em análise: o banco disse sim. */
+  aprovadas: number
+  recusadas: number
+  /** As que a loja segurou antes do Pagar.me. */
+  barradas: number
+  freio: { ligado: boolean; texto: string }
 }
 
 export const NOME_DA_FAIXA: Record<Faixa, string> = {

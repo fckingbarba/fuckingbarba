@@ -19,7 +19,8 @@
  * DASHBOARD_DONO_EMAIL (o mesmo do backend: com gente no painel, o aviso do
  * estorno que não saiu vai pro dono, e é na caixa dele que se lê — ver
  * `caixaDaEquipe`), MEDUSA_WEBHOOK_SEGREDO (o mesmo do backend; padrão
- * "segredo-de-teste") e CHROMIUM.
+ * "segredo-de-teste"), REVALIDAR_SEGREDO (o mesmo do backend e da loja: a
+ * seção do robô testando cartão assina como a loja) e CHROMIUM.
  *
  * Liga o Pagar.me na região pelo admin e DEVOLVE a região como estava no
  * fim, mesmo se falhar no meio.
@@ -56,7 +57,10 @@
  * │ • pedido pago ficar sem o aviso de venda pro dono — pelos mesmos       │
  * │   caminhos da confirmação —, ou o dono receber dois; o aviso levar     │
  * │   dado de quem comprou; e pedido não pago (ou pago depois de           │
- * │   cancelado) virar venda nova.                                         │
+ * │   cancelado) virar venda nova;                                         │
+ * │ • o robô testando cartão roubado chegar no Pagar.me sem limite — pela  │
+ * │   mesma sacola, pulando a loja, ou trocando de pessoa e de sacola (o   │
+ * │   freio) —, e o freio segurar o Pix ou calar o aviso pro dono.         │
  * └─────────────────────────────────────────────────────────────────────────┘
  */
 
@@ -277,8 +281,25 @@ const navegador = await chromium.launch(
 const errosDeConsole = []
 const RUIDO_DE_DEV = /_next\/hmr|websocket|favicon/i
 
+/*
+  CADA ABA É UMA PESSOA (entrega 0129). A porta do cartão conta as tentativas
+  por pessoa — o IP que a loja manda pro Medusa, assinado, e que ela lê do
+  `x-real-ip` (o que a Vercel escreve). Sem isto, toda aba seria o mesmo
+  "::1", e a rodada, que paga com cartão umas 16 vezes, bateria no limite de
+  8 por hora da mesma pessoa. O cabeçalho vai só nos pedidos pra loja: no
+  Pagar.me falso, um cabeçalho a mais pediria uma licença (CORS) que ele não
+  dá, e o cartão não viraria token.
+*/
+let pessoaDaAba = 0
+const ORIGEM_DA_LOJA = new URL(LOJA).origin
+
 async function novaAba() {
   const contexto = await navegador.newContext({ viewport: { width: 1280, height: 1000 } })
+  const ip = `198.51.100.${(pessoaDaAba++ % 250) + 1}`
+  await contexto.route(
+    (url) => url.origin === ORIGEM_DA_LOJA,
+    (rota) => rota.continue({ headers: { ...rota.request().headers(), "x-real-ip": ip } })
+  )
   await contexto.grantPermissions(["clipboard-read", "clipboard-write"], { origin: LOJA })
   const pagina = await contexto.newPage()
   pagina.on(
@@ -521,11 +542,21 @@ const { regions } = await adm("/admin/regions?fields=id,currency_code,*payment_p
 const regiao = regions.find((r) => r.currency_code === "brl")
 const provedoresDeAntes = (regiao.payment_providers ?? []).map((p) => p.id)
 
+/*
+  A PORTA DO CARTÃO COMEÇA SOLTA (`POST /admin/cartao`, "soltar"): as travas
+  contra o robô testando cartão contam as tentativas da última hora, e as de
+  uma rodada anterior — deste conferidor, do de checkout — não podem barrar
+  os cartões desta. No fim, solta de novo (o `finally`).
+*/
+const soltarOCartao = () =>
+  adm("/admin/cartao", { method: "POST", body: JSON.stringify({ acao: "soltar" }) })
+
 try {
   await adm(`/admin/regions/${regiao.id}`, {
     method: "POST",
     body: JSON.stringify({ payment_providers: [PAGARME] }),
   })
+  await soltarOCartao()
 
   titulo("A fila de confirmações começa vazia")
   {
@@ -2158,6 +2189,284 @@ try {
     await contexto.close()
   }
 
+  /* ── 12. o robô testando cartão (`backend/src/lib/cartao/`) ───────────── */
+
+  /*
+    O GOLPE: um robô com uma lista de cartões roubados tenta um atrás do
+    outro, pra descobrir quais funcionam. A porta do `complete` segura antes
+    do Pagar.me — por sacola, por pessoa (o IP que a loja assina), quem chega
+    sem a assinatura da loja, e o freio da loja toda. Cada cenário começa com
+    o cartão solto (`POST /admin/cartao`), e as contas se conferem pelo
+    `GET /admin/cartao`, que devolve as últimas tentativas.
+  */
+  const SEGREDO_DA_LOJA = process.env.REVALIDAR_SEGREDO ?? ""
+  const protecao = () => adm("/admin/cartao")
+  const ASSUNTO_DO_FREIO = "Robô testando cartão na loja: o cartão ficou mais restrito"
+
+  /** Um cartão virado token no Pagar.me falso, como o navegador faz. */
+  async function tokenDoCartao(numero) {
+    const r = await fetch(`http://127.0.0.1:${pagarme.porta}/core/v5/tokens?appId=pk_test_falsa`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        type: "card",
+        card: {
+          number: numero,
+          holder_name: "ROBO TESTE",
+          exp_month: 12,
+          exp_year: 2030,
+          cvv: CVV,
+        },
+      }),
+    })
+    return (await r.json())?.id
+  }
+
+  /**
+   * Uma tentativa de cartão pela API, como o robô faz: sacola nova, sessão
+   * com o token, `complete`. `assinada` manda como a loja manda — o segredo e
+   * um IP (cada tentativa, uma pessoa, se não disser qual); sem, é quem pula a
+   * loja.
+   */
+  let pessoaDoRobo = 0
+  async function tentativaPelaApi(numero, { assinada = true, ip = null } = {}) {
+    const email = `robo${++pessoaDoRobo}@fuckingbarba.invalid`
+    const carrinho = await carrinhoPelaApi(email)
+    await loja(`/store/payment-collections/${carrinho.colecao}/payment-sessions`, {
+      method: "POST",
+      body: JSON.stringify({
+        provider_id: PAGARME,
+        data: {
+          entrada: {
+            ...entradaDoPix(email),
+            forma: "cartao",
+            parcelas: 1,
+            token: await tokenDoCartao(numero),
+          },
+        },
+      }),
+    })
+    const r = await fetch(`${MEDUSA}/store/carts/${carrinho.id}/complete`, {
+      method: "POST",
+      headers: {
+        ...cabLoja,
+        ...(assinada
+          ? {
+              "x-loja-segredo": SEGREDO_DA_LOJA,
+              "x-cliente-ip": ip ?? `203.0.113.${(pessoaDoRobo % 250) + 1}`,
+            }
+          : {}),
+      },
+    })
+    const json = await r.json().catch(() => null)
+    if (json?.type === "order") await pedidoNoMedusa(json.order.id)
+    return { status: r.status, json, carrinho: carrinho.id }
+  }
+
+  /** Relê a proteção até `cond` valer: a tentativa fecha depois que a resposta sai. */
+  async function esperarProtecao(cond, ms = 10000) {
+    let p = await protecao()
+    for (const fim = Date.now() + ms; !cond(p) && Date.now() < fim; await esperar(200)) {
+      p = await protecao()
+    }
+    return p
+  }
+
+  titulo("O robô testando cartão, pela tela: a mesma sacola não passa da 5ª tentativa")
+  if (!SEGREDO_DA_LOJA) {
+    ok(
+      false,
+      "a seção do robô precisa do REVALIDAR_SEGREDO do backend no ambiente (é com ele que a loja assina)"
+    )
+  } else {
+    await soltarOCartao()
+    const { contexto, pagina } = await novaAba()
+    const carrinhoId = await sacolaPronta(contexto, 1)
+    const email = "robo-na-tela@fuckingbarba.invalid"
+    const noPagarmeDoEmail = () =>
+      [...pagarme.pedidos.values()].filter((r) => r.corpo.customer?.email === email).length
+    const recado = pagina.locator("#form-pagamento .erros-envio")
+    const botaoLivre = () =>
+      pagina.waitForFunction(
+        () => {
+          const b = document.querySelector("#form-pagamento button[type=submit]")
+          return Boolean(b) && !b.hasAttribute("aria-busy")
+        },
+        null,
+        { timeout: 45000 }
+      )
+    await ateOPagamento(pagina, email)
+    await preencherCartao(pagina, "4000 0000 0000 0028")
+    const vezes = 5
+    for (let i = 1; i <= vezes; i++) {
+      if (i > 1) await pagina.locator(".pagamento__painel[data-ativo] input").nth(3).fill(CVV)
+      await pagar(pagina)
+      for (const fim = Date.now() + 45000; noPagarmeDoEmail() < i && Date.now() < fim;)
+        await esperar(200)
+      await recado.waitFor({ timeout: 45000 })
+      await botaoLivre()
+    }
+    ok(
+      noPagarmeDoEmail() === vezes &&
+        /banco do cartão não autorizou/i.test(await recado.innerText()),
+      `${vezes} tentativas recusadas na mesma sacola: as ${vezes} foram pro Pagar.me`,
+      `${noPagarmeDoEmail()} · ${await recado.innerText()}`
+    )
+
+    await pagina.locator(".pagamento__painel[data-ativo] input").nth(3).fill(CVV)
+    await pagar(pagina)
+    const barrou = await pagina
+      .waitForFunction(
+        () =>
+          /muitas tentativas com cartão/i.test(
+            document.querySelector("#form-pagamento .erros-envio")?.textContent ?? ""
+          ),
+        null,
+        { timeout: 45000 }
+      )
+      .then(() => true)
+      .catch(() => false)
+    ok(
+      barrou &&
+        /Pix/.test(await recado.innerText()) &&
+        /nada foi cobrado/i.test(await recado.innerText()),
+      "a 6ª é barrada: a frase manda pro Pix, e diz que nada foi cobrado",
+      await recado.innerText()
+    )
+    await esperar(1000)
+    ok(noPagarmeDoEmail() === vezes, "e a 6ª NÃO chegou no Pagar.me", String(noPagarmeDoEmail()))
+    const { json: aberto } = await loja(`/store/carts/${carrinhoId}?fields=id,completed_at`)
+    ok(aberto?.cart && !aberto.cart.completed_at, "a sacola continua aberta, sem pedido")
+    const p = await esperarProtecao(
+      (x) =>
+        x.ultimas.filter((t) => t.carrinho === carrinhoId && t.resultado === "recusada").length ===
+        vezes
+    )
+    const daSacola = p.ultimas.filter((t) => t.carrinho === carrinhoId)
+    ok(
+      daSacola.length === vezes + 1 &&
+        daSacola[0].resultado === "barrada" &&
+        daSacola[0].motivo === "carrinho" &&
+        daSacola.slice(1).every((t) => t.resultado === "recusada" && t.motivo === "banco") &&
+        daSacola.every((t) => t.assinada && /^loja:[0-9a-f]{16}$/.test(t.quem)),
+      "o registro: 5 recusadas pelo banco e 1 barrada pela sacola, assinadas pela loja, sem o IP",
+      JSON.stringify(daSacola.map((t) => [t.resultado, t.motivo, t.assinada, t.quem]))
+    )
+    await contexto.close()
+
+    titulo("O robô que pula a loja: sem a assinatura, 3 por hora pra todo mundo junto")
+    {
+      await soltarOCartao()
+      const r = []
+      for (let i = 0; i < 4; i++)
+        r.push(await tentativaPelaApi(CARTOES.recusado, { assinada: false }))
+      ok(
+        r.slice(0, 3).every((x) => x.status === 400) &&
+          r[3].status === 429 &&
+          r[3].json?.message === "cartao_limite",
+        "3 passam (e o banco recusa); a 4ª é barrada antes do Pagar.me",
+        r.map((x) => `${x.status} ${x.json?.message ?? ""}`.trim()).join(" · ")
+      )
+      const p = await esperarProtecao((x) => x.ultimas[0]?.resultado === "barrada")
+      ok(
+        p.ultimas[0]?.resultado === "barrada" &&
+          p.ultimas[0]?.motivo === "diretas" &&
+          p.ultimas[0]?.assinada === false &&
+          p.diretas >= 4,
+        "o registro diz que ela chegou sem a assinatura da loja",
+        JSON.stringify({ ultima: p.ultimas[0], diretas: p.diretas })
+      )
+    }
+
+    titulo("O freio: muita recusa, de gente e sacola diferentes, segura o cartão da loja toda")
+    {
+      await soltarOCartao()
+      const antes = resend.emails.length
+      const recusas = []
+      for (let i = 0; i < 8; i++) recusas.push(await tentativaPelaApi(CARTOES.recusado))
+      let p = await esperarProtecao((x) => x.freio.ligado)
+      ok(
+        recusas.every((x) => x.status === 400) && p.freio.ligado && p.freio.recusas === 8,
+        "8 recusas, cada uma de uma pessoa e uma sacola: o freio liga",
+        `${recusas.map((x) => x.status).join(" ")} · ${JSON.stringify(p.freio)}`
+      )
+      const pedidosAntes = pagarme.pedidos.size
+      const seguinte = await tentativaPelaApi(CARTOES.aprovado)
+      ok(
+        seguinte.status === 429 &&
+          seguinte.json?.message === "cartao_freio" &&
+          pagarme.pedidos.size === pedidosAntes,
+        "com o freio, a próxima — outra pessoa, outra sacola, cartão bom — é barrada antes do Pagar.me",
+        `${seguinte.status} ${seguinte.json?.message ?? ""}`
+      )
+
+      const aviso = await emailComAssunto(ASSUNTO_DO_FREIO)
+      const doFreio = resend.emails.slice(antes).filter((e) => e.subject === ASSUNTO_DO_FREIO)
+      const caixa = caixaDaEquipe(doFreio)
+      ok(
+        Boolean(aviso) &&
+          Boolean(caixa) &&
+          doFreio.filter((e) => (e.to ?? []).includes(caixa)).length === 1 &&
+          /8 de 8 tentativas/.test(textoDo(aviso)) &&
+          /Pix segue normal/.test(textoDo(aviso)),
+        "o dono recebe UM e-mail, com o que houve e o que a loja fez",
+        paraQuem(
+          doFreio.flatMap((e) => e.to ?? []),
+          caixa
+        )
+      )
+
+      const emailDoPix = "pix-no-freio@fuckingbarba.invalid"
+      const pix = await fecharPelaApi(await carrinhoPelaApi(emailDoPix), emailDoPix)
+      ok(
+        pix?.payment_status === "awaiting",
+        "o Pix não passa pelo freio: o pedido nasce esperando o QR",
+        pix?.payment_status ?? "sem pedido"
+      )
+
+      const aba = await novaAba()
+      await sacolaPronta(aba.contexto, 1)
+      await ateOPagamento(aba.pagina, "freio-na-tela@fuckingbarba.invalid")
+      await preencherCartao(aba.pagina, "4000 0000 0000 0010")
+      await pagar(aba.pagina)
+      const pausa = await aba.pagina
+        .waitForFunction(
+          () =>
+            /pausa de segurança/i.test(
+              document.querySelector("#form-pagamento .erros-envio")?.textContent ?? ""
+            ),
+          null,
+          { timeout: 45000 }
+        )
+        .then(() => true)
+        .catch(() => false)
+      ok(
+        pausa && aba.pagina.url().endsWith("/checkout"),
+        "na tela: a pausa de segurança, com o Pix de saída — e a pessoa segue no checkout",
+        await aba.pagina
+          .locator("#form-pagamento .erros-envio")
+          .innerText()
+          .catch(() => "")
+      )
+      await aba.contexto.close()
+
+      await soltarOCartao()
+      p = await protecao()
+      const passou = await tentativaPelaApi(CARTOES.aprovado)
+      ok(
+        !p.freio.ligado && passou.status === 200 && passou.json?.type === "order",
+        "solto pelo admin: o freio desliga, e o cartão volta a passar",
+        `${JSON.stringify(p.freio)} · ${passou.status} ${passou.json?.type ?? passou.json?.message ?? ""}`
+      )
+      p = await esperarProtecao((x) => x.ultimas[0]?.resultado === "aprovada")
+      ok(
+        p.ultimas.some((t) => t.resultado === "solta" && /^admin:/.test(t.quem)),
+        "a soltura fica no registro, com quem soltou",
+        JSON.stringify(p.ultimas.slice(0, 3).map((t) => [t.resultado, t.quem]))
+      )
+    }
+  }
+
   titulo("Os avisos de venda da rodada inteira")
   {
     // Toda compra da rodada — a da resposta perdida, a da confirmação que se
@@ -2185,6 +2494,8 @@ try {
   pagarme.estornos = "normal"
   pagarme.atrasoNaBusca = 0
   pagarme.proximoCancelamento = null
+  // O freio que a seção do robô ligou não fica pra rodada seguinte, nem pro conferidor de checkout.
+  await soltarOCartao().catch((e) => console.log(`  ⚠  não consegui soltar o cartão: ${e}`))
   // Os pedidos que o teste criou e ficaram de pé: cancelados, estoque de volta.
   for (const id of pedidosDoTeste) {
     const o = (await loja(`/store/orders/${id}?fields=id,status`)).json?.order

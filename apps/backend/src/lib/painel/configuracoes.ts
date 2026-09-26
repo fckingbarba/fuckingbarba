@@ -417,6 +417,11 @@ export const AVISOS_DA_EQUIPE = [
     texto: "O dinheiro não voltou pro cliente.",
     papeis: ["dono"],
   },
+  {
+    nome: "Robô testando cartão",
+    texto: "Muita recusa de cartão em pouco tempo: a loja segura o cartão até passar.",
+    papeis: ["dono"],
+  },
 ] as const satisfies readonly { nome: string; texto: string; papeis: readonly Papel[] }[]
 
 /** Os e-mails que o cliente recebe, e se já saem. */

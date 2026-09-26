@@ -6,6 +6,13 @@ import {
   MedusaService,
 } from "@medusajs/framework/utils"
 import type { EntityManager } from "@medusajs/framework/mikro-orm/knex"
+import {
+  CONTAM,
+  LIMITES,
+  type Contagem,
+  type Resultado,
+  type ResumoDoCartao,
+} from "../../lib/cartao/robo"
 import { ligarSinais, type Sinal as SinalRecebido } from "../../lib/observabilidade/sinal"
 import { chaveDaOcorrencia, type EventoLido } from "../../lib/observabilidade/telemetria"
 import { chaveDoDia } from "../../lib/painel/formato"
@@ -14,6 +21,7 @@ import { Ocorrencia } from "./models/ocorrencia"
 import { Problema } from "./models/problema"
 import { Rotina } from "./models/rotina"
 import { Sinal } from "./models/sinal"
+import { Tentativa } from "./models/tentativa"
 
 type Contexto = Context<EntityManager>
 
@@ -34,7 +42,19 @@ const Tabelas = MedusaService({
   SinaisDasIntegracoes: Sinal,
   Medidas: Medida,
   Ocorrencias: Ocorrencia,
+  Tentativas: Tentativa,
 })
+
+/** `'andando', 'aprovada', …` — constantes do código, nunca do pedido. */
+const EM_SQL = (lista: readonly Resultado[]) => lista.map((r) => `'${r}'`).join(", ")
+
+/**
+ * Desde a última soltura (`POST /admin/cartao`, "soltar"): as contas da
+ * trava e do freio não olham o que veio antes dela.
+ */
+const DEPOIS_DA_SOLTURA = `created_at > coalesce(
+  (select max(created_at) from obs_tentativa where resultado = 'solta' and deleted_at is null),
+  '-infinity'::timestamptz)`
 
 export default class ObservabilidadeService extends Tabelas {
   constructor(...args: ConstructorParameters<typeof Tabelas>) {
@@ -217,10 +237,158 @@ export default class ObservabilidadeService extends Tabelas {
     }
   }
 
+  /* ── as tentativas de cartão (`lib/cartao/`) ──────────────────────────── */
+
+  /** A tentativa que vai pro `complete` — "andando", até a porta fechar. */
+  @InjectManager()
+  async abrirTentativa(
+    t: { carrinho: string; sessao: string; quem: string; assinada: boolean; valor: number | null },
+    @MedusaContext() ctx: Contexto = {}
+  ): Promise<string> {
+    const id = generateEntityId(undefined, "tnt")
+    await ctx.manager!.execute(
+      `insert into obs_tentativa
+         (id, carrinho, sessao, quem, assinada, resultado, motivo, valor, created_at, updated_at)
+       values (?, ?, ?, ?, ?, 'andando', null, ?, now(), now())`,
+      [id, t.carrinho, t.sessao, t.quem, t.assinada, t.valor]
+    )
+    return id
+  }
+
+  /** Como terminou — ou "barrada", quando a porta não deixou. */
+  @InjectManager()
+  async fecharTentativa(
+    id: string,
+    { resultado, motivo }: { resultado: Resultado; motivo: string | null },
+    @MedusaContext() ctx: Contexto = {}
+  ): Promise<void> {
+    await ctx.manager!.execute(
+      `update obs_tentativa set resultado = ?, motivo = ?, updated_at = now()
+        where id = ? and deleted_at is null`,
+      [resultado, motivo, id]
+    )
+  }
+
+  /**
+   * As contas da trava, numa ida ao banco: a sacola, a pessoa, as sem
+   * assinatura, e o freio. Depois da última soltura, e só com as que foram
+   * (ou podem ter ido) pro Pagar.me — ver `CONTAM`.
+   */
+  @InjectManager()
+  async contarTentativas(
+    { carrinho, quem }: { carrinho: string; quem: string },
+    @MedusaContext() ctx: Contexto = {}
+  ): Promise<Contagem> {
+    const contam = EM_SQL(CONTAM)
+    const [l] = (await ctx.manager!.execute(
+      `select
+         count(*) filter (where carrinho = ? and resultado in (${contam})
+                            and created_at > now() - make_interval(mins => ?))::int as do_carrinho,
+         count(*) filter (where quem = ? and resultado in (${contam})
+                            and created_at > now() - make_interval(mins => ?))::int as da_pessoa,
+         count(*) filter (where not assinada and resultado in (${contam})
+                            and created_at > now() - make_interval(mins => ?))::int as diretas,
+         count(*) filter (where resultado = 'recusada'
+                            and created_at > now() - make_interval(mins => ?))::int as recusas,
+         count(*) filter (where resultado in ('aprovada', 'analise', 'recusada')
+                            and created_at > now() - make_interval(mins => ?))::int as terminadas,
+         count(*) filter (where resultado in (${contam})
+                            and created_at > now() - make_interval(mins => ?))::int as da_loja
+         from obs_tentativa
+        where deleted_at is null
+          and created_at > now() - make_interval(mins => ?)
+          and ${DEPOIS_DA_SOLTURA}`,
+      [
+        carrinho,
+        LIMITES.carrinho.minutos,
+        quem,
+        LIMITES.pessoa.minutos,
+        LIMITES.diretas.minutos,
+        LIMITES.freio.minutos,
+        LIMITES.freio.minutos,
+        LIMITES.noFreio.loja.minutos,
+        Math.max(
+          LIMITES.carrinho.minutos,
+          LIMITES.pessoa.minutos,
+          LIMITES.diretas.minutos,
+          LIMITES.freio.minutos
+        ),
+      ]
+    )) as Record<string, number>[]
+    return {
+      doCarrinho: Number(l?.do_carrinho ?? 0),
+      daPessoa: Number(l?.da_pessoa ?? 0),
+      diretas: Number(l?.diretas ?? 0),
+      recusas: Number(l?.recusas ?? 0),
+      terminadas: Number(l?.terminadas ?? 0),
+      daLoja: Number(l?.da_loja ?? 0),
+    }
+  }
+
+  /**
+   * Solta o cartão: dali pra frente, as travas e o freio só contam o que vier
+   * depois. É uma linha como as outras ("solta"), com quem soltou — fica no
+   * registro.
+   */
+  @InjectManager()
+  async soltarCartao(quem: string, @MedusaContext() ctx: Contexto = {}): Promise<void> {
+    await ctx.manager!.execute(
+      `insert into obs_tentativa
+         (id, carrinho, sessao, quem, assinada, resultado, motivo, valor, created_at, updated_at)
+       values (?, '-', null, ?, true, 'solta', null, null, now(), now())`,
+      [generateEntityId(undefined, "tnt"), quem]
+    )
+  }
+
+  /**
+   * As últimas 24 horas de cartão, pra tela e pro vigia, e o freio agora
+   * (os últimos 30 minutos, depois da última soltura).
+   */
+  @InjectManager()
+  async resumoDoCartao(@MedusaContext() ctx: Contexto = {}): Promise<ResumoDoCartao> {
+    const contam = EM_SQL(CONTAM)
+    const [dia] = (await ctx.manager!.execute(
+      `select
+         count(*) filter (where resultado in (${contam}))::int as tentativas,
+         count(*) filter (where resultado = 'aprovada')::int as aprovadas,
+         count(*) filter (where resultado = 'analise')::int as analise,
+         count(*) filter (where resultado = 'recusada')::int as recusadas,
+         count(*) filter (where resultado = 'barrada')::int as barradas,
+         count(*) filter (where not assinada and resultado <> 'solta')::int as diretas
+         from obs_tentativa
+        where deleted_at is null and created_at > now() - interval '24 hours'`
+    )) as Record<string, number>[]
+    const [freio] = (await ctx.manager!.execute(
+      `select
+         count(*) filter (where resultado = 'recusada')::int as recusas,
+         count(*) filter (where resultado in ('aprovada', 'analise', 'recusada'))::int as terminadas,
+         min(created_at) filter (where resultado = 'recusada') as desde
+         from obs_tentativa
+        where deleted_at is null
+          and created_at > now() - make_interval(mins => ?)
+          and ${DEPOIS_DA_SOLTURA}`,
+      [LIMITES.freio.minutos]
+    )) as { recusas: number; terminadas: number; desde: Date | string | null }[]
+    return {
+      tentativas: Number(dia?.tentativas ?? 0),
+      aprovadas: Number(dia?.aprovadas ?? 0),
+      analise: Number(dia?.analise ?? 0),
+      recusadas: Number(dia?.recusadas ?? 0),
+      barradas: Number(dia?.barradas ?? 0),
+      diretas: Number(dia?.diretas ?? 0),
+      freio: {
+        recusas: Number(freio?.recusas ?? 0),
+        terminadas: Number(freio?.terminadas ?? 0),
+        desde: freio?.desde ?? null,
+      },
+    }
+  }
+
   /**
    * O que não precisa ficar: os sinais e as ocorrências de mais de 60 dias,
-   * as medidas de mais de 28 (a conta da velocidade é de 28) e os problemas
-   * resolvidos há mais de 90. Apaga de verdade — é registro de máquina.
+   * as medidas de mais de 28 (a conta da velocidade é de 28), as tentativas
+   * de cartão de mais de 30 e os problemas resolvidos há mais de 90. Apaga de
+   * verdade — é registro de máquina.
    */
   @InjectManager()
   async limpar(agora: Date, @MedusaContext() ctx: Contexto = {}) {
@@ -234,6 +402,13 @@ export default class ObservabilidadeService extends Tabelas {
     await ctx.manager!.execute(`delete from obs_medida where created_at < ?`, [
       new Date(agora.getTime() - 28 * DIA),
     ])
+    // Tolerante: num banco em que a migração das tentativas ainda não rodou,
+    // o resto da limpeza (e o vigia) segue.
+    await ctx
+      .manager!.execute(`delete from obs_tentativa where created_at < ?`, [
+        new Date(agora.getTime() - 30 * DIA),
+      ])
+      .catch(() => undefined)
     await ctx.manager!.execute(
       `delete from obs_problema where situacao = 'resolvido' and resolvido_em < ?`,
       [new Date(agora.getTime() - 90 * DIA)]
