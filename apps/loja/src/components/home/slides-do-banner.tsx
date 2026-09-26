@@ -8,10 +8,15 @@ import Link from "next/link"
  *
  * O banner é SÓ IMAGEM (decidido em 24/09): a arte ocupa o banner inteiro,
  * com o texto dentro dela, como os banners da loja na Nuvemshop — a do
- * computador, deitada (1920 × 700), e a do celular, em pé (4 × 5), trocada
- * abaixo de 768 px. A caixa tem a proporção da arte e a imagem aparece
- * INTEIRA (`contain`): arte tem texto, e cortar a borda cortaria a frase. O
- * slide inteiro é o link.
+ * computador, deitada (1920 × 630), e a do celular, em pé (1080 × 1275),
+ * trocada abaixo de 768 px. A arte PREENCHE a caixa (`cover`, pelo centro):
+ * sem faixa branca, e a arte de outra medida perde um pouco das bordas — o
+ * painel avisa quanto. O slide inteiro é o link.
+ *
+ * AS MEDIDAS DE 26/09: o banner ficou mais baixo (era 1920 × 700 e 4 × 5), a
+ * pedido da loja. A caixa nova ainda cabe as artes feitas antes (1920 × 700 e
+ * 820 × 1000) cortando só a borda sem texto — conferido nas quatro artes no
+ * ar naquele dia.
  *
  * Sem hook de propósito: o servidor desenha o banner de um slide só com o
  * mesmo componente que o carrossel usa no navegador.
@@ -29,8 +34,8 @@ export type SlidePronto = {
 }
 
 /** As medidas da arte — as mesmas que o painel sugere (`apps/dashboard/src/lib/home.ts`). */
-export const ARTE_DO_COMPUTADOR = [1920, 700] as const
-export const ARTE_DO_CELULAR = [1080, 1350] as const
+export const ARTE_DO_COMPUTADOR = [1920, 630] as const
+export const ARTE_DO_CELULAR = [1080, 1275] as const
 
 export function SlideDoBanner({
   slide,

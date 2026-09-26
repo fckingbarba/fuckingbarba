@@ -11,16 +11,19 @@
 
 /*
   A ARTE — a imagem com o texto dentro dela (como os banners da loja na
-  Nuvemshop). A caixa tem a proporção da arte: 1920 × 700
-  no computador e 4 × 5 no celular, abaixo de 768 px (sem a arte do
-  celular, fica a do computador, deitada). A imagem aparece INTEIRA
-  (`contain`): arte tem texto, e o `cover` cortaria a frase na borda. Arte
-  em outra proporção ganha faixa branca — o painel avisa antes.
+  Nuvemshop). A caixa: 1920 × 630 no computador e 1080 × 1275 no celular,
+  abaixo de 768 px (sem a arte do celular, fica a do computador, deitada).
+  A imagem PREENCHE a caixa (`cover`, pelo centro): nada de faixa branca, e
+  a arte de outra medida perde um pouco das bordas — o painel avisa quanto,
+  e manda deixar o texto longe delas.
+
+  Mais baixa desde 26/09, a pedido da loja (era 1920 × 700 e 4 × 5): as
+  artes feitas pra medida antiga perdem uns 5% em cima e embaixo, só borda.
 */
 .banner-arte {
   position: relative;
   display: block;
-  aspect-ratio: 1920 / 700;
+  aspect-ratio: 1920 / 630;
   background: #ffffff;
   overflow: hidden;
 }
@@ -34,7 +37,8 @@
   display: block;
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: cover;
+  object-position: center;
 }
 .banner-arte__link:focus-visible {
   outline: 3px solid var(--color-tinta);
@@ -42,7 +46,15 @@
 }
 @media (max-width: 767px) {
   .banner-arte:not(.banner-arte--sem-celular) {
-    aspect-ratio: 4 / 5;
+    aspect-ratio: 1080 / 1275;
+  }
+  /*
+    Sem a arte do celular, a do computador aparece INTEIRA: no carrossel, o
+    slide estica até o mais alto (o de arte em pé), e preencher essa caixa com
+    uma arte deitada cortaria o texto dos lados.
+  */
+  .banner-arte--sem-celular img {
+    object-fit: contain;
   }
 }
 

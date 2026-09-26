@@ -862,13 +862,18 @@ fim e avisa a loja.
 
 **As imagens da home** (fase 4, parte 2, e a entrega 0076). O banner é `{ slides, tempo }` (até 5
 slides; `tempo` em 0, 5, 7 ou 10 s) e é SÓ ARTE: cada slide tem a `imagem` (e a `imagemCelular`),
-o `titulo` (o `alt`) e o `produto` (vazio, leva pra vitrine); slide sem imagem — como os de texto de
-antes — cai na leitura, e o banner de fábrica é `slides: []`: sem arte, a home começa na barra de
-vantagens. Na loja, `components/home/slides-do-banner.tsx` desenha a arte sem hook (o servidor usa
+o `titulo` (o `alt`; opcional desde a 0103 — sem ele, o `montar` do `banner.tsx` usa o nome do
+produto do link, ou "Ver todos os produtos") e o `produto` (vazio, leva pra vitrine); slide sem
+imagem — como os de texto de antes — cai na leitura (no backend e na loja), e o banner de fábrica é
+`slides: []`: sem arte, a home começa na barra de vantagens. Na loja, `components/home/slides-do-banner.tsx` desenha a arte sem hook (o servidor usa
 pro banner de um slide só) e `carrossel-do-banner.tsx` é o carrossel: o trilho do `useCarrossel`
 (rolagem com encaixe), a troca sozinha, e a imagem de cada slide montada só quando ele vai
-aparecer. A arte tem a proporção 1920 × 700 (4 × 5 abaixo de 768 px, com a do celular) e aparece
-inteira (`contain`). Foto de fundo nas seções de `SECOES_COM_FUNDO_DA_HOME` (`fundos` da versão,
+aparecer. A caixa é 1920 × 630 (1080 × 1275 abaixo de 768 px, com a do celular) — mais baixa desde
+a 0103 (era 1920 × 700 e 4 × 5) — e a arte a PREENCHE (`cover`, pelo centro): sem faixa branca, e
+a arte de outra medida perde um pouco das bordas. Sem a do celular, no celular, a do computador
+aparece inteira (`contain`): no carrossel o slide estica até o mais alto, e preencher cortaria o
+texto dos lados. As medidas moram em `ARTE_DO_COMPUTADOR`/`ARTE_DO_CELULAR` e, no painel, no
+`MEDIDA_DA_ARTE` de `lib/home.ts` — mudou uma, muda a outra. Foto de fundo nas seções de `SECOES_COM_FUNDO_DA_HOME` (`fundos` da versão,
 como o `fb_pdp.fundos`), embrulhadas pelo mesmo `Fundo` de `components/secoes.tsx` (o
 `CELULAR_ATE` ganhou as da home), com o véu em `estilos/fundo.css` — que agora entra pelo
 `globals.css`, e não só na PDP (sem ele, a foto vazava pra página inteira). A última chamada tem
@@ -876,7 +881,8 @@ como o `fb_pdp.fundos`), embrulhadas pelo mesmo `Fundo` de `components/secoes.ts
 pra `lib/armazenamento.ts` (a PDP e a home usam; em `lib/pdp.ts` ela fazia ciclo de import com
 `lib/medusa.ts`). No painel, as imagens sobem por `POST /dashboard/home/imagens` (os usos do
 fundo) e o `FundoDaSecao` virou comum: recebe `subir` (pra onde sobe), `comVeu` e, na medida,
-`minimo` e `mostra: "inteira"` (a arte: avisa faixa, não corte). O formulário ganhou os campos
+`minimo` e `mostra: "centro"` (a arte do banner: a loja corta pelo centro, e o aviso diz quantos %
+saem de cada borda). O formulário ganhou os campos
 `imagens` (a do computador em `c`, a do celular em `c` + "Celular") e `opcoes`. **O ajuste de
 layout não tem cache próprio** (`lib/secoes/layout.ts`): era um `"use cache"` lendo outro (o
 `home()`, o produto), e no "Publicar" o de fora se refazia lendo o de dentro ainda vencido e

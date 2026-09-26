@@ -102,19 +102,19 @@ export type DefinicaoDaSecaoDaHome = {
 const TITULO: Campo = { tipo: "texto", c: "titulo", rot: "Título" }
 
 /**
- * A ARTE DE UM SLIDE DO BANNER — a mesma proporção dos banners da loja na
- * Nuvemshop (1920 × 700 no computador, 4 × 5 no celular), pra servir a arte
- * que já existe. A loja mostra a arte inteira, na proporção dela
- * (`apps/loja/src/components/home/slides-do-banner.tsx`): outra proporção
- * ganha faixa branca, e o painel avisa.
+ * A ARTE DE UM SLIDE DO BANNER — a caixa do banner na loja
+ * (`apps/loja/src/components/home/slides-do-banner.tsx`): 1920 × 630 no
+ * computador e 1080 × 1275 no celular, mais baixa desde 26/09 (era 1920 ×
+ * 700 e 4 × 5). A loja PREENCHE a caixa com a arte, cortando pelo centro o
+ * que sobra: o painel avisa quanto sai de cada borda.
  */
 const MEDIDA_DA_ARTE: MedidaDoFundo = {
   cor: "papel",
-  computador: [1920, 700],
-  celular: [1080, 1350],
+  computador: [1920, 630],
+  celular: [1080, 1275],
   // A arte de celular da Nuvemshop tem 800 de largura: serve (é a de um celular de 390 a 2x).
   minimo: { celular: 780 },
-  mostra: "inteira",
+  mostra: "centro",
 }
 
 /**
@@ -164,15 +164,15 @@ export const SECOES_DA_HOME: Record<IdDaSecaoDaHome, DefinicaoDaSecaoDaHome> = {
             medida: MEDIDA_DA_ARTE,
             ajuda: "A do computador, deitada, e a do celular, em pé.",
             rodape:
-              "JPG, PNG ou WebP. A loja mostra a arte inteira, sem cortar. Sem a do celular, ele mostra a do computador, pequena.",
+              "JPG, PNG ou WebP. A arte preenche o banner: se vier noutra medida, a loja corta um pouco das bordas — deixe o texto longe delas. Sem a do celular, ele mostra a do computador, pequena.",
           },
           {
             tipo: "texto",
             c: "titulo",
-            rot: "Descrição da arte",
+            rot: "Descrição da arte (opcional)",
             exemplo: "Semana do Cliente: todo site por R$ 79",
             ajuda:
-              "Pra quem não enxerga e pro Google: escreva o que a arte diz. Não aparece na tela.",
+              "Pra quem não enxerga e pro Google: o que a arte diz. Não aparece na tela. Em branco, vale o nome do produto pra onde o slide leva.",
           },
           {
             tipo: "produto",

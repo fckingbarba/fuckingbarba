@@ -95,7 +95,6 @@ describe("o editor da seção", () => {
   it("diz o que falta, com o caminho do item no grupo", () => {
     expect(faltandoNaSecaoDaHome("banner", { slides: [{ produto: "kit", titulo: "" }] })).toEqual([
       "slides.0.imagem",
-      "slides.0.titulo",
     ])
     expect(
       faltandoNaSecaoDaHome("hero", {
@@ -163,10 +162,13 @@ describe("o banner com slides", () => {
     expect(homeDoSite(h).conteudo.banner).toEqual({ slides: [], tempo: 7 })
   })
 
-  it("cada slide pede a arte e a descrição; a do celular só vale com a do computador", () => {
-    expect(faltandoNaSecaoDaHome("banner", { slides: [{ imagem: ARTE, titulo: "" }] })).toEqual([
-      "slides.0.titulo",
-    ])
+  it("cada slide pede a arte (a descrição é opcional); a do celular só vale com a do computador", () => {
+    expect(faltandoNaSecaoDaHome("banner", { slides: [{ imagem: ARTE, titulo: "" }] })).toEqual([])
+    // Sem a descrição, o slide entra — só com a arte.
+    expect(lerSecaoDaHome("banner", { slides: [{ imagem: ARTE, titulo: "  " }] }).secao).toEqual({
+      slides: [{ imagem: ARTE }],
+      tempo: 7,
+    })
     expect(
       faltandoNaSecaoDaHome("banner", { slides: [{ imagemCelular: `${ARTE}?cel`, titulo: "x" }] })
     ).toEqual(["slides.0.imagem"])

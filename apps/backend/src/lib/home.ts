@@ -86,15 +86,16 @@ export type ProdutoNoPalco = {
  * banner inteiro, com o texto dentro dela, como os banners da loja na
  * Nuvemshop — a do computador (`imagem`) e, se tiver, a do celular
  * (`imagemCelular`). O `titulo` é a descrição da arte (pra quem não enxerga
- * e pro Google), e o slide inteiro leva pro `produto` — ou pra vitrine
- * inteira, sem produto.
+ * e pro Google) — OPCIONAL desde 26/09: sem ela, a loja descreve o slide
+ * pelo nome do produto do link. O slide inteiro leva pro `produto` — ou pra
+ * vitrine inteira, sem produto.
  *
  * Não há mais o banner montado pela loja, com o painel amarelo, o preço e o
  * botão: sem arte, não há slide — e sem slide nenhum, a home começa na
  * barra de vantagens.
  */
 export type SlideDoBanner = {
-  titulo: string
+  titulo?: string
   imagem: string
   imagemCelular?: string
   produto?: string
@@ -399,17 +400,16 @@ const opcional = <K extends string>(k: K, v: unknown): Partial<Record<K, string>
 export const MINIMO_NO_PALCO = 2
 
 /**
- * Um slide: a arte (a do computador) e a descrição dela; a do celular só
- * vale junto da do computador. Slide sem arte — como os de texto de antes
- * dela — fica de fora.
+ * Um slide: a arte (a do computador) e, se tiver, a descrição dela; a do
+ * celular só vale junto da do computador. Slide sem arte — como os de texto
+ * de antes dela — fica de fora.
  */
 function lerSlide(o: Record<string, unknown>): SlideDoBanner | null {
-  const titulo = txt(o.titulo)
   const imagem = lerImagem(o.imagem)
-  if (!titulo || !imagem) return null
+  if (!imagem) return null
   const imagemCelular = lerImagem(o.imagemCelular)
   return {
-    titulo,
+    ...opcional("titulo", o.titulo),
     imagem,
     ...(imagemCelular ? { imagemCelular } : {}),
     ...opcional("produto", o.produto),
@@ -669,7 +669,7 @@ const EXIGE: Record<
   ChaveDaHome,
   { textos?: string[]; listas?: string[]; grupos?: Record<string, Grupo> }
 > = {
-  // O banner tem regra própria (`faltandoNoBanner`): a arte e a descrição de cada slide começado.
+  // O banner tem regra própria (`faltandoNoBanner`): a arte de cada slide começado.
   banner: {},
   trustbar: { grupos: { vantagens: { campos: ["titulo", "detalhe"] } } },
   ofertas: { textos: ["titulo"] },
@@ -759,7 +759,7 @@ export function faltandoNaSecaoDaHome(chave: ChaveDaHome, valores: unknown): str
 
 /**
  * O que falta no banner: pelo menos um slide inteiro; em cada slide
- * começado, a arte e a descrição dela. Chaves como as dos grupos:
+ * começado, a arte (a descrição é opcional). Chaves como as dos grupos:
  * "slides.1.imagem", ou "slides" sem nenhum.
  */
 function faltandoNoBanner(o: Record<string, unknown>): string[] {
@@ -769,7 +769,7 @@ function faltandoNoBanner(o: Record<string, unknown>): string[] {
   itens.forEach((item, i) => {
     const q = obj(item) ?? {}
     if (!Object.values(q).some(temTexto)) return
-    const falta = [...(lerImagem(q.imagem) ? [] : ["imagem"]), ...(txt(q.titulo) ? [] : ["titulo"])]
+    const falta = lerImagem(q.imagem) ? [] : ["imagem"]
     for (const c of falta) faltando.push(`slides.${i}.${c}`)
     if (!falta.length) inteiros++
   })

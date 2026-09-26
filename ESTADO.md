@@ -1448,7 +1448,7 @@ de hoje (o painel mostra em cima de cada quadro):
 
 | Onde | Computador | Celular |
 | --- | --- | --- |
-| Arte do slide do banner | 1920 × 700 | 1080 × 1350 (ou 800 × 1000) |
+| Arte do slide do banner | 1920 × 630 | 1080 × 1275 (ou 820 × 968) |
 | Bloco escuro de marca | 2880 × 996 | 1170 × 1743 |
 | Carrossel de coleção | 2880 × 1503 | 1170 × 2136 |
 | Alta performance | 2880 × 939 | 1170 × 2867 |
@@ -1860,6 +1860,30 @@ da importação deixando o preço do painel.
 Depois do deploy — **o que você faz:**
 
 - [ ] Os preços de hoje, antes da virada: ver "Os preços, antes da virada", na seção 3.
+
+**Home: o banner mais baixo, sem faixa branca, e a descrição opcional — pronto em 26/09 (entrega
+0103).**
+
+- **A descrição da arte ficou opcional.** O slide salva só com a arte. Sem a descrição, a loja
+  descreve o slide (pra quem não enxerga e pro Google) pelo nome do produto pra onde ele leva — ou
+  "Ver todos os produtos".
+- **Sem faixa branca:** a arte agora PREENCHE o banner. A do celular (820 × 1000) era um pouco mais
+  larga que a caixa (4 × 5), e sobrava branco em cima e embaixo.
+- **Mais baixo:** no computador, de 1920 × 700 pra 1920 × 630 (numa tela de 1440, de 525 pra 473
+  px); no celular, de 4 × 5 pra 1080 × 1275 (de 488 pra 460 px). As quatro artes no ar em 26/09
+  cabem sem perder texto — medidas uma a uma: sai só borda, uns 5% em cima e embaixo no computador
+  e uns 2% no celular.
+- **As próximas artes:** 1920 × 630 no computador e 1080 × 1275 no celular (o painel mostra em cima
+  de cada quadro). Arte noutra medida entra do mesmo jeito: o painel avisa quanto sai de cada borda
+  — deixe o texto longe delas.
+- Sem a arte do celular, o celular mostra a do computador inteira (pequena), como antes.
+
+Conferido pelo `conferir-home.mjs` (77 checagens: o slide sem descrição salva e a loja usa o texto
+do link; a caixa na altura nova e a arte preenchendo, no computador e no celular). As medidas
+foram tiradas das artes no ar, e a prévia com o CSS novo aplicado na loja de verdade mostrou as
+quatro sem perder texto.
+
+Depois do deploy — **nada a configurar.**
 
 ## Como seguir no Claude Code
 

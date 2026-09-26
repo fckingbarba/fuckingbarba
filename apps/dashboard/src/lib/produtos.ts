@@ -306,10 +306,12 @@ export type MedidaDoFundo = {
   /** Abaixo disso, "fica borrada"; sem ele, o de cada lado (`MINIMO`). */
   minimo?: Partial<Record<"computador" | "celular", number>>
   /**
-   * `"inteira"`: a loja mostra a imagem INTEIRA, sem cortar (a arte do
-   * banner, que tem texto): a proporção diferente vira faixa, não corte.
+   * `"centro"`: a loja preenche a caixa e corta PELO CENTRO o que sobra (a
+   * arte do banner, que tem texto nas bordas de cima e de baixo): o aviso diz
+   * quanto sai de cada borda. Sem ele, o corte das seções, com o foco a 40%
+   * do topo.
    */
-  mostra?: "inteira"
+  mostra?: "centro"
 }
 
 /** A cor do véu, em RGB (a mesma de `apps/loja/src/estilos/fundo.css`). */
@@ -606,13 +608,17 @@ export function avisosDaImagem(
     )
   const daFoto = largura / altura
   const daSecao = idealL / idealA
-  if (medida.mostra === "inteira") {
-    if (daFoto > daSecao * 1.05)
+  if (medida.mostra === "centro") {
+    // O que sai de cada borda, em % da arte: o que sobra da caixa, metade de cada lado.
+    const cadaBorda = (sobra: number) => Math.max(1, Math.round((sobra / 2) * 100))
+    if (daFoto > daSecao * 1.03)
       avisos.push(
-        "Mais larga que a arte: a loja mostra inteira, com faixa branca em cima e embaixo."
+        `Mais larga que o banner: a loja corta ${cadaBorda(1 - daSecao / daFoto)}% de cada lado. Deixe o texto longe dessas bordas.`
       )
-    else if (daFoto < daSecao / 1.05)
-      avisos.push("Mais alta que a arte: a loja mostra inteira, com faixa branca dos lados.")
+    else if (daFoto < daSecao / 1.03)
+      avisos.push(
+        `Mais alta que o banner: a loja corta ${cadaBorda(1 - daFoto / daSecao)}% em cima e embaixo. Deixe o texto longe dessas bordas.`
+      )
   } else if (daFoto < daSecao * 0.85) {
     const parte = Math.round((daFoto / daSecao) * 100)
     avisos.push(

@@ -29,7 +29,9 @@ export async function Banner() {
 async function montar(slide: SlideGravado): Promise<SlidePronto> {
   const produto = slide.produto ? await buscarProdutoPorHandle(slide.produto) : null
   return {
-    titulo: slide.titulo,
+    // A descrição é opcional no painel: sem ela, o slide se descreve pelo produto do link
+    // (o texto alternativo da arte e o nome do slide pra quem não enxerga).
+    titulo: slide.titulo ?? produto?.title ?? "Ver todos os produtos",
     // Produto que saiu do site leva pra vitrine, e não pra uma página que não existe.
     href: produto ? `/produtos/${produto.handle}` : "/produtos",
     computador: slide.imagem,
