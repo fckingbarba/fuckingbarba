@@ -1,11 +1,16 @@
 "use server"
 
+import { cookies } from "next/headers"
 import {
   CAMPOS_CARRINHO,
   CARRINHO_VAZIO,
-  garantirCarrinho,
+  COOKIE_CARRINHO,
+  carrinhoAcabou,
+  criarCarrinhoCom,
+  idDoCarrinho,
   leituraDoCarrinho,
   paraVisivel,
+  situacaoDoCarrinho,
   type CarrinhoVisivel,
 } from "@/lib/carrinho"
 import { cliente } from "@/lib/medusa"
@@ -38,6 +43,17 @@ import { cliente } from "@/lib/medusa"
  * respondeu —, e a tela fica com a sacola que já mostrava. Não é a sacola
  * vazia: com o vazio no lugar, cada deploy do backend esvaziava a gaveta de
  * quem mexia nela, e quem pusesse os produtos de novo ficava com o dobro.
+ *
+ * UMA IDA AO MEDUSA POR CLIQUE, sempre que dá (entrega 0104). Cada escrita
+ * na sacola é um workflow inteiro no Medusa — preço, estoque, promoção,
+ * frete e imposto refeitos, umas cem idas e voltas ao banco — e custava de
+ * 0,6 a 0,9 s na produção; a pergunta que vinha antes ("o carrinho ainda
+ * vale?", ou a sacola inteira lida só pra saber o id) somava mais uma ida.
+ * Adicionar e mudar a quantidade agora escrevem direto no id do cookie: o
+ * próprio Medusa recusa carrinho que já virou pedido, e a recusa é que diz
+ * "acabou" (`carrinhoAcabou`). Remover continua perguntando antes, mas a
+ * pergunta curta: a remoção do Medusa não confere isso (ver
+ * `situacaoDoCarrinho`).
  */
 
 export type Resultado =
@@ -74,23 +90,40 @@ async function falha(erro: unknown, contexto: string): Promise<Resultado> {
   return { ok: false, erro: texto, carrinho: await agora() }
 }
 
-/** Põe (ou soma) uma variante na sacola. O Medusa junta linhas da mesma variante. */
+/**
+ * Põe (ou soma) uma variante na sacola. O Medusa junta linhas da mesma variante.
+ *
+ * Sem carrinho, cria já com o item, numa ida só (`criarCarrinhoCom`). Com
+ * carrinho, escreve direto nele; se a escrita voltar dizendo que ele acabou
+ * (virou pedido), um carrinho novo nasce com o item — o que a pergunta de
+ * antes fazia, só que sem a pergunta no caminho de todo mundo.
+ */
 export async function adicionar(varianteId: string, quantidade = 1): Promise<Resultado> {
   const sdk = cliente()
   if (!sdk) return { ok: false, erro: GENERICO, carrinho: null }
 
-  const qtd = Math.max(1, Math.min(Math.trunc(quantidade) || 1, 99))
+  const item = {
+    variant_id: varianteId,
+    quantity: Math.max(1, Math.min(Math.trunc(quantidade) || 1, 99)),
+  }
 
   try {
-    const id = await garantirCarrinho()
-    if (!id) return { ok: false, erro: GENERICO, carrinho: null }
-
-    const { cart } = await sdk.store.cart.createLineItem(
-      id,
-      { variant_id: varianteId, quantity: qtd },
-      { fields: CAMPOS_CARRINHO }
-    )
-    return { ok: true, carrinho: paraVisivel(cart) }
+    const id = await idDoCarrinho()
+    if (id) {
+      try {
+        const { cart } = await sdk.store.cart.createLineItem(id, item, {
+          fields: CAMPOS_CARRINHO,
+        })
+        return { ok: true, carrinho: paraVisivel(cart) }
+      } catch (e) {
+        if (!carrinhoAcabou(e)) throw e
+        ;(await cookies()).delete(COOKIE_CARRINHO)
+      }
+    }
+    const cart = await criarCarrinhoCom(item)
+    return cart
+      ? { ok: true, carrinho: paraVisivel(cart) }
+      : { ok: false, erro: GENERICO, carrinho: null }
   } catch (e) {
     return falha(e, `adicionar ${varianteId}`)
   }
@@ -134,19 +167,20 @@ export async function mudarQuantidade(linhaId: string, quantidade: number): Prom
   const sdk = cliente()
   if (!sdk) return { ok: false, erro: GENERICO, carrinho: null }
 
-  try {
-    const carrinho = await leituraDoCarrinho()
-    if (carrinho === "sem-resposta") return { ok: false, erro: GENERICO, carrinho: null }
-    if (!carrinho) return { ok: false, erro: GENERICO, carrinho: CARRINHO_VAZIO }
+  const id = await idDoCarrinho()
+  if (!id) return { ok: false, erro: GENERICO, carrinho: CARRINHO_VAZIO }
 
+  try {
+    // Direto, sem ler a sacola antes: carrinho que virou pedido o Medusa recusa.
     const { cart } = await sdk.store.cart.updateLineItem(
-      carrinho.id,
+      id,
       linhaId,
       { quantity: Math.min(qtd, 99) },
       { fields: CAMPOS_CARRINHO }
     )
     return { ok: true, carrinho: paraVisivel(cart) }
   } catch (e) {
+    if (carrinhoAcabou(e)) return { ok: false, erro: GENERICO, carrinho: CARRINHO_VAZIO }
     return falha(e, `quantidade ${linhaId}`)
   }
 }
@@ -155,14 +189,19 @@ export async function remover(linhaId: string): Promise<Resultado> {
   const sdk = cliente()
   if (!sdk) return { ok: false, erro: GENERICO, carrinho: null }
 
+  const id = await idDoCarrinho()
+  if (!id) return { ok: false, erro: GENERICO, carrinho: CARRINHO_VAZIO }
+
   try {
-    const carrinho = await leituraDoCarrinho()
-    if (carrinho === "sem-resposta") return { ok: false, erro: GENERICO, carrinho: null }
-    if (!carrinho) return { ok: false, erro: GENERICO, carrinho: CARRINHO_VAZIO }
+    // A pergunta curta, e não a sacola inteira: a remoção do Medusa não
+    // confere se o carrinho já virou pedido (ver `situacaoDoCarrinho`).
+    const situacao = await situacaoDoCarrinho(id)
+    if (situacao === "sem-resposta") return { ok: false, erro: GENERICO, carrinho: null }
+    if (situacao === "acabou") return { ok: false, erro: GENERICO, carrinho: CARRINHO_VAZIO }
 
     // A resposta da remoção já traz o carrinho de depois (`parent`), com os
     // campos da gaveta — sem uma segunda ida só pra reler.
-    const { parent } = await sdk.store.cart.deleteLineItem(carrinho.id, linhaId, {
+    const { parent } = await sdk.store.cart.deleteLineItem(id, linhaId, {
       fields: CAMPOS_CARRINHO,
     })
     const depois = parent ? paraVisivel(parent) : await agora()

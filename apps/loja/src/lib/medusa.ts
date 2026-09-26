@@ -42,7 +42,7 @@ import type { ModeloDeRecomendacao } from "./recomendacao"
  * │   `app/error.tsx`, com "tentar de novo".                               │
  * │                                                                        │
  * │ Cair num padrão continua valendo, mas FORA do cache e só onde a tela   │
- * │ tem o que fazer sem o Medusa: o carrinho (`garantirCarrinho`) e o CEP  │
+ * │ tem o que fazer sem o Medusa: o carrinho (`criarCarrinhoCom`) e o CEP  │
  * │ (`buscarCep`) fazem assim. Resposta vazia de verdade (categoria sem    │
  * │ produto, handle que não existe) continua sendo guardada: essa é o      │
  * │ catálogo.                                                              │
