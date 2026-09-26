@@ -25,7 +25,8 @@
  * │ • a foto de fundo, a arte do banner e a foto da última chamada que     │
  * │   não chegam na loja, ou chegam antes do "Publicar"; a do celular      │
  * │   que não chega no celular; o carrossel que baixa a arte do segundo    │
- * │   slide antes de ele aparecer; arte sem a descrição;                   │
+ * │   slide antes de ele aparecer; o slide sem descrição caindo; o banner  │
+ * │   com faixa branca ou na altura antiga;                                │
  * │ • a imagem arrastada do computador que não sobe, ou o quadro que não   │
  * │   acende (ou não apaga) com o arquivo em cima;                         │
  * │ • o vídeo da história que não sobe pro painel, não chega na loja (ou   │
@@ -158,6 +159,20 @@ async function subir(quadro, lado, buffer, nome) {
 }
 
 /** Aperta e devolve a frase do aviso de baixo — o novo, deste clique. */
+/** A caixa do slide `n` do banner na loja: a proporção (altura ÷ largura) e como a arte ocupa ela. */
+async function caixaDoBanner(pagina, n) {
+  return pagina.evaluate((i) => {
+    const caixa = document.querySelectorAll(".banner-arte")[i]
+    const img = caixa?.querySelector("img")
+    const r = caixa?.getBoundingClientRect()
+    return {
+      razao: r && r.width ? r.height / r.width : 0,
+      preenche: img ? getComputedStyle(img).objectFit : null,
+      semCelular: Boolean(caixa?.classList.contains("banner-arte--sem-celular")),
+    }
+  }, n)
+}
+
 async function apertar(pagina, alvo) {
   const aviso = pagina.locator(".aviso")
   const antes = await aviso.getAttribute("data-vez")
@@ -554,10 +569,10 @@ try {
     await primeira.waitFor()
     ok(
       semEspaco(await primeira.locator('[data-ideal="computador"]').textContent()) ===
-        "1920 × 700 px" &&
+        "1920 × 630 px" &&
         semEspaco(await primeira.locator('[data-ideal="celular"]').textContent()) ===
-          "1080 × 1350 px",
-      "a arte do slide: as medidas da arte da Nuvemshop"
+          "1080 × 1275 px",
+      "a arte do slide: as medidas do banner na loja (mais baixo desde 26/09)"
     )
     /*
       A primeira arte vem ARRASTADA do computador: o quadro acende com o
@@ -568,7 +583,7 @@ try {
     const arte1 = {
       name: "arte-1.png",
       mimeType: "image/png",
-      buffer: await foto(1920, 700, "png"),
+      buffer: await foto(1920, 630, "png"),
     }
     const emCima = await arrastarArquivos(vazio, [arte1], { soltar: false })
     const aceso = primeira.locator(".slot--computador[data-arrastando]")
@@ -594,7 +609,7 @@ try {
       await primeira.locator(".slot--computador .slot__info").first().textContent()
     )
     ok(
-      /^1920 × 700 px/.test(subiu) && (await primeira.locator("[data-um-por-vez]").count()) === 1,
+      /^1920 × 630 px/.test(subiu) && (await primeira.locator("[data-um-por-vez]").count()) === 1,
       "solta, a arte sobe como a escolhida; com dois arquivos, sobe o primeiro e o quadro avisa",
       subiu
     )
@@ -602,21 +617,16 @@ try {
     await banner.locator('[data-mais="slides"]').click()
     const arte = banner.locator('[data-imagens="slides.1.imagem"]')
     await arte.waitFor()
-    await subir(arte, "computador", await foto(1920, 700, "jpeg"), "arte-2.jpg")
-    await subir(arte, "celular", await foto(1080, 1350, "jpeg"), "arte-2-celular.jpg")
-    await banner.locator('button[type="submit"]').click()
-    await banner.locator(".gaveta__erro").waitFor()
-    ok(
-      /Slide 2: Descrição da arte/.test(
-        semEspaco(await banner.locator(".gaveta__erro").textContent())
-      ),
-      "arte sem descrição: diz que falta (e só ela)",
-      semEspaco(await banner.locator(".gaveta__erro").textContent())
-    )
-    await banner.locator('[data-campo="slides.1.titulo"]').fill(ARTE)
+    await subir(arte, "computador", await foto(1920, 630, "jpeg"), "arte-2.jpg")
+    await subir(arte, "celular", await foto(1080, 1275, "jpeg"), "arte-2-celular.jpg")
+    // A descrição é opcional (26/09): o slide 2 vai sem ela, e a loja o descreve pelo link.
     await banner.locator('[data-campo="tempo"]').selectOption("5")
     const r2 = await apertar(pagina, banner.locator('button[type="submit"]'))
-    ok(!r2.erro, "o carrossel, salvo no rascunho", r2.texto)
+    ok(
+      !r2.erro,
+      "o carrossel, salvo no rascunho — o slide 2 sem a descrição, que é opcional",
+      r2.texto
+    )
     await pagina.waitForFunction(() =>
       /2 slides/.test(
         document.querySelector('.secao:has([data-editar="home.banner"])')?.textContent ?? ""
@@ -668,6 +678,7 @@ try {
       slides.length === 2 &&
         /class="banner-arte/.test(slides[0]) &&
         /<img[^>]*fetchpriority="high"/i.test(slides[0]) &&
+        slides[0].includes(`alt="Primeira arte ${RODADA}"`) &&
         /class="banner-arte"/.test(slides[1]) &&
         !/<img/.test(slides[1].split("banner-carrossel__seta")[0]) &&
         !/banner__preco|Comprar agora/.test(html),
@@ -712,10 +723,11 @@ try {
     }
     ok(
       doCarrossel.atual === "true" &&
-        doCarrossel.alt === ARTE &&
+        // Sem a descrição e sem produto: o slide se descreve pelo link (a vitrine).
+        doCarrossel.alt === "Ver todos os produtos" &&
         doCarrossel.celular === 1 &&
         doCarrossel.link === "/produtos",
-      "no navegador: a bolinha leva pro slide, a arte baixa aí, com a do celular e o link pra vitrine",
+      "no navegador: a bolinha leva pro slide, a arte baixa aí, com a do celular, o link pra vitrine e, sem descrição, o texto do link",
       JSON.stringify(doCarrossel)
     )
     // O fundo fica DENTRO da seção: sem o CSS dos fundos na home, a foto vazava pra página inteira.
@@ -734,7 +746,40 @@ try {
       "no navegador: a foto de fundo fica dentro do bloco escuro, do tamanho dele",
       JSON.stringify(caixas)
     )
+    // O banner: a altura nova (1920 × 630) e a arte PREENCHENDO a caixa — sem faixa branca.
+    const bannerNoComputador = await caixaDoBanner(vitrine.pagina, 0)
+    ok(
+      Math.abs(bannerNoComputador.razao - 630 / 1920) < 0.005 &&
+        bannerNoComputador.preenche === "cover",
+      "no computador: o banner na altura nova, com a arte preenchendo (sem faixa branca)",
+      JSON.stringify(bannerNoComputador)
+    )
     await vitrine.contexto.close()
+
+    // No celular: o slide com a arte do celular na caixa nova (1080 × 1275), preenchendo; o sem
+    // ela mostra a do computador inteira (no carrossel, esticada, cortaria o texto dos lados).
+    const cel = await novaAba({ width: 390, height: 844 })
+    await cel.pagina.goto(`${LOJA}/`)
+    await hidratado(cel.pagina, ".banner-carrossel__ponto")
+    // A arte do segundo slide só baixa quando ele vai aparecer: a bolinha leva até ele.
+    await cel.pagina.locator(".banner-carrossel__ponto").nth(1).click()
+    await cel.pagina
+      .locator(".banner-carrossel__slide")
+      .nth(1)
+      .locator(".banner-arte img")
+      .waitFor({ timeout: 20000 })
+    const comArteDoCelular = await caixaDoBanner(cel.pagina, 1)
+    const semArteDoCelular = await caixaDoBanner(cel.pagina, 0)
+    ok(
+      Math.abs(comArteDoCelular.razao - 1275 / 1080) < 0.01 &&
+        comArteDoCelular.preenche === "cover" &&
+        semArteDoCelular.semCelular &&
+        semArteDoCelular.preenche === "contain" &&
+        (await semRolagemDeLado(cel.pagina)),
+      "no celular: a arte do celular preenche a caixa nova; sem ela, a do computador aparece inteira",
+      JSON.stringify({ comArteDoCelular, semArteDoCelular })
+    )
+    await cel.contexto.close()
   }
 
   /* ── o vídeo da história ─────────────────────────────────────────────── */
