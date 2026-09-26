@@ -21,11 +21,6 @@
 @import "../estilos/provas.css";
 @import "../estilos/amam.css";
 @import "../estilos/vitrine.css";
-/* A tela de categoria (/barba, /cabelo, /kits, /produtos). Depois de
-   vitrine.css e produto.css porque reaproveita o card de lá. */
-@import "../estilos/catalogo.css";
-/* Privacidade, termos e trocas: fundo branco e link sublinhado. */
-@import "../estilos/institucional.css";
 @import "../estilos/sobre.css";
 @import "../estilos/fechamento.css";
 /* A foto de fundo por seção, com o véu da cor dela — da home e da PDP (as
@@ -37,11 +32,6 @@
 /* A espera: o que a gaveta faz enquanto o Medusa recalcula. Escrito à mão —
    o protótipo não tinha servidor, então não tinha espera pra desenhar. */
 @import "../estilos/sacola-espera.css";
-
-/* A trilha "Início / Barba", da categoria, da busca e da PDP. Sai do
-   agrupa-pdp.py junto com o CSS da PDP, mas mora aqui porque aparece fora
-   dela. */
-@import "../estilos/migalhas.css";
 
 /* Escrito à mão: o que a loja diz quando a ação vai pro servidor e volta.
    O protótipo não tinha backend, então não tinha o que dizer. */
@@ -59,10 +49,19 @@
   │   • PDP .............. estilos/telas/produto.css                         │
   │   • checkout e conta . estilos/telas/checkout-e-conta.css                │
   │   • /duvidas ......... estilos/pdp-duvidas.css (o acordeão é o da PDP)   │
+  │   • categoria e busca  estilos/telas/catalogo.css (com as migalhas, que  │
+  │                        a PDP também importa, em telas/produto.css)       │
+  │   • páginas de texto . estilos/institucional.css, no layout delas        │
+  │                                                                          │
+  │ A HOME É QUEM MAIS SENTE. No Lighthouse do CI, o HTML e este CSS chegam  │
+  │ juntos nas duas primeiras voltas da conexão, onde cabem 43,8 KB (os dois │
+  │ somados, comprimidos); o que passar disso vai pra volta seguinte, e o    │
+  │ LCP da home pula 0,3 s. Com a categoria, as migalhas e o institucional   │
+  │ aqui dentro, ela não cabia (ver o AGENTS.md, perto do Lighthouse).       │
   │                                                                          │
   │ ANTES DE TIRAR MAIS ALGUMA COISA DAQUI, confira se a classe não aparece  │
-  │ em outra tela. As migalhas foram desenhadas pra PDP e moram também na    │
-  │ categoria e na busca — por isso ganharam arquivo próprio aqui dentro.    │
+  │ em outra tela — e se a ordem continua valendo: o CSS de uma tela entra   │
+  │ DEPOIS de tudo o que mora aqui.                                          │
   └──────────────────────────────────────────────────────────────────────────┘
 */
 
