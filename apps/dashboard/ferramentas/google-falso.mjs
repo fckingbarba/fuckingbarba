@@ -57,6 +57,15 @@ export async function subirGoogleFalso({
      * `agora` (quem está no site).
      */
     dia: { horas: [], origens: [], paginas: [], agora: 0 },
+    /**
+     * O Marketing (o Funil e os Canais): as sessões do período (`sessoes`),
+     * as sessões com cada evento (`eventos`: { view_item: 600, … }), as
+     * compras da loja (`compras`), as sessões por aparelho (`aparelhos`:
+     * { mobile, desktop, tablet }), as visitas por origem (`origens`:
+     * { fonte, meio, campanha, visitas }) e as vendas por origem (`vendas`:
+     * { fonte, meio, campanha, pedidos, receita }).
+     */
+    marketing: { sessoes: 0, eventos: {}, compras: 0, aparelhos: {}, origens: [], vendas: [] },
     /** O fuso da propriedade: resolve "today"/"yesterday" e vai em `metadata.timeZone`. */
     fuso: "America/Sao_Paulo",
     validosDesde: 0,
@@ -100,10 +109,17 @@ export async function subirGoogleFalso({
     return null
   }
 
-  const linha = (dimensoes, valor) => ({
+  const linha = (dimensoes, ...valores) => ({
     dimensionValues: dimensoes.map((value) => ({ value })),
-    metricValues: [{ value: String(valor) }],
+    metricValues: valores.map((v) => ({ value: String(v) })),
   })
+
+  /** Os eventos que a pergunta pediu (o filtro sozinho, ou dentro do `andGroup`). */
+  const eventosPedidos = (filtro) => {
+    const todos = [filtro, ...(filtro?.andGroup?.expressions ?? [])]
+    const doEvento = todos.find((f) => f?.filter?.fieldName === "eventName")
+    return doEvento?.filter?.inListFilter?.values ?? null
+  }
 
   /** "today", "yesterday", "13daysAgo" ou "2026-09-24" → "20260924", no fuso da propriedade. */
   const dataDaPergunta = (valor) => {
@@ -122,8 +138,24 @@ export async function subirGoogleFalso({
     const periodo = pedido.dateRanges?.[0] ?? {}
     const de = dataDaPergunta(periodo.startDate)
     const ate = dataDaPergunta(periodo.endDate)
+    const metricas = (pedido.metrics ?? []).map((m) => m.name).join(",")
+    const m = painel.marketing
     let rows = []
-    if (dims === "date,hour")
+    if (dims === "" && metricas === "sessions") rows = [linha([], m.sessoes)]
+    else if (dims === "" && metricas === "ecommercePurchases") rows = [linha([], m.compras)]
+    else if (dims === "eventName") {
+      const pedidos = eventosPedidos(pedido.dimensionFilter)
+      rows = Object.entries(m.eventos)
+        .filter(([e]) => !pedidos || pedidos.includes(e))
+        .map(([e, n]) => linha([e], n))
+    } else if (dims === "deviceCategory")
+      rows = Object.entries(m.aparelhos).map(([a, n]) => linha([a], n))
+    else if (dims === "sessionSource,sessionMedium,sessionCampaignName")
+      rows =
+        metricas === "sessions"
+          ? m.origens.map((o) => linha([o.fonte, o.meio, o.campanha], o.visitas))
+          : m.vendas.map((v) => linha([v.fonte, v.meio, v.campanha], v.pedidos, v.receita))
+    else if (dims === "date,hour")
       rows = painel.dia.horas
         .filter((h) => h.dia >= de && h.dia <= ate)
         .map((h) => linha([h.dia, h.hora], h.visitas))
