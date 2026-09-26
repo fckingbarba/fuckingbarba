@@ -44,6 +44,13 @@ sem navegador: o Bling falso e o admin). Rode os que
 tocam no que você mexeu, e todos antes de entregar. Os que escrevem no admin desfazem o que mudaram
 no fim, mesmo quando falham.
 
+A faixa de cookies aparece pra todo mundo desde a 0130 (a própria loja pergunta, pro CRM), por cima
+do pé da tela — e o clique no botão de baixo caía nela. Os conferidores que não são dela chamam
+`comAFaixaRespondida(navegador, LOJA)` (`ferramentas/faixa-respondida.mjs`) logo depois do
+`chromium.launch`: todo contexto nasce com o "Só o necessário", a loja de antes. Conferidor novo da
+loja que abre navegador: faça o mesmo. Quem confere a faixa são o `conferir-integracoes` e o
+`conferir-crm` do painel.
+
 ```bash
 # frete e checkout sobem uma Frenet falsa (4310) e um Pagar.me falso (4320); os de pagamento,
 # conta e envio sobem os dois e um Resend falso (4330), de onde leem os e-mails. O backend
@@ -1447,10 +1454,11 @@ cookies e a compra pelo servidor:
   `POST /dashboard/configuracoes/integracoes`. O `POST /admin/configuracoes` passou a gravar só as
   seções que o corpo traz: a tela do admin não conhece as integrações, e o "Salvar" dela zerava.
 - **A faixa** (`apps/loja/src/lib/consentimento.ts`): o cookie `fb_consentimento` guarda a resposta,
-  a versão e os parceiros — `sim.2.gmtc`. Resposta de outra versão (`VERSAO_DO_CONSENTIMENTO`) ou
+  a versão e os parceiros — `sim.3.gmtc`. Resposta de outra versão (`VERSAO_DO_CONSENTIMENTO`) ou
   um sim sem um parceiro que entrou depois volta a ser "perguntar" (`respostaQueVale`); o "não"
   vale pra qualquer lista. A versão sobe com parceiro ou finalidade nova — a política promete
-  avisar antes de valer.
+  avisar antes de valer. A 3 (entrega 0130) é a do CRM: a própria loja está em todo sim, e por
+  isso a faixa aparece SEMPRE, com ou sem parceiro ligado no painel.
 - **O pé da tela** (entrega 0097): a faixa (`components/analytics/consentimento.tsx`) mora no pé
   da tela, EM CIMA da barra que estiver presa lá — a de compra da PDP, a do total no checkout do
   celular. Cada barra diz a própria altura em `--pe-da-tela`, no `<html>`, pelo `usePeDaTela`
@@ -1530,6 +1538,54 @@ O conferidor é o `apps/dashboard/ferramentas/conferir-carrinhos.mjs` (11): cria
 API da loja, um parado em cada passo, e o pedido de quem voltou pela `fabricaDePedidos`; o
 `wa.me` vira uma página de mentira (o `route` do Playwright). Carrinho recém-criado cai em "No site
 agora", e é nesse filtro que ele confere.
+
+**O CRM, parte 1: a loja anota o que cada pessoa faz** (entrega 0130, a Fundação do "Ciclo da
+Barba"). Só de quem disse sim à faixa de cookies, e ligado ao e-mail da pessoa quando ela diz quem
+é. Os fluxos de e-mail vêm nas próximas partes e leem daqui.
+
+- **No navegador** (`apps/loja/src/lib/anotar.ts`): o mesmo evento que vai pro Google sai também
+  pro CRM — `mandar()`, em `lib/rastrear.ts`, chama `anotar` — e dois são só daqui, por
+  `anotarNaLoja`: a `visita` (uma por sessão, com a campanha do link e o domínio de onde veio,
+  guardados na aba desde a primeira página — `chegadaDaVisita`, no `tags.tsx`) e o
+  `contato_informado` (o e-mail no passo 1 do checkout, nas etapas; uma vez por carrinho na
+  sessão, `umaVez`). Tudo espera o mesmo
+  "Aceitar" das tags. Junta 2 segundos num envio (até 20), manda pelo `sendBeacon` ao sair da
+  página, e o mesmo produto visto duas vezes em 2 segundos conta uma (o efeito dobrado do React no
+  desenvolvimento).
+- **Na loja** (`app/api/eventos/route.ts` e `lib/crm.ts`): o POST confere o sim NO SERVIDOR (o
+  cookie da resposta) — sem ele, 204 e nada. Com ele, o visitante é o cookie `fb_visitante`
+  (`httpOnly`, um UUID, um ano renovado a cada recado), e vão juntos o carrinho e o token de quem
+  está logado; o corpo é montado aqui (do navegador, só os eventos). O DELETE (o "não" da faixa)
+  apaga o cookie e manda `POST /store/crm/esquecer`. A newsletter e a entrada na conta anotam do
+  servidor (`anotarNoServidor`, com a identificação). Fora: robô e preview da Vercel.
+- **No backend:** `POST /store/crm/eventos` só aceita a loja (`daLoja`); 30 recados por minuto por
+  visitante, 120 por IP e 3.000 da loja. A regra do que entra é `lib/crm/eventos.ts` (puro, com
+  testes): os tipos do CRM em português (`produto_visto`, `sacola_entrou`, `pix_copiado`…), os
+  dados cortados por tipo, a página sem o que identifica alguém (`normalizarPagina`, a da
+  telemetria), e `newsletter`/`conta_entrou` só com a identificação que o servidor da loja põe.
+- **De quem é o navegador — nunca do que o navegador diz:** o token do cliente (o middleware com
+  `allowUnauthenticated`; a conta vale mais que o resto), o e-mail do carrinho nos passos do
+  checkout, ou a newsletter. `identificar` passa o e-mail pras anotações de antes que estavam sem
+  (as de outro e-mail ficam com o dele).
+- **As tabelas** (`src/modules/crm/`): `crm_visitante` (a `chave` é o cookie embaralhado,
+  `chaveDoVisitante`; o e-mail, o cliente, como se identificou e a origem da primeira visita) e
+  `crm_evento` (tipo, dados, página, carrinho e `em` — a hora do servidor menos o "há quanto
+  tempo" do navegador). `esquecer` e `limpar` apagam de verdade. O job `limpar-o-crm` (minuto 41,
+  de hora em hora) tira o que passou de 13 meses (`DIAS_DO_CRM` = 400).
+- **O painel:** a área `crm` (dono e marketing), no menu em Pessoas. `GET /dashboard/crm?periodo=`
+  (hoje, 7d — o padrão — ou 30d) monta a tela em `lib/painel/crm.ts` (puro): os números
+  (visitantes, com e-mail, pessoas, anotações), o caminho em etapas com os 11 tipos e as 30
+  últimas em frase, com o e-mail mascarado (`emailNoLog`).
+- **Mudar de ideia:** a política de privacidade tem o botão "Mudar minha resposta sobre os
+  cookies" (`components/analytics/mudar-resposta.tsx`): a faixa volta, e o "não" apaga o que foi
+  anotado; se as tags já estavam na página, ela recarrega pra tirá-las.
+
+O conferidor é o `apps/dashboard/ferramentas/conferir-crm.mjs` (50): a rota (assinatura, lote,
+esquecer), a loja com "Só o necessário" (nada sai, nenhum cookie) e com "Aceitar" (a chegada com a
+campanha, o produto, a sacola e o e-mail do checkout chegando nas anotações de antes), a
+newsletter, a conta (o código pelo Resend falso), a tela do dono, do marketing no celular e da
+operação (sem acesso), e o "não" depois do sim apagando tudo. Precisa do Medusa mandando o código
+pro Resend falso (`PORTA_RESEND`).
 
 **O preço e o promocional no painel** (entregas 0098 e 0102): os dois campos de cada produto na
 lista de Produtos, como na Nuvemshop (a 0098 tinha só o promocional, atrás de um botão). A regra é
