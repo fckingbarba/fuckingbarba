@@ -955,6 +955,22 @@ protótipo; as duas só da loja (sem o Google).
   grátis" só pra quem abre as Configurações). No celular a fileira de abas rola de lado e começa
   com a acesa à vista (`components/abas-que-rolam.tsx`).
 
+**Marketing: o "O que os dados dizem" do Resumo** (entrega 0122). O bloco do protótipo que junta
+as frases de todas as abas.
+- A conta de cada aba (a leitura do banco e do Google, e o `montar*` puro dela) saiu das rotas pro
+  `lib/painel/ler-marketing.ts` (`lerFunilDoMarketing`, `lerCanaisDoMarketing`, …,
+  `lerPagamentoDoMarketing`): a rota de cada aba e a `GET /dashboard/marketing/achados` usam as
+  mesmas, então o Resumo diz o mesmo que as abas. As perguntas ao Google são as das abas, com a
+  mesma chave no cache.
+- `lib/painel/marketing-achados.ts` (puro, com testes): `juntarAchados` põe o "problema" primeiro,
+  depois a "oportunidade" e o "bom"; no mesmo tipo, a ordem das abas (`ABAS_COM_ACHADOS`). O
+  "ainda é pouco" de cada aba fica na aba — se todas disserem, vira uma frase só
+  (`AINDA_E_POUCO`). Cabem `ACHADOS_NO_RESUMO` (6), e `mais` conta as que ficaram nas abas. Sem o
+  Google, `semGoogle` diz por que faltam as do funil, dos canais e dos produtos (e sem frase
+  nenhuma não se diz "nada fora do comum").
+- No painel, `OQueOsDadosDizem` (`components/marketing.tsx`), num `<Suspense>` entre a meta e o
+  gráfico; cada frase ganha o atalho pra aba dela, no mesmo período (`Achados` com `periodo`).
+
 **Produtos** (fase 3, parte 1). `GET /dashboard/produtos` (a lista, com as fitas) e
 `GET /dashboard/produtos/:id` (o que vem do Bling, só pra ler; as seções com o texto e o fundo de
 cada uma; a caixa de compra; o catálogo pros seletores; as categorias; o `noSite` do "Ver no site"
