@@ -794,6 +794,26 @@ describe("o Início", () => {
     expect(titulos.some((t) => t.startsWith("O estorno"))).toBe(true)
   })
 
+  it("as avaliações esperando: pra quem abre a área delas, e só com alguma", () => {
+    const estrela = (papel: Papel, extra: object, matriz: Matriz = MATRIZ_PADRAO) =>
+      montarInicio(quem(papel, matriz), { ...dados(), ...extra }, SEM_ERP).fila.find(
+        (f) => f.icone === "estrela"
+      )
+    expect(estrela("dono", { avaliacoes: 3 })).toEqual({
+      nivel: "atencao",
+      icone: "estrela",
+      titulo: "3 avaliações esperando",
+      texto: "Chegaram de quem comprou. Aprovada, a avaliação vai pro site.",
+      href: "/avaliacoes",
+    })
+    expect(estrela("marketing", { avaliacoes: 1 })?.titulo).toBe("1 avaliação esperando")
+    expect(estrela("operacao", { avaliacoes: 2 })?.titulo).toBe("2 avaliações esperando")
+    expect(estrela("dono", { avaliacoes: 0 })).toBeUndefined()
+    expect(estrela("dono", {})).toBeUndefined()
+    const semAvaliacoes = matrizCom([{ papel: "operacao", area: "avaliacoes", abre: false }])
+    expect(estrela("operacao", { avaliacoes: 2 }, semAvaliacoes)).toBeUndefined()
+  })
+
   it("o marketing com os Pedidos (o dono deu) recebe a fila dos pedidos junto da dele", () => {
     const comPedidos = matrizCom([{ papel: "marketing", area: "pedidos", abre: true }])
     const i = montarInicio(
