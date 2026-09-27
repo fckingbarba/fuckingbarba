@@ -12,6 +12,7 @@ import {
   type Resposta,
 } from "@/lib/consentimento"
 import { rastrear } from "@/lib/rastrear"
+import { integracoesMontadas } from "./integracoes"
 
 const UM_ANO = 60 * 60 * 24 * 365
 
@@ -40,10 +41,21 @@ export function useConsentimento(parceiros: Parceiro[]): Estado {
   return respostaQueVale(lerConsentimento(cookie), parceiros) ?? "sem-resposta"
 }
 
+/**
+ * A resposta da faixa. O "não" também pede à loja pra esquecer este
+ * navegador (`/api/eventos`, DELETE): o cookie do visitante sai, e o que o
+ * CRM anotou dele é apagado. Se a pessoa tinha dito sim e as tags já estão na
+ * página (ela mudou de ideia pela política de privacidade), a página
+ * recarrega — é o único jeito de tirar um script que já carregou.
+ */
 function responder(resposta: Resposta, parceiros: Parceiro[]) {
   document.cookie = `${COOKIE_CONSENTIMENTO}=${valorDoConsentimento(resposta, parceiros)}; Max-Age=${UM_ANO}; Path=/; SameSite=Lax; Secure`
   ouvintes.forEach((cb) => cb())
   rastrear("consentimento", { marketing: resposta === "sim" })
+  if (resposta === "nao") {
+    fetch("/api/eventos", { method: "DELETE", keepalive: true }).catch(() => undefined)
+    if (integracoesMontadas()) window.location.reload()
+  }
 }
 
 /** "do Google", "da Meta", "do TikTok", "da Microsoft". */
@@ -54,8 +66,9 @@ const emLista = (nomes: string[]) =>
 
 /**
  * Faixa de consentimento (LGPD): discreta, dois botões de peso igual, sem
- * parede. Diz A QUEM a pessoa está dizendo sim — os parceiros ligados no
- * painel —, e a resposta vive num cookie próprio por 12 meses. No checkout,
+ * parede. Diz A QUEM a pessoa está dizendo sim — a própria loja, que anota o
+ * que ela faz pro CRM, e os parceiros ligados no painel —, e a resposta vive
+ * num cookie próprio por 12 meses. No checkout,
  * ela vai gravada no pedido (`fb_rastro.consentimento`): a compra só sai pelo
  * servidor pros parceiros que ouviram sim.
  *
@@ -66,7 +79,10 @@ const emLista = (nomes: string[]) =>
  */
 export function Consentimento({ parceiros, estado }: { parceiros: Parceiro[]; estado: Estado }) {
   if (estado !== "sem-resposta") return null
-  const nomes = emLista(parceiros.map((p) => `${ARTIGO[p]} ${NOME_DO_PARCEIRO[p]}`))
+  const nomes = emLista([
+    "da própria loja",
+    ...parceiros.map((p) => `${ARTIGO[p]} ${NOME_DO_PARCEIRO[p]}`),
+  ])
   const anuncio = parceiros.some((p) => p !== "clarity")
 
   return (
@@ -77,9 +93,22 @@ export function Consentimento({ parceiros, estado }: { parceiros: Parceiro[]; es
       className="fixed inset-x-2 bottom-[calc(var(--pe-da-tela,0px)_+_0.5rem)] z-50 mx-auto max-w-xl border-2 border-tinta bg-papel p-3 shadow-dura-sm transition-[bottom] duration-[260ms] ease-[cubic-bezier(0.22,0.61,0.36,1)] motion-reduce:transition-none sm:inset-x-4 sm:bottom-[calc(var(--pe-da-tela,0px)_+_1rem)] sm:p-4"
     >
       <p className="text-xs leading-snug text-tinta sm:text-sm">
-        Usamos cookies {nomes} pra medir o que funciona na loja
-        {anuncio ? " e mostrar anúncios menos aleatórios" : ""}. Você escolhe.{" "}
-        <Link href="/privacidade" className="font-bold underline underline-offset-2">
+        Usamos cookies {nomes} pra lembrar o que você viu
+        {anuncio
+          ? ", medir o que funciona e mostrar anúncios menos aleatórios"
+          : " e medir o que funciona"}
+        . Você escolhe.{" "}
+        {/*
+          Sem pré-carregar: a faixa aparece na primeira tela de todo mundo, e o
+          prefetch baixaria a política (o HTML dela, o CSS e o JS das páginas
+          institucionais) no meio do carregamento da página — na home, isso
+          custava um degrau inteiro no LCP do Lighthouse (entrega 0130).
+        */}
+        <Link
+          href="/privacidade"
+          prefetch={false}
+          className="font-bold underline underline-offset-2"
+        >
           Como usamos seus dados
         </Link>
       </p>

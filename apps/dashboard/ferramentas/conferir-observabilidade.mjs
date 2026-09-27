@@ -355,9 +355,9 @@ try {
     `${await pagina.locator(`[data-aviso="observabilidade"]`).textContent()} · ${agoraNoMenu}`
   )
   ok(
-    (await pagina.locator("[data-rotina]").count()) === 10 &&
+    (await pagina.locator("[data-rotina]").count()) === 11 &&
       (await pagina.locator("[data-integracao]").count()) === 8,
-    "as 10 rotinas e as 8 integrações (com o vigia de fora)"
+    "as 11 rotinas e as 8 integrações (com o vigia de fora)"
   )
   // O bloco Cartão (entrega 0129): os números das últimas 24 horas, como o admin conta.
   const doCartao = (await adm("/admin/cartao")).corpo
@@ -423,7 +423,7 @@ try {
   )
   const precos = (tRotinas.rotinas ?? []).find((r) => r.nome === "precos-por-quantidade")
   ok(
-    tRotinas.rotinas?.length === 10 &&
+    tRotinas.rotinas?.length === 11 &&
       precos?.s === "ok" &&
       /^hoje, \d\d:\d\d$/.test(precos.ultima ?? "") &&
       /^\d+,\d s$/.test(precos.duracao ?? "") &&

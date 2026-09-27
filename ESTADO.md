@@ -1306,7 +1306,7 @@ O que o protótipo tem, aprovado em 23/09:
   cupom), 3 dias (o cupom vence amanhã) e 5 dias (última chamada) —, com os textos editáveis e a
   prévia.
 - **Cupons, Clientes e Newsletter, Configurações e Equipe.**
-- **Observabilidade:** os problemas abertos em frase, com o que fazer; as integrações; os 8 jobs
+- **Observabilidade:** os problemas abertos em frase, com o que fazer; as integrações; os jobs
   com a última rodada; a velocidade do site.
 - **Marketing** (resumo, funil, canais, produtos, ofertas, clientes por estado, pagamento e frete)
   ficou escondido de início e voltou em quatro partes em 26/09: o Resumo e a meta do mês (entrega
@@ -2536,6 +2536,44 @@ apontam pro endereço da loja, e o Google confere o preço nessa página.
       usa outros códigos: desligar a integração dela.
 - [ ] Um dia depois das duas: olhar o Diagnóstico do Merchant Center e o da Meta — o Claude Code
       lê os avisos e acerta o que for do arquivo.
+
+**CRM, parte 1: a loja anota o que cada pessoa faz — pronto em 26/09 (entrega 0130).** A primeira
+parte da Fundação do "Ciclo da Barba" (o protótipo da aba CRM:
+https://claude.ai/artifact/XDWBkcweP6y6WVJd3m4sty).
+
+- **O que a loja anota**, só de quem clicou em "Aceitar" na faixa de cookies: de onde a pessoa
+  chegou (o Instagram, o Google, a campanha do link), os produtos que viu, o que pôs e tirou da
+  sacola, cada passo do checkout (o e-mail, a entrega, o pagamento, o Pix copiado), a inscrição na
+  newsletter e a entrada na conta.
+- **O anônimo vira pessoa:** quando ela entra na conta, deixa o e-mail no checkout ou assina a
+  newsletter, tudo o que fez antes, no mesmo navegador, passa a ser dela.
+- **A faixa de cookies muda:** agora diz "Usamos cookies da própria loja, do Google…" e aparece de
+  novo pra todo mundo — a resposta de antes não vale pra uma finalidade nova, como a política
+  promete. Ela aparece sempre, mesmo sem nenhum código de anúncio ligado no painel.
+- **Quem recusa não entra**, e quem muda a resposta pra não (tem um botão novo na política de
+  privacidade) tem tudo apagado na hora. O que foi anotado fica 13 meses e sai sozinho.
+- **No painel:** "CRM", em Pessoas (dono e marketing): quantos visitantes, quantos já têm e-mail,
+  quantas pessoas, o caminho na loja com cada coisa contada, e as últimas anotações, com o e-mail
+  mascarado. Período: hoje, 7 dias ou 30 dias.
+- **A política de privacidade** ganhou o que a loja anota, os 13 meses e o botão "Mudar minha
+  resposta sobre os cookies".
+- A Observabilidade ganhou a rotina "Apaga o que o CRM anotou há mais de 13 meses" (11 rotinas,
+  com a do avise-me da 0124).
+- A página inicial ficou uns 0,15 s mais lenta no teste de velocidade (o do GitHub, medido aqui do
+  mesmo jeito), porque a faixa de cookies agora aparece pra todo mundo. Continua dentro do limite,
+  mas sobra pouco pra próxima mudança que pese na home.
+
+Conferido pelo `conferir-crm.mjs` (50 checagens: a faixa, o "não" sem nada anotado, o "sim" da
+chegada até o e-mail do checkout, a newsletter, a conta, a tela de cada papel e o "não" depois do
+sim apagando tudo), pelo `conferir-integracoes.mjs` (a faixa na versão 3, e o sim da versão 2 não
+valendo mais) e pelos testes de unidade (18 novos).
+
+Depois do deploy — **nada a configurar.** Pra testar: abra a loja, clique em "Aceitar", veja um
+produto e ponha na sacola; depois, Painel → CRM → Hoje.
+
+- [ ] **As próximas partes da Fundação** (uma entrega cada, perguntar antes): os avisos do Resend
+      voltando (entregue, abriu, clicou, reclamou), a ficha de cada pessoa com as etiquetas, os
+      Ajustes do CRM editáveis no painel, a base da Nuvemshop e o modelo de e-mail.
 
 **O vigia de fora — pronto em 26/09 (entrega 0137).** Item 7 do levantamento, a parte que não
 depende da Vercel no Pro. A Observabilidade mora dentro do servidor da loja: se ele cai, nenhum
