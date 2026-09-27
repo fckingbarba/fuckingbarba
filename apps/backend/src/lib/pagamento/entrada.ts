@@ -53,6 +53,16 @@ export type EntradaDaLoja = {
   itens: { codigo: string; descricao: string; quantidade: number; total: number }[]
   frete: { total: number; descricao: string }
   ip: string | null
+  /**
+   * HÁ OUTRO PARCEIRO ESPERANDO, se este Pix não nascer — a loja manda quando
+   * tem pra onde ir no mesmo clique (`finalizar`). Com ele, o provedor
+   * desiste cedo: espera menos a criação e não pergunta de novo se nasceu —
+   * quem compra não fica meio minuto parado num parceiro fora do ar, se o
+   * outro gera o QR em dois segundos. O Pix que nasceu tarde lá não chega a
+   * ninguém (e não cobra ninguém): a conciliação fecha. Sem ele, o de sempre.
+   * Só no Pix: cartão não vai pro outro parceiro.
+   */
+  reserva: boolean
 }
 
 /* ── conferência ──────────────────────────────────────────────────────────── */
@@ -167,5 +177,8 @@ export function conferirEntrada(bruto: unknown, valor: number): EntradaDaLoja {
     itens,
     frete,
     ip,
+    // Só `true` de verdade, e só no Pix. Quem manda `true` por fora só faz o
+    // PRÓPRIO Pix desistir mais cedo.
+    reserva: forma === "pix" && e.reserva === true,
   }
 }
