@@ -1,8 +1,9 @@
 /**
  * CONFERIDOR DAS INTEGRAÇÕES — o dono põe o código do GA4, do Google Ads, da
  * Meta, da Clarity e do TikTok no painel (Configurações → Integrações); a
- * loja liga o GA4 na primeira página, só pra medir (0166, como a Nuvemshop),
- * e as outras tags só depois do "Aceitar" da faixa de cookies; e a compra
+ * loja liga o GA4 e a Clarity na primeira página, só pra medir (0166 e 0171,
+ * como a Nuvemshop), e as outras tags só depois do "Aceitar" da faixa de
+ * cookies; e a compra
  * sai do servidor quando o pagamento entra — pra Meta e o TikTok de quem
  * aceitou, pro GA4 de quem não recusou.
  *
@@ -27,9 +28,10 @@
  * ┌─ O QUE ESTE ARQUIVO EXISTE PRA TRAVAR ─────────────────────────────────┐
  * │ • código fora do formato gravado (e dentro de uma tag); o trecho       │
  * │   colado que não vira o código; a tela do admin apagando os códigos;   │
- * │ • script de terceiro, fora o GA4, carregando ANTES do "Aceitar" (a     │
- * │   política promete que não); o GA4 antes do sim sem o anúncio negado;  │
- * │   o "Só o necessário" deixando o GA4 ou os cookies dele na página;     │
+ * │ • script de terceiro, fora o GA4 e a Clarity, carregando ANTES do      │
+ * │   "Aceitar" (a política promete que não); os dois antes do sim sem o   │
+ * │   anúncio negado; o "Só o necessário" deixando o GA4, a Clarity ou os  │
+ * │   cookies deles na página;                                             │
  * │ • a resposta de antes (a v1, ou sem um parceiro novo) valendo sem a    │
  * │   faixa perguntar de novo;                                             │
  * │ • a faixa embaixo da barra de compra da PDP (25/09: o "Aceitar" sumia  │
@@ -223,17 +225,19 @@ const filas = (pagina) =>
 const temChamada = (fila, ...partes) =>
   fila.some((c) => partes.every((p, i) => JSON.stringify(c[i]) === JSON.stringify(p)))
 
-/** O GA4 já no ar (o de mentira anota quando carrega). */
-const oGa4Ligou = (pagina) =>
-  pagina.waitForFunction(() => (window.__carregou ?? []).includes("google"), null, {
-    timeout: 20000,
-  })
+/** O GA4 e a Clarity já no ar (o de mentira anota quando carrega). */
+const aMedicaoLigou = (pagina) =>
+  pagina.waitForFunction(
+    () => ["google", "clarity"].every((p) => (window.__carregou ?? []).includes(p)),
+    null,
+    { timeout: 20000 }
+  )
 
-/** Só o GA4 carregou e só ele pediu coisa pra fora — sem resposta, é o que vale (0166). */
-const soOGa4 = (visita, fila) =>
-  fila.carregou.join() === "google" &&
+/** Só o GA4 e a Clarity carregaram, e só eles pediram coisa pra fora — sem resposta, é o que vale (0166 e 0171). */
+const soAMedicao = (visita, fila) =>
+  [...fila.carregou].sort().join() === "clarity,google" &&
   visita.pedidos.length > 0 &&
-  visita.pedidos.every((u) => new URL(u).hostname.endsWith("googletagmanager.com"))
+  visita.pedidos.every((u) => /(googletagmanager\.com|clarity\.ms)$/.test(new URL(u).hostname))
 
 const valorDoCookie = async (contexto) =>
   (await contexto.cookies(LOJA)).find((c) => c.name === "fb_consentimento")?.value ?? null
@@ -339,33 +343,39 @@ try {
 
   /* ── a loja ───────────────────────────────────────────────────────────── */
 
-  titulo("A loja: antes da resposta, só o GA4")
-  // Os cookies que o GA4 de verdade grava (o de mentira não grava nada): o "não" apaga.
+  titulo("A loja: antes da resposta, só o GA4 e a Clarity")
+  // Os cookies que o GA4 e a Clarity de verdade gravam (os de mentira não gravam nada): o "não" apaga.
   const recusa = await visitaNaLoja([
     { name: "_ga", value: "GA1.1.111111111.1790000000" },
     { name: `_ga_${CODIGOS.ga4.slice(2)}`, value: "GS2.1.s1790000000$o1$g0$t1790000000" },
+    { name: "_clck", value: "abc123%7C2%7Cfq0%7C0%7C1" },
+    { name: "_clsk", value: "xyz789%7C1790000000000%7C1%7C1%7Cd.clarity.ms%2Fcollect" },
   ])
   await recusa.pagina.goto(`${LOJA}/`)
   const faixa = recusa.pagina.locator("[data-faixa-de-cookies]")
   await faixa.waitFor({ timeout: 20000 })
   ok(
     semEspaco(await faixa.textContent()).includes(
-      "O Google Analytics conta as visitas. Com o seu sim, também usamos cookies da própria loja, do Google, da Meta, do TikTok e da Microsoft"
+      "O Google Analytics e a Clarity medem as visitas. Com o seu sim, também usamos cookies da própria loja, do Google, da Meta, do TikTok e da Microsoft"
     ),
-    "a faixa diz que o GA4 já conta, e a quem é o sim: a própria loja, Google, Meta, TikTok e Microsoft",
+    "a faixa diz que o GA4 e a Clarity já medem, e a quem é o sim: a própria loja, Google, Meta, TikTok e Microsoft",
     semEspaco(await faixa.textContent())
   )
-  await oGa4Ligou(recusa.pagina)
+  await aMedicaoLigou(recusa.pagina)
   await esperar(1000)
   const antesDoAceite = await filas(recusa.pagina)
   const padrao = antesDoAceite.google.find((c) => c[0] === "consent" && c[1] === "default")?.[2]
   ok(
-    soOGa4(recusa, antesDoAceite) &&
+    soAMedicao(recusa, antesDoAceite) &&
       temChamada(antesDoAceite.google, "config", CODIGOS.ga4) &&
       !temChamada(antesDoAceite.google, "config", CODIGOS.googleAds) &&
       padrao?.analytics_storage === "granted" &&
-      ["ad_storage", "ad_user_data", "ad_personalization"].every((k) => padrao?.[k] === "denied"),
-    "antes de responder: só o GA4, medindo com o anúncio negado — nenhum outro script, nenhum outro pedido pra fora",
+      ["ad_storage", "ad_user_data", "ad_personalization"].every((k) => padrao?.[k] === "denied") &&
+      temChamada(antesDoAceite.clarity, "consentv2", {
+        ad_Storage: "denied",
+        analytics_Storage: "granted",
+      }),
+    "antes de responder: só o GA4 e a Clarity, medindo com o anúncio negado — nenhum outro script, nenhum outro pedido pra fora",
     JSON.stringify({ carregou: antesDoAceite.carregou, pedidos: recusa.pedidos, padrao })
   )
   // A marca some com a recarga: com o GA4 na página, o "não" recarrega pra tirá-lo.
@@ -379,7 +389,7 @@ try {
   const depoisDoNao = await filas(recusa.pagina)
   const cookiesDoGa = (await recusa.contexto.cookies(LOJA))
     .map((c) => c.name)
-    .filter((n) => n.startsWith("_ga"))
+    .filter((n) => /^_(ga|cl)/.test(n))
   ok(
     (await valorDoCookie(recusa.contexto)) === "nao.3.gmtc" &&
       !(await recusa.pagina.evaluate(() => window.__antesDoNao === true)) &&
@@ -388,7 +398,7 @@ try {
       recusa.pedidos.length === pedidosAntesDoNao &&
       !cookiesDoGa.length &&
       (await faixa.count()) === 0,
-    "“Só o necessário”: a resposta fica (versão 3), a página recarrega sem o GA4, os cookies dele saem e nada carrega",
+    "“Só o necessário”: a resposta fica (versão 3), a página recarrega sem o GA4 e a Clarity, os cookies deles saem e nada carrega",
     JSON.stringify({
       cookie: await valorDoCookie(recusa.contexto),
       carregou: depoisDoNao.carregou,
@@ -402,8 +412,8 @@ try {
   const sim = await visitaNaLoja()
   await sim.pagina.goto(`${LOJA}/`)
   await sim.pagina.locator("[data-faixa-de-cookies]").waitFor({ timeout: 20000 })
-  // O sim chega com o GA4 já no ar (o caso de quase todo mundo): acrescenta o resto.
-  await oGa4Ligou(sim.pagina)
+  // O sim chega com o GA4 e a Clarity já no ar (o caso de quase todo mundo): acrescenta o resto.
+  await aMedicaoLigou(sim.pagina)
   await sim.pagina.getByRole("button", { name: "Aceitar" }).click()
   await sim.pagina.waitForFunction(() => (window.__carregou ?? []).length >= 4, null, {
     timeout: 15000,
@@ -417,6 +427,11 @@ try {
   ok(
     (await valorDoCookie(sim.contexto)) === "sim.3.gmtc" &&
       ligadas.carregou.filter((p) => p === "google").length === 1 &&
+      ligadas.carregou.filter((p) => p === "clarity").length === 1 &&
+      temChamada(ligadas.clarity, "consentv2", {
+        ad_Storage: "granted",
+        analytics_Storage: "granted",
+      }) &&
       temChamada(ligadas.google, "config", CODIGOS.ga4) &&
       temChamada(ligadas.google, "consent", "update", anuncioLiberado) &&
       temChamada(ligadas.google, "config", CODIGOS.googleAds) &&
@@ -424,7 +439,7 @@ try {
       temChamada(ligadas.meta, "track", "PageView") &&
       ligadas.tiktokPixels.includes(CODIGOS.tiktok) &&
       temChamada(ligadas.clarity, "consentv2"),
-    "“Aceitar”: o anúncio do Google passa a valer (o GA4 não carrega de novo), e as outras três ligam na hora, cada uma com o seu código",
+    "“Aceitar”: o anúncio do Google e o da Microsoft passam a valer (o GA4 e a Clarity não carregam de novo), e a Meta e o TikTok ligam na hora, cada um com o seu código",
     JSON.stringify({ carregou: ligadas.carregou, tiktok: ligadas.tiktokPixels })
   )
 
@@ -511,7 +526,7 @@ try {
       new URL(aceitou.aqui).pathname === new URL(noProdutoAntes.aqui).pathname &&
       comACampanha(aceitou.aqui) &&
       parceiros.every((p) => aceitou.endereco[p] && comACampanha(aceitou.endereco[p])),
-    "aceitou no produto: a campanha volta pro endereço antes das tags do sim, e as quatro a leem quando ligam (o GA4, na chegada)",
+    "aceitou no produto: a campanha volta pro endereço antes das tags do sim, e as quatro a leem quando ligam (o GA4 e a Clarity, na chegada)",
     JSON.stringify(aceitou)
   )
   // Recarregar (ou abrir outra página da mesma aba) não traz a campanha de novo: os parceiros já têm.
@@ -565,27 +580,27 @@ try {
   await direto.contexto.close()
 
   titulo("A faixa pergunta de novo")
-  /** A resposta de antes não vale: a faixa pergunta, e só o GA4 liga (como sem resposta). */
+  /** A resposta de antes não vale: a faixa pergunta, e só o GA4 e a Clarity ligam (como sem resposta). */
   async function perguntaDeNovo(valor, frase) {
     const visita = await visitaNaLoja([{ name: "fb_consentimento", value: valor }])
     await visita.pagina.goto(`${LOJA}/`)
     await visita.pagina.locator("[data-faixa-de-cookies]").waitFor({ timeout: 20000 })
-    await oGa4Ligou(visita.pagina)
+    await aMedicaoLigou(visita.pagina)
     await esperar(1000)
-    ok(soOGa4(visita, await filas(visita.pagina)), frase, visita.pedidos.join(" "))
+    ok(soAMedicao(visita, await filas(visita.pagina)), frase, visita.pedidos.join(" "))
     await visita.contexto.close()
   }
   await perguntaDeNovo(
     "sim",
-    "o sim da versão 1 (só o Google Analytics) não vale: a faixa pergunta, e só o GA4 liga"
+    "o sim da versão 1 (só o Google Analytics) não vale: a faixa pergunta, e só o GA4 e a Clarity ligam"
   )
   await perguntaDeNovo(
     "sim.2.gmtc",
-    "o sim da versão 2 (de antes do CRM da própria loja) não vale: a faixa pergunta de novo, só o GA4 liga"
+    "o sim da versão 2 (de antes do CRM da própria loja) não vale: a faixa pergunta de novo, só o GA4 e a Clarity ligam"
   )
   await perguntaDeNovo(
     "sim.3.g",
-    "o sim só pro Google, com a Meta e o TikTok ligados depois: a faixa pergunta de novo, só o GA4 liga"
+    "o sim só pro Google, com a Meta e o TikTok ligados depois: a faixa pergunta de novo, só o GA4 e a Clarity ligam"
   )
 
   titulo("A faixa e as barras do pé da tela")

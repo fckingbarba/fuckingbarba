@@ -59,7 +59,7 @@ export async function salvarIntegracoes(f: FormularioDasIntegracoes) {
     "integracoes",
     f,
     (r) =>
-      "Integrações salvas. Na loja, o GA4 carrega pra todo mundo (quem recusa os cookies sai), e os outros, depois do “Aceitar”." +
+      "Integrações salvas. Na loja, o GA4 e a Clarity carregam pra todo mundo (quem recusa os cookies sai), e os outros, depois do “Aceitar”." +
       (r.corpo.lojaAvisada === false
         ? " A loja não respondeu ao aviso: a mudança aparece lá em até algumas horas."
         : "")
