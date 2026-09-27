@@ -166,3 +166,27 @@ describe("o frete grátis na mesma entrega (24/09)", () => {
     expect(preco(r, "expressa")).toBe(23.7)
   })
 })
+
+describe("a parcela mínima do cartão (0157)", () => {
+  const com = (pagamento: unknown) => lerConfiguracoes({ [CHAVE_NO_METADATA]: { pagamento } })
+
+  it("sem nada gravado, o piso do banco: R$ 5,00", () => {
+    expect(PADRAO.pagamento).toEqual({ parcelaMinima: 5 })
+    expect(lerConfiguracoes({}).pagamento).toEqual({ parcelaMinima: 5 })
+  })
+
+  it("a da loja vale entre o piso do banco e o teto", () => {
+    expect(com({ parcelaMinima: 30 }).pagamento).toEqual({ parcelaMinima: 30 })
+    expect(com({ parcelaMinima: "29,90" }).pagamento).toEqual({ parcelaMinima: 29.9 })
+    expect(com({ parcelaMinima: 1000 }).pagamento).toEqual({ parcelaMinima: 1000 })
+  })
+
+  it("abaixo do banco, acima do teto ou sem número: volta o piso — nunca menos que o banco aceita", () => {
+    for (const v of [4.99, 0, -10, 1000.01, "abc", null])
+      expect(com({ parcelaMinima: v }).pagamento).toEqual({ parcelaMinima: 5 })
+  })
+
+  it("é pública: a loja anuncia e oferece as parcelas com ela", () => {
+    expect(soOPublico(com({ parcelaMinima: 30 })).pagamento).toEqual({ parcelaMinima: 30 })
+  })
+})

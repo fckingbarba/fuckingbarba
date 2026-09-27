@@ -42,3 +42,20 @@ export function ProvedorDoFrete({
 export function useFrete(): PoliticaDeFrete {
   return useContext(Contexto)
 }
+
+/**
+ * A PARCELA MÍNIMA DO CARTÃO, pelo mesmo caminho (0157): a caixa de compra
+ * da PDP, a sacola e o checkout só dizem "3x de R$ X" — e o checkout só
+ * oferece a parcela — quando ela passa da mínima das Configurações. O padrão
+ * é o piso do banco: fora do provedor, a tela promete o mínimo que o banco
+ * aceita, nunca menos.
+ */
+const Parcela = createContext<number>(PADRAO.pagamento.parcelaMinima)
+
+export function ProvedorDaParcela({ minima, children }: { minima: number; children: ReactNode }) {
+  return <Parcela.Provider value={minima}>{children}</Parcela.Provider>
+}
+
+export function useParcelaMinima(): number {
+  return useContext(Parcela)
+}

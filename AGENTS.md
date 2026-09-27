@@ -1931,11 +1931,30 @@ dono). A regra mora em `src/lib/painel/configuracoes.ts`, puro, com testes:
   (`lib/equipe/avisados.ts`).
 
 As rotas: `GET /dashboard/configuracoes` e
-`POST /dashboard/configuracoes/{empresa,frete,emergencia,nota}`. Todas anotam no registro da
-equipe. O conferidor é o `apps/dashboard/ferramentas/conferir-configuracoes.mjs` — o do painel,
+`POST /dashboard/configuracoes/{empresa,frete,emergencia,nota,pagamento}`. Todas anotam no
+registro da equipe. O conferidor é o `apps/dashboard/ferramentas/conferir-configuracoes.mjs` — o do painel,
 que não é o `apps/loja/ferramentas/conferir-configuracoes.mjs` da loja. Ele guarda as configurações
 e a janela no começo e devolve no fim, mesmo quando falha. O `conferir-observabilidade.mjs` confere
 que o e-mail do estorno vai pro dono, e não pra operação.
+
+**A parcela mínima do cartão** (Configurações → Pagamento, entrega 0157). `pagamento.parcelaMinima`
+em `fb_configuracoes` (`lib/configuracoes.ts`), em reais: PÚBLICA (`soOPublico`), porque vale nas
+três pontas, como o frete — o que a loja anuncia ("3x de R$ X" só quando a parcela passa dela: o
+card de produto, a vitrine da home, a caixa de compra da PDP, a sacola, o resumo do checkout e as
+Dúvidas), o que o checkout oferece (`parcelasPossiveis`, no passo 3) e o que o Medusa aceita. O PISO
+é o do banco, `PARCELA_MINIMA_CENTAVOS` (R$ 5,00, em `lib/pagamento/entrada.ts`, que o provedor
+segue conferindo): a leitura devolve o piso pra qualquer valor abaixo dele, acima do teto
+(`PARCELA_MINIMA_TETO`, R$ 1.000) ou sem número. O provedor não enxerga as configurações (é módulo
+isolado), então quem confere a da loja é uma porta na abertura da sessão de pagamento
+(`parcelaMinimaDaLoja`, em `lib/pagamento/parcela.ts`, no `POST
+/store/payment-collections/:id/payment-sessions`): cartão em parcelas que não cabem responde 400 com
+`parcela_minima`, e o `finalizar` da loja escreve a frase e refaz a tela. Na loja, o valor chega
+pelo `configuracoes()` (`lerPagamento`: o Medusa de antes da 0157 não manda, e vale o piso) e, nas
+telas de cliente, pelo `useParcelaMinima()` (`components/configuracoes/contexto.tsx`, no layout
+raiz). O painel grava por `POST /dashboard/configuracoes/pagamento` (`lerParcelamento`: "30,00"; 422
+fora da faixa). O `conferir-pagamento.mjs` grava uma mínima que tira o 3x, pela rota das
+configurações do admin, e confere a rota pública, a recusa do Medusa e as parcelas do passo 3 — e
+devolve a de antes.
 
 **Integrações** (Configurações, entrega 0094). Os códigos de medição e anúncio, a faixa de
 cookies e a compra pelo servidor:

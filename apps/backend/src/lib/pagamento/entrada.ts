@@ -15,11 +15,16 @@ import type { Forma } from "./estado"
 /**
  * Parcelas sem juros e a menor parcela aceita.
  *
- * PRECISAM BATER com `PARCELAS_SEM_JUROS` e `PARCELA_MINIMA` de
+ * As parcelas PRECISAM BATER com `PARCELAS_SEM_JUROS` de
  * `apps/loja/src/lib/site.ts`: lá é o que a vitrine anuncia ("3x sem
  * juros"), aqui é o que o backend aceita. Se a loja oferecer 4x e o backend
  * recusar, quem descobre é o cliente, no último clique. O conferidor de
  * pagamento compra em 3x pra travar isso.
+ *
+ * A PARCELA MÍNIMA daqui é o PISO DO BANCO: parcela menor que R$ 5,00 o
+ * banco do cartão recusa. A da loja — maior ou igual a esta — mora nas
+ * Configurações (`pagamento.parcelaMinima`, 0157), e quem confere é a porta
+ * da sessão de pagamento (`lib/pagamento/parcela.ts`).
  */
 export const PARCELAS_MAXIMAS = 3
 export const PARCELA_MINIMA_CENTAVOS = 500

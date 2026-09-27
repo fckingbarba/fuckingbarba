@@ -77,6 +77,12 @@ confere(
   ["whatsapp", "email", "horario", "prazoDePostagem"].every((k) => k in c.atendimento),
   JSON.stringify(c.atendimento)
 )
+// A parcela mínima do cartão (0157): um número, nunca abaixo do piso do banco (R$ 5,00).
+confere(
+  "pagamento tem a parcela mínima do cartão, de R$ 5,00 pra cima",
+  typeof c.pagamento?.parcelaMinima === "number" && c.pagamento.parcelaMinima >= 5,
+  JSON.stringify(c.pagamento)
+)
 /* O vídeo da história da marca: nenhum, ou inteiro — endereço e as duas
    medidas, que é o que a home usa pra reservar o espaço antes de ele chegar. */
 confere(

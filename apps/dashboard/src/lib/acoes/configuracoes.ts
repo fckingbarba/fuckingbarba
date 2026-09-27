@@ -6,6 +6,7 @@ import type {
   FormularioDaEmergencia,
   FormularioDaEmpresa,
   FormularioDoFrete,
+  FormularioDoParcelamento,
   FormularioDasIntegracoes,
 } from "@/lib/configuracoes"
 import { semAcessoA } from "@/lib/equipe"
@@ -83,6 +84,17 @@ export async function salvarEmergencia(f: FormularioDaEmergencia) {
       ? "Salvo: se a Frenet cair, a loja segue vendendo por esse preço e esse prazo."
       : "Salvo: se a Frenet cair, a loja para de vender até a cotação voltar."
   )
+}
+
+export async function salvarParcelamento(f: FormularioDoParcelamento) {
+  return salvar("pagamento", f, (r) => {
+    // O valor como ficou gravado ("30" vira "R$ 30,00").
+    const gravada = Number(r.corpo.parcelaMinima)
+    const valor = Number.isFinite(gravada)
+      ? `R$ ${gravada.toFixed(2).replace(".", ",")}`
+      : `R$ ${f.parcelaMinima.trim()}`
+    return `Parcela mínima salva: o cartão só parcela quando cada parcela passa de ${valor}.${naLoja(r)}`
+  })
 }
 
 export async function mudarJanela(janela: number): Promise<Resultado> {

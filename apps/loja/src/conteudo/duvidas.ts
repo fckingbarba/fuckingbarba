@@ -2,7 +2,7 @@ import type { Route } from "next"
 import { NOMES_DAS_BANDEIRAS } from "@/lib/cartao"
 import { frasesDoFrete, pisoVale, type Configuracoes } from "@/lib/configuracoes"
 import { emReais } from "@/lib/formato"
-import { PARCELA_MINIMA, PARCELAS_SEM_JUROS } from "@/lib/site"
+import { PARCELAS_SEM_JUROS } from "@/lib/site"
 
 /**
  * AS DÚVIDAS DA LOJA — o que se pergunta antes de comprar (e logo depois).
@@ -82,7 +82,7 @@ export function textoPuro(p: Paragrafo): string {
     .replaceAll("*", "")
 }
 
-export function duvidasDaLoja({ frete, atendimento }: Configuracoes): GrupoDeDuvidas[] {
+export function duvidasDaLoja({ frete, atendimento, pagamento }: Configuracoes): GrupoDeDuvidas[] {
   const frases = frasesDoFrete(frete)
   // As mesmas que o campo do cartão reconhece (`lib/cartao.ts`): a lista que a
   // resposta dá e a que o checkout aceita não têm como divergir.
@@ -118,7 +118,7 @@ export function duvidasDaLoja({ frete, atendimento }: Configuracoes): GrupoDeDuv
         {
           pergunta: "Quais são as formas de pagamento?",
           resposta: [
-            `Pix ou cartão de crédito (${bandeiras}) — boleto não. No cartão, dá pra parcelar em até *${PARCELAS_SEM_JUROS}x sem juros*, com parcela mínima de ${emReais(PARCELA_MINIMA)}.`,
+            `Pix ou cartão de crédito (${bandeiras}) — boleto não. No cartão, dá pra parcelar em até *${PARCELAS_SEM_JUROS}x sem juros*, com parcela mínima de ${emReais(pagamento.parcelaMinima)}.`,
           ],
         },
         {

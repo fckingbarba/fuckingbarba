@@ -427,6 +427,30 @@ async function carrinhoPelaApi(email, carrinhoId = null) {
   return { id, colecao }
 }
 
+/*
+  A PARCELA MÍNIMA DA LOJA (0157), gravada pela rota das configurações do
+  admin — a mesma peneira do painel, dentro da trava do metadata, e que avisa
+  a loja. Só a parte do pagamento: o resto fica como está.
+*/
+let parcelaDeAntes = null
+async function gravarParcelaMinima(minima) {
+  if (parcelaDeAntes === null) {
+    parcelaDeAntes = (await adm("/admin/configuracoes")).configuracoes.pagamento
+  }
+  await adm("/admin/configuracoes", {
+    method: "POST",
+    body: JSON.stringify({ pagamento: { parcelaMinima: minima } }),
+  })
+}
+async function devolverAParcela() {
+  if (parcelaDeAntes === null) return
+  await adm("/admin/configuracoes", {
+    method: "POST",
+    body: JSON.stringify({ pagamento: parcelaDeAntes }),
+  })
+  parcelaDeAntes = null
+}
+
 /** Abre a sessão do Pix e fecha o carrinho, tudo pela API. Devolve o pedido. */
 async function fecharPelaApi(carrinho, email) {
   await loja(`/store/payment-collections/${carrinho.colecao}/payment-sessions`, {
@@ -2469,6 +2493,72 @@ try {
     }
   }
 
+  titulo("A parcela mínima da loja (0157): o checkout oferece, e o Medusa aceita, só o que cabe")
+  {
+    const email = "parcela@fuckingbarba.invalid"
+    const carrinho = await carrinhoPelaApi(email)
+    const total = Number((await loja(`/store/carts/${carrinho.id}?fields=total`)).json?.cart?.total)
+    // Uma mínima que deixa o 2x e tira o 3x deste total.
+    const minima = Math.floor((total / 2) * 100) / 100
+    await gravarParcelaMinima(minima)
+
+    const { json: publica } = await loja("/store/configuracoes")
+    ok(
+      publica?.configuracoes?.pagamento?.parcelaMinima === minima,
+      `a mínima das Configurações (R$ ${minima}) chega na rota pública da loja`,
+      JSON.stringify(publica?.configuracoes?.pagamento)
+    )
+
+    const noCartao = (parcelas) =>
+      loja(`/store/payment-collections/${carrinho.colecao}/payment-sessions`, {
+        method: "POST",
+        body: JSON.stringify({
+          provider_id: PAGARME,
+          data: {
+            entrada: { ...entradaDoPix(email), forma: "cartao", token: "token_abcdefgh", parcelas },
+          },
+        }),
+      })
+    const tres = await noCartao(3)
+    ok(
+      tres.status === 400 && tres.json?.message === "parcela_minima",
+      `${total} em 3x fica abaixo da mínima: o Medusa recusa, mesmo sem passar pela tela`,
+      `${tres.status} ${JSON.stringify(tres.json)?.slice(0, 100)}`
+    )
+    const duas = await noCartao(2)
+    ok(duas.ok, "em 2x, cada parcela passa da mínima: abre", String(duas.status))
+
+    // Pela tela: o passo 3 só oferece as parcelas que cabem no total de lá.
+    const { contexto, pagina } = await novaAba()
+    await sacolaPronta(contexto, 1)
+    await ateOPagamento(pagina, "parcela-tela@fuckingbarba.invalid")
+    const linha = pagina.locator("#form-pagamento .opcao", { hasText: "Cartão" })
+    await linha.click()
+    await linha.locator("input:checked").waitFor({ state: "attached", timeout: 10000 })
+    const totalNaTela = Number(
+      await pagina.locator('#form-pagamento input[name="total_visto"]').inputValue()
+    )
+    const cabem = [1, 2, 3].filter((n) => n === 1 || totalNaTela / n >= minima)
+    const oferecidas = await pagina
+      .locator("#parcelas option")
+      .evaluateAll((os) => os.map((o) => Number(o.value)))
+    ok(
+      oferecidas.join(",") === cabem.join(","),
+      `a tela oferece ${cabem.map((n) => `${n}x`).join(" e ")} — só as parcelas que passam da mínima`,
+      `${oferecidas.join(",")} (total ${totalNaTela})`
+    )
+    await contexto.close()
+
+    const deAntes = parcelaDeAntes?.parcelaMinima ?? 5
+    await devolverAParcela()
+    const { json: devolvida } = await loja("/store/configuracoes")
+    ok(
+      devolvida?.configuracoes?.pagamento?.parcelaMinima === deAntes,
+      `de volta: a mínima de antes (R$ ${deAntes}), pra rodada seguinte`,
+      JSON.stringify(devolvida?.configuracoes?.pagamento)
+    )
+  }
+
   titulo("Os avisos de venda da rodada inteira")
   {
     // Toda compra da rodada — a da resposta perdida, a da confirmação que se
@@ -2492,6 +2582,7 @@ try {
   falhas++
   console.log(`\n  ✗ o conferidor quebrou no meio: ${e instanceof Error ? e.stack : e}`)
 } finally {
+  await devolverAParcela().catch((e) => console.log(`  ⚠  não consegui devolver a parcela: ${e}`))
   resend.roteiro.cair = false
   pagarme.estornos = "normal"
   pagarme.atrasoNaBusca = 0

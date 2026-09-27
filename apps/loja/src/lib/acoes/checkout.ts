@@ -651,6 +651,23 @@ export async function finalizar(anterior: EstadoDaEtapa, fd: FormData): Promise<
       // completed"): é ele, e não "nada foi cobrado, tenta de novo".
       const jaFechado = await pedidoDoCarrinhoFechado()
       if (jaFechado) return abrirPedido(jaFechado)
+      /*
+        A PARCELA ABAIXO DA MÍNIMA DA LOJA (as Configurações, 0157): o Medusa
+        recusa na abertura da sessão (`backend/src/lib/pagamento/parcela.ts`).
+        A tela só oferece as que cabem — chegar aqui é a mínima que mudou com
+        o checkout aberto. A tela se refaz com as parcelas de agora.
+      */
+      if (e instanceof Error && e.message === "parcela_minima") {
+        refresh()
+        const { pagamento } = await configuracoes()
+        return erro(
+          anterior,
+          {},
+          `A parcela mínima no cartão é de ${emReais(pagamento.parcelaMinima)}. ` +
+            "Escolhe menos parcelas — nada foi cobrado.",
+          fd
+        )
+      }
       // Nem a sessão abriu: nada saiu. Com outro parceiro esperando, vai pra ele.
       if (reserva) continue
       return erro(

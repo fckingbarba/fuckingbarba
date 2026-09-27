@@ -11,6 +11,7 @@ import {
   salvarEmpresa,
   salvarFrete,
   salvarIntegracoes,
+  salvarParcelamento,
   type ResultadoDoFormulario,
 } from "@/lib/acoes/configuracoes"
 import {
@@ -20,6 +21,7 @@ import {
   type FormularioDaEmpresa as DadosDaEmpresa,
   type FormularioDasIntegracoes as DadosDasIntegracoes,
   type FormularioDoFrete as DadosDoFrete,
+  type FormularioDoParcelamento as DadosDoParcelamento,
 } from "@/lib/configuracoes"
 import type { Area } from "@/lib/equipe"
 
@@ -313,6 +315,52 @@ export function FormularioDaEmergencia({ inicial }: { inicial: DadosDaEmergencia
           </div>
         </div>
         <Acoes salvando={salvando} nota="Vale na próxima cotação." />
+      </Bloco>
+    </form>
+  )
+}
+
+/**
+ * A PARCELA MÍNIMA DO CARTÃO (0157) — a loja anuncia "3x de R$ X", e o
+ * checkout oferece a parcela, só quando cada uma passa disto; o Medusa
+ * recusa o resto. O mínimo do banco (R$ 5,00) é o piso: o Medusa confere.
+ */
+export function FormularioDoParcelamento({
+  inicial,
+  parcelas,
+}: {
+  inicial: DadosDoParcelamento
+  parcelas: number
+}) {
+  const { f, mudar, erros, salvando, salvar } = useFormulario(inicial, salvarParcelamento)
+  return (
+    <form className="bloco" onSubmit={salvar} noValidate data-form="parcelamento">
+      <Bloco
+        titulo="Parcelas no cartão"
+        sub={`Até ${parcelas}x sem juros. Pedido pequeno não precisa sair em ${parcelas} vezes.`}
+      >
+        <div className="campos">
+          <Campo
+            rotulo="Parcela mínima"
+            nota="— em reais"
+            nome="parcelaMinima"
+            data-campo="parcela-minima"
+            inputMode="decimal"
+            placeholder="5,00"
+            value={f.parcelaMinima}
+            erro={erros.parcelaMinima}
+            onChange={(e) => mudar("parcelaMinima", e.target.value)}
+            largura="campo--3"
+          />
+          <div className="campo">
+            <p className="campo__ajuda">
+              O cartão só parcela quando <b>cada parcela passa deste valor</b>. Com R$ 30,00, um
+              pedido de R$ 60,00 sai em até 2x; um de R$ 90,00, em até 3x. Vale na página do
+              produto, na sacola e no checkout. O mínimo é R$ 5,00: parcela menor o banco recusa.
+            </p>
+          </div>
+        </div>
+        <Acoes salvando={salvando} nota="A loja atualiza em alguns segundos." />
       </Bloco>
     </form>
   )

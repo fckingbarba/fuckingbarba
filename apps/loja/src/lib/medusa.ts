@@ -5,7 +5,7 @@ import { cacheLife, cacheTag } from "next/cache"
 import type { Avaliacao } from "../conteudo/depoimentos"
 import { avaliacoesDoMedusa } from "./avaliacoes-do-medusa"
 import type { SugestaoDaSacola } from "./carrinho-visivel"
-import { PADRAO, type Configuracoes } from "./configuracoes"
+import { lerPagamento, PADRAO, type Configuracoes } from "./configuracoes"
 import { emReais } from "./formato"
 import { HOME_DO_SITE_DE_FABRICA, lerHomeDoSite, type HomeDoSite } from "./home"
 import {
@@ -308,13 +308,15 @@ export async function configuracoes(): Promise<Configuracoes> {
     "configurações",
     "/store/configuracoes"
   )
-  // `home` e `integracoes` chegaram depois: um Medusa de antes deles responde
-  // sem o campo, e a loja segue com a foto (e sem tag) em vez de quebrar.
+  // `home`, `integracoes` e `pagamento` chegaram depois: um Medusa de antes
+  // deles responde sem o campo, e a loja segue com a foto, sem tag e com a
+  // parcela mínima do banco, em vez de quebrar.
   return c
     ? {
         ...c,
         home: c.home ?? PADRAO.home,
         integracoes: { ...PADRAO.integracoes, ...c.integracoes },
+        pagamento: lerPagamento(c.pagamento),
       }
     : PADRAO
 }

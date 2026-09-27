@@ -209,6 +209,38 @@ try {
     JSON.stringify({ semPrazo: semPrazo.corpo, cotacao: a3.cotacao })
   )
 
+  titulo("A parcela mínima do cartão (API, 0157)")
+  const abaixoDoBanco = await gravar("pagamento", { parcelaMinima: "4,99" })
+  const trinta = await gravar("pagamento", { parcelaMinima: "30" })
+  const daOperacao = await medusa("/dashboard/configuracoes/pagamento", {
+    token: cookieOp?.value,
+    corpo: { parcelaMinima: "50" },
+  })
+  const pDaParcela = await publicas()
+  const tDaParcela = (
+    await medusa("/dashboard/configuracoes", { metodo: "GET", token: tokenDoDono })
+  ).corpo
+  ok(
+    abaixoDoBanco.status === 422 &&
+      abaixoDoBanco.corpo.erros?.parcelaMinima &&
+      trinta.status === 200 &&
+      trinta.corpo.parcelaMinima === 30 &&
+      daOperacao.status === 403 &&
+      pDaParcela.pagamento?.parcelaMinima === 30 &&
+      tDaParcela.parcelamento?.parcelaMinima === "30,00" &&
+      /parcela mínima de R\$ 30,00/.test(
+        semEspaco(tDaParcela.pagamento?.find((l) => l.titulo === "Cartão")?.texto ?? "")
+      ),
+    "a parcela mínima: abaixo do banco é recusada, a operação não grava; R$ 30 grava, a loja lê e a aba diz",
+    JSON.stringify({
+      abaixo: abaixoDoBanco.corpo,
+      trinta: trinta.corpo,
+      operacao: daOperacao.status,
+      publica: pDaParcela.pagamento,
+      tela: tDaParcela.parcelamento,
+    })
+  )
+
   titulo("A nota e os e-mails (API)")
   const janelaErrada = await gravar("nota", { janela: 10 })
   const janela = await gravar("nota", { janela: 15 })
@@ -311,6 +343,25 @@ try {
     !temJanela || (depois.nota?.janela === 30 && /30 minutos/.test(daJanela)),
     "pela tela: a janela da nota muda no clique",
     `${depois.nota?.janela} · ${daJanela}`
+  )
+
+  await pagina.goto(`${PAINEL}/configuracoes/pagamento`)
+  await hidratado(pagina, '[data-form="parcelamento"] [data-campo="parcela-minima"]')
+  const campoDaParcela = pagina.locator('[data-campo="parcela-minima"]')
+  const mostrava = await campoDaParcela.inputValue()
+  await campoDaParcela.fill("25,5")
+  const daParcela = await avisoDoClique(pagina, () =>
+    pagina.locator('[data-form="parcelamento"] button[type=submit]').click()
+  )
+  const tDepoisDaTela = (
+    await medusa("/dashboard/configuracoes", { metodo: "GET", token: tokenDoDono })
+  ).corpo
+  ok(
+    mostrava === "30,00" &&
+      tDepoisDaTela.parcelamento?.parcelaMinima === "25,50" &&
+      /Parcela mínima salva.*R\$ 25,50/.test(semEspaco(daParcela)),
+    "pela tela: a parcela mínima muda no Salvar, e o aviso diz o valor como ficou gravado",
+    `${mostrava} → ${tDepoisDaTela.parcelamento?.parcelaMinima} · ${daParcela}`
   )
 
   for (const [aba, seletor] of [

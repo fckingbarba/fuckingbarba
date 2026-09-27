@@ -5,7 +5,7 @@ import { Carrinho, Envelope } from "@/components/icones"
 import { BotaoComprar } from "@/components/produto/comprar"
 import { emReais } from "@/lib/formato"
 import { frasesDoFrete, produtoSozinhoQualifica } from "@/lib/configuracoes"
-import { PARCELA_MINIMA, PARCELAS_SEM_JUROS } from "@/lib/site"
+import { PARCELAS_SEM_JUROS } from "@/lib/site"
 import { configuracoes, esgotado, precosDe, promocoesOuNenhuma, varianteDoCard } from "@/lib/medusa"
 import { promocaoDoProduto } from "@/lib/promocoes"
 
@@ -56,7 +56,10 @@ export async function CartaoProduto({
     `"use cache"` lá dentro: numa grade de doze cards isto é UMA leitura, não
     doze — e nenhuma delas depois que o cache esquenta.
   */
-  const [{ frete }, promocoes] = await Promise.all([configuracoes(), promocoesOuNenhuma()])
+  const [{ frete, pagamento }, promocoes] = await Promise.all([
+    configuracoes(),
+    promocoesOuNenhuma(),
+  ])
   const frases = frasesDoFrete(frete)
   const promocao = promocaoDoProduto(promocoes, produto.id)
 
@@ -70,7 +73,8 @@ export async function CartaoProduto({
   const semEstoque = esgotado(produto)
   const temTarja = precos != null && produtoSozinhoQualifica(frete, precos.atual)
   const parcela = precos ? precos.atual / PARCELAS_SEM_JUROS : 0
-  const mostraParcela = parcela >= PARCELA_MINIMA
+  // A menor parcela da loja (as Configurações): abaixo dela, só o preço à vista.
+  const mostraParcela = parcela >= pagamento.parcelaMinima
 
   return (
     <article className="produto">

@@ -48,6 +48,8 @@ const SEMENTE: Configuracoes = {
   home: { video: null },
   // Sem integração: cada código entra pelo painel (Configurações → Integrações).
   integracoes: PADRAO.integracoes,
+  // A parcela mínima do banco; a loja pede mais pelo painel (Configurações → Pagamento).
+  pagamento: PADRAO.pagamento,
 }
 
 /**

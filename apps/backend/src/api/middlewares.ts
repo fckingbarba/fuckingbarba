@@ -8,6 +8,7 @@ import {
 } from "@medusajs/framework/http"
 import { ContainerRegistrationKeys, MedusaError } from "@medusajs/framework/utils"
 import { portaDoPagamento } from "../lib/cartao/porta"
+import { parcelaMinimaDaLoja } from "../lib/pagamento/parcela"
 import { checkStatusNaTravaDoCarrinho } from "../lib/check-status-na-trava"
 import { portaDoPainel } from "../lib/equipe/acesso"
 import { gerarHandle, HANDLE_VALIDO } from "../lib/handle"
@@ -197,10 +198,14 @@ export default defineMiddlewares({
   routes: [
     { matcher: "/store/carts", method: ["POST"], middlewares: [cupomSoPelaPortaDosCupons] },
     { matcher: "/store/carts/:id", method: ["POST"], middlewares: [cupomSoPelaPortaDosCupons] },
+    /*
+      E a parcela do cartão abaixo da mínima da loja (as Configurações, 0157)
+      não abre sessão — ver `lib/pagamento/parcela.ts`.
+    */
     {
       matcher: "/store/payment-collections/:id/payment-sessions",
       method: ["POST"],
-      middlewares: [pagamentoDePedidoFechado],
+      middlewares: [pagamentoDePedidoFechado, parcelaMinimaDaLoja],
     },
     /*
       A PORTA DO PAGAMENTO: o robô testando cartão roubado é barrado antes de

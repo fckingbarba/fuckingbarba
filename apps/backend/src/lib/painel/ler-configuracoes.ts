@@ -12,7 +12,7 @@ import { avisarALoja } from "../revalidar"
 import { EQUIPE } from "../../modules/equipe"
 import type EquipeService from "../../modules/equipe/service"
 import { registraPedidos } from "../../modules/frenet/pedidos"
-import { PARCELA_MINIMA_CENTAVOS, PARCELAS_MAXIMAS } from "../../modules/pagarme/pedido"
+import { PARCELAS_MAXIMAS } from "../../modules/pagarme/pedido"
 import {
   pendenciasEmFrase,
   telaDasConfiguracoes,
@@ -53,14 +53,16 @@ export async function lerTelaDasConfiguracoes(
     : [[], []]
 
   const pix = Number(process.env.PAGARME_PIX_MINUTOS || 30)
+  const configuracoes = lerConfiguracoes(lojas[0]?.metadata)
   return telaDasConfiguracoes({
-    configuracoes: lerConfiguracoes(lojas[0]?.metadata),
+    configuracoes,
     pagamento: {
       configurado: Boolean(process.env.PAGARME_SECRET_KEY),
       mercadoPago: Boolean(process.env.MERCADOPAGO_ACCESS_TOKEN),
       pixMinutos: Number.isInteger(pix) && pix >= 5 ? pix : 30,
       parcelas: PARCELAS_MAXIMAS,
-      parcelaMinima: PARCELA_MINIMA_CENTAVOS / 100,
+      // A da loja (as Configurações, 0157) — o piso do banco quando não há.
+      parcelaMinima: configuracoes.pagamento.parcelaMinima,
       estornos: { horas: HORAS_ENTRE_TENTATIVAS, tentativas: TENTATIVAS },
     },
     erp: {
