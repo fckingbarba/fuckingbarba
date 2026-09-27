@@ -5,6 +5,7 @@ import { redirect } from "next/navigation"
 import { BUMP } from "@/conteudo/checkout"
 import { cotarFrete } from "./acoes/frete"
 import { ehCodigoDeBump, handleDoBump } from "./bump"
+import { categoriaPrincipal } from "./categorias"
 import {
   COOKIE_CARRINHO,
   lerCarrinho,
@@ -550,7 +551,8 @@ async function catalogoDoCheckout(regiaoId: string): Promise<Oferta[]> {
             varianteId: variante.id,
             handle: p.handle ?? "",
             nome: p.title ?? "",
-            categoria: p.categories?.[0]?.handle ?? "",
+            // Sem o metadata aqui (pesa), a de mais de uma categoria fica com a do menu.
+            categoria: categoriaPrincipal(p)?.handle ?? "",
             imagem: p.thumbnail ?? null,
             preco,
             precoComDesconto: preco,
