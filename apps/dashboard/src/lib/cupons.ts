@@ -25,6 +25,10 @@ export type CupomNaLista = {
   regra: string
   /** "23 de 100 usos" */
   usos: string
+  /** "15%", "R$ 20", "Frete grátis" — o selo da linha (desde a 0155, como os números). */
+  selo?: string
+  usados?: number
+  limite?: number | null
   situacao: Situacao
   /** A chave: o vencido e o esgotado não voltam por ela. */
   ligado: boolean

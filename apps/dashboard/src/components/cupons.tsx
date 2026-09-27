@@ -11,6 +11,7 @@ import {
 import { useAvisar } from "@/components/avisos"
 import { Gaveta } from "@/components/gaveta"
 import { Icone } from "@/components/icones"
+import { Fichas } from "@/components/visual"
 import { criarCupom, mudarCupom } from "@/lib/acoes/cupons"
 import {
   codigoLimpo,
@@ -32,6 +33,10 @@ import { reais } from "@/lib/pedidos"
  * da Nuvemshop. A chave vale na hora (a tela já mostra enquanto vai, e volta
  * sozinha se o Medusa recusar); o vencido e o esgotado não têm chave: pra
  * valer de novo, é outro cupom.
+ *
+ * MAIS VISUAL (0155) — o valor num selo amarelo, as regras em fichas e os
+ * usos numa barrinha até o limite (um backend de antes não manda os números:
+ * aí fica só a frase dos usos).
  */
 export function ListaDeCupons({
   cupons: gravados,
@@ -72,19 +77,36 @@ export function ListaDeCupons({
         const chave = c.situacao !== "vencido" && c.situacao !== "esgotado"
         return (
           <div className="linha" key={c.id} data-cupom={c.codigo}>
-            <div>
-              <p className="linha__titulo">
-                <span className="num">{c.codigo}</span>
-              </p>
-              <p className="linha__txt">
-                {c.descricao} · {c.regra}
-              </p>
-              <p className="linha__txt">
-                <b>{c.usos}</b>
-                {c.pedidos
-                  ? ` · ${reais(c.desconto)} de desconto · ${reais(c.vendeu)} em pedidos pagos`
-                  : ""}
-              </p>
+            <div className="cupom">
+              {c.selo ? (
+                <span
+                  className="cupom__valor"
+                  data-longo={c.selo.length > 7 ? "" : undefined}
+                  aria-hidden="true"
+                >
+                  {c.selo}
+                </span>
+              ) : null}
+              <div className="cupom__miolo">
+                <p className="linha__titulo">
+                  <span className="num">{c.codigo}</span>
+                </p>
+                <p className="linha__txt">{c.descricao}</p>
+                <Fichas frase={c.regra} />
+                <p className="cupom__numeros">
+                  <Usos c={c} />
+                  {c.pedidos ? (
+                    <>
+                      <span>
+                        <b>{reais(c.desconto)}</b> de desconto
+                      </span>
+                      <span>
+                        <b>{reais(c.vendeu)}</b> em pedidos pagos
+                      </span>
+                    </>
+                  ) : null}
+                </p>
+              </div>
             </div>
             <div className="cupom__lado">
               {loja ? (
@@ -109,6 +131,20 @@ export function ListaDeCupons({
         )
       })}
     </div>
+  )
+}
+
+/** Os usos: com limite, a barrinha até ele (vermelha quando acabou); sem, só o número. */
+function Usos({ c }: { c: CupomNaLista }) {
+  if (!c.limite || c.usados === undefined) return <b data-usos>{c.usos}</b>
+  const parte = Math.min(1, c.usados / c.limite)
+  return (
+    <span className="usos" data-usos data-cheio={parte >= 1 ? "" : undefined}>
+      <span className="usos__trilho" aria-hidden="true">
+        <i style={{ width: `${(parte * 100).toFixed(0)}%` }} />
+      </span>
+      <b>{c.usos}</b>
+    </span>
   )
 }
 
