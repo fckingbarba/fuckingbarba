@@ -49,6 +49,8 @@ const CAMPOS = [
   "billing_address.metadata",
   "items.title",
   "items.product_title",
+  "items.product_id",
+  "items.thumbnail",
   "items.quantity",
   "items.unit_price",
   "shipping_methods.id",

@@ -77,7 +77,10 @@ export type DetalheDoPedido = {
   faixas: {
     nivel: "grave" | "atencao" | "info"
     titulo: string
+    /** A explicação inteira: vai no "?" da faixa. */
     texto: string
+    /** O que fica à vista, em poucas palavras (desde a 0155; um backend de antes não manda). */
+    etiquetas?: string[]
     /** O botão que resolve, dentro da faixa (só vem quando o papel pode apertar). */
     botao?: AcaoDoPedido
     /** Pra quem vê e não aperta: de quem é. */
@@ -104,8 +107,15 @@ export type DetalheDoPedido = {
   }
   historico: { quando: string; em: string; titulo: string; detalhe: string }[]
   /** Os botões, já conferidos no backend contra o papel e o estado do pedido. */
-  acoes: { nota: "agora" | "de-novo" | null; estorno: boolean; dica: string | null }
-  pagamento: { forma: string; detalhe: string }
+  acoes: {
+    nota: "agora" | "de-novo" | null
+    estorno: boolean
+    dica: string | null
+    /** "18:00": quando a nota sai sozinha (desde a 0155). */
+    saiAs?: string | null
+  }
+  /** `tipo` é o do ícone (desde a 0155). */
+  pagamento: { forma: string; tipo?: "pix" | "cartao" | null; detalhe: string }
   nota: string | null
   entrega: {
     nome: string

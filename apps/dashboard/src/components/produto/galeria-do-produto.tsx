@@ -5,6 +5,7 @@ import { UmPorVez, useArrastar } from "@/components/arrastar"
 import { useAvisar } from "@/components/avisos"
 import { Icone } from "@/components/icones"
 import { Subindo, useSubirVideo, videoDoProduto } from "@/components/produto/campos-de-midia"
+import { Ajuda } from "@/components/visual"
 import { mudarGaleria, subirImagem, type PedidoNaGaleria } from "@/lib/acoes/produtos"
 import { ACEITA, prepararNoNavegador } from "@/lib/imagem-no-navegador"
 import {
@@ -163,7 +164,15 @@ export function GaleriaDoProduto({ produto }: { produto: DetalheDoProduto }) {
     <div ref={telas} style={{ display: "contents" }}>
       <section className="bloco" data-galeria>
         <div className="bloco__cabeca">
-          <h2 className="bloco__titulo">Galeria de fotos</h2>
+          <div className="bloco__titulos">
+            <h2 className="bloco__titulo">Galeria de fotos</h2>
+            <Ajuda>
+              Só fotos aqui: os vídeos ficam no Vê na prática, logo abaixo.
+              {edita
+                ? "\nCada mudança vale na hora. As fotos que vieram do Bling ficam até alguém mexer aqui; depois, trazer o catálogo de novo não troca mais as fotos deste produto."
+                : ""}
+            </Ajuda>
+          </div>
           <span className="selo">a primeira foto é a capa</span>
         </div>
         {fotos.length ? null : (
@@ -223,27 +232,30 @@ export function GaleriaDoProduto({ produto }: { produto: DetalheDoProduto }) {
             {a}
           </p>
         ))}
-        <p className="pequeno suave" style={{ margin: "12px 0 0" }}>
-          Fotos: JPG, PNG ou WebP, <b>quadradas, {medidaEmPx(MEDIDA_DA_GALERIA)}</b>. Só fotos aqui:
-          os vídeos ficam no Vê na prática, logo abaixo.
-        </p>
-        <p className="pequeno suave" style={{ margin: "8px 0 0" }}>
-          {edita
-            ? "Cada mudança vale na hora. As fotos que vieram do Bling ficam até alguém mexer aqui; depois, trazer o catálogo de novo não troca mais as fotos deste produto."
-            : "A operação vê as fotos e os vídeos; quem mexe é o marketing ou o dono."}
+        {/* As medidas em fichas (0155): o que era frase, agora de bater o olho. */}
+        <p className="medidas" data-medidas="fotos">
+          <span>JPG · PNG · WebP</span>
+          <span>
+            <b>quadrada, {medidaEmPx(MEDIDA_DA_GALERIA)}</b>
+          </span>
+          <span>até {LIMITES_DA_GALERIA.fotos} fotos</span>
         </p>
       </section>
 
       <section className="bloco" data-ve-na-pratica>
         <div className="bloco__cabeca">
-          <h2 className="bloco__titulo">Vê na prática</h2>
+          <div className="bloco__titulos">
+            <h2 className="bloco__titulo">Vê na prática</h2>
+            <Ajuda>
+              Na página, os vídeos ficam numa faixa própria, embaixo da caixa de compra — fora das
+              fotos. Cada um vira um cartão com o nome e a duração, e quem clica abre o vídeo numa
+              janela, com som.
+              {"\n"}O nome (&ldquo;Como aplicar&rdquo;, &ldquo;A textura&rdquo;) aparece no cartão;
+              sem nome, o cartão mostra só a duração.
+            </Ajuda>
+          </div>
           <span className="selo">vídeos, fora da galeria</span>
         </div>
-        <p className="pequeno suave" style={{ margin: "0 0 10px" }}>
-          Na página, os vídeos ficam numa faixa própria, embaixo da caixa de compra — fora das
-          fotos. Cada um vira um cartão com o nome e a duração, e quem clica abre o vídeo numa
-          janela, com som.
-        </p>
         {videos.length || edita ? (
           <ul className="galeria galeria--videos">
             {videos.map((item, i) => (
@@ -314,11 +326,14 @@ export function GaleriaDoProduto({ produto }: { produto: DetalheDoProduto }) {
             {a}
           </p>
         ))}
-        <p className="pequeno suave" style={{ margin: "12px 0 0" }}>
-          Vídeos: MP4 ou WebM, até {VIDEO.maximoMB} MB e {VIDEO.idealSegundos} segundos —{" "}
-          <b>em pé, {medidaEmPx(MEDIDA_DO_VIDEO_DA_GALERIA)}</b>, como o vídeo do celular. Até{" "}
-          {LIMITES_DA_GALERIA.videos} vídeos. O nome (&ldquo;Como aplicar&rdquo;, &ldquo;A
-          textura&rdquo;) aparece no cartão; sem nome, o cartão mostra só a duração.
+        <p className="medidas" data-medidas="videos">
+          <span>MP4 · WebM</span>
+          <span>
+            <b>em pé, {medidaEmPx(MEDIDA_DO_VIDEO_DA_GALERIA)}</b>
+          </span>
+          <span>até {VIDEO.maximoMB} MB</span>
+          <span>até {VIDEO.idealSegundos} s</span>
+          <span>até {LIMITES_DA_GALERIA.videos} vídeos</span>
         </p>
       </section>
     </div>

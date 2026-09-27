@@ -247,11 +247,7 @@ export function TextosDoProduto({
             {salvando ? "Salvando…" : "Salvar"}
           </button>
         </div>
-      ) : (
-        <p className="pequeno suave" style={{ margin: "14px 0 0" }}>
-          A operação vê o produto; quem edita é o marketing ou o dono.
-        </p>
-      )}
+      ) : null}
     </form>
   )
 }

@@ -22,7 +22,7 @@ export function Cabeca({
   /** O selo ao lado do título (a situação do pedido). */
   selo?: ReactNode
   sub?: ReactNode
-  /** A explicação da tela, no "?" ao lado do título (0148: o que era frase embaixo dele). */
+  /** A explicação da tela, no "?" ao lado do título (0148: o que era frase embaixo dele; com o selo, depois dele). */
   ajuda?: ReactNode
   acoes?: ReactNode
   voltar?: { href: Route; texto: string }
@@ -37,15 +37,12 @@ export function Cabeca({
       ) : null}
       <div className="cabeca">
         <div>
-          {selo ? (
-            <div className="titulo-status">
+          {selo || ajuda ? (
+            // O selo (a situação) e o "?" moram na mesma linha do título (0155: os dois juntos).
+            <div className={selo ? "titulo-status" : "titulo-com-ajuda"}>
               <h1>{titulo}</h1>
               {selo}
-            </div>
-          ) : ajuda ? (
-            <div className="titulo-com-ajuda">
-              <h1>{titulo}</h1>
-              <Ajuda>{ajuda}</Ajuda>
+              {ajuda ? <Ajuda>{ajuda}</Ajuda> : null}
             </div>
           ) : (
             <h1>{titulo}</h1>

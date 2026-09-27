@@ -35,6 +35,10 @@ export type LinhaDoCarrinho = {
   valor: number
   etapa: Etapa
   etapaTexto: string
+  /** Tentou pagar e não passou: o passo fica vermelho. Desde a 0155, como as fotos. */
+  falhou?: boolean
+  fotos?: string[]
+  produtos?: number
   situacao: Filtro
   pedido: { id: string; numero: number } | null
   whatsapp: string | null

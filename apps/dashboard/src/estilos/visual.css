@@ -176,3 +176,91 @@
 /* A faixa de uma linha (a visão do marketing em Clientes). */
 .faixa--curta { display: flex; align-items: center; gap: 10px; padding: 10px 14px; font-size: 0.84rem; font-weight: 700; }
 .faixa--curta svg { width: 16px; height: 16px; fill: currentColor; flex-shrink: 0; }
+
+/* --------------------------------------------------------------------------
+   0155 — o mesmo desenho no pedido aberto, nos produtos, nos carrinhos e
+   nos cupons: a faixa com o "?", as pílulas com ícone e as fichas.
+   -------------------------------------------------------------------------- */
+
+/* A faixa: o título, as etiquetas e o "?" numa linha; o botão embaixo. */
+.faixa__miolo { min-width: 0; }
+.faixa__cabeca { position: relative; display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; }
+.faixa__cabeca .faixa__titulo { margin: 0; }
+.faixa__etiqueta { display: inline-block; padding: 2px 7px; background: var(--papel); border: 1.5px solid rgba(18, 24, 31, 0.25); color: var(--tinta); font-size: 0.7rem; font-weight: 700; white-space: nowrap; }
+.faixa[data-nivel="grave"] .faixa__etiqueta { background: var(--tinta); border-color: var(--tinta); color: #fff; font-size: 0.66rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; }
+.faixa .faixa__cabeca svg { width: 13px; height: 13px; margin-top: 0; }
+.faixa .faixa__cabeca .pilula { color: var(--tinta); }
+.faixa .ajuda > summary { width: 24px; height: 24px; }
+
+/*
+  O "?" da faixa e o do título de um bloco: a caixa abre embaixo da linha do
+  título, a partir da esquerda dela — dentro da faixa e do bloco, qualquer que
+  seja a coluna (na da direita, abrir do "?" pra direita saía da tela).
+*/
+.faixa__cabeca > .ajuda, .bloco__titulos > .ajuda { position: static; }
+.bloco__cabeca:has(> .bloco__titulos > .ajuda) { position: relative; }
+.faixa__cabeca .ajuda__texto, .bloco__titulos .ajuda__texto { left: 0; right: auto; width: min(340px, 100%); }
+@media (max-width: 760px) { .faixa__cabeca .ajuda__texto, .bloco__titulos .ajuda__texto { right: 0; width: auto; } }
+.bloco__titulos .ajuda > summary { width: 24px; height: 24px; }
+
+/* As fichas de uma frase ("até 30/09 · 100 usos no total"). */
+.fichas-da-frase { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+.fichas-da-frase span { padding: 2px 7px; background: var(--cinza); font-size: 0.7rem; font-weight: 700; color: var(--tinta); white-space: nowrap; }
+
+/* A pílula dentro da linha e do texto: o mesmo desenho, sem crescer. */
+.pilula[data-conta] { margin-top: 4px; }
+.com-icone { display: flex; align-items: flex-start; gap: 10px; }
+.com-icone > span { min-width: 0; }
+.acoes-lado__hora { display: flex; align-items: center; gap: 8px; }
+.acoes-lado__hora .ajuda__texto { right: 0; }
+
+/* O cliente do pedido: a sigla grande, o nome e a conta. */
+.pessoa--grande { margin: 0 0 12px; }
+.pessoa--grande .sigla { width: 40px; height: 40px; font-size: 0.86rem; }
+.pessoa--grande b { display: block; font-size: 0.92rem; }
+
+/* O estoque num quadradinho: vermelho no zero, amarelo acabando. */
+.estoque-n { display: inline-flex; align-items: center; justify-content: center; min-width: 34px; height: 24px; padding: 0 7px; background: var(--cinza); color: var(--tinta); font-size: 0.8rem; font-weight: 800; }
+.estoque-n[data-nivel="zero"] { background: var(--erro); color: #fff; }
+.estoque-n[data-nivel="pouco"] { background: var(--amarelo); color: var(--tinta); box-shadow: inset 0 0 0 1.5px var(--tinta); }
+.estoque-n[data-nivel="sem"] { background: transparent; color: var(--tinta-suave); }
+.cartao .estoque-n { min-width: 28px; height: 22px; font-size: 0.74rem; }
+
+/* As medidas de foto e vídeo, em fichas (a explicação vai no "?"). */
+.medidas { display: flex; flex-wrap: wrap; gap: 5px; margin: 12px 0 0; }
+.medidas span { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; background: var(--cinza); font-size: 0.72rem; font-weight: 700; color: var(--tinta); white-space: nowrap; }
+.medidas b { font-weight: 800; }
+.medidas svg { width: 12px; height: 12px; fill: currentColor; }
+
+/* O passo do carrinho que não passou: vermelho, como o dos pedidos. */
+.etapas-carrinho__passos i[data-parou][data-erro] { background: var(--erro); box-shadow: none; }
+.etapas-carrinho__nome[data-erro] { color: var(--erro); }
+
+/* O cupom: o valor num selo grande, os usos numa barrinha. */
+.cupom { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.cupom__valor { display: inline-flex; align-items: center; justify-content: center; min-width: 64px; height: 44px; padding: 0 8px; background: var(--amarelo); color: var(--tinta); border: 2px solid var(--tinta); font-size: 0.92rem; font-weight: 900; white-space: nowrap; flex-shrink: 0; }
+.cupom__valor[data-longo] { width: 64px; font-size: 0.62rem; letter-spacing: 0.02em; text-transform: uppercase; text-align: center; line-height: 1.1; white-space: normal; }
+.cupom__miolo { min-width: 0; }
+.cupom__numeros { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-top: 6px; font-size: 0.76rem; color: var(--tinta-suave); }
+.cupom__numeros b { color: var(--tinta); }
+.usos { display: inline-flex; align-items: center; gap: 6px; }
+.usos__trilho { display: block; width: 72px; height: 6px; background: var(--cinza); }
+.usos__trilho i { display: block; height: 100%; background: var(--tinta); }
+.usos[data-cheio] .usos__trilho i { background: var(--erro); }
+.promo__selo { display: inline-block; padding: 3px 8px; background: var(--tinta); color: var(--amarelo); font-size: 0.72rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; }
+@media (max-width: 640px) {
+  .cupom { align-items: flex-start; }
+  .cupom__valor { min-width: 52px; height: 38px; font-size: 0.8rem; }
+  /* No celular, o link, o selo e a chave descem pra baixo do cupom (do lado, espremiam o texto). */
+  [data-cupons] .linha, [data-promocoes] .linha { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  [data-cupons] .cupom__lado, [data-promocoes] .cupom__lado { justify-content: flex-start; }
+  [data-cupons] .cupom__lado { padding-left: 64px; }
+}
+.titulo-status .ajuda__texto { left: 0; right: auto; }
+.cartao__txt--icone > svg { width: 14px; height: 14px; fill: var(--tinta-suave); flex-shrink: 0; }
+/* Os descontos automáticos: o ícone de cada um. */
+.linha--icone { grid-template-columns: auto minmax(0, 1fr) auto; }
+.linha__ico { display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; background: var(--cinza); }
+.linha__ico svg { width: 16px; height: 16px; fill: var(--tinta); }
+/* A origem do promocional, numa etiqueta em vez da frase. */
+.campo-preco__nota--etiqueta { display: inline-block; width: fit-content; padding: 1px 6px; background: var(--cinza); color: var(--tinta-suave); font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }

@@ -874,6 +874,11 @@ try {
     `${noP?.descricao} | ${noP?.regra}`
   )
   ok(
+    noP?.selo === "10%" && noP?.usados === 2 && noP?.limite === 2,
+    "e em número, pro desenho do painel: o selo do valor e os usos até o limite (0155)",
+    JSON.stringify({ selo: noP?.selo, usados: noP?.usados, limite: noP?.limite })
+  )
+  ok(
     !(lista.cupons ?? []).some((c) => c.codigo.startsWith("BUMP-")) &&
       lista.automaticos?.map((d) => d.id).join(",") === "quantidade,oferta,frete",
     "a oferta do checkout não aparece como cupom; os três descontos automáticos, sim"
@@ -936,6 +941,16 @@ try {
         /Valendo/.test(await linhaDe(F).textContent()) &&
         (await pagina.locator("[data-automatico]").count()) === 3,
       "a lista: o esgotado sem chave, o que vale com ela, e os três descontos automáticos"
+    )
+    const regrasDeP = (await linhaDe(P).locator(".fichas-da-frase span").allTextContents()).map(
+      semEspaco
+    )
+    ok(
+      semEspaco(await linhaDe(P).locator(".cupom__valor").textContent()) === "10%" &&
+        (await linhaDe(P).locator(".usos[data-cheio]").count()) === 1 &&
+        regrasDeP.join(" · ") === noP?.regra,
+      "o cupom em desenho: o valor no selo, as regras em fichas e os usos na barrinha, cheia no esgotado",
+      JSON.stringify(regrasDeP)
     )
 
     await pagina.locator("[data-novo-cupom]").click()

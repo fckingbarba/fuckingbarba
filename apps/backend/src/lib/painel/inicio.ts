@@ -13,6 +13,7 @@ import {
 } from "./formato"
 import {
   linhaDaLista,
+  motivoCurto,
   nomeCurto,
   notaTravada,
   pagamentoDo,
@@ -23,6 +24,8 @@ import {
   type NotaCrua,
   type PedidoCru,
 } from "./pedido"
+
+export { motivoCurto }
 
 /**
  * O INÍCIO — o que precisa de alguém hoje, as vendas e os pedidos do dia.
@@ -233,24 +236,6 @@ function porQueNaoSaiu(l: LinhaDaLista, nota: NotaCrua | null): (typeof MOTIVOS)
 const centavos = (v: number) => Math.round(v * 100) / 100
 
 const ORDEM: Record<ItemDaFila["nivel"], number> = { grave: 0, atencao: 1, "": 2, ok: 3 }
-
-/**
- * O motivo da nota que não sai, em poucas palavras (a etiqueta do item). Os
- * motivos são os do `montarPedido` do ERP (`lib/erp/notas.ts`) e os do Bling;
- * o que não estiver aqui fica sem etiqueta, e a frase inteira vai no "?".
- */
-const MOTIVOS_CURTOS: [RegExp, string][] = [
-  [/CPF|CNPJ/, "sem CPF/CNPJ"],
-  [/sem endereço|endereço incompleto/, "endereço incompleto"],
-  [/SKU/, "produto sem SKU"],
-  [/valores do pedido não fecham/, "valores não fecham"],
-  [/forma de pagamento/, "pagamento no Bling"],
-]
-
-export function motivoCurto(texto: string | null | undefined): string | null {
-  const t = texto ?? ""
-  return MOTIVOS_CURTOS.find(([re]) => re.test(t))?.[1] ?? null
-}
 
 /** Os pedidos de um item, e o que muda quando é um só: o link vai direto nele. */
 type Juntando = {

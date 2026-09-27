@@ -7,6 +7,7 @@ import { Cpf } from "@/components/cpf"
 import { Icone } from "@/components/icones"
 import { Status } from "@/components/pedidos"
 import { Cabeca, ForaDoAr, SemAcesso } from "@/components/telas"
+import { Ajuda, Faixa, Forma, Pilula, Sigla } from "@/components/visual"
 import { ler } from "@/lib/medusa"
 import { ehIdDePedido, reais, type DetalheDoPedido } from "@/lib/pedidos"
 
@@ -29,6 +30,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  * OS BOTÕES — "Emitir a nota agora" (no "O que fazer"), "Tentar a nota de
  * novo" e "Tentar o estorno de novo" (dentro da faixa do problema) — vêm do
  * backend só quando o papel pode apertar e o pedido está no estado deles.
+ *
+ * MAIS VISUAL (0155) — a faixa mostra o título e as etiquetas curtas; a
+ * explicação inteira vai no "?". O pagamento tem o ícone, e o cliente a sigla.
  */
 export default async function Pagina({ params }: Props) {
   const { id } = await params
@@ -40,8 +44,6 @@ export default async function Pagina({ params }: Props) {
     </SoPara>
   )
 }
-
-const NIVEL_DA_FAIXA = { grave: "alerta", atencao: "relogio", info: "check" } as const
 
 async function Pedido({ params }: Props) {
   const { id } = await params
@@ -67,24 +69,30 @@ async function Pedido({ params }: Props) {
       />
 
       {p.faixas.map((f) => (
-        <div key={f.titulo} className="faixa" data-nivel={f.nivel}>
-          <Icone nome={NIVEL_DA_FAIXA[f.nivel]} />
-          <div>
-            <p className="faixa__titulo">{f.titulo}</p>
-            <p>{f.texto}</p>
-            {f.botao ? (
-              <div className="faixa__acoes">
-                <BotaoDoPedido
-                  id={p.id}
-                  acao={f.botao}
-                  rotulo={f.botao === "nota" ? "Tentar a nota de novo" : undefined}
-                  estilo={f.botao === "estorno" ? "btn--perigo" : "btn--contorno"}
-                />
-              </div>
-            ) : null}
-            {f.rodape ? <p className="faixa__rodape">{f.rodape}</p> : null}
-          </div>
-        </div>
+        <Faixa
+          key={f.titulo}
+          nivel={f.nivel}
+          titulo={f.titulo}
+          etiquetas={f.etiquetas}
+          extra={
+            f.rodape ? (
+              <Pilula icone="cadeado" suave>
+                {f.rodape}
+              </Pilula>
+            ) : null
+          }
+          ajuda={f.texto}
+          acoes={
+            f.botao ? (
+              <BotaoDoPedido
+                id={p.id}
+                acao={f.botao}
+                rotulo={f.botao === "nota" ? "Tentar a nota de novo" : undefined}
+                estilo={f.botao === "estorno" ? "btn--perigo" : "btn--contorno"}
+              />
+            ) : null
+          }
+        />
       ))}
 
       <div className="detalhe">
@@ -166,7 +174,6 @@ async function Pedido({ params }: Props) {
           <section className="bloco">
             <div className="bloco__cabeca">
               <h2 className="bloco__titulo">Histórico</h2>
-              <span className="selo selo--auto">o que a loja fez, e quando</span>
             </div>
             <ul className="historico">
               {p.historico.map((e, n) => (
@@ -188,7 +195,13 @@ async function Pedido({ params }: Props) {
               <h2 className="rotulo">O que fazer</h2>
               <div className="acoes-lado">
                 <BotaoDoPedido id={p.id} acao="nota" estilo="btn--bloco" />
-                {p.acoes.dica ? (
+                {p.acoes.saiAs ? (
+                  // A hora à vista; o porquê (e o "nunca à mão no Bling") no "?".
+                  <div className="acoes-lado__hora">
+                    <Pilula icone="relogio">sai sozinha às {p.acoes.saiAs}</Pilula>
+                    {p.acoes.dica ? <Ajuda>{p.acoes.dica}</Ajuda> : null}
+                  </div>
+                ) : p.acoes.dica ? (
                   <p className="pequeno suave acoes-lado__dica">{p.acoes.dica}</p>
                 ) : null}
               </div>
@@ -197,10 +210,13 @@ async function Pedido({ params }: Props) {
 
           <section className="bloco">
             <h2 className="rotulo">Pagamento</h2>
-            <p className="info">
-              <b>{p.pagamento.forma}</b>
-              <small>{p.pagamento.detalhe}</small>
-            </p>
+            <div className="info com-icone">
+              {p.pagamento.tipo ? <Forma forma={p.pagamento.tipo} /> : null}
+              <span>
+                <b>{p.pagamento.forma}</b>
+                <small>{p.pagamento.detalhe}</small>
+              </span>
+            </div>
             {p.nota ? (
               <dl className="pares" style={{ marginTop: 12 }}>
                 <div>
@@ -265,11 +281,22 @@ async function Pedido({ params }: Props) {
 
           <section className="bloco">
             <h2 className="rotulo">Cliente</h2>
+            <div className="pessoa pessoa--grande">
+              <Sigla nome={p.cliente.nome} />
+              <span>
+                <b>{p.cliente.nome}</b>
+                {p.cliente.conta ? (
+                  <Pilula icone="check" data-conta="sim">
+                    Tem conta na loja
+                  </Pilula>
+                ) : (
+                  <Pilula icone="clientes" suave data-conta="nao">
+                    Comprou sem conta
+                  </Pilula>
+                )}
+              </span>
+            </div>
             <dl className="pares">
-              <div>
-                <dt>Nome</dt>
-                <dd>{p.cliente.nome}</dd>
-              </div>
               <div>
                 <dt>E-mail</dt>
                 <dd>{p.cliente.email}</dd>
@@ -291,14 +318,12 @@ async function Pedido({ params }: Props) {
                   </dd>
                 </div>
               ) : null}
-              <div>
-                <dt>Conta</dt>
-                <dd>{p.cliente.conta ? "Tem conta na loja" : "Comprou sem conta"}</dd>
-              </div>
             </dl>
             {escondido ? (
-              <p className="pequeno suave" style={{ margin: "12px 0 0" }}>
-                O documento inteiro só o dono vê.
+              <p style={{ margin: "12px 0 0" }}>
+                <Pilula icone="cadeado" suave>
+                  O documento inteiro só o dono vê.
+                </Pilula>
               </p>
             ) : null}
           </section>

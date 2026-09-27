@@ -10,6 +10,7 @@ import { SecoesDaPagina } from "@/components/produto/secoes-da-pagina"
 import { TextosDoProduto } from "@/components/produto/textos-do-produto"
 import { SeloDoProduto } from "@/components/produtos"
 import { Cabeca, ForaDoAr, SemAcesso } from "@/components/telas"
+import { Ajuda, Faixa, Pilula } from "@/components/visual"
 import { ler } from "@/lib/medusa"
 import {
   categoriasNaCabeca,
@@ -35,6 +36,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  * marketing e o dono — a operação vê a mesma tela, sem os botões.
  *
  * No celular vira uma coluna só, na ordem do que mais se mexe.
+ *
+ * MAIS VISUAL (0155) — as explicações de cada bloco moram no "?" ao lado do
+ * título; quem não edita vê a pílula "Só pra ver" no alto, uma vez só.
  */
 export default async function Pagina({ params }: Props) {
   const { id } = await params
@@ -82,44 +86,49 @@ async function Produto({ params }: Props) {
       <Cabeca
         voltar={{ href: "/produtos", texto: "Produtos" }}
         titulo={p.nome}
-        selo={<SeloDoProduto p={p} />}
+        selo={
+          <>
+            <SeloDoProduto p={p} />
+            {p.podeEditar ? null : (
+              <Pilula icone="cadeado" suave data-so-ver="">
+                Só pra ver
+              </Pilula>
+            )}
+          </>
+        }
+        ajuda={
+          p.podeEditar
+            ? undefined
+            : "A operação vê o produto como ele está no site; quem edita é o marketing ou o dono."
+        }
         sub={[p.sku ? `SKU ${p.sku}` : null, categoriasNaCabeca(p)].filter(Boolean).join(" · ")}
         acoes={acoes}
       />
 
       {!p.publicado ? (
-        <div className="faixa" data-nivel="atencao">
-          <Icone nome="alerta" />
-          <div>
-            <p className="faixa__titulo">Em rascunho, fora do site</p>
-            <p>
-              Todo SKU novo do Bling entra assim, pra alguém revisar: a foto, o subtítulo, a
-              categoria e a página. Pronto, é só publicar.
-            </p>
-          </div>
-        </div>
+        <Faixa
+          nivel="atencao"
+          icone="lapis"
+          titulo="Em rascunho, fora do site"
+          ajuda="Todo SKU novo do Bling entra assim, pra alguém revisar: a foto, o subtítulo, a categoria e a página. Pronto, é só publicar."
+        />
       ) : null}
       {p.publicado && p.estoque === 0 ? (
-        <div className="faixa" data-nivel="grave">
-          <Icone nome="alerta" />
-          <div>
-            <p className="faixa__titulo">Esgotado</p>
-            <p>
-              O Bling diz 0 unidades. O site mostra “esgotado”, com o “avise-me quando chegar” no
-              lugar do botão de comprar. Deu entrada no Bling, a loja copia em até 5 minutos — e
-              manda o e-mail de volta pra quem pediu.
-            </p>
-            {avisos?.esperando ? (
-              <p data-avisos-na-faixa>
-                <b>
-                  {avisos.esperando === 1
-                    ? "1 pessoa pediu o aviso."
-                    : `${avisos.esperando} pessoas pediram o aviso.`}
-                </b>
-              </p>
-            ) : null}
-          </div>
-        </div>
+        <Faixa
+          nivel="grave"
+          titulo="Esgotado"
+          etiquetas={["0 no Bling"]}
+          extra={
+            avisos?.esperando ? (
+              <Pilula icone="email" data-avisos-na-faixa="">
+                {avisos.esperando === 1
+                  ? "1 pessoa pediu o aviso"
+                  : `${avisos.esperando} pessoas pediram o aviso`}
+              </Pilula>
+            ) : null
+          }
+          ajuda="O site mostra “esgotado”, com o “avise-me quando chegar” no lugar do botão de comprar. Deu entrada no Bling, a loja copia em até 5 minutos — e manda o e-mail de volta pra quem pediu."
+        />
       ) : null}
 
       <div className="duas">
@@ -137,25 +146,31 @@ async function Produto({ params }: Props) {
         <div>
           <section className="bloco">
             <div className="bloco__cabeca">
-              <div>
+              <div className="bloco__titulos">
                 <h2 className="bloco__titulo">A página do produto</h2>
-                <p className="bloco__sub">
+                <Ajuda>
                   As seções, nesta ordem. Em “Editar” ficam o texto e a imagem de fundo de cada uma,
                   neste produto.
-                </p>
+                </Ajuda>
               </div>
             </div>
             <SecoesDaPagina produto={p} catalogo={catalogo} />
-            {p.podeEditar ? null : (
-              <p className="pequeno suave" style={{ margin: "12px 0 0" }}>
-                A operação vê a página; quem edita é o marketing ou o dono.
-              </p>
-            )}
           </section>
 
           <section className="bloco">
             <div className="bloco__cabeca">
-              <h2 className="bloco__titulo">Preço e estoque</h2>
+              <div className="bloco__titulos">
+                <h2 className="bloco__titulo">Preço e estoque</h2>
+                <Ajuda>
+                  O preço e o promocional se mudam na{" "}
+                  <Link className="link" href="/produtos">
+                    lista de produtos
+                  </Link>
+                  ; o preço mudado lá a importação do Bling não troca mais. O estoque o site copia
+                  sozinho, de 5 em 5 minutos, e peso e medidas chegam quando alguém traz o catálogo
+                  do Bling de novo.
+                </Ajuda>
+              </div>
               <span className="selo selo--bling">estoque do Bling</span>
             </div>
             <div className="preco-bling">
@@ -181,25 +196,25 @@ async function Produto({ params }: Props) {
               </div>
             </div>
             {frasesDosAvisos ? (
-              <p className="pequeno" data-avisos style={{ margin: "12px 0 0" }}>
-                <b>Avise-me:</b> {frasesDosAvisos}.
+              <p style={{ margin: "12px 0 0" }}>
+                <Pilula icone="email" data-avisos="">
+                  Avise-me: {frasesDosAvisos}
+                </Pilula>
               </p>
             ) : null}
-            <p className="pequeno suave" style={{ margin: "12px 0 0" }}>
-              O preço e o promocional se mudam na{" "}
-              <Link className="link" href="/produtos">
-                lista de produtos
-              </Link>
-              ; o preço mudado lá a importação do Bling não troca mais. O estoque o site copia
-              sozinho, de 5 em 5 minutos, e peso e medidas chegam quando alguém traz o catálogo do
-              Bling de novo.
-            </p>
           </section>
 
           {p.degraus.length > 1 ? (
             <section className="bloco">
               <div className="bloco__cabeca">
-                <h2 className="bloco__titulo">Desconto por quantidade</h2>
+                <div className="bloco__titulos">
+                  <h2 className="bloco__titulo">Desconto por quantidade</h2>
+                  <Ajuda>
+                    4% levando 2, 6% levando 3, calculado do preço de hoje (o da promoção, se
+                    houver) e arredondado pra baixo até um “,90” que divida certo. Vale pra todo
+                    produto.
+                  </Ajuda>
+                </div>
                 <span className="selo selo--auto">automático</span>
               </div>
               <dl className="pares">
@@ -217,10 +232,6 @@ async function Produto({ params }: Props) {
                   </div>
                 ))}
               </dl>
-              <p className="pequeno suave" style={{ margin: "12px 0 0" }}>
-                4% levando 2, 6% levando 3, calculado do preço de hoje (o da promoção, se houver) e
-                arredondado pra baixo até um “,90” que divida certo. Vale pra todo produto.
-              </p>
             </section>
           ) : null}
 

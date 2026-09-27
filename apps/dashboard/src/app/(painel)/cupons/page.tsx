@@ -7,6 +7,7 @@ import { Icone } from "@/components/icones"
 import { Paginas } from "@/components/paginas"
 import { ListaDePromocoes, NovaPromocao } from "@/components/promocoes"
 import { Cabeca, ForaDoAr, SemAcesso } from "@/components/telas"
+import { Ajuda } from "@/components/visual"
 import type { PaginaDeCupons } from "@/lib/cupons"
 import { ler } from "@/lib/medusa"
 import { paginaDoEndereco } from "@/lib/paginas"
@@ -23,6 +24,9 @@ const endereco = (busca: string, pagina: number) => {
 }
 
 export const metadata: Metadata = { title: "Cupons e descontos" }
+
+/** O ícone de cada desconto automático (0155). */
+const ICONE_DO_AUTOMATICO = { quantidade: "produtos", oferta: "raio", frete: "caminhao" } as const
 
 /**
  * CUPONS E DESCONTOS — os cupons que alguém digita no checkout (criar,
@@ -68,13 +72,19 @@ async function Cupons({ caminho }: { caminho: string }) {
     <div data-tela>
       <Cabeca
         titulo="Cupons e descontos"
-        sub="Os cupons que alguém digita no checkout, e os descontos que a loja aplica sozinha."
+        ajuda="Os cupons que alguém digita no checkout, e os descontos que a loja aplica sozinha."
         acoes={<NovoCupom catalogo={catalogo} loja={loja} />}
       />
       <section className="bloco" data-cupons>
         <div className="bloco__cabeca">
-          <h2 className="bloco__titulo">Cupons</h2>
-          <span className="selo">quem valida é a loja, não a tela</span>
+          <div className="bloco__titulos">
+            <h2 className="bloco__titulo">Cupons</h2>
+            <Ajuda>
+              O código que a pessoa digita no checkout. Quem confere se ele vale (a data, o limite,
+              o mínimo, a primeira compra) é a loja, na hora — não esta tela. A barrinha conta os
+              usos até o limite; o link copia o endereço que já aplica o cupom.
+            </Ajuda>
+          </div>
         </div>
         {comBusca ? (
           <Form className="busca" action="/cupons" role="search">
@@ -104,11 +114,12 @@ async function Cupons({ caminho }: { caminho: string }) {
       </section>
       <section className="bloco" data-promocoes>
         <div className="bloco__cabeca">
-          <div>
+          <div className="bloco__titulos">
             <h2 className="bloco__titulo">Promoções</h2>
-            <p className="bloco__sub">
-              Leve X, pague Y: ninguém digita código, o desconto entra sozinho no carrinho.
-            </p>
+            <Ajuda>
+              Leve X, pague Y: ninguém digita código, o desconto entra sozinho no carrinho. O selo
+              preto é o que a loja mostra no produto.
+            </Ajuda>
           </div>
           <NovaPromocao catalogo={catalogo} />
         </div>
@@ -116,14 +127,17 @@ async function Cupons({ caminho }: { caminho: string }) {
       </section>
       <section className="bloco" data-automaticos>
         <div className="bloco__cabeca">
-          <div>
+          <div className="bloco__titulos">
             <h2 className="bloco__titulo">Descontos automáticos</h2>
-            <p className="bloco__sub">Ninguém digita nada: a loja aplica sozinha.</p>
+            <Ajuda>Ninguém digita nada: a loja aplica sozinha.</Ajuda>
           </div>
         </div>
         <div className="linhas">
           {automaticos.map((d) => (
-            <div className="linha" key={d.id} data-automatico={d.id}>
+            <div className="linha linha--icone" key={d.id} data-automatico={d.id}>
+              <span className="linha__ico">
+                <Icone nome={ICONE_DO_AUTOMATICO[d.id]} />
+              </span>
               <div>
                 <p className="linha__titulo">{d.titulo}</p>
                 <p className="linha__txt">{d.texto}</p>

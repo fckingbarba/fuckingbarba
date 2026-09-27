@@ -238,6 +238,19 @@ try {
     "a linha: o passo, a frase e o telefone; sem telefone, sem botão",
     naTela
   )
+  // 0155: a sigla da pessoa e as fotos da sacola, as mesmas da API.
+  const daApi = linha(await tela(tokenDoDono), ids.pagamento)
+  const fotosNaTela = await pagina
+    .locator(`tr[data-carrinho="${ids.pagamento}"] .fotos img`)
+    .evaluateAll((imgs) => imgs.map((i) => i.getAttribute("src")))
+  ok(
+    (daApi?.fotos?.length ?? 0) > 0 &&
+      JSON.stringify(fotosNaTela) === JSON.stringify(daApi.fotos) &&
+      daApi.falhou === false &&
+      (await pagina.locator(`tr[data-carrinho="${ids.pagamento}"] .sigla`).count()) === 1,
+    "a linha em desenho: a sigla da pessoa e as fotos da sacola",
+    JSON.stringify({ api: daApi?.fotos, tela: fotosNaTela })
+  )
   // O WhatsApp abre numa aba nova — aqui ela nem sai daqui.
   await dono.contexto.route("https://wa.me/**", (r) =>
     r.fulfill({ status: 200, contentType: "text/html", body: "<p>WhatsApp</p>" })

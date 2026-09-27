@@ -61,8 +61,13 @@ describe("onde a pessoa parou", () => {
         .texto
     ).toBe("Tentou pagar e não fechou")
     expect(
-      ondeParou(carrinho({ payment_collection: { payment_sessions: [{ status: "error" }] } })).texto
-    ).toBe("Tentou pagar e o pagamento não passou")
+      ondeParou(carrinho({ payment_collection: { payment_sessions: [{ status: "error" }] } }))
+    ).toEqual({
+      etapa: "pagamento",
+      texto: "Tentou pagar e o pagamento não passou",
+      // O passo fica vermelho no painel.
+      falhou: true,
+    })
   })
 })
 
@@ -146,6 +151,22 @@ describe("a lista", () => {
       quando: "hoje, 13:30",
     })
     expect(t.carrinhos[0].whatsapp).toMatch(/^https:\/\/wa\.me\/5511988887777\?text=/)
+    // Sem foto nos itens: nenhuma foto, e os dois produtos contados (o "+N" do painel).
+    expect(t.carrinhos[0]).toMatchObject({ fotos: [], produtos: 2, falhou: false })
+  })
+
+  it("as fotos da sacola: uma por produto, até três", () => {
+    const foto = (n: number) => `https://cdn.exemplo.com/p${n}.webp`
+    const itens = [1, 2, 2, 3, 4].map((n) => ({
+      product_title: `Produto ${n}`,
+      product_id: `prod_${n}`,
+      thumbnail: foto(n),
+      quantity: 1,
+      unit_price: 10,
+    }))
+    const [l] = tela([carrinho({ items: itens })]).carrinhos
+    expect(l.fotos).toEqual([foto(1), foto(2), foto(3)])
+    expect(l.produtos).toBe(4)
   })
 
   it("mexido há menos de 30 minutos: no site agora", () => {

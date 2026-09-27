@@ -1,5 +1,6 @@
 import { emailMascarado } from "./clientes"
 import { quando, type Data } from "./formato"
+import { fotosDos } from "./pedido"
 
 /**
  * OS CARRINHOS ABANDONADOS NO PAINEL — quem pôs produto na sacola e não
@@ -65,6 +66,8 @@ export type CarrinhoCru = {
     | ({
         title?: string | null
         product_title?: string | null
+        product_id?: string | null
+        thumbnail?: string | null
         quantity?: unknown
         unit_price?: unknown
       } | null)[]
@@ -96,7 +99,7 @@ const data = (d: Data) => (d instanceof Date ? d : new Date(d))
 const centavos = (v: number) => Math.round(v * 100) / 100
 
 /** Em que passo a pessoa parou, e a frase. */
-export function ondeParou(c: CarrinhoCru): { etapa: Etapa; texto: string } {
+export function ondeParou(c: CarrinhoCru): { etapa: Etapa; texto: string; falhou?: true } {
   if (!texto(c.email)) return { etapa: "sacola", texto: "Pôs na sacola e não deu o contato" }
   const documento = c.billing_address?.metadata?.documento as { valor?: unknown } | undefined
   if (!texto(documento?.valor))
@@ -110,7 +113,7 @@ export function ondeParou(c: CarrinhoCru): { etapa: Etapa; texto: string } {
     return { etapa: "entrega", texto: "Deu o contato e parou na entrega" }
   const sessoes = (c.payment_collection?.payment_sessions ?? []).filter(Boolean)
   if (sessoes.some((s) => s?.status === "error"))
-    return { etapa: "pagamento", texto: "Tentou pagar e o pagamento não passou" }
+    return { etapa: "pagamento", texto: "Tentou pagar e o pagamento não passou", falhou: true }
   return {
     etapa: "pagamento",
     texto: sessoes.length ? "Tentou pagar e não fechou" : "Chegou no pagamento e não pagou",
@@ -187,6 +190,11 @@ export type LinhaDoCarrinho = {
   valor: number
   etapa: Etapa
   etapaTexto: string
+  /** O pagamento foi tentado e não passou: o passo fica vermelho no painel. */
+  falhou: boolean
+  /** Até três fotos da sacola, e quantos produtos diferentes (o "+N"). */
+  fotos: string[]
+  produtos: number
   situacao: Filtro
   /** O pedido que a pessoa fez depois (voltou). */
   pedido: { id: string; numero: number } | null
@@ -275,6 +283,8 @@ export function telaDosCarrinhos({
       valor: centavos(itens.reduce((s, i) => s + i.preco * i.quantidade, 0)),
       etapa: onde.etapa,
       etapaTexto: onde.texto,
+      falhou: Boolean(onde.falhou),
+      ...fotosDos((c.items ?? []).filter((i): i is NonNullable<typeof i> => Boolean(i))),
       situacao: voltou ? "voltaram" : parado.getTime() <= paradoAntesDe ? "parados" : "agora",
       pedido: voltou ? { id: voltou.id, numero: Number(voltou.display_id ?? 0) } : null,
       whatsapp:

@@ -721,6 +721,11 @@ export type CupomNaLista = {
   regra: string
   /** "23 de 100 usos" */
   usos: string
+  /** O valor em poucas letras, pro selo do painel: "15%", "R$ 20", "Frete grátis". */
+  selo: string
+  /** Os usos em número, pra barrinha (o limite é nulo quando não tem). */
+  usados: number
+  limite: number | null
   situacao: Situacao
   /** Pode ligar e desligar: o vencido e o esgotado não voltam pela chave. */
   ligado: boolean
@@ -823,6 +828,13 @@ export function descricaoDoCupom(
   return `${quanto} ${minimo ?? "em qualquer pedido"}`
 }
 
+/** "15%" · "R$ 20" · "R$ 12,50" · "Frete grátis" — o valor do cupom, no selo da lista. */
+export function seloDoCupom(c: Pick<CupomGuardado, "tipo" | "valor">): string {
+  if (c.tipo === "porcento") return `${c.valor}%`
+  if (c.tipo === "reais") return reais(c.valor).replace(/,00$/, "")
+  return "Frete grátis"
+}
+
 /** "de 01/10 às 00:00 até 15/10 às 23:59" · "a partir de 01/10 às 00:00" · "sem data de fim". */
 export function periodoEmFrase(de: string | null, ate: string | null): string {
   return de && ate
@@ -871,6 +883,9 @@ export function cupomNaLista(p: PromocaoCrua, uso: UsoDoCupom, agora: Date): Cup
     descricao: descricaoDoCupom(c),
     regra: regraDoCupom(c),
     usos: c.limite ? `${usados} de ${c.limite} usos` : `${usados} ${usados === 1 ? "uso" : "usos"}`,
+    selo: seloDoCupom(c),
+    usados,
+    limite: c.limite,
     situacao: vencido
       ? "vencido"
       : esgotado

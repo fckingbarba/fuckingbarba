@@ -11,6 +11,7 @@ import {
 import { useAvisar } from "@/components/avisos"
 import { Gaveta } from "@/components/gaveta"
 import { Icone } from "@/components/icones"
+import { Fichas } from "@/components/visual"
 import { criarPromocao, mudarPromocao } from "@/lib/acoes/promocoes"
 import { hojeAMeiaNoite, type Catalogo } from "@/lib/cupons"
 import { reais } from "@/lib/pedidos"
@@ -63,15 +64,30 @@ export function ListaDePromocoes({ promocoes: gravadas }: { promocoes: PromocaoN
       {promocoes.map((p) => (
         <div className="linha" key={p.id} data-promocao={p.codigo}>
           <div>
-            <p className="linha__titulo">{p.nome}</p>
-            <p className="linha__txt">
-              {p.descricao} · {p.regra}
+            <p className="linha__titulo">
+              {p.nome} {/* O selo que a loja mostra no produto, com o mesmo preto (0155). */}
+              <span className="promo__selo" title="O selo na loja">
+                {p.etiqueta}
+              </span>
             </p>
-            <p className="linha__txt">
-              Selo na loja: <b>{p.etiqueta}</b>
-              {p.pedidos
-                ? ` · ${p.pedidos} ${p.pedidos === 1 ? "pedido" : "pedidos"} · ${reais(p.desconto)} de desconto · ${reais(p.vendeu)} em pedidos pagos`
-                : " · nenhum pedido ainda"}
+            <p className="linha__txt">{p.descricao}</p>
+            <Fichas frase={p.regra} />
+            <p className="cupom__numeros">
+              {p.pedidos ? (
+                <>
+                  <span>
+                    <b>{p.pedidos}</b> {p.pedidos === 1 ? "pedido" : "pedidos"}
+                  </span>
+                  <span>
+                    <b>{reais(p.desconto)}</b> de desconto
+                  </span>
+                  <span>
+                    <b>{reais(p.vendeu)}</b> em pedidos pagos
+                  </span>
+                </>
+              ) : (
+                <span>nenhum pedido ainda</span>
+              )}
             </p>
           </div>
           <div className="cupom__lado">
