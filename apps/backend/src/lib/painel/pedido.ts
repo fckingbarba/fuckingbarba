@@ -4,7 +4,7 @@ import { lerRegistro as lerConfirmacao } from "../confirmar-pedido"
 import { lerRegistroNoPedido } from "../envios/registro"
 import { lerRegistros as lerEstornos } from "../estornos"
 import type { Estado } from "../pagamento/estado"
-import { ehParceiro, estadoDaSessao, sessaoDoParceiro } from "../pagamento/parceiros"
+import { ehParceiro, estadoDaSessao, parceiroDe, sessaoDoParceiro } from "../pagamento/parceiros"
 import {
   acaoDaNota,
   estornoPraTentar,
@@ -178,6 +178,8 @@ export type Forma = "pix" | "cartao"
 export type Pagamento = {
   forma: Forma | null
   estado: Estado | null
+  /** Quem cobrou ("Pagar.me", "Mercado Pago"), ou null sem parceiro (o provisório). */
+  parceiro: string | null
   /** Quando o dinheiro entrou (a primeira captura). */
   pagoEm: Date | null
   /** Quanto o Medusa registrou de estorno, em reais. */
@@ -190,11 +192,13 @@ export function pagamentoDo(o: PedidoCru): Pagamento {
   const colecoes = o.payment_collections ?? []
   const sessoes = colecoes.flatMap((c) => c.payment_sessions ?? [])
   const pagamentos = colecoes.flatMap((c) => c.payments ?? [])
-  const estado = estadoDaSessao(sessaoDoParceiro(sessoes))
+  const sessao = sessaoDoParceiro(sessoes)
+  const estado = estadoDaSessao(sessao)
   const refunds = pagamentos.flatMap((p) => p.refunds ?? [])
   return {
     forma: estado?.forma ?? null,
     estado,
+    parceiro: parceiroDe(sessao?.provider_id)?.nome ?? null,
     pagoEm: primeira(pagamentos.map((p) => emData(p.captured_at))),
     estornado: refunds.reduce((s, r) => s + numero(r.amount), 0),
     estornadoEm: primeira(refunds.map((r) => emData(r.created_at))),
@@ -543,7 +547,7 @@ const NOME_DO_ENVIO: Record<string, string> = {
 
 function textoDoPagamento(p: Pagamento, situacao: Situacao): string {
   const e = p.estado
-  if (!e) return "Sem pagamento pelo Pagar.me"
+  if (!e) return "Sem pagamento pelo site"
   if (e.forma === "pix") {
     if (p.pagoEm) return `Pago às ${hora(p.pagoEm)} de ${dia(p.pagoEm)}`
     if (situacao === "pix" && e.pix?.expiraEm) return `Vale até ${hora(e.pix.expiraEm)}`
@@ -813,7 +817,8 @@ function historicoDo(
   )?.cancelado
   if (cancelamento?.em && cancelamento.como === "email")
     add(cancelamento.em, `E-mail "Pedido #${n} cancelado" enviado`)
-  if (p.estornado > 0) add(p.estornadoEm, "Estorno pedido ao Pagar.me", reais(p.estornado))
+  if (p.estornado > 0)
+    add(p.estornadoEm, `Estorno pedido ao ${p.parceiro ?? "parceiro"}`, reais(p.estornado))
   for (const e of Object.values(lerEstornos(o.metadata))) {
     if (e.situacao === "falhou") add(e.desde, "O estorno não saiu", e.motivo ?? "")
     if (e.confirmado)
@@ -948,7 +953,8 @@ function faixasDo(
       nivel: "info",
       titulo: "O Pix venceu",
       texto:
-        "O pedido é cancelado sozinho em alguns minutos e o estoque volta. Se a pessoa pagar um QR vencido, o Pagar.me recusa.",
+        "O pedido é cancelado sozinho em alguns minutos e o estoque volta. Se a pessoa pagar um QR vencido, " +
+        `o ${p.parceiro ?? "parceiro"} recusa.`,
     })
   }
   return [...faixas, ...depois]
@@ -1047,7 +1053,9 @@ export function detalheDo(
     cancelado:
       situacao === "cancelado"
         ? `Cancelado${canceladoEm ? ` em ${dia(canceladoEm)}, às ${hora(canceladoEm)}` : ""}.` +
-          (p.estornado > 0 ? ` Estorno de ${reais(p.estornado)} pedido ao Pagar.me.` : "")
+          (p.estornado > 0
+            ? ` Estorno de ${reais(p.estornado)} pedido ao ${p.parceiro ?? "parceiro"}.`
+            : "")
         : null,
     itens,
     totais: {

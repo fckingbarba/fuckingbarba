@@ -57,6 +57,7 @@ export async function lerTelaDasConfiguracoes(
     configuracoes: lerConfiguracoes(lojas[0]?.metadata),
     pagamento: {
       configurado: Boolean(process.env.PAGARME_SECRET_KEY),
+      mercadoPago: Boolean(process.env.MERCADOPAGO_ACCESS_TOKEN),
       pixMinutos: Number.isInteger(pix) && pix >= 5 ? pix : 30,
       parcelas: PARCELAS_MAXIMAS,
       parcelaMinima: PARCELA_MINIMA_CENTAVOS / 100,

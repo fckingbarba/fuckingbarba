@@ -534,6 +534,8 @@ export type DadosDasConfiguracoes = {
   configuracoes: Configuracoes
   pagamento: {
     configurado: boolean
+    /** O `MERCADOPAGO_ACCESS_TOKEN` no Railway: o Pix reserva (0140). */
+    mercadoPago: boolean
     pixMinutos: number
     parcelas: number
     parcelaMinima: number
@@ -585,6 +587,13 @@ export function telaDasConfiguracoes(d: DadosDasConfiguracoes): TelaDasConfigura
           ? "Pix e cartão. O aviso de pagamento chega pelo Pagar.me, e a loja confere sozinha de 5 em 5 minutos."
           : "Sem a chave do Pagar.me: a loja não recebe pagamento.",
         ligado: d.pagamento.configurado,
+      },
+      {
+        titulo: "Mercado Pago · Pix reserva",
+        texto: d.pagamento.mercadoPago
+          ? "Conectado, pro Pix. O aviso de pagamento chega direto, e a loja confere sozinha de 5 em 5 minutos."
+          : "Desligado: sem o token do Mercado Pago, o Pix é só pelo Pagar.me.",
+        ligado: d.pagamento.mercadoPago,
       },
       {
         titulo: "Pix",
