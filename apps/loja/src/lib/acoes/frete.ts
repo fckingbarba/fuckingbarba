@@ -5,6 +5,7 @@ import { buscarCep, limparCep } from "@/lib/cep"
 import { CAMPOS_CARRINHO, lerCarrinho, paraAGaveta, type CarrinhoVisivel } from "@/lib/carrinho"
 import { comCepNovo, lerEndereco, montarEndereco } from "@/lib/endereco"
 import { semEntregaEmpatada } from "@/lib/frete"
+import { cabecalhosDeQuemPede } from "@/lib/conta"
 import { cliente } from "@/lib/medusa"
 
 /**
@@ -95,6 +96,8 @@ export async function cotarFrete(
       }
     }>("/store/frete", {
       method: "POST",
+      // Assinado com o IP de quem pergunta: o Medusa limita as cotações por pessoa.
+      headers: await cabecalhosDeQuemPede(),
       body: {
         cep: limpo,
         itens: itens.map((i) => ({

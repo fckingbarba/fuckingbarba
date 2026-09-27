@@ -62,7 +62,19 @@ const publishableKey = process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY
 
 export const medusaConfigurado = Boolean(baseUrl && publishableKey)
 
-const sdk = medusaConfigurado ? new Medusa({ baseUrl: baseUrl!, publishableKey }) : null
+/*
+  TODA CHAMADA VAI ASSINADA (`x-loja-segredo`, o `REVALIDAR_SEGREDO`): a API
+  da loja no Medusa é só pro servidor da loja — ver `soDaLoja`, no
+  `backend/src/api/middlewares.ts`. Quem precisa do IP de quem pede (os
+  limites por pessoa) ainda manda o `cabecalhosDeQuemPede`, por chamada.
+*/
+const assinatura: Record<string, string> = process.env.REVALIDAR_SEGREDO
+  ? { "x-loja-segredo": process.env.REVALIDAR_SEGREDO }
+  : {}
+
+const sdk = medusaConfigurado
+  ? new Medusa({ baseUrl: baseUrl!, publishableKey, globalHeaders: assinatura })
+  : null
 
 /**
  * O mesmo cliente, pro carrinho (`lib/carrinho.ts`).

@@ -2,6 +2,7 @@ import type { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/frame
 import { exigirArea, type PedidoDaEquipe } from "../../../../../lib/equipe/acesso"
 import { guardarFoto } from "../../../../../lib/erp/fotos"
 import { ehUsoDaImagem, prepararImagem } from "../../../../../lib/imagens"
+import { lerCorpoGrande } from "../../../../../lib/corpo-grande"
 import { lerProduto } from "../../../../../lib/painel/ler-produtos"
 
 const MOTIVO = {
@@ -29,7 +30,10 @@ export async function POST(req: AuthenticatedMedusaRequest, res: MedusaResponse)
   const pedido = req as PedidoDaEquipe
   if (!exigirArea(pedido, res, "editarProdutos")) return
 
-  const { uso, arquivo } = (req.body ?? {}) as { uso?: unknown; arquivo?: unknown }
+  const { uso, arquivo } = ((await lerCorpoGrande(req)) ?? {}) as {
+    uso?: unknown
+    arquivo?: unknown
+  }
   if (!ehUsoDaImagem(uso)) {
     res.status(400).json({ message: "uso_invalido" })
     return

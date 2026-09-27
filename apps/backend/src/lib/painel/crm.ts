@@ -9,7 +9,7 @@ import {
   type PedidoDaPessoa,
 } from "../crm/etiquetas"
 import { TIPOS, type Dados, type Item, type Origem, type Tipo } from "../crm/eventos"
-import { recomprasPorTipo } from "../crm/nuvemshop"
+import { juntar, recomprasPorTipo } from "../crm/nuvemshop"
 import { PREFIXO_DA_PROMOCAO } from "../cupons"
 import { emailNoLog } from "../email"
 import { dia, quando, reais } from "./formato"
@@ -687,8 +687,7 @@ export function montarTelaDaBase(
 ): TelaDaBase {
   const { resumo } = entrada
   const daBase = new Map<string, PedidoDaPessoa[]>()
-  for (const p of entrada.pedidos)
-    daBase.set(p.email, [...(daBase.get(p.email) ?? []), pedidoDaBase(p)])
+  for (const p of entrada.pedidos) juntar(daBase, p.email, pedidoDaBase(p))
   const porEtapa = new Map(ETAPAS.map((e) => [e, { pessoas: 0, aceitam: 0 }]))
   const porEngajamento = new Map(ENGAJAMENTOS.map((e) => [e, { pessoas: 0, aceitam: 0 }]))
   for (const pessoa of entrada.pessoas) {

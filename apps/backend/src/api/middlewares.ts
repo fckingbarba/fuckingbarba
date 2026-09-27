@@ -10,6 +10,8 @@ import { ContainerRegistrationKeys, MedusaError } from "@medusajs/framework/util
 import { portaDoPagamento } from "../lib/cartao/porta"
 import { parcelaMinimaDaLoja } from "../lib/pagamento/parcela"
 import { checkStatusNaTravaDoCarrinho } from "../lib/check-status-na-trava"
+import { criarLimite } from "../lib/limite"
+import { daLoja, quemPede } from "../lib/quem-pede"
 import { portaDoPainel } from "../lib/equipe/acesso"
 import { gerarHandle, HANDLE_VALIDO } from "../lib/handle"
 import {
@@ -217,8 +219,94 @@ function semMetadataNoCarrinho(req: MedusaRequest, _res: MedusaResponse, next: M
   next()
 }
 
+/**
+ * O FREIO DA SENHA DO ADMIN (auditoria de 27/09). O `/app` do Medusa entra
+ * com e-mail e senha, e o core não limita as tentativas. Aqui, em 15
+ * minutos: 10 senhas erradas por rede (`quemPede`, o IPv6 por /64) e 30 por
+ * e-mail. A tentativa conta ANTES de ir (`reservar`), pra uma rajada não
+ * passar junta, e a certa devolve a vaga — quem acerta a senha nunca esbarra.
+ * O cadastro do admin (é por ele que o convite entra), 10 por hora por rede.
+ */
+const QUINZE_MINUTOS = 15 * 60_000
+const ERRADAS_POR_REDE = { limite: 10, ms: QUINZE_MINUTOS }
+const ERRADAS_POR_EMAIL = { limite: 30, ms: QUINZE_MINUTOS }
+const CADASTROS_POR_REDE = { limite: 10, ms: 60 * 60_000 }
+const freioDoAdmin = criarLimite()
+const MUITAS_TENTATIVAS = "Muitas tentativas. Espere 15 minutos e tente de novo."
+
+function freioDaSenhaDoAdmin(req: MedusaRequest, res: MedusaResponse, next: MedusaNextFunction) {
+  const rede = quemPede(req).chave
+  const bruto = (req.body as { email?: unknown } | undefined)?.email
+  const email = typeof bruto === "string" ? bruto.trim().toLowerCase().slice(0, 254) : ""
+  if (
+    !freioDoAdmin.cabe(rede, ERRADAS_POR_REDE) ||
+    (email && !freioDoAdmin.cabe(`email:${email}`, ERRADAS_POR_EMAIL))
+  ) {
+    res.status(429).json({ type: "not_allowed", message: MUITAS_TENTATIVAS })
+    return
+  }
+  const devolver = [
+    freioDoAdmin.reservar(rede, ERRADAS_POR_REDE),
+    ...(email ? [freioDoAdmin.reservar(`email:${email}`, ERRADAS_POR_EMAIL)] : []),
+  ]
+  res.on("finish", () => {
+    if (res.statusCode < 400) devolver.forEach((d) => d())
+  })
+  next()
+}
+
+function freioDoCadastroDoAdmin(req: MedusaRequest, res: MedusaResponse, next: MedusaNextFunction) {
+  const chave = `cadastro:${quemPede(req).chave}`
+  if (!freioDoAdmin.cabe(chave, CADASTROS_POR_REDE)) {
+    res.status(429).json({ type: "not_allowed", message: MUITAS_TENTATIVAS })
+    return
+  }
+  freioDoAdmin.contar(chave, CADASTROS_POR_REDE)
+  next()
+}
+
+/**
+ * A API DA LOJA É DO SERVIDOR DA LOJA (auditoria de 27/09). O navegador
+ * nunca fala com o Medusa: quem chama `/store` é o servidor da loja, na
+ * Vercel — e desde a 0168 ele assina TODA chamada (`x-loja-segredo`: o
+ * cliente do Medusa em `apps/loja/src/lib/medusa.ts` e o `medusa()` de
+ * `lib/conta.ts`). A chave publicável é pública por desenho; com ela
+ * sozinha, qualquer um falava direto com o carrinho, o frete e o pagamento,
+ * sem passar pela loja nem pelos limites dela.
+ *
+ * Em duas etapas, pra nada cair no deploy (a Vercel e o Railway sobem cada
+ * um no seu tempo): por padrão, a chamada sem assinatura PASSA e vai pro log
+ * (uma linha por hora, com quantas foram); com `STORE_SO_DA_LOJA=true` no
+ * Railway, é recusada (401). Liga depois de o log mostrar que sem assinatura
+ * só chega quem não é a loja.
+ */
+let semAssinatura = 0
+let ultimoAvisoSemAssinatura = 0
+
+function soDaLoja(req: MedusaRequest, res: MedusaResponse, next: MedusaNextFunction) {
+  if (daLoja(req)) return next()
+  if (process.env.STORE_SO_DA_LOJA === "true") {
+    res.status(401).json({ type: "unauthorized", message: "sem_assinatura" })
+    return
+  }
+  semAssinatura++
+  if (Date.now() - ultimoAvisoSemAssinatura > 60 * 60_000) {
+    const caminho = (req.originalUrl || req.url).split("?")[0]
+    req.scope
+      .resolve(ContainerRegistrationKeys.LOGGER)
+      .warn(
+        `[loja] ${semAssinatura} pedido(s) em /store sem a assinatura da loja desde o último aviso ` +
+          `(o último: ${req.method} ${caminho}). Com STORE_SO_DA_LOJA=true, seriam recusados.`
+      )
+    semAssinatura = 0
+    ultimoAvisoSemAssinatura = Date.now()
+  }
+  next()
+}
+
 export default defineMiddlewares({
   routes: [
+    { matcher: "/store/*", middlewares: [soDaLoja] },
     {
       matcher: "/store/carts",
       method: ["POST"],
@@ -266,6 +354,12 @@ export default defineMiddlewares({
       middlewares: [rotaQueALojaNaoUsa],
     },
     { matcher: "/store/returns", method: ["POST"], middlewares: [rotaQueALojaNaoUsa] },
+    { matcher: "/auth/user/emailpass", method: ["POST"], middlewares: [freioDaSenhaDoAdmin] },
+    {
+      matcher: "/auth/user/emailpass/register",
+      method: ["POST"],
+      middlewares: [freioDoCadastroDoAdmin],
+    },
     /*
       O "Check status" do admin pega a trava do carrinho, a mesma do aviso do
       Pagar.me e da conciliação — ver `lib/check-status-na-trava.ts`.
@@ -350,22 +444,16 @@ export default defineMiddlewares({
     */
     { matcher: "/dashboard/*", middlewares: [portaDoPainel] },
     /*
-      A imagem de fundo sobe em base64 dentro do JSON: o limite padrão do
-      corpo (100 KB) não passa uma foto. O painel já encolhe antes de mandar;
-      o teto aqui é pro arquivo estranho chegar e ser recusado com frase.
+      A foto (da página do produto e da home) e a base da Nuvemshop sobem em
+      base64 dentro do JSON — maiores que o limite padrão do corpo (100 KB).
+      SEM LEITOR AQUI: o do Medusa roda antes de qualquer middleware, e com
+      teto grande lia e interpretava o corpo de quem nem era do painel. A
+      própria rota lê, depois da porta e da área, até 7 MB
+      (`lib/corpo-grande.ts`; auditoria de 27/09).
     */
-    {
-      matcher: "/dashboard/produtos/:id/imagens",
-      method: ["POST"],
-      bodyParser: { sizeLimit: "17mb" },
-    },
-    { matcher: "/dashboard/home/imagens", method: ["POST"], bodyParser: { sizeLimit: "17mb" } },
-    /*
-      A base da Nuvemshop: um arquivo por vez, comprimido no navegador (o de
-      vendas de hoje, 1,8 MB, vira uns 300 KB). O teto é o do arquivo de
-      8 MB que não comprime nada.
-    */
-    { matcher: "/dashboard/crm/base", method: ["POST"], bodyParser: { sizeLimit: "12mb" } },
+    { matcher: "/dashboard/produtos/:id/imagens", method: ["POST"], bodyParser: false },
+    { matcher: "/dashboard/home/imagens", method: ["POST"], bodyParser: false },
+    { matcher: "/dashboard/crm/base", method: ["POST"], bodyParser: false },
     /*
       O vídeo do painel chega cru, direto do navegador (`api/painel-envio/`,
       `lib/videos.ts`): sem leitor de corpo — a rota grava em fluxo, e quem

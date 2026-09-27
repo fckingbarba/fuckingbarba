@@ -1,4 +1,5 @@
 import { timingSafeEqual } from "node:crypto"
+import { isIPv4, isIPv6 } from "node:net"
 import type { MedusaRequest } from "@medusajs/framework/http"
 
 /**
@@ -29,9 +30,43 @@ export function quemPede(req: MedusaRequest): { chave: string; assinado: boolean
     ip.length > 0 &&
     ip.length <= 64
   ) {
-    return { chave: `loja:${ip}`, assinado: true }
+    return { chave: `loja:${redeDoIp(ip)}`, assinado: true }
   }
-  return { chave: `direto:${req.ip ?? "?"}`, assinado: false }
+  return { chave: `direto:${redeDoIp(req.ip ?? "?")}`, assinado: false }
+}
+
+/**
+ * A REDE DE QUEM PEDE — o IP como os limites contam. O IPv4 inteiro; o IPv6
+ * pelo bloco /64, que é o que o provedor entrega a UMA casa ou a UM
+ * servidor: contado o endereço inteiro, a mesma pessoa trocava de endereço a
+ * cada pedido sem sair da rede dela, e cada limite por IP virava nenhum
+ * (auditoria de 27/09). O IPv4 dentro do IPv6 (`::ffff:1.2.3.4`) vira o
+ * IPv4. O que não é IP volta como veio.
+ */
+export function redeDoIp(ip: string): string {
+  const limpo = ip
+    .trim()
+    .toLowerCase()
+    .replace(/^\[|\]$/g, "")
+    .split("%")[0]
+  const mapeado = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/.exec(limpo)
+  if (mapeado && isIPv4(mapeado[1])) return mapeado[1]
+  if (!isIPv6(limpo)) return limpo
+  const partes = (s: string) => (s ? s.split(":") : [])
+  // Um IPv4 no fim (`64:ff9b::1.2.3.4`) ocupa dois grupos.
+  const tamanho = (ps: string[]) => ps.reduce((n, p) => n + (p.includes(".") ? 2 : 1), 0)
+  let grupos: string[]
+  if (limpo.includes("::")) {
+    const [esquerda, direita] = limpo.split("::")
+    const e = partes(esquerda)
+    const d = partes(direita)
+    grupos = [...e, ...Array<string>(8 - tamanho(e) - tamanho(d)).fill("0"), ...d]
+  } else grupos = partes(limpo)
+  const bloco = grupos
+    .slice(0, 4)
+    .map((g) => (g.includes(".") ? "0" : parseInt(g, 16).toString(16)))
+    .join(":")
+  return `${bloco}::/64`
 }
 
 /**

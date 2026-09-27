@@ -2,6 +2,7 @@ import type { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/frame
 import { exigirArea, type PedidoDaEquipe } from "../../../../lib/equipe/acesso"
 import { guardarFoto } from "../../../../lib/erp/fotos"
 import { ehUsoDaImagem, prepararImagem, type UsoDaImagem } from "../../../../lib/imagens"
+import { lerCorpoGrande } from "../../../../lib/corpo-grande"
 
 /** O que sobe pela home: os dois lados de uma foto, e a capa do vídeo da história. */
 const USOS_NA_HOME: readonly UsoDaImagem[] = ["fundo-computador", "fundo-celular", "poster"]
@@ -31,7 +32,10 @@ export async function POST(req: AuthenticatedMedusaRequest, res: MedusaResponse)
   const pedido = req as PedidoDaEquipe
   if (!exigirArea(pedido, res, "home")) return
 
-  const { uso, arquivo } = (req.body ?? {}) as { uso?: unknown; arquivo?: unknown }
+  const { uso, arquivo } = ((await lerCorpoGrande(req)) ?? {}) as {
+    uso?: unknown
+    arquivo?: unknown
+  }
   if (!ehUsoDaImagem(uso) || !USOS_NA_HOME.includes(uso)) {
     res.status(400).json({ message: "uso_invalido" })
     return

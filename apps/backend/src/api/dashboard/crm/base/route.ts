@@ -1,6 +1,7 @@
 import { gunzipSync } from "node:zlib"
 import type { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { Modules } from "@medusajs/framework/utils"
+import { lerCorpoGrande } from "../../../../lib/corpo-grande"
 import { lerAjustesGuardados } from "../../../../lib/crm/ajustes"
 import type { PedidoDaPessoa } from "../../../../lib/crm/etiquetas"
 import { lerArquivoDaNuvemshop, TAMANHO_MAXIMO } from "../../../../lib/crm/nuvemshop"
@@ -60,7 +61,7 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
 export async function POST(req: AuthenticatedMedusaRequest, res: MedusaResponse) {
   const pedido = req as PedidoDaEquipe
   if (!exigirArea(pedido, res, "crm")) return
-  const corpo = (req.body ?? {}) as { nome?: unknown; gzip?: unknown }
+  const corpo = ((await lerCorpoGrande(req)) ?? {}) as { nome?: unknown; gzip?: unknown }
   if (typeof corpo.gzip !== "string" || !corpo.gzip) {
     res.status(422).json({ erro: "arquivo_invalido" })
     return

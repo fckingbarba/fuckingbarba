@@ -1,6 +1,8 @@
 import type { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { ContainerRegistrationKeys, Modules, QueryContext } from "@medusajs/framework/utils"
 import { aplicarPolitica, lerConfiguracoes } from "../../../lib/configuracoes"
+import { criarLimite } from "../../../lib/limite"
+import { quemPede } from "../../../lib/quem-pede"
 import {
   cotar,
   ErroDaFrenet,
@@ -92,6 +94,27 @@ const NOMES = { economica: "Econômico", expressa: "Expresso" } as const
 /** "8 dias úteis" · "4 a 7 dias úteis" — um dia no singular. */
 const emDiasUteis = (texto: string) => `${texto} ${texto === "1" ? "dia útil" : "dias úteis"}`
 
+/*
+  O TAMANHO DE UMA PERGUNTA E QUANTAS POR VEZ (auditoria de 27/09).
+
+  Cada quantidade diferente vira uma consulta ao banco, todas juntas, e cada
+  pergunta sem carrinho vira uma viagem à Frenet. Sem teto, uma pergunta só
+  ocupava as conexões do banco da loja inteira. Então: até 30 produtos
+  diferentes (a sacola de verdade tem os 15 do catálogo, no máximo) e 100
+  linhas; e um limite por quem pergunta, na memória, como os outros
+  (`lib/limite.ts`): 200 em 10 minutos pra quem vem pela loja (o IP da pessoa,
+  assinado — `lib/quem-pede.ts`), 300 pra quem vem sem a assinatura (se a
+  assinatura faltar por configuração, é a Vercel inteira nesse balde) e
+  5.000 pra loja toda, que é o teto do estrago na Frenet.
+*/
+const MAX_LINHAS = 100
+const MAX_VARIANTES = 30
+const DEZ_MINUTOS = 10 * 60 * 1000
+const POR_VISITANTE = { limite: 200, ms: DEZ_MINUTOS }
+const POR_IP_SEM_ASSINATURA = { limite: 300, ms: DEZ_MINUTOS }
+const DA_LOJA = { limite: 5000, ms: DEZ_MINUTOS }
+const limite = criarLimite()
+
 export async function POST(req: MedusaRequest, res: MedusaResponse) {
   const logger = req.scope.resolve(ContainerRegistrationKeys.LOGGER)
   const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
@@ -108,6 +131,10 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     return
   }
 
+  if (Array.isArray(corpo.itens) && corpo.itens.length > MAX_LINHAS) {
+    res.status(400).json({ erro: "itens_demais", mensagem: "Itens demais pra calcular." })
+    return
+  }
   const pedidos: { id: string; quantidade: number }[] = (
     Array.isArray(corpo.itens) ? (corpo.itens as ItemPedido[]) : []
   ).flatMap((i) => {
@@ -120,6 +147,21 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     res.status(400).json({ erro: "sem_itens", mensagem: "Nada pra calcular." })
     return
   }
+  if (new Set(pedidos.map((p) => p.id)).size > MAX_VARIANTES) {
+    res.status(400).json({ erro: "itens_demais", mensagem: "Itens demais pra calcular." })
+    return
+  }
+
+  const quem = quemPede(req)
+  const porQuem = quem.assinado ? POR_VISITANTE : POR_IP_SEM_ASSINATURA
+  if (!limite.cabe(quem.chave, porQuem) || !limite.cabe("loja", DA_LOJA)) {
+    res
+      .status(429)
+      .json({ erro: "limite", mensagem: "Muitas cotações seguidas. Tenta daqui a pouco." })
+    return
+  }
+  limite.contar(quem.chave, porQuem)
+  limite.contar("loja", DA_LOJA)
 
   /* Só a sacola manda — a PDP não tem carrinho. Aqui se confere o formato. */
   const carrinho =

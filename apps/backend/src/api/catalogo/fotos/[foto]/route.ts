@@ -22,6 +22,34 @@ import {
  * 404 `produto` (não existe, ou não está publicado) ou `foto` (sem foto, ou
  * uma que não abre).
  */
+/*
+  UMA CONVERSÃO POR FOTO DE CADA VEZ (auditoria de 27/09): com a memória
+  vazia, pedidos ao mesmo tempo da mesma foto baixavam e convertiam cada um a
+  sua cópia. Agora esperam a mesma. E a que não abriu fica 1 minuto sem nova
+  tentativa — sem isso, cada pedido baixava de novo a foto que não abre.
+*/
+const convertendo = new Map<string, Promise<Buffer | null>>()
+const falhouEm = new Map<string, number>()
+const NOVA_TENTATIVA_MS = 60_000
+
+async function converter(url: string, aoFalhar: (e: unknown) => void): Promise<Buffer | null> {
+  let jpeg: Buffer | null = null
+  try {
+    const r = await fetch(url, { signal: AbortSignal.timeout(10_000) })
+    const tamanho = Number(r.headers.get("content-length") ?? 0)
+    if (r.ok && tamanho <= LIMITE_DA_ORIGINAL) {
+      jpeg = await fotoEmJpeg(Buffer.from(await r.arrayBuffer()))
+    } else {
+      await r.body?.cancel().catch(() => undefined)
+    }
+  } catch (e) {
+    aoFalhar(e)
+  }
+  if (jpeg) guardar(url, jpeg)
+  else falhouEm.set(url, Date.now())
+  return jpeg
+}
+
 export async function GET(req: MedusaRequest, res: MedusaResponse) {
   const handle = String(req.params.foto ?? "")
     .toLowerCase()
@@ -49,21 +77,17 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
   }
 
   let jpeg = guardada(url)
-  if (!jpeg) {
-    try {
-      const r = await fetch(url, { signal: AbortSignal.timeout(10_000) })
-      const tamanho = Number(r.headers.get("content-length") ?? 0)
-      if (r.ok && tamanho <= LIMITE_DA_ORIGINAL) {
-        jpeg = await fotoEmJpeg(Buffer.from(await r.arrayBuffer()))
-      } else {
-        await r.body?.cancel().catch(() => undefined)
-      }
-    } catch (e) {
-      req.scope
-        .resolve(ContainerRegistrationKeys.LOGGER)
-        .warn(`[catálogo] a foto de ${handle} não abriu: ${e instanceof Error ? e.message : e}`)
+  if (!jpeg && Date.now() - (falhouEm.get(url) ?? 0) > NOVA_TENTATIVA_MS) {
+    let tarefa = convertendo.get(url)
+    if (!tarefa) {
+      tarefa = converter(url, (e) =>
+        req.scope
+          .resolve(ContainerRegistrationKeys.LOGGER)
+          .warn(`[catálogo] a foto de ${handle} não abriu: ${e instanceof Error ? e.message : e}`)
+      ).finally(() => convertendo.delete(url))
+      convertendo.set(url, tarefa)
     }
-    if (jpeg) guardar(url, jpeg)
+    jpeg = await tarefa
   }
   if (!jpeg) {
     res.status(404).json({ message: "foto" })

@@ -113,6 +113,8 @@ export async function medusa(
   const cabecalhos: Record<string, string> = {
     accept: "application/json",
     "x-publishable-api-key": chave,
+    // Assinada sempre: a API da loja no Medusa é só pro servidor da loja (`lib/medusa.ts`).
+    ...(process.env.REVALIDAR_SEGREDO ? { "x-loja-segredo": process.env.REVALIDAR_SEGREDO } : {}),
     ...extras,
   }
   if (corpo !== undefined) cabecalhos["content-type"] = "application/json"
