@@ -7,9 +7,9 @@ import { erpDaTela } from "../erp/erps"
 import { configuracaoDoGa4 } from "../painel/ga4"
 import { chaveDoDia } from "../painel/formato"
 import {
+  filtroDoPapel,
   noArNaTela,
   problemaDasRotinasParadas,
-  podeVer,
   telaDaObservabilidade,
   type LinhaDaRotina,
   type LinhaDoProblema,
@@ -148,17 +148,19 @@ export async function lerTela(
 
 /**
  * O número vermelho do menu: quantos problemas graves abertos o papel vê —
- * com as rotinas paradas, que não moram na tabela.
+ * com as rotinas paradas, que não moram na tabela. É o total que o banco
+ * conta (o do `listAndCount`), com o papel no filtro: contar as linhas de
+ * uma página parava o menu em 100, e a tela mostrava o total.
  */
 export async function gravesAbertos(container: MedusaContainer, papel: Papel, agora = new Date()) {
   const obs = container.resolve<ObservabilidadeService>(OBSERVABILIDADE)
-  const [graves, rotinas] = await Promise.all([
-    obs.listProblemas({ situacao: "aberto", nivel: "grave" }, { select: ["so_dono"], take: 100 }),
+  const [[, graves], rotinas] = await Promise.all([
+    obs.listAndCountProblemas(
+      { situacao: "aberto", nivel: "grave", ...filtroDoPapel(papel) },
+      { select: ["id"], take: 1 }
+    ),
     obs.listRotinas({}, { select: ["nome", "ultima_inicio"], take: 50 }),
   ])
   const paradas = problemaDasRotinasParadas(rotinas as unknown as LinhaDaRotina[], agora)
-  return (
-    (graves as { so_dono?: boolean | null }[]).filter((p) => podeVer(papel, p)).length +
-    (paradas ? 1 : 0)
-  )
+  return graves + (paradas ? 1 : 0)
 }
