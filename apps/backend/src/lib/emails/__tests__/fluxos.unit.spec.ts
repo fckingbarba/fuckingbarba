@@ -69,6 +69,13 @@ describe("o checkout abandonado", () => {
     expect(e.html).toContain("Sair da lista")
     expect(e.cabecalhos).toEqual({})
     expect(e.texto).toContain("Matheus")
+    // Os produtos só pelo nome: sem o preço (nem o "de R$") e sem o link de cada um.
+    expect(e.html).toContain("• Fator de Crescimento")
+    expect(e.texto).toContain("• Fator de Crescimento")
+    for (const parte of [e.html, e.texto]) {
+      expect(parte).not.toContain("R$")
+      expect(parte).not.toContain("/produtos/")
+    }
     const oferta = emailDoFluxo(compra({ toque: "checkout-24h", cupom: CUPOM }))
     expect(oferta.estilo).toBe("oferta")
     expect(Object.keys(emailDoCrm(oferta).cabecalhos)).toContain("List-Unsubscribe")

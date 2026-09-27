@@ -2596,8 +2596,8 @@ quem manda:
   pedidos (`EMAIL_REMETENTE`), sem endereço de resposta.
 - **"oferta"**: o que leva cupom fica com o modelo da marca, como antes. Promoções é o lugar dele.
 - **"pessoal"**: os lembretes sem desconto (`emailPessoal`, em `lib/emails/crm.ts`). É texto
-  simples, sem foto nem botão, com um link só. Os produtos vão em lista e as avaliações entre
-  aspas. Fecha com "Qualquer dúvida, é só responder este e-mail." e a assinatura (`QUEM_ASSINA`).
+  simples, sem foto nem botão, com um link só. Os produtos vão em lista, só pelo nome, e as
+  avaliações entre aspas. Fecha com "Qualquer dúvida, é só responder este e-mail." e a assinatura (`QUEM_ASSINA`).
   O sair da lista fica no pé, em letra pequena, sem o cabeçalho. O fundo branco é declarado: o
   Mail do iPhone escurece o e-mail sem cor de fundo, e a letra escura sumiria.
 - **Quem manda** é `comQuemManda` (em `lib/crm/motor.ts`; o "Mandar pra mim" dos fluxos usa a
@@ -2611,6 +2611,23 @@ quem manda:
 
 O `conferir-crm.mjs` confere o remetente, a falta de foto e de cabeçalho no pessoal, o cabeçalho na
 oferta e o pé do aviso do Pix.
+
+**O pessoal sem preço** (entrega 0173). Mesmo depois da 0170, a maioria dos testes do dono caía em
+Promoções. Na checagem de todos os e-mails, o que pesa:
+- tudo sai do mesmo remetente, no domínio que já mandava as newsletters do Perfit;
+- o rastreio de cliques do Resend troca todos os links;
+- o preço com "de R$" no pessoal;
+- a caixa de quem testa, que o Gmail treina por pessoa.
+
+O que mudou no código:
+- o pessoal lista os produtos só pelo nome, sem preço, no HTML (`blocoPessoal`) e no texto
+  (`blocoPessoalEmTexto`);
+- a versão em texto também perdeu o link de cada produto, que furava o "um link só".
+
+Os e-mails de pedido e de conta ficam com a cara padrão (a moldura), por escolha do dono. O resto é
+no painel do Resend e no DNS: o rastreio de cliques desligado e o endereço só das ofertas
+(`EMAIL_REMETENTE_CRM`). O `conferir-crm.mjs` confere que o de 30 minutos sai sem "R$" e sem link
+de produto.
 
 **O preço e o promocional no painel** (entregas 0098 e 0102): os dois campos de cada produto na
 lista de Produtos, como na Nuvemshop (a 0098 tinha só o promocional, atrás de um botão). A regra é

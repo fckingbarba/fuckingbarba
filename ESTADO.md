@@ -3485,6 +3485,30 @@ pessoas fazem com ele (abrir, responder).
 - [ ] **O endereço só das ofertas** (o 3º ajuste; você, com o meu passo a passo): o item da parte
       6, lá em cima. Até lá, os e-mails do CRM saem do endereço da loja.
 
+**Os lembretes sem preço — pronto em 27/09 (entrega 0173).** No seu teste depois da 0170, a
+maioria ainda caía em Promoções. Chequei todos os e-mails da loja. O que empurra pra lá:
+- todos saem do mesmo endereço, no domínio que o Perfit usava pras newsletters;
+- o rastreio de cliques do Resend troca todos os links por links de rastreio;
+- o preço com "de R$" nos lembretes sem desconto;
+- a sua caixa já aprendeu que a loja manda promoção. O Gmail aprende com cada pessoa.
+
+O que entrou:
+- **Os lembretes sem desconto** listam os produtos só pelo nome: sem o preço e com um link só,
+  também na versão em texto. Continuam em texto simples até o teste (escolha sua: testar antes).
+- **Os e-mails de pedido e de conta** ficam com a cara padrão da loja, como estão (escolha sua).
+
+- [ ] **Você, no Resend:** Domains → `fuckingbarba.com.br` → desligar **Click Tracking**. Na
+      GoDaddy, não apagar o registro `links`, que os e-mails já enviados usam. O CRM para de contar
+      cliques; as vendas dos fluxos continuam contadas.
+- [ ] **O endereço só das ofertas:** o item da parte 6, lá em cima. Agora é o mais importante: sem
+      ele, as ofertas do CRM saem do mesmo endereço dos pedidos.
+- [ ] **O teste num Gmail novo**, depois dos dois acima:
+  1. entrar na conta da loja (o e-mail do código já é um teste);
+  2. pôr um produto na sacola e ir até o pagamento, sem pagar;
+  3. em 30 minutos chega o primeiro lembrete;
+  4. ver em que aba cai cada um.
+- [ ] **Depois do teste:** se o texto simples não ajudar, os lembretes voltam pra cara padrão.
+
 **A parcela mínima do cartão, editável — pronta em 27/09 (entrega 0157).** O pedido dele: "quero
 poder editar a parcela mínima no cartão, ali diz 5 reais". Em **Configurações → Pagamento**, o
 bloco **Parcelas no cartão** tem o campo **Parcela mínima**.
@@ -3662,6 +3686,26 @@ CSS e 0,1 KB a mais de JavaScript (a frase de quem mede), e passa com o melhor L
 
 Depois do deploy — **nada a configurar.** Pra ver: na Clarity, as gravações de depois do deploy
 incluem quem não respondeu a faixa (a partir dali, o número de sessões sobe).
+
+**A faixa de cookies com o texto da Nuvemshop — pronto em 27/09 (entrega 0172).** Pedido dele:
+"quero alterar esse texto e deixar como era o meu da Nuvemshop". A faixa agora diz, igual à de lá
+(com o mesmo destaque): "Ao navegar por este site **você aceita o uso de cookies** para agilizar a
+sua experiência de compra."
+
+- **O que não muda:** os dois botões ficam — "Só o necessário" é o jeito de recusar (tira o GA4 e
+  a Clarity, que medem desde a primeira página), e "Aceitar" liga a Meta, o TikTok, o Google Ads e
+  o CRM. Na Nuvemshop era um botão só ("Entendi"). O link "Como usamos seus dados" saiu da faixa; a
+  política segue no rodapé de toda página.
+- **Os anúncios continuam esperando o "Aceitar":** o texto diz que navegar é aceitar, mas a Meta,
+  o TikTok e o Google Ads só ligam com o clique — como antes.
+
+Conferido pelo `conferir-integracoes.mjs` (36: a faixa com o texto novo, e ela no celular) e pelo
+`conferir-crm.mjs` (159: a faixa sem parceiro ligado). O do CRM logo depois do das integrações
+falhou uma vez em "a resposta fica, na versão 3" (`nao.3.gmtc`): a loja ainda servia a
+configuração com os códigos de teste (o cache troca por trás, no "max"). Com o
+`/api/revalidar` da tag `configuracoes` em "agora", 159 de 159.
+
+Depois do deploy — **nada a configurar.** Pra ver: numa aba anônima, a faixa no pé da loja.
 
 **O `/trocas` sem a linha do frete de volta — pronto em 27/09 (entrega 0164).** Saiu da seção
 "Desistiu?" o "Quem paga o frete de volta", que estava no ar com a tarja vermelha de pendente.

@@ -277,8 +277,8 @@ try {
     )
     const faixa = semEspaco(await pagina.locator("[data-faixa-de-cookies] p").textContent())
     ok(
-      faixa.startsWith("Usamos cookies da própria loja"),
-      "a faixa diz que a própria loja anota (mesmo sem parceiro ligado)",
+      faixa.startsWith("Ao navegar por este site você aceita o uso de cookies"),
+      "a faixa aparece mesmo sem parceiro ligado, com o texto da Nuvemshop (0172)",
       faixa
     )
     await responderAFaixa(pagina, "Só o necessário")
@@ -1443,8 +1443,11 @@ try {
         !e30.headers?.["List-Unsubscribe"] &&
         /^Matheus, da FuckingBarba </.test(e30.from ?? "") &&
         !e30.html.includes("<img") &&
-        e30.html.includes("Sair da lista"),
-      "30 minutos: “Faltou só o pagamento”, pessoal — assinado, sem foto, com o link, a campanha e o sair da lista",
+        e30.html.includes("Sair da lista") &&
+        // Os produtos só pelo nome: sem preço, e no texto sem o link de cada um.
+        e30.html.includes("• ") &&
+        ![e30.html, e30.text ?? ""].some((p) => p.includes("R$") || p.includes("/produtos/")),
+      "30 minutos: “Faltou só o pagamento”, pessoal — assinado, sem foto e sem preço, com o link, a campanha e o sair da lista",
       JSON.stringify({ r: r30.corpo, assunto: e30?.subject })
     )
     const de30 = await rodar({ agora: aos(35 * MIN, true), email: NO_CHECKOUT })
