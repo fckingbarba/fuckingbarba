@@ -365,10 +365,13 @@ export type LinhaDaLista = {
 }
 
 /** Uma foto por produto, na ordem dos itens: as três primeiras. */
-function fotosDos(itens: ItemCru[]): { fotos: string[]; produtos: number } {
+export function fotosDos(itens: Pick<ItemCru, "product_id" | "thumbnail">[]): {
+  fotos: string[]
+  produtos: number
+} {
   const vistos = new Map<string, string | null>()
-  for (const i of itens) {
-    const chave = i.product_id ?? i.thumbnail ?? i.id
+  for (const [n, i] of itens.entries()) {
+    const chave = i.product_id ?? i.thumbnail ?? `item-${n}`
     if (!vistos.has(chave)) vistos.set(chave, i.thumbnail ?? null)
   }
   const fotos = [...vistos.values()].filter((f): f is string => Boolean(f)).slice(0, 3)
@@ -458,7 +461,13 @@ export type Passo = { nome: string; estado: EstadoDoPasso; texto: string }
 export type Faixa = {
   nivel: "grave" | "atencao" | "info"
   titulo: string
+  /** A explicação inteira: no painel, vai no "?" da faixa (0155). */
   texto: string
+  /**
+   * O que dá pra dizer em poucas palavras, à vista ("sem CPF/CNPJ", "vale até
+   * 14:30", "Correios · AB123"). Pode vir vazia: aí a faixa é o título e o "?".
+   */
+  etiquetas: string[]
   /** O botão que resolve, dentro da faixa — só vem quando o papel pode apertar. */
   botao?: "nota" | "estorno" | "frenet"
   /** A linha pequena de baixo: pra quem vê a faixa e não aperta, de quem é. */
@@ -506,8 +515,11 @@ export type Detalhe = {
     estorno: boolean
     /** A frase que vai com o "Emitir a nota agora". */
     dica: string | null
+    /** "18:00": quando a nota sai sozinha (o "agora"), pra etiqueta do relógio. */
+    saiAs: string | null
   }
-  pagamento: { forma: string; detalhe: string }
+  /** `tipo` é o do ícone (Pix ou cartão); `forma` é o nome. */
+  pagamento: { forma: string; tipo: "pix" | "cartao" | null; detalhe: string }
   nota: string | null
   entrega: {
     nome: string
@@ -860,6 +872,25 @@ function historicoDo(
     }))
 }
 
+/**
+ * O motivo da nota que não sai, em poucas palavras (a etiqueta do item do
+ * Início e da faixa do pedido). Os motivos são os do `montarPedido` do ERP
+ * (`lib/erp/notas.ts`) e os do Bling; o que não estiver aqui fica sem
+ * etiqueta, e a frase inteira vai no "?".
+ */
+const MOTIVOS_CURTOS: [RegExp, string][] = [
+  [/CPF|CNPJ/, "sem CPF/CNPJ"],
+  [/sem endereço|endereço incompleto/, "endereço incompleto"],
+  [/SKU/, "produto sem SKU"],
+  [/valores do pedido não fecham/, "valores não fecham"],
+  [/forma de pagamento/, "pagamento no Bling"],
+]
+
+export function motivoCurto(texto: string | null | undefined): string | null {
+  const t = texto ?? ""
+  return MOTIVOS_CURTOS.find(([re]) => re.test(t))?.[1] ?? null
+}
+
 function faixasDo(
   o: PedidoCru,
   p: Pagamento,
@@ -878,6 +909,7 @@ function faixasDo(
       depois.push({
         nivel: "info",
         titulo: "O estorno saiu",
+        etiquetas: [`${reais(e.devolvido / 100)} de volta`, dia(confirmado)],
         texto:
           `O Pagar.me confirmou em ${dia(confirmado)}, às ${hora(confirmado)}: ` +
           `${reais(e.devolvido / 100)} voltaram pra quem comprou. Ele tinha falhado antes.`,
@@ -890,6 +922,13 @@ function faixasDo(
     const faixa: Faixa = {
       nivel: "grave",
       titulo: `O estorno de ${falta} não saiu`,
+      etiquetas: [
+        !e.sozinha
+          ? "no painel do Pagar.me"
+          : proxima
+            ? `de novo às ${hora(proxima)}`
+            : `tentou ${e.tentativas}×`,
+      ],
       texto:
         `O Pagar.me não devolveu${e.motivo ? `: ${e.motivo}` : ""}. ` +
         (!e.sozinha
@@ -910,6 +949,9 @@ function faixasDo(
   }
   if (nota && notaTravada(nota)) {
     const desistiu = !nota.cancelar && nota.situacao === "a-emitir"
+    const curto = motivoCurto(
+      nota.cancelar ? null : desistiu ? nota.erro : (nota.detalhe ?? nota.erro)
+    )
     faixas.push({
       nivel: "grave",
       titulo: nota.cancelar
@@ -917,6 +959,7 @@ function faixasDo(
         : desistiu
           ? "A nota não sai sozinha"
           : `A SEFAZ ${nota.situacao === "rejeitada" ? "rejeitou" : "denegou"} a nota`,
+      etiquetas: nota.cancelar ? ["até 24 h da emissão"] : curto ? [curto] : [],
       texto: nota.cancelar
         ? `O pedido foi cancelado depois da nota${nota.numero ? ` ${nota.numero}` : ""} sair. Cancele no Bling em até 24 horas da emissão.`
         : desistiu
@@ -931,6 +974,7 @@ function faixasDo(
     faixas.push({
       nivel: "grave",
       titulo: "A Frenet recusou o pedido",
+      etiquetas: [],
       texto:
         `${emFrase(motivoDaFrenet(parceiro.erro ?? "Sem detalhe"))} Corrigido o que ela apontou, mande de novo; ` +
         "ou faça a etiqueta à mão no painel da Frenet — e aí não mande de novo, senão o pedido aparece duas vezes lá.",
@@ -949,6 +993,7 @@ function faixasDo(
           : ruim.situacao === "devolvido"
             ? "O pacote está voltando pra loja"
             : "A transportadora não conseguiu entregar",
+      etiquetas: [ruim.transportadora, ruim.codigo].filter((x): x is string => Boolean(x)),
       texto: `${[ruim.transportadora, ruim.codigo].filter(Boolean).join(" · ")}. Fale com o cliente pra combinar.`,
     })
   }
@@ -956,6 +1001,7 @@ function faixasDo(
     faixas.push({
       nivel: "atencao",
       titulo: "Cartão em análise de fraude",
+      etiquetas: ["valor só reservado"],
       texto:
         "O banco autorizou e o valor está só reservado no limite — nada entrou na fatura. Aprovado, a loja cobra sozinha e o pedido segue. Reprovado, a reserva é desfeita e o cliente recebe o e-mail.",
     })
@@ -964,6 +1010,7 @@ function faixasDo(
     faixas.push({
       nivel: "atencao",
       titulo: "Esperando o Pix",
+      etiquetas: [`vale até ${hora(p.estado.pix.expiraEm)}`],
       texto: `Vale até ${hora(p.estado.pix.expiraEm)}. Não pago, o pedido é cancelado sozinho e o estoque volta.`,
     })
   }
@@ -971,6 +1018,7 @@ function faixasDo(
     faixas.push({
       nivel: "info",
       titulo: "O Pix venceu",
+      etiquetas: ["cancela sozinho"],
       texto:
         "O pedido é cancelado sozinho em alguns minutos e o estoque volta. Se a pessoa pagar um QR vencido, " +
         `o ${p.parceiro ?? "parceiro"} recusa.`,
@@ -1093,9 +1141,11 @@ export function detalheDo(
           ? `Ela sai sozinha às ${hora(notaSaiEm(p.pagoEm, ctx))}. Precisa despachar antes? ` +
             "Emita aqui — nunca à mão no Bling, senão ela sai duas vezes."
           : null,
+      saiAs: acaoNota === "agora" && p.pagoEm ? hora(notaSaiEm(p.pagoEm, ctx)) : null,
     },
     pagamento: {
       forma: p.forma === "pix" ? "Pix" : p.forma === "cartao" ? "Cartão de crédito" : "A combinar",
+      tipo: p.forma,
       detalhe: textoDoPagamento(p, situacao),
     },
     nota: textoDaNota(nota, p.pagoEm, ctx),

@@ -380,6 +380,7 @@ describe("o pedido inteiro", () => {
     expect(d.caminho[1].texto).toBe("esperando o Pix · vence 12:20")
     expect(d.caminho[2].texto).toBe("espera o pagamento")
     expect(d.faixas.map((f) => f.titulo)).toEqual(["Esperando o Pix"])
+    expect(d.faixas[0].etiquetas).toEqual(["vale até 12:20"])
   })
 
   it("o caminho do pago esperando a nota, com a hora que ela sai", () => {
@@ -551,6 +552,8 @@ describe("o pedido inteiro", () => {
     const [faixa] = detalheDo(o, null, [], SEM_ERP, { verCpf: true }).faixas
     expect(faixa.titulo.replace(/\s/g, " ")).toBe("O estorno de R$ 77,60 não saiu")
     expect(faixa.texto).toContain("a próxima tentativa é às 13:40 de 24/09")
+    // À vista, em poucas palavras; a frase inteira vai no "?" do painel.
+    expect(faixa.etiquetas).toEqual(["de novo às 13:40"])
   })
 })
 
@@ -596,11 +599,13 @@ describe("os botões do pedido", () => {
     expect(d.acoes.estorno).toBe(false)
     expect(d.faixas[0].botao).toBeUndefined()
     expect(d.faixas[0].texto).toContain("estorne pelo painel do Pagar.me, na cobrança ch_1")
+    expect(d.faixas[0].etiquetas).toEqual(["no painel do Pagar.me"])
   })
 
   it("a loja parou de tentar sozinha: o texto diz, e o botão segue lá", () => {
     const d = detalheDo(estorno({ tentativas: 8, proxima: null }), null, [], SEM_ERP, DONO)
     expect(d.faixas[0].texto).toContain("A loja já pediu de novo 8 vezes e parou de tentar sozinha")
+    expect(d.faixas[0].etiquetas).toEqual(["tentou 8×"])
     expect(d.faixas[0].botao).toBe("estorno")
   })
 
@@ -616,6 +621,7 @@ describe("os botões do pedido", () => {
       {
         nivel: "info",
         titulo: "O estorno saiu",
+        etiquetas: [expect.stringMatching(/^R\$\s77,60 de volta$/), "24/09"],
         texto: expect.stringMatching(
           /^O Pagar\.me confirmou em 24\/09, às 11:40: R\$\s77,60 voltaram/
         ),
@@ -639,7 +645,11 @@ describe("os botões do pedido", () => {
     const d = detalheDo(o, nota(), [], COM_ERP, OPERACAO)
     expect(d.acoes.nota).toBe("agora")
     expect(d.acoes.dica).toMatch(/^Ela sai sozinha às 12:03\. Precisa despachar antes\?/)
-    expect(detalheDo(o, nota(), [], COM_ERP, { verCpf: false }).acoes.nota).toBeNull()
+    expect(d.acoes.saiAs).toBe("12:03")
+    expect(d.pagamento).toMatchObject({ forma: "Pix", tipo: "pix" })
+    const semBotao = detalheDo(o, nota(), [], COM_ERP, { verCpf: false })
+    expect(semBotao.acoes.nota).toBeNull()
+    expect(semBotao.acoes.saiAs).toBeNull()
   })
 
   it("a nota que a loja desistiu de emitir: a faixa diz por quê e tem o botão", () => {
@@ -654,6 +664,7 @@ describe("os botões do pedido", () => {
     expect(d.faixas[0]).toEqual({
       nivel: "grave",
       titulo: "A nota não sai sozinha",
+      etiquetas: ["sem CPF/CNPJ"],
       texto:
         "A loja desistiu de emitir: O pedido não tem CPF/CNPJ, e a nota precisa. Corrija o que falta e tente de novo — ou emita à mão no Bling.",
       botao: "nota",
@@ -695,6 +706,80 @@ describe("os botões do pedido", () => {
       titulo: "Matheus Santana pediu o estorno de novo",
       detalhe: "o Pagar.me aceitou — confirma em minutos",
     })
+  })
+})
+
+describe("as etiquetas das faixas: o que fica à vista (a frase inteira vai no “?”)", () => {
+  const SEM = { verCpf: false }
+
+  it("o cartão em análise e o Pix vencido", () => {
+    const analise = pedido({
+      payment_collections: [
+        { payment_sessions: [sessao("analise", { forma: "cartao", pix: null })] },
+      ],
+    })
+    expect(detalheDo(analise, null, [], SEM_ERP, SEM).faixas).toEqual([
+      expect.objectContaining({
+        titulo: "Cartão em análise de fraude",
+        etiquetas: ["valor só reservado"],
+      }),
+    ])
+    expect(detalheDo(analise, null, [], SEM_ERP, SEM).pagamento.tipo).toBe("cartao")
+    const vencido = pedido({
+      payment_collections: [
+        { payment_sessions: [sessao("aguardando", { pix: { expiraEm: antes(1) } })] },
+      ],
+    })
+    expect(detalheDo(vencido, null, [], SEM_ERP, SEM).faixas[0]).toMatchObject({
+      titulo: "O Pix venceu",
+      etiquetas: ["cancela sozinho"],
+    })
+  })
+
+  it("o pacote extraviado: a transportadora e o código", () => {
+    const d = detalheDo(
+      pedido({}, true),
+      null,
+      [{ situacao: "extraviado", transportadora: "Correios", codigo: "AB123BR" }],
+      SEM_ERP,
+      SEM
+    )
+    expect(d.faixas[0]).toMatchObject({
+      titulo: "O pacote foi extraviado",
+      etiquetas: ["Correios", "AB123BR"],
+    })
+  })
+
+  it("a nota pra cancelar tem o prazo; a Frenet recusou fica só com o título e o “?”", () => {
+    const d = detalheDo(
+      pedido({ status: "canceled" }, true),
+      nota({ situacao: "autorizada", cancelar: true }),
+      [],
+      SEM_ERP,
+      SEM
+    )
+    expect(d.faixas[0]).toMatchObject({
+      titulo: "A nota precisa ser cancelada no Bling",
+      etiquetas: ["até 24 h da emissão"],
+    })
+    const recusado = pedido(
+      {
+        metadata: {
+          fb_parceiro: {
+            parceiro: "frenet",
+            referencia: "FB-1042",
+            entrou: false,
+            em: antes(5),
+            definitivo: true,
+            erro: "CEP inválido",
+            tentativas: 3,
+          },
+        },
+      },
+      true
+    )
+    const f = detalheDo(recusado, null, [], SEM_ERP, SEM).faixas
+    expect(f.find((x) => x.titulo === "A Frenet recusou o pedido")?.etiquetas).toEqual([])
   })
 })
 
