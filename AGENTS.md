@@ -226,8 +226,10 @@ precisa sair da janela dela — ver `longeDaConciliacaoAutomatica` no conferidor
   Ler `searchParams` numa delas a torna dinâmica: esqueleto, streaming, rodapé pulando e LCP
   estourado no Lighthouse — ver `apps/loja/src/components/catalogo/tela.tsx`. A `/busca` é a
   exceção, porque o `?q=` não tem como ser gerado no build.
-- **Sem GTM, sem widget de terceiro no `<head>`.** Tags entram por `components/analytics/tags.tsx`,
-  depois do consentimento. Orçamento de terceiros: 150 KB (Lighthouse CI quebra acima).
+- **Sem GTM, sem widget de terceiro no `<head>`.** Tags entram por `components/analytics/tags.tsx`:
+  o GA4 desde a primeira página, só medindo (quem clica em "Só o necessário" sai — entrega 0166, o
+  dono quis as visitas contadas como na Nuvemshop); as outras, depois do "Aceitar". Orçamento de
+  terceiros: 150 KB (Lighthouse CI quebra acima).
 - **Segredo nunca com `NEXT_PUBLIC_`.** Chaves de servidor ficam no Railway e na Vercel, nunca em código.
 - **Chave nunca passa pela conversa.** Token, senha e segredo vão direto no painel do Railway ou da
   Vercel, por quem tem acesso a ele. Se um aparecer colado num chat, num log ou num commit, conta como
@@ -1261,9 +1263,9 @@ compras da loja do período e do de antes numa chamada só ao GA4 (`visitasDoMar
 guardada como as do dia: `date`+`hour` de `2n−1daysAgo` a `today`, até 4.320 linhas cada — as
 compras com o `SO_AS_COMPRAS_DA_LOJA`) e a conversão, compras ÷ visitas NO MESMO CORTE de hora
 (`visitasDoPeriodo` — o Google soma hoje com atraso). **A conversão compara gente igual** (entrega
-0135): o GA4 só vê quem aceitou os cookies, então o numerador são as compras que ELE viu, não os
-pedidos pagos do Medusa — dividir todos os pedidos pelas visitas de quem aceitou inflava a conversão
-(quem recusa compra, mas não vira visita). O "Pedidos pagos" do Resumo segue sendo o de todos; `POST
+0135): o GA4 não vê quem recusa os cookies (até a 0166, não via ninguém que não aceitasse), então o
+numerador são as compras que ELE viu, não os pedidos pagos do Medusa — dividir todos os pedidos pelas
+visitas do GA4 inflava a conversão (quem recusa compra, mas não vira visita). O "Pedidos pagos" do Resumo segue sendo o de todos; `POST
 /dashboard/marketing/meta` `{ valor }` (vazio tira) grava e anota `mudou-meta`. **As visitas
 contam só o endereço da loja** (`hostsDaLoja(LOJA_URL)`, filtro `hostName` na pergunta): o GA4 é o
 mesmo do site da Nuvemshop, que segue no ar até a virada — o `LOJA_URL` troca na virada, e o
@@ -2037,13 +2039,20 @@ cookies e a compra pelo servidor:
   (z-index 60) cobria os botões da faixa, e a faixa (z-50, depois no DOM) cobria o botão do
   checkout. No celular a faixa é menor: letra de 12 px e cada botão numa linha.
 - **As tags** (`components/analytics/`): `tags.tsx` (no layout raiz, com o GA4 da Vercel de
-  reserva) só chama `ligarIntegracoes` (`integracoes.ts`) com o sim — o modo básico: antes dele,
-  nenhum script de fora na página. Os trechos são os oficiais, com o código conferido de novo. As
-  trocas de página cada plataforma conta sozinha (GA4, Meta, TikTok e Clarity escutam o histórico):
-  não mande `page_view` à mão.
+  reserva) chama `ligarIntegracoes(i, sim)` (`integracoes.ts`, baixado por `import()` só quando
+  alguma tag liga) em dois tempos (entrega 0166): SEM RESPOSTA, só o GA4, com
+  `analytics_storage` permitido e os três de anúncio negados — conta a visita como a Nuvemshop
+  contava, sem nada pra anúncio; COM O SIM, o `consent update` do anúncio, o Google Ads, a Meta, o
+  TikTok e a Clarity. Com o "não", o GA4 nem liga; se já estava na página, `responder`
+  (`consentimento.tsx`) liga o `ga-disable-<código>`, apaga os cookies dos parceiros
+  (`_ga`, `_ga_*`, `_gcl_*`, `_fbp`, `_fbc`, `_ttp`, `_clck`, `_clsk`, em cada domínio de cima) e
+  recarrega. A resposta que muda antes do `import()` chegar cancela o que ele ia montar. Os
+  trechos são os oficiais, com o código conferido de novo. As trocas de página cada plataforma
+  conta sozinha (GA4, Meta, TikTok e Clarity escutam o histórico): não mande `page_view` à mão.
 - **A campanha do link** (entrega 0162): cada plataforma lê a campanha no ENDEREÇO da página em
   que liga — as UTMs e o clique do anúncio (`gclid`, `gbraid`, `wbraid`, `gad_*`, `dclid`,
-  `srsltid`, `fbclid`, `ttclid`, `msclkid`) —, e as tags só ligam no sim. Quem aceitava depois de
+  `srsltid`, `fbclid`, `ttclid`, `msclkid`) —, e as tags do sim só ligam no "Aceitar" (o GA4 liga
+  na chegada e lê a campanha ali; quando ela volta, vê uma página a mais). Quem aceitava depois de
   trocar de página chegava sem campanha em todas (27/09: a Clarity só via o site). O
   `guardarACampanha` (`lib/chegada.ts`, no efeito do `tags.tsx`) guarda a da página de chegada na
   aba (`fb_campanha`; outro link na mesma aba troca), e o `devolverACampanha`, no começo do
@@ -2053,21 +2062,25 @@ cookies e a compra pelo servidor:
   `DA_CAMPANHA`.
 - **Os eventos** saem só por `lib/rastrear.ts`: `gtag('event', …)` pro GA4 e o Ads (o
   `dataLayer.push` de objeto, sem GTM, o gtag.js ignora), os padrões da Meta e do TikTok, e marcas
-  na Clarity. Até as tags ligarem, o evento espera numa fila da página (o efeito do produto roda
-  antes do das tags); sem o sim, morre com ela. Onde nascem: `view_item` na caixa de compra,
+  na Clarity. São duas portas, cada uma com a sua fila na página: a do Google abre quando o gtag
+  liga (o GA4, sem resposta ou com o sim), a dos outros e do CRM só com o sim (o efeito do produto
+  roda antes do das tags); porta que não abre leva a fila junto com a página. Onde nascem: `view_item` na caixa de compra,
   `add_to_cart`/`remove_from_cart` pela diferença da sacola no provedor
   (`rastrearMudancaDaSacola` — pega a página do produto, o leva junto, a oferta e o "+"),
   `begin_checkout` e `add_shipping_info` nas etapas, `add_payment_info` no pagar. O `item_id` é o
   id da variante, o mesmo da compra do servidor.
 - **O rastro da compra** (`apps/loja/src/lib/rastro.ts`): a ação de finalizar lê a resposta sobre
-  os cookies e, só com o sim, `_ga`/`_ga_<código>`, `_fbp`/`_fbc`, `_ttp`, o IP e o navegador; e
+  os cookies; de quem não disse não, `_ga`/`_ga_<código>` e o navegador (o aparelho da compra no
+  Funil, pra mesma gente das visitas); e, só com o sim, `_fbp`/`_fbc`, `_ttp`, o IP e a página; e
   manda DEPOIS da resposta (`after()`) pra `POST /store/pedidos/rastro` (só a loja, `daLoja`;
   `registrarRastroWorkflow` grava `fb_rastro` uma vez). NÃO vai no metadata do carrinho — que o
   2.21 copia pro pedido (conferido em 25/09) —, porque qualquer update do carrinho roda o
   `refreshCartItemsWorkflow`: cota o frete de novo e refaz a coleção de pagamento, na hora de
   pagar.
 - **A compra pelo servidor** (`apps/backend/src/lib/anuncios/`): `compra.ts` é puro — `decidir`
-  (código no painel, chave no Railway, o sim pra aquele parceiro; sem rastro, espera 30 minutos) e
+  (código no painel, chave no Railway; o "não" dispensa todas; o GA4 vai de quem não disse não, com
+  `ad_user_data`/`ad_personalization` só `GRANTED` com o sim ao Google; a Meta e o TikTok, só com o
+  sim pra eles; sem rastro, espera 30 minutos) e
   o formato de cada um (a Meta na Graph `v26.0`, o GA4 no Measurement Protocol, o TikTok na Events
   API; o id do pedido é o `event_id`/`transaction_id` de todos). `enviar.ts` manda, dentro da trava
   `anuncios-compra:<pedido>`, e grava `fb_anuncios.compra.<plataforma>` (enviada, dispensada ou
