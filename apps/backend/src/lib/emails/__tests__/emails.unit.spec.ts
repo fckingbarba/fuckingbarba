@@ -638,6 +638,62 @@ describe("e-mails do caminho da encomenda", () => {
   })
 })
 
+describe("o pé dos e-mails de pedido", () => {
+  const INSTAGRAM = "https://www.instagram.com/fuckingbarba"
+  const TIKTOK = "https://www.tiktok.com/@fuckingbarba"
+  const p = pedido()
+  const todos = () => [
+    emailDePedidoConfirmado({ pedido: p, whatsapp: null }),
+    emailDePedidoCancelado({
+      cancelamento: {
+        id: p.id,
+        numero: p.numero,
+        email: p.email,
+        itens: p.itens,
+        total: p.total,
+        motivo: "estornado",
+        estorno: { valor: 109.8, forma: "pix" },
+      },
+      whatsapp: null,
+    }),
+    emailDePagamentoDevolvido({
+      devolucao: {
+        id: p.id,
+        numero: p.numero,
+        email: p.email,
+        itens: p.itens,
+        total: p.total,
+        devolvido: { valor: 109.8, forma: "pix" },
+      },
+      whatsapp: null,
+    }),
+    emailDoEnvio({
+      momento: "enviado",
+      pedido: {
+        id: p.id,
+        numero: p.numero,
+        email: p.email,
+        itens: [{ nome: "Óleo para Barba 30ml", variante: null, quantidade: 2 }],
+        entrega: p.entrega,
+      },
+      envio: { codigo: "QS123456789BR", url: null, transportadora: "Correios", servico: "PAC" },
+      whatsapp: null,
+    }),
+  ]
+
+  it("o Instagram e o TikTok, como todo e-mail da loja — com e sem LOJA_URL", () => {
+    for (const e of todos()) {
+      expect(e.html).toContain(INSTAGRAM)
+      expect(e.html).toContain(TIKTOK)
+    }
+    delete process.env.LOJA_URL
+    for (const e of todos()) {
+      expect(e.html).toContain(INSTAGRAM)
+      expect(e.html).toContain(TIKTOK)
+    }
+  })
+})
+
 describe("a nota que não saiu (pra equipe)", () => {
   const antes = process.env.MEDUSA_BACKEND_URL
   beforeEach(() => {
