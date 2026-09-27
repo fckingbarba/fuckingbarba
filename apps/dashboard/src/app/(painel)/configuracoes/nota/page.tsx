@@ -3,6 +3,7 @@ import type { Route } from "next"
 import Link from "next/link"
 import { JanelaDaNota } from "@/components/configuracoes"
 import { ForaDoAr, SemAcesso } from "@/components/telas"
+import { Ajuda } from "@/components/visual"
 import { lerConfiguracoes } from "@/lib/ler-configuracoes"
 
 export const metadata: Metadata = { title: "Nota fiscal" }
@@ -43,12 +44,11 @@ export default async function Pagina() {
       </section>
       <section className="bloco" data-pendencias>
         <div className="bloco__cabeca">
-          <div>
+          <div className="bloco__titulos">
             <h2 className="bloco__titulo">Pendências</h2>
-            <p className="bloco__sub">
-              As notas que precisam de alguém, e as que esperam a janela pra sair.
-            </p>
+            <Ajuda>As notas que precisam de alguém, e as que esperam a janela pra sair.</Ajuda>
           </div>
+          {pendencias.length ? <span className="contagem">{pendencias.length}</span> : null}
         </div>
         {pendencias.length ? (
           <div className="linhas">

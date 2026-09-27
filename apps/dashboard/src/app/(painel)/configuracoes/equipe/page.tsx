@@ -3,6 +3,7 @@ import { redirect } from "next/navigation"
 import { TabelaDeAcessos } from "@/components/acessos"
 import { Equipe, type PessoaDaLista } from "@/components/equipe"
 import { ForaDoAr, SemAcesso } from "@/components/telas"
+import { Ajuda } from "@/components/visual"
 import type { Area, Matriz, Membro } from "@/lib/equipe"
 import { medusa } from "@/lib/medusa"
 
@@ -30,12 +31,12 @@ export default async function Pagina() {
       <Equipe membros={membros} eu={String(r.corpo.eu ?? "")} acesso={acesso} />
       <section className="bloco bloco--sem-pad acessos">
         <div className="bloco__cabeca">
-          <div>
+          <div className="bloco__titulos">
             <h2 className="bloco__titulo">O que cada papel abre</h2>
-            <p className="bloco__sub">
+            <Ajuda>
               Marque o que a operação e o marketing abrem — o dono abre tudo. Vale no servidor, não
               só na tela, a partir do próximo clique de cada pessoa.
-            </p>
+            </Ajuda>
           </div>
         </div>
         <TabelaDeAcessos

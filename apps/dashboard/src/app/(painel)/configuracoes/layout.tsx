@@ -18,7 +18,7 @@ export default async function LayoutDasConfiguracoes({ children }: { children: R
   return (
     <SoPara area="configuracoes">
       <div data-tela>
-        <Cabeca titulo="Configurações" sub="O que muda como a loja funciona." />
+        <Cabeca titulo="Configurações" ajuda="O que muda como a loja funciona." />
         <AbasDasConfiguracoes areas={areas} />
         {children}
       </div>
