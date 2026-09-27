@@ -30,7 +30,7 @@ async function Funil({ searchParams }: { searchParams: Busca }) {
   const periodo = lerPeriodo((await searchParams).periodo)
   return (
     <div data-tela>
-      <Cabeca titulo="Marketing" sub="Onde as pessoas desistem, do site até o pagamento." />
+      <Cabeca titulo="Marketing" ajuda="Onde as pessoas desistem, do site até o pagamento." />
       <AbasDoMarketing atual="funil" periodo={periodo} />
       <Periodos atual={periodo} caminho="/marketing/funil" />
       {periodo === "hoje" ? <UmDiaEPouco /> : null}

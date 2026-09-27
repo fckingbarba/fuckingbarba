@@ -29,7 +29,13 @@ async function Clientes({ searchParams }: { searchParams: Busca }) {
   const periodo = lerPeriodo((await searchParams).periodo)
   return (
     <div data-tela>
-      <Cabeca titulo="Marketing" sub="Quem compra, se volta, em quanto tempo e de onde." />
+      <Cabeca
+        titulo="Marketing"
+        ajuda={
+          "Quem compra, se volta, em quanto tempo e de onde.\n" +
+          "A pessoa é o e-mail do pedido. A primeira compra é a primeira na loja nova: quem já comprava na Nuvemshop conta como novo aqui. A 2ª compra é a média de toda a história da loja nova."
+        }
+      />
       <AbasDoMarketing atual="clientes" periodo={periodo} />
       <Periodos atual={periodo} caminho="/marketing/clientes" />
       {periodo === "hoje" ? <UmDiaEPouco /> : null}

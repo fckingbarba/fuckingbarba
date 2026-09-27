@@ -31,7 +31,7 @@ async function Pagamento({ searchParams }: { searchParams: Busca }) {
     <div data-tela>
       <Cabeca
         titulo="Marketing"
-        sub="Como as pessoas pagam, o que não passa e o que o frete faz com a venda."
+        ajuda="Como as pessoas pagam, o que não passa e o que o frete faz com a venda."
       />
       <AbasDoMarketing atual="pagamento" periodo={periodo} />
       <Periodos atual={periodo} caminho="/marketing/pagamento" />

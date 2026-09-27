@@ -4,6 +4,7 @@ import { Suspense, type ReactNode } from "react"
 import { AbasQueRolam } from "@/components/abas-que-rolam"
 import { Icone } from "@/components/icones"
 import { MudarMeta } from "@/components/mudar-meta"
+import { CabecaDoBloco, Faixa } from "@/components/visual"
 import {
   lerAchadosDoMarketing,
   lerCanais,
@@ -262,13 +263,14 @@ async function NumerosDoGoogle({ periodo }: { periodo: Periodo }) {
   )
 }
 
+/** O glossário e a fonte dos números: no "?" do título do Marketing (0158; antes, dois parágrafos). */
 export function Glossario() {
   return (
-    <p className="glossario">
+    <span className="glossario">
       <b>Conversão:</b> de cada 100 visitas, quantas viraram pedido pago — contando só quem aceitou
       os cookies, nas visitas e nos pedidos (o Google não vê quem recusa). <b>Ticket médio:</b>{" "}
       quanto cada pedido pago deixa, com o frete.
-    </p>
+    </span>
   )
 }
 
@@ -345,12 +347,7 @@ export function Grafico({ serie }: { serie: Resumo["serie"] }) {
     : "nenhuma venda paga no período"
   return (
     <section className="bloco">
-      <div className="bloco__cabeca">
-        <div>
-          <h2 className="bloco__titulo">{serie.titulo}</h2>
-          <p className="bloco__sub">Só pedido pago conta, com o frete.</p>
-        </div>
-      </div>
+      <CabecaDoBloco titulo={serie.titulo} ajuda="Só pedido pago conta, com o frete." />
       <div
         className={`barras-v barras-v--pontas${poucas ? "" : " barras-v--fino"}`}
         role="img"
@@ -379,12 +376,10 @@ export function Grafico({ serie }: { serie: Resumo["serie"] }) {
 export function MaisVendidos({ produtos }: { produtos: ProdutoVendido[] }) {
   return (
     <section className="bloco" data-mais-vendidos>
-      <div className="bloco__cabeca">
-        <div>
-          <h2 className="bloco__titulo">Produtos que mais venderam</h2>
-          <p className="bloco__sub">Em reais, no período — sem o frete.</p>
-        </div>
-      </div>
+      <CabecaDoBloco
+        titulo="Produtos que mais venderam"
+        ajuda="Em reais, no período — sem o frete."
+      />
       {produtos.length ? (
         <ol className="topo3">
           {produtos.map((p, i) => (
@@ -417,26 +412,24 @@ export function MaisVendidos({ produtos }: { produtos: ProdutoVendido[] }) {
 
 export function FonteDosDados() {
   return (
-    <p className="fonte-dados">
+    <span className="fonte-dados">
       <b>De onde vêm os números:</b> visitas — Google Analytics, só as do endereço da loja (quem
       recusa os cookies fica de fora, então as visitas de verdade são um pouco mais; e o Google soma
       com algumas horas de atraso); pedidos e receita — a loja, só pedido pago.
-    </p>
+    </span>
   )
 }
 
 /** "Um dia só é pouco pra concluir" — nas abas de análise, com o período de hoje (o protótipo). */
 export function UmDiaEPouco() {
   return (
-    <div className="faixa" data-nivel="info" data-um-dia>
-      <Icone nome="relogio" />
-      <div>
-        <p className="faixa__titulo">Um dia só é pouco pra concluir</p>
-        <p>
-          Com os números de hoje, qualquer diferença pode ser acaso. Pra decidir, use 7 ou 30 dias.
-        </p>
-      </div>
-    </div>
+    <Faixa
+      nivel="info"
+      icone="relogio"
+      titulo="Um dia só é pouco pra concluir"
+      ajuda="Com os números de hoje, qualquer diferença pode ser acaso. Pra decidir, use 7 ou 30 dias."
+      data-um-dia=""
+    />
   )
 }
 
@@ -510,14 +503,10 @@ const OLHANDO: Record<Periodo, string> = {
 
 function CabecaDoQueDizem({ periodo }: { periodo: Periodo }) {
   return (
-    <div className="bloco__cabeca">
-      <div>
-        <h2 className="bloco__titulo">O que os dados dizem</h2>
-        <p className="bloco__sub">
-          {OLHANDO[periodo]}. Primeiro o que pede conserto, depois as oportunidades e o que vai bem.
-        </p>
-      </div>
-    </div>
+    <CabecaDoBloco
+      titulo="O que os dados dizem"
+      ajuda={`${OLHANDO[periodo]}. Primeiro o que pede conserto, depois as oportunidades e o que vai bem.`}
+    />
   )
 }
 
@@ -569,12 +558,10 @@ export async function CanaisQueMaisVenderam({ periodo }: { periodo: Periodo }) {
   const canais = c?.estado === "ok" ? c.canais.filter((l) => l.receita > 0).slice(0, 3) : []
   return (
     <section className="bloco" data-canais-do-resumo>
-      <div className="bloco__cabeca">
-        <div>
-          <h2 className="bloco__titulo">Canais que mais venderam</h2>
-          <p className="bloco__sub">Das vendas que o Google Analytics viu.</p>
-        </div>
-      </div>
+      <CabecaDoBloco
+        titulo="Canais que mais venderam"
+        ajuda="Das vendas que o Google Analytics viu."
+      />
       {canais.length ? (
         <ol className="topo3">
           {canais.map((l, i) => (

@@ -2,6 +2,7 @@ import type { Route } from "next"
 import Link from "next/link"
 import { Icone } from "@/components/icones"
 import { Achados, SEM_VISITAS } from "@/components/marketing"
+import { CabecaDoBloco } from "@/components/visual"
 import {
   lerProdutosDoMarketing,
   type Periodo,
@@ -90,14 +91,13 @@ export async function TelaDosProdutos({ periodo }: { periodo: Periodo }) {
         </p>
       ) : null}
       <section className="bloco bloco--sem-pad" data-bloco="produtos">
-        <div className="bloco__cabeca">
-          <div>
-            <h2 className="bloco__titulo">Produtos</h2>
-            <p className="bloco__sub">
-              Do que mais vendeu pro que menos. Toque num produto pra abrir a página dele no painel.
-            </p>
-          </div>
-        </div>
+        <CabecaDoBloco
+          titulo="Produtos"
+          ajuda={
+            "Do que mais vendeu pro que menos. Toque num produto pra abrir a página dele no painel.\n" +
+            "“Pôs na sacola”: de cada 100 vezes que a página do produto foi vista, quantas viraram sacola — do Google Analytics, só de quem aceitou os cookies. Os vendidos e a receita são os pedidos pagos da loja; o estoque, o que dá pra vender."
+          }
+        />
         {r.produtos.length ? (
           <>
             <div className="tabela-rola" data-vira-cartao>
@@ -159,11 +159,6 @@ export async function TelaDosProdutos({ periodo }: { periodo: Periodo }) {
           <p className="sem-dados">Nenhum produto no site.</p>
         )}
       </section>
-      <p className="pequeno suave">
-        &ldquo;Pôs na sacola&rdquo;: de cada 100 vezes que a página do produto foi vista, quantas
-        viraram sacola — do Google Analytics, só de quem aceitou os cookies. Os vendidos e a receita
-        são os pedidos pagos da loja; o estoque, o que dá pra vender.
-      </p>
     </>
   )
 }
