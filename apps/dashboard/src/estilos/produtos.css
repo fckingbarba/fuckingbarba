@@ -142,10 +142,6 @@ fieldset.campo > legend { padding: 0; margin: 0 0 6px; }
 
 /* ── o que o protótipo não tinha ── */
 
-/* O estoque na lista: 0 em vermelho, pouco em amarelo. */
-.estoque--zero { color: var(--erro); }
-.estoque--pouco { color: var(--aviso-txt); }
-.tabela__sub--linha { display: inline; }
 .cartao__miolo { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
 .cartao__miolo .cartao__titulo { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 

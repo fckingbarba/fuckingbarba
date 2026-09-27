@@ -1,6 +1,6 @@
 import type { Route } from "next"
 import Link from "next/link"
-import { Icone } from "@/components/icones"
+import { Icone, type NomeDoIcone } from "@/components/icones"
 import { CamposDePreco, CelulasDePreco } from "@/components/produto/campos-de-preco"
 import {
   FILTROS_DE_PRODUTO,
@@ -37,18 +37,34 @@ export function FotoDoProduto({ foto }: { foto: string | null }) {
   )
 }
 
-/** Estoque: 0 em vermelho, menos de 10 em amarelo ("acabando"); sem controle, um traço. */
+/**
+ * Estoque num quadradinho (0155): 0 em vermelho, menos de 10 em amarelo; sem
+ * controle, um traço. A palavra ("esgotado", "acabando") fica pro leitor de
+ * tela e o "title".
+ */
 function Estoque({ n }: { n: number | null }) {
-  if (n === null) return <span className="suave">—</span>
-  if (n === 0) return <b className="estoque estoque--zero">0</b>
-  if (n < 10)
-    return (
-      <>
-        <b className="estoque estoque--pouco">{n}</b>{" "}
-        <span className="tabela__sub tabela__sub--linha">acabando</span>
-      </>
-    )
-  return <>{n}</>
+  const nivel = n === null ? "sem" : n === 0 ? "zero" : n < 10 ? "pouco" : "ok"
+  const palavra =
+    n === null
+      ? "sem controle de estoque"
+      : n === 0
+        ? "esgotado"
+        : n < 10
+          ? `${n}, acabando`
+          : `${n} em estoque`
+  return (
+    <span className="estoque-n" data-nivel={nivel} title={palavra} data-estoque={n ?? ""}>
+      <span aria-hidden="true">{n === null ? "—" : n}</span>
+      <span className="sr-only">{palavra}</span>
+    </span>
+  )
+}
+
+/** O ícone de cada fita (as que têm): o desenho diz antes da palavra. */
+const ICONE_DO_FILTRO: Partial<Record<FiltroDeProduto, NomeDoIcone>> = {
+  publicado: "olho",
+  rascunho: "lapis",
+  esgotado: "alerta",
 }
 
 const endereco = (filtro: FiltroDeProduto) =>
@@ -63,7 +79,9 @@ export function FiltrosDosProdutos({ lista }: { lista: ListaDeProdutos }) {
           className="filtro"
           href={endereco(f.id)}
           aria-current={lista.filtro === f.id ? "page" : undefined}
+          data-ruim={f.id === "esgotado" && lista.contagem[f.id] ? "" : undefined}
         >
+          {ICONE_DO_FILTRO[f.id] ? <Icone nome={ICONE_DO_FILTRO[f.id]!} /> : null}
           {f.nome} <b>{lista.contagem[f.id] ?? 0}</b>
         </Link>
       ))}
@@ -121,7 +139,7 @@ export function ListaDosProdutos({
                   ) : null}
                 </td>
                 <CelulasDePreco p={p} podeEditar={podeEditar} />
-                <td className="num">
+                <td>
                   <Estoque n={p.estoque} />
                 </td>
                 <td>
@@ -142,8 +160,9 @@ export function ListaDosProdutos({
               <span className="cartao__miolo">
                 <span className="cartao__titulo">{p.nome}</span>
                 <span className="cartao__linha">
-                  <span className="cartao__txt">
-                    {p.estoque !== null ? `Estoque ${p.estoque}` : "Sem controle de estoque"}
+                  <span className="cartao__txt cartao__txt--icone">
+                    <Icone nome="produtos" />
+                    <Estoque n={p.estoque} />
                   </span>
                   <SeloDoProduto p={p} />
                 </span>

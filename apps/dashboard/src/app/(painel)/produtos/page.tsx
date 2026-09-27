@@ -40,11 +40,12 @@ async function Lista({ caminho }: { caminho: string }) {
     <div data-tela>
       <Cabeca
         titulo="Produtos"
-        sub={
+        ajuda={
           <>
             <b>Preço e promocional se mudam aqui:</b> escreva no campo e aperte Enter. Promocional
-            vazio é sem promoção. O preço mudado aqui a importação do Bling não troca mais. Nome,
-            descrição, peso e medidas vêm do <b>Bling</b>; o estoque, sozinho, de 5 em 5 minutos.
+            vazio é sem promoção. O preço mudado aqui a importação do Bling não troca mais.
+            {"\n"}Nome, descrição, peso e medidas vêm do <b>Bling</b>; o estoque, sozinho, de 5 em 5
+            minutos: em vermelho o esgotado, em amarelo o que tem menos de 10.
           </>
         }
       />

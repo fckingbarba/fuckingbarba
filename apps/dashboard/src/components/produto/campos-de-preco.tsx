@@ -92,7 +92,13 @@ function CampoDePreco({
         <span className="campo-preco__desconto">−{desconto}%</span>
       ) : null}
       {campo === "promocional" && p.promocao?.deOutraLista && texto === inicial ? (
-        <span className="campo-preco__nota">de uma lista de preço do admin</span>
+        // Em poucas letras (0155): a frase inteira fica no "title".
+        <span
+          className="campo-preco__nota campo-preco__nota--etiqueta"
+          title="O promocional vem de uma lista de preço do admin do Medusa"
+        >
+          lista do admin
+        </span>
       ) : null}
       {campo === "promocional" && p.promocaoSemEfeito && texto === inicial ? (
         <span className="campo-preco__nota campo-preco__nota--aviso">

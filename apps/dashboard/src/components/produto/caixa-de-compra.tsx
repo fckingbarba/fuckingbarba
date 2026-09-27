@@ -4,6 +4,7 @@ import { useState, useTransition } from "react"
 import { useAvisar } from "@/components/avisos"
 import { Icone } from "@/components/icones"
 import { FotoDoProduto } from "@/components/produtos"
+import { Ajuda } from "@/components/visual"
 import { salvarCaixa } from "@/lib/acoes/produtos"
 import {
   LIMITE_DA_NOTA,
@@ -70,12 +71,15 @@ export function CaixaDeCompra({
   return (
     <section className="bloco" data-caixa>
       <div className="bloco__cabeca">
-        <div>
+        <div className="bloco__titulos">
           <h2 className="bloco__titulo">Caixa de compra</h2>
-          <p className="bloco__sub">
+          <Ajuda>
             O que aparece logo abaixo do preço, na página deste produto. Um ou outro, no mesmo
             lugar.
-          </p>
+            {"\n"}Nas unidades, o desconto é o da loja toda: 4% levando 2, 6% levando 3.
+            {"\n"}Com o leve junto, os cartões de quantidade saem daqui — mas quem aumentar a
+            quantidade no seletor continua com o desconto por quantidade.
+          </Ajuda>
         </div>
       </div>
 
@@ -160,11 +164,6 @@ export function CaixaDeCompra({
           <PreviaUnidades produto={produto} nota={caixa.nota} />
         )}
       </div>
-      <p className="pequeno suave" style={{ margin: "10px 0 0" }}>
-        {caixa.modo === "junto"
-          ? "Com o leve junto, os cartões de quantidade saem daqui — mas quem aumentar a quantidade no seletor continua com o desconto por quantidade."
-          : "O desconto é o da loja toda: 4% levando 2, 6% levando 3."}
-      </p>
 
       {edita ? (
         <div className="form-acoes">
