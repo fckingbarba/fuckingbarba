@@ -84,7 +84,7 @@ function montar(c: CompraDoFluxo): EmailDoCrm {
     tipo: "produtos",
     titulo:
       fluxo === "carrinho"
-        ? "Na sua sacola"
+        ? "O que você escolheu"
         : c.itens.length === 1
           ? "O seu pedido"
           : "Os produtos do seu pedido",
@@ -188,21 +188,21 @@ function montar(c: CompraDoFluxo): EmailDoCrm {
           titulo: "Um desconto pra fechar",
           texto: refazer
             ? `O Pix ${pedido} venceu e o pedido foi cancelado — nada foi cobrado. Se ainda ` +
-              "quiser, a gente refaz tudo em 1 clique, com um desconto só seu."
+              "quiser, a gente refaz com os mesmos produtos e um desconto só seu."
             : "Seu pedido continua guardado. Pra ajudar a decidir, separamos um desconto só pra você.",
           botao: botao("Usar meu desconto", comCupom),
           blocos: [...blocoDoCupom, produtos],
         }
       return {
         ...base,
-        assunto: refazer ? "Refaz o seu pedido em 1 clique" : "Seu pedido ainda tá aqui",
+        assunto: refazer ? "Quer refazer o seu pedido?" : "Seu pedido continua guardado",
         previa: refazer
           ? "Os mesmos produtos, num Pix novo."
-          : "Guardamos tudo do jeito que você deixou.",
-        titulo: refazer ? "Refaz em 1 clique" : "Seu pedido ainda tá aqui",
+          : "Do jeito que você deixou. É só voltar e pagar.",
+        titulo: refazer ? "Quer refazer o seu pedido?" : "Seu pedido continua guardado",
         texto: refazer
           ? `O Pix ${pedido} venceu e o pedido foi cancelado — nada foi cobrado. Se ainda ` +
-            "quiser, a gente refaz tudo em 1 clique."
+            "quiser, a gente refaz com os mesmos produtos."
           : "Guardamos o seu pedido do jeito que você deixou. É só voltar e pagar.",
         botao: botao(refazer ? "Refazer o pedido" : "Voltar pro pagamento"),
         blocos: [produtos, selo],
@@ -214,7 +214,7 @@ function montar(c: CompraDoFluxo): EmailDoCrm {
           ...base,
           assunto: `Seu desconto de ${c.cupom.porcento}% vence em breve`,
           previa: `Vale até ${quando(c.cupom.ate)}. Depois, a gente para de falar desse pedido.`,
-          titulo: "Última chamada",
+          titulo: "O desconto vence em breve",
           texto:
             `O seu desconto de ${c.cupom.porcento}% vale até ${quando(c.cupom.ate)}. Depois ` +
             "disso, a gente para de falar desse pedido.",
@@ -223,23 +223,27 @@ function montar(c: CompraDoFluxo): EmailDoCrm {
         }
       return {
         ...base,
-        assunto: "Última chamada pro seu pedido",
-        previa: "Depois deste, a gente para de falar desse pedido.",
-        titulo: "Última chamada",
+        assunto: "O último lembrete do seu pedido",
+        previa: "Depois deste, a gente não fala mais desse pedido.",
+        titulo: "O último lembrete",
         texto:
-          "Depois deste, a gente para de falar desse pedido. Se ainda quiser, " +
-          (refazer ? "a gente refaz tudo em 1 clique." : "está tudo guardado."),
+          "Este é o último lembrete: depois dele, a gente não fala mais desse pedido. Se ainda " +
+          (refazer
+            ? "quiser, a gente refaz com os mesmos produtos."
+            : "quiser, está tudo guardado."),
         botao: botao(refazer ? "Refazer o pedido" : "Voltar pro pagamento"),
         blocos: [produtos, selo],
       }
     case "carrinho-1h":
       return {
         ...base,
-        assunto: "Esqueceu isso aqui?",
-        previa: "A sua sacola ficou guardada.",
-        titulo: "Esqueceu isso aqui?",
-        texto: `Você deixou ${oQueNaSacola(c.itens)} na sacola. Tá tudo guardado: é só voltar e terminar.`,
-        botao: botao("Voltar pra sacola"),
+        assunto: "Sua compra ficou pela metade",
+        previa: "O que você escolheu continua separado na sacola.",
+        titulo: "Sua compra ficou pela metade",
+        texto:
+          `Você escolheu ${oQueNaSacola(c.itens)} e parou antes de fechar a compra. Está tudo ` +
+          "separado do jeito que você deixou: é só voltar e terminar.",
+        botao: botao("Terminar a compra"),
         blocos: [produtos, selo],
       }
     case "carrinho-12h": {
@@ -247,17 +251,15 @@ function montar(c: CompraDoFluxo): EmailDoCrm {
       const primeiro = c.itens[0]?.nome.replace(/ · \d+ unidades$/, "")
       return {
         ...base,
-        assunto: primeiro
-          ? `O que os clientes acharam do ${primeiro}`
-          : "O que os clientes acharam",
+        assunto: primeiro ? `Sobre o ${primeiro} que você escolheu` : "Sobre o que você escolheu",
         previa: depoimentos.length
-          ? "Quem já usa conta como foi."
+          ? "O que quem já usa contou pra gente."
           : "Pix na hora, 3x sem juros no cartão e 7 dias pra trocar.",
-        titulo: "O que os clientes acharam",
+        titulo: "Sobre o que você escolheu",
         texto: depoimentos.length
-          ? "Antes de decidir, vale ouvir quem já usa. A sua sacola continua guardada."
-          : "A sua sacola continua guardada. E se ficou alguma dúvida, olha como funciona.",
-        botao: botao("Voltar pra sacola"),
+          ? "Separei o que quem já usa contou pra gente. A sua compra continua do jeito que você deixou."
+          : "A sua compra continua do jeito que você deixou. E se ficou alguma dúvida, olha como funciona.",
+        botao: botao("Terminar a compra"),
         blocos: [
           ...(depoimentos.length
             ? depoimentos.map((d): BlocoDoCrm => ({
@@ -295,11 +297,11 @@ function montar(c: CompraDoFluxo): EmailDoCrm {
         }
       return {
         ...base,
-        assunto: "Sua sacola ainda tá aqui",
-        previa: "Guardamos tudo do jeito que você deixou.",
-        titulo: "Sua sacola ainda tá aqui",
-        texto: "Guardamos a sua sacola do jeito que você deixou. É só voltar e terminar.",
-        botao: botao("Voltar pra sacola"),
+        assunto: "Sua compra continua separada",
+        previa: "Do jeito que você deixou. É só voltar e terminar.",
+        titulo: "Sua compra continua separada",
+        texto: "A sua compra continua separada do jeito que você deixou. É só voltar e terminar.",
+        botao: botao("Terminar a compra"),
         blocos: [produtos, selo],
       }
     case "carrinho-3d":
@@ -315,22 +317,24 @@ function montar(c: CompraDoFluxo): EmailDoCrm {
         }
       return {
         ...base,
-        assunto: "Ainda dá tempo",
-        previa: "A sua sacola continua guardada.",
-        titulo: "Ainda dá tempo",
-        texto: "A sua sacola continua guardada do jeito que você deixou. É só voltar e terminar.",
-        botao: botao("Voltar pra sacola"),
+        assunto: "Seus produtos continuam separados",
+        previa: "É só voltar e terminar a compra.",
+        titulo: "Seus produtos continuam separados",
+        texto:
+          "O que você escolheu continua separado do jeito que você deixou. É só voltar e terminar a compra.",
+        botao: botao("Terminar a compra"),
         blocos: [produtos, selo],
       }
     case "carrinho-5d":
       return {
         ...base,
-        assunto: "Última chamada pra sua sacola",
-        previa: "Depois deste, a gente para de falar dela.",
-        titulo: "Última chamada",
+        assunto: "O último lembrete da sua compra",
+        previa: "Depois deste, a gente não fala mais dela.",
+        titulo: "O último lembrete",
         texto:
-          "Depois deste, a gente para de falar da sua sacola. Se ainda quiser, está tudo guardado.",
-        botao: botao("Voltar pra sacola"),
+          "Este é o último lembrete: depois dele, a gente não fala mais desta compra. Se ainda " +
+          "quiser, está tudo separado.",
+        botao: botao("Terminar a compra"),
         blocos: [produtos, selo],
       }
   }

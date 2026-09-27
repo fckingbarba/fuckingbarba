@@ -110,7 +110,7 @@ export const FLUXOS: Record<IdDoFluxo, Fluxo> = {
         depois: DIA,
         cupom: true,
       },
-      { id: "pix-48h", nome: "Última chamada", quando: "2 dias depois", depois: 2 * DIA },
+      { id: "pix-48h", nome: "O último lembrete", quando: "2 dias depois", depois: 2 * DIA },
     ],
   },
   checkout: {
@@ -133,7 +133,7 @@ export const FLUXOS: Record<IdDoFluxo, Fluxo> = {
         depois: DIA,
         cupom: true,
       },
-      { id: "checkout-48h", nome: "Última chamada", quando: "2 dias depois", depois: 2 * DIA },
+      { id: "checkout-48h", nome: "O último lembrete", quando: "2 dias depois", depois: 2 * DIA },
     ],
   },
   carrinho: {
@@ -143,7 +143,12 @@ export const FLUXOS: Record<IdDoFluxo, Fluxo> = {
     // O desconto sai em 24 h e o e-mail de 3 dias diz que ele vence amanhã: vale 3 dias.
     validadeDoCupom: 3 * DIA,
     toques: [
-      { id: "carrinho-1h", nome: "Esqueceu isso aqui?", quando: "1 h depois", depois: HORA },
+      {
+        id: "carrinho-1h",
+        nome: "Sua compra ficou pela metade",
+        quando: "1 h depois",
+        depois: HORA,
+      },
       {
         id: "carrinho-12h",
         nome: "O que os clientes acharam",
@@ -163,7 +168,7 @@ export const FLUXOS: Record<IdDoFluxo, Fluxo> = {
         quando: "3 dias depois",
         depois: 3 * DIA,
       },
-      { id: "carrinho-5d", nome: "Última chamada", quando: "5 dias depois", depois: 5 * DIA },
+      { id: "carrinho-5d", nome: "O último lembrete", quando: "5 dias depois", depois: 5 * DIA },
     ],
   },
 }

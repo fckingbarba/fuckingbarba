@@ -94,7 +94,7 @@ describe("o checkout abandonado", () => {
 
   it("24 horas sem cupom (já ganhou um há pouco): o lembrete, sem desconto", () => {
     const e = montar({ toque: "checkout-24h" })
-    expect(e.assunto).toBe("Seu pedido ainda tá aqui")
+    expect(e.assunto).toBe("Seu pedido continua guardado")
     expect(e.html).not.toContain("VOLTA-")
     expect(e.html).not.toContain("?cupom=")
   })
@@ -103,7 +103,7 @@ describe("o checkout abandonado", () => {
     expect(montar({ toque: "checkout-48h", cupom: CUPOM }).assunto).toBe(
       "Seu desconto de 10% vence em breve"
     )
-    expect(montar({ toque: "checkout-48h" }).assunto).toBe("Última chamada pro seu pedido")
+    expect(montar({ toque: "checkout-48h" }).assunto).toBe("O último lembrete do seu pedido")
   })
 })
 
@@ -150,9 +150,31 @@ describe("o Pix pendente", () => {
     expect(e.assunto).toBe("10% pra você refazer o pedido")
     expect(e.html).toContain("venceu e o pedido foi cancelado")
     expect(e.html).toContain("utm_campaign=crm-pix")
-    expect(montar({ toque: "pix-24h", numero: 3312 }).assunto).toBe(
-      "Refaz o seu pedido em 1 clique"
-    )
+    expect(montar({ toque: "pix-24h", numero: 3312 }).assunto).toBe("Quer refazer o seu pedido?")
+  })
+})
+
+describe("os lembretes sem desconto", () => {
+  it("nenhum usa frase de propaganda — é ela que leva o e-mail pra Promoções", () => {
+    const toques = [
+      "checkout-30min",
+      "checkout-4h",
+      "checkout-24h",
+      "checkout-48h",
+      "pix-24h",
+      "pix-48h",
+      "carrinho-1h",
+      "carrinho-12h",
+      "carrinho-24h",
+      "carrinho-3d",
+      "carrinho-5d",
+    ] as const
+    for (const toque of toques) {
+      const e = emailDoFluxo(compra({ toque, numero: 3312 }))
+      expect(e.estilo).toBe("pessoal")
+      const tudo = [e.assunto, e.previa, e.texto, e.botao?.texto ?? ""].join(" ")
+      expect(tudo).not.toMatch(/esqueceu|última chamada|ainda dá tempo|em 1 clique|tá aqui/i)
+    }
   })
 })
 
@@ -162,12 +184,14 @@ describe("o carrinho abandonado", () => {
 
   it("1 hora: o lembrete, e o botão volta pra sacola com a campanha", () => {
     const e = sacola()
-    expect(e.assunto).toBe("Esqueceu isso aqui?")
+    expect(e.assunto).toBe("Sua compra ficou pela metade")
     expect(e.html).toContain("Oi!")
-    expect(e.html).toContain("Você deixou o Fator de Crescimento na sacola.")
+    expect(e.html).toContain(
+      "Você escolheu o Fator de Crescimento e parou antes de fechar a compra."
+    )
     expect(e.html).toContain("utm_campaign=crm-carrinho")
-    expect(e.html).toContain("Voltar pra sacola")
-    expect(e.html).toContain("Na sua sacola")
+    expect(e.html).toContain("Terminar a compra")
+    expect(e.html).toContain("O que você escolheu")
   })
 
   it("12 horas: as avaliações de verdade; sem nenhuma, o jeito de comprar", () => {
@@ -175,7 +199,7 @@ describe("o carrinho abandonado", () => {
       toque: "carrinho-12h",
       depoimentos: [{ texto: "Fechou a falha em 2 meses.", quem: "Diego", estrelas: 5 }],
     })
-    expect(com.assunto).toBe("O que os clientes acharam do Fator de Crescimento")
+    expect(com.assunto).toBe("Sobre o Fator de Crescimento que você escolheu")
     expect(com.html).toContain("“Fechou a falha em 2 meses.”")
     expect(com.html).toContain("★★★★★")
     const sem = sacola({ toque: "carrinho-12h" })
@@ -188,13 +212,13 @@ describe("o carrinho abandonado", () => {
     expect(d24.assunto).toBe("10% pra você decidir")
     expect(d24.html).toContain("VOLTA-7KQ2MX")
     expect(d24.html).toContain("?cupom=VOLTA-7KQ2MX")
-    expect(sacola({ toque: "carrinho-24h" }).assunto).toBe("Sua sacola ainda tá aqui")
+    expect(sacola({ toque: "carrinho-24h" }).assunto).toBe("Sua compra continua separada")
     expect(sacola({ toque: "carrinho-3d", cupom: CUPOM }).assunto).toBe(
       "Seu desconto de 10% vence amanhã"
     )
-    expect(sacola({ toque: "carrinho-3d" }).assunto).toBe("Ainda dá tempo")
+    expect(sacola({ toque: "carrinho-3d" }).assunto).toBe("Seus produtos continuam separados")
     const ultima = sacola({ toque: "carrinho-5d" })
-    expect(ultima.assunto).toBe("Última chamada pra sua sacola")
+    expect(ultima.assunto).toBe("O último lembrete da sua compra")
     expect(ultima.html).not.toContain("VOLTA-")
   })
 })
