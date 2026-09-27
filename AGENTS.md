@@ -1529,13 +1529,18 @@ de `lib/promocoes-ativas.ts`, guardadas 30 s na memória; criar, pausar e ligar 
 (`esquecerPromocoes`). O período usa a hora do gancho (`fb_cupons.agora`), com a trava de ela
 estar lá (`agora > 0`) — não a do cupom (`conferido`), que cai quando o histórico do e-mail falha.
 
-NÃO SOMA COM O DESCONTO POR QUANTIDADE (decisão da loja): `sincronizarPrecosPorQuantidade` deixa de
-fora das faixas os produtos em que uma promoção vale agora (`promocoesNaLoja`) e devolve quando
-ela acaba. Esse conjunto entra na foto da rodada de minuto em minuto: promoção que começa ou
-acaba pela hora avisa a loja com o perfil `"agora"` (com `"seconds"`, a página refeita por trás lia
-a escada guardada, com o selo velho — visto no conferidor). Sem conseguir ler as promoções, a
-rodada não escreve nada: devolver as faixas daria os dois descontos. Criar, pausar e ligar
-(`lib/painel/promocoes.ts` → `valerNaLoja`) refazem as faixas na hora e avisam a loja com `"agora"`.
+NÃO SOMA COM O DESCONTO POR QUANTIDADE (decisão da loja): nos produtos em que uma promoção vale
+agora (`promocoesNaLoja`), `sincronizarPrecosPorQuantidade` deixa de fora as faixas que chegam no X
+dela, e devolve quando ela acaba. As que acabam antes ficam (`faixasComPromocao`, entrega 0142 — até
+ali saíam todas, e o cartão de 2 da PDP sumia): num "leve 3", sai só a de 3 ou mais, e 2 unidades
+seguem com os 4%; num "leve 2", saem as duas. A faixa é preço de lista (vale por linha) e não sabe
+da promoção: numa promoção de vários produtos, 2 de um com os 4% e 1 de outro disparam o "leve 3"
+com os 4% junto — a fresta conhecida. O conjunto (produto e X) entra na foto da rodada de minuto em
+minuto: promoção que começa ou acaba pela hora avisa a loja com o perfil `"agora"` (com `"seconds"`,
+a página refeita por trás lia a escada guardada, com o selo velho — visto no conferidor). Sem
+conseguir ler as promoções, a rodada não escreve nada: devolver as faixas daria os dois descontos.
+Criar, pausar e ligar (`lib/painel/promocoes.ts` → `valerNaLoja`) refazem as faixas na hora e avisam
+a loja com `"agora"`.
 
 AS ROTAS: `POST /dashboard/promocoes` (cria; 422 com os erros por campo) e
 `POST /dashboard/promocoes/:id` `{ acao: "pausar" | "ligar" }`, na área `cupons` (dono e
@@ -1547,26 +1552,33 @@ a promoção que não vale no promocional deixa esses de fora), guardada 30 s e 
 que já acabou (`ate`). No painel, o bloco "Promoções" da tela de Cupons e descontos, com a gaveta
 "Nova promoção" no desenho do "Novo cupom" (`components/promocoes.tsx`, `lib/promocoes.ts`).
 
-NA LOJA (`src/lib/promocoes.ts`, sem dependência; a lista em `promocoesDaLoja`, `lib/medusa.ts`,
-com a etiqueta `produtos` — o 404 é o Medusa de antes da rota, e vira "nenhuma"): o selo no card
-(a etiqueta no lugar do "-X%"), o selo embaixo do preço na PDP (`.compra__promocao`,
-`estilos/pdp-promocao.css`), o degrau da promoção na escada (`escadaDeQuantidade` devolve
-`{ degraus, promocao }`: "3 unidades" pelo preço de 2, com a etiqueta na nota; sem a lista, a escada
-sai sem ele e guardada por minutos) e o total da `Compra` pela conta de grupos (`gratisEm`), não
-mais unidade × quantidade. Na sacola, cada linha de produto em promoção ganha o recado (o
-`paraAGaveta`, que as ações e o `/api/sacola` usam): a etiqueta, quantas saíram de graça — pelo
-AJUSTE do Medusa na linha (`items.adjustments.code/amount` no `CAMPOS_CARRINHO`), porque com vários
-produtos só ele sabe qual linha foi — e, na última linha da promoção, "mais 1 sai de graça". Sem
-CSS novo na sacola (a home não tem folga). O "+" prevê o total da linha já sem as de graça
-(`totalPrevisto`); antes mostrava o preço de 3 até a resposta.
+NA LOJA (`src/lib/promocoes.ts`, sem dependência; a lista em `promocoesDaLoja`, `lib/medusa.ts`, com
+a etiqueta `produtos` — o 404 é o Medusa de antes da rota, e vira "nenhuma"): no card, o selo da
+etiqueta em cima e o do "-X%" logo embaixo (`.produto__selos`, a pilha que cresce com a etiqueta que
+quebra a linha; entrega 0142 — até ali a etiqueta tomava o lugar do "-X%"); o selo embaixo do preço
+na PDP (`.compra__promocao`, `estilos/pdp-promocao.css`); o degrau da promoção na escada
+(`escadaDeQuantidade` devolve `{ degraus, promocao, unitarios }`: "3 unidades" pelo preço de 2, com
+a etiqueta na nota; sem a lista, a escada sai sem ele e guardada por minutos); e o total da `Compra`
+pela conta de grupos (`gratisEm`) vezes o preço de uma unidade NAQUELA quantidade (`unitarioEm`, dos
+`unitarios` — o de 1, 2 e 3 ou mais que o backend responde): num "leve 3", 2 unidades pagam a faixa
+de 2. Na sacola, cada linha de produto em promoção ganha o recado (o `paraAGaveta`, que as ações e o
+`/api/sacola` usam): a etiqueta, quantas saíram de graça — pelo AJUSTE do Medusa na linha
+(`items.adjustments.code/amount` no `CAMPOS_CARRINHO`), porque com vários produtos só ele sabe qual
+linha foi — e, na última linha da promoção, o empurrão: "mais 1 sai de graça", ou "mais 1 por R$
+4,90" quando a terceira custa a diferença da faixa de 2 (`precoDoEmpurrao`, feito no servidor, só
+com a promoção inteira na linha). As linhas em promoção levam os `unitarios` da escada guardada da
+PDP (a da primeira variação; de outra, não). Sem CSS novo na sacola e sem conta nova na gaveta (a
+home não tem folga). O "+" prevê o total da linha já sem as de graça e com o preço da unidade na
+quantidade nova (`totalPrevisto`); antes mostrava o preço de 3 até a resposta.
 
 O conferidor é o `apps/dashboard/ferramentas/conferir-promocoes.mjs` (com os falsos, o admin
 local e, com `LOJA`, a loja): o formulário pela API e pela gaveta, a conta no carrinho de verdade
-(2, 3, 5 e 6 unidades; o produto de fora), as faixas que saem e voltam, o cupom que combina e o
-que não combina (este tira um produto da "Promoção de lançamento" do banco local e devolve no fim),
-um pedido Pix e a lista, a pausada e a agendada, o celular, e na loja o card, a PDP, a sacola (com
-as ações seguradas 1,5 s, pra ver o total previsto) e o selo saindo depois da pausa. Pausa e apaga
-as promoções da rodada no fim.
+(2, 3, 5 e 6 unidades; o produto de fora), a faixa de 3 que sai e a de 2 que fica, e as duas
+voltando na pausa, o cupom que combina e o que não combina (este tira um produto da "Promoção de
+lançamento" do banco local e devolve no fim), um pedido Pix e a lista, a pausada e a agendada, o
+celular, e na loja o card (os dois selos, um embaixo do outro), a PDP (o cartão de 2 e o de 3), a
+sacola (o empurrão com preço; com as ações seguradas 1,5 s, pra ver o total previsto) e o selo
+saindo depois da pausa. Pausa e apaga as promoções da rodada no fim.
 
 **Observabilidade** (fase 7, entrega 0087). O módulo `src/modules/observabilidade/` guarda três
 tabelas: `obs_rotina` (a última rodada de cada job), `obs_problema` e `obs_sinal` (o dia de cada

@@ -12,8 +12,8 @@ import {
 
 /**
  * AS PROMOÇÕES DO PAINEL, LIDAS DO MEDUSA — pro gancho do carrinho (que marca
- * as linhas a cada mudança), pro desconto por quantidade (que tira das faixas
- * os produtos em promoção) e pra rota da loja (`GET /store/promocoes`). A
+ * as linhas a cada mudança), pro desconto por quantidade (que tira os
+ * produtos em promoção das faixas que chegam no X) e pra rota da loja (`GET /store/promocoes`). A
  * regra, sem efeito nenhum, mora em `lib/promocoes.ts`.
  *
  * Guardadas por 30 segundos na memória do processo: o carrinho confere as

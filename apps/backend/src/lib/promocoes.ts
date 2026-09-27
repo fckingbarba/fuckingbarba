@@ -48,8 +48,10 @@ import {
  *
  * AS DECISÕES DA LOJA (26/09):
  * - NÃO SOMA com o desconto por quantidade (4% em 2, 6% em 3): enquanto a
- *   promoção vale, o produto sai das faixas (`lib/precos-por-quantidade.ts`,
- *   que lê `promocoesNaLoja`), e a conta fica "3 pelo preço de 2".
+ *   promoção vale, o produto sai das faixas que chegam no X
+ *   (`lib/precos-por-quantidade.ts`, que lê `promocoesNaLoja`), e a conta
+ *   fica "3 pelo preço de 2". As que acabam antes ficam: num "leve 3", 2
+ *   unidades seguem com os 4% (entrega 0142).
  * - O cupom que NÃO COMBINA não desconta item de promoção que disparou (a
  *   marca `fb_promocional` da linha, a mesma do preço promocional —
  *   `marcarPromocoes`). O que combina desconta o que sobrou.
@@ -398,7 +400,7 @@ export function produtosDaPromocao(
 /**
  * As promoções que valem AGORA, com os produtos de cada uma — a loja (o selo,
  * os cartões de quantidade, a sacola) e o desconto por quantidade (que tira
- * esses produtos das faixas) leem daqui. Promoção sem produto nenhum fica de
+ * esses produtos das faixas que chegam no X) leem daqui. Promoção sem produto nenhum fica de
  * fora: não há onde mostrar.
  */
 export function promocoesNaLoja(

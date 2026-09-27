@@ -22,7 +22,7 @@ import { alcancaOPiso, fechaOPiso, frasesDoFrete, pisoVale } from "@/lib/configu
 import { SEM_CONEXAO, semQueda } from "@/lib/rede"
 import { CalculadoraDeFrete } from "@/components/produto/calculadora"
 import type { ProdutoQueCombina } from "@/lib/pdp"
-import { gratisEm, type PromocaoDoProduto } from "@/lib/promocoes"
+import { gratisEm, unitarioEm, type PromocaoDoProduto } from "@/lib/promocoes"
 import { PARCELA_MINIMA, PARCELAS_SEM_JUROS } from "@/lib/site"
 import { rastrear } from "@/lib/rastrear"
 import { usePeDaTela } from "@/lib/use-pe-da-tela"
@@ -46,10 +46,13 @@ import { usePeDaTela } from "@/lib/use-pe-da-tela"
  *
  * O "LEVE X, PAGUE Y" (entrega 0133): com a promoção do painel valendo no
  * produto, o selo dela vai embaixo do preço, e o total segue a conta do
- * Medusa — a cada X unidades, Y pagas (`gratisEm`) —, e não mais o preço da
- * unidade vezes quantas: o produto sai das faixas de quantidade enquanto a
- * promoção vale (os dois descontos não somam), e o degrau dela vem pronto
- * da escada ("3 unidades", pelo preço de 2).
+ * Medusa — a cada X unidades, Y pagas (`gratisEm`), pelo preço de uma
+ * unidade NAQUELA quantidade (`unitarioEm`) —, e não mais o preço da
+ * unidade vezes quantas: o produto sai das faixas de quantidade que chegam
+ * no X enquanto a promoção vale (os dois descontos não somam), e o degrau
+ * dela vem pronto da escada ("3 unidades", pelo preço de 2). As faixas que
+ * acabam antes do X ficam (entrega 0142): num "leve 3", 2 unidades pagam a
+ * faixa de 2, e o cartão dela continua.
  *
  * ESGOTADO, É OUTRA CAIXA (`CompraEsgotada`, lá embaixo): o preço, a faixa
  * "Esgotado" e o "avise-me quando chegar" no lugar do botão. Some tudo o que
@@ -72,6 +75,7 @@ export function Compra({
   estoque,
   mostrarDegraus,
   promocao = null,
+  unitarios,
 }: {
   nome: string
   foto: string | null
@@ -92,6 +96,8 @@ export function Compra({
   mostrarDegraus: boolean
   /** O "Leve X, pague Y" que vale no produto agora, ou `null`. */
   promocao?: PromocaoDoProduto | null
+  /** O preço de uma unidade levando 1, 2 e 3 ou mais (`escadaDeQuantidade`). */
+  unitarios?: readonly number[]
 }) {
   const politica = useFrete()
   const frases = frasesDoFrete(politica)
@@ -148,10 +154,10 @@ export function Compra({
     )
   }
 
+  // O preço de uma unidade que o carrinho vai cobrar nesta quantidade.
+  const unitario = promocao ? unitarioEm(unitarios, unidades, base.porUnidade) : degrau.porUnidade
   const total = promocao
-    ? emCentavos(
-        base.porUnidade * (unidades - gratisEm(unidades, promocao.comprando, promocao.pague))
-      )
+    ? emCentavos(unitario * (unidades - gratisEm(unidades, promocao.comprando, promocao.pague)))
     : emCentavos(degrau.porUnidade * unidades)
   const parcela = total / PARCELAS_SEM_JUROS
   const parcelavel = parcela >= PARCELA_MINIMA
@@ -242,7 +248,7 @@ export function Compra({
               handle: base.handle,
               imagem: foto,
               quantidade: unidades,
-              precoUnitario: promocao ? base.porUnidade : degrau.porUnidade,
+              precoUnitario: unitario,
               total,
             },
             ...marcados.map((c) => ({

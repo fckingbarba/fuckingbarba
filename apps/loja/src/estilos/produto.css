@@ -72,6 +72,20 @@
   padding: 5px 13px 5px 10px;
   clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 0 100%);
 }
+/* O "Leve 3, pague 2" em cima e o "-X%" embaixo (entrega 0142): a pilha
+   cresce com a etiqueta que quebra a linha num card estreito. */
+.produto__selos {
+  position: absolute;
+  top: 10px;
+  left: 0;
+  z-index: 2;
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+}
+.produto__selos .produto__selo {
+  position: static;
+}
 .produto__nota {
   display: flex;
   align-items: center;

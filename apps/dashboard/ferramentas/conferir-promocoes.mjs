@@ -22,15 +22,19 @@
  * │   primeira (6 unidades, uma só de graça — o `max_quantity` do Medusa); │
  * │   que desconta produto de fora dela;                                   │
  * │ • o desconto por quantidade SOMANDO com ela (a loja decidiu que não);  │
- * │   o produto que não volta pras faixas quando ela pausa;                │
+ * │   a faixa de 2 sumindo num "leve 3" (o cartão de 2 da PDP é dela —     │
+ * │   entrega 0142); o produto que não volta pras faixas quando ela pausa; │
  * │ • o cupom que não combina descontando o item da promoção; o "um cupom  │
  * │   por pedido" recusando cupom por causa do código da promoção;         │
  * │ • a pausada ou a agendada que dá desconto; a agendada na loja;         │
  * │ • a lista contando errado (pedidos, desconto); o código da promoção    │
  * │   aparecendo como cupom (no painel e no Marketing);                    │
  * │ • o formulário: campo errado sem voltar marcado, a prévia mentindo;    │
- * │ • a loja: o selo que não aparece (ou fica depois da pausa), o cartão   │
- * │   de 3 com preço errado, a sacola sem o recado ou com o total errado;  │
+ * │ • a loja: o selo que não aparece (ou fica depois da pausa), o "-X%"    │
+ * │   que some do card com ele (entrega 0142), o cartão de 2 que some, o   │
+ * │   de 3 com preço errado, a sacola sem o recado ou com o total errado,  │
+ * │   ou dizendo "sai de graça" pra terceira que custa a diferença da      │
+ * │   faixa de 2;                                                          │
  * │ • rolagem de lado no celular; erro no console.                         │
  * └────────────────────────────────────────────────────────────────────────┘
  */
@@ -241,6 +245,14 @@ try {
       Number(p.variants?.[0]?.calculated_price?.calculated_amount ?? Infinity),
     ])
   )
+  /** O "-X%" que o card mostra (o de/por), ou null — a conta do `CartaoProduto`. */
+  const descontoDo = (id) => {
+    const preco = (comPreco.products ?? []).find((p) => p.id === id)?.variants?.[0]
+      ?.calculated_price
+    const atual = Number(preco?.calculated_amount)
+    const cheio = Number(preco?.original_amount)
+    return cheio > atual ? Math.round((1 - atual / cheio) * 100) : null
+  }
   const vendaveis = (catalogo.products ?? [])
     .filter(
       (p) =>
@@ -298,15 +310,18 @@ try {
   /* ── no carrinho ───────────────────────────────────────────────────────── */
 
   titulo("No carrinho: o Medusa dá de graça")
-  const umaDeA = (await faixas(vA))[1]
+  const fA = await faixas(vA)
+  const umaDeA = fA[1]
   const c2 = await lerCarrinho(await carrinho([[vA, 2]]))
   const c3 = await lerCarrinho(await carrinho([[vA, 3]]))
   const c5 = await lerCarrinho(await carrinho([[vA, 5]]))
   const c6 = await lerCarrinho(await carrinho([[vA, 6]]))
   ok(
-    !c2.codigos.includes(P.codigo) && gratisNo(c2, P.codigo) === 0,
-    "2 unidades: nada de graça",
-    JSON.stringify(c2)
+    !c2.codigos.includes(P.codigo) &&
+      gratisNo(c2, P.codigo) === 0 &&
+      c2.linha(vA)?.unitario === centavos(fA[2]),
+    "2 unidades: nada de graça, e a faixa de 2 continua",
+    `${JSON.stringify(c2)} faixa=${fA[2]}`
   )
   ok(
     c3.codigos.includes(P.codigo) &&
@@ -334,11 +349,10 @@ try {
   )
 
   titulo("Não soma com o desconto por quantidade")
-  const fA = await faixas(vA)
   const fB = await faixas(vB)
   ok(
-    fA[1] === fA[2] && fA[2] === fA[3],
-    "o produto da promoção sai das faixas: 1, 2 e 3 pelo mesmo preço",
+    fA[2] < fA[1] && fA[3] === fA[1],
+    "o produto da promoção sai da faixa de 3 ou mais, e fica na de 2 (acaba antes do 3)",
     JSON.stringify(fA)
   )
   ok(fB[2] < fB[1] && fB[3] < fB[2], "o de fora continua nas faixas", JSON.stringify(fB))
@@ -491,8 +505,11 @@ try {
   const cPausa = await lerCarrinho(await carrinho([[vA, 3]]))
   const fPausa = await faixas(vA)
   ok(
-    pausa.status === 200 && gratisNo(cPausa, P.codigo) === 0 && fPausa[2] < fPausa[1],
-    "pausada: nada de graça, e o produto volta pras faixas na hora",
+    pausa.status === 200 &&
+      gratisNo(cPausa, P.codigo) === 0 &&
+      fPausa[2] < fPausa[1] &&
+      fPausa[3] < fPausa[2],
+    "pausada: nada de graça, e o produto volta pra faixa de 3 na hora",
     `${pausa.status} ${JSON.stringify(cPausa.linhas)} ${JSON.stringify(fPausa)}`
   )
   const semNaLoja = ((await loja("/store/promocoes")).corpo.promocoes ?? []).some(
@@ -651,17 +668,36 @@ try {
       if (segurar && r.method() === "POST" && r.headers()["next-action"]) await esperar(1500)
       await rota.continue().catch(() => null)
     })
-    // O card da vitrine: o selo da promoção no lugar do desconto.
+    // O card da vitrine: o selo da promoção em cima, e o do desconto logo embaixo.
     await pagina.goto(`${LOJA}/produtos`, { waitUntil: "load" })
     const card = pagina.locator("article.produto", {
       has: pagina.locator(`a[href="/produtos/${A.handle}"]`),
     })
     await card.first().waitFor({ timeout: 30000 })
+    const seloDaPromocao = card.first().locator(".produto__selo[data-promocao]")
+    const seloDoDesconto = card.first().locator(".produto__selo[data-desconto]")
     ok(
-      semEspaco(await card.first().locator(".produto__selo").textContent()) === "Leve 3, pague 2",
+      semEspaco(await seloDaPromocao.textContent()) === "Leve 3, pague 2",
       "o card tem o selo da promoção",
-      semEspaco(await card.first().locator(".produto__selo").textContent())
+      semEspaco(await seloDaPromocao.textContent())
     )
+    const descontoDeA = descontoDo(A.id)
+    if (descontoDeA === null) {
+      ok((await seloDoDesconto.count()) === 0, "sem de/por, o card não tem o selo do desconto")
+    } else {
+      const [emCima, embaixo] = [
+        await seloDaPromocao.boundingBox(),
+        await seloDoDesconto.boundingBox(),
+      ]
+      ok(
+        semEspaco(await seloDoDesconto.textContent()) === `-${descontoDeA}%` &&
+          emCima &&
+          embaixo &&
+          embaixo.y >= emCima.y + emCima.height,
+        `e o do desconto (-${descontoDeA}%) logo embaixo, sem cobrir`,
+        `${semEspaco(await seloDoDesconto.textContent().catch(() => ""))} ${JSON.stringify([emCima, embaixo])}`
+      )
+    }
     // A página do produto: o selo, o cartão de 3 e o preço das 3.
     await pagina.goto(`${LOJA}/produtos/${A.handle}`, { waitUntil: "load" })
     await pagina.waitForSelector(".compra__precos")
@@ -671,6 +707,16 @@ try {
         "Leve 3, pague 2",
       "a página do produto tem o selo embaixo do preço"
     )
+    const cartao2 = pagina.locator("label.compra__kit", { has: pagina.locator('input[value="2"]') })
+    const textoDo2 = semEspaco(await cartao2.textContent().catch(() => ""))
+    ok(
+      textoDo2.includes(reais(2 * fA[2])) && !textoDo2.includes("Leve 3"),
+      "o cartão de 2 unidades continua, com o preço da faixa de 2",
+      textoDo2
+    )
+    await cartao2.locator('input[value="2"]').check({ force: true })
+    const porDe2 = semEspaco(await pagina.locator(".compra__por").first().textContent())
+    ok(porDe2 === reais(2 * fA[2]), "escolhendo 2, o preço lá em cima é o da faixa", porDe2)
     const cartao3 = pagina.locator("label.compra__kit", { has: pagina.locator('input[value="3"]') })
     const textoDo3 = semEspaco(await cartao3.textContent().catch(() => ""))
     ok(
@@ -689,14 +735,24 @@ try {
     const gaveta = pagina.locator("#carrinho-gaveta")
     const recado = gaveta.locator("[data-promocao-linha]")
     await recado.first().waitFor({ timeout: 30000 })
+    await pagina.waitForFunction(
+      () => !document.querySelector("#carrinho-gaveta .sacolinha__item[data-mexendo]"),
+      undefined,
+      { timeout: 30000 }
+    )
+    const parcialDe2 = semEspaco(await gaveta.locator(".sacolinha__parcial").first().textContent())
+    // A terceira não sai de graça de 2 pra 3: a faixa de 2 deixa de valer. O empurrão diz quanto.
+    const empurrao = `Leve 3, pague 2 · mais 1 por ${reais(2 * umaDeA - 2 * fA[2])}`
     ok(
-      semEspaco(await recado.first().textContent()) === "Leve 3, pague 2 · mais 1 sai de graça",
-      "na sacola, com 2: o empurrão pra terceira",
-      semEspaco(await recado.first().textContent())
+      semEspaco(await recado.first().textContent()) === semEspaco(empurrao) &&
+        parcialDe2 === reais(2 * fA[2]),
+      "na sacola, com 2: o empurrão pra terceira com o preço dela, e a linha pela faixa de 2",
+      `${semEspaco(await recado.first().textContent())} | ${parcialDe2}`
     )
     segurar = true
     await gaveta.locator('.sacolinha__item button[aria-label^="Aumentar"]').first().click()
-    // Enquanto o Medusa não responde, a linha esmaece com o total previsto — sem as de graça.
+    // Enquanto o Medusa não responde, a linha esmaece com o total previsto — sem as de graça,
+    // e sem a faixa de 2, que não vale no 3.
     await gaveta.locator(".sacolinha__item[data-mexendo]").first().waitFor({ timeout: 5000 })
     const previsto = semEspaco(await gaveta.locator(".sacolinha__parcial").first().textContent())
     segurar = false
@@ -726,6 +782,16 @@ try {
       semSelo = (await pagina.locator(".compra [data-promocao]").count()) === 0
     }
     ok(semSelo, "pausada, o selo sai da página do produto")
+    if (descontoDeA !== null) {
+      await pagina.goto(`${LOJA}/produtos`, { waitUntil: "load" })
+      await card.first().waitFor({ timeout: 30000 })
+      const selos = await card.first().locator(".produto__selo").allTextContents()
+      ok(
+        selos.length === 1 && semEspaco(selos[0]) === `-${descontoDeA}%`,
+        "e no card fica só o do desconto",
+        JSON.stringify(selos)
+      )
+    }
   }
 
   titulo("Console")

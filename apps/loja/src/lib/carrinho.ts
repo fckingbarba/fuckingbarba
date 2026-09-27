@@ -2,8 +2,20 @@ import "server-only"
 import type { HttpTypes } from "@medusajs/types"
 import { cookies } from "next/headers"
 import { CARRINHO_VAZIO, type CarrinhoVisivel, type ItemDoCarrinho } from "./carrinho-visivel"
-import { cliente, falhaPassageira, promocoesOuNenhuma, regiaoBrasil } from "./medusa"
-import { ehCodigoDePromocao, promocoesDasLinhas, type PromocaoNaLoja } from "./promocoes"
+import {
+  cliente,
+  escadaDeQuantidade,
+  falhaPassageira,
+  promocoesOuNenhuma,
+  regiaoBrasil,
+} from "./medusa"
+import {
+  ehCodigoDePromocao,
+  precoDoEmpurrao,
+  promocoesDasLinhas,
+  type PromocaoDaLinha,
+  type PromocaoNaLoja,
+} from "./promocoes"
 
 /**
  * O CARRINHO
@@ -101,12 +113,15 @@ function gratisDaLinha(item: HttpTypes.StoreCartLineItem): number {
  * O carrinho no formato da gaveta. Com as promoções do painel
  * (`promocoesOuNenhuma`), cada linha de produto em promoção ganha o recado:
  * a etiqueta, quantas saíram de graça, e — na última — quantas a mais fazem
- * a próxima sair de graça (`promocoesDasLinhas`). Sem elas, a sacola é a de
- * sempre: o desconto é o Medusa que dá, e o total já vem com ele.
+ * a próxima sair de graça (`promocoesDasLinhas`); e, com os `unitarios` da
+ * variante (o preço de uma unidade por quantidade), o "+" prevê o total
+ * certo (`totalPrevisto`). Sem elas, a sacola é a de sempre: o desconto é o
+ * Medusa que dá, e o total já vem com ele.
  */
 export function paraVisivel(
   carrinho: Carrinho | null,
-  promocoes: readonly PromocaoNaLoja[] = []
+  promocoes: readonly PromocaoNaLoja[] = [],
+  unitarios: ReadonlyMap<string, number[]> = new Map()
 ): CarrinhoVisivel {
   if (!carrinho) return CARRINHO_VAZIO
 
@@ -122,6 +137,23 @@ export function paraVisivel(
       )
     : []
 
+  /** O recado da linha em promoção, com os preços por quantidade dela e quanto o empurrão custa. */
+  const comRecado = (
+    item: HttpTypes.StoreCartLineItem,
+    k: number
+  ): { promocao?: PromocaoDaLinha } => {
+    const recado = recados[k]
+    if (!recado) return {}
+    const daVariante = unitarios.get(item.variant_id ?? "")
+    const promocao = daVariante ? { ...recado, unitarios: daVariante } : recado
+    const custam = precoDoEmpurrao({
+      quantidade: item.quantity ?? 0,
+      precoUnitario: Number(item.unit_price ?? 0),
+      promocao,
+    })
+    return { promocao: { ...promocao, custam } }
+  }
+
   const itens: ItemDoCarrinho[] = linhas.map((item, k) => ({
     id: item.id,
     varianteId: item.variant_id ?? "",
@@ -134,7 +166,7 @@ export function paraVisivel(
     quantidade: item.quantity ?? 0,
     precoUnitario: Number(item.unit_price ?? 0),
     total: Number(item.total ?? 0),
-    ...(recados[k] ? { promocao: recados[k] } : {}),
+    ...comRecado(item, k),
   }))
 
   const metodo = carrinho.shipping_methods?.[0]
@@ -154,9 +186,37 @@ export function paraVisivel(
   }
 }
 
-/** O carrinho no formato da gaveta, já com o recado das promoções (ver `paraVisivel`). */
+/**
+ * O carrinho no formato da gaveta, já com o recado das promoções (ver
+ * `paraVisivel`) — e, nas linhas em promoção, o preço de uma unidade por
+ * quantidade, da escada da página do produto (guardada: não é uma ida a
+ * mais ao Medusa por linha). Sem a escada, a linha prevê pelo preço da
+ * unidade de agora, e quem acerta é a resposta.
+ */
 export async function paraAGaveta(carrinho: Carrinho | null): Promise<CarrinhoVisivel> {
-  return paraVisivel(carrinho, carrinho?.items?.length ? await promocoesOuNenhuma() : [])
+  const linhas = carrinho?.items ?? []
+  if (!linhas.length) return paraVisivel(carrinho)
+  const promocoes = await promocoesOuNenhuma()
+  const emPromocao = linhas.filter(
+    (i) =>
+      i.product_handle &&
+      i.variant_id &&
+      promocoes.some((p) => p.produtos.includes(i.product_id ?? ""))
+  )
+  const unitarios = new Map<string, number[]>()
+  await Promise.all(
+    emPromocao.map(async (i) => {
+      try {
+        const escada = await escadaDeQuantidade(i.product_handle!)
+        // A escada é a da primeira variação do produto: de outra, não vale.
+        if (escada.degraus[0]?.varianteId === i.variant_id)
+          unitarios.set(i.variant_id!, escada.unitarios)
+      } catch (e) {
+        aviso(e, "a escada da linha em promoção")
+      }
+    })
+  )
+  return paraVisivel(carrinho, promocoes, unitarios)
 }
 
 /**
