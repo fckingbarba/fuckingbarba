@@ -1,16 +1,21 @@
 /**
  * O RASTRO DA COMPRA — o que a loja manda logo depois de fechar o pedido
  * (`POST /store/pedidos/rastro`, só ela, assinada) e fica no pedido em
- * `metadata.fb_rastro`: a resposta sobre os cookies e, só com o sim, os
- * cookies dos parceiros, o IP e o navegador. É o que a compra pelo servidor
- * (`enviar.ts`) usa pra casar o pedido com o anúncio.
+ * `metadata.fb_rastro`: a resposta sobre os cookies, os do GA4 e o navegador
+ * de quem não disse não e, só com o sim, os dos outros parceiros, o IP e a
+ * página. É o que a compra pelo servidor (`enviar.ts`) usa pra casar o
+ * pedido com o anúncio — e o navegador diz o aparelho da compra no Funil.
  *
  * Código puro, com testes. O que chega é conferido campo a campo — tamanho e
  * caracteres —, porque vai pra dentro da chamada de outra empresa.
  *
- * SEM O SIM, SÓ A RESPOSTA: o servidor precisa saber que NÃO pode avisar
- * ninguém. E o sim vale só pros parceiros que estavam na faixa quando a
- * pessoa clicou (`parceiros`).
+ * SEM O SIM, SÓ A RESPOSTA — e o GA4: o servidor precisa saber que NÃO pode
+ * avisar a Meta nem o TikTok. O GA4 conta todo mundo que não disse não (a
+ * loja liga ele antes da resposta desde a 0166, como a Nuvemshop): sem
+ * resposta, os cookies dele ficam, e o navegador (o aparelho, pra mesma gente
+ * das visitas; pra Meta e o TikTok ele só vai com o sim, em `decidir`). Com o
+ * "não", nem eles. E o sim vale só pros parceiros que estavam na faixa
+ * quando a pessoa clicou (`parceiros`).
  */
 
 export const CHAVE_DO_RASTRO = "fb_rastro"
@@ -63,7 +68,7 @@ export function lerRastro(bruto: unknown): Rastro | null {
         ? PARCEIROS.filter((p) => (o.parceiros as unknown[]).includes(p))
         : [],
     ga:
-      sim && o.ga
+      consentimento !== "nao" && o.ga
         ? {
             cookie: texto(ga.cookie, DE_COOKIE, 200),
             sessao: texto(ga.sessao, DE_COOKIE, 300),
@@ -78,7 +83,10 @@ export function lerRastro(bruto: unknown): Rastro | null {
         : null,
     tiktok: sim && o.tiktok ? { ttp: texto(tiktok.ttp, DE_COOKIE, 200) } : null,
     ip: sim ? texto(o.ip, IP, 45) : null,
-    navegador: sim && typeof o.navegador === "string" ? o.navegador.slice(0, 500) || null : null,
+    navegador:
+      consentimento !== "nao" && typeof o.navegador === "string"
+        ? o.navegador.slice(0, 500) || null
+        : null,
     pagina: sim ? texto(o.pagina, /^https?:\/\/[^\s"'<>]+$/, 500) : null,
   }
 }

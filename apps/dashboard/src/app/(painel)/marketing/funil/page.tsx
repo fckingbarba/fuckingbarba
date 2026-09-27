@@ -44,9 +44,9 @@ async function Funil({ searchParams }: { searchParams: Busca }) {
         <TelaDoFunil periodo={periodo} />
       </Suspense>
       <p className="fonte-dados">
-        <b>De onde vêm os números:</b> do site até o pagamento e os aparelhos — Google Analytics, só
-        de quem aceitou os cookies (as compras, a loja manda pelo servidor); da sacola ao pagamento
-        — os carrinhos da loja, de todo mundo.
+        <b>De onde vêm os números:</b> do site até o pagamento e os aparelhos — Google Analytics, de
+        todo mundo menos quem recusou os cookies (as compras, a loja manda pelo servidor); da sacola
+        ao pagamento — os carrinhos da loja, de todo mundo.
       </p>
     </div>
   )

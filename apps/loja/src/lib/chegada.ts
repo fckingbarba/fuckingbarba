@@ -76,7 +76,8 @@ export function chegadaDaVisita(): Chegada | null {
 /*
   A CAMPANHA DO LINK, PROS PARCEIROS. A Clarity, o GA4, o Google Ads, a Meta e
   o TikTok leem a campanha no ENDEREÇO da página em que ligam — o `?utm_…` e o
-  clique do anúncio (`gclid`, `fbclid`…) —, e aqui eles só ligam no "Aceitar".
+  clique do anúncio (`gclid`, `fbclid`…) —, e aqui eles só ligam no "Aceitar"
+  (menos o GA4, que desde a 0166 liga na chegada e lê a campanha ali).
   Quem aceita depois de trocar de página já não tem nada disso na barra, e
   cada parceiro via só o site (27/09: a Clarity parou de mostrar as UTMs que
   mostrava na Nuvemshop, onde carregava sem perguntar). Então a campanha da

@@ -226,8 +226,11 @@ precisa sair da janela dela — ver `longeDaConciliacaoAutomatica` no conferidor
   Ler `searchParams` numa delas a torna dinâmica: esqueleto, streaming, rodapé pulando e LCP
   estourado no Lighthouse — ver `apps/loja/src/components/catalogo/tela.tsx`. A `/busca` é a
   exceção, porque o `?q=` não tem como ser gerado no build.
-- **Sem GTM, sem widget de terceiro no `<head>`.** Tags entram por `components/analytics/tags.tsx`,
-  depois do consentimento. Orçamento de terceiros: 150 KB (Lighthouse CI quebra acima).
+- **Sem GTM, sem widget de terceiro no `<head>`.** Tags entram por `components/analytics/tags.tsx`:
+  o GA4 e a Clarity desde a primeira página, só medindo (quem clica em "Só o necessário" sai —
+  entregas 0166 e 0171: o dono quis as visitas contadas como na Nuvemshop, e a jornada de quem não
+  responde a faixa na Clarity); as outras, depois do "Aceitar". Orçamento de terceiros: 150 KB
+  (Lighthouse CI quebra acima).
 - **Segredo nunca com `NEXT_PUBLIC_`.** Chaves de servidor ficam no Railway e na Vercel, nunca em código.
 - **Chave nunca passa pela conversa.** Token, senha e segredo vão direto no painel do Railway ou da
   Vercel, por quem tem acesso a ele. Se um aparecer colado num chat, num log ou num commit, conta como
@@ -1295,9 +1298,9 @@ compras da loja do período e do de antes numa chamada só ao GA4 (`visitasDoMar
 guardada como as do dia: `date`+`hour` de `2n−1daysAgo` a `today`, até 4.320 linhas cada — as
 compras com o `SO_AS_COMPRAS_DA_LOJA`) e a conversão, compras ÷ visitas NO MESMO CORTE de hora
 (`visitasDoPeriodo` — o Google soma hoje com atraso). **A conversão compara gente igual** (entrega
-0135): o GA4 só vê quem aceitou os cookies, então o numerador são as compras que ELE viu, não os
-pedidos pagos do Medusa — dividir todos os pedidos pelas visitas de quem aceitou inflava a conversão
-(quem recusa compra, mas não vira visita). O "Pedidos pagos" do Resumo segue sendo o de todos; `POST
+0135): o GA4 não vê quem recusa os cookies (até a 0166, não via ninguém que não aceitasse), então o
+numerador são as compras que ELE viu, não os pedidos pagos do Medusa — dividir todos os pedidos pelas
+visitas do GA4 inflava a conversão (quem recusa compra, mas não vira visita). O "Pedidos pagos" do Resumo segue sendo o de todos; `POST
 /dashboard/marketing/meta` `{ valor }` (vazio tira) grava e anota `mudou-meta`. **As visitas
 contam só o endereço da loja** (`hostsDaLoja(LOJA_URL)`, filtro `hostName` na pergunta): o GA4 é o
 mesmo do site da Nuvemshop, que segue no ar até a virada — o `LOJA_URL` troca na virada, e o
@@ -1946,7 +1949,9 @@ O resto é assim:
   (`lib/observabilidade/tela.ts`: a loja agora pelo `LOJA_URL`, guardada 1 minuto; o Medusa ligado
   desde; a conexão do ERP e a última nota) e `POST /dashboard/observabilidade/problemas/:id`
   `{ acao: "resolver" }`. O `GET /dashboard/eu` devolve `avisos.observabilidade`: os graves que o
-  papel vê, pro número vermelho do menu.
+  papel vê, pro número vermelho do menu — contados no banco (`listAndCountProblemas`, com o
+  `filtroDoPapel`, que é o `podeVer` no filtro; mudou um, mude o outro, e o teste amarra os dois).
+  Até a 0167 ele contava as linhas de uma página de 100, e o menu parava em 100.
 
 O conferidor é o `apps/dashboard/ferramentas/conferir-observabilidade.mjs`. Ele cria as falhas nos
 falsos: o Resend recusa, a Frenet cai, e o Pagar.me não estorna.
@@ -2071,14 +2076,23 @@ cookies e a compra pelo servidor:
   (z-index 60) cobria os botões da faixa, e a faixa (z-50, depois no DOM) cobria o botão do
   checkout. No celular a faixa é menor: letra de 12 px e cada botão numa linha.
 - **As tags** (`components/analytics/`): `tags.tsx` (no layout raiz, com o GA4 da Vercel de
-  reserva) só chama `ligarIntegracoes` (`integracoes.ts`) com o sim — o modo básico: antes dele,
-  nenhum script de fora na página. Os trechos são os oficiais, com o código conferido de novo. As
-  trocas de página cada plataforma conta sozinha (GA4, Meta, TikTok e Clarity escutam o histórico):
-  não mande `page_view` à mão.
+  reserva) chama `ligarIntegracoes(i, sim)` (`integracoes.ts`, baixado por `import()` só quando
+  alguma tag liga) em dois tempos (entregas 0166 e 0171): SEM RESPOSTA, o GA4 (com
+  `analytics_storage` permitido e os três de anúncio negados) e a Clarity (`consentv2` com
+  `ad_Storage` negado) — contam e gravam a visita como a Nuvemshop, sem nada pra anúncio; COM O
+  SIM, o `consent update` do Google e o `consentv2` liberado da Clarity, o Google Ads, a Meta e o
+  TikTok. Com o "não", os dois nem ligam; se já estavam na página, `responder`
+  (`consentimento.tsx`) liga o `ga-disable-<código>`, nega o `consentv2`, apaga os cookies dos parceiros
+  (`_ga`, `_ga_*`, `_gcl_*`, `_fbp`, `_fbc`, `_ttp`, `_clck`, `_clsk`, em cada domínio de cima) e
+  recarrega. A resposta que muda antes do `import()` chegar cancela o que ele ia montar. Os
+  trechos são os oficiais, com o código conferido de novo. As trocas de página cada plataforma
+  conta sozinha (GA4, Meta, TikTok e Clarity escutam o histórico): não mande `page_view` à mão.
 - **A campanha do link** (entrega 0162): cada plataforma lê a campanha no ENDEREÇO da página em
   que liga — as UTMs e o clique do anúncio (`gclid`, `gbraid`, `wbraid`, `gad_*`, `dclid`,
-  `srsltid`, `fbclid`, `ttclid`, `msclkid`) —, e as tags só ligam no sim. Quem aceitava depois de
-  trocar de página chegava sem campanha em todas (27/09: a Clarity só via o site). O
+  `srsltid`, `fbclid`, `ttclid`, `msclkid`) —, e as tags do sim só ligam no "Aceitar" (o GA4 e a
+  Clarity ligam na chegada e leem a campanha ali; quando ela volta, veem uma página a mais). Quem
+  aceitava depois de trocar de página chegava sem campanha em todas (27/09: a Clarity só via o
+  site). O
   `guardarACampanha` (`lib/chegada.ts`, no efeito do `tags.tsx`) guarda a da página de chegada na
   aba (`fb_campanha`; outro link na mesma aba troca), e o `devolverACampanha`, no começo do
   `ligarIntegracoes`, a devolve ao endereço antes dos scripts quando ele não tem campanha nenhuma —
@@ -2087,21 +2101,26 @@ cookies e a compra pelo servidor:
   `DA_CAMPANHA`.
 - **Os eventos** saem só por `lib/rastrear.ts`: `gtag('event', …)` pro GA4 e o Ads (o
   `dataLayer.push` de objeto, sem GTM, o gtag.js ignora), os padrões da Meta e do TikTok, e marcas
-  na Clarity. Até as tags ligarem, o evento espera numa fila da página (o efeito do produto roda
-  antes do das tags); sem o sim, morre com ela. Onde nascem: `view_item` na caixa de compra,
+  na Clarity. São duas portas, cada uma com a sua fila na página: a da medição abre quando o GA4
+  ou a Clarity ligam (sem resposta ou com o sim) e leva o `gtag('event', …)` e as marcas da
+  Clarity; a dos outros e do CRM, só com o sim (o efeito do produto roda antes do das tags); porta
+  que não abre leva a fila junto com a página. Onde nascem: `view_item` na caixa de compra,
   `add_to_cart`/`remove_from_cart` pela diferença da sacola no provedor
   (`rastrearMudancaDaSacola` — pega a página do produto, o leva junto, a oferta e o "+"),
   `begin_checkout` e `add_shipping_info` nas etapas, `add_payment_info` no pagar. O `item_id` é o
   id da variante, o mesmo da compra do servidor.
 - **O rastro da compra** (`apps/loja/src/lib/rastro.ts`): a ação de finalizar lê a resposta sobre
-  os cookies e, só com o sim, `_ga`/`_ga_<código>`, `_fbp`/`_fbc`, `_ttp`, o IP e o navegador; e
+  os cookies; de quem não disse não, `_ga`/`_ga_<código>` e o navegador (o aparelho da compra no
+  Funil, pra mesma gente das visitas); e, só com o sim, `_fbp`/`_fbc`, `_ttp`, o IP e a página; e
   manda DEPOIS da resposta (`after()`) pra `POST /store/pedidos/rastro` (só a loja, `daLoja`;
   `registrarRastroWorkflow` grava `fb_rastro` uma vez). NÃO vai no metadata do carrinho — que o
   2.21 copia pro pedido (conferido em 25/09) —, porque qualquer update do carrinho roda o
   `refreshCartItemsWorkflow`: cota o frete de novo e refaz a coleção de pagamento, na hora de
   pagar.
 - **A compra pelo servidor** (`apps/backend/src/lib/anuncios/`): `compra.ts` é puro — `decidir`
-  (código no painel, chave no Railway, o sim pra aquele parceiro; sem rastro, espera 30 minutos) e
+  (código no painel, chave no Railway; o "não" dispensa todas; o GA4 vai de quem não disse não, com
+  `ad_user_data`/`ad_personalization` só `GRANTED` com o sim ao Google; a Meta e o TikTok, só com o
+  sim pra eles; sem rastro, espera 30 minutos) e
   o formato de cada um (a Meta na Graph `v26.0`, o GA4 no Measurement Protocol, o TikTok na Events
   API; o id do pedido é o `event_id`/`transaction_id` de todos). `enviar.ts` manda, dentro da trava
   `anuncios-compra:<pedido>`, e grava `fb_anuncios.compra.<plataforma>` (enviada, dispensada ou
@@ -2535,6 +2554,63 @@ confere:
 - a aba: a chave, o "Mandar pra mim", o desconto e o celular.
 Os e-mails de teste saem fora do grupo de controle (o sorteio é o mesmo do motor). A
 `conferir-observabilidade` conta 13 rotinas.
+
+**O CRM, parte 8: o carrinho abandonado** (entrega 0169). O terceiro fluxo de compra: pôs na
+sacola, não foi pro checkout, e a loja sabe quem é. As horas são as do dono: 1 hora, 12 horas (o
+que os clientes acharam), 1 dia (o desconto), 3 dias (o desconto vence amanhã) e 5 dias (a última).
+
+- **De quem é a sacola:** ela não tem e-mail (a loja cria o carrinho sem login; o e-mail só entra
+  no checkout), então quem diz é o CRM. `crm.carrinhosComDono(desde)` pega o e-mail da anotação
+  mais nova com aquele `carrinho_id`. Só aparece quem aceitou os cookies e já se identificou (a
+  conta, a newsletter, uma compra de antes), porque o `identificar` põe o e-mail até nas anotações
+  de antes. O motor começa por essas sacolas e só carrega elas: as sem dono, que são quase todas,
+  nem saem do banco.
+- **As regras** (`lib/crm/fluxos.ts`):
+  - prioridade 3, depois do Pix e do checkout;
+  - o cupom do carrinho vale 3 dias (`validadeDoCupom`), pro e-mail de 3 dias poder dizer
+    "vence amanhã";
+  - a janela de cada fluxo é o último toque, a validade dele e mais um dia (`diasDoFluxo`):
+    4 dias no Pix e no checkout, 7 no carrinho.
+- **Para quando:** a pessoa compra, ou abre o checkout depois (um carrinho com o e-mail dela
+  mexido depois da sacola). Aí quem cuida é o fluxo do checkout.
+- **O e-mail de 12 horas** leva as avaliações de verdade (as aprovadas no painel, de 4 e 5
+  estrelas, as mais novas primeiro) dos produtos da sacola. Sem nenhuma, leva "Como funciona".
+  O nome vem da conta com aquele e-mail, se tiver.
+- **O botão** é o mesmo link de voltar (`/voltar/<carrinho>`): põe a sacola de volta e cai no
+  checkout, com o cupom quando tem.
+- **A política de privacidade** diz que a sacola ganha até cinco e-mails, e só quando a loja já
+  sabe quem é a pessoa.
+
+O `conferir-crm.mjs` faz a sacola sem e-mail e o evento do CRM com a newsletter (como a loja manda),
+e confere:
+- os cinco toques, e o cupom de 3 dias;
+- o link que devolve a sacola com o cupom aplicado;
+- quem abre o checkout depois: a sacola para, e o fluxo do checkout assume.
+
+**Os e-mails dos fluxos e a aba do Gmail** (entrega 0170). Os testes do dono caíam em Promoções.
+O estilo de cada e-mail (`EmailDoCrm.estilo`, decidido em `emailDoFluxo`) escolhe o jeito dele e
+quem manda:
+
+- **"pedido"**: o aviso do Pix (`pix-vence`) tem a cara dos e-mails de pedido. O pé diz o número
+  do pedido, sem o sair da lista e sem o cabeçalho `List-Unsubscribe`. Sai do remetente dos
+  pedidos (`EMAIL_REMETENTE`), sem endereço de resposta.
+- **"oferta"**: o que leva cupom fica com o modelo da marca, como antes. Promoções é o lugar dele.
+- **"pessoal"**: os lembretes sem desconto (`emailPessoal`, em `lib/emails/crm.ts`). É texto
+  simples, sem foto nem botão, com um link só. Os produtos vão em lista e as avaliações entre
+  aspas. Fecha com "Qualquer dúvida, é só responder este e-mail." e a assinatura (`QUEM_ASSINA`).
+  O sair da lista fica no pé, em letra pequena, sem o cabeçalho. O fundo branco é declarado: o
+  Mail do iPhone escurece o e-mail sem cor de fundo, e a letra escura sumiria.
+- **Quem manda** é `comQuemManda` (em `lib/crm/motor.ts`; o "Mandar pra mim" dos fluxos usa a
+  mesma) com `remetenteDoEstilo` (em `lib/email.ts`):
+  - o pessoal sai do endereço do CRM, com o nome "Matheus, da FuckingBarba"
+    (`NOME_DO_REMETENTE_PESSOAL`);
+  - a resposta dos dois do CRM (oferta e pessoal) vai pro e-mail de atendimento das Configurações
+    (`responderPara`, o `reply_to` do Resend);
+  - sem o atendimento, o pessoal manda pro WhatsApp.
+- `enviarEmail` só manda `headers` quando tem algum.
+
+O `conferir-crm.mjs` confere o remetente, a falta de foto e de cabeçalho no pessoal, o cabeçalho na
+oferta e o pé do aviso do Pix.
 
 **O preço e o promocional no painel** (entregas 0098 e 0102): os dois campos de cada produto na
 lista de Produtos, como na Nuvemshop (a 0098 tinha só o promocional, atrás de um botão). A regra é

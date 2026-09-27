@@ -7,8 +7,8 @@ import { registrarRastroWorkflow } from "../../../../workflows/anuncios/registra
 
 /**
  * POST /store/pedidos/rastro — `{ pedido, rastro }`: a resposta sobre os
- * cookies e, com o sim, os cookies dos parceiros, o IP e o navegador de quem
- * comprou (`lib/anuncios/rastro.ts`).
+ * cookies, os do GA4 de quem não recusou e, com o sim, os dos outros
+ * parceiros, o IP e o navegador de quem comprou (`lib/anuncios/rastro.ts`).
  *
  * Quem chama é a loja, logo depois de fechar o pedido (`after()` na ação de
  * finalizar). SÓ A LOJA (`x-loja-segredo`): de fora, qualquer um poderia
@@ -49,7 +49,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
   res.json({ gravado: result.gravado })
 
   // Depois da resposta: a compra do pedido que já está pago. Falhou, a varredura tenta.
-  if (result.gravado && rastro.consentimento === "sim") {
+  if (result.gravado && rastro.consentimento !== "nao") {
     const logger = req.scope.resolve(ContainerRegistrationKeys.LOGGER)
     mandarCompra(req.scope, pedido).catch((e) =>
       logger.warn(

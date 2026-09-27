@@ -142,7 +142,7 @@ google.dia = {
   origens: [],
   paginas: [],
   agora: 0,
-  // As compras que o Google viu (só de quem aceitou os cookies): às 10h de cada dia de antes;
+  // As compras que o Google viu (sem quem recusou os cookies): às 10h de cada dia de antes;
   // hoje, uma à meia-noite e cinco na hora de agora — essas cinco, fora do corte.
   compras: [
     ...Array.from({ length: 13 }, (_, i) => ({
@@ -318,7 +318,7 @@ try {
     ok(
       v.conversao.valor === Math.round((SETE_COMPRAS / SETE_DIAS) * 10_000) / 100 &&
         v.conversao.antes === Math.round((SETE_COMPRAS_ANTES / SETE_ANTES) * 10_000) / 100,
-      "a conversão é compras que o Google viu ÷ visitas — as duas só de quem aceitou os cookies",
+      "a conversão é compras que o Google viu ÷ visitas — as duas sem quem recusou os cookies",
       JSON.stringify(v.conversao)
     )
     const lote = google.perguntas.filter((p) => p.tipo === "batchRunReports").at(-1)
@@ -410,9 +410,9 @@ try {
       ajuda.includes(
         `${INTEIRO.format(SETE_COMPRAS)} pedidos em ${INTEIRO.format(SETE_DIAS)} visitas`
       ) &&
-        /aceitou os cookies/.test(ajuda) &&
-        /aceitou/.test(await textoDe(pagina, ".glossario")),
-      "a ajuda da conversão diz a conta, e ela e o glossário dizem que é só de quem aceitou os cookies",
+        /menos quem recusou os cookies/.test(ajuda) &&
+        /sem quem recusou os cookies/.test(await textoDe(pagina, ".glossario")),
+      "a ajuda da conversão diz a conta, e ela e o glossário dizem que fica de fora quem recusou os cookies",
       ajuda || "(sem ajuda)"
     )
   }

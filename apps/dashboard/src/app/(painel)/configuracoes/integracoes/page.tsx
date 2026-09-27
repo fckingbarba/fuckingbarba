@@ -27,7 +27,7 @@ export default async function Pagina() {
         linhas={compra}
         dado="compra"
         titulo="A compra"
-        sub="Cada plataforma recebe a compra de quem aceitou os cookies. Sem o aceite, nada sai — nem na loja, nem do servidor."
+        sub="O GA4 recebe a compra de todo mundo, menos de quem recusou os cookies — como as visitas. A Meta, o TikTok e o Google Ads, só de quem aceitou."
       />
     </>
   )

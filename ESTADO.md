@@ -3400,8 +3400,9 @@ volta). Isso é a próxima parte. Até lá, nenhum e-mail de oferta sai sozinho.
 - [ ] **Recomendado, antes de os fluxos começarem (você, uma vez):** um endereço só pra oferta, pra
       que, se um dia a oferta cair no spam, o e-mail de pedido não caia junto. No Resend, Domains →
       Add Domain → `news.fuckingbarba.com.br`, e os registros que ele mostrar vão na GoDaddy. Depois,
-      no Railway, a variável `EMAIL_REMETENTE_CRM` = `FuckingBarba <ofertas@news.fuckingbarba.com.br>`.
-      Eu te guio no passo a passo quando for a hora.
+      no Railway, a variável `EMAIL_REMETENTE_CRM` = `FuckingBarba <contato@news.fuckingbarba.com.br>`
+      (`contato@`, e não `ofertas@`: desde a 0170, o mesmo endereço manda os e-mails assinados por
+      você). Eu te guio no passo a passo quando for a hora.
 - [x] **A próxima parte da Fundação:** os fluxos começaram na parte 7 (entrega 0165, logo abaixo).
 
 **CRM, parte 7: os fluxos de compra — pronto em 27/09 (entrega 0165).** Os primeiros e-mails que
@@ -3440,8 +3441,49 @@ saem sozinhos, pra quem começou uma compra e não terminou. Painel → CRM → 
 
 - [ ] **Depois do deploy (você, 5 minutos):** Painel → CRM → Fluxos → "Mandar pra mim" em cada
       e-mail, pra ver no celular. Se quiser mudar o desconto, é ali.
-- [ ] **A próxima parte** (uma entrega, perguntar antes): o carrinho abandonado (quem pôs na sacola
-      e não foi pro checkout), o pop-up da 1ª compra e as boas-vindas.
+- [x] **O carrinho abandonado** entrou na parte 8 (entrega 0169, logo abaixo).
+
+**CRM, parte 8: o carrinho abandonado — pronto em 27/09 (entrega 0169).** O terceiro fluxo, na mesma
+aba **Fluxos**: quem pôs na sacola e não foi pro checkout.
+
+- **Quem recebe:** quem a loja já conhece (escolha sua). É quem aceitou os cookies e já entrou na
+  conta, assinou a newsletter ou comprou antes. De quem ninguém sabe quem é, a sacola fica sem
+  e-mail.
+- **Os e-mails, nas suas horas:**
+  - 1 hora: "Esqueceu isso aqui?";
+  - 12 horas: o que os clientes acharam, com as avaliações de verdade (as que você aprova no painel)
+    dos produtos da sacola;
+  - 1 dia: o desconto (o mesmo % da aba), que aqui vale 3 dias;
+  - 3 dias: "o desconto vence amanhã";
+  - 5 dias: a última chamada.
+- **Para quando** a pessoa compra, ou quando abre o checkout. Aí quem cuida é o fluxo do checkout.
+- **Começa ligado**, como os outros, e só pra quem puser na sacola depois do deploy.
+- **A política de privacidade** conta esses e-mails.
+
+- [ ] **Depois do deploy (você):** CRM → Fluxos → "Mandar pra mim" nos 5 do carrinho.
+- [ ] **A próxima parte** (uma entrega, perguntar antes): o pop-up da 1ª compra e as boas-vindas.
+      Depois, a campanha de estreia pra base da Nuvemshop.
+
+**Os e-mails dos fluxos fora de Promoções — pronto em 27/09 (entrega 0170).** No seu teste, os
+e-mails caíam na aba de ofertas do Gmail. Entraram os ajustes que você escolheu:
+
+- **O aviso do Pix** ficou com a cara dos e-mails de pedido. Sai do mesmo endereço deles, e o pé diz
+  "Você recebeu porque fez o pedido #N". Não tem o "sair da lista", que é coisa de oferta.
+- **Os lembretes sem desconto** viraram e-mail de gente:
+  - texto simples, sem foto e com um link só;
+  - assinados "Matheus", com "Matheus, da FuckingBarba" no remetente;
+  - quem responder cai no e-mail de atendimento das Configurações;
+  - o "sair da lista" continua, pequeno, no pé.
+- **Os com desconto** continuam com a cara da marca. Promoções é o lugar deles.
+- **O "Mandar pra mim"** sai igual ao de verdade.
+
+Nenhum ajuste garante a aba Principal. Quem decide é o Gmail, pelo jeito do e-mail e pelo que as
+pessoas fazem com ele (abrir, responder).
+
+- [ ] **Depois do deploy (você):** CRM → Fluxos → "Mandar pra mim" no aviso do Pix e no de 30
+      minutos do checkout. Ver em que aba do Gmail cada um cai.
+- [ ] **O endereço só das ofertas** (o 3º ajuste; você, com o meu passo a passo): o item da parte
+      6, lá em cima. Até lá, os e-mails do CRM saem do endereço da loja.
 
 **A parcela mínima do cartão, editável — pronta em 27/09 (entrega 0157).** O pedido dele: "quero
 poder editar a parcela mínima no cartão, ali diz 5 reais". Em **Configurações → Pagamento**, o
@@ -3544,6 +3586,83 @@ recarrega a página, não pede nada ao servidor, e o e-mail já digitado fica no
 Depois do deploy — **nada a configurar.** Pra ver: na Clarity, as gravações de depois do deploy
 voltam a ter a campanha e a origem nos filtros de tráfego.
 
+**As visitas contadas como na Nuvemshop — pronto em 27/09 (entrega 0166).** Ele perguntou por que
+as visitas da Nuvemshop passavam as da loja nova, e pediu: "quero que fique igual da Nuvemshop".
+
+- **Por quê:** a Nuvemshop ligava o Google Analytics pra todo mundo, sem perguntar (conferido no
+  HTML dela em 27/09: o consentimento de saída já vinha "granted"), e a loja nova só ligava depois
+  do "Aceitar" da faixa de cookies — quem recusava ou só ignorava a faixa não entrava na conta. É o
+  mesmo Analytics nas duas (`G-CS3QPK0QHL`): depois da virada, a mesma gente virava menos visitas.
+- **O que muda:** o GA4 liga na primeira página, antes da resposta, só pra contar (o anúncio do
+  Google fica negado até o sim). Quem clica em "Só o necessário" sai da conta: o GA4 para, os
+  cookies dele saem e a página recarrega sem ele. O Google Ads, a Meta, o TikTok, a Clarity e o CRM
+  da loja seguem só com o "Aceitar" (a Clarity só com o aceite é escolha dele).
+- **A compra pelo servidor** vai pro GA4 de quem não recusou (antes, só de quem aceitou): as
+  compras e as visitas do Marketing seguem contando a mesma gente, e a conversão não cai à toa. O
+  aparelho da compra, no Funil, também. A Meta e o TikTok, só com o sim, como antes.
+- **A faixa** diz que o GA4 já conta: "O Google Analytics conta as visitas. Com o seu sim, também
+  usamos cookies da própria loja, do Google, da Meta… pra lembrar o que você viu, medir e mostrar
+  anúncios. Você escolhe." No celular, segue com 4 linhas.
+- **A política de privacidade** diz o que mudou: a contagem de visitas do Google Analytics é por
+  legítimo interesse e para com o "Só o necessário"; anúncio, gravação e o CRM seguem por
+  consentimento. A versão da faixa NÃO subiu: quem já tinha respondido segue com a resposta (subir
+  faria o "não" de antes voltar a ser "sem resposta", e o GA4 contaria quem já recusou).
+- **O painel:** as ajudas do Marketing e das Integrações dizem "de todo mundo, menos quem recusou
+  os cookies".
+- **Igual, igual, não fica:** quem usa bloqueador de anúncio e quem clica em "Só o necessário" não
+  entram, e a Nuvemshop conta com um contador próprio, que nunca bate 100% com o do Google. O
+  número fica perto do de antes, no mesmo Analytics.
+- **Uma página a mais no GA4:** quem chega por anúncio e aceita depois de trocar de página faz a
+  campanha voltar ao endereço (0162), e o GA4, já no ar, conta isso como mais uma página vista —
+  não uma visita a mais.
+
+Conferido pelo `conferir-integracoes.mjs` (36; 9 mudadas e 1 nova: só o GA4 antes da resposta,
+com o anúncio negado; o "Só o necessário" recarregando sem o GA4 e sem os cookies dele; o
+"Aceitar" com o GA4 já no ar; a resposta de antes que não vale ligando só o GA4; o purchase do
+GA4 com o anúncio liberado pelo sim; e, nova, a compra de quem não respondeu indo só pro GA4),
+pelos unitários (1357 no backend, 3 novos na compra), pelo `conferir-marketing.mjs` (120) e pelo
+`conferir-crm.mjs` (151 de 152 — a que falhou é a da tela da Base da Nuvemshop, que a entrega não
+toca). O `conferir-visitas.mjs` deu 40 de 41: o "Google lento" (o Início em menos de 2,5 s)
+falhou igual na main, na mesma máquina carregada. No Lighthouse (o `lhci` como o CI, Medusa falso),
+a home fica com o mesmo HTML e CSS (41,7 KB) e 0,85 KB a menos de JavaScript — os trechos das
+tags viraram `import()` —, e o melhor LCP das três páginas é o da main (2,41 s, 2,11 s e 2,26 s,
+aqui). As medidas lentas de vez em quando (a pintura em 2,2 s) apareceram nas duas.
+
+Depois do deploy — **nada a configurar.** Pra ver: numa aba anônima, abra a loja sem responder a
+faixa; no Google Analytics, em Relatórios → Tempo real, a visita aparece. O dia 27/09 fica com o
+buraco: entre a virada e este deploy, a loja nova só contou quem aceitou.
+
+**A Clarity grava também quem não responde a faixa — pronto em 27/09 (entrega 0171).** Depois da
+0166 ele perguntou se a Clarity ia aparecer mais, e pediu: "quero que o Clarity mostre quem clica
+em aceitar e quem não clica, porque com isso eu consigo ver a jornada de usuários".
+
+- **O que muda:** a Clarity liga na primeira página junto com o GA4, antes da resposta, só pra
+  gravar (o `consentv2` com o anúncio da Microsoft negado até o sim). Quem clica em "Só o
+  necessário" fica fora, como no GA4: a Clarity para, os cookies dela (`_clck`, `_clsk`) saem e a
+  página recarrega sem ela. Com o sim, o anúncio da Microsoft passa a valer.
+- **As marcas da Clarity** (sacola, checkout, entrega, pagamento, Pix copiado, cupom) saem junto
+  com o GA4, também de quem não respondeu — é o que acha a sessão de quem chegou em cada passo.
+- **O que a pessoa digita segue coberto:** o checkout, a tela de obrigado, a conta, a avaliação e
+  o "sair da lista" gravam com tudo coberto (`data-clarity-mask`).
+- **A campanha na Clarity** agora vem da própria página de chegada (antes, só voltava pro endereço
+  no "Aceitar", 0162).
+- **A faixa:** "O Google Analytics e a Clarity medem as visitas. Com o seu sim, também usamos
+  cookies da própria loja, do Google, da Meta… pra lembrar o que você viu e mostrar anúncios. Você
+  escolhe." No celular, segue com 4 linhas.
+- **A política de privacidade:** a gravação da Clarity entra na medição por legítimo interesse, com
+  o GA4, e para com o "Só o necessário"; o anúncio da Microsoft entra no consentimento. A versão da
+  faixa não sobe (pelo mesmo motivo da 0166).
+- **O painel:** a nota das Integrações diz que o GA4 e a Clarity carregam pra todo mundo.
+
+Conferido pelo `conferir-integracoes.mjs` (36; 8 mudadas: a Clarity antes da resposta com o
+anúncio negado, o "Só o necessário" tirando também a Clarity e os cookies dela, o "Aceitar"
+liberando o anúncio da Microsoft sem carregar a Clarity de novo, e a resposta de antes que não
+vale ligando o GA4 e a Clarity). No Lighthouse (o `lhci` como o CI), a home fica com o mesmo HTML e
+CSS e 0,1 KB a mais de JavaScript (a frase de quem mede), e passa com o melhor LCP de antes.
+
+Depois do deploy — **nada a configurar.** Pra ver: na Clarity, as gravações de depois do deploy
+incluem quem não respondeu a faixa (a partir dali, o número de sessões sobe).
+
 **O `/trocas` sem a linha do frete de volta — pronto em 27/09 (entrega 0164).** Saiu da seção
 "Desistiu?" o "Quem paga o frete de volta", que estava no ar com a tarja vermelha de pendente.
 Orientação jurídica: não precisa estar no site — então a linha não volta, nem como pendência. Era a
@@ -3598,6 +3717,27 @@ assinado com um IP de documentação sorteado, e os Pix pelo navegador soltam as
 Depois do deploy — **nada a configurar.** Se um cliente disser que o Pix não saiu com "já saíram
 vários Pix daqui" ou "até 10 unidades", é a trava nova: ele paga um dos Pix abertos, usa o cartão,
 ou me chama pra mudar o número.
+
+**O número vermelho da Observabilidade passa de 100 — pronto em 27/09 (entrega 0167).** No menu do
+painel, o número vermelho da Observabilidade parava em 100: o backend lia no máximo 100 problemas
+graves abertos e contava os que o papel via. Com mais de 100, o menu dizia 100 e a tela, o total
+(o `conferir-observabilidade` achou num banco local que juntou 108). Agora o número é a conta do
+banco (`gravesAbertos`: o total do `listAndCountProblemas`, com o papel no filtro — o
+`filtroDoPapel`, a mesma regra do `podeVer` da tela: o estorno só conta pro dono). O "+1" das
+rotinas paradas continua. Com até 100 graves abertos, nada muda.
+
+Conferido pelo `conferir-observabilidade.mjs` nesse banco (108 graves abertos): com o código de
+antes, 35/36 — "dono 100 · op 100 · tela 114"; com o conserto, 36/36 três vezes (dono 109, operação
+108, tela 109). E por 3 testes novos do `gravesAbertos` (com o código de antes, os 110 viram 100) e
+1 que amarra o filtro do banco ao `podeVer` em todo papel; os unitários (1.357), o typecheck, o
+lint, o `medusa build` e o prettier.
+
+O limite que fica: a tela lê até 300 problemas (os abertos e os resolvidos nos últimos 30 dias).
+Com mais que isso, os cartões e o "N problemas graves agora" da tela ficam curtos — e o menu, que
+agora conta tudo, fica maior que a tela.
+
+Depois do deploy — **nada a configurar.** Pra ver: o número vermelho do menu é o mesmo do "N
+problemas graves agora" da Observabilidade.
 
 **A auditoria do backend, parte 2: a loja de pé — pronto em 27/09 (entrega 0168).** Pedido dele:
 "não podemos deixar qualquer um derrubar a loja". O que é público passou a ter limite de frequência e

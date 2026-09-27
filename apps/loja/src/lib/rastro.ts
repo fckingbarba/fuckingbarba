@@ -7,8 +7,11 @@ import { site } from "@/lib/site"
 /**
  * O RASTRO DA COMPRA — o que o Medusa precisa pra avisar a Meta, o GA4 e o
  * TikTok da compra, pelo servidor, quando o pagamento entrar
- * (`apps/backend/src/lib/anuncios/`): a resposta sobre os cookies e, só com
- * o sim, os cookies desses parceiros, o IP e o navegador.
+ * (`apps/backend/src/lib/anuncios/`): a resposta sobre os cookies; de quem
+ * não disse não, os do GA4 e o navegador (o GA4 conta todo mundo desde a
+ * primeira página, como as visitas — 0166 —, e o navegador diz o aparelho da
+ * compra no Funil do painel, pra mesma gente); e, só com o sim, os da Meta e
+ * do TikTok, o IP e a página.
  *
  * É lido AGORA, na ação de finalizar (os cookies e o cabeçalho só existem no
  * pedido de quem comprou), e mandado DEPOIS da resposta (`registrarRastro`,
@@ -30,17 +33,21 @@ export async function rastroDaCompra(
   const jar = await cookies()
   const c = lerConsentimento(jar.get(COOKIE_CONSENTIMENTO)?.value)
   const base = { em: new Date().toISOString(), consentimento: c?.resposta ?? null }
-  if (c?.resposta !== "sim") return base
+  if (c?.resposta === "nao") return base
   const h = await headers()
   const valor = (nome: string) => jar.get(nome)?.value?.slice(0, 600) ?? null
-  return {
+  const medicao = {
     ...base,
-    parceiros: c.parceiros,
     ga: ga4 ? { cookie: valor("_ga"), sessao: valor(`_ga_${ga4.slice(2)}`) } : null,
+    navegador: h.get("user-agent")?.slice(0, 500) ?? null,
+  }
+  if (c?.resposta !== "sim") return medicao
+  return {
+    ...medicao,
+    parceiros: c.parceiros,
     meta: { fbp: valor("_fbp"), fbc: valor("_fbc") },
     tiktok: { ttp: valor("_ttp") },
     ip,
-    navegador: h.get("user-agent")?.slice(0, 500) ?? null,
     pagina: `${site.url}/checkout`,
   }
 }

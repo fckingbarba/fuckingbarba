@@ -16,7 +16,7 @@ const avisar = (req: AuthenticatedMedusaRequest, tipo: string, mensagem: string)
  * GET /dashboard/marketing/visitas?periodo=30d — as visitas do período e do
  * de antes, do Google Analytics, e a conversão (as compras que o Google viu
  * ÷ as visitas, no mesmo corte de hora — ver `visitasDoPeriodo`): as duas
- * contas só de quem aceitou os cookies, como nos Canais. Só as visitas do
+ * contas sem quem recusou os cookies, como nos Canais. Só as visitas do
  * endereço da loja (`LOJA_URL`): o Analytics é o mesmo do site antigo, da
  * Nuvemshop.
  *

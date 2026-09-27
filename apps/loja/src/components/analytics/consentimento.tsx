@@ -11,8 +11,7 @@ import {
   type Parceiro,
   type Resposta,
 } from "@/lib/consentimento"
-import { rastrear } from "@/lib/rastrear"
-import { integracoesMontadas } from "./integracoes"
+import { rastrear, tagsNaPagina } from "@/lib/rastrear"
 
 const UM_ANO = 60 * 60 * 24 * 365
 
@@ -42,20 +41,45 @@ export function useConsentimento(parceiros: Parceiro[]): Estado {
 }
 
 /**
+ * Os cookies que os parceiros gravam no domínio da loja: o GA4 (`_ga`,
+ * `_ga_<código>`), o Google Ads (`_gcl_…`), a Meta, o TikTok e a Clarity.
+ */
+const DOS_PARCEIROS = /^_(ga|gcl_|fb[pc]$|ttp$|cl(ck|sk)$)/
+
+/** Apaga os dos parceiros — sem domínio e em cada um de cima: o GA4 grava em ".fuckingbarba.com.br". */
+function apagarOsCookiesDosParceiros() {
+  const partes = location.hostname.split(".")
+  for (const par of document.cookie.split("; ")) {
+    const nome = par.split("=")[0]
+    if (DOS_PARCEIROS.test(nome))
+      for (let i = 0; i < partes.length; i++)
+        document.cookie = `${nome}=; Max-Age=0; Path=/${i ? `; Domain=.${partes.slice(i - 1).join(".")}` : ""}`
+  }
+}
+
+/**
  * A resposta da faixa. O "não" também pede à loja pra esquecer este
  * navegador (`/api/eventos`, DELETE): o cookie do visitante sai, e o que o
- * CRM anotou dele é apagado. Se a pessoa tinha dito sim e as tags já estão na
- * página (ela mudou de ideia pela política de privacidade), a página
- * recarrega — é o único jeito de tirar um script que já carregou.
+ * CRM anotou dele é apagado. Se já tem tag na página — o GA4 e a Clarity, que
+ * ligam antes da resposta, ou todas, de quem tinha dito sim e mudou de ideia
+ * pela política de privacidade —, o GA4 e a Clarity param na hora (a chave de
+ * desligar do Google e o `consentv2` negado da Clarity), os cookies dos
+ * parceiros saem e a página recarrega: é o único jeito de tirar um script que
+ * já carregou. O "não" não vira evento.
  */
-function responder(resposta: Resposta, parceiros: Parceiro[]) {
+function responder(resposta: Resposta, parceiros: Parceiro[], ga4: string | null) {
   document.cookie = `${COOKIE_CONSENTIMENTO}=${valorDoConsentimento(resposta, parceiros)}; Max-Age=${UM_ANO}; Path=/; SameSite=Lax; Secure`
   ouvintes.forEach((cb) => cb())
-  rastrear("consentimento", { marketing: resposta === "sim" })
-  if (resposta === "nao") {
-    fetch("/api/eventos", { method: "DELETE", keepalive: true }).catch(() => undefined)
-    if (integracoesMontadas()) window.location.reload()
+  if (resposta === "sim") {
+    rastrear("consentimento", { marketing: true })
+    return
   }
+  fetch("/api/eventos", { method: "DELETE", keepalive: true }).catch(() => undefined)
+  if (!tagsNaPagina()) return
+  if (ga4) Object.assign(window, { [`ga-disable-${ga4}`]: true })
+  window.clarity?.("consentv2", { ad_Storage: "denied", analytics_Storage: "denied" })
+  apagarOsCookiesDosParceiros()
+  window.location.reload()
 }
 
 /** "do Google", "da Meta", "do TikTok", "da Microsoft". */
@@ -66,24 +90,43 @@ const emLista = (nomes: string[]) =>
 
 /**
  * Faixa de consentimento (LGPD): discreta, dois botões de peso igual, sem
- * parede. Diz A QUEM a pessoa está dizendo sim — a própria loja, que anota o
+ * parede. Diz o que já está medindo (o GA4 e a Clarity, com o código no
+ * painel) e A QUEM a pessoa está dizendo sim — a própria loja, que anota o
  * que ela faz pro CRM, e os parceiros ligados no painel —, e a resposta vive
- * num cookie próprio por 12 meses. No checkout,
- * ela vai gravada no pedido (`fb_rastro.consentimento`): a compra só sai pelo
- * servidor pros parceiros que ouviram sim.
+ * num cookie próprio por 12 meses. No checkout, ela vai gravada no pedido
+ * (`fb_rastro.consentimento`): a compra só sai pelo servidor pros parceiros
+ * que ouviram sim — e pro GA4 de quem não disse não.
  *
  * Mora no pé da tela, EM CIMA da barra que estiver presa lá — a de compra da
  * PDP, a do total no checkout do celular —, que diz a altura em
  * `--pe-da-tela` (`lib/use-pe-da-tela.ts`); sobe e desce junto com ela. No
  * celular é menor: letra de 12 px e os botões numa linha só.
  */
-export function Consentimento({ parceiros, estado }: { parceiros: Parceiro[]; estado: Estado }) {
+export function Consentimento({
+  parceiros,
+  estado,
+  ga4,
+  clarity,
+}: {
+  parceiros: Parceiro[]
+  estado: Estado
+  ga4: string | null
+  clarity: string | null
+}) {
   if (estado !== "sem-resposta") return null
   const nomes = emLista([
     "da própria loja",
     ...parceiros.map((p) => `${ARTIGO[p]} ${NOME_DO_PARCEIRO[p]}`),
   ])
   const anuncio = parceiros.some((p) => p !== "clarity")
+  // Quem já mede antes da resposta (0166 e 0171) abre a frase.
+  const medem = ga4
+    ? clarity
+      ? "O Google Analytics e a Clarity medem"
+      : "O Google Analytics conta"
+    : clarity
+      ? "A Clarity mede"
+      : null
 
   return (
     <div
@@ -93,10 +136,20 @@ export function Consentimento({ parceiros, estado }: { parceiros: Parceiro[]; es
       className="fixed inset-x-2 bottom-[calc(var(--pe-da-tela,0px)_+_0.5rem)] z-50 mx-auto max-w-xl border-2 border-tinta bg-papel p-3 shadow-dura-sm transition-[bottom] duration-[260ms] ease-[cubic-bezier(0.22,0.61,0.36,1)] motion-reduce:transition-none sm:inset-x-4 sm:bottom-[calc(var(--pe-da-tela,0px)_+_1rem)] sm:p-4"
     >
       <p className="text-xs leading-snug text-tinta sm:text-sm">
-        Usamos cookies {nomes} pra lembrar o que você viu
-        {anuncio
-          ? ", medir o que funciona e mostrar anúncios menos aleatórios"
-          : " e medir o que funciona"}
+        {medem ? `${medem} as visitas. Com o seu sim, também usamos` : "Usamos"} cookies {nomes} pra
+        lembrar o que você viu
+        {/*
+          Com a frase de quem já mede na frente, o fim encurta: com os cinco
+          parceiros, a faixa segue em 4 linhas num celular de 390 px (o
+          conferir-integracoes cobra até 150 px).
+        */}
+        {medem
+          ? anuncio
+            ? " e mostrar anúncios"
+            : ""
+          : anuncio
+            ? ", medir o que funciona e mostrar anúncios menos aleatórios"
+            : " e medir o que funciona"}
         . Você escolhe.{" "}
         {/*
           Sem pré-carregar: a faixa aparece na primeira tela de todo mundo, e o
@@ -115,14 +168,14 @@ export function Consentimento({ parceiros, estado }: { parceiros: Parceiro[]; es
       <div className="mt-2 grid grid-cols-2 gap-2 sm:mt-3">
         <button
           type="button"
-          onClick={() => responder("nao", parceiros)}
+          onClick={() => responder("nao", parceiros, ga4)}
           className="chanfro-sm border-2 border-tinta bg-papel px-2 py-2 text-[0.7rem] font-extrabold uppercase tracking-wide text-tinta sm:px-3 sm:text-sm"
         >
           Só o necessário
         </button>
         <button
           type="button"
-          onClick={() => responder("sim", parceiros)}
+          onClick={() => responder("sim", parceiros, ga4)}
           className="chanfro-sm border-2 border-tinta bg-amarelo px-2 py-2 text-[0.7rem] font-extrabold uppercase tracking-wide text-tinta sm:px-3 sm:text-sm"
         >
           Aceitar

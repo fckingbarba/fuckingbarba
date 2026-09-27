@@ -79,6 +79,21 @@ describe("o rastro da compra", () => {
     })
   })
 
+  it("sem resposta: os cookies do GA4 e o navegador, de quem não recusou (0166)", () => {
+    const r = lerRastro({ ...rastroBruto, consentimento: null })
+    expect(r).toEqual({
+      em: rastroBruto.em,
+      consentimento: null,
+      parceiros: [],
+      ga: rastroBruto.ga,
+      meta: null,
+      tiktok: null,
+      ip: null,
+      navegador: rastroBruto.navegador,
+      pagina: null,
+    })
+  })
+
   it("o que não tem a cara do campo vira nulo; sem data não há rastro", () => {
     const r = lerRastro({
       ...rastroBruto,
@@ -119,9 +134,24 @@ describe("mandar ou não, por plataforma", () => {
     })
   })
 
-  it("sem o sim, ou sem o sim pra esta plataforma: dispensa", () => {
+  it("com o não: dispensa pra todas, o GA4 também", () => {
     const nao = lerRastro({ ...rastroBruto, consentimento: "nao" })
-    expect(decidir("meta", { ...base, rastro: nao })).toEqual({ dispensar: "sem-consentimento" })
+    for (const p of ["meta", "ga4", "tiktok"] as const)
+      expect(decidir(p, { ...base, rastro: nao })).toEqual({ dispensar: "sem-consentimento" })
+  })
+
+  it("sem resposta: o GA4 manda (conta quem não recusou); a Meta e o TikTok dispensam", () => {
+    const semResposta = lerRastro({ ...rastroBruto, consentimento: null })
+    expect(decidir("ga4", { ...base, rastro: semResposta })).toBe("mandar")
+    expect(decidir("meta", { ...base, rastro: semResposta })).toEqual({
+      dispensar: "sem-consentimento",
+    })
+    expect(decidir("tiktok", { ...base, rastro: semResposta })).toEqual({
+      dispensar: "sem-consentimento",
+    })
+  })
+
+  it("sem o sim pra esta plataforma, ou o GA4 sem o client_id: dispensa", () => {
     const soGoogle = lerRastro({ ...rastroBruto, parceiros: ["google"] })
     expect(decidir("meta", { ...base, rastro: soGoogle })).toEqual({
       dispensar: "parceiro-sem-sim",
@@ -189,6 +219,19 @@ describe("a compra no formato de cada plataforma", () => {
       ],
     })
     expect(JSON.stringify(corpo)).not.toMatch(/rafael|98888/i)
+  })
+
+  it("GA4 sem o sim ao Google: a compra vai, com o anúncio negado", () => {
+    const semResposta = lerRastro({ ...rastroBruto, consentimento: null })!
+    expect(compraProGa4(pedido, semResposta, agora)?.consent).toEqual({
+      ad_user_data: "DENIED",
+      ad_personalization: "DENIED",
+    })
+    const simSemGoogle = lerRastro({ ...rastroBruto, parceiros: ["meta"] })!
+    expect(compraProGa4(pedido, simSemGoogle, agora)?.consent).toEqual({
+      ad_user_data: "DENIED",
+      ad_personalization: "DENIED",
+    })
   })
 
   it("TikTok: Purchase com o pixel, o e-mail e o telefone (com o +) embaralhados", () => {

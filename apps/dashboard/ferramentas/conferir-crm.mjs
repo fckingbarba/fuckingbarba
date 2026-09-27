@@ -54,6 +54,9 @@
  * │   o cupom que não nasce, não vale no link, ou nasce de novo no mesmo   │
  * │   carrinho; o link de voltar que não põe o carrinho de volta (ou não   │
  * │   refaz o Pix vencido); a operação ligando fluxo.                      │
+ * │ • (parte 8) o carrinho: a sacola de quem a loja conhece sem os cinco   │
+ * │   toques, o cupom que não vale 3 dias, ou o carrinho que continua      │
+ * │   depois de a pessoa abrir o checkout.                                 │
  * └────────────────────────────────────────────────────────────────────────┘
  */
 
@@ -975,6 +978,14 @@ try {
     JSON.stringify(segundaVez)
   )
   await dono.pagina.locator("[data-numeros-base]").waitFor({ timeout: 20000 })
+  // A tela se refaz depois do aviso de baixo: espera o número da API chegar nela.
+  await dono.pagina
+    .waitForFunction(
+      (n) => document.querySelector('[data-base="pessoas"]')?.textContent?.trim() === n,
+      new Intl.NumberFormat("pt-BR").format(deNovo.pessoas),
+      { timeout: 20000 }
+    )
+    .catch(() => null)
   ok(
     semEspaco(await dono.pagina.locator('[data-base="pessoas"]').textContent()) ===
       new Intl.NumberFormat("pt-BR").format(deNovo.pessoas) &&
@@ -1328,16 +1339,17 @@ try {
         ).status === 403,
       "a operação não abre, não liga, não roda e não manda teste"
     )
-    // O banco local é de todos os conferidores: os dois ligados, e a primeira rodada guarda a hora.
-    for (const id of ["pix", "checkout"]) await mudarFluxos({ fluxo: id, ligado: true })
+    // O banco local é de todos os conferidores: os três ligados, e a primeira rodada guarda a hora.
+    for (const id of ["pix", "checkout", "carrinho"]) await mudarFluxos({ fluxo: id, ligado: true })
     await rodar()
     const tela0 = (await fluxos(tokenDoDono)).corpo
     ok(
-      tela0.fluxos?.map((f) => f.id).join() === "pix,checkout" &&
+      tela0.fluxos?.map((f) => f.id).join() === "pix,checkout,carrinho" &&
         tela0.fluxos.every((f) => f.ligado && f.desde) &&
         tela0.fluxos.find((f) => f.id === "checkout")?.toques.length === 4 &&
-        tela0.fluxos.find((f) => f.id === "pix")?.toques.length === 3,
-      "os dois fluxos, ligados, com os toques de cada um",
+        tela0.fluxos.find((f) => f.id === "pix")?.toques.length === 3 &&
+        tela0.fluxos.find((f) => f.id === "carrinho")?.toques.length === 5,
+      "os três fluxos, ligados, com os toques de cada um",
       JSON.stringify(tela0.fluxos?.map((f) => [f.id, f.ligado, f.desde, f.toques?.length]))
     )
     const errados = await Promise.all([
@@ -1427,8 +1439,12 @@ try {
         e30.html.includes(`${LOJA}/voltar/${carrinho.id}.`) &&
         e30.html.includes("utm_campaign=crm-checkout") &&
         e30.html.includes("Você recebeu porque começou uma compra na FuckingBarba.") &&
-        /^<[^>]+>$/.test(e30.headers?.["List-Unsubscribe"] ?? ""),
-      "30 minutos: “Faltou só o pagamento”, com o link de voltar, a campanha e o sair da lista",
+        // O lembrete sem desconto é pessoal: texto simples, assinado, sem o cabeçalho de oferta.
+        !e30.headers?.["List-Unsubscribe"] &&
+        /^Matheus, da FuckingBarba </.test(e30.from ?? "") &&
+        !e30.html.includes("<img") &&
+        e30.html.includes("Sair da lista"),
+      "30 minutos: “Faltou só o pagamento”, pessoal — assinado, sem foto, com o link, a campanha e o sair da lista",
       JSON.stringify({ r: r30.corpo, assunto: e30?.subject })
     )
     const de30 = await rodar({ agora: aos(35 * MIN, true), email: NO_CHECKOUT })
@@ -1452,7 +1468,11 @@ try {
     )
     const cupom = e24?.html.match(/VOLTA-[2-9A-HJ-NP-Z]{6}/)?.[0] ?? null
     ok(
-      r24.corpo.enviados === 1 && r24.corpo.cupons === 1 && Boolean(cupom),
+      r24.corpo.enviados === 1 &&
+        r24.corpo.cupons === 1 &&
+        Boolean(cupom) &&
+        // O de desconto é oferta: o modelo da marca, com o cancelar inscrição no cabeçalho.
+        Boolean(e24?.headers?.["List-Unsubscribe"]),
       "1 dia: o desconto, com um cupom só da pessoa",
       JSON.stringify({ r: r24.corpo, assunto: e24?.subject })
     )
@@ -1465,9 +1485,12 @@ try {
       linkDoCupom ?? "sem link"
     )
     const pessoa2 = await novaAba({ width: 375, height: 812 })
-    await pessoa2.pagina.goto(linkDoCupom ?? `${LOJA}/`, { waitUntil: "domcontentloaded" })
+    await pessoa2.pagina.goto(linkDoCupom ?? `${LOJA}/`, {
+      waitUntil: "domcontentloaded",
+      timeout: 60000,
+    })
     await pessoa2.pagina
-      .waitForURL((u) => u.pathname === "/checkout", { timeout: 30000 })
+      .waitForURL((u) => u.pathname === "/checkout", { timeout: 60000 })
       .catch(() => null)
     const cookieDoCarrinho = (await pessoa2.contexto.cookies(LOJA)).find(
       (c) => c.name === "carrinho"
@@ -1606,7 +1629,13 @@ try {
         Boolean(pix?.copiaECola) &&
         ePix.html.includes(pix.copiaECola) &&
         ePix.html.includes(`#${pedidoDoPix.numero}`) &&
-        ePix.tags?.some((t) => t.name === "tipo" && t.value === "crm-pix"),
+        ePix.tags?.some((t) => t.name === "tipo" && t.value === "crm-pix") &&
+        // O aviso é de pedido: sem o pé de oferta nem o cabeçalho do cancelar inscrição.
+        !ePix.html.includes("Sair da lista") &&
+        !ePix.headers?.["List-Unsubscribe"] &&
+        ePix.html.includes(
+          `Você recebeu porque fez o pedido #${pedidoDoPix.numero} na FuckingBarba.`
+        ),
       "15 minutos antes de vencer: o aviso, com o copia e cola e o número do pedido",
       JSON.stringify({ r: rPix.corpo, assunto: ePix?.subject })
     )
@@ -1655,9 +1684,12 @@ try {
       JSON.stringify({ r: rPix24.corpo, assunto: ePix24?.subject })
     )
     const pessoa3 = await novaAba()
-    await pessoa3.pagina.goto(linkDoPix ?? `${LOJA}/`, { waitUntil: "domcontentloaded" })
+    await pessoa3.pagina.goto(linkDoPix ?? `${LOJA}/`, {
+      waitUntil: "domcontentloaded",
+      timeout: 60000,
+    })
     await pessoa3.pagina
-      .waitForURL((u) => u.pathname === "/checkout", { timeout: 30000 })
+      .waitForURL((u) => u.pathname === "/checkout", { timeout: 60000 })
       .catch(() => null)
     const refeito = (await pessoa3.contexto.cookies(LOJA)).find((c) => c.name === "carrinho")?.value
     const doRefeito = refeito
@@ -1678,9 +1710,12 @@ try {
       JSON.stringify({ refeito, email: doRefeito?.email, itens: doRefeito?.items?.length })
     )
     ok(Boolean(refeito) && (await cupomNoCarrinho(refeito, cupomDoPix)), "com o desconto aplicado")
-    await pessoa3.pagina.goto(linkDoPix ?? `${LOJA}/`, { waitUntil: "domcontentloaded" })
+    await pessoa3.pagina.goto(linkDoPix ?? `${LOJA}/`, {
+      waitUntil: "domcontentloaded",
+      timeout: 60000,
+    })
     await pessoa3.pagina
-      .waitForURL((u) => u.pathname === "/checkout", { timeout: 30000 })
+      .waitForURL((u) => u.pathname === "/checkout", { timeout: 60000 })
       .catch(() => null)
     ok(
       (await pessoa3.contexto.cookies(LOJA)).find((c) => c.name === "carrinho")?.value === refeito,
@@ -1699,16 +1734,174 @@ try {
       `${torto.status} ${torto.headers.get("location")}`
     )
 
+    titulo("O carrinho abandonado")
+    {
+      /** Uma sacola sem e-mail, e o CRM dizendo de quem é: a loja manda o evento com a newsletter. */
+      const sacolaDe = async (email) => {
+        const { cart } = await (
+          await fetch(`${MEDUSA}/store/carts`, {
+            method: "POST",
+            headers: { "content-type": "application/json", ...DA_LOJA },
+            body: JSON.stringify({
+              region_id: regiao.id,
+              items: [{ variant_id: doShampoo[0].variants[0].id, quantity: 1 }],
+            }),
+          })
+        ).json()
+        const lote = await medusa("/store/crm/eventos", {
+          extras: DA_LOJA,
+          corpo: {
+            visitante: randomUUID(),
+            carrinho: cart.id,
+            identificacao: { como: "newsletter", email },
+            eventos: [
+              {
+                nome: "add_to_cart",
+                pagina: "/produtos/shampoo-para-barba",
+                dados: {
+                  items: [
+                    {
+                      item_id: doShampoo[0].variants[0].id,
+                      item_name: "Shampoo para Barba",
+                      price: 49.9,
+                      quantity: 1,
+                    },
+                  ],
+                  value: 49.9,
+                },
+              },
+            ],
+          },
+        })
+        return { cart, anotado: lote.status === 204 }
+      }
+      const foraDosDois = (nome) => {
+        for (let i = 0; ; i++) {
+          const e = `${nome}${i}@${DOMINIO}`
+          if (!controle(e, "carrinho") && !controle(e, "checkout")) return e
+        }
+      }
+      const NA_SACOLA = foraDosDois("sacola")
+      const { cart: sacola, anotado } = await sacolaDe(NA_SACOLA)
+      ok(anotado && !sacola.email, "a sacola sem e-mail, e o CRM sabendo de quem é")
+      const comecoDaSacola = new Date(sacola.updated_at).getTime()
+      const naSacola = (ms) => new Date(diurno(comecoDaSacola + ms)).toISOString()
+      const doCarrinho = (e) => e.tags?.some((t) => t.name === "tipo" && t.value === "crm-carrinho")
+      const antes1h = await rodar({ agora: naSacola(59 * MIN), email: NA_SACOLA })
+      const r1h = await rodar({ agora: naSacola(61 * MIN), email: NA_SACOLA })
+      const e1h = await caixa.esperarEmail(NA_SACOLA, (e) => e.subject === "Esqueceu isso aqui?", 0)
+      ok(
+        antes1h.corpo.enviados === 0 &&
+          r1h.corpo.enviados === 1 &&
+          Boolean(e1h) &&
+          doCarrinho(e1h) &&
+          e1h.html.includes(`${LOJA}/voltar/${sacola.id}.`) &&
+          e1h.html.includes("utm_campaign=crm-carrinho"),
+        "1 hora: “Esqueceu isso aqui?”, com o link que volta pra sacola",
+        JSON.stringify({ antes: antes1h.corpo, r: r1h.corpo, assunto: e1h?.subject })
+      )
+      const r12 = await rodar({ agora: naSacola(12 * HORA + MIN), email: NA_SACOLA })
+      const e12 = await caixa.esperarEmail(
+        NA_SACOLA,
+        (e) => /^O que os clientes acharam/.test(e.subject ?? ""),
+        0
+      )
+      ok(
+        r12.corpo.enviados === 1 && Boolean(e12),
+        "12 horas: o que os clientes acharam",
+        e12?.subject ?? JSON.stringify(r12.corpo)
+      )
+      const agora24 = naSacola(DIA_MS + MIN)
+      const r24 = await rodar({ agora: agora24, email: NA_SACOLA })
+      const e24c = await caixa.esperarEmail(
+        NA_SACOLA,
+        (e) => /^\d+% pra você decidir$/.test(e.subject ?? ""),
+        0
+      )
+      const cupomDaSacola = e24c?.html.match(/VOLTA-[2-9A-HJ-NP-Z]{6}/)?.[0] ?? null
+      // O cupom do carrinho vale 3 dias (o de 3 dias diz que ele vence amanhã).
+      const vence3 = new Date(new Date(agora24).getTime() + 3 * DIA_MS)
+      const naHoraDeBrasilia = (d, o) =>
+        new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", ...o }).format(d)
+      const venceEm = `${naHoraDeBrasilia(vence3, { day: "2-digit", month: "2-digit" })}, ${naHoraDeBrasilia(vence3, { hour: "2-digit", minute: "2-digit" })}`
+      ok(
+        r24.corpo.enviados === 1 &&
+          r24.corpo.cupons === 1 &&
+          Boolean(cupomDaSacola) &&
+          e24c.html.includes(`Vale até ${venceEm}`),
+        "1 dia: o desconto, com um cupom que vale 3 dias",
+        JSON.stringify({ r: r24.corpo, assunto: e24c?.subject, venceEm })
+      )
+      const pessoa4 = await novaAba({ width: 375, height: 812 })
+      const linkDaSacola = e24c?.html
+        .match(/href="([^"]+\/voltar\/cart_[^"]+)"/)?.[1]
+        ?.replaceAll("&amp;", "&")
+      await pessoa4.pagina.goto(linkDaSacola ?? `${LOJA}/`, {
+        waitUntil: "domcontentloaded",
+        timeout: 60000,
+      })
+      await pessoa4.pagina
+        .waitForURL((u) => u.pathname === "/checkout", { timeout: 60000 })
+        .catch(() => null)
+      ok(
+        (await pessoa4.contexto.cookies(LOJA)).find((c) => c.name === "carrinho")?.value ===
+          sacola.id && (await cupomNoCarrinho(sacola.id, cupomDaSacola)),
+        "o link devolve a sacola, com o desconto aplicado"
+      )
+      await pessoa4.contexto.close()
+      const r3d = await rodar({ agora: naSacola(3 * DIA_MS + MIN), email: NA_SACOLA })
+      const e3d = await caixa.esperarEmail(
+        NA_SACOLA,
+        (e) => /vence amanhã$/.test(e.subject ?? ""),
+        0
+      )
+      const r5d = await rodar({ agora: naSacola(5 * DIA_MS + MIN), email: NA_SACOLA })
+      const e5d = await caixa.esperarEmail(
+        NA_SACOLA,
+        (e) => e.subject === "Última chamada pra sua sacola",
+        0
+      )
+      ok(
+        r3d.corpo.enviados === 1 &&
+          Boolean(cupomDaSacola) &&
+          Boolean(e3d?.html.includes(cupomDaSacola)) &&
+          r5d.corpo.enviados === 1 &&
+          Boolean(e5d) &&
+          !e5d.html.includes("VOLTA-") &&
+          caixa.quantos(NA_SACOLA, doCarrinho) === 5,
+        "3 dias: o desconto vence amanhã; 5 dias: a última, sem cupom — 5 e-mails no total",
+        JSON.stringify({
+          r3d: r3d.corpo,
+          r5d: r5d.corpo,
+          total: caixa.quantos(NA_SACOLA, doCarrinho),
+        })
+      )
+      const PAROU = foraDosDois("parou")
+      await sacolaDe(PAROU)
+      await criarCarrinho(PAROU)
+      const rParou = await rodar({
+        agora: new Date(Date.now() + 61 * MIN).toISOString(),
+        email: PAROU,
+      })
+      await caixa.esperarEmail(PAROU, (e) => e.subject === "Faltou só o pagamento", 0)
+      ok(
+        caixa.quantos(PAROU, doCarrinho) === 0 &&
+          caixa.quantos(PAROU, (e) => e.subject === "Faltou só o pagamento") === 1,
+        "abriu o checkout depois: a sacola para, e quem cuida é o fluxo do checkout",
+        JSON.stringify(rParou.corpo)
+      )
+    }
+
     titulo("A aba Fluxos")
     await semIpNasFontes(dono.contexto)
     await dono.pagina.goto(`${PAINEL}/crm/fluxos`)
     await dono.pagina.locator("[data-fluxos-crm]").waitFor({ timeout: 20000 })
     ok(
-      (await dono.pagina.locator("[data-fluxo]").count()) === 2 &&
+      (await dono.pagina.locator("[data-fluxo]").count()) === 3 &&
         (await dono.pagina.locator('.abas [data-aba="fluxos"][aria-current="page"]').count()) ===
           1 &&
-        (await dono.pagina.locator('[data-ligar][aria-checked="true"]').count()) === 2,
-      "a aba: os dois fluxos, ligados"
+        (await dono.pagina.locator('[data-ligar][aria-checked="true"]').count()) === 3,
+      "a aba: os três fluxos, ligados"
     )
     const telaAgora = (await fluxos(tokenDoDono)).corpo
     const doCheckout = telaAgora.fluxos.find((f) => f.id === "checkout")
@@ -1899,6 +2092,7 @@ try {
     for (const corpo of [
       { fluxo: "pix", ligado: true },
       { fluxo: "checkout", ligado: true },
+      { fluxo: "carrinho", ligado: true },
       { desconto: 10 },
     ])
       await medusa("/dashboard/crm/fluxos", { token: tokenDoDono, corpo }).catch(() => null)
