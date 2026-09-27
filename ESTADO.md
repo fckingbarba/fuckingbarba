@@ -3754,7 +3754,16 @@ de tamanho, e o limite enxerga a pessoa:
 - e a loja passou a assinar toda chamada à API do Medusa — com a trava ligada (abaixo), quem não é
   a loja não fala com ela.
 
-CONFERIDO_0168
+Conferido por uma prova direta na API, com 22 checagens, uma por limite (o frete, a rajada de
+códigos, o corpo grande sem a assinatura, as senhas do admin, a trava da API da loja, o avise-me e
+os tetos do dia) — e a mesma prova contra o código de antes, pra ver que cada uma mede o que diz. E
+pelos conferidores, com a trava desligada (como fica no deploy) e ligada (a loja inteira assinando,
+sem nenhum 401 no caminho):
+
+- loja: frete 70, pdp 68/70 (os 2 de sempre deste banco local), checkout 182, conta 209, avise-me
+  32, avaliações 44, pagamento 219, mercadopago 77, envio 84;
+- painel: entrar 90, produtos 119, home 103, crm 159, observabilidade 36;
+- os unitários (1.379), o typecheck do backend e da loja, o `medusa build`, o lint e o prettier.
 
 Depois do deploy — **uma coisa pra ligar, com calma:**
 
