@@ -217,9 +217,13 @@ export function clienteDoMercadoPago(token: string, url = ENDERECO_PADRAO) {
   }
 
   return {
-    /** Cria o Pix. A chave de idempotência é o id da sessão: mandar de novo devolve o mesmo. */
-    criarPix: (corpo: CorpoDoPix, chaveIdempotente: string) =>
-      chamar<PagamentoMP>("POST", "/v1/payments", corpo, PRA_CRIAR, chaveIdempotente),
+    /**
+     * Cria o Pix. A chave de idempotência é o id da sessão: mandar de novo
+     * devolve o mesmo. `tempo`: o de sempre, se não disser outro — o Pix com
+     * reserva desiste antes.
+     */
+    criarPix: (corpo: CorpoDoPix, chaveIdempotente: string, tempo = PRA_CRIAR) =>
+      chamar<PagamentoMP>("POST", "/v1/payments", corpo, tempo, chaveIdempotente),
 
     lerPagamento: (id: string | number) =>
       chamar<PagamentoMP>(

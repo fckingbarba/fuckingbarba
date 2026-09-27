@@ -84,6 +84,7 @@ export function traduzir(p: PagamentoMP): Traduzido {
       : null,
     cartao: null,
     recusa: null,
+    falha: null,
     estornado: centavosDe(p.transaction_amount_refunded),
   }
 
@@ -99,10 +100,11 @@ export function traduzir(p: PagamentoMP): Traduzido {
   if (status === "cancelled") {
     return { status: PaymentSessionStatus.CANCELED, estado: { ...base, situacao: "cancelado" } }
   }
+  // Ele atendeu e disse não: "recusa", que o disjuntor não conta.
   if (status === "rejected") {
     return {
       status: PaymentSessionStatus.ERROR,
-      estado: { ...base, situacao: "falhou", recusa: RECUSAS.pix },
+      estado: { ...base, situacao: "falhou", recusa: RECUSAS.pix, falha: "recusa" },
     }
   }
   // pending, in_process… e o que a loja não conhece: esperando (ver acima).
