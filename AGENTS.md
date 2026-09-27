@@ -1143,6 +1143,19 @@ passo fica vermelho); a frase do passo segue na linha, em `sr-only` e no `title`
 ganhou `selo` ("15%", "R$ 20", "Frete grátis" — `seloDoCupom`), `usados` e `limite` (a barrinha dos
 usos). Tudo campo a mais: o painel novo com o backend de antes mostra as telas sem os desenhos novos.
 
+**Parte B** (entrega 0158: Observabilidade, Configurações, Marketing e Layout da home; só no painel).
+`CabecaDoBloco` (em `components/visual.tsx`: o título, o "?" e, à direita, o que vier) no lugar do
+`bloco__sub` que só explicava; o `bloco__sub` que traz dado (a meta do mês, o estado da conexão do ERP)
+fica. Nas Configurações, o `Bloco` e o `LinhasDeStatus` já põem o `sub` no "?". Observabilidade: a faixa
+de cima é a `Faixa`; os números têm ícone; o freio do cartão é uma pílula (`[data-freio]`) com a frase
+no "?" do bloco; cada integração mostra a frase à vista só quando não está "ok" (verde, ela vai pro
+"?"); "Quem é avisado" virou uma linha (`faixa--curta`). NÃO pôr `Ajuda` dentro do cartão de um
+problema: o conferidor abre o `details summary` do detalhe técnico, e dois `<details>` quebram o
+clique. Marketing: o glossário e a fonte dos números moram no "?" do título do Resumo (`.glossario`
+continua existindo, e o KPI mantém o `title` — o conferidor lê os dois); as notas do pé de cada aba
+foram pro "?" do bloco ou do título. Layout da home: a faixa de publicar é a `Faixa`, com cada mudança
+numa etiqueta (`nomesDasMudancas`, em `lib/home.ts`) e a última publicação numa pílula.
+
 **O erro do React que o relógio do `next dev` causa** (entrega 0091). Em desenvolvimento, o React
 desenha os componentes do servidor no painel de desempenho do navegador: o servidor manda, pelo
 websocket do HMR, a hora em que começou a página (no relógio do processo Node) e o tempo de cada
