@@ -126,8 +126,15 @@ export function Consentimento({
       <p className="text-xs leading-snug text-tinta sm:text-sm">
         {ga4 ? "O Google Analytics conta as visitas. Com o seu sim, também usamos" : "Usamos"}{" "}
         cookies {nomes} pra lembrar o que você viu
+        {/*
+          Com a frase do GA4 na frente, o fim encurta: com os cinco parceiros, a
+          faixa segue em 4 linhas num celular de 390 px (139 px; o
+          conferir-integracoes cobra até 150).
+        */}
         {anuncio
-          ? ", medir o que funciona e mostrar anúncios menos aleatórios"
+          ? ga4
+            ? ", medir e mostrar anúncios"
+            : ", medir o que funciona e mostrar anúncios menos aleatórios"
           : " e medir o que funciona"}
         . Você escolhe.{" "}
         {/*
