@@ -412,12 +412,12 @@ const LETRA = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Aria
 const linha = (html: string, estilo = "") =>
   `<p style="margin:0 0 14px;font-family:${LETRA};font-size:15px;line-height:1.6;color:${TINTA};${estilo}">${html}</p>`
 
-const precoEmTexto = (p: ProdutoDoCrm) =>
-  p.preco === null
-    ? ""
-    : ` · ${emReais(p.preco)}${p.precoCheio !== null && p.precoCheio > p.preco ? ` (de ${emReais(p.precoCheio)})` : ""}`
-
-/** Cada bloco como texto corrido: a lista dos produtos, as avaliações entre aspas. */
+/**
+ * Cada bloco como texto corrido: os produtos em lista, só pelo nome, e as
+ * avaliações entre aspas. Sem preço: o "R$ 79,90 (de R$ 133,20)" é o que o
+ * Gmail lê como oferta (a escolha do dono, 27/09: testar sem ele antes de
+ * voltar pra cara padrão).
+ */
 function blocoPessoal(b: BlocoDoCrm): string {
   switch (b.tipo) {
     case "texto":
@@ -431,7 +431,7 @@ function blocoPessoal(b: BlocoDoCrm): string {
             (b.titulo ? `${esc(b.titulo)}:<br>` : "") +
               b.produtos
                 .slice(0, 3)
-                .map((p) => `• ${esc(p.nome)}${esc(precoEmTexto(p))}`)
+                .map((p) => `• ${esc(p.nome)}`)
                 .join("<br>")
           )
         : ""
@@ -446,6 +446,16 @@ function blocoPessoal(b: BlocoDoCrm): string {
     case "pix":
       return linha(esc(`Pix copia e cola (vale até ${b.vence}): ${b.codigo}`))
   }
+}
+
+/** O bloco pessoal sem HTML: os produtos só pelo nome — sem preço e sem o link de cada um (um link só). */
+function blocoPessoalEmTexto(b: BlocoDoCrm, e: EmailDoCrm): string[] {
+  if (b.tipo !== "produtos") return blocoEmTexto(b, e)
+  if (!b.produtos.length) return []
+  return [
+    ...(b.titulo ? [`${b.titulo}:`] : []),
+    ...b.produtos.slice(0, 3).map((p) => `• ${p.nome}`),
+  ]
 }
 
 /**
@@ -504,7 +514,10 @@ function emailPessoal(e: EmailDoCrm): Email & { cabecalhos: Record<string, strin
     oi,
     "",
     e.texto,
-    ...e.blocos.flatMap((b) => ["", ...blocoEmTexto(b, e)]),
+    ...e.blocos.flatMap((b) => {
+      const linhas = blocoPessoalEmTexto(b, e)
+      return linhas.length ? ["", ...linhas] : []
+    }),
     ...(link && e.botao ? ["", `${e.botao.texto}: ${link}`] : []),
     ...(resposta
       ? ["", `${resposta}${!e.loja.atendimento && whatsapp ? ` ${whatsapp}` : ""}`]
