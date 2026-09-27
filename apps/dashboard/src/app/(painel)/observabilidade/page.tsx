@@ -4,7 +4,7 @@ import { SoPara } from "@/components/area"
 import { Icone } from "@/components/icones"
 import { Integracoes, Problemas, Rotinas, Velocidade } from "@/components/observabilidade"
 import { Cabeca, ForaDoAr, SemAcesso } from "@/components/telas"
-import { medusa } from "@/lib/medusa"
+import { ler } from "@/lib/medusa"
 import type { TelaDaObservabilidade } from "@/lib/observabilidade"
 
 export const metadata: Metadata = { title: "Observabilidade" }
@@ -16,6 +16,8 @@ export const metadata: Metadata = { title: "Observabilidade" }
  * Dono e operação.
  */
 export default function Pagina() {
+  // A leitura sai junto com a pergunta de quem é (a resposta fica no `cache`).
+  void ler("/dashboard/observabilidade")
   return (
     <SoPara area="observabilidade">
       <Observabilidade />
@@ -26,7 +28,7 @@ export default function Pagina() {
 const mais = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um : varios}`
 
 async function Observabilidade() {
-  const r = await medusa("/dashboard/observabilidade", { metodo: "GET", token: "sessao" })
+  const r = await ler("/dashboard/observabilidade")
   if (r.status === 401)
     redirect(`/sair?motivo=${r.corpo.message === "fora_da_equipe" ? "fora" : "expirou"}`)
   if (r.status === 403) return <SemAcesso area="observabilidade" />

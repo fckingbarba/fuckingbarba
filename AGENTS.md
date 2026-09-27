@@ -961,6 +961,35 @@ duas leituras — era o "a fila é a da API" que falhava umas 3 vezes em 10 (24/
 depois da tela não resolve, continuam dois instantes: o conferidor compara a fila sem a idade
 (`semIdade`). Vale pra toda frase que muda com a hora sem ninguém mexer no pedido.
 
+**A velocidade do painel e as listas em páginas** (entrega 0146). Três regras pra toda tela:
+
+- **A leitura sai antes do `SoPara`.** O `SoPara` espera a pergunta "quem é" (`/dashboard/eu`)
+  antes de desenhar o miolo; lida dentro dele, a leitura da tela só saía depois — duas idas ao
+  Medusa, uma atrás da outra, em todo clique. A página chama `void ler(caminho)` (o GET com o
+  `cache` do React, em `apps/dashboard/src/lib/medusa.ts`) ANTES de devolver o `SoPara`, e o miolo
+  chama `await ler(caminho)` com o mesmo caminho: a resposta é a mesma, e as duas perguntas saem
+  juntas. O Marketing faz igual com os leitores de `lib/marketing.ts` (todos com `cache`). Quem
+  barra continua sendo o Medusa: o papel sem a área recebe 403, e o miolo mostra o "sem acesso".
+- **Toda área tem um esqueleto** (`loading.tsx`, com o `components/esqueleto.tsx`: `inicio`,
+  `lista`, `detalhe`, `abas`, e `aba` pra quem tem o título no layout, como as Configurações). O
+  clique troca a tela na hora — o Next guarda o esqueleto de cada link do menu de antemão — e os
+  dados entram quando chegam. Área nova ganha o seu. Com o esqueleto, a página que dá `notFound()`
+  depois de ler responde 200 (a resposta já começou); o painel não é indexado, e a tela é a mesma.
+- **Lista que cresce vem em páginas** (`apps/backend/src/lib/painel/paginas.ts`: `lerPagina` lê o
+  `?pagina=`, `paginar` recorta e devolve `paginacao: { pagina, paginas, porPagina, itens }`; página
+  que não existe vira a última). As contas (as fitas de filtro, os números de cima, a busca) olham a
+  lista inteira; só a página viaja. Pedidos, clientes e carrinhos vêm de 30 em 30, os cupons de 20
+  (com a busca pelo código, `?busca=`) e a newsletter de 50 (o CSV pede `?todos=1`). No painel, o
+  pé é o `components/paginas.tsx`, e o endereço de cada página leva o filtro e a busca de agora.
+  **O total do pedido pesa**: o Medusa não guarda, calcula pedido a pedido (itens, impostos,
+  ajustes, frete e créditos) — pedir `total` numa leitura de centenas de pedidos dobrava o tempo
+  dela. A lista de pedidos, a de clientes, os usos dos cupons e o Início leem SEM o total
+  (`pedidosRecentes({ semTotal: true })`, `pedidosDosClientes({ semTotal: true })`) e pedem o
+  total depois, só de quem precisa (`totaisDos`): os pedidos da página, o "gastou" de quem está
+  na página (`vendidosDaPagina`/`comGastos`), os pedidos pagos que usaram um código e, no Início,
+  `precisamDoTotal` (os pagos nos últimos 8 dias, o que espera pagamento e os de hoje). Busca de
+  lista usa o `Form` do `next/form` (troca só a tela, sem recarregar o painel).
+
 **O erro do React que o relógio do `next dev` causa** (entrega 0091). Em desenvolvimento, o React
 desenha os componentes do servidor no painel de desempenho do navegador: o servidor manda, pelo
 websocket do HMR, a hora em que começou a página (no relógio do processo Node) e o tempo de cada

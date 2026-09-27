@@ -5,16 +5,33 @@ import Link from "next/link"
 import { useState, useTransition } from "react"
 import { useAvisar } from "@/components/avisos"
 import { Icone } from "@/components/icones"
-import { tirarDaNewsletter } from "@/lib/acoes/clientes"
+import { newsletterInteira, tirarDaNewsletter } from "@/lib/acoes/clientes"
 import type { Inscrito } from "@/lib/clientes"
 
 /**
  * QUEM RECEBE OFERTAS POR E-MAIL — a lista da aba Newsletter: o rodapé e a
  * caixa da conta, juntos (o backend junta). Cada e-mail de cliente leva pra
  * ficha dele. "Tirar" pede confirmação e apaga de verdade; "Baixar CSV"
- * monta o arquivo aqui mesmo, com o que está na tela.
+ * monta o arquivo aqui mesmo, com a lista INTEIRA (a tela mostra uma página;
+ * o arquivo pede todo mundo ao Medusa na hora do clique).
  */
-export function ListaDaNewsletter({ inscritos }: { inscritos: Inscrito[] }) {
+export function ListaDaNewsletter({
+  inscritos,
+  paginas = null,
+}: {
+  inscritos: Inscrito[]
+  /** O pé da lista, quando ela tem mais de uma página. */
+  paginas?: React.ReactNode
+}) {
+  const avisar = useAvisar()
+  const [baixando, comecar] = useTransition()
+  function baixar() {
+    comecar(async () => {
+      const r = await newsletterInteira()
+      if (r.ok) baixarCsv(r.inscritos)
+      else avisar(r)
+    })
+  }
   return (
     <section className="bloco" data-newsletter>
       <div className="bloco__cabeca">
@@ -24,10 +41,11 @@ export function ListaDaNewsletter({ inscritos }: { inscritos: Inscrito[] }) {
             type="button"
             className="btn btn--menor btn--contorno"
             data-baixar-csv
-            onClick={() => baixarCsv(inscritos)}
+            disabled={baixando}
+            onClick={baixar}
           >
             <Icone nome="baixo" />
-            Baixar CSV
+            {baixando ? "Montando…" : "Baixar CSV"}
           </button>
         ) : null}
       </div>
@@ -40,6 +58,7 @@ export function ListaDaNewsletter({ inscritos }: { inscritos: Inscrito[] }) {
       ) : (
         <p className="vazio vazio--curto">Ninguém ainda.</p>
       )}
+      {paginas}
       <p className="pequeno suave" style={{ margin: "12px 0 0" }}>
         Tirar apaga de verdade — é o &ldquo;pode sair quando quiser&rdquo; da Política de
         Privacidade. Se a pessoa quiser de novo, ela se inscreve outra vez.

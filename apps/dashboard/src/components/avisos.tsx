@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react"
 import { Icone } from "@/components/icones"
 import type { Frase } from "@/lib/pedidos"
 
@@ -27,8 +27,12 @@ export function ComAvisos({ children }: { children: ReactNode }) {
     return () => clearTimeout(t)
   }, [aviso])
 
+  // A mesma função sempre: quem só avisa (cada campo de preço, cada linha da
+  // newsletter) não se redesenha quando o aviso entra ou sai.
+  const avisar = useCallback((frase: Frase) => setAviso({ ...frase, vez: Date.now() }), [])
+
   return (
-    <Avisar.Provider value={(frase) => setAviso({ ...frase, vez: Date.now() })}>
+    <Avisar.Provider value={avisar}>
       {children}
       <div
         className="aviso"

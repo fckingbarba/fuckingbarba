@@ -4,7 +4,7 @@ import { SoPara } from "@/components/area"
 import { AbasDoMarketing, Periodos, UmDiaEPouco } from "@/components/marketing"
 import { TelaDasOfertas } from "@/components/marketing-ofertas"
 import { Cabeca } from "@/components/telas"
-import { lerPeriodo } from "@/lib/marketing"
+import { lerOfertas, lerPeriodo } from "@/lib/marketing"
 
 export const metadata: Metadata = { title: "Ofertas · Marketing" }
 
@@ -15,7 +15,9 @@ type Busca = Promise<{ periodo?: string }>
  * checkout e os cupons somam (`components/marketing-ofertas.tsx`). Tudo da
  * loja, sem o Google.
  */
-export default function Pagina({ searchParams }: { searchParams: Busca }) {
+export default async function Pagina({ searchParams }: { searchParams: Busca }) {
+  // A aba sai junto com a pergunta de quem é (a resposta fica no `cache`).
+  void lerOfertas(lerPeriodo((await searchParams).periodo))
   return (
     <SoPara area="marketing">
       <Ofertas searchParams={searchParams} />

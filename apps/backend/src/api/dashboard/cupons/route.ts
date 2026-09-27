@@ -16,6 +16,8 @@ import { exigirArea, type PedidoDaEquipe } from "../../../lib/equipe/acesso"
 import { anotar } from "../../../lib/painel/anotar"
 import { catalogoDaLoja } from "../../../lib/painel/catalogo"
 import { descontosAutomaticos } from "../../../lib/painel/cupons"
+import { totaisDos } from "../../../lib/painel/ler"
+import { lerPagina, paginar } from "../../../lib/painel/paginas"
 import { totalDo } from "../../../lib/painel/pedido"
 import {
   ehPromocaoDoPainel,
@@ -35,9 +37,15 @@ import {
  * a quem vale e os limites de uso, como no "Criar cupom" da Nuvemshop).
  * Marketing e dono.
  *
- * RESPOSTAS: GET 200 `{ cupons, promocoes, automaticos, catalogo, loja }`. POST 200
- * `{ cupom }`; 422 `{ erros }` (campo → frase); 409 `codigo_existe`.
+ * Os cupons vêm em páginas de 20 (`?pagina=`), e `?busca=` acha pelo código
+ * (sem diferença de maiúscula) — os 104 da Nuvemshop enchiam a tela. As
+ * promoções e os automáticos vêm inteiros: são poucos.
+ *
+ * RESPOSTAS: GET 200 `{ cupons, busca, paginacao, promocoes, automaticos, catalogo,
+ * loja }`. POST 200 `{ cupom }`; 422 `{ erros }` (campo → frase); 409 `codigo_existe`.
  */
+
+const CUPONS_POR_PAGINA = 20
 
 const CAMPOS_DA_PROMOCAO = [
   "id",
@@ -56,6 +64,7 @@ const CAMPOS_DA_PROMOCAO = [
 const DIA_MS = 24 * 60 * 60 * 1000
 
 type PedidoComAjustes = {
+  id: string
   status?: string | null
   created_at?: string | Date
   total?: unknown
@@ -69,6 +78,8 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
   const pedido = req as PedidoDaEquipe
   if (!exigirArea(pedido, res, "cupons")) return
 
+  const q = req.query as { busca?: unknown; pagina?: unknown }
+  const busca = typeof q.busca === "string" ? q.busca.trim().slice(0, 40) : ""
   const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
   const agora = new Date()
   const [{ data: todas }, { data: pedidos }, [loja], catalogo] = await Promise.all([
@@ -78,14 +89,14 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
       pagination: { take: 1000, order: { created_at: "DESC" } },
     }),
     // Os últimos 2000 pedidos, só com os ajustes: o que cada código deu de desconto e vendeu.
+    // Sem o total (o Medusa calcula pedido a pedido): ele vem depois, só dos
+    // pedidos pagos que usaram algum código — os únicos que entram no "vendeu".
     query.graph({
       entity: "order",
       fields: [
         "id",
         "status",
         "created_at",
-        "total",
-        "credit_line_total",
         "payment_collections.payments.captured_at",
         "items.adjustments.code",
         "items.adjustments.amount",
@@ -99,15 +110,28 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
     catalogoDaLoja(query),
   ])
 
-  const lidos = (pedidos as PedidoComAjustes[]).map((o) => ({
-    status: o.status,
-    criado: new Date(o.created_at ?? 0).getTime(),
+  const crus = (pedidos as PedidoComAjustes[]).map((o) => ({
+    o,
     pago: (o.payment_collections ?? []).some((c) => (c.payments ?? []).some((p) => p.captured_at)),
-    // O cobrado, com o desconto do próprio cupom: o `original_total` é de antes dele.
-    total: totalDo(o),
     ajustes: [...(o.items ?? []), ...(o.shipping_methods ?? [])].flatMap(
       (l) => l.adjustments ?? []
     ),
+  }))
+  const totais = await totaisDos(
+    req.scope,
+    crus
+      .filter(
+        ({ o, pago, ajustes }) => pago && o.status !== "canceled" && ajustes.some((a) => a.code)
+      )
+      .map(({ o }) => o.id)
+  )
+  const lidos = crus.map(({ o, pago, ajustes }) => ({
+    status: o.status,
+    criado: new Date(o.created_at ?? 0).getTime(),
+    pago,
+    // O cobrado, com o desconto do próprio cupom: o `original_total` é de antes dele.
+    total: totalDo(totais.get(o.id) ?? o),
+    ajustes,
   }))
   const usos = usosPorCodigo(lidos)
   const semUso = { pedidos: 0, desconto: 0, vendeu: 0 }
@@ -119,10 +143,23 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
     (o) => o.pago && o.status !== "canceled" && o.criado >= agora.getTime() - 7 * DIA_MS
   )
 
+  const procurado = busca.toUpperCase()
+  const cupons = (todas as PromocaoCrua[])
+    .filter(ehCupomDeCampanha)
+    .filter(
+      (p) =>
+        !procurado ||
+        String(p.code ?? "")
+          .toUpperCase()
+          .includes(procurado)
+    )
+    .map((p) => cupomNaLista(p, usos.get(String(p.code).toUpperCase()) ?? semUso, agora))
+  const { itens, paginacao } = paginar(cupons, lerPagina(q.pagina), CUPONS_POR_PAGINA)
+
   res.json({
-    cupons: (todas as PromocaoCrua[])
-      .filter(ehCupomDeCampanha)
-      .map((p) => cupomNaLista(p, usos.get(String(p.code).toUpperCase()) ?? semUso, agora)),
+    cupons: itens,
+    busca,
+    paginacao,
     promocoes: promocoes.map(({ p, g }) =>
       promocaoNaLista(p, g, usos.get(String(p.code).toUpperCase()) ?? semUso, agora)
     ),

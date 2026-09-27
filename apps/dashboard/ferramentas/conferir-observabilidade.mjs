@@ -563,6 +563,8 @@ try {
     "a tela da operação não tem o estorno"
   )
   await mkt.pagina.goto(`${PAINEL}/observabilidade`)
+  // O esqueleto do clique vem antes (0146): espera a tela de verdade (o título dela).
+  await mkt.pagina.waitForSelector("main h1")
   ok(
     semEspaco(await mkt.pagina.locator("main").textContent()).includes(
       "Essa área não é do seu papel"

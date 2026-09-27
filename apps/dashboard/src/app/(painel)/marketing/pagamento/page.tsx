@@ -4,7 +4,7 @@ import { SoPara } from "@/components/area"
 import { AbasDoMarketing, Periodos, UmDiaEPouco } from "@/components/marketing"
 import { TelaDoPagamento } from "@/components/marketing-pagamento"
 import { Cabeca } from "@/components/telas"
-import { lerPeriodo } from "@/lib/marketing"
+import { lerPagamento, lerPeriodo } from "@/lib/marketing"
 
 export const metadata: Metadata = { title: "Pagamento e frete · Marketing" }
 
@@ -15,7 +15,9 @@ type Busca = Promise<{ periodo?: string }>
  * o que o frete faz com a venda (`components/marketing-pagamento.tsx`).
  * Tudo da loja, sem o Google.
  */
-export default function Pagina({ searchParams }: { searchParams: Busca }) {
+export default async function Pagina({ searchParams }: { searchParams: Busca }) {
+  // A aba sai junto com a pergunta de quem é (a resposta fica no `cache`).
+  void lerPagamento(lerPeriodo((await searchParams).periodo))
   return (
     <SoPara area="marketing">
       <Pagamento searchParams={searchParams} />
