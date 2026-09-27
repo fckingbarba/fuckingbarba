@@ -2050,8 +2050,8 @@ A área Marketing do protótipo volta, em partes. A primeira fica no menu, em An
 - **As visitas contam só a loja nova.** O Google Analytics é o mesmo do site da Nuvemshop, que
   segue no ar: o painel pergunta só as do endereço da loja. Até a virada, os números são pequenos.
   O Início ainda conta as dos dois sites.
-- O Google soma as visitas com algumas horas de atraso: a conversão (pedidos ÷ visitas) corta os
-  pedidos na mesma hora que ele já somou.
+- O Google soma as visitas com algumas horas de atraso: a conversão (desde a entrega 0135, as
+  compras que o Google viu ÷ as visitas) corta as compras na mesma hora que ele já somou.
 
 As próximas partes, uma por entrega: Funil e Canais (com o montador de link de campanha), Produtos
 e Ofertas, Clientes, e Pagamento e frete — com "O que os dados dizem" crescendo a cada uma.
@@ -2653,6 +2653,31 @@ Depois do deploy — **nada a configurar.**
       que não geraram e o tempo pra gerar e confirmar; cartão aprovado e recusado por motivo;
       falhas, vezes fora e minutos fora. Com o número ao lado da porcentagem, e sem vencedor sem
       volume. No cartão, só compara se um dia o Mercado Pago também passar cartão.
+
+**Marketing: a conversão do Resumo compara gente igual — pronta em 26/09 (entrega 0135).** Pedido
+dele, depois da conversa sobre robôs e como a visita é contada ("sim vamos"). A conversão do Resumo
+dividia TODOS os pedidos pagos pelas visitas do Google — e o Google só vê quem aceitou os cookies.
+Quem recusa compra, mas não vira visita: a conversão saía maior que a real. No print dele (Canais,
+30 dias), o pedido de R$ 81,75 de quem recusou entrava na conta do Resumo; a visita dessa pessoa,
+não.
+
+- **Agora:** a conversão divide as compras que o Google viu (as que a loja manda pelo servidor, só
+  com o sim) pelas visitas — as duas do Google, no mesmo corte de hora. É a regra dos Canais. O
+  "Pedidos pagos" do Resumo segue contando todo mundo.
+- A ajuda da conversão (o mouse em cima do número) diz a conta do período ("3 pedidos em 120
+  visitas") e que é só de quem aceitou os cookies; o glossário embaixo também.
+
+Conferido pelo `conferir-marketing.mjs` (as compras do Google falso por dia e hora: o corte na hora
+que o Google ainda soma, a pergunta na mesma chamada das visitas, a conversão na tela e a ajuda) e
+pelos testes de unidade.
+
+Depois do deploy — **nada a configurar.** Pra ver: Marketing → Resumo → a conversão, com o mouse em
+cima.
+
+- [ ] **O Início ainda mistura:** o "Ontem: N visitas · X% viraram pedido pago" divide os pedidos
+      pagos da loja nova (de todos) pelas visitas do Google dos DOIS sites (a Nuvemshop segue no
+      mesmo Analytics até a virada). Consertar do mesmo jeito (as compras que o Google viu ÷ as
+      visitas), decidindo junto se o Início passa a contar só a loja nova.
 
 ## Como seguir no Claude Code
 

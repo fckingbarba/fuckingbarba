@@ -993,10 +993,14 @@ pago e não cancelado, no instante da captura, com o frete (a regra do Início, 
 números com a variação (`null` sem nada antes); o gráfico (por hora, por dia, ou por semana nos 90
 dias); os mais vendidos em reais (`items.total`); e a meta (`fb_metas` no metadata da loja, um valor
 por mês — `{ "2026-09": 12000 }` —, gravada pelo `mudarMetadataDaLoja`). `GET /dashboard/marketing
-?periodo=` devolve o Resumo (e `mudaAMeta`); `GET /dashboard/marketing/visitas`, as visitas do
-período e do de antes numa pergunta só ao GA4 (`visitasDoMarketing`, em `ga4.ts`, guardada como as
-do dia: `date`+`hour` de `2n−1daysAgo` a `today`, até 4.320 linhas) e a conversão com os pedidos NO
-MESMO CORTE de hora das visitas (`visitasDoPeriodo` — o Google soma hoje com atraso); `POST
+?periodo=` devolve o Resumo (e `mudaAMeta`); `GET /dashboard/marketing/visitas`, as visitas e as
+compras da loja do período e do de antes numa chamada só ao GA4 (`visitasDoMarketing`, em `ga4.ts`,
+guardada como as do dia: `date`+`hour` de `2n−1daysAgo` a `today`, até 4.320 linhas cada — as
+compras com o `SO_AS_COMPRAS_DA_LOJA`) e a conversão, compras ÷ visitas NO MESMO CORTE de hora
+(`visitasDoPeriodo` — o Google soma hoje com atraso). **A conversão compara gente igual** (entrega
+0135): o GA4 só vê quem aceitou os cookies, então o numerador são as compras que ELE viu, não os
+pedidos pagos do Medusa — dividir todos os pedidos pelas visitas de quem aceitou inflava a conversão
+(quem recusa compra, mas não vira visita). O "Pedidos pagos" do Resumo segue sendo o de todos; `POST
 /dashboard/marketing/meta` `{ valor }` (vazio tira) grava e anota `mudou-meta`. **As visitas
 contam só o endereço da loja** (`hostsDaLoja(LOJA_URL)`, filtro `hostName` na pergunta): o GA4 é o
 mesmo do site da Nuvemshop, que segue no ar até a virada — o `LOJA_URL` troca na virada, e o
