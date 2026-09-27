@@ -109,6 +109,12 @@ describe("o pagamento", () => {
       sessao: sessao("cartao", "recusado", { recusa: RECUSAS.antifraude }),
       status: "canceled",
     }),
+    // Cancelado com o cartão ainda em análise: a reserva desfeita, nada cobrado — e não é recusa.
+    pedido({
+      criado: "2026-09-22 15:00",
+      sessao: sessao("cartao", "cancelado"),
+      status: "canceled",
+    }),
   ]
   const carrinhos = [
     carrinho("2026-09-22 09:00", {
@@ -167,14 +173,18 @@ describe("o pagamento", () => {
 
   it("o cartão: cada tentativa (do pedido e do carrinho que não fechou), pelo motivo da recusa", () => {
     expect(p.cartao).toEqual({
-      total: 7,
+      total: 8,
       aprovados: 2,
       emAnalise: 1,
       antifraude: 2,
       banco: 1,
       dados: 1,
       outros: 0,
+      cancelados: 1,
     })
+    // Cada tentativa num motivo só: as partes somam o total.
+    const { total, ...partes } = p.cartao
+    expect(Object.values(partes).reduce((s, n) => s + n, 0)).toBe(total)
   })
 
   it("as parcelas dos pedidos pagos no cartão", () => {

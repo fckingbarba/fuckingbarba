@@ -15,6 +15,7 @@ import {
 } from "../../lib/cartao/robo"
 import { ligarSinais, type Sinal as SinalRecebido } from "../../lib/observabilidade/sinal"
 import type { Terminada } from "../../lib/pagamento/disjuntor"
+import type { TentativaDoPeriodo } from "../../lib/painel/marketing-parceiros"
 import type { Forma } from "../../lib/pagamento/estado"
 import { chaveDaOcorrencia, type EventoLido } from "../../lib/observabilidade/telemetria"
 import { chaveDoDia } from "../../lib/painel/formato"
@@ -421,6 +422,30 @@ export default class ObservabilidadeService extends Tabelas {
        where n <= 50`
     )) as Terminada[]
     return linhas
+  }
+
+  /**
+   * As tentativas que terminaram num período, com o parceiro, pro ranking do
+   * Marketing (`lib/painel/marketing-parceiros.ts`): quando começaram e
+   * quando a resposta saiu. As de antes da 0150 não têm parceiro e ficam de
+   * fora (ver a migração); as que não chegaram no parceiro também.
+   */
+  @InjectManager()
+  async tentativasDoPeriodo(
+    { de, ate }: { de: Date; ate: Date },
+    @MedusaContext() ctx: Contexto = {}
+  ): Promise<TentativaDoPeriodo[]> {
+    return (await ctx.manager!.execute(
+      `select provedor, forma, resultado, motivo, created_at as inicio, updated_at as fim
+         from obs_tentativa
+        where deleted_at is null
+          and provedor is not null
+          and resultado not in ('andando', 'barrada', 'parou', 'solta')
+          and created_at >= ? and created_at < ?
+        order by updated_at
+        limit 5000`,
+      [de, ate]
+    )) as TentativaDoPeriodo[]
   }
 
   /**
