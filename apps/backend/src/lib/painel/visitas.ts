@@ -7,10 +7,12 @@
  * Google (quem pergunta é o `ga4.ts`, ao lado). Os testes moram em
  * `__tests__/visitas.unit.spec.ts`.
  *
- * ┌─ O NÚMERO É MENOR QUE O DE VERDADE, E A TELA DIZ ──────────────────────┐
- * │ O GA4 da loja roda com o Consent Mode (`apps/loja/src/components/      │
- * │ analytics/tags.tsx`): quem recusa os cookies fica de fora da conta — a │
- * │ loja é pequena pra modelagem do Google preencher o buraco.             │
+ * ┌─ O NÚMERO É UM POUCO MENOR QUE O DE VERDADE, E A TELA DIZ ─────────────┐
+ * │ O GA4 da loja liga na primeira página, antes da resposta da faixa de   │
+ * │ cookies (`apps/loja/src/components/analytics/tags.tsx`, 0166 — como a  │
+ * │ Nuvemshop fazia): só quem clica em "Só o necessário" fica de fora da   │
+ * │ conta, e quem usa bloqueador. Até a 0166 ficava de fora todo mundo que │
+ * │ não aceitava — e as visitas ficavam bem abaixo das da Nuvemshop.       │
  * └────────────────────────────────────────────────────────────────────────┘
  *
  * VISITA É SESSÃO (`sessions`): quem entra de manhã e volta de noite conta

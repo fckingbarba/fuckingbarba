@@ -9,12 +9,14 @@
  * TikTok pelos eventos padrão deles (ViewContent, AddToCart,
  * InitiateCheckout, AddPaymentInfo) e a Clarity como marca na gravação.
  *
- * SEM O "ACEITAR", NÃO SAI NADA: as funções dos parceiros só existem depois
- * que `components/analytics/integracoes.ts` monta as tags. Até lá o evento
- * espera na memória da página (`fila`, com teto) — a visita ao produto
- * acontece no mesmo instante em que as tags ligam, e o efeito do produto
- * roda antes do das tags. Com o sim, a fila sai (`integracoesLigadas`); sem
- * ele, morre com a página, sem ter saído do navegador.
+ * DUAS PORTAS, como as tags (`components/analytics/integracoes.ts`): a do
+ * Google abre quando o gtag liga — o GA4, desde a primeira página, antes da
+ * resposta da faixa (0166) —, e a dos outros parceiros e do CRM, só com o
+ * "Aceitar". Até a porta abrir, o evento espera na memória da página (com
+ * teto) — a visita ao produto acontece no mesmo instante em que as tags
+ * ligam, e o efeito do produto roda antes do das tags. Porta que não abre
+ * (o "Só o necessário") leva a fila junto com a página, sem ter saído do
+ * navegador.
  *
  * O `purchase` NÃO é disparado daqui: sai do servidor quando o pagamento
  * entra (`apps/backend/src/lib/anuncios/`), pra contar o Pix pago depois e
@@ -100,20 +102,35 @@ const NA_CLARITY = new Set<EventoRastreado["nome"]>([
 const comItens = (d: object): d is ComItens => "items" in d && "value" in d
 
 const FILA_MAXIMA = 30
-let ligadas = false
-const fila: (() => void)[] = []
 
-/** Agora, se as tags já ligaram; senão, quando ligarem (com teto). */
-function quandoLigadas(fazer: () => void) {
-  if (ligadas) fazer()
-  else if (fila.length < FILA_MAXIMA) fila.push(fazer)
+/** Agora, se a porta já abriu; senão, quando abrir (com teto). */
+function porta() {
+  let aberta = false
+  const fila: (() => void)[] = []
+  return {
+    aberta: () => aberta,
+    quando(fazer: () => void) {
+      if (aberta) fazer()
+      else if (fila.length < FILA_MAXIMA) fila.push(fazer)
+    },
+    abrir() {
+      aberta = true
+      for (const fazer of fila.splice(0)) fazer()
+    },
+  }
 }
 
-/** As tags acabaram de ligar (depois do "Aceitar"): sai o que estava esperando. */
-export function integracoesLigadas() {
-  ligadas = true
-  for (const fazer of fila.splice(0)) fazer()
-}
+/** O gtag: o GA4 (sem resposta ou com o sim) e o Google Ads (com o sim). */
+const google = porta()
+/** A Meta, o TikTok, a Clarity e o CRM da loja: só com o "Aceitar". */
+const sim = porta()
+
+/** O gtag acabou de ligar: sai o que o GA4 estava esperando. */
+export const medicaoLigada = google.abrir
+/** As tags do sim acabaram de ligar (depois do "Aceitar"): sai o que estava esperando. */
+export const integracoesLigadas = sim.abrir
+/** Tem script de parceiro nesta página? (O "não" recarrega a página pra tirá-lo.) */
+export const tagsNaPagina = () => google.aberta() || sim.aberta()
 
 export function rastrear<E extends EventoRastreado>(nome: E["nome"], dados: E["dados"]): void {
   if (typeof window === "undefined") return
@@ -121,7 +138,8 @@ export function rastrear<E extends EventoRastreado>(nome: E["nome"], dados: E["d
     console.debug("[rastrear]", nome, dados)
   }
   const onde = ondeAgora()
-  quandoLigadas(() => mandar(nome, dados, onde))
+  google.quando(() => window.gtag?.("event", nome, dados))
+  sim.quando(() => mandar(nome, dados, onde))
 }
 
 /** Os que são só do CRM da loja: a chegada da visita e o e-mail no checkout. */
@@ -142,7 +160,7 @@ export function anotarNaLoja(
     console.debug("[rastrear] só na loja:", nome, dados)
   }
   const quando = onde ?? ondeAgora()
-  quandoLigadas(() => {
+  sim.quando(() => {
     crm().then(
       (m) => {
         if (!umaVez || m.primeiraVezNaSessao(umaVez)) m.anotar(nome, dados, quando)
@@ -158,8 +176,6 @@ function mandar(nome: EventoRastreado["nome"], dados: EventoRastreado["dados"], 
     (m) => m.anotar(nome, dados, onde),
     () => undefined
   )
-
-  w.gtag?.("event", nome, dados)
 
   const padrao = PADRAO_DAS_REDES[nome]
   if (padrao && comItens(dados)) {
@@ -260,14 +276,15 @@ export function rastrearMudancaDaSacola(antes: LinhaDaSacola[], depois: LinhaDaS
  * pagamento entrou. O Google Ads não recebe compra do servidor sem a API
  * dele (conta de desenvolvedor, OAuth); o `transaction_id` faz o Google
  * descartar a repetida, e a marca na sessão evita mandar de novo a cada
- * recarga. O Pix pago com a tela fechada não conta aqui.
+ * recarga. O Pix pago com a tela fechada não conta aqui. Só com o sim: o
+ * gtag já existe antes dele (o GA4), mas anúncio espera o "Aceitar".
  */
 export function converterCompraNoGoogleAds(
   envio: string,
   pedido: { id: string; total: number }
 ): void {
   if (typeof window === "undefined") return
-  quandoLigadas(() => {
+  sim.quando(() => {
     if (!window.gtag) return
     const marca = `fb_conversao_ads:${pedido.id}`
     try {

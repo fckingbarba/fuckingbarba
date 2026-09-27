@@ -62,8 +62,11 @@ export type Decisao = "mandar" | "esperar" | "nada" | { dispensar: string }
  *   ainda pega);
  * - sem o rastro da loja: espera meia hora (ela manda logo depois de fechar
  *   o pedido); passou disso, dispensa;
- * - sem o sim, ou sem o sim PRA ESTA plataforma: dispensa;
- * - o GA4 sem o `client_id` do cookie dele: dispensa (não há a quem somar).
+ * - com o "não": dispensa, pra todas;
+ * - o GA4 conta quem não disse não, com ou sem resposta — a loja liga ele
+ *   antes da resposta da faixa, como as visitas (0166) —, e só dispensa sem
+ *   o `client_id` do cookie dele (não há a quem somar);
+ * - a Meta e o TikTok: sem o sim, ou sem o sim PRA ESTA plataforma, dispensa.
  */
 export function decidir(
   plataforma: Plataforma,
@@ -83,11 +86,17 @@ export function decidir(
 ): Decisao {
   if (feito || !codigo || !chave) return "nada"
   if (!rastro) return idadeMs < ESPERA_PELO_RASTRO_MS ? "esperar" : { dispensar: "sem-rastro" }
+  if (rastro.consentimento === "nao") return { dispensar: "sem-consentimento" }
+  if (plataforma === "ga4")
+    return idsDoGa(rastro.ga).clientId ? "mandar" : { dispensar: "sem-client-id" }
   if (rastro.consentimento !== "sim") return { dispensar: "sem-consentimento" }
   if (!rastro.parceiros.includes(PARCEIRO[plataforma])) return { dispensar: "parceiro-sem-sim" }
-  if (plataforma === "ga4" && !idsDoGa(rastro.ga).clientId) return { dispensar: "sem-client-id" }
   return "mandar"
 }
+
+/** O sim pro anúncio do Google (o GA4 mede sem ele; o anúncio, só com ele). */
+const anuncioDoGoogle = (r: Rastro) =>
+  r.consentimento === "sim" && r.parceiros.includes(PARCEIRO.ga4) ? "GRANTED" : "DENIED"
 
 export const sha256 = (s: string) => createHash("sha256").update(s).digest("hex")
 
@@ -164,8 +173,8 @@ export function compraProGa4(p: PedidoDaCompra, r: Rastro, agora: Date) {
     client_id: clientId,
     // Até 72 horas pra trás; a varredura só olha as últimas 24.
     timestamp_micros: momento(p, agora) * 1_000_000,
-    // Só vai de quem disse sim ao Google na faixa (`decidir`).
-    consent: { ad_user_data: "GRANTED", ad_personalization: "GRANTED" },
+    // A medição vai de quem não disse não (`decidir`); o anúncio, só de quem disse sim ao Google.
+    consent: { ad_user_data: anuncioDoGoogle(r), ad_personalization: anuncioDoGoogle(r) },
     events: [
       {
         name: "purchase",

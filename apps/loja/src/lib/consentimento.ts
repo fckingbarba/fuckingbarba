@@ -2,9 +2,10 @@ import type { Integracoes } from "@/lib/configuracoes"
 
 /**
  * A RESPOSTA SOBRE OS COOKIES — o que a faixa grava e quem lê: o navegador
- * (`components/analytics/`, que só liga as tags com "sim") e o checkout (a
- * ação de finalizar, que grava a resposta no pedido pra compra sair pelo
- * servidor só de quem aceitou). Sem diretiva: os dois lados importam.
+ * (`components/analytics/`, que liga o GA4 sem resposta e o resto só com
+ * "sim") e o checkout (a ação de finalizar, que grava a resposta no pedido
+ * pra compra sair pelo servidor pros parceiros de quem aceitou — e pro GA4 de
+ * quem não recusou). Sem diretiva: os dois lados importam.
  *
  * O cookie diz a resposta, a VERSÃO da pergunta e A QUEM ela disse sim:
  * "sim.2.gm" = sim, na versão 2, pro Google e pra Meta.
@@ -18,7 +19,11 @@ import type { Integracoes } from "@/lib/configuracoes"
  * - OS PARCEIROS: o "sim" vale pros parceiros que estavam na faixa quando a
  *   pessoa clicou. Entrou um parceiro novo no painel, a faixa pergunta de
  *   novo — ela não aceitou o TikTok se o TikTok não estava lá. O "não" vale
- *   pra qualquer lista: nada carrega, que é o lado seguro.
+ *   pra qualquer lista: nada carrega, nem o GA4, que é o lado seguro.
+ * - A versão NÃO subiu na 0166 (o GA4 passou a medir antes da resposta): quem
+ *   já tinha dito sim tinha aceitado mais do que isso, e quem disse não segue
+ *   fora — subir a versão faria o "não" de antes voltar a ser "sem resposta",
+ *   e o GA4 contaria quem já tinha recusado.
  */
 
 export const COOKIE_CONSENTIMENTO = "fb_consentimento"

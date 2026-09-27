@@ -95,7 +95,7 @@ export async function TelaDosProdutos({ periodo }: { periodo: Periodo }) {
           titulo="Produtos"
           ajuda={
             "Do que mais vendeu pro que menos. Toque num produto pra abrir a página dele no painel.\n" +
-            "“Pôs na sacola”: de cada 100 vezes que a página do produto foi vista, quantas viraram sacola — do Google Analytics, só de quem aceitou os cookies. Os vendidos e a receita são os pedidos pagos da loja; o estoque, o que dá pra vender."
+            "“Pôs na sacola”: de cada 100 vezes que a página do produto foi vista, quantas viraram sacola — do Google Analytics, de todo mundo menos quem recusou os cookies. Os vendidos e a receita são os pedidos pagos da loja; o estoque, o que dá pra vender."
           }
         />
         {r.produtos.length ? (

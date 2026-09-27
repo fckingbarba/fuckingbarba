@@ -27,8 +27,9 @@ export const metadata: Metadata = {
  * `components/checkout/contato.tsx` e `entrega.tsx`, os cookies de
  * `lib/carrinho.ts`, `lib/checkout.ts` e `components/analytics/`, e os
  * terceiros de quem a loja realmente chama (ViaCEP, Vercel, Railway,
- * Supabase, Pagar.me, Mercado Pago, Resend, Frenet, Bling e, só com o aceite, Google,
- * Meta, TikTok e Microsoft Clarity — `components/analytics/tags.tsx` e
+ * Supabase, Pagar.me, Mercado Pago, Resend, Frenet, Bling, o Google Analytics (de quem
+ * não recusa os cookies, desde a 0166) e, só com o aceite, Google Ads, Meta, TikTok e
+ * Microsoft Clarity — `components/analytics/tags.tsx` e
  * `apps/backend/src/lib/anuncios/`). O que a própria loja anota pro CRM, só
  * com o aceite, é `lib/anotar.ts` e `apps/backend/src/lib/crm/eventos.ts`
  * (o prazo de 13 meses é o job `limpar-o-crm`). Política genérica é pior que nenhuma:
@@ -53,8 +54,8 @@ export default async function Privacidade() {
       <Abertura>
         A gente coleta o mínimo pra conseguir entregar seu pedido e falar com você sobre ele. Não
         vendemos seus dados e não guardamos o número do seu cartão — ele não passa nem pelo nosso
-        servidor. Medição, anúncio e o que a loja anota do que você faz nela, só se você aceitar os
-        cookies.
+        servidor. O Google Analytics conta as visitas de quem não recusar os cookies; o resto da
+        medição, o anúncio e o que a loja anota do que você faz nela, só se você aceitar.
       </Abertura>
 
       <Secao titulo="Quem é o responsável">
@@ -99,10 +100,16 @@ export default async function Privacidade() {
           produto — o número do pedido e o seu e-mail, não.
         </P>
         <P>
-          <b>Se você aceitar os cookies</b>: as páginas e os produtos que você vê, o que entra e sai
-          da sacola e o caminho do checkout. Na compra, junto do valor e dos produtos, vão os
-          códigos desses cookies — e, pra Meta e pro TikTok, o IP e o navegador. É o que diz pra
-          cada um que a compra veio de um anúncio dele.
+          <b>Se você não recusar os cookies</b>: o Google Analytics conta a visita — as páginas e os
+          produtos que você vê, o que entra e sai da sacola e o caminho do checkout —, ligada a um
+          código aleatório do cookie dele, sem o seu nome, e-mail ou telefone. Na compra, vão pra
+          ele o valor, os produtos e esse código; e a loja guarda no pedido o navegador da compra,
+          pra saber se ela veio do celular ou do computador.
+        </P>
+        <P>
+          <b>Se você aceitar os cookies</b>: o mesmo vai também pro Google Ads, pra Meta e pro
+          TikTok, com os códigos dos cookies deles — e, pra Meta e pro TikTok, o IP e o navegador. É
+          o que diz pra cada um que a compra veio de um anúncio dele.
         </P>
         <P>
           <b>O que a própria loja anota, também só se você aceitar</b>: de onde você chegou (o site
@@ -142,10 +149,13 @@ export default async function Privacidade() {
             guardar.
           </li>
           <li>
-            <b>Consentimento</b> — cookies de medição e anúncio, o que a loja anota do que você faz
-            nela, o aviso da compra pras plataformas de anúncio, a newsletter, o aviso de produto
-            esgotado e a avaliação que você manda pro site. Você escolhe, e pode voltar atrás a
-            qualquer momento sem perder nada do resto.
+            <b>Consentimento</b> — os cookies de anúncio e a gravação da Microsoft Clarity, o que a
+            loja anota do que você faz nela, o aviso da compra pras plataformas de anúncio, a
+            newsletter, o aviso de produto esgotado e a avaliação que você manda pro site. Você
+            escolhe, e pode voltar atrás a qualquer momento sem perder nada do resto. A contagem de
+            visitas do Google Analytics é por legítimo interesse — saber quantas pessoas a loja
+            recebe e o que funciona nela, sem o seu nome, e-mail ou telefone —, e para quando você
+            recusa os cookies.
           </li>
           <li>
             <b>Legítimo interesse</b> — segurança da loja e prevenção a fraude, os e-mails e a
@@ -167,15 +177,17 @@ export default async function Privacidade() {
           lista.
         </P>
         <P>
-          Os de medição e anúncio — Google Analytics, Google Ads, Meta (Facebook e Instagram),
+          O do Google Analytics conta as visitas desde a primeira página, com um código aleatório e
+          sem nada de anúncio. Os de anúncio e gravação — Google Ads, Meta (Facebook e Instagram),
           TikTok e Microsoft Clarity — e o da própria loja, com o código deste navegador, só são
-          criados se você clicar em aceitar na faixa. Se recusar, nenhum desses scripts é carregado
-          — não é um script que roda em silêncio —, a loja não anota nada, e a sua compra também não
-          é avisada a ninguém.
+          criados se você clicar em aceitar na faixa. Se clicar em “Só o necessário”, o Google
+          Analytics para e os cookies dele são apagados, nenhum dos outros scripts é carregado — não
+          é um script que roda em silêncio —, a loja não anota nada, e a sua compra também não é
+          avisada a ninguém.
         </P>
         <P>
-          Pra mudar de ideia depois, é só a faixa perguntar de novo. Se agora você disser não, a
-          loja apaga o que anotou deste navegador.
+          Pra mudar de ideia depois, é só a faixa perguntar de novo. Se agora você disser não, o
+          Google Analytics para e a loja apaga o que anotou deste navegador.
         </P>
         <MudarResposta />
         <P>
@@ -222,13 +234,20 @@ export default async function Privacidade() {
             <b>Bling</b> — emite a nota fiscal: nome, CPF ou CNPJ, endereço e o que você comprou.
           </li>
         </Lista>
-        <P>Só se você aceitar os cookies, pra medir e pra anúncio:</P>
+        <P>Pra contar as visitas, se você não recusar os cookies:</P>
         <Lista>
           <li>
-            <b>Google</b> (Analytics e Ads), <b>Meta</b> (Facebook e Instagram) e <b>TikTok</b> — o
-            que você vê e põe na sacola e, na compra, o valor, os produtos e os códigos dos cookies.
-            A Meta e o TikTok recebem também o seu e-mail e o telefone, embaralhados (em hash): eles
-            só conseguem comparar com os que já têm, não ler.
+            <b>Google Analytics</b> — o que você vê e põe na sacola e, na compra, o valor, os
+            produtos e o código do cookie dele. Sem o seu nome, e-mail ou telefone.
+          </li>
+        </Lista>
+        <P>Só se você aceitar os cookies, pra anúncio e pra ver onde a loja atrapalha:</P>
+        <Lista>
+          <li>
+            <b>Google Ads</b>, <b>Meta</b> (Facebook e Instagram) e <b>TikTok</b> — o que você vê e
+            põe na sacola e, na compra, o valor, os produtos e os códigos dos cookies. A Meta e o
+            TikTok recebem também o seu e-mail e o telefone, embaralhados (em hash): eles só
+            conseguem comparar com os que já têm, não ler.
           </li>
           <li>
             <b>Microsoft Clarity</b> — a gravação de como a página é usada, com os seus dados

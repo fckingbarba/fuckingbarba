@@ -31,11 +31,12 @@ import { diaNoFuso, fusoDa, horaNoFuso, type RelatorioGa4 } from "./visitas"
  * virada.
  *
  * ┌─ A CONVERSÃO COMPARA GENTE IGUAL ──────────────────────────────────────┐
- * │ O Google só vê quem aceitou os cookies. A conversão divide as compras  │
- * │ que ele viu (as que a loja manda pelo servidor, com o sim) pelas       │
- * │ visitas — as duas do Google, no mesmo corte de hora, como nos Canais.  │
- * │ Até a 0135 ela dividia TODOS os pedidos pagos pelas visitas de quem    │
- * │ aceitou: quem recusa compra, mas não vira visita, e a conversão subia. │
+ * │ O Google não vê quem recusa os cookies (desde a 0166 ele conta todo    │
+ * │ mundo que não recusou; antes, só quem aceitava). A conversão divide as │
+ * │ compras que ele viu (as que a loja manda pelo servidor) pelas visitas  │
+ * │ — as duas do Google, no mesmo corte de hora, como nos Canais. Até a    │
+ * │ 0135 ela dividia TODOS os pedidos pagos pelas visitas do Google: quem  │
+ * │ recusa compra, mas não vira visita, e a conversão subia.               │
  * └────────────────────────────────────────────────────────────────────────┘
  */
 
@@ -477,7 +478,7 @@ export type VisitasDoPeriodo = {
   visitas: Comparado
   /**
    * As compras que o Google viu, no mesmo corte das visitas: é o que a
-   * conversão divide. Só de quem aceitou os cookies, como as visitas — os
+   * conversão divide. Sem quem recusou os cookies, como as visitas — os
    * pedidos pagos de todo mundo são os do Resumo (`numerosDo`).
    */
   pedidos: Comparado
