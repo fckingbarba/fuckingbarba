@@ -1044,6 +1044,25 @@ depois da tela não resolve, continuam dois instantes: o conferidor compara a fi
   `precisamDoTotal` (os pagos nos últimos 8 dias, o que espera pagamento e os de hoje). Busca de
   lista usa o `Form` do `next/form` (troca só a tela, sem recarregar o painel).
 
+**O painel mais visual, com menos texto** (entrega 0148; o desenho aprovado pelo dono está em
+<https://claude.ai/artifact/DLk4uCe8UcrjFLpzqZP3xx>). Frase que explica a tela não fica mais embaixo do título:
+vai no "?" (`Ajuda`, em `apps/dashboard/src/components/visual.tsx` — um `<details>`, sem JavaScript; a
+`Cabeca` recebe `ajuda`). As peças do mesmo arquivo trocam frase por desenho: `Sigla` (as iniciais da
+pessoa, numa das quatro cores da marca), `Fotos` (até três fotos dos produtos e "+N"), `Forma` (o ícone do
+Pix ou do cartão), `Passos` (os seis passos do caminho em tracinhos: preto feito, amarelo agora, vermelho
+com problema) e `Faisca` (as barrinhas da semana dentro de um número); o CSS mora em `estilos/visual.css`.
+O backend manda os dados de cada uma: `LinhaDaLista` ganhou `fotos`, `produtos` e `passos` (o
+`caminhoDo` do pedido aberto, só os estados) e `LinhaDoCliente` ganhou `canais` (e-mail e WhatsApp).
+**A fila do Início junta o que é igual** (`filaDosPedidos`, em `lib/painel/inicio.ts`): sete "a nota do
+#N não sai sozinha" viram um item, com `chave` (estável, a do painel), `quantos` (o número do selo),
+`etiquetas` (curtas: o motivo — `motivoCurto` traduz os motivos conhecidos do ERP, como "sem CPF/CNPJ" —,
+o valor dos estornos, a idade do cartão em análise mais antigo, o que falta pra despachar) e `pedidos`
+(do mais antigo pro mais novo; o painel mostra seis e "+N"); o `texto` é a explicação, e vai no "?".
+Com um pedido só, o link vai direto nele; com vários, na lista filtrada. Os contratos dos conferidores
+continuam: o `.fila__titulo` é só o título da API (o número do selo mora fora dele), o `.numero__sub` das
+visitas tem o mesmo texto (a seta é desenho), a frase das ofertas de cada cliente segue na linha, em
+`sr-only`, e o título de cada bloco (`.bloco__titulo`) não leva o número — ele fica ao lado.
+
 **O erro do React que o relógio do `next dev` causa** (entrega 0091). Em desenvolvimento, o React
 desenha os componentes do servidor no painel de desempenho do navegador: o servidor manda, pelo
 websocket do HMR, a hora em que começou a página (no relógio do processo Node) e o tempo de cada

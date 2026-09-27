@@ -2,6 +2,7 @@ import type { Route } from "next"
 import Link from "next/link"
 import type { ReactNode } from "react"
 import { Icone } from "@/components/icones"
+import { Ajuda } from "@/components/visual"
 import { semAcessoA, type Area } from "@/lib/equipe"
 
 /**
@@ -13,6 +14,7 @@ export function Cabeca({
   titulo,
   selo,
   sub,
+  ajuda,
   acoes,
   voltar,
 }: {
@@ -20,6 +22,8 @@ export function Cabeca({
   /** O selo ao lado do título (a situação do pedido). */
   selo?: ReactNode
   sub?: ReactNode
+  /** A explicação da tela, no "?" ao lado do título (0148: o que era frase embaixo dele). */
+  ajuda?: ReactNode
   acoes?: ReactNode
   voltar?: { href: Route; texto: string }
 }) {
@@ -37,6 +41,11 @@ export function Cabeca({
             <div className="titulo-status">
               <h1>{titulo}</h1>
               {selo}
+            </div>
+          ) : ajuda ? (
+            <div className="titulo-com-ajuda">
+              <h1>{titulo}</h1>
+              <Ajuda>{ajuda}</Ajuda>
             </div>
           ) : (
             <h1>{titulo}</h1>

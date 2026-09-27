@@ -2988,9 +2988,38 @@ Depois do deploy — **nada a configurar.** O painel (Vercel) e o backend (Railw
 nos minutos em que só o painel novo está no ar, as listas aparecem inteiras, sem o pé das páginas,
 como antes.
 
-- [ ] **A próxima parte: mais visual, menos texto** — o desenho (Início, Pedidos, Clientes e o
-      Início no celular) está em <https://claude.ai/artifact/DLk4uCe8UcrjFLpzqZP3xx>, esperando a
-      aprovação dele.
+- [x] **A próxima parte: mais visual, menos texto** — aprovada em 27/09 ("perfeito vamos seguir para o
+      próximo"), feita na 0148 (abaixo).
+
+**Painel mais visual, com menos texto — pronto em 27/09 (entrega 0148).** O desenho aprovado por ele (o
+Início, os Pedidos e os Clientes, no computador e no celular) está em
+<https://claude.ai/artifact/DLk4uCe8UcrjFLpzqZP3xx>.
+
+- **O "?" no lugar das explicações.** O que antes ficava escrito embaixo do título (e nas notas do pé)
+  agora abre num "?", ao lado do título, só quando alguém toca.
+- **Início:** cada número ganhou o seu ícone. As vendas de hoje têm as barrinhas da semana, o que espera
+  pagamento mostra Pix e cartão pelos ícones, e as visitas dizem a diferença de ontem numa seta verde ou
+  vermelha. **"Precisa de você" junta o que é igual**: sete "a nota do #N não sai sozinha" viram UM
+  cartão "A nota não sai sozinha", com o número (7), o motivo ("sem CPF/CNPJ") e os pedidos, um botão pra
+  cada. Os pedidos de hoje mostram a foto dos produtos e o ícone do pagamento; os mais vendidos, em barras.
+- **Pedidos:** cada linha tem as iniciais do cliente, as fotos dos produtos, o ícone do Pix ou do cartão
+  e, embaixo da situação, os seis passos em tracinhos (preto feito, amarelo agora, vermelho com problema).
+  As fitas de filtro ganharam ícones, e a de problemas fica vermelha quando tem.
+- **Clientes:** as iniciais de cada pessoa, os pedidos num quadradinho, o "gastou" com uma barrinha, e as
+  ofertas pelos ícones do e-mail e do WhatsApp (aceso é quem aceitou). Em cima, o total de clientes e
+  quantos aceitam ofertas.
+- **No celular**, os mesmos desenhos nos cartões.
+
+Conferido pelos conferidores do painel (os de pedidos e clientes ganharam as checagens do desenho: a fila
+agrupada igual à da API, com o número, os pedidos e o "?"; a foto, o Pix ou o cartão e os seis passos de
+cada linha; os ícones das ofertas) e pelos testes de unidade (a fila junta o que é igual, o motivo curto,
+as fotos e os passos da linha, os canais do cliente).
+
+Depois do deploy — **nada a configurar.** Nos minutos em que só o painel novo está no ar, a fila e as
+linhas aparecem como antes (sem os números nem os desenhos novos).
+
+- [ ] **O resto das telas** (Produtos, Carrinhos, Cupons, Observabilidade, Configurações, Marketing, Layout
+      da home e o pedido aberto) com o mesmo "?" e os desenhos — perguntar antes.
 
 **CRM, parte 3: a ficha de cada pessoa — pronto em 27/09 (entrega 0145).** Na ficha do cliente
 (Clientes → a pessoa), o CRM mostra quem ela é pro "Ciclo da Barba".

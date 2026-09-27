@@ -3,6 +3,7 @@ import Link from "next/link"
 import type { ReactNode } from "react"
 import { Icone } from "@/components/icones"
 import { Status } from "@/components/pedidos"
+import { Ajuda, Faisca, Forma, Fotos } from "@/components/visual"
 import { reais, reaisCurto, type Inicio } from "@/lib/pedidos"
 
 /**
@@ -13,70 +14,152 @@ import { reais, reaisCurto, type Inicio } from "@/lib/pedidos"
 
 const vezes = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um : varios}`
 
-/** Os quatro números de cima. As visitas chegam à parte (`visitas`): o Google pode demorar. */
-export function Numeros({ n, visitas }: { n: Inicio["numeros"]; visitas: ReactNode }) {
-  const esperando = [
-    n.esperando.pix ? vezes(n.esperando.pix, "Pix", "Pix") : "",
-    n.esperando.analise
-      ? vezes(n.esperando.analise, "cartão em análise", "cartões em análise")
-      : "",
-  ].filter(Boolean)
+/**
+ * Os quatro números de cima, cada um com o seu ícone e o resto em desenho:
+ * as barrinhas da semana nas vendas de hoje, o Pix e o cartão no que espera
+ * pagamento. As visitas chegam à parte (`visitas`): o Google pode demorar.
+ */
+export function Numeros({
+  n,
+  dias,
+  visitas,
+}: {
+  n: Inicio["numeros"]
+  dias: Inicio["grafico"]
+  visitas: ReactNode
+}) {
   return (
     <div className="numeros">
       <div className="numero numero--destaque">
+        <span className="numero__ico">
+          <Icone nome="grafico" />
+        </span>
         <p className="numero__rot">Vendas hoje</p>
         <p className="numero__valor">{reais(n.vendasHoje.valor)}</p>
-        <p className="numero__sub">{vezes(n.vendasHoje.pedidos, "pedido pago", "pedidos pagos")}</p>
+        <div className="numero__pe">
+          <span className="pilula">
+            {vezes(n.vendasHoje.pedidos, "pedido pago", "pedidos pagos")}
+          </span>
+          <Faisca valores={dias} />
+        </div>
       </div>
       {visitas}
       <div className="numero">
+        <span className="numero__ico">
+          <Icone nome="relogio" />
+        </span>
         <p className="numero__rot">Esperando pagamento</p>
         <p className="numero__valor">{reais(n.esperando.valor)}</p>
-        <p className="numero__sub">{esperando.length ? esperando.join(" · ") : "nada esperando"}</p>
+        <div className="numero__pe">
+          {n.esperando.pix || n.esperando.analise ? (
+            <>
+              <span className="pilula" title={vezes(n.esperando.pix, "Pix", "Pix")}>
+                <Icone nome="pix" />
+                {n.esperando.pix}
+                <span className="sr-only"> Pix</span>
+              </span>
+              <span
+                className="pilula"
+                title={vezes(n.esperando.analise, "cartão em análise", "cartões em análise")}
+              >
+                <Icone nome="cartao" />
+                {n.esperando.analise}
+                <span className="sr-only"> em análise</span>
+              </span>
+            </>
+          ) : (
+            <span className="pilula pilula--suave">nada esperando</span>
+          )}
+        </div>
       </div>
       <div className="numero">
+        <span className="numero__ico">
+          <Icone nome="pedidos" />
+        </span>
         <p className="numero__rot">Últimos 7 dias</p>
         <p className="numero__valor">{reais(n.semana.valor)}</p>
-        <p className="numero__sub">
-          {vezes(n.semana.pedidos, "pedido", "pedidos")}
-          {n.semana.pedidos ? ` · ticket ${reais(n.semana.ticket)}` : ""}
-        </p>
+        <div className="numero__pe">
+          <span className="pilula">{vezes(n.semana.pedidos, "pedido", "pedidos")}</span>
+          {n.semana.pedidos ? (
+            <span className="pilula">ticket {reais(n.semana.ticket)}</span>
+          ) : null}
+        </div>
       </div>
     </div>
   )
 }
 
+/** Quantos números de pedido a fila mostra num item; o resto vira "+N". */
+const FICHAS = 6
+
+/**
+ * O "precisa de você" — o que é igual já vem junto do backend (0148): o
+ * título, o número de pedidos, as etiquetas curtas e os pedidos um por um.
+ * A explicação mora no "?". O item inteiro leva ao lugar dele (o link do
+ * título cobre o cartão), e cada número abre o seu pedido.
+ */
 export function Fila({ fila }: { fila: Inicio["fila"] }) {
   return (
-    <section className="bloco">
+    <section className="bloco" data-fila>
       <div className="bloco__cabeca">
-        <div>
+        <span className="bloco__titulos">
           <h2 className="bloco__titulo">Precisa de você</h2>
-          <p className="bloco__sub">Na ordem do que trava mais.</p>
-        </div>
+          {fila.length ? <span className="contagem num">{fila.length}</span> : null}
+        </span>
       </div>
       {fila.length ? (
         <div className="fila">
-          {fila.map((f) => (
-            <Link
-              key={f.titulo}
+          {fila.map((f, i) => (
+            <div
+              key={f.chave ?? `${f.titulo}-${i}`}
               className="fila__item"
               data-nivel={f.nivel || undefined}
-              href={f.href as Route}
+              data-chave={f.chave}
             >
               <span className="fila__ico">
                 <Icone nome={f.icone} />
               </span>
-              <span>
-                <p className="fila__titulo">{f.titulo}</p>
-                <p className="fila__txt">{f.texto}</p>
+              <span className="fila__miolo">
+                <span className="fila__cabeca">
+                  <Link className="fila__link" href={f.href as Route}>
+                    <span className="fila__titulo">{f.titulo}</span>
+                  </Link>
+                  {f.quantos ? <span className="contagem num">{f.quantos}</span> : null}
+                  {(f.etiquetas ?? []).map((e) => (
+                    <span key={e} className="fila__etiqueta">
+                      {e}
+                    </span>
+                  ))}
+                </span>
+                {f.pedidos?.length ? (
+                  <span className="fichas">
+                    {f.pedidos.slice(0, FICHAS).map((p) => (
+                      <Link key={p.href} className="ficha num" href={p.href as Route}>
+                        #{p.numero}
+                      </Link>
+                    ))}
+                    {f.pedidos.length > FICHAS ? (
+                      <Link className="ficha ficha--mais num" href={f.href as Route}>
+                        +{f.pedidos.length - FICHAS}
+                      </Link>
+                    ) : null}
+                  </span>
+                ) : null}
+                {/* Backend de antes da 0148: sem as peças novas, a frase fica à vista. */}
+                {f.chave ? null : <span className="fila__txt">{f.texto}</span>}
               </span>
-              <Icone nome="seta" className="fila__seta" />
-            </Link>
+              <span className="fila__lado">
+                {f.chave && f.texto ? <Ajuda rotulo="Por quê?">{f.texto}</Ajuda> : null}
+                <Icone nome="seta" className="fila__seta" />
+              </span>
+            </div>
           ))}
         </div>
       ) : (
-        <p className="fila__vazia">Nada travado agora — a loja segue sozinha.</p>
+        <p className="fila__vazia">
+          <Icone nome="check" />
+          Nada travado agora.
+        </p>
       )}
     </section>
   )
@@ -90,12 +173,11 @@ export function Grafico({ dias }: { dias: Inicio["grafico"] }) {
   return (
     <section className="bloco">
       <div className="bloco__cabeca">
-        <div>
-          <h2 className="bloco__titulo">Vendas pagas na semana</h2>
-          <p className="bloco__sub">
-            Só pedido pago conta — Pix esperando e cartão em análise ficam de fora.
-          </p>
-        </div>
+        <h2 className="bloco__titulo">Vendas pagas na semana</h2>
+        <span className="bloco__lado">
+          <span className="pilula num">{reais(dias.reduce((s, d) => s + d.valor, 0))}</span>
+          <Ajuda>Só pedido pago conta — Pix esperando e cartão em análise ficam de fora.</Ajuda>
+        </span>
       </div>
       <div className="barras-v" role="img" aria-label={`Vendas por dia. ${descricao}`}>
         {dias.map((d) => (
@@ -121,27 +203,30 @@ export function PedidosDeHoje({ pedidos }: { pedidos: NonNullable<Inicio["pedido
   return (
     <section className="bloco">
       <div className="bloco__cabeca">
-        <h2 className="bloco__titulo">Pedidos de hoje</h2>
+        <span className="bloco__titulos">
+          <h2 className="bloco__titulo">Pedidos de hoje</h2>
+          {pedidos.length ? <span className="contagem num">{pedidos.length}</span> : null}
+        </span>
         <Link className="link pequeno" href="/pedidos">
           Ver todos
         </Link>
       </div>
       {pedidos.length ? (
-        <div className="mini">
+        <div className="mini mini--fotos">
           {pedidos.map((p) => (
             <Link key={p.id} href={`/pedidos/${p.id}` as Route}>
-              <span>
+              <Fotos fotos={p.fotos} produtos={p.produtos} rotulo={p.itens} />
+              <span className="mini__meio">
                 <p className="mini__titulo">
                   #{p.numero} · {p.cliente.nome}
                 </p>
                 <p className="mini__txt">
-                  {p.quando.replace("hoje, ", "")} · {p.itens}
+                  <Forma forma={p.forma} />
+                  {p.quando.replace("hoje, ", "")}
                 </p>
               </span>
-              <span style={{ display: "grid", justifyItems: "end", gap: 4 }}>
-                <span className="num" style={{ fontWeight: 800 }}>
-                  {reais(p.total)}
-                </span>
+              <span className="mini__lado">
+                <span className="num">{reais(p.total)}</span>
                 <Status p={p} />
               </span>
             </Link>
@@ -154,36 +239,43 @@ export function PedidosDeHoje({ pedidos }: { pedidos: NonNullable<Inicio["pedido
   )
 }
 
+/** Os mais vendidos em barras: o primeiro em amarelo, e cada barra do tamanho das unidades. */
 export function MaisVendidos({ itens }: { itens: Inicio["maisVendidos"] }) {
+  const maior = Math.max(...itens.map((i) => i.unidades), 1)
   return (
     <section className="bloco">
       <div className="bloco__cabeca">
-        <div>
-          <h2 className="bloco__titulo">Mais vendidos da semana</h2>
-          <p className="bloco__sub">Em unidades, só dos pedidos pagos.</p>
-        </div>
+        <h2 className="bloco__titulo">Mais vendidos da semana</h2>
+        <span className="bloco__lado">
+          <span className="pilula">unidades</span>
+          <Ajuda>Em unidades, só dos pedidos pagos dos últimos 7 dias.</Ajuda>
+        </span>
       </div>
       {itens.length ? (
-        <div className="mini">
-          {itens.map((i) => (
-            <div key={i.nome} className="mini__linha">
-              <span className="com-foto">
-                <span className={`foto${i.imagem ? "" : " foto--vazia"}`}>
-                  {i.imagem ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- foto do Medusa, de qualquer host
-                    <img src={i.imagem} alt="" loading="lazy" />
-                  ) : (
-                    <Icone nome="produtos" />
-                  )}
+        <ol className="ranking">
+          {itens.map((i, n) => (
+            <li key={i.nome}>
+              <b className="num">{n + 1}</b>
+              <span className={`foto${i.imagem ? "" : " foto--vazia"}`}>
+                {i.imagem ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- foto do Medusa, de qualquer host
+                  <img src={i.imagem} alt="" loading="lazy" />
+                ) : (
+                  <Icone nome="produtos" />
+                )}
+              </span>
+              <span className="ranking__miolo">
+                <span className="ranking__nome">
+                  <span className="mini__titulo">{i.nome}</span>
+                  <span className="num">{i.unidades}</span>
                 </span>
-                <span>
-                  <p className="mini__titulo">{i.nome}</p>
-                  <p className="mini__txt">{vezes(i.unidades, "unidade", "unidades")}</p>
+                <span className="ranking__trilho" aria-hidden="true">
+                  <i style={{ width: `${((i.unidades / maior) * 100).toFixed(1)}%` }} />
                 </span>
               </span>
-            </div>
+            </li>
           ))}
-        </div>
+        </ol>
       ) : (
         <p className="vazio vazio--curto">Nenhuma venda paga nos últimos 7 dias.</p>
       )}

@@ -26,6 +26,8 @@ export type LinhaDoCliente = {
   conta: boolean
   /** "e-mail · desde 22/09" — `null` quando não aceitou ofertas. */
   ofertas: string | null
+  /** Os mesmos "sim", por canal (um ícone aceso cada); um backend de antes da 0148 não manda. */
+  canais?: { email: boolean; whatsapp: boolean }
 }
 
 export type ListaDeClientes = {
