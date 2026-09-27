@@ -274,6 +274,12 @@ export default defineMiddlewares({
       method: ["POST"],
       bodyParser: { preserveRawBody: true },
     },
+    /* Os avisos do Resend (o padrão Svix): a assinatura é sobre o corpo cru. */
+    {
+      matcher: "/hooks/resend",
+      method: ["POST"],
+      bodyParser: { preserveRawBody: true },
+    },
     /*
       O PAINEL DA LOJA (dashboard.fuckingbarba.com.br) — as rotas de
       `api/dashboard/`. Uma porta só pra todas (`lib/equipe/acesso.ts`): a

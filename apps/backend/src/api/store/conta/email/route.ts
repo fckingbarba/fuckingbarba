@@ -146,7 +146,8 @@ export async function POST(req: AuthenticatedMedusaRequest, res: MedusaResponse)
   // Depois da resposta: a troca já aconteceu, e um aviso que não saiu não a desfaz.
   const aviso = await enviarEmail(
     emailDeEmailTrocado({ para: conta.email, novo, whatsapp: await whatsappDaLoja(req.scope) }),
-    logger
+    logger,
+    { tipo: "email-trocado" }
   )
   if (!aviso.ok) {
     logger.warn(`[conta] aviso de troca pra ${emailNoLog(conta.email)} não saiu: ${aviso.motivo}`)

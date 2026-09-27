@@ -128,7 +128,8 @@ export async function POST(req: AuthenticatedMedusaRequest, res: MedusaResponse)
 
   const enviado = await enviarEmail(
     emailDaTroca({ para: novo, codigo: resultado.codigo, minutos: MINUTOS_DE_VALIDADE }),
-    logger
+    logger,
+    { tipo: "codigo-do-email-novo" }
   )
   if (!enviado.ok) {
     // Como no código de entrar: a troca ficou gravada e o envio contou, pra
