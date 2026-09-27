@@ -274,6 +274,16 @@ export default defineMiddlewares({
       middlewares: [authenticate("customer", ["bearer"])],
     },
     /*
+      O que a loja anota pro CRM: o token do cliente é opcional. Com ele, o
+      navegador fica sendo da conta; sem ele (ou vencido), o recado entra do
+      mesmo jeito, anônimo — por isso `allowUnauthenticated`.
+    */
+    {
+      matcher: "/store/crm/eventos",
+      method: ["POST"],
+      middlewares: [authenticate("customer", ["bearer"], { allowUnauthenticated: true })],
+    },
+    /*
       Os avisos dos parceiros de entrega: o corpo cru fica guardado
       (`req.rawBody`) pro parceiro que autentica assinando o corpo — a
       Frenet manda token, mas o próximo pode não mandar.

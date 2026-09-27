@@ -25,6 +25,7 @@
  */
 
 import { chromium } from "playwright"
+import { comAFaixaRespondida } from "./faixa-respondida.mjs"
 
 const LOJA = process.argv[2] ?? process.env.LOJA ?? "http://localhost:3000"
 const MEDUSA = process.env.MEDUSA_BACKEND_URL ?? "http://127.0.0.1:9000"
@@ -134,6 +135,7 @@ if (!EMAIL || !SENHA) {
   }
 
   const navegador = await chromium.launch(CROMO ? { executablePath: CROMO } : {})
+  comAFaixaRespondida(navegador, LOJA)
   /*
     SEM CACHE DO NAVEGADOR. Sem isto o teste mede o cache do Chromium, não o
     da loja: o HTML da home vem do disco do navegador e o teste "falha" com a

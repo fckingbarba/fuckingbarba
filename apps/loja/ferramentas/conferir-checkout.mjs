@@ -66,6 +66,7 @@
 
 import { readFileSync } from "node:fs"
 import { chromium } from "playwright"
+import { comAFaixaRespondida } from "./faixa-respondida.mjs"
 import { SERVICOS, subirFrenetFalsa } from "./frenet-falsa.mjs"
 import { subirPagarmeFalso } from "./pagarme-falso.mjs"
 import { vigiarRecargaDoDev } from "./recarga-do-dev.mjs"
@@ -325,6 +326,7 @@ async function faixasDoCarrinho(carrinhoId) {
 const navegador = await chromium.launch(
   process.env.CHROMIUM ? { executablePath: process.env.CHROMIUM } : {}
 )
+comAFaixaRespondida(navegador, LOJA)
 const contexto = await navegador.newContext({ viewport: MESA })
 const pagina = await contexto.newPage()
 

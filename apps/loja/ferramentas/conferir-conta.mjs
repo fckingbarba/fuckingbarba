@@ -62,6 +62,7 @@
 
 import { readFileSync } from "node:fs"
 import { chromium } from "playwright"
+import { comAFaixaRespondida } from "./faixa-respondida.mjs"
 import { subirFrenetFalsa } from "./frenet-falsa.mjs"
 import { subirPagarmeFalso } from "./pagarme-falso.mjs"
 import { fabricaDePedidos } from "./pedido-de-teste.mjs"
@@ -167,6 +168,7 @@ const quantosPara = (email) =>
 const navegador = await chromium.launch(
   process.env.CHROMIUM ? { executablePath: process.env.CHROMIUM } : {}
 )
+comAFaixaRespondida(navegador, LOJA)
 const errosDeConsole = []
 /** O erro do React que o relógio do `next dev` causa (`relogio-do-dev.mjs`): não conta, mas se diz. */
 const descontadosDoDev = []

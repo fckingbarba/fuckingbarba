@@ -12,7 +12,9 @@ import type { Integracoes } from "@/lib/configuracoes"
  * - A VERSÃO sobe quando muda a finalidade ou a política (a última seção dela
  *   promete avisar antes de valer): a resposta de antes deixa de valer, e a
  *   faixa pergunta de novo. A 1 era só o Google Analytics, gravada como
- *   "sim"/"nao"; a 2 (25/09) entra com os anúncios.
+ *   "sim"/"nao"; a 2 (25/09) entra com os anúncios; a 3 (26/09) com o que a
+ *   própria loja anota pro CRM (`lib/anotar.ts`) — que está em todo "sim",
+ *   com ou sem parceiro ligado no painel.
  * - OS PARCEIROS: o "sim" vale pros parceiros que estavam na faixa quando a
  *   pessoa clicou. Entrou um parceiro novo no painel, a faixa pergunta de
  *   novo — ela não aceitou o TikTok se o TikTok não estava lá. O "não" vale
@@ -20,7 +22,7 @@ import type { Integracoes } from "@/lib/configuracoes"
  */
 
 export const COOKIE_CONSENTIMENTO = "fb_consentimento"
-export const VERSAO_DO_CONSENTIMENTO = 2
+export const VERSAO_DO_CONSENTIMENTO = 3
 
 export type Parceiro = "google" | "meta" | "tiktok" | "clarity"
 export type Resposta = "sim" | "nao"

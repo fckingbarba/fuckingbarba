@@ -65,6 +65,7 @@
  */
 
 import { readFileSync } from "node:fs"
+import { comAFaixaRespondida } from "./faixa-respondida.mjs"
 import { subirFrenetFalsa } from "./frenet-falsa.mjs"
 import { CARTOES, subirPagarmeFalso } from "./pagarme-falso.mjs"
 import { subirResendFalso } from "./resend-falso.mjs"
@@ -278,6 +279,7 @@ const { chromium } = await import("playwright")
 const navegador = await chromium.launch(
   process.env.CHROMIUM ? { executablePath: process.env.CHROMIUM } : {}
 )
+comAFaixaRespondida(navegador, LOJA)
 const errosDeConsole = []
 const RUIDO_DE_DEV = /_next\/hmr|websocket|favicon/i
 
