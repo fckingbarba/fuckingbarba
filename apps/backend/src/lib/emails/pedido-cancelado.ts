@@ -163,11 +163,11 @@ function pedidoEmTexto(itens: ItemDoEmail[], total: number): string[] {
   ]
 }
 
-function botaoDaLoja(loja: string | null): string {
+function botaoDaLoja(loja: string | null, texto = "Voltar pra loja"): string {
   return loja
     ? espaco(22) +
         `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>` +
-        `<td align="center">${botao({ texto: "Voltar pra loja", href: loja })}</td>` +
+        `<td align="center">${botao({ texto, href: loja })}</td>` +
         `</tr></table>`
     : ""
 }
@@ -213,10 +213,16 @@ function naMoldura(
 export function emailDePedidoCancelado({
   cancelamento: c,
   whatsapp,
+  refazer = null,
 }: {
   cancelamento: CancelamentoDoEmail
   /** Só dígitos, com DDI (5547999990000) — o das configurações da loja. */
   whatsapp: string | null
+  /**
+   * O link que refaz o pedido (o do Pix que venceu): monta um carrinho com os
+   * mesmos produtos e cai no checkout. Sem ele, o botão volta pra loja.
+   */
+  refazer?: string | null
 }): Email {
   const numero = `#${c.numero}`
   const assunto = c.estorno
@@ -254,7 +260,7 @@ export function emailDePedidoCancelado({
           : "Os produtos voltaram pro estoque e continuam à venda.",
         { tamanho: 14 }
       ) +
-      botaoDaLoja(loja) +
+      (refazer ? botaoDaLoja(refazer, "Refazer o pedido") : botaoDaLoja(loja)) +
       espaco(20) +
       paragrafo(ajuda(numero, whatsapp), { suave: true, tamanho: 13 })
   )
@@ -277,7 +283,7 @@ export function emailDePedidoCancelado({
     c.motivo === "pix-vencido"
       ? "Os produtos voltaram pro estoque. É só refazer o pedido — um Pix novo nasce na hora."
       : "Os produtos voltaram pro estoque e continuam à venda.",
-    ...(loja ? ["", `A loja: ${loja}`] : []),
+    ...(refazer ? ["", `Refazer o pedido: ${refazer}`] : loja ? ["", `A loja: ${loja}`] : []),
     "",
     ajudaEmTexto(numero, whatsapp),
   ].join("\n")

@@ -263,6 +263,7 @@ if (soBloqueiaTudo) {
     "/busca?q=oleo",
     "/avaliar",
     "/sair",
+    "/voltar/abc",
   ]
   const abertos = privados.filter(liberado)
   confere(

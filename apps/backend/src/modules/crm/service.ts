@@ -24,6 +24,7 @@ import type {
 import { CarrinhoDaBase, PedidoDaBase, PessoaDaBase } from "./models/base-da-nuvemshop"
 import { EmailDoCrm } from "./models/email"
 import { Evento } from "./models/evento"
+import { EnvioDoFluxo, SaiuDaLista } from "./models/fluxos"
 import { Visitante } from "./models/visitante"
 
 type Contexto = Context<EntityManager>
@@ -52,7 +53,30 @@ const Tabelas = MedusaService({
   PessoasDaBase: PessoaDaBase,
   PedidosDaBase: PedidoDaBase,
   CarrinhosDaBase: CarrinhoDaBase,
+  EnviosDosFluxos: EnvioDoFluxo,
+  Saidas: SaiuDaLista,
 })
+
+/** Uma decisão do motor dos fluxos, como o banco devolve (`lib/crm/fluxos.ts` usa o `Registro`). */
+export type RegistroLido = {
+  email: string
+  fluxo: string
+  chave: string
+  toque: string
+  como: string
+  em: Date
+  cupom: string | null
+  cupom_ate: Date | null
+}
+
+/** O toque que vai sair, reservado antes do envio. */
+export type ToqueReservado = {
+  email: string
+  fluxo: string
+  chave: string
+  toque: string
+  em: Date
+}
 
 export default class CrmService extends Tabelas {
   /**
@@ -617,7 +641,154 @@ export default class CrmService extends Tabelas {
       })
     return sinais
   }
+  /* ── os fluxos (`lib/crm/fluxos.ts`, a rotina `fluxos-do-crm`) ──────────── */
+
+  /**
+   * O que o motor já decidiu, desde `desde` — só destes e-mails, ou de todo
+   * mundo (a tela do painel). O toque reservado e não confirmado (a rodada
+   * caiu no meio do envio) conta como feito: melhor perder um e-mail que
+   * mandar dois.
+   */
+  @InjectManager()
+  async registrosDosFluxos(
+    desde: Date,
+    emails: string[] | null = null,
+    @MedusaContext() ctx: Contexto = {}
+  ): Promise<RegistroLido[]> {
+    const campos = `select email, fluxo, chave, toque, como, em, cupom, cupom_ate from crm_envio
+      where deleted_at is null and em >= ?`
+    if (emails === null)
+      return (await ctx.manager!.execute(`${campos} order by em asc`, [desde])) as RegistroLido[]
+    const lidos: RegistroLido[] = []
+    for (const lote of emLotes([...new Set(emails)]))
+      lidos.push(
+        ...((await ctx.manager!.execute(`${campos} and email in (${lugares(lote)})`, [
+          desde,
+          ...lote,
+        ])) as RegistroLido[])
+      )
+    return lidos
+  }
+
+  /**
+   * Anota o que não é envio: o toque pulado (a rotina parou e ele passou) e
+   * o do grupo de controle. `false` se já estava.
+   */
+  @InjectManager()
+  async anotarNoFluxo(
+    r: ToqueReservado & { como: "pulado" | "controle" },
+    @MedusaContext() ctx: Contexto = {}
+  ): Promise<boolean> {
+    const linhas = (await ctx.manager!.execute(
+      `insert into crm_envio (id, email, fluxo, chave, toque, como, em, created_at, updated_at)
+       values (?, ?, ?, ?, ?, ?, ?, now(), now())
+       on conflict (fluxo, chave, toque) where deleted_at is null do nothing
+       returning id`,
+      [generateEntityId(undefined, "env"), r.email, r.fluxo, r.chave, r.toque, r.como, r.em]
+    )) as { id: string }[]
+    return linhas.length > 0
+  }
+
+  /**
+   * Reserva o toque ANTES de mandar: o índice único (fluxo, carrinho ou
+   * pedido, toque) garante que duas rodadas juntas não mandem o mesmo e-mail.
+   * Devolve o id da reserva, ou null se outra rodada chegou antes.
+   */
+  @InjectManager()
+  async reservarToque(
+    r: ToqueReservado,
+    @MedusaContext() ctx: Contexto = {}
+  ): Promise<string | null> {
+    const linhas = (await ctx.manager!.execute(
+      `insert into crm_envio (id, email, fluxo, chave, toque, como, em, created_at, updated_at)
+       values (?, ?, ?, ?, ?, 'enviando', ?, now(), now())
+       on conflict (fluxo, chave, toque) where deleted_at is null do nothing
+       returning id`,
+      [generateEntityId(undefined, "env"), r.email, r.fluxo, r.chave, r.toque, r.em]
+    )) as { id: string }[]
+    return linhas[0]?.id ?? null
+  }
+
+  /** O e-mail saiu: a reserva vira envio, com o id do Resend e o cupom, se teve. */
+  @InjectManager()
+  async confirmarToque(
+    id: string,
+    {
+      resendId,
+      cupom,
+      cupomAte,
+    }: { resendId: string | null; cupom: string | null; cupomAte: Date | null },
+    @MedusaContext() ctx: Contexto = {}
+  ): Promise<void> {
+    await ctx.manager!.execute(
+      `update crm_envio set como = 'enviado', resend_id = ?, cupom = ?, cupom_ate = ?, updated_at = now()
+        where id = ?`,
+      [resendId, cupom, cupomAte, id]
+    )
+  }
+
+  /** O e-mail não saiu: a reserva some, e a próxima rodada tenta de novo. */
+  @InjectManager()
+  async desfazerToque(id: string, @MedusaContext() ctx: Contexto = {}): Promise<void> {
+    await ctx.manager!.execute(
+      `update crm_envio set deleted_at = now(), updated_at = now() where id = ?`,
+      [id]
+    )
+  }
+
+  /** Anota quem saiu da lista (o "Sair da lista" de qualquer e-mail do CRM), com a hora. */
+  @InjectManager()
+  async saiuDaLista(email: string, @MedusaContext() ctx: Contexto = {}): Promise<void> {
+    await ctx.manager!.execute(
+      `insert into crm_saiu (id, email, em, created_at, updated_at) values (?, ?, now(), now(), now())
+       on conflict (email) where deleted_at is null do update set em = now(), updated_at = now()`,
+      [generateEntityId(undefined, "sai"), email]
+    )
+  }
+
+  /** Quem destes e-mails saiu da lista, e quando. */
+  @InjectManager()
+  async quemSaiu(
+    emails: string[],
+    @MedusaContext() ctx: Contexto = {}
+  ): Promise<Map<string, Date>> {
+    const saidas = new Map<string, Date>()
+    for (const lote of emLotes([...new Set(emails)])) {
+      const linhas = (await ctx.manager!.execute(
+        `select email, em from crm_saiu where deleted_at is null and email in (${lugares(lote)})`,
+        lote
+      )) as { email: string; em: Date }[]
+      for (const l of linhas) saidas.set(l.email, new Date(l.em))
+    }
+    return saidas
+  }
+
+  /**
+   * Quem destes e-mails não pode receber: o endereço voltou de vez (não
+   * existe; a caixa cheia de agora não conta), está bloqueado no Resend, ou a
+   * pessoa marcou um e-mail da loja como spam. Mandar de novo pra
+   * esses é o que joga a loja inteira no spam do Gmail.
+   */
+  @InjectManager()
+  async semEntrega(emails: string[], @MedusaContext() ctx: Contexto = {}): Promise<Set<string>> {
+    const fora = new Set<string>()
+    for (const lote of emLotes([...new Set(emails)])) {
+      const linhas = (await ctx.manager!.execute(
+        `select distinct para as email from crm_email
+          where deleted_at is null and not equipe
+            and (reclamou_em is not null or suprimido_em is not null
+              or (devolvido_em is not null and coalesce(devolucao, '') not ilike 'transient%'))
+            and para in (${lugares(lote)})`,
+        lote
+      )) as { email: string }[]
+      for (const l of linhas) fora.add(l.email)
+    }
+    return fora
+  }
 }
+
+/** `?, ?, ?` — um lugar por item da lista, pro `in (…)`. */
+const lugares = (lista: unknown[]) => lista.map(() => "?").join(", ")
 
 /** Em pedaços de 200: o insert de uma vez só com 3 mil linhas passaria do limite de parâmetros. */
 function emLotes<T>(lista: T[], tamanho = 200): T[][] {

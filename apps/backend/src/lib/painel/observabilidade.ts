@@ -88,6 +88,12 @@ export const ROTINAS: readonly DefinicaoDaRotina[] = [
     cada: "a cada 5 min",
   },
   {
+    nome: "fluxos-do-crm",
+    frase: "Manda os e-mails do checkout abandonado e do Pix pendente",
+    agenda: "3-59/5 * * * *",
+    cada: "a cada 5 min",
+  },
+  {
     nome: "registrar-pedidos",
     frase: "Manda os pedidos pagos pra Frenet",
     agenda: "6-59/10 * * * *",

@@ -3402,7 +3402,46 @@ volta). Isso é a próxima parte. Até lá, nenhum e-mail de oferta sai sozinho.
       Add Domain → `news.fuckingbarba.com.br`, e os registros que ele mostrar vão na GoDaddy. Depois,
       no Railway, a variável `EMAIL_REMETENTE_CRM` = `FuckingBarba <ofertas@news.fuckingbarba.com.br>`.
       Eu te guio no passo a passo quando for a hora.
-- [ ] **A próxima parte da Fundação** (uma entrega, perguntar antes): os fluxos.
+- [x] **A próxima parte da Fundação:** os fluxos começaram na parte 7 (entrega 0165, logo abaixo).
+
+**CRM, parte 7: os fluxos de compra — pronto em 27/09 (entrega 0165).** Os primeiros e-mails que
+saem sozinhos, pra quem começou uma compra e não terminou. Painel → CRM → aba **Fluxos**.
+
+- **Pix pendente:** 15 minutos antes de o Pix vencer, o aviso, com o código copia e cola e o número
+  do pedido. Se venceu, o e-mail do cancelamento tem o botão **Refazer o pedido**. Depois de 1 dia,
+  o desconto; depois de 2, a última chamada.
+- **Checkout abandonado** (digitou o e-mail e não pagou):
+  - em 30 minutos, "Faltou só o pagamento";
+  - em 4 horas, "Ficou alguma dúvida?";
+  - em 1 dia, o desconto;
+  - em 2 dias, a última chamada.
+- **O botão de todos** põe a pessoa de volta no checkout, com a sacola do jeito que estava (ou,
+  no Pix vencido, uma sacola nova com os mesmos produtos), e o desconto já aplicado.
+- **O desconto:** um cupom só da pessoa, de uso único, que vence em 2 dias. Soma com o preço
+  promocional, e vai no máximo um a cada 60 dias pro mesmo e-mail. Começa em 10%, e você muda na
+  aba Fluxos (de 5% a 30%). Os cupons ficam fora da lista de Cupons: a aba Fluxos conta quantos
+  saíram e quantos foram usados.
+- **Quem recebe:** quem digitou o e-mail (escolha sua: é sobre a compra que a pessoa começou), menos:
+  - quem saiu da lista;
+  - o e-mail que voltou ou foi marcado como spam;
+  - a equipe;
+  - os 5% do grupo de controle, que servem pra saber o que o fluxo vende a mais de verdade.
+- **As regras:**
+  - comprou, parou;
+  - um fluxo por vez: o Pix vem antes do checkout;
+  - no máximo 3 e-mails num dia e 6 numa semana por pessoa;
+  - de madrugada, só o aviso do Pix e o de 30 minutos. Os outros esperam as 8h.
+- **Começam ligados** (escolha sua), mas só pra quem começar uma compra depois do deploy: nada sai
+  pros carrinhos de antes. Cada fluxo tem a chave de ligar e desligar na aba, com o "Mandar pra mim"
+  de cada e-mail.
+- **Na aba, os números de 30 dias:** quem recebeu, quem comprou em até 7 dias e quanto, os cupons
+  usados, e quantos do grupo de controle compraram sem receber nada.
+- **A política de privacidade** conta esses e-mails (até quatro, com o Sair da lista).
+
+- [ ] **Depois do deploy (você, 5 minutos):** Painel → CRM → Fluxos → "Mandar pra mim" em cada
+      e-mail, pra ver no celular. Se quiser mudar o desconto, é ali.
+- [ ] **A próxima parte** (uma entrega, perguntar antes): o carrinho abandonado (quem pôs na sacola
+      e não foi pro checkout), o pop-up da 1ª compra e as boas-vindas.
 
 **A parcela mínima do cartão, editável — pronta em 27/09 (entrega 0157).** O pedido dele: "quero
 poder editar a parcela mínima no cartão, ali diz 5 reais". Em **Configurações → Pagamento**, o

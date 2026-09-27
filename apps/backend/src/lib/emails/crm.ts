@@ -56,6 +56,8 @@ export type BlocoDoCrm =
   | { tipo: "depoimento"; texto: string; quem: string; estrelas?: number }
   | { tipo: "passos"; titulo?: string; passos: string[] }
   | { tipo: "selo"; texto: string }
+  /** O Pix do pedido: o copia e cola, o QR (só se for um endereço https) e até quando vale. */
+  | { tipo: "pix"; codigo: string; imagem: string | null; vence: string }
 
 export type EmailDoCrm = {
   para: string
@@ -67,6 +69,11 @@ export type EmailDoCrm = {
   titulo: string
   texto: string
   blocos: BlocoDoCrm[]
+  /**
+   * A frase do pé: por que a pessoa recebeu. Sem ela, a das ofertas ("aceitou
+   * receber ofertas"); os fluxos de compra dizem que ela começou uma compra.
+   */
+  porque?: string
   /** O botão principal: o texto e o caminho na loja ("/produtos/oleo-para-barba"). */
   botao?: { texto: string; caminho: string }
   /** O nome da campanha — no UTM (`crm-<campanha>`) e na etiqueta `tipo` do Resend. */
@@ -150,6 +157,10 @@ function paragrafoNoAmarelo(
   )
 }
 
+/** A página do produto; sem o handle (item sem produto), a lista inteira. */
+const caminhoDoProduto = (p: ProdutoDoCrm) =>
+  p.handle ? `/produtos/${encodeURIComponent(p.handle)}` : "/produtos"
+
 /** "★★★★☆" — as estrelas do depoimento, de 1 a 5. */
 function estrelas(n = 5): string {
   const cheias = Math.max(1, Math.min(5, Math.round(n)))
@@ -164,12 +175,7 @@ function bloco(b: BlocoDoCrm, e: EmailDoCrm): string {
     case "produtos": {
       const linhas = b.produtos
         .slice(0, 3)
-        .map((p) =>
-          linhaDoProduto(
-            p,
-            linkDoCrm(e.loja.url, `/produtos/${encodeURIComponent(p.handle)}`, e.campanha)
-          )
-        )
+        .map((p) => linhaDoProduto(p, linkDoCrm(e.loja.url, caminhoDoProduto(p), e.campanha)))
       if (!linhas.length) return ""
       return cartao((b.titulo ? rotulo(b.titulo) + espaco(14) : "") + linhas.join(espaco(14)), {
         respiro: "24px 28px",
@@ -228,6 +234,28 @@ function bloco(b: BlocoDoCrm, e: EmailDoCrm): string {
         { respiro: "22px 28px" }
       )
     }
+    case "pix":
+      return cartao(
+        rotulo("Pix copia e cola") +
+          espaco(12) +
+          (/^https:\/\//.test(b.imagem ?? "")
+            ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>` +
+              `<td align="center"><img src="${esc(b.imagem)}" width="180" height="180" alt="QR code do Pix" ` +
+              `style="display:block;width:180px;height:180px;border:0;"></td></tr></table>` +
+              espaco(14)
+            : "") +
+          // Fundo claro e letra escura que não mudam no modo escuro: o código tem que ser lido.
+          `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>` +
+          `<td bgcolor="${COR.cinza}" style="background:${COR.cinza};border:2px dashed ${COR.tinta};` +
+          `padding:14px 16px;"><p style="margin:0;font-family:${FONTE};font-size:13px;line-height:19px;` +
+          `word-break:break-all;color:${COR.tinta};">${esc(b.codigo)}</p></td></tr></table>` +
+          espaco(10) +
+          paragrafo(
+            esc(`Vale até ${b.vence}. No app do banco: Pix, Pix copia e cola, e cole o código.`),
+            { suave: true, tamanho: 13 }
+          ),
+        { respiro: "22px 28px" }
+      )
     case "selo":
       return (
         `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>` +
@@ -253,7 +281,7 @@ function blocoEmTexto(b: BlocoDoCrm, e: EmailDoCrm): string[] {
           .map(
             (p) =>
               `- ${p.nome}${p.preco !== null ? ` · ${emReais(p.preco)}` : ""}: ` +
-              linkDoCrm(e.loja.url, `/produtos/${encodeURIComponent(p.handle)}`, e.campanha)
+              linkDoCrm(e.loja.url, caminhoDoProduto(p), e.campanha)
           ),
       ]
     case "cupom":
@@ -270,6 +298,8 @@ function blocoEmTexto(b: BlocoDoCrm, e: EmailDoCrm): string[] {
       ]
     case "selo":
       return [b.texto]
+    case "pix":
+      return [`Pix copia e cola (vale até ${b.vence}):`, b.codigo]
   }
 }
 
@@ -301,12 +331,13 @@ export function emailDoCrm(e: EmailDoCrm): Email & { cabecalhos: Record<string, 
   const empresa = [e.loja.empresa, e.loja.cnpj ? `CNPJ ${e.loja.cnpj}` : null]
     .filter(Boolean)
     .join(" · ")
+  const porque = e.porque ?? "Você recebeu porque aceitou receber ofertas da FuckingBarba."
   const html = moldura({
     assunto: e.assunto,
     previa: e.previa,
     conteudo: topo + e.blocos.map((b) => bloco(b, e)).join(""),
     rodape:
-      `Você recebeu porque aceitou receber ofertas da FuckingBarba. ` +
+      `${esc(porque)} ` +
       `<a href="${esc(e.sair.pagina)}" target="_blank" class="fb-rodape" ` +
       `style="color:${COR.tinta};text-decoration:underline;font-weight:800;">` +
       `Sair da lista em 1 clique</a>. Os e-mails dos seus pedidos continuam chegando.` +
@@ -327,7 +358,7 @@ export function emailDoCrm(e: EmailDoCrm): Email & { cabecalhos: Record<string, 
     ...(principal && e.botao ? ["", `${e.botao.texto}: ${principal}`] : []),
     ...e.blocos.flatMap((b) => ["", ...blocoEmTexto(b, e)]),
     "",
-    "Você recebeu porque aceitou receber ofertas da FuckingBarba.",
+    porque,
     `Sair da lista: ${e.sair.pagina}`,
     ...(empresa ? [empresa] : []),
     `Instagram: ${INSTAGRAM} · TikTok: ${TIKTOK}${whatsapp ? ` · WhatsApp: ${whatsapp}` : ""}`,
@@ -446,7 +477,9 @@ export function exemplosDoCrm(base: {
         texto:
           `Você deixou ${kit ? `o ${kit.nome}` : "um produto"} na sacola. Ele ainda está lá — ` +
           "é só voltar e terminar.",
-        botao: { texto: "Voltar pra sacola", caminho: "/carrinho" },
+        // Nos e-mails de verdade, o botão é o link de voltar (`lib/crm/voltar.ts`), que põe o
+        // carrinho da pessoa de volta; no exemplo, o checkout de quem abrir.
+        botao: { texto: "Voltar pra sacola", caminho: "/checkout" },
         blocos: [
           { tipo: "produtos", produtos: lista("kit-completo-para-barba") },
           { tipo: "passos", titulo: "Como fica", passos: COMO_COMPRAR },

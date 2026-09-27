@@ -210,6 +210,8 @@ const NOME_DO_EMAIL: Record<string, string> = {
   "codigo-de-entrar": "Código de entrar",
   "codigo-do-email-novo": "Código do e-mail novo",
   "email-trocado": "E-mail da conta trocado",
+  "crm-checkout": "Checkout abandonado",
+  "crm-pix": "Pix pendente",
 }
 
 /** "Pedido confirmado"; sem etiqueta (os de antes da 0138), "Outro". */
