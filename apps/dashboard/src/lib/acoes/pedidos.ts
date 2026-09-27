@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
+import { semAcessoA } from "@/lib/equipe"
 import { medusa } from "@/lib/medusa"
 import { ehIdDePedido, type AcaoDoPedido, type Frase } from "@/lib/pedidos"
 
@@ -37,10 +38,7 @@ async function fazer(id: string, acao: AcaoDoPedido): Promise<Frase> {
   if (r.status === 200 && typeof r.corpo.texto === "string")
     return { ok: r.corpo.ok === true, texto: r.corpo.texto }
   if (r.status === 403)
-    return {
-      ok: false,
-      texto: acao === "estorno" ? "Estorno é com o dono." : "Pedidos são da operação e do dono.",
-    }
+    return { ok: false, texto: semAcessoA(acao === "estorno" ? "estornos" : "pedidos") }
   if (r.status === 409)
     return {
       ok: false,

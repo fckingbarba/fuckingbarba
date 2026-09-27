@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
+import { semAcessoA } from "@/lib/equipe"
 import { medusa } from "@/lib/medusa"
 import type { Resultado } from "@/lib/produtos"
 
@@ -19,7 +20,7 @@ export async function tirarDaNewsletter(email: string): Promise<Resultado> {
   const r = await medusa("/dashboard/newsletter/tirar", { token: "sessao", corpo: { email } })
   if (r.status === 401)
     redirect(`/sair?motivo=${r.corpo.message === "fora_da_equipe" ? "fora" : "expirou"}`)
-  if (r.status === 403) return { ok: false, texto: "A newsletter é do marketing e do dono." }
+  if (r.status === 403) return { ok: false, texto: semAcessoA("newsletter") }
   if (r.status === 404) {
     revalidatePath("/clientes/newsletter")
     return { ok: false, texto: "Esse e-mail já tinha saído da lista. A tela foi atualizada." }

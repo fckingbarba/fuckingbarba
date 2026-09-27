@@ -1,16 +1,18 @@
 import type { Metadata } from "next"
 import { redirect } from "next/navigation"
+import { TabelaDeAcessos } from "@/components/acessos"
 import { Equipe, type PessoaDaLista } from "@/components/equipe"
 import { ForaDoAr, SemAcesso } from "@/components/telas"
-import { NOME_DO_PAPEL, PAPEIS, type Area, type Membro, type Papel } from "@/lib/equipe"
+import type { Area, Matriz, Membro } from "@/lib/equipe"
 import { medusa } from "@/lib/medusa"
 
 export const metadata: Metadata = { title: "Equipe e acessos" }
 
 /**
  * EQUIPE E ACESSOS — quem entra, com que papel, e a tabela do que cada papel
- * abre. A lista e a tabela vêm do Medusa (`GET /dashboard/equipe`), que só
- * responde ao dono.
+ * abre, que o dono muda (as caixinhas da operação e do marketing). A lista,
+ * a tabela e as regras dela vêm do Medusa (`GET /dashboard/equipe`), que só
+ * responde ao dono; salvar é `POST /dashboard/acessos`.
  */
 export default async function Pagina() {
   const r = await medusa("/dashboard/equipe", { metodo: "GET", token: "sessao" })
@@ -20,70 +22,32 @@ export default async function Pagina() {
   if (r.status !== 200) return <ForaDoAr />
 
   const membros = paraALista((r.corpo.membros ?? []) as Membro[])
-  const acesso = (r.corpo.acesso ?? {}) as Record<Area, Papel[]>
+  const acesso = (r.corpo.acesso ?? {}) as Matriz
+  const padrao = (r.corpo.padrao ?? acesso) as Matriz
 
   return (
     <>
-      <Equipe membros={membros} eu={String(r.corpo.eu ?? "")} />
-      <section className="bloco bloco--sem-pad">
+      <Equipe membros={membros} eu={String(r.corpo.eu ?? "")} acesso={acesso} />
+      <section className="bloco bloco--sem-pad acessos">
         <div className="bloco__cabeca">
           <div>
             <h2 className="bloco__titulo">O que cada papel abre</h2>
             <p className="bloco__sub">
-              Vale no servidor, não só na tela: a área que o papel não abre nem sai da loja.
+              Marque o que a operação e o marketing abrem — o dono abre tudo. Vale no servidor, não
+              só na tela, a partir do próximo clique de cada pessoa.
             </p>
           </div>
         </div>
-        <div className="tabela-rola">
-          <table className="matriz">
-            <thead>
-              <tr>
-                <th>Área</th>
-                {PAPEIS.map((p) => (
-                  <th key={p}>{NOME_DO_PAPEL[p]}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {(Object.keys(NOME_DA_LINHA) as Area[]).map((area) => (
-                <tr key={area}>
-                  <th>{NOME_DA_LINHA[area]}</th>
-                  {PAPEIS.map((p) => {
-                    const abre = acesso[area]?.includes(p) ?? false
-                    return (
-                      <td key={p} className={abre ? "sim" : "nao"}>
-                        {abre ? "abre" : "—"}
-                      </td>
-                    )
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <TabelaDeAcessos
+          key={JSON.stringify(acesso)}
+          acesso={acesso}
+          padrao={padrao}
+          fixas={(r.corpo.fixas ?? []) as Area[]}
+          dentroDe={(r.corpo.dentroDe ?? {}) as Partial<Record<Area, Area>>}
+        />
       </section>
     </>
   )
-}
-
-/** As linhas da tabela, na ordem do menu. */
-const NOME_DA_LINHA: Record<Area, string> = {
-  inicio: "Início",
-  pedidos: "Pedidos",
-  estornos: "Estornos",
-  carrinhos: "Carrinhos abandonados",
-  produtos: "Produtos",
-  editarProdutos: "Produtos: editar a página",
-  cupons: "Cupons e descontos",
-  clientes: "Clientes",
-  newsletter: "Clientes: a newsletter",
-  crm: "CRM",
-  home: "Layout da home",
-  marketing: "Marketing",
-  metaDoMes: "Marketing: mudar a meta do mês",
-  observabilidade: "Observabilidade",
-  configuracoes: "Configurações",
-  equipe: "Equipe e acessos",
 }
 
 const HORA_DE_BRASILIA = new Intl.DateTimeFormat("pt-BR", {

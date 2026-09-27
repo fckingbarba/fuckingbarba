@@ -72,3 +72,26 @@
   .matriz tbody th { width: auto; }
   .matriz th:first-child, .matriz td:first-child { padding-left: 12px; }
 }
+
+/*
+  A tabela dos acessos (Configurações → Equipe e acessos): a caixinha de
+  cada papel, o que mora dentro de outra área recuado, e em amarelo o que o
+  dono mudou do padrão. Embaixo, a legenda, os botões e as duas notas.
+*/
+.matriz--acessos td { vertical-align: middle; }
+.matriz--acessos tr[data-dentro] th { padding-left: 28px; font-weight: 600; }
+.matriz--acessos td[data-mudado] { background: var(--amarelo-palido); }
+.matriz__caixa { display: inline-flex; align-items: center; padding: 6px; margin: -6px; cursor: pointer; }
+.matriz__caixa input { width: 18px; height: 18px; margin: 0; accent-color: var(--tinta); cursor: pointer; }
+.matriz__caixa input:disabled { cursor: default; }
+.acessos__pe { display: grid; gap: 12px; padding: 14px clamp(16px, 2.2vw, 22px) 18px; border-top: 1px solid rgba(18, 24, 31, 0.1); }
+.acessos__legenda { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 0.74rem; color: var(--tinta-suave); }
+.acessos__amostra { flex-shrink: 0; width: 14px; height: 14px; background: var(--amarelo-palido); border: 1.5px solid var(--amarelo-borda); }
+.acessos__acoes { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px 12px; }
+.acessos__pendentes { margin-right: auto; font-size: 0.8rem; font-weight: 700; color: var(--aviso-txt); }
+.acessos__notas { display: grid; gap: 6px; margin: 0; padding-left: 18px; font-size: 0.76rem; color: var(--tinta-suave); }
+@media (max-width: 640px) {
+  .matriz--acessos tr[data-dentro] th { padding-left: 22px; }
+  .acessos__acoes { justify-content: flex-start; }
+  .acessos__pendentes { flex-basis: 100%; }
+}

@@ -9,7 +9,8 @@ import {
   iniciais,
   NOME_DO_PAPEL,
   PAPEIS,
-  RESUMO_DO_PAPEL,
+  resumoDoPapel,
+  type Matriz,
   type Membro,
   type Papel,
 } from "@/lib/equipe"
@@ -22,9 +23,18 @@ export type PessoaDaLista = Membro & { estado: string; conviteVencido: boolean }
  * A EQUIPE — quem entra no painel, com que papel, e o que o dono faz com
  * cada um: mudar o papel, tirar da equipe, reenviar o convite. Tudo passa
  * pelo Medusa, que confere de novo (ninguém mexe em si mesmo; a loja nunca
- * fica sem dono) — o que a tela esconde é só conforto.
+ * fica sem dono) — o que a tela esconde é só conforto. O que cada papel
+ * abre sai da tabela de agora (`acesso`, a que o dono ajusta embaixo).
  */
-export function Equipe({ membros, eu }: { membros: PessoaDaLista[]; eu: string }) {
+export function Equipe({
+  membros,
+  eu,
+  acesso,
+}: {
+  membros: PessoaDaLista[]
+  eu: string
+  acesso: Matriz
+}) {
   const [convidando, setConvidando] = useState(false)
   const [aberto, setAberto] = useState<string | null>(null)
   // O aviso de baixo é o do painel inteiro (`ComAvisos`, no layout).
@@ -53,6 +63,7 @@ export function Equipe({ membros, eu }: { membros: PessoaDaLista[]; eu: string }
             <Pessoa
               key={m.id}
               membro={m}
+              acesso={acesso}
               souEu={m.id === eu}
               aberta={aberto === m.id}
               abrir={() => setAberto(aberto === m.id ? null : m.id)}
@@ -68,6 +79,7 @@ export function Equipe({ membros, eu }: { membros: PessoaDaLista[]; eu: string }
       {convidando ? (
         <Gaveta titulo="Convidar pessoa" fechar={fecharConvite}>
           <FormConvite
+            acesso={acesso}
             fechar={fecharConvite}
             aoConvidar={(texto) => {
               setConvidando(false)
@@ -82,12 +94,14 @@ export function Equipe({ membros, eu }: { membros: PessoaDaLista[]; eu: string }
 
 function Pessoa({
   membro,
+  acesso,
   souEu,
   aberta,
   abrir,
   avisar,
 }: {
   membro: PessoaDaLista
+  acesso: Matriz
   souEu: boolean
   aberta: boolean
   abrir: () => void
@@ -130,7 +144,7 @@ function Pessoa({
           </button>
         )}
       </div>
-      {aberta ? <Mudar membro={membro} avisar={avisar} /> : null}
+      {aberta ? <Mudar membro={membro} acesso={acesso} avisar={avisar} /> : null}
     </div>
   )
 }
@@ -140,7 +154,15 @@ function Pessoa({
  * protótipo), o convite de novo (pra quem ainda não entrou) e tirar da
  * equipe, com a confirmação que diz o que acontece.
  */
-function Mudar({ membro, avisar }: { membro: PessoaDaLista; avisar: (texto: string) => void }) {
+function Mudar({
+  membro,
+  acesso,
+  avisar,
+}: {
+  membro: PessoaDaLista
+  acesso: Matriz
+  avisar: (texto: string) => void
+}) {
   const [papel, setPapel] = useState<Papel>(membro.papel)
   const [confirmando, setConfirmando] = useState(false)
   const [erro, setErro] = useState("")
@@ -175,7 +197,7 @@ function Mudar({ membro, avisar }: { membro: PessoaDaLista; avisar: (texto: stri
           ))}
         </div>
         <p className="campo__ajuda">
-          {NOME_DO_PAPEL[papel]}: {RESUMO_DO_PAPEL[papel]}.
+          {NOME_DO_PAPEL[papel]}: {resumoDoPapel(acesso, papel)}.
         </p>
       </fieldset>
 
@@ -253,9 +275,11 @@ function Mudar({ membro, avisar }: { membro: PessoaDaLista; avisar: (texto: stri
 }
 
 function FormConvite({
+  acesso,
   fechar,
   aoConvidar,
 }: {
+  acesso: Matriz
   fechar: () => void
   aoConvidar: (texto: string) => void
 }) {
@@ -320,7 +344,7 @@ function FormConvite({
           >
             {(["operacao", "marketing", "dono"] as Papel[]).map((p) => (
               <option key={p} value={p}>
-                {NOME_DO_PAPEL[p]} — {RESUMO_DO_PAPEL[p]}
+                {NOME_DO_PAPEL[p]} — {resumoDoPapel(acesso, p)}
               </option>
             ))}
           </select>

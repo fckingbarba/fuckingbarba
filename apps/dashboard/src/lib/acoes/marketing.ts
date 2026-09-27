@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
+import { semAcessoA } from "@/lib/equipe"
 import { medusa } from "@/lib/medusa"
 import { reais, type Resultado } from "@/lib/produtos"
 
@@ -14,7 +15,7 @@ export async function mudarMeta(valor: string): Promise<Resultado> {
   const r = await medusa("/dashboard/marketing/meta", { token: "sessao", corpo: { valor } })
   if (r.status === 401)
     redirect(`/sair?motivo=${r.corpo.message === "fora_da_equipe" ? "fora" : "expirou"}`)
-  if (r.status === 403) return { ok: false, texto: "A meta, quem muda é o dono." }
+  if (r.status === 403) return { ok: false, texto: semAcessoA("metaDoMes") }
   if (r.status === 422)
     return { ok: false, texto: "Não entendi o valor. Escreva em reais, como 12.000." }
   if (r.status !== 200)

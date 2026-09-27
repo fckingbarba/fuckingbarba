@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 import type { FormularioDoCupom } from "@/lib/cupons"
+import { semAcessoA } from "@/lib/equipe"
 import { medusa, type Resposta } from "@/lib/medusa"
 import type { Resultado } from "@/lib/produtos"
 
@@ -13,7 +14,7 @@ import type { Resultado } from "@/lib/produtos"
  */
 
 const GENERICO = "Não consegui falar com a loja agora. Tenta de novo em instantes."
-const SEM_PAPEL = "Os cupons são do marketing e do dono."
+const SEM_PAPEL = semAcessoA("cupons")
 
 function sair(r: Resposta) {
   if (r.status === 401)

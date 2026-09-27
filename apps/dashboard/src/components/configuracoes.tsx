@@ -21,6 +21,7 @@ import {
   type FormularioDasIntegracoes as DadosDasIntegracoes,
   type FormularioDoFrete as DadosDoFrete,
 } from "@/lib/configuracoes"
+import type { Area } from "@/lib/equipe"
 
 /**
  * AS CONFIGURAÇÕES NA TELA — as abas e os formulários do protótipo. Cada
@@ -29,19 +30,22 @@ import {
  * aba se refaz com o que ficou gravado.
  */
 
-export function AbasDasConfiguracoes() {
+/** As abas — a da equipe, só pra quem abre ela (o dono). */
+export function AbasDasConfiguracoes({ areas }: { areas: Area[] }) {
   const caminho = usePathname()
   return (
     <nav className="abas" aria-label="Configurações">
-      {ABAS.map((a) => (
-        <Link
-          key={a.href}
-          href={a.href}
-          aria-current={caminho.startsWith(a.href) ? "page" : undefined}
-        >
-          {a.nome}
-        </Link>
-      ))}
+      {ABAS.filter((a) => a.href !== "/configuracoes/equipe" || areas.includes("equipe")).map(
+        (a) => (
+          <Link
+            key={a.href}
+            href={a.href}
+            aria-current={caminho.startsWith(a.href) ? "page" : undefined}
+          >
+            {a.nome}
+          </Link>
+        )
+      )}
     </nav>
   )
 }

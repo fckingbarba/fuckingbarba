@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
+import { semAcessoA } from "@/lib/equipe"
 import { medusa } from "@/lib/medusa"
 import type { Resultado } from "@/lib/produtos"
 
@@ -23,7 +24,7 @@ export async function resolverProblema(id: string): Promise<Resultado> {
   if (r.status === 401)
     redirect(`/sair?motivo=${r.corpo.message === "fora_da_equipe" ? "fora" : "expirou"}`)
   revalidatePath("/", "layout")
-  if (r.status === 403) return { ok: false, texto: "A observabilidade é da operação e do dono." }
+  if (r.status === 403) return { ok: false, texto: semAcessoA("observabilidade") }
   if (r.status === 409)
     return {
       ok: false,

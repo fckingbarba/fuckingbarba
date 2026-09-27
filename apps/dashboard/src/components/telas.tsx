@@ -2,7 +2,7 @@ import type { Route } from "next"
 import Link from "next/link"
 import type { ReactNode } from "react"
 import { Icone } from "@/components/icones"
-import { DONOS_DA_AREA, type Area } from "@/lib/equipe"
+import { semAcessoA, type Area } from "@/lib/equipe"
 
 /**
  * AS PEÇAS DE TODA TELA — a cabeça (título, frase, ações), o "sem acesso"
@@ -54,7 +54,6 @@ export function Cabeca({
  * a tela: os dados dela nem saem do Medusa (ele responde 403 a esse papel).
  */
 export function SemAcesso({ area }: { area: Area }) {
-  const quem = DONOS_DA_AREA[area] ?? "Esta área é de outro papel."
   return (
     <div className="sem-acesso" data-tela>
       <div className="bloco">
@@ -62,10 +61,7 @@ export function SemAcesso({ area }: { area: Area }) {
           <Icone nome="cadeado" />
         </span>
         <h1>Essa área não é do seu papel</h1>
-        <p>
-          {quem} Se você precisa, peça pro dono mudar o seu acesso, em Configurações → Equipe e
-          acessos.
-        </p>
+        <p>{semAcessoA(area)}</p>
         <Link className="btn btn--menor" href="/" style={{ marginTop: 8 }}>
           Voltar pro início
         </Link>
