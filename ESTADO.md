@@ -3020,8 +3020,32 @@ as fotos e os passos da linha, os canais do cliente).
 Depois do deploy — **nada a configurar.** Nos minutos em que só o painel novo está no ar, a fila e as
 linhas aparecem como antes (sem os números nem os desenhos novos).
 
-- [ ] **O resto das telas** (Produtos, Carrinhos, Cupons, Observabilidade, Configurações, Marketing, Layout
-      da home e o pedido aberto) com o mesmo "?" e os desenhos — perguntar antes.
+- [x] **O resto das telas, parte A** (o pedido aberto, Produtos, Carrinhos e Cupons) — pedida em 27/09
+      ("sim por favor"), feita na 0155 (abaixo).
+- [ ] **O resto das telas, parte B:** Observabilidade, Configurações, Marketing e Layout da home — a
+      próxima entrega.
+
+**Painel mais visual nas outras telas, parte A — pronto em 27/09 (entrega 0155).** O mesmo "?" e os
+mesmos desenhos da 0148, agora no pedido aberto, nos Produtos, nos Carrinhos e nos Cupons.
+
+- **O pedido aberto:** a faixa do problema mostra o título e o motivo em poucas palavras ("sem
+  CPF/CNPJ", "vale até 14:30", "valor só reservado"); a explicação inteira vai no "?", e o botão
+  continua na faixa. O pagamento tem o ícone do Pix ou do cartão; o cliente, as iniciais e a pílula de
+  quem tem conta. A hora em que a nota sai sozinha fica numa pílula, com o porquê no "?".
+- **Produtos:** a explicação da tela no "?"; o estoque num quadradinho (vermelho no zero, amarelo
+  acabando); as fitas com ícones. Na página de cada produto, as explicações de cada bloco no "?", as
+  medidas da foto e do vídeo em fichas, e quem só vê (a operação) ganha a pílula "Só pra ver" no alto —
+  no lugar da frase repetida em três blocos.
+- **Carrinhos:** as iniciais da pessoa, as fotos da sacola e o passo em que parou (vermelho quando o
+  pagamento foi tentado e não passou); os números e as fitas com ícones; a nota do pé foi pro "?".
+- **Cupons:** o valor num selo amarelo ("10%", "R$ 20", "Frete grátis"), as regras em fichas e os usos
+  numa barrinha até o limite (vermelha quando acabou). As promoções mostram o selo da loja ("Leve 3,
+  pague 2"); os descontos automáticos, um ícone cada.
+- **No celular**, os mesmos desenhos, sem rolar de lado.
+
+Depois do deploy — **nada a configurar.** Nos minutos em que só o painel novo está no ar, as telas
+aparecem sem os desenhos que dependem do backend novo (as etiquetas das faixas, as fotos dos carrinhos,
+o selo dos cupons).
 
 **CRM, parte 3: a ficha de cada pessoa — pronto em 27/09 (entrega 0145).** Na ficha do cliente
 (Clientes → a pessoa), o CRM mostra quem ela é pro "Ciclo da Barba".

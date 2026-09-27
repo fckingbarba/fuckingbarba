@@ -1126,6 +1126,23 @@ continuam: o `.fila__titulo` é só o título da API (o número do selo mora for
 visitas tem o mesmo texto (a seta é desenho), a frase das ofertas de cada cliente segue na linha, em
 `sr-only`, e o título de cada bloco (`.bloco__titulo`) não leva o número — ele fica ao lado.
 
+**O mesmo desenho no resto do painel, parte A** (entrega 0155: o pedido aberto, os Produtos — a lista e a
+página de cada um —, os Carrinhos e os Cupons). `Faixa` (em `components/visual.tsx`): o título e as
+`etiquetas` à vista, a frase inteira no "?", o botão embaixo (`acoes`); o `.faixa__titulo` continua só o
+título. As faixas do pedido ganharam `etiquetas` no backend (`faixasDo`, em `lib/painel/pedido.ts`: o
+motivo curto da nota — o `motivoCurto` mora ali agora, e o Início importa de lá —, "vale até 14:30", a
+transportadora e o código, o prazo do cancelamento da nota, a próxima tentativa do estorno); o pagamento
+ganhou `tipo` (o ícone) e as ações ganharam `saiAs` (a hora da nota, numa pílula; a `dica` vai no "?").
+`Pilula` é a pílula com ícone ("Só pra ver" no alto do produto de quem não edita, no lugar da frase em
+cada bloco; "Estorno é com o dono."; o aviso de volta) e `Fichas` quebra uma frase com " · " em fichas
+(as regras do cupom e da promoção). O "?" de uma faixa e o do título de um bloco (`.bloco__titulos`)
+abrem embaixo da linha, a partir da esquerda dela: numa coluna da direita, abrir do "?" pra direita saía
+da tela. A `Cabeca` mostra o selo e o "?" juntos. Carrinhos: `LinhaDoCarrinho` ganhou `fotos` e
+`produtos` (o `fotosDos` do pedido, agora exportado) e `falhou` (o pagamento tentado que não passou: o
+passo fica vermelho); a frase do passo segue na linha, em `sr-only` e no `title`. Cupons: `CupomNaLista`
+ganhou `selo` ("15%", "R$ 20", "Frete grátis" — `seloDoCupom`), `usados` e `limite` (a barrinha dos
+usos). Tudo campo a mais: o painel novo com o backend de antes mostra as telas sem os desenhos novos.
+
 **O erro do React que o relógio do `next dev` causa** (entrega 0091). Em desenvolvimento, o React
 desenha os componentes do servidor no painel de desempenho do navegador: o servidor manda, pelo
 websocket do HMR, a hora em que começou a página (no relógio do processo Node) e o tempo de cada
