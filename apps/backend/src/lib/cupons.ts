@@ -138,6 +138,15 @@ export type ContextoDosCupons = {
 const ehDaOferta = (codigo: string) => codigo.toUpperCase().startsWith(PREFIXO_DO_BUMP)
 
 /**
+ * O começo do código das PROMOÇÕES AUTOMÁTICAS do painel (o "Leve X, pague Y",
+ * `lib/promocoes.ts`). Ninguém digita: o Medusa aplica sozinho, e o código
+ * aparece na lista de promoções do carrinho — também não é cupom de campanha.
+ * Mora aqui, e não lá, porque `promocoes.ts` lê deste arquivo.
+ */
+export const PREFIXO_DA_PROMOCAO = "PROMO-"
+const ehDaPromocao = (codigo: string) => codigo.toUpperCase().startsWith(PREFIXO_DA_PROMOCAO)
+
+/**
  * `pedidos: null` quer dizer "o histórico do e-mail não veio" (a consulta
  * falhou): o contexto sai sem ele e sem o `conferido`, e nenhum cupom com
  * condição vale nessa conta. Sem e-mail é outra coisa: lista vazia.
@@ -209,7 +218,9 @@ export function linhasMarcadas<T extends ItemDoCarrinho>(
  * UM CUPOM POR PEDIDO: `null` se pode, ou o código que já está no carrinho.
  * Só quando alguém PÕE um código (`add`, o que a API da loja faz): a conta
  * do Medusa refaz as promoções a cada mudança com `replace`, e um carrinho
- * que (de antes da regra) tivesse dois cupons não pode travar.
+ * que (de antes da regra) tivesse dois cupons não pode travar. A oferta do
+ * checkout e as promoções automáticas não contam: estão no carrinho sem
+ * ninguém ter digitado.
  */
 export function outroCupomNoCarrinho(
   atuais: (string | null | undefined)[],
@@ -217,7 +228,8 @@ export function outroCupomNoCarrinho(
   acao: string | undefined
 ): string | null {
   if (acao && acao !== "add") return null
-  const campanha = (c: string | null | undefined): c is string => Boolean(c) && !ehDaOferta(c!)
+  const campanha = (c: string | null | undefined): c is string =>
+    Boolean(c) && !ehDaOferta(c!) && !ehDaPromocao(c!)
   const novosDeCampanha = new Set(novos.filter(campanha).map((c) => c.toUpperCase()))
   if (!novosDeCampanha.size) return null
   if (novosDeCampanha.size > 1) return [...novosDeCampanha][0]
@@ -301,6 +313,54 @@ export type Leitura = { ok: true; cupom: CupomNovo } | { ok: false; erros: Recor
 const inteiro = (n: number | null) => n !== null && Number.isInteger(n) && n >= 1 && n <= 1_000_000
 
 /**
+ * O "Aplicar a" de um formulário do painel (o do cupom e o da promoção): a
+ * loja toda, ou as categorias / os produtos escolhidos, conferidos no
+ * catálogo (e com o nome dele). O erro vai pro `erros` de quem chamou.
+ */
+export function lerAlcance(
+  o: Record<string, unknown>,
+  catalogo: Catalogo,
+  erros: Record<string, string>
+): { aplicarA: Alcance; alvos: Alvo[] } {
+  const aplicarA: Alcance =
+    o.aplicarA === "categorias" || o.aplicarA === "produtos" ? o.aplicarA : "loja"
+  const ids = [
+    ...new Set((Array.isArray(o.alvos) ? o.alvos : []).filter((x) => typeof x === "string")),
+  ] as string[]
+  const opcoes = aplicarA === "categorias" ? catalogo.categorias : catalogo.produtos
+  const alvos =
+    aplicarA === "loja" ? [] : opcoes.filter((a) => ids.includes(a.id)).map((a) => ({ ...a }))
+  if (aplicarA !== "loja" && !ids.length)
+    erros.alvos =
+      aplicarA === "categorias"
+        ? "Escolha pelo menos uma categoria."
+        : "Escolha pelo menos um produto."
+  else if (aplicarA !== "loja" && alvos.length !== ids.length)
+    erros.alvos = "Alguma escolha não existe mais na loja: recarregue a página."
+  return { aplicarA, alvos }
+}
+
+/**
+ * O "Período" de um formulário do painel (o do cupom e o da promoção): o
+ * começo e o fim, com hora, em Brasília ("2026-10-01T00:00"). Os erros vão
+ * pro `erros` de quem chamou, campo a campo.
+ */
+export function lerPeriodo(
+  o: Record<string, unknown>,
+  agora: Date,
+  erros: Record<string, string>
+): { de: string; ate: string } {
+  const de = typeof o.de === "string" ? o.de.trim() : ""
+  const ate = typeof o.ate === "string" ? o.ate.trim() : ""
+  if (!DATA_E_HORA.test(de) || Number.isNaN(inicioDe(de))) erros.de = "O começo: data e hora."
+  if (!DATA_E_HORA.test(ate) || Number.isNaN(fimDe(ate))) erros.ate = "O fim: data e hora."
+  else if (fimDe(ate) < agora.getTime()) erros.ate = "Esse fim já passou."
+  else if (!erros.de && fimDe(ate) <= inicioDe(de))
+    erros.ate = "O fim tem que ser depois do começo."
+  return { de, ate }
+}
+
+/**
  * O que chegou do formulário do painel: o cupom, ou o que está errado em
  * cada campo. As categorias e os produtos são conferidos no `catalogo` (e
  * ganham o nome dele).
@@ -321,6 +381,8 @@ export function lerCupomNovo(
   if (!CODIGO.test(codigo)) erros.codigo = "Use letras, números, hífen e _: de 3 a 30."
   else if (codigo.startsWith(PREFIXO_DO_BUMP))
     erros.codigo = `"${PREFIXO_DO_BUMP}" é das ofertas do checkout: escolha outro começo.`
+  else if (codigo.startsWith(PREFIXO_DA_PROMOCAO))
+    erros.codigo = `"${PREFIXO_DA_PROMOCAO}" é das promoções automáticas: escolha outro começo.`
 
   const tipo: TipoDeCupom | null =
     o.tipo === "porcento" || o.tipo === "reais" || o.tipo === "frete" ? o.tipo : null
@@ -335,21 +397,7 @@ export function lerCupomNovo(
   if (tipo === "reais" && (valor === null || valor <= 0 || valor > 10_000))
     erros.valor = "Um valor em reais, maior que zero."
 
-  const aplicarA: Alcance =
-    o.aplicarA === "categorias" || o.aplicarA === "produtos" ? o.aplicarA : "loja"
-  const ids = [
-    ...new Set((Array.isArray(o.alvos) ? o.alvos : []).filter((x) => typeof x === "string")),
-  ] as string[]
-  const opcoes = aplicarA === "categorias" ? catalogo.categorias : catalogo.produtos
-  const alvos =
-    aplicarA === "loja" ? [] : opcoes.filter((a) => ids.includes(a.id)).map((a) => ({ ...a }))
-  if (aplicarA !== "loja" && !ids.length)
-    erros.alvos =
-      aplicarA === "categorias"
-        ? "Escolha pelo menos uma categoria."
-        : "Escolha pelo menos um produto."
-  else if (aplicarA !== "loja" && alvos.length !== ids.length)
-    erros.alvos = "Alguma escolha não existe mais na loja: recarregue a página."
+  const { aplicarA, alvos } = lerAlcance(o, catalogo, erros)
 
   // Por cupom: "ilimitado" | "limitado" (o formulário de antes: só o `limite`).
   const limite = o.porCupom === "ilimitado" ? null : numeroBrasileiro(o.limite)
@@ -372,13 +420,7 @@ export function lerCupomNovo(
   let de: string | null = null
   let ate: string | null = null
   if (o.data === "periodo") {
-    de = typeof o.de === "string" ? o.de.trim() : ""
-    ate = typeof o.ate === "string" ? o.ate.trim() : ""
-    if (!DATA_E_HORA.test(de) || Number.isNaN(inicioDe(de))) erros.de = "O começo: data e hora."
-    if (!DATA_E_HORA.test(ate) || Number.isNaN(fimDe(ate))) erros.ate = "O fim: data e hora."
-    else if (fimDe(ate) < agora.getTime()) erros.ate = "Esse fim já passou."
-    else if (!erros.de && fimDe(ate) <= inicioDe(de))
-      erros.ate = "O fim tem que ser depois do começo."
+    ;({ de, ate } = lerPeriodo(o, agora, erros))
   } else if (o.data === undefined && typeof o.ate === "string" && o.ate.trim()) {
     ate = o.ate.trim()
     if (!/^\d{4}-\d{2}-\d{2}$/.test(ate) || Number.isNaN(fimDoDia(ate))) erros.ate = "Uma data."
@@ -678,6 +720,17 @@ export function descricaoDoCupom(
   return `${quanto} ${minimo ?? "em qualquer pedido"}`
 }
 
+/** "de 01/10 às 00:00 até 15/10 às 23:59" · "a partir de 01/10 às 00:00" · "sem data de fim". */
+export function periodoEmFrase(de: string | null, ate: string | null): string {
+  return de && ate
+    ? `de ${quando(de)} até ${quando(ate)}`
+    : de
+      ? `a partir de ${quando(de)}`
+      : ate
+        ? `até ${quando(ate)}`
+        : "sem data de fim"
+}
+
 /**
  * "de 01/10 às 00:00 até 15/10 às 23:59 · 200 usos no total · 2 vezes por
  * cliente · só na primeira compra · não combina com outras promoções"
@@ -686,17 +739,9 @@ export function regraDoCupom(
   c: Pick<CupomGuardado, "ate" | "limite" | "primeiraCompra"> &
     Partial<Pick<CupomGuardado, "de" | "porCliente" | "combina">>
 ): string {
-  const periodo =
-    c.de && c.ate
-      ? `de ${quando(c.de)} até ${quando(c.ate)}`
-      : c.de
-        ? `a partir de ${quando(c.de)}`
-        : c.ate
-          ? `até ${quando(c.ate)}`
-          : "sem data de fim"
   const porCliente = c.porCliente ?? null
   return [
-    periodo,
+    periodoEmFrase(c.de ?? null, c.ate),
     ...(c.limite ? [`${c.limite} ${c.limite === 1 ? "uso" : "usos"} no total`] : []),
     ...(porCliente
       ? [porCliente === 1 ? "uma vez por cliente" : `${porCliente} vezes por cliente`]
@@ -708,7 +753,7 @@ export function regraDoCupom(
 
 /** Os cupons de campanha: com código, digitados — nem os da oferta do checkout, nem automáticos. */
 export const ehCupomDeCampanha = (p: PromocaoCrua) =>
-  Boolean(p.code) && !p.is_automatic && !String(p.code).startsWith(PREFIXO_DO_BUMP)
+  Boolean(p.code) && !p.is_automatic && !ehDaOferta(String(p.code)) && !ehDaPromocao(String(p.code))
 
 export function cupomNaLista(p: PromocaoCrua, uso: UsoDoCupom, agora: Date): CupomNaLista {
   const c = cupomGuardado(p)
