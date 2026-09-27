@@ -1,0 +1,299 @@
+/*
+  A PÁGINA DA AVALIAÇÃO — escrito à mão, com as peças do checkout por baixo
+  (ver telas/avaliar.css).
+
+  O FUNDO É CINZA, como no checkout e na conta: aqui a pessoa preenche
+  coisa, não passeia pela vitrine. A regra vem em dupla pelo motivo de
+  sempre — a marca `data-tela` depois de o React assumir, o `:has()` antes
+  (ver `components/marca-da-tela.tsx`).
+*/
+html[data-tela~="avaliar"] body {
+  --fundo-da-pagina: var(--color-cinza);
+}
+html:not([data-hidratado]) body:has(.avaliar) {
+  --fundo-da-pagina: var(--color-cinza);
+}
+
+.avaliar {
+  flex: 1 0 auto;
+  width: 100%;
+  padding: clamp(18px, 3vw, 32px) clamp(16px, 4vw, 28px) 72px;
+}
+.avaliar__wrap {
+  max-width: 560px;
+  margin: clamp(0px, 3vw, 28px) auto 0;
+}
+.avaliar__bloco {
+  padding: 26px clamp(18px, 4vw, 28px) 24px;
+}
+.avaliar h1 {
+  margin: 0;
+  font-size: clamp(1.2rem, 2.6vw, 1.55rem);
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+  line-height: 1.15;
+}
+.avaliar__pedido {
+  margin: 0 0 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--color-tinta-suave);
+}
+.avaliar__pedido b {
+  padding: 2px 7px;
+  background: var(--color-amarelo);
+  color: var(--color-tinta);
+  font-weight: 800;
+}
+.avaliar__txt {
+  margin: 8px 0 18px;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--color-tinta-suave);
+}
+.avaliar__txt b {
+  color: var(--color-tinta);
+}
+.avaliar__espera {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+/* ---------- os grupos: o produto e a nota ---------- */
+.avaliar__grupo {
+  margin: 0 0 16px;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.avaliar__grupo legend {
+  margin-bottom: 6px;
+  padding: 0;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.avaliar__produtos {
+  display: grid;
+  gap: 8px;
+}
+.avaliar__produto {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px 8px 8px;
+  border: 2px solid var(--color-linha);
+  background: #fff;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease;
+}
+.avaliar__produto:has(input:checked) {
+  border-color: var(--color-tinta);
+  background: var(--color-menta-clara);
+}
+.avaliar__produto:has(input:focus-visible) {
+  box-shadow: 0 0 0 3px rgba(255, 216, 77, 0.8);
+}
+.avaliar__produto[data-avaliado] {
+  cursor: default;
+  opacity: 0.55;
+}
+.avaliar__produto input,
+.avaliar__estrela input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.avaliar__foto {
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  background: var(--color-cinza);
+  border: 1px solid var(--color-linha);
+}
+.avaliar__produto-nome {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+.avaliar__produto-nome small {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-menta-escura);
+}
+
+/* As estrelas: o mesmo desenho das avaliações (o `#ico-estrela` do layout),
+   grande pra caber o dedo. Acende até onde o mouse está, ou até a nota. */
+.avaliar__estrelas {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+.avaliar__estrela {
+  position: relative;
+  display: inline-flex;
+  padding: 2px;
+  cursor: pointer;
+  line-height: 0;
+}
+.avaliar__estrela svg {
+  width: 40px;
+  height: 40px;
+  fill: #ccd1d6;
+  transition:
+    fill 0.12s ease,
+    transform 0.12s ease;
+}
+.avaliar__estrela[data-acesa] svg {
+  fill: var(--color-amarelo-escuro);
+}
+.avaliar__estrela:hover svg {
+  transform: scale(1.08);
+}
+.avaliar__estrela:has(input:focus-visible) {
+  outline: 3px solid var(--color-tinta);
+  outline-offset: 0;
+}
+.avaliar__frase {
+  margin-left: 10px;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+/* ---------- o nome e o texto ---------- */
+.avaliar__campos {
+  margin-bottom: 16px;
+}
+.campo textarea {
+  width: 100%;
+  min-height: 132px;
+  padding: 10px 12px;
+  border: 2px solid var(--color-linha);
+  background: #fff;
+  color: var(--color-tinta);
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.5;
+  resize: vertical;
+  transition: border-color 0.15s ease;
+}
+.campo textarea::placeholder {
+  color: #a5adb6;
+}
+.campo textarea:focus-visible {
+  outline: none;
+  border-color: var(--color-tinta);
+  box-shadow: 0 0 0 3px rgba(255, 216, 77, 0.55);
+}
+.campo textarea[aria-invalid="true"] {
+  border-color: var(--color-erro);
+}
+
+/* A frase que não é de um campo: o link que não vale, a conexão que caiu. */
+.avaliar__recado {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  background: #fdecea;
+  border-left: 4px solid var(--color-erro);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+.avaliar__recado[role="status"] {
+  background: var(--color-menta-clara);
+  border-left-color: var(--color-menta-escura);
+}
+
+/* "Avaliar outro pedido": link que é botão, no pé do bloco. */
+.avaliar__trocar {
+  margin: 18px 0 0;
+  padding-top: 14px;
+  border-top: 1px solid rgba(18, 24, 31, 0.12);
+  font-size: 0.8rem;
+}
+.avaliar .link {
+  padding: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-tinta);
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.avaliar .link:hover,
+.avaliar .link:focus-visible {
+  color: var(--color-menta-escura);
+}
+
+/* ---------- o "valeu" ---------- */
+.avaliar__ico {
+  width: 46px;
+  height: 46px;
+  margin: 0 0 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-tinta);
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+}
+.avaliar__ico svg {
+  width: 26px;
+  height: 26px;
+  fill: var(--color-amarelo);
+}
+.avaliar__outros {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.avaliar__outro {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 12px 8px 8px;
+  border: 2px solid var(--color-tinta);
+  background: #fff;
+  color: var(--color-tinta);
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+.avaliar__outro span {
+  flex: 1;
+}
+.avaliar__outro b {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.avaliar__outro:hover,
+.avaliar__outro:focus-visible {
+  background: var(--color-menta-clara);
+}
