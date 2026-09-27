@@ -1,11 +1,14 @@
 import { readdirSync } from "node:fs"
 import { join } from "node:path"
+import { PAPEIS } from "../../equipe/regras"
 import {
   conciliarProblemas,
+  filtroDoPapel,
   integracoesNaTela,
   intervaloDaAgenda,
   minutosDaAgenda,
   noArNaTela,
+  podeVer,
   problemaDoErp,
   problemasDasOcorrencias,
   problemasDasRotinas,
@@ -636,6 +639,20 @@ describe("a tela", () => {
     // As de hora em hora (o rastreio, as ofertas, o pedido de avaliação e a limpeza do CRM)
     // ainda estão no prazo.
     expect(tela.numeros.rotinas.ok).toBe(4)
+  })
+
+  it("o número do menu conta no banco o que a tela mostra: o filtro do papel é o podeVer", () => {
+    const casa = (filtro: { so_dono?: boolean }, so_dono: boolean) =>
+      filtro.so_dono === undefined || filtro.so_dono === so_dono
+    for (const papel of PAPEIS) {
+      for (const so_dono of [true, false]) {
+        expect({ papel, so_dono, conta: casa(filtroDoPapel(papel), so_dono) }).toEqual({
+          papel,
+          so_dono,
+          conta: podeVer(papel, { so_dono }),
+        })
+      }
+    }
   })
 })
 

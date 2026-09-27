@@ -3619,6 +3619,27 @@ Depois do deploy — **nada a configurar.** Se um cliente disser que o Pix não 
 vários Pix daqui" ou "até 10 unidades", é a trava nova: ele paga um dos Pix abertos, usa o cartão,
 ou me chama pra mudar o número.
 
+**O número vermelho da Observabilidade passa de 100 — pronto em 27/09 (entrega 0167).** No menu do
+painel, o número vermelho da Observabilidade parava em 100: o backend lia no máximo 100 problemas
+graves abertos e contava os que o papel via. Com mais de 100, o menu dizia 100 e a tela, o total
+(o `conferir-observabilidade` achou num banco local que juntou 108). Agora o número é a conta do
+banco (`gravesAbertos`: o total do `listAndCountProblemas`, com o papel no filtro — o
+`filtroDoPapel`, a mesma regra do `podeVer` da tela: o estorno só conta pro dono). O "+1" das
+rotinas paradas continua. Com até 100 graves abertos, nada muda.
+
+Conferido pelo `conferir-observabilidade.mjs` nesse banco (108 graves abertos): com o código de
+antes, 35/36 — "dono 100 · op 100 · tela 114"; com o conserto, 36/36 três vezes (dono 109, operação
+108, tela 109). E por 3 testes novos do `gravesAbertos` (com o código de antes, os 110 viram 100) e
+1 que amarra o filtro do banco ao `podeVer` em todo papel; os unitários (1.357), o typecheck, o
+lint, o `medusa build` e o prettier.
+
+O limite que fica: a tela lê até 300 problemas (os abertos e os resolvidos nos últimos 30 dias).
+Com mais que isso, os cartões e o "N problemas graves agora" da tela ficam curtos — e o menu, que
+agora conta tudo, fica maior que a tela.
+
+Depois do deploy — **nada a configurar.** Pra ver: o número vermelho do menu é o mesmo do "N
+problemas graves agora" da Observabilidade.
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa

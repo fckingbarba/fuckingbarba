@@ -1412,6 +1412,13 @@ const ORDEM: Record<Nivel, number> = { grave: 0, atencao: 1, info: 2 }
 export const podeVer = (papel: Papel, p: { so_dono?: boolean | null }) =>
   papel === "dono" || !p.so_dono
 
+/**
+ * O `podeVer` no filtro do banco, pra contar sem trazer as linhas: quem não
+ * é o dono não conta o que é só dele (a coluna nunca é nula).
+ */
+export const filtroDoPapel = (papel: Papel): { so_dono?: false } =>
+  papel === "dono" ? {} : { so_dono: false }
+
 function metaDo(p: LinhaDoProblema, agora: Date): string {
   const partes: string[] = []
   const primeira = p.primeira_em ? data(p.primeira_em) : null
