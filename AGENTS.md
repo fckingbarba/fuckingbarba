@@ -911,12 +911,25 @@ Entrar: `POST /dashboard/entrar/codigo` manda (só pra quem `podeEntrar`; quem n
 a mesma resposta, com os limites na memória), `POST /auth/equipe/codigo-equipe` confere,
 `POST /dashboard/vincular` liga o membro (e relê se ainda é da equipe) e `POST /auth/token/refresh`
 devolve o token com ele. O primeiro dono é o `DASHBOARD_DONO_EMAIL` do Railway, e só enquanto não
-houver dono ativo (`workflows/equipe/garantir-dono.ts`). **Quem abre o quê é UMA tabela**, `ACESSO`
-em `src/lib/equipe/regras.ts`, conferida no servidor; o painel só esconde o que ela nega. Todas as
-rotas `/dashboard/*` passam pela `portaDoPainel` (`src/lib/equipe/acesso.ts`): assinatura, token do
-ator `equipe` e o membro relido do BANCO a cada pedido — tirado da equipe, o token de 30 dias não
-abre mais nada no clique seguinte. Rota nova já nasce trancada; a área nova entra no `ACESSO`
-antes da rota, e a rota começa com `exigirArea(pedido, res, "<área>")`. Toda escrita na equipe
+houver dono ativo (`workflows/equipe/garantir-dono.ts`). **Quem abre o quê é UMA matriz**, conferida
+no servidor: o padrão no código (`ACESSO_PADRAO`, em `src/lib/equipe/regras.ts`) com o que o dono
+mudou por cima (a tabela `equipe_acesso`, só as diferenças; `matrizCom` junta). O painel só esconde o
+que ela nega. O dono muda as colunas da operação e do marketing em Configurações → Equipe e acessos
+(entrega 0139): `POST /dashboard/acessos` recebe a coluna INTEIRA de cada papel, e `lerAcessos`
+recusa a coluna do dono (abre tudo, sempre), as linhas fixas (`AREAS_FIXAS`: `inicio` pra todos,
+`equipe` só do dono) e o que mora `DENTRO_DE` uma área sem ela (o estorno nos pedidos, editar nos
+produtos, a newsletter nos clientes, a meta no marketing); o `mudarAcessosWorkflow` grava as
+diferenças e deixa a linha `mudou_acessos` no registro. Todas as rotas `/dashboard/*` passam pela
+`portaDoPainel` (`src/lib/equipe/acesso.ts`): assinatura, token do ator `equipe`, e o membro e a
+matriz relidos do BANCO a cada pedido (`pedido.areas`) — tirado da equipe, o token de 30 dias não
+abre mais nada no clique seguinte, e a tabela salva vale no clique seguinte também. Rota nova já
+nasce trancada; a área nova entra no `ACESSO_PADRAO` antes da rota, com os papéis que abrem no
+padrão (vale o padrão até o dono mudar, sem migração), e a rota começa com
+`exigirArea(pedido, res, "<área>")`. O que mora dentro de uma tela que a rota já abriu (um botão, um
+bloco, um item do Início) pergunta `abre(pedido, "<área>")` — nunca `papel === "dono"`: o dono pode
+ter dado a área pra outro papel. O papel segue decidindo só o que é dado pessoal (o CPF inteiro, só
+o dono; o marketing sem telefone nem endereço de cliente nos carrinhos e nos clientes), pra quem vai
+cada aviso por e-mail (`emailsPraAvisar`) e as abas de baixo do celular. Toda escrita na equipe
 passa pela trava `equipe` (uma só: dois donos se removendo juntos não deixam a loja sem dono) e
 deixa uma linha no registro. **Pedidos e Início** moram em `src/lib/painel/`: `pedido.ts` (puro,
 com testes) decide onde o pedido está, o que travou, o caminho de seis passos e o histórico, a
@@ -971,7 +984,8 @@ trouxer um React com a trava, o desconto sai.
 **As ações do pedido e as visitas** (fase 2, parte 2). "Emitir a nota agora" / "Tentar a nota de
 novo" e "Tentar o estorno de novo" são as funções que o admin já usava (`tentarDeNovo`,
 `tentarEstornoAgora`) atrás de `POST /dashboard/pedidos/:id/nota` e `/estorno`: a rota confere o
-papel (o estorno tem linha própria no `ACESSO`, `estornos`, só do dono) e se o pedido ainda está no
+papel (o estorno tem linha própria no `ACESSO_PADRAO`, `estornos`, só do dono no padrão) e se
+o pedido ainda está no
 estado do botão (`src/lib/painel/acoes.ts`, puro; senão 409 `nada_a_fazer`), faz, e grava a linha
 no registro da equipe (`lib/painel/anotar.ts`, com o `workflows/equipe/anotar-acao.ts`) — o
 histórico do pedido lê o registro e mostra o nome de quem apertou. O aviso de baixo das ações é um só pro painel inteiro (`ComAvisos`, no
@@ -1002,7 +1016,7 @@ export GA4_CREDENCIAIS=$(node -e 'const{generateKeyPairSync:g}=require("node:cry
 ```
 
 **Marketing** (a área do protótipo, em partes; parte 1, entrega 0108: o Resumo e a meta do mês).
-No `ACESSO`, `marketing` é do dono e do marketing, e `metaDoMes` (mudar a meta) só do dono.
+No `ACESSO_PADRAO`, `marketing` é do dono e do marketing, e `metaDoMes` (mudar a meta) só do dono.
 `src/lib/painel/marketing.ts` é puro, com testes: o período (`hoje`, `7d`, `30d`, `90d`; o resto
 vira 30d) e o de antes, do mesmo tamanho e terminando na mesma hora (`janelasDo`); venda é pedido
 pago e não cancelado, no instante da captura, com o frete (a regra do Início, `vendasDos`); os
@@ -1119,7 +1133,7 @@ as frases de todas as abas.
 `GET /dashboard/produtos/:id` (o que vem do Bling, só pra ler; as seções com o texto e o fundo de
 cada uma; a caixa de compra; o catálogo pros seletores; as categorias; o `noSite` do "Ver no site"
 e o `historico`, lido do registro da equipe) abrem pra todo papel. Mudar é da linha
-`editarProdutos` do `ACESSO` (dono e marketing): `POST /dashboard/produtos/:id/secao` (o texto e o
+`editarProdutos` do `ACESSO_PADRAO` (dono e marketing, no padrão): `POST /dashboard/produtos/:id/secao` (o texto e o
 fundo de UMA seção, num "Salvar"), `/ordem` (ligar, desligar, subir ou descer uma — sem "Salvar"),
 `/caixa`, `/textos` (o nome da loja, o subtítulo e a categoria), `/publicar` e `/imagens`. **O
 nome** mudado ali ganha a marca `fb_nome` (a importação do Bling não troca mais), e o nome igual
