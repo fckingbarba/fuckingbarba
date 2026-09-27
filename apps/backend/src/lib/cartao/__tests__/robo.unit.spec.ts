@@ -2,8 +2,11 @@ import { estadoNovo, gravar, RECUSAS, type Estado } from "../../../modules/pagar
 import { cartaoNaTela, problemasDoCartao } from "../../painel/observabilidade"
 import {
   decidir,
+  decidirPix,
   freioLigado,
   LIMITES,
+  LIMITES_DO_PIX,
+  maiorLinhaDo,
   PROVEDOR_DO_PAGARME,
   RESPOSTA_DA_BARRADA,
   RESUMO_VAZIO,
@@ -312,5 +315,42 @@ describe("na Observabilidade", () => {
     expect(problemasDoCartao(resumo({ diretas: 1 }), AGORA)[0].titulo).toBe(
       "1 tentativa de cartão sem passar pela loja"
     )
+  })
+})
+
+describe("o Pix que segura o estoque (auditoria 27/09)", () => {
+  const nenhum = { daPessoa: 1, diretas: 0 }
+
+  it("até 10 unidades de cada produto; a 11ª não passa, pra ninguém", () => {
+    expect(LIMITES_DO_PIX.unidades).toBe(10)
+    expect(decidirPix(nenhum, true, 10)).toEqual({ passa: true })
+    expect(decidirPix(nenhum, true, 11)).toEqual({ passa: false, motivo: "pix_quantidade" })
+    expect(decidirPix({ daPessoa: 0, diretas: 1 }, false, 11)).toEqual({
+      passa: false,
+      motivo: "pix_quantidade",
+    })
+  })
+
+  it("3 Pix da mesma pessoa em 40 minutos passam (o de agora incluído); o 4º, não", () => {
+    expect(decidirPix({ daPessoa: 3, diretas: 0 }, true, 1)).toEqual({ passa: true })
+    expect(decidirPix({ daPessoa: 4, diretas: 0 }, true, 1)).toEqual({
+      passa: false,
+      motivo: "pix_limite",
+    })
+  })
+
+  it("sem a assinatura da loja, um balde só pra todo mundo; com ela, as diretas não contam", () => {
+    expect(decidirPix({ daPessoa: 1, diretas: 3 }, false, 1)).toEqual({ passa: true })
+    expect(decidirPix({ daPessoa: 1, diretas: 4 }, false, 1)).toEqual({
+      passa: false,
+      motivo: "pix_limite",
+    })
+    expect(decidirPix({ daPessoa: 1, diretas: 9 }, true, 1)).toEqual({ passa: true })
+  })
+
+  it("a maior linha do carrinho", () => {
+    expect(maiorLinhaDo({ items: [{ quantity: 2 }, { quantity: 7 }, null, {}] })).toBe(7)
+    expect(maiorLinhaDo({ items: [] })).toBe(0)
+    expect(maiorLinhaDo(undefined)).toBe(0)
   })
 })

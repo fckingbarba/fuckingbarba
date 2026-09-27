@@ -128,6 +128,74 @@ export const RESPOSTA_DA_BARRADA: Record<MotivoDaBarrada, string> = {
   freio: "cartao_freio",
 }
 
+/* ── o Pix que segura o estoque ────────────────────────────────────────── */
+
+/**
+ * O PIX NÃO TESTA CARTÃO, MAS SEGURA O ESTOQUE (auditoria de 27/09). O pedido
+ * no Pix nasce com os produtos reservados e o uso do cupom gasto, e só cai
+ * quando o QR vence e a conciliação cancela — uns 40 minutos (30 de
+ * validade, mais a folga dela). Sem trava, um robô com CPFs gerados fechava
+ * pedidos com o estoque inteiro sem pagar, e a loja ficava "esgotada" pra
+ * todo mundo; de quebra, cada cancelamento mandava e-mail pro endereço
+ * digitado.
+ *
+ * DUAS TRAVAS, com folga pra gente de verdade:
+ *
+ *   - QUANTIDADE: até 10 unidades de cada produto num pedido no Pix. Em
+ *     2.879 pedidos da Nuvemshop, ninguém levou mais de 4 de um produto. O
+ *     cartão não tem esse teto: ele cobra na hora, não segura nada de graça;
+ *   - QUANTOS PIX: a mesma pessoa (o IP que a loja manda, assinado) gera até 3
+ *     Pix em 40 minutos, pagos ou não — quem erra e refaz o pedido cabe. O
+ *     que chega sem a assinatura da loja divide um balde só, do mesmo
+ *     tamanho, como no cartão.
+ *
+ * A frase é da loja (`recusaDaPorta`): "paga um dos Pix ou usa o cartão". O
+ * "soltar" do admin (`POST /admin/cartao`) recomeça as contas do Pix junto
+ * com as do cartão.
+ */
+export const LIMITES_DO_PIX = {
+  /** Pix gerados (ou indo) pela mesma pessoa. */
+  pessoa: { vezes: 3, minutos: 40 },
+  /** Tudo que chegou sem a assinatura da loja, junto. */
+  diretas: { vezes: 3, minutos: 40 },
+  /** Unidades de um mesmo produto num pedido no Pix — a loja diz o número na frase. */
+  unidades: 10,
+} as const
+
+/** Os Pix contados antes de decidir — com o de agora INCLUÍDO, como no cartão. */
+export type ContagemDoPix = {
+  /** Os da pessoa (o mesmo `quem`) nos últimos 40 minutos. */
+  daPessoa: number
+  /** Os sem assinatura, de todo mundo, nos últimos 40 minutos. */
+  diretas: number
+}
+
+export type MotivoDoPix = "pix_limite" | "pix_quantidade"
+
+/**
+ * Passa ou não passa, no Pix. `maiorLinha` é a maior quantidade de um produto
+ * no carrinho. A quantidade vem antes: é a mesma resposta pra qualquer um.
+ */
+export function decidirPix(
+  c: ContagemDoPix,
+  assinada: boolean,
+  maiorLinha: number
+): { passa: true } | { passa: false; motivo: MotivoDoPix } {
+  if (maiorLinha > LIMITES_DO_PIX.unidades) return { passa: false, motivo: "pix_quantidade" }
+  if (!assinada && c.diretas > LIMITES_DO_PIX.diretas.vezes)
+    return { passa: false, motivo: "pix_limite" }
+  if (assinada && c.daPessoa > LIMITES_DO_PIX.pessoa.vezes)
+    return { passa: false, motivo: "pix_limite" }
+  return { passa: true }
+}
+
+/** A maior quantidade de um mesmo produto no carrinho (0 sem linha). */
+export function maiorLinhaDo(
+  carrinho: { items?: ({ quantity?: unknown } | null)[] | null } | null | undefined
+): number {
+  return Math.max(0, ...(carrinho?.items ?? []).map((i) => Number(i?.quantity) || 0))
+}
+
 /**
  * QUEM, SEM O IP: "loja:189.10.20.30" → "loja:5f1c…" (16 letras de um HMAC
  * com o segredo da loja). Conta "a mesma pessoa" do mesmo jeito, e o IP não

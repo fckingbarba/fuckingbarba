@@ -14,10 +14,10 @@ import type ObservabilidadeService from "../../../modules/observabilidade/servic
  * por quê. Sem IP e sem dado de quem comprou: o `quem` é um resumo.
  *
  * `POST /admin/cartao` com `{ "acao": "soltar" }`: dali pra frente, as travas
- * e o freio só contam o que vier depois. Pra quando o freio ligou por engano
- * (uma promoção que trouxe muita recusa de gente de verdade) — e pro
- * conferidor de pagamento começar do zero. Fica no registro, com quem
- * soltou.
+ * e o freio só contam o que vier depois — as do Pix também (`LIMITES_DO_PIX`,
+ * 0163). Pra quando o freio ligou por engano (uma promoção que trouxe muita
+ * recusa de gente de verdade) — e pros conferidores começarem do zero. Fica
+ * no registro, com quem soltou.
  */
 export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) {
   res.json(await estado(req))

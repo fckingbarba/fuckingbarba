@@ -10,12 +10,15 @@ import { quemPede } from "../quem-pede"
 import { avisarDoFreio } from "./aviso"
 import {
   decidir,
+  decidirPix,
   freioLigado,
+  maiorLinhaDo,
   RESPOSTA_DA_BARRADA,
   resultadoDaSessao,
   semOIp,
   sessaoQueVai,
   type Contagem,
+  type ContagemDoPix,
   type SessaoQueVai,
 } from "./robo"
 
@@ -36,8 +39,10 @@ import {
  *      dez linhas antes de qualquer conta, e a sexta de uma sacola não passa
  *      só porque as outras cinco ainda não tinham terminado;
  *   3. cartão barrado: responde 429 com o motivo (`cartao_limite` ou
- *      `cartao_freio`), e nada chega no Pagar.me. O Pix não passa por trava
- *      nenhuma — Pix não testa cartão;
+ *      `cartao_freio`), e nada chega no Pagar.me. O Pix tem as travas dele
+ *      (0163): até 10 unidades de cada produto e 3 Pix por pessoa em 40
+ *      minutos (`pix_quantidade`, 400; `pix_limite`, 429) — Pix não testa
+ *      cartão, mas segura o estoque (ver `LIMITES_DO_PIX`, em `robo.ts`);
  *   4. passou: o Medusa segue, e quando a resposta sai, a porta lê na sessão
  *      como terminou (aprovada, em análise, recusada, o Pix gerado, o
  *      parceiro que não atendeu) — e avisa o dono por e-mail se foi esta
@@ -63,12 +68,14 @@ export async function portaDoPagamento(
   const carrinho = req.params.id
 
   let sessao: SessaoQueVai | null = null
+  let maiorLinha = 0
   try {
     const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
     const { data } = await query.graph({
       entity: "cart",
       fields: [
         "id",
+        "items.quantity",
         "payment_collection.payment_sessions.id",
         "payment_collection.payment_sessions.provider_id",
         "payment_collection.payment_sessions.data",
@@ -76,6 +83,7 @@ export async function portaDoPagamento(
       filters: { id: carrinho },
     })
     sessao = sessaoQueVai(data[0] as Parameters<typeof sessaoQueVai>[0])
+    maiorLinha = maiorLinhaDo(data[0] as Parameters<typeof maiorLinhaDo>[0])
   } catch (e) {
     logger.error(
       `[pagamento] não consegui ler a sessão do ${carrinho} (${mensagem(e)}) — seguiu sem a porta`
@@ -132,6 +140,33 @@ export async function portaDoPagamento(
         return
       }
       freioAntes = freioLigado(contagem)
+    }
+  }
+
+  if (sessao.forma === "pix") {
+    // Sem a contagem (o banco engasgou), a quantidade ainda vale: ela não depende dele.
+    let contagem: ContagemDoPix = { daPessoa: 0, diretas: 0 }
+    try {
+      contagem = await obs.contarPix({ quem })
+    } catch (e) {
+      logger.error(
+        `[pix] não consegui contar os Pix de quem pede no ${carrinho} (${mensagem(e)}) — seguiu só com a quantidade`
+      )
+    }
+    const decisao = decidirPix(contagem, pede.assinado, maiorLinha)
+    if (!decisao.passa) {
+      await obs
+        .fecharTentativa(id, { resultado: "barrada", motivo: decisao.motivo })
+        .catch((e) => logger.error(`[pix] não consegui fechar a tentativa ${id}: ${mensagem(e)}`))
+      logger.warn(
+        `[pix] tentativa barrada no ${carrinho} (${decisao.motivo}; ${maiorLinha} unidades na ` +
+          `maior linha, pessoa ${contagem.daPessoa}, sem assinatura ${contagem.diretas} em 40 min` +
+          `${pede.assinado ? "" : "; sem a assinatura da loja"})`
+      )
+      res
+        .status(decisao.motivo === "pix_quantidade" ? 400 : 429)
+        .json({ type: "not_allowed", message: decisao.motivo })
+      return
     }
   }
 
