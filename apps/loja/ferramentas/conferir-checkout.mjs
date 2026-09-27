@@ -236,6 +236,21 @@ async function adm(caminho, init = {}) {
 }
 
 /*
+  AS TRAVAS DO PIX (0163): todo Pix que este arquivo gera pelo navegador sai
+  do mesmo IP local, e a porta do `complete` deixa 3 por pessoa em 40 minutos
+  (`LIMITES_DO_PIX`, no backend). O "soltar" do admin recomeça a conta — no
+  começo e antes das seções que geram Pix. Sem as credenciais, segue sem
+  soltar (e roda sozinho, fora de uma rodada, cabe no limite).
+*/
+async function soltarAsTravas() {
+  if (!EMAIL_ADMIN || !SENHA_ADMIN) return
+  await adm("/admin/cartao", { method: "POST", body: JSON.stringify({ acao: "soltar" }) }).catch(
+    (e) => console.log(`  ⚠  não consegui soltar as travas: ${e instanceof Error ? e.message : e}`)
+  )
+}
+await soltarAsTravas()
+
+/*
   A FRENET FALSA SOBE JUNTO COM O TESTE.
 
   O frete virou cotação ao vivo, então sem uma transportadora respondendo
@@ -2593,6 +2608,7 @@ if (EMAIL_ADMIN && SENHA_ADMIN) {
 }
 
 titulo("Duas abas pagando a mesma sacola")
+await soltarAsTravas()
 /*
   A OUTRA ABA JÁ PAGOU (24/09). As abas dividem os cookies, e o pedido da
   primeira apaga a sacola das duas. A segunda dizia "Nada foi cobrado —
@@ -2855,6 +2871,7 @@ if (EMAIL_ADMIN && SENHA_ADMIN) {
 }
 
 titulo("O preço de agora na hora de pagar")
+await soltarAsTravas()
 /*
   A SACOLA VELHA NÃO PAGA O PREÇO DE ANTES (0136). O Medusa só refaz o preço
   das linhas quando muda a região, o idioma ou o endereço; a sacola vive 30

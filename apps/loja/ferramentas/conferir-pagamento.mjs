@@ -68,6 +68,7 @@ import { readFileSync } from "node:fs"
 import { comAFaixaRespondida } from "./faixa-respondida.mjs"
 import { subirFrenetFalsa } from "./frenet-falsa.mjs"
 import { CARTOES, subirPagarmeFalso } from "./pagarme-falso.mjs"
+import { ipDeTeste } from "./pedido-de-teste.mjs"
 import { subirResendFalso } from "./resend-falso.mjs"
 
 const LOJA =
@@ -147,6 +148,22 @@ async function loja(caminho, opcoes = {}) {
   const j = await r.json().catch(() => null)
   return { status: r.status, ok: r.ok, json: j }
 }
+/*
+  O FECHAMENTO PELA API VAI ASSINADO COMO A LOJA MANDA, cada um com um IP de
+  documentação sorteado: a porta do pagamento conta os Pix por pessoa (3 em 40
+  minutos, 0163), e sem a assinatura todos cairiam no balde de 3 de quem pula
+  a loja.
+*/
+const fecharAssinado = (carrinhoId) =>
+  loja(`/store/carts/${carrinhoId}/complete`, {
+    method: "POST",
+    headers: {
+      ...cabLoja,
+      ...(process.env.REVALIDAR_SEGREDO
+        ? { "x-loja-segredo": process.env.REVALIDAR_SEGREDO, "x-cliente-ip": ipDeTeste() }
+        : {}),
+    },
+  })
 const conciliar = async () =>
   (await adm("/admin/pagamentos/conciliar", { method: "POST" })).relatorio
 /** A varredura das confirmações (o job de 5 em 5 minutos), agora. */
@@ -457,7 +474,7 @@ async function fecharPelaApi(carrinho, email) {
     method: "POST",
     body: JSON.stringify({ provider_id: PAGARME, data: { entrada: entradaDoPix(email) } }),
   })
-  const fim = await loja(`/store/carts/${carrinho.id}/complete`, { method: "POST" })
+  const fim = await fecharAssinado(carrinho.id)
   return fim.json?.type === "order" ? pedidoNoMedusa(fim.json.order.id) : null
 }
 
@@ -1625,7 +1642,7 @@ try {
     )
     ok(gravado?.situacao === "nova" && gravado?.valor > 1, "e o valor é o do Medusa, não o mandado")
 
-    const fim = await loja(`/store/carts/${carrinho.id}/complete`, { method: "POST" })
+    const fim = await fecharAssinado(carrinho.id)
     const pedido = fim.json?.order ? await pedidoNoMedusa(fim.json.order.id) : null
     ok(
       fim.json?.type === "order" && pedido?.payment_status === "awaiting",

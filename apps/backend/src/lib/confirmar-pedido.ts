@@ -1,6 +1,7 @@
 import type { MedusaContainer } from "@medusajs/framework/types"
 import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
 import { ehParceiro, estadoDaSessao, sessaoDoParceiro } from "./pagamento/parceiros"
+import { capturasDo } from "./dados-do-pedido"
 import { whatsappDaLoja } from "./atendimento"
 import { emailNoLog, enviarEmail } from "./email"
 import { emailDePedidoConfirmado, type PedidoDoEmail } from "./emails/pedido-confirmado"
@@ -40,11 +41,12 @@ import { gravarNoMetadataDoPedido } from "./metadata-do-pedido"
  *   3. a chave de idempotência do Resend (`pedido-confirmado/<id>`), que
  *      cobre o instante entre o Resend aceitar e o registro ser gravado.
  *
- * QUANDO NÃO SAI: pedido cancelado; pagamento ainda não capturado; pedido sem
- * parceiro de pagamento (o provisório, "a combinar"); e pedido que já saiu pra
- * entrega. A confirmação diz "falta enviar", e depois do e-mail "a caminho"
- * ela só confundiria — é o caso do pedido pago antes de este e-mail
- * existir, que a varredura encontra nas primeiras 24 horas.
+ * QUANDO NÃO SAI: pedido cancelado; pagamento ainda não capturado, ou
+ * capturado com menos que a cobrança (`capturasDo`); pedido sem parceiro de
+ * pagamento (o provisório, "a combinar"); e pedido que já saiu pra entrega. A
+ * confirmação diz "falta enviar", e depois do e-mail "a caminho" ela só
+ * confundiria — é o caso do pedido pago antes de este e-mail existir, que a
+ * varredura encontra nas primeiras 24 horas.
  */
 
 /** Até onde a varredura olha pra trás, pela hora da captura. */
@@ -97,7 +99,8 @@ export type PedidoLido = {
   } | null
   payment_collections?:
     | ({
-        payments?: ({ captured_at?: unknown } | null)[] | null
+        amount?: unknown
+        payments?: ({ captured_at?: unknown; amount?: unknown } | null)[] | null
         payment_sessions?: (SessaoLida | null)[] | null
       } | null)[]
     | null
@@ -124,6 +127,8 @@ export const CAMPOS = [
   "items.*",
   "shipping_methods.name",
   "shipping_address.*",
+  "payment_collections.amount",
+  "payment_collections.payments.amount",
   "payment_collections.payments.captured_at",
   "payment_collections.payment_sessions.provider_id",
   "payment_collections.payment_sessions.data",
@@ -181,10 +186,8 @@ const sessoesDo = (o: PedidoLido) =>
 export function decidir(o: PedidoLido): Decisao {
   if (lerRegistro(o.metadata)) return { mandar: false, motivo: "ja-registrado" }
   if (o.status === "canceled") return { mandar: false, motivo: "cancelado" }
-  const capturado = (o.payment_collections ?? [])
-    .flatMap((c) => c?.payments ?? [])
-    .some((p) => Boolean(p?.captured_at))
-  if (!capturado) return { mandar: false, motivo: "nao-pago" }
+  // Pago por inteiro: a captura com menos que a cobrança não confirma (`capturasDo`).
+  if (!capturasDo(o).length) return { mandar: false, motivo: "nao-pago" }
   if (!sessoesDo(o).some((s) => ehParceiro(s?.provider_id))) {
     return { mandar: false, motivo: "sem-parceiro" }
   }

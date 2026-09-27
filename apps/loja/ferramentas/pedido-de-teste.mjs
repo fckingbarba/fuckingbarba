@@ -15,6 +15,8 @@
  * verdade do banco local (o shampoo tem 400).
  */
 
+import { randomBytes } from "node:crypto"
+
 const PAGARME = "pp_pagarme_pagarme"
 
 const ENDERECO = {
@@ -64,22 +66,23 @@ const entradaDoPix = (email) => ({
 const esperar = (ms) => new Promise((r) => setTimeout(r, ms))
 
 /*
-  O `complete` VAI ASSINADO COMO A LOJA MANDA: o de cartão passa pela porta
-  do cartão (`backend/src/lib/cartao/`), que conta as tentativas de cada
-  pessoa pelo IP que a loja assina com o `REVALIDAR_SEGREDO`. Aqui cada pedido
-  é uma pessoa diferente (um IP de documentação, 198.51.100.x). Sem o segredo
-  do backend no ambiente, o pedido de cartão cai no balde de quem chega sem
-  passar pela loja — 3 por hora, pra todo mundo junto.
+  O `complete` VAI ASSINADO COMO A LOJA MANDA: ele passa pela porta do
+  pagamento (`backend/src/lib/cartao/`), que conta as tentativas de cada
+  pessoa pelo IP que a loja assina com o `REVALIDAR_SEGREDO` — as do cartão e,
+  desde a 0163, os Pix (3 por pessoa em 40 minutos). Aqui cada pedido é uma
+  pessoa diferente: um IP de documentação SORTEADO (`ipDeTeste`), pra rodadas
+  seguidas de conferidores não somarem na mesma pessoa. Sem o segredo do
+  backend no ambiente, o pedido cai no balde de quem chega sem passar pela
+  loja — 3 cartões por hora e 3 Pix em 40 minutos, pra todo mundo junto.
 */
 const SEGREDO_DA_LOJA = process.env.REVALIDAR_SEGREDO ?? ""
-let proximoIp = 0
+
+/** Um IP de documentação (2001:db8::/32) sorteado — uma pessoa nova a cada chamada. */
+export const ipDeTeste = () =>
+  `2001:db8:${randomBytes(2).toString("hex")}:${randomBytes(2).toString("hex")}::${randomBytes(2).toString("hex")}`
+
 const assinadoComoALoja = () =>
-  SEGREDO_DA_LOJA
-    ? {
-        "x-loja-segredo": SEGREDO_DA_LOJA,
-        "x-cliente-ip": `198.51.100.${(proximoIp++ % 250) + 1}`,
-      }
-    : {}
+  SEGREDO_DA_LOJA ? { "x-loja-segredo": SEGREDO_DA_LOJA, "x-cliente-ip": ipDeTeste() } : {}
 
 /**
  * @param {{ medusa: string, chave: string, tokenAdmin: string, pagarme: any }} o

@@ -53,6 +53,7 @@ import { comAFaixaRespondida } from "./faixa-respondida.mjs"
 import { subirFrenetFalsa } from "./frenet-falsa.mjs"
 import { SEGREDO_DO_AVISO, subirMercadoPagoFalso } from "./mercadopago-falso.mjs"
 import { subirPagarmeFalso } from "./pagarme-falso.mjs"
+import { ipDeTeste } from "./pedido-de-teste.mjs"
 import { subirResendFalso } from "./resend-falso.mjs"
 
 const LOJA =
@@ -138,6 +139,17 @@ async function loja(caminho, opcoes = {}) {
 }
 const conciliar = async () =>
   (await adm("/admin/pagamentos/conciliar", { method: "POST" })).relatorio
+
+/*
+  AS TRAVAS SOLTAS (`POST /admin/cartao`, "soltar") no começo e antes de cada
+  pagamento pela tela: o Pix que este teste gera pelo navegador sai sempre do
+  IP local, e a porta deixa 3 por pessoa em 40 minutos (0163) — este arquivo
+  sozinho passa disso. O "soltar" recomeça a conta do cartão e a do Pix; o
+  disjuntor dos parceiros não olha pra ele.
+*/
+const soltarAsTravas = () =>
+  adm("/admin/cartao", { method: "POST", body: JSON.stringify({ acao: "soltar" }) })
+await soltarAsTravas()
 
 /** Os pedidos que o teste criou: os que sobrarem de pé são cancelados no fim. */
 const pedidosDoTeste = new Set()
@@ -274,7 +286,16 @@ async function fecharPelo(provedor, carrinho, email, data = { entrada: entradaDo
     body: JSON.stringify({ provider_id: provedor, data }),
   })
   if (!sessao.ok) return { sessao, pedido: null, fim: null }
-  const fim = await loja(`/store/carts/${carrinho.id}/complete`, { method: "POST" })
+  // Assinado como a loja manda, cada um com um IP sorteado: a porta conta os Pix por pessoa (0163).
+  const fim = await loja(`/store/carts/${carrinho.id}/complete`, {
+    method: "POST",
+    headers: {
+      ...cabLoja,
+      ...(process.env.REVALIDAR_SEGREDO
+        ? { "x-loja-segredo": process.env.REVALIDAR_SEGREDO, "x-cliente-ip": ipDeTeste() }
+        : {}),
+    },
+  })
   const pedido = fim.json?.type === "order" ? await pedidoNoMedusa(fim.json.order.id) : null
   return { sessao, pedido, fim }
 }
@@ -410,6 +431,7 @@ try {
       if (campo) campo.value = id
     }, MERCADOPAGO)
     const { json: antes } = await loja(`/store/carts/${carrinhoId}?fields=total`)
+    await soltarAsTravas()
     await pagina.locator("#form-pagamento button[type=submit]").click()
     await pagina.waitForURL(/\/checkout\/obrigado\//, { timeout: 45000 })
     const pedido = await pedidoNoMedusa(pagina.url().split("/").pop())
@@ -798,6 +820,7 @@ try {
     await ateOPagamento(pagina, "troca@fuckingbarba.invalid")
     const [criacoes, buscas] = [criacoesNoPagarme(), buscasNoPagarme()]
     const comeco = Date.now()
+    await soltarAsTravas()
     await pagina.locator("#form-pagamento button[type=submit]").click()
     await pagina.waitForURL(/\/checkout\/obrigado\//, { timeout: 45000 })
     const segundos = (Date.now() - comeco) / 1000
@@ -862,6 +885,7 @@ try {
     const { contexto, pagina } = abaVelha
     const criacoes = criacoesNoPagarme()
     await preencherCartao(pagina)
+    await soltarAsTravas()
     await pagina.locator("#form-pagamento button[type=submit]").click()
     const recado = pagina.locator("#form-pagamento .erros-envio")
     await recado.waitFor({ timeout: 30000 })
@@ -891,6 +915,7 @@ try {
       await linha.innerText()
     )
     const criacoes = criacoesNoPagarme()
+    await soltarAsTravas()
     await pagina.locator("#form-pagamento button[type=submit]").click()
     await pagina.waitForURL(/\/checkout\/obrigado\//, { timeout: 45000 })
     const pedido = await pedidoNoMedusa(idDaUrl(pagina))
@@ -907,6 +932,7 @@ try {
     await sacolaPronta(contexto)
     await ateOPagamento(pagina, "volta@fuckingbarba.invalid")
     ok(!(await cartaoNaTela(pagina).isDisabled()), "o cartão volta pra tela")
+    await soltarAsTravas()
     await pagina.locator("#form-pagamento button[type=submit]").click()
     await pagina.waitForURL(/\/checkout\/obrigado\//, { timeout: 45000 })
     const pedido = await pedidoNoMedusa(idDaUrl(pagina))
@@ -927,6 +953,7 @@ try {
     const recado = pagina.locator("#form-pagamento .erros-envio")
     for (const n of [1, 2, 3]) {
       const [noPagarme, noMp] = [criacoesNoPagarme(), criacoesNoMercadoPago()]
+      await soltarAsTravas()
       await pagina.locator("#form-pagamento button[type=submit]").click()
       await recado.waitFor({ timeout: 45000 })
       await pagina

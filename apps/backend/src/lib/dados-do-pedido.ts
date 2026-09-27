@@ -1,3 +1,5 @@
+import { emCentavos } from "./pagamento/comum"
+
 /**
  * O QUE O CHECKOUT GRAVA NO PEDIDO, LIDO DO MESMO JEITO POR QUEM PRECISA —
  * a etiqueta (`lib/envios/registro.ts`) e a nota fiscal (`lib/erp/notas.ts`).
@@ -89,11 +91,47 @@ export function faltaNoEndereco(nome: string, e: EnderecoLido): string[] {
   ].filter((x): x is string => Boolean(x))
 }
 
-/** As horas em que o pagamento do pedido foi capturado (mais de uma, se houve mais de um pagamento). */
-export const capturasDo = (o: {
-  payment_collections?: ({ payments?: ({ captured_at?: unknown } | null)[] | null } | null)[] | null
-}) =>
+type ColecaoDoPedido = {
+  amount?: unknown
+  payments?: ({ captured_at?: unknown; amount?: unknown } | null)[] | null
+} | null
+
+/**
+ * A cobrança foi paga POR INTEIRO? Os pagamentos capturados somam pelo menos
+ * o valor dela.
+ *
+ * É a segunda trava contra o pedido pago a menos (a primeira é o fechamento,
+ * `lib/pagamento/valor.ts`): um pagamento capturado com menos que a cobrança
+ * não faz o pedido "pago" pra etiqueta, pra nota nem pro e-mail de
+ * confirmado. O estorno não entra na conta — devolver parte depois não
+ * desfaz o que já foi pago.
+ *
+ * Sem os valores na consulta (`payment_collections.amount` e
+ * `payment_collections.payments.amount`), não há conta a fazer, e vale como
+ * antes: capturado é pago.
+ */
+function pagaPorInteiro(c: ColecaoDoPedido): boolean {
+  if (c?.amount === undefined || c.amount === null) return true
+  const devido = emCentavos(c.amount)
+  if (!Number.isFinite(devido)) return true
+  let pago = 0
+  for (const p of c.payments ?? []) {
+    if (!p?.captured_at) continue
+    if (p.amount === undefined || p.amount === null) return true
+    const valor = emCentavos(p.amount)
+    if (!Number.isFinite(valor)) return true
+    pago += valor
+  }
+  return pago >= devido
+}
+
+/**
+ * As horas em que o pagamento do pedido foi capturado (mais de uma, se houve
+ * mais de um pagamento) — só das cobranças pagas por inteiro (`pagaPorInteiro`).
+ */
+export const capturasDo = (o: { payment_collections?: ColecaoDoPedido[] | null }) =>
   (o.payment_collections ?? [])
+    .filter(pagaPorInteiro)
     .flatMap((c) => c?.payments ?? [])
     .map((p) => (p?.captured_at ? new Date(p.captured_at as string) : null))
     .filter((d): d is Date => d !== null && !Number.isNaN(d.getTime()))

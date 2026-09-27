@@ -9,7 +9,9 @@ import type { EntityManager } from "@medusajs/framework/mikro-orm/knex"
 import {
   CONTAM,
   LIMITES,
+  LIMITES_DO_PIX,
   type Contagem,
+  type ContagemDoPix,
   type Resultado,
   type ResumoDoCartao,
 } from "../../lib/cartao/robo"
@@ -337,6 +339,41 @@ export default class ObservabilidadeService extends Tabelas {
       terminadas: Number(l?.terminadas ?? 0),
       daLoja: Number(l?.da_loja ?? 0),
     }
+  }
+
+  /**
+   * Os Pix da pessoa e os que chegaram sem a assinatura da loja, nos últimos
+   * 40 minutos — o de agora incluído ("andando"). Contam os que nasceram
+   * ("gerado"), pagos ou não, e os que estão indo; o barrado, o que parou
+   * antes do parceiro e o que deu erro, não. O "soltar" do admin
+   * (`POST /admin/cartao`) recomeça estas contas também, como as do cartão.
+   * Ver `LIMITES_DO_PIX`, em `lib/cartao/robo.ts`.
+   */
+  @InjectManager()
+  async contarPix(
+    { quem }: { quem: string },
+    @MedusaContext() ctx: Contexto = {}
+  ): Promise<ContagemDoPix> {
+    const [l] = (await ctx.manager!.execute(
+      `select
+         count(*) filter (where quem = ?
+                            and created_at > now() - make_interval(mins => ?))::int as da_pessoa,
+         count(*) filter (where not assinada
+                            and created_at > now() - make_interval(mins => ?))::int as diretas
+         from obs_tentativa
+        where deleted_at is null
+          and forma = 'pix'
+          and resultado in ('andando', 'gerado')
+          and created_at > now() - make_interval(mins => ?)
+          and ${DEPOIS_DA_SOLTURA}`,
+      [
+        quem,
+        LIMITES_DO_PIX.pessoa.minutos,
+        LIMITES_DO_PIX.diretas.minutos,
+        Math.max(LIMITES_DO_PIX.pessoa.minutos, LIMITES_DO_PIX.diretas.minutos),
+      ]
+    )) as Record<string, number>[]
+    return { daPessoa: Number(l?.da_pessoa ?? 0), diretas: Number(l?.diretas ?? 0) }
   }
 
   /**

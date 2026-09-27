@@ -126,16 +126,39 @@ export function entradaDoCarrinho(
 }
 
 /**
- * A PORTA DO CARTÃO barrou antes do Pagar.me (`backend/src/lib/cartao/`): o
- * robô testando cartão roubado não passa, e quem é de verdade lê o que
- * fazer. Nada foi cobrado — a tentativa nem saiu da loja. O Medusa responde
- * 429 com o motivo no `message`; qualquer outra coisa, `null`.
+ * A PORTA DO PAGAMENTO barrou antes do parceiro (`backend/src/lib/cartao/`):
+ * o robô testando cartão roubado não passa, o Pix não segura o estoque de
+ * graça, e quem é de verdade lê o que fazer. Nada foi cobrado — a tentativa
+ * nem saiu da loja. O Medusa responde com o motivo no `message`; qualquer
+ * outra coisa, `null`.
  *
- * A frase não diz qual trava foi: pra quem compra, importa que o Pix
- * funciona agora e que o cartão volta depois.
+ * A frase não diz qual trava foi: pra quem compra, importa o que fazer agora.
+ *
+ * E o fechamento que recusou a sessão com valor diferente do carrinho
+ * (`valor_divergente`, `backend/src/lib/pagamento/valor.ts`): a outra aba
+ * mudou o carrinho no mesmo segundo — o resumo refeito mostra o total certo.
  */
 export function recusaDaPorta(e: unknown): string | null {
   const motivo = e instanceof Error ? e.message : ""
+  if (motivo === "valor_divergente") {
+    return (
+      "O valor do carrinho mudou enquanto a gente fechava o pedido. Confere o resumo e tenta de " +
+      "novo — nada foi cobrado."
+    )
+  }
+  // O 10 é o `LIMITES_DO_PIX.unidades` do backend (`backend/src/lib/cartao/robo.ts`).
+  if (motivo === "pix_quantidade") {
+    return (
+      "No Pix, cada pedido leva até 10 unidades de cada produto. Diminui a quantidade ou paga no " +
+      "cartão — nada foi cobrado."
+    )
+  }
+  if (motivo === "pix_limite") {
+    return (
+      "Já saíram vários Pix daqui nos últimos minutos. Paga um deles ou usa o cartão — ou tenta o " +
+      "Pix de novo daqui a pouco. Nada foi cobrado."
+    )
+  }
   if (motivo === "cartao_limite") {
     return (
       "Foram muitas tentativas com cartão, e por segurança o cartão ficou pausado nesta compra. " +

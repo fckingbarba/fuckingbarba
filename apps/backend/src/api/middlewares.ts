@@ -194,10 +194,41 @@ function cupomSoPelaPortaDosCupons(
   next()
 }
 
+/**
+ * O `metadata` DO CARRINHO É DA LOJA, NÃO DE QUEM COMPRA (auditoria de 27/09).
+ *
+ * O Medusa aceita `metadata` livre no corpo de criar e de atualizar o
+ * carrinho, só com a chave publicável — e no fechamento COPIA esse
+ * `metadata` pro pedido. Só que o `metadata` do pedido é onde a loja guarda
+ * os registros dela (`estornos`, `emails`, `fb_parceiro`, `fb_cupons`,
+ * `fb_bump`…), e quem lê esses registros confia que foi ela que escreveu:
+ * um `estornos` plantado acendia no painel a faixa grave "o estorno não
+ * saiu, devolva pelo Pagar.me"; um `fb_parceiro` fazia a loja cancelar na
+ * Frenet um envio de outra pessoa; um `emails.venda` calava o aviso de venda.
+ *
+ * A loja nunca manda `metadata` no carrinho (o CPF mora no `metadata` do
+ * ENDEREÇO, que continua livre), então a porta fecha sem exceção.
+ */
+function semMetadataNoCarrinho(req: MedusaRequest, _res: MedusaResponse, next: MedusaNextFunction) {
+  const corpo = req.body as Record<string, unknown> | undefined
+  if (corpo && typeof corpo === "object" && "metadata" in corpo) {
+    throw new MedusaError(MedusaError.Types.NOT_ALLOWED, "O carrinho não aceita metadata.")
+  }
+  next()
+}
+
 export default defineMiddlewares({
   routes: [
-    { matcher: "/store/carts", method: ["POST"], middlewares: [cupomSoPelaPortaDosCupons] },
-    { matcher: "/store/carts/:id", method: ["POST"], middlewares: [cupomSoPelaPortaDosCupons] },
+    {
+      matcher: "/store/carts",
+      method: ["POST"],
+      middlewares: [cupomSoPelaPortaDosCupons, semMetadataNoCarrinho],
+    },
+    {
+      matcher: "/store/carts/:id",
+      method: ["POST"],
+      middlewares: [cupomSoPelaPortaDosCupons, semMetadataNoCarrinho],
+    },
     /*
       E a parcela do cartão abaixo da mínima da loja (as Configurações, 0157)
       não abre sessão — ver `lib/pagamento/parcela.ts`.
