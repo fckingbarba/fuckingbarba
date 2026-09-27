@@ -45,7 +45,7 @@ import type { Configuracoes } from "@/lib/configuracoes"
 import { emReais } from "@/lib/formato"
 import { nomeNoCartao, tokenizar } from "@/lib/pagarme"
 import { semQueda } from "@/lib/rede"
-import { CHECKOUT_ABERTO, PARCELA_MINIMA, PARCELAS_SEM_JUROS } from "@/lib/site"
+import { CHECKOUT_ABERTO, PARCELAS_SEM_JUROS } from "@/lib/site"
 import { LogoDaBandeira } from "@/components/bandeira"
 import { Campo } from "./campo"
 import {
@@ -57,6 +57,7 @@ import {
   useFocaNoErro,
   type PropsDaEtapa,
 } from "./etapas"
+import { useParcelaMinima } from "@/components/configuracoes/contexto"
 
 /**
  * PASSO 3 — pagamento, e o pedido.
@@ -116,13 +117,13 @@ function problemaNoCartao(c: CartaoNaTela): string {
 
 /**
  * As parcelas que dá pra oferecer pra este total: até 3, e nenhuma abaixo
- * da parcela mínima. É a mesma regra que o backend confere
- * (`modules/pagarme/pedido.ts`) — oferecer aqui o que lá é recusado seria
- * descobrir no último clique.
+ * da parcela mínima da loja (as Configurações, 0157). É a mesma regra que o
+ * Medusa confere na abertura da sessão (`lib/pagamento/parcela.ts`) —
+ * oferecer aqui o que lá é recusado seria descobrir no último clique.
  */
-function parcelasPossiveis(total: number): number[] {
+function parcelasPossiveis(total: number, minima: number): number[] {
   return Array.from({ length: PARCELAS_SEM_JUROS }, (_, i) => i + 1).filter(
-    (n) => n === 1 || total / n >= PARCELA_MINIMA
+    (n) => n === 1 || total / n >= minima
   )
 }
 
@@ -156,6 +157,7 @@ export function Pagamento({
   ...casca
 }: Props) {
   const [estado, acao, enviando] = useActionState(pagar, ESTADO_INICIAL)
+  const parcelaMinima = useParcelaMinima()
   const [forma, setForma] = useState<FormaDePagamento["id"]>("pix")
   const [cartao, setCartao] = useState<CartaoNaTela>(CARTAO_VAZIO)
   const [tocado, setTocado] = useState<Record<string, boolean>>({})
@@ -203,7 +205,7 @@ export function Pagamento({
   useAvisaOcupado(casca, espera)
   const formulario = useFocaNoErro(estado)
 
-  const opcoesDeParcelas = parcelasPossiveis(checkout.total)
+  const opcoesDeParcelas = parcelasPossiveis(checkout.total, parcelaMinima)
   // O total pode cair (bump desmarcado) e tirar a parcela escolhida da lista.
   const parcelasValidas = Math.min(parcelas, opcoesDeParcelas.length)
 

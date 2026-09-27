@@ -96,19 +96,21 @@ export const site = {
  * O cartão não entra nesta lista porque o rodapé escreve a linha dele à
  * parte, com o parcelamento.
  *
- * `PARCELAS_SEM_JUROS` e `PARCELA_MINIMA` precisam bater com
- * `PARCELAS_MAXIMAS` e `PARCELA_MINIMA_CENTAVOS` do backend
- * (`modules/pagarme/pedido.ts`): aqui é o que a vitrine anuncia, lá é o que
- * o pagamento aceita.
+ * `PARCELAS_SEM_JUROS` precisa bater com `PARCELAS_MAXIMAS` do backend
+ * (`lib/pagamento/entrada.ts`): aqui é o que a vitrine anuncia, lá é o que o
+ * pagamento aceita.
  */
 export const formasDePagamento = ["Pix"] as const
 export const PARCELAS_SEM_JUROS = 3
 export const parcelamento = `${PARCELAS_SEM_JUROS}x sem juros`
 
 /**
- * Menor parcela que faz sentido oferecer, em reais. Abaixo disso o card do
- * produto mostra só o preço à vista — parcelar R$ 3,30 não ajuda ninguém e
- * as operadoras costumam recusar.
+ * O PISO DA PARCELA, em reais: o que o banco do cartão aceita (o
+ * `PARCELA_MINIMA_CENTAVOS` do backend). A parcela mínima DA LOJA — igual ou
+ * maior que esta — vem das Configurações (`configuracoes().pagamento`, e
+ * `useParcelaMinima()` nas telas de cliente, 0157); isto é o que vale quando
+ * o Medusa não disse nada. Abaixo da mínima, o card mostra só o preço à
+ * vista — parcelar R$ 3,30 não ajuda ninguém.
  */
 export const PARCELA_MINIMA = 5
 

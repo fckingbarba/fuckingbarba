@@ -6,7 +6,7 @@ import { Anuncio } from "@/components/layout/anuncio"
 import { Cabecalho } from "@/components/layout/cabecalho"
 import { Rodape } from "@/components/layout/rodape"
 import { SemZoomNoCampo } from "@/components/layout/sem-zoom-no-campo"
-import { ProvedorDoFrete } from "@/components/configuracoes/contexto"
+import { ProvedorDaParcela, ProvedorDoFrete } from "@/components/configuracoes/contexto"
 import { ProvedorDaSacola } from "@/components/sacola/contexto"
 import { Gaveta } from "@/components/sacola/gaveta"
 import { Telemetria } from "@/components/telemetria/telemetria"
@@ -84,7 +84,7 @@ export const viewport: Viewport = {
  * └────────────────────────────────────────────────────────────────────────┘
  */
 export default async function RootLayout({ children }: LayoutProps<"/">) {
-  const { frete, integracoes } = await configuracoes()
+  const { frete, integracoes, pagamento } = await configuracoes()
   // O "leva junto" da sacola: os produtos, cacheados como a vitrine (ver
   // `vitrineDaSacola`), e o modelo que escolhe entre eles (`lib/recomendacao.ts`).
   const vitrine = await vitrineDaSacola()
@@ -113,13 +113,15 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
           como prop já renderizada, não vira cliente por estar dentro.
         */}
         <ProvedorDoFrete politica={frete}>
-          <ProvedorDaSacola>
-            <Anuncio />
-            <Cabecalho />
-            {children}
-            <Rodape />
-            <Gaveta vitrine={vitrine} modelo={modelo} />
-          </ProvedorDaSacola>
+          <ProvedorDaParcela minima={pagamento.parcelaMinima}>
+            <ProvedorDaSacola>
+              <Anuncio />
+              <Cabecalho />
+              {children}
+              <Rodape />
+              <Gaveta vitrine={vitrine} modelo={modelo} />
+            </ProvedorDaSacola>
+          </ProvedorDaParcela>
         </ProvedorDoFrete>
         {/* O GA4 da variável da Vercel segue valendo até alguém pôr o código no painel. */}
         <Tags

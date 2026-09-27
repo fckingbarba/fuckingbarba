@@ -7,13 +7,13 @@ import { Fechar, Lixeira, Mais, Raio, Sacola as IconeSacola } from "@/components
 import { useSacola } from "@/components/sacola/contexto"
 import { FreteEPrazo } from "@/components/sacola/entrega"
 import { LevaJunto } from "@/components/sacola/leva-junto"
-import { useFrete } from "@/components/configuracoes/contexto"
+import { useFrete, useParcelaMinima } from "@/components/configuracoes/contexto"
 import type { SugestaoDaSacola } from "@/lib/carrinho-visivel"
 import { faltaPraPromocao, frasesDoFrete, progressoDaPromocao } from "@/lib/configuracoes"
 import { emReais } from "@/lib/formato"
 import type { PromocaoDaLinha } from "@/lib/promocoes"
 import type { ModeloDeRecomendacao } from "@/lib/recomendacao"
-import { DESTINO_DO_CHECKOUT, EM_BREVE, PARCELA_MINIMA, PARCELAS_SEM_JUROS } from "@/lib/site"
+import { DESTINO_DO_CHECKOUT, EM_BREVE, PARCELAS_SEM_JUROS } from "@/lib/site"
 
 /**
  * A GAVETA DA SACOLA
@@ -430,10 +430,11 @@ function RecadoDaPromocao({ recado }: { recado: PromocaoDaLinha }) {
   )
 }
 
-/** Some quando a parcela fica pequena demais pra operadora aceitar. */
+/** Some quando a parcela fica abaixo da mínima da loja (as Configurações). */
 function Parcela({ total }: { total: number }) {
+  const minima = useParcelaMinima()
   const valor = total / PARCELAS_SEM_JUROS
-  if (valor < PARCELA_MINIMA) return null
+  if (valor < minima) return null
   return (
     <span className="sacolinha__parcela">
       ou {PARCELAS_SEM_JUROS}x de {emReais(valor)}

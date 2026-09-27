@@ -1,4 +1,5 @@
 import { emReais } from "./formato"
+import { PARCELA_MINIMA } from "./site"
 
 /**
  * AS CONFIGURAÇÕES DA LOJA, lidas do Medusa.
@@ -75,6 +76,11 @@ export type Configuracoes = {
   }
   home: { video: VideoDaMarca | null }
   integracoes: Integracoes
+  /**
+   * A menor parcela do cartão, em reais (0157): o que a loja anuncia ("3x de
+   * R$ X" só acima dela) e o que o checkout oferece. O Medusa confere o mesmo.
+   */
+  pagamento: { parcelaMinima: number }
 }
 
 /**
@@ -99,6 +105,19 @@ export const PADRAO: Configuracoes = {
     clarity: null,
     tiktok: null,
   },
+  pagamento: { parcelaMinima: PARCELA_MINIMA },
+}
+
+/**
+ * A parcela mínima que chegou do Medusa, conferida: um Medusa de antes da
+ * 0157 não manda, e um número estranho não pode baixar a parcela do piso do
+ * banco. Nos dois casos, o piso.
+ */
+export function lerPagamento(v: unknown): Configuracoes["pagamento"] {
+  const minima = (v as { parcelaMinima?: unknown } | null | undefined)?.parcelaMinima
+  return typeof minima === "number" && Number.isFinite(minima) && minima >= PARCELA_MINIMA
+    ? { parcelaMinima: minima }
+    : PADRAO.pagamento
 }
 
 /* ── as frases ───────────────────────────────────────────────────────────

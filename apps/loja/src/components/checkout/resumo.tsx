@@ -15,7 +15,8 @@ import {
 import type { Configuracoes } from "@/lib/configuracoes"
 import { emReais } from "@/lib/formato"
 import { SEM_CONEXAO, semQueda } from "@/lib/rede"
-import { PARCELAS_SEM_JUROS, PARCELA_MINIMA } from "@/lib/site"
+import { PARCELAS_SEM_JUROS } from "@/lib/site"
+import { useParcelaMinima } from "@/components/configuracoes/contexto"
 
 /**
  * O PEDIDO, DO LADO.
@@ -65,6 +66,7 @@ export function Resumo({
   const { itens, subtotal, desconto, frete, total, unidades } = checkout
   const confianca = confiancaDoResumo(atendimento)
   const parcela = total / PARCELAS_SEM_JUROS
+  const parcelaMinima = useParcelaMinima()
   const detalhes = useRef<HTMLDetailsElement>(null)
 
   /*
@@ -182,7 +184,7 @@ export function Resumo({
           </dl>
 
           <p className="totais__parcela">
-            {parcela >= PARCELA_MINIMA
+            {parcela >= parcelaMinima
               ? `ou ${PARCELAS_SEM_JUROS}x de ${emReais(parcela)} sem juros`
               : ""}
           </p>

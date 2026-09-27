@@ -17,13 +17,13 @@ import { adicionar, adicionarVarios, type Resultado } from "@/lib/acoes/carrinho
 import type { CarrinhoVisivel } from "@/lib/carrinho-visivel"
 import { emReais } from "@/lib/formato"
 import type { DegrauDeQuantidade } from "@/lib/medusa"
-import { useFrete } from "@/components/configuracoes/contexto"
+import { useFrete, useParcelaMinima } from "@/components/configuracoes/contexto"
 import { alcancaOPiso, fechaOPiso, frasesDoFrete, pisoVale } from "@/lib/configuracoes"
 import { SEM_CONEXAO, semQueda } from "@/lib/rede"
 import { CalculadoraDeFrete } from "@/components/produto/calculadora"
 import type { ProdutoQueCombina } from "@/lib/pdp"
 import { gratisEm, unitarioEm, type PromocaoDoProduto } from "@/lib/promocoes"
-import { PARCELA_MINIMA, PARCELAS_SEM_JUROS } from "@/lib/site"
+import { PARCELAS_SEM_JUROS } from "@/lib/site"
 import { rastrear } from "@/lib/rastrear"
 import { usePeDaTela } from "@/lib/use-pe-da-tela"
 
@@ -100,6 +100,7 @@ export function Compra({
   unitarios?: readonly number[]
 }) {
   const politica = useFrete()
+  const parcelaMinima = useParcelaMinima()
   const frases = frasesDoFrete(politica)
   const [juntos, setJuntos] = useState<Set<string>>(new Set())
   const [unidades, setUnidades] = useState(1)
@@ -160,7 +161,7 @@ export function Compra({
     ? emCentavos(unitario * (unidades - gratisEm(unidades, promocao.comprando, promocao.pague)))
     : emCentavos(degrau.porUnidade * unidades)
   const parcela = total / PARCELAS_SEM_JUROS
-  const parcelavel = parcela >= PARCELA_MINIMA
+  const parcelavel = parcela >= parcelaMinima
 
   /*
     ┌─ O QUE CONTA PRO FRETE GRÁTIS, AQUI, É SÓ O QUE ESTA CAIXA ESTÁ ADICIONANDO ┐

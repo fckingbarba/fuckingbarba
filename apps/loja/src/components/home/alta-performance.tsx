@@ -5,8 +5,8 @@ import { Carrinho, Cronometro, Curva, Frasco, Raio } from "@/components/icones"
 import { BotaoComprar } from "@/components/produto/comprar"
 import { emReais } from "@/lib/formato"
 import type { ProdutoNoPalco } from "@/lib/home"
-import { buscarProdutoPorHandle, home, precosDe, varianteDoCard } from "@/lib/medusa"
-import { PARCELA_MINIMA, PARCELAS_SEM_JUROS } from "@/lib/site"
+import { buscarProdutoPorHandle, configuracoes, home, precosDe, varianteDoCard } from "@/lib/medusa"
+import { PARCELAS_SEM_JUROS } from "@/lib/site"
 import { PalcoAltaPerformance } from "./palco-alta-performance"
 
 /**
@@ -24,7 +24,8 @@ import { PalcoAltaPerformance } from "./palco-alta-performance"
  * bolinha inútil embaixo.
  */
 export async function AltaPerformance() {
-  const { altaPerformance } = (await home()).conteudo
+  const [{ conteudo }, { pagamento }] = await Promise.all([home(), configuracoes()])
+  const { altaPerformance } = conteudo
   const encontrados = await Promise.all(
     altaPerformance.produtos.map(async (texto) => {
       const produto = await buscarProdutoPorHandle(texto.produto)
@@ -40,7 +41,14 @@ export async function AltaPerformance() {
   return (
     <PalcoAltaPerformance rotulos={slides.map((s) => s.texto.nomeCurto ?? s.produto.title)}>
       {slides.map(({ produto, texto }, i) => (
-        <Slide key={produto.id} produto={produto} texto={texto} indice={i} total={slides.length} />
+        <Slide
+          key={produto.id}
+          produto={produto}
+          texto={texto}
+          indice={i}
+          total={slides.length}
+          parcelaMinima={pagamento.parcelaMinima}
+        />
       ))}
     </PalcoAltaPerformance>
   )
@@ -51,11 +59,14 @@ function Slide({
   texto,
   indice,
   total,
+  parcelaMinima,
 }: {
   produto: HttpTypes.StoreProduct
   texto: ProdutoNoPalco
   indice: number
   total: number
+  /** A menor parcela da loja (as Configurações): abaixo dela, só o preço à vista. */
+  parcelaMinima: number
 }) {
   const precos = precosDe(produto)
   const caminho = `/produtos/${produto.handle}` as const
@@ -94,7 +105,7 @@ function Slide({
                 <span className="benefits__de">{emReais(precos.cheio)}</span>
               ) : null}
               <span className="benefits__por">{emReais(precos.atual)}</span>
-              {parcela >= PARCELA_MINIMA ? (
+              {parcela >= parcelaMinima ? (
                 <span className="benefits__parcela">
                   ou {PARCELAS_SEM_JUROS}x de {emReais(parcela)} sem juros
                 </span>
