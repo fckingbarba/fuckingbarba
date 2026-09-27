@@ -2720,10 +2720,11 @@ Depois do deploy — **nada a configurar.**
       o cartão oferece esse Pix. Mercado Pago instável: nada muda. Os dois: "tenta em instantes" e
       um e-mail pro dono. Instável = três falhas seguidas; o parceiro sai por 5 minutos (o
       disjuntor) e volta sozinho.
-- [ ] **Parte 4: o ranking dos parceiros**, no Marketing → Pagamento e frete: Pix gerados, pagos,
-      que não geraram e o tempo pra gerar e confirmar; cartão aprovado e recusado por motivo;
-      falhas, vezes fora e minutos fora. Com o número ao lado da porcentagem, e sem vencedor sem
-      volume. No cartão, só compara se um dia o Mercado Pago também passar cartão.
+- [x] **Parte 4: o ranking dos parceiros** — pronta em 27/09 (entrega 0154, mais abaixo), no
+      Marketing → Pagamento e frete: Pix gerados, pagos, que não geraram e o tempo pra gerar e
+      confirmar; falhas, vezes fora e minutos fora. Com o número ao lado da porcentagem, e sem
+      vencedor sem volume. O cartão fica no bloco Cartão: só compara se um dia o Mercado Pago
+      também passar cartão.
 
 **Marketing: a conversão do Resumo compara gente igual — pronta em 26/09 (entrega 0135).** Pedido
 dele, depois da conversa sobre robôs e como a visita é contada ("sim vamos"). A conversão do Resumo
@@ -3260,6 +3261,31 @@ deploy). O primeiro e-mail sai na primeira rodada entre 9h e 21h, pros pedidos e
 
 - [ ] **A nota na caixa de compra** ("★ 4,8 · 12 avaliações", ao lado do preço, como no protótipo
       da PDP — o CSS `.compra__nota` já existe): quando houver avaliações, perguntar se ele quer.
+
+**Pix reserva, parte 4: os parceiros lado a lado — pronta em 27/09 (entrega 0154).** O pedido dele:
+"precisamos ver qual tá mais dando recusado e essas coisas". No Marketing → Pagamento e frete, um
+bloco novo, **Os parceiros**, com o Pagar.me e o Mercado Pago lado a lado:
+
+- **Pix gerados** (com "de N tentativas · %", o que não gerou), **pagos** (a parte dos gerados),
+  **pra gerar** (do clique ao QR, a mediana), **até pagar** (do QR ao pago), **sem resposta** (as
+  tentativas em que ele não respondeu) e **fora do ar** (quantas vezes e quanto tempo — a regra do
+  disjuntor: três seguidas sem resposta, até a primeira que ele atendeu).
+- **Quem gera mais Pix** só aparece com 10 tentativas de Pix em cada um no período; antes disso, a
+  frase diz que ainda não há volume — com a reserva, o Mercado Pago só cobra quando o Pagar.me
+  falha. O parceiro que não cobrou nada no período sai da tabela, com uma linha dizendo isso.
+- **O achado:** quando um parceiro fica fora do ar no período, o "O que os dados dizem" avisa,
+  com quantos Pix saíram pelo outro nesse tempo.
+- **O cartão** fica no bloco Cartão (só o Pagar.me passa cartão), que ganhou a barra
+  **"Cancelados antes de cobrar"** — o pedido cancelado com o cartão ainda em análise. Antes, eles
+  entravam no total e em motivo nenhum, e as partes não fechavam a conta.
+- Os Pix gerados e pagos são os pedidos (somados, dão os do bloco Pix); o que não gerou, o tempo e
+  o fora do ar vêm das tentativas anotadas desde a entrega 0150.
+
+Conferido pelo `conferir-marketing.mjs` (120, duas rodadas; 3 novas: os parceiros somando o Pix do
+período, cada um dentro das regras, e a tela com os números da API) e pelos testes de unidade (1212;
+10 novos).
+
+Depois do deploy — **nada a configurar.** Pra ver: Painel → Marketing → Pagamento e frete.
 
 ## Como seguir no Claude Code
 

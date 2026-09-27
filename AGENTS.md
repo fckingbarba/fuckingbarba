@@ -1280,6 +1280,17 @@ protótipo; as duas só da loja (sem o Google).
   carrinho** (`deletePaymentSession`, sem lixeira): conta a última tentativa de cada carrinho. O
   frete: a parte grátis, o médio de quem pagou, quem desiste (carrinho com CEP e sem entrega
   escolhida) e o "quase lá" (pagou frete a menos de R$ 30 do piso do `fb_configuracoes`).
+- **Os parceiros lado a lado** (entrega 0154, `lib/painel/marketing-parceiros.ts`, puro, com
+  testes): o Pix de cada parceiro — gerados e pagos dos PEDIDOS do período
+  (`pagamentoDo(o).parceiro`; somados, dão os do bloco Pix), o que não gerou e o tempo do clique ao
+  QR das TENTATIVAS anotadas (`tentativasDoPeriodo`, no serviço da observabilidade: só as com
+  parceiro, desde a 0150), a mediana do pedido ao pago, as tentativas sem resposta e as quedas pela
+  regra do disjuntor (três seguidas, até a primeira que ele atendeu; a que não acabou vai até
+  agora). "Quem gera mais Pix" só sai com 10 tentativas de Pix em cada um (`MINIMO_PRA_COMPARAR`). O
+  cartão fica fora do ranking: só o Pagar.me passa cartão. Achado: o parceiro que ficou fora do ar,
+  com os Pix que saíram pelo outro nesse tempo. E o cartão ganhou `cancelados` (o pedido cancelado
+  com o cartão em análise: nada cobrado, e não é recusa) — antes, eles ficavam no total e em motivo
+  nenhum.
 - Rotas `GET /dashboard/marketing/clientes` (com os números da newsletter, `numerosDaNewsletter`)
   e `/pagamento`. No painel, `marketing/clientes` e `marketing/pagamento`,
   `components/marketing-clientes.tsx` e `marketing-pagamento.tsx` (o atalho "Mudar o frete
