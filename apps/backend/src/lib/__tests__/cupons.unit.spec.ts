@@ -18,6 +18,7 @@ import {
   promocaoDoCupom,
   regraDoCupom,
   regrasDoCupom,
+  seloDoCupom,
   SEM_CATEGORIA,
   usosPorCodigo,
   type Catalogo,
@@ -638,6 +639,9 @@ describe("a lista", () => {
       descricao: "15% em pedidos a partir de R$ 99,90",
       regra: "até 30/09 · 100 usos no total",
       usos: "23 de 100 usos",
+      selo: "15%",
+      usados: 23,
+      limite: 100,
       situacao: "valendo",
       ligado: true,
       ...uso,
@@ -695,6 +699,9 @@ describe("a lista", () => {
       descricao: "10% em qualquer pedido",
       regra: "sem data de fim",
       usos: "0 usos",
+      selo: "10%",
+      usados: 0,
+      limite: null,
     })
     const frete = {
       ...antigo,
@@ -703,6 +710,16 @@ describe("a lista", () => {
     expect(cupomNaLista(frete, { pedidos: 0, desconto: 0, vendeu: 0 }, AGORA).descricao).toBe(
       "Frete grátis em qualquer pedido"
     )
+    expect(cupomNaLista(frete, { pedidos: 0, desconto: 0, vendeu: 0 }, AGORA).selo).toBe(
+      "Frete grátis"
+    )
+  })
+
+  it("o selo: o valor em poucas letras", () => {
+    expect(seloDoCupom({ tipo: "porcento", valor: 15 })).toBe("15%")
+    expect(seloDoCupom({ tipo: "reais", valor: 20 }).replace(/\s/g, " ")).toBe("R$ 20")
+    expect(seloDoCupom({ tipo: "reais", valor: 12.5 }).replace(/\s/g, " ")).toBe("R$ 12,50")
+    expect(seloDoCupom({ tipo: "frete", valor: 0 })).toBe("Frete grátis")
   })
 
   it("as frases do tipo e das regras", () => {
