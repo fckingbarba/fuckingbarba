@@ -1,7 +1,6 @@
 import type { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { Modules } from "@medusajs/framework/utils"
-import { exigirArea, type PedidoDaEquipe } from "../../../lib/equipe/acesso"
-import { podeAbrir } from "../../../lib/equipe/regras"
+import { abre, exigirArea, type PedidoDaEquipe } from "../../../lib/equipe/acesso"
 import { pedidosDesde } from "../../../lib/painel/ler"
 import { lerMetas, lerPedidosDesde, lerPeriodo, montarResumo } from "../../../lib/painel/marketing"
 
@@ -9,8 +8,9 @@ import { lerMetas, lerPedidosDesde, lerPeriodo, montarResumo } from "../../../li
  * GET /dashboard/marketing?periodo=30d — o Resumo do Marketing
  * (`lib/painel/marketing.ts`): a receita, os pedidos pagos e o ticket do
  * período contra o de antes, a receita no tempo, os produtos que mais
- * venderam e a meta do mês. Do dono e do marketing; `mudaAMeta` diz se quem
- * pediu pode mudar a meta (só o dono).
+ * venderam e a meta do mês. De quem abre o Marketing (no padrão, o dono e o
+ * marketing); `mudaAMeta` diz se quem pediu pode mudar a meta (a linha
+ * `metaDoMes` — no padrão, só o dono).
  *
  * As visitas e a conversão vêm à parte (`/dashboard/marketing/visitas`): o
  * Google pode demorar, e o resto não espera por ele — como no Início.
@@ -29,6 +29,6 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
   ])
   res.json({
     ...montarResumo(periodo, pedidos, lerMetas(lojas[0]?.metadata), agora),
-    mudaAMeta: podeAbrir(pedido.membro.papel, "metaDoMes"),
+    mudaAMeta: abre(pedido, "metaDoMes"),
   })
 }

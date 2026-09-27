@@ -1,5 +1,5 @@
 import type { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/framework/http"
-import { exigirArea, type PedidoDaEquipe } from "../../../lib/equipe/acesso"
+import { abre, exigirArea, type PedidoDaEquipe } from "../../../lib/equipe/acesso"
 import { montarInicio } from "../../../lib/painel/inicio"
 import {
   enviosDos,
@@ -12,7 +12,8 @@ import {
 
 /**
  * GET /dashboard/inicio — a primeira tela do painel: o que precisa de você,
- * as vendas e os pedidos do dia, conforme o papel (`lib/painel/inicio.ts`).
+ * as vendas e os pedidos do dia, conforme o papel e o que ele abre agora
+ * (`lib/painel/inicio.ts`).
  *
  * Os pedidos dos últimos 45 dias: é o que cobre a semana do gráfico e o
  * pedido pago que ficou parado sem sair — esse, quanto mais velho, mais
@@ -27,13 +28,18 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
   const pedidos = await pedidosRecentes(req.scope, { limite: 500, dias: 45, agora: ctx.agora })
   const ids = pedidos.map((o) => o.id)
   const [notas, envios] = await Promise.all([notasDos(req.scope, ids), enviosDos(req.scope, ids)])
+  // A fila do marketing: cada item só pra quem abre a área dele.
   const doMarketing =
     papel === "marketing"
       ? {
-          newsletter: await numerosDaNewsletter(req.scope, ctx.agora),
-          rascunhos: await quantosRascunhos(req.scope),
+          ...(abre(pedido, "newsletter")
+            ? { newsletter: await numerosDaNewsletter(req.scope, ctx.agora) }
+            : {}),
+          ...(abre(pedido, "produtos") ? { rascunhos: await quantosRascunhos(req.scope) } : {}),
         }
       : {}
 
-  res.json(montarInicio(papel, { pedidos, notas, envios, ...doMarketing }, ctx))
+  res.json(
+    montarInicio({ papel, areas: pedido.areas }, { pedidos, notas, envios, ...doMarketing }, ctx)
+  )
 }

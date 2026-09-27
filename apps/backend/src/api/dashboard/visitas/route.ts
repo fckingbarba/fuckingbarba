@@ -1,13 +1,8 @@
 import type { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/framework/http"
-import { exigirArea, type PedidoDaEquipe } from "../../../lib/equipe/acesso"
+import { abre, exigirArea, type PedidoDaEquipe } from "../../../lib/equipe/acesso"
 import { avisarNoLog, configuracaoDoGa4, ErroDoGa4, respostasDoDia } from "../../../lib/painel/ga4"
 import { nomesDosProdutos } from "../../../lib/painel/ler"
-import {
-  handlesDe,
-  montarVisitas,
-  soONumero,
-  veOBlocoDasVisitas,
-} from "../../../lib/painel/visitas"
+import { handlesDe, montarVisitas, soONumero } from "../../../lib/painel/visitas"
 
 /** O motivo de verdade vai pro log, no máximo uma linha por hora por motivo. */
 const avisar = (req: AuthenticatedMedusaRequest, tipo: string, mensagem: string) =>
@@ -15,10 +10,11 @@ const avisar = (req: AuthenticatedMedusaRequest, tipo: string, mensagem: string)
 
 /**
  * GET /dashboard/visitas — as visitas do dia, do Google Analytics, pro
- * Início. Todo papel: o dono e o marketing recebem o bloco inteiro (hora a
- * hora, quem está no site agora, de onde vieram, os produtos mais vistos);
- * a operação, só o número (o protótipo: "o dia da operação e o número de
- * visitas") — o resto nem sai daqui.
+ * Início. Todo papel: quem abre o Marketing (no padrão, o dono e o
+ * marketing) recebe o bloco inteiro (hora a hora, quem está no site agora,
+ * de onde vieram, os produtos mais vistos); os outros, só o número (o
+ * protótipo: "o dia da operação e o número de visitas") — o resto nem sai
+ * daqui.
  *
  * À parte do `/dashboard/inicio` de propósito: o Google pode demorar, e o
  * Início não espera por ele (o painel pede os dois juntos e mostra as
@@ -57,7 +53,7 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
     const visitas = montarVisitas(respostas, { agora, nomes })
     res.json({
       estado: "ok",
-      visitas: veOBlocoDasVisitas(pedido.membro.papel) ? visitas : soONumero(visitas),
+      visitas: abre(pedido, "marketing") ? visitas : soONumero(visitas),
     })
   } catch (e) {
     const tipo = e instanceof ErroDoGa4 ? e.tipo : "fora"

@@ -1,5 +1,11 @@
 import type { Email } from "../email"
-import { areasDo, DIAS_DO_CONVITE, NOME_DA_AREA, NOME_DO_PAPEL, type Papel } from "../equipe/regras"
+import {
+  DIAS_DO_CONVITE,
+  NOME_DA_AREA,
+  NOME_DO_PAPEL,
+  type Area,
+  type Papel,
+} from "../equipe/regras"
 import { botao, cartao, divisor, esc, espaco, moldura, paragrafo, titulo } from "./moldura"
 
 /**
@@ -25,12 +31,18 @@ export function emailDoConvite({
   para,
   nome,
   papel,
+  areas,
   quem,
 }: {
   para: string
   /** Quem foi convidado — como o dono escreveu. */
   nome: string
   papel: Papel
+  /**
+   * O que o papel abre na hora do convite — a matriz de agora, com o que o
+   * dono mudou (`areasDo(matrizAtual)`), e não o padrão.
+   */
+  areas: readonly Area[]
   /** Quem convidou (ou reenviou): o nome do dono. */
   quem: string
 }): Email {
@@ -38,11 +50,10 @@ export function emailDoConvite({
   const endereco = painel ? painel.replace(/^https?:\/\//, "") : null
   const primeiroNome = nome.split(" ")[0]
   const papelNome = NOME_DO_PAPEL[papel]
-  const areas = areasDo(papel).map((a) => NOME_DA_AREA[a])
 
   const assunto = "Seu convite pro painel da FuckingBarba"
   const chamada = `${quem} te chamou pra equipe do painel da FuckingBarba, com o papel ${papelNome}.`
-  const abre = `Com esse papel, você abre: ${juntar(areas)}.`
+  const abre = `Com esse papel, você abre: ${juntar(areas.map((a) => NOME_DA_AREA[a]))}.`
   const comoEntrar = endereco
     ? `Pra entrar, abra ${endereco}, digite este e-mail e confirme com o código de 6 números que chega aqui. Não tem senha.`
     : "Pra entrar, abra o painel da loja, digite este e-mail e confirme com o código de 6 números que chega aqui. Não tem senha."

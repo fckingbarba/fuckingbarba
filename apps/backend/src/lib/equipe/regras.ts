@@ -6,10 +6,10 @@ import { normalizarEmail } from "../../modules/codigo/regras"
  *
  * ┌─ A PERMISSÃO VALE AQUI, NO SERVIDOR ───────────────────────────────────┐
  * │ O painel esconde do menu o que o papel não abre, mas quem barra é a    │
- * │ rota: cada uma pergunta `podeAbrir(papel, area)` antes de responder, e │
- * │ o que o papel não vê nem sai daqui. Esconder botão não é permissão —   │
- * │ o endereço digitado na mão, ou a chamada direta ao Medusa, esbarram    │
- * │ nesta tabela do mesmo jeito.                                           │
+ * │ rota: cada uma pergunta à matriz de agora (`exigirArea`, em            │
+ * │ `acesso.ts`) antes de responder, e o que o papel não vê nem sai daqui. │
+ * │ Esconder botão não é permissão — o endereço digitado na mão, ou a      │
+ * │ chamada direta ao Medusa, esbarram nesta tabela do mesmo jeito.        │
  * └────────────────────────────────────────────────────────────────────────┘
  */
 
@@ -28,9 +28,13 @@ export function ehPapel(valor: unknown): valor is Papel {
 }
 
 /**
- * As áreas do painel e quem abre cada uma — a matriz da tela "Equipe e
- * acessos" do protótipo. A área nova entra aqui ANTES da rota dela existir:
- * rota sem linha nesta tabela não abre pra ninguém.
+ * COMO A LOJA NASCE: as áreas do painel e quem abre cada uma — a matriz da
+ * tela "Equipe e acessos" do protótipo. O dono muda as colunas da operação
+ * e do marketing pelo painel (Configurações → Equipe e acessos); o banco
+ * guarda só a DIFERENÇA deste padrão (a tabela `equipe_acesso`), e
+ * `matrizCom` junta os dois. A área nova entra aqui ANTES da rota dela
+ * existir, já com os papéis que abrem: rota sem linha nesta tabela não abre
+ * pra ninguém, e a linha nova vale o padrão até o dono mudar.
  *
  * Nem toda linha é tela: `estornos` é o botão "Tentar o estorno de novo",
  * dentro do pedido — mexe em dinheiro de cliente, então tem linha própria
@@ -42,9 +46,9 @@ export function ehPapel(valor: unknown): valor is Papel {
  * clientes, e não a lista de e-mails. O `crm` é o que a loja anota do que
  * cada pessoa faz, ligado ao e-mail dela: do marketing e do dono, como a
  * newsletter. O `marketing` é a área dos números de venda (o Resumo, a
- * meta); mudar a `metaDoMes` é só do dono.
+ * meta); mudar a `metaDoMes`, no padrão, é só do dono.
  */
-export const ACESSO = {
+export const ACESSO_PADRAO = {
   inicio: ["dono", "operacao", "marketing"],
   pedidos: ["dono", "operacao"],
   estornos: ["dono"],
@@ -63,7 +67,14 @@ export const ACESSO = {
   equipe: ["dono"],
 } as const satisfies Record<string, readonly Papel[]>
 
-export type Area = keyof typeof ACESSO
+export type Area = keyof typeof ACESSO_PADRAO
+
+/** As áreas, na ordem do menu (a da tabela acima). */
+export const AREAS = Object.keys(ACESSO_PADRAO) as Area[]
+
+export function ehArea(valor: unknown): valor is Area {
+  return typeof valor === "string" && (AREAS as readonly string[]).includes(valor)
+}
 
 /** Os nomes do menu do painel — os mesmos do protótipo. O convite lista com eles. */
 export const NOME_DA_AREA: Record<Area, string> = {
@@ -85,12 +96,149 @@ export const NOME_DA_AREA: Record<Area, string> = {
   equipe: "Equipe e acessos",
 }
 
-export function podeAbrir(papel: Papel, area: Area): boolean {
-  return (ACESSO[area] as readonly Papel[]).includes(papel)
+/**
+ * OS PAPÉIS QUE O DONO AJUSTA. O dono abre tudo, sempre: nenhum clique na
+ * tabela tira do dono uma área da loja, nem deixa a loja sem quem mexa nos
+ * acessos.
+ */
+export const PAPEIS_AJUSTAVEIS = ["operacao", "marketing"] as const
+export type PapelAjustavel = (typeof PAPEIS_AJUSTAVEIS)[number]
+
+export function ehAjustavel(valor: unknown): valor is PapelAjustavel {
+  return typeof valor === "string" && (PAPEIS_AJUSTAVEIS as readonly string[]).includes(valor)
 }
 
-export function areasDo(papel: Papel): Area[] {
-  return (Object.keys(ACESSO) as Area[]).filter((area) => podeAbrir(papel, area))
+/**
+ * AS LINHAS QUE NÃO MUDAM. O `inicio` abre pra todo papel: é onde o painel
+ * cai depois de entrar. E a `equipe` é só do dono: quem ganhasse ela daria
+ * acesso a si mesmo — e convidar, trocar papel e remover já são só do dono
+ * (`podeMudar`).
+ */
+export const AREAS_FIXAS: readonly Area[] = ["inicio", "equipe"]
+
+/**
+ * O QUE MORA DENTRO DE OUTRA ÁREA — um botão ou uma aba dela. Só abre com a
+ * de fora aberta: o estorno é um botão do pedido; editar, dentro dos
+ * produtos; a newsletter, uma aba de Clientes; a meta, um botão do
+ * Marketing. A tela liga a de fora junto e desliga as de dentro junto; aqui
+ * a regra vale na leitura e na gravação.
+ */
+export const DENTRO_DE: Partial<Record<Area, Area>> = {
+  estornos: "pedidos",
+  editarProdutos: "produtos",
+  newsletter: "clientes",
+  metaDoMes: "marketing",
+}
+
+/** A matriz de agora: pra cada área, os papéis que abrem. */
+export type Matriz = Record<Area, readonly Papel[]>
+
+/** Uma diferença do padrão, como o banco guarda: o papel abre (ou não) a área. */
+export type Ajuste = { papel: PapelAjustavel; area: Area; abre: boolean }
+
+const abreNoPadrao = (papel: Papel, area: Area) =>
+  (ACESSO_PADRAO[area] as readonly Papel[]).includes(papel)
+
+/** Monta a matriz de "o papel abre a área?", fechando o que mora dentro de área fechada. */
+function montar(abre: (papel: Papel, area: Area) => boolean): Matriz {
+  const aberta = (papel: Papel, area: Area): boolean => {
+    const fora = DENTRO_DE[area]
+    return abre(papel, area) && (!fora || aberta(papel, fora))
+  }
+  const matriz = {} as Record<Area, Papel[]>
+  for (const area of AREAS) matriz[area] = PAPEIS.filter((papel) => aberta(papel, area))
+  return matriz
+}
+
+/**
+ * A MATRIZ DE AGORA — o padrão com os ajustes do dono por cima. Ajuste que
+ * não vale mais (área que saiu do código, linha fixa, papel que não se
+ * ajusta) não conta. E o que mora dentro de outra área fecha com ela, diga
+ * o banco o que disser.
+ */
+export function matrizCom(
+  ajustes: readonly { papel: string; area: string; abre: boolean | null }[]
+): Matriz {
+  const mudou = new Map<string, boolean>()
+  for (const a of ajustes)
+    if (ehAjustavel(a.papel) && ehArea(a.area) && !AREAS_FIXAS.includes(a.area))
+      mudou.set(`${a.papel}/${a.area}`, a.abre === true)
+  return montar((papel, area) => mudou.get(`${papel}/${area}`) ?? abreNoPadrao(papel, area))
+}
+
+/** A loja sem ajuste nenhum. */
+export const MATRIZ_PADRAO: Matriz = matrizCom([])
+
+export function podeAbrir(matriz: Matriz, papel: Papel, area: Area): boolean {
+  return matriz[area].includes(papel)
+}
+
+export function areasDo(matriz: Matriz, papel: Papel): Area[] {
+  return AREAS.filter((area) => podeAbrir(matriz, papel, area))
+}
+
+/* ── o dono mudando os acessos ────────────────────────────────────────────── */
+
+export type LeituraDosAcessos =
+  | { ok: true; matriz: Matriz }
+  | { ok: false; motivo: "acessos_invalidos" | "linha_fixa" | "sem_a_area_de_fora" }
+
+/**
+ * O corpo de `POST /dashboard/acessos`:
+ * `{ acesso: { operacao: Area[], marketing: Area[] } }` — TUDO o que cada
+ * papel ajustável abre depois de salvar, e não só o que mudou: a tela manda
+ * a coluna inteira, e duas abas salvando juntas não se misturam (vale a
+ * última, inteira). Recusa área que não existe, linha fixa mexida e o que
+ * mora dentro de uma área sem ela.
+ */
+export function lerAcessos(corpo: unknown): LeituraDosAcessos {
+  const acesso = (corpo as { acesso?: unknown } | null | undefined)?.acesso
+  if (!acesso || typeof acesso !== "object" || Array.isArray(acesso))
+    return { ok: false, motivo: "acessos_invalidos" }
+  const colunas = acesso as Record<string, unknown>
+  if (Object.keys(colunas).some((papel) => !ehAjustavel(papel)))
+    return { ok: false, motivo: "acessos_invalidos" }
+
+  const abre = {} as Record<PapelAjustavel, Set<Area>>
+  for (const papel of PAPEIS_AJUSTAVEIS) {
+    const lista = colunas[papel]
+    if (!Array.isArray(lista) || lista.length > AREAS.length * 2 || !lista.every(ehArea))
+      return { ok: false, motivo: "acessos_invalidos" }
+    abre[papel] = new Set(lista)
+  }
+  for (const papel of PAPEIS_AJUSTAVEIS) {
+    for (const area of AREAS_FIXAS)
+      if (abre[papel].has(area) !== abreNoPadrao(papel, area))
+        return { ok: false, motivo: "linha_fixa" }
+    for (const area of abre[papel]) {
+      const fora = DENTRO_DE[area]
+      if (fora && !abre[papel].has(fora)) return { ok: false, motivo: "sem_a_area_de_fora" }
+    }
+  }
+  const matriz = montar((papel, area) =>
+    ehAjustavel(papel) ? abre[papel].has(area) : abreNoPadrao(papel, area)
+  )
+  return { ok: true, matriz }
+}
+
+/** O que o banco guarda de uma matriz: só onde ela difere do padrão. */
+export function ajustesDa(matriz: Matriz): Ajuste[] {
+  return mudancasEntre(MATRIZ_PADRAO, matriz)
+}
+
+/**
+ * O que mudou de uma matriz pra outra, papel por papel, na ordem do menu —
+ * pro registro de quem fez o quê e pro aviso da tela.
+ */
+export function mudancasEntre(antes: Matriz, depois: Matriz): Ajuste[] {
+  const mudou: Ajuste[] = []
+  for (const papel of PAPEIS_AJUSTAVEIS)
+    for (const area of AREAS) {
+      if (AREAS_FIXAS.includes(area)) continue
+      const fica = depois[area].includes(papel)
+      if (antes[area].includes(papel) !== fica) mudou.push({ papel, area, abre: fica })
+    }
+  return mudou
 }
 
 /** O convite vale 7 dias: depois disso o e-mail não recebe código até o dono reenviar. */

@@ -1,4 +1,5 @@
 import { emCentavos } from "../../../modules/pagarme/client"
+import { areasDo, matrizCom, MATRIZ_PADRAO, type Matriz, type Papel } from "../../equipe/regras"
 import { duracao, quando, reais } from "../formato"
 import { montarInicio } from "../inicio"
 import {
@@ -661,6 +662,11 @@ describe("o Início", () => {
       false
     )
 
+  const quem = (papel: Papel, matriz: Matriz = MATRIZ_PADRAO) => ({
+    papel,
+    areas: areasDo(matriz, papel),
+  })
+
   const dados = () => ({
     pedidos: [
       venda("order_A", 10, 100),
@@ -693,7 +699,7 @@ describe("o Início", () => {
       "order_A",
       nota({ definitivo: true, erro: "o pedido não tem CPF/CNPJ, e a nota precisa" })
     )
-    const item = montarInicio("operacao", d, COM_ERP).fila.find((f) => f.icone === "nota")
+    const item = montarInicio(quem("operacao"), d, COM_ERP).fila.find((f) => f.icone === "nota")
     expect(item).toMatchObject({
       nivel: "grave",
       titulo: "A nota do #1042 não sai sozinha",
@@ -703,7 +709,7 @@ describe("o Início", () => {
   })
 
   it("venda é pedido pago: hoje, a semana e o ticket", () => {
-    const i = montarInicio("dono", dados(), SEM_ERP)
+    const i = montarInicio(quem("dono"), dados(), SEM_ERP)
     expect(i.numeros.vendasHoje).toEqual({ valor: 100, pedidos: 1 })
     expect(i.numeros.semana).toEqual({ valor: 150, pedidos: 2, ticket: 75 })
     expect(i.numeros.esperando).toEqual({ valor: 257.2, pix: 2, analise: 0 })
@@ -714,26 +720,26 @@ describe("o Início", () => {
   it("a venda conta o cobrado, com o cupom descontado — não a conta de antes dele", () => {
     const doMedusa = { original_total: 100, discount_total: 10 }
     const i = montarInicio(
-      "dono",
+      quem("dono"),
       { pedidos: [venda("order_A", 10, 90, doMedusa)], notas: new Map(), envios: new Map() },
       SEM_ERP
     )
     expect(i.numeros.vendasHoje).toEqual({ valor: 90, pedidos: 1 })
   })
 
-  it("o estorno que falhou só aparece pro dono", () => {
+  it("o estorno que falhou só aparece pro dono (no padrão)", () => {
     const titulos = (papel: "dono" | "operacao") =>
-      montarInicio(papel, dados(), SEM_ERP).fila.map((f) => f.titulo)
+      montarInicio(quem(papel), dados(), SEM_ERP).fila.map((f) => f.titulo)
     expect(titulos("dono").some((t) => t.startsWith("O estorno"))).toBe(true)
     expect(titulos("operacao").some((t) => t.startsWith("O estorno"))).toBe(false)
     expect(titulos("operacao")).toContain("2 pedidos pra despachar")
-    const despachar = montarInicio("operacao", dados(), SEM_ERP).fila[0]
+    const despachar = montarInicio(quem("operacao"), dados(), SEM_ERP).fila[0]
     expect(despachar.texto).toBe("2 prontos pra etiqueta")
   })
 
   it("o marketing recebe números e produtos, sem nenhum nome de cliente", () => {
     const i = montarInicio(
-      "marketing",
+      quem("marketing"),
       { ...dados(), newsletter: { semana: 12, total: 214 }, rascunhos: 2 },
       SEM_ERP
     )
@@ -744,5 +750,39 @@ describe("o Início", () => {
     ])
     expect(JSON.stringify(i)).not.toContain("Rafael")
     expect(i.maisVendidos[0]).toMatchObject({ nome: "Óleo 30ml", unidades: 4 })
+  })
+
+  it("a operação sem os Pedidos (o dono tirou) não recebe a fila nem os pedidos de hoje", () => {
+    const semPedidos = matrizCom([{ papel: "operacao", area: "pedidos", abre: false }])
+    const i = montarInicio(quem("operacao", semPedidos), dados(), SEM_ERP)
+    expect(i.pedidosDeHoje).toBeNull()
+    expect(i.fila).toEqual([])
+    expect(JSON.stringify(i)).not.toContain("Rafael")
+    // Os números seguem: vendas não têm nome de cliente.
+    expect(i.numeros.vendasHoje).toEqual({ valor: 100, pedidos: 1 })
+  })
+
+  it("a operação com os Estornos (o dono deu) vê o estorno que falhou", () => {
+    const comEstornos = matrizCom([{ papel: "operacao", area: "estornos", abre: true }])
+    const titulos = montarInicio(quem("operacao", comEstornos), dados(), SEM_ERP).fila.map(
+      (f) => f.titulo
+    )
+    expect(titulos.some((t) => t.startsWith("O estorno"))).toBe(true)
+  })
+
+  it("o marketing com os Pedidos (o dono deu) recebe a fila dos pedidos junto da dele", () => {
+    const comPedidos = matrizCom([{ papel: "marketing", area: "pedidos", abre: true }])
+    const i = montarInicio(
+      quem("marketing", comPedidos),
+      { ...dados(), newsletter: { semana: 12, total: 214 }, rascunhos: 2 },
+      SEM_ERP
+    )
+    expect(i.pedidosDeHoje).not.toBeNull()
+    expect(i.fila.map((f) => f.titulo)).toEqual([
+      "2 pedidos pra despachar",
+      "2 produtos em rascunho",
+      "+12 na newsletter esta semana",
+    ])
+    expect(i.fila.some((f) => f.titulo.startsWith("O estorno"))).toBe(false)
   })
 })

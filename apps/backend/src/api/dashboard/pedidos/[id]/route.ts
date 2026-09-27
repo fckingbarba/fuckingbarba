@@ -1,6 +1,5 @@
 import type { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/framework/http"
-import { exigirArea, type PedidoDaEquipe } from "../../../../lib/equipe/acesso"
-import { podeAbrir } from "../../../../lib/equipe/regras"
+import { abre, exigirArea, type PedidoDaEquipe } from "../../../../lib/equipe/acesso"
 import {
   enviosDos,
   feitosNoPedido,
@@ -14,8 +13,9 @@ import { detalheDo } from "../../../../lib/painel/pedido"
  * GET /dashboard/pedidos/:id — o pedido inteiro: onde está, o caminho, o
  * histórico (com o que a equipe fez pelo painel, e quem), os itens, o
  * pagamento, a nota, a entrega, o cliente e os botões que o papel pode
- * apertar. Dono e operação; o CPF inteiro e o "Tentar o estorno de novo" só
- * vão pro dono (`lib/painel/pedido.ts`).
+ * apertar. De quem abre os Pedidos (no padrão, o dono e a operação); o CPF
+ * inteiro só vai pro dono (`lib/painel/pedido.ts`), e o "Tentar o estorno de
+ * novo" pra quem abre os Estornos (no padrão, só o dono).
  *
  * RESPOSTAS: 200 `{ pedido }`; 404 `nao_encontrado`.
  */
@@ -45,9 +45,9 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
       ctx,
       {
         verCpf: papel === "dono",
-        nota: podeAbrir(papel, "pedidos"),
-        estorno: podeAbrir(papel, "estornos"),
-        frenet: podeAbrir(papel, "pedidos"),
+        nota: abre(pedido, "pedidos"),
+        estorno: abre(pedido, "estornos"),
+        frenet: abre(pedido, "pedidos"),
       },
       feitos
     ),

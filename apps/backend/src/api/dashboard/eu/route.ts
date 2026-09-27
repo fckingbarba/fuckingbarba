@@ -1,13 +1,15 @@
 import type { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/framework/http"
-import type { PedidoDaEquipe } from "../../../lib/equipe/acesso"
-import { areasDo, membroPublico, podeAbrir } from "../../../lib/equipe/regras"
+import { abre, type PedidoDaEquipe } from "../../../lib/equipe/acesso"
+import { membroPublico } from "../../../lib/equipe/regras"
 import { gravesAbertos } from "../../../lib/observabilidade/tela"
 import { tocarAcessoWorkflow } from "../../../workflows/equipe/tocar-acesso"
 
 const HORA = 60 * 60 * 1000
 
 /**
- * GET /dashboard/eu — quem está usando o painel e o que o papel abre.
+ * GET /dashboard/eu — quem está usando o painel e o que o papel abre agora
+ * (o padrão com o que o dono mudou na tela da equipe, lido pelo
+ * `membroAtivo`).
  *
  * O painel pergunta isto em toda página, e monta o menu com `areas`. O
  * menu é só conforto: quem barra é cada rota (`exigirArea`). Aproveita a
@@ -19,7 +21,8 @@ const HORA = 60 * 60 * 1000
  * problemas graves abertos da Observabilidade, pra quem abre ela.
  */
 export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) {
-  const { membro } = req as PedidoDaEquipe
+  const pedido = req as PedidoDaEquipe
+  const { membro } = pedido
 
   const ultimo = membro.ultimo_acesso ? new Date(membro.ultimo_acesso).getTime() : 0
   if (Date.now() - ultimo > HORA) {
@@ -27,8 +30,8 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
     membro.ultimo_acesso = new Date()
   }
 
-  const avisos = podeAbrir(membro.papel, "observabilidade")
+  const avisos = abre(pedido, "observabilidade")
     ? { observabilidade: await gravesAbertos(req.scope, membro.papel).catch(() => 0) }
     : {}
-  res.json({ membro: membroPublico(membro), areas: areasDo(membro.papel), avisos })
+  res.json({ membro: membroPublico(membro), areas: pedido.areas, avisos })
 }

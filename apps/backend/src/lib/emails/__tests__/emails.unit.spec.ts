@@ -1,4 +1,5 @@
 import { emailDoCodigo } from "../codigo"
+import { areasDo, matrizCom, MATRIZ_PADRAO } from "../../equipe/regras"
 import { emailDoConvite } from "../convite"
 import { emailDoEnvio, type EnvioDoAviso, type PedidoDoAviso } from "../envio"
 import { emReais, esc, urlDaLoja } from "../moldura"
@@ -132,6 +133,7 @@ describe("e-mail do convite pro painel", () => {
       para: "carla@loja.com",
       nome: "Carla Mendes",
       papel: "operacao",
+      areas: areasDo(MATRIZ_PADRAO, "operacao"),
       quem: "Matheus",
     })
     expect(e.assunto).toBe("Seu convite pro painel da FuckingBarba")
@@ -146,12 +148,29 @@ describe("e-mail do convite pro painel", () => {
     expect(e.html).toContain('href="https://dashboard.fuckingbarba.com.br/entrar"')
   })
 
+  it("lista o que o papel abre agora — com o que o dono mudou, e não o padrão", () => {
+    const comCupons = matrizCom([
+      { papel: "operacao", area: "cupons", abre: true },
+      { papel: "operacao", area: "pedidos", abre: false },
+    ])
+    const e = emailDoConvite({
+      para: "carla@loja.com",
+      nome: "Carla",
+      papel: "operacao",
+      areas: areasDo(comCupons, "operacao"),
+      quem: "Matheus",
+    })
+    expect(e.texto).toContain("Cupons e descontos")
+    expect(e.texto).not.toContain("Pedidos")
+  })
+
   it("o link é só o endereço — sem e-mail, sem token", () => {
     process.env.DASHBOARD_URL = "https://dashboard.fuckingbarba.com.br"
     const e = emailDoConvite({
       para: "carla@loja.com",
       nome: "Carla",
       papel: "marketing",
+      areas: areasDo(MATRIZ_PADRAO, "marketing"),
       quem: "Matheus",
     })
     const links = [...e.html.matchAll(/href="([^"]+)"/g)].map((m) => m[1])
@@ -167,6 +186,7 @@ describe("e-mail do convite pro painel", () => {
       para: "carla@loja.com",
       nome: "Carla",
       papel: "marketing",
+      areas: areasDo(MATRIZ_PADRAO, "marketing"),
       quem: "Matheus",
     })
     expect(e.html).not.toContain("Entrar no painel")
@@ -178,6 +198,7 @@ describe("e-mail do convite pro painel", () => {
       para: "c@loja.com",
       nome: "<b>Carla</b>",
       papel: "dono",
+      areas: areasDo(MATRIZ_PADRAO, "dono"),
       quem: "<i>M</i>",
     })
     expect(e.html).not.toContain("<b>Carla")

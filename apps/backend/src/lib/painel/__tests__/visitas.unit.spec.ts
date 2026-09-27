@@ -1,3 +1,4 @@
+import { MATRIZ_PADRAO, podeAbrir } from "../../equipe/regras"
 import {
   comparacaoComOntem,
   fusoDa,
@@ -10,7 +11,6 @@ import {
   origensDe,
   perguntasDoDia,
   soONumero,
-  veOBlocoDasVisitas,
   type RelatorioGa4,
 } from "../visitas"
 
@@ -187,12 +187,13 @@ describe("o dia montado", () => {
     expect(v.comparacao).toEqual({ ate: 8, hoje: 0, ontem: 0 })
   })
 
-  it("a operação recebe só o número; o dono e o marketing, o bloco", () => {
+  it("quem não abre o Marketing recebe só o número — no padrão, a operação", () => {
     const v = montarVisitas(respostas, { agora: AGORA, nomes: new Map() })
     expect(soONumero(v)).toEqual({ hoje: 12, comparacao: { ate: 12, hoje: 9, ontem: 10 } })
-    expect(veOBlocoDasVisitas("operacao")).toBe(false)
-    expect(veOBlocoDasVisitas("dono")).toBe(true)
-    expect(veOBlocoDasVisitas("marketing")).toBe(true)
+    // A rota dá o bloco inteiro a quem abre o Marketing (`abre(pedido, "marketing")`).
+    expect(podeAbrir(MATRIZ_PADRAO, "operacao", "marketing")).toBe(false)
+    expect(podeAbrir(MATRIZ_PADRAO, "dono", "marketing")).toBe(true)
+    expect(podeAbrir(MATRIZ_PADRAO, "marketing", "marketing")).toBe(true)
   })
 
   it("resposta vazia (dia sem ninguém, ou o GA4 recém-ligado) não quebra", () => {
