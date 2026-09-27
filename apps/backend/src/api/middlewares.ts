@@ -325,6 +325,12 @@ export default defineMiddlewares({
     },
     { matcher: "/dashboard/home/imagens", method: ["POST"], bodyParser: { sizeLimit: "17mb" } },
     /*
+      A base da Nuvemshop: um arquivo por vez, comprimido no navegador (o de
+      vendas de hoje, 1,8 MB, vira uns 300 KB). O teto é o do arquivo de
+      8 MB que não comprime nada.
+    */
+    { matcher: "/dashboard/crm/base", method: ["POST"], bodyParser: { sizeLimit: "12mb" } },
+    /*
       O vídeo do painel chega cru, direto do navegador (`api/painel-envio/`,
       `lib/videos.ts`): sem leitor de corpo — a rota grava em fluxo, e quem
       autoriza é o bilhete no endereço.

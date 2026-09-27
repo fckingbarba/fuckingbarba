@@ -1,6 +1,6 @@
 import {
   COMPONENTES,
-  componentesDoProduto,
+  componentesDoItem,
   DIAS_PADRAO,
   NOME_DO_TIPO,
   REGRAS_PADRAO,
@@ -143,7 +143,10 @@ export function soOQueMudou(a: AjustesDoCrm): AjustesGuardados | null {
   return Object.keys(guardar).length ? guardar : null
 }
 
-export type ProdutoDaLoja = { titulo: string; handle: string | null }
+export type ProdutoDaLoja = { titulo: string; handle: string | null; sku?: string | null }
+
+/** Quanto tempo leva pra comprar de novo, pela loja antiga (`recomprasPorTipo`). */
+export type RecompraDoTipo = { dias: number; recompras: number }
 
 export type TelaDosAjustes = {
   ajustes: AjustesDoCrm
@@ -152,18 +155,21 @@ export type TelaDosAjustes = {
   tipos: { tipo: Componente; nome: string; produtos: string[] }[]
   /** Os produtos que não entram na conta da próxima compra (o nome não diz o que vem). */
   foraDaConta: string[]
+  /** O que o histórico da Nuvemshop diz de cada tipo — nulo sem a base. */
+  nuvemshop: Record<Componente, RecompraDoTipo | null> | null
 }
 
 /** A tela dos Ajustes: os números de agora, os do padrão, e o que conta como cada tipo. */
 export function montarTelaDosAjustes(
   ajustes: AjustesDoCrm,
-  produtos: ProdutoDaLoja[]
+  produtos: ProdutoDaLoja[],
+  nuvemshop: Record<Componente, RecompraDoTipo | null> | null = null
 ): TelaDosAjustes {
   const porTipo = new Map<Componente, string[]>(COMPONENTES.map((c) => [c, []]))
   const foraDaConta: string[] = []
   const emOrdem = [...produtos].sort((a, b) => a.titulo.localeCompare(b.titulo, "pt-BR"))
   for (const p of emOrdem) {
-    const partes = componentesDoProduto(p.handle)
+    const partes = componentesDoItem({ sku: p.sku, handle: p.handle })
     if (!partes.length) foraDaConta.push(p.titulo)
     for (const { componente, unidades } of partes)
       porTipo.get(componente)?.push(unidades > 1 ? `${p.titulo} (${unidades} unidades)` : p.titulo)
@@ -177,5 +183,6 @@ export function montarTelaDosAjustes(
       produtos: porTipo.get(tipo) ?? [],
     })),
     foraDaConta,
+    nuvemshop,
   }
 }

@@ -10,12 +10,16 @@ import {
 import { exigirArea, type PedidoDaEquipe } from "../../../../lib/equipe/acesso"
 import { mudarMetadataDaLoja } from "../../../../lib/metadata-da-loja"
 import { anotar } from "../../../../lib/painel/anotar"
+import { recomprasDaBase } from "../../../../lib/painel/crm"
 import { lerNomesDosProdutos } from "../../../../lib/painel/ler-produtos"
+import { CRM } from "../../../../modules/crm"
+import type CrmService from "../../../../modules/crm/service"
 
 /**
  * GET /dashboard/crm/ajustes — os Ajustes do CRM (`lib/crm/ajustes.ts`):
  * quanto dura cada tipo de produto e as regras das etiquetas, os números do
- * padrão, e os produtos da loja que contam como cada tipo.
+ * padrão, os produtos da loja que contam como cada tipo, e o que o
+ * histórico da Nuvemshop diz de cada um (com a base importada).
  *
  * POST /dashboard/crm/ajustes — `{ dias, regras }`, o formulário inteiro.
  * Grava no metadata da loja (`fb_crm`) só o que é diferente do padrão, e
@@ -28,11 +32,14 @@ import { lerNomesDosProdutos } from "../../../../lib/painel/ler-produtos"
  */
 export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) {
   if (!exigirArea(req as PedidoDaEquipe, res, "crm")) return
-  const [lojas, produtos] = await Promise.all([
+  const [lojas, produtos, daBase] = await Promise.all([
     req.scope.resolve(Modules.STORE).listStores({}, { select: ["metadata"], take: 1 }),
     lerNomesDosProdutos(req.scope),
+    req.scope.resolve<CrmService>(CRM).pedidosDaBase(),
   ])
-  res.json(montarTelaDosAjustes(lerAjustesGuardados(lojas[0]?.metadata), produtos))
+  res.json(
+    montarTelaDosAjustes(lerAjustesGuardados(lojas[0]?.metadata), produtos, recomprasDaBase(daBase))
+  )
 }
 
 export async function POST(req: AuthenticatedMedusaRequest, res: MedusaResponse) {

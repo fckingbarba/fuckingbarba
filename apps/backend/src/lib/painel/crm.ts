@@ -3,10 +3,13 @@ import { AJUSTES_PADRAO, type AjustesDoCrm } from "../crm/ajustes"
 import {
   etiquetasDaPessoa,
   NOME_DA_ETAPA,
+  type Engajamento,
+  type Etapa,
   type Etiquetas,
   type PedidoDaPessoa,
 } from "../crm/etiquetas"
 import { TIPOS, type Dados, type Item, type Origem, type Tipo } from "../crm/eventos"
+import { recomprasPorTipo } from "../crm/nuvemshop"
 import { PREFIXO_DA_PROMOCAO } from "../cupons"
 import { emailNoLog } from "../email"
 import { dia, quando, reais } from "./formato"
@@ -33,6 +36,10 @@ import { nomeDaOrigem } from "./visitas"
  * A FICHA DE CADA PESSOA (parte 3, entrega 0145): na ficha do cliente, as
  * cinco etiquetas (`lib/crm/etiquetas.ts`), de onde ela chegou e o caminho
  * dela — o site, os e-mails e as compras juntos.
+ *
+ * A BASE DA NUVEMSHOP (parte 5, entrega 0156): os pedidos da loja antiga
+ * contam nas etiquetas e no caminho da ficha, e a aba da base mostra quem é
+ * quem nela inteira (`montarTelaDaBase`).
  */
 
 export const PERIODOS_DO_CRM = ["hoje", "7d", "30d"] as const
@@ -382,6 +389,7 @@ export function pedidoDaPessoa(o: PedidoCru, envios: EnvioCru[] = []): PedidoDaP
     cancelado: Boolean(o.canceled_at) || o.status === "canceled",
     itens: (o.items ?? []).map((i) => ({
       handle: i.product_handle ?? null,
+      sku: i.variant_sku ?? null,
       nome: i.product_title || i.title || "",
       quantidade: Number(i.quantity) || 1,
     })),
@@ -402,7 +410,14 @@ export function montarFichaDoCrm(
     primeiraVisita: Date | string | null
     eventos: EventoLidoDoBanco[]
     emails: EmailLidoDoBanco[]
-    pedidos: { id: string; numero: string | null; pagoEm: Date | null; total: number }[]
+    pedidos: {
+      id: string
+      numero: string | null
+      pagoEm: Date | null
+      total: number
+      /** Da loja antiga (a base da Nuvemshop). */
+      daNuvemshop?: boolean
+    }[]
   },
   agora: Date = new Date()
 ): FichaDoCrm {
@@ -479,7 +494,9 @@ export function montarFichaDoCrm(
       tipo: "pedido",
       em: p.pagoEm,
       quando: "",
-      oque: `pagou o pedido${p.numero ? ` #${p.numero}` : ""} · ${reais(p.total)}`,
+      oque: p.daNuvemshop
+        ? `pagou ${p.numero ? `o pedido #${p.numero}` : "um pedido"} na Nuvemshop · ${reais(p.total)}`
+        : `pagou o pedido${p.numero ? ` #${p.numero}` : ""} · ${reais(p.total)}`,
       nivel: "bom",
     })
   }
@@ -511,15 +528,20 @@ export function fichaDoCrmDoCliente(
     newsletterDesde: Date | null
     comNumero: boolean
     ajustes?: AjustesDoCrm
+    /** Os pedidos dela na loja antiga (a base da Nuvemshop). */
+    pedidosDaNuvemshop?: PedidoLidoDaBase[]
   },
   agora: Date = new Date()
 ): FichaDoCrm {
   const { dias, regras } = entrada.ajustes ?? AJUSTES_PADRAO
   const { crm } = entrada
-  const pedidos = entrada.pedidos.map((o) => {
-    const p = pedidoDaPessoa(o, entrada.envios.get(o.id))
-    return { ...p, numero: entrada.comNumero ? p.numero : null, total: totalDo(o) }
-  })
+  const pedidos = [
+    ...entrada.pedidos.map((o) => {
+      const p = pedidoDaPessoa(o, entrada.envios.get(o.id))
+      return { ...p, total: totalDo(o), daNuvemshop: false }
+    }),
+    ...(entrada.pedidosDaNuvemshop ?? []).map(pedidoDaBase),
+  ].map((p) => ({ ...p, numero: entrada.comNumero ? p.numero : null }))
   return montarFichaDoCrm(
     {
       etiquetas: etiquetasDaPessoa({
@@ -540,5 +562,190 @@ export function fichaDoCrmDoCliente(
       pedidos: pedidos.filter((p) => !p.cancelado),
     },
     agora
+  )
+}
+
+/* ── a base da Nuvemshop (parte 5, entrega 0156) ────────────────────────── */
+
+/** Os números da base, como o serviço do módulo `crm` soma (`resumoDaBase`). */
+export type ResumoDaBase = {
+  pessoas: number
+  aceitam: number
+  pedidos: number
+  pagos: number
+  vendidoCentavos: number
+  primeiroPedido: Date | null
+  ultimoPedido: Date | null
+  carrinhos: number
+  importadoEm: Date | null
+}
+
+export type PessoaLidaDaBase = { email: string; aceitaOfertas: boolean; newsletterEm: Date | null }
+
+/** Um pedido da base como o banco devolve: o total em centavos, os itens pelo SKU. */
+export type PedidoLidoDaBase = {
+  numero: string
+  email: string
+  feitoEm: Date | string
+  pagoEm: Date | string | null
+  /** confirmado, recusado, estornado ou outro. */
+  pagamento: string
+  envio: string
+  total: number
+  cupom: string | null
+  itens: { sku: string | null; nome: string; quantidade: number; valor: number }[] | null
+}
+
+/**
+ * O pedido da loja antiga do jeito das etiquetas. Pago = confirmado (o
+ * recusado nunca foi pago; o estornado conta como cancelado). A entrega não
+ * vem no arquivo: fica a estimada das etiquetas (7 dias depois de pago).
+ */
+export function pedidoDaBase(
+  p: PedidoLidoDaBase
+): PedidoDaPessoa & { total: number; daNuvemshop: true } {
+  const pago = p.pagamento === "confirmado" || p.pagamento === "estornado"
+  return {
+    id: `nuvemshop:${p.numero}`,
+    numero: p.numero,
+    pagoEm: pago ? (emData(p.pagoEm) ?? emData(p.feitoEm)) : null,
+    entregueEm: null,
+    cancelado: p.pagamento === "estornado",
+    itens: (p.itens ?? []).map((i) => ({
+      handle: null,
+      sku: i.sku,
+      nome: i.nome,
+      quantidade: i.quantidade,
+    })),
+    cupons: p.cupom ? [p.cupom] : [],
+    total: p.total / 100,
+    daNuvemshop: true,
+  }
+}
+
+const COM_ANO = new Intl.DateTimeFormat("pt-BR", {
+  timeZone: "America/Sao_Paulo",
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+})
+const ENGAJAMENTOS: Engajamento[] = ["quente", "morno", "frio"]
+const NOME_DO_ENGAJAMENTO: Record<Engajamento, string> = {
+  quente: "Quentes",
+  morno: "Mornos",
+  frio: "Frios",
+}
+const ETAPAS: Etapa[] = [
+  "lead",
+  "primeira-compra",
+  "em-tratamento",
+  "recorrente",
+  "em-risco",
+  "sunset",
+]
+
+export type TelaDaBase = {
+  /** Nada importado ainda: a aba mostra só como mandar os arquivos. */
+  vazia: boolean
+  numeros: {
+    pessoas: number
+    aceitam: number
+    pedidos: number
+    pagos: number
+    vendido: number
+    carrinhos: number
+    /** "30/01/2026" */
+    primeiroPedido: string | null
+    ultimoPedido: string | null
+    /** "hoje, 14:32" */
+    importadoEm: string | null
+  }
+  /** Quem é quem na base: quantos em cada etapa, e desses quantos aceitam ofertas. */
+  etapas: { etapa: Etapa; nome: string; pessoas: number; aceitam: number }[]
+  engajamento: { valor: Engajamento; nome: string; pessoas: number; aceitam: number }[]
+}
+
+/**
+ * A ABA DA BASE: os números do que entrou e as etiquetas da base inteira —
+ * cada pessoa com os pedidos da loja antiga e os da nova (pelo e-mail), os
+ * sinais do CRM (o último clique, a última anotação do site) e os Ajustes.
+ */
+export function montarTelaDaBase(
+  entrada: {
+    resumo: ResumoDaBase
+    pessoas: PessoaLidaDaBase[]
+    pedidos: PedidoLidoDaBase[]
+    /** Os pedidos da loja nova de cada e-mail, já do jeito das etiquetas. */
+    pedidosDaLoja: Map<string, PedidoDaPessoa[]>
+    sinais: Map<string, { ultimoClique: Date | null; ultimaVisita: Date | null }>
+    ajustes: AjustesDoCrm
+  },
+  agora: Date = new Date()
+): TelaDaBase {
+  const { resumo } = entrada
+  const daBase = new Map<string, PedidoDaPessoa[]>()
+  for (const p of entrada.pedidos)
+    daBase.set(p.email, [...(daBase.get(p.email) ?? []), pedidoDaBase(p)])
+  const porEtapa = new Map(ETAPAS.map((e) => [e, { pessoas: 0, aceitam: 0 }]))
+  const porEngajamento = new Map(ENGAJAMENTOS.map((e) => [e, { pessoas: 0, aceitam: 0 }]))
+  for (const pessoa of entrada.pessoas) {
+    const sinais = entrada.sinais.get(pessoa.email)
+    const e = etiquetasDaPessoa({
+      pedidos: [
+        ...(daBase.get(pessoa.email) ?? []),
+        ...(entrada.pedidosDaLoja.get(pessoa.email) ?? []),
+      ],
+      sinais: {
+        ultimoClique: emData(sinais?.ultimoClique),
+        ultimaVisita: emData(sinais?.ultimaVisita),
+        newsletterDesde: emData(pessoa.newsletterEm),
+      },
+      agora,
+      dias: entrada.ajustes.dias,
+      regras: entrada.ajustes.regras,
+    })
+    for (const conta of [porEtapa.get(e.etapa.valor), porEngajamento.get(e.engajamento.valor)]) {
+      if (!conta) continue
+      conta.pessoas++
+      if (pessoa.aceitaOfertas) conta.aceitam++
+    }
+  }
+  const comAno = (d: Date | string | null) => (emData(d) ? COM_ANO.format(emData(d)!) : null)
+  return {
+    vazia: resumo.pessoas + resumo.pedidos + resumo.carrinhos === 0,
+    numeros: {
+      pessoas: resumo.pessoas,
+      aceitam: resumo.aceitam,
+      pedidos: resumo.pedidos,
+      pagos: resumo.pagos,
+      vendido: resumo.vendidoCentavos / 100,
+      carrinhos: resumo.carrinhos,
+      primeiroPedido: comAno(resumo.primeiroPedido),
+      ultimoPedido: comAno(resumo.ultimoPedido),
+      importadoEm: resumo.importadoEm ? quando(resumo.importadoEm, agora) : null,
+    },
+    etapas: ETAPAS.map((etapa) => ({
+      etapa,
+      nome: NOME_DA_ETAPA[etapa],
+      ...(porEtapa.get(etapa) ?? { pessoas: 0, aceitam: 0 }),
+    })),
+    engajamento: ENGAJAMENTOS.map((valor) => ({
+      valor,
+      nome: NOME_DO_ENGAJAMENTO[valor],
+      ...(porEngajamento.get(valor) ?? { pessoas: 0, aceitam: 0 }),
+    })),
+  }
+}
+
+/** O que o histórico da loja antiga diz de quanto dura cada tipo — nulo sem a base. */
+export function recomprasDaBase(pedidos: PedidoLidoDaBase[]) {
+  if (!pedidos.length) return null
+  return recomprasPorTipo(
+    pedidos.map((p) => ({
+      email: p.email,
+      feitoEm: emData(p.feitoEm) ?? new Date(0),
+      pago: p.pagamento === "confirmado",
+      itens: (p.itens ?? []).map((i) => ({ sku: i.sku, quantidade: i.quantidade })),
+    }))
   )
 }

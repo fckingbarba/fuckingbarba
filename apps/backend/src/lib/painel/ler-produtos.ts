@@ -67,19 +67,29 @@ export async function lerProdutos(container: MedusaContainer): Promise<ComEstoqu
   return data as unknown as ComEstoque[]
 }
 
-/** O nome e o endereço dos produtos publicados — os Ajustes do CRM mostram o que conta como cada tipo. */
+/**
+ * O nome, o endereço e o SKU dos produtos publicados — os Ajustes do CRM
+ * mostram o que conta como cada tipo (o SKU manda: `componentesDoItem`).
+ */
 export async function lerNomesDosProdutos(
   container: MedusaContainer
-): Promise<{ titulo: string; handle: string | null }[]> {
+): Promise<{ titulo: string; handle: string | null; sku: string | null }[]> {
   const { data } = await query(container).graph({
     entity: "product",
-    fields: ["id", "title", "handle"],
+    fields: ["id", "title", "handle", "variants.sku"],
     filters: { status: "published" },
     pagination: { take: 500 },
   })
-  return (data as { title?: string | null; handle?: string | null }[]).map((p) => ({
+  return (
+    data as {
+      title?: string | null
+      handle?: string | null
+      variants?: { sku?: string | null }[] | null
+    }[]
+  ).map((p) => ({
     titulo: (p.title ?? "").trim() || "Sem nome",
     handle: p.handle ?? null,
+    sku: p.variants?.find((v) => v.sku)?.sku ?? null,
   }))
 }
 
