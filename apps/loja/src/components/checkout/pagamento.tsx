@@ -23,18 +23,23 @@ import {
   Relogio,
   WhatsApp,
 } from "@/components/icones"
-import { FORMAS, garantiasDoPagamento, type FormaDePagamento } from "@/conteudo/checkout"
+import {
+  FORA_DO_AR,
+  FORMAS,
+  garantiasDoPagamento,
+  type FormaDePagamento,
+} from "@/conteudo/checkout"
 import { alternarBump, finalizar } from "@/lib/acoes/checkout"
 import { comASacola, rastrear } from "@/lib/rastrear"
 import { bandeiraDe, cvvOk, luhn, mascararCartao, mascararValidade, validadeOk } from "@/lib/cartao"
 import {
   ESTADO_INICIAL,
   estadoSemResposta,
-  PROVEDOR_PAGARME,
   type CheckoutVisivel,
   type EstadoDaEtapa,
   type OfertaDoBump,
   type ProvedorDePagamento,
+  type RotaDoPagamento,
 } from "@/lib/checkout-visivel"
 import type { Configuracoes } from "@/lib/configuracoes"
 import { emReais } from "@/lib/formato"
@@ -89,6 +94,8 @@ const ICONE_DA_FORMA = { pix: Pix, cartao: IconeCartao }
 type Props = PropsDaEtapa & {
   checkout: CheckoutVisivel
   provedores: ProvedorDePagamento[]
+  /** Por onde cobrar cada forma agora (`rotaDoPagamento`). */
+  rota: RotaDoPagamento
   bump: OfertaDoBump | null
   /** O prazo de postagem e o WhatsApp decidem o que a faixa pode prometer. */
   atendimento: Configuracoes["atendimento"]
@@ -138,8 +145,16 @@ const pagar = (anterior: EstadoDaEtapa, fd: FormData) =>
 // `aoSalvar` é desestruturado e não usado de propósito: este passo não fecha
 // quando dá certo — a ação redireciona pra tela de obrigado e esta página
 // deixa de existir. Tirar da prop quebraria a assinatura comum das etapas.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function Pagamento({ checkout, provedores, bump, atendimento, aoSalvar, ...casca }: Props) {
+export function Pagamento({
+  checkout,
+  provedores,
+  rota,
+  bump,
+  atendimento,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  aoSalvar,
+  ...casca
+}: Props) {
   const [estado, acao, enviando] = useActionState(pagar, ESTADO_INICIAL)
   const [forma, setForma] = useState<FormaDePagamento["id"]>("pix")
   const [cartao, setCartao] = useState<CartaoNaTela>(CARTAO_VAZIO)
@@ -154,9 +169,16 @@ export function Pagamento({ checkout, provedores, bump, atendimento, aoSalvar, .
     if (erroDoCartao) trazerPraVista(erroDoCartaoRef.current)
   }, [erroDoCartao])
 
-  const pagarme = provedores.find((p) => p.id === PROVEDOR_PAGARME)
-  const provedor = pagarme ?? provedores[0]
-  const cobra = Boolean(pagarme)
+  /*
+    QUEM COBRA CADA FORMA É A ROTA (`rotaDoPagamento`): o Pix pelo parceiro
+    de pé, e o cartão fora da tela enquanto o Pagar.me estiver fora e o Pix
+    puder sair pelo outro. A forma escolhida que saiu do ar vira a outra — o
+    Pix, que é o que funciona.
+  */
+  const cobra = rota.pix.length > 0 || rota.cartao.length > 0
+  const noAr = (f: FormaDePagamento["id"]) => !rota.fora.includes(f)
+  const formaNaTela = noAr(forma) ? forma : (FORMAS.find((f) => noAr(f.id))?.id ?? forma)
+  const provedor = cobra ? rota[formaNaTela][0] : provedores[0]?.id
   const simbolico = !cobra && provedores.some((p) => p.simbolico)
   const pronto = Boolean(checkout.email && checkout.entrega.cep && checkout.freteEscolhido)
   const ocupado = enviando || tokenizando
@@ -173,7 +195,7 @@ export function Pagamento({ checkout, provedores, bump, atendimento, aoSalvar, .
     ? "Validando o cartão…"
     : enviando
       ? cobra
-        ? forma === "pix"
+        ? formaNaTela === "pix"
           ? "Gerando o Pix…"
           : "Processando o pagamento…"
         : "Fechando o pedido…"
@@ -207,8 +229,8 @@ export function Pagamento({ checkout, provedores, bump, atendimento, aoSalvar, .
     }
     // A forma escolhida (a AddPaymentInfo da Meta e do TikTok), a cada tentativa de pagar.
     const avisar = () =>
-      rastrear("add_payment_info", { ...comASacola(checkout.itens), payment_type: forma })
-    if (!cobra || forma !== "cartao") {
+      rastrear("add_payment_info", { ...comASacola(checkout.itens), payment_type: formaNaTela })
+    if (!cobra || formaNaTela !== "cartao") {
       if (cobra) avisar()
       return
     }
@@ -247,7 +269,7 @@ export function Pagamento({ checkout, provedores, bump, atendimento, aoSalvar, .
   const textoDoBotao =
     espera ??
     (cobra
-      ? forma === "pix"
+      ? formaNaTela === "pix"
         ? `Pagar ${emReais(checkout.total)} no Pix`
         : `Pagar ${emReais(checkout.total)}`
       : `Fazer o pedido · ${emReais(checkout.total)}`)
@@ -287,7 +309,7 @@ export function Pagamento({ checkout, provedores, bump, atendimento, aoSalvar, .
           {/* O provedor que o Medusa vai usar de fato. Escondido porque quem
               a pessoa escolhe é a FORMA (Pix ou cartão); o provedor é um só
               pros dois. */}
-          <input type="hidden" name="provedor" value={provedor?.id ?? ""} />
+          <input type="hidden" name="provedor" value={provedor ?? ""} />
           {/* O total que esta tela mostra no botão: a ação cobra só se ainda
               for o do carrinho — ver "O TOTAL QUE A PESSOA VIU" em `finalizar`. */}
           <input type="hidden" name="total_visto" value={String(checkout.total)} />
@@ -297,7 +319,8 @@ export function Pagamento({ checkout, provedores, bump, atendimento, aoSalvar, .
 
           {cobra || !CHECKOUT_ABERTO ? (
             <Formas
-              forma={forma}
+              forma={formaNaTela}
+              fora={cobra ? rota.fora : []}
               aoTrocar={(f) => {
                 setForma(f)
                 setErroDoCartao("")
@@ -419,12 +442,15 @@ function Cortina({ texto }: { texto: string }) {
 
 function Formas({
   forma,
+  fora,
   aoTrocar,
   total,
   cobra,
   cartao,
 }: {
   forma: FormaDePagamento["id"]
+  /** As formas fora do ar agora (`RotaDoPagamento.fora`): ficam na tela, travadas. */
+  fora: readonly FormaDePagamento["id"][]
   aoTrocar: (f: FormaDePagamento["id"]) => void
   total: number
   cobra: boolean
@@ -449,20 +475,27 @@ function Formas({
         <legend className="sr-only">Forma de pagamento</legend>
         {FORMAS.map((f) => {
           const Icone = ICONE_DA_FORMA[f.id]
+          const noAr = !fora.includes(f.id)
           return (
-            <label className="opcao opcao--forma" key={f.id}>
-              {f.selo ? <span className="opcao__selo">{f.selo}</span> : null}
+            <label
+              className="opcao opcao--forma"
+              key={f.id}
+              data-forma={f.id}
+              data-fora={noAr ? undefined : ""}
+            >
+              {f.selo && noAr ? <span className="opcao__selo">{f.selo}</span> : null}
               <input
                 type="radio"
                 name="forma"
                 value={f.id}
                 checked={forma === f.id}
+                disabled={!noAr}
                 onChange={() => aoTrocar(f.id)}
               />
               <Icone className={`opcao__icone opcao__icone--${f.id}`} aria-hidden="true" />
               <span>
                 <span className="opcao__nome">{f.nome}</span>
-                <span className="opcao__desc">{f.descricao}</span>
+                <span className="opcao__desc">{noAr ? f.descricao : FORA_DO_AR[f.id]}</span>
               </span>
               <span className="opcao__valor">{emReais(total)}</span>
             </label>

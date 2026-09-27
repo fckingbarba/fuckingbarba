@@ -1,5 +1,6 @@
 import { PaymentActions, PaymentSessionStatus } from "@medusajs/framework/utils"
-import type { PedidoPagarme } from "../client"
+import { ErroDoPagarme, type PedidoPagarme } from "../client"
+import { PIX_COM_RESERVA_MS } from "../../../lib/pagamento/disjuntor"
 import { montarPedido, type EntradaDaLoja } from "../pedido"
 import PagarmeServico from "../service"
 import {
@@ -238,6 +239,7 @@ function entrada(): EntradaDaLoja {
     itens: [{ codigo: "FBOL01", descricao: "Óleo para barba", quantidade: 1, total: 62.58 }],
     frete: { total: 0, descricao: "Entrega econômica" },
     ip: null,
+    reserva: false,
   }
 }
 
@@ -351,6 +353,75 @@ describe("authorizePayment, no checkout", () => {
     cliente.capturarCobranca.mockRejectedValueOnce(new Error("o Pagar.me respondeu 500"))
     const r = await autorizar(servico)
     expect(r.status).toBe(PaymentSessionStatus.PENDING_AUTHORIZATION)
+  })
+})
+
+describe("authorizePayment, quando o Pagar.me não atende (0150)", () => {
+  beforeEach(() => jest.useFakeTimers({ now: depoisDe(2000) }))
+  afterEach(() => jest.useRealTimers())
+
+  const pix = (reserva: boolean) =>
+    gravar(estadoNovo("pix", 6258, 1), {
+      ...entrada(),
+      forma: "pix",
+      token: null,
+      reserva,
+    })
+  const estado = (r: { data?: Record<string, unknown> }) =>
+    (r.data as { pagarme: { situacao: string; falha: string | null; recusa: string } }).pagarme
+
+  it("Pix com reserva: desiste em 10 s e não pergunta de novo — incerto, com a falha 'fora'", async () => {
+    const { servico, cliente } = montar()
+    cliente.criarPedido.mockRejectedValueOnce(new ErroDoPagarme("sem resposta", "rede"))
+    const r = await autorizar(servico, pix(true))
+    expect(cliente.criarPedido.mock.calls[0][1]).toBe(PIX_COM_RESERVA_MS)
+    // Só a busca do começo: nenhuma das duas perguntas de "nasceu?".
+    expect(cliente.buscarPorCodigo).toHaveBeenCalledTimes(1)
+    expect(r.status).toBe(PaymentSessionStatus.ERROR)
+    expect(estado(r)).toMatchObject({ situacao: "incerto", falha: "fora" })
+  })
+
+  it("Pix sem reserva: o de sempre — espera o tempo todo e pergunta de novo", async () => {
+    const { servico, cliente } = montar()
+    cliente.criarPedido.mockRejectedValueOnce(
+      new ErroDoPagarme("o Pagar.me respondeu 502", "servidor")
+    )
+    const r = await autorizar(servico, pix(false))
+    expect(cliente.criarPedido.mock.calls[0][1]).toBeUndefined()
+    expect(cliente.buscarPorCodigo).toHaveBeenCalledTimes(3)
+    expect(estado(r)).toMatchObject({ situacao: "incerto", falha: "fora" })
+  })
+
+  it("a chave recusada é o Pagar.me fora; o dado recusado é recusa — os dois com a frase do Pix", async () => {
+    const chave = montar()
+    chave.cliente.criarPedido.mockRejectedValueOnce(
+      new ErroDoPagarme("o Pagar.me respondeu 401", "autenticacao", 401)
+    )
+    const semChave = await autorizar(chave.servico, pix(true))
+    expect(estado(semChave)).toMatchObject({
+      situacao: "falhou",
+      falha: "fora",
+      recusa: RECUSAS.pix,
+    })
+
+    const dado = montar()
+    dado.cliente.criarPedido.mockRejectedValueOnce(
+      new ErroDoPagarme("o Pagar.me respondeu 422", "validacao", 422)
+    )
+    const recusado = await autorizar(dado.servico, pix(true))
+    expect(estado(recusado)).toMatchObject({
+      situacao: "falhou",
+      falha: "recusa",
+      recusa: RECUSAS.pix,
+    })
+  })
+
+  it("a entrada que não passa na conferência nem sai daqui: 'interno'", async () => {
+    const { servico, cliente } = montar()
+    const invalida = { ...pix(true), entrada: { forma: "boleto" } }
+    const r = await autorizar(servico, invalida as unknown as ReturnType<typeof pix>)
+    expect(cliente.criarPedido).not.toHaveBeenCalled()
+    expect(estado(r)).toMatchObject({ situacao: "falhou", falha: "interno" })
   })
 })
 

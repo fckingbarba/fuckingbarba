@@ -9,7 +9,7 @@ import {
   RESUMO_VAZIO,
   resultadoDaSessao,
   semOIp,
-  sessaoDeCartao,
+  sessaoQueVai,
   type Contagem,
   type ResumoDoCartao,
 } from "../robo"
@@ -34,7 +34,7 @@ const com = (extra: Partial<Contagem>): Contagem => ({ ...zerada, ...extra })
 
 const estado = (extra: Partial<Estado>): Estado => ({ ...estadoNovo("cartao", 8990, 1), ...extra })
 
-describe("a sessão que vai pro Pagar.me", () => {
+describe("a sessão que vai pro parceiro", () => {
   const sessao = (
     id: string,
     data: Record<string, unknown>,
@@ -48,36 +48,59 @@ describe("a sessão que vai pro Pagar.me", () => {
     payment_collection: { payment_sessions: sessoes },
   })
 
-  it("é a de cartão do Pagar.me que ainda não foi", () => {
+  it("é a do parceiro que ainda não foi, com a forma e o parceiro", () => {
     expect(
-      sessaoDeCartao(carrinho(sessao("payses_1", gravar(estadoNovo("cartao", 8990, 2)))))
-    ).toEqual({ id: "payses_1", valor: 8990 })
+      sessaoQueVai(carrinho(sessao("payses_1", gravar(estadoNovo("cartao", 8990, 2)))))
+    ).toEqual({ id: "payses_1", valor: 8990, forma: "cartao", provedor: PROVEDOR_DO_PAGARME })
+    // O Pix também vai (0150): é anotado pro disjuntor, sem passar pelas travas.
+    expect(sessaoQueVai(carrinho(sessao("payses_1", gravar(estadoNovo("pix", 8990, 1)))))).toEqual({
+      id: "payses_1",
+      valor: 8990,
+      forma: "pix",
+      provedor: PROVEDOR_DO_PAGARME,
+    })
+    expect(
+      sessaoQueVai(
+        carrinho(
+          sessao(
+            "payses_2",
+            { mercadopago: estadoNovo("pix", 5000, 1), entrada: null },
+            "pp_mercadopago_mercadopago"
+          )
+        )
+      )
+    ).toEqual({ id: "payses_2", valor: 5000, forma: "pix", provedor: "pp_mercadopago_mercadopago" })
   })
 
-  it("Pix, a sessão que já foi, e outro provedor não passam pela porta", () => {
-    expect(sessaoDeCartao(carrinho(sessao("payses_1", gravar(estadoNovo("pix", 8990, 1)))))).toBe(
-      null
-    )
+  it("a sessão que já foi e outro provedor não passam pela porta", () => {
     expect(
-      sessaoDeCartao(
+      sessaoQueVai(
         carrinho(
           sessao("payses_1", gravar(estado({ situacao: "recusado", recusa: RECUSAS.banco })))
         )
       )
     ).toBe(null)
     expect(
-      sessaoDeCartao(
+      sessaoQueVai(
         carrinho(sessao("payses_1", gravar(estadoNovo("cartao", 8990, 1)), "pp_system_default"))
+      )
+    ).toBe(null)
+    // O estado do Pagar.me numa sessão do Mercado Pago não é dele: não vale.
+    expect(
+      sessaoQueVai(
+        carrinho(
+          sessao("payses_1", gravar(estadoNovo("pix", 8990, 1)), "pp_mercadopago_mercadopago")
+        )
       )
     ).toBe(null)
   })
 
   it("carrinho sem coleção, sem sessão ou com sessão sem dados: nada", () => {
-    expect(sessaoDeCartao(undefined)).toBe(null)
-    expect(sessaoDeCartao(null)).toBe(null)
-    expect(sessaoDeCartao({ payment_collection: null })).toBe(null)
-    expect(sessaoDeCartao({ payment_collection: { payment_sessions: [null] } })).toBe(null)
-    expect(sessaoDeCartao(carrinho(sessao("payses_1", {})))).toBe(null)
+    expect(sessaoQueVai(undefined)).toBe(null)
+    expect(sessaoQueVai(null)).toBe(null)
+    expect(sessaoQueVai({ payment_collection: null })).toBe(null)
+    expect(sessaoQueVai({ payment_collection: { payment_sessions: [null] } })).toBe(null)
+    expect(sessaoQueVai(carrinho(sessao("payses_1", {})))).toBe(null)
   })
 })
 
@@ -193,6 +216,31 @@ describe("como a tentativa terminou", () => {
       motivo: "incerto",
     })
     expect(resultadoDaSessao(null)).toEqual({ resultado: "erro", motivo: "sem-sessao" })
+  })
+
+  it("o erro leva o porquê que o provedor gravou — só o 'fora' e o 'incerto' são o parceiro que não atendeu", () => {
+    const pix = (extra: Partial<Estado>): Estado => ({ ...estadoNovo("pix", 8990, 1), ...extra })
+    expect(resultadoDaSessao(pix({ situacao: "aguardando" }))).toEqual({
+      resultado: "gerado",
+      motivo: null,
+    })
+    expect(
+      resultadoDaSessao(pix({ situacao: "falhou", recusa: RECUSAS.pix, falha: "fora" }))
+    ).toEqual({ resultado: "erro", motivo: "fora" })
+    expect(
+      resultadoDaSessao(pix({ situacao: "falhou", recusa: RECUSAS.pix, falha: "recusa" }))
+    ).toEqual({ resultado: "erro", motivo: "recusa" })
+    expect(
+      resultadoDaSessao(pix({ situacao: "falhou", recusa: RECUSAS.fora, falha: "interno" }))
+    ).toEqual({ resultado: "erro", motivo: "interno" })
+    // O Pix do Mercado Pago que sumiu no caminho grava a frase do Pix, e é "incerto".
+    expect(
+      resultadoDaSessao(pix({ situacao: "incerto", recusa: RECUSAS.pix, falha: "fora" }))
+    ).toEqual({ resultado: "erro", motivo: "incerto" })
+    // O cartão que o Pagar.me atendeu e não passou, por motivo que não é banco nem análise.
+    expect(
+      resultadoDaSessao(estado({ situacao: "recusado", recusa: RECUSAS.fora, falha: "recusa" }))
+    ).toEqual({ resultado: "erro", motivo: "recusa" })
   })
 })
 

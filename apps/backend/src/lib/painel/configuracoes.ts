@@ -422,6 +422,11 @@ export const AVISOS_DA_EQUIPE = [
     texto: "Muita recusa de cartão em pouco tempo: a loja segura o cartão até passar.",
     papeis: ["dono"],
   },
+  {
+    nome: "Um parceiro de pagamento caiu",
+    texto: "O Pagar.me ou o Mercado Pago parou de responder — e quando volta.",
+    papeis: ["dono"],
+  },
 ] as const satisfies readonly { nome: string; texto: string; papeis: readonly Papel[] }[]
 
 /** Os e-mails que o cliente recebe, e se já saem. */

@@ -15,10 +15,12 @@
  * backend; padrão o do falso) e PORTA_MERCADOPAGO_FALSO.
  *
  * Liga o Mercado Pago na região pelo admin (junto do Pagar.me) e DEVOLVE a
- * região como estava no fim, mesmo se falhar no meio. Nesta parte (0140) a
- * loja ainda não escolhe o Mercado Pago sozinha — a troca automática é a
- * parte 3 —, então a tela é levada a ele trocando o provedor escondido do
- * passo 3, como a troca vai fazer.
+ * região como estava no fim, mesmo se falhar no meio. As partes 1 a 7 levam a
+ * tela ao Mercado Pago trocando o provedor escondido do passo 3; a parte 8
+ * (0150) derruba o Pagar.me falso e confere a troca AUTOMÁTICA — o Pix pelo
+ * Mercado Pago no mesmo clique, o disjuntor, o cartão fora da tela, os
+ * e-mails pro dono e a volta sozinha. Pra ela não esperar 5 minutos a cada
+ * volta, o Medusa sobe com `PAGAMENTO_DISJUNTOR_SEGUNDOS=20`.
  *
  * ┌─ O QUE ESTE ARQUIVO EXISTE PRA TRAVAR ─────────────────────────────────┐
  * │ • o Pix do Mercado Pago cobrar diferente do total do Medusa, ou nascer │
@@ -36,7 +38,13 @@
  * │ • a conciliação tocar numa venda do MERCADO LIVRE (a conta é a mesma); │
  * │ • um estado forjado na sessão ser levado a sério, ou cartão passar     │
  * │   pelo Mercado Pago (aqui é só Pix);                                   │
- * │ • o pedido pago cancelado no admin não devolver o dinheiro.            │
+ * │ • o pedido pago cancelado no admin não devolver o dinheiro;            │
+ * │ • o Pix não sair pelo Mercado Pago no MESMO CLIQUE quando o Pagar.me   │
+ * │   não gera (0150), ou esperar o Pagar.me meio minuto pra isso;         │
+ * │ • três falhas seguidas não tirarem o Pagar.me do caminho, o cartão     │
+ * │   continuar na tela com ele fora, ou o dono não saber da queda e da    │
+ * │   volta;                                                               │
+ * │ • os dois fora tirarem a loja do ar: ela segue tentando os dois.       │
  * └─────────────────────────────────────────────────────────────────────────┘
  */
 
@@ -259,17 +267,19 @@ async function carrinhoPelaApi(email) {
   return { id, colecao }
 }
 
-/** Abre a sessão do Mercado Pago e fecha o carrinho pela API. Devolve o pedido (ou a resposta). */
-async function fecharPeloMercadoPago(carrinho, email, data = { entrada: entradaDoPix(email) }) {
+/** Abre a sessão do parceiro e fecha o carrinho pela API. Devolve o pedido (ou a resposta). */
+async function fecharPelo(provedor, carrinho, email, data = { entrada: entradaDoPix(email) }) {
   const sessao = await loja(`/store/payment-collections/${carrinho.colecao}/payment-sessions`, {
     method: "POST",
-    body: JSON.stringify({ provider_id: MERCADOPAGO, data }),
+    body: JSON.stringify({ provider_id: provedor, data }),
   })
   if (!sessao.ok) return { sessao, pedido: null, fim: null }
   const fim = await loja(`/store/carts/${carrinho.id}/complete`, { method: "POST" })
   const pedido = fim.json?.type === "order" ? await pedidoNoMedusa(fim.json.order.id) : null
   return { sessao, pedido, fim }
 }
+const fecharPeloMercadoPago = (carrinho, email, data) =>
+  fecharPelo(MERCADOPAGO, carrinho, email, data)
 
 /** A sessão de pagamento do carrinho que não fechou — pra ler a frase da recusa. */
 async function sessaoDoCarrinho(carrinhoId) {
@@ -358,6 +368,7 @@ async function ateOPagamento(pagina, email) {
   await pagina.locator("#form-pagamento").waitFor({ timeout: 25000 })
 }
 
+const idDaUrl = (pagina) => pagina.url().split("/").pop()
 const tituloDoFeito = async (pagina) => (await pagina.locator(".feito h1").textContent())?.trim()
 
 /* ── a região com os dois parceiros, e de volta no fim ────────────────────── */
@@ -724,8 +735,254 @@ try {
       `${sessao.status} ${JSON.stringify(sessao.json)?.slice(0, 120)}`
     )
   }
+
+  /* ── 8. a troca automática, pelo parceiro estável (0150) ──────────────── */
+
+  /** Os parceiros fora do caminho agora — a mesma pergunta que a loja faz. */
+  const foraAgora = async () =>
+    ((await loja("/store/pagamento")).json?.fora ?? []).map((f) => f.id).sort()
+  /** Espera o disjuntor dizer `ids` (fora do caminho): ele vira depois da resposta. */
+  const foraVira = (ids) =>
+    esperarAte(async () => (await foraAgora()).join(",") === [...ids].sort().join(","), 15000)
+  /** Espera os 5 minutos fora acabarem (20 s, com `PAGAMENTO_DISJUNTOR_SEGUNDOS=20`). */
+  async function foraAcaba() {
+    const { json } = await loja("/store/pagamento")
+    const ate = Math.max(0, ...(json?.fora ?? []).map((f) => Date.parse(f.ate)))
+    const espera = ate - Date.now() + 1500
+    if (espera > 0) {
+      if (espera > 60_000) console.log(`    (esperando ${Math.round(espera / 1000)} s o disjuntor)`)
+      await esperar(espera)
+    }
+    return foraVira([])
+  }
+  const criacoesNoPagarme = () =>
+    pagarme.chamadas.filter((c) => c.metodo === "POST" && c.caminho === "/core/v5/orders").length
+  const buscasNoPagarme = () =>
+    pagarme.chamadas.filter((c) => c.metodo === "GET" && c.caminho === "/core/v5/orders").length
+  const criacoesNoMercadoPago = () =>
+    mp.chamadas.filter((c) => c.metodo === "POST" && c.caminho === "/v1/payments").length
+  const fecharPeloPagarme = (carrinho, email) =>
+    fecharPelo(PAGARME, carrinho, email, { entrada: { ...entradaDoPix(email), reserva: true } })
+  const cartaoNaTela = (pagina) =>
+    pagina.locator('#form-pagamento label[data-forma="cartao"] input[type="radio"]')
+  async function preencherCartao(pagina) {
+    const linha = pagina.locator("#form-pagamento .opcao", { hasText: "Cartão" })
+    await linha.click()
+    await linha.locator("input:checked").waitFor({ state: "attached", timeout: 10000 })
+    const campos = pagina.locator(".pagamento__painel[data-ativo] input")
+    await campos.nth(0).fill("4000 0000 0000 0010")
+    await campos.nth(1).fill("Matheus Teste")
+    await campos.nth(2).fill("12/30")
+    await campos.nth(3).fill("737")
+  }
+
+  // Sem a conciliação no meio (ela também busca no Pagar.me), e os dois parceiros
+  // começando de pé: uma compra que dá certo em cada um zera as falhas de antes.
+  await longeDaConciliacaoAutomatica(150_000)
+  await fecharPeloPagarme(
+    await carrinhoPelaApi("zera1@fuckingbarba.invalid"),
+    "zera1@fuckingbarba.invalid"
+  )
+  await fecharPeloMercadoPago(
+    await carrinhoPelaApi("zera2@fuckingbarba.invalid"),
+    "zera2@fuckingbarba.invalid"
+  )
+  await foraVira([])
+
+  titulo("O Pagar.me não gera o Pix: sai pelo Mercado Pago, no mesmo clique")
+  let abaVelha = null
+  {
+    pagarme.roteiro = "queda"
+    const { contexto, pagina } = await novaAba()
+    await sacolaPronta(contexto)
+    await ateOPagamento(pagina, "troca@fuckingbarba.invalid")
+    const [criacoes, buscas] = [criacoesNoPagarme(), buscasNoPagarme()]
+    const comeco = Date.now()
+    await pagina.locator("#form-pagamento button[type=submit]").click()
+    await pagina.waitForURL(/\/checkout\/obrigado\//, { timeout: 45000 })
+    const segundos = (Date.now() - comeco) / 1000
+    const pedido = await pedidoNoMedusa(idDaUrl(pagina))
+    ok(
+      sessaoDo(pedido)?.provider_id === MERCADOPAGO && pedido?.payment_status === "awaiting",
+      "quem clicou em pagar no Pix sai com o pedido, aguardando o Pix do Mercado Pago",
+      `${sessaoDo(pedido)?.provider_id} ${pedido?.payment_status}`
+    )
+    ok(
+      criacoesNoPagarme() - criacoes === 1,
+      "o Pagar.me foi tentado uma vez, e só",
+      `${criacoesNoPagarme() - criacoes}`
+    )
+    ok(
+      buscasNoPagarme() - buscas === 1,
+      "com a reserva esperando, o provedor não pergunta de novo se o Pix nasceu lá",
+      `${buscasNoPagarme() - buscas} buscas`
+    )
+    ok(segundos < 20, `e a troca não segurou quem compra (${segundos.toFixed(1)} s)`)
+    const pix = noMercadoPago(pedido)
+    const codigo = await pagina.locator(".feito__pix code").innerText()
+    ok(
+      Boolean(pix) && codigo === pix.point_of_interaction.transaction_data.qr_code,
+      "a tela de obrigado mostra o copia-e-cola do Mercado Pago"
+    )
+    await contexto.close()
+
+    // Uma aba que chegou no pagamento com o Pagar.me ainda de pé — o cartão está nela.
+    const velha = await novaAba()
+    await sacolaPronta(velha.contexto)
+    await ateOPagamento(velha.pagina, "aba-velha@fuckingbarba.invalid")
+    abaVelha = velha
+    ok(
+      !(await cartaoNaTela(velha.pagina).isDisabled()),
+      "(com o Pagar.me de pé, o cartão está na tela)"
+    )
+  }
+
+  titulo("Três seguidas tiram o Pagar.me do caminho — e o dono fica sabendo")
+  {
+    for (const n of [2, 3]) {
+      const email = `queda${n}@fuckingbarba.invalid`
+      const { pedido } = await fecharPeloPagarme(await carrinhoPelaApi(email), email)
+      ok(!pedido, `a ${n}ª tentativa no Pagar.me também falha`)
+    }
+    ok(
+      (await foraVira([PAGARME])) !== null,
+      "o Pagar.me sai do caminho (GET /store/pagamento)",
+      (await foraAgora()).join(", ")
+    )
+    const aviso = await emailComAssunto(
+      "O Pagar.me parou de responder: o Pix está saindo pelo Mercado Pago"
+    )
+    ok(Boolean(aviso), "o dono recebe o e-mail: o Pix está saindo pelo Mercado Pago")
+    ok(
+      /o cartão fica fora da tela/.test(aviso?.text ?? ""),
+      "e o e-mail diz que o cartão sai da tela até ele voltar"
+    )
+
+    // A aba de antes ainda mostra o cartão: o clique é que descobre.
+    const { contexto, pagina } = abaVelha
+    const criacoes = criacoesNoPagarme()
+    await preencherCartao(pagina)
+    await pagina.locator("#form-pagamento button[type=submit]").click()
+    const recado = pagina.locator("#form-pagamento .erros-envio")
+    await recado.waitFor({ timeout: 30000 })
+    ok(
+      /cartão está fora do ar agora\. Paga no Pix/.test(await recado.innerText()),
+      "o cartão da aba antiga para no clique, com a frase que manda pro Pix",
+      await recado.innerText()
+    )
+    ok(criacoesNoPagarme() === criacoes, "e nada chega no Pagar.me")
+    ok(
+      (await esperarAte(() => cartaoNaTela(pagina).isDisabled(), 15000)) !== null,
+      "e a tela se refaz com o cartão fora"
+    )
+    await contexto.close()
+  }
+
+  titulo("Com o Pagar.me fora: o cartão fora da tela, e o Pix direto no Mercado Pago")
+  {
+    const { contexto, pagina } = await novaAba()
+    await sacolaPronta(contexto)
+    await ateOPagamento(pagina, "direto@fuckingbarba.invalid")
+    const linha = pagina.locator('#form-pagamento label[data-forma="cartao"]')
+    ok(
+      (await cartaoNaTela(pagina).isDisabled()) &&
+        /Fora do ar agora\. Paga no Pix/.test(await linha.innerText()),
+      "a linha do cartão fica apagada, dizendo pra pagar no Pix",
+      await linha.innerText()
+    )
+    const criacoes = criacoesNoPagarme()
+    await pagina.locator("#form-pagamento button[type=submit]").click()
+    await pagina.waitForURL(/\/checkout\/obrigado\//, { timeout: 45000 })
+    const pedido = await pedidoNoMedusa(idDaUrl(pagina))
+    ok(sessaoDo(pedido)?.provider_id === MERCADOPAGO, "o Pix sai pelo Mercado Pago")
+    ok(criacoesNoPagarme() === criacoes, "sem nem tentar o Pagar.me")
+    await contexto.close()
+  }
+
+  titulo("O Pagar.me volta sozinho — e o dono fica sabendo")
+  {
+    pagarme.roteiro = "normal"
+    ok((await foraAcaba()) !== null, "passado o tempo fora, ele volta pro caminho")
+    const { contexto, pagina } = await novaAba()
+    await sacolaPronta(contexto)
+    await ateOPagamento(pagina, "volta@fuckingbarba.invalid")
+    ok(!(await cartaoNaTela(pagina).isDisabled()), "o cartão volta pra tela")
+    await pagina.locator("#form-pagamento button[type=submit]").click()
+    await pagina.waitForURL(/\/checkout\/obrigado\//, { timeout: 45000 })
+    const pedido = await pedidoNoMedusa(idDaUrl(pagina))
+    ok(sessaoDo(pedido)?.provider_id === PAGARME, "e o Pix volta a sair pelo Pagar.me")
+    const aviso = await emailComAssunto("O Pagar.me voltou")
+    ok(Boolean(aviso), "o dono recebe o e-mail de que ele voltou")
+    ok(/depois de \d+ min fora/.test(aviso?.text ?? ""), "com quanto tempo ficou fora")
+    await contexto.close()
+  }
+
+  titulo("Os dois fora: a loja segue tentando os dois, e a frase diz o que fazer")
+  {
+    pagarme.roteiro = "queda"
+    mp.roteiro = "queda"
+    const { contexto, pagina } = await novaAba()
+    await sacolaPronta(contexto)
+    await ateOPagamento(pagina, "os-dois@fuckingbarba.invalid")
+    const recado = pagina.locator("#form-pagamento .erros-envio")
+    for (const n of [1, 2, 3]) {
+      const [noPagarme, noMp] = [criacoesNoPagarme(), criacoesNoMercadoPago()]
+      await pagina.locator("#form-pagamento button[type=submit]").click()
+      await recado.waitFor({ timeout: 45000 })
+      await pagina
+        .locator("#form-pagamento button[type=submit]:not([disabled])")
+        .waitFor({ timeout: 45000 })
+      if (n === 1) {
+        ok(
+          (await recado.innerText()).trim() === RECUSA_DO_PIX,
+          "a tela diz a frase do Pix: nada foi cobrado, tenta de novo em instantes",
+          await recado.innerText()
+        )
+        ok(
+          criacoesNoPagarme() - noPagarme === 1 && criacoesNoMercadoPago() - noMp >= 1,
+          "o mesmo clique tentou os dois"
+        )
+      }
+    }
+    ok(
+      (await foraVira([MERCADOPAGO, PAGARME])) !== null,
+      "três cliques depois, os dois estão em queda",
+      (await foraAgora()).join(", ")
+    )
+    ok(
+      Boolean(await emailComAssunto("Os parceiros de pagamento pararam de responder")),
+      "e o dono recebe o e-mail de que ninguém consegue pagar agora"
+    )
+    await pagina.reload({ waitUntil: "domcontentloaded" })
+    await semStreaming(pagina)
+    await pagina.locator("#form-pagamento").waitFor({ timeout: 25000 })
+    ok(
+      !(await cartaoNaTela(pagina).isDisabled()),
+      "com os dois fora, ninguém sai da tela: a loja segue tentando"
+    )
+    await contexto.close()
+
+    // De pé de novo, cada um com uma compra que dá certo.
+    pagarme.roteiro = "normal"
+    mp.roteiro = "normal"
+    await foraAcaba()
+    await fecharPeloPagarme(
+      await carrinhoPelaApi("zera3@fuckingbarba.invalid"),
+      "zera3@fuckingbarba.invalid"
+    )
+    const { pedido } = await fecharPeloMercadoPago(
+      await carrinhoPelaApi("zera4@fuckingbarba.invalid"),
+      "zera4@fuckingbarba.invalid"
+    )
+    ok(Boolean(pedido), "o Mercado Pago volta a gerar o Pix")
+    ok(
+      Boolean(await emailComAssunto("O Mercado Pago voltou")),
+      "e o dono recebe o e-mail de que a reserva voltou"
+    )
+  }
 } finally {
   mp.roteiro = "normal"
+  pagarme.roteiro = "normal"
   for (const id of pedidosDoTeste) {
     const o = (await loja(`/store/orders/${id}?fields=id,status`)).json?.order
     if (o && o.status !== "canceled") {

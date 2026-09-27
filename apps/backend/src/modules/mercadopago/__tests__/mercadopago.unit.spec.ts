@@ -3,9 +3,11 @@ import { PaymentSessionStatus } from "@medusajs/framework/utils"
 import type { EntradaDaLoja } from "../../../lib/pagamento/entrada"
 import { RECUSA } from "../../../lib/pagamento/recusas"
 import { acaoDoAviso, assinaturaConfere, ehDaLoja } from "../aviso"
-import type { PagamentoMP } from "../client"
+import { PIX_COM_RESERVA_MS } from "../../../lib/pagamento/disjuntor"
+import { ErroDoMercadoPago, type PagamentoMP } from "../client"
 import { montarPix, validadeDoPix } from "../pedido"
-import { gravar, lerEstado, RECUSAS, traduzir } from "../situacao"
+import MercadoPagoServico from "../service"
+import { estadoNovo, gravar, lerEstado, RECUSAS, traduzir } from "../situacao"
 
 const ORIGEM = "abc123def4567890"
 const SESSAO = "payses_01TESTE"
@@ -45,6 +47,7 @@ describe("o que o Mercado Pago respondeu, no estado comum", () => {
       },
       cartao: null,
       recusa: null,
+      falha: null,
       estornado: 0,
     })
   })
@@ -118,6 +121,7 @@ const entrada: EntradaDaLoja = {
   itens: [{ codigo: "FBOL01", descricao: "Óleo", quantidade: 1, total: 123.45 }],
   frete: { total: 0, descricao: "" },
   ip: null,
+  reserva: false,
 }
 
 describe("o Pix que vai pro Mercado Pago", () => {
@@ -252,5 +256,81 @@ describe("o que o aviso vira", () => {
     expect(ehDaLoja(pagamento({ metadata: null }), ORIGEM)).toBe(false)
     expect(acaoDoAviso(pagamento({ status: "approved", metadata: {} }), ORIGEM)).toBeNull()
     expect(ehDaLoja(pagamento(), ORIGEM)).toBe(true)
+  })
+})
+
+describe("o Pix no checkout, quando o Mercado Pago não atende (0150)", () => {
+  beforeEach(() => jest.useFakeTimers({ now: new Date("2026-09-27T15:00:00.000Z") }))
+  afterEach(() => jest.useRealTimers())
+
+  function montar() {
+    const logger = { info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() }
+    const servico = new MercadoPagoServico({ logger }, { tokenDeAcesso: "TEST-token" })
+    const cliente = {
+      buscarDaSessao: jest.fn(async () => null),
+      criarPix: jest.fn<Promise<PagamentoMP>, [unknown, string, number?]>(async () => pagamento()),
+      cancelar: jest.fn(async () => ({})),
+    }
+    ;(servico as unknown as { cliente: typeof cliente }).cliente = cliente
+    return { servico, cliente }
+  }
+  async function autorizar(servico: MercadoPagoServico, reserva: boolean) {
+    const promessa = servico.authorizePayment({
+      data: gravar(estadoNovo("pix", 12345, 1), { ...entrada, reserva }),
+      context: { idempotency_key: SESSAO },
+    })
+    await jest.advanceTimersByTimeAsync(20_000)
+    const r = await promessa
+    return {
+      status: r.status,
+      estado: (r.data as { mercadopago: { situacao: string; falha: string | null } }).mercadopago,
+    }
+  }
+
+  it("com reserva: desiste em 10 s e não manda de novo — incerto, com a falha 'fora'", async () => {
+    const { servico, cliente } = montar()
+    cliente.criarPix.mockRejectedValue(new ErroDoMercadoPago("sem resposta", "rede"))
+    const r = await autorizar(servico, true)
+    expect(cliente.criarPix).toHaveBeenCalledTimes(1)
+    expect(cliente.criarPix.mock.calls[0][2]).toBe(PIX_COM_RESERVA_MS)
+    expect(r.status).toBe(PaymentSessionStatus.ERROR)
+    expect(r.estado).toMatchObject({ situacao: "incerto", falha: "fora" })
+  })
+
+  it("sem reserva: manda de novo duas vezes com a mesma chave, como antes", async () => {
+    const { servico, cliente } = montar()
+    cliente.criarPix.mockRejectedValue(
+      new ErroDoMercadoPago("o Mercado Pago respondeu 503", "servidor")
+    )
+    const r = await autorizar(servico, false)
+    expect(cliente.criarPix).toHaveBeenCalledTimes(3)
+    expect(cliente.criarPix.mock.calls.every((c) => c[1] === SESSAO)).toBe(true)
+    expect(r.estado).toMatchObject({ situacao: "incerto", falha: "fora" })
+  })
+
+  it("a chave recusada é o Mercado Pago fora; o dado recusado, recusa; o Pix que ele recusou, recusa", async () => {
+    const chave = montar()
+    chave.cliente.criarPix.mockRejectedValue(new ErroDoMercadoPago("401", "autenticacao", 401))
+    expect((await autorizar(chave.servico, true)).estado).toMatchObject({
+      situacao: "falhou",
+      falha: "fora",
+    })
+    const dado = montar()
+    dado.cliente.criarPix.mockRejectedValue(new ErroDoMercadoPago("400", "validacao", 400))
+    expect((await autorizar(dado.servico, true)).estado).toMatchObject({
+      situacao: "falhou",
+      falha: "recusa",
+    })
+    expect(traduzir(pagamento({ status: "rejected" })).estado).toMatchObject({
+      situacao: "falhou",
+      falha: "recusa",
+    })
+  })
+
+  it("gerado de primeira: esperando o pagamento, sem falha nenhuma", async () => {
+    const { servico } = montar()
+    const r = await autorizar(servico, true)
+    expect(r.status).toBe(PaymentSessionStatus.PENDING_AUTHORIZATION)
+    expect(r.estado).toMatchObject({ situacao: "aguardando", falha: null })
   })
 })

@@ -3,6 +3,8 @@ import type { Logger, MedusaContainer } from "@medusajs/framework/types"
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import { OBSERVABILIDADE } from "../../modules/observabilidade"
 import type ObservabilidadeService from "../../modules/observabilidade/service"
+import { conferirOParceiro } from "../pagamento/aviso"
+import type { Terminada } from "../pagamento/disjuntor"
 import { estadoDaSessao } from "../pagamento/parceiros"
 import { quemPede } from "../quem-pede"
 import { avisarDoFreio } from "./aviso"
@@ -12,29 +14,35 @@ import {
   RESPOSTA_DA_BARRADA,
   resultadoDaSessao,
   semOIp,
-  sessaoDeCartao,
+  sessaoQueVai,
   type Contagem,
+  type SessaoQueVai,
 } from "./robo"
 
 /**
- * A PORTA DO CARTÃO — antes do `POST /store/carts/:id/complete`, que é onde o
- * Medusa manda o cartão pro Pagar.me (no `authorizePayment` do provedor).
- * A regra de quem passa mora em `robo.ts`; aqui se lê, se anota e se
- * responde.
+ * A PORTA DO PAGAMENTO — antes do `POST /store/carts/:id/complete`, que é
+ * onde o Medusa manda o pagamento pro parceiro (no `authorizePayment` do
+ * provedor). Nasceu como a porta do cartão (0129), contra o robô testando
+ * cartão — a regra de quem passa mora em `robo.ts`; aqui se lê, se anota e se
+ * responde. Desde a 0150 ela anota o Pix também: é das tentativas de todo
+ * parceiro que sai o disjuntor (`lib/pagamento/disjuntor.ts`).
  *
  * O CAMINHO DE UMA TENTATIVA:
  *
- *   1. a sessão do carrinho é de cartão e ainda não foi pro Pagar.me? Se
- *      não for (Pix, a sessão que já foi), a porta nem olha;
- *   2. anota a tentativa ("andando") e só DEPOIS conta — com ela dentro. Dez
- *      tentativas ao mesmo tempo viram dez linhas antes de qualquer conta, e
- *      a sexta de uma sacola não passa só porque as outras cinco ainda não
- *      tinham terminado;
- *   3. barrada: responde 429 com o motivo (`cartao_limite` ou
- *      `cartao_freio`), e nada chega no Pagar.me. Passou: o Medusa segue, e
- *      quando a resposta sai, a porta lê na sessão como terminou (aprovada,
- *      em análise, recusada) — e, se esta recusa ligou o freio, avisa o
- *      dono por e-mail.
+ *   1. a sessão do carrinho é de um parceiro e ainda não foi pra ele? Se não
+ *      for (o provisório, a sessão que já foi), a porta nem olha;
+ *   2. anota a tentativa ("andando") — com o parceiro e a forma. No cartão,
+ *      só DEPOIS conta, com ela dentro: dez tentativas ao mesmo tempo viram
+ *      dez linhas antes de qualquer conta, e a sexta de uma sacola não passa
+ *      só porque as outras cinco ainda não tinham terminado;
+ *   3. cartão barrado: responde 429 com o motivo (`cartao_limite` ou
+ *      `cartao_freio`), e nada chega no Pagar.me. O Pix não passa por trava
+ *      nenhuma — Pix não testa cartão;
+ *   4. passou: o Medusa segue, e quando a resposta sai, a porta lê na sessão
+ *      como terminou (aprovada, em análise, recusada, o Pix gerado, o
+ *      parceiro que não atendeu) — e avisa o dono por e-mail se foi esta
+ *      tentativa que ligou o freio do cartão, ou que derrubou (ou trouxe de
+ *      volta) o parceiro (`conferirOParceiro`).
  *
  * O PAGAMENTO NÃO PARA POR CAUSA DA PORTA. Se anotar ou contar falhar (o
  * banco engasgou, a migração ainda não rodou), a tentativa segue sem a
@@ -46,7 +54,7 @@ import {
  * ir pro banco. Conta "a mesma pessoa" do mesmo jeito, e o IP não fica
  * guardado.
  */
-export async function portaDoCartao(
+export async function portaDoPagamento(
   req: MedusaRequest,
   res: MedusaResponse,
   next: MedusaNextFunction
@@ -54,7 +62,7 @@ export async function portaDoCartao(
   const logger = req.scope.resolve<Logger>(ContainerRegistrationKeys.LOGGER)
   const carrinho = req.params.id
 
-  let sessao: { id: string; valor: number } | null = null
+  let sessao: SessaoQueVai | null = null
   try {
     const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
     const { data } = await query.graph({
@@ -67,10 +75,10 @@ export async function portaDoCartao(
       ],
       filters: { id: carrinho },
     })
-    sessao = sessaoDeCartao(data[0] as Parameters<typeof sessaoDeCartao>[0])
+    sessao = sessaoQueVai(data[0] as Parameters<typeof sessaoQueVai>[0])
   } catch (e) {
     logger.error(
-      `[cartão] não consegui ler a sessão do ${carrinho} (${mensagem(e)}) — seguiu sem a trava`
+      `[pagamento] não consegui ler a sessão do ${carrinho} (${mensagem(e)}) — seguiu sem a porta`
     )
     return next()
   }
@@ -81,7 +89,6 @@ export async function portaDoCartao(
   const obs = req.scope.resolve<ObservabilidadeService>(OBSERVABILIDADE)
 
   let id: string
-  let contagem: Contagem
   try {
     id = await obs.abrirTentativa({
       carrinho,
@@ -89,35 +96,57 @@ export async function portaDoCartao(
       quem,
       assinada: pede.assinado,
       valor: sessao.valor,
+      provedor: sessao.provedor,
+      forma: sessao.forma,
     })
-    contagem = await obs.contarTentativas({ carrinho, quem })
   } catch (e) {
     logger.error(
-      `[cartão] não consegui anotar a tentativa do ${carrinho} (${mensagem(e)}) — seguiu sem a trava`
+      `[pagamento] não consegui anotar a tentativa do ${carrinho} (${mensagem(e)}) — seguiu sem a porta`
     )
     return next()
   }
 
-  const decisao = decidir(contagem, pede.assinado)
-  if (!decisao.passa) {
-    await obs
-      .fecharTentativa(id, { resultado: "barrada", motivo: decisao.motivo })
-      .catch((e) => logger.error(`[cartão] não consegui fechar a tentativa ${id}: ${mensagem(e)}`))
-    logger.warn(
-      `[cartão] tentativa barrada no ${carrinho} (${decisao.motivo}; ${emFrase(contagem)}` +
-        `${pede.assinado ? "" : "; sem a assinatura da loja"})`
-    )
-    res.status(429).json({ type: "not_allowed", message: RESPOSTA_DA_BARRADA[decisao.motivo] })
-    return
+  let freioAntes = false
+  if (sessao.forma === "cartao") {
+    let contagem: Contagem | null = null
+    try {
+      contagem = await obs.contarTentativas({ carrinho, quem })
+    } catch (e) {
+      logger.error(
+        `[cartão] não consegui contar as tentativas do ${carrinho} (${mensagem(e)}) — seguiu sem a trava`
+      )
+    }
+    if (contagem) {
+      const decisao = decidir(contagem, pede.assinado)
+      if (!decisao.passa) {
+        await obs
+          .fecharTentativa(id, { resultado: "barrada", motivo: decisao.motivo })
+          .catch((e) =>
+            logger.error(`[cartão] não consegui fechar a tentativa ${id}: ${mensagem(e)}`)
+          )
+        logger.warn(
+          `[cartão] tentativa barrada no ${carrinho} (${decisao.motivo}; ${emFrase(contagem)}` +
+            `${pede.assinado ? "" : "; sem a assinatura da loja"})`
+        )
+        res.status(429).json({ type: "not_allowed", message: RESPOSTA_DA_BARRADA[decisao.motivo] })
+        return
+      }
+      freioAntes = freioLigado(contagem)
+    }
   }
 
-  const freioAntes = freioLigado(contagem)
-  const sessaoId = sessao.id
+  const tentativa = {
+    id,
+    sessao: sessao.id,
+    carrinho,
+    forma: sessao.forma,
+    provedor: sessao.provedor,
+  }
   let fechada = false
   const fechar = () => {
     if (fechada) return
     fechada = true
-    void depoisDaTentativa(req.scope, { id, sessao: sessaoId, carrinho, freioAntes })
+    void depoisDaTentativa(req.scope, { ...tentativa, freioAntes })
   }
   // A resposta saiu: o `complete` terminou, e a sessão diz como.
   res.on("finish", fechar)
@@ -125,12 +154,20 @@ export async function portaDoCartao(
 }
 
 /**
- * Como a tentativa terminou, lido na sessão — e o aviso, se foi esta recusa
- * que ligou o freio. Nunca lança: a resposta já foi.
+ * Como a tentativa terminou, lido na sessão — e os avisos: o do parceiro que
+ * caiu ou voltou, e o do freio, se foi esta recusa de cartão que o ligou.
+ * Nunca lança: a resposta já foi.
  */
 async function depoisDaTentativa(
   container: MedusaContainer,
-  t: { id: string; sessao: string; carrinho: string; freioAntes: boolean }
+  t: {
+    id: string
+    sessao: string
+    carrinho: string
+    forma: SessaoQueVai["forma"]
+    provedor: string
+    freioAntes: boolean
+  }
 ) {
   const logger = container.resolve<Logger>(ContainerRegistrationKeys.LOGGER)
   try {
@@ -144,9 +181,20 @@ async function depoisDaTentativa(
       { provider_id?: string | null; data?: Record<string, unknown> | null } | undefined
     const { resultado, motivo } = resultadoDaSessao(estadoDaSessao(lida))
     const obs = container.resolve<ObservabilidadeService>(OBSERVABILIDADE)
-    await obs.fecharTentativa(t.id, { resultado, motivo })
-    if (resultado !== "recusada" || t.freioAntes) return
 
+    // A saúde dos parceiros SEM esta tentativa — é o "antes" do disjuntor.
+    const antes: Terminada[] | null = await obs.terminadasDosParceiros().catch((e) => {
+      logger.error(`[pagamento] não consegui ler as tentativas pro disjuntor: ${mensagem(e)}`)
+      return null
+    })
+    await obs.fecharTentativa(t.id, { resultado, motivo })
+    if (antes) {
+      await conferirOParceiro(container, t.provedor, antes).catch((e) =>
+        logger.error(`[pagamento] o disjuntor não conferiu o ${t.provedor}: ${mensagem(e)}`)
+      )
+    }
+
+    if (t.forma !== "cartao" || resultado !== "recusada" || t.freioAntes) return
     const depois = await obs.contarTentativas({ carrinho: t.carrinho, quem: "" })
     if (!freioLigado(depois)) return
     logger.warn(
@@ -155,7 +203,7 @@ async function depoisDaTentativa(
     )
     await avisarDoFreio(container, depois)
   } catch (e) {
-    logger.error(`[cartão] não consegui fechar a tentativa ${t.id}: ${mensagem(e)}`)
+    logger.error(`[pagamento] não consegui fechar a tentativa ${t.id}: ${mensagem(e)}`)
   }
 }
 

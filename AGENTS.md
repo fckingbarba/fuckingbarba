@@ -70,6 +70,7 @@ RESEND_URL=http://127.0.0.1:4330 RESEND_API_KEY=re_teste_falsa npm run backend:d
 # pro conferir-mercadopago (o Mercado Pago falso na 4360, o Pix reserva), acrescente:
 # MERCADOPAGO_ACCESS_TOKEN=TEST-token-do-mercadopago-falso MERCADOPAGO_URL=http://127.0.0.1:4360
 # MERCADOPAGO_WEBHOOK_SEGREDO=segredo-do-aviso-do-mercadopago
+# PAGAMENTO_DISJUNTOR_SEGUNDOS=20 (o parceiro fora do caminho por 20 s, e não 5 min — a parte 8)
 # pro conferir-integracoes do painel (a Meta, o GA4 e o TikTok falsos, na 4370), acrescente:
 # META_GRAPH_URL=http://127.0.0.1:4370 GA4_MP_URL=http://127.0.0.1:4370
 # TIKTOK_EVENTS_URL=http://127.0.0.1:4370 META_CAPI_TOKEN=token-de-teste
@@ -361,10 +362,34 @@ o `MERCADOPAGO_ACCESS_TOKEN`, não faz nada); o que as duas dividem — o relat�
 escritas no Medusa e o dinheiro que entra num pedido já cancelado (devolvido pelo Medusa, pra todo
 parceiro) — mora em `src/lib/pagamento/conciliacao.ts`, e a entrada da loja, o dinheiro em
 centavos e a origem, em `src/lib/pagamento/{entrada,comum}.ts`. O `npm run backend:pagamento`
-liga os dois na região quando o token existe (e confere o token numa leitura antes). A loja ainda
-não escolhe o Mercado Pago sozinha — a troca automática pelo parceiro estável é a próxima parte do
-Pix reserva (ver o ESTADO) —; o `conferir-mercadopago.mjs` leva a tela a ele trocando o provedor
-escondido do passo 3.
+liga os dois na região quando o token existe (e confere o token numa leitura antes).
+
+**A TROCA PELO PARCEIRO ESTÁVEL** (entrega 0150) — quem escolhe o parceiro é a loja, no `finalizar`
+(`apps/loja/src/lib/acoes/checkout.ts`), pela ROTA: os parceiros da região e os que o disjuntor
+tirou do caminho (`GET /store/pagamento`, `rotaAgora` em `lib/checkout.ts`, a regra em
+`rotaDoPagamento`, `lib/checkout-visivel.ts`, com teste no backend:
+`lib/pagamento/__tests__/rota-da-loja`). Com os dois de pé, o Pix vai pelo Pagar.me e o Mercado Pago
+é a reserva: o Pix que não nasce num parceiro (a sessão "falhou" ou "incerto" — `pixNaoNasceu`, em
+`lib/pagamento.ts`) abre sessão no próximo e fecha o carrinho de novo, NO MESMO CLIQUE. Com outro
+esperando, a loja manda `reserva: true` na entrada, e o provedor desiste cedo — 10 s pra criar
+(`PIX_COM_RESERVA_MS`) e sem as perguntas de "nasceu?"; o Pix que nascer tarde lá não chega a
+ninguém, e a conciliação fecha. Cartão NUNCA vai pro outro parceiro. O DISJUNTOR
+(`src/lib/pagamento/disjuntor.ts`, puro, com teste) conta só o parceiro que NÃO ATENDEU — a `falha`
+"fora" que o provedor grava no estado (sem resposta, tempo esgotado, 5xx, 401/403; `falhaDoErro`), e
+não a "recusa" (ele disse não) nem o "interno" (nem saiu daqui): três seguidas, entre as tentativas
+e não no relógio, tiram o parceiro do caminho por 5 minutos (`PAGAMENTO_DISJUNTOR_SEGUNDOS` só no
+local), contados da última; depois, a próxima compra é o teste — deu certo, voltou. As tentativas
+são as linhas de `obs_tentativa`, agora com `provedor` e `forma` (a porta do `complete` anota o Pix
+também, sem as travas do cartão; `terminadasDosParceiros`, no serviço). Na loja: o Pix pula o
+parceiro fora; o cartão sai da tela (apagado, "Fora do ar agora. Paga no Pix") enquanto o Pagar.me
+estiver fora e o Pix puder sair pelo outro — e a aba que ficou aberta descobre no clique. COM TODOS
+FORA, NINGUÉM SAI: a loja segue tentando, como antes do disjuntor (tirar o último parceiro seria
+loja sem pagamento). A virada — caiu, ou voltou — manda um e-mail por hora pro dono
+(`lib/pagamento/aviso.ts`, `lib/emails/parceiro-fora.ts`; "Um parceiro de pagamento caiu" no
+`AVISOS_DA_EQUIPE`), com o texto de quem mais está ligado e de pé. A parte 8 do
+`conferir-mercadopago.mjs` derruba o Pagar.me falso e confere tudo isso; as partes de antes levam a
+tela ao Mercado Pago trocando o provedor escondido do passo 3 (a dica da tela vai primeiro na fila,
+se o parceiro estiver de pé).
 
 Três portas que o Medusa deixa abertas e o projeto fecha. (1) Abrir sessão de pagamento APAGA as
 anteriores da coleção, sem conferir se ela já é de um pedido: `src/api/middlewares.ts` recusa sessão
@@ -389,8 +414,10 @@ mostra o recado em vez de mandar pra lá de novo: era um laço de 71 idas em 8 s
 outro numa loja pequena, pra descobrir quais funcionam; as recusas saem no nome da loja, e o
 Pagar.me pode segurar a conta. A porta do `complete` (`src/lib/cartao/porta.ts`, no
 `api/middlewares.ts`) segura a tentativa ANTES de o Medusa chamar o `authorizePayment`, e só a que
-vai pro Pagar.me: a sessão do nosso provedor, no cartão, ainda `nova` (Pix e sessão que já foi nem
-passam por ela). A regra é pura, com teste (`src/lib/cartao/robo.ts`, `LIMITES`): por sacola, 5 por
+vai pro Pagar.me: a sessão do nosso provedor, no cartão, ainda `nova` (sessão que já foi nem passa
+por ela; o Pix é anotado desde a 0150, pro disjuntor dos parceiros, sem trava nenhuma — as contas
+do robô são só de cartão).
+A regra é pura, com teste (`src/lib/cartao/robo.ts`, `LIMITES`): por sacola, 5 por
 hora; por pessoa, 8 — a pessoa é o `quemPede`, o IP que a loja manda em `x-cliente-ip` assinado com
 o `REVALIDAR_SEGREDO` (o `finalizar` manda os dois, pelo `cabecalhosDeQuemPede`); o que chega sem a
 assinatura, todo mundo junto, 3 por hora; e o FREIO: 8 recusas nos últimos 30 minutos, sendo pelo

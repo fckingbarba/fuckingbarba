@@ -23,6 +23,7 @@ import {
   garantirDonoDoCarrinho,
   lerCracha,
   registrarOferta,
+  rotaAgora,
 } from "@/lib/checkout"
 import {
   parceiroDe,
@@ -418,6 +419,11 @@ async function ipDeQuemCompra(): Promise<string | null> {
  * pagar — é apagada pelo Medusa ao abrir a nova (e o provedor cancela o Pix
  * dela no Pagar.me). O botão fica travado enquanto a ação roda: duas
  * finalizações ao mesmo tempo disputariam a mesma sessão.
+ *
+ * E O PIX TEM RESERVA (0150): se ele não nasce no primeiro parceiro, a ação
+ * abre outra sessão no próximo e fecha o carrinho de novo, no mesmo clique —
+ * quem compra só vê o QR, um pouco mais tarde. O parceiro fora do ar nem
+ * entra na fila (`rotaAgora`, com o disjuntor do backend).
  */
 export async function finalizar(anterior: EstadoDaEtapa, fd: FormData): Promise<EstadoDaEtapa> {
   const provedor = texto(fd, "provedor")
@@ -572,37 +578,35 @@ export async function finalizar(anterior: EstadoDaEtapa, fd: FormData): Promise<
     )
   }
 
-  const ip = await ipDeQuemCompra()
-  let dados: Record<string, unknown> | undefined
+  /*
+    POR ONDE COBRAR — a ordem dos parceiros pra forma escolhida, com a saúde
+    deles AGORA (`rotaAgora`: o disjuntor do backend e os parceiros da
+    região). A tela diz qual parceiro desenhou (`provedor`); se ele ainda
+    está no caminho, vai primeiro. Cartão sem ninguém de pé não passa: o
+    Pagar.me está fora, e o Pix sai pelo outro parceiro. O provisório (o
+    checkout fechado) segue sozinho, como sempre.
+  */
+  let ordem = [provedor]
   if (cobra) {
-    const montada = entradaDoCarrinho(carrinho, {
-      forma: forma as "pix" | "cartao",
-      parcelas: Number.isInteger(parcelas) && parcelas > 0 ? parcelas : 1,
-      token: forma === "cartao" ? token : null,
-      ip,
-    })
-    if (!montada.ok) return erro(anterior, {}, montada.mensagem, fd)
-    dados = { entrada: montada.entrada }
+    const rota = await rotaAgora(carrinho.region_id ?? "")
+    const daForma = rota[forma as "pix" | "cartao"]
+    if (!daForma.length && rota.fora.includes(forma as "pix" | "cartao")) {
+      refresh()
+      return erro(
+        anterior,
+        {},
+        "O pagamento com cartão está fora do ar agora. Paga no Pix, que está funcionando — nada foi cobrado.",
+        fd
+      )
+    }
+    if (daForma.length) {
+      ordem = daForma.includes(provedor)
+        ? [provedor, ...daForma.filter((id) => id !== provedor)]
+        : daForma
+    }
   }
 
-  try {
-    await sdk.store.payment.initiatePaymentSession(carrinho, {
-      provider_id: provedor,
-      ...(dados ? { data: dados } : {}),
-    })
-  } catch (e) {
-    registrar(e, "abrir a sessão de pagamento")
-    // A outra aba fechou o pedido no mesmo instante ("Cart … is already
-    // completed"): é ele, e não "nada foi cobrado, tenta de novo".
-    const jaFechado = await pedidoDoCarrinhoFechado()
-    if (jaFechado) return abrirPedido(jaFechado)
-    return erro(
-      anterior,
-      {},
-      "Não consegui iniciar o pagamento. Nada foi cobrado — tenta de novo em instantes.",
-      fd
-    )
-  }
+  const ip = await ipDeQuemCompra()
 
   /*
     O RASTRO DA COMPRA é lido agora — os cookies e o navegador só existem
@@ -611,39 +615,84 @@ export async function finalizar(anterior: EstadoDaEtapa, fd: FormData): Promise<
   const { integracoes } = await configuracoes()
   const rastro = await rastroDaCompra(integracoes.ga4 ?? process.env.NEXT_PUBLIC_GA4_ID ?? null, ip)
 
+  /*
+    UMA TENTATIVA POR PARCEIRO, NO MESMO CLIQUE — só no Pix. O Pix que não
+    nasceu num parceiro (não atendeu, recusou, a resposta sumiu) vai pro
+    próximo da ordem: QR que ninguém viu não cobra ninguém, então tentar de
+    novo em outro lugar não cobra duas vezes. O que tiver nascido tarde no
+    primeiro, a conciliação fecha. Com outro esperando, o provedor desiste
+    mais cedo (`reserva`). O cartão tenta uma vez só: cartão recusado não vai
+    pro outro parceiro — quem recusa é o banco de quem compra.
+  */
   let pedidoId: string | null = null
-  let recusa = ""
-  try {
-    /*
-      QUEM PAGA VAI ASSINADO: o IP de quem está do outro lado, com o segredo
-      que a loja e o Medusa dividem (`cabecalhosDeQuemPede`). É por ele que a
-      porta do cartão conta as tentativas de cada pessoa — sem ele, todo
-      mundo cairia no balde pequeno de quem chega sem passar pela loja (ver
-      `backend/src/lib/cartao/robo.ts`).
-    */
-    const resposta = await sdk.store.cart.complete(
-      carrinho.id,
-      undefined,
-      await cabecalhosDeQuemPede()
-    )
-    if (resposta.type === "order") pedidoId = resposta.order.id
-    else {
-      recusa = String(resposta.error?.message ?? "sem pedido")
-      registrar(new Error(recusa), "finalizar")
+  for (const [vez, provedorDaVez] of ordem.entries()) {
+    const reserva = forma === "pix" && vez < ordem.length - 1
+    let dados: Record<string, unknown> | undefined
+    if (cobra) {
+      const montada = entradaDoCarrinho(carrinho, {
+        forma: forma as "pix" | "cartao",
+        parcelas: Number.isInteger(parcelas) && parcelas > 0 ? parcelas : 1,
+        token: forma === "cartao" ? token : null,
+        ip,
+        reserva,
+      })
+      if (!montada.ok) return erro(anterior, {}, montada.mensagem, fd)
+      dados = { entrada: montada.entrada }
     }
-  } catch (e) {
-    // Cartão recusado chega AQUI, como 400 — não como `type: "cart"`. O
-    // Medusa só devolve 200 pro erro genérico de autorização; a recusa de
-    // um provedor que respondeu "error" sobe como exceção.
-    recusa = e instanceof Error ? e.message : String(e)
-    registrar(e, "finalizar")
-    // A porta do cartão barrou antes do Pagar.me: nada saiu da loja, e a
-    // frase diz o que fazer — o Pix, ou o cartão mais tarde.
-    const daPorta = recusaDaPorta(e)
-    if (daPorta) return erro(anterior, {}, daPorta, fd)
-  }
 
-  if (!pedidoId) {
+    try {
+      await sdk.store.payment.initiatePaymentSession(carrinho, {
+        provider_id: provedorDaVez,
+        ...(dados ? { data: dados } : {}),
+      })
+    } catch (e) {
+      registrar(e, `abrir a sessão de pagamento (${provedorDaVez})`)
+      // A outra aba fechou o pedido no mesmo instante ("Cart … is already
+      // completed"): é ele, e não "nada foi cobrado, tenta de novo".
+      const jaFechado = await pedidoDoCarrinhoFechado()
+      if (jaFechado) return abrirPedido(jaFechado)
+      // Nem a sessão abriu: nada saiu. Com outro parceiro esperando, vai pra ele.
+      if (reserva) continue
+      return erro(
+        anterior,
+        {},
+        "Não consegui iniciar o pagamento. Nada foi cobrado — tenta de novo em instantes.",
+        fd
+      )
+    }
+
+    let recusa = ""
+    try {
+      /*
+        QUEM PAGA VAI ASSINADO: o IP de quem está do outro lado, com o segredo
+        que a loja e o Medusa dividem (`cabecalhosDeQuemPede`). É por ele que a
+        porta do cartão conta as tentativas de cada pessoa — sem ele, todo
+        mundo cairia no balde pequeno de quem chega sem passar pela loja (ver
+        `backend/src/lib/cartao/robo.ts`).
+      */
+      const resposta = await sdk.store.cart.complete(
+        carrinho.id,
+        undefined,
+        await cabecalhosDeQuemPede()
+      )
+      if (resposta.type === "order") pedidoId = resposta.order.id
+      else {
+        recusa = String(resposta.error?.message ?? "sem pedido")
+        registrar(new Error(recusa), "finalizar")
+      }
+    } catch (e) {
+      // Cartão recusado chega AQUI, como 400 — não como `type: "cart"`. O
+      // Medusa só devolve 200 pro erro genérico de autorização; a recusa de
+      // um provedor que respondeu "error" sobe como exceção.
+      recusa = e instanceof Error ? e.message : String(e)
+      registrar(e, "finalizar")
+      // A porta do cartão barrou antes do Pagar.me: nada saiu da loja, e a
+      // frase diz o que fazer — o Pix, ou o cartão mais tarde.
+      const daPorta = recusaDaPorta(e)
+      if (daPorta) return erro(anterior, {}, daPorta, fd)
+    }
+    if (pedidoId) break
+
     /*
       Sem pedido na resposta, por um de três motivos bem diferentes:
 
@@ -669,27 +718,41 @@ export async function finalizar(anterior: EstadoDaEtapa, fd: FormData): Promise<
           fd
         )
       }
-    } else {
-      /*
-        Sem recusa gravada e sem pedido, com cobrança no meio, NÃO dá pra
-        dizer "nada foi cobrado": a resposta pode ter se perdido com o
-        Medusa ainda falando com o Pagar.me. A frase manda esperar e clicar
-        de novo — e o clique seguinte é seguro nos dois casos: se o pedido
-        fechou, `pedidoDoCarrinhoFechado` leva pra ele; se não fechou, é uma
-        tentativa nova, e uma cobrança perdida da primeira é estornada pela
-        conciliação (ver "ÓRFÃOS" em `conciliar-pagamentos.ts`).
-      */
-      return erro(
-        anterior,
-        {},
-        depois.recusa ??
-          (cobra
-            ? "Não consegui confirmar o pagamento. Espera um minuto e clica em pagar de novo: " +
-              "se ele tiver passado, você vai direto pro pedido, sem pagar duas vezes."
-            : "Não consegui fechar o pedido. Nada foi cobrado — tenta de novo em instantes."),
-        fd
-      )
+      break
     }
+    // O Pix não nasceu neste parceiro, e há outro na fila: vai pra ele.
+    if (reserva && depois.pixNaoNasceu) {
+      registrar(new Error(`o Pix não nasceu em ${provedorDaVez}; tentando o próximo`), "finalizar")
+      continue
+    }
+    /*
+      Sem recusa gravada e sem pedido, com cobrança no meio, NÃO dá pra
+      dizer "nada foi cobrado": a resposta pode ter se perdido com o
+      Medusa ainda falando com o Pagar.me. A frase manda esperar e clicar
+      de novo — e o clique seguinte é seguro nos dois casos: se o pedido
+      fechou, `pedidoDoCarrinhoFechado` leva pra ele; se não fechou, é uma
+      tentativa nova, e uma cobrança perdida da primeira é estornada pela
+      conciliação (ver "ÓRFÃOS" em `conciliar-pagamentos.ts`).
+    */
+    return erro(
+      anterior,
+      {},
+      depois.recusa ??
+        (cobra
+          ? "Não consegui confirmar o pagamento. Espera um minuto e clica em pagar de novo: " +
+            "se ele tiver passado, você vai direto pro pedido, sem pagar duas vezes."
+          : "Não consegui fechar o pedido. Nada foi cobrado — tenta de novo em instantes."),
+      fd
+    )
+  }
+  // Todos os parceiros da fila recusaram abrir a sessão: nada saiu.
+  if (!pedidoId) {
+    return erro(
+      anterior,
+      {},
+      "Não consegui iniciar o pagamento. Nada foi cobrado — tenta de novo em instantes.",
+      fd
+    )
   }
 
   /*

@@ -21,6 +21,7 @@ const estadoPix = {
   pix: { copiaECola: "000201", imagem: "https://qr", expiraEm: "2026-09-26T20:00:00.000Z" },
   cartao: null,
   recusa: null,
+  falha: null,
   estornado: 0,
 }
 
@@ -53,6 +54,10 @@ describe("a lista dos parceiros", () => {
     for (const p of PARCEIROS) {
       expect(loja).toContain(`"${p.id}"`)
       expect(loja).toContain(`chave: "${p.chave}"`)
+      // A loja decide por onde cobrar cada forma (`rotaDoPagamento`): as formas batem.
+      expect(loja).toContain(
+        `chave: "${p.chave}", formas: [${p.formas.map((f) => `"${f}"`).join(", ")}]`
+      )
     }
   })
 })
@@ -131,6 +136,7 @@ describe("o estado da sessão", () => {
       pix: null,
       cartao: null,
       recusa: null,
+      falha: null,
       estornado: 0,
     })
     expect(lerEstado({ outro: { forma: "cartao" } }, "pagarme")).toBeNull()

@@ -28,8 +28,9 @@ import type {
   WebhookActionResult,
 } from "@medusajs/framework/types"
 import { emCentavos, origemDestaLoja } from "../../lib/pagamento/comum"
+import { falhaDoErro, PIX_COM_RESERVA_MS } from "../../lib/pagamento/disjuntor"
 import { conferirEntrada, type EntradaDaLoja } from "../../lib/pagamento/entrada"
-import type { Estado, Situacao } from "../../lib/pagamento/estado"
+import type { Estado, Falha, Situacao } from "../../lib/pagamento/estado"
 import { sinal } from "../../lib/observabilidade/sinal"
 import { acaoDoAviso, assinaturaConfere, CODIGO_DE_SESSAO } from "./aviso"
 import {
@@ -193,7 +194,12 @@ export default class MercadoPagoServico extends AbstractPaymentProvider<Opcoes> 
     const estado = lerEstado(data)
     const codigo = context?.idempotency_key ?? ""
     if (!estado || !CODIGO_DE_SESSAO.test(codigo)) {
-      return this.falha(estado, "sessão sem estado do Mercado Pago ou sem código", RECUSAS.fora)
+      return this.falha(
+        estado,
+        "sessão sem estado do Mercado Pago ou sem código",
+        RECUSAS.fora,
+        "interno"
+      )
     }
 
     /*
@@ -224,7 +230,12 @@ export default class MercadoPagoServico extends AbstractPaymentProvider<Opcoes> 
         }
         return {
           status: PaymentSessionStatus.ERROR,
-          data: gravar({ ...lido.estado, situacao: estado.situacao, recusa: estado.recusa }),
+          data: gravar({
+            ...lido.estado,
+            situacao: estado.situacao,
+            recusa: estado.recusa,
+            falha: estado.falha,
+          }),
         }
       }
       return this.responder(traduzir(pagamento))
@@ -242,22 +253,34 @@ export default class MercadoPagoServico extends AbstractPaymentProvider<Opcoes> 
     try {
       entrada = this.entradaDoPix(data?.[CHAVE_DA_ENTRADA], estado.valor)
     } catch (e) {
-      return this.falha(estado, mensagemDe(e), RECUSAS.fora)
+      return this.falha(estado, mensagemDe(e), RECUSAS.fora, "interno")
     }
 
     const corpo = montarPix(entrada, estado.valor, codigo, this.pixMinutos, this.origem)
+    // Com o outro parceiro esperando, desiste cedo (ver `reserva`, na entrada).
+    const tempo = entrada.reserva ? PIX_COM_RESERVA_MS : undefined
     try {
-      pagamento = await this.cliente.criarPix(corpo, codigo)
+      pagamento = await this.cliente.criarPix(corpo, codigo, tempo)
     } catch (e) {
       if (!(e instanceof ErroDoMercadoPago)) throw e
       if (!e.incerto) {
-        // 4xx: nada foi criado.
-        return this.falha(estado, `Pix recusado na entrada (${codigo}): ${e.message}`, RECUSAS.pix)
+        // 4xx: nada foi criado. A chave recusada (401/403) é o Mercado Pago
+        // fora pra loja (`falhaDoErro`).
+        return this.falha(
+          estado,
+          `Pix recusado na entrada (${codigo}): ${e.message}`,
+          RECUSAS.pix,
+          falhaDoErro(e.tipo)
+        )
       }
-      // Rede ou 5xx: pode ter nascido. A mesma chave devolve o mesmo, se nasceu.
+      /*
+        Rede ou 5xx: pode ter nascido. A mesma chave devolve o mesmo, se
+        nasceu — menos no Pix com reserva, que vai pro outro parceiro no mesmo
+        clique (o que tiver nascido aqui a conciliação cancela).
+      */
       this.logger.warn(`[mercadopago] criação sem resposta (${codigo}): ${e.message}`)
       pagamento = null
-      for (const ms of REPETICOES_MS) {
+      for (const ms of entrada.reserva ? [] : REPETICOES_MS) {
         await esperar(ms)
         try {
           pagamento = await this.cliente.criarPix(corpo, codigo)
@@ -267,7 +290,8 @@ export default class MercadoPagoServico extends AbstractPaymentProvider<Opcoes> 
             return this.falha(
               estado,
               `Pix recusado na segunda tentativa (${codigo}): ${mensagemDe(outra)}`,
-              RECUSAS.pix
+              RECUSAS.pix,
+              outra instanceof ErroDoMercadoPago ? falhaDoErro(outra.tipo) : "interno"
             )
           }
         }
@@ -284,7 +308,7 @@ export default class MercadoPagoServico extends AbstractPaymentProvider<Opcoes> 
         */
         return {
           status: PaymentSessionStatus.ERROR,
-          data: gravar({ ...estado, situacao: "incerto", recusa: RECUSAS.pix }),
+          data: gravar({ ...estado, situacao: "incerto", recusa: RECUSAS.pix, falha: "fora" }),
         }
       }
     }
@@ -301,7 +325,7 @@ export default class MercadoPagoServico extends AbstractPaymentProvider<Opcoes> 
           `"${pagamento.external_reference}"; a sessão é ${codigo}, de ${estado.valor}. Cancelando.`
       )
       await this.cliente.cancelar(pagamento.id).catch(() => null)
-      return this.falha(estado, "valor ou referência divergente", RECUSAS.fora)
+      return this.falha(estado, "valor ou referência divergente", RECUSAS.fora, "interno")
     }
 
     this.logger.info(
@@ -497,12 +521,22 @@ export default class MercadoPagoServico extends AbstractPaymentProvider<Opcoes> 
     return { status, data: gravar(estado) }
   }
 
-  /** `error` com a frase pra tela — a loja lê da sessão o que mostrar. */
-  private falha(estado: Estado | null, motivo: string, frase: string): AuthorizePaymentOutput {
+  /** `error` com a frase pra tela e o porquê pra quem decide — ver o do Pagar.me. */
+  private falha(
+    estado: Estado | null,
+    motivo: string,
+    frase: string,
+    falha: Falha
+  ): AuthorizePaymentOutput {
     this.logger.warn(`[mercadopago] não autorizado: ${motivo}`)
     return {
       status: PaymentSessionStatus.ERROR,
-      data: gravar({ ...(estado ?? estadoNovo("pix", 0, 1)), situacao: "falhou", recusa: frase }),
+      data: gravar({
+        ...(estado ?? estadoNovo("pix", 0, 1)),
+        situacao: "falhou",
+        recusa: frase,
+        falha,
+      }),
     }
   }
 
