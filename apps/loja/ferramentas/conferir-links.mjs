@@ -262,10 +262,11 @@ if (soBloqueiaTudo) {
     "/checkout",
     "/busca?q=oleo",
     "/avaliar",
+    "/sair",
   ]
   const abertos = privados.filter(liberado)
   confere(
-    "a conta, o checkout, a busca e a página da avaliação ficam fora do Google",
+    "a conta, o checkout, a busca, a página da avaliação e o sair da lista ficam fora do Google",
     abertos.length === 0,
     `abertos: ${abertos.join(", ")}`
   )

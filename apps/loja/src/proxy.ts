@@ -63,6 +63,8 @@ const PAGINAS_RAIZ = new Set([
   "conta",
   // A página escondida da avaliação (o link vem no e-mail, um dia depois da entrega).
   "avaliar",
+  // O "Sair da lista" dos e-mails de oferta (o link vem no rodapé deles).
+  "sair",
   // `/produtos` (a lista inteira). `/produtos/<handle>` tem dois segmentos e
   // nunca caiu nesta peneira, o que torna o esquecimento aqui especialmente
   // traiçoeiro: a PDP funcionaria e só a lista daria 404.
@@ -98,11 +100,18 @@ function normaliza(caminho: string): string {
  *
  * E o da avaliação (`/avaliar/<pedido>.<assinatura>`, o botão do e-mail): o
  * id do pedido e a assinatura são base64 — em minúsculas, o link não vale.
+ * O do sair da lista (`/sair/<t>`, o rodapé dos e-mails de oferta) é igual.
  *
  * Handle de produto e de categoria continua minúsculo por construção (o
  * middleware do backend garante), então a regra segue valendo pro resto.
  */
-const CAMINHOS_COM_ID = ["/checkout/obrigado/", "/conta/pedidos/", "/discount/", "/avaliar/"]
+const CAMINHOS_COM_ID = [
+  "/checkout/obrigado/",
+  "/conta/pedidos/",
+  "/discount/",
+  "/avaliar/",
+  "/sair/",
+]
 
 export function proxy(req: NextRequest) {
   const bruto = semBarraFinal(req.nextUrl.pathname)
