@@ -17,7 +17,11 @@ import { inscricoesDaNewsletter, lerClientes } from "./painel/ler"
  *   - os pedidos de aviso de produto esgotado que ela ainda espera (o
  *     avise-me, `lib/avise-me.ts`) são apagados: quem pede pra sair não
  *     recebe o "voltou" depois;
- *   - na base da Nuvemshop (o CRM), o "Aceita" vira "não aceita", com a data.
+ *   - na base da Nuvemshop (o CRM), o "Aceita" vira "não aceita", com a data;
+ *   - e a pessoa entra na lista de quem saiu (`crm_saiu`): os e-mails dos
+ *     fluxos de compra (checkout abandonado, Pix pendente) vão até pra quem
+ *     não aceitou ofertas, e pra essa pessoa é a única marca de que ela pediu
+ *     pra parar.
  *
  * Se a pessoa quiser de novo depois, é um "sim" novo, com data nova. Quem
  * chama: o painel ("Tirar", na newsletter) e o link de sair da lista dos
@@ -47,6 +51,8 @@ export async function tirarDasOfertas(
       },
     })
   }
-  const base = await container.resolve<CrmService>(CRM).tirarDaBaseDasOfertas(email)
+  const crm = container.resolve<CrmService>(CRM)
+  const base = await crm.tirarDaBaseDasOfertas(email)
+  await crm.saiuDaLista(email)
   return { newsletter: inscricoes.length > 0, contas: comCaixa.length, avisos, base }
 }

@@ -1,0 +1,504 @@
+import type { MedusaContainer } from "@medusajs/framework/types"
+import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
+import { CRM } from "../../modules/crm"
+import type CrmService from "../../modules/crm/service"
+import type { RegistroLido } from "../../modules/crm/service"
+import { EQUIPE } from "../../modules/equipe"
+import type EquipeService from "../../modules/equipe/service"
+import { whatsappDaLoja } from "../atendimento"
+import { lerConfiguracoes } from "../configuracoes"
+import { enviarEmail, remetenteDoCrm } from "../email"
+import { emailDoCrm } from "../emails/crm"
+import { emailDoFluxo, type CompraDoFluxo, type ItemDoFluxo } from "../emails/fluxos"
+import { urlDaLoja } from "../emails/moldura"
+import { mudarMetadataDaLoja } from "../metadata-da-loja"
+import { estadoDaSessao, sessaoDoParceiro } from "../pagamento/parceiros"
+import { inscricoesDaNewsletter, lerClientes } from "../painel/ler"
+import { criarCupomDoFluxo } from "./cupom"
+import {
+  CHAVE_DOS_FLUXOS,
+  comecoDoPix,
+  decidir,
+  DIAS_ENTRE_CUPONS,
+  fluxosLigados,
+  guardarConfigDosFluxos,
+  IDS_DOS_FLUXOS,
+  lerConfigDosFluxos,
+  type Entrada,
+  type IdDoFluxo,
+  type IdDoToque,
+  type Registro,
+} from "./fluxos"
+import { linksDeSair } from "./sair"
+import { linkDeVoltar } from "./voltar"
+
+/**
+ * O MOTOR DOS FLUXOS — o que a rotina `fluxos-do-crm` roda a cada 5 minutos.
+ * As regras (quem recebe o quê, quando) são as de `lib/crm/fluxos.ts`; aqui
+ * é buscar as pessoas, perguntar às regras e fazer o que elas dizem:
+ *
+ *   1. os fluxos ligados — o ligado que ainda não tem hora de início ganha
+ *      a de agora, e só a próxima rodada olha as pessoas;
+ *   2. as entradas dos últimos 3 dias: os carrinhos com e-mail que não
+ *      fecharam (checkout) e os pedidos com Pix que não foi pago (Pix);
+ *   3. quem fica de fora: a equipe, quem saiu da lista (sem um "sim" novo
+ *      depois) e o e-mail que voltou ou reclamou de spam;
+ *   4. pra cada pessoa, a decisão: mandar (com o cupom, se for a vez dele),
+ *      guardar pro grupo de controle, ou esperar;
+ *   5. o toque é RESERVADO antes do envio — duas rodadas juntas não mandam o
+ *      mesmo e-mail — e confirmado depois; o que não saiu volta pra fila.
+ *
+ * No máximo 60 e-mails por rodada, com uma pausa entre eles (o Resend aceita
+ * 2 por segundo): o resto fica pra rodada seguinte.
+ */
+
+const DIA = 24 * 60 * 60 * 1000
+const JANELA = 3 * DIA
+const POR_RODADA = 60
+const PAUSA_MS = 600
+
+export type RelatorioDosFluxos = {
+  pessoas: number
+  enviados: number
+  cupons: number
+  controle: number
+  pulados: number
+  teto: number
+  fora: number
+  falhas: number
+  /** Os fluxos que ganharam a hora de início nesta rodada. */
+  ligouAgora: IdDoFluxo[]
+}
+
+type Item = {
+  product_title?: string | null
+  product_handle?: string | null
+  thumbnail?: string | null
+  quantity?: number | null
+  unit_price?: unknown
+  compare_at_unit_price?: unknown
+  variant_id?: string | null
+}
+
+type Endereco = { first_name?: string | null } | null
+
+type CarrinhoCru = {
+  id: string
+  email: string | null
+  updated_at: string | Date
+  shipping_address?: Endereco
+  billing_address?: Endereco
+  items?: Item[] | null
+}
+
+type Sessao = { provider_id?: string | null; status?: string | null; data?: unknown }
+
+type PedidoCru = {
+  id: string
+  display_id?: number | null
+  email: string | null
+  status: string
+  created_at: string | Date
+  shipping_address?: Endereco
+  items?: Item[] | null
+  payment_collections?: { payment_sessions?: Sessao[] | null }[] | null
+}
+
+/** O que o motor sabe de cada entrada, pra montar o e-mail. */
+type Detalhe = {
+  itens: ItemDoFluxo[]
+  nome: string | null
+  numero: number | null
+  pix: { codigo: string; imagem: string | null; vence: Date } | null
+  /** Pedido do Pix cancelado depois de vencer — os toques de 24 e 48 horas só saem assim. */
+  pixVencido: boolean
+}
+
+const minusculo = (e: string | null | undefined) => (e ?? "").trim().toLowerCase()
+const numero = (v: unknown) => {
+  const n = Number(v)
+  return Number.isFinite(n) ? n : null
+}
+const primeiroNome = (...enderecos: Endereco[]) => {
+  for (const e of enderecos) {
+    const nome = (e?.first_name ?? "").trim().split(/\s+/)[0]
+    if (nome) return nome.charAt(0).toUpperCase() + nome.slice(1).toLowerCase()
+  }
+  return null
+}
+
+function itensDo(itens: Item[] | null | undefined): ItemDoFluxo[] {
+  return (itens ?? []).map((i) => {
+    const quantidade = Math.max(1, Number(i.quantity) || 1)
+    const preco = numero(i.unit_price)
+    const cheio = numero(i.compare_at_unit_price)
+    return {
+      nome: `${i.product_title ?? "Produto"}${quantidade > 1 ? ` · ${quantidade} unidades` : ""}`,
+      handle: i.product_handle ?? "",
+      imagem: i.thumbnail ?? null,
+      preco,
+      precoCheio: preco !== null && cheio !== null && cheio > preco ? cheio : null,
+      quantidade,
+    }
+  })
+}
+
+const registroDe = (r: RegistroLido): Registro => ({
+  email: r.email,
+  fluxo: r.fluxo as IdDoFluxo,
+  chave: r.chave,
+  toque: r.toque as IdDoToque,
+  em: new Date(r.em),
+  // A reserva que não foi confirmada conta como envio: melhor perder um e-mail que mandar dois.
+  como: r.como === "pulado" || r.como === "controle" ? r.como : "enviado",
+  cupom: r.cupom,
+})
+
+export async function rodarOsFluxos(
+  container: MedusaContainer,
+  {
+    agora = new Date(),
+    limite = POR_RODADA,
+    so = null,
+  }: {
+    agora?: Date
+    limite?: number
+    /** Só as entradas deste e-mail (o "rodar agora" do conferidor, fora de produção). */
+    so?: string | null
+  } = {}
+): Promise<RelatorioDosFluxos> {
+  const relatorio: RelatorioDosFluxos = {
+    pessoas: 0,
+    enviados: 0,
+    cupons: 0,
+    controle: 0,
+    pulados: 0,
+    teto: 0,
+    fora: 0,
+    falhas: 0,
+    ligouAgora: [],
+  }
+  const logger = container.resolve(ContainerRegistrationKeys.LOGGER)
+
+  /* 1. os fluxos ligados — e a hora de início de quem ainda não tem */
+  const config = await mudarMetadataDaLoja(container, (metadata) => {
+    const c = lerConfigDosFluxos(metadata)
+    const sem = IDS_DOS_FLUXOS.filter((id) => c.fluxos[id].ligado && !c.fluxos[id].desde)
+    if (!sem.length) return { resultado: { c, sem } }
+    // A hora de verdade, mesmo quando o conferidor faz o tempo andar (`agora` no futuro).
+    const desde = new Date(Math.min(agora.getTime(), Date.now()))
+    for (const id of sem) c.fluxos[id] = { ligado: true, desde }
+    return { gravar: { [CHAVE_DOS_FLUXOS]: guardarConfigDosFluxos(c) }, resultado: { c, sem } }
+  })
+  if (!config) return relatorio
+  relatorio.ligouAgora = config.sem
+  // O que ligou agora ainda não olha ninguém: o começo dele é esta rodada.
+  const ligados = fluxosLigados(config.c)
+  for (const id of config.sem) delete ligados[id]
+  if (!Object.keys(ligados).length) return relatorio
+  const loja = urlDaLoja()
+  if (!loja) {
+    logger.warn("[crm] fluxos: sem LOJA_URL, os links não teriam pra onde ir — nada saiu")
+    return relatorio
+  }
+
+  /* 2. as entradas */
+  const inicio = new Date(
+    Math.max(Math.min(...Object.values(ligados).map((d) => d.getTime())), agora.getTime() - JANELA)
+  )
+  const query = container.resolve(ContainerRegistrationKeys.QUERY)
+  const campoDoItem = [
+    "items.product_title",
+    "items.product_handle",
+    "items.thumbnail",
+    "items.quantity",
+    "items.unit_price",
+    "items.compare_at_unit_price",
+  ]
+  const [carrinhos, pedidos] = await Promise.all([
+    ligados.checkout
+      ? query
+          .graph({
+            entity: "cart",
+            fields: [
+              "id",
+              "email",
+              "updated_at",
+              "shipping_address.first_name",
+              "billing_address.first_name",
+              ...campoDoItem,
+            ],
+            filters: { completed_at: null, updated_at: { $gte: inicio }, email: { $ne: null } },
+            pagination: { take: 2000, order: { updated_at: "DESC" } },
+          })
+          .then((r) => r.data as unknown as CarrinhoCru[])
+      : Promise.resolve([] as CarrinhoCru[]),
+    // Os pedidos da janela: os do Pix e os que dizem "comprou". Como na tela dos
+    // carrinhos, o e-mail é comparado sem maiúsculas aqui, e não no banco.
+    query
+      .graph({
+        entity: "order",
+        fields: [
+          "id",
+          "display_id",
+          "email",
+          "status",
+          "created_at",
+          "shipping_address.first_name",
+          // `items.*`: a quantidade do item do pedido é calculada no Medusa 2.21 (ver a 0116).
+          "items.*",
+          "payment_collections.payment_sessions.provider_id",
+          "payment_collections.payment_sessions.status",
+          "payment_collections.payment_sessions.data",
+        ],
+        filters: { created_at: { $gte: new Date(inicio.getTime() - DIA) } },
+        pagination: { take: 5000, order: { created_at: "DESC" } },
+      })
+      .then((r) => r.data as unknown as PedidoCru[]),
+  ])
+
+  const valendo = pedidos.filter((p) => p.status !== "canceled")
+  const comprouDepois = (email: string, depois: Date, fora?: string) =>
+    valendo.some(
+      (p) =>
+        p.id !== fora &&
+        minusculo(p.email) === email &&
+        new Date(p.created_at).getTime() > depois.getTime()
+    )
+
+  const entradas: Entrada[] = []
+  const detalhes = new Map<string, Detalhe>()
+  for (const c of carrinhos) {
+    const email = minusculo(c.email)
+    const itens = itensDo(c.items)
+    if (!email || !itens.length) continue
+    const comeco = new Date(c.updated_at)
+    entradas.push({
+      fluxo: "checkout",
+      chave: c.id,
+      email,
+      comeco,
+      comprou: comprouDepois(email, comeco),
+    })
+    detalhes.set(c.id, {
+      itens,
+      nome: primeiroNome(c.shipping_address ?? null, c.billing_address ?? null),
+      numero: null,
+      pix: null,
+      pixVencido: false,
+    })
+  }
+  if (ligados.pix)
+    for (const p of pedidos) {
+      const email = minusculo(p.email)
+      const sessoes = (p.payment_collections ?? []).flatMap((c) => c.payment_sessions ?? [])
+      const estado = estadoDaSessao(sessaoDoParceiro(sessoes))
+      const vence = estado?.pix?.expiraEm ? new Date(estado.pix.expiraEm) : null
+      if (!email || estado?.forma !== "pix" || !vence || Number.isNaN(vence.getTime())) continue
+      const criado = new Date(p.created_at)
+      entradas.push({
+        fluxo: "pix",
+        chave: p.id,
+        email,
+        comeco: comecoDoPix(vence),
+        inicio: criado,
+        comprou: estado.situacao === "pago" || comprouDepois(email, criado, p.id),
+      })
+      detalhes.set(p.id, {
+        itens: itensDo(p.items),
+        nome: primeiroNome(p.shipping_address ?? null),
+        numero: p.display_id ?? null,
+        pix: estado.pix
+          ? { codigo: estado.pix.copiaECola, imagem: estado.pix.imagem || null, vence }
+          : null,
+        pixVencido: p.status === "canceled" && vence.getTime() < agora.getTime(),
+      })
+    }
+  if (so) {
+    const quem = minusculo(so)
+    entradas.splice(0, entradas.length, ...entradas.filter((e) => e.email === quem))
+  }
+  if (!entradas.length) return relatorio
+
+  /* 3. quem fica de fora */
+  const emails = [...new Set(entradas.map((e) => e.email))]
+  const crm = container.resolve<CrmService>(CRM)
+  const [equipe, saidas, semEntrega, lidos] = await Promise.all([
+    daEquipe(container),
+    crm.quemSaiu(emails),
+    crm.semEntrega(emails),
+    crm.registrosDosFluxos(new Date(agora.getTime() - (DIAS_ENTRE_CUPONS + 1) * DIA), emails),
+  ])
+  const voltouPraLista = await quemVoltouPraLista(container, saidas)
+  const fora = (email: string) =>
+    equipe.has(email) || semEntrega.has(email) || (saidas.has(email) && !voltouPraLista.has(email))
+
+  const registros = lidos.map(registroDe)
+  const porPessoa = new Map<string, Entrada[]>()
+  for (const e of entradas) porPessoa.set(e.email, [...(porPessoa.get(e.email) ?? []), e])
+
+  /* 4 e 5. a decisão de cada pessoa, e o que ela manda fazer */
+  const infoDaLoja = await dadosDaLoja(container, loja)
+  for (const [email, dela] of porPessoa) {
+    if (relatorio.enviados >= limite) break
+    relatorio.pessoas++
+    if (fora(email)) {
+      relatorio.fora++
+      continue
+    }
+    const r = decidir({
+      entradas: dela,
+      registros: registros.filter((x) => x.email === email),
+      ligados,
+      agora,
+    })
+    if (!r || r.decisao.tipo === "nada") continue
+    const { entrada, decisao } = r
+    const base = { email, fluxo: entrada.fluxo, chave: entrada.chave, em: agora }
+    if (decisao.tipo === "teto") {
+      relatorio.teto++
+      continue
+    }
+    for (const toque of decisao.pulados) {
+      if (await crm.anotarNoFluxo({ ...base, toque, como: "pulado" })) relatorio.pulados++
+    }
+    if (decisao.tipo === "controle") {
+      if (await crm.anotarNoFluxo({ ...base, toque: decisao.toque.id, como: "controle" }))
+        relatorio.controle++
+      continue
+    }
+    const detalhe = detalhes.get(entrada.chave)
+    if (!detalhe) continue
+    // Os toques do Pix depois de vencido só saem com o pedido cancelado: o texto diz isso.
+    if (entrada.fluxo === "pix" && decisao.toque.id !== "pix-vence" && !detalhe.pixVencido) continue
+
+    const reserva = await crm.reservarToque({ ...base, toque: decisao.toque.id })
+    if (!reserva) continue
+    let falha: string | null = null
+    let cupomCriado: string | null = null
+    try {
+      const cupom = decisao.darCupom
+        ? {
+            ...(await criarCupomDoFluxo(container, {
+              porcento: config.c.desconto,
+              agora,
+            })),
+            porcento: config.c.desconto,
+          }
+        : cupomQueAindaVale(lidos, entrada.chave, agora, config.c.desconto)
+      if (cupom && "id" in cupom) cupomCriado = cupom.id as string
+      const compra: CompraDoFluxo = {
+        toque: decisao.toque.id,
+        para: email,
+        nome: detalhe.nome,
+        itens: detalhe.itens,
+        numero: detalhe.numero,
+        pix: decisao.toque.id === "pix-vence" ? detalhe.pix : null,
+        cupom,
+        voltar: linkDeVoltar(entrada.chave, agora),
+        sair: linksDeSair(loja, email),
+        loja: infoDaLoja,
+      }
+      const enviado = await enviarEmail(
+        { ...emailDoCrm(emailDoFluxo(compra)), remetente: remetenteDoCrm() },
+        logger,
+        {
+          idempotencia: `crm-${entrada.fluxo}/${entrada.chave}/${decisao.toque.id}`,
+          tipo: `crm-${entrada.fluxo}`,
+        }
+      )
+      if (enviado.ok) {
+        await crm.confirmarToque(reserva, {
+          resendId: enviado.id ?? null,
+          cupom: decisao.darCupom && cupom ? cupom.codigo : null,
+          cupomAte: decisao.darCupom && cupom ? cupom.ate : null,
+        })
+        relatorio.enviados++
+        if (cupomCriado) relatorio.cupons++
+        await new Promise((ok) => setTimeout(ok, PAUSA_MS))
+      } else falha = enviado.motivo
+    } catch (e) {
+      falha = e instanceof Error ? e.message : String(e)
+    }
+    if (falha !== null) {
+      relatorio.falhas++
+      await crm.desfazerToque(reserva)
+      // O cupom de um e-mail que não saiu não fica solto: a próxima rodada cria outro.
+      if (cupomCriado)
+        await container
+          .resolve(Modules.PROMOTION)
+          .deletePromotions([cupomCriado])
+          .catch(() => undefined)
+      logger.warn(
+        `[crm] fluxos: o toque ${decisao.toque.id} de ${entrada.chave} não saiu — ${falha}`
+      )
+    }
+  }
+  return relatorio
+}
+
+/** O cupom que o toque de 24 horas deu pra esta entrada, se ainda vale — o de 48 horas lembra dele. */
+function cupomQueAindaVale(
+  lidos: readonly RegistroLido[],
+  chave: string,
+  agora: Date,
+  porcento: number
+): CompraDoFluxo["cupom"] {
+  const r = lidos.find((x) => x.chave === chave && x.cupom && x.cupom_ate)
+  if (!r?.cupom || !r.cupom_ate || new Date(r.cupom_ate).getTime() <= agora.getTime()) return null
+  return { codigo: r.cupom, ate: new Date(r.cupom_ate), porcento }
+}
+
+/** Os e-mails da equipe do painel e do admin do Medusa: e-mail de oferta não é pra eles. */
+async function daEquipe(container: MedusaContainer): Promise<Set<string>> {
+  const [membros, usuarios] = await Promise.all([
+    container
+      .resolve<EquipeService>(EQUIPE)
+      .listMembros({}, { select: ["email"], take: 1000 })
+      .catch(() => []),
+    container
+      .resolve(Modules.USER)
+      .listUsers({}, { select: ["email"], take: 1000 })
+      .catch(() => []),
+  ])
+  return new Set([...membros, ...usuarios].map((m) => minusculo(m.email)).filter(Boolean))
+}
+
+/**
+ * De quem saiu da lista, quem disse "sim" de novo DEPOIS (a newsletter do
+ * rodapé, a caixa de ofertas da conta): esses voltaram por conta própria.
+ */
+async function quemVoltouPraLista(
+  container: MedusaContainer,
+  saidas: Map<string, Date>
+): Promise<Set<string>> {
+  const voltou = new Set<string>()
+  for (const [email, saiu] of saidas) {
+    const [inscricoes, clientes] = await Promise.all([
+      inscricoesDaNewsletter(container, { email }),
+      lerClientes(container, { email }),
+    ])
+    const sins = [
+      ...inscricoes.map((i) => i.consentido_em),
+      ...clientes.map((c) => {
+        const ofertas = (c.metadata?.ofertas ?? null) as Record<string, unknown> | null
+        return typeof ofertas?.email === "string" ? ofertas.email : null
+      }),
+    ]
+    if (sins.some((s) => s && new Date(s).getTime() > saiu.getTime())) voltou.add(email)
+  }
+  return voltou
+}
+
+/** O que o pé do e-mail mostra da loja: o endereço, o WhatsApp e a empresa. */
+async function dadosDaLoja(
+  container: MedusaContainer,
+  url: string
+): Promise<CompraDoFluxo["loja"]> {
+  const [whatsapp, lojas] = await Promise.all([
+    whatsappDaLoja(container),
+    container.resolve(Modules.STORE).listStores({}, { select: ["metadata"], take: 1 }),
+  ])
+  const { empresa } = lerConfiguracoes(lojas[0]?.metadata)
+  return { url, whatsapp, empresa: empresa.razaoSocial, cnpj: empresa.cnpj }
+}
