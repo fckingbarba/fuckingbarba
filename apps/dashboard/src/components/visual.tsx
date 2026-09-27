@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import { Icone } from "@/components/icones"
+import { Icone, type NomeDoIcone } from "@/components/icones"
 import { iniciais } from "@/lib/equipe"
 import type { LinhaDaLista } from "@/lib/pedidos"
 
@@ -8,7 +8,8 @@ import type { LinhaDaLista } from "@/lib/pedidos"
  * desenho: o "?" que guarda a explicação, a sigla da pessoa, as fotos dos
  * produtos, o ícone do Pix e do cartão, o tracinho dos seis passos e as
  * barrinhas da semana. Sem JavaScript no navegador: o "?" é um
- * `<details>`, e o resto é HTML.
+ * `<details>`, e o resto é HTML. A 0155 trouxe a faixa com o "?" (o pedido
+ * e o produto abertos).
  */
 
 /**
@@ -122,6 +123,89 @@ export function Faisca({ valores }: { valores: { valor: number; hoje: boolean }[
           data-hoje={v.hoje ? "" : undefined}
           style={{ height: `${Math.max(8, (v.valor / maior) * 100).toFixed(0)}%` }}
         />
+      ))}
+    </span>
+  )
+}
+
+const ICONE_DA_FAIXA = { grave: "alerta", atencao: "relogio", info: "check" } as const
+
+/**
+ * A faixa do topo (o pedido, o produto): o título e o que dá pra dizer em
+ * poucas palavras ficam à vista; a explicação inteira vai no "?"; o botão
+ * que resolve fica embaixo. O `.faixa__titulo` é só o título (os
+ * conferidores leem ele sozinho).
+ */
+export function Faixa({
+  nivel,
+  titulo,
+  etiquetas = [],
+  extra,
+  ajuda,
+  acoes,
+  icone,
+  ...dados
+}: {
+  nivel: keyof typeof ICONE_DA_FAIXA
+  titulo: string
+  /** As palavras à vista ("sem CPF/CNPJ", "vale até 14:30"). */
+  etiquetas?: string[]
+  /** O que vai depois das etiquetas: a pílula de quem é, a do aviso de volta. */
+  extra?: ReactNode
+  ajuda?: ReactNode
+  acoes?: ReactNode
+  icone?: NomeDoIcone
+} & { [dado: `data-${string}`]: string | undefined }) {
+  return (
+    <div className="faixa" data-nivel={nivel} {...dados}>
+      <Icone nome={icone ?? ICONE_DA_FAIXA[nivel]} />
+      <div className="faixa__miolo">
+        <div className="faixa__cabeca">
+          <p className="faixa__titulo">{titulo}</p>
+          {etiquetas.map((e) => (
+            <span className="faixa__etiqueta" key={e}>
+              {e}
+            </span>
+          ))}
+          {extra}
+          {ajuda ? <Ajuda rotulo="Por quê">{ajuda}</Ajuda> : null}
+        </div>
+        {acoes ? <div className="faixa__acoes">{acoes}</div> : null}
+      </div>
+    </div>
+  )
+}
+
+/** A pílula com ícone ("Só pra ver", "Estorno é com o dono."): o desenho diz antes da palavra. */
+export function Pilula({
+  icone,
+  children,
+  suave = false,
+  ...dados
+}: {
+  icone: NomeDoIcone
+  children: ReactNode
+  suave?: boolean
+} & { [dado: `data-${string}`]: string | undefined }) {
+  return (
+    <span className={suave ? "pilula pilula--suave" : "pilula"} {...dados}>
+      <Icone nome={icone} />
+      {children}
+    </span>
+  )
+}
+
+/** As fichas de uma frase com " · " ("até 30/09 · 100 usos no total" → duas fichas). */
+export function Fichas({
+  frase,
+  ...dados
+}: { frase: string } & { [dado: `data-${string}`]: string | undefined }) {
+  const partes = frase.split(" · ").filter(Boolean)
+  if (!partes.length) return null
+  return (
+    <span className="fichas-da-frase" {...dados}>
+      {partes.map((p) => (
+        <span key={p}>{p}</span>
       ))}
     </span>
   )
