@@ -1,4 +1,6 @@
 import type { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/framework/http"
+import { Modules } from "@medusajs/framework/utils"
+import { lerAjustesGuardados } from "../../../../lib/crm/ajustes"
 import { abre, exigirArea, type PedidoDaEquipe } from "../../../../lib/equipe/acesso"
 import { fichaDoCliente, juntarPessoas } from "../../../../lib/painel/clientes"
 import { fichaDoCrmDoCliente } from "../../../../lib/painel/crm"
@@ -26,7 +28,8 @@ import type CrmService from "../../../../modules/crm/service"
  *
  * Quem abre o CRM vê também a parte do CRM (`cliente.crm`,
  * `fichaDoCrmDoCliente`): as cinco etiquetas, de onde a pessoa chegou e o
- * caminho dela. Sem a área dos pedidos, sem o número do pedido.
+ * caminho dela, com os Ajustes do CRM (`fb_crm`, no metadata da loja). Sem a
+ * área dos pedidos, sem o número do pedido.
  *
  * RESPOSTAS: 200 `{ cliente }`; 404 `nao_encontrado`.
  */
@@ -64,7 +67,10 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
     res.json({ cliente: ficha })
     return
   }
-  const crm = await req.scope.resolve<CrmService>(CRM).pessoa(doCrm)
+  const [crm, lojas] = await Promise.all([
+    req.scope.resolve<CrmService>(CRM).pessoa(doCrm),
+    req.scope.resolve(Modules.STORE).listStores({}, { select: ["metadata"], take: 1 }),
+  ])
   const newsletter = inscricoes
     .map((i) => new Date(i.consentido_em))
     .filter((d) => Number.isFinite(d.getTime()))
@@ -79,6 +85,7 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
           envios,
           newsletterDesde: newsletter ?? null,
           comNumero: abre(pedido, "pedidos"),
+          ajustes: lerAjustesGuardados(lojas[0]?.metadata),
         },
         ctx.agora
       ),

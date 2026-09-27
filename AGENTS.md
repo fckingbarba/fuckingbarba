@@ -2011,7 +2011,7 @@ Barba"). Só de quem disse sim à faixa de cookies, e ligado ao e-mail da pessoa
   (`prefetch={false}`): com a faixa em toda primeira tela, o prefetch baixava o HTML, o CSS e o JS
   das páginas institucionais no meio do carregamento.
 
-O conferidor é o `apps/dashboard/ferramentas/conferir-crm.mjs` (72 com as partes 2 e 3): a rota (assinatura, lote,
+O conferidor é o `apps/dashboard/ferramentas/conferir-crm.mjs` (85 com as partes 2 a 4): a rota (assinatura, lote,
 esquecer), a loja com "Só o necessário" (nada sai, nenhum cookie) e com "Aceitar" (a chegada com a
 campanha, o produto, a sacola e o e-mail do checkout chegando nas anotações de antes), a
 newsletter, a conta (o código pelo Resend falso), a tela do dono, do marketing no celular e da
@@ -2086,6 +2086,44 @@ O `conferir-crm.mjs` confere a ficha da conta da rodada (lead, quente pelo cliqu
 caminho com o e-mail clicado e o site, a tela, e a operação sem a parte do CRM); o
 `conferir-clientes.mjs`, as etiquetas com pedidos de verdade (1ª compra, a oferta do checkout fora
 do cupom, o Pix esperando fora da compra, o marketing sem o número do pedido).
+
+**O CRM, parte 4: os Ajustes** (entrega 0149). CRM → Ajustes (`/crm/ajustes`, a aba do lado do
+Resumo): quanto dura cada tipo de produto e as regras das etiquetas, que valem na ficha de cada
+cliente.
+
+- **A regra** é `lib/crm/ajustes.ts`, pura, com testes:
+  - `lerAjustesGuardados`: o `fb_crm` do metadata da loja por cima de `AJUSTES_PADRAO`. É
+    tolerante: o número fora do limite, o apagado ou o morno antes do quente volta pro padrão;
+  - `lerMudancaDosAjustes`: estrita. Recebe o formulário inteiro e devolve cada campo errado com a
+    frase, em `dias.<tipo>` ou `regras.<regra>`;
+  - `soOQueMudou`: só o diferente do padrão vai pro metadata. Quando o padrão mudar (o histórico da
+    Nuvemshop), o número que ninguém mexeu acompanha;
+  - `montarTelaDosAjustes`: os produtos publicados que contam como cada tipo (pelo
+    `componentesDoProduto`) e os que ficam fora da conta.
+- **As regras** são `RegrasDasEtiquetas` (`etiquetas.ts`), com o padrão em `REGRAS_PADRAO`: a
+  tolerância do em risco (20 dias), o em risco sem previsão (60), o sunset (45), o quente (30), o
+  morno (90) e as compras do cupom (3). A entrega estimada (7 dias depois de pago, a partir de 10)
+  segue fixa.
+- **As rotas:** `GET/POST /dashboard/crm/ajustes`, na área `crm`. O POST grava pelo
+  `mudarMetadataDaLoja` e anota `mudou-ajustes-do-crm` no registro da equipe. A ficha
+  (`GET /dashboard/clientes/:id`) lê o metadata da loja junto e passa os ajustes pro
+  `fichaDoCrmDoCliente`.
+- **O painel:** `components/ajustes-do-crm.tsx` tem o desenho da tabela dos acessos: amarelo =
+  diferente do padrão, as mudanças sem salvar, Desfazer, Voltar ao padrão e Salvar. A ação é
+  `lib/acoes/crm.ts`, e as abas são `AbasDoCrm`. O `/crm`, os Ajustes e a ficha do cliente leem
+  junto com o "quem é" (`void ler(caminho)`, o padrão da 0146).
+- Produto novo com o nome fora do padrão aparece em "Fora da conta da próxima compra": ponha ele em
+  `KITS` (`etiquetas.ts`).
+
+O `conferir-crm.mjs` (85) cria um pedido de Fator entregue pela `fabricaDePedidos`, com a Frenet e o
+Pagar.me falsos. Pra isso precisa de ADMIN_EMAIL/ADMIN_SENHA, MEDUSA_WEBHOOK_SEGREDO, PORTA_FALSA e
+PORTA_PAGARME_FALSO. Ele confere:
+- o número errado recusado;
+- a operação sem os Ajustes;
+- o marketing mudando o Fator pra 40 dias no celular, e a próxima compra da ficha andando junto;
+- o "Voltar ao padrão".
+
+No fim, os Ajustes voltam ao padrão: o banco local é de todos os conferidores.
 
 **O preço e o promocional no painel** (entregas 0098 e 0102): os dois campos de cada produto na
 lista de Produtos, como na Nuvemshop (a 0098 tinha só o promocional, atrás de um botão). A regra é

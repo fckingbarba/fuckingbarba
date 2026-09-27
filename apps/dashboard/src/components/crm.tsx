@@ -17,7 +17,8 @@ import {
  * das peças do painel: o número, o bloco, o ícone chanfrado da fila do Início.
  *
  * Na ficha do cliente (parte 3): as cinco etiquetas da pessoa e o caminho
- * dela — o site, os e-mails e as compras juntos.
+ * dela — o site, os e-mails e as compras juntos. As abas (parte 4): o
+ * Resumo e os Ajustes (`components/ajustes-do-crm.tsx`).
  */
 
 const ICONE: Record<TipoDoCrm, NomeDoIcone> = {
@@ -54,6 +55,24 @@ const ETAPAS: { nome: string; tipos: TipoDoCrm[] }[] = [
 
 const inteiro = new Intl.NumberFormat("pt-BR")
 const navegadores = (n: number) => `${inteiro.format(n)} ${n === 1 ? "navegador" : "navegadores"}`
+
+/** As abas do CRM: o Resumo (o que a loja anotou) e os Ajustes. */
+export function AbasDoCrm({ atual }: { atual: "resumo" | "ajustes" }) {
+  return (
+    <nav className="abas" aria-label="CRM">
+      <Link href="/crm" aria-current={atual === "resumo" ? "page" : undefined} data-aba="resumo">
+        Resumo
+      </Link>
+      <Link
+        href={"/crm/ajustes" as Route}
+        aria-current={atual === "ajustes" ? "page" : undefined}
+        data-aba="ajustes"
+      >
+        Ajustes
+      </Link>
+    </nav>
+  )
+}
 
 export function PeriodosDoCrm({ atual }: { atual: PeriodoDoCrm }) {
   return (

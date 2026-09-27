@@ -56,3 +56,35 @@
 .etiqueta[data-tom="ruim"] { border-top-color: var(--erro); }
 .etiqueta[data-tom="ruim"] .fila__ico { background: var(--erro); color: #fff; }
 .etiqueta[data-tom="ruim"] .etiqueta__valor { color: var(--erro); }
+
+/* Os Ajustes do CRM (parte 4): quanto dura cada tipo de produto e as regras das etiquetas. Em amarelo, o número diferente do padrão (como na tabela dos acessos). */
+.ajustes-tipos { list-style: none; margin: 0; padding: 0; }
+.ajuste-tipo { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid rgba(18, 24, 31, 0.1); }
+.ajuste-tipo:last-child { border-bottom: 0; }
+.ajuste-tipo .fila__ico { width: 30px; height: 30px; }
+.ajuste-tipo__titulo { margin: 0; font-size: 0.9rem; font-weight: 800; }
+.ajuste-tipo__produtos { margin: 2px 0 0; font-size: 0.74rem; line-height: 1.35; color: var(--tinta-suave); }
+.ajuste-tipo__campo { display: flex; align-items: center; gap: 8px; }
+.ajuste__numero { display: inline-flex; }
+.ajuste__numero input { width: 64px; min-height: 40px; padding: 6px 8px; border: 2px solid var(--linha); background: var(--papel); color: var(--tinta); font: inherit; font-size: 1rem; font-weight: 800; text-align: center; font-variant-numeric: tabular-nums; -webkit-appearance: none; appearance: none; }
+.ajuste__numero input:focus-visible { outline: none; border-color: var(--tinta); box-shadow: 0 0 0 3px rgba(255, 216, 77, 0.55); }
+.ajuste__numero[data-mudado] input { background: var(--amarelo-palido); border-color: var(--amarelo-borda); }
+.ajuste__numero input[aria-invalid="true"] { border-color: var(--erro); }
+.ajuste__unidade { font-size: 0.8rem; font-weight: 700; color: var(--tinta-suave); }
+.ajuste__erro { margin-top: 4px; }
+.ajuste-exemplo { display: flex; gap: 8px; align-items: flex-start; margin: 12px 0 0; padding: 9px 11px; background: var(--cinza); border-left: 4px solid var(--menta-escura); font-size: 0.8rem; font-weight: 600; }
+.ajuste-exemplo svg { flex-shrink: 0; width: 16px; height: 16px; margin-top: 1px; color: var(--menta-escura); }
+.ajustes-fora { margin: 12px 0 0; }
+.ajustes-grupos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 1180px) { .ajustes-grupos { grid-template-columns: minmax(0, 1fr); } }
+.ajuste-grupo { display: grid; gap: 10px; align-content: start; padding: 12px 14px 14px; background: var(--cinza); border-top: 4px solid var(--tinta); }
+.ajuste-grupo__nome { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 0.62rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--tinta-suave); }
+.ajuste-grupo__nome svg { width: 16px; height: 16px; }
+.ajuste-regra__titulo { margin: 0 0 6px; font-size: 0.84rem; font-weight: 800; }
+.ajuste-regra__frase { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; font-size: 0.8rem; font-weight: 600; line-height: 1.35; color: var(--tinta-suave); }
+.ajuste-regra + .ajuste-regra { padding-top: 10px; border-top: 1px solid rgba(18, 24, 31, 0.1); }
+.ajustes__pe { margin: 16px 0 0; padding: 14px 0 0; }
+@media (max-width: 640px) {
+  .ajuste-tipo { grid-template-columns: minmax(0, 1fr) auto; }
+  .ajuste-tipo .fila__ico { display: none; }
+}

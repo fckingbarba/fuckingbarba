@@ -9,7 +9,10 @@
  * Variáveis: as de `pecas.mjs`, a NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY, o
  * Medusa mandando os códigos pro Resend falso (`RESEND_URL`) e o segredo dos
  * avisos do Resend (`RESEND_WEBHOOK_SEGREDO`, o mesmo do Medusa: o
- * conferidor assina os avisos como o Resend). A regra de
+ * conferidor assina os avisos como o Resend). Pros Ajustes (parte 4), o
+ * pedido de Fator entregue nasce como no `conferir-clientes`: ADMIN_EMAIL e
+ * ADMIN_SENHA (o admin LOCAL), MEDUSA_WEBHOOK_SEGREDO, PORTA_FALSA (a Frenet
+ * falsa) e PORTA_PAGARME_FALSO. A regra de
  * cada evento tem os testes de unidade do backend
  * (`lib/crm/__tests__/eventos.unit.spec.ts`); aqui é o caminho inteiro, pela
  * tela, e o que o painel mostra.
@@ -32,10 +35,16 @@
  * │   chegou, ou com um caminho que não junta o site e os e-mails; a       │
  * │   operação recebendo a parte do CRM. (Os pedidos na ficha: o           │
  * │   conferir-clientes.)                                                  │
+ * │ • (parte 4) os Ajustes que não valem na ficha (o Fator com outros      │
+ * │   dias e a próxima compra parada); número errado gravando; a operação  │
+ * │   abrindo os Ajustes; o "Voltar ao padrão" que não volta.              │
  * └────────────────────────────────────────────────────────────────────────┘
  */
 
 import { createHmac, randomUUID } from "node:crypto"
+import { subirFrenetFalsa } from "../../loja/ferramentas/frenet-falsa.mjs"
+import { subirPagarmeFalso } from "../../loja/ferramentas/pagarme-falso.mjs"
+import { fabricaDePedidos } from "../../loja/ferramentas/pedido-de-teste.mjs"
 import {
   abrirNavegador,
   caixaDoResend,
@@ -84,8 +93,18 @@ const mascarado = (email) => `${email[0]}•••@${email.split("@")[1]}`
 
 const resend = await subirResend()
 const caixa = caixaDoResend(resend)
+// A Frenet e o Pagar.me falsos: o pedido de Fator entregue dos Ajustes (parte 4).
+const frenet = await subirFrenetFalsa()
+const pagarme = await subirPagarmeFalso({
+  webhook: {
+    url: `${MEDUSA}/hooks/payment/pagarme_pagarme`,
+    segredo: process.env.MEDUSA_WEBHOOK_SEGREDO ?? "",
+  },
+})
 const { navegador, novaAba, errosDeConsole } = await abrirNavegador()
-console.log(`  ⚙  Resend :${resend.porta} · painel ${PAINEL} · loja ${LOJA}`)
+console.log(
+  `  ⚙  Resend :${resend.porta} · Frenet :${frenet.porta ?? "?"} · Pagar.me :${pagarme.porta} · painel ${PAINEL} · loja ${LOJA}`
+)
 
 let tokenDoDono = ""
 /** A tela do CRM, pela API, como o dono vê. */
@@ -105,6 +124,20 @@ async function esperarTela(cond, ms = 40000) {
   }
   return t
 }
+/** Os Ajustes do CRM, como o formulário da tela manda: o texto de cada campo. */
+const formularioDe = (a) => ({
+  dias: Object.fromEntries(Object.entries(a.dias).map(([k, v]) => [k, String(v)])),
+  regras: Object.fromEntries(Object.entries(a.regras).map(([k, v]) => [k, String(v)])),
+})
+/** Os Ajustes do padrão, pra voltar a eles no fim (o banco local é de todos os conferidores). */
+let padraoDosAjustes = null
+/** "27/10": o dia em Brasília, como o painel escreve. */
+const DIA = new Intl.DateTimeFormat("pt-BR", {
+  timeZone: "America/Sao_Paulo",
+  day: "2-digit",
+  month: "2-digit",
+})
+const daquiA = (dias) => DIA.format(new Date(Date.now() + dias * 24 * 60 * 60 * 1000))
 const linhas = (t) => t?.ultimos ?? []
 const vezes = (t, tipo) => t?.tipos?.find((x) => x.tipo === tipo)?.vezes ?? 0
 const daCampanha = (t) => linhas(t).find((l) => l.oque.includes(CAMPANHA))
@@ -635,6 +668,150 @@ try {
     primeiroPasso
   )
 
+  /* ── os Ajustes (parte 4) ────────────────────────────────────────────────── */
+
+  titulo("Os Ajustes do CRM")
+  const ajustes = (token) => medusa("/dashboard/crm/ajustes", { metodo: "GET", token })
+  const salvarAjustes = (token, corpo) => medusa("/dashboard/crm/ajustes", { token, corpo })
+  const noComeco = (await ajustes(tokenDoDono)).corpo
+  padraoDosAjustes = noComeco.padrao
+  // Começa do padrão: uma rodada que caiu no meio pode ter deixado o Fator com outros dias.
+  ok(
+    (await salvarAjustes(tokenDoDono, formularioDe(padraoDosAjustes))).status === 200,
+    "o dono salva os Ajustes (começando do padrão)"
+  )
+  const telaDosAjustes = (await ajustes(tokenDoDono)).corpo
+  ok(
+    telaDosAjustes.ajustes?.dias?.fator === 30 &&
+      telaDosAjustes.ajustes?.regras?.toleranciaDaReposicao === 20 &&
+      telaDosAjustes.tipos
+        ?.find((t) => t.tipo === "fator")
+        ?.produtos.includes("Fator de Crescimento para Barba 30ml"),
+    "os números do padrão, e o Fator da loja contando como Fator",
+    JSON.stringify(telaDosAjustes.tipos?.slice(0, 2))
+  )
+  ok(
+    (await ajustes(cookieOp.value)).status === 403 &&
+      (await salvarAjustes(cookieOp.value, formularioDe(padraoDosAjustes))).status === 403,
+    "a operação não abre nem salva os Ajustes"
+  )
+  const errado = await salvarAjustes(tokenDoDono, {
+    dias: { ...formularioDe(padraoDosAjustes).dias, fator: "0" },
+    regras: { ...formularioDe(padraoDosAjustes).regras, quente: "60", morno: "60" },
+  })
+  ok(
+    errado.status === 422 &&
+      errado.corpo.erros?.["dias.fator"] === "Um número de 1 a 365." &&
+      errado.corpo.erros?.["regras.morno"] === "Maior que o do quente (60)." &&
+      (await ajustes(tokenDoDono)).corpo.ajustes.dias.fator === 30,
+    "número errado: 422, com a frase de cada campo, e nada grava",
+    JSON.stringify(errado.corpo)
+  )
+
+  // Um pedido de Fator, entregue hoje: a próxima compra é a entrega + o que o Fator dura.
+  const DO_FATOR = `fator@${DOMINIO}`
+  const fabrica = fabricaDePedidos({
+    medusa: MEDUSA,
+    chave: CHAVE,
+    tokenAdmin: (
+      await (
+        await fetch(`${MEDUSA}/auth/user/emailpass`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            email: process.env.ADMIN_EMAIL,
+            password: process.env.ADMIN_SENHA,
+          }),
+        })
+      ).json()
+    ).token,
+    pagarme,
+  })
+  const doFator = await fabrica.pedidoPix(DO_FATOR, [["fator-de-crescimento-para-barba", 1]])
+  await fabrica.pagar(doFator)
+  await fabrica.entregar(
+    doFator,
+    await fabrica.enviar(doFator, { codigo: `QS${Date.now() % 1e9}BR`, avisar: false })
+  )
+  const clienteDoFator = (
+    await medusa(`/dashboard/clientes?busca=${encodeURIComponent(DO_FATOR)}`, {
+      metodo: "GET",
+      token: tokenDoDono,
+    })
+  ).corpo.clientes?.find((c) => c.email === DO_FATOR)
+  const proximaDoFator = async () =>
+    (
+      await medusa(`/dashboard/clientes/${clienteDoFator?.id}`, {
+        metodo: "GET",
+        token: tokenDoDono,
+      })
+    ).corpo.cliente?.crm?.etiquetas?.find((e) => e.chave === "proxima")
+  const antesDoAjuste = await proximaDoFator()
+  ok(
+    antesDoAjuste?.valor === daquiA(30),
+    "a ficha de quem recebeu 1 Fator hoje: a próxima compra daqui a 30 dias",
+    JSON.stringify(antesDoAjuste)
+  )
+
+  // O marketing muda o Fator pra 40 dias, pela tela do celular.
+  await mkt.pagina.goto(`${PAINEL}/crm/ajustes`)
+  await mkt.pagina.locator("[data-ajustes-crm]").waitFor({ timeout: 20000 })
+  await hidratado(mkt.pagina, '[data-dias="fator"]')
+  ok(
+    (await mkt.pagina.locator('.abas [data-aba="ajustes"][aria-current="page"]').count()) === 1 &&
+      (await mkt.pagina.locator("[data-salvar-ajustes]").isDisabled()),
+    "a aba Ajustes acesa, e o Salvar parado sem mudança"
+  )
+  await mkt.pagina.locator('[data-dias="fator"]').fill("40")
+  ok(
+    semEspaco(await mkt.pagina.locator("[data-pendentes]").textContent()) ===
+      "1 mudança sem salvar" &&
+      (await mkt.pagina.locator('.ajuste__numero[data-mudado] [data-dias="fator"]').count()) ===
+        1 &&
+      /acaba 120 dias depois da entrega/.test(
+        await mkt.pagina.locator("[data-exemplo-do-fator]").textContent()
+      ),
+    "mudou: em amarelo, “1 mudança sem salvar”, e o exemplo do kit de 3 refeito"
+  )
+  const vezAntes = await mkt.pagina.locator(".aviso").getAttribute("data-vez")
+  await mkt.pagina.locator("[data-salvar-ajustes]").click()
+  await mkt.pagina.waitForFunction(
+    (v) => document.querySelector(".aviso")?.getAttribute("data-vez") !== v,
+    vezAntes,
+    { timeout: 20000 }
+  )
+  ok(
+    /^Ajustes salvos/.test(semEspaco(await mkt.pagina.locator(".aviso").textContent())),
+    "o marketing salva: “Ajustes salvos”",
+    semEspaco(await mkt.pagina.locator(".aviso").textContent())
+  )
+  ok((await ajustes(tokenDoDono)).corpo.ajustes?.dias?.fator === 40, "o Fator agora dura 40 dias")
+  ok(await semRolagemDeLado(mkt.pagina), "os Ajustes no celular, sem rolar de lado")
+  const depoisDoAjuste = await proximaDoFator()
+  ok(
+    depoisDoAjuste?.valor === daquiA(40),
+    "e a próxima compra da ficha anda junto: daqui a 40 dias",
+    JSON.stringify(depoisDoAjuste)
+  )
+
+  // O dono volta ao padrão, pela tela.
+  await dono.pagina.goto(`${PAINEL}/crm/ajustes`)
+  await dono.pagina.locator("[data-ajustes-crm]").waitFor({ timeout: 20000 })
+  await hidratado(dono.pagina, "[data-voltar-ao-padrao]")
+  await dono.pagina.locator("[data-voltar-ao-padrao]").click()
+  const vezDoDono = await dono.pagina.locator(".aviso").getAttribute("data-vez")
+  await dono.pagina.locator("[data-salvar-ajustes]").click()
+  await dono.pagina.waitForFunction(
+    (v) => document.querySelector(".aviso")?.getAttribute("data-vez") !== v,
+    vezDoDono,
+    { timeout: 20000 }
+  )
+  ok(
+    (await ajustes(tokenDoDono)).corpo.ajustes?.dias?.fator === 30 &&
+      (await proximaDoFator())?.valor === daquiA(30),
+    "“Voltar ao padrão” e salvar: o Fator volta aos 30 dias, e a ficha também"
+  )
+
   /* ── o painel ───────────────────────────────────────────────────────────── */
 
   titulo("A tela do CRM")
@@ -671,6 +848,12 @@ try {
   ok(
     (await dono.pagina.locator('[data-periodo="hoje"][aria-current="page"]').count()) === 1,
     "o período de hoje aceso"
+  )
+  ok(
+    (await dono.pagina.locator('.abas [data-aba="resumo"][aria-current="page"]').count()) === 1 &&
+      (await dono.pagina.locator('.abas [data-aba="ajustes"]').getAttribute("href")) ===
+        "/crm/ajustes",
+    "as abas do CRM: o Resumo aceso, e os Ajustes do lado"
   )
   const primeira = semEspaco(
     await dono.pagina.locator("[data-ultimas-crm] .anotacao").first().textContent()
@@ -752,6 +935,12 @@ try {
 } catch (e) {
   falhou(e?.stack ?? String(e))
 } finally {
+  // Os Ajustes voltam ao padrão: o banco local é de todos os conferidores.
+  if (tokenDoDono && padraoDosAjustes)
+    await medusa("/dashboard/crm/ajustes", {
+      token: tokenDoDono,
+      corpo: formularioDe(padraoDosAjustes),
+    }).catch(() => null)
   await navegador.close()
   await resend.fechar()
 }
