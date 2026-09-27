@@ -3367,8 +3367,42 @@ gravar em lugar nenhum.
 - [ ] **Depois do deploy — você, uma vez:** Painel → CRM → Base da Nuvemshop → "Escolher os
       arquivos" → os três que você exportou (clientes.csv, vendas.csv e carrinho_abandonado.csv).
       Depois, se quiser, Ajustes → "Usar os números da Nuvemshop" → Salvar ajustes.
-- [ ] **As próximas partes da Fundação** (uma entrega cada, perguntar antes): o modelo de e-mail. A
-      base na lista de Clientes, se você quiser ver os clientes antigos lá.
+- [x] **As próximas partes da Fundação:** o modelo de e-mail é a parte 6 (entrega 0161, logo
+      abaixo). A base na lista de Clientes fica pra quando você quiser ver os clientes antigos lá.
+
+**CRM, parte 6: o modelo dos e-mails e o sair da lista — pronto em 27/09 (entrega 0161).** Todo
+e-mail de oferta sai de um modelo só. Painel → CRM → aba **E-mails**:
+
+- **Três exemplos:** boas-vindas, hora de repor e carrinho. Eles saem com os produtos, os preços e a
+  empresa de verdade; o cupom e o depoimento são de mentira.
+- **"Mandar pra mim":** manda o exemplo pro seu e-mail, com [Teste] no assunto, pra você ver no
+  celular como chega.
+- **O modelo:**
+  - em cima, "Oi, Nome!", o título, o texto e o botão;
+  - no meio, os blocos: produtos com foto e preço, cupom, depoimento, os passos da rotina, selo e
+    texto;
+  - no pé, por que a pessoa recebeu, **Sair da lista em 1 clique**, a empresa com o CNPJ, e os links
+    da loja, do Instagram, do TikTok e do WhatsApp.
+  Todo link pra loja leva a campanha, e a visita e a compra aparecem em Marketing → Canais, como
+  E-mail.
+- **Sair da lista:**
+  - o link do pé leva à página `/sair` da loja, que pergunta antes;
+  - o "cancelar inscrição" que o Gmail e o iPhone mostram no alto do e-mail tira na hora;
+  - sair tira a pessoa das ofertas em todo lugar: newsletter, conta, avise-me e a base da
+    Nuvemshop. Os e-mails dos pedidos continuam chegando;
+  - mandar a base da Nuvemshop de novo não põe de volta quem saiu.
+- **Os e-mails de pedido** (confirmado, cancelado e envio) ganharam o TikTok no pé, do lado do
+  Instagram.
+
+O que ainda não tem: **quem recebe o quê e quando** (os fluxos: boas-vindas, reposição, carrinho,
+volta). Isso é a próxima parte. Até lá, nenhum e-mail de oferta sai sozinho.
+
+- [ ] **Recomendado, antes de os fluxos começarem (você, uma vez):** um endereço só pra oferta, pra
+      que, se um dia a oferta cair no spam, o e-mail de pedido não caia junto. No Resend, Domains →
+      Add Domain → `news.fuckingbarba.com.br`, e os registros que ele mostrar vão na GoDaddy. Depois,
+      no Railway, a variável `EMAIL_REMETENTE_CRM` = `FuckingBarba <ofertas@news.fuckingbarba.com.br>`.
+      Eu te guio no passo a passo quando for a hora.
+- [ ] **A próxima parte da Fundação** (uma entrega, perguntar antes): os fluxos.
 
 **A parcela mínima do cartão, editável — pronta em 27/09 (entrega 0157).** O pedido dele: "quero
 poder editar a parcela mínima no cartão, ali diz 5 reais". Em **Configurações → Pagamento**, o

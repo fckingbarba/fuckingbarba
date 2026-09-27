@@ -2299,6 +2299,73 @@ confere:
 - o histórico e o botão nos Ajustes;
 - o celular.
 
+**O CRM, parte 6: o modelo dos e-mails e o sair da lista** (entrega 0161). Todo e-mail de oferta
+do CRM sai de um modelo só, e toda pessoa sai da lista em um clique.
+
+- **O modelo** é `lib/emails/crm.ts`, puro, com testes. `emailDoCrm` monta:
+  - em cima, o "Oi, Nome!", o título, o texto e o botão;
+  - os blocos, cada um num cartão: produtos (foto, preço e o de/por), cupom, depoimento, passos,
+    selo e texto;
+  - o pé: por que a pessoa recebeu, o **Sair da lista em 1 clique**, a empresa com o CNPJ, e os
+    links (loja, Instagram, TikTok, WhatsApp);
+  - a versão em texto.
+  Todo link pra loja leva `utm_medium=email&utm_campaign=crm-<campanha>` (`linkDoCrm`) e cai em
+  Marketing → Canais como E-mail.
+- **O link de sair** (`lib/crm/sair.ts`, puro, com testes) é o e-mail cifrado (AES-256-GCM, com a
+  chave derivada do `JWT_SECRET`). Não vence, e ninguém faz o de outra pessoa. Trocar o
+  `JWT_SECRET` invalida os links velhos.
+- **No pé do e-mail:** `<loja>/sair/<t>`. A rota da loja (`app/sair/[t]/route.ts`) guarda o link
+  num cookie `httpOnly`, só do `/sair`, e manda pra `/sair` limpa, como a da avaliação: o link não
+  fica na barra nem no Analytics. A página pergunta antes. Abrir o link não tira ninguém, porque o
+  antivírus do e-mail de empresa abre todo link. O botão é uma ação do servidor que chama
+  `POST /crm/sair`, com o IP assinado. No proxy, `sair` está no `PAGINAS_RAIZ`, e `/sair/` no
+  `CAMINHOS_COM_ID` (o link é base64: em minúsculas, não vale). O robots deixa o `/sair` fora do
+  Google.
+- **No cabeçalho:** `List-Unsubscribe`. Quando o `MEDUSA_BACKEND_URL` é https, vai junto o
+  `List-Unsubscribe-Post: List-Unsubscribe=One-Click` (RFC 8058): é o "cancelar inscrição" que o
+  Gmail e o iPhone mostram no alto, e que o Gmail e o Yahoo cobram de quem manda oferta. Sem
+  https, o cabeçalho leva a página da loja.
+- **`POST /crm/sair`** fica fora do `/store`, porque quem chama não tem a chave publicável. Ele
+  tira o e-mail das ofertas em todo lugar (`tirarDasOfertas`, em `lib/ofertas.ts`, a mesma do
+  "tirar" da newsletter no painel):
+  - a newsletter;
+  - o "aceito ofertas" da conta;
+  - o avise-me;
+  - a base da Nuvemshop.
+  O limite é 30 por hora por IP e 2.000 por hora da loja. A resposta é a mesma pra quem estava na
+  lista e pra quem não estava. `GET /crm/sair` manda pra página da loja.
+- **A base mandada de novo não põe de volta quem saiu.** O "aceita ofertas" da `crm_base_pessoa`
+  fica com a decisão mais nova: a data da coluna Marketing da Nuvemshop, ou a hora em que a pessoa
+  saiu.
+- **O remetente** é o `EMAIL_REMETENTE_CRM` (`remetenteDoCrm`); sem ele, o da loja. O bom é um
+  subdomínio só pra oferta (`news.fuckingbarba.com.br`, verificado no Resend), pra oferta no spam
+  não levar o pedido junto.
+- **No painel:** CRM → E-mails (`/crm/emails`).
+  - Três exemplos: boas-vindas, hora de repor e carrinho. O Medusa monta com os produtos, os
+    preços, a empresa e o WhatsApp de verdade (`GET /dashboard/crm/emails`, `exemplosParaAEquipe`).
+    O cupom e o depoimento são de mentira.
+  - A prévia é um `iframe` sem script (`sandbox`), com os links abrindo em outra aba.
+  - "Mandar pra mim" (`POST /dashboard/crm/emails/teste`, 10 por hora por pessoa) manda com
+    `[Teste]` no assunto e a etiqueta `crm-teste`. O link de sair do teste é o de quem pediu, e
+    vale de verdade.
+- **Os e-mails de pedido** (confirmado, cancelado e envio) ganharam o TikTok no pé, do lado do
+  Instagram.
+- Aqui é só o desenho e o sair da lista. Quem manda, quando e pra quem são os fluxos: a próxima
+  parte.
+
+O `conferir-crm.mjs` confere:
+- a operação sem o modelo;
+- os três exemplos, com o sair, o Instagram e o TikTok no pé, e a campanha em todo link;
+- a aba, a prévia e o "Mandar pra mim" (o assunto, o remetente, a etiqueta e o cabeçalho);
+- o sair pela página: abrir não tira, o cookie `httpOnly`, a newsletter depois do botão, e o link
+  que não vale;
+- o clique único sem a chave da loja, tirando da base;
+- mandar a base de novo sem pôr de volta;
+- o `GET` indo pra loja, e o link mexido recusado;
+- o celular.
+O `conferir-links.mjs` confere o `/sair` fora do Google. Pra fazer o link de uma pessoa da base
+como o e-mail faria, o conferidor precisa do `JWT_SECRET` do Medusa.
+
 **O preço e o promocional no painel** (entregas 0098 e 0102): os dois campos de cada produto na
 lista de Produtos, como na Nuvemshop (a 0098 tinha só o promocional, atrás de um botão). A regra é
 `lib/painel/promocao.ts`, pura: `lerMudancaDePreco` (o corpo `{ preco?, promocional? }` contra o
