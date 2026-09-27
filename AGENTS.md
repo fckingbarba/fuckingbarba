@@ -1466,6 +1466,78 @@ Os códigos mantêm o "_" (o formulário do painel não aceita; o Medusa e a loj
 novo no banco local, apague a linha dela em `script_migrations`. Lista nova é migração nova, com
 outro nome: esta já rodou em produção.
 
+**As promoções do painel** (entrega 0133): o "Leve X, pague Y" — o "Compre X e pague Y" da
+Nuvemshop. É uma promoção AUTOMÁTICA do Medusa (`is_automatic`, ninguém digita código), do tipo
+"compre-leve" (`buyget`): a cada `comprando` unidades dos produtos dela, as `comprando − pague`
+mais baratas saem com 100%. `src/lib/promocoes.ts` é puro, com testes, e faz o formulário
+(`lerPromocaoNova`: nome, comprando/pague, "Aplicar a" — o `lerAlcance` do cupom —, "vale em
+produto com preço promocional", o período — o `lerPeriodo` do cupom — e a etiqueta que a loja
+mostra), a promoção do Medusa (`promocaoDoMedusa`), a guardada (`metadata.fb_promocao`), as marcas
+das linhas, o que a loja mostra e a lista do painel. O que o Medusa faz, e onde difere da
+Nuvemshop (o teste trava as duas contas, rodando o `getComputedActionsForBuyGet` dele):
+
+- ele reserva como "compradas" as LINHAS de maior subtotal e dá de graça a mais barata de cada
+  grupo: com um produto só, é a conta da Nuvemshop; com produtos de preços diferentes numa sacola
+  grande, dá a mais barata DE CADA GRUPO (3 de R$ 100 e 3 de R$ 50: aqui R$ 150, lá R$ 100);
+- sem `max_quantity` ele dá UMA unidade de graça por carrinho e para: vai `MAX_GRATIS` (99);
+- o lado "compra" precisa de ao menos uma regra: a loja toda é a marca do preço existir na linha.
+
+O CÓDIGO é `PROMO-` + oito letras sorteadas pela rota. Ele aparece em `cart.promotions` e nos
+ajustes do pedido, e por isso fica fora de tudo que trata cupom: o "um cupom por pedido"
+(`outroCupomNoCarrinho`), a lista de cupons (`ehCupomDeCampanha`), o código de cupom novo (recusa
+`PROMO-`), os cupons do Marketing, o "Venda nova" (`avisar-venda.ts`), o `coupon` da compra
+mandada pro Meta/GA4/TikTok (`anuncios/enviar.ts`), e na loja o `cuponsDoCarrinho`, o campo de
+cupom do checkout e o link `/discount`. No pedido do painel o ajuste dele se chama "Promoção".
+
+AS MARCAS DAS LINHAS moram no mesmo gancho dos cupons (`contexto-dos-cupons.ts` →
+`marcarPromocoes`, depois do `linhasMarcadas`): toda linha ganha `fb_preco_promocional` ("sim"
+com o de/por — a regra "não vale em produto com preço promocional" lê essa), e a linha de uma
+promoção que DISPAROU (valendo agora, com unidades bastantes) vira `fb_promocional` "sim" — a
+marca que o cupom que não combina já lia: ele não desconta o item da promoção. O que combina
+desconta o que sobrou (o Medusa aplica o compre-leve primeiro). As promoções que o gancho lê vêm
+de `lib/promocoes-ativas.ts`, guardadas 30 s na memória; criar, pausar e ligar pelo painel limpam
+(`esquecerPromocoes`). O período usa a hora do gancho (`fb_cupons.agora`), com a trava de ela
+estar lá (`agora > 0`) — não a do cupom (`conferido`), que cai quando o histórico do e-mail falha.
+
+NÃO SOMA COM O DESCONTO POR QUANTIDADE (decisão da loja): `sincronizarPrecosPorQuantidade` deixa de
+fora das faixas os produtos em que uma promoção vale agora (`promocoesNaLoja`) e devolve quando
+ela acaba. Esse conjunto entra na foto da rodada de minuto em minuto: promoção que começa ou
+acaba pela hora avisa a loja com o perfil `"agora"` (com `"seconds"`, a página refeita por trás lia
+a escada guardada, com o selo velho — visto no conferidor). Sem conseguir ler as promoções, a
+rodada não escreve nada: devolver as faixas daria os dois descontos. Criar, pausar e ligar
+(`lib/painel/promocoes.ts` → `valerNaLoja`) refazem as faixas na hora e avisam a loja com `"agora"`.
+
+AS ROTAS: `POST /dashboard/promocoes` (cria; 422 com os erros por campo) e
+`POST /dashboard/promocoes/:id` `{ acao: "pausar" | "ligar" }`, na área `cupons` (dono e
+marketing), com o registro da equipe; a lista vem no `GET /dashboard/cupons` (`promocoes`: nome,
+etiqueta, frase, situação — valendo, agendada, pausada, encerrada —, pedidos, desconto e vendido,
+pelo `usosPorCodigo`), e o "Desconto por quantidade" dos automáticos avisa que não soma. A loja lê
+`GET /store/promocoes`: as que valem agora, com os produtos de cada uma (o de/por de agora conta:
+a promoção que não vale no promocional deixa esses de fora), guardada 30 s e nunca servindo uma
+que já acabou (`ate`). No painel, o bloco "Promoções" da tela de Cupons e descontos, com a gaveta
+"Nova promoção" no desenho do "Novo cupom" (`components/promocoes.tsx`, `lib/promocoes.ts`).
+
+NA LOJA (`src/lib/promocoes.ts`, sem dependência; a lista em `promocoesDaLoja`, `lib/medusa.ts`,
+com a etiqueta `produtos` — o 404 é o Medusa de antes da rota, e vira "nenhuma"): o selo no card
+(a etiqueta no lugar do "-X%"), o selo embaixo do preço na PDP (`.compra__promocao`,
+`estilos/pdp-promocao.css`), o degrau da promoção na escada (`escadaDeQuantidade` devolve
+`{ degraus, promocao }`: "3 unidades" pelo preço de 2, com a etiqueta na nota; sem a lista, a escada
+sai sem ele e guardada por minutos) e o total da `Compra` pela conta de grupos (`gratisEm`), não
+mais unidade × quantidade. Na sacola, cada linha de produto em promoção ganha o recado (o
+`paraAGaveta`, que as ações e o `/api/sacola` usam): a etiqueta, quantas saíram de graça — pelo
+AJUSTE do Medusa na linha (`items.adjustments.code/amount` no `CAMPOS_CARRINHO`), porque com vários
+produtos só ele sabe qual linha foi — e, na última linha da promoção, "mais 1 sai de graça". Sem
+CSS novo na sacola (a home não tem folga). O "+" prevê o total da linha já sem as de graça
+(`totalPrevisto`); antes mostrava o preço de 3 até a resposta.
+
+O conferidor é o `apps/dashboard/ferramentas/conferir-promocoes.mjs` (com os falsos, o admin
+local e, com `LOJA`, a loja): o formulário pela API e pela gaveta, a conta no carrinho de verdade
+(2, 3, 5 e 6 unidades; o produto de fora), as faixas que saem e voltam, o cupom que combina e o
+que não combina (este tira um produto da "Promoção de lançamento" do banco local e devolve no fim),
+um pedido Pix e a lista, a pausada e a agendada, o celular, e na loja o card, a PDP, a sacola (com
+as ações seguradas 1,5 s, pra ver o total previsto) e o selo saindo depois da pausa. Pausa e apaga
+as promoções da rodada no fim.
+
 **Observabilidade** (fase 7, entrega 0087). O módulo `src/modules/observabilidade/` guarda três
 tabelas: `obs_rotina` (a última rodada de cada job), `obs_problema` e `obs_sinal` (o dia de cada
 integração). A regra mora em `src/lib/painel/observabilidade.ts`, puro, com testes:
