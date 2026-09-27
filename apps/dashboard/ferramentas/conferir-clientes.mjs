@@ -28,7 +28,10 @@
  * │   repetido, o cliente sem o link pra ficha);                           │
  * │ • o "Tirar" que não tira dos dois lugares, ou que leva o WhatsApp      │
  * │   junto; o CSV sem a lista;                                            │
- * │ • rolagem de lado no celular; erro no console.                         │
+ * │ • rolagem de lado no celular; erro no console;                         │
+ * │ • (CRM, parte 3) a ficha sem as cinco etiquetas, ou com elas pra       │
+ * │   operação; o número do pedido chegando pro marketing; a oferta do     │
+ * │   checkout contando como cupom; o Pix esperando contando como compra.  │
  * └────────────────────────────────────────────────────────────────────────┘
  */
 
@@ -173,6 +176,7 @@ try {
   ok(marcou.status === 200, "o Caio com a caixa de ofertas da conta (e-mail e WhatsApp)")
   // O que o Pagar.me cobrou, com a oferta descontada — não a conta de antes dela.
   const gastoDaAna = await fabrica.cobrado(anaPaga)
+  const gastoDoBruno = await fabrica.cobrado(brunoPago)
 
   titulo("Quem entra")
   const dono = await novaAba()
@@ -282,6 +286,60 @@ try {
     JSON.stringify(fMktBruno.corpo.cliente?.ofertas)
   )
 
+  titulo("A parte do CRM na ficha (API)")
+  const etiqueta = (f, chave) => f.corpo.cliente?.crm?.etiquetas?.find((e) => e.chave === chave)
+  const fDonoBruno = await ficha(tokenDoDono, bruno.id)
+  ok(
+    fDonoBruno.corpo.cliente?.crm?.etiquetas?.map((e) => e.chave).join(",") ===
+      "etapa,engajamento,tratamento,proxima,cupom",
+    "o dono vê as cinco etiquetas, na ordem",
+    JSON.stringify(fDonoBruno.corpo.cliente?.crm)
+  )
+  ok(
+    etiqueta(fDonoBruno, "etapa")?.valor === "1ª compra" &&
+      etiqueta(fDonoBruno, "etapa")?.porque ===
+        `pagou o pedido #${brunoPago.numero}, que ainda não chegou` &&
+      etiqueta(fDonoBruno, "engajamento")?.valor === "Quente" &&
+      etiqueta(fDonoBruno, "cupom")?.valor === "Não",
+    "o Bruno: 1ª compra (pago e a caminho), quente, sem cupom",
+    JSON.stringify(fDonoBruno.corpo.cliente?.crm?.etiquetas)
+  )
+  const compraDoBruno = fDonoBruno.corpo.cliente?.crm?.caminho?.find((p) => p.tipo === "pedido")
+  ok(
+    semEspaco(compraDoBruno?.oque) ===
+      `pagou o pedido #${brunoPago.numero} · ${reais(gastoDoBruno)}` &&
+      compraDoBruno?.nivel === "bom",
+    "no caminho, a compra: o número e o cobrado",
+    JSON.stringify(fDonoBruno.corpo.cliente?.crm?.caminho)
+  )
+  ok(
+    etiqueta(fDono, "etapa")?.valor === "1ª compra" &&
+      etiqueta(fDono, "cupom")?.porque === "a única compra foi sem cupom" &&
+      fDono.corpo.cliente?.crm?.caminho?.filter((p) => p.tipo === "pedido").length === 1,
+    "a Ana: o Pix esperando não é compra, e a oferta do checkout não é cupom",
+    JSON.stringify(fDono.corpo.cliente?.crm)
+  )
+  const fDonoCaio = await ficha(tokenDoDono, linha(doDono, CAIO).id)
+  ok(
+    etiqueta(fDonoCaio, "etapa")?.valor === "Lead" && etiqueta(fDonoCaio, "cupom")?.valor === "—",
+    "o Caio, só com o Pix esperando: lead",
+    JSON.stringify(fDonoCaio.corpo.cliente?.crm?.etiquetas?.slice(0, 1))
+  )
+  ok(
+    fOp.status === 200 && !("crm" in (fOp.corpo.cliente ?? {})),
+    "a operação abre a ficha sem a parte do CRM"
+  )
+  const crmDoMkt = JSON.stringify(fMktBruno.corpo.cliente?.crm ?? null)
+  ok(
+    etiqueta(fMktBruno, "etapa")?.porque === "pagou o pedido, que ainda não chegou" &&
+      fMktBruno.corpo.cliente?.crm?.caminho?.some(
+        (p) => semEspaco(p.oque) === `pagou o pedido · ${reais(gastoDoBruno)}`
+      ) &&
+      !crmDoMkt.includes(`#${brunoPago.numero}`),
+    "o marketing vê as etiquetas e a compra, sem o número do pedido",
+    crmDoMkt.slice(0, 400)
+  )
+
   /* ── a newsletter, pela API ────────────────────────────────────────────── */
 
   titulo("A newsletter (API)")
@@ -388,6 +446,18 @@ try {
         /Não aceita receber ofertas/.test(await pagina.locator("[data-ofertas]").textContent()),
       "os dois pedidos, e as ofertas: não aceita"
     )
+    ok(
+      (await pagina.locator("[data-etiquetas-crm] .etiqueta").count()) === 5 &&
+        semEspaco(
+          await pagina.locator('[data-etiqueta="etapa"] .etiqueta__valor').textContent()
+        ) === "1ª compra" &&
+        (await pagina.locator("[data-caminho-crm] .anotacao").count()) ===
+          fDono.corpo.cliente.crm.caminho.length &&
+        semEspaco(
+          await pagina.locator("[data-caminho-crm] .anotacao").first().textContent()
+        ).startsWith(`Pagou o pedido #${anaPaga.numero}`),
+      "a parte do CRM: as cinco etiquetas e o caminho, como na API"
+    )
   }
 
   titulo("As telas da operação")
@@ -406,6 +476,10 @@ try {
         dados.includes("O documento inteiro só o dono vê"),
       "a ficha: o CPF mascarado, sem o 'Mostrar'",
       dados
+    )
+    ok(
+      (await pagina.locator("[data-etiquetas-crm], [data-caminho-crm]").count()) === 0,
+      "e sem a parte do CRM"
     )
     await pagina.goto(`${PAINEL}/clientes/newsletter`)
     await pagina.waitForSelector("h1")
@@ -434,6 +508,13 @@ try {
     ok(
       !(await pagina.content()).includes(ANA),
       "a ficha de quem não aceitou, pelo endereço: não abre"
+    )
+    await pagina.goto(`${PAINEL}/clientes/${bruno.id}`)
+    await pagina.waitForSelector(`[data-ficha="${bruno.id}"]`)
+    ok(
+      (await pagina.locator("[data-etiquetas-crm] .etiqueta").count()) === 5 &&
+        !(await pagina.locator("[data-tela]").textContent()).includes(`#${brunoPago.numero}`),
+      "a ficha do Bruno: as etiquetas, sem o número do pedido"
     )
     // O 404 desta visita é o esperado (o navegador anota no console): sai da conta.
     for (let i = errosDeConsole.length - 1; i >= 0; i--)

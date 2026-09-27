@@ -27,7 +27,11 @@
  * │ • (parte 2) o e-mail saindo sem a etiqueta do tipo; o aviso do Resend  │
  * │   sem a assinatura dele entrando; o aviso repetido contando duas vezes;│
  * │   o IP do clique ou o id do pedido guardados; o e-mail da equipe nas   │
- * │   contas do CRM.                                                       │
+ * │   contas do CRM;                                                       │
+ * │ • (parte 3) a ficha do cliente sem as etiquetas, sem de onde ele       │
+ * │   chegou, ou com um caminho que não junta o site e os e-mails; a       │
+ * │   operação recebendo a parte do CRM. (Os pedidos na ficha: o           │
+ * │   conferir-clientes.)                                                  │
  * └────────────────────────────────────────────────────────────────────────┘
  */
 
@@ -563,6 +567,72 @@ try {
     semEquipe.emails.numeros.enviados === devolvido.emails.numeros.enviados &&
       !semEquipe.emails.ultimos.some((l) => l.quem === mascarado(DONO)),
     "e fica fora das contas do CRM, que são de cliente"
+  )
+
+  /* ── a ficha da pessoa (parte 3) ────────────────────────────────────────── */
+
+  titulo("A ficha do cliente, com o CRM")
+  const clienteDaConta = (
+    await medusa(`/dashboard/clientes?busca=${encodeURIComponent(DA_CONTA)}`, {
+      metodo: "GET",
+      token: tokenDoDono,
+    })
+  ).corpo.clientes?.find((c) => c.email === DA_CONTA)
+  ok(Boolean(clienteDaConta?.id), "a conta da rodada está nos clientes")
+  const fichaDaConta = await medusa(`/dashboard/clientes/${clienteDaConta?.id}`, {
+    metodo: "GET",
+    token: tokenDoDono,
+  })
+  const crmDaConta = fichaDaConta.corpo.cliente?.crm
+  const etiquetaDaConta = (chave) => crmDaConta?.etiquetas?.find((e) => e.chave === chave)
+  ok(
+    etiquetaDaConta("etapa")?.valor === "Lead" &&
+      etiquetaDaConta("engajamento")?.valor === "Quente" &&
+      etiquetaDaConta("engajamento")?.porque === "clicou num e-mail da loja hoje" &&
+      etiquetaDaConta("proxima")?.valor === "—",
+    "sem compra: lead; clicou no e-mail hoje: quente",
+    JSON.stringify(crmDaConta?.etiquetas)
+  )
+  ok(
+    /^Direto · primeira visita em \d\d\/\d\d$/.test(crmDaConta?.origem ?? ""),
+    "de onde chegou: direto, e o dia da primeira visita",
+    crmDaConta?.origem ?? "sem origem"
+  )
+  const passos = crmDaConta?.caminho ?? []
+  ok(
+    passos[0]?.tipo === "email" &&
+      passos[0]?.oque.startsWith("clicou em “Código de entrar”") &&
+      passos[0]?.nivel === "bom" &&
+      passos.some((p) => p.tipo === "conta_entrou" && p.oque === "entrou na conta") &&
+      passos.some((p) => p.tipo === "produto_visto"),
+    "o caminho junta o e-mail clicado e o que ela fez no site, do mais novo pro mais velho",
+    JSON.stringify(passos.slice(0, 4))
+  )
+  const fichaDaOp = await medusa(`/dashboard/clientes/${clienteDaConta?.id}`, {
+    metodo: "GET",
+    token: cookieOp.value,
+  })
+  ok(
+    fichaDaOp.status === 200 && !("crm" in (fichaDaOp.corpo.cliente ?? {})),
+    "a operação abre a ficha, sem a parte do CRM"
+  )
+  await dono.pagina.goto(`${PAINEL}/clientes/${clienteDaConta?.id}`)
+  await dono.pagina.locator("[data-etiquetas-crm]").waitFor({ timeout: 20000 })
+  ok(
+    (await dono.pagina.locator("[data-etiquetas-crm] .etiqueta").count()) === 5 &&
+      semEspaco(await dono.pagina.locator("[data-origem-crm]").textContent()) ===
+        `De onde chegou: ${crmDaConta?.origem}.`,
+    "na tela: as cinco etiquetas e de onde chegou"
+  )
+  const primeiroPasso = semEspaco(
+    await dono.pagina.locator("[data-caminho-crm] .anotacao").first().textContent()
+  )
+  ok(
+    (await dono.pagina.locator("[data-caminho-crm] .anotacao").count()) === passos.length &&
+      primeiroPasso.startsWith("Clicou em “Código de entrar”") &&
+      primeiroPasso.endsWith(passos[0]?.quando ?? "?"),
+    "e o caminho, como na API, com a hora",
+    primeiroPasso
   )
 
   /* ── o painel ───────────────────────────────────────────────────────────── */
