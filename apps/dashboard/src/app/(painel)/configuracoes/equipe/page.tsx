@@ -77,6 +77,7 @@ const NOME_DA_LINHA: Record<Area, string> = {
   cupons: "Cupons e descontos",
   clientes: "Clientes",
   newsletter: "Clientes: a newsletter",
+  crm: "CRM",
   home: "Layout da home",
   marketing: "Marketing",
   metaDoMes: "Marketing: mudar a meta do mês",

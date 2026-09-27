@@ -36,6 +36,7 @@
  * frete) é restaurado no fim, inclusive se falhar no meio.
  */
 
+import { comAFaixaRespondida } from "./faixa-respondida.mjs"
 import { MAIS_BARATA, MAIS_RAPIDA, PORTA_PADRAO, subirFrenetFalsa } from "./frenet-falsa.mjs"
 
 const MEDUSA = process.env.MEDUSA_BACKEND_URL ?? "http://127.0.0.1:9000"
@@ -736,6 +737,7 @@ try {
     const navegador = await chromium.launch(
       process.env.CHROMIUM ? { executablePath: process.env.CHROMIUM } : {}
     )
+    comAFaixaRespondida(navegador, LOJA)
 
     /** Uma aba nova, sem cookie nem CEP guardado, com o produto na sacola. */
     async function sacolaCheia() {

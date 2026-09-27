@@ -321,9 +321,9 @@ try {
   await faixa.waitFor({ timeout: 20000 })
   ok(
     semEspaco(await faixa.textContent()).includes(
-      "Usamos cookies do Google, da Meta, do TikTok e da Microsoft"
+      "Usamos cookies da própria loja, do Google, da Meta, do TikTok e da Microsoft"
     ),
-    "a faixa diz a quem é o sim: Google, Meta, TikTok e Microsoft",
+    "a faixa diz a quem é o sim: a própria loja, Google, Meta, TikTok e Microsoft",
     semEspaco(await faixa.textContent())
   )
   const antesDoAceite = await filas(recusa.pagina)
@@ -335,10 +335,10 @@ try {
   await faixa.getByRole("button", { name: "Só o necessário" }).click()
   await esperar(1500)
   ok(
-    (await valorDoCookie(recusa.contexto)) === "nao.2.gmtc" &&
+    (await valorDoCookie(recusa.contexto)) === "nao.3.gmtc" &&
       !recusa.pedidos.length &&
       (await faixa.count()) === 0,
-    "“Só o necessário”: a resposta fica (versão 2) e nada carrega",
+    "“Só o necessário”: a resposta fica (versão 3) e nada carrega",
     await valorDoCookie(recusa.contexto)
   )
   await recusa.contexto.close()
@@ -355,7 +355,7 @@ try {
   const temChamada = (fila, ...partes) =>
     fila.some((c) => partes.every((p, i) => JSON.stringify(c[i]) === JSON.stringify(p)))
   ok(
-    (await valorDoCookie(sim.contexto)) === "sim.2.gmtc" &&
+    (await valorDoCookie(sim.contexto)) === "sim.3.gmtc" &&
       temChamada(ligadas.google, "config", CODIGOS.ga4) &&
       temChamada(ligadas.google, "config", CODIGOS.googleAds) &&
       temChamada(ligadas.meta, "init", CODIGOS.metaPixel) &&
@@ -408,7 +408,17 @@ try {
     velha.pedidos.join(" ")
   )
   await velha.contexto.close()
-  const soGoogle = await visitaNaLoja([{ name: "fb_consentimento", value: "sim.2.g" }])
+  const semALoja = await visitaNaLoja([{ name: "fb_consentimento", value: "sim.2.gmtc" }])
+  await semALoja.pagina.goto(`${LOJA}/`)
+  await semALoja.pagina.locator("[data-faixa-de-cookies]").waitFor({ timeout: 20000 })
+  await esperar(1000)
+  ok(
+    !semALoja.pedidos.length,
+    "o sim da versão 2 (de antes do CRM da própria loja) não vale: a faixa pergunta de novo",
+    semALoja.pedidos.join(" ")
+  )
+  await semALoja.contexto.close()
+  const soGoogle = await visitaNaLoja([{ name: "fb_consentimento", value: "sim.3.g" }])
   await soGoogle.pagina.goto(`${LOJA}/`)
   await soGoogle.pagina.locator("[data-faixa-de-cookies]").waitFor({ timeout: 20000 })
   await esperar(1000)
@@ -489,7 +499,7 @@ try {
 
   // O checkout precisa de sacola: o item entra com uma resposta dada (sem
   // faixa no caminho), e a resposta sai antes de abrir o checkout.
-  await cel.contexto.addCookies([{ name: "fb_consentimento", value: "nao.2.gmtc", url: LOJA }])
+  await cel.contexto.addCookies([{ name: "fb_consentimento", value: "nao.3.gmtc", url: LOJA }])
   await cel.pagina.goto(`${LOJA}/produtos/shampoo-para-barba`)
   await hidratado(cel.pagina, ".compra__comprar")
   await cel.pagina.locator(".compra__comprar").click()
@@ -638,7 +648,7 @@ try {
 
   titulo("A conversão do Google Ads, na tela de obrigado")
   const ads = await visitaNaLoja([
-    { name: "fb_consentimento", value: "sim.2.gmtc" },
+    { name: "fb_consentimento", value: "sim.3.gmtc" },
     { name: "pedido", value: `${pedido.id}.${pedido.carrinho}` },
   ])
   await ads.pagina.goto(`${LOJA}/checkout/obrigado/${pedido.id}`)

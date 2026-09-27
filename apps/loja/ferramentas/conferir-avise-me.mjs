@@ -38,6 +38,7 @@
  */
 
 import { chromium } from "playwright"
+import { comAFaixaRespondida } from "./faixa-respondida.mjs"
 import { vigiarRecargaDoDev } from "./recarga-do-dev.mjs"
 import { subirResendFalso } from "./resend-falso.mjs"
 
@@ -154,6 +155,7 @@ const emailsPara = (email) => resend.emails.filter((e) => e.to?.includes(email))
 /* ── o navegador ──────────────────────────────────────────────────────────── */
 
 const navegador = await chromium.launch(CROMO ? { executablePath: CROMO } : {})
+comAFaixaRespondida(navegador, LOJA)
 const noConsole = []
 const RUIDO_DE_DEV = /_next\/hmr|websocket/i
 const abas = []

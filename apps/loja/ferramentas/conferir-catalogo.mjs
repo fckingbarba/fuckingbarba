@@ -17,6 +17,7 @@
  */
 
 import { chromium } from "playwright"
+import { comAFaixaRespondida } from "./faixa-respondida.mjs"
 
 /* Mesmos nomes de variável do conferir-checkout.mjs — dois conferidores da
    mesma pasta pedindo a chave com nomes diferentes é armadilha de graça. */
@@ -61,6 +62,7 @@ async function daApi() {
 }
 
 const navegador = await chromium.launch(CROMO ? { executablePath: CROMO } : {})
+comAFaixaRespondida(navegador, LOJA)
 const pagina = await navegador.newPage({ viewport: { width: 1440, height: 900 } })
 const erros = []
 pagina.on("pageerror", (e) => erros.push(String(e)))

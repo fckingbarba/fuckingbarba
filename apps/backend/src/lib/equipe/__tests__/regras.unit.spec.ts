@@ -43,8 +43,9 @@ describe("podeAbrir — a matriz dos papéis", () => {
       expect(podeAbrir("operacao", area)).toBe(false)
     expect(podeAbrir("operacao", "pedidos")).toBe(true)
     expect(podeAbrir("operacao", "observabilidade")).toBe(true)
-    // Os números de marketing não são da operação.
+    // Os números de marketing não são da operação, nem o que o CRM anota das pessoas.
     expect(podeAbrir("operacao", "marketing")).toBe(false)
+    expect(podeAbrir("operacao", "crm")).toBe(false)
     expect(podeAbrir("operacao", "metaDoMes")).toBe(false)
   })
 
@@ -59,6 +60,7 @@ describe("podeAbrir — a matriz dos papéis", () => {
       expect(podeAbrir("marketing", area)).toBe(false)
     expect(podeAbrir("marketing", "cupons")).toBe(true)
     expect(podeAbrir("marketing", "home")).toBe(true)
+    expect(podeAbrir("marketing", "crm")).toBe(true)
     // Vê o Marketing; a meta, quem muda é o dono.
     expect(podeAbrir("marketing", "marketing")).toBe(true)
     expect(podeAbrir("marketing", "metaDoMes")).toBe(false)
