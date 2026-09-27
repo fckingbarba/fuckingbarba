@@ -1,4 +1,5 @@
 import {
+  componentesDoItem,
   componentesDoProduto,
   etiquetasDaPessoa,
   REGRAS_PADRAO,
@@ -53,6 +54,45 @@ describe("o que vem em cada produto", () => {
     ])
     expect(componentesDoProduto("camiseta-da-loja")).toEqual([])
     expect(componentesDoProduto(null)).toEqual([])
+  })
+})
+
+describe("o que vem em cada item: o SKU antes do endereço", () => {
+  it("os kits que o nome não diz; o SKU desconhecido cai no endereço", () => {
+    expect(componentesDoItem({ sku: "FBKIT02", handle: "kit-essencial-fuckingbarba" })).toEqual([
+      { componente: "shampoo", unidades: 1 },
+      { componente: "balm", unidades: 1 },
+    ])
+    expect(componentesDoItem({ sku: " fbkit06 ", handle: null })).toEqual([
+      { componente: "fator", unidades: 3 },
+    ])
+    expect(componentesDoItem({ sku: "OUTRO01", handle: "oleo-para-barba" })).toEqual([
+      { componente: "oleo", unidades: 1 },
+    ])
+    expect(componentesDoItem({ sku: null, handle: "camiseta" })).toEqual([])
+  })
+
+  it("a próxima compra de quem levou o Kit Hidratação pelo SKU", () => {
+    const e = etiquetasDaPessoa({
+      pedidos: [
+        pedido({
+          entregueEm: new Date("2026-09-20T12:00:00Z"),
+          itens: [
+            {
+              handle: "kit-hidratacao-fuckingbarba",
+              sku: "FBKIT04",
+              nome: "Kit Hidratação",
+              quantidade: 1,
+            },
+          ],
+        }),
+      ],
+      sinais: SEM_SINAIS,
+      agora: AGORA,
+    })
+    // Shampoo e óleo, 45 dias cada: acaba o primeiro que aparece.
+    expect(e.proximaCompra.em).toEqual(new Date("2026-11-04T12:00:00Z"))
+    expect(e.tratamento.dia).toBeNull()
   })
 })
 

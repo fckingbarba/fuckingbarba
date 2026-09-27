@@ -28,8 +28,9 @@ import type CrmService from "../../../../modules/crm/service"
  *
  * Quem abre o CRM vê também a parte do CRM (`cliente.crm`,
  * `fichaDoCrmDoCliente`): as cinco etiquetas, de onde a pessoa chegou e o
- * caminho dela, com os Ajustes do CRM (`fb_crm`, no metadata da loja). Sem a
- * área dos pedidos, sem o número do pedido.
+ * caminho dela, com os Ajustes do CRM (`fb_crm`, no metadata da loja) e os
+ * pedidos da loja antiga (a base da Nuvemshop). Sem a área dos pedidos, sem
+ * o número do pedido.
  *
  * RESPOSTAS: 200 `{ cliente }`; 404 `nao_encontrado`.
  */
@@ -67,9 +68,11 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
     res.json({ cliente: ficha })
     return
   }
-  const [crm, lojas] = await Promise.all([
-    req.scope.resolve<CrmService>(CRM).pessoa(doCrm),
+  const servico = req.scope.resolve<CrmService>(CRM)
+  const [crm, lojas, daNuvemshop] = await Promise.all([
+    servico.pessoa(doCrm),
     req.scope.resolve(Modules.STORE).listStores({}, { select: ["metadata"], take: 1 }),
+    servico.pedidosDaBase(doCrm),
   ])
   const newsletter = inscricoes
     .map((i) => new Date(i.consentido_em))
@@ -86,6 +89,7 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
           newsletterDesde: newsletter ?? null,
           comNumero: abre(pedido, "pedidos"),
           ajustes: lerAjustesGuardados(lojas[0]?.metadata),
+          pedidosDaNuvemshop: daNuvemshop,
         },
         ctx.agora
       ),

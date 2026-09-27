@@ -121,6 +121,33 @@ export async function lerContexto(
 const query = (container: MedusaContainer) => container.resolve(ContainerRegistrationKeys.QUERY)
 
 /**
+ * Todos os pedidos da loja nova com o que as etiquetas do CRM usam (o SKU, o
+ * pagamento, a entrega, os cupons) — as contas da aba da base da Nuvemshop.
+ * `items.*`: o `items.quantity` sozinho vem zerado no Medusa 2.21 (0116).
+ */
+export async function pedidosParaAsEtiquetas(container: MedusaContainer): Promise<PedidoCru[]> {
+  const { data } = await query(container).graph({
+    entity: "order",
+    fields: [
+      "id",
+      "display_id",
+      "email",
+      "status",
+      "created_at",
+      "canceled_at",
+      "items.*",
+      "items.adjustments.code",
+      "payment_collections.payments.captured_at",
+      "fulfillments.delivered_at",
+      "fulfillments.canceled_at",
+    ],
+    filters: { is_draft_order: false },
+    pagination: { take: 5000, order: { created_at: "DESC" } },
+  })
+  return data as unknown as PedidoCru[]
+}
+
+/**
  * O que o Marketing lê de cada pedido: só o que as contas usam — o total, os
  * itens com o valor de cada um e quando o dinheiro entrou. Nada de cliente:
  * a resposta sai só com números.

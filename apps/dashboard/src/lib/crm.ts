@@ -127,10 +127,42 @@ export type TelaDosAjustes = {
   padrao: AjustesDoCrm
   tipos: { tipo: TipoDeProduto; nome: string; produtos: string[] }[]
   foraDaConta: string[]
+  /** Quanto tempo leva pra comprar de novo, pela loja antiga — nulo sem a base. */
+  nuvemshop: Record<TipoDeProduto, { dias: number; recompras: number } | null> | null
 }
 
 /** O formulário como a tela manda: o texto de cada campo (quem confere é o Medusa). */
 export type FormularioDosAjustes = {
   dias: Record<TipoDeProduto, string>
   regras: Record<RegraDoCrm, string>
+}
+
+/* ── a base da Nuvemshop ─────────────────────────────────────────────────── */
+
+export const CAMINHO_DA_BASE = "/dashboard/crm/base"
+
+export type EtapaDoCrm =
+  "lead" | "primeira-compra" | "em-tratamento" | "recorrente" | "em-risco" | "sunset"
+
+/** A aba da base (`montarTelaDaBase`, no backend). */
+export type TelaDaBase = {
+  vazia: boolean
+  numeros: {
+    pessoas: number
+    aceitam: number
+    pedidos: number
+    pagos: number
+    vendido: number
+    carrinhos: number
+    primeiroPedido: string | null
+    ultimoPedido: string | null
+    importadoEm: string | null
+  }
+  etapas: { etapa: EtapaDoCrm; nome: string; pessoas: number; aceitam: number }[]
+  engajamento: {
+    valor: "quente" | "morno" | "frio"
+    nome: string
+    pessoas: number
+    aceitam: number
+  }[]
 }

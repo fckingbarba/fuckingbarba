@@ -31,3 +31,61 @@ export async function salvarAjustesDoCrm(f: FormularioDosAjustes): Promise<Resul
   revalidatePath("/crm", "layout")
   return { ok: true, texto: "Ajustes salvos. Valem na próxima ficha de cliente que abrir." }
 }
+
+const inteiro = new Intl.NumberFormat("pt-BR")
+const NOME_DO_ARQUIVO = { clientes: "Clientes", vendas: "Vendas", carrinhos: "Carrinhos" } as const
+const ERRO_DA_BASE: Record<string, string> = {
+  desconhecido: "não é um dos três da Nuvemshop (Clientes, Vendas ou Carrinhos abandonados)",
+  vazio: "está vazio",
+  grande: "passa de 8 MB",
+  arquivo_invalido: "não abriu",
+}
+
+/**
+ * UM ARQUIVO DA BASE DA NUVEMSHOP — o `gzip` é o arquivo comprimido no
+ * navegador, em base64. Quem reconhece qual dos três é, lê e grava é o
+ * Medusa (`POST /dashboard/crm/base`); aqui, a frase do que entrou.
+ */
+export async function importarArquivoDaBase(f: {
+  nome: string
+  gzip: string
+}): Promise<ResultadoDosAjustes> {
+  const r = await medusa("/dashboard/crm/base", { token: "sessao", corpo: f })
+  if (r.status === 401)
+    redirect(`/sair?motivo=${r.corpo.message === "fora_da_equipe" ? "fora" : "expirou"}`)
+  if (r.status === 403) return { ok: false, texto: semAcessoA("crm") }
+  if (r.status === 413 || r.status === 422)
+    return {
+      ok: false,
+      texto: `“${f.nome}” ${ERRO_DA_BASE[String(r.corpo.erro)] ?? "não entrou"}.`,
+    }
+  if (r.status !== 200)
+    return { ok: false, texto: "Não consegui falar com a loja agora. Tenta de novo em instantes." }
+  revalidatePath("/crm", "layout")
+  const c = r.corpo as {
+    tipo: keyof typeof NOME_DO_ARQUIVO
+    lidas: number
+    novos: number
+    atualizados: number
+    ignoradas: number
+  }
+  const [um, varios] =
+    c.tipo === "clientes"
+      ? ["pessoa", "pessoas"]
+      : c.tipo === "vendas"
+        ? ["pedido", "pedidos"]
+        : ["carrinho", "carrinhos"]
+  const vezes = (n: number, s: string, p: string) => `${inteiro.format(n)} ${n === 1 ? s : p}`
+  const partes = [`${NOME_DO_ARQUIVO[c.tipo]}: ${vezes(c.lidas, um, varios)}`]
+  if (c.atualizados)
+    partes.push(
+      c.atualizados === 1
+        ? "1 já estava e foi atualizado"
+        : `${inteiro.format(c.atualizados)} já estavam e foram atualizados`
+    )
+  if (c.ignoradas)
+    partes.push(
+      `${vezes(c.ignoradas, "linha", "linhas")} sem e-mail ${c.ignoradas === 1 ? "ficou" : "ficaram"} de fora`
+    )
+  return { ok: true, texto: `${partes.join(" · ")}.` }
+}

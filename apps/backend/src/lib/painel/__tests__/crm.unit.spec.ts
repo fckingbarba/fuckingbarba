@@ -1,8 +1,13 @@
 import type { Etiquetas } from "../../crm/etiquetas"
+import { AJUSTES_PADRAO } from "../../crm/ajustes"
 import {
   emFraseDoCrm,
   emFraseDoEmail,
   fichaDoCrmDoCliente,
+  montarTelaDaBase,
+  pedidoDaBase,
+  recomprasDaBase,
+  type PedidoLidoDaBase,
   lerPeriodoDoCrm,
   montarEmailsDoCrm,
   montarFichaDoCrm,
@@ -491,6 +496,7 @@ describe("os pedidos na ficha do CRM", () => {
         id: "item_1",
         product_title: "Kit 2 Fator de Crescimento",
         product_handle: "kit-2-fator-de-crescimento-para-barba",
+        variant_sku: "FBKIT05",
         quantity: 1,
         adjustments: [
           { code: "volta15", amount: 10 },
@@ -525,10 +531,11 @@ describe("os pedidos na ficha do CRM", () => {
       itens: [
         {
           handle: "kit-2-fator-de-crescimento-para-barba",
+          sku: "FBKIT05",
           nome: "Kit 2 Fator de Crescimento",
           quantidade: 1,
         },
-        { handle: "balm-para-barba", nome: "Balm", quantidade: 2 },
+        { handle: "balm-para-barba", sku: null, nome: "Balm", quantidade: 2 },
       ],
       cupons: ["VOLTA15"],
     })
@@ -576,5 +583,184 @@ describe("os pedidos na ficha do CRM", () => {
     const semNumero = fichaDoCrmDoCliente({ ...entrada, comNumero: false }, AGORA)
     expect(semNumero.etiquetas[0].porque).toBe("pagou o pedido, que ainda não chegou")
     expect(semNumero.caminho[0].oque).toBe("pagou o pedido · R$\u00a0129,90")
+  })
+})
+
+describe("a base da Nuvemshop", () => {
+  const AGORA = new Date("2026-09-27T18:00:00Z")
+  const daBase = (extra: Partial<PedidoLidoDaBase>): PedidoLidoDaBase => ({
+    numero: "5001",
+    email: "rafael@exemplo.com",
+    feitoEm: "2026-08-01T12:00:00Z",
+    pagoEm: "2026-08-01T15:00:00Z",
+    pagamento: "confirmado",
+    envio: "entregue",
+    total: 19480,
+    cupom: "PRIMEIRACOMPRA",
+    itens: [{ sku: "FBKIT04", nome: "Kit Hidratação", quantidade: 1, valor: 99.9 }],
+    ...extra,
+  })
+
+  it("o pedido da loja antiga do jeito das etiquetas: pago, recusado e estornado", () => {
+    expect(pedidoDaBase(daBase({}))).toEqual({
+      id: "nuvemshop:5001",
+      numero: "5001",
+      pagoEm: new Date("2026-08-01T15:00:00Z"),
+      entregueEm: null,
+      cancelado: false,
+      itens: [{ handle: null, sku: "FBKIT04", nome: "Kit Hidratação", quantidade: 1 }],
+      cupons: ["PRIMEIRACOMPRA"],
+      total: 194.8,
+      daNuvemshop: true,
+    })
+    expect(pedidoDaBase(daBase({ pagamento: "recusado" })).pagoEm).toBeNull()
+    expect(pedidoDaBase(daBase({ pagamento: "estornado" })).cancelado).toBe(true)
+  })
+
+  it("na ficha: a compra da Nuvemshop conta (recorrente) e aparece no caminho", () => {
+    const ficha = fichaDoCrmDoCliente(
+      {
+        crm: {
+          ultimoClique: null,
+          ultimaVisita: null,
+          origem: null,
+          primeiraVisita: null,
+          eventos: [],
+          emails: [],
+        },
+        pedidos: [
+          {
+            id: "order_1",
+            display_id: 1001,
+            created_at: "2026-09-20T12:00:00Z",
+            total: 79.9,
+            items: [{ id: "i1", product_handle: "fator-de-crescimento-para-barba", quantity: 1 }],
+            payment_collections: [{ payments: [{ captured_at: "2026-09-20T12:05:00Z" }] }],
+          },
+        ],
+        envios: new Map(),
+        newsletterDesde: null,
+        comNumero: true,
+        pedidosDaNuvemshop: [daBase({})],
+      },
+      AGORA
+    )
+    expect(ficha.etiquetas[0]).toMatchObject({ valor: "Recorrente", porque: "2 pedidos pagos" })
+    expect(ficha.caminho.map((p) => p.oque)).toEqual([
+      "pagou o pedido #1001 · R$\u00a079,90",
+      "pagou o pedido #5001 na Nuvemshop · R$\u00a0194,80",
+    ])
+    const semNumero = fichaDoCrmDoCliente(
+      {
+        crm: {
+          ultimoClique: null,
+          ultimaVisita: null,
+          origem: null,
+          primeiraVisita: null,
+          eventos: [],
+          emails: [],
+        },
+        pedidos: [],
+        envios: new Map(),
+        newsletterDesde: null,
+        comNumero: false,
+        pedidosDaNuvemshop: [daBase({})],
+      },
+      AGORA
+    )
+    expect(semNumero.caminho[0].oque).toBe("pagou um pedido na Nuvemshop · R$\u00a0194,80")
+  })
+
+  it("a aba: os números e quem é quem na base, com os pedidos das duas lojas", () => {
+    const tela = montarTelaDaBase(
+      {
+        resumo: {
+          pessoas: 3,
+          aceitam: 2,
+          pedidos: 3,
+          pagos: 2,
+          vendidoCentavos: 27470,
+          primeiroPedido: new Date("2026-01-30T15:00:00Z"),
+          ultimoPedido: new Date("2026-08-01T12:00:00Z"),
+          carrinhos: 1,
+          importadoEm: new Date("2026-09-27T17:30:00Z"),
+        },
+        pessoas: [
+          { email: "rafael@exemplo.com", aceitaOfertas: true, newsletterEm: null },
+          { email: "ana@exemplo.com", aceitaOfertas: true, newsletterEm: null },
+          { email: "joao@exemplo.com", aceitaOfertas: false, newsletterEm: null },
+        ],
+        pedidos: [
+          daBase({}),
+          // A Ana comprou em janeiro e sumiu: em risco há tempo, sem sinal — sunset.
+          daBase({
+            numero: "5002",
+            email: "ana@exemplo.com",
+            feitoEm: "2026-01-30T12:00:00Z",
+            pagoEm: "2026-01-30T15:00:00Z",
+            itens: [{ sku: "FBFCB01", nome: "Fator", quantidade: 1, valor: 79.9 }],
+          }),
+          daBase({ numero: "5003", email: "joao@exemplo.com", pagamento: "recusado" }),
+        ],
+        // O Rafael também comprou na loja nova: recorrente.
+        pedidosDaLoja: new Map([
+          [
+            "rafael@exemplo.com",
+            [
+              {
+                id: "order_1",
+                numero: "1001",
+                pagoEm: new Date("2026-09-20T12:00:00Z"),
+                entregueEm: null,
+                cancelado: false,
+                itens: [],
+                cupons: [],
+              },
+            ],
+          ],
+        ]),
+        sinais: new Map(),
+        ajustes: AJUSTES_PADRAO,
+      },
+      AGORA
+    )
+    expect(tela.vazia).toBe(false)
+    expect(tela.numeros).toEqual({
+      pessoas: 3,
+      aceitam: 2,
+      pedidos: 3,
+      pagos: 2,
+      vendido: 274.7,
+      carrinhos: 1,
+      primeiroPedido: "30/01/2026",
+      ultimoPedido: "01/08/2026",
+      importadoEm: "hoje, 14:30",
+    })
+    const etapa = (e: string) => tela.etapas.find((x) => x.etapa === e)
+    expect(etapa("recorrente")).toMatchObject({ pessoas: 1, aceitam: 1 })
+    expect(etapa("sunset")).toMatchObject({ pessoas: 1, aceitam: 1 })
+    expect(etapa("lead")).toMatchObject({ pessoas: 1, aceitam: 0 })
+    expect(tela.engajamento.map((e) => [e.valor, e.pessoas])).toEqual([
+      ["quente", 1],
+      ["morno", 0],
+      ["frio", 2],
+    ])
+  })
+
+  it("as recompras da base; sem pedido, nada", () => {
+    expect(recomprasDaBase([])).toBeNull()
+    const r = recomprasDaBase([
+      daBase({
+        numero: "1",
+        feitoEm: "2026-01-01T12:00:00Z",
+        itens: [{ sku: "FBFCB01", nome: "F", quantidade: 1, valor: 1 }],
+      }),
+      daBase({
+        numero: "2",
+        feitoEm: "2026-02-10T12:00:00Z",
+        itens: [{ sku: "FBFCB01", nome: "F", quantidade: 1, valor: 1 }],
+      }),
+    ])
+    expect(r?.fator).toEqual({ dias: 40, recompras: 1 })
   })
 })

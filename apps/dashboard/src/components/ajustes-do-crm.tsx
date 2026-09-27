@@ -88,6 +88,9 @@ const emTexto = (a: AjustesDoCrm): FormularioDosAjustes => ({
 
 const igual = (texto: string, numero: number) => texto.trim() === String(numero)
 
+/** Com menos recompras que isso, o número da Nuvemshop ainda é chute: não entra no botão. */
+const RECOMPRAS_PRA_VALER = 10
+
 /** Quantos campos estão diferentes do que está gravado. */
 function pendentesEntre(f: FormularioDosAjustes, a: AjustesDoCrm): number {
   let n = 0
@@ -160,6 +163,13 @@ export function FormularioDosAjustes({ tela }: { tela: TelaDosAjustes }) {
     ) : null
 
   const exemplo = exemploDoFator(f.dias.fator)
+  const daNuvemshop = tela.nuvemshop
+  /** Os tipos com recompra suficiente na loja antiga, e o número dela. */
+  const doHistorico = TIPOS.flatMap((t) => {
+    const r = daNuvemshop?.[t]
+    return r && r.recompras >= RECOMPRAS_PRA_VALER ? [[t, r.dias] as const] : []
+  })
+  const jaUsaOHistorico = doHistorico.every(([t, dias]) => igual(f.dias[t], dias))
 
   return (
     <>
@@ -186,6 +196,13 @@ export function FormularioDosAjustes({ tela }: { tela: TelaDosAjustes }) {
                 <p className="ajuste-tipo__produtos" data-produtos-do-tipo={tipo}>
                   {produtos.length ? produtos.join(" · ") : "Nenhum produto da loja agora."}
                 </p>
+                {daNuvemshop ? (
+                  <p className="ajuste-tipo__historico" data-historico-do-tipo={tipo}>
+                    {daNuvemshop[tipo]
+                      ? `Na Nuvemshop: ${daNuvemshop[tipo].dias} dias até comprar de novo (${daNuvemshop[tipo].recompras} ${daNuvemshop[tipo].recompras === 1 ? "recompra" : "recompras"})`
+                      : "Na Nuvemshop: ninguém comprou de novo ainda"}
+                  </p>
+                ) : null}
                 {erroDe(`dias.${tipo}`)}
               </div>
               <label className="ajuste-tipo__campo">
@@ -202,6 +219,33 @@ export function FormularioDosAjustes({ tela }: { tela: TelaDosAjustes }) {
             </li>
           ))}
         </ul>
+        {doHistorico.length ? (
+          <div className="ajustes-historico">
+            <p className="pequeno suave">
+              A mediana dos dias entre uma compra e a seguinte do mesmo produto, por unidade, nos
+              pedidos da loja antiga. Só entram no botão os produtos com {RECOMPRAS_PRA_VALER}{" "}
+              recompras ou mais.
+            </p>
+            <button
+              type="button"
+              className="btn btn--contorno btn--menor"
+              disabled={salvando || jaUsaOHistorico}
+              data-usar-historico
+              onClick={() => {
+                setErros({})
+                setF((a) => ({
+                  ...a,
+                  dias: {
+                    ...a.dias,
+                    ...Object.fromEntries(doHistorico.map(([t, d]) => [t, String(d)])),
+                  },
+                }))
+              }}
+            >
+              Usar os números da Nuvemshop
+            </button>
+          </div>
+        ) : null}
         {exemplo ? (
           <p className="ajuste-exemplo" data-exemplo-do-fator>
             <Icone nome="clientes" />

@@ -109,6 +109,13 @@ export default async function Privacidade() {
           pra você. E-mail de oferta continua dependendo do seu sim a ele, separado deste.
         </P>
         <P>
+          <b>Se você já comprou na loja antiga</b> (a FuckingBarba na Nuvemshop): vieram com você o
+          seu e-mail, o primeiro nome, os pedidos e os carrinhos que ficaram no meio (datas,
+          produtos e valores) e a sua escolha sobre receber ofertas. É o que deixa a loja saber
+          quando o seu produto está acabando. CPF, telefone, endereço e dados do cartão da loja
+          antiga não vieram, e e-mail de oferta só vai pra quem tinha aceitado lá.
+        </P>
+        <P>
           <b>Quando você tenta pagar com cartão</b>: pra barrar robô testando cartão roubado, a loja
           anota cada tentativa — a sacola, o valor, se passou, e um código tirado do seu IP (não o
           IP), que só serve pra contar as tentativas da mesma pessoa.

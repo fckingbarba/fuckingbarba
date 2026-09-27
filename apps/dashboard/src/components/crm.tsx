@@ -6,6 +6,7 @@ import {
   type EtiquetaDaFicha,
   type FichaDoCrm,
   type PeriodoDoCrm,
+  type TelaDaBase,
   type TelaDoCrm,
   type TipoDoCrm,
 } from "@/lib/crm"
@@ -18,7 +19,8 @@ import {
  *
  * Na ficha do cliente (parte 3): as cinco etiquetas da pessoa e o caminho
  * dela — o site, os e-mails e as compras juntos. As abas (parte 4): o
- * Resumo e os Ajustes (`components/ajustes-do-crm.tsx`).
+ * Resumo e os Ajustes (`components/ajustes-do-crm.tsx`); e a Base da
+ * Nuvemshop (parte 5): os números e quem é quem na loja antiga.
  */
 
 const ICONE: Record<TipoDoCrm, NomeDoIcone> = {
@@ -56,8 +58,8 @@ const ETAPAS: { nome: string; tipos: TipoDoCrm[] }[] = [
 const inteiro = new Intl.NumberFormat("pt-BR")
 const navegadores = (n: number) => `${inteiro.format(n)} ${n === 1 ? "navegador" : "navegadores"}`
 
-/** As abas do CRM: o Resumo (o que a loja anotou) e os Ajustes. */
-export function AbasDoCrm({ atual }: { atual: "resumo" | "ajustes" }) {
+/** As abas do CRM: o Resumo (o que a loja anotou), os Ajustes e a Base da Nuvemshop. */
+export function AbasDoCrm({ atual }: { atual: "resumo" | "ajustes" | "base" }) {
   return (
     <nav className="abas" aria-label="CRM">
       <Link href="/crm" aria-current={atual === "resumo" ? "page" : undefined} data-aba="resumo">
@@ -69,6 +71,13 @@ export function AbasDoCrm({ atual }: { atual: "resumo" | "ajustes" }) {
         data-aba="ajustes"
       >
         Ajustes
+      </Link>
+      <Link
+        href={"/crm/base" as Route}
+        aria-current={atual === "base" ? "page" : undefined}
+        data-aba="base"
+      >
+        Base da Nuvemshop
       </Link>
     </nav>
   )
@@ -440,6 +449,141 @@ export function CaminhoDaPessoa({ caminho }: { caminho: FichaDoCrm["caminho"] })
           as compras.
         </p>
       )}
+    </section>
+  )
+}
+
+const reaisSemCentavos = new Intl.NumberFormat("pt-BR", {
+  style: "currency",
+  currency: "BRL",
+  maximumFractionDigits: 0,
+})
+
+/** OS NÚMEROS DA BASE — o que entrou da loja antiga. */
+export function NumerosDaBase({ numeros }: { numeros: TelaDaBase["numeros"] }) {
+  const n = numeros
+  const parte = n.pessoas ? Math.round((n.aceitam / n.pessoas) * 100) : 0
+  return (
+    <div className="numeros numeros--base" data-numeros-base>
+      <div className="numero numero--destaque">
+        <p className="numero__rot">Pessoas</p>
+        <p className="numero__valor num" data-base="pessoas">
+          {inteiro.format(n.pessoas)}
+        </p>
+        <p className="numero__sub">clientes da loja antiga</p>
+      </div>
+      <div className="numero">
+        <p className="numero__rot">Aceitam ofertas</p>
+        <p className="numero__valor num" data-base="aceitam">
+          {inteiro.format(n.aceitam)}
+        </p>
+        <p className="numero__sub">{n.pessoas ? `${parte}% das pessoas` : "ninguém ainda"}</p>
+      </div>
+      <div className="numero">
+        <p className="numero__rot">Pedidos pagos</p>
+        <p className="numero__valor num" data-base="pagos">
+          {inteiro.format(n.pagos)}
+        </p>
+        <p className="numero__sub">
+          {n.primeiroPedido && n.ultimoPedido
+            ? `de ${n.primeiroPedido} a ${n.ultimoPedido}`
+            : "nenhum pedido ainda"}
+        </p>
+      </div>
+      <div className="numero">
+        <p className="numero__rot">Vendido</p>
+        <p className="numero__valor num" data-base="vendido">
+          {reaisSemCentavos.format(n.vendido)}
+        </p>
+        <p className="numero__sub">nos pedidos pagos</p>
+      </div>
+      <div className="numero">
+        <p className="numero__rot">Carrinhos</p>
+        <p className="numero__valor num" data-base="carrinhos">
+          {inteiro.format(n.carrinhos)}
+        </p>
+        <p className="numero__sub">abandonados</p>
+      </div>
+    </div>
+  )
+}
+
+/** Uma barra da base: o nome, quantos, e desses quantos aceitam ofertas. */
+function BarraDaBase({
+  nome,
+  pessoas,
+  aceitam,
+  maior,
+  dado,
+}: {
+  nome: string
+  pessoas: number
+  aceitam: number
+  maior: number
+  dado: string
+}) {
+  return (
+    <li className="base-barra" data-linha-da-base={dado}>
+      <p className="base-barra__nome">{nome}</p>
+      <span className="base-barra__trilho" aria-hidden="true">
+        <span style={{ width: `${maior && pessoas ? Math.max(2, (pessoas / maior) * 100) : 0}%` }} />
+      </span>
+      <p className="base-barra__n num">{inteiro.format(pessoas)}</p>
+      <p className="base-barra__sub">
+        {aceitam === pessoas && pessoas
+          ? "todos aceitam ofertas"
+          : `${inteiro.format(aceitam)} aceitam ofertas`}
+      </p>
+    </li>
+  )
+}
+
+/**
+ * QUEM É QUEM NA BASE — as etiquetas da base inteira, com os pedidos da loja
+ * antiga e os da nova: quantos em cada etapa e em cada engajamento, e desses
+ * quantos aceitam receber ofertas (os que os e-mails vão poder chamar).
+ */
+export function QuemEQuemNaBase({
+  etapas,
+  engajamento,
+  importadoEm,
+}: {
+  etapas: TelaDaBase["etapas"]
+  engajamento: TelaDaBase["engajamento"]
+  importadoEm: string | null
+}) {
+  const maior = Math.max(0, ...etapas.map((e) => e.pessoas), ...engajamento.map((e) => e.pessoas))
+  return (
+    <section className="bloco" aria-labelledby="base-quem" data-quem-e-quem>
+      <div className="bloco__cabeca">
+        <div>
+          <h2 className="bloco__titulo" id="base-quem">
+            Quem é quem na base
+          </h2>
+          <p className="bloco__sub">
+            As etiquetas de cada pessoa, com os pedidos da loja antiga e os da nova, e os Ajustes do
+            CRM.{importadoEm ? ` A última importação foi ${importadoEm}.` : ""}
+          </p>
+        </div>
+      </div>
+      <div className="duas base-duas">
+        <div>
+          <p className="rotulo">Etapa</p>
+          <ul className="base-barras">
+            {etapas.map((e) => (
+              <BarraDaBase key={e.etapa} dado={e.etapa} maior={maior} {...e} />
+            ))}
+          </ul>
+        </div>
+        <div>
+          <p className="rotulo">Engajamento</p>
+          <ul className="base-barras">
+            {engajamento.map((e) => (
+              <BarraDaBase key={e.valor} dado={e.valor} maior={maior} {...e} />
+            ))}
+          </ul>
+        </div>
+      </div>
     </section>
   )
 }
