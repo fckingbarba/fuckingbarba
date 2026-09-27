@@ -409,16 +409,23 @@ function MedidorDeFrete({ subtotal }: { subtotal: number }) {
 /**
  * O RECADO DO "LEVE X, PAGUE Y" numa linha da sacola: a etiqueta da
  * promoção, quantas saíram de graça nesta linha (pelo ajuste do Medusa), e o
- * empurrão — "mais 1 sai de graça" — na última linha da promoção, quando a
- * próxima unidade já é de graça. Sem CSS novo: a sacola mora em toda página,
- * e a home não tem folga (o quadro do LCP, no AGENTS.md).
+ * empurrão na última linha da promoção, quando a próxima unidade já é de
+ * graça: "mais 1 sai de graça" — ou, se as próximas custam alguma coisa
+ * (num "leve 3", a faixa de 2 deixa de valer na terceira), "mais 1 por
+ * R$ 4,90" (`custam`, que vem pronto do servidor). Sem CSS novo: a sacola
+ * mora em toda página, e a home não tem folga (o quadro do LCP, no
+ * AGENTS.md).
  */
 function RecadoDaPromocao({ recado }: { recado: PromocaoDaLinha }) {
   return (
     <p className="sacolinha__unitario" data-promocao-linha>
       <b>{recado.etiqueta}</b>
       {recado.gratis ? ` · ${recado.gratis} de graça` : ""}
-      {recado.mais ? ` · mais ${recado.mais} ${recado.mais === 1 ? "sai" : "saem"} de graça` : ""}
+      {recado.mais
+        ? recado.custam
+          ? ` · mais ${recado.mais} por ${emReais(recado.custam)}`
+          : ` · mais ${recado.mais} ${recado.mais === 1 ? "sai" : "saem"} de graça`
+        : ""}
     </p>
   )
 }

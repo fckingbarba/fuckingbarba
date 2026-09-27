@@ -1,4 +1,4 @@
-import { FAIXAS, totalDaFaixa, unitarioDaFaixa } from "../precos-por-quantidade"
+import { FAIXAS, faixasComPromocao, totalDaFaixa, unitarioDaFaixa } from "../precos-por-quantidade"
 
 /** Os preços do catálogo em 22/09 (o que o cliente paga, com a promoção). */
 const OLEO = 54.9
@@ -55,5 +55,25 @@ describe("o total da faixa", () => {
     // R$ 0,30 x 2 = R$ 0,60: nenhum ,90 cabe embaixo — a faixa some.
     expect(totalDaFaixa(0.3, 2, 4)).toBeNull()
     expect(unitarioDaFaixa(0.3, 2, 4)).toBeNull()
+  })
+})
+
+describe('as faixas de um produto em "Leve X, pague Y"', () => {
+  const unidades = (comprando?: number) => faixasComPromocao(comprando).map((f) => f.unidades)
+
+  it("sem promoção, todas", () => {
+    expect(unidades()).toEqual([2, 3])
+  })
+
+  it('num "leve 3", a de 2 fica e a de 3 ou mais sai (entrega 0142)', () => {
+    expect(unidades(3)).toEqual([2])
+  })
+
+  it('num "leve 2", nenhuma: a de 2 já chega no X', () => {
+    expect(unidades(2)).toEqual([])
+  })
+
+  it('num "leve 4", a de 3 sai mesmo assim: ela não tem teto, e chegaria no 4', () => {
+    expect(unidades(4)).toEqual([2])
   })
 })

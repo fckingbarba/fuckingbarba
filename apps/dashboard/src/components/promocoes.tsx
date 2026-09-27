@@ -350,7 +350,9 @@ function GavetaDaPromocao({ catalogo, fechar }: { catalogo: Catalogo; fechar: ()
         </p>
         <p className="pequeno suave" style={{ margin: "10px 0 0" }}>
           Não soma com o desconto por quantidade: enquanto a promoção vale, os produtos dela saem
-          dos 4% e 6%. Cupom que não combina com outras promoções não desconta os itens dela.
+          das faixas que chegam no Comprando — num &quot;leve 3&quot;, saem os 6% de 3 ou mais, e os
+          4% de 2 unidades continuam. Cupom que não combina com outras promoções não desconta os
+          itens dela.
         </p>
         {erro ? (
           <p className="gaveta__erro" role="alert">

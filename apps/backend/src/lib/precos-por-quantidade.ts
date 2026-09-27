@@ -43,17 +43,26 @@ import { avisarALoja } from "./revalidar"
  * │ mudando, a rodada só lê.                                               │
  * └────────────────────────────────────────────────────────────────────────┘
  *
- * ┌─ O "LEVE X, PAGUE Y" TIRA O PRODUTO DAS FAIXAS ────────────────────────┐
+ * ┌─ O "LEVE X, PAGUE Y" TIRA O PRODUTO DAS FAIXAS QUE ELE ALCANÇA ────────┐
  * │ A loja decidiu (26/09) que a promoção do painel (`lib/promocoes.ts`)   │
  * │ NÃO SOMA com o desconto por quantidade: 3 Fatores num "leve 3, pague   │
- * │ 2" são 3 pelo preço de 2, e não 6% em cada e mais um de graça. Então   │
- * │ esta rodada deixa de fora das faixas os produtos em que uma promoção   │
- * │ vale AGORA (`promocoesNaLoja`), e devolve quando ela acaba — pela data │
- * │ ou pela chave. Esse conjunto entra na foto: a promoção que começa ou   │
- * │ termina sozinha, pela hora, avisa a loja na rodada seguinte (o selo e  │
- * │ os cartões da PDP são dela). Sem conseguir ler as promoções, a rodada  │
- * │ não escreve nada: devolver as faixas a um produto em promoção seria    │
- * │ dar os dois descontos até a próxima.                                   │
+ * │ 2" são 3 pelo preço de 2, e não 6% em cada e mais um de graça. Então,  │
+ * │ nos produtos em que uma promoção vale AGORA (`promocoesNaLoja`), esta  │
+ * │ rodada deixa de fora as faixas que chegam no "leve X" dela — a de 3 ou │
+ * │ mais, num "leve 3" — e mantém as que acabam antes                      │
+ * │ (`faixasComPromocao`): 2 unidades seguem com os 4%, e o cartão de 2 da │
+ * │ página do produto continua (pedido da loja em 27/09, entrega 0142 —    │
+ * │ até ali saíam todas, e o cartão sumia). Num "leve 2" não sobra         │
+ * │ nenhuma. Tudo volta quando a promoção acaba — pela data ou pela chave. │
+ * │ Esse conjunto entra na foto: a promoção que começa ou termina sozinha, │
+ * │ pela hora, avisa a loja na rodada seguinte (o selo e os cartões da PDP │
+ * │ são dela). Sem conseguir ler as promoções, a rodada não escreve nada:  │
+ * │ devolver as faixas a um produto em promoção seria dar os dois          │
+ * │ descontos até a próxima.                                               │
+ * │                                                                        │
+ * │ A FRESTA: numa promoção de vários produtos, 2 de um (com os 4%) e 1 de │
+ * │ outro disparam o "leve 3" — os 4% ficam, e a mais barata sai de graça. │
+ * │ A faixa é preço de lista (vale por linha), e não sabe da promoção.     │
  * └────────────────────────────────────────────────────────────────────────┘
  *
  * SUBSTITUI OS KITS DE QUANTIDADE (o antigo `scripts/kits-de-quantidade.ts`), que eram
@@ -78,6 +87,16 @@ export const FAIXAS = [
   { unidades: 2, ate: 2, desconto: 4 },
   { unidades: 3, ate: null, desconto: 6 },
 ] as const
+
+/**
+ * As faixas que ficam num produto com "Leve X, pague Y" valendo (o menor X,
+ * se houver mais de uma): só as que ACABAM antes do X — a de 2 (só 2) num
+ * "leve 3" fica; a de 3 ou mais nunca fica, porque chega em qualquer X. Sem
+ * promoção, todas. Ver o quadro lá em cima.
+ */
+export function faixasComPromocao(comprando?: number) {
+  return FAIXAS.filter((f) => comprando === undefined || (f.ate !== null && f.ate < comprando))
+}
 
 export const TITULO_DA_LISTA = "Desconto por quantidade"
 const MOEDA = "brl"
@@ -147,7 +166,7 @@ const chave = (conjunto: string, min: number | null, max: number | null) =>
  * primeira rodada só tira a foto — o deploy já derrubou o cache da loja.
  */
 let fotoAnterior: string | null = null
-/** Os produtos em "Leve X, pague Y" da rodada anterior (a parte da foto que pede o aviso "agora"). */
+/** Os produtos em "Leve X, pague Y" da rodada anterior, com o X (a parte da foto que pede o aviso "agora"). */
 let levePagueAnterior: string | null = null
 
 /** As etiquetas que um preço novo derruba na loja. */
@@ -221,9 +240,9 @@ export async function sincronizarPrecosPorQuantidade(container: MedusaContainer)
     : []
 
   // Os produtos em "Leve X, pague Y" agora — ver o quadro lá em cima.
-  let foraDasFaixas: Set<string>
+  let emPromocao: Map<string, number>
   try {
-    foraDasFaixas = await produtosEmPromocao(container, produtos, atuais, produtoDoConjunto)
+    emPromocao = await produtosEmPromocao(container, produtos, atuais, produtoDoConjunto)
   } catch (e) {
     logger.warn(`[quantidade] as promoções do painel não vieram, a rodada não mexe em nada: ${e}`)
     return { criados: 0, atualizados: 0, removidos: 0 }
@@ -234,7 +253,10 @@ export async function sincronizarPrecosPorQuantidade(container: MedusaContainer)
     {},
     { select: ["id", "title", "status", "starts_at", "ends_at"], take: 1000 }
   )
-  const levePague = [...foraDasFaixas].sort().join(",")
+  const levePague = [...emPromocao]
+    .map(([produto, comprando]) => `${produto}:${comprando}`)
+    .sort()
+    .join(",")
   const foto = `${fotoDosPrecos(atuais, todasAsListas)}|leve-pague:${levePague}`
   const precosMudaram = fotoAnterior !== null && foto !== fotoAnterior
   const promocaoMudou = levePagueAnterior !== null && levePague !== levePagueAnterior
@@ -244,10 +266,16 @@ export async function sincronizarPrecosPorQuantidade(container: MedusaContainer)
     if (!faixasMudaram && !precosMudaram) return
     // A lista da loja (`GET /store/promocoes`) é refeita antes de a loja perguntar de novo.
     esquecerPromocoes()
-    // Promoção que começou ou acabou pela hora: "agora", como a do painel
-    // (`lib/painel/promocoes.ts`) — com "seconds", a página refeita por trás
-    // lia a escada guardada, com o selo velho.
-    await avisarALoja(ETIQUETAS_DE_PRECO, logger, promocaoMudou ? "agora" : "seconds")
+    /*
+      Promoção que começou ou acabou pela hora: "agora", como a do painel
+      (`lib/painel/promocoes.ts`) — com "seconds", a página refeita por trás
+      lia a escada guardada, com o selo velho. E também faixa que mudou com
+      promoção valendo: o cartão de 2 da PDP e a conta da caixa de compra
+      saem dela — é o que a primeira rodada depois da entrega 0142 faz, ao
+      devolver a faixa de 2 aos produtos em promoção, sem foto anterior.
+    */
+    const agora = promocaoMudou || (faixasMudaram && emPromocao.size > 0)
+    await avisarALoja(ETIQUETAS_DE_PRECO, logger, agora ? "agora" : "seconds")
   }
 
   const desejados = new Map<string, PrecoDesejado>()
@@ -255,8 +283,7 @@ export async function sincronizarPrecosPorQuantidade(container: MedusaContainer)
     const variante = variantePorConjunto.get(atual.id)
     const preco = emNumero(atual.calculated_amount)
     if (!variante || !preco) continue
-    if (foraDasFaixas.has(produtoDoConjunto.get(atual.id) ?? "")) continue
-    for (const faixa of FAIXAS) {
+    for (const faixa of faixasComPromocao(emPromocao.get(produtoDoConjunto.get(atual.id) ?? ""))) {
       const unitario = unitarioDaFaixa(preco, faixa.unidades, faixa.desconto)
       if (unitario === null) continue
       desejados.set(chave(atual.id, faixa.unidades, faixa.ate), {
@@ -353,10 +380,11 @@ export async function sincronizarPrecosPorQuantidade(container: MedusaContainer)
 }
 
 /**
- * Os produtos em que um "Leve X, pague Y" do painel vale agora — os que saem
- * das faixas. O preço promocional de cada um sai da mesma conta de uma
- * unidade desta rodada (`atuais`): a promoção que não vale em produto com
- * "de/por" deixa esse produto nas faixas. Sem promoção nenhuma, nem conta.
+ * Os produtos em que um "Leve X, pague Y" do painel vale agora, com o menor
+ * X de cada um — o que diz quais faixas saem (`faixasComPromocao`). O preço
+ * promocional de cada um sai da mesma conta de uma unidade desta rodada
+ * (`atuais`): a promoção que não vale em produto com "de/por" deixa esse
+ * produto nas faixas. Sem promoção nenhuma, nem conta.
  */
 async function produtosEmPromocao(
   container: MedusaContainer,
@@ -366,9 +394,9 @@ async function produtosEmPromocao(
   }[],
   atuais: { id: string; calculated_amount?: unknown; original_amount?: unknown }[],
   produtoDoConjunto: Map<string, string>
-): Promise<Set<string>> {
+): Promise<Map<string, number>> {
   const promocoes = await promocoesDoPainel(container)
-  if (!promocoes.length) return new Set()
+  if (!promocoes.length) return new Map()
   const comPromocional = new Set(
     atuais
       .filter((a) => {
@@ -385,5 +413,9 @@ async function produtosEmPromocao(
       .filter((id): id is string => Boolean(id)),
     precoPromocional: comPromocional.has(p.id),
   }))
-  return new Set(promocoesNaLoja(promocoes, daPromocao, Date.now()).flatMap((p) => p.produtos))
+  const menor = new Map<string, number>()
+  for (const p of promocoesNaLoja(promocoes, daPromocao, Date.now()))
+    for (const produto of p.produtos)
+      menor.set(produto, Math.min(menor.get(produto) ?? Infinity, p.comprando))
+  return menor
 }

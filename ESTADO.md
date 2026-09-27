@@ -2720,11 +2720,12 @@ com %"), e NÃO SOMA com o desconto por quantidade.
   mais barata de cada grupo de 3 (numa sacola grande e misturada, pode dar um pouco mais de
   desconto que a Nuvemshop, que dá as mais baratas da sacola inteira).
 - **Não soma:** enquanto a promoção vale, os produtos dela saem dos 4%/6% do desconto por
-  quantidade (2 unidades ficam sem os 4%), e voltam quando ela pausa ou acaba.
+  quantidade (2 unidades ficavam sem os 4% — a 0142, logo abaixo, devolveu a faixa de 2), e voltam
+  quando ela pausa ou acaba.
 - **Cupom:** o que combina com outras promoções desconta o que sobrou (10% das duas pagas); o que
   não combina não desconta o item da promoção, como já não descontava o de preço promocional.
-- **Na loja:** o selo com a etiqueta no card (no lugar do "-X%") e embaixo do preço na página do
-  produto; o cartão "3 unidades" com o preço de 2; e na sacola, na linha do produto, "Leve 3, pague
+- **Na loja:** o selo com a etiqueta no card (no lugar do "-X%" — a 0142 pôs os dois) e embaixo do
+  preço na página do produto; o cartão "3 unidades" com o preço de 2; e na sacola, na linha do produto, "Leve 3, pague
   2 · mais 1 sai de graça" com 2, e "1 de graça" com 3. Pausada ou fora do período, o selo sai da
   loja na hora.
 
@@ -2740,6 +2741,35 @@ sempre: no painel, cupons 41/41, preço promocional 17/17, pedidos 77/77 e produ
 Depois do deploy — **nada a configurar.** Pra testar: Painel → Cupons e descontos → Nova promoção →
 um produto → Criar; na loja, o selo aparece no card e na página dele, e 3 na sacola saem pelo preço
 de 2.
+
+**O cartão de 2 unidades e o "-X%" de volta — pronto em 27/09 (entrega 0142).** Pedido dele, vendo
+a promoção no ar: "o card com 2 aqui saiu e não pode" e "tudo bem deixar a tag do leve 3 e pague 2
+lá em cima, mas precisamos apresentar a % de desconto também".
+
+- **A faixa de 2 fica:** num "Leve 3, pague 2", o produto sai só da faixa de 3 ou mais (a que chega
+  no 3). 2 unidades seguem com os 4%, e o cartão "2 unidades" volta na página do produto; 3 seguem
+  pelo preço de 2 (sem os 6% junto). Num "leve 2", saem as duas faixas, como antes.
+- **Os dois selos no card:** o da promoção em cima e o "-X%" logo embaixo. Etiqueta comprida quebra
+  a linha e empurra o de baixo, sem cobrir.
+- **Na sacola, com 2:** "Leve 3, pague 2 · mais 1 por R$ 4,90". Com a faixa de 2 valendo, a
+  terceira custa a diferença (a faixa deixa de valer no 3), e "mais 1 sai de graça" o total
+  desmentiria no clique. O "+" já prevê o total certo.
+- **A fresta, conhecida:** numa promoção de vários produtos (loja inteira ou categoria), 2 de um com
+  os 4% e 1 de outro disparam o "leve 3" — e os 4% ficam. Com promoção de um produto só, não
+  acontece.
+
+Conferido pelo `conferir-promocoes.mjs` (46/46; novas: a faixa de 2 no carrinho, os dois selos no
+card um embaixo do outro, o cartão de 2 na página do produto e o preço dele lá em cima, a sacola
+com 2 e o card depois da pausa só com o "-X%"), pelos testes de unidade (1073; 4 novos, das faixas
+que ficam), pelos de sempre (checkout 182/182, cupons 44/44, catálogo 34/34 e PDP 68/70 — as 2 de
+antes, do banco local) e pelas fotos (card no computador e no celular, com etiqueta de 30 letras; a
+caixa de compra; a sacola). E a virada do deploy, no banco local: promoção no ar sem a faixa de 2
+(como a produção hoje), página guardada sem o cartão de 2 — a rodada de minuto em minuto devolveu a
+faixa e avisou a loja com "agora", e o cartão apareceu sozinho em 14 s.
+
+Depois do deploy — **nada a configurar**: a rodada de minuto em minuto devolve a faixa de 2 aos
+produtos da promoção que já está no ar e avisa a loja na hora (uma faixa que muda com promoção
+valendo avisa com "agora" desde esta entrega).
 
 - [ ] **Parte 2: o brinde — Claude Code.** Decidido por ele: "compras acima de R$ X, leve um
       brinde", com o CLIENTE ESCOLHENDO entre 2 ou 3 opções (como o app Brinde no Carrinho); o

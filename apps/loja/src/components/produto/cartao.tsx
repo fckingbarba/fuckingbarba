@@ -26,9 +26,10 @@ import { promocaoDoProduto } from "@/lib/promocoes"
  * - **o parcelamento** sai do preço e do número de parcelas que o rodapé
  *   promete, então os dois não têm como discordar;
  * - **o "Leve X, pague Y"** (a promoção do painel, `lib/promocoes.ts`) põe
- *   a etiqueta dela no selo, no lugar do desconto — o riscado continua
- *   contando o de/por. Pausada ou vencida, a promoção sai da lista do backend
- *   e o selo volta a ser o do desconto;
+ *   a etiqueta dela num selo em cima, e o do desconto, quando há, vem logo
+ *   embaixo (`.produto__selos`) — a loja pediu os dois em 27/09, entrega
+ *   0142: até ali a etiqueta tomava o lugar do "-X%". Pausada ou vencida, a
+ *   promoção sai da lista do backend e fica só o selo do desconto;
  * - **esgotado**, o selo diz "Esgotado" (no lugar do desconto, que o preço
  *   riscado continua mostrando) e o botão, "Avise-me": ele leva pra página do
  *   produto, onde mora o avise-me. "Comprar" num produto que não dá pra
@@ -98,8 +99,15 @@ export async function CartaoProduto({
         {semEstoque ? (
           <span className="produto__selo">Esgotado</span>
         ) : promocao ? (
-          <span className="produto__selo" data-promocao>
-            {promocao.etiqueta}
+          <span className="produto__selos">
+            <span className="produto__selo" data-promocao>
+              {promocao.etiqueta}
+            </span>
+            {desconto ? (
+              <span className="produto__selo" data-desconto>
+                -{desconto}%
+              </span>
+            ) : null}
           </span>
         ) : desconto ? (
           <span className="produto__selo">-{desconto}%</span>

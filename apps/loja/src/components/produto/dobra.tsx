@@ -32,7 +32,7 @@ export async function Dobra({ handle }: { handle: string }) {
   if (!produto) notFound()
 
   const { combinada, videos } = await pdpDoProduto(handle)
-  const { degraus: escada, promocao } = await escadaDeQuantidade(handle)
+  const { degraus: escada, promocao, unitarios } = await escadaDeQuantidade(handle)
 
   /*
     A CHAVE "KITS" DO ADMIN ESCONDE OS CARTÕES, NÃO O DESCONTO.
@@ -168,6 +168,7 @@ export async function Dobra({ handle }: { handle: string }) {
               estoque={estoque}
               mostrarDegraus={mostrarDegraus}
               promocao={promocao}
+              unitarios={unitarios}
             />
             {esgotado ? (
               <p className="compra__outros">
