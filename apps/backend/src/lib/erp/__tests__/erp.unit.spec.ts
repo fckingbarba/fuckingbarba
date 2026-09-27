@@ -28,7 +28,12 @@ describe("o cofre das credenciais", () => {
     expect(abrir(fechado, "segredo-trocado", "bling")).toBeNull()
     expect(abrir(fechado, "segredo-do-app", "outro")).toBeNull()
     const [v, iv, marca, corpo] = fechado.split(".")
-    const trocado = corpo!.slice(0, -2) + (corpo!.endsWith("A") ? "BB" : "AA")
+    // Um bit invertido nos bytes, não letras trocadas no base64: a última letra
+    // leva bits de sobra que a leitura ignora, e 1 vez em 256 ("…BA" virando
+    // "…BB") o texto "adulterado" era o mesmo.
+    const bytes = Buffer.from(corpo!, "base64url")
+    bytes[Math.floor(bytes.length / 2)] ^= 1
+    const trocado = bytes.toString("base64url")
     expect(abrir([v, iv, marca, trocado].join("."), "segredo-do-app", "bling")).toBeNull()
     expect(abrir("lixo", "segredo-do-app", "bling")).toBeNull()
   })
