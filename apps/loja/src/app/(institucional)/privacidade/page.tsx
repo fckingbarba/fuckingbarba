@@ -130,8 +130,9 @@ export default async function Privacidade() {
             esgotado. Você escolhe, e pode voltar atrás a qualquer momento sem perder nada do resto.
           </li>
           <li>
-            <b>Legítimo interesse</b> — segurança da loja e prevenção a fraude, e a mensagem no
-            WhatsApp sobre uma compra que você deixou no meio, sempre com o mínimo de dado possível.
+            <b>Legítimo interesse</b> — segurança da loja e prevenção a fraude, a mensagem no
+            WhatsApp sobre uma compra que você deixou no meio e saber se os e-mails da loja chegam e
+            são abertos, sempre com o mínimo de dado possível.
           </li>
         </Lista>
       </Secao>
@@ -183,7 +184,9 @@ export default async function Privacidade() {
             direto pra eles.
           </li>
           <li>
-            <b>Resend</b> — manda os e-mails da loja: o seu e-mail e o que vai escrito neles.
+            <b>Resend</b> — manda os e-mails da loja: o seu e-mail e o que vai escrito neles. E
+            conta pra loja se cada e-mail chegou, se foi aberto e em que link você clicou — sem o
+            seu IP.
           </li>
           <li>
             <b>Frenet e a transportadora</b> — o CEP pra cotar o frete; nome, endereço e telefone
@@ -219,9 +222,10 @@ export default async function Privacidade() {
           Defesa do Consumidor exigem de quem vende. E-mail de newsletter fica até você pedir pra
           sair. O do aviso de produto esgotado fica até o aviso sair — ou seis meses, se o produto
           não voltar. O registro das tentativas de pagar com cartão fica 30 dias. O que a loja anota
-          do que você faz nela fica <b>13 meses</b> e depois é apagado. Cookies de medição duram no
-          máximo dois anos, e o código deste navegador, um ano; os necessários somem quando a sessão
-          acaba, menos o da sacola e o da sua resposta sobre cookies.
+          do que você faz nela, e o que ela sabe dos e-mails que mandou (se chegaram, se foram
+          abertos), fica <b>13 meses</b> e depois é apagado. Cookies de medição duram no máximo dois
+          anos, e o código deste navegador, um ano; os necessários somem quando a sessão acaba,
+          menos o da sacola e o da sua resposta sobre cookies.
         </P>
       </Secao>
 
