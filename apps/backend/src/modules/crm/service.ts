@@ -736,6 +736,28 @@ export default class CrmService extends Tabelas {
     )
   }
 
+  /**
+   * As sacolas que têm dono, desde `desde`: o carrinho de cada anotação do
+   * CRM com e-mail, e o e-mail da mais nova. É assim que o carrinho abandonado
+   * sabe pra quem mandar — a sacola não tem e-mail, mas quem aceitou os
+   * cookies e já se identificou (a conta, a newsletter, uma compra de antes)
+   * tem as anotações com ele. Começar por aqui, e não pelas sacolas, deixa de
+   * fora as de quem ninguém sabe quem é — que são quase todas.
+   */
+  @InjectManager()
+  async carrinhosComDono(
+    desde: Date,
+    @MedusaContext() ctx: Contexto = {}
+  ): Promise<Map<string, string>> {
+    const linhas = (await ctx.manager!.execute(
+      `select distinct on (carrinho_id) carrinho_id, email from crm_evento
+        where deleted_at is null and email is not null and carrinho_id is not null and em >= ?
+        order by carrinho_id, em desc`,
+      [desde]
+    )) as { carrinho_id: string; email: string }[]
+    return new Map(linhas.map((l) => [l.carrinho_id, l.email]))
+  }
+
   /** Anota quem saiu da lista (o "Sair da lista" de qualquer e-mail do CRM), com a hora. */
   @InjectManager()
   async saiuDaLista(email: string, @MedusaContext() ctx: Contexto = {}): Promise<void> {

@@ -2504,6 +2504,38 @@ confere:
 Os e-mails de teste saem fora do grupo de controle (o sorteio é o mesmo do motor). A
 `conferir-observabilidade` conta 13 rotinas.
 
+**O CRM, parte 8: o carrinho abandonado** (entrega 0169). O terceiro fluxo de compra: pôs na
+sacola, não foi pro checkout, e a loja sabe quem é. As horas são as do dono: 1 hora, 12 horas (o
+que os clientes acharam), 1 dia (o desconto), 3 dias (o desconto vence amanhã) e 5 dias (a última).
+
+- **De quem é a sacola:** ela não tem e-mail (a loja cria o carrinho sem login; o e-mail só entra
+  no checkout), então quem diz é o CRM. `crm.carrinhosComDono(desde)` pega o e-mail da anotação
+  mais nova com aquele `carrinho_id`. Só aparece quem aceitou os cookies e já se identificou (a
+  conta, a newsletter, uma compra de antes), porque o `identificar` põe o e-mail até nas anotações
+  de antes. O motor começa por essas sacolas e só carrega elas: as sem dono, que são quase todas,
+  nem saem do banco.
+- **As regras** (`lib/crm/fluxos.ts`):
+  - prioridade 3, depois do Pix e do checkout;
+  - o cupom do carrinho vale 3 dias (`validadeDoCupom`), pro e-mail de 3 dias poder dizer
+    "vence amanhã";
+  - a janela de cada fluxo é o último toque, a validade dele e mais um dia (`diasDoFluxo`):
+    4 dias no Pix e no checkout, 7 no carrinho.
+- **Para quando:** a pessoa compra, ou abre o checkout depois (um carrinho com o e-mail dela
+  mexido depois da sacola). Aí quem cuida é o fluxo do checkout.
+- **O e-mail de 12 horas** leva as avaliações de verdade (as aprovadas no painel, de 4 e 5
+  estrelas, as mais novas primeiro) dos produtos da sacola. Sem nenhuma, leva "Como funciona".
+  O nome vem da conta com aquele e-mail, se tiver.
+- **O botão** é o mesmo link de voltar (`/voltar/<carrinho>`): põe a sacola de volta e cai no
+  checkout, com o cupom quando tem.
+- **A política de privacidade** diz que a sacola ganha até cinco e-mails, e só quando a loja já
+  sabe quem é a pessoa.
+
+O `conferir-crm.mjs` faz a sacola sem e-mail e o evento do CRM com a newsletter (como a loja manda),
+e confere:
+- os cinco toques, e o cupom de 3 dias;
+- o link que devolve a sacola com o cupom aplicado;
+- quem abre o checkout depois: a sacola para, e o fluxo do checkout assume.
+
 **O preço e o promocional no painel** (entregas 0098 e 0102): os dois campos de cada produto na
 lista de Produtos, como na Nuvemshop (a 0098 tinha só o promocional, atrás de um botão). A regra é
 `lib/painel/promocao.ts`, pura: `lerMudancaDePreco` (o corpo `{ preco?, promocional? }` contra o

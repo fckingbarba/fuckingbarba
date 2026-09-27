@@ -11,11 +11,12 @@ import { linksDeSair } from "./sair"
 import { linkDeVoltar } from "./voltar"
 
 /**
- * O "MANDAR PRA MIM" DOS FLUXOS — cada toque do checkout abandonado e do Pix
- * pendente, montado como sairia (`lib/emails/fluxos.ts`), com um produto de
- * verdade da loja, o desconto que está nos ajustes e o sair da lista de quem
- * pediu. O cupom (`VOLTA-EXEMPLO`), o Pix e o número do pedido são de
- * mentira, e o link de voltar abre um carrinho que não existe (vai pra home).
+ * O "MANDAR PRA MIM" DOS FLUXOS — cada toque do Pix pendente, do checkout
+ * abandonado e do carrinho abandonado, montado como sairia
+ * (`lib/emails/fluxos.ts`), com um produto de verdade da loja, o desconto que
+ * está nos ajustes e o sair da lista de quem pediu. O cupom (`VOLTA-EXEMPLO`),
+ * o Pix, o número do pedido e a avaliação são de mentira, e o link de voltar
+ * abre um carrinho que não existe (vai pra home).
  */
 
 export const TOQUES_DOS_FLUXOS: readonly IdDoToque[] = IDS_DOS_FLUXOS.flatMap((id) =>
@@ -45,6 +46,16 @@ export async function exemploDoToque(
     nome: membro.nome.trim().split(/\s+/)[0] || null,
     itens: fator ? [{ ...fator, quantidade: 1 }] : [],
     numero: toque.startsWith("pix") ? 3312 : null,
+    depoimentos:
+      toque === "carrinho-12h"
+        ? [
+            {
+              texto: "Exemplo de avaliação: no e-mail de verdade entram as aprovadas no painel.",
+              quem: "Cliente de exemplo",
+              estrelas: 5,
+            },
+          ]
+        : [],
     pix:
       toque === "pix-vence"
         ? {
@@ -55,11 +66,16 @@ export async function exemploDoToque(
           }
         : null,
     cupom:
-      toque.endsWith("24h") || toque.endsWith("48h")
+      toque.endsWith("24h") ||
+      toque === "checkout-48h" ||
+      toque === "pix-48h" ||
+      toque === "carrinho-3d"
         ? {
             codigo: "VOLTA-EXEMPLO",
             porcento: desconto,
-            ate: new Date(agora.getTime() + 2 * 24 * 60 * 60 * 1000),
+            ate: new Date(
+              agora.getTime() + (toque.startsWith("carrinho") ? 3 : 2) * 24 * 60 * 60 * 1000
+            ),
           }
         : null,
     voltar: linkDeVoltar(`cart_${"0".repeat(26)}`, agora),

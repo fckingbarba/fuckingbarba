@@ -117,3 +117,46 @@ describe("o Pix pendente", () => {
     )
   })
 })
+
+describe("o carrinho abandonado", () => {
+  const sacola = (extra: Partial<CompraDoFluxo> = {}) =>
+    montar({ toque: "carrinho-1h", nome: null, ...extra })
+
+  it("1 hora: o lembrete, e o botão volta pra sacola com a campanha", () => {
+    const e = sacola()
+    expect(e.assunto).toBe("Esqueceu isso aqui?")
+    expect(e.html).toContain("Oi!")
+    expect(e.html).toContain("Você deixou o Fator de Crescimento na sacola.")
+    expect(e.html).toContain("utm_campaign=crm-carrinho")
+    expect(e.html).toContain("Voltar pra sacola")
+    expect(e.html).toContain("Na sua sacola")
+  })
+
+  it("12 horas: as avaliações de verdade; sem nenhuma, o jeito de comprar", () => {
+    const com = sacola({
+      toque: "carrinho-12h",
+      depoimentos: [{ texto: "Fechou a falha em 2 meses.", quem: "Diego", estrelas: 5 }],
+    })
+    expect(com.assunto).toBe("O que os clientes acharam do Fator de Crescimento")
+    expect(com.html).toContain("“Fechou a falha em 2 meses.”")
+    expect(com.html).toContain("★★★★★")
+    const sem = sacola({ toque: "carrinho-12h" })
+    expect(sem.html).toContain("Como funciona")
+    expect(sem.html).not.toContain("★")
+  })
+
+  it("1 dia: o desconto; 3 dias: vence amanhã; 5 dias: a última, sem cupom", () => {
+    const d24 = sacola({ toque: "carrinho-24h", cupom: CUPOM })
+    expect(d24.assunto).toBe("10% pra você decidir")
+    expect(d24.html).toContain("VOLTA-7KQ2MX")
+    expect(d24.html).toContain("?cupom=VOLTA-7KQ2MX")
+    expect(sacola({ toque: "carrinho-24h" }).assunto).toBe("Sua sacola ainda tá aqui")
+    expect(sacola({ toque: "carrinho-3d", cupom: CUPOM }).assunto).toBe(
+      "Seu desconto de 10% vence amanhã"
+    )
+    expect(sacola({ toque: "carrinho-3d" }).assunto).toBe("Ainda dá tempo")
+    const ultima = sacola({ toque: "carrinho-5d" })
+    expect(ultima.assunto).toBe("Última chamada pra sua sacola")
+    expect(ultima.html).not.toContain("VOLTA-")
+  })
+})
