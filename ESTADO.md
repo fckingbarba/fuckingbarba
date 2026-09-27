@@ -2609,6 +2609,51 @@ Depois do deploy — **você, uns 15 minutos:**
 Se o UptimeRobot pedir plano pago pro Heartbeat, os três endereços já valem sozinhos; aí o "estou
 viva" vai pro Better Stack (10 grátis) — é só trocar o endereço da variável.
 
+**Pagamento: o Pagar.me saiu do meio do código — pronta em 26/09 (entrega 0132).** Primeira de
+quatro partes do **Pix reserva**, pedido dele em 26/09: um segundo parceiro de pagamento, não pra
+trocar o Pagar.me, e sim pra quando ele falhar ("erro de pagamento no cartão, problema pra gerar
+Pix ou o Pagar.me instável"); "se um dos parceiros estiver instável, usa o que está estável"; e
+"um ranking, pra ver qual está dando mais recusa". O parceiro reserva é o **Mercado Pago** (ele já
+tem conta, a mesma das vendas do Mercado Livre). **Nada muda pra quem compra nem no painel.**
+
+- **Antes**, o id do Pagar.me estava copiado em 12 arquivos, e um pedido pago por outro parceiro
+  não teria o e-mail de confirmação, nem o "Venda nova", nem a forma de pagamento na nota.
+- **Agora** há uma lista só dos parceiros (`apps/backend/src/lib/pagamento/parceiros.ts`, e a
+  mesma na loja) e um estado comum que todo parceiro grava (a forma, a situação, o QR do Pix, o
+  final do cartão, a recusa, quanto voltou). Os e-mails, o painel (pedido e Marketing), a nota, a
+  versão pública do pedido, a porta do cartão e, na loja, a tela de obrigado, a conta e a recusa
+  do passo 3 leem o pagamento de qualquer parceiro da lista.
+- **Continua só do Pagar.me** (e vem por parceiro nas próximas partes): o provedor, a conciliação,
+  a conferência dos estornos, o aviso (Edge Function), o script da região e o passo 3.
+- De quebra, mais fechado: o estado só é lido na chave do parceiro dono da sessão — um estado
+  forjado numa sessão do provisório (a API pública deixa escrever no `data`) não vira pagamento,
+  nem na versão pública do pedido.
+
+Conferido pelos testes de unidade (994; os 11 novos: a lista dos parceiros e a da loja batendo, a
+sessão que virou o pagamento, o estado lido só na chave do parceiro dono, e o estado forjado fora da
+versão pública do pedido), pelo `conferir-pagamento.mjs` (214, duas rodadas), `conferir-checkout.mjs`
+(173), `conferir-conta.mjs` (209), `conferir-erp.mjs` (114) e, no painel, `conferir-pedidos.mjs`
+(77), `conferir-acoes.mjs` (32) e `conferir-observabilidade.mjs` (35). O `conferir-marketing.mjs` não
+rodou (pede o Google falso): o Pagamento e frete é o `montarPagamento`, coberto pelos testes.
+
+Depois do deploy — **nada a configurar.**
+
+- [ ] **Parte 2: o Mercado Pago, só no Pix.** O provedor, o aviso de pago, a conciliação e o
+      estorno dele, e um Mercado Pago falso pros conferidores. Cartão fica só no Pagar.me: cartão
+      recusado não vai pro outro parceiro (quem recusa é o banco do cliente, e mandar pra outro
+      atrai o robô testando cartão e a contestação). Com você: **conferir se a conta do Mercado
+      Pago tem chave Pix cadastrada** (o Mercado Pago exige pra gerar Pix pelo site); as chaves de
+      acesso, você cria quando esta parte chegar e cola no Railway.
+- [ ] **Parte 3: a troca automática, pelo parceiro estável.** Com os dois bem, Pix e cartão pelo
+      Pagar.me (dá pra inverter no Pix, se a taxa do Mercado Pago for menor). Pagar.me instável:
+      o Pix sai pelo Mercado Pago no mesmo clique, e o cartão oferece esse Pix. Mercado Pago
+      instável: nada muda. Os dois: "tenta em instantes" e um e-mail pro dono. Instável = várias
+      falhas seguidas; o parceiro sai por uns minutos (o disjuntor) e volta sozinho.
+- [ ] **Parte 4: o ranking dos parceiros**, no Marketing → Pagamento e frete: Pix gerados, pagos,
+      que não geraram e o tempo pra gerar e confirmar; cartão aprovado e recusado por motivo;
+      falhas, vezes fora e minutos fora. Com o número ao lado da porcentagem, e sem vencedor sem
+      volume. No cartão, só compara se um dia o Mercado Pago também passar cartão.
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa

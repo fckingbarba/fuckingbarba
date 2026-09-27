@@ -308,6 +308,20 @@ acha pelo crachá (o `carrinho_visto` do formulário contra o carrinho do cookie
 duas pagaram juntas, pela sessão recusada com o carrinho já fechado. E-mail com mais de 64
 caracteres (o limite do Pagar.me) é recusado no passo 1, com o motivo.
 
+**Os parceiros de pagamento** (desde a 0132) estão numa lista só: `src/lib/pagamento/parceiros.ts`
+no backend e `PARCEIROS` em `apps/loja/src/lib/checkout-visivel.ts` na loja — parceiro novo entra
+nas duas, e o `parceiros.unit.spec.ts` confere. Cada parceiro é um provedor do Medusa que grava na
+sessão o MESMO estado (`src/lib/pagamento/estado.ts`: forma, situação, QR do Pix, final do cartão,
+recusa, estornado), na sua chave de `data` (`data.pagarme`). Tudo que LÊ o pagamento pergunta à
+lista — `sessaoDoParceiro` (a sessão que chegou mais longe) e `estadoDaSessao` (só a chave do
+parceiro dono da sessão: um `data.pagarme` forjado numa sessão do provisório não vira pagamento):
+os e-mails de confirmação, venda nova, cancelamento e devolução, o painel (pedido e Marketing), a
+nota, a versão pública do pedido, a porta do cartão e, na loja, a tela de obrigado, a conta e a
+recusa do passo 3. Nenhum deles tem id de provedor escrito; o provisório (`pp_system_default`) não
+é parceiro. O que FALA com o parceiro continua dele: o provedor, a conciliação e a conferência de
+estornos (`conciliar-pagamentos.ts` e `estornos.ts` são do Pagar.me), o aviso (Edge Function), o
+script da região e o passo 3 (o cartão vira token no Pagar.me).
+
 Três portas que o Medusa deixa abertas e o projeto fecha. (1) Abrir sessão de pagamento APAGA as
 anteriores da coleção, sem conferir se ela já é de um pedido: `src/api/middlewares.ts` recusa sessão
 nova em coleção de pedido fechado — sem isso, o Pix esperando perde a sessão que o aviso procura.
