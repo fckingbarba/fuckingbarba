@@ -1,6 +1,7 @@
 import type { MedusaContainer } from "@medusajs/framework/types"
 import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
 import { PREFIXO_DO_BUMP } from "./bumps"
+import { PREFIXO_DA_PROMOCAO } from "./cupons"
 import {
   CAMPOS as CAMPOS_DA_CONFIRMACAO,
   paraPedidoDoEmail,
@@ -10,6 +11,7 @@ import { emailNoLog, enviarEmail } from "./email"
 import { emailDeVendaNova, type VendaDoAviso } from "./emails/venda-nova"
 import { emailsPraAvisar } from "./equipe/avisados"
 import { gravarNoMetadataDoPedido, lerNoCaminho } from "./metadata-do-pedido"
+import { ehParceiro } from "./pagamento/parceiros"
 
 /**
  * O AVISO DE VENDA NOVA — um e-mail pro dono a cada pedido pago, logo que o
@@ -18,7 +20,7 @@ import { gravarNoMetadataDoPedido, lerNoCaminho } from "./metadata-do-pedido"
  *
  * O MOLDE É O DO PEDIDO CONFIRMADO (`confirmar-pedido.ts`), pelos mesmos
  * caminhos. Na hora, pelo `payment.captured` (`subscribers/pagamento-capturado.ts`,
- * logo depois da confirmação do cliente): o Pix pago, pelo aviso do Pagar.me
+ * logo depois da confirmação do cliente): o Pix pago, pelo aviso do parceiro
  * ou pela conciliação; o cartão aprovado no checkout (`pedido-pago-na-hora.ts`)
  * ou depois da análise de fraude — o cartão em análise só avisa quando é
  * cobrado. Embaixo, a varredura do job `confirmar-pedidos` (de 5 em 5 minutos)
@@ -45,8 +47,9 @@ import { gravarNoMetadataDoPedido, lerNoCaminho } from "./metadata-do-pedido"
  *
  * QUANDO NÃO SAI: pedido cancelado (o Pix pago num pedido já cancelado volta
  * pra quem pagou — não é venda); pagamento ainda não capturado (Pix
- * esperando, cartão em análise); pedido sem o Pagar.me (o provisório, "a
- * combinar"); e pedido que já saiu pra entrega — venda velha não é notícia.
+ * esperando, cartão em análise); pedido sem parceiro de pagamento (o
+ * provisório, "a combinar"); e pedido que já saiu pra entrega — venda velha
+ * não é notícia.
  */
 
 /** Até onde a varredura olha pra trás, pela hora da captura — a mesma da confirmação. */
@@ -54,8 +57,6 @@ const JANELA_MS = 24 * 60 * 60 * 1000
 
 /** Quantos pedidos cada rodada tenta. Um por venda: o evento já resolve quase todos. */
 const POR_RODADA = 20
-
-const PROVEDOR_PAGARME = "pp_pagarme_pagarme"
 
 /** Onde o aviso fica registrado no pedido: ao lado do `emails.confirmado`. */
 const CAMINHO = ["emails", "venda"] as const
@@ -113,19 +114,19 @@ export type DecisaoDaVenda =
   | { mandar: true }
   | {
       mandar: false
-      motivo: "ja-registrado" | "cancelado" | "nao-pago" | "sem-pagarme" | "ja-saiu"
+      motivo: "ja-registrado" | "cancelado" | "nao-pago" | "sem-parceiro" | "ja-saiu"
     }
 
 /** Motivos que não mudam mais: ficam registrados, e a varredura não volta. */
-const PARA_SEMPRE = new Set(["sem-pagarme", "ja-saiu"])
+const PARA_SEMPRE = new Set(["sem-parceiro", "ja-saiu"])
 
 export function decidirAvisoDeVenda(o: PedidoLido): DecisaoDaVenda {
   if (lerRegistroDaVenda(o.metadata)) return { mandar: false, motivo: "ja-registrado" }
   if (o.status === "canceled") return { mandar: false, motivo: "cancelado" }
   if (!pagoEm(o)) return { mandar: false, motivo: "nao-pago" }
   const sessoes = (o.payment_collections ?? []).flatMap((c) => c?.payment_sessions ?? [])
-  if (!sessoes.some((s) => s?.provider_id === PROVEDOR_PAGARME)) {
-    return { mandar: false, motivo: "sem-pagarme" }
+  if (!sessoes.some((s) => ehParceiro(s?.provider_id))) {
+    return { mandar: false, motivo: "sem-parceiro" }
   }
   if ((o.fulfillments ?? []).some((f) => f?.shipped_at || f?.delivered_at)) {
     return { mandar: false, motivo: "ja-saiu" }
@@ -143,7 +144,8 @@ export function paraVenda(o: PedidoDaVenda, agora = new Date()): VendaDoAviso {
   const cupons = (o.items ?? [])
     .flatMap((i) => i?.adjustments ?? [])
     .map((a) => a?.code?.trim() ?? "")
-    .filter((c) => c && !c.startsWith(PREFIXO_DO_BUMP))
+    // A oferta do checkout e a promoção automática ("Leve X, pague Y") não são cupom.
+    .filter((c) => c && !c.startsWith(PREFIXO_DO_BUMP) && !c.startsWith(PREFIXO_DA_PROMOCAO))
   return {
     id: p.id,
     numero: p.numero,

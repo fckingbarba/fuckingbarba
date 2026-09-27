@@ -423,13 +423,12 @@ function Fretes({
     A gravada no carrinho — ou, quando não há nenhuma, a primeira da lista,
     que é a que o envio do passo grava junto com o endereço.
 
-    E TAMBÉM QUANDO A GRAVADA NÃO ESTÁ NA LISTA. Acontece com a econômica
-    que some por empatar no preço com a expressa (`lib/frete.ts`): quem
-    calculou na sacola antes da regra existir pode ter a econômica pendurada
-    no carrinho, e aí nenhum rádio apareceria marcado. Cai pra primeira
-    visível, e o envio do passo grava ela — o dinheiro não muda, porque as
-    duas custavam o mesmo; o que muda é a tela deixar de mentir que ninguém
-    escolheu nada.
+    E TAMBÉM QUANDO A GRAVADA NÃO ESTÁ NA LISTA. Acontece com a expressa
+    que some por empatar no preço com a econômica (`lib/frete.ts`): o
+    carrinho de antes da entrega 0136 pode ter a expressa pendurada, e aí
+    nenhum rádio apareceria marcado. Cai pra primeira visível, e o envio do
+    passo grava ela — o dinheiro não muda, porque as duas custavam o mesmo;
+    o que muda é a tela deixar de mentir que ninguém escolheu nada.
   */
   const naLista = fretes.some((f) => f.id === checkout.freteEscolhido)
   const gravada = (naLista ? checkout.freteEscolhido : null) ?? fretes[0]?.id ?? ""

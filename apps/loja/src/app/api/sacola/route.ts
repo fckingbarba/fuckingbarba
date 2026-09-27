@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { leituraDoCarrinho, paraVisivel } from "@/lib/carrinho"
+import { leituraDoCarrinho, paraAGaveta } from "@/lib/carrinho"
 
 /**
  * GET /api/sacola — a sacola de agora, pra quem só quer LER: a primeira
@@ -25,5 +25,5 @@ export async function GET() {
   if (lido === "sem-resposta") {
     return NextResponse.json({ carrinho: null }, { status: 503, headers: semCache })
   }
-  return NextResponse.json({ carrinho: paraVisivel(lido) }, { headers: semCache })
+  return NextResponse.json({ carrinho: await paraAGaveta(lido) }, { headers: semCache })
 }

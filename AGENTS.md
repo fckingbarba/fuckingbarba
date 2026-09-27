@@ -211,6 +211,11 @@ precisa sair da janela dela — ver `longeDaConciliacaoAutomatica` no conferidor
   âncora vão junto, e nenhuma linha leva pra outra. Os produtos têm o mesmo endereço nas duas
   lojas, e dependem do catálogo: no local (onde faltam produtos) rode com `SEM_PRODUTOS=1`; contra
   a loja no ar, sem — e de novo logo depois da troca de domínio.
+- **O robots.txt vale pelo COMEÇO do endereço** (`apps/loja/src/app/robots.ts`): `Disallow: /conta`
+  pegava também o `/contato`, que está no sitemap (entrega 0136). Pasta bloqueia com a barra
+  (`/conta/`) e o endereço exato com `$` (`/conta$`). Até a virada a loja responde `Disallow: /`;
+  o `conferir-links.mjs` confere o robots contra o sitemap quando a loja indexa — rode com
+  `SITE_INDEXAVEL=true` antes da troca, e contra o domínio logo depois dela.
 - **A vitrine não lê `searchParams`.** `/barba`, `/cabelo`, `/kits` e `/produtos` são estáticas, e o
   `?ordem=` é trocado pelo proxy por `/<página>/ordem/<ordem>` (estática também, sem mudar a URL).
   Ler `searchParams` numa delas a torna dinâmica: esqueleto, streaming, rodapé pulando e LCP
@@ -262,8 +267,13 @@ faixas (econômica e expressa) saem do mesmo `escolherFaixas`; quando a mais bar
 rápida — ou a transportadora responde um serviço só —, as duas são A MESMA entrega, e o frete
 grátis vale nas duas (`aplicarPolitica` recebe o `servico` de cada faixa, no provider e na rota
 `/store/frete`). Antes só a econômica zerava, e a "expressa" cobrava pelo mesmo PAC e o mesmo
-prazo. No checkout, a econômica empatada em preço some (`semEntregaEmpatada`), a não ser que seja
-a gravada no carrinho. O PRAZO ("Chega em 8 dias úteis") o checkout não tem como tirar da cotação
+prazo. No empate de preço (que é também empate de prazo: a econômica é a mais barata e, entre as
+mais baratas, a mais rápida), a tela mostra uma entrega só — a ECONÔMICA — na sacola e no checkout
+(`semEntregaEmpatada`, em `apps/loja/src/lib/frete.ts`; entrega 0136). Era a expressa, e a expressa
+gravada quebrava duas coisas: o cupom de frete grátis "só na mais barata" mira a econômica e nunca
+entrava, e a cada mudança no carrinho o Medusa cota de novo a entrega gravada PELA FAIXA dela — a
+expressa voltava como "a mais rápida", que pode ser outro serviço, mais caro, e o frete grátis
+sumia. O PRAZO ("Chega em 8 dias úteis") o checkout não tem como tirar da cotação
 do Medusa, que devolve só o preço: ele pergunta à rota da calculadora (`POST /store/frete`, com o
 `cart_id`), em paralelo, e junta por faixa (`prazosDasFaixas`, em `lib/checkout.ts`; entrega
 0123). Pelo carrinho, a pergunta é a mesma do Medusa, e as duas dividem a viagem à Frenet — o
@@ -296,7 +306,13 @@ comprador em `data.entrada` (montado do carrinho, em `apps/loja/src/lib/pagament
 só como token, gerado no navegador (`apps/loja/src/lib/pagarme.ts`). E manda o total que o botão
 mostrou (`total_visto`): se o carrinho tiver outro — um item posto por outra aba, a seta de
 voltar do navegador —, o `finalizar` não abre o pagamento, redesenha a tela e diz o total novo.
-Sem isso o cartão era autorizado por um valor que ninguém viu. O cupom vai como foi digitado,
+Sem isso o cartão era autorizado por um valor que ninguém viu. E ANTES dessa conferência o
+`finalizar` refaz a conta do carrinho (`cart.update` com a MESMA região, que liga o
+`force_refresh` do Medusa: preço das linhas, promoções e frete gravado; entrega 0136): o Medusa 2.21
+só refaz o preço quando muda a região, o idioma ou o endereço, e a sacola de 30 dias, com o
+endereço já gravado, pagava o preço de quando o produto entrou. O e-mail do passo 1 segue a regra
+do Medusa (a `email` do zod 4, a mesma do `POST /store/carts/:id`): com uma mais frouxa, o e-mail
+que ele recusa travava a pessoa no passo 1 com "Não consegui falar com a loja". O cupom vai como foi digitado,
 depois em maiúsculas e em minúsculas: o Medusa procura o código exatamente como foi cadastrado.
 Quando o `complete` recusa por falta de estoque ("Not enough stock available…"), o `finalizar`
 desce o pedido até o que tem (`ajustarAoEstoque`, em `apps/loja/src/lib/checkout.ts`: cada linha
@@ -307,6 +323,20 @@ pedido: as abas dividem os cookies, e o pedido da primeira apaga a sacola das du
 acha pelo crachá (o `carrinho_visto` do formulário contra o carrinho do cookie `pedido`) ou, se as
 duas pagaram juntas, pela sessão recusada com o carrinho já fechado. E-mail com mais de 64
 caracteres (o limite do Pagar.me) é recusado no passo 1, com o motivo.
+
+**Os parceiros de pagamento** (desde a 0132) estão numa lista só: `src/lib/pagamento/parceiros.ts`
+no backend e `PARCEIROS` em `apps/loja/src/lib/checkout-visivel.ts` na loja — parceiro novo entra
+nas duas, e o `parceiros.unit.spec.ts` confere. Cada parceiro é um provedor do Medusa que grava na
+sessão o MESMO estado (`src/lib/pagamento/estado.ts`: forma, situação, QR do Pix, final do cartão,
+recusa, estornado), na sua chave de `data` (`data.pagarme`). Tudo que LÊ o pagamento pergunta à
+lista — `sessaoDoParceiro` (a sessão que chegou mais longe) e `estadoDaSessao` (só a chave do
+parceiro dono da sessão: um `data.pagarme` forjado numa sessão do provisório não vira pagamento):
+os e-mails de confirmação, venda nova, cancelamento e devolução, o painel (pedido e Marketing), a
+nota, a versão pública do pedido, a porta do cartão e, na loja, a tela de obrigado, a conta e a
+recusa do passo 3. Nenhum deles tem id de provedor escrito; o provisório (`pp_system_default`) não
+é parceiro. O que FALA com o parceiro continua dele: o provedor, a conciliação e a conferência de
+estornos (`conciliar-pagamentos.ts` e `estornos.ts` são do Pagar.me), o aviso (Edge Function), o
+script da região e o passo 3 (o cartão vira token no Pagar.me).
 
 Três portas que o Medusa deixa abertas e o projeto fecha. (1) Abrir sessão de pagamento APAGA as
 anteriores da coleção, sem conferir se ela já é de um pedido: `src/api/middlewares.ts` recusa sessão
@@ -979,10 +1009,14 @@ pago e não cancelado, no instante da captura, com o frete (a regra do Início, 
 números com a variação (`null` sem nada antes); o gráfico (por hora, por dia, ou por semana nos 90
 dias); os mais vendidos em reais (`items.total`); e a meta (`fb_metas` no metadata da loja, um valor
 por mês — `{ "2026-09": 12000 }` —, gravada pelo `mudarMetadataDaLoja`). `GET /dashboard/marketing
-?periodo=` devolve o Resumo (e `mudaAMeta`); `GET /dashboard/marketing/visitas`, as visitas do
-período e do de antes numa pergunta só ao GA4 (`visitasDoMarketing`, em `ga4.ts`, guardada como as
-do dia: `date`+`hour` de `2n−1daysAgo` a `today`, até 4.320 linhas) e a conversão com os pedidos NO
-MESMO CORTE de hora das visitas (`visitasDoPeriodo` — o Google soma hoje com atraso); `POST
+?periodo=` devolve o Resumo (e `mudaAMeta`); `GET /dashboard/marketing/visitas`, as visitas e as
+compras da loja do período e do de antes numa chamada só ao GA4 (`visitasDoMarketing`, em `ga4.ts`,
+guardada como as do dia: `date`+`hour` de `2n−1daysAgo` a `today`, até 4.320 linhas cada — as
+compras com o `SO_AS_COMPRAS_DA_LOJA`) e a conversão, compras ÷ visitas NO MESMO CORTE de hora
+(`visitasDoPeriodo` — o Google soma hoje com atraso). **A conversão compara gente igual** (entrega
+0135): o GA4 só vê quem aceitou os cookies, então o numerador são as compras que ELE viu, não os
+pedidos pagos do Medusa — dividir todos os pedidos pelas visitas de quem aceitou inflava a conversão
+(quem recusa compra, mas não vira visita). O "Pedidos pagos" do Resumo segue sendo o de todos; `POST
 /dashboard/marketing/meta` `{ valor }` (vazio tira) grava e anota `mudou-meta`. **As visitas
 contam só o endereço da loja** (`hostsDaLoja(LOJA_URL)`, filtro `hostName` na pergunta): o GA4 é o
 mesmo do site da Nuvemshop, que segue no ar até a virada — o `LOJA_URL` troca na virada, e o
@@ -1395,8 +1429,22 @@ acima do preço), e o Medusa mescla o que o gancho devolve por cima do carrinho 
 
 UM CUPOM POR PEDIDO: o gancho `validate` do mesmo workflow recusa (`NOT_ALLOWED`) um segundo
 código de campanha quando alguém PÕE um código (`add`, o que a API da loja faz); a oferta do
-checkout não conta, e a conta a cada mudança no carrinho (`replace`) passa direto
-(`outroCupomNoCarrinho`).
+checkout não conta, e a conta a cada mudança no carrinho (`replace` com os MESMOS códigos) passa
+(`outroCupomNoCarrinho`). O `replace` que traz código novo e deixa dois é recusado: é o que o
+`promo_codes` no corpo de `POST /store/carts` e `POST /store/carts/:id` faz, e por ele cinco
+cupons somavam (entrega 0136). Esse corpo ainda é fechado antes, no middleware
+(`cupomSoPelaPortaDosCupons`, em `src/api/middlewares.ts`): cupom só entra por
+`/store/carts/:id/promotions`, que é o que a loja usa.
+
+O USO VOLTA NO CANCELAMENTO (entrega 0136). O Medusa conta o uso (`used`, contra o `limit`) no
+fechamento do carrinho — o Pix gerado já conta — e só desfaz se o próprio fechamento falhar;
+cancelar o pedido não mexe. O subscriber `devolver-uso-dos-cupons.ts` (no `order.canceled`) chama
+`devolverUsoDosCupons` (`src/lib/uso-dos-cupons.ts`): o `revertUsage` do Medusa com os ajustes do
+pedido, só dos códigos que contam uso (com limite ou orçamento de campanha — a oferta e o cupom
+ilimitado ficam de fora), e UMA vez: o registro `fb_cupons.uso_devolvido` entra no metadata antes,
+na trava do metadata do pedido. A migração `uso-dos-cupons-cancelados.ts` fez o mesmo com os
+pedidos que já estavam cancelados. O cupom em reais que não combina mira os PRODUTOS
+(`target_type: items`): regra de alvo numa promoção de alvo "order" o Medusa recusa na criação.
 
 Sem e-mail, a lista de pedidos é vazia e "por cliente"/"primeira compra" deixam aplicar. O
 workflow refaz os códigos do carrinho a cada mudança e tira o que deixou de valer (o e-mail chegou,
@@ -1447,6 +1495,78 @@ linha de lá em `metadata.fb_nuvemshop`; cupom recusado pelo Medusa vai pro log 
 Os códigos mantêm o "_" (o formulário do painel não aceita; o Medusa e a loja, sim). Pra rodar de
 novo no banco local, apague a linha dela em `script_migrations`. Lista nova é migração nova, com
 outro nome: esta já rodou em produção.
+
+**As promoções do painel** (entrega 0133): o "Leve X, pague Y" — o "Compre X e pague Y" da
+Nuvemshop. É uma promoção AUTOMÁTICA do Medusa (`is_automatic`, ninguém digita código), do tipo
+"compre-leve" (`buyget`): a cada `comprando` unidades dos produtos dela, as `comprando − pague`
+mais baratas saem com 100%. `src/lib/promocoes.ts` é puro, com testes, e faz o formulário
+(`lerPromocaoNova`: nome, comprando/pague, "Aplicar a" — o `lerAlcance` do cupom —, "vale em
+produto com preço promocional", o período — o `lerPeriodo` do cupom — e a etiqueta que a loja
+mostra), a promoção do Medusa (`promocaoDoMedusa`), a guardada (`metadata.fb_promocao`), as marcas
+das linhas, o que a loja mostra e a lista do painel. O que o Medusa faz, e onde difere da
+Nuvemshop (o teste trava as duas contas, rodando o `getComputedActionsForBuyGet` dele):
+
+- ele reserva como "compradas" as LINHAS de maior subtotal e dá de graça a mais barata de cada
+  grupo: com um produto só, é a conta da Nuvemshop; com produtos de preços diferentes numa sacola
+  grande, dá a mais barata DE CADA GRUPO (3 de R$ 100 e 3 de R$ 50: aqui R$ 150, lá R$ 100);
+- sem `max_quantity` ele dá UMA unidade de graça por carrinho e para: vai `MAX_GRATIS` (99);
+- o lado "compra" precisa de ao menos uma regra: a loja toda é a marca do preço existir na linha.
+
+O CÓDIGO é `PROMO-` + oito letras sorteadas pela rota. Ele aparece em `cart.promotions` e nos
+ajustes do pedido, e por isso fica fora de tudo que trata cupom: o "um cupom por pedido"
+(`outroCupomNoCarrinho`), a lista de cupons (`ehCupomDeCampanha`), o código de cupom novo (recusa
+`PROMO-`), os cupons do Marketing, o "Venda nova" (`avisar-venda.ts`), o `coupon` da compra
+mandada pro Meta/GA4/TikTok (`anuncios/enviar.ts`), e na loja o `cuponsDoCarrinho`, o campo de
+cupom do checkout e o link `/discount`. No pedido do painel o ajuste dele se chama "Promoção".
+
+AS MARCAS DAS LINHAS moram no mesmo gancho dos cupons (`contexto-dos-cupons.ts` →
+`marcarPromocoes`, depois do `linhasMarcadas`): toda linha ganha `fb_preco_promocional` ("sim"
+com o de/por — a regra "não vale em produto com preço promocional" lê essa), e a linha de uma
+promoção que DISPAROU (valendo agora, com unidades bastantes) vira `fb_promocional` "sim" — a
+marca que o cupom que não combina já lia: ele não desconta o item da promoção. O que combina
+desconta o que sobrou (o Medusa aplica o compre-leve primeiro). As promoções que o gancho lê vêm
+de `lib/promocoes-ativas.ts`, guardadas 30 s na memória; criar, pausar e ligar pelo painel limpam
+(`esquecerPromocoes`). O período usa a hora do gancho (`fb_cupons.agora`), com a trava de ela
+estar lá (`agora > 0`) — não a do cupom (`conferido`), que cai quando o histórico do e-mail falha.
+
+NÃO SOMA COM O DESCONTO POR QUANTIDADE (decisão da loja): `sincronizarPrecosPorQuantidade` deixa de
+fora das faixas os produtos em que uma promoção vale agora (`promocoesNaLoja`) e devolve quando
+ela acaba. Esse conjunto entra na foto da rodada de minuto em minuto: promoção que começa ou
+acaba pela hora avisa a loja com o perfil `"agora"` (com `"seconds"`, a página refeita por trás lia
+a escada guardada, com o selo velho — visto no conferidor). Sem conseguir ler as promoções, a
+rodada não escreve nada: devolver as faixas daria os dois descontos. Criar, pausar e ligar
+(`lib/painel/promocoes.ts` → `valerNaLoja`) refazem as faixas na hora e avisam a loja com `"agora"`.
+
+AS ROTAS: `POST /dashboard/promocoes` (cria; 422 com os erros por campo) e
+`POST /dashboard/promocoes/:id` `{ acao: "pausar" | "ligar" }`, na área `cupons` (dono e
+marketing), com o registro da equipe; a lista vem no `GET /dashboard/cupons` (`promocoes`: nome,
+etiqueta, frase, situação — valendo, agendada, pausada, encerrada —, pedidos, desconto e vendido,
+pelo `usosPorCodigo`), e o "Desconto por quantidade" dos automáticos avisa que não soma. A loja lê
+`GET /store/promocoes`: as que valem agora, com os produtos de cada uma (o de/por de agora conta:
+a promoção que não vale no promocional deixa esses de fora), guardada 30 s e nunca servindo uma
+que já acabou (`ate`). No painel, o bloco "Promoções" da tela de Cupons e descontos, com a gaveta
+"Nova promoção" no desenho do "Novo cupom" (`components/promocoes.tsx`, `lib/promocoes.ts`).
+
+NA LOJA (`src/lib/promocoes.ts`, sem dependência; a lista em `promocoesDaLoja`, `lib/medusa.ts`,
+com a etiqueta `produtos` — o 404 é o Medusa de antes da rota, e vira "nenhuma"): o selo no card
+(a etiqueta no lugar do "-X%"), o selo embaixo do preço na PDP (`.compra__promocao`,
+`estilos/pdp-promocao.css`), o degrau da promoção na escada (`escadaDeQuantidade` devolve
+`{ degraus, promocao }`: "3 unidades" pelo preço de 2, com a etiqueta na nota; sem a lista, a escada
+sai sem ele e guardada por minutos) e o total da `Compra` pela conta de grupos (`gratisEm`), não
+mais unidade × quantidade. Na sacola, cada linha de produto em promoção ganha o recado (o
+`paraAGaveta`, que as ações e o `/api/sacola` usam): a etiqueta, quantas saíram de graça — pelo
+AJUSTE do Medusa na linha (`items.adjustments.code/amount` no `CAMPOS_CARRINHO`), porque com vários
+produtos só ele sabe qual linha foi — e, na última linha da promoção, "mais 1 sai de graça". Sem
+CSS novo na sacola (a home não tem folga). O "+" prevê o total da linha já sem as de graça
+(`totalPrevisto`); antes mostrava o preço de 3 até a resposta.
+
+O conferidor é o `apps/dashboard/ferramentas/conferir-promocoes.mjs` (com os falsos, o admin
+local e, com `LOJA`, a loja): o formulário pela API e pela gaveta, a conta no carrinho de verdade
+(2, 3, 5 e 6 unidades; o produto de fora), as faixas que saem e voltam, o cupom que combina e o
+que não combina (este tira um produto da "Promoção de lançamento" do banco local e devolve no fim),
+um pedido Pix e a lista, a pausada e a agendada, o celular, e na loja o card, a PDP, a sacola (com
+as ações seguradas 1,5 s, pra ver o total previsto) e o selo saindo depois da pausa. Pausa e apaga
+as promoções da rodada no fim.
 
 **Observabilidade** (fase 7, entrega 0087). O módulo `src/modules/observabilidade/` guarda três
 tabelas: `obs_rotina` (a última rodada de cada job), `obs_problema` e `obs_sinal` (o dia de cada
@@ -1518,6 +1638,19 @@ O conferidor (`conferir-observabilidade.mjs`) abre a loja local (`LOJA`) num 404
 propósito e em duas visitas (celular e computador). O erro de propósito vai de novo até o recado
 sair: o ouvinte nasce na hidratação, e o erro jogado antes dela não é visto — com a máquina
 ocupada, o "load" chega antes. É um limite da loja também: o erro de antes da hidratação não conta.
+
+**O vigia de fora** (entrega 0137). A Observabilidade mora dentro do Medusa: se o serviço cai no
+Railway, ou fica de pé sem rodar as rotinas, nada avisa. Então um serviço de fora (o UptimeRobot,
+na conta do dono) espera um "estou viva": o job `vigiar-a-loja` chama o `VIGIA_DE_FORA_URL` (o
+heartbeat do UptimeRobot) no FIM da rodada, depois de conferir a loja e pôr os problemas em dia
+(`lib/observabilidade/vigia-de-fora.ts`, `avisarOVigiaDeFora`). Parou de chegar, o UptimeRobot
+avisa no celular. O endereço é segredo (quem tem ele finge que a loja está viva): mora só no
+Railway, e o sinal do dia (`vigia-de-fora`, em `obs_sinal`) guarda a falha sem ele. Sem a variável,
+nada sai, e a linha "Vigia de fora" das integrações fica desligada. No mesmo UptimeRobot moram os
+monitores de endereço — a loja, o `/health` do Medusa e o `/entrar` do painel —, que avisam
+quando um deles não responde. Pra testar local: um servidor que anota o que chega (o
+`vigia-falso.mjs` do scratchpad da 0137, na 5980) e o `VIGIA_DE_FORA_URL` do Medusa apontando pra
+ele; o recado sai nos minutos 1, 6, 11… da hora.
 
 **Configurações** (fase 6, entrega 0093). As abas do protótipo, na área `configuracoes` (só o
 dono). A regra mora em `src/lib/painel/configuracoes.ts`, puro, com testes:

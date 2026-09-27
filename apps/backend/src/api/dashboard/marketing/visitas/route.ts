@@ -6,14 +6,7 @@ import {
   ErroDoGa4,
   visitasDoMarketing,
 } from "../../../../lib/painel/ga4"
-import { pedidosDesde } from "../../../../lib/painel/ler"
-import {
-  hostsDaLoja,
-  lerPedidosDesde,
-  lerPeriodo,
-  vendasDos,
-  visitasDoPeriodo,
-} from "../../../../lib/painel/marketing"
+import { hostsDaLoja, lerPeriodo, visitasDoPeriodo } from "../../../../lib/painel/marketing"
 
 /** O motivo de verdade vai pro log, no máximo uma linha por hora por motivo. */
 const avisar = (req: AuthenticatedMedusaRequest, tipo: string, mensagem: string) =>
@@ -21,9 +14,11 @@ const avisar = (req: AuthenticatedMedusaRequest, tipo: string, mensagem: string)
 
 /**
  * GET /dashboard/marketing/visitas?periodo=30d — as visitas do período e do
- * de antes, do Google Analytics, e a conversão (pedidos pagos ÷ visitas, no
- * mesmo corte de hora — ver `visitasDoPeriodo`). Só as visitas do endereço
- * da loja (`LOJA_URL`): o Analytics é o mesmo do site antigo, da Nuvemshop.
+ * de antes, do Google Analytics, e a conversão (as compras que o Google viu
+ * ÷ as visitas, no mesmo corte de hora — ver `visitasDoPeriodo`): as duas
+ * contas só de quem aceitou os cookies, como nos Canais. Só as visitas do
+ * endereço da loja (`LOJA_URL`): o Analytics é o mesmo do site antigo, da
+ * Nuvemshop.
  *
  * RESPOSTAS, sempre 200 (as mesmas do `/dashboard/visitas`):
  *   `{ estado: "ok", visitas, pedidos, conversao, ate }`;
@@ -46,11 +41,13 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
   }
   try {
     const agora = new Date()
-    const [relatorio, pedidos] = await Promise.all([
-      visitasDoMarketing(cfg, periodo, hostsDaLoja(process.env.LOJA_URL), agora),
-      pedidosDesde(req.scope, lerPedidosDesde(periodo, agora)),
-    ])
-    res.json({ estado: "ok", ...visitasDoPeriodo(relatorio, periodo, vendasDos(pedidos), agora) })
+    const relatorios = await visitasDoMarketing(
+      cfg,
+      periodo,
+      hostsDaLoja(process.env.LOJA_URL),
+      agora
+    )
+    res.json({ estado: "ok", ...visitasDoPeriodo(relatorios, periodo, agora) })
   } catch (e) {
     const tipo = e instanceof ErroDoGa4 ? e.tipo : "fora"
     avisar(req, tipo, e instanceof Error ? e.message : String(e))

@@ -11,6 +11,7 @@ import { useFrete } from "@/components/configuracoes/contexto"
 import type { SugestaoDaSacola } from "@/lib/carrinho-visivel"
 import { faltaPraPromocao, frasesDoFrete, progressoDaPromocao } from "@/lib/configuracoes"
 import { emReais } from "@/lib/formato"
+import type { PromocaoDaLinha } from "@/lib/promocoes"
 import type { ModeloDeRecomendacao } from "@/lib/recomendacao"
 import { DESTINO_DO_CHECKOUT, EM_BREVE, PARCELA_MINIMA, PARCELAS_SEM_JUROS } from "@/lib/site"
 
@@ -211,6 +212,7 @@ export function Gaveta({
                   </h3>
                   {item.variante ? <p className="sacolinha__unitario">{item.variante}</p> : null}
                   <p className="sacolinha__unitario">{emReais(item.precoUnitario)} cada</p>
+                  {item.promocao ? <RecadoDaPromocao recado={item.promocao} /> : null}
 
                   <span className="sacolinha__qtde">
                     {/*
@@ -401,6 +403,23 @@ function MedidorDeFrete({ subtotal }: { subtotal: number }) {
         <Raio className="sacolinha__frete-raio" style={{ left: `${porcento}%` }} />
       </span>
     </div>
+  )
+}
+
+/**
+ * O RECADO DO "LEVE X, PAGUE Y" numa linha da sacola: a etiqueta da
+ * promoção, quantas saíram de graça nesta linha (pelo ajuste do Medusa), e o
+ * empurrão — "mais 1 sai de graça" — na última linha da promoção, quando a
+ * próxima unidade já é de graça. Sem CSS novo: a sacola mora em toda página,
+ * e a home não tem folga (o quadro do LCP, no AGENTS.md).
+ */
+function RecadoDaPromocao({ recado }: { recado: PromocaoDaLinha }) {
+  return (
+    <p className="sacolinha__unitario" data-promocao-linha>
+      <b>{recado.etiqueta}</b>
+      {recado.gratis ? ` · ${recado.gratis} de graça` : ""}
+      {recado.mais ? ` · mais ${recado.mais} ${recado.mais === 1 ? "sai" : "saem"} de graça` : ""}
+    </p>
   )
 }
 

@@ -112,7 +112,7 @@ describe("quando o aviso de venda sai", () => {
     expect(decidirAvisoDeVenda(autorizado)).toEqual({ mandar: false, motivo: "nao-pago" })
   })
 
-  it("pedido do provisório (sem o Pagar.me) não avisa", () => {
+  it("pedido do provisório (sem parceiro de pagamento) não avisa", () => {
     const provisorio = pedido({
       payment_collections: [
         {
@@ -121,7 +121,7 @@ describe("quando o aviso de venda sai", () => {
         },
       ],
     })
-    expect(decidirAvisoDeVenda(provisorio)).toEqual({ mandar: false, motivo: "sem-pagarme" })
+    expect(decidirAvisoDeVenda(provisorio)).toEqual({ mandar: false, motivo: "sem-parceiro" })
   })
 
   it("pedido que já saiu pra entrega é venda velha", () => {
@@ -218,6 +218,16 @@ describe("o pedido no formato do aviso", () => {
       })
     )
     expect(v.cupons).toEqual(["BARBA10"])
+  })
+
+  it("o código da promoção automática (o Leve X, pague Y) também não é cupom", () => {
+    const item = pedido().items![0]!
+    const v = paraVenda(
+      pedido({
+        items: [{ ...item, adjustments: [{ code: "PROMO-3F9A12C7" }, { code: "VOLTA10" }] }],
+      })
+    )
+    expect(v.cupons).toEqual(["VOLTA10"])
   })
 
   it("sem captura (não chega aqui pela decisão), a hora é a de agora", () => {

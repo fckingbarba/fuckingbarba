@@ -1,6 +1,6 @@
 import type { MedusaContainer } from "@medusajs/framework/types"
 import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
-import { lerEstado } from "../modules/pagarme/situacao"
+import { ehParceiro, estadoDaSessao, sessaoDoParceiro } from "./pagamento/parceiros"
 import { whatsappDaLoja } from "./atendimento"
 import { emailNoLog, enviarEmail } from "./email"
 import { emailDePedidoConfirmado, type PedidoDoEmail } from "./emails/pedido-confirmado"
@@ -41,7 +41,7 @@ import { gravarNoMetadataDoPedido } from "./metadata-do-pedido"
  *      cobre o instante entre o Resend aceitar e o registro ser gravado.
  *
  * QUANDO NÃO SAI: pedido cancelado; pagamento ainda não capturado; pedido sem
- * o Pagar.me (o provisório, "a combinar"); e pedido que já saiu pra
+ * parceiro de pagamento (o provisório, "a combinar"); e pedido que já saiu pra
  * entrega. A confirmação diz "falta enviar", e depois do e-mail "a caminho"
  * ela só confundiria — é o caso do pedido pago antes de este e-mail
  * existir, que a varredura encontra nas primeiras 24 horas.
@@ -56,8 +56,6 @@ const JANELA_MS = 24 * 60 * 60 * 1000
  * perto (é um pedido por compra, e o evento já resolveu quase todos).
  */
 const POR_RODADA = 20
-
-const PROVEDOR_PAGARME = "pp_pagarme_pagarme"
 
 /* ── o pedido, como o Medusa devolve ──────────────────────────────────────── */
 
@@ -171,11 +169,11 @@ export type Decisao =
   | { mandar: true }
   | {
       mandar: false
-      motivo: "ja-registrado" | "cancelado" | "nao-pago" | "sem-pagarme" | "ja-saiu" | "sem-email"
+      motivo: "ja-registrado" | "cancelado" | "nao-pago" | "sem-parceiro" | "ja-saiu" | "sem-email"
     }
 
 /** Motivos que não mudam mais: ficam registrados, e a varredura não volta. */
-const PARA_SEMPRE = new Set(["sem-pagarme", "ja-saiu", "sem-email"])
+const PARA_SEMPRE = new Set(["sem-parceiro", "ja-saiu", "sem-email"])
 
 const sessoesDo = (o: PedidoLido) =>
   (o.payment_collections ?? []).flatMap((c) => c?.payment_sessions ?? [])
@@ -187,8 +185,8 @@ export function decidir(o: PedidoLido): Decisao {
     .flatMap((c) => c?.payments ?? [])
     .some((p) => Boolean(p?.captured_at))
   if (!capturado) return { mandar: false, motivo: "nao-pago" }
-  if (!sessoesDo(o).some((s) => s?.provider_id === PROVEDOR_PAGARME)) {
-    return { mandar: false, motivo: "sem-pagarme" }
+  if (!sessoesDo(o).some((s) => ehParceiro(s?.provider_id))) {
+    return { mandar: false, motivo: "sem-parceiro" }
   }
   if ((o.fulfillments ?? []).some((f) => f?.shipped_at || f?.delivered_at)) {
     return { mandar: false, motivo: "ja-saiu" }
@@ -207,14 +205,13 @@ const cep = (v: string) => {
 /**
  * Campo por campo, o `paraPedidoVisivel` da loja (`apps/loja/src/lib/pedido.ts`):
  * o mesmo nome de item, o mesmo endereço, os mesmos totais. O pagamento sai
- * da sessão do Pagar.me, como o `lerPagamento` de lá.
+ * da sessão do parceiro que cobrou, como o `lerPagamento` de lá.
  */
 export function paraPedidoDoEmail(o: PedidoLido): PedidoDoEmail {
   const e = o.shipping_address
   const meta = (e?.metadata ?? {}) as Record<string, unknown>
   const s = (v: unknown) => (typeof v === "string" ? v : "")
-  const sessao = sessoesDo(o).find((x) => x?.provider_id === PROVEDOR_PAGARME)
-  const estado = lerEstado(sessao?.data)
+  const estado = estadoDaSessao(sessaoDoParceiro(sessoesDo(o)))
 
   return {
     id: o.id,

@@ -36,6 +36,12 @@
  * │ • o "por cliente" que deixa usar de novo; o agendado que já vale;      │
  * │ • dois cupons no mesmo pedido; a pergunta do frete aberta a qualquer   │
  * │   um; o formulário novo e o link do cupom.                             │
+ * │ Da 0136:                                                               │
+ * │ • o cupom em reais que não combina e não era criado (o Medusa recusava │
+ * │   a regra de alvo numa promoção de alvo "order");                      │
+ * │ • cupons somados pelo `promo_codes` no corpo do carrinho;              │
+ * │ • o uso do cupom que o pedido cancelado não devolvia (o Pix vencido    │
+ * │   queimava o cupom de 1 uso).                                          │
  * └────────────────────────────────────────────────────────────────────────┘
  */
 
@@ -85,6 +91,8 @@ const U = `U${sufixo}`
 /* Os do jeito da Nuvemshop: frete (N), frete na mais barata (B), categoria (K),
    produto (D), não combina (S), por cliente (L), agendado (A). */
 const [N, B, K, D, S, L, A] = ["N", "B", "K", "D", "S", "L", "A"].map((l) => `${l}${sufixo}`)
+/* Os da 0136: em reais sem combinar (V) e o de 1 uso que volta no cancelamento (W). */
+const [V, W] = ["V", "W"].map((l) => `${l}${sufixo}`)
 
 /** "2026-10-01": daqui a `dias`, em Brasília. */
 const diaDaqui = (dias) =>
@@ -676,6 +684,100 @@ try {
     segundo.status === 400 && segundo.codigos.includes(F) && !segundo.codigos.includes(S),
     "um cupom por pedido: o segundo é recusado, e o primeiro continua",
     JSON.stringify(segundo)
+  )
+
+  /* ── os consertos da 0136 ──────────────────────────────────────────────── */
+
+  titulo("Os consertos da 0136: em reais sem combinar, o corpo do carrinho, o uso que volta")
+  // Em reais e sem combinar: o Medusa recusava a promoção (regra de alvo numa
+  // promoção de alvo "order"), e o painel dizia "Não consegui falar com a
+  // loja". Agora o desconto mira os produtos: o de preço cheio, e não o em
+  // promoção — o mesmo carrinho do "não combina" de porcentagem, lá em cima.
+  const rv = await criar({ ...NOVO, codigo: V, tipo: "reais", valor: "10", combina: false })
+  if (rv.corpo.cupom?.id) criados.push(rv.corpo.cupom.id)
+  const mistoV = await aplicar(
+    await carrinho(
+      [
+        [cheio, 1],
+        [emPromo, 1],
+      ],
+      email("v1")
+    ),
+    V
+  )
+  const soPromoV = await aplicar(await carrinho([[emPromo, 1]], email("v2")), V)
+  ok(
+    rv.status === 200 &&
+      mistoV.codigos.includes(V) &&
+      Math.abs(mistoV.desconto - 10) <= 0.01 &&
+      !soPromoV.codigos.includes(V),
+    "em reais e sem combinar: o painel cria; desconta R$ 10 com um produto de preço cheio, e só com promoção não entra",
+    JSON.stringify({
+      status: rv.status,
+      erro: rv.corpo.erros ?? rv.corpo.message,
+      mistoV,
+      soPromoV,
+    })
+  )
+
+  // Um cupom por pedido também no corpo do carrinho: o Medusa aceita
+  // `promo_codes` ao criar e ao atualizar o carrinho, e ali a lista
+  // substituía a de antes — cinco cupons somavam.
+  const idCorpo = await carrinho([[a, 1]], email("corpo"))
+  const noCorpo = await loja(`/store/carts/${idCorpo}`, {
+    metodo: "POST",
+    corpo: { promo_codes: [F, V] },
+  })
+  const { corpo: regioesV } = await loja("/store/regions")
+  const aoCriar = await loja("/store/carts", {
+    metodo: "POST",
+    corpo: { region_id: regioesV.regions[0].id, promo_codes: [F] },
+  })
+  const depoisDoCorpo = await lerCarrinho(idCorpo)
+  ok(
+    noCorpo.status === 400 && aoCriar.status === 400 && depoisDoCorpo.codigos.length === 0,
+    "cupom no corpo do carrinho, ao criar ou ao atualizar, é recusado: só entra pela porta dos cupons",
+    JSON.stringify({ noCorpo: noCorpo.status, aoCriar: aoCriar.status, depoisDoCorpo })
+  )
+
+  // O uso volta quando o pedido é cancelado: o Pix gerado conta o uso, e o
+  // que vencia sem ser pago queimava o cupom de 1 uso pra sempre.
+  const rw = await criar({ ...NOVO, codigo: W, porCupom: "limitado", limite: "1" })
+  if (rw.corpo.cupom?.id) criados.push(rw.corpo.cupom.id)
+  const usosDeW = async () =>
+    (await adm(`/admin/promotions?limit=200&fields=id,code,used`)).corpo.promotions?.find(
+      (p) => p.code === W
+    )?.used
+  const pedidoW = await fabrica.pedidoPix(email("w1"), [[a, 1]], { cupom: W })
+  const usadoAntes = await usosDeW()
+  const esgotadoW = await aplicar(await carrinho([[a, 1]], email("w2")), W)
+  const cancelouW = await adm(`/admin/orders/${pedidoW.id}/cancel`, { metodo: "POST" })
+  let usadoDepois = usadoAntes
+  for (let i = 0; i < 30 && usadoDepois !== 0; i++) {
+    await new Promise((pronto) => setTimeout(pronto, 1000))
+    usadoDepois = await usosDeW()
+  }
+  const deNovoW = await aplicar(await carrinho([[a, 1]], email("w3")), W)
+  const registroW = (await adm(`/admin/orders/${pedidoW.id}?fields=metadata`)).corpo.order?.metadata
+    ?.fb_cupons?.uso_devolvido
+  ok(
+    Boolean(pedidoW.id) &&
+      usadoAntes === 1 &&
+      !esgotadoW.codigos.includes(W) &&
+      cancelouW.status === 200 &&
+      usadoDepois === 0 &&
+      deNovoW.codigos.includes(W) &&
+      (registroW?.codigos ?? []).includes(W),
+    "cupom de 1 uso: o Pix gerado gasta o uso; o pedido cancelado devolve, e o cupom vale de novo",
+    JSON.stringify({
+      pedido: pedidoW.id,
+      usadoAntes,
+      esgotadoW,
+      cancelou: cancelouW.status,
+      usadoDepois,
+      deNovoW,
+      registroW,
+    })
   )
 
   /* ── a lista ───────────────────────────────────────────────────────────── */

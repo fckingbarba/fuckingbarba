@@ -1,6 +1,7 @@
 import type { ExecArgs } from "@medusajs/framework/types"
 import { ContainerRegistrationKeys, MedusaError, Modules } from "@medusajs/framework/utils"
 import { updateRegionsWorkflow } from "@medusajs/medusa/core-flows"
+import { PAGARME, PROVISORIO } from "../lib/pagamento/parceiros"
 import { ondeEstou } from "./onde-estou"
 
 /**
@@ -31,16 +32,13 @@ import { ondeEstou } from "./onde-estou"
  * (apps/loja/src/lib/site.ts). É essa segunda chave que abre a loja.
  */
 
-const PAGARME = "pp_pagarme_pagarme"
-const PROVISORIO = "pp_system_default"
-
 export default async function pagamento({ container, args }: ExecArgs) {
   const logger = container.resolve(ContainerRegistrationKeys.LOGGER)
   const query = container.resolve(ContainerRegistrationKeys.QUERY)
   ondeEstou(logger, "pagamento")
 
   const voltar = (args ?? []).includes("voltar")
-  const alvo = voltar ? PROVISORIO : PAGARME
+  const alvo = voltar ? PROVISORIO : PAGARME.id
 
   // ── 1. o que precisa existir antes ────────────────────────────────────────
   if (!voltar) {
@@ -125,7 +123,7 @@ export default async function pagamento({ container, args }: ExecArgs) {
     voltar
       ? `[pagamento] conferido: a região "${regiao.name}" voltou pro provisório (${PROVISORIO}). ` +
           "Pedido fecha SEM cobrança — deixe CHECKOUT_ABERTO em false."
-      : `[pagamento] conferido: a região "${regiao.name}" cobra pelo Pagar.me (${PAGARME}). ` +
+      : `[pagamento] conferido: a região "${regiao.name}" cobra pelo Pagar.me (${PAGARME.id}). ` +
           "Confira com: node apps/loja/ferramentas/conferir-pagamento.mjs"
   )
 }

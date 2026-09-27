@@ -2,7 +2,6 @@ import type { MedusaContainer } from "@medusajs/framework/types"
 import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
 import { ERP } from "../../modules/erp"
 import type ErpService from "../../modules/erp/service"
-import { lerEstado } from "../../modules/pagarme/situacao"
 import {
   capturasDo,
   documentoDoPedido,
@@ -21,6 +20,7 @@ import {
   type JeitoDoAviso,
 } from "../emails/erp"
 import { referenciaDoPedido } from "../envios/parceiro"
+import { estadoDaSessao, sessaoDoParceiro } from "../pagamento/parceiros"
 import { avisarAEquipe } from "./avisos"
 import { acessoAoErp, avisarQuedaSeForAHora, lerConexao, minutosDaJanela } from "./conexao"
 import type { Acesso, ErpDaLoja, EstadoDaNota, PedidoParaNota } from "./contrato"
@@ -245,8 +245,6 @@ const reais = (v: unknown) => {
 export const diaEmBrasilia = (d: Date) =>
   d.toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" })
 
-const PAGARME = "pp_pagarme_pagarme"
-
 export function montarPedidoParaNota(
   o: PedidoLido,
   agora: Date
@@ -307,10 +305,9 @@ export function montarPedidoParaNota(
     }
   }
 
-  const sessao = (o.payment_collections ?? [])
-    .flatMap((c) => c?.payment_sessions ?? [])
-    .find((s) => s?.provider_id === PAGARME)
-  const estado = lerEstado(sessao?.data)
+  const estado = estadoDaSessao(
+    sessaoDoParceiro((o.payment_collections ?? []).flatMap((c) => c?.payment_sessions ?? []))
+  )
   const captura = capturasDo(o).sort((a, b) => a.getTime() - b.getTime())[0] ?? agora
 
   return {

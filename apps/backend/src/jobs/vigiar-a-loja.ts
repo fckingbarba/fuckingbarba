@@ -1,6 +1,7 @@
 import type { MedusaContainer } from "@medusajs/framework/types"
 import { comRodada } from "../lib/observabilidade/rodada"
 import { conferirALoja, vigiar } from "../lib/observabilidade/vigia"
+import { avisarOVigiaDeFora } from "../lib/observabilidade/vigia-de-fora"
 
 /**
  * De 5 em 5 minutos: a tela de Observabilidade em dia, mesmo sem ninguém
@@ -10,10 +11,15 @@ import { conferirALoja, vigiar } from "../lib/observabilidade/vigia"
  *
  * Nos minutos 1, 6, 11…: logo depois da conciliação (0, 5, 10…), que é quem
  * mais muda o que ele lê.
+ *
+ * No fim, com a rodada inteira certa, o "estou viva" pro vigia de fora
+ * (`lib/observabilidade/vigia-de-fora.ts`): se ele parar de chegar, o
+ * UptimeRobot avisa o dono no celular.
  */
 async function vigiarALoja(container: MedusaContainer) {
   await conferirALoja(container)
   await vigiar(container)
+  await avisarOVigiaDeFora()
 }
 
 export const config = {

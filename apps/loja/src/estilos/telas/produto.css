@@ -38,3 +38,5 @@
 @import "../pdp-galeria.css";
 /* Escrito à mão: o produto esgotado — a faixa e o "avise-me quando chegar". */
 @import "../pdp-esgotado.css";
+/* Escrito à mão: o selo do "Leve X, pague Y", embaixo do preço (entrega 0133). */
+@import "../pdp-promocao.css";

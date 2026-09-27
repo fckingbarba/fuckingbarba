@@ -313,9 +313,14 @@ describe("a promoção do Medusa", () => {
     expect(p.rules).toEqual([])
     expect("limit" in p).toBe(false)
     expect("target_rules" in p.application_method).toBe(false)
+    // O que não combina mira os PRODUTOS: regra de alvo com alvo "order" o
+    // Medusa recusa na criação (entrega 0136).
     const reaisSemPromocao = promocaoDoCupom(cupom({ tipo: "reais", combina: false }), "Ana", AGORA)
     expect(reaisSemPromocao.application_method).toMatchObject({
-      target_type: "order",
+      type: "fixed",
+      target_type: "items",
+      allocation: "across",
+      currency_code: "brl",
       target_rules: [{ attribute: `items.${MARCA_DA_LINHA}`, operator: "eq", values: ["nao"] }],
     })
   })
@@ -446,9 +451,22 @@ describe("um cupom por pedido", () => {
     expect(outroCupomNoCarrinho(["BARBA20"], ["VOLTA10"], undefined)).toBe("BARBA20")
   })
 
-  it("a conta do Medusa a cada mudança (replace) e o tirar passam direto", () => {
+  it("a conta do Medusa a cada mudança (replace, os mesmos códigos) e o tirar passam direto", () => {
     expect(outroCupomNoCarrinho(["A10", "B10"], ["A10", "B10"], "replace")).toBeNull()
+    expect(
+      outroCupomNoCarrinho(["A10", "BUMP-OLEO-1"], ["A10", "BUMP-OLEO-1"], "replace")
+    ).toBeNull()
     expect(outroCupomNoCarrinho(["A10"], ["A10"], "remove")).toBeNull()
+  })
+
+  it("replace que TRAZ cupom novo e deixa dois ou mais ouve não (o promo_codes no corpo do carrinho)", () => {
+    expect(outroCupomNoCarrinho([], ["A10", "B10", "C10"], "replace")).toBe("B10")
+    expect(outroCupomNoCarrinho(["A10"], ["A10", "B10"], "replace")).toBe("A10")
+    expect(outroCupomNoCarrinho(["a10"], ["A10", "b10"], "replace")).toBe("A10")
+    // Um só, trocado ou novo, pode; a oferta do checkout não conta.
+    expect(outroCupomNoCarrinho(["A10"], ["B10"], "replace")).toBeNull()
+    expect(outroCupomNoCarrinho([], ["A10"], "replace")).toBeNull()
+    expect(outroCupomNoCarrinho(["A10"], ["A10", "BUMP-OLEO-1"], "replace")).toBeNull()
   })
 })
 

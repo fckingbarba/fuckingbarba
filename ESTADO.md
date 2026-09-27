@@ -1024,6 +1024,14 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
       "O que diz quem usou" mostra 3 depoimentos sorteados a cada visita, e não mais os 20: o HTML
       sai com três (o que lê quem abre sem JavaScript, e o Google), e o navegador sorteia os da
       visita logo depois. Nada a configurar depois do deploy.
+- [x] **O contador das Ofertas relâmpago mostra as horas até o fim** (entrega 0141, 26/09, pedido
+      da loja, com o print das 23:44: "a hora tem que aparecer sempre, nem que seja 0"). Na última
+      hora do dia, a caixa de Horas sumia e o contador encolhia de três caixas pra duas bem quando
+      fica amarelo. Agora ela fica, com 00 (às 23:44:51, 00 · 15 · 09), e o contador tem a mesma
+      largura o dia inteiro. Numa tela de 1024 px, o botão "Aproveitar ofertas" já ficava na
+      segunda linha o dia todo e só subia na última hora; agora fica embaixo sempre. Conferido por
+      foto, com o relógio do navegador parado às 14:25, às 23:44 e às 23:59:58, no computador, em
+      1024 px e no celular. O HTML da home sai igual. Nada a configurar depois do deploy.
 - [x] **O conferidor do ERP procurava o aviso da equipe na caixa errada** (entrega 0101, 25/09).
       Desde as Configurações (entrega 0093), o e-mail da equipe — a nota que não saiu, a nota pra
       conferir ou pra cancelar, o Bling caído — vai pra quem está no painel com o papel que
@@ -1191,6 +1199,23 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
       o Claude Code roda o `conferir-enderecos-antigos.mjs` contra o domínio: todo endereço da loja
       antiga tem que abrir. E, nas semanas seguintes, o cartão "página que não existe" da
       Observabilidade mostra o link antigo que ainda faltar (vindo de fora).
+      O checkup de 26/09 (entrega 0136) juntou o que mais precisa, no dia:
+      - `NEXT_PUBLIC_SITE_URL=https://www.fuckingbarba.com.br` — com o www (é o endereço que o
+        Google já tem, o da Nuvemshop) e sem barra no fim — junto com `SITE_INDEXAVEL=true` SÓ em
+        Production, e Redeploy sem cache (as duas entram no build).
+      - Vercel → Domains: o www como principal, a raiz levando pro www, e o
+        `fuckingbarba-loja.vercel.app` levando pro www também.
+      - `LOJA_URL` no Railway = o endereço final, que não redireciona (o aviso de preço e estoque é um
+        POST; num redirect ele vira GET e a loja para de atualizar). `STORE_CORS`/`AUTH_CORS` com os
+        domínios exatos, sem o `https://*.vercel.app`.
+      - DNS na GoDaddy: trocar SÓ o `@` e o `www`. O MX do Google (o e-mail), o `resend._domainkey`,
+        o `send`, o SPF, o DMARC, o `google-site-verification` e o CNAME `dashboard` ficam como
+        estão — sem eles param os e-mails de pedido e os códigos de entrar. Não trocar os
+        nameservers.
+      - Apagar a `NEXT_PUBLIC_LOJA_ATUAL_URL` na Vercel (ainda é o `www.SUALOJA.com.br` de exemplo).
+      - Search Console: o sitemap novo (`https://www.fuckingbarba.com.br/sitemap.xml`), e o Claude
+        Code roda o `conferir-links.mjs` contra o domínio (o robots contra o sitemap).
+      - Uma compra real no cartão de outra pessoa logo depois da troca.
 
 ### 4. Fase 5
 
@@ -2050,8 +2075,8 @@ A área Marketing do protótipo volta, em partes. A primeira fica no menu, em An
 - **As visitas contam só a loja nova.** O Google Analytics é o mesmo do site da Nuvemshop, que
   segue no ar: o painel pergunta só as do endereço da loja. Até a virada, os números são pequenos.
   O Início ainda conta as dos dois sites.
-- O Google soma as visitas com algumas horas de atraso: a conversão (pedidos ÷ visitas) corta os
-  pedidos na mesma hora que ele já somou.
+- O Google soma as visitas com algumas horas de atraso: a conversão (desde a entrega 0135, as
+  compras que o Google viu ÷ as visitas) corta as compras na mesma hora que ele já somou.
 
 As próximas partes, uma por entrega: Funil e Canais (com o montador de link de campanha), Produtos
 e Ofertas, Clientes, e Pagamento e frete — com "O que os dados dizem" crescendo a cada uma.
@@ -2574,6 +2599,212 @@ produto e ponha na sacola; depois, Painel → CRM → Hoje.
 - [ ] **As próximas partes da Fundação** (uma entrega cada, perguntar antes): os avisos do Resend
       voltando (entregue, abriu, clicou, reclamou), a ficha de cada pessoa com as etiquetas, os
       Ajustes do CRM editáveis no painel, a base da Nuvemshop e o modelo de e-mail.
+
+**O vigia de fora — pronto em 26/09 (entrega 0137).** Item 7 do levantamento, a parte que não
+depende da Vercel no Pro. A Observabilidade mora dentro do servidor da loja: se ele cai, nenhum
+aviso sai, e ninguém fica sabendo até um cliente reclamar. Agora um serviço de fora, o UptimeRobot
+(grátis, e o plano grátis deles permite loja), vigia a loja, o servidor e o painel de 5 em 5
+minutos, e avisa no seu celular quando um deles não responde. E o servidor manda um "estou viva"
+pra ele a cada 5 minutos, depois de rodar as rotinas: se o recado para (o servidor caiu, as rotinas
+travaram, o banco não responde), o aviso chega também. Na Observabilidade, a linha "Vigia de fora"
+das integrações diz quando foi o último "estou viva".
+
+Conferido pelos testes de unidade (6 novos: o endereço, o recado que chega, o que não chega, e a
+linha das integrações), por um vigia de mentira na máquina (o recado chegou na hora da rotina) e
+pelos conferidores do painel (observabilidade 35/35, com as 8 integrações; configurações 18/18).
+
+Depois do deploy — **você, uns 15 minutos:**
+
+- [ ] **A conta:** uptimerobot.com → criar a conta grátis, com o e-mail da loja. No celular,
+      instalar o app **UptimeRobot** e entrar com a mesma conta: é por ele que o aviso chega.
+- [ ] **Os três endereços** — "New monitor", tipo **HTTP(s)**, de 5 em 5 minutos, com o aviso por
+      e-mail e pelo app:
+  - Loja: `https://fuckingbarba-loja.vercel.app` (na virada, trocar por
+    `https://www.fuckingbarba.com.br`);
+  - Servidor: `https://fuckingbarbabackend-production.up.railway.app/health`;
+  - Painel: `https://dashboard.fuckingbarba.com.br/entrar`.
+- [ ] **O "estou viva"** — "New monitor", tipo **Heartbeat** (ou "Cron job"), nome "Rotinas da
+      loja", intervalo de **10 minutos** (um recado atrasado não vira alarme; dois, sim). Copiar o
+      endereço que ele mostra e colar no Railway → serviço do Medusa → Variables → nova variável
+      `VIGIA_DE_FORA_URL`. Não colar esse endereço na conversa: quem tem ele finge que a loja está
+      viva. O Railway publica de novo sozinho.
+- [ ] Em até 10 minutos: Painel → Observabilidade → Integrações → "Vigia de fora" fica verde, e o
+      monitor "Rotinas da loja" fica "Up" no UptimeRobot.
+
+Se o UptimeRobot pedir plano pago pro Heartbeat, os três endereços já valem sozinhos; aí o "estou
+viva" vai pro Better Stack (10 grátis) — é só trocar o endereço da variável.
+
+**Pagamento: o Pagar.me saiu do meio do código — pronta em 26/09 (entrega 0132).** Primeira de
+quatro partes do **Pix reserva**, pedido dele em 26/09: um segundo parceiro de pagamento, não pra
+trocar o Pagar.me, e sim pra quando ele falhar ("erro de pagamento no cartão, problema pra gerar
+Pix ou o Pagar.me instável"); "se um dos parceiros estiver instável, usa o que está estável"; e
+"um ranking, pra ver qual está dando mais recusa". O parceiro reserva é o **Mercado Pago** (ele já
+tem conta, a mesma das vendas do Mercado Livre). **Nada muda pra quem compra nem no painel.**
+
+- **Antes**, o id do Pagar.me estava copiado em 12 arquivos, e um pedido pago por outro parceiro
+  não teria o e-mail de confirmação, nem o "Venda nova", nem a forma de pagamento na nota.
+- **Agora** há uma lista só dos parceiros (`apps/backend/src/lib/pagamento/parceiros.ts`, e a
+  mesma na loja) e um estado comum que todo parceiro grava (a forma, a situação, o QR do Pix, o
+  final do cartão, a recusa, quanto voltou). Os e-mails, o painel (pedido e Marketing), a nota, a
+  versão pública do pedido, a porta do cartão e, na loja, a tela de obrigado, a conta e a recusa
+  do passo 3 leem o pagamento de qualquer parceiro da lista.
+- **Continua só do Pagar.me** (e vem por parceiro nas próximas partes): o provedor, a conciliação,
+  a conferência dos estornos, o aviso (Edge Function), o script da região e o passo 3.
+- De quebra, mais fechado: o estado só é lido na chave do parceiro dono da sessão — um estado
+  forjado numa sessão do provisório (a API pública deixa escrever no `data`) não vira pagamento,
+  nem na versão pública do pedido.
+
+Conferido pelos testes de unidade (994; os 11 novos: a lista dos parceiros e a da loja batendo, a
+sessão que virou o pagamento, o estado lido só na chave do parceiro dono, e o estado forjado fora da
+versão pública do pedido), pelo `conferir-pagamento.mjs` (214, duas rodadas), `conferir-checkout.mjs`
+(173), `conferir-conta.mjs` (209), `conferir-erp.mjs` (114) e, no painel, `conferir-pedidos.mjs`
+(77), `conferir-acoes.mjs` (32) e `conferir-observabilidade.mjs` (35). O `conferir-marketing.mjs` não
+rodou (pede o Google falso): o Pagamento e frete é o `montarPagamento`, coberto pelos testes.
+
+Depois do deploy — **nada a configurar.**
+
+- [ ] **Parte 2: o Mercado Pago, só no Pix.** O provedor, o aviso de pago, a conciliação e o
+      estorno dele, e um Mercado Pago falso pros conferidores. Cartão fica só no Pagar.me: cartão
+      recusado não vai pro outro parceiro (quem recusa é o banco do cliente, e mandar pra outro
+      atrai o robô testando cartão e a contestação). Com você: **conferir se a conta do Mercado
+      Pago tem chave Pix cadastrada** (o Mercado Pago exige pra gerar Pix pelo site); as chaves de
+      acesso, você cria quando esta parte chegar e cola no Railway.
+- [ ] **Parte 3: a troca automática, pelo parceiro estável.** Com os dois bem, Pix e cartão pelo
+      Pagar.me (dá pra inverter no Pix, se a taxa do Mercado Pago for menor). Pagar.me instável:
+      o Pix sai pelo Mercado Pago no mesmo clique, e o cartão oferece esse Pix. Mercado Pago
+      instável: nada muda. Os dois: "tenta em instantes" e um e-mail pro dono. Instável = várias
+      falhas seguidas; o parceiro sai por uns minutos (o disjuntor) e volta sozinho.
+- [ ] **Parte 4: o ranking dos parceiros**, no Marketing → Pagamento e frete: Pix gerados, pagos,
+      que não geraram e o tempo pra gerar e confirmar; cartão aprovado e recusado por motivo;
+      falhas, vezes fora e minutos fora. Com o número ao lado da porcentagem, e sem vencedor sem
+      volume. No cartão, só compara se um dia o Mercado Pago também passar cartão.
+
+**Marketing: a conversão do Resumo compara gente igual — pronta em 26/09 (entrega 0135).** Pedido
+dele, depois da conversa sobre robôs e como a visita é contada ("sim vamos"). A conversão do Resumo
+dividia TODOS os pedidos pagos pelas visitas do Google — e o Google só vê quem aceitou os cookies.
+Quem recusa compra, mas não vira visita: a conversão saía maior que a real. No print dele (Canais,
+30 dias), o pedido de R$ 81,75 de quem recusou entrava na conta do Resumo; a visita dessa pessoa,
+não.
+
+- **Agora:** a conversão divide as compras que o Google viu (as que a loja manda pelo servidor, só
+  com o sim) pelas visitas — as duas do Google, no mesmo corte de hora. É a regra dos Canais. O
+  "Pedidos pagos" do Resumo segue contando todo mundo.
+- A ajuda da conversão (o mouse em cima do número) diz a conta do período ("3 pedidos em 120
+  visitas") e que é só de quem aceitou os cookies; o glossário embaixo também.
+
+Conferido pelo `conferir-marketing.mjs` (as compras do Google falso por dia e hora: o corte na hora
+que o Google ainda soma, a pergunta na mesma chamada das visitas, a conversão na tela e a ajuda) e
+pelos testes de unidade.
+
+Depois do deploy — **nada a configurar.** Pra ver: Marketing → Resumo → a conversão, com o mouse em
+cima.
+
+- [ ] **O Início ainda mistura:** o "Ontem: N visitas · X% viraram pedido pago" divide os pedidos
+      pagos da loja nova (de todos) pelas visitas do Google dos DOIS sites (a Nuvemshop segue no
+      mesmo Analytics até a virada). Consertar do mesmo jeito (as compras que o Google viu ÷ as
+      visitas), decidindo junto se o Início passa a contar só a loja nova.
+
+**Promoções "Leve X, pague Y" — pronto em 26/09 (entrega 0133).** Pedido dele: "no nosso
+dashboard quero poder criar promoções compre X e leve Y" (e o brinde, que é a parte 2). Decidido
+por ele na conversa: só o "Leve 3, pague 2" da Nuvemshop (nem "compre A, ganhe B", nem "2ª unidade
+com %"), e NÃO SOMA com o desconto por quantidade.
+
+- **No painel:** Cupons e descontos ganhou o bloco **Promoções**, com o botão **Nova promoção**. A
+  gaveta tem as seções do "Compre X e pague Y" da Nuvemshop: o nome (só pra loja), Comprando e
+  Pague (com a conta em uma frase embaixo), Aplicar a (toda a loja, categorias ou produtos, e
+  "permitir aplicar a produtos com preço promocional", marcada), o período (ilimitado ou com começo
+  e fim) e o texto do selo (vazio, fica "Leve 3, pague 2"). Cada promoção na lista tem a chave de
+  pausar, quantos pedidos, quanto de desconto e quanto vendeu.
+- **No carrinho, quem dá o desconto é o Medusa, sozinho** — ninguém digita código: 3 no carrinho,
+  uma sai de graça; 6, duas. Com produtos de preços diferentes na mesma promoção, sai de graça a
+  mais barata de cada grupo de 3 (numa sacola grande e misturada, pode dar um pouco mais de
+  desconto que a Nuvemshop, que dá as mais baratas da sacola inteira).
+- **Não soma:** enquanto a promoção vale, os produtos dela saem dos 4%/6% do desconto por
+  quantidade (2 unidades ficam sem os 4%), e voltam quando ela pausa ou acaba.
+- **Cupom:** o que combina com outras promoções desconta o que sobrou (10% das duas pagas); o que
+  não combina não desconta o item da promoção, como já não descontava o de preço promocional.
+- **Na loja:** o selo com a etiqueta no card (no lugar do "-X%") e embaixo do preço na página do
+  produto; o cartão "3 unidades" com o preço de 2; e na sacola, na linha do produto, "Leve 3, pague
+  2 · mais 1 sai de graça" com 2, e "1 de graça" com 3. Pausada ou fora do período, o selo sai da
+  loja na hora.
+
+Conferido pelo `conferir-promocoes.mjs` do painel (novo, 42 checagens: o formulário pela API e pela
+gaveta, a conta no carrinho de verdade com 2, 3, 5 e 6 unidades, o produto de fora, as faixas que
+saem e voltam, o cupom que combina e o que não combina, um pedido Pix e a lista, a pausada e a
+agendada, o celular, e na loja o card, a página do produto, a sacola e o selo saindo depois da
+pausa), pelos testes de unidade (1024; 35 novos, que rodam a conta do próprio Medusa) e pelos de
+sempre: no painel, cupons 41/41, preço promocional 17/17, pedidos 77/77 e produtos
+101/101; na loja, checkout 173/173, pagamento 214/214, frete 70/70, catálogo 34/34 e PDP 68/70 (as
+2 de antes, do banco local).
+
+Depois do deploy — **nada a configurar.** Pra testar: Painel → Cupons e descontos → Nova promoção →
+um produto → Criar; na loja, o selo aparece no card e na página dele, e 3 na sacola saem pelo preço
+de 2.
+
+- [ ] **Parte 2: o brinde — Claude Code.** Decidido por ele: "compras acima de R$ X, leve um
+      brinde", com o CLIENTE ESCOLHENDO entre 2 ou 3 opções (como o app Brinde no Carrinho); o
+      "acima de R$ X" conta antes do cupom, igual ao frete grátis; o brinde é produto da loja
+      (nada a cadastrar à parte no Bling) e **na nota tem que ir como brinde**, não como venda com
+      desconto — ver no Bling como o pedido leva esse item como bonificação. O desenho: a linha
+      do brinde entra pelo clique do cliente (uma rota que confere o valor, a opção e o estoque),
+      sai quando o Medusa para de descontar (valor abaixo, promoção acabou), e uma trava no
+      fechamento do carrinho (`completeCartWorkflow.hooks.validate`) recusa brinde cobrado.
+
+**Os 7 consertos do checkup da reta final — prontos em 26/09 (entrega 0136).** Pedido dele: "estamos
+na reta final, faça um checkup, cace bugs na loja" → "vamos corrigir os 7". O checkup (só leitura, na
+main de 26/09) passou a loja do ar inteira (37 páginas no celular e no computador, sem erro), os 56
+endereços antigos da Nuvemshop, os 964 testes de unidade e todos os conferidores na main (1.876 de
+1.879), e seis revisões do código por área. Os sete que valiam consertar antes da virada:
+
+- **E-mail com erro de digitação travava a compra.** "joão@gmail.com", "jose..silva@", ponto no fim ou
+  vírgula no lugar do ponto passavam na loja, o Medusa recusava, e a tela dizia "Não consegui falar
+  com a loja" pra sempre — a pessoa não saía do passo 1. Agora a regra é a mesma do Medusa, e a
+  frase diz o que consertar ("E-mail não leva acento…", "Tem uma vírgula no e-mail…"), embaixo do
+  campo.
+- **Frete com preço igual nas duas entregas.** A tela mostrava só a expressa e gravava ela: o cupom de
+  frete grátis "só na mais barata" nunca entrava, e aceitar a oferta do passo 3 podia fazer o frete
+  sair de Grátis pra R$ 21,90. No empate (mesmo preço e mesmo prazo), agora fica a econômica — a
+  mesma que a sacola já gravava.
+- **Preço velho na sacola.** Quem voltava dias depois, com o endereço já preenchido, pagava o preço de
+  quando pôs o produto (a promoção que acabou continuava valendo; a nova não entrava). Agora o "Pagar"
+  refaz preço, cupom e frete antes de cobrar; se o total mudou, nada é cobrado e a tela mostra o de
+  agora.
+- **Cupom de 1 uso queimado por Pix não pago.** 74 dos 104 cupons da Nuvemshop valem 1 uso, e o Pix
+  gerado já conta o uso. O pedido cancelado (Pix que venceu, cartão reprovado, cancelado no painel)
+  agora devolve o uso, uma vez só; e os que já tinham queimado voltam na migração do deploy.
+- **O Google ia esconder a página Contato.** A regra do robots.txt que esconde a /conta pegava a
+  /contato também. Só apareceria no dia da virada.
+- **Cupom em R$ com "não combinar com promoção" não salvava** (o painel dizia "Não consegui falar com
+  a loja"). Agora salva, e desconta só os produtos de preço cheio.
+- **Dava pra somar vários cupons chamando o sistema por fora da loja** (5 cupons, R$ 153,90 → R$ 81,06,
+  no banco local). Ninguém de fora conseguia hoje — a chave não aparece no site —, mas a trava estava
+  furada. Fechada nas duas pontas.
+
+Conferido pelo `conferir-checkout.mjs` (182; as 9 novas: quatro e-mails tortos, o empate com o cupom
+e com o carrinho mudando, o preço refeito no pagar), pelo `conferir-cupons.mjs` do painel (as 3 novas:
+em reais sem combinar, o cupom no corpo do carrinho, o uso que volta), pelo `conferir-links.mjs` (o
+robots contra o sitemap, com `SITE_INDEXAVEL=true`) e pelos testes de unidade.
+
+Depois do deploy — **nada a configurar.** No log do Railway, a migração diz quantos pedidos cancelados
+devolveram uso de cupom (`[cupons] pedidos cancelados: N de M`).
+
+- [ ] **O que o checkup achou e ficou pra depois** (nada disso trava venda):
+  - O desconto aparece duas vezes na linha do produto, na tela, no e-mail e no pedido do painel
+    ("1 × R$ 79,90 … R$ 71,91" e embaixo "Desconto −R$ 7,99"). O total está certo.
+  - A etiqueta da Frenet pode sair com uma transportadora diferente da cobrada, quando a sacola muda
+    depois de escolher a entrega (o `data.servico` do método fica o de antes).
+  - Pedido com estorno parcial aparece como "não pago" pro cliente (conta e obrigado).
+  - Cartão de 19 dígitos (alguns Hipercard) não cabe no campo.
+  - O link de cupom (`/discount/…`) guarda código que não existe e diz "entra sozinho"; e perde o
+    `?utm_…` no redirect.
+  - A home diz "12 produtos" (o Kit Shampoo Duplo e as duas Pastas nunca aparecem lá), não tem foto
+    de prévia pro WhatsApp (`og:image`) nem canonical; a categoria de kits se chama "Kits — produtos
+    pra kits".
+  - Pix que o Pagar.me confirma depois de a sessão virar "cancelado" não é devolvido por ninguém
+    (raro — é assunto da série do pagamento, entrega 0132).
+  - Pedido de R$ 0 (cupom de 100% com frete grátis) não fecha — nenhum cupom assim hoje.
+  - Marketing → Pagamento: a tentativa de cartão cancelada entra no total e em nenhum motivo (o
+    `conferir-marketing` acusa num banco que já rodou o de pagamento).
 
 **CRM, parte 2: os avisos do Resend — pronto em 26/09 (entrega 0138).** Agora a loja fica sabendo o
 que aconteceu com cada e-mail que mandou pra cliente.
