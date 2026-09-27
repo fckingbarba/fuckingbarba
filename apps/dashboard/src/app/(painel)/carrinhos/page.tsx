@@ -3,6 +3,7 @@ import Link from "next/link"
 import { redirect } from "next/navigation"
 import { SoPara } from "@/components/area"
 import { ListaDosCarrinhos } from "@/components/carrinhos"
+import { Icone, type NomeDoIcone } from "@/components/icones"
 import { Paginas } from "@/components/paginas"
 import { Cabeca, ForaDoAr, SemAcesso } from "@/components/telas"
 import { ehFiltro, FILTROS, type Filtro, type TelaDosCarrinhos } from "@/lib/carrinhos"
@@ -11,6 +12,13 @@ import { paginaDoEndereco } from "@/lib/paginas"
 import { reais } from "@/lib/pedidos"
 
 export const metadata: Metadata = { title: "Carrinhos abandonados" }
+
+/** O ícone de cada fita: o desenho diz antes da palavra (0155). */
+const ICONE_DO_FILTRO: Record<Filtro, NomeDoIcone> = {
+  parados: "carrinho",
+  agora: "relogio",
+  voltaram: "check",
+}
 
 type Busca = Promise<{ filtro?: string; pagina?: string }>
 
@@ -58,23 +66,44 @@ async function Lista({ caminho }: { caminho: string }) {
     <div data-tela>
       <Cabeca
         titulo="Carrinhos abandonados"
-        sub="Quem pôs produto na sacola e não fechou a compra, nos últimos 30 dias — e em que passo parou. Os e-mails automáticos vêm depois."
+        ajuda={
+          <>
+            Quem pôs produto na sacola e não fechou a compra, nos últimos 30 dias — e em que passo
+            parou: sacola, contato, entrega ou pagamento (em vermelho, o pagamento que não passou).
+            Os e-mails automáticos vêm depois.
+            {"\n"}Uma linha por pessoa, com a sacola mais recente dela. &ldquo;No site agora&rdquo;
+            é quem mexeu na sacola há menos de 30 minutos; &ldquo;Voltaram e compraram&rdquo;, quem
+            fez um pedido depois, com o mesmo e-mail.
+            {tela.verContato
+              ? ""
+              : " O e-mail vem mascarado, e o telefone fica com o dono e a operação."}
+          </>
+        }
       />
       <div className="numeros" data-numeros-carrinhos>
         <div className="numero numero--destaque">
+          <span className="numero__ico">
+            <Icone nome="carrinho" />
+          </span>
           <p className="numero__rot">Parados</p>
           <p className="numero__valor num">{reais(parados.valor)}</p>
           <p className="numero__sub">{carrinhos(parados.quantos)}</p>
         </div>
         <div className="numero">
+          <span className="numero__ico">
+            <Icone nome="check" />
+          </span>
           <p className="numero__rot">Voltaram e compraram</p>
           <p className="numero__valor num">{voltaram.quantos}</p>
           <p className="numero__sub">{reais(voltaram.valor)} nas sacolas</p>
         </div>
         <div className="numero">
+          <span className="numero__ico">
+            <Icone nome="fechar" />
+          </span>
           <p className="numero__rot">Sem contato</p>
           <p className="numero__valor num">{semContato.quantos}</p>
-          <p className="numero__sub">sem e-mail nem telefone: não dá pra chamar</p>
+          <p className="numero__sub">sem e-mail nem telefone</p>
         </div>
       </div>
       <nav className="filtros" aria-label="Filtrar carrinhos">
@@ -85,6 +114,7 @@ async function Lista({ caminho }: { caminho: string }) {
             href={endereco(f.id)}
             aria-current={tela.filtro === f.id ? "page" : undefined}
           >
+            <Icone nome={ICONE_DO_FILTRO[f.id]} />
             {f.nome} <b>{tela.contagem[f.id] ?? 0}</b>
           </Link>
         ))}
@@ -99,14 +129,6 @@ async function Lista({ caminho }: { caminho: string }) {
           rotulo="carrinhos"
         />
       ) : null}
-      <p className="lista-nota">
-        Uma linha por pessoa, com a sacola mais recente dela. &ldquo;No site agora&rdquo; é quem
-        mexeu na sacola há menos de 30 minutos; &ldquo;Voltaram e compraram&rdquo;, quem fez um
-        pedido depois, com o mesmo e-mail.
-        {tela.verContato
-          ? ""
-          : " O e-mail vem mascarado, e o telefone fica com o dono e a operação."}
-      </p>
     </div>
   )
 }
