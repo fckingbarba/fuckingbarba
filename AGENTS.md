@@ -2629,6 +2629,27 @@ no painel do Resend e no DNS: o rastreio de cliques desligado e o endereço só 
 (`EMAIL_REMETENTE_CRM`). O `conferir-crm.mjs` confere que o de 30 minutos sai sem "R$" e sem link
 de produto.
 
+**Os textos dos lembretes** (entrega 0174). No teste do dono, dois e-mails caíram em Principal: o de
+30 minutos do checkout e o aviso do Pix. O de 1 hora do carrinho ("Esqueceu isso aqui?") caiu em
+Promoções. A diferença era a frase: o de 30 minutos fala de pedido e de pagamento, e o do carrinho
+usava o assunto clássico de e-mail de carrinho.
+
+Os lembretes sem desconto trocaram as frases de propaganda por frases de compra:
+- **Saíram:** "Esqueceu isso aqui?", "Última chamada", "Ainda dá tempo", "em 1 clique" e "ainda tá
+  aqui".
+- **Carrinho:**
+  - 1 h: "Sua compra ficou pela metade";
+  - 12 h: "Sobre o <produto> que você escolheu";
+  - 24 h e 3 d, sem cupom: "Sua compra continua separada" e "Seus produtos continuam separados";
+  - 5 d: "O último lembrete da sua compra";
+  - o botão é "Terminar a compra", e o bloco dos produtos, "O que você escolheu".
+- **Checkout e Pix:**
+  - 24 h, sem cupom: "Seu pedido continua guardado" e "Quer refazer o seu pedido?";
+  - 48 h, sem cupom: "O último lembrete do seu pedido".
+- **No painel,** os nomes dos toques acompanham (`FLUXOS`, em `lib/crm/fluxos.ts`).
+
+Um teste de unidade passa por todos os lembretes sem desconto e recusa essas frases.
+
 **O preço e o promocional no painel** (entregas 0098 e 0102): os dois campos de cada produto na
 lista de Produtos, como na Nuvemshop (a 0098 tinha só o promocional, atrás de um botão). A regra é
 `lib/painel/promocao.ts`, pura: `lerMudancaDePreco` (o corpo `{ preco?, promocional? }` contra o
