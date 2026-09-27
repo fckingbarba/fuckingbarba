@@ -323,8 +323,8 @@ export async function preencherDaConta(): Promise<void> {
  * quanto foi economizado, e economia invisível não convence ninguém.
  *
  * O `prazo` ("8 dias úteis") vem de outro lugar, em paralelo — ver
- * `prazosDasFaixas`. Num empate de preço, fica a opção gravada no carrinho
- * (`freteEscolhido`).
+ * `prazosDasFaixas`. Num empate de preço, fica a econômica
+ * (`semEntregaEmpatada`).
  */
 export async function listarFretes(checkout: BaseDoFrete): Promise<OpcaoDeFrete[]> {
   const sdk = cliente()
@@ -406,7 +406,7 @@ export async function listarFretes(checkout: BaseDoFrete): Promise<OpcaoDeFrete[
       })
       .sort((a, b) => a.preco - b.preco)
 
-    return semEntregaEmpatada(opcoes, checkout.freteEscolhido)
+    return semEntregaEmpatada(opcoes)
   } catch (e) {
     aviso(e, `fretes do carrinho ${carrinhoId}`)
     return []
@@ -431,9 +431,8 @@ type BaseDoFrete = Pick<CheckoutVisivel, "id" | "itens" | "entrega" | "freteEsco
  * carrinho cobra.
  *
  * Quando as duas faixas caem no MESMO serviço, a rota responde uma entrega só
- * (o `enxugar` dela), na faixa econômica — e o checkout, que tem as duas
- * opções cadastradas, pode estar mostrando a expressa (`semEntregaEmpatada`).
- * O prazo é o mesmo, e vale pras duas.
+ * (o `enxugar` dela), na faixa econômica — a mesma que o checkout mostra no
+ * empate (`semEntregaEmpatada`). O prazo é o mesmo, e vale pras duas.
  *
  * Sem resposta, o mapa volta vazio e a tela fica com a descrição da opção
  * ("A mais barata para o seu CEP"), como antes.

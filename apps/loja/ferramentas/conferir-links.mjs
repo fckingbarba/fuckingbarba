@@ -202,6 +202,68 @@ confere(
   nada.html.includes('class="vazio"') && !/href="\/produtos\/[a-z0-9-]+"/.test(nada.html)
 )
 
+/* ── o robots.txt contra o sitemap ──────────────────────────────────────── */
+/* A regra do robots.txt vale pelo COMEÇO do endereço, e o Google fica com a
+   mais comprida que casa (o `Allow` ganha o empate). `Disallow: /conta`
+   bloqueava o `/contato` — página do sitemap — e ninguém veria antes da
+   virada, porque até lá a loja responde `Disallow: /` pra tudo (entrega
+   0136). Com a loja indexando (SITE_INDEXAVEL=true, ou o domínio depois da
+   troca), nenhum endereço do sitemap pode cair num Disallow, e as áreas
+   privadas têm que cair. */
+const robots = await (await fetch(new URL("/robots.txt", LOJA))).text()
+const regras = robots
+  .split("\n")
+  .map((linha) => linha.match(/^\s*(allow|disallow)\s*:\s*(\S*)/i))
+  .filter(Boolean)
+  .map(([, tipo, padrao]) => ({ tipo: tipo.toLowerCase(), padrao }))
+const soBloqueiaTudo =
+  regras.length === 1 && regras[0].tipo === "disallow" && regras[0].padrao === "/"
+if (soBloqueiaTudo) {
+  console.log(
+    "  --   a loja não indexa (Disallow: /): o robots contra o sitemap só se confere com SITE_INDEXAVEL=true"
+  )
+} else {
+  /** `*` é qualquer coisa; `$` no fim, o fim do endereço. O resto é literal. */
+  const casa = (padrao, caminho) => {
+    const fim = padrao.endsWith("$")
+    const corpo = (fim ? padrao.slice(0, -1) : padrao)
+      .split("*")
+      .map((p) => p.replace(/[.+?^${}()|[\]\\]/g, "\\$&"))
+      .join(".*")
+    return new RegExp(`^${corpo}${fim ? "$" : ""}`).test(caminho)
+  }
+  const liberado = (caminho) => {
+    let vale = null
+    for (const r of regras) {
+      if (!r.padrao || !casa(r.padrao, caminho)) continue
+      const maisComprida = !vale || r.padrao.length > vale.padrao.length
+      const empateQueOAllowGanha =
+        vale && r.padrao.length === vale.padrao.length && r.tipo === "allow"
+      if (maisComprida || empateQueOAllowGanha) vale = r
+    }
+    return !vale || vale.tipo === "allow"
+  }
+  const doSitemap = [
+    ...(await (await fetch(new URL("/sitemap.xml", LOJA))).text()).matchAll(/<loc>([^<]+)<\/loc>/g),
+  ].map((m) => {
+    const u = new URL(m[1])
+    return u.pathname + u.search
+  })
+  const bloqueados = doSitemap.filter((c) => !liberado(c))
+  confere(
+    `nenhum dos ${doSitemap.length} endereços do sitemap está bloqueado no robots.txt`,
+    doSitemap.length > 0 && bloqueados.length === 0,
+    bloqueados.length ? `bloqueados: ${bloqueados.join(", ")}` : "sitemap vazio"
+  )
+  const privados = ["/conta", "/conta/entrar", "/conta/pedidos", "/checkout", "/busca?q=oleo"]
+  const abertos = privados.filter(liberado)
+  confere(
+    "a conta, o checkout e a busca ficam fora do Google",
+    abertos.length === 0,
+    `abertos: ${abertos.join(", ")}`
+  )
+}
+
 /* ── relatório dos dados que ainda faltam ───────────────────────────────── */
 const pendencias = []
 for (const caminho of ["/privacidade", "/termos", "/trocas", "/contato"]) {

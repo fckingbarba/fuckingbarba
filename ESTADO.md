@@ -1191,6 +1191,23 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
       o Claude Code roda o `conferir-enderecos-antigos.mjs` contra o domínio: todo endereço da loja
       antiga tem que abrir. E, nas semanas seguintes, o cartão "página que não existe" da
       Observabilidade mostra o link antigo que ainda faltar (vindo de fora).
+      O checkup de 26/09 (entrega 0136) juntou o que mais precisa, no dia:
+      - `NEXT_PUBLIC_SITE_URL=https://www.fuckingbarba.com.br` — com o www (é o endereço que o
+        Google já tem, o da Nuvemshop) e sem barra no fim — junto com `SITE_INDEXAVEL=true` SÓ em
+        Production, e Redeploy sem cache (as duas entram no build).
+      - Vercel → Domains: o www como principal, a raiz levando pro www, e o
+        `fuckingbarba-loja.vercel.app` levando pro www também.
+      - `LOJA_URL` no Railway = o endereço final, que não redireciona (o aviso de preço e estoque é um
+        POST; num redirect ele vira GET e a loja para de atualizar). `STORE_CORS`/`AUTH_CORS` com os
+        domínios exatos, sem o `https://*.vercel.app`.
+      - DNS na GoDaddy: trocar SÓ o `@` e o `www`. O MX do Google (o e-mail), o `resend._domainkey`,
+        o `send`, o SPF, o DMARC, o `google-site-verification` e o CNAME `dashboard` ficam como
+        estão — sem eles param os e-mails de pedido e os códigos de entrar. Não trocar os
+        nameservers.
+      - Apagar a `NEXT_PUBLIC_LOJA_ATUAL_URL` na Vercel (ainda é o `www.SUALOJA.com.br` de exemplo).
+      - Search Console: o sitemap novo (`https://www.fuckingbarba.com.br/sitemap.xml`), e o Claude
+        Code roda o `conferir-links.mjs` contra o domínio (o robots contra o sitemap).
+      - Uma compra real no cartão de outra pessoa logo depois da troca.
 
 ### 4. Fase 5
 
@@ -2724,6 +2741,62 @@ de 2.
       do brinde entra pelo clique do cliente (uma rota que confere o valor, a opção e o estoque),
       sai quando o Medusa para de descontar (valor abaixo, promoção acabou), e uma trava no
       fechamento do carrinho (`completeCartWorkflow.hooks.validate`) recusa brinde cobrado.
+
+**Os 7 consertos do checkup da reta final — prontos em 26/09 (entrega 0136).** Pedido dele: "estamos
+na reta final, faça um checkup, cace bugs na loja" → "vamos corrigir os 7". O checkup (só leitura, na
+main de 26/09) passou a loja do ar inteira (37 páginas no celular e no computador, sem erro), os 56
+endereços antigos da Nuvemshop, os 964 testes de unidade e todos os conferidores na main (1.876 de
+1.879), e seis revisões do código por área. Os sete que valiam consertar antes da virada:
+
+- **E-mail com erro de digitação travava a compra.** "joão@gmail.com", "jose..silva@", ponto no fim ou
+  vírgula no lugar do ponto passavam na loja, o Medusa recusava, e a tela dizia "Não consegui falar
+  com a loja" pra sempre — a pessoa não saía do passo 1. Agora a regra é a mesma do Medusa, e a
+  frase diz o que consertar ("E-mail não leva acento…", "Tem uma vírgula no e-mail…"), embaixo do
+  campo.
+- **Frete com preço igual nas duas entregas.** A tela mostrava só a expressa e gravava ela: o cupom de
+  frete grátis "só na mais barata" nunca entrava, e aceitar a oferta do passo 3 podia fazer o frete
+  sair de Grátis pra R$ 21,90. No empate (mesmo preço e mesmo prazo), agora fica a econômica — a
+  mesma que a sacola já gravava.
+- **Preço velho na sacola.** Quem voltava dias depois, com o endereço já preenchido, pagava o preço de
+  quando pôs o produto (a promoção que acabou continuava valendo; a nova não entrava). Agora o "Pagar"
+  refaz preço, cupom e frete antes de cobrar; se o total mudou, nada é cobrado e a tela mostra o de
+  agora.
+- **Cupom de 1 uso queimado por Pix não pago.** 74 dos 104 cupons da Nuvemshop valem 1 uso, e o Pix
+  gerado já conta o uso. O pedido cancelado (Pix que venceu, cartão reprovado, cancelado no painel)
+  agora devolve o uso, uma vez só; e os que já tinham queimado voltam na migração do deploy.
+- **O Google ia esconder a página Contato.** A regra do robots.txt que esconde a /conta pegava a
+  /contato também. Só apareceria no dia da virada.
+- **Cupom em R$ com "não combinar com promoção" não salvava** (o painel dizia "Não consegui falar com
+  a loja"). Agora salva, e desconta só os produtos de preço cheio.
+- **Dava pra somar vários cupons chamando o sistema por fora da loja** (5 cupons, R$ 153,90 → R$ 81,06,
+  no banco local). Ninguém de fora conseguia hoje — a chave não aparece no site —, mas a trava estava
+  furada. Fechada nas duas pontas.
+
+Conferido pelo `conferir-checkout.mjs` (182; as 9 novas: quatro e-mails tortos, o empate com o cupom
+e com o carrinho mudando, o preço refeito no pagar), pelo `conferir-cupons.mjs` do painel (as 3 novas:
+em reais sem combinar, o cupom no corpo do carrinho, o uso que volta), pelo `conferir-links.mjs` (o
+robots contra o sitemap, com `SITE_INDEXAVEL=true`) e pelos testes de unidade.
+
+Depois do deploy — **nada a configurar.** No log do Railway, a migração diz quantos pedidos cancelados
+devolveram uso de cupom (`[cupons] pedidos cancelados: N de M`).
+
+- [ ] **O que o checkup achou e ficou pra depois** (nada disso trava venda):
+  - O desconto aparece duas vezes na linha do produto, na tela, no e-mail e no pedido do painel
+    ("1 × R$ 79,90 … R$ 71,91" e embaixo "Desconto −R$ 7,99"). O total está certo.
+  - A etiqueta da Frenet pode sair com uma transportadora diferente da cobrada, quando a sacola muda
+    depois de escolher a entrega (o `data.servico` do método fica o de antes).
+  - Pedido com estorno parcial aparece como "não pago" pro cliente (conta e obrigado).
+  - Cartão de 19 dígitos (alguns Hipercard) não cabe no campo.
+  - O link de cupom (`/discount/…`) guarda código que não existe e diz "entra sozinho"; e perde o
+    `?utm_…` no redirect.
+  - A home diz "12 produtos" (o Kit Shampoo Duplo e as duas Pastas nunca aparecem lá), não tem foto
+    de prévia pro WhatsApp (`og:image`) nem canonical; a categoria de kits se chama "Kits — produtos
+    pra kits".
+  - Pix que o Pagar.me confirma depois de a sessão virar "cancelado" não é devolvido por ninguém
+    (raro — é assunto da série do pagamento, entrega 0132).
+  - Pedido de R$ 0 (cupom de 100% com frete grátis) não fecha — nenhum cupom assim hoje.
+  - Marketing → Pagamento: a tentativa de cartão cancelada entra no total e em nenhum motivo (o
+    `conferir-marketing` acusa num banco que já rodou o de pagamento).
 
 ## Como seguir no Claude Code
 

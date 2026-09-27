@@ -170,8 +170,33 @@ function rotaQueALojaNaoUsa(_req: MedusaRequest, _res: MedusaResponse, _next: Me
   throw new MedusaError(MedusaError.Types.NOT_ALLOWED, "Esta loja não usa esta rota.")
 }
 
+/**
+ * CUPOM SÓ ENTRA PELA PORTA DOS CUPONS (`/store/carts/:id/promotions`), que é
+ * a que a loja usa e onde vale o "um cupom por pedido". O Medusa aceita
+ * `promo_codes` também no corpo de criar e de atualizar o carrinho, e ali a
+ * lista SUBSTITUI a do carrinho: cinco cupons somados passavam (entrega 0136,
+ * no banco local: R$ 153,90 → R$ 81,06). O gancho dos cupons também recusa
+ * (`outroCupomNoCarrinho`, no `replace`); isto fecha a porta antes.
+ */
+function cupomSoPelaPortaDosCupons(
+  req: MedusaRequest,
+  _res: MedusaResponse,
+  next: MedusaNextFunction
+) {
+  const corpo = req.body as Record<string, unknown> | undefined
+  if (corpo && typeof corpo === "object" && "promo_codes" in corpo) {
+    throw new MedusaError(
+      MedusaError.Types.NOT_ALLOWED,
+      "Cupom entra pelo /store/carts/:id/promotions, um de cada vez."
+    )
+  }
+  next()
+}
+
 export default defineMiddlewares({
   routes: [
+    { matcher: "/store/carts", method: ["POST"], middlewares: [cupomSoPelaPortaDosCupons] },
+    { matcher: "/store/carts/:id", method: ["POST"], middlewares: [cupomSoPelaPortaDosCupons] },
     {
       matcher: "/store/payment-collections/:id/payment-sessions",
       method: ["POST"],
