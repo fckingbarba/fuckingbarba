@@ -2,6 +2,18 @@ import { normalizarEmail } from "../../modules/codigo/regras"
 import { COMPONENTES, componentesDoItem, type Componente } from "./etiquetas"
 
 /**
+ * Põe `item` na lista de `chave` — no MESMO array. Copiar a lista a cada
+ * linha (`[...lista, item]`) era quadrático: um arquivo montado com muitos
+ * itens do mesmo pedido, ou muitos pedidos do mesmo e-mail, parava o
+ * processo por minutos (auditoria de 27/09).
+ */
+export function juntar<K, V>(mapa: Map<K, V[]>, chave: K, item: V) {
+  const lista = mapa.get(chave)
+  if (lista) lista.push(item)
+  else mapa.set(chave, [item])
+}
+
+/**
  * A BASE DA NUVEMSHOP — os três arquivos que a loja antiga exporta
  * (Clientes, Vendas e Carrinhos abandonados), lidos pro CRM.
  *
@@ -307,7 +319,7 @@ function lerVendas(t: ReturnType<typeof porNome>): ArquivoDaNuvemshop {
     } else if (oItem) {
       const pedido = pedidos.get(numero)
       if (pedido) pedido.itens.push(oItem)
-      else itensSoltos.set(numero, [...(itensSoltos.get(numero) ?? []), oItem])
+      else juntar(itensSoltos, numero, oItem)
     }
   }
   ignoradas += itensSoltos.size
@@ -351,7 +363,7 @@ function lerCarrinhos(t: ReturnType<typeof porNome>): ArquivoDaNuvemshop {
     } else if (oItem) {
       const carrinho = carrinhos.get(id)
       if (carrinho) carrinho.itens.push(oItem)
-      else itensSoltos.set(id, [...(itensSoltos.get(id) ?? []), oItem])
+      else juntar(itensSoltos, id, oItem)
     }
   }
   ignoradas += itensSoltos.size
@@ -396,8 +408,7 @@ export function recomprasPorTipo(
   }[]
 ): Record<Componente, Recompra | null> {
   const porPessoa = new Map<string, typeof pedidos>()
-  for (const p of pedidos)
-    if (p.pago) porPessoa.set(p.email, [...(porPessoa.get(p.email) ?? []), p])
+  for (const p of pedidos) if (p.pago) juntar(porPessoa, p.email, p)
   const intervalos = new Map<Componente, number[]>(COMPONENTES.map((c) => [c, []]))
   const unidadesDe = (p: (typeof pedidos)[number]) => {
     const u = new Map<Componente, number>()

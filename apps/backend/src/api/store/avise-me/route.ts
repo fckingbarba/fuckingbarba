@@ -37,6 +37,22 @@ const POR_IP_SEM_ASSINATURA = { limite: 60, ms: HORA }
 const DA_LOJA = { limite: 500, ms: HORA }
 const limite = criarLimite()
 
+/*
+  O AVISO À LOJA, NO MÁXIMO A CADA 5 MINUTOS (auditoria de 27/09). Pedir
+  aviso de um produto que já tem estoque é o sinal de uma página velha
+  ("esgotado"), e a loja refaz a página e as listas. Sem freio, cada pedido
+  refazia as listas de produtos inteiras de novo — e toda visita esperava a
+  página ser montada. Agora a lista (`produtos`) é refeita no máximo a cada
+  5 minutos, e cada produto também: a página velha sai do ar do mesmo jeito.
+*/
+const AVISO_A_CADA_MS = 5 * 60 * 1000
+const ultimoAviso = new Map<string, number>()
+function podeAvisar(etiqueta: string, agora: number): boolean {
+  if (agora - (ultimoAviso.get(etiqueta) ?? 0) < AVISO_A_CADA_MS) return false
+  ultimoAviso.set(etiqueta, agora)
+  return true
+}
+
 export async function POST(req: MedusaRequest, res: MedusaResponse) {
   const corpo = (req.body ?? {}) as { email?: unknown; variante?: unknown }
   const email = normalizarEmail(corpo.email)
@@ -78,12 +94,12 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     return
   }
   if (situacao.vende) {
-    if (situacao.handle) {
-      await avisarALoja(
-        ["produtos", `produto:${situacao.handle}`],
-        req.scope.resolve(ContainerRegistrationKeys.LOGGER),
-        "agora"
-      )
+    const agora = Date.now()
+    const etiquetas = situacao.handle
+      ? ["produtos", `produto:${situacao.handle}`].filter((e) => podeAvisar(e, agora))
+      : []
+    if (etiquetas.length) {
+      await avisarALoja(etiquetas, req.scope.resolve(ContainerRegistrationKeys.LOGGER), "agora")
     }
     res.status(409).json({ message: "tem_estoque" })
     return
