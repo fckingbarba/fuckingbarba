@@ -17,13 +17,14 @@ import type { LinhaGa4, RelatorioGa4 } from "./visitas"
  * - DO SITE ATÉ O PAGAMENTO, pelo GA4: as sessões com cada evento que a
  *   loja manda (`apps/loja/src/lib/rastrear.ts`: view_item, add_to_cart,
  *   begin_checkout, add_shipping_info e add_payment_info) e as compras que
- *   ela manda pelo servidor. Só de quem aceitou os cookies — como as visitas.
+ *   ela manda pelo servidor. Sem quem recusou os cookies — como as visitas.
  * - DA SACOLA AO PAGAMENTO, pelos carrinhos da loja: todo mundo, com cookie
  *   ou sem. Os passos acumulam (quem escolheu a entrega também deu o
  *   e-mail), com a régua do checkout (`carrinhos.ts`, `ondeParou`).
  * - CELULAR E COMPUTADOR: as visitas do GA4 por aparelho, e os pedidos pagos
- *   pelo navegador que o rastro da compra guardou (`fb_rastro`, só com o sim
- *   — os dois lados contam as mesmas pessoas).
+ *   pelo navegador que o rastro da compra guardou (`fb_rastro`, de quem não
+ *   recusou os cookies — os dois lados contam as mesmas pessoas; até a 0166,
+ *   os dois eram só de quem aceitava).
  *
  * Código puro, com testes (`__tests__/marketing-funil.unit.spec.ts`).
  */
@@ -232,7 +233,7 @@ export function aparelhosDo(
   }))
 }
 
-/** O navegador que o rastro da compra guardou (só com o sim da faixa de cookies). */
+/** O navegador que o rastro da compra guardou (de quem não recusou os cookies; até a 0166, só com o sim). */
 export function navegadorDoPedido(
   metadata: Record<string, unknown> | null | undefined
 ): string | null {
