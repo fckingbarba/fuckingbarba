@@ -137,6 +137,22 @@ export type FormularioDosAjustes = {
   regras: Record<RegraDoCrm, string>
 }
 
+/* ── o modelo dos e-mails ────────────────────────────────────────────────── */
+
+export const CAMINHO_DOS_EMAILS = "/dashboard/crm/emails"
+
+/** A aba E-mails (`GET /dashboard/crm/emails`): os exemplos já montados. */
+export type TelaDosEmails = {
+  /** Sem o `LOJA_URL` no Medusa: os links não teriam pra onde ir. */
+  semLoja: boolean
+  /** Pra quem vai o teste: o e-mail de quem está no painel. */
+  para: string
+  remetente: string
+  /** Se o "cancelar inscrição" de um clique (Gmail, iPhone) vai no cabeçalho. */
+  umClique: boolean
+  exemplos: { id: string; nome: string; assunto: string; previa: string; html: string }[]
+}
+
 /* ── a base da Nuvemshop ─────────────────────────────────────────────────── */
 
 export const CAMINHO_DA_BASE = "/dashboard/crm/base"

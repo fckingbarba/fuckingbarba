@@ -423,6 +423,11 @@ export default class CrmService extends Tabelas {
    * leu, em lotes de 200, atualizando pelo e-mail, pelo número do pedido ou
    * pelo id do carrinho (mandar de novo não duplica). Devolve quantos
    * entraram agora e quantos já estavam.
+   *
+   * O "ACEITA OFERTAS" FICA COM A DECISÃO MAIS NOVA: a da Nuvemshop (a data
+   * da coluna Marketing) ou a de quem saiu da lista pela loja nova
+   * (`tirarDaBaseDasOfertas`, que anota a hora). Mandar a base de novo não
+   * põe de volta na lista quem saiu depois.
    */
   @InjectManager()
   async importarDaNuvemshop(
@@ -445,8 +450,13 @@ export default class CrmService extends Tabelas {
              (id, email, nome, aceita_ofertas, ofertas_em, newsletter_em, tinha_conta, desde, created_at, updated_at)
            values ${lote.map(() => "(?, ?, ?, ?, ?, ?, ?, ?, now(), now())").join(", ")}
            on conflict (email) where deleted_at is null do update set
-             nome = excluded.nome, aceita_ofertas = excluded.aceita_ofertas,
-             ofertas_em = excluded.ofertas_em, newsletter_em = excluded.newsletter_em,
+             nome = excluded.nome,
+             aceita_ofertas = case
+               when crm_base_pessoa.ofertas_em is not null
+                and (excluded.ofertas_em is null or excluded.ofertas_em < crm_base_pessoa.ofertas_em)
+               then crm_base_pessoa.aceita_ofertas else excluded.aceita_ofertas end,
+             ofertas_em = greatest(crm_base_pessoa.ofertas_em, excluded.ofertas_em),
+             newsletter_em = excluded.newsletter_em,
              tinha_conta = excluded.tinha_conta, desde = excluded.desde, updated_at = now()
            returning (xmax = 0) as novo`,
           lote.flatMap((p) => [
@@ -512,6 +522,24 @@ export default class CrmService extends Tabelas {
           ])
         )
     return { novos, atualizados }
+  }
+
+  /**
+   * A pessoa da base da Nuvemshop que pediu pra sair das ofertas: o "Aceita"
+   * vira "não aceita", com a data de agora. `true` se ela estava aceitando.
+   */
+  @InjectManager()
+  async tirarDaBaseDasOfertas(
+    email: string,
+    @MedusaContext() ctx: Contexto = {}
+  ): Promise<boolean> {
+    const linhas = (await ctx.manager!.execute(
+      `update crm_base_pessoa set aceita_ofertas = false, ofertas_em = now(), updated_at = now()
+        where email = ? and aceita_ofertas and deleted_at is null
+        returning id`,
+      [email]
+    )) as { id: string }[]
+    return linhas.length > 0
   }
 
   /** Os números da base: pessoas, quem aceita ofertas, pedidos, carrinhos e quando entrou. */

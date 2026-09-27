@@ -12,7 +12,9 @@
  * conferidor assina os avisos como o Resend). Pros Ajustes (parte 4), o
  * pedido de Fator entregue nasce como no `conferir-clientes`: ADMIN_EMAIL e
  * ADMIN_SENHA (o admin LOCAL), MEDUSA_WEBHOOK_SEGREDO, PORTA_FALSA (a Frenet
- * falsa) e PORTA_PAGARME_FALSO. A regra de
+ * falsa) e PORTA_PAGARME_FALSO. Pro sair da lista (parte 6), o JWT_SECRET
+ * do Medusa: o conferidor faz o link de uma pessoa da base como o e-mail
+ * faria. A regra de
  * cada evento tem os testes de unidade do backend
  * (`lib/crm/__tests__/eventos.unit.spec.ts`); aqui é o caminho inteiro, pela
  * tela, e o que o painel mostra.
@@ -42,10 +44,15 @@
  * │   novo, guarda CPF ou telefone, ou não conta na ficha (o pedido da     │
  * │   loja antiga); o arquivo errado entrando; a operação importando; o    │
  * │   histórico que não chega nos Ajustes.                                 │
+ * │ • (parte 6) o e-mail de oferta sem o sair da lista, sem o TikTok, ou   │
+ * │   com link pra loja sem a campanha; o teste saindo pra outro e-mail    │
+ * │   ou sem a etiqueta; o link de sair que não tira (da newsletter e da   │
+ * │   base), que tira só de abrir, ou que fica na barra; o link mexido     │
+ * │   tirando alguém; a base mandada de novo pondo de volta quem saiu.     │
  * └────────────────────────────────────────────────────────────────────────┘
  */
 
-import { createHmac, randomUUID } from "node:crypto"
+import { createCipheriv, createHmac, randomBytes, randomUUID } from "node:crypto"
 import { gzipSync } from "node:zlib"
 import { subirFrenetFalsa } from "../../loja/ferramentas/frenet-falsa.mjs"
 import { subirPagarmeFalso } from "../../loja/ferramentas/pagarme-falso.mjs"
@@ -967,7 +974,9 @@ try {
     semEspaco(await dono.pagina.locator('[data-base="pessoas"]').textContent()) ===
       new Intl.NumberFormat("pt-BR").format(deNovo.pessoas) &&
       (await dono.pagina.locator("[data-quem-e-quem] [data-linha-da-base]").count()) === 9,
-    "a tela: os números da API, e as 6 etapas e os 3 engajamentos"
+    "a tela: os números da API, e as 6 etapas e os 3 engajamentos",
+    `${semEspaco(await dono.pagina.locator('[data-base="pessoas"]').textContent())} / ${deNovo.pessoas}; ` +
+      `${await dono.pagina.locator("[data-quem-e-quem] [data-linha-da-base]").count()} linhas`
   )
 
   // A ficha de quem comprou nas duas lojas: recorrente, e a compra da loja antiga no caminho.
@@ -1020,6 +1029,275 @@ try {
   await mkt.pagina.goto(`${PAINEL}/crm/base`)
   await mkt.pagina.locator("[data-numeros-base]").waitFor({ timeout: 20000 })
   ok(await semRolagemDeLado(mkt.pagina), "a base no celular, sem rolar de lado")
+
+  /* ── o modelo dos e-mails e o sair da lista (parte 6) ───────────────────── */
+
+  titulo("O modelo dos e-mails")
+  /** O seletor aparece em até 20 s? (Não aparecer é falha deste teste, não parada da rodada.) */
+  const apareceu = (pagina, seletor) =>
+    pagina
+      .locator(seletor)
+      .waitFor({ timeout: 20000 })
+      .then(
+        () => true,
+        () => false
+      )
+  const modelo = (token) => medusa("/dashboard/crm/emails", { metodo: "GET", token })
+  const testeDo = (token, exemplo) =>
+    medusa("/dashboard/crm/emails/teste", { token, corpo: { exemplo } })
+  ok(
+    (await modelo(cookieOp.value)).status === 403 &&
+      (await testeDo(cookieOp.value, "reposicao")).status === 403,
+    "a operação não abre o modelo nem manda teste"
+  )
+  const doModelo = await modelo(tokenDoDono)
+  const exemplos = doModelo.corpo.exemplos ?? []
+  ok(
+    doModelo.status === 200 &&
+      exemplos.map((x) => x.id).join(",") === "boas-vindas,reposicao,carrinho" &&
+      doModelo.corpo.para === DONO,
+    "os três exemplos, e o teste vai pro e-mail de quem pede",
+    JSON.stringify({ status: doModelo.status, ids: exemplos.map((x) => x.id) })
+  )
+  ok(
+    exemplos.length === 3 &&
+      exemplos.every(
+        (x) =>
+          x.html.includes("Sair da lista em 1 clique") &&
+          x.html.includes(`href="${LOJA}/sair/`) &&
+          x.html.includes("https://www.instagram.com/fuckingbarba") &&
+          x.html.includes("https://www.tiktok.com/@fuckingbarba")
+      ),
+    "todo exemplo tem no pé o sair da lista, o Instagram e o TikTok"
+  )
+  const linksDaLoja = (html) =>
+    [...html.matchAll(/href="([^"]+)"/g)]
+      .map((m) => m[1].replaceAll("&amp;", "&"))
+      .filter((u) => u.startsWith(LOJA) && !u.startsWith(`${LOJA}/sair/`))
+  ok(
+    exemplos.length === 3 &&
+      exemplos.every((x) => {
+        const links = linksDaLoja(x.html)
+        return (
+          links.length > 0 &&
+          links.every(
+            (u) => u.includes("utm_medium=email") && u.includes(`utm_campaign=crm-${x.id}`)
+          )
+        )
+      }),
+    "todo link pra loja leva a campanha do CRM (Marketing → Canais: E-mail)"
+  )
+
+  /*
+    O navegador do conferidor manda `x-real-ip` em todo pedido (`pecas.mjs`, pro limite do painel
+    contar por pessoa). A fonte do Google que o e-mail carrega, dentro da prévia (origem `null`),
+    vira então um pedido que precisa de licença (CORS), e o Google recusa o cabeçalho — um erro no
+    console que navegador de gente não tem. Pras fontes, o cabeçalho sai.
+  */
+  const semIpNasFontes = (contexto) =>
+    contexto.route(/^https:\/\/fonts\.(googleapis|gstatic)\.com\//, (r) => {
+      const cabecalhos = { ...r.request().headers() }
+      delete cabecalhos["x-real-ip"]
+      return r.continue({ headers: cabecalhos })
+    })
+  await semIpNasFontes(dono.contexto)
+  await semIpNasFontes(mkt.contexto)
+  await dono.pagina.goto(`${PAINEL}/crm/emails`)
+  await dono.pagina.locator("[data-modelo-dos-emails]").waitFor({ timeout: 20000 })
+  ok(
+    (await dono.pagina.locator("[data-exemplo]").count()) === 3 &&
+      (await dono.pagina.locator('.abas [data-aba="emails"][aria-current="page"]').count()) === 1 &&
+      (await textoDe(dono.pagina, "[data-para]")) === DONO,
+    "a aba E-mails: acesa, os três exemplos, e pra quem vai o teste"
+  )
+  const quadro = dono.pagina.locator('[data-exemplo="reposicao"] iframe')
+  await quadro.scrollIntoViewIfNeeded()
+  const naPrevia = semEspaco(
+    await dono.pagina
+      .frameLocator('[data-exemplo="reposicao"] iframe')
+      .locator("body")
+      .textContent({ timeout: 15000 })
+  )
+  ok(
+    naPrevia.includes("Sair da lista em 1 clique") && naPrevia.includes("Hora de repor"),
+    "a prévia é o e-mail que sai (o HTML do Medusa)",
+    naPrevia.slice(0, 120)
+  )
+  ok(
+    !(await quadro.getAttribute("sandbox"))?.includes("allow-scripts") &&
+      (await quadro.getAttribute("sandbox"))?.includes("allow-popups"),
+    "a prévia sem script (sandbox sem allow-scripts)"
+  )
+
+  const ehTeste = (e) => e.subject?.startsWith("[Teste] ")
+  const antesDoTeste = caixa.quantos(DONO, ehTeste)
+  await hidratado(dono.pagina, '[data-exemplo="reposicao"] [data-mandar-pra-mim]')
+  const vezDoTeste = await dono.pagina.locator(".aviso").getAttribute("data-vez")
+  await dono.pagina.locator('[data-exemplo="reposicao"] [data-mandar-pra-mim]').click()
+  await dono.pagina.waitForFunction(
+    (v) => document.querySelector(".aviso")?.getAttribute("data-vez") !== v,
+    vezDoTeste,
+    { timeout: 20000 }
+  )
+  const avisoDoTeste = semEspaco(await dono.pagina.locator(".aviso").textContent())
+  ok(
+    avisoDoTeste.startsWith(`Mandei “Hora de repor” pra ${DONO}.`),
+    "“Mandar pra mim”: o aviso diz pra quem foi",
+    avisoDoTeste
+  )
+  const teste = await caixa.esperarEmail(DONO, ehTeste, antesDoTeste)
+  const cabecalhos = teste?.headers ?? {}
+  const comUmClique = MEDUSA.startsWith("https://")
+  ok(
+    teste?.subject === `[Teste] ${exemplos[1]?.assunto}` &&
+      teste?.from === doModelo.corpo.remetente &&
+      teste?.tags?.some((t) => t.name === "tipo" && t.value === "crm-teste"),
+    "o teste chega: [Teste] no assunto, o remetente do CRM e a etiqueta crm-teste",
+    JSON.stringify({ assunto: teste?.subject, de: teste?.from, tags: teste?.tags })
+  )
+  ok(
+    comUmClique
+      ? /^<https:\/\/[^>]+\/crm\/sair\?t=[\w-]+>$/.test(cabecalhos["List-Unsubscribe"] ?? "") &&
+          cabecalhos["List-Unsubscribe-Post"] === "List-Unsubscribe=One-Click"
+      : cabecalhos["List-Unsubscribe"] ===
+          `<${teste?.html?.match(/href="([^"]+\/sair\/[\w-]+)"/)?.[1]}>` &&
+          !cabecalhos["List-Unsubscribe-Post"],
+    comUmClique
+      ? "o cabeçalho do “cancelar inscrição” de um clique (Gmail, iPhone)"
+      : "o cabeçalho do “cancelar inscrição”: a página de sair (sem https no Medusa, sem o clique único)",
+    JSON.stringify(cabecalhos)
+  )
+
+  titulo("O sair da lista")
+  // O marketing, no celular: manda o teste pra ele e sai da lista pelo link do e-mail.
+  const MKT = `mkt.${RODADA}@painel.teste`
+  const inscrever = async (email) =>
+    (
+      await fetch(`${MEDUSA}/store/newsletter`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          ...DA_LOJA,
+          "x-loja-segredo": process.env.REVALIDAR_SEGREDO ?? "",
+          "x-cliente-ip": `10.9.${Date.now() % 250}.1`,
+        },
+        body: JSON.stringify({ email, origem: "rodape" }),
+      })
+    ).status
+  const naNewsletter = async (email) =>
+    (
+      await medusa("/dashboard/newsletter?todos=1", { metodo: "GET", token: tokenDoDono })
+    ).corpo.inscritos?.some((i) => i.email === email)
+  ok(
+    (await inscrever(MKT)) === 200 && (await naNewsletter(MKT)),
+    "o e-mail do marketing na newsletter"
+  )
+  await mkt.pagina.goto(`${PAINEL}/crm/emails`)
+  await mkt.pagina.locator("[data-modelo-dos-emails]").waitFor({ timeout: 20000 })
+  ok(await semRolagemDeLado(mkt.pagina), "a aba E-mails no celular, sem rolar de lado")
+  const antesDoMkt = caixa.quantos(MKT, ehTeste)
+  await hidratado(mkt.pagina, '[data-exemplo="boas-vindas"] [data-mandar-pra-mim]')
+  await mkt.pagina.locator('[data-exemplo="boas-vindas"] [data-mandar-pra-mim]').click()
+  const doMkt = await caixa.esperarEmail(MKT, ehTeste, antesDoMkt, 20000)
+  const linkDeSair = doMkt?.html?.match(/href="([^"]+\/sair\/([\w-]+))"/)
+  ok(
+    Boolean(linkDeSair) && linkDeSair[1].startsWith(`${LOJA}/sair/`),
+    "o teste do marketing chega, com o link de sair",
+    doMkt?.subject ?? "não chegou"
+  )
+
+  const pessoa = await novaAba({ width: 375, height: 812 })
+  await pessoa.pagina.goto(linkDeSair?.[1] ?? `${LOJA}/sair`, { waitUntil: "domcontentloaded" })
+  await responderAFaixa(pessoa.pagina, "Só o necessário").catch(() => null)
+  // `main [data-sair]`: no `next dev`, o pedaço que chega por streaming pode ficar com uma cópia
+  // escondida no fim do <body>, e o botão que a pessoa vê é o de dentro do <main>.
+  const botaoDeSair = pessoa.pagina.locator("main [data-sair]")
+  await botaoDeSair.waitFor({ timeout: 30000 })
+  // O cookie mora só no caminho /sair: pedido pela raiz, o navegador nem mostra.
+  const cookieDoSair = async () =>
+    (await pessoa.contexto.cookies(`${LOJA}/sair`)).find((c) => c.name === "sair") ?? null
+  const guardado = await cookieDoSair()
+  ok(
+    new URL(pessoa.pagina.url()).pathname === "/sair" &&
+      !pessoa.pagina.url().includes(linkDeSair?.[2] ?? "?") &&
+      guardado?.httpOnly === true &&
+      guardado?.path === "/sair",
+    "o link abre /sair limpa: o link fica num cookie httpOnly, só do /sair",
+    pessoa.pagina.url()
+  )
+  ok(await naNewsletter(MKT), "abrir o link não tira ninguém: a página pergunta antes")
+  ok(await semRolagemDeLado(pessoa.pagina), "a página de sair no celular, sem rolar de lado")
+  await hidratado(pessoa.pagina, "main [data-sair]")
+  await botaoDeSair.click()
+  ok(
+    (await apareceu(pessoa.pagina, "main [data-saiu]")) && !(await naNewsletter(MKT)),
+    "“Sair da lista”: “Pronto, você saiu”, e o e-mail sai da newsletter"
+  )
+  await pessoa.pagina.waitForTimeout(1500)
+  ok(
+    (await pessoa.pagina.locator("main [data-saiu]").count()) === 1,
+    "e o “Pronto” fica na tela (a página não se refaz por baixo dele)"
+  )
+  await pessoa.contexto.clearCookies()
+  await pessoa.pagina.goto(`${LOJA}/sair`, { waitUntil: "domcontentloaded" })
+  ok(
+    await apareceu(pessoa.pagina, "main [data-link-invalido]"),
+    "/sair sem o link: a página explica como sair"
+  )
+  await pessoa.pagina.goto(`${LOJA}/sair/${"A".repeat(60)}`, { waitUntil: "domcontentloaded" })
+  await hidratado(pessoa.pagina, "main [data-sair]")
+  await botaoDeSair.click()
+  ok(
+    (await apareceu(pessoa.pagina, "main [data-link-invalido]")) && !(await cookieDoSair()),
+    "o link com cara de link, mas que o Medusa não fez: “Esse link não vale”, e o cookie sai"
+  )
+  await pessoa.contexto.close()
+
+  // O clique único, como o Gmail chama: POST no endereço do cabeçalho, sem a chave da loja.
+  const segredoDoJwt = process.env.JWT_SECRET ?? ""
+  if (!segredoDoJwt) throw new Error("falta o JWT_SECRET (o mesmo do Medusa) pra fazer o link")
+  const linkPara = (email) => {
+    const chave = createHmac("sha256", segredoDoJwt).update("fb-crm-sair-da-lista").digest()
+    const iv = randomBytes(12)
+    const cifra = createCipheriv("aes-256-gcm", chave, iv)
+    const texto = Buffer.concat([cifra.update(email, "utf8"), cifra.final()])
+    return Buffer.concat([iv, texto, cifra.getAuthTag()]).toString("base64url")
+  }
+  const tDoVelho = linkPara(VELHO)
+  const aceitamAntes = (await base(tokenDoDono)).corpo.numeros.aceitam
+  const umClique = await fetch(`${MEDUSA}/crm/sair?t=${tDoVelho}`, {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: "List-Unsubscribe=One-Click",
+  })
+  const aceitamDepois = (await base(tokenDoDono)).corpo.numeros.aceitam
+  ok(
+    umClique.status === 200 && aceitamDepois === aceitamAntes - 1,
+    "o clique único (POST do Gmail, sem a chave da loja) tira da base da Nuvemshop",
+    `${umClique.status}: ${aceitamAntes} → ${aceitamDepois}`
+  )
+  await medusa("/dashboard/crm/base", { token: tokenDoDono, corpo: doArquivo(clientesDaBase) })
+  ok(
+    (await base(tokenDoDono)).corpo.numeros.aceitam === aceitamDepois,
+    "mandar a base de novo não põe de volta quem saiu depois"
+  )
+  const pelaBarra = await fetch(`${MEDUSA}/crm/sair?t=${tDoVelho}`, { redirect: "manual" })
+  ok(
+    pelaBarra.status === 303 && pelaBarra.headers.get("location") === `${LOJA}/sair/${tDoVelho}`,
+    "o endereço do cabeçalho aberto no navegador vai pra página da loja",
+    `${pelaBarra.status} ${pelaBarra.headers.get("location")}`
+  )
+  const mexido = `${tDoVelho.slice(0, 20)}${tDoVelho[20] === "A" ? "B" : "A"}${tDoVelho.slice(21)}`
+  const tortos = await Promise.all(
+    [mexido, "lixo"].map(
+      async (t) => (await fetch(`${MEDUSA}/crm/sair?t=${t}`, { method: "POST" })).status
+    )
+  )
+  ok(
+    tortos.every((s) => s === 400),
+    "o link mexido ou torto não tira ninguém (400)",
+    tortos.join(",")
+  )
 
   /* ── o painel ───────────────────────────────────────────────────────────── */
 

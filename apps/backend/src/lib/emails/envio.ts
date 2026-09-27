@@ -54,6 +54,7 @@ export type EnvioDoAviso = {
 }
 
 const INSTAGRAM = "https://www.instagram.com/fuckingbarba"
+const TIKTOK = "https://www.tiktok.com/@fuckingbarba"
 
 /** "com os Correios" — a única transportadora que o núcleo reconhece pelo código. */
 const comQuem = (t: string | null) =>
@@ -287,8 +288,12 @@ export function emailDoEnvio({
       ? [
           { texto: "Loja", href: loja },
           { texto: "Instagram", href: INSTAGRAM },
+          { texto: "TikTok", href: TIKTOK },
         ]
-      : [{ texto: "Instagram", href: INSTAGRAM }],
+      : [
+          { texto: "Instagram", href: INSTAGRAM },
+          { texto: "TikTok", href: TIKTOK },
+        ],
   })
 
   const quem = quemLeva(envio)
