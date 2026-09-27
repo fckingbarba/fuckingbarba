@@ -9,6 +9,8 @@ import {
   type ItemDoCarrinho,
   type PedidoDoEmail,
 } from "../../lib/cupons"
+import { marcarPromocoes, type PromocaoAtiva } from "../../lib/promocoes"
+import { promocoesDoPainel } from "../../lib/promocoes-ativas"
 
 /**
  * O QUE AS REGRAS DOS CUPONS LEEM E O CARRINHO NÃO TEM — a soma dos
@@ -35,11 +37,18 @@ import {
  * `fb_promocional` — o resto de cada uma é o mesmo objeto. Carrinho sem a
  * lista de linhas (não acontece hoje) fica com as dele.
  *
+ * AS PROMOÇÕES DO PAINEL (o "Leve X, pague Y", `lib/promocoes.ts`) leem as
+ * linhas também: cada uma ganha a `fb_preco_promocional` (a regra "não vale
+ * em produto com preço promocional"), e a linha de uma promoção que disparou
+ * vira `fb_promocional` — o cupom que não combina não desconta ela.
+ *
  * SE UMA CONSULTA FALHAR, O CARRINHO NÃO QUEBRA: sem os pedidos, o contexto
  * sai sem a trava do `conferido`, e cupom com condição não aplica naquela
  * conta; sem a política de frete, o pedido conta como se tivesse o frete da
- * loja, e o cupom que não combina não aplica. A pessoa tenta de novo; a
- * oferta do checkout e o resto do carrinho seguem.
+ * loja, e o cupom que não combina não aplica; sem as promoções do painel, a
+ * promoção vale do mesmo jeito (ela só precisa da marca do preço), e o cupom
+ * que não combina desconta também a linha dela, naquela conta. A pessoa
+ * tenta de novo; a oferta do checkout e o resto do carrinho seguem.
  */
 updateCartPromotionsWorkflow.hooks.setPromotionContext(async ({ cart }, { container }) => {
   const c = cart as {
@@ -65,9 +74,18 @@ updateCartPromotionsWorkflow.hooks.setPromotionContext(async ({ cart }, { contai
   } catch (e) {
     logger.warn(`[cupons] a política de frete não veio pro carrinho ${c.id}: ${e}`)
   }
+  let promocoes: PromocaoAtiva[] = []
+  try {
+    promocoes = await promocoesDoPainel(container)
+  } catch (e) {
+    logger.warn(`[promocoes] as promoções do painel não vieram pro carrinho ${c.id}: ${e}`)
+  }
+  const agora = Date.now()
   return new StepResponse({
-    ...contextoDosCupons({ itens: c.items ?? [], pedidos, agora: Date.now(), frete }),
-    ...(Array.isArray(c.items) ? { items: linhasMarcadas(c.items) } : {}),
+    ...contextoDosCupons({ itens: c.items ?? [], pedidos, agora, frete }),
+    ...(Array.isArray(c.items)
+      ? { items: marcarPromocoes(linhasMarcadas(c.items), promocoes, agora) }
+      : {}),
   })
 })
 

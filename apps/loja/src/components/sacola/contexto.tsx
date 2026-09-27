@@ -19,6 +19,7 @@ import {
   type ItemChegando,
   type ItemDoCarrinho,
 } from "@/lib/carrinho-visivel"
+import { totalPrevisto } from "@/lib/promocoes"
 import { rastrearMudancaDaSacola } from "@/lib/rastrear"
 import { SEM_CONEXAO, semQueda } from "@/lib/rede"
 
@@ -100,7 +101,7 @@ function prever(carrinho: CarrinhoVisivel, m: Mudanca): CarrinhoVisivel {
                 // unitário está escrito logo acima ("R$ 149,90 cada"). Deixar
                 // ele parado mostraria 149,90 ao lado de uma quantidade 2 —
                 // um número visivelmente errado, só que esmaecido.
-                { ...i, quantidade: m.quantidade, total: i.precoUnitario * m.quantidade }
+                { ...i, quantidade: m.quantidade, total: totalPrevisto(i, m.quantidade) }
               : i
           )
 
@@ -156,7 +157,7 @@ function chegar(itens: ItemDoCarrinho[], novos: Adicionado[]): ItemDoCarrinho[] 
       const quantidade = n.antes + n.quantidade
       lista = lista.map((i) =>
         i === linha
-          ? { ...i, quantidade, total: i.precoUnitario * quantidade, chegando: true as const }
+          ? { ...i, quantidade, total: totalPrevisto(i, quantidade), chegando: true as const }
           : i
       )
     }

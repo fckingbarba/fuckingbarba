@@ -2,7 +2,8 @@ import "server-only"
 import type { HttpTypes } from "@medusajs/types"
 import { cookies } from "next/headers"
 import { CARRINHO_VAZIO, type CarrinhoVisivel, type ItemDoCarrinho } from "./carrinho-visivel"
-import { cliente, falhaPassageira, regiaoBrasil } from "./medusa"
+import { cliente, falhaPassageira, promocoesOuNenhuma, regiaoBrasil } from "./medusa"
+import { ehCodigoDePromocao, promocoesDasLinhas, type PromocaoNaLoja } from "./promocoes"
 
 /**
  * O CARRINHO
@@ -55,10 +56,16 @@ export const OPCOES_COOKIE = {
  * `*shipping_methods` e o CEP do endereço entram porque a gaveta tem o bloco
  * "Frete e prazo": a entrega que a pessoa escolhe ali fica NO CARRINHO, e o
  * pé da gaveta mostra o frete e o total que o Medusa calculou com ela.
+ *
+ * O código e o valor dos AJUSTES de cada linha entram pelo "Leve X, pague Y"
+ * (entrega 0133): é o ajuste da promoção que diz quantas daquela linha
+ * saíram de graça — com produtos diferentes na mesma promoção, só o Medusa
+ * sabe qual linha foi (`paraVisivel`).
  */
 const CAMPOS_CARRINHO =
   "id,region_id,currency_code,email,subtotal,discount_total,shipping_total,tax_total,total," +
-  "item_subtotal,item_total,*items,*shipping_methods,shipping_address.postal_code"
+  "item_subtotal,item_total,*items,items.adjustments.code,items.adjustments.amount," +
+  "*shipping_methods,shipping_address.postal_code"
 
 function aviso(erro: unknown, contexto: string) {
   const msg = erro instanceof Error ? erro.message : String(erro)
@@ -75,10 +82,47 @@ export type Carrinho = HttpTypes.StoreCart
  */
 export { CARRINHO_VAZIO, type CarrinhoVisivel, type ItemDoCarrinho } from "./carrinho-visivel"
 
-export function paraVisivel(carrinho: Carrinho | null): CarrinhoVisivel {
+/**
+ * Quantas unidades da linha saíram de graça por uma promoção do painel: o
+ * ajuste dela (`PROMO-…`) dividido pelo preço da unidade. É 100% por unidade
+ * de graça, então a conta fecha inteira.
+ */
+function gratisDaLinha(item: HttpTypes.StoreCartLineItem): number {
+  const preco = Number(item.unit_price ?? 0)
+  if (!(preco > 0)) return 0
+  const desconto = (item.adjustments ?? []).reduce(
+    (soma, a) => soma + (a?.code && ehCodigoDePromocao(a.code) ? Number(a.amount ?? 0) : 0),
+    0
+  )
+  return Math.round(desconto / preco)
+}
+
+/**
+ * O carrinho no formato da gaveta. Com as promoções do painel
+ * (`promocoesOuNenhuma`), cada linha de produto em promoção ganha o recado:
+ * a etiqueta, quantas saíram de graça, e — na última — quantas a mais fazem
+ * a próxima sair de graça (`promocoesDasLinhas`). Sem elas, a sacola é a de
+ * sempre: o desconto é o Medusa que dá, e o total já vem com ele.
+ */
+export function paraVisivel(
+  carrinho: Carrinho | null,
+  promocoes: readonly PromocaoNaLoja[] = []
+): CarrinhoVisivel {
   if (!carrinho) return CARRINHO_VAZIO
 
-  const itens: ItemDoCarrinho[] = (carrinho.items ?? []).map((item) => ({
+  const linhas = carrinho.items ?? []
+  const recados = promocoes.length
+    ? promocoesDasLinhas(
+        linhas.map((i) => ({
+          produto: i.product_id ?? null,
+          quantidade: i.quantity ?? 0,
+          gratis: gratisDaLinha(i),
+        })),
+        promocoes
+      )
+    : []
+
+  const itens: ItemDoCarrinho[] = linhas.map((item, k) => ({
     id: item.id,
     varianteId: item.variant_id ?? "",
     nome: item.product_title ?? item.title ?? "Produto",
@@ -90,6 +134,7 @@ export function paraVisivel(carrinho: Carrinho | null): CarrinhoVisivel {
     quantidade: item.quantity ?? 0,
     precoUnitario: Number(item.unit_price ?? 0),
     total: Number(item.total ?? 0),
+    ...(recados[k] ? { promocao: recados[k] } : {}),
   }))
 
   const metodo = carrinho.shipping_methods?.[0]
@@ -107,6 +152,11 @@ export function paraVisivel(carrinho: Carrinho | null): CarrinhoVisivel {
     cep: (carrinho.shipping_address?.postal_code ?? "").replace(/\D+/g, ""),
     total: Number(carrinho.total ?? 0),
   }
+}
+
+/** O carrinho no formato da gaveta, já com o recado das promoções (ver `paraVisivel`). */
+export async function paraAGaveta(carrinho: Carrinho | null): Promise<CarrinhoVisivel> {
+  return paraVisivel(carrinho, carrinho?.items?.length ? await promocoesOuNenhuma() : [])
 }
 
 /**

@@ -9,25 +9,33 @@ import {
   lerCupomNovo,
   promocaoDoCupom,
   usosPorCodigo,
-  type Catalogo,
   type PromocaoCrua,
 } from "../../../lib/cupons"
 import { urlDaLoja } from "../../../lib/emails/moldura"
 import { exigirArea, type PedidoDaEquipe } from "../../../lib/equipe/acesso"
 import { anotar } from "../../../lib/painel/anotar"
+import { catalogoDaLoja } from "../../../lib/painel/catalogo"
 import { descontosAutomaticos } from "../../../lib/painel/cupons"
 import { totalDo } from "../../../lib/painel/pedido"
+import {
+  ehPromocaoDoPainel,
+  promocaoGuardada,
+  promocaoNaLista,
+  valeAgora,
+} from "../../../lib/promocoes"
 
 /**
  * GET /dashboard/cupons — os cupons de campanha (com o que os pedidos dizem
- * de cada um), os descontos que a loja aplica sozinha, as categorias e os
- * produtos que o "Aplicar a" escolhe, e o endereço da loja (o link do
- * cupom é `<loja>/discount/<CÓDIGO>`, como na Nuvemshop).
+ * de cada um), as promoções do painel (o "Leve X, pague Y", `lib/promocoes.ts`,
+ * criadas em `POST /dashboard/promocoes`), os descontos que a loja aplica
+ * sozinha, as categorias e os produtos que o "Aplicar a" escolhe, e o
+ * endereço da loja (o link do cupom é `<loja>/discount/<CÓDIGO>`, como na
+ * Nuvemshop).
  * POST /dashboard/cupons — cria um cupom (`lib/cupons.ts`: o código, o tipo,
  * a quem vale e os limites de uso, como no "Criar cupom" da Nuvemshop).
  * Marketing e dono.
  *
- * RESPOSTAS: GET 200 `{ cupons, automaticos, catalogo, loja }`. POST 200
+ * RESPOSTAS: GET 200 `{ cupons, promocoes, automaticos, catalogo, loja }`. POST 200
  * `{ cupom }`; 422 `{ erros }` (campo → frase); 409 `codigo_existe`.
  */
 
@@ -63,7 +71,7 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
 
   const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
   const agora = new Date()
-  const [{ data: promocoes }, { data: pedidos }, [loja], catalogo] = await Promise.all([
+  const [{ data: todas }, { data: pedidos }, [loja], catalogo] = await Promise.all([
     query.graph({
       entity: "promotion",
       fields: CAMPOS_DA_PROMOCAO,
@@ -102,21 +110,24 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
     ),
   }))
   const usos = usosPorCodigo(lidos)
+  const semUso = { pedidos: 0, desconto: 0, vendeu: 0 }
+  const promocoes = (todas as PromocaoCrua[]).flatMap((p) => {
+    const g = ehPromocaoDoPainel(p) ? promocaoGuardada(p) : null
+    return g ? [{ p, g }] : []
+  })
   const semana = lidos.filter(
     (o) => o.pago && o.status !== "canceled" && o.criado >= agora.getTime() - 7 * DIA_MS
   )
 
   res.json({
-    cupons: (promocoes as PromocaoCrua[])
+    cupons: (todas as PromocaoCrua[])
       .filter(ehCupomDeCampanha)
-      .map((p) =>
-        cupomNaLista(
-          p,
-          usos.get(String(p.code).toUpperCase()) ?? { pedidos: 0, desconto: 0, vendeu: 0 },
-          agora
-        )
-      ),
+      .map((p) => cupomNaLista(p, usos.get(String(p.code).toUpperCase()) ?? semUso, agora)),
+    promocoes: promocoes.map(({ p, g }) =>
+      promocaoNaLista(p, g, usos.get(String(p.code).toUpperCase()) ?? semUso, agora)
+    ),
     automaticos: descontosAutomaticos({
+      levePague: promocoes.some(({ p, g }) => valeAgora(p.status, g, agora.getTime())),
       frete: lerConfiguracoes(loja?.metadata).frete,
       oferta: {
         aceitas: semana.filter((o) =>
@@ -186,28 +197,4 @@ export async function POST(req: AuthenticatedMedusaRequest, res: MedusaResponse)
       agora
     ),
   })
-}
-
-/**
- * O que o "Aplicar a" escolhe: as categorias e os produtos da loja (os
- * rascunhos também — o cupom pode nascer antes de o produto ir pro ar), em
- * ordem de nome.
- */
-async function catalogoDaLoja(query: {
-  graph: (a: object) => Promise<{ data: unknown[] }>
-}): Promise<Catalogo> {
-  const [{ data: categorias }, { data: produtos }] = await Promise.all([
-    query.graph({ entity: "product_category", fields: ["id", "name"] }),
-    query.graph({ entity: "product", fields: ["id", "title"] }),
-  ])
-  const porNome = (a: { nome: string }, b: { nome: string }) =>
-    a.nome.localeCompare(b.nome, "pt-BR")
-  return {
-    categorias: (categorias as { id: string; name?: string | null }[])
-      .map((c) => ({ id: c.id, nome: c.name ?? c.id }))
-      .sort(porNome),
-    produtos: (produtos as { id: string; title?: string | null }[])
-      .map((p) => ({ id: p.id, nome: p.title ?? p.id }))
-      .sort(porNome),
-  }
 }

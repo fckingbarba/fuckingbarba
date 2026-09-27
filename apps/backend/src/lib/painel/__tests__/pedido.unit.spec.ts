@@ -415,6 +415,27 @@ describe("o pedido inteiro", () => {
     expect(d.itens[0].cheio).toBe(79.9)
   })
 
+  it('a promoção automática (o Leve X, pague Y) aparece como "Promoção", não pelo código sorteado', () => {
+    const o = pedido(
+      {
+        items: [
+          {
+            id: "item_1",
+            product_title: "Fator",
+            quantity: 3,
+            unit_price: 79.9,
+            total: 159.8,
+            adjustments: [{ code: "PROMO-3F9A12C7", amount: 79.9 }],
+          },
+        ],
+        total: 159.8,
+      },
+      true
+    )
+    const d = detalheDo(o, null, [], SEM_ERP, { verCpf: false })
+    expect(d.totais.cupons).toEqual([{ codigo: "Promoção", valor: 79.9 }])
+  })
+
   it("o total é o cobrado, com o cupom e a oferta descontados — não a conta de antes deles", () => {
     // Como o Medusa devolve: o `original_total` é a conta de ANTES do desconto.
     const doMedusa = { total: 118.11, original_total: 128.6, discount_total: 10.49 }

@@ -1,6 +1,7 @@
 import type { MedusaContainer } from "@medusajs/framework/types"
 import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
 import { PREFIXO_DO_BUMP } from "./bumps"
+import { PREFIXO_DA_PROMOCAO } from "./cupons"
 import {
   CAMPOS as CAMPOS_DA_CONFIRMACAO,
   paraPedidoDoEmail,
@@ -143,7 +144,8 @@ export function paraVenda(o: PedidoDaVenda, agora = new Date()): VendaDoAviso {
   const cupons = (o.items ?? [])
     .flatMap((i) => i?.adjustments ?? [])
     .map((a) => a?.code?.trim() ?? "")
-    .filter((c) => c && !c.startsWith(PREFIXO_DO_BUMP))
+    // A oferta do checkout e a promoção automática ("Leve X, pague Y") não são cupom.
+    .filter((c) => c && !c.startsWith(PREFIXO_DO_BUMP) && !c.startsWith(PREFIXO_DA_PROMOCAO))
   return {
     id: p.id,
     numero: p.numero,

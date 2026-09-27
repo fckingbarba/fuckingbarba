@@ -30,6 +30,7 @@ import { documentoGuardado } from "./documento"
 import { lerEndereco, montarEndereco } from "./endereco"
 import { semEntregaEmpatada } from "./frete"
 import { cliente, modeloDeRecomendacao, temEstoque } from "./medusa"
+import { ehCodigoDePromocao } from "./promocoes"
 import {
   escolherBump,
   escolherParaOFrete,
@@ -146,8 +147,10 @@ export async function lerCheckout(): Promise<CheckoutVisivel | null> {
     entrega: paraEndereco(carrinho.shipping_address),
     freteEscolhido: metodo?.shipping_option_id ?? null,
     // O código do bump é um cupom como outro qualquer pro Medusa; quem sabe
-    // que ele é o bump é a loja (`lib/bump.ts`).
-    cupons: cupons.filter((c) => !ehCodigoDeBump(c.codigo)),
+    // que ele é o bump é a loja (`lib/bump.ts`). O das promoções automáticas
+    // do painel (`PROMO-…`, o "Leve X, pague Y") também não é cupom: ninguém
+    // digitou, e ele não aparece no campo do cupom.
+    cupons: cupons.filter((c) => !ehCodigoDeBump(c.codigo) && !ehCodigoDePromocao(c.codigo)),
     cupomGuardado:
       guardado && !cupons.some((c) => c.codigo.toUpperCase() === guardado.codigo) ? guardado : null,
     bumpAplicado: bumpDoCarrinho(carrinho),

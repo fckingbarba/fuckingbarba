@@ -998,7 +998,8 @@ export function detalheDo(
   const cupons = new Map<string, number>()
   for (const i of o.items ?? [])
     for (const a of i.adjustments ?? []) {
-      const codigo = texto(a.code) || "Desconto"
+      // A promoção automática ("Leve X, pague Y") tem código sorteado, que ninguém digitou.
+      const codigo = /^PROMO-/i.test(texto(a.code)) ? "Promoção" : texto(a.code) || "Desconto"
       cupons.set(codigo, centavos((cupons.get(codigo) ?? 0) + numero(a.amount)))
     }
 
