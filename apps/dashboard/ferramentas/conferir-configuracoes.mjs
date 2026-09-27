@@ -27,6 +27,7 @@
 
 import {
   abrirNavegador,
+  avisoDoClique,
   caixaDoResend,
   DONO,
   entrar as entrarPelaTela,
@@ -245,17 +246,11 @@ try {
       (await pagina.locator('.abas a[aria-current="page"]').textContent()) === "Dados da empresa",
     "/configuracoes abre nos dados da empresa, com o que está gravado"
   )
-  const aviso = pagina.locator(".aviso")
-  const salvarPelaTela = async (formulario) => {
-    const vez = await aviso.getAttribute("data-vez")
-    await pagina.locator(`[data-form="${formulario}"] button[type="submit"]`).click()
-    await pagina.waitForFunction(
-      (v) => document.querySelector(".aviso")?.getAttribute("data-vez") !== v,
-      vez,
-      { timeout: 30000 }
+  // O aviso deste clique, lido quando entra — não o de antes saindo, e antes da tela refeita.
+  const salvarPelaTela = (formulario) =>
+    avisoDoClique(pagina, () =>
+      pagina.locator(`[data-form="${formulario}"] button[type="submit"]`).click()
     )
-    return semEspaco(await aviso.textContent())
-  }
   await pagina.locator('[data-campo="cnpj"]').fill("11.222.333/0001-00")
   const recusado = await salvarPelaTela("empresa")
   ok(
@@ -305,22 +300,15 @@ try {
   await pagina.goto(`${PAINEL}/configuracoes/nota`)
   await hidratado(pagina, "[data-erp]")
   const temJanela = (await pagina.locator("[data-janela]").count()) > 0
-  if (temJanela) {
-    const vez = await aviso.getAttribute("data-vez")
-    await pagina.locator('[data-janela="30"]').check()
-    await pagina.waitForFunction(
-      (v) => document.querySelector(".aviso")?.getAttribute("data-vez") !== v,
-      vez,
-      { timeout: 30000 }
-    )
-  }
+  const daJanela = temJanela
+    ? await avisoDoClique(pagina, () => pagina.locator('[data-janela="30"]').check())
+    : ""
   const depois = (await medusa("/dashboard/configuracoes", { metodo: "GET", token: tokenDoDono }))
     .corpo
   ok(
-    !temJanela ||
-      (depois.nota?.janela === 30 && /30 minutos/.test(semEspaco(await aviso.textContent()))),
+    !temJanela || (depois.nota?.janela === 30 && /30 minutos/.test(daJanela)),
     "pela tela: a janela da nota muda no clique",
-    `${depois.nota?.janela}`
+    `${depois.nota?.janela} · ${daJanela}`
   )
 
   for (const [aba, seletor] of [

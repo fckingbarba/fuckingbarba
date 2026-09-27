@@ -19,6 +19,7 @@ import { erpDaLoja } from "./erps"
 import { sincronizarEstoque } from "./estoque"
 import { baixarFoto, guardarFoto } from "./fotos"
 import {
+  MARCA_DA_CATEGORIA,
   MARCA_DAS_FOTOS,
   MARCA_DO_ERP,
   MARCA_DO_NOME,
@@ -728,12 +729,13 @@ async function copiarFotos(
 
 /**
  * Cada chave que o produto tem, marcada pra sair (o Medusa apaga a chave que
- * vem vazia) — menos a das fotos escolhidas, que o ERP não troca.
+ * vem vazia) — menos a das fotos escolhidas, que o ERP não troca, e a da
+ * categoria principal, que fica com as categorias.
  */
 const semAsChavesDeHoje = (metadata: Record<string, unknown>) =>
   Object.fromEntries(
     Object.keys(metadata)
-      .filter((k) => k !== MARCA_DAS_FOTOS && k !== MARCA_DO_NOME)
+      .filter((k) => k !== MARCA_DAS_FOTOS && k !== MARCA_DO_NOME && k !== MARCA_DA_CATEGORIA)
       .map((k) => [k, ""])
   )
 
@@ -801,6 +803,8 @@ type Heranca = {
   medidas: MedidasDaCaixa | null
   /** A marca `fb_nome` do produto que sai: o nome da loja passa pro novo. */
   marcaDoNome: unknown
+  /** A marca `fb_categoria` do produto que sai: a principal vai junto com as categorias. */
+  marcaDaCategoria: unknown
 }
 
 async function criarProduto(
@@ -836,6 +840,7 @@ async function criarProduto(
           metadata: {
             [MARCA_DO_ERP]: marca,
             ...(i.nomeDaLoja && h.marcaDoNome ? { [MARCA_DO_NOME]: h.marcaDoNome } : {}),
+            ...(h.marcaDaCategoria ? { [MARCA_DA_CATEGORIA]: h.marcaDaCategoria } : {}),
           },
           options: titulos.map((t) => ({
             title: t,
@@ -1012,6 +1017,7 @@ async function recriar(
         descricao: principal.descricao,
         fotos: principal.fotos,
         marcaDoNome: principal.metadata[MARCA_DO_NOME] ?? null,
+        marcaDaCategoria: principal.metadata[MARCA_DA_CATEGORIA] ?? null,
         pesoGramas: principal.variacoes[0]?.pesoGramas ?? null,
         medidas: principal.variacoes[0]?.medidas ?? null,
       },
@@ -1221,6 +1227,7 @@ async function importar(
           pesoGramas: null,
           medidas: null,
           marcaDoNome: null,
+          marcaDaCategoria: null,
         },
         marcas.get(i)!,
         contexto

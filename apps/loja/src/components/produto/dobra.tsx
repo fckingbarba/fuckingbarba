@@ -5,6 +5,7 @@ import { Galeria, type Foto, type ItemDaGaleria } from "@/components/produto/gal
 import { Migalhas, type Migalha } from "@/components/produto/migalhas"
 import { VeNaPratica } from "@/components/produto/ve-na-pratica"
 import { AVALIACOES } from "@/conteudo/depoimentos"
+import { categoriaPrincipal } from "@/lib/categorias"
 import {
   avaliacoesPublicadas,
   buscarProdutoPorHandle,
@@ -101,7 +102,8 @@ export async function Dobra({ handle }: { handle: string }) {
   */
   const itens: ItemDaGaleria[] = fotos.map((f) => ({ tipo: "foto", ...f }))
 
-  const categoria = produto.categories?.[0]
+  // Em mais de uma categoria (o kit em Kits e em Barba), a trilha leva a principal.
+  const categoria = categoriaPrincipal(produto)
   const trilha: Migalha<CaminhoDaTrilha>[] = [{ nome: "Início", href: "/" }]
   if (categoria?.handle && conhecida(categoria.handle)) {
     trilha.push({ nome: categoria.name, href: `/${categoria.handle}` })

@@ -42,6 +42,9 @@
  * │ • cupons somados pelo `promo_codes` no corpo do carrinho;              │
  * │ • o uso do cupom que o pedido cancelado não devolvia (o Pix vencido    │
  * │   queimava o cupom de 1 uso).                                          │
+ * │ Da 0151:                                                               │
+ * │ • o cupom "só com produtos de" que recusa o produto em mais de uma     │
+ * │   categoria (o kit em Kits e em Barba) — ou aceita no de uma terceira. │
  * └────────────────────────────────────────────────────────────────────────┘
  */
 
@@ -50,6 +53,7 @@ import { subirFrenetFalsa } from "../../loja/ferramentas/frenet-falsa.mjs"
 import { subirPagarmeFalso } from "../../loja/ferramentas/pagarme-falso.mjs"
 import {
   abrirNavegador,
+  avisoDoClique,
   caixaDoResend,
   DONO,
   entrar as entrarPelaTela,
@@ -93,6 +97,8 @@ const U = `U${sufixo}`
 const [N, B, K, D, S, L, A] = ["N", "B", "K", "D", "S", "L", "A"].map((l) => `${l}${sufixo}`)
 /* Os da 0136: em reais sem combinar (V) e o de 1 uso que volta no cancelamento (W). */
 const [V, W] = ["V", "W"].map((l) => `${l}${sufixo}`)
+/* Os da 0151, com o kit em duas categorias: o da outra categoria dele (G) e o de uma terceira (H). */
+const [G, H] = ["G", "H"].map((l) => `${l}${sufixo}`)
 
 /** "2026-10-01": daqui a `dias`, em Brasília. */
 const diaDaqui = (dias) =>
@@ -236,6 +242,8 @@ let tokenDoDono = ""
 const criados = []
 /** O preço da "Promoção de lançamento" que o teste do "não combina" tirou, pra devolver no fim. */
 let devolverPromocao = null
+/** As categorias do kit antes de ele ganhar a segunda (0151), pra devolver se a rodada cair no meio. */
+let devolverCategorias = null
 
 try {
   titulo("Quem entra")
@@ -565,6 +573,69 @@ try {
     `só com produtos da categoria: o carrinho só com ${doKit} entra; com ${deFora} junto, não`,
     JSON.stringify({ soKit, kitEFora })
   )
+
+  // O produto em mais de uma categoria (0151): o kit ganha a do produto de fora (Barba, no
+  // banco local). Pra Nuvemshop ele é das duas: o cupom de cada uma aceita, e o de uma terceira
+  // não. Até a 0151, o de Kits (K) passava a recusar o kit no dia em que ele ganhava Barba.
+  const idDoKit = await idDoProduto(doKit)
+  const daOutra = categoriaDe(deFora)
+  const terceira = catalogo.categorias.find(
+    (c) => c.id !== categoriaDe(doKit) && c.id !== daOutra
+  )?.id
+  const kitAntes = (await adm(`/admin/products/${idDoKit}?fields=*categories`)).corpo.product
+  devolverCategorias = {
+    id: idDoKit,
+    categorias: (kitAntes?.categories ?? []).map((c) => ({ id: c.id })),
+  }
+  const duas = await adm(`/admin/products/${idDoKit}`, {
+    metodo: "POST",
+    corpo: { categories: [...devolverCategorias.categorias, { id: daOutra }] },
+  })
+  const novosDaDupla = await Promise.all([
+    criar({ ...NOVO, codigo: G, aplicarA: "categorias", alvos: [daOutra] }),
+    ...(terceira ? [criar({ ...NOVO, codigo: H, aplicarA: "categorias", alvos: [terceira] })] : []),
+  ])
+  for (const r of novosDaDupla) if (r.corpo.cupom?.id) criados.push(r.corpo.cupom.id)
+  const kitNoK = await aplicar(await carrinho([[doKit, 1]], email("dupla1")), K)
+  const kitNoG = await aplicar(await carrinho([[doKit, 1]], email("dupla2")), G)
+  const kitEForaNoG = await aplicar(
+    await carrinho(
+      [
+        [doKit, 1],
+        [deFora, 1],
+      ],
+      email("dupla3")
+    ),
+    G
+  )
+  const kitEForaNoK = await aplicar(
+    await carrinho(
+      [
+        [doKit, 1],
+        [deFora, 1],
+      ],
+      email("dupla4")
+    ),
+    K
+  )
+  const kitNoH = terceira ? await aplicar(await carrinho([[doKit, 1]], email("dupla5")), H) : null
+  ok(
+    duas.status === 200 &&
+      novosDaDupla.every((r) => r.status === 200) &&
+      kitNoK.codigos.includes(K) &&
+      kitNoG.codigos.includes(G) &&
+      kitEForaNoG.codigos.includes(G) &&
+      !kitEForaNoK.codigos.includes(K) &&
+      Boolean(kitNoH) &&
+      !kitNoH.codigos.includes(H),
+    `o kit em duas categorias: o cupom de cada uma aceita (o da outra também com o ${deFora} junto; o de Kits, não), e o de uma terceira recusa`,
+    JSON.stringify({ duas: duas.status, kitNoK, kitNoG, kitEForaNoG, kitEForaNoK, kitNoH })
+  )
+  const devolvidas = await adm(`/admin/products/${idDoKit}`, {
+    metodo: "POST",
+    corpo: { categories: devolverCategorias.categorias },
+  })
+  if (devolvidas.status === 200) devolverCategorias = null
 
   const soProduto = await aplicar(await carrinho([[deFora, 1]], email("prod")), D)
   const produtoEOutro = await aplicar(
@@ -913,35 +984,24 @@ try {
       "a prévia diz o cupom inteiro, antes de criar",
       previa
     )
-    const aviso = pagina.locator(".aviso")
-    const vez = await aviso.getAttribute("data-vez")
-    await form.locator('button[type="submit"]').click()
-    await pagina.waitForFunction(
-      (v) => document.querySelector(".aviso")?.getAttribute("data-vez") !== v,
-      vez,
-      { timeout: 30000 }
-    )
+    // O aviso é lido quando entra: a lista refeita pode chegar depois de ele sumir (6 s).
+    const criado = await avisoDoClique(pagina, () => form.locator('button[type="submit"]').click())
     await linhaDe(U).waitFor({ timeout: 15000 })
     ok(
-      /criado/.test(await aviso.textContent()) &&
+      /criado/.test(criado) &&
         (await pagina.locator("[data-form-cupom]").count()) === 0 &&
         /R\$ 15,00 de desconto em pedidos a partir de R\$ 100,00/.test(
           semEspaco(await linhaDe(U).textContent())
         ),
-      "criado pela gaveta: o aviso, a gaveta fecha, e o cupom entra na lista"
+      "criado pela gaveta: o aviso, a gaveta fecha, e o cupom entra na lista",
+      criado
     )
     ok(
       (await linhaDe(U).locator(`[data-copiar-link="${U}"]`).count()) === 1,
       "na lista, cada cupom tem o botão do link"
     )
 
-    const vez2 = await aviso.getAttribute("data-vez")
-    await linhaDe(F).locator(".chave").click()
-    await pagina.waitForFunction(
-      (v) => document.querySelector(".aviso")?.getAttribute("data-vez") !== v,
-      vez2,
-      { timeout: 30000 }
-    )
+    await avisoDoClique(pagina, () => linhaDe(F).locator(".chave").click())
     const naApi = (await medusa("/dashboard/cupons", { metodo: "GET", token: tokenMkt })).corpo
     ok(
       naApi.cupons?.find((c) => c.codigo === F)?.situacao === "pausado" &&
@@ -988,6 +1048,16 @@ try {
 } catch (e) {
   falhou(`o conferidor quebrou: ${e instanceof Error ? e.stack : e}`)
 } finally {
+  if (devolverCategorias) {
+    const r = await adm(`/admin/products/${devolverCategorias.id}`, {
+      metodo: "POST",
+      corpo: { categories: devolverCategorias.categorias },
+    })
+    if (r.status !== 200)
+      console.log(
+        `  ⚠  não devolvi as categorias do kit (${r.status}): ${JSON.stringify(devolverCategorias)}`
+      )
+  }
   if (devolverPromocao) {
     const { lista, ...preco } = devolverPromocao
     const r = await adm(`/admin/price-lists/${lista}/prices/batch`, {

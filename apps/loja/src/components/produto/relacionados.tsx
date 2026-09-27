@@ -3,6 +3,7 @@ import { ColecaoCarrossel } from "@/components/home/colecao-carrossel"
 import { CartaoProduto } from "@/components/produto/cartao"
 import type { HttpTypes } from "@medusajs/types"
 import { conteudoDaPdp } from "@/conteudo/produto"
+import { categoriaPrincipal } from "@/lib/categorias"
 import {
   buscarProdutoPorHandle,
   esgotado,
@@ -75,7 +76,7 @@ export async function Relacionados({ handle }: { handle: string }) {
    * shampoo de barba pra quem olha tratamento de barba acerta mais que
    * oferecer spray de cabelo.
    */
-  const categoria = proprio?.categories?.[0]?.id
+  const categoria = proprio ? categoriaPrincipal(proprio)?.id : undefined
   const ordenados = modelo
     ? ordenarParaAPagina(outros, handle, modelo)
     : categoria

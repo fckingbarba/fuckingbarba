@@ -41,6 +41,7 @@ import { subirFrenetFalsa } from "../../loja/ferramentas/frenet-falsa.mjs"
 import { subirPagarmeFalso } from "../../loja/ferramentas/pagarme-falso.mjs"
 import {
   abrirNavegador,
+  avisoDoClique,
   caixaDoResend,
   DONO,
   entrar as entrarPelaTela,
@@ -566,13 +567,9 @@ try {
       `${csv.trim().split("\n").length - 1} linhas, ${naNewsletter} na newsletter`
     )
     await pagina.locator(`[data-tirar="${LEO}"]`).click()
-    const aviso = pagina.locator(".aviso")
-    const vez = await aviso.getAttribute("data-vez")
-    await pagina.locator(`[data-inscrito="${LEO}"] [data-confirmar-tirar]`).click()
-    await pagina.waitForFunction(
-      (v) => document.querySelector(".aviso")?.getAttribute("data-vez") !== v,
-      vez,
-      { timeout: 20000 }
+    // O aviso é lido quando entra: a lista refeita pode chegar depois de ele sumir (6 s).
+    const saiu = await avisoDoClique(pagina, () =>
+      pagina.locator(`[data-inscrito="${LEO}"] [data-confirmar-tirar]`).click()
     )
     await pagina
       .locator(`[data-inscrito="${LEO}"]`)
@@ -580,8 +577,9 @@ try {
       .catch(() => {})
     ok(
       (await pagina.locator(`[data-inscrito="${LEO}"]`).count()) === 0 &&
-        /saiu da lista/.test(await aviso.textContent()),
-      "tirar pela tela, com a confirmação: o Leo sai da lista"
+        /saiu da lista/.test(saiu),
+      "tirar pela tela, com a confirmação: o Leo sai da lista",
+      saiu
     )
   }
 

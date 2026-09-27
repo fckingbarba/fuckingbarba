@@ -191,7 +191,36 @@ try {
   const verTodos = await pagina.getAttribute(".vitrine__rodape a", "href")
   confere('"Ver todos os produtos" aponta pra /produtos', verTodos, "/produtos")
 
-  /* ── 14. nenhum erro de JavaScript em nenhuma das telas ── */
+  /* ── 14. a trilha da página de cada produto leva a categoria PRINCIPAL ──
+     O produto em mais de uma categoria (entrega 0151: o kit em Kits e em Barba)
+     aparece na vitrine de todas, mas a trilha tem uma só: a marcada no painel
+     (`fb_categoria`), se ele está nela; senão a primeira dele na ordem do menu. */
+  const menu = ["barba", "cabelo", "kits"]
+  const principalDe = (p) => {
+    const doMenu = (p.categories ?? [])
+      .filter((c) => menu.includes(c?.handle))
+      .sort((a, b) => menu.indexOf(a.handle) - menu.indexOf(b.handle))
+    return (doMenu.find((c) => c.id === p.metadata?.fb_categoria) ?? doMenu[0])?.handle ?? null
+  }
+  const emDuas = catalogo.filter((p) => (p.categories ?? []).length > 1).length
+  console.log(`
+  (${emDuas} produto(s) em mais de uma categoria no catálogo)`)
+  const trilhas = []
+  for (const p of catalogo) {
+    await pagina.goto(`${LOJA}/produtos/${p.handle}`, { waitUntil: "load" })
+    await pagina.waitForSelector("nav.migalhas")
+    const naTrilha = await pagina.$$eval("nav.migalhas a", (n) =>
+      n.map((e) => e.getAttribute("href")).filter((h) => h !== "/")
+    )
+    trilhas.push([p.handle, naTrilha.join(","), principalDe(p) ? `/${principalDe(p)}` : ""])
+  }
+  confere(
+    "a trilha de cada produto leva a categoria principal",
+    trilhas.map(([h, veio]) => `${h} ${veio}`),
+    trilhas.map(([h, , esperado]) => `${h} ${esperado}`)
+  )
+
+  /* ── 15. nenhum erro de JavaScript em nenhuma das telas ── */
   confere("nenhum erro de JavaScript", erros, [])
 } finally {
   await navegador.close()

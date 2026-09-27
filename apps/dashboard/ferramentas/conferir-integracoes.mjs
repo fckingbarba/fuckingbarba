@@ -47,6 +47,7 @@ import { subirPagarmeFalso } from "../../loja/ferramentas/pagarme-falso.mjs"
 import { fabricaDePedidos } from "../../loja/ferramentas/pedido-de-teste.mjs"
 import {
   abrirNavegador,
+  avisoDoClique,
   caixaDoResend,
   DONO,
   entrar as entrarPelaTela,
@@ -291,14 +292,10 @@ try {
       (await pagina.locator('[data-linhas="compra"] .linha').count()) === 4,
     "a aba Integrações: os códigos gravados, e a compra de cada plataforma"
   )
-  const aviso = pagina.locator(".aviso")
-  const vez = await aviso.getAttribute("data-vez")
   await pagina.locator('[data-campo="tiktok"]').fill("ttq.load('c4zzzzzzzz1234567890');")
-  await pagina.locator('[data-form="integracoes"] button[type="submit"]').click()
-  await pagina.waitForFunction(
-    (v) => document.querySelector(".aviso")?.getAttribute("data-vez") !== v,
-    vez,
-    { timeout: 30000 }
+  // O aviso é lido quando entra: o campo refeito pode chegar depois de ele sumir (6 s).
+  const salvas = await avisoDoClique(pagina, () =>
+    pagina.locator('[data-form="integracoes"] button[type="submit"]').click()
   )
   await pagina.waitForFunction(
     () => document.querySelector('[data-campo="tiktok"]')?.value === "C4ZZZZZZZZ1234567890",
@@ -306,9 +303,10 @@ try {
     { timeout: 10000 }
   )
   ok(
-    /^Integrações salvas\./.test(semEspaco(await aviso.textContent())) &&
+    /^Integrações salvas\./.test(salvas) &&
       (await publicas()).integracoes.tiktok === "C4ZZZZZZZZ1234567890",
-    "pela tela: o trecho colado vira o código no campo, e grava"
+    "pela tela: o trecho colado vira o código no campo, e grava",
+    salvas
   )
   await gravar(CODIGOS)
 

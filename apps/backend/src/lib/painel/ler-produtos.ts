@@ -19,6 +19,7 @@ const CAMPOS_DA_LISTA = [
   "images.rank",
   "categories.id",
   "categories.name",
+  "categories.rank",
   "variants.id",
   "variants.sku",
   "variants.manage_inventory",

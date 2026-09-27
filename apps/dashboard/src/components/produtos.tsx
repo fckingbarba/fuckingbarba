@@ -114,7 +114,12 @@ export function ListaDosProdutos({
                     </span>
                   </span>
                 </td>
-                <td>{p.categoria ?? <span className="suave">sem categoria</span>}</td>
+                <td data-categorias>
+                  {p.categoria ?? <span className="suave">sem categoria</span>}
+                  {p.tambemEm?.length ? (
+                    <span className="tabela__sub">também em {p.tambemEm.join(", ")}</span>
+                  ) : null}
+                </td>
                 <CelulasDePreco p={p} podeEditar={podeEditar} />
                 <td className="num">
                   <Estoque n={p.estoque} />

@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto"
 import type { HttpTypes } from "@medusajs/types"
+import { categoriaPrincipal } from "@/lib/categorias"
 import { temEstoque } from "@/lib/medusa"
 import { site } from "@/lib/site"
 
@@ -102,10 +103,16 @@ export function gtinDa(variante: HttpTypes.StoreProductVariant): string | null {
   return null
 }
 
-/** A primeira categoria da loja que o produto tem, na ordem do menu. */
+/**
+ * A categoria principal do produto (`lib/categorias.ts`), se o menu tem ela;
+ * senão a primeira do menu que o produto tem.
+ */
 function categoriaDa(produto: HttpTypes.StoreProduct): { nome: string; google: number } | null {
+  const principal = categoriaPrincipal(produto)?.handle
   const handles = new Set((produto.categories ?? []).map((c) => c?.handle))
-  const achada = site.categorias.find((c) => handles.has(c.handle))
+  const achada =
+    site.categorias.find((c) => c.handle === principal) ??
+    site.categorias.find((c) => handles.has(c.handle))
   return achada
     ? { nome: achada.nome, google: CATEGORIA_DO_GOOGLE[achada.handle] ?? CATEGORIA_PADRAO }
     : null

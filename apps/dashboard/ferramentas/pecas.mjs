@@ -256,3 +256,30 @@ export async function entrar({ pagina, contexto }, email, caixa) {
   await pagina.waitForURL((u) => u.pathname === "/", { timeout: 15000 }).catch(() => {})
   return (await contexto.cookies()).find((c) => c.name === "painel_sessao") ?? null
 }
+
+/* ── o aviso de baixo ─────────────────────────────────────────────────────── */
+
+/**
+ * Faz o clique e devolve a frase do aviso de baixo que ELE fez aparecer, lida
+ * na hora em que o aviso entra: o `data-vez` diferente do de antes do clique,
+ * e sem `data-fora` (o aviso anterior saindo também muda o `data-vez`). O
+ * aviso chega com o resultado da ação e some 6 s depois (o de erro, 10 s); a
+ * tela refeita pelo `revalidatePath` vem depois dele — e, com a máquina
+ * carregada, depois de ele sumir. Quem confere os dois pega a frase aqui e só
+ * depois espera a tela (entrega 0147; a 0143 fez o mesmo no "Mudar a meta").
+ */
+export async function avisoDoClique(pagina, clicar) {
+  const antes = await pagina.locator(".aviso").getAttribute("data-vez")
+  await clicar()
+  const frase = await pagina.waitForFunction(
+    (vez) => {
+      const a = document.querySelector(".aviso")
+      return a && !a.hasAttribute("data-fora") && a.getAttribute("data-vez") !== vez
+        ? a.textContent.replace(/\s+/g, " ").trim()
+        : null
+    },
+    antes,
+    { timeout: 30000 }
+  )
+  return frase.jsonValue()
+}
