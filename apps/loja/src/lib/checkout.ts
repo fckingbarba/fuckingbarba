@@ -454,15 +454,21 @@ async function prazosDasFaixas(checkout: BaseDoFrete): Promise<Map<string, strin
 /**
  * COMO CADA MEIO DE PAGAMENTO SE CHAMA NA TELA.
  *
- * O Medusa devolve id de provedor (`pp_pagarme_pagarme`, ou o provisório
- * `pp_system_default`) e mais nada — nome e explicação são nossos. Quem não
- * estiver nesta lista aparece com o id cru em vez de sumir: provedor ligado no
- * painel e invisível na loja é o tipo de bug que ninguém encontra.
+ * O Medusa devolve id de provedor (`pp_pagarme_pagarme`, o do Mercado Pago,
+ * ou o provisório `pp_system_default`) e mais nada — nome e explicação são
+ * nossos. Quem não estiver nesta lista aparece com o id cru em vez de sumir:
+ * provedor ligado no painel e invisível na loja é o tipo de bug que ninguém
+ * encontra.
  */
 const NOMES: Record<string, Omit<ProvedorDePagamento, "id">> = {
   pp_pagarme_pagarme: {
     nome: "Pix ou cartão",
     descricao: "Pix na hora, ou cartão de crédito em até 3x sem juros, pelo Pagar.me.",
+    simbolico: false,
+  },
+  pp_mercadopago_mercadopago: {
+    nome: "Pix",
+    descricao: "Pix na hora, pelo Mercado Pago.",
     simbolico: false,
   },
   pp_system_default: {

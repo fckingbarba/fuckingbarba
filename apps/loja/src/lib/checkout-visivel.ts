@@ -108,6 +108,12 @@ export type ProvedorDePagamento = {
  */
 export const PROVEDOR_PAGARME = "pp_pagarme_pagarme"
 
+/**
+ * O Mercado Pago: só Pix, a reserva do Pagar.me (0140). Não aparece no passo
+ * 3 — quem escolhe o parceiro é a loja, pela saúde de cada um.
+ */
+export const PROVEDOR_MERCADOPAGO = "pp_mercadopago_mercadopago"
+
 /** O provisório do Medusa: fecha o pedido sem cobrar nada. Ver `CHECKOUT_ABERTO`. */
 export const PROVEDOR_PROVISORIO = "pp_system_default"
 
@@ -126,6 +132,7 @@ export type ParceiroDePagamento = { id: string; nome: string; chave: string }
 
 export const PARCEIROS: readonly ParceiroDePagamento[] = [
   { id: PROVEDOR_PAGARME, nome: "Pagar.me", chave: "pagarme" },
+  { id: PROVEDOR_MERCADOPAGO, nome: "Mercado Pago", chave: "mercadopago" },
 ]
 
 export function parceiroDe(id: unknown): ParceiroDePagamento | null {
