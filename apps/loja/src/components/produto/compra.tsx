@@ -22,6 +22,7 @@ import { alcancaOPiso, fechaOPiso, frasesDoFrete, pisoVale } from "@/lib/configu
 import { SEM_CONEXAO, semQueda } from "@/lib/rede"
 import { CalculadoraDeFrete } from "@/components/produto/calculadora"
 import type { ProdutoQueCombina } from "@/lib/pdp"
+import { gratisEm, type PromocaoDoProduto } from "@/lib/promocoes"
 import { PARCELA_MINIMA, PARCELAS_SEM_JUROS } from "@/lib/site"
 import { rastrear } from "@/lib/rastrear"
 import { usePeDaTela } from "@/lib/use-pe-da-tela"
@@ -43,6 +44,13 @@ import { usePeDaTela } from "@/lib/use-pe-da-tela"
  * quantidade — os dois saem da mesma conta. A única multiplicação daqui é
  * unidades x preço da unidade, que é a que o carrinho também faz.
  *
+ * O "LEVE X, PAGUE Y" (entrega 0133): com a promoção do painel valendo no
+ * produto, o selo dela vai embaixo do preço, e o total segue a conta do
+ * Medusa — a cada X unidades, Y pagas (`gratisEm`) —, e não mais o preço da
+ * unidade vezes quantas: o produto sai das faixas de quantidade enquanto a
+ * promoção vale (os dois descontos não somam), e o degrau dela vem pronto
+ * da escada ("3 unidades", pelo preço de 2).
+ *
  * ESGOTADO, É OUTRA CAIXA (`CompraEsgotada`, lá embaixo): o preço, a faixa
  * "Esgotado" e o "avise-me quando chegar" no lugar do botão. Some tudo o que
  * só serve pra quem compra agora — o frete, as unidades, o leve junto, o
@@ -63,6 +71,7 @@ export function Compra({
   precoCheio,
   estoque,
   mostrarDegraus,
+  promocao = null,
 }: {
   nome: string
   foto: string | null
@@ -81,6 +90,8 @@ export function Compra({
    * escolha aparece.
    */
   mostrarDegraus: boolean
+  /** O "Leve X, pague Y" que vale no produto agora, ou `null`. */
+  promocao?: PromocaoDoProduto | null
 }) {
   const politica = useFrete()
   const frases = frasesDoFrete(politica)
@@ -137,7 +148,11 @@ export function Compra({
     )
   }
 
-  const total = emCentavos(degrau.porUnidade * unidades)
+  const total = promocao
+    ? emCentavos(
+        base.porUnidade * (unidades - gratisEm(unidades, promocao.comprando, promocao.pague))
+      )
+    : emCentavos(degrau.porUnidade * unidades)
   const parcela = total / PARCELAS_SEM_JUROS
   const parcelavel = parcela >= PARCELA_MINIMA
 
@@ -227,7 +242,7 @@ export function Compra({
               handle: base.handle,
               imagem: foto,
               quantidade: unidades,
-              precoUnitario: degrau.porUnidade,
+              precoUnitario: promocao ? base.porUnidade : degrau.porUnidade,
               total,
             },
             ...marcados.map((c) => ({
@@ -303,6 +318,18 @@ export function Compra({
             <span className="compra__economia">Economiza {emReais(economia)}</span>
           ) : null}
         </p>
+
+        {/*
+          O SELO DO "LEVE X, PAGUE Y" vem da promoção do painel, nunca escrito
+          aqui: pausada ou vencida, ela sai da lista do backend e o selo some
+          junto (a oferta anunciada vincula — CDC art. 30).
+        */}
+        {promocao ? (
+          <p className="compra__promocao" data-promocao>
+            <Raio />
+            {promocao.etiqueta}
+          </p>
+        ) : null}
 
         {parcelavel ? (
           <p className="compra__pagamento-linha">

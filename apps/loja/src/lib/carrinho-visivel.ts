@@ -1,3 +1,5 @@
+import type { PromocaoDaLinha } from "./promocoes"
+
 /**
  * O QUE A SACOLA MOSTRA — e só isso.
  *
@@ -29,6 +31,13 @@ export type ItemDoCarrinho = {
   quantidade: number
   precoUnitario: number
   total: number
+  /**
+   * O recado do "Leve X, pague Y" (`lib/promocoes.ts`): a etiqueta, quantas
+   * saíram de graça nesta linha, e quantas a mais fazem a próxima sair de
+   * graça. Só na linha de produto em promoção, e só quando o servidor mandou
+   * as promoções junto (`paraAGaveta`).
+   */
+  promocao?: PromocaoDaLinha
   /**
    * Só na tela: a linha que um "Adicionar" acabou de pôr, antes de o Medusa
    * confirmar (ver `contexto.tsx`). Nova, ela ainda nem tem id de verdade —

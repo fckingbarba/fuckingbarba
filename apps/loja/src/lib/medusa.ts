@@ -6,6 +6,7 @@ import type { SugestaoDaSacola } from "./carrinho-visivel"
 import { PADRAO, type Configuracoes } from "./configuracoes"
 import { emReais } from "./formato"
 import { HOME_DO_SITE_DE_FABRICA, lerHomeDoSite, type HomeDoSite } from "./home"
+import { promocaoDoProduto, type PromocaoDoProduto, type PromocaoNaLoja } from "./promocoes"
 import type { ModeloDeRecomendacao } from "./recomendacao"
 
 /**
@@ -361,6 +362,49 @@ export async function buscarPromocao(): Promise<Promocao | null> {
   return promocao ?? null
 }
 
+/**
+ * AS PROMOÇÕES DO PAINEL QUE VALEM AGORA — o "Leve X, pague Y" (`lib/promocoes.ts`),
+ * com os produtos de cada uma. O selo do card e da página do produto, o
+ * cartão de quantidade e o recado da sacola leem daqui; o desconto é o
+ * Medusa que dá, no carrinho.
+ *
+ * Com a etiqueta dos PRODUTOS: o backend avisa essa etiqueta quando uma
+ * promoção nasce, pausa, liga, começa ou acaba (esta, pela rodada de minuto
+ * em minuto do desconto por quantidade). O 404 é o Medusa de antes da rota —
+ * a Vercel sobe antes do Railway —: sem promoção, como a loja era.
+ */
+export async function promocoesDaLoja(): Promise<PromocaoNaLoja[]> {
+  "use cache"
+  cacheTag(TAGS.produtos)
+  cacheLife("hours")
+  if (!sdk) return []
+  try {
+    const { promocoes } = await lerDoMedusa<{ promocoes?: PromocaoNaLoja[] }>(
+      "promoções",
+      "/store/promocoes"
+    )
+    return Array.isArray(promocoes) ? promocoes : []
+  } catch (e) {
+    const status = ((e as Error).cause as { status?: unknown } | undefined)?.status
+    if (status === 404) return []
+    throw e
+  }
+}
+
+/**
+ * As promoções pra um RECADO — a sacola e o selo, que sem elas continuam de
+ * pé: sem resposta do Medusa, nenhuma (e o desconto, que é dele, não muda).
+ * Quem PROMETE preço (a página do produto) lê `promocoesDaLoja`, que lança.
+ */
+export async function promocoesOuNenhuma(): Promise<PromocaoNaLoja[]> {
+  try {
+    return await promocoesDaLoja()
+  } catch (e) {
+    console.warn(e instanceof Error ? e.message : String(e))
+    return []
+  }
+}
+
 export async function listarCategorias(): Promise<HttpTypes.StoreProductCategory[]> {
   "use cache"
   cacheTag(TAGS.categorias)
@@ -492,10 +536,20 @@ export type DegrauDeQuantidade = {
   disponivel: boolean
   /**
    * A linha de apoio do cartão. Só o de uma unidade pode ter uma escrita à
-   * mão (a `notaDoAvulso` do admin, aplicada na `Dobra`); os outros caem na
-   * economia calculada, que é sempre verdade.
+   * mão (a `notaDoAvulso` do admin, aplicada na `Dobra`); o do "Leve X,
+   * pague Y" leva a etiqueta da promoção; os outros caem na economia
+   * calculada, que é sempre verdade.
    */
   nota: string | null
+}
+
+/**
+ * A ESCADA E A PROMOÇÃO do produto, juntas: a página mostra o selo e cobra
+ * pela promoção quando a quantidade muda (`Compra`).
+ */
+export type EscadaDoProduto = {
+  degraus: DegrauDeQuantidade[]
+  promocao: PromocaoDoProduto | null
 }
 
 /**
@@ -534,7 +588,8 @@ const UNIDADES = [1, 2, 3] as const
 
 /**
  * A ESCADA DE QUANTIDADE: 1, 2 e 3 unidades do MESMO produto, com o preço
- * que o carrinho vai cobrar por cada uma.
+ * que o carrinho vai cobrar por cada uma — e, com um "Leve X, pague Y"
+ * valendo no produto, o degrau da promoção ("3 unidades", pelo preço de 2).
  *
  * Não é mais kit: "2 unidades" é quantidade 2 da mesma variação, e o
  * desconto é o Medusa que dá, pela quantidade da linha (a lista "Desconto
@@ -552,7 +607,7 @@ const UNIDADES = [1, 2, 3] as const
  * catálogo. O prazo curto precisa estar AQUI: com `cacheLife` explícito, a
  * função de fora manda no prazo de tudo o que ela guarda.
  */
-export async function escadaDeQuantidade(handle: string): Promise<DegrauDeQuantidade[]> {
+export async function escadaDeQuantidade(handle: string): Promise<EscadaDoProduto> {
   "use cache"
   cacheTag(TAGS.produtos, TAGS.produto(handle))
 
@@ -561,15 +616,52 @@ export async function escadaDeQuantidade(handle: string): Promise<DegrauDeQuanti
   const variante = base?.variants?.[0]
   if (!base?.handle || !precoBase || !variante) {
     cacheLife("hours")
-    return []
+    return { degraus: [], promocao: null }
   }
 
-  const porQuantidade = await precosPorQuantidade(variante.id)
-  if (porQuantidade) cacheLife("hours")
+  /*
+    Sem a lista de promoções (o Medusa tropeçou), a escada sai sem o degrau
+    da promoção e guardada por MINUTOS, como sem os preços por quantidade: a
+    página segue de pé, sem prometer o que não confirmou — e o desconto, que
+    é do carrinho, não muda.
+  */
+  const [porQuantidade, promocoes] = await Promise.all([
+    precosPorQuantidade(variante.id),
+    promocoesDaLoja().catch((e: unknown) => {
+      console.warn(e instanceof Error ? e.message : String(e))
+      return null
+    }),
+  ])
+  if (porQuantidade && promocoes) cacheLife("hours")
   else cacheLife("minutes")
 
   const avulso = porQuantidade?.[1] ?? precoBase.atual
-  return UNIDADES.flatMap<DegrauDeQuantidade>((unidades) => {
+  const promocao = promocaoDoProduto(promocoes ?? [], base.id)
+  /*
+    O "LEVE X, PAGUE Y": o produto sai das faixas de quantidade enquanto a
+    promoção vale (o backend tira — os dois descontos não somam), e o degrau
+    dela é "X unidades pelo preço de Y". A conta é a do Medusa com um produto
+    só: X unidades, Y pagas pelo preço de uma (`gratisEm`, em `Compra`).
+  */
+  const unidadesDaEscada = promocao
+    ? [...new Set([...UNIDADES, promocao.comprando])].sort((a, b) => a - b)
+    : UNIDADES
+  const degraus = unidadesDaEscada.flatMap<DegrauDeQuantidade>((unidades) => {
+    if (promocao && unidades === promocao.comprando) {
+      const preco = emCentavos(avulso * promocao.pague)
+      return [
+        {
+          handle: base.handle!,
+          varianteId: variante.id,
+          unidades,
+          preco,
+          porUnidade: emCentavos(preco / unidades),
+          economia: Math.max(0, emCentavos(avulso * unidades - preco)),
+          disponivel: temEstoque(variante, unidades),
+          nota: promocao.etiqueta,
+        },
+      ]
+    }
     const unitario = unidades === 1 ? avulso : porQuantidade?.[unidades]
     // Faixa que não sai mais barata que as unidades avulsas não vira degrau:
     // um cartão de "2 unidades" sem vantagem nenhuma é só ruído.
@@ -592,6 +684,7 @@ export async function escadaDeQuantidade(handle: string): Promise<DegrauDeQuanti
       },
     ]
   })
+  return { degraus, promocao }
 }
 
 /**

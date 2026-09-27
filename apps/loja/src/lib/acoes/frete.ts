@@ -2,7 +2,7 @@
 
 import type { HttpTypes } from "@medusajs/types"
 import { buscarCep, limparCep } from "@/lib/cep"
-import { CAMPOS_CARRINHO, lerCarrinho, paraVisivel, type CarrinhoVisivel } from "@/lib/carrinho"
+import { CAMPOS_CARRINHO, lerCarrinho, paraAGaveta, type CarrinhoVisivel } from "@/lib/carrinho"
 import { comCepNovo, lerEndereco, montarEndereco } from "@/lib/endereco"
 import { semEntregaEmpatada } from "@/lib/frete"
 import { cliente } from "@/lib/medusa"
@@ -266,7 +266,8 @@ export async function calcularNaSacola(cepDigitado: string): Promise<FreteDaSaco
   const sdk = cliente()
   const atual = sdk ? await lerCarrinho(CAMPOS_COM_ENDERECO) : null
   if (!sdk || !atual) return { ok: false, mensagem: GENERICO }
-  if (!itensDo(atual).length) return { ok: false, mensagem: NAO_DEU, carrinho: paraVisivel(atual) }
+  if (!itensDo(atual).length)
+    return { ok: false, mensagem: NAO_DEU, carrinho: await paraAGaveta(atual) }
 
   const cepDeAntes = limparCep(atual.shipping_address?.postal_code ?? "")
 
@@ -289,11 +290,11 @@ export async function calcularNaSacola(cepDigitado: string): Promise<FreteDaSaco
     comCep = cart
   } catch (e) {
     registrar(e, "cep no carrinho")
-    return { ok: false, mensagem: NAO_DEU, carrinho: paraVisivel(atual) }
+    return { ok: false, mensagem: NAO_DEU, carrinho: await paraAGaveta(atual) }
   }
 
   const entregas = await entregasPara(sdk, comCep, cep)
-  if (!entregas.ok) return { ...entregas, carrinho: paraVisivel(await lerCarrinho()) }
+  if (!entregas.ok) return { ...entregas, carrinho: await paraAGaveta(await lerCarrinho()) }
 
   /*
     O que continua pendurado DEPOIS de gravar o endereço — e não o de antes:
@@ -318,7 +319,7 @@ export async function calcularNaSacola(cepDigitado: string): Promise<FreteDaSaco
       cep,
       emergencia: entregas.emergencia,
       opcoes: entregas.opcoes,
-      carrinho: paraVisivel(comCep),
+      carrinho: await paraAGaveta(comCep),
     }
   }
 
@@ -333,11 +334,11 @@ export async function calcularNaSacola(cepDigitado: string): Promise<FreteDaSaco
       cep,
       emergencia: entregas.emergencia,
       opcoes: entregas.opcoes,
-      carrinho: paraVisivel(cart),
+      carrinho: await paraAGaveta(cart),
     }
   } catch (e) {
     registrar(e, `frete ${escolhida.id}`)
-    return { ok: false, mensagem: NAO_DEU, carrinho: paraVisivel(await lerCarrinho()) }
+    return { ok: false, mensagem: NAO_DEU, carrinho: await paraAGaveta(await lerCarrinho()) }
   }
 }
 
@@ -359,13 +360,13 @@ export async function escolherNaSacola(opcaoId: string): Promise<TrocaDeFrete> {
       { option_id: opcaoId },
       { fields: CAMPOS_CARRINHO }
     )
-    return { ok: true, carrinho: paraVisivel(cart) }
+    return { ok: true, carrinho: await paraAGaveta(cart) }
   } catch (e) {
     registrar(e, `trocar frete pra ${opcaoId}`)
     return {
       ok: false,
       mensagem: "Essa entrega não está mais disponível. Calcula de novo.",
-      carrinho: paraVisivel(await lerCarrinho()),
+      carrinho: await paraAGaveta(await lerCarrinho()),
     }
   }
 }
