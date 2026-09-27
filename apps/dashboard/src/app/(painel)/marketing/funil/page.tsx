@@ -4,7 +4,7 @@ import { SoPara } from "@/components/area"
 import { AbasDoMarketing, Periodos, UmDiaEPouco } from "@/components/marketing"
 import { TelaDoFunil } from "@/components/marketing-funil"
 import { Cabeca } from "@/components/telas"
-import { lerPeriodo } from "@/lib/marketing"
+import { lerFunil, lerPeriodo } from "@/lib/marketing"
 
 export const metadata: Metadata = { title: "Funil · Marketing" }
 
@@ -16,7 +16,9 @@ type Busca = Promise<{ periodo?: string }>
  * (`components/marketing-funil.tsx`). O conteúdo espera o Google num
  * `<Suspense>`; a cabeça e as abas aparecem na hora.
  */
-export default function Pagina({ searchParams }: { searchParams: Busca }) {
+export default async function Pagina({ searchParams }: { searchParams: Busca }) {
+  // A aba sai junto com a pergunta de quem é (a resposta fica no `cache`).
+  void lerFunil(lerPeriodo((await searchParams).periodo))
   return (
     <SoPara area="marketing">
       <Funil searchParams={searchParams} />

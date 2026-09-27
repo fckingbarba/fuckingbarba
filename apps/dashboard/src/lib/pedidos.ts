@@ -8,6 +8,8 @@
  * lá — quem mudar um, muda o outro.
  */
 
+import type { Paginacao } from "./paginas"
+
 export type Situacao =
   "pix" | "vencido" | "analise" | "separacao" | "enviado" | "entregue" | "cancelado" | "combinar"
 
@@ -46,11 +48,14 @@ export const ehFiltro = (v: unknown): v is Filtro =>
   typeof v === "string" && FILTROS.some((f) => f.id === v)
 
 export type ListaDePedidos = {
+  /** Só os da página mostrada. */
   pedidos: LinhaDaLista[]
   contagem: Record<Filtro, number>
   filtro: Filtro
   busca: string
   limite: number
+  /** A página (o backend de antes da 0146 não manda: aí a lista vem inteira). */
+  paginacao?: Paginacao
 }
 
 export type Passo = { nome: string; estado: "feito" | "agora" | "erro" | ""; texto: string }

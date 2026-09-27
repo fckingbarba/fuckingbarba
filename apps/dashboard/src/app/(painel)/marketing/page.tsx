@@ -17,6 +17,7 @@ import {
 import { Cabeca, ForaDoAr, SemAcesso } from "@/components/telas"
 import {
   lerAchadosDoMarketing,
+  lerCanais,
   lerPeriodo,
   lerResumo,
   lerVisitasDoMarketing,
@@ -38,19 +39,22 @@ type Busca = Promise<{ periodo?: string }>
  * As visitas (do Google) e as frases (as contas de todas as abas) chegam
  * depois do resto, cada uma no seu `<Suspense>`.
  */
-export default function Pagina({ searchParams }: { searchParams: Busca }) {
+export default async function Pagina({ searchParams }: { searchParams: Busca }) {
+  const periodo: Periodo = lerPeriodo((await searchParams).periodo)
+  // Tudo sai junto com a pergunta de quem é, sem esperar um pelo outro: o
+  // Resumo, as visitas, as frases e os canais (as respostas ficam no `cache`).
+  void lerResumo(periodo)
+  void lerVisitasDoMarketing(periodo)
+  void lerAchadosDoMarketing(periodo)
+  void lerCanais(periodo)
   return (
     <SoPara area="marketing">
-      <Marketing searchParams={searchParams} />
+      <Marketing periodo={periodo} />
     </SoPara>
   )
 }
 
-async function Marketing({ searchParams }: { searchParams: Busca }) {
-  const periodo: Periodo = lerPeriodo((await searchParams).periodo)
-  // As visitas e as frases saem junto com o Resumo, sem esperar por ele (a resposta fica no `cache`).
-  void lerVisitasDoMarketing(periodo)
-  void lerAchadosDoMarketing(periodo)
+async function Marketing({ periodo }: { periodo: Periodo }) {
   const leitura = await lerResumo(periodo)
   if (leitura.estado !== "ok")
     return leitura.estado === "sem-acesso" ? <SemAcesso area="marketing" /> : <ForaDoAr />

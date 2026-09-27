@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 import { semAcessoA } from "@/lib/equipe"
 import { medusa } from "@/lib/medusa"
+import type { Inscrito } from "@/lib/clientes"
 import type { Resultado } from "@/lib/produtos"
 
 /**
@@ -29,4 +30,20 @@ export async function tirarDaNewsletter(email: string): Promise<Resultado> {
   revalidatePath("/clientes/newsletter")
   revalidatePath("/clientes", "layout")
   return { ok: true, texto: `${email} saiu da lista: não recebe mais ofertas por e-mail.` }
+}
+
+/**
+ * A NEWSLETTER INTEIRA, pro CSV. A tela mostra 50 por página; o arquivo leva
+ * todo mundo (`GET /dashboard/newsletter?todos=1`). Só lê: não refaz a tela.
+ */
+export async function newsletterInteira(): Promise<
+  { ok: true; inscritos: Inscrito[] } | { ok: false; texto: string }
+> {
+  const r = await medusa("/dashboard/newsletter?todos=1", { metodo: "GET", token: "sessao" })
+  if (r.status === 401)
+    redirect(`/sair?motivo=${r.corpo.message === "fora_da_equipe" ? "fora" : "expirou"}`)
+  if (r.status === 403) return { ok: false, texto: semAcessoA("newsletter") }
+  const inscritos = r.corpo.inscritos
+  if (r.status !== 200 || !Array.isArray(inscritos)) return { ok: false, texto: GENERICO }
+  return { ok: true, inscritos: inscritos as Inscrito[] }
 }

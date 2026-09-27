@@ -1,3 +1,4 @@
+import type { Paginacao } from "@/lib/paginas"
 import type { LinhaDaLista } from "@/lib/pedidos"
 
 /**
@@ -27,12 +28,15 @@ export type LinhaDoCliente = {
 }
 
 export type ListaDeClientes = {
+  /** Só os da página mostrada. */
   clientes: LinhaDoCliente[]
   /** Quantas pessoas a loja tem. */
   total: number
   /** Quantas aceitaram ofertas, por e-mail ou WhatsApp. */
   comOfertas: number
   busca: string
+  /** A página (o backend de antes da 0146 não manda: aí a lista vem inteira). */
+  paginacao?: Paginacao
 }
 
 export type FichaDoCliente = {
@@ -68,8 +72,10 @@ export type Inscrito = {
 }
 
 export type Newsletter = {
+  /** Só os da página mostrada (o CSV pede todos: `?todos=1`). */
   inscritos: Inscrito[]
   numeros: { total: number; semana: number; rodape: number; conta: number }
+  paginacao?: Paginacao
 }
 
 /** "1 pedido", "3 pedidos". */

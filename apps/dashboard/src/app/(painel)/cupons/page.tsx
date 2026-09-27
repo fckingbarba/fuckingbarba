@@ -1,11 +1,26 @@
-import type { Metadata } from "next"
+import type { Metadata, Route } from "next"
+import Form from "next/form"
 import { redirect } from "next/navigation"
 import { SoPara } from "@/components/area"
 import { ListaDeCupons, NovoCupom } from "@/components/cupons"
+import { Icone } from "@/components/icones"
+import { Paginas } from "@/components/paginas"
 import { ListaDePromocoes, NovaPromocao } from "@/components/promocoes"
 import { Cabeca, ForaDoAr, SemAcesso } from "@/components/telas"
 import type { PaginaDeCupons } from "@/lib/cupons"
-import { medusa } from "@/lib/medusa"
+import { ler } from "@/lib/medusa"
+import { paginaDoEndereco } from "@/lib/paginas"
+
+type Busca = Promise<{ busca?: string; pagina?: string }>
+
+/** O endereço da tela: a busca pelo código e a página (a primeira não vai). */
+const endereco = (busca: string, pagina: number) => {
+  const q = new URLSearchParams()
+  if (busca) q.set("busca", busca)
+  if (pagina > 1) q.set("pagina", String(pagina))
+  const s = q.toString()
+  return (s ? `/cupons?${s}` : "/cupons") as Route
+}
 
 export const metadata: Metadata = { title: "Cupons e descontos" }
 
@@ -14,29 +29,40 @@ export const metadata: Metadata = { title: "Cupons e descontos" }
  * pausar e acompanhar), as promoções que a loja aplica sozinha e que o
  * painel cria (o "Leve X, pague Y", entrega 0133) e os descontos automáticos
  * de sempre. Vem pronto do backend (`GET /dashboard/cupons`). Marketing e
- * dono.
+ * dono. Os cupons vêm de 20 em 20, com a busca pelo código (`?busca=`).
  */
-export default function Pagina() {
+export default async function Pagina({ searchParams }: { searchParams: Busca }) {
+  const { busca, pagina } = await searchParams
+  const q = new URLSearchParams()
+  if (busca?.trim()) q.set("busca", busca.trim().slice(0, 40))
+  const p = paginaDoEndereco(pagina)
+  if (p && p > 1) q.set("pagina", String(p))
+  const caminho = `/dashboard/cupons?${q}`
+  void ler(caminho)
   return (
     <SoPara area="cupons">
-      <Cupons />
+      <Cupons caminho={caminho} />
     </SoPara>
   )
 }
 
-async function Cupons() {
-  const r = await medusa("/dashboard/cupons", { metodo: "GET", token: "sessao" })
+async function Cupons({ caminho }: { caminho: string }) {
+  const r = await ler(caminho)
   if (r.status === 401)
     redirect(`/sair?motivo=${r.corpo.message === "fora_da_equipe" ? "fora" : "expirou"}`)
   if (r.status === 403) return <SemAcesso area="cupons" />
   if (r.status !== 200) return <ForaDoAr />
   const {
     cupons,
+    busca = "",
+    paginacao,
     promocoes = [],
     automaticos,
     catalogo,
     loja = null,
   } = r.corpo as unknown as PaginaDeCupons
+  // A busca só aparece quando a lista passa de uma página (ou já buscou).
+  const comBusca = Boolean(busca) || (paginacao?.paginas ?? 1) > 1
 
   return (
     <div data-tela>
@@ -50,7 +76,31 @@ async function Cupons() {
           <h2 className="bloco__titulo">Cupons</h2>
           <span className="selo">quem valida é a loja, não a tela</span>
         </div>
-        <ListaDeCupons cupons={cupons} loja={loja} />
+        {comBusca ? (
+          <Form className="busca" action="/cupons" role="search">
+            <label htmlFor="busca-cupons" className="sr-only">
+              Buscar cupom pelo código
+            </label>
+            <Icone nome="busca" />
+            <input
+              type="search"
+              id="busca-cupons"
+              name="busca"
+              placeholder="Código do cupom"
+              defaultValue={busca}
+              autoComplete="off"
+            />
+            <button type="submit">Buscar</button>
+          </Form>
+        ) : null}
+        {busca && !cupons.length ? (
+          <p className="vazio vazio--curto">Nenhum cupom com &ldquo;{busca}&rdquo; no código.</p>
+        ) : (
+          <ListaDeCupons cupons={cupons} loja={loja} />
+        )}
+        {paginacao ? (
+          <Paginas paginacao={paginacao} endereco={(n) => endereco(busca, n)} rotulo="cupons" />
+        ) : null}
       </section>
       <section className="bloco" data-promocoes>
         <div className="bloco__cabeca">

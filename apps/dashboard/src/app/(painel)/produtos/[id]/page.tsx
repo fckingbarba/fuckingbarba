@@ -10,7 +10,7 @@ import { SecoesDaPagina } from "@/components/produto/secoes-da-pagina"
 import { TextosDoProduto } from "@/components/produto/textos-do-produto"
 import { SeloDoProduto } from "@/components/produtos"
 import { Cabeca, ForaDoAr, SemAcesso } from "@/components/telas"
-import { medusa } from "@/lib/medusa"
+import { ler } from "@/lib/medusa"
 import {
   ehIdDeProduto,
   fraseDoHistorico,
@@ -35,7 +35,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  *
  * No celular vira uma coluna só, na ordem do que mais se mexe.
  */
-export default function Pagina({ params }: Props) {
+export default async function Pagina({ params }: Props) {
+  const { id } = await params
+  // A leitura sai junto com a pergunta de quem é (a resposta fica no `cache`).
+  if (ehIdDeProduto(id)) void ler(`/dashboard/produtos/${id}`)
   return (
     <SoPara area="produtos">
       <Produto params={params} />
@@ -47,7 +50,7 @@ async function Produto({ params }: Props) {
   const { id } = await params
   if (!ehIdDeProduto(id)) return <NaoAchei />
 
-  const r = await medusa(`/dashboard/produtos/${id}`, { metodo: "GET", token: "sessao" })
+  const r = await ler(`/dashboard/produtos/${id}`)
   if (r.status === 401)
     redirect(`/sair?motivo=${r.corpo.message === "fora_da_equipe" ? "fora" : "expirou"}`)
   if (r.status === 403) return <SemAcesso area="produtos" />

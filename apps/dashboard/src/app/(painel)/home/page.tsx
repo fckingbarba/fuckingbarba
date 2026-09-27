@@ -6,7 +6,7 @@ import { SecoesDaHome } from "@/components/home/secoes-da-home"
 import { Icone } from "@/components/icones"
 import { Cabeca, ForaDoAr, SemAcesso } from "@/components/telas"
 import { fraseDoHistoricoDaHome, quantasMudancas, type PaginaDaHome } from "@/lib/home"
-import { medusa } from "@/lib/medusa"
+import { ler } from "@/lib/medusa"
 
 export const metadata: Metadata = { title: "Layout da home" }
 
@@ -18,6 +18,8 @@ export const metadata: Metadata = { title: "Layout da home" }
  * (`GET /dashboard/home`). Marketing e dono.
  */
 export default function Pagina() {
+  // A leitura sai junto com a pergunta de quem é (a resposta fica no `cache`).
+  void ler("/dashboard/home")
   return (
     <SoPara area="home">
       <Home />
@@ -26,7 +28,7 @@ export default function Pagina() {
 }
 
 async function Home() {
-  const r = await medusa("/dashboard/home", { metodo: "GET", token: "sessao" })
+  const r = await ler("/dashboard/home")
   if (r.status === 401)
     redirect(`/sair?motivo=${r.corpo.message === "fora_da_equipe" ? "fora" : "expirou"}`)
   if (r.status === 403) return <SemAcesso area="home" />

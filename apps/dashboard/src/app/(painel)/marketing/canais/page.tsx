@@ -4,7 +4,7 @@ import { SoPara } from "@/components/area"
 import { AbasDoMarketing, Periodos, UmDiaEPouco } from "@/components/marketing"
 import { TelaDosCanais } from "@/components/marketing-canais"
 import { Cabeca } from "@/components/telas"
-import { lerPeriodo } from "@/lib/marketing"
+import { lerCanais, lerPeriodo } from "@/lib/marketing"
 
 export const metadata: Metadata = { title: "Canais · Marketing" }
 
@@ -15,7 +15,9 @@ type Busca = Promise<{ periodo?: string }>
  * montador de link (`components/marketing-canais.tsx`). O conteúdo espera
  * o Google num `<Suspense>`; a cabeça e as abas aparecem na hora.
  */
-export default function Pagina({ searchParams }: { searchParams: Busca }) {
+export default async function Pagina({ searchParams }: { searchParams: Busca }) {
+  // A aba sai junto com a pergunta de quem é (a resposta fica no `cache`).
+  void lerCanais(lerPeriodo((await searchParams).periodo))
   return (
     <SoPara area="marketing">
       <Canais searchParams={searchParams} />
