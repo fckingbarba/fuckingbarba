@@ -8,7 +8,7 @@ import { Status } from "@/components/pedidos"
 import { Cabeca, ForaDoAr, SemAcesso } from "@/components/telas"
 import { ehIdDeCliente, type FichaDoCliente, vezes } from "@/lib/clientes"
 import { lerMembro } from "@/lib/eu"
-import { medusa } from "@/lib/medusa"
+import { ler } from "@/lib/medusa"
 import { reais } from "@/lib/pedidos"
 
 export const metadata: Metadata = { title: "Cliente" }
@@ -23,23 +23,23 @@ type Params = Promise<{ id: string }>
  *
  * A ficha junta a mesma pessoa dos dois cadastros do Medusa (o convidado de
  * cada checkout e a conta). Pra quem abre o CRM, vem também a parte dele: as
- * cinco etiquetas, no alto, e o caminho da pessoa, embaixo dos pedidos.
+ * cinco etiquetas, no alto, e o caminho da pessoa, embaixo dos pedidos. A
+ * leitura sai junto com a pergunta de quem é (`ler`).
  */
-export default function Pagina({ params }: { params: Params }) {
+export default async function Pagina({ params }: { params: Params }) {
+  const { id } = await params
+  if (!ehIdDeCliente(id)) notFound()
+  const caminho = `/dashboard/clientes/${id}`
+  void ler(caminho)
   return (
     <SoPara area="clientes">
-      <Ficha params={params} />
+      <Ficha caminho={caminho} />
     </SoPara>
   )
 }
 
-async function Ficha({ params }: { params: Params }) {
-  const { id } = await params
-  if (!ehIdDeCliente(id)) notFound()
-  const [r, leitura] = await Promise.all([
-    medusa(`/dashboard/clientes/${id}`, { metodo: "GET", token: "sessao" }),
-    lerMembro(),
-  ])
+async function Ficha({ caminho }: { caminho: string }) {
+  const [r, leitura] = await Promise.all([ler(caminho), lerMembro()])
   if (r.status === 401)
     redirect(`/sair?motivo=${r.corpo.message === "fora_da_equipe" ? "fora" : "expirou"}`)
   if (r.status === 403) return <SemAcesso area="clientes" />

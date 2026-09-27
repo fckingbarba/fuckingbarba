@@ -1,4 +1,5 @@
 import { PREFIXO_DO_BUMP } from "../bumps"
+import { AJUSTES_PADRAO, type AjustesDoCrm } from "../crm/ajustes"
 import {
   etiquetasDaPessoa,
   NOME_DA_ETAPA,
@@ -498,9 +499,10 @@ export function montarFichaDoCrm(
 
 /**
  * A ficha do CRM a partir do que o banco devolve: os pedidos de todos os
- * cadastros com o mesmo e-mail, os envios, a newsletter e o que o CRM sabe.
- * Sem a área dos pedidos, o número do pedido não aparece (o marketing vê a
- * compra e o valor, não o pedido).
+ * cadastros com o mesmo e-mail, os envios, a newsletter e o que o CRM sabe,
+ * com os Ajustes do CRM (quanto dura cada produto, as regras). Sem a área
+ * dos pedidos, o número do pedido não aparece (o marketing vê a compra e o
+ * valor, não o pedido).
  */
 export function fichaDoCrmDoCliente(
   entrada: {
@@ -509,9 +511,11 @@ export function fichaDoCrmDoCliente(
     envios: Map<string, EnvioCru[]>
     newsletterDesde: Date | null
     comNumero: boolean
+    ajustes?: AjustesDoCrm
   },
   agora: Date = new Date()
 ): FichaDoCrm {
+  const { dias, regras } = entrada.ajustes ?? AJUSTES_PADRAO
   const { crm } = entrada
   const pedidos = entrada.pedidos.map((o) => {
     const p = pedidoDaPessoa(o, entrada.envios.get(o.id))
@@ -527,6 +531,8 @@ export function fichaDoCrmDoCliente(
           newsletterDesde: entrada.newsletterDesde,
         },
         agora,
+        dias,
+        regras,
       }),
       origem: crm.origem,
       primeiraVisita: crm.primeiraVisita,

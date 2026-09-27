@@ -13,14 +13,35 @@ import { dia } from "../painel/formato"
  *
  * ┌─ QUANTO DURA CADA FRASCO ──────────────────────────────────────────────┐
  * │ A próxima compra é a entrega do último pedido pago + o que dura o      │
- * │ primeiro produto dele a acabar. Os dias são os do protótipo (o Fator,  │
- * │ 30; óleo, shampoo e spray, 45; balm e pastas, 60) — padrão até os      │
- * │ Ajustes do CRM deixarem o dono mudar, e até o histórico da Nuvemshop   │
- * │ acertar os números de verdade.                                         │
+ * │ primeiro produto dele a acabar. Os dias e as regras (quando alguém     │
+ * │ fica em risco, quente, sensível a cupom) são os do protótipo — o       │
+ * │ padrão. Quem abre o CRM muda os dois no painel (CRM → Ajustes,         │
+ * │ `lib/crm/ajustes.ts`), e o histórico da Nuvemshop vai acertar os       │
+ * │ números de verdade.                                                    │
  * └────────────────────────────────────────────────────────────────────────┘
  */
 
 export type Componente = "fator" | "oleo" | "shampoo" | "balm" | "spray" | "pasta"
+
+/** Os tipos de produto, na ordem da tela dos Ajustes. */
+export const COMPONENTES: readonly Componente[] = [
+  "fator",
+  "oleo",
+  "shampoo",
+  "balm",
+  "spray",
+  "pasta",
+]
+
+/** O nome de cada tipo na tela ("Fator de Crescimento"). */
+export const NOME_DO_TIPO: Record<Componente, string> = {
+  fator: "Fator de Crescimento",
+  oleo: "Óleo",
+  shampoo: "Shampoo",
+  balm: "Balm",
+  spray: "Spray",
+  pasta: "Pasta",
+}
 
 /** Quantos dias dura cada frasco (o padrão do protótipo). */
 export const DIAS_PADRAO: Record<Componente, number> = {
@@ -117,21 +138,37 @@ export type Etiquetas = {
   cupom: { valor: boolean | null; porque: string }
 }
 
+/** As regras das etiquetas, em dias (e em compras, a do cupom). */
+export type RegrasDasEtiquetas = {
+  /** Passou tantos dias do dia de comprar de novo: em risco (o resgate do plano). */
+  toleranciaDaReposicao: number
+  /** Sem saber quanto duram os produtos: em risco com tantos dias sem pedido. */
+  semPrevisao: number
+  /** Em risco há tantos dias, sem clicar nem visitar nesse tempo: sunset. */
+  sunset: number
+  /** O sinal mais novo até tantos dias: quente… */
+  quente: number
+  /** …até tantos: morno; depois, frio. */
+  morno: number
+  /** O "sensível a cupom" olha as últimas tantas compras. */
+  comprasDoCupom: number
+}
+
+/** As regras do protótipo — o padrão, enquanto ninguém mudar nos Ajustes. */
+export const REGRAS_PADRAO: RegrasDasEtiquetas = {
+  toleranciaDaReposicao: 20,
+  semPrevisao: 60,
+  sunset: 45,
+  quente: 30,
+  morno: 90,
+  comprasDoCupom: 3,
+}
+
 const DIA_MS = 24 * 60 * 60 * 1000
 /** Sem o aviso de entrega, conta como entregue 7 dias depois de pago… */
 const ENTREGA_ESTIMADA_DIAS = 7
 /** …a partir de 10 dias pago (antes, está "a caminho"). */
 const SEM_AVISO_DE_ENTREGA_DIAS = 10
-/** Passou 20 dias do dia de comprar de novo: em risco (o resgate do plano). */
-const TOLERANCIA_DA_REPOSICAO_DIAS = 20
-/** Sem previsão de reposição: em risco com 60 dias sem pedido. */
-const SEM_PREVISAO_DIAS = 60
-/** Em risco há 45 dias, sem clicar nem visitar nesse tempo: sunset. */
-const SUNSET_DIAS = 45
-const QUENTE_DIAS = 30
-const MORNO_DIAS = 90
-/** O "sensível a cupom" olha as últimas 3 compras. */
-const COMPRAS_DO_CUPOM = 3
 
 const mais = (d: Date, dias: number) => new Date(d.getTime() + dias * DIA_MS)
 const diasEntre = (de: Date, ate: Date) => Math.floor((ate.getTime() - de.getTime()) / DIA_MS)
@@ -170,8 +207,9 @@ export function etiquetasDaPessoa(entrada: {
   sinais: SinaisDaPessoa
   agora: Date
   dias?: Record<Componente, number>
+  regras?: RegrasDasEtiquetas
 }): Etiquetas {
-  const { sinais, agora, dias = DIAS_PADRAO } = entrada
+  const { sinais, agora, dias = DIAS_PADRAO, regras = REGRAS_PADRAO } = entrada
   const pagos = entrada.pedidos
     .filter((p) => p.pagoEm && !p.cancelado)
     .sort((a, b) => a.pagoEm!.getTime() - b.pagoEm!.getTime())
@@ -209,27 +247,30 @@ export function etiquetasDaPessoa(entrada: {
   const risco = (() => {
     if (!ultimo) return null
     if (proximaCompra.em) {
-      const desde = mais(proximaCompra.em, TOLERANCIA_DA_REPOSICAO_DIAS)
+      const desde = mais(proximaCompra.em, regras.toleranciaDaReposicao)
       return agora >= desde
         ? {
             desde,
-            porque: `passou ${TOLERANCIA_DA_REPOSICAO_DIAS} dias do dia de comprar de novo (${dia(proximaCompra.em)})`,
+            porque:
+              regras.toleranciaDaReposicao > 0
+                ? `passou ${regras.toleranciaDaReposicao} ${regras.toleranciaDaReposicao === 1 ? "dia" : "dias"} do dia de comprar de novo (${dia(proximaCompra.em)})`
+                : `passou o dia de comprar de novo (${dia(proximaCompra.em)})`,
           }
         : null
     }
-    const desde = mais(ultimo.pagoEm!, SEM_PREVISAO_DIAS)
-    return agora >= desde ? { desde, porque: `${SEM_PREVISAO_DIAS} dias sem pedido` } : null
+    const desde = mais(ultimo.pagoEm!, regras.semPrevisao)
+    return agora >= desde ? { desde, porque: `${regras.semPrevisao} dias sem pedido` } : null
   })()
   if (!ultimo) {
     etapa = { valor: "lead", porque: "tem e-mail e ainda não comprou" }
   } else if (risco) {
     const sumiu =
-      diasEntre(risco.desde, agora) >= SUNSET_DIAS &&
-      (!ultimoSinalDeInteresse || diasEntre(ultimoSinalDeInteresse, agora) >= SUNSET_DIAS)
+      diasEntre(risco.desde, agora) >= regras.sunset &&
+      (!ultimoSinalDeInteresse || diasEntre(ultimoSinalDeInteresse, agora) >= regras.sunset)
     etapa = sumiu
       ? {
           valor: "sunset",
-          porque: `em risco há mais de ${SUNSET_DIAS} dias, sem clicar nem visitar a loja`,
+          porque: `em risco há mais de ${regras.sunset} dias, sem clicar nem visitar a loja`,
         }
       : { valor: "em-risco", porque: risco.porque }
   } else if (pagos.length >= 2) {
@@ -261,9 +302,9 @@ export function etiquetasDaPessoa(entrada: {
     ? { valor: "frio", porque: "nenhum sinal ainda" }
     : {
         valor:
-          diasEntre(quando, agora) <= QUENTE_DIAS
+          diasEntre(quando, agora) <= regras.quente
             ? "quente"
-            : diasEntre(quando, agora) <= MORNO_DIAS
+            : diasEntre(quando, agora) <= regras.morno
               ? "morno"
               : "frio",
         porque: `${oque} ${haDias(diasEntre(quando, agora))}`,
@@ -284,7 +325,7 @@ export function etiquetasDaPessoa(entrada: {
   }
 
   /* ── sensível a cupom ── */
-  const ultimas = pagos.slice(-COMPRAS_DO_CUPOM)
+  const ultimas = pagos.slice(-regras.comprasDoCupom)
   const comCupom = ultimas.filter((p) => p.cupons.length > 0).length
   const cupom: Etiquetas["cupom"] = !ultimas.length
     ? { valor: null, porque: "ainda não comprou" }
@@ -292,9 +333,7 @@ export function etiquetasDaPessoa(entrada: {
         valor: comCupom === ultimas.length,
         porque:
           ultimas.length === 1
-            ? comCupom
-              ? "a única compra foi com cupom"
-              : "a única compra foi sem cupom"
+            ? `a ${pagos.length === 1 ? "única" : "última"} compra foi ${comCupom ? "com" : "sem"} cupom`
             : `${comCupom} das últimas ${ultimas.length} compras com cupom`,
       }
 
