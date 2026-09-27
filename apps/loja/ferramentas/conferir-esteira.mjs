@@ -13,10 +13,15 @@
  * (`conteudo/depoimentos.ts`): que nenhum trecho carrega nome, nota ou selo,
  * que cada um entra uma vez, no produto dele, e que a home desenha dezenas de
  * cartões com eles, e não mil.
+ *
+ * E as AVALIAÇÕES DE QUEM COMPROU (as da página `/avaliar`, aprovadas no
+ * painel): a conversão do que o Medusa manda (`avaliacoesDoMedusa`) e a regra
+ * de que a avaliação entra antes do trecho, na esteira e na página.
  */
 
 import { AVALIACOES, TRECHOS } from "../src/conteudo/depoimentos.ts"
 import {
+  avaliacoesDoMedusa,
   MINIMO_NA_FILA,
   NA_PAGINA_DO_PRODUTO,
   POR_PRODUTO_NA_ESTEIRA,
@@ -326,6 +331,67 @@ ok(
   menos >= 300 && mais <= 600,
   "cada um tem a mesma chance de aparecer",
   `de ${menos} a ${mais} vezes em 3.000 visitas`
+)
+
+titulo("As avaliações de quem comprou (a página /avaliar)")
+const doMedusa = avaliacoesDoMedusa([
+  {
+    id: "aval_1",
+    nome: "Rafael S.",
+    nota: 4,
+    texto: "Segurou o dia todo.",
+    produto: "oleo",
+    em: "x",
+  },
+  { nome: "Sem nota", texto: "x", produto: "oleo" },
+  { nome: "Nota seis", nota: 6, texto: "x", produto: "oleo" },
+  { nome: "Sem produto", nota: 5, texto: "x" },
+  null,
+  "texto solto",
+])
+ok(
+  doMedusa.length === 1 &&
+    JSON.stringify(doMedusa[0]) ===
+      JSON.stringify({
+        nome: "Rafael S.",
+        nota: 4,
+        texto: "Segurou o dia todo.",
+        compraVerificada: true,
+        produtoHandle: "oleo",
+      }),
+  "o que o Medusa manda vira avaliação com o selo de compra verificada",
+  JSON.stringify(doMedusa)
+)
+ok(
+  avaliacoesDoMedusa(undefined).length === 0 && avaliacoesDoMedusa({}).length === 0,
+  "resposta torta vira lista vazia, sem quebrar"
+)
+const trechosDoOleo = Array.from({ length: 20 }, (_, i) => ({
+  texto: `trecho do óleo ${i}`,
+  produtoHandle: "oleo",
+}))
+const comUma = [...trechosDoOleo, ...doMedusa]
+let naPaginaSempre = true
+let naEsteiraSempre = true
+const posicoes = new Set()
+for (let i = 0; i < 500; i++) {
+  const tresDaVez = sortear(comUma, NA_PAGINA_DO_PRODUTO, sequencia(5000 + i))
+  if (!tresDaVez.includes(doMedusa[0])) naPaginaSempre = false
+  posicoes.add(tresDaVez.indexOf(doMedusa[0]))
+  if (!sortearDaEsteira(comUma, POR_PRODUTO_NA_ESTEIRA, sequencia(5000 + i)).includes(doMedusa[0]))
+    naEsteiraSempre = false
+}
+ok(
+  naPaginaSempre,
+  "com 20 trechos e 1 avaliação, a página do produto mostra a avaliação em toda visita"
+)
+ok(posicoes.size === 3, "e em qualquer um dos três lugares", [...posicoes].join(", "))
+ok(naEsteiraSempre, "e a esteira da home também (a avaliação entra nos quatro do produto)")
+const variasAvaliacoes = [...trechosDoOleo, ...cria("oleo", 6, "av")]
+const soAvaliacoes = sortear(variasAvaliacoes, NA_PAGINA_DO_PRODUTO, sequencia(9))
+ok(
+  soAvaliacoes.every((d) => "nota" in d),
+  "com mais avaliações que lugares, só avaliações — os trechos completam, não disputam"
 )
 
 titulo("A sequência")
