@@ -12,6 +12,7 @@ import { emProducao, site } from "@/lib/site"
  * redireciona). O `conferir-links.mjs` confere o robots contra o sitemap
  * quando a loja indexa. A `/avaliar` é a página escondida da avaliação (o
  * link vem no e-mail): fora do Google, com o `noindex` dela de segunda tranca.
+ * A `/sair` (o sair da lista dos e-mails de oferta) vai do mesmo jeito.
  */
 export default function robots(): MetadataRoute.Robots {
   if (!emProducao) {
@@ -21,7 +22,16 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: "*",
       allow: "/",
-      disallow: ["/checkout", "/conta/", "/conta$", "/carrinho", "/api/", "/busca", "/avaliar"],
+      disallow: [
+        "/checkout",
+        "/conta/",
+        "/conta$",
+        "/carrinho",
+        "/api/",
+        "/busca",
+        "/avaliar",
+        "/sair",
+      ],
     },
     sitemap: `${site.url}/sitemap.xml`,
   }

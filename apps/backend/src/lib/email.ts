@@ -31,6 +31,13 @@ export type Email = {
   assunto: string
   html: string
   texto: string
+  /**
+   * Cabeçalhos a mais — os e-mails de oferta do CRM levam o `List-Unsubscribe`
+   * (o "cancelar inscrição" do Gmail e do iPhone, `lib/emails/crm.ts`).
+   */
+  cabecalhos?: Record<string, string>
+  /** Outro remetente — o do CRM (`EMAIL_REMETENTE_CRM`). Sem ele, o da loja. */
+  remetente?: string
 }
 
 /**
@@ -57,6 +64,14 @@ export const remetenteDosEmails = () =>
   process.env.EMAIL_REMETENTE || "FuckingBarba <nao-responda@fuckingbarba.com.br>"
 
 /**
+ * Quem manda os e-mails de oferta do CRM (`EMAIL_REMETENTE_CRM`). O bom é
+ * um subdomínio só pra oferta (`news.fuckingbarba.com.br`, verificado no
+ * Resend): se um dia a oferta cair no spam, o e-mail de pedido não cai junto.
+ * Sem a variável, o mesmo da loja.
+ */
+export const remetenteDoCrm = () => process.env.EMAIL_REMETENTE_CRM || remetenteDosEmails()
+
+/**
  * `idempotencia` vai no cabeçalho `Idempotency-Key` do Resend, que guarda a
  * chave por 24 horas: a mesma chave com o mesmo e-mail devolve o id do
  * primeiro, sem mandar de novo. É a segunda trava dos e-mails de pedido —
@@ -75,7 +90,7 @@ export async function enviarEmail(
   { idempotencia, tipo }: { idempotencia?: string; tipo?: string } = {}
 ): Promise<Enviado> {
   const chave = process.env.RESEND_API_KEY
-  const remetente = remetenteDosEmails()
+  const remetente = email.remetente || remetenteDosEmails()
   const etiqueta = etiquetaLimpa(tipo ?? idempotencia?.split("/")[0])
   const base = (process.env.RESEND_URL || "https://api.resend.com").replace(/\/+$/, "")
 
@@ -111,6 +126,7 @@ export async function enviarEmail(
         subject: email.assunto,
         html: email.html,
         text: email.texto,
+        ...(email.cabecalhos ? { headers: email.cabecalhos } : {}),
         ...(etiqueta ? { tags: [{ name: "tipo", value: etiqueta }] } : {}),
       }),
       signal: AbortSignal.timeout(TEMPO_LIMITE_MS),

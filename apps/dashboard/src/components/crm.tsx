@@ -59,7 +59,7 @@ const inteiro = new Intl.NumberFormat("pt-BR")
 const navegadores = (n: number) => `${inteiro.format(n)} ${n === 1 ? "navegador" : "navegadores"}`
 
 /** As abas do CRM: o Resumo (o que a loja anotou), os Ajustes e a Base da Nuvemshop. */
-export function AbasDoCrm({ atual }: { atual: "resumo" | "ajustes" | "base" }) {
+export function AbasDoCrm({ atual }: { atual: "resumo" | "ajustes" | "emails" | "base" }) {
   return (
     <nav className="abas" aria-label="CRM">
       <Link href="/crm" aria-current={atual === "resumo" ? "page" : undefined} data-aba="resumo">
@@ -71,6 +71,13 @@ export function AbasDoCrm({ atual }: { atual: "resumo" | "ajustes" | "base" }) {
         data-aba="ajustes"
       >
         Ajustes
+      </Link>
+      <Link
+        href={"/crm/emails" as Route}
+        aria-current={atual === "emails" ? "page" : undefined}
+        data-aba="emails"
+      >
+        E-mails
       </Link>
       <Link
         href={"/crm/base" as Route}
@@ -526,7 +533,9 @@ function BarraDaBase({
     <li className="base-barra" data-linha-da-base={dado}>
       <p className="base-barra__nome">{nome}</p>
       <span className="base-barra__trilho" aria-hidden="true">
-        <span style={{ width: `${maior && pessoas ? Math.max(2, (pessoas / maior) * 100) : 0}%` }} />
+        <span
+          style={{ width: `${maior && pessoas ? Math.max(2, (pessoas / maior) * 100) : 0}%` }}
+        />
       </span>
       <p className="base-barra__n num">{inteiro.format(pessoas)}</p>
       <p className="base-barra__sub">

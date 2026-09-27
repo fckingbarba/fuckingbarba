@@ -56,6 +56,7 @@ export type CancelamentoDoEmail = {
 }
 
 const INSTAGRAM = "https://www.instagram.com/fuckingbarba"
+const TIKTOK = "https://www.tiktok.com/@fuckingbarba"
 
 /** A linha do porquê, palavra por palavra a do `porQueCancelou` da conta. */
 export function porQueCancelou(motivo: MotivoDoCancelamento): string {
@@ -198,8 +199,12 @@ function naMoldura(
       ? [
           { texto: "Loja", href: loja },
           { texto: "Instagram", href: INSTAGRAM },
+          { texto: "TikTok", href: TIKTOK },
         ]
-      : [{ texto: "Instagram", href: INSTAGRAM }],
+      : [
+          { texto: "Instagram", href: INSTAGRAM },
+          { texto: "TikTok", href: TIKTOK },
+        ],
   })
 }
 

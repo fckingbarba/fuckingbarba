@@ -73,6 +73,7 @@ export type PedidoDoEmail = {
 }
 
 const INSTAGRAM = "https://www.instagram.com/fuckingbarba"
+const TIKTOK = "https://www.tiktok.com/@fuckingbarba"
 
 /**
  * A frase do obrigado pro estado "pago", palavra por palavra. Sem a
@@ -303,8 +304,12 @@ export function emailDePedidoConfirmado({
       ? [
           { texto: "Loja", href: loja },
           { texto: "Instagram", href: INSTAGRAM },
+          { texto: "TikTok", href: TIKTOK },
         ]
-      : [{ texto: "Instagram", href: INSTAGRAM }],
+      : [
+          { texto: "Instagram", href: INSTAGRAM },
+          { texto: "TikTok", href: TIKTOK },
+        ],
   })
 
   const texto = [
