@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { redirect } from "next/navigation"
 import { SoPara } from "@/components/area"
 import { ListaDeCupons, NovoCupom } from "@/components/cupons"
+import { ListaDePromocoes, NovaPromocao } from "@/components/promocoes"
 import { Cabeca, ForaDoAr, SemAcesso } from "@/components/telas"
 import type { PaginaDeCupons } from "@/lib/cupons"
 import { medusa } from "@/lib/medusa"
@@ -10,8 +11,10 @@ export const metadata: Metadata = { title: "Cupons e descontos" }
 
 /**
  * CUPONS E DESCONTOS — os cupons que alguém digita no checkout (criar,
- * pausar e acompanhar) e os descontos que a loja aplica sozinha. Vem pronto
- * do backend (`GET /dashboard/cupons`). Marketing e dono.
+ * pausar e acompanhar), as promoções que a loja aplica sozinha e que o
+ * painel cria (o "Leve X, pague Y", entrega 0133) e os descontos automáticos
+ * de sempre. Vem pronto do backend (`GET /dashboard/cupons`). Marketing e
+ * dono.
  */
 export default function Pagina() {
   return (
@@ -27,7 +30,13 @@ async function Cupons() {
     redirect(`/sair?motivo=${r.corpo.message === "fora_da_equipe" ? "fora" : "expirou"}`)
   if (r.status === 403) return <SemAcesso area="cupons" />
   if (r.status !== 200) return <ForaDoAr />
-  const { cupons, automaticos, catalogo, loja = null } = r.corpo as unknown as PaginaDeCupons
+  const {
+    cupons,
+    promocoes = [],
+    automaticos,
+    catalogo,
+    loja = null,
+  } = r.corpo as unknown as PaginaDeCupons
 
   return (
     <div data-tela>
@@ -42,6 +51,18 @@ async function Cupons() {
           <span className="selo">quem valida é a loja, não a tela</span>
         </div>
         <ListaDeCupons cupons={cupons} loja={loja} />
+      </section>
+      <section className="bloco" data-promocoes>
+        <div className="bloco__cabeca">
+          <div>
+            <h2 className="bloco__titulo">Promoções</h2>
+            <p className="bloco__sub">
+              Leve X, pague Y: ninguém digita código, o desconto entra sozinho no carrinho.
+            </p>
+          </div>
+          <NovaPromocao catalogo={catalogo} />
+        </div>
+        <ListaDePromocoes promocoes={promocoes} />
       </section>
       <section className="bloco" data-automaticos>
         <div className="bloco__cabeca">

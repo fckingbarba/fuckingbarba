@@ -113,6 +113,22 @@ describe("a caixa de compra, a oferta do checkout e os cupons", () => {
   })
 })
 
+describe("a promoção automática do painel", () => {
+  it('o código "PROMO-" (o Leve X, pague Y) não é cupom: fica fora da lista', () => {
+    const o = montarOfertas(
+      caixas,
+      [
+        venda("2026-09-23 10:00", [
+          { produto: "fator", unidades: 3, receita: 180, ajustes: [["PROMO-3F9A12C7", 90]] },
+        ]),
+        venda("2026-09-23 11:00", [{ produto: "oleo", receita: 54, ajustes: [["BARBA10", 6]] }]),
+      ],
+      SETE
+    )
+    expect(o.cupons).toEqual([{ codigo: "BARBA10", usos: 1, desconto: 6, vendeu: 54 }])
+  })
+})
+
 describe("os achados", () => {
   it("onde os cartões de quantidade funcionam, e quanto a oferta do checkout pega", () => {
     const vendas = [

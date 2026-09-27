@@ -4,6 +4,7 @@ import { ehCodigoDeBump } from "./bump"
 import { lerCarrinho } from "./carrinho"
 import { cabecalhosDeQuemPede } from "./conta"
 import { cliente } from "./medusa"
+import { ehCodigoDePromocao } from "./promocoes"
 
 /**
  * O CUPOM QUE AINDA NÃO PÔDE ENTRAR — guardado num cookie até poder.
@@ -52,7 +53,9 @@ export function codigoDoCupom(v: unknown): string | null {
     // Um "%" solto: fica o texto como veio.
   }
   const codigo = texto.replace(/\s+/g, "").toUpperCase()
-  return CODIGO.test(codigo) && !ehCodigoDeBump(codigo) ? codigo : null
+  return CODIGO.test(codigo) && !ehCodigoDeBump(codigo) && !ehCodigoDePromocao(codigo)
+    ? codigo
+    : null
 }
 
 /** O cookie tem o código e, quando se sabe, o tipo: "BARBA20", "FRETEG~frete", "FRETEG~barato". */
@@ -98,10 +101,13 @@ export async function ehCupomDeFrete(
   }
 }
 
-/** Os códigos de cupom (não os da oferta do checkout) de um carrinho. */
+/** Os códigos de cupom de um carrinho — não os da oferta do checkout, nem os das promoções automáticas. */
 export const cuponsDoCarrinho = (
   promocoes: ({ code?: string | null } | null)[] | null | undefined
-) => (promocoes ?? []).map((p) => p?.code ?? "").filter((c) => c && !ehCodigoDeBump(c))
+) =>
+  (promocoes ?? [])
+    .map((p) => p?.code ?? "")
+    .filter((c) => c && !ehCodigoDeBump(c) && !ehCodigoDePromocao(c))
 
 /**
  * Põe o cupom guardado no carrinho, se der: `"entrou"` (entrou agora, ou já

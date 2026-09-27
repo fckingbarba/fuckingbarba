@@ -1,0 +1,26 @@
+/*
+  O SELO DO "LEVE X, PAGUE Y" NA CAIXA DE COMPRA (entrega 0133) — embaixo do
+  preço, com a etiqueta que a loja escreveu na promoção do painel. O mesmo
+  desenho do selo do card da vitrine (`.produto__selo`, em produto.css): a
+  fita amarela com a ponta, pra promoção ter uma cara só na loja inteira.
+*/
+.compra__promocao {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 10px 0 0;
+  padding: 5px 14px 5px 10px;
+  background: var(--color-amarelo);
+  color: var(--color-tinta);
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 0 100%);
+}
+.compra__promocao svg {
+  width: 12px;
+  height: 12px;
+  fill: currentColor;
+  flex-shrink: 0;
+}

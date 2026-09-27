@@ -6,7 +6,8 @@ import { BotaoComprar } from "@/components/produto/comprar"
 import { emReais } from "@/lib/formato"
 import { frasesDoFrete, produtoSozinhoQualifica } from "@/lib/configuracoes"
 import { PARCELA_MINIMA, PARCELAS_SEM_JUROS } from "@/lib/site"
-import { configuracoes, esgotado, precosDe, varianteDoCard } from "@/lib/medusa"
+import { configuracoes, esgotado, precosDe, promocoesOuNenhuma, varianteDoCard } from "@/lib/medusa"
+import { promocaoDoProduto } from "@/lib/promocoes"
 
 /**
  * O card de produto — o mesmo na faixa de coleção e, depois, na vitrine.
@@ -24,6 +25,10 @@ import { configuracoes, esgotado, precosDe, varianteDoCard } from "@/lib/medusa"
  *   sem política nenhuma ela não existe;
  * - **o parcelamento** sai do preço e do número de parcelas que o rodapé
  *   promete, então os dois não têm como discordar;
+ * - **o "Leve X, pague Y"** (a promoção do painel, `lib/promocoes.ts`) põe
+ *   a etiqueta dela no selo, no lugar do desconto — o riscado continua
+ *   contando o de/por. Pausada ou vencida, a promoção sai da lista do backend
+ *   e o selo volta a ser o do desconto;
  * - **esgotado**, o selo diz "Esgotado" (no lugar do desconto, que o preço
  *   riscado continua mostrando) e o botão, "Avise-me": ele leva pra página do
  *   produto, onde mora o avise-me. "Comprar" num produto que não dá pra
@@ -50,8 +55,9 @@ export async function CartaoProduto({
     `"use cache"` lá dentro: numa grade de doze cards isto é UMA leitura, não
     doze — e nenhuma delas depois que o cache esquenta.
   */
-  const { frete } = await configuracoes()
+  const [{ frete }, promocoes] = await Promise.all([configuracoes(), promocoesOuNenhuma()])
   const frases = frasesDoFrete(frete)
+  const promocao = promocaoDoProduto(promocoes, produto.id)
 
   const precos = precosDe(produto)
   const caminho = `/produtos/${produto.handle}` as const
@@ -91,6 +97,10 @@ export async function CartaoProduto({
 
         {semEstoque ? (
           <span className="produto__selo">Esgotado</span>
+        ) : promocao ? (
+          <span className="produto__selo" data-promocao>
+            {promocao.etiqueta}
+          </span>
         ) : desconto ? (
           <span className="produto__selo">-{desconto}%</span>
         ) : null}

@@ -1,4 +1,5 @@
 import { PREFIXO_DO_BUMP } from "../bumps"
+import { PREFIXO_DA_PROMOCAO } from "../cupons"
 import { lerPdp } from "../pdp"
 import { reais } from "./formato"
 import { dentro, type Janela, type Venda } from "./marketing"
@@ -23,7 +24,10 @@ import { caixaDo, type ProdutoCru } from "./produtos"
  * A OFERTA DO CHECKOUT (a caixinha antes de pagar) entra com o código da
  * promoção daquele produto, "BUMP-…" (`lib/bumps.ts`): o ajuste no item diz
  * quem aceitou, com certeza. OS CUPONS são os outros códigos nos ajustes:
- * quantos pedidos pagos usaram, quanto deram de desconto e quanto somaram.
+ * quantos pedidos pagos usaram, quanto deram de desconto e quanto somaram —
+ * menos os das promoções automáticas do painel ("PROMO-…", o "Leve X, pague
+ * Y"), que ninguém digita: os números delas moram na tela de Cupons e
+ * descontos, com o nome de cada uma.
  */
 
 /** A caixa de compra de um produto publicado, pro que a conta precisa. */
@@ -69,6 +73,7 @@ export type Ofertas = {
 const centavos = (v: number) => Math.round(v * 100) / 100
 const parte = (de: number, em: number) => (em ? Math.round((de / em) * 100) : null)
 const ehBump = (codigo: string) => codigo.startsWith(PREFIXO_DO_BUMP)
+const ehPromocao = (codigo: string) => codigo.toUpperCase().startsWith(PREFIXO_DA_PROMOCAO)
 
 export function montarOfertas(caixas: CaixaDoProduto[], vendas: Venda[], j: Janela): Ofertas {
   const pagas = vendas.filter((v) => dentro(v.pagoEm, j))
@@ -147,7 +152,7 @@ export function montarOfertas(caixas: CaixaDoProduto[], vendas: Venda[], j: Jane
     const usados = new Set<string>()
     for (const i of v.itens)
       for (const a of i.ajustes) {
-        if (ehBump(a.codigo)) continue
+        if (ehBump(a.codigo) || ehPromocao(a.codigo)) continue
         const c = cupons.get(a.codigo) ?? { codigo: a.codigo, usos: 0, desconto: 0, vendeu: 0 }
         c.desconto = centavos(c.desconto + a.valor)
         cupons.set(a.codigo, c)

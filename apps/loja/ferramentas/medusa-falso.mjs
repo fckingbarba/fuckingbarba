@@ -379,6 +379,9 @@ export async function subirMedusaFalso({ porta = PORTA_PADRAO } = {}) {
         return json({ configuracoes: CONFIGURACOES })
       case "/store/promocao":
         return json({ promocao: null })
+      // As promoções do painel (o "Leve X, pague Y"): nenhuma — a vitrine medida é a sem promoção.
+      case "/store/promocoes":
+        return json({ promocoes: [] })
       case "/store/home":
         // A ordem do registro, e cada seção com o texto de fábrica da loja (a
         // peneira de `lib/home.ts` completa o que falta) — MENOS O BANNER, que

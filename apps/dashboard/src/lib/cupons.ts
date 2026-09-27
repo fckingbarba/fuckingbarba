@@ -10,6 +10,8 @@
  * de criar. O cupom criado volta do backend já em frase.
  */
 
+import type { PromocaoNaLista } from "@/lib/promocoes"
+
 export type Situacao = "valendo" | "agendado" | "pausado" | "vencido" | "esgotado"
 
 export type CupomNaLista = {
@@ -42,6 +44,8 @@ export type Catalogo = { categorias: Alvo[]; produtos: Alvo[] }
 
 export type PaginaDeCupons = {
   cupons: CupomNaLista[]
+  /** As promoções do painel (`lib/promocoes.ts`); um backend de antes da 0133 não manda. */
+  promocoes?: PromocaoNaLista[]
   automaticos: DescontoAutomatico[]
   catalogo?: Catalogo
   /** O endereço da loja, pro link do cupom; `null` sem o `LOJA_URL` no backend. */

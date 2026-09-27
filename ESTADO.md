@@ -2696,6 +2696,52 @@ cima.
       mesmo Analytics até a virada). Consertar do mesmo jeito (as compras que o Google viu ÷ as
       visitas), decidindo junto se o Início passa a contar só a loja nova.
 
+**Promoções "Leve X, pague Y" — pronto em 26/09 (entrega 0133).** Pedido dele: "no nosso
+dashboard quero poder criar promoções compre X e leve Y" (e o brinde, que é a parte 2). Decidido
+por ele na conversa: só o "Leve 3, pague 2" da Nuvemshop (nem "compre A, ganhe B", nem "2ª unidade
+com %"), e NÃO SOMA com o desconto por quantidade.
+
+- **No painel:** Cupons e descontos ganhou o bloco **Promoções**, com o botão **Nova promoção**. A
+  gaveta tem as seções do "Compre X e pague Y" da Nuvemshop: o nome (só pra loja), Comprando e
+  Pague (com a conta em uma frase embaixo), Aplicar a (toda a loja, categorias ou produtos, e
+  "permitir aplicar a produtos com preço promocional", marcada), o período (ilimitado ou com começo
+  e fim) e o texto do selo (vazio, fica "Leve 3, pague 2"). Cada promoção na lista tem a chave de
+  pausar, quantos pedidos, quanto de desconto e quanto vendeu.
+- **No carrinho, quem dá o desconto é o Medusa, sozinho** — ninguém digita código: 3 no carrinho,
+  uma sai de graça; 6, duas. Com produtos de preços diferentes na mesma promoção, sai de graça a
+  mais barata de cada grupo de 3 (numa sacola grande e misturada, pode dar um pouco mais de
+  desconto que a Nuvemshop, que dá as mais baratas da sacola inteira).
+- **Não soma:** enquanto a promoção vale, os produtos dela saem dos 4%/6% do desconto por
+  quantidade (2 unidades ficam sem os 4%), e voltam quando ela pausa ou acaba.
+- **Cupom:** o que combina com outras promoções desconta o que sobrou (10% das duas pagas); o que
+  não combina não desconta o item da promoção, como já não descontava o de preço promocional.
+- **Na loja:** o selo com a etiqueta no card (no lugar do "-X%") e embaixo do preço na página do
+  produto; o cartão "3 unidades" com o preço de 2; e na sacola, na linha do produto, "Leve 3, pague
+  2 · mais 1 sai de graça" com 2, e "1 de graça" com 3. Pausada ou fora do período, o selo sai da
+  loja na hora.
+
+Conferido pelo `conferir-promocoes.mjs` do painel (novo, 42 checagens: o formulário pela API e pela
+gaveta, a conta no carrinho de verdade com 2, 3, 5 e 6 unidades, o produto de fora, as faixas que
+saem e voltam, o cupom que combina e o que não combina, um pedido Pix e a lista, a pausada e a
+agendada, o celular, e na loja o card, a página do produto, a sacola e o selo saindo depois da
+pausa), pelos testes de unidade (1024; 35 novos, que rodam a conta do próprio Medusa) e pelos de
+sempre: no painel, cupons 41/41, preço promocional 17/17, pedidos 77/77 e produtos
+101/101; na loja, checkout 173/173, pagamento 214/214, frete 70/70, catálogo 34/34 e PDP 68/70 (as
+2 de antes, do banco local).
+
+Depois do deploy — **nada a configurar.** Pra testar: Painel → Cupons e descontos → Nova promoção →
+um produto → Criar; na loja, o selo aparece no card e na página dele, e 3 na sacola saem pelo preço
+de 2.
+
+- [ ] **Parte 2: o brinde — Claude Code.** Decidido por ele: "compras acima de R$ X, leve um
+      brinde", com o CLIENTE ESCOLHENDO entre 2 ou 3 opções (como o app Brinde no Carrinho); o
+      "acima de R$ X" conta antes do cupom, igual ao frete grátis; o brinde é produto da loja
+      (nada a cadastrar à parte no Bling) e **na nota tem que ir como brinde**, não como venda com
+      desconto — ver no Bling como o pedido leva esse item como bonificação. O desenho: a linha
+      do brinde entra pelo clique do cliente (uma rota que confere o valor, a opção e o estoque),
+      sai quando o Medusa para de descontar (valor abaixo, promoção acabou), e uma trava no
+      fechamento do carrinho (`completeCartWorkflow.hooks.validate`) recusa brinde cobrado.
+
 **Os 7 consertos do checkup da reta final — prontos em 26/09 (entrega 0136).** Pedido dele: "estamos
 na reta final, faça um checkup, cace bugs na loja" → "vamos corrigir os 7". O checkup (só leitura, na
 main de 26/09) passou a loja do ar inteira (37 páginas no celular e no computador, sem erro), os 56

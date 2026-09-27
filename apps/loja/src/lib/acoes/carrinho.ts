@@ -9,7 +9,7 @@ import {
   criarCarrinhoCom,
   idDoCarrinho,
   leituraDoCarrinho,
-  paraVisivel,
+  paraAGaveta,
   situacaoDoCarrinho,
   type CarrinhoVisivel,
 } from "@/lib/carrinho"
@@ -65,7 +65,7 @@ const GENERICO = "Não consegui falar com a loja agora. Tenta de novo em instant
 /** A sacola de agora, ou null se o Medusa não respondeu. */
 async function agora(): Promise<CarrinhoVisivel | null> {
   const lido = await leituraDoCarrinho()
-  return lido === "sem-resposta" ? null : paraVisivel(lido)
+  return lido === "sem-resposta" ? null : await paraAGaveta(lido)
 }
 
 /**
@@ -114,7 +114,7 @@ export async function adicionar(varianteId: string, quantidade = 1): Promise<Res
         const { cart } = await sdk.store.cart.createLineItem(id, item, {
           fields: CAMPOS_CARRINHO,
         })
-        return { ok: true, carrinho: paraVisivel(cart) }
+        return { ok: true, carrinho: await paraAGaveta(cart) }
       } catch (e) {
         if (!carrinhoAcabou(e)) throw e
         ;(await cookies()).delete(COOKIE_CARRINHO)
@@ -122,7 +122,7 @@ export async function adicionar(varianteId: string, quantidade = 1): Promise<Res
     }
     const cart = await criarCarrinhoCom(item)
     return cart
-      ? { ok: true, carrinho: paraVisivel(cart) }
+      ? { ok: true, carrinho: await paraAGaveta(cart) }
       : { ok: false, erro: GENERICO, carrinho: null }
   } catch (e) {
     return falha(e, `adicionar ${varianteId}`)
@@ -178,7 +178,7 @@ export async function mudarQuantidade(linhaId: string, quantidade: number): Prom
       { quantity: Math.min(qtd, 99) },
       { fields: CAMPOS_CARRINHO }
     )
-    return { ok: true, carrinho: paraVisivel(cart) }
+    return { ok: true, carrinho: await paraAGaveta(cart) }
   } catch (e) {
     if (carrinhoAcabou(e)) return { ok: false, erro: GENERICO, carrinho: CARRINHO_VAZIO }
     return falha(e, `quantidade ${linhaId}`)
@@ -204,7 +204,7 @@ export async function remover(linhaId: string): Promise<Resultado> {
     const { parent } = await sdk.store.cart.deleteLineItem(id, linhaId, {
       fields: CAMPOS_CARRINHO,
     })
-    const depois = parent ? paraVisivel(parent) : await agora()
+    const depois = parent ? await paraAGaveta(parent) : await agora()
     return depois ? { ok: true, carrinho: depois } : { ok: false, erro: GENERICO, carrinho: null }
   } catch (e) {
     return falha(e, `remover ${linhaId}`)
