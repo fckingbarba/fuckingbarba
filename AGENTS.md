@@ -2011,7 +2011,7 @@ Barba"). Só de quem disse sim à faixa de cookies, e ligado ao e-mail da pessoa
   (`prefetch={false}`): com a faixa em toda primeira tela, o prefetch baixava o HTML, o CSS e o JS
   das páginas institucionais no meio do carregamento.
 
-O conferidor é o `apps/dashboard/ferramentas/conferir-crm.mjs` (85 com as partes 2 a 4): a rota (assinatura, lote,
+O conferidor é o `apps/dashboard/ferramentas/conferir-crm.mjs` (97 com as partes 2 a 5): a rota (assinatura, lote,
 esquecer), a loja com "Só o necessário" (nada sai, nenhum cookie) e com "Aceitar" (a chegada com a
 campanha, o produto, a sacola e o e-mail do checkout chegando nas anotações de antes), a
 newsletter, a conta (o código pelo Resend falso), a tela do dono, do marketing no celular e da
@@ -2124,6 +2124,57 @@ PORTA_PAGARME_FALSO. Ele confere:
 - o "Voltar ao padrão".
 
 No fim, os Ajustes voltam ao padrão: o banco local é de todos os conferidores.
+
+**O CRM, parte 5: a base da Nuvemshop** (entrega 0156). CRM → Base da Nuvemshop (`/crm/base`): o
+dono manda os três arquivos que a loja antiga exporta (Clientes, Vendas e Carrinhos abandonados), e
+o CRM passa a conhecer a loja antiga inteira.
+
+- **A leitura** é `lib/crm/nuvemshop.ts`, pura, com testes (`lerArquivoDaNuvemshop`):
+  - o arquivo se reconhece pelo cabeçalho, com as colunas por nome e sem acento ("Data de envío");
+  - a letra é UTF-8 se o arquivo for UTF-8 válido, senão Latin-1 (o que a Nuvemshop exporta);
+  - o CSV aceita `;` ou `,`, e aspas com o separador e a quebra de linha dentro;
+  - o dinheiro vem com ponto ("94.58") ou "R$1.093,18"; a data é de Brasília (UTC−3), e a data
+    sem hora fica ao meio-dia;
+  - no arquivo de vendas, a linha com "Data" é o pedido, e as de baixo com o mesmo número são mais
+    itens dele. O de carrinhos funciona igual;
+  - **fica só o que o CRM usa**: da pessoa, o e-mail, o primeiro nome, o "Aceita" da coluna
+    Marketing (e a data), a newsletter, a conta e o "desde"; do pedido, o número, as datas, o
+    pagamento, o envio, os valores, o cupom e os itens pelo SKU; do carrinho, a data, o tipo, o
+    total e os itens. CPF, telefone, endereço, rastreio e cartão são jogados fora ali mesmo.
+- **As tabelas** (módulo `crm`): `crm_base_pessoa` (única pelo e-mail), `crm_base_pedido` (pelo
+  número; os valores em centavos) e `crm_base_carrinho` (pelo id). `importarDaNuvemshop` grava em
+  lotes de 200, com `on conflict … do update`: mandar de novo atualiza, nada duplica, ninguém sai.
+- **O SKU manda** (`componentesDoItem`, em `etiquetas.ts`): a tabela `SKUS` diz o que vem em cada
+  produto (FBKIT02 = shampoo e balm, FBKIT04 = shampoo e óleo…), antes do endereço. Vale pros
+  pedidos da loja antiga, pros da nova (`items.variant_sku`) e pro "o que conta como cada tipo" dos
+  Ajustes. Produto novo: ponha o SKU em `SKUS`.
+- **As etiquetas contam a loja antiga:** a ficha soma os pedidos da base pelo e-mail
+  (`pedidoDaBase`; confirmado = pago, estorno = cancelado, a entrega é a estimada) e o caminho diz
+  "pagou o pedido #N na Nuvemshop". A aba da base (`montarTelaDaBase`) conta quem é quem na base
+  inteira: cada pessoa com os pedidos das duas lojas (`pedidosParaAsEtiquetas`, no `ler.ts`), os
+  sinais do CRM (`sinaisDeTodos`) e os Ajustes. Mostra quantos em cada etapa e engajamento, e
+  quantos deles aceitam ofertas.
+- **O histórico nos Ajustes:** `recomprasPorTipo` mede, pra cada tipo, a mediana dos dias entre uma
+  compra e a seguinte que traz o mesmo tipo, por unidade. Os Ajustes mostram "Na Nuvemshop: X dias
+  (N recompras)". O botão "Usar os números da Nuvemshop" põe no campo os tipos com 10 recompras ou
+  mais, e o dono decide se salva.
+- **A rota:** `GET/POST /dashboard/crm/base`, na área `crm`. O POST recebe um arquivo por vez,
+  comprimido no navegador (`CompressionStream`), em base64 (`{ nome, gzip }`); o corpo vai até 12 MB
+  (`middlewares.ts`), e o arquivo aberto até 8 MB. O registro da equipe anota só as contagens
+  (`importou-base-da-nuvemshop`).
+- A política de privacidade da loja conta o que veio da loja antiga, e o que não veio.
+
+O `conferir-crm.mjs` (97) monta os três arquivos na hora, em Latin-1, com gente da rodada, e
+confere:
+- a operação sem a base;
+- o arquivo errado e o que nem abre;
+- os três pela tela, com a linha sem e-mail de fora;
+- os números da API;
+- mandar de novo sem duplicar;
+- a ficha de quem comprou nas duas lojas (recorrente, e o pedido da Nuvemshop no caminho);
+- nenhum CPF, telefone ou endereço nas respostas;
+- o histórico e o botão nos Ajustes;
+- o celular.
 
 **O preço e o promocional no painel** (entregas 0098 e 0102): os dois campos de cada produto na
 lista de Produtos, como na Nuvemshop (a 0098 tinha só o promocional, atrás de um botão). A regra é
