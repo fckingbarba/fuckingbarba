@@ -6,8 +6,10 @@
  *   (o Medusa, a loja e o painel locais no ar)
  *   LOJA=http://localhost:3060 node apps/dashboard/ferramentas/conferir-crm.mjs
  *
- * Variáveis: as de `pecas.mjs`, a NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY e o
- * Medusa mandando os códigos pro Resend falso (`RESEND_URL`). A regra de
+ * Variáveis: as de `pecas.mjs`, a NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY, o
+ * Medusa mandando os códigos pro Resend falso (`RESEND_URL`) e o segredo dos
+ * avisos do Resend (`RESEND_WEBHOOK_SEGREDO`, o mesmo do Medusa: o
+ * conferidor assina os avisos como o Resend). A regra de
  * cada evento tem os testes de unidade do backend
  * (`lib/crm/__tests__/eventos.unit.spec.ts`); aqui é o caminho inteiro, pela
  * tela, e o que o painel mostra.
@@ -21,11 +23,15 @@
  * │ • o e-mail do checkout, da newsletter ou da conta não chegando nas     │
  * │   anotações — inclusive nas de ANTES de a pessoa dizer quem é;         │
  * │ • o "não" depois do sim deixando o que foi anotado no banco;           │
- * │ • a operação vendo o CRM; o e-mail inteiro na tela.                    │
+ * │ • a operação vendo o CRM; o e-mail inteiro na tela;                    │
+ * │ • (parte 2) o e-mail saindo sem a etiqueta do tipo; o aviso do Resend  │
+ * │   sem a assinatura dele entrando; o aviso repetido contando duas vezes;│
+ * │   o IP do clique ou o id do pedido guardados; o e-mail da equipe nas   │
+ * │   contas do CRM.                                                       │
  * └────────────────────────────────────────────────────────────────────────┘
  */
 
-import { randomUUID } from "node:crypto"
+import { createHmac, randomUUID } from "node:crypto"
 import {
   abrirNavegador,
   caixaDoResend,
@@ -36,6 +42,7 @@ import {
   falhou,
   hidratado,
   medusa,
+  MEDUSA,
   menu,
   ok,
   PAINEL,
@@ -414,6 +421,149 @@ try {
     await contexto.close()
   }
 
+  /* ── os avisos do Resend (parte 2) ──────────────────────────────────────── */
+
+  titulo("Os avisos do Resend (POST /hooks/resend)")
+  const SEGREDO_RESEND = process.env.RESEND_WEBHOOK_SEGREDO ?? ""
+  if (!SEGREDO_RESEND) throw new Error("falta o RESEND_WEBHOOK_SEGREDO (o mesmo do Medusa)")
+  /** Um aviso como o Resend manda: assinado no padrão Svix, com a hora de agora. */
+  async function avisar(evento, { assinatura, ts = String(Math.floor(Date.now() / 1000)) } = {}) {
+    const corpo = JSON.stringify(evento)
+    const id = `msg_${randomUUID()}`
+    const chave = Buffer.from(SEGREDO_RESEND.replace(/^whsec_/, ""), "base64")
+    const certa = `v1,${createHmac("sha256", chave).update(`${id}.${ts}.${corpo}`).digest("base64")}`
+    const r = await fetch(`${MEDUSA}/hooks/resend`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "svix-id": id,
+        "svix-timestamp": ts,
+        "svix-signature": assinatura ?? certa,
+      },
+      body: corpo,
+    })
+    return r.status
+  }
+  const doCodigo = resend.emails
+    .filter((e) => e.to?.includes(DA_CONTA) && /é o seu código/.test(e.subject ?? ""))
+    .at(-1)
+  ok(
+    doCodigo?.tags?.some((t) => t.name === "tipo" && t.value === "codigo-de-entrar"),
+    "o e-mail do código sai com a etiqueta do tipo (codigo-de-entrar)",
+    JSON.stringify(doCodigo?.tags)
+  )
+  // O id do Resend falso recomeça a cada rodada: com a rodada na frente, é único no banco.
+  const doEmail = (type, email_id, para, tipo, extra = {}) => ({
+    type,
+    created_at: new Date().toISOString(),
+    data: {
+      email_id,
+      to: [para],
+      created_at: new Date(Date.now() - 60_000).toISOString(),
+      subject: "123456 é o seu código",
+      tags: tipo ? { tipo } : {},
+      ...extra,
+    },
+  })
+  const idDoCodigo = `${RODADA}-${doCodigo?.id}`
+  const doCodigoComo = (type, extra) =>
+    doEmail(type, idDoCodigo, DA_CONTA, "codigo-de-entrar", extra)
+  ok(
+    (await avisar(doCodigoComo("email.delivered"), { assinatura: "v1,errada" })) === 401,
+    "sem a assinatura do Resend: 401"
+  )
+  ok(
+    (await avisar(doCodigoComo("email.delivered"), {
+      ts: String(Math.floor(Date.now() / 1000) - 600),
+    })) === 401,
+    "aviso de 10 minutos atrás (a repetição de alguém): 401"
+  )
+  const antesDosEmails = (await tela()).emails.numeros
+  const status = [
+    await avisar(doCodigoComo("email.delivered")),
+    await avisar(doCodigoComo("email.opened")),
+    await avisar(
+      doCodigoComo("email.clicked", {
+        click: {
+          link: `${LOJA}/conta/pedidos/order_01K5ZB0W6Y7Q8R9S0T1V2W3X4Y?origem=email`,
+          timestamp: new Date().toISOString(),
+          ipAddress: "200.1.2.3",
+          userAgent: "Safari",
+        },
+      })
+    ),
+    await avisar(doCodigoComo("email.opened")),
+  ]
+  ok(
+    status.every((s) => s === 200),
+    "chegou, abriu, clicou e abriu de novo: 200",
+    status.join(",")
+  )
+  const comAvisos = await esperarTela((t) =>
+    t.emails.ultimos.some((l) => l.quem === mascarado(DA_CONTA) && l.oque.startsWith("clicou"))
+  )
+  const linhaDoCodigo = comAvisos.emails.ultimos.find((l) => l.quem === mascarado(DA_CONTA))
+  ok(
+    linhaDoCodigo?.oque.startsWith("clicou em “Código de entrar”") &&
+      linhaDoCodigo?.oque.endsWith("/conta/pedidos/:id") &&
+      linhaDoCodigo?.nivel === "bom",
+    "em frase: clicou, com a página da loja sem o id do pedido",
+    JSON.stringify(linhaDoCodigo)
+  )
+  const n = comAvisos.emails.numeros
+  ok(
+    n.enviados === antesDosEmails.enviados + 1 &&
+      n.entregues === antesDosEmails.entregues + 1 &&
+      n.abertos === antesDosEmails.abertos + 1 &&
+      n.clicados === antesDosEmails.clicados + 1,
+    "um e-mail a mais: saiu, chegou, abriu e clicou — a abertura repetida não conta duas vezes",
+    JSON.stringify({ antes: antesDosEmails, depois: n })
+  )
+  ok(!JSON.stringify(comAvisos).includes("200.1.2.3"), "o IP do clique não fica")
+  ok(
+    comAvisos.emails.porTipo.some(
+      (t) => t.tipo === "codigo-de-entrar" && t.nome === "Código de entrar"
+    ),
+    "na tabela por tipo, com o nome"
+  )
+
+  const SUMIU = `sumiu@${DOMINIO}`
+  ok(
+    (await avisar(
+      doEmail("email.bounced", `${RODADA}-devolvido`, SUMIU, "pedido-confirmado", {
+        bounce: {
+          type: "Permanent",
+          subType: "General",
+          message: `550 5.1.1 <${SUMIU}>: Recipient address rejected`,
+        },
+      })
+    )) === 200,
+    "o que voltou: 200"
+  )
+  const devolvido = await esperarTela((t) => t.emails.numeros.naoChegaram > n.naoChegaram)
+  ok(
+    devolvido.emails.ultimos.some(
+      (l) =>
+        l.quem === mascarado(SUMIU) &&
+        l.oque === "“Pedido confirmado” não chegou · o endereço não aceita e-mail" &&
+        l.nivel === "ruim"
+    ),
+    "o que não chegou, com o porquê",
+    JSON.stringify(devolvido.emails.ultimos.slice(0, 2))
+  )
+
+  ok(
+    (await avisar(doEmail("email.delivered", `${RODADA}-do-dono`, DONO, null))) === 200,
+    "o aviso de um e-mail da equipe (o dono): 200"
+  )
+  await esperar(1500)
+  const semEquipe = await tela()
+  ok(
+    semEquipe.emails.numeros.enviados === devolvido.emails.numeros.enviados &&
+      !semEquipe.emails.ultimos.some((l) => l.quem === mascarado(DONO)),
+    "e fica fora das contas do CRM, que são de cliente"
+  )
+
   /* ── o painel ───────────────────────────────────────────────────────────── */
 
   titulo("A tela do CRM")
@@ -451,7 +601,9 @@ try {
     (await dono.pagina.locator('[data-periodo="hoje"][aria-current="page"]').count()) === 1,
     "o período de hoje aceso"
   )
-  const primeira = semEspaco(await dono.pagina.locator(".anotacao").first().textContent())
+  const primeira = semEspaco(
+    await dono.pagina.locator("[data-ultimas-crm] .anotacao").first().textContent()
+  )
   ok(
     primeira.includes(api.ultimos[0].oque) && primeira.includes(api.ultimos[0].quando),
     "as últimas, na ordem da API, com a hora",
@@ -469,6 +621,28 @@ try {
     "o marketing abre, com 7 dias de padrão"
   )
   ok(await semRolagemDeLado(mkt.pagina), "no celular, sem rolar de lado")
+
+  titulo("Os e-mails da loja, na tela")
+  await dono.pagina.goto(`${PAINEL}/crm?periodo=hoje`)
+  await dono.pagina.locator("[data-emails-crm]").waitFor({ timeout: 20000 })
+  const apiDosEmails = (await tela("hoje")).emails
+  ok(
+    (await naTela('[data-email="enviados"]')) === String(apiDosEmails.numeros.enviados) &&
+      (await naTela('[data-email="naoChegaram"]')) === String(apiDosEmails.numeros.naoChegaram),
+    "os números dos e-mails são os da API",
+    `${await naTela('[data-email="enviados"]')} / ${apiDosEmails.numeros.enviados}`
+  )
+  ok(
+    /o último chegou hoje, \d\d:\d\d/.test(await naTela("[data-emails-situacao]")),
+    "a hora do último aviso do Resend",
+    await naTela("[data-emails-situacao]")
+  )
+  ok(
+    (await dono.pagina.locator('[data-tipo-de-email="codigo-de-entrar"]').count()) === 1 &&
+      (await dono.pagina.locator('[data-ultimos-emails] .anotacao[data-nivel="ruim"]').count()) >=
+        1,
+    "a tabela por tipo e o que não chegou, em vermelho"
+  )
 
   /* ── mudar de ideia ─────────────────────────────────────────────────────── */
 

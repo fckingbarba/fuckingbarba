@@ -1717,12 +1717,44 @@ Barba"). Só de quem disse sim à faixa de cookies, e ligado ao e-mail da pessoa
   (`prefetch={false}`): com a faixa em toda primeira tela, o prefetch baixava o HTML, o CSS e o JS
   das páginas institucionais no meio do carregamento.
 
-O conferidor é o `apps/dashboard/ferramentas/conferir-crm.mjs` (50): a rota (assinatura, lote,
+O conferidor é o `apps/dashboard/ferramentas/conferir-crm.mjs` (65 com a parte 2): a rota (assinatura, lote,
 esquecer), a loja com "Só o necessário" (nada sai, nenhum cookie) e com "Aceitar" (a chegada com a
 campanha, o produto, a sacola e o e-mail do checkout chegando nas anotações de antes), a
 newsletter, a conta (o código pelo Resend falso), a tela do dono, do marketing no celular e da
 operação (sem acesso), e o "não" depois do sim apagando tudo. Precisa do Medusa mandando o código
 pro Resend falso (`PORTA_RESEND`).
+
+**O CRM, parte 2: os avisos do Resend** (entrega 0138). O que acontece com cada e-mail depois que
+ele sai — chegou, atrasou, foi aberto, levou clique, voltou, virou reclamação de spam — volta pro
+CRM:
+
+- **No envio:** `enviarEmail` (`lib/email.ts`) põe a etiqueta `tipo` no e-mail — o `tipo` dito na
+  chamada, ou o `<o que>` da chave de idempotência ("pedido-confirmado"). Os de cliente sem chave
+  dizem o tipo (`envio-<momento>`, `codigo-de-entrar`, `codigo-do-email-novo`, `email-trocado`).
+  E-mail novo pra cliente: dê um tipo, e o nome dele em `NOME_DO_EMAIL` (`lib/painel/crm.ts`).
+- **O aviso:** `POST /hooks/resend` (o corpo cru, no `middlewares.ts`), assinado no padrão Svix com
+  o `RESEND_WEBHOOK_SEGREDO` (o `whsec_…` da tela do webhook no Resend), com 5 minutos de tolerância.
+  A regra é `lib/crm/resend.ts`, pura: `assinaturaConfere` e `lerAvisoDoResend` — fica o endereço,
+  a etiqueta e as horas; o clique vira a página da loja sem id (ou o domínio de fora); a devolução
+  passa pelo `semDadoPessoal`. Nada de assunto (o do código de entrar tem o código), IP ou
+  navegador. Sem o segredo, ou com a assinatura errada, 401.
+- **A tabela** `crm_email`: uma linha por e-mail (o id do Resend), e cada aviso preenche a sua
+  hora — a de primeira vez fica com a mais antiga, a de última com a mais nova (`least`/`greatest`:
+  o aviso repetido ou fora de ordem não muda nada). O clique conta como aberto. `equipe` = o e-mail
+  foi pra alguém da equipe do painel ou do admin (a venda nova, o código do painel): fica fora das
+  contas. O `limpar-o-crm` tira o e-mail que saiu há mais de 13 meses.
+- **A tela:** "Os e-mails da loja", no CRM — os e-mails de cliente que saíram no período e quantos
+  deles chegaram, foram abertos, levaram clique, não chegaram e viraram spam; o mesmo por tipo; e
+  os 15 com novidade por último, em frase. Sem o segredo, a frase diz que os avisos não estão
+  ligados.
+- **No Resend (o dono, uma vez):** Webhooks → Add endpoint, com `https://<api do Railway>/hooks/resend`
+  e os eventos de e-mail; o "Signing secret" vai pro Railway como `RESEND_WEBHOOK_SEGREDO`. Pra ter
+  aberto e clique, ligar o rastreio de abertura e de clique no domínio (Domains).
+
+O `conferir-crm.mjs` (65) assina os avisos como o Resend (precisa do mesmo
+`RESEND_WEBHOOK_SEGREDO` do Medusa): a etiqueta do e-mail do código, a assinatura errada e a velha,
+o clique sem o IP e sem o id do pedido, a abertura repetida contando uma vez, o que voltou, o do dono
+fora das contas, e a tela.
 
 **O preço e o promocional no painel** (entregas 0098 e 0102): os dois campos de cada produto na
 lista de Produtos, como na Nuvemshop (a 0098 tinha só o promocional, atrás de um botão). A regra é
