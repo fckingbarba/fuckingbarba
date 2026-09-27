@@ -126,6 +126,7 @@ export async function lerTela(
       loja: { ...loja, noAr: noArNaTela(diasNoAr, agora).valor },
       medusaDesde: LIGADO_EM,
       pagarme: Boolean(process.env.PAGARME_SECRET_KEY),
+      mercadopago: Boolean(process.env.MERCADOPAGO_ACCESS_TOKEN),
       frenet: Boolean(process.env.FRENET_TOKEN),
       resend: Boolean(process.env.RESEND_API_KEY),
       ga4: typeof configuracaoDoGa4() === "object",

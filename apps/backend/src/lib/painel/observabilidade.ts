@@ -465,6 +465,9 @@ export type Integracao =
   | "frenet"
   | "pagarme"
   | "pagarme-aviso"
+  /** O Pix reserva (0140): a API e os avisos do Mercado Pago. */
+  | "mercadopago"
+  | "mercadopago-aviso"
   | "bling"
   | "ga4"
   | "loja"
@@ -564,6 +567,16 @@ export function problemasDosSinais(
         area: "Pagamento",
         titulo: `O Pagar.me não respondeu ${vezes(s.falhas)}`,
         texto: `${emFrase(faixa)} A conciliação confere os pagamentos de 5 em 5 minutos e acerta o que ficou pra trás.`,
+        acao: null,
+      })
+    } else if (s.integracao === "mercadopago") {
+      achados.push({
+        ...comum,
+        chave: `mercadopago/${s.dia}`,
+        nivel: "atencao",
+        area: "Pagamento",
+        titulo: `O Mercado Pago não respondeu ${vezes(s.falhas)}`,
+        texto: `${emFrase(faixa)} A conciliação confere os Pix de 5 em 5 minutos e acerta o que ficou pra trás.`,
         acao: null,
       })
     } else if (s.integracao === "loja-no-ar") {
@@ -1045,6 +1058,8 @@ export type EstadoDasIntegracoes = {
   sinais: LinhaDoSinal[]
   /** O `VIGIA_DE_FORA_URL` configurado no Railway. */
   vigiaDeFora?: boolean
+  /** O `MERCADOPAGO_ACCESS_TOKEN` no Railway: o Pix reserva (0140). */
+  mercadopago?: boolean
 }
 
 const VAZIO: LinhaDoSinal = { integracao: "", dia: "", ok: 0, falhas: 0 }
@@ -1079,6 +1094,8 @@ export function integracoesNaTela(e: EstadoDasIntegracoes): IntegracaoNaTela[] {
   const loja = sinal("loja")
   const pagarme = sinal("pagarme")
   const aviso = sinal("pagarme-aviso")
+  const mercadopago = sinal("mercadopago")
+  const avisoDoMercadoPago = sinal("mercadopago-aviso")
   const frenet = sinal("frenet")
   const resend = sinal("resend")
   const bling = sinal("bling")
@@ -1149,6 +1166,29 @@ export function integracoesNaTela(e: EstadoDasIntegracoes): IntegracaoNaTela[] {
               ? `Último aviso ${quando(aviso.ultimo_ok_em, agora)}`
               : "Nenhum aviso hoje") + falhasDoDia(pagarme, agora),
           sinal: ultimoSinal([pagarme, aviso], agora),
+        }
+  )
+
+  lista.push(
+    !e.mercadopago
+      ? {
+          id: "mercadopago",
+          nome: "Mercado Pago",
+          onde: "Pix reserva",
+          s: "off",
+          texto: "Desligado: sem o token do Mercado Pago, o Pix é só pelo Pagar.me.",
+          sinal: null,
+        }
+      : {
+          id: "mercadopago",
+          nome: "Mercado Pago",
+          onde: "Pix reserva",
+          s: peloSinal(mercadopago),
+          texto:
+            (avisoDoMercadoPago.ultimo_ok_em
+              ? `Último aviso ${quando(avisoDoMercadoPago.ultimo_ok_em, agora)}`
+              : "Nenhum aviso hoje") + falhasDoDia(mercadopago, agora),
+          sinal: ultimoSinal([mercadopago, avisoDoMercadoPago], agora),
         }
   )
 
