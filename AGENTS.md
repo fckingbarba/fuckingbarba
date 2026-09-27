@@ -1519,6 +1519,19 @@ propósito e em duas visitas (celular e computador). O erro de propósito vai de
 sair: o ouvinte nasce na hidratação, e o erro jogado antes dela não é visto — com a máquina
 ocupada, o "load" chega antes. É um limite da loja também: o erro de antes da hidratação não conta.
 
+**O vigia de fora** (entrega 0137). A Observabilidade mora dentro do Medusa: se o serviço cai no
+Railway, ou fica de pé sem rodar as rotinas, nada avisa. Então um serviço de fora (o UptimeRobot,
+na conta do dono) espera um "estou viva": o job `vigiar-a-loja` chama o `VIGIA_DE_FORA_URL` (o
+heartbeat do UptimeRobot) no FIM da rodada, depois de conferir a loja e pôr os problemas em dia
+(`lib/observabilidade/vigia-de-fora.ts`, `avisarOVigiaDeFora`). Parou de chegar, o UptimeRobot
+avisa no celular. O endereço é segredo (quem tem ele finge que a loja está viva): mora só no
+Railway, e o sinal do dia (`vigia-de-fora`, em `obs_sinal`) guarda a falha sem ele. Sem a variável,
+nada sai, e a linha "Vigia de fora" das integrações fica desligada. No mesmo UptimeRobot moram os
+monitores de endereço — a loja, o `/health` do Medusa e o `/entrar` do painel —, que avisam
+quando um deles não responde. Pra testar local: um servidor que anota o que chega (o
+`vigia-falso.mjs` do scratchpad da 0137, na 5980) e o `VIGIA_DE_FORA_URL` do Medusa apontando pra
+ele; o recado sai nos minutos 1, 6, 11… da hora.
+
 **Configurações** (fase 6, entrega 0093). As abas do protótipo, na área `configuracoes` (só o
 dono). A regra mora em `src/lib/painel/configuracoes.ts`, puro, com testes:
 
