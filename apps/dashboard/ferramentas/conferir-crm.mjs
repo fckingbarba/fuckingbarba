@@ -49,10 +49,15 @@
  * │   ou sem a etiqueta; o link de sair que não tira (da newsletter e da   │
  * │   base), que tira só de abrir, ou que fica na barra; o link mexido     │
  * │   tirando alguém; a base mandada de novo pondo de volta quem saiu.     │
+ * │ • (parte 7) os fluxos: o toque saindo antes da hora, duas vezes, pra   │
+ * │   quem comprou, saiu ou está no controle, ou com o fluxo desligado;    │
+ * │   o cupom que não nasce, não vale no link, ou nasce de novo no mesmo   │
+ * │   carrinho; o link de voltar que não põe o carrinho de volta (ou não   │
+ * │   refaz o Pix vencido); a operação ligando fluxo.                      │
  * └────────────────────────────────────────────────────────────────────────┘
  */
 
-import { createCipheriv, createHmac, randomBytes, randomUUID } from "node:crypto"
+import { createCipheriv, createHash, createHmac, randomBytes, randomUUID } from "node:crypto"
 import { gzipSync } from "node:zlib"
 import { subirFrenetFalsa } from "../../loja/ferramentas/frenet-falsa.mjs"
 import { subirPagarmeFalso } from "../../loja/ferramentas/pagarme-falso.mjs"
@@ -1299,6 +1304,473 @@ try {
     tortos.join(",")
   )
 
+  /* ── os fluxos (parte 7) ─────────────────────────────────────────────────── */
+  {
+    titulo("Os fluxos: a tela e as chaves")
+    const MIN = 60 * 1000
+    const HORA = 60 * MIN
+    const DIA_MS = 24 * HORA
+    const fluxos = (token) => medusa("/dashboard/crm/fluxos", { metodo: "GET", token })
+    const mudarFluxos = (corpo, token = tokenDoDono) =>
+      medusa("/dashboard/crm/fluxos", { token, corpo })
+    const rodar = (corpo = {}) =>
+      medusa("/dashboard/crm/fluxos/rodar", { token: tokenDoDono, corpo })
+    ok(
+      (await fluxos(cookieOp.value)).status === 403 &&
+        (await mudarFluxos({ desconto: 15 }, cookieOp.value)).status === 403 &&
+        (await medusa("/dashboard/crm/fluxos/rodar", { token: cookieOp.value, corpo: {} }))
+          .status === 403 &&
+        (
+          await medusa("/dashboard/crm/fluxos/teste", {
+            token: cookieOp.value,
+            corpo: { toque: "checkout-30min" },
+          })
+        ).status === 403,
+      "a operação não abre, não liga, não roda e não manda teste"
+    )
+    // O banco local é de todos os conferidores: os dois ligados, e a primeira rodada guarda a hora.
+    for (const id of ["pix", "checkout"]) await mudarFluxos({ fluxo: id, ligado: true })
+    await rodar()
+    const tela0 = (await fluxos(tokenDoDono)).corpo
+    ok(
+      tela0.fluxos?.map((f) => f.id).join() === "pix,checkout" &&
+        tela0.fluxos.every((f) => f.ligado && f.desde) &&
+        tela0.fluxos.find((f) => f.id === "checkout")?.toques.length === 4 &&
+        tela0.fluxos.find((f) => f.id === "pix")?.toques.length === 3,
+      "os dois fluxos, ligados, com os toques de cada um",
+      JSON.stringify(tela0.fluxos?.map((f) => [f.id, f.ligado, f.desde, f.toques?.length]))
+    )
+    const errados = await Promise.all([
+      mudarFluxos({ desconto: 50 }),
+      mudarFluxos({ fluxo: "sms", ligado: true }),
+      rodar({ agora: "ontem" }),
+    ])
+    ok(
+      errados[0].status === 422 && errados[1].status === 422 && errados[2].status === 400,
+      "o desconto fora de 5% a 30%, o fluxo que não existe e a hora torta: recusados",
+      errados.map((e) => e.status).join(",")
+    )
+
+    // Os e-mails de teste ficam fora do grupo de controle (5%, sorteado pelo e-mail, como no motor).
+    const controle = (email, fluxo) =>
+      createHash("sha256").update(`${email}|${fluxo}`).digest().readUInt32BE(0) % 100 < 5
+    const foraDoControle = (nome, fluxo) => {
+      for (let i = 0; ; i++) {
+        const e = `${nome}${i}@${DOMINIO}`
+        if (!controle(e, fluxo)) return e
+      }
+    }
+    const noControleDo = (nome, fluxo) => {
+      for (let i = 0; ; i++) {
+        const e = `${nome}${i}@${DOMINIO}`
+        if (controle(e, fluxo)) return e
+      }
+    }
+    const { regions } = await (await fetch(`${MEDUSA}/store/regions`, { headers: DA_LOJA })).json()
+    const regiao = regions.find((r) => r.currency_code === "brl")
+    const { products: doShampoo } = await (
+      await fetch(
+        `${MEDUSA}/store/products?handle=shampoo-para-barba&region_id=${regiao.id}&fields=*variants`,
+        { headers: DA_LOJA }
+      )
+    ).json()
+    const criarCarrinho = async (email) =>
+      (
+        await (
+          await fetch(`${MEDUSA}/store/carts`, {
+            method: "POST",
+            headers: { "content-type": "application/json", ...DA_LOJA },
+            body: JSON.stringify({
+              region_id: regiao.id,
+              email,
+              items: [{ variant_id: doShampoo[0].variants[0].id, quantity: 1 }],
+            }),
+          })
+        ).json()
+      ).cart
+    /** De madrugada (22h às 8h em Brasília) só o urgente sai: o toque que cairia lá vai pras 9h. */
+    const HORA_BR = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/Sao_Paulo",
+      hour: "numeric",
+      hourCycle: "h23",
+    })
+    const diurno = (ms) => {
+      let t = ms
+      while (Number(HORA_BR.format(new Date(t))) >= 22 || Number(HORA_BR.format(new Date(t))) < 9)
+        t += 15 * MIN
+      return t
+    }
+    const deFluxo = (e) => !/^\[Teste\]/.test(e.subject ?? "")
+
+    titulo("O checkout abandonado")
+    const NO_CHECKOUT = foraDoControle("checkout", "checkout")
+    const carrinho = await criarCarrinho(NO_CHECKOUT)
+    const comeco = new Date(carrinho.updated_at).getTime()
+    const aos = (ms, urgente = false) =>
+      new Date(urgente ? comeco + ms : diurno(comeco + ms)).toISOString()
+    const antes30 = await rodar({ agora: aos(29 * MIN, true), email: NO_CHECKOUT })
+    ok(
+      antes30.status === 200 && antes30.corpo.enviados === 0,
+      "antes dos 30 minutos, nada",
+      JSON.stringify(antes30.corpo)
+    )
+    const r30 = await rodar({ agora: aos(31 * MIN, true), email: NO_CHECKOUT })
+    const e30 = await caixa.esperarEmail(
+      NO_CHECKOUT,
+      (e) => e.subject === "Faltou só o pagamento",
+      0
+    )
+    ok(
+      r30.corpo.enviados === 1 &&
+        Boolean(e30) &&
+        e30.tags?.some((t) => t.name === "tipo" && t.value === "crm-checkout") &&
+        e30.html.includes(`${LOJA}/voltar/${carrinho.id}.`) &&
+        e30.html.includes("utm_campaign=crm-checkout") &&
+        e30.html.includes("Você recebeu porque começou uma compra na FuckingBarba.") &&
+        /^<[^>]+>$/.test(e30.headers?.["List-Unsubscribe"] ?? ""),
+      "30 minutos: “Faltou só o pagamento”, com o link de voltar, a campanha e o sair da lista",
+      JSON.stringify({ r: r30.corpo, assunto: e30?.subject })
+    )
+    const de30 = await rodar({ agora: aos(35 * MIN, true), email: NO_CHECKOUT })
+    ok(de30.corpo.enviados === 0, "a rodada seguinte não manda o mesmo de novo")
+    const r4h = await rodar({ agora: aos(4 * HORA + MIN), email: NO_CHECKOUT })
+    const e4h = await caixa.esperarEmail(
+      NO_CHECKOUT,
+      (e) => e.subject === "Ficou alguma dúvida?",
+      0
+    )
+    ok(
+      r4h.corpo.enviados === 1 && Boolean(e4h),
+      "4 horas: “Ficou alguma dúvida?”",
+      JSON.stringify(r4h.corpo)
+    )
+    const r24 = await rodar({ agora: aos(DIA_MS + MIN), email: NO_CHECKOUT })
+    const e24 = await caixa.esperarEmail(
+      NO_CHECKOUT,
+      (e) => /^\d+% pra você fechar o pedido$/.test(e.subject ?? ""),
+      0
+    )
+    const cupom = e24?.html.match(/VOLTA-[2-9A-HJ-NP-Z]{6}/)?.[0] ?? null
+    ok(
+      r24.corpo.enviados === 1 && r24.corpo.cupons === 1 && Boolean(cupom),
+      "1 dia: o desconto, com um cupom só da pessoa",
+      JSON.stringify({ r: r24.corpo, assunto: e24?.subject })
+    )
+    const linkDoCupom = e24?.html
+      .match(/href="([^"]+\/voltar\/[^"]+)"/)?.[1]
+      ?.replaceAll("&amp;", "&")
+    ok(
+      Boolean(linkDoCupom) && linkDoCupom.includes(`cupom=${cupom}`),
+      "o botão leva o cupom junto",
+      linkDoCupom ?? "sem link"
+    )
+    const pessoa2 = await novaAba({ width: 375, height: 812 })
+    await pessoa2.pagina.goto(linkDoCupom ?? `${LOJA}/`, { waitUntil: "domcontentloaded" })
+    await pessoa2.pagina
+      .waitForURL((u) => u.pathname === "/checkout", { timeout: 30000 })
+      .catch(() => null)
+    const cookieDoCarrinho = (await pessoa2.contexto.cookies(LOJA)).find(
+      (c) => c.name === "carrinho"
+    )
+    ok(
+      new URL(pessoa2.pagina.url()).pathname === "/checkout" &&
+        cookieDoCarrinho?.value === carrinho.id &&
+        new URL(pessoa2.pagina.url()).searchParams.get("utm_campaign") === "crm-checkout",
+      "o link põe o carrinho de volta e cai no checkout, com a campanha",
+      `${pessoa2.pagina.url()} · ${cookieDoCarrinho?.value}`
+    )
+    const cupomNoCarrinho = async (id, codigo = cupom) => {
+      for (let i = 0; i < 40; i++) {
+        const r = await fetch(`${MEDUSA}/store/carts/${id}?fields=*promotions`, {
+          headers: DA_LOJA,
+        })
+        const codigos = ((await r.json()).cart?.promotions ?? []).map((p) => p.code)
+        if (codigos.includes(codigo)) return true
+        await esperar(500)
+      }
+      return false
+    }
+    ok(await cupomNoCarrinho(carrinho.id), "e o checkout aplica o cupom sozinho")
+    await pessoa2.contexto.close()
+    const r48 = await rodar({ agora: aos(2 * DIA_MS + MIN), email: NO_CHECKOUT })
+    const e48 = await caixa.esperarEmail(
+      NO_CHECKOUT,
+      (e) => /vence em breve$/.test(e.subject ?? ""),
+      0
+    )
+    ok(
+      r48.corpo.enviados === 1 &&
+        r48.corpo.cupons === 0 &&
+        Boolean(cupom) &&
+        e48?.html.includes(cupom),
+      "2 dias: a última chamada, com o mesmo cupom (nenhum novo)",
+      JSON.stringify({ r: r48.corpo, assunto: e48?.subject })
+    )
+    const r3d = await rodar({ agora: aos(3 * DIA_MS), email: NO_CHECKOUT })
+    ok(
+      r3d.corpo.enviados === 0 && caixa.quantos(NO_CHECKOUT, deFluxo) === 4,
+      "depois do último, silêncio: 4 e-mails no total",
+      String(caixa.quantos(NO_CHECKOUT, deFluxo))
+    )
+
+    titulo("Quem não recebe")
+    const COMPROU = foraDoControle("comprou", "checkout")
+    await criarCarrinho(COMPROU)
+    await fabrica.pagar(await fabrica.pedidoPix(COMPROU, [["shampoo-para-barba", 1]]))
+    const rComprou = await rodar({
+      agora: new Date(Date.now() + 31 * MIN).toISOString(),
+      email: COMPROU,
+    })
+    ok(
+      rComprou.corpo.enviados === 0 &&
+        caixa.quantos(COMPROU, (e) => /Faltou|Pix vence/.test(e.subject ?? "")) === 0,
+      "quem comprou depois não recebe nada",
+      JSON.stringify(rComprou.corpo)
+    )
+    const SAIU = foraDoControle("saiu", "checkout")
+    await criarCarrinho(SAIU)
+    await fetch(`${MEDUSA}/crm/sair?t=${linkPara(SAIU)}`, { method: "POST" })
+    const rSaiu = await rodar({ agora: new Date(Date.now() + 31 * MIN).toISOString(), email: SAIU })
+    ok(
+      rSaiu.corpo.enviados === 0 && rSaiu.corpo.fora === 1,
+      "quem saiu da lista (mesmo sem ter aceitado ofertas) não recebe",
+      JSON.stringify(rSaiu.corpo)
+    )
+    const CONTROLE = noControleDo("controle", "checkout")
+    await criarCarrinho(CONTROLE)
+    const rControle = await rodar({
+      agora: new Date(Date.now() + 31 * MIN).toISOString(),
+      email: CONTROLE,
+    })
+    ok(
+      rControle.corpo.enviados === 0 && rControle.corpo.controle === 1,
+      "o grupo de controle fica anotado, sem receber",
+      JSON.stringify(rControle.corpo)
+    )
+    await mudarFluxos({ fluxo: "checkout", ligado: false })
+    const DESLIGADO = foraDoControle("desligado", "checkout")
+    await criarCarrinho(DESLIGADO)
+    const rDesligado = await rodar({
+      agora: new Date(Date.now() + 31 * MIN).toISOString(),
+      email: DESLIGADO,
+    })
+    await mudarFluxos({ fluxo: "checkout", ligado: true })
+    const rReligado = await rodar({
+      agora: new Date(Date.now() + 31 * MIN).toISOString(),
+      email: DESLIGADO,
+    })
+    ok(
+      rDesligado.corpo.enviados === 0 && rReligado.corpo.enviados === 0,
+      "desligado não manda; ligar de novo não manda pro que começou antes",
+      JSON.stringify([rDesligado.corpo, rReligado.corpo])
+    )
+
+    titulo("O Pix pendente")
+    const tokenDoAdmin = (
+      await (
+        await fetch(`${MEDUSA}/auth/user/emailpass`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            email: process.env.ADMIN_EMAIL,
+            password: process.env.ADMIN_SENHA,
+          }),
+        })
+      ).json()
+    ).token
+    const pixDo = async (pedidoId) => {
+      const { order } = await (
+        await fetch(
+          `${MEDUSA}/admin/orders/${pedidoId}?fields=payment_collections.payment_sessions.data`,
+          { headers: { authorization: `Bearer ${tokenDoAdmin}` } }
+        )
+      ).json()
+      return (order?.payment_collections ?? [])
+        .flatMap((c) => c.payment_sessions ?? [])
+        .map((s) => s.data?.pagarme?.pix)
+        .find(Boolean)
+    }
+    const NO_PIX = foraDoControle("pix", "pix")
+    const pedidoDoPix = await fabrica.pedidoPix(NO_PIX, [["shampoo-para-barba", 1]])
+    const pix = await pixDo(pedidoDoPix.id)
+    const vence = new Date(pix?.expiraEm ?? Date.now()).getTime()
+    const rPix = await rodar({ agora: new Date(vence - 10 * MIN).toISOString(), email: NO_PIX })
+    const ePix = await caixa.esperarEmail(
+      NO_PIX,
+      (e) => /^Seu Pix vence às \d\d:\d\d$/.test(e.subject ?? ""),
+      0
+    )
+    ok(
+      rPix.corpo.enviados === 1 &&
+        Boolean(ePix) &&
+        Boolean(pix?.copiaECola) &&
+        ePix.html.includes(pix.copiaECola) &&
+        ePix.html.includes(`#${pedidoDoPix.numero}`) &&
+        ePix.tags?.some((t) => t.name === "tipo" && t.value === "crm-pix"),
+      "15 minutos antes de vencer: o aviso, com o copia e cola e o número do pedido",
+      JSON.stringify({ r: rPix.corpo, assunto: ePix?.subject })
+    )
+    const rDepoisDeVencer = await rodar({
+      agora: new Date(vence + MIN).toISOString(),
+      email: NO_PIX,
+    })
+    ok(rDepoisDeVencer.corpo.enviados === 0, "vencido, o aviso não sai mais")
+
+    const VENCIDO = foraDoControle("vencido", "pix")
+    const pedidoVencido = await fabrica.pedidoPix(VENCIDO, [["shampoo-para-barba", 2]], {
+      validadeSegundos: -60,
+    })
+    await fabrica.cancelar(pedidoVencido)
+    const eCancelado = await caixa.esperarEmail(
+      VENCIDO,
+      (e) => /cancelado/.test(e.subject ?? ""),
+      0,
+      30000
+    )
+    ok(
+      Boolean(eCancelado) &&
+        eCancelado.html.includes("Refazer o pedido") &&
+        eCancelado.html.includes(`${LOJA}/voltar/${pedidoVencido.id}.`),
+      "o e-mail do Pix que venceu: “Refazer o pedido”, em 1 clique",
+      eCancelado?.subject ?? "não chegou"
+    )
+    const pixVencido = await pixDo(pedidoVencido.id)
+    const comecoDoVencido = new Date(pixVencido?.expiraEm ?? Date.now()).getTime() - 15 * MIN
+    const rPix24 = await rodar({
+      agora: new Date(diurno(comecoDoVencido + DIA_MS + MIN)).toISOString(),
+      email: VENCIDO,
+    })
+    const ePix24 = await caixa.esperarEmail(
+      VENCIDO,
+      (e) => /^\d+% pra você refazer o pedido$/.test(e.subject ?? ""),
+      0
+    )
+    const cupomDoPix = ePix24?.html.match(/VOLTA-[2-9A-HJ-NP-Z]{6}/)?.[0] ?? null
+    const linkDoPix = ePix24?.html
+      .match(/href="([^"]+\/voltar\/order_[^"]+)"/)?.[1]
+      ?.replaceAll("&amp;", "&")
+    ok(
+      rPix24.corpo.enviados === 1 && Boolean(cupomDoPix) && Boolean(linkDoPix),
+      "1 dia depois do Pix vencido: o desconto, e o botão que refaz o pedido",
+      JSON.stringify({ r: rPix24.corpo, assunto: ePix24?.subject })
+    )
+    const pessoa3 = await novaAba()
+    await pessoa3.pagina.goto(linkDoPix ?? `${LOJA}/`, { waitUntil: "domcontentloaded" })
+    await pessoa3.pagina
+      .waitForURL((u) => u.pathname === "/checkout", { timeout: 30000 })
+      .catch(() => null)
+    const refeito = (await pessoa3.contexto.cookies(LOJA)).find((c) => c.name === "carrinho")?.value
+    const doRefeito = refeito
+      ? (
+          await (
+            await fetch(`${MEDUSA}/store/carts/${refeito}?fields=email,*items`, {
+              headers: DA_LOJA,
+            })
+          ).json()
+        ).cart
+      : null
+    ok(
+      Boolean(refeito) &&
+        refeito !== pedidoVencido.carrinho &&
+        doRefeito?.email === VENCIDO &&
+        doRefeito?.items?.[0]?.quantity === 2,
+      "o link monta um carrinho novo, com os mesmos produtos e o mesmo e-mail",
+      JSON.stringify({ refeito, email: doRefeito?.email, itens: doRefeito?.items?.length })
+    )
+    ok(Boolean(refeito) && (await cupomNoCarrinho(refeito, cupomDoPix)), "com o desconto aplicado")
+    await pessoa3.pagina.goto(linkDoPix ?? `${LOJA}/`, { waitUntil: "domcontentloaded" })
+    await pessoa3.pagina
+      .waitForURL((u) => u.pathname === "/checkout", { timeout: 30000 })
+      .catch(() => null)
+    ok(
+      (await pessoa3.contexto.cookies(LOJA)).find((c) => c.name === "carrinho")?.value === refeito,
+      "clicar de novo abre o mesmo carrinho, sem refazer outro"
+    )
+    await pessoa3.contexto.close()
+    const torto = await fetch(
+      `${LOJA}/voltar/cart_01K6ABCDEFGHJKMNPQRSTVWXYZ.zz.AAAAAAAAAAAAAAAAAAAAAA`,
+      {
+        redirect: "manual",
+      }
+    )
+    ok(
+      torto.status === 302 && new URL(torto.headers.get("location") ?? "", LOJA).pathname === "/",
+      "o link que não vale vai pra home, sem abrir nada",
+      `${torto.status} ${torto.headers.get("location")}`
+    )
+
+    titulo("A aba Fluxos")
+    await semIpNasFontes(dono.contexto)
+    await dono.pagina.goto(`${PAINEL}/crm/fluxos`)
+    await dono.pagina.locator("[data-fluxos-crm]").waitFor({ timeout: 20000 })
+    ok(
+      (await dono.pagina.locator("[data-fluxo]").count()) === 2 &&
+        (await dono.pagina.locator('.abas [data-aba="fluxos"][aria-current="page"]').count()) ===
+          1 &&
+        (await dono.pagina.locator('[data-ligar][aria-checked="true"]').count()) === 2,
+      "a aba: os dois fluxos, ligados"
+    )
+    const telaAgora = (await fluxos(tokenDoDono)).corpo
+    const doCheckout = telaAgora.fluxos.find((f) => f.id === "checkout")
+    ok(
+      doCheckout.toques.every((t) => t.enviados >= 1) && doCheckout.numeros.cupons >= 1,
+      "os números da tela contam os e-mails e o cupom",
+      JSON.stringify(doCheckout.numeros)
+    )
+    await hidratado(dono.pagina, '[data-ligar="pix"]')
+    const vezDaChave = await dono.pagina.locator(".aviso").getAttribute("data-vez")
+    await dono.pagina.locator('[data-ligar="pix"]').click()
+    await dono.pagina.waitForFunction(
+      (v) => document.querySelector(".aviso")?.getAttribute("data-vez") !== v,
+      vezDaChave,
+      { timeout: 20000 }
+    )
+    const pixDesligado = (await fluxos(tokenDoDono)).corpo.fluxos.find((f) => f.id === "pix")
+    ok(
+      pixDesligado?.ligado === false &&
+        semEspaco(await dono.pagina.locator(".aviso").textContent()).startsWith("Desligado."),
+      "a chave desliga o Pix, e o aviso diz",
+      semEspaco(await dono.pagina.locator(".aviso").textContent())
+    )
+    await mudarFluxos({ fluxo: "pix", ligado: true })
+    const antesDoTesteDoFluxo = caixa.quantos(DONO, (e) => e.subject?.startsWith("[Teste] "))
+    await hidratado(dono.pagina, '[data-toque="checkout-24h"] [data-mandar-pra-mim]')
+    await dono.pagina.locator('[data-toque="checkout-24h"] [data-mandar-pra-mim]').click()
+    const testeDoFluxo = await caixa.esperarEmail(
+      DONO,
+      (e) => e.subject?.startsWith("[Teste] "),
+      antesDoTesteDoFluxo,
+      20000
+    )
+    ok(
+      /^\[Teste\] \d+% pra você fechar o pedido$/.test(testeDoFluxo?.subject ?? "") &&
+        testeDoFluxo?.html.includes("VOLTA-EXEMPLO"),
+      "“Mandar pra mim” do toque de 1 dia: o e-mail com o cupom de exemplo",
+      testeDoFluxo?.subject ?? "não chegou"
+    )
+    await dono.pagina.goto(`${PAINEL}/crm/fluxos`)
+    await hidratado(dono.pagina, "[data-desconto]")
+    const vezDoDesconto = await dono.pagina.locator(".aviso").getAttribute("data-vez")
+    await dono.pagina.locator("[data-desconto]").fill("15")
+    await dono.pagina.locator("[data-salvar-desconto]").click()
+    await dono.pagina.waitForFunction(
+      (v) => document.querySelector(".aviso")?.getAttribute("data-vez") !== v,
+      vezDoDesconto,
+      { timeout: 20000 }
+    )
+    ok(
+      (await fluxos(tokenDoDono)).corpo.desconto === 15 &&
+        semEspaco(await dono.pagina.locator(".aviso").textContent()) === "Desconto salvo: 15%.",
+      "o desconto muda pela tela",
+      semEspaco(await dono.pagina.locator(".aviso").textContent())
+    )
+    await mudarFluxos({ desconto: 10 })
+    await semIpNasFontes(mkt.contexto)
+    await mkt.pagina.goto(`${PAINEL}/crm/fluxos`)
+    await mkt.pagina.locator("[data-fluxos-crm]").waitFor({ timeout: 20000 })
+    ok(await semRolagemDeLado(mkt.pagina), "a aba Fluxos no celular, sem rolar de lado")
+  }
+
   /* ── o painel ───────────────────────────────────────────────────────────── */
 
   titulo("A tela do CRM")
@@ -1422,6 +1894,14 @@ try {
 } catch (e) {
   falhou(e?.stack ?? String(e))
 } finally {
+  // Os fluxos voltam ao padrão (ligados, 10%): o banco local é de todos os conferidores.
+  if (tokenDoDono)
+    for (const corpo of [
+      { fluxo: "pix", ligado: true },
+      { fluxo: "checkout", ligado: true },
+      { desconto: 10 },
+    ])
+      await medusa("/dashboard/crm/fluxos", { token: tokenDoDono, corpo }).catch(() => null)
   // Os Ajustes voltam ao padrão: o banco local é de todos os conferidores.
   if (tokenDoDono && padraoDosAjustes)
     await medusa("/dashboard/crm/ajustes", {

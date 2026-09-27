@@ -100,7 +100,8 @@ function normaliza(caminho: string): string {
  *
  * E o da avaliação (`/avaliar/<pedido>.<assinatura>`, o botão do e-mail): o
  * id do pedido e a assinatura são base64 — em minúsculas, o link não vale.
- * O do sair da lista (`/sair/<t>`, o rodapé dos e-mails de oferta) é igual.
+ * O do sair da lista (`/sair/<t>`, o rodapé dos e-mails de oferta) é igual,
+ * e o de voltar (`/voltar/<t>`, o botão dos e-mails dos fluxos) também.
  *
  * Handle de produto e de categoria continua minúsculo por construção (o
  * middleware do backend garante), então a regra segue valendo pro resto.
@@ -111,6 +112,7 @@ const CAMINHOS_COM_ID = [
   "/discount/",
   "/avaliar/",
   "/sair/",
+  "/voltar/",
 ]
 
 export function proxy(req: NextRequest) {

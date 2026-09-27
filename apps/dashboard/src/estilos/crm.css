@@ -136,3 +136,29 @@
 .modelo-email__previa { margin: 0; font-size: 0.76rem; color: var(--tinta-suave); }
 .modelo-email__quadro { display: block; width: 100%; height: 640px; border: 1px solid rgba(18, 24, 31, 0.16); background: var(--cinza); }
 .modelo-email .btn { justify-self: start; }
+
+/* A aba Fluxos: um bloco por fluxo, com a chave, os números e os toques em linhas. */
+.fluxos { display: grid; gap: 14px; margin-bottom: 14px; }
+.fluxo { margin: 0; display: grid; gap: 14px; }
+.fluxo__topo { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 10px 16px; }
+.fluxo__quem { margin: 2px 0 0; font-size: 0.8rem; color: var(--tinta-suave); }
+.fluxo__chave { display: flex; align-items: center; gap: 12px; }
+.numeros--fluxo { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.numeros--fluxo .numero__valor small { font-size: 0.7em; font-weight: 700; color: var(--tinta-suave); }
+.numero--controle { background: var(--cinza); }
+.fluxo__toques { list-style: none; margin: 0; padding: 0; display: grid; }
+.fluxo__toque { display: grid; grid-template-columns: 9.5em minmax(0, 1fr) 3em auto; gap: 12px; align-items: center; padding: 10px 0; border-top: 1px solid rgba(18, 24, 31, 0.1); }
+.fluxo__quando { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--tinta-suave); }
+.fluxo__nome { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: 0.88rem; font-weight: 700; min-width: 0; }
+.fluxo__cupom { display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; background: var(--amarelo-claro); font-size: 0.66rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; }
+.fluxo__cupom svg { width: 12px; height: 12px; fill: currentColor; }
+.fluxo__enviados { font-size: 1rem; font-weight: 800; text-align: right; font-variant-numeric: tabular-nums; }
+.fluxo__desconto { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin-top: 12px; }
+.fluxo__campo { grid-column: auto; width: 9em; }
+@media (max-width: 1180px) { .numeros--fluxo { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 640px) {
+  .numeros--fluxo { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .fluxo__toque { grid-template-columns: minmax(0, 1fr) auto; }
+  .fluxo__quando { grid-column: 1 / -1; }
+  .fluxo__toque .btn { grid-column: 1 / -1; justify-self: start; }
+}

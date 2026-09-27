@@ -2434,6 +2434,87 @@ O `conferir-crm.mjs` confere:
 O `conferir-links.mjs` confere o `/sair` fora do Google. Pra fazer o link de uma pessoa da base
 como o e-mail faria, o conferidor precisa do `JWT_SECRET` do Medusa.
 
+**O CRM, parte 7: os fluxos de compra** (entrega 0165). Os primeiros e-mails que saem sozinhos, os
+de "dinheiro rápido" do plano: o **Pix pendente** e o **checkout abandonado**. Vão pra quem digitou
+o e-mail (escolha do dono: é sobre a compra que a pessoa começou), e nasceram ligados.
+
+- **As regras** são `lib/crm/fluxos.ts`, puras, com testes:
+  - os toques de cada fluxo:
+    - Pix: 15 minutos antes de vencer, depois 1 e 2 dias;
+    - checkout: 30 minutos, 4 horas, 1 dia e 2 dias;
+  - `toqueDaVez`: se a rotina parou e dois toques venceram, só o mais novo sai (o outro fica
+    pulado). Toque vencido há mais de 12 horas não sai mais; o aviso do Pix vale só até vencer;
+  - `decidir`, por pessoa:
+    - só vale o que começou depois de o fluxo ligar (`desde`);
+    - comprou, parou;
+    - um fluxo por vez: a entrada de maior prioridade (o Pix) é dona da pessoa até acabar;
+    - o teto é de 3 e-mails em 24 horas e 6 em 7 dias;
+    - 5% ficam no grupo de controle (sorteado pelo e-mail);
+    - de madrugada (22h às 8h em Brasília), só o urgente: o aviso do Pix e o de 30 minutos;
+    - o cupom só no toque de 1 dia, e um a cada 60 dias por e-mail.
+- **O motor** é `lib/crm/motor.ts` (`rodarOsFluxos`), e a rotina é `fluxos-do-crm` (a cada 5
+  minutos, minuto 3, na trava).
+  - As entradas dos últimos 3 dias: os carrinhos com e-mail que não fecharam, e os pedidos com Pix
+    que não foi pago. O "comprou" é um pedido não cancelado depois do começo, sem maiúsculas no
+    e-mail.
+  - Ficam de fora:
+    - a equipe;
+    - quem saiu da lista (`crm_saiu`) sem um "sim" novo depois;
+    - o e-mail que voltou de vez ou foi marcado como spam (`semEntrega`).
+  - O toque é RESERVADO antes do envio (índice único fluxo, chave e toque, em `crm_envio`) e
+    confirmado depois. O que não saiu volta pra fila, e o cupom dele é apagado.
+  - No máximo 60 e-mails por rodada, com 600 ms entre eles.
+  - O ligado sem `desde` (a primeira rodada depois do deploy) ganha a hora e só a rodada seguinte
+    olha as pessoas: ligar não dispara pros carrinhos de antes.
+- **O cupom** é `lib/crm/cupom.ts`: `VOLTA-` e 6 letras, promoção do Medusa pelo `promocaoDoCupom`
+  (o mesmo do painel).
+  - Porcento na loja toda, uma vez, vence em 2 dias.
+  - SOMA com o preço promocional: quase todo produto tem o de/por.
+  - Fica fora da lista de Cupons do painel (`api/dashboard/cupons`); a aba Fluxos conta os dados e
+    os usados.
+- **Os e-mails** são `lib/emails/fluxos.ts` (`emailDoFluxo`), no modelo do CRM.
+  - O pé diz "Você recebeu porque começou uma compra" (`porque`, novo no `EmailDoCrm`).
+  - O Pix vai no bloco novo `pix`: o copia e cola, e o QR só se for https (o do Mercado Pago é
+    data:, que o Gmail não mostra).
+  - A etiqueta é `crm-checkout` / `crm-pix` ("Checkout abandonado" e "Pix pendente" em "Os e-mails
+    da loja").
+- **O link de voltar** é `lib/crm/voltar.ts`: `<id>.<vence>.<HMAC>`, com chave derivada do
+  `JWT_SECRET`, e vence em 7 dias. O id do carrinho vale como senha, então nunca vai cru.
+  - `POST /store/crm/voltar` (`lib/crm/voltar-ao-checkout.ts`) devolve o carrinho aberto. Pro
+    pedido do Pix cancelado, monta um carrinho novo com os mesmos produtos, o e-mail, os endereços e
+    o cliente (o produto esgotado fica de fora). Clicar de novo devolve o mesmo (`fb_crm_refeito`,
+    no pedido).
+  - Na loja, `app/voltar/[t]/route.ts` põe o carrinho no cookie, guarda o `?cupom=` como cupom
+    pendente e manda pro `/checkout` com as UTMs. `/voltar/` está no `CAMINHOS_COM_ID` do proxy e
+    fora do Google.
+  - O e-mail de cancelamento do Pix vencido ganhou o "Refazer o pedido" com o mesmo link
+    (`avisar-cancelamento.ts`).
+- **Sair da lista:** `tirarDasOfertas` também anota em `crm_saiu`. É a única marca pra quem nunca
+  aceitou ofertas e recebe os fluxos de compra.
+- **No painel:** CRM → Fluxos (`/crm/fluxos`), na área `crm`.
+  - Cada fluxo tem a chave de ligar (desligar guarda o `desde`; ligar de novo começa agora), os
+    números de 30 dias e os toques. Os números: quem recebeu, quem comprou em até 7 dias do
+    primeiro e-mail e quanto (o 1º pedido), os cupons usados, e o mesmo pro controle.
+  - Cada toque tem o "Mandar pra mim" (`POST /dashboard/crm/fluxos/teste`). O desconto do cupom
+    vai de 5% a 30% (padrão 10%).
+  - A configuração mora no metadata da loja (`fb_crm_fluxos`). A regra da tela e do mudar é
+    `lib/painel/fluxos.ts`.
+  - `POST /dashboard/crm/fluxos/rodar` roda agora; fora de produção aceita `{ agora, email }`, que
+    é como o conferidor faz o tempo andar.
+- **A política de privacidade** conta os até quatro e-mails de uma compra no meio (legítimo
+  interesse), e os cookies necessários ficaram completos (a conta e os dos links dos e-mails).
+
+O `conferir-crm.mjs` faz os dois fluxos de ponta a ponta, com o tempo andando pelo `rodar`, e
+confere:
+- o checkout, toque por toque;
+- o cupom e o link que devolve o carrinho com o cupom aplicado;
+- quem comprou, quem saiu, o controle, e o fluxo desligado e religado;
+- o Pix: o aviso com o copia e cola, o vencido com o "Refazer o pedido" no cancelamento, o
+  desconto de 1 dia e o link que monta o carrinho novo (e o mesmo no segundo clique);
+- a aba: a chave, o "Mandar pra mim", o desconto e o celular.
+Os e-mails de teste saem fora do grupo de controle (o sorteio é o mesmo do motor). A
+`conferir-observabilidade` conta 13 rotinas.
+
 **O preço e o promocional no painel** (entregas 0098 e 0102): os dois campos de cada produto na
 lista de Produtos, como na Nuvemshop (a 0098 tinha só o promocional, atrás de um botão). A regra é
 `lib/painel/promocao.ts`, pura: `lerMudancaDePreco` (o corpo `{ preco?, promocional? }` contra o

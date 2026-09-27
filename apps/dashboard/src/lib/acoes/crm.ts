@@ -56,6 +56,52 @@ export async function mandarTesteDoCrm(
   }
 }
 
+/**
+ * OS FLUXOS — ligar, desligar (`{ fluxo, ligado }`) ou mudar o desconto do
+ * cupom (`{ desconto }`). Quem confere e grava é o Medusa
+ * (`POST /dashboard/crm/fluxos`).
+ */
+export async function mudarOsFluxos(
+  corpo: { fluxo: string; ligado: boolean } | { desconto: string }
+): Promise<ResultadoDosAjustes> {
+  const r = await medusa("/dashboard/crm/fluxos", { token: "sessao", corpo })
+  if (r.status === 401)
+    redirect(`/sair?motivo=${r.corpo.message === "fora_da_equipe" ? "fora" : "expirou"}`)
+  if (r.status === 403) return { ok: false, texto: semAcessoA("crm") }
+  if (r.status === 422) return { ok: false, texto: String(r.corpo.erro ?? "Confira o que mudou.") }
+  if (r.status !== 200)
+    return { ok: false, texto: "Não consegui falar com a loja agora. Tenta de novo em instantes." }
+  revalidatePath("/crm", "layout")
+  if ("desconto" in corpo) return { ok: true, texto: `Desconto salvo: ${corpo.desconto}%.` }
+  return {
+    ok: true,
+    texto: corpo.ligado
+      ? "Ligado. Vale pra quem começar uma compra a partir de agora."
+      : "Desligado. Ninguém mais recebe esse fluxo.",
+  }
+}
+
+/** "MANDAR PRA MIM" de um toque dos fluxos (`POST /dashboard/crm/fluxos/teste`). */
+export async function mandarTesteDoFluxo(
+  toque: string,
+  nome: string
+): Promise<ResultadoDosAjustes> {
+  const r = await medusa("/dashboard/crm/fluxos/teste", { token: "sessao", corpo: { toque } })
+  if (r.status === 401)
+    redirect(`/sair?motivo=${r.corpo.message === "fora_da_equipe" ? "fora" : "expirou"}`)
+  if (r.status === 403) return { ok: false, texto: semAcessoA("crm") }
+  if (r.status === 429)
+    return { ok: false, texto: "Já foram 10 testes nesta hora. Tenta de novo mais tarde." }
+  if (r.status === 409)
+    return { ok: false, texto: "Falta o endereço da loja no Medusa (LOJA_URL)." }
+  if (r.status !== 200)
+    return { ok: false, texto: "O e-mail não saiu agora. Tenta de novo em instantes." }
+  return {
+    ok: true,
+    texto: `Mandei “${nome}” pra ${String(r.corpo.para)}. Confira a caixa de entrada (e o spam, na primeira vez).`,
+  }
+}
+
 const inteiro = new Intl.NumberFormat("pt-BR")
 const NOME_DO_ARQUIVO = { clientes: "Clientes", vendas: "Vendas", carrinhos: "Carrinhos" } as const
 const ERRO_DA_BASE: Record<string, string> = {

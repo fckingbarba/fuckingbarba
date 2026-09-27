@@ -1,6 +1,7 @@
 import { MedusaError } from "@medusajs/framework/utils"
 import { createCipheriv, createDecipheriv, createHmac, randomBytes } from "node:crypto"
 import { normalizarEmail } from "../../modules/codigo/regras"
+import type { EmailDoCrm } from "../emails/crm"
 
 /**
  * O LINK DE SAIR DA LISTA — o que vai no rodapé de todo e-mail de oferta do
@@ -53,5 +54,15 @@ export function emailDoTokenDeSair(t: unknown, chave: Buffer = chaveDeSair()): s
     return normalizarEmail(email)
   } catch {
     return null
+  }
+}
+
+/** Os links de sair da lista pra um e-mail: a página da loja e o clique único do backend. */
+export function linksDeSair(loja: string, email: string): EmailDoCrm["sair"] {
+  const t = tokenDeSair(email)
+  const backend = (process.env.MEDUSA_BACKEND_URL ?? "").trim().replace(/\/+$/, "")
+  return {
+    pagina: `${loja}/sair/${t}`,
+    umClique: /^https:\/\//.test(backend) ? `${backend}/crm/sair?t=${t}` : null,
   }
 }

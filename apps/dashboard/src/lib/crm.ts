@@ -137,6 +137,36 @@ export type FormularioDosAjustes = {
   regras: Record<RegraDoCrm, string>
 }
 
+/* ── os fluxos ──────────────────────────────────────────────────────────── */
+
+export const CAMINHO_DOS_FLUXOS = "/dashboard/crm/fluxos"
+
+export type IdDoFluxo = "pix" | "checkout"
+
+/** A aba Fluxos (`GET /dashboard/crm/fluxos`, `lib/painel/fluxos.ts` no backend). */
+export type TelaDosFluxos = {
+  desconto: number
+  limites: [number, number]
+  dias: number
+  fluxos: {
+    id: IdDoFluxo
+    nome: string
+    ligado: boolean
+    /** "27/09, 20:15" — desde quando vale; null se ainda não rodou ligado. */
+    desde: string | null
+    toques: { id: string; nome: string; quando: string; cupom: boolean; enviados: number }[]
+    numeros: {
+      pessoas: number
+      enviados: number
+      cupons: number
+      cuponsUsados: number
+      compraram: number
+      vendido: number
+      controle: { pessoas: number; compraram: number }
+    }
+  }[]
+}
+
 /* ── o modelo dos e-mails ────────────────────────────────────────────────── */
 
 export const CAMINHO_DOS_EMAILS = "/dashboard/crm/emails"

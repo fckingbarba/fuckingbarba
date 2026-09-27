@@ -359,6 +359,21 @@ describe("e-mail de pedido cancelado", () => {
   const montar = (extra: Partial<CancelamentoDoEmail> = {}, whatsapp: string | null = null) =>
     emailDePedidoCancelado({ cancelamento: cancelado(extra), whatsapp })
 
+  it("o Pix que venceu: o botão refaz o pedido, quando vem o link", () => {
+    const refazer = `${LOJA}/voltar/order_01ABC.x.assinatura`
+    const e = emailDePedidoCancelado({
+      cancelamento: cancelado({ motivo: "pix-vencido", estorno: null }),
+      whatsapp: null,
+      refazer,
+    })
+    expect(e.html).toContain(`href="${refazer}"`)
+    expect(e.html).toContain("Refazer o pedido")
+    expect(e.texto).toContain(`Refazer o pedido: ${refazer}`)
+    const semLink = montar({ motivo: "pix-vencido", estorno: null })
+    expect(semLink.html).toContain("Voltar pra loja")
+    expect(semLink.html).not.toContain("Refazer o pedido")
+  })
+
   it("o assunto diz o estorno quando houve estorno", () => {
     expect(montar().assunto).toBe("Pedido #1042 cancelado e estornado")
     expect(montar({ motivo: "pix-vencido", estorno: null }).assunto).toBe("Pedido #1042 cancelado")

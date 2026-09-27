@@ -59,11 +59,22 @@ const inteiro = new Intl.NumberFormat("pt-BR")
 const navegadores = (n: number) => `${inteiro.format(n)} ${n === 1 ? "navegador" : "navegadores"}`
 
 /** As abas do CRM: o Resumo (o que a loja anotou), os Ajustes e a Base da Nuvemshop. */
-export function AbasDoCrm({ atual }: { atual: "resumo" | "ajustes" | "emails" | "base" }) {
+export function AbasDoCrm({
+  atual,
+}: {
+  atual: "resumo" | "fluxos" | "ajustes" | "emails" | "base"
+}) {
   return (
     <nav className="abas" aria-label="CRM">
       <Link href="/crm" aria-current={atual === "resumo" ? "page" : undefined} data-aba="resumo">
         Resumo
+      </Link>
+      <Link
+        href={"/crm/fluxos" as Route}
+        aria-current={atual === "fluxos" ? "page" : undefined}
+        data-aba="fluxos"
+      >
+        Fluxos
       </Link>
       <Link
         href={"/crm/ajustes" as Route}
