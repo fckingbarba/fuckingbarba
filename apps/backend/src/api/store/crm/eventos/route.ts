@@ -1,7 +1,7 @@
 import type { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import { DO_CHECKOUT, lerLote, type Lote } from "../../../../lib/crm/eventos"
-import { criarLimite } from "../../../../lib/limite"
+import { criarLimite, criarTetoDoDia } from "../../../../lib/limite"
 import { dominioDe } from "../../../../lib/observabilidade/telemetria"
 import { daLoja, quemPede } from "../../../../lib/quem-pede"
 import { normalizarEmail } from "../../../../modules/codigo/regras"
@@ -40,6 +40,18 @@ const POR_IP = { limite: 120, ms: 60_000 }
 const DA_LOJA = { limite: 3000, ms: 60_000 }
 const limite = criarLimite()
 
+/*
+  O TETO DO DIA (auditoria de 27/09). Os limites por minuto contam recados,
+  não o que eles gravam, e o visitante é o que a loja manda — sem o cookie,
+  cada recado é um visitante novo. Então, por dia: 10.000 eventos por rede
+  (`quemPede`, o IPv6 por /64) e 200.000 pra loja toda. Passou, 429 e nada
+  gravado: o banco não enche por aqui.
+*/
+const EVENTOS_POR_REDE_NO_DIA = 10_000
+const EVENTOS_DA_LOJA_NO_DIA = 200_000
+const teto = criarTetoDoDia()
+let ultimoAvisoDoTeto = 0
+
 export async function POST(req: AuthenticatedMedusaRequest, res: MedusaResponse) {
   if (!daLoja(req)) {
     res.status(401).json({ message: "sem_assinatura" })
@@ -63,6 +75,25 @@ export async function POST(req: AuthenticatedMedusaRequest, res: MedusaResponse)
   limite.contar(visitante, POR_VISITANTE)
   limite.contar(ip, POR_IP)
   limite.contar("loja", DA_LOJA)
+
+  const n = lote.eventos.length
+  if (n) {
+    const cabeNaLoja = teto.cabe("loja", EVENTOS_DA_LOJA_NO_DIA, n)
+    if (!cabeNaLoja || !teto.cabe(ip, EVENTOS_POR_REDE_NO_DIA, n)) {
+      if (!cabeNaLoja && Date.now() - ultimoAvisoDoTeto > 60 * 60_000) {
+        ultimoAvisoDoTeto = Date.now()
+        req.scope
+          .resolve(ContainerRegistrationKeys.LOGGER)
+          .warn(
+            `[crm] a loja passou de ${EVENTOS_DA_LOJA_NO_DIA} eventos hoje — o resto do dia não grava`
+          )
+      }
+      res.status(429).json({ message: "limite" })
+      return
+    }
+    teto.somar(ip, n)
+    teto.somar("loja", n)
+  }
 
   if (lote.eventos.length) {
     try {

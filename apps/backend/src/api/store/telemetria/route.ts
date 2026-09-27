@@ -1,6 +1,6 @@
 import type { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
-import { criarLimite } from "../../../lib/limite"
+import { criarLimite, criarTetoDoDia } from "../../../lib/limite"
 import { dominioDe, lerEventos } from "../../../lib/observabilidade/telemetria"
 import { daLoja, quemPede } from "../../../lib/quem-pede"
 import { OBSERVABILIDADE } from "../../../modules/observabilidade"
@@ -28,6 +28,16 @@ const POR_VISITANTE = { limite: 60, ms: 60_000 }
 const DA_LOJA = { limite: 3000, ms: 60_000 }
 const limite = criarLimite()
 
+/*
+  O TETO DO DIA (auditoria de 27/09): os limites por minuto contam recados,
+  não o que eles gravam. Por dia, 10.000 eventos por rede (`quemPede`, o IPv6
+  por /64) e 150.000 pra loja toda — a Observabilidade não enche o banco, e
+  quem manda lixo em volume não empurra os erros de verdade pra fora da tela.
+*/
+const EVENTOS_POR_REDE_NO_DIA = 10_000
+const EVENTOS_DA_LOJA_NO_DIA = 150_000
+const teto = criarTetoDoDia()
+
 export async function POST(req: MedusaRequest, res: MedusaResponse) {
   if (!daLoja(req)) {
     res.status(401).json({ message: "sem_assinatura" })
@@ -42,6 +52,16 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
   limite.contar("loja", DA_LOJA)
 
   const eventos = lerEventos(req.body, dominioDe(process.env.LOJA_URL))
+  if (
+    eventos.length &&
+    (!teto.cabe(chave, EVENTOS_POR_REDE_NO_DIA, eventos.length) ||
+      !teto.cabe("loja", EVENTOS_DA_LOJA_NO_DIA, eventos.length))
+  ) {
+    res.status(429).json({ message: "limite" })
+    return
+  }
+  teto.somar(chave, eventos.length)
+  teto.somar("loja", eventos.length)
   if (eventos.length) {
     await req.scope
       .resolve<ObservabilidadeService>(OBSERVABILIDADE)
