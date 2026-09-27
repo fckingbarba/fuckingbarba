@@ -1,3 +1,4 @@
+import { devolverACampanha } from "@/lib/chegada"
 import type { Integracoes } from "@/lib/configuracoes"
 import { integracoesLigadas } from "@/lib/rastrear"
 
@@ -47,6 +48,8 @@ export const integracoesMontadas = () => ligadas
 export function ligarIntegracoes(i: Integracoes) {
   if (ligadas || typeof window === "undefined") return
   ligadas = true
+  // Antes de qualquer script: cada um lê a campanha no endereço quando liga (`lib/chegada.ts`).
+  devolverACampanha()
 
   const ga4 = codigo(i, "ga4")
   const ads = codigo(i, "googleAds")
