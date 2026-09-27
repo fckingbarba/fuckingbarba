@@ -1,13 +1,20 @@
 import { devolverACampanha } from "@/lib/chegada"
 import type { Integracoes } from "@/lib/configuracoes"
-import { integracoesLigadas } from "@/lib/rastrear"
+import { integracoesLigadas, medicaoLigada } from "@/lib/rastrear"
 
 /**
- * AS TAGS DE CADA PARCEIRO — montadas só DEPOIS do "Aceitar" da faixa
- * (`tags.tsx` chama). Antes dele não existe script de terceiro nenhum na
- * página: é o que a política de privacidade promete ("nenhum script de
- * medição é carregado — não é um script que roda em silêncio"), e é o que o
- * Google chama de modo básico do consentimento.
+ * AS TAGS DE CADA PARCEIRO, em dois tempos (`tags.tsx` chama, e baixa este
+ * arquivo só quando alguma liga):
+ *
+ * 1. O GA4 LIGA NA PRIMEIRA PÁGINA, antes da resposta da faixa — como na
+ *    Nuvemshop, que contava todo mundo (0166: o dono quer as visitas contadas
+ *    do mesmo jeito). Liga com a medição permitida e o anúncio negado (o modo
+ *    do consentimento do Google): conta a visita, e não guarda nada pra
+ *    anúncio. Quem clica em "Só o necessário" sai da conta: o GA4 nem liga, e
+ *    se já estava na página, ela recarrega sem ele (`consentimento.tsx`).
+ * 2. O RESTO SÓ DEPOIS DO "ACEITAR": o anúncio do Google (o `consent update`
+ *    e o Google Ads), a Meta, o TikTok e a Clarity. Antes dele não existe
+ *    script deles na página — é o que a política de privacidade promete.
  *
  * O trecho de cada um é o oficial da plataforma, com o código de dentro
  * conferido de novo aqui (`FORMATO`, o mesmo do backend): o código vai
@@ -39,35 +46,49 @@ function trecho(js: string) {
   document.head.appendChild(s)
 }
 
+let medindo = false
 let ligadas = false
 
-/** As tags desta página já foram montadas? (O "não" depois do sim recarrega a página pra tirá-las.) */
-export const integracoesMontadas = () => ligadas
-
-/** Liga as tags uma vez por página (a troca de página não recarrega o layout). */
-export function ligarIntegracoes(i: Integracoes) {
-  if (ligadas || typeof window === "undefined") return
-  ligadas = true
-  // Antes de qualquer script: cada um lê a campanha no endereço quando liga (`lib/chegada.ts`).
-  devolverACampanha()
+/**
+ * Liga o que a resposta permite, uma vez por página (a troca de página não
+ * recarrega o layout): sem resposta, só o GA4; com o sim, tudo. O sim que
+ * chega com o GA4 já no ar só acrescenta.
+ */
+export function ligarIntegracoes(i: Integracoes, sim: boolean) {
+  if (typeof window === "undefined" || ligadas) return
+  // Antes de qualquer script do sim: cada um lê a campanha no endereço quando liga
+  // (`lib/chegada.ts`). O GA4 já leu na chegada, se ligou lá — e vê a campanha
+  // voltar como uma página a mais, só de quem aceita depois de trocar de página.
+  if (sim) devolverACampanha()
 
   const ga4 = codigo(i, "ga4")
-  const ads = codigo(i, "googleAds")
-  if (ga4 || ads) {
+  const ads = sim ? codigo(i, "googleAds") : null
+  const anuncio = sim ? "granted" : "denied"
+  if (!medindo && (ga4 || ads)) {
+    medindo = true
     // O `gtag` empurra o `arguments` — um array (a flecha) o gtag.js ignora.
     trecho(`
 window.dataLayer = window.dataLayer || [];
 function gtag(){dataLayer.push(arguments);}
 window.gtag = gtag;
-gtag('consent', 'default', {ad_storage:'granted', analytics_storage:'granted', ad_user_data:'granted', ad_personalization:'granted'});
+gtag('consent', 'default', {analytics_storage:'granted', ad_storage:'${anuncio}', ad_user_data:'${anuncio}', ad_personalization:'${anuncio}'});
 gtag('js', new Date());
-${ga4 ? `gtag('config', '${ga4}');` : ""}
-${ads ? `gtag('config', '${ads}');` : ""}`)
+${ga4 ? `gtag('config', '${ga4}');` : ""}`)
     const s = document.createElement("script")
     s.async = true
     s.src = `https://www.googletagmanager.com/gtag/js?id=${ga4 ?? ads}`
     document.head.appendChild(s)
+    medicaoLigada()
   }
+  if (!sim) return
+  ligadas = true
+  // O GA4 no ar desde antes da resposta: o anúncio do Google passa a valer.
+  window.gtag?.("consent", "update", {
+    ad_storage: "granted",
+    ad_user_data: "granted",
+    ad_personalization: "granted",
+  })
+  if (ads) window.gtag?.("config", ads)
 
   const meta = codigo(i, "metaPixel")
   if (meta)
