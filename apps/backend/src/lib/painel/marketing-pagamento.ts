@@ -5,6 +5,12 @@ import { estadoDaSessao } from "../pagamento/parceiros"
 import { reais } from "./formato"
 import { dentro, type Janela } from "./marketing"
 import type { Achado } from "./marketing-canais"
+import {
+  achadosDosParceiros,
+  rankingDosParceiros,
+  type RankingDosParceiros,
+  type TentativaDoPeriodo,
+} from "./marketing-parceiros"
 import { pagamentoDo, totalDo, type PedidoCru } from "./pedido"
 
 /**
@@ -29,7 +35,10 @@ import { pagamentoDo, totalDo, type PedidoCru } from "./pedido"
  * - o FRETE dos pedidos pagos: com frete grátis, o frete médio de quem
  *   pagou, quem desiste no frete (os carrinhos que viram o frete e não
  *   escolheram) e o "quase lá" — quem pagou frete a menos de R$ 30 do piso
- *   do frete grátis (`fb_configuracoes`).
+ *   do frete grátis (`fb_configuracoes`);
+ * - os PARCEIROS lado a lado (`marketing-parceiros.ts`): o Pix de cada um,
+ *   quantas vezes não respondeu e quanto tempo ficou fora do ar — com as
+ *   tentativas que a porta do `complete` anota.
  */
 
 export type TentativasDoCartao = {
@@ -40,6 +49,12 @@ export type TentativasDoCartao = {
   banco: number
   dados: number
   outros: number
+  /**
+   * O pedido cancelado com o cartão ainda em análise: a reserva foi desfeita,
+   * e nada foi cobrado. Não é recusa — sem esta conta, eles ficavam no total
+   * e em motivo nenhum (0154).
+   */
+  cancelados: number
 }
 
 export type PagamentoEFrete = {
@@ -60,6 +75,8 @@ export type PagamentoEFrete = {
     quaseLa: number | null
     piso: number | null
   }
+  /** O Pagar.me e o Mercado Pago lado a lado (`marketing-parceiros.ts`). */
+  parceiros: RankingDosParceiros
   achados: Achado[]
 }
 
@@ -108,7 +125,9 @@ export function montarPagamento(
   carrinhos: CarrinhoDoPagamento[],
   politica: PoliticaDeFrete,
   j: Janela,
-  agora: Date
+  agora: Date,
+  /** As tentativas anotadas no período, com o parceiro — sem elas, o ranking só tem os pedidos. */
+  anotadas: TentativaDoPeriodo[] = []
 ): PagamentoEFrete {
   const doPeriodo = pedidos.filter((o) => dentro(new Date(o.created_at), j))
   const pagos = pedidos.flatMap((o) => {
@@ -159,6 +178,8 @@ export function montarPagamento(
     banco: 0,
     dados: 0,
     outros: 0,
+    cancelados: tentativas.filter((e) => e.situacao === "cancelado" || e.situacao === "cancelando")
+      .length,
   }
   for (const e of tentativas) {
     if (e.situacao !== "recusado" && e.situacao !== "falhou" && e.situacao !== "incerto") continue
@@ -181,6 +202,8 @@ export function montarPagamento(
     (c.shipping_address?.postal_code ?? "").trim()
   )
   const escolheram = viramOFrete.filter((c) => (c.shipping_methods ?? []).some(Boolean))
+
+  const { ranking, quedas } = rankingDosParceiros(pedidos, anotadas, j, agora)
 
   const semAchados: Omit<PagamentoEFrete, "achados"> = {
     comoPagaram,
@@ -210,8 +233,14 @@ export function montarPagamento(
             }).length,
       piso,
     },
+    parceiros: ranking,
   }
-  return { ...semAchados, achados: achadosDoPagamento(semAchados) }
+  // O parceiro fora do ar é coisa a dizer: o "ainda é pouco" sai quando ele entra.
+  const dosParceiros = achadosDosParceiros(ranking, quedas, anotadas)
+  const doPagamento = achadosDoPagamento(semAchados).filter(
+    (a) => !(dosParceiros.length && a.tipo === "info")
+  )
+  return { ...semAchados, achados: [...doPagamento, ...dosParceiros] }
 }
 
 /** Abaixo disso de tentativas (ou de Pix), a parte pode ser acaso. */
