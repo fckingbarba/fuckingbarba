@@ -1055,7 +1055,10 @@ aviso some 6 s depois de entrar (o de erro, 10 s), e a tela refeita pode chegar 
 a máquina carregada, o Resumo do Marketing refeito passou dos 6 s. Conferidor que confere os dois
 lê o aviso quando ele entra (a espera devolve o texto: o `data-vez` diferente do de antes do
 clique, sem `data-fora`) e só depois espera a tela — era o "Mudar a meta" do `conferir-marketing`
-(entrega 0143).
+(entrega 0143). A peça pronta é o `avisoDoClique(pagina, clicar)` do `pecas.mjs` (entrega 0147,
+nos cupons, promoções, integrações, clientes e configurações): faz o clique e devolve a frase do
+aviso deste clique quando ele entra. Esperar só o `data-vez` mudar não basta: o aviso anterior,
+saindo, também muda ele — e a espera soltava antes de a ação terminar.
 As visitas vêm do GA4 pela
 `GET /dashboard/visitas`, à parte do Início: `src/lib/painel/ga4.ts` fala com o Google (conta de
 serviço só leitura, JWT assinado com `node:crypto`, um `batchRunReports` e um `runRealtimeReport`,

@@ -1076,6 +1076,22 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
       conferidor de antes falhou 8 em 8, o novo passou 8 em 8. A CPU lenta no navegador não
       reproduz: ela atrasa junto o relógio do aviso. Só o conferidor mudou: nada muda no painel, e
       nada a configurar.
+- [x] **Mais cinco conferidores do painel liam o aviso de baixo tarde** (entrega 0147, 27/09, o
+      mesmo caso da 0143). O `conferir-cupons` e o `conferir-promocoes` ("criado/criada pela
+      gaveta"), o `conferir-integracoes` (o trecho do TikTok colado pela tela), o
+      `conferir-clientes` (o Leo sai da newsletter) e o `conferir-configuracoes` (a janela da
+      nota) liam a frase do aviso só depois de esperar a tela refeita — a linha nova, o campo, a
+      linha que sai — ou de uma chamada à API; com a máquina carregada, ela chega depois dos 6 s
+      do aviso, e a checagem falhava sem bug nenhum. Agora a peça `avisoDoClique` (`pecas.mjs`)
+      faz o clique e devolve a frase do aviso quando ele entra, e só depois vem a espera da tela.
+      Ela também não confunde o aviso anterior saindo (que muda o `data-vez`) com o novo: na
+      chave dos cupons e das promoções, o aviso do "criado" saía antes de a pausa voltar, a espera
+      soltava, e o conferidor lia o Medusa antes da pausa. Provado com um proxy na frente do
+      Medusa, só pro painel, que segura por 7 s a leitura da página refeita (na janela da nota,
+      também a chamada do conferidor) ou a própria pausa da chave: em sete casos, o conferidor de
+      antes falhou 4 em 4 em cada um, só na checagem do aviso, e o novo passou 4 em 4, inteiro.
+      O `conferir-observabilidade` e o `conferir-entrar` já liam o aviso na hora. Só os
+      conferidores mudaram: nada muda no painel, e nada a configurar.
 - [x] **A sacola responde no clique** (entrega 0104, 26/09, pedido da loja: "adicionar ou remover
       do carrinho está demorando"). Medido na produção: adicionar levava 1,3 s (2,4 s o primeiro,
       que cria o carrinho), o "+" 1,1 s e remover 0,9 s — quase tudo no Medusa, que refaz o
