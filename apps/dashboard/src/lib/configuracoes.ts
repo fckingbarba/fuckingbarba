@@ -26,6 +26,8 @@ export type FormularioDoFrete = {
   alvo: AlvoDoFrete
 }
 export type FormularioDaEmergencia = { preco: string; prazo: string }
+/** A menor parcela do cartão, como o campo mostra: "5,00" (0157). */
+export type FormularioDoParcelamento = { parcelaMinima: string }
 
 export type ChaveDaIntegracao =
   "ga4" | "googleAds" | "googleAdsCompra" | "metaPixel" | "clarity" | "tiktok"
@@ -50,6 +52,8 @@ export type TelaDasConfiguracoes = {
   empresa: FormularioDaEmpresa & { emBranco: string[] }
   frete: FormularioDoFrete & { emergencia: FormularioDaEmergencia; frase: string }
   pagamento: LinhaDeStatus[]
+  /** O que se muda no pagamento: a parcela mínima do cartão, e em até quantas vezes. */
+  parcelamento: FormularioDoParcelamento & { parcelas: number }
   nota: {
     erp: {
       nome: string
