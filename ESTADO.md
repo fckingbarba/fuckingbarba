@@ -1102,6 +1102,16 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
       com 43,3 dos 43,8 KB que cabem nas duas primeiras voltas da conexão (ver o AGENTS.md, perto
       do Lighthouse): sobra menos de meio KB pra próxima mudança que pese em toda página. Nada a
       configurar depois do deploy.
+- [x] **A listra preta e amarela no alto das seções da página do produto** (entrega 0153, 27/09,
+      pedido da loja, com o print da listra). Na PDP, só os Benefícios, a faixa com foto e os
+      produtos relacionados abriam com ela; agora Antes e depois, Linha do tempo, Rotina, Como
+      funciona, Comparação, Pra quem é, Perguntas frequentes e Avaliações também — a mesma listra
+      das seções da home, no espaço que já existia no alto de cada seção: nada muda de lugar. A
+      regra mora na fonte do CSS da PDP (`ferramentas/porte/pdp-partes/estilo.css`), e os
+      `pdp-*.css` saíram do `agrupa-pdp.py`. Conferido por foto na PDP do Fator no ar, com o CSS
+      novo só no navegador do teste, no celular e no computador: as 8 seções com a listra, nenhuma
+      seção muda de altura nem de lugar, nenhum erro. A PDP fica 0,12 KB (comprimido) mais pesada;
+      a home não muda. Nada a configurar depois do deploy.
 - [ ] **Pagamento, o que a revisão achou e ficou pra depois** (baixo risco, sem dinheiro preso):
   - estorno ou contestação feitos do lado do Pagar.me depois do pagamento (pelo painel deles,
     chargeback) não são percebidos: o pedido segue pago, pro envio.
