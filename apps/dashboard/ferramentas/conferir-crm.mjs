@@ -317,7 +317,13 @@ try {
     await pagina.locator("#form-contato button[type=submit]").click()
     await pagina.locator("#form-entrega").waitFor({ timeout: 25000 })
     const quem = mascarado(DO_CHECKOUT)
-    const ligado = await esperarTela((t) => daCampanha(t)?.quem === quem)
+    // A identificação pode chegar por outro recado do checkout, segundos antes do
+    // "deixou o e-mail" (cada um sai no seu envio): espera os dois.
+    const ligado = await esperarTela(
+      (t) =>
+        daCampanha(t)?.quem === quem &&
+        linhas(t).some((l) => l.tipo === "contato_informado" && l.quem === quem)
+    )
     ok(
       daCampanha(ligado)?.quem === quem,
       "o e-mail do checkout chega na chegada, anotada antes de a pessoa dizer quem é",
