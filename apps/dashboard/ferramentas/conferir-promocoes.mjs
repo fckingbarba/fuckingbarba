@@ -44,6 +44,7 @@ import { subirFrenetFalsa } from "../../loja/ferramentas/frenet-falsa.mjs"
 import { subirPagarmeFalso } from "../../loja/ferramentas/pagarme-falso.mjs"
 import {
   abrirNavegador,
+  avisoDoClique,
   caixaDoResend,
   DONO,
   entrar as entrarPelaTela,
@@ -597,33 +598,21 @@ try {
       "a prévia diz a promoção inteira, antes de criar",
       previa
     )
-    const aviso = pagina.locator(".aviso")
-    const vez = await aviso.getAttribute("data-vez")
-    await form.locator('button[type="submit"]').click()
-    await pagina.waitForFunction(
-      (v) => document.querySelector(".aviso")?.getAttribute("data-vez") !== v,
-      vez,
-      { timeout: 30000 }
-    )
+    // O aviso é lido quando entra: a lista refeita pode chegar depois de ele sumir (6 s).
+    const criada = await avisoDoClique(pagina, () => form.locator('button[type="submit"]').click())
     const naApi = (await medusa("/dashboard/cupons", { metodo: "GET", token: tokenMkt })).corpo
     const T = (naApi.promocoes ?? []).find((p) => p.nome === nomeDa("T")) ?? {}
     if (T.id) promocoesDaRodada.add(T.id)
     await linhaDe(T.codigo).waitFor({ timeout: 15000 })
     ok(
-      /criada/.test(await aviso.textContent()) &&
+      /criada/.test(criada) &&
         (await pagina.locator("[data-form-promocao]").count()) === 0 &&
         T.etiqueta === "4 por 2" &&
         T.regra === "sem data de fim · fora do preço promocional",
       "criada pela gaveta: o aviso, a gaveta fecha, e a promoção entra na lista",
-      JSON.stringify(T)
+      `aviso: ${criada} · ${JSON.stringify(T)}`
     )
-    const vez2 = await aviso.getAttribute("data-vez")
-    await linhaDe(T.codigo).locator(".chave").click()
-    await pagina.waitForFunction(
-      (v) => document.querySelector(".aviso")?.getAttribute("data-vez") !== v,
-      vez2,
-      { timeout: 30000 }
-    )
+    await avisoDoClique(pagina, () => linhaDe(T.codigo).locator(".chave").click())
     const depois = (await medusa("/dashboard/cupons", { metodo: "GET", token: tokenMkt })).corpo
     ok(
       (depois.promocoes ?? []).find((p) => p.codigo === T.codigo)?.situacao === "pausado" &&

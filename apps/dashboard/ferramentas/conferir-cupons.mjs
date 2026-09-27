@@ -50,6 +50,7 @@ import { subirFrenetFalsa } from "../../loja/ferramentas/frenet-falsa.mjs"
 import { subirPagarmeFalso } from "../../loja/ferramentas/pagarme-falso.mjs"
 import {
   abrirNavegador,
+  avisoDoClique,
   caixaDoResend,
   DONO,
   entrar as entrarPelaTela,
@@ -913,35 +914,24 @@ try {
       "a prévia diz o cupom inteiro, antes de criar",
       previa
     )
-    const aviso = pagina.locator(".aviso")
-    const vez = await aviso.getAttribute("data-vez")
-    await form.locator('button[type="submit"]').click()
-    await pagina.waitForFunction(
-      (v) => document.querySelector(".aviso")?.getAttribute("data-vez") !== v,
-      vez,
-      { timeout: 30000 }
-    )
+    // O aviso é lido quando entra: a lista refeita pode chegar depois de ele sumir (6 s).
+    const criado = await avisoDoClique(pagina, () => form.locator('button[type="submit"]').click())
     await linhaDe(U).waitFor({ timeout: 15000 })
     ok(
-      /criado/.test(await aviso.textContent()) &&
+      /criado/.test(criado) &&
         (await pagina.locator("[data-form-cupom]").count()) === 0 &&
         /R\$ 15,00 de desconto em pedidos a partir de R\$ 100,00/.test(
           semEspaco(await linhaDe(U).textContent())
         ),
-      "criado pela gaveta: o aviso, a gaveta fecha, e o cupom entra na lista"
+      "criado pela gaveta: o aviso, a gaveta fecha, e o cupom entra na lista",
+      criado
     )
     ok(
       (await linhaDe(U).locator(`[data-copiar-link="${U}"]`).count()) === 1,
       "na lista, cada cupom tem o botão do link"
     )
 
-    const vez2 = await aviso.getAttribute("data-vez")
-    await linhaDe(F).locator(".chave").click()
-    await pagina.waitForFunction(
-      (v) => document.querySelector(".aviso")?.getAttribute("data-vez") !== v,
-      vez2,
-      { timeout: 30000 }
-    )
+    await avisoDoClique(pagina, () => linhaDe(F).locator(".chave").click())
     const naApi = (await medusa("/dashboard/cupons", { metodo: "GET", token: tokenMkt })).corpo
     ok(
       naApi.cupons?.find((c) => c.codigo === F)?.situacao === "pausado" &&
