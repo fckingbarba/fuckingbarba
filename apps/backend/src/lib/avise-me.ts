@@ -230,8 +230,11 @@ export async function lerSituacoes(
   return situacoes
 }
 
-/** O preço de uma unidade agora e o riscado da promoção, como a loja mostra (`precosDe`). */
-async function precosDasVariantes(
+/**
+ * O preço de uma unidade agora e o riscado da promoção, como a loja mostra
+ * (`precosDe`). Também dos exemplos dos e-mails do CRM (`lib/emails/crm.ts`).
+ */
+export async function precosDasVariantes(
   container: MedusaContainer,
   variantes: string[]
 ): Promise<Map<string, { preco: number; precoCheio: number | null }>> {
