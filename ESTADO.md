@@ -2684,12 +2684,9 @@ rodou (pede o Google falso): o Pagamento e frete é o `montarPagamento`, coberto
 
 Depois do deploy — **nada a configurar.**
 
-- [ ] **Parte 2: o Mercado Pago, só no Pix.** O provedor, o aviso de pago, a conciliação e o
-      estorno dele, e um Mercado Pago falso pros conferidores. Cartão fica só no Pagar.me: cartão
-      recusado não vai pro outro parceiro (quem recusa é o banco do cliente, e mandar pra outro
-      atrai o robô testando cartão e a contestação). Com você: **conferir se a conta do Mercado
-      Pago tem chave Pix cadastrada** (o Mercado Pago exige pra gerar Pix pelo site); as chaves de
-      acesso, você cria quando esta parte chegar e cola no Railway.
+- [x] **Parte 2: o Mercado Pago, só no Pix** — pronta em 27/09 (entrega 0140, mais abaixo). Cartão
+      fica só no Pagar.me: cartão recusado não vai pro outro parceiro (quem recusa é o banco do
+      cliente, e mandar pra outro atrai o robô testando cartão e a contestação).
 - [ ] **Parte 3: a troca automática, pelo parceiro estável.** Com os dois bem, Pix e cartão pelo
       Pagar.me (dá pra inverter no Pix, se a taxa do Mercado Pago for menor). Pagar.me instável:
       o Pix sai pelo Mercado Pago no mesmo clique, e o cartão oferece esse Pix. Mercado Pago
@@ -3003,6 +3000,54 @@ Depois do deploy — **nada a configurar.** Pra ver: Painel → Clientes → abr
 - [ ] **As próximas partes da Fundação** (uma entrega cada, perguntar antes): os Ajustes do CRM
       editáveis no painel (inclusive quanto dura cada produto), a base da Nuvemshop e o modelo de
       e-mail.
+
+**Pix reserva, parte 2: o Mercado Pago, só no Pix — pronta em 27/09 (entrega 0140).** A loja passa a
+saber cobrar Pix pelo Mercado Pago (a conta dele, a mesma das vendas do Mercado Livre). **Ainda não
+usa sozinha:** a troca automática, quando o Pagar.me falhar, é a parte 3. Nada muda pra quem compra.
+
+- **O que já faz:** gera o Pix (o QR e o copia-e-cola aparecem na tela de obrigado como os do
+  Pagar.me), recebe o aviso de pago direto no Medusa (assinado — aviso sem a assinatura certa não
+  muda nada), e confere de 5 em 5 minutos o que o aviso não resolve: o Pix pago sem aviso, o
+  vencido, o que o Mercado Pago cancelou, a resposta perdida no caminho e o Pix cuja sessão sumiu.
+  O pedido cancelado com o Pix esperando cancela o QR lá NA HORA (o Pagar.me não deixa; o Mercado
+  Pago deixa), e o pedido pago cancelado no admin devolve o dinheiro pelo Mercado Pago.
+- **Uma compra, um Pix:** a resposta perdida é repetida com a mesma chave, e volta o mesmo Pix.
+- **A venda do Mercado Livre, ninguém toca:** a loja só mexe no pagamento que tem a marca dela (a
+  sessão do checkout e a origem desta instalação).
+- **No painel:** Configurações → Pagamento e a Observabilidade ganham a linha do Mercado Pago —
+  "Desligado" até o token entrar no Railway. A política de privacidade passa a citar o Mercado Pago.
+- **Por dentro:** o que as duas conciliações dividem saiu pra `lib/pagamento/conciliacao.ts`, e a
+  entrada da loja, o dinheiro em centavos e a origem, pra `lib/pagamento/{entrada,comum}.ts` (o
+  Pagar.me continua exportando o que exportava). O dinheiro que entra num pedido já cancelado é
+  devolvido pelo Medusa pra todo parceiro.
+
+Conferido pelo `conferir-mercadopago.mjs` (48, novo: o Pix pela tela com o QR de lá, o aviso
+assinado e o forjado, a conciliação sem aviso, o Pix vencido e o que o Mercado Pago venceu, o
+cancelamento com o QR morrendo, o estorno do pedido pago, a resposta perdida, o Mercado Pago fora, a
+dúvida "gerou ou não?", os órfãos, a venda do Mercado Livre intacta, o estado forjado e o cartão
+recusado), pelos de sempre na mesma pilha — `conferir-pagamento.mjs` (214), `conferir-checkout.mjs`
+(182), `conferir-conta.mjs` (209), `conferir-erp.mjs` (114) e, no painel, `conferir-pedidos.mjs`
+(77), `conferir-acoes.mjs` (32), `conferir-observabilidade.mjs` (35, agora com 9 integrações) e
+`conferir-configuracoes.mjs` (18) — e pelos testes de unidade (1127; 17 novos).
+
+**Depois do deploy — com você, uma vez** (o Pix reserva só liga depois disto; sem, a loja segue só
+com o Pagar.me, como hoje):
+
+1. **A chave Pix:** no app do Mercado Pago, confira se a conta tem uma chave Pix cadastrada (sem
+   chave, o Mercado Pago não gera Pix pela API).
+2. **A aplicação:** em https://www.mercadopago.com.br/developers/panel/app, "Criar aplicação"
+   (pagamentos online). Dentro dela, **Credenciais de produção** → ative (ele pede o setor e o site)
+   → copie o **Access Token** (começa com `APP_USR-`).
+3. **O aviso:** na mesma aplicação, **Webhooks** → **Configurar notificações** → modo de produção →
+   URL `https://fuckingbarbabackend-production.up.railway.app/hooks/payment/mercadopago_mercadopago`
+   → evento **Pagamentos** → salvar → copie a **assinatura secreta**.
+4. **O Railway:** no serviço do backend, Variables → `MERCADOPAGO_ACCESS_TOKEN` (o Access Token) e
+   `MERCADOPAGO_WEBHOOK_SEGREDO` (a assinatura secreta). Chave nunca na conversa. O Railway sobe de
+   novo sozinho.
+5. **A região:** no shell do Railway, `cd apps/backend/.medusa/server && npx medusa exec
+   ./src/scripts/pagamento.js` — liga o Mercado Pago junto do Pagar.me, e antes confere o token
+   (token errado para ali, com o motivo). Depois, Painel → Configurações → Pagamento mostra
+   "Mercado Pago · Pix reserva: Conectado".
 
 ## Como seguir no Claude Code
 
