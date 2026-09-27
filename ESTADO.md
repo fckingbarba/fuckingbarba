@@ -3397,12 +3397,13 @@ e-mail de oferta sai de um modelo só. Painel → CRM → aba **E-mails**:
 O que ainda não tem: **quem recebe o quê e quando** (os fluxos: boas-vindas, reposição, carrinho,
 volta). Isso é a próxima parte. Até lá, nenhum e-mail de oferta sai sozinho.
 
-- [ ] **Recomendado, antes de os fluxos começarem (você, uma vez):** um endereço só pra oferta, pra
+- [x] **Recomendado, antes de os fluxos começarem (você, uma vez):** um endereço só pra oferta, pra
       que, se um dia a oferta cair no spam, o e-mail de pedido não caia junto. No Resend, Domains →
       Add Domain → `news.fuckingbarba.com.br`, e os registros que ele mostrar vão na GoDaddy. Depois,
       no Railway, a variável `EMAIL_REMETENTE_CRM` = `FuckingBarba <contato@news.fuckingbarba.com.br>`
       (`contato@`, e não `ofertas@`: desde a 0170, o mesmo endereço manda os e-mails assinados por
-      você). Eu te guio no passo a passo quando for a hora.
+      você). Eu te guio no passo a passo quando for a hora. **Feito em 27/09:** o `news` verificado
+      no Resend e a variável no Railway; o painel mostra o endereço novo em CRM → E-mails.
 - [x] **A próxima parte da Fundação:** os fluxos começaram na parte 7 (entrega 0165, logo abaixo).
 
 **CRM, parte 7: os fluxos de compra — pronto em 27/09 (entrega 0165).** Os primeiros e-mails que
@@ -3480,10 +3481,10 @@ e-mails caíam na aba de ofertas do Gmail. Entraram os ajustes que você escolhe
 Nenhum ajuste garante a aba Principal. Quem decide é o Gmail, pelo jeito do e-mail e pelo que as
 pessoas fazem com ele (abrir, responder).
 
-- [ ] **Depois do deploy (você):** CRM → Fluxos → "Mandar pra mim" no aviso do Pix e no de 30
-      minutos do checkout. Ver em que aba do Gmail cada um cai.
-- [ ] **O endereço só das ofertas** (o 3º ajuste; você, com o meu passo a passo): o item da parte
-      6, lá em cima. Até lá, os e-mails do CRM saem do endereço da loja.
+- [x] **Depois do deploy (você):** CRM → Fluxos → "Mandar pra mim" no aviso do Pix e no de 30
+      minutos do checkout. Ver em que aba do Gmail cada um cai. (Feito na 0173, logo abaixo.)
+- [x] **O endereço só das ofertas** (o 3º ajuste; você, com o meu passo a passo): o item da parte
+      6, lá em cima. Feito em 27/09.
 
 **Os lembretes sem preço — pronto em 27/09 (entrega 0173).** No seu teste depois da 0170, a
 maioria ainda caía em Promoções. Chequei todos os e-mails da loja. O que empurra pra lá:
@@ -3497,17 +3498,36 @@ O que entrou:
   também na versão em texto. Continuam em texto simples até o teste (escolha sua: testar antes).
 - **Os e-mails de pedido e de conta** ficam com a cara padrão da loja, como estão (escolha sua).
 
-- [ ] **Você, no Resend:** Domains → `fuckingbarba.com.br` → desligar **Click Tracking**. Na
+- [x] **Você, no Resend:** Domains → `fuckingbarba.com.br` → desligar **Click Tracking**. Na
       GoDaddy, não apagar o registro `links`, que os e-mails já enviados usam. O CRM para de contar
-      cliques; as vendas dos fluxos continuam contadas.
-- [ ] **O endereço só das ofertas:** o item da parte 6, lá em cima. Agora é o mais importante: sem
-      ele, as ofertas do CRM saem do mesmo endereço dos pedidos.
-- [ ] **O teste num Gmail novo**, depois dos dois acima:
-  1. entrar na conta da loja (o e-mail do código já é um teste);
-  2. pôr um produto na sacola e ir até o pagamento, sem pagar;
-  3. em 30 minutos chega o primeiro lembrete;
-  4. ver em que aba cai cada um.
-- [ ] **Depois do teste:** se o texto simples não ajudar, os lembretes voltam pra cara padrão.
+      cliques; as vendas dos fluxos continuam contadas. Feito em 27/09, com o Open Tracking
+      desligado também, nos dois domínios.
+- [x] **O endereço só das ofertas:** o item da parte 6, lá em cima. Feito em 27/09.
+- [x] **O teste**, depois dos dois acima. Foi no seu Gmail, pelo "Mandar pra mim" da aba Fluxos:
+  - "Faltou só o pagamento" (30 minutos do checkout): **Principal**;
+  - o aviso do Pix: **Principal**;
+  - "Esqueceu isso aqui?" (1 hora do carrinho): **Promoções**. Virou a 0174, logo abaixo.
+- [x] **Depois do teste:** o texto simples ajudou, então os lembretes continuam em texto simples.
+
+**Os lembretes sem frase de propaganda — pronto em 27/09 (entrega 0174).** O de 30 minutos, que
+caiu em Principal, fala de pedido e de pagamento. O do carrinho, que caiu em Promoções, usava
+"Esqueceu isso aqui?", o assunto clássico de e-mail de carrinho. Os lembretes sem desconto agora
+falam de compra, como o de 30 minutos (escolha sua: reescrever e testar).
+
+- **Carrinho:**
+  - 1 hora: "Sua compra ficou pela metade";
+  - 12 horas: "Sobre o Fator de Crescimento que você escolheu" (o produto da sacola), com as
+    avaliações;
+  - 5 dias: "O último lembrete da sua compra";
+  - o botão é "Terminar a compra".
+- **Checkout e Pix:**
+  - 2 dias, sem desconto: "O último lembrete do seu pedido";
+  - o Pix vencido, sem desconto: "Quer refazer o seu pedido?".
+- **Saíram:** "Esqueceu isso aqui?", "Última chamada", "Ainda dá tempo" e "em 1 clique".
+- **Os com desconto** não mudam.
+
+- [ ] **Depois do deploy (você):** CRM → Fluxos → "Mandar pra mim" em "Sua compra ficou pela
+      metade" e no último lembrete do carrinho. Me dizer a aba de cada um.
 
 **A parcela mínima do cartão, editável — pronta em 27/09 (entrega 0157).** O pedido dele: "quero
 poder editar a parcela mínima no cartão, ali diz 5 reais". Em **Configurações → Pagamento**, o

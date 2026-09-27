@@ -1792,26 +1792,31 @@ try {
       const doCarrinho = (e) => e.tags?.some((t) => t.name === "tipo" && t.value === "crm-carrinho")
       const antes1h = await rodar({ agora: naSacola(59 * MIN), email: NA_SACOLA })
       const r1h = await rodar({ agora: naSacola(61 * MIN), email: NA_SACOLA })
-      const e1h = await caixa.esperarEmail(NA_SACOLA, (e) => e.subject === "Esqueceu isso aqui?", 0)
+      const e1h = await caixa.esperarEmail(
+        NA_SACOLA,
+        (e) => e.subject === "Sua compra ficou pela metade",
+        0
+      )
       ok(
         antes1h.corpo.enviados === 0 &&
           r1h.corpo.enviados === 1 &&
           Boolean(e1h) &&
           doCarrinho(e1h) &&
           e1h.html.includes(`${LOJA}/voltar/${sacola.id}.`) &&
-          e1h.html.includes("utm_campaign=crm-carrinho"),
-        "1 hora: “Esqueceu isso aqui?”, com o link que volta pra sacola",
+          e1h.html.includes("utm_campaign=crm-carrinho") &&
+          e1h.html.includes("Terminar a compra"),
+        "1 hora: “Sua compra ficou pela metade”, com o link que volta pra sacola",
         JSON.stringify({ antes: antes1h.corpo, r: r1h.corpo, assunto: e1h?.subject })
       )
       const r12 = await rodar({ agora: naSacola(12 * HORA + MIN), email: NA_SACOLA })
       const e12 = await caixa.esperarEmail(
         NA_SACOLA,
-        (e) => /^O que os clientes acharam/.test(e.subject ?? ""),
+        (e) => /^Sobre o .* que você escolheu$/.test(e.subject ?? ""),
         0
       )
       ok(
         r12.corpo.enviados === 1 && Boolean(e12),
-        "12 horas: o que os clientes acharam",
+        "12 horas: “Sobre o … que você escolheu”, com o que os clientes acharam",
         e12?.subject ?? JSON.stringify(r12.corpo)
       )
       const agora24 = naSacola(DIA_MS + MIN)
@@ -1861,7 +1866,7 @@ try {
       const r5d = await rodar({ agora: naSacola(5 * DIA_MS + MIN), email: NA_SACOLA })
       const e5d = await caixa.esperarEmail(
         NA_SACOLA,
-        (e) => e.subject === "Última chamada pra sua sacola",
+        (e) => e.subject === "O último lembrete da sua compra",
         0
       )
       ok(
