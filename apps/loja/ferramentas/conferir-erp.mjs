@@ -1035,7 +1035,11 @@ try {
       handle: `teste-imp-oleo-${R}`,
       sku: `TIMP-OL-${R}`,
       preco: 79.9,
-      metadata: { fb_pdp: { conteudo: { promessa: { titulo: "de hoje" } } }, outra: "chave" },
+      metadata: {
+        fb_pdp: { conteudo: { promessa: { titulo: "de hoje" } } },
+        outra: "chave",
+        fb_categoria: categoria?.id,
+      },
     })
     const sai = await produtoNoSite({
       nome: `Sai ${R}`,
@@ -1187,6 +1191,11 @@ try {
       !o?.metadata?.fb_pdp && !o?.metadata?.outra && o?.metadata?.fb_erp?.id === String(bOleo.id),
       "os textos da página saem; fica a marca de onde ele veio",
       JSON.stringify(o?.metadata)
+    )
+    ok(
+      o?.metadata?.fb_categoria === categoria?.id,
+      "a categoria principal (a marca do painel) fica, junto com as categorias",
+      JSON.stringify(o?.metadata?.fb_categoria)
     )
     const v = o?.variants?.[0]
     ok(

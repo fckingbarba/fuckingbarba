@@ -28,6 +28,7 @@
 
 import { createHash } from "node:crypto"
 import { chromium } from "playwright"
+import { site } from "../src/lib/site.ts"
 
 const LOJA = (process.argv[2] ?? process.env.LOJA ?? "http://localhost:3000").replace(/\/$/, "")
 const MEDUSA = process.env.MEDUSA_BACKEND_URL ?? "http://127.0.0.1:9000"
@@ -160,6 +161,19 @@ try {
     "o id é o variant_… do Medusa — o mesmo que o pixel e o GA4 mandam"
   )
 
+  /**
+   * O tipo do produto é a categoria PRINCIPAL, como a API diz (entrega 0151): a marcada no
+   * painel (`fb_categoria`), se o produto está nela; senão a primeira dele na ordem do menu.
+   */
+  const menu = site.categorias.map((c) => c.handle)
+  const tipoDe = (p) => {
+    const doMenu = (p.categories ?? [])
+      .filter((c) => menu.includes(c?.handle))
+      .sort((a, b) => menu.indexOf(a.handle) - menu.indexOf(b.handle))
+    const principal = doMenu.find((c) => c.id === p.metadata?.fb_categoria) ?? doMenu[0]
+    return principal ? site.categorias.find((c) => c.handle === principal.handle).nome : null
+  }
+
   const errados = []
   for (const { p, v } of esperados) {
     const i = itens.find((x) => x.id === v.id)
@@ -179,6 +193,7 @@ try {
       ["o promocional", i.promocional, emPromocao ? emPreco(atual) : null],
       ["o estoque", i.disponibilidade, temEstoque(v) ? "in_stock" : "out_of_stock"],
       ["o SKU", i.mpn, v.sku ?? null],
+      ["a categoria", i.tipo, tipoDe(p)],
     ]
     for (const [o_que, veio, esperado] of conferir) {
       if (veio !== esperado)
@@ -187,7 +202,7 @@ try {
   }
   ok(
     !errados.length,
-    "título, link, foto, preço, promocional, estoque e SKU iguais aos do Medusa",
+    "título, link, foto, preço, promocional, estoque, SKU e categoria (a principal) iguais aos do Medusa",
     errados.slice(0, 5).join(" | ")
   )
 
