@@ -38,10 +38,15 @@
  * │ • (parte 4) os Ajustes que não valem na ficha (o Fator com outros      │
  * │   dias e a próxima compra parada); número errado gravando; a operação  │
  * │   abrindo os Ajustes; o "Voltar ao padrão" que não volta.              │
+ * │ • (parte 5) a base da Nuvemshop que não entra, duplica ao mandar de    │
+ * │   novo, guarda CPF ou telefone, ou não conta na ficha (o pedido da     │
+ * │   loja antiga); o arquivo errado entrando; a operação importando; o    │
+ * │   histórico que não chega nos Ajustes.                                 │
  * └────────────────────────────────────────────────────────────────────────┘
  */
 
 import { createHmac, randomUUID } from "node:crypto"
+import { gzipSync } from "node:zlib"
 import { subirFrenetFalsa } from "../../loja/ferramentas/frenet-falsa.mjs"
 import { subirPagarmeFalso } from "../../loja/ferramentas/pagarme-falso.mjs"
 import { fabricaDePedidos } from "../../loja/ferramentas/pedido-de-teste.mjs"
@@ -811,6 +816,210 @@ try {
       (await proximaDoFator())?.valor === daquiA(30),
     "“Voltar ao padrão” e salvar: o Fator volta aos 30 dias, e a ficha também"
   )
+
+  /* ── a base da Nuvemshop (parte 5) ──────────────────────────────────────── */
+
+  titulo("A base da Nuvemshop")
+  const DIA_MS = 24 * 60 * 60 * 1000
+  const agora = Date.now()
+  /** A data como a Nuvemshop escreve ("27/09/2026 11:00:58"), em Brasília. */
+  const dataBR = (ms, hora = true) => {
+    const d = new Date(ms - 3 * 60 * 60 * 1000)
+    const p = (n) => String(n).padStart(2, "0")
+    return (
+      `${p(d.getUTCDate())}/${p(d.getUTCMonth() + 1)}/${d.getUTCFullYear()}` +
+      (hora ? ` ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())}` : "")
+    )
+  }
+  const latin1 = (linhas) => Buffer.from(linhas.join("\r\n"), "latin1")
+  const VELHO = `velho@${DOMINIO}`
+  const VELHA = `velha@${DOMINIO}`
+  const CPF_FALSO = "52998224725"
+  const TELEFONE_FALSO = "11911112222"
+  const cadastro = dataBR(agora - 400 * DIA_MS, false)
+  const clientesDaBase = latin1([
+    "Nome completo;CPF/CNPJ;E-mail;Telefone de Contato;Endereço;Cidade;Data;Cadastrado;Inscrição para newsletter;Marketing;Marketing (atualização)",
+    `FATOR TESTE;${CPF_FALSO};${DO_FATOR};+55${TELEFONE_FALSO};Rua da Rodada, 99;Blumenau;${cadastro};NÃO;NÃO;Aceita;${cadastro}`,
+    `JOÃO VELHO;${CPF_FALSO};${VELHO};+55${TELEFONE_FALSO};Rua da Rodada, 99;Blumenau;${cadastro};SIM;NÃO;Aceita;${cadastro}`,
+    `ANA VELHA;${CPF_FALSO};${VELHA};+55${TELEFONE_FALSO};Rua da Rodada, 99;Blumenau;${cadastro};NÃO;NÃO;Não aceita;${cadastro}`,
+    `SEM E-MAIL;;não é e-mail;;;;${cadastro};NÃO;NÃO;Aceita;${cadastro}`,
+  ])
+  const cabecalhoDasVendas =
+    "Número do Pedido;E-mail;Data;Status do Pedido;Status do Pagamento;Status do Envio;Subtotal;Desconto;Valor do Frete;Total;Nome do comprador;CPF / CNPJ;Telefone;Endereço;Cupom de Desconto;Data de pagamento;Data de envío;Nome do Produto;Valor do Produto;Quantidade Comprada;SKU;Meio de pagamento"
+  const venda = (numero, email, ms, sku, nome) =>
+    `${numero};${email};${dataBR(ms)};Aberto;Confirmado;Entregue;79.90;0.00;15.00;94.90;Teste;${CPF_FALSO};+55${TELEFONE_FALSO};Rua da Rodada, 99;;${dataBR(ms, false)};${dataBR(ms + 2 * DIA_MS, false)};${nome};79.90;1;${sku};Pix`
+  const NUMERO_DO_FATOR = `N${RODADA}-0`
+  const vendasDaBase = latin1([
+    cabecalhoDasVendas,
+    // O do Fator: uma compra na loja antiga, 60 dias antes da de hoje na loja nova.
+    venda(
+      NUMERO_DO_FATOR,
+      DO_FATOR,
+      agora - 60 * DIA_MS,
+      "FBFCB01",
+      "Fator de Crescimento para Barba 30ml"
+    ),
+    // O velho: 12 Fatores, um a cada 45 dias — 11 recompras pro histórico dos Ajustes.
+    ...Array.from({ length: 12 }, (_, i) =>
+      venda(
+        `N${RODADA}-${i + 1}`,
+        VELHO,
+        agora - (12 - i) * 45 * DIA_MS,
+        "FBFCB01",
+        "Fator de Crescimento para Barba 30ml"
+      )
+    ),
+    // Um item a mais no primeiro pedido dele, na linha de baixo (como a Nuvemshop manda).
+    `N${RODADA}-1;${VELHO};;;;;;;;;;;;;;;;Shampoo para Barba FuckingBarba 120ml;49.90;1;FBSH01;`,
+  ])
+  const carrinhosDaBase = latin1([
+    "ID do carrinho;Data de criação;Tipo de abandono;Total do carrinho;Nome;E-mail;Telefone;CPF / CNPJ;Endereço;Nome do produto;Variante / SKU;Quantidade;Preço unitário",
+    `C${RODADA};${dataBR(agora - 5 * DIA_MS)};Tentou pagar mas falhou;R$179,80;Ana;${VELHA};+55${TELEFONE_FALSO};${CPF_FALSO};Rua;Kit Completo FuckingBarba;FBKIT01;1;99.90`,
+    `C${RODADA};;;;;${VELHA};;;;Fator de Crescimento para Barba 30ml;FBFCB01;1;79.90`,
+  ])
+  const base = (token) => medusa("/dashboard/crm/base", { metodo: "GET", token })
+  const doArquivo = (buffer) => ({
+    nome: "x.csv",
+    gzip: gzipSync(buffer).toString("base64"),
+  })
+  ok(
+    (await base(cookieOp.value)).status === 403 &&
+      (
+        await medusa("/dashboard/crm/base", {
+          token: cookieOp.value,
+          corpo: doArquivo(clientesDaBase),
+        })
+      ).status === 403,
+    "a operação não abre nem manda a base"
+  )
+  const naoENuvemshop = await medusa("/dashboard/crm/base", {
+    token: tokenDoDono,
+    corpo: doArquivo(latin1(["nome;idade", "ana;30"])),
+  })
+  const naoEGzip = await medusa("/dashboard/crm/base", {
+    token: tokenDoDono,
+    corpo: { nome: "x.csv", gzip: Buffer.from("isso não é gzip").toString("base64") },
+  })
+  ok(
+    naoENuvemshop.status === 422 &&
+      naoENuvemshop.corpo.erro === "desconhecido" &&
+      naoEGzip.status === 422 &&
+      naoEGzip.corpo.erro === "arquivo_invalido",
+    "o arquivo que não é da Nuvemshop, e o que nem abre: 422, com o porquê"
+  )
+
+  const antesDaBase = (await base(tokenDoDono)).corpo.numeros
+  await dono.pagina.goto(`${PAINEL}/crm/base`)
+  await dono.pagina.locator("[data-base-crm]").waitFor({ timeout: 20000 })
+  await hidratado(dono.pagina, "[data-arquivos-da-base]")
+  const mandarBase = async () => {
+    // O aviso de baixo entra quando o último arquivo volta: é por ele que se sabe que acabou.
+    const vez = await dono.pagina.locator(".aviso").getAttribute("data-vez")
+    await dono.pagina.locator("[data-arquivos-da-base]").setInputFiles([
+      { name: "clientes.csv", mimeType: "text/csv", buffer: clientesDaBase },
+      { name: "vendas.csv", mimeType: "text/csv", buffer: vendasDaBase },
+      { name: "carrinho_abandonado.csv", mimeType: "text/csv", buffer: carrinhosDaBase },
+    ])
+    await dono.pagina.waitForFunction(
+      (v) => document.querySelector(".aviso")?.getAttribute("data-vez") !== v,
+      vez,
+      { timeout: 60000 }
+    )
+    await dono.pagina.locator("[data-resultados-da-base] li").nth(2).waitFor({ timeout: 20000 })
+    return (await dono.pagina.locator("[data-resultados-da-base] li").allTextContents()).map(
+      semEspaco
+    )
+  }
+  const primeiraVez = await mandarBase()
+  ok(
+    JSON.stringify(primeiraVez) ===
+      JSON.stringify([
+        "Clientes: 3 pessoas · 1 linha sem e-mail ficou de fora.",
+        "Vendas: 13 pedidos.",
+        "Carrinhos: 1 carrinho.",
+      ]),
+    "os três arquivos pela tela: o que entrou de cada um, e a linha sem e-mail de fora",
+    JSON.stringify(primeiraVez)
+  )
+  const depoisDaBase = (await base(tokenDoDono)).corpo
+  ok(
+    depoisDaBase.numeros.pessoas === antesDaBase.pessoas + 3 &&
+      depoisDaBase.numeros.aceitam === antesDaBase.aceitam + 2 &&
+      depoisDaBase.numeros.pagos === antesDaBase.pagos + 13 &&
+      depoisDaBase.numeros.carrinhos === antesDaBase.carrinhos + 1,
+    "os números da base: 3 pessoas (2 aceitam ofertas), 13 pedidos pagos e 1 carrinho a mais",
+    JSON.stringify({ antes: antesDaBase, depois: depoisDaBase.numeros })
+  )
+  const segundaVez = await mandarBase()
+  const deNovo = (await base(tokenDoDono)).corpo.numeros
+  ok(
+    segundaVez[0] ===
+      "Clientes: 3 pessoas · 3 já estavam e foram atualizados · 1 linha sem e-mail ficou de fora." &&
+      segundaVez[1] === "Vendas: 13 pedidos · 13 já estavam e foram atualizados." &&
+      deNovo.pessoas === depoisDaBase.numeros.pessoas &&
+      deNovo.pagos === depoisDaBase.numeros.pagos &&
+      deNovo.carrinhos === depoisDaBase.numeros.carrinhos,
+    "mandar de novo atualiza: nada duplica",
+    JSON.stringify(segundaVez)
+  )
+  await dono.pagina.locator("[data-numeros-base]").waitFor({ timeout: 20000 })
+  ok(
+    semEspaco(await dono.pagina.locator('[data-base="pessoas"]').textContent()) ===
+      new Intl.NumberFormat("pt-BR").format(deNovo.pessoas) &&
+      (await dono.pagina.locator("[data-quem-e-quem] [data-linha-da-base]").count()) === 9,
+    "a tela: os números da API, e as 6 etapas e os 3 engajamentos"
+  )
+
+  // A ficha de quem comprou nas duas lojas: recorrente, e a compra da loja antiga no caminho.
+  const fichaDoFator = (
+    await medusa(`/dashboard/clientes/${clienteDoFator?.id}`, { metodo: "GET", token: tokenDoDono })
+  ).corpo.cliente
+  ok(
+    fichaDoFator?.crm?.etiquetas?.[0]?.valor === "Recorrente" &&
+      fichaDoFator?.crm?.etiquetas?.[0]?.porque === "2 pedidos pagos" &&
+      fichaDoFator?.crm?.caminho?.some((p) =>
+        semEspaco(p.oque).startsWith(`pagou o pedido #${NUMERO_DO_FATOR} na Nuvemshop`)
+      ),
+    "a ficha: a compra da loja antiga conta (recorrente) e aparece no caminho",
+    JSON.stringify(fichaDoFator?.crm?.etiquetas?.[0])
+  )
+  const tudoQueSaiu = JSON.stringify([depoisDaBase, fichaDoFator])
+  ok(
+    !tudoQueSaiu.includes(CPF_FALSO) &&
+      !tudoQueSaiu.includes(TELEFONE_FALSO) &&
+      !tudoQueSaiu.includes("Rua da Rodada"),
+    "nem o CPF, nem o telefone, nem o endereço dos arquivos aparecem"
+  )
+
+  // O histórico chega nos Ajustes: a linha do Fator e o botão que usa o número.
+  await mkt.pagina.goto(`${PAINEL}/crm/ajustes`)
+  await mkt.pagina.locator("[data-ajustes-crm]").waitFor({ timeout: 20000 })
+  await hidratado(mkt.pagina, "[data-usar-historico]")
+  const linhaDoFator = semEspaco(
+    await mkt.pagina.locator('[data-historico-do-tipo="fator"]').textContent()
+  )
+  const diasDoHistorico = linhaDoFator.match(
+    /^Na Nuvemshop: (\d+) dias até comprar de novo \((\d+) recompras\)$/
+  )
+  ok(
+    Boolean(diasDoHistorico) && Number(diasDoHistorico?.[2]) >= 11,
+    "os Ajustes mostram o que a Nuvemshop diz do Fator",
+    linhaDoFator
+  )
+  await mkt.pagina.locator("[data-usar-historico]").click()
+  ok(
+    (await mkt.pagina.locator('[data-dias="fator"]').inputValue()) === diasDoHistorico?.[1] &&
+      (await mkt.pagina.locator("[data-pendentes]").count()) === 1,
+    "“Usar os números da Nuvemshop” põe o número no campo, esperando o Salvar"
+  )
+  await mkt.pagina.locator("[data-desfazer]").click()
+  ok(
+    (await mkt.pagina.locator('[data-dias="fator"]').inputValue()) === "30",
+    "e o Desfazer volta (nada foi salvo)"
+  )
+  await mkt.pagina.goto(`${PAINEL}/crm/base`)
+  await mkt.pagina.locator("[data-numeros-base]").waitFor({ timeout: 20000 })
+  ok(await semRolagemDeLado(mkt.pagina), "a base no celular, sem rolar de lado")
 
   /* ── o painel ───────────────────────────────────────────────────────────── */
 
