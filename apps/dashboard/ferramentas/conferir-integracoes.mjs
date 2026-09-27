@@ -34,6 +34,8 @@
  * │   atrás dela no celular), ou cobrindo o botão da barra do checkout; a  │
  * │   faixa grande no celular;                                             │
  * │ • o produto, a sacola e a compra que não chegam em cada plataforma;    │
+ * │ • a campanha do link (UTMs, gclid, fbclid) perdida por quem aceita     │
+ * │   depois de trocar de página (27/09: a Clarity só via o site);         │
  * │ • a compra de quem NÃO aceitou saindo pelo servidor; a recusa da       │
  * │   plataforma sem virar problema na Observabilidade;                    │
  * │ • o rastro aceito sem a assinatura da loja.                            │
@@ -161,11 +163,18 @@ const rastroComSim = {
 
 /* ── a loja, com os scripts de terceiro trocados ─────────────────────────── */
 
+/**
+ * O script de mentira de cada um anota que carregou e o endereço da página
+ * nessa hora: é dali que o de verdade lê a campanha (o `?utm_…`, o `gclid`).
+ */
+const deMentira = (nome) =>
+  `window.__carregou = (window.__carregou || []).concat('${nome}');` +
+  ` (window.__endereco = window.__endereco || {})['${nome}'] = location.href`
 const TERCEIROS = [
-  ["googletagmanager.com", "window.__carregou = (window.__carregou || []).concat('google')"],
-  ["connect.facebook.net", "window.__carregou = (window.__carregou || []).concat('meta')"],
-  ["analytics.tiktok.com", "window.__carregou = (window.__carregou || []).concat('tiktok')"],
-  ["clarity.ms", "window.__carregou = (window.__carregou || []).concat('clarity')"],
+  ["googletagmanager.com", deMentira("google")],
+  ["connect.facebook.net", deMentira("meta")],
+  ["analytics.tiktok.com", deMentira("tiktok")],
+  ["clarity.ms", deMentira("clarity")],
 ]
 
 const RASTREADORES =
@@ -394,6 +403,111 @@ try {
     JSON.stringify({ viu, pos })
   )
   await sim.contexto.close()
+
+  titulo("A campanha do link, pra quem aceita depois")
+  // Cada parceiro lê a campanha no endereço da página em que liga. Quem chega
+  // pelo anúncio e aceita noutra página já não tem nada na barra: a loja
+  // devolve a da chegada antes das tags (`devolverACampanha`, lib/chegada.ts).
+  const CAMPANHA = {
+    utm_source: "instagram",
+    utm_medium: "cpc",
+    utm_campaign: `conferidor-${RODADA}`,
+    gclid: "Cj0KCQjw-gclid_de_teste",
+    fbclid: "IwAR0-fbclid_de_teste",
+  }
+  /** O endereço tem a campanha inteira, cada parâmetro uma vez só. */
+  const comACampanha = (endereco, campanha = CAMPANHA) => {
+    const busca = new URL(endereco).searchParams
+    return Object.entries(campanha).every(([k, v]) => busca.getAll(k).join() === v)
+  }
+  const soOEndereco = (pagina) =>
+    pagina.evaluate(() => ({
+      aqui: location.href,
+      endereco: window.__endereco ?? {},
+      mesmaPagina: window.__mesmaPagina === true,
+    }))
+  const tagsNoAr = (pagina) =>
+    pagina.waitForFunction(() => (window.__carregou ?? []).length >= 4, null, { timeout: 15000 })
+
+  const anuncio = await visitaNaLoja()
+  await anuncio.pagina.goto(`${LOJA}/?${new URLSearchParams(CAMPANHA)}`)
+  await anuncio.pagina.locator("[data-faixa-de-cookies]").waitFor({ timeout: 20000 })
+  const linkDoProduto = 'main a[href^="/produtos/"]'
+  await hidratado(anuncio.pagina, linkDoProduto)
+  // A marca some se a página recarregar: a troca tem que ser do próprio Next, como a do cliente.
+  await anuncio.pagina.evaluate(() => (window.__mesmaPagina = true))
+  await anuncio.pagina
+    .locator(linkDoProduto)
+    .first()
+    .evaluate((a) => a.click())
+  await anuncio.pagina.waitForURL(/\/produtos\//, { timeout: 15000 })
+  const noProdutoAntes = await soOEndereco(anuncio.pagina)
+  ok(
+    noProdutoAntes.mesmaPagina && new URL(noProdutoAntes.aqui).search === "",
+    "chegou pelo anúncio e foi pro produto sem responder a faixa: a campanha saiu da barra",
+    noProdutoAntes.aqui
+  )
+  await anuncio.pagina.getByRole("button", { name: "Aceitar" }).click()
+  await tagsNoAr(anuncio.pagina)
+  const aceitou = await soOEndereco(anuncio.pagina)
+  const parceiros = ["google", "meta", "tiktok", "clarity"]
+  ok(
+    aceitou.mesmaPagina &&
+      new URL(aceitou.aqui).pathname === new URL(noProdutoAntes.aqui).pathname &&
+      comACampanha(aceitou.aqui) &&
+      parceiros.every((p) => aceitou.endereco[p] && comACampanha(aceitou.endereco[p])),
+    "aceitou no produto: a campanha volta pro endereço antes das tags, e as quatro a leem quando ligam",
+    JSON.stringify(aceitou)
+  )
+  // Recarregar (ou abrir outra página da mesma aba) não traz a campanha de novo: os parceiros já têm.
+  await anuncio.pagina.goto(`${LOJA}/barba`)
+  await tagsNoAr(anuncio.pagina)
+  const outraPagina = await soOEndereco(anuncio.pagina)
+  ok(
+    new URL(outraPagina.aqui).search === "" &&
+      parceiros.every((p) => new URL(outraPagina.endereco[p] ?? LOJA).search === ""),
+    "na página seguinte da mesma visita (as tags ligadas desde a carga), a campanha não volta",
+    JSON.stringify(outraPagina)
+  )
+  await anuncio.contexto.close()
+
+  // Quem aceita na página em que chegou: o endereço fica como veio, nada repetido.
+  const naChegada = await visitaNaLoja()
+  const DA_NEWSLETTER = { utm_source: "newsletter", utm_campaign: `chegada-${RODADA}` }
+  await naChegada.pagina.goto(`${LOJA}/barba?${new URLSearchParams(DA_NEWSLETTER)}`)
+  await naChegada.pagina.locator("[data-faixa-de-cookies]").waitFor({ timeout: 20000 })
+  await naChegada.pagina.getByRole("button", { name: "Aceitar" }).click()
+  await tagsNoAr(naChegada.pagina)
+  const semRepetir = await soOEndereco(naChegada.pagina)
+  ok(
+    comACampanha(semRepetir.aqui, DA_NEWSLETTER) &&
+      new URL(semRepetir.aqui).searchParams.size === 2 &&
+      comACampanha(semRepetir.endereco.clarity ?? LOJA, DA_NEWSLETTER),
+    "aceitou na página em que chegou: o endereço fica como veio, sem nada repetido",
+    semRepetir.aqui
+  )
+  await naChegada.contexto.close()
+
+  // Sem campanha no link, o endereço não ganha nada.
+  const direto = await visitaNaLoja()
+  await direto.pagina.goto(`${LOJA}/`)
+  await direto.pagina.locator("[data-faixa-de-cookies]").waitFor({ timeout: 20000 })
+  await hidratado(direto.pagina, linkDoProduto)
+  await direto.pagina
+    .locator(linkDoProduto)
+    .first()
+    .evaluate((a) => a.click())
+  await direto.pagina.waitForURL(/\/produtos\//, { timeout: 15000 })
+  await direto.pagina.getByRole("button", { name: "Aceitar" }).click()
+  await tagsNoAr(direto.pagina)
+  const semCampanha = await soOEndereco(direto.pagina)
+  ok(
+    new URL(semCampanha.aqui).search === "" &&
+      new URL(semCampanha.endereco.clarity ?? LOJA).search === "",
+    "sem campanha no link: o endereço não ganha nada no “Aceitar”",
+    semCampanha.aqui
+  )
+  await direto.contexto.close()
 
   titulo("A faixa pergunta de novo")
   const velha = await visitaNaLoja([{ name: "fb_consentimento", value: "sim" }])
