@@ -195,6 +195,11 @@ precisa sair da janela dela — ver `longeDaConciliacaoAutomatica` no conferidor
   âncora vão junto, e nenhuma linha leva pra outra. Os produtos têm o mesmo endereço nas duas
   lojas, e dependem do catálogo: no local (onde faltam produtos) rode com `SEM_PRODUTOS=1`; contra
   a loja no ar, sem — e de novo logo depois da troca de domínio.
+- **O robots.txt vale pelo COMEÇO do endereço** (`apps/loja/src/app/robots.ts`): `Disallow: /conta`
+  pegava também o `/contato`, que está no sitemap (entrega 0136). Pasta bloqueia com a barra
+  (`/conta/`) e o endereço exato com `$` (`/conta$`). Até a virada a loja responde `Disallow: /`;
+  o `conferir-links.mjs` confere o robots contra o sitemap quando a loja indexa — rode com
+  `SITE_INDEXAVEL=true` antes da troca, e contra o domínio logo depois dela.
 - **A vitrine não lê `searchParams`.** `/barba`, `/cabelo`, `/kits` e `/produtos` são estáticas, e o
   `?ordem=` é trocado pelo proxy por `/<página>/ordem/<ordem>` (estática também, sem mudar a URL).
   Ler `searchParams` numa delas a torna dinâmica: esqueleto, streaming, rodapé pulando e LCP
@@ -246,8 +251,13 @@ faixas (econômica e expressa) saem do mesmo `escolherFaixas`; quando a mais bar
 rápida — ou a transportadora responde um serviço só —, as duas são A MESMA entrega, e o frete
 grátis vale nas duas (`aplicarPolitica` recebe o `servico` de cada faixa, no provider e na rota
 `/store/frete`). Antes só a econômica zerava, e a "expressa" cobrava pelo mesmo PAC e o mesmo
-prazo. No checkout, a econômica empatada em preço some (`semEntregaEmpatada`), a não ser que seja
-a gravada no carrinho. O PRAZO ("Chega em 8 dias úteis") o checkout não tem como tirar da cotação
+prazo. No empate de preço (que é também empate de prazo: a econômica é a mais barata e, entre as
+mais baratas, a mais rápida), a tela mostra uma entrega só — a ECONÔMICA — na sacola e no checkout
+(`semEntregaEmpatada`, em `apps/loja/src/lib/frete.ts`; entrega 0136). Era a expressa, e a expressa
+gravada quebrava duas coisas: o cupom de frete grátis "só na mais barata" mira a econômica e nunca
+entrava, e a cada mudança no carrinho o Medusa cota de novo a entrega gravada PELA FAIXA dela — a
+expressa voltava como "a mais rápida", que pode ser outro serviço, mais caro, e o frete grátis
+sumia. O PRAZO ("Chega em 8 dias úteis") o checkout não tem como tirar da cotação
 do Medusa, que devolve só o preço: ele pergunta à rota da calculadora (`POST /store/frete`, com o
 `cart_id`), em paralelo, e junta por faixa (`prazosDasFaixas`, em `lib/checkout.ts`; entrega
 0123). Pelo carrinho, a pergunta é a mesma do Medusa, e as duas dividem a viagem à Frenet — o
@@ -280,7 +290,13 @@ comprador em `data.entrada` (montado do carrinho, em `apps/loja/src/lib/pagament
 só como token, gerado no navegador (`apps/loja/src/lib/pagarme.ts`). E manda o total que o botão
 mostrou (`total_visto`): se o carrinho tiver outro — um item posto por outra aba, a seta de
 voltar do navegador —, o `finalizar` não abre o pagamento, redesenha a tela e diz o total novo.
-Sem isso o cartão era autorizado por um valor que ninguém viu. O cupom vai como foi digitado,
+Sem isso o cartão era autorizado por um valor que ninguém viu. E ANTES dessa conferência o
+`finalizar` refaz a conta do carrinho (`cart.update` com a MESMA região, que liga o
+`force_refresh` do Medusa: preço das linhas, promoções e frete gravado; entrega 0136): o Medusa 2.21
+só refaz o preço quando muda a região, o idioma ou o endereço, e a sacola de 30 dias, com o
+endereço já gravado, pagava o preço de quando o produto entrou. O e-mail do passo 1 segue a regra
+do Medusa (a `email` do zod 4, a mesma do `POST /store/carts/:id`): com uma mais frouxa, o e-mail
+que ele recusa travava a pessoa no passo 1 com "Não consegui falar com a loja". O cupom vai como foi digitado,
 depois em maiúsculas e em minúsculas: o Medusa procura o código exatamente como foi cadastrado.
 Quando o `complete` recusa por falta de estoque ("Not enough stock available…"), o `finalizar`
 desce o pedido até o que tem (`ajustarAoEstoque`, em `apps/loja/src/lib/checkout.ts`: cada linha
@@ -1379,8 +1395,22 @@ acima do preço), e o Medusa mescla o que o gancho devolve por cima do carrinho 
 
 UM CUPOM POR PEDIDO: o gancho `validate` do mesmo workflow recusa (`NOT_ALLOWED`) um segundo
 código de campanha quando alguém PÕE um código (`add`, o que a API da loja faz); a oferta do
-checkout não conta, e a conta a cada mudança no carrinho (`replace`) passa direto
-(`outroCupomNoCarrinho`).
+checkout não conta, e a conta a cada mudança no carrinho (`replace` com os MESMOS códigos) passa
+(`outroCupomNoCarrinho`). O `replace` que traz código novo e deixa dois é recusado: é o que o
+`promo_codes` no corpo de `POST /store/carts` e `POST /store/carts/:id` faz, e por ele cinco
+cupons somavam (entrega 0136). Esse corpo ainda é fechado antes, no middleware
+(`cupomSoPelaPortaDosCupons`, em `src/api/middlewares.ts`): cupom só entra por
+`/store/carts/:id/promotions`, que é o que a loja usa.
+
+O USO VOLTA NO CANCELAMENTO (entrega 0136). O Medusa conta o uso (`used`, contra o `limit`) no
+fechamento do carrinho — o Pix gerado já conta — e só desfaz se o próprio fechamento falhar;
+cancelar o pedido não mexe. O subscriber `devolver-uso-dos-cupons.ts` (no `order.canceled`) chama
+`devolverUsoDosCupons` (`src/lib/uso-dos-cupons.ts`): o `revertUsage` do Medusa com os ajustes do
+pedido, só dos códigos que contam uso (com limite ou orçamento de campanha — a oferta e o cupom
+ilimitado ficam de fora), e UMA vez: o registro `fb_cupons.uso_devolvido` entra no metadata antes,
+na trava do metadata do pedido. A migração `uso-dos-cupons-cancelados.ts` fez o mesmo com os
+pedidos que já estavam cancelados. O cupom em reais que não combina mira os PRODUTOS
+(`target_type: items`): regra de alvo numa promoção de alvo "order" o Medusa recusa na criação.
 
 Sem e-mail, a lista de pedidos é vazia e "por cliente"/"primeira compra" deixam aplicar. O
 workflow refaz os códigos do carrinho a cada mudança e tira o que deixou de valer (o e-mail chegou,
