@@ -49,9 +49,13 @@ async function Fluxos() {
         <ul className="modelo-emails__regras">
           <li>Só vale quem começou a compra depois de o fluxo ser ligado.</li>
           <li>Comprou, parou: nenhum e-mail do fluxo sai depois do pedido pago.</li>
-          <li>Um fluxo por vez: o Pix vem antes do checkout.</li>
+          <li>Um fluxo por vez: o Pix vem antes do checkout, e o checkout antes do carrinho.</li>
+          <li>
+            O carrinho vai pra quem a loja já conhece: aceitou os cookies e já entrou na conta,
+            assinou a newsletter ou comprou antes.
+          </li>
           <li>No máximo 3 e-mails em um dia e 6 numa semana, por pessoa.</li>
-          <li>De madrugada (22h às 8h), só o aviso do Pix e o de 30 minutos.</li>
+          <li>De madrugada (22h às 8h), só o aviso do Pix e o de 30 minutos do checkout.</li>
           <li>5% não recebem nada: é o grupo de controle, pra saber o que o fluxo vende a mais.</li>
           <li>Quem saiu da lista, ou marcou como spam, não recebe mais.</li>
         </ul>

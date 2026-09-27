@@ -15,6 +15,7 @@ import type { IdDoFluxo, TelaDosFluxos } from "@/lib/crm"
 const QUEM_ENTRA: Record<IdDoFluxo, string> = {
   pix: "Gerou o Pix e não pagou.",
   checkout: "Digitou o e-mail no checkout e não pagou.",
+  carrinho: "Pôs na sacola e não foi pro checkout — e a loja sabe quem é.",
 }
 
 const inteiro = new Intl.NumberFormat("pt-BR")
@@ -196,8 +197,9 @@ export function DescontoDosFluxos({
         O desconto do cupom
       </h2>
       <p className="bloco__sub">
-        Vai no e-mail de 1 dia depois: um cupom só da pessoa, de uso único, que vence em 2 dias. No
-        máximo um a cada 60 dias pro mesmo e-mail, e ele soma com o preço promocional.
+        Vai no e-mail de 1 dia depois: um cupom só da pessoa, de uso único, que vence em 2 dias (3
+        no carrinho abandonado). No máximo um a cada 60 dias pro mesmo e-mail, e ele soma com o
+        preço promocional.
       </p>
       <form
         className="fluxo__desconto"
