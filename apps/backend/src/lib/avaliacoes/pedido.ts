@@ -120,7 +120,9 @@ export async function encontrarPedido(
   const { data } = await container.resolve(ContainerRegistrationKeys.QUERY).graph({
     entity: "order",
     fields: ["id", "email"],
-    filters: { display_id: numero },
+    // Texto, como o `pedidoPorNumero` do painel: os tipos que o `medusa build`
+    // gera recusam número no `display_id`, e o Postgres compara "12" com 12.
+    filters: { display_id: String(numero), is_draft_order: false },
   })
   const o = data[0] as unknown as { id: string; email?: string | null } | undefined
   if (!o?.email || normalizarEmail(o.email) !== procurado) return null
