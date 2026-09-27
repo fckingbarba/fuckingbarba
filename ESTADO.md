@@ -25,7 +25,7 @@ atualize este: o que mudou de estado, o que saiu da lista, o que entrou.
 
 | Peça                          | Onde                                              | Estado                                                                      |
 | ----------------------------- | ------------------------------------------------- | --------------------------------------------------------------------------- |
-| Loja (Next.js 16)             | Vercel — `fuckingbarba-loja.vercel.app`           | No ar, sem indexar. Domínio definitivo é a fase 6.                          |
+| Loja (Next.js 16)             | Vercel — `www.fuckingbarba.com.br`                | **No ar e indexável desde a virada, 27/09.** A Vercel antiga leva pro www.  |
 | Backend (Medusa 2.21)         | Railway — serviço `@fuckingbarba/backend` + Redis | **Um serviço só, `WORKER_MODE=shared`** (ver abaixo).                       |
 | Banco, imagens, Edge Function | Supabase (`us-east-1`)                            | `webhook-pagamento` publicada.                                              |
 | Frete                         | Frenet                                            | Econômica e expressa; emergência R$ 20 / 7 dias úteis. Rastreio no ar (1b). |
@@ -1236,11 +1236,13 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
       0125): os endereços do mapa do site da Nuvemshop (15 produtos, e 15 páginas e categorias),
       mais a busca, o carrinho e a conta de lá, levam à página certa da loja nova (ver a seção da
       0125, no fim). Os produtos têm o mesmo endereço nas duas lojas, e os 15 estão publicados.
-- [ ] **Os cupons da Nuvemshop, de novo na virada — Claude Code.** A cópia é a lista de 26/09
+- [x] **Os cupons da Nuvemshop, de novo na virada — Claude Code.** Não precisou: ele confirmou, na
+      virada (27/09), que nenhum cupom foi criado lá depois de 26/09. A cópia é a lista de 26/09
       (entrega 0126): cupom criado lá depois disso não está aqui, e o de 1 uso que alguém gastar lá
       até a virada ainda vale uma vez aqui. Na véspera, a lista de lá de novo e uma migração nova só
       com o que mudou (esta já rodou).
-- [ ] Troca de domínio (fase 6). O que depende do endereço da loja: `NEXT_PUBLIC_SITE_URL` na
+- [x] Troca de domínio (fase 6) — **feita em 27/09** (ver "A virada do domínio", no fim). O que
+      dependia do endereço da loja: `NEXT_PUBLIC_SITE_URL` na
       Vercel, `STORE_CORS`/`AUTH_CORS` e `LOJA_URL` (revalidação, logo e links dos e-mails) no
       Railway (ele também diz ao Marketing de que endereço contar as visitas), `SITE_ORIGENS` no
       Supabase, a indexação, o domínio no Pagar.me se ele passar a exigir, e o catálogo no Merchant
@@ -2168,8 +2170,8 @@ e "SEO 100 em todas as PDP".
   marcação que tirava 3 pontos de acessibilidade.
 - **O custo:** a página do produto ficou mais longa, e num celular simulado lento a foto do topo
   aparece uns 0,2 s depois (velocidade 97). O CI continua medindo a página do óleo sem as seções.
-- [ ] **Na virada (fase 6):** liberar o Google (`SITE_INDEXAVEL=true` na Vercel da loja) — é o que
-      leva o SEO do ar de 69 pra 100.
+- [x] **Na virada (fase 6):** liberar o Google (`SITE_INDEXAVEL=true` na Vercel da loja) — é o que
+      leva o SEO do ar de 69 pra 100. Feito em 27/09, na virada.
 
 Textos pra revisar, produto a produto: página "Seções dos 15 produtos" (link na PR). Conferido pelo
 `conferir-pdp.mjs` (69 checagens, agora nos 15 produtos: cada frase do arquivo na página, e a página
@@ -3391,6 +3393,51 @@ parcela na rota pública), pelo `conferir-checkout.mjs` (182) e pelos testes de 
 novos).
 
 Depois do deploy — **nada a configurar.** Até alguém mudar, vale R$ 5,00, como antes.
+
+**A virada do domínio — feita em 27/09, às 13h (entregas 0159 e 0160).** O `www.fuckingbarba.com.br`
+é a loja nova. A loja antiga, na Nuvemshop, fica fora do domínio.
+
+- **Antes:** os pedidos da loja nova passaram a começar no **#3301** (o último da Nuvemshop foi o
+  #3194). A loja nova ganhou as duas marcas que a Nuvemshop tinha no código da página: a do Google
+  (Search Console) e a da Meta (a verificação do domínio dos anúncios). Isso foi a entrega 0159.
+- **Vercel:** o `www.fuckingbarba.com.br` é o principal; o `fuckingbarba.com.br` leva pro www (308)
+  e o `fuckingbarba-loja.vercel.app` também (307, com o mesmo caminho). `NEXT_PUBLIC_SITE_URL` =
+  `https://www.fuckingbarba.com.br`, `SITE_INDEXAVEL=true` (só Production), e o
+  `NEXT_PUBLIC_LOJA_ATUAL_URL` apagado, com redeploy sem cache.
+- **GoDaddy:** só o A do `@` (`216.150.1.1`) e o CNAME do `www`
+  (`5f77d1e0df816333.vercel-dns-017.com`) mudaram. O resto ficou como estava: o MX do Google, os TXT,
+  o `dashboard`, o `links`, o `send`, o `rsend`, os do Perfit (`in`, `pem._domainkey`) e os do
+  Resend.
+- **Railway:** `LOJA_URL` = `https://www.fuckingbarba.com.br`, e `STORE_CORS`/`AUTH_CORS` =
+  `https://www.fuckingbarba.com.br,https://fuckingbarba.com.br`.
+- **Pagar.me:** nada a cadastrar. Um pedido de token vazio saindo do www volta como "campos
+  obrigatórios", igual de qualquer endereço: essa conta não tem trava de domínio, e o cartão passa.
+- **Conferido depois da troca:**
+  - o `conferir-enderecos-antigos.mjs` contra o domínio: 56 de 56 endereços da loja antiga abrem a
+    página certa;
+  - o `conferir-links.mjs`: 28 de 28, o robots contra o sitemap;
+  - a página diz ao Google que o endereço é o www, e o sitemap tem as 25 páginas;
+  - uma compra de verdade no Pix, pelo celular no 4G: o **#3301**, aprovado na hora.
+
+- [ ] **Hoje — você, na Nuvemshop:** Configurações → Domínios → deixar como principal o endereço
+      dela (`fuckingbarba.lojavirtualnuvem.com.br`) e tirar o `www.fuckingbarba.com.br`. Assim os
+      e-mails que ela ainda mandar pros pedidos antigos (rastreio, entrega) abrem lá, onde eles
+      existem.
+- [ ] **Amanhã — você, no Search Console:** o sitemap novo
+      (`https://www.fuckingbarba.com.br/sitemap.xml`).
+- [ ] **Amanhã — você, no Merchant Center e na Meta:** o catálogo da loja nova, pelos passos da
+      0134 (mais acima, "Na virada").
+- [ ] **Amanhã — você, na Nuvemshop:** fechar a loja pra vendas (modo manutenção), sem cancelar o
+      plano. Os pedidos antigos seguem lá: rastreio e trocas.
+- [ ] **Uns 30 dias depois:** exportar tudo da Nuvemshop de novo e cancelar o plano, depois de o
+      último pedido antigo chegar e passar o prazo de troca.
+- [ ] **A primeira venda no cartão** no domínio novo: conferir que o antifraude aprovou (o Pix já
+      foi, no #3301).
+- [x] **Os cupons da Nuvemshop criados depois de 26/09:** nenhum (ele confirmou em 27/09).
+- [ ] **Se o vigia de fora (UptimeRobot, 0137) estiver ligado:** trocar os endereços dos monitores
+      da loja pro `www.fuckingbarba.com.br`.
+- [ ] Opcional: `SITE_ORIGENS` no Supabase com o www (é só da função `vitals`, a medida antiga de
+      velocidade).
 
 ## Como seguir no Claude Code
 
