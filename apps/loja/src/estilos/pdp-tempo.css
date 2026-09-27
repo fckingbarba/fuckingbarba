@@ -10,6 +10,22 @@
   box-sizing: border-box;
 }
 .tempo {
+  position: relative;
+}
+.tempo::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 10px;
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--color-tinta) 0 14px,
+    var(--color-amarelo) 14px 28px
+  );
+}
+.tempo {
   background: var(--color-menta);
   font-family: var(--font-sans);
   color: var(--color-tinta);
