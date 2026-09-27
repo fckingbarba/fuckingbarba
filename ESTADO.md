@@ -3439,6 +3439,38 @@ Depois do deploy — **nada a configurar.** Até alguém mudar, vale R$ 5,00, co
 - [ ] Opcional: `SITE_ORIGENS` no Supabase com o www (é só da função `vitals`, a medida antiga de
       velocidade).
 
+**A campanha do anúncio de volta na Clarity, no Google e na Meta — pronto em 27/09 (entrega
+0162).** O que ele viu, com a Clarity ligada no domínio novo: "quando tava na Nuvemshop, a entrada
+apresentava certinho de onde o usuário vinha, da campanha, os utm; agora tá apresentando apenas o
+site".
+
+- **Por quê:** as tags (Clarity, Google Analytics, Google Ads, Meta e TikTok) só ligam no "Aceitar"
+  da faixa de cookies — é o que a política de privacidade promete —, e cada uma lê a campanha no
+  endereço da página em que liga. Quem chegava pelo anúncio e aceitava depois de trocar de página
+  já não tinha o `?utm_…` nem o clique do anúncio (`gclid`, `fbclid`) na barra, e todas viam só o
+  site. Na Nuvemshop, a Clarity carregava sem perguntar, na primeira página.
+- **O conserto:** a loja guarda a campanha da página em que a pessoa chegou (na própria aba, sem
+  mandar pra ninguém) e, no "Aceitar", devolve pro endereço antes de ligar as tags. Pras
+  plataformas, é como se a pessoa tivesse aceitado na página em que chegou: a campanha, a origem e
+  o clique do anúncio (Google, Meta, TikTok e Microsoft).
+- **O que se vê:** depois do "Aceitar", o endereço mostra de novo o `?utm_…` até a próxima página.
+  Uma vez por campanha: na página seguinte, ele não volta.
+- **O que não muda:** a gravação da Clarity começa no "Aceitar" — o que a pessoa fez antes dele não
+  aparece. Os redirecionamentos já levavam a campanha inteira (conferido no domínio em 27/09: com e
+  sem www, com a barra no fim e os endereços antigos da Nuvemshop).
+- **O que se perdeu:** as visitas entre a virada e este deploy de quem aceitou depois de trocar de
+  página ficam sem campanha na Clarity, no Google Analytics (e no Marketing do painel, que lê dele)
+  e nos anúncios. Não dá pra recuperar.
+
+Conferido pelo `conferir-integracoes.mjs` (35; 5 novas: quem chega pelo anúncio e aceita no
+produto — o endereço e o que cada plataforma lê quando liga —, a página seguinte da mesma visita,
+quem aceita na página em que chegou e quem chega sem campanha) e pelo `conferir-crm.mjs` (97, a
+chegada do CRM igual). E por uma sonda no checkout e na busca: o "Aceitar" com a campanha não
+recarrega a página, não pede nada ao servidor, e o e-mail já digitado fica no campo.
+
+Depois do deploy — **nada a configurar.** Pra ver: na Clarity, as gravações de depois do deploy
+voltam a ter a campanha e a origem nos filtros de tráfego.
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa
