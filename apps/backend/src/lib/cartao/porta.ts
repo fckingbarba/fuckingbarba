@@ -3,7 +3,7 @@ import type { Logger, MedusaContainer } from "@medusajs/framework/types"
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import { OBSERVABILIDADE } from "../../modules/observabilidade"
 import type ObservabilidadeService from "../../modules/observabilidade/service"
-import { lerEstado } from "../../modules/pagarme/situacao"
+import { estadoDaSessao } from "../pagamento/parceiros"
 import { quemPede } from "../quem-pede"
 import { avisarDoFreio } from "./aviso"
 import {
@@ -137,11 +137,12 @@ async function depoisDaTentativa(
     const query = container.resolve(ContainerRegistrationKeys.QUERY)
     const { data } = await query.graph({
       entity: "payment_session",
-      fields: ["id", "data"],
+      fields: ["id", "provider_id", "data"],
       filters: { id: t.sessao },
     })
-    const lida = data[0] as { data?: Record<string, unknown> | null } | undefined
-    const { resultado, motivo } = resultadoDaSessao(lerEstado(lida?.data))
+    const lida = data[0] as
+      { provider_id?: string | null; data?: Record<string, unknown> | null } | undefined
+    const { resultado, motivo } = resultadoDaSessao(estadoDaSessao(lida))
     const obs = container.resolve<ObservabilidadeService>(OBSERVABILIDADE)
     await obs.fecharTentativa(t.id, { resultado, motivo })
     if (resultado !== "recusada" || t.freioAntes) return

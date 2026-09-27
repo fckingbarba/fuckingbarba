@@ -1,6 +1,6 @@
 import { timingSafeEqual } from "node:crypto"
-import type { Forma } from "../modules/pagarme/pedido"
-import { CHAVE } from "../modules/pagarme/situacao"
+import type { Forma } from "./pagamento/estado"
+import { parceiroDe } from "./pagamento/parceiros"
 
 /**
  * O PEDIDO PRA QUEM SÓ TEM O ID — `GET /store/orders/:id`.
@@ -95,18 +95,25 @@ export function paraPedidoPublico(order: Record<string, unknown>) {
     payment_collections: colecoes.map((c) => ({
       payment_sessions: (c?.payment_sessions ?? []).map((s) => ({
         provider_id: s?.provider_id,
-        data: soAForma(s?.data),
+        data: soAForma(s?.provider_id, s?.data),
       })),
     })),
   }
 }
 
-function soAForma(data: unknown): Record<string, unknown> {
-  const estado = (data as Record<string, unknown> | null)?.[CHAVE] as
+/**
+ * Só a chave do parceiro dono da sessão, e dela só a forma. Sessão de quem
+ * não é parceiro (o provisório) sai sem nada: o `data` dela é de quem chamou
+ * a API pública.
+ */
+function soAForma(provedor: unknown, data: unknown): Record<string, unknown> {
+  const chave = parceiroDe(provedor)?.chave
+  if (!chave) return {}
+  const estado = (data as Record<string, unknown> | null)?.[chave] as
     { forma?: unknown } | undefined
   const forma: Forma | null =
     estado?.forma === "pix" || estado?.forma === "cartao" ? estado.forma : null
-  return forma ? { [CHAVE]: { forma } } : {}
+  return forma ? { [chave]: { forma } } : {}
 }
 
 /**

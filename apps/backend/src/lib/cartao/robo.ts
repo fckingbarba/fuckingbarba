@@ -1,5 +1,7 @@
 import { createHmac } from "node:crypto"
-import { lerEstado, RECUSAS, type Estado } from "../../modules/pagarme/situacao"
+import { RECUSAS } from "../../modules/pagarme/situacao"
+import type { Estado } from "../pagamento/estado"
+import { ehParceiro, estadoDaSessao, PAGARME } from "../pagamento/parceiros"
 
 /**
  * O ROBÔ TESTANDO CARTÃO — quando uma tentativa de pagar com cartão vai pro
@@ -40,8 +42,8 @@ import { lerEstado, RECUSAS, type Estado } from "../../modules/pagarme/situacao"
  * tempo não passam juntas pelo último lugar da fila.
  */
 
-/** O provedor do Pagar.me, como o Medusa chama. */
-export const PROVEDOR_DO_PAGARME = "pp_pagarme_pagarme"
+/** O provedor do Pagar.me, como o Medusa chama (o registro em `lib/pagamento/parceiros.ts`). */
+export const PROVEDOR_DO_PAGARME = PAGARME.id
 
 export const LIMITES = {
   /** Uma sacola, na última hora. */
@@ -154,18 +156,19 @@ type CarrinhoCru = {
 } | null
 
 /**
- * A sessão de cartão que o `complete` vai mandar pro Pagar.me — a do nosso
- * provedor, no cartão, ainda `nova` (nada enviado). Sessão que já foi
- * (recusada, em análise) não volta a ir: o provedor responde o que ela é,
- * sem chamar o Pagar.me de novo (ver `authorizePayment`), então não tem o
- * que barrar. Pix, nem olha.
+ * A sessão de cartão que o `complete` vai mandar pro parceiro — a de um
+ * parceiro de pagamento (hoje, só o Pagar.me passa cartão), no cartão, ainda
+ * `nova` (nada enviado). Sessão que já foi (recusada, em análise) não volta
+ * a ir: o provedor responde o que ela é, sem chamar o parceiro de novo (ver
+ * o `authorizePayment` do Pagar.me), então não tem o que barrar. Pix, nem
+ * olha.
  */
 export function sessaoDeCartao(
   carrinho: CarrinhoCru | undefined
 ): { id: string; valor: number } | null {
   for (const s of carrinho?.payment_collection?.payment_sessions ?? []) {
-    if (!s?.id || s.provider_id !== PROVEDOR_DO_PAGARME) continue
-    const estado = lerEstado(s.data)
+    if (!s?.id || !ehParceiro(s.provider_id)) continue
+    const estado = estadoDaSessao(s)
     if (estado?.forma === "cartao" && estado.situacao === "nova") {
       return { id: s.id, valor: estado.valor }
     }

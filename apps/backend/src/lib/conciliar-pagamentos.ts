@@ -30,6 +30,7 @@ import {
 } from "../modules/pagarme/situacao"
 import { avisarDevolucao } from "./avisar-devolucao"
 import { conferirEstornos, estornoAndando, type RelatorioDeEstornos } from "./estornos"
+import { PAGARME } from "./pagamento/parceiros"
 
 /**
  * A CONCILIAÇÃO — o que o webhook não resolve.
@@ -128,7 +129,8 @@ import { conferirEstornos, estornoAndando, type RelatorioDeEstornos } from "./es
  * conciliar, e a função diz isso em vez de fingir que conferiu.
  */
 
-export const PROVEDOR = "pp_pagarme_pagarme"
+/** Esta conciliação é a do Pagar.me: parceiro novo traz a dele (`lib/pagamento/parceiros.ts`). */
+export const PROVEDOR = PAGARME.id
 
 /** Depois de `expires_at`, quanto esperar antes de dar o Pix por perdido. */
 const FOLGA_DO_PIX_MS = 10 * 60 * 1000

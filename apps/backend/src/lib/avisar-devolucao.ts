@@ -1,6 +1,5 @@
 import type { MedusaContainer } from "@medusajs/framework/types"
 import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
-import { lerEstado } from "../modules/pagarme/situacao"
 import { whatsappDaLoja } from "./atendimento"
 import {
   itensDoEmail,
@@ -13,6 +12,7 @@ import { emailNoLog, enviarEmail } from "./email"
 import { emReais } from "./emails/moldura"
 import { emailDePagamentoDevolvido, type DevolucaoDoEmail } from "./emails/pedido-cancelado"
 import { gravarNoMetadataDoPedido } from "./metadata-do-pedido"
+import { ehParceiro, estadoDaSessao, sessaoDoParceiro } from "./pagamento/parceiros"
 
 /**
  * O PAGAMENTO QUE CHEGOU DEPOIS DO CANCELAMENTO — o e-mail que conta que ele
@@ -52,8 +52,6 @@ import { gravarNoMetadataDoPedido } from "./metadata-do-pedido"
  * em `conciliar-pagamentos.ts`), e a varredura dos e-mails
  * (`avisarDevolucoesRecentes`, no job `confirmar-pedidos`) como rede.
  */
-
-const PROVEDOR_PAGARME = "pp_pagarme_pagarme"
 
 /* ── o pedido, como o Medusa devolve ──────────────────────────────────────── */
 
@@ -135,13 +133,11 @@ export type DecisaoDaDevolucao =
 /** Em centavos, pra somar sem a vírgula flutuante no caminho. */
 const centavos = (v: unknown) => Math.round(Number(v ?? 0) * 100)
 
-/** O que entrou pelo Pagar.me, e quanto disso o Medusa já devolveu — em centavos. */
+/** O que entrou pelo parceiro, e quanto disso o Medusa já devolveu — em centavos. */
 export function contasDoPedido(o: PedidoDevolvido) {
   const pagos = (o.payment_collections ?? [])
     .flatMap((c) => c?.payments ?? [])
-    .filter(
-      (p): p is PagamentoLido => p?.provider_id === PROVEDOR_PAGARME && Boolean(p.captured_at)
-    )
+    .filter((p): p is PagamentoLido => ehParceiro(p?.provider_id) && Boolean(p?.captured_at))
   return {
     capturado: pagos.reduce((s, p) => s + centavos(p.amount), 0),
     devolvido: pagos.reduce(
@@ -164,10 +160,10 @@ export function decidirDevolucao(o: PedidoDevolvido): DecisaoDaDevolucao {
   if (capturado <= 0) return { mandar: false, motivo: "nada-pago" }
   if (devolvido < capturado) return { mandar: false, motivo: "devolucao-andando" }
 
-  const sessao = (o.payment_collections ?? [])
-    .flatMap((c) => c?.payment_sessions ?? [])
-    .find((s) => s?.provider_id === PROVEDOR_PAGARME)
-  const forma = lerEstado(sessao?.data)?.forma === "cartao" ? "cartao" : "pix"
+  const sessao = sessaoDoParceiro(
+    (o.payment_collections ?? []).flatMap((c) => c?.payment_sessions ?? [])
+  )
+  const forma = estadoDaSessao(sessao)?.forma === "cartao" ? "cartao" : "pix"
   return { mandar: true, devolvido: { valor: capturado / 100, forma } }
 }
 
@@ -304,7 +300,7 @@ function candidato(o: Candidato): boolean {
   if (aviso?.como !== "email" || aviso.porque === "estornado") return false
   return (o.payment_collections ?? [])
     .flatMap((c) => c?.payments ?? [])
-    .some((p) => p?.provider_id === PROVEDOR_PAGARME && Boolean(p.captured_at))
+    .some((p) => ehParceiro(p?.provider_id) && Boolean(p?.captured_at))
 }
 
 /**

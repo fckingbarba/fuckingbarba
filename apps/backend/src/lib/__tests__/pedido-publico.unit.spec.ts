@@ -151,6 +151,24 @@ describe("a versão pública", () => {
     expect(paraPedidoPublico({ id: "order_2" }).payment_collections).toEqual([])
   })
 
+  it("um estado de parceiro forjado na sessão do provisório não passa", () => {
+    // A API pública deixa escrever no `data` de qualquer sessão: só a chave do
+    // parceiro dono da sessão é lida (`lib/pagamento/parceiros.ts`).
+    const forjado = {
+      id: "order_1",
+      payment_collections: [
+        {
+          payment_sessions: [
+            { provider_id: "pp_system_default", data: { pagarme: { forma: "pix" } } },
+          ],
+        },
+      ],
+    }
+    expect(paraPedidoPublico(forjado).payment_collections).toEqual([
+      { payment_sessions: [{ provider_id: "pp_system_default", data: {} }] },
+    ])
+  })
+
   it("a resposta da rota: o pedido trocado, o erro como veio", () => {
     expect(respostaPublica({ order: inteiro })).toEqual({ order: paraPedidoPublico(inteiro) })
     const erro = { type: "not_found", message: "Order id not found: order_x" }
