@@ -1023,7 +1023,12 @@ resultado primeiro e o aviso entra na hora; a tela refeita pelo `revalidatePath`
 segunda renderização, a da transição, uns 20 ms depois no `next dev` (perto de 100 ms com o
 navegador lento). Conferidor que lê a tela depois do aviso espera ela mudar (`waitFor`,
 `waitForFunction`, como o histórico no `conferir-acoes`): lida na hora, às vezes ainda é a de
-antes — era o "a pessoa sai da lista" do `conferir-entrar`, que falhava 1 em 3.
+antes — era o "a pessoa sai da lista" do `conferir-entrar`, que falhava 1 em 3. E o contrário: o
+aviso some 6 s depois de entrar (o de erro, 10 s), e a tela refeita pode chegar depois disso — com
+a máquina carregada, o Resumo do Marketing refeito passou dos 6 s. Conferidor que confere os dois
+lê o aviso quando ele entra (a espera devolve o texto: o `data-vez` diferente do de antes do
+clique, sem `data-fora`) e só depois espera a tela — era o "Mudar a meta" do `conferir-marketing`
+(entrega 0143).
 As visitas vêm do GA4 pela
 `GET /dashboard/visitas`, à parte do Início: `src/lib/painel/ga4.ts` fala com o Google (conta de
 serviço só leitura, JWT assinado com `node:crypto`, um `batchRunReports` e um `runRealtimeReport`,

@@ -449,19 +449,41 @@ try {
     await pagina.locator("[data-mudar-meta]").click()
     const campo = pagina.locator(".meta-form input")
     await campo.fill("15.000")
+    const vez = await pagina.locator(".aviso").getAttribute("data-vez")
     await campo.press("Enter")
-    await pagina.waitForFunction(
-      () =>
-        /R\$\s?15\.000,00/.test(
-          document.querySelector('[data-meta="com"] .bloco__sub')?.textContent ?? ""
-        ),
-      null,
-      { timeout: 15000 }
-    )
+    // O aviso chega com o resultado da ação e some 6 s depois; o bloco, com a página refeita — e,
+    // com a máquina carregada, depois de o aviso sumir. Então o texto do aviso sai da página na
+    // espera, quando ele aparece, e só depois se espera o bloco.
+    const aviso = await pagina
+      .waitForFunction(
+        (v) => {
+          const a = document.querySelector(".aviso")
+          return a && !a.hasAttribute("data-fora") && a.getAttribute("data-vez") !== v
+            ? a.textContent
+            : null
+        },
+        vez,
+        { timeout: 15000 }
+      )
+      .then((h) => h.jsonValue())
+      .catch(() => "")
+    const bloco = await pagina
+      .waitForFunction(
+        () =>
+          /R\$\s?15\.000,00/.test(
+            document.querySelector('[data-meta="com"] .bloco__sub')?.textContent ?? ""
+          ),
+        null,
+        { timeout: 15000 }
+      )
+      .then(
+        () => true,
+        () => false
+      )
     ok(
-      /Meta do mês salva/.test(semEspaco(await textoDe(pagina, ".aviso"))),
+      /Meta do mês salva: R\$\s?15\.000,00/.test(semEspaco(aviso)) && bloco,
       "pela tela: “Mudar a meta”, 15.000 e Enter — o aviso e o bloco novo",
-      await textoDe(pagina, '[data-meta="com"]')
+      `aviso: ${semEspaco(aviso) || "nenhum"} · bloco: ${await textoDe(pagina, '[data-meta="com"]')}`
     )
     await pagina.locator("[data-mudar-meta]").click()
     await pagina.locator(".meta-form input").press("Escape")
