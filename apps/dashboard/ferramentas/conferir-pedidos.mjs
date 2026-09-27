@@ -443,6 +443,38 @@ try {
     ok(total === semEspaco(reais(d.totais.total)), `#${d.numero}: o total`, total)
     const selo = semEspaco(await pagina.locator(".titulo-status .status").textContent())
     ok(selo === seloDe(d), `#${d.numero}: o selo do título`, selo)
+    // 0155: a faixa mostra o título e as etiquetas; a frase inteira vai no "?".
+    const faixasNaTela = await pagina.locator(".faixa").evaluateAll((els) =>
+      els.map((f) => ({
+        titulo: f.querySelector(".faixa__titulo")?.textContent ?? "",
+        etiquetas: [...f.querySelectorAll(".faixa__etiqueta")].map((e) => e.textContent ?? ""),
+        ajuda: f.querySelector("[data-ajuda] .ajuda__texto")?.textContent ?? "",
+      }))
+    )
+    const emTexto = (fs) =>
+      JSON.stringify(
+        fs.map((f) => ({
+          titulo: semEspaco(f.titulo),
+          etiquetas: (f.etiquetas ?? []).map(semEspaco),
+          ajuda: semEspaco(f.ajuda),
+        }))
+      )
+    ok(
+      emTexto(faixasNaTela) ===
+        emTexto(
+          d.faixas.map((f) => ({ titulo: f.titulo, etiquetas: f.etiquetas, ajuda: f.texto }))
+        ),
+      `#${d.numero}: as faixas da API — o título e as etiquetas à vista, a frase no "?"`,
+      emTexto(faixasNaTela)
+    )
+    const forma = (await pagina.locator(".com-icone .forma").count())
+      ? await pagina.locator(".com-icone .forma").getAttribute("data-forma")
+      : null
+    ok(
+      forma === (d.pagamento.tipo ?? null),
+      `#${d.numero}: o ícone do pagamento (${d.pagamento.forma})`,
+      String(forma)
+    )
   }
   {
     const { pagina } = dono

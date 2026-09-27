@@ -309,6 +309,19 @@ try {
         (await pagina.locator("[data-subir-galeria], .galeria__botoes").count()) === 0,
       "na tela dela: sem Editar, sem Publicar, chaves, caixa e galeria só pra ver"
     )
+    // 0155: o "só pra ver" é uma pílula no alto, uma vez — e não uma frase em cada bloco.
+    // A frase fica só no "?" do título; fora dele, nenhum bloco repete.
+    const foraDoPorque = await pagina.evaluate(() => {
+      const main = document.querySelector("main").cloneNode(true)
+      main.querySelectorAll("[data-ajuda]").forEach((a) => a.remove())
+      return main.textContent
+    })
+    ok(
+      (await pagina.locator("[data-so-ver]").count()) === 1 &&
+        !foraDoPorque.includes("quem edita é o marketing"),
+      "a pílula “Só pra ver” no alto, e nenhuma frase de quem edita nos blocos",
+      String(await pagina.locator("[data-so-ver]").count())
+    )
     const d = await detalhe(tokenOp, produtoId)
     ok(d.produto?.podeEditar === false, "e o backend diz que ela não edita")
     const recusas = []
@@ -343,6 +356,18 @@ try {
     ok(
       /Em rascunho, fora do site/.test(await pagina.locator(".faixa").first().textContent()),
       "a faixa diz que está fora do site"
+    )
+    // 0155: a explicação no "?" da faixa; as medidas da foto em fichas; quem edita não vê o "Só pra ver".
+    const porque = semEspaco(
+      await pagina.locator(".faixa").first().locator("[data-ajuda] .ajuda__texto").textContent()
+    )
+    const medidas = semEspaco(await pagina.locator('[data-medidas="fotos"]').innerText())
+    ok(
+      porque.startsWith("Todo SKU novo do Bling entra assim") &&
+        medidas.includes("1200 × 1200") &&
+        (await pagina.locator("[data-so-ver]").count()) === 0,
+      "o porquê no “?” da faixa, as medidas da foto em fichas, e sem o “Só pra ver” pra quem edita",
+      `${porque.slice(0, 60)} | ${medidas}`
     )
     const fora = await fetch(`${LOJA}/produtos/${HANDLE}`)
     ok(fora.status === 404, "e a loja ainda não abre a página dele", String(fora.status))

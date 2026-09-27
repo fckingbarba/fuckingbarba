@@ -368,6 +368,18 @@ try {
       semEspaco(await pagina.locator("[data-acoes]").textContent()).includes("Emitir a nota agora"),
       "“O que fazer”, com o botão, na tela da operação"
     )
+    // 0155: a hora à vista, numa pílula; a frase (e o "nunca à mão no Bling") no "?".
+    const hora = semEspaco(await pagina.locator("[data-acoes] .pilula").textContent())
+    const porque = semEspaco(
+      await pagina.locator("[data-acoes] [data-ajuda] .ajuda__texto").textContent()
+    )
+    ok(
+      Boolean(d?.acoes?.saiAs) &&
+        hora === `sai sozinha às ${d.acoes.saiAs}` &&
+        porque === semEspaco(d.acoes.dica),
+      "a hora da nota numa pílula, e o porquê no “?”",
+      `${hora} · ${porque}`
+    )
     const aviso = await apertar(pagina, botao)
     const nf = bling.notaDoPedidoDeVenda(refN)
     ok(
@@ -430,6 +442,16 @@ try {
     ok(
       semEspaco(await pagina.locator(botao).textContent()) === "Tentar a nota de novo",
       "na tela: “Tentar a nota de novo”, dentro da faixa"
+    )
+    // 0155: o motivo em poucas palavras, à vista — o mesmo do Início.
+    const etiquetas = (await pagina.locator(".faixa .faixa__etiqueta").allTextContents()).map(
+      semEspaco
+    )
+    ok(
+      JSON.stringify(faixa?.etiquetas) === JSON.stringify(["sem CPF/CNPJ"]) &&
+        JSON.stringify(etiquetas) === JSON.stringify(faixa.etiquetas),
+      "na faixa, a etiqueta do motivo (“sem CPF/CNPJ”), como no Início",
+      JSON.stringify(etiquetas)
     )
     const sem = await apertar(pagina, botao)
     ok(

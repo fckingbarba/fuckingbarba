@@ -564,6 +564,14 @@ try {
     await pagina.waitForSelector("[data-promocoes]")
     await hidratado(pagina, "[data-nova-promocao]")
     const linhaDe = (codigo) => pagina.locator(`[data-promocao="${codigo}"]`)
+    // 0155: o selo que a loja mostra no produto, na própria linha.
+    await linhaDe(P.codigo).waitFor()
+    ok(
+      semEspaco(await linhaDe(P.codigo).locator(".promo__selo").textContent()) ===
+        "Leve 3, pague 2",
+      "na linha, o selo da loja (“Leve 3, pague 2”) em preto",
+      semEspaco(await linhaDe(P.codigo).locator(".promo__selo").textContent())
+    )
     ok(
       /Valendo/.test(await linhaDe(P.codigo).textContent()) &&
         /Agendada/.test(await linhaDe(Agendada.codigo).textContent()) &&
