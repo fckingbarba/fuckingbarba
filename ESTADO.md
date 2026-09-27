@@ -1056,6 +1056,15 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
       aceitava — com razão. Agora a letra trocada é sempre outra. Provado com o `n` forçado a dar
       assinatura com "x" na frente: o teste de antes falha, o novo passa. Só o teste mudou: nada
       muda na loja, e nada a configurar.
+- [x] **O teste do cofre do ERP caía 1 vez em 256** (entrega 0144, 27/09, visto na validação
+      da 0139). No `erp.unit.spec.ts`, o "com outro segredo, de outro ERP, ou adulterado, não
+      abre" estragava o texto cifrado trocando as duas últimas letras do base64 por "AA" (ou
+      "BB", se ele terminava em "A"). O vetor é sorteado, e o texto muda junto: quando terminava
+      em "BA", o "BB" dava o mesmo byte — a última letra leva bits de sobra, que a leitura
+      ignora —, e o `abrir` o aceitava, com razão. Agora o teste inverte um bit no meio dos bytes.
+      Provado com o vetor forçado: o teste de antes falha, o novo passa; em 102.400 vetores, a
+      troca antiga furou 407 vezes, a nova nenhuma. Só o teste mudou: nada muda na loja, e nada a
+      configurar.
 - [x] **A sacola responde no clique** (entrega 0104, 26/09, pedido da loja: "adicionar ou remover
       do carrinho está demorando"). Medido na produção: adicionar levava 1,3 s (2,4 s o primeiro,
       que cria o carrinho), o "+" 1,1 s e remover 0,9 s — quase tudo no Medusa, que refaz o
