@@ -32,11 +32,37 @@ export type TipoDoCrm =
   | "newsletter"
   | "conta_entrou"
 
+/** Os e-mails de cliente que saíram no período, e quantos deles… */
+export type NumerosDosEmails = {
+  enviados: number
+  entregues: number
+  abertos: number
+  clicados: number
+  naoChegaram: number
+  reclamacoes: number
+}
+
+/** O que os avisos do Resend contaram (`montarEmailsDoCrm`, no backend). */
+export type EmailsDaTela = {
+  ligados: boolean
+  ultimoAviso: string | null
+  numeros: NumerosDosEmails
+  porTipo: (NumerosDosEmails & { tipo: string | null; nome: string })[]
+  ultimos: {
+    id: string
+    quando: string
+    quem: string | null
+    oque: string
+    nivel: "bom" | "ruim" | null
+  }[]
+}
+
 export type TelaDoCrm = {
   periodo: PeriodoDoCrm
   numeros: { visitantes: number; identificados: number; pessoas: number; anotacoes: number }
   tipos: { tipo: TipoDoCrm; nome: string; vezes: number; visitantes: number }[]
   ultimos: { id: string; tipo: TipoDoCrm; quando: string; quem: string | null; oque: string }[]
+  emails: EmailsDaTela
 }
 
 export type LeituraDoCrm =

@@ -150,6 +150,140 @@ export function CaminhoDoCrm({ tipos }: { tipos: TelaDoCrm["tipos"] }) {
   )
 }
 
+const porcento = (parte: number, todo: number) =>
+  todo ? `${Math.round((parte / todo) * 100)}%` : "—"
+
+/**
+ * OS E-MAILS DA LOJA — o que os avisos do Resend contaram dos e-mails de
+ * cliente que saíram no período: quantos chegaram, foram abertos, levaram
+ * clique, não chegaram e viraram spam; o mesmo por tipo; e os últimos em
+ * frase. Sem os avisos ligados, a frase diz o que falta.
+ */
+export function EmailsDoCrm({ emails }: { emails: TelaDoCrm["emails"] }) {
+  const n = emails.numeros
+  const sub = !emails.ligados
+    ? "Os avisos do Resend ainda não estão ligados: sem eles, o CRM não sabe se os e-mails chegam, são abertos ou levam clique."
+    : emails.ultimoAviso
+      ? `Os e-mails de cliente que saíram no período, pelos avisos do Resend (o último chegou ${emails.ultimoAviso}).`
+      : "Ligado. Esperando o primeiro aviso do Resend."
+  return (
+    <section className="bloco" aria-labelledby="crm-emails" data-emails-crm>
+      <div className="bloco__cabeca">
+        <div>
+          <h2 className="bloco__titulo" id="crm-emails">
+            Os e-mails da loja
+          </h2>
+          <p className="bloco__sub" data-emails-situacao>
+            {sub}
+          </p>
+        </div>
+      </div>
+      {emails.ligados ? (
+        <>
+          <div className="numeros numeros--dentro numeros--emails" data-numeros-emails>
+            <div className="numero numero--destaque">
+              <p className="numero__rot">Saíram</p>
+              <p className="numero__valor num" data-email="enviados">
+                {inteiro.format(n.enviados)}
+              </p>
+              <p className="numero__sub">e-mails de cliente</p>
+            </div>
+            <div className="numero">
+              <p className="numero__rot">Chegaram</p>
+              <p className="numero__valor num" data-email="entregues">
+                {inteiro.format(n.entregues)}
+              </p>
+              <p className="numero__sub">{porcento(n.entregues, n.enviados)} dos que saíram</p>
+            </div>
+            <div className="numero">
+              <p className="numero__rot">Abertos</p>
+              <p className="numero__valor num" data-email="abertos">
+                {inteiro.format(n.abertos)}
+              </p>
+              <p className="numero__sub">{porcento(n.abertos, n.entregues)} dos que chegaram</p>
+            </div>
+            <div className="numero">
+              <p className="numero__rot">Com clique</p>
+              <p className="numero__valor num" data-email="clicados">
+                {inteiro.format(n.clicados)}
+              </p>
+              <p className="numero__sub">{porcento(n.clicados, n.entregues)} dos que chegaram</p>
+            </div>
+            <div className="numero" data-ruim={n.naoChegaram ? "" : undefined}>
+              <p className="numero__rot">Não chegaram</p>
+              <p className="numero__valor num" data-email="naoChegaram">
+                {inteiro.format(n.naoChegaram)}
+              </p>
+              <p className="numero__sub">endereço errado ou bloqueado</p>
+            </div>
+            <div className="numero" data-ruim={n.reclamacoes ? "" : undefined}>
+              <p className="numero__rot">Spam</p>
+              <p className="numero__valor num" data-email="reclamacoes">
+                {inteiro.format(n.reclamacoes)}
+              </p>
+              <p className="numero__sub">marcaram como spam</p>
+            </div>
+          </div>
+          {emails.porTipo.length ? (
+            <div className="tabela-rola emails__tabela">
+              <table className="tabela" data-emails-por-tipo>
+                <thead>
+                  <tr>
+                    <th>E-mail</th>
+                    <th className="direita">Saíram</th>
+                    <th className="direita">Chegaram</th>
+                    <th className="direita">Abertos</th>
+                    <th className="direita">Com clique</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {emails.porTipo.map((t) => (
+                    <tr key={t.tipo ?? "outro"} data-tipo-de-email={t.tipo ?? "outro"}>
+                      <td className="tabela__num">{t.nome}</td>
+                      <td className="direita num">{inteiro.format(t.enviados)}</td>
+                      <td className="direita num">{inteiro.format(t.entregues)}</td>
+                      <td className="direita num">
+                        {inteiro.format(t.abertos)}
+                        <span className="tabela__sub">{porcento(t.abertos, t.entregues)}</span>
+                      </td>
+                      <td className="direita num">
+                        {inteiro.format(t.clicados)}
+                        <span className="tabela__sub">{porcento(t.clicados, t.entregues)}</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+          {emails.ultimos.length ? (
+            <ol className="anotacoes emails__ultimos" data-ultimos-emails>
+              {emails.ultimos.map((a) => (
+                <li key={a.id} className="anotacao" data-nivel={a.nivel ?? undefined}>
+                  <span className="fila__ico">
+                    <Icone nome="email" />
+                  </span>
+                  <p className="anotacao__txt">
+                    <span className="anotacao__quem" data-anonimo={a.quem ? undefined : ""}>
+                      {a.quem ?? "Sem endereço"}
+                    </span>{" "}
+                    {a.oque}
+                  </p>
+                  <time>{a.quando}</time>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p className="vazio">
+              <b>Nenhum e-mail de cliente neste período</b>Os e-mails da equipe ficam de fora.
+            </p>
+          )}
+        </>
+      ) : null}
+    </section>
+  )
+}
+
 export function UltimasDoCrm({ ultimos }: { ultimos: TelaDoCrm["ultimos"] }) {
   return (
     <section className="bloco" aria-labelledby="crm-ultimas" data-ultimas-crm>
