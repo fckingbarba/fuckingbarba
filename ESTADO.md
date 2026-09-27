@@ -3543,7 +3543,18 @@ e LGPD) vêm depois, se ele quiser.
 - **"R$" virava zero.** Um "R$" sem número no piso do frete grátis deixava o frete grátis em todo
   pedido (e no frete de emergência, frete zero). Agora é erro no formulário.
 
-CONFERIDO_0163
+Conferido por uma prova direta na API, com 20 checagens: o `metadata` recusado, a sessão R$ 10
+abaixo do total recusada sem chegar ao Pagar.me, uma oferta por carrinho e as travas do Pix. Contra
+o backend da main, 10 delas falham — é o buraco aparecendo. E pelos conferidores:
+
+- loja, os cinco em sequência na mesma janela de 40 minutos, sem nenhum Pix barrado no caminho:
+  checkout 182/182, pagamento 219/219, mercadopago 77/77, envio 84/84, conta 209/209;
+- loja, o erp: 119/119;
+- painel: cupons 49/49, configurações 20/20, promoções 47/47, produtos 119/119;
+- os unitários (1.318), o typecheck do backend e da loja, o `medusa build`, o lint e o prettier.
+
+Os conferidores de Pix foram ajustados pra caber nas travas novas: cada pedido pela API vai
+assinado com um IP de documentação sorteado, e os Pix pelo navegador soltam as travas antes.
 
 Depois do deploy — **nada a configurar.** Se um cliente disser que o Pix não saiu com "já saíram
 vários Pix daqui" ou "até 10 unidades", é a trava nova: ele paga um dos Pix abertos, usa o cartão,
