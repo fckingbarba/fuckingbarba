@@ -185,6 +185,8 @@ const CAMPOS = [
   "shipping_address.*",
   "billing_address.metadata",
   "shipping_methods.data",
+  "payment_collections.amount",
+  "payment_collections.payments.amount",
   "payment_collections.payments.captured_at",
   "fulfillments.canceled_at",
 ]

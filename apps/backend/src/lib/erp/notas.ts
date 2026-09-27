@@ -185,6 +185,8 @@ const CAMPOS = [
   "items.unit_price",
   "shipping_address.*",
   "billing_address.*",
+  "payment_collections.amount",
+  "payment_collections.payments.amount",
   "payment_collections.payments.captured_at",
   "payment_collections.payment_sessions.provider_id",
   "payment_collections.payment_sessions.data",
@@ -969,7 +971,13 @@ export async function notasEsperando(
   if (!linhas.length) return []
   const { data } = await container.resolve(ContainerRegistrationKeys.QUERY).graph({
     entity: "order",
-    fields: ["id", "status", "payment_collections.payments.captured_at"],
+    fields: [
+      "id",
+      "status",
+      "payment_collections.amount",
+      "payment_collections.payments.amount",
+      "payment_collections.payments.captured_at",
+    ],
     filters: { id: linhas.map((n) => n.pedido_id) },
   })
   const pedidos = new Map(
