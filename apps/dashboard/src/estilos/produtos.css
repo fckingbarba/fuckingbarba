@@ -180,6 +180,10 @@ fieldset.campo.fundo-form { margin-top: 26px; }
 .publicar-pergunta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
 .publicar-pergunta p { margin: 0; }
 
+/* "Aparece também em": as outras categorias, lado a lado; sem a principal, travadas. */
+.categorias-tambem { display: flex; flex-wrap: wrap; gap: 10px 22px; padding: 2px 0; }
+.categorias-tambem[data-travado] .marcar { cursor: default; color: var(--tinta-suave); }
+
 /* ── fase 3, parte 2: a galeria que se edita, a foto do caso e o vídeo ── */
 
 /* A galeria editável: o vídeo com o play e a duração; os botões por cima da foto. */

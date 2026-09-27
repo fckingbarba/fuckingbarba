@@ -22,15 +22,23 @@ const CABE_EM_DUAS = 36
 
 const juntar = (s: string) => s.replace(/\s+/g, " ").trim()
 
+/** A mesma lista, sem olhar a ordem. */
+const mesmas = (a: string[], b: string[]) => a.length === b.length && a.every((x) => b.includes(x))
+
 /**
  * OS TEXTOS DO PRODUTO — o nome da loja (o título da página e da vitrine), o
- * subtítulo (a linha embaixo do nome, na página e no card) e a categoria (a
- * vitrine em que ele aparece: Barba, Cabelo, Kits) e a descrição no Google
+ * subtítulo (a linha embaixo do nome, na página e no card), as categorias (as
+ * vitrines em que ele aparece: Barba, Cabelo, Kits) e a descrição no Google
  * (o que aparece embaixo do nome na busca). A descrição vem do Bling e só
  * aparece.
  *
  * O NOME é da loja: mudado aqui, a importação do Bling não troca mais — o
  * Bling segue com o dele (a nota, os marketplaces). "Usar o do Bling" devolve.
+ *
+ * AS CATEGORIAS (entrega 0151): a PRINCIPAL é a de sempre — a da trilha no
+ * topo da página e a do Google —, e o "Aparece também em" põe o produto na
+ * vitrine de outras (o kit de barba em Kits e em Barba). Sem a principal, as
+ * outras ficam travadas; a principal nunca aparece entre as outras.
  */
 export function TextosDoProduto({
   produto,
@@ -44,23 +52,41 @@ export function TextosDoProduto({
   const [nome, setNome] = useState(produto.nome)
   const [subtitulo, setSubtitulo] = useState(produto.subtitulo)
   const [categoriaId, setCategoriaId] = useState(produto.categoriaId ?? "")
+  const gravadasTambem = produto.tambemEmIds ?? []
+  const [tambemEm, setTambemEm] = useState(gravadasTambem)
   const [descricaoGoogle, setDescricaoGoogle] = useState(produto.descricaoGoogle)
   const edita = produto.podeEditar
   const mudou =
     juntar(nome) !== produto.nome ||
     juntar(subtitulo) !== produto.subtitulo ||
     categoriaId !== (produto.categoriaId ?? "") ||
+    !mesmas(tambemEm, gravadasTambem) ||
     juntar(descricaoGoogle) !== produto.descricaoGoogle
   const id = `textos-${produto.id}`
   const tamanho = juntar(nome).length
   const doBling = produto.nomeNoBling
   const noGoogle = juntar(descricaoGoogle).length
+  const outras = categorias.filter((c) => c.id !== categoriaId)
+
+  function trocarPrincipal(nova: string) {
+    setCategoriaId(nova)
+    // A principal não é "também": sai das outras. Sem principal, nenhuma outra.
+    setTambemEm((antes) => (nova ? antes.filter((c) => c !== nova) : []))
+  }
 
   function salvar(ev: FormEvent) {
     ev.preventDefault()
     if (!mudou || salvando) return
     comecar(async () => {
-      avisar(await salvarTextos(produto.id, { nome, subtitulo, categoriaId, descricaoGoogle }))
+      avisar(
+        await salvarTextos(produto.id, {
+          nome,
+          subtitulo,
+          categoriaId,
+          tambemEm: categoriaId ? tambemEm : [],
+          descricaoGoogle,
+        })
+      )
     })
   }
 
@@ -126,13 +152,13 @@ export function TextosDoProduto({
           />
         </div>
         <div className="campo campo--3">
-          <label htmlFor={`${id}-cat`}>Categoria</label>
+          <label htmlFor={`${id}-cat`}>Categoria principal</label>
           <select
             id={`${id}-cat`}
             data-categoria
             value={categoriaId}
             disabled={!edita}
-            onChange={(e) => setCategoriaId(e.target.value)}
+            onChange={(e) => trocarPrincipal(e.target.value)}
           >
             <option value="">Sem categoria</option>
             {categorias.map((c) => (
@@ -146,6 +172,35 @@ export function TextosDoProduto({
           <label htmlFor={`${id}-end`}>Endereço no site</label>
           <input id={`${id}-end`} value={`/produtos/${produto.handle}`} readOnly />
         </div>
+        {outras.length ? (
+          <fieldset className="campo" data-tambem-em aria-describedby={`${id}-tambem-ajuda`}>
+            <legend className="campo__rot">Aparece também em</legend>
+            <div className="categorias-tambem" data-travado={!edita || !categoriaId || undefined}>
+              {outras.map((c) => (
+                <label className="marcar" key={c.id}>
+                  <input
+                    type="checkbox"
+                    data-tambem={c.nome}
+                    checked={Boolean(categoriaId) && tambemEm.includes(c.id)}
+                    disabled={!edita || !categoriaId}
+                    onChange={(e) => {
+                      const marcou = e.target.checked
+                      setTambemEm((antes) =>
+                        marcou ? [...antes, c.id] : antes.filter((x) => x !== c.id)
+                      )
+                    }}
+                  />
+                  {c.nome}
+                </label>
+              ))}
+            </div>
+            <p className="campo__ajuda" id={`${id}-tambem-ajuda`}>
+              {categoriaId
+                ? "O produto entra também na aba destas. A principal é a do caminho no topo da página e a do Google."
+                : "Escolha a categoria principal primeiro."}
+            </p>
+          </fieldset>
+        ) : null}
         <div className="campo">
           <label htmlFor={`${id}-google`}>
             Descrição no Google <small>— o que aparece embaixo do nome, na busca</small>

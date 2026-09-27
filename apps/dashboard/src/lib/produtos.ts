@@ -33,7 +33,13 @@ export type LinhaDoProduto = {
   foto: string | null
   situacao: Situacao
   publicado: boolean
+  /** A categoria principal: a da trilha da página e do Google. */
   categoria: string | null
+  /**
+   * As outras categorias em que ele aparece (o "Aparece também em"), na ordem
+   * do menu. Sem a chave, o Medusa é de antes da 0151.
+   */
+  tambemEm?: string[]
   /** O do Bling: o "de", quando há promoção. */
   preco: number | null
   promocao: Promocao | null
@@ -41,6 +47,12 @@ export type LinhaDoProduto = {
   promocaoSemEfeito: number | null
   /** `null`: não controla estoque. */
   estoque: number | null
+}
+
+/** "Kits", "Kits (também em Barba)" ou "sem categoria" — a linha embaixo do nome do produto. */
+export function categoriasNaCabeca(p: Pick<LinhaDoProduto, "categoria" | "tambemEm">): string {
+  if (!p.categoria) return "sem categoria"
+  return p.tambemEm?.length ? `${p.categoria} (também em ${p.tambemEm.join(", ")})` : p.categoria
 }
 
 export const FILTROS_DE_PRODUTO = [
@@ -126,7 +138,10 @@ export type DetalheDoProduto = LinhaDoProduto & {
   /** O que o Google mostra embaixo do nome; vazio: o começo da descrição do Bling. */
   descricaoGoogle: string
   peso: number | null
+  /** A categoria principal. */
   categoriaId: string | null
+  /** As outras categorias (o "Aparece também em"). Sem a chave, o Medusa é de antes da 0151. */
+  tambemEmIds?: string[]
   fotos: string[]
   /** As fotos da galeria (a primeira é a capa) e depois os vídeos do "Vê na prática". */
   galeria: ItemDaGaleria[]
