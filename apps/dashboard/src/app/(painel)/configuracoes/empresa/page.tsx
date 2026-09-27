@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import { FormularioDaEmpresa } from "@/components/configuracoes"
-import { Icone } from "@/components/icones"
 import { ForaDoAr, SemAcesso } from "@/components/telas"
+import { Faixa } from "@/components/visual"
 import { lerConfiguracoes } from "@/lib/ler-configuracoes"
 
 export const metadata: Metadata = { title: "Dados da empresa" }
@@ -15,16 +15,15 @@ export default async function Pagina() {
   return (
     <>
       {emBranco.length ? (
-        <div className="faixa" data-nivel="atencao" data-em-branco>
-          <Icone nome="alerta" />
-          <div>
-            <p className="faixa__titulo">Em branco na loja de hoje</p>
-            <p>
-              {emBranco.join(", ")}. Enquanto estiverem vazios, as páginas legais mostram a tarja de
-              &ldquo;dado pendente&rdquo; no lugar de cada um. Preenchidos, aparecem sozinhos.
-            </p>
-          </div>
-        </div>
+        // O que falta à vista, em etiquetas; o porquê no "?" (0158).
+        <Faixa
+          nivel="atencao"
+          icone="alerta"
+          titulo="Em branco na loja de hoje"
+          etiquetas={emBranco}
+          ajuda="Enquanto estiverem vazios, as páginas legais mostram a tarja de “dado pendente” no lugar de cada um. Preenchidos, aparecem sozinhos."
+          data-em-branco=""
+        />
       ) : null}
       {/* A chave é o que está gravado: salvo, o formulário renasce com o valor arrumado (o CNPJ com pontos). */}
       <FormularioDaEmpresa key={JSON.stringify(inicial)} inicial={inicial} />

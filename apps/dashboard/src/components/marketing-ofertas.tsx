@@ -1,6 +1,8 @@
 import type { Route } from "next"
 import Link from "next/link"
+import { Icone } from "@/components/icones"
 import { Achados } from "@/components/marketing"
+import { CabecaDoBloco } from "@/components/visual"
 import { lerOfertas, type OfertaDoProduto, type Periodo } from "@/lib/marketing"
 import { reais } from "@/lib/pedidos"
 
@@ -61,15 +63,10 @@ export async function TelaDasOfertas({ periodo }: { periodo: Periodo }) {
     <>
       <Achados achados={o.achados} />
       <section className="bloco bloco--sem-pad" data-bloco="caixas">
-        <div className="bloco__cabeca">
-          <div>
-            <h2 className="bloco__titulo">Abaixo do preço, na página do produto</h2>
-            <p className="bloco__sub">
-              Cada produto mostra os cartões de quantidade (o order bump) ou o leve junto (o
-              cross-sell). Toque pra trocar.
-            </p>
-          </div>
-        </div>
+        <CabecaDoBloco
+          titulo="Abaixo do preço, na página do produto"
+          ajuda="Cada produto mostra os cartões de quantidade (o order bump) ou o leve junto (o cross-sell). Toque pra trocar."
+        />
         {o.porProduto.length ? (
           <>
             <div className="tabela-rola" data-vira-cartao>
@@ -121,11 +118,17 @@ export async function TelaDasOfertas({ periodo }: { periodo: Periodo }) {
 
       <div className="numeros" data-numeros-das-ofertas>
         <div className="numero" data-numero="unidades">
+          <span className="numero__ico">
+            <Icone nome="produtos" />
+          </span>
           <p className="numero__rot">Quantas unidades</p>
           <p className="numero__valor">{unidades.parte === null ? "—" : `${unidades.parte}%`}</p>
           <p className="numero__sub">dos pedidos levaram 2 ou mais do mesmo produto</p>
         </div>
         <div className="numero" data-numero="junto">
+          <span className="numero__ico">
+            <Icone nome="mais" />
+          </span>
           <p className="numero__rot">Leve junto</p>
           <p className="numero__valor">{INTEIRO.format(junto.vezes)}</p>
           <p className="numero__sub">
@@ -133,6 +136,9 @@ export async function TelaDasOfertas({ periodo }: { periodo: Periodo }) {
           </p>
         </div>
         <div className="numero" data-numero="checkout">
+          <span className="numero__ico">
+            <Icone nome="raio" />
+          </span>
           <p className="numero__rot">Oferta do checkout</p>
           <p className="numero__valor">{INTEIRO.format(checkout.pedidos)}</p>
           <p className="numero__sub">
@@ -142,27 +148,25 @@ export async function TelaDasOfertas({ periodo }: { periodo: Periodo }) {
           </p>
         </div>
         <div className="numero" data-numero="carrinho">
+          <span className="numero__ico">
+            <Icone nome="carrinho" />
+          </span>
           <p className="numero__rot">Carrinho abandonado</p>
           <p className="numero__valor">—</p>
           <p className="numero__sub">os e-mails automáticos ainda não existem</p>
         </div>
       </div>
-      <p className="pequeno suave ofertas__nota">
-        A oferta do checkout é a caixinha logo antes de pagar: quem escolhe o produto é o motor de
-        recomendação, sacola a sacola, e ela não se configura na página do produto. O leve junto
-        conta o pedido que levou o produto e um dos de junto — pelo caminho que for.
-      </p>
 
       <section className="bloco bloco--sem-pad" data-bloco="cupons">
-        <div className="bloco__cabeca">
-          <div>
-            <h2 className="bloco__titulo">Cupons</h2>
-            <p className="bloco__sub">Os usados em pedidos pagos no período.</p>
-          </div>
-          <Link className="link pequeno" href="/cupons">
-            Abrir cupons
-          </Link>
-        </div>
+        <CabecaDoBloco
+          titulo="Cupons"
+          ajuda="Os usados em pedidos pagos no período."
+          lado={
+            <Link className="link pequeno" href="/cupons">
+              Abrir cupons
+            </Link>
+          }
+        />
         {o.cupons.length ? (
           <>
             <div className="tabela-rola" data-vira-cartao>

@@ -29,7 +29,7 @@ async function Canais({ searchParams }: { searchParams: Busca }) {
   const periodo = lerPeriodo((await searchParams).periodo)
   return (
     <div data-tela>
-      <Cabeca titulo="Marketing" sub="De onde vêm as visitas e as vendas." />
+      <Cabeca titulo="Marketing" ajuda="De onde vêm as visitas e as vendas." />
       <AbasDoMarketing atual="canais" periodo={periodo} />
       <Periodos atual={periodo} caminho="/marketing/canais" />
       {periodo === "hoje" ? <UmDiaEPouco /> : null}

@@ -264,3 +264,14 @@
 .linha__ico svg { width: 16px; height: 16px; fill: var(--tinta); }
 /* A origem do promocional, numa etiqueta em vez da frase. */
 .campo-preco__nota--etiqueta { display: inline-block; width: fit-content; padding: 1px 6px; background: var(--cinza); color: var(--tinta-suave); font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+
+/* --------------------------------------------------------------------------
+   0158 — a parte B: Observabilidade, Configurações, Marketing e Layout da home.
+   -------------------------------------------------------------------------- */
+
+/* A integração e a medida da velocidade: o nome e o "?" na mesma linha. */
+.integracao__cabeca, .vital__cabeca { position: relative; display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.integracao__cabeca > .ajuda, .vital__cabeca > .ajuda { position: static; }
+.integracao__cabeca .ajuda__texto, .vital__cabeca .ajuda__texto { left: 0; right: 0; width: auto; }
+.integracao__cabeca .ajuda > summary, .vital__cabeca .ajuda > summary { width: 22px; height: 22px; font-size: 0.72rem; }
+.vital__cabeca { margin-bottom: 6px; }

@@ -1,3 +1,4 @@
+import { Ajuda } from "@/components/visual"
 import type { LinhaDeStatus } from "@/lib/configuracoes"
 
 /**
@@ -19,9 +20,9 @@ export function LinhasDeStatus({
     <section className="bloco" data-linhas={dado}>
       {titulo ? (
         <div className="bloco__cabeca">
-          <div>
+          <div className="bloco__titulos">
             <h2 className="bloco__titulo">{titulo}</h2>
-            {sub ? <p className="bloco__sub">{sub}</p> : null}
+            {sub ? <Ajuda>{sub}</Ajuda> : null}
           </div>
         </div>
       ) : null}

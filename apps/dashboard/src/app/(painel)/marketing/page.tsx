@@ -62,11 +62,21 @@ async function Marketing({ periodo }: { periodo: Periodo }) {
 
   return (
     <div data-tela>
-      <Cabeca titulo="Marketing" sub="De onde vem a venda e como o mês está indo." />
+      <Cabeca
+        titulo="Marketing"
+        ajuda={
+          <>
+            De onde vem a venda e como o mês está indo.
+            {"\n"}
+            <Glossario />
+            {"\n"}
+            <FonteDosDados />
+          </>
+        }
+      />
       <AbasDoMarketing atual="resumo" periodo={periodo} />
       <Periodos atual={periodo} />
       <Numeros resumo={resumo} />
-      <Glossario />
       <Meta meta={resumo.meta} muda={resumo.mudaAMeta} />
       <Suspense fallback={<OQueOsDadosDizemCarregando periodo={periodo} />}>
         <OQueOsDadosDizem periodo={periodo} />
@@ -78,7 +88,6 @@ async function Marketing({ periodo }: { periodo: Periodo }) {
         </Suspense>
         <MaisVendidos produtos={resumo.maisVendidos} />
       </div>
-      <FonteDosDados />
     </div>
   )
 }

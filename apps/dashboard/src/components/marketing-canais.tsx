@@ -1,5 +1,6 @@
 import { Achados, SEM_VISITAS } from "@/components/marketing"
 import { MontarLink } from "@/components/montar-link"
+import { CabecaDoBloco } from "@/components/visual"
 import {
   lerCanais,
   type Campanha,
@@ -188,15 +189,10 @@ export async function TelaDosCanais({ periodo }: { periodo: Periodo }) {
     <>
       {c.estado === "ok" && c.achado ? <Achados achados={[c.achado]} /> : null}
       <section className="bloco bloco--sem-pad" data-bloco="canais">
-        <div className="bloco__cabeca">
-          <div>
-            <h2 className="bloco__titulo">De onde vêm as visitas e as vendas</h2>
-            <p className="bloco__sub">
-              Do Google Analytics: as visitas do endereço da loja e as compras que a loja manda pra
-              ele.
-            </p>
-          </div>
-        </div>
+        <CabecaDoBloco
+          titulo="De onde vêm as visitas e as vendas"
+          ajuda="Do Google Analytics: as visitas do endereço da loja e as compras que a loja manda pra ele."
+        />
         {c.estado !== "ok" ? (
           semGoogle
         ) : c.canais.length || c.semOrigem.pedidos ? (
@@ -214,14 +210,10 @@ export async function TelaDosCanais({ periodo }: { periodo: Periodo }) {
           : ""}
       </p>
       <section className="bloco bloco--sem-pad" data-bloco="campanhas">
-        <div className="bloco__cabeca">
-          <div>
-            <h2 className="bloco__titulo">Campanhas</h2>
-            <p className="bloco__sub">
-              Só aparece aqui o link com a marca da campanha (UTM). Monte o link aí embaixo.
-            </p>
-          </div>
-        </div>
+        <CabecaDoBloco
+          titulo="Campanhas"
+          ajuda="Só aparece aqui o link com a marca da campanha (UTM). Monte o link aí embaixo."
+        />
         {c.estado !== "ok" ? (
           semGoogle
         ) : c.campanhas.length ? (

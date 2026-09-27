@@ -50,7 +50,7 @@ async function Lista({ caminho }: { caminho: string }) {
     <div data-tela>
       <Cabeca
         titulo="Clientes"
-        sub="Quem aceitou receber ofertas por e-mail: no rodapé da loja ou na conta."
+        ajuda="Quem aceitou receber ofertas por e-mail: no rodapé da loja ou na conta."
       />
       <AbasDeClientes atual="newsletter" comNewsletter />
       <div className="numeros" data-numeros-newsletter>

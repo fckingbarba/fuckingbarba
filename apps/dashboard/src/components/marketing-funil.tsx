@@ -1,5 +1,6 @@
 import { Icone } from "@/components/icones"
 import { Achados, SEM_VISITAS } from "@/components/marketing"
+import { CabecaDoBloco } from "@/components/visual"
 import { lerFunil, type Aparelho, type Passo, type Periodo } from "@/lib/marketing"
 
 /**
@@ -83,15 +84,10 @@ export async function TelaDoFunil({ periodo }: { periodo: Periodo }) {
     <>
       <Achados achados={f.achados} />
       <section className="bloco" data-bloco="site">
-        <div className="bloco__cabeca">
-          <div>
-            <h2 className="bloco__titulo">Do site até o pagamento</h2>
-            <p className="bloco__sub">
-              Quantas visitas chegaram em cada passo — do Google Analytics, só de quem aceitou os
-              cookies.
-            </p>
-          </div>
-        </div>
+        <CabecaDoBloco
+          titulo="Do site até o pagamento"
+          ajuda="Quantas visitas chegaram em cada passo — do Google Analytics, só de quem aceitou os cookies."
+        />
         {f.estado === "ok" ? (
           <ListaDoFunil passos={f.site} dados="site" />
         ) : (
@@ -102,14 +98,10 @@ export async function TelaDoFunil({ periodo }: { periodo: Periodo }) {
       </section>
       <div className="duas">
         <section className="bloco" data-bloco="checkout">
-          <div className="bloco__cabeca">
-            <div>
-              <h2 className="bloco__titulo">Da sacola ao pagamento</h2>
-              <p className="bloco__sub">
-                Todo mundo, com cookie ou sem: os carrinhos da loja no período, passo a passo.
-              </p>
-            </div>
-          </div>
+          <CabecaDoBloco
+            titulo="Da sacola ao pagamento"
+            ajuda="Todo mundo, com cookie ou sem: os carrinhos da loja no período, passo a passo."
+          />
           {f.checkout[0]?.n ? (
             <ListaDoFunil passos={f.checkout} dados="checkout" />
           ) : (
@@ -117,20 +109,12 @@ export async function TelaDoFunil({ periodo }: { periodo: Periodo }) {
           )}
         </section>
         <section className="bloco" data-bloco="aparelhos">
-          <div className="bloco__cabeca">
-            <div>
-              <h2 className="bloco__titulo">Celular e computador</h2>
-              <p className="bloco__sub">Onde as pessoas entram e onde compram.</p>
-            </div>
-          </div>
+          <CabecaDoBloco
+            titulo="Celular e computador"
+            ajuda="Onde as pessoas entram e onde compram. As compras contam pelo navegador guardado na compra — de quem aceitou os cookies, como as visitas."
+          />
           {f.estado === "ok" && f.aparelhos ? (
-            <>
-              <Aparelhos aparelhos={f.aparelhos} />
-              <p className="pequeno suave aparelhos__nota">
-                As compras contam pelo navegador guardado na compra — de quem aceitou os cookies,
-                como as visitas.
-              </p>
-            </>
+            <Aparelhos aparelhos={f.aparelhos} />
           ) : (
             <p className="sem-dados">
               {f.estado === "ok" ? "Nenhuma visita no período." : `${SEM_VISITAS[f.estado]}.`}

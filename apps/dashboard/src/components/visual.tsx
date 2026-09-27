@@ -210,3 +210,27 @@ export function Fichas({
     </span>
   )
 }
+
+/**
+ * A cabeça de um bloco (0158): o título e a explicação no "?"; à direita, o
+ * que vier (um botão, um selo, uma pílula). O `.bloco__titulo` é só o título.
+ */
+export function CabecaDoBloco({
+  titulo,
+  ajuda,
+  lado,
+}: {
+  titulo: ReactNode
+  ajuda?: ReactNode
+  lado?: ReactNode
+}) {
+  return (
+    <div className="bloco__cabeca">
+      <div className="bloco__titulos">
+        <h2 className="bloco__titulo">{titulo}</h2>
+        {ajuda ? <Ajuda>{ajuda}</Ajuda> : null}
+      </div>
+      {lado}
+    </div>
+  )
+}

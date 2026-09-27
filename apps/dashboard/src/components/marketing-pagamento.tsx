@@ -1,6 +1,7 @@
 import type { Route } from "next"
 import Link from "next/link"
 import { Achados } from "@/components/marketing"
+import { CabecaDoBloco, Pilula } from "@/components/visual"
 import { lerMembro } from "@/lib/eu"
 import {
   lerPagamento,
@@ -89,14 +90,10 @@ function Parceiros({ r }: { r: PagamentoEFrete["parceiros"] }) {
   const m = r.melhorNoPix
   return (
     <section className="bloco" data-bloco="parceiros">
-      <div className="bloco__cabeca">
-        <div>
-          <h2 className="bloco__titulo">Os parceiros</h2>
-          <p className="bloco__sub">
-            Quem gerou o Pix, o que não gerou e quanto tempo cada um ficou fora do ar.
-          </p>
-        </div>
-      </div>
+      <CabecaDoBloco
+        titulo="Os parceiros"
+        ajuda="Quem gerou o Pix, o que não gerou e quanto tempo cada um ficou fora do ar. Os Pix gerados e pagos são os pedidos; o que não gerou, o tempo pra gerar e o fora do ar vêm das tentativas anotadas desde 27/09. O cartão é só do Pagar.me: está no bloco Cartão."
+      />
       {usados.length ? (
         <>
           <div className="tabela-rola" data-vira-cartao>
@@ -200,12 +197,10 @@ export async function TelaDoPagamento({ periodo }: { periodo: Periodo }) {
       <Achados achados={p.achados} />
       <div className="duas">
         <section className="bloco" data-bloco="como-pagaram">
-          <div className="bloco__cabeca">
-            <div>
-              <h2 className="bloco__titulo">Como pagaram</h2>
-              <p className="bloco__sub">Os pedidos pagos no período (os mesmos do Resumo).</p>
-            </div>
-          </div>
+          <CabecaDoBloco
+            titulo="Como pagaram"
+            ajuda="Os pedidos pagos no período (os mesmos do Resumo). O Pix vencido é o que passou da hora sem ser pago."
+          />
           <Barras
             dados="forma"
             total={pagos}
@@ -230,15 +225,15 @@ export async function TelaDoPagamento({ periodo }: { periodo: Periodo }) {
           )}
         </section>
         <section className="bloco" data-bloco="cartao">
-          <div className="bloco__cabeca">
-            <div>
-              <h2 className="bloco__titulo">Cartão</h2>
-              <p className="bloco__sub">
-                {INTEIRO.format(cartao.total)} {cartao.total === 1 ? "tentativa" : "tentativas"} no
-                período.
-              </p>
-            </div>
-          </div>
+          <CabecaDoBloco
+            titulo="Cartão"
+            ajuda="O cartão conta cada tentativa: a do pedido e a do carrinho que não fechou (o recusado na hora não vira pedido). Quem tenta de novo no mesmo carrinho conta a última tentativa."
+            lado={
+              <Pilula icone="cartao" suave data-tentativas={cartao.total}>
+                {INTEIRO.format(cartao.total)} {cartao.total === 1 ? "tentativa" : "tentativas"}
+              </Pilula>
+            }
+          />
           {cartao.total ? (
             <Barras
               dados="cartao"
@@ -281,17 +276,17 @@ export async function TelaDoPagamento({ periodo }: { periodo: Periodo }) {
       </div>
       <Parceiros r={p.parceiros} />
       <section className="bloco" data-bloco="frete">
-        <div className="bloco__cabeca">
-          <div>
-            <h2 className="bloco__titulo">Frete</h2>
-            <p className="bloco__sub">O que o frete faz com a venda.</p>
-          </div>
-          {mudaOFrete ? (
-            <Link className="link pequeno" href={"/configuracoes/frete" as Route}>
-              Mudar o frete grátis
-            </Link>
-          ) : null}
-        </div>
+        <CabecaDoBloco
+          titulo="Frete"
+          ajuda="O que o frete faz com a venda."
+          lado={
+            mudaOFrete ? (
+              <Link className="link pequeno" href={"/configuracoes/frete" as Route}>
+                Mudar o frete grátis
+              </Link>
+            ) : null
+          }
+        />
         <div className="numeros numeros--dentro">
           <div className="numero" data-numero="gratis">
             <p className="numero__rot">Com frete grátis</p>
@@ -325,13 +320,6 @@ export async function TelaDoPagamento({ periodo }: { periodo: Periodo }) {
           </div>
         </div>
       </section>
-      <p className="pequeno suave">
-        O cartão conta cada tentativa: a do pedido e a do carrinho que não fechou (o recusado na
-        hora não vira pedido). Quem tenta de novo no mesmo carrinho conta a última tentativa. O Pix
-        vencido é o que passou da hora sem ser pago. Nos parceiros, os Pix gerados e pagos são os
-        pedidos; o que não gerou, o tempo pra gerar e o fora do ar vêm das tentativas anotadas desde
-        27/09. O cartão é só do Pagar.me: está no bloco Cartão.
-      </p>
     </>
   )
 }

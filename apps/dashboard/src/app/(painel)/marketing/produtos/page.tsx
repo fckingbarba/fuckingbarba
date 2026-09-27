@@ -29,7 +29,7 @@ async function Produtos({ searchParams }: { searchParams: Busca }) {
   const periodo = lerPeriodo((await searchParams).periodo)
   return (
     <div data-tela>
-      <Cabeca titulo="Marketing" sub="O que cada produto atrai, põe na sacola e vende." />
+      <Cabeca titulo="Marketing" ajuda="O que cada produto atrai, põe na sacola e vende." />
       <AbasDoMarketing atual="produtos" periodo={periodo} />
       <Periodos atual={periodo} caminho="/marketing/produtos" />
       {periodo === "hoje" ? <UmDiaEPouco /> : null}

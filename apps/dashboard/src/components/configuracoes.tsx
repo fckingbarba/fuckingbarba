@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation"
 import { useState, useTransition, type FormEvent, type ReactNode } from "react"
 import { useAvisar } from "@/components/avisos"
 import { Campo } from "@/components/campo"
+import { Ajuda } from "@/components/visual"
 import {
   mudarJanela,
   salvarEmergencia,
@@ -186,13 +187,14 @@ function Segmento<T extends string>({
   )
 }
 
+/** A cabeça do bloco: o título, e a explicação no "?" (0158). */
 function Bloco({ titulo, sub, children }: { titulo: string; sub: string; children: ReactNode }) {
   return (
     <>
       <div className="bloco__cabeca">
-        <div>
+        <div className="bloco__titulos">
           <h2 className="bloco__titulo">{titulo}</h2>
-          <p className="bloco__sub">{sub}</p>
+          <Ajuda>{sub}</Ajuda>
         </div>
       </div>
       {children}

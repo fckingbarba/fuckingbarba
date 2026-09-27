@@ -384,6 +384,23 @@ try {
     `${JSON.stringify(naTela)} · ${JSON.stringify({ ...doCartao, limites: undefined, ultimas: undefined })}`
   )
 
+  // 0158: a faixa de cima com o "?", os números com ícone e o freio numa pílula.
+  const agora = (await tela(tokenDoDono)).corpo
+  const geral = pagina.locator("[data-geral]")
+  const naFaixa = {
+    titulo: semEspaco(await geral.locator(".faixa__titulo").textContent()),
+    porque: semEspaco(await geral.locator("[data-ajuda] .ajuda__texto").textContent()),
+  }
+  const freio = semEspaco(await pagina.locator("[data-cartao] [data-freio]").textContent())
+  ok(
+    naFaixa.titulo === semEspaco(agora.geral?.titulo) &&
+      naFaixa.porque === semEspaco(agora.geral?.texto) &&
+      (await pagina.locator("[data-tela] > .numeros .numero__ico").count()) === 4 &&
+      freio === (agora.cartao?.freio?.ligado ? "Freio ligado" : "Freio desligado"),
+    "em desenho: a faixa com a frase no “?”, os quatro números com ícone e o freio numa pílula",
+    JSON.stringify({ ...naFaixa, freio })
+  )
+
   // A cotação que falhou, marcada pela tela.
   const cartaoDoFrete = pagina.locator(`[data-problema="${frete.id}"]`)
   const vez = await pagina.locator(".aviso").getAttribute("data-vez")

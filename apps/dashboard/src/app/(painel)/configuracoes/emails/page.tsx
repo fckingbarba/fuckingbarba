@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import { ForaDoAr, SemAcesso } from "@/components/telas"
+import { Ajuda, Pilula } from "@/components/visual"
 import { NOME_DO_PAPEL } from "@/lib/equipe"
 import { lerConfiguracoes } from "@/lib/ler-configuracoes"
 
@@ -20,10 +21,13 @@ export default async function Pagina() {
     <>
       <section className="bloco" data-emails-cliente>
         <div className="bloco__cabeca">
-          <div>
+          <div className="bloco__titulos">
             <h2 className="bloco__titulo">Pro cliente</h2>
-            <p className="bloco__sub">Pelo Resend, de {t.emails.remetente}.</p>
+            <Ajuda>Os e-mails que o cliente recebe, pelo Resend, de {t.emails.remetente}.</Ajuda>
           </div>
+          <Pilula icone="email" suave>
+            {t.emails.remetente}
+          </Pilula>
         </div>
         <div className="linhas">
           {t.emails.cliente.map((e) => (
@@ -41,12 +45,12 @@ export default async function Pagina() {
       </section>
       <section className="bloco" data-emails-equipe>
         <div className="bloco__cabeca">
-          <div>
+          <div className="bloco__titulos">
             <h2 className="bloco__titulo">Pra equipe</h2>
-            <p className="bloco__sub">
+            <Ajuda>
               Cada aviso vai pro papel que resolve, pro e-mail de quem está na equipe. Sem ninguém
               no painel, vai pros usuários do admin do Medusa, como antes.
-            </p>
+            </Ajuda>
           </div>
         </div>
         <div className="linhas">

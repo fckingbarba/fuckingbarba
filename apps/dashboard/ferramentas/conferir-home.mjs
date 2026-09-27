@@ -516,6 +516,17 @@ try {
       "a faixa: 3 mudanças (duas seções e a ordem)",
       await faixa()
     )
+    // 0158: cada mudança numa etiqueta, à vista; a frase de quando o site muda, no "?".
+    const etiquetas = (
+      await pagina.locator("[data-faixa-home] .faixa__etiqueta").allTextContents()
+    ).map(semEspaco)
+    ok(
+      etiquetas.length === 3 &&
+        etiquetas.includes("a ordem das seções") &&
+        (await pagina.locator("[data-faixa-home] [data-ajuda]").count()) === 1,
+      "as 3 mudanças em etiquetas, e o porquê no “?”",
+      JSON.stringify(etiquetas)
+    )
     await abrirHome()
     ok(
       (await ordemNaTela()).indexOf("home.colecao") === 5 &&

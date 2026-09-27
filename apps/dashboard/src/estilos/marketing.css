@@ -19,8 +19,8 @@
 .delta svg { width: 10px; height: 10px; fill: currentColor; }
 .delta[data-bom] { background: var(--menta-clara); color: var(--menta-escura); }
 .delta[data-ruim] { background: var(--erro-claro); color: var(--erro); }
-.glossario { margin: 0 0 16px; font-size: 0.76rem; color: var(--tinta-suave); }
-.glossario b { color: var(--tinta); }
+/* O glossário e a fonte dos números moram no "?" do título (0158). */
+.glossario, .fonte-dados { display: inline; }
 
 .meta__trilho { position: relative; height: 16px; background: var(--cinza-2); border: 2px solid var(--tinta); }
 .meta__trilho i { display: block; height: 100%; background: var(--menta-botao); }
@@ -53,8 +53,6 @@
 .topo3__sub { font-size: 0.74rem; color: var(--tinta-suave); }
 .topo3 .foto { width: 34px; height: 34px; flex-shrink: 0; }
 
-.fonte-dados { margin: 8px 0 0; padding: 12px 0 0; border-top: 2px solid var(--linha); font-size: 0.76rem; color: var(--tinta-suave); }
-.fonte-dados b { color: var(--tinta); }
 
 /* --------------------------------------------------------------------------
    A PARTE 2 — o Funil e os Canais.
@@ -94,7 +92,6 @@
 .aparelho__nome svg { width: 16px; height: 16px; fill: currentColor; }
 .aparelho__n { margin: 8px 0 0; font-size: 0.8rem; color: var(--tinta-suave); }
 .aparelho__n b { font-size: 1.1rem; color: var(--tinta); font-variant-numeric: tabular-nums; }
-.aparelhos__nota { margin: 12px 0 0; }
 
 /* Os canais: a conversão boa e a ruim, o total da loja e o link pronto. */
 .bom { color: var(--menta-escura); font-weight: 800; }
@@ -117,7 +114,6 @@
 .tabela__link.com-foto { display: inline-flex; }
 .ofertas__resultado { white-space: normal; }
 [data-numeros-das-ofertas] { margin-top: 16px; }
-.ofertas__nota { margin: 12px 0 16px; }
 
 /* --------------------------------------------------------------------------
    A PARTE 4 — os Clientes e o Pagamento e frete.

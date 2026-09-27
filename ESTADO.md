@@ -3025,8 +3025,8 @@ linhas aparecem como antes (sem os números nem os desenhos novos).
 
 - [x] **O resto das telas, parte A** (o pedido aberto, Produtos, Carrinhos e Cupons) — pedida em 27/09
       ("sim por favor"), feita na 0155 (abaixo).
-- [ ] **O resto das telas, parte B:** Observabilidade, Configurações, Marketing e Layout da home — a
-      próxima entrega.
+- [x] **O resto das telas, parte B:** Observabilidade, Configurações, Marketing e Layout da home — feita
+      na 0158 (abaixo). A aba Pagamento das Configurações fica pra depois da 0157 (a parcela mínima).
 
 **Painel mais visual nas outras telas, parte A — pronto em 27/09 (entrega 0155).** O mesmo "?" e os
 mesmos desenhos da 0148, agora no pedido aberto, nos Produtos, nos Carrinhos e nos Cupons.
@@ -3049,6 +3049,22 @@ mesmos desenhos da 0148, agora no pedido aberto, nos Produtos, nos Carrinhos e n
 Depois do deploy — **nada a configurar.** Nos minutos em que só o painel novo está no ar, as telas
 aparecem sem os desenhos que dependem do backend novo (as etiquetas das faixas, as fotos dos carrinhos,
 o selo dos cupons).
+
+**Painel mais visual nas outras telas, parte B — pronto em 27/09 (entrega 0158).** O mesmo "?" nas
+telas que faltavam.
+
+- **Observabilidade:** a faixa de cima com o porquê no "?"; os quatro números com ícone; o freio do
+  cartão numa pílula ("Freio ligado" ou "desligado"); cada integração verde sem frase (ela vai pro
+  "?"), e a que tem problema com o motivo à vista; "Quem é avisado" numa linha.
+- **Configurações:** as explicações de cada bloco no "?"; o que falta nos dados da empresa em
+  etiquetas; o remetente dos e-mails numa pílula; as pendências da nota com o número ao lado do título.
+- **Marketing:** em todas as abas, as explicações e as notas do pé no "?" (o glossário e de onde vêm os
+  números, no "?" do título); as ofertas com ícones nos números; as tentativas do cartão numa pílula.
+- **Layout da home:** a faixa de publicar com cada mudança numa etiqueta e a última publicação numa
+  pílula; a explicação no "?".
+- **Newsletter:** a explicação da tela no "?".
+
+Depois do deploy — **nada a configurar** (só o painel mudou).
 
 **CRM, parte 3: a ficha de cada pessoa — pronto em 27/09 (entrega 0145).** Na ficha do cliente
 (Clientes → a pessoa), o CRM mostra quem ela é pro "Ciclo da Barba".

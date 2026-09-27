@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useOptimistic, useState, useTransition } from "react"
 import { useAvisar } from "@/components/avisos"
 import { Icone } from "@/components/icones"
+import { Ajuda } from "@/components/visual"
 import { resolverProblema } from "@/lib/acoes/observabilidade"
 import {
   COR_DA_FAIXA,
@@ -154,12 +155,17 @@ export function Integracoes({ integracoes }: { integracoes: IntegracaoNaTela[] }
       {integracoes.map((i) => (
         <div className="integracao" data-s={i.s} key={i.id} data-integracao={i.id}>
           <span className="luz" data-s={i.s} aria-hidden="true" />
-          <div>
-            <p className="integracao__nome">
-              {i.nome}
-              <small>{i.onde}</small>
-            </p>
-            <p className="integracao__txt">{i.texto}</p>
+          <div className="integracao__miolo">
+            <div className="integracao__cabeca">
+              <p className="integracao__nome">
+                {i.nome}
+                <small>{i.onde}</small>
+              </p>
+              {/* Tudo certo, a frase vai no "?" (0158): a luz verde já diz. */}
+              {i.s === "ok" ? <Ajuda>{i.texto}</Ajuda> : null}
+            </div>
+            {/* Com algo errado, o motivo fica à vista. */}
+            {i.s === "ok" ? null : <p className="integracao__txt">{i.texto}</p>}
             <p className="integracao__sinal">
               {NOME_DA_SITUACAO[i.s]}
               {i.sinal ? ` · último sinal ${i.sinal}` : ""}
@@ -277,10 +283,12 @@ export function Velocidade({ vitais }: { vitais: VitalNaTela[] }) {
     <div className="vitais">
       {vitais.map((v) => (
         <div className="vital" key={v.metrica} data-vital={v.metrica}>
-          <p className="vital__nome">
-            {v.nome} <small>{v.metrica}</small>
-          </p>
-          <p className="vital__ajuda">{v.ajuda}</p>
+          <div className="vital__cabeca">
+            <p className="vital__nome">
+              {v.nome} <small>{v.metrica}</small>
+            </p>
+            <Ajuda>{v.ajuda}</Ajuda>
+          </div>
           <Medidor rotulo="Celular" m={v.celular} />
           <Medidor rotulo="Computador" m={v.computador} />
         </div>

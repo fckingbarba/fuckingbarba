@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { Achados } from "@/components/marketing"
+import { CabecaDoBloco } from "@/components/visual"
 import { lerClientesDoMarketing, type LinhaDoEstado, type Periodo } from "@/lib/marketing"
 import { reais } from "@/lib/pedidos"
 
@@ -74,14 +75,10 @@ export async function TelaDosClientes({ periodo }: { periodo: Periodo }) {
       </div>
       <Achados achados={c.achados} />
       <section className="bloco bloco--sem-pad" data-bloco="estados">
-        <div className="bloco__cabeca">
-          <div>
-            <h2 className="bloco__titulo">Por estado</h2>
-            <p className="bloco__sub">
-              Onde estão os clientes, e quanto o frete pesa em cada lugar.
-            </p>
-          </div>
-        </div>
+        <CabecaDoBloco
+          titulo="Por estado"
+          ajuda="Onde estão os clientes, e quanto o frete pesa em cada lugar."
+        />
         {c.estados.length ? (
           <>
             <div className="tabela-rola" data-vira-cartao>
@@ -147,10 +144,6 @@ export async function TelaDosClientes({ periodo }: { periodo: Periodo }) {
           </Link>
         </div>
       </section>
-      <p className="pequeno suave">
-        A pessoa é o e-mail do pedido. A primeira compra é a primeira na loja nova: quem já comprava
-        na Nuvemshop conta como novo aqui. A 2ª compra é a média de toda a história da loja nova.
-      </p>
     </>
   )
 }
