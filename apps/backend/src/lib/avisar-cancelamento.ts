@@ -1,6 +1,5 @@
 import type { MedusaContainer } from "@medusajs/framework/types"
 import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
-import { lerEstado } from "../modules/pagarme/situacao"
 import { whatsappDaLoja } from "./atendimento"
 import { emailNoLog, enviarEmail } from "./email"
 import {
@@ -10,6 +9,7 @@ import {
 } from "./emails/pedido-cancelado"
 import type { ItemDoEmail } from "./emails/pedido-confirmado"
 import { gravarNoMetadataDoPedido } from "./metadata-do-pedido"
+import { estadoDaSessao, sessaoDoParceiro } from "./pagamento/parceiros"
 
 /**
  * O AVISO DE PEDIDO CANCELADO — uma vez por pedido, quando ele é cancelado.
@@ -39,11 +39,9 @@ import { gravarNoMetadataDoPedido } from "./metadata-do-pedido"
  * mão — sem pagamento capturado nenhum pra ler aqui. O subscriber conta.
  *
  * QUANDO NÃO SAI: pedido que não está cancelado; pedido sem e-mail; e o que
- * já avisou. Pedido sem o Pagar.me (o provisório, "a combinar") avisa igual —
- * cancelaram o pedido de alguém, e essa pessoa precisa saber.
+ * já avisou. Pedido sem parceiro de pagamento (o provisório, "a combinar")
+ * avisa igual — cancelaram o pedido de alguém, e essa pessoa precisa saber.
  */
-
-const PROVEDOR_PAGARME = "pp_pagarme_pagarme"
 
 /* ── o pedido, como o Medusa devolve ──────────────────────────────────────── */
 
@@ -133,9 +131,8 @@ const PARA_SEMPRE = new Set(["sem-email"])
 const sessoesDo = (o: PedidoLido) =>
   (o.payment_collections ?? []).flatMap((c) => c?.payment_sessions ?? [])
 
-/** O estado do Pagar.me que ficou gravado na sessão — a forma, o valor, o Pix. */
-const estadoDo = (o: PedidoLido) =>
-  lerEstado(sessoesDo(o).find((s) => s?.provider_id === PROVEDOR_PAGARME)?.data)
+/** O estado que o parceiro gravou na sessão — a forma, o valor, o Pix. */
+const estadoDo = (o: PedidoLido) => estadoDaSessao(sessaoDoParceiro(sessoesDo(o)))
 
 export function decidir(o: PedidoLido, { estornouLa = false, agora = new Date() } = {}): Decisao {
   if (lerRegistro(o.metadata)) return { mandar: false, motivo: "ja-registrado" }

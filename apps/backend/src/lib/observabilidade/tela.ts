@@ -21,6 +21,7 @@ import type ErpService from "../../modules/erp/service"
 import { OBSERVABILIDADE } from "../../modules/observabilidade"
 import type ObservabilidadeService from "../../modules/observabilidade/service"
 import { vigiarNaTela } from "./vigia"
+import { enderecoDoVigiaDeFora } from "./vigia-de-fora"
 
 /**
  * O QUE A TELA DE OBSERVABILIDADE LÊ — a tabela em dia (o vigia, se não
@@ -136,6 +137,7 @@ export async function lerTela(
         ultimaNota: ultimaNota ? new Date(ultimaNota) : null,
       },
       sinais: sinais as unknown as LinhaDoSinal[],
+      vigiaDeFora: Boolean(enderecoDoVigiaDeFora()),
     },
     velocidade,
     noAr: diasNoAr,

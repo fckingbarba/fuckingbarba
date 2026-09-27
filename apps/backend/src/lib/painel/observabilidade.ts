@@ -471,6 +471,8 @@ export type Integracao =
   | "loja-no-ar"
   /** A compra pelo servidor pra Meta, GA4 e TikTok (`lib/anuncios/enviar.ts`). */
   | "anuncios"
+  /** O "estou viva" pro vigia de fora (`lib/observabilidade/vigia-de-fora.ts`). */
+  | "vigia-de-fora"
 
 /** Uma linha da tabela `obs_sinal`: o dia de uma integração. */
 export type LinhaDoSinal = {
@@ -1041,6 +1043,8 @@ export type EstadoDasIntegracoes = {
   }
   /** Os sinais de hoje. */
   sinais: LinhaDoSinal[]
+  /** O `VIGIA_DE_FORA_URL` configurado no Railway. */
+  vigiaDeFora?: boolean
 }
 
 const VAZIO: LinhaDoSinal = { integracao: "", dia: "", ok: 0, falhas: 0 }
@@ -1079,6 +1083,7 @@ export function integracoesNaTela(e: EstadoDasIntegracoes): IntegracaoNaTela[] {
   const resend = sinal("resend")
   const bling = sinal("bling")
   const ga4 = sinal("ga4")
+  const vigia = sinal("vigia-de-fora")
 
   const lista: IntegracaoNaTela[] = []
 
@@ -1262,6 +1267,38 @@ export function integracoesNaTela(e: EstadoDasIntegracoes): IntegracaoNaTela[] {
               : `${ga4.falhas} ${ga4.falhas === 1 ? "consulta falhou" : "consultas falharam"} hoje` +
                 (ga4.ultima_falha_resumo ? `: ${ga4.ultima_falha_resumo}` : ""),
           sinal: ultimoSinal([ga4], agora),
+        }
+  )
+
+  /*
+    O VIGIA DE FORA: o "estou viva" que o job `vigiar-a-loja` manda pro
+    UptimeRobot. Desligado não é erro — a loja vende do mesmo jeito —, mas é o
+    que avisa o dono quando o próprio Medusa cai.
+  */
+  lista.push(
+    !e.vigiaDeFora
+      ? {
+          id: "vigia-de-fora",
+          nome: "Vigia de fora",
+          onde: "UptimeRobot",
+          s: "off",
+          texto:
+            "Não configurado: se o servidor cair, ninguém avisa no celular (VIGIA_DE_FORA_URL, no Railway).",
+          sinal: null,
+        }
+      : {
+          id: "vigia-de-fora",
+          nome: "Vigia de fora",
+          onde: "UptimeRobot",
+          s: peloSinal(vigia),
+          texto:
+            (vigia.ultimo_ok_em
+              ? `Último "estou viva" ${quando(vigia.ultimo_ok_em, agora)}`
+              : 'Nenhum "estou viva" hoje ainda') +
+            (vigia.falhas
+              ? ` · ${vigia.falhas} ${vigia.falhas === 1 ? "não chegou" : "não chegaram"}`
+              : ""),
+          sinal: ultimoSinal([vigia], agora),
         }
   )
 

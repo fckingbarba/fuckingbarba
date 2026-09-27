@@ -3,7 +3,8 @@ import { documentoDoPedido, lerEndereco, telefone, type EnderecoDoMedusa } from 
 import { lerRegistro as lerConfirmacao } from "../confirmar-pedido"
 import { lerRegistroNoPedido } from "../envios/registro"
 import { lerRegistros as lerEstornos } from "../estornos"
-import { lerEstado, type Estado } from "../../modules/pagarme/situacao"
+import type { Estado } from "../pagamento/estado"
+import { ehParceiro, estadoDaSessao, sessaoDoParceiro } from "../pagamento/parceiros"
 import {
   acaoDaNota,
   estornoPraTentar,
@@ -172,8 +173,6 @@ const emData = (v: Quando): Date | null => {
 const primeira = (datas: (Date | null)[]) =>
   datas.filter((d): d is Date => d !== null).sort((a, b) => a.getTime() - b.getTime())[0] ?? null
 
-const PAGARME = "pp_pagarme_pagarme"
-
 export type Forma = "pix" | "cartao"
 
 export type Pagamento = {
@@ -186,17 +185,12 @@ export type Pagamento = {
   estornadoEm: Date | null
 }
 
-/** A sessão que virou o pagamento do pedido — a do Pagar.me que chegou mais longe. */
+/** A sessão que virou o pagamento do pedido — a do parceiro que chegou mais longe. */
 export function pagamentoDo(o: PedidoCru): Pagamento {
   const colecoes = o.payment_collections ?? []
   const sessoes = colecoes.flatMap((c) => c.payment_sessions ?? [])
   const pagamentos = colecoes.flatMap((c) => c.payments ?? [])
-  const nossas = sessoes.filter((s) => s.provider_id === PAGARME)
-  const escolhida =
-    nossas.find((s) => s.status === "authorized" || s.status === "captured") ??
-    nossas[nossas.length - 1] ??
-    null
-  const estado = escolhida ? lerEstado(escolhida.data ?? null) : null
+  const estado = estadoDaSessao(sessaoDoParceiro(sessoes))
   const refunds = pagamentos.flatMap((p) => p.refunds ?? [])
   return {
     forma: estado?.forma ?? null,
@@ -728,7 +722,7 @@ function caminhoDo(
 /** Quando o pagamento começou (a sessão escolhida nasceu) — pra "em análise há 12 min". */
 function pagamentoDesde(o: PedidoCru): Date | null {
   const sessoes = (o.payment_collections ?? []).flatMap((c) => c.payment_sessions ?? [])
-  return primeira(sessoes.filter((s) => s.provider_id === PAGARME).map((s) => emData(s.created_at)))
+  return primeira(sessoes.filter((s) => ehParceiro(s.provider_id)).map((s) => emData(s.created_at)))
 }
 
 function historicoDo(

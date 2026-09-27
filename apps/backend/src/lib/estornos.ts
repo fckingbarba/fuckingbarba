@@ -14,6 +14,7 @@ import { emailNoLog, enviarEmail } from "./email"
 import { emailDoEstornoQueFalhou } from "./emails/estorno-falhou"
 import { emailsPraAvisar } from "./equipe/avisados"
 import { gravarNoMetadataDoPedido } from "./metadata-do-pedido"
+import { PAGARME } from "./pagamento/parceiros"
 
 /**
  * O ESTORNO QUE O PAGAR.ME NÃO FEZ.
@@ -50,7 +51,8 @@ import { gravarNoMetadataDoPedido } from "./metadata-do-pedido"
  * de tudo, o Pagar.me não devolve mais do que foi pago.
  */
 
-const PROVEDOR = "pp_pagarme_pagarme"
+/** Os estornos conferidos aqui são os do Pagar.me: é na API dele que a cobrança é relida. */
+const PROVEDOR = PAGARME.id
 
 /** Até onde olhar pra trás. Estorno mais velho que isso não é mais conferido. */
 const JANELA_MS = 7 * 24 * 60 * 60 * 1000

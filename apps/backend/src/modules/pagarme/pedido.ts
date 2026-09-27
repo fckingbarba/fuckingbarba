@@ -1,4 +1,5 @@
 import { MedusaError } from "@medusajs/framework/utils"
+import type { Forma } from "../../lib/pagamento/estado"
 import { emCentavos, type CorpoDoPedido, type EnderecoPagarme } from "./client"
 
 /**
@@ -24,7 +25,8 @@ import { emCentavos, type CorpoDoPedido, type EnderecoPagarme } from "./client"
  * porque a rota que abre sessão é pública.
  */
 
-export type Forma = "pix" | "cartao"
+/** Pix ou cartão — a forma é da língua comum dos parceiros (`lib/pagamento/estado.ts`). */
+export type { Forma }
 
 /**
  * Parcelas sem juros e a menor parcela aceita.

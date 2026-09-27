@@ -324,6 +324,20 @@ acha pelo crachá (o `carrinho_visto` do formulário contra o carrinho do cookie
 duas pagaram juntas, pela sessão recusada com o carrinho já fechado. E-mail com mais de 64
 caracteres (o limite do Pagar.me) é recusado no passo 1, com o motivo.
 
+**Os parceiros de pagamento** (desde a 0132) estão numa lista só: `src/lib/pagamento/parceiros.ts`
+no backend e `PARCEIROS` em `apps/loja/src/lib/checkout-visivel.ts` na loja — parceiro novo entra
+nas duas, e o `parceiros.unit.spec.ts` confere. Cada parceiro é um provedor do Medusa que grava na
+sessão o MESMO estado (`src/lib/pagamento/estado.ts`: forma, situação, QR do Pix, final do cartão,
+recusa, estornado), na sua chave de `data` (`data.pagarme`). Tudo que LÊ o pagamento pergunta à
+lista — `sessaoDoParceiro` (a sessão que chegou mais longe) e `estadoDaSessao` (só a chave do
+parceiro dono da sessão: um `data.pagarme` forjado numa sessão do provisório não vira pagamento):
+os e-mails de confirmação, venda nova, cancelamento e devolução, o painel (pedido e Marketing), a
+nota, a versão pública do pedido, a porta do cartão e, na loja, a tela de obrigado, a conta e a
+recusa do passo 3. Nenhum deles tem id de provedor escrito; o provisório (`pp_system_default`) não
+é parceiro. O que FALA com o parceiro continua dele: o provedor, a conciliação e a conferência de
+estornos (`conciliar-pagamentos.ts` e `estornos.ts` são do Pagar.me), o aviso (Edge Function), o
+script da região e o passo 3 (o cartão vira token no Pagar.me).
+
 Três portas que o Medusa deixa abertas e o projeto fecha. (1) Abrir sessão de pagamento APAGA as
 anteriores da coleção, sem conferir se ela já é de um pedido: `src/api/middlewares.ts` recusa sessão
 nova em coleção de pedido fechado — sem isso, o Pix esperando perde a sessão que o aviso procura.
@@ -1548,6 +1562,19 @@ O conferidor (`conferir-observabilidade.mjs`) abre a loja local (`LOJA`) num 404
 propósito e em duas visitas (celular e computador). O erro de propósito vai de novo até o recado
 sair: o ouvinte nasce na hidratação, e o erro jogado antes dela não é visto — com a máquina
 ocupada, o "load" chega antes. É um limite da loja também: o erro de antes da hidratação não conta.
+
+**O vigia de fora** (entrega 0137). A Observabilidade mora dentro do Medusa: se o serviço cai no
+Railway, ou fica de pé sem rodar as rotinas, nada avisa. Então um serviço de fora (o UptimeRobot,
+na conta do dono) espera um "estou viva": o job `vigiar-a-loja` chama o `VIGIA_DE_FORA_URL` (o
+heartbeat do UptimeRobot) no FIM da rodada, depois de conferir a loja e pôr os problemas em dia
+(`lib/observabilidade/vigia-de-fora.ts`, `avisarOVigiaDeFora`). Parou de chegar, o UptimeRobot
+avisa no celular. O endereço é segredo (quem tem ele finge que a loja está viva): mora só no
+Railway, e o sinal do dia (`vigia-de-fora`, em `obs_sinal`) guarda a falha sem ele. Sem a variável,
+nada sai, e a linha "Vigia de fora" das integrações fica desligada. No mesmo UptimeRobot moram os
+monitores de endereço — a loja, o `/health` do Medusa e o `/entrar` do painel —, que avisam
+quando um deles não responde. Pra testar local: um servidor que anota o que chega (o
+`vigia-falso.mjs` do scratchpad da 0137, na 5980) e o `VIGIA_DE_FORA_URL` do Medusa apontando pra
+ele; o recado sai nos minutos 1, 6, 11… da hora.
 
 **Configurações** (fase 6, entrega 0093). As abas do protótipo, na área `configuracoes` (só o
 dono). A regra mora em `src/lib/painel/configuracoes.ts`, puro, com testes:
