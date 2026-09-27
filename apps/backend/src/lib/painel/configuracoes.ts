@@ -726,14 +726,15 @@ export function compraEmFrase(
     codigo: string | null,
     temChave: boolean,
     variavel: string,
-    semCodigo: string
+    semCodigo: string,
+    quem = "só de quem aceitou os cookies"
   ): LinhaDeStatus =>
     !codigo
       ? { titulo, texto: semCodigo, ligado: null }
       : temChave
         ? {
             titulo,
-            texto: "Sai do servidor quando o pagamento entra, só de quem aceitou os cookies.",
+            texto: `Sai do servidor quando o pagamento entra, ${quem}.`,
             ligado: true,
           }
         : {
@@ -749,12 +750,14 @@ export function compraEmFrase(
       "META_CAPI_TOKEN",
       "Sem o pixel da Meta."
     ),
+    // O GA4 conta todo mundo que não recusou os cookies, como as visitas (0166).
     peloServidor(
       "GA4 — Measurement Protocol",
       i.ga4,
       chaves.ga4,
       "GA4_API_SECRET",
-      "Sem o código do GA4."
+      "Sem o código do GA4.",
+      "de todo mundo, menos quem recusou os cookies"
     ),
     peloServidor(
       "TikTok — Events API",

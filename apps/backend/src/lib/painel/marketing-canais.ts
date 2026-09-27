@@ -13,7 +13,8 @@ import { nomeDaOrigem, type LinhaGa4, type RelatorioGa4 } from "./visitas"
  * 0094), com a sessão de quem comprou: o GA4 dá a origem da sessão. Elas não
  * têm página, então o filtro delas é o id do pedido (`SO_AS_COMPRAS_DA_LOJA`).
  *
- * QUEM RECUSA OS COOKIES não entra no GA4 — nem a visita, nem a compra. Os
+ * QUEM RECUSA OS COOKIES não entra no GA4 — nem a visita, nem a compra (os
+ * outros, sim: desde a 0166 o GA4 liga antes da resposta da faixa). Os
  * pedidos pagos da loja que o GA4 não viu ficam à parte (`semOrigem`): a
  * soma dos canais mais eles é o que a loja vendeu.
  */

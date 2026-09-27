@@ -460,7 +460,10 @@ export function FormularioDasIntegracoes({
             </div>
           ))}
         </div>
-        <Acoes salvando={salvando} nota="A loja carrega depois do “Aceitar” dos cookies." />
+        <Acoes
+          salvando={salvando}
+          nota="O GA4 carrega pra todo mundo (quem recusa os cookies sai); os outros, depois do “Aceitar”."
+        />
       </Bloco>
     </form>
   )

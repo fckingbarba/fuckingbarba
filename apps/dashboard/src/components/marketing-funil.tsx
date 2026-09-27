@@ -5,7 +5,7 @@ import { lerFunil, type Aparelho, type Passo, type Periodo } from "@/lib/marketi
 
 /**
  * O FUNIL DO MARKETING — onde as pessoas desistem: do site até o pagamento
- * (o Google Analytics, só de quem aceitou os cookies), da sacola ao
+ * (o Google Analytics, sem quem recusou os cookies), da sacola ao
  * pagamento (os carrinhos da loja: todo mundo) e o celular contra o
  * computador. Os desenhos são os do protótipo; os dados, do
  * `GET /dashboard/marketing/funil`.
@@ -86,7 +86,7 @@ export async function TelaDoFunil({ periodo }: { periodo: Periodo }) {
       <section className="bloco" data-bloco="site">
         <CabecaDoBloco
           titulo="Do site até o pagamento"
-          ajuda="Quantas visitas chegaram em cada passo — do Google Analytics, só de quem aceitou os cookies."
+          ajuda="Quantas visitas chegaram em cada passo — do Google Analytics, de todo mundo menos quem recusou os cookies."
         />
         {f.estado === "ok" ? (
           <ListaDoFunil passos={f.site} dados="site" />
@@ -111,7 +111,7 @@ export async function TelaDoFunil({ periodo }: { periodo: Periodo }) {
         <section className="bloco" data-bloco="aparelhos">
           <CabecaDoBloco
             titulo="Celular e computador"
-            ajuda="Onde as pessoas entram e onde compram. As compras contam pelo navegador guardado na compra — de quem aceitou os cookies, como as visitas."
+            ajuda="Onde as pessoas entram e onde compram. As compras contam pelo navegador guardado na compra — de todo mundo menos quem recusou os cookies, como as visitas."
           />
           {f.estado === "ok" && f.aparelhos ? (
             <Aparelhos aparelhos={f.aparelhos} />

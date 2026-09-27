@@ -25,8 +25,9 @@ import { emitirNotaDoPedido } from "../lib/erp/notas"
  *      faz nada. Com o ERP emitindo, ele espera a nota, que vai junto (o
  *      `nota-autorizada.ts` registra quando ela chega). Se falhar, a
  *      varredura de 10 em 10 minutos tenta de novo.
- *   5. a compra pra Meta, o GA4 e o TikTok (`lib/anuncios/enviar.ts`) — só de
- *      quem aceitou os cookies (o rastro que a loja grava no pedido), e só
+ *   5. a compra pra Meta, o GA4 e o TikTok (`lib/anuncios/enviar.ts`) — pra
+ *      Meta e o TikTok só de quem aceitou os cookies, pro GA4 de quem não
+ *      recusou (o rastro que a loja grava no pedido), e só
  *      pra plataforma com o código no painel e a chave no Railway. Nunca
  *      pela tela de obrigado: o Pix pago depois não passaria por ela.
  *      Um não espera o outro dar certo: cada um no seu `try`.

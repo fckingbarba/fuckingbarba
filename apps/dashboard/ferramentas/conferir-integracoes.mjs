@@ -1,9 +1,10 @@
 /**
  * CONFERIDOR DAS INTEGRAÇÕES — o dono põe o código do GA4, do Google Ads, da
  * Meta, da Clarity e do TikTok no painel (Configurações → Integrações); a
- * loja liga as tags só depois do "Aceitar" da faixa de cookies; e a compra
- * sai do servidor pra Meta, o GA4 e o TikTok quando o pagamento entra — só
- * de quem aceitou.
+ * loja liga o GA4 na primeira página, só pra medir (0166, como a Nuvemshop),
+ * e as outras tags só depois do "Aceitar" da faixa de cookies; e a compra
+ * sai do servidor quando o pagamento entra — pra Meta e o TikTok de quem
+ * aceitou, pro GA4 de quem não recusou.
  *
  *   (Medusa local apontando pros falsos; painel e loja no ar)
  *   node apps/dashboard/ferramentas/conferir-integracoes.mjs
@@ -26,8 +27,9 @@
  * ┌─ O QUE ESTE ARQUIVO EXISTE PRA TRAVAR ─────────────────────────────────┐
  * │ • código fora do formato gravado (e dentro de uma tag); o trecho       │
  * │   colado que não vira o código; a tela do admin apagando os códigos;   │
- * │ • script de terceiro carregando ANTES do "Aceitar" (a política promete │
- * │   que não); o "Só o necessário" carregando alguma coisa;               │
+ * │ • script de terceiro, fora o GA4, carregando ANTES do "Aceitar" (a     │
+ * │   política promete que não); o GA4 antes do sim sem o anúncio negado;  │
+ * │   o "Só o necessário" deixando o GA4 ou os cookies dele na página;     │
  * │ • a resposta de antes (a v1, ou sem um parceiro novo) valendo sem a    │
  * │   faixa perguntar de novo;                                             │
  * │ • a faixa embaixo da barra de compra da PDP (25/09: o "Aceitar" sumia  │
@@ -36,8 +38,9 @@
  * │ • o produto, a sacola e a compra que não chegam em cada plataforma;    │
  * │ • a campanha do link (UTMs, gclid, fbclid) perdida por quem aceita     │
  * │   depois de trocar de página (27/09: a Clarity só via o site);         │
- * │ • a compra de quem NÃO aceitou saindo pelo servidor; a recusa da       │
- * │   plataforma sem virar problema na Observabilidade;                    │
+ * │ • a compra de quem recusou saindo pelo servidor; a de quem não         │
+ * │   respondeu indo pra Meta ou o TikTok, ou não indo pro GA4; a recusa   │
+ * │   da plataforma sem virar problema na Observabilidade;                 │
  * │ • o rastro aceito sem a assinatura da loja.                            │
  * └────────────────────────────────────────────────────────────────────────┘
  */
@@ -217,6 +220,21 @@ const filas = (pagina) =>
     }
   })
 
+const temChamada = (fila, ...partes) =>
+  fila.some((c) => partes.every((p, i) => JSON.stringify(c[i]) === JSON.stringify(p)))
+
+/** O GA4 já no ar (o de mentira anota quando carrega). */
+const oGa4Ligou = (pagina) =>
+  pagina.waitForFunction(() => (window.__carregou ?? []).includes("google"), null, {
+    timeout: 20000,
+  })
+
+/** Só o GA4 carregou e só ele pediu coisa pra fora — sem resposta, é o que vale (0166). */
+const soOGa4 = (visita, fila) =>
+  fila.carregou.join() === "google" &&
+  visita.pedidos.length > 0 &&
+  visita.pedidos.every((u) => new URL(u).hostname.endsWith("googletagmanager.com"))
+
 const valorDoCookie = async (contexto) =>
   (await contexto.cookies(LOJA)).find((c) => c.name === "fb_consentimento")?.value ?? null
 
@@ -321,32 +339,62 @@ try {
 
   /* ── a loja ───────────────────────────────────────────────────────────── */
 
-  titulo("A loja: nada antes do aceite")
-  const recusa = await visitaNaLoja()
+  titulo("A loja: antes da resposta, só o GA4")
+  // Os cookies que o GA4 de verdade grava (o de mentira não grava nada): o "não" apaga.
+  const recusa = await visitaNaLoja([
+    { name: "_ga", value: "GA1.1.111111111.1790000000" },
+    { name: `_ga_${CODIGOS.ga4.slice(2)}`, value: "GS2.1.s1790000000$o1$g0$t1790000000" },
+  ])
   await recusa.pagina.goto(`${LOJA}/`)
   const faixa = recusa.pagina.locator("[data-faixa-de-cookies]")
   await faixa.waitFor({ timeout: 20000 })
   ok(
     semEspaco(await faixa.textContent()).includes(
-      "Usamos cookies da própria loja, do Google, da Meta, do TikTok e da Microsoft"
+      "O Google Analytics conta as visitas. Com o seu sim, também usamos cookies da própria loja, do Google, da Meta, do TikTok e da Microsoft"
     ),
-    "a faixa diz a quem é o sim: a própria loja, Google, Meta, TikTok e Microsoft",
+    "a faixa diz que o GA4 já conta, e a quem é o sim: a própria loja, Google, Meta, TikTok e Microsoft",
     semEspaco(await faixa.textContent())
   )
+  await oGa4Ligou(recusa.pagina)
+  await esperar(1000)
   const antesDoAceite = await filas(recusa.pagina)
+  const padrao = antesDoAceite.google.find((c) => c[0] === "consent" && c[1] === "default")?.[2]
   ok(
-    !recusa.pedidos.length && !antesDoAceite.tags.length && !antesDoAceite.carregou.length,
-    "antes de responder: nenhum script de terceiro na página, nenhum pedido pra fora",
-    recusa.pedidos.join(" ")
+    soOGa4(recusa, antesDoAceite) &&
+      temChamada(antesDoAceite.google, "config", CODIGOS.ga4) &&
+      !temChamada(antesDoAceite.google, "config", CODIGOS.googleAds) &&
+      padrao?.analytics_storage === "granted" &&
+      ["ad_storage", "ad_user_data", "ad_personalization"].every((k) => padrao?.[k] === "denied"),
+    "antes de responder: só o GA4, medindo com o anúncio negado — nenhum outro script, nenhum outro pedido pra fora",
+    JSON.stringify({ carregou: antesDoAceite.carregou, pedidos: recusa.pedidos, padrao })
   )
-  await faixa.getByRole("button", { name: "Só o necessário" }).click()
+  // A marca some com a recarga: com o GA4 na página, o "não" recarrega pra tirá-lo.
+  await recusa.pagina.evaluate(() => (window.__antesDoNao = true))
+  const pedidosAntesDoNao = recusa.pedidos.length
+  await Promise.all([
+    recusa.pagina.waitForEvent("load", { timeout: 20000 }),
+    faixa.getByRole("button", { name: "Só o necessário" }).click(),
+  ])
   await esperar(1500)
+  const depoisDoNao = await filas(recusa.pagina)
+  const cookiesDoGa = (await recusa.contexto.cookies(LOJA))
+    .map((c) => c.name)
+    .filter((n) => n.startsWith("_ga"))
   ok(
     (await valorDoCookie(recusa.contexto)) === "nao.3.gmtc" &&
-      !recusa.pedidos.length &&
+      !(await recusa.pagina.evaluate(() => window.__antesDoNao === true)) &&
+      !depoisDoNao.carregou.length &&
+      !depoisDoNao.tags.length &&
+      recusa.pedidos.length === pedidosAntesDoNao &&
+      !cookiesDoGa.length &&
       (await faixa.count()) === 0,
-    "“Só o necessário”: a resposta fica (versão 3) e nada carrega",
-    await valorDoCookie(recusa.contexto)
+    "“Só o necessário”: a resposta fica (versão 3), a página recarrega sem o GA4, os cookies dele saem e nada carrega",
+    JSON.stringify({
+      cookie: await valorDoCookie(recusa.contexto),
+      carregou: depoisDoNao.carregou,
+      cookiesDoGa,
+      pedidos: recusa.pedidos.slice(pedidosAntesDoNao),
+    })
   )
   await recusa.contexto.close()
 
@@ -354,22 +402,29 @@ try {
   const sim = await visitaNaLoja()
   await sim.pagina.goto(`${LOJA}/`)
   await sim.pagina.locator("[data-faixa-de-cookies]").waitFor({ timeout: 20000 })
+  // O sim chega com o GA4 já no ar (o caso de quase todo mundo): acrescenta o resto.
+  await oGa4Ligou(sim.pagina)
   await sim.pagina.getByRole("button", { name: "Aceitar" }).click()
   await sim.pagina.waitForFunction(() => (window.__carregou ?? []).length >= 4, null, {
     timeout: 15000,
   })
   const ligadas = await filas(sim.pagina)
-  const temChamada = (fila, ...partes) =>
-    fila.some((c) => partes.every((p, i) => JSON.stringify(c[i]) === JSON.stringify(p)))
+  const anuncioLiberado = {
+    ad_storage: "granted",
+    ad_user_data: "granted",
+    ad_personalization: "granted",
+  }
   ok(
     (await valorDoCookie(sim.contexto)) === "sim.3.gmtc" &&
+      ligadas.carregou.filter((p) => p === "google").length === 1 &&
       temChamada(ligadas.google, "config", CODIGOS.ga4) &&
+      temChamada(ligadas.google, "consent", "update", anuncioLiberado) &&
       temChamada(ligadas.google, "config", CODIGOS.googleAds) &&
       temChamada(ligadas.meta, "init", CODIGOS.metaPixel) &&
       temChamada(ligadas.meta, "track", "PageView") &&
       ligadas.tiktokPixels.includes(CODIGOS.tiktok) &&
       temChamada(ligadas.clarity, "consentv2"),
-    "“Aceitar”: as quatro tags ligam na hora, cada uma com o seu código",
+    "“Aceitar”: o anúncio do Google passa a valer (o GA4 não carrega de novo), e as outras três ligam na hora, cada uma com o seu código",
     JSON.stringify({ carregou: ligadas.carregou, tiktok: ligadas.tiktokPixels })
   )
 
@@ -456,7 +511,7 @@ try {
       new URL(aceitou.aqui).pathname === new URL(noProdutoAntes.aqui).pathname &&
       comACampanha(aceitou.aqui) &&
       parceiros.every((p) => aceitou.endereco[p] && comACampanha(aceitou.endereco[p])),
-    "aceitou no produto: a campanha volta pro endereço antes das tags, e as quatro a leem quando ligam",
+    "aceitou no produto: a campanha volta pro endereço antes das tags do sim, e as quatro a leem quando ligam (o GA4, na chegada)",
     JSON.stringify(aceitou)
   )
   // Recarregar (ou abrir outra página da mesma aba) não traz a campanha de novo: os parceiros já têm.
@@ -510,36 +565,28 @@ try {
   await direto.contexto.close()
 
   titulo("A faixa pergunta de novo")
-  const velha = await visitaNaLoja([{ name: "fb_consentimento", value: "sim" }])
-  await velha.pagina.goto(`${LOJA}/`)
-  await velha.pagina.locator("[data-faixa-de-cookies]").waitFor({ timeout: 20000 })
-  await esperar(1000)
-  ok(
-    !velha.pedidos.length,
-    "o sim da versão 1 (só o Google Analytics) não vale: a faixa pergunta, e nada carrega",
-    velha.pedidos.join(" ")
+  /** A resposta de antes não vale: a faixa pergunta, e só o GA4 liga (como sem resposta). */
+  async function perguntaDeNovo(valor, frase) {
+    const visita = await visitaNaLoja([{ name: "fb_consentimento", value: valor }])
+    await visita.pagina.goto(`${LOJA}/`)
+    await visita.pagina.locator("[data-faixa-de-cookies]").waitFor({ timeout: 20000 })
+    await oGa4Ligou(visita.pagina)
+    await esperar(1000)
+    ok(soOGa4(visita, await filas(visita.pagina)), frase, visita.pedidos.join(" "))
+    await visita.contexto.close()
+  }
+  await perguntaDeNovo(
+    "sim",
+    "o sim da versão 1 (só o Google Analytics) não vale: a faixa pergunta, e só o GA4 liga"
   )
-  await velha.contexto.close()
-  const semALoja = await visitaNaLoja([{ name: "fb_consentimento", value: "sim.2.gmtc" }])
-  await semALoja.pagina.goto(`${LOJA}/`)
-  await semALoja.pagina.locator("[data-faixa-de-cookies]").waitFor({ timeout: 20000 })
-  await esperar(1000)
-  ok(
-    !semALoja.pedidos.length,
-    "o sim da versão 2 (de antes do CRM da própria loja) não vale: a faixa pergunta de novo",
-    semALoja.pedidos.join(" ")
+  await perguntaDeNovo(
+    "sim.2.gmtc",
+    "o sim da versão 2 (de antes do CRM da própria loja) não vale: a faixa pergunta de novo, só o GA4 liga"
   )
-  await semALoja.contexto.close()
-  const soGoogle = await visitaNaLoja([{ name: "fb_consentimento", value: "sim.3.g" }])
-  await soGoogle.pagina.goto(`${LOJA}/`)
-  await soGoogle.pagina.locator("[data-faixa-de-cookies]").waitFor({ timeout: 20000 })
-  await esperar(1000)
-  ok(
-    !soGoogle.pedidos.length,
-    "o sim só pro Google, com a Meta e o TikTok ligados depois: a faixa pergunta de novo",
-    soGoogle.pedidos.join(" ")
+  await perguntaDeNovo(
+    "sim.3.g",
+    "o sim só pro Google, com a Meta e o TikTok ligados depois: a faixa pergunta de novo, só o GA4 liga"
   )
-  await soGoogle.contexto.close()
 
   titulo("A faixa e as barras do pé da tela")
   const CELULAR = { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true }
@@ -693,8 +740,9 @@ try {
       ga4?.events?.[0]?.name === "purchase" &&
       ga4?.events?.[0]?.params?.transaction_id === pedido.id &&
       ga4?.events?.[0]?.params?.session_id === "1790000123" &&
+      ga4?.consent?.ad_user_data === "GRANTED" &&
       !JSON.stringify(ga4).includes(email),
-    "GA4: o purchase com o client_id e a sessão do cookie, sem o e-mail",
+    "GA4: o purchase com o client_id e a sessão do cookie, sem o e-mail (e o anúncio liberado, com o sim)",
     JSON.stringify(ga4)
   )
   ok(
@@ -728,6 +776,33 @@ try {
       ["meta", "ga4", "tiktok"].every((p) => dispensado?.[p]?.motivo === "sem-consentimento"),
     "quem clicou em “Só o necessário”: a compra não sai pra ninguém",
     JSON.stringify(dispensado)
+  )
+
+  // Quem não respondeu a faixa: o GA4 contou a visita, e conta a compra — os outros, não.
+  const semResposta = await fabrica.pedidoPix(`sem-resposta.${RODADA}@fuckingbarba.invalid`)
+  await rastro(semResposta.id, {
+    em: new Date().toISOString(),
+    consentimento: null,
+    ga: rastroComSim.ga,
+    navegador: "Conferidor/1.0",
+  })
+  await fabrica.pagar(semResposta)
+  let semRespostaNoPedido = null
+  for (let i = 0; i < 30 && Object.keys(semRespostaNoPedido ?? {}).length < 3; i++) {
+    await esperar(500)
+    semRespostaNoPedido = (await adm(`/admin/orders/${semResposta.id}?fields=metadata`)).corpo.order
+      ?.metadata?.fb_anuncios?.compra
+  }
+  const foiSemResposta = anuncios.doPedido(semResposta.id)
+  const ga4SemResposta = foiSemResposta.find((r) => r.plataforma === "ga4")?.corpo
+  ok(
+    foiSemResposta.length === 1 &&
+      ga4SemResposta?.client_id === "123456789.1790000000" &&
+      ga4SemResposta?.consent?.ad_user_data === "DENIED" &&
+      semRespostaNoPedido?.ga4?.como === "enviada" &&
+      ["meta", "tiktok"].every((p) => semRespostaNoPedido?.[p]?.motivo === "sem-consentimento"),
+    "quem não respondeu a faixa: a compra vai só pro GA4 (com o anúncio negado), como a visita; a Meta e o TikTok, não",
+    JSON.stringify({ semRespostaNoPedido, ga4: ga4SemResposta })
   )
 
   anuncios.roteiro.meta = "recusar"

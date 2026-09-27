@@ -43,9 +43,9 @@ async function Canais({ searchParams }: { searchParams: Busca }) {
         <TelaDosCanais periodo={periodo} />
       </Suspense>
       <p className="fonte-dados">
-        <b>De onde vêm os números:</b> visitas, pedidos e receita por canal — Google Analytics, só
-        de quem aceitou os cookies (as compras, a loja manda pelo servidor, com a sessão de quem
-        comprou); o total da loja — os pedidos pagos.
+        <b>De onde vêm os números:</b> visitas, pedidos e receita por canal — Google Analytics, de
+        todo mundo menos quem recusou os cookies (as compras, a loja manda pelo servidor, com a
+        sessão de quem comprou); o total da loja — os pedidos pagos.
       </p>
     </div>
   )
