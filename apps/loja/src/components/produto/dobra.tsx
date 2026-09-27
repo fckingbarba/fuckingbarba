@@ -4,7 +4,14 @@ import { Compra } from "@/components/produto/compra"
 import { Galeria, type Foto, type ItemDaGaleria } from "@/components/produto/galeria"
 import { Migalhas, type Migalha } from "@/components/produto/migalhas"
 import { VeNaPratica } from "@/components/produto/ve-na-pratica"
-import { buscarProdutoPorHandle, escadaDeQuantidade, precosDe, temEstoque } from "@/lib/medusa"
+import { AVALIACOES } from "@/conteudo/depoimentos"
+import {
+  avaliacoesPublicadas,
+  buscarProdutoPorHandle,
+  escadaDeQuantidade,
+  precosDe,
+  temEstoque,
+} from "@/lib/medusa"
 import { modoDaCaixa, pdpDoProduto, produtosQueCombinam, videosDaFaixa } from "@/lib/pdp"
 import { site } from "@/lib/site"
 
@@ -33,6 +40,11 @@ export async function Dobra({ handle }: { handle: string }) {
 
   const { combinada, videos } = await pdpDoProduto(handle)
   const { degraus: escada, promocao, unitarios } = await escadaDeQuantidade(handle)
+  // A nota das avaliações entra no Product pelo `itemref` (ver `avaliacoes.tsx`) —
+  // só quando existe, pra referência não apontar pro nada.
+  const temNota = [...(await avaliacoesPublicadas()), ...AVALIACOES].some(
+    (a) => a.produtoHandle === handle
+  )
 
   /*
     A CHAVE "KITS" DO ADMIN ESCONDE OS CARTÕES, NÃO O DESCONTO.
@@ -138,6 +150,9 @@ export async function Dobra({ handle }: { handle: string }) {
         className="pdp"
         itemScope
         itemType="https://schema.org/Product"
+        // A nota das avaliações mora na seção delas, mais embaixo
+        // (`avaliacoes.tsx`), e entra no Product por aqui.
+        itemRef={temNota ? "avaliacoes-nota" : undefined}
         aria-labelledby="produto-nome"
       >
         {variante?.sku ? <meta itemProp="sku" content={variante.sku} /> : null}

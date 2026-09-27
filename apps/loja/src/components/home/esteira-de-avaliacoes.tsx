@@ -12,7 +12,6 @@ import {
   SEGUNDOS_POR_CARTAO_NA_VOLTA,
   emDuasFileiras,
   encherAFila,
-  semRepetidas,
   sequencia,
   sortearDaEsteira,
 } from "@/lib/avaliacoes"
@@ -52,6 +51,10 @@ import { useSementeDaVisita } from "@/lib/use-semente-da-visita"
  * │ arquivo vira um pedaço de JavaScript à parte, que o navegador só pede  │
  * │ quando a seção chega perto (`carregarDepoimentos`). Do servidor vêm só │
  * │ as fotos dos produtos.                                                 │
+ * │                                                                        │
+ * │ As avaliações de quem comprou (aprovadas no painel) vêm na mesma hora, │
+ * │ pela `/api/avaliacoes` — quem busca é o `lib/depoimentos-da-esteira`,  │
+ * │ o pedaço à parte: nada disso pesa no JavaScript da primeira tela.      │
  * └────────────────────────────────────────────────────────────────────────┘
  *
  * Avaliação e trecho de entrevista passam na mesma esteira, cada um como é
@@ -161,8 +164,8 @@ export function EsteiraDeAvaliacoes({
  * hora em que a seção chega perto (ver a segunda caixa lá em cima).
  */
 async function carregarDepoimentos(): Promise<Depoimento[]> {
-  const { AVALIACOES, TRECHOS } = await import("@/conteudo/depoimentos")
-  return [...semRepetidas(AVALIACOES), ...semRepetidas(TRECHOS)]
+  const { depoimentosDaEsteira } = await import("@/lib/depoimentos-da-esteira")
+  return depoimentosDaEsteira()
 }
 
 function Fila({

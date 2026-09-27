@@ -1,4 +1,4 @@
-import type { Depoimento } from "../conteudo/depoimentos"
+import type { Avaliacao, Depoimento } from "../conteudo/depoimentos"
 
 /**
  * OS SORTEIOS DE DEPOIMENTO — a esteira da home ("Nossos clientes nos amam")
@@ -10,11 +10,15 @@ import type { Depoimento } from "../conteudo/depoimentos"
  * avaliações da loja na esteira, ela crescia sem fim e corria cada vez mais
  * rápido (a volta inteira tinha tempo fixo).
  *
- * Vale igual pra avaliação e pra trecho de entrevista (`Depoimento`): o
- * sorteio só olha o produto. Sem este limite, as 245 entradas da PR #90 (os
- * trechos de hoje, com as cópias do Fator nos kits) viravam 1.470 cartões na
- * home — tudo, três vezes, mais a cópia da esteira —, e o Lighthouse do CI
- * caiu pra 0,54.
+ * A AVALIAÇÃO DE QUEM COMPROU VEM ANTES DO TRECHO DE ENTREVISTA (`Depoimento`
+ * é os dois): nos quatro de cada produto e nos três da página dele, as
+ * avaliações entram primeiro e os trechos completam. Com 20 trechos por
+ * produto, a primeira avaliação de verdade aparecia em uma visita a cada
+ * sete. Entre as do mesmo tipo, a mesma chance — o sorteio não olha a nota,
+ * e não escolhe "as melhores". Sem o limite por produto, as 245 entradas da
+ * PR #90 (os trechos de hoje, com as cópias do Fator nos kits) viravam 1.470
+ * cartões na home — tudo, três vezes, mais a cópia da esteira —, e o
+ * Lighthouse do CI caiu pra 0,54.
  *
  * Só TIPO vem de `conteudo/depoimentos`: os sorteios rodam no navegador, e um
  * valor importado de lá levaria o arquivo inteiro, com os textos, pro
@@ -88,6 +92,15 @@ function embaralhar<T>(lista: T[], aleatorio: () => number): T[] {
   return copia
 }
 
+/**
+ * A lista sorteada, com as AVALIAÇÕES na frente e os trechos de entrevista
+ * atrás — cada tipo embaralhado, a nota fora da conta (ver o topo).
+ */
+function avaliacoesPrimeiro<T extends Depoimento>(lista: T[], aleatorio: () => number): T[] {
+  const embaralhada = embaralhar(lista, aleatorio)
+  return [...embaralhada.filter((d) => "nota" in d), ...embaralhada.filter((d) => !("nota" in d))]
+}
+
 /** Os depoimentos de cada produto, na ordem da lista; os sem produto fazem um grupo deles. */
 function gruposPorProduto<T extends Depoimento>(lista: T[]): T[][] {
   const grupos = new Map<string, T[]>()
@@ -101,8 +114,9 @@ function gruposPorProduto<T extends Depoimento>(lista: T[]): T[][] {
 
 /**
  * Até `porProduto` de cada produto (as sem produto fazem um grupo delas),
- * sorteadas, e a lista toda embaralhada — os produtos se alternam na esteira.
- * `aleatorio` decide o sorteio: a mesma sequência dá o mesmo resultado.
+ * sorteadas — as avaliações primeiro, os trechos completam —, e a lista toda
+ * embaralhada: os produtos se alternam na esteira. `aleatorio` decide o
+ * sorteio: a mesma sequência dá o mesmo resultado.
  */
 export function sortearDaEsteira<T extends Depoimento>(
   avaliacoes: T[],
@@ -110,7 +124,7 @@ export function sortearDaEsteira<T extends Depoimento>(
   aleatorio: () => number
 ): T[] {
   const escolhidas = gruposPorProduto(avaliacoes).flatMap((grupo) =>
-    embaralhar(grupo, aleatorio).slice(0, porProduto)
+    avaliacoesPrimeiro(grupo, aleatorio).slice(0, porProduto)
   )
   return embaralhar(escolhidas, aleatorio)
 }
@@ -139,11 +153,16 @@ export function emDuasFileiras<T extends Depoimento>(
 
 /**
  * `quantos` da lista, sorteados e em ordem sorteada — a lista inteira, se
- * ela tiver menos. É o sorteio da página do produto: avaliação e trecho com
- * a mesma chance, sem escolher "os melhores".
+ * ela tiver menos. É o sorteio da página do produto: as avaliações primeiro
+ * (os trechos completam), e entre as do mesmo tipo a mesma chance, sem
+ * escolher "as melhores".
  */
-export function sortear<T>(lista: T[], quantos: number, aleatorio: () => number): T[] {
-  return embaralhar(lista, aleatorio).slice(0, quantos)
+export function sortear<T extends Depoimento>(
+  lista: T[],
+  quantos: number,
+  aleatorio: () => number
+): T[] {
+  return embaralhar(avaliacoesPrimeiro(lista, aleatorio).slice(0, quantos), aleatorio)
 }
 
 /**
@@ -168,4 +187,25 @@ export function encherAFila<T>(lista: T[], minimo: number): T[] {
   const fila: T[] = []
   while (fila.length < minimo) fila.push(...lista)
   return fila
+}
+
+/**
+ * AS AVALIAÇÕES QUE VÊM DO MEDUSA — as aprovadas no painel, de quem comprou
+ * (a página `/avaliar`; `GET /store/avaliacoes`), no formato do cartão.
+ *
+ * `compraVerificada` é verdade em todas: cada uma veio de um pedido pago, e
+ * o Medusa só aceita avaliação com o link assinado daquele pedido. O que
+ * vier torto (nota fora de 1 a 5, sem produto) fica de fora, sem derrubar o
+ * resto.
+ */
+export function avaliacoesDoMedusa(lista: unknown): Avaliacao[] {
+  if (!Array.isArray(lista)) return []
+  return lista.flatMap((a): Avaliacao[] => {
+    if (!a || typeof a !== "object") return []
+    const { nome, nota, texto, produto } = a as Record<string, unknown>
+    if (typeof nome !== "string" || typeof texto !== "string" || typeof produto !== "string")
+      return []
+    if (nota !== 1 && nota !== 2 && nota !== 3 && nota !== 4 && nota !== 5) return []
+    return [{ nome, nota, texto, compraVerificada: true, produtoHandle: produto }]
+  })
 }

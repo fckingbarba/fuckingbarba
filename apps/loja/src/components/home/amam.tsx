@@ -2,13 +2,14 @@ import { Estrelas } from "@/components/estrelas"
 import { EsteiraDeAvaliacoes } from "@/components/home/esteira-de-avaliacoes"
 import { AVALIACOES, TRECHOS, notaMedia, type Depoimento } from "@/conteudo/depoimentos"
 import { semRepetidas } from "@/lib/avaliacoes"
-import { home, listarProdutos, porHandle } from "@/lib/medusa"
+import { avaliacoesPublicadas, home, listarProdutos, porHandle } from "@/lib/medusa"
 
 /**
  * "Nossos clientes nos amam": a esteira de avaliações.
  *
- * **Não aparece enquanto não houver depoimento de verdade** em
- * `conteudo/depoimentos.ts` — avaliação ou trecho de entrevista.
+ * **Não aparece enquanto não houver depoimento de verdade** — avaliação (as
+ * de quem comprou, aprovadas no painel, e as de `conteudo/depoimentos.ts`) ou
+ * trecho de entrevista.
  *
  * A esteira mostra até quatro de cada produto, sorteados a cada visita
  * (`esteira-de-avaliacoes.tsx`). A nota do topo é a média de TODAS as
@@ -29,13 +30,17 @@ import { home, listarProdutos, porHandle } from "@/lib/medusa"
  * lista pronta punha os 160 trechos dentro do HTML de toda visita à home.
  */
 export async function Amam() {
-  const publicadas = semRepetidas(AVALIACOES)
+  const [doMedusa, produtos, { conteudo }] = await Promise.all([
+    avaliacoesPublicadas(),
+    listarProdutos({ limite: 48 }),
+    home(),
+  ])
+  const publicadas = semRepetidas([...doMedusa, ...AVALIACOES])
   const trechos = semRepetidas(TRECHOS)
   const depoimentos: Depoimento[] = [...publicadas, ...trechos]
   if (!depoimentos.length) return null
 
   const media = notaMedia(publicadas)
-  const [produtos, { conteudo }] = await Promise.all([listarProdutos({ limite: 48 }), home()])
   const catalogo = porHandle(produtos)
 
   // Só a foto de cada produto vai pro navegador — não o produto inteiro.
