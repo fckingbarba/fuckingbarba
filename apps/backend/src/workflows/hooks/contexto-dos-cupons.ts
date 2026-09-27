@@ -3,11 +3,15 @@ import { StepResponse } from "@medusajs/framework/workflows-sdk"
 import { updateCartPromotionsWorkflow } from "@medusajs/medusa/core-flows"
 import { lerConfiguracoes, type PoliticaDeFrete } from "../../lib/configuracoes"
 import {
+  categoriasEscolhidas,
   contextoDosCupons,
+  cuponsNaConta,
   linhasMarcadas,
   outroCupomNoCarrinho,
+  type CarrinhoComCodigos,
   type ItemDoCarrinho,
   type PedidoDoEmail,
+  type PromocaoComRegras,
 } from "../../lib/cupons"
 import { marcarPromocoes, type PromocaoAtiva } from "../../lib/promocoes"
 import { promocoesDoPainel } from "../../lib/promocoes-ativas"
@@ -42,52 +46,70 @@ import { promocoesDoPainel } from "../../lib/promocoes-ativas"
  * em produto com preço promocional"), e a linha de uma promoção que disparou
  * vira `fb_promocional` — o cupom que não combina não desconta ela.
  *
+ * O CUPOM "SÓ COM PRODUTOS DE" CATEGORIAS: com um na conta (`cuponsNaConta`),
+ * uma consulta a mais lê as categorias que ele escolheu, e o produto em mais
+ * de uma categoria entra na lista só com a do cupom (entrega 0151; o porquê
+ * está em `lib/cupons.ts`). Sem cupom de campanha na conta, nenhuma consulta.
+ *
  * SE UMA CONSULTA FALHAR, O CARRINHO NÃO QUEBRA: sem os pedidos, o contexto
  * sai sem a trava do `conferido`, e cupom com condição não aplica naquela
  * conta; sem a política de frete, o pedido conta como se tivesse o frete da
  * loja, e o cupom que não combina não aplica; sem as promoções do painel, a
  * promoção vale do mesmo jeito (ela só precisa da marca do preço), e o cupom
- * que não combina desconta também a linha dela, naquela conta. A pessoa
- * tenta de novo; a oferta do checkout e o resto do carrinho seguem.
+ * que não combina desconta também a linha dela, naquela conta; sem as
+ * categorias dos cupons, a lista sai com todas, como antes da 0151 (o produto
+ * em mais de uma categoria pode ser recusado naquela conta, nunca aceito a
+ * mais). A pessoa tenta de novo; a oferta do checkout e o resto do carrinho
+ * seguem.
  */
-updateCartPromotionsWorkflow.hooks.setPromotionContext(async ({ cart }, { container }) => {
-  const c = cart as {
-    id?: string
-    email?: string | null
-    items?: ItemDoCarrinho[] | null
-    promotions?: ({ code?: string | null } | null)[] | null
-  }
-  const logger = container.resolve(ContainerRegistrationKeys.LOGGER)
-  const email = typeof c.email === "string" ? c.email.trim() : ""
-  let pedidos: PedidoDoEmail[] | null = []
-  if (email) {
-    try {
-      pedidos = await pedidosDoEmail(container, email)
-    } catch (e) {
-      logger.warn(`[cupons] o histórico do carrinho ${c.id} não veio: ${e}`)
-      pedidos = null
+updateCartPromotionsWorkflow.hooks.setPromotionContext(
+  async ({ cart, promo_codes, action }, { container }) => {
+    const c = cart as {
+      id?: string
+      email?: string | null
+      items?: ItemDoCarrinho[] | null
     }
+    const logger = container.resolve(ContainerRegistrationKeys.LOGGER)
+    const email = typeof c.email === "string" ? c.email.trim() : ""
+    let pedidos: PedidoDoEmail[] | null = []
+    if (email) {
+      try {
+        pedidos = await pedidosDoEmail(container, email)
+      } catch (e) {
+        logger.warn(`[cupons] o histórico do carrinho ${c.id} não veio: ${e}`)
+        pedidos = null
+      }
+    }
+    let frete: PoliticaDeFrete | null = null
+    try {
+      frete = await politicaDeFrete(container)
+    } catch (e) {
+      logger.warn(`[cupons] a política de frete não veio pro carrinho ${c.id}: ${e}`)
+    }
+    let promocoes: PromocaoAtiva[] = []
+    try {
+      promocoes = await promocoesDoPainel(container)
+    } catch (e) {
+      logger.warn(`[promocoes] as promoções do painel não vieram pro carrinho ${c.id}: ${e}`)
+    }
+    let categoriasDosCupons: string[][] = []
+    const naConta = cuponsNaConta(cart as CarrinhoComCodigos, promo_codes ?? [], action)
+    if (naConta.length) {
+      try {
+        categoriasDosCupons = categoriasEscolhidas(await regrasDosCupons(container, naConta))
+      } catch (e) {
+        logger.warn(`[cupons] as categorias dos cupons não vieram pro carrinho ${c.id}: ${e}`)
+      }
+    }
+    const agora = Date.now()
+    return new StepResponse({
+      ...contextoDosCupons({ itens: c.items ?? [], pedidos, agora, frete, categoriasDosCupons }),
+      ...(Array.isArray(c.items)
+        ? { items: marcarPromocoes(linhasMarcadas(c.items), promocoes, agora) }
+        : {}),
+    })
   }
-  let frete: PoliticaDeFrete | null = null
-  try {
-    frete = await politicaDeFrete(container)
-  } catch (e) {
-    logger.warn(`[cupons] a política de frete não veio pro carrinho ${c.id}: ${e}`)
-  }
-  let promocoes: PromocaoAtiva[] = []
-  try {
-    promocoes = await promocoesDoPainel(container)
-  } catch (e) {
-    logger.warn(`[promocoes] as promoções do painel não vieram pro carrinho ${c.id}: ${e}`)
-  }
-  const agora = Date.now()
-  return new StepResponse({
-    ...contextoDosCupons({ itens: c.items ?? [], pedidos, agora, frete }),
-    ...(Array.isArray(c.items)
-      ? { items: marcarPromocoes(linhasMarcadas(c.items), promocoes, agora) }
-      : {}),
-  })
-})
+)
 
 /**
  * UM CUPOM POR PEDIDO, como na Nuvemshop: quem põe um código de campanha
@@ -139,6 +161,22 @@ async function pedidosDoEmail(
       .map((a) => a.code ?? "")
       .filter(Boolean),
   }))
+}
+
+/** As regras dos cupons que estão na conta — o atributo e os valores de cada uma. */
+async function regrasDosCupons(
+  container: { resolve: (chave: string) => unknown },
+  codigos: string[]
+): Promise<PromocaoComRegras[]> {
+  const query = container.resolve(ContainerRegistrationKeys.QUERY) as {
+    graph: (a: object) => Promise<{ data: unknown[] }>
+  }
+  const { data } = await query.graph({
+    entity: "promotion",
+    fields: ["code", "rules.attribute", "rules.values.value"],
+    filters: { code: codigos },
+  })
+  return data as PromocaoComRegras[]
 }
 
 /** A política de frete da loja, lida no máximo a cada 30 s (o carrinho confere a toda mudança). */

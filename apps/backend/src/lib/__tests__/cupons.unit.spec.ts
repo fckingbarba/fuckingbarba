@@ -1,7 +1,9 @@
 import { areRulesValidForContext } from "@medusajs/promotion/dist/utils/validations/promotion-rule"
 import {
   CAMPOS_DO_CONTEXTO,
+  categoriasEscolhidas,
   contextoDosCupons,
+  cuponsNaConta,
   cupomGuardado,
   cupomNaLista,
   descricaoDoCupom,
@@ -757,5 +759,129 @@ describe("a lista", () => {
     ])
     expect(mapa.get("BARBA20")).toEqual({ pedidos: 2, desconto: 34, vendeu: 180 })
     expect(mapa.get("FRETEG")).toEqual({ pedidos: 1, desconto: 23.7, vendeu: 90 })
+  })
+})
+
+describe("o produto em mais de uma categoria (o kit de barba em Kits e em Barba)", () => {
+  const vale = (c: CupomNovo, contexto: object) =>
+    areRulesValidForContext(
+      regrasDoCupom(c).map((r) => ({
+        ...r,
+        values: r.values.map((value) => ({ value })),
+      })) as never,
+      contexto,
+      "order" as never
+    )
+  const soDe = (id: string, nome: string) =>
+    cupom({
+      aplicarA: "categorias",
+      alvos: [{ id, nome }],
+      minimo: null,
+      porCliente: null,
+      primeiraCompra: false,
+    })
+  const KITS = soDe("pcat_kits", "Kits")
+  const BARBA = soDe("pcat_barba", "Barba")
+  const CABELO = soDe("pcat_cabelo", "Cabelo")
+  const linha = (produto: string, categorias: string[]): ItemDoCarrinho => ({
+    unit_price: 99.9,
+    quantity: 1,
+    product: { id: produto, categories: categorias.map((id) => ({ id })) },
+  })
+  const kitDeBarba = linha("prod_kit", ["pcat_barba", "pcat_kits"])
+  const oleo = linha("prod_oleo", ["pcat_barba"])
+  const pomada = linha("prod_pomada", ["pcat_cabelo"])
+  /** O contexto como o gancho monta, com as categorias do cupom que está na conta. */
+  const naConta = (c: CupomNovo, itens: ItemDoCarrinho[]) =>
+    contextoDosCupons({
+      itens,
+      pedidos: [],
+      agora: AGORA.getTime(),
+      categoriasDosCupons: [c.alvos.map((a) => a.id)],
+    })
+
+  it("o cupom de cada uma das duas aceita; o de uma terceira, não", () => {
+    expect(vale(KITS, naConta(KITS, [kitDeBarba]))).toBe(true)
+    expect(vale(BARBA, naConta(BARBA, [kitDeBarba]))).toBe(true)
+    expect(vale(BARBA, naConta(BARBA, [kitDeBarba, oleo]))).toBe(true)
+    expect(vale(CABELO, naConta(CABELO, [kitDeBarba]))).toBe(false)
+  })
+
+  it("todos do carrinho continuam contando: um de fora derruba", () => {
+    expect(vale(KITS, naConta(KITS, [kitDeBarba, oleo]))).toBe(false)
+    expect(vale(BARBA, naConta(BARBA, [kitDeBarba, pomada]))).toBe(false)
+    expect(vale(KITS, naConta(KITS, [kitDeBarba, linha("prod_x", [])]))).toBe(false)
+  })
+
+  it("sem as categorias do cupom (antes da 0151), o kit de Kits e Barba era recusado no de Kits", () => {
+    const antes = contextoDosCupons({ itens: [kitDeBarba], pedidos: [], agora: AGORA.getTime() })
+    expect(antes.fb_cupons.itens.categorias).toEqual(["pcat_barba", "pcat_kits"])
+    expect(vale(KITS, antes)).toBe(false)
+  })
+
+  it("a lista: cada produto com as categorias dele que o cupom escolheu, ou todas", () => {
+    expect(naConta(KITS, [kitDeBarba, oleo]).fb_cupons.itens.categorias).toEqual([
+      "pcat_kits",
+      "pcat_barba",
+    ])
+    expect(naConta(BARBA, [kitDeBarba, oleo]).fb_cupons.itens.categorias).toEqual(["pcat_barba"])
+    // Dois cupons de categoria na conta (carrinho de antes do "um por pedido"): recusa a mais, nunca aceita a mais.
+    const dois = contextoDosCupons({
+      itens: [kitDeBarba],
+      pedidos: [],
+      agora: AGORA.getTime(),
+      categoriasDosCupons: [["pcat_kits"], ["pcat_barba"]],
+    })
+    expect(vale(KITS, dois)).toBe(false)
+    expect(
+      vale(
+        CABELO,
+        contextoDosCupons({
+          itens: [pomada, kitDeBarba],
+          pedidos: [],
+          agora: AGORA.getTime(),
+          categoriasDosCupons: [["pcat_cabelo"], ["pcat_kits"]],
+        })
+      )
+    ).toBe(false)
+  })
+
+  it("os cupons na conta: a regra do Medusa pra add, remove e replace, sem a oferta e as automáticas", () => {
+    const carrinho = {
+      items: [
+        { adjustments: [{ code: "KITS10" }, { code: "BUMP-OLEO-1A2B3C4D" }] },
+        { adjustments: null },
+      ],
+      shipping_methods: [{ adjustments: [{ code: "PROMO-LEVE3" }] }],
+    }
+    expect(cuponsNaConta(carrinho, [], "add")).toEqual(["KITS10"])
+    expect(cuponsNaConta(carrinho, ["BARBA20"], "add")).toEqual(["KITS10", "BARBA20"])
+    expect(cuponsNaConta(carrinho, ["KITS10"], "remove")).toEqual([])
+    expect(cuponsNaConta(carrinho, ["BARBA20"], "replace")).toEqual(["BARBA20"])
+    expect(cuponsNaConta({}, [], "replace")).toEqual([])
+    expect(cuponsNaConta({ items: null }, ["BARBA20"], undefined)).toEqual(["BARBA20"])
+  })
+
+  it("as categorias escolhidas: só a regra das categorias do carrinho de cada cupom", () => {
+    expect(
+      categoriasEscolhidas([
+        {
+          code: "KITS10",
+          rules: [
+            { attribute: CAMPOS_DO_CONTEXTO.conferido, values: [{ value: "sim" }] },
+            {
+              attribute: CAMPOS_DO_CONTEXTO.categoriasDoCarrinho,
+              values: [{ value: "pcat_kits" }, { value: "pcat_barba" }],
+            },
+          ],
+        },
+        { code: "LOJA10", rules: [] },
+        {
+          code: "OLEO10",
+          rules: [{ attribute: CAMPOS_DO_CONTEXTO.produtosDoCarrinho, values: [] }],
+        },
+      ])
+    ).toEqual([["pcat_kits", "pcat_barba"]])
+    expect(categoriasEscolhidas([])).toEqual([])
   })
 })

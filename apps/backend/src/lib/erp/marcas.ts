@@ -31,12 +31,29 @@ export const MARCA_DO_NOME = "fb_nome"
  */
 export const MARCA_DO_PRECO = "fb_preco"
 
+/**
+ * A categoria principal que a equipe escolheu no painel (Produtos → Textos):
+ * o id dela. É a da trilha da página, a do Google e a da Meta; as outras
+ * categorias do produto (o "Aparece também em") só põem ele na vitrine delas
+ * — o kit de barba em /kits e em /barba (entrega 0151). O Medusa não guarda
+ * ordem entre as categorias de um produto: sem esta marca, a principal é a
+ * primeira da loja, pela ordem do menu. A importação deixa a marca onde deixa
+ * as categorias (na primeira vez, e no produto recriado).
+ */
+export const MARCA_DA_CATEGORIA = "fb_categoria"
+
 const objeto = (v: unknown) =>
   v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null
 
 /** O produto tem o nome dado no painel (a marca `fb_nome`)? */
 export function temNomeDaLoja(metadata: unknown): boolean {
   return Boolean(objeto(metadata)?.[MARCA_DO_NOME])
+}
+
+/** O id da categoria principal escolhida no painel (a marca `fb_categoria`), ou `null`. */
+export function categoriaMarcada(metadata: unknown): string | null {
+  const id = objeto(metadata)?.[MARCA_DA_CATEGORIA]
+  return typeof id === "string" && id.trim() ? id.trim() : null
 }
 
 /** O nome do produto no ERP, que a última importação guardou na marca `fb_erp`. */

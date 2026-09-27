@@ -37,7 +37,10 @@
  * │ • a foto arrastada do computador que não sobe; o arquivo solto fora    │
  * │   de um quadro abrindo no lugar do painel;                             │
  * │ • o topo saindo do lugar; o `</script>` de uma dúvida quebrando a      │
- * │   página; a mudança sem linha no histórico; erro no console.           │
+ * │   página; a mudança sem linha no histórico; erro no console;           │
+ * │ • o produto em mais de uma categoria que não aparece na vitrine da     │
+ * │   outra, a trilha da página que não segue a principal, e o painel de   │
+ * │   antes apagando as outras categorias.                                 │
  * └────────────────────────────────────────────────────────────────────────┘
  */
 
@@ -1183,6 +1186,160 @@ try {
       "“Usar o do Bling”: o nome volta, e a marca sai (o Bling volta a mandar)",
       JSON.stringify({ nome: d2.produto?.nome, daLoja: d2.produto?.nomeDaLoja })
     )
+  }
+
+  /* ── aparece também em ────────────────────────────────────────────────── */
+
+  // Depois do histórico, como o nome: cada "Salvar" daqui é uma linha a mais nele.
+  titulo("Aparece também em: o produto em mais de uma categoria")
+  {
+    const { categorias = [] } = await detalhe(tokenMkt, produtoId)
+    const idDe = (nome) => categorias.find((c) => c.nome === nome)?.id ?? ""
+    /** Só a grade da categoria: a vitrine magra mostra outros produtos no "resto da loja", embaixo. */
+    const naGrade = (html) => {
+      const inicio = html.indexOf('class="catalogo__grade"')
+      if (inicio < 0) return ""
+      const fim = html.indexOf('class="resto"', inicio)
+      return html.slice(inicio, fim < 0 ? undefined : fim)
+    }
+    const naVitrine = (categoria, quer) =>
+      esperarQue(async () => {
+        const r = await fetch(`${LOJA}/${categoria}`, { cache: "no-store" })
+        const tem = naGrade(r.status === 200 ? await r.text() : "").includes(
+          `href="/produtos/${HANDLE}"`
+        )
+        return tem === quer
+      }, 30000)
+    const trilhaDe = (html) => html.match(/<nav class="migalhas"[\s\S]*?<\/nav>/)?.[0] ?? ""
+    const trilhaCom = async (categoria) =>
+      trilhaDe(
+        await paginaDaLoja(HANDLE, (h) => trilhaDe(h).includes(`href="/${categoria}"`), 30000)
+      )
+    const textos = (corpo) =>
+      medusa(`/dashboard/produtos/${produtoId}/textos`, {
+        token: tokenMkt,
+        corpo: { nome: NOME, subtitulo: SUBTITULO, ...corpo },
+      })
+    const categoriasDoPainel = async () => {
+      const d = (await detalhe(tokenMkt, produtoId)).produto
+      return { principal: d?.categoria, tambem: d?.tambemEm, ids: d?.tambemEmIds }
+    }
+
+    await abrirProduto()
+    const outras = await pagina
+      .locator("[data-tambem-em] [data-tambem]")
+      .evaluateAll((els) => els.map((e) => e.getAttribute("data-tambem")))
+    ok(
+      outras.length === categorias.length - 1 &&
+        !outras.includes("Barba") &&
+        outras.includes("Kits"),
+      "as outras categorias pra marcar, sem a principal (Barba)",
+      outras.join(", ")
+    )
+    await pagina.locator('[data-tambem="Kits"]').check()
+    const r = await apertar(pagina, "[data-textos] button[type=submit]")
+    ok(!r.erro && r.texto.startsWith("Salvo"), "salvo", r.texto)
+    const c1 = await categoriasDoPainel()
+    ok(
+      c1.principal === "Barba" &&
+        JSON.stringify(c1.tambem) === '["Kits"]' &&
+        JSON.stringify(c1.ids) === JSON.stringify([idDe("Kits")]),
+      "o painel lê a principal (Barba) e o Kits junto",
+      JSON.stringify(c1)
+    )
+    const noAdmin = (await adm(`/admin/products/${produtoId}?fields=metadata,*categories`)).corpo
+      .product
+    ok(
+      (noAdmin?.categories ?? [])
+        .map((c) => c.handle)
+        .sort()
+        .join(",") === "barba,kits" && noAdmin?.metadata?.fb_categoria === idDe("Barba"),
+      "no Medusa: as duas categorias, e a marca da principal",
+      JSON.stringify({
+        categorias: noAdmin?.categories?.map((c) => c.handle),
+        marca: noAdmin?.metadata?.fb_categoria,
+      })
+    )
+    ok(
+      await naVitrine("kits", true),
+      "a vitrine de Kits mostra ele — na grade, não no resto da loja"
+    )
+    ok(await naVitrine("barba", true), "e a de Barba continua mostrando")
+    ok(
+      (await trilhaCom("barba")).includes('href="/barba"'),
+      "a trilha da página leva a principal: Barba"
+    )
+    await pagina.goto(`${PAINEL}/produtos`)
+    const celula = pagina.locator(`.tabela [data-produto="${produtoId}"] [data-categorias]`)
+    await celula.waitFor()
+    ok(
+      semEspaco(await celula.innerText()) === "Barba também em Kits",
+      "a lista diz a principal e as outras",
+      semEspaco(await celula.innerText())
+    )
+
+    // Trocar a principal pra Kits, com Barba nas outras: agora quem manda na trilha é Kits,
+    // mesmo com Barba antes no menu — é a marca, e não a ordem.
+    await abrirProduto()
+    await pagina.selectOption("[data-categoria]", { label: "Kits" })
+    ok(
+      (await pagina.locator('[data-tambem="Kits"]').count()) === 0 &&
+        !(await pagina.locator('[data-tambem="Barba"]').isChecked()),
+      "a nova principal sai das outras, e a de antes fica desmarcada pra escolher"
+    )
+    await pagina.locator('[data-tambem="Barba"]').check()
+    const r2 = await apertar(pagina, "[data-textos] button[type=submit]")
+    const c2 = await categoriasDoPainel()
+    ok(
+      !r2.erro && c2.principal === "Kits" && JSON.stringify(c2.tambem) === '["Barba"]',
+      "salvo: Kits a principal, e Barba nas outras",
+      JSON.stringify(c2)
+    )
+    const trilha = await trilhaCom("kits")
+    ok(
+      trilha.includes('href="/kits"') && !trilha.includes('href="/barba"'),
+      "a trilha segue a principal (Kits), não a ordem do menu",
+      trilha.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ")
+    )
+
+    const velho = await textos({ categoriaId: idDe("Kits") })
+    const c3 = await categoriasDoPainel()
+    ok(
+      velho.status === 200 && c3.principal === "Kits" && JSON.stringify(c3.tambem) === '["Barba"]',
+      "o painel de antes (sem o tambemEm): as outras categorias ficam",
+      `${velho.status} ${JSON.stringify(c3)}`
+    )
+    const semPrincipal = await textos({ categoriaId: "", tambemEm: [idDe("Barba")] })
+    const inexistente = await textos({ categoriaId: idDe("Kits"), tambemEm: ["pcat_nao_existe"] })
+    const naoLista = await textos({ categoriaId: idDe("Kits"), tambemEm: idDe("Barba") })
+    ok(
+      semPrincipal.corpo.message === "sem_principal" &&
+        inexistente.corpo.message === "categoria_invalida" &&
+        naoLista.corpo.message === "categoria_invalida" &&
+        [semPrincipal, inexistente, naoLista].every((x) => x.status === 400),
+      "outras sem a principal, uma que não existe, ou fora de lista: 400, com o motivo",
+      [semPrincipal, inexistente, naoLista].map((x) => `${x.status} ${x.corpo.message}`).join(" · ")
+    )
+
+    await abrirProduto()
+    await pagina.selectOption("[data-categoria]", { value: "" })
+    ok(
+      (await pagina.locator('[data-tambem="Barba"]').isDisabled()) &&
+        /Escolha a categoria principal primeiro/.test(
+          await pagina.locator("[data-tambem-em]").textContent()
+        ),
+      "sem a principal, as outras ficam travadas, e a tela diz por quê"
+    )
+    await abrirProduto()
+    await pagina.locator('[data-tambem="Barba"]').uncheck()
+    const r3 = await apertar(pagina, "[data-textos] button[type=submit]")
+    const c4 = await categoriasDoPainel()
+    ok(
+      !r3.erro && c4.principal === "Kits" && JSON.stringify(c4.tambem) === "[]",
+      "desmarcar: fica só a principal",
+      JSON.stringify(c4)
+    )
+    ok(await naVitrine("barba", false), "e ele sai da vitrine de Barba")
   }
 
   titulo("Console")

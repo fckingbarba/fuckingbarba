@@ -162,11 +162,20 @@ const RECUSA_DOS_TEXTOS: Record<string, string> = {
   subtitulo_longo: "O subtítulo tem até 120 letras.",
   descricao_longa: "A descrição no Google tem até 160 letras.",
   categoria_invalida: "Essa categoria não existe mais. Recarregue a página.",
+  sem_principal: "Escolha a categoria principal antes das outras.",
 }
 
 export async function salvarTextos(
   id: string,
-  textos: { nome: string; subtitulo: string; categoriaId: string; descricaoGoogle: string }
+  textos: {
+    nome: string
+    subtitulo: string
+    /** A categoria principal ("" = nenhuma). */
+    categoriaId: string
+    /** As outras categorias em que ele aparece. */
+    tambemEm: string[]
+    descricaoGoogle: string
+  }
 ): Promise<Resultado> {
   const r = await chamar(id, "textos", textos)
   const erro = comum(r)

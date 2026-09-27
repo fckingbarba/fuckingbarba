@@ -3059,6 +3059,43 @@ com o Pagar.me, como hoje):
    (token errado para ali, com o motivo). Depois, Painel → Configurações → Pagamento mostra
    "Mercado Pago · Pix reserva: Conectado".
 
+**Produto em mais de uma categoria — pronto em 27/09 (entrega 0151).** Pedido dele: "Quero poder
+adicionar as categorias também dos produtos, por exemplo os kits para barba eu gostaria que
+aparecessem na aba para barba também".
+
+- **No painel** (Produtos → o produto → Textos): a **Categoria principal** (a de sempre) e, embaixo,
+  **"Aparece também em"**, com as outras categorias pra marcar. Marcou Barba num kit de Kits: ele
+  aparece nas duas abas da loja (/kits e /barba). Sem a principal, as outras ficam travadas.
+- **A principal é a do caminho no topo da página do produto** ("Início › Kits › …") e a do Google e
+  da Meta (o catálogo dos anúncios). As outras só põem o produto na vitrine delas. Em "Todos" e no
+  "resto da loja" ele continua aparecendo uma vez só.
+- **A lista de Produtos** mostra "Kits — também em Barba".
+- **Cupons "só com produtos de":** o kit em Kits e em Barba conta como das duas, como na Nuvemshop —
+  o cupom de Kits aceita, o de Barba também, o de Cabelo não. Sem esse conserto, o cupom de Kits
+  passaria a recusar o kit no dia em que ele ganhasse Barba. O "Leve 3, pague 2" por categoria já
+  contava assim.
+- **Por dentro:** a principal fica guardada no produto (a marca `fb_categoria`), porque o Medusa não
+  guarda ordem entre as categorias. Sem a marca — produto mexido direto no admin do Medusa —, vale a
+  primeira pela ordem do menu (Barba, Cabelo, Kits). A importação do Bling mantém a marca junto com
+  as categorias. Mudar categoria pelo admin do Medusa não avisa a loja (a página demora a mudar);
+  pelo painel, avisa.
+
+Conferido pelo `conferir-produtos.mjs` do painel (117, 16 novas: marcar e salvar, as duas vitrines,
+a trilha seguindo a principal e não a ordem do menu, a lista, o painel de antes sem apagar as
+outras, as recusas), `conferir-cupons.mjs` (47: o kit em duas categorias nos cupons das duas e de
+uma terceira), `conferir-catalogo.mjs` (35: a trilha de cada produto, com dois produtos em duas
+categorias no banco local — um com a principal marcada, outro sem), `conferir-feed.mjs` (14: a
+categoria de cada linha é a principal), `conferir-erp.mjs` (115: a marca fica na importação),
+`conferir-pdp.mjs` (68 de 70 — as 2 falham igual na main, com o mesmo banco: a rotina do spray
+aponta pra pasta, que o banco local não tem, e um 404 no console), `conferir-checkout.mjs` (92
+checagens até "O pedido", com os chips do frete grátis e a oferta — a parte que usa a categoria;
+dali parou por tempo, com a máquina sem memória) e pelos testes de unidade (1167; 11 novos).
+
+Depois do deploy — **nada a configurar.** Pra usar: Painel → Produtos → abra o kit → Textos →
+"Aparece também em" → marque **Barba** → Salvar; em alguns segundos ele aparece em /barba também.
+Repita em cada kit de barba. Espere o Railway terminar de subir antes: nos minutos em que só o
+painel novo está no ar, o "Aparece também em" ainda não grava.
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa
