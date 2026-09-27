@@ -2,18 +2,20 @@
 
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
+import { semAcessoA } from "@/lib/equipe"
 import { medusa, type Resposta } from "@/lib/medusa"
 import type { Resultado } from "@/lib/produtos"
 import type { FormularioDaPromocao } from "@/lib/promocoes"
 
 /**
  * AS AÇÕES DAS PROMOÇÕES — criar e a chave (pausar e ligar). Quem decide é o
- * Medusa (`/dashboard/promocoes`): o papel (marketing e dono) e o formulário
- * campo a campo. Feito, a tela se refaz.
+ * Medusa (`/dashboard/promocoes`): quem abre os Cupons e descontos (no
+ * padrão, o marketing e o dono) e o formulário campo a campo. Feito, a tela
+ * se refaz.
  */
 
 const GENERICO = "Não consegui falar com a loja agora. Tenta de novo em instantes."
-const SEM_PAPEL = "As promoções são do marketing e do dono."
+const SEM_PAPEL = semAcessoA("cupons")
 
 function sair(r: Resposta) {
   if (r.status === 401)
