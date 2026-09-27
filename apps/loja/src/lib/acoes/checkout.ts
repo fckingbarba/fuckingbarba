@@ -47,6 +47,7 @@ import { emReais } from "@/lib/formato"
 import { cepDeOutraCidade, comCepNovo, ehUf, lerEndereco, montarEndereco } from "@/lib/endereco"
 import { cliente, configuracoes } from "@/lib/medusa"
 import { depoisDaRecusa, entradaDoCarrinho, recusaDaPorta } from "@/lib/pagamento"
+import { ehCodigoDePromocao } from "@/lib/promocoes"
 import { rastroDaCompra, registrarRastro } from "@/lib/rastro"
 import { lerToken } from "@/lib/sessao"
 import { CHECKOUT_ABERTO } from "@/lib/site"
@@ -997,6 +998,11 @@ export async function consultarCep(cep: string): Promise<CepDoCheckout> {
 export async function aplicarCupom(anterior: EstadoDaEtapa, fd: FormData): Promise<EstadoDaEtapa> {
   const digitado = texto(fd, "cupom")
   if (!digitado) return erro(anterior, { cupom: "Escreve o código." }, "", fd)
+  // O código da oferta do checkout (BUMP-) e o das promoções automáticas
+  // (PROMO-) não são cupom: entram sozinhos, pela caixinha e pelo Medusa.
+  const maiusculo = digitado.toUpperCase()
+  if (ehCodigoDeBump(maiusculo) || ehCodigoDePromocao(maiusculo))
+    return erro(anterior, { cupom: "Esse cupom não vale pra este pedido." }, "", fd)
 
   const atual = await carrinhoAtual()
   if (!atual) return erro(anterior, {}, EXPIROU, fd)
