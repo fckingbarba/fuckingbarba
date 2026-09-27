@@ -57,6 +57,21 @@ import type { PoliticaDeFrete } from "./configuracoes"
  * escolhidas. A regra é um "eq" sobre a lista do carrinho: no Medusa, "eq"
  * com lista quer dizer "todos estão entre os escolhidos".
  *
+ * ┌─ O PRODUTO EM MAIS DE UMA CATEGORIA (entrega 0151) ────────────────────┐
+ * │ O kit de barba está em Kits e em Barba. Pra Nuvemshop, ele é das duas: │
+ * │ o cupom de Kits aceita, o de Barba também, e o de Cabelo não. Com as   │
+ * │ duas categorias na lista, o "eq" recusava nos dois (a outra ficava de  │
+ * │ fora do escolhido) — o cupom de Kits parava de aceitar o kit no dia em │
+ * │ que ele ganhava Barba. A lista não sabe qual cupom vai ler, então o    │
+ * │ gancho pergunta: lê as categorias escolhidas dos cupons que estão na   │
+ * │ conta (`cuponsNaConta`, a mesma regra do Medusa; um por pedido, quase  │
+ * │ sempre um só) e cada produto entra na lista só com as categorias dele  │
+ * │ que algum cupom escolheu — ou com todas, se nenhuma: aí o "eq" recusa, │
+ * │ como deve. Sem cupom de categoria na conta, entram todas, como antes.  │
+ * │ Com dois (carrinho de antes da regra de um por pedido), um produto     │
+ * │ pode ser recusado a mais, nunca aceito a mais.                         │
+ * └────────────────────────────────────────────────────────────────────────┘
+ *
  * "Permitir combinar com outras promoções", desmarcado, também é como lá: o
  * cupom não desconta o produto que já está com preço promocional (a
  * promoção do painel, o desconto por quantidade) e não vale no pedido que
@@ -154,27 +169,37 @@ const ehDaPromocao = (codigo: string) => codigo.toUpperCase().startsWith(PREFIXO
  * `frete` é a política da loja (o frete grátis ou fixo pelo valor): `null`
  * quando ela não veio, e aí o pedido conta como se tivesse o frete da loja —
  * o cupom que não combina não vale nessa conta.
+ *
+ * `categoriasDosCupons`: as categorias escolhidas de cada cupom "só com
+ * produtos de" que está na conta (`categoriasEscolhidas`). O produto em mais
+ * de uma categoria entra na lista só com as que o cupom escolheu — ver
+ * "O PRODUTO EM MAIS DE UMA CATEGORIA", lá em cima.
  */
 export function contextoDosCupons({
   itens,
   pedidos,
   agora,
   frete = null,
+  categoriasDosCupons = [],
 }: {
   itens: ItemDoCarrinho[]
   pedidos: PedidoDoEmail[] | null
   agora: number
   frete?: PoliticaDeFrete | null
+  categoriasDosCupons?: readonly (readonly string[])[]
 }): ContextoDosCupons {
   const produtos = somaDosProdutos(itens)
   const produtosDoCarrinho = itens
     .map((i) => i.product?.id ?? i.product_id ?? "")
     .filter((id): id is string => Boolean(id))
+  const escolhidas = new Set(categoriasDosCupons.flat())
   const categorias = itens.flatMap((i) => {
     const ids = (i.product?.categories ?? [])
       .map((c) => c?.id ?? "")
       .filter((id): id is string => Boolean(id))
-    return ids.length ? ids : [SEM_CATEGORIA]
+    if (!ids.length) return [SEM_CATEGORIA]
+    const doCupom = ids.filter((id) => escolhidas.has(id))
+    return doCupom.length ? doCupom : ids
   })
   const freteDaLoja = frete === null || (frete.modo !== "nenhuma" && produtos >= frete.piso)
   const base = {
@@ -250,6 +275,58 @@ export function outroCupomNoCarrinho(
   if (!novosDeCampanha.size) return null
   if (novosDeCampanha.size > 1) return [...novosDeCampanha][0]
   return atuais.filter(campanha).find((c) => !novosDeCampanha.has(c.toUpperCase())) ?? null
+}
+
+/** O carrinho como o gancho recebe — só os códigos que já estão nas linhas e no frete. */
+export type CarrinhoComCodigos = {
+  items?: ({ adjustments?: ({ code?: string | null } | null)[] | null } | null)[] | null
+  shipping_methods?: ({ adjustments?: ({ code?: string | null } | null)[] | null } | null)[] | null
+}
+
+/**
+ * Os códigos de campanha que entram na conta desta vez, pela regra do próprio
+ * Medusa (`getPromotionCodesToApply`): os que já estão nas linhas e no frete,
+ * mais os que chegam (`add`), menos os que saem (`remove`), ou só os que
+ * chegam (`replace`). A oferta do checkout e as promoções automáticas ficam
+ * de fora — nenhuma tem regra de categoria do carrinho.
+ */
+export function cuponsNaConta(
+  carrinho: CarrinhoComCodigos,
+  novos: readonly string[],
+  acao: string | undefined
+): string[] {
+  const noCarrinho = [...(carrinho.items ?? []), ...(carrinho.shipping_methods ?? [])].flatMap(
+    (l) => (l?.adjustments ?? []).map((a) => a?.code ?? "")
+  )
+  const naConta = new Set(acao === "replace" ? [] : noCarrinho)
+  if (acao === "remove") for (const c of novos) naConta.delete(c)
+  else for (const c of novos) naConta.add(c)
+  return [...naConta].filter((c) => Boolean(c) && !ehDaOferta(c) && !ehDaPromocao(c))
+}
+
+/** A promoção como o gancho lê: o código e as regras (atributo e valores). */
+export type PromocaoComRegras = {
+  code?: string | null
+  rules?:
+    | ({
+        attribute?: string | null
+        values?: ({ value?: string | null } | null)[] | null
+      } | null)[]
+    | null
+}
+
+/**
+ * As categorias escolhidas de cada cupom "só com produtos de" — a regra
+ * `fb_cupons.itens.categorias` dele. Cupom sem essa regra não entra.
+ */
+export function categoriasEscolhidas(promocoes: readonly PromocaoComRegras[]): string[][] {
+  return promocoes.flatMap((p) =>
+    (p.rules ?? []).flatMap((r) =>
+      r?.attribute === CAMPOS_DO_CONTEXTO.categoriasDoCarrinho
+        ? [(r.values ?? []).map((v) => v?.value ?? "").filter((v): v is string => Boolean(v))]
+        : []
+    )
+  )
 }
 
 /* ── o cupom novo ──────────────────────────────────────────────────────── */
