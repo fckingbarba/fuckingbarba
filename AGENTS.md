@@ -1912,7 +1912,9 @@ O resto é assim:
   (`lib/observabilidade/tela.ts`: a loja agora pelo `LOJA_URL`, guardada 1 minuto; o Medusa ligado
   desde; a conexão do ERP e a última nota) e `POST /dashboard/observabilidade/problemas/:id`
   `{ acao: "resolver" }`. O `GET /dashboard/eu` devolve `avisos.observabilidade`: os graves que o
-  papel vê, pro número vermelho do menu.
+  papel vê, pro número vermelho do menu — contados no banco (`listAndCountProblemas`, com o
+  `filtroDoPapel`, que é o `podeVer` no filtro; mudou um, mude o outro, e o teste amarra os dois).
+  Até a 0167 ele contava as linhas de uma página de 100, e o menu parava em 100.
 
 O conferidor é o `apps/dashboard/ferramentas/conferir-observabilidade.mjs`. Ele cria as falhas nos
 falsos: o Resend recusa, a Frenet cai, e o Pagar.me não estorna.
