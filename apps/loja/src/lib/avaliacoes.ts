@@ -1,4 +1,4 @@
-import type { Avaliacao, Depoimento } from "../conteudo/depoimentos"
+import type { Depoimento } from "../conteudo/depoimentos"
 
 /**
  * OS SORTEIOS DE DEPOIMENTO — a esteira da home ("Nossos clientes nos amam")
@@ -97,8 +97,8 @@ function embaralhar<T>(lista: T[], aleatorio: () => number): T[] {
  * atrás — cada tipo embaralhado, a nota fora da conta (ver o topo).
  */
 function avaliacoesPrimeiro<T extends Depoimento>(lista: T[], aleatorio: () => number): T[] {
-  const embaralhada = embaralhar(lista, aleatorio)
-  return [...embaralhada.filter((d) => "nota" in d), ...embaralhada.filter((d) => !("nota" in d))]
+  // O `sort` é estável: dentro de cada tipo, fica a ordem sorteada.
+  return embaralhar(lista, aleatorio).sort((a, b) => +("nota" in b) - +("nota" in a))
 }
 
 /** Os depoimentos de cada produto, na ordem da lista; os sem produto fazem um grupo deles. */
@@ -187,25 +187,4 @@ export function encherAFila<T>(lista: T[], minimo: number): T[] {
   const fila: T[] = []
   while (fila.length < minimo) fila.push(...lista)
   return fila
-}
-
-/**
- * AS AVALIAÇÕES QUE VÊM DO MEDUSA — as aprovadas no painel, de quem comprou
- * (a página `/avaliar`; `GET /store/avaliacoes`), no formato do cartão.
- *
- * `compraVerificada` é verdade em todas: cada uma veio de um pedido pago, e
- * o Medusa só aceita avaliação com o link assinado daquele pedido. O que
- * vier torto (nota fora de 1 a 5, sem produto) fica de fora, sem derrubar o
- * resto.
- */
-export function avaliacoesDoMedusa(lista: unknown): Avaliacao[] {
-  if (!Array.isArray(lista)) return []
-  return lista.flatMap((a): Avaliacao[] => {
-    if (!a || typeof a !== "object") return []
-    const { nome, nota, texto, produto } = a as Record<string, unknown>
-    if (typeof nome !== "string" || typeof texto !== "string" || typeof produto !== "string")
-      return []
-    if (nota !== 1 && nota !== 2 && nota !== 3 && nota !== 4 && nota !== 5) return []
-    return [{ nome, nota, texto, compraVerificada: true, produtoHandle: produto }]
-  })
 }

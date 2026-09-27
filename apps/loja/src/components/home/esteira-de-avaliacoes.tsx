@@ -12,6 +12,7 @@ import {
   SEGUNDOS_POR_CARTAO_NA_VOLTA,
   emDuasFileiras,
   encherAFila,
+  semRepetidas,
   sequencia,
   sortearDaEsteira,
 } from "@/lib/avaliacoes"
@@ -165,7 +166,8 @@ export function EsteiraDeAvaliacoes({
  */
 async function carregarDepoimentos(): Promise<Depoimento[]> {
   const { depoimentosDaEsteira } = await import("@/lib/depoimentos-da-esteira")
-  return depoimentosDaEsteira()
+  const { avaliacoes, trechos } = await depoimentosDaEsteira()
+  return [...semRepetidas(avaliacoes), ...semRepetidas(trechos)]
 }
 
 function Fila({

@@ -963,13 +963,18 @@ topo do próprio arquivo.
 O site lê as aprovadas em `GET /store/avaliacoes` (`avaliacoesDoSite`: o produto pelo HANDLE de
 agora, só produto publicado, nada do pedido), pela `avaliacoesPublicadas` da loja (`lib/medusa.ts`,
 etiqueta `avaliacoes`, dias; o 404 do Medusa de antes da rota é lista vazia) e o
-`avaliacoesDoMedusa` (`lib/avaliacoes.ts`, com o selo de compra verificada: toda uma veio de pedido
-pago). A página do produto soma as aprovadas às de `AVALIACOES` (a nota e a conta olham todas; pro
+`avaliacoesDoMedusa` (`lib/avaliacoes-do-medusa.ts`, com o selo de compra verificada: toda uma veio
+de pedido pago). A página do produto soma as aprovadas às de `AVALIACOES` (a nota e a conta olham todas; pro
 sorteio vão as 24 mais recentes, pra lista não crescer dentro do HTML) e põe a nota no Product pelo
 `itemref="avaliacoes-nota"` da dobra — só quando ela existe. A esteira da home NÃO recebe as
 avaliações no HTML: o pedaço à parte que ela já buscava com `import()` virou
 `lib/depoimentos-da-esteira.ts`, que junta os textos de `conteudo/depoimentos.ts` com a
-`/api/avaliacoes` da loja, na hora em que a seção chega perto. O `medusa-falso.mjs` do CI responde
+`/api/avaliacoes` da loja, na hora em que a seção chega perto. **Esse pedaço não importa
+`lib/avaliacoes.ts`** (nem a conversão mora lá): módulo dividido entre o JavaScript da primeira
+tela e um pedaço à parte vira um TERCEIRO pedaço, que a home baixa a mais — na 0152 isso custou
++180 bytes comprimidos na home e na PDP, só de mudar onde o `semRepetidas` era chamado. Medido com
+`next build` da main e da entrega contra o `medusa-falso.mjs`, somando os scripts do HTML de cada
+página: a entrega ficou com +87 bytes (o `avaliacoesPrimeiro`) e +13 no HTML. O `medusa-falso.mjs` do CI responde
 `/store/avaliacoes` vazio. Conferidores: `apps/loja/ferramentas/conferir-avaliacoes.mjs` (o pedido
 entregue há dois dias por um aviso da Frenet com a hora dela, o e-mail, a página, o que o Medusa
 guardou, a busca pelo número, a aprovada na página do produto e a limpeza no fim) e

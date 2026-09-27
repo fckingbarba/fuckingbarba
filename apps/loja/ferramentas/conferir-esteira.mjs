@@ -20,8 +20,8 @@
  */
 
 import { AVALIACOES, TRECHOS } from "../src/conteudo/depoimentos.ts"
+import { avaliacoesDoMedusa } from "../src/lib/avaliacoes-do-medusa.ts"
 import {
-  avaliacoesDoMedusa,
   MINIMO_NA_FILA,
   NA_PAGINA_DO_PRODUTO,
   POR_PRODUTO_NA_ESTEIRA,
