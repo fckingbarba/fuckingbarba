@@ -255,7 +255,7 @@ async function NumerosDoGoogle({ periodo }: { periodo: Periodo }) {
         ajuda={
           `De cada 100 visitas, quantas viraram pedido pago: ` +
           `${vezes(pedidos.valor, "pedido", "pedidos")} em ${vezes(visitas.valor, "visita", "visitas")}. ` +
-          "As duas contas são do Google, só de quem aceitou os cookies — como nos Canais."
+          "As duas contas são do Google, de todo mundo menos quem recusou os cookies — como nos Canais."
         }
         dados="conversao"
       />
@@ -267,9 +267,9 @@ async function NumerosDoGoogle({ periodo }: { periodo: Periodo }) {
 export function Glossario() {
   return (
     <span className="glossario">
-      <b>Conversão:</b> de cada 100 visitas, quantas viraram pedido pago — contando só quem aceitou
-      os cookies, nas visitas e nos pedidos (o Google não vê quem recusa). <b>Ticket médio:</b>{" "}
-      quanto cada pedido pago deixa, com o frete.
+      <b>Conversão:</b> de cada 100 visitas, quantas viraram pedido pago — sem quem recusou os
+      cookies, nas visitas e nos pedidos (o Google não vê quem recusa). <b>Ticket médio:</b> quanto
+      cada pedido pago deixa, com o frete.
     </span>
   )
 }
