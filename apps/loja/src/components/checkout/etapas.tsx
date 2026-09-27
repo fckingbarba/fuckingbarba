@@ -20,6 +20,7 @@ import {
   type OfertaDoBump,
   type OpcaoDeFrete,
   type ProvedorDePagamento,
+  type RotaDoPagamento,
 } from "@/lib/checkout-visivel"
 import type { Configuracoes } from "@/lib/configuracoes"
 import { emReais } from "@/lib/formato"
@@ -59,6 +60,8 @@ type Props = {
   checkout: CheckoutVisivel
   fretes: OpcaoDeFrete[]
   provedores: ProvedorDePagamento[]
+  /** Por onde cobrar cada forma agora (`rotaDoPagamento`). */
+  rota: RotaDoPagamento
   bump: OfertaDoBump | null
   sugestoes: Oferta[]
   falta: number
@@ -71,6 +74,7 @@ export function Etapas({
   checkout,
   fretes,
   provedores,
+  rota,
   bump,
   sugestoes,
   falta,
@@ -177,6 +181,7 @@ export function Etapas({
           etapa="pagamento"
           checkout={checkout}
           provedores={provedores}
+          rota={rota}
           bump={bump}
           atendimento={atendimento}
           {...comum}

@@ -110,7 +110,8 @@ export const PROVEDOR_PAGARME = "pp_pagarme_pagarme"
 
 /**
  * O Mercado Pago: só Pix, a reserva do Pagar.me (0140). Não aparece no passo
- * 3 — quem escolhe o parceiro é a loja, pela saúde de cada um.
+ * 3 com nome — quem escolhe o parceiro é a loja, pela saúde de cada um
+ * (`rotaDoPagamento`).
  */
 export const PROVEDOR_MERCADOPAGO = "pp_mercadopago_mercadopago"
 
@@ -127,16 +128,69 @@ export const PROVEDOR_PROVISORIO = "pp_system_default"
  * A MESMA LISTA do backend (`apps/backend/src/lib/pagamento/parceiros.ts`):
  * parceiro novo entra nas duas — o teste de lá confere. O provisório não é
  * parceiro: ele não cobra.
+ *
+ * A ORDEM É A DE TENTAR: com os dois de pé, o Pix vai pelo Pagar.me, e o
+ * Mercado Pago é a reserva (`rotaDoPagamento`).
  */
-export type ParceiroDePagamento = { id: string; nome: string; chave: string }
+export type FormaDoParceiro = "pix" | "cartao"
+
+export type ParceiroDePagamento = {
+  id: string
+  nome: string
+  chave: string
+  formas: readonly FormaDoParceiro[]
+}
 
 export const PARCEIROS: readonly ParceiroDePagamento[] = [
-  { id: PROVEDOR_PAGARME, nome: "Pagar.me", chave: "pagarme" },
-  { id: PROVEDOR_MERCADOPAGO, nome: "Mercado Pago", chave: "mercadopago" },
+  { id: PROVEDOR_PAGARME, nome: "Pagar.me", chave: "pagarme", formas: ["pix", "cartao"] },
+  { id: PROVEDOR_MERCADOPAGO, nome: "Mercado Pago", chave: "mercadopago", formas: ["pix"] },
 ]
 
 export function parceiroDe(id: unknown): ParceiroDePagamento | null {
   return PARCEIROS.find((p) => p.id === id) ?? null
+}
+
+/**
+ * POR ONDE COBRAR AGORA — cada forma com os parceiros na ordem de tentar.
+ * Forma com a lista vazia não sai agora; `fora` diz quais a loja tem, mas
+ * estão fora (o parceiro delas fora do caminho).
+ */
+export type RotaDoPagamento = {
+  pix: string[]
+  cartao: string[]
+  fora: FormaDoParceiro[]
+}
+
+/**
+ * A ROTA, com os parceiros ligados na região e os que o disjuntor tirou do
+ * caminho agora (`GET /store/pagamento`, no backend; a regra de quando um
+ * sai está em `apps/backend/src/lib/pagamento/disjuntor.ts`):
+ *
+ *   - o parceiro fora do caminho sai da lista da forma — o Pix vai pelo
+ *     outro, na ordem de `PARCEIROS`;
+ *   - forma sem ninguém de pé (o cartão, com o Pagar.me fora) sai da tela
+ *     enquanto a outra puder cobrar;
+ *   - COM TODOS FORA, NINGUÉM SAI: a loja segue tentando, como antes do
+ *     disjuntor existir. Tirar o último parceiro seria transformar um
+ *     parceiro instável em loja sem pagamento nenhum — e se ele tiver
+ *     voltado, a próxima compra passa.
+ */
+export function rotaDoPagamento(
+  daRegiao: readonly string[],
+  foraDoCaminho: readonly string[]
+): RotaDoPagamento {
+  const ligados = (forma: FormaDoParceiro) =>
+    PARCEIROS.filter((p) => daRegiao.includes(p.id) && p.formas.includes(forma)).map((p) => p.id)
+  const todos = { pix: ligados("pix"), cartao: ligados("cartao") }
+  const dePe = {
+    pix: todos.pix.filter((id) => !foraDoCaminho.includes(id)),
+    cartao: todos.cartao.filter((id) => !foraDoCaminho.includes(id)),
+  }
+  if (!dePe.pix.length && !dePe.cartao.length) return { ...todos, fora: [] }
+  return {
+    ...dePe,
+    fora: (["pix", "cartao"] as const).filter((f) => todos[f].length && !dePe[f].length),
+  }
 }
 
 /**
