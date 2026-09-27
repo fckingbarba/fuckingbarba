@@ -40,6 +40,9 @@ function trecho(js: string) {
 
 let ligadas = false
 
+/** As tags desta página já foram montadas? (O "não" depois do sim recarrega a página pra tirá-las.) */
+export const integracoesMontadas = () => ligadas
+
 /** Liga as tags uma vez por página (a troca de página não recarrega o layout). */
 export function ligarIntegracoes(i: Integracoes) {
   if (ligadas || typeof window === "undefined") return

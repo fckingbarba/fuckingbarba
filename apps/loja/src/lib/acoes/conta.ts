@@ -12,6 +12,7 @@ import {
   pedirCodigoAoMedusa,
   type Entrando,
 } from "@/lib/conta"
+import { anotarNoServidor } from "@/lib/crm"
 import {
   SEGUNDOS_ENTRE_ENVIOS,
   type EstadoCodigo,
@@ -140,6 +141,8 @@ export async function confirmarCodigo(anterior: EstadoCodigo, fd: FormData): Pro
   const jar = await cookies()
   jar.set(COOKIE_SESSAO, final, OPCOES_SESSAO)
   jar.set(COOKIE_ENTRANDO, "", { ...OPCOES_ENTRANDO, maxAge: 0 })
+  // Com o sim dos cookies, o CRM anota a entrada, e o navegador passa a ser desta conta.
+  await anotarNoServidor({ nome: "conta_entrou", token: final })
   redirect(entrando.para)
 }
 

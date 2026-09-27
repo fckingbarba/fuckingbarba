@@ -23,7 +23,20 @@
  *
  * O `item_id` é o id da variante no Medusa — o mesmo que o servidor manda na
  * compra, pra plataforma casar a visita, a sacola e a compra.
+ *
+ * A PRÓPRIA LOJA TAMBÉM ANOTA, com o mesmo sim: o que vai pros parceiros vai
+ * pro CRM dela (`lib/anotar.ts`), que liga o que a pessoa fez ao e-mail
+ * dela. O que é só do CRM (a chegada, o e-mail no checkout) sai por
+ * `anotarNaLoja`, que espera o mesmo "Aceitar".
  */
+
+import { ondeAgora, type Onde } from "./chegada"
+
+/**
+ * O CRM da loja (`lib/anotar.ts`) só baixa depois do "Aceitar": sem o sim, não
+ * pesa na página — a inicial tem orçamento curto no Lighthouse do CI.
+ */
+const crm = () => import("./anotar")
 
 export type ItemRastreado = {
   item_id: string
@@ -107,11 +120,44 @@ export function rastrear<E extends EventoRastreado>(nome: E["nome"], dados: E["d
   if (process.env.NODE_ENV !== "production") {
     console.debug("[rastrear]", nome, dados)
   }
-  quandoLigadas(() => mandar(nome, dados))
+  const onde = ondeAgora()
+  quandoLigadas(() => mandar(nome, dados, onde))
 }
 
-function mandar(nome: EventoRastreado["nome"], dados: EventoRastreado["dados"]) {
+/** Os que são só do CRM da loja: a chegada da visita e o e-mail no checkout. */
+export type SoDaLoja = "visita" | "contato_informado"
+
+/**
+ * Pro CRM da loja, e só pra ele — com o mesmo "Aceitar" que as tags esperam.
+ * `onde`: guardado antes (a chegada, da primeira página). `umaVez`: a chave
+ * que só anota uma vez na sessão — conferida quando sai, depois do sim.
+ */
+export function anotarNaLoja(
+  nome: SoDaLoja,
+  dados: object = {},
+  { onde, umaVez }: { onde?: Onde; umaVez?: string } = {}
+): void {
+  if (typeof window === "undefined") return
+  if (process.env.NODE_ENV !== "production") {
+    console.debug("[rastrear] só na loja:", nome, dados)
+  }
+  const quando = onde ?? ondeAgora()
+  quandoLigadas(() => {
+    crm().then(
+      (m) => {
+        if (!umaVez || m.primeiraVezNaSessao(umaVez)) m.anotar(nome, dados, quando)
+      },
+      () => undefined
+    )
+  })
+}
+
+function mandar(nome: EventoRastreado["nome"], dados: EventoRastreado["dados"], onde: Onde) {
   const w = window
+  crm().then(
+    (m) => m.anotar(nome, dados, onde),
+    () => undefined
+  )
 
   w.gtag?.("event", nome, dados)
 

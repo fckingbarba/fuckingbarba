@@ -39,8 +39,10 @@ export function ehPapel(valor: unknown): valor is Papel {
  * caixa de compra, publicar): a operação abre os produtos e só lê. A
  * `newsletter` é a aba de Clientes com quem aceitou ofertas por e-mail: do
  * marketing e do dono, que baixam e tiram da lista — a operação vê os
- * clientes, e não a lista de e-mails. O `marketing` é a área dos números de
- * venda (o Resumo, a meta); mudar a `metaDoMes` é só do dono.
+ * clientes, e não a lista de e-mails. O `crm` é o que a loja anota do que
+ * cada pessoa faz, ligado ao e-mail dela: do marketing e do dono, como a
+ * newsletter. O `marketing` é a área dos números de venda (o Resumo, a
+ * meta); mudar a `metaDoMes` é só do dono.
  */
 export const ACESSO = {
   inicio: ["dono", "operacao", "marketing"],
@@ -52,6 +54,7 @@ export const ACESSO = {
   cupons: ["dono", "marketing"],
   clientes: ["dono", "operacao", "marketing"],
   newsletter: ["dono", "marketing"],
+  crm: ["dono", "marketing"],
   home: ["dono", "marketing"],
   marketing: ["dono", "marketing"],
   metaDoMes: ["dono"],
@@ -73,6 +76,7 @@ export const NOME_DA_AREA: Record<Area, string> = {
   cupons: "Cupons e descontos",
   clientes: "Clientes",
   newsletter: "Newsletter",
+  crm: "CRM",
   home: "Layout da home",
   marketing: "Marketing",
   metaDoMes: "Meta do mês",
