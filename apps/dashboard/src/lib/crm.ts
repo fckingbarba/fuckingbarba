@@ -65,6 +65,30 @@ export type TelaDoCrm = {
   emails: EmailsDaTela
 }
 
+/** Uma das cinco etiquetas da pessoa, na ficha do cliente (`montarFichaDoCrm`, no backend). */
+export type EtiquetaDaFicha = {
+  chave: "etapa" | "engajamento" | "tratamento" | "proxima" | "cupom"
+  nome: string
+  valor: string
+  porque: string
+  tom: "bom" | "ruim" | null
+}
+
+/** A parte do CRM na ficha do cliente: as etiquetas, de onde chegou e o caminho. */
+export type FichaDoCrm = {
+  etiquetas: EtiquetaDaFicha[]
+  /** "Instagram (black) · primeira visita em 12/09". */
+  origem: string | null
+  caminho: {
+    id: string
+    /** O tipo da anotação, "email" ou "pedido". */
+    tipo: string
+    quando: string
+    oque: string
+    nivel: "bom" | "ruim" | null
+  }[]
+}
+
 export type LeituraDoCrm =
   { estado: "ok"; tela: TelaDoCrm } | { estado: "sem-acesso" } | { estado: "fora" }
 

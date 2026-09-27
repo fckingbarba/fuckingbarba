@@ -40,3 +40,19 @@
 .emails__tabela { margin: 0 0 16px; }
 .anotacao[data-nivel="bom"] .fila__ico { background: var(--menta-escura); color: #fff; }
 .anotacao[data-nivel="ruim"] .fila__ico { background: var(--erro); color: #fff; }
+
+/* A ficha do cliente (parte 3): as cinco etiquetas da pessoa, no alto, e o caminho dela (as .anotacoes). */
+.etiquetas { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin: 12px 0 0; }
+@media (max-width: 1180px) { .etiquetas { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+/* No celular, duas por linha e sem o ícone: as cinco cabem numa tela. */
+@media (max-width: 640px) { .etiquetas { grid-template-columns: repeat(2, minmax(0, 1fr)); } .etiqueta { grid-template-columns: minmax(0, 1fr); } .etiqueta .fila__ico { display: none; } }
+.etiqueta { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; align-items: start; min-width: 0; padding: 12px 14px 14px; background: var(--cinza); border-top: 4px solid var(--tinta); }
+.etiqueta .fila__ico { width: 30px; height: 30px; }
+.etiqueta__rot { margin: 0; font-size: 0.62rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--tinta-suave); }
+.etiqueta__valor { margin: 5px 0 3px; font-size: 1.1rem; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.etiqueta__porque { margin: 0; font-size: 0.72rem; line-height: 1.3; color: var(--tinta-suave); overflow-wrap: anywhere; }
+.etiqueta[data-tom="bom"] { border-top-color: var(--menta-escura); }
+.etiqueta[data-tom="bom"] .fila__ico { background: var(--menta-escura); color: #fff; }
+.etiqueta[data-tom="ruim"] { border-top-color: var(--erro); }
+.etiqueta[data-tom="ruim"] .fila__ico { background: var(--erro); color: #fff; }
+.etiqueta[data-tom="ruim"] .etiqueta__valor { color: var(--erro); }

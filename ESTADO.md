@@ -2957,6 +2957,42 @@ como antes.
       Início no celular) está em <https://claude.ai/artifact/DLk4uCe8UcrjFLpzqZP3xx>, esperando a
       aprovação dele.
 
+**CRM, parte 3: a ficha de cada pessoa — pronto em 27/09 (entrega 0145).** Na ficha do cliente
+(Clientes → a pessoa), o CRM mostra quem ela é pro "Ciclo da Barba".
+
+- **As cinco etiquetas, no alto da ficha**, cada uma com o porquê:
+  - **Etapa:** Lead (tem e-mail, não comprou), 1ª compra (pagou, ainda não chegou), Em tratamento
+    (chegou), Recorrente (2 pedidos pagos), Em risco (20 dias depois do dia de comprar de novo) e
+    Sunset (45 dias em risco, sem clicar nem visitar a loja).
+  - **Engajamento:** quente (clicou num e-mail, visitou, comprou ou assinou a newsletter nos últimos
+    30 dias), morno (até 90) ou frio.
+  - **Tratamento:** o dia desde a entrega do primeiro Fator ("Dia 14").
+  - **Próxima compra:** o dia em que o produto acaba (a entrega + quanto ele dura); em vermelho se já
+    passou.
+  - **Sensível a cupom:** "Sim" quando as últimas 3 compras foram com cupom (a oferta do checkout e
+    o "Leve 3, pague 2" não contam).
+- **Quanto dura cada produto:** os dias do protótipo — Fator 30; óleo, shampoo e spray 45; balm e
+  pasta 60 —, vezes a quantidade (o kit de 3 dura 3 vezes mais). Fixos até a parte dos Ajustes do
+  CRM. Sem o aviso de entrega, o pedido conta como entregue 7 dias depois de pago.
+- **De onde a pessoa chegou** da primeira vez (Instagram, Google, direto…), e o dia.
+- **O caminho dela**, embaixo dos pedidos: o que fez no site (com o sim dos cookies), os e-mails da
+  loja (chegou, abriu, clicou) e as compras, do mais novo pro mais velho.
+- **Quem vê:** quem abre o CRM (o dono e o marketing, no padrão). O marketing vê a compra e o valor,
+  sem o número do pedido. A operação vê a ficha como antes.
+- Por enquanto só contam os pedidos da loja nova: o histórico da Nuvemshop entra na parte da base.
+
+Conferido pelo `conferir-crm.mjs` (72 checagens, 7 novas: a ficha da conta da rodada — lead, quente
+pelo clique no e-mail, "Direto", o caminho com o e-mail e o site, a tela —, e a operação sem a parte
+do CRM), pelo `conferir-clientes.mjs` (47, 10 novas: as etiquetas com pedidos de verdade, a oferta
+do checkout fora do cupom, o Pix esperando fora da compra, o marketing sem o número do pedido), pela
+rodada completa dos conferidores e pelos testes de unidade (18 novos).
+
+Depois do deploy — **nada a configurar.** Pra ver: Painel → Clientes → abra um cliente.
+
+- [ ] **As próximas partes da Fundação** (uma entrega cada, perguntar antes): os Ajustes do CRM
+      editáveis no painel (inclusive quanto dura cada produto), a base da Nuvemshop e o modelo de
+      e-mail.
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa

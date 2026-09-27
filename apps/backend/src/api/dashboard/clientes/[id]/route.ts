@@ -1,6 +1,7 @@
 import type { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/framework/http"
-import { exigirArea, type PedidoDaEquipe } from "../../../../lib/equipe/acesso"
+import { abre, exigirArea, type PedidoDaEquipe } from "../../../../lib/equipe/acesso"
 import { fichaDoCliente, juntarPessoas } from "../../../../lib/painel/clientes"
+import { fichaDoCrmDoCliente } from "../../../../lib/painel/crm"
 import {
   enviosDos,
   inscricoesDaNewsletter,
@@ -9,6 +10,9 @@ import {
   notasDos,
   pedidosDe,
 } from "../../../../lib/painel/ler"
+import { normalizarEmail } from "../../../../modules/codigo/regras"
+import { CRM } from "../../../../modules/crm"
+import type CrmService from "../../../../modules/crm/service"
 
 /**
  * GET /dashboard/clientes/:id — a ficha de um cliente: os dados, as ofertas
@@ -19,6 +23,10 @@ import {
  * O papel decide o que sai (`fichaDoCliente`): o CPF inteiro só pro dono; o
  * marketing, sem celular, CPF, endereço e pedidos — e só de quem aceitou
  * ofertas: os outros, pra ele, não existem (404).
+ *
+ * Quem abre o CRM vê também a parte do CRM (`cliente.crm`,
+ * `fichaDoCrmDoCliente`): as cinco etiquetas, de onde a pessoa chegou e o
+ * caminho dela. Sem a área dos pedidos, sem o número do pedido.
  *
  * RESPOSTAS: 200 `{ cliente }`; 404 `nao_encontrado`.
  */
@@ -51,5 +59,29 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
     res.status(404).json({ message: "nao_encontrado" })
     return
   }
-  res.json({ cliente: ficha })
+  const doCrm = normalizarEmail(email)
+  if (!abre(pedido, "crm") || !doCrm) {
+    res.json({ cliente: ficha })
+    return
+  }
+  const crm = await req.scope.resolve<CrmService>(CRM).pessoa(doCrm)
+  const newsletter = inscricoes
+    .map((i) => new Date(i.consentido_em))
+    .filter((d) => Number.isFinite(d.getTime()))
+    .sort((a, b) => b.getTime() - a.getTime())[0]
+  res.json({
+    cliente: {
+      ...ficha,
+      crm: fichaDoCrmDoCliente(
+        {
+          crm,
+          pedidos,
+          envios,
+          newsletterDesde: newsletter ?? null,
+          comNumero: abre(pedido, "pedidos"),
+        },
+        ctx.agora
+      ),
+    },
+  })
 }

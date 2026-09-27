@@ -1,3 +1,4 @@
+import type { FichaDoCrm } from "@/lib/crm"
 import type { Paginacao } from "@/lib/paginas"
 import type { LinhaDaLista } from "@/lib/pedidos"
 
@@ -57,6 +58,8 @@ export type FichaDoCliente = {
   resumo: { pedidos: number; gastou: number }
   /** `null` pro marketing: o detalhe é da operação. */
   pedidos: LinhaDaLista[] | null
+  /** As etiquetas e o caminho da pessoa — só pra quem abre o CRM. */
+  crm?: FichaDoCrm
 }
 
 export type Inscrito = {

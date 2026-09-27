@@ -1,6 +1,15 @@
-import { TIPOS, type Dados, type Item, type Tipo } from "../crm/eventos"
+import { PREFIXO_DO_BUMP } from "../bumps"
+import {
+  etiquetasDaPessoa,
+  NOME_DA_ETAPA,
+  type Etiquetas,
+  type PedidoDaPessoa,
+} from "../crm/etiquetas"
+import { TIPOS, type Dados, type Item, type Origem, type Tipo } from "../crm/eventos"
+import { PREFIXO_DA_PROMOCAO } from "../cupons"
 import { emailNoLog } from "../email"
-import { quando, reais } from "./formato"
+import { dia, quando, reais } from "./formato"
+import { pagamentoDo, totalDo, type EnvioCru, type PedidoCru } from "./pedido"
 import { nomeDaOrigem } from "./visitas"
 
 /**
@@ -19,6 +28,10 @@ import { nomeDaOrigem } from "./visitas"
  * contam dos e-mails de cliente que saíram no período — chegaram, foram
  * abertos, levaram clique, não chegaram, viraram reclamação —, por tipo, e
  * os últimos em frase (`lib/crm/resend.ts`).
+ *
+ * A FICHA DE CADA PESSOA (parte 3, entrega 0145): na ficha do cliente, as
+ * cinco etiquetas (`lib/crm/etiquetas.ts`), de onde ela chegou e o caminho
+ * dela — o site, os e-mails e as compras juntos.
  */
 
 export const PERIODOS_DO_CRM = ["hoje", "7d", "30d"] as const
@@ -137,13 +150,14 @@ function osItens(itens: Item[] | undefined, comQuantidade: boolean): string {
 const comValor = (frase: string, valor: number | undefined) =>
   typeof valor === "number" && valor > 0 ? `${frase} · ${reais(valor)}` : frase
 
-/** "chegou na loja · Instagram" — pelo mesmo nome das origens do Início e do Marketing. */
-function aChegada(d: Dados): string {
-  const o = d.origem
-  if (!o) return "chegou na loja · direto"
+/** "Instagram (black)" — pelo mesmo nome das origens do Início e do Marketing. */
+function nomeDaChegada(o: Origem): string {
   const nome = o.fonte ? nomeDaOrigem(o.fonte, o.meio ?? "") : nomeDaOrigem(o.de ?? "", "")
-  return `chegou na loja · ${nome}${o.campanha ? ` (${o.campanha})` : ""}`
+  return `${nome}${o.campanha ? ` (${o.campanha})` : ""}`
 }
+
+/** "chegou na loja · Instagram" */
+const aChegada = (d: Dados) => `chegou na loja · ${d.origem ? nomeDaChegada(d.origem) : "direto"}`
 
 /** A anotação em frase, do jeito que o dono fala. */
 export function emFraseDoCrm(tipo: Tipo, dados: Dados | null): string {
@@ -296,4 +310,229 @@ export function montarTelaDoCrm(
         : []
     ),
   }
+}
+
+/* ── a ficha do cliente (parte 3, entrega 0145) ─────────────────────────── */
+
+/** O que o CRM sabe de uma pessoa (o `pessoa` do serviço do módulo `crm`). */
+export type PessoaNoCrm = {
+  /** O último clique num e-mail da loja. */
+  ultimoClique: Date | null
+  /** A última coisa que ela fez no site, com o sim dos cookies. */
+  ultimaVisita: Date | null
+  /** De onde chegou da primeira vez (nula: direto, ou nunca visitou com o sim). */
+  origem: Origem | null
+  primeiraVisita: Date | null
+  eventos: EventoLidoDoBanco[]
+  emails: EmailLidoDoBanco[]
+}
+
+export type EtiquetaDaFicha = {
+  chave: "etapa" | "engajamento" | "tratamento" | "proxima" | "cupom"
+  nome: string
+  valor: string
+  porque: string
+  /** Bom (recorrente, quente), ruim (em risco, sunset, a data que passou) ou nada. */
+  tom: "bom" | "ruim" | null
+}
+
+export type PassoDoCaminho = {
+  id: string
+  /** O tipo da anotação, "email" ou "pedido": o ícone da linha. */
+  tipo: string
+  quando: string
+  oque: string
+  nivel: "bom" | "ruim" | null
+}
+
+export type FichaDoCrm = {
+  etiquetas: EtiquetaDaFicha[]
+  /** "Instagram (black) · primeira visita em 12/09", se a loja já viu a pessoa no site. */
+  origem: string | null
+  caminho: PassoDoCaminho[]
+}
+
+const emData = (v: Date | string | number | null | undefined): Date | null => {
+  if (!v) return null
+  const d = v instanceof Date ? v : new Date(v)
+  return Number.isFinite(d.getTime()) ? d : null
+}
+
+/**
+ * O pedido do Medusa do jeito das etiquetas: quando foi pago, quando chegou
+ * (o aviso da Frenet ou o "entregue" do envio — o mais tarde dos dois), o que
+ * veio e os cupons que a pessoa digitou (a oferta do checkout e a promoção
+ * automática não são cupom).
+ */
+export function pedidoDaPessoa(o: PedidoCru, envios: EnvioCru[] = []): PedidoDaPessoa {
+  const entregas = [
+    ...(o.fulfillments ?? []).filter((f) => !f.canceled_at).map((f) => emData(f.delivered_at)),
+    ...envios.map((e) => emData(e.entregue_em)),
+  ].filter((d): d is Date => d !== null)
+  const cupons = (o.items ?? [])
+    .flatMap((i) => i.adjustments ?? [])
+    .map((a) => a.code?.trim().toUpperCase() ?? "")
+    .filter((c) => c && !c.startsWith(PREFIXO_DO_BUMP) && !c.startsWith(PREFIXO_DA_PROMOCAO))
+  return {
+    id: o.id,
+    numero: o.display_id ? String(o.display_id) : null,
+    pagoEm: pagamentoDo(o).pagoEm,
+    entregueEm: entregas.length ? new Date(Math.max(...entregas.map((d) => d.getTime()))) : null,
+    cancelado: Boolean(o.canceled_at) || o.status === "canceled",
+    itens: (o.items ?? []).map((i) => ({
+      handle: i.product_handle ?? null,
+      nome: i.product_title || i.title || "",
+      quantidade: Number(i.quantity) || 1,
+    })),
+    cupons: [...new Set(cupons)],
+  }
+}
+
+/**
+ * A FICHA DO CRM DE UMA PESSOA — as cinco etiquetas em cartões (`lib/crm/
+ * etiquetas.ts`), de onde ela chegou da primeira vez, e o caminho dela:
+ * as anotações do site, os e-mails da loja e as compras, do mais novo pro
+ * mais velho (até 25).
+ */
+export function montarFichaDoCrm(
+  entrada: {
+    etiquetas: Etiquetas
+    origem: Origem | null
+    primeiraVisita: Date | string | null
+    eventos: EventoLidoDoBanco[]
+    emails: EmailLidoDoBanco[]
+    pedidos: { id: string; numero: string | null; pagoEm: Date | null; total: number }[]
+  },
+  agora: Date = new Date()
+): FichaDoCrm {
+  const { etapa, engajamento, tratamento, proximaCompra, cupom } = entrada.etiquetas
+  const etiquetas: EtiquetaDaFicha[] = [
+    {
+      chave: "etapa",
+      nome: "Etapa",
+      valor: NOME_DA_ETAPA[etapa.valor],
+      porque: etapa.porque,
+      tom:
+        etapa.valor === "em-risco" || etapa.valor === "sunset"
+          ? "ruim"
+          : etapa.valor === "recorrente"
+            ? "bom"
+            : null,
+    },
+    {
+      chave: "engajamento",
+      nome: "Engajamento",
+      valor: engajamento.valor[0].toUpperCase() + engajamento.valor.slice(1),
+      porque: engajamento.porque,
+      tom: engajamento.valor === "quente" ? "bom" : null,
+    },
+    {
+      chave: "tratamento",
+      nome: "Tratamento",
+      valor: tratamento.dia === null ? "—" : `Dia ${tratamento.dia}`,
+      porque: tratamento.porque,
+      tom: null,
+    },
+    {
+      chave: "proxima",
+      nome: "Próxima compra",
+      valor: proximaCompra.em ? dia(proximaCompra.em) : "—",
+      porque:
+        proximaCompra.em && proximaCompra.em < agora
+          ? `${proximaCompra.porque} — a data já passou`
+          : proximaCompra.porque,
+      tom: proximaCompra.em && proximaCompra.em < agora ? "ruim" : null,
+    },
+    {
+      chave: "cupom",
+      nome: "Sensível a cupom",
+      valor: cupom.valor === null ? "—" : cupom.valor ? "Sim" : "Não",
+      porque: cupom.porque,
+      tom: null,
+    },
+  ]
+
+  const passos: (PassoDoCaminho & { em: Date })[] = []
+  for (const e of entrada.eventos) {
+    const em = emData(e.em)
+    if (!em || !ehTipo(e.tipo)) continue
+    passos.push({
+      id: e.id,
+      tipo: e.tipo,
+      em,
+      quando: "",
+      oque: emFraseDoCrm(e.tipo, e.dados),
+      nivel: null,
+    })
+  }
+  for (const e of entrada.emails) {
+    const f = emFraseDoEmail(e)
+    const em = emData(f.quando)
+    if (!em) continue
+    passos.push({ id: e.id, tipo: "email", em, quando: "", oque: f.oque, nivel: f.nivel })
+  }
+  for (const p of entrada.pedidos) {
+    if (!p.pagoEm) continue
+    passos.push({
+      id: p.id,
+      tipo: "pedido",
+      em: p.pagoEm,
+      quando: "",
+      oque: `pagou o pedido${p.numero ? ` #${p.numero}` : ""} · ${reais(p.total)}`,
+      nivel: "bom",
+    })
+  }
+  const primeira = emData(entrada.primeiraVisita)
+  // Sem a origem mas com a primeira visita: chegou direto (sem link de campanha nem site que mandou).
+  const chegada = entrada.origem ? nomeDaChegada(entrada.origem) : primeira ? "Direto" : null
+  return {
+    etiquetas,
+    origem: chegada && primeira ? `${chegada} · primeira visita em ${dia(primeira)}` : chegada,
+    caminho: passos
+      .sort((a, b) => b.em.getTime() - a.em.getTime())
+      .slice(0, 25)
+      .map(({ em, ...p }) => ({ ...p, quando: quando(em, agora) })),
+  }
+}
+
+/**
+ * A ficha do CRM a partir do que o banco devolve: os pedidos de todos os
+ * cadastros com o mesmo e-mail, os envios, a newsletter e o que o CRM sabe.
+ * Sem a área dos pedidos, o número do pedido não aparece (o marketing vê a
+ * compra e o valor, não o pedido).
+ */
+export function fichaDoCrmDoCliente(
+  entrada: {
+    crm: PessoaNoCrm
+    pedidos: PedidoCru[]
+    envios: Map<string, EnvioCru[]>
+    newsletterDesde: Date | null
+    comNumero: boolean
+  },
+  agora: Date = new Date()
+): FichaDoCrm {
+  const { crm } = entrada
+  const pedidos = entrada.pedidos.map((o) => {
+    const p = pedidoDaPessoa(o, entrada.envios.get(o.id))
+    return { ...p, numero: entrada.comNumero ? p.numero : null, total: totalDo(o) }
+  })
+  return montarFichaDoCrm(
+    {
+      etiquetas: etiquetasDaPessoa({
+        pedidos,
+        sinais: {
+          ultimoClique: emData(crm.ultimoClique),
+          ultimaVisita: emData(crm.ultimaVisita),
+          newsletterDesde: entrada.newsletterDesde,
+        },
+        agora,
+      }),
+      origem: crm.origem,
+      primeiraVisita: crm.primeiraVisita,
+      eventos: crm.eventos,
+      emails: crm.emails,
+      pedidos: pedidos.filter((p) => !p.cancelado),
+    },
+    agora
+  )
 }
