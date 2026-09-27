@@ -55,7 +55,26 @@ function oQue(itens: ItemDoFluxo[]): string {
   return "o seu pedido"
 }
 
+/**
+ * O e-mail de um toque, já com o estilo que decide a aba do Gmail
+ * (`EmailDoCrm.estilo`): o aviso do Pix tem a cara de e-mail de pedido; o que
+ * dá desconto é oferta (Promoções é o lugar dele); o resto é pessoal — texto
+ * simples, assinado, pra ter chance de cair em Principal.
+ */
 export function emailDoFluxo(c: CompraDoFluxo): EmailDoCrm {
+  const e = montar(c)
+  if (c.toque === "pix-vence")
+    return {
+      ...e,
+      estilo: "pedido",
+      porque: c.numero
+        ? `Você recebeu porque fez o pedido #${c.numero} na FuckingBarba.`
+        : "Você recebeu porque fez um pedido na FuckingBarba.",
+    }
+  return { ...e, estilo: e.blocos.some((b) => b.tipo === "cupom") ? "oferta" : "pessoal" }
+}
+
+function montar(c: CompraDoFluxo): EmailDoCrm {
   const fluxo = c.toque.startsWith("pix")
     ? "pix"
     : c.toque.startsWith("carrinho")
@@ -155,12 +174,6 @@ export function emailDoFluxo(c: CompraDoFluxo): EmailDoCrm {
             ],
           },
           produtos,
-          {
-            tipo: "texto",
-            texto: c.loja.whatsapp
-              ? "Dúvida de uso, de prazo ou de pagamento? O nosso WhatsApp está no pé deste e-mail."
-              : "Dúvida de uso, de prazo ou de pagamento? A página de contato da loja responde rápido.",
-          },
         ],
       }
     case "checkout-24h":

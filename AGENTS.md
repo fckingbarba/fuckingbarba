@@ -2549,6 +2549,31 @@ e confere:
 - o link que devolve a sacola com o cupom aplicado;
 - quem abre o checkout depois: a sacola para, e o fluxo do checkout assume.
 
+**Os e-mails dos fluxos e a aba do Gmail** (entrega 0170). Os testes do dono caíam em Promoções.
+O estilo de cada e-mail (`EmailDoCrm.estilo`, decidido em `emailDoFluxo`) escolhe o jeito dele e
+quem manda:
+
+- **"pedido"**: o aviso do Pix (`pix-vence`) tem a cara dos e-mails de pedido. O pé diz o número
+  do pedido, sem o sair da lista e sem o cabeçalho `List-Unsubscribe`. Sai do remetente dos
+  pedidos (`EMAIL_REMETENTE`), sem endereço de resposta.
+- **"oferta"**: o que leva cupom fica com o modelo da marca, como antes. Promoções é o lugar dele.
+- **"pessoal"**: os lembretes sem desconto (`emailPessoal`, em `lib/emails/crm.ts`). É texto
+  simples, sem foto nem botão, com um link só. Os produtos vão em lista e as avaliações entre
+  aspas. Fecha com "Qualquer dúvida, é só responder este e-mail." e a assinatura (`QUEM_ASSINA`).
+  O sair da lista fica no pé, em letra pequena, sem o cabeçalho. O fundo branco é declarado: o
+  Mail do iPhone escurece o e-mail sem cor de fundo, e a letra escura sumiria.
+- **Quem manda** é `comQuemManda` (em `lib/crm/motor.ts`; o "Mandar pra mim" dos fluxos usa a
+  mesma) com `remetenteDoEstilo` (em `lib/email.ts`):
+  - o pessoal sai do endereço do CRM, com o nome "Matheus, da FuckingBarba"
+    (`NOME_DO_REMETENTE_PESSOAL`);
+  - a resposta dos dois do CRM (oferta e pessoal) vai pro e-mail de atendimento das Configurações
+    (`responderPara`, o `reply_to` do Resend);
+  - sem o atendimento, o pessoal manda pro WhatsApp.
+- `enviarEmail` só manda `headers` quando tem algum.
+
+O `conferir-crm.mjs` confere o remetente, a falta de foto e de cabeçalho no pessoal, o cabeçalho na
+oferta e o pé do aviso do Pix.
+
 **O preço e o promocional no painel** (entregas 0098 e 0102): os dois campos de cada produto na
 lista de Produtos, como na Nuvemshop (a 0098 tinha só o promocional, atrás de um botão). A regra é
 `lib/painel/promocao.ts`, pura: `lerMudancaDePreco` (o corpo `{ preco?, promocional? }` contra o
