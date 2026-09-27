@@ -6,13 +6,12 @@ import { lerConfiguracoes } from "../configuracoes"
 import {
   exemplosDoCrm,
   PRODUTOS_DOS_EXEMPLOS,
-  type EmailDoCrm,
   type ExemploDoCrm,
   type ProdutoDoCrm,
 } from "../emails/crm"
 import { urlDaLoja } from "../emails/moldura"
 import { dia } from "../painel/formato"
-import { tokenDeSair } from "./sair"
+import { linksDeSair } from "./sair"
 
 /**
  * OS EXEMPLOS DO MODELO, PRA QUEM ESTÁ NO PAINEL — com os produtos, os
@@ -23,17 +22,9 @@ import { tokenDeSair } from "./sair"
  * Sem o `LOJA_URL`, nenhum link teria pra onde ir: volta vazio, e a tela diz.
  */
 
-/** Os links de sair da lista pra um e-mail: a página da loja e o clique único do backend. */
-export function linksDeSair(loja: string, email: string): EmailDoCrm["sair"] {
-  const t = tokenDeSair(email)
-  const backend = (process.env.MEDUSA_BACKEND_URL ?? "").trim().replace(/\/+$/, "")
-  return {
-    pagina: `${loja}/sair/${t}`,
-    umClique: /^https:\/\//.test(backend) ? `${backend}/crm/sair?t=${t}` : null,
-  }
-}
-
-async function produtosDosExemplos(container: MedusaContainer): Promise<Map<string, ProdutoDoCrm>> {
+export async function produtosDosExemplos(
+  container: MedusaContainer
+): Promise<Map<string, ProdutoDoCrm>> {
   const { data } = await container.resolve(ContainerRegistrationKeys.QUERY).graph({
     entity: "product",
     fields: ["id", "title", "handle", "thumbnail", "variants.id"],

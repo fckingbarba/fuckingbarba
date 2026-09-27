@@ -1,6 +1,7 @@
 import type { MedusaContainer } from "@medusajs/framework/types"
 import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
 import { whatsappDaLoja } from "./atendimento"
+import { linkDeVoltar } from "./crm/voltar"
 import { emailNoLog, enviarEmail } from "./email"
 import {
   emailDePedidoCancelado,
@@ -8,6 +9,7 @@ import {
   type MotivoDoCancelamento,
 } from "./emails/pedido-cancelado"
 import type { ItemDoEmail } from "./emails/pedido-confirmado"
+import { urlDaLoja } from "./emails/moldura"
 import { gravarNoMetadataDoPedido } from "./metadata-do-pedido"
 import { estadoDaSessao, sessaoDoParceiro } from "./pagamento/parceiros"
 
@@ -283,9 +285,16 @@ export async function avisarCancelamento(
 
       const cancelamento = paraCancelamentoDoEmail(pedido, decisao)
       const numero = cancelamento.numero
+      // O Pix que venceu ganha o "refazer o pedido": o link de voltar monta um carrinho novo
+      // com os mesmos produtos (`lib/crm/voltar-ao-checkout.ts`).
+      const loja = urlDaLoja()
       const email = emailDePedidoCancelado({
         cancelamento,
         whatsapp: await whatsappDaLoja(container),
+        refazer:
+          loja && cancelamento.motivo === "pix-vencido"
+            ? `${loja}/voltar/${linkDeVoltar(pedido.id, agora)}`
+            : null,
       })
       const r = await enviarEmail(email, logger, {
         idempotencia: `pedido-cancelado/${pedido.id}`,
