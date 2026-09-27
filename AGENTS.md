@@ -1196,7 +1196,7 @@ cada uma; a caixa de compra; o catálogo pros seletores; as categorias; o `noSit
 e o `historico`, lido do registro da equipe) abrem pra todo papel. Mudar é da linha
 `editarProdutos` do `ACESSO_PADRAO` (dono e marketing, no padrão): `POST /dashboard/produtos/:id/secao` (o texto e o
 fundo de UMA seção, num "Salvar"), `/ordem` (ligar, desligar, subir ou descer uma — sem "Salvar"),
-`/caixa`, `/textos` (o nome da loja, o subtítulo e a categoria), `/publicar` e `/imagens`. **O
+`/caixa`, `/textos` (o nome da loja, o subtítulo e as categorias), `/publicar` e `/imagens`. **O
 nome** mudado ali ganha a marca `fb_nome` (a importação do Bling não troca mais), e o nome igual
 ao do Bling tira a marca — o botão "Usar o do Bling" (`mudancaDoNome`, em
 `lib/painel/produtos.ts`, com testes). Nome da loja é curto: até uns 36 caracteres cabe em 2
@@ -1232,6 +1232,28 @@ fundo do armazenamento). Conferidor: `apps/dashboard/ferramentas/conferir-produt
 da loja no ar (`LOJA`), com o backend avisando ela (`LOJA_URL`), do admin local e da chave
 publicável; cria um produto em rascunho por rodada (e apaga no fim) e confere a caixa de compra no
 balm, devolvendo a página dele como estava.
+
+**As categorias do produto** (entrega 0151). Um produto pode estar em mais de uma categoria — o
+kit de barba em Kits e em Barba —, e a vitrine de cada uma mostra ele (a loja já pedia ao Medusa por
+`category_id`, e o "Todos" e o "resto da loja" já contavam por id). Nos Textos do produto: a
+**Categoria principal** (o select de antes) e o **"Aparece também em"** (as outras, em caixinhas,
+travadas sem a principal). A principal mora na marca `fb_categoria` (`MARCA_DA_CATEGORIA`, em
+`lib/erp/marcas.ts`): o Medusa não guarda ordem entre as categorias de um produto, e a primeira da
+resposta muda de uma leitura pra outra. Sem a marca (produto mexido fora do painel), vale a primeira
+pela ordem do menu — o `rank` no backend, `site.categorias` na loja. Ela decide a trilha da PDP (e o
+JSON-LD dela), o `product_type` e a categoria do Google no `/catalogo.xml`, o rótulo do chip no
+checkout (sem o metadata ali, que pesa: a ordem do menu) e a reserva do "Quem leva este, leva junto"
+sem o modelo — `categoriasDoProduto` no backend (`lib/painel/produtos.ts`, com testes) e
+`categoriaPrincipal` na loja (`lib/categorias.ts`), gêmeas. `POST /dashboard/produtos/:id/textos`
+recebe `categoriaId` (a principal) e `tambemEm` (as outras); sem `tambemEm` — o painel de antes: o
+painel e o backend sobem em horas diferentes —, as outras de hoje ficam (`categoriasGravadas`);
+outras sem a principal é 400 `sem_principal`. A lista de Produtos lê o metadata à parte, só de quem
+está em mais de uma. A importação do Bling deixa a marca onde deixa as categorias (na primeira vez e
+no produto recriado). Mexer nas categorias pelo admin do Medusa NÃO avisa a loja (não há subscriber
+de produto): a página fica velha até o próximo aviso — pelo painel, avisa. Os cupons "só com
+produtos de" contam o produto pelas categorias dele que o cupom escolheu (ver "Cupons e descontos").
+Conferidores: o `conferir-produtos` (a seção "Aparece também em", depois do histórico), o
+`conferir-cupons`, o `conferir-catalogo` (a trilha de cada produto) e o `conferir-feed`.
 
 **A galeria, o vídeo do modo de uso e o antes e depois** (fase 3, parte 2). As FOTOS da galeria
 continuam sendo as do produto no Medusa (`images` pela ordem `rank`, e a `thumbnail` = a primeira):
@@ -1489,8 +1511,11 @@ puro, com testes, e faz o seguinte:
   cancelados do e-mail do carrinho, numa consulta), `fb_cupons.itens.produtos` e
   `fb_cupons.itens.categorias` (o "só com produtos de" é um `eq` sobre a lista — no Medusa, `eq`
   com lista quer dizer "todos entre os escolhidos", como a Nuvemshop pede; produto sem categoria
-  entra como `sem-categoria`) e `fb_cupons.frete_da_loja` (o pedido já ganhou o frete grátis ou
-  fixo pelo valor; sem a política, "sim");
+  entra como `sem-categoria`; o produto em mais de uma categoria entra só com as que o cupom da
+  conta escolheu — o gancho lê as regras dos cupons que estão na conta, `cuponsNaConta` (a regra
+  do `getPromotionCodesToApply`) e `categoriasEscolhidas` —, senão o cupom de Kits recusava o kit
+  que também é de Barba; entrega 0151) e `fb_cupons.frete_da_loja` (o pedido já ganhou o frete
+  grátis ou fixo pelo valor; sem a política, "sim");
 - põe junto de toda condição a trava `fb_cupons.conferido = "sim"`, que o gancho só escreve quando
   leu tudo. O Medusa lê número que falta como zero (`MathBN`): sem a trava, uma conta sem o gancho
   (ou com a consulta dos pedidos falhando) deixaria passar o "vale até" e o "por cliente". O teste
