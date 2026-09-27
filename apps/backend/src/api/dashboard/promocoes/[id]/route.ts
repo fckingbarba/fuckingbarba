@@ -11,8 +11,8 @@ import { ehPromocaoDoPainel } from "../../../../lib/promocoes"
  * POST /dashboard/promocoes/:id — `{ acao: "pausar" | "ligar" }`: a chave da
  * promoção. Pausada, o Medusa não aplica mais — nem no carrinho que já
  * tinha o desconto: ele sai na próxima conferência do carrinho. E o produto
- * volta pras faixas de quantidade, e o selo sai da loja. Só as promoções do
- * painel (as automáticas `PROMO-`). Marketing e dono.
+ * volta pras faixas de quantidade que ela tirava, e o selo sai da loja. Só
+ * as promoções do painel (as automáticas `PROMO-`). Marketing e dono.
  *
  * RESPOSTAS: 200 `{ ok, ligado }`; 400 `acao`; 404 `nao_encontrado`.
  */

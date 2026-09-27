@@ -16,8 +16,8 @@ import { lerPromocaoNova, promocaoDoMedusa, promocaoNaLista } from "../../../lib
  *
  * Criada, ela vale na hora: o carrinho lê as promoções de novo
  * (`esquecerPromocoes`), o desconto por quantidade tira os produtos dela das
- * faixas (a loja decidiu que os dois não somam) e a loja é avisada — o selo e
- * os cartões da página do produto são dela.
+ * faixas que chegam no X (a loja decidiu que os dois não somam) e a loja é
+ * avisada — o selo e os cartões da página do produto são dela.
  *
  * RESPOSTAS: 200 `{ promocao }`; 422 `{ erros }` (campo → frase).
  */

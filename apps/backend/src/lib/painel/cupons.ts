@@ -40,7 +40,7 @@ export function descontosAutomaticos({
   frete: PoliticaDeFrete
   /** Nos últimos 7 dias: em quantos pedidos pagos a oferta do checkout entrou, e quantos foram. */
   oferta: { aceitas: number; pedidos: number }
-  /** Algum "Leve X, pague Y" do painel vale agora: os produtos dele saem das faixas. */
+  /** Algum "Leve X, pague Y" do painel vale agora: os produtos dele saem das faixas que chegam no X. */
   levePague?: boolean
 }): DescontoAutomatico[] {
   const alvo = (a: string) =>
@@ -51,7 +51,9 @@ export function descontosAutomaticos({
       titulo: "Desconto por quantidade",
       texto:
         fraseDasFaixas() +
-        (levePague ? ' Não vale nos produtos em "Leve X, pague Y": não soma.' : ""),
+        (levePague
+          ? ' Nos produtos em "Leve X, pague Y", só as faixas abaixo do X (num "leve 3", a de 2): não soma.'
+          : ""),
       valendo: true,
     },
     {
