@@ -41,6 +41,12 @@ export const metadata: Metadata = {
     description: site.descricao,
   },
   twitter: { card: "summary_large_image" },
+  // As marcas que a loja antiga (a Nuvemshop) tinha no <head>: o Search Console e a verificação do
+  // domínio na Meta (a dos anúncios) leem daqui. Sem elas, a virada do domínio desverifica os dois.
+  verification: {
+    google: "hKrbhlnoa4F5-VIJJG0WOllgtP-FOFKY4Tv-ZTP2D4w",
+    other: { "facebook-domain-verification": "pi6hil2ytb5ggy6jsvwyh3hkb6etno" },
+  },
 }
 
 export const viewport: Viewport = {

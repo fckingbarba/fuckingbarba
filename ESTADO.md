@@ -1211,8 +1211,11 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
         virada, com os últimos pedidos. Quando entrar, as Dúvidas podem responder "comprei na loja
         antiga, cadê meu pedido?" — hoje não respondem, de propósito (`conteudo/duvidas.ts`). E o
         motor de recomendação passa a aprender com anos de pedidos, em vez de começar do zero.
-  - [ ] Numeração: decidido que os pedidos novos começam depois do último da Nuvemshop (nada de dois
-        "#28"). **Falta você dizer o número** do pedido mais recente de lá.
+  - [x] Numeração: decidido que os pedidos novos começam depois do último da Nuvemshop (nada de dois
+        "#28"). O último de lá foi o **#3194** (27/09, 11h, pelo arquivo de vendas); a loja nova
+        numera do **#3301** em diante, com folga pro que a Nuvemshop ainda receber até o domínio
+        virar (entrega 0159, `migration-scripts/numeracao-depois-da-nuvemshop.ts`, roda uma vez no
+        deploy e nunca volta a sequência).
 - [ ] O checkout não pede mais aceite das regras de troca (a linha embaixo do botão de pagar saiu
       no enxugamento de 21/09), e desde 22/09 também não fala mais em desistência. As regras seguem
       publicadas no `/trocas`, com link no rodapé.
