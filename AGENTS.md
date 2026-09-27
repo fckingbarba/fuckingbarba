@@ -1998,6 +1998,16 @@ cookies e a compra pelo servidor:
   nenhum script de fora na página. Os trechos são os oficiais, com o código conferido de novo. As
   trocas de página cada plataforma conta sozinha (GA4, Meta, TikTok e Clarity escutam o histórico):
   não mande `page_view` à mão.
+- **A campanha do link** (entrega 0162): cada plataforma lê a campanha no ENDEREÇO da página em
+  que liga — as UTMs e o clique do anúncio (`gclid`, `gbraid`, `wbraid`, `gad_*`, `dclid`,
+  `srsltid`, `fbclid`, `ttclid`, `msclkid`) —, e as tags só ligam no sim. Quem aceitava depois de
+  trocar de página chegava sem campanha em todas (27/09: a Clarity só via o site). O
+  `guardarACampanha` (`lib/chegada.ts`, no efeito do `tags.tsx`) guarda a da página de chegada na
+  aba (`fb_campanha`; outro link na mesma aba troca), e o `devolverACampanha`, no começo do
+  `ligarIntegracoes`, a devolve ao endereço antes dos scripts quando ele não tem campanha nenhuma —
+  uma vez por campanha (`fb_campanha_devolvida`). É o `history.replaceState(null, …)` do guia do
+  Next: o roteador assume o endereço e não o desfaz. Parâmetro de plataforma nova: no
+  `DA_CAMPANHA`.
 - **Os eventos** saem só por `lib/rastrear.ts`: `gtag('event', …)` pro GA4 e o Ads (o
   `dataLayer.push` de objeto, sem GTM, o gtag.js ignora), os padrões da Meta e do TikTok, e marcas
   na Clarity. Até as tags ligarem, o evento espera numa fila da página (o efeito do produto roda
@@ -2027,10 +2037,12 @@ cookies e a compra pelo servidor:
   tela de obrigado, com o pagamento entrado (o `transaction_id` descarta a repetida).
 - **A Clarity** fica coberta (`data-clarity-mask`) no checkout, na conta e na tela de obrigado.
 
-O conferidor é o `apps/dashboard/ferramentas/conferir-integracoes.mjs` (29; a seção "A faixa e as
+O conferidor é o `apps/dashboard/ferramentas/conferir-integracoes.mjs` (35; a seção "A faixa e as
 barras do pé da tela" confere, no celular e no computador, que o meio de cada botão da faixa e o da
-barra é o próprio botão, e o tamanho da faixa no celular). Ele troca os scripts de
-fora por um de mentira (o `route` do Playwright) e lê as filas dos trechos (`dataLayer`,
+barra é o próprio botão, e o tamanho da faixa no celular; a "A campanha do link, pra quem aceita
+depois" chega com UTMs, `gclid` e `fbclid`, troca de página pelo Next e só então aceita). Ele troca
+os scripts de fora por um de mentira (o `route` do Playwright), que anota o endereço da página na
+hora em que carrega (`__endereco`), e lê as filas dos trechos (`dataLayer`,
 `fbq.queue`, `ttq`, `clarity.q`); a compra, no `apps/loja/ferramentas/anuncios-falsos.mjs` (4370,
 `PORTA_ANUNCIOS`), com os pedidos da `fabricaDePedidos` (que devolve o `carrinho` pro crachá da
 tela de obrigado).
