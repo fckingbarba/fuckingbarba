@@ -99,7 +99,8 @@ export function pedidoDaCompra(o: PedidoLido): PedidoDaCompra | null {
     itens
       .flatMap((i) => i.adjustments ?? [])
       .map((a) => a?.code ?? "")
-      .find((c) => c && !c.startsWith("BUMP-")) ?? null
+      // O cupom que a pessoa digitou: nem a oferta do checkout, nem a promoção automática.
+      .find((c) => c && !c.startsWith("BUMP-") && !c.startsWith("PROMO-")) ?? null
   return {
     id: o.id,
     numero: Number(o.display_id ?? 0),

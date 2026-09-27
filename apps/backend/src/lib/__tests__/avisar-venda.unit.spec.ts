@@ -220,6 +220,16 @@ describe("o pedido no formato do aviso", () => {
     expect(v.cupons).toEqual(["BARBA10"])
   })
 
+  it("o código da promoção automática (o Leve X, pague Y) também não é cupom", () => {
+    const item = pedido().items![0]!
+    const v = paraVenda(
+      pedido({
+        items: [{ ...item, adjustments: [{ code: "PROMO-3F9A12C7" }, { code: "VOLTA10" }] }],
+      })
+    )
+    expect(v.cupons).toEqual(["VOLTA10"])
+  })
+
   it("sem captura (não chega aqui pela decisão), a hora é a de agora", () => {
     const agora = new Date("2026-09-26T18:00:00.000Z")
     const v = paraVenda(pedido({ payment_collections: [] }), agora)
