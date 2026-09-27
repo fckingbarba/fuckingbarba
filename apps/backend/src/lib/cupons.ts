@@ -207,18 +207,33 @@ export function linhasMarcadas<T extends ItemDoCarrinho>(
 
 /**
  * UM CUPOM POR PEDIDO: `null` se pode, ou o código que já está no carrinho.
- * Só quando alguém PÕE um código (`add`, o que a API da loja faz): a conta
- * do Medusa refaz as promoções a cada mudança com `replace`, e um carrinho
- * que (de antes da regra) tivesse dois cupons não pode travar.
+ *
+ * - `add` (o que a API da loja faz quando alguém digita): o código novo não
+ *   entra se já há outro de campanha, nem vêm dois de uma vez.
+ * - `replace` (a lista inteira no lugar da de antes): é o que a conta do
+ *   Medusa faz a cada mudança no carrinho, com os MESMOS códigos — e um
+ *   carrinho que (de antes da regra) tivesse dois cupons não pode travar ali.
+ *   Mas o `promo_codes` no corpo de criar ou atualizar o carrinho também
+ *   chega como `replace`, e por ele cinco cupons somados passavam (entrega
+ *   0136: R$ 153,90 → R$ 81,06 no banco local). Então o `replace` só é
+ *   recusado quando TRAZ código de campanha que o carrinho não tinha e a
+ *   lista fica com mais de um. (A rota fica fechada também no middleware.)
+ * - `remove`: sempre pode.
  */
 export function outroCupomNoCarrinho(
   atuais: (string | null | undefined)[],
   novos: string[],
   acao: string | undefined
 ): string | null {
-  if (acao && acao !== "add") return null
   const campanha = (c: string | null | undefined): c is string => Boolean(c) && !ehDaOferta(c!)
   const novosDeCampanha = new Set(novos.filter(campanha).map((c) => c.toUpperCase()))
+  if (acao === "replace") {
+    const antes = new Set(atuais.filter(campanha).map((c) => c.toUpperCase()))
+    if (novosDeCampanha.size < 2 || [...novosDeCampanha].every((c) => antes.has(c))) return null
+    const entrou = [...novosDeCampanha].find((c) => !antes.has(c))
+    return [...novosDeCampanha].find((c) => c !== entrou) ?? null
+  }
+  if (acao && acao !== "add") return null
   if (!novosDeCampanha.size) return null
   if (novosDeCampanha.size > 1) return [...novosDeCampanha][0]
   return atuais.filter(campanha).find((c) => !novosDeCampanha.has(c.toUpperCase())) ?? null
@@ -470,6 +485,14 @@ export function regrasDoCupom(c: CupomNovo): RegraDoCupom[] {
  * 100% do frete — de qualquer opção, ou só das `maisBaratas` (os ids da
  * entrega econômica, que a rota acha pela `faixa`). O que não combina com
  * outras promoções não desconta o produto em promoção (regra de alvo).
+ *
+ * O CUPOM EM REAIS QUE NÃO COMBINA MIRA OS PRODUTOS, e não o pedido: regra de
+ * alvo numa promoção de alvo "order" o Medusa recusa ("Target rules for
+ * application method with target type (order) is not allowed"), e o painel
+ * só dizia "Não consegui falar com a loja" (entrega 0136). Nos produtos, com
+ * o valor dividido entre eles (`across`), é o mesmo desconto — só que fora
+ * das linhas em promoção, como o de porcentagem. O que combina segue no
+ * pedido, como os 104 da Nuvemshop.
  */
 export function promocaoDoCupom(
   c: CupomNovo,
@@ -517,7 +540,9 @@ export function promocaoDoCupom(
         : c.tipo === "reais"
           ? {
               type: ApplicationMethodType.FIXED,
-              target_type: ApplicationMethodTargetType.ORDER,
+              target_type: semPromocao.length
+                ? ApplicationMethodTargetType.ITEMS
+                : ApplicationMethodTargetType.ORDER,
               allocation: ApplicationMethodAllocation.ACROSS,
               value: c.valor,
               currency_code: "brl",

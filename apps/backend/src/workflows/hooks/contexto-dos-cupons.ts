@@ -76,7 +76,9 @@ updateCartPromotionsWorkflow.hooks.setPromotionContext(async ({ cart }, { contai
  * num carrinho que já tem outro ouve "não" (a oferta do checkout não conta).
  * A loja tira o de antes quando a pessoa digita outro
  * (`apps/loja/src/lib/acoes/checkout.ts`). A conta do Medusa a cada mudança
- * no carrinho (`replace`) passa direto: ver `outroCupomNoCarrinho`.
+ * no carrinho (`replace` com os mesmos códigos) passa; o `replace` que traz
+ * cupom novo e deixa dois não (o `promo_codes` no corpo do carrinho, que o
+ * middleware também fecha — entrega 0136): ver `outroCupomNoCarrinho`.
  */
 updateCartPromotionsWorkflow.hooks.validate(async ({ input, cart }) => {
   const c = cart as { promotions?: ({ code?: string | null } | null)[] | null }
