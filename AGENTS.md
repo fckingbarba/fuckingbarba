@@ -227,9 +227,10 @@ precisa sair da janela dela — ver `longeDaConciliacaoAutomatica` no conferidor
   estourado no Lighthouse — ver `apps/loja/src/components/catalogo/tela.tsx`. A `/busca` é a
   exceção, porque o `?q=` não tem como ser gerado no build.
 - **Sem GTM, sem widget de terceiro no `<head>`.** Tags entram por `components/analytics/tags.tsx`:
-  o GA4 desde a primeira página, só medindo (quem clica em "Só o necessário" sai — entrega 0166, o
-  dono quis as visitas contadas como na Nuvemshop); as outras, depois do "Aceitar". Orçamento de
-  terceiros: 150 KB (Lighthouse CI quebra acima).
+  o GA4 e a Clarity desde a primeira página, só medindo (quem clica em "Só o necessário" sai —
+  entregas 0166 e 0171: o dono quis as visitas contadas como na Nuvemshop, e a jornada de quem não
+  responde a faixa na Clarity); as outras, depois do "Aceitar". Orçamento de terceiros: 150 KB
+  (Lighthouse CI quebra acima).
 - **Segredo nunca com `NEXT_PUBLIC_`.** Chaves de servidor ficam no Railway e na Vercel, nunca em código.
 - **Chave nunca passa pela conversa.** Token, senha e segredo vão direto no painel do Railway ou da
   Vercel, por quem tem acesso a ele. Se um aparecer colado num chat, num log ou num commit, conta como
@@ -2042,20 +2043,22 @@ cookies e a compra pelo servidor:
   checkout. No celular a faixa é menor: letra de 12 px e cada botão numa linha.
 - **As tags** (`components/analytics/`): `tags.tsx` (no layout raiz, com o GA4 da Vercel de
   reserva) chama `ligarIntegracoes(i, sim)` (`integracoes.ts`, baixado por `import()` só quando
-  alguma tag liga) em dois tempos (entrega 0166): SEM RESPOSTA, só o GA4, com
-  `analytics_storage` permitido e os três de anúncio negados — conta a visita como a Nuvemshop
-  contava, sem nada pra anúncio; COM O SIM, o `consent update` do anúncio, o Google Ads, a Meta, o
-  TikTok e a Clarity. Com o "não", o GA4 nem liga; se já estava na página, `responder`
-  (`consentimento.tsx`) liga o `ga-disable-<código>`, apaga os cookies dos parceiros
+  alguma tag liga) em dois tempos (entregas 0166 e 0171): SEM RESPOSTA, o GA4 (com
+  `analytics_storage` permitido e os três de anúncio negados) e a Clarity (`consentv2` com
+  `ad_Storage` negado) — contam e gravam a visita como a Nuvemshop, sem nada pra anúncio; COM O
+  SIM, o `consent update` do Google e o `consentv2` liberado da Clarity, o Google Ads, a Meta e o
+  TikTok. Com o "não", os dois nem ligam; se já estavam na página, `responder`
+  (`consentimento.tsx`) liga o `ga-disable-<código>`, nega o `consentv2`, apaga os cookies dos parceiros
   (`_ga`, `_ga_*`, `_gcl_*`, `_fbp`, `_fbc`, `_ttp`, `_clck`, `_clsk`, em cada domínio de cima) e
   recarrega. A resposta que muda antes do `import()` chegar cancela o que ele ia montar. Os
   trechos são os oficiais, com o código conferido de novo. As trocas de página cada plataforma
   conta sozinha (GA4, Meta, TikTok e Clarity escutam o histórico): não mande `page_view` à mão.
 - **A campanha do link** (entrega 0162): cada plataforma lê a campanha no ENDEREÇO da página em
   que liga — as UTMs e o clique do anúncio (`gclid`, `gbraid`, `wbraid`, `gad_*`, `dclid`,
-  `srsltid`, `fbclid`, `ttclid`, `msclkid`) —, e as tags do sim só ligam no "Aceitar" (o GA4 liga
-  na chegada e lê a campanha ali; quando ela volta, vê uma página a mais). Quem aceitava depois de
-  trocar de página chegava sem campanha em todas (27/09: a Clarity só via o site). O
+  `srsltid`, `fbclid`, `ttclid`, `msclkid`) —, e as tags do sim só ligam no "Aceitar" (o GA4 e a
+  Clarity ligam na chegada e leem a campanha ali; quando ela volta, veem uma página a mais). Quem
+  aceitava depois de trocar de página chegava sem campanha em todas (27/09: a Clarity só via o
+  site). O
   `guardarACampanha` (`lib/chegada.ts`, no efeito do `tags.tsx`) guarda a da página de chegada na
   aba (`fb_campanha`; outro link na mesma aba troca), e o `devolverACampanha`, no começo do
   `ligarIntegracoes`, a devolve ao endereço antes dos scripts quando ele não tem campanha nenhuma —
@@ -2064,9 +2067,10 @@ cookies e a compra pelo servidor:
   `DA_CAMPANHA`.
 - **Os eventos** saem só por `lib/rastrear.ts`: `gtag('event', …)` pro GA4 e o Ads (o
   `dataLayer.push` de objeto, sem GTM, o gtag.js ignora), os padrões da Meta e do TikTok, e marcas
-  na Clarity. São duas portas, cada uma com a sua fila na página: a do Google abre quando o gtag
-  liga (o GA4, sem resposta ou com o sim), a dos outros e do CRM só com o sim (o efeito do produto
-  roda antes do das tags); porta que não abre leva a fila junto com a página. Onde nascem: `view_item` na caixa de compra,
+  na Clarity. São duas portas, cada uma com a sua fila na página: a da medição abre quando o GA4
+  ou a Clarity ligam (sem resposta ou com o sim) e leva o `gtag('event', …)` e as marcas da
+  Clarity; a dos outros e do CRM, só com o sim (o efeito do produto roda antes do das tags); porta
+  que não abre leva a fila junto com a página. Onde nascem: `view_item` na caixa de compra,
   `add_to_cart`/`remove_from_cart` pela diferença da sacola no provedor
   (`rastrearMudancaDaSacola` — pega a página do produto, o leva junto, a oferta e o "+"),
   `begin_checkout` e `add_shipping_info` nas etapas, `add_payment_info` no pagar. O `item_id` é o
