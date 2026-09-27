@@ -4,6 +4,8 @@ import {
   comecoDoPix,
   deMadrugada,
   decidir,
+  diasDoFluxo,
+  FLUXOS,
   fluxosLigados,
   guardarConfigDosFluxos,
   lerConfigDosFluxos,
@@ -12,6 +14,7 @@ import {
   toqueDaVez,
   type Entrada,
   type Registro,
+  validadeDoCupom,
 } from "../fluxos"
 
 /**
@@ -30,7 +33,7 @@ const ligados = { pix: LIGOU, checkout: LIGOU }
 const EMAIL = (() => {
   for (let i = 0; ; i++) {
     const e = `rafael${i}@exemplo.com`
-    if (!noControle(e, "checkout") && !noControle(e, "pix")) return e
+    if (!noControle(e, "checkout") && !noControle(e, "pix") && !noControle(e, "carrinho")) return e
   }
 })()
 
@@ -234,7 +237,11 @@ describe("o aviso do Pix", () => {
 describe("a configuração dos fluxos", () => {
   it("sem nada guardado: ligados, sem o desde, 10% de desconto", () => {
     expect(lerConfigDosFluxos({})).toEqual({
-      fluxos: { pix: { ligado: true, desde: null }, checkout: { ligado: true, desde: null } },
+      fluxos: {
+        pix: { ligado: true, desde: null },
+        checkout: { ligado: true, desde: null },
+        carrinho: { ligado: true, desde: null },
+      },
       desconto: 10,
     })
     // O ligado sem desde ainda não vale: a primeira rodada só guarda a hora.
@@ -246,6 +253,7 @@ describe("a configuração dos fluxos", () => {
       fluxos: {
         pix: { ligado: false, desde: LIGOU },
         checkout: { ligado: true, desde: LIGOU },
+        carrinho: { ligado: false, desde: null },
       },
       desconto: 15,
     }
@@ -255,7 +263,11 @@ describe("a configuração dos fluxos", () => {
     expect(
       lerConfigDosFluxos({ [CHAVE_DOS_FLUXOS]: { desconto: 90, pix: { desde: "ontem" } } })
     ).toEqual({
-      fluxos: { pix: { ligado: true, desde: null }, checkout: { ligado: true, desde: null } },
+      fluxos: {
+        pix: { ligado: true, desde: null },
+        checkout: { ligado: true, desde: null },
+        carrinho: { ligado: true, desde: null },
+      },
       desconto: 10,
     })
   })
@@ -287,5 +299,46 @@ describe("de madrugada, só o urgente", () => {
       agora: new Date("2026-09-28T11:05:00Z"),
     })
     expect(manha?.decisao).toMatchObject({ tipo: "mandar", toque: { id: "checkout-4h" } })
+  })
+})
+
+describe("o carrinho abandonado", () => {
+  it("os toques: 1 h, 12 h, 1 dia com o cupom, 3 e 5 dias; o cupom vale 3 dias", () => {
+    expect(FLUXOS.carrinho.toques.map((t) => [t.id, t.depois / HORA, Boolean(t.cupom)])).toEqual([
+      ["carrinho-1h", 1, false],
+      ["carrinho-12h", 12, false],
+      ["carrinho-24h", 24, true],
+      ["carrinho-3d", 72, false],
+      ["carrinho-5d", 120, false],
+    ])
+    expect(validadeDoCupom("carrinho")).toBe(3 * DIA)
+    expect(validadeDoCupom("checkout")).toBe(2 * DIA)
+    // A janela do motor: o último toque, a validade dele e mais um dia.
+    expect([diasDoFluxo("pix"), diasDoFluxo("checkout"), diasDoFluxo("carrinho")]).toEqual([
+      4, 4, 7,
+    ])
+  })
+
+  it("o checkout vem antes do carrinho da mesma pessoa", () => {
+    const sacola: Entrada = { ...checkout(), fluxo: "carrinho", chave: "cart_9" }
+    const noCheckout = checkout({ chave: "cart_10" })
+    const r = decidir({
+      entradas: [sacola, noCheckout],
+      registros: [],
+      ligados: { ...ligados, carrinho: LIGOU },
+      agora: depois(sacola, HORA + MIN),
+    })
+    expect(r?.entrada.fluxo).toBe("checkout")
+  })
+
+  it("com o fluxo do carrinho sozinho, o de 1 hora sai", () => {
+    const sacola: Entrada = { ...checkout(), fluxo: "carrinho", chave: "cart_9" }
+    const r = decidir({
+      entradas: [sacola],
+      registros: [],
+      ligados: { carrinho: LIGOU },
+      agora: depois(sacola, HORA + MIN),
+    })
+    expect(r?.decisao).toMatchObject({ tipo: "mandar", toque: { id: "carrinho-1h" } })
   })
 })

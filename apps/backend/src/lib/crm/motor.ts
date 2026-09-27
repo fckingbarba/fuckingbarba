@@ -1,6 +1,8 @@
 import type { MedusaContainer } from "@medusajs/framework/types"
 import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
 import { CRM } from "../../modules/crm"
+import { AVALIACOES } from "../../modules/avaliacoes"
+import type AvaliacoesService from "../../modules/avaliacoes/service"
 import type CrmService from "../../modules/crm/service"
 import type { RegistroLido } from "../../modules/crm/service"
 import { EQUIPE } from "../../modules/equipe"
@@ -20,6 +22,7 @@ import {
   comecoDoPix,
   decidir,
   DIAS_ENTRE_CUPONS,
+  diasDoFluxo,
   fluxosLigados,
   guardarConfigDosFluxos,
   IDS_DOS_FLUXOS,
@@ -28,6 +31,7 @@ import {
   type IdDoFluxo,
   type IdDoToque,
   type Registro,
+  validadeDoCupom,
 } from "./fluxos"
 import { linksDeSair } from "./sair"
 import { linkDeVoltar } from "./voltar"
@@ -39,8 +43,10 @@ import { linkDeVoltar } from "./voltar"
  *
  *   1. os fluxos ligados — o ligado que ainda não tem hora de início ganha
  *      a de agora, e só a próxima rodada olha as pessoas;
- *   2. as entradas dos últimos 3 dias: os carrinhos com e-mail que não
- *      fecharam (checkout) e os pedidos com Pix que não foi pago (Pix);
+ *   2. as entradas da janela de cada fluxo (o último toque e mais um dia):
+ *      os carrinhos com e-mail que não fecharam (checkout), os sem e-mail de
+ *      quem a loja conhece pelo CRM (carrinho) e os pedidos com Pix que não
+ *      foi pago (Pix);
  *   3. quem fica de fora: a equipe, quem saiu da lista (sem um "sim" novo
  *      depois) e o e-mail que voltou ou reclamou de spam;
  *   4. pra cada pessoa, a decisão: mandar (com o cupom, se for a vez dele),
@@ -53,7 +59,6 @@ import { linkDeVoltar } from "./voltar"
  */
 
 const DIA = 24 * 60 * 60 * 1000
-const JANELA = 3 * DIA
 const POR_RODADA = 60
 const PAUSA_MS = 600
 
@@ -71,6 +76,7 @@ export type RelatorioDosFluxos = {
 }
 
 type Item = {
+  product_id?: string | null
   product_title?: string | null
   product_handle?: string | null
   thumbnail?: string | null
@@ -112,6 +118,9 @@ type Detalhe = {
   pix: { codigo: string; imagem: string | null; vence: Date } | null
   /** Pedido do Pix cancelado depois de vencer — os toques de 24 e 48 horas só saem assim. */
   pixVencido: boolean
+  /** Os produtos da sacola, pras avaliações do e-mail de 12 horas do carrinho. */
+  produtos: string[]
+  depoimentos: NonNullable<CompraDoFluxo["depoimentos"]>
 }
 
 const minusculo = (e: string | null | undefined) => (e ?? "").trim().toLowerCase()
@@ -202,12 +211,28 @@ export async function rodarOsFluxos(
     return relatorio
   }
 
-  /* 2. as entradas */
-  const inicio = new Date(
-    Math.max(Math.min(...Object.values(ligados).map((d) => d.getTime())), agora.getTime() - JANELA)
-  )
+  /* 2. as entradas — cada fluxo com a sua janela: o último toque e mais um dia */
+  const janela = (id: IdDoFluxo) => {
+    const desde = ligados[id]
+    return desde
+      ? new Date(Math.max(desde.getTime(), agora.getTime() - diasDoFluxo(id) * DIA))
+      : null
+  }
+  const inicioDo = {
+    pix: janela("pix"),
+    checkout: janela("checkout"),
+    carrinho: janela("carrinho"),
+  }
+  const maisCedo = (...datas: (Date | null)[]) => {
+    const validas = datas.filter((d): d is Date => d !== null).map((d) => d.getTime())
+    return validas.length ? new Date(Math.min(...validas)) : null
+  }
+  // Os carrinhos com e-mail servem ao checkout e ao carrinho (quem abriu o checkout depois, parou).
+  const inicioComEmail = maisCedo(inicioDo.checkout, inicioDo.carrinho)
+  const inicioDosPedidos = maisCedo(inicioDo.pix, inicioDo.checkout, inicioDo.carrinho) as Date
   const query = container.resolve(ContainerRegistrationKeys.QUERY)
   const campoDoItem = [
+    "items.product_id",
     "items.product_title",
     "items.product_handle",
     "items.thumbnail",
@@ -215,24 +240,53 @@ export async function rodarOsFluxos(
     "items.unit_price",
     "items.compare_at_unit_price",
   ]
-  const [carrinhos, pedidos] = await Promise.all([
-    ligados.checkout
+  const camposDoCarrinho = [
+    "id",
+    "email",
+    "updated_at",
+    "shipping_address.first_name",
+    "billing_address.first_name",
+    ...campoDoItem,
+  ]
+  const crm = container.resolve<CrmService>(CRM)
+  // As sacolas sem e-mail: só as que o CRM sabe de quem são (um dia de folga pra trás).
+  const donos = inicioDo.carrinho
+    ? await crm.carrinhosComDono(new Date(inicioDo.carrinho.getTime() - DIA))
+    : new Map<string, string>()
+  const lerSacolas = async (): Promise<CarrinhoCru[]> => {
+    const ids = [...donos.keys()]
+    const lidos: CarrinhoCru[] = []
+    for (let i = 0; i < ids.length && inicioDo.carrinho; i += 500) {
+      const { data } = await query.graph({
+        entity: "cart",
+        fields: camposDoCarrinho,
+        filters: {
+          id: ids.slice(i, i + 500),
+          completed_at: null,
+          email: null,
+          updated_at: { $gte: inicioDo.carrinho },
+        },
+      })
+      lidos.push(...(data as unknown as CarrinhoCru[]))
+    }
+    return lidos
+  }
+  const [comEmail, semEmail, pedidos] = await Promise.all([
+    inicioComEmail
       ? query
           .graph({
             entity: "cart",
-            fields: [
-              "id",
-              "email",
-              "updated_at",
-              "shipping_address.first_name",
-              "billing_address.first_name",
-              ...campoDoItem,
-            ],
-            filters: { completed_at: null, updated_at: { $gte: inicio }, email: { $ne: null } },
+            fields: camposDoCarrinho,
+            filters: {
+              completed_at: null,
+              updated_at: { $gte: inicioComEmail },
+              email: { $ne: null },
+            },
             pagination: { take: 2000, order: { updated_at: "DESC" } },
           })
           .then((r) => r.data as unknown as CarrinhoCru[])
       : Promise.resolve([] as CarrinhoCru[]),
+    lerSacolas(),
     // Os pedidos da janela: os do Pix e os que dizem "comprou". Como na tela dos
     // carrinhos, o e-mail é comparado sem maiúsculas aqui, e não no banco.
     query
@@ -251,7 +305,7 @@ export async function rodarOsFluxos(
           "payment_collections.payment_sessions.status",
           "payment_collections.payment_sessions.data",
         ],
-        filters: { created_at: { $gte: new Date(inicio.getTime() - DIA) } },
+        filters: { created_at: { $gte: new Date(inicioDosPedidos.getTime() - DIA) } },
         pagination: { take: 5000, order: { created_at: "DESC" } },
       })
       .then((r) => r.data as unknown as PedidoCru[]),
@@ -265,30 +319,57 @@ export async function rodarOsFluxos(
         minusculo(p.email) === email &&
         new Date(p.created_at).getTime() > depois.getTime()
     )
+  /** Se a pessoa abriu o checkout (um carrinho com o e-mail dela) depois desta hora. */
+  const abriuCheckoutDepois = (email: string, depois: Date) =>
+    comEmail.some(
+      (c) => minusculo(c.email) === email && new Date(c.updated_at).getTime() > depois.getTime()
+    )
+  const semPix = { numero: null, pix: null, pixVencido: false, produtos: [], depoimentos: [] }
 
   const entradas: Entrada[] = []
   const detalhes = new Map<string, Detalhe>()
-  for (const c of carrinhos) {
-    const email = minusculo(c.email)
-    const itens = itensDo(c.items)
-    if (!email || !itens.length) continue
-    const comeco = new Date(c.updated_at)
-    entradas.push({
-      fluxo: "checkout",
-      chave: c.id,
-      email,
-      comeco,
-      comprou: comprouDepois(email, comeco),
-    })
-    detalhes.set(c.id, {
-      itens,
-      nome: primeiroNome(c.shipping_address ?? null, c.billing_address ?? null),
-      numero: null,
-      pix: null,
-      pixVencido: false,
-    })
+  if (inicioDo.checkout)
+    for (const c of comEmail) {
+      const email = minusculo(c.email)
+      const itens = itensDo(c.items)
+      const comeco = new Date(c.updated_at)
+      if (!email || !itens.length || comeco < inicioDo.checkout) continue
+      entradas.push({
+        fluxo: "checkout",
+        chave: c.id,
+        email,
+        comeco,
+        comprou: comprouDepois(email, comeco),
+      })
+      detalhes.set(c.id, {
+        ...semPix,
+        itens,
+        nome: primeiroNome(c.shipping_address ?? null, c.billing_address ?? null),
+      })
+    }
+  if (inicioDo.carrinho) {
+    // A sacola não tem e-mail: quem diz de quem ela é são as anotações do CRM.
+    for (const c of semEmail.filter((x) => (x.items ?? []).length)) {
+      const email = minusculo(donos.get(c.id))
+      if (!email) continue
+      const comeco = new Date(c.updated_at)
+      entradas.push({
+        fluxo: "carrinho",
+        chave: c.id,
+        email,
+        comeco,
+        // Comprou, ou abriu o checkout depois (aí quem cuida é o fluxo do checkout).
+        comprou: comprouDepois(email, comeco) || abriuCheckoutDepois(email, comeco),
+      })
+      detalhes.set(c.id, {
+        ...semPix,
+        itens: itensDo(c.items),
+        nome: null,
+        produtos: (c.items ?? []).flatMap((i) => (i.product_id ? [i.product_id] : [])),
+      })
+    }
   }
-  if (ligados.pix)
+  if (inicioDo.pix)
     for (const p of pedidos) {
       const email = minusculo(p.email)
       const sessoes = (p.payment_collections ?? []).flatMap((c) => c.payment_sessions ?? [])
@@ -296,6 +377,7 @@ export async function rodarOsFluxos(
       const vence = estado?.pix?.expiraEm ? new Date(estado.pix.expiraEm) : null
       if (!email || estado?.forma !== "pix" || !vence || Number.isNaN(vence.getTime())) continue
       const criado = new Date(p.created_at)
+      if (criado < inicioDo.pix) continue
       entradas.push({
         fluxo: "pix",
         chave: p.id,
@@ -305,6 +387,7 @@ export async function rodarOsFluxos(
         comprou: estado.situacao === "pago" || comprouDepois(email, criado, p.id),
       })
       detalhes.set(p.id, {
+        ...semPix,
         itens: itensDo(p.items),
         nome: primeiroNome(p.shipping_address ?? null),
         numero: p.display_id ?? null,
@@ -319,10 +402,10 @@ export async function rodarOsFluxos(
     entradas.splice(0, entradas.length, ...entradas.filter((e) => e.email === quem))
   }
   if (!entradas.length) return relatorio
+  await completarOsDoCarrinho(container, entradas, detalhes)
 
   /* 3. quem fica de fora */
   const emails = [...new Set(entradas.map((e) => e.email))]
-  const crm = container.resolve<CrmService>(CRM)
   const [equipe, saidas, semEntrega, lidos] = await Promise.all([
     daEquipe(container),
     crm.quemSaiu(emails),
@@ -382,6 +465,7 @@ export async function rodarOsFluxos(
             ...(await criarCupomDoFluxo(container, {
               porcento: config.c.desconto,
               agora,
+              validade: validadeDoCupom(entrada.fluxo),
             })),
             porcento: config.c.desconto,
           }
@@ -395,6 +479,7 @@ export async function rodarOsFluxos(
         numero: detalhe.numero,
         pix: decisao.toque.id === "pix-vence" ? detalhe.pix : null,
         cupom,
+        depoimentos: detalhe.depoimentos,
         voltar: linkDeVoltar(entrada.chave, agora),
         sair: linksDeSair(loja, email),
         loja: infoDaLoja,
@@ -501,4 +586,61 @@ async function dadosDaLoja(
   ])
   const { empresa } = lerConfiguracoes(lojas[0]?.metadata)
   return { url, whatsapp, empresa: empresa.razaoSocial, cnpj: empresa.cnpj }
+}
+
+/**
+ * O que a sacola não tem e o e-mail do carrinho usa: o primeiro nome (da
+ * conta com aquele e-mail, se tiver) e as avaliações de verdade dos produtos
+ * — as aprovadas no painel, de 4 e 5 estrelas, as mais novas primeiro.
+ */
+async function completarOsDoCarrinho(
+  container: MedusaContainer,
+  entradas: Entrada[],
+  detalhes: Map<string, Detalhe>
+) {
+  const doCarrinho = entradas.filter((e) => e.fluxo === "carrinho")
+  if (!doCarrinho.length) return
+  const produtos = [...new Set(doCarrinho.flatMap((e) => detalhes.get(e.chave)?.produtos ?? []))]
+  const [clientes, avaliacoes] = await Promise.all([
+    container
+      .resolve(ContainerRegistrationKeys.QUERY)
+      .graph({
+        entity: "customer",
+        fields: ["email", "first_name"],
+        filters: { email: [...new Set(doCarrinho.map((e) => e.email))] },
+      })
+      .then((r) => r.data as { email?: string | null; first_name?: string | null }[])
+      .catch(() => []),
+    produtos.length
+      ? container
+          .resolve<AvaliacoesService>(AVALIACOES)
+          .listAvaliacoes(
+            { produto_id: produtos, situacao: "aprovada" },
+            {
+              select: ["produto_id", "nome", "nota", "texto"],
+              order: { created_at: "DESC" },
+              take: 500,
+            }
+          )
+          .catch(() => [])
+      : Promise.resolve([]),
+  ])
+  const nomes = new Map<string, string | null>(
+    clientes.map((c): [string, string | null] => [
+      minusculo(c.email),
+      primeiroNome({ first_name: c.first_name ?? null }),
+    ])
+  )
+  const boas = (
+    avaliacoes as { produto_id: string; nome: string; nota: number; texto: string }[]
+  ).filter((a) => a.nota >= 4 && a.texto.trim())
+  for (const e of doCarrinho) {
+    const d = detalhes.get(e.chave)
+    if (!d) continue
+    d.nome = nomes.get(e.email) ?? null
+    d.depoimentos = boas
+      .filter((a) => d.produtos.includes(a.produto_id))
+      .slice(0, 2)
+      .map((a) => ({ texto: a.texto.trim(), quem: a.nome, estrelas: a.nota }))
+  }
 }

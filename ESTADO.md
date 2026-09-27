@@ -3440,8 +3440,28 @@ saem sozinhos, pra quem começou uma compra e não terminou. Painel → CRM → 
 
 - [ ] **Depois do deploy (você, 5 minutos):** Painel → CRM → Fluxos → "Mandar pra mim" em cada
       e-mail, pra ver no celular. Se quiser mudar o desconto, é ali.
-- [ ] **A próxima parte** (uma entrega, perguntar antes): o carrinho abandonado (quem pôs na sacola
-      e não foi pro checkout), o pop-up da 1ª compra e as boas-vindas.
+- [x] **O carrinho abandonado** entrou na parte 8 (entrega 0169, logo abaixo).
+
+**CRM, parte 8: o carrinho abandonado — pronto em 27/09 (entrega 0169).** O terceiro fluxo, na mesma
+aba **Fluxos**: quem pôs na sacola e não foi pro checkout.
+
+- **Quem recebe:** quem a loja já conhece (escolha sua). É quem aceitou os cookies e já entrou na
+  conta, assinou a newsletter ou comprou antes. De quem ninguém sabe quem é, a sacola fica sem
+  e-mail.
+- **Os e-mails, nas suas horas:**
+  - 1 hora: "Esqueceu isso aqui?";
+  - 12 horas: o que os clientes acharam, com as avaliações de verdade (as que você aprova no painel)
+    dos produtos da sacola;
+  - 1 dia: o desconto (o mesmo % da aba), que aqui vale 3 dias;
+  - 3 dias: "o desconto vence amanhã";
+  - 5 dias: a última chamada.
+- **Para quando** a pessoa compra, ou quando abre o checkout. Aí quem cuida é o fluxo do checkout.
+- **Começa ligado**, como os outros, e só pra quem puser na sacola depois do deploy.
+- **A política de privacidade** conta esses e-mails.
+
+- [ ] **Depois do deploy (você):** CRM → Fluxos → "Mandar pra mim" nos 5 do carrinho.
+- [ ] **A próxima parte** (uma entrega, perguntar antes): o pop-up da 1ª compra e as boas-vindas.
+      Depois, a campanha de estreia pra base da Nuvemshop.
 
 **A parcela mínima do cartão, editável — pronta em 27/09 (entrega 0157).** O pedido dele: "quero
 poder editar a parcela mínima no cartão, ali diz 5 reais". Em **Configurações → Pagamento**, o
@@ -3644,6 +3664,27 @@ assinado com um IP de documentação sorteado, e os Pix pelo navegador soltam as
 Depois do deploy — **nada a configurar.** Se um cliente disser que o Pix não saiu com "já saíram
 vários Pix daqui" ou "até 10 unidades", é a trava nova: ele paga um dos Pix abertos, usa o cartão,
 ou me chama pra mudar o número.
+
+**O número vermelho da Observabilidade passa de 100 — pronto em 27/09 (entrega 0167).** No menu do
+painel, o número vermelho da Observabilidade parava em 100: o backend lia no máximo 100 problemas
+graves abertos e contava os que o papel via. Com mais de 100, o menu dizia 100 e a tela, o total
+(o `conferir-observabilidade` achou num banco local que juntou 108). Agora o número é a conta do
+banco (`gravesAbertos`: o total do `listAndCountProblemas`, com o papel no filtro — o
+`filtroDoPapel`, a mesma regra do `podeVer` da tela: o estorno só conta pro dono). O "+1" das
+rotinas paradas continua. Com até 100 graves abertos, nada muda.
+
+Conferido pelo `conferir-observabilidade.mjs` nesse banco (108 graves abertos): com o código de
+antes, 35/36 — "dono 100 · op 100 · tela 114"; com o conserto, 36/36 três vezes (dono 109, operação
+108, tela 109). E por 3 testes novos do `gravesAbertos` (com o código de antes, os 110 viram 100) e
+1 que amarra o filtro do banco ao `podeVer` em todo papel; os unitários (1.357), o typecheck, o
+lint, o `medusa build` e o prettier.
+
+O limite que fica: a tela lê até 300 problemas (os abertos e os resolvidos nos últimos 30 dias).
+Com mais que isso, os cartões e o "N problemas graves agora" da tela ficam curtos — e o menu, que
+agora conta tudo, fica maior que a tela.
+
+Depois do deploy — **nada a configurar.** Pra ver: o número vermelho do menu é o mesmo do "N
+problemas graves agora" da Observabilidade.
 
 ## Como seguir no Claude Code
 

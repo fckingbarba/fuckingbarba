@@ -6,7 +6,8 @@ import { PREFIXO_DO_CUPOM, VALIDADE_DO_CUPOM } from "./fluxos"
 
 /**
  * O CUPOM DOS FLUXOS — o desconto do e-mail de 24 horas (`lib/crm/fluxos.ts`):
- * um código só da pessoa (`VOLTA-7KQ2MX`), de uso único, que vence em 2 dias.
+ * um código só da pessoa (`VOLTA-7KQ2MX`), de uso único, que vence em 2 dias
+ * (3 no carrinho abandonado: `validadeDoCupom`).
  * É uma promoção do Medusa como as do painel (`promocaoDoCupom`), com as
  * mesmas regras da loja: um cupom de campanha por pedido, e o uso volta se o
  * pedido for cancelado (o Pix que venceu).
@@ -62,9 +63,13 @@ export function cupomDoFluxo(codigo: string, porcento: number, ate: Date): Cupom
 /** Cria o cupom no Medusa. Código repetido (1 em 800 milhões): tenta outro. */
 export async function criarCupomDoFluxo(
   container: MedusaContainer,
-  { porcento, agora }: { porcento: number; agora: Date }
+  {
+    porcento,
+    agora,
+    validade = VALIDADE_DO_CUPOM,
+  }: { porcento: number; agora: Date; validade?: number }
 ): Promise<{ codigo: string; ate: Date; id: string }> {
-  const ate = new Date(agora.getTime() + VALIDADE_DO_CUPOM)
+  const ate = new Date(agora.getTime() + validade)
   let erro: unknown = null
   for (let tentativa = 0; tentativa < 3; tentativa++) {
     const codigo = codigoDoCupom()

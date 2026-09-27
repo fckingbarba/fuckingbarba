@@ -15,9 +15,15 @@ import { createHash } from "node:crypto"
  *     última chamada em 48 h.
  *   - CHECKOUT ABANDONADO: digitou o e-mail no checkout e não pagou. Em 30
  *     minutos, 4 horas, 24 horas (com o desconto) e 48 horas (a última).
+ *   - CARRINHO ABANDONADO (entrega 0169): pôs na sacola, não foi pro
+ *     checkout, e a loja sabe quem é (aceitou os cookies e já se identificou:
+ *     a conta, a newsletter, uma compra de antes). Em 1 hora, 12 horas (o que
+ *     os clientes acharam), 24 horas (o desconto, que vale 3 dias), 3 dias (o
+ *     desconto vence amanhã) e 5 dias (a última). As horas são as do dono.
  *
- * Os dois vão pra QUEM DIGITOU O E-MAIL (escolha do dono, 27/09): é sobre a
- * compra que a pessoa começou. Quem saiu da lista não recebe mais nada.
+ * Os dois primeiros vão pra QUEM DIGITOU O E-MAIL, e o do carrinho pra quem a
+ * loja já conhece (escolhas do dono, 27/09): é sobre a compra que a pessoa
+ * começou. Quem saiu da lista não recebe mais nada.
  *
  * AS REGRAS:
  *   1. Só vale o que começou DEPOIS de o fluxo ser ligado — ligar não
@@ -39,7 +45,7 @@ const MINUTO = 60 * 1000
 const HORA = 60 * MINUTO
 const DIA = 24 * HORA
 
-export type IdDoFluxo = "pix" | "checkout"
+export type IdDoFluxo = "pix" | "checkout" | "carrinho"
 
 export type IdDoToque =
   | "pix-vence"
@@ -49,6 +55,11 @@ export type IdDoToque =
   | "checkout-4h"
   | "checkout-24h"
   | "checkout-48h"
+  | "carrinho-1h"
+  | "carrinho-12h"
+  | "carrinho-24h"
+  | "carrinho-3d"
+  | "carrinho-5d"
 
 export type ToqueDoFluxo = {
   id: IdDoToque
@@ -72,6 +83,8 @@ export type Fluxo = {
   /** Menor ganha: é o fluxo de quem está mais perto de pagar. */
   prioridade: number
   toques: readonly ToqueDoFluxo[]
+  /** Quanto o cupom do fluxo vale depois do e-mail que o dá (sem isto, `VALIDADE_DO_CUPOM`). */
+  validadeDoCupom?: number
 }
 
 export const FLUXOS: Record<IdDoFluxo, Fluxo> = {
@@ -123,9 +136,39 @@ export const FLUXOS: Record<IdDoFluxo, Fluxo> = {
       { id: "checkout-48h", nome: "Última chamada", quando: "2 dias depois", depois: 2 * DIA },
     ],
   },
+  carrinho: {
+    id: "carrinho",
+    nome: "Carrinho abandonado",
+    prioridade: 3,
+    // O desconto sai em 24 h e o e-mail de 3 dias diz que ele vence amanhã: vale 3 dias.
+    validadeDoCupom: 3 * DIA,
+    toques: [
+      { id: "carrinho-1h", nome: "Esqueceu isso aqui?", quando: "1 h depois", depois: HORA },
+      {
+        id: "carrinho-12h",
+        nome: "O que os clientes acharam",
+        quando: "12 h depois",
+        depois: 12 * HORA,
+      },
+      {
+        id: "carrinho-24h",
+        nome: "Um desconto pra decidir",
+        quando: "1 dia depois",
+        depois: DIA,
+        cupom: true,
+      },
+      {
+        id: "carrinho-3d",
+        nome: "O desconto vence amanhã",
+        quando: "3 dias depois",
+        depois: 3 * DIA,
+      },
+      { id: "carrinho-5d", nome: "Última chamada", quando: "5 dias depois", depois: 5 * DIA },
+    ],
+  },
 }
 
-export const IDS_DOS_FLUXOS: readonly IdDoFluxo[] = ["pix", "checkout"]
+export const IDS_DOS_FLUXOS: readonly IdDoFluxo[] = ["pix", "checkout", "carrinho"]
 
 /** Os toques depois deste tempo sem sair são largados: o e-mail não faz mais sentido. */
 export const VALIDADE_DO_TOQUE = 12 * HORA
@@ -333,8 +376,16 @@ export const LIMITES_DO_DESCONTO: readonly [number, number] = [5, 30]
 /** O começo do código dos cupons dos fluxos (`VOLTA-7KQ2MX`): não é cupom do painel. */
 export const PREFIXO_DO_CUPOM = "VOLTA-"
 
-/** Quanto tempo o cupom vale depois do e-mail que o dá. */
+/** Quanto tempo o cupom vale depois do e-mail que o dá (o padrão; o fluxo pode ter o seu). */
 export const VALIDADE_DO_CUPOM = 2 * DIA
+
+/** Quanto o cupom deste fluxo vale. */
+export const validadeDoCupom = (fluxo: IdDoFluxo) =>
+  FLUXOS[fluxo].validadeDoCupom ?? VALIDADE_DO_CUPOM
+
+/** Até quantos dias depois do começo um fluxo ainda tem toque por fazer: a janela do motor. */
+export const diasDoFluxo = (fluxo: IdDoFluxo) =>
+  Math.ceil((Math.max(...FLUXOS[fluxo].toques.map((t) => t.depois + validadeDo(t))) + DIA) / DIA)
 
 export type EstadoDoFluxo = { ligado: boolean; desde: Date | null }
 export type ConfigDosFluxos = { fluxos: Record<IdDoFluxo, EstadoDoFluxo>; desconto: number }

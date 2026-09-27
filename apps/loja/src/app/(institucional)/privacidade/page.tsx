@@ -78,8 +78,10 @@ export default async function Privacidade() {
           quem vende. O telefone é pro caso de a entrega dar problema, e o e-mail é por onde vai a
           confirmação e o código de rastreio. Se você deixar uma compra no meio do caminho (o
           checkout, ou um Pix que não foi pago), a gente manda até quatro e-mails lembrando dela nos
-          dois dias seguintes — um deles com um desconto só seu — e uma pessoa da loja pode te
-          chamar no WhatsApp pra ver se ficou alguma dúvida. Todo e-mail tem o link &ldquo;Sair da
+          dois dias seguintes — um deles com um desconto só seu. Se for a sacola, e a loja já souber
+          quem você é (você aceitou os cookies e já entrou na conta, assinou a newsletter ou comprou
+          antes), são até cinco, nos cinco dias seguintes. E uma pessoa da loja pode te chamar no
+          WhatsApp pra ver se ficou alguma dúvida. Todo e-mail tem o link &ldquo;Sair da
           lista&rdquo;, e no WhatsApp é só responder que não quer: a gente não manda mais.
         </P>
         <P>
