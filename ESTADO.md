@@ -1236,7 +1236,8 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
       0125): os endereços do mapa do site da Nuvemshop (15 produtos, e 15 páginas e categorias),
       mais a busca, o carrinho e a conta de lá, levam à página certa da loja nova (ver a seção da
       0125, no fim). Os produtos têm o mesmo endereço nas duas lojas, e os 15 estão publicados.
-- [ ] **Os cupons da Nuvemshop, de novo na virada — Claude Code.** A cópia é a lista de 26/09
+- [x] **Os cupons da Nuvemshop, de novo na virada — Claude Code.** Não precisou: ele confirmou, na
+      virada (27/09), que nenhum cupom foi criado lá depois de 26/09. A cópia é a lista de 26/09
       (entrega 0126): cupom criado lá depois disso não está aqui, e o de 1 uso que alguém gastar lá
       até a virada ainda vale uma vez aqui. Na véspera, a lista de lá de novo e uma migração nova só
       com o que mudou (esta já rodou).
@@ -3432,8 +3433,7 @@ Depois do deploy — **nada a configurar.** Até alguém mudar, vale R$ 5,00, co
       último pedido antigo chegar e passar o prazo de troca.
 - [ ] **A primeira venda no cartão** no domínio novo: conferir que o antifraude aprovou (o Pix já
       foi, no #3301).
-- [ ] **Os cupons da Nuvemshop criados depois de 26/09**, se houver: o print da lista pro Claude
-      Code passar pra cá (ver "Os cupons da Nuvemshop, de novo na virada", mais acima).
+- [x] **Os cupons da Nuvemshop criados depois de 26/09:** nenhum (ele confirmou em 27/09).
 - [ ] **Se o vigia de fora (UptimeRobot, 0137) estiver ligado:** trocar os endereços dos monitores
       da loja pro `www.fuckingbarba.com.br`.
 - [ ] Opcional: `SITE_ORIGENS` no Supabase com o www (é só da função `vitals`, a medida antiga de
