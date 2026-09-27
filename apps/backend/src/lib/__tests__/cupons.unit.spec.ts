@@ -12,8 +12,10 @@ import {
   fimDoDia,
   inicioDe,
   lerCupomNovo,
+  numeroBrasileiro,
   linhasMarcadas,
   MARCA_DA_LINHA,
+  outraOfertaNoCarrinho,
   outroCupomNoCarrinho,
   promocaoDoCupom,
   regraDoCupom,
@@ -185,6 +187,21 @@ describe("o formulário do cupom (o da Nuvemshop)", () => {
     expect(!limitadoSemNumero.ok && limitadoSemNumero.erros.limite).toBe("Quantos usos, no total?")
     // O "_" dos códigos da Nuvemshop vale.
     expect(lerCupomNovo({ ...FORM, codigo: "maria10_t5al" }, AGORA, CATALOGO).ok).toBe(true)
+    // O mínimo que não é número é erro, e não "sem mínimo" (auditoria 27/09); em branco, sem mínimo.
+    const minimoSemNumero = lerCupomNovo({ ...FORM, minimo: "R$" }, AGORA, CATALOGO)
+    expect(!minimoSemNumero.ok && minimoSemNumero.erros.minimo).toBe("Um valor em reais.")
+    expect(lerCupomNovo({ ...FORM, minimo: "" }, AGORA, CATALOGO).ok).toBe(true)
+  })
+
+  it('o número em reais: "R$" e texto sem dígito não são zero (auditoria 27/09)', () => {
+    expect(numeroBrasileiro("R$ 1.234,56")).toBe(1234.56)
+    expect(numeroBrasileiro("99,90")).toBe(99.9)
+    expect(numeroBrasileiro("0")).toBe(0)
+    expect(numeroBrasileiro("R$ 0,00")).toBe(0)
+    expect(numeroBrasileiro("R$")).toBeNull()
+    expect(numeroBrasileiro("grátis")).toBeNull()
+    expect(numeroBrasileiro("  ")).toBeNull()
+    expect(numeroBrasileiro(",")).toBeNull()
   })
 
   it("o formulário de antes da 0128 ainda passa (o painel e o backend sobem em horas diferentes)", () => {
@@ -470,6 +487,33 @@ describe("um cupom por pedido", () => {
     expect(outroCupomNoCarrinho(["A10"], ["B10"], "replace")).toBeNull()
     expect(outroCupomNoCarrinho([], ["A10"], "replace")).toBeNull()
     expect(outroCupomNoCarrinho(["A10"], ["A10", "BUMP-OLEO-1"], "replace")).toBeNull()
+  })
+})
+
+describe("uma oferta do checkout por carrinho (auditoria 27/09)", () => {
+  it("a oferta de outro produto não entra com uma já no carrinho; o cupom de campanha não conta", () => {
+    expect(outraOfertaNoCarrinho(["BUMP-OLEO-1"], ["BUMP-BALM-2"], "add")).toBe("BUMP-OLEO-1")
+    expect(outraOfertaNoCarrinho([], ["BUMP-OLEO-1", "BUMP-BALM-2"], "add")).toBe("BUMP-OLEO-1")
+    expect(outraOfertaNoCarrinho(["BARBA20"], ["BUMP-OLEO-1"], "add")).toBeNull()
+    expect(outraOfertaNoCarrinho(["BUMP-OLEO-1"], ["BARBA20"], "add")).toBeNull()
+    expect(outraOfertaNoCarrinho([], ["BUMP-OLEO-1"], "add")).toBeNull()
+    // A mesma oferta de novo (a caixinha marcada duas vezes) passa, em qualquer caixa.
+    expect(outraOfertaNoCarrinho(["BUMP-OLEO-1"], ["bump-oleo-1"], "add")).toBeNull()
+  })
+
+  it("a conta do Medusa (replace, os mesmos códigos) e o tirar passam; o replace que soma, não", () => {
+    expect(
+      outraOfertaNoCarrinho(
+        ["BUMP-OLEO-1", "BUMP-BALM-2"],
+        ["BUMP-OLEO-1", "BUMP-BALM-2"],
+        "replace"
+      )
+    ).toBeNull()
+    expect(outraOfertaNoCarrinho(["BUMP-OLEO-1"], ["BUMP-BALM-2"], "replace")).toBeNull()
+    expect(outraOfertaNoCarrinho(["BUMP-OLEO-1"], [], "remove")).toBeNull()
+    expect(outraOfertaNoCarrinho(["BUMP-OLEO-1"], ["BUMP-OLEO-1", "BUMP-BALM-2"], "replace")).toBe(
+      "BUMP-OLEO-1"
+    )
   })
 })
 

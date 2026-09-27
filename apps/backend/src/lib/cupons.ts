@@ -277,6 +277,37 @@ export function outroCupomNoCarrinho(
   return atuais.filter(campanha).find((c) => !novosDeCampanha.has(c.toUpperCase())) ?? null
 }
 
+/**
+ * UMA OFERTA DO CHECKOUT POR CARRINHO: `null` se pode, ou o código de oferta
+ * (`BUMP-…`) que já está no carrinho.
+ *
+ * O código de cada produto é fixo e não vence (`lib/bumps.ts`), e o "um cupom
+ * por pedido" deixa a oferta de fora. A regra "uma oferta por vez" morava só
+ * na ação da loja (`alternarBump`), que tira a de antes: quem falasse direto
+ * com a API somava a oferta de todos os produtos — 10% numa unidade de cada,
+ * mais o cupom (auditoria de 27/09). Mesmas contas do `outroCupomNoCarrinho`:
+ * o `add` não entra com outra oferta no carrinho, o `replace` só é recusado
+ * quando traz oferta nova e deixa duas, e o `remove` sempre pode.
+ */
+export function outraOfertaNoCarrinho(
+  atuais: (string | null | undefined)[],
+  novos: string[],
+  acao: string | undefined
+): string | null {
+  const daOferta = (c: string | null | undefined): c is string => Boolean(c) && ehDaOferta(c!)
+  const novasOfertas = new Set(novos.filter(daOferta).map((c) => c.toUpperCase()))
+  if (acao === "replace") {
+    const antes = new Set(atuais.filter(daOferta).map((c) => c.toUpperCase()))
+    if (novasOfertas.size < 2 || [...novasOfertas].every((c) => antes.has(c))) return null
+    const entrou = [...novasOfertas].find((c) => !antes.has(c))
+    return [...novasOfertas].find((c) => c !== entrou) ?? null
+  }
+  if (acao && acao !== "add") return null
+  if (!novasOfertas.size) return null
+  if (novasOfertas.size > 1) return [...novasOfertas][0]
+  return atuais.filter(daOferta).find((c) => !novasOfertas.has(c.toUpperCase())) ?? null
+}
+
 /** O carrinho como o gancho recebe — só os códigos que já estão nas linhas e no frete. */
 export type CarrinhoComCodigos = {
   items?: ({ adjustments?: ({ code?: string | null } | null)[] | null } | null)[] | null
@@ -383,6 +414,9 @@ export const numeroBrasileiro = (v: unknown): number | null => {
     .replace(/[^\d,.-]/g, "")
     .replace(/\.(?=\d{3}(\D|$))/g, "")
     .replace(",", ".")
+  // "R$" e "grátis" não são zero: sem dígito, `Number("")` daria 0 — e o piso
+  // do frete grátis virava zero, frete grátis em todo pedido (auditoria 27/09).
+  if (!/\d/.test(limpo)) return null
   const n = Number(limpo)
   return Number.isFinite(n) ? n : null
 }
@@ -521,7 +555,9 @@ export function lerCupomNovo(
   }
 
   const minimo = numeroBrasileiro(o.minimo)
-  if (minimo !== null && (minimo < 0 || minimo > 100_000)) erros.minimo = "Um valor em reais."
+  if (minimo === null && typeof o.minimo === "string" && o.minimo.trim())
+    erros.minimo = "Um valor em reais."
+  else if (minimo !== null && (minimo < 0 || minimo > 100_000)) erros.minimo = "Um valor em reais."
   if (tipo === "reais" && valor !== null && minimo !== null && minimo > 0 && minimo < valor)
     erros.minimo = "O valor do carrinho tem que ser maior que o desconto."
 

@@ -7,6 +7,7 @@ import {
   contextoDosCupons,
   cuponsNaConta,
   linhasMarcadas,
+  outraOfertaNoCarrinho,
   outroCupomNoCarrinho,
   type CarrinhoComCodigos,
   type ItemDoCarrinho,
@@ -119,19 +120,26 @@ updateCartPromotionsWorkflow.hooks.setPromotionContext(
  * no carrinho (`replace` com os mesmos códigos) passa; o `replace` que traz
  * cupom novo e deixa dois não (o `promo_codes` no corpo do carrinho, que o
  * middleware também fecha — entrega 0136): ver `outroCupomNoCarrinho`.
+ *
+ * E UMA OFERTA DO CHECKOUT POR CARRINHO (`outraOfertaNoCarrinho`, 0163): o
+ * código de oferta de outro produto não entra com um já lá — a caixinha tira
+ * o de antes; quem pula a loja ouve "não".
  */
 updateCartPromotionsWorkflow.hooks.validate(async ({ input, cart }) => {
   const c = cart as { promotions?: ({ code?: string | null } | null)[] | null }
   const i = input as { promo_codes?: string[] | null; action?: string | null }
-  const outro = outroCupomNoCarrinho(
-    (c.promotions ?? []).map((p) => p?.code),
-    i.promo_codes ?? [],
-    i.action ?? undefined
-  )
+  const atuais = (c.promotions ?? []).map((p) => p?.code)
+  const outro = outroCupomNoCarrinho(atuais, i.promo_codes ?? [], i.action ?? undefined)
   if (outro)
     throw new MedusaError(
       MedusaError.Types.NOT_ALLOWED,
       `Um cupom por pedido: o ${outro} já está no carrinho.`
+    )
+  const outraOferta = outraOfertaNoCarrinho(atuais, i.promo_codes ?? [], i.action ?? undefined)
+  if (outraOferta)
+    throw new MedusaError(
+      MedusaError.Types.NOT_ALLOWED,
+      `Uma oferta por pedido: a ${outraOferta} já está no carrinho.`
     )
 })
 
