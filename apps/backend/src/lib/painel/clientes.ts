@@ -227,6 +227,8 @@ export type LinhaDoCliente = {
   conta: boolean
   /** "e-mail · desde 22/09" — `null` quando não aceitou. */
   ofertas: string | null
+  /** Os mesmos "sim", por canal: o painel desenha um ícone aceso pra cada um. */
+  canais: { email: boolean; whatsapp: boolean }
 }
 
 export type ListaDeClientes = {
@@ -253,7 +255,8 @@ export function listaDeClientes(
   const termo = semAcento(busca.trim())
   const linhas = pessoas
     .map((p) => {
-      const ofertas = ofertasEmFrase(consentimentosDa(p), agora)
+      const consentimentos = consentimentosDa(p)
+      const ofertas = ofertasEmFrase(consentimentos, agora)
       const o = comEndereco(p)
       const cidade = o ? texto(o.shipping_address?.city) : ""
       const uf = o ? texto(o.shipping_address?.province).toUpperCase() : ""
@@ -266,6 +269,10 @@ export function listaDeClientes(
         ultimo: quando(ultimaVez(p), agora),
         conta: p.clientes.some((c) => c.has_account),
         ofertas,
+        canais: {
+          email: consentimentos.some((c) => c.canal === "email"),
+          whatsapp: consentimentos.some((c) => c.canal === "whatsapp"),
+        },
       }
       return { linha, vez: tempo(ultimaVez(p)) }
     })

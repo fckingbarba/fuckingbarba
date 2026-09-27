@@ -1,0 +1,178 @@
+/* --------------------------------------------------------------------------
+   O PAINEL MAIS VISUAL (entrega 0148) — as peças de components/visual.tsx e
+   o que o Início, os Pedidos e os Clientes ganharam no lugar das frases.
+   Desenho do protótipo: chanfro, borda de 2px e as cores da marca.
+   -------------------------------------------------------------------------- */
+
+/* O "?": a explicação a um toque. */
+.ajuda { position: relative; display: inline-block; }
+.ajuda > summary {
+  list-style: none; width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center;
+  background: var(--papel); border: 2px solid var(--linha); color: var(--tinta-suave);
+  font-size: 0.8rem; font-weight: 800; cursor: pointer; user-select: none;
+}
+.ajuda > summary::-webkit-details-marker { display: none; }
+.ajuda > summary:hover, .ajuda[open] > summary { border-color: var(--tinta); color: var(--tinta); background: var(--amarelo-palido); }
+.ajuda__texto {
+  position: absolute; z-index: 30; top: calc(100% + 6px); right: 0; width: min(340px, 80vw);
+  padding: 12px 14px; background: var(--papel); border: 2px solid var(--tinta); box-shadow: 6px 6px 0 0 var(--amarelo);
+  font-size: 0.8rem; font-weight: 500; line-height: 1.5; color: var(--tinta); text-transform: none; letter-spacing: 0;
+  white-space: pre-line; text-align: left;
+}
+.titulo-com-ajuda { display: flex; align-items: center; gap: 10px; }
+.titulo-com-ajuda .ajuda__texto { left: 0; right: auto; }
+@media (max-width: 760px) {
+  .ajuda { position: static; }
+  .ajuda__texto { left: 16px; right: 16px; width: auto; }
+}
+
+/* Os números de cima: o ícone no canto e o pé em desenho. */
+.numero { position: relative; }
+.numero__ico {
+  position: absolute; top: 12px; right: 12px; width: 30px; height: 30px;
+  display: flex; align-items: center; justify-content: center; background: var(--cinza); clip-path: var(--chanfro-p);
+}
+.numero__ico svg { width: 16px; height: 16px; fill: var(--tinta); }
+.numero--destaque .numero__ico { background: var(--lateral-sel); }
+.numero--destaque .numero__ico svg { fill: var(--amarelo); }
+/* Só nos números que têm o ícone (os das outras telas ficam como estavam). */
+.numero:has(> .numero__ico) .numero__rot { padding-right: 36px; }
+.numero__pe { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.pilula { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; background: var(--cinza); font-size: 0.74rem; font-weight: 700; white-space: nowrap; }
+.pilula svg { width: 13px; height: 13px; fill: currentColor; }
+.pilula--suave { color: var(--tinta-suave); font-weight: 600; }
+.numero--destaque .pilula { background: var(--lateral-sel); color: #fff; }
+/* O ".numero span { display: block }" do Início é pros rótulos: as peças novas voltam a ser o que são. */
+.numero .numero__ico { display: flex; }
+.numero .pilula, .numero .faisca, .numero .variacao { display: inline-flex; }
+.numero .faisca { align-items: flex-end; }
+.faisca i { display: block; }
+@media (max-width: 760px) {
+  /* No celular o número precisa da largura toda: o ícone sai. */
+  .numero .numero__ico { display: none; }
+  .numero .numero__rot { padding-right: 0; }
+}
+.faisca { display: inline-flex; align-items: flex-end; gap: 3px; height: 28px; }
+.faisca i { width: 7px; background: var(--tinta-suave); opacity: 0.55; }
+.faisca i[data-hoje] { background: var(--amarelo); opacity: 1; }
+.numero--destaque .faisca i { background: #aeb7c2; }
+.numero--destaque .faisca i[data-hoje] { background: var(--amarelo); }
+.variacao { display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px; font-weight: 800; background: var(--menta-clara); color: var(--menta-escura); }
+.variacao[data-rumo="desce"] { background: var(--erro-claro); color: var(--erro); }
+.variacao svg { width: 11px; height: 11px; fill: currentColor; }
+
+/* O número ao lado do título (quantos) e as etiquetas curtas. */
+.contagem {
+  display: inline-flex; align-items: center; justify-content: center; min-width: 24px; padding: 1px 7px;
+  background: var(--tinta); color: var(--amarelo); font-size: 0.74rem; font-weight: 800; vertical-align: middle;
+}
+.fila__etiqueta { display: inline-block; padding: 2px 7px; background: var(--papel); border: 1.5px solid rgba(18, 24, 31, 0.25); color: var(--tinta); font-size: 0.7rem; font-weight: 700; white-space: nowrap; }
+/* No que é grave, a etiqueta é o motivo: preta, pra ler de longe. */
+.fila__item[data-nivel="grave"] .fila__etiqueta { background: var(--tinta); border-color: var(--tinta); color: #fff; font-size: 0.66rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; }
+.bloco__lado { display: inline-flex; align-items: center; gap: 8px; }
+.bloco__titulos { display: inline-flex; align-items: center; gap: 8px; }
+
+/* A fila agrupada: o título leva ao lugar; os números abrem cada pedido; o "?" explica. */
+.fila__item { position: relative; grid-template-columns: auto minmax(0, 1fr) auto; }
+.fila__miolo { display: grid; gap: 6px; min-width: 0; }
+.fila__cabeca { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; }
+.fila__link { color: inherit; text-decoration: none; }
+.fila__link::after { content: ""; position: absolute; inset: 0; }
+.fila__link:hover .fila__titulo, .fila__link:focus-visible .fila__titulo { text-decoration: underline; text-underline-offset: 3px; }
+.fila__item[data-nivel="grave"] .contagem { background: var(--erro); color: #fff; }
+.fila__lado { position: relative; z-index: 1; display: flex; align-items: center; gap: 10px; }
+.fichas { position: relative; z-index: 1; display: flex; flex-wrap: wrap; gap: 5px; }
+.ficha {
+  padding: 2px 7px; background: var(--papel); border: 1.5px solid var(--tinta); color: var(--tinta);
+  font-size: 0.74rem; font-weight: 800; text-decoration: none;
+}
+.ficha:hover, .ficha:focus-visible { background: var(--amarelo); }
+.ficha--mais { background: var(--tinta); color: var(--amarelo); }
+.fila .ajuda { position: static; }
+.fila .ajuda__texto { right: 0; }
+.fila__vazia { display: flex; align-items: center; gap: 8px; }
+.fila__vazia svg { width: 16px; height: 16px; fill: currentColor; }
+
+/* As fotos dos produtos, uma por cima da outra. */
+.fotos { display: inline-flex; align-items: center; flex-shrink: 0; }
+.fotos img, .fotos__vazia {
+  width: 38px; height: 38px; object-fit: cover; background: var(--papel);
+  border: 2px solid var(--tinta); clip-path: var(--chanfro-p);
+}
+.fotos img + img { margin-left: -14px; }
+.fotos__vazia { display: flex; align-items: center; justify-content: center; color: var(--tinta-suave); }
+.fotos__vazia svg { width: 18px; height: 18px; fill: currentColor; opacity: 0.6; }
+.fotos em { margin-left: -8px; padding: 1px 5px; background: var(--tinta); color: var(--amarelo); font-size: 0.7rem; font-style: normal; font-weight: 800; position: relative; }
+
+/* Pix e cartão pelo ícone. */
+.forma { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border: 2px solid var(--tinta); background: var(--papel); flex-shrink: 0; }
+.forma svg { width: 15px; height: 15px; fill: var(--tinta); }
+.forma[data-forma="pix"] svg { fill: var(--menta-escura); }
+.forma--nenhuma { border-color: var(--linha); color: var(--tinta-suave); font-size: 0.8rem; }
+.mini__txt .forma { width: 20px; height: 20px; border-width: 1.5px; }
+.mini__txt .forma svg { width: 11px; height: 11px; }
+
+/* Os seis passos em tracinhos. */
+.passos { display: flex; gap: 3px; margin-top: 6px; }
+.passos i { width: 12px; height: 5px; background: var(--cinza-2); }
+.passos i[data-estado="feito"] { background: var(--tinta); }
+.passos i[data-estado="agora"] { background: var(--amarelo); box-shadow: inset 0 0 0 1px var(--tinta); }
+.passos i[data-estado="erro"] { background: var(--erro); }
+
+/* A sigla da pessoa. */
+.sigla {
+  width: 34px; height: 34px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
+  font-size: 0.74rem; font-weight: 800; clip-path: var(--chanfro-p);
+}
+.sigla[data-cor="1"] { background: var(--amarelo); color: var(--tinta); }
+.sigla[data-cor="2"] { background: var(--menta); color: var(--tinta); }
+.sigla[data-cor="3"] { background: var(--tinta); color: var(--amarelo); }
+.sigla[data-cor="4"] { background: var(--cinza-2); color: var(--tinta); }
+.pessoa { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.pessoa > span:last-child { min-width: 0; }
+
+/* Os pedidos de hoje, com as fotos. */
+.mini--fotos a { grid-template-columns: auto minmax(0, 1fr) auto; }
+.mini__meio { min-width: 0; }
+.mini--fotos .mini__txt { display: flex; align-items: center; gap: 6px; }
+.mini__lado { display: grid; justify-items: end; gap: 4px; font-weight: 800; }
+
+/* Os mais vendidos em barras. */
+.ranking { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.ranking li { display: grid; grid-template-columns: 18px 40px minmax(0, 1fr); align-items: center; gap: 10px; }
+.ranking li > b { font-size: 0.9rem; text-align: center; }
+.ranking .foto { width: 40px; height: 40px; }
+.ranking__nome { display: flex; justify-content: space-between; gap: 8px; margin: 0 0 5px; font-weight: 800; }
+.ranking__nome .mini__titulo { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ranking__trilho { display: block; height: 10px; background: var(--cinza); }
+.ranking__trilho i { display: block; height: 100%; background: var(--tinta); }
+.ranking li:first-child .ranking__trilho i { background: var(--amarelo); box-shadow: inset 0 0 0 2px var(--tinta); }
+
+/* As listas: o que era frase virou desenho. */
+.tabela .pessoa .tabela__sub { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bolinha { display: inline-flex; align-items: center; justify-content: center; min-width: 26px; height: 24px; padding: 0 6px; background: var(--tinta); color: var(--amarelo); font-size: 0.78rem; font-weight: 800; }
+.bolinha[data-zero] { background: var(--cinza-2); color: var(--tinta-suave); }
+.gasto { display: grid; justify-items: end; gap: 5px; }
+.gasto__trilho { display: block; width: 110px; height: 6px; background: var(--cinza); }
+.gasto__trilho i { display: block; height: 100%; background: var(--tinta); }
+.canais { display: flex; gap: 6px; }
+.canal { width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; background: var(--cinza-2); }
+.canal svg { width: 16px; height: 16px; fill: #aeb7c2; }
+.canal[data-sim] { background: var(--menta-clara); }
+.canal[data-sim] svg { fill: var(--menta-escura); }
+.numeros--dois { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 640px; }
+@media (max-width: 760px) { .numeros--dois { max-width: none; } }
+.cartao__linha .canais .canal { width: 24px; height: 24px; }
+.cartao__linha .canais .canal svg { width: 13px; height: 13px; }
+.cartao__lado { display: grid; justify-items: end; gap: 2px; }
+.cartao__txt--icone { display: inline-flex; align-items: center; gap: 6px; }
+.cartao__txt--icone .forma { width: 22px; height: 22px; border-width: 1.5px; }
+.cartao__txt--icone .forma svg { width: 12px; height: 12px; }
+/* As fitas com ícone; a dos problemas, vermelha quando tem. */
+.filtro svg { width: 14px; height: 14px; fill: currentColor; }
+.filtro[data-ruim] b { background: var(--erro); color: #fff; }
+/* No computador as fitas quebram linha (com os ícones, não cabiam numa só); no celular seguem rolando de lado. */
+@media (min-width: 761px) { .filtros { flex-wrap: wrap; overflow: visible; } }
+/* A faixa de uma linha (a visão do marketing em Clientes). */
+.faixa--curta { display: flex; align-items: center; gap: 10px; padding: 10px 14px; font-size: 0.84rem; font-weight: 700; }
+.faixa--curta svg { width: 16px; height: 16px; fill: currentColor; flex-shrink: 0; }

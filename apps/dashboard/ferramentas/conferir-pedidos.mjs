@@ -288,6 +288,31 @@ try {
       "a busca mostra as linhas que a API achou"
     )
 
+    // As linhas em desenho (0148): a foto de cada produto, o Pix ou o cartão, e os seis passos.
+    const desenho = []
+    for (const quem of Object.keys(esperado)) {
+      const l = linha(quem)
+      const tr = pagina.locator(".tabela tbody tr", { hasText: `#${l.numero}` })
+      const forma = await tr.locator(".forma").getAttribute("data-forma")
+      const passos = await tr.locator(".passos").getAttribute("data-passos")
+      const fotos = await tr.locator(".fotos img").count()
+      if (forma !== l.forma || passos !== l.passos.join(",") || fotos !== l.fotos.length)
+        desenho.push(`#${l.numero}: ${forma} ${passos} ${fotos}`)
+    }
+    ok(
+      desenho.length === 0 && Object.keys(esperado).every((q) => linha(q)?.fotos?.length >= 1),
+      "cada linha: a foto do produto, o ícone do Pix ou do cartão e os seis passos, os da API",
+      desenho.join(" | ")
+    )
+    ok(
+      linha("entregue")?.passos[4] === "feito" &&
+        linha("entregue")?.passos[5] === "feito" &&
+        linha("pix")?.passos[1] === "agora" &&
+        linha("vencido")?.passos[1] === "erro",
+      "os passos: o entregue enviado e entregue; o Pix esperando no pagamento; o vencido, com problema",
+      JSON.stringify(["entregue", "pix", "vencido"].map((q) => linha(q)?.passos))
+    )
+
     await pagina.goto(`${PAINEL}/pedidos?filtro=despachar&busca=${RODADA}`)
     await pagina.waitForSelector(".tabela tbody tr")
     const selos = (await pagina.locator(".tabela tbody tr .status").allTextContents()).map(
@@ -513,6 +538,50 @@ try {
       fila.join(" | ") === filaDaApi.join(" | "),
       "a fila é a da API",
       primeiraDiferenca(fila, filaDaApi)
+    )
+    // A fila agrupada (0148): o que é igual vem junto, com o número de pedidos e os pedidos um por um.
+    const chaves = api.fila.map((f) => f.chave)
+    ok(
+      chaves.every(Boolean) &&
+        new Set(chaves).size === chaves.length &&
+        api.fila.every((f) => !f.pedidos || f.quantos === f.pedidos.length),
+      "a fila junta o que é igual: uma chave por item, e o número é o de pedidos",
+      JSON.stringify(api.fila.map((f) => [f.chave, f.quantos, f.pedidos?.length]))
+    )
+    const analise = api.fila.find((f) => f.chave === "analise")
+    ok(
+      Boolean(analise?.pedidos?.some((p) => p.numero === pedidos.analise.numero)) &&
+        /^há /.test(analise?.etiquetas?.[0] ?? ""),
+      "o cartão em análise da rodada está no item dos cartões, com a idade do mais antigo",
+      JSON.stringify(analise)
+    )
+    const naTela = []
+    for (const f of api.fila) {
+      const item = pagina.locator(`[data-chave="${f.chave}"]`)
+      const contagem = f.quantos ? semEspaco(await item.locator(".contagem").textContent()) : ""
+      const fichas = (await item.locator(".ficha:not(.ficha--mais)").allTextContents()).map(
+        semEspaco
+      )
+      const mais = semEspaco(
+        await item
+          .locator(".ficha--mais")
+          .textContent()
+          .catch(() => "")
+      )
+      const esperadas = (f.pedidos ?? []).slice(0, 6).map((p) => `#${p.numero}`)
+      const sobra = Math.max(0, (f.pedidos ?? []).length - 6)
+      if (
+        contagem !== (f.quantos ? String(f.quantos) : "") ||
+        fichas.join(",") !== esperadas.join(",") ||
+        mais !== (sobra ? `+${sobra}` : "") ||
+        (await item.locator("[data-ajuda]").count()) !== (f.texto ? 1 : 0)
+      )
+        naTela.push(`${f.chave}: ${contagem} ${fichas.join(",")} ${mais}`)
+    }
+    ok(
+      naTela.length === 0,
+      "cada item na tela: o número, os pedidos (até 6, e o +N) e o “?” com a explicação",
+      naTela.join(" | ")
     )
     const hoje = await pagina.locator(".mini a .mini__titulo").allTextContents()
     ok(

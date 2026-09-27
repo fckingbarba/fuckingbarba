@@ -48,7 +48,15 @@ async function Lista({ caminho }: { caminho: string }) {
     <div data-tela>
       <Cabeca
         titulo="Pedidos"
-        sub="A loja cobra, emite a nota, manda pra Frenet e avisa o cliente sozinha. Aqui você vê onde cada pedido está — e o que travou."
+        ajuda={
+          <>
+            A loja cobra, emite a nota, manda pra Frenet e avisa o cliente sozinha. Aqui você vê
+            onde cada pedido está — e o que travou. Os tracinhos de cada linha são os seis passos:
+            feito, pago, nota, Frenet, enviado e entregue (preto é feito; amarelo, agora; vermelho,
+            com problema). A lista vai até os {lista.limite} pedidos mais recentes; um mais antigo
+            se acha pelo número.
+          </>
+        }
       />
       <BuscaEFiltros lista={lista} />
       <section className="bloco bloco--sem-pad">
@@ -61,9 +69,6 @@ async function Lista({ caminho }: { caminho: string }) {
           rotulo="pedidos"
         />
       ) : null}
-      <p className="lista-nota">
-        Os {lista.limite} pedidos mais recentes. Um mais antigo se acha pelo número.
-      </p>
     </div>
   )
 }

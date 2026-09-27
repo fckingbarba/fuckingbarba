@@ -121,6 +121,7 @@ describe("a lista", () => {
       ultimo: "hoje, 20:52",
       conta: false,
       ofertas: null,
+      canais: { email: false, whatsapp: false },
     })
     expect(l.clientes[1]!.nome).toBe("Rafael Souza")
     expect(l.clientes[2]).toMatchObject({
@@ -128,6 +129,7 @@ describe("a lista", () => {
       gastou: 0,
       cidade: null,
       ofertas: "e-mail · desde 02/09",
+      canais: { email: true, whatsapp: false },
     })
     expect(l.total).toBe(3)
     expect(l.comOfertas).toBe(2)
