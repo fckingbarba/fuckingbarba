@@ -127,12 +127,31 @@ const texto = (fd: FormData, campo: string) => String(fd.get(campo) ?? "").trim(
 const emCentavos = (valor: number) => Math.round(valor * 100)
 
 /**
- * E-mail: só a forma, e de propósito. Dá pra ser muito mais rígido e o ganho é
- * negativo — endereço válido recusado por regex esperta é venda perdida, e
- * endereço inválido que passa a gente descobre no primeiro e-mail que volta.
- * O Medusa também valida, então esta é a primeira de duas peneiras.
+ * E-mail: A MESMA REGRA DO MEDUSA, nem mais nem menos — a do zod 4 que o
+ * `POST /store/carts/:id` usa (`z.string().email()`, em
+ * `@medusajs/medusa/dist/api/store/carts/validators.js`; a regex é a
+ * `email` de `zod/v4/core/regexes`). Mais rígida que ela, recusaria e-mail
+ * que o pedido aceita: venda perdida. Mais frouxa — como era, só "algo@algo.xx"
+ * —, "joão@gmail.com", "jose..silva@gmail.com" e "maria@gmail.com." passavam
+ * aqui, o Medusa recusava com 400, e a tela dizia "Não consegui falar com a
+ * loja agora" pra sempre: a pessoa não saía do passo 1 (entrega 0136). Se o
+ * Medusa mudar a regra num upgrade, o 400 dele ainda cai embaixo do campo
+ * (`salvarContato`), e não na frase genérica.
  */
-const ehEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v)
+const EMAIL_DO_MEDUSA =
+  /^(?!\.)(?!.*\.\.)([A-Za-z0-9_'+\-\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\-]*\.)+[A-Za-z]{2,}$/
+const ehEmail = (v: string) => EMAIL_DO_MEDUSA.test(v)
+
+/** O que mais escapa na digitação do e-mail — a frase aponta o conserto. */
+function dicaDoEmail(v: string): string {
+  if (/[^ -~]/.test(v)) return "E-mail não leva acento nem cedilha. Confere as letras."
+  if (v.includes(",")) return "Tem uma vírgula no e-mail. No lugar dela vai um ponto."
+  if (/\s/.test(v)) return "E-mail não tem espaço. Confere o que foi digitado."
+  if (v.includes("..")) return "Tem dois pontos seguidos no e-mail. Deixa um só."
+  if (v.includes(".@")) return "Tem um ponto logo antes do @. Tira ele."
+  if (v.endsWith(".")) return "O e-mail terminou num ponto. Tira ele."
+  return "Escreve um e-mail que você abre — é por ele que as novidades do pedido chegam."
+}
 
 /**
  * O maior e-mail que o Pagar.me aceita. Acima disso ele recusa o pedido
@@ -189,7 +208,7 @@ export async function salvarContato(anterior: EstadoDaEtapa, fd: FormData): Prom
 
   const erros: ErrosDoFormulario = {}
   if (!ehEmail(email)) {
-    erros.email = "Escreve um e-mail que você abre — é por ele que as novidades do pedido chegam."
+    erros.email = dicaDoEmail(email)
   } else if (email.length > EMAIL_MAXIMO) {
     erros.email = `Esse e-mail passa de ${EMAIL_MAXIMO} caracteres, o limite do pagamento. Usa outro, por favor.`
   }
@@ -227,6 +246,12 @@ export async function salvarContato(anterior: EstadoDaEtapa, fd: FormData): Prom
     )
   } catch (e) {
     registrar(e, "contato")
+    // O e-mail que o Medusa recusa ("Invalid request: Invalid email address")
+    // é da pessoa, não da conexão: vai embaixo do campo, pra ela consertar.
+    const { status, message } = (e ?? {}) as { status?: number; message?: string }
+    if (status === 400 && /e-?mail/i.test(message ?? "")) {
+      return erro(anterior, { email: dicaDoEmail(email) }, "", fd)
+    }
     return erro(anterior, {}, GENERICO, fd)
   }
 
@@ -488,6 +513,40 @@ export async function finalizar(anterior: EstadoDaEtapa, fd: FormData): Promise<
       }
       if (relido) carrinho = relido
     }
+  }
+
+  /*
+    O PREÇO DE AGORA, E NÃO O DE QUANDO O PRODUTO ENTROU NA SACOLA. O Medusa
+    (2.21) só refaz o preço das linhas, as promoções e o frete gravado quando
+    muda a região, o idioma ou o endereço (`force_refresh`, em
+    `core-flows/.../cart/workflows/update-cart.js`) — o "+", o "−" e a oferta
+    refazem só a linha que mexeram. A sacola vive 30 dias no cookie, e quem
+    voltava dias depois com o endereço já gravado pagava o preço de antes: a
+    promoção que acabou seguia valendo, a que começou não entrava, e o frete
+    gravado ficava — o de emergência, ou o de antes de o frete grátis ligar
+    (entrega 0136). Mandar a MESMA região liga o recálculo inteiro sem trocar
+    nada: a região TROCADA de verdade é que apaga linha de preço manual, e o
+    Medusa só faz isso quando o id muda. O total novo cai na conferência logo
+    abaixo: diferente do que a pessoa viu, nada é cobrado e a tela mostra o
+    de agora.
+  */
+  try {
+    const { cart } = await sdk.store.cart.update(
+      carrinho.id,
+      { region_id: carrinho.region_id },
+      { fields: CAMPOS_CHECKOUT }
+    )
+    carrinho = cart
+  } catch (e) {
+    registrar(e, "refazer o preço antes de cobrar")
+    const jaFechado = await pedidoDoCarrinhoFechado()
+    if (jaFechado) return abrirPedido(jaFechado)
+    return erro(anterior, {}, GENERICO, fd)
+  }
+  // O recálculo tira a entrega que deixou de valer pro carrinho de agora.
+  if (!carrinho.shipping_methods?.length) {
+    refresh()
+    return erro(anterior, {}, "A entrega mudou. Escolhe de novo e clica em pagar.", fd)
   }
 
   /*
