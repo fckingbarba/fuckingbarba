@@ -1065,6 +1065,17 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
       Provado com o vetor forçado: o teste de antes falha, o novo passa; em 102.400 vetores, a
       troca antiga furou 407 vezes, a nova nenhuma. Só o teste mudou: nada muda na loja, e nada a
       configurar.
+- [x] **O conferidor do Marketing lia o aviso da meta tarde** (entrega 0143, 27/09, visto na
+      validação da 0139). No `conferir-marketing`, "Mudar a meta, 15.000 e Enter" esperava o bloco
+      da meta mostrar o valor novo e só depois lia o aviso "Meta do mês salva". Mas o aviso entra
+      logo (uns 70 ms depois do Enter) e some em 6 s, e o bloco vem com a página refeita: 2,4 a 4 s
+      com a máquina leve; com ela carregada (várias sessões ao mesmo tempo), depois dos 6 s — e a
+      checagem falhava sem bug nenhum, igual na main. Agora o conferidor pega o texto do aviso
+      quando ele entra, e só depois espera o bloco. Provado segurando no Medusa, por 7 s, a leitura
+      do Resumo que vem logo depois do "Mudar a meta" (o que a máquina carregada fazia): o
+      conferidor de antes falhou 8 em 8, o novo passou 8 em 8. A CPU lenta no navegador não
+      reproduz: ela atrasa junto o relógio do aviso. Só o conferidor mudou: nada muda no painel, e
+      nada a configurar.
 - [x] **A sacola responde no clique** (entrega 0104, 26/09, pedido da loja: "adicionar ou remover
       do carrinho está demorando"). Medido na produção: adicionar levava 1,3 s (2,4 s o primeiro,
       que cria o carrinho), o "+" 1,1 s e remover 0,9 s — quase tudo no Medusa, que refaz o
