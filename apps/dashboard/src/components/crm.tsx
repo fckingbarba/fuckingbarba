@@ -1,13 +1,23 @@
 import type { Route } from "next"
 import Link from "next/link"
 import { Icone, type NomeDoIcone } from "@/components/icones"
-import { PERIODOS_DO_CRM, type PeriodoDoCrm, type TelaDoCrm, type TipoDoCrm } from "@/lib/crm"
+import {
+  PERIODOS_DO_CRM,
+  type EtiquetaDaFicha,
+  type FichaDoCrm,
+  type PeriodoDoCrm,
+  type TelaDoCrm,
+  type TipoDoCrm,
+} from "@/lib/crm"
 
 /**
  * A PRIMEIRA TELA DO CRM — o que a loja anotou de cada pessoa: os números do
  * período, o caminho em etapas (quantas vezes cada coisa, de quantos
  * navegadores) e as últimas anotações, com o e-mail mascarado. O desenho é o
  * das peças do painel: o número, o bloco, o ícone chanfrado da fila do Início.
+ *
+ * Na ficha do cliente (parte 3): as cinco etiquetas da pessoa e o caminho
+ * dela — o site, os e-mails e as compras juntos.
  */
 
 const ICONE: Record<TipoDoCrm, NomeDoIcone> = {
@@ -317,6 +327,98 @@ export function UltimasDoCrm({ ultimos }: { ultimos: TelaDoCrm["ultimos"] }) {
       ) : (
         <p className="vazio">
           <b>Nada anotado neste período</b>A loja só anota quem aceitou os cookies.
+        </p>
+      )}
+    </section>
+  )
+}
+
+const ICONE_DA_ETIQUETA: Record<EtiquetaDaFicha["chave"], NomeDoIcone> = {
+  etapa: "clientes",
+  engajamento: "raio",
+  tratamento: "produtos",
+  proxima: "relogio",
+  cupom: "cupons",
+}
+
+const ehTipoDoCrm = (tipo: string): tipo is TipoDoCrm => tipo in ICONE
+
+/** O ícone de cada passo: o da anotação do site, o do e-mail ou o do pedido. */
+const iconeDoPasso = (tipo: string): NomeDoIcone =>
+  tipo === "email"
+    ? "email"
+    : tipo === "pedido"
+      ? "pedidos"
+      : ehTipoDoCrm(tipo)
+        ? ICONE[tipo]
+        : "olho"
+
+/** "pôs o Óleo na sacola" → "Pôs o Óleo na sacola": na ficha, a frase começa a linha. */
+const comMaiuscula = (t: string) => (t ? `${t[0].toUpperCase()}${t.slice(1)}` : t)
+
+/**
+ * AS ETIQUETAS DA PESSOA, na ficha do cliente — a etapa, o engajamento, o
+ * dia do tratamento, a próxima compra e se ela é sensível a cupom, cada uma
+ * com o porquê; e de onde ela chegou da primeira vez.
+ */
+export function EtiquetasDoCrm({ crm }: { crm: FichaDoCrm }) {
+  return (
+    <section className="bloco" data-etiquetas-crm>
+      <h2 className="rotulo">Etiquetas do CRM</h2>
+      <p className="pequeno suave" style={{ margin: 0 }} data-origem-crm>
+        {crm.origem
+          ? `De onde chegou: ${crm.origem}.`
+          : "Ainda não visitou a loja com o sim dos cookies: de onde chegou, o CRM não sabe."}
+      </p>
+      <div className="etiquetas">
+        {crm.etiquetas.map((e) => (
+          <div
+            key={e.chave}
+            className="etiqueta"
+            data-etiqueta={e.chave}
+            data-tom={e.tom ?? undefined}
+          >
+            <span className="fila__ico">
+              <Icone nome={ICONE_DA_ETIQUETA[e.chave]} />
+            </span>
+            <div>
+              <p className="etiqueta__rot">{e.nome}</p>
+              <p className="etiqueta__valor">{e.valor}</p>
+              <p className="etiqueta__porque">{e.porque}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+/** O CAMINHO DA PESSOA, na ficha: o que ela fez no site, os e-mails da loja e as compras. */
+export function CaminhoDaPessoa({ caminho }: { caminho: FichaDoCrm["caminho"] }) {
+  return (
+    <section className="bloco" data-caminho-crm>
+      <h2 className="rotulo">O caminho</h2>
+      {caminho.length ? (
+        <ol className="anotacoes">
+          {caminho.map((a) => (
+            <li
+              key={`${a.tipo}-${a.id}`}
+              className="anotacao"
+              data-tipo={a.tipo}
+              data-nivel={a.nivel ?? undefined}
+            >
+              <span className="fila__ico">
+                <Icone nome={iconeDoPasso(a.tipo)} />
+              </span>
+              <p className="anotacao__txt">{comMaiuscula(a.oque)}</p>
+              <time>{a.quando}</time>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p className="vazio">
+          <b>Nada ainda</b>O caminho junta o site (de quem aceitou os cookies), os e-mails da loja e
+          as compras.
         </p>
       )}
     </section>

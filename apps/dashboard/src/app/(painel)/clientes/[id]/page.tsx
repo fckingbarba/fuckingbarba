@@ -3,6 +3,7 @@ import Link from "next/link"
 import { notFound, redirect } from "next/navigation"
 import { SoPara } from "@/components/area"
 import { Cpf } from "@/components/cpf"
+import { CaminhoDaPessoa, EtiquetasDoCrm } from "@/components/crm"
 import { Status } from "@/components/pedidos"
 import { Cabeca, ForaDoAr, SemAcesso } from "@/components/telas"
 import { ehIdDeCliente, type FichaDoCliente, vezes } from "@/lib/clientes"
@@ -21,8 +22,8 @@ type Params = Promise<{ id: string }>
  * só o e-mail, as ofertas e o resumo dos pedidos; o CPF inteiro, só o dono.
  *
  * A ficha junta a mesma pessoa dos dois cadastros do Medusa (o convidado de
- * cada checkout e a conta). É aqui que o CRM vai pôr as etiquetas de cada
- * cliente (a etapa, o engajamento, a próxima compra) — num bloco a mais.
+ * cada checkout e a conta). Pra quem abre o CRM, vem também a parte dele: as
+ * cinco etiquetas, no alto, e o caminho da pessoa, embaixo dos pedidos.
  */
 export default function Pagina({ params }: { params: Params }) {
   return (
@@ -54,6 +55,7 @@ async function Ficha({ params }: { params: Params }) {
         titulo={c.nome}
         sub={`${c.conta ? "Tem conta na loja" : "Comprou sem conta"} · cliente desde ${c.desde}`}
       />
+      {c.crm ? <EtiquetasDoCrm crm={c.crm} /> : null}
       <div className="duas">
         <div>
           <section className="bloco" data-dados>
@@ -130,47 +132,50 @@ async function Ficha({ params }: { params: Params }) {
           </section>
         </div>
 
-        <section className="bloco" data-pedidos-do-cliente>
-          <h2 className="rotulo">Pedidos</h2>
-          {c.pedidos ? (
-            c.pedidos.length ? (
-              <>
-                <p className="pequeno suave" style={{ margin: "0 0 10px" }}>
-                  {vezes(c.resumo.pedidos, "pedido", "pedidos")}
-                  {c.resumo.gastou ? `, ${reais(c.resumo.gastou)} pagos` : ", nenhum pago"}.
-                </p>
-                <div className="mini">
-                  {c.pedidos.map((p) => (
-                    <Link key={p.id} href={`/pedidos/${p.id}` as Route}>
-                      <span>
-                        <p className="mini__titulo">#{p.numero}</p>
-                        <p className="mini__txt">
-                          {p.quando} · {p.itens}
-                        </p>
-                      </span>
-                      <span style={{ display: "grid", justifyItems: "end", gap: 4 }}>
-                        <span className="num" style={{ fontWeight: 800 }}>
-                          {reais(p.total)}
+        <div>
+          <section className="bloco" data-pedidos-do-cliente>
+            <h2 className="rotulo">Pedidos</h2>
+            {c.pedidos ? (
+              c.pedidos.length ? (
+                <>
+                  <p className="pequeno suave" style={{ margin: "0 0 10px" }}>
+                    {vezes(c.resumo.pedidos, "pedido", "pedidos")}
+                    {c.resumo.gastou ? `, ${reais(c.resumo.gastou)} pagos` : ", nenhum pago"}.
+                  </p>
+                  <div className="mini">
+                    {c.pedidos.map((p) => (
+                      <Link key={p.id} href={`/pedidos/${p.id}` as Route}>
+                        <span>
+                          <p className="mini__titulo">#{p.numero}</p>
+                          <p className="mini__txt">
+                            {p.quando} · {p.itens}
+                          </p>
                         </span>
-                        <Status p={p} />
-                      </span>
-                    </Link>
-                  ))}
-                </div>
-              </>
+                        <span style={{ display: "grid", justifyItems: "end", gap: 4 }}>
+                          <span className="num" style={{ fontWeight: 800 }}>
+                            {reais(p.total)}
+                          </span>
+                          <Status p={p} />
+                        </span>
+                      </Link>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <p className="pequeno suave" style={{ margin: 0 }}>
+                  Nenhum pedido ainda: tem conta, mas não comprou.
+                </p>
+              )
             ) : (
               <p className="pequeno suave" style={{ margin: 0 }}>
-                Nenhum pedido ainda: tem conta, mas não comprou.
+                {vezes(c.resumo.pedidos, "pedido", "pedidos")},{" "}
+                {c.resumo.gastou ? `${reais(c.resumo.gastou)} pagos` : "nenhum pago"}. O detalhe
+                fica com a operação.
               </p>
-            )
-          ) : (
-            <p className="pequeno suave" style={{ margin: 0 }}>
-              {vezes(c.resumo.pedidos, "pedido", "pedidos")},{" "}
-              {c.resumo.gastou ? `${reais(c.resumo.gastou)} pagos` : "nenhum pago"}. O detalhe fica
-              com a operação.
-            </p>
-          )}
-        </section>
+            )}
+          </section>
+          {c.crm ? <CaminhoDaPessoa caminho={c.crm.caminho} /> : null}
+        </div>
       </div>
     </div>
   )
