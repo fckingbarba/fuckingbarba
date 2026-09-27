@@ -33,8 +33,9 @@ import {
  * entra na resposta: a fila dos pedidos e os pedidos de hoje (com o nome do
  * cliente) só pra quem abre os Pedidos — no padrão, o dono e a operação; o
  * estorno que falhou, só pra quem abre os Estornos — no padrão, o dono. O
- * marketing tem a fila dele (rascunhos e newsletter, se abre cada um); todo
- * mundo recebe os números e os mais vendidos, sem nome de cliente.
+ * marketing tem a fila dele (rascunhos e newsletter, se abre cada um); quem
+ * abre as Avaliações vê as que esperam aprovação; todo mundo recebe os
+ * números e os mais vendidos, sem nome de cliente.
  *
  * "VENDA" É PEDIDO PAGO: Pix esperando e cartão em análise ficam de fora das
  * vendas (eles têm o número deles, "Esperando pagamento"), e pedido pago
@@ -51,7 +52,7 @@ export type ItemDaFila = {
   /** O que o item é, estável: a chave da lista no painel. */
   chave: string
   nivel: "grave" | "atencao" | "" | "ok"
-  icone: "caminhao" | "nota" | "pix" | "cartao" | "alerta" | "email" | "produtos"
+  icone: "caminhao" | "nota" | "pix" | "cartao" | "alerta" | "email" | "produtos" | "estrela"
   titulo: string
   /** A explicação (o "?" do painel); uma linha por pedido quando os motivos são diferentes. */
   texto: string
@@ -88,6 +89,8 @@ export type DadosDoInicio = {
   newsletter?: { semana: number; total: number }
   /** Marketing: produtos em rascunho (os novos do Bling). */
   rascunhos?: number
+  /** Quem abre as Avaliações: quantas chegaram e esperam o painel. */
+  avaliacoes?: number
 }
 
 /** Quem pede o Início: o papel dele e as áreas que abre agora (`PedidoDaEquipe.areas`). */
@@ -194,6 +197,7 @@ export function montarInicio(quem: QuemVeOInicio, dados: DadosDoInicio, ctx: Con
           )
         : []),
       ...(quem.papel === "marketing" ? filaDoMarketing(dados) : []),
+      ...(abre("avaliacoes") && dados.avaliacoes ? [itemDasAvaliacoes(dados.avaliacoes)] : []),
     ].sort((a, b) => ORDEM[a.nivel] - ORDEM[b.nivel]),
     pedidosDeHoje: !abre("pedidos")
       ? null
@@ -453,6 +457,20 @@ function filaDosPedidos(
 
   for (const g of grupos.values()) fila.push(juntos(g))
   return fila.sort((a, b) => ORDEM[a.nivel] - ORDEM[b.nivel])
+}
+
+/** As avaliações que chegaram pela página `/avaliar` e esperam aprovação. */
+function itemDasAvaliacoes(quantas: number): ItemDaFila {
+  return {
+    chave: "avaliacoes",
+    nivel: "atencao",
+    icone: "estrela",
+    titulo: "Avaliações esperando",
+    texto:
+      "Chegaram de quem comprou, pela página de avaliação. Aprovada, a avaliação vai pro site.",
+    href: "/avaliacoes",
+    quantos: quantas,
+  }
 }
 
 function filaDoMarketing(dados: DadosDoInicio): ItemDaFila[] {

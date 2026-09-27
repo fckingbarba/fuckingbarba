@@ -89,6 +89,12 @@ export default async function Privacidade() {
           aí o seu endereço sai da lista de espera. Não é a newsletter: não vem mais nada depois.
         </P>
         <P>
+          <b>Se você avaliar um produto</b> (a página que abre pelo e-mail que a gente manda um dia
+          depois da entrega, um por compra): o nome que você escolher, a nota e o texto, ligados ao
+          pedido. Depois que a loja lê, o nome, a nota e o texto aparecem no site, na página do
+          produto — o número do pedido e o seu e-mail, não.
+        </P>
+        <P>
           <b>Se você aceitar os cookies</b>: as páginas e os produtos que você vê, o que entra e sai
           da sacola e o caminho do checkout. Na compra, junto do valor e dos produtos, vão os
           códigos desses cookies — e, pra Meta e pro TikTok, o IP e o navegador. É o que diz pra
@@ -133,13 +139,15 @@ export default async function Privacidade() {
           </li>
           <li>
             <b>Consentimento</b> — cookies de medição e anúncio, o que a loja anota do que você faz
-            nela, o aviso da compra pras plataformas de anúncio, a newsletter e o aviso de produto
-            esgotado. Você escolhe, e pode voltar atrás a qualquer momento sem perder nada do resto.
+            nela, o aviso da compra pras plataformas de anúncio, a newsletter, o aviso de produto
+            esgotado e a avaliação que você manda pro site. Você escolhe, e pode voltar atrás a
+            qualquer momento sem perder nada do resto.
           </li>
           <li>
             <b>Legítimo interesse</b> — segurança da loja e prevenção a fraude, a mensagem no
-            WhatsApp sobre uma compra que você deixou no meio e saber se os e-mails da loja chegam e
-            são abertos, sempre com o mínimo de dado possível.
+            WhatsApp sobre uma compra que você deixou no meio, o e-mail que pergunta o que você
+            achou de uma compra (um por compra) e saber se os e-mails da loja chegam e são abertos,
+            sempre com o mínimo de dado possível.
           </li>
         </Lista>
       </Secao>
@@ -232,11 +240,12 @@ export default async function Privacidade() {
           Dados de venda ficam <b>cinco anos</b>, que é o que a legislação fiscal e o Código de
           Defesa do Consumidor exigem de quem vende. E-mail de newsletter fica até você pedir pra
           sair. O do aviso de produto esgotado fica até o aviso sair — ou seis meses, se o produto
-          não voltar. O registro das tentativas de pagar com cartão fica 30 dias. O que a loja anota
-          do que você faz nela, e o que ela sabe dos e-mails que mandou (se chegaram, se foram
-          abertos), fica <b>13 meses</b> e depois é apagado. Cookies de medição duram no máximo dois
-          anos, e o código deste navegador, um ano; os necessários somem quando a sessão acaba,
-          menos o da sacola e o da sua resposta sobre cookies.
+          não voltar. A avaliação que você mandou fica até você pedir pra apagar. O registro das
+          tentativas de pagar com cartão fica 30 dias. O que a loja anota do que você faz nela, e o
+          que ela sabe dos e-mails que mandou (se chegaram, se foram abertos), fica <b>13 meses</b>{" "}
+          e depois é apagado. Cookies de medição duram no máximo dois anos, e o código deste
+          navegador, um ano; os necessários somem quando a sessão acaba, menos o da sacola e o da
+          sua resposta sobre cookies.
         </P>
       </Secao>
 

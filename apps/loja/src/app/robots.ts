@@ -10,7 +10,8 @@ import { emProducao, site } from "@/lib/site"
  * mais comprida que casa, e ela vencia o `Allow: /`. Por isso a conta vai com
  * a barra (`/conta/`, as páginas dela) e com o `$` (o `/conta` exato, que só
  * redireciona). O `conferir-links.mjs` confere o robots contra o sitemap
- * quando a loja indexa.
+ * quando a loja indexa. A `/avaliar` é a página escondida da avaliação (o
+ * link vem no e-mail): fora do Google, com o `noindex` dela de segunda tranca.
  */
 export default function robots(): MetadataRoute.Robots {
   if (!emProducao) {
@@ -20,7 +21,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: "*",
       allow: "/",
-      disallow: ["/checkout", "/conta/", "/conta$", "/carrinho", "/api/", "/busca"],
+      disallow: ["/checkout", "/conta/", "/conta$", "/carrinho", "/api/", "/busca", "/avaliar"],
     },
     sitemap: `${site.url}/sitemap.xml`,
   }

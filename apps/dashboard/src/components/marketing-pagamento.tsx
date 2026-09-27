@@ -2,15 +2,21 @@ import type { Route } from "next"
 import Link from "next/link"
 import { Achados } from "@/components/marketing"
 import { lerMembro } from "@/lib/eu"
-import { lerPagamento, type Periodo } from "@/lib/marketing"
+import {
+  lerPagamento,
+  type PagamentoEFrete,
+  type ParceiroNoRanking,
+  type Periodo,
+} from "@/lib/marketing"
 import { reais } from "@/lib/pedidos"
 
 /**
  * O PAGAMENTO E O FRETE DO MARKETING — como as pessoas pagam, o que não
  * passa (o Pix que vence, o cartão recusado e por quem) e o que o frete faz
- * com a venda. Os desenhos são os do protótipo; os dados, do
- * `GET /dashboard/marketing/pagamento` — o estado que o Pagar.me deixa em
- * cada sessão.
+ * com a venda — e os parceiros de pagamento lado a lado (0154). Os desenhos
+ * são os do protótipo; os dados, do `GET /dashboard/marketing/pagamento` — o
+ * estado que cada parceiro deixa na sessão, e as tentativas que a porta do
+ * `complete` anota.
  */
 
 const INTEIRO = new Intl.NumberFormat("pt-BR")
@@ -37,6 +43,144 @@ function Barras({ itens, total, dados }: { itens: Barra[]; total: number; dados:
         </li>
       ))}
     </ul>
+  )
+}
+
+const DECIMAL = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 })
+
+/** "12 min", "1 h 05" — e "menos de 1 min", em vez de "0 min". */
+function emMinutos(m: number): string {
+  if (m < 1) return "menos de 1 min"
+  if (m < 60) return `${INTEIRO.format(m)} min`
+  const h = Math.floor(m / 60)
+  const resto = m % 60
+  return resto ? `${h} h ${String(resto).padStart(2, "0")}` : `${h} h`
+}
+
+/** O mesmo do backend (`MINIMO_PRA_COMPARAR`, em `lib/painel/marketing-parceiros.ts`). */
+const MINIMO_PRA_COMPARAR = 10
+
+/**
+ * OS PARCEIROS, LADO A LADO — o Pix de cada um (os gerados e os pagos são
+ * os pedidos; o que não gerou e o tempo pra gerar, as tentativas), quantas
+ * vezes não respondeu e quanto tempo ficou fora do ar. "Quem gera mais" só
+ * sai com volume nos dois. No celular, vira cartão. O cartão não entra: só o
+ * Pagar.me passa cartão, e o bloco Cartão já é dele.
+ */
+function Parceiros({ r }: { r: PagamentoEFrete["parceiros"] }) {
+  const usados = r.parceiros.filter((p) => p.usado)
+  const parado = r.parceiros.find((p) => !p.usado)
+  const tentativas = (p: ParceiroNoRanking) => p.pix.gerados + p.pix.naoGeraram
+  const geraram = (p: ParceiroNoRanking) =>
+    tentativas(p) ? porcento((p.pix.gerados / tentativas(p)) * 100) : "—"
+  const pagaram = (p: ParceiroNoRanking) =>
+    p.pix.gerados ? porcento((p.pix.pagos / p.pix.gerados) * 100) : "—"
+  const praGerar = (p: ParceiroNoRanking) =>
+    p.pix.praGerar === null ? "—" : `${DECIMAL.format(p.pix.praGerar)} s`
+  const atePagar = (p: ParceiroNoRanking) =>
+    p.pix.atePagar === null ? "—" : emMinutos(p.pix.atePagar)
+  const fora = (p: ParceiroNoRanking) =>
+    p.fora.vezes
+      ? `${p.fora.vezes === 1 ? "1 vez" : `${p.fora.vezes} vezes`} · ${emMinutos(p.fora.minutos)}`
+      : "nenhuma"
+  // O primeiro da lista é quem cobra com todo mundo de pé; os outros, a reserva do Pix.
+  const papel = (p: ParceiroNoRanking) =>
+    p.id === r.parceiros[0]?.id ? "o principal" : "a reserva do Pix"
+  const m = r.melhorNoPix
+  return (
+    <section className="bloco" data-bloco="parceiros">
+      <div className="bloco__cabeca">
+        <div>
+          <h2 className="bloco__titulo">Os parceiros</h2>
+          <p className="bloco__sub">
+            Quem gerou o Pix, o que não gerou e quanto tempo cada um ficou fora do ar.
+          </p>
+        </div>
+      </div>
+      {usados.length ? (
+        <>
+          <div className="tabela-rola" data-vira-cartao>
+            <table className="tabela">
+              <thead>
+                <tr>
+                  <th>Parceiro</th>
+                  <th className="direita">Pix gerados</th>
+                  <th className="direita">Pagos</th>
+                  <th className="direita">Pra gerar</th>
+                  <th className="direita">Até pagar</th>
+                  <th className="direita">Sem resposta</th>
+                  <th className="direita">Fora do ar</th>
+                </tr>
+              </thead>
+              <tbody>
+                {usados.map((p) => (
+                  <tr key={p.id} data-parceiro={p.id}>
+                    <td>
+                      <b>{p.nome}</b>
+                      <span className="tabela__sub">{papel(p)}</span>
+                    </td>
+                    <td className="direita num" data-num="gerados">
+                      {INTEIRO.format(p.pix.gerados)}
+                      <span className="tabela__sub">
+                        de {INTEIRO.format(tentativas(p))} · {geraram(p)}
+                      </span>
+                    </td>
+                    <td className="direita num" data-num="pagos">
+                      {INTEIRO.format(p.pix.pagos)}
+                      <span className="tabela__sub">{pagaram(p)} dos gerados</span>
+                    </td>
+                    <td className="direita num" data-num="pra-gerar">
+                      {praGerar(p)}
+                      <span className="tabela__sub">do clique ao QR</span>
+                    </td>
+                    <td className="direita num" data-num="ate-pagar">
+                      {atePagar(p)}
+                      <span className="tabela__sub">do QR ao pago</span>
+                    </td>
+                    <td className="direita num" data-num="sem-resposta">
+                      {INTEIRO.format(p.semResposta)}
+                    </td>
+                    <td className="direita num" data-num="fora">
+                      {fora(p)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="cartoes">
+            {usados.map((p) => (
+              <div className="cartao" key={p.id} data-parceiro={p.id}>
+                <span className="cartao__linha">
+                  <p className="cartao__titulo">{p.nome}</p>
+                  <span className="cartao__valor">{INTEIRO.format(p.pix.gerados)} Pix</span>
+                </span>
+                <p className="cartao__txt">
+                  de {INTEIRO.format(tentativas(p))} tentativas · {geraram(p)} ·{" "}
+                  {INTEIRO.format(p.pix.pagos)} pagos
+                </p>
+                <p className="cartao__txt">
+                  {praGerar(p)} pra gerar · {atePagar(p)} até pagar
+                </p>
+                <p className="cartao__txt">
+                  Sem resposta: {INTEIRO.format(p.semResposta)} · fora do ar: {fora(p)}
+                </p>
+              </div>
+            ))}
+          </div>
+          <p className="pequeno" data-veredito>
+            {m
+              ? `No Pix, o ${m.nome} gerou ${m.parte}% das tentativas; o ${m.outro}, ${m.parteDoOutro}%.`
+              : `Ainda sem volume pra dizer quem gera mais Pix: a comparação sai com ${MINIMO_PRA_COMPARAR} tentativas de Pix em cada parceiro no período — e a reserva só cobra quando o principal falha.`}
+          </p>
+          {parado ? (
+            <p className="pequeno suave">O {parado.nome} não cobrou nada no período.</p>
+          ) : null}
+        </>
+      ) : (
+        <p className="sem-dados">Nenhum Pix no período.</p>
+      )}
+    </section>
   )
 }
 
@@ -114,6 +258,10 @@ export async function TelaDoPagamento({ periodo }: { periodo: Periodo }) {
                       },
                     ]
                   : []),
+                // O pedido cancelado com o cartão em análise: nada cobrado, e não é recusa.
+                ...(cartao.cancelados
+                  ? [{ nome: "Cancelados antes de cobrar", n: cartao.cancelados }]
+                  : []),
               ]}
             />
           ) : (
@@ -131,6 +279,7 @@ export async function TelaDoPagamento({ periodo }: { periodo: Periodo }) {
           )}
         </section>
       </div>
+      <Parceiros r={p.parceiros} />
       <section className="bloco" data-bloco="frete">
         <div className="bloco__cabeca">
           <div>
@@ -179,7 +328,9 @@ export async function TelaDoPagamento({ periodo }: { periodo: Periodo }) {
       <p className="pequeno suave">
         O cartão conta cada tentativa: a do pedido e a do carrinho que não fechou (o recusado na
         hora não vira pedido). Quem tenta de novo no mesmo carrinho conta a última tentativa. O Pix
-        vencido é o que passou da hora sem ser pago.
+        vencido é o que passou da hora sem ser pago. Nos parceiros, os Pix gerados e pagos são os
+        pedidos; o que não gerou, o tempo pra gerar e o fora do ar vêm das tentativas anotadas desde
+        27/09. O cartão é só do Pagar.me: está no bloco Cartão.
       </p>
     </>
   )

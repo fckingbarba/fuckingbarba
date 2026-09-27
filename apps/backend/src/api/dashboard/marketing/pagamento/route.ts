@@ -6,8 +6,10 @@ import { lerPeriodo } from "../../../../lib/painel/marketing"
 /**
  * GET /dashboard/marketing/pagamento?periodo=30d — como as pessoas pagam, o
  * que não passa (o Pix que vence, o cartão recusado e por quem) e o que o
- * frete faz com a venda (`lib/painel/marketing-pagamento.ts`). Tudo da loja:
- * o estado que o Pagar.me deixa em cada sessão. Do dono e do marketing.
+ * frete faz com a venda (`lib/painel/marketing-pagamento.ts`), e os parceiros
+ * de pagamento lado a lado (`marketing-parceiros.ts`). Tudo da loja: o estado
+ * que cada parceiro deixa na sessão e as tentativas anotadas pela porta do
+ * `complete`. Do dono e do marketing.
  */
 export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) {
   if (!exigirArea(req as PedidoDaEquipe, res, "marketing")) return

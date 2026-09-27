@@ -38,9 +38,10 @@ verdade.
 ### Conferidores
 
 `apps/loja/ferramentas/conferir-*.mjs` abrem a loja num Chromium de verdade e comparam o que está na
-tela com o que a API do Medusa responde — nunca com outra conta feita no próprio teste. São treze:
-frete, pdp, checkout, pagamento, catálogo, links, configurações, documento, conta, envio, erp (este
-sem navegador: o Bling falso e o admin), avise-me e mercadopago (o Pix reserva). Rode os que
+tela com o que a API do Medusa responde — nunca com outra conta feita no próprio teste. São
+catorze: frete, pdp, checkout, pagamento, catálogo, links, configurações, documento, conta, envio,
+erp (este sem navegador: o Bling falso e o admin), avise-me, mercadopago (o Pix reserva) e
+avaliacoes (o e-mail um dia depois da entrega e a página /avaliar). Rode os que
 tocam no que você mexeu, e todos antes de entregar. Os que escrevem no admin desfazem o que mudaram
 no fim, mesmo quando falham.
 
@@ -942,8 +943,70 @@ trechos, sem servidor.
 "Entrevista com cliente", sem nome, sem estrela e sem selo, e fica fora da nota média e do
 `AggregateRating` — na esteira e na seção "O que diz quem usou" (três por visita) da página do
 produto de que ele fala (uma vez só; os do Fator não se repetem nos kits). Avaliação de verdade,
-com o nome e a nota que a pessoa deu, vai em `AVALIACOES`. As regras estão no topo do próprio
-arquivo.
+com o nome e a nota que a pessoa deu, vem de quem comprou (a página `/avaliar`, abaixo) ou de
+`AVALIACOES`, e ENTRA ANTES dos trechos: nos quatro de cada produto da esteira e nos três da
+página, as avaliações primeiro e os trechos completam (`avaliacoesPrimeiro`, em
+`lib/avaliacoes.ts`); entre as do mesmo tipo, a mesma chance, sem olhar a nota. Com 20 trechos por
+produto, a primeira avaliação de verdade aparecia em uma visita a cada sete. As regras estão no
+topo do próprio arquivo.
+
+**As avaliações de quem comprou** (entrega 0152). Três pontas, no molde do avise-me:
+
+- **O e-mail** "Pedido #N: o que você achou?" (`lib/emails/avaliacao.ts`) sai da rodada
+  `pedirAvaliacoes` (`lib/avaliacoes/pedir.ts`), no job `pedir-avaliacoes` (de hora em hora, no
+  minuto 37) e em `POST /admin/avaliacoes/pedir` (o gêmeo, que passa por cima do relógio). A regra
+  é pura, com teste (`lib/avaliacoes/regras.ts`): o pedido que CHEGOU INTEIRO — todo pacote dele
+  `entregue` no núcleo dos envios, nenhum na rua (`chegouEm`; o "aguardando" sem código é o registro
+  no parceiro, não conta) — há pelo menos 24 horas e no máximo `JANELA_EM_DIAS` (10), pago, não
+  cancelado e com produto sem nota (`decidirPedido`); só das 9h às 20h59 de Brasília
+  (`dentroDoHorario`). A hora é o `envio.entregue_em`: a da transportadora, ou o "Mark as delivered"
+  do admin, que entra no núcleo igual. Uma vez por pedido, com o molde dos e-mails de pedido: o
+  registro em `metadata.emails.avaliacao` (`email`, `dispensado` com o motivo, ou `recusado` — o
+  422 do Resend), pela porta do metadata, e a chave `pedir-avaliacao/<id>`. A etiqueta `tipo` é
+  `pedir-avaliacao` ("Pedido de avaliação" no CRM). O e-mail lista só os produtos ainda sem nota.
+- **A página escondida `/avaliar`** (loja): sem conta. O botão do e-mail leva a
+  `/avaliar/<pedido>.<assinatura>` (`app/avaliar/[link]/route.ts`), que guarda o link num cookie
+  `httpOnly` (`avaliar`, só no caminho `/avaliar`, 60 dias; `lib/avaliar.ts`) e manda pra
+  `/avaliar?produto=…` LIMPA, com as UTMs: o link não fica no endereço, no histórico nem no GA4, que
+  manda a URL inteira. O link é um HMAC do id do pedido com uma chave derivada do `JWT_SECRET`
+  (`lib/avaliacoes/link.ts`); não vence. A página lê o pedido em `GET /store/avaliacoes/pedido`
+  (número, nome sugerido — o primeiro nome e a inicial, `nomeSugerido` —, os produtos e se já têm
+  nota) e manda em `POST /store/avaliacoes` (o link vem do cookie, nunca do formulário). Sem o link,
+  `POST /store/avaliacoes/encontrar` acha pelo número do pedido e o e-mail da compra (os dois, e o
+  404 não diz qual errou) e devolve o mesmo link. Uma avaliação por produto de cada pedido (índice
+  único; 409 `ja_avaliou`), só de pedido pago e não cancelado — a entrega não entra na conta: quem
+  recebeu sem o rastreio dizer ainda avalia pela página. Os limites são na memória, por IP assinado
+  (os da newsletter). O texto vai como a pessoa escreveu (`limparTexto` só tira espaço nas pontas,
+  caractere de controle e linha em branco repetida). Fica fora do Google (o `Disallow` do robots e o
+  `noindex`), e o `proxy.ts` não baixa a caixa do `/avaliar/` (`CAMINHOS_COM_ID`).
+- **O painel** (Pessoas → Avaliações; a área `avaliacoes`, dos três papéis no padrão): as novas
+  (da mais antiga), as do site e as recusadas; aprovar põe no site, recusar não põe (ou tira), e a
+  recusada pode ser APAGADA de vez (`apagarAvaliacao` — o pedido de exclusão da LGPD; dois passos,
+  com confirmação). Tudo pelo `moderarAvaliacao` (`lib/avaliacoes/moderar.ts`), que avisa a loja
+  (`avaliacoes`, perfil "seconds") quando o site muda, e com a linha no registro da equipe. O número
+  do pedido só vai pra quem abre os Pedidos. O Início diz "N avaliações esperando". O admin do
+  Medusa tem o mesmo em `POST /admin/avaliacoes/:id`.
+
+O site lê as aprovadas em `GET /store/avaliacoes` (`avaliacoesDoSite`: o produto pelo HANDLE de
+agora, só produto publicado, nada do pedido), pela `avaliacoesPublicadas` da loja (`lib/medusa.ts`,
+etiqueta `avaliacoes`, dias; o 404 do Medusa de antes da rota é lista vazia) e o
+`avaliacoesDoMedusa` (`lib/avaliacoes-do-medusa.ts`, com o selo de compra verificada: toda uma veio
+de pedido pago). A página do produto soma as aprovadas às de `AVALIACOES` (a nota e a conta olham todas; pro
+sorteio vão as 24 mais recentes, pra lista não crescer dentro do HTML) e põe a nota no Product pelo
+`itemref="avaliacoes-nota"` da dobra — só quando ela existe. A esteira da home NÃO recebe as
+avaliações no HTML: o pedaço à parte que ela já buscava com `import()` virou
+`lib/depoimentos-da-esteira.ts`, que junta os textos de `conteudo/depoimentos.ts` com a
+`/api/avaliacoes` da loja, na hora em que a seção chega perto. **Esse pedaço não importa
+`lib/avaliacoes.ts`** (nem a conversão mora lá): módulo dividido entre o JavaScript da primeira
+tela e um pedaço à parte vira um TERCEIRO pedaço, que a home baixa a mais — na 0152 isso custou
++180 bytes comprimidos na home e na PDP, só de mudar onde o `semRepetidas` era chamado. Medido com
+`next build` da main e da entrega contra o `medusa-falso.mjs`, somando os scripts do HTML de cada
+página: a entrega ficou com +87 bytes (o `avaliacoesPrimeiro`) e +13 no HTML. O `medusa-falso.mjs` do CI responde
+`/store/avaliacoes` vazio. Conferidores: `apps/loja/ferramentas/conferir-avaliacoes.mjs` (o pedido
+entregue há dois dias por um aviso da Frenet com a hora dela, o e-mail, a página, o que o Medusa
+guardou, a busca pelo número, a aprovada na página do produto e a limpeza no fim) e
+`apps/dashboard/ferramentas/conferir-avaliacoes.mjs` (a tela, aprovar, tirar, apagar, o Início e o
+marketing sem o número do pedido).
 
 O **vídeo da história da marca** (a seção "O cuidado que impõe presença" da home) é `home.video`
 nas configurações da loja (`fb_configuracoes`): sobe no admin, em Configurações da loja → Home, com
@@ -1217,6 +1280,17 @@ protótipo; as duas só da loja (sem o Google).
   carrinho** (`deletePaymentSession`, sem lixeira): conta a última tentativa de cada carrinho. O
   frete: a parte grátis, o médio de quem pagou, quem desiste (carrinho com CEP e sem entrega
   escolhida) e o "quase lá" (pagou frete a menos de R$ 30 do piso do `fb_configuracoes`).
+- **Os parceiros lado a lado** (entrega 0154, `lib/painel/marketing-parceiros.ts`, puro, com
+  testes): o Pix de cada parceiro — gerados e pagos dos PEDIDOS do período
+  (`pagamentoDo(o).parceiro`; somados, dão os do bloco Pix), o que não gerou e o tempo do clique ao
+  QR das TENTATIVAS anotadas (`tentativasDoPeriodo`, no serviço da observabilidade: só as com
+  parceiro, desde a 0150), a mediana do pedido ao pago, as tentativas sem resposta e as quedas pela
+  regra do disjuntor (três seguidas, até a primeira que ele atendeu; a que não acabou vai até
+  agora). "Quem gera mais Pix" só sai com 10 tentativas de Pix em cada um (`MINIMO_PRA_COMPARAR`). O
+  cartão fica fora do ranking: só o Pagar.me passa cartão. Achado: o parceiro que ficou fora do ar,
+  com os Pix que saíram pelo outro nesse tempo. E o cartão ganhou `cancelados` (o pedido cancelado
+  com o cartão em análise: nada cobrado, e não é recusa) — antes, eles ficavam no total e em motivo
+  nenhum.
 - Rotas `GET /dashboard/marketing/clientes` (com os números da newsletter, `numerosDaNewsletter`)
   e `/pagamento`. No painel, `marketing/clientes` e `marketing/pagamento`,
   `components/marketing-clientes.tsx` e `marketing-pagamento.tsx` (o atalho "Mudar o frete

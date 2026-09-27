@@ -106,6 +106,12 @@ export const ROTINAS: readonly DefinicaoDaRotina[] = [
     cada: "de hora em hora",
   },
   {
+    nome: "pedir-avaliacoes",
+    frase: "Pede avaliação a quem recebeu o pedido há um dia",
+    agenda: "37 * * * *",
+    cada: "de hora em hora",
+  },
+  {
     nome: "limpar-o-crm",
     frase: "Apaga o que o CRM anotou há mais de 13 meses",
     agenda: "41 * * * *",

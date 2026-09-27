@@ -1,5 +1,7 @@
 import type { MedusaContainer } from "@medusajs/framework/types"
 import { Modules } from "@medusajs/framework/utils"
+import { OBSERVABILIDADE } from "../../modules/observabilidade"
+import type ObservabilidadeService from "../../modules/observabilidade/service"
 import { lerConfiguracoes } from "../configuracoes"
 import { avisarNoLog, configuracaoDoGa4, ErroDoGa4, relatoriosDoMarketing } from "./ga4"
 import {
@@ -237,21 +239,30 @@ export async function lerClientesDoMarketing(
   }
 }
 
-/** O pagamento e o frete: o estado que o Pagar.me deixa em cada sessão. Tudo da loja. */
+/**
+ * O pagamento e o frete: o estado que cada parceiro deixa na sessão, e as
+ * tentativas que a porta do `complete` anota (o ranking dos parceiros). Tudo
+ * da loja.
+ */
 export async function lerPagamentoDoMarketing(
   container: MedusaContainer,
   periodo: Periodo,
   agora: Date
 ) {
   const { atual } = janelasDo(periodo, agora)
-  const [pedidos, carrinhos, lojas] = await Promise.all([
+  const [pedidos, carrinhos, lojas, anotadas] = await Promise.all([
     // Os pedidos com a folga do Resumo: o feito antes e pago dentro conta como pago no período.
     pedidosComPagamento(container, lerPedidosDesde(periodo, agora)),
     carrinhosComPagamento(container, atual.de),
     container.resolve(Modules.STORE).listStores({}, { select: ["metadata"], take: 1 }),
+    // Sem a tabela (a migração ainda não rodou), o ranking fica só com os pedidos.
+    container
+      .resolve<ObservabilidadeService>(OBSERVABILIDADE)
+      .tentativasDoPeriodo(atual)
+      .catch(() => []),
   ])
   const politica = lerConfiguracoes(lojas[0]?.metadata).frete
-  return { periodo, ...montarPagamento(pedidos, carrinhos, politica, atual, agora) }
+  return { periodo, ...montarPagamento(pedidos, carrinhos, politica, atual, agora, anotadas) }
 }
 
 /**

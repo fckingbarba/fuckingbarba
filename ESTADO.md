@@ -1325,8 +1325,9 @@ O que já está de pé:
   Sobram:
   - avisar a LOJA de extravio e devolução (e-mail ou um bloco no admin com a linha do tempo) —
     hoje é o log (`[envio]`) e o painel da Frenet;
-  - o "entregue + pedido de avaliação" sete dias depois, do doc de arquitetura — um assinante do
-    `envio.mudou`;
+  - ~~o "entregue + pedido de avaliação" sete dias depois~~ — feito na entrega 0152, UM dia
+    depois (pedido dele), pela rodada de hora em hora `pedir-avaliacoes` e não por assinante do
+    `envio.mudou` (ver "Avaliações de verdade", no fim da 4.5);
   - limpar envios sem dono antigos, se a conta da Frenet seguir avisando os da Nuvemshop.
 
 ### 4.5. O painel próprio da loja (dashboard)
@@ -2719,10 +2720,11 @@ Depois do deploy — **nada a configurar.**
       o cartão oferece esse Pix. Mercado Pago instável: nada muda. Os dois: "tenta em instantes" e
       um e-mail pro dono. Instável = três falhas seguidas; o parceiro sai por 5 minutos (o
       disjuntor) e volta sozinho.
-- [ ] **Parte 4: o ranking dos parceiros**, no Marketing → Pagamento e frete: Pix gerados, pagos,
-      que não geraram e o tempo pra gerar e confirmar; cartão aprovado e recusado por motivo;
-      falhas, vezes fora e minutos fora. Com o número ao lado da porcentagem, e sem vencedor sem
-      volume. No cartão, só compara se um dia o Mercado Pago também passar cartão.
+- [x] **Parte 4: o ranking dos parceiros** — pronta em 27/09 (entrega 0154, mais abaixo), no
+      Marketing → Pagamento e frete: Pix gerados, pagos, que não geraram e o tempo pra gerar e
+      confirmar; falhas, vezes fora e minutos fora. Com o número ao lado da porcentagem, e sem
+      vencedor sem volume. O cartão fica no bloco Cartão: só compara se um dia o Mercado Pago
+      também passar cartão.
 
 **Marketing: a conversão do Resumo compara gente igual — pronta em 26/09 (entrega 0135).** Pedido
 dele, depois da conversa sobre robôs e como a visita é contada ("sim vamos"). A conversão do Resumo
@@ -3209,6 +3211,81 @@ Salvar ajustes. A ficha de quem comprou Fator passa a mostrar a próxima compra 
 
 - [ ] **As próximas partes da Fundação** (uma entrega cada, perguntar antes): a base da Nuvemshop e
       o modelo de e-mail.
+
+**Avaliações de verdade: o e-mail um dia depois da entrega e a página escondida /avaliar — pronto
+em 27/09 (entrega 0152).** Pedido dele: "uma página para avaliações (...) cliente não precisa estar
+logado (...) página escondida que enviamos para o cliente 1 dia depois que recebe o produto via
+e-mail", com o número do pedido, o nome, o produto, as estrelas e a descrição.
+
+- **O e-mail "Pedido #N: o que você achou?"** sai um dia depois de o rastreio dizer "entregue" (a
+  hora da transportadora, ou o "entregue" marcado no admin), das 9h às 21h de Brasília — a entrega
+  das 23h vira e-mail às 9h do dia seguinte ao "um dia depois". Um por pedido, com um botão
+  "Avaliar" pra cada produto, o WhatsApp pra quem teve problema ("antes de dar a nota, chama a
+  gente") e o Instagram e o TikTok no rodapé. Não sai pra pedido cancelado, nem pra quem já avaliou
+  tudo pela página. Vale pras entregas de até 10 dias atrás: no dia do deploy, quem recebeu nesses
+  10 dias recebe o e-mail na primeira rodada.
+- **A página /avaliar** — fora do menu, do mapa do site e do Google. Pelo botão do e-mail, ela abre
+  com o número do pedido, o nome sugerido ("Rafael S.": a pessoa muda como quiser, é o que aparece
+  no site) e o produto marcado; falta dar as estrelas e escrever. Depois do "valeu", ela oferece os
+  outros produtos do pedido. Sem o e-mail, a página pede o número do pedido e o e-mail da compra. Sem
+  conta e sem senha, mas só quem comprou avalia: o link do e-mail é assinado, e trocar o número não
+  abre o pedido de outra pessoa. Uma nota por produto de cada pedido.
+- **Painel → Avaliações** (novo, em Pessoas): as novas esperam você. "Aprovar" põe no site na hora;
+  "Recusar" não põe (e "Tirar do site" tira a que já estava); a recusada pode ser apagada de vez —
+  é pra quando a pessoa pede (a LGPD). O número do pedido aparece pra quem abre os Pedidos. O Início
+  avisa "N avaliações esperando". Abrem: o dono, a operação e o marketing (dá pra mudar em
+  Configurações → Equipe e acessos).
+- **No site:** a aprovada aparece na página do produto ("O que diz quem usou", com as estrelas, o
+  nome e o selo de compra verificada), entra na nota do topo da seção, na esteira da home e na nota
+  que o Google lê (as estrelas no resultado de busca, depois da virada). A avaliação de verdade
+  agora vem ANTES dos trechos das entrevistas — antes, a primeira aparecia em uma visita a cada
+  sete.
+- **A Política de Privacidade** diz o que a avaliação guarda e o que aparece no site.
+- Recusar é pro que não é avaliação — ofensa, dado pessoal de alguém, propaganda. Nota baixa de quem
+  comprou também é avaliação (a tela do painel diz isso embaixo da lista).
+
+Conferido pelo `conferir-avaliacoes.mjs` da loja (44, novo: o pedido entregue há dois dias pela
+Frenet, o e-mail e o botão de cada produto, a segunda rodada sem repetir, a página pelo botão com o
+link fora do endereço, os erros, o "valeu" e o outro produto, o que o Medusa guardou, o link mexido,
+a busca pelo número e o e-mail, a aprovada na página do produto com a nota no Product, o tirar e o
+apagar), pelo do painel (27, novo: a tela, aprovar, tirar do site, apagar com confirmação, o Início,
+o marketing sem o número do pedido e o celular), pelo `conferir-esteira.mjs` (52, 6 novas: a
+conversão do que o Medusa manda e a avaliação antes do trecho), `conferir-observabilidade.mjs` (35,
+agora com 12 rotinas), `conferir-entrar.mjs` (90) e pelos testes de unidade (1188; 32 novos). O
+`conferir-pdp.mjs` passou em tudo menos a rotina do spray, que aponta pra pasta modeladora — produto
+que não existe no banco local (igual na main).
+
+Depois do deploy — **nada a configurar.** A tabela nova nasce sozinha no Railway (a migração roda no
+deploy). O primeiro e-mail sai na primeira rodada entre 9h e 21h, pros pedidos entregues nos últimos
+10 dias. Pra ver: Painel → Avaliações.
+
+- [ ] **A nota na caixa de compra** ("★ 4,8 · 12 avaliações", ao lado do preço, como no protótipo
+      da PDP — o CSS `.compra__nota` já existe): quando houver avaliações, perguntar se ele quer.
+
+**Pix reserva, parte 4: os parceiros lado a lado — pronta em 27/09 (entrega 0154).** O pedido dele:
+"precisamos ver qual tá mais dando recusado e essas coisas". No Marketing → Pagamento e frete, um
+bloco novo, **Os parceiros**, com o Pagar.me e o Mercado Pago lado a lado:
+
+- **Pix gerados** (com "de N tentativas · %", o que não gerou), **pagos** (a parte dos gerados),
+  **pra gerar** (do clique ao QR, a mediana), **até pagar** (do QR ao pago), **sem resposta** (as
+  tentativas em que ele não respondeu) e **fora do ar** (quantas vezes e quanto tempo — a regra do
+  disjuntor: três seguidas sem resposta, até a primeira que ele atendeu).
+- **Quem gera mais Pix** só aparece com 10 tentativas de Pix em cada um no período; antes disso, a
+  frase diz que ainda não há volume — com a reserva, o Mercado Pago só cobra quando o Pagar.me
+  falha. O parceiro que não cobrou nada no período sai da tabela, com uma linha dizendo isso.
+- **O achado:** quando um parceiro fica fora do ar no período, o "O que os dados dizem" avisa,
+  com quantos Pix saíram pelo outro nesse tempo.
+- **O cartão** fica no bloco Cartão (só o Pagar.me passa cartão), que ganhou a barra
+  **"Cancelados antes de cobrar"** — o pedido cancelado com o cartão ainda em análise. Antes, eles
+  entravam no total e em motivo nenhum, e as partes não fechavam a conta.
+- Os Pix gerados e pagos são os pedidos (somados, dão os do bloco Pix); o que não gerou, o tempo e
+  o fora do ar vêm das tentativas anotadas desde a entrega 0150.
+
+Conferido pelo `conferir-marketing.mjs` (120, duas rodadas; 3 novas: os parceiros somando o Pix do
+período, cada um dentro das regras, e a tela com os números da API) e pelos testes de unidade (1212;
+10 novos).
+
+Depois do deploy — **nada a configurar.** Pra ver: Painel → Marketing → Pagamento e frete.
 
 **CRM, parte 5: a base da Nuvemshop — pronto em 27/09 (entrega 0156).** Painel → CRM → aba **Base da
 Nuvemshop**: você manda os três arquivos que a loja antiga exporta (Clientes, Vendas e Carrinhos

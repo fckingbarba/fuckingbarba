@@ -35,6 +35,8 @@
  * │   de 100%), o estado que não soma a receita, a newsletter diferente;   │
  * │ • o Pix ou o cartão fora da conta (a tentativa sem motivo, os pagos    │
  * │   fora dos pedidos do Resumo), o atalho do frete pra quem não é dono;  │
+ * │ • os parceiros lado a lado que não somam o Pix do período, ou um       │
+ * │   "quem gera mais" sem volume (0154);                                  │
  * │ • o "O que os dados dizem" diferente das abas, fora de ordem, ou       │
  * │   perdendo frase; o atalho que não abre a aba;                         │
  * │ • o Google fora quebrando a tela; dado de cliente na resposta;         │
@@ -1030,6 +1032,27 @@ try {
       "o frete: a parte grátis, e o piso é o das Configurações",
       JSON.stringify([p.frete, politica?.modo, politica?.piso])
     )
+    const parceiros = p.parceiros?.parceiros ?? []
+    const soma = (f) => parceiros.reduce((s, x) => s + f(x), 0)
+    ok(
+      parceiros.map((x) => x.id).join(",") === "pp_pagarme_pagarme,pp_mercadopago_mercadopago" &&
+        soma((x) => x.pix.gerados) === p.pix.gerados &&
+        soma((x) => x.pix.pagos) === p.pix.pagos,
+      "os parceiros: o Pagar.me e o Mercado Pago, e os Pix deles somam os do período",
+      JSON.stringify(parceiros.map((x) => [x.nome, x.pix]))
+    )
+    ok(
+      parceiros.every(
+        (x) =>
+          x.pix.pagos <= x.pix.gerados &&
+          (x.fora.vezes ? x.semResposta >= 3 * x.fora.vezes : x.fora.minutos === 0) &&
+          (x.usado || x.pix.gerados + x.pix.naoGeraram + x.semResposta === 0)
+      ) &&
+        (p.parceiros.melhorNoPix === null ||
+          p.parceiros.melhorNoPix.parte > p.parceiros.melhorNoPix.parteDoOutro),
+      "cada parceiro: pagos dentro dos gerados, fora do ar só com 3 sem resposta, e o melhor só com vantagem",
+      JSON.stringify([parceiros, p.parceiros?.melhorNoPix])
+    )
     const recusados = p.cartao.antifraude + p.cartao.banco + p.cartao.dados + p.cartao.outros
     ok(
       p.achados.every((a) => {
@@ -1038,6 +1061,8 @@ try {
         if (/tentativas no cartão/.test(t)) return +x === recusados && +y === tentativas
         if (/Pix gerados/.test(t)) return +x === p.pix.venceram && +y === p.pix.gerados
         if (/pagaram frete/.test(t)) return t.startsWith(`${p.frete.quaseLa} pedidos`)
+        if (/ficou fora do ar/.test(t))
+          return parceiros.some((x) => t.startsWith(`O ${x.nome} ficou fora do ar`) && x.fora.vezes)
         return a.tipo === "info"
       }),
       "os achados batem com os números",
@@ -1063,9 +1088,31 @@ try {
         (p.frete.parteGratis === null ? "—" : `${p.frete.parteGratis}%`) &&
         (await pagina.locator('[data-barras="forma"] li').count()) === 2 &&
         (await pagina.locator('[data-barras="cartao"] li').count()) ===
-          (tentativas ? 4 + (p.cartao.emAnalise ? 1 : 0) + (p.cartao.outros ? 1 : 0) : 0),
+          (tentativas
+            ? 4 +
+              (p.cartao.emAnalise ? 1 : 0) +
+              (p.cartao.outros ? 1 : 0) +
+              (p.cartao.cancelados ? 1 : 0)
+            : 0),
       "a tela: como pagaram, o cartão por motivo e o frete da API",
       await textoDe(pagina, '[data-bloco="cartao"]')
+    )
+    const usados = parceiros.filter((x) => x.usado)
+    const primeiro = usados[0]
+    ok(
+      (await pagina.locator('[data-bloco="parceiros"] tbody tr[data-parceiro]').count()) ===
+        usados.length &&
+        (!primeiro ||
+          semEspaco(
+            await textoDe(
+              pagina,
+              `[data-bloco="parceiros"] tr[data-parceiro="${primeiro.id}"] [data-num="gerados"]`
+            )
+          ).startsWith(String(primeiro.pix.gerados))) &&
+        (await pagina.locator('[data-bloco="parceiros"] [data-veredito]').count()) ===
+          (usados.length ? 1 : 0),
+      "a tela: os parceiros usados no período, com os Pix da API e a frase de quem gera mais",
+      await textoDe(pagina, '[data-bloco="parceiros"]')
     )
     ok(
       (await pagina.locator('[data-bloco="frete"] a[href="/configuracoes/frete"]').count()) === 1 &&
