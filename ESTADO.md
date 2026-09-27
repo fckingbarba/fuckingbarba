@@ -3210,6 +3210,44 @@ Salvar ajustes. A ficha de quem comprou Fator passa a mostrar a próxima compra 
 - [ ] **As próximas partes da Fundação** (uma entrega cada, perguntar antes): a base da Nuvemshop e
       o modelo de e-mail.
 
+**CRM, parte 5: a base da Nuvemshop — pronto em 27/09 (entrega 0156).** Painel → CRM → aba **Base da
+Nuvemshop**: você manda os três arquivos que a loja antiga exporta (Clientes, Vendas e Carrinhos
+abandonados), e o CRM passa a conhecer os clientes antigos.
+
+- **O que entra:** de cada pessoa, o e-mail, o primeiro nome, se aceita ofertas (a coluna Marketing),
+  se tinha conta e desde quando é cliente; dos pedidos, as datas, os produtos, os valores e o cupom;
+  dos carrinhos, a data, os produtos e o total.
+- **O que não entra:** CPF, telefone, endereço, rastreio e dados do cartão. São jogados fora na
+  chegada.
+- **Mandar de novo atualiza.** Nada duplica e ninguém sai: dá pra mandar de novo no dia da virada,
+  com os pedidos até ali.
+- **Na aba:** quantas pessoas, quantas aceitam ofertas, os pedidos pagos (de quando a quando), o
+  vendido e os carrinhos. Embaixo, quem é quem na base inteira: quantos em cada etapa (lead, 1ª
+  compra, em tratamento, recorrente, em risco, sunset) e engajamento, e desses quantos aceitam
+  ofertas — os que os e-mails vão poder chamar.
+- **Na ficha do cliente:** a compra da loja antiga conta nas etiquetas (quem comprou lá e comprou
+  de novo na loja nova é recorrente) e aparece no caminho ("pagou o pedido #N na Nuvemshop").
+- **Nos Ajustes:** cada produto mostra o que a Nuvemshop diz de quanto tempo leva pra comprar de
+  novo. Nos arquivos de 27/09, por unidade: Fator 37 dias (59 recompras), óleo 70 (34), shampoo 78
+  (98) e balm 81 (37); spray e pasta ainda sem recompra. O botão "Usar os números da Nuvemshop" põe
+  esses números nos campos, e você decide se salva.
+- **O SKU diz o que vem em cada produto:** os kits Essencial (shampoo e balm) e Hidratação (shampoo e
+  óleo) passam a contar certo.
+- A política de privacidade conta o que veio da loja antiga, e o que não veio.
+
+Conferido pelo `conferir-crm.mjs` (97 checagens, 12 novas: os três arquivos pela tela, mandar de novo
+sem duplicar, a ficha de quem comprou nas duas lojas, nenhum CPF ou telefone nas respostas, o
+histórico e o botão nos Ajustes, a operação sem a base, o arquivo errado e o celular), pela rodada
+completa dos conferidores, pelos testes de unidade (14 novos) e pelos três arquivos de verdade lidos
+na memória (3.784 pessoas, 2.876 pedidos com 3.227 itens, 128 carrinhos, nenhuma linha perdida) — sem
+gravar em lugar nenhum.
+
+- [ ] **Depois do deploy — você, uma vez:** Painel → CRM → Base da Nuvemshop → "Escolher os
+      arquivos" → os três que você exportou (clientes.csv, vendas.csv e carrinho_abandonado.csv).
+      Depois, se quiser, Ajustes → "Usar os números da Nuvemshop" → Salvar ajustes.
+- [ ] **As próximas partes da Fundação** (uma entrega cada, perguntar antes): o modelo de e-mail. A
+      base na lista de Clientes, se você quiser ver os clientes antigos lá.
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa
