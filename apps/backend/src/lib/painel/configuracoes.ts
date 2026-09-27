@@ -1,14 +1,17 @@
 import {
   FORMATO_DAS_INTEGRACOES,
+  PARCELA_MINIMA_TETO,
   type AlvoDoFrete,
   type Atendimento,
   type Configuracoes,
   type Cotacao,
   type Empresa,
   type Integracoes,
+  type Pagamento,
   type PoliticaDeFrete,
 } from "../configuracoes"
 import { numeroBrasileiro } from "../cupons"
+import { PARCELA_MINIMA_CENTAVOS } from "../pagamento/entrada"
 import { NOME_DO_PAPEL, type Papel } from "../equipe/regras"
 import type { NotaEsperando, Pendencia } from "../erp/notas"
 import { emFrase, hora, quando } from "./formato"
@@ -227,6 +230,30 @@ export function lerEmergencia(v: unknown): Leitura<Cotacao> {
     ok: true,
     valor: { precoDeEmergencia: Math.round(preco! * 100) / 100, prazoDeEmergencia: prazo },
   }
+}
+
+/* ── o cartão em parcelas ─────────────────────────────────────────────── */
+
+/** A parcela mínima como o campo mostra: "5,00". */
+export type FormularioDoParcelamento = { parcelaMinima: string }
+
+/**
+ * A menor parcela do cartão (0157). Nunca abaixo do piso do banco — parcela
+ * menor que isso ele recusa — e nunca acima do teto, que é o zero a mais
+ * digitado sem querer.
+ */
+export function lerParcelamento(v: unknown): Leitura<Pagamento> {
+  const o = (v ?? {}) as Record<string, unknown>
+  const minima = numeroBrasileiro(o.parcelaMinima)
+  const piso = PARCELA_MINIMA_CENTAVOS / 100
+  if (minima === null || minima < piso || minima > PARCELA_MINIMA_TETO)
+    return {
+      ok: false,
+      erros: {
+        parcelaMinima: `A menor parcela, de ${reais(piso)} (o mínimo do banco) a ${reais(PARCELA_MINIMA_TETO)}.`,
+      },
+    }
+  return { ok: true, valor: { parcelaMinima: Math.round(minima * 100) / 100 } }
 }
 
 /** "Frete grátis a partir de R$ 149,90 em produtos, na opção mais barata." */
@@ -508,6 +535,8 @@ export type TelaDasConfiguracoes = {
   empresa: FormularioDaEmpresa & { emBranco: string[] }
   frete: FormularioDoFrete & { emergencia: FormularioDaEmergencia; frase: string }
   pagamento: LinhaDeStatus[]
+  /** O que se muda no pagamento: a parcela mínima do cartão (0157). */
+  parcelamento: FormularioDoParcelamento & { parcelas: number }
   nota: {
     erp: {
       nome: string
@@ -584,6 +613,10 @@ export function telaDasConfiguracoes(d: DadosDasConfiguracoes): TelaDasConfigura
         prazo: c.cotacao.prazoDeEmergencia ?? "",
       },
       frase: freteEmFrase(f),
+    },
+    parcelamento: {
+      parcelaMinima: campoDeReais(c.pagamento.parcelaMinima),
+      parcelas: d.pagamento.parcelas,
     },
     pagamento: [
       {

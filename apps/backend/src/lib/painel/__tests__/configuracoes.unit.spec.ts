@@ -11,6 +11,7 @@ import {
   lerEmpresa,
   lerFrete,
   lerIntegracoes,
+  lerParcelamento,
   MAX_PENDENCIAS,
   pendenciasEmFrase,
   telaDasConfiguracoes,
@@ -161,6 +162,31 @@ describe("o frete", () => {
     expect([0, 5, 15, 30, 60, 120, 240].every(ehJanela)).toBe(true)
     expect(ehJanela(10)).toBe(false)
     expect(ehJanela("5")).toBe(false)
+  })
+})
+
+describe("a parcela mínima do cartão (0157)", () => {
+  it("do piso do banco (R$ 5,00) ao teto (R$ 1.000,00), escrita do jeito brasileiro", () => {
+    expect(lerParcelamento({ parcelaMinima: "30,00" })).toEqual({
+      ok: true,
+      valor: { parcelaMinima: 30 },
+    })
+    expect(lerParcelamento({ parcelaMinima: "R$ 5" })).toEqual({
+      ok: true,
+      valor: { parcelaMinima: 5 },
+    })
+    expect(lerParcelamento({ parcelaMinima: "1000" })).toEqual({
+      ok: true,
+      valor: { parcelaMinima: 1000 },
+    })
+  })
+
+  it("abaixo do banco, acima do teto ou em branco: o erro no campo, com a faixa", () => {
+    for (const v of ["4,99", "0", "1000,01", "", "abc"]) {
+      const r = lerParcelamento({ parcelaMinima: v })
+      expect(r.ok).toBe(false)
+      if (!r.ok) expect(semEspaco(r.erros.parcelaMinima)).toMatch(/de R\$ 5,00 .* a R\$ 1\.000,00/)
+    }
   })
 })
 
@@ -319,6 +345,16 @@ describe("a tela", () => {
       /^Até 3x sem juros, parcela mínima de R\$ 5,00\./
     )
     expect(t.pagamento[4].texto).toMatch(/pedido de novo de 6 em 6 horas, até 8 vezes\.$/)
+    // A parcela mínima é a gravada (o padrão: o piso do banco), no campo do jeito da tela.
+    expect(t.parcelamento).toEqual({ parcelaMinima: "5,00", parcelas: 3 })
+    const trinta = telaDasConfiguracoes(
+      dados({
+        configuracoes: { ...dados().configuracoes, pagamento: { parcelaMinima: 30 } },
+        pagamento: { ...dados().pagamento, parcelaMinima: 30 },
+      })
+    )
+    expect(trinta.parcelamento.parcelaMinima).toBe("30,00")
+    expect(semEspaco(trinta.pagamento[3].texto)).toMatch(/parcela mínima de R\$ 30,00\./)
     expect(t.pagamento[1]).toMatchObject({ ligado: false })
     expect(t.pagamento[1].texto).toMatch(/^Desligado: sem o token do Mercado Pago/)
     expect(t.nota.erp.desde).toBe("Conectado em 23/09/2026 · estoque copiado de 5 em 5 minutos")

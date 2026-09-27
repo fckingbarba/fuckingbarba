@@ -1,3 +1,5 @@
+import { PARCELA_MINIMA_CENTAVOS } from "./pagamento/entrada"
+
 /**
  * AS CONFIGURAÇÕES DA LOJA — o contrato.
  *
@@ -128,6 +130,24 @@ export type VideoDaMarca = { url: string; largura: number; altura: number }
 export type Home = { video: VideoDaMarca | null }
 
 /**
+ * O CARTÃO EM PARCELAS — a menor parcela que a loja aceita, em reais (0157).
+ *
+ * Vale nas três pontas, como o frete: o que a loja ANUNCIA ("3x de R$ X"
+ * só quando cada parcela passa disto), o que o checkout OFERECE (as
+ * parcelas que cabem) e o que o Medusa ACEITA (a porta da sessão de
+ * pagamento recusa a parcela menor — `lib/pagamento/parcela.ts`).
+ *
+ * O PISO É O DO BANCO: menos de R$ 5,00 por parcela o banco do cartão
+ * recusa (`PARCELA_MINIMA_CENTAVOS`, em `lib/pagamento/entrada.ts`). A loja
+ * pode pedir MAIS — pra que um pedido pequeno não saia em três vezes —,
+ * nunca menos.
+ */
+export type Pagamento = { parcelaMinima: number }
+
+/** O teto da parcela mínima: acima disso, é o zero a mais digitado sem querer. */
+export const PARCELA_MINIMA_TETO = 1000
+
+/**
  * AS INTEGRAÇÕES DE MEDIÇÃO E ANÚNCIO — o código que cada plataforma dá, e
  * só ele. A loja monta a tag com isto (`components/analytics/tags.tsx`), e o
  * backend manda a compra pelo servidor (`lib/anuncios/`).
@@ -172,6 +192,7 @@ export type Configuracoes = {
   cotacao: Cotacao
   home: Home
   integracoes: Integracoes
+  pagamento: Pagamento
 }
 
 /**
@@ -186,7 +207,7 @@ export type Configuracoes = {
  */
 export type ConfiguracoesPublicas = Pick<
   Configuracoes,
-  "frete" | "empresa" | "atendimento" | "home" | "integracoes"
+  "frete" | "empresa" | "atendimento" | "home" | "integracoes" | "pagamento"
 >
 
 export function soOPublico(c: Configuracoes): ConfiguracoesPublicas {
@@ -196,6 +217,8 @@ export function soOPublico(c: Configuracoes): ConfiguracoesPublicas {
     atendimento: c.atendimento,
     home: c.home,
     integracoes: c.integracoes,
+    // Público: é o que a loja anuncia ("3x de R$ X") e o que o checkout oferece.
+    pagamento: c.pagamento,
   }
 }
 
@@ -229,6 +252,8 @@ export const PADRAO: Configuracoes = {
     clarity: null,
     tiktok: null,
   },
+  // O piso do banco — a regra de antes da 0157, quando era constante no código.
+  pagamento: { parcelaMinima: PARCELA_MINIMA_CENTAVOS / 100 },
 }
 
 /** Chave única dentro do `metadata` da loja, pra não brigar com mais nada. */
@@ -306,6 +331,18 @@ function lerVideo(v: unknown): VideoDaMarca | null {
   return { url, largura, altura }
 }
 
+/**
+ * A parcela mínima só vale entre o piso do banco e o teto; fora disso (ou
+ * sem número), volta a do padrão — nunca abaixo do que o banco aceita.
+ */
+function lerPagamento(v: unknown): Pagamento {
+  const o = (v && typeof v === "object" ? v : {}) as Record<string, unknown>
+  const minima = dinheiro(o.parcelaMinima)
+  return minima !== null && minima * 100 >= PARCELA_MINIMA_CENTAVOS && minima <= PARCELA_MINIMA_TETO
+    ? { parcelaMinima: minima }
+    : PADRAO.pagamento
+}
+
 /** Cada código só no formato da plataforma: o resto vira `null` (ver `Integracoes`). */
 function lerIntegracoes(v: unknown): Integracoes {
   const o = (v && typeof v === "object" ? v : {}) as Record<string, unknown>
@@ -364,6 +401,7 @@ export function lerConfiguracoes(metadata: unknown): Configuracoes {
     },
     home: { video: lerVideo(home.video) },
     integracoes: lerIntegracoes(o.integracoes),
+    pagamento: lerPagamento(o.pagamento),
   }
 }
 
