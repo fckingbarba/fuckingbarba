@@ -1,11 +1,12 @@
 import "server-only"
 import { redirect } from "next/navigation"
-import { medusa } from "@/lib/medusa"
+import { ler } from "@/lib/medusa"
 
 /**
- * O CRM DO PAINEL, do lado do painel — a leitura da tela (`GET /dashboard/crm`).
- * A conta mora no backend (`apps/backend/src/lib/painel/crm.ts`); aqui, os
- * tipos e a pergunta.
+ * O CRM DO PAINEL, do lado do painel — a leitura da tela (`GET /dashboard/crm`)
+ * e os tipos dos Ajustes (`GET /dashboard/crm/ajustes`). A conta mora no
+ * backend (`apps/backend/src/lib/painel/crm.ts` e `lib/crm/ajustes.ts`); aqui,
+ * os tipos e a pergunta.
  */
 
 /** Os períodos da tela, na ordem dos botões; sem escolha, 7 dias. */
@@ -92,11 +93,44 @@ export type FichaDoCrm = {
 export type LeituraDoCrm =
   { estado: "ok"; tela: TelaDoCrm } | { estado: "sem-acesso" } | { estado: "fora" }
 
+/** O endereço da tela no Medusa — a página pede cedo (`void ler(...)`) e o miolo lê a mesma resposta. */
+export const caminhoDoCrm = (periodo: PeriodoDoCrm) => `/dashboard/crm?periodo=${periodo}`
+
 export async function lerTelaDoCrm(periodo: PeriodoDoCrm): Promise<LeituraDoCrm> {
-  const r = await medusa(`/dashboard/crm?periodo=${periodo}`, { metodo: "GET", token: "sessao" })
+  const r = await ler(caminhoDoCrm(periodo))
   if (r.status === 401)
     redirect(`/sair?motivo=${r.corpo.message === "fora_da_equipe" ? "fora" : "expirou"}`)
   if (r.status === 403) return { estado: "sem-acesso" }
   if (r.status !== 200) return { estado: "fora" }
   return { estado: "ok", tela: r.corpo as unknown as TelaDoCrm }
+}
+
+/* ── os Ajustes do CRM ───────────────────────────────────────────────────── */
+
+export const CAMINHO_DOS_AJUSTES = "/dashboard/crm/ajustes"
+
+/** Os tipos de produto (`COMPONENTES`, no backend). */
+export type TipoDeProduto = "fator" | "oleo" | "shampoo" | "balm" | "spray" | "pasta"
+
+/** As regras das etiquetas (`RegrasDasEtiquetas`, no backend). */
+export type RegraDoCrm =
+  "toleranciaDaReposicao" | "semPrevisao" | "sunset" | "quente" | "morno" | "comprasDoCupom"
+
+export type AjustesDoCrm = {
+  dias: Record<TipoDeProduto, number>
+  regras: Record<RegraDoCrm, number>
+}
+
+/** A tela dos Ajustes (`montarTelaDosAjustes`, no backend). */
+export type TelaDosAjustes = {
+  ajustes: AjustesDoCrm
+  padrao: AjustesDoCrm
+  tipos: { tipo: TipoDeProduto; nome: string; produtos: string[] }[]
+  foraDaConta: string[]
+}
+
+/** O formulário como a tela manda: o texto de cada campo (quem confere é o Medusa). */
+export type FormularioDosAjustes = {
+  dias: Record<TipoDeProduto, string>
+  regras: Record<RegraDoCrm, string>
 }
