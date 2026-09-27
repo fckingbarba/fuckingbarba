@@ -351,11 +351,28 @@ export type LinhaDaLista = {
   cliente: { nome: string; cidade: string; uf: string }
   itens: string
   unidades: number
+  /** As fotos dos produtos (até 3, um por produto) — o painel mostra no lugar do texto. */
+  fotos: string[]
+  /** Quantos produtos diferentes: com mais de 3, o painel diz "+N" depois das fotos. */
+  produtos: number
   forma: Forma | null
   situacao: Situacao
   problema: Problema | null
   despachar: boolean
+  /** O estado dos seis passos do caminho (os mesmos do pedido aberto), pro tracinho da lista. */
+  passos: EstadoDoPasso[]
   total: number
+}
+
+/** Uma foto por produto, na ordem dos itens: as três primeiras. */
+function fotosDos(itens: ItemCru[]): { fotos: string[]; produtos: number } {
+  const vistos = new Map<string, string | null>()
+  for (const i of itens) {
+    const chave = i.product_id ?? i.thumbnail ?? i.id
+    if (!vistos.has(chave)) vistos.set(chave, i.thumbnail ?? null)
+  }
+  const fotos = [...vistos.values()].filter((f): f is string => Boolean(f)).slice(0, 3)
+  return { fotos, produtos: vistos.size }
 }
 
 export function linhaDaLista(
@@ -379,10 +396,12 @@ export function linhaDaLista(
     },
     itens: resumoDosItens(itens),
     unidades: itens.reduce((s, i) => s + numero(i.quantity), 0),
+    ...fotosDos(itens),
     forma: p.forma,
     situacao,
     problema: problemaDo(o, nota, envios),
     despachar: prontoPraDespachar(situacao, nota, p.pagoEm, ctx),
+    passos: caminhoDo(o, p, situacao, nota, envios, ctx).map((x) => x.estado),
     total: totalDo(o),
   }
 }

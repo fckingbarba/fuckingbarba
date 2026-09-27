@@ -12,6 +12,8 @@ import { paginaDoEndereco } from "@/lib/paginas"
 
 export const metadata: Metadata = { title: "Clientes" }
 
+const INTEIRO = new Intl.NumberFormat("pt-BR")
+
 type Busca = Promise<{ busca?: string; pagina?: string }>
 
 /** O endereço da lista: a busca e a página (a primeira não vai). */
@@ -58,25 +60,41 @@ async function Lista({ caminho }: { caminho: string }) {
     <div data-tela>
       <Cabeca
         titulo="Clientes"
-        sub={
+        ajuda={
           marketing
-            ? "O marketing vê só quem aceitou receber ofertas — e sem CPF, telefone ou endereço (LGPD)."
-            : "Quem já comprou ou tem conta na loja."
+            ? "O marketing vê só quem aceitou receber ofertas — e sem CPF, telefone ou endereço (LGPD). Os outros não aparecem aqui."
+            : "Quem já comprou ou tem conta na loja. O ícone aceso diz por onde a pessoa aceitou receber ofertas: e-mail ou WhatsApp."
         }
       />
       <AbasDeClientes atual="lista" comNewsletter={leitura.areas.includes("newsletter")} />
-      {marketing ? (
-        <div className="faixa" data-nivel="info" data-visao-marketing>
-          <Icone nome="cadeado" />
-          <div>
-            <p className="faixa__titulo">Visão do marketing</p>
-            <p>
-              {lista.comOfertas} de {lista.total}{" "}
-              {lista.total === 1 ? "cliente aceitou" : "clientes aceitaram"} ofertas por e-mail ou
-              WhatsApp. Os outros não aparecem aqui.
-            </p>
-          </div>
+      <div className="numeros numeros--dois" data-numeros-clientes>
+        <div className="numero numero--destaque">
+          <span className="numero__ico">
+            <Icone nome="clientes" />
+          </span>
+          <p className="numero__rot">Clientes</p>
+          <p className="numero__valor">{INTEIRO.format(lista.total)}</p>
         </div>
+        <div className="numero">
+          <span className="numero__ico">
+            <Icone nome="email" />
+          </span>
+          <p className="numero__rot">Aceitam ofertas</p>
+          <p className="numero__valor">{INTEIRO.format(lista.comOfertas)}</p>
+          {lista.total ? (
+            <div className="numero__pe">
+              <span className="pilula">
+                {Math.round((lista.comOfertas / lista.total) * 100)}% dos clientes
+              </span>
+            </div>
+          ) : null}
+        </div>
+      </div>
+      {marketing ? (
+        <p className="faixa faixa--curta" data-nivel="info" data-visao-marketing>
+          <Icone nome="cadeado" />
+          Visão do marketing: só quem aceitou ofertas.
+        </p>
       ) : null}
       <BuscaDeClientes busca={lista.busca} />
       <section className="bloco bloco--sem-pad">

@@ -1,7 +1,7 @@
 import { emCentavos } from "../../../modules/pagarme/client"
 import { areasDo, matrizCom, MATRIZ_PADRAO, type Matriz, type Papel } from "../../equipe/regras"
 import { duracao, quando, reais } from "../formato"
-import { montarInicio, precisamDoTotal } from "../inicio"
+import { montarInicio, motivoCurto, precisamDoTotal } from "../inicio"
 import {
   comPontuacao,
   detalheDo,
@@ -303,6 +303,36 @@ describe("a lista", () => {
       despachar: true,
       total: 128.6,
     })
+  })
+
+  it("as fotos (uma por produto, até três) e os seis passos, os mesmos do pedido aberto", () => {
+    const item = (id: string, produto: string, foto: string | null) => ({
+      id,
+      title: "30ml",
+      product_title: `Produto ${produto}`,
+      product_id: produto,
+      thumbnail: foto,
+      quantity: 1,
+    })
+    const o = pedido(
+      {
+        items: [
+          item("i1", "oleo", "https://x/oleo.webp"),
+          item("i2", "oleo", "https://x/oleo.webp"),
+          item("i3", "balm", "https://x/balm.webp"),
+          item("i4", "kit", null),
+          item("i5", "spray", "https://x/spray.webp"),
+          item("i6", "fator", "https://x/fator.webp"),
+        ],
+      },
+      true
+    )
+    const l = linhaDaLista(o, null, [], SEM_ERP)
+    expect(l.fotos).toEqual(["https://x/oleo.webp", "https://x/balm.webp", "https://x/spray.webp"])
+    expect(l.produtos).toBe(5)
+    const caminho = detalheDo(o, null, [], SEM_ERP, { verCpf: true }).caminho
+    expect(l.passos).toEqual(caminho.map((x) => x.estado))
+    expect(l.passos.slice(0, 2)).toEqual(["feito", "feito"])
   })
 
   it("nomes curtos sem a marca", () => {
@@ -726,9 +756,13 @@ describe("o Início", () => {
     const item = montarInicio(quem("operacao"), d, COM_ERP).fila.find((f) => f.icone === "nota")
     expect(item).toMatchObject({
       nivel: "grave",
-      titulo: "A nota do #1042 não sai sozinha",
+      titulo: "A nota não sai sozinha",
+      etiquetas: ["sem CPF/CNPJ"],
+      quantos: 1,
       texto:
         "O pedido não tem CPF/CNPJ, e a nota precisa. Corrija o que falta e tente de novo, no pedido.",
+      href: "/pedidos/order_A",
+      pedidos: [{ numero: 1042, href: "/pedidos/order_A" }],
     })
   })
 
@@ -756,9 +790,13 @@ describe("o Início", () => {
       montarInicio(quem(papel), dados(), SEM_ERP).fila.map((f) => f.titulo)
     expect(titulos("dono").some((t) => t.startsWith("O estorno"))).toBe(true)
     expect(titulos("operacao").some((t) => t.startsWith("O estorno"))).toBe(false)
-    expect(titulos("operacao")).toContain("2 pedidos pra despachar")
     const despachar = montarInicio(quem("operacao"), dados(), SEM_ERP).fila[0]
-    expect(despachar.texto).toBe("2 prontos pra etiqueta")
+    expect(despachar).toMatchObject({
+      titulo: "Pra despachar",
+      quantos: 2,
+      etiquetas: ["2 prontos pra etiqueta"],
+      href: "/pedidos?filtro=despachar",
+    })
   })
 
   it("o marketing recebe números e produtos, sem nenhum nome de cliente", () => {
@@ -768,10 +806,9 @@ describe("o Início", () => {
       SEM_ERP
     )
     expect(i.pedidosDeHoje).toBeNull()
-    expect(i.fila.map((f) => f.titulo)).toEqual([
-      "2 produtos em rascunho",
-      "+12 na newsletter esta semana",
-    ])
+    expect(i.fila.map((f) => f.titulo)).toEqual(["Produtos em rascunho", "Newsletter"])
+    expect(i.fila[0]!.quantos).toBe(2)
+    expect(i.fila[1]!.etiquetas).toEqual(["+12 esta semana", "214 no total"])
     expect(JSON.stringify(i)).not.toContain("Rafael")
     expect(i.maisVendidos[0]).toMatchObject({ nome: "Óleo 30ml", unidades: 4 })
   })
@@ -800,14 +837,17 @@ describe("o Início", () => {
         (f) => f.icone === "estrela"
       )
     expect(estrela("dono", { avaliacoes: 3 })).toEqual({
+      chave: "avaliacoes",
       nivel: "atencao",
       icone: "estrela",
-      titulo: "3 avaliações esperando",
-      texto: "Chegaram de quem comprou. Aprovada, a avaliação vai pro site.",
+      titulo: "Avaliações esperando",
+      texto:
+        "Chegaram de quem comprou, pela página de avaliação. Aprovada, a avaliação vai pro site.",
       href: "/avaliacoes",
+      quantos: 3,
     })
-    expect(estrela("marketing", { avaliacoes: 1 })?.titulo).toBe("1 avaliação esperando")
-    expect(estrela("operacao", { avaliacoes: 2 })?.titulo).toBe("2 avaliações esperando")
+    expect(estrela("marketing", { avaliacoes: 1 })?.quantos).toBe(1)
+    expect(estrela("operacao", { avaliacoes: 2 })?.quantos).toBe(2)
     expect(estrela("dono", { avaliacoes: 0 })).toBeUndefined()
     expect(estrela("dono", {})).toBeUndefined()
     const semAvaliacoes = matrizCom([{ papel: "operacao", area: "avaliacoes", abre: false }])
@@ -823,9 +863,9 @@ describe("o Início", () => {
     )
     expect(i.pedidosDeHoje).not.toBeNull()
     expect(i.fila.map((f) => f.titulo)).toEqual([
-      "2 pedidos pra despachar",
-      "2 produtos em rascunho",
-      "+12 na newsletter esta semana",
+      "Pra despachar",
+      "Produtos em rascunho",
+      "Newsletter",
     ])
     expect(i.fila.some((f) => f.titulo.startsWith("O estorno"))).toBe(false)
   })
@@ -887,5 +927,110 @@ describe("o Início lê o total só de quem entra num número em reais", () => {
     const depois = montarInicio(quem, { pedidos: semOsOutros, ...vazio }, SEM_ERP)
     expect(depois.numeros).toEqual(antesDaMudanca.numeros)
     expect(depois.grafico).toEqual(antesDaMudanca.grafico)
+  })
+})
+
+describe("a fila do Início junta o que é igual (0148)", () => {
+  const quem = { papel: "dono" as Papel, areas: areasDo(MATRIZ_PADRAO, "dono") }
+  const semNota = (id: string, numero: number, minutos: number) =>
+    pedido(
+      {
+        id,
+        display_id: numero,
+        created_at: antes(minutos),
+        payment_collections: [
+          {
+            payment_sessions: [sessao("pago")],
+            payments: [{ provider_id: "pp_pagarme_pagarme", captured_at: antes(minutos - 1) }],
+          },
+        ],
+      },
+      false
+    )
+
+  it("três notas pelo mesmo motivo viram um item, do mais antigo pro mais novo", () => {
+    const pedidos = [
+      semNota("order_B", 12, 30),
+      semNota("order_A", 11, 90),
+      semNota("order_C", 13, 10),
+    ]
+    const notas = new Map<string, NotaCrua>(
+      pedidos.map((o) => [
+        o.id,
+        nota({ definitivo: true, erro: "o pedido não tem CPF/CNPJ, e a nota precisa" }),
+      ])
+    )
+    const fila = montarInicio(quem, { pedidos, notas, envios: new Map() }, COM_ERP).fila
+    const notasDaFila = fila.filter((f) => f.icone === "nota")
+    expect(notasDaFila).toHaveLength(1)
+    expect(notasDaFila[0]).toMatchObject({
+      titulo: "A nota não sai sozinha",
+      quantos: 3,
+      etiquetas: ["sem CPF/CNPJ"],
+      href: "/pedidos?filtro=problemas",
+      texto:
+        "O pedido não tem CPF/CNPJ, e a nota precisa. Corrija o que falta e tente de novo, no pedido.",
+    })
+    expect(notasDaFila[0]!.pedidos?.map((p) => p.numero)).toEqual([11, 12, 13])
+  })
+
+  it("motivos diferentes: um item por motivo; sem etiqueta, a frase vai inteira no texto", () => {
+    const pedidos = [semNota("order_A", 11, 90), semNota("order_B", 12, 30)]
+    const notas = new Map<string, NotaCrua>([
+      ["order_A", nota({ definitivo: true, erro: "o pedido não tem CPF/CNPJ, e a nota precisa" })],
+      ["order_B", nota({ definitivo: true, erro: "o Bling caiu de um jeito novo" })],
+    ])
+    const fila = montarInicio(quem, { pedidos, notas, envios: new Map() }, COM_ERP).fila
+    const itens = fila.filter((f) => f.icone === "nota")
+    expect(itens.map((f) => [f.quantos, f.etiquetas ?? null])).toEqual([
+      [1, ["sem CPF/CNPJ"]],
+      [1, null],
+    ])
+    expect(itens[1]!.texto).toBe(
+      "O Bling caiu de um jeito novo. Corrija o que falta e tente de novo, no pedido."
+    )
+    expect(new Set(itens.map((f) => f.chave)).size).toBe(2)
+  })
+
+  it("os cartões em análise: um item, com a idade do mais antigo", () => {
+    const analise = (id: string, numero: number, minutos: number) =>
+      pedido({
+        id,
+        display_id: numero,
+        created_at: antes(minutos),
+        payment_collections: [
+          {
+            payment_sessions: [
+              sessao("analise", { forma: "cartao" }, "authorized", antes(minutos)),
+            ],
+            payments: [],
+          },
+        ],
+      })
+    const pedidos = [analise("order_A", 21, 5), analise("order_B", 22, 70)]
+    const fila = montarInicio(quem, { pedidos, notas: new Map(), envios: new Map() }, SEM_ERP).fila
+    expect(fila.find((f) => f.icone === "cartao")).toMatchObject({
+      titulo: "Cartão em análise",
+      quantos: 2,
+      etiquetas: ["há 1 h 10"],
+      href: "/pedidos?filtro=pagamento",
+      pedidos: [
+        { numero: 22, href: "/pedidos/order_B" },
+        { numero: 21, href: "/pedidos/order_A" },
+      ],
+    })
+  })
+
+  it("o motivo curto de cada recusa conhecida da nota", () => {
+    expect(motivoCurto("o pedido não tem CPF/CNPJ, e a nota precisa")).toBe("sem CPF/CNPJ")
+    expect(motivoCurto("endereço incompleto (falta número)")).toBe("endereço incompleto")
+    expect(motivoCurto("pedido sem endereço")).toBe("endereço incompleto")
+    expect(motivoCurto('"Óleo" não tem SKU, e é por ele que o ERP acha o produto')).toBe(
+      "produto sem SKU"
+    )
+    expect(motivoCurto("os valores do pedido não fecham (pago R$ 10, itens e frete R$ 12)")).toBe(
+      "valores não fecham"
+    )
+    expect(motivoCurto("qualquer outra coisa")).toBeNull()
   })
 })

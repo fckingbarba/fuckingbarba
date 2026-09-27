@@ -1,4 +1,6 @@
+import type { ReactNode } from "react"
 import { Icone } from "@/components/icones"
+import { Ajuda } from "@/components/visual"
 import {
   lerVisitas,
   temOBloco,
@@ -36,18 +38,33 @@ const SEM_NUMERO: Record<Exclude<RespostaDasVisitas["estado"], "ok">, string> = 
   fora: "o Google não respondeu agora",
 }
 
-/** "−5% que ontem até as 9h" — nas horas que o Google já somou hoje —, ou o que der pra dizer. */
-function comparacao(hoje: number, c: Comparacao | null): string {
+/**
+ * "−5% que ontem até as 9h" — nas horas que o Google já somou hoje —, ou o que
+ * der pra dizer. A diferença vai numa etiqueta com a seta (verde subindo,
+ * vermelha descendo); o texto é o mesmo, pro leitor de tela e pro conferidor.
+ */
+function comparacao(hoje: number, c: Comparacao | null): ReactNode {
   if (!c) return hoje ? "o Google ainda está somando as de hoje" : "nenhuma somada ainda hoje"
   if (!c.ontem) return c.hoje ? `ontem até as ${c.ate}h: nenhuma` : `nenhuma até as ${c.ate}h`
   const diferenca = Math.round((c.hoje / c.ontem - 1) * 100)
-  return `${diferenca >= 0 ? "+" : "−"}${Math.abs(diferenca)}% que ontem até as ${c.ate}h`
+  return (
+    <>
+      <span className="variacao" data-rumo={diferenca >= 0 ? "sobe" : "desce"}>
+        <Icone nome={diferenca >= 0 ? "cima" : "baixo"} />
+        {`${diferenca >= 0 ? "+" : "−"}${Math.abs(diferenca)}%`}
+      </span>
+      {` que ontem até as ${c.ate}h`}
+    </>
+  )
 }
 
 export function NumeroDeVisitas({ r }: { r: RespostaDasVisitas }) {
   if (r.estado !== "ok")
     return (
       <div className="numero" data-visitas={r.estado}>
+        <span className="numero__ico">
+          <Icone nome="olho" />
+        </span>
         <p className="numero__rot">Visitas hoje</p>
         <p className="numero__valor">{r.estado === "carregando" ? "…" : "—"}</p>
         <p className="numero__sub">{SEM_NUMERO[r.estado]}</p>
@@ -74,6 +91,9 @@ export function NumeroDeVisitas({ r }: { r: RespostaDasVisitas }) {
     </a>
   ) : (
     <div className="numero" data-visitas="ok">
+      <span className="numero__ico">
+        <Icone nome="olho" />
+      </span>
       {miolo}
     </div>
   )
@@ -119,10 +139,12 @@ export async function BlocoDasVisitas({ pedidosPagosOntem }: { pedidosPagosOntem
       <Barras itens={v.origens} total={v.hoje} vazio="Ninguém ainda hoje." />
       <h3 className="rotulo rotulo--depois">Produtos mais vistos</h3>
       <Barras itens={v.maisVistos} vazio="Nenhuma página de produto vista ainda hoje." />
-      <p className="pequeno suave visitas__nota">
-        Do Google Analytics, que soma as visitas com algumas horas de atraso — o “no site agora” é
-        na hora. Quem recusa os cookies fica de fora: o número real é um pouco maior.
-      </p>
+      <div className="visitas__nota">
+        <Ajuda rotulo="De onde vêm as visitas">
+          Do Google Analytics, que soma as visitas com algumas horas de atraso — o “no site agora” é
+          na hora. Quem recusa os cookies fica de fora: o número real é um pouco maior.
+        </Ajuda>
+      </div>
     </section>
   )
 }

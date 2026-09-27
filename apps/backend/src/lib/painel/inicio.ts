@@ -42,12 +42,27 @@ import {
  * depois cancelado também — o dinheiro voltou.
  */
 
+/**
+ * Um item do "Precisa de você". Desde a 0148 a fila JUNTA o que é igual — sete
+ * "a nota do #N não sai sozinha" viram um item só, com o número de pedidos,
+ * as etiquetas curtas e os pedidos um por um — e a frase longa (`texto`) é a
+ * explicação, que o painel guarda no "?".
+ */
 export type ItemDaFila = {
+  /** O que o item é, estável: a chave da lista no painel. */
+  chave: string
   nivel: "grave" | "atencao" | "" | "ok"
   icone: "caminhao" | "nota" | "pix" | "cartao" | "alerta" | "email" | "produtos" | "estrela"
   titulo: string
+  /** A explicação (o "?" do painel); uma linha por pedido quando os motivos são diferentes. */
   texto: string
   href: string
+  /** Quantos pedidos (ou produtos) o item junta — o número do selo. */
+  quantos?: number
+  /** Curtas: o motivo ("sem CPF/CNPJ"), o valor, a idade ("há 1 h"), o que falta ("3 esperam a nota"). */
+  etiquetas?: string[]
+  /** Os pedidos do item, pra abrir um por um — do mais antigo pro mais novo. */
+  pedidos?: { numero: number; href: string }[]
 }
 
 export type DiaDoGrafico = { rotulo: string; valor: number; pedidos: number; hoje: boolean }
@@ -220,9 +235,60 @@ const centavos = (v: number) => Math.round(v * 100) / 100
 const ORDEM: Record<ItemDaFila["nivel"], number> = { grave: 0, atencao: 1, "": 2, ok: 3 }
 
 /**
+ * O motivo da nota que não sai, em poucas palavras (a etiqueta do item). Os
+ * motivos são os do `montarPedido` do ERP (`lib/erp/notas.ts`) e os do Bling;
+ * o que não estiver aqui fica sem etiqueta, e a frase inteira vai no "?".
+ */
+const MOTIVOS_CURTOS: [RegExp, string][] = [
+  [/CPF|CNPJ/, "sem CPF/CNPJ"],
+  [/sem endereço|endereço incompleto/, "endereço incompleto"],
+  [/SKU/, "produto sem SKU"],
+  [/valores do pedido não fecham/, "valores não fecham"],
+  [/forma de pagamento/, "pagamento no Bling"],
+]
+
+export function motivoCurto(texto: string | null | undefined): string | null {
+  const t = texto ?? ""
+  return MOTIVOS_CURTOS.find(([re]) => re.test(t))?.[1] ?? null
+}
+
+/** Os pedidos de um item, e o que muda quando é um só: o link vai direto nele. */
+type Juntando = {
+  item: Omit<ItemDaFila, "quantos" | "pedidos" | "href" | "texto"> & { varios: string }
+  pedidos: { numero: number; id: string; criadoEm: string; linha: string }[]
+  /** A explicação, com a frase de cada pedido (na ordem do item) e os números deles. */
+  texto: (linhas: string[], numeros: number[]) => string
+  /** O que se soma entre os pedidos (o valor dos estornos). */
+  soma?: number
+}
+
+function juntos(g: Juntando): ItemDaFila {
+  const pedidos = [...g.pedidos].sort((a, b) => a.criadoEm.localeCompare(b.criadoEm))
+  const um = pedidos.length === 1
+  const { varios, ...item } = g.item
+  return {
+    ...item,
+    texto: g.texto(
+      pedidos.map((p) => p.linha),
+      pedidos.map((p) => p.numero)
+    ),
+    href: um ? `/pedidos/${pedidos[0]!.id}` : varios,
+    quantos: pedidos.length,
+    pedidos: pedidos.map((p) => ({ numero: p.numero, href: `/pedidos/${p.id}` })),
+  }
+}
+
+/** Uma frase por pedido quando são várias diferentes ("#12: …"); uma só quando é a mesma. */
+const porPedido = (linhas: string[], numeros: number[]) =>
+  new Set(linhas).size <= 1
+    ? (linhas[0] ?? "")
+    : linhas.map((l, i) => `#${numeros[i]}: ${l}`).join("\n")
+
+/**
  * A fila dos pedidos — o que precisa de quem despacha: o que falta sair, a
  * nota, a Frenet, a entrega, o cartão em análise. O estorno que falhou entra
- * só pra quem aperta o "Tentar o estorno de novo" (`veEstornos`).
+ * só pra quem aperta o "Tentar o estorno de novo" (`veEstornos`). O que é
+ * igual vira um item só (ver `ItemDaFila`).
  */
 function filaDosPedidos(
   linhas: { o: PedidoCru; l: LinhaDaLista; nota: NotaCrua | null }[],
@@ -230,7 +296,6 @@ function filaDosPedidos(
   ctx: Contexto
 ): ItemDaFila[] {
   const fila: ItemDaFila[] = []
-  const pra = (id: string) => `/pedidos/${id}`
 
   const emSeparacao = linhas
     .filter(({ l }) => l.situacao === "separacao")
@@ -247,94 +312,164 @@ function filaDosPedidos(
       return [numeros.length === 1 ? `#${numeros[0]} ${m.um}` : `${numeros.length} ${m.varios}`]
     })
     fila.push({
+      chave: "despachar",
       nivel: "atencao",
       icone: "caminhao",
-      titulo:
-        emSeparacao.length === 1
-          ? "1 pedido pra despachar"
-          : `${emSeparacao.length} pedidos pra despachar`,
-      texto: partes.join(" · "),
+      titulo: "Pra despachar",
+      texto: "Pagos e ainda sem sair da loja: a nota, a Frenet e a etiqueta, nessa ordem.",
       href: "/pedidos?filtro=despachar",
+      quantos: emSeparacao.length,
+      etiquetas: partes,
     })
   }
+
+  const grupos = new Map<string, Juntando>()
+  const juntar = (chave: string, novo: () => Omit<Juntando, "pedidos">) => {
+    const g = grupos.get(chave) ?? { ...novo(), pedidos: [] }
+    grupos.set(chave, g)
+    return g
+  }
+  const pedido = (l: LinhaDaLista, linha = "") => ({
+    numero: l.numero,
+    id: l.id,
+    criadoEm: l.criadoEm,
+    linha,
+  })
 
   for (const { o, l, nota } of linhas) {
     if (veEstornos) {
       for (const e of Object.values(lerEstornos(o.metadata))) {
         if (e.situacao !== "falhou") continue
         const proxima = e.proxima ? new Date(e.proxima) : null
-        fila.push({
-          nivel: "grave",
-          icone: "pix",
-          titulo: `O estorno do #${l.numero} não saiu`,
-          texto:
-            `${reais(Math.max(0, e.esperado - e.devolvido) / 100)} ${e.forma === "pix" ? "do Pix" : "do cartão"}` +
-            (e.motivo ? ` — ${e.motivo}` : "") +
-            (e.sozinha && proxima
-              ? `. A loja tenta de novo às ${hora(proxima)}.`
-              : ". Precisa de você."),
-          href: pra(l.id),
-        })
+        const falta = Math.max(0, e.esperado - e.devolvido) / 100
+        const g = juntar("estorno", () => ({
+          item: {
+            chave: "estorno",
+            nivel: "grave",
+            icone: "pix",
+            titulo: "O estorno não saiu",
+            varios: "/pedidos?filtro=problemas",
+            etiquetas: [],
+          },
+          texto: (ls) => ls.join("\n"),
+          soma: 0,
+        }))
+        g.pedidos.push(
+          pedido(
+            l,
+            `#${l.numero}: ${reais(falta)} ${e.forma === "pix" ? "do Pix" : "do cartão"}` +
+              (e.motivo ? ` — ${e.motivo}` : "") +
+              (e.sozinha && proxima
+                ? `. A loja tenta de novo às ${hora(proxima)}.`
+                : ". Precisa de você.")
+          )
+        )
+        g.soma = centavos((g.soma ?? 0) + falta)
+        g.item.etiquetas = [reais(g.soma)]
       }
     }
     if (nota && notaTravada(nota)) {
-      fila.push({
-        nivel: "grave",
-        icone: "nota",
-        titulo: nota.cancelar
-          ? `Cancelar a nota do #${l.numero} no Bling`
-          : nota.situacao === "a-emitir"
-            ? `A nota do #${l.numero} não sai sozinha`
-            : `Nota com problema no pedido #${l.numero}`,
-        texto: nota.cancelar
-          ? "O pedido foi cancelado depois da nota sair: a SEFAZ aceita o cancelamento até 24 horas depois da emissão."
-          : nota.situacao === "a-emitir"
-            ? `${emFrase(nota.erro ?? "O Bling recusou o pedido")} Corrija o que falta e tente de novo, no pedido.`
-            : `${emFrase(nota.detalhe ?? nota.erro ?? "O Bling não emitiu a nota")} Corrija no Bling e reenvie por lá — a loja percebe sozinha.`,
-        href: pra(l.id),
-      })
+      if (nota.cancelar) {
+        juntar("nota-cancelar", () => ({
+          item: {
+            chave: "nota-cancelar",
+            nivel: "grave",
+            icone: "nota",
+            titulo: "Cancelar a nota no Bling",
+            varios: "/pedidos?filtro=problemas",
+          },
+          texto: () =>
+            "O pedido foi cancelado depois da nota sair: a SEFAZ aceita o cancelamento até 24 horas depois da emissão.",
+        })).pedidos.push(pedido(l))
+      } else if (nota.situacao === "a-emitir") {
+        const erro = emFrase(nota.erro ?? "O Bling recusou o pedido")
+        const curto = motivoCurto(nota.erro)
+        const chave = `nota-a-emitir:${curto ?? erro}`
+        juntar(chave, () => ({
+          item: {
+            chave,
+            nivel: "grave",
+            icone: "nota",
+            titulo: "A nota não sai sozinha",
+            varios: "/pedidos?filtro=problemas",
+            ...(curto ? { etiquetas: [curto] } : {}),
+          },
+          texto: (ls, ns) => `${porPedido(ls, ns)} Corrija o que falta e tente de novo, no pedido.`,
+        })).pedidos.push(pedido(l, erro))
+      } else {
+        juntar("nota-sefaz", () => ({
+          item: {
+            chave: "nota-sefaz",
+            nivel: "grave",
+            icone: "nota",
+            titulo: "Nota com problema",
+            varios: "/pedidos?filtro=problemas",
+          },
+          texto: (ls, ns) =>
+            `${porPedido(ls, ns)} Corrija no Bling e reenvie por lá — a loja percebe sozinha.`,
+        })).pedidos.push(
+          pedido(l, emFrase(nota.detalhe ?? nota.erro ?? "O Bling não emitiu a nota"))
+        )
+      }
     }
     const parceiro = lerRegistroNoPedido(o.metadata)
     if (o.status !== "canceled" && parceiro && !parceiro.entrou && parceiro.definitivo) {
-      fila.push({
-        nivel: "grave",
-        icone: "caminhao",
-        titulo: `A Frenet recusou o #${l.numero}`,
-        texto: `${parceiro.erro ?? "Sem detalhe."} Faça a etiqueta à mão no painel da Frenet.`,
-        href: pra(l.id),
-      })
+      juntar("frenet", () => ({
+        item: {
+          chave: "frenet",
+          nivel: "grave",
+          icone: "caminhao",
+          titulo: "A Frenet recusou",
+          varios: "/pedidos?filtro=problemas",
+        },
+        texto: (ls, ns) => `${porPedido(ls, ns)} Faça a etiqueta à mão no painel da Frenet.`,
+      })).pedidos.push(pedido(l, parceiro.erro ?? "Sem detalhe."))
     }
     if (l.problema === "entrega") {
-      fila.push({
-        nivel: "atencao",
-        icone: "alerta",
-        titulo: `Problema na entrega do #${l.numero}`,
-        texto: "A transportadora não entregou. Fale com o cliente pra combinar.",
-        href: pra(l.id),
-      })
+      juntar("entrega", () => ({
+        item: {
+          chave: "entrega",
+          nivel: "atencao",
+          icone: "alerta",
+          titulo: "Problema na entrega",
+          varios: "/pedidos?filtro=problemas",
+        },
+        texto: () => "A transportadora não entregou. Fale com o cliente pra combinar.",
+      })).pedidos.push(pedido(l))
     }
     if (l.situacao === "analise") {
-      fila.push({
-        nivel: "",
-        icone: "cartao",
-        titulo: `Cartão em análise há ${duracao(minutosEntre(l.criadoEm, ctx.agora))} — #${l.numero}`,
-        texto: "O valor está só reservado. Aprovado, a loja cobra sozinha.",
-        href: pra(l.id),
-      })
+      const g = juntar("analise", () => ({
+        item: {
+          chave: "analise",
+          nivel: "",
+          icone: "cartao",
+          titulo: "Cartão em análise",
+          varios: "/pedidos?filtro=pagamento",
+        },
+        texto: () => "O valor está só reservado. Aprovado, a loja cobra sozinha.",
+      }))
+      g.pedidos.push(pedido(l))
+      // A idade do que espera há mais tempo.
+      const mais = [...g.pedidos].sort((a, b) => a.criadoEm.localeCompare(b.criadoEm))[0]!
+      g.item.etiquetas = [`há ${duracao(minutosEntre(mais.criadoEm, ctx.agora))}`]
     }
   }
 
+  for (const g of grupos.values()) fila.push(juntos(g))
   return fila.sort((a, b) => ORDEM[a.nivel] - ORDEM[b.nivel])
 }
 
 /** As avaliações que chegaram pela página `/avaliar` e esperam aprovação. */
 function itemDasAvaliacoes(quantas: number): ItemDaFila {
   return {
+    chave: "avaliacoes",
     nivel: "atencao",
     icone: "estrela",
-    titulo: quantas === 1 ? "1 avaliação esperando" : `${quantas} avaliações esperando`,
-    texto: "Chegaram de quem comprou. Aprovada, a avaliação vai pro site.",
+    titulo: "Avaliações esperando",
+    texto:
+      "Chegaram de quem comprou, pela página de avaliação. Aprovada, a avaliação vai pro site.",
     href: "/avaliacoes",
+    quantos: quantas,
   }
 }
 
@@ -342,25 +477,29 @@ function filaDoMarketing(dados: DadosDoInicio): ItemDaFila[] {
   const fila: ItemDaFila[] = []
   if (dados.rascunhos) {
     fila.push({
+      chave: "rascunhos",
       nivel: "atencao",
       icone: "produtos",
-      titulo:
-        dados.rascunhos === 1 ? "1 produto em rascunho" : `${dados.rascunhos} produtos em rascunho`,
+      titulo: "Produtos em rascunho",
       texto:
         "Chegaram do Bling sem foto, texto ou categoria — e não aparecem na loja até alguém completar.",
       href: "/produtos",
+      quantos: dados.rascunhos,
     })
   }
   if (dados.newsletter) {
     const { semana, total } = dados.newsletter
     fila.push({
+      chave: "newsletter",
       nivel: "ok",
       icone: "email",
-      titulo: semana
-        ? `+${semana} na newsletter esta semana`
-        : "Newsletter sem inscrição nova esta semana",
-      texto: `${total} ${total === 1 ? "recebe" : "recebem"} ofertas por e-mail, do rodapé e da conta.`,
+      titulo: "Newsletter",
+      texto: "Quem recebe ofertas por e-mail, do rodapé da loja e da conta.",
       href: "/clientes/newsletter",
+      etiquetas: [
+        semana ? `+${semana} esta semana` : "nenhum novo esta semana",
+        `${total} no total`,
+      ],
     })
   }
   return fila

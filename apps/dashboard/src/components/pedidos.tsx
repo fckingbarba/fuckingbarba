@@ -1,7 +1,8 @@
 import type { Route } from "next"
 import Form from "next/form"
 import Link from "next/link"
-import { Icone } from "@/components/icones"
+import { Icone, type NomeDoIcone } from "@/components/icones"
+import { Forma, Fotos, Passos, Sigla } from "@/components/visual"
 import {
   FILTROS,
   NOME_DA_SITUACAO,
@@ -43,7 +44,14 @@ export function Status({ p }: { p: Pick<LinhaDaLista, "situacao" | "problema" | 
   )
 }
 
-const forma = (f: LinhaDaLista["forma"]) => (f === "pix" ? "Pix" : f === "cartao" ? "Cartão" : "—")
+/** O ícone de cada fita (as que têm): o desenho diz antes da palavra. */
+const ICONE_DO_FILTRO: Partial<Record<Filtro, NomeDoIcone>> = {
+  despachar: "caminhao",
+  pagamento: "relogio",
+  problemas: "alerta",
+  enviado: "enviar",
+  entregue: "check",
+}
 
 /** O endereço da lista: o filtro, a busca e a página (a primeira não vai). */
 export const enderecoDaLista = (filtro: Filtro, busca: string, pagina = 1) => {
@@ -84,7 +92,9 @@ export function BuscaEFiltros({ lista }: { lista: ListaDePedidos }) {
             className="filtro"
             href={enderecoDaLista(f.id, lista.busca)}
             aria-current={lista.filtro === f.id ? "page" : undefined}
+            data-ruim={f.id === "problemas" && lista.contagem[f.id] ? "" : undefined}
           >
+            {ICONE_DO_FILTRO[f.id] ? <Icone nome={ICONE_DO_FILTRO[f.id]!} /> : null}
             {f.nome} <b>{lista.contagem[f.id] ?? 0}</b>
           </Link>
         ))}
@@ -109,14 +119,14 @@ export function ListaDosPedidos({ pedidos }: { pedidos: LinhaDaLista[] }) {
               <th>Pedido</th>
               <th>Cliente</th>
               <th>Itens</th>
-              <th>Pagamento</th>
+              <th>Pgto.</th>
               <th>Situação</th>
               <th className="direita">Total</th>
             </tr>
           </thead>
           <tbody>
             {pedidos.map((p) => (
-              <tr key={p.id}>
+              <tr key={p.id} data-pedido={p.numero}>
                 <td>
                   <Link className="tabela__link" href={`/pedidos/${p.id}` as Route}>
                     <span className="tabela__num">#{p.numero}</span>
@@ -124,21 +134,29 @@ export function ListaDosPedidos({ pedidos }: { pedidos: LinhaDaLista[] }) {
                   <span className="tabela__sub">{p.quando}</span>
                 </td>
                 <td>
-                  {p.cliente.nome}
-                  <span className="tabela__sub">
-                    {p.cliente.cidade}
-                    {p.cliente.uf ? `/${p.cliente.uf}` : ""}
+                  <span className="pessoa">
+                    <Sigla nome={p.cliente.nome} />
+                    <span>
+                      {p.cliente.nome}
+                      <span className="tabela__sub">
+                        {p.cliente.cidade}
+                        {p.cliente.uf ? `/${p.cliente.uf}` : ""}
+                      </span>
+                    </span>
                   </span>
                 </td>
                 <td>
-                  {p.itens}
-                  <span className="tabela__sub">
-                    {p.unidades} {p.unidades === 1 ? "unidade" : "unidades"}
+                  <span className="com-foto">
+                    <Fotos fotos={p.fotos} produtos={p.produtos} rotulo={p.itens} />
+                    <span className="tabela__sub num">{p.unidades} un.</span>
                   </span>
                 </td>
-                <td>{forma(p.forma)}</td>
+                <td>
+                  <Forma forma={p.forma} />
+                </td>
                 <td>
                   <Status p={p} />
+                  <Passos passos={p.passos} />
                 </td>
                 <td className="direita num">
                   <b>{reais(p.total)}</b>
@@ -157,12 +175,18 @@ export function ListaDosPedidos({ pedidos }: { pedidos: LinhaDaLista[] }) {
               </span>
               <span className="cartao__valor">{reais(p.total)}</span>
             </span>
-            <span className="cartao__txt">{p.itens}</span>
             <span className="cartao__linha">
-              <span className="cartao__txt">
-                {p.quando} · {forma(p.forma)}
+              <Fotos fotos={p.fotos} produtos={p.produtos} rotulo={p.itens} />
+              <span className="cartao__lado">
+                <Status p={p} />
+                <Passos passos={p.passos} />
               </span>
-              <Status p={p} />
+            </span>
+            <span className="cartao__linha">
+              <span className="cartao__txt cartao__txt--icone">
+                <Forma forma={p.forma} />
+                {p.quando}
+              </span>
             </span>
           </Link>
         ))}

@@ -202,10 +202,9 @@ try {
   const inicio = (await medusa("/dashboard/inicio", { metodo: "GET", token: tokenDoDono })).corpo
   const item = (inicio.fila ?? []).find((f) => f.href === "/avaliacoes")
   ok(
-    item?.titulo === `${t0.contagem.novas} avaliações esperando` ||
-      item?.titulo === "1 avaliação esperando",
+    item?.titulo === "Avaliações esperando" && item?.quantos === t0.contagem.novas,
     "o Início diz quantas esperam",
-    `${item?.titulo} · ${t0.contagem.novas} novas`
+    `${item?.titulo} · ${item?.quantos} · ${t0.contagem.novas} novas`
   )
 
   titulo("A tela do dono")

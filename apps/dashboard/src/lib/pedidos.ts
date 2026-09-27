@@ -25,10 +25,16 @@ export type LinhaDaLista = {
   cliente: { nome: string; cidade: string; uf: string }
   itens: string
   unidades: number
+  /** As fotos dos produtos (até 3); um backend de antes da 0148 não manda. */
+  fotos?: string[]
+  /** Quantos produtos diferentes (com mais de 3, "+N" depois das fotos). */
+  produtos?: number
   forma: Forma | null
   situacao: Situacao
   problema: Problema | null
   despachar: boolean
+  /** Os seis passos do caminho (os do pedido aberto), pro tracinho da lista. */
+  passos?: ("feito" | "agora" | "erro" | "")[]
   total: number
 }
 
@@ -126,12 +132,23 @@ export type AcaoDoPedido = "nota" | "estorno" | "frenet"
 /** O que a ação devolve pra tela: deu (ou não), e a frase. */
 export type Frase = { ok: boolean; texto: string }
 
+/**
+ * Um item do "Precisa de você". Desde a 0148 o backend junta o que é igual
+ * (sete notas pelo mesmo motivo viram um item): `quantos` é o número do selo,
+ * `etiquetas` as curtas, `pedidos` os números pra abrir um por um, e `texto`
+ * a explicação — que a tela guarda no "?". Um backend de antes da 0148 manda
+ * só título, texto e link.
+ */
 export type ItemDaFila = {
+  chave?: string
   nivel: "grave" | "atencao" | "" | "ok"
   icone: "caminhao" | "nota" | "pix" | "cartao" | "alerta" | "email" | "produtos" | "estrela"
   titulo: string
   texto: string
   href: string
+  quantos?: number
+  etiquetas?: string[]
+  pedidos?: { numero: number; href: string }[]
 }
 
 export type Inicio = {
