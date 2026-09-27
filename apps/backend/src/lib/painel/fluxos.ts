@@ -177,7 +177,9 @@ export function mudarConfigDosFluxos(
   const c = (corpo ?? {}) as { fluxo?: unknown; ligado?: unknown; desconto?: unknown }
   const nova: ConfigDosFluxos = {
     desconto: atual.desconto,
-    fluxos: { pix: { ...atual.fluxos.pix }, checkout: { ...atual.fluxos.checkout } },
+    fluxos: Object.fromEntries(
+      IDS_DOS_FLUXOS.map((id) => [id, { ...atual.fluxos[id] }])
+    ) as ConfigDosFluxos["fluxos"],
   }
   if (c.desconto !== undefined) {
     const [min, max] = LIMITES_DO_DESCONTO
