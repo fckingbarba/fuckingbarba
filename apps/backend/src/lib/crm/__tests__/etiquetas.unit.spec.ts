@@ -1,6 +1,7 @@
 import {
   componentesDoProduto,
   etiquetasDaPessoa,
+  REGRAS_PADRAO,
   type PedidoDaPessoa,
   type SinaisDaPessoa,
 } from "../etiquetas"
@@ -230,5 +231,48 @@ describe("o tratamento e o cupom", () => {
       valor: null,
       porque: "ainda não comprou",
     })
+  })
+})
+
+describe("as regras dos Ajustes", () => {
+  it("em risco no dia seguinte ao de comprar de novo; sunset mais cedo", () => {
+    // Entregue há 35 dias, 1 Fator (30 dias): acabou há 5.
+    const pedidos = [pedido({ pagoEm: diasAtras(41), entregueEm: diasAtras(35) })]
+    expect(etiquetasDaPessoa({ pedidos, sinais: SEM_SINAIS, agora: AGORA }).etapa.valor).toBe(
+      "em-tratamento"
+    )
+    const semTolerancia = etiquetasDaPessoa({
+      pedidos,
+      sinais: SEM_SINAIS,
+      agora: AGORA,
+      regras: { ...REGRAS_PADRAO, toleranciaDaReposicao: 0 },
+    })
+    expect(semTolerancia.etapa.valor).toBe("em-risco")
+    expect(semTolerancia.etapa.porque).toMatch(/^passou o dia de comprar de novo \(\d\d\/\d\d\)$/)
+    expect(
+      etiquetasDaPessoa({
+        pedidos,
+        sinais: SEM_SINAIS,
+        agora: AGORA,
+        regras: { ...REGRAS_PADRAO, toleranciaDaReposicao: 0, sunset: 5 },
+      }).etapa
+    ).toEqual({
+      valor: "sunset",
+      porque: "em risco há mais de 5 dias, sem clicar nem visitar a loja",
+    })
+  })
+
+  it("quente e morno com outros dias; o cupom olhando só a última compra", () => {
+    const sinais = { ...SEM_SINAIS, ultimaVisita: diasAtras(10) }
+    const regras = { ...REGRAS_PADRAO, quente: 7, morno: 9, comprasDoCupom: 1 }
+    expect(etiquetasDaPessoa({ pedidos: [], sinais, agora: AGORA, regras }).engajamento.valor).toBe(
+      "frio"
+    )
+    const tres = [30, 20, 10].map((d, i) =>
+      pedido({ id: `order_${i}`, pagoEm: diasAtras(d), cupons: i === 2 ? ["VOLTA15"] : [] })
+    )
+    expect(
+      etiquetasDaPessoa({ pedidos: tres, sinais: SEM_SINAIS, agora: AGORA, regras }).cupom
+    ).toEqual({ valor: true, porque: "a última compra foi com cupom" })
   })
 })
