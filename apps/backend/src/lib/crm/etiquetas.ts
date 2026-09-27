@@ -67,6 +67,42 @@ const KITS: Record<string, Componente[]> = {
   "kit-completo-para-barba": ["shampoo", "balm", "oleo"],
 }
 
+/**
+ * O que vem em cada produto, pelo SKU — o código do Bling, o mesmo na
+ * Nuvemshop e no Medusa. Vale antes do endereço: os kits Essencial e
+ * Hidratação não dizem no nome o que trazem. Produto novo: ponha aqui.
+ */
+const SKUS: Record<string, readonly (readonly [Componente, number])[]> = {
+  FBFCB01: [["fator", 1]],
+  FBKIT05: [["fator", 2]],
+  FBKIT06: [["fator", 3]],
+  FBKIT07: [["fator", 6]],
+  FBSH01: [["shampoo", 1]],
+  FBKIT03: [["shampoo", 2]],
+  FBOL01: [["oleo", 1]],
+  FBBM01: [["balm", 1]],
+  FBMSP01: [["spray", 1]],
+  FBPMT01: [["pasta", 1]],
+  FBPBR01: [["pasta", 1]],
+  FBKIT01: [
+    ["shampoo", 1],
+    ["balm", 1],
+    ["oleo", 1],
+  ],
+  FBKIT02: [
+    ["shampoo", 1],
+    ["balm", 1],
+  ],
+  FBKIT04: [
+    ["shampoo", 1],
+    ["oleo", 1],
+  ],
+  FBKIT08: [
+    ["fator", 1],
+    ["shampoo", 1],
+  ],
+}
+
 const PALAVRAS: [RegExp, Componente][] = [
   [/fator-de-crescimento/, "fator"],
   [/(^|-)oleo(-|$)/, "oleo"],
@@ -95,7 +131,26 @@ export function componentesDoProduto(
   return [{ componente: achados[0], unidades: Number.isInteger(n) && n > 0 ? n : 1 }]
 }
 
-export type ItemDaPessoa = { handle: string | null; nome: string; quantidade: number }
+/**
+ * O que vem em cada unidade de um item de pedido: pelo SKU, se ele está na
+ * tabela; senão, pelo endereço do produto (`componentesDoProduto`).
+ */
+export function componentesDoItem(item: {
+  sku?: string | null
+  handle?: string | null
+}): { componente: Componente; unidades: number }[] {
+  const doSku = item.sku ? SKUS[item.sku.trim().toUpperCase()] : undefined
+  if (doSku) return doSku.map(([componente, unidades]) => ({ componente, unidades }))
+  return componentesDoProduto(item.handle)
+}
+
+export type ItemDaPessoa = {
+  handle: string | null
+  /** O SKU da variante (o código do Bling) — manda mais que o endereço. */
+  sku?: string | null
+  nome: string
+  quantidade: number
+}
 
 export type PedidoDaPessoa = {
   id: string
@@ -190,7 +245,7 @@ export function quandoAcaba(
 ): { em: Date; componente: Componente; unidades: number } | null {
   let melhor: { em: Date; componente: Componente; unidades: number } | null = null
   for (const item of p.itens) {
-    for (const { componente, unidades } of componentesDoProduto(item.handle)) {
+    for (const { componente, unidades } of componentesDoItem(item)) {
       const total = unidades * Math.max(1, item.quantidade)
       const em = mais(base, total * dias[componente])
       if (!melhor || em < melhor.em) melhor = { em, componente, unidades: total }
@@ -200,7 +255,7 @@ export function quandoAcaba(
 }
 
 const temFator = (p: PedidoDaPessoa) =>
-  p.itens.some((i) => componentesDoProduto(i.handle).some((c) => c.componente === "fator"))
+  p.itens.some((i) => componentesDoItem(i).some((c) => c.componente === "fator"))
 
 export function etiquetasDaPessoa(entrada: {
   pedidos: PedidoDaPessoa[]
