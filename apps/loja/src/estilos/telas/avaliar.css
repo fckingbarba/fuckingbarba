@@ -1,0 +1,12 @@
+/*
+  O CSS DA PÁGINA DA AVALIAÇÃO (/avaliar) — importado só por
+  app/avaliar/page.tsx.
+
+  O bloco, os campos e o quadrado girando são os do checkout (.bloco,
+  .campos, .campo, .giro): quem avalia acabou de comprar, e campo com cara
+  diferente faz a pessoa achar que são duas lojas. Por cima, o que é só
+  daqui: os produtos, as estrelas e o "valeu" (../avaliar.css).
+*/
+@import "../checkout.css";
+@import "../checkout-loja.css";
+@import "../avaliar.css";

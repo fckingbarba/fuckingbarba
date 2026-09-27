@@ -2,7 +2,7 @@ import { Estrelas } from "@/components/estrelas"
 import { Raio } from "@/components/icones"
 import { DepoimentosSorteados } from "@/components/produto/depoimentos-sorteados"
 import { AVALIACOES, TRECHOS, notaMedia } from "@/conteudo/depoimentos"
-import { buscarProdutoPorHandle } from "@/lib/medusa"
+import { avaliacoesPublicadas, buscarProdutoPorHandle } from "@/lib/medusa"
 
 /**
  * O QUE DIZ QUEM USOU.
@@ -28,10 +28,21 @@ import { buscarProdutoPorHandle } from "@/lib/medusa"
  * produto — as estrelas em cima da grade —, e os três sorteados são uma
  * amostra delas, não a conta. Só das AVALIAÇÕES: trecho de entrevista não
  * tem nota, entra na lista como é ("Entrevista com cliente", sem nome e sem
- * estrela) e fica fora da conta.
+ * estrela) e fica fora da conta. Ele mora aqui, fora da `<section>` do
+ * Product (a dobra), e entra nela pelo `itemref` de lá (`#avaliacoes-nota`):
+ * `itemprop` não atravessa o HTML, e sem o `itemref` a nota ficava solta.
+ *
+ * AS AVALIAÇÕES SÃO AS DE QUEM COMPROU (`avaliacoesPublicadas`: a página
+ * `/avaliar`, aprovadas no painel) e as de `conteudo/depoimentos.ts`. Pro
+ * sorteio vão só as `NO_SORTEIO` mais recentes: a lista inteira iria dentro
+ * do HTML da página (os dados do React), e crescia a cada avaliação. A nota
+ * e a conta olham todas.
  */
+const NO_SORTEIO = 24
+
 export async function Avaliacoes({ handle }: { handle: string }) {
-  const avaliacoes = AVALIACOES.filter((a) => a.produtoHandle === handle)
+  const doMedusa = await avaliacoesPublicadas()
+  const avaliacoes = [...doMedusa, ...AVALIACOES].filter((a) => a.produtoHandle === handle)
   const trechos = TRECHOS.filter((t) => t.produtoHandle === handle)
   if (!avaliacoes.length && !trechos.length) return null
 
@@ -49,6 +60,7 @@ export async function Avaliacoes({ handle }: { handle: string }) {
         {media !== null ? (
           <p
             className="avaliacoes__nota"
+            id="avaliacoes-nota"
             itemProp="aggregateRating"
             itemScope
             itemType="https://schema.org/AggregateRating"
@@ -65,7 +77,10 @@ export async function Avaliacoes({ handle }: { handle: string }) {
           </p>
         ) : null}
 
-        <DepoimentosSorteados depoimentos={[...avaliacoes, ...trechos]} foto={foto} />
+        <DepoimentosSorteados
+          depoimentos={[...avaliacoes.slice(0, NO_SORTEIO), ...trechos]}
+          foto={foto}
+        />
       </div>
     </section>
   )

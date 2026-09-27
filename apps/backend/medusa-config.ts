@@ -241,6 +241,13 @@ const newsletterModule = [{ resolve: "./src/modules/newsletter" }]
 const aviseMeModule = [{ resolve: "./src/modules/avise-me" }]
 
 /**
+ * As avaliações de quem comprou (`src/modules/avaliacoes`): a nota e o texto
+ * de cada produto do pedido, dados na página escondida `/avaliar` da loja.
+ * Ver o AGENTS.md, "As avaliações".
+ */
+const avaliacoesModule = [{ resolve: "./src/modules/avaliacoes" }]
+
+/**
  * O ERP — a conexão (tokens cifrados) e a nota fiscal de cada pedido. Quem
  * fala com o ERP é o tradutor dele (`src/modules/bling/`); quem decide é
  * `src/lib/erp/`. Ver o AGENTS.md, "ERP".
@@ -317,6 +324,7 @@ module.exports = defineConfig({
     ...enviosModule,
     ...newsletterModule,
     ...aviseMeModule,
+    ...avaliacoesModule,
     ...erpModule,
     ...equipeModule,
     ...observabilidadeModule,

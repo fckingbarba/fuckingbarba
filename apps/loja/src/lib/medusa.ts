@@ -2,6 +2,8 @@ import "server-only"
 import Medusa from "@medusajs/js-sdk"
 import type { HttpTypes } from "@medusajs/types"
 import { cacheLife, cacheTag } from "next/cache"
+import type { Avaliacao } from "../conteudo/depoimentos"
+import { avaliacoesDoMedusa } from "./avaliacoes-do-medusa"
 import type { SugestaoDaSacola } from "./carrinho-visivel"
 import { PADRAO, type Configuracoes } from "./configuracoes"
 import { emReais } from "./formato"
@@ -90,6 +92,9 @@ export const TAGS = {
   /* O texto e a ordem da home, do painel. Derrubada pelo "Publicar" (junto
      com `layout:home`, a da ordem — ver `lib/secoes/layout.ts`). */
   home: "home",
+  /* As avaliações aprovadas no painel. Derrubada pelo painel ao aprovar ou
+     tirar uma do site (`lib/avaliacoes/moderar.ts`, no backend). */
+  avaliacoes: "avaliacoes",
 } as const
 
 /** Campos que a vitrine precisa; o resto fica no servidor. */
@@ -806,4 +811,33 @@ export function varianteDoCard(produto: HttpTypes.StoreProduct): string | null {
   const [variante] = variantes
   if (typeof variante.calculated_price?.calculated_amount !== "number") return null
   return temEstoque(variante) ? variante.id : null
+}
+
+/**
+ * AS AVALIAÇÕES APROVADAS NO PAINEL — de quem comprou, pela página
+ * `/avaliar` (o link vem no e-mail, um dia depois da entrega). A página do
+ * produto e a nota da home leem daqui; a esteira da home busca pela
+ * `/api/avaliacoes`, só quando a seção chega perto (os textos não vão no
+ * HTML da home — ver `components/home/esteira-de-avaliacoes.tsx`).
+ *
+ * As mais recentes primeiro, já no formato do cartão (`avaliacoesDoMedusa`).
+ * O 404 é o Medusa de antes da rota — a Vercel sobe antes do Railway —: sem
+ * avaliação, como a loja era.
+ */
+export async function avaliacoesPublicadas(): Promise<Avaliacao[]> {
+  "use cache"
+  cacheTag(TAGS.avaliacoes)
+  cacheLife("days")
+  if (!sdk) return []
+  try {
+    const { avaliacoes } = await lerDoMedusa<{ avaliacoes?: unknown }>(
+      "avaliações",
+      "/store/avaliacoes"
+    )
+    return avaliacoesDoMedusa(avaliacoes)
+  } catch (e) {
+    const status = ((e as Error).cause as { status?: unknown } | undefined)?.status
+    if (status === 404) return []
+    throw e
+  }
 }

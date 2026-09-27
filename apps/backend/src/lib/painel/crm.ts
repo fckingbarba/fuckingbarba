@@ -199,6 +199,7 @@ const NOME_DO_EMAIL: Record<string, string> = {
   "envio-retirar": "Esperando retirada",
   "envio-entregue": "Pedido entregue",
   "avise-me": "Voltou ao estoque",
+  "pedir-avaliacao": "Pedido de avaliação",
   "codigo-de-entrar": "Código de entrar",
   "codigo-do-email-novo": "Código do e-mail novo",
   "email-trocado": "E-mail da conta trocado",

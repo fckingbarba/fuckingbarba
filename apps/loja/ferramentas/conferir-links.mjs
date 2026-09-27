@@ -255,10 +255,17 @@ if (soBloqueiaTudo) {
     doSitemap.length > 0 && bloqueados.length === 0,
     bloqueados.length ? `bloqueados: ${bloqueados.join(", ")}` : "sitemap vazio"
   )
-  const privados = ["/conta", "/conta/entrar", "/conta/pedidos", "/checkout", "/busca?q=oleo"]
+  const privados = [
+    "/conta",
+    "/conta/entrar",
+    "/conta/pedidos",
+    "/checkout",
+    "/busca?q=oleo",
+    "/avaliar",
+  ]
   const abertos = privados.filter(liberado)
   confere(
-    "a conta, o checkout e a busca ficam fora do Google",
+    "a conta, o checkout, a busca e a página da avaliação ficam fora do Google",
     abertos.length === 0,
     `abertos: ${abertos.join(", ")}`
   )
