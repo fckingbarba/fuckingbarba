@@ -1399,10 +1399,10 @@ O "tirar" apaga a inscrição (`removerDaNewsletterWorkflow`) e desmarca só o e
 `metadata.ofertas` da conta, deixando o WhatsApp. Ele anota no registro da equipe com o e-mail
 mascarado (`emailMascarado`). A lista lê até 5000 clientes e os últimos 2000 pedidos, só com os
 campos que ela soma. A ficha lê os pedidos inteiros de todos os cadastros da pessoa, até 200. O
-`numerosDaNewsletter` do Início usa a mesma conta da aba. O plano de CRM ("Ciclo da Barba") vai
-ler os mesmos consentimentos e pôr as 5 etiquetas da pessoa na ficha, num bloco a mais. O
-conferidor é o `apps/dashboard/ferramentas/conferir-clientes.mjs`, com os mesmos falsos e variáveis
-do `conferir-pedidos`.
+`numerosDaNewsletter` do Início usa a mesma conta da aba. Desde a 0145, a ficha traz também a
+parte do CRM (as 5 etiquetas e o caminho da pessoa) pra quem abre o CRM — ver "O CRM, parte 3". O
+conferidor é o `apps/dashboard/ferramentas/conferir-clientes.mjs` (47, com as etiquetas), com os
+mesmos falsos e variáveis do `conferir-pedidos`.
 
 **Cupons e descontos** (fase 6, entrega 0085; do jeito da Nuvemshop desde a 0128). Cupom é
 promoção do Medusa com código: quem aplica e recusa é o Medusa, no carrinho. `src/lib/cupons.ts` é
@@ -1876,7 +1876,7 @@ Barba"). Só de quem disse sim à faixa de cookies, e ligado ao e-mail da pessoa
   (`prefetch={false}`): com a faixa em toda primeira tela, o prefetch baixava o HTML, o CSS e o JS
   das páginas institucionais no meio do carregamento.
 
-O conferidor é o `apps/dashboard/ferramentas/conferir-crm.mjs` (65 com a parte 2): a rota (assinatura, lote,
+O conferidor é o `apps/dashboard/ferramentas/conferir-crm.mjs` (72 com as partes 2 e 3): a rota (assinatura, lote,
 esquecer), a loja com "Só o necessário" (nada sai, nenhum cookie) e com "Aceitar" (a chegada com a
 campanha, o produto, a sacola e o e-mail do checkout chegando nas anotações de antes), a
 newsletter, a conta (o código pelo Resend falso), a tela do dono, do marketing no celular e da
@@ -1914,6 +1914,43 @@ O `conferir-crm.mjs` (65) assina os avisos como o Resend (precisa do mesmo
 `RESEND_WEBHOOK_SEGREDO` do Medusa): a etiqueta do e-mail do código, a assinatura errada e a velha,
 o clique sem o IP e sem o id do pedido, a abertura repetida contando uma vez, o que voltou, o do dono
 fora das contas, e a tela.
+
+**O CRM, parte 3: a ficha de cada pessoa** (entrega 0145). Na ficha do cliente (Clientes → a
+pessoa), quem abre o CRM vê as cinco etiquetas do plano, no alto, e o caminho da pessoa, embaixo
+dos pedidos. A operação abre a ficha sem essa parte.
+
+- **As etiquetas** (`lib/crm/etiquetas.ts`, puro, com testes): `etiquetasDaPessoa` recebe os
+  pedidos de todos os cadastros com o mesmo e-mail, os sinais (o último clique num e-mail da loja,
+  a última anotação do site, a newsletter) e a hora, e devolve cada uma com o porquê em frase:
+  - **etapa** — lead (sem compra paga), 1ª compra (paga, a caminho), em tratamento (chegou),
+    recorrente (2 pagas), em risco (20 dias depois do dia de comprar de novo; sem saber quanto
+    dura, 60 dias sem pedido) e sunset (45 dias em risco sem clicar nem visitar);
+  - **engajamento** — o sinal mais novo (clique, visita, compra, newsletter): até 30 dias quente,
+    até 90 morno, depois frio;
+  - **tratamento** — os dias desde a entrega do primeiro Fator;
+  - **próxima compra** — a entrega do último pedido pago + o que dura o primeiro produto a acabar;
+  - **sensível a cupom** — as últimas 3 compras todas com cupom (a oferta do checkout, `BUMP-`, e
+    a promoção automática, `PROMO-`, não contam).
+- **Quanto dura cada frasco:** pelo endereço do produto (`componentesDoProduto`: "kit-3-…" são 3,
+  "…-duplo" são 2, o kit de dois produtos é um de cada, o `kit-completo-para-barba` está em
+  `KITS`), vezes a quantidade, vezes os dias de `DIAS_PADRAO` (Fator 30; óleo, shampoo e spray 45;
+  balm e pasta 60) — até os Ajustes do CRM deixarem o dono mudar. Produto novo com nome fora do
+  padrão: ponha em `KITS`. Sem o aviso de entrega, o pedido conta como entregue 7 dias depois de
+  pago, a partir de 10 dias pago (o porquê diz "estimada").
+- **A entrega** é o "entregue" mais tarde entre o envio do Medusa (`delivered_at`) e o aviso da
+  Frenet (`entregue_em`); o pedido lê `items.product_handle` (`CAMPOS_DO_DETALHE`).
+- **O caminho** (`montarFichaDoCrm`, em `lib/painel/crm.ts`): as anotações do site, os e-mails da
+  loja (a frase dos avisos do Resend) e as compras pagas, do mais novo pro mais velho, até 25; e
+  de onde a pessoa chegou da primeira vez (a origem do primeiro visitante com o e-mail dela; sem
+  origem, "Direto"). O serviço do módulo lê tudo de uma vez (`pessoa(email)`).
+- **Quem vê o quê:** a rota da ficha (`GET /dashboard/clientes/:id`) põe `cliente.crm` só com a
+  área `crm`; sem a área `pedidos` (o marketing, no padrão), o número do pedido não aparece nem
+  na etiqueta nem no caminho.
+
+O `conferir-crm.mjs` confere a ficha da conta da rodada (lead, quente pelo clique, "Direto", o
+caminho com o e-mail clicado e o site, a tela, e a operação sem a parte do CRM); o
+`conferir-clientes.mjs`, as etiquetas com pedidos de verdade (1ª compra, a oferta do checkout fora
+do cupom, o Pix esperando fora da compra, o marketing sem o número do pedido).
 
 **O preço e o promocional no painel** (entregas 0098 e 0102): os dois campos de cada produto na
 lista de Produtos, como na Nuvemshop (a 0098 tinha só o promocional, atrás de um botão). A regra é
