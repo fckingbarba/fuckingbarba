@@ -1,3 +1,4 @@
+import { etiquetaLimpa } from "./crm/resend"
 import { sinal } from "./observabilidade/sinal"
 
 /**
@@ -62,14 +63,20 @@ export const remetenteDosEmails = () =>
  * a primeira é o registro no pedido, e esta cobre o instante entre o
  * Resend aceitar e o registro ser gravado. Formato deles:
  * `<o que>/<de quem>` (`pedido-confirmado/order_…`).
+ *
+ * `tipo` vai como a etiqueta `tipo` do Resend, e volta em cada aviso dele
+ * (chegou, abriu, clicou — `lib/crm/resend.ts`): é assim que o CRM sabe de
+ * qual e-mail é o clique, sem guardar o assunto. Sem ele, vale o `<o que>`
+ * da chave de idempotência ("pedido-confirmado").
  */
 export async function enviarEmail(
   email: Email,
   logger: Registro,
-  { idempotencia }: { idempotencia?: string } = {}
+  { idempotencia, tipo }: { idempotencia?: string; tipo?: string } = {}
 ): Promise<Enviado> {
   const chave = process.env.RESEND_API_KEY
   const remetente = remetenteDosEmails()
+  const etiqueta = etiquetaLimpa(tipo ?? idempotencia?.split("/")[0])
   const base = (process.env.RESEND_URL || "https://api.resend.com").replace(/\/+$/, "")
 
   if (!chave) {
@@ -104,6 +111,7 @@ export async function enviarEmail(
         subject: email.assunto,
         html: email.html,
         text: email.texto,
+        ...(etiqueta ? { tags: [{ name: "tipo", value: etiqueta }] } : {}),
       }),
       signal: AbortSignal.timeout(TEMPO_LIMITE_MS),
     })

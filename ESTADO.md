@@ -2836,6 +2836,43 @@ devolveram uso de cupom (`[cupons] pedidos cancelados: N de M`).
   - Marketing → Pagamento: a tentativa de cartão cancelada entra no total e em nenhum motivo (o
     `conferir-marketing` acusa num banco que já rodou o de pagamento).
 
+**CRM, parte 2: os avisos do Resend — pronto em 26/09 (entrega 0138).** Agora a loja fica sabendo o
+que aconteceu com cada e-mail que mandou pra cliente.
+
+- **O que volta:** se o e-mail chegou, se foi aberto, em que link a pessoa clicou, se voltou
+  (endereço errado) e se virou reclamação de spam.
+- **No painel:** CRM → "Os e-mails da loja": quantos saíram no período e quantos chegaram, foram
+  abertos, levaram clique, não chegaram e viraram spam; o mesmo pra cada e-mail (pedido confirmado,
+  código de entrar, saiu pra entrega…); e os últimos avisos em frase, com o e-mail mascarado ("r•••@
+  gmail.com clicou em “Pedido confirmado”", "“Código de entrar” não chegou · o endereço não aceita
+  e-mail").
+- Os e-mails da equipe (a venda nova, o código do painel) ficam fora dessas contas.
+- A política de privacidade conta que a loja sabe se o e-mail chegou, se foi aberto e em que link se
+  clicou (sem o IP), e que isso também fica 13 meses.
+- [ ] **Ligar os avisos no Resend — você, uma vez:**
+  1. Resend → **Webhooks** → **Add endpoint**. Endereço:
+     `https://<o endereço do backend no Railway>/hooks/resend` (o mesmo do `MEDUSA_BACKEND_URL`).
+     Eventos: marque os de e-mail (`email.sent`, `email.delivered`, `email.delivery_delayed`,
+     `email.opened`, `email.clicked`, `email.bounced`, `email.complained`, `email.failed`,
+     `email.suppressed`).
+  2. Na tela do webhook criado, copie o **Signing secret** (começa com `whsec_`).
+  3. Railway → o serviço do backend → **Variables** → nova variável `RESEND_WEBHOOK_SEGREDO`, com o
+     valor copiado. Não cole em conversa nenhuma.
+  4. Pra contar abertos e cliques: Resend → **Domains** → o domínio da loja → ligue **Open
+     tracking** e **Click tracking**.
+  5. Pra ver funcionando: Painel → CRM → "Os e-mails da loja" diz "o último chegou …" depois do
+     próximo e-mail.
+
+Conferido pelo `conferir-crm.mjs` (65 checagens; as 15 novas: a etiqueta no e-mail, os avisos com e
+sem a assinatura, o clique sem o IP e sem o número do pedido, a abertura repetida contando uma vez,
+o e-mail que voltou, o da equipe de fora, e a tela) e pelos testes de unidade (12 novos).
+
+Depois do deploy — **os passos acima.** Sem eles, o CRM diz que os avisos ainda não estão ligados.
+
+- [ ] **As próximas partes da Fundação** (uma entrega cada, perguntar antes): a ficha de cada pessoa
+      com as etiquetas, os Ajustes do CRM editáveis no painel, a base da Nuvemshop e o modelo de
+      e-mail.
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa

@@ -31,3 +31,12 @@
   .anotacao { grid-template-columns: auto minmax(0, 1fr); row-gap: 2px; }
   .anotacao time { grid-column: 2; }
 }
+
+/* Os e-mails da loja (parte 2): seis números, a tabela por tipo e os últimos avisos. */
+.numeros--emails { grid-template-columns: repeat(6, minmax(0, 1fr)); margin-bottom: 16px; }
+@media (max-width: 1180px) { .numeros--emails { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .numeros--emails { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.numero[data-ruim] .numero__valor { color: var(--erro); }
+.emails__tabela { margin: 0 0 16px; }
+.anotacao[data-nivel="bom"] .fila__ico { background: var(--menta-escura); color: #fff; }
+.anotacao[data-nivel="ruim"] .fila__ico { background: var(--erro); color: #fff; }

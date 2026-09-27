@@ -139,7 +139,8 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
 
   const enviado = await enviarEmail(
     emailDoCodigo({ para: email, codigo: resultado.codigo, minutos: MINUTOS_DE_VALIDADE }),
-    logger
+    logger,
+    { tipo: "codigo-de-entrar" }
   )
   if (!enviado.ok) {
     // O código ficou gravado e o envio contou — de propósito: senão, com o

@@ -154,7 +154,7 @@ export async function avisarCliente(
         },
         whatsapp: await whatsappDaLoja(container),
       })
-      const r = await enviarEmail(email, logger)
+      const r = await enviarEmail(email, logger, { tipo: `envio-${momento}` })
       if (!r.ok) {
         logger.warn(
           `[envio] o e-mail "${momento}" do pedido #${pedido.numero} não saiu (${r.motivo}) — ` +

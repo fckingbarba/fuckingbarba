@@ -7,7 +7,16 @@ import {
 } from "@medusajs/framework/utils"
 import type { EntityManager } from "@medusajs/framework/mikro-orm/knex"
 import { chaveDoVisitante, momentoDo, origemDoLote, type Lote } from "../../lib/crm/eventos"
-import type { ContaDoTipo, EventoLidoDoBanco, NumerosDoCrm } from "../../lib/painel/crm"
+import type { AvisoDoEmail } from "../../lib/crm/resend"
+import type {
+  ContaDoTipo,
+  ContaDoTipoDeEmail,
+  EmailLidoDoBanco,
+  EventoLidoDoBanco,
+  NumerosDoCrm,
+  NumerosDosEmails,
+} from "../../lib/painel/crm"
+import { EmailDoCrm } from "./models/email"
 import { Evento } from "./models/evento"
 import { Visitante } from "./models/visitante"
 
@@ -33,6 +42,7 @@ export type VisitanteLido = {
 const Tabelas = MedusaService({
   Visitantes: Visitante,
   Eventos: Evento,
+  Emails: EmailDoCrm,
 })
 
 export default class CrmService extends Tabelas {
@@ -153,7 +163,7 @@ export default class CrmService extends Tabelas {
   async limpar(
     antes: Date,
     @MedusaContext() ctx: Contexto = {}
-  ): Promise<{ eventos: number; visitantes: number }> {
+  ): Promise<{ eventos: number; visitantes: number; emails: number }> {
     const [eventos] = (await ctx.manager!.execute(
       `with apagados as (delete from crm_evento where em < ? and deleted_at is null returning 1)
        select count(*)::int as n from apagados`,
@@ -166,7 +176,20 @@ export default class CrmService extends Tabelas {
        select count(*)::int as n from apagados`,
       [antes]
     )) as { n: number }[]
-    return { eventos: eventos?.n ?? 0, visitantes: visitantes?.n ?? 0 }
+    const [emails] = (await ctx.manager!.execute(
+      `with apagados as (
+         delete from crm_email
+          where coalesce(enviado_em, created_at) < ? and deleted_at is null
+         returning 1
+       )
+       select count(*)::int as n from apagados`,
+      [antes]
+    )) as { n: number }[]
+    return {
+      eventos: eventos?.n ?? 0,
+      visitantes: visitantes?.n ?? 0,
+      emails: emails?.n ?? 0,
+    }
   }
 
   /** As contas da tela do painel (`lib/painel/crm.ts`), de `de` até `ate`. */
@@ -204,6 +227,137 @@ export default class CrmService extends Tabelas {
       numeros: numeros ?? { visitantes: 0, identificados: 0, pessoas: 0, anotacoes: 0 },
       tipos,
       ultimos,
+    }
+  }
+
+  /**
+   * UM AVISO DO RESEND (`lib/crm/resend.ts`): a linha do e-mail nasce no
+   * primeiro, e cada um preenche a sua hora — a de primeira vez fica com a
+   * mais antiga, a de última com a mais nova (o `least`/`greatest` do
+   * Postgres pula o nulo). Aviso repetido ou fora de ordem não muda nada. O
+   * clique conta também como aberto: quem clicou abriu, mesmo com a imagem
+   * que mede a abertura bloqueada.
+   */
+  @InjectManager()
+  async anotarAvisoDoEmail(
+    aviso: AvisoDoEmail,
+    equipe: boolean,
+    @MedusaContext() ctx: Contexto = {}
+  ): Promise<void> {
+    const { campo, em } = aviso
+    const se = (sim: boolean) => (sim ? em : null)
+    await ctx.manager!.execute(
+      `insert into crm_email
+         (id, resend_id, para, tipo, equipe, enviado_em, entregue_em, atrasado_em, aberto_em,
+          ultima_abertura_em, clicado_em, ultimo_clique_em, ultimo_link, devolvido_em, devolucao,
+          reclamou_em, falhou_em, suprimido_em, created_at, updated_at)
+       values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now(), now())
+       on conflict (resend_id) where deleted_at is null do update set
+         para = coalesce(crm_email.para, excluded.para),
+         tipo = coalesce(crm_email.tipo, excluded.tipo),
+         equipe = crm_email.equipe or excluded.equipe,
+         enviado_em = least(crm_email.enviado_em, excluded.enviado_em),
+         entregue_em = least(crm_email.entregue_em, excluded.entregue_em),
+         atrasado_em = greatest(crm_email.atrasado_em, excluded.atrasado_em),
+         aberto_em = least(crm_email.aberto_em, excluded.aberto_em),
+         ultima_abertura_em = greatest(crm_email.ultima_abertura_em, excluded.ultima_abertura_em),
+         clicado_em = least(crm_email.clicado_em, excluded.clicado_em),
+         ultimo_link = case
+           when excluded.ultimo_clique_em is not null
+            and excluded.ultimo_clique_em >= coalesce(crm_email.ultimo_clique_em, excluded.ultimo_clique_em)
+           then excluded.ultimo_link
+           else crm_email.ultimo_link
+         end,
+         ultimo_clique_em = greatest(crm_email.ultimo_clique_em, excluded.ultimo_clique_em),
+         devolvido_em = least(crm_email.devolvido_em, excluded.devolvido_em),
+         devolucao = coalesce(crm_email.devolucao, excluded.devolucao),
+         reclamou_em = least(crm_email.reclamou_em, excluded.reclamou_em),
+         falhou_em = least(crm_email.falhou_em, excluded.falhou_em),
+         suprimido_em = least(crm_email.suprimido_em, excluded.suprimido_em),
+         updated_at = now()`,
+      [
+        generateEntityId(undefined, "eml"),
+        aviso.resendId,
+        aviso.para,
+        aviso.tipo,
+        equipe,
+        aviso.enviadoEm ?? em,
+        se(campo === "entregue"),
+        se(campo === "atrasado"),
+        se(campo === "aberto" || campo === "clicado"),
+        se(campo === "aberto" || campo === "clicado"),
+        se(campo === "clicado"),
+        se(campo === "clicado"),
+        campo === "clicado" ? aviso.link : null,
+        se(campo === "devolvido"),
+        campo === "devolvido" ? aviso.devolucao : null,
+        se(campo === "reclamou"),
+        se(campo === "falhou"),
+        se(campo === "suprimido"),
+      ]
+    )
+  }
+
+  /**
+   * AS CONTAS DOS E-MAILS DE CLIENTE da tela do CRM (`lib/painel/crm.ts`):
+   * os que saíram de `de` até `ate`, e quantos deles chegaram, foram abertos,
+   * levaram clique, não chegaram e viraram reclamação — no total e por tipo;
+   * os 15 que tiveram novidade por último; e a hora do último aviso.
+   */
+  @InjectManager()
+  async resumoDosEmails(
+    de: Date,
+    ate: Date,
+    @MedusaContext() ctx: Contexto = {}
+  ): Promise<{
+    numeros: NumerosDosEmails
+    porTipo: ContaDoTipoDeEmail[]
+    ultimos: EmailLidoDoBanco[]
+    ultimoAviso: Date | null
+  }> {
+    const contas = `count(*)::int as enviados,
+              count(entregue_em)::int as entregues,
+              count(aberto_em)::int as abertos,
+              count(clicado_em)::int as clicados,
+              count(*) filter (
+                where devolvido_em is not null or falhou_em is not null or suprimido_em is not null
+              )::int as "naoChegaram",
+              count(reclamou_em)::int as reclamacoes`
+    const doPeriodo = `enviado_em >= ? and enviado_em < ? and not equipe and deleted_at is null`
+    const [numeros] = (await ctx.manager!.execute(
+      `select ${contas} from crm_email where ${doPeriodo}`,
+      [de, ate]
+    )) as NumerosDosEmails[]
+    const porTipo = (await ctx.manager!.execute(
+      `select tipo, ${contas} from crm_email where ${doPeriodo}
+        group by tipo order by count(*) desc, tipo`,
+      [de, ate]
+    )) as ContaDoTipoDeEmail[]
+    const ultimos = (await ctx.manager!.execute(
+      `select id, tipo, para, enviado_em, entregue_em, atrasado_em, aberto_em, ultima_abertura_em,
+              clicado_em, ultimo_clique_em, ultimo_link, devolvido_em, devolucao, reclamou_em,
+              falhou_em, suprimido_em
+         from crm_email
+        where not equipe and deleted_at is null and updated_at >= ?
+        order by updated_at desc
+        limit 15`,
+      [de]
+    )) as EmailLidoDoBanco[]
+    const [ultimo] = (await ctx.manager!.execute(
+      `select max(updated_at) as em from crm_email where deleted_at is null`
+    )) as { em: Date | null }[]
+    return {
+      numeros: numeros ?? {
+        enviados: 0,
+        entregues: 0,
+        abertos: 0,
+        clicados: 0,
+        naoChegaram: 0,
+        reclamacoes: 0,
+      },
+      porTipo,
+      ultimos,
+      ultimoAviso: ultimo?.em ?? null,
     }
   }
 }

@@ -1,6 +1,12 @@
 import type { Metadata } from "next"
 import { SoPara } from "@/components/area"
-import { CaminhoDoCrm, NumerosDoCrm, PeriodosDoCrm, UltimasDoCrm } from "@/components/crm"
+import {
+  CaminhoDoCrm,
+  EmailsDoCrm,
+  NumerosDoCrm,
+  PeriodosDoCrm,
+  UltimasDoCrm,
+} from "@/components/crm"
 import { Cabeca, ForaDoAr, SemAcesso } from "@/components/telas"
 import { lerPeriodoDoCrm, lerTelaDoCrm } from "@/lib/crm"
 
@@ -10,7 +16,8 @@ type Busca = Promise<{ periodo?: string }>
 
 /**
  * CRM — o começo: o que cada pessoa faz na loja, anotado pela própria loja
- * e ligado ao e-mail dela (a Fundação do "Ciclo da Barba"). Os e-mails
+ * e ligado ao e-mail dela (a Fundação do "Ciclo da Barba"), e o que os
+ * avisos do Resend contam dos e-mails da loja (parte 2). Os e-mails
  * automáticos, a ficha de cada pessoa e os ajustes vêm nas próximas partes.
  * O período fica no endereço (`?periodo=hoje`). Dono e marketing.
  */
@@ -38,12 +45,15 @@ async function Crm({ searchParams }: { searchParams: Busca }) {
       <PeriodosDoCrm atual={periodo} />
       <NumerosDoCrm numeros={tela.numeros} />
       <CaminhoDoCrm tipos={tela.tipos} />
+      <EmailsDoCrm emails={tela.emails} />
       <UltimasDoCrm ultimos={tela.ultimos} />
       <p className="lista-nota">
         Só entra quem disse sim aos cookies da loja; quem recusou não aparece aqui, e quem muda a
         resposta pra não tem o que foi anotado apagado. O e-mail chega quando a pessoa entra na
         conta, deixa o e-mail no checkout ou assina a newsletter — e o que ela fez antes, no mesmo
-        navegador, passa a ser dela. Tudo sai sozinho depois de 13 meses.
+        navegador, passa a ser dela. Tudo sai sozinho depois de 13 meses. Nos e-mails, só os de
+        cliente contam (os da equipe ficam de fora), e &ldquo;abertos&rdquo; é aproximado: o Mail do
+        iPhone abre sozinho pra proteger quem recebe, e quem bloqueia imagens não conta.
       </p>
     </div>
   )
