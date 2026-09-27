@@ -82,6 +82,12 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     res.status(429).json({ message: "limite" })
     return
   }
+  /*
+    CONTA JÁ, antes de ir ao banco (`reservar`, em `lib/limite.ts`): contando
+    só depois, pedidos ao mesmo tempo pra e-mails diferentes passavam todos
+    pela conferência. O que o limite do e-mail barrar devolve a vaga.
+  */
+  const devolver = [limite.reservar(quem.chave, porIp), limite.reservar("loja", DA_LOJA)]
 
   /*
     UM PEDIDO POR VEZ PRO MESMO E-MAIL. Sem a trava, dois cliques rápidos
@@ -124,6 +130,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
   )
 
   if (!resultado.ok) {
+    devolver.forEach((d) => d())
     res
       .status(429)
       .json(
@@ -133,9 +140,6 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
       )
     return
   }
-
-  limite.contar(quem.chave, porIp)
-  limite.contar("loja", DA_LOJA)
 
   const enviado = await enviarEmail(
     emailDoCodigo({ para: email, codigo: resultado.codigo, minutos: MINUTOS_DE_VALIDADE }),

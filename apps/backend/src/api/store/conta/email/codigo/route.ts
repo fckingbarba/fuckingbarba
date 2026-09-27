@@ -79,6 +79,8 @@ export async function POST(req: AuthenticatedMedusaRequest, res: MedusaResponse)
     res.status(429).json({ message: "limite" })
     return
   }
+  // Conta já, antes do banco; se o limite do e-mail barrar, devolve (`reservar`).
+  const devolver = [limite.reservar(quem.chave, porIp), limite.reservar("loja", DA_LOJA)]
 
   /*
     A MESMA TRAVA DO CÓDIGO DE ENTRAR (`conta:codigo:<e-mail>`): as duas
@@ -116,15 +118,13 @@ export async function POST(req: AuthenticatedMedusaRequest, res: MedusaResponse)
   )
 
   if (!resultado.ok) {
+    devolver.forEach((d) => d())
     if (resultado.motivo === "mudou") res.status(409).json({ message: "mudou" })
     else if (resultado.motivo === "espera")
       res.status(429).json({ message: "espera", segundos: resultado.segundos })
     else res.status(429).json({ message: "limite" })
     return
   }
-
-  limite.contar(quem.chave, porIp)
-  limite.contar("loja", DA_LOJA)
 
   const enviado = await enviarEmail(
     emailDaTroca({ para: novo, codigo: resultado.codigo, minutos: MINUTOS_DE_VALIDADE }),

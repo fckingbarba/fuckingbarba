@@ -112,6 +112,8 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
         logger.warn("[painel] limite de códigos do painel todo atingido")
         return { ok: false as const, motivo: "limite" as const }
       }
+      // Conta aqui dentro, na trava, e não depois dela (`reservar`, em `lib/limite.ts`).
+      limite.reservar("painel", DO_PAINEL)
 
       const codigo = gerarCodigo()
       await guardarCodigoWorkflow(req.scope).run({
@@ -151,7 +153,6 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     return
   }
 
-  limite.contar("painel", DO_PAINEL)
   const enviado = await enviarEmail(
     emailDoCodigo({
       para: email,

@@ -27,20 +27,73 @@ export function criarLimite() {
     return lista
   }
 
+  function contar(chave: string, janela: Janela, agora = Date.now()) {
+    const lista = dentro(chave, janela, agora)
+    lista.push(agora)
+    vezes.set(chave, lista)
+    // Um teto pro mapa: sob ataque de muitos IPs, a memória não cresce sem
+    // fim. Esquecer os mais antigos é aceitável — o limite global continua.
+    if (vezes.size > MAX_CHAVES) {
+      const primeira = vezes.keys().next().value
+      if (primeira !== undefined) vezes.delete(primeira)
+    }
+  }
+
   return {
     /** Ainda cabe mais uma nesta janela? Só olha — quem conta é `contar`. */
     cabe(chave: string, janela: Janela, agora = Date.now()): boolean {
       return dentro(chave, janela, agora).length < janela.limite
     },
-    contar(chave: string, janela: Janela, agora = Date.now()) {
-      const lista = dentro(chave, janela, agora)
-      lista.push(agora)
-      vezes.set(chave, lista)
-      // Um teto pro mapa: sob ataque de muitos IPs, a memória não cresce sem
-      // fim. Esquecer os mais antigos é aceitável — o limite global continua.
-      if (vezes.size > MAX_CHAVES) {
-        const primeira = vezes.keys().next().value
-        if (primeira !== undefined) vezes.delete(primeira)
+    contar,
+    /**
+     * CONTA JÁ, e devolve como desfazer — pra quem ainda vai esperar o banco
+     * antes de saber se o pedido sai. Conferir (`cabe`) e só contar no fim
+     * deixava pedidos ao mesmo tempo passarem todos pela conferência, porque
+     * nenhum tinha contado ainda (auditoria de 27/09: uma rajada mandava
+     * centenas de códigos). Conferir e reservar vão juntos, sem `await` no
+     * meio; quem no fim não mandou nada devolve a vaga.
+     */
+    reservar(chave: string, janela: Janela, agora = Date.now()): () => void {
+      contar(chave, janela, agora)
+      let devolvida = false
+      return () => {
+        if (devolvida) return
+        devolvida = true
+        const lista = vezes.get(chave)
+        const i = lista?.indexOf(agora) ?? -1
+        if (!lista || i < 0) return
+        lista.splice(i, 1)
+        if (!lista.length) vezes.delete(chave)
+      }
+    },
+  }
+}
+
+/**
+ * QUANTO, NO DIA — um total por chave que zera à meia-noite (UTC), pro teto
+ * de VOLUME (quantos eventos um endereço grava por dia; auditoria de 27/09).
+ * A janela deslizante de `criarLimite` guardaria um horário por evento; aqui
+ * é um número por chave. Mesmo preço: mora na memória e zera no reinício.
+ */
+export function criarTetoDoDia() {
+  const somas = new Map<string, { dia: string; total: number }>()
+  const diaDe = (agora: number) => new Date(agora).toISOString().slice(0, 10)
+
+  function lido(chave: string, agora: number): number {
+    const s = somas.get(chave)
+    return s && s.dia === diaDe(agora) ? s.total : 0
+  }
+
+  return {
+    /** Ainda cabem mais `peso` hoje? Só olha — quem soma é `somar`. */
+    cabe(chave: string, teto: number, peso = 1, agora = Date.now()): boolean {
+      return lido(chave, agora) + peso <= teto
+    },
+    somar(chave: string, peso = 1, agora = Date.now()) {
+      somas.set(chave, { dia: diaDe(agora), total: lido(chave, agora) + peso })
+      if (somas.size > MAX_CHAVES) {
+        const primeira = somas.keys().next().value
+        if (primeira !== undefined) somas.delete(primeira)
       }
     },
   }
