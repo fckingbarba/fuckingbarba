@@ -6,7 +6,12 @@ import type { SugestaoDaSacola } from "./carrinho-visivel"
 import { PADRAO, type Configuracoes } from "./configuracoes"
 import { emReais } from "./formato"
 import { HOME_DO_SITE_DE_FABRICA, lerHomeDoSite, type HomeDoSite } from "./home"
-import { promocaoDoProduto, type PromocaoDoProduto, type PromocaoNaLoja } from "./promocoes"
+import {
+  promocaoDoProduto,
+  unitarioEm,
+  type PromocaoDoProduto,
+  type PromocaoNaLoja,
+} from "./promocoes"
 import type { ModeloDeRecomendacao } from "./recomendacao"
 
 /**
@@ -550,6 +555,12 @@ export type DegrauDeQuantidade = {
 export type EscadaDoProduto = {
   degraus: DegrauDeQuantidade[]
   promocao: PromocaoDoProduto | null
+  /**
+   * O preço de UMA unidade que o carrinho cobra levando 1, 2 e 3 ou mais
+   * (`unitarioEm`, em `lib/promocoes.ts`) — a conta da promoção multiplica
+   * este, e não o de uma unidade: num "leve 3", 2 unidades têm a faixa de 2.
+   */
+  unitarios: number[]
 }
 
 /**
@@ -616,7 +627,7 @@ export async function escadaDeQuantidade(handle: string): Promise<EscadaDoProdut
   const variante = base?.variants?.[0]
   if (!base?.handle || !precoBase || !variante) {
     cacheLife("hours")
-    return { degraus: [], promocao: null }
+    return { degraus: [], promocao: null, unitarios: [] }
   }
 
   /*
@@ -636,19 +647,24 @@ export async function escadaDeQuantidade(handle: string): Promise<EscadaDoProdut
   else cacheLife("minutes")
 
   const avulso = porQuantidade?.[1] ?? precoBase.atual
+  const unitarios = UNIDADES.map((u) => (u === 1 ? avulso : (porQuantidade?.[u] ?? avulso)))
   const promocao = promocaoDoProduto(promocoes ?? [], base.id)
   /*
-    O "LEVE X, PAGUE Y": o produto sai das faixas de quantidade enquanto a
-    promoção vale (o backend tira — os dois descontos não somam), e o degrau
-    dela é "X unidades pelo preço de Y". A conta é a do Medusa com um produto
-    só: X unidades, Y pagas pelo preço de uma (`gratisEm`, em `Compra`).
+    O "LEVE X, PAGUE Y": o produto sai das faixas de quantidade que chegam
+    no X enquanto a promoção vale (o backend tira — os dois descontos não
+    somam), e o degrau dela é "X unidades pelo preço de Y". As faixas que
+    acabam antes ficam: num "leve 3", o cartão de 2 unidades continua, com
+    os 4% dele (entrega 0142 — até ali saía junto). A conta é a do Medusa
+    com um produto só: X unidades, Y pagas pelo preço de uma unidade NA
+    quantidade X (`unitarioEm` e `gratisEm`, em `Compra`) — que, sem a
+    faixa, é o de uma.
   */
   const unidadesDaEscada = promocao
     ? [...new Set([...UNIDADES, promocao.comprando])].sort((a, b) => a - b)
     : UNIDADES
   const degraus = unidadesDaEscada.flatMap<DegrauDeQuantidade>((unidades) => {
     if (promocao && unidades === promocao.comprando) {
-      const preco = emCentavos(avulso * promocao.pague)
+      const preco = emCentavos(unitarioEm(unitarios, unidades, avulso) * promocao.pague)
       return [
         {
           handle: base.handle!,
@@ -684,7 +700,7 @@ export async function escadaDeQuantidade(handle: string): Promise<EscadaDoProdut
       },
     ]
   })
-  return { degraus, promocao }
+  return { degraus, promocao, unitarios }
 }
 
 /**
