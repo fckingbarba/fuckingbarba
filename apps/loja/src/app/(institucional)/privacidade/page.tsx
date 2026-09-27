@@ -40,7 +40,7 @@ export const metadata: Metadata = {
  * pergunta de novo antes de valer, como a última seção promete.
  */
 
-const ATUALIZADO = "26 de setembro de 2026"
+const ATUALIZADO = "27 de setembro de 2026"
 
 export default async function Privacidade() {
   const { empresa, atendimento } = await configuracoes()
@@ -101,6 +101,13 @@ export default async function Privacidade() {
           Quando você entra na conta, deixa o e-mail no checkout ou assina a newsletter, o que foi
           anotado passa a ficar ligado ao seu e-mail. É o que deixa a loja lembrar o que interessa
           pra você. E-mail de oferta continua dependendo do seu sim a ele, separado deste.
+        </P>
+        <P>
+          <b>Se você já comprou na loja antiga</b> (a FuckingBarba na Nuvemshop): vieram com você o
+          seu e-mail, o primeiro nome, os pedidos e os carrinhos que ficaram no meio (datas,
+          produtos e valores) e a sua escolha sobre receber ofertas. É o que deixa a loja saber
+          quando o seu produto está acabando. CPF, telefone, endereço e dados do cartão da loja
+          antiga não vieram, e e-mail de oferta só vai pra quem tinha aceitado lá.
         </P>
         <P>
           <b>Quando você tenta pagar com cartão</b>: pra barrar robô testando cartão roubado, a loja
