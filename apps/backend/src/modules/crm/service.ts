@@ -15,6 +15,7 @@ import type {
   EventoLidoDoBanco,
   NumerosDoCrm,
   NumerosDosEmails,
+  PessoaNoCrm,
 } from "../../lib/painel/crm"
 import { EmailDoCrm } from "./models/email"
 import { Evento } from "./models/evento"
@@ -358,6 +359,54 @@ export default class CrmService extends Tabelas {
       porTipo,
       ultimos,
       ultimoAviso: ultimo?.em ?? null,
+    }
+  }
+
+  /**
+   * O QUE O CRM SABE DE UMA PESSOA (o e-mail), pra ficha do cliente: o último
+   * clique num e-mail da loja, a última coisa que ela fez no site, de onde
+   * chegou da primeira vez, e as últimas anotações e e-mails dela.
+   */
+  @InjectManager()
+  async pessoa(email: string, @MedusaContext() ctx: Contexto = {}): Promise<PessoaNoCrm> {
+    const [sinais] = (await ctx.manager!.execute(
+      `select
+         (select max(ultimo_clique_em) from crm_email
+           where para = ? and not equipe and deleted_at is null) as "ultimoClique",
+         (select max(em) from crm_evento where email = ? and deleted_at is null) as "ultimaVisita"`,
+      [email, email]
+    )) as { ultimoClique: Date | null; ultimaVisita: Date | null }[]
+    const [primeiro] = (await ctx.manager!.execute(
+      `select origem, primeira_em from crm_visitante
+        where email = ? and deleted_at is null
+        order by primeira_em asc
+        limit 1`,
+      [email]
+    )) as { origem: PessoaNoCrm["origem"]; primeira_em: Date }[]
+    const eventos = (await ctx.manager!.execute(
+      `select id, tipo, dados, em, email from crm_evento
+        where email = ? and deleted_at is null
+        order by em desc, id desc
+        limit 30`,
+      [email]
+    )) as EventoLidoDoBanco[]
+    const emails = (await ctx.manager!.execute(
+      `select id, tipo, para, enviado_em, entregue_em, atrasado_em, aberto_em, ultima_abertura_em,
+              clicado_em, ultimo_clique_em, ultimo_link, devolvido_em, devolucao, reclamou_em,
+              falhou_em, suprimido_em
+         from crm_email
+        where para = ? and not equipe and deleted_at is null
+        order by updated_at desc
+        limit 20`,
+      [email]
+    )) as EmailLidoDoBanco[]
+    return {
+      ultimoClique: sinais?.ultimoClique ?? null,
+      ultimaVisita: sinais?.ultimaVisita ?? null,
+      origem: primeiro?.origem ?? null,
+      primeiraVisita: primeiro?.primeira_em ?? null,
+      eventos,
+      emails,
     }
   }
 }

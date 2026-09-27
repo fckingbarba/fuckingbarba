@@ -78,6 +78,8 @@ const CAMPOS_DA_LISTA = [
 /** O pedido inteiro: o da lista, e o que só o detalhe mostra. */
 const CAMPOS_DO_DETALHE = [
   ...CAMPOS_DA_LISTA,
+  // O endereço do produto: a ficha do cliente sabe quanto ele dura (`lib/crm/etiquetas.ts`).
+  "items.product_handle",
   "item_subtotal",
   "discount_total",
   "shipping_total",
