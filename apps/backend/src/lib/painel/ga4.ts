@@ -2,7 +2,7 @@ import { createSign } from "node:crypto"
 import type { MedusaContainer } from "@medusajs/framework/types"
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import { chaveDoDia } from "./formato"
-import { perguntaDasVisitas, type Periodo } from "./marketing"
+import { perguntaDasCompras, perguntaDasVisitas, type Periodo } from "./marketing"
 import {
   PERGUNTA_DO_AGORA,
   perguntasDoDia,
@@ -286,23 +286,22 @@ export function relatoriosDoMarketing(
   return promessa
 }
 
-const primeiroRelatorio = (p: Promise<RelatorioGa4[]>) => p.then((r) => r[0] ?? {})
-
-/** As visitas do período e do de antes, hora a hora, pro Resumo (`perguntaDasVisitas`). */
+/**
+ * As visitas e as compras da loja, do período e do de antes, hora a hora,
+ * pro Resumo (`perguntaDasVisitas` e `perguntaDasCompras`), numa chamada só.
+ */
 export const visitasDoMarketing = (
   cfg: ConfiguracaoDoGa4,
   periodo: Periodo,
   hosts: string[],
   agora = new Date()
-): Promise<RelatorioGa4> =>
-  primeiroRelatorio(
-    relatoriosDoMarketing(
-      cfg,
-      `resumo:${periodo}:${hosts.join(",")}`,
-      [perguntaDasVisitas(periodo, hosts)],
-      agora
-    )
-  )
+): Promise<{ visitas: RelatorioGa4; compras: RelatorioGa4 }> =>
+  relatoriosDoMarketing(
+    cfg,
+    `resumo:${periodo}:${hosts.join(",")}`,
+    [perguntaDasVisitas(periodo, hosts), perguntaDasCompras(periodo)],
+    agora
+  ).then(([visitas = {}, compras = {}]) => ({ visitas, compras }))
 
 const ultimoAviso = new Map<string, number>()
 
