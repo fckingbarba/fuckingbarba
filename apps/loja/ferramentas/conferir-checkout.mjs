@@ -51,7 +51,12 @@
  * - a gaveta mostrar a sacola de antes da oferta marcada no checkout;
  * - o produto que esgota no meio virar "espera um minuto" pra sempre;
  * - a segunda aba dizer "nada foi cobrado, tenta de novo" com o pedido feito;
- * - e-mail com mais de 64 caracteres travar o pagamento sem dizer por quê.
+ * - e-mail com mais de 64 caracteres travar o pagamento sem dizer por quê;
+ * - e-mail que o Medusa recusa ("joão@…", ponto duplo, ponto no fim) deixar a
+ *   pessoa presa no passo 1 com "Não consegui falar com a loja" (0136);
+ * - no empate de preço, a expressa gravada: o cupom de frete da mais barata
+ *   nunca entrava, e o carrinho que mudava perdia o frete grátis (0136);
+ * - a sacola velha pagar o preço de quando o produto entrou (0136).
  *
  * Variáveis: MEDUSA_BACKEND_URL, NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY, CHROMIUM;
  * ADMIN_EMAIL e ADMIN_SENHA, opcionais, pro bump com a promoção desligada, pra
@@ -619,6 +624,41 @@ ok(
 )
 const depoisDoErro = await medusa(`/store/carts/${carrinhoId}?fields=id,email`)
 ok(!depoisDoErro?.cart?.email, "e nada foi gravado no Medusa")
+
+/*
+  O E-MAIL QUE O MEDUSA RECUSA NÃO PASSA DO CAMPO (0136). A loja aceitava
+  qualquer "algo@algo.xx", o Medusa recusava com 400 o que a regra dele não
+  aceita, e a tela dizia "Não consegui falar com a loja agora" pra sempre: a
+  pessoa não saía do passo 1. Agora a regra é a mesma dele, e a frase diz o
+  que consertar, embaixo do e-mail.
+*/
+for (const [torto, dica] of [
+  ["joão@gmail.com", /acento/i],
+  ["jose..silva@gmail.com", /dois pontos/i],
+  ["maria@gmail.com.", /terminou num ponto/i],
+  ["maria@gmail,com.br", /vírgula/i],
+]) {
+  await preencher("email", torto)
+  await preencher("documento", CPF)
+  await pagina.locator("#form-contato button[type=submit]").click()
+  const naDica = await pagina
+    .locator("#form-contato .campo__erro", { hasText: dica })
+    .first()
+    .waitFor({ timeout: 10000 })
+    .then(() => true)
+    .catch(() => false)
+  const conexao = await pagina.getByText(/Não consegui falar com a loja/).count()
+  ok(
+    naDica && conexao === 0 && (await campo("email").getAttribute("aria-invalid")) === "true",
+    `e-mail "${torto}": a dica fica no campo do e-mail, e não a frase de conexão`,
+    `dica ${naDica} · frase de conexão ${conexao}`
+  )
+}
+ok(
+  !(await medusa(`/store/carts/${carrinhoId}?fields=id,email`))?.cart?.email,
+  "e nenhum desses e-mails foi pro Medusa"
+)
+await preencher("email", EMAIL)
 
 // A máscara aceita letra por causa do CNPJ alfanumérico (julho/2026).
 await preencher("documento", "12abc34501de35")
@@ -1620,30 +1660,34 @@ async function porNoCarrinho(id, handle, quantidade = 1) {
 }
 
 /** Os passos 1 e 2 pela tela, numa aba à parte. Para no 2 com `ate: "entrega"`. */
-async function contatoEEntrega(pag, email, { numero = "1578", complemento = "", ate = "" } = {}) {
+async function contatoEEntrega(
+  pag,
+  email,
+  { numero = "1578", complemento = "", ate = "", espera = 25000 } = {}
+) {
   const c = (n) => pag.locator(`.fluxo [name="${n}"]`)
   await pag.goto(`${LOJA}/checkout`, { waitUntil: "domcontentloaded" })
   await semStreaming(pag)
-  await pag.locator("#form-contato").waitFor({ timeout: 25000 })
+  await pag.locator("#form-contato").waitFor({ timeout: espera })
   await c("email").fill(email)
   await c("nome").fill("Matheus")
   await c("sobrenome").fill("da Silva Teste")
   await c("telefone").fill("(11) 99999-9999")
   await c("documento").fill(CPF)
   await pag.locator("#form-contato button[type=submit]").click()
-  await pag.locator("#form-entrega").waitFor({ timeout: 25000 })
+  await pag.locator("#form-entrega").waitFor({ timeout: espera })
   await c("cep").fill(CEP)
   await pag.waitForFunction(
     () => document.querySelector('.fluxo [name="rua"]')?.value?.length > 0,
     null,
-    { timeout: 25000 }
+    { timeout: espera }
   )
-  await pag.locator("#form-entrega .opcao").first().waitFor({ timeout: 25000 })
+  await pag.locator("#form-entrega .opcao").first().waitFor({ timeout: espera })
   if (ate === "entrega") return
   await c("numero").fill(numero)
   if (complemento) await c("complemento").fill(complemento)
   await pag.locator("#form-entrega button[type=submit]").click()
-  await pag.locator("#form-pagamento").waitFor({ timeout: 25000 })
+  await pag.locator("#form-pagamento").waitFor({ timeout: espera })
 }
 const passoAberto = (pag) =>
   pag.evaluate(
@@ -1844,6 +1888,129 @@ if (PISO > 0) {
   }
 } else {
   console.log("    (sem promoção de frete: pulei o serviço único)")
+}
+
+titulo("O empate de preço: fica a econômica")
+/*
+  NO EMPATE, A ECONÔMICA (0136). Quando a mais barata é também a mais
+  rápida, as duas faixas custam o mesmo e o checkout mostra uma só. Mostrava
+  e gravava a EXPRESSA, e duas coisas davam errado: o cupom de frete grátis
+  "só na mais barata" (que mira a econômica) nunca entrava; e qualquer
+  mudança no carrinho fazia o Medusa cotar de novo a expressa como "a mais
+  rápida" — que podia virar outro serviço, mais caro, e o frete saía de
+  "Grátis" pra R$ 31,90 sem ninguém escolher. Aqui a Loggi é a mais barata
+  E a mais rápida (as duas faixas nela); depois o PAC fica mais barato.
+*/
+if (EMAIL_ADMIN && SENHA_ADMIN) {
+  const originais = SERVICOS.splice(0, SERVICOS.length)
+  const LOGGI = { ...originais.find((x) => x.Carrier === "Loggi"), ShippingPrice: "31.90" }
+  const PAC = { ...originais.find((x) => x.ServiceDescription === "PAC") }
+  SERVICOS.push(LOGGI, { ...PAC, ShippingPrice: "35.00" })
+  const ctx = await navegador.newContext({ viewport: MESA })
+  const pag = await ctx.newPage()
+  const sufixo = Date.now().toString(36).slice(-5).toUpperCase()
+  let cupom = null
+  const faixaGravada = async (id) => {
+    const c = (await medusa(`/store/carts/${id}?fields=shipping_total,*shipping_methods`))?.cart
+    const opcao = c?.shipping_methods?.[0]?.shipping_option_id
+    return {
+      faixa: (await faixasDoCarrinho(id)).get(opcao) ?? null,
+      frete: Number(c?.shipping_total),
+    }
+  }
+  try {
+    // Abaixo do piso: o frete é cobrado, e o cupom da mais barata é quem zera.
+    const id = await carrinhoNovo(ctx, [["shampoo-para-barba", 1]])
+    await contatoEEntrega(pag, `empate.${sufixo.toLowerCase()}@fuckingbarba.invalid`, {
+      ate: "entrega",
+      espera: 60000,
+    })
+    const linhas = (await pag.locator("#form-entrega .opcao").allInnerTexts()).map((t) =>
+      t.replace(/\s+/g, " ")
+    )
+    await pag.locator('.fluxo [name="numero"]').fill("1578")
+    await pag.locator("#form-entrega button[type=submit]").click()
+    await pag.locator("#form-pagamento").waitFor({ timeout: 60000 })
+    const gravada = await faixaGravada(id)
+    ok(
+      linhas.length === 1 && /econ[ôo]mica/i.test(linhas[0] ?? "") && gravada.faixa === "economica",
+      "no empate, a tela mostra uma entrega só — a econômica — e é ela que fica gravada",
+      `${JSON.stringify(linhas)} · gravada: ${gravada.faixa} ${reais(gravada.frete)}`
+    )
+    const economicas = [...(await faixasDoCarrinho(id)).entries()]
+      .filter(([, faixa]) => faixa === "economica")
+      .map(([opcao]) => opcao)
+    cupom = (
+      await adm("/admin/promotions", {
+        method: "POST",
+        body: JSON.stringify({
+          code: `MAISBARATA${sufixo}`,
+          type: "standard",
+          status: "active",
+          is_automatic: false,
+          application_method: {
+            type: "percentage",
+            target_type: "shipping_methods",
+            allocation: "across",
+            value: 100,
+            target_rules: [
+              {
+                attribute: "shipping_methods.shipping_option_id",
+                operator: "in",
+                values: economicas,
+              },
+            ],
+          },
+        }),
+      })
+    ).promotion
+    const aplicado = await medusaCru(`/store/carts/${id}/promotions`, {
+      metodo: "POST",
+      corpo: { promo_codes: [cupom.code] },
+    })
+    const comCupom = await faixaGravada(id)
+    ok(
+      aplicado.status === 200 &&
+        (aplicado.json?.cart?.promotions ?? []).some((p) => p.code === cupom.code) &&
+        comCupom.frete === 0,
+      'o cupom de frete grátis "só na mais barata" entra no empate, e o frete zera',
+      `${aplicado.status} · frete ${reais(comCupom.frete)}`
+    )
+
+    // Acima do piso: grátis pela loja. Aí o PAC fica mais barato que a Loggi e
+    // o carrinho muda — a entrega gravada é cotada de novo e continua grátis.
+    const id2 = await carrinhoNovo(ctx, [
+      ["oleo-para-barba", 1],
+      ["balm-para-barba", 1],
+      ["shampoo-para-barba", 1],
+    ])
+    for (let i = 0; i < 6; i++) {
+      const doCarrinho = (await medusa(`/store/carts/${id2}?fields=item_subtotal`))?.cart
+      if (Number(doCarrinho?.item_subtotal) > PISO) break
+      await porNoCarrinho(id2, "fator-de-crescimento-para-barba", 1)
+    }
+    await contatoEEntrega(pag, `empate2.${sufixo.toLowerCase()}@fuckingbarba.invalid`, {
+      espera: 60000,
+    })
+    const antes = await faixaGravada(id2)
+    SERVICOS.splice(1, 1, { ...PAC, ShippingPrice: "25.00" })
+    await porNoCarrinho(id2, "shampoo-para-barba", 1)
+    const depois = await faixaGravada(id2)
+    ok(
+      antes.faixa === "economica" &&
+        antes.frete === 0 &&
+        depois.faixa === "economica" &&
+        depois.frete === 0,
+      "acima do piso, o carrinho que muda continua com a entrega grátis (a econômica cotada de novo é a mais barata)",
+      `antes ${antes.faixa} ${reais(antes.frete)} · depois ${depois.faixa} ${reais(depois.frete)}`
+    )
+  } finally {
+    SERVICOS.splice(0, SERVICOS.length, ...originais)
+    if (cupom) await adm(`/admin/promotions/${cupom.id}`, { method: "DELETE" }).catch(() => null)
+    await ctx.close()
+  }
+} else {
+  console.log("    (sem ADMIN_EMAIL/ADMIN_SENHA: pulei o empate de preço)")
 }
 
 titulo("A promoção que acaba")
@@ -2683,6 +2850,69 @@ if (EMAIL_ADMIN && SENHA_ADMIN) {
   }
 } else {
   console.log("    (sem ADMIN_EMAIL/ADMIN_SENHA: pulei os cupons do jeito da Nuvemshop)")
+}
+
+titulo("O preço de agora na hora de pagar")
+/*
+  A SACOLA VELHA NÃO PAGA O PREÇO DE ANTES (0136). O Medusa só refaz o preço
+  das linhas quando muda a região, o idioma ou o endereço; a sacola vive 30
+  dias, e quem voltava com o endereço já gravado pagava o preço de quando pôs
+  o produto — a promoção que acabou seguia valendo. Agora o "Pagar" refaz a
+  conta antes de cobrar: o total muda, nada é cobrado, e a tela mostra o de
+  agora. A promoção volta no fim, e espera o preço dela voltar também.
+*/
+if (EMAIL_ADMIN && SENHA_ADMIN) {
+  const { price_lists: listas = [] } = await adm(
+    "/admin/price-lists?fields=id,title,status,type&limit=100"
+  )
+  const promocao = listas.find(
+    (l) => l.status === "active" && l.type === "sale" && l.title !== "Desconto por quantidade"
+  )
+  if (!promocao) {
+    console.log("    (sem promoção ativa: pulei o preço de agora)")
+  } else {
+    const ctx = await navegador.newContext({ viewport: MESA })
+    const pag = await ctx.newPage()
+    try {
+      const id = await carrinhoNovo(ctx, [["oleo-para-barba", 1]])
+      await contatoEEntrega(pag, "preco.de.agora@fuckingbarba.invalid", { espera: 60000 })
+      const antes = (await medusa(`/store/carts/${id}?fields=total,*items`))?.cart
+      await adm(`/admin/price-lists/${promocao.id}`, {
+        method: "POST",
+        body: JSON.stringify({ status: "draft" }),
+      })
+      const aindaVelho = (await medusa(`/store/carts/${id}?fields=total`))?.cart
+      const linhaPix = pag.locator("#form-pagamento .opcao", { hasText: "Pix" })
+      await linhaPix.click()
+      await linhaPix.locator("input:checked").waitFor({ state: "attached", timeout: 10000 })
+      const cobrancasAntes = pagarme.pedidos.size
+      await pag.locator("#form-pagamento button[type=submit]").click()
+      const recado = pag.locator("#form-pagamento [role=alert]", {
+        hasText: "total do pedido mudou",
+      })
+      await recado.waitFor({ timeout: 60000 }).catch(() => null)
+      const depois = (await medusa(`/store/carts/${id}?fields=total,*items`))?.cart
+      const textoDoRecado = (await recado.innerText().catch(() => "")).replace(/ /g, " ")
+      ok(
+        perto(Number(aindaVelho?.total), Number(antes?.total)) &&
+          Number(depois?.items?.[0]?.unit_price) > Number(antes?.items?.[0]?.unit_price) &&
+          textoDoRecado.includes(reais(Number(depois?.total))) &&
+          pagarme.pedidos.size === cobrancasAntes &&
+          !pag.url().includes("/obrigado/"),
+        "a promoção acabou com a sacola pronta: o pagar refaz o preço, diz o total novo e não cobra nada",
+        `antes ${reais(antes?.total)} · sem refazer ${reais(aindaVelho?.total)} · ` +
+          `depois ${reais(depois?.total)} · "${textoDoRecado}" · ${pagarme.pedidos.size - cobrancasAntes} cobrança(s)`
+      )
+    } finally {
+      await adm(`/admin/price-lists/${promocao.id}`, {
+        method: "POST",
+        body: JSON.stringify({ status: "active" }),
+      }).catch(() => null)
+      await ctx.close()
+    }
+  }
+} else {
+  console.log("    (sem ADMIN_EMAIL/ADMIN_SENHA: pulei o preço de agora)")
 }
 
 /* ── 8. higiene ───────────────────────────────────────────────────────────── */
