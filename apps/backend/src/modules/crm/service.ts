@@ -7,6 +7,7 @@ import {
 } from "@medusajs/framework/utils"
 import type { EntityManager } from "@medusajs/framework/mikro-orm/knex"
 import { chaveDoVisitante, momentoDo, origemDoLote, type Lote } from "../../lib/crm/eventos"
+import type { ArquivoDaNuvemshop } from "../../lib/crm/nuvemshop"
 import type { AvisoDoEmail } from "../../lib/crm/resend"
 import type {
   ContaDoTipo,
@@ -15,8 +16,12 @@ import type {
   EventoLidoDoBanco,
   NumerosDoCrm,
   NumerosDosEmails,
+  PedidoLidoDaBase,
+  PessoaLidaDaBase,
   PessoaNoCrm,
+  ResumoDaBase,
 } from "../../lib/painel/crm"
+import { CarrinhoDaBase, PedidoDaBase, PessoaDaBase } from "./models/base-da-nuvemshop"
 import { EmailDoCrm } from "./models/email"
 import { Evento } from "./models/evento"
 import { Visitante } from "./models/visitante"
@@ -44,6 +49,9 @@ const Tabelas = MedusaService({
   Visitantes: Visitante,
   Eventos: Evento,
   Emails: EmailDoCrm,
+  PessoasDaBase: PessoaDaBase,
+  PedidosDaBase: PedidoDaBase,
+  CarrinhosDaBase: CarrinhoDaBase,
 })
 
 export default class CrmService extends Tabelas {
@@ -409,4 +417,183 @@ export default class CrmService extends Tabelas {
       emails,
     }
   }
+
+  /**
+   * A BASE DA NUVEMSHOP, GRAVADA — o arquivo que `lerArquivoDaNuvemshop`
+   * leu, em lotes de 200, atualizando pelo e-mail, pelo número do pedido ou
+   * pelo id do carrinho (mandar de novo não duplica). Devolve quantos
+   * entraram agora e quantos já estavam.
+   */
+  @InjectManager()
+  async importarDaNuvemshop(
+    arquivo: ArquivoDaNuvemshop,
+    @MedusaContext() ctx: Contexto = {}
+  ): Promise<{ novos: number; atualizados: number }> {
+    let novos = 0
+    let atualizados = 0
+    const gravar = async (sql: string, valores: unknown[]) => {
+      const linhas = (await ctx.manager!.execute(sql, valores)) as { novo: boolean }[]
+      for (const l of linhas)
+        if (l.novo) novos++
+        else atualizados++
+    }
+    const centavos = (reais: number) => Math.round(reais * 100)
+    if (arquivo.tipo === "clientes")
+      for (const lote of emLotes(arquivo.pessoas))
+        await gravar(
+          `insert into crm_base_pessoa
+             (id, email, nome, aceita_ofertas, ofertas_em, newsletter_em, tinha_conta, desde, created_at, updated_at)
+           values ${lote.map(() => "(?, ?, ?, ?, ?, ?, ?, ?, now(), now())").join(", ")}
+           on conflict (email) where deleted_at is null do update set
+             nome = excluded.nome, aceita_ofertas = excluded.aceita_ofertas,
+             ofertas_em = excluded.ofertas_em, newsletter_em = excluded.newsletter_em,
+             tinha_conta = excluded.tinha_conta, desde = excluded.desde, updated_at = now()
+           returning (xmax = 0) as novo`,
+          lote.flatMap((p) => [
+            generateEntityId(undefined, "nsp"),
+            p.email,
+            p.nome,
+            p.aceitaOfertas,
+            p.ofertasEm,
+            p.newsletterEm,
+            p.tinhaConta,
+            p.desde,
+          ])
+        )
+    else if (arquivo.tipo === "vendas")
+      for (const lote of emLotes(arquivo.pedidos))
+        await gravar(
+          `insert into crm_base_pedido
+             (id, numero, email, feito_em, pago_em, enviado_em, pagamento, envio, total, desconto,
+              frete, cupom, meio, itens, created_at, updated_at)
+           values ${lote.map(() => "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now(), now())").join(", ")}
+           on conflict (numero) where deleted_at is null do update set
+             email = excluded.email, feito_em = excluded.feito_em, pago_em = excluded.pago_em,
+             enviado_em = excluded.enviado_em, pagamento = excluded.pagamento,
+             envio = excluded.envio, total = excluded.total, desconto = excluded.desconto,
+             frete = excluded.frete, cupom = excluded.cupom, meio = excluded.meio,
+             itens = excluded.itens, updated_at = now()
+           returning (xmax = 0) as novo`,
+          lote.flatMap((p) => [
+            generateEntityId(undefined, "nso"),
+            p.numero,
+            p.email,
+            p.feitoEm,
+            p.pagoEm,
+            p.enviadoEm,
+            p.pagamento,
+            p.envio,
+            centavos(p.total),
+            centavos(p.desconto),
+            centavos(p.frete),
+            p.cupom,
+            p.meio,
+            JSON.stringify(p.itens),
+          ])
+        )
+    else
+      for (const lote of emLotes(arquivo.carrinhos))
+        await gravar(
+          `insert into crm_base_carrinho
+             (id, carrinho, email, criado_em, tipo, total, itens, created_at, updated_at)
+           values ${lote.map(() => "(?, ?, ?, ?, ?, ?, ?, now(), now())").join(", ")}
+           on conflict (carrinho) where deleted_at is null do update set
+             email = excluded.email, criado_em = excluded.criado_em, tipo = excluded.tipo,
+             total = excluded.total, itens = excluded.itens, updated_at = now()
+           returning (xmax = 0) as novo`,
+          lote.flatMap((c) => [
+            generateEntityId(undefined, "nsc"),
+            c.id,
+            c.email,
+            c.criadoEm,
+            c.tipo,
+            centavos(c.total),
+            JSON.stringify(c.itens),
+          ])
+        )
+    return { novos, atualizados }
+  }
+
+  /** Os números da base: pessoas, quem aceita ofertas, pedidos, carrinhos e quando entrou. */
+  @InjectManager()
+  async resumoDaBase(@MedusaContext() ctx: Contexto = {}): Promise<ResumoDaBase> {
+    const [r] = (await ctx.manager!.execute(
+      `select
+         (select count(*) from crm_base_pessoa where deleted_at is null)::int as pessoas,
+         (select count(*) from crm_base_pessoa where deleted_at is null and aceita_ofertas)::int as "aceitam",
+         (select count(*) from crm_base_pedido where deleted_at is null)::int as pedidos,
+         (select count(*) from crm_base_pedido
+           where deleted_at is null and pagamento = 'confirmado')::int as pagos,
+         (select coalesce(sum(total), 0) from crm_base_pedido
+           where deleted_at is null and pagamento = 'confirmado')::bigint as "vendidoCentavos",
+         (select min(feito_em) from crm_base_pedido where deleted_at is null) as "primeiroPedido",
+         (select max(feito_em) from crm_base_pedido where deleted_at is null) as "ultimoPedido",
+         (select count(*) from crm_base_carrinho where deleted_at is null)::int as carrinhos,
+         greatest(
+           (select max(updated_at) from crm_base_pessoa),
+           (select max(updated_at) from crm_base_pedido),
+           (select max(updated_at) from crm_base_carrinho)
+         ) as "importadoEm"`
+    )) as (Omit<ResumoDaBase, "vendidoCentavos"> & { vendidoCentavos: string | number })[]
+    return { ...r, vendidoCentavos: Number(r.vendidoCentavos) }
+  }
+
+  /** As pessoas da base: o e-mail, o sim das ofertas e a newsletter. */
+  @InjectManager()
+  async pessoasDaBase(@MedusaContext() ctx: Contexto = {}): Promise<PessoaLidaDaBase[]> {
+    return (await ctx.manager!.execute(
+      `select email, aceita_ofertas as "aceitaOfertas", newsletter_em as "newsletterEm"
+         from crm_base_pessoa where deleted_at is null`
+    )) as PessoaLidaDaBase[]
+  }
+
+  /** Os pedidos da base — de um e-mail (a ficha), ou todos (as contas da aba). */
+  @InjectManager()
+  async pedidosDaBase(
+    email: string | null = null,
+    @MedusaContext() ctx: Contexto = {}
+  ): Promise<PedidoLidoDaBase[]> {
+    return (await ctx.manager!.execute(
+      `select numero, email, feito_em as "feitoEm", pago_em as "pagoEm", pagamento, envio,
+              total, cupom, itens
+         from crm_base_pedido
+        where deleted_at is null ${email === null ? "" : "and email = ?"}
+        order by feito_em asc`,
+      email === null ? [] : [email]
+    )) as PedidoLidoDaBase[]
+  }
+
+  /**
+   * Os sinais de todo mundo, pelo e-mail — o último clique num e-mail da
+   * loja e a última anotação do site. As contas da aba da base.
+   */
+  @InjectManager()
+  async sinaisDeTodos(
+    @MedusaContext() ctx: Contexto = {}
+  ): Promise<Map<string, { ultimoClique: Date | null; ultimaVisita: Date | null }>> {
+    const cliques = (await ctx.manager!.execute(
+      `select para as email, max(ultimo_clique_em) as em from crm_email
+        where deleted_at is null and not equipe and para is not null and ultimo_clique_em is not null
+        group by para`
+    )) as { email: string; em: Date }[]
+    const visitas = (await ctx.manager!.execute(
+      `select email, max(em) as em from crm_evento
+        where deleted_at is null and email is not null group by email`
+    )) as { email: string; em: Date }[]
+    const sinais = new Map<string, { ultimoClique: Date | null; ultimaVisita: Date | null }>()
+    for (const c of cliques) sinais.set(c.email, { ultimoClique: c.em, ultimaVisita: null })
+    for (const v of visitas)
+      sinais.set(v.email, {
+        ultimoClique: sinais.get(v.email)?.ultimoClique ?? null,
+        ultimaVisita: v.em,
+      })
+    return sinais
+  }
+}
+
+/** Em pedaços de 200: o insert de uma vez só com 3 mil linhas passaria do limite de parâmetros. */
+function emLotes<T>(lista: T[], tamanho = 200): T[][] {
+  const lotes: T[][] = []
+  for (let i = 0; i < lista.length; i += tamanho) lotes.push(lista.slice(i, i + tamanho))
+  return lotes
 }
