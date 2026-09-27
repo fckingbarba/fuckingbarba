@@ -75,9 +75,11 @@ export default async function Privacidade() {
         <P>
           O CPF não é curiosidade nossa: sem ele não sai nota fiscal, e nota fiscal é obrigação de
           quem vende. O telefone é pro caso de a entrega dar problema, e o e-mail é por onde vai a
-          confirmação e o código de rastreio. Se você deixar uma compra no meio do caminho, a gente
-          pode te chamar no WhatsApp, uma pessoa da loja, pra ver se ficou alguma dúvida — é só
-          responder que não quer, e a gente não chama mais.
+          confirmação e o código de rastreio. Se você deixar uma compra no meio do caminho (o
+          checkout, ou um Pix que não foi pago), a gente manda até quatro e-mails lembrando dela nos
+          dois dias seguintes — um deles com um desconto só seu — e uma pessoa da loja pode te
+          chamar no WhatsApp pra ver se ficou alguma dúvida. Todo e-mail tem o link &ldquo;Sair da
+          lista&rdquo;, e no WhatsApp é só responder que não quer: a gente não manda mais.
         </P>
         <P>
           <b>Se você assinar a newsletter</b>: só o e-mail. Dá pra sair em qualquer mensagem que a
@@ -144,20 +146,23 @@ export default async function Privacidade() {
             qualquer momento sem perder nada do resto.
           </li>
           <li>
-            <b>Legítimo interesse</b> — segurança da loja e prevenção a fraude, a mensagem no
-            WhatsApp sobre uma compra que você deixou no meio, o e-mail que pergunta o que você
-            achou de uma compra (um por compra) e saber se os e-mails da loja chegam e são abertos,
-            sempre com o mínimo de dado possível.
+            <b>Legítimo interesse</b> — segurança da loja e prevenção a fraude, os e-mails e a
+            mensagem no WhatsApp sobre uma compra que você deixou no meio, o e-mail que pergunta o
+            que você achou de uma compra (um por compra) e saber se os e-mails da loja chegam e são
+            abertos, sempre com o mínimo de dado possível.
           </li>
         </Lista>
       </Secao>
 
       <Secao titulo="Cookies">
         <P>
-          Três são necessários e não dependem de você aceitar, porque sem eles a loja não funciona:
-          um guarda sua sacola entre uma página e outra, um lembra que aquele pedido foi feito neste
-          navegador (é o que impede um link encaminhado de mostrar o endereço de outra pessoa), e um
-          guarda a sua resposta sobre os cookies — pra não perguntar de novo toda visita.
+          Os necessários não dependem de você aceitar, porque sem eles a loja não funciona: um
+          guarda sua sacola entre uma página e outra, um lembra que aquele pedido foi feito neste
+          navegador (é o que impede um link encaminhado de mostrar o endereço de outra pessoa), um
+          guarda a sua resposta sobre os cookies — pra não perguntar de novo toda visita — e, se
+          você entrar na sua conta, um lembra que é você. Os links dos nossos e-mails também usam
+          um, só no que eles abrem: o cupom que espera o checkout, a avaliação do pedido e o sair da
+          lista.
         </P>
         <P>
           Os de medição e anúncio — Google Analytics, Google Ads, Meta (Facebook e Instagram),
