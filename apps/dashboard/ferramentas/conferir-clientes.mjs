@@ -437,6 +437,28 @@ try {
       "a linha da Ana: a cidade, o gasto e as ofertas",
       linhaDaAna
     )
+    // As ofertas em desenho (0148): o ícone do e-mail e o do WhatsApp acesos pra quem aceitou —
+    // os da API de AGORA (a parte da API tirou o e-mail do Caio da lista: ficou só o WhatsApp).
+    const acesos = async (id) =>
+      pagina
+        .locator(`.tabela tr[data-cliente="${id}"] .canal[data-sim]`)
+        .evaluateAll((cs) => cs.map((c) => c.getAttribute("data-canal")).join(","))
+    const agora = await lista(tokenDoDono)
+    const canaisDe = (email) => {
+      const c = linha(agora, email)?.canais ?? {}
+      return [c.email ? "email" : "", c.whatsapp ? "whatsapp" : ""].filter(Boolean).join(",")
+    }
+    const acesosNaTela = {}
+    for (const email of [ANA, BRUNO, CAIO])
+      acesosNaTela[email] = await acesos(linha(agora, email)?.id)
+    ok(
+      acesosNaTela[ANA] === "" &&
+        acesosNaTela[BRUNO] === "email" &&
+        acesosNaTela[CAIO] === "whatsapp" &&
+        [ANA, BRUNO, CAIO].every((e) => acesosNaTela[e] === canaisDe(e)),
+      "as ofertas pelos ícones, as da API: a Ana nenhum, o Bruno o e-mail, o Caio o WhatsApp",
+      JSON.stringify(acesosNaTela)
+    )
     await pagina.locator(`.tabela tr[data-cliente="${ana.id}"] a`).click()
     await pagina.waitForSelector(`[data-ficha="${ana.id}"]`)
     await hidratado(pagina, "[data-dados] .cpf button")
