@@ -6,11 +6,13 @@ import {
   type TransacaoPagarme,
 } from "./client"
 import {
+  estadoNovo,
   lerEstado as lerEstadoNaChave,
   type Estado,
   type Situacao,
 } from "../../lib/pagamento/estado"
 import { PAGARME } from "../../lib/pagamento/parceiros"
+import { RECUSA, recusaIncerta } from "../../lib/pagamento/recusas"
 import type { EntradaDaLoja, Forma } from "./pedido"
 
 /**
@@ -55,26 +57,12 @@ import type { EntradaDaLoja, Forma } from "./pedido"
  * (`lib/pagamento/parceiros.ts`). Continuam saindo daqui também, pra quem
  * já importava deste arquivo.
  */
+export { estadoNovo }
 export type { Estado, Situacao }
 
 /** Onde o Pagar.me grava o estado na sessão (`data.pagarme`): a do registro dos parceiros. */
 export const CHAVE = PAGARME.chave
 export const CHAVE_DA_ENTRADA = "entrada"
-
-export function estadoNovo(forma: Forma, valor: number, parcelas: number): Estado {
-  return {
-    forma,
-    situacao: "nova",
-    valor,
-    pedido: null,
-    cobranca: null,
-    parcelas,
-    pix: null,
-    cartao: null,
-    recusa: null,
-    estornado: 0,
-  }
-}
 
 /** Como gravar: o estado inteiro, e a entrada (ou `null`, que a apaga). */
 export function gravar(estado: Estado, entrada: EntradaDaLoja | null = null) {
@@ -89,24 +77,10 @@ export function lerEstado(data: Record<string, unknown> | null | undefined): Est
 /* ── as frases ────────────────────────────────────────────────────────────── */
 
 /**
- * O que a tela diz quando não deu. Cada uma diz O QUE FAZER — "transação não
- * autorizada, código 51" não ajuda ninguém a terminar a compra.
- *
- * E nenhuma diz "saldo insuficiente" ou "cartão bloqueado", mesmo quando o
- * banco conta: quem lê a tela pode não ser o dono do cartão.
+ * O que a tela diz quando não deu — as frases de todo parceiro
+ * (`lib/pagamento/recusas.ts`), com o "incerto" dizendo que foi o Pagar.me.
  */
-export const RECUSAS = {
-  antifraude:
-    "O pagamento não passou na análise de segurança. Tenta outro cartão ou paga no Pix — nada foi cobrado.",
-  banco:
-    "O banco do cartão não autorizou o pagamento. Confere os dados, tenta outro cartão ou paga no Pix — nada foi cobrado.",
-  dados:
-    "Não consegui validar o cartão. Confere número, validade e CVV e tenta de novo — nada foi cobrado.",
-  fora: "O pagamento não pôde ser processado agora, e nada foi cobrado. Tenta de novo em instantes ou paga no Pix.",
-  pix: "Não consegui gerar o Pix agora, e nada foi cobrado. Tenta de novo em instantes.",
-  incerto:
-    "O Pagar.me não respondeu a tempo. Se aparecer alguma cobrança, ela é estornada sozinha — tenta de novo em instantes.",
-} as const
+export const RECUSAS = { ...RECUSA, incerto: recusaIncerta("Pagar.me") }
 
 function motivoDaRecusa(forma: Forma, t: TransacaoPagarme | undefined): string {
   if (forma === "pix") return RECUSAS.pix

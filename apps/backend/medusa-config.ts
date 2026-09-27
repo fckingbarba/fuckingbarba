@@ -144,7 +144,7 @@ const fulfillmentModule = [
 ]
 
 /**
- * PAGAMENTO PELO PAGAR.ME — Pix e cartão em até 3x.
+ * PAGAMENTO PELO PAGAR.ME — Pix e cartão em até 3x — E PELO MERCADO PAGO.
  *
  * Declarar o módulo de pagamento NÃO tira o `pp_system_default`: o Medusa
  * registra o provedor de sistema sempre, e é ele que a região usa enquanto o
@@ -153,6 +153,13 @@ const fulfillmentModule = [
  * recusa a ligá-lo.
  *
  * `PAGARME_URL` só existe no teste (o conferidor sobe um Pagar.me falso).
+ *
+ * E PELO MERCADO PAGO — só Pix, a reserva do Pagar.me (0140). Mesma regra:
+ * sem o `MERCADOPAGO_ACCESS_TOKEN` ele sobe e não cobra, e o script da região
+ * não o liga. Os avisos chegam direto no Medusa, assinados com o
+ * `MERCADOPAGO_WEBHOOK_SEGREDO` (ver `src/modules/mercadopago/aviso.ts`); a
+ * validade do QR é a mesma do Pagar.me (30 minutos é o mínimo de lá).
+ * `MERCADOPAGO_URL` só existe no teste (o Mercado Pago falso).
  */
 const paymentModule = [
   {
@@ -167,6 +174,16 @@ const paymentModule = [
             segredoDoWebhook: process.env.MEDUSA_WEBHOOK_SEGREDO,
             pixMinutos: Number(process.env.PAGARME_PIX_MINUTOS || 30),
             url: process.env.PAGARME_URL,
+          },
+        },
+        {
+          resolve: "./src/modules/mercadopago",
+          id: "mercadopago",
+          options: {
+            tokenDeAcesso: process.env.MERCADOPAGO_ACCESS_TOKEN,
+            segredoDoAviso: process.env.MERCADOPAGO_WEBHOOK_SEGREDO,
+            pixMinutos: Number(process.env.PAGARME_PIX_MINUTOS || 30),
+            url: process.env.MERCADOPAGO_URL,
           },
         },
       ],

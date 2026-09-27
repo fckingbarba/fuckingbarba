@@ -68,6 +68,22 @@ export type Estado = {
   estornado: number
 }
 
+/** O estado de uma sessão recém-aberta: nada foi pro parceiro ainda. */
+export function estadoNovo(forma: Forma, valor: number, parcelas: number): Estado {
+  return {
+    forma,
+    situacao: "nova",
+    valor,
+    pedido: null,
+    cobranca: null,
+    parcelas,
+    pix: null,
+    cartao: null,
+    recusa: null,
+    estornado: 0,
+  }
+}
+
 /** O estado gravado em `data[chave]`, ou null se não há um lá. */
 export function lerEstado(
   data: Record<string, unknown> | null | undefined,

@@ -437,6 +437,35 @@ describe("a tela", () => {
     ...extra,
   })
 
+  it("o Mercado Pago: desligado sem o token; ligado, com o último aviso e as falhas do dia", () => {
+    const desligado = integracoesNaTela(integracoes()).find((i) => i.id === "mercadopago")!
+    expect(desligado).toMatchObject({ s: "off", onde: "Pix reserva", sinal: null })
+    const ligado = integracoesNaTela(
+      integracoes({
+        mercadopago: true,
+        sinais: [
+          {
+            integracao: "mercadopago-aviso",
+            dia: "2026-09-25",
+            ok: 2,
+            falhas: 0,
+            ultimo_ok_em: min(3),
+          },
+          {
+            integracao: "mercadopago",
+            dia: "2026-09-25",
+            ok: 9,
+            falhas: 1,
+            ultimo_ok_em: min(1),
+            ultima_falha_em: min(20),
+          },
+        ],
+      })
+    ).find((i) => i.id === "mercadopago")!
+    expect(ligado.s).toBe("atencao")
+    expect(ligado.texto).toMatch(/^Último aviso hoje, \d\d:\d\d · 1 falha hoje/)
+  })
+
   it("as integrações em frase, com o último sinal", () => {
     const lista = integracoesNaTela(integracoes())
     const de = (id: string) => lista.find((i) => i.id === id)!

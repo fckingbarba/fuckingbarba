@@ -1,4 +1,4 @@
-import { lerEstado, type Estado } from "./estado"
+import { lerEstado, type Estado, type Forma } from "./estado"
 
 /**
  * OS PARCEIROS DE PAGAMENTO — a lista única, no backend.
@@ -6,7 +6,8 @@ import { lerEstado, type Estado } from "./estado"
  * Parceiro é quem COBRA: um provedor de pagamento do Medusa (um módulo em
  * `src/modules/<parceiro>/`, registrado no `medusa-config.ts`) que grava na
  * sessão o estado comum (`./estado.ts`), cada um na sua chave de `data`.
- * Hoje, só o Pagar.me.
+ * Hoje, o Pagar.me (Pix e cartão) e o Mercado Pago (só Pix, a reserva do
+ * Pagar.me — 0140).
  *
  * ┌─ QUEM PERGUNTA AQUI, E QUEM NÃO ───────────────────────────────────────┐
  * │ Tudo que LÊ o pagamento de um pedido pergunta aqui "esta sessão é de   │
@@ -16,9 +17,9 @@ import { lerEstado, type Estado } from "./estado"
  * │ parceiro cobrou, e parceiro novo não muda nenhum deles.                │
  * │                                                                         │
  * │ O que FALA com o parceiro continua de cada um: o provedor, a           │
- * │ conciliação e a conferência dos estornos (`conciliar-pagamentos.ts` e  │
- * │ `estornos.ts` são do Pagar.me), o aviso (webhook) e o script que liga  │
- * │ a região.                                                              │
+ * │ conciliação (`conciliar-pagamentos.ts` é a do Pagar.me,                │
+ * │ `conciliar-mercadopago.ts` a do Mercado Pago), a conferência dos       │
+ * │ estornos do Pagar.me (`estornos.ts`) e o aviso (webhook).              │
  * └─────────────────────────────────────────────────────────────────────────┘
  *
  * A loja tem a mesma lista (`PARCEIROS`, em
@@ -36,11 +37,25 @@ export type Parceiro = {
   nome: string
   /** Onde o parceiro grava o estado na sessão: `data[chave]`. */
   chave: string
+  /** O que ele cobra. */
+  formas: readonly Forma[]
 }
 
-export const PAGARME: Parceiro = { id: "pp_pagarme_pagarme", nome: "Pagar.me", chave: "pagarme" }
+export const PAGARME: Parceiro = {
+  id: "pp_pagarme_pagarme",
+  nome: "Pagar.me",
+  chave: "pagarme",
+  formas: ["pix", "cartao"],
+}
 
-export const PARCEIROS: readonly Parceiro[] = [PAGARME]
+export const MERCADOPAGO: Parceiro = {
+  id: "pp_mercadopago_mercadopago",
+  nome: "Mercado Pago",
+  chave: "mercadopago",
+  formas: ["pix"],
+}
+
+export const PARCEIROS: readonly Parceiro[] = [PAGARME, MERCADOPAGO]
 
 /** O provedor que fecha o pedido sem cobrar (o "a combinar"). Não é parceiro. */
 export const PROVISORIO = "pp_system_default"
