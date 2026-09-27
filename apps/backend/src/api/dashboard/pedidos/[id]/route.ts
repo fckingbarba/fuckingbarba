@@ -24,19 +24,25 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
   if (!exigirArea(pedido, res, "pedidos")) return
 
   const id = req.params.id
-  const o = /^order_[0-9A-Z]{10,40}$/.test(id) ? await pedidoPorId(req.scope, id) : null
+  if (!/^order_[0-9A-Z]{10,40}$/.test(id)) {
+    res.status(404).json({ message: "nao_encontrado" })
+    return
+  }
+  // Nada aqui depende do pedido lido: sai tudo junto (o pedido que não
+  // existe é raro, e custa só as leituras vazias).
+  const [o, ctx, notas, envios, feitos] = await Promise.all([
+    pedidoPorId(req.scope, id),
+    lerContexto(req.scope),
+    notasDos(req.scope, [id]),
+    enviosDos(req.scope, [id]),
+    feitosNoPedido(req.scope, id),
+  ])
   if (!o) {
     res.status(404).json({ message: "nao_encontrado" })
     return
   }
 
   const papel = pedido.membro.papel
-  const ctx = await lerContexto(req.scope)
-  const [notas, envios, feitos] = await Promise.all([
-    notasDos(req.scope, [id]),
-    enviosDos(req.scope, [id]),
-    feitosNoPedido(req.scope, id),
-  ])
   res.json({
     pedido: detalheDo(
       o,

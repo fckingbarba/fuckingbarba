@@ -139,7 +139,13 @@ export const MENU: { grupo: string | null; itens: Item[] }[] = [
   {
     grupo: null,
     itens: [
-      { area: "configuracoes", nome: "Configurações", href: "/configuracoes", icone: "config" },
+      // Direto na primeira aba: o `/configuracoes` só redireciona, e custava uma ida a mais.
+      {
+        area: "configuracoes",
+        nome: "Configurações",
+        href: "/configuracoes/empresa",
+        icone: "config",
+      },
     ],
   },
 ]
@@ -179,7 +185,8 @@ export function itemDa(area: Area): Item | undefined {
 /** A área de um endereço do painel — pra o menu saber onde está. */
 export function areaDoCaminho(caminho: string): Area {
   const primeiro = caminho.split("/").filter(Boolean)[0] ?? ""
-  const achada = MENU.flatMap((g) => g.itens).find((i) => i.href === `/${primeiro}`)
+  // Pelo primeiro pedaço do endereço do menu: o das Configurações já abre na aba.
+  const achada = MENU.flatMap((g) => g.itens).find((i) => i.href.split("/")[1] === primeiro)
   return achada?.area ?? "inicio"
 }
 

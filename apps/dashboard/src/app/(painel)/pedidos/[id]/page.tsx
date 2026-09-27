@@ -7,7 +7,7 @@ import { Cpf } from "@/components/cpf"
 import { Icone } from "@/components/icones"
 import { Status } from "@/components/pedidos"
 import { Cabeca, ForaDoAr, SemAcesso } from "@/components/telas"
-import { medusa } from "@/lib/medusa"
+import { ler } from "@/lib/medusa"
 import { ehIdDePedido, reais, type DetalheDoPedido } from "@/lib/pedidos"
 
 type Props = { params: Promise<{ id: string }> }
@@ -30,7 +30,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  * novo" e "Tentar o estorno de novo" (dentro da faixa do problema) — vêm do
  * backend só quando o papel pode apertar e o pedido está no estado deles.
  */
-export default function Pagina({ params }: Props) {
+export default async function Pagina({ params }: Props) {
+  const { id } = await params
+  // A leitura sai junto com a pergunta de quem é (a resposta fica no `cache`).
+  if (ehIdDePedido(id)) void ler(`/dashboard/pedidos/${id}`)
   return (
     <SoPara area="pedidos">
       <Pedido params={params} />
@@ -44,7 +47,7 @@ async function Pedido({ params }: Props) {
   const { id } = await params
   if (!ehIdDePedido(id)) return <NaoAchei />
 
-  const r = await medusa(`/dashboard/pedidos/${id}`, { metodo: "GET", token: "sessao" })
+  const r = await ler(`/dashboard/pedidos/${id}`)
   if (r.status === 401)
     redirect(`/sair?motivo=${r.corpo.message === "fora_da_equipe" ? "fora" : "expirou"}`)
   if (r.status === 403) return <SemAcesso area="pedidos" />

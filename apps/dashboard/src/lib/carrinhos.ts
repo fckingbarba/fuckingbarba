@@ -1,3 +1,5 @@
+import type { Paginacao } from "@/lib/paginas"
+
 /**
  * OS CARRINHOS ABANDONADOS, como vêm do Medusa (`GET /dashboard/carrinhos`,
  * montada em `apps/backend/src/lib/painel/carrinhos.ts`): uma linha por
@@ -48,5 +50,8 @@ export type TelaDosCarrinhos = {
     semContato: { quantos: number; valor: number }
   }
   verContato: boolean
+  /** Só os da página mostrada. */
   carrinhos: LinhaDoCarrinho[]
+  /** A página (o backend de antes da 0146 não manda: aí a lista vem inteira). */
+  paginacao?: Paginacao
 }

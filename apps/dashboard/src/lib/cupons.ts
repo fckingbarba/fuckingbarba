@@ -1,3 +1,5 @@
+import type { Paginacao } from "@/lib/paginas"
+
 /**
  * OS CUPONS DO PAINEL — os tipos, como o backend devolve
  * (`apps/backend/src/lib/cupons.ts` e `lib/painel/cupons.ts`, pela rota
@@ -43,7 +45,11 @@ export type Alvo = { id: string; nome: string }
 export type Catalogo = { categorias: Alvo[]; produtos: Alvo[] }
 
 export type PaginaDeCupons = {
+  /** Só os da página mostrada (20 por página, desde a 0146). */
   cupons: CupomNaLista[]
+  /** O que a busca pelo código procurou. */
+  busca?: string
+  paginacao?: Paginacao
   /** As promoções do painel (`lib/promocoes.ts`); um backend de antes da 0133 não manda. */
   promocoes?: PromocaoNaLista[]
   automaticos: DescontoAutomatico[]

@@ -2919,6 +2919,44 @@ Depois do deploy — **nada a configurar**: a tabela nova do banco nasce sozinha
 migração roda no deploy), e sem nada salvo a loja fica exatamente como antes. Pra testar: Painel →
 Configurações → Equipe e acessos → marque "Cupons e descontos" na Operação → Salvar acessos.
 
+**Painel mais rápido, com as listas em páginas — pronto em 27/09 (entrega 0146).** Pedido dele: "quero
+que trabalhe na performance do dashboard (...) precisamos trabalhar na performance e paginação de
+listas também" — menos a parte do CRM, que outra sessão está fazendo.
+
+- **O clique responde na hora.** Toda área ganhou um esqueleto: ao clicar no menu, a tela troca na
+  hora pro desenho da página (o título, os números, a lista) em cinza, e os dados entram quando
+  chegam. Antes, nada mudava até a resposta inteira chegar, e o clique parecia perdido.
+- **Uma espera a menos em todo clique.** Cada tela perguntava ao servidor "quem é você" e SÓ
+  DEPOIS pedia os dados. Agora as duas perguntas saem juntas.
+- **Listas em páginas:** Pedidos, Clientes e Carrinhos de 30 em 30, Cupons de 20 em 20 (com busca
+  pelo código — os 104 cupons da Nuvemshop enchiam a tela) e a Newsletter de 50 em 50. Embaixo de
+  cada lista: "31–60 de 300" e os números das páginas (no celular, as setas). As fitas de filtro e
+  os números de cima continuam contando TUDO; o "Baixar CSV" da newsletter continua levando todo
+  mundo.
+- **Buscar não recarrega mais o painel inteiro** (Pedidos, Clientes, Cupons): troca só a lista.
+- **O servidor lê menos.** O total de cada pedido o Medusa calcula na hora (itens, impostos,
+  descontos, frete) — era o que mais pesava. As listas agora pedem o total só do que aparece na
+  tela: a lista de Clientes ficou ~4× mais rápida, a de Pedidos, os Cupons e o Início também
+  aliviaram, e a resposta da lista de pedidos caiu de 94 KB pra 10 KB.
+- **Configurações** abre direto na primeira aba (antes passava por um redirecionamento).
+- **Nada mudou nos números:** a prova A/B com o backend de antes, no mesmo banco, deu as mesmas
+  respostas nas 57 leituras (as 7 fitas dos pedidos, as buscas, clientes com o "gastou", carrinhos,
+  os usos dos cupons, a newsletter, o Início e 40 pedidos abertos) — as únicas diferenças foram o
+  relógio andando ("há 1 h 10" × "há 1 h 11").
+
+Conferido pelos conferidores do painel (os de pedidos, clientes, cupons e carrinhos ganharam as
+checagens das páginas: a página 2 continua a 1, o pé, a fita contando todos, a página que não existe
+virando a última, a busca dos cupons na tela, o CSV com todo mundo) e pelos testes de unidade (os
+novos: as páginas, quais pedidos precisam do total no Início, o "gastou" só da página).
+
+Depois do deploy — **nada a configurar.** O painel (Vercel) e o backend (Railway) sobem separados:
+nos minutos em que só o painel novo está no ar, as listas aparecem inteiras, sem o pé das páginas,
+como antes.
+
+- [ ] **A próxima parte: mais visual, menos texto** — o desenho (Início, Pedidos, Clientes e o
+      Início no celular) está em <https://claude.ai/artifact/DLk4uCe8UcrjFLpzqZP3xx>, esperando a
+      aprovação dele.
+
 **CRM, parte 3: a ficha de cada pessoa — pronto em 27/09 (entrega 0145).** Na ficha do cliente
 (Clientes → a pessoa), o CRM mostra quem ela é pro "Ciclo da Barba".
 

@@ -208,6 +208,17 @@ try {
   /* ── a lista, pela API ─────────────────────────────────────────────────── */
 
   titulo("A lista (API)")
+  {
+    // De 30 em 30 (entrega 0146): o total e a busca contam todos; só a página viaja.
+    const todos = (await medusa("/dashboard/clientes", { metodo: "GET", token: tokenDoDono })).corpo
+    ok(
+      todos.paginacao?.porPagina === 30 &&
+        todos.clientes?.length === Math.min(30, todos.total) &&
+        todos.paginacao?.itens === todos.total,
+      "a lista vem de 30 em 30, e o total conta todo mundo",
+      JSON.stringify({ paginacao: todos.paginacao, linhas: todos.clientes?.length })
+    )
+  }
   const lista = async (token) =>
     (await medusa(`/dashboard/clientes?busca=${RODADA}`, { metodo: "GET", token })).corpo
   const doDono = await lista(tokenDoDono)
@@ -346,6 +357,13 @@ try {
   const newsOp = await medusa("/dashboard/newsletter", { metodo: "GET", token: tokenOp })
   ok(newsOp.status === 403, "a operação não abre a newsletter", String(newsOp.status))
   const news = (await medusa("/dashboard/newsletter", { metodo: "GET", token: tokenMkt })).corpo
+  ok(
+    news.paginacao?.porPagina === 50 &&
+      news.inscritos?.length === Math.min(50, news.numeros?.total) &&
+      news.paginacao?.itens === news.numeros?.total,
+    "a newsletter vem de 50 em 50, e os números contam todo mundo",
+    JSON.stringify({ paginacao: news.paginacao, linhas: news.inscritos?.length })
+  )
   const inscrito = (quem) => news.inscritos?.find((i) => i.email === quem)
   const caioNaLista = linha(doDono, CAIO)
   ok(
@@ -529,6 +547,9 @@ try {
         (await pagina.locator(`[data-inscrito="${LEO}"] a`).count()) === 0,
       "na lista, o e-mail de cliente leva pra ficha; o do Leo, que não é cliente, não"
     )
+    // Quantos recebem AGORA (a API, logo antes do clique): a parte da API tirou gente da lista.
+    const naNewsletter = (await medusa("/dashboard/newsletter", { metodo: "GET", token: tokenMkt }))
+      .corpo.numeros?.total
     const [download] = await Promise.all([
       pagina.waitForEvent("download"),
       pagina.locator("[data-baixar-csv]").click(),
@@ -538,6 +559,11 @@ try {
       csv.startsWith("\uFEFFemail,desde,origem") && csv.includes(BRUNO) && csv.includes(LEO),
       "o CSV: a lista inteira, com o cabeçalho",
       csv.split("\n")[0]
+    )
+    ok(
+      csv.trim().split("\n").length - 1 === naNewsletter,
+      "o CSV leva todo mundo, e não só a página da tela",
+      `${csv.trim().split("\n").length - 1} linhas, ${naNewsletter} na newsletter`
     )
     await pagina.locator(`[data-tirar="${LEO}"]`).click()
     const aviso = pagina.locator(".aviso")
