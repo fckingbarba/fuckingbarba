@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo } from "react"
-import { chegadaDaVisita } from "@/lib/chegada"
+import { chegadaDaVisita, guardarACampanha } from "@/lib/chegada"
 import type { Integracoes } from "@/lib/configuracoes"
 import { parceirosDe } from "@/lib/consentimento"
 import { anotarNaLoja } from "@/lib/rastrear"
@@ -32,8 +32,10 @@ export function Tags({ integracoes }: { integracoes: Integracoes }) {
     if (estado === "sim") ligarIntegracoes(integracoes)
   }, [estado, integracoes])
 
-  // A chegada: guardada já na primeira página, e anotada quando vier o sim.
+  // A chegada: guardada já na primeira página, e anotada quando vier o sim. A
+  // campanha do link também, pros parceiros de quem aceitar depois de sair daqui.
   useEffect(() => {
+    guardarACampanha()
     const chegada = chegadaDaVisita()
     if (chegada) anotarNaLoja("visita", chegada.dados, { onde: chegada.onde })
   }, [])
