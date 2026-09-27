@@ -836,6 +836,20 @@ try {
     JSON.stringify({ loja: lista.loja, categorias: lista.catalogo?.categorias?.length })
   )
 
+  // De 20 em 20, com a busca pelo código (entrega 0146): os 104 da Nuvemshop enchiam a tela.
+  const achados = (
+    await medusa(`/dashboard/cupons?busca=${P.toLowerCase()}`, { metodo: "GET", token: tokenMkt })
+  ).corpo
+  ok(
+    lista.paginacao?.porPagina === 20 &&
+      (lista.cupons ?? []).length <= 20 &&
+      achados.cupons?.length >= 1 &&
+      achados.cupons.every((c) => c.codigo.includes(P)) &&
+      achados.paginacao?.itens === achados.cupons.length,
+    "os cupons vêm de 20 em 20, e a busca acha pelo código, sem diferença de maiúscula",
+    JSON.stringify({ paginacao: lista.paginacao, achados: achados.cupons?.map((c) => c.codigo) })
+  )
+
   /* ── a tela ────────────────────────────────────────────────────────────── */
 
   titulo("A tela do marketing")
@@ -933,6 +947,23 @@ try {
       naApi.cupons?.find((c) => c.codigo === F)?.situacao === "pausado" &&
         /Pausado/.test(await linhaDe(F).textContent()),
       "a chave pausa, na tela e no Medusa"
+    )
+  }
+
+  titulo("A busca pelo código, na tela")
+  {
+    const { pagina } = mkt
+    await pagina.goto(`${PAINEL}/cupons?busca=${P}`)
+    await pagina.waitForSelector("[data-cupons]")
+    const codigos = await pagina
+      .locator("[data-cupons] [data-cupom]")
+      .evaluateAll((els) => els.map((e) => e.getAttribute("data-cupom")))
+    ok(
+      codigos.length === achados.cupons.length &&
+        codigos.every((c) => c.includes(P)) &&
+        (await pagina.locator("#busca-cupons").inputValue()) === P,
+      "a tela mostra só os cupons com o código buscado, e a busca fica na caixa",
+      codigos.join(",")
     )
   }
 
