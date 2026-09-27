@@ -25,7 +25,7 @@ import {
   registrarOferta,
 } from "@/lib/checkout"
 import {
-  PROVEDOR_PAGARME,
+  parceiroDe,
   PROVEDOR_PROVISORIO,
   type EnderecoVisivel,
   type ErrosDoFormulario,
@@ -414,7 +414,8 @@ export async function finalizar(anterior: EstadoDaEtapa, fd: FormData): Promise<
     )
   }
 
-  const cobra = provedor === PROVEDOR_PAGARME
+  // Cobra de verdade: um parceiro de pagamento (`PARCEIROS`), e não o provisório.
+  const cobra = parceiroDe(provedor) !== null
   if (cobra && forma !== "pix" && forma !== "cartao") {
     return erro(anterior, { forma: "Escolhe Pix ou cartão." }, "", fd)
   }

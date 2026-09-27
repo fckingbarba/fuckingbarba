@@ -1,19 +1,23 @@
 import "server-only"
 import type { HttpTypes } from "@medusajs/types"
-import { PROVEDOR_PAGARME, type PagamentoVisivel } from "./checkout-visivel"
+import { parceiroDe, type PagamentoVisivel } from "./checkout-visivel"
 import type { cliente } from "./medusa"
 
 /**
  * O PAGAMENTO, DO LADO DO SERVIDOR DA LOJA.
  *
- * Três traduções entre a loja e o provedor do Pagar.me que mora no Medusa
- * (`apps/backend/src/modules/pagarme/`):
+ * Três traduções entre a loja e o parceiro de pagamento que mora no Medusa
+ * (hoje, o Pagar.me: `apps/backend/src/modules/pagarme/`):
  *
  *   1. o carrinho → a `entrada` da sessão de pagamento (quem compra, o que,
  *      pra onde). O provedor não enxerga o carrinho — é módulo isolado do
  *      Medusa —, então quem entrega isso é a ação de finalizar;
  *   2. a sessão recusada → a frase que a pessoa lê;
  *   3. o pedido fechado → o que a tela de obrigado desenha.
+ *
+ * As duas últimas leem a sessão de qualquer parceiro da lista (`PARCEIROS`,
+ * em `checkout-visivel.ts`): todos gravam o mesmo estado, cada um na sua
+ * chave.
  *
  * ┌─ O QUE A LOJA MANDA E O QUE ELA NÃO DECIDE ────────────────────────────┐
  * │ Tudo aqui sai do CARRINHO lido do Medusa, nunca do formulário — a      │
@@ -159,11 +163,10 @@ export async function depoisDaRecusa(
     const { cart } = await sdk.store.cart.retrieve(carrinhoId, {
       fields: "id,completed_at,*payment_collection,*payment_collection.payment_sessions",
     })
-    const sessao = (cart?.payment_collection?.payment_sessions ?? []).find(
-      (s) => s?.provider_id === PROVEDOR_PAGARME
+    const sessao = sessaoDoParceiro(
+      (cart?.payment_collection?.payment_sessions ?? []) as (SessaoLida | null)[]
     )
-    const estado = (sessao?.data as Record<string, unknown> | undefined)?.pagarme as
-      { recusa?: unknown } | undefined
+    const estado = estadoCru(sessao) as { recusa?: unknown } | undefined
     return {
       fechado: Boolean(cart?.completed_at),
       recusa: typeof estado?.recusa === "string" ? estado.recusa : null,
@@ -185,28 +188,55 @@ type SessaoLida = {
   data?: Record<string, unknown> | null
 }
 
-function sessaoDoPagarme(order: HttpTypes.StoreOrder): SessaoLida | undefined {
-  return (order.payment_collections ?? [])
-    .flatMap((c) => (c?.payment_sessions ?? []) as SessaoLida[])
-    .find((s) => s.provider_id === PROVEDOR_PAGARME)
+/**
+ * A sessão que virou o pagamento: a de um parceiro (`PARCEIROS`) que chegou
+ * mais longe — autorizada ou capturada — ou, sem nenhuma assim, a última. A
+ * mesma escolha do backend (`sessaoDoParceiro`, em
+ * `apps/backend/src/lib/pagamento/parceiros.ts`).
+ */
+function sessaoDoParceiro(sessoes: (SessaoLida | null)[]): SessaoLida | undefined {
+  const nossas = sessoes.filter((s): s is SessaoLida => Boolean(parceiroDe(s?.provider_id)))
+  return (
+    nossas.find((s) => s.status === "authorized" || s.status === "captured") ??
+    nossas[nossas.length - 1]
+  )
+}
+
+const sessaoDoPedido = (order: HttpTypes.StoreOrder) =>
+  sessaoDoParceiro(
+    (order.payment_collections ?? []).flatMap(
+      (c) => (c?.payment_sessions ?? []) as (SessaoLida | null)[]
+    )
+  )
+
+/**
+ * O estado que o parceiro gravou na sessão, ainda cru: só a chave DELE
+ * (`data[chave]`). O `data` de uma sessão aceita qualquer coisa de quem chama
+ * a API pública; o de quem não é parceiro não vira pagamento.
+ */
+function estadoCru(sessao: SessaoLida | undefined): Record<string, unknown> | undefined {
+  const chave = parceiroDe(sessao?.provider_id)?.chave
+  const estado = chave ? sessao?.data?.[chave] : undefined
+  return estado && typeof estado === "object" ? (estado as Record<string, unknown>) : undefined
 }
 
 /**
- * Quanto o Pagar.me já devolveu da cobrança deste pedido, em centavos.
+ * Quanto o parceiro já devolveu da cobrança deste pedido, em centavos.
  *
- * É o `estornado` que o provedor grava na sessão (o `canceled_amount` /
- * `refunded_amount` de lá), e existe por causa de UM caso que o Medusa não
- * enxerga: o cartão que o banco aprova e a análise de fraude reprova depois
- * de capturado. O valor sai e volta no cartão de quem comprou, e o Medusa
- * nunca registrou pagamento nenhum — nem estorno. Pelo `payment_status`, é
- * um pedido "cancelado antes do pagamento"; pelo extrato do cliente, não.
+ * É o `estornado` que o provedor grava na sessão (no Pagar.me, o
+ * `canceled_amount` / `refunded_amount` de lá), e existe por causa de UM
+ * caso que o Medusa não enxerga: o cartão que o banco aprova e a análise de
+ * fraude reprova depois de capturado. O valor sai e volta no cartão de quem
+ * comprou, e o Medusa nunca registrou pagamento nenhum — nem estorno. Pelo
+ * `payment_status`, é um pedido "cancelado antes do pagamento"; pelo extrato
+ * do cliente, não.
  *
  * O e-mail de cancelamento já decide assim (`decidir`, em
  * `apps/backend/src/lib/avisar-cancelamento.ts`); a conta lê daqui pra dizer
  * a mesma coisa que ele.
  */
-export function devolvidoNoPagarme(order: HttpTypes.StoreOrder): number {
-  const estado = sessaoDoPagarme(order)?.data?.pagarme as { estornado?: unknown } | undefined
+export function devolvidoNoParceiro(order: HttpTypes.StoreOrder): number {
+  const estado = estadoCru(sessaoDoPedido(order)) as { estornado?: unknown } | undefined
   const centavos = Number(estado?.estornado ?? 0)
   return Number.isFinite(centavos) && centavos > 0 ? centavos : 0
 }
@@ -215,21 +245,21 @@ export function devolvidoNoPagarme(order: HttpTypes.StoreOrder): number {
  * O pagamento de um pedido, na pergunta que a pessoa faz ("e o meu
  * pagamento?"), já respondida.
  *
- * O PAGO sai do `payment_status` do Medusa, e não do que o Pagar.me disse na
+ * O PAGO sai do `payment_status` do Medusa, e não do que o parceiro disse na
  * sessão: é o Medusa que registra o pagamento (pelo webhook ou pela
  * conciliação), e é ele que libera a separação. A sessão só empresta o QR do
  * Pix e o final do cartão.
  */
 export function lerPagamento(order: HttpTypes.StoreOrder): PagamentoVisivel {
-  const doPagarme = sessaoDoPagarme(order)
+  const sessao = sessaoDoPedido(order)
 
-  if (!doPagarme) {
+  if (!sessao) {
     return order.status === "canceled"
       ? { estado: "cancelado", forma: null, pix: null, cartao: null }
       : { estado: "combinar", forma: null, pix: null, cartao: null }
   }
 
-  const estado = (doPagarme.data?.pagarme ?? {}) as {
+  const estado = (estadoCru(sessao) ?? {}) as {
     forma?: unknown
     situacao?: unknown
     parcelas?: unknown

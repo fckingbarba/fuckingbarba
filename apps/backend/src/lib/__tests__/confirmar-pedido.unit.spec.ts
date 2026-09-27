@@ -114,7 +114,7 @@ describe("quando a confirmação sai", () => {
     expect(decidir(autorizado)).toEqual({ mandar: false, motivo: "nao-pago" })
   })
 
-  it("pedido do provisório (sem o Pagar.me) não diz 'Pix recebido'", () => {
+  it("pedido do provisório (sem parceiro de pagamento) não diz 'Pix recebido'", () => {
     const provisorio = pedido({
       payment_collections: [
         {
@@ -123,7 +123,7 @@ describe("quando a confirmação sai", () => {
         },
       ],
     })
-    expect(decidir(provisorio)).toEqual({ mandar: false, motivo: "sem-pagarme" })
+    expect(decidir(provisorio)).toEqual({ mandar: false, motivo: "sem-parceiro" })
   })
 
   it("pedido que já saiu pra entrega não recebe 'falta enviar' depois do 'a caminho'", () => {
