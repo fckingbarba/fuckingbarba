@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
+import { semAcessoA } from "@/lib/equipe"
 import { medusa, type Resposta } from "@/lib/medusa"
 import {
   ehIdDeProduto,
@@ -31,7 +32,7 @@ import type { Valores } from "@/lib/formulario"
 
 const GENERICO = "Não consegui falar com a loja agora. Tenta de novo em instantes."
 const NAO_ACHEI = "Não achei esse produto. Recarregue a página."
-const SEM_PAPEL = "Editar produto é do marketing e do dono."
+const SEM_PAPEL = semAcessoA("editarProdutos")
 
 async function chamar(id: string, acao: string, corpo: unknown): Promise<Resposta | null> {
   if (!ehIdDeProduto(id)) return null

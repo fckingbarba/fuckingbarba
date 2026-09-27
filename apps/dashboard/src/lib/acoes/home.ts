@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
+import { semAcessoA } from "@/lib/equipe"
 import type { Valores } from "@/lib/formulario"
 import type { IdDaSecaoDaHome } from "@/lib/home"
 import { medusa, type Resposta } from "@/lib/medusa"
@@ -23,7 +24,7 @@ import type { ImagemQueSubiu, MudancaNaOrdem } from "@/lib/acoes/produtos"
  */
 
 const GENERICO = "Não consegui falar com a loja agora. Tenta de novo em instantes."
-const SEM_PAPEL = "O layout da home é do marketing e do dono."
+const SEM_PAPEL = semAcessoA("home")
 const NO_RASCUNHO = "No rascunho — vai pro site quando alguém apertar “Publicar”"
 
 async function chamar(acao: string, corpo: unknown): Promise<Resposta> {

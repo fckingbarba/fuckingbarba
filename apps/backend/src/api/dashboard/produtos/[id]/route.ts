@@ -1,7 +1,6 @@
 import type { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { avisosDoProduto } from "../../../../lib/avise-me"
-import { exigirArea, type PedidoDaEquipe } from "../../../../lib/equipe/acesso"
-import { podeAbrir } from "../../../../lib/equipe/regras"
+import { abre, exigirArea, type PedidoDaEquipe } from "../../../../lib/equipe/acesso"
 import { urlDaLoja } from "../../../../lib/emails/moldura"
 import { MARCA_DO_PRECO } from "../../../../lib/erp/marcas"
 import { comFundosDoArmazenamento } from "../../../../lib/imagens"
@@ -56,7 +55,7 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
       p,
       comFundosDoArmazenamento(lerPdp(p.metadata)),
       estoques.get(p.id) ?? null,
-      podeAbrir(pedido.membro.papel, "editarProdutos"),
+      abre(pedido, "editarProdutos"),
       {
         preco: precos.get(p.id),
         precoDoPainel: Boolean((p.metadata as Record<string, unknown> | null)?.[MARCA_DO_PRECO]),

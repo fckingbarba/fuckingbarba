@@ -1,5 +1,3 @@
-import type { Papel } from "../equipe/regras"
-
 /**
  * AS VISITAS DO DIA — o que o Google Analytics (GA4) conta, do jeito do
  * Início: quantas hoje, contra ontem até a mesma hora, hora a hora, quem
@@ -108,7 +106,7 @@ export type Barra = { nome: string; visitas: number }
  */
 export type Comparacao = { ate: number; hoje: number; ontem: number }
 
-/** O que a operação recebe: só o número do dia. */
+/** O que recebe quem não abre o Marketing (no padrão, a operação): só o número do dia. */
 export type NumeroDeVisitas = {
   /** O que o Google já somou de hoje (com o atraso dele). */
   hoje: number
@@ -127,9 +125,6 @@ export type Visitas = NumeroDeVisitas & {
   origens: Barra[]
   maisVistos: Barra[]
 }
-
-/** O bloco das visitas é do dono e do marketing; a operação vê o número (o protótipo). */
-export const veOBlocoDasVisitas = (papel: Papel) => papel !== "operacao"
 
 const numero = (v: string | undefined) => {
   const n = Number(v ?? 0)

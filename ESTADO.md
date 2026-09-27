@@ -1302,7 +1302,8 @@ do Medusa continua no ar, pro dono, como reserva.
 - **Papéis:** Dono, Operação e Marketing. **A permissão vale no servidor**: cada rota confere o
   papel antes de responder, e o que o papel não vê (CPF inteiro, telefone, endereço) nem sai do
   servidor — esconder botão não é permissão. Decidido na fase 1: rotas próprias (`/dashboard/*`)
-  e uma tabela só de quem abre o quê (`ACESSO`, no backend); o controle de papéis do Medusa 2.21
+  e uma tabela só de quem abre o quê (`ACESSO_PADRAO`, no backend, com o que o dono muda na tela
+  da equipe desde a 0139); o controle de papéis do Medusa 2.21
   segue experimental (`MEDUSA_FF_RBAC`, desligado) e ficou de fora. Toda mudança fica registrada,
   com nome e hora.
 - **O protótipo:** `apps/loja/ferramentas/porte/prototipo-painel.html` — abre no navegador, sem
@@ -2872,6 +2873,42 @@ Depois do deploy — **os passos acima.** Sem eles, o CRM diz que os avisos aind
 - [ ] **As próximas partes da Fundação** (uma entrega cada, perguntar antes): a ficha de cada pessoa
       com as etiquetas, os Ajustes do CRM editáveis no painel, a base da Nuvemshop e o modelo de
       e-mail.
+
+**Painel: o dono escolhe o que cada papel abre — pronto em 27/09 (entrega 0139).** Pedido dele: "no
+dashboard em configurações eu como admin quero poder habilitar as permissões dos colaboradores,
+atualmente é fixo". Escolha dele: **por papel** (a tabela vira clicável), e não pessoa por pessoa.
+
+- **Em Configurações → Equipe e acessos**, a tabela "O que cada papel abre" virou caixinhas: você
+  marca o que a Operação e o Marketing abrem e clica em "Salvar acessos". Vale no próximo clique de
+  cada pessoa, e no servidor — a área desmarcada some do menu e nem sai da loja pra quem não abre.
+- **O dono abre tudo, sempre** (a coluna dele não tem caixinha). O **Início** abre pra todo mundo, e a
+  **Equipe e acessos** é só do dono: essas duas linhas não mudam.
+- **O que mora dentro de uma área só abre com ela:** o "Tentar o estorno de novo" (nos Pedidos),
+  editar a página (nos Produtos), a newsletter (em Clientes) e mudar a meta (no Marketing). Marcar
+  um deles marca a área junto; desmarcar a área desmarca ele.
+- **Em amarelo**, o que está diferente de como a loja nasceu. "Voltar ao padrão" põe a tabela de
+  antes na tela (falta salvar); "Desfazer" volta pro que está salvo.
+- **O convite** por e-mail e o "Mudar" de cada pessoa passam a dizer o que o papel abre agora.
+- **O registro da equipe** ganha uma linha a cada vez que alguém salva, com o que mudou.
+- **O Início segue a tabela:** a fila dos pedidos e os pedidos de hoje só pra quem abre os Pedidos; o
+  estorno que falhou, só pra quem abre o estorno; as visitas inteiras (hora a hora, de onde vieram)
+  pra quem abre o Marketing — os outros veem só o número.
+- **Configurações** pode ser liberada pra Operação ou Marketing; a aba "Equipe e acessos" continua só
+  do dono.
+- **O que segue pelo papel, e não pela tabela:** o CPF inteiro (só o dono vê), o Marketing sem o
+  telefone dos clientes nos Carrinhos e em Clientes (e, em Clientes, só quem aceitou ofertas), pra
+  quem vai cada aviso por e-mail (a aba E-mails) e as abas de baixo do celular. Liberar os Pedidos
+  pro Marketing mostra o pedido como a Operação vê (com endereço, sem o CPF inteiro).
+
+Conferido pelo `conferir-entrar.mjs` (90 checagens, 30 novas: a tabela igual à da API, as linhas
+fixas, o estorno ligando e desligando com os Pedidos, o salvar com o aviso, o menu e a API da
+operação mudando no clique seguinte, a tela de "sem acesso", o convite com a lista nova, o que a API
+recusa, o "Voltar ao padrão" e a tabela cabendo no celular), pela rodada completa dos conferidores
+do painel e pelos testes de unidade.
+
+Depois do deploy — **nada a configurar**: a tabela nova do banco nasce sozinha no Railway (a
+migração roda no deploy), e sem nada salvo a loja fica exatamente como antes. Pra testar: Painel →
+Configurações → Equipe e acessos → marque "Cupons e descontos" na Operação → Salvar acessos.
 
 ## Como seguir no Claude Code
 

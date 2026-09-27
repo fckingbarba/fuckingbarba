@@ -8,18 +8,19 @@ import type {
   FormularioDoFrete,
   FormularioDasIntegracoes,
 } from "@/lib/configuracoes"
+import { semAcessoA } from "@/lib/equipe"
 import { medusa, type Resposta } from "@/lib/medusa"
 import type { Resultado } from "@/lib/produtos"
 
 /**
  * AS AÇÕES DAS CONFIGURAÇÕES — os dados da empresa, o frete, a emergência e
  * a hora da nota. Quem decide é o Medusa (`/dashboard/configuracoes/*`): o
- * papel (só o dono) e cada campo. Salvo, a loja atualiza em segundos (o
- * Medusa avisa ela) e a aba se refaz.
+ * papel (quem abre as Configurações — no padrão, só o dono) e cada campo.
+ * Salvo, a loja atualiza em segundos (o Medusa avisa ela) e a aba se refaz.
  */
 
 const GENERICO = "Não consegui falar com a loja agora. Tenta de novo em instantes."
-const SEM_PAPEL = "As configurações são só do dono."
+const SEM_PAPEL = semAcessoA("configuracoes")
 
 export type ResultadoDoFormulario = Resultado & { erros?: Record<string, string> }
 

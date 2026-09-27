@@ -3,7 +3,8 @@ import EquipeService from "./service"
 
 /**
  * A EQUIPE DO PAINEL DA LOJA (dashboard.fuckingbarba.com.br) — quem entra,
- * com que papel, e o registro de quem fez o quê. Ver o ESTADO.md, 4.5.
+ * com que papel, o que o dono mudou nos acessos de cada papel e o registro
+ * de quem fez o quê. Ver o ESTADO.md, 4.5.
  *
  * Não é o `user` do admin do Medusa: o admin continua do dono, como reserva,
  * e o token da equipe não abre as rotas `/admin` (o Medusa só aceita lá o

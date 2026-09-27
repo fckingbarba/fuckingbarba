@@ -2,8 +2,13 @@ import type { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/frame
 import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
 import { emailNoLog, enviarEmail } from "../../../../lib/email"
 import { emailDoConvite } from "../../../../lib/emails/convite"
-import { exigirArea, TRAVA_DA_EQUIPE, type PedidoDaEquipe } from "../../../../lib/equipe/acesso"
-import { lerMudanca, membroPublico, podeMudar } from "../../../../lib/equipe/regras"
+import {
+  exigirArea,
+  matrizAtual,
+  TRAVA_DA_EQUIPE,
+  type PedidoDaEquipe,
+} from "../../../../lib/equipe/acesso"
+import { areasDo, lerMudanca, membroPublico, podeMudar } from "../../../../lib/equipe/regras"
 import { EQUIPE } from "../../../../modules/equipe"
 import type EquipeService from "../../../../modules/equipe/service"
 import { mudarMembroWorkflow } from "../../../../workflows/equipe/mudar"
@@ -11,7 +16,8 @@ import { mudarMembroWorkflow } from "../../../../workflows/equipe/mudar"
 /**
  * POST /dashboard/equipe/:id — muda alguém da equipe. Só o dono.
  *
- *   `{ papel: "operacao" }`   troca o papel (vale no próximo clique da pessoa);
+ *   `{ papel: "operacao" }`   troca o papel (vale no próximo clique da pessoa;
+ *                             ela passa a abrir o que o papel novo abre agora);
  *   `{ acao: "remover" }`     tira da equipe (o acesso cai no próximo clique);
  *   `{ acao: "reenviar" }`    manda o convite de novo, com mais 7 dias.
  *
@@ -84,6 +90,7 @@ export async function POST(req: AuthenticatedMedusaRequest, res: MedusaResponse)
       para: membro.email,
       nome: membro.nome,
       papel: membro.papel,
+      areas: areasDo(await matrizAtual(req.scope), membro.papel),
       quem: pedido.membro.nome,
     }),
     logger

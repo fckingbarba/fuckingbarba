@@ -1,4 +1,4 @@
-import type { Papel } from "../equipe/regras"
+import type { Area, Papel } from "../equipe/regras"
 import { lerRegistros as lerEstornos } from "../estornos"
 import { lerRegistroNoPedido } from "../envios/registro"
 import {
@@ -27,9 +27,13 @@ import {
  * O INÍCIO — o que precisa de alguém hoje, as vendas e os pedidos do dia.
  *
  * Código puro, como o `pedido.ts`: recebe os pedidos recentes (com as notas
- * e os envios) e devolve a tela pronta, conforme o papel. O que o papel não
- * vê não entra na resposta — o marketing recebe os números e os mais
- * vendidos, sem nome de cliente; o estorno que falhou só vai pro dono.
+ * e os envios) e devolve a tela pronta, conforme o papel e o que ele abre
+ * (a matriz de agora, com o que o dono mudou). O que a pessoa não abre não
+ * entra na resposta: a fila dos pedidos e os pedidos de hoje (com o nome do
+ * cliente) só pra quem abre os Pedidos — no padrão, o dono e a operação; o
+ * estorno que falhou, só pra quem abre os Estornos — no padrão, o dono. O
+ * marketing tem a fila dele (rascunhos e newsletter, se abre cada um); todo
+ * mundo recebe os números e os mais vendidos, sem nome de cliente.
  *
  * "VENDA" É PEDIDO PAGO: Pix esperando e cartão em análise ficam de fora das
  * vendas (eles têm o número deles, "Esperando pagamento"), e pedido pago
@@ -54,7 +58,7 @@ export type Inicio = {
   }
   grafico: DiaDoGrafico[]
   fila: ItemDaFila[]
-  /** Dono e operação: os pedidos feitos hoje. */
+  /** Quem abre os Pedidos: os pedidos feitos hoje. */
   pedidosDeHoje: LinhaDaLista[] | null
   /** Os mais vendidos da semana, em unidades. */
   maisVendidos: { nome: string; unidades: number; imagem: string | null }[]
@@ -70,9 +74,13 @@ export type DadosDoInicio = {
   rascunhos?: number
 }
 
+/** Quem pede o Início: o papel dele e as áreas que abre agora (`PedidoDaEquipe.areas`). */
+export type QuemVeOInicio = { papel: Papel; areas: readonly Area[] }
+
 const DIA_MS = 24 * 60 * 60 * 1000
 
-export function montarInicio(papel: Papel, dados: DadosDoInicio, ctx: Contexto): Inicio {
+export function montarInicio(quem: QuemVeOInicio, dados: DadosDoInicio, ctx: Contexto): Inicio {
+  const abre = (area: Area) => quem.areas.includes(area)
   const hoje = chaveDoDia(ctx.agora)
   const dias = Array.from({ length: 7 }, (_, i) => new Date(ctx.agora.getTime() - (6 - i) * DIA_MS))
   const chaves = dias.map(chaveDoDia)
@@ -135,21 +143,22 @@ export function montarInicio(papel: Papel, dados: DadosDoInicio, ctx: Contexto):
         hoje: chaves[i] === hoje,
       }
     }),
-    fila:
-      papel === "marketing"
-        ? filaDoMarketing(dados)
-        : filaDaOperacao(
+    fila: [
+      ...(abre("pedidos")
+        ? filaDosPedidos(
             linhas.map(({ o, l }) => ({ o, l, nota: dados.notas.get(o.id) ?? null })),
-            papel,
+            abre("estornos"),
             ctx
-          ),
-    pedidosDeHoje:
-      papel === "marketing"
-        ? null
-        : linhas
-            .filter(({ o }) => chaveDoDia(o.created_at) === hoje)
-            .map(({ l }) => l)
-            .sort((a, b) => b.criadoEm.localeCompare(a.criadoEm)),
+          )
+        : []),
+      ...(quem.papel === "marketing" ? filaDoMarketing(dados) : []),
+    ].sort((a, b) => ORDEM[a.nivel] - ORDEM[b.nivel]),
+    pedidosDeHoje: !abre("pedidos")
+      ? null
+      : linhas
+          .filter(({ o }) => chaveDoDia(o.created_at) === hoje)
+          .map(({ l }) => l)
+          .sort((a, b) => b.criadoEm.localeCompare(a.criadoEm)),
     maisVendidos: [...unidades.values()].sort((a, b) => b.unidades - a.unidades).slice(0, 5),
   }
 }
@@ -179,9 +188,14 @@ const centavos = (v: number) => Math.round(v * 100) / 100
 
 const ORDEM: Record<ItemDaFila["nivel"], number> = { grave: 0, atencao: 1, "": 2, ok: 3 }
 
-function filaDaOperacao(
+/**
+ * A fila dos pedidos — o que precisa de quem despacha: o que falta sair, a
+ * nota, a Frenet, a entrega, o cartão em análise. O estorno que falhou entra
+ * só pra quem aperta o "Tentar o estorno de novo" (`veEstornos`).
+ */
+function filaDosPedidos(
   linhas: { o: PedidoCru; l: LinhaDaLista; nota: NotaCrua | null }[],
-  papel: Papel,
+  veEstornos: boolean,
   ctx: Contexto
 ): ItemDaFila[] {
   const fila: ItemDaFila[] = []
@@ -214,7 +228,7 @@ function filaDaOperacao(
   }
 
   for (const { o, l, nota } of linhas) {
-    if (papel === "dono") {
+    if (veEstornos) {
       for (const e of Object.values(lerEstornos(o.metadata))) {
         if (e.situacao !== "falhou") continue
         const proxima = e.proxima ? new Date(e.proxima) : null

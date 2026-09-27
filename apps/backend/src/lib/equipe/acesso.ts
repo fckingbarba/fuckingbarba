@@ -5,11 +5,12 @@ import {
   type MedusaRequest,
   type MedusaResponse,
 } from "@medusajs/framework/http"
+import type { MedusaContainer } from "@medusajs/framework/types"
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import { EQUIPE } from "../../modules/equipe"
 import type EquipeService from "../../modules/equipe/service"
 import { daLoja } from "../quem-pede"
-import { podeAbrir, type Area, type Papel, type Situacao } from "./regras"
+import { areasDo, matrizCom, type Area, type Matriz, type Papel, type Situacao } from "./regras"
 
 /**
  * UMA MUDANÇA NA EQUIPE POR VEZ — convite, papel, remoção, entrada, o
@@ -34,8 +35,25 @@ export type MembroDaEquipe = {
   ultimo_acesso: Date | null
 }
 
-/** O pedido que passou por `membroAtivo`: tem o membro, lido do banco agora. */
-export type PedidoDaEquipe = AuthenticatedMedusaRequest & { membro: MembroDaEquipe }
+/** O pedido que passou por `membroAtivo`: tem o membro e o que ele abre, lidos do banco agora. */
+export type PedidoDaEquipe = AuthenticatedMedusaRequest & {
+  membro: MembroDaEquipe
+  /** As áreas que o papel da pessoa abre na matriz de agora (`matrizAtual`). */
+  areas: Area[]
+}
+
+/**
+ * A MATRIZ DE AGORA — o padrão do código (`ACESSO_PADRAO`) com o que o dono
+ * mudou pela tela da equipe (a tabela `equipe_acesso`), lida do banco na
+ * hora. Toda rota do painel pergunta a ela, pelo `membroAtivo`: o dono
+ * salvou, vale no próximo clique de cada pessoa.
+ */
+export async function matrizAtual(container: MedusaContainer): Promise<Matriz> {
+  const ajustes = await container
+    .resolve<EquipeService>(EQUIPE)
+    .listAcessos({}, { select: ["papel", "area", "abre"], take: 500 })
+  return matrizCom(ajustes)
+}
 
 /**
  * DEPOIS DO TOKEN, O BANCO — em toda rota do painel.
@@ -47,7 +65,9 @@ export type PedidoDaEquipe = AuthenticatedMedusaRequest & { membro: MembroDaEqui
  * "tirou da equipe, o acesso cai" ser verdade.
  *
  * Depois dela, o papel que as rotas conferem é o do banco, não o que o token
- * dizia quando foi emitido: mudou o papel, muda no próximo clique.
+ * dizia quando foi emitido: mudou o papel, muda no próximo clique. E o que
+ * o papel abre sai da matriz de agora, lida junto: o dono mudou a tabela da
+ * equipe, muda no próximo clique também.
  */
 async function membroAtivo(
   req: AuthenticatedMedusaRequest,
@@ -56,9 +76,13 @@ async function membroAtivo(
 ) {
   const id = req.auth_context?.actor_id
   let membro: MembroDaEquipe | undefined
+  let matriz: Matriz
   try {
     const equipe = req.scope.resolve<EquipeService>(EQUIPE)
-    membro = id ? ((await equipe.listMembros({ id }))[0] as MembroDaEquipe | undefined) : undefined
+    ;[membro, matriz] = await Promise.all([
+      id ? equipe.listMembros({ id }).then((l) => l[0] as MembroDaEquipe | undefined) : undefined,
+      matrizAtual(req.scope),
+    ])
   } catch (e) {
     next(e)
     return
@@ -68,6 +92,7 @@ async function membroAtivo(
     return
   }
   ;(req as PedidoDaEquipe).membro = membro
+  ;(req as PedidoDaEquipe).areas = areasDo(matriz, membro.papel)
   next()
 }
 
@@ -124,7 +149,16 @@ export async function portaDoPainel(
  * resposta (403 `sem_acesso`) já foi dada — é só voltar.
  */
 export function exigirArea(req: PedidoDaEquipe, res: MedusaResponse, area: Area): boolean {
-  if (podeAbrir(req.membro.papel, area)) return true
+  if (abre(req, area)) return true
   res.status(403).json({ message: "sem_acesso" })
   return false
+}
+
+/**
+ * Se quem pede abre a área agora — pro que mora dentro de uma tela que ele
+ * já abriu: o botão do estorno no pedido, editar no produto, a meta no
+ * Marketing, as visitas inteiras no Início.
+ */
+export function abre(req: PedidoDaEquipe, area: Area): boolean {
+  return req.areas.includes(area)
 }

@@ -1,6 +1,5 @@
 import type { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/framework/http"
-import { exigirArea, type PedidoDaEquipe } from "../../../lib/equipe/acesso"
-import { podeAbrir } from "../../../lib/equipe/regras"
+import { abre, exigirArea, type PedidoDaEquipe } from "../../../lib/equipe/acesso"
 import { estoquesDos, lerProdutos, precosDos } from "../../../lib/painel/ler-produtos"
 import {
   ehFiltroDeProduto,
@@ -37,6 +36,6 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
       FILTROS_DE_PRODUTO.map((f) => [f, linhas.filter((l) => passaNoFiltroDeProduto(l, f)).length])
     ),
     filtro,
-    podeEditar: podeAbrir(pedido.membro.papel, "editarProdutos"),
+    podeEditar: abre(pedido, "editarProdutos"),
   })
 }

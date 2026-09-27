@@ -2,8 +2,21 @@ import type { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/frame
 import { ContainerRegistrationKeys, MedusaError, Modules } from "@medusajs/framework/utils"
 import { emailNoLog, enviarEmail } from "../../../lib/email"
 import { emailDoConvite } from "../../../lib/emails/convite"
-import { exigirArea, TRAVA_DA_EQUIPE, type PedidoDaEquipe } from "../../../lib/equipe/acesso"
-import { ACESSO, emOrdem, lerConvite, membroPublico } from "../../../lib/equipe/regras"
+import {
+  exigirArea,
+  matrizAtual,
+  TRAVA_DA_EQUIPE,
+  type PedidoDaEquipe,
+} from "../../../lib/equipe/acesso"
+import {
+  AREAS_FIXAS,
+  areasDo,
+  DENTRO_DE,
+  emOrdem,
+  lerConvite,
+  MATRIZ_PADRAO,
+  membroPublico,
+} from "../../../lib/equipe/regras"
 import { EQUIPE } from "../../../modules/equipe"
 import type EquipeService from "../../../modules/equipe/service"
 import { convidarMembroWorkflow } from "../../../workflows/equipe/convidar"
@@ -12,16 +25,29 @@ import { convidarMembroWorkflow } from "../../../workflows/equipe/convidar"
  * GET /dashboard/equipe — a equipe do painel, pra tela "Equipe e acessos".
  * Só o dono. Quem foi removido não aparece: pra voltar, é convidar de novo.
  *
- * Vai junto a tabela de quem abre o quê (`ACESSO`): a tela desenha a
- * matriz dos papéis com ela, e não com uma cópia que um dia discordaria.
+ * Vai junto a tabela de quem abre o quê: a de agora (`acesso`, com o que o
+ * dono mudou), a de quando a loja nasceu (`padrao`, pro "Voltar ao
+ * padrão"), as linhas que não mudam (`fixas`) e o que mora dentro de outra
+ * área (`dentroDe`). A tela desenha e liga as caixinhas com elas, e não com
+ * uma cópia que um dia discordaria. Quem salva é o `POST /dashboard/acessos`.
  */
 export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) {
   const pedido = req as PedidoDaEquipe
   if (!exigirArea(pedido, res, "equipe")) return
 
   const equipe = req.scope.resolve<EquipeService>(EQUIPE)
-  const membros = await equipe.listMembros({ situacao: ["ativo", "convidado"] })
-  res.json({ membros: emOrdem(membros).map(membroPublico), eu: pedido.membro.id, acesso: ACESSO })
+  const [membros, acesso] = await Promise.all([
+    equipe.listMembros({ situacao: ["ativo", "convidado"] }),
+    matrizAtual(req.scope),
+  ])
+  res.json({
+    membros: emOrdem(membros).map(membroPublico),
+    eu: pedido.membro.id,
+    acesso,
+    padrao: MATRIZ_PADRAO,
+    fixas: AREAS_FIXAS,
+    dentroDe: DENTRO_DE,
+  })
 }
 
 /**
@@ -66,8 +92,9 @@ export async function POST(req: AuthenticatedMedusaRequest, res: MedusaResponse)
     throw e
   }
 
+  const areas = areasDo(await matrizAtual(req.scope), papel)
   const enviado = await enviarEmail(
-    emailDoConvite({ para: email, nome, papel, quem: pedido.membro.nome }),
+    emailDoConvite({ para: email, nome, papel, areas, quem: pedido.membro.nome }),
     logger
   )
   if (!enviado.ok)

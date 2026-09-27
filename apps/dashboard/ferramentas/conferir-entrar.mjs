@@ -28,6 +28,9 @@
  * │ • um papel vendo a área que não é dele — na tela OU na API;            │
  * │ • papel trocado ou pessoa removida seguindo como antes até o token     │
  * │   vencer (30 dias);                                                    │
+ * │ • a tabela dos acessos mudada pelo dono sem valer no servidor, ou só   │
+ * │   depois do token vencer; o Início, a Equipe ou o dono mudando; o     │
+ * │   estorno abrindo sem os Pedidos; o convite com a lista de antes;      │
  * │ • o dono se removendo ou mudando o próprio papel;                      │
  * │ • o token da equipe abrindo o admin do Medusa;                         │
  * │ • a casca do celular (abas, "Mais") quebrada, ou rolagem de lado;      │
@@ -82,6 +85,14 @@ const entrar = (pagina, contexto, email) =>
 /* ════════════════════════════════════════════════════════════════════════ */
 
 let tokenDoDono = ""
+/** A tabela dos acessos antes da rodada — volta a ser ela no fim, mesmo se a rodada quebrar. */
+let acessoDeAntes = null
+
+/** O corpo do `POST /dashboard/acessos` pra uma matriz: a coluna inteira de cada papel. */
+const colunaDa = (matriz, papel) => Object.keys(matriz).filter((a) => matriz[a].includes(papel))
+const corpoDosAcessos = (matriz) => ({
+  acesso: { operacao: colunaDa(matriz, "operacao"), marketing: colunaDa(matriz, "marketing") },
+})
 
 try {
   titulo("Sem sessão")
@@ -327,6 +338,258 @@ try {
     ok(r.status === 403, "a operação não convida", JSON.stringify(r))
   }
 
+  titulo("O dono muda o que cada papel abre, e vale no próximo clique")
+  {
+    const { pagina } = dono
+    const daApi = async () =>
+      (await medusa("/dashboard/equipe", { metodo: "GET", token: tokenDoDono })).corpo
+    // A rodada começa do padrão, e devolve no fim a tabela que achou.
+    const achada = await daApi()
+    acessoDeAntes = achada.acesso
+    if (JSON.stringify(achada.acesso) !== JSON.stringify(achada.padrao))
+      await medusa("/dashboard/acessos", {
+        token: tokenDoDono,
+        corpo: corpoDosAcessos(achada.padrao),
+      })
+    const antes = await daApi()
+
+    await pagina.goto(`${PAINEL}/configuracoes/equipe`)
+    await hidratado(pagina, ".acessos .matriz__caixa input")
+    // A tela, célula a célula: "sim"/"nao" na caixinha, e o texto onde não tem.
+    const lerTela = () =>
+      pagina.locator(".acessos tbody tr").evaluateAll((linhas) =>
+        Object.fromEntries(
+          linhas.map((tr) => [
+            tr.dataset.area,
+            Object.fromEntries(
+              [...tr.querySelectorAll("td")].map((td) => {
+                const caixa = td.querySelector("input[type=checkbox]")
+                return [
+                  td.dataset.papel,
+                  caixa ? (caixa.checked ? "sim" : "nao") : td.textContent.trim(),
+                ]
+              })
+            ),
+          ])
+        )
+      )
+    const esperado = Object.fromEntries(
+      Object.entries(antes.acesso).map(([area, papeis]) => [
+        area,
+        {
+          dono: "abre",
+          ...Object.fromEntries(
+            ["operacao", "marketing"].map((p) => [
+              p,
+              antes.fixas.includes(area)
+                ? papeis.includes(p)
+                  ? "abre"
+                  : "—"
+                : papeis.includes(p)
+                  ? "sim"
+                  : "nao",
+            ])
+          ),
+        },
+      ])
+    )
+    const tela = await lerTela()
+    ok(
+      JSON.stringify(tela) === JSON.stringify(esperado),
+      "a tabela é a da API: caixinha na operação e no marketing, “abre” no dono",
+      JSON.stringify(tela)
+    )
+    ok(
+      tela.inicio?.operacao === "abre" &&
+        tela.inicio?.marketing === "abre" &&
+        tela.equipe?.operacao === "—" &&
+        tela.equipe?.marketing === "—",
+      "o Início (todos) e a Equipe (só o dono) não têm caixinha"
+    )
+
+    const caixa = (area, papel) =>
+      pagina.locator(`.acessos tr[data-area="${area}"] td[data-papel="${papel}"] input`)
+    await caixa("estornos", "marketing").check()
+    ok(await caixa("pedidos", "marketing").isChecked(), "marcar o estorno marca os Pedidos junto")
+    await caixa("pedidos", "marketing").uncheck()
+    ok(
+      !(await caixa("estornos", "marketing").isChecked()),
+      "desmarcar os Pedidos desmarca o estorno"
+    )
+    ok(
+      (await pagina.locator(".acessos__pendentes").count()) === 0,
+      "de volta ao que estava, nada fica pendente"
+    )
+
+    // A operação ganha os cupons e perde a observabilidade; o marketing perde os carrinhos.
+    await caixa("cupons", "operacao").check()
+    await caixa("observabilidade", "operacao").uncheck()
+    await caixa("carrinhos", "marketing").uncheck()
+    ok(
+      (await textoDe(pagina, ".acessos__pendentes")) === "3 mudanças sem salvar",
+      "a tela conta o que falta salvar",
+      await textoDe(pagina, ".acessos__pendentes")
+    )
+    ok(
+      (await pagina.locator(".acessos td[data-mudado]").count()) === 3,
+      "o que ficou diferente do padrão fica em amarelo"
+    )
+    await pagina.click(".acessos button:has-text('Salvar acessos')")
+    await pagina.waitForSelector(`.aviso:not([data-fora])`, { timeout: 10000 })
+    ok(
+      (await textoDe(pagina, ".aviso")) ===
+        "Acessos salvos: 3 mudanças. Vale a partir do próximo clique de cada pessoa.",
+      "o aviso confirma",
+      await textoDe(pagina, ".aviso")
+    )
+    // O aviso entra antes da tabela refeita: espera o "sem salvar" sair.
+    await pagina
+      .locator(".acessos__pendentes")
+      .waitFor({ state: "detached", timeout: 10000 })
+      .catch(() => {})
+    const depois = await daApi()
+    ok(
+      depois.acesso.cupons.includes("operacao") &&
+        !depois.acesso.observabilidade.includes("operacao") &&
+        !depois.acesso.carrinhos.includes("marketing"),
+      "a API guardou as três",
+      JSON.stringify(depois.acesso)
+    )
+    ok(
+      depois.acesso.inicio.join() === "dono,operacao,marketing" &&
+        depois.acesso.equipe.join() === "dono" &&
+        Object.values(depois.acesso).every((papeis) => papeis.includes("dono")),
+      "o Início, a Equipe e o dono seguem iguais"
+    )
+    ok(
+      JSON.stringify(await lerTela()) !== JSON.stringify(tela) &&
+        (await pagina.locator(".acessos td[data-mudado]").count()) === 3,
+      "a tabela refeita é a salva, com as três em amarelo"
+    )
+
+    const { pagina: pOp } = op
+    await pOp.goto(`${PAINEL}/`)
+    const itens = await menu(pOp)
+    ok(
+      itens.includes("Cupons e descontos") && !itens.includes("Observabilidade"),
+      "no próximo clique, o menu da operação já é outro",
+      itens.join(", ")
+    )
+    await pOp.goto(`${PAINEL}/cupons`)
+    ok((await textoDe(pOp, "h1")) === "Cupons e descontos", "os cupons abrem pra ela")
+    await pOp.goto(`${PAINEL}/observabilidade`)
+    ok(
+      (await textoDe(pOp, "h1")) === "Essa área não é do seu papel",
+      "a observabilidade fechou pra ela na hora"
+    )
+    ok(
+      (await textoDe(pOp, ".sem-acesso p")).includes("“Observabilidade”") &&
+        (await textoDe(pOp, ".sem-acesso p")).includes("Equipe e acessos"),
+      "e a tela diz o que fechou e a quem pedir",
+      await textoDe(pOp, ".sem-acesso p")
+    )
+    let r = await medusa("/dashboard/cupons", { metodo: "GET", token: tokenDaOperacao })
+    ok(r.status === 200, "a API dos cupons responde a ela", String(r.status))
+    r = await medusa("/dashboard/observabilidade", { metodo: "GET", token: tokenDaOperacao })
+    ok(
+      r.status === 403 && r.corpo.message === "sem_acesso",
+      "e a da observabilidade, não",
+      JSON.stringify(r)
+    )
+
+    // O convite de quem ainda não entrou diz o que o papel abre AGORA.
+    const doMkt = pagina.locator(".linha", { hasText: MARKETING })
+    await doMkt.locator("button", { hasText: "Mudar" }).click()
+    const resumoDoMkt = (await doMkt.locator(".pessoa__mudar .campo__ajuda").textContent()) ?? ""
+    ok(
+      resumoDoMkt.startsWith("Marketing: abre") && !resumoDoMkt.includes("Carrinhos"),
+      "o resumo do papel, no “Mudar”, é o da tabela nova",
+      resumoDoMkt
+    )
+    const antesDoReenvio = quantos(MARKETING, doConvite)
+    await doMkt.locator("button", { hasText: "Reenviar convite" }).click()
+    const convite = await esperarEmail(MARKETING, doConvite, antesDoReenvio)
+    ok(
+      /Cupons e descontos/.test(convite?.text ?? "") &&
+        !/Carrinhos abandonados/.test(convite?.text ?? ""),
+      "o convite reenviado lista o que o papel abre agora",
+      convite?.text?.split("\n").find((l) => l.startsWith("Com esse papel"))
+    )
+
+    // O que a tela não deixa, a API também não.
+    const base = corpoDosAcessos(depois.acesso)
+    const com = (papel, ...areas) => ({
+      acesso: { ...base.acesso, [papel]: [...base.acesso[papel], ...areas] },
+    })
+    r = await medusa("/dashboard/acessos", { token: tokenDaOperacao, corpo: base })
+    ok(
+      r.status === 403 && r.corpo.message === "sem_acesso",
+      "a operação não mexe nos acessos",
+      JSON.stringify(r)
+    )
+    r = await medusa("/dashboard/acessos", {
+      token: tokenDoDono,
+      corpo: com("marketing", "equipe"),
+    })
+    ok(
+      r.status === 400 && r.corpo.message === "linha_fixa",
+      "ninguém ganha a Equipe",
+      JSON.stringify(r)
+    )
+    r = await medusa("/dashboard/acessos", {
+      token: tokenDoDono,
+      corpo: com("marketing", "estornos"),
+    })
+    ok(
+      r.status === 400 && r.corpo.message === "sem_a_area_de_fora",
+      "o estorno não abre sem os Pedidos",
+      JSON.stringify(r)
+    )
+    r = await medusa("/dashboard/acessos", {
+      token: tokenDoDono,
+      corpo: { acesso: { ...base.acesso, dono: ["inicio"] } },
+    })
+    ok(
+      r.status === 400 && r.corpo.message === "acessos_invalidos",
+      "a coluna do dono não se manda",
+      JSON.stringify(r)
+    )
+    r = await medusa("/dashboard/acessos", { token: tokenDoDono, corpo: base })
+    ok(
+      r.status === 200 && Array.isArray(r.corpo.mudou) && r.corpo.mudou.length === 0,
+      "salvar a mesma tabela não muda nada",
+      JSON.stringify(r.corpo.mudou)
+    )
+
+    await pagina.goto(`${PAINEL}/configuracoes/equipe`)
+    await hidratado(pagina, ".acessos .matriz__caixa input")
+    await pagina.click(".acessos button:has-text('Voltar ao padrão')")
+    ok(
+      (await textoDe(pagina, ".acessos__pendentes")) === "3 mudanças sem salvar",
+      "“Voltar ao padrão” desfaz as três na tela"
+    )
+    await pagina.click(".acessos button:has-text('Salvar acessos')")
+    await pagina.waitForSelector(`.aviso:not([data-fora])`, { timeout: 10000 })
+    await pagina
+      .locator(".acessos__pendentes")
+      .waitFor({ state: "detached", timeout: 10000 })
+      .catch(() => {})
+    const fim = await daApi()
+    ok(
+      JSON.stringify(fim.acesso) === JSON.stringify(fim.padrao),
+      "salvo, a loja volta ao padrão",
+      JSON.stringify(fim.acesso)
+    )
+    ok((await pagina.locator(".acessos td[data-mudado]").count()) === 0, "e nada fica em amarelo")
+    await pOp.goto(`${PAINEL}/`)
+    const deVolta = await menu(pOp)
+    ok(
+      deVolta.includes("Observabilidade") && !deVolta.includes("Cupons e descontos"),
+      "e o menu da operação volta a ser o de antes",
+      deVolta.join(", ")
+    )
+  }
+
   titulo("O dono muda o papel, e vale no próximo clique")
   {
     const { pagina } = dono
@@ -452,6 +715,15 @@ try {
     await pagina.waitForURL(/\/configuracoes\/empresa$/, { timeout: 15000 })
     ok((await pagina.locator(".folha").count()) === 0, "escolher pra onde ir fecha o “Mais”")
     ok(await semRolagemDeLado(pagina), "sem rolagem de lado nas configurações")
+    await pagina.goto(`${PAINEL}/configuracoes/equipe`)
+    await hidratado(pagina, ".acessos .matriz__caixa input")
+    ok(await semRolagemDeLado(pagina), "nem na tabela dos acessos")
+    ok(
+      await pagina
+        .locator(".acessos .tabela-rola")
+        .evaluate((el) => el.scrollWidth <= el.clientWidth + 1),
+      "a tabela cabe inteira, sem rolar dentro dela"
+    )
     await contexto.close()
   }
 
@@ -476,8 +748,14 @@ try {
 } catch (e) {
   falhou(e instanceof Error ? e.message : String(e))
 } finally {
-  // Arruma a casa: quem esta rodada convidou sai da equipe. O token do dono
-  // ainda vale no Medusa depois do "Sair" — ele só existia no cookie.
+  // Arruma a casa: a tabela dos acessos volta a ser a de antes, e quem esta
+  // rodada convidou sai da equipe. O token do dono ainda vale no Medusa
+  // depois do "Sair" — ele só existia no cookie.
+  if (tokenDoDono && acessoDeAntes)
+    await medusa("/dashboard/acessos", {
+      token: tokenDoDono,
+      corpo: corpoDosAcessos(acessoDeAntes),
+    })
   if (tokenDoDono) {
     const r = await medusa("/dashboard/equipe", { metodo: "GET", token: tokenDoDono })
     for (const m of r.corpo.membros ?? [])
