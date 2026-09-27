@@ -6,15 +6,18 @@ import { integracoesLigadas, medicaoLigada } from "@/lib/rastrear"
  * AS TAGS DE CADA PARCEIRO, em dois tempos (`tags.tsx` chama, e baixa este
  * arquivo só quando alguma liga):
  *
- * 1. O GA4 LIGA NA PRIMEIRA PÁGINA, antes da resposta da faixa — como na
- *    Nuvemshop, que contava todo mundo (0166: o dono quer as visitas contadas
- *    do mesmo jeito). Liga com a medição permitida e o anúncio negado (o modo
- *    do consentimento do Google): conta a visita, e não guarda nada pra
- *    anúncio. Quem clica em "Só o necessário" sai da conta: o GA4 nem liga, e
- *    se já estava na página, ela recarrega sem ele (`consentimento.tsx`).
+ * 1. O GA4 E A CLARITY LIGAM NA PRIMEIRA PÁGINA, antes da resposta da faixa
+ *    — como na Nuvemshop, que contava e gravava todo mundo (0166: o dono quer
+ *    as visitas contadas do mesmo jeito; 0171: e a jornada de quem não
+ *    responde, na Clarity). Ligam com a medição permitida e o anúncio negado
+ *    (o modo do consentimento do Google e o `consentv2` da Clarity): contam e
+ *    gravam a visita, e não guardam nada pra anúncio. Quem clica em "Só o
+ *    necessário" sai: os dois nem ligam, e se já estavam na página, ela
+ *    recarrega sem eles (`consentimento.tsx`).
  * 2. O RESTO SÓ DEPOIS DO "ACEITAR": o anúncio do Google (o `consent update`
- *    e o Google Ads), a Meta, o TikTok e a Clarity. Antes dele não existe
- *    script deles na página — é o que a política de privacidade promete.
+ *    e o Google Ads) e o da Microsoft (o `consentv2`), a Meta e o TikTok.
+ *    Antes dele não existe script deles na página — é o que a política de
+ *    privacidade promete.
  *
  * O trecho de cada um é o oficial da plataforma, com o código de dentro
  * conferido de novo aqui (`FORMATO`, o mesmo do backend): o código vai
@@ -47,18 +50,19 @@ function trecho(js: string) {
 }
 
 let medindo = false
+let gravando = false
 let ligadas = false
 
 /**
  * Liga o que a resposta permite, uma vez por página (a troca de página não
- * recarrega o layout): sem resposta, só o GA4; com o sim, tudo. O sim que
- * chega com o GA4 já no ar só acrescenta.
+ * recarrega o layout): sem resposta, o GA4 e a Clarity; com o sim, tudo. O
+ * sim que chega com eles já no ar só acrescenta.
  */
 export function ligarIntegracoes(i: Integracoes, sim: boolean) {
   if (typeof window === "undefined" || ligadas) return
   // Antes de qualquer script do sim: cada um lê a campanha no endereço quando liga
-  // (`lib/chegada.ts`). O GA4 já leu na chegada, se ligou lá — e vê a campanha
-  // voltar como uma página a mais, só de quem aceita depois de trocar de página.
+  // (`lib/chegada.ts`). O GA4 e a Clarity já leram na chegada, se ligaram lá — e veem
+  // a campanha voltar como uma página a mais, só de quem aceita depois de trocar de página.
   if (sim) devolverACampanha()
 
   const ga4 = codigo(i, "ga4")
@@ -78,16 +82,30 @@ ${ga4 ? `gtag('config', '${ga4}');` : ""}`)
     s.async = true
     s.src = `https://www.googletagmanager.com/gtag/js?id=${ga4 ?? ads}`
     document.head.appendChild(s)
-    medicaoLigada()
   }
+
+  // A gravação da Clarity: a jornada de quem aceita e de quem não responde (0171).
+  const clarity = codigo(i, "clarity")
+  if (!gravando && clarity) {
+    gravando = true
+    trecho(`
+(function(c,l,a,r,i,t,y){
+c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+})(window, document, "clarity", "script", "${clarity}");
+window.clarity('consentv2', {ad_Storage: '${anuncio}', analytics_Storage: 'granted'});`)
+  }
+  if (medindo || gravando) medicaoLigada()
   if (!sim) return
   ligadas = true
-  // O GA4 no ar desde antes da resposta: o anúncio do Google passa a valer.
+  // O GA4 e a Clarity no ar desde antes da resposta: o anúncio de cada um passa a valer.
   window.gtag?.("consent", "update", {
     ad_storage: "granted",
     ad_user_data: "granted",
     ad_personalization: "granted",
   })
+  window.clarity?.("consentv2", { ad_Storage: "granted", analytics_Storage: "granted" })
   if (ads) window.gtag?.("config", ads)
 
   const meta = codigo(i, "metaPixel")
@@ -113,16 +131,6 @@ var e=ttq._i[t]||[],n=0;n<ttq.methods.length;n++)ttq.setAndDefer(e,ttq.methods[n
   ttq.load('${tiktok}');
   ttq.page();
 }(window, document, 'ttq');`)
-
-  const clarity = codigo(i, "clarity")
-  if (clarity)
-    trecho(`
-(function(c,l,a,r,i,t,y){
-c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
-t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
-y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-})(window, document, "clarity", "script", "${clarity}");
-window.clarity('consentv2', {ad_Storage: 'granted', analytics_Storage: 'granted'});`)
 
   // As funções de cada um já existem (os trechos guardam a chamada até o script chegar).
   integracoesLigadas()

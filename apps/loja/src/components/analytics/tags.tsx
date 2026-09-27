@@ -12,13 +12,14 @@ import { Consentimento, useConsentimento } from "./consentimento"
  * Microsoft Clarity, com os códigos do painel (Configurações → Integrações;
  * o layout raiz passa).
  *
- * O GA4 CONTA TODO MUNDO, COMO NA NUVEMSHOP (0166, pedido do dono: lá o GA4
- * ligava sem perguntar, e as visitas da loja nova ficavam bem abaixo).
- * Ele liga na primeira página, antes da resposta, só pra medir; quem clica em
- * "Só o necessário" sai da conta. O resto — o anúncio do Google, a Meta, o
- * TikTok, a Clarity e o CRM da própria loja — segue esperando o "Aceitar":
- * sem o sim, a página não tem script de nenhum deles. A política de
- * privacidade diz as duas coisas.
+ * O GA4 E A CLARITY MEDEM TODO MUNDO, COMO NA NUVEMSHOP (0166, pedido do
+ * dono: lá o GA4 ligava sem perguntar, e as visitas da loja nova ficavam bem
+ * abaixo; 0171: a Clarity também, pra ver a jornada de quem não responde a
+ * faixa). Os dois ligam na primeira página, antes da resposta, só pra medir;
+ * quem clica em "Só o necessário" sai. O resto — o anúncio do Google e da
+ * Microsoft, a Meta, o TikTok e o CRM da própria loja — segue esperando o
+ * "Aceitar": sem o sim, a página não tem script de nenhum deles. A política
+ * de privacidade diz as duas coisas.
  *
  * Os trechos dos parceiros moram noutro pedaço de JavaScript (`import()`),
  * que só baixa quando alguma tag liga: a primeira tela de quem não tem nada
@@ -37,7 +38,7 @@ export function Tags({ integracoes }: { integracoes: Integracoes }) {
 
   useEffect(() => {
     const sim = estado === "sim"
-    if (!sim && !(estado === "sem-resposta" && integracoes.ga4)) return
+    if (!sim && !(estado === "sem-resposta" && (integracoes.ga4 || integracoes.clarity))) return
     let valendo = true
     import("./integracoes").then(
       (m) => {
@@ -58,5 +59,12 @@ export function Tags({ integracoes }: { integracoes: Integracoes }) {
     if (chegada) anotarNaLoja("visita", chegada.dados, { onde: chegada.onde })
   }, [])
 
-  return <Consentimento parceiros={parceiros} estado={estado} ga4={integracoes.ga4} />
+  return (
+    <Consentimento
+      parceiros={parceiros}
+      estado={estado}
+      ga4={integracoes.ga4}
+      clarity={integracoes.clarity}
+    />
+  )
 }

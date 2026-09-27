@@ -462,7 +462,7 @@ export function FormularioDasIntegracoes({
         </div>
         <Acoes
           salvando={salvando}
-          nota="O GA4 carrega pra todo mundo (quem recusa os cookies sai); os outros, depois do “Aceitar”."
+          nota="O GA4 e a Clarity carregam pra todo mundo (quem recusa os cookies sai); os outros, depois do “Aceitar”."
         />
       </Bloco>
     </form>

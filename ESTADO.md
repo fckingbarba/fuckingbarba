@@ -3632,6 +3632,37 @@ Depois do deploy — **nada a configurar.** Pra ver: numa aba anônima, abra a l
 faixa; no Google Analytics, em Relatórios → Tempo real, a visita aparece. O dia 27/09 fica com o
 buraco: entre a virada e este deploy, a loja nova só contou quem aceitou.
 
+**A Clarity grava também quem não responde a faixa — pronto em 27/09 (entrega 0171).** Depois da
+0166 ele perguntou se a Clarity ia aparecer mais, e pediu: "quero que o Clarity mostre quem clica
+em aceitar e quem não clica, porque com isso eu consigo ver a jornada de usuários".
+
+- **O que muda:** a Clarity liga na primeira página junto com o GA4, antes da resposta, só pra
+  gravar (o `consentv2` com o anúncio da Microsoft negado até o sim). Quem clica em "Só o
+  necessário" fica fora, como no GA4: a Clarity para, os cookies dela (`_clck`, `_clsk`) saem e a
+  página recarrega sem ela. Com o sim, o anúncio da Microsoft passa a valer.
+- **As marcas da Clarity** (sacola, checkout, entrega, pagamento, Pix copiado, cupom) saem junto
+  com o GA4, também de quem não respondeu — é o que acha a sessão de quem chegou em cada passo.
+- **O que a pessoa digita segue coberto:** o checkout, a tela de obrigado, a conta, a avaliação e
+  o "sair da lista" gravam com tudo coberto (`data-clarity-mask`).
+- **A campanha na Clarity** agora vem da própria página de chegada (antes, só voltava pro endereço
+  no "Aceitar", 0162).
+- **A faixa:** "O Google Analytics e a Clarity medem as visitas. Com o seu sim, também usamos
+  cookies da própria loja, do Google, da Meta… pra lembrar o que você viu e mostrar anúncios. Você
+  escolhe." No celular, segue com 4 linhas.
+- **A política de privacidade:** a gravação da Clarity entra na medição por legítimo interesse, com
+  o GA4, e para com o "Só o necessário"; o anúncio da Microsoft entra no consentimento. A versão da
+  faixa não sobe (pelo mesmo motivo da 0166).
+- **O painel:** a nota das Integrações diz que o GA4 e a Clarity carregam pra todo mundo.
+
+Conferido pelo `conferir-integracoes.mjs` (36; 8 mudadas: a Clarity antes da resposta com o
+anúncio negado, o "Só o necessário" tirando também a Clarity e os cookies dela, o "Aceitar"
+liberando o anúncio da Microsoft sem carregar a Clarity de novo, e a resposta de antes que não
+vale ligando o GA4 e a Clarity). No Lighthouse (o `lhci` como o CI), a home fica com o mesmo HTML e
+CSS e 0,1 KB a mais de JavaScript (a frase de quem mede), e passa com o melhor LCP de antes.
+
+Depois do deploy — **nada a configurar.** Pra ver: na Clarity, as gravações de depois do deploy
+incluem quem não respondeu a faixa (a partir dali, o número de sessões sobe).
+
 **O `/trocas` sem a linha do frete de volta — pronto em 27/09 (entrega 0164).** Saiu da seção
 "Desistiu?" o "Quem paga o frete de volta", que estava no ar com a tarja vermelha de pendente.
 Orientação jurídica: não precisa estar no site — então a linha não volta, nem como pendência. Era a

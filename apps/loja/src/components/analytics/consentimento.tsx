@@ -60,11 +60,12 @@ function apagarOsCookiesDosParceiros() {
 /**
  * A resposta da faixa. O "não" também pede à loja pra esquecer este
  * navegador (`/api/eventos`, DELETE): o cookie do visitante sai, e o que o
- * CRM anotou dele é apagado. Se já tem tag na página — o GA4, que liga antes
- * da resposta, ou todas, de quem tinha dito sim e mudou de ideia pela
- * política de privacidade —, o GA4 para na hora (a chave de desligar do
- * próprio Google), os cookies dos parceiros saem e a página recarrega: é o
- * único jeito de tirar um script que já carregou. O "não" não vira evento.
+ * CRM anotou dele é apagado. Se já tem tag na página — o GA4 e a Clarity, que
+ * ligam antes da resposta, ou todas, de quem tinha dito sim e mudou de ideia
+ * pela política de privacidade —, o GA4 e a Clarity param na hora (a chave de
+ * desligar do Google e o `consentv2` negado da Clarity), os cookies dos
+ * parceiros saem e a página recarrega: é o único jeito de tirar um script que
+ * já carregou. O "não" não vira evento.
  */
 function responder(resposta: Resposta, parceiros: Parceiro[], ga4: string | null) {
   document.cookie = `${COOKIE_CONSENTIMENTO}=${valorDoConsentimento(resposta, parceiros)}; Max-Age=${UM_ANO}; Path=/; SameSite=Lax; Secure`
@@ -76,6 +77,7 @@ function responder(resposta: Resposta, parceiros: Parceiro[], ga4: string | null
   fetch("/api/eventos", { method: "DELETE", keepalive: true }).catch(() => undefined)
   if (!tagsNaPagina()) return
   if (ga4) Object.assign(window, { [`ga-disable-${ga4}`]: true })
+  window.clarity?.("consentv2", { ad_Storage: "denied", analytics_Storage: "denied" })
   apagarOsCookiesDosParceiros()
   window.location.reload()
 }
@@ -88,10 +90,10 @@ const emLista = (nomes: string[]) =>
 
 /**
  * Faixa de consentimento (LGPD): discreta, dois botões de peso igual, sem
- * parede. Diz o que já está medindo (o GA4, com o código dele no painel) e A
- * QUEM a pessoa está dizendo sim — a própria loja, que anota o que ela faz
- * pro CRM, e os parceiros ligados no painel —, e a resposta vive num cookie
- * próprio por 12 meses. No checkout, ela vai gravada no pedido
+ * parede. Diz o que já está medindo (o GA4 e a Clarity, com o código no
+ * painel) e A QUEM a pessoa está dizendo sim — a própria loja, que anota o
+ * que ela faz pro CRM, e os parceiros ligados no painel —, e a resposta vive
+ * num cookie próprio por 12 meses. No checkout, ela vai gravada no pedido
  * (`fb_rastro.consentimento`): a compra só sai pelo servidor pros parceiros
  * que ouviram sim — e pro GA4 de quem não disse não.
  *
@@ -104,10 +106,12 @@ export function Consentimento({
   parceiros,
   estado,
   ga4,
+  clarity,
 }: {
   parceiros: Parceiro[]
   estado: Estado
   ga4: string | null
+  clarity: string | null
 }) {
   if (estado !== "sem-resposta") return null
   const nomes = emLista([
@@ -115,6 +119,14 @@ export function Consentimento({
     ...parceiros.map((p) => `${ARTIGO[p]} ${NOME_DO_PARCEIRO[p]}`),
   ])
   const anuncio = parceiros.some((p) => p !== "clarity")
+  // Quem já mede antes da resposta (0166 e 0171) abre a frase.
+  const medem = ga4
+    ? clarity
+      ? "O Google Analytics e a Clarity medem"
+      : "O Google Analytics conta"
+    : clarity
+      ? "A Clarity mede"
+      : null
 
   return (
     <div
@@ -124,18 +136,20 @@ export function Consentimento({
       className="fixed inset-x-2 bottom-[calc(var(--pe-da-tela,0px)_+_0.5rem)] z-50 mx-auto max-w-xl border-2 border-tinta bg-papel p-3 shadow-dura-sm transition-[bottom] duration-[260ms] ease-[cubic-bezier(0.22,0.61,0.36,1)] motion-reduce:transition-none sm:inset-x-4 sm:bottom-[calc(var(--pe-da-tela,0px)_+_1rem)] sm:p-4"
     >
       <p className="text-xs leading-snug text-tinta sm:text-sm">
-        {ga4 ? "O Google Analytics conta as visitas. Com o seu sim, também usamos" : "Usamos"}{" "}
-        cookies {nomes} pra lembrar o que você viu
+        {medem ? `${medem} as visitas. Com o seu sim, também usamos` : "Usamos"} cookies {nomes} pra
+        lembrar o que você viu
         {/*
-          Com a frase do GA4 na frente, o fim encurta: com os cinco parceiros, a
-          faixa segue em 4 linhas num celular de 390 px (139 px; o
-          conferir-integracoes cobra até 150).
+          Com a frase de quem já mede na frente, o fim encurta: com os cinco
+          parceiros, a faixa segue em 4 linhas num celular de 390 px (o
+          conferir-integracoes cobra até 150 px).
         */}
-        {anuncio
-          ? ga4
-            ? ", medir e mostrar anúncios"
-            : ", medir o que funciona e mostrar anúncios menos aleatórios"
-          : " e medir o que funciona"}
+        {medem
+          ? anuncio
+            ? " e mostrar anúncios"
+            : ""
+          : anuncio
+            ? ", medir o que funciona e mostrar anúncios menos aleatórios"
+            : " e medir o que funciona"}
         . Você escolhe.{" "}
         {/*
           Sem pré-carregar: a faixa aparece na primeira tela de todo mundo, e o

@@ -9,10 +9,10 @@
  * TikTok pelos eventos padrão deles (ViewContent, AddToCart,
  * InitiateCheckout, AddPaymentInfo) e a Clarity como marca na gravação.
  *
- * DUAS PORTAS, como as tags (`components/analytics/integracoes.ts`): a do
- * Google abre quando o gtag liga — o GA4, desde a primeira página, antes da
- * resposta da faixa (0166) —, e a dos outros parceiros e do CRM, só com o
- * "Aceitar". Até a porta abrir, o evento espera na memória da página (com
+ * DUAS PORTAS, como as tags (`components/analytics/integracoes.ts`): a da
+ * medição abre quando o GA4 ou a Clarity ligam — desde a primeira página,
+ * antes da resposta da faixa (0166 e 0171) —, e a dos outros parceiros e do
+ * CRM, só com o "Aceitar". Até a porta abrir, o evento espera na memória da página (com
  * teto) — a visita ao produto acontece no mesmo instante em que as tags
  * ligam, e o efeito do produto roda antes do das tags. Porta que não abre
  * (o "Só o necessário") leva a fila junto com a página, sem ter saído do
@@ -120,17 +120,17 @@ function porta() {
   }
 }
 
-/** O gtag: o GA4 (sem resposta ou com o sim) e o Google Ads (com o sim). */
-const google = porta()
-/** A Meta, o TikTok, a Clarity e o CRM da loja: só com o "Aceitar". */
+/** O gtag e a Clarity: o GA4 e a gravação (sem resposta ou com o sim), e o Google Ads (com o sim). */
+const medicao = porta()
+/** A Meta, o TikTok e o CRM da loja: só com o "Aceitar". */
 const sim = porta()
 
-/** O gtag acabou de ligar: sai o que o GA4 estava esperando. */
-export const medicaoLigada = google.abrir
+/** O GA4 ou a Clarity acabaram de ligar: sai o que eles estavam esperando. */
+export const medicaoLigada = medicao.abrir
 /** As tags do sim acabaram de ligar (depois do "Aceitar"): sai o que estava esperando. */
 export const integracoesLigadas = sim.abrir
 /** Tem script de parceiro nesta página? (O "não" recarrega a página pra tirá-lo.) */
-export const tagsNaPagina = () => google.aberta() || sim.aberta()
+export const tagsNaPagina = () => medicao.aberta() || sim.aberta()
 
 export function rastrear<E extends EventoRastreado>(nome: E["nome"], dados: E["dados"]): void {
   if (typeof window === "undefined") return
@@ -138,7 +138,10 @@ export function rastrear<E extends EventoRastreado>(nome: E["nome"], dados: E["d
     console.debug("[rastrear]", nome, dados)
   }
   const onde = ondeAgora()
-  google.quando(() => window.gtag?.("event", nome, dados))
+  medicao.quando(() => {
+    window.gtag?.("event", nome, dados)
+    if (NA_CLARITY.has(nome)) window.clarity?.("event", nome)
+  })
   sim.quando(() => mandar(nome, dados, onde))
 }
 
@@ -206,8 +209,6 @@ function mandar(nome: EventoRastreado["nome"], dados: EventoRastreado["dados"], 
       currency: dados.currency,
     })
   }
-
-  if (NA_CLARITY.has(nome)) w.clarity?.("event", nome)
 }
 
 /** A linha da sacola, como o rastreio precisa dela (`ItemDoCarrinho`). */
