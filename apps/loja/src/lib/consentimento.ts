@@ -36,14 +36,6 @@ export type Consentimento = { resposta: Resposta; parceiros: Parceiro[] }
 const LETRA: Record<Parceiro, string> = { google: "g", meta: "m", tiktok: "t", clarity: "c" }
 const ORDEM: Parceiro[] = ["google", "meta", "tiktok", "clarity"]
 
-/** O nome de quem recebe, na faixa. */
-export const NOME_DO_PARCEIRO: Record<Parceiro, string> = {
-  google: "Google",
-  meta: "Meta",
-  tiktok: "TikTok",
-  clarity: "Microsoft",
-}
-
 /** Os parceiros que as integrações do painel ligam. */
 export function parceirosDe(i: Integracoes): Parceiro[] {
   return ORDEM.filter((p) =>
