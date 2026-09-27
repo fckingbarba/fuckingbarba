@@ -1,11 +1,9 @@
 "use client"
 
 import { useSyncExternalStore } from "react"
-import Link from "next/link"
 import {
   COOKIE_CONSENTIMENTO,
   lerConsentimento,
-  NOME_DO_PARCEIRO,
   respostaQueVale,
   valorDoConsentimento,
   type Parceiro,
@@ -82,18 +80,15 @@ function responder(resposta: Resposta, parceiros: Parceiro[], ga4: string | null
   window.location.reload()
 }
 
-/** "do Google", "da Meta", "do TikTok", "da Microsoft". */
-const ARTIGO: Record<Parceiro, string> = { google: "do", meta: "da", tiktok: "do", clarity: "da" }
-
-const emLista = (nomes: string[]) =>
-  nomes.length > 1 ? `${nomes.slice(0, -1).join(", ")} e ${nomes.at(-1)}` : (nomes[0] ?? "")
-
 /**
- * Faixa de consentimento (LGPD): discreta, dois botões de peso igual, sem
- * parede. Diz o que já está medindo (o GA4 e a Clarity, com o código no
- * painel) e A QUEM a pessoa está dizendo sim — a própria loja, que anota o
- * que ela faz pro CRM, e os parceiros ligados no painel —, e a resposta vive
- * num cookie próprio por 12 meses. No checkout, ela vai gravada no pedido
+ * Faixa de cookies (LGPD): discreta, dois botões de peso igual, sem parede.
+ * O TEXTO É O DA NUVEMSHOP, com o destaque de lá (0172, pedido do dono:
+ * "deixar como era o meu da nuvemshop"). Os botões ficam: o "Só o
+ * necessário" é o jeito de recusar (tira o GA4 e a Clarity, que medem antes
+ * da resposta), e o "Aceitar" liga os anúncios e o CRM da loja. A política
+ * de privacidade segue no rodapé de toda página. A resposta vive num cookie
+ * próprio por 12 meses, com os parceiros ligados no painel (entrou um novo,
+ * a faixa pergunta de novo). No checkout, ela vai gravada no pedido
  * (`fb_rastro.consentimento`): a compra só sai pelo servidor pros parceiros
  * que ouviram sim — e pro GA4 de quem não disse não.
  *
@@ -106,27 +101,12 @@ export function Consentimento({
   parceiros,
   estado,
   ga4,
-  clarity,
 }: {
   parceiros: Parceiro[]
   estado: Estado
   ga4: string | null
-  clarity: string | null
 }) {
   if (estado !== "sem-resposta") return null
-  const nomes = emLista([
-    "da própria loja",
-    ...parceiros.map((p) => `${ARTIGO[p]} ${NOME_DO_PARCEIRO[p]}`),
-  ])
-  const anuncio = parceiros.some((p) => p !== "clarity")
-  // Quem já mede antes da resposta (0166 e 0171) abre a frase.
-  const medem = ga4
-    ? clarity
-      ? "O Google Analytics e a Clarity medem"
-      : "O Google Analytics conta"
-    : clarity
-      ? "A Clarity mede"
-      : null
 
   return (
     <div
@@ -136,34 +116,8 @@ export function Consentimento({
       className="fixed inset-x-2 bottom-[calc(var(--pe-da-tela,0px)_+_0.5rem)] z-50 mx-auto max-w-xl border-2 border-tinta bg-papel p-3 shadow-dura-sm transition-[bottom] duration-[260ms] ease-[cubic-bezier(0.22,0.61,0.36,1)] motion-reduce:transition-none sm:inset-x-4 sm:bottom-[calc(var(--pe-da-tela,0px)_+_1rem)] sm:p-4"
     >
       <p className="text-xs leading-snug text-tinta sm:text-sm">
-        {medem ? `${medem} as visitas. Com o seu sim, também usamos` : "Usamos"} cookies {nomes} pra
-        lembrar o que você viu
-        {/*
-          Com a frase de quem já mede na frente, o fim encurta: com os cinco
-          parceiros, a faixa segue em 4 linhas num celular de 390 px (o
-          conferir-integracoes cobra até 150 px).
-        */}
-        {medem
-          ? anuncio
-            ? " e mostrar anúncios"
-            : ""
-          : anuncio
-            ? ", medir o que funciona e mostrar anúncios menos aleatórios"
-            : " e medir o que funciona"}
-        . Você escolhe.{" "}
-        {/*
-          Sem pré-carregar: a faixa aparece na primeira tela de todo mundo, e o
-          prefetch baixaria a política (o HTML dela, o CSS e o JS das páginas
-          institucionais) no meio do carregamento da página — na home, isso
-          custava um degrau inteiro no LCP do Lighthouse (entrega 0130).
-        */}
-        <Link
-          href="/privacidade"
-          prefetch={false}
-          className="font-bold underline underline-offset-2"
-        >
-          Como usamos seus dados
-        </Link>
+        Ao navegar por este site <b>você aceita o uso de cookies</b> para agilizar a sua experiência
+        de compra.
       </p>
       <div className="mt-2 grid grid-cols-2 gap-2 sm:mt-3">
         <button

@@ -355,10 +355,10 @@ try {
   const faixa = recusa.pagina.locator("[data-faixa-de-cookies]")
   await faixa.waitFor({ timeout: 20000 })
   ok(
-    semEspaco(await faixa.textContent()).includes(
-      "O Google Analytics e a Clarity medem as visitas. Com o seu sim, também usamos cookies da própria loja, do Google, da Meta, do TikTok e da Microsoft"
+    semEspaco(await faixa.textContent()).startsWith(
+      "Ao navegar por este site você aceita o uso de cookies para agilizar a sua experiência de compra."
     ),
-    "a faixa diz que o GA4 e a Clarity já medem, e a quem é o sim: a própria loja, Google, Meta, TikTok e Microsoft",
+    "a faixa com o texto da Nuvemshop (0172)",
     semEspaco(await faixa.textContent())
   )
   await aMedicaoLigou(recusa.pagina)

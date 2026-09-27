@@ -277,8 +277,8 @@ try {
     )
     const faixa = semEspaco(await pagina.locator("[data-faixa-de-cookies] p").textContent())
     ok(
-      faixa.startsWith("Usamos cookies da própria loja"),
-      "a faixa diz que a própria loja anota (mesmo sem parceiro ligado)",
+      faixa.startsWith("Ao navegar por este site você aceita o uso de cookies"),
+      "a faixa aparece mesmo sem parceiro ligado, com o texto da Nuvemshop (0172)",
       faixa
     )
     await responderAFaixa(pagina, "Só o necessário")
