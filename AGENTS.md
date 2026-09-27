@@ -473,6 +473,40 @@ que o valor dela não faz o pedido "pago" pra etiqueta, pra nota nem pro e-mail 
 `payment_collections.amount` e `payment_collections.payments.amount` na consulta (sem eles, vale
 como antes).
 
+**OS LIMITES QUE SEGURAM A LOJA DE PÉ** (entrega 0168, auditoria de 27/09) — o que é público tem
+limite de frequência e de tamanho, e o limite enxerga a pessoa:
+
+- **A rede de quem pede** (`redeDoIp`, em `src/lib/quem-pede.ts`): o IPv4 inteiro e o IPv6 pelo
+  bloco /64 — é a chave de TODO limite por pessoa (códigos, cartão, Pix, frete, CRM, telemetria).
+- **Reservar antes do banco** (`reservar`, em `src/lib/limite.ts`): rota que confere o limite e só
+  depois espera o banco CONTA na hora e devolve a vaga se não mandar nada (o código de entrar, a
+  troca de e-mail e o código do painel). Conferir (`cabe`) e contar no fim deixa pedidos ao mesmo
+  tempo passarem juntos.
+- **O teto do dia** (`criarTetoDoDia`, no mesmo arquivo): um total por chave que zera à meia-noite
+  (UTC). O CRM grava até 10.000 eventos por rede e 200.000 pela loja por dia; a telemetria, 10.000
+  e 150.000 — folga pra uma rodada inteira de conferidores, que sai toda do mesmo IP. Passou, 429 e nada gravado.
+- **O frete** (`/store/frete`): até 100 linhas e 30 produtos diferentes por pergunta; 200 cotações
+  por pessoa em 10 minutos (assinadas pela loja — o `cotarFrete` manda o `cabecalhosDeQuemPede`),
+  300 sem assinatura e 5.000 pela loja.
+- **O corpo grande só depois da porta**: as rotas do painel que recebem arquivo em base64 (as
+  fotos, a base da Nuvemshop) sobem com `bodyParser: false` e leem o corpo na própria rota, depois
+  da porta e da área, até 7 MB (`lerCorpoGrande`, em `src/lib/corpo-grande.ts`). Rota nova do
+  painel com arquivo grande: o mesmo molde, nunca `sizeLimit` no middleware.
+- **A senha do admin**: 10 senhas erradas por rede e 30 por e-mail em 15 minutos
+  (`freioDaSenhaDoAdmin`, no `middlewares.ts`); a certa devolve a vaga. O cadastro do admin (é por
+  ele que o convite entra), 10 por hora por rede.
+- **O avise-me** refaz as páginas da loja no máximo a cada 5 minutos, por produto e pela lista.
+- **As fotos do catálogo**: uma conversão por foto de cada vez; a que não abriu, 1 minuto sem nova
+  tentativa.
+- **A API da loja é do servidor da loja** (`soDaLoja`, no `middlewares.ts`): a loja assina TODA
+  chamada ao Medusa (o cliente do SDK com `globalHeaders`, em `apps/loja/src/lib/medusa.ts`, e o
+  `medusa()` de `lib/conta.ts`). Por padrão, a chamada a `/store` sem assinatura passa e vai pro log
+  (`[loja] N pedido(s) em /store sem a assinatura`, uma linha por hora); com
+  `STORE_SO_DA_LOJA=true` no backend, é recusada (401). Chamada nova da loja ao Medusa: pelo SDK ou
+  pelo `medusa()`, nunca por um `fetch` solto. NOS CONFERIDORES, com a trava ligada no local: o que
+  o próprio conferidor pede direto à API tem que ir assinado — um `--require` que embrulha o
+  `fetch` e põe o `x-loja-segredo` nas chamadas a `/store` do Medusa local resolve sem mexer neles.
+
 **O PAGAR.ME NÃO CANCELA PIX PENDENTE.** `DELETE /charges/:id` numa cobrança de Pix esperando
 pagamento responde **412** ("This charge cannot be canceled because is pending"), e Pix VENCIDO
 continua `pending` lá — o 412 não passa nunca. Foi o que prendeu o estoque do #7 por um dia: o

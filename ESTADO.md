@@ -3599,6 +3599,30 @@ Depois do deploy — **nada a configurar.** Se um cliente disser que o Pix não 
 vários Pix daqui" ou "até 10 unidades", é a trava nova: ele paga um dos Pix abertos, usa o cartão,
 ou me chama pra mudar o número.
 
+**A auditoria do backend, parte 2: a loja de pé — pronto em 27/09 (entrega 0168).** Pedido dele:
+"não podemos deixar qualquer um derrubar a loja". O que é público passou a ter limite de frequência e
+de tamanho, e o limite enxerga a pessoa:
+
+- a calculadora de frete tem limite por pessoa e um tamanho máximo de pergunta;
+- o CRM e a telemetria têm um teto de eventos por dia, por rede e pra loja toda;
+- o código de entrar conta a vaga na hora (pedidos ao mesmo tempo não passam juntos);
+- a foto e a base da Nuvemshop do painel só são lidas depois da porta do painel;
+- a senha do admin do Medusa tem freio (as erradas);
+- o "avise-me" refaz as páginas no máximo a cada 5 minutos;
+- as fotos do catálogo: uma conversão por foto de cada vez;
+- o IPv6 conta pelo bloco da rede, em todo limite por pessoa;
+- e a loja passou a assinar toda chamada à API do Medusa — com a trava ligada (abaixo), quem não é
+  a loja não fala com ela.
+
+CONFERIDO_0168
+
+Depois do deploy — **uma coisa pra ligar, com calma:**
+
+- [ ] **Railway → o serviço do backend → Variables:** um dia depois do deploy, criar
+      `STORE_SO_DA_LOJA` com o valor `true` (o Railway sobe de novo sozinho). Antes, conferir no log
+      do Railway (Deployments → View logs, buscar `sem a assinatura da loja`) que só aparece chamada
+      que não é da loja. Pra desfazer: apagar a variável.
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa
