@@ -415,8 +415,8 @@ outro numa loja pequena, pra descobrir quais funcionam; as recusas saem no nome 
 Pagar.me pode segurar a conta. A porta do `complete` (`src/lib/cartao/porta.ts`, no
 `api/middlewares.ts`) segura a tentativa ANTES de o Medusa chamar o `authorizePayment`, e só a que
 vai pro Pagar.me: a sessão do nosso provedor, no cartão, ainda `nova` (sessão que já foi nem passa
-por ela; o Pix é anotado desde a 0150, pro disjuntor dos parceiros, sem trava nenhuma — as contas
-do robô são só de cartão).
+por ela; o Pix é anotado desde a 0150, pro disjuntor dos parceiros — as contas do robô são só de
+cartão, e o Pix tem as travas dele desde a 0163, logo abaixo).
 A regra é pura, com teste (`src/lib/cartao/robo.ts`, `LIMITES`): por sacola, 5 por
 hora; por pessoa, 8 — a pessoa é o `quemPede`, o IP que a loja manda em `x-cliente-ip` assinado com
 o `REVALIDAR_SEGREDO` (o `finalizar` manda os dois, pelo `cabecalhosDeQuemPede`); o que chega sem a
@@ -442,6 +442,36 @@ no balde das sem assinatura, 3 por hora —; o `conferir-pagamento` solta o cart
 (a seção do robô liga o freio de propósito) e precisa do segredo no ambiente dele também; e o
 `pedido-de-teste.mjs` assina o `complete` quando o segredo está no ambiente, com um IP por pedido.
 Falta a verificação invisível de robô (BotID ou Turnstile) — ver o ESTADO.
+
+**O PIX QUE SEGURA O ESTOQUE** (entrega 0163, auditoria de 27/09) — o pedido no Pix nasce com os
+produtos reservados e o uso do cupom gasto, e só cai quando o QR vence e a conciliação cancela (uns
+40 minutos). Sem trava, um robô com CPFs gerados deixava a loja "esgotada" sem pagar nada, e cada
+cancelamento mandava e-mail pro endereço digitado. A mesma porta, no Pix (`LIMITES_DO_PIX` e
+`decidirPix`, em `robo.ts`; a conta é o `contarPix` do módulo observabilidade): até 10 unidades de
+cada produto num pedido (`pix_quantidade`, 400 — em 2.879 pedidos da Nuvemshop ninguém levou mais
+de 4; o cartão não tem teto, porque cobra na hora), e até 3 Pix por pessoa em 40 minutos, pagos ou
+não, o de agora incluído (`pix_limite`, 429); o que chega sem a assinatura divide um balde de 3. A
+frase é da loja (`recusaDaPorta`), e o 10 dela tem que bater com o `LIMITES_DO_PIX.unidades`. O
+"soltar" do `POST /admin/cartao` recomeça as contas do Pix junto com as do cartão. NOS CONFERIDORES:
+todo Pix sai da mesma máquina — pelo navegador, com o IP local assinado; pela API, sem assinatura —,
+e o quarto em 40 minutos esbarra. Por isso o `pedido-de-teste.mjs` assina cada `complete` com um IP
+de documentação sorteado (`ipDeTeste`, 2001:db8::/32 — cada pedido é uma pessoa, e rodadas
+seguidas não somam), o `conferir-pagamento` e o `conferir-mercadopago` fecham pela API do mesmo
+jeito, e os conferidores que geram Pix pelo navegador soltam as travas no começo.
+
+**O VALOR DO PAGAMENTO NO FECHAMENTO** (entrega 0163, auditoria de 27/09) — o Medusa abre a sessão
+de pagamento com o valor que a coleção tinha naquela hora, SEM a trava do carrinho
+(`createPaymentSessionsWorkflow`), e o fechamento autoriza o valor da sessão sem comparar com o
+total (o próprio core avisa, em `completeCartWorkflow`). Abrir a sessão no mesmo instante em que o
+carrinho cresce deixava uma sessão com o valor de antes: pedido de R$ 1.010 fechado com Pix de
+R$ 10. O gancho `validate` do fechamento (`src/workflows/hooks/valor-do-pagamento.ts`, a regra em
+`src/lib/pagamento/valor.ts`) recusa, dentro da trava do carrinho, a sessão que cobra diferente
+do total ou em outra moeda: 400 com `valor_divergente`, e a loja escreve a frase. O Medusa aceita
+UM tratador por gancho: outra regra do fechamento entra nesse arquivo. A segunda trava é o
+`capturasDo` (`src/lib/dados-do-pedido.ts`): a cobrança cujos pagamentos capturados somam menos
+que o valor dela não faz o pedido "pago" pra etiqueta, pra nota nem pro e-mail de confirmado — com
+`payment_collections.amount` e `payment_collections.payments.amount` na consulta (sem eles, vale
+como antes).
 
 **O PAGAR.ME NÃO CANCELA PIX PENDENTE.** `DELETE /charges/:id` numa cobrança de Pix esperando
 pagamento responde **412** ("This charge cannot be canceled because is pending"), e Pix VENCIDO
@@ -1688,6 +1718,19 @@ checkout não conta, e a conta a cada mudança no carrinho (`replace` com os MES
 cupons somavam (entrega 0136). Esse corpo ainda é fechado antes, no middleware
 (`cupomSoPelaPortaDosCupons`, em `src/api/middlewares.ts`): cupom só entra por
 `/store/carts/:id/promotions`, que é o que a loja usa.
+
+UMA OFERTA DO CHECKOUT POR CARRINHO (entrega 0163): o mesmo gancho recusa um segundo código
+`BUMP-` (`outraOfertaNoCarrinho`, as mesmas contas do `outroCupomNoCarrinho`). O código de cada
+produto é fixo e não vence, e a regra "uma por vez" morava só no `alternarBump` da loja: quem
+falasse direto com a API somava 10% numa unidade de cada produto. O campo de cupom da loja
+(`aplicarCupom`) recusa `BUMP-` e `PROMO-` digitados.
+
+O `metadata` DO CARRINHO É FECHADO (entrega 0163): o Medusa copia o `metadata` do carrinho pro
+pedido no fechamento, e o do pedido é onde a loja guarda os registros dela (`estornos`, `emails`,
+`fb_parceiro`, `fb_cupons`, `fb_bump`…) — um `estornos` plantado acendia a faixa grave "o estorno
+não saiu" no painel. `semMetadataNoCarrinho`, no `middlewares.ts`, recusa `metadata` no corpo de
+`POST /store/carts` e `POST /store/carts/:id`; a loja não usa (o CPF mora no `metadata` do
+ENDEREÇO, que continua livre).
 
 O USO VOLTA NO CANCELAMENTO (entrega 0136). O Medusa conta o uso (`used`, contra o `limit`) no
 fechamento do carrinho — o Pix gerado já conta — e só desfaz se o próprio fechamento falhar;

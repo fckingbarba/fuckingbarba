@@ -3471,6 +3471,38 @@ recarrega a página, não pede nada ao servidor, e o e-mail já digitado fica no
 Depois do deploy — **nada a configurar.** Pra ver: na Clarity, as gravações de depois do deploy
 voltam a ter a campanha e a origem nos filtros de tráfego.
 
+**A auditoria do backend, parte 1: o dinheiro — pronto em 27/09 (entrega 0163).** Em 27/09 ele
+pediu "uma auditoria no módulo de backend: bugs, segurança e vulnerabilidades". Foram 3 achados
+altos, 13 médios e 22 baixos (o relatório ficou com ele). Esta entrega conserta os que mexem com
+dinheiro; a parte 2 ("a loja de pé": frete, CRM, código de entrar, admin) e a 3 (nota fiscal, Frenet
+e LGPD) vêm depois, se ele quiser.
+
+- **Pagar menos que o pedido.** O Medusa abre a sessão de pagamento com o valor que o carrinho
+  tinha naquela hora, e o fechamento não confere com o total. Abrindo a sessão no mesmo instante em
+  que o carrinho crescia, um pedido de R$ 1.010 fechava com Pix de R$ 10. Agora o fechamento recusa
+  a sessão com valor diferente do total (`valor_divergente`; a loja diz "o valor do carrinho mudou,
+  confere e tenta de novo"). E, como segunda trava, a etiqueta, a nota e o e-mail de confirmado só
+  tratam como pago o pedido cuja cobrança foi paga por inteiro.
+- **O aviso falso de estorno.** O carrinho aceitava `metadata`, que vira o do pedido — onde a loja
+  guarda os registros dela. Dava pra acender no painel a faixa grave "o estorno de R$ X não saiu,
+  devolva pelo Pagar.me", calar o e-mail de venda nova e mandar a loja cancelar na Frenet o envio de
+  outra pessoa. Agora o carrinho não aceita `metadata` (o do endereço, com o CPF, continua).
+- **O Pix que segurava o estoque.** Pix gerado reserva os produtos por uns 40 minutos, sem pagar:
+  um robô deixava a loja "esgotada". Agora, no Pix: até 10 unidades de cada produto por pedido (em
+  2.879 pedidos da Nuvemshop ninguém levou mais de 4) e até 3 Pix por pessoa em 40 minutos. O
+  cartão não muda.
+- **A oferta do checkout somada.** O código da oferta de cada produto é fixo; pela API dava pra
+  aplicar o de todos juntos. Agora é uma oferta por carrinho, e o campo de cupom recusa esses
+  códigos.
+- **"R$" virava zero.** Um "R$" sem número no piso do frete grátis deixava o frete grátis em todo
+  pedido (e no frete de emergência, frete zero). Agora é erro no formulário.
+
+CONFERIDO_0163
+
+Depois do deploy — **nada a configurar.** Se um cliente disser que o Pix não saiu com "já saíram
+vários Pix daqui" ou "até 10 unidades", é a trava nova: ele paga um dos Pix abertos, usa o cartão,
+ou me chama pra mudar o número.
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa
