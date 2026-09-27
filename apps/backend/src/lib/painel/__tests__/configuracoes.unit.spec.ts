@@ -271,6 +271,7 @@ describe("a tela", () => {
     },
     pagamento: {
       configurado: true,
+      mercadoPago: false,
       pixMinutos: 30,
       parcelas: 3,
       parcelaMinima: 5,
@@ -306,11 +307,19 @@ describe("a tela", () => {
     expect(semEspaco(t.frete.frase)).toBe(
       "Frete grátis a partir de R$ 149,90 em produtos, na opção mais barata."
     )
-    expect(t.pagamento.map((l) => l.titulo)).toEqual(["Pagar.me", "Pix", "Cartão", "Estornos"])
-    expect(semEspaco(t.pagamento[2].texto)).toMatch(
+    expect(t.pagamento.map((l) => l.titulo)).toEqual([
+      "Pagar.me",
+      "Mercado Pago · Pix reserva",
+      "Pix",
+      "Cartão",
+      "Estornos",
+    ])
+    expect(semEspaco(t.pagamento[3].texto)).toMatch(
       /^Até 3x sem juros, parcela mínima de R\$ 5,00\./
     )
-    expect(t.pagamento[3].texto).toMatch(/pedido de novo de 6 em 6 horas, até 8 vezes\.$/)
+    expect(t.pagamento[4].texto).toMatch(/pedido de novo de 6 em 6 horas, até 8 vezes\.$/)
+    expect(t.pagamento[1]).toMatchObject({ ligado: false })
+    expect(t.pagamento[1].texto).toMatch(/^Desligado: sem o token do Mercado Pago/)
     expect(t.nota.erp.desde).toBe("Conectado em 23/09/2026 · estoque copiado de 5 em 5 minutos")
     expect(t.nota.janela).toBe(5)
     expect(t.nota.janelas.map((j) => j.minutos)).toEqual([0, 5, 15, 30, 60, 120, 240])

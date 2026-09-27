@@ -356,8 +356,8 @@ try {
   )
   ok(
     (await pagina.locator("[data-rotina]").count()) === 11 &&
-      (await pagina.locator("[data-integracao]").count()) === 8,
-    "as 11 rotinas e as 8 integrações (com o vigia de fora)"
+      (await pagina.locator("[data-integracao]").count()) === 9,
+    "as 11 rotinas e as 9 integrações (com o vigia de fora e o Mercado Pago)"
   )
   // O bloco Cartão (entrega 0129): os números das últimas 24 horas, como o admin conta.
   const doCartao = (await adm("/admin/cartao")).corpo

@@ -6,8 +6,9 @@ import { tirarDoParceiro } from "../lib/envios/registro"
 import { desfazerNotaDoPedido } from "../lib/erp/notas"
 
 /**
- * PEDIDO CANCELADO FECHA NO PAGAR.ME O QUE DÁ PRA FECHAR, na hora — e avisa
- * quem comprou.
+ * PEDIDO CANCELADO FECHA NO PARCEIRO O QUE DÁ PRA FECHAR, na hora — e avisa
+ * quem comprou. No Pagar.me, a caixa abaixo; no Mercado Pago (o Pix reserva,
+ * 0140), o Pix esperando É cancelado lá, e o QR morre na hora.
  *
  * O Medusa, ao cancelar um pedido, estorna o que ele SABE que foi pago — o
  * cartão aprovado, o Pix já registrado — pelo `refundPayment` do provedor. O
@@ -55,7 +56,7 @@ export default async function pedidoCancelado({
     const r = await fecharCobrancasDoPedido(container, data.id)
     estornouLa = r.estornadas.length > 0
     const partes = [
-      r.canceladas.length && `cobrança cancelada no Pagar.me: ${r.canceladas.join(", ")}`,
+      r.canceladas.length && `cobrança cancelada no parceiro: ${r.canceladas.join(", ")}`,
       r.estornadas.length && `estornada: ${r.estornadas.join(", ")}`,
       r.avisos.length && `avisos: ${r.avisos.join(" | ")}`,
     ].filter(Boolean)
@@ -64,7 +65,7 @@ export default async function pedidoCancelado({
     }
   } catch (e) {
     logger.warn(
-      `[pagamento] pedido ${data.id} cancelado, e a cobrança dele no Pagar.me não foi fechada ` +
+      `[pagamento] pedido ${data.id} cancelado, e a cobrança dele no parceiro não foi fechada ` +
         `agora (${e instanceof Error ? e.message : String(e)}) — a conciliação tenta de novo.`
     )
   }

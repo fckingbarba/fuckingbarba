@@ -27,7 +27,7 @@ export const metadata: Metadata = {
  * `components/checkout/contato.tsx` e `entrega.tsx`, os cookies de
  * `lib/carrinho.ts`, `lib/checkout.ts` e `components/analytics/`, e os
  * terceiros de quem a loja realmente chama (ViaCEP, Vercel, Railway,
- * Supabase, Pagar.me, Resend, Frenet, Bling e, só com o aceite, Google,
+ * Supabase, Pagar.me, Mercado Pago, Resend, Frenet, Bling e, só com o aceite, Google,
  * Meta, TikTok e Microsoft Clarity — `components/analytics/tags.tsx` e
  * `apps/backend/src/lib/anuncios/`). O que a própria loja anota pro CRM, só
  * com o aceite, é `lib/anotar.ts` e `apps/backend/src/lib/crm/eventos.ts`
@@ -182,6 +182,10 @@ export default async function Privacidade() {
             <b>Pagar.me</b> — o pagamento: nome, CPF ou CNPJ, e-mail, telefone, endereço e o IP da
             compra, pra cobrar e pra análise de fraude. O número do cartão vai do seu navegador
             direto pra eles.
+          </li>
+          <li>
+            <b>Mercado Pago</b> — o Pix, quando o Pagar.me não consegue gerar o seu: nome, CPF ou
+            CNPJ e e-mail, pra gerar o Pix e confirmar o pagamento.
           </li>
           <li>
             <b>Resend</b> — manda os e-mails da loja: o seu e-mail e o que vai escrito neles. E

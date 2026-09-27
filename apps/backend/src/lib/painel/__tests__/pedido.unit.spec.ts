@@ -203,6 +203,30 @@ describe("onde o pedido está", () => {
       ],
     })
     expect(pagamentoDo(o).forma).toBe("cartao")
+    expect(pagamentoDo(o).parceiro).toBe("Pagar.me")
+  })
+
+  it("o Pix do Mercado Pago (o Pix reserva) é lido igual, e diz quem cobrou", () => {
+    const doPagarme = sessao("aguardando", {}, "pending")
+    const o = pedido({
+      payment_collections: [
+        {
+          payment_sessions: [
+            {
+              ...doPagarme,
+              provider_id: "pp_mercadopago_mercadopago",
+              data: { mercadopago: doPagarme.data.pagarme, entrada: null },
+            },
+          ],
+          payments: [],
+        },
+      ],
+    })
+    const p = pagamentoDo(o)
+    expect(p.parceiro).toBe("Mercado Pago")
+    expect(p.forma).toBe("pix")
+    expect(situacaoDo(o, p, AGORA)).toBe("pix")
+    expect(pagamentoDo(pedido({ payment_collections: [] })).parceiro).toBeNull()
   })
 })
 

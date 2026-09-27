@@ -1,13 +1,16 @@
 import type { ExecArgs } from "@medusajs/framework/types"
 import { ContainerRegistrationKeys, MedusaError, Modules } from "@medusajs/framework/utils"
 import { updateRegionsWorkflow } from "@medusajs/medusa/core-flows"
-import { PAGARME, PROVISORIO } from "../lib/pagamento/parceiros"
+import { MERCADOPAGO, PAGARME, PROVISORIO } from "../lib/pagamento/parceiros"
+import { clienteDoMercadoPago, ENDERECO_PADRAO } from "../modules/mercadopago/client"
 import { ondeEstou } from "./onde-estou"
 
 /**
  * O PAGAR.ME NA REGIÃO — o dia em que a loja passa a cobrar.
  *
- *   npm run backend:pagamento              liga o Pagar.me (e tira o provisório)
+ *   npm run backend:pagamento              liga o Pagar.me (e tira o provisório);
+ *                                          com o MERCADOPAGO_ACCESS_TOKEN, liga
+ *                                          também o Mercado Pago (o Pix reserva)
  *   npm run backend:pagamento -- voltar    volta pro provisório, sem cobrança
  *
  * No Railway, dentro do serviço (a chave precisa estar no ambiente de quem
@@ -38,7 +41,13 @@ export default async function pagamento({ container, args }: ExecArgs) {
   ondeEstou(logger, "pagamento")
 
   const voltar = (args ?? []).includes("voltar")
-  const alvo = voltar ? PROVISORIO : PAGARME.id
+  /*
+    O MERCADO PAGO ENTRA JUNTO quando o token dele estiver no ambiente — o
+    Pix reserva (0140). Na região ele não aparece pra quem compra: o passo 3
+    usa o Pagar.me, e quem escolhe o Mercado Pago é a loja.
+  */
+  const comMercadoPago = !voltar && Boolean(process.env.MERCADOPAGO_ACCESS_TOKEN)
+  const alvos = voltar ? [PROVISORIO] : [PAGARME.id, ...(comMercadoPago ? [MERCADOPAGO.id] : [])]
 
   // ── 1. o que precisa existir antes ────────────────────────────────────────
   if (!voltar) {
@@ -62,16 +71,51 @@ export default async function pagamento({ container, args }: ExecArgs) {
           "Pix pago só vira pedido pago pela conciliação (a cada 5 minutos). Funciona, mas devagar."
       )
     }
+    if (comMercadoPago && !process.env.MERCADOPAGO_WEBHOOK_SEGREDO) {
+      logger.warn(
+        "[pagamento] MERCADOPAGO_WEBHOOK_SEGREDO ausente: os avisos do Mercado Pago vão ser " +
+          "ignorados e o Pix dele só vira pedido pago pela conciliação (a cada 5 minutos)."
+      )
+    }
+    if (!comMercadoPago) {
+      logger.info("[pagamento] sem MERCADOPAGO_ACCESS_TOKEN: o Pix reserva fica desligado")
+    } else {
+      /*
+        O TOKEN VALE? Uma leitura só (a lista dos pagamentos de hoje), sem
+        criar nada: o Pix reserva só é usado no dia em que o Pagar.me falha, e
+        um token errado descoberto nesse dia é o pior jeito de descobrir.
+      */
+      try {
+        await clienteDoMercadoPago(
+          process.env.MERCADOPAGO_ACCESS_TOKEN ?? "",
+          process.env.MERCADOPAGO_URL || ENDERECO_PADRAO
+        ).listarRecentes(1, 0)
+      } catch (e) {
+        throw new MedusaError(
+          MedusaError.Types.INVALID_DATA,
+          "O Mercado Pago recusou o MERCADOPAGO_ACCESS_TOKEN " +
+            `(${e instanceof Error ? e.message : String(e)}). Confira no painel de lá ` +
+            "(Suas integrações → a aplicação → Credenciais de produção) e rode de novo."
+        )
+      }
+      logger.info(
+        (process.env.MERCADOPAGO_ACCESS_TOKEN ?? "").startsWith("TEST-")
+          ? "[pagamento] Mercado Pago: token de TESTE aceito — nenhum Pix vai ser de verdade"
+          : "[pagamento] Mercado Pago: token de PRODUÇÃO aceito"
+      )
+    }
   }
 
   const modulo = container.resolve(Modules.PAYMENT)
-  const [provedor] = await modulo.listPaymentProviders({ id: [alvo] })
-  if (!provedor?.is_enabled) {
-    throw new MedusaError(
-      MedusaError.Types.NOT_FOUND,
-      `O provedor ${alvo} não está carregado neste processo. Confira o bloco de pagamento ` +
-        "do medusa-config.ts e se o build é o atual."
-    )
+  const carregados = await modulo.listPaymentProviders({ id: alvos })
+  for (const alvo of alvos) {
+    if (!carregados.find((p) => p.id === alvo)?.is_enabled) {
+      throw new MedusaError(
+        MedusaError.Types.NOT_FOUND,
+        `O provedor ${alvo} não está carregado neste processo. Confira o bloco de pagamento ` +
+          "do medusa-config.ts e se o build é o atual."
+      )
+    }
   }
 
   // ── 2. a região ───────────────────────────────────────────────────────────
@@ -92,14 +136,15 @@ export default async function pagamento({ container, args }: ExecArgs) {
   logger.info(`[pagamento] região "${regiao.name}": hoje com ${antes.join(", ") || "nenhum"}`)
 
   await updateRegionsWorkflow(container).run({
-    input: { selector: { id: regiao.id }, update: { payment_providers: [alvo] } },
+    input: { selector: { id: regiao.id }, update: { payment_providers: alvos } },
   })
 
   // ── 3. o que a loja vai enxergar ──────────────────────────────────────────
   /*
     É a mesma pergunta que a loja faz (`GET /store/payment-providers`): os
-    provedores LIGADOS À REGIÃO. Um só, e o certo. Dois seria o provisório
-    ainda aparecendo; zero seria checkout sem forma de pagamento.
+    provedores LIGADOS À REGIÃO. Exatamente os pedidos, e ligados. O
+    provisório sobrando seria pedido fechando de graça; nenhum, checkout sem
+    forma de pagamento.
   */
   const { data: depois } = await query.graph({
     entity: "region",
@@ -107,12 +152,14 @@ export default async function pagamento({ container, args }: ExecArgs) {
     filters: { id: regiao.id },
   })
   const ligados = (depois[0]?.payment_providers ?? []).filter(Boolean)
-  const certos = ligados.length === 1 && ligados[0]?.id === alvo && ligados[0]?.is_enabled
+  const certos =
+    ligados.length === alvos.length &&
+    alvos.every((alvo) => ligados.some((p) => p?.id === alvo && p?.is_enabled))
 
   if (!certos) {
     throw new MedusaError(
       MedusaError.Types.UNEXPECTED_STATE,
-      `Gravei ${alvo} na região, mas ela ficou com: ` +
+      `Gravei ${alvos.join(", ")} na região, mas ela ficou com: ` +
         (ligados.map((p) => `${p?.id}${p?.is_enabled ? "" : " (desligado)"}`).join(", ") ||
           "nenhum") +
         ". O checkout não vai funcionar assim."
@@ -123,7 +170,8 @@ export default async function pagamento({ container, args }: ExecArgs) {
     voltar
       ? `[pagamento] conferido: a região "${regiao.name}" voltou pro provisório (${PROVISORIO}). ` +
           "Pedido fecha SEM cobrança — deixe CHECKOUT_ABERTO em false."
-      : `[pagamento] conferido: a região "${regiao.name}" cobra pelo Pagar.me (${PAGARME.id}). ` +
-          "Confira com: node apps/loja/ferramentas/conferir-pagamento.mjs"
+      : `[pagamento] conferido: a região "${regiao.name}" cobra pelo Pagar.me (${PAGARME.id})` +
+          (comMercadoPago ? `, com o Pix reserva pelo Mercado Pago (${MERCADOPAGO.id})` : "") +
+          ". Confira com: node apps/loja/ferramentas/conferir-pagamento.mjs"
   )
 }

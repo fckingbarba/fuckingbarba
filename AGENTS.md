@@ -38,9 +38,9 @@ verdade.
 ### Conferidores
 
 `apps/loja/ferramentas/conferir-*.mjs` abrem a loja num Chromium de verdade e comparam o que está na
-tela com o que a API do Medusa responde — nunca com outra conta feita no próprio teste. São doze:
+tela com o que a API do Medusa responde — nunca com outra conta feita no próprio teste. São treze:
 frete, pdp, checkout, pagamento, catálogo, links, configurações, documento, conta, envio, erp (este
-sem navegador: o Bling falso e o admin) e avise-me. Rode os que
+sem navegador: o Bling falso e o admin), avise-me e mercadopago (o Pix reserva). Rode os que
 tocam no que você mexeu, e todos antes de entregar. Os que escrevem no admin desfazem o que mudaram
 no fim, mesmo quando falham.
 
@@ -66,6 +66,9 @@ RESEND_URL=http://127.0.0.1:4330 RESEND_API_KEY=re_teste_falsa npm run backend:d
 # pro conferir-erp (o Bling falso na 4340), acrescente: BLING_CLIENT_ID=cliente-de-teste
 # BLING_CLIENT_SECRET=segredo-de-teste BLING_URL=http://127.0.0.1:4340/Api/v3
 # BLING_AUTORIZACAO_URL=http://127.0.0.1:4340/Api/v3/oauth/authorize
+# pro conferir-mercadopago (o Mercado Pago falso na 4360, o Pix reserva), acrescente:
+# MERCADOPAGO_ACCESS_TOKEN=TEST-token-do-mercadopago-falso MERCADOPAGO_URL=http://127.0.0.1:4360
+# MERCADOPAGO_WEBHOOK_SEGREDO=segredo-do-aviso-do-mercadopago
 # pro conferir-integracoes do painel (a Meta, o GA4 e o TikTok falsos, na 4370), acrescente:
 # META_GRAPH_URL=http://127.0.0.1:4370 GA4_MP_URL=http://127.0.0.1:4370
 # TIKTOK_EVENTS_URL=http://127.0.0.1:4370 META_CAPI_TOKEN=token-de-teste
@@ -337,6 +340,30 @@ recusa do passo 3. Nenhum deles tem id de provedor escrito; o provisório (`pp_s
 é parceiro. O que FALA com o parceiro continua dele: o provedor, a conciliação e a conferência de
 estornos (`conciliar-pagamentos.ts` e `estornos.ts` são do Pagar.me), o aviso (Edge Function), o
 script da região e o passo 3 (o cartão vira token no Pagar.me).
+
+**O Mercado Pago é o Pix reserva** (desde a 0140): um segundo provedor, `src/modules/mercadopago/`
+(id `pp_mercadopago_mercadopago`), SÓ de Pix — cartão continua só no Pagar.me (cartão recusado não
+vai pro outro parceiro: quem recusa é o banco de quem compra, e mandar pra outro atrai o robô
+testando cartão e a contestação). O mesmo desenho do Pagar.me, com três diferenças: (1) a criação vai
+com `X-Idempotency-Key` = o id da sessão, então a resposta perdida é repetida com a mesma chave e
+volta o MESMO Pix — a dúvida "gerou ou não?" só sobra se todas as tentativas caírem, e aí a frase
+é a do Pix (QR que ninguém viu não cobra ninguém); (2) Pix pendente SE CANCELA lá (`PUT
+status=cancelled`): o QR de pedido cancelado e o do Pix vencido morrem na hora; (3) o aviso vai
+DIRETO pro Medusa, em `/hooks/payment/mercadopago_mercadopago`, sem a Edge Function — o
+`getWebhookActionAndData` confere o `x-signature` (HMAC-SHA256 sobre `id:<data.id>;request-id:<x-request-id>;ts:<ts>;`,
+com o `MERCADOPAGO_WEBHOOK_SEGREDO`, ver `aviso.ts`) e LÊ o pagamento na API antes de acreditar.
+**A conta é a mesma das vendas do Mercado Livre**: nada toca num pagamento sem a referência de uma
+sessão (`payses_…`) E a origem desta instalação no `metadata` (`ehDaLoja`) — o conferidor semeia uma
+venda do Mercado Livre e confere que ninguém mexe nela. A conciliação dele é
+`src/lib/conciliar-mercadopago.ts`, rodada pelo `conciliarPagamentos` depois da do Pagar.me (sem
+o `MERCADOPAGO_ACCESS_TOKEN`, não faz nada); o que as duas dividem — o relatório, o pedido preso, as
+escritas no Medusa e o dinheiro que entra num pedido já cancelado (devolvido pelo Medusa, pra todo
+parceiro) — mora em `src/lib/pagamento/conciliacao.ts`, e a entrada da loja, o dinheiro em
+centavos e a origem, em `src/lib/pagamento/{entrada,comum}.ts`. O `npm run backend:pagamento`
+liga os dois na região quando o token existe (e confere o token numa leitura antes). A loja ainda
+não escolhe o Mercado Pago sozinha — a troca automática pelo parceiro estável é a próxima parte do
+Pix reserva (ver o ESTADO) —; o `conferir-mercadopago.mjs` leva a tela a ele trocando o provedor
+escondido do passo 3.
 
 Três portas que o Medusa deixa abertas e o projeto fecha. (1) Abrir sessão de pagamento APAGA as
 anteriores da coleção, sem conferir se ela já é de um pedido: `src/api/middlewares.ts` recusa sessão
@@ -1023,7 +1050,12 @@ resultado primeiro e o aviso entra na hora; a tela refeita pelo `revalidatePath`
 segunda renderização, a da transição, uns 20 ms depois no `next dev` (perto de 100 ms com o
 navegador lento). Conferidor que lê a tela depois do aviso espera ela mudar (`waitFor`,
 `waitForFunction`, como o histórico no `conferir-acoes`): lida na hora, às vezes ainda é a de
-antes — era o "a pessoa sai da lista" do `conferir-entrar`, que falhava 1 em 3.
+antes — era o "a pessoa sai da lista" do `conferir-entrar`, que falhava 1 em 3. E o contrário: o
+aviso some 6 s depois de entrar (o de erro, 10 s), e a tela refeita pode chegar depois disso — com
+a máquina carregada, o Resumo do Marketing refeito passou dos 6 s. Conferidor que confere os dois
+lê o aviso quando ele entra (a espera devolve o texto: o `data-vez` diferente do de antes do
+clique, sem `data-fora`) e só depois espera a tela — era o "Mudar a meta" do `conferir-marketing`
+(entrega 0143).
 As visitas vêm do GA4 pela
 `GET /dashboard/visitas`, à parte do Início: `src/lib/painel/ga4.ts` fala com o Google (conta de
 serviço só leitura, JWT assinado com `node:crypto`, um `batchRunReports` e um `runRealtimeReport`,
