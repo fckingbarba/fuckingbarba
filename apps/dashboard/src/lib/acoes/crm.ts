@@ -32,6 +32,30 @@ export async function salvarAjustesDoCrm(f: FormularioDosAjustes): Promise<Resul
   return { ok: true, texto: "Ajustes salvos. Valem na próxima ficha de cliente que abrir." }
 }
 
+/**
+ * "MANDAR PRA MIM" — um dos exemplos do modelo, pro e-mail de quem está no
+ * painel (`POST /dashboard/crm/emails/teste`). Quem monta e manda é o Medusa.
+ */
+export async function mandarTesteDoCrm(
+  exemplo: string,
+  nome: string
+): Promise<ResultadoDosAjustes> {
+  const r = await medusa("/dashboard/crm/emails/teste", { token: "sessao", corpo: { exemplo } })
+  if (r.status === 401)
+    redirect(`/sair?motivo=${r.corpo.message === "fora_da_equipe" ? "fora" : "expirou"}`)
+  if (r.status === 403) return { ok: false, texto: semAcessoA("crm") }
+  if (r.status === 429)
+    return { ok: false, texto: "Já foram 10 testes nesta hora. Tenta de novo mais tarde." }
+  if (r.status === 409)
+    return { ok: false, texto: "Falta o endereço da loja no Medusa (LOJA_URL)." }
+  if (r.status !== 200)
+    return { ok: false, texto: "O e-mail não saiu agora. Tenta de novo em instantes." }
+  return {
+    ok: true,
+    texto: `Mandei “${nome}” pra ${String(r.corpo.para)}. Confira a caixa de entrada (e o spam, na primeira vez).`,
+  }
+}
+
 const inteiro = new Intl.NumberFormat("pt-BR")
 const NOME_DO_ARQUIVO = { clientes: "Clientes", vendas: "Vendas", carrinhos: "Carrinhos" } as const
 const ERRO_DA_BASE: Record<string, string> = {
