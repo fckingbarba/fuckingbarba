@@ -1024,6 +1024,14 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
       "O que diz quem usou" mostra 3 depoimentos sorteados a cada visita, e não mais os 20: o HTML
       sai com três (o que lê quem abre sem JavaScript, e o Google), e o navegador sorteia os da
       visita logo depois. Nada a configurar depois do deploy.
+- [x] **O contador das Ofertas relâmpago mostra as horas até o fim** (entrega 0141, 26/09, pedido
+      da loja, com o print das 23:44: "a hora tem que aparecer sempre, nem que seja 0"). Na última
+      hora do dia, a caixa de Horas sumia e o contador encolhia de três caixas pra duas bem quando
+      fica amarelo. Agora ela fica, com 00 (às 23:44:51, 00 · 15 · 09), e o contador tem a mesma
+      largura o dia inteiro. Numa tela de 1024 px, o botão "Aproveitar ofertas" já ficava na
+      segunda linha o dia todo e só subia na última hora; agora fica embaixo sempre. Conferido por
+      foto, com o relógio do navegador parado às 14:25, às 23:44 e às 23:59:58, no computador, em
+      1024 px e no celular. O HTML da home sai igual. Nada a configurar depois do deploy.
 - [x] **O conferidor do ERP procurava o aviso da equipe na caixa errada** (entrega 0101, 25/09).
       Desde as Configurações (entrega 0093), o e-mail da equipe — a nota que não saiu, a nota pra
       conferir ou pra cancelar, o Bling caído — vai pra quem está no painel com o papel que
