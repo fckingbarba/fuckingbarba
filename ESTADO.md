@@ -3544,6 +3544,52 @@ recarrega a página, não pede nada ao servidor, e o e-mail já digitado fica no
 Depois do deploy — **nada a configurar.** Pra ver: na Clarity, as gravações de depois do deploy
 voltam a ter a campanha e a origem nos filtros de tráfego.
 
+**As visitas contadas como na Nuvemshop — pronto em 27/09 (entrega 0166).** Ele perguntou por que
+as visitas da Nuvemshop passavam as da loja nova, e pediu: "quero que fique igual da Nuvemshop".
+
+- **Por quê:** a Nuvemshop ligava o Google Analytics pra todo mundo, sem perguntar (conferido no
+  HTML dela em 27/09: o consentimento de saída já vinha "granted"), e a loja nova só ligava depois
+  do "Aceitar" da faixa de cookies — quem recusava ou só ignorava a faixa não entrava na conta. É o
+  mesmo Analytics nas duas (`G-CS3QPK0QHL`): depois da virada, a mesma gente virava menos visitas.
+- **O que muda:** o GA4 liga na primeira página, antes da resposta, só pra contar (o anúncio do
+  Google fica negado até o sim). Quem clica em "Só o necessário" sai da conta: o GA4 para, os
+  cookies dele saem e a página recarrega sem ele. O Google Ads, a Meta, o TikTok, a Clarity e o CRM
+  da loja seguem só com o "Aceitar" (a Clarity só com o aceite é escolha dele).
+- **A compra pelo servidor** vai pro GA4 de quem não recusou (antes, só de quem aceitou): as
+  compras e as visitas do Marketing seguem contando a mesma gente, e a conversão não cai à toa. O
+  aparelho da compra, no Funil, também. A Meta e o TikTok, só com o sim, como antes.
+- **A faixa** diz que o GA4 já conta: "O Google Analytics conta as visitas. Com o seu sim, também
+  usamos cookies da própria loja, do Google, da Meta… pra lembrar o que você viu, medir e mostrar
+  anúncios. Você escolhe." No celular, segue com 4 linhas.
+- **A política de privacidade** diz o que mudou: a contagem de visitas do Google Analytics é por
+  legítimo interesse e para com o "Só o necessário"; anúncio, gravação e o CRM seguem por
+  consentimento. A versão da faixa NÃO subiu: quem já tinha respondido segue com a resposta (subir
+  faria o "não" de antes voltar a ser "sem resposta", e o GA4 contaria quem já recusou).
+- **O painel:** as ajudas do Marketing e das Integrações dizem "de todo mundo, menos quem recusou
+  os cookies".
+- **Igual, igual, não fica:** quem usa bloqueador de anúncio e quem clica em "Só o necessário" não
+  entram, e a Nuvemshop conta com um contador próprio, que nunca bate 100% com o do Google. O
+  número fica perto do de antes, no mesmo Analytics.
+- **Uma página a mais no GA4:** quem chega por anúncio e aceita depois de trocar de página faz a
+  campanha voltar ao endereço (0162), e o GA4, já no ar, conta isso como mais uma página vista —
+  não uma visita a mais.
+
+Conferido pelo `conferir-integracoes.mjs` (36; 9 mudadas e 1 nova: só o GA4 antes da resposta,
+com o anúncio negado; o "Só o necessário" recarregando sem o GA4 e sem os cookies dele; o
+"Aceitar" com o GA4 já no ar; a resposta de antes que não vale ligando só o GA4; o purchase do
+GA4 com o anúncio liberado pelo sim; e, nova, a compra de quem não respondeu indo só pro GA4),
+pelos unitários (1357 no backend, 3 novos na compra), pelo `conferir-marketing.mjs` (120) e pelo
+`conferir-crm.mjs` (151 de 152 — a que falhou é a da tela da Base da Nuvemshop, que a entrega não
+toca). O `conferir-visitas.mjs` deu 40 de 41: o "Google lento" (o Início em menos de 2,5 s)
+falhou igual na main, na mesma máquina carregada. No Lighthouse (o `lhci` como o CI, Medusa falso),
+a home fica com o mesmo HTML e CSS (41,7 KB) e 0,85 KB a menos de JavaScript — os trechos das
+tags viraram `import()` —, e o melhor LCP das três páginas é o da main (2,41 s, 2,11 s e 2,26 s,
+aqui). As medidas lentas de vez em quando (a pintura em 2,2 s) apareceram nas duas.
+
+Depois do deploy — **nada a configurar.** Pra ver: numa aba anônima, abra a loja sem responder a
+faixa; no Google Analytics, em Relatórios → Tempo real, a visita aparece. O dia 27/09 fica com o
+buraco: entre a virada e este deploy, a loja nova só contou quem aceitou.
+
 **O `/trocas` sem a linha do frete de volta — pronto em 27/09 (entrega 0164).** Saiu da seção
 "Desistiu?" o "Quem paga o frete de volta", que estava no ar com a tarja vermelha de pendente.
 Orientação jurídica: não precisa estar no site — então a linha não volta, nem como pendência. Era a
