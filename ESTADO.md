@@ -3349,6 +3349,30 @@ gravar em lugar nenhum.
 - [ ] **As próximas partes da Fundação** (uma entrega cada, perguntar antes): o modelo de e-mail. A
       base na lista de Clientes, se você quiser ver os clientes antigos lá.
 
+**A parcela mínima do cartão, editável — pronta em 27/09 (entrega 0157).** O pedido dele: "quero
+poder editar a parcela mínima no cartão, ali diz 5 reais". Em **Configurações → Pagamento**, o
+bloco **Parcelas no cartão** tem o campo **Parcela mínima**.
+
+- **O que ela faz:** o cartão só parcela quando cada parcela passa do valor. Com R$ 30,00, um
+  pedido de R$ 60,00 sai em até 2x; um de R$ 90,00, em até 3x. Vale em tudo que mostra "3x de
+  R$ X" (o card do produto, a vitrine da home, a página do produto, a sacola, o resumo do checkout
+  e as Dúvidas) e nas parcelas que o passo 3 oferece.
+- **O mínimo é R$ 5,00** (parcela menor o banco recusa), e o máximo, R$ 1.000,00. Fora disso, o
+  campo diz o que vale e nada é gravado.
+- **O Medusa confere também:** quem tentar parcelar abaixo da mínima por fora da loja é recusado;
+  e se a mínima mudar com o checkout de alguém aberto, a tela diz "A parcela mínima no cartão é de
+  R$ X. Escolhe menos parcelas — nada foi cobrado." e mostra as parcelas de agora.
+- Salvou, a loja atualiza em segundos. A mudança fica no registro da equipe.
+
+Conferido pelo `conferir-pagamento.mjs` (219; 5 novas: a seção nova grava uma mínima que tira o 3x e
+confere a rota da loja, a recusa do Medusa e as parcelas do passo 3), pelo
+`conferir-configuracoes.mjs` do painel (20; 2 novas: a API — abaixo do banco recusado, a operação
+sem gravar, R$ 30 gravado e lido pela loja — e o Salvar da tela) e o da loja (18; 1 nova: a
+parcela na rota pública), pelo `conferir-checkout.mjs` (182) e pelos testes de unidade (1268; 9
+novos).
+
+Depois do deploy — **nada a configurar.** Até alguém mudar, vale R$ 5,00, como antes.
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa
