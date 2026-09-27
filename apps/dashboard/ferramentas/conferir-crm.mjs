@@ -283,15 +283,16 @@ try {
       "o JavaScript da página não lê o visitante"
     )
 
+    // Pela contagem, e não pela lista: a lista do dia pode ter o produto visto de outra rodada.
+    const vistosAntes = vezes(await tela(), "produto_visto")
     await pagina.goto(`${LOJA}/produtos/oleo-para-barba`, { waitUntil: "domcontentloaded" })
     const comprar = pagina.locator(".compra__comprar")
     await comprar.scrollIntoViewIfNeeded({ timeout: 20000 })
     await hidratado(pagina, ".compra__comprar")
-    const viu = await esperarTela((t) =>
-      linhas(t).some((l) => l.tipo === "produto_visto" && l.oque.startsWith("viu "))
-    )
+    const viu = await esperarTela((t) => vezes(t, "produto_visto") > vistosAntes)
+    const oVisto = linhas(viu).find((l) => l.tipo === "produto_visto")
     ok(
-      linhas(viu).some((l) => l.tipo === "produto_visto" && l.quem === null),
+      vezes(viu, "produto_visto") > vistosAntes && oVisto?.quem === null,
       "o produto visto, anônimo",
       JSON.stringify(linhas(viu).slice(0, 3))
     )
