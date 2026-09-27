@@ -2,8 +2,8 @@ import type { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/frame
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import { exemploDoToque, TOQUES_DOS_FLUXOS } from "../../../../../lib/crm/exemplos-dos-fluxos"
 import type { IdDoToque } from "../../../../../lib/crm/fluxos"
-import { enviarEmail, remetenteDoCrm } from "../../../../../lib/email"
-import { emailDoCrm } from "../../../../../lib/emails/crm"
+import { comQuemManda } from "../../../../../lib/crm/motor"
+import { enviarEmail } from "../../../../../lib/email"
 import { exigirArea, type PedidoDaEquipe } from "../../../../../lib/equipe/acesso"
 import { criarLimite } from "../../../../../lib/limite"
 
@@ -37,9 +37,10 @@ export async function POST(req: AuthenticatedMedusaRequest, res: MedusaResponse)
     return
   }
   limite.contar(pedido.membro.id, LIMITE)
-  const email = emailDoCrm(exemplo)
+  // Sai como o de verdade: o mesmo remetente e a mesma resposta do estilo dele.
+  const email = comQuemManda(exemplo)
   const r = await enviarEmail(
-    { ...email, assunto: `[Teste] ${email.assunto}`, remetente: remetenteDoCrm() },
+    { ...email, assunto: `[Teste] ${email.assunto}` },
     req.scope.resolve(ContainerRegistrationKeys.LOGGER),
     { tipo: "crm-teste" }
   )

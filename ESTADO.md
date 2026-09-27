@@ -3400,8 +3400,9 @@ volta). Isso é a próxima parte. Até lá, nenhum e-mail de oferta sai sozinho.
 - [ ] **Recomendado, antes de os fluxos começarem (você, uma vez):** um endereço só pra oferta, pra
       que, se um dia a oferta cair no spam, o e-mail de pedido não caia junto. No Resend, Domains →
       Add Domain → `news.fuckingbarba.com.br`, e os registros que ele mostrar vão na GoDaddy. Depois,
-      no Railway, a variável `EMAIL_REMETENTE_CRM` = `FuckingBarba <ofertas@news.fuckingbarba.com.br>`.
-      Eu te guio no passo a passo quando for a hora.
+      no Railway, a variável `EMAIL_REMETENTE_CRM` = `FuckingBarba <contato@news.fuckingbarba.com.br>`
+      (`contato@`, e não `ofertas@`: desde a 0170, o mesmo endereço manda os e-mails assinados por
+      você). Eu te guio no passo a passo quando for a hora.
 - [x] **A próxima parte da Fundação:** os fluxos começaram na parte 7 (entrega 0165, logo abaixo).
 
 **CRM, parte 7: os fluxos de compra — pronto em 27/09 (entrega 0165).** Os primeiros e-mails que
@@ -3462,6 +3463,27 @@ aba **Fluxos**: quem pôs na sacola e não foi pro checkout.
 - [ ] **Depois do deploy (você):** CRM → Fluxos → "Mandar pra mim" nos 5 do carrinho.
 - [ ] **A próxima parte** (uma entrega, perguntar antes): o pop-up da 1ª compra e as boas-vindas.
       Depois, a campanha de estreia pra base da Nuvemshop.
+
+**Os e-mails dos fluxos fora de Promoções — pronto em 27/09 (entrega 0170).** No seu teste, os
+e-mails caíam na aba de ofertas do Gmail. Entraram os ajustes que você escolheu:
+
+- **O aviso do Pix** ficou com a cara dos e-mails de pedido. Sai do mesmo endereço deles, e o pé diz
+  "Você recebeu porque fez o pedido #N". Não tem o "sair da lista", que é coisa de oferta.
+- **Os lembretes sem desconto** viraram e-mail de gente:
+  - texto simples, sem foto e com um link só;
+  - assinados "Matheus", com "Matheus, da FuckingBarba" no remetente;
+  - quem responder cai no e-mail de atendimento das Configurações;
+  - o "sair da lista" continua, pequeno, no pé.
+- **Os com desconto** continuam com a cara da marca. Promoções é o lugar deles.
+- **O "Mandar pra mim"** sai igual ao de verdade.
+
+Nenhum ajuste garante a aba Principal. Quem decide é o Gmail, pelo jeito do e-mail e pelo que as
+pessoas fazem com ele (abrir, responder).
+
+- [ ] **Depois do deploy (você):** CRM → Fluxos → "Mandar pra mim" no aviso do Pix e no de 30
+      minutos do checkout. Ver em que aba do Gmail cada um cai.
+- [ ] **O endereço só das ofertas** (o 3º ajuste; você, com o meu passo a passo): o item da parte
+      6, lá em cima. Até lá, os e-mails do CRM saem do endereço da loja.
 
 **A parcela mínima do cartão, editável — pronta em 27/09 (entrega 0157).** O pedido dele: "quero
 poder editar a parcela mínima no cartão, ali diz 5 reais". Em **Configurações → Pagamento**, o

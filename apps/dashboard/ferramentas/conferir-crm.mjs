@@ -978,6 +978,14 @@ try {
     JSON.stringify(segundaVez)
   )
   await dono.pagina.locator("[data-numeros-base]").waitFor({ timeout: 20000 })
+  // A tela se refaz depois do aviso de baixo: espera o número da API chegar nela.
+  await dono.pagina
+    .waitForFunction(
+      (n) => document.querySelector('[data-base="pessoas"]')?.textContent?.trim() === n,
+      new Intl.NumberFormat("pt-BR").format(deNovo.pessoas),
+      { timeout: 20000 }
+    )
+    .catch(() => null)
   ok(
     semEspaco(await dono.pagina.locator('[data-base="pessoas"]').textContent()) ===
       new Intl.NumberFormat("pt-BR").format(deNovo.pessoas) &&
@@ -1431,8 +1439,12 @@ try {
         e30.html.includes(`${LOJA}/voltar/${carrinho.id}.`) &&
         e30.html.includes("utm_campaign=crm-checkout") &&
         e30.html.includes("Você recebeu porque começou uma compra na FuckingBarba.") &&
-        /^<[^>]+>$/.test(e30.headers?.["List-Unsubscribe"] ?? ""),
-      "30 minutos: “Faltou só o pagamento”, com o link de voltar, a campanha e o sair da lista",
+        // O lembrete sem desconto é pessoal: texto simples, assinado, sem o cabeçalho de oferta.
+        !e30.headers?.["List-Unsubscribe"] &&
+        /^Matheus, da FuckingBarba </.test(e30.from ?? "") &&
+        !e30.html.includes("<img") &&
+        e30.html.includes("Sair da lista"),
+      "30 minutos: “Faltou só o pagamento”, pessoal — assinado, sem foto, com o link, a campanha e o sair da lista",
       JSON.stringify({ r: r30.corpo, assunto: e30?.subject })
     )
     const de30 = await rodar({ agora: aos(35 * MIN, true), email: NO_CHECKOUT })
@@ -1456,7 +1468,11 @@ try {
     )
     const cupom = e24?.html.match(/VOLTA-[2-9A-HJ-NP-Z]{6}/)?.[0] ?? null
     ok(
-      r24.corpo.enviados === 1 && r24.corpo.cupons === 1 && Boolean(cupom),
+      r24.corpo.enviados === 1 &&
+        r24.corpo.cupons === 1 &&
+        Boolean(cupom) &&
+        // O de desconto é oferta: o modelo da marca, com o cancelar inscrição no cabeçalho.
+        Boolean(e24?.headers?.["List-Unsubscribe"]),
       "1 dia: o desconto, com um cupom só da pessoa",
       JSON.stringify({ r: r24.corpo, assunto: e24?.subject })
     )
@@ -1613,7 +1629,13 @@ try {
         Boolean(pix?.copiaECola) &&
         ePix.html.includes(pix.copiaECola) &&
         ePix.html.includes(`#${pedidoDoPix.numero}`) &&
-        ePix.tags?.some((t) => t.name === "tipo" && t.value === "crm-pix"),
+        ePix.tags?.some((t) => t.name === "tipo" && t.value === "crm-pix") &&
+        // O aviso é de pedido: sem o pé de oferta nem o cabeçalho do cancelar inscrição.
+        !ePix.html.includes("Sair da lista") &&
+        !ePix.headers?.["List-Unsubscribe"] &&
+        ePix.html.includes(
+          `Você recebeu porque fez o pedido #${pedidoDoPix.numero} na FuckingBarba.`
+        ),
       "15 minutos antes de vencer: o aviso, com o copia e cola e o número do pedido",
       JSON.stringify({ r: rPix.corpo, assunto: ePix?.subject })
     )

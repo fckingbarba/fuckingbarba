@@ -9,8 +9,8 @@ import { EQUIPE } from "../../modules/equipe"
 import type EquipeService from "../../modules/equipe/service"
 import { whatsappDaLoja } from "../atendimento"
 import { lerConfiguracoes } from "../configuracoes"
-import { enviarEmail, remetenteDoCrm } from "../email"
-import { emailDoCrm } from "../emails/crm"
+import { enviarEmail, remetenteDoEstilo } from "../email"
+import { emailDoCrm, NOME_DO_REMETENTE_PESSOAL, type EmailDoCrm } from "../emails/crm"
 import { emailDoFluxo, type CompraDoFluxo, type ItemDoFluxo } from "../emails/fluxos"
 import { urlDaLoja } from "../emails/moldura"
 import { mudarMetadataDaLoja } from "../metadata-da-loja"
@@ -484,14 +484,10 @@ export async function rodarOsFluxos(
         sair: linksDeSair(loja, email),
         loja: infoDaLoja,
       }
-      const enviado = await enviarEmail(
-        { ...emailDoCrm(emailDoFluxo(compra)), remetente: remetenteDoCrm() },
-        logger,
-        {
-          idempotencia: `crm-${entrada.fluxo}/${entrada.chave}/${decisao.toque.id}`,
-          tipo: `crm-${entrada.fluxo}`,
-        }
-      )
+      const enviado = await enviarEmail(comQuemManda(emailDoFluxo(compra)), logger, {
+        idempotencia: `crm-${entrada.fluxo}/${entrada.chave}/${decisao.toque.id}`,
+        tipo: `crm-${entrada.fluxo}`,
+      })
       if (enviado.ok) {
         await crm.confirmarToque(reserva, {
           resendId: enviado.id ?? null,
@@ -584,8 +580,28 @@ async function dadosDaLoja(
     whatsappDaLoja(container),
     container.resolve(Modules.STORE).listStores({}, { select: ["metadata"], take: 1 }),
   ])
-  const { empresa } = lerConfiguracoes(lojas[0]?.metadata)
-  return { url, whatsapp, empresa: empresa.razaoSocial, cnpj: empresa.cnpj }
+  const { empresa, atendimento } = lerConfiguracoes(lojas[0]?.metadata)
+  return {
+    url,
+    whatsapp,
+    empresa: empresa.razaoSocial,
+    cnpj: empresa.cnpj,
+    atendimento: atendimento.email,
+  }
+}
+
+/**
+ * O e-mail pronto pro envio, com quem manda e pra onde vai a resposta — do
+ * estilo dele (`EmailDoCrm.estilo`): o de pedido sai como os pedidos, sem
+ * resposta; o pessoal sai com o nome de quem assina; os dois do CRM mandam a
+ * resposta pro atendimento. Também é o do "Mandar pra mim" dos fluxos.
+ */
+export function comQuemManda(e: EmailDoCrm) {
+  return {
+    ...emailDoCrm(e),
+    remetente: remetenteDoEstilo(e.estilo, NOME_DO_REMETENTE_PESSOAL),
+    responderPara: e.estilo === "pedido" ? null : (e.loja.atendimento ?? null),
+  }
 }
 
 /**

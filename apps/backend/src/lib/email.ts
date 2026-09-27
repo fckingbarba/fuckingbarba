@@ -38,6 +38,8 @@ export type Email = {
   cabecalhos?: Record<string, string>
   /** Outro remetente — o do CRM (`EMAIL_REMETENTE_CRM`). Sem ele, o da loja. */
   remetente?: string
+  /** Pra onde vai a resposta (o `reply_to`): o e-mail de atendimento, nos e-mails do CRM. */
+  responderPara?: string | null
 }
 
 /**
@@ -70,6 +72,24 @@ export const remetenteDosEmails = () =>
  * Sem a variável, o mesmo da loja.
  */
 export const remetenteDoCrm = () => process.env.EMAIL_REMETENTE_CRM || remetenteDosEmails()
+
+/** Só o endereço de um remetente ("FuckingBarba <a@b.com>" → "a@b.com"). */
+const enderecoDo = (remetente: string) => remetente.match(/<([^>]+)>/)?.[1] ?? remetente.trim()
+
+/**
+ * Quem manda cada estilo de e-mail do CRM (`lib/emails/crm.ts`): o de pedido
+ * (o aviso do Pix) sai do remetente dos pedidos; o pessoal, do endereço do
+ * CRM com o nome de quem assina ("Matheus, da FuckingBarba"); a oferta, do
+ * remetente do CRM.
+ */
+export function remetenteDoEstilo(
+  estilo: "oferta" | "pedido" | "pessoal" | undefined,
+  nomePessoal: string
+): string {
+  if (estilo === "pedido") return remetenteDosEmails()
+  if (estilo === "pessoal") return `${nomePessoal} <${enderecoDo(remetenteDoCrm())}>`
+  return remetenteDoCrm()
+}
 
 /**
  * `idempotencia` vai no cabeçalho `Idempotency-Key` do Resend, que guarda a
@@ -126,7 +146,10 @@ export async function enviarEmail(
         subject: email.assunto,
         html: email.html,
         text: email.texto,
-        ...(email.cabecalhos ? { headers: email.cabecalhos } : {}),
+        ...(email.cabecalhos && Object.keys(email.cabecalhos).length
+          ? { headers: email.cabecalhos }
+          : {}),
+        ...(email.responderPara ? { reply_to: [email.responderPara] } : {}),
         ...(etiqueta ? { tags: [{ name: "tipo", value: etiqueta }] } : {}),
       }),
       signal: AbortSignal.timeout(TEMPO_LIMITE_MS),

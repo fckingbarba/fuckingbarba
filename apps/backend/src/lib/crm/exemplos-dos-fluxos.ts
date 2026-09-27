@@ -37,7 +37,7 @@ export async function exemploDoToque(
     container.resolve(Modules.STORE).listStores({}, { select: ["metadata"], take: 1 }),
   ])
   const metadata = lojas[0]?.metadata
-  const { empresa } = lerConfiguracoes(metadata)
+  const { empresa, atendimento } = lerConfiguracoes(metadata)
   const { desconto } = lerConfigDosFluxos(metadata)
   const fator = produtos.get("fator-de-crescimento-para-barba") ?? [...produtos.values()][0]
   const compra: CompraDoFluxo = {
@@ -80,7 +80,13 @@ export async function exemploDoToque(
         : null,
     voltar: linkDeVoltar(`cart_${"0".repeat(26)}`, agora),
     sair: linksDeSair(loja, membro.email),
-    loja: { url: loja, whatsapp, empresa: empresa.razaoSocial, cnpj: empresa.cnpj },
+    loja: {
+      url: loja,
+      whatsapp,
+      empresa: empresa.razaoSocial,
+      cnpj: empresa.cnpj,
+      atendimento: atendimento.email,
+    },
   }
   return emailDoFluxo(compra)
 }

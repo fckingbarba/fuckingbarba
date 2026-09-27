@@ -80,8 +80,32 @@ export type EmailDoCrm = {
   campanha: string
   /** A página de sair da lista (a da loja) e o endereço do clique único (o do backend). */
   sair: { pagina: string; umClique: string | null }
-  loja: { url: string; whatsapp: string | null; empresa: string | null; cnpj: string | null }
+  loja: {
+    url: string
+    whatsapp: string | null
+    empresa: string | null
+    cnpj: string | null
+    /** O e-mail de atendimento (Configurações): é pra onde vai a resposta do e-mail pessoal. */
+    atendimento?: string | null
+  }
+  /**
+   * O jeito do e-mail — é ele que decide a aba do Gmail:
+   *   - "oferta" (o padrão): o modelo da marca, com o pé do sair da lista e o
+   *     cabeçalho do "cancelar inscrição". O Gmail põe em Promoções, que é o
+   *     lugar do desconto;
+   *   - "pedido": a cara dos e-mails de pedido, sem o pé de oferta nem o
+   *     cabeçalho — o aviso do Pix, que é sobre um pedido (Principal ou
+   *     Atualizações);
+   *   - "pessoal": texto simples, sem foto, com um link só, assinado pelo
+   *     dono e com a resposta indo pro atendimento — os lembretes sem
+   *     desconto, pra terem chance de cair em Principal.
+   */
+  estilo?: "oferta" | "pedido" | "pessoal"
 }
+
+/** Quem assina o e-mail pessoal (escolha do dono, 27/09) — e o nome do remetente dele. */
+export const QUEM_ASSINA = "Matheus"
+export const NOME_DO_REMETENTE_PESSOAL = `${QUEM_ASSINA}, da FuckingBarba`
 
 const INSTAGRAM = "https://www.instagram.com/fuckingbarba"
 const TIKTOK = "https://www.tiktok.com/@fuckingbarba"
@@ -312,6 +336,8 @@ const linkDoWhatsapp = (numero: string | null) =>
  * cabeçalhos do sair da lista.
  */
 export function emailDoCrm(e: EmailDoCrm): Email & { cabecalhos: Record<string, string> } {
+  if (e.estilo === "pessoal") return emailPessoal(e)
+  const pedido = e.estilo === "pedido"
   const oi = e.nome ? `Oi, ${e.nome}!` : "Oi!"
   const principal = e.botao ? linkDoCrm(e.loja.url, e.botao.caminho, e.campanha) : null
   const topo = cartao(
@@ -336,12 +362,14 @@ export function emailDoCrm(e: EmailDoCrm): Email & { cabecalhos: Record<string, 
     assunto: e.assunto,
     previa: e.previa,
     conteudo: topo + e.blocos.map((b) => bloco(b, e)).join(""),
-    rodape:
-      `${esc(porque)} ` +
-      `<a href="${esc(e.sair.pagina)}" target="_blank" class="fb-rodape" ` +
-      `style="color:${COR.tinta};text-decoration:underline;font-weight:800;">` +
-      `Sair da lista em 1 clique</a>. Os e-mails dos seus pedidos continuam chegando.` +
-      (empresa ? `<br>${esc(empresa)}` : ""),
+    // O de pedido tem o pé dos e-mails de pedido: sem o sair da lista, que é coisa de oferta.
+    rodape: pedido
+      ? `${esc(porque)}` + (empresa ? `<br>${esc(empresa)}` : "")
+      : `${esc(porque)} ` +
+        `<a href="${esc(e.sair.pagina)}" target="_blank" class="fb-rodape" ` +
+        `style="color:${COR.tinta};text-decoration:underline;font-weight:800;">` +
+        `Sair da lista em 1 clique</a>. Os e-mails dos seus pedidos continuam chegando.` +
+        (empresa ? `<br>${esc(empresa)}` : ""),
     links: [
       { texto: "Loja", href: linkDoCrm(e.loja.url, "/", e.campanha) },
       { texto: "Instagram", href: INSTAGRAM },
@@ -359,17 +387,136 @@ export function emailDoCrm(e: EmailDoCrm): Email & { cabecalhos: Record<string, 
     ...e.blocos.flatMap((b) => ["", ...blocoEmTexto(b, e)]),
     "",
     porque,
-    `Sair da lista: ${e.sair.pagina}`,
+    ...(pedido ? [] : [`Sair da lista: ${e.sair.pagina}`]),
     ...(empresa ? [empresa] : []),
     `Instagram: ${INSTAGRAM} · TikTok: ${TIKTOK}${whatsapp ? ` · WhatsApp: ${whatsapp}` : ""}`,
   ].join("\n")
-  const cabecalhos: Record<string, string> = e.sair.umClique
-    ? {
-        "List-Unsubscribe": `<${e.sair.umClique}>`,
-        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
-      }
-    : { "List-Unsubscribe": `<${e.sair.pagina}>` }
+  const cabecalhos: Record<string, string> = pedido
+    ? {}
+    : e.sair.umClique
+      ? {
+          "List-Unsubscribe": `<${e.sair.umClique}>`,
+          "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+        }
+      : { "List-Unsubscribe": `<${e.sair.pagina}>` }
   return { para: e.para, assunto: e.assunto, html, texto, cabecalhos }
+}
+
+/* ── o e-mail pessoal ──────────────────────────────────────────────────── */
+
+const TINTA = "#12181f"
+const SUAVE = "#566072"
+const LETRA = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif"
+
+/** Um parágrafo do e-mail pessoal: letra do sistema, sem caixa nem cor de fundo. */
+const linha = (html: string, estilo = "") =>
+  `<p style="margin:0 0 14px;font-family:${LETRA};font-size:15px;line-height:1.6;color:${TINTA};${estilo}">${html}</p>`
+
+const precoEmTexto = (p: ProdutoDoCrm) =>
+  p.preco === null
+    ? ""
+    : ` · ${emReais(p.preco)}${p.precoCheio !== null && p.precoCheio > p.preco ? ` (de ${emReais(p.precoCheio)})` : ""}`
+
+/** Cada bloco como texto corrido: a lista dos produtos, as avaliações entre aspas. */
+function blocoPessoal(b: BlocoDoCrm): string {
+  switch (b.tipo) {
+    case "texto":
+    case "selo":
+      return linha(esc(b.texto))
+    case "passos":
+      return linha(esc(`${b.titulo ? `${b.titulo}: ` : ""}${b.passos.join(" · ")}`))
+    case "produtos":
+      return b.produtos.length
+        ? linha(
+            (b.titulo ? `${esc(b.titulo)}:<br>` : "") +
+              b.produtos
+                .slice(0, 3)
+                .map((p) => `• ${esc(p.nome)}${esc(precoEmTexto(p))}`)
+                .join("<br>")
+          )
+        : ""
+    case "depoimento":
+      return linha(
+        `“${esc(b.texto)}”<br><span style="color:${SUAVE};font-size:13px;">— ${esc(b.quem)} · ` +
+          `${"★".repeat(Math.max(1, Math.min(5, Math.round(b.estrelas ?? 5))))}</span>`,
+        `padding-left:12px;border-left:3px solid ${COR.menta};`
+      )
+    case "cupom":
+      return linha(esc(`${b.oque}: ${b.codigo} (${b.validade})`))
+    case "pix":
+      return linha(esc(`Pix copia e cola (vale até ${b.vence}): ${b.codigo}`))
+  }
+}
+
+/**
+ * O E-MAIL PESSOAL — como um e-mail que alguém da loja escreveu: o oi, o
+ * texto, os produtos em lista, um link só, o "é só responder" e a assinatura.
+ * Sem foto, sem botão, sem o cabeçalho do "cancelar inscrição" — é o que o
+ * Gmail lê como conversa, e não como oferta. O sair da lista fica no pé, em
+ * letra pequena, como a loja prometeu.
+ *
+ * Fundo branco declarado: o Mail do iPhone escurece sozinho o e-mail sem cor
+ * de fundo, e a letra escura sumiria.
+ */
+function emailPessoal(e: EmailDoCrm): Email & { cabecalhos: Record<string, string> } {
+  const oi = e.nome ? `Oi, ${e.nome}!` : "Oi!"
+  const link = e.botao ? linkDoCrm(e.loja.url, e.botao.caminho, e.campanha) : null
+  const whatsapp = linkDoWhatsapp(e.loja.whatsapp)
+  const porque = e.porque ?? "Você recebeu porque aceitou receber ofertas da FuckingBarba."
+  const empresa = [e.loja.empresa, e.loja.cnpj ? `CNPJ ${e.loja.cnpj}` : null]
+    .filter(Boolean)
+    .join(" · ")
+  const resposta = e.loja.atendimento
+    ? "Qualquer dúvida, é só responder este e-mail."
+    : whatsapp
+      ? "Qualquer dúvida, chama a gente no WhatsApp:"
+      : null
+  const html =
+    `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">` +
+    `<meta name="viewport" content="width=device-width,initial-scale=1">` +
+    `<meta name="color-scheme" content="light"><title>${esc(e.assunto)}</title></head>` +
+    `<body style="margin:0;padding:0;background:#ffffff;">` +
+    `<div style="display:none;max-height:0;overflow:hidden;opacity:0;">${esc(e.previa)}</div>` +
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="background:#ffffff;"><tr>` +
+    `<td align="left" style="padding:28px 20px;"><div style="max-width:560px;margin:0 auto;">` +
+    linha(esc(oi)) +
+    linha(esc(e.texto)) +
+    e.blocos.map(blocoPessoal).join("") +
+    (link && e.botao
+      ? linha(
+          `<a href="${esc(link)}" style="color:#0b7f62;font-weight:700;">${esc(e.botao.texto)}</a>`
+        )
+      : "") +
+    (resposta
+      ? linha(
+          esc(resposta) +
+            (!e.loja.atendimento && whatsapp
+              ? ` <a href="${esc(whatsapp)}" style="color:#0b7f62;">${esc(whatsapp.replace("https://", ""))}</a>`
+              : "")
+        )
+      : "") +
+    linha(`${esc(QUEM_ASSINA)}<br>FuckingBarba`) +
+    `<p style="margin:24px 0 0;font-family:${LETRA};font-size:12px;line-height:1.5;color:${SUAVE};">` +
+    `${esc(porque)} <a href="${esc(e.sair.pagina)}" style="color:${SUAVE};">Sair da lista</a>.` +
+    (empresa ? `<br>${esc(empresa)}` : "") +
+    `</p></div></td></tr></table></body></html>`
+  const texto = [
+    oi,
+    "",
+    e.texto,
+    ...e.blocos.flatMap((b) => ["", ...blocoEmTexto(b, e)]),
+    ...(link && e.botao ? ["", `${e.botao.texto}: ${link}`] : []),
+    ...(resposta
+      ? ["", `${resposta}${!e.loja.atendimento && whatsapp ? ` ${whatsapp}` : ""}`]
+      : []),
+    "",
+    QUEM_ASSINA,
+    "FuckingBarba",
+    "",
+    `${porque} Sair da lista: ${e.sair.pagina}`,
+    ...(empresa ? [empresa] : []),
+  ].join("\n")
+  return { para: e.para, assunto: e.assunto, html, texto, cabecalhos: {} }
 }
 
 /* ── os exemplos do painel (CRM → E-mails) ─────────────────────────────── */
