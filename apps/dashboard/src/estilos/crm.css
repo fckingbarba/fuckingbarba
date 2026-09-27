@@ -88,3 +88,40 @@
   .ajuste-tipo { grid-template-columns: minmax(0, 1fr) auto; }
   .ajuste-tipo .fila__ico { display: none; }
 }
+
+/* A base da Nuvemshop (parte 5): os números, as barras de quem é quem, o envio dos arquivos, e o histórico nos Ajustes. */
+.numeros--base { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+@media (max-width: 1180px) { .numeros--base { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .numeros--base { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.base-duas { gap: 12px 24px; }
+.base-barras { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 10px; }
+.base-barra { display: grid; grid-template-columns: minmax(0, 150px) minmax(0, 1fr) 4.5em; grid-template-rows: auto auto; column-gap: 12px; align-items: center; }
+.base-barra__nome { margin: 0; font-size: 0.84rem; font-weight: 800; }
+.base-barra__trilho { display: block; height: 10px; background: var(--cinza); }
+.base-barra__trilho span { display: block; height: 100%; background: var(--tinta); }
+.base-barra[data-linha-da-base="em-risco"] .base-barra__trilho span, .base-barra[data-linha-da-base="sunset"] .base-barra__trilho span { background: var(--erro); }
+.base-barra[data-linha-da-base="recorrente"] .base-barra__trilho span, .base-barra[data-linha-da-base="quente"] .base-barra__trilho span { background: var(--menta-escura); }
+.base-barra__n { margin: 0; font-size: 0.95rem; font-weight: 800; text-align: right; font-variant-numeric: tabular-nums; }
+.base-barra__sub { grid-column: 2 / 4; margin: 2px 0 0; font-size: 0.72rem; color: var(--tinta-suave); }
+.base-envio { position: relative; display: flex; align-items: center; gap: 12px; padding: 16px; border: 2px dashed var(--tinta); background: var(--cinza); cursor: pointer; }
+.base-envio:hover, .base-envio:focus-within { background: var(--amarelo-palido); }
+.base-envio input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.base-envio[data-enviando] { cursor: progress; opacity: 0.8; }
+.base-envio .fila__ico { width: 34px; height: 34px; }
+.base-envio__txt { display: grid; gap: 2px; }
+.base-envio__txt b { font-size: 0.9rem; }
+.base-envio__txt small { font-size: 0.74rem; color: var(--tinta-suave); }
+.base-resultados { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 6px; }
+.base-resultados li { display: flex; gap: 8px; align-items: flex-start; font-size: 0.84rem; font-weight: 600; color: var(--erro); }
+.base-resultados li[data-ok] { color: var(--tinta); }
+.base-resultados svg { flex-shrink: 0; width: 16px; height: 16px; margin-top: 1px; }
+.base-resultados li[data-ok] svg { color: var(--menta-escura); }
+.base-privacidade { margin: 12px 0 0; }
+.ajuste-tipo__historico { margin: 3px 0 0; font-size: 0.74rem; font-weight: 700; color: var(--menta-escura); }
+.ajustes-historico { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin: 12px 0 0; padding: 12px 0 0; border-top: 1px solid rgba(18, 24, 31, 0.1); }
+.ajustes-historico p { margin: 0; flex: 1 1 320px; }
+@media (max-width: 640px) {
+  .base-barra { grid-template-columns: minmax(0, 1fr) 4.5em; }
+  .base-barra__trilho { grid-column: 1 / -1; grid-row: 2; }
+  .base-barra__sub { grid-column: 1 / -1; }
+}
