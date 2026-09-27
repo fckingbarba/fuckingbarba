@@ -89,6 +89,7 @@ const gravado = (expiraEm: string): Estado => ({
   pix: { copiaECola: "00020126…", imagem: "", expiraEm },
   cartao: null,
   recusa: null,
+  falha: null,
   estornado: 0,
 })
 

@@ -53,6 +53,8 @@ import {
   type Traduzido,
 } from "./situacao"
 import { sinal } from "../../lib/observabilidade/sinal"
+import { falhaDoErro, PIX_COM_RESERVA_MS } from "../../lib/pagamento/disjuntor"
+import type { Falha } from "../../lib/pagamento/estado"
 
 /**
  * O PROVEDOR DE PAGAMENTO — Pix e cartão em até 3x, pelo Pagar.me.
@@ -239,7 +241,12 @@ export default class PagarmeServico extends AbstractPaymentProvider<Opcoes> {
     const estado = lerEstado(data)
     const codigo = context?.idempotency_key ?? ""
     if (!estado || !CODIGO_DE_SESSAO.test(codigo)) {
-      return this.falha(estado, "sessão sem estado do Pagar.me ou sem código", RECUSAS.fora)
+      return this.falha(
+        estado,
+        "sessão sem estado do Pagar.me ou sem código",
+        RECUSAS.fora,
+        "interno"
+      )
     }
 
     /*
@@ -292,7 +299,12 @@ export default class PagarmeServico extends AbstractPaymentProvider<Opcoes> {
         }
         return {
           status: PaymentSessionStatus.ERROR,
-          data: gravar({ ...traduzido.estado, situacao: estado.situacao, recusa: estado.recusa }),
+          data: gravar({
+            ...traduzido.estado,
+            situacao: estado.situacao,
+            recusa: estado.recusa,
+            falha: estado.falha,
+          }),
         }
       }
       // O cartão que a análise aprovou é cobrado aqui: no checkout (a
@@ -316,19 +328,22 @@ export default class PagarmeServico extends AbstractPaymentProvider<Opcoes> {
     try {
       entrada = conferirEntrada(data?.[CHAVE_DA_ENTRADA], estado.valor)
     } catch (e) {
-      return this.falha(estado, e instanceof Error ? e.message : String(e), RECUSAS.fora)
+      return this.falha(estado, e instanceof Error ? e.message : String(e), RECUSAS.fora, "interno")
     }
 
     try {
       pedido = await this.cliente.criarPedido(
-        montarPedido(entrada, estado.valor, codigo, this.pixMinutos, this.origem)
+        montarPedido(entrada, estado.valor, codigo, this.pixMinutos, this.origem),
+        // Pix com o outro parceiro esperando: desiste cedo (ver `reserva`).
+        entrada.reserva ? PIX_COM_RESERVA_MS : undefined
       )
     } catch (e) {
       if (!(e instanceof ErroDoPagarme)) throw e
 
       if (!e.incerto) {
         // 4xx: nada foi criado. Token vencido (dura 60 s) e dado recusado
-        // caem aqui.
+        // caem aqui — e a chave recusada (401/403), que é o Pagar.me fora
+        // pra loja (`falhaDoErro`).
         return this.falha(
           estado,
           `pedido recusado na entrada (${codigo}): ${e.message}`,
@@ -336,13 +351,18 @@ export default class PagarmeServico extends AbstractPaymentProvider<Opcoes> {
             ? RECUSAS.pix
             : e.tipo === "validacao"
               ? RECUSAS.dados
-              : RECUSAS.fora
+              : RECUSAS.fora,
+          falhaDoErro(e.tipo)
         )
       }
 
-      // Rede ou 5xx: pode ter sido criado. Pergunta mais duas vezes.
+      /*
+        Rede ou 5xx: pode ter sido criado. Pergunta mais duas vezes — menos
+        no Pix com reserva: o outro parceiro gera o QR no mesmo clique, e o
+        Pix que tiver nascido aqui não chega a ninguém (a conciliação fecha).
+      */
       this.logger.warn(`[pagarme] criação sem resposta (${codigo}): ${e.message}`)
-      for (const ms of REPERGUNTAS_MS) {
+      for (const ms of entrada.reserva ? [] : REPERGUNTAS_MS) {
         await esperar(ms)
         pedido = await this.cliente.buscarPorCodigo(codigo).catch(() => null)
         if (pedido) break
@@ -354,7 +374,7 @@ export default class PagarmeServico extends AbstractPaymentProvider<Opcoes> {
         )
         return {
           status: PaymentSessionStatus.ERROR,
-          data: gravar({ ...estado, situacao: "incerto", recusa: RECUSAS.incerto }),
+          data: gravar({ ...estado, situacao: "incerto", recusa: RECUSAS.incerto, falha: "fora" }),
         }
       }
     }
@@ -376,7 +396,7 @@ export default class PagarmeServico extends AbstractPaymentProvider<Opcoes> {
       )
       const cobranca = pedido.charges?.[0]?.id
       if (cobranca) await this.cliente.cancelarCobranca(cobranca).catch(() => null)
-      return this.falha(estado, "valor divergente", RECUSAS.fora)
+      return this.falha(estado, "valor divergente", RECUSAS.fora, "interno")
     }
 
     pedido = await this.esperarAAnalise(pedido, entrada.forma, codigo)
@@ -752,10 +772,16 @@ export default class PagarmeServico extends AbstractPaymentProvider<Opcoes> {
   }
 
   /**
-   * `error` com a frase pra tela. O Medusa grava estes dados na sessão
-   * mesmo recusando, e é de lá que a loja lê o que mostrar.
+   * `error` com a frase pra tela e o porquê pra quem decide (`Falha`: o
+   * disjuntor e a loja, que leva o Pix pro outro parceiro). O Medusa grava
+   * estes dados na sessão mesmo recusando, e é de lá que a loja lê.
    */
-  private falha(estado: Estado | null, motivo: string, frase: string): AuthorizePaymentOutput {
+  private falha(
+    estado: Estado | null,
+    motivo: string,
+    frase: string,
+    falha: Falha
+  ): AuthorizePaymentOutput {
     this.logger.warn(`[pagarme] não autorizado: ${motivo}`)
     return {
       status: PaymentSessionStatus.ERROR,
@@ -763,6 +789,7 @@ export default class PagarmeServico extends AbstractPaymentProvider<Opcoes> {
         ...(estado ?? estadoNovo("pix", 0, 1)),
         situacao: "falhou",
         recusa: frase,
+        falha,
       }),
     }
   }

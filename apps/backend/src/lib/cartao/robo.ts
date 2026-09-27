@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto"
 import { RECUSAS } from "../../modules/pagarme/situacao"
-import type { Estado } from "../pagamento/estado"
+import type { Estado, Forma } from "../pagamento/estado"
 import { ehParceiro, estadoDaSessao, PAGARME } from "../pagamento/parceiros"
 
 /**
@@ -155,22 +155,27 @@ type CarrinhoCru = {
   payment_collection?: { payment_sessions?: (SessaoCrua | null)[] | null } | null
 } | null
 
+/** A sessão que o `complete` vai mandar pro parceiro (`sessaoQueVai`). */
+export type SessaoQueVai = { id: string; valor: number; forma: Forma; provedor: string }
+
 /**
- * A sessão de cartão que o `complete` vai mandar pro parceiro — a de um
- * parceiro de pagamento (hoje, só o Pagar.me passa cartão), no cartão, ainda
- * `nova` (nada enviado). Sessão que já foi (recusada, em análise) não volta
- * a ir: o provedor responde o que ela é, sem chamar o parceiro de novo (ver
- * o `authorizePayment` do Pagar.me), então não tem o que barrar. Pix, nem
- * olha.
+ * A sessão que o `complete` vai mandar pro parceiro — a de um parceiro de
+ * pagamento, ainda `nova` (nada enviado). Sessão que já foi (recusada, em
+ * análise) não volta a ir: o provedor responde o que ela é, sem chamar o
+ * parceiro de novo (ver o `authorizePayment` do Pagar.me), então não tem o
+ * que barrar nem o que anotar.
+ *
+ * As travas contra o robô são só do CARTÃO (Pix não testa cartão); o Pix é
+ * anotado também desde a 0150, pro disjuntor dos parceiros
+ * (`lib/pagamento/disjuntor.ts`) — quem decide o que vale pra cada forma é a
+ * porta.
  */
-export function sessaoDeCartao(
-  carrinho: CarrinhoCru | undefined
-): { id: string; valor: number } | null {
+export function sessaoQueVai(carrinho: CarrinhoCru | undefined): SessaoQueVai | null {
   for (const s of carrinho?.payment_collection?.payment_sessions ?? []) {
-    if (!s?.id || !ehParceiro(s.provider_id)) continue
+    if (!s?.id || !s.provider_id || !ehParceiro(s.provider_id)) continue
     const estado = estadoDaSessao(s)
-    if (estado?.forma === "cartao" && estado.situacao === "nova") {
-      return { id: s.id, valor: estado.valor }
+    if (estado?.situacao === "nova") {
+      return { id: s.id, valor: estado.valor, forma: estado.forma, provedor: s.provider_id }
     }
   }
   return null
@@ -180,12 +185,21 @@ export function sessaoDeCartao(
 
 /**
  * "andando": foi pro `complete` e ainda não voltou. "parou": voltou sem ter
- * chegado no Pagar.me (o estoque acabou antes). "barrada": a porta não
- * deixou. "solta": não é tentativa — é a marca do `POST /admin/cartao`
- * ("soltar"), e as contas só olham o que veio depois dela.
+ * chegado no parceiro (o estoque acabou antes). "barrada": a porta não
+ * deixou. "gerado": o Pix que nasceu, esperando o pagamento. "solta": não é
+ * tentativa — é a marca do `POST /admin/cartao` ("soltar"), e as contas só
+ * olham o que veio depois dela.
  */
 export type Resultado =
-  "andando" | "aprovada" | "analise" | "recusada" | "erro" | "parou" | "barrada" | "solta"
+  | "andando"
+  | "aprovada"
+  | "analise"
+  | "recusada"
+  | "gerado"
+  | "erro"
+  | "parou"
+  | "barrada"
+  | "solta"
 
 /** As que foram (ou podem ter ido) pro Pagar.me — as que contam pras travas. */
 export const CONTAM: readonly Resultado[] = ["andando", "aprovada", "analise", "recusada", "erro"]
@@ -196,6 +210,12 @@ export const CONTAM: readonly Resultado[] = ["andando", "aprovada", "analise", "
  * cartão que o Pagar.me recusou (cartão vencido, número que não existe —
  * o robô manda muito disso). O Pagar.me fora do ar é erro, não recusa: não
  * liga o freio.
+ *
+ * O ERRO LEVA O PORQUÊ (a `falha` que o provedor gravou, desde a 0150):
+ * "fora" e "incerto" são o parceiro que não atendeu — é o que o disjuntor
+ * conta (`naoAtendeu`, em `lib/pagamento/disjuntor.ts`); "recusa" é ele
+ * dizendo não, e "interno" é o que nem saiu daqui. Sessão gravada antes da
+ * 0150 não tem `falha`, e o erro dela fica "fora", como era.
  */
 export function resultadoDaSessao(estado: Estado | null): {
   resultado: Resultado
@@ -207,14 +227,21 @@ export function resultadoDaSessao(estado: Estado | null): {
       return { resultado: "aprovada", motivo: null }
     case "analise":
       return { resultado: "analise", motivo: null }
+    case "aguardando":
+      return { resultado: "gerado", motivo: null }
     case "nova":
       return { resultado: "parou", motivo: null }
+    case "incerto":
+      return { resultado: "erro", motivo: "incerto" }
     case "recusado":
     case "falhou":
       if (estado.recusa === RECUSAS.banco) return { resultado: "recusada", motivo: "banco" }
       if (estado.recusa === RECUSAS.antifraude)
         return { resultado: "recusada", motivo: "antifraude" }
       if (estado.recusa === RECUSAS.dados) return { resultado: "recusada", motivo: "dados" }
+      if (estado.falha === "recusa" || estado.falha === "interno") {
+        return { resultado: "erro", motivo: estado.falha }
+      }
       return { resultado: "erro", motivo: estado.recusa === RECUSAS.incerto ? "incerto" : "fora" }
     default:
       return { resultado: "erro", motivo: estado.situacao }

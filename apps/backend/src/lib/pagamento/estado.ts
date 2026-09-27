@@ -49,6 +49,24 @@ export type Situacao =
    */
   | "cancelando"
 
+/**
+ * POR QUE NÃO DEU, pra quem DECIDE — a frase (`recusa`) é pra quem lê. Só na
+ * sessão que não deu ("falhou", "recusado", "incerto"); `null` no resto.
+ *
+ * - "fora": o parceiro não atendeu — sem resposta, tempo esgotado, 5xx, a
+ *   chave recusada (401/403). É a única que o disjuntor conta
+ *   (`lib/pagamento/disjuntor.ts`): parceiro instável é parceiro que não
+ *   atende;
+ * - "recusa": ele atendeu e disse não (um 4xx, o Pix que saiu "falhou" lá, o
+ *   cartão que o banco ou a análise recusaram);
+ * - "interno": nem chegou a ir — a sessão sem estado, a entrada que não
+ *   passou na conferência, o valor que não bateu.
+ *
+ * Qualquer uma delas, no Pix, manda a loja tentar o outro parceiro no mesmo
+ * clique (`finalizar`, na loja): QR que não nasceu não cobra ninguém.
+ */
+export type Falha = "fora" | "recusa" | "interno"
+
 /** O que fica em `data[<chave do parceiro>]`. Sempre com todas as chaves. */
 export type Estado = {
   forma: Forma
@@ -64,9 +82,13 @@ export type Estado = {
   cartao: { bandeira: string; final: string } | null
   /** O que dizer pra quem teve o pagamento recusado. Frase pronta. */
   recusa: string | null
+  /** Por que não deu (`Falha`) — só na sessão que falhou. */
+  falha: Falha | null
   /** Centavos já devolvidos. */
   estornado: number
 }
+
+const FALHAS: readonly Falha[] = ["fora", "recusa", "interno"]
 
 /** O estado de uma sessão recém-aberta: nada foi pro parceiro ainda. */
 export function estadoNovo(forma: Forma, valor: number, parcelas: number): Estado {
@@ -80,6 +102,7 @@ export function estadoNovo(forma: Forma, valor: number, parcelas: number): Estad
     pix: null,
     cartao: null,
     recusa: null,
+    falha: null,
     estornado: 0,
   }
 }
@@ -104,6 +127,8 @@ export function lerEstado(
     pix: e.pix && typeof e.pix === "object" ? e.pix : null,
     cartao: e.cartao && typeof e.cartao === "object" ? e.cartao : null,
     recusa: texto(e.recusa),
+    // A sessão gravada antes da 0150 não tem: fica `null`.
+    falha: FALHAS.includes(e.falha as Falha) ? (e.falha as Falha) : null,
     estornado: Number(e.estornado ?? 0),
   }
 }

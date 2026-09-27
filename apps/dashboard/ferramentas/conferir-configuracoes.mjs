@@ -27,6 +27,7 @@
 
 import {
   abrirNavegador,
+  avisoDoClique,
   caixaDoResend,
   DONO,
   entrar as entrarPelaTela,
@@ -219,15 +220,17 @@ try {
     `${janelaErrada.status} ${janela.status} ${tela.nota?.janela}`
   )
   ok(
-    tela.emails?.equipe?.length === 7 &&
+    tela.emails?.equipe?.length === 8 &&
       tela.emails.equipe.every((e) => /\(dono\)|\(operação\)/.test(e.quem)) &&
       tela.emails.equipe[0].nome === "Venda nova" &&
       !tela.emails.equipe[0].quem.includes("(operação)") &&
       tela.emails.equipe.slice(1, 4).every((e) => e.quem.includes("(operação)")) &&
       !tela.emails.equipe[5].quem.includes("(operação)") &&
       tela.emails.equipe[6].nome === "Robô testando cartão" &&
-      !tela.emails.equipe[6].quem.includes("(operação)"),
-    "os avisos da equipe: a venda nova, o estorno e o robô no cartão só pro dono; a nota pra operação e o dono",
+      !tela.emails.equipe[6].quem.includes("(operação)") &&
+      tela.emails.equipe[7].nome === "Um parceiro de pagamento caiu" &&
+      !tela.emails.equipe[7].quem.includes("(operação)"),
+    "os avisos da equipe: a venda nova, o estorno, o robô no cartão e o parceiro que caiu só pro dono; a nota pra operação e o dono",
     JSON.stringify(tela.emails?.equipe?.map((e) => `${e.nome}: ${e.quem}`))
   )
 
@@ -245,17 +248,11 @@ try {
       (await pagina.locator('.abas a[aria-current="page"]').textContent()) === "Dados da empresa",
     "/configuracoes abre nos dados da empresa, com o que está gravado"
   )
-  const aviso = pagina.locator(".aviso")
-  const salvarPelaTela = async (formulario) => {
-    const vez = await aviso.getAttribute("data-vez")
-    await pagina.locator(`[data-form="${formulario}"] button[type="submit"]`).click()
-    await pagina.waitForFunction(
-      (v) => document.querySelector(".aviso")?.getAttribute("data-vez") !== v,
-      vez,
-      { timeout: 30000 }
+  // O aviso deste clique, lido quando entra — não o de antes saindo, e antes da tela refeita.
+  const salvarPelaTela = (formulario) =>
+    avisoDoClique(pagina, () =>
+      pagina.locator(`[data-form="${formulario}"] button[type="submit"]`).click()
     )
-    return semEspaco(await aviso.textContent())
-  }
   await pagina.locator('[data-campo="cnpj"]').fill("11.222.333/0001-00")
   const recusado = await salvarPelaTela("empresa")
   ok(
@@ -305,22 +302,15 @@ try {
   await pagina.goto(`${PAINEL}/configuracoes/nota`)
   await hidratado(pagina, "[data-erp]")
   const temJanela = (await pagina.locator("[data-janela]").count()) > 0
-  if (temJanela) {
-    const vez = await aviso.getAttribute("data-vez")
-    await pagina.locator('[data-janela="30"]').check()
-    await pagina.waitForFunction(
-      (v) => document.querySelector(".aviso")?.getAttribute("data-vez") !== v,
-      vez,
-      { timeout: 30000 }
-    )
-  }
+  const daJanela = temJanela
+    ? await avisoDoClique(pagina, () => pagina.locator('[data-janela="30"]').check())
+    : ""
   const depois = (await medusa("/dashboard/configuracoes", { metodo: "GET", token: tokenDoDono }))
     .corpo
   ok(
-    !temJanela ||
-      (depois.nota?.janela === 30 && /30 minutos/.test(semEspaco(await aviso.textContent()))),
+    !temJanela || (depois.nota?.janela === 30 && /30 minutos/.test(daJanela)),
     "pela tela: a janela da nota muda no clique",
-    `${depois.nota?.janela}`
+    `${depois.nota?.janela} · ${daJanela}`
   )
 
   for (const [aba, seletor] of [
@@ -335,11 +325,11 @@ try {
     (await pagina.locator("[data-aviso-da-equipe]").first().textContent()) ?? ""
   )
   ok(
-    (await pagina.locator("[data-aviso-da-equipe]").count()) === 7 &&
+    (await pagina.locator("[data-aviso-da-equipe]").count()) === 8 &&
       (await pagina.locator("[data-emails-cliente] .linha").count()) === 6 &&
       /^Venda nova/.test(primeiroAviso) &&
       /vai pra: dono$/.test(primeiroAviso),
-    "as abas de conferir: pagamento, entrega e os e-mails (7 avisos da equipe, a venda nova primeiro e só pro dono; 6 do cliente)",
+    "as abas de conferir: pagamento, entrega e os e-mails (8 avisos da equipe, a venda nova primeiro e só pro dono; 6 do cliente)",
     primeiroAviso
   )
 

@@ -76,6 +76,53 @@
   box-sizing: border-box;
 }
 
+/*
+  A LISTRA DE CIMA de cada seção: preto e amarelo, a mesma das seções da
+  home (`.vitrine::before`, `.amam::before`). Pedido da loja em 27/09: na
+  PDP só a promessa, a faixa com foto e os relacionados abriam com ela, e as
+  outras seções emendavam uma na outra só pela troca de fundo.
+
+  A promessa e a faixa têm a delas (com z-index, por cima do degradê e da
+  foto) e os relacionados herdam a do carrossel da home (`.colecao`). A
+  dobra, que é a primeira tela, fica sem.
+
+  A listra mora no padding de cima da seção (38px no mínimo): não cobre
+  texto nem muda a altura de nada. E o `position: relative` não muda o
+  lugar de ninguém: todo absoluto destas seções já tem um pai posicionado
+  mais perto (`.rotina__item`, `.duvidas__mais`, `.caso__lado`).
+*/
+.antesdepois,
+.tempo,
+.rotina,
+.funciona,
+.versus,
+.quem,
+.duvidas,
+.avaliacoes {
+  position: relative;
+}
+
+.antesdepois::before,
+.tempo::before,
+.rotina::before,
+.funciona::before,
+.versus::before,
+.quem::before,
+.duvidas::before,
+.avaliacoes::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 10px;
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--color-text) 0 14px,
+    var(--color-accent) 14px 28px
+  );
+}
+
 /* ------------------------------------------------------
      MIGALHAS — onde o cliente está dentro da loja.
      Também é o BreadcrumbList que o Google usa pra mostrar

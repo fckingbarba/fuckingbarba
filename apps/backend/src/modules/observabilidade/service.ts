@@ -14,6 +14,8 @@ import {
   type ResumoDoCartao,
 } from "../../lib/cartao/robo"
 import { ligarSinais, type Sinal as SinalRecebido } from "../../lib/observabilidade/sinal"
+import type { Terminada } from "../../lib/pagamento/disjuntor"
+import type { Forma } from "../../lib/pagamento/estado"
 import { chaveDaOcorrencia, type EventoLido } from "../../lib/observabilidade/telemetria"
 import { chaveDoDia } from "../../lib/painel/formato"
 import { Medida } from "./models/medida"
@@ -237,20 +239,29 @@ export default class ObservabilidadeService extends Tabelas {
     }
   }
 
-  /* ── as tentativas de cartão (`lib/cartao/`) ──────────────────────────── */
+  /* ── as tentativas de pagar (`lib/cartao/`, `lib/pagamento/disjuntor.ts`) ── */
 
   /** A tentativa que vai pro `complete` — "andando", até a porta fechar. */
   @InjectManager()
   async abrirTentativa(
-    t: { carrinho: string; sessao: string; quem: string; assinada: boolean; valor: number | null },
+    t: {
+      carrinho: string
+      sessao: string
+      quem: string
+      assinada: boolean
+      valor: number | null
+      provedor: string
+      forma: Forma
+    },
     @MedusaContext() ctx: Contexto = {}
   ): Promise<string> {
     const id = generateEntityId(undefined, "tnt")
     await ctx.manager!.execute(
       `insert into obs_tentativa
-         (id, carrinho, sessao, quem, assinada, resultado, motivo, valor, created_at, updated_at)
-       values (?, ?, ?, ?, ?, 'andando', null, ?, now(), now())`,
-      [id, t.carrinho, t.sessao, t.quem, t.assinada, t.valor]
+         (id, carrinho, sessao, quem, assinada, resultado, motivo, valor, provedor, forma,
+          created_at, updated_at)
+       values (?, ?, ?, ?, ?, 'andando', null, ?, ?, ?, now(), now())`,
+      [id, t.carrinho, t.sessao, t.quem, t.assinada, t.valor, t.provedor, t.forma]
     )
     return id
   }
@@ -271,8 +282,9 @@ export default class ObservabilidadeService extends Tabelas {
 
   /**
    * As contas da trava, numa ida ao banco: a sacola, a pessoa, as sem
-   * assinatura, e o freio. Depois da última soltura, e só com as que foram
-   * (ou podem ter ido) pro Pagar.me — ver `CONTAM`.
+   * assinatura, e o freio. Só CARTÃO (o Pix é anotado pro disjuntor, e não
+   * testa cartão), depois da última soltura, e só com as que foram (ou podem
+   * ter ido) pro Pagar.me — ver `CONTAM`.
    */
   @InjectManager()
   async contarTentativas(
@@ -296,6 +308,7 @@ export default class ObservabilidadeService extends Tabelas {
                             and created_at > now() - make_interval(mins => ?))::int as da_loja
          from obs_tentativa
         where deleted_at is null
+          and forma = 'cartao'
           and created_at > now() - make_interval(mins => ?)
           and ${DEPOIS_DA_SOLTURA}`,
       [
@@ -342,7 +355,7 @@ export default class ObservabilidadeService extends Tabelas {
 
   /**
    * As últimas 24 horas de cartão, pra tela e pro vigia, e o freio agora
-   * (os últimos 30 minutos, depois da última soltura).
+   * (os últimos 30 minutos, depois da última soltura). Só cartão.
    */
   @InjectManager()
   async resumoDoCartao(@MedusaContext() ctx: Contexto = {}): Promise<ResumoDoCartao> {
@@ -356,7 +369,8 @@ export default class ObservabilidadeService extends Tabelas {
          count(*) filter (where resultado = 'barrada')::int as barradas,
          count(*) filter (where not assinada and resultado <> 'solta')::int as diretas
          from obs_tentativa
-        where deleted_at is null and created_at > now() - interval '24 hours'`
+        where deleted_at is null and forma = 'cartao'
+          and created_at > now() - interval '24 hours'`
     )) as Record<string, number>[]
     const [freio] = (await ctx.manager!.execute(
       `select
@@ -365,6 +379,7 @@ export default class ObservabilidadeService extends Tabelas {
          min(created_at) filter (where resultado = 'recusada') as desde
          from obs_tentativa
         where deleted_at is null
+          and forma = 'cartao'
           and created_at > now() - make_interval(mins => ?)
           and ${DEPOIS_DA_SOLTURA}`,
       [LIMITES.freio.minutos]
@@ -382,6 +397,30 @@ export default class ObservabilidadeService extends Tabelas {
         desde: freio?.desde ?? null,
       },
     }
+  }
+
+  /**
+   * As últimas tentativas que TERMINARAM de cada parceiro, pro disjuntor
+   * (`saudeDoParceiro`, em `lib/pagamento/disjuntor.ts`): até 50 por
+   * parceiro, das últimas 24 horas, Pix e cartão juntos — parceiro que não
+   * atende não atende nenhum dos dois. A que ainda está andando, a barrada
+   * pela porta e a que parou antes do parceiro não dizem nada sobre ele.
+   */
+  @InjectManager()
+  async terminadasDosParceiros(@MedusaContext() ctx: Contexto = {}): Promise<Terminada[]> {
+    const linhas = (await ctx.manager!.execute(
+      `select provedor, resultado, motivo, em from (
+         select provedor, resultado, motivo, updated_at as em,
+                row_number() over (partition by provedor order by updated_at desc) as n
+           from obs_tentativa
+          where deleted_at is null
+            and provedor is not null
+            and resultado not in ('andando', 'barrada', 'parou', 'solta')
+            and updated_at > now() - interval '24 hours'
+       ) as t
+       where n <= 50`
+    )) as Terminada[]
+    return linhas
   }
 
   /**

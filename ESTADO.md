@@ -1076,6 +1076,22 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
       conferidor de antes falhou 8 em 8, o novo passou 8 em 8. A CPU lenta no navegador não
       reproduz: ela atrasa junto o relógio do aviso. Só o conferidor mudou: nada muda no painel, e
       nada a configurar.
+- [x] **Mais cinco conferidores do painel liam o aviso de baixo tarde** (entrega 0147, 27/09, o
+      mesmo caso da 0143). O `conferir-cupons` e o `conferir-promocoes` ("criado/criada pela
+      gaveta"), o `conferir-integracoes` (o trecho do TikTok colado pela tela), o
+      `conferir-clientes` (o Leo sai da newsletter) e o `conferir-configuracoes` (a janela da
+      nota) liam a frase do aviso só depois de esperar a tela refeita — a linha nova, o campo, a
+      linha que sai — ou de uma chamada à API; com a máquina carregada, ela chega depois dos 6 s
+      do aviso, e a checagem falhava sem bug nenhum. Agora a peça `avisoDoClique` (`pecas.mjs`)
+      faz o clique e devolve a frase do aviso quando ele entra, e só depois vem a espera da tela.
+      Ela também não confunde o aviso anterior saindo (que muda o `data-vez`) com o novo: na
+      chave dos cupons e das promoções, o aviso do "criado" saía antes de a pausa voltar, a espera
+      soltava, e o conferidor lia o Medusa antes da pausa. Provado com um proxy na frente do
+      Medusa, só pro painel, que segura por 7 s a leitura da página refeita (na janela da nota,
+      também a chamada do conferidor) ou a própria pausa da chave: em sete casos, o conferidor de
+      antes falhou 4 em 4 em cada um, só na checagem do aviso, e o novo passou 4 em 4, inteiro.
+      O `conferir-observabilidade` e o `conferir-entrar` já liam o aviso na hora. Só os
+      conferidores mudaram: nada muda no painel, e nada a configurar.
 - [x] **A sacola responde no clique** (entrega 0104, 26/09, pedido da loja: "adicionar ou remover
       do carrinho está demorando"). Medido na produção: adicionar levava 1,3 s (2,4 s o primeiro,
       que cria o carrinho), o "+" 1,1 s e remover 0,9 s — quase tudo no Medusa, que refaz o
@@ -1102,6 +1118,16 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
       com 43,3 dos 43,8 KB que cabem nas duas primeiras voltas da conexão (ver o AGENTS.md, perto
       do Lighthouse): sobra menos de meio KB pra próxima mudança que pese em toda página. Nada a
       configurar depois do deploy.
+- [x] **A listra preta e amarela no alto das seções da página do produto** (entrega 0153, 27/09,
+      pedido da loja, com o print da listra). Na PDP, só os Benefícios, a faixa com foto e os
+      produtos relacionados abriam com ela; agora Antes e depois, Linha do tempo, Rotina, Como
+      funciona, Comparação, Pra quem é, Perguntas frequentes e Avaliações também — a mesma listra
+      das seções da home, no espaço que já existia no alto de cada seção: nada muda de lugar. A
+      regra mora na fonte do CSS da PDP (`ferramentas/porte/pdp-partes/estilo.css`), e os
+      `pdp-*.css` saíram do `agrupa-pdp.py`. Conferido por foto na PDP do Fator no ar, com o CSS
+      novo só no navegador do teste, no celular e no computador: as 8 seções com a listra, nenhuma
+      seção muda de altura nem de lugar, nenhum erro. A PDP fica 0,12 KB (comprimido) mais pesada;
+      a home não muda. Nada a configurar depois do deploy.
 - [ ] **Pagamento, o que a revisão achou e ficou pra depois** (baixo risco, sem dinheiro preso):
   - estorno ou contestação feitos do lado do Pagar.me depois do pagamento (pelo painel deles,
     chargeback) não são percebidos: o pedido segue pago, pro envio.
@@ -2687,11 +2713,12 @@ Depois do deploy — **nada a configurar.**
 - [x] **Parte 2: o Mercado Pago, só no Pix** — pronta em 27/09 (entrega 0140, mais abaixo). Cartão
       fica só no Pagar.me: cartão recusado não vai pro outro parceiro (quem recusa é o banco do
       cliente, e mandar pra outro atrai o robô testando cartão e a contestação).
-- [ ] **Parte 3: a troca automática, pelo parceiro estável.** Com os dois bem, Pix e cartão pelo
-      Pagar.me (dá pra inverter no Pix, se a taxa do Mercado Pago for menor). Pagar.me instável:
-      o Pix sai pelo Mercado Pago no mesmo clique, e o cartão oferece esse Pix. Mercado Pago
-      instável: nada muda. Os dois: "tenta em instantes" e um e-mail pro dono. Instável = várias
-      falhas seguidas; o parceiro sai por uns minutos (o disjuntor) e volta sozinho.
+- [x] **Parte 3: a troca automática, pelo parceiro estável** — pronta em 27/09 (entrega 0150,
+      mais abaixo). Com os dois bem, Pix e cartão pelo Pagar.me (dá pra inverter no Pix, se a taxa
+      do Mercado Pago for menor). Pagar.me instável: o Pix sai pelo Mercado Pago no mesmo clique, e
+      o cartão oferece esse Pix. Mercado Pago instável: nada muda. Os dois: "tenta em instantes" e
+      um e-mail pro dono. Instável = três falhas seguidas; o parceiro sai por 5 minutos (o
+      disjuntor) e volta sozinho.
 - [ ] **Parte 4: o ranking dos parceiros**, no Marketing → Pagamento e frete: Pix gerados, pagos,
       que não geraram e o tempo pra gerar e confirmar; cartão aprovado e recusado por motivo;
       falhas, vezes fora e minutos fora. Com o número ao lado da porcentagem, e sem vencedor sem
@@ -3048,6 +3075,78 @@ com o Pagar.me, como hoje):
    ./src/scripts/pagamento.js` — liga o Mercado Pago junto do Pagar.me, e antes confere o token
    (token errado para ali, com o motivo). Depois, Painel → Configurações → Pagamento mostra
    "Mercado Pago · Pix reserva: Conectado".
+
+**Produto em mais de uma categoria — pronto em 27/09 (entrega 0151).** Pedido dele: "Quero poder
+adicionar as categorias também dos produtos, por exemplo os kits para barba eu gostaria que
+aparecessem na aba para barba também".
+
+- **No painel** (Produtos → o produto → Textos): a **Categoria principal** (a de sempre) e, embaixo,
+  **"Aparece também em"**, com as outras categorias pra marcar. Marcou Barba num kit de Kits: ele
+  aparece nas duas abas da loja (/kits e /barba). Sem a principal, as outras ficam travadas.
+- **A principal é a do caminho no topo da página do produto** ("Início › Kits › …") e a do Google e
+  da Meta (o catálogo dos anúncios). As outras só põem o produto na vitrine delas. Em "Todos" e no
+  "resto da loja" ele continua aparecendo uma vez só.
+- **A lista de Produtos** mostra "Kits — também em Barba".
+- **Cupons "só com produtos de":** o kit em Kits e em Barba conta como das duas, como na Nuvemshop —
+  o cupom de Kits aceita, o de Barba também, o de Cabelo não. Sem esse conserto, o cupom de Kits
+  passaria a recusar o kit no dia em que ele ganhasse Barba. O "Leve 3, pague 2" por categoria já
+  contava assim.
+- **Por dentro:** a principal fica guardada no produto (a marca `fb_categoria`), porque o Medusa não
+  guarda ordem entre as categorias. Sem a marca — produto mexido direto no admin do Medusa —, vale a
+  primeira pela ordem do menu (Barba, Cabelo, Kits). A importação do Bling mantém a marca junto com
+  as categorias. Mudar categoria pelo admin do Medusa não avisa a loja (a página demora a mudar);
+  pelo painel, avisa.
+
+Conferido pelo `conferir-produtos.mjs` do painel (117, 16 novas: marcar e salvar, as duas vitrines,
+a trilha seguindo a principal e não a ordem do menu, a lista, o painel de antes sem apagar as
+outras, as recusas), `conferir-cupons.mjs` (47: o kit em duas categorias nos cupons das duas e de
+uma terceira), `conferir-catalogo.mjs` (35: a trilha de cada produto, com dois produtos em duas
+categorias no banco local — um com a principal marcada, outro sem), `conferir-feed.mjs` (14: a
+categoria de cada linha é a principal), `conferir-erp.mjs` (115: a marca fica na importação),
+`conferir-pdp.mjs` (68 de 70 — as 2 falham igual na main, com o mesmo banco: a rotina do spray
+aponta pra pasta, que o banco local não tem, e um 404 no console), `conferir-checkout.mjs` (92
+checagens até "O pedido", com os chips do frete grátis e a oferta — a parte que usa a categoria;
+dali parou por tempo, com a máquina sem memória) e pelos testes de unidade (1167; 11 novos).
+
+Depois do deploy — **nada a configurar.** Pra usar: Painel → Produtos → abra o kit → Textos →
+"Aparece também em" → marque **Barba** → Salvar; em alguns segundos ele aparece em /barba também.
+Repita em cada kit de barba. Espere o Railway terminar de subir antes: nos minutos em que só o
+painel novo está no ar, o "Aparece também em" ainda não grava.
+
+**Pix reserva, parte 3: a troca pelo parceiro que está de pé — pronta em 27/09 (entrega 0150).** A
+loja passa a escolher sozinha por onde cobrar. Enquanto o Mercado Pago não for ligado (os 5 passos
+da 0140, mais acima), nada muda: sem reserva, ela cobra só pelo Pagar.me, como antes.
+
+- **O Pix no mesmo clique:** se o Pix não nasce no Pagar.me (ele não respondeu, recusou, ou a
+  resposta sumiu), a loja gera o Pix pelo Mercado Pago na hora — quem compra só vê o QR, uns
+  segundos depois. Com a reserva esperando, a loja não espera o Pagar.me meio minuto: desiste em
+  10 segundos. O Pix que nascer tarde lá não chega a ninguém (a conciliação fecha). Cartão nunca vai
+  pro outro parceiro.
+- **O disjuntor:** três tentativas seguidas em que o parceiro NÃO RESPONDEU (e não as que ele
+  recusou) tiram ele do caminho por 5 minutos; depois, a próxima compra é o teste, e ele volta
+  sozinho se der certo. Com o Pagar.me fora, o Pix vai direto pelo Mercado Pago, e o cartão fica na
+  tela apagado: "Fora do ar agora. Paga no Pix, que está funcionando." Com o Mercado Pago fora, nada
+  muda pra quem compra. Com os dois fora, a loja segue tentando os dois (tirar o último parceiro
+  seria deixar a loja sem pagamento) e a tela diz "Não consegui gerar o Pix agora, e nada foi
+  cobrado. Tenta de novo em instantes."
+- **O e-mail pro dono:** quando um parceiro cai e quando volta, no máximo um de cada por hora, com
+  o que a loja está fazendo ("o Pix está saindo pelo Mercado Pago", "os parceiros pararam de
+  responder", "o Pagar.me voltou, depois de 27 min fora"). Aparece em Configurações → E-mails como
+  "Um parceiro de pagamento caiu".
+- **Por dentro:** o provedor grava por que não deu (`falha`: "fora", "recusa" ou "interno"); as
+  tentativas de pagar (`obs_tentativa`) ganham o parceiro e a forma — o Pix passa a ser anotado
+  também, sem as travas do cartão —, e é delas que sai o disjuntor e sairá o ranking (parte 4). A
+  loja pergunta quem está fora em `GET /store/pagamento`.
+
+Conferido pelo `conferir-mercadopago.mjs` (77, duas rodadas; a parte 8 é nova: o Pagar.me falso
+fora e o Pix pelo Mercado Pago no mesmo clique, em segundos; as três falhas, o e-mail e a aba antiga
+com o cartão; o cartão apagado e o Pix direto no Mercado Pago; a volta sozinha e o e-mail; os dois
+fora e a volta do Mercado Pago), pelos de sempre na mesma pilha — `conferir-pagamento.mjs` (214),
+`conferir-checkout.mjs` (182), `conferir-conta.mjs` (209) e, no painel, `conferir-configuracoes.mjs`
+(18, agora com 8 avisos da equipe), `conferir-observabilidade.mjs` (35) e `conferir-pedidos.mjs`
+(83) — e pelos testes de unidade (1191; 35 novos).
+
+Depois do deploy — **nada a configurar.** A troca começa a valer quando o Mercado Pago for ligado.
 
 **CRM, parte 4: os Ajustes — pronto em 27/09 (entrega 0149).** Painel → CRM → aba **Ajustes**: você
 muda quanto dura cada produto e as regras das etiquetas.

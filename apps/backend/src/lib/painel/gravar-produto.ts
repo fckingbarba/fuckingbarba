@@ -83,17 +83,24 @@ type MudancaNoProduto = {
   metadata?: Record<string, unknown>
 }
 
+/** O produto de agora, lido dentro da trava, pra quem decide a mudança por ele. */
+export type ProdutoDeAgora = {
+  titulo: string
+  metadata: Record<string, unknown>
+  /** As categorias de hoje (com o `rank`, a ordem do menu). */
+  categorias: { id: string; rank: number | null }[]
+}
+
 /**
- * Nome, subtítulo, categoria e se está no site — campos do produto, não da
+ * Nome, subtítulo, categorias e se está no site — campos do produto, não da
  * página. A mudança pode depender do produto de agora (o nome depende do
- * nome e das marcas de hoje): aí ela é uma função, chamada dentro da trava.
+ * nome e das marcas de hoje; as categorias que ficam, das de hoje): aí ela é
+ * uma função, chamada dentro da trava.
  */
 export async function mudarProduto(
   container: MedusaContainer,
   id: string,
-  update:
-    | MudancaNoProduto
-    | ((atual: { titulo: string; metadata: Record<string, unknown> }) => MudancaNoProduto)
+  update: MudancaNoProduto | ((atual: ProdutoDeAgora) => MudancaNoProduto)
 ): Promise<Feito | Recusa> {
   const logger = container.resolve(ContainerRegistrationKeys.LOGGER)
   const r = await container.resolve(Modules.LOCKING).execute(
@@ -101,11 +108,21 @@ export async function mudarProduto(
     async (): Promise<{ ok: true; handle: string } | Recusa> => {
       const [produto] = await container
         .resolve(Modules.PRODUCT)
-        .listProducts({ id }, { select: ["id", "handle", "title", "metadata"], take: 1 })
+        .listProducts(
+          { id },
+          { select: ["id", "handle", "title", "metadata"], relations: ["categories"], take: 1 }
+        )
       if (!produto) return { ok: false, motivo: "nao_encontrado" }
       const mudanca =
         typeof update === "function"
-          ? update({ titulo: produto.title ?? "", metadata: produto.metadata ?? {} })
+          ? update({
+              titulo: produto.title ?? "",
+              metadata: produto.metadata ?? {},
+              categorias: (produto.categories ?? []).map((c) => ({
+                id: c.id,
+                rank: typeof c.rank === "number" ? c.rank : null,
+              })),
+            })
           : update
       await updateProductsWorkflow(container).run({
         input: { selector: { id }, update: mudanca },

@@ -12,6 +12,7 @@ import { SeloDoProduto } from "@/components/produtos"
 import { Cabeca, ForaDoAr, SemAcesso } from "@/components/telas"
 import { ler } from "@/lib/medusa"
 import {
+  categoriasNaCabeca,
   ehIdDeProduto,
   fraseDoHistorico,
   fraseDosAvisos,
@@ -82,9 +83,7 @@ async function Produto({ params }: Props) {
         voltar={{ href: "/produtos", texto: "Produtos" }}
         titulo={p.nome}
         selo={<SeloDoProduto p={p} />}
-        sub={[p.sku ? `SKU ${p.sku}` : null, p.categoria ?? "sem categoria"]
-          .filter(Boolean)
-          .join(" · ")}
+        sub={[p.sku ? `SKU ${p.sku}` : null, categoriasNaCabeca(p)].filter(Boolean).join(" · ")}
         acoes={acoes}
       />
 
@@ -128,7 +127,7 @@ async function Produto({ params }: Props) {
           {/* A chave remonta a caixa quando o que está gravado muda (depois do "Salvar"). */}
           <CaixaDeCompra key={JSON.stringify(p.caixa)} produto={p} catalogo={catalogo} />
           <TextosDoProduto
-            key={`${p.subtitulo}|${p.categoriaId ?? ""}`}
+            key={`${p.subtitulo}|${p.categoriaId ?? ""}|${(p.tambemEmIds ?? []).join(",")}`}
             produto={p}
             categorias={categorias}
           />

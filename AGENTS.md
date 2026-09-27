@@ -69,6 +69,7 @@ RESEND_URL=http://127.0.0.1:4330 RESEND_API_KEY=re_teste_falsa npm run backend:d
 # pro conferir-mercadopago (o Mercado Pago falso na 4360, o Pix reserva), acrescente:
 # MERCADOPAGO_ACCESS_TOKEN=TEST-token-do-mercadopago-falso MERCADOPAGO_URL=http://127.0.0.1:4360
 # MERCADOPAGO_WEBHOOK_SEGREDO=segredo-do-aviso-do-mercadopago
+# PAGAMENTO_DISJUNTOR_SEGUNDOS=20 (o parceiro fora do caminho por 20 s, e não 5 min — a parte 8)
 # pro conferir-integracoes do painel (a Meta, o GA4 e o TikTok falsos, na 4370), acrescente:
 # META_GRAPH_URL=http://127.0.0.1:4370 GA4_MP_URL=http://127.0.0.1:4370
 # TIKTOK_EVENTS_URL=http://127.0.0.1:4370 META_CAPI_TOKEN=token-de-teste
@@ -360,10 +361,34 @@ o `MERCADOPAGO_ACCESS_TOKEN`, não faz nada); o que as duas dividem — o relat�
 escritas no Medusa e o dinheiro que entra num pedido já cancelado (devolvido pelo Medusa, pra todo
 parceiro) — mora em `src/lib/pagamento/conciliacao.ts`, e a entrada da loja, o dinheiro em
 centavos e a origem, em `src/lib/pagamento/{entrada,comum}.ts`. O `npm run backend:pagamento`
-liga os dois na região quando o token existe (e confere o token numa leitura antes). A loja ainda
-não escolhe o Mercado Pago sozinha — a troca automática pelo parceiro estável é a próxima parte do
-Pix reserva (ver o ESTADO) —; o `conferir-mercadopago.mjs` leva a tela a ele trocando o provedor
-escondido do passo 3.
+liga os dois na região quando o token existe (e confere o token numa leitura antes).
+
+**A TROCA PELO PARCEIRO ESTÁVEL** (entrega 0150) — quem escolhe o parceiro é a loja, no `finalizar`
+(`apps/loja/src/lib/acoes/checkout.ts`), pela ROTA: os parceiros da região e os que o disjuntor
+tirou do caminho (`GET /store/pagamento`, `rotaAgora` em `lib/checkout.ts`, a regra em
+`rotaDoPagamento`, `lib/checkout-visivel.ts`, com teste no backend:
+`lib/pagamento/__tests__/rota-da-loja`). Com os dois de pé, o Pix vai pelo Pagar.me e o Mercado Pago
+é a reserva: o Pix que não nasce num parceiro (a sessão "falhou" ou "incerto" — `pixNaoNasceu`, em
+`lib/pagamento.ts`) abre sessão no próximo e fecha o carrinho de novo, NO MESMO CLIQUE. Com outro
+esperando, a loja manda `reserva: true` na entrada, e o provedor desiste cedo — 10 s pra criar
+(`PIX_COM_RESERVA_MS`) e sem as perguntas de "nasceu?"; o Pix que nascer tarde lá não chega a
+ninguém, e a conciliação fecha. Cartão NUNCA vai pro outro parceiro. O DISJUNTOR
+(`src/lib/pagamento/disjuntor.ts`, puro, com teste) conta só o parceiro que NÃO ATENDEU — a `falha`
+"fora" que o provedor grava no estado (sem resposta, tempo esgotado, 5xx, 401/403; `falhaDoErro`), e
+não a "recusa" (ele disse não) nem o "interno" (nem saiu daqui): três seguidas, entre as tentativas
+e não no relógio, tiram o parceiro do caminho por 5 minutos (`PAGAMENTO_DISJUNTOR_SEGUNDOS` só no
+local), contados da última; depois, a próxima compra é o teste — deu certo, voltou. As tentativas
+são as linhas de `obs_tentativa`, agora com `provedor` e `forma` (a porta do `complete` anota o Pix
+também, sem as travas do cartão; `terminadasDosParceiros`, no serviço). Na loja: o Pix pula o
+parceiro fora; o cartão sai da tela (apagado, "Fora do ar agora. Paga no Pix") enquanto o Pagar.me
+estiver fora e o Pix puder sair pelo outro — e a aba que ficou aberta descobre no clique. COM TODOS
+FORA, NINGUÉM SAI: a loja segue tentando, como antes do disjuntor (tirar o último parceiro seria
+loja sem pagamento). A virada — caiu, ou voltou — manda um e-mail por hora pro dono
+(`lib/pagamento/aviso.ts`, `lib/emails/parceiro-fora.ts`; "Um parceiro de pagamento caiu" no
+`AVISOS_DA_EQUIPE`), com o texto de quem mais está ligado e de pé. A parte 8 do
+`conferir-mercadopago.mjs` derruba o Pagar.me falso e confere tudo isso; as partes de antes levam a
+tela ao Mercado Pago trocando o provedor escondido do passo 3 (a dica da tela vai primeiro na fila,
+se o parceiro estiver de pé).
 
 Três portas que o Medusa deixa abertas e o projeto fecha. (1) Abrir sessão de pagamento APAGA as
 anteriores da coleção, sem conferir se ela já é de um pedido: `src/api/middlewares.ts` recusa sessão
@@ -388,8 +413,10 @@ mostra o recado em vez de mandar pra lá de novo: era um laço de 71 idas em 8 s
 outro numa loja pequena, pra descobrir quais funcionam; as recusas saem no nome da loja, e o
 Pagar.me pode segurar a conta. A porta do `complete` (`src/lib/cartao/porta.ts`, no
 `api/middlewares.ts`) segura a tentativa ANTES de o Medusa chamar o `authorizePayment`, e só a que
-vai pro Pagar.me: a sessão do nosso provedor, no cartão, ainda `nova` (Pix e sessão que já foi nem
-passam por ela). A regra é pura, com teste (`src/lib/cartao/robo.ts`, `LIMITES`): por sacola, 5 por
+vai pro Pagar.me: a sessão do nosso provedor, no cartão, ainda `nova` (sessão que já foi nem passa
+por ela; o Pix é anotado desde a 0150, pro disjuntor dos parceiros, sem trava nenhuma — as contas
+do robô são só de cartão).
+A regra é pura, com teste (`src/lib/cartao/robo.ts`, `LIMITES`): por sacola, 5 por
 hora; por pessoa, 8 — a pessoa é o `quemPede`, o IP que a loja manda em `x-cliente-ip` assinado com
 o `REVALIDAR_SEGREDO` (o `finalizar` manda os dois, pelo `cabecalhosDeQuemPede`); o que chega sem a
 assinatura, todo mundo junto, 3 por hora; e o FREIO: 8 recusas nos últimos 30 minutos, sendo pelo
@@ -1055,7 +1082,10 @@ aviso some 6 s depois de entrar (o de erro, 10 s), e a tela refeita pode chegar 
 a máquina carregada, o Resumo do Marketing refeito passou dos 6 s. Conferidor que confere os dois
 lê o aviso quando ele entra (a espera devolve o texto: o `data-vez` diferente do de antes do
 clique, sem `data-fora`) e só depois espera a tela — era o "Mudar a meta" do `conferir-marketing`
-(entrega 0143).
+(entrega 0143). A peça pronta é o `avisoDoClique(pagina, clicar)` do `pecas.mjs` (entrega 0147,
+nos cupons, promoções, integrações, clientes e configurações): faz o clique e devolve a frase do
+aviso deste clique quando ele entra. Esperar só o `data-vez` mudar não basta: o aviso anterior,
+saindo, também muda ele — e a espera soltava antes de a ação terminar.
 As visitas vêm do GA4 pela
 `GET /dashboard/visitas`, à parte do Início: `src/lib/painel/ga4.ts` fala com o Google (conta de
 serviço só leitura, JWT assinado com `node:crypto`, um `batchRunReports` e um `runRealtimeReport`,
@@ -1196,7 +1226,7 @@ cada uma; a caixa de compra; o catálogo pros seletores; as categorias; o `noSit
 e o `historico`, lido do registro da equipe) abrem pra todo papel. Mudar é da linha
 `editarProdutos` do `ACESSO_PADRAO` (dono e marketing, no padrão): `POST /dashboard/produtos/:id/secao` (o texto e o
 fundo de UMA seção, num "Salvar"), `/ordem` (ligar, desligar, subir ou descer uma — sem "Salvar"),
-`/caixa`, `/textos` (o nome da loja, o subtítulo e a categoria), `/publicar` e `/imagens`. **O
+`/caixa`, `/textos` (o nome da loja, o subtítulo e as categorias), `/publicar` e `/imagens`. **O
 nome** mudado ali ganha a marca `fb_nome` (a importação do Bling não troca mais), e o nome igual
 ao do Bling tira a marca — o botão "Usar o do Bling" (`mudancaDoNome`, em
 `lib/painel/produtos.ts`, com testes). Nome da loja é curto: até uns 36 caracteres cabe em 2
@@ -1232,6 +1262,28 @@ fundo do armazenamento). Conferidor: `apps/dashboard/ferramentas/conferir-produt
 da loja no ar (`LOJA`), com o backend avisando ela (`LOJA_URL`), do admin local e da chave
 publicável; cria um produto em rascunho por rodada (e apaga no fim) e confere a caixa de compra no
 balm, devolvendo a página dele como estava.
+
+**As categorias do produto** (entrega 0151). Um produto pode estar em mais de uma categoria — o
+kit de barba em Kits e em Barba —, e a vitrine de cada uma mostra ele (a loja já pedia ao Medusa por
+`category_id`, e o "Todos" e o "resto da loja" já contavam por id). Nos Textos do produto: a
+**Categoria principal** (o select de antes) e o **"Aparece também em"** (as outras, em caixinhas,
+travadas sem a principal). A principal mora na marca `fb_categoria` (`MARCA_DA_CATEGORIA`, em
+`lib/erp/marcas.ts`): o Medusa não guarda ordem entre as categorias de um produto, e a primeira da
+resposta muda de uma leitura pra outra. Sem a marca (produto mexido fora do painel), vale a primeira
+pela ordem do menu — o `rank` no backend, `site.categorias` na loja. Ela decide a trilha da PDP (e o
+JSON-LD dela), o `product_type` e a categoria do Google no `/catalogo.xml`, o rótulo do chip no
+checkout (sem o metadata ali, que pesa: a ordem do menu) e a reserva do "Quem leva este, leva junto"
+sem o modelo — `categoriasDoProduto` no backend (`lib/painel/produtos.ts`, com testes) e
+`categoriaPrincipal` na loja (`lib/categorias.ts`), gêmeas. `POST /dashboard/produtos/:id/textos`
+recebe `categoriaId` (a principal) e `tambemEm` (as outras); sem `tambemEm` — o painel de antes: o
+painel e o backend sobem em horas diferentes —, as outras de hoje ficam (`categoriasGravadas`);
+outras sem a principal é 400 `sem_principal`. A lista de Produtos lê o metadata à parte, só de quem
+está em mais de uma. A importação do Bling deixa a marca onde deixa as categorias (na primeira vez e
+no produto recriado). Mexer nas categorias pelo admin do Medusa NÃO avisa a loja (não há subscriber
+de produto): a página fica velha até o próximo aviso — pelo painel, avisa. Os cupons "só com
+produtos de" contam o produto pelas categorias dele que o cupom escolheu (ver "Cupons e descontos").
+Conferidores: o `conferir-produtos` (a seção "Aparece também em", depois do histórico), o
+`conferir-cupons`, o `conferir-catalogo` (a trilha de cada produto) e o `conferir-feed`.
 
 **A galeria, o vídeo do modo de uso e o antes e depois** (fase 3, parte 2). As FOTOS da galeria
 continuam sendo as do produto no Medusa (`images` pela ordem `rank`, e a `thumbnail` = a primeira):
@@ -1489,8 +1541,11 @@ puro, com testes, e faz o seguinte:
   cancelados do e-mail do carrinho, numa consulta), `fb_cupons.itens.produtos` e
   `fb_cupons.itens.categorias` (o "só com produtos de" é um `eq` sobre a lista — no Medusa, `eq`
   com lista quer dizer "todos entre os escolhidos", como a Nuvemshop pede; produto sem categoria
-  entra como `sem-categoria`) e `fb_cupons.frete_da_loja` (o pedido já ganhou o frete grátis ou
-  fixo pelo valor; sem a política, "sim");
+  entra como `sem-categoria`; o produto em mais de uma categoria entra só com as que o cupom da
+  conta escolheu — o gancho lê as regras dos cupons que estão na conta, `cuponsNaConta` (a regra
+  do `getPromotionCodesToApply`) e `categoriasEscolhidas` —, senão o cupom de Kits recusava o kit
+  que também é de Barba; entrega 0151) e `fb_cupons.frete_da_loja` (o pedido já ganhou o frete
+  grátis ou fixo pelo valor; sem a política, "sim");
 - põe junto de toda condição a trava `fb_cupons.conferido = "sim"`, que o gancho só escreve quando
   leu tudo. O Medusa lê número que falta como zero (`MathBN`): sem a trava, uma conta sem o gancho
   (ou com a consulta dos pedidos falhando) deixaria passar o "vale até" e o "por cliente". O teste

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation"
 import { BUMP } from "@/conteudo/checkout"
 import { cotarFrete } from "./acoes/frete"
 import { ehCodigoDeBump, handleDoBump } from "./bump"
+import { categoriaPrincipal } from "./categorias"
 import {
   COOKIE_CARRINHO,
   lerCarrinho,
@@ -18,12 +19,15 @@ import { COOKIE_DO_CUPOM, lerCupomPendente } from "./cupom-pendente"
 import { descontoDosProdutos } from "./desconto"
 import {
   ENDERECO_VAZIO,
+  parceiroDe,
+  rotaDoPagamento,
   type CheckoutVisivel,
   type EnderecoVisivel,
   type Oferta,
   type OfertaDoBump,
   type OpcaoDeFrete,
   type ProvedorDePagamento,
+  type RotaDoPagamento,
 } from "./checkout-visivel"
 import { lerCliente, lerSessao, medusa, type ClienteVisivel } from "./conta"
 import { documentoGuardado } from "./documento"
@@ -505,6 +509,45 @@ export async function listarProvedores(regiaoId: string): Promise<ProvedorDePaga
   }
 }
 
+/**
+ * OS PARCEIROS FORA DO CAMINHO AGORA — o disjuntor do backend
+ * (`GET /store/pagamento`). Perguntado ao desenhar o passo 3 e de novo no
+ * clique de pagar, sem cache: a queda é coisa de minutos.
+ *
+ * NA DÚVIDA, NINGUÉM FORA, e rápido: o Medusa lento ou uma resposta estranha
+ * não seguram o checkout nem tiram parceiro nenhum da tela — a loja cobra
+ * como antes do disjuntor existir.
+ */
+export async function parceirosFora(): Promise<string[]> {
+  const sdk = cliente()
+  if (!sdk) return []
+  try {
+    const { fora } = await sdk.client.fetch<{ fora?: { id?: unknown }[] }>("/store/pagamento", {
+      signal: AbortSignal.timeout(3_000),
+      cache: "no-store",
+    })
+    return (fora ?? []).map((f) => f?.id).filter((id): id is string => Boolean(parceiroDe(id)))
+  } catch (e) {
+    aviso(e, "parceiros fora do caminho")
+    return []
+  }
+}
+
+/** Por onde cobrar agora, nesta região: os parceiros dela e a saúde deles (`rotaDoPagamento`). */
+export async function rotaAgora(
+  regiaoId: string,
+  provedores?: readonly ProvedorDePagamento[]
+): Promise<RotaDoPagamento> {
+  const [daRegiao, fora] = await Promise.all([
+    provedores ?? listarProvedores(regiaoId),
+    parceirosFora(),
+  ])
+  return rotaDoPagamento(
+    daRegiao.map((p) => p.id),
+    fora
+  )
+}
+
 /* ── as ofertas do checkout ───────────────────────────────────────────────── */
 
 /**
@@ -550,7 +593,8 @@ async function catalogoDoCheckout(regiaoId: string): Promise<Oferta[]> {
             varianteId: variante.id,
             handle: p.handle ?? "",
             nome: p.title ?? "",
-            categoria: p.categories?.[0]?.handle ?? "",
+            // Sem o metadata aqui (pesa), a de mais de uma categoria fica com a do menu.
+            categoria: categoriaPrincipal(p)?.handle ?? "",
             imagem: p.thumbnail ?? null,
             preco,
             precoComDesconto: preco,

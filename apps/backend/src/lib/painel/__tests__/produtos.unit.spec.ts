@@ -1,6 +1,8 @@
 import { PDP_VAZIA, type Pdp } from "../../pdp"
 import {
   caixaDo,
+  categoriasDoProduto,
+  categoriasGravadas,
   detalheDoProduto,
   linhaDoProduto,
   mudarNaOrdem,
@@ -192,5 +194,113 @@ describe("a lista e a página do produto", () => {
       { unidades: 3, total: 123.9 },
     ])
     expect(d.precoDoPainel).toBe(true)
+  })
+})
+
+describe("as categorias: a principal e as outras", () => {
+  const BARBA = { id: "pcat_barba", name: "Barba", rank: 0 }
+  const CABELO = { id: "pcat_cabelo", name: "Cabelo", rank: 1 }
+  const KITS = { id: "pcat_kits", name: "Kits", rank: 2 }
+  const kit = (extra: Partial<ProdutoCru> = {}): ProdutoCru => ({
+    id: "prod_kit",
+    handle: "kit-hidratacao",
+    title: "Kit Hidratação",
+    status: "published",
+    variants: [{ id: "v1", sku: "FBKIT02", prices: [{ amount: 129.9, currency_code: "brl" }] }],
+    ...extra,
+  })
+
+  it("a marcada no painel é a principal, venha na ordem que vier", () => {
+    const marcado = { fb_categoria: "pcat_kits" }
+    expect(categoriasDoProduto([BARBA, KITS], marcado)).toEqual({
+      principal: KITS,
+      outras: [BARBA],
+    })
+    expect(categoriasDoProduto([KITS, BARBA], marcado)).toEqual({
+      principal: KITS,
+      outras: [BARBA],
+    })
+  })
+
+  it("sem a marca (ou marcada numa em que ele não está mais), a primeira pela ordem do menu", () => {
+    expect(categoriasDoProduto([KITS, CABELO, BARBA], {}).principal).toBe(BARBA)
+    expect(categoriasDoProduto([KITS, CABELO], { fb_categoria: "pcat_barba" })).toEqual({
+      principal: CABELO,
+      outras: [KITS],
+    })
+    // Sem o rank, vai pro fim; no empate, o id decide — a mesma resposta a cada leitura.
+    expect(categoriasDoProduto([{ id: "pcat_b" }, { id: "pcat_a" }, KITS], null)).toEqual({
+      principal: KITS,
+      outras: [{ id: "pcat_a" }, { id: "pcat_b" }],
+    })
+    expect(categoriasDoProduto([], null)).toEqual({ principal: null, outras: [] })
+    expect(categoriasDoProduto(null, null)).toEqual({ principal: null, outras: [] })
+  })
+
+  it("a lista e a página: a principal, as outras e os ids", () => {
+    const p = kit({ categories: [BARBA, KITS], metadata: { fb_categoria: "pcat_kits" } })
+    expect(linhaDoProduto(p, 3)).toMatchObject({ categoria: "Kits", tambemEm: ["Barba"] })
+    expect(detalheDoProduto(p, PDP_VAZIA, 3, true)).toMatchObject({
+      categoria: "Kits",
+      categoriaId: "pcat_kits",
+      tambemEm: ["Barba"],
+      tambemEmIds: ["pcat_barba"],
+    })
+    const sem = linhaDoProduto(kit(), 3)
+    expect(sem).toMatchObject({ categoria: null, tambemEm: [] })
+    expect(detalheDoProduto(kit(), PDP_VAZIA, 3, true)).toMatchObject({
+      categoriaId: null,
+      tambemEmIds: [],
+    })
+  })
+
+  it("o que a rota grava: a principal primeiro, sem repetir, e a marca dela", () => {
+    const atuais = [BARBA, KITS]
+    expect(
+      categoriasGravadas({
+        principal: "pcat_kits",
+        tambemEm: ["pcat_barba", "pcat_kits", "pcat_barba"],
+        atuais,
+        metadata: {},
+      })
+    ).toEqual({ ids: ["pcat_kits", "pcat_barba"], marca: "pcat_kits" })
+    // Tirar todas as outras: só a principal.
+    expect(
+      categoriasGravadas({ principal: "pcat_kits", tambemEm: [], atuais, metadata: {} })
+    ).toEqual({ ids: ["pcat_kits"], marca: "pcat_kits" })
+    // Sem principal, nenhuma, e a marca sai.
+    expect(
+      categoriasGravadas({ principal: null, tambemEm: ["pcat_barba"], atuais, metadata: {} })
+    ).toEqual({ ids: [], marca: null })
+  })
+
+  it("o painel de antes (sem `tambemEm`): as outras de hoje ficam", () => {
+    const marcado = { fb_categoria: "pcat_kits" }
+    expect(
+      categoriasGravadas({
+        principal: "pcat_kits",
+        tambemEm: undefined,
+        atuais: [BARBA, KITS],
+        metadata: marcado,
+      })
+    ).toEqual({ ids: ["pcat_kits", "pcat_barba"], marca: "pcat_kits" })
+    // Trocou a principal: a de antes era Kits, e Barba (a outra) vira a principal.
+    expect(
+      categoriasGravadas({
+        principal: "pcat_barba",
+        tambemEm: undefined,
+        atuais: [BARBA, KITS],
+        metadata: marcado,
+      })
+    ).toEqual({ ids: ["pcat_barba"], marca: "pcat_barba" })
+    // Só com uma categoria hoje, fica só a nova.
+    expect(
+      categoriasGravadas({
+        principal: "pcat_cabelo",
+        tambemEm: undefined,
+        atuais: [BARBA],
+        metadata: {},
+      })
+    ).toEqual({ ids: ["pcat_cabelo"], marca: "pcat_cabelo" })
   })
 })

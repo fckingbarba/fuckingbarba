@@ -34,6 +34,11 @@ export type Escolha = {
   parcelas: number
   token: string | null
   ip: string | null
+  /**
+   * Há outro parceiro esperando se este Pix não nascer — o provedor desiste
+   * mais cedo (a `reserva` da entrada, no backend). Só no Pix.
+   */
+  reserva?: boolean
 }
 
 type Sdk = NonNullable<ReturnType<typeof cliente>>
@@ -115,6 +120,7 @@ export function entradaDoCarrinho(
         descricao: carrinho.shipping_methods?.[0]?.name ?? "",
       },
       ip: escolha.ip,
+      reserva: escolha.forma === "pix" && escolha.reserva === true,
     },
   }
 }
@@ -154,11 +160,16 @@ export function recusaDaPorta(e: unknown): string | null {
  * autorizou…"). A mensagem de erro do Medusa não serve pra isso: ela diz
  * "Session … was not authorized with the provider", que não ajuda ninguém a
  * terminar a compra.
+ *
+ * `pixNaoNasceu`: a sessão era de Pix e o QR não saiu — o parceiro não
+ * atendeu, recusou, ou a resposta sumiu. É o que manda o Pix pro outro
+ * parceiro no mesmo clique (`finalizar`): QR que ninguém viu não cobra
+ * ninguém, então tentar de novo em outro lugar não cobra duas vezes.
  */
 export async function depoisDaRecusa(
   sdk: Sdk,
   carrinhoId: string
-): Promise<{ fechado: boolean; recusa: string | null }> {
+): Promise<{ fechado: boolean; recusa: string | null; pixNaoNasceu: boolean }> {
   try {
     const { cart } = await sdk.store.cart.retrieve(carrinhoId, {
       fields: "id,completed_at,*payment_collection,*payment_collection.payment_sessions",
@@ -166,13 +177,16 @@ export async function depoisDaRecusa(
     const sessao = sessaoDoParceiro(
       (cart?.payment_collection?.payment_sessions ?? []) as (SessaoLida | null)[]
     )
-    const estado = estadoCru(sessao) as { recusa?: unknown } | undefined
+    const estado = estadoCru(sessao) as
+      { recusa?: unknown; forma?: unknown; situacao?: unknown } | undefined
     return {
       fechado: Boolean(cart?.completed_at),
       recusa: typeof estado?.recusa === "string" ? estado.recusa : null,
+      pixNaoNasceu:
+        estado?.forma === "pix" && (estado.situacao === "falhou" || estado.situacao === "incerto"),
     }
   } catch {
-    return { fechado: false, recusa: null }
+    return { fechado: false, recusa: null, pixNaoNasceu: false }
   }
 }
 

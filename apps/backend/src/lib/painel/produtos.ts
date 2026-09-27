@@ -1,4 +1,4 @@
-import { nomeNoErp, temNomeDaLoja } from "../erp/marcas"
+import { categoriaMarcada, nomeNoErp, temNomeDaLoja } from "../erp/marcas"
 import {
   lerSecao,
   LIMITE_DA_NOTA,
@@ -246,7 +246,8 @@ export type ProdutoCru = {
   thumbnail?: string | null
   weight?: number | string | null
   images?: { url?: string | null; rank?: number | null }[] | null
-  categories?: { id: string; name?: string | null; handle?: string | null }[] | null
+  categories?:
+    { id: string; name?: string | null; handle?: string | null; rank?: number | null }[] | null
   variants?:
     | {
         id: string
@@ -271,7 +272,10 @@ export type LinhaDoProduto = {
   foto: string | null
   situacao: Situacao
   publicado: boolean
+  /** A categoria principal (a da trilha da página e do Google). */
   categoria: string | null
+  /** As outras categorias em que ele aparece, na ordem do menu (o "Aparece também em"). */
+  tambemEm: string[]
   /** O do Bling: o "de", quando há promoção. */
   preco: number | null
   /** A promoção valendo hoje (o "por"), do painel ou de outra lista de preço. */
@@ -291,12 +295,76 @@ export function precoDo(p: ProdutoCru): number | null {
   return Number.isFinite(n) && n > 0 ? n : null
 }
 
+/* ── as categorias ─────────────────────────────────────────────────────────
+ *
+ * UMA PRINCIPAL E AS OUTRAS (entrega 0151). O produto pode estar em mais de
+ * uma categoria — o kit de barba em Kits e em Barba —, e a vitrine de cada
+ * uma mostra ele. A PRINCIPAL é a da trilha da página, a do Google e a da
+ * Meta: a marcada no painel (`fb_categoria`), se o produto ainda está nela;
+ * senão a primeira da loja, pela ordem do menu (o `rank`). As outras são o
+ * "Aparece também em". Gêmea de `categoriaPrincipal` da loja
+ * (`apps/loja/src/lib/categorias.ts`).
+ *
+ * Sem a marca, quem decide é a ordem: o Medusa não guarda ordem entre as
+ * categorias de um produto, e a primeira da resposta muda de uma leitura pra
+ * outra.
+ */
+
+type ComRank = { id: string; rank?: number | null }
+
+/** Na ordem do menu: o `rank` da categoria e, no empate, o id — a mesma ordem a cada leitura. */
+export function naOrdemDoMenu<C extends ComRank>(categorias: readonly C[]): C[] {
+  const rank = (c: C) => (typeof c.rank === "number" ? c.rank : Number.MAX_SAFE_INTEGER)
+  return [...categorias].sort(
+    (a, b) => rank(a) - rank(b) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
+  )
+}
+
+/** A principal e as outras categorias do produto (as outras na ordem do menu). */
+export function categoriasDoProduto<C extends ComRank>(
+  categorias: readonly (C | null | undefined)[] | null | undefined,
+  metadata: unknown
+): { principal: C | null; outras: C[] } {
+  const todas = naOrdemDoMenu((categorias ?? []).filter((c): c is C => Boolean(c?.id)))
+  const marcada = categoriaMarcada(metadata)
+  const principal = todas.find((c) => c.id === marcada) ?? todas[0] ?? null
+  return { principal, outras: todas.filter((c) => c !== principal) }
+}
+
+const nomeDaCategoria = (c: { name?: string | null }) => (c.name ?? "").trim() || "Sem nome"
+
+/**
+ * O que a rota dos textos grava: as categorias do produto (a principal
+ * primeiro) e a marca da principal (`null` apaga). Sem principal, nenhuma —
+ * o "Aparece também em" só existe junto com ela. `tambemEm` ausente (o painel
+ * de antes da 0151, que só manda a principal): as outras de hoje ficam.
+ */
+export function categoriasGravadas({
+  principal,
+  tambemEm,
+  atuais,
+  metadata,
+}: {
+  principal: string | null
+  tambemEm: readonly string[] | undefined
+  atuais: readonly ComRank[]
+  metadata: unknown
+}): { ids: string[]; marca: string | null } {
+  if (!principal) return { ids: [], marca: null }
+  const outras = tambemEm ?? categoriasDoProduto(atuais, metadata).outras.map((c) => c.id)
+  return {
+    ids: [...new Set([principal, ...outras])],
+    marca: principal,
+  }
+}
+
 export function linhaDoProduto(
   p: ProdutoCru,
   estoque: number | null,
   preco?: PrecoDoProduto
 ): LinhaDoProduto {
   const publicado = p.status === "published"
+  const { principal, outras } = categoriasDoProduto(p.categories, p.metadata)
   return {
     id: p.id,
     handle: p.handle ?? "",
@@ -305,7 +373,8 @@ export function linhaDoProduto(
     foto: primeiraFoto(p),
     situacao: !publicado ? "rascunho" : estoque === 0 ? "esgotado" : "publicado",
     publicado,
-    categoria: p.categories?.[0]?.name ?? null,
+    categoria: principal ? nomeDaCategoria(principal) : null,
+    tambemEm: outras.map(nomeDaCategoria),
     preco: precoDo(p),
     promocao: preco?.promocao ?? null,
     promocaoSemEfeito: preco?.semEfeito ?? null,
@@ -349,7 +418,10 @@ export type DetalheDoProduto = LinhaDoProduto & {
   /** O que o Google mostra embaixo do nome (`fb_pdp.seo`); vazio: o começo da descrição. */
   descricaoGoogle: string
   peso: number | null
+  /** A categoria principal. */
   categoriaId: string | null
+  /** As outras categorias — o "Aparece também em" —, na ordem do menu. */
+  tambemEmIds: string[]
   fotos: string[]
   /** As fotos e os vídeos da dobra, na ordem da página (a primeira foto é a capa). */
   galeria: ItemDaGaleria[]
@@ -374,6 +446,7 @@ export function detalheDoProduto(
   }: { preco?: PrecoDoProduto; precoDoPainel?: boolean } = {}
 ): DetalheDoProduto {
   const linha = linhaDoProduto(p, estoque, precoDeHoje)
+  const categorias = categoriasDoProduto(p.categories, p.metadata)
   // As faixas saem do preço de hoje, com a promoção — como o job as calcula.
   const preco = precoDeHoje?.hoje ?? linha.preco
   const peso = Number(p.weight)
@@ -390,7 +463,8 @@ export function detalheDoProduto(
     descricao: (p.description ?? "").trim(),
     descricaoGoogle: pdp.seo?.descricao ?? "",
     peso: Number.isFinite(peso) && peso > 0 ? peso : null,
-    categoriaId: p.categories?.[0]?.id ?? null,
+    categoriaId: categorias.principal?.id ?? null,
+    tambemEmIds: categorias.outras.map((c) => c.id),
     fotos,
     galeria: montarGaleria(fotosDoProduto(p), pdp.videos),
     degraus: preco
