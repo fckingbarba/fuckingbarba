@@ -197,10 +197,10 @@ async function Pedido({ params }: Props) {
                 <BotaoDoPedido id={p.id} acao="nota" estilo="btn--bloco" />
                 {p.acoes.saiAs ? (
                   // A hora à vista; o porquê (e o "nunca à mão no Bling") no "?".
-                  <span className="acoes-lado__hora">
+                  <div className="acoes-lado__hora">
                     <Pilula icone="relogio">sai sozinha às {p.acoes.saiAs}</Pilula>
                     {p.acoes.dica ? <Ajuda>{p.acoes.dica}</Ajuda> : null}
-                  </span>
+                  </div>
                 ) : p.acoes.dica ? (
                   <p className="pequeno suave acoes-lado__dica">{p.acoes.dica}</p>
                 ) : null}
