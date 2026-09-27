@@ -2993,6 +2993,39 @@ Depois do deploy — **nada a configurar.** Pra ver: Painel → Clientes → abr
       editáveis no painel (inclusive quanto dura cada produto), a base da Nuvemshop e o modelo de
       e-mail.
 
+**CRM, parte 4: os Ajustes — pronto em 27/09 (entrega 0149).** Painel → CRM → aba **Ajustes**: você
+muda quanto dura cada produto e as regras das etiquetas.
+
+- **Quanto dura cada produto**, em dias por unidade: Fator, Óleo, Shampoo, Balm, Spray e Pasta.
+  Embaixo de cada um aparecem os produtos da loja que contam como ele. O Kit Completo conta como
+  óleo, shampoo e balm, e o kit de 3 conta 3 vezes. Produto que o sistema não reconhece aparece
+  numa linha "Fora da conta".
+- **As regras das etiquetas:**
+  - em risco: 20 dias depois do dia de comprar de novo, ou 60 dias sem pedido quando não se sabe
+    quanto o produto dura;
+  - sunset: 45 dias em risco, sem clicar nem visitar;
+  - quente: um sinal nos últimos 30 dias; morno: nos últimos 90;
+  - sensível a cupom: as últimas 3 compras com cupom.
+- **Na tela:** em amarelo, o que é diferente do padrão, com "Desfazer", "Voltar ao padrão" e
+  "Salvar ajustes". Número fora do limite volta com o aviso embaixo do campo.
+- **Quando vale:** na próxima ficha de cliente aberta. Quem abre o CRM (você e o marketing, no
+  padrão) muda; a operação não abre.
+- **Só o que você muda fica guardado.** Quando o histórico da Nuvemshop acertar os números do
+  padrão, o que você não mexeu acompanha.
+- De carona: o CRM, os Ajustes e a ficha do cliente abrem um pouco mais rápido (a leitura sai junto
+  com a pergunta de quem é, como nas telas da 0146).
+
+Conferido pelo `conferir-crm.mjs` (85 checagens, 13 novas: um pedido de Fator entregue, o número
+errado recusado, a operação sem os Ajustes, o marketing mudando o Fator pra 40 dias no celular e a
+próxima compra da ficha andando junto, o "Voltar ao padrão" e as abas), pela rodada completa dos
+conferidores e pelos testes de unidade (10 novos).
+
+Depois do deploy — **nada a configurar.** Pra testar: Painel → CRM → Ajustes → mude o Fator pra 40 →
+Salvar ajustes. A ficha de quem comprou Fator passa a mostrar a próxima compra 10 dias depois.
+
+- [ ] **As próximas partes da Fundação** (uma entrega cada, perguntar antes): a base da Nuvemshop e
+      o modelo de e-mail.
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa
