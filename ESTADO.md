@@ -3663,6 +3663,26 @@ CSS e 0,1 KB a mais de JavaScript (a frase de quem mede), e passa com o melhor L
 Depois do deploy — **nada a configurar.** Pra ver: na Clarity, as gravações de depois do deploy
 incluem quem não respondeu a faixa (a partir dali, o número de sessões sobe).
 
+**A faixa de cookies com o texto da Nuvemshop — pronto em 27/09 (entrega 0172).** Pedido dele:
+"quero alterar esse texto e deixar como era o meu da Nuvemshop". A faixa agora diz, igual à de lá
+(com o mesmo destaque): "Ao navegar por este site **você aceita o uso de cookies** para agilizar a
+sua experiência de compra."
+
+- **O que não muda:** os dois botões ficam — "Só o necessário" é o jeito de recusar (tira o GA4 e
+  a Clarity, que medem desde a primeira página), e "Aceitar" liga a Meta, o TikTok, o Google Ads e
+  o CRM. Na Nuvemshop era um botão só ("Entendi"). O link "Como usamos seus dados" saiu da faixa; a
+  política segue no rodapé de toda página.
+- **Os anúncios continuam esperando o "Aceitar":** o texto diz que navegar é aceitar, mas a Meta,
+  o TikTok e o Google Ads só ligam com o clique — como antes.
+
+Conferido pelo `conferir-integracoes.mjs` (36: a faixa com o texto novo, e ela no celular) e pelo
+`conferir-crm.mjs` (159: a faixa sem parceiro ligado). O do CRM logo depois do das integrações
+falhou uma vez em "a resposta fica, na versão 3" (`nao.3.gmtc`): a loja ainda servia a
+configuração com os códigos de teste (o cache troca por trás, no "max"). Com o
+`/api/revalidar` da tag `configuracoes` em "agora", 159 de 159.
+
+Depois do deploy — **nada a configurar.** Pra ver: numa aba anônima, a faixa no pé da loja.
+
 **O `/trocas` sem a linha do frete de volta — pronto em 27/09 (entrega 0164).** Saiu da seção
 "Desistiu?" o "Quem paga o frete de volta", que estava no ar com a tarja vermelha de pendente.
 Orientação jurídica: não precisa estar no site — então a linha não volta, nem como pendência. Era a
