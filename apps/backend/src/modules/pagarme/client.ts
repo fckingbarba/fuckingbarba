@@ -310,8 +310,9 @@ export function clienteDoPagarme(chaveSecreta: string, url = ENDERECO_PADRAO) {
   }
 
   return {
-    criarPedido: (corpo: CorpoDoPedido) =>
-      chamar<PedidoPagarme>("POST", "/orders", corpo, PRA_CRIAR),
+    /** `tempo`: o do cartão, se não disser outro — o Pix com reserva desiste antes. */
+    criarPedido: (corpo: CorpoDoPedido, tempo = PRA_CRIAR) =>
+      chamar<PedidoPagarme>("POST", "/orders", corpo, tempo),
 
     lerPedido: (id: string) =>
       chamar<PedidoPagarme>("GET", `/orders/${encodeURIComponent(id)}`, undefined, PRA_LER),

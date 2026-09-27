@@ -2713,11 +2713,12 @@ Depois do deploy — **nada a configurar.**
 - [x] **Parte 2: o Mercado Pago, só no Pix** — pronta em 27/09 (entrega 0140, mais abaixo). Cartão
       fica só no Pagar.me: cartão recusado não vai pro outro parceiro (quem recusa é o banco do
       cliente, e mandar pra outro atrai o robô testando cartão e a contestação).
-- [ ] **Parte 3: a troca automática, pelo parceiro estável.** Com os dois bem, Pix e cartão pelo
-      Pagar.me (dá pra inverter no Pix, se a taxa do Mercado Pago for menor). Pagar.me instável:
-      o Pix sai pelo Mercado Pago no mesmo clique, e o cartão oferece esse Pix. Mercado Pago
-      instável: nada muda. Os dois: "tenta em instantes" e um e-mail pro dono. Instável = várias
-      falhas seguidas; o parceiro sai por uns minutos (o disjuntor) e volta sozinho.
+- [x] **Parte 3: a troca automática, pelo parceiro estável** — pronta em 27/09 (entrega 0150,
+      mais abaixo). Com os dois bem, Pix e cartão pelo Pagar.me (dá pra inverter no Pix, se a taxa
+      do Mercado Pago for menor). Pagar.me instável: o Pix sai pelo Mercado Pago no mesmo clique, e
+      o cartão oferece esse Pix. Mercado Pago instável: nada muda. Os dois: "tenta em instantes" e
+      um e-mail pro dono. Instável = três falhas seguidas; o parceiro sai por 5 minutos (o
+      disjuntor) e volta sozinho.
 - [ ] **Parte 4: o ranking dos parceiros**, no Marketing → Pagamento e frete: Pix gerados, pagos,
       que não geraram e o tempo pra gerar e confirmar; cartão aprovado e recusado por motivo;
       falhas, vezes fora e minutos fora. Com o número ao lado da porcentagem, e sem vencedor sem
@@ -3111,6 +3112,41 @@ Depois do deploy — **nada a configurar.** Pra usar: Painel → Produtos → ab
 "Aparece também em" → marque **Barba** → Salvar; em alguns segundos ele aparece em /barba também.
 Repita em cada kit de barba. Espere o Railway terminar de subir antes: nos minutos em que só o
 painel novo está no ar, o "Aparece também em" ainda não grava.
+
+**Pix reserva, parte 3: a troca pelo parceiro que está de pé — pronta em 27/09 (entrega 0150).** A
+loja passa a escolher sozinha por onde cobrar. Enquanto o Mercado Pago não for ligado (os 5 passos
+da 0140, mais acima), nada muda: sem reserva, ela cobra só pelo Pagar.me, como antes.
+
+- **O Pix no mesmo clique:** se o Pix não nasce no Pagar.me (ele não respondeu, recusou, ou a
+  resposta sumiu), a loja gera o Pix pelo Mercado Pago na hora — quem compra só vê o QR, uns
+  segundos depois. Com a reserva esperando, a loja não espera o Pagar.me meio minuto: desiste em
+  10 segundos. O Pix que nascer tarde lá não chega a ninguém (a conciliação fecha). Cartão nunca vai
+  pro outro parceiro.
+- **O disjuntor:** três tentativas seguidas em que o parceiro NÃO RESPONDEU (e não as que ele
+  recusou) tiram ele do caminho por 5 minutos; depois, a próxima compra é o teste, e ele volta
+  sozinho se der certo. Com o Pagar.me fora, o Pix vai direto pelo Mercado Pago, e o cartão fica na
+  tela apagado: "Fora do ar agora. Paga no Pix, que está funcionando." Com o Mercado Pago fora, nada
+  muda pra quem compra. Com os dois fora, a loja segue tentando os dois (tirar o último parceiro
+  seria deixar a loja sem pagamento) e a tela diz "Não consegui gerar o Pix agora, e nada foi
+  cobrado. Tenta de novo em instantes."
+- **O e-mail pro dono:** quando um parceiro cai e quando volta, no máximo um de cada por hora, com
+  o que a loja está fazendo ("o Pix está saindo pelo Mercado Pago", "os parceiros pararam de
+  responder", "o Pagar.me voltou, depois de 27 min fora"). Aparece em Configurações → E-mails como
+  "Um parceiro de pagamento caiu".
+- **Por dentro:** o provedor grava por que não deu (`falha`: "fora", "recusa" ou "interno"); as
+  tentativas de pagar (`obs_tentativa`) ganham o parceiro e a forma — o Pix passa a ser anotado
+  também, sem as travas do cartão —, e é delas que sai o disjuntor e sairá o ranking (parte 4). A
+  loja pergunta quem está fora em `GET /store/pagamento`.
+
+Conferido pelo `conferir-mercadopago.mjs` (77, duas rodadas; a parte 8 é nova: o Pagar.me falso
+fora e o Pix pelo Mercado Pago no mesmo clique, em segundos; as três falhas, o e-mail e a aba antiga
+com o cartão; o cartão apagado e o Pix direto no Mercado Pago; a volta sozinha e o e-mail; os dois
+fora e a volta do Mercado Pago), pelos de sempre na mesma pilha — `conferir-pagamento.mjs` (214),
+`conferir-checkout.mjs` (182), `conferir-conta.mjs` (209) e, no painel, `conferir-configuracoes.mjs`
+(18, agora com 8 avisos da equipe), `conferir-observabilidade.mjs` (35) e `conferir-pedidos.mjs`
+(83) — e pelos testes de unidade (1191; 35 novos).
+
+Depois do deploy — **nada a configurar.** A troca começa a valer quando o Mercado Pago for ligado.
 
 ## Como seguir no Claude Code
 

@@ -11,8 +11,9 @@ import ObservabilidadeService from "./service"
  *     Google, a loja) — quantas vezes deu certo, quantas falhou, e a última;
  *   - `obs_medida`: a velocidade medida nas visitas de verdade;
  *   - `obs_ocorrencia`: a página que não existe e o erro no navegador, por dia;
- *   - `obs_tentativa`: cada tentativa de pagar com cartão, pras travas contra
- *     o robô testando cartão.
+ *   - `obs_tentativa`: cada tentativa de pagar, pras travas contra o robô
+ *     testando cartão (só as de cartão) e pro disjuntor dos parceiros de
+ *     pagamento (todas, Pix também — `lib/pagamento/disjuntor.ts`).
  *
  * Quem escreve é o código de fora: `lib/observabilidade/` (a rodada, o
  * sinal e o vigia) e `lib/cartao/porta.ts` (as tentativas). A regra do que é

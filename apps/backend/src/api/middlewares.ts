@@ -7,7 +7,7 @@ import {
   type MedusaResponse,
 } from "@medusajs/framework/http"
 import { ContainerRegistrationKeys, MedusaError } from "@medusajs/framework/utils"
-import { portaDoCartao } from "../lib/cartao/porta"
+import { portaDoPagamento } from "../lib/cartao/porta"
 import { checkStatusNaTravaDoCarrinho } from "../lib/check-status-na-trava"
 import { portaDoPainel } from "../lib/equipe/acesso"
 import { gerarHandle, HANDLE_VALIDO } from "../lib/handle"
@@ -203,10 +203,11 @@ export default defineMiddlewares({
       middlewares: [pagamentoDePedidoFechado],
     },
     /*
-      A PORTA DO CARTÃO: o robô testando cartão roubado é barrado antes de o
-      Medusa mandar o cartão pro Pagar.me — ver `lib/cartao/porta.ts`.
+      A PORTA DO PAGAMENTO: o robô testando cartão roubado é barrado antes de
+      o Medusa mandar o cartão pro Pagar.me, e toda tentativa (Pix também) é
+      anotada pro disjuntor dos parceiros — ver `lib/cartao/porta.ts`.
     */
-    { matcher: "/store/carts/:id/complete", method: ["POST"], middlewares: [portaDoCartao] },
+    { matcher: "/store/carts/:id/complete", method: ["POST"], middlewares: [portaDoPagamento] },
     { matcher: "/store/orders/:id", method: ["GET"], middlewares: [pedidoSoPraQuemComprou] },
     {
       matcher: "/store/orders/:id/transfer/request",

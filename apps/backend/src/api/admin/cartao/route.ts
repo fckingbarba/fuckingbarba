@@ -41,8 +41,9 @@ async function estado(req: AuthenticatedMedusaRequest) {
   const obs = req.scope.resolve<ObservabilidadeService>(OBSERVABILIDADE)
   const [resumo, ultimas] = await Promise.all([
     obs.resumoDoCartao(),
+    // Só as de cartão: o Pix é anotado na mesma tabela pro disjuntor (0150).
     obs.listTentativas(
-      {},
+      { forma: "cartao" },
       {
         select: [
           "id",

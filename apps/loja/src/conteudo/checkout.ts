@@ -171,3 +171,14 @@ export const FORMAS: FormaDePagamento[] = [
     descricao: `Em até ${PARCELAS_SEM_JUROS}x sem juros.`,
   },
 ]
+
+/**
+ * A FORMA FORA DO AR AGORA, no lugar da descrição — o parceiro dela saiu do
+ * caminho (o disjuntor, 0150) e a outra forma está cobrando. Hoje só o cartão
+ * cai assim (o Pagar.me fora, e o Pix pelo Mercado Pago); o Pix fora com o
+ * cartão de pé fica escrito pra quando houver outro parceiro de cartão.
+ */
+export const FORA_DO_AR: Record<FormaDePagamento["id"], string> = {
+  cartao: "Fora do ar agora. Paga no Pix, que está funcionando.",
+  pix: "Fora do ar agora. Paga no cartão, que está funcionando.",
+}

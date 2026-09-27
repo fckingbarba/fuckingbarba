@@ -257,6 +257,7 @@ export function traduzir(pedido: PedidoPagarme, forma: Forma, parcelasPedidas = 
         ? { bandeira: t.card.brand ?? "", final: t.card.last_four_digits }
         : null,
     recusa: null,
+    falha: null,
     /*
       O cartão que só foi RESERVADO não devolve nada: a reserva desfeita não
       é estorno. Sem isto, o `canceled_amount` de uma autorização desfeita
@@ -283,7 +284,7 @@ export function traduzir(pedido: PedidoPagarme, forma: Forma, parcelasPedidas = 
   if (forma === "cartao" && analiseDoCartao(t) === "reprovada") {
     return {
       status: PaymentSessionStatus.ERROR,
-      estado: { ...base, situacao: "recusado", recusa: RECUSAS.antifraude },
+      estado: { ...base, situacao: "recusado", recusa: RECUSAS.antifraude, falha: "recusa" },
     }
   }
 
@@ -291,6 +292,8 @@ export function traduzir(pedido: PedidoPagarme, forma: Forma, parcelasPedidas = 
     return { status: PaymentSessionStatus.CANCELED, estado: { ...base, situacao: "cancelado" } }
   }
 
+  // O Pagar.me atendeu e disse não — o Pix que ele não gerou, o cartão que
+  // não passou: "recusa", que o disjuntor não conta.
   if (pedidoStatus === "failed" || cobrancaStatus === "failed") {
     return {
       status: PaymentSessionStatus.ERROR,
@@ -298,6 +301,7 @@ export function traduzir(pedido: PedidoPagarme, forma: Forma, parcelasPedidas = 
         ...base,
         situacao: forma === "pix" ? "falhou" : "recusado",
         recusa: motivoDaRecusa(forma, t),
+        falha: "recusa",
       },
     }
   }

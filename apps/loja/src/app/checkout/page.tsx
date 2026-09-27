@@ -12,6 +12,7 @@ import {
   lerCheckout,
   listarFretes,
   listarProvedores,
+  rotaAgora,
   listarSugestoes,
   preencherDaConta,
 } from "@/lib/checkout"
@@ -145,6 +146,8 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/checkout">, "searchPa
   */
   const fretes = checkout.entrega.cep ? await listarFretes(checkout) : []
   const provedores = await listarProvedores(checkout.regiaoId)
+  // Por onde cobrar agora: os parceiros da região e o disjuntor (`rotaAgora`).
+  const rota = await rotaAgora(checkout.regiaoId, provedores)
   const bump = await lerBump(checkout)
   const sugestoes = await listarSugestoes(checkout, falta)
 
@@ -153,6 +156,7 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/checkout">, "searchPa
       checkout={checkout}
       fretes={fretes}
       provedores={provedores}
+      rota={rota}
       bump={bump}
       sugestoes={sugestoes}
       falta={falta}
