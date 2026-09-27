@@ -3544,6 +3544,18 @@ recarrega a página, não pede nada ao servidor, e o e-mail já digitado fica no
 Depois do deploy — **nada a configurar.** Pra ver: na Clarity, as gravações de depois do deploy
 voltam a ter a campanha e a origem nos filtros de tráfego.
 
+**O `/trocas` sem a linha do frete de volta — pronto em 27/09 (entrega 0164).** Saiu da seção
+"Desistiu?" o "Quem paga o frete de volta", que estava no ar com a tarja vermelha de pendente.
+Orientação jurídica: não precisa estar no site — então a linha não volta, nem como pendência. Era a
+única tarja do `/trocas` em produção; sem ela, a página fica sem nenhuma. A data de atualização da
+página passou pra 27/09.
+
+Conferido numa loja local: a seção "Desistiu?" termina no reembolso, e o resto da página não muda.
+E pelo typecheck, o lint e o prettier da loja.
+
+Depois do deploy — **nada a configurar.** Pra ver: `www.fuckingbarba.com.br/trocas`, na seção
+"Desistiu? 7 dias, sem precisar explicar".
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa

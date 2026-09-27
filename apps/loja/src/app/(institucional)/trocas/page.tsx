@@ -6,7 +6,6 @@ import {
   Dado,
   Lista,
   P,
-  Pendente,
   Secao,
   Titulo,
 } from "@/components/institucional/texto"
@@ -34,11 +33,14 @@ export const metadata: Metadata = {
  *
  * Os prazos aqui são os da LEI (art. 49 e art. 26 do CDC), que a loja cumpre
  * por obrigação. O que depende de política da casa — quanto tempo a gente
- * leva pra postar, quem paga o frete da devolução por arrependimento — está
- * marcado como pendente em vez de chutado: no CDC, o que está escrito vincula.
+ * leva pra postar — vem das configurações e fica com a tarja de pendente
+ * enquanto estiver em branco, em vez de chutado: no CDC, o que está escrito
+ * vincula. O frete de volta da desistência fica fora da página de propósito
+ * (orientação jurídica, 27/09/2026): a linha com a tarja de pendente saiu e
+ * não é pra voltar.
  */
 
-const ATUALIZADO = "20 de setembro de 2026"
+const ATUALIZADO = "27 de setembro de 2026"
 
 export default async function Trocas() {
   const { frete, atendimento } = await configuracoes()
@@ -93,9 +95,6 @@ export default async function Trocas() {
           Devolvido, a gente reembolsa <b>o valor integral, incluindo o frete que você pagou</b>,
           pelo mesmo meio do pagamento, em até 10 dias depois de a encomenda chegar aqui. Cartão
           pode levar mais uma ou duas faturas pra aparecer — isso é prazo da operadora, não nosso.
-        </P>
-        <P>
-          Quem paga o frete de volta: <Pendente>política de frete da devolução pendente</Pendente>.
         </P>
       </Secao>
 
