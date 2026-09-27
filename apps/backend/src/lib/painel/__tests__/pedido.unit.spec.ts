@@ -1,7 +1,7 @@
 import { emCentavos } from "../../../modules/pagarme/client"
 import { areasDo, matrizCom, MATRIZ_PADRAO, type Matriz, type Papel } from "../../equipe/regras"
 import { duracao, quando, reais } from "../formato"
-import { montarInicio } from "../inicio"
+import { montarInicio, precisamDoTotal } from "../inicio"
 import {
   comPontuacao,
   detalheDo,
@@ -784,5 +784,64 @@ describe("o Início", () => {
       "+12 na newsletter esta semana",
     ])
     expect(i.fila.some((f) => f.titulo.startsWith("O estorno"))).toBe(false)
+  })
+})
+
+describe("o Início lê o total só de quem entra num número em reais", () => {
+  const DIA = 24 * 60
+  const pago = (id: string, minutosAtras: number) =>
+    pedido({
+      id,
+      created_at: antes(minutosAtras + 5),
+      payment_collections: [
+        {
+          payment_sessions: [sessao("pago")],
+          payments: [{ provider_id: "pp_pagarme_pagarme", captured_at: antes(minutosAtras) }],
+        },
+      ],
+    })
+
+  it("os pagos da semana, o que espera pagamento e os de hoje; o pago antigo, não", () => {
+    const pedidos = [
+      pago("order_hoje", 30),
+      pago("order_semana", 6 * DIA),
+      pago("order_velho", 20 * DIA),
+      // Pix esperando, feito há 10 min: entra no "Esperando pagamento".
+      pedido({ id: "order_pix" }),
+      // Cartão em análise há 12 dias: segue esperando, e o valor dele aparece.
+      pedido({
+        id: "order_analise",
+        created_at: antes(12 * DIA),
+        payment_collections: [
+          { payment_sessions: [sessao("analise", { forma: "cartao" })], payments: [] },
+        ],
+      }),
+      // Pix vencido há 20 dias: não é venda nem espera — fica sem o total.
+      pedido({
+        id: "order_vencido",
+        created_at: antes(20 * DIA),
+        payment_collections: [
+          {
+            payment_sessions: [sessao("aguardando", { pix: { expiraEm: antes(20 * DIA - 30) } })],
+            payments: [],
+          },
+        ],
+      }),
+    ]
+    expect(precisamDoTotal(pedidos, AGORA).sort()).toEqual(
+      ["order_analise", "order_hoje", "order_pix", "order_semana"].sort()
+    )
+  })
+
+  it("com o total só desses, os números do Início são os mesmos de antes", () => {
+    const comTotal = [pago("order_1", 40), pago("order_2", 3 * DIA), pago("order_3", 30 * DIA)]
+    const quem = { papel: "dono" as Papel, areas: areasDo(MATRIZ_PADRAO, "dono") }
+    const vazio = { notas: new Map<string, NotaCrua>(), envios: new Map() }
+    const antesDaMudanca = montarInicio(quem, { pedidos: comTotal, ...vazio }, SEM_ERP)
+    const lidos = new Set(precisamDoTotal(comTotal, AGORA))
+    const semOsOutros = comTotal.map((o) => (lidos.has(o.id) ? o : { ...o, total: undefined }))
+    const depois = montarInicio(quem, { pedidos: semOsOutros, ...vazio }, SEM_ERP)
+    expect(depois.numeros).toEqual(antesDaMudanca.numeros)
+    expect(depois.grafico).toEqual(antesDaMudanca.grafico)
   })
 })

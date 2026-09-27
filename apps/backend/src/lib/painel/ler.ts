@@ -261,14 +261,31 @@ export async function produtosPublicados(
     .map((p) => ({ handle: p.handle, nome: nomeCurto(p.title) }))
 }
 
-/** Os pedidos mais novos primeiro: os `limite` últimos, ou os dos últimos `dias`. */
+/**
+ * A lista sem o total. O total do pedido o Medusa não guarda: ele CALCULA,
+ * lendo os itens, os impostos, os ajustes, o frete e os créditos de cada
+ * um — é o que mais pesa na leitura. A lista em páginas lê a janela inteira
+ * sem ele (pra filtrar, buscar e contar) e pede o total só dos pedidos da
+ * página (`totaisDos`).
+ */
+const CAMPOS_SEM_TOTAL = CAMPOS_DA_LISTA.filter((c) => c !== "total" && c !== "credit_line_total")
+
+/**
+ * Os pedidos mais novos primeiro: os `limite` últimos, ou os dos últimos `dias`.
+ * `semTotal`: sem o `total` e o `credit_line_total` (ver `CAMPOS_SEM_TOTAL`).
+ */
 export async function pedidosRecentes(
   container: MedusaContainer,
-  { limite, dias, agora = new Date() }: { limite: number; dias?: number; agora?: Date }
+  {
+    limite,
+    dias,
+    agora = new Date(),
+    semTotal = false,
+  }: { limite: number; dias?: number; agora?: Date; semTotal?: boolean }
 ): Promise<PedidoCru[]> {
   const { data } = await query(container).graph({
     entity: "order",
-    fields: CAMPOS_DA_LISTA,
+    fields: semTotal ? CAMPOS_SEM_TOTAL : CAMPOS_DA_LISTA,
     filters: {
       is_draft_order: false,
       ...(dias ? { created_at: { $gte: new Date(agora.getTime() - dias * DIA_MS) } } : {}),
@@ -276,6 +293,45 @@ export async function pedidosRecentes(
     pagination: { take: limite, order: { created_at: "DESC" } },
   })
   return data as unknown as PedidoCru[]
+}
+
+/**
+ * O total dos pedidos feitos desde `desde` (os da semana, no Início): lido JUNTO com a janela sem
+ * o total, e não depois dela — o que ficar de fora (o raro pago agora de um pedido velho) o
+ * `totaisDos` completa.
+ */
+export async function totaisDesde(
+  container: MedusaContainer,
+  desde: Date,
+  limite = 500
+): Promise<Map<string, Pick<PedidoCru, "total" | "credit_line_total">>> {
+  const { data } = await query(container).graph({
+    entity: "order",
+    fields: ["id", "total", "credit_line_total"],
+    filters: { is_draft_order: false, created_at: { $gte: desde } },
+    pagination: { take: limite, order: { created_at: "DESC" } },
+  })
+  const lidos = data as unknown as (Pick<PedidoCru, "total" | "credit_line_total"> & {
+    id: string
+  })[]
+  return new Map(lidos.map((o) => [o.id, o]))
+}
+
+/** O total de uns poucos pedidos (os da página): `total` e `credit_line_total`, pro `totalDo`. */
+export async function totaisDos(
+  container: MedusaContainer,
+  ids: string[]
+): Promise<Map<string, Pick<PedidoCru, "total" | "credit_line_total">>> {
+  if (!ids.length) return new Map()
+  const { data } = await query(container).graph({
+    entity: "order",
+    fields: ["id", "total", "credit_line_total"],
+    filters: { id: ids },
+  })
+  const lidos = data as unknown as (Pick<PedidoCru, "total" | "credit_line_total"> & {
+    id: string
+  })[]
+  return new Map(lidos.map((o) => [o.id, o]))
 }
 
 export async function pedidoPorId(
@@ -515,10 +571,17 @@ export async function lerClientes(
 }
 
 /** Os últimos 2000 pedidos, só com o que a lista de clientes soma. */
-export async function pedidosDosClientes(container: MedusaContainer): Promise<PedidoDoCliente[]> {
+export async function pedidosDosClientes(
+  container: MedusaContainer,
+  { semTotal = false }: { semTotal?: boolean } = {}
+): Promise<PedidoDoCliente[]> {
   const { data } = await query(container).graph({
     entity: "order",
-    fields: CAMPOS_DO_PEDIDO_NA_LISTA,
+    // Sem o total, a lista de clientes pede o de cada pedido vendido de quem
+    // está na página (`vendidosDaPagina`, em `clientes.ts`) — ver `CAMPOS_SEM_TOTAL`.
+    fields: semTotal
+      ? CAMPOS_DO_PEDIDO_NA_LISTA.filter((c) => c !== "total" && c !== "credit_line_total")
+      : CAMPOS_DO_PEDIDO_NA_LISTA,
     filters: { is_draft_order: false },
     pagination: { take: 2000, order: { created_at: "DESC" } },
   })
