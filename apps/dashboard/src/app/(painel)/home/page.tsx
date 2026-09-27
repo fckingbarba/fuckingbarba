@@ -40,7 +40,7 @@ async function Home() {
     <div data-tela>
       <Cabeca
         titulo="Layout da home"
-        sub="A barra de avisos do topo e as seções da página inicial, na ordem em que aparecem. Em “Editar” fica o texto de cada uma."
+        ajuda="A barra de avisos do topo e as seções da página inicial, na ordem em que aparecem. Em “Editar” fica o texto de cada uma."
         acoes={
           <>
             {noSite ? (

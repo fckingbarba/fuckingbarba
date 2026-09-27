@@ -100,13 +100,13 @@ export const quantasMudancas = (p: Pendentes) =>
   p.secoes.length + (p.ordem ? 1 : 0) + (p.anuncio ? 1 : 0)
 
 /** "Barra de avisos, Vitrine e a ordem das seções" — o que a faixa diz que vai pro site. */
-export function oQueMudou(p: Pendentes): string {
-  const nomes = [
+/** O nome de cada mudança esperando: as etiquetas da faixa (0158). */
+export function nomesDasMudancas(p: Pendentes): string[] {
+  return [
     ...(p.anuncio ? [ANUNCIO_DA_HOME.nome] : []),
     ...p.secoes.map((id) => SECOES_DA_HOME[id].nome),
     ...(p.ordem ? ["a ordem das seções"] : []),
   ]
-  return nomes.length > 1 ? `${nomes.slice(0, -1).join(", ")} e ${nomes.at(-1)}` : (nomes[0] ?? "")
 }
 
 /* ── o editor de cada seção ─────────────────────────────────────────── */
