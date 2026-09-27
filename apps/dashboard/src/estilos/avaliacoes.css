@@ -1,0 +1,29 @@
+/*
+  AS AVALIAÇÕES: a lista pra aprovar ou recusar. As peças são as do painel
+  (o bloco, a linha, os números, as fitas); aqui, a linha com foto, o texto
+  inteiro e as estrelas.
+*/
+
+.numeros--avaliacoes { grid-template-columns: repeat(2, minmax(0, 220px)); }
+@media (max-width: 640px) { .numeros--avaliacoes { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+.aval { grid-template-columns: auto minmax(0, 1fr) auto; align-items: start; padding: 14px 16px; }
+.aval__foto { display: block; width: 44px; height: 44px; object-fit: cover; background: var(--cinza); border: 1px solid var(--linha); }
+.aval__corpo { min-width: 0; }
+.aval__topo { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 0; font-size: 0.86rem; }
+.aval__produto { color: var(--tinta-suave); font-weight: 600; }
+.aval__produto::before { content: "· "; }
+.aval__texto { margin: 6px 0 6px; font-size: 0.86rem; line-height: 1.45; white-space: pre-line; overflow-wrap: anywhere; }
+.aval__estrelas { display: inline-flex; gap: 1px; line-height: 0; }
+.aval__estrelas svg { width: 15px; height: 15px; fill: #ccd1d6; }
+.aval__estrelas [data-cheia] svg { fill: var(--amarelo-borda); }
+.aval__acoes { display: flex; flex-direction: column; gap: 8px; align-items: stretch; }
+.aval__acoes .btn svg { width: 14px; height: 14px; }
+.aval .linha__txt a { color: var(--tinta); font-weight: 700; }
+@media (max-width: 640px) {
+  .aval { grid-template-columns: auto minmax(0, 1fr); }
+  .aval__produto { flex-basis: 100%; }
+  .aval__produto::before { content: none; }
+  .aval__acoes { grid-column: 1 / -1; flex-direction: row; }
+  .aval__acoes .btn { flex: 1; justify-content: center; }
+}

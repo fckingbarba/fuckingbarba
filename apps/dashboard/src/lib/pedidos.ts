@@ -128,7 +128,7 @@ export type Frase = { ok: boolean; texto: string }
 
 export type ItemDaFila = {
   nivel: "grave" | "atencao" | "" | "ok"
-  icone: "caminhao" | "nota" | "pix" | "cartao" | "alerta" | "email" | "produtos"
+  icone: "caminhao" | "nota" | "pix" | "cartao" | "alerta" | "email" | "produtos" | "estrela"
   titulo: string
   texto: string
   href: string
