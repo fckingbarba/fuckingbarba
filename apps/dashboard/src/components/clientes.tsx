@@ -2,6 +2,7 @@ import type { Route } from "next"
 import Form from "next/form"
 import Link from "next/link"
 import { Icone } from "@/components/icones"
+import { Sigla } from "@/components/visual"
 import { type LinhaDoCliente, vezes } from "@/lib/clientes"
 import { reais } from "@/lib/pedidos"
 
@@ -59,6 +60,36 @@ export function BuscaDeClientes({ busca }: { busca: string }) {
 
 const ficha = (id: string) => `/clientes/${id}` as Route
 
+/** E-mail e WhatsApp: aceso quem aceitou ofertas por aquele canal. */
+function Canais({ c }: { c: LinhaDoCliente }) {
+  const canais = c.canais ?? {
+    email: Boolean(c.ofertas?.startsWith("e-mail")),
+    whatsapp: Boolean(c.ofertas?.includes("WhatsApp")),
+  }
+  return (
+    <span className="canais">
+      <span
+        className="canal"
+        data-canal="email"
+        data-sim={canais.email ? "" : undefined}
+        title={canais.email ? "Aceita ofertas por e-mail" : "Não aceita ofertas por e-mail"}
+      >
+        <Icone nome="email" />
+      </span>
+      <span
+        className="canal"
+        data-canal="whatsapp"
+        data-sim={canais.whatsapp ? "" : undefined}
+        title={canais.whatsapp ? "Aceita ofertas por WhatsApp" : "Não aceita ofertas por WhatsApp"}
+      >
+        <Icone nome="whatsapp" />
+      </span>
+      {/* A frase de antes, pro leitor de tela (e o "desde quando"). */}
+      <span className="sr-only">{c.ofertas ?? "não aceita"}</span>
+    </span>
+  )
+}
+
 export function ListaDosClientes({
   clientes,
   comCidade,
@@ -73,6 +104,8 @@ export function ListaDosClientes({
         <b>Nenhum cliente aqui</b>Mude a busca.
       </div>
     )
+  // A barrinha do "gastou" é do tamanho do maior gasto da página.
+  const maior = Math.max(...clientes.map((c) => c.gastou), 1)
   return (
     <>
       <div className="tabela-rola" data-vira-cartao>
@@ -90,18 +123,38 @@ export function ListaDosClientes({
             {clientes.map((c) => (
               <tr key={c.id} data-cliente={c.id}>
                 <td>
-                  <Link className="tabela__link" href={ficha(c.id)}>
-                    <b>{c.nome}</b>
-                  </Link>
-                  <span className="tabela__sub">{c.email}</span>
+                  <span className="pessoa">
+                    <Sigla nome={c.nome} />
+                    <span>
+                      <Link className="tabela__link" href={ficha(c.id)}>
+                        <b>{c.nome}</b>
+                      </Link>
+                      <span className="tabela__sub">{c.email}</span>
+                    </span>
+                  </span>
                 </td>
                 {comCidade ? <td>{c.cidade ?? <span className="suave">—</span>}</td> : null}
                 <td className="num">
-                  {c.pedidos}
+                  <span className="bolinha" data-zero={c.pedidos ? undefined : ""}>
+                    {c.pedidos}
+                  </span>
                   <span className="tabela__sub">{c.ultimo}</span>
                 </td>
-                <td className="direita num">{c.gastou ? <b>{reais(c.gastou)}</b> : "—"}</td>
-                <td>{c.ofertas ?? <span className="suave">não aceita</span>}</td>
+                <td className="direita num">
+                  {c.gastou ? (
+                    <span className="gasto">
+                      <b>{reais(c.gastou)}</b>
+                      <span className="gasto__trilho" aria-hidden="true">
+                        <i style={{ width: `${((c.gastou / maior) * 100).toFixed(1)}%` }} />
+                      </span>
+                    </span>
+                  ) : (
+                    "—"
+                  )}
+                </td>
+                <td>
+                  <Canais c={c} />
+                </td>
               </tr>
             ))}
           </tbody>
@@ -111,15 +164,22 @@ export function ListaDosClientes({
         {clientes.map((c) => (
           <Link className="cartao" key={c.id} href={ficha(c.id)} data-cliente={c.id}>
             <span className="cartao__linha">
-              <p className="cartao__titulo">{c.nome}</p>
+              <span className="pessoa">
+                <Sigla nome={c.nome} />
+                <span>
+                  <p className="cartao__titulo">{c.nome}</p>
+                  <p className="cartao__txt">{c.email}</p>
+                </span>
+              </span>
               <span className="cartao__valor">{c.gastou ? reais(c.gastou) : "—"}</span>
             </span>
-            <p className="cartao__txt">{c.email}</p>
-            <p className="cartao__txt">
-              {vezes(c.pedidos, "pedido", "pedidos")}
-              {c.cidade ? ` · ${c.cidade}` : ""}
-              {c.ofertas ? ` · ofertas por ${c.ofertas.split(" · ")[0]}` : ""}
-            </p>
+            <span className="cartao__linha">
+              <span className="cartao__txt">
+                {vezes(c.pedidos, "pedido", "pedidos")}
+                {c.cidade ? ` · ${c.cidade}` : ""}
+              </span>
+              <Canais c={c} />
+            </span>
           </Link>
         ))}
       </div>

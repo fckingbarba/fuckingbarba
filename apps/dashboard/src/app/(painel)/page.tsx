@@ -39,18 +39,12 @@ function saudacao(agora: Date): string {
   return h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite"
 }
 
-const DO_PAPEL = {
-  dono: "tudo o que pede você hoje",
-  operacao: "o dia da operação",
-  marketing: "o dia do marketing",
-} as const
-
-/** "Bom dia, Matheus" · "Quinta-feira, 24/09 · o dia da operação", na hora da loja. */
-function cabecalho(nome: string, papel: keyof typeof DO_PAPEL, agora = new Date()) {
+/** "Bom dia, Matheus" · "Quinta-feira, 24/09", na hora da loja. */
+function cabecalho(nome: string, agora = new Date()) {
   const hoje = DIA.format(agora)
   return {
     titulo: `${saudacao(agora)}, ${nome.split(" ")[0]}`,
-    sub: `${hoje[0].toUpperCase()}${hoje.slice(1)} · ${DO_PAPEL[papel]}`,
+    sub: `${hoje[0].toUpperCase()}${hoje.slice(1)}`,
   }
 }
 
@@ -69,7 +63,7 @@ export default async function PaginaInicio() {
   if (r.status !== 200) return <ForaDoAr />
   const inicio = r.corpo as unknown as Inicio
 
-  const { titulo, sub } = cabecalho(membro.nome, membro.papel)
+  const { titulo, sub } = cabecalho(membro.nome)
   // A conta de quantas visitas viraram pedido é a de ontem: hoje o Google ainda está somando.
   const hoje = inicio.grafico.findIndex((d) => d.hoje)
   const ontem = hoje > 0 ? inicio.grafico[hoje - 1] : null
@@ -84,6 +78,7 @@ export default async function PaginaInicio() {
       <Cabeca titulo={titulo} sub={sub} />
       <Numeros
         n={inicio.numeros}
+        dias={inicio.grafico}
         visitas={
           <Suspense fallback={<NumeroDeVisitas r={{ estado: "carregando" }} />}>
             <NumeroDasVisitas />
