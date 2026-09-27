@@ -289,6 +289,8 @@ export type PagamentoEFrete = {
     banco: number
     dados: number
     outros: number
+    /** O pedido cancelado com o cartão em análise: nada cobrado, e não é recusa. */
+    cancelados: number
   }
   parcelas: { parcelas: number; pedidos: number }[]
   frete: {
@@ -300,7 +302,31 @@ export type PagamentoEFrete = {
     quaseLa: number | null
     piso: number | null
   }
+  /** Os parceiros de pagamento lado a lado (`lib/painel/marketing-parceiros.ts`, no backend). */
+  parceiros: {
+    parceiros: ParceiroNoRanking[]
+    /** Quem gerou mais Pix — só com volume nos dois; senão, null. */
+    melhorNoPix: { nome: string; parte: number; outro: string; parteDoOutro: number } | null
+  }
   achados: Achado[]
+}
+
+export type ParceiroNoRanking = {
+  id: string
+  nome: string
+  /** Cobrou alguma coisa no período, ou foi tentado. */
+  usado: boolean
+  pix: {
+    gerados: number
+    pagos: number
+    naoGeraram: number
+    /** Do clique ao QR, em segundos (mediana). */
+    praGerar: number | null
+    /** Do pedido ao pagamento, em minutos (mediana). */
+    atePagar: number | null
+  }
+  semResposta: number
+  fora: { vezes: number; minutos: number }
 }
 
 /** Os clientes do período (a história inteira da loja por trás). */
