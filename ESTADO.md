@@ -3485,6 +3485,30 @@ pessoas fazem com ele (abrir, responder).
 - [ ] **O endereço só das ofertas** (o 3º ajuste; você, com o meu passo a passo): o item da parte
       6, lá em cima. Até lá, os e-mails do CRM saem do endereço da loja.
 
+**Os lembretes sem preço — pronto em 27/09 (entrega 0173).** No seu teste depois da 0170, a
+maioria ainda caía em Promoções. Chequei todos os e-mails da loja. O que empurra pra lá:
+- todos saem do mesmo endereço, no domínio que o Perfit usava pras newsletters;
+- o rastreio de cliques do Resend troca todos os links por links de rastreio;
+- o preço com "de R$" nos lembretes sem desconto;
+- a sua caixa já aprendeu que a loja manda promoção. O Gmail aprende com cada pessoa.
+
+O que entrou:
+- **Os lembretes sem desconto** listam os produtos só pelo nome: sem o preço e com um link só,
+  também na versão em texto. Continuam em texto simples até o teste (escolha sua: testar antes).
+- **Os e-mails de pedido e de conta** ficam com a cara padrão da loja, como estão (escolha sua).
+
+- [ ] **Você, no Resend:** Domains → `fuckingbarba.com.br` → desligar **Click Tracking**. Na
+      GoDaddy, não apagar o registro `links`, que os e-mails já enviados usam. O CRM para de contar
+      cliques; as vendas dos fluxos continuam contadas.
+- [ ] **O endereço só das ofertas:** o item da parte 6, lá em cima. Agora é o mais importante: sem
+      ele, as ofertas do CRM saem do mesmo endereço dos pedidos.
+- [ ] **O teste num Gmail novo**, depois dos dois acima:
+  1. entrar na conta da loja (o e-mail do código já é um teste);
+  2. pôr um produto na sacola e ir até o pagamento, sem pagar;
+  3. em 30 minutos chega o primeiro lembrete;
+  4. ver em que aba cai cada um.
+- [ ] **Depois do teste:** se o texto simples não ajudar, os lembretes voltam pra cara padrão.
+
 **A parcela mínima do cartão, editável — pronta em 27/09 (entrega 0157).** O pedido dele: "quero
 poder editar a parcela mínima no cartão, ali diz 5 reais". Em **Configurações → Pagamento**, o
 bloco **Parcelas no cartão** tem o campo **Parcela mínima**.
