@@ -52,7 +52,9 @@ const doisDigitos = (n: number) => String(n).padStart(2, "0")
  *
  * Sempre ligado e zerando à meia-noite de Brasília, todo dia (pedido da loja
  * em 24/09 — ver `ofertas.tsx`). Por isso não há mais a caixa de "Dias": o
- * prazo nunca passa de 24 horas.
+ * prazo nunca passa de 24 horas. A de "Horas" fica sempre, mesmo em 00 na
+ * última hora (pedido da loja em 26/09): antes ela sumia, e o contador
+ * encolhia de três caixas pra duas bem na hora da urgência.
  *
  * Três decisões que não são óbvias no código:
  *
@@ -109,9 +111,6 @@ export function OfertasRelampago({
   const restante = fim === null || agora === null ? null : calcular(fim, agora)
 
   const urgente = restante !== null && restante.ms <= URGENCIA_MS
-  // "Horas" some na última hora, deixando minutos e segundos sozinhos — que é
-  // o que importa ali. No primeiro desenho, antes de existir "agora", ela fica.
-  const mostraHoras = restante === null || restante.horas > 0
 
   const numero = (valor: number | null) => (valor === null ? "--" : doisDigitos(valor))
 
@@ -138,7 +137,7 @@ export function OfertasRelampago({
                   quem usa leitor de tela. A frase abaixo diz a mesma coisa
                   uma vez só. */}
               <div className={`offers__timer${urgente ? " is-urgente" : ""}`} aria-hidden="true">
-                <div className="offers__unit" hidden={!mostraHoras}>
+                <div className="offers__unit">
                   {/* A `key` que muda remonta o span, e é isso que faz a
                       animação de virada rodar de novo a cada segundo. */}
                   <span className="offers__num is-tick" key={`h${restante?.horas}`}>
