@@ -59,12 +59,5 @@ export function Tags({ integracoes }: { integracoes: Integracoes }) {
     if (chegada) anotarNaLoja("visita", chegada.dados, { onde: chegada.onde })
   }, [])
 
-  return (
-    <Consentimento
-      parceiros={parceiros}
-      estado={estado}
-      ga4={integracoes.ga4}
-      clarity={integracoes.clarity}
-    />
-  )
+  return <Consentimento parceiros={parceiros} estado={estado} ga4={integracoes.ga4} />
 }
