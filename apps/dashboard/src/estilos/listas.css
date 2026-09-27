@@ -1,0 +1,56 @@
+/* --------------------------------------------------------------------------
+   AS LISTAS EM PÁGINAS E O ESQUELETO DO CLIQUE (entrega 0146).
+   O pé das listas (components/paginas.tsx) e a tela que aparece enquanto o
+   Medusa responde (components/esqueleto.tsx, nos loading.tsx).
+   -------------------------------------------------------------------------- */
+
+/* O pé da lista: "31–60 de 300" e os números. No celular, só as setas e "2 de 10". */
+.paginas { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px 16px; margin: 14px 0 0; }
+.paginas__quantos { margin: 0; font-size: 0.8rem; color: var(--tinta-suave); }
+.paginas__quantos b { color: var(--tinta); }
+.paginas__botoes { display: flex; align-items: center; gap: 6px; }
+.paginas__num, .paginas__seta { min-width: 40px; height: 40px; padding: 0 10px; display: inline-flex; align-items: center; justify-content: center; background: var(--papel); border: 2px solid var(--tinta); color: var(--tinta); font-size: 0.8rem; font-weight: 800; text-decoration: none; }
+.paginas__num:hover, a.paginas__seta:hover { background: var(--amarelo-palido); }
+.paginas__num[aria-current="page"] { background: var(--tinta); color: var(--amarelo); }
+span.paginas__seta { opacity: 0.25; }
+.paginas__seta svg { width: 16px; height: 16px; fill: currentColor; }
+.paginas__resto { padding: 0 2px; font-weight: 800; color: var(--tinta-suave); }
+.paginas__cel { display: none; padding: 0 10px; font-size: 0.84rem; font-weight: 800; }
+@media (max-width: 760px) {
+  .paginas { justify-content: center; }
+  .paginas__quantos { width: 100%; text-align: center; }
+  .paginas__num, .paginas__resto { display: none; }
+  .paginas__cel { display: inline; }
+  .paginas__seta { min-width: 48px; height: 44px; }
+}
+
+/* O esqueleto: blocos cinza no lugar do que vem, com um brilho passando. Classes próprias (esq-*),
+   nunca as da tela de verdade — ver components/esqueleto.tsx. */
+.esqueleto { pointer-events: none; }
+.esq-numeros { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 0 0 16px; }
+@media (max-width: 760px) { .esq-numeros { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.esq-numero { padding: 14px 16px; background: var(--papel); border: 2px solid var(--cinza-2); clip-path: var(--chanfro-p); }
+.esq-bloco { background: var(--papel); border: 2px solid var(--cinza-2); clip-path: var(--chanfro); padding: clamp(16px, 2.2vw, 22px); margin-bottom: 16px; min-width: 0; }
+.esq-bloco--lista { padding: 0; }
+.esq-grade { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 0 16px; align-items: start; }
+.esq-grade--detalhe { grid-template-columns: minmax(0, 1fr) 340px; }
+@media (max-width: 1100px) { .esq-grade, .esq-grade--detalhe { grid-template-columns: minmax(0, 1fr); } }
+.osso { display: block; background: linear-gradient(90deg, var(--cinza-2) 0%, #f6f7f8 45%, var(--cinza-2) 90%); background-size: 220% 100%; animation: osso 1.3s ease-in-out infinite; }
+@keyframes osso { from { background-position: 110% 0; } to { background-position: -110% 0; } }
+@media (prefers-reduced-motion: reduce) { .osso { animation: none; } }
+.osso--voltar { width: 90px; height: 14px; margin: 0 0 16px; }
+.osso--titulo { width: min(280px, 70%); height: 32px; margin: 0 0 10px; }
+.osso--sub { width: min(440px, 85%); height: 14px; margin: 0 0 24px; }
+.osso--busca { height: 48px; margin: 0 0 14px; }
+.osso-fitas { display: flex; gap: 8px; margin: 0 0 14px; overflow: hidden; }
+.osso--fita { flex: 0 0 120px; height: 36px; }
+.osso--aba { flex: 0 0 96px; height: 18px; margin: 4px 0 8px; }
+.osso--rotulo { width: 38%; max-width: 160px; height: 12px; margin: 0 0 12px; }
+.osso--numero { width: 60%; height: 26px; }
+.osso-linha { display: grid; grid-template-columns: 40px minmax(0, 1fr) 80px; align-items: center; gap: 14px; padding: 14px clamp(16px, 2.2vw, 22px); border-bottom: 1px solid rgba(18, 24, 31, 0.08); }
+.esq-bloco:not(.esq-bloco--lista) .osso-linha { padding-left: 0; padding-right: 0; }
+.osso-linha:last-child { border-bottom: 0; }
+.osso--quadrado { width: 40px; height: 40px; }
+.osso--texto { width: 72%; height: 13px; margin: 0 0 8px; }
+.osso--texto-curto { width: 42%; height: 11px; }
+.osso--valor { height: 16px; }

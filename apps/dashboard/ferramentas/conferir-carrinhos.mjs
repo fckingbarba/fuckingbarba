@@ -189,6 +189,17 @@ try {
     Boolean(linha(t1, novo)) && !linha(t1, velho),
     "a mesma pessoa numa linha só: a do carrinho mais recente"
   )
+  ok(
+    t1.paginacao?.porPagina === 30 &&
+      t1.carrinhos.length === Math.min(30, t1.contagem.agora) &&
+      t1.paginacao.itens === t1.contagem.agora,
+    "de 30 em 30 (a página é o recorte; a fita conta todos)",
+    JSON.stringify({
+      paginacao: t1.paginacao,
+      linhas: t1.carrinhos.length,
+      agora: t1.contagem.agora,
+    })
+  )
   const pago = linha(t1, ids.pagamento)
   const zap = pago?.whatsapp ? new URL(pago.whatsapp) : null
   ok(

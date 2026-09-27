@@ -16,6 +16,7 @@ import {
   nomeCurto,
   notaTravada,
   pagamentoDo,
+  situacaoDo,
   type Contexto,
   type EnvioCru,
   type LinhaDaLista,
@@ -78,6 +79,32 @@ export type DadosDoInicio = {
 export type QuemVeOInicio = { papel: Papel; areas: readonly Area[] }
 
 const DIA_MS = 24 * 60 * 60 * 1000
+
+/**
+ * QUAIS PEDIDOS PRECISAM DO TOTAL — o Início lê 45 dias SEM o total (o
+ * Medusa calcula o total pedido a pedido: é o que mais pesa na leitura) e
+ * pede o total só destes: os que entram num número em reais — as vendas de
+ * hoje e da semana (pagos nos últimos 8 dias, com folga pro fuso), o que
+ * espera pagamento e os pedidos de hoje. A fila (a nota, a Frenet, o
+ * estorno) não usa o total.
+ */
+export const JANELA_DO_TOTAL_MS = 8 * DIA_MS
+
+export function precisamDoTotal(pedidos: PedidoCru[], agora: Date): string[] {
+  const desde = agora.getTime() - JANELA_DO_TOTAL_MS
+  return pedidos
+    .filter((o) => {
+      const p = pagamentoDo(o)
+      const s = situacaoDo(o, p, agora)
+      return (
+        new Date(o.created_at).getTime() >= desde ||
+        (p.pagoEm !== null && p.pagoEm.getTime() >= desde) ||
+        s === "pix" ||
+        s === "analise"
+      )
+    })
+    .map((o) => o.id)
+}
 
 export function montarInicio(quem: QuemVeOInicio, dados: DadosDoInicio, ctx: Contexto): Inicio {
   const abre = (area: Area) => quem.areas.includes(area)

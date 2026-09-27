@@ -282,6 +282,33 @@ export function listaDeClientes(
   }
 }
 
+/**
+ * O "GASTOU" DA PÁGINA. A lista lê os pedidos SEM o total (o Medusa calcula
+ * o total pedido a pedido — é o que mais pesa); depois de recortar a
+ * página, a rota pede o total só dos pedidos vendidos de quem está nela
+ * (`vendidosDaPagina`) e refaz a conta (`comGastos`).
+ */
+const pessoaDaLinha = (pessoas: Pessoa[]) => new Map(pessoas.map((p) => [p.clientes[0]!.id, p]))
+
+export function vendidosDaPagina(linhas: LinhaDoCliente[], pessoas: Pessoa[]): string[] {
+  const porId = pessoaDaLinha(pessoas)
+  return linhas.flatMap((l) => (porId.get(l.id)?.pedidos ?? []).filter(vendido).map((o) => o.id))
+}
+
+export function comGastos(
+  linhas: LinhaDoCliente[],
+  pessoas: Pessoa[],
+  totais: Map<string, Pick<PedidoCru, "total" | "credit_line_total">>
+): LinhaDoCliente[] {
+  const porId = pessoaDaLinha(pessoas)
+  return linhas.map((l) => {
+    const p = porId.get(l.id)
+    if (!p) return l
+    const gastou = p.pedidos.filter(vendido).reduce((s, o) => s + totalDo(totais.get(o.id) ?? o), 0)
+    return { ...l, gastou: centavos(gastou) }
+  })
+}
+
 /* ── a ficha ──────────────────────────────────────────────────────────────── */
 
 export type FichaDoCliente = {

@@ -1,5 +1,6 @@
 import "server-only"
 import { cookies, headers } from "next/headers"
+import { cache } from "react"
 import { COOKIE_SESSAO } from "./sessao"
 
 /**
@@ -79,6 +80,17 @@ export async function medusa(
     return { status: 0, corpo: {} }
   }
 }
+
+/**
+ * A LEITURA DE UMA TELA, pedida uma vez por carregamento — e o mais cedo
+ * possível. A página chama `ler(caminho)` sem esperar (`void`) ANTES do
+ * `SoPara`, e o miolo chama de novo lá dentro: o `cache` do React devolve a
+ * mesma resposta. Assim a leitura da tela sai junto com a pergunta "quem
+ * é" (`/dashboard/eu`), e não depois dela — uma ida ao Medusa a menos em
+ * todo clique. Quem barra de verdade continua sendo o Medusa: um papel sem
+ * a área recebe 403, e a tela diz "sem acesso".
+ */
+export const ler = cache((caminho: string) => medusa(caminho, { metodo: "GET", token: "sessao" }))
 
 /**
  * O IP de quem está no painel, pro Medusa contar os pedidos de código por

@@ -1,4 +1,5 @@
 import type { Route } from "next"
+import Form from "next/form"
 import Link from "next/link"
 import { Icone } from "@/components/icones"
 import {
@@ -44,10 +45,12 @@ export function Status({ p }: { p: Pick<LinhaDaLista, "situacao" | "problema" | 
 
 const forma = (f: LinhaDaLista["forma"]) => (f === "pix" ? "Pix" : f === "cartao" ? "Cartão" : "—")
 
-const endereco = (filtro: Filtro, busca: string) => {
+/** O endereço da lista: o filtro, a busca e a página (a primeira não vai). */
+export const enderecoDaLista = (filtro: Filtro, busca: string, pagina = 1) => {
   const q = new URLSearchParams()
   if (filtro !== "todos") q.set("filtro", filtro)
   if (busca) q.set("busca", busca)
+  if (pagina > 1) q.set("pagina", String(pagina))
   const s = q.toString()
   return (s ? `/pedidos?${s}` : "/pedidos") as Route
 }
@@ -55,7 +58,8 @@ const endereco = (filtro: Filtro, busca: string) => {
 export function BuscaEFiltros({ lista }: { lista: ListaDePedidos }) {
   return (
     <>
-      <form className="busca" action="/pedidos" role="search">
+      {/* O `Form` do Next: buscar troca só a lista, sem recarregar o painel inteiro. */}
+      <Form className="busca" action="/pedidos" role="search">
         <label htmlFor="busca-pedidos" className="sr-only">
           Buscar pedido
         </label>
@@ -72,13 +76,13 @@ export function BuscaEFiltros({ lista }: { lista: ListaDePedidos }) {
           <input type="hidden" name="filtro" value={lista.filtro} />
         ) : null}
         <button type="submit">Buscar</button>
-      </form>
+      </Form>
       <nav className="filtros" aria-label="Filtrar pedidos">
         {FILTROS.map((f) => (
           <Link
             key={f.id}
             className="filtro"
-            href={endereco(f.id, lista.busca)}
+            href={enderecoDaLista(f.id, lista.busca)}
             aria-current={lista.filtro === f.id ? "page" : undefined}
           >
             {f.nome} <b>{lista.contagem[f.id] ?? 0}</b>

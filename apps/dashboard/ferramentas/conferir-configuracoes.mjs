@@ -345,6 +345,8 @@ try {
 
   titulo("A operação e o celular")
   await op.pagina.goto(`${PAINEL}/configuracoes/empresa`)
+  // O esqueleto do clique vem antes (0146): espera a tela de verdade (o título dela).
+  await op.pagina.waitForSelector("main h1")
   ok(
     semEspaco(await op.pagina.locator("main").textContent()).includes(
       "Essa área não é do seu papel"

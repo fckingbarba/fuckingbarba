@@ -313,6 +313,79 @@ try {
     )
   }
 
+  titulo("A lista em páginas")
+  {
+    // De 30 em 30 (entrega 0146): a página é só o recorte; as fitas contam a lista inteira.
+    const api = async (q) =>
+      (await medusa(`/dashboard/pedidos${q}`, { metodo: "GET", token: tokenDoDono })).corpo
+    const p1 = await api("")
+    const pag = p1.paginacao ?? {}
+    ok(
+      pag.porPagina === 30 &&
+        p1.pedidos.length === Math.min(30, pag.itens) &&
+        pag.itens === p1.contagem.todos &&
+        pag.paginas === Math.max(1, Math.ceil(pag.itens / 30)),
+      "a API manda uma página de 30, e conta a lista inteira",
+      JSON.stringify({ paginacao: pag, linhas: p1.pedidos.length, todos: p1.contagem.todos })
+    )
+    const { pagina } = dono
+    if (pag.paginas > 1) {
+      const p2 = await api("?pagina=2")
+      const ids1 = new Set(p1.pedidos.map((l) => l.id))
+      ok(
+        p2.pedidos.length > 0 &&
+          p2.pedidos.every((l) => !ids1.has(l.id)) &&
+          p1.pedidos.at(-1).criadoEm >= p2.pedidos[0].criadoEm,
+        "a página 2 continua a 1, sem repetir pedido",
+        JSON.stringify({ fim1: p1.pedidos.at(-1)?.numero, comeco2: p2.pedidos[0]?.numero })
+      )
+      await pagina.goto(`${PAINEL}/pedidos`)
+      await hidratado(pagina, "[data-paginas] a[rel=next]")
+      await pagina.locator("[data-paginas] a[rel=next]").click()
+      await pagina.waitForURL((u) => u.searchParams.get("pagina") === "2", { timeout: 15000 })
+      await pagina.waitForSelector(`.tabela tbody tr >> text=#${p2.pedidos[0].numero}`)
+      const primeira = semEspaco(
+        await pagina.locator(".tabela tbody tr .tabela__num").first().textContent()
+      )
+      ok(
+        primeira === `#${p2.pedidos[0].numero}` &&
+          (await pagina.locator(".tabela tbody tr").count()) === p2.pedidos.length,
+        "“Próxima página” abre a 2, com os pedidos que a API manda nela",
+        primeira
+      )
+      const quantos = semEspaco(
+        await pagina.locator("[data-paginas] .paginas__quantos").textContent()
+      )
+      ok(
+        quantos === `31–${Math.min(60, pag.itens)} de ${pag.itens}`,
+        "o pé diz quais estão na tela, e de quantos",
+        quantos
+      )
+      const todos = (await pagina.locator(".filtros .filtro").allTextContents()).find((f) =>
+        f.startsWith("Todos")
+      )
+      ok(
+        semEspaco(todos) === `Todos ${p1.contagem.todos}`,
+        "na página 2, a fita “Todos” segue contando todos",
+        todos
+      )
+      const ultima = await api("?pagina=999999")
+      await pagina.goto(`${PAINEL}/pedidos?pagina=999999`)
+      await pagina.waitForSelector("[data-paginas] [aria-current=page]")
+      ok(
+        ultima.paginacao?.pagina === pag.paginas &&
+          semEspaco(await pagina.locator("[data-paginas] [aria-current=page]").textContent()) ===
+            String(pag.paginas),
+        "a página que não existe vira a última",
+        JSON.stringify(ultima.paginacao)
+      )
+    } else {
+      await pagina.goto(`${PAINEL}/pedidos`)
+      await pagina.waitForSelector(".tabela tbody tr")
+      ok((await pagina.locator("[data-paginas]").count()) === 0, "uma página só: o pé não aparece")
+    }
+  }
+
   titulo("O pedido inteiro, na tela do dono")
   for (const quem of ["pix", "analise", "pago", "enviado", "cancelado", "estornado"]) {
     const { pagina } = dono

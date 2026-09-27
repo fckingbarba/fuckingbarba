@@ -5,7 +5,7 @@ import { Fila, Grafico, MaisVendidos, Numeros, PedidosDeHoje } from "@/component
 import { Cabeca, ForaDoAr } from "@/components/telas"
 import { BlocoDasVisitas, NumeroDasVisitas, NumeroDeVisitas } from "@/components/visitas"
 import { lerMembro } from "@/lib/eu"
-import { medusa } from "@/lib/medusa"
+import { ler } from "@/lib/medusa"
 import type { Inicio } from "@/lib/pedidos"
 import { lerVisitas } from "@/lib/visitas"
 
@@ -55,13 +55,15 @@ function cabecalho(nome: string, papel: keyof typeof DO_PAPEL, agora = new Date(
 }
 
 export default async function PaginaInicio() {
+  // O Início e as visitas saem junto com a pergunta de quem é, sem esperar
+  // um pelo outro (as respostas ficam no `cache`).
+  void ler("/dashboard/inicio")
+  void lerVisitas()
   const leitura = await lerMembro()
   if (leitura.estado !== "ok") return null
   const { membro } = leitura
 
-  // As visitas saem junto com o Início, sem esperar por ele (a resposta fica no `cache`).
-  void lerVisitas()
-  const r = await medusa("/dashboard/inicio", { metodo: "GET", token: "sessao" })
+  const r = await ler("/dashboard/inicio")
   if (r.status === 401)
     redirect(`/sair?motivo=${r.corpo.message === "fora_da_equipe" ? "fora" : "expirou"}`)
   if (r.status !== 200) return <ForaDoAr />

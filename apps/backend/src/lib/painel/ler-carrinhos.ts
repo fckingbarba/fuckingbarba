@@ -70,6 +70,18 @@ export async function lerTelaDosCarrinhos(
         pagination: { take, order: { updated_at: "DESC" } },
       })
       .then((r) => r.data as unknown as CarrinhoCru[])
+  // Os pedidos do mês inteiro, e não "os destes e-mails": o banco compara
+  // o e-mail letra por letra, e a mesma pessoa escreve "Rafael@" num dia e
+  // "rafael@" no outro. A comparação sem maiúsculas é a de `carrinhos.ts`.
+  // Não dependem dos carrinhos: saem junto com eles.
+  const pedidosDoMes = query
+    .graph({
+      entity: "order",
+      fields: ["id", "display_id", "email", "created_at", "status"],
+      filters: { created_at: { $gte: desde } },
+      pagination: { take: LIMITE_PEDIDOS, order: { created_at: "DESC" } },
+    })
+    .then((r) => r.data as unknown as PedidoDaPessoa[])
   const [comEmail, semEmail] = await Promise.all([
     ler({ $ne: null }, LIMITE),
     ler(null, LIMITE_SEM_EMAIL),
@@ -77,17 +89,7 @@ export async function lerTelaDosCarrinhos(
   const lidos = [...comEmail, ...semEmail]
 
   const [pedidos, chamados] = await Promise.all([
-    // Os pedidos do mês inteiro, e não "os destes e-mails": o banco compara
-    // o e-mail letra por letra, e a mesma pessoa escreve "Rafael@" num dia e
-    // "rafael@" no outro. A comparação sem maiúsculas é a de `carrinhos.ts`.
-    query
-      .graph({
-        entity: "order",
-        fields: ["id", "display_id", "email", "created_at", "status"],
-        filters: { created_at: { $gte: desde } },
-        pagination: { take: LIMITE_PEDIDOS, order: { created_at: "DESC" } },
-      })
-      .then((r) => r.data as unknown as PedidoDaPessoa[]),
+    pedidosDoMes,
     // Só os que viram linha (com e-mail ou telefone): os outros não têm quem chamar.
     chamadosDos(
       container,

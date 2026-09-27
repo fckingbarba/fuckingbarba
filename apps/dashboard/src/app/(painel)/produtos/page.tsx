@@ -3,7 +3,7 @@ import { redirect } from "next/navigation"
 import { SoPara } from "@/components/area"
 import { FiltrosDosProdutos, ListaDosProdutos } from "@/components/produtos"
 import { Cabeca, ForaDoAr, SemAcesso } from "@/components/telas"
-import { medusa } from "@/lib/medusa"
+import { ler } from "@/lib/medusa"
 import { ehFiltroDeProduto, type ListaDeProdutos } from "@/lib/produtos"
 
 export const metadata: Metadata = { title: "Produtos" }
@@ -16,19 +16,20 @@ type Busca = Promise<{ filtro?: string }>
  * produto; o estoque vem do Bling e só aparece. O resto do que se edita
  * fica na página de cada produto.
  */
-export default function Pagina({ searchParams }: { searchParams: Busca }) {
+export default async function Pagina({ searchParams }: { searchParams: Busca }) {
+  const { filtro } = await searchParams
+  const caminho = `/dashboard/produtos${ehFiltroDeProduto(filtro) ? `?filtro=${filtro}` : ""}`
+  // A leitura sai junto com a pergunta de quem é (a resposta fica no `cache`).
+  void ler(caminho)
   return (
     <SoPara area="produtos">
-      <Lista searchParams={searchParams} />
+      <Lista caminho={caminho} />
     </SoPara>
   )
 }
 
-async function Lista({ searchParams }: { searchParams: Busca }) {
-  const { filtro } = await searchParams
-  const q = ehFiltroDeProduto(filtro) ? `?filtro=${filtro}` : ""
-
-  const r = await medusa(`/dashboard/produtos${q}`, { metodo: "GET", token: "sessao" })
+async function Lista({ caminho }: { caminho: string }) {
+  const r = await ler(caminho)
   if (r.status === 401)
     redirect(`/sair?motivo=${r.corpo.message === "fora_da_equipe" ? "fora" : "expirou"}`)
   if (r.status === 403) return <SemAcesso area="produtos" />

@@ -1,4 +1,5 @@
 import {
+  comGastos,
   consentimentosDa,
   emailMascarado,
   fichaDoCliente,
@@ -9,6 +10,7 @@ import {
   type ClienteCru,
   type InscricaoCrua,
   type PedidoDoCliente,
+  vendidosDaPagina,
 } from "../clientes"
 import type { Contexto } from "../pedido"
 
@@ -278,4 +280,36 @@ describe("a newsletter: o rodapé e a conta, numa lista só", () => {
 
 it("o e-mail no registro vai mascarado", () => {
   expect(emailMascarado("rafael.souza@example.com")).toBe("ra•••@example.com")
+})
+
+describe("o gastou da página", () => {
+  it("a lista lê sem o total, e o gastou da página é o mesmo de ler com ele", () => {
+    const clientes = [cliente("cus_a", "a@exemplo.com"), cliente("cus_b", "b@exemplo.com")]
+    const comTotal = [
+      pedido("o1", "cus_a", "2026-09-20T10:00:00-03:00", { total: 80 }),
+      pedido("o2", "cus_a", "2026-09-21T10:00:00-03:00", { total: 45.5 }),
+      pedido("o3", "cus_a", "2026-09-22T10:00:00-03:00", { total: 99, cancelado: true }),
+      pedido("o4", "cus_b", "2026-09-22T11:00:00-03:00", { total: 30, pago: false }),
+    ]
+    const esperado = listaDeClientes(juntarPessoas(clientes, comTotal, []), "dono", AGORA).clientes
+
+    const semTotal = comTotal.map((o) => ({ ...o, total: undefined }))
+    const pessoas = juntarPessoas(clientes, semTotal, [])
+    const linhas = listaDeClientes(pessoas, "dono", AGORA).clientes
+    // Só os vendidos (pagos e não cancelados) de quem está na página pedem o total.
+    expect(vendidosDaPagina(linhas, pessoas).sort()).toEqual(["o1", "o2"])
+    const totais = new Map(comTotal.map((o) => [o.id, { total: o.total }]))
+    expect(comGastos(linhas, pessoas, totais)).toEqual(esperado)
+  })
+
+  it("só a página: quem ficou fora dela não pede total", () => {
+    const clientes = [cliente("cus_a", "a@exemplo.com"), cliente("cus_b", "b@exemplo.com")]
+    const pedidos = [
+      pedido("o1", "cus_a", "2026-09-20T10:00:00-03:00"),
+      pedido("o2", "cus_b", "2026-09-21T10:00:00-03:00"),
+    ]
+    const pessoas = juntarPessoas(clientes, pedidos, [])
+    const [primeira] = listaDeClientes(pessoas, "dono", AGORA).clientes
+    expect(vendidosDaPagina([primeira!], pessoas)).toEqual([primeira!.id === "cus_a" ? "o1" : "o2"])
+  })
 })

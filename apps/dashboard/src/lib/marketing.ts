@@ -74,7 +74,8 @@ export type RespostaDasVisitas =
 
 export type LeituraDoResumo = { estado: "ok"; resumo: Resumo } | { estado: "sem-acesso" | "fora" }
 
-export async function lerResumo(periodo: Periodo): Promise<LeituraDoResumo> {
+/** O Resumo do período — uma pergunta por página (`cache`): a página já pede antes do `SoPara`. */
+export const lerResumo = cache(async (periodo: Periodo): Promise<LeituraDoResumo> => {
   const r = await medusa(`/dashboard/marketing?periodo=${periodo}`, {
     metodo: "GET",
     token: "sessao",
@@ -84,7 +85,7 @@ export async function lerResumo(periodo: Periodo): Promise<LeituraDoResumo> {
   if (r.status === 403) return { estado: "sem-acesso" }
   if (r.status !== 200) return { estado: "fora" }
   return { estado: "ok", resumo: r.corpo as unknown as Resumo }
-}
+})
 
 /**
  * As visitas e a conversão do período — do Google, numa pergunta à parte:

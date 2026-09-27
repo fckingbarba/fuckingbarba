@@ -1,4 +1,5 @@
 import type { Route } from "next"
+import Form from "next/form"
 import Link from "next/link"
 import { Icone } from "@/components/icones"
 import { type LinhaDoCliente, vezes } from "@/lib/clientes"
@@ -37,7 +38,8 @@ export function AbasDeClientes({
 
 export function BuscaDeClientes({ busca }: { busca: string }) {
   return (
-    <form className="busca" action="/clientes" role="search">
+    // O `Form` do Next: buscar troca só a lista, sem recarregar o painel inteiro.
+    <Form className="busca" action="/clientes" role="search">
       <label htmlFor="busca-clientes" className="sr-only">
         Buscar cliente
       </label>
@@ -51,7 +53,7 @@ export function BuscaDeClientes({ busca }: { busca: string }) {
         autoComplete="off"
       />
       <button type="submit">Buscar</button>
-    </form>
+    </Form>
   )
 }
 
