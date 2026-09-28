@@ -15,6 +15,7 @@ import {
   type NotaCrua,
   type PedidoCru,
 } from "./pedido"
+import { ORIGEM_POR_PADRAO } from "../ofertas-por-padrao"
 
 /**
  * OS CLIENTES DO JEITO DO PAINEL — quem comprou ou tem conta, quanto e
@@ -146,11 +147,24 @@ const ONDE_NA_NEWSLETTER: Record<string, string> = { rodape: "no rodapé" }
 export function consentimentosDa(p: Pessoa): Consentimento[] {
   const lista: Consentimento[] = []
   for (const canal of ["email", "whatsapp"] as const) {
-    const datas = p.clientes
-      .map((c) => iso(obj(obj(c.metadata)?.ofertas)?.[canal]))
-      .filter((d): d is string => d !== null)
-      .sort()
-    if (datas[0]) lista.push({ canal, origem: "conta", onde: "na conta", desde: datas[0] })
+    const sins = p.clientes
+      .map((c) => {
+        const ofertas = obj(obj(c.metadata)?.ofertas)
+        // O sim que a loja pôs sozinha (entrega 0184) é só o do e-mail.
+        return {
+          desde: iso(ofertas?.[canal]),
+          padrao: canal === "email" && ofertas?.origem === ORIGEM_POR_PADRAO,
+        }
+      })
+      .filter((s): s is { desde: string; padrao: boolean } => s.desde !== null)
+      .sort((a, b) => a.desde.localeCompare(b.desde))
+    if (sins[0])
+      lista.push({
+        canal,
+        origem: "conta",
+        onde: sins[0].padrao ? "por padrão, no cadastro" : "na conta",
+        desde: sins[0].desde,
+      })
   }
   const desde = p.inscricao ? iso(p.inscricao.consentido_em) : null
   if (p.inscricao && desde)
