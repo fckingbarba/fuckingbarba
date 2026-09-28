@@ -15,6 +15,7 @@ const config: ConfigDosFluxos = {
     pix: { ligado: true, desde: antes(20) },
     checkout: { ligado: false, desde: antes(20) },
     carrinho: { ligado: true, desde: antes(20) },
+    reposicao: { ligado: false, desde: null },
     "boas-vindas": { ligado: true, desde: antes(20) },
     estreia: { ligado: false, desde: null },
   },
@@ -58,6 +59,7 @@ describe("a tela dos fluxos", () => {
       "pix",
       "checkout",
       "carrinho",
+      "reposicao",
       "boas-vindas",
       "estreia",
     ])

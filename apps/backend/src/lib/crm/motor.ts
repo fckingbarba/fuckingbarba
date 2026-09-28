@@ -12,6 +12,7 @@ import { enviarEmail } from "../email"
 import { emailDaTrilha, type ConteudoDoProduto } from "../emails/boas-vindas"
 import type { ProdutoDoCrm } from "../emails/crm"
 import { emailDaEstreia, type EstreiaDoEmail } from "../emails/estreia"
+import { emailDaReposicao } from "../emails/reposicao"
 import { emailDoFluxo, type CompraDoFluxo, type ItemDoFluxo } from "../emails/fluxos"
 import { urlDaLoja } from "../emails/moldura"
 import { mudarMetadataDaLoja } from "../metadata-da-loja"
@@ -31,6 +32,7 @@ import {
   type PessoaDaEstreia,
 } from "./estreia"
 import { produtosDosExemplos } from "./exemplos-dos-emails"
+import { publicoDaReposicao, SUBIR_PARA, type Reposicao } from "./reposicao"
 import {
   CHAVE_DOS_FLUXOS,
   comecoDoPix,
@@ -41,6 +43,7 @@ import {
   guardarConfigDosFluxos,
   IDS_DOS_FLUXOS,
   ehToqueDaEstreia,
+  ehToqueDaReposicao,
   ehToqueDasBoasVindas,
   ehToqueDeCompra,
   lerConfigDosFluxos,
@@ -447,6 +450,22 @@ export async function rodarOsFluxos(
         comeco: comecoDoLote(desdeDaEstreia, p.lote),
         comprou: comprouDepois(p.email, desdeDaEstreia),
       })
+  // A reposição: cada tipo de produto que a pessoa comprou, no dia em que ele acaba.
+  const daReposicao = ligados.reposicao ? await publicoDaReposicao(container, agora) : []
+  const reposicoes = new Map<string, Reposicao>()
+  for (const r of daReposicao) {
+    const chave = `${r.pedido}|${r.componente}`
+    reposicoes.set(chave, r)
+    // O começo é o dia de acabar: ligar a reposição não dispara pro que acabou antes.
+    entradas.push({
+      fluxo: "reposicao",
+      chave,
+      email: r.email,
+      comeco: r.acaba,
+      inicio: r.acaba,
+      comprou: false,
+    })
+  }
   if (so) {
     const quem = minusculo(so)
     entradas.splice(0, entradas.length, ...entradas.filter((e) => e.email === quem))
@@ -480,6 +499,10 @@ export async function rodarOsFluxos(
       container,
       entradas.filter((e) => e.fluxo === "boas-vindas").map((e) => e.email)
     ))
+  // O que os e-mails da reposição mostram: só se alguém dela for receber agora.
+  let daReposicaoLida: Promise<DadosDaReposicao> | null = null
+  const reposicao = () =>
+    (daReposicaoLida ??= lerDadosDaReposicao(container, [...reposicoes.values()]))
   // O que os e-mails da estreia mostram: só se alguém dela for receber agora.
   let dasEstreia: Promise<DadosDaEstreia> | null = null
   const estreia = () => (dasEstreia ??= lerDadosDaEstreia(container, daEstreia?.fila ?? []))
@@ -509,6 +532,55 @@ export async function rodarOsFluxos(
     if (decisao.tipo === "controle") {
       if (await crm.anotarNoFluxo({ ...base, toque: decisao.toque.id, como: "controle" }))
         relatorio.controle++
+      continue
+    }
+    if (entrada.fluxo === "reposicao") {
+      const r = reposicoes.get(entrada.chave)
+      const toque = decisao.toque.id
+      if (!r || !ehToqueDaReposicao(toque)) continue
+      const dados = await reposicao()
+      const handles = new Set<string>()
+      const produtos = r.skus
+        .flatMap((s) => dados.porSku.get(s) ?? [])
+        .filter((p) => !handles.has(p.handle) && Boolean(handles.add(p.handle)))
+      const subir = SUBIR_PARA[r.componente]
+      const reserva = await crm.reservarToque({ ...base, toque })
+      if (!reserva) continue
+      let falha: string | null = null
+      try {
+        const email1 = emailDaReposicao({
+          toque,
+          para: email,
+          nome: dados.nomes.get(email) ?? null,
+          acabando: CURTO_DO_COMPONENTE[r.componente],
+          produtos,
+          // O que dura mais, se a pessoa já não levou isso da última vez.
+          subirPara: subir && !r.skus.includes(subir) ? (dados.porSku.get(subir) ?? null) : null,
+          voltar: `/voltar/${linkDeVoltar(`repor-${r.pedido}`, agora)}`,
+          sair: linksDeSair(loja, email),
+          loja: infoDaLoja,
+        })
+        const enviado = await enviarEmail(comQuemManda(email1), logger, {
+          idempotencia: `crm-reposicao/${entrada.chave}/${toque}`,
+          tipo: "crm-reposicao",
+        })
+        if (enviado.ok) {
+          await crm.confirmarToque(reserva, {
+            resendId: enviado.id ?? null,
+            cupom: null,
+            cupomAte: null,
+          })
+          relatorio.enviados++
+          await new Promise((ok) => setTimeout(ok, PAUSA_MS))
+        } else falha = enviado.motivo
+      } catch (e) {
+        falha = e instanceof Error ? e.message : String(e)
+      }
+      if (falha !== null) {
+        relatorio.falhas++
+        await crm.desfazerToque(reserva)
+        logger.warn(`[crm] fluxos: o toque ${toque} da reposição não saiu — ${falha}`)
+      }
       continue
     }
     if (entrada.fluxo === "estreia") {
@@ -838,6 +910,43 @@ function oQueALojaDiz(metadata: unknown): DadosDasBoasVindas["daLoja"] {
     prazoDePostagem: atendimento.prazoDePostagem,
     freteGratisAcima: frete.modo === "gratis" ? frete.piso : null,
   }
+}
+
+type DadosDaReposicao = {
+  /** Os produtos da loja nova pelo SKU: o de sempre e o que dura mais. */
+  porSku: Map<string, ProdutoDoCrm>
+  /** O primeiro nome de cada um: o da conta, ou o da loja antiga. */
+  nomes: Map<string, string>
+}
+
+/** Os produtos das últimas compras de quem vai receber, os que duram mais, e o nome de cada um. */
+async function lerDadosDaReposicao(
+  container: MedusaContainer,
+  reposicoes: readonly Reposicao[]
+): Promise<DadosDaReposicao> {
+  const skus = new Set(reposicoes.flatMap((r) => r.skus))
+  for (const sku of Object.values(SUBIR_PARA)) if (sku) skus.add(sku)
+  const emails = [...new Set(reposicoes.map((r) => r.email))]
+  const [porSku, daBase, clientes] = await Promise.all([
+    produtosPorSku(container, [...skus]),
+    container.resolve<CrmService>(CRM).nomesDaBase(emails),
+    emails.length
+      ? container
+          .resolve(ContainerRegistrationKeys.QUERY)
+          .graph({
+            entity: "customer",
+            fields: ["email", "first_name"],
+            filters: { email: emails },
+          })
+          .then((r) => r.data as { email?: string | null; first_name?: string | null }[])
+      : Promise.resolve([]),
+  ])
+  const nomes = new Map(daBase)
+  for (const c of clientes) {
+    const email = minusculo(c.email)
+    if (email && c.first_name?.trim()) nomes.set(email, c.first_name.trim())
+  }
+  return { porSku, nomes }
 }
 
 type DadosDaEstreia = {

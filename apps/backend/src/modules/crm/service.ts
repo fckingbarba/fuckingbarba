@@ -623,13 +623,47 @@ export default class CrmService extends Tabelas {
     @MedusaContext() ctx: Contexto = {}
   ): Promise<PedidoLidoDaBase[]> {
     return (await ctx.manager!.execute(
-      `select numero, email, feito_em as "feitoEm", pago_em as "pagoEm", pagamento, envio,
+      `select id, numero, email, feito_em as "feitoEm", pago_em as "pagoEm", pagamento, envio,
               total, cupom, itens
          from crm_base_pedido
         where deleted_at is null ${email === null ? "" : "and email = ?"}
         order by feito_em asc`,
       email === null ? [] : [email]
     )) as PedidoLidoDaBase[]
+  }
+
+  /**
+   * UM PEDIDO DA BASE, pelo id (`nso_…`) — o "Refazer o pedido" da reposição
+   * (entrega 0185) monta a sacola com os itens dele, pelo SKU.
+   */
+  @InjectManager()
+  async pedidoDaBasePorId(
+    id: string,
+    @MedusaContext() ctx: Contexto = {}
+  ): Promise<{ email: string; itens: { sku: string | null; quantidade: number }[] } | null> {
+    const [r] = (await ctx.manager!.execute(
+      `select email, itens from crm_base_pedido where id = ? and deleted_at is null`,
+      [id]
+    )) as { email: string; itens: { sku: string | null; quantidade: number }[] | null }[]
+    return r ? { email: r.email, itens: r.itens ?? [] } : null
+  }
+
+  /** O primeiro nome de cada pessoa da base, pelo e-mail — o "Oi, Rafael" da reposição (0185). */
+  @InjectManager()
+  async nomesDaBase(
+    emails: string[],
+    @MedusaContext() ctx: Contexto = {}
+  ): Promise<Map<string, string>> {
+    const nomes = new Map<string, string>()
+    for (const lote of emLotes([...new Set(emails)])) {
+      const linhas = (await ctx.manager!.execute(
+        `select email, nome from crm_base_pessoa
+          where deleted_at is null and nome is not null and email in (${lugares(lote)})`,
+        lote
+      )) as { email: string; nome: string }[]
+      for (const l of linhas) nomes.set(l.email, l.nome)
+    }
+    return nomes
   }
 
   /**

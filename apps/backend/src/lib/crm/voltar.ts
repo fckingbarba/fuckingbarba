@@ -8,7 +8,10 @@ import { createHmac, timingSafeEqual } from "node:crypto"
  *
  *   - `cart_…`: o carrinho que ficou pelo caminho, do jeito que estava;
  *   - `order_…`: o pedido do Pix que venceu — a loja monta um carrinho novo
- *     com os mesmos produtos (`POST /store/crm/voltar`).
+ *     com os mesmos produtos (`POST /store/crm/voltar`);
+ *   - `repor-order_…` e `repor-nso_…`: o "Refazer o pedido" da reposição
+ *     (entrega 0185) — a última compra, paga, da loja nova ou da Nuvemshop
+ *     (a base do CRM), num carrinho novo com os mesmos produtos.
  *
  * O `t` é `<id>.<vence>.<assinatura>`: a assinatura é um HMAC do id e da
  * hora de vencer, com uma chave só pra isto (derivada do `JWT_SECRET`, que
@@ -24,8 +27,8 @@ import { createHmac, timingSafeEqual } from "node:crypto"
 const TAMANHO = 22
 const SETE_DIAS = 7 * 24 * 60 * 60 * 1000
 
-/** O id do carrinho ou do pedido do Medusa: o prefixo e um ULID. */
-const ID = /^(cart|order)_[0-9A-Z]{26}$/
+/** O id do carrinho, do pedido ou do pedido a repor: o prefixo e um ULID. */
+const ID = /^(cart|order|repor-order|repor-nso)_[0-9A-Z]{26}$/
 
 function chave(): Buffer {
   const segredo = process.env.JWT_SECRET
@@ -45,7 +48,8 @@ export function linkDeVoltar(id: string, agora = new Date()): string {
   return `${id}.${vence}.${assinar(id, vence)}`
 }
 
-export type Volta = { tipo: "carrinho" | "pedido"; id: string }
+/** O que o link abre. No "repor", o `id` é o do pedido: `order_…` ou `nso_…`, sem o "repor-". */
+export type Volta = { tipo: "carrinho" | "pedido" | "repor"; id: string }
 
 /**
  * O carrinho ou o pedido do link, se é um link que esta loja fez e ainda não
@@ -60,5 +64,6 @@ export function voltaDoLink(t: unknown, agora = new Date()): Volta | null {
   const recebida = Buffer.from(assinatura)
   if (esperada.length !== recebida.length || !timingSafeEqual(esperada, recebida)) return null
   if (parseInt(vence, 36) * 1000 < agora.getTime()) return null
+  if (id.startsWith("repor-")) return { tipo: "repor", id: id.slice("repor-".length) }
   return { tipo: id.startsWith("cart_") ? "carrinho" : "pedido", id }
 }

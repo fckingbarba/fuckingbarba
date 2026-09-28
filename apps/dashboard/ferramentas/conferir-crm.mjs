@@ -1344,17 +1344,21 @@ try {
     for (const id of ["pix", "checkout", "carrinho", "boas-vindas"])
       await mudarFluxos({ fluxo: id, ligado: true })
     await mudarFluxos({ fluxo: "estreia", ligado: false })
+    await mudarFluxos({ fluxo: "reposicao", ligado: false })
     await rodar()
     const tela0 = (await fluxos(tokenDoDono)).corpo
+    const esperaODono = (id) => id === "estreia" || id === "reposicao"
     ok(
-      tela0.fluxos?.map((f) => f.id).join() === "pix,checkout,carrinho,boas-vindas,estreia" &&
-        tela0.fluxos.every((f) => (f.id === "estreia" ? !f.ligado : f.ligado && f.desde)) &&
+      tela0.fluxos?.map((f) => f.id).join() ===
+        "pix,checkout,carrinho,reposicao,boas-vindas,estreia" &&
+        tela0.fluxos.every((f) => (esperaODono(f.id) ? !f.ligado : f.ligado && f.desde)) &&
         tela0.fluxos.find((f) => f.id === "estreia")?.toques.length === 2 &&
+        tela0.fluxos.find((f) => f.id === "reposicao")?.toques.length === 4 &&
         tela0.fluxos.find((f) => f.id === "checkout")?.toques.length === 4 &&
         tela0.fluxos.find((f) => f.id === "pix")?.toques.length === 3 &&
         tela0.fluxos.find((f) => f.id === "carrinho")?.toques.length === 5 &&
         tela0.fluxos.find((f) => f.id === "boas-vindas")?.toques.length === 6,
-      "os cinco fluxos, com os toques de cada um: quatro ligados, e a estreia esperando o dono",
+      "os seis fluxos, com os toques de cada um: quatro ligados, e a estreia e a reposição esperando o dono",
       JSON.stringify(tela0.fluxos?.map((f) => [f.id, f.ligado, f.desde, f.toques?.length]))
     )
     const errados = await Promise.all([
@@ -2224,6 +2228,134 @@ try {
       }
     }
 
+    {
+      titulo("A reposição: o aviso de quando o produto acaba")
+      const daReposicao = (e) =>
+        e.tags?.some((t) => t.name === "tipo" && t.value === "crm-reposicao") && deFluxo(e)
+      const linkDeRepor = (e) =>
+        (e?.html.match(/href="([^"]+\/voltar\/repor-[^"]+)"/)?.[1] ?? "").replaceAll("&amp;", "&")
+      /** Clica no "Refazer o pedido": o redirecionamento, e a sacola que o cookie aponta. */
+      const refazer = async (e) => {
+        const r = await fetch(linkDeRepor(e), { redirect: "manual" })
+        const id = (r.headers.get("set-cookie") ?? "").match(/carrinho=(cart_[0-9A-Z]{26})/)?.[1]
+        const sacola = id
+          ? (
+              await (
+                await fetch(`${MEDUSA}/store/carts/${id}?fields=email,*items,*shipping_address`, {
+                  headers: DA_LOJA,
+                })
+              ).json()
+            ).cart
+          : null
+        return {
+          status: r.status,
+          para: new URL(r.headers.get("location") ?? "/", LOJA).pathname,
+          sacola,
+        }
+      }
+      // Da loja antiga, e SEM ter aceitado ofertas lá: a reposição vai pra todo cliente.
+      const DA_NUVEM = foraDoControle("repoe.nuvem", "reposicao")
+      const DA_LOJA_NOVA = foraDoControle("repoe.loja", "reposicao")
+      const importou = await Promise.all([
+        medusa("/dashboard/crm/base", {
+          token: tokenDoDono,
+          corpo: doArquivo(
+            latin1([
+              "Nome completo;CPF/CNPJ;E-mail;Telefone de Contato;Endereço;Cidade;Data;Cadastrado;Inscrição para newsletter;Marketing;Marketing (atualização)",
+              `REPOE TESTE;${CPF_FALSO};${DA_NUVEM};+55${TELEFONE_FALSO};Rua da Rodada, 99;Blumenau;${cadastro};NÃO;NÃO;Não aceita;${cadastro}`,
+            ])
+          ),
+        }),
+        medusa("/dashboard/crm/base", {
+          token: tokenDoDono,
+          corpo: doArquivo(
+            latin1([
+              cabecalhoDasVendas,
+              // O Fator pago há 20 dias: entregue no 7º, dura 30 — acaba daqui a 17.
+              venda(
+                `R${RODADA}-1`,
+                DA_NUVEM,
+                agora - 20 * DIA_MS,
+                "FBFCB01",
+                "Fator de Crescimento para Barba 30ml"
+              ),
+            ])
+          ),
+        }),
+      ])
+      // Da loja nova: um shampoo pago agora (entregue no 7º, dura 45 — acaba em 52 dias).
+      const daLojaNova = await fabrica.pedidoPix(DA_LOJA_NOVA, [["shampoo-para-barba", 1]])
+      await fabrica.pagar(daLojaNova)
+      const pagouEm = Date.now()
+      await mudarFluxos({ fluxo: "reposicao", ligado: true })
+      try {
+        // A data de pagamento da Nuvemshop vem sem hora: vale o meio-dia de Brasília daquele dia
+        // (`dataDeBrasilia`, em `lib/crm/nuvemshop.ts`).
+        const b = new Date(agora - 20 * DIA_MS - 3 * HORA)
+        const pagoNaNuvem =
+          Date.UTC(b.getUTCFullYear(), b.getUTCMonth(), b.getUTCDate()) + 15 * HORA
+        const acaba = pagoNaNuvem + 37 * DIA_MS
+        const aos = (ms) => new Date(diurno(ms)).toISOString()
+        const antes = await rodar({ agora: aos(acaba - 8 * DIA_MS), email: DA_NUVEM })
+        await rodar({ agora: aos(acaba - 7 * DIA_MS + 2 * MIN), email: DA_NUVEM })
+        const e7 = resend.emails.find((e) => e.to?.includes(DA_NUVEM) && daReposicao(e))
+        ok(
+          importou.every((r) => r.status === 200) &&
+            antes.corpo.enviados === 0 &&
+            e7?.subject === "Seu Fator de Crescimento acaba em uma semana" &&
+            /^Matheus, da FuckingBarba </.test(e7.from ?? "") &&
+            !e7.headers?.["List-Unsubscribe"] &&
+            linkDeRepor(e7).includes("/voltar/repor-nso_"),
+          "7 dias antes: o Fator da loja antiga acaba em uma semana, como lembrete — e vai mesmo sem o sim às ofertas",
+          e7?.subject ?? "não chegou"
+        )
+        const nuvem = await refazer(e7)
+        ok(
+          nuvem.status === 302 &&
+            nuvem.para === "/checkout" &&
+            nuvem.sacola?.email === DA_NUVEM &&
+            nuvem.sacola.items?.some((i) => i.variant_sku === "FBFCB01"),
+          "o Refazer o pedido da loja antiga monta a sacola com o Fator, pelo SKU, e cai no checkout",
+          JSON.stringify({ ...nuvem, sacola: nuvem.sacola?.items?.map((i) => i.variant_sku) })
+        )
+        for (const d of [-2, 3, 10])
+          await rodar({ agora: aos(acaba + d * DIA_MS + 2 * MIN), email: DA_NUVEM })
+        const assuntos = resend.emails
+          .filter((e) => e.to?.includes(DA_NUVEM) && daReposicao(e))
+          .map((e) => e.subject)
+        ok(
+          JSON.stringify(assuntos) ===
+            JSON.stringify([
+              "Seu Fator de Crescimento acaba em uma semana",
+              "Não deixa o Fator de Crescimento acabar",
+              "Acabou o Fator de Crescimento?",
+              "O último lembrete do Fator de Crescimento",
+            ]),
+          "2 dias antes, 3 e 10 dias depois: os 4 lembretes, e nada mais",
+          JSON.stringify(assuntos)
+        )
+        await rodar({ agora: aos(pagouEm + 45 * DIA_MS + 30 * MIN), email: DA_LOJA_NOVA })
+        const eLoja = resend.emails.find((e) => e.to?.includes(DA_LOJA_NOVA) && daReposicao(e))
+        const loja = await refazer(eLoja)
+        ok(
+          eLoja?.subject === "Seu shampoo acaba em uma semana" &&
+            linkDeRepor(eLoja).includes("/voltar/repor-order_") &&
+            loja.para === "/checkout" &&
+            loja.sacola?.items?.some((i) => i.variant_sku === "FBSH01") &&
+            Boolean(loja.sacola?.shipping_address?.address_1),
+          "da loja nova: o shampoo acaba em uma semana, e a sacola vem com o endereço da última compra",
+          JSON.stringify({
+            assunto: eLoja?.subject ?? "não chegou",
+            para: loja.para,
+            itens: loja.sacola?.items?.map((i) => i.variant_sku),
+          })
+        )
+      } finally {
+        // O banco local é de todos: a reposição volta a desligada, mesmo se algo acima caiu.
+        await mudarFluxos({ fluxo: "reposicao", ligado: false })
+      }
+    }
+
     titulo("A aba Fluxos")
     await semIpNasFontes(dono.contexto)
     await dono.pagina.goto(`${PAINEL}/crm/fluxos`)
@@ -2232,17 +2364,19 @@ try {
       .locator('[data-fluxo="estreia"] [data-publico-da-estreia] [data-jeito]')
       .allTextContents()
     ok(
-      (await dono.pagina.locator("[data-fluxo]").count()) === 5 &&
+      (await dono.pagina.locator("[data-fluxo]").count()) === 6 &&
         (await dono.pagina.locator('.abas [data-aba="fluxos"][aria-current="page"]').count()) ===
           1 &&
         (await dono.pagina.locator('[data-ligar][aria-checked="true"]').count()) === 4 &&
         (await dono.pagina.locator('[data-ligar="estreia"][aria-checked="false"]').count()) === 1 &&
+        (await dono.pagina.locator('[data-ligar="reposicao"][aria-checked="false"]').count()) ===
+          1 &&
         // As boas-vindas não têm controle: o cupom foi a pessoa que pediu. A estreia tem.
         (await dono.pagina.locator('[data-fluxo="boas-vindas"] .numero--controle').count()) === 0 &&
         (await dono.pagina.locator('[data-fluxo="estreia"] .numero--controle').count()) === 1 &&
         jeitosNaTela.length === 4 &&
         jeitosNaTela.filter((t) => t.includes("cupom")).length === 2,
-      "a aba: os cinco fluxos, quatro ligados; a estreia desligada, com o controle e os 4 jeitos (2 com cupom)",
+      "a aba: os seis fluxos, quatro ligados; a estreia e a reposição desligadas, a estreia com o controle e os 4 jeitos (2 com cupom)",
       JSON.stringify(jeitosNaTela.map(semEspaco))
     )
     const telaAgora = (await fluxos(tokenDoDono)).corpo
@@ -2335,6 +2469,23 @@ try {
         ),
       "“Mandar pra mim” da estreia: os 4 jeitos do e-mail da loja nova, e o aviso conta",
       JSON.stringify(testesDaEstreia)
+    )
+    // O da reposição: o Fator acabando, como lembrete, com o Refazer o pedido.
+    const antesDoTesteDaReposicao = caixa.quantos(DONO, (e) => e.subject?.startsWith("[Teste] "))
+    await hidratado(dono.pagina, '[data-toque="reposicao-antes-7d"] [data-mandar-pra-mim]')
+    await dono.pagina.locator('[data-toque="reposicao-antes-7d"] [data-mandar-pra-mim]').click()
+    const testeDaReposicao = await caixa.esperarEmail(
+      DONO,
+      (e) => e.subject?.startsWith("[Teste] "),
+      antesDoTesteDaReposicao,
+      20000
+    )
+    ok(
+      testeDaReposicao?.subject === "[Teste] Seu Fator de Crescimento acaba em uma semana" &&
+        /^Matheus, da FuckingBarba </.test(testeDaReposicao?.from ?? "") &&
+        testeDaReposicao?.html.includes("/voltar/repor-order_"),
+      "“Mandar pra mim” da reposição: o Fator acabando, como lembrete, com o Refazer o pedido",
+      testeDaReposicao?.subject ?? "não chegou"
     )
     // A chave das boas-vindas é a do pop-up da loja: desligada, a loja fica sabendo.
     const popupDaLoja = async () =>

@@ -85,6 +85,12 @@ export default async function Privacidade() {
           lista&rdquo;, e no WhatsApp é só responder que não quer: a gente não manda mais.
         </P>
         <P>
+          <b>Quando o que você comprou estiver acabando</b>: a gente avisa por e-mail. São até
+          quatro, de uma semana antes a uns dias depois do dia em que ele deve acabar, pela conta de
+          quanto cada produto dura, e com o botão que monta o pedido de novo. Vale pra quem comprou
+          aqui e na loja antiga, e para quando você compra de novo. Dá pra sair em qualquer um.
+        </P>
+        <P>
           <b>As novidades e as ofertas por e-mail</b>: quem compra ou cria conta passa a receber, e
           desliga quando quiser — no &ldquo;Sair da lista&rdquo; de qualquer e-mail, ou desmarcando
           a caixa em &ldquo;Meus dados&rdquo;, na conta. Os e-mails do seu pedido continuam
@@ -139,7 +145,8 @@ export default async function Privacidade() {
           seu e-mail, o primeiro nome, os pedidos e os carrinhos que ficaram no meio (datas,
           produtos e valores) e a sua escolha sobre receber ofertas. É o que deixa a loja saber
           quando o seu produto está acabando. CPF, telefone, endereço e dados do cartão da loja
-          antiga não vieram, e e-mail de oferta só vai pra quem tinha aceitado lá.
+          antiga não vieram, e e-mail de oferta só vai pra quem tinha aceitado lá — o aviso de que o
+          produto está acabando vai pra todo cliente.
         </P>
         <P>
           <b>Quando você tenta pagar com cartão</b>: pra barrar robô testando cartão roubado, a loja

@@ -1,6 +1,8 @@
 import type { MedusaContainer } from "@medusajs/framework/types"
-import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
+import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
 import { addToCartWorkflow, createCartWorkflow } from "@medusajs/medusa/core-flows"
+import { CRM } from "../../modules/crm"
+import type CrmService from "../../modules/crm/service"
 import { gravarNoMetadataDoPedido } from "../metadata-do-pedido"
 import type { Volta } from "./voltar"
 
@@ -13,15 +15,22 @@ import type { Volta } from "./voltar"
  *     na escolha do frete e do pagamento. Clicar duas vezes devolve o mesmo
  *     carrinho, enquanto ele estiver aberto (`fb_crm_refeito`, no pedido).
  *
+ *   - o "REFAZER O PEDIDO" da reposição (entrega 0185): a última compra,
+ *     paga, num carrinho novo — a da loja nova do mesmo jeito do Pix (com os
+ *     endereços e a conta; `fb_crm_reposto`, no pedido), e a da Nuvemshop
+ *     pelos SKUs, só com o e-mail.
+ *
  * Produto que esgotou fica de fora; se nenhum couber, "acabou" — a loja
- * manda pra home. Pedido que não foi cancelado (pago, ou com o Pix ainda
- * valendo) também é "acabou": não se refaz o que está de pé.
+ * manda pra home. No Pix, pedido que não foi cancelado (pago, ou com o Pix
+ * ainda valendo) também é "acabou": não se refaz o que está de pé.
  */
 
 export type Destino = { carrinho: string } | { acabou: true }
 
 const ACABOU: Destino = { acabou: true }
 const REFEITO = "fb_crm_refeito"
+/** O carrinho do "Refazer o pedido" da reposição, no pedido: o mesmo, enquanto aberto. */
+const REPOSTO = "fb_crm_reposto"
 
 type Endereco = Record<string, unknown> | null | undefined
 
@@ -54,14 +63,20 @@ async function carrinhoAberto(container: MedusaContainer, id: string): Promise<b
   return Boolean(c && !c.completed_at && c.items?.length)
 }
 
-export async function voltarAoCheckout(
-  container: MedusaContainer,
-  volta: Volta,
-  agora = new Date()
-): Promise<Destino> {
-  if (volta.tipo === "carrinho")
-    return (await carrinhoAberto(container, volta.id)) ? { carrinho: volta.id } : ACABOU
+type PedidoCru = {
+  id: string
+  status: string
+  email?: string | null
+  region_id?: string | null
+  sales_channel_id?: string | null
+  customer_id?: string | null
+  metadata?: Record<string, unknown> | null
+  items?: { variant_id?: string | null; quantity?: number | null }[] | null
+  shipping_address?: Endereco
+  billing_address?: Endereco
+}
 
+async function lerPedido(container: MedusaContainer, id: string): Promise<PedidoCru | undefined> {
   const { data } = await container.resolve(ContainerRegistrationKeys.QUERY).graph({
     entity: "order",
     fields: [
@@ -78,53 +93,29 @@ export async function voltarAoCheckout(
       "shipping_address.*",
       "billing_address.*",
     ],
-    filters: { id: volta.id },
+    filters: { id },
   })
-  const p = data[0] as
-    | {
-        id: string
-        status: string
-        email?: string | null
-        region_id?: string | null
-        sales_channel_id?: string | null
-        customer_id?: string | null
-        metadata?: Record<string, unknown> | null
-        items?: { variant_id?: string | null; quantity?: number | null }[] | null
-        shipping_address?: Endereco
-        billing_address?: Endereco
-      }
-    | undefined
-  if (!p || p.status !== "canceled") return ACABOU
+  return data[0] as PedidoCru | undefined
+}
 
-  const antes = (p.metadata?.[REFEITO] as { carrinho?: unknown } | undefined)?.carrinho
-  if (typeof antes === "string" && (await carrinhoAberto(container, antes)))
-    return { carrinho: antes }
+type Item = { variant_id: string; quantity: number }
 
-  const itens = (p.items ?? []).flatMap((i) =>
-    i.variant_id
-      ? [{ variant_id: i.variant_id, quantity: Math.max(1, Number(i.quantity) || 1) }]
-      : []
-  )
-  if (!itens.length) return ACABOU
-  const novo = {
-    ...(p.region_id ? { region_id: p.region_id } : {}),
-    ...(p.sales_channel_id ? { sales_channel_id: p.sales_channel_id } : {}),
-    ...(p.customer_id ? { customer_id: p.customer_id } : {}),
-    ...(p.email ? { email: p.email } : {}),
-    shipping_address: copiaDo(p.shipping_address),
-    billing_address: copiaDo(p.billing_address),
-  }
-
-  let carrinho: string | null = null
+/** Um carrinho novo com estes itens; o que esgotou fica de fora. Nulo se nenhum couber. */
+async function carrinhoNovo(
+  container: MedusaContainer,
+  novo: Record<string, unknown>,
+  itens: Item[]
+): Promise<string | null> {
+  if (!itens.length) return null
   try {
     const { result } = await createCartWorkflow(container).run({
       input: { ...novo, items: itens } as never,
     })
-    carrinho = (result as { id: string }).id
+    return (result as { id: string }).id
   } catch {
     // Algum produto esgotou (ou saiu da loja): o carrinho nasce vazio, e entra um por vez o que couber.
     const { result } = await createCartWorkflow(container).run({ input: novo as never })
-    carrinho = (result as { id: string }).id
+    const carrinho = (result as { id: string }).id
     let entrou = 0
     for (const item of itens) {
       try {
@@ -136,11 +127,111 @@ export async function voltarAoCheckout(
         // Fica de fora.
       }
     }
-    if (!entrou) return ACABOU
+    return entrou ? carrinho : null
   }
-  await gravarNoMetadataDoPedido(container, p.id, REFEITO, {
+}
+
+/**
+ * O pedido da loja nova num carrinho novo: os mesmos produtos, o e-mail, os
+ * endereços (com o CPF) e a conta. Clicar de novo devolve o mesmo carrinho,
+ * enquanto ele estiver aberto (a `marca`, no pedido).
+ */
+async function refazerPedido(
+  container: MedusaContainer,
+  p: PedidoCru,
+  marca: string,
+  agora: Date
+): Promise<Destino> {
+  const antes = (p.metadata?.[marca] as { carrinho?: unknown } | undefined)?.carrinho
+  if (typeof antes === "string" && (await carrinhoAberto(container, antes)))
+    return { carrinho: antes }
+  const itens = (p.items ?? []).flatMap((i) =>
+    i.variant_id
+      ? [{ variant_id: i.variant_id, quantity: Math.max(1, Number(i.quantity) || 1) }]
+      : []
+  )
+  const carrinho = await carrinhoNovo(
+    container,
+    {
+      ...(p.region_id ? { region_id: p.region_id } : {}),
+      ...(p.sales_channel_id ? { sales_channel_id: p.sales_channel_id } : {}),
+      ...(p.customer_id ? { customer_id: p.customer_id } : {}),
+      ...(p.email ? { email: p.email } : {}),
+      shipping_address: copiaDo(p.shipping_address),
+      billing_address: copiaDo(p.billing_address),
+    },
+    itens
+  )
+  if (!carrinho) return ACABOU
+  await gravarNoMetadataDoPedido(container, p.id, marca, {
     carrinho,
     em: agora.toISOString(),
   })
   return { carrinho }
+}
+
+/**
+ * O pedido da Nuvemshop (a base do CRM) num carrinho novo: os produtos pelo
+ * SKU (o código do Bling, o mesmo nas duas lojas), só os publicados, e o
+ * e-mail. Os endereços não vieram da loja antiga: o checkout pergunta.
+ */
+async function refazerDaNuvemshop(container: MedusaContainer, id: string): Promise<Destino> {
+  const pedido = await container.resolve<CrmService>(CRM).pedidoDaBasePorId(id)
+  const doSku = (sku: string | null) => sku?.trim().toUpperCase() || null
+  const skus = [...new Set((pedido?.itens ?? []).flatMap((i) => doSku(i.sku) ?? []))]
+  if (!pedido || !skus.length) return ACABOU
+  const query = container.resolve(ContainerRegistrationKeys.QUERY)
+  const [{ data: variantes }, { data: regioes }, lojas] = await Promise.all([
+    query.graph({
+      entity: "product_variant",
+      fields: ["id", "sku", "product.status"],
+      filters: { sku: skus },
+    }),
+    query.graph({ entity: "region", fields: ["id", "currency_code"] }),
+    container
+      .resolve(Modules.STORE)
+      .listStores({}, { select: ["default_sales_channel_id"], take: 1 }),
+  ])
+  const porSku = new Map(
+    (variantes as { id: string; sku?: string | null; product?: { status?: string } | null }[])
+      .filter((v) => v.sku && v.product?.status === "published")
+      .map((v) => [doSku(v.sku!)!, v.id])
+  )
+  const quantos = new Map<string, number>()
+  for (const i of pedido.itens) {
+    const variante = porSku.get(doSku(i.sku) ?? "")
+    if (variante)
+      quantos.set(variante, (quantos.get(variante) ?? 0) + Math.max(1, Number(i.quantidade) || 1))
+  }
+  const regiao = (regioes as { id: string; currency_code?: string | null }[]).find(
+    (r) => r.currency_code === "brl"
+  )
+  const canal = lojas[0]?.default_sales_channel_id
+  const carrinho = await carrinhoNovo(
+    container,
+    {
+      ...(regiao ? { region_id: regiao.id } : {}),
+      ...(canal ? { sales_channel_id: canal } : {}),
+      email: pedido.email,
+    },
+    [...quantos].map(([variant_id, quantity]) => ({ variant_id, quantity }))
+  )
+  return carrinho ? { carrinho } : ACABOU
+}
+
+export async function voltarAoCheckout(
+  container: MedusaContainer,
+  volta: Volta,
+  agora = new Date()
+): Promise<Destino> {
+  if (volta.tipo === "carrinho")
+    return (await carrinhoAberto(container, volta.id)) ? { carrinho: volta.id } : ACABOU
+  if (volta.tipo === "repor" && volta.id.startsWith("nso_"))
+    return refazerDaNuvemshop(container, volta.id)
+  const p = await lerPedido(container, volta.id)
+  if (!p) return ACABOU
+  // O Pix que venceu só se refaz cancelado; a reposição refaz a compra paga de antes.
+  if (volta.tipo === "pedido")
+    return p.status === "canceled" ? refazerPedido(container, p, REFEITO, agora) : ACABOU
+  return refazerPedido(container, p, REPOSTO, agora)
 }
