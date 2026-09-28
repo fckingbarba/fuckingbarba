@@ -2,15 +2,21 @@ import type { Route } from "next"
 import Form from "next/form"
 import Link from "next/link"
 import { Icone } from "@/components/icones"
-import { ATALHOS, enderecoDoInicio, type PeriodoNaTela } from "@/lib/periodo"
+import {
+  ATALHOS_DO_INICIO,
+  enderecoDoPeriodo,
+  type Atalhos,
+  type PeriodoNaTela,
+} from "@/lib/periodo"
 
 /**
- * A BARRA DO PERÍODO DO INÍCIO (entrega 0186) — os botões (hoje, ontem, 7 e
- * 30 dias, este mês, o mês passado), as datas que a pessoa escolhe e o
- * "comparar com". Sem JavaScript: cada botão é um link com o período no
- * endereço, e as datas e o comparar abrem num `<details>` (as datas mandam o
- * `Form` do `next/form`, que troca só a tela). O calendário é o do próprio
- * navegador (`<input type="date">`), que no celular é o do aparelho.
+ * A BARRA DO PERÍODO — a do Início (entrega 0186) e a do Marketing (0191):
+ * os botões (hoje, ontem, 7 e 30 dias — e 90, no Marketing —, este mês, o
+ * mês passado), as datas que a pessoa escolhe e o "comparar com". Sem
+ * JavaScript: cada botão é um link com o período no endereço da tela
+ * (`caminho`), e as datas e o comparar abrem num `<details>` (as datas
+ * mandam o `Form` do `next/form`, que troca só a tela). O calendário é o do
+ * próprio navegador (`<input type="date">`), que no celular é o do aparelho.
  */
 
 const FUSO = "America/Sao_Paulo"
@@ -25,16 +31,26 @@ const hojeNaLoja = () => new Intl.DateTimeFormat("en-CA", { timeZone: FUSO }).fo
 
 const maiuscula = (t: string) => `${t[0]?.toUpperCase() ?? ""}${t.slice(1)}`
 
-export function BarraDoPeriodo({ p }: { p: PeriodoNaTela }) {
+export function BarraDoPeriodo({
+  p,
+  caminho = "/",
+  atalhos = ATALHOS_DO_INICIO,
+}: {
+  p: PeriodoNaTela
+  caminho?: string
+  atalhos?: Atalhos
+}) {
   const hoje = hojeNaLoja()
+  // Um botão que esta barra não tem (os 90 dias no Início, digitado no endereço): como as datas.
+  const escolhido = !atalhos.some(([a]) => a === p.atalho)
   return (
     <div className="periodo" data-periodo={p.atalho ?? "datas"}>
       <nav className="periodo__atalhos" aria-label="Período">
-        {ATALHOS.map(([atalho, nome]) => (
+        {atalhos.map(([atalho, nome]) => (
           <Link
             key={atalho}
             className="periodo__botao"
-            href={enderecoDoInicio({ atalho, de: p.de, ate: p.ate }, p.comparar) as Route}
+            href={enderecoDoPeriodo(caminho, { atalho, de: p.de, ate: p.ate }, p.comparar) as Route}
             aria-current={p.atalho === atalho ? "page" : undefined}
             data-atalho={atalho}
           >
@@ -44,12 +60,12 @@ export function BarraDoPeriodo({ p }: { p: PeriodoNaTela }) {
         <details className="periodo__caixa" data-escolher>
           <summary
             className="periodo__botao periodo__botao--datas"
-            aria-current={p.atalho === null ? "page" : undefined}
+            aria-current={escolhido ? "page" : undefined}
           >
             <Icone nome="calendario" />
-            {p.atalho === null ? p.nome : "Escolher datas"}
+            {escolhido ? p.nome : "Escolher datas"}
           </summary>
-          <Form action="/" className="periodo__janela">
+          <Form action={caminho as Route} className="periodo__janela">
             <label className="periodo__campo">
               <span>De</span>
               <input
@@ -88,14 +104,14 @@ export function BarraDoPeriodo({ p }: { p: PeriodoNaTela }) {
         </summary>
         <div className="periodo__janela periodo__janela--opcoes">
           <Link
-            href={enderecoDoInicio(p, true) as Route}
+            href={enderecoDoPeriodo(caminho, p, true) as Route}
             aria-current={p.comparar ? "true" : undefined}
             data-comparar-com="anterior"
           >
             O período de antes
           </Link>
           <Link
-            href={enderecoDoInicio(p, false) as Route}
+            href={enderecoDoPeriodo(caminho, p, false) as Route}
             aria-current={p.comparar ? undefined : "true"}
             data-comparar-com="nenhum"
           >
@@ -109,10 +125,11 @@ export function BarraDoPeriodo({ p }: { p: PeriodoNaTela }) {
 
 /**
  * Embaixo da barra: os dias do período, o que é barra e o que é tracejado
- * nos gráficos, e a hora da leitura. E, se o período pedido não valeu, o
- * porquê (a tela mostra hoje).
+ * nos gráficos (o Início; no Marketing, que não desenha o de antes, só com
+ * o que compara — `graficos={false}`), e a hora da leitura. E, se o período
+ * pedido não valeu, o porquê (a tela mostra o padrão dela).
  */
-export function LegendaDoPeriodo({ p }: { p: PeriodoNaTela }) {
+export function LegendaDoPeriodo({ p, graficos = true }: { p: PeriodoNaTela; graficos?: boolean }) {
   return (
     <>
       {p.aviso ? (
@@ -124,7 +141,13 @@ export function LegendaDoPeriodo({ p }: { p: PeriodoNaTela }) {
       <div className="periodo__legenda" data-legenda>
         <p>
           <b data-datas>{maiuscula(p.datas)}</b>
-          {p.comparar ? (
+          {p.comparar && !graficos ? (
+            <span className="periodo__leg" data-comparando>
+              comparado com {p.nomeDoAntes}
+              {p.ateAgora ? ", até esta hora" : ""}
+            </span>
+          ) : null}
+          {p.comparar && graficos ? (
             <>
               <span className="periodo__leg">
                 <i className="leg-barra" aria-hidden="true" />

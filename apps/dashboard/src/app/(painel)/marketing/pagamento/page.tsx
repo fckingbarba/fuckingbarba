@@ -1,14 +1,16 @@
 import type { Metadata } from "next"
 import { Suspense } from "react"
 import { SoPara } from "@/components/area"
-import { AbasDoMarketing, Periodos, UmDiaEPouco } from "@/components/marketing"
+import { AbasDoMarketing, PeriodoDoMarketing, UmDiaEPouco } from "@/components/marketing"
 import { TelaDoPagamento } from "@/components/marketing-pagamento"
 import { Cabeca } from "@/components/telas"
-import { lerPagamento, lerPeriodo } from "@/lib/marketing"
+import { lerPeriodoNaTela } from "@/lib/ler-periodo"
+import { lerPagamento, PADRAO_DO_MARKETING } from "@/lib/marketing"
+import { consultaDoPeriodo, type BuscaDoPeriodo } from "@/lib/periodo"
 
 export const metadata: Metadata = { title: "Pagamento e frete · Marketing" }
 
-type Busca = Promise<{ periodo?: string }>
+type Busca = Promise<BuscaDoPeriodo>
 
 /**
  * MARKETING → PAGAMENTO E FRETE — como as pessoas pagam, o que não passa e
@@ -16,26 +18,28 @@ type Busca = Promise<{ periodo?: string }>
  * Tudo da loja, sem o Google.
  */
 export default async function Pagina({ searchParams }: { searchParams: Busca }) {
-  // A aba sai junto com a pergunta de quem é (a resposta fica no `cache`).
-  void lerPagamento(lerPeriodo((await searchParams).periodo))
+  const consulta = consultaDoPeriodo(await searchParams, PADRAO_DO_MARKETING)
+  // O período e a aba saem junto com a pergunta de quem é (as respostas ficam no `cache`).
+  void lerPeriodoNaTela(consulta, PADRAO_DO_MARKETING)
+  void lerPagamento(consulta)
   return (
     <SoPara area="marketing">
-      <Pagamento searchParams={searchParams} />
+      <Pagamento consulta={consulta} />
     </SoPara>
   )
 }
 
-async function Pagamento({ searchParams }: { searchParams: Busca }) {
-  const periodo = lerPeriodo((await searchParams).periodo)
+async function Pagamento({ consulta }: { consulta: string }) {
+  const p = await lerPeriodoNaTela(consulta, PADRAO_DO_MARKETING)
   return (
     <div data-tela>
       <Cabeca
         titulo="Marketing"
         ajuda="Como as pessoas pagam, o que não passa e o que o frete faz com a venda."
       />
-      <AbasDoMarketing atual="pagamento" periodo={periodo} />
-      <Periodos atual={periodo} caminho="/marketing/pagamento" />
-      {periodo === "hoje" ? <UmDiaEPouco /> : null}
+      <AbasDoMarketing atual="pagamento" p={p} />
+      <PeriodoDoMarketing p={p} caminho="/marketing/pagamento" />
+      {p.passo === "hora" ? <UmDiaEPouco /> : null}
       <Suspense
         fallback={
           <p className="sem-dados" data-carregando>
@@ -43,7 +47,7 @@ async function Pagamento({ searchParams }: { searchParams: Busca }) {
           </p>
         }
       >
-        <TelaDoPagamento periodo={periodo} />
+        <TelaDoPagamento consulta={consulta} />
       </Suspense>
     </div>
   )

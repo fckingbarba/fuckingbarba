@@ -2,6 +2,7 @@ import "server-only"
 import { redirect } from "next/navigation"
 import { cache } from "react"
 import { medusa } from "@/lib/medusa"
+import type { PeriodoNaTela } from "@/lib/periodo"
 
 /**
  * O MARKETING, do lado do painel — o formato das respostas de
@@ -10,21 +11,19 @@ import { medusa } from "@/lib/medusa"
  * outro).
  */
 
-/** Os períodos da tela, na ordem dos botões; sem escolha, 30 dias (o protótipo). */
-export const PERIODOS = [
-  ["hoje", "Hoje"],
-  ["7d", "7 dias"],
-  ["30d", "30 dias"],
-  ["90d", "90 dias"],
-] as const
-export type Periodo = (typeof PERIODOS)[number][0]
-const PERIODO_PADRAO: Periodo = "30d"
+/**
+ * O PERÍODO É O DA BARRA DE CIMA, o mesmo do Início (entrega 0191,
+ * `lib/periodo.ts`): cada leitor recebe a `consulta` (a do
+ * `consultaDoPeriodo`, com os 30 dias de padrão) e o backend diz o que ela
+ * quer dizer — cada resposta traz o `periodo` que valeu.
+ */
+export const PADRAO_DO_MARKETING = "30d" as const
 
-export const lerPeriodo = (v: unknown): Periodo =>
-  PERIODOS.some(([p]) => p === v) ? (v as Periodo) : PERIODO_PADRAO
-
-/** Um número do período e o do de antes; `variacao` em %, `null` sem nada antes pra comparar. */
-export type Comparado = { valor: number; antes: number; variacao: number | null }
+/**
+ * Um número do período e o do de antes; `variacao` em %, `null` sem nada
+ * antes pra comparar. `antes` nulo: a barra está no "não comparar".
+ */
+export type Comparado = { valor: number; antes: number | null; variacao: number | null }
 
 export type Barra = { rotulo: string; nome: string; valor: number; pedidos: number; agora: boolean }
 
@@ -49,7 +48,7 @@ export type MetaDoMes = {
 }
 
 export type Resumo = {
-  periodo: Periodo
+  periodo: PeriodoNaTela
   numeros: { receita: Comparado; pedidos: Comparado; ticket: Comparado }
   serie: { titulo: string; barras: Barra[] }
   maisVendidos: ProdutoVendido[]
@@ -75,8 +74,8 @@ export type RespostaDasVisitas =
 export type LeituraDoResumo = { estado: "ok"; resumo: Resumo } | { estado: "sem-acesso" | "fora" }
 
 /** O Resumo do período — uma pergunta por página (`cache`): a página já pede antes do `SoPara`. */
-export const lerResumo = cache(async (periodo: Periodo): Promise<LeituraDoResumo> => {
-  const r = await medusa(`/dashboard/marketing?periodo=${periodo}`, {
+export const lerResumo = cache(async (consulta: string): Promise<LeituraDoResumo> => {
+  const r = await medusa(`/dashboard/marketing?${consulta}`, {
     metodo: "GET",
     token: "sessao",
   })
@@ -93,8 +92,8 @@ export const lerResumo = cache(async (periodo: Periodo): Promise<LeituraDoResumo
  * Uma pergunta por página (`cache` do React), pros dois números que usam.
  */
 export const lerVisitasDoMarketing = cache(
-  async (periodo: Periodo): Promise<RespostaDasVisitas> => {
-    const r = await medusa(`/dashboard/marketing/visitas?periodo=${periodo}`, {
+  async (consulta: string): Promise<RespostaDasVisitas> => {
+    const r = await medusa(`/dashboard/marketing/visitas?${consulta}`, {
       metodo: "GET",
       token: "sessao",
     })
@@ -138,7 +137,7 @@ export type Aparelho = {
   conversao: number | null
 }
 
-export type Funil = { periodo: Periodo; checkout: Passo[]; achados: Achado[] } & (
+export type Funil = { periodo: PeriodoNaTela; checkout: Passo[]; achados: Achado[] } & (
   { estado: "ok"; site: Passo[]; aparelhos: Aparelho[] | null } | { estado: SemGoogle }
 )
 
@@ -161,7 +160,7 @@ export type Campanha = {
 export type Pagina = { nome: string; caminho: string }
 
 export type Canais = {
-  periodo: Periodo
+  periodo: PeriodoNaTela
   /** Os pedidos pagos da loja no período (o Medusa). */
   pagos: { receita: number; pedidos: number }
   /** O endereço da loja, pros links de campanha; `null` sem o `LOJA_URL` no backend. */
@@ -180,8 +179,8 @@ export type Canais = {
 )
 
 /** Uma aba do Marketing: a resposta, ou `null` se a loja não respondeu. */
-async function lerAba<T>(aba: string, periodo: Periodo): Promise<T | null> {
-  const r = await medusa(`/dashboard/marketing/${aba}?periodo=${periodo}`, {
+async function lerAba<T>(aba: string, consulta: string): Promise<T | null> {
+  const r = await medusa(`/dashboard/marketing/${aba}?${consulta}`, {
     metodo: "GET",
     token: "sessao",
   })
@@ -191,10 +190,10 @@ async function lerAba<T>(aba: string, periodo: Periodo): Promise<T | null> {
 }
 
 /** O funil do período (os carrinhos da loja vêm sempre; o site, se o Google responder). */
-export const lerFunil = cache((periodo: Periodo) => lerAba<Funil>("funil", periodo))
+export const lerFunil = cache((consulta: string) => lerAba<Funil>("funil", consulta))
 
 /** Os canais do período — o Resumo usa os três que mais venderam. */
-export const lerCanais = cache((periodo: Periodo) => lerAba<Canais>("canais", periodo))
+export const lerCanais = cache((consulta: string) => lerAba<Canais>("canais", consulta))
 
 /* ── os Produtos e as Ofertas (a parte 3) ─────────────────────────────────── */
 
@@ -215,7 +214,7 @@ export type ProdutoNoMarketing = {
 }
 
 export type ProdutosDoMarketing = {
-  periodo: Periodo
+  periodo: PeriodoNaTela
   estado: "ok" | SemGoogle
   produtos: ProdutoNoMarketing[]
   achado: Achado | null
@@ -236,7 +235,7 @@ export type OfertaDoProduto = {
 export type Cupom = { codigo: string; usos: number; desconto: number; vendeu: number }
 
 export type Ofertas = {
-  periodo: Periodo
+  periodo: PeriodoNaTela
   porProduto: OfertaDoProduto[]
   numeros: {
     unidades: { pedidos: number; comMais: number; parte: number | null }
@@ -248,12 +247,12 @@ export type Ofertas = {
 }
 
 /** Os produtos do período (o vendido e o estoque vêm sempre; as visitas, se o Google responder). */
-export const lerProdutosDoMarketing = cache((periodo: Periodo) =>
-  lerAba<ProdutosDoMarketing>("produtos", periodo)
+export const lerProdutosDoMarketing = cache((consulta: string) =>
+  lerAba<ProdutosDoMarketing>("produtos", consulta)
 )
 
 /** As ofertas do período — tudo da loja. */
-export const lerOfertas = cache((periodo: Periodo) => lerAba<Ofertas>("ofertas", periodo))
+export const lerOfertas = cache((consulta: string) => lerAba<Ofertas>("ofertas", consulta))
 
 /* ── os Clientes e o Pagamento e frete (a parte 4) ────────────────────────── */
 
@@ -266,7 +265,7 @@ export type LinhaDoEstado = {
 }
 
 export type ClientesDoMarketing = {
-  periodo: Periodo
+  periodo: PeriodoNaTela
   compraram: number
   primeira: { pedidos: number; parte: number | null; ticket: number }
   voltaram: { pedidos: number; parte: number | null; ticket: number }
@@ -278,7 +277,7 @@ export type ClientesDoMarketing = {
 }
 
 export type PagamentoEFrete = {
-  periodo: Periodo
+  periodo: PeriodoNaTela
   comoPagaram: { pix: number; cartao: number }
   pix: { gerados: number; pagos: number; venceram: number; esperando: number }
   cartao: {
@@ -330,13 +329,13 @@ export type ParceiroNoRanking = {
 }
 
 /** Os clientes do período (a história inteira da loja por trás). */
-export const lerClientesDoMarketing = cache((periodo: Periodo) =>
-  lerAba<ClientesDoMarketing>("clientes", periodo)
+export const lerClientesDoMarketing = cache((consulta: string) =>
+  lerAba<ClientesDoMarketing>("clientes", consulta)
 )
 
 /** O pagamento e o frete do período — tudo da loja. */
-export const lerPagamento = cache((periodo: Periodo) =>
-  lerAba<PagamentoEFrete>("pagamento", periodo)
+export const lerPagamento = cache((consulta: string) =>
+  lerAba<PagamentoEFrete>("pagamento", consulta)
 )
 
 /* ── O que os dados dizem (o Resumo) ──────────────────────────────────────── */
@@ -347,7 +346,7 @@ export type AbaComAchados = "funil" | "canais" | "produtos" | "ofertas" | "clien
 export type AchadoDoResumo = Achado & { aba: AbaComAchados | null }
 
 export type AchadosDoResumo = {
-  periodo: Periodo
+  periodo: PeriodoNaTela
   achados: AchadoDoResumo[]
   /** As frases que não couberam: continuam nas abas. */
   mais: number
@@ -356,6 +355,6 @@ export type AchadosDoResumo = {
 }
 
 /** As frases de todas as abas juntas, na ordem do backend — o "O que os dados dizem". */
-export const lerAchadosDoMarketing = cache((periodo: Periodo) =>
-  lerAba<AchadosDoResumo>("achados", periodo)
+export const lerAchadosDoMarketing = cache((consulta: string) =>
+  lerAba<AchadosDoResumo>("achados", consulta)
 )

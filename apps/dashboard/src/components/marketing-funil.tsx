@@ -1,7 +1,7 @@
 import { Icone } from "@/components/icones"
 import { Achados, SEM_VISITAS } from "@/components/marketing"
 import { CabecaDoBloco } from "@/components/visual"
-import { lerFunil, type Aparelho, type Passo, type Periodo } from "@/lib/marketing"
+import { lerFunil, type Aparelho, type Passo } from "@/lib/marketing"
 
 /**
  * O FUNIL DO MARKETING — onde as pessoas desistem: do site até o pagamento
@@ -74,8 +74,8 @@ function Aparelhos({ aparelhos }: { aparelhos: Aparelho[] }) {
   )
 }
 
-export async function TelaDoFunil({ periodo }: { periodo: Periodo }) {
-  const f = await lerFunil(periodo)
+export async function TelaDoFunil({ consulta }: { consulta: string }) {
+  const f = await lerFunil(consulta)
   if (!f)
     return (
       <p className="sem-dados">Não consegui falar com a loja agora. Recarregue daqui a pouco.</p>

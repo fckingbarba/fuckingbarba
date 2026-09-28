@@ -1,14 +1,16 @@
 import type { Metadata } from "next"
 import { Suspense } from "react"
 import { SoPara } from "@/components/area"
-import { AbasDoMarketing, Periodos, UmDiaEPouco } from "@/components/marketing"
+import { AbasDoMarketing, PeriodoDoMarketing, UmDiaEPouco } from "@/components/marketing"
 import { TelaDosProdutos } from "@/components/marketing-produtos"
 import { Cabeca } from "@/components/telas"
-import { lerProdutosDoMarketing, lerPeriodo } from "@/lib/marketing"
+import { lerPeriodoNaTela } from "@/lib/ler-periodo"
+import { lerProdutosDoMarketing, PADRAO_DO_MARKETING } from "@/lib/marketing"
+import { consultaDoPeriodo, type BuscaDoPeriodo } from "@/lib/periodo"
 
 export const metadata: Metadata = { title: "Produtos · Marketing" }
 
-type Busca = Promise<{ periodo?: string }>
+type Busca = Promise<BuscaDoPeriodo>
 
 /**
  * MARKETING → PRODUTOS — o que cada produto atrai, põe na sacola e vende
@@ -16,23 +18,25 @@ type Busca = Promise<{ periodo?: string }>
  * `<Suspense>`; a cabeça e as abas aparecem na hora.
  */
 export default async function Pagina({ searchParams }: { searchParams: Busca }) {
-  // A aba sai junto com a pergunta de quem é (a resposta fica no `cache`).
-  void lerProdutosDoMarketing(lerPeriodo((await searchParams).periodo))
+  const consulta = consultaDoPeriodo(await searchParams, PADRAO_DO_MARKETING)
+  // O período e a aba saem junto com a pergunta de quem é (as respostas ficam no `cache`).
+  void lerPeriodoNaTela(consulta, PADRAO_DO_MARKETING)
+  void lerProdutosDoMarketing(consulta)
   return (
     <SoPara area="marketing">
-      <Produtos searchParams={searchParams} />
+      <Produtos consulta={consulta} />
     </SoPara>
   )
 }
 
-async function Produtos({ searchParams }: { searchParams: Busca }) {
-  const periodo = lerPeriodo((await searchParams).periodo)
+async function Produtos({ consulta }: { consulta: string }) {
+  const p = await lerPeriodoNaTela(consulta, PADRAO_DO_MARKETING)
   return (
     <div data-tela>
       <Cabeca titulo="Marketing" ajuda="O que cada produto atrai, põe na sacola e vende." />
-      <AbasDoMarketing atual="produtos" periodo={periodo} />
-      <Periodos atual={periodo} caminho="/marketing/produtos" />
-      {periodo === "hoje" ? <UmDiaEPouco /> : null}
+      <AbasDoMarketing atual="produtos" p={p} />
+      <PeriodoDoMarketing p={p} caminho="/marketing/produtos" />
+      {p.passo === "hora" ? <UmDiaEPouco /> : null}
       <Suspense
         fallback={
           <p className="sem-dados" data-carregando>
@@ -40,7 +44,7 @@ async function Produtos({ searchParams }: { searchParams: Busca }) {
           </p>
         }
       >
-        <TelaDosProdutos periodo={periodo} />
+        <TelaDosProdutos consulta={consulta} />
       </Suspense>
     </div>
   )

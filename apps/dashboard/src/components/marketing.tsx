@@ -4,29 +4,33 @@ import { Suspense, type ReactNode } from "react"
 import { AbasQueRolam } from "@/components/abas-que-rolam"
 import { Icone } from "@/components/icones"
 import { MudarMeta } from "@/components/mudar-meta"
+import { BarraDoPeriodo, LegendaDoPeriodo } from "@/components/periodo"
 import { CabecaDoBloco, Faixa } from "@/components/visual"
 import {
   lerAchadosDoMarketing,
   lerCanais,
   lerVisitasDoMarketing,
-  PERIODOS,
   type AbaComAchados,
   type Achado,
   type Comparado,
   type MetaDoMes,
-  type Periodo,
   type ProdutoVendido,
   type Resumo,
   type SemGoogle,
 } from "@/lib/marketing"
 import { reais, reaisCurto } from "@/lib/pedidos"
+import { ATALHOS, enderecoDoPeriodo, type PeriodoNaTela } from "@/lib/periodo"
 
 /**
- * O RESUMO DO MARKETING — as peças da tela: os períodos, os cinco números
+ * O RESUMO DO MARKETING — as peças da tela: as abas, os cinco números
  * comparados com o período de antes, a meta do mês, a receita no tempo e os
  * produtos que mais venderam. Os desenhos são os do protótipo; os dados, do
  * `GET /dashboard/marketing`. As visitas e a conversão chegam à parte
  * (`NumerosDoGoogle`, num `<Suspense>`): o Google pode demorar.
+ *
+ * O período é o da barra de cima, a do Início (`components/periodo.tsx`,
+ * 0191): cada peça recebe o `p` (o `PeriodoNaTela` que o backend devolveu)
+ * pras frases, e a `consulta` pra ler.
  */
 
 const INTEIRO = new Intl.NumberFormat("pt-BR")
@@ -34,13 +38,28 @@ const vezes = (n: number, um: string, varios: string) =>
   `${INTEIRO.format(n)} ${n === 1 ? um : varios}`
 const porcento = (v: number, casas = 0) => `${v.toFixed(casas).replace(".", ",")}%`
 
-/** O período com que cada um se compara: "+12% que os 7 dias antes", "igual aos 7 dias antes". */
-const ANTES: Record<Periodo, string> = {
-  hoje: "ontem a esta hora",
-  "7d": "os 7 dias antes",
-  "30d": "os 30 dias antes",
-  "90d": "os 90 dias antes",
+/**
+ * Com o que cada número se compara, depois do "que": "ontem a esta hora",
+ * "os 7 dias antes", "o mês passado até o mesmo dia", "julho", "o dia
+ * 26/09", "os dias 07/09 a 13/09". Vazio sem comparar.
+ */
+export function oDeAntes(p: PeriodoNaTela): string {
+  if (!p.comparar || !p.nomeDoAntes) return ""
+  if (p.nomeDoAntes === "ontem") return p.ateAgora ? "ontem a esta hora" : "ontem"
+  if (p.atalho === "7d" || p.atalho === "30d" || p.atalho === "90d")
+    return `os ${p.atalho.slice(0, -1)} dias antes`
+  if (p.atalho === "mes") return "o mês passado até o mesmo dia"
+  if (p.atalho === "mes-passado") return p.nomeDoAntes
+  return p.passo === "hora" ? `o dia ${p.nomeDoAntes}` : `os dias ${p.nomeDoAntes}`
 }
+
+/** "igual aos 7 dias antes", "igual ao dia 26/09", "igual a julho". */
+const igualA = (antes: string) =>
+  antes.startsWith("os ")
+    ? `aos ${antes.slice(3)}`
+    : antes.startsWith("o ")
+      ? `ao ${antes.slice(2)}`
+      : `a ${antes}`
 
 /** As abas da área, na ordem do protótipo. O período vai junto. */
 const ABAS = [
@@ -54,13 +73,16 @@ const ABAS = [
 ] as const
 export type Aba = (typeof ABAS)[number][0]
 
-export function AbasDoMarketing({ atual, periodo }: { atual: Aba; periodo: Periodo }) {
+/** O endereço de uma aba no mesmo período (e no mesmo comparar). */
+const daAba = (caminho: string, p: PeriodoNaTela) => enderecoDoPeriodo(caminho, p, p.comparar)
+
+export function AbasDoMarketing({ atual, p }: { atual: Aba; p: PeriodoNaTela }) {
   return (
     <AbasQueRolam rotulo="Marketing" acesa={atual}>
       {ABAS.map(([aba, nome, caminho]) => (
         <Link
           key={aba}
-          href={`${caminho}?periodo=${periodo}` as Route}
+          href={daAba(caminho, p) as Route}
           aria-current={aba === atual ? "page" : undefined}
           data-aba={aba}
         >
@@ -71,22 +93,17 @@ export function AbasDoMarketing({ atual, periodo }: { atual: Aba; periodo: Perio
   )
 }
 
-/** Os períodos, sem sair da aba (`caminho`). */
-export function Periodos({ atual, caminho = "/marketing" }: { atual: Periodo; caminho?: string }) {
+/**
+ * A barra do período (a do Início, com os 90 dias) e a linha embaixo dela —
+ * sem sair da aba (`caminho`). O gráfico do Marketing não desenha o de
+ * antes: a linha diz com o que os números se comparam.
+ */
+export function PeriodoDoMarketing({ p, caminho }: { p: PeriodoNaTela; caminho: string }) {
   return (
-    <nav className="filtros" aria-label="Período">
-      {PERIODOS.map(([p, nome]) => (
-        <Link
-          key={p}
-          className="filtro"
-          href={`${caminho}?periodo=${p}` as Route}
-          aria-current={p === atual ? "page" : undefined}
-          data-periodo={p}
-        >
-          {nome}
-        </Link>
-      ))}
-    </nav>
+    <>
+      <BarraDoPeriodo p={p} caminho={caminho} atalhos={ATALHOS} />
+      <LegendaDoPeriodo p={p} graficos={false} />
+    </>
   )
 }
 
@@ -108,8 +125,7 @@ function Comparacao({
   if (variacao === 0)
     return (
       <>
-        <span className="delta">igual</span>{" "}
-        <span>{antes.startsWith("os ") ? `aos ${antes.slice(3)}` : `a ${antes}`}</span>
+        <span className="delta">igual</span> <span>{igualA(antes)}</span>
       </>
     )
   return (
@@ -153,12 +169,20 @@ function Kpi({
 const semAntes = (c: Comparado, oQue: string) =>
   c.valor ? `${oQue} no período antes pra comparar` : `${oQue} no período`
 
-export function Numeros({ resumo }: { resumo: Resumo }) {
+export function Numeros({
+  resumo,
+  consulta,
+  p,
+}: {
+  resumo: Resumo
+  consulta: string
+  p: PeriodoNaTela
+}) {
   const { receita, pedidos, ticket } = resumo.numeros
-  const antes = ANTES[resumo.periodo]
-  const comparado = (c: Comparado) => (
-    <Comparacao variacao={c.variacao} antes={antes} sem={semAntes(c, "nada")} />
-  )
+  const antes = oDeAntes(p)
+  // Sem comparar, embaixo do número não vai nada (como no Início).
+  const comparado = (c: Comparado) =>
+    p.comparar ? <Comparacao variacao={c.variacao} antes={antes} sem={semAntes(c, "nada")} /> : null
   return (
     <div className="kpis">
       <Kpi
@@ -183,7 +207,7 @@ export function Numeros({ resumo }: { resumo: Resumo }) {
           </>
         }
       >
-        <NumerosDoGoogle periodo={resumo.periodo} />
+        <NumerosDoGoogle consulta={consulta} p={p} />
       </Suspense>
       <Kpi
         rot="Ticket médio"
@@ -204,8 +228,8 @@ export const SEM_VISITAS: Record<SemGoogle, string> = {
   fora: "o Google não respondeu agora",
 }
 
-async function NumerosDoGoogle({ periodo }: { periodo: Periodo }) {
-  const r = await lerVisitasDoMarketing(periodo)
+async function NumerosDoGoogle({ consulta, p }: { consulta: string; p: PeriodoNaTela }) {
+  const r = await lerVisitasDoMarketing(consulta)
   if (r.estado !== "ok")
     return (
       <>
@@ -215,8 +239,9 @@ async function NumerosDoGoogle({ periodo }: { periodo: Periodo }) {
     )
   const { visitas, pedidos, conversao } = r
   // Hoje, o Google ainda está somando: a comparação é só até a hora que ele já somou.
-  const hojeSemNada = periodo === "hoje" && r.ate === null
-  const antes = periodo === "hoje" ? `ontem até as ${r.ate}h` : ANTES[periodo]
+  const soHoje = p.ateAgora && p.passo === "hora"
+  const hojeSemNada = soHoje && r.ate === null
+  const antes = soHoje && r.ate !== null ? `${p.nomeDoAntes} até as ${r.ate}h` : oDeAntes(p)
   return (
     <>
       <Kpi
@@ -225,13 +250,13 @@ async function NumerosDoGoogle({ periodo }: { periodo: Periodo }) {
         sub={
           hojeSemNada ? (
             "o Google ainda não somou as de hoje"
-          ) : (
+          ) : p.comparar ? (
             <Comparacao
               variacao={visitas.variacao}
               antes={antes}
               sem={visitas.valor ? "nenhuma visita no período antes" : "nenhuma visita no período"}
             />
-          )
+          ) : null
         }
         ajuda="Do Google Analytics, só as da loja. Quem recusa os cookies fica de fora."
         dados="visitas"
@@ -240,17 +265,23 @@ async function NumerosDoGoogle({ periodo }: { periodo: Periodo }) {
         rot="Conversão"
         valor={conversao.valor === null ? "—" : porcento(conversao.valor, 2)}
         sub={
-          <Comparacao
-            variacao={conversao.variacao}
-            antes={antes}
-            sem={
-              conversao.valor === null
-                ? "sem visitas no período"
-                : conversao.antes === null
-                  ? "sem visitas no período antes"
-                  : "nenhum pedido visto pelo Google no período antes"
-            }
-          />
+          !p.comparar ? (
+            conversao.valor === null ? (
+              "sem visitas no período"
+            ) : null
+          ) : (
+            <Comparacao
+              variacao={conversao.variacao}
+              antes={antes}
+              sem={
+                conversao.valor === null
+                  ? "sem visitas no período"
+                  : conversao.antes === null
+                    ? "sem visitas no período antes"
+                    : "nenhum pedido visto pelo Google no período antes"
+              }
+            />
+          )
         }
         ajuda={
           `De cada 100 visitas, quantas viraram pedido pago: ` +
@@ -420,14 +451,14 @@ export function FonteDosDados() {
   )
 }
 
-/** "Um dia só é pouco pra concluir" — nas abas de análise, com o período de hoje (o protótipo). */
+/** "Um dia só é pouco pra concluir" — nas abas de análise, com um dia só no período (o protótipo). */
 export function UmDiaEPouco() {
   return (
     <Faixa
       nivel="info"
       icone="relogio"
       titulo="Um dia só é pouco pra concluir"
-      ajuda="Com os números de hoje, qualquer diferença pode ser acaso. Pra decidir, use 7 ou 30 dias."
+      ajuda="Com os números de um dia, qualquer diferença pode ser acaso. Pra decidir, use 7 ou 30 dias."
       data-um-dia=""
     />
   )
@@ -457,10 +488,10 @@ const ATALHO: Record<AbaComAchados, string> = {
  */
 export function Achados({
   achados,
-  periodo,
+  p,
 }: {
   achados: (Achado & { aba?: AbaComAchados | null })[]
-  periodo?: Periodo
+  p?: PeriodoNaTela
 }) {
   if (!achados.length) return null
   return (
@@ -478,10 +509,10 @@ export function Achados({
           <div>
             <h3 className="achado__titulo">{a.titulo}</h3>
             <p className="achado__txt">{a.texto}</p>
-            {a.aba && periodo ? (
+            {a.aba && p ? (
               <Link
                 className="link pequeno achado__atalho"
-                href={`${ABAS.find(([aba]) => aba === a.aba)![2]}?periodo=${periodo}` as Route}
+                href={daAba(ABAS.find(([aba]) => aba === a.aba)![2], p) as Route}
               >
                 {ATALHO[a.aba]} →
               </Link>
@@ -493,28 +524,29 @@ export function Achados({
   )
 }
 
-/** "Olhando os últimos 30 dias." */
-const OLHANDO: Record<Periodo, string> = {
-  hoje: "Olhando hoje",
-  "7d": "Olhando os últimos 7 dias",
-  "30d": "Olhando os últimos 30 dias",
-  "90d": "Olhando os últimos 90 dias",
+/** "Olhando os últimos 30 dias", "Olhando agosto", "Olhando de 14/09 a 20/09". */
+function olhando(p: PeriodoNaTela): string {
+  if (p.atalho === "hoje" || p.atalho === "ontem") return `Olhando ${p.atalho}`
+  if (p.atalho === "7d" || p.atalho === "30d" || p.atalho === "90d")
+    return `Olhando os ${p.nome.toLowerCase()}`
+  if (p.atalho) return `Olhando ${p.nome.toLowerCase()}`
+  return p.passo === "hora" ? `Olhando o dia ${p.nome}` : `Olhando de ${p.nome}`
 }
 
-function CabecaDoQueDizem({ periodo }: { periodo: Periodo }) {
+function CabecaDoQueDizem({ p }: { p: PeriodoNaTela }) {
   return (
     <CabecaDoBloco
       titulo="O que os dados dizem"
-      ajuda={`${OLHANDO[periodo]}. Primeiro o que pede conserto, depois as oportunidades e o que vai bem.`}
+      ajuda={`${olhando(p)}. Primeiro o que pede conserto, depois as oportunidades e o que vai bem.`}
     />
   )
 }
 
 /** Enquanto as contas de todas as abas correm. */
-export function OQueOsDadosDizemCarregando({ periodo }: { periodo: Periodo }) {
+export function OQueOsDadosDizemCarregando({ p }: { p: PeriodoNaTela }) {
   return (
     <section className="bloco" data-bloco="o-que-dizem" data-carregando>
-      <CabecaDoQueDizem periodo={periodo} />
+      <CabecaDoQueDizem p={p} />
       <p className="sem-dados">Juntando as frases de todas as abas…</p>
     </section>
   )
@@ -526,14 +558,14 @@ export function OQueOsDadosDizemCarregando({ periodo }: { periodo: Periodo }) {
  * ordem são do backend: `lib/painel/marketing-achados.ts`). Chega à parte,
  * num `<Suspense>`: são as contas de todas as abas.
  */
-export async function OQueOsDadosDizem({ periodo }: { periodo: Periodo }) {
-  const r = await lerAchadosDoMarketing(periodo)
+export async function OQueOsDadosDizem({ consulta, p }: { consulta: string; p: PeriodoNaTela }) {
+  const r = await lerAchadosDoMarketing(consulta)
   return (
     <section className="bloco" data-bloco="o-que-dizem">
-      <CabecaDoQueDizem periodo={periodo} />
+      <CabecaDoQueDizem p={p} />
       {r ? (
         <>
-          <Achados achados={r.achados} periodo={periodo} />
+          <Achados achados={r.achados} p={p} />
           {r.semGoogle ? (
             <p className="pequeno suave o-que-dizem__nota" data-sem-google={r.semGoogle}>
               Sem as frases do funil, dos canais e dos produtos: {SEM_VISITAS[r.semGoogle]}.
@@ -553,8 +585,14 @@ export async function OQueOsDadosDizem({ periodo }: { periodo: Periodo }) {
 }
 
 /** Os três canais que mais venderam no período — no Resumo, do lado dos produtos. */
-export async function CanaisQueMaisVenderam({ periodo }: { periodo: Periodo }) {
-  const c = await lerCanais(periodo)
+export async function CanaisQueMaisVenderam({
+  consulta,
+  p,
+}: {
+  consulta: string
+  p: PeriodoNaTela
+}) {
+  const c = await lerCanais(consulta)
   const canais = c?.estado === "ok" ? c.canais.filter((l) => l.receita > 0).slice(0, 3) : []
   return (
     <section className="bloco" data-canais-do-resumo>
@@ -582,7 +620,7 @@ export async function CanaisQueMaisVenderam({ periodo }: { periodo: Periodo }) {
           {!c || c.estado === "ok" ? "Nenhuma venda com origem no período." : SEM_VISITAS[c.estado]}
         </p>
       )}
-      <Link className="link pequeno" href={`/marketing/canais?periodo=${periodo}` as Route}>
+      <Link className="link pequeno" href={daAba("/marketing/canais", p) as Route}>
         Ver os canais →
       </Link>
     </section>

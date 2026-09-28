@@ -3,12 +3,7 @@ import Link from "next/link"
 import { Achados } from "@/components/marketing"
 import { CabecaDoBloco, Pilula } from "@/components/visual"
 import { lerMembro } from "@/lib/eu"
-import {
-  lerPagamento,
-  type PagamentoEFrete,
-  type ParceiroNoRanking,
-  type Periodo,
-} from "@/lib/marketing"
+import { lerPagamento, type PagamentoEFrete, type ParceiroNoRanking } from "@/lib/marketing"
 import { reais } from "@/lib/pedidos"
 
 /**
@@ -181,8 +176,8 @@ function Parceiros({ r }: { r: PagamentoEFrete["parceiros"] }) {
   )
 }
 
-export async function TelaDoPagamento({ periodo }: { periodo: Periodo }) {
-  const [p, eu] = await Promise.all([lerPagamento(periodo), lerMembro()])
+export async function TelaDoPagamento({ consulta }: { consulta: string }) {
+  const [p, eu] = await Promise.all([lerPagamento(consulta), lerMembro()])
   // O frete grátis se muda nas Configurações — que só o dono abre.
   const mudaOFrete = eu.estado === "ok" && eu.areas.includes("configuracoes")
   if (!p)
