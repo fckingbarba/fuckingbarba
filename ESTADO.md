@@ -3539,10 +3539,39 @@ lembretes voltaram pra cara padrão, com os textos novos (escolha sua: voltar e 
   Assim o teste diz se a cara pesa.
 - **O "Ficou alguma dúvida?"** diz onde tirar a dúvida: é só responder o e-mail.
 
-- [ ] **Depois do deploy (você):** CRM → Fluxos → "Mandar pra mim" em "Faltou só o pagamento" e em
-      "Sua compra ficou pela metade".
+- [x] **Depois do deploy (você):** CRM → Fluxos → "Mandar pra mim" em "Faltou só o pagamento" e em
+      "Sua compra ficou pela metade". Caíram em Principal, então ficou assim.
   - Se cair em Principal, fica assim.
   - Se cair em Promoções, os lembretes voltam pro texto simples. É uma troca pequena.
+
+**CRM, parte 9: o pop-up da 1ª compra — pronto em 27/09 (entrega 0177).** O pop-up do protótipo
+que você aprovou: o nome e o e-mail em troca de um cupom.
+
+- **Quando aparece:**
+  - depois de 20 segundos na loja, quando a pessoa rola metade da página ou, no computador, quando o
+    mouse vai fechar a aba;
+  - só depois de responder a faixa de cookies, e nunca com a sacola aberta;
+  - no celular, ele sobe de baixo e nunca cobre a primeira tela.
+- **Quando não aparece:** pra quem já comprou, já está na newsletter, entrou na conta ou fechou nos
+  últimos 30 dias. Também não aparece no checkout, na conta nem nas páginas da política e das
+  trocas.
+- **O cupom:**
+  - só da pessoa, de uso único, e vale 3 dias e só na primeira compra;
+  - o % é o mesmo dos fluxos (CRM → Fluxos);
+  - aparece na tela, chega no e-mail na hora e já fica guardado pro checkout;
+  - quem já se cadastrou recebe o mesmo código, e quem já comprou não ganha cupom.
+- **O e-mail do cupom** mostra os produtos do que a pessoa estava vendo: o Fator, o cuidado da
+  barba, o cabelo ou os mais pedidos. Como tem desconto, cai em Promoções, que é o lugar dele.
+- **No painel,** a aba Fluxos ganhou o bloco **Boas-vindas**. A chave dele liga e desliga o
+  pop-up, e ele tem os números e o "Mandar pra mim".
+- **A política de privacidade** conta o pop-up.
+- **Um conserto no caminho:** o link do cupom (`/discount/...`) agora leva a campanha do e-mail
+  junto pra loja, e o GA4 sabe de onde a visita veio.
+
+- [ ] **Depois do deploy (você):** abra a loja numa janela anônima e espere uns 20 segundos pra ver
+      o pop-up. Se quiser testar o cadastro, use um e-mail que nunca comprou. Pra desligar, é a
+      chave das Boas-vindas em CRM → Fluxos.
+- [ ] **A próxima parte (0178):** a sequência das boas-vindas, com as 4 trilhas do protótipo.
 
 **A parcela mínima do cartão, editável — pronta em 27/09 (entrega 0157).** O pedido dele: "quero
 poder editar a parcela mínima no cartão, ali diz 5 reais". Em **Configurações → Pagamento**, o

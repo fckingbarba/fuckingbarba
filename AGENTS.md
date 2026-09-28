@@ -2672,6 +2672,61 @@ carrinho, que falhavam rodando entre 21h e 22h:
   até as 9h. O degrau passava das 12 horas da sacola, e o motor pulava o de 1 hora (`toqueDaVez`
   manda o último vencido).
 
+**O CRM, parte 9: o pop-up da 1ª compra** (entrega 0177). O nome e o e-mail em troca de um cupom,
+com o e-mail do cupom na hora. O protótipo foi aprovado pelo dono antes. A sequência de
+boas-vindas, com as 4 trilhas, é a 0178.
+
+- **O fluxo "boas-vindas"** (`lib/crm/fluxos.ts`) tem um toque só, `boas-vindas-agora`, que o
+  motor não manda (`ehToqueDeCompra`): quem manda é a rota do pop-up. A chave dele na aba Fluxos
+  liga e desliga o pop-up da loja. O bloco não tem o card do controle: o cupom foi pedido.
+  `IdDoToque` = os de compra (`IdDoToqueDeCompra`, os de `lib/emails/fluxos.ts`) mais esse.
+- **O cadastro** (`lib/crm/primeira-compra.ts`), pela rota `POST /store/crm/primeira-compra`:
+  - `lerCadastro` confere o nome (2 letras, até 60), o e-mail (`normalizarEmail`) e a página (só
+    caminho da loja);
+  - um cupom por e-mail, pra sempre, pelo registro dos fluxos (`crm_envio`, chave = o e-mail). Quem
+    já se cadastrou recebe o mesmo código, sem e-mail novo;
+  - quem já comprou (pedido não cancelado com o e-mail) não ganha cupom, mas entra na lista;
+  - o "sim" vai pra newsletter com a origem `popup`, o `nome` e a `pagina` (colunas novas,
+    `Migration20260928010000`). Quem já estava pelo rodapé ganha os dois, sem mudar a data;
+  - o cupom é `BEMVINDO-XXXXXX` (`criarCupomDoFluxo` com `prefixo` e `primeiraCompra`): o % dos
+    fluxos, uso único, 3 dias, e só vale se o e-mail do carrinho não tem pedido (a regra
+    `fb_cupons.pedidos = 0` dos cupons do painel). Fica fora da lista de Cupons (`ehCupomDoCrm`);
+  - o e-mail (`lib/emails/boas-vindas.ts`) é oferta, com o botão `/discount/<código>` e os produtos
+    da TRILHA da página (`trilhaDaPagina`: o Fator é crescer, óleo/balm/shampoo é cuidar,
+    pasta/spray e Para cabelo é cabelo, o resto é geral). Sai na hora, sem controle e sem a
+    madrugada; o e-mail que voltou ou marcou spam (`semEntrega`) não recebe, mas o código aparece
+    na tela;
+  - limites como os da newsletter: 10 por hora por pessoa (60 sem a assinatura da loja), 300 por
+    hora na loja toda.
+- **A loja:**
+  - o vigia (`components/primeira-compra/vigia.tsx`) está em toda página, e é pequeno de propósito.
+    Ele lê o endereço do navegador (`location`), e não do `usePathname`: no layout, fora de um
+    `<Suspense>`, o Next 16 recusa o `usePathname` nas páginas dinâmicas (o obrigado do checkout, o
+    pedido da conta);
+  - o pop-up (`./popup.tsx`) e o CSS dele (`estilos/primeira-compra.css`) só são baixados quando
+    ele aparece. As regras ficam em `lib/primeira-compra.ts`;
+  - aparece depois de 20 s, da metade da página rolada ou do mouse saindo (computador), e sempre
+    depois da faixa respondida e com a sacola fechada. No celular, a primeira tela da página de
+    chegada fica livre;
+  - não aparece no checkout, na conta, nas páginas de passagem e nas de lei, nem pra quem tem
+    sessão (`sessao`), comprou neste navegador (`fb_cliente`, gravado no fim do checkout), se
+    cadastrou (`fb_popup = cadastrado`, também na newsletter do rodapé) ou fechou nos últimos 30
+    dias (`fb_popup = fechado.<hora>`);
+  - `/api/primeira-compra` responde se aparece e o % e os dias do painel. A ação
+    `lib/acoes/primeira-compra.ts` guarda o cupom pro checkout (`lib/cupom-pendente.ts`), marca o
+    `fb_popup` e identifica no CRM (`anotarNoServidor`, com o sim dos cookies);
+  - o formulário é `onSubmit`, e não `action`: o `action` do React limpa os campos a cada envio, e
+    o erro faria a pessoa digitar tudo de novo;
+  - o `/discount/<código>` leva os `utm_` junto pra home.
+- **A política de privacidade** conta o pop-up: o nome, o e-mail e a página, e os dois cookies da
+  escolha.
+
+O conferidor é o `apps/loja/ferramentas/conferir-primeira-compra.mjs` (21). Ele usa o relógio do
+Playwright (`page.clock`), pra os 20 segundos passarem na hora. Os conferidores que não são dele
+nascem com o `fb_popup` (`faixa-respondida.mjs`, `pecas.mjs` e `conferir-integracoes`): depois de
+20 segundos o pop-up cobriria o botão, como a faixa cobria. O `conferir-crm.mjs` confere o bloco
+Boas-vindas, o "Mandar pra mim" dele e a chave ligando e desligando o pop-up.
+
 **O preço e o promocional no painel** (entregas 0098 e 0102): os dois campos de cada produto na
 lista de Produtos, como na Nuvemshop (a 0098 tinha só o promocional, atrás de um botão). A regra é
 `lib/painel/promocao.ts`, pura: `lerMudancaDePreco` (o corpo `{ preco?, promocional? }` contra o
