@@ -92,6 +92,20 @@ describe("cada evento", () => {
     })
   })
 
+  it("o minuto na página e o vídeo do produto (a navegação abandonada): o item, como o visto", () => {
+    for (const nome of ["produto_lido", "video_assistido"])
+      expect(
+        um({ nome, pagina: "/produtos/oleo-para-barba", dados: { items: [item(OLEO)] }, ha: 10 })
+      ).toEqual({
+        tipo: nome,
+        pagina: "/produtos/oleo-para-barba",
+        dados: { itens: [{ variante: OLEO, nome: "Óleo para barba", preco: 59.9, quantidade: 1 }] },
+        ha: 10,
+      })
+    // Sem o produto, não fica.
+    expect(um({ nome: "produto_lido", pagina: "/produtos/oleo", dados: {} })).toBeNull()
+  })
+
   it("a sacola: só as linhas que valem, a quantidade de 1 a 99, até 10 linhas", () => {
     const e = um({
       nome: "add_to_cart",
