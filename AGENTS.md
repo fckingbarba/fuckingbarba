@@ -2874,8 +2874,11 @@ no painel.
   - quem já comprou vê os da última compra, pelo SKU (`produtosPorSku`: o código do Bling é o
     mesmo na Nuvemshop e no Medusa);
   - quem nunca comprou vê os mais pedidos;
-  - o "Repor agora" leva pro produto do item que acaba primeiro, com o nome curto de
-    `CURTO_DO_COMPONENTE`.
+  - o botão do de repor diz o que acaba primeiro ("Ver o óleo", com o nome curto de
+    `CURTO_DO_COMPONENTE`) e leva pro produto AVULSO daquilo (`oQueAcaba`, com o `skuAvulso` de
+    `lib/crm/etiquetas.ts`, entrega 0183). Se o item veio avulso, é ele mesmo, e a pasta brilho
+    continua brilho. Se veio num kit ou em pacote, é o avulso do tipo; o kit segue na lista "O que
+    você levou da última vez".
 - **Os e-mails** (`emailDaEstreia`, em `lib/emails/estreia.ts`) são "oferta", menos o de
   `repor`. Esse é "lembrete" desde a entrega 0182, escolha do dono depois do teste em que os 4
   caíram em Promoções: assinado, sem o `List-Unsubscribe`, com o `PORQUE_DO_LEMBRETE_DA_ESTREIA`
