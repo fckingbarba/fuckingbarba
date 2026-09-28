@@ -656,9 +656,9 @@
 }
 .criadores__matriz {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) repeat(4, 46px);
+  grid-template-columns: minmax(0, 1fr) repeat(5, 46px);
   gap: 8px;
-  max-width: 460px;
+  max-width: 500px;
 }
 .criadores__matriz-cab {
   align-self: end;
@@ -734,6 +734,9 @@
       var(--corpo) calc(24% + 2px) 100%
     ),
     repeating-linear-gradient(-45deg, var(--color-tinta) 0 3px, #ffffff 3px 6px);
+}
+.criadores__quadro[data-g="4"] {
+  --gancho: var(--color-menta-escura);
 }
 .criadores__quadro[data-ativo] {
   --corpo: var(--color-tinta);
@@ -1299,7 +1302,7 @@
     grid-template-columns: 1fr;
   }
   .criadores__matriz {
-    grid-template-columns: minmax(0, 1fr) repeat(4, 40px);
+    grid-template-columns: minmax(0, 1fr) repeat(5, 36px);
     gap: 6px;
   }
   .criadores__matriz-ideia {

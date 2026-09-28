@@ -7,13 +7,18 @@ import { Calculadora } from "@/components/criadores/calculadora"
 import { Camera } from "@/components/criadores/camera"
 import { Inscricao } from "@/components/criadores/inscricao"
 import { Matriz } from "@/components/criadores/matriz"
-import { mesesPraPassarDoFixo, OFERTA, reais } from "@/lib/criadores-visivel"
+import {
+  APROVADOS_PRA_PRIMEIRA_METADE,
+  mesesPraPassarDoFixo,
+  OFERTA,
+  reais,
+} from "@/lib/criadores-visivel"
 import { listarProdutos, porHandle } from "@/lib/medusa"
 import "@/estilos/telas/criadores.css"
 
 /**
  * /criadores — A PÁGINA ESCONDIDA DOS CRIADORES: quem quer gravar os vídeos
- * dos anúncios da loja (20 criativos, pelo fixo ou pela comissão) se
+ * dos anúncios da loja (os criativos, pelo fixo ou pela comissão) se
  * inscreve aqui, e o painel decide (a área "Criadores").
  *
  * ESCONDIDA: fora do menu, do sitemap e do Google (o `Disallow` do robots e
@@ -210,7 +215,7 @@ function Propostas() {
             <ul className="criadores__oferta-lista">
               <li>
                 <Estrela />
-                {metade} no Pix quando os {OFERTA.criativos / 2} primeiros forem aprovados
+                {metade} no Pix quando os {APROVADOS_PRA_PRIMEIRA_METADE} primeiros forem aprovados
               </li>
               <li>
                 <Estrela />
@@ -286,8 +291,8 @@ function Criativos() {
           {OFERTA.criativos} criativos parece muito. Não é.
         </h2>
         <p className="criadores__lead">
-          Você grava 5 vídeos e troca só o começo de cada um. 5 ideias × 4 ganchos ={" "}
-          {OFERTA.criativos} criativos prontos pra anúncio.
+          Você grava {OFERTA.ideias} vídeos e troca só o começo de cada um. {OFERTA.ideias} ideias ×{" "}
+          {OFERTA.ganchosPorIdeia} ganchos = {OFERTA.criativos} criativos prontos pra anúncio.
         </p>
         <p className="criadores__destaque">
           <Estrela />
@@ -338,7 +343,7 @@ const PASSOS = [
   {
     quando: "Pix",
     nome: "Pagamento",
-    texto: `Fixo: metade nos ${OFERTA.criativos / 2} primeiros, metade no fim. Comissão: relatório e Pix todo mês.`,
+    texto: `Fixo: metade nos ${APROVADOS_PRA_PRIMEIRA_METADE} primeiros, metade no fim. Comissão: relatório e Pix todo mês.`,
   },
 ]
 

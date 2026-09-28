@@ -15,7 +15,10 @@
 export const OFERTA = {
   /** O fixo, em reais, pelos criativos. */
   fixo: 1000,
-  criativos: 20,
+  /** Os criativos que a pessoa grava: as ideias × os ganchos de cada uma (a matriz da página). */
+  criativos: 25,
+  ideias: 5,
+  ganchosPorIdeia: 5,
   /** A duração de cada criativo, em segundos. */
   segundos: { min: 25, max: 40 },
   /**
@@ -30,6 +33,12 @@ export const OFERTA = {
   respostaDiasUteis: 3,
   ajustesPorVideo: 2,
 } as const
+
+/**
+ * O fixo sai em duas metades: a primeira quando esses criativos estiverem aprovados (a metade, pra
+ * cima: 13 de 25), a segunda com todos.
+ */
+export const APROVADOS_PRA_PRIMEIRA_METADE = Math.ceil(OFERTA.criativos / 2)
 
 /** A comissão de uma venda, em reais: 3% de R$ 125 = R$ 3,75. */
 export const comissaoPorVenda = (pedido: number = OFERTA.pedidoMedio) =>

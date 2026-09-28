@@ -3,16 +3,16 @@
 import { useState } from "react"
 
 /**
- * OS 20 CRIATIVOS = 5 IDEIAS × 4 GANCHOS — a conta que faz "20 vídeos" caber
+ * OS 25 CRIATIVOS = 5 IDEIAS × 5 GANCHOS — a conta que faz "25 vídeos" caber
  * numa semana: a pessoa grava 5 vídeos e troca só o começo de cada um. Cada
  * quadrinho é um criativo em pé: a faixa de cima é o gancho (muda em cada
  * coluna), o resto é o corpo (igual na linha toda).
  *
- * Escolher uma ideia mostra os 4 ganchos dela, já escritos; tocar num
+ * Escolher uma ideia mostra os 5 ganchos dela, já escritos; tocar num
  * quadrinho marca também o gancho dele.
  */
 
-const TIPOS = ["Pergunta", "Afirmação", "Resultado primeiro", "POV"] as const
+const TIPOS = ["Pergunta", "Afirmação", "Resultado primeiro", "POV", "Chamada direta"] as const
 
 const IDEIAS = [
   {
@@ -24,6 +24,7 @@ const IDEIAS = [
       "Barba arrepiada tem conserto. Olha.",
       "Essa é a mesma barba de 2 minutos atrás.",
       "POV: você parou de sair de casa com a barba armada.",
+      "Se sua barba arrepia, para tudo e olha isso.",
     ],
   },
   {
@@ -35,6 +36,7 @@ const IDEIAS = [
       "Minha rotina de barba inteira cabe em 1 minuto.",
       "Barba pronta. Agora te mostro como.",
       "POV: você finalmente tem uma rotina de barba.",
+      "Se você acha que cuidar da barba dá trabalho, assiste.",
     ],
   },
   {
@@ -46,6 +48,7 @@ const IDEIAS = [
       "Para de passar balm na barba molhada.",
       "Minha barba parou de coçar quando eu parei com isso.",
       "POV: você descobriu por que sua barba coça.",
+      "Se você tem barba, comete pelo menos um desses erros.",
     ],
   },
   {
@@ -57,6 +60,7 @@ const IDEIAS = [
       "Nunca usei FuckingBarba. Bora testar.",
       "Olha como ficou na primeira passada.",
       "POV: o kit chegou e você não aguentou esperar.",
+      "Se você está de olho nesse kit, assiste antes de comprar.",
     ],
   },
   {
@@ -68,6 +72,7 @@ const IDEIAS = [
       "Vou ser sincero sobre esse óleo.",
       "Olha como minha barba tá hoje.",
       "POV: seu amigo pergunta o que você passa na barba.",
+      "Se você tem barba e não passa nada nela, isso é pra você.",
     ],
   },
 ] as const

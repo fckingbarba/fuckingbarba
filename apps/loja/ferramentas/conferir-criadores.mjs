@@ -65,6 +65,9 @@ const FONTE = readFileSync(new URL("../src/lib/criadores-visivel.ts", import.met
 const numero = (nome) => Number(FONTE.match(new RegExp(`\\b${nome}: (\\d+)`))?.[1])
 const OFERTA = {
   fixo: numero("fixo"),
+  criativos: numero("criativos"),
+  ideias: numero("ideias"),
+  ganchosPorIdeia: numero("ganchosPorIdeia"),
   porcento: numero("porcento"),
   pedidoMedio: numero("pedidoMedio"),
 }
@@ -210,6 +213,25 @@ try {
   )
   const regua = pagina.locator("[data-calculadora] input[type=range]")
   await hidratado(pagina, "[data-calculadora] input[type=range]")
+  const fixo = semEspaco(
+    await pagina.locator('.criadores__oferta[data-modelo="fixo"]').textContent()
+  )
+  const cada = reais((OFERTA.fixo * 100) / OFERTA.criativos)
+  const metade = Math.ceil(OFERTA.criativos / 2)
+  ok(
+    fixo.includes(`por ${OFERTA.criativos} criativos.`) &&
+      fixo.includes(`${cada} cada.`) &&
+      fixo.includes(`quando os ${metade} primeiros forem aprovados`) &&
+      fixo.includes(`quando os ${OFERTA.criativos} estiverem aprovados`),
+    `o fixo: ${OFERTA.criativos} criativos, ${cada} cada, a 1ª metade com ${metade} aprovados`,
+    fixo
+  )
+  ok(
+    OFERTA.ideias * OFERTA.ganchosPorIdeia === OFERTA.criativos &&
+      (await pagina.locator("[data-matriz] .criadores__quadro").count()) === OFERTA.criativos &&
+      (await pagina.locator("[data-matriz] .criadores__matriz-ideia").count()) === OFERTA.ideias,
+    `a matriz tem os ${OFERTA.criativos} criativos: ${OFERTA.ideias} ideias × ${OFERTA.ganchosPorIdeia} ganchos`
+  )
   ok(
     semEspaco(
       await pagina
