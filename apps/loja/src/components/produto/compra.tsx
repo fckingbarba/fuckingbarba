@@ -24,7 +24,8 @@ import { CalculadoraDeFrete } from "@/components/produto/calculadora"
 import type { ProdutoQueCombina } from "@/lib/pdp"
 import { gratisEm, unitarioEm, type PromocaoDoProduto } from "@/lib/promocoes"
 import { PARCELAS_SEM_JUROS } from "@/lib/site"
-import { rastrear } from "@/lib/rastrear"
+import { anotarNaLoja, rastrear } from "@/lib/rastrear"
+import { depoisDeUmMinutoNaFrente } from "@/lib/um-minuto"
 import { usePeDaTela } from "@/lib/use-pe-da-tela"
 
 /**
@@ -124,6 +125,20 @@ export function Compra({
       ],
     })
     // Uma vez por variante: o nome e o preço não mudam sem ela mudar.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [primeiro?.varianteId])
+
+  // O minuto na página, com a aba na frente: só pro CRM da loja (a navegação abandonada).
+  useEffect(() => {
+    if (!primeiro) return
+    const item = { item_id: primeiro.varianteId, item_name: nome, price: primeiro.porUnidade }
+    return depoisDeUmMinutoNaFrente(() =>
+      anotarNaLoja(
+        "produto_lido",
+        { items: [{ ...item, quantity: 1 }] },
+        { umaVez: `lido:${item.item_id}` }
+      )
+    )
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [primeiro?.varianteId])
 

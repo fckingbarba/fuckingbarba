@@ -4,6 +4,7 @@ import Image from "next/image"
 import { useRef, useState } from "react"
 import { Raio } from "@/components/icones"
 import type { VideoDaPdp } from "@/conteudo/produto"
+import { anotarNaLoja } from "@/lib/rastrear"
 
 /**
  * VÊ NA PRÁTICA — os vídeos do produto numa faixa própria, no fim da coluna
@@ -22,14 +23,21 @@ import type { VideoDaPdp } from "@/conteudo/produto"
  * cartão que abriu — quem navega por teclado continua de onde estava.
  *
  * Sem vídeo, a seção não aparece: faixa de "em breve" não vende nada.
+ *
+ * Abrir um vídeo anota o `video_assistido` pro CRM da loja (a navegação
+ * abandonada, entrega 0198), uma vez por sessão — com o mesmo "Aceitar" das
+ * tags, como tudo o que a loja anota.
  */
 export function VeNaPratica({
   videos,
   produto,
+  item,
 }: {
   videos: readonly VideoDaPdp[]
   /** O nome do produto, pro rótulo da janela quando o vídeo não tem nome. */
   produto: string
+  /** A variante, o nome e o preço (o formato do Google), pro CRM saber de qual produto é o vídeo. */
+  item: { item_id: string; item_name: string; price: number } | null
 }) {
   const tela = useRef<HTMLDialogElement>(null)
   const player = useRef<HTMLVideoElement>(null)
@@ -39,6 +47,12 @@ export function VeNaPratica({
   if (!videos.length) return null
 
   function abrir(video: VideoDaPdp, botao: HTMLButtonElement) {
+    if (item)
+      anotarNaLoja(
+        "video_assistido",
+        { items: [{ ...item, quantity: 1 }] },
+        { umaVez: `video:${item.item_id}` }
+      )
     quemAbriu.current = botao
     setAberto(video)
     tela.current?.showModal()

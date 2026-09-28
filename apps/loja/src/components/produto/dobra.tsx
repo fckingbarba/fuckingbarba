@@ -202,7 +202,19 @@ export async function Dobra({ handle }: { handle: string }) {
                 .
               </p>
             ) : null}
-            <VeNaPratica videos={videosDaFaixa(videos)} produto={produto.title} />
+            <VeNaPratica
+              videos={videosDaFaixa(videos)}
+              produto={produto.title}
+              item={
+                degraus[0]
+                  ? {
+                      item_id: degraus[0].varianteId,
+                      item_name: produto.title,
+                      price: degraus[0].porUnidade,
+                    }
+                  : null
+              }
+            />
           </div>
         </div>
       </section>
