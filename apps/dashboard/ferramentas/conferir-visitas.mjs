@@ -1,6 +1,9 @@
 /**
- * CONFERIDOR DAS VISITAS DO INÍCIO — o número e o bloco do Google Analytics,
- * pela tela e pela API, contra um Google falso (`google-falso.mjs`).
+ * CONFERIDOR DAS VISITAS DO INÍCIO — o que o Google Analytics conta, pela
+ * tela e pela API, contra um Google falso (`google-falso.mjs`): as visitas do
+ * dia (`GET /dashboard/visitas`, a do painel de antes da 0186) e as do
+ * período da barra de cima (`?periodo=`): o número e o gráfico, o que as
+ * visitas fizeram, as taxas e de onde vieram.
  *
  *   (o backend com as variáveis do GA4 apontando pro falso — ver AGENTS.md,
  *   "O painel da loja": uma chave gerada na hora, com `token_uri` no falso,
@@ -18,7 +21,8 @@
  * │ • a chave assinando errado, pedindo mais que leitura, ou um token novo │
  * │   a cada pergunta; o token revogado virando erro na tela;              │
  * │ • a operação recebendo o bloco (de onde vieram, os mais vistos) — na   │
- * │   tela OU na resposta;                                                 │
+ * │   tela OU na resposta; no período, o que as visitas fizeram e as taxas;│
+ * │ • o período contando fora do corte de hoje, ou sem o de antes;         │
  * │ • o Google fora, lento ou recusando e o Início esperando por ele, ou   │
  * │   quebrando;                                                           │
  * │ • rolagem de lado no celular; erro no console.                         │
@@ -97,6 +101,7 @@ const HORA = new Intl.DateTimeFormat("en-GB", {
 const diaDoGa4 = (ms) => DIA.format(ms).replace(/-/g, "")
 const HOJE = diaDoGa4(Date.now())
 const ONTEM = diaDoGa4(Date.now() - 24 * 60 * 60 * 1000)
+const ANTEONTEM = diaDoGa4(Date.now() - 2 * 24 * 60 * 60 * 1000)
 const HORA_AGORA = Number(HORA.format(Date.now()))
 
 /* ── os falsos, e o dia que o Google vai contar ───────────────────────────── */
@@ -192,7 +197,27 @@ const linhasDeOntem = PROTOTIPO.map((v, h) => ({
   hora: hora(h),
   visitas: Math.max(1, v - 2),
 }))
-google.dia.horas = [...linhasDeHoje(HORA_AGORA), ...linhasDeOntem]
+const ANTEONTEM_POR_HORA = PROTOTIPO.map((v) => Math.max(1, v - 4))
+const ANTEONTEM_TOTAL = ANTEONTEM_POR_HORA.reduce((s, v) => s + v, 0)
+const linhasDeAnteontem = ANTEONTEM_POR_HORA.map((v, h) => ({
+  dia: ANTEONTEM,
+  hora: hora(h),
+  visitas: v,
+}))
+google.dia.horas = [...linhasDeHoje(HORA_AGORA), ...linhasDeOntem, ...linhasDeAnteontem]
+// O Início no período (0186): as visitas com cada evento e as que viram uma categoria, por dia.
+google.inicio = {
+  eventos: [
+    { dia: HOJE, evento: "view_item", sessoes: 300 },
+    { dia: HOJE, evento: "add_to_cart", sessoes: 40 },
+    { dia: ONTEM, evento: "view_item", sessoes: 250 },
+    { dia: ONTEM, evento: "add_to_cart", sessoes: 30 },
+  ],
+  categorias: [
+    { dia: HOJE, sessoes: 120 },
+    { dia: ONTEM, sessoes: 90 },
+  ],
+}
 
 let tokenDoDono = ""
 
@@ -258,7 +283,12 @@ try {
     "os mais vistos: com o nome do Medusa, sem a página da lista",
     JSON.stringify(v.maisVistos)
   )
-  const lote = google.perguntas.find((p) => p.tipo === "batchRunReports")
+  // O lote do dia (três perguntas, "yesterday" a "today"): o Início novo pergunta o do período também.
+  const lote = google.perguntas.find(
+    (p) =>
+      p.tipo === "batchRunReports" &&
+      p.corpo.requests?.[0]?.dateRanges?.[0]?.startDate === "yesterday"
+  )
   const [pHoras, pOrigens, pPaginas] = lote?.corpo.requests ?? []
   ok(
     pHoras?.dateRanges?.[0]?.startDate === "yesterday" &&
@@ -274,6 +304,108 @@ try {
     google.jwtsRecusados.join(" | ")
   )
 
+  titulo("O Início no período, pela API (0186)")
+  // As visitas do período vêm por dia e hora, do começo do de antes ao fim do período;
+  // o corte de hoje é a última hora que o Google somou (em dia: a hora de agora, sem ela).
+  const doPeriodo = async (consulta, token = tokenDoDono) =>
+    medusa(`/dashboard/visitas?${consulta}`, { metodo: "GET", token })
+  {
+    const antesDasPerguntas = google.perguntas.length
+    const r = await doPeriodo("periodo=hoje")
+    const p = r.corpo.periodo ?? {}
+    ok(
+      r.status === 200 && r.corpo.estado === "ok" && Boolean(r.corpo.periodo),
+      "com o período no endereço, a resposta é a do período",
+      JSON.stringify(r.corpo).slice(0, 200)
+    )
+    const ate = p.ate
+    ok(
+      ate >= HORA_AGORA && ate <= HORA_AGORA + 1,
+      "em dia, hoje conta até a hora de agora (sem ela, que está pela metade)",
+      String(ate)
+    )
+    ok(
+      p.visitas?.valor === somar(PROTOTIPO, ate) &&
+        p.visitas?.antes === somar(ONTEM_POR_HORA, ate) &&
+        p.visitas?.variacao ===
+          Math.round(
+            ((somar(PROTOTIPO, ate) - somar(ONTEM_POR_HORA, ate)) / somar(ONTEM_POR_HORA, ate)) *
+              100
+          ),
+      "as visitas de hoje contra as de ontem, nas mesmas horas",
+      JSON.stringify(p.visitas)
+    )
+    ok(
+      p.barras?.length === 24 &&
+        p.barras.every(
+          (b, h) =>
+            b.visitas === (h <= HORA_AGORA ? PROTOTIPO[h] : 0) && b.antes === ONTEM_POR_HORA[h]
+        ),
+      "o gráfico hora a hora, com ontem inteiro no tracejado",
+      JSON.stringify(p.barras?.slice(0, 3))
+    )
+    ok(
+      JSON.stringify(p.comportamento) ===
+        JSON.stringify({ visitas: HOJE_TOTAL, categoria: 120, produto: 300, sacola: 40 }),
+      "o que as visitas fizeram: as visitas de hoje, as da categoria, as do produto e as da sacola",
+      JSON.stringify(p.comportamento)
+    )
+    const sacola = p.taxas?.sacola ?? {}
+    ok(
+      sacola.valor === Math.round((40 / HOJE_TOTAL) * 10_000) / 100 &&
+        sacola.antes === Math.round((30 / ONTEM_TOTAL) * 10_000) / 100 &&
+        sacola.de === 40 &&
+        sacola.em === HOJE_TOTAL,
+      "a taxa da sacola: as duas contas do Google, de hoje e de ontem",
+      JSON.stringify(sacola)
+    )
+    const compraram = p.taxas?.compraram ?? {}
+    ok(
+      Number.isInteger(compraram.de) &&
+        compraram.em === p.visitas?.valor &&
+        compraram.valor ===
+          (compraram.em ? Math.round((compraram.de / compraram.em) * 10_000) / 100 : null),
+      "a taxa das compras divide as vendas pelas visitas, no mesmo corte",
+      JSON.stringify(compraram)
+    )
+    ok(
+      JSON.stringify((p.origens ?? []).map((o) => [o.nome, o.visitas])) ===
+        JSON.stringify(ORIGENS) && p.agora === 9,
+      "de onde vieram e quem está no site agora",
+      JSON.stringify({ origens: p.origens, agora: p.agora })
+    )
+    const lote = google.perguntas.slice(antesDasPerguntas).find((x) => x.tipo === "batchRunReports")
+      ?.corpo.requests
+    const ontemComTraco = `${ONTEM.slice(0, 4)}-${ONTEM.slice(4, 6)}-${ONTEM.slice(6)}`
+    const hojeComTraco = `${HOJE.slice(0, 4)}-${HOJE.slice(4, 6)}-${HOJE.slice(6)}`
+    const temOEndereco = (q) =>
+      JSON.stringify(q?.dimensionFilter ?? {}).includes('"fieldName":"hostName"')
+    ok(
+      lote?.length === 4 &&
+        lote[0].dateRanges?.[0]?.startDate === ontemComTraco &&
+        lote[0].dateRanges?.[0]?.endDate === hojeComTraco &&
+        lote[2].dateRanges?.[0]?.startDate === hojeComTraco &&
+        lote.every(temOEndereco),
+      "quatro perguntas numa chamada, com as datas do período e só o endereço da loja",
+      JSON.stringify(lote?.map((q) => [q.dateRanges, (q.dimensions ?? []).map((d) => d.name)]))
+    )
+
+    const ontem = (await doPeriodo("periodo=ontem")).corpo.periodo ?? {}
+    ok(
+      ontem.ate === null &&
+        ontem.visitas?.valor === ONTEM_TOTAL &&
+        ontem.visitas?.antes === ANTEONTEM_TOTAL,
+      "ontem: o dia inteiro contra anteontem inteiro, sem corte",
+      JSON.stringify(ontem.visitas)
+    )
+    const semComparar = (await doPeriodo("periodo=ontem&comparar=nenhum")).corpo.periodo ?? {}
+    ok(
+      semComparar.visitas?.antes === null && semComparar.barras?.every((b) => b.antes === null),
+      "sem comparar, nada do de antes",
+      JSON.stringify(semComparar.visitas)
+    )
+  }
+
   titulo("A operação: só o número")
   {
     const r = await medusa("/dashboard/visitas", { metodo: "GET", token: cookieOp.value })
@@ -284,111 +416,123 @@ try {
       "a resposta da operação nem traz de onde vieram, os mais vistos ou a hora a hora",
       JSON.stringify(r.corpo)
     )
+    const doPeriodoOp = await doPeriodo("periodo=hoje", cookieOp.value)
+    ok(
+      doPeriodoOp.corpo.estado === "ok" &&
+        JSON.stringify(Object.keys(doPeriodoOp.corpo.periodo ?? {}).sort()) ===
+          JSON.stringify(["ate", "barras", "visitas"]),
+      "no período, também: só as visitas e o gráfico delas",
+      JSON.stringify(Object.keys(doPeriodoOp.corpo.periodo ?? {}))
+    )
     const { pagina } = op
     await pagina.goto(`${PAINEL}/`)
-    await pagina.waitForSelector('[data-visitas="ok"]')
+    await pagina.waitForSelector('[data-numero="visitas"] .barrinhas')
     ok(
-      semEspaco(await textoDe(pagina, '[data-visitas="ok"] .numero__valor')) ===
-        INTEIRO.format(HOJE_TOTAL),
+      semEspaco(await textoDe(pagina, '[data-numero="visitas"] .numero__valor')) ===
+        INTEIRO.format(doPeriodoOp.corpo.periodo.visitas.valor),
       "o número de visitas aparece",
-      await textoDe(pagina, '[data-visitas="ok"]')
+      await textoDe(pagina, '[data-numero="visitas"]')
     )
     ok(
-      (await pagina.locator("a.numero--botao").count()) === 0 &&
-        (await pagina.locator("#visitas").count()) === 0,
-      "sem o bloco e sem o link pra ele"
+      (await pagina
+        .locator('[data-bloco="visitas-fizeram"], [data-bloco="origens"], [data-taxa]')
+        .count()) === 0,
+      "sem o que as visitas fizeram, as taxas e de onde vieram"
     )
   }
 
-  titulo("O dono: o número e o bloco")
+  titulo("O dono: o número e os blocos")
   {
     const { pagina } = dono
-    const inicio = await medusa("/dashboard/inicio", { metodo: "GET", token: tokenDoDono })
-    const semana = inicio.corpo.grafico ?? []
-    const pagosOntem = semana[semana.findIndex((d) => d.hoje) - 1]?.pedidos ?? 0
     await pagina.goto(`${PAINEL}/`)
-    await pagina.waitForSelector("#visitas")
-    const agora = await medusa("/dashboard/visitas", { metodo: "GET", token: tokenDoDono })
-    const vv = agora.corpo.visitas
-    const numero = pagina.locator('a.numero--botao[href="#visitas"]')
-    ok(
-      (await numero.count()) === 1 &&
-        semEspaco(await numero.locator(".numero__valor").textContent()) ===
-          INTEIRO.format(HOJE_TOTAL),
-      "o número leva pro bloco"
+    await pagina.waitForSelector('[data-bloco="origens"] .barras-h')
+    const p = (await doPeriodo("periodo=hoje")).corpo.periodo
+    const cartao = pagina.locator('[data-numero="visitas"]')
+    const nota = semEspaco(
+      await cartao
+        .locator(".numero__antes")
+        .allTextContents()
+        .then((t) => t.join(" | "))
     )
     ok(
-      semEspaco(await numero.locator(".numero__sub").textContent()) ===
-        frase(vv.hoje, vv.comparacao),
-      `a comparação com ontem: “${frase(vv.hoje, vv.comparacao)}”`,
-      await numero.locator(".numero__sub").textContent()
-    )
-    const bloco = pagina.locator("#visitas")
-    const sub = semEspaco(await bloco.locator(".bloco__sub").first().textContent())
-    const ontem = semEspaco(await bloco.locator("[data-ontem]").textContent())
-    ok(
-      sub === `${INTEIRO.format(HOJE_TOTAL)} somadas pelo Google até agora` &&
-        ontem ===
-          `Ontem: ${INTEIRO.format(ONTEM_TOTAL)} visitas · ${PORCENTO.format((pagosOntem / ONTEM_TOTAL) * 100)}% viraram pedido pago`,
-      "o bloco diz o que o Google já somou, e a conta do pedido pago é a de ontem (que fechou)",
-      `${sub} | ${ontem}`
+      semEspaco(await cartao.locator(".numero__valor").textContent()) ===
+        INTEIRO.format(p.visitas.valor),
+      "o número de visitas é o da API",
+      await cartao.textContent()
     )
     ok(
-      semEspaco(await bloco.locator(".agora").textContent()) === "9 no site agora",
-      "quem está no site agora"
+      nota === `${INTEIRO.format(p.visitas.antes)} ontem até esta hora | hoje, até as ${p.ate}h`,
+      "o de antes e até que hora o Google somou hoje",
+      nota
     )
-    const colunas = bloco.locator(".barras-v__col")
-    const rotulos = (await colunas.locator(".barras-v__rot").allTextContents()).map(semEspaco)
-    // "agora" na hora de agora; 0h, 6h, 12h e 18h só longe dela (no celular, encavalariam).
-    const outros = rotulos.map((r, h) => [r, h]).filter(([r, h]) => r && h !== horaDaResposta)
+    const d = p.visitas.variacao
     ok(
-      (await colunas.count()) === 24 &&
-        rotulos[horaDaResposta] === "agora" &&
-        outros.every(([r, h]) => r === `${h}h` && h % 6 === 0 && Math.abs(h - horaDaResposta) > 3),
-      "o dia inteiro no eixo, com a hora de agora marcada",
-      rotulos.join(",")
-    )
-    const nomes = (lista) =>
-      bloco.locator(`h3:has-text("${lista}") + ul .barras-h__nome`).allTextContents()
-    ok(
-      JSON.stringify(await nomes("De onde vieram")) === JSON.stringify(ORIGENS.map((o) => o[0])),
-      "de onde vieram, na tela"
+      semEspaco(await cartao.locator(".variacao").textContent()) ===
+        `${d >= 0 ? "+" : "−"}${Math.abs(d)}%`,
+      "a variação, com a seta",
+      await cartao.locator(".variacao").textContent()
     )
     ok(
-      JSON.stringify(await nomes("Produtos mais vistos")) ===
-        JSON.stringify(MAIS_VISTOS.map((o) => o[0])),
-      "os mais vistos, na tela"
+      (await cartao.locator(".barrinhas rect").count()) ===
+        p.barras.filter((b) => b.visitas > 0).length &&
+        (await cartao.locator(".barrinhas polyline").count()) === 1,
+      "o gráfico: uma barra por hora com visita, e o tracejado de ontem"
     )
+    const degraus = await pagina
+      .locator('[data-bloco="visitas-fizeram"] .degrau')
+      .evaluateAll((ls) =>
+        ls.map((l) => [
+          l.querySelector(".degrau__nome")?.textContent,
+          l.querySelector(".degrau__n b")?.textContent,
+        ])
+      )
     ok(
-      /algumas horas de atraso/.test(await bloco.textContent()) &&
-        /Quem recusa os cookies fica de fora/.test(await bloco.textContent()),
-      "o bloco avisa do atraso do Google e de quem recusa os cookies"
+      JSON.stringify(degraus) ===
+        JSON.stringify([
+          ["Visitas", INTEIRO.format(HOJE_TOTAL)],
+          ["Viram uma categoria", "120"],
+          ["Viram um produto", "300"],
+          ["Puseram na sacola", "40"],
+        ]),
+      "o que as visitas fizeram, na tela",
+      JSON.stringify(degraus)
     )
-    const lado = await pagina
-      .locator(".grade-inicio > div:nth-child(2) > section .bloco__titulo")
-      .allTextContents()
+    const porcento = (v) => `${v.toFixed(2).replace(".", ",")}%`
+    const taxa = (dado) => textoDe(pagina, `[data-taxa="${dado}"] .taxa__valor b`).then(semEspaco)
     ok(
-      lado.map(semEspaco).join(" · ").startsWith("Pedidos de hoje · Visitas de hoje"),
-      "pro dono, o bloco vem depois dos pedidos de hoje",
-      lado.join(" · ")
+      (await taxa("sacola")) === porcento(p.taxas.sacola.valor) &&
+        (await taxa("compraram")) ===
+          (p.taxas.compraram.valor === null ? "—" : porcento(p.taxas.compraram.valor)),
+      "as taxas do Google, na tela",
+      `${await taxa("sacola")} · ${await taxa("compraram")}`
     )
-    await numero.click()
-    await pagina.waitForFunction(() => location.hash === "#visitas")
-    ok(new URL(pagina.url()).hash === "#visitas", "tocar no número desce até o bloco")
+    const nomes = await pagina.locator('[data-bloco="origens"] .barras-h__nome').allTextContents()
+    ok(
+      JSON.stringify(nomes) === JSON.stringify(ORIGENS.map((o) => o[0])) &&
+        semEspaco(await textoDe(pagina, '[data-bloco="origens"] .agora')) === "9 no site agora",
+      "de onde vieram e quem está no site agora, na tela"
+    )
+
+    await pagina.goto(`${PAINEL}/?periodo=ontem`)
+    await pagina.waitForSelector('[data-atalho="ontem"][aria-current]')
+    await pagina.waitForSelector('[data-numero="visitas"] .barrinhas')
+    ok(
+      semEspaco(await textoDe(pagina, '[data-numero="visitas"] .numero__valor')) ===
+        INTEIRO.format(ONTEM_TOTAL),
+      "ontem, na tela: o dia inteiro",
+      await textoDe(pagina, '[data-numero="visitas"]')
+    )
   }
 
   titulo("O marketing, no celular")
   {
     const { pagina } = mkt
     await pagina.goto(`${PAINEL}/`)
-    await pagina.waitForSelector("#visitas")
-    const lado = await pagina
-      .locator(".grade-inicio > div:nth-child(2) > section .bloco__titulo")
-      .allTextContents()
+    await pagina.waitForSelector('[data-bloco="origens"] .barras-h')
     ok(
-      semEspaco(lado[0]) === "Visitas de hoje",
-      "pro marketing, o bloco vem primeiro",
-      lado.join(" · ")
+      (await pagina.locator('[data-bloco="visitas-fizeram"] .degrau').count()) === 4 &&
+        (await pagina.locator("[data-taxa]").count()) === 3,
+      "o marketing vê o que as visitas fizeram e as três taxas"
     )
     ok(await semRolagemDeLado(pagina), "sem rolagem de lado no celular")
   }
@@ -416,7 +560,7 @@ try {
   {
     // Como em 24/09: o Google só somou até 3 horas atrás (o resto chega depois).
     const ultima = Math.max(0, HORA_AGORA - 3)
-    google.dia.horas = [...linhasDeHoje(ultima), ...linhasDeOntem]
+    google.dia.horas = [...linhasDeHoje(ultima), ...linhasDeOntem, ...linhasDeAnteontem]
     const r = await medusa("/dashboard/visitas", { metodo: "GET", token: tokenDoDono })
     const v = r.corpo.visitas ?? {}
     const h = (v.porHora?.length ?? 0) - 1
@@ -426,25 +570,29 @@ try {
       "a comparação para na última hora que o Google somou — nada de −92% num dia normal",
       `${JSON.stringify(v.comparacao)} (esperada ${JSON.stringify(esperada)})`
     )
+    const p = (await doPeriodo("periodo=hoje")).corpo.periodo ?? {}
+    const corte = ultima >= HORA_AGORA - 1 ? HORA_AGORA : ultima
+    ok(
+      p.ate === corte &&
+        p.visitas?.valor === somar(PROTOTIPO, corte) &&
+        p.visitas?.antes === somar(ONTEM_POR_HORA, corte),
+      "no período, também: hoje e ontem até a última hora que o Google somou",
+      JSON.stringify({ ate: p.ate, visitas: p.visitas })
+    )
     const { pagina } = dono
     await pagina.goto(`${PAINEL}/`)
-    await pagina.waitForSelector("#visitas")
+    await pagina.waitForSelector('[data-numero="visitas"] .barrinhas')
+    const notas = (
+      await pagina.locator('[data-numero="visitas"] .numero__antes').allTextContents()
+    ).map(semEspaco)
     ok(
-      semEspaco(await pagina.locator('[data-visitas="ok"] .numero__sub').textContent()) ===
-        frase(v.hoje, esperada),
-      `a tela diz até que hora compara: “${frase(v.hoje, esperada)}”`
-    )
-    const titulos = await pagina
-      .locator("#visitas .barras-v__col")
-      .evaluateAll((cs) => cs.map((c) => c.getAttribute("title") ?? ""))
-    ok(
-      titulos.slice(ultima + 1, h + 1).every((t) => t.endsWith("o Google ainda está somando")),
-      "as horas que ele ainda não somou dizem isso, em vez de parecer que ninguém entrou",
-      titulos.slice(ultima, h + 1).join(" | ")
+      notas.includes(corte ? `hoje, até as ${corte}h` : "o Google ainda está somando as de hoje"),
+      "a tela diz até que hora o Google somou",
+      notas.join(" | ")
     )
 
     // A propriedade em outro fuso: o "hoje" e a hora são os dela, não os de Brasília.
-    google.dia.horas = [...linhasDeHoje(HORA_AGORA), ...linhasDeOntem]
+    google.dia.horas = [...linhasDeHoje(HORA_AGORA), ...linhasDeOntem, ...linhasDeAnteontem]
     google.fuso = "America/Manaus"
     const horaEm = () =>
       Number(
@@ -469,17 +617,18 @@ try {
   titulo("Quando o Google falha, o Início não")
   {
     const { pagina } = dono
-    // Pelo atributo, e não pela posição: enquanto o Google não responde, o
-    // segundo filho de `.numeros` é o <template> do streaming, não o número.
-    const numeroDoGoogle = () => textoDe(pagina, "[data-visitas]")
+    const numeroDoGoogle = () => textoDe(pagina, '[data-numero="visitas"]')
     for (const [status, frase] of [
       [403, "o Google recusou a leitura"],
       [500, "o Google não respondeu agora"],
     ]) {
       google.recusar = status
       await pagina.goto(`${PAINEL}/`)
-      await pagina.waitForSelector(".numero--destaque")
-      await pagina.waitForSelector("[data-visitas]:not([data-visitas=carregando])")
+      await pagina.waitForSelector('[data-numero="receita"]')
+      await pagina.waitForFunction(() => {
+        const cartao = document.querySelector('[data-numero="visitas"]')
+        return Boolean(cartao) && !cartao.textContent.includes("perguntando")
+      })
       const texto = semEspaco(await numeroDoGoogle())
       ok(
         texto.includes(frase) && texto.includes("—"),
@@ -487,9 +636,11 @@ try {
         texto
       )
       ok(
-        (await pagina.locator("#visitas").count()) === 0 &&
-          (await pagina.locator(".bloco__titulo", { hasText: "Precisa de você" }).count()) === 1,
-        `Google ${status}: sem o bloco, e o resto do Início no lugar`
+        semEspaco(await textoDe(pagina, '[data-bloco="visitas-fizeram"] .sem-dados')) ===
+          `${frase}.` &&
+          (await pagina.locator(".bloco__titulo", { hasText: "Precisa de você" }).count()) === 1 &&
+          (await pagina.locator('[data-bloco="checkout"]').count()) === 1,
+        `Google ${status}: os blocos do Google dizem o porquê, e o resto do Início no lugar`
       )
     }
     google.recusar = null
@@ -498,10 +649,10 @@ try {
     google.demora = 2500
     const inicio = Date.now()
     await pagina.goto(`${PAINEL}/`, { waitUntil: "commit" })
-    await pagina.waitForSelector(".numero--destaque")
+    await pagina.waitForSelector('[data-numero="receita"]')
     const antesDasVisitas = Date.now() - inicio
     const esperando = semEspaco(await numeroDoGoogle())
-    await pagina.waitForSelector('[data-visitas="ok"]', { timeout: 15000 })
+    await pagina.waitForSelector('[data-numero="visitas"] .barrinhas', { timeout: 15000 })
     ok(
       /perguntando ao Google/.test(esperando) && antesDasVisitas < 2500,
       "Google lento: o Início aparece sem esperar, e o número chega depois",
@@ -509,9 +660,14 @@ try {
     )
     google.demora = 6500
     await pagina.goto(`${PAINEL}/`)
-    await pagina.waitForSelector("[data-visitas]:not([data-visitas=carregando])", {
-      timeout: 20000,
-    })
+    await pagina.waitForFunction(
+      () => {
+        const cartao = document.querySelector('[data-numero="visitas"]')
+        return Boolean(cartao) && !cartao.textContent.includes("perguntando")
+      },
+      null,
+      { timeout: 20000 }
+    )
     ok(
       semEspaco(await numeroDoGoogle()).includes("o Google não respondeu agora"),
       "Google parado: depois de 5 segundos, o número desiste e diz"

@@ -76,6 +76,13 @@ export async function subirGoogleFalso({
       /** Por variante: `[vezes vista, vezes posta na sacola]`. */
       itens: {},
     },
+    /**
+     * O Início no período (0186): as visitas com cada evento, por dia
+     * (`eventos`: { dia: "20260924", evento: "view_item", sessoes }), e as que
+     * viram uma página de categoria, por dia (`categorias`: { dia, sessoes }).
+     * As visitas por dia e hora e as origens são as do `dia`, acima.
+     */
+    inicio: { eventos: [], categorias: [] },
     /** O fuso da propriedade: resolve "today"/"yesterday" e vai em `metadata.timeZone`. */
     fuso: "America/Sao_Paulo",
     validosDesde: 0,
@@ -169,7 +176,29 @@ export async function subirGoogleFalso({
         metricas === "sessions"
           ? m.origens.map((o) => linha([o.fonte, o.meio, o.campanha], o.visitas))
           : m.vendas.map((v) => linha([v.fonte, v.meio, v.campanha], v.pedidos, v.receita))
-    else if (dims === "date,hour" && metricas === "ecommercePurchases")
+    else if (dims === "date,eventName") {
+      const pedidos = eventosPedidos(pedido.dimensionFilter)
+      rows = (painel.inicio.eventos ?? [])
+        .filter((e) => e.dia >= de && e.dia <= ate && (!pedidos || pedidos.includes(e.evento)))
+        .map((e) => linha([e.dia, e.evento], e.sessoes))
+    } else if (dims === "date") {
+      // As páginas de categoria: o filtro tem que ser a expressão do caminho (e compilar).
+      const caminho = [
+        pedido.dimensionFilter,
+        ...(pedido.dimensionFilter?.andGroup?.expressions ?? []),
+      ].find((f) => f?.filter?.fieldName === "pagePath")?.filter?.stringFilter
+      let valida = caminho?.matchType === "FULL_REGEXP"
+      try {
+        new RegExp(caminho?.value ?? "")
+      } catch {
+        valida = false
+      }
+      rows = valida
+        ? (painel.inicio.categorias ?? [])
+            .filter((c) => c.dia >= de && c.dia <= ate)
+            .map((c) => linha([c.dia], c.sessoes))
+        : []
+    } else if (dims === "date,hour" && metricas === "ecommercePurchases")
       rows = (painel.dia.compras ?? [])
         .filter((c) => c.dia >= de && c.dia <= ate)
         .map((c) => linha([c.dia, c.hora], c.compras))
