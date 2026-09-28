@@ -1812,6 +1812,25 @@ estiver gravado sai na próxima gravação da seção), o painel não edita e a 
 "resultado varia" do Fator segue nas Perguntas e no "Pra quem é". As regras `.promessa__rodape` e
 `.tempo__aviso` ficaram sem uso no CSS gerado do protótipo (`porte/pdp-partes`).
 
+**A página do Fator nos kits dele** (entrega 0200, pedido da loja em 28/09). Os quatro kits que
+trazem o Fator — 2x, 3x, 6x e o Fator + Shampoo (`KITS_DO_FATOR`; os mesmos do `copiaDe` do
+`secoes-da-pdp.json`, e um teste confere) — ganham a página do Fator como ela estiver no banco no
+deploy: todas as seções de `conteudo` (antes e depois e faixa inclusive), o `layout`, os `fundos` e
+os `videos`. Ficam os do kit a `combinada` (a caixa de compra) e o `seo`; nome, fotos, preço e
+avaliações nem moram no `fb_pdp`. No Fator + Shampoo ficam também a `rotina` e o `funciona` dele, que
+falam do shampoo (o `usoVideo` do Fator entra se o kit não tiver o dele), e as `duvidas` são as do
+Fator, na ordem dele — com a resposta do kit quando ele responde a mesma pergunta — e, no fim, as do
+kit que falam do shampoo. A regra é `lib/painel/pagina-do-fator-nos-kits.ts` (`paginaDoFatorNoKit`,
+pura, com testes: devolve a página já peneirada e o que `mudou`); a migração
+`migration-scripts/pagina-do-fator-nos-kits.ts` aplica UMA vez, pelo `mudarPdp`, e põe no log,
+inteiro, o que cada kit tinha nas partes trocadas (o caminho de volta). Com a página do Fator vazia,
+não copia nada. **Os vídeos são os mesmos arquivos nos cinco produtos**: tirar um vídeo no painel não
+apaga o arquivo (só o envio que falha no meio sai do armazenamento) — quem um dia escrever uma limpeza
+de arquivo "sem dono" tem que olhar o `fb_pdp` de todos os produtos. É cópia, não ligação: mudar o
+Fator depois não muda os kits. O `conferir-pdp` segue igual depois dela (as frases do arquivo
+continuam na página de cada kit). Pra repetir no banco local: `delete from script_migrations where
+script_name='pagina-do-fator-nos-kits.ts'` e `medusa db:migrate`.
+
 **A home** (fase 4, parte 1). O texto e a ordem da home saíram do código pro `metadata` da loja, na
 chave `fb_home` (`apps/backend/src/lib/home.ts`): duas versões, `publicado` (o que a loja mostra) e
 `rascunho` (`null` = nada esperando), cada uma com `conteudo` ESPARSO (só as seções salvas) e
