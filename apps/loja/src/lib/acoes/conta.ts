@@ -19,6 +19,7 @@ import {
   type EstadoEntrar,
   type Reenvio,
 } from "@/lib/conta-visivel"
+import { COOKIE_CONTA_ABERTA, OPCOES_DA_CONTA_ABERTA, sorteioDaConta } from "@/lib/reposicao"
 import { COOKIE_ENTRANDO, COOKIE_SESSAO, destinoSeguro, lerToken } from "@/lib/sessao"
 
 /**
@@ -140,6 +141,11 @@ export async function confirmarCodigo(anterior: EstadoCodigo, fd: FormData): Pro
 
   const jar = await cookies()
   jar.set(COOKIE_SESSAO, final, OPCOES_SESSAO)
+  // O que a home lê pra saber que a conta está aberta (o aviso da reposição, `lib/reposicao.ts`).
+  jar.set(COOKIE_CONTA_ABERTA, sorteioDaConta(), {
+    ...OPCOES_DA_CONTA_ABERTA,
+    maxAge: OPCOES_SESSAO.maxAge,
+  })
   jar.set(COOKIE_ENTRANDO, "", { ...OPCOES_ENTRANDO, maxAge: 0 })
   // Com o sim dos cookies, o CRM anota a entrada, e o navegador passa a ser desta conta.
   await anotarNoServidor({ nome: "conta_entrou", token: final })
@@ -184,5 +190,6 @@ export async function sair() {
     jar.delete(COOKIE_CARRINHO)
   }
   jar.set(COOKIE_SESSAO, "", { ...OPCOES_SESSAO, maxAge: 0 })
+  jar.set(COOKIE_CONTA_ABERTA, "", { ...OPCOES_DA_CONTA_ABERTA, maxAge: 0 })
   redirect("/conta/entrar?saiu=1")
 }
