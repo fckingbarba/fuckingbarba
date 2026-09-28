@@ -1400,17 +1400,23 @@ try {
           })
         ).json()
       ).cart
-    /** De madrugada (22h às 8h em Brasília) só o urgente sai: o toque que cairia lá vai pras 9h. */
+    /**
+     * De madrugada (22h às 8h em Brasília) só o urgente sai: o toque que cairia lá vai pras 8h05.
+     * Direto pras 8h05, e não em degraus de 15 minutos até as 9h: rodando perto das 21h, o degrau
+     * passava das 12 horas da sacola, e o motor pulava o de 1 hora. Brasília é UTC−3, sem horário
+     * de verão.
+     */
     const HORA_BR = new Intl.DateTimeFormat("en-US", {
       timeZone: "America/Sao_Paulo",
       hour: "numeric",
       hourCycle: "h23",
     })
     const diurno = (ms) => {
-      let t = ms
-      while (Number(HORA_BR.format(new Date(t))) >= 22 || Number(HORA_BR.format(new Date(t))) < 9)
-        t += 15 * MIN
-      return t
+      const h = Number(HORA_BR.format(new Date(ms)))
+      if (h >= 8 && h < 22) return ms
+      const b = new Date(ms - 3 * HORA)
+      const dia = Date.UTC(b.getUTCFullYear(), b.getUTCMonth(), b.getUTCDate() + (h >= 22 ? 1 : 0))
+      return dia + 3 * HORA + 8 * HORA + 5 * MIN
     }
     const deFluxo = (e) => !/^\[Teste\]/.test(e.subject ?? "")
 
@@ -1439,15 +1445,14 @@ try {
         e30.html.includes(`${LOJA}/voltar/${carrinho.id}.`) &&
         e30.html.includes("utm_campaign=crm-checkout") &&
         e30.html.includes("Você recebeu porque começou uma compra na FuckingBarba.") &&
-        // O lembrete sem desconto é pessoal: texto simples, assinado, sem o cabeçalho de oferta.
+        // O lembrete sem desconto tem a cara da marca, sai com o nome de quem assina e não
+        // leva o cabeçalho de oferta; o sair da lista fica no pé.
         !e30.headers?.["List-Unsubscribe"] &&
         /^Matheus, da FuckingBarba </.test(e30.from ?? "") &&
-        !e30.html.includes("<img") &&
-        e30.html.includes("Sair da lista") &&
-        // Os produtos só pelo nome: sem preço, e no texto sem o link de cada um.
-        e30.html.includes("• ") &&
-        ![e30.html, e30.text ?? ""].some((p) => p.includes("R$") || p.includes("/produtos/")),
-      "30 minutos: “Faltou só o pagamento”, pessoal — assinado, sem foto e sem preço, com o link, a campanha e o sair da lista",
+        e30.html.includes("Ousamos, criamos, cuidamos.") &&
+        e30.html.includes("Sair da lista em 1 clique") &&
+        (e30.text ?? "").includes("Sair da lista:"),
+      "30 minutos: “Faltou só o pagamento”, lembrete — a cara da marca, assinado, sem o cabeçalho de oferta, com o link, a campanha e o sair da lista",
       JSON.stringify({ r: r30.corpo, assunto: e30?.subject })
     )
     const de30 = await rodar({ agora: aos(35 * MIN, true), email: NO_CHECKOUT })
@@ -1790,7 +1795,12 @@ try {
       const comecoDaSacola = new Date(sacola.updated_at).getTime()
       const naSacola = (ms) => new Date(diurno(comecoDaSacola + ms)).toISOString()
       const doCarrinho = (e) => e.tags?.some((t) => t.name === "tipo" && t.value === "crm-carrinho")
-      const antes1h = await rodar({ agora: naSacola(59 * MIN), email: NA_SACOLA })
+      // O "antes" vai na hora de verdade: empurrado pra manhã (perto das 22h), ele passaria da
+      // 1 hora. De madrugada o motor também não manda nada, então a conta segue valendo.
+      const antes1h = await rodar({
+        agora: new Date(comecoDaSacola + 59 * MIN).toISOString(),
+        email: NA_SACOLA,
+      })
       const r1h = await rodar({ agora: naSacola(61 * MIN), email: NA_SACOLA })
       const e1h = await caixa.esperarEmail(
         NA_SACOLA,
