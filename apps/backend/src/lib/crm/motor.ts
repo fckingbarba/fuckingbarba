@@ -4,7 +4,7 @@ import { CRM } from "../../modules/crm"
 import { AVALIACOES } from "../../modules/avaliacoes"
 import type AvaliacoesService from "../../modules/avaliacoes/service"
 import type CrmService from "../../modules/crm/service"
-import type { RegistroLido } from "../../modules/crm/service"
+import type { RegistroLido, SunsetLido } from "../../modules/crm/service"
 import { EQUIPE } from "../../modules/equipe"
 import type EquipeService from "../../modules/equipe/service"
 import { lerConfiguracoes } from "../configuracoes"
@@ -14,6 +14,7 @@ import type { ProdutoDoCrm } from "../emails/crm"
 import { emailDaEstreia, type EstreiaDoEmail } from "../emails/estreia"
 import { emailDaJornada } from "../emails/jornada"
 import { emailDaReposicao } from "../emails/reposicao"
+import { emailDoResgate } from "../emails/resgate"
 import { emailDoFluxo, type CompraDoFluxo, type ItemDoFluxo } from "../emails/fluxos"
 import { urlDaLoja } from "../emails/moldura"
 import { mudarMetadataDaLoja } from "../metadata-da-loja"
@@ -37,9 +38,17 @@ import { produtosDosExemplos } from "./exemplos-dos-emails"
 import { publicoDaJornada, type JornadaDoPedido } from "./jornada"
 import { publicoDaReposicao, SUBIR_PARA, type Reposicao } from "./reposicao"
 import {
+  adormecido,
+  deuSinalDepois,
+  linksDoResgate,
+  publicoDoResgate,
+  type ResgateDaPessoa,
+} from "./resgate"
+import {
   CHAVE_DOS_FLUXOS,
   comecoDoPix,
   decidir,
+  DESCONTO_DO_RESGATE,
   DIAS_ENTRE_CUPONS,
   diasDoFluxo,
   fluxosLigados,
@@ -50,11 +59,13 @@ import {
   ehToqueDaReposicao,
   ehToqueDasBoasVindas,
   ehToqueDeCompra,
+  ehToqueDoResgate,
   lerConfigDosFluxos,
   PREFIXO_DO_CUPOM,
   PREFIXO_DO_CUPOM_DE_BOAS_VINDAS,
   registrosDoMotor,
   TOQUE_DA_ESCOLHA,
+  TOQUE_DA_RESPOSTA_DO_RESGATE,
   type Entrada,
   type IdDoFluxo,
   type Registro,
@@ -91,6 +102,14 @@ const DIA = 24 * 60 * 60 * 1000
 const POR_RODADA = 60
 const PAUSA_MS = 600
 
+/** Os fluxos que a pessoa começa sozinha: o adormecido (o sunset do resgate) só recebe estes. */
+const FLUXOS_DE_QUEM_AGE: ReadonlySet<IdDoFluxo> = new Set([
+  "pix",
+  "checkout",
+  "carrinho",
+  "boas-vindas",
+])
+
 export type RelatorioDosFluxos = {
   pessoas: number
   enviados: number
@@ -99,6 +118,8 @@ export type RelatorioDosFluxos = {
   pulados: number
   teto: number
   fora: number
+  /** Quem ficou de fora por estar adormecido (o sunset do resgate): só os fluxos que a pessoa começa. */
+  adormecidos: number
   falhas: number
   /** Os fluxos que ganharam a hora de início nesta rodada. */
   ligouAgora: IdDoFluxo[]
@@ -202,6 +223,7 @@ export async function rodarOsFluxos(
     pulados: 0,
     teto: 0,
     fora: 0,
+    adormecidos: 0,
     falhas: 0,
     ligouAgora: [],
   }
@@ -241,6 +263,7 @@ export async function rodarOsFluxos(
     checkout: janela("checkout"),
     carrinho: janela("carrinho"),
     "boas-vindas": janela("boas-vindas"),
+    resgate: janela("resgate"),
   }
   const maisCedo = (...datas: (Date | null)[]) => {
     const validas = datas.filter((d): d is Date => d !== null).map((d) => d.getTime())
@@ -259,6 +282,7 @@ export async function rodarOsFluxos(
       inicioDo.checkout,
       inicioDo.carrinho,
       inicioDo["boas-vindas"],
+      inicioDo.resgate,
       desdeDaEstreia
     ) ?? agora
   const query = container.resolve(ContainerRegistrationKeys.QUERY)
@@ -485,6 +509,21 @@ export async function rodarOsFluxos(
       comprou: false,
     })
   }
+  // O resgate: quem passou do dia de comprar de novo, a partir do dia em que ficou em risco.
+  const daResgate = ligados.resgate ? await publicoDoResgate(container, agora) : []
+  const resgates = new Map<string, ResgateDaPessoa>()
+  for (const r of daResgate) {
+    resgates.set(r.chave, r)
+    // O começo é o dia em que ficou em risco: ligar o resgate não dispara pra quem já estava.
+    entradas.push({
+      fluxo: "resgate",
+      chave: r.chave,
+      email: r.email,
+      comeco: r.desde,
+      inicio: r.desde,
+      comprou: comprouDepois(r.email, r.desde),
+    })
+  }
   if (so) {
     const quem = minusculo(so)
     entradas.splice(0, entradas.length, ...entradas.filter((e) => e.email === quem))
@@ -503,6 +542,14 @@ export async function rodarOsFluxos(
   const voltouPraLista = await quemVoltouPraLista(container, saidas)
   const fora = (email: string) =>
     equipe.has(email) || semEntrega.has(email) || (saidas.has(email) && !voltouPraLista.has(email))
+
+  // O sunset do resgate: quem recebeu o "Quer continuar recebendo?" e não deu sinal em 7 dias.
+  const sunsets = await crm.sunsetDosEmails(emails)
+  const adormecidos = await quemAdormeceu(container, sunsets, agora)
+  const sinalDoResgate = (email: string, desde: Date) => {
+    const s = sunsets.get(email)
+    return s ? deuSinalDepois([s.resposta, s.clique, s.abertura, s.visita], desde) : false
+  }
 
   const registrosDe = new Map<string, Registro[]>()
   for (const r of registrosDoMotor(lidos)) juntar(registrosDe, r.email, r)
@@ -525,6 +572,9 @@ export async function rodarOsFluxos(
   let daReposicaoLida: Promise<DadosDaReposicao> | null = null
   const reposicao = () =>
     (daReposicaoLida ??= lerDadosDaReposicao(container, [...reposicoes.values()]))
+  // O que os e-mails do resgate mostram: só se alguém dele for receber agora.
+  let doResgateLido: Promise<DadosDaReposicao> | null = null
+  const resgate = () => (doResgateLido ??= lerDadosDoResgate(container, [...resgates.values()]))
   // O que os e-mails da estreia mostram: só se alguém dela for receber agora.
   let dasEstreia: Promise<DadosDaEstreia> | null = null
   const estreia = () => (dasEstreia ??= lerDadosDaEstreia(container, daEstreia?.fila ?? []))
@@ -535,8 +585,14 @@ export async function rodarOsFluxos(
       relatorio.fora++
       continue
     }
+    // Adormecida (o sunset): só o que ela mesma começa — o Pix, o checkout, a sacola, o cadastro.
+    const dasEntradas = adormecidos.has(email)
+      ? dela.filter((e) => FLUXOS_DE_QUEM_AGE.has(e.fluxo))
+      : dela
+    if (dasEntradas.length < dela.length) relatorio.adormecidos++
+    if (!dasEntradas.length) continue
     const r = decidir({
-      entradas: dela,
+      entradas: dasEntradas,
       registros: registrosDe.get(email) ?? [],
       ligados,
       agora,
@@ -604,6 +660,95 @@ export async function rodarOsFluxos(
         relatorio.falhas++
         await crm.desfazerToque(reserva)
         logger.warn(`[crm] fluxos: o toque ${toque} da jornada não saiu — ${falha}`)
+      }
+      continue
+    }
+    if (entrada.fluxo === "resgate") {
+      const r = resgates.get(entrada.chave)
+      const toque = decisao.toque.id
+      if (!r || !ehToqueDoResgate(toque)) continue
+      const respondeu = lidos.some(
+        (x) =>
+          x.fluxo === "resgate" &&
+          x.chave === entrada.chave &&
+          x.toque === TOQUE_DA_RESPOSTA_DO_RESGATE
+      )
+      // Quem respondeu a pergunta não recebe o cupom; o sunset é só de quem não deu sinal nenhum
+      // (a resposta a este resgate, ou um clique, abertura ou visita depois do começo dele).
+      const lembrado =
+        toque === "resgate-9d"
+          ? cupomQueAindaVale(lidos, entrada.chave, agora, DESCONTO_DO_RESGATE, "resgate")
+          : null
+      const pular =
+        ((toque === "resgate-7d" || toque === "resgate-9d") && respondeu) ||
+        (toque === "resgate-7d" && !decisao.darCupom) ||
+        (toque === "resgate-9d" && !lembrado) ||
+        (toque === "resgate-45d" && (respondeu || sinalDoResgate(email, r.desde)))
+      const links = toque === "resgate-agora" || toque === "resgate-45d" ? linksDoResgate(r) : null
+      if (pular || ((toque === "resgate-agora" || toque === "resgate-45d") && !links)) {
+        if (await crm.anotarNoFluxo({ ...base, toque, como: "pulado" })) relatorio.pulados++
+        continue
+      }
+      const reserva = await crm.reservarToque({ ...base, toque })
+      if (!reserva) continue
+      let falha: string | null = null
+      let cupomCriado: { id: string; codigo: string; ate: Date } | null = null
+      try {
+        const dados = await resgate()
+        if (toque === "resgate-7d")
+          cupomCriado = await criarCupomDoFluxo(container, {
+            porcento: DESCONTO_DO_RESGATE,
+            agora,
+            validade: validadeDoCupom("resgate"),
+            campanha: "CRM (resgate)",
+          })
+        const handles = new Set<string>()
+        const email1 = emailDoResgate({
+          toque,
+          para: email,
+          nome: dados.nomes.get(email) ?? null,
+          acabou: r.componente ? CURTO_DO_COMPONENTE[r.componente] : null,
+          produtos: r.skus
+            .flatMap((s) => dados.porSku.get(s) ?? [])
+            .filter((p) => !handles.has(p.handle) && Boolean(handles.add(p.handle))),
+          botoes: links?.botoes ?? null,
+          sim: links?.sim ?? null,
+          cupom: cupomCriado
+            ? { codigo: cupomCriado.codigo, ate: cupomCriado.ate, porcento: DESCONTO_DO_RESGATE }
+            : lembrado,
+          voltar: r.pedido ? `/voltar/${linkDeVoltar(`repor-${r.pedido}`, agora)}` : null,
+          sair: linksDeSair(loja, email),
+          loja: infoDaLoja,
+        })
+        const enviado = email1
+          ? await enviarEmail(comQuemManda(email1), logger, {
+              idempotencia: `crm-resgate/${entrada.chave}/${toque}`,
+              tipo: "crm-resgate",
+            })
+          : { ok: false as const, motivo: "o e-mail do resgate ficou sem o que mostrar" }
+        if (enviado.ok) {
+          await crm.confirmarToque(reserva, {
+            resendId: enviado.id ?? null,
+            cupom: cupomCriado?.codigo ?? null,
+            cupomAte: cupomCriado?.ate ?? null,
+          })
+          relatorio.enviados++
+          if (cupomCriado) relatorio.cupons++
+          await new Promise((ok) => setTimeout(ok, PAUSA_MS))
+        } else falha = enviado.motivo
+      } catch (e) {
+        falha = e instanceof Error ? e.message : String(e)
+      }
+      if (falha !== null) {
+        relatorio.falhas++
+        await crm.desfazerToque(reserva)
+        // O cupom de um e-mail que não saiu não fica solto: a próxima rodada cria outro.
+        if (cupomCriado)
+          await container
+            .resolve(Modules.PROMOTION)
+            .deletePromotions([cupomCriado.id])
+            .catch(() => undefined)
+        logger.warn(`[crm] fluxos: o toque ${toque} do resgate não saiu — ${falha}`)
       }
       continue
     }
@@ -1007,6 +1152,61 @@ async function lerDadosDaReposicao(
     ),
   ])
   return { porSku, nomes }
+}
+
+/** Os produtos da última compra de quem está no resgate (pelo SKU) e o nome de cada um. */
+async function lerDadosDoResgate(
+  container: MedusaContainer,
+  resgates: readonly ResgateDaPessoa[]
+): Promise<DadosDaReposicao> {
+  const [porSku, nomes] = await Promise.all([
+    produtosPorSku(container, [...new Set(resgates.flatMap((r) => r.skus))]),
+    nomesDasPessoas(
+      container,
+      resgates.map((r) => r.email)
+    ),
+  ])
+  return { porSku, nomes }
+}
+
+/**
+ * QUEM ADORMECEU (o sunset do resgate, `adormecido`): recebeu o "Quer
+ * continuar recebendo?" e, em 7 dias, nem o "Sim", nem clique, visita ou
+ * compra. A compra vem dos pedidos da loja nova, sem janela: o sunset vale
+ * até a pessoa voltar.
+ */
+async function quemAdormeceu(
+  container: MedusaContainer,
+  sunsets: ReadonlyMap<string, SunsetLido>,
+  agora: Date
+): Promise<Set<string>> {
+  const comSunset = [...sunsets].filter(([, s]) => s.sunset).map(([email]) => email)
+  if (!comSunset.length) return new Set()
+  const { data } = await container.resolve(ContainerRegistrationKeys.QUERY).graph({
+    entity: "order",
+    fields: ["email", "created_at", "status"],
+    filters: { email: comSunset },
+  })
+  const ultimaCompra = new Map<string, Date>()
+  for (const o of data as { email?: string | null; created_at: string | Date; status?: string }[]) {
+    const email = minusculo(o.email)
+    if (!email || o.status === "canceled") continue
+    const em = new Date(o.created_at)
+    if (!ultimaCompra.has(email) || em > ultimaCompra.get(email)!) ultimaCompra.set(email, em)
+  }
+  return new Set(
+    comSunset.filter((email) => {
+      const s = sunsets.get(email)!
+      return adormecido(
+        {
+          sunset: s.sunset,
+          sim: s.sim,
+          sinais: [s.clique, s.visita, ultimaCompra.get(email) ?? null],
+        },
+        agora
+      )
+    })
+  )
 }
 
 /** O primeiro nome de cada pessoa: o da conta (ou do pedido), ou o da loja antiga. */

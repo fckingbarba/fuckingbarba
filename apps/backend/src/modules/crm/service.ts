@@ -69,6 +69,19 @@ export type RegistroLido = {
   cupom_ate: Date | null
 }
 
+/** O que o sunset do resgate lê de cada e-mail (`sunsetDosEmails`). */
+export type SunsetLido = {
+  /** Quando saiu o "Quer continuar recebendo?" mais novo. */
+  sunset: Date | null
+  /** O "Sim, quero continuar" mais novo. */
+  sim: Date | null
+  /** A resposta mais nova do resgate (qualquer botão). */
+  resposta: Date | null
+  clique: Date | null
+  abertura: Date | null
+  visita: Date | null
+}
+
 /** O toque que vai sair, reservado antes do envio. */
 export type ToqueReservado = {
   email: string
@@ -856,6 +869,123 @@ export default class CrmService extends Tabelas {
        do update set como = excluded.como, em = now(), updated_at = now()`,
       [generateEntityId(undefined, "env"), email, pedido, resposta]
     )
+  }
+
+  /**
+   * A RESPOSTA DO RESGATE (entrega 0192, `lib/crm/resgate.ts`): o botão da
+   * pergunta do dia, ou o "Sim" do sunset — uma linha por resgate, e a
+   * última vale. O cupom do "Tá caro" fica nela, e não se perde se a pessoa
+   * responder de novo.
+   */
+  @InjectManager()
+  async anotarRespostaDoResgate(
+    r: {
+      email: string
+      chave: string
+      resposta: string
+      cupom?: string | null
+      cupomAte?: Date | null
+    },
+    @MedusaContext() ctx: Contexto = {}
+  ): Promise<void> {
+    await ctx.manager!.execute(
+      `insert into crm_envio
+         (id, email, fluxo, chave, toque, como, em, cupom, cupom_ate, created_at, updated_at)
+       values (?, ?, 'resgate', ?, 'resgate-resposta', ?, now(), ?, ?, now(), now())
+       on conflict (fluxo, chave, toque) where deleted_at is null
+       do update set como = excluded.como, em = now(),
+         cupom = coalesce(excluded.cupom, crm_envio.cupom),
+         cupom_ate = coalesce(excluded.cupom_ate, crm_envio.cupom_ate),
+         updated_at = now()`,
+      [
+        generateEntityId(undefined, "env"),
+        r.email,
+        r.chave,
+        r.resposta,
+        r.cupom ?? null,
+        r.cupomAte ?? null,
+      ]
+    )
+  }
+
+  /** O cupom que a resposta deste resgate já deu ("Tá caro"), se deu: o clique repetido não cria outro. */
+  @InjectManager()
+  async cupomDaRespostaDoResgate(
+    chave: string,
+    @MedusaContext() ctx: Contexto = {}
+  ): Promise<{ codigo: string; ate: Date } | null> {
+    const [r] = (await ctx.manager!.execute(
+      `select cupom, cupom_ate from crm_envio
+        where deleted_at is null and fluxo = 'resgate' and toque = 'resgate-resposta' and chave = ?`,
+      [chave]
+    )) as { cupom: string | null; cupom_ate: Date | null }[]
+    return r?.cupom && r.cupom_ate ? { codigo: r.cupom, ate: new Date(r.cupom_ate) } : null
+  }
+
+  /**
+   * O SUNSET DE CADA E-MAIL (entrega 0192): quando saiu o último "Quer
+   * continuar recebendo?", o "Sim" e a resposta mais novos do resgate, e os
+   * sinais de vida — o último clique num e-mail da loja, a última abertura,
+   * a última anotação do site. Sem limite de data: o sunset vale até a pessoa
+   * voltar.
+   */
+  @InjectManager()
+  async sunsetDosEmails(
+    emails: string[],
+    @MedusaContext() ctx: Contexto = {}
+  ): Promise<Map<string, SunsetLido>> {
+    const lidos = new Map<string, SunsetLido>()
+    const de = (email: string): SunsetLido =>
+      lidos.get(email) ?? {
+        sunset: null,
+        sim: null,
+        resposta: null,
+        clique: null,
+        abertura: null,
+        visita: null,
+      }
+    const data = (d: Date | string | null) => (d ? new Date(d) : null)
+    for (const lote of emLotes([...new Set(emails)])) {
+      const [envios, emailsDaLoja, visitas] = await Promise.all([
+        ctx.manager!.execute(
+          `select email,
+                  max(em) filter (where toque = 'resgate-45d' and como in ('enviado', 'enviando')) as sunset,
+                  max(em) filter (where toque = 'resgate-resposta' and como = 'sim') as sim,
+                  max(em) filter (where toque = 'resgate-resposta') as resposta
+             from crm_envio
+            where deleted_at is null and fluxo = 'resgate' and email in (${lugares(lote)})
+            group by email`,
+          lote
+        ) as Promise<
+          { email: string; sunset: Date | null; sim: Date | null; resposta: Date | null }[]
+        >,
+        ctx.manager!.execute(
+          `select para as email, max(ultimo_clique_em) as clique,
+                  max(coalesce(ultima_abertura_em, aberto_em)) as abertura
+             from crm_email
+            where deleted_at is null and not equipe and para in (${lugares(lote)})
+            group by para`,
+          lote
+        ) as Promise<{ email: string; clique: Date | null; abertura: Date | null }[]>,
+        ctx.manager!.execute(
+          `select email, max(em) as visita from crm_evento
+            where deleted_at is null and email in (${lugares(lote)})
+            group by email`,
+          lote
+        ) as Promise<{ email: string; visita: Date | null }[]>,
+      ])
+      for (const e of envios)
+        lidos.set(e.email, {
+          ...de(e.email),
+          sunset: data(e.sunset),
+          sim: data(e.sim),
+          resposta: data(e.resposta),
+        })
+      for (const e of emailsDaLoja)
+        lidos.set(e.email, { ...de(e.email), clique: data(e.clique), abertura: data(e.abertura) })
+      for (const v of visitas) lidos.set(v.email, { ...de(v.email), visita: data(v.visita) })
+    }
+    return lidos
   }
 
   /** O e-mail saiu: a reserva vira envio, com o id do Resend e o cupom, se teve. */
