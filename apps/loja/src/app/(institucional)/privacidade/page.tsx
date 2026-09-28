@@ -135,10 +135,12 @@ export default async function Privacidade() {
           aí o seu endereço sai da lista de espera. Não é a newsletter: não vem mais nada depois.
         </P>
         <P>
-          <b>Se você avaliar um produto</b> (a página que abre pelo e-mail que a gente manda um dia
-          depois da entrega, um por compra): o nome que você escolher, a nota e o texto, ligados ao
-          pedido. Depois que a loja lê, o nome, a nota e o texto aparecem no site, na página do
-          produto — o número do pedido e o seu e-mail, não.
+          <b>Se você avaliar um produto</b> (pela página que abre no e-mail que a gente manda um dia
+          depois da entrega, ou pela mesma página com o número do pedido e o e-mail da compra): o
+          nome que você escolher, a nota e o texto, ligados ao pedido. O número e o e-mail só servem
+          pra conferir que a compra existe — o e-mail não fica guardado com a avaliação. Depois que
+          a loja lê, o nome, a nota e o texto aparecem no site, na página do produto — o número do
+          pedido e o seu e-mail, não.
         </P>
         <P>
           <b>Se você se inscrever pra gravar vídeos pra loja</b> (pelo link que a gente manda): o
@@ -171,9 +173,9 @@ export default async function Privacidade() {
           <b>Se você já comprou na loja antiga</b> (a FuckingBarba na Nuvemshop): vieram com você o
           seu e-mail, o primeiro nome, os pedidos e os carrinhos que ficaram no meio (datas,
           produtos e valores) e a sua escolha sobre receber ofertas. É o que deixa a loja saber
-          quando o seu produto está acabando. CPF, telefone, endereço e dados do cartão da loja
-          antiga não vieram, e e-mail de oferta só vai pra quem tinha aceitado lá — o aviso de que o
-          produto está acabando vai pra todo cliente.
+          quando o seu produto está acabando, e o que deixa você avaliar o que comprou lá. CPF,
+          telefone, endereço e dados do cartão da loja antiga não vieram, e e-mail de oferta só vai
+          pra quem tinha aceitado lá — o aviso de que o produto está acabando vai pra todo cliente.
         </P>
         <P>
           <b>Quando você tenta pagar com cartão</b>: pra barrar robô testando cartão roubado, a loja
