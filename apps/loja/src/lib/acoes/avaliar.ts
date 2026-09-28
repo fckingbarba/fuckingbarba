@@ -1,12 +1,7 @@
 "use server"
 
 import { redirect } from "next/navigation"
-import {
-  esquecerLinkDaAvaliacao,
-  guardarLinkDaAvaliacao,
-  lerLinkDaAvaliacao,
-  linkDaAvaliacao,
-} from "@/lib/avaliar"
+import { esquecerLinkDaAvaliacao, lerLinkDaAvaliacao } from "@/lib/avaliar"
 import {
   ERRO_DO_CAMPO,
   LIMITES,
@@ -107,9 +102,9 @@ export async function enviarAvaliacao(
 }
 
 /**
- * A página sem o link: o número do pedido e o e-mail da compra. Achou, o
- * link vai pro cookie e a página abre o pedido (o `redirect` passa pelo
- * `semQueda` da tela).
+ * A página sem o link: o número do pedido e o e-mail da compra. O link vai
+ * PRO E-MAIL DA COMPRA e nunca volta pra cá (`POST /store/avaliacoes/encontrar`):
+ * a resposta do Medusa é sempre a mesma, e a tela diz pra olhar o e-mail.
  */
 export async function encontrarPedido(
   anterior: EstadoDoEncontrar,
@@ -117,7 +112,7 @@ export async function encontrarPedido(
 ): Promise<EstadoDoEncontrar> {
   const numero = texto(fd, "numero").trim()
   const email = texto(fd, "email").trim()
-  const rodada = (anterior.tipo === "erro" ? anterior.rodada : 0) + 1
+  const rodada = (anterior.tipo === "inicio" ? 0 : anterior.rodada) + 1
   const erro = (t: string, campo?: "numero" | "email"): EstadoDoEncontrar => ({
     tipo: "erro",
     texto: t,
@@ -135,22 +130,13 @@ export async function encontrarPedido(
     corpo: { numero, email },
     extras: await cabecalhosDeQuemPede(),
   })
-  const link = r.status === 200 ? linkDaAvaliacao(r.corpo.p) : null
-  if (link) {
-    await guardarLinkDaAvaliacao(link)
-    redirect("/avaliar")
-  }
+  if (r.status === 200) return { tipo: "mandado", email, rodada }
   if (r.status === 400 && r.corpo.campo === "email")
     return erro("Confere o e-mail: parece que falta alguma coisa.", "email")
   if (r.status === 400)
     return erro("Escreva o número do pedido (está no e-mail da compra).", "numero")
-  if (r.status === 404)
-    return erro(
-      "Não achei um pedido com esse número e esse e-mail. Confere os dois — o e-mail é o da compra."
-    )
-  if (r.status === 409) return erro(NAO_ACEITA)
   if (r.status === 429) return erro(LIMITE)
-  return erro("Não consegui procurar agora. Tenta de novo em instantes.")
+  return erro("Não consegui mandar agora. Tenta de novo em instantes.")
 }
 
 /** "Não é este pedido": esquece o link e volta pra busca. */
