@@ -599,6 +599,23 @@ export default class CrmService extends Tabelas {
     )) as PessoaLidaDaBase[]
   }
 
+  /**
+   * Os itens dos pedidos PAGOS da loja antiga feitos desde `desde` — a parte
+   * da Nuvemshop nos mais vendidos da home (`api/store/mais-vendidos`,
+   * `lib/mais-vendidos.ts`). Só os itens: nada de e-mail, número ou valor.
+   */
+  @InjectManager()
+  async vendidosDaBase(
+    desde: Date,
+    @MedusaContext() ctx: Contexto = {}
+  ): Promise<{ itens: unknown }[]> {
+    return (await ctx.manager!.execute(
+      `select itens from crm_base_pedido
+        where deleted_at is null and pagamento = 'confirmado' and feito_em >= ?`,
+      [desde]
+    )) as { itens: unknown }[]
+  }
+
   /** Os pedidos da base — de um e-mail (a ficha), ou todos (as contas da aba). */
   @InjectManager()
   async pedidosDaBase(

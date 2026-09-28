@@ -107,7 +107,7 @@ export const SECOES: readonly Secao[] = [
     id: "home.colecao",
     escopo: "home",
     nome: "Carrossel de coleção",
-    descricao: "Faixa de produtos que rola de lado.",
+    descricao: "Faixa de produtos que rola de lado, dos mais vendidos pros menos.",
     componente: Colecao,
   },
   {
@@ -144,7 +144,7 @@ export const SECOES: readonly Secao[] = [
     id: "home.vitrine",
     escopo: "home",
     nome: "Vitrine",
-    descricao: "Grade com o catálogo inteiro.",
+    descricao: "Grade com os 8 mais vendidos e o botão pra ver todos.",
     componente: Vitrine,
   },
   {

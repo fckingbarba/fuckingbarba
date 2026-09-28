@@ -4013,9 +4013,37 @@ comando rodando na pasta de cada app: 10 casos × loja e painel × `sh` e `bash`
 nova, redeploy, só ESTADO/AGENTS, só backend, só loja, o acumulado desde o último deploy, o
 `package-lock.json` e o deploy anterior fora da cópia (este monta, por garantia).
 
-- [ ] **Depois do deploy (você):** Vercel → Settings → Billing → Spend Management. Se o "Pause
+- [x] **Depois do deploy (você):** Vercel → Settings → Billing → Spend Management. Se o "Pause
       Production Deployments" estiver ligado, a loja sai do ar quando o gasto bater o limite.
-      Deixe desligado, só com o aviso por e-mail.
+      Deixe desligado, só com o aviso por e-mail. — Conferido por print em 28/09: "Pause" e
+      webhook desligados.
+
+**Os mais vendidos primeiro na home, e a vitrine com 8 — pronto em 28/09 (entrega 0180).** Pedido
+dele: "nas listagens de produtos da home, gostaria que aparecesse em ordem os mais vendidos e na
+seção Todos os produtos apenas mostrar 8 produtos e não todo catálogo".
+
+- **O carrossel e a vitrine "Todos os produtos" começam pelo que mais vendeu** nos últimos 90
+  dias, em unidades — somando a loja nova e a Nuvemshop (a base de vendas importada no CRM em
+  27/09). Com o tempo, a Nuvemshop sai da conta sozinha (no fim de dezembro, 90 dias depois da
+  virada).
+- **A vitrine mostra 8** (era o catálogo, até 12); o carrossel segue com até 12, e o "Ver todos
+  os produtos" leva pro resto.
+- **Vendido é pago:** Pix esperando, pedido cancelado, recusado ou estornado não contam.
+- **Esgotado vai pro fim**, pra um "Avise-me" não ocupar o lugar de um mais vendido.
+- O palco "Alta performance" continua na ordem escolhida no painel.
+- O título da vitrine continua o do painel ("Todos os produtos"). Agora que a grade está na ordem
+  de venda, "Os mais vendidos" também é verdade: é só trocar em Layout da home, se quiser.
+
+Conferido no Medusa local, com pedidos de teste (pagos, um Pix esperando, um pago e depois
+cancelado) e uma base da Nuvemshop de mentira (com um pedido de 120 dias atrás, um recusado e um
+estornado): a ordem saiu exatamente a esperada. O `conferir-catalogo` ganhou a seção 14 (a vitrine
+e o carrossel contra a ordem da API): 40/40 em três rodadas, e de novo com o mais vendido esgotado
+(ele foi pro fim); contra a home de antes, as duas checagens novas falham. E os unitários (1.441,
+13 novos), o typecheck do backend (com os tipos do `medusa build`), da loja e do painel, o lint e
+o prettier.
+
+Depois do deploy — **nada a configurar.** Se a loja subir antes do Railway, a home fica alguns
+minutos na ordem de sempre e troca sozinha.
 
 ## Como seguir no Claude Code
 
