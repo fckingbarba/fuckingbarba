@@ -2229,6 +2229,32 @@ Conferido pelo `conferir-pdp.mjs` (69) e pelo `conferir-produtos.mjs` do painel 
 
 Depois do deploy — **nada a configurar.**
 
+**A página do Fator nos kits dele — pronto em 28/09 (entrega 0200).** Pedido dele: a página do
+Fator de Crescimento em todos os kits que têm o Fator, com os vídeos, e o preço de cada kit como está.
+
+- **Os 4 kits que trazem o Fator** — Kit 2x, 3x, 6x e o Kit Fator + Shampoo — ficam com a página do
+  Fator como ela estiver no dia do deploy: os 4 vídeos do "Vê na prática", os casos de antes e
+  depois, as Perguntas do jeito que você editou no Fator e o resto das seções, na mesma ordem. O Kit
+  Completo não entra: ele não traz o Fator.
+- **Fica de cada kit:** o preço, o nome, as fotos, a caixa de compra (o "Leve junto") e a descrição
+  no Google.
+- **No Kit Fator + Shampoo** (escolha sua): continuam dele a rotina "O que completa o kit" e o modo
+  de uso com o shampoo; nas Perguntas, as do Fator e, no fim, as 2 do shampoo.
+- **As avaliações** continuam as de cada produto: as do Fator ficam no Fator (os kits ainda não têm).
+- **É uma cópia, uma vez:** mudar o Fator no painel depois não muda os kits — cada página se edita
+  na dela. Os vídeos são os mesmos arquivos: tirar um vídeo de um kit não mexe no Fator. O que cada
+  kit tinha antes fica anotado no log do deploy, no Railway, se um dia quiser voltar.
+
+Conferido no Medusa local, com o Fator e os 4 kits como estão no ar (os vídeos, os casos, as
+Perguntas editadas, o "Leve junto"): pelo mesmo comando do deploy, cada kit ficou com os 4 vídeos, os
+casos e as seções do Fator, com o preço, a caixa de compra e a descrição de antes; rodada de novo,
+não mudou nada; com a página do Fator vazia, não mexeu nos kits. E o `conferir-pdp` (72/74 — as 2 do
+spray, de sempre), os unitários (1.625, 27 novos), o typecheck, o `medusa lint`, o `medusa build` e o
+prettier.
+
+Depois do deploy — **nada a configurar.** Pra conferir: abrir o Kit 2x e o Kit Fator + Shampoo na
+loja e rolar a página.
+
 **Painel: Marketing, parte 3 — os Produtos e as Ofertas — pronto em 26/09 (entrega 0113).**
 
 Mais duas abas no Marketing:
