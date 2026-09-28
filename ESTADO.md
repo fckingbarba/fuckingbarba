@@ -3576,7 +3576,35 @@ que você aprovou: o nome e o e-mail em troca de um cupom.
 - [ ] **Depois do deploy (você):** abra a loja numa janela anônima e espere uns 20 segundos pra ver
       o pop-up. Se quiser testar o cadastro, use um e-mail que nunca comprou. Pra desligar, é a
       chave das Boas-vindas em CRM → Fluxos.
-- [ ] **A próxima parte (0178):** a sequência das boas-vindas, com as 4 trilhas do protótipo.
+- [x] **A próxima parte (0178):** a sequência das boas-vindas, com as 4 trilhas do protótipo (logo
+      abaixo).
+
+**CRM, parte 10: os e-mails de boas-vindas, por trilha — pronto em 27/09 (entrega 0178).** Depois
+do cupom do pop-up, chegam os e-mails da trilha de quem se cadastrou, como no protótipo aprovado.
+
+- **A trilha** é o que a pessoa estava vendo quando se cadastrou:
+  - viu o Fator, ou um kit com ele: crescer a barba;
+  - viu óleo, balm, shampoo ou o Kit Completo: cuidar da barba;
+  - viu as pastas ou o spray, ou estava em "Para cabelo": cabelo;
+  - estava na home, em "Para barba" ou em "Kits": ela escolhe no "Barba ou cabelo?".
+- **Os e-mails:**
+  - **1 dia:** o começo da trilha. É quando o resultado do Fator aparece, a rotina da barba em 3
+    passos, matte ou brilho, ou o "Barba ou cabelo?";
+  - **2 dias:** o cupom vence amanhã;
+  - **5 dias:** como usar (ou óleo ou balm);
+  - **7 dias:** as perguntas que todo mundo faz;
+  - **10 dias:** o melhor preço (o tratamento de 90 dias, ou o Kit Completo).
+- **O texto vem das páginas dos produtos**: a linha do tempo, o modo de uso, as dúvidas. O e-mail
+  diz o que a loja já diz. Se você mudar uma seção na página do produto, o e-mail muda junto.
+- **Comprou, parou.** Se a pessoa abrir o checkout, os e-mails do checkout vêm antes.
+- **Sem grupo de controle:** foi a pessoa que pediu.
+- **Cai onde:** os de 1, 5 e 7 dias são conteúdo. Têm a cara da loja e saem como os lembretes,
+  sem as frases de promoção. O do cupom vai pra Promoções, como todo e-mail com desconto. O de 10
+  dias vende (o melhor preço) e pode ir pra lá também.
+- **No pop-up,** a frase nova: "Se não achar, olha na aba Promoções".
+
+- [ ] **Depois do deploy (você):** CRM → Fluxos → Boas-vindas → "Mandar pra mim" nos dias novos
+      (o exemplo é a trilha de quem quer a barba crescendo).
 
 **A parcela mínima do cartão, editável — pronta em 27/09 (entrega 0157).** O pedido dele: "quero
 poder editar a parcela mínima no cartão, ali diz 5 reais". Em **Configurações → Pagamento**, o

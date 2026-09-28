@@ -2764,6 +2764,54 @@ nascem com o `fb_popup` (`faixa-respondida.mjs`, `pecas.mjs` e `conferir-integra
 20 segundos o pop-up cobriria o botão, como a faixa cobria. O `conferir-crm.mjs` confere o bloco
 Boas-vindas, o "Mandar pra mim" dele e a chave ligando e desligando o pop-up.
 
+**O CRM, parte 10: a sequência das boas-vindas** (entrega 0178). Depois do cupom do pop-up vêm os
+e-mails da TRILHA de quem se cadastrou: 1, 2, 5, 7 e 10 dias depois. Quem manda é o motor.
+
+- **O fluxo** `boas-vindas` ganhou os toques `boas-vindas-1d` … `-10d` e `semControle` (a pessoa
+  pediu). A entrada no motor é cada cadastro do pop-up (`crm.cadastrosDasBoasVindas`, o toque
+  `boas-vindas-agora` que saiu), com a chave = o e-mail. Ela vem por último na fila
+  (prioridade 4): se a pessoa abre o checkout, o fluxo do checkout manda nela, e os dias que passarem
+  nesse meio ficam como pulados. Comprou, parou.
+- **A trilha, na hora de cada e-mail** (`trilhaDaPessoa`, em `lib/crm/boas-vindas.ts`):
+  - a escolha do "Barba ou cabelo?" vale mais;
+  - depois, a página do cadastro (`pagina`, na newsletter), pelo `trilhaDaPagina`.
+- **O conteúdo é o da página de cada produto** (`fb_pdp`, lido por `lerPdp` em
+  `conteudosDasTrilhas`): a linha do tempo, o modo de uso com a dica, as dúvidas e a promessa, sem
+  as estrelas da ênfase (`semMarcas`). O e-mail não inventa o que a página não diz, e a página sem
+  a seção faz o dia virar pulado. Os produtos de cada trilha estão em `PRODUTOS_DAS_TRILHAS`; o
+  nome curto com o artigo ("a pasta matte"), em `CURTOS`.
+- **Os e-mails de cada trilha** (`emailDaTrilha`, `lib/emails/boas-vindas.ts`):
+  - **crescimento:** 1 dia, quando o resultado aparece (a linha do tempo do Fator e até 2
+    avaliações aprovadas); 5 dias, o modo de uso; 7 dias, as dúvidas; 10 dias, o tratamento de 90
+    dias com 3 unidades;
+  - **cuidado:** 1 dia, a rotina em 3 passos (o modo de uso do Kit Completo); 5 dias, óleo ou balm
+    (a promessa de cada um, com a dica do kit); 7 dias, as dúvidas do que a pessoa viu; 10 dias,
+    o Kit Completo;
+  - **cabelo:** 1 dia, matte ou brilho (a promessa das duas pastas); 5 dias, como aplicar; 7 dias,
+    as dúvidas. Não tem o de 10 dias;
+  - **geral:** 1 dia, "Barba ou cabelo?", com os 3 botões de escolha; 5 dias, as dúvidas da loja
+    (o prazo de postagem e o frete grátis das Configurações, o pagamento e a troca). Sem escolha,
+    para aí;
+  - **2 dias, em todas:** o cupom do pop-up vence amanhã. É oferta; os outros são lembrete.
+- **O link de escolha** (`lib/crm/escolha.ts`): o e-mail e a trilha cifrados (AES-256-GCM, chave
+  derivada do `JWT_SECRET`, como a do sair da lista). `GET /crm/escolha?t=…` anota
+  (`crm.anotarEscolha`: o toque `boas-vindas-escolha` no registro, com a trilha no `como`, e a última
+  vale) e manda pra loja, na página da escolha, com a campanha. A escolha não é e-mail: não conta
+  no teto (`registrosDoMotor`, em `lib/crm/fluxos.ts`, deixa o `TOQUE_DA_ESCOLHA` de fora) nem na
+  tela.
+- **O modelo de e-mail** ganhou 3 blocos (`lib/emails/crm.ts`), na marca, no texto e no pessoal:
+  - `lista`, o modo de uso na vertical;
+  - `perguntas`, as dúvidas;
+  - `escolhas`, os botões com endereço pronto.
+- **O "Mandar pra mim"** dos dias novos manda a trilha do crescimento.
+- **`dadosDaLoja` e `comQuemManda`** foram pra `lib/crm/envio.ts`: o motor e o cadastro do pop-up
+  importavam um ao outro.
+
+O `conferir-crm.mjs` faz as duas pessoas de ponta a ponta, com o tempo andando:
+- quem se cadastrou no óleo recebe os 6 e-mails da trilha do cuidado;
+- quem não viu produto recebe o "Barba ou cabelo?", clica em "Cuidar da barba" e passa a receber
+  os do cuidado.
+
 **O preço e o promocional no painel** (entregas 0098 e 0102): os dois campos de cada produto na
 lista de Produtos, como na Nuvemshop (a 0098 tinha só o promocional, atrás de um botão). A regra é
 `lib/painel/promocao.ts`, pura: `lerMudancaDePreco` (o corpo `{ preco?, promocional? }` contra o
