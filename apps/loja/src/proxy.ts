@@ -75,6 +75,8 @@ const PAGINAS_RAIZ = new Set([
   "avaliar",
   // O "Sair da lista" dos e-mails de oferta (o link vem no rodapé deles).
   "sair",
+  // A página escondida dos criadores (o link vai por mensagem, pra quem a loja chama).
+  "criadores",
   // `/produtos` (a lista inteira). `/produtos/<handle>` tem dois segmentos e
   // nunca caiu nesta peneira, o que torna o esquecimento aqui especialmente
   // traiçoeiro: a PDP funcionaria e só a lista daria 404.

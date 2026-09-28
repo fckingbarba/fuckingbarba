@@ -1,0 +1,11 @@
+/*
+  O CSS DA PÁGINA DOS CRIADORES (/criadores) — importado só por
+  app/criadores/page.tsx.
+
+  O bloco e os campos da inscrição são os do checkout (.bloco, .campos,
+  .campo, .campo__erro, .giro): quem vem dos anúncios da loja reconhece o
+  formulário. Por cima, o que é só daqui (../criadores.css).
+*/
+@import "../checkout.css";
+@import "../checkout-loja.css";
+@import "../criadores.css";

@@ -11,8 +11,9 @@
  *
  * QUANDO NÃO APARECE:
  *   - no checkout, na conta e nas páginas de passagem (o link do cupom, o de
- *     voltar, o de sair da lista, a avaliação) e nas de lei (privacidade,
- *     termos, trocas);
+ *     voltar, o de sair da lista, a avaliação), nas de lei (privacidade,
+ *     termos, trocas) e na dos criadores (quem chega lá vem se inscrever pra
+ *     gravar, não comprar — o cupom por cima da proposta atrapalharia);
  *   - pra quem entrou na conta, comprou neste navegador (`fb_cliente`), se
  *     cadastrou (no pop-up ou na newsletter do rodapé) ou fechou o pop-up nos
  *     últimos 30 dias (`fb_popup`).
@@ -58,6 +59,7 @@ const SEM_POPUP = [
   "/voltar",
   "/sair",
   "/avaliar",
+  "/criadores",
   "/privacidade",
   "/termos",
   "/trocas",

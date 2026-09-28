@@ -1,0 +1,1306 @@
+/*
+  A PÁGINA DOS CRIADORES — escrito à mão. A página escondida da proposta pra
+  quem grava vídeo pra loja: a marca inteira (menta, preto, amarelo, sombra
+  dura, título em caixa alta inclinado) e a faixa zebrada no topo de cada
+  seção, como na home.
+
+  Os números da oferta não moram aqui: saem de `lib/criadores-visivel.ts`.
+*/
+
+.criadores {
+  flex: 1 0 auto;
+  width: 100%;
+  --criadores-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+  --criadores-no-escuro: #c9d1d9;
+}
+.criadores .num {
+  font-variant-numeric: tabular-nums;
+}
+.criadores__wrap {
+  max-width: 1160px;
+  margin-inline: auto;
+  padding-inline: clamp(16px, 4vw, 32px);
+}
+.criadores__secao {
+  position: relative;
+  padding-block: clamp(56px, 8vw, 104px);
+}
+.criadores--branco {
+  background: #ffffff;
+}
+
+/* A faixa zebrada do topo das seções — a mesma do `.benefits::before` da home. */
+.criadores--faixa {
+  position: relative;
+}
+.criadores--faixa::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 10px;
+  z-index: 2;
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--color-tinta) 0 14px,
+    var(--color-amarelo) 14px 28px
+  );
+}
+.criadores__passos.criadores--faixa::before {
+  background: repeating-linear-gradient(-45deg, #000 0 14px, var(--color-amarelo) 14px 28px);
+}
+
+/* ── os títulos ─────────────────────────────────────────────────────────── */
+
+.criadores__titulo,
+.criadores__h2,
+.criadores__h3 {
+  margin: 0;
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+.criadores__titulo {
+  font-size: clamp(2.7rem, 7.2vw, 5.7rem);
+  line-height: 0.95;
+}
+.criadores__titulo mark {
+  display: inline-block;
+  margin-top: 0.12em;
+  padding: 0.04em 0.16em 0.02em 0.1em;
+  background: var(--color-amarelo);
+  color: var(--color-tinta);
+  box-shadow: 5px 5px 0 0 var(--color-tinta);
+}
+.criadores__h2 {
+  font-size: clamp(2rem, 4.6vw, 3.4rem);
+  line-height: 1.02;
+}
+.criadores__h3 {
+  font-size: clamp(1.3rem, 2.4vw, 1.7rem);
+  line-height: 1.05;
+}
+.criadores__rotulo {
+  display: block;
+  margin: 0 0 12px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.criadores--branco .criadores__rotulo {
+  color: var(--color-menta-escura);
+}
+.criadores__lead {
+  margin: 16px 0 0;
+  max-width: 40em;
+  font-size: 1.1rem;
+  line-height: 1.5;
+}
+.criadores--branco .criadores__lead {
+  color: var(--color-tinta-suave);
+}
+.criadores__estrela {
+  width: 1em;
+  height: 1em;
+  flex: none;
+  fill: currentColor;
+}
+
+/* ── o topo ─────────────────────────────────────────────────────────────── */
+
+.criadores__heroi {
+  padding-block: clamp(40px, 6vw, 76px) clamp(56px, 8vw, 96px);
+}
+.criadores__heroi-grade {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+  gap: clamp(36px, 5vw, 64px);
+  align-items: center;
+}
+.criadores__selo {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 20px;
+  padding: 7px 12px;
+  background: var(--color-tinta);
+  color: var(--color-menta);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px);
+}
+.criadores__heroi-lead {
+  margin: 26px 0 30px;
+  max-width: 33em;
+  font-size: clamp(1.05rem, 1.5vw, 1.22rem);
+}
+.criadores__heroi-lead strong {
+  font-weight: 800;
+}
+.criadores__acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+}
+.criadores__garantias {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 24px;
+  margin: 30px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+.criadores__garantias li {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.criadores__garantias .criadores__estrela {
+  font-size: 1.15rem;
+}
+
+/* O celular gravando. */
+.criadores__camera {
+  display: grid;
+  justify-items: center;
+  gap: 18px;
+  margin: 0;
+}
+.criadores__celular {
+  width: min(292px, 78vw);
+  max-width: 100%;
+  padding: 10px;
+  background: var(--color-tinta);
+  box-shadow:
+    10px 10px 0 0 var(--color-amarelo),
+    10px 10px 0 2px var(--color-tinta);
+}
+.criadores__tela {
+  position: relative;
+  aspect-ratio: 9 / 16;
+  max-width: 100%;
+  overflow: hidden;
+  background: #ffffff;
+}
+.criadores__foto {
+  position: absolute;
+  top: 6%;
+  left: 0;
+  right: 0;
+  height: 72%;
+}
+.criadores__foto img {
+  object-fit: cover;
+  mix-blend-mode: multiply;
+}
+.criadores__grade {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(18, 24, 31, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(18, 24, 31, 0.1) 1px, transparent 1px);
+  background-size: 33.34% 33.34%;
+  background-position: -1px -1px;
+}
+.criadores__hud {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  right: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--criadores-mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+.criadores__pilula {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 7px;
+  background: var(--color-tinta);
+  color: #ffffff;
+  font-variant-numeric: tabular-nums;
+}
+.criadores__rec i {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background: #ff3b30;
+  animation: criadoresPisca 1s steps(2, jump-none) infinite;
+}
+@keyframes criadoresPisca {
+  50% {
+    opacity: 0.15;
+  }
+}
+.criadores__916 {
+  margin-left: auto;
+  padding: 3px 6px;
+  border: 1.5px solid var(--color-tinta);
+  background: #ffffff;
+}
+.criadores__legenda {
+  position: absolute;
+  top: 55%;
+  left: 12px;
+  right: 12px;
+  margin: 0;
+  text-align: center;
+  font-size: clamp(1rem, 4.4vw, 1.22rem);
+  font-weight: 800;
+  font-style: italic;
+  line-height: 1.22;
+  text-transform: uppercase;
+}
+.criadores__legenda span {
+  padding: 0.08em 0.3em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  background: var(--color-amarelo);
+  color: var(--color-tinta);
+}
+.criadores__legenda[data-tipo="corpo"] span {
+  background: var(--color-tinta);
+  color: #ffffff;
+}
+.criadores__legenda[data-tipo="fim"] span {
+  background: var(--color-menta);
+  color: var(--color-tinta);
+}
+.criadores__tempo {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 9px 12px 10px;
+  background: rgba(18, 24, 31, 0.92);
+  color: #ffffff;
+  font-family: var(--criadores-mono);
+}
+.criadores__fase {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.criadores__fase b {
+  color: var(--color-amarelo);
+}
+.criadores__trilho {
+  position: relative;
+  height: 10px;
+  margin-top: 7px;
+  background: rgba(255, 255, 255, 0.16);
+}
+.criadores__trilho-gancho {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 7.5%;
+  background: var(--color-amarelo);
+}
+.criadores__trilho-janela {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 62.5%;
+  right: 0;
+  background: repeating-linear-gradient(-45deg, rgba(79, 228, 182, 0.6) 0 3px, transparent 3px 6px);
+  outline: 1px solid var(--color-menta);
+  outline-offset: -1px;
+}
+.criadores__cabeca {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  left: 2.5%;
+  width: 3px;
+  margin-left: -1px;
+  background: #ffffff;
+  box-shadow: 0 0 0 1px var(--color-tinta);
+}
+.criadores__marcas {
+  position: relative;
+  height: 13px;
+  margin-top: 5px;
+  font-size: 0.6rem;
+  opacity: 0.85;
+}
+.criadores__marcas span {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+}
+.criadores__marcas span:first-child {
+  transform: none;
+}
+.criadores__marcas span:last-child {
+  transform: translateX(-100%);
+}
+.criadores__notas {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.criadores__notas li {
+  padding: 4px 9px;
+  border: 2px solid var(--color-tinta);
+  background: #ffffff;
+  font-family: var(--criadores-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+/* ── as propostas ───────────────────────────────────────────────────────── */
+
+.criadores__ofertas {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 32px;
+  margin-top: 44px;
+}
+.criadores__oferta {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: clamp(22px, 3.4vw, 32px);
+  border: 2px solid var(--color-tinta);
+  box-shadow: var(--shadow-dura);
+  background: var(--color-menta);
+}
+.criadores__oferta[data-modelo="comissao"] {
+  background: var(--color-amarelo);
+}
+.criadores__oferta-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.criadores__oferta-tag {
+  font-size: 1.3rem;
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+}
+.criadores__oferta-sub {
+  padding: 3px 8px;
+  border: 2px solid var(--color-tinta);
+  background: #ffffff;
+  font-family: var(--criadores-mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.criadores__oferta-valor {
+  margin: 6px 0 0;
+  font-size: clamp(3.4rem, 8vw, 5.6rem);
+  font-weight: 800;
+  font-style: italic;
+  line-height: 0.88;
+  letter-spacing: -0.04em;
+}
+.criadores__oferta-por {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+.criadores__oferta-lista {
+  display: grid;
+  gap: 10px;
+  margin: 4px 0 10px;
+  padding: 16px 0 0;
+  border-top: 2px solid var(--color-tinta);
+  list-style: none;
+}
+.criadores__oferta-lista li {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  gap: 10px;
+  align-items: start;
+}
+.criadores__oferta-lista .criadores__estrela {
+  font-size: 18px;
+  margin-top: 2px;
+}
+.criadores__oferta .btn {
+  align-self: flex-start;
+  margin-top: auto;
+}
+/* No cartão amarelo, a sombra amarela do botão sumiria: vira branca. */
+.criadores__oferta[data-modelo="comissao"] .btn {
+  box-shadow: 6px 6px 0 0 #ffffff;
+}
+.criadores__oferta[data-modelo="comissao"] .btn:hover,
+.criadores__oferta[data-modelo="comissao"] .btn:focus-visible {
+  box-shadow: 9px 9px 0 0 #ffffff;
+}
+.criadores__oferta[data-modelo="comissao"] .btn:active {
+  box-shadow: 1px 1px 0 0 #ffffff;
+}
+.criadores__adesivo {
+  position: absolute;
+  top: -15px;
+  right: 16px;
+  max-width: calc(100% - 32px);
+  padding: 7px 11px;
+  background: var(--color-tinta);
+  color: var(--color-amarelo);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transform: rotate(2.5deg);
+}
+
+.criadores__calc {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  gap: clamp(26px, 4vw, 52px);
+  margin-top: 52px;
+  padding: clamp(22px, 4vw, 38px);
+  background: var(--color-tinta);
+  color: #ffffff;
+  box-shadow:
+    6px 6px 0 0 var(--color-menta),
+    6px 6px 0 2px var(--color-tinta);
+}
+.criadores__calc :focus-visible {
+  outline: 3px solid var(--color-amarelo);
+  outline-offset: 3px;
+}
+.criadores__calc-rotulo {
+  display: block;
+  margin: 18px 0 10px;
+  font-weight: 700;
+}
+.criadores__regua {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.criadores__regua input {
+  flex: 1;
+  min-width: 0;
+  height: 30px;
+  accent-color: var(--color-amarelo);
+  cursor: pointer;
+}
+.criadores__regua output {
+  min-width: 3ch;
+  font-size: 1.9rem;
+  font-weight: 800;
+  font-style: italic;
+  color: var(--color-amarelo);
+  text-align: right;
+}
+.criadores__calc-nota {
+  margin: 16px 0 0;
+  max-width: 34em;
+  font-size: 0.84rem;
+  color: var(--criadores-no-escuro);
+}
+.criadores__calc-mes {
+  margin: 0 0 20px;
+  color: var(--criadores-no-escuro);
+}
+.criadores__calc-mes strong {
+  display: block;
+  font-size: clamp(2.3rem, 5vw, 3.2rem);
+  font-weight: 800;
+  font-style: italic;
+  line-height: 1;
+  color: var(--color-amarelo);
+}
+.criadores__barras {
+  display: grid;
+  gap: 16px;
+}
+.criadores__barra {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px 12px;
+  align-items: baseline;
+}
+.criadores__barra-nome {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--criadores-no-escuro);
+}
+.criadores__barra-valor {
+  font-weight: 800;
+}
+.criadores__barra-trilho {
+  position: relative;
+  grid-column: 1 / -1;
+  height: 22px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.07);
+}
+.criadores__barra-cheia {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  background: var(--color-menta);
+  transition: width 0.35s var(--ease-suave);
+}
+.criadores__barra-cheia[data-tipo="comissao"] {
+  background: var(--color-amarelo);
+}
+.criadores__veredito {
+  margin: 20px 0 4px;
+  font-weight: 700;
+}
+
+/* ── o kit ──────────────────────────────────────────────────────────────── */
+
+.criadores__kit-grade {
+  display: grid;
+  grid-template-columns: minmax(0, 0.75fr) minmax(0, 1.6fr);
+  gap: clamp(28px, 4vw, 48px);
+  align-items: center;
+}
+.criadores__produtos {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.criadores__produto {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 2px solid var(--color-tinta);
+  background: #ffffff;
+  box-shadow: var(--shadow-dura-sm);
+}
+.criadores__produto img,
+.criadores__produto-sem-foto {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  object-fit: cover;
+  mix-blend-mode: multiply;
+  border-bottom: 2px solid var(--color-tinta);
+  background: #ffffff;
+}
+.criadores__produto p {
+  margin: 0;
+  padding: 10px 12px 12px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+/* ── os 20 criativos ────────────────────────────────────────────────────── */
+
+.criadores__destaque {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  max-width: 46em;
+  margin: 24px 0 0;
+  padding: 12px 16px;
+  border: 2px solid var(--color-tinta);
+  background: var(--color-amarelo);
+  box-shadow: var(--shadow-dura-sm);
+  font-weight: 600;
+}
+.criadores__destaque .criadores__estrela {
+  font-size: 1.15rem;
+  margin-top: 3px;
+}
+.criadores__destaque strong {
+  font-weight: 800;
+}
+.criadores__matriz-bloco {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: clamp(28px, 4vw, 56px);
+  align-items: start;
+  margin-top: 44px;
+}
+.criadores__matriz {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) repeat(4, 46px);
+  gap: 8px;
+  max-width: 460px;
+}
+.criadores__matriz-cab {
+  align-self: end;
+  font-family: var(--criadores-mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--color-tinta-suave);
+  text-align: center;
+}
+.criadores__matriz-cab--canto {
+  text-align: left;
+}
+.criadores__matriz-ideia {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 2px solid var(--color-tinta);
+  background: #ffffff;
+  color: var(--color-tinta);
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: left;
+  cursor: pointer;
+}
+.criadores__matriz-ideia b {
+  font-size: 1.25rem;
+  font-weight: 800;
+  font-style: italic;
+}
+.criadores__matriz-ideia[aria-pressed="true"] {
+  background: var(--color-amarelo);
+  box-shadow: var(--shadow-dura-sm);
+}
+.criadores__matriz-ideia:focus-visible {
+  outline: 3px solid var(--color-tinta);
+  outline-offset: 2px;
+}
+.criadores__quadro {
+  --gancho: var(--color-amarelo);
+  --corpo: var(--color-cinza);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  max-width: 100%;
+  aspect-ratio: 9 / 16;
+  padding-bottom: 5px;
+  border: 2px solid var(--color-tinta);
+  background: linear-gradient(
+    to bottom,
+    var(--gancho) 0 24%,
+    var(--color-tinta) 24% calc(24% + 2px),
+    var(--corpo) calc(24% + 2px) 100%
+  );
+  color: var(--color-tinta);
+  font: 700 0.66rem var(--criadores-mono);
+  cursor: pointer;
+}
+.criadores__quadro[data-g="1"] {
+  --gancho: var(--color-menta);
+}
+.criadores__quadro[data-g="2"] {
+  --gancho: #ffffff;
+}
+.criadores__quadro[data-g="3"] {
+  background:
+    linear-gradient(
+      to bottom,
+      transparent 0 24%,
+      var(--color-tinta) 24% calc(24% + 2px),
+      var(--corpo) calc(24% + 2px) 100%
+    ),
+    repeating-linear-gradient(-45deg, var(--color-tinta) 0 3px, #ffffff 3px 6px);
+}
+.criadores__quadro[data-ativo] {
+  --corpo: var(--color-tinta);
+  color: #ffffff;
+}
+.criadores__quadro[data-foco] {
+  outline: 3px solid var(--color-amarelo);
+  outline-offset: 2px;
+}
+.criadores__legenda-matriz {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.82rem;
+  color: var(--color-tinta-suave);
+}
+.criadores__legenda-matriz li {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.criadores__legenda-matriz i {
+  flex: none;
+  display: inline-block;
+  width: 14px;
+  height: 24px;
+  border: 2px solid var(--color-tinta);
+}
+.criadores__legenda-matriz i[data-mini="gancho"] {
+  background: linear-gradient(
+    to bottom,
+    var(--color-amarelo) 0 34%,
+    var(--color-tinta) 34% 44%,
+    var(--color-cinza) 44%
+  );
+}
+.criadores__legenda-matriz i[data-mini="corpo"] {
+  background: linear-gradient(to bottom, var(--color-cinza) 0 34%, var(--color-tinta) 34%);
+}
+.criadores__ideia {
+  padding: clamp(20px, 3vw, 28px);
+  border: 2px solid var(--color-tinta);
+  background: #ffffff;
+  box-shadow: var(--shadow-dura);
+}
+.criadores__ideia-desc {
+  margin: 12px 0 18px;
+  color: var(--color-tinta-suave);
+}
+.criadores__ganchos {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.criadores__ganchos li {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 2px solid var(--color-linha);
+  transition:
+    border-color 0.2s,
+    background-color 0.2s;
+}
+.criadores__ganchos li[data-foco] {
+  border-color: var(--color-tinta);
+  background: var(--color-amarelo-claro);
+}
+.criadores__ganchos small {
+  font-family: var(--criadores-mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--color-menta-escura);
+}
+.criadores__ganchos q {
+  font-weight: 700;
+  quotes: "“" "”";
+}
+.criadores__formato {
+  margin-top: clamp(40px, 6vw, 64px);
+}
+.criadores__specs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 2px;
+  margin: 18px 0 0;
+  border: 2px solid var(--color-tinta);
+  background: var(--color-tinta);
+}
+.criadores__specs div {
+  padding: 16px 18px;
+  background: #ffffff;
+}
+.criadores__specs dt {
+  font-family: var(--criadores-mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-menta-escura);
+}
+.criadores__specs dd {
+  margin: 4px 0 0;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+/* ── como funciona ──────────────────────────────────────────────────────── */
+
+.criadores__passos {
+  background: var(--color-tinta);
+  color: #ffffff;
+}
+.criadores__passos .criadores__rotulo {
+  color: var(--color-menta);
+}
+.criadores__passos-lista {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 2px;
+  margin: 44px 0 0;
+  padding: 0;
+  list-style: none;
+  border: 2px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.22);
+}
+.criadores__passo {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding: 24px 22px 28px;
+  background: var(--color-tinta);
+}
+.criadores__passo-topo {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.criadores__passo-n {
+  font-size: 2.6rem;
+  font-weight: 800;
+  font-style: italic;
+  line-height: 1;
+  color: var(--color-menta);
+}
+.criadores__passo-quando {
+  font-family: var(--criadores-mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-align: right;
+  text-transform: uppercase;
+  color: var(--color-amarelo);
+}
+.criadores__passo h3 {
+  margin: 4px 0 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.criadores__passo p {
+  margin: 0;
+  color: var(--criadores-no-escuro);
+}
+
+/* ── as regras ──────────────────────────────────────────────────────────── */
+
+.criadores__regras {
+  border: 2px solid var(--color-tinta);
+  background: #ffffff;
+  box-shadow: var(--shadow-dura);
+}
+.criadores__regras::before {
+  content: "";
+  display: block;
+  height: 20px;
+  border-bottom: 2px solid var(--color-tinta);
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--color-tinta) 0 14px,
+    var(--color-amarelo) 14px 28px
+  );
+}
+.criadores__regras-corpo {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.4fr);
+  gap: 28px;
+  padding: clamp(22px, 4vw, 40px);
+}
+.criadores__regras-grupos {
+  display: grid;
+  gap: 26px;
+}
+.criadores__regras-titulo {
+  margin: 0 0 12px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.criadores__regras-lista {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.criadores__regras-lista li {
+  display: grid;
+  grid-template-columns: 24px 1fr;
+  gap: 12px;
+  align-items: start;
+  font-weight: 600;
+}
+.criadores__alerta {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  background: var(--color-tinta);
+  color: var(--color-amarelo);
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+/* ── a inscrição ────────────────────────────────────────────────────────── */
+
+.criadores__inscricao-grade {
+  display: grid;
+  grid-template-columns: minmax(0, 0.72fr) minmax(0, 1.5fr);
+  gap: clamp(28px, 5vw, 64px);
+  align-items: start;
+}
+.criadores__inscricao-intro {
+  position: sticky;
+  top: 140px;
+}
+.criadores__privado {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 22px 0 0;
+  padding: 14px;
+  border: 2px solid var(--color-tinta);
+  background: var(--color-menta-clara);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.criadores__privado .criadores__estrela {
+  font-size: 1.1rem;
+  margin-top: 2px;
+}
+.criadores__form {
+  display: grid;
+  gap: 28px;
+  margin: 0;
+  padding: clamp(20px, 4vw, 32px);
+}
+.criadores__grupo,
+.criadores__opcoes {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.criadores__grupo-titulo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 14px;
+  padding: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+}
+.criadores__grupo-titulo .bloco__num {
+  font-style: normal;
+}
+.criadores__opcoes legend {
+  margin: 0 0 6px;
+  padding: 0;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.criadores__opcoes legend small,
+.criadores__ajuda {
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--color-tinta-suave);
+}
+.criadores__ajuda {
+  font-size: 0.78rem;
+}
+.criadores__erro-largo {
+  grid-column: 1 / -1;
+  margin-top: -6px;
+}
+.criadores__arroba {
+  display: flex;
+  align-items: stretch;
+}
+.criadores__arroba > span {
+  display: grid;
+  place-items: center;
+  padding: 0 12px;
+  border: 2px solid var(--color-linha);
+  border-right: 0;
+  background: var(--color-cinza);
+  font-weight: 800;
+}
+.criadores__arroba[data-invalido] > span {
+  border-color: var(--color-erro);
+}
+.criadores__arroba input {
+  flex: 1;
+  min-width: 0;
+}
+.criadores__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.criadores__chip {
+  position: relative;
+}
+.criadores .criadores__chip input,
+.criadores .criadores__modelo input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.criadores__chip span {
+  display: inline-block;
+  padding: 9px 14px;
+  /* Mora dentro de um `.campo` do checkout, que põe rótulo em caixa alta: aqui não. */
+  letter-spacing: 0;
+  text-transform: none;
+  border: 2px solid var(--color-tinta);
+  background: #ffffff;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+.criadores__chips[data-invalido] .criadores__chip span {
+  border-color: var(--color-erro);
+}
+.criadores__chip input:checked + span {
+  background: var(--color-tinta);
+  color: var(--color-menta);
+}
+.criadores__chip input:focus-visible + span,
+.criadores__modelo input:focus-visible + .criadores__modelo-caixa {
+  outline: 3px solid var(--color-tinta);
+  outline-offset: 2px;
+}
+.criadores__modelos {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.criadores__modelo {
+  position: relative;
+  display: flex;
+  cursor: pointer;
+}
+.criadores__modelo-caixa {
+  flex: 1;
+  display: grid;
+  align-content: start;
+  gap: 3px;
+  padding: 14px;
+  border: 2px solid var(--color-tinta);
+  background: #ffffff;
+  transition:
+    background-color 0.15s,
+    box-shadow 0.15s;
+}
+.criadores__modelos[data-invalido] .criadores__modelo-caixa {
+  border-color: var(--color-erro);
+}
+.criadores__modelo-caixa b {
+  font-size: 0.74rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.criadores__modelo-valor {
+  font-size: 1.55rem;
+  font-weight: 800;
+  font-style: italic;
+  line-height: 1.05;
+}
+.criadores__modelo-caixa small {
+  font-size: 0.8rem;
+  color: var(--color-tinta-suave);
+}
+.criadores__modelo input:checked + .criadores__modelo-caixa {
+  background: var(--color-amarelo);
+  box-shadow: var(--shadow-dura-sm);
+}
+.criadores__modelo input:checked + .criadores__modelo-caixa small {
+  color: var(--color-tinta);
+}
+.criadores__marcar {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: 22px 1fr;
+  gap: 12px;
+  align-items: start;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.criadores__marcar input {
+  width: 20px;
+  height: 20px;
+  margin: 1px 0 0;
+  accent-color: var(--color-tinta);
+}
+.criadores__marcar a {
+  color: var(--color-tinta);
+  font-weight: 700;
+}
+.criadores__aceite-bloco {
+  display: grid;
+  gap: 6px;
+}
+.criadores__recado {
+  margin: 0;
+  padding: 10px 12px;
+  border: 2px solid var(--color-erro);
+  background: #fff6f5;
+  color: var(--color-erro);
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+.criadores__sucesso {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: clamp(22px, 4vw, 34px);
+  background: var(--color-amarelo);
+}
+.criadores__sucesso p {
+  margin: 0;
+}
+.criadores__sucesso a {
+  color: var(--color-tinta);
+  font-weight: 800;
+}
+.criadores__sucesso-ico svg {
+  width: 36px;
+  height: 36px;
+  fill: var(--color-tinta);
+}
+.criadores__de-novo {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-tinta);
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* ── as dúvidas ─────────────────────────────────────────────────────────── */
+
+.criadores__duvidas-grade {
+  display: grid;
+  grid-template-columns: minmax(0, 0.6fr) minmax(0, 1.4fr);
+  gap: clamp(24px, 4vw, 48px);
+  align-items: start;
+}
+.criadores__duvidas {
+  display: grid;
+  gap: 12px;
+}
+.criadores__duvidas details {
+  border: 2px solid var(--color-tinta);
+  background: #ffffff;
+  box-shadow: var(--shadow-dura-sm);
+}
+.criadores__duvidas summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px;
+  font-weight: 700;
+  list-style: none;
+  cursor: pointer;
+}
+.criadores__duvidas summary::-webkit-details-marker {
+  display: none;
+}
+.criadores__duvidas summary::after {
+  content: "+";
+  flex: none;
+  font-size: 1.4rem;
+  font-weight: 800;
+  line-height: 1;
+}
+.criadores__duvidas details[open] summary::after {
+  content: "–";
+}
+.criadores__duvidas details p {
+  margin: 0;
+  padding: 0 18px 18px;
+  color: var(--color-tinta-suave);
+}
+
+/* ── larguras menores ───────────────────────────────────────────────────── */
+
+@media (max-width: 960px) {
+  .criadores__kit-grade,
+  .criadores__regras-corpo,
+  .criadores__duvidas-grade,
+  .criadores__inscricao-grade {
+    grid-template-columns: 1fr;
+  }
+  .criadores__inscricao-intro {
+    position: static;
+  }
+  .criadores__specs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 860px) {
+  .criadores__heroi-grade,
+  .criadores__matriz-bloco,
+  .criadores__ofertas,
+  .criadores__calc {
+    grid-template-columns: 1fr;
+  }
+  .criadores__passos-lista {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 620px) {
+  .criadores__produtos {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .criadores__modelos,
+  .criadores__passos-lista,
+  .criadores__specs {
+    grid-template-columns: 1fr;
+  }
+  .criadores__matriz {
+    grid-template-columns: minmax(0, 1fr) repeat(4, 40px);
+    gap: 6px;
+  }
+  .criadores__matriz-ideia {
+    padding: 7px 8px;
+    font-size: 0.8rem;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .criadores__rec i {
+    animation: none;
+  }
+}
