@@ -4,15 +4,14 @@ import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useActionState, useId, useState } from "react"
+import { EscolhaDaNota } from "@/components/avaliar/nota"
 import { OutroPedido } from "@/components/avaliar/outro-pedido"
 import { ID_ESTRELA } from "@/components/estrelas"
 import { Raio } from "@/components/icones"
 import { enviarAvaliacao } from "@/lib/acoes/avaliar"
 import {
   AVALIACAO_INICIO,
-  FRASE_DA_NOTA,
   LIMITES,
-  NOTAS,
   type EstadoDaAvaliacao,
   type PedidoParaAvaliar,
   type ProdutoParaAvaliar,
@@ -120,7 +119,6 @@ function Formulario({
   const valores = estado.tipo === "erro" ? estado.valores : null
   const [produto, setProduto] = useState(valores?.produto || produtoInicial)
   const [nota, setNota] = useState(Number(valores?.nota) || 0)
-  const [sobre, setSobre] = useState(0)
   const id = useId()
   const erroDe = (campo: string) =>
     estado.tipo === "erro" && estado.campo === campo ? estado.texto : ""
@@ -184,7 +182,6 @@ function Formulario({
   }
 
   const escolhido = pedido.produtos.find((p) => p.id === produto)
-  const frase = FRASE_DA_NOTA[sobre || nota] ?? "Toque nas estrelas"
 
   return (
     <section className="bloco avaliar__bloco" aria-labelledby="t-avaliar">
@@ -233,39 +230,7 @@ function Formulario({
           </span>
         </fieldset>
 
-        <fieldset className="avaliar__grupo" aria-describedby={`${id}-nota`}>
-          <legend>Sua nota</legend>
-          <div className="avaliar__estrelas" onMouseLeave={() => setSobre(0)}>
-            {NOTAS.map((n) => (
-              <label
-                key={n}
-                className="avaliar__estrela"
-                data-acesa={(sobre || nota) >= n || undefined}
-                onMouseEnter={() => setSobre(n)}
-              >
-                <input
-                  type="radio"
-                  name="nota"
-                  value={n}
-                  checked={nota === n}
-                  onChange={() => setNota(n)}
-                />
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <use href={`#${ID_ESTRELA}`} />
-                </svg>
-                <span className="sr-only">
-                  {n} {n === 1 ? "estrela" : "estrelas"}: {FRASE_DA_NOTA[n]}
-                </span>
-              </label>
-            ))}
-            <span className="avaliar__frase" aria-hidden="true">
-              {frase}
-            </span>
-          </div>
-          <span className="campo__erro" id={`${id}-nota`} aria-live="polite">
-            {erroDe("nota")}
-          </span>
-        </fieldset>
+        <EscolhaDaNota nota={nota} aoEscolher={setNota} erro={erroDe("nota")} id={id} />
 
         <div className="campos avaliar__campos">
           <div className="campo">
