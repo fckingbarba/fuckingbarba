@@ -134,9 +134,10 @@ describe("quem pode avisar", () => {
     const assinado = (pedido: string, assinatura = assinaturaDoAviso(pedido, "segredo")) =>
       chegada({ cabecalhos: {}, consulta: { pedido, assinatura }, corpo: doPedido })
 
-    it("vale, sem cabeçalho nenhum", () => {
+    it("vale, sem cabeçalho nenhum — e diz de qual pedido, pro núcleo só mexer nele", () => {
       const r = frenet.lerAviso(assinado("FB-1042"))
       expect(r.ok && r.novidades[0]?.pedido).toBe("FB-1042")
+      expect(r.ok && r.soDoPedido).toBe("FB-1042")
     })
 
     it("mas só pro pedido da assinatura: com a de outro pedido, não", () => {
@@ -157,9 +158,11 @@ describe("quem pode avisar", () => {
       ).toMatchObject({ motivo: "nao-autorizado" })
     })
 
-    it("com o cabeçalho junto, vale o cabeçalho", () => {
+    it("com o cabeçalho junto, vale o cabeçalho — e o aviso fala de qualquer pedido", () => {
       const c = assinado("FB-7")
-      expect(frenet.lerAviso({ ...c, cabecalhos: { "x-webhook-token": "segredo" } }).ok).toBe(true)
+      const r = frenet.lerAviso({ ...c, cabecalhos: { "x-webhook-token": "segredo" } })
+      expect(r.ok).toBe(true)
+      expect(r.ok && r.soDoPedido).toBeNull()
       expect(frenet.lerAviso({ ...c, cabecalhos: { "x-webhook-token": "chute" } })).toMatchObject({
         detalhe: "token errado",
       })

@@ -73,6 +73,12 @@ export type Origem = {
   /** O que a origem já sabe (o admin sabe o pedido e o fulfillment). */
   pedidoId?: string | null
   fulfillmentId?: string | null
+  /**
+   * O aviso assinado por UM pedido (a URL de cada pedido na Frenet): só mexe
+   * em envio deste pedido — nem no de outro, nem no que ainda não tem dono.
+   * Quem ler a URL num log não fala de pedido nenhum além dele.
+   */
+  soDoPedido?: string | null
 }
 
 export type Recebido =
@@ -116,10 +122,28 @@ export async function receberNovidade(
           motivo: `o código ${codigo} já é de outro pedido (${envio.pedido_id}) — nada mudou`,
         }
       }
+      if (origem.soDoPedido) {
+        // O envio achado pelo código ou pelo id tem de ser do pedido da
+        // assinatura; e o código novo não pode ser a etiqueta de outro pedido.
+        const dono = envio
+          ? envio.pedido_id
+          : codigo
+            ? ((await pedidoPelaEtiqueta(container, codigo)) ?? origem.soDoPedido)
+            : origem.soDoPedido
+        if (dono !== origem.soDoPedido) {
+          return {
+            tipo: "ignorado",
+            motivo:
+              `o aviso é só do pedido ${origem.soDoPedido}, e o envio ` +
+              `${codigo ?? idNoParceiro} não é dele — nada mudou`,
+          }
+        }
+      }
 
       const pedidoId =
         envio?.pedido_id ??
         origem.pedidoId ??
+        origem.soDoPedido ??
         (await pedidoDaReferencia(container, novidade.pedido)) ??
         (codigo ? await pedidoPelaEtiqueta(container, codigo) : null)
 
@@ -388,7 +412,7 @@ async function acharEnvio(
  * nome que a loja deu ao pedido quando o mandou pra lá (FB-1042, ver
  * `referenciaDoPedido`).
  */
-async function pedidoDaReferencia(
+export async function pedidoDaReferencia(
   container: MedusaContainer,
   referencia: string | null
 ): Promise<string | null> {
