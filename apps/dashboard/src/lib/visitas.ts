@@ -1,6 +1,7 @@
 import "server-only"
 import { cache } from "react"
 import { medusa } from "@/lib/medusa"
+import type { VisitasNoPeriodo } from "@/lib/periodo"
 
 /**
  * AS VISITAS DO DIA, do lado do painel — o formato da resposta de
@@ -50,3 +51,30 @@ export const lerVisitas = cache(async (): Promise<RespostaDasVisitas> => {
     return { estado }
   return { estado: "fora" }
 })
+
+/* ── o Início no período (0186) ───────────────────────────────────────────── */
+
+export type RespostaDasVisitasNoPeriodo =
+  | { estado: "ok"; periodo: VisitasNoPeriodo }
+  | { estado: "desligado" | "invalida" | "recusado" | "fora" | "carregando" }
+
+/**
+ * As visitas do período da barra de cima (`consulta`: a de `consultaDoPeriodo`).
+ * Uma pergunta por página: o número de cima e os blocos de baixo leem a mesma
+ * resposta. O backend de antes da 0186 responde as visitas do dia, sem o
+ * `periodo`: aí é "fora" (o número mostra o traço até o backend novo subir).
+ */
+export const lerVisitasNoPeriodo = cache(
+  async (consulta: string): Promise<RespostaDasVisitasNoPeriodo> => {
+    const r = await medusa(`/dashboard/visitas?${consulta}`, { metodo: "GET", token: "sessao" })
+    const estado = r.corpo.estado
+    if (r.status === 200 && estado === "ok" && r.corpo.periodo)
+      return { estado, periodo: r.corpo.periodo as VisitasNoPeriodo }
+    if (
+      r.status === 200 &&
+      (estado === "desligado" || estado === "invalida" || estado === "recusado")
+    )
+      return { estado }
+    return { estado: "fora" }
+  }
+)

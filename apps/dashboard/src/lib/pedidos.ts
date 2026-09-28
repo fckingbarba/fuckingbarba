@@ -9,6 +9,7 @@
  */
 
 import type { Paginacao } from "./paginas"
+import type { InicioNoPeriodo } from "./periodo"
 
 export type Situacao =
   "pix" | "vencido" | "analise" | "separacao" | "enviado" | "entregue" | "cancelado" | "combinar"
@@ -171,6 +172,8 @@ export type Inicio = {
   fila: ItemDaFila[]
   pedidosDeHoje: LinhaDaLista[] | null
   maisVendidos: { nome: string; unidades: number; imagem: string | null }[]
+  /** O período da barra de cima (0186): só quando o painel pede um — e o backend de antes não manda. */
+  periodo?: InicioNoPeriodo
 }
 
 /* ── os nomes e o dinheiro ────────────────────────────────────────────────── */
