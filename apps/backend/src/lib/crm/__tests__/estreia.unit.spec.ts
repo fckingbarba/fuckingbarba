@@ -3,10 +3,11 @@ import {
   filaDaEstreia,
   fimDaEstreia,
   loteDaPosicao,
+  oQueAcaba,
   segmentoDaEstreia,
   type SegmentoDaEstreia,
 } from "../estreia"
-import { etiquetasDaPessoa, type PedidoDaPessoa } from "../etiquetas"
+import { DIAS_PADRAO, etiquetasDaPessoa, skuAvulso, type PedidoDaPessoa } from "../etiquetas"
 import { CHAVE_DOS_FLUXOS, decidir, FLUXOS, lerConfigDosFluxos } from "../fluxos"
 
 /**
@@ -53,6 +54,48 @@ describe("o jeito do e-mail de cada um", () => {
     expect(segmentoDaEstreia(etiquetas([fator(10)]), AGORA)).toBe("cliente")
     expect(segmentoDaEstreia(etiquetas([fator(70)]), AGORA)).toBe("sumido")
     expect(segmentoDaEstreia(etiquetas([fator(200)]), AGORA)).toBe("sumido")
+  })
+})
+
+describe("o botão do e-mail de repor", () => {
+  const pedido = (itens: [string, number?][]): PedidoDaPessoa => ({
+    id: "nuvemshop:1",
+    numero: "1",
+    pagoEm: haDias(40),
+    entregueEm: null,
+    cancelado: false,
+    itens: itens.map(([sku, quantidade = 1]) => ({ handle: null, sku, nome: sku, quantidade })),
+    cupons: [],
+  })
+
+  it("veio avulso: o próprio item (a pasta brilho continua brilho)", () => {
+    expect(oQueAcaba(pedido([["FBFCB01"]]), DIAS_PADRAO)).toEqual({
+      componente: "fator",
+      sku: "FBFCB01",
+    })
+    expect(oQueAcaba(pedido([["FBFCB01", 2]]), DIAS_PADRAO)?.sku).toBe("FBFCB01")
+    expect(oQueAcaba(pedido([["FBPBR01"]]), DIAS_PADRAO)).toEqual({
+      componente: "pasta",
+      sku: "FBPBR01",
+    })
+  })
+
+  it("veio num kit ou em pacote: o avulso do que acaba primeiro", () => {
+    // O Kit Completo, com os dias da Nuvemshop: o óleo (70) acaba antes do shampoo (78) e do balm (81).
+    expect(
+      oQueAcaba(pedido([["FBKIT01"]]), { ...DIAS_PADRAO, oleo: 70, shampoo: 78, balm: 81 })
+    ).toEqual({ componente: "oleo", sku: "FBOL01" })
+    // O de 3 Fatores e o Fator com Shampoo: o Fator avulso.
+    expect(oQueAcaba(pedido([["FBKIT06"]]), DIAS_PADRAO)?.sku).toBe("FBFCB01")
+    expect(oQueAcaba(pedido([["FBKIT08"]]), DIAS_PADRAO)).toEqual({
+      componente: "fator",
+      sku: "FBFCB01",
+    })
+    expect([skuAvulso("pasta"), skuAvulso("balm"), skuAvulso("spray")]).toEqual([
+      "FBPMT01",
+      "FBBM01",
+      "FBMSP01",
+    ])
   })
 })
 
