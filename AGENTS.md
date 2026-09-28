@@ -1477,6 +1477,56 @@ as frases de todas as abas.
 - No painel, `OQueOsDadosDizem` (`components/marketing.tsx`), num `<Suspense>` entre a meta e o
   gráfico; cada frase ganha o atalho pra aba dela, no mesmo período (`Achados` com `periodo`).
 
+**O Início no período** (entrega 0186; o desenho aprovado pelo dono:
+<https://claude.ai/artifact/T18JBKKpWgHgyt3Zr4Cav6>). A barra de cima escolhe o período, e o Início
+inteiro (menos a fila, que é do agora) segue ele.
+- `lib/painel/periodo.ts` (puro, com testes): os botões (`hoje`, `ontem`, `7d`, `30d`, `mes`,
+  `mes-passado`), as datas escolhidas (`?de=&ate=`, até `MAXIMO_DE_DIAS`; trocadas desviram, o fim
+  depois de hoje para em hoje, o que não vale vira hoje com `aviso`), o de antes (mesmo tamanho;
+  chegando até agora, para na mesma hora do último dia; "este mês" contra o mês passado até o
+  mesmo dia; "mês passado" contra o anterior), `comparar=nenhum`, os baldes do gráfico (hora num
+  dia, dia até 62, semana acima, contando de trás pra frente; o de antes pela posição) e
+  `janelasNoCorte` (o corte de hora do Google, pra comparar vendas com visitas).
+- `GET /dashboard/inicio?periodo=…` devolve, além do de sempre, `periodo`
+  (`lib/painel/inicio-periodo.ts`, puro, com testes): vendas, receita e ticket comparados, as
+  barras (o de antes com o dia inteiro; o número para na mesma hora), os mais vendidos em
+  unidades, `daNuvemshop`, o checkout do período e o do de antes (só quem abre `marketing`) e os
+  pedidos feitos no período (os 6 mais novos e o total, só quem abre `pedidos`). As vendas somam o
+  Medusa (`vendasDos`) e a Nuvemshop (`vendasDaBase` do CRM: o "confirmado", pelo dia do
+  pagamento; o item vira o produto de hoje pelo SKU, `produtosComSku`) — um pedido nunca está nas
+  duas. O checkout (`ateOndeFoi`) usa as regras do `ondeParou`: 1 abriu, 2 contato, 3 entrega, 4
+  virou pedido, 5 pago; "abriu" é a marca `fb_checkout_em` que a loja põe quando o checkout
+  aparece (`abriuOCheckout` → `POST /store/checkout/aberto`, só a loja, uma vez; DIRETO no módulo
+  do carrinho — o `POST /store/carts/:id` refaz a cotação do frete e a sessão de pagamento) e,
+  no carrinho de antes da marca, o e-mail.
+- `GET /dashboard/visitas?periodo=…` devolve `periodo` (`lib/painel/visitas-do-periodo.ts`, puro,
+  com testes): as visitas no corte de hoje dos dois lados (`corteDoGoogle`, a regra do
+  `comparacaoComOntem`) e as barras; pra quem abre `marketing`, o que as visitas fizeram (as
+  sessões com `view_item` e `add_to_cart` por dia; a categoria pelo `page_view` nas vitrines das
+  duas lojas, `caminhosDeCategoria`, com as da Nuvemshop do `redirects.json`), as taxas (as vendas
+  das duas lojas no mesmo corte ÷ as visitas — como a Nuvemshop mostrava; a do Marketing segue
+  contando só as compras que o Google viu —; a sacola ÷ as visitas), as origens e o tempo real
+  (`agoraNoSite`). As quatro perguntas vão numa chamada (`relatoriosDoMarketing`), só do endereço
+  da loja (`hostsDaLoja`: o domínio é o mesmo desde a Nuvemshop, então antes da virada as visitas
+  são as dela). O `tokenDoGoogle` divide o token que está sendo pedido: as duas perguntas do
+  Início saem juntas, e a primeira carga pedia dois.
+- Sem parâmetro nenhum (o painel de antes), as duas rotas respondem como sempre; o painel novo com
+  o backend de antes (a janela do deploy) mostra o Início de antes (`InicioDeAntes`).
+- No painel: `lib/periodo.ts` (o endereço e os tipos), `components/periodo.tsx` (a barra: cada
+  botão é link; as datas e o "comparar com" abrem num `<details>`, as datas com o `Form` do
+  `next/form` e o `<input type="date">` do navegador), `components/inicio-periodo.tsx` (os números
+  com as `Barrinhas` em SVG, os degraus, as taxas e os blocos de baixo; o que é do Google, cada um
+  no seu `<Suspense>`) e `estilos/inicio-periodo.css` (sem `clip-path` na barra e nas taxas: o
+  chanfro cortaria o que abre por cima). A fila vai em faixa no alto (`Fila faixa`); o "Esperando
+  pagamento" saiu dos números — o Pix esperando virou item da fila (`chave` "pix") e o cartão em
+  análise diz quanto espera (a segunda etiqueta).
+- **`query.graph` só devolve a contagem com `skip`**: sem ele o `metadata` vem vazio, e o
+  `metadata.count` vira zero (era o "Produtos em rascunho" do marketing, que nunca aparecia).
+- Conferidores: `conferir-pedidos` (os números contra a conta de sempre, os botões, as datas, o
+  comparar, o checkout, os pedidos e a marca do checkout), `conferir-visitas` (o Google falso
+  responde `inicio.eventos` e `inicio.categorias`) e o `conferir-checkout` da loja (a marca no
+  carrinho quando o checkout abre).
+
 **Produtos** (fase 3, parte 1). `GET /dashboard/produtos` (a lista, com as fitas) e
 `GET /dashboard/produtos/:id` (o que vem do Bling, só pra ler; as seções com o texto e o fundo de
 cada uma; a caixa de compra; o catálogo pros seletores; as categorias; o `noSite` do "Ver no site"

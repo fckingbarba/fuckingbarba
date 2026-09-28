@@ -4135,6 +4135,53 @@ o prettier.
 Depois do deploy — **nada a configurar.** Se a loja subir antes do Railway, a home fica alguns
 minutos na ordem de sempre e troca sozinha.
 
+**O Início com período e funil, como a "Visão geral" da Nuvemshop — pronto em 28/09 (entrega
+0186).** Pedido dele, com o print da Nuvemshop: "a home do dashboard quero dar uma mudada (...) ele
+cria um funil e tal, também consigo visualizar por período; hoje o nosso não tem período em lugar
+nenhum direito". O desenho aprovado ("perfeito pode seguir"):
+<https://claude.ai/artifact/T18JBKKpWgHgyt3Zr4Cav6>.
+
+- **A barra do período**, no alto do Início: Hoje, Ontem, 7 dias, 30 dias, Este mês, Mês passado e
+  "Escolher datas" (até 6 meses de cada vez; o calendário é o do navegador — no celular, o do
+  aparelho). "Comparar com": o período de antes (hoje contra ontem até a mesma hora; este mês
+  contra o mês passado até o mesmo dia; o mês passado contra o anterior) ou nada. O período fica
+  no endereço: dá pra voltar e mandar o link.
+- **Os quatro números** — visitas, vendas, receita e ticket médio —, com a variação, o de antes e
+  o gráfico de cada um (barras do período, tracejado do de antes; um dia vai hora a hora).
+- **O que as visitas fizeram** (viram uma categoria, um produto, puseram na sacola — do Google
+  Analytics) e **o checkout passo a passo** (começaram, chegaram na entrega, no pagamento, fizeram
+  o pedido, pagaram — os carrinhos da loja, de todo mundo), com a maior perda em vermelho.
+- **As três taxas**: visitas que compraram, visitas que puseram na sacola e checkouts que viraram
+  venda.
+- **Embaixo**: os mais vendidos, de onde vieram as visitas e os pedidos do período (os 6 mais
+  novos, e quantos são).
+- **"Precisa de você" em cima, numa faixa** — é do agora, não muda com o período. O número
+  "Esperando pagamento" saiu: o Pix esperando virou item da faixa, e o cartão em análise diz
+  quanto espera.
+- **Antes da virada, as vendas são as da Nuvemshop** (o arquivo de vendas importado no CRM, de
+  30/01 a 27/09/2026), e as visitas, as do site da Nuvemshop (o Google Analytics e o domínio são
+  os mesmos). O checkout passo a passo só existe desde a loja nova.
+- **Quem vê o quê**: o dono, tudo; a operação, os números, os mais vendidos e os pedidos; o
+  marketing, os números, o funil, as taxas e a origem — sem pedido nem nome de cliente.
+- **A loja marca o carrinho quando o checkout abre** (a hora, no próprio carrinho, sem cookie): é
+  o "começaram o checkout". Carrinho de antes desta entrega conta a partir do e-mail.
+- De carona: o item "Produtos em rascunho" da faixa do marketing nunca aparecia (a contagem vinha
+  sempre zero). Consertado.
+
+Conferido no Medusa local, com o Google falso: `conferir-pedidos` 113/113 (os números contra a
+conta de sempre do Início, os botões, as datas, o "não comparar", o checkout, os pedidos e a marca
+do checkout), `conferir-visitas` 51/51 (as visitas no corte de hoje, o que elas fizeram, as taxas,
+a origem, quem vê o quê, o Google lento ou fora), `conferir-marketing` 120/120, `conferir-entrar`
+90/90, `conferir-avaliacoes` 27/27, e na loja o `conferir-checkout` 183/183 (a marca no carrinho) e
+o `conferir-pagamento` 219/219. E os unitários (1.525, 41 novos), o typecheck e o lint dos três
+apps, o `medusa build` e o prettier.
+
+Depois do deploy — **nada a configurar.** Se o painel subir antes do Railway (uns 5 minutos), o
+Início fica o de antes até o backend novo entrar.
+
+- [ ] **Pergunta em aberto (você):** o mesmo seletor de período em quais outras telas — Pedidos,
+      Marketing (no lugar dos 4 botões de hoje), Carrinhos?
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa
