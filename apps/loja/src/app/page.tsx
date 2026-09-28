@@ -1,12 +1,13 @@
 import { ReposicaoNaHome } from "@/components/reposicao/na-home"
 import { Secoes } from "@/components/secoes"
+import { SECOES_DA_HOME } from "@/lib/secoes/registro-da-home"
 
 /**
  * A home.
  *
  * Quais seções entram e em que ordem não está escrito aqui — está no
- * registro (`lib/secoes/registro.ts`), e o que difere do padrão virá do
- * painel. Esta página só diz ONDE elas vão.
+ * registro da home (`lib/secoes/registro-da-home.ts`), e o que difere do
+ * padrão virá do painel. Esta página só diz ONDE elas vão.
  *
  * O `<main>` não tem medida própria de propósito: cada seção é uma faixa de
  * ponta a ponta da tela e segura o próprio limite de largura por dentro
@@ -30,7 +31,7 @@ import { Secoes } from "@/components/secoes"
 export default function Inicio() {
   return (
     <main id="conteudo" className="flex-1">
-      <Secoes escopo="home" />
+      <Secoes escopo="home" secoes={SECOES_DA_HOME} />
       <ReposicaoNaHome />
     </main>
   )

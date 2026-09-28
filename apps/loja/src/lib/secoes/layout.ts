@@ -1,6 +1,6 @@
 import { home } from "@/lib/medusa"
 import { pdpDoProduto } from "@/lib/pdp"
-import { SECOES, type Escopo, type Secao } from "./registro"
+import type { Escopo, Secao } from "./registro"
 
 /**
  * QUAIS SEÇÕES A PÁGINA MONTA, E EM QUE ORDEM
@@ -73,14 +73,17 @@ export async function lerAjuste(escopo: Escopo, handle?: string): Promise<Ajuste
 }
 
 /**
- * Registro + ajuste = a lista que a página renderiza.
+ * Registro + ajuste = a lista que a página renderiza. O registro é o da
+ * página (`SECOES_DA_HOME` ou `SECOES_DO_PRODUTO`), que ela mesma importa —
+ * ver o quadro em `registro.ts`.
  *
  * Seção `fixo` ignora o ajuste inteiro: não desliga e não sai do lugar.
  */
-export function resolver(escopo: Escopo, ajuste?: AjusteDeLayout | null): Secao[] {
-  const doEscopo = SECOES.filter((s) => s.escopo === escopo)
-
-  const ordenadas = ajuste?.ordem?.length ? aplicarOrdem(doEscopo, ajuste.ordem) : doEscopo
+export function resolver<S extends Secao>(
+  secoes: readonly S[],
+  ajuste?: AjusteDeLayout | null
+): S[] {
+  const ordenadas = ajuste?.ordem?.length ? aplicarOrdem(secoes, ajuste.ordem) : secoes
 
   return ordenadas.filter((s) => {
     if (s.fixo) return true
@@ -100,9 +103,9 @@ export function resolver(escopo: Escopo, ajuste?: AjusteDeLayout | null): Secao[
  * produto), mesmo que a ordem salva a cite em outro — ou não a cite: uma
  * ordem que esquecesse o topo o mandaria pro fim da página.
  */
-function aplicarOrdem(secoes: Secao[], ordem: readonly string[]): Secao[] {
+function aplicarOrdem<S extends Secao>(secoes: readonly S[], ordem: readonly string[]): S[] {
   const porId = new Map(secoes.filter((s) => !s.fixo).map((s) => [s.id, s]))
-  const postas: Secao[] = []
+  const postas: S[] = []
 
   for (const id of ordem) {
     const s = porId.get(id)

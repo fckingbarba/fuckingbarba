@@ -1008,7 +1008,8 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
         baixa antes de aparecer: cada uma carrega o seu.
       A categoria (/barba) e a página do produto também ficaram mais rápidas no teste (2,18 → 2,10 s
       e 2,33 → 2,26 s).
-  - [ ] **Mais folga pro LCP da home.** O teste simula um 4G lento que baixa uma coisa de cada vez,
+  - [x] **Mais folga pro LCP da home** (feito na entrega 0194, 28/09 — ver o fim deste arquivo; o
+        texto abaixo é o plano de antes). O teste simula um 4G lento que baixa uma coisa de cada vez,
         em degraus de 0,15 s, e a home ficou logo abaixo de um degrau: se o HTML ou o CSS dela
         crescerem 1,2 KB (comprimidos), ela pula pra 2,56 s e reprova (ver o AGENTS.md, perto do
         Lighthouse). A PR #99 (rodapé) soma 0,35 KB e ainda cabe. Pra folga de verdade, é aliviar
@@ -4392,6 +4393,36 @@ Conferido no Medusa local: o `conferir-criadores` da loja 34/34 em três rodadas
 calculadora contra a `OFERTA` do código, agora mês a mês; os 25 criativos no cartão e na matriz;
 nada de "12 meses" na página; as três fotos do celular carregadas), o typecheck, o lint e o prettier da loja, e o `next build` contra o
 `medusa-falso.mjs`.
+
+Depois do deploy — **nada a configurar.**
+
+**A home mais rápida no Lighthouse do CI — pronto em 28/09 (entrega 0194).** O CI da main ficou
+vermelho no fim de 28/09 (o run da #177) sem ninguém ter errado: o teste de velocidade da home, que
+tem teto de 2,5 s, vinha dando 2,56 s na maioria das medições desde a tarde, e passava só quando
+uma das três rodadas tinha sorte. Ao longo do dia a home ganhou peso aos poucos, e a página dos
+criadores (0189) fez o estilo da loja sair em dois arquivos em vez de um — o que empurrou o começo
+da página pra depois do limite que o teste perdoa.
+
+- **Nada muda na tela.** A home, a categoria, a página do produto, o checkout, a conta, as dúvidas,
+  os criadores e a busca foram comparados antes e depois, no celular e no computador: o mesmo
+  conteúdo e o mesmo estilo em cada pedaço da página (5 milhões de medidas, nenhuma diferente), e
+  as fotos da tela iguais — fora o sorteio da esteira de avaliações, que já muda a cada visita.
+- **O que ficou mais leve:** o estilo que toda página baixa antes de aparecer (0,7 KB a menos — ele
+  gerava estilos pra palavras dos documentos e das ferramentas, que nenhuma tela usa); o
+  JavaScript da home (11 KB a menos — 9 KB eram o código da página do produto, a galeria, os kits
+  e a rotina, que ela baixava junto); e a medida de velocidade das visitas (a do painel, em
+  Observabilidade), que agora começa depois de a página carregar, em toda página.
+- **No teste, na máquina daqui:** a home foi de 2,56 s pra 2,26 s. A categoria e a página do
+  produto seguem onde estavam (2,18 e 2,26 s).
+- **A medida de velocidade no painel continua igual** pra quem navega de verdade. Só a visita que
+  sai no mesmo instante em que a página termina de abrir deixa de mandar o tempo de carregar (a de
+  antes também quase nunca mandava).
+- **O CI agora guarda as nove medições** do teste (três de cada página), e não só a do meio: da
+  próxima vez que ele reclamar, dá pra ver cada rodada.
+
+Conferido com o build de produção contra o Medusa falso (como o CI): o teste de velocidade
+intercalado com a main, seis rodadas de cada, com a CPU normal e com a CPU lenta; o HTML de nove
+páginas comparado com o da main (o conteúdo é o mesmo); e o typecheck, o lint e o prettier da loja.
 
 Depois do deploy — **nada a configurar.**
 

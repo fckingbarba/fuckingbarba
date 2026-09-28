@@ -146,6 +146,47 @@ depois do sim e sem o prefetch da política: a home local mede 2,41 s (a /barba 
 No CI, a main da #114 media 1,97 s na home. Quem somar JavaScript à home depois disto: meça antes
 da PR — o próximo degrau local é 2,56 s, acima do orçamento.
 
+**O degrau da 0194** (28/09; os relatórios públicos de 76 runs do CI de 27 e 28/09, e o `lighthouse`
+12.6.1 avulso intercalando main e entrega com o Medusa falso na 9194). Desde a main 668d2b7 a home
+do CI media 2,56 s, com o FCP em 1,21 s: a 0189 separou a `@font-face` da Inter num CSS à parte
+(o Turbopack deixou de juntar os dois do `globals.css`) e o HTML e o CSS somados passaram dos
+43,8 KB (43.992 B no CI) — o degrau de cima. Três coisas tiraram a home de lá sem mudar nada na tela
+— o HTML visível e o payload do React são os mesmos, e o estilo calculado de cada elemento também
+(5 milhões de valores, em nove páginas, no celular e no computador, contra a main):
+
+- **O Tailwind só lê o `src/`** (`source("..")` no `globals.css`). Ele varria o `apps/loja` inteiro —
+  os protótipos do porte, os conferidores, este arquivo — e gerava `container`, `border`,
+  `transition`, `filter`... que nenhuma tela usa. Seis palavras do `src/` que não são classe ficam
+  de fora (`@source not inline(...)`, com o porquê ali). O CSS de toda página cai 0,67 KB, e o da
+  home volta a um arquivo só.
+- **Uma lista de seções por página** (ver "Página é dado, não JSX"): a home deixou de baixar a
+  dobra, a galeria, os kits e a rotina da PDP — ~9 KB comprimidos de JavaScript.
+- **O `web-vitals` do Next depois do `load`** (ver a parte 2 da observabilidade): ~2,5 KB em toda
+  página.
+
+A home ficou com 42,5 KB de HTML e CSS (gzip) — sobram ~0,7 KB antes do degrau — e 176 KB de
+JavaScript (eram 187). No `lighthouse` avulso, seis rodadas de cada, intercaladas: a mediana vai
+de 2,56 pra 2,26 s (FCP 1,21 → 0,97 s); com a CPU lenta (`taskpolicy -b node .../lighthouse`, que
+roda o Chrome nos núcleos de eficiência do Mac — mais perto da máquina do CI), de 2,67 pra 2,40 s.
+A /barba e a PDP não mudam de degrau (2,18 e 2,26 s). O próximo pedaço grande da home é a gaveta da sacola (~4,5 KB, desenhada
+fechada em toda página); a próxima conta de CSS, o `@font-face` das sete escritas da Inter (o
+`next/font/google` escreve todas, e a loja só usa a latina).
+
+**Por que um corte às vezes não muda nada** (o Lantern do 12.6.1). Em HTTP/2 o simulador passa a
+sobra da última volta pro pedido seguinte (`h2OverflowBytesDownloaded`, no `TCPConnection`). Mas
+quando uma tarefa de CPU termina no meio de um download — o ParseHTML e o Layout logo depois do
+HTML, a avaliação do pedaço do React depois dele —, o `updateProgressMadeInTimePeriod` gasta essa
+sobra sem contar os bytes, e o pedido baixa tudo de novo: uma volta (150 ms) perdida. Era isso que
+levava o CSS da main de 909 pra 1.209 ms, com 109 B passando da sobra do HTML. Por isso o LCP da home
+anda em degraus e depende de ONDE o corte cai: cortar antes do pedido interrompido só aumenta a sobra
+que ele perde. E o modo "bom" do CI (~1,96 s) é a gravação em que a página pintou antes de avaliar
+os scripts (aí eles saem do grafo); o "ruim" (~2,4 s), a que avaliou antes. Pra ver na sua máquina,
+sem rodar o Lighthouse de novo: grave os artefatos (`-G`) e peça o `LanternLargestContentfulPaint`
+(`lighthouse/core/computed/metrics/`) com o `loadArtifacts` e um `{computedCache: new Map(),
+settings}`; o grafo (`PageDependencyGraph`) tem o `transferSize` de cada pedido pra mudar, e a
+duração das tarefas de CPU (`CPUNode.duration`) dá pra escalar e imitar a máquina do CI. Desde a
+0194 o CI guarda as nove medições (artefato `lighthouse`: `gh run download <run> -n lighthouse`).
+
 Imagem `data:` em CSS é pedido "sem conexão" pro Lantern e derruba a conta pessimista (ver `--raio`
 em `estilos/base.css`). Pra medir uma mudança sem o ruído da máquina (aqui o Lighthouse oscila meio
 segundo entre rodadas do mesmo build): grave os artefatos com `node_modules/.bin/lighthouse <url>
@@ -213,11 +254,15 @@ precisa sair da janela dela — ver `longeDaConciliacaoAutomatica` no conferidor
   boa, a que não estava pronta mostra o `app/error.tsx`, e o build com o Medusa fora falha (a loja
   anterior segue no ar; Redeploy quando o Railway voltar). Padrão no lugar da resposta, só fora do
   cache e em quem chama (`criarCarrinhoCom`, `buscarCep`).
-- **Página é dado, não JSX.** Quais seções uma página monta, e em que ordem, vem do registro
-  (`apps/loja/src/lib/secoes/registro.ts`); a rota só escreve `<Secoes escopo="..." />`. A ordem do
-  array é a ordem padrão — não existe segunda lista, e o banco guardará só a diferença
-  (`lib/secoes/layout.ts`). Seção nova se declara lá, com `id` estável (é chave de banco), `nome` e
-  `descricao` (é o que uma pessoa lê no painel) e `fixo: true` quando não pode ser desligada.
+- **Página é dado, não JSX.** Quais seções uma página monta, e em que ordem, vem do registro dela:
+  `SECOES_DA_HOME` (`apps/loja/src/lib/secoes/registro-da-home.ts`) e `SECOES_DO_PRODUTO`
+  (`registro-do-produto.ts`), com os tipos e as regras em `registro.ts`; a rota só escreve
+  `<Secoes escopo="..." secoes={...} />`. A ordem do array é a ordem padrão — não existe segunda
+  lista, e o banco guardará só a diferença (`lib/secoes/layout.ts`). Seção nova se declara na lista
+  da página dela, com `id` estável (é chave de banco), `nome` e `descricao` (é o que uma pessoa lê no
+  painel) e `fixo: true` quando não pode ser desligada. **Uma lista por arquivo, e nenhum arquivo
+  importa as duas** (0194): quem importa a lista manda pro navegador o JavaScript de cliente de
+  todas as seções dela, apareçam ou não — com as duas juntas, a home baixava a dobra da PDP.
 - **404 real no primeiro nível é no proxy** (`apps/loja/src/proxy.ts`); com Cache Components, rota
   dinâmica manda o shell com 200. Ao criar uma página nova de primeiro nível, adicione o segmento em
   `PAGINAS_RAIZ` do proxy.
@@ -1647,7 +1692,8 @@ atropelam. Seção pela metade não grava e volta em `422 { faltando }`, com as 
 (`faltandoNaSecao`, em `lib/pdp.ts`, a mesma regra do `lerPdp`); o painel troca pelos nomes da
 tela. O editor de cada seção é DADO: `SECOES`, em `apps/dashboard/src/lib/produtos.ts` (os campos,
 os nomes e a medida de cada fundo), gêmeo do `SECOES_DA_PAGINA` (`lib/painel/produtos.ts`) e do
-registro da loja (`apps/loja/src/lib/secoes/registro.ts`) — seção nova entra nos três.
+registro da loja (`SECOES_DO_PRODUTO`, em `apps/loja/src/lib/secoes/registro-do-produto.ts`) — seção
+nova entra nos três.
 
 **As imagens de fundo.** O navegador encolhe a foto até a medida máxima (2880 de largura no
 computador, 1290 no celular) e manda como arquivo pra uma ação do servidor do painel (até 3,5 MB:
@@ -2179,7 +2225,11 @@ falsos: o Resend recusa, a Frenet cai, e o Pagar.me não estorna.
 - **Na loja:** `components/telemetria/telemetria.tsx` mora no layout raiz. Ele guarda o LCP, o INP
   e o CLS do `useReportWebVitals` (uma de cada por envio, pelo nome: no desenvolvimento, o React
   liga o medidor duas vezes) e o erro dos scripts da própria loja (`error` e
-  `unhandledrejection`). O `avisar-404.tsx` mora no `not-found.tsx`, e as telas de erro contam o
+  `unhandledrejection`). O medidor (`vitais.tsx`) só baixa depois do `load` (0194): o `web-vitals`
+  do Next pesa ~3 KB comprimidos e entrava no LCP de toda página no Lighthouse do CI. O navegador
+  guarda o LCP, o CLS e o primeiro toque desde o começo, e o medidor lê o que já passou — só a
+  visita que esconde a aba no instante da carga fica sem o LCP (a de antes também quase nunca o
+  mandava). O ouvinte do erro continua na hidratação. O `avisar-404.tsx` mora no `not-found.tsx`, e as telas de erro contam o
   que caiu (`avisarTelaDeErro`). Tudo vai pelo `sendBeacon` pra `POST /api/telemetria`, que responde
   204 na hora e repassa depois (`after`), assinado. Ele descarta o corpo acima de 8 KB, o robô
   (inclusive o Lighthouse) e o preview da Vercel.
