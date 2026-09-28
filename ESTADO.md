@@ -4353,10 +4353,15 @@ com o vídeo, enquanto ele vender — sem data pra acabar —, e o fixo, R$ 1.00
   passa do fixo no 9º mês) — numa barra que é o fixo inteiro, com um bloco por mês de comissão.
 - **O uso de imagem** também saiu do "até 12 meses": a regra diz só que os vídeos rodam como
   anúncio da loja, e o prazo fica pro contrato.
+- **O celular do topo com fotos de verdade** (as dele: autorizadas, com contrato): a barba
+  coçando no gancho ("Sua barba coça? Assiste isso."), o shampoo no corpo ("Shampoo feito pra
+  barba", "Limpa e refresca" — o que a embalagem diz) e a barba arrumada no fecho. A frase desceu
+  pra perto da barra do tempo, pra não cobrir a barba. O canto com o botão do reprodutor de vídeo
+  foi cortado das fotos.
 
-Conferido no Medusa local: o `conferir-criadores` da loja 33/33 em três rodadas (a oferta e a
+Conferido no Medusa local: o `conferir-criadores` da loja 34/34 em três rodadas (a oferta e a
 calculadora contra a `OFERTA` do código, agora mês a mês; os 25 criativos no cartão e na matriz;
-nada de "12 meses" na página), o typecheck, o lint e o prettier da loja, e o `next build` contra o
+nada de "12 meses" na página; as três fotos do celular carregadas), o typecheck, o lint e o prettier da loja, e o `next build` contra o
 `medusa-falso.mjs`.
 
 Depois do deploy — **nada a configurar.**

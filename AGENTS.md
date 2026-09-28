@@ -1178,7 +1178,10 @@ pontas:
   COMISSÃO NÃO TEM PRAZO (0196, decisão dele: "o que vender, vamos pagar"): a calculadora não soma
   "em N meses" — mostra em que mês a comissão passa do fixo (`mesesPraPassarDoFixo`). Os criativos
   são `ideias × ganchosPorIdeia` (5 × 5 = 25): a matriz (`components/criadores/matriz.tsx`) tem
-  os ganchos escritos de cada ideia — mudou a conta, muda a matriz junto (o conferidor confere). O kit
+  os ganchos escritos de cada ideia — mudou a conta, muda a matriz junto (o conferidor confere). O
+  celular do topo (`camera.tsx`) troca de foto em cada momento — gancho, corpo e fecho, em
+  `components/criadores/fotos/` (de um criador, com autorização e contrato; em pé, 9:16) —, com a
+  frase embaixo, acima da barra do tempo, pra não cobrir a barba. O kit
   são quatro produtos do Medusa pelo handle (`listarProdutos`), e a prévia do link (`og:image`) é a
   foto do kit completo. A inscrição usa os campos do checkout (`.campo`) e manda pela ação
   `inscreverCriador` (`lib/acoes/criadores.ts`), que confere antes com a mesma régua do Medusa e
