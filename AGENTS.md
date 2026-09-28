@@ -2876,9 +2876,13 @@ no painel.
   - quem nunca comprou vê os mais pedidos;
   - o "Repor agora" leva pro produto do item que acaba primeiro, com o nome curto de
     `CURTO_DO_COMPONENTE`.
-- **Os e-mails** (`emailDaEstreia`, em `lib/emails/estreia.ts`) são todos "oferta". A lista "O
-  que tem na loja nova" junta o que as Configurações dizem (frete grátis, prazo) e o que a loja
-  faz de verdade (a conta por código, o rastreio na conta).
+- **Os e-mails** (`emailDaEstreia`, em `lib/emails/estreia.ts`) são "oferta", menos o de
+  `repor`. Esse é "lembrete" desde a entrega 0182, escolha do dono depois do teste em que os 4
+  caíram em Promoções: assinado, sem o `List-Unsubscribe`, com o `PORQUE_DO_LEMBRETE_DA_ESTREIA`
+  (sem a palavra "ofertas") e sem o frete grátis na lista. O teste de unidade recusa palavra de
+  propaganda nele, como nos lembretes dos fluxos. A lista "O que tem na loja nova" junta o que as
+  Configurações dizem (frete grátis, prazo) e o que a loja faz de verdade (a conta por código, o
+  rastreio na conta).
 - **No painel,** o bloco Estreia mostra o público (`publicoNaTela`: os 4 jeitos e os lotes). O
   "Mandar pra mim" do `estreia-agora` manda os 4 jeitos (`exemplosDoToque`): a rota de teste
   manda um e-mail por jeito e responde `quantos`.

@@ -58,7 +58,7 @@ describe("o e-mail da loja nova", () => {
     expect(e.pronto.html).not.toContain("Postagem em")
   })
 
-  it("na hora de repor: o que está acabando, e o botão leva pra ele", () => {
+  it("na hora de repor: o que está acabando, como lembrete, e o botão leva pra ele", () => {
     const e = montar({
       segmento: "repor",
       acabando: { curto: "Fator de Crescimento", artigo: "o", produto: FATOR },
@@ -66,9 +66,20 @@ describe("o e-mail da loja nova", () => {
     expect(e.pronto.assunto).toBe("Seu Fator de Crescimento deve estar acabando")
     expect(e.pronto.html).toContain("Pelas nossas contas, o Fator de Crescimento")
     expect(e.bruto.botao).toEqual({
-      texto: "Repor agora",
+      texto: "Ver o Fator de Crescimento",
       caminho: "/produtos/fator-de-crescimento-para-barba",
     })
+    // Sem desconto: a cara do lembrete (escolha do dono, 28/09), sem o "cancelar inscrição"
+    // do cabeçalho e sem palavra de propaganda — nem o frete grátis.
+    expect(e.bruto.estilo).toBe("lembrete")
+    expect(e.pronto.cabecalhos).toEqual({})
+    expect(e.pronto.html).toContain("Sair da lista")
+    expect(e.pronto.html).not.toContain("Frete grátis")
+    expect(e.pronto.html).not.toContain("ofertas da FuckingBarba")
+    const b = e.bruto
+    expect([b.assunto, b.previa, b.texto, b.botao?.texto ?? ""].join(" ")).not.toMatch(
+      /esqueceu|última chamada|ainda dá tempo|em 1 clique|tá aqui|grátis|desconto|oferta/i
+    )
     expect(
       montar({
         segmento: "repor",

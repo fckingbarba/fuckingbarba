@@ -13,9 +13,14 @@ import { emReais } from "./moldura"
  *   - quem nunca comprou: a loja nova e o cupom da 1ª compra.
  * E, 2 dias depois, o "vence amanhã" de quem ganhou cupom.
  *
- * Todos são oferta (o remetente das ofertas, o "cancelar inscrição" no
- * cabeçalho): é campanha pra base inteira, e Promoções é o lugar dela. O que
- * a loja nova tem sai das Configurações (o frete grátis, o prazo de
+ * O do tratamento e os dois com cupom são oferta (o "cancelar inscrição" no
+ * cabeçalho): é campanha pra base inteira, e Promoções é o lugar dela. O de
+ * repor não tem desconto e é útil pra pessoa: sai como LEMBRETE (escolha do
+ * dono, 28/09, depois do teste em que os 4 caíram em Promoções), a cara dos
+ * lembretes do checkout que caíram em Principal — assinado, sem o cabeçalho
+ * de oferta e sem palavra de propaganda (nem o frete grátis).
+ *
+ * O que a loja nova tem sai das Configurações (o frete grátis, o prazo de
  * postagem) e do que a loja faz de verdade (a conta sem senha, o rastreio).
  *
  * Código puro, com testes.
@@ -43,6 +48,10 @@ export type EstreiaDoEmail = {
 export const PORQUE_DA_ESTREIA =
   "Você recebeu porque aceitou receber as ofertas da FuckingBarba por e-mail, na loja antiga."
 
+/** O do lembrete de repor: sem a palavra "ofertas". */
+export const PORQUE_DO_LEMBRETE_DA_ESTREIA =
+  "Você recebeu porque aceitou os e-mails da FuckingBarba na loja antiga."
+
 /** "https://www.fuckingbarba.com.br" → "fuckingbarba.com.br". */
 function dominio(url: string): string {
   try {
@@ -52,15 +61,18 @@ function dominio(url: string): string {
   }
 }
 
-/** O que a loja nova tem: o que ela faz de verdade, e o que as Configurações dizem. */
-function oQueTem(e: EstreiaDoEmail): BlocoDoCrm {
+/**
+ * O que a loja nova tem: o que ela faz de verdade, e o que as Configurações
+ * dizem. No lembrete, sem o frete grátis: é palavra de propaganda.
+ */
+function oQueTem(e: EstreiaDoEmail, lembrete = false): BlocoDoCrm {
   return {
     tipo: "lista",
     titulo: "O que tem na loja nova",
     itens: [
       `O mesmo endereço: ${dominio(e.loja.url)}.`,
       "Conta sem senha: você entra com o e-mail e um código.",
-      ...(e.daLoja.freteGratisAcima
+      ...(e.daLoja.freteGratisAcima && !lembrete
         ? [`Frete grátis acima de ${emReais(e.daLoja.freteGratisAcima)}.`]
         : []),
       ...(e.daLoja.prazoDePostagem ? [`Postagem em ${e.daLoja.prazoDePostagem}.`] : []),
@@ -126,6 +138,8 @@ export function emailDaEstreia(e: EstreiaDoEmail): EmailDoCrm | null {
       const seu = a ? `${a.artigo === "a" ? "Sua" : "Seu"} ${a.curto}` : null
       return {
         ...base,
+        estilo: "lembrete",
+        porque: PORQUE_DO_LEMBRETE_DA_ESTREIA,
         assunto: seu ? `${seu} deve estar acabando` : "A FuckingBarba tem loja nova",
         previa: "E a FuckingBarba tem loja nova, no mesmo endereço.",
         titulo: "Hora de repor",
@@ -135,9 +149,12 @@ export function emailDaEstreia(e: EstreiaDoEmail): EmailDoCrm | null {
             : "Pelas nossas contas, está na hora de repor. ") +
           "E a FuckingBarba tem loja nova, no mesmo endereço: quando for repor, é lá.",
         botao: a?.produto
-          ? { texto: "Repor agora", caminho: `/produtos/${encodeURIComponent(a.produto.handle)}` }
+          ? {
+              texto: `Ver ${a.artigo} ${a.curto}`,
+              caminho: `/produtos/${encodeURIComponent(a.produto.handle)}`,
+            }
           : conhecer,
-        blocos: [...produtos, oQueTem(e)],
+        blocos: [...produtos, oQueTem(e, true)],
       }
     }
     case "cliente":
