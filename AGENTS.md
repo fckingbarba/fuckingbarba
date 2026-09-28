@@ -3065,24 +3065,25 @@ a ficha"). Quem está com a conta aberta vê "Seu Fator de Crescimento acaba em 
 "Refazer o pedido", na visão geral da conta e na home. Não é e-mail: não depende do fluxo ligado
 nem da lista.
 
-- **A conta é a dos e-mails** (`lib/crm/reposicao.ts`): `reposicoesDoEmail` faz o
-  `publicoDaReposicao` só com os pedidos de uma pessoa (os da loja nova pelo e-mail do pedido,
-  `pedidosParaAsEtiquetas(container, { email })`, e os da base da Nuvemshop), com os dias dos
-  Ajustes e a mesma janela (`naJanelaDaReposicao`).
-- **O aviso** é `avisoDaReposicao`, puro, com testes:
-  - de vários tipos, o que acaba primeiro (o que já acabou vem antes);
+- **A conta é a dos e-mails:** a ficha do site (parte 15) lê os pedidos de uma pessoa (os da loja
+  nova pelo e-mail do pedido, `pedidosParaAsEtiquetas(container, { email })`, e os da base da
+  Nuvemshop) e passa as reposições dela (`reposicoesDaPessoa`, com os dias dos Ajustes) pro aviso.
+- **O aviso** é `avisoDaReposicao` (`lib/crm/reposicao.ts`), puro, com testes:
+  - de vários tipos, o que acaba primeiro (o que já acabou vem antes), na janela dos e-mails
+    (`naJanelaDaReposicao`);
   - só se a loja ainda vende algum produto da última compra desse tipo (a foto, e o que o
     "Refazer" monta);
-  - os dias contam no calendário de Brasília (`diasAteAcabar`): "acaba em 5 dias", "amanhã",
-    "hoje"; depois, "Acabou o óleo?" (`textoDoAviso`, sem palavra de propaganda);
+  - os dias contam no calendário de Brasília (`diasAteAcabar`, `diasNoCalendario`): "acaba em 5
+    dias", "amanhã", "hoje"; depois, "Acabou o óleo?" (`textoDoAviso`, sem palavra de propaganda);
   - o botão é o link de voltar dos e-mails (`repor-order_…` ou `repor-nso_…`);
   - a `chave` (o tipo e o dia de acabar) é o que o "fechar" da home guarda.
-- **A rota** é `GET /store/crm/reposicao`, só com token de cliente (`authenticate` nos
-  middlewares). O e-mail sai da conta do token (`contaDoToken`), 60 por hora por conta, e
-  qualquer tropeço vira `{ reposicao: null }`.
+- **A rota** é `GET /store/crm/ficha` (era `/store/crm/reposicao` até a 0190), só com token de
+  cliente (`authenticate` nos middlewares). O e-mail sai da conta do token (`contaDoToken`), 60 por
+  hora por conta, e qualquer tropeço vira `{ ficha: null }`.
 - **Na loja:**
-  - `lib/reposicao.ts` (sem diretiva) tem o tipo, o `avisoValido` e o cookie `fb_conta`;
-  - `lib/reposicao-da-conta.ts` pergunta ao Medusa com a sessão;
+  - `lib/ficha.ts` (sem diretiva; era `lib/reposicao.ts`) tem os tipos e o cookie `fb_conta`, e
+    `lib/ficha-valida.ts`, o `avisoValido`;
+  - `lib/ficha-da-conta.ts` pergunta ao Medusa com a sessão;
   - na conta, o bloco **Pra repor** (`PraRepor`, em `components/conta/pedidos.tsx`) vem antes
     do "Comprar de novo", que some quando é o mesmo pedido. Pra quem só comprou na loja antiga,
     ele vem antes do "Nenhum pedido ainda".
@@ -3092,22 +3093,63 @@ nem da lista.
   - Ele é gravado no código de entrar (`confirmarCodigo`) e apagado no `sair` e no `/conta/sair`.
   - O proxy (trabalho 6) grava um novo na primeira visita à conta de quem tem sessão e não tem
     o `fb_conta` (quem entrou antes da 0188).
-  - Só com ele, `components/reposicao/na-home.tsx` pergunta (`/api/reposicao`), depois de 1,5 s,
-    com a faixa de cookies respondida e a sacola fechada. A resposta fica na aba por meia hora,
-    presa ao sorteio. O cartão (`./aviso.tsx` + `estilos/reposicao.css`) só baixa quando há
-    aviso: é fixo num canto e não empurra a página.
+  - Só com ele o navegador pergunta a ficha (`/api/ficha`, parte 15). O
+    `components/reposicao/na-home.tsx` mostra o aviso 1,5 s depois de ela chegar, com a faixa de
+    cookies respondida e a sacola fechada. O cartão (`./aviso.tsx` + `estilos/reposicao.css`) só
+    baixa quando há aviso: é fixo num canto e não empurra a página.
   - O X guarda a `chave` no `localStorage`, e o aviso só volta na próxima reposição.
-  - `/api/reposicao` sem sessão apaga o `fb_conta`.
-  - A pergunta sai no relógio, e não direto no efeito: no `next dev` o React monta duas vezes
-    (StrictMode), e o primeiro relógio morre antes de perguntar.
+  - `/api/ficha` sem sessão apaga o `fb_conta`.
 - **A política de privacidade** conta o aviso e o cookie novo.
 
-O `conferir-crm.mjs` (logo depois da reposição por e-mail, com o fluxo desligado) sobe o Fator da
-loja antiga pago há 32 dias, que acaba em 5, e entra na loja com esse e-mail:
+**O CRM, parte 15: o site usando a ficha — o tratamento, as compras e o que combina** (entrega
+0190, fecha a etapa 3 do plano). As avaliações com foto saíram do plano: o dono quer só texto
+(28/09), e as de hoje já são só texto.
+
+- **A ficha do site** é `lib/crm/ficha-do-site.ts`: `lerFichaDoSite` junta os pedidos da pessoa,
+  os Ajustes, os produtos pelo SKU e a linha do tempo da página do Fator (`lerPdp`, sem as
+  marcas). O `fichaDoSite`, puro e com testes, devolve:
+  - `reposicao`: o aviso da parte 14;
+  - `tratamento`: o dia do tratamento com o Fator. Conta da chegada do primeiro Fator da
+    sequência (a entrega, ou pago + 7). Cada compra que chega antes de o anterior acabar, mais a
+    `toleranciaDaReposicao` dos Ajustes, continua a sequência. Some quando o último acaba: aí
+    quem fala é a reposição. É diferente da etiqueta "dia do tratamento" do painel, que conta do
+    primeiro Fator de todos;
+  - o próximo marco do tratamento é o primeiro da linha do tempo depois de hoje. `diaDoPasso` lê
+    o "quando" do dono: "Dia 30"; "Semanas 1 e 2" = 14; "3 a 6 meses" = 180, o fim da faixa. O
+    alvo da barra é o marco com `alvo` (sem ele, `ALVO_PADRAO`, 90). `linhaDoTempo` diz se a
+    seção está ligada na página (o link desce até `#tempo-titulo`);
+  - `compras`: a última compra paga de cada produto (o da loja nova pelo endereço, o da
+    Nuvemshop pelo SKU), em dias de Brasília;
+  - `combina`: `sugestoesDaRotina` (a matriz do e-mail de 21 dias), pelo que a pessoa tem em
+    todas as compras, com o porquê (`PORQUE_DA_ROTINA`). Nunca o que ela já comprou.
+- **Na loja:**
+  - `lib/ficha-valida.ts` tem o `fichaValida` (cada parte conferida), longe do `lib/ficha.ts`
+    (o `quandoComprou`, o cookie) de propósito: o Turbopack não tira de um módulo o que a página
+    não chama, e com os dois juntos a validação ia pra home e pra página do produto de todo
+    mundo;
+  - `components/ficha/usar-ficha.ts` (`useFicha`) é o gancho da home e da página do produto. Sem
+    o `fb_conta`, não faz nada nem baixa nada. Com ele, baixa `./ler-ficha.ts`, que pergunta
+    `/api/ficha` uma vez por aba (memória da página + `sessionStorage`, meia hora, preso ao
+    sorteio). Quem chama junto (dois componentes, ou o StrictMode do `next dev`, que monta tudo
+    duas vezes) espera a mesma pergunta. O "Refazer o pedido" da home chama `esquecerFicha`;
+  - na conta, o bloco **Seu tratamento** (`SeuTratamento`, em `components/conta/pedidos.tsx`)
+    vem depois do "Pra repor": o dia, a barra até o alvo, o próximo marco e o link da página do
+    Fator;
+  - na página do produto, `components/ficha/na-foto.tsx` põe um selo no pé da foto. É o espaço
+    `noPe` da `Galeria`, que a `Dobra` passa. No que a pessoa comprou: "Você comprou há 25
+    dias". No que combina: o porquê. Fica por cima da foto (`.galeria__ficha`, em
+    `pdp-galeria.css`) e não empurra nada.
+- **A política de privacidade** conta o que o site mostra das compras.
+
+O `conferir-crm.mjs` ("A ficha no site", logo depois da reposição por e-mail, com o fluxo
+desligado) sobe o Fator da loja antiga pago há 32 dias (acaba em 5; é o dia 26 do tratamento) e
+entra na loja com esse e-mail:
 - confere o 401 sem token, e o `fb_conta` inventado apagado;
-- sem conta, a home não pergunta nada;
-- confere o "Pra repor" na conta e o "Refazer" até o checkout;
+- sem conta, a home e a página do produto não perguntam nada;
+- na conta: o "Pra repor" (e o "Refazer" até o checkout) e o "Seu tratamento" (dia 26 de 90);
 - na home: o aviso fixo, a resposta guardada na aba, e o X que não volta;
+- na página do Fator, "Você comprou há 32 dias" por cima da foto; na do óleo, "Combina com o
+  Fator que você já tem", sem perguntar de novo;
 - confere o `fb_conta` que o proxy grava e o sair que leva ele.
 A página da conta ainda chegando tem o bloco duas vezes (a parte escondida do streaming): o
 conferidor lê o visível (`filter({ visible: true })`).

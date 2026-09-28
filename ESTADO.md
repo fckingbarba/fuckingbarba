@@ -3749,6 +3749,19 @@ conta vê quando o produto dele está acabando, pela mesma conta dos e-mails da 
 - **Não é e-mail:** vale já, com a Reposição desligada, e pra quem saiu da lista.
 - **A política de privacidade** conta.
 - Nada a fazer depois do deploy.
+
+**CRM, parte 15: o site usando a ficha — pronto em 28/09 (entrega 0190).** Fecha a etapa 3 do plano.
+As avaliações com foto saíram do plano (sua escolha: só texto — e as de hoje já são só texto).
+
+- **Na conta, "Seu tratamento":** "Dia 26 do seu tratamento", com a barra até o dia 90 e o próximo
+  marco da linha do tempo da página do Fator (ex.: "Dia 30 · Começa a encher"). Conta da chegada
+  do Fator e continua enquanto a pessoa repõe antes de acabar. Quando acaba, some, e aparece o
+  "Pra repor".
+- **Na página do produto, em cima da foto:** "Você comprou há 25 dias", no que a pessoa já
+  comprou. No que completa a rotina dela, o porquê: "Combina com o Fator que você já tem".
+- **Só pra quem está com a conta aberta.** Vale pra compra daqui e da loja antiga.
+- **A política de privacidade** conta.
+- Nada a fazer depois do deploy.
 **A parcela mínima do cartão, editável — pronta em 27/09 (entrega 0157).** O pedido dele: "quero
 poder editar a parcela mínima no cartão, ali diz 5 reais". Em **Configurações → Pagamento**, o
 bloco **Parcelas no cartão** tem o campo **Parcela mínima**.
