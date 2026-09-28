@@ -2761,12 +2761,13 @@ try {
             pergunta?.subject === "Tá tudo bem com a barba?" &&
             /^Matheus, da FuckingBarba </.test(pergunta.from ?? "") &&
             !pergunta.headers?.["List-Unsubscribe"] &&
+            !pergunta.html.includes("<img") &&
             pergunta.html.includes("o Fator de Crescimento da sua última compra acabou") &&
             ["Tá caro", "Esqueci de repor", "Não vi resultado", "Comprei em outro lugar"].every(
               (t) => pergunta.html.includes(t)
             ) &&
             links.length === 4,
-          "no dia em que fica em risco: “Tá tudo bem com a barba?”, como lembrete, com os 4 botões",
+          "no dia em que fica em risco: “Tá tudo bem com a barba?”, em texto simples, com os 4 botões",
           pergunta?.subject ?? "não chegou"
         )
 
@@ -2817,10 +2818,11 @@ try {
         ok(
           sunset?.subject === "Quer continuar recebendo nossos e-mails?" &&
             /^Matheus, da FuckingBarba </.test(sunset.from ?? "") &&
+            !sunset.html.includes("<img") &&
             sunset.html.includes("Sim, quero continuar") &&
             botoes(sunset).length === 1 &&
             deQuem(RESPONDE, doResgate).length === 1,
-          "45 dias sem sinal nenhum: “Quer continuar recebendo?”, com o Sim — quem respondeu não recebe",
+          "45 dias sem sinal nenhum: “Quer continuar recebendo?”, em texto simples, com o Sim — quem respondeu não recebe",
           JSON.stringify(deQuem(SOME, doResgate).map((e) => e.subject))
         )
 
@@ -3003,8 +3005,9 @@ try {
         ["Tá caro", "Esqueci de repor", "Não vi resultado", "Comprei em outro lugar"].every((t) =>
           testeDoResgate?.html.includes(t)
         ) &&
-        !testeDoResgate?.html.includes("/crm/resgate?t="),
-      "“Mandar pra mim” do resgate: a pergunta com os 4 botões, como lembrete — e os botões de mentira não anotam nada",
+        !testeDoResgate?.html.includes("/crm/resgate?t=") &&
+        !testeDoResgate?.html.includes("<img"),
+      "“Mandar pra mim” do resgate: a pergunta com os 4 botões, em texto simples — e os botões de mentira não anotam nada",
       testeDoResgate?.subject ?? "não chegou"
     )
     // A chave das boas-vindas é a do pop-up da loja: desligada, a loja fica sabendo.
