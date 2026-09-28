@@ -465,11 +465,31 @@ function filaDosPedidos(
           varios: "/pedidos?filtro=pagamento",
         },
         texto: () => "O valor está só reservado. Aprovado, a loja cobra sozinha.",
+        soma: 0,
       }))
       g.pedidos.push(pedido(l))
-      // A idade do que espera há mais tempo.
+      g.soma = centavos((g.soma ?? 0) + l.total)
+      // A idade do que espera há mais tempo, e quanto espera (0186: era o número "Esperando pagamento").
       const mais = [...g.pedidos].sort((a, b) => a.criadoEm.localeCompare(b.criadoEm))[0]!
-      g.item.etiquetas = [`há ${duracao(minutosEntre(mais.criadoEm, ctx.agora))}`]
+      g.item.etiquetas = [`há ${duracao(minutosEntre(mais.criadoEm, ctx.agora))}`, reais(g.soma)]
+    }
+    // O Pix gerado e ainda não pago (0186: saiu do número "Esperando pagamento" do Início de antes).
+    if (l.situacao === "pix") {
+      const g = juntar("pix", () => ({
+        item: {
+          chave: "pix",
+          nivel: "",
+          icone: "pix",
+          titulo: "Pix esperando",
+          varios: "/pedidos?filtro=pagamento",
+        },
+        texto: () =>
+          "O QR foi gerado e o cliente ainda não pagou. Pago, o pedido segue sozinho; vencido, sai daqui.",
+        soma: 0,
+      }))
+      g.pedidos.push(pedido(l))
+      g.soma = centavos((g.soma ?? 0) + l.total)
+      g.item.etiquetas = [reais(g.soma)]
     }
   }
 

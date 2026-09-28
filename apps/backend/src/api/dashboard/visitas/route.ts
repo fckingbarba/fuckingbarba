@@ -1,8 +1,35 @@
 import type { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/framework/http"
+import type { MedusaContainer } from "@medusajs/framework/types"
 import { abre, exigirArea, type PedidoDaEquipe } from "../../../lib/equipe/acesso"
-import { avisarNoLog, configuracaoDoGa4, ErroDoGa4, respostasDoDia } from "../../../lib/painel/ga4"
-import { nomesDosProdutos } from "../../../lib/painel/ler"
+import {
+  agoraNoSite,
+  avisarNoLog,
+  configuracaoDoGa4,
+  ErroDoGa4,
+  relatoriosDoMarketing,
+  respostasDoDia,
+  type ConfiguracaoDoGa4,
+} from "../../../lib/painel/ga4"
+import { enderecosDasCategorias, nomesDosProdutos, pagosDesde } from "../../../lib/painel/ler"
+import { dentro, hostsDaLoja, type Janela } from "../../../lib/painel/marketing"
+import { pagamentoDo } from "../../../lib/painel/pedido"
+import {
+  janelasNoCorte,
+  lerDesde,
+  lerPeriodo,
+  pediuPeriodo,
+  type BuscaDoPeriodo,
+  type Periodo,
+} from "../../../lib/painel/periodo"
+import {
+  corteDoGoogle,
+  montarVisitasNoPeriodo,
+  perguntasDoPeriodo,
+  type VisitasNoPeriodo,
+} from "../../../lib/painel/visitas-do-periodo"
 import { handlesDe, montarVisitas, soONumero } from "../../../lib/painel/visitas"
+import { CRM } from "../../../modules/crm"
+import type CrmService from "../../../modules/crm/service"
 
 /** O motivo de verdade vai pro log, no máximo uma linha por hora por motivo. */
 const avisar = (req: AuthenticatedMedusaRequest, tipo: string, mensagem: string) =>
@@ -27,6 +54,13 @@ const avisar = (req: AuthenticatedMedusaRequest, tipo: string, mensagem: string)
  *   `{ estado: "recusado" }` — o Google disse não (a chave, a API, o acesso);
  *   `{ estado: "fora" }` — o Google não respondeu agora.
  * O motivo de verdade vai pro log (`[ga4]`), no máximo um por hora.
+ *
+ * O PERÍODO (0186): com `?periodo=` (ou `?de=` e `?ate=`, e `?comparar=`), a
+ * resposta ok é `{ estado: "ok", periodo }` — as visitas do período da barra
+ * de cima (`lib/painel/visitas-do-periodo.ts`): o número e o gráfico pra
+ * todo papel; o que as visitas fizeram, as taxas, de onde vieram e quem está
+ * no site, pra quem abre o Marketing. Sem nenhum deles (o painel de antes),
+ * as visitas do dia, como sempre.
  */
 export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) {
   const pedido = req as PedidoDaEquipe
@@ -48,6 +82,18 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
   }
   try {
     const agora = new Date()
+    const busca = req.query as BuscaDoPeriodo
+    if (pediuPeriodo(busca)) {
+      const periodo = await visitasNoPeriodo(
+        req.scope,
+        cfg,
+        lerPeriodo(busca, agora),
+        abre(pedido, "marketing"),
+        agora
+      )
+      res.json({ estado: "ok", periodo })
+      return
+    }
     const respostas = await respostasDoDia(cfg, agora)
     const nomes = await nomesDosProdutos(req.scope, handlesDe(respostas.paginas))
     const visitas = montarVisitas(respostas, { agora, nomes })
@@ -60,4 +106,52 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
     avisar(req, tipo, e instanceof Error ? e.message : String(e))
     res.json({ estado: tipo })
   }
+}
+
+/**
+ * As visitas do período. Pra quem abre o Marketing, junto: as páginas de
+ * categoria (os endereços, do Medusa), quem está no site agora e as vendas
+ * das duas lojas — contadas no mesmo corte de hora das visitas, pra taxa
+ * "visitas que compraram" (`janelasNoCorte`).
+ */
+async function visitasNoPeriodo(
+  container: MedusaContainer,
+  cfg: ConfiguracaoDoGa4,
+  p: Periodo,
+  completo: boolean,
+  agora: Date
+): Promise<VisitasNoPeriodo> {
+  const hosts = hostsDaLoja(process.env.LOJA_URL)
+  const categorias = completo ? await enderecosDasCategorias(container) : []
+  const chave =
+    `inicio:${p.de}:${p.ate}:${p.antes?.de ?? "-"}:${completo ? "tudo" : "numero"}:` +
+    hosts.join(",")
+  const inicio = p.antes?.janela.de ?? p.atual.de
+  const [relatorios, noSite, pedidos, daNuvemshop] = await Promise.all([
+    relatoriosDoMarketing(cfg, chave, perguntasDoPeriodo(p, hosts, categorias, completo), agora),
+    // O tempo real é enfeite: sem ele, o resto vem igual.
+    completo ? agoraNoSite(cfg).catch(() => null) : null,
+    completo ? pagosDesde(container, lerDesde(p)) : [],
+    completo ? container.resolve<CrmService>(CRM).vendasDaBase(inicio, p.atual.ate) : [],
+  ])
+  if (!completo) return montarVisitasNoPeriodo(relatorios, p, agora, { completo })
+
+  // As vendas das duas lojas no corte do Google: o instante do pagamento de cada uma.
+  const pagas = [
+    ...pedidos.flatMap((o) => {
+      const pagoEm = o.status === "canceled" ? null : pagamentoDo(o).pagoEm
+      return pagoEm ? [pagoEm] : []
+    }),
+    ...daNuvemshop.map((o) => new Date(o.pagoEm ?? o.feitoEm)),
+  ]
+  const noCorte = janelasNoCorte(p, corteDoGoogle(relatorios[0] ?? {}, p, agora))
+  const contar = (j: Janela) => pagas.filter((d) => dentro(d, j)).length
+  return montarVisitasNoPeriodo(relatorios, p, agora, {
+    completo,
+    noSite,
+    vendas: {
+      atual: contar(noCorte.atual),
+      antes: noCorte.antes ? contar(noCorte.antes) : null,
+    },
+  })
 }

@@ -32,7 +32,9 @@
  * │ • as fitas de filtro contando errado, ou o filtro deixando passar;     │
  * │ • o CPF inteiro chegando pra operação (na tela OU na resposta);        │
  * │ • o marketing vendo pedido ou nome de cliente;                         │
- * │ • o Início com número que a API não deu;                               │
+ * │ • o Início com número que a API não deu; o período (0186) contando    │
+ * │   diferente do Início de sempre, os botões e as datas sem trocar os    │
+ * │   números, a marca do checkout contando duas vezes;                    │
  * │ • rolagem de lado no celular; erro no console.                         │
  * └────────────────────────────────────────────────────────────────────────┘
  */
@@ -70,6 +72,7 @@ if (!CHAVE || !process.env.ADMIN_EMAIL || !process.env.ADMIN_SENHA) {
   process.exit(1)
 }
 
+const INTEIRO = new Intl.NumberFormat("pt-BR")
 const REAIS = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
 const reais = (v) => REAIS.format(v)
 const semEspaco = (s) =>
@@ -541,28 +544,53 @@ try {
       "o Início do marketing não tem nome nem e-mail de cliente"
     )
     ok(
-      (await pagina.locator("text=Mais vendidos da semana").count()) === 1,
-      "e tem os mais vendidos"
+      (await pagina.locator('[data-bloco="mais-vendidos"]').count()) === 1 &&
+        (await pagina.locator('[data-bloco="pedidos-do-periodo"]').count()) === 0,
+      "e tem os mais vendidos, sem a lista de pedidos"
+    )
+    const doMkt = (
+      await medusa("/dashboard/inicio?periodo=hoje", { metodo: "GET", token: cookieMkt.value })
+    ).corpo.periodo
+    ok(
+      doMkt?.pedidos === null && Array.isArray(doMkt?.checkout),
+      "no período, a API do marketing vem sem os pedidos e com o checkout",
+      JSON.stringify({ pedidos: doMkt?.pedidos, checkout: doMkt?.checkout?.length })
     )
   }
 
   titulo("O Início do dono")
   {
     const { pagina } = dono
-    const api = (await medusa("/dashboard/inicio", { metodo: "GET", token: tokenDoDono })).corpo
+    const api = (
+      await medusa("/dashboard/inicio?periodo=hoje", { metodo: "GET", token: tokenDoDono })
+    ).corpo
+    const n = api.periodo
     await pagina.goto(`${PAINEL}/`)
     await pagina.waitForSelector(".numeros")
-    // Os três de dinheiro; o das visitas (do Google) tem conferidor próprio, o conferir-visitas.
+    // Os três da loja; o das visitas (do Google) tem conferidor próprio, o conferir-visitas.
     const valores = (
-      await pagina.locator(".numeros .numero:not([data-visitas]) .numero__valor").allTextContents()
+      await pagina
+        .locator('.numeros [data-numero]:not([data-numero="visitas"]) .numero__valor')
+        .allTextContents()
     ).map(semEspaco)
     ok(
       valores.join(" | ") ===
-        [api.numeros.vendasHoje.valor, api.numeros.esperando.valor, api.numeros.semana.valor]
-          .map((v) => semEspaco(reais(v)))
+        [INTEIRO.format(n.vendas.valor), reais(n.receita.valor), reais(n.ticket.valor)]
+          .map(semEspaco)
           .join(" | "),
       "os números da tela são os da API",
       valores.join(" | ")
+    )
+    // A conta nova (0186) contra a de sempre, a das vendas de hoje, que tem os anos de estrada.
+    ok(
+      n.vendas.valor === api.numeros.vendasHoje.pedidos &&
+        n.receita.valor === api.numeros.vendasHoje.valor &&
+        n.vendas.valor >= 3,
+      "hoje, as vendas e a receita são as de sempre (o pago, o enviado e o entregue da rodada, pelo menos)",
+      JSON.stringify({
+        periodo: [n.vendas.valor, n.receita.valor],
+        deSempre: api.numeros.vendasHoje,
+      })
     )
     const fila = (await pagina.locator(".fila__titulo").allTextContents()).map(semIdade)
     const filaDaApi = api.fila.map((f) => semIdade(f.titulo))
@@ -615,15 +643,195 @@ try {
       "cada item na tela: o número, os pedidos (até 6, e o +N) e o “?” com a explicação",
       naTela.join(" | ")
     )
-    const hoje = await pagina.locator(".mini a .mini__titulo").allTextContents()
+    const pix = api.fila.find((f) => f.chave === "pix")
     ok(
-      [pedidos.pix, pedidos.pago, pedidos.cancelado].every((p) =>
-        hoje.some((t) => t.startsWith(`#${p.numero} `))
-      ),
-      "os pedidos da rodada estão nos “Pedidos de hoje”"
+      Boolean(pix?.pedidos?.some((p) => p.numero === pedidos.pix.numero)) &&
+        /^R\$/.test(pix?.etiquetas?.[0] ?? "") &&
+        /^R\$/.test(analise?.etiquetas?.[1] ?? ""),
+      "o Pix da rodada está no “Pix esperando”, e os dois de pagamento dizem quanto espera",
+      JSON.stringify({ pix, analise: analise?.etiquetas })
     )
-    const barras = await pagina.locator(".barras-v__col").count()
-    ok(barras === 7, "o gráfico tem os 7 dias", String(barras))
+    const hoje = (
+      await pagina.locator('[data-bloco="pedidos-do-periodo"] .mini__titulo').allTextContents()
+    ).map(semEspaco)
+    ok(
+      hoje.join(" | ") ===
+        n.pedidos.lista.map((l) => semEspaco(`#${l.numero} · ${l.cliente.nome}`)).join(" | ") &&
+        n.pedidos.lista.length === Math.min(6, n.pedidos.total) &&
+        n.pedidos.lista[0]?.id === pedidos.estornado.id &&
+        semEspaco(await textoDe(pagina, '[data-bloco="pedidos-do-periodo"] .contagem')) ===
+          String(n.pedidos.total),
+      "os “Pedidos de hoje” são os da API: os seis mais novos (o último da rodada em cima) e quantos são",
+      hoje.join(" | ")
+    )
+    const barras = await pagina.locator('[data-numero="receita"] .barrinhas rect').count()
+    ok(
+      n.barras.length === 24 &&
+        barras === n.barras.filter((b) => b.receita > 0).length &&
+        barras >= 1,
+      "o gráfico da receita: uma barra em cada hora com venda",
+      String(barras)
+    )
+    const passos = await pagina.locator('[data-bloco="checkout"] .degrau__n b').allTextContents()
+    ok(
+      passos.join(",") === n.checkout.map((x) => INTEIRO.format(x.n)).join(",") &&
+        n.checkout[3].n >= 8,
+      "o checkout na tela é o da API (os oito pedidos da rodada, pelo menos, no “fizeram o pedido”)",
+      passos.join(",")
+    )
+  }
+
+  titulo("O Início no período (0186)")
+  {
+    const { pagina } = dono
+    const doPeriodo = async (consulta, token = tokenDoDono) =>
+      (await medusa(`/dashboard/inicio?${consulta}`, { metodo: "GET", token })).corpo
+    const numerosNaTela = async () =>
+      (
+        await pagina
+          .locator('.numeros [data-numero]:not([data-numero="visitas"]) .numero__valor')
+          .allTextContents()
+      )
+        .map(semEspaco)
+        .join(" | ")
+    const numerosDa = (x) =>
+      [INTEIRO.format(x.vendas.valor), reais(x.receita.valor), reais(x.ticket.valor)]
+        .map(semEspaco)
+        .join(" | ")
+
+    const semana = await doPeriodo("periodo=7d")
+    ok(
+      semana.periodo.receita.valor === semana.numeros.semana.valor &&
+        semana.periodo.vendas.valor === semana.numeros.semana.pedidos &&
+        semana.periodo.ticket.valor === semana.numeros.semana.ticket,
+      "7 dias: os mesmos números dos “últimos 7 dias” de sempre",
+      JSON.stringify({ periodo: semana.periodo.vendas, deSempre: semana.numeros.semana })
+    )
+    await pagina.goto(`${PAINEL}/`)
+    await pagina.waitForSelector('[data-atalho="hoje"][aria-current]')
+    await pagina.click('[data-atalho="7d"]')
+    await pagina.waitForSelector('[data-atalho="7d"][aria-current]')
+    ok(
+      new URL(pagina.url()).search === "?periodo=7d" &&
+        (await numerosNaTela()) === numerosDa(semana.periodo),
+      "tocar em “7 dias” leva o período pro endereço e troca os números",
+      `${pagina.url()} · ${await numerosNaTela()}`
+    )
+    ok(
+      (await pagina.locator('[data-numero="receita"] .barrinhas rect').count()) ===
+        semana.periodo.barras.filter((b) => b.receita > 0).length &&
+        semana.periodo.barras.length === 7,
+      "7 dias: uma barra por dia com venda"
+    )
+
+    await pagina.click("[data-comparar] summary")
+    await pagina.click('[data-comparar-com="nenhum"]')
+    await pagina.waitForURL((u) => u.searchParams.get("comparar") === "nenhum")
+    await pagina.waitForFunction(
+      () => !document.querySelector('[data-numero="vendas"] .numero__antes')
+    )
+    ok(
+      (await pagina.locator('[data-numero="receita"] .barrinhas polyline').count()) === 0 &&
+        (await pagina.locator(".periodo__legenda .leg-tracejado").count()) === 0 &&
+        semEspaco(await textoDe(pagina, "[data-comparar] summary b")) === "nada",
+      "“não comparar”: sem o de antes nos números, no gráfico e na legenda"
+    )
+
+    const dia = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(
+      new Date()
+    )
+    await pagina.click("[data-escolher] summary")
+    await pagina.fill('[data-escolher] input[name="de"]', dia)
+    await pagina.fill('[data-escolher] input[name="ate"]', dia)
+    await pagina.click('[data-escolher] button[type="submit"]')
+    await pagina.waitForURL((u) => u.searchParams.get("de") === dia)
+    await pagina.waitForSelector(".periodo__botao--datas[aria-current]")
+    const escolhido = await doPeriodo(`de=${dia}&ate=${dia}&comparar=nenhum`)
+    const deHoje = await doPeriodo("periodo=hoje")
+    ok(
+      new URL(pagina.url()).searchParams.get("comparar") === "nenhum" &&
+        (await numerosNaTela()) === numerosDa(escolhido.periodo) &&
+        numerosDa(escolhido.periodo) === numerosDa(deHoje.periodo) &&
+        semEspaco(await textoDe(pagina, ".periodo__botao--datas")) ===
+          `${dia.slice(8)}/${dia.slice(5, 7)}`,
+      "as datas escolhidas (hoje a hoje, ainda sem comparar): os números de hoje",
+      `${pagina.url()} · ${await numerosNaTela()}`
+    )
+
+    await pagina.goto(`${PAINEL}/?de=2026-02-31&ate=2026-03-02`)
+    await pagina.waitForSelector("[data-aviso-do-periodo]")
+    ok(
+      /As datas não valem/.test(await textoDe(pagina, "[data-aviso-do-periodo]")) &&
+        (await pagina.locator('[data-atalho="hoje"][aria-current]').count()) === 1,
+      "datas que não existem: o aviso, e a tela de hoje"
+    )
+
+    // A marca de "começou o checkout" (a loja põe quando o checkout abre): um carrinho só com o produto.
+    const cabecalhos = { "content-type": "application/json", "x-publishable-api-key": CHAVE }
+    const { regions } = await (
+      await fetch(`${MEDUSA}/store/regions`, { headers: cabecalhos })
+    ).json()
+    const regiao = regions.find((x) => x.currency_code === "brl")
+    const { products } = await (
+      await fetch(`${MEDUSA}/store/products?region_id=${regiao.id}&fields=*variants&limit=1`, {
+        headers: cabecalhos,
+      })
+    ).json()
+    const { cart } = await (
+      await fetch(`${MEDUSA}/store/carts`, {
+        method: "POST",
+        headers: { ...cabecalhos, "x-loja-segredo": process.env.REVALIDAR_SEGREDO ?? "" },
+        body: JSON.stringify({
+          region_id: regiao.id,
+          items: [{ variant_id: products[0].variants[0].id, quantity: 1 }],
+        }),
+      })
+    ).json()
+    const abrir = (carrinho, assinado = true) =>
+      medusa("/store/checkout/aberto", {
+        corpo: { carrinho },
+        assinado,
+        extras: { "x-publishable-api-key": CHAVE },
+      })
+    const antes = (await doPeriodo("periodo=hoje")).periodo.checkout.map((x) => x.n)
+    const primeira = await abrir(cart.id)
+    const segunda = await abrir(cart.id)
+    const depois = (await doPeriodo("periodo=hoje")).periodo.checkout.map((x) => x.n)
+    ok(
+      primeira.corpo.marcado === true &&
+        segunda.corpo.marcado === false &&
+        depois[0] === antes[0] + 1 &&
+        depois.slice(1).join() === antes.slice(1).join(),
+      "o checkout aberto conta em “começaram” uma vez só, e em nenhum passo depois",
+      JSON.stringify({ antes, depois, primeira: primeira.corpo, segunda: segunda.corpo })
+    )
+    const [semAssinatura, torto, sumido] = await Promise.all([
+      abrir(cart.id, false),
+      abrir("carrinho-torto"),
+      abrir("cart_NAOEXISTE0000000000000000"),
+    ])
+    ok(
+      semAssinatura.status === 401 && torto.status === 400 && sumido.status === 404,
+      "a marca é só da loja: sem a assinatura, 401; carrinho torto, 400; que não existe, 404",
+      `${semAssinatura.status} · ${torto.status} · ${sumido.status}`
+    )
+  }
+
+  titulo("O Início da operação")
+  {
+    const { pagina } = op
+    const api = (
+      await medusa("/dashboard/inicio?periodo=hoje", { metodo: "GET", token: cookieOp.value })
+    ).corpo.periodo
+    await pagina.goto(`${PAINEL}/`)
+    await pagina.waitForSelector('[data-bloco="pedidos-do-periodo"]')
+    ok(
+      api?.checkout === null &&
+        api?.pedidos !== null &&
+        (await pagina.locator('[data-bloco="checkout"], [data-taxa]').count()) === 0,
+      "a operação vê os números e os pedidos, sem o checkout e as taxas (são do Marketing)",
+      JSON.stringify({ checkout: api?.checkout })
+    )
   }
 
   titulo("No celular")

@@ -1129,9 +1129,11 @@ describe("o Início", () => {
       SEM_ERP
     )
     expect(i.pedidosDeHoje).not.toBeNull()
+    // O Pix esperando (0186) entra junto dos outros de pagamento, depois do que pede alguém.
     expect(i.fila.map((f) => f.titulo)).toEqual([
       "Pra despachar",
       "Produtos em rascunho",
+      "Pix esperando",
       "Newsletter",
     ])
     expect(i.fila.some((f) => f.titulo.startsWith("O estorno"))).toBe(false)
@@ -1279,7 +1281,8 @@ describe("a fila do Início junta o que é igual (0148)", () => {
     expect(fila.find((f) => f.icone === "cartao")).toMatchObject({
       titulo: "Cartão em análise",
       quantos: 2,
-      etiquetas: ["há 1 h 10"],
+      // A idade do mais antigo e quanto espera (0186: era o número "Esperando pagamento").
+      etiquetas: ["há 1 h 10", expect.stringMatching(/^R\$\s257,20$/)],
       href: "/pedidos?filtro=pagamento",
       pedidos: [
         { numero: 22, href: "/pedidos/order_B" },

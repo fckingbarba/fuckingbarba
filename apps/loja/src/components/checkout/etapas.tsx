@@ -24,6 +24,7 @@ import {
 } from "@/lib/checkout-visivel"
 import type { Configuracoes } from "@/lib/configuracoes"
 import { emReais } from "@/lib/formato"
+import { abriuOCheckout } from "@/lib/acoes/checkout"
 import { anotarNaLoja, comASacola, rastrear } from "@/lib/rastrear"
 import { usePeDaTela } from "@/lib/use-pe-da-tela"
 import { Contato } from "./contato"
@@ -85,9 +86,11 @@ export function Etapas({
   const [editando, setEditando] = useState<Etapa | null>(null)
   const aberta = editando ?? sugerida
 
-  // O começo do checkout (a InitiateCheckout da Meta e do TikTok), uma vez por carrinho.
+  // O começo do checkout (a InitiateCheckout da Meta e do TikTok), uma vez por carrinho — e a
+  // marca no carrinho, o "começaram o checkout" do painel (0186), de todo mundo.
   useEffect(() => {
     rastrear("begin_checkout", comASacola(checkout.itens))
+    abriuOCheckout().catch(() => undefined)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [checkout.id])
 

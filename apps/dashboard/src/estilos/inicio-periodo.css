@@ -1,0 +1,162 @@
+/* --------------------------------------------------------------------------
+   O INÍCIO NO PERÍODO (entrega 0186) — a barra do período, os números com o
+   gráfico de cada um, os degraus (o que as visitas fizeram e o checkout), as
+   taxas e a grade de baixo. O desenho aprovado pelo dono:
+   https://claude.ai/artifact/T18JBKKpWgHgyt3Zr4Cav6
+
+   Sem `clip-path` na barra e nas taxas: o chanfro corta o que sai da caixa, e
+   as datas, o "comparar com" e o "?" abrem por cima do resto.
+   -------------------------------------------------------------------------- */
+
+/* A fila no alto, em faixa: os itens lado a lado. */
+.bloco--faixa { padding-block: 14px; }
+.bloco--faixa .bloco__cabeca { margin-bottom: 10px; }
+.fila--faixa { grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 10px; }
+
+/* A barra do período. */
+.periodo {
+  position: relative; z-index: 3;
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px 16px;
+  margin: 0 0 8px; padding: 6px; background: var(--papel); border: 2px solid var(--tinta);
+}
+.periodo__atalhos { display: flex; align-items: center; flex-wrap: wrap; gap: 2px; }
+.periodo__botao {
+  display: inline-flex; align-items: center; gap: 7px; min-height: 42px; padding: 0 12px;
+  border: 2px solid transparent; background: transparent; color: var(--tinta); text-decoration: none; cursor: pointer;
+  font-size: 0.68rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap;
+}
+.periodo__botao:hover { background: var(--cinza); }
+.periodo__botao[aria-current] { background: var(--tinta); color: var(--amarelo); }
+.periodo__botao svg { width: 15px; height: 15px; fill: currentColor; }
+.periodo__botao--datas { margin-left: 6px; border-color: var(--tinta); list-style: none; }
+.periodo__caixa > summary { list-style: none; }
+.periodo__caixa > summary::-webkit-details-marker { display: none; }
+.periodo__caixa[open] > .periodo__botao--datas:not([aria-current]) { background: var(--amarelo-palido); }
+/* A janela abre embaixo da barra (a caixa não é o bloco de contenção: é a barra). */
+.periodo__janela {
+  position: absolute; top: calc(100% + 6px); z-index: 5;
+  display: grid; gap: 10px; padding: 14px; min-width: 260px;
+  background: var(--papel); border: 2px solid var(--tinta); box-shadow: 6px 6px 0 0 var(--amarelo);
+}
+[data-escolher] .periodo__janela { left: 0; grid-template-columns: repeat(2, minmax(0, 170px)) auto; align-items: end; }
+.periodo__campo { display: grid; gap: 4px; font-size: 0.62rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--tinta-suave); }
+.periodo__campo input {
+  height: 44px; padding: 0 10px; border: 2px solid var(--tinta); background: var(--papel); color: var(--tinta);
+  font: inherit; font-size: 0.9rem; font-weight: 700; letter-spacing: 0; text-transform: none;
+}
+.periodo__dica { grid-column: 1 / -1; margin: 0; font-size: 0.74rem; color: var(--tinta-suave); }
+.periodo__comparar {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 42px; padding: 0 12px;
+  border: 2px solid var(--linha); cursor: pointer; font-size: 0.82rem;
+}
+.periodo__caixa[open] > .periodo__comparar, .periodo__comparar:hover { border-color: var(--tinta); background: var(--amarelo-palido); }
+.periodo__rot { font-size: 0.62rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--tinta-suave); }
+.periodo__abre { width: 12px; height: 12px; fill: currentColor; transform: rotate(90deg); }
+.periodo__caixa--comparar .periodo__janela { right: 0; }
+.periodo__janela--opcoes { gap: 2px; min-width: 220px; }
+.periodo__janela--opcoes a {
+  display: flex; align-items: center; min-height: 44px; padding: 0 12px;
+  color: var(--tinta); text-decoration: none; font-size: 0.86rem; font-weight: 700;
+}
+.periodo__janela--opcoes a:hover { background: var(--cinza); }
+.periodo__janela--opcoes a[aria-current] { background: var(--tinta); color: var(--amarelo); }
+@media (max-width: 760px) {
+  .periodo { align-items: stretch; }
+  .periodo__atalhos, .periodo__caixa--comparar { width: 100%; }
+  .periodo__botao--datas { margin-left: 0; }
+  [data-escolher] .periodo__janela { left: 0; right: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  [data-escolher] .periodo__janela .btn { grid-column: 1 / -1; }
+  .periodo__comparar { width: 100%; }
+  .periodo__caixa--comparar .periodo__janela { left: 0; }
+}
+
+/* O que a barra quer dizer: os dias, a legenda dos gráficos, a hora. */
+.periodo__legenda {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px 16px;
+  margin: 0 0 14px; font-size: 0.8rem; color: var(--tinta-suave);
+}
+.periodo__legenda p { margin: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 4px 14px; }
+.periodo__legenda b { color: var(--tinta); }
+.periodo__leg { display: inline-flex; align-items: center; gap: 6px; }
+.leg-barra { display: inline-block; width: 9px; height: 12px; background: var(--tinta); }
+.leg-tracejado { display: inline-block; width: 18px; border-top: 2px dashed var(--tinta-suave); }
+.periodo__aviso {
+  display: flex; align-items: center; gap: 8px; margin: 0 0 8px; padding: 8px 12px;
+  background: var(--amarelo-palido); border-left: 4px solid var(--amarelo-borda); font-size: 0.82rem; font-weight: 700;
+}
+.periodo__aviso svg { width: 16px; height: 16px; fill: currentColor; flex-shrink: 0; }
+
+/* Os quatro números, com o gráfico embaixo de cada um. */
+.numeros--periodo .numero { display: flex; flex-direction: column; }
+.numeros--periodo .numero__pe { margin-top: 6px; }
+.numero .numero__antes { display: inline; font-size: 0.74rem; color: var(--tinta-suave); }
+.numero--destaque .numero__antes { color: #aeb7c2; }
+.barrinhas { display: block; width: 100%; height: 52px; margin-top: auto; padding-top: 10px; overflow: visible; }
+.barrinhas rect { fill: var(--tinta); opacity: 0.85; }
+.barrinhas rect[data-agora] { fill: var(--amarelo); opacity: 1; }
+.barrinhas polyline { fill: none; stroke: var(--tinta-suave); stroke-width: 1.6; stroke-dasharray: 4 3; }
+.numero--destaque .barrinhas rect { fill: var(--amarelo); opacity: 0.9; }
+.numero--destaque .barrinhas rect[data-agora] { fill: #fff; }
+.numero--destaque .barrinhas polyline { stroke: #aeb7c2; }
+.numero .barrinhas__eixo {
+  display: flex; justify-content: space-between; margin-top: 3px;
+  font-size: 0.58rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; color: var(--tinta-suave);
+}
+.numero--destaque .barrinhas__eixo { color: #aeb7c2; }
+
+/* Duas barras deitadas: o período e o de antes (o ticket e as taxas). */
+.numero .duas-barras, .duas-barras { display: grid; gap: 6px; margin-top: auto; padding-top: 12px; }
+.numero .duas-barras__linha, .duas-barras__linha {
+  display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; gap: 8px; align-items: center;
+  font-size: 0.6rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--tinta-suave);
+}
+.duas-barras__linha b { font-size: 0.78rem; letter-spacing: 0; text-transform: none; color: var(--tinta); }
+.duas-barras .trilho { height: 10px; margin: 0; background: var(--cinza-2); }
+.duas-barras .trilho i { background: var(--tinta); }
+.duas-barras__linha[data-antes] .trilho i { background: #aeb7c2; }
+
+/* O meio: o que as visitas fizeram e o checkout à esquerda, as taxas à direita. */
+.grade-periodo { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 0 16px; align-items: start; }
+.grade-periodo--pe { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.grade-periodo--pe[data-colunas="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.grade-periodo--pe[data-colunas="1"] { grid-template-columns: minmax(0, 1fr); }
+@media (max-width: 1100px) {
+  .grade-periodo, .grade-periodo--pe, .grade-periodo--pe[data-colunas] { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Os degraus: um passo por linha, a barra do tamanho do maior e a conta à direita. */
+.degraus { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.degrau { display: grid; grid-template-columns: minmax(120px, 176px) minmax(0, 1fr) minmax(92px, auto); gap: 12px; align-items: center; }
+.degrau__nome { font-size: 0.84rem; font-weight: 800; }
+.degrau__trilho { display: block; height: 26px; background: var(--cinza); }
+.degrau__trilho i { display: block; height: 100%; background: var(--tinta); }
+.degrau[data-tom="alvo"] .degrau__trilho i { background: var(--amarelo); box-shadow: inset 0 0 0 2px var(--tinta); }
+.degrau[data-tom="perda"] .degrau__trilho i { background: var(--erro); }
+.degrau__n { display: grid; justify-items: end; line-height: 1.25; }
+.degrau__n b { font-size: 1rem; font-weight: 800; }
+.degrau__n span { font-size: 0.74rem; color: var(--tinta-suave); white-space: nowrap; }
+.degrau[data-tom="perda"] .degrau__n span { color: var(--erro); font-weight: 800; }
+.degraus__nota {
+  margin: 14px 0 0; padding: 10px 12px; font-size: 0.82rem;
+  background: var(--amarelo-palido); border-left: 4px solid var(--amarelo-borda);
+}
+@media (max-width: 640px) {
+  .degrau { grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; }
+  .degrau__trilho { grid-column: 1 / -1; grid-row: 2; height: 16px; }
+  .degrau__n { display: flex; align-items: baseline; gap: 8px; }
+}
+
+/* As taxas: um cartão cada, a conta embaixo e as duas barras. */
+.taxas { display: grid; gap: 12px; margin-bottom: 16px; }
+.taxa { display: grid; gap: 6px; min-width: 0; padding: 14px 16px; background: var(--papel); border: 2px solid var(--tinta); }
+.taxa__topo { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.taxa__topo .ajuda { position: static; }
+.taxa__topo .ajuda__texto { left: 0; right: 0; width: auto; }
+.taxa__topo .ajuda > summary { width: 24px; height: 24px; }
+.taxa__valor { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 10px; margin: 0; }
+.taxa__valor b { font-size: clamp(1.4rem, 2.6vw, 1.8rem); font-weight: 800; line-height: 1; }
+.taxa__conta { margin: 0; font-size: 0.76rem; color: var(--tinta-suave); }
+.taxa .duas-barras { padding-top: 4px; }
+
+/* Os pedidos do período: o "+N" embaixo da lista. */
+.pedidos-do-periodo__mais { margin: 10px 0 0; }

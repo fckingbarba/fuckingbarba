@@ -590,6 +590,29 @@ export default class CrmService extends Tabelas {
     return { ...r, vendidoCentavos: Number(r.vendidoCentavos) }
   }
 
+  /**
+   * As vendas da loja antiga numa janela — os pedidos PAGOS ("confirmado"),
+   * pelo dia do pagamento (sem ele, pelo do pedido): a parte da Nuvemshop nos
+   * números do Início do painel (`lib/painel/inicio-periodo.ts`). Sem e-mail:
+   * só o número, as datas, o total em centavos e os itens.
+   */
+  @InjectManager()
+  async vendasDaBase(
+    de: Date,
+    ate: Date,
+    @MedusaContext() ctx: Contexto = {}
+  ): Promise<
+    { numero: string; pagoEm: Date | null; feitoEm: Date; total: number; itens: unknown }[]
+  > {
+    return (await ctx.manager!.execute(
+      `select numero, pago_em as "pagoEm", feito_em as "feitoEm", total, itens
+         from crm_base_pedido
+        where deleted_at is null and pagamento = 'confirmado'
+          and coalesce(pago_em, feito_em) >= ? and coalesce(pago_em, feito_em) < ?`,
+      [de, ate]
+    )) as { numero: string; pagoEm: Date | null; feitoEm: Date; total: number; itens: unknown }[]
+  }
+
   /** As pessoas da base: o e-mail, o sim das ofertas e a newsletter. */
   @InjectManager()
   async pessoasDaBase(@MedusaContext() ctx: Contexto = {}): Promise<PessoaLidaDaBase[]> {

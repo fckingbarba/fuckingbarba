@@ -67,9 +67,15 @@ function Numeros() {
   )
 }
 
+/** O Início (0186): a fila em faixa, a barra do período, os números e as duas colunas. */
 function Inicio() {
   return (
     <>
+      <div className="esq-bloco">
+        <i className="osso osso--rotulo" />
+        <Linhas n={1} />
+      </div>
+      <i className="osso osso--busca" />
       <Numeros />
       <div className="esq-grade">
         <div className="esq-bloco">

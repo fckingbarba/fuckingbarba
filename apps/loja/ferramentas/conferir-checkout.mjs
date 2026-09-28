@@ -606,6 +606,22 @@ await pagina.goto(`${LOJA}/checkout`, { waitUntil: "domcontentloaded" })
 await semStreaming(pagina)
 await pagina.locator("#form-contato").waitFor({ timeout: 20000 })
 
+// A marca de "começou o checkout" (0186): a loja põe a hora no carrinho logo que o checkout
+// aparece — é o primeiro passo do checkout no Início do painel, de todo mundo.
+{
+  const id = await idDoCarrinho()
+  let marca = null
+  for (let i = 0; i < 20 && !marca; i++) {
+    marca = (await medusa(`/store/carts/${id}?fields=id,metadata`))?.cart?.metadata?.fb_checkout_em
+    if (!marca) await pagina.waitForTimeout(500)
+  }
+  ok(
+    typeof marca === "string" && Math.abs(Date.now() - Date.parse(marca)) < 10 * 60_000,
+    "o checkout aberto marca o carrinho (a hora em que abriu), sem ninguém digitar nada",
+    String(marca)
+  )
+}
+
 ok((await pagina.locator(".painel[data-ativo]").count()) === 1, "só um passo aberto por vez")
 ok(
   // Por posição, e não por texto: abaixo de 560px o CSS zera a fonte dos

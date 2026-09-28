@@ -28,6 +28,8 @@ const CAMINHOS = {
   relogio:
     "M12 1.6a10.4 10.4 0 1 0 0 20.8 10.4 10.4 0 0 0 0-20.8zm0 2.6a7.8 7.8 0 1 1 0 15.6 7.8 7.8 0 0 1 0-15.6zm-1 2.2v6.1l4.6 2.8 1-1.7-3.6-2.2V6.4z",
   olho: "M1.4 12 6.2 6.4h11.6l4.8 5.6-4.8 5.6H6.2zM12 8.6 8.6 12 12 15.4 15.4 12z",
+  calendario: "M6 1.8h2.4v2h7.2v-2H18v2h3.2V22H2.8V3.8H6zM5.2 9.4v10.2h13.6V9.4zm2 2h3v3h-3z",
+  etiqueta: "M2 3h9.4L22 13.6 13.6 22 3 11.4zM7 5.6a1.9 1.9 0 1 0 0 3.8 1.9 1.9 0 0 0 0-3.8z",
   fechar:
     "M7.7 4.9 4.9 7.7 9.2 12l-4.3 4.3 2.8 2.8L12 14.8l4.3 4.3 2.8-2.8L14.8 12l4.3-4.3-2.8-2.8L12 9.2z",
   enviar: "M2 11.2 22 2.4l-8.8 19.6-2.6-8.2z",
@@ -77,6 +79,8 @@ const FURADOS = new Set<NomeDoIcone>([
   "tela",
   "celular",
   "whatsapp",
+  "calendario",
+  "etiqueta",
 ])
 
 export function Icone({ nome, className }: { nome: NomeDoIcone; className?: string }) {

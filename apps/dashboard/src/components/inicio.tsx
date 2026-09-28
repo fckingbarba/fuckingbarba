@@ -98,17 +98,19 @@ const FICHAS = 6
  * A explicação mora no "?". O item inteiro leva ao lugar dele (o link do
  * título cobre o cartão), e cada número abre o seu pedido.
  */
-export function Fila({ fila }: { fila: Inicio["fila"] }) {
+export function Fila({ fila, faixa = false }: { fila: Inicio["fila"]; faixa?: boolean }) {
   return (
-    <section className="bloco" data-fila>
+    <section className={faixa ? "bloco bloco--faixa" : "bloco"} data-fila>
       <div className="bloco__cabeca">
         <span className="bloco__titulos">
           <h2 className="bloco__titulo">Precisa de você</h2>
           {fila.length ? <span className="contagem num">{fila.length}</span> : null}
         </span>
+        {/* No Início com período (0186), a fila fica em cima, numa faixa: ela é do agora. */}
+        {faixa ? <span className="pilula pilula--suave">agora</span> : null}
       </div>
       {fila.length ? (
-        <div className="fila">
+        <div className={faixa ? "fila fila--faixa" : "fila"}>
           {fila.map((f, i) => (
             <div
               key={f.chave ?? `${f.titulo}-${i}`}

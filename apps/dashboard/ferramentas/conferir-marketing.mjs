@@ -575,10 +575,12 @@ try {
       "celular e computador: o tablet é celular, e a conversão é pedidos ÷ visitas",
       JSON.stringify(f.aparelhos)
     )
+    // O do Marketing, com as datas "NdaysAgo": o Início (0186) também manda um lote de quatro, com as
+    // datas escritas, e ele chega antes (a entrada no painel abre o Início).
     const lote = google.perguntas
       .filter((p) => p.tipo === "batchRunReports")
       .map((p) => p.corpo.requests)
-      .find((rs) => rs?.length === 4)
+      .find((rs) => rs?.length === 4 && /daysAgo$/.test(rs[0]?.dateRanges?.[0]?.startDate ?? ""))
     ok(
       lote?.[0]?.dateRanges?.[0]?.startDate === "29daysAgo" &&
         lote?.[1]?.dimensionFilter?.andGroup?.expressions?.length === 2 &&
