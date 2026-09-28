@@ -132,6 +132,12 @@ export default async function Privacidade() {
           produto — o número do pedido e o seu e-mail, não.
         </P>
         <P>
+          <b>Se você se inscrever pra gravar vídeos pra loja</b> (pelo link que a gente manda): o
+          nome, o WhatsApp, o e-mail, a cidade, os perfis que você informar e as respostas do
+          formulário — pra avaliar a inscrição e falar com você sobre ela. CPF, endereço e chave Pix
+          só entram depois, no contrato, se a gente fechar.
+        </P>
+        <P>
           <b>Se você não recusar os cookies</b>: o Google Analytics conta a visita — as páginas e os
           produtos que você vê, o que entra e sai da sacola e o caminho do checkout —, ligada a um
           código aleatório do cookie dele, sem o seu nome, e-mail ou telefone. Na compra, vão pra
@@ -184,12 +190,12 @@ export default async function Privacidade() {
           </li>
           <li>
             <b>Consentimento</b> — os cookies de anúncio, o que a loja anota do que você faz nela, o
-            aviso da compra pras plataformas de anúncio, a newsletter, o aviso de produto esgotado e
-            a avaliação que você manda pro site. Você escolhe, e pode voltar atrás a qualquer
-            momento sem perder nada do resto. A medição das visitas — a contagem do Google Analytics
-            e a gravação da Microsoft Clarity — é por legítimo interesse: saber quantas pessoas a
-            loja recebe e onde ela atrapalha, sem o seu nome, e-mail ou telefone. Ela para quando
-            você recusa os cookies.
+            aviso da compra pras plataformas de anúncio, a newsletter, o aviso de produto esgotado,
+            a avaliação que você manda pro site e a inscrição pra gravar vídeos pra loja. Você
+            escolhe, e pode voltar atrás a qualquer momento sem perder nada do resto. A medição das
+            visitas — a contagem do Google Analytics e a gravação da Microsoft Clarity — é por
+            legítimo interesse: saber quantas pessoas a loja recebe e onde ela atrapalha, sem o seu
+            nome, e-mail ou telefone. Ela para quando você recusa os cookies.
           </li>
           <li>
             <b>Legítimo interesse</b> — segurança da loja e prevenção a fraude, os e-mails e a
@@ -303,13 +309,13 @@ export default async function Privacidade() {
           Dados de venda ficam <b>cinco anos</b>, que é o que a legislação fiscal e o Código de
           Defesa do Consumidor exigem de quem vende. E-mail de newsletter (e o nome e a página, se
           vieram do pop-up) fica até você pedir pra sair. O do aviso de produto esgotado fica até o
-          aviso sair — ou seis meses, se o produto não voltar. A avaliação que você mandou fica até
-          você pedir pra apagar. O registro das tentativas de pagar com cartão fica 30 dias. O que a
-          loja anota do que você faz nela, e o que ela sabe dos e-mails que mandou (se chegaram, se
-          foram abertos), fica <b>13 meses</b> e depois é apagado. Cookies de medição duram no
-          máximo dois anos, e o código deste navegador, um ano; os necessários somem quando a sessão
-          acaba, menos o da sacola, o da sua resposta sobre cookies e os do pop-up da primeira
-          compra (um ano).
+          aviso sair — ou seis meses, se o produto não voltar. A avaliação que você mandou, e a
+          inscrição pra gravar vídeos, ficam até você pedir pra apagar. O registro das tentativas de
+          pagar com cartão fica 30 dias. O que a loja anota do que você faz nela, e o que ela sabe
+          dos e-mails que mandou (se chegaram, se foram abertos), fica <b>13 meses</b> e depois é
+          apagado. Cookies de medição duram no máximo dois anos, e o código deste navegador, um ano;
+          os necessários somem quando a sessão acaba, menos o da sacola, o da sua resposta sobre
+          cookies e os do pop-up da primeira compra (um ano).
         </P>
       </Secao>
 

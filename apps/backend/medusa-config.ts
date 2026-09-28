@@ -248,6 +248,12 @@ const aviseMeModule = [{ resolve: "./src/modules/avise-me" }]
 const avaliacoesModule = [{ resolve: "./src/modules/avaliacoes" }]
 
 /**
+ * As inscrições de quem quer gravar vídeo pra loja (`src/modules/criadores`),
+ * pela página escondida `/criadores`. Ver o AGENTS.md, "Os criadores".
+ */
+const criadoresModule = [{ resolve: "./src/modules/criadores" }]
+
+/**
  * O ERP — a conexão (tokens cifrados) e a nota fiscal de cada pedido. Quem
  * fala com o ERP é o tradutor dele (`src/modules/bling/`); quem decide é
  * `src/lib/erp/`. Ver o AGENTS.md, "ERP".
@@ -325,6 +331,7 @@ module.exports = defineConfig({
     ...newsletterModule,
     ...aviseMeModule,
     ...avaliacoesModule,
+    ...criadoresModule,
     ...erpModule,
     ...equipeModule,
     ...observabilidadeModule,

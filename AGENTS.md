@@ -50,10 +50,11 @@ verdade.
 ### Conferidores
 
 `apps/loja/ferramentas/conferir-*.mjs` abrem a loja num Chromium de verdade e comparam o que está na
-tela com o que a API do Medusa responde — nunca com outra conta feita no próprio teste. São
-catorze: frete, pdp, checkout, pagamento, catálogo, links, configurações, documento, conta, envio,
-erp (este sem navegador: o Bling falso e o admin), avise-me, mercadopago (o Pix reserva) e
-avaliacoes (o e-mail um dia depois da entrega e a página /avaliar). Rode os que
+tela com o que a API do Medusa responde — nunca com outra conta feita no próprio teste. Entre
+eles: frete, pdp, checkout, pagamento, catálogo, links, configurações, documento, conta, envio,
+erp (este sem navegador: o Bling falso e o admin), avise-me, mercadopago (o Pix reserva),
+avaliacoes (o e-mail um dia depois da entrega e a página /avaliar) e criadores (a página
+escondida /criadores e a inscrição). Rode os que
 tocam no que você mexeu, e todos antes de entregar. Os que escrevem no admin desfazem o que mudaram
 no fim, mesmo quando falham.
 
@@ -1141,6 +1142,46 @@ entregue há dois dias por um aviso da Frenet com a hora dela, o e-mail, a pági
 guardou, a busca pelo número, a aprovada na página do produto e a limpeza no fim) e
 `apps/dashboard/ferramentas/conferir-avaliacoes.mjs` (a tela, aprovar, tirar, apagar, o Início e o
 marketing sem o número do pedido).
+
+**Os criadores** (entrega 0189): a página escondida da proposta pra quem grava vídeo pros
+anúncios — 20 criativos pelo fixo ou pela comissão — e a inscrição dela. Três pontas:
+
+- **A página `/criadores`** (loja; `app/criadores/page.tsx`, `components/criadores/`,
+  `estilos/telas/criadores.css`): fora do menu, do sitemap e do Google (o `Disallow` do robots e o
+  `noindex`), e sem o pop-up da 1ª compra (`SEM_POPUP`, em `lib/primeira-compra.ts`: quem chega lá
+  vem se inscrever, não comprar). O link vai por mensagem; o painel copia. Não é página montável (o
+  registro de `lib/secoes/` é da home e da PDP). OS NÚMEROS DA PROPOSTA — o fixo, a porcentagem, os
+  meses, o pedido médio da calculadora, os prazos — moram num lugar só, a `OFERTA` de
+  `lib/criadores-visivel.ts`: o texto, a calculadora, as dúvidas e o conferidor leem de lá. O kit
+  são quatro produtos do Medusa pelo handle (`listarProdutos`), e a prévia do link (`og:image`) é a
+  foto do kit completo. A inscrição usa os campos do checkout (`.campo`) e manda pela ação
+  `inscreverCriador` (`lib/acoes/criadores.ts`), que confere antes com a mesma régua do Medusa e
+  assina o IP de quem pede. Os modelos do formulário remontam a cada envio (`key`): o React 19
+  limpa o formulário depois da ação, e o rádio controlado ficaria desmarcado com o estado dizendo o
+  contrário. As classes são todas `criadores__*` — duas delas já colidiram entre o celular animado
+  e o formulário; nome novo, confira antes que não existe.
+- **O Medusa** (`src/modules/criadores`, a tabela `criador_inscricao`): `POST /store/criadores`
+  confere campo a campo na ordem da página (`lerInscricao`, puro, com teste) — nome e sobrenome,
+  WhatsApp em dígitos (sem o 55), e-mail, cidade, Instagram ou TikTok (sem @ nem link), barba,
+  vídeo (só `http(s)`: o painel mostra como link), modelo e a autorização com os 18 anos — e
+  responde igual pra qualquer e-mail: quem manda de novo ATUALIZA a sua (uma por e-mail), e a
+  recusada volta pra fila (`workflows/criadores/inscrever.ts`). CPF, endereço e Pix não entram:
+  vêm no contrato, depois do sim. Os limites são na memória, por IP assinado (10 por hora; 30 sem
+  assinatura; 300 da loja toda). O log não leva dado da pessoa.
+- **O painel** (Pessoas → Criadores; a área `criadores`, do dono e do marketing — a operação não
+  vê WhatsApp e e-mail de quem não é cliente): as novas (da mais antiga), as aprovadas e as
+  recusadas, com o botão do WhatsApp (a mensagem pronta, `mensagemPraCriador`), os perfis, o vídeo
+  e o modelo; os números de cima contam as novas e quantas querem cada modelo; o link da página e
+  o "Copiar o link da página" saem do `LOJA_URL`. Aprovar e recusar pelo `decidirInscricao`
+  (`lib/criadores/decidir.ts`), com a linha no registro da equipe só com o modelo; apagar de vez só
+  a recusada (dois passos, com confirmação — o pedido de exclusão da LGPD). O admin do Medusa tem
+  `GET /admin/criadores[?email=]` e `POST /admin/criadores/:id`.
+
+Conferidores: `apps/loja/ferramentas/conferir-criadores.mjs` (o `noindex` e o sitemap, a oferta e
+a calculadora contra a `OFERTA` do código, o kit contra a API, o "Quero o fixo", cada campo
+recusado no lugar certo, o que chega no banco, o pop-up que não aparece e o celular) e
+`apps/dashboard/ferramentas/conferir-criadores.mjs` (a tela, o WhatsApp, aprovar, recusar, a
+reinscrição que volta pra fila, apagar, e a operação sem acesso).
 
 O **vídeo da história da marca** (a seção "O cuidado que impõe presença" da home) é `home.video`
 nas configurações da loja (`fb_configuracoes`): sobe no admin, em Configurações da loja → Home, com

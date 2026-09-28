@@ -25,6 +25,7 @@ export type Area =
   | "newsletter"
   | "crm"
   | "avaliacoes"
+  | "criadores"
   | "home"
   | "marketing"
   | "metaDoMes"
@@ -75,6 +76,7 @@ export const NOME_DA_LINHA: Record<Area, string> = {
   newsletter: "Clientes: a newsletter",
   crm: "CRM",
   avaliacoes: "Avaliações",
+  criadores: "Criadores",
   home: "Layout da home",
   marketing: "Marketing",
   metaDoMes: "Marketing: mudar a meta do mês",
@@ -126,6 +128,7 @@ export const MENU: { grupo: string | null; itens: Item[] }[] = [
       { area: "clientes", nome: "Clientes", href: "/clientes", icone: "clientes" },
       { area: "crm", nome: "CRM", href: "/crm", icone: "email" },
       { area: "avaliacoes", nome: "Avaliações", href: "/avaliacoes", icone: "estrela" },
+      { area: "criadores", nome: "Criadores", href: "/criadores", icone: "play" },
     ],
   },
   {
@@ -173,6 +176,7 @@ export const TITULO_CURTO: Record<Area, string> = {
   newsletter: "Newsletter",
   crm: "CRM",
   avaliacoes: "Avaliações",
+  criadores: "Criadores",
   home: "Layout da home",
   marketing: "Marketing",
   metaDoMes: "Marketing",
