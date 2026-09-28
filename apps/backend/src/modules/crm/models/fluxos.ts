@@ -9,6 +9,9 @@ import { model } from "@medusajs/framework/utils"
  *
  * `cupom` e `cupom_ate`: o código do desconto que este toque deu, e até
  * quando ele vale — é por eles que o motor sabe o "um cupom a cada 60 dias".
+ *
+ * Uma linha não é e-mail: a escolha do "Barba ou cabelo?" das boas-vindas
+ * (entrega 0178), o toque `boas-vindas-escolha`, com a trilha no `como`.
  */
 export const EnvioDoFluxo = model
   .define("crm_envio", {

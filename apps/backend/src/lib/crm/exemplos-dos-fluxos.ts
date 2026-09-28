@@ -2,7 +2,7 @@ import type { MedusaContainer } from "@medusajs/framework/types"
 import { Modules } from "@medusajs/framework/utils"
 import { whatsappDaLoja } from "../atendimento"
 import { lerConfiguracoes } from "../configuracoes"
-import { emailDaPrimeiraCompra } from "../emails/boas-vindas"
+import { emailDaPrimeiraCompra, emailDaTrilha } from "../emails/boas-vindas"
 import { emailDoFluxo, type CompraDoFluxo } from "../emails/fluxos"
 import type { EmailDoCrm } from "../emails/crm"
 import { urlDaLoja } from "../emails/moldura"
@@ -11,11 +11,13 @@ import {
   FLUXOS,
   IDS_DOS_FLUXOS,
   lerConfigDosFluxos,
+  ehToqueDeCompra,
   PREFIXO_DO_CUPOM_DE_BOAS_VINDAS,
   validadeDoCupom,
   type IdDoToque,
 } from "./fluxos"
-import { TITULO_DA_TRILHA } from "./primeira-compra"
+import { conteudosDasTrilhas } from "./boas-vindas"
+import { produtosDoEmail, TITULO_DA_TRILHA } from "./primeira-compra"
 import { linksDeSair } from "./sair"
 import { linkDeVoltar } from "./voltar"
 
@@ -48,7 +50,7 @@ export async function exemploDoToque(
     container.resolve(Modules.STORE).listStores({}, { select: ["metadata"], take: 1 }),
   ])
   const metadata = lojas[0]?.metadata
-  const { empresa, atendimento } = lerConfiguracoes(metadata)
+  const { empresa, atendimento, frete } = lerConfiguracoes(metadata)
   const { desconto } = lerConfigDosFluxos(metadata)
   const infoDaLoja = {
     url: loja,
@@ -71,6 +73,35 @@ export async function exemploDoToque(
       sair: linksDeSair(loja, membro.email),
       loja: infoDaLoja,
     })
+  // A sequência das boas-vindas: o exemplo é a trilha de quem quer a barba crescendo.
+  if (!ehToqueDeCompra(toque)) {
+    const { conteudos, depoimentos } = await conteudosDasTrilhas(container, [])
+    return emailDaTrilha({
+      toque,
+      trilha: "crescimento",
+      para: membro.email,
+      nome: membro.nome,
+      cupom: {
+        codigo: `${PREFIXO_DO_CUPOM_DE_BOAS_VINDAS}EXEMPLO`,
+        porcento: desconto,
+        ate: new Date(agora.getTime() + 24 * 60 * 60 * 1000),
+      },
+      conteudos,
+      visto: null,
+      produtos: produtosDoEmail("crescimento", null).flatMap((h) => {
+        const c = conteudos.get(h)
+        return c ? [c.produto] : []
+      }),
+      depoimentos,
+      escolhas: null,
+      daLoja: {
+        prazoDePostagem: atendimento.prazoDePostagem,
+        freteGratisAcima: frete.modo === "gratis" ? frete.piso : null,
+      },
+      sair: linksDeSair(loja, membro.email),
+      loja: infoDaLoja,
+    })
+  }
   const fator = produtos.get("fator-de-crescimento-para-barba") ?? [...produtos.values()][0]
   const compra: CompraDoFluxo = {
     toque,

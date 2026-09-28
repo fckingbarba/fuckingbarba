@@ -7,16 +7,18 @@ import type CrmService from "../../modules/crm/service"
 import type { RegistroLido } from "../../modules/crm/service"
 import { EQUIPE } from "../../modules/equipe"
 import type EquipeService from "../../modules/equipe/service"
-import { whatsappDaLoja } from "../atendimento"
 import { lerConfiguracoes } from "../configuracoes"
-import { enviarEmail, remetenteDoEstilo } from "../email"
-import { emailDoCrm, NOME_DO_REMETENTE_PESSOAL, type EmailDoCrm } from "../emails/crm"
+import { enviarEmail } from "../email"
+import { emailDaTrilha, type ConteudoDoProduto } from "../emails/boas-vindas"
 import { emailDoFluxo, type CompraDoFluxo, type ItemDoFluxo } from "../emails/fluxos"
 import { urlDaLoja } from "../emails/moldura"
 import { mudarMetadataDaLoja } from "../metadata-da-loja"
 import { estadoDaSessao, sessaoDoParceiro } from "../pagamento/parceiros"
 import { inscricoesDaNewsletter, lerClientes } from "../painel/ler"
+import { cadastrosDaNewsletter, conteudosDasTrilhas, trilhaDaPessoa } from "./boas-vindas"
+import { comQuemManda, dadosDaLoja } from "./envio"
 import { criarCupomDoFluxo } from "./cupom"
+import { linksDeEscolha } from "./escolha"
 import {
   CHAVE_DOS_FLUXOS,
   comecoDoPix,
@@ -28,12 +30,13 @@ import {
   IDS_DOS_FLUXOS,
   ehToqueDeCompra,
   lerConfigDosFluxos,
+  registrosDoMotor,
+  TOQUE_DA_ESCOLHA,
   type Entrada,
   type IdDoFluxo,
-  type IdDoToque,
-  type Registro,
   validadeDoCupom,
 } from "./fluxos"
+import { produtosDoEmail, trilhaDaPagina } from "./primeira-compra"
 import { linksDeSair } from "./sair"
 import { linkDeVoltar } from "./voltar"
 
@@ -153,17 +156,6 @@ function itensDo(itens: Item[] | null | undefined): ItemDoFluxo[] {
   })
 }
 
-const registroDe = (r: RegistroLido): Registro => ({
-  email: r.email,
-  fluxo: r.fluxo as IdDoFluxo,
-  chave: r.chave,
-  toque: r.toque as IdDoToque,
-  em: new Date(r.em),
-  // A reserva que não foi confirmada conta como envio: melhor perder um e-mail que mandar dois.
-  como: r.como === "pulado" || r.como === "controle" ? r.como : "enviado",
-  cupom: r.cupom,
-})
-
 export async function rodarOsFluxos(
   container: MedusaContainer,
   {
@@ -223,6 +215,7 @@ export async function rodarOsFluxos(
     pix: janela("pix"),
     checkout: janela("checkout"),
     carrinho: janela("carrinho"),
+    "boas-vindas": janela("boas-vindas"),
   }
   const maisCedo = (...datas: (Date | null)[]) => {
     const validas = datas.filter((d): d is Date => d !== null).map((d) => d.getTime())
@@ -230,7 +223,12 @@ export async function rodarOsFluxos(
   }
   // Os carrinhos com e-mail servem ao checkout e ao carrinho (quem abriu o checkout depois, parou).
   const inicioComEmail = maisCedo(inicioDo.checkout, inicioDo.carrinho)
-  const inicioDosPedidos = maisCedo(inicioDo.pix, inicioDo.checkout, inicioDo.carrinho) as Date
+  const inicioDosPedidos = maisCedo(
+    inicioDo.pix,
+    inicioDo.checkout,
+    inicioDo.carrinho,
+    inicioDo["boas-vindas"]
+  ) as Date
   const query = container.resolve(ContainerRegistrationKeys.QUERY)
   const campoDoItem = [
     "items.product_id",
@@ -398,6 +396,20 @@ export async function rodarOsFluxos(
         pixVencido: p.status === "canceled" && vence.getTime() < agora.getTime(),
       })
     }
+  // As boas-vindas: quem se cadastrou no pop-up da 1ª compra (o cupom saiu na hora, pela rota).
+  if (inicioDo["boas-vindas"])
+    for (const c of await crm.cadastrosDasBoasVindas(inicioDo["boas-vindas"])) {
+      const email = minusculo(c.email)
+      const comeco = new Date(c.em)
+      if (!email) continue
+      entradas.push({
+        fluxo: "boas-vindas",
+        chave: email,
+        email,
+        comeco,
+        comprou: comprouDepois(email, comeco),
+      })
+    }
   if (so) {
     const quem = minusculo(so)
     entradas.splice(0, entradas.length, ...entradas.filter((e) => e.email === quem))
@@ -417,12 +429,19 @@ export async function rodarOsFluxos(
   const fora = (email: string) =>
     equipe.has(email) || semEntrega.has(email) || (saidas.has(email) && !voltouPraLista.has(email))
 
-  const registros = lidos.map(registroDe)
+  const registros = registrosDoMotor(lidos)
   const porPessoa = new Map<string, Entrada[]>()
   for (const e of entradas) porPessoa.set(e.email, [...(porPessoa.get(e.email) ?? []), e])
 
   /* 4 e 5. a decisão de cada pessoa, e o que ela manda fazer */
   const infoDaLoja = await dadosDaLoja(container, loja)
+  // O que a sequência das boas-vindas lê do banco: só se alguém dela for receber agora.
+  let dasBoasVindas: Promise<DadosDasBoasVindas> | null = null
+  const boasVindas = () =>
+    (dasBoasVindas ??= lerDadosDasBoasVindas(
+      container,
+      entradas.filter((e) => e.fluxo === "boas-vindas").map((e) => e.email)
+    ))
   for (const [email, dela] of porPessoa) {
     if (relatorio.enviados >= limite) break
     relatorio.pessoas++
@@ -449,6 +468,77 @@ export async function rodarOsFluxos(
     if (decisao.tipo === "controle") {
       if (await crm.anotarNoFluxo({ ...base, toque: decisao.toque.id, como: "controle" }))
         relatorio.controle++
+      continue
+    }
+    if (entrada.fluxo === "boas-vindas") {
+      const toque = decisao.toque.id
+      if (toque === "boas-vindas-agora" || ehToqueDeCompra(toque)) continue
+      const dados = await boasVindas()
+      const cadastro = dados.cadastros.get(email)
+      const escolha =
+        lidos.find(
+          (x) => x.email === email && x.fluxo === "boas-vindas" && x.toque === TOQUE_DA_ESCOLHA
+        )?.como ?? null
+      const { trilha, visto } = trilhaDaPessoa({ escolha, pagina: cadastro?.pagina ?? null })
+      const doPopup = lidos.find(
+        (x) => x.email === email && x.fluxo === "boas-vindas" && x.toque === "boas-vindas-agora"
+      )
+      const cupom =
+        doPopup?.cupom &&
+        doPopup.cupom_ate &&
+        new Date(doPopup.cupom_ate).getTime() > agora.getTime()
+          ? { codigo: doPopup.cupom, porcento: config.c.desconto, ate: new Date(doPopup.cupom_ate) }
+          : null
+      const vistoDaTrilha =
+        visto && trilhaDaPagina(`/produtos/${visto}`).trilha === trilha ? visto : null
+      const email1 = emailDaTrilha({
+        toque,
+        trilha,
+        para: email,
+        nome: cadastro?.nome ?? null,
+        cupom,
+        conteudos: dados.conteudos,
+        visto: vistoDaTrilha,
+        produtos: produtosDoEmail(trilha, vistoDaTrilha).flatMap((h) => {
+          const c = dados.conteudos.get(h)
+          return c ? [c.produto] : []
+        }),
+        depoimentos: dados.depoimentos,
+        escolhas: trilha === "geral" ? linksDeEscolha(email) : null,
+        daLoja: dados.daLoja,
+        sair: linksDeSair(loja, email),
+        loja: infoDaLoja,
+      })
+      // O dia que a trilha não tem (ou sem o conteúdo na página do produto): fica como pulado.
+      if (!email1) {
+        if (await crm.anotarNoFluxo({ ...base, toque, como: "pulado" })) relatorio.pulados++
+        continue
+      }
+      const reserva = await crm.reservarToque({ ...base, toque })
+      if (!reserva) continue
+      let falha: string | null = null
+      try {
+        const enviado = await enviarEmail(comQuemManda(email1), logger, {
+          idempotencia: `crm-boas-vindas/${email}/${toque}`,
+          tipo: "crm-boas-vindas",
+        })
+        if (enviado.ok) {
+          await crm.confirmarToque(reserva, {
+            resendId: enviado.id ?? null,
+            cupom: null,
+            cupomAte: null,
+          })
+          relatorio.enviados++
+          await new Promise((ok) => setTimeout(ok, PAUSA_MS))
+        } else falha = enviado.motivo
+      } catch (e) {
+        falha = e instanceof Error ? e.message : String(e)
+      }
+      if (falha !== null) {
+        relatorio.falhas++
+        await crm.desfazerToque(reserva)
+        logger.warn(`[crm] fluxos: o toque ${toque} das boas-vindas não saiu — ${falha}`)
+      }
       continue
     }
     const detalhe = detalhes.get(entrada.chave)
@@ -574,36 +664,36 @@ async function quemVoltouPraLista(
   return voltou
 }
 
-/** O que o pé do e-mail mostra da loja: o endereço, o WhatsApp e a empresa (e o do pop-up). */
-export async function dadosDaLoja(
-  container: MedusaContainer,
-  url: string
-): Promise<CompraDoFluxo["loja"]> {
-  const [whatsapp, lojas] = await Promise.all([
-    whatsappDaLoja(container),
-    container.resolve(Modules.STORE).listStores({}, { select: ["metadata"], take: 1 }),
-  ])
-  const { empresa, atendimento } = lerConfiguracoes(lojas[0]?.metadata)
-  return {
-    url,
-    whatsapp,
-    empresa: empresa.razaoSocial,
-    cnpj: empresa.cnpj,
-    atendimento: atendimento.email,
-  }
+type DadosDasBoasVindas = {
+  conteudos: Map<string, ConteudoDoProduto>
+  depoimentos: { texto: string; quem: string; estrelas: number }[]
+  cadastros: Map<string, { nome: string | null; pagina: string | null }>
+  daLoja: { prazoDePostagem: string | null; freteGratisAcima: number | null }
 }
 
-/**
- * O e-mail pronto pro envio, com quem manda e pra onde vai a resposta — do
- * estilo dele (`EmailDoCrm.estilo`): o de pedido sai como os pedidos, sem
- * resposta; o lembrete (e o pessoal) sai com o nome de quem assina; os do CRM
- * mandam a resposta pro atendimento. Também é o do "Mandar pra mim" dos fluxos.
- */
-export function comQuemManda(e: EmailDoCrm) {
+/** O conteúdo das trilhas, as avaliações do Fator, o nome e a página de cada um, e o que a loja diz de si. */
+async function lerDadosDasBoasVindas(
+  container: MedusaContainer,
+  emails: string[]
+): Promise<DadosDasBoasVindas> {
+  const [cadastros, lojas] = await Promise.all([
+    cadastrosDaNewsletter(container, [...new Set(emails)]),
+    container.resolve(Modules.STORE).listStores({}, { select: ["metadata"], take: 1 }),
+  ])
+  const vistos = [...cadastros.values()].flatMap((c) => {
+    const produto = trilhaDaPagina(c.pagina).produto
+    return produto ? [produto] : []
+  })
+  const { conteudos, depoimentos } = await conteudosDasTrilhas(container, vistos)
+  const { frete, atendimento } = lerConfiguracoes(lojas[0]?.metadata)
   return {
-    ...emailDoCrm(e),
-    remetente: remetenteDoEstilo(e.estilo, NOME_DO_REMETENTE_PESSOAL),
-    responderPara: e.estilo === "pedido" ? null : (e.loja.atendimento ?? null),
+    conteudos,
+    depoimentos,
+    cadastros,
+    daLoja: {
+      prazoDePostagem: atendimento.prazoDePostagem,
+      freteGratisAcima: frete.modo === "gratis" ? frete.piso : null,
+    },
   }
 }
 

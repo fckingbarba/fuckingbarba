@@ -2,7 +2,7 @@ import type { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/frame
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import { exemploDoToque, TOQUES_DOS_FLUXOS } from "../../../../../lib/crm/exemplos-dos-fluxos"
 import type { IdDoToque } from "../../../../../lib/crm/fluxos"
-import { comQuemManda } from "../../../../../lib/crm/motor"
+import { comQuemManda } from "../../../../../lib/crm/envio"
 import { enviarEmail } from "../../../../../lib/email"
 import { exigirArea, type PedidoDaEquipe } from "../../../../../lib/equipe/acesso"
 import { criarLimite } from "../../../../../lib/limite"
