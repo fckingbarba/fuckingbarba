@@ -999,6 +999,25 @@ vez) e não refaz a escolha; `finalizar` registra a oferta no pedido em `after()
 → `POST /store/recomendacoes/oferta`, grava uma vez). A frase da caixinha só afirma o que o modelo
 prova (`Motivo`). `ferramentas/conferir-recomendacao.mjs` roda as duas metades juntas, sem servidor.
 
+Os **mais vendidos da home** (entrega 0180, pedido da loja em 28/09): o carrossel
+(`components/home/colecao.tsx`, até 12) e a vitrine "Todos os produtos" (`vitrine.tsx`, até 8 —
+antes era o catálogo, até 12) começam pelo que mais vendeu. O BACKEND conta
+(`apps/backend/src/lib/mais-vendidos.ts`, pura, com testes): as unidades dos últimos 90 dias,
+somando os pedidos pagos do Medusa (dinheiro capturado e sem cancelar — o `pagamentoDo` do painel)
+e os "confirmado" da base da Nuvemshop que o CRM guardou (`crm_base_pedido`, `vendidosDaBase` no
+service do CRM); o item vira o produto de hoje pelo SKU (o do Bling, igual nas duas lojas) e, sem
+SKU que case, pelo endereço; no empate, o que esteve em mais pedidos, depois o endereço.
+`GET /store/mais-vendidos` devolve só a ordem (`{ handles }`, sem quantidade nenhuma) e só pra loja
+(`daLoja`), com 10 min de memória; a loja guarda 1 h (`maisVendidos`, tag `mais-vendidos`; o erro
+vira lista vazia por minutos, e a home fica na ordem de sempre). A LOJA ordena
+(`maisVendidosPrimeiro`, em `lib/catalogo.ts`): os que venderam, na ordem da API; os que não
+venderam, na ordem de sempre; o esgotado no fim de tudo — e só então corta (cortar antes deixaria
+de fora o mais vendido que o Medusa devolvesse no fim da lista). A Nuvemshop sai da conta sozinha
+quando os 90 dias passarem da virada (fim de dezembro). O palco "Alta performance" segue na ordem
+do painel. O conferidor é o `conferir-catalogo` (seção 14, com o `REVALIDAR_SEGREDO` no ambiente):
+ele avisa a loja pra refazer a ordem e os produtos antes de olhar a home, porque os conferidores
+que compram mudam a conta e o estoque.
+
 A **newsletter** do rodapé é um módulo próprio (`src/modules/newsletter/`, tabela
 `newsletter_inscricao`): só o e-mail, a origem e a data do consentimento, como a Política de
 Privacidade promete. Entra por `POST /store/newsletter` (a mesma resposta pra quem já estava na

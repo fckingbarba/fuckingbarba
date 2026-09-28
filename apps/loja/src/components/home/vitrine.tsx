@@ -2,25 +2,31 @@ import type { HttpTypes } from "@medusajs/types"
 import Link from "next/link"
 import { Raio } from "@/components/icones"
 import { CartaoProduto } from "@/components/produto/cartao"
-import { home, listarProdutos } from "@/lib/medusa"
+import { maisVendidosPrimeiro } from "@/lib/catalogo"
+import { home, listarProdutos, maisVendidos } from "@/lib/medusa"
 
 /**
  * A grade de produtos da home, com o mesmo card da faixa de coleção.
  *
+ * OS OITO MAIS VENDIDOS, e não o catálogo (pedido da loja em 28/09): os que
+ * mais venderam nos últimos 90 dias, na loja nova e na Nuvemshop
+ * (`maisVendidosPrimeiro`, em `lib/catalogo.ts`); o resto está a um clique,
+ * no "Ver todos os produtos". A ordem vem antes do corte — ver lá.
+ *
  * Sobre o título (do painel, "Layout da home"): no protótipo era "Os mais
- * pedidos da casa". Não dá pra dizer isso ainda — a grade não é ordenada
- * por venda, então não existe "mais pedido". O de fábrica é "Todos os
- * produtos", que é verdade hoje; "mais pedidos" só quando a ordem for a de
- * venda de verdade.
+ * pedidos da casa", e até 28/09 não dava pra dizer isso — a grade não era
+ * ordenada por venda. Agora é, e "Os mais vendidos" pode ir pro painel; o de
+ * fábrica segue "Todos os produtos".
  *
  * "Pronta entrega" também é condicional: só entra quando todos os produtos
  * da grade têm estoque. Um esgotado no meio já derruba a frase, porque ela
  * fala da grade inteira.
  */
-const LIMITE = 12
+const LIMITE = 8
 
 export async function Vitrine() {
-  const [produtos, { conteudo }] = await Promise.all([listarProdutos({ limite: LIMITE }), home()])
+  const [todos, ordem, { conteudo }] = await Promise.all([listarProdutos(), maisVendidos(), home()])
+  const produtos = maisVendidosPrimeiro(todos, ordem).slice(0, LIMITE)
   if (!produtos.length) return null
 
   const todosEmEstoque = produtos.every(temEstoque)

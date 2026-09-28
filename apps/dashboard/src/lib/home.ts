@@ -243,8 +243,15 @@ export const SECOES_DA_HOME: Record<IdDaSecaoDaHome, DefinicaoDaSecaoDaHome> = {
   },
   "home.colecao": {
     nome: "Carrossel de coleção",
-    descricao: "Faixa de produtos que rola de lado.",
-    campos: [TITULO, { tipo: "nota", texto: "Os produtos vêm do catálogo." }],
+    descricao: "Faixa de produtos que rola de lado, dos mais vendidos pros menos.",
+    campos: [
+      TITULO,
+      {
+        tipo: "nota",
+        texto:
+          "Os produtos vêm do catálogo, até 12: os que mais venderam nos últimos 90 dias (na loja e na Nuvemshop) primeiro, e o esgotado no fim.",
+      },
+    ],
   },
   "home.hero": {
     nome: "Bloco escuro de marca",
@@ -351,16 +358,19 @@ export const SECOES_DA_HOME: Record<IdDaSecaoDaHome, DefinicaoDaSecaoDaHome> = {
   },
   "home.vitrine": {
     nome: "Vitrine",
-    descricao: "Grade com o catálogo inteiro.",
+    descricao: "Grade com os 8 mais vendidos e o botão pra ver todos.",
     campos: [
       {
         tipo: "texto",
         c: "titulo",
         rot: "Título",
-        ajuda:
-          "“Os mais pedidos” só é verdade quando a grade estiver na ordem de venda — hoje não está.",
+        ajuda: "A grade está na ordem de venda: “Os mais vendidos” também é verdade.",
       },
-      { tipo: "nota", texto: "Todo produto publicado entra sozinho." },
+      {
+        tipo: "nota",
+        texto:
+          "Entram sozinhos os 8 que mais venderam nos últimos 90 dias (na loja e na Nuvemshop); o esgotado vai pro fim.",
+      },
     ],
   },
   "home.sobre": {
