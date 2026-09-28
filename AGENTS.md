@@ -706,10 +706,12 @@ entrega 0116). Pedido lido pra mostrar item: `items.*`, como a confirmação, o 
   tab ou quebra vai com um `'` na frente — a planilha mostra como texto. E o `normalizarEmail`
   recusa o e-mail que começa com `=`, `+` ou `-` e o que tem `"(),:;<>[]\` ou caractere de
   controle (o `+tag` no meio, o `'` e o acento passam).
-- **O link da avaliação só por e-mail** (`POST /store/avaliacoes/encontrar`): a resposta é sempre
-  `{ mandado: true }`, e sai antes de procurar; o link vai pro e-mail da compra
-  (`mandarLinkDaAvaliacao`, em `lib/avaliacoes/encontrar.ts`: um por pedido a cada 10 minutos, 3
-  por dia, só pro pedido que aceita avaliação e tem produto sem nota), nunca na resposta.
+- **A avaliação sem o link** (`POST /store/avaliacoes` com `numero` e `email`, desde a 0193 — o
+  link por e-mail da 0175 saiu, escolha do dono): o número e o e-mail têm que bater, e a resposta
+  não traz nada do pedido (`{ ok: true }` ou o motivo; nem o `faltam`); a página lista a loja
+  inteira, nunca os produtos do pedido. O que não bate conta à parte, mais apertado (10 por hora
+  por IP assinado, 30 sem, 200 da loja), e a vaga é reservada ANTES de procurar (sem `await` entre
+  conferir e reservar); achou o pedido, ela volta.
 
 **A etiqueta feita à mão no painel da Frenet não manda aviso** (resposta deles, 23/09: o aviso só
 vale pros pedidos que entram pela API de pedidos, que exige o token de parceiro). Pra ela, a loja
@@ -1105,22 +1107,36 @@ topo do próprio arquivo.
   manda a URL inteira. O link é um HMAC do id do pedido com uma chave derivada do `JWT_SECRET`
   (`lib/avaliacoes/link.ts`); não vence. A página lê o pedido em `GET /store/avaliacoes/pedido`
   (número, nome sugerido — o primeiro nome e a inicial, `nomeSugerido` —, os produtos e se já têm
-  nota) e manda em `POST /store/avaliacoes` (o link vem do cookie, nunca do formulário). Sem o link,
-  `POST /store/avaliacoes/encontrar` recebe o número do pedido e o e-mail da compra e MANDA o link
-  pra esse e-mail ("O link pra avaliar o pedido #N", `emailDoLinkDaAvaliacao`, desde a 0175) — a
-  resposta é sempre a mesma e nunca traz o link. Uma avaliação por produto de cada pedido (índice
-  único; 409 `ja_avaliou`), só de pedido pago e não cancelado — a entrega não entra na conta: quem
-  recebeu sem o rastreio dizer ainda avalia pela página. Os limites são na memória, por IP assinado
-  (os da newsletter). O texto vai como a pessoa escreveu (`limparTexto` só tira espaço nas pontas,
-  caractere de controle e linha em branco repetida). Fica fora do Google (o `Disallow` do robots e o
-  `noindex`), e o `proxy.ts` não baixa a caixa do `/avaliar/` (`CAMINHOS_COM_ID`).
+  nota) e manda em `POST /store/avaliacoes` (o link vem do cookie, nunca do formulário). **Sem o
+  link** (desde a 0193: o endereço que o dono manda pelo WhatsApp, quem comprou na loja antiga), a
+  página é UM formulário (`components/avaliar/direto.tsx`): o número do pedido, o e-mail da compra,
+  o nome, o produto (um `<select>` com a loja inteira, `produtosParaAvaliar` — os mais vendidos
+  primeiro —, e a foto do escolhido; `?produto=<id ou handle>` abre marcado), as estrelas e o
+  texto, num `POST /store/avaliacoes` com `numero` e `email` no lugar do `p`. O Medusa acha o pedido
+  (`acharPedidoDireto`, em `lib/avaliacoes/pedido.ts`) na loja nova pelo `display_id` e, sem achar,
+  na base da Nuvemshop que o CRM guardou (`pedidosDaBase` do e-mail, o número exato; aceita o
+  `confirmado`), e o produto tem que ser do pedido ou vir num kit dele (`produtosQueOPedidoAvalia`:
+  o avulso de cada componente pela tabela de SKUs do CRM, `componentesDoItem` + `skuAvulso`;
+  produto de uma unidade só não abre outro). A avaliação da loja antiga guarda o id `nso_…` da
+  linha da base e o número de lá. Respostas: 404 `pedido_nao_encontrado`, 409 `nao_aceita`,
+  `fora_do_pedido` ou `ja_avaliou`. Depois do "valeu", "Avaliar outro produto" remonta o
+  formulário com o pedido, o e-mail e o nome. O `<select>` é NÃO controlado (`defaultValue`), e os
+  campos são refeitos a cada resposta (`key` = rodada): o `reset()` que o React dá no formulário
+  depois da ação volta o select controlado pra primeira opção. Uma avaliação por produto de cada
+  pedido (índice único; 409 `ja_avaliou`), só de pedido pago e não cancelado — a entrega não entra
+  na conta: quem recebeu sem o rastreio dizer ainda avalia pela página. Os limites são na memória,
+  por IP assinado (os da newsletter; o do número e e-mail que não batem, na regra da auditoria
+  acima). O texto vai como a pessoa escreveu (`limparTexto` só tira espaço nas pontas, caractere de
+  controle e linha em branco repetida). Fica fora do Google (o `Disallow` do robots e o `noindex`),
+  e o `proxy.ts` não baixa a caixa do `/avaliar/` (`CAMINHOS_COM_ID`).
 - **O painel** (Pessoas → Avaliações; a área `avaliacoes`, dos três papéis no padrão): as novas
   (da mais antiga), as do site e as recusadas; aprovar põe no site, recusar não põe (ou tira), e a
   recusada pode ser APAGADA de vez (`apagarAvaliacao` — o pedido de exclusão da LGPD; dois passos,
   com confirmação). Tudo pelo `moderarAvaliacao` (`lib/avaliacoes/moderar.ts`), que avisa a loja
   (`avaliacoes`, perfil "seconds") quando o site muda, e com a linha no registro da equipe. O número
-  do pedido só vai pra quem abre os Pedidos. O Início diz "N avaliações esperando". O admin do
-  Medusa tem o mesmo em `POST /admin/avaliacoes/:id`.
+  do pedido só vai pra quem abre os Pedidos; o da loja antiga (`pedido.nuvemshop`) sai como "Pedido
+  #N da Nuvemshop", sem link — não tem página no painel. O Início diz "N avaliações esperando". O
+  admin do Medusa tem o mesmo em `POST /admin/avaliacoes/:id`.
 
 O site lê as aprovadas em `GET /store/avaliacoes` (`avaliacoesDoSite`: o produto pelo HANDLE de
 agora, só produto publicado, nada do pedido), pela `avaliacoesPublicadas` da loja (`lib/medusa.ts`,
@@ -1139,9 +1155,14 @@ tela e um pedaço à parte vira um TERCEIRO pedaço, que a home baixa a mais —
 página: a entrega ficou com +87 bytes (o `avaliacoesPrimeiro`) e +13 no HTML. O `medusa-falso.mjs` do CI responde
 `/store/avaliacoes` vazio. Conferidores: `apps/loja/ferramentas/conferir-avaliacoes.mjs` (o pedido
 entregue há dois dias por um aviso da Frenet com a hora dela, o e-mail, a página, o que o Medusa
-guardou, a busca pelo número, a aprovada na página do produto e a limpeza no fim) e
-`apps/dashboard/ferramentas/conferir-avaliacoes.mjs` (a tela, aprovar, tirar, apagar, o Início e o
-marketing sem o número do pedido).
+guardou, a página sem o link — o Kit Completo que abre o óleo e não o Fator, o e-mail errado, o
+formulário que volta com o produto e a nota, o "avaliar outro produto", o Pix não pago e os dez
+chutes que dão 429 —, a aprovada na página do produto e a limpeza no fim; as chamadas à API vão
+assinadas com o IP da rodada, e o `umSo` espera o formulário ficar um só: no `next dev`, o bloco do
+streaming fica um instante em dobro, com a cópia escondida) e
+`apps/dashboard/ferramentas/conferir-avaliacoes.mjs` (as avaliações pelo número e o e-mail, uma de
+um pedido da loja antiga — o arquivo de vendas da rodada entra pela base do CRM —, a tela, aprovar,
+tirar, apagar, o Início e o marketing sem o número do pedido).
 
 **Os criadores** (entrega 0189): a página escondida da proposta pra quem grava vídeo pros
 anúncios — 20 criativos pelo fixo ou pela comissão — e a inscrição dela. Três pontas:
