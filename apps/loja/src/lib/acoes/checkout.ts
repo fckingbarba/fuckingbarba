@@ -47,6 +47,7 @@ import { emReais } from "@/lib/formato"
 import { cepDeOutraCidade, comCepNovo, ehUf, lerEndereco, montarEndereco } from "@/lib/endereco"
 import { cliente, configuracoes } from "@/lib/medusa"
 import { depoisDaRecusa, entradaDoCarrinho, recusaDaPorta } from "@/lib/pagamento"
+import { COOKIE_CLIENTE, OPCOES_DOS_COOKIES } from "@/lib/primeira-compra"
 import { ehCodigoDePromocao } from "@/lib/promocoes"
 import { rastroDaCompra, registrarRastro } from "@/lib/rastro"
 import { lerToken } from "@/lib/sessao"
@@ -800,6 +801,12 @@ export async function finalizar(anterior: EstadoDaEtapa, fd: FormData): Promise<
     O rastro vai depois da resposta, como a oferta.
   */
   after(() => registrarRastro(pedido, rastro))
+
+  /*
+    E O POP-UP DA 1ª COMPRA NÃO VOLTA NESTE NAVEGADOR: o cupom dele é só de
+    primeira compra (`lib/primeira-compra.ts`).
+  */
+  ;(await cookies()).set(COOKIE_CLIENTE, "1", OPCOES_DOS_COOKIES)
 
   return abrirPedido(pedidoId)
 }

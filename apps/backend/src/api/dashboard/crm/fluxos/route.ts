@@ -7,7 +7,7 @@ import {
   CHAVE_DOS_FLUXOS,
   guardarConfigDosFluxos,
   lerConfigDosFluxos,
-  PREFIXO_DO_CUPOM,
+  ehCupomDoCrm,
   type ConfigDosFluxos,
 } from "../../../../lib/crm/fluxos"
 import { exigirArea, type PedidoDaEquipe } from "../../../../lib/equipe/acesso"
@@ -47,7 +47,7 @@ async function tela(container: MedusaContainer, config: ConfigDosFluxos, agora: 
       })
       .then((r) => r.data as unknown as PedidoDaTela[]),
   ])
-  const codigos = registros.flatMap((r) => (r.cupom?.startsWith(PREFIXO_DO_CUPOM) ? [r.cupom] : []))
+  const codigos = registros.flatMap((r) => (r.cupom && ehCupomDoCrm(r.cupom) ? [r.cupom] : []))
   const usados = codigos.length
     ? await container
         .resolve(Modules.PROMOTION)

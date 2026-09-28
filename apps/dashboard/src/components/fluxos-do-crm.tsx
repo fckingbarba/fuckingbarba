@@ -16,6 +16,8 @@ const QUEM_ENTRA: Record<IdDoFluxo, string> = {
   pix: "Gerou o Pix e não pagou.",
   checkout: "Digitou o e-mail no checkout e não pagou.",
   carrinho: "Pôs na sacola e não foi pro checkout — e a loja sabe quem é.",
+  "boas-vindas":
+    "Se cadastrou no pop-up da 1ª compra, com o nome e o e-mail. Desligado, o pop-up some da loja.",
 }
 
 const inteiro = new Intl.NumberFormat("pt-BR")
@@ -121,20 +123,23 @@ function NumerosDoFluxo({ f, dias }: { f: Fluxo; dias: number }) {
         </p>
         <p className="numero__sub">usados</p>
       </div>
-      <div
-        className="numero numero--controle"
-        title="Os 5% que não recebem: é como se sabe o que o fluxo vende a mais"
-      >
-        <p className="numero__rot">Sem e-mail</p>
-        <p className="numero__valor num" data-numero="controle">
-          {n.controle.pessoas ? `${porCento(n.controle.compraram, n.controle.pessoas)}%` : "—"}
-        </p>
-        <p className="numero__sub">
-          {n.controle.pessoas
-            ? `${inteiro.format(n.controle.compraram)} de ${inteiro.format(n.controle.pessoas)} compraram`
-            : "o controle ainda está vazio"}
-        </p>
-      </div>
+      {/* As boas-vindas não têm controle: o cupom foi a pessoa que pediu. */}
+      {f.id === "boas-vindas" ? null : (
+        <div
+          className="numero numero--controle"
+          title="Os 5% que não recebem: é como se sabe o que o fluxo vende a mais"
+        >
+          <p className="numero__rot">Sem e-mail</p>
+          <p className="numero__valor num" data-numero="controle">
+            {n.controle.pessoas ? `${porCento(n.controle.compraram, n.controle.pessoas)}%` : "—"}
+          </p>
+          <p className="numero__sub">
+            {n.controle.pessoas
+              ? `${inteiro.format(n.controle.compraram)} de ${inteiro.format(n.controle.pessoas)} compraram`
+              : "o controle ainda está vazio"}
+          </p>
+        </div>
+      )}
     </div>
   )
 }
@@ -197,9 +202,10 @@ export function DescontoDosFluxos({
         O desconto do cupom
       </h2>
       <p className="bloco__sub">
-        Vai no e-mail de 1 dia depois: um cupom só da pessoa, de uso único, que vence em 2 dias (3
-        no carrinho abandonado). No máximo um a cada 60 dias pro mesmo e-mail, e ele soma com o
-        preço promocional.
+        Vai no e-mail de 1 dia depois e no cupom da 1ª compra, o do pop-up: um cupom só da pessoa,
+        de uso único, que vence em 2 dias (3 no carrinho abandonado e na 1ª compra). No máximo um a
+        cada 60 dias pro mesmo e-mail (o da 1ª compra, um por e-mail), e ele soma com o preço
+        promocional.
       </p>
       <form
         className="fluxo__desconto"

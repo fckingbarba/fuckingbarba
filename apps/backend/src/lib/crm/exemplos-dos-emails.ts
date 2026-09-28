@@ -25,10 +25,23 @@ import { linksDeSair } from "./sair"
 export async function produtosDosExemplos(
   container: MedusaContainer
 ): Promise<Map<string, ProdutoDoCrm>> {
+  return produtosPorEndereco(container, PRODUTOS_DOS_EXEMPLOS)
+}
+
+/**
+ * Os produtos publicados destes endereços, com o preço de hoje (o da lista e o
+ * do de/por), pros blocos de produto dos e-mails do CRM. O que não está
+ * publicado fica de fora.
+ */
+export async function produtosPorEndereco(
+  container: MedusaContainer,
+  handles: readonly string[]
+): Promise<Map<string, ProdutoDoCrm>> {
+  if (!handles.length) return new Map()
   const { data } = await container.resolve(ContainerRegistrationKeys.QUERY).graph({
     entity: "product",
     fields: ["id", "title", "handle", "thumbnail", "variants.id"],
-    filters: { handle: [...PRODUTOS_DOS_EXEMPLOS], status: "published" },
+    filters: { handle: [...handles], status: "published" },
   })
   const produtos = data as {
     title?: string | null

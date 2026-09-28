@@ -89,6 +89,13 @@ export default async function Privacidade() {
           gente mandar.
         </P>
         <P>
+          <b>Se você se cadastrar no pop-up da primeira compra</b>: o nome, o e-mail e a página em
+          que você estava. Em troca vem um cupom de desconto só seu, que vale na primeira compra, e
+          você entra na lista das ofertas, como na newsletter. O nome é pro &ldquo;Oi&rdquo; dos
+          e-mails, e a página, pra gente falar do que te interessa. Dá pra sair em qualquer
+          mensagem.
+        </P>
+        <P>
           <b>Se você pedir aviso de um produto esgotado</b> (o &ldquo;avise-me quando chegar&rdquo;,
           na página dele): o e-mail e o produto. Sai um e-mail só, quando ele voltar pro estoque — e
           aí o seu endereço sai da lista de espera. Não é a newsletter: não vem mais nada depois.
@@ -175,7 +182,8 @@ export default async function Privacidade() {
           guarda a sua resposta sobre os cookies — pra não perguntar de novo toda visita — e, se
           você entrar na sua conta, um lembra que é você. Os links dos nossos e-mails também usam
           um, só no que eles abrem: o cupom que espera o checkout, a avaliação do pedido e o sair da
-          lista.
+          lista. E dois lembram só a sua escolha sobre o pop-up da primeira compra: se você fechou
+          ou já se cadastrou, e se já comprou neste navegador — pra ele não aparecer de novo.
         </P>
         <P>
           Os do Google Analytics e da Microsoft Clarity medem as visitas desde a primeira página,
@@ -265,14 +273,15 @@ export default async function Privacidade() {
       <Secao titulo="Por quanto tempo">
         <P>
           Dados de venda ficam <b>cinco anos</b>, que é o que a legislação fiscal e o Código de
-          Defesa do Consumidor exigem de quem vende. E-mail de newsletter fica até você pedir pra
-          sair. O do aviso de produto esgotado fica até o aviso sair — ou seis meses, se o produto
-          não voltar. A avaliação que você mandou fica até você pedir pra apagar. O registro das
-          tentativas de pagar com cartão fica 30 dias. O que a loja anota do que você faz nela, e o
-          que ela sabe dos e-mails que mandou (se chegaram, se foram abertos), fica <b>13 meses</b>{" "}
-          e depois é apagado. Cookies de medição duram no máximo dois anos, e o código deste
-          navegador, um ano; os necessários somem quando a sessão acaba, menos o da sacola e o da
-          sua resposta sobre cookies.
+          Defesa do Consumidor exigem de quem vende. E-mail de newsletter (e o nome e a página, se
+          vieram do pop-up) fica até você pedir pra sair. O do aviso de produto esgotado fica até o
+          aviso sair — ou seis meses, se o produto não voltar. A avaliação que você mandou fica até
+          você pedir pra apagar. O registro das tentativas de pagar com cartão fica 30 dias. O que a
+          loja anota do que você faz nela, e o que ela sabe dos e-mails que mandou (se chegaram, se
+          foram abertos), fica <b>13 meses</b> e depois é apagado. Cookies de medição duram no
+          máximo dois anos, e o código deste navegador, um ano; os necessários somem quando a sessão
+          acaba, menos o da sacola, o da sua resposta sobre cookies e os do pop-up da primeira
+          compra (um ano).
         </P>
       </Secao>
 

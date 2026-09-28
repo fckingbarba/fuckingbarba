@@ -1,0 +1,324 @@
+/*
+  O POP-UP DA 1ª COMPRA (entrega 0177) — `components/primeira-compra/popup.tsx`.
+  Escrito à mão, com a cara da loja: sem canto redondo, borda preta e sombra
+  dura (a amarela, em cima do fundo escuro). Só vem junto do pop-up: quem não
+  vê o pop-up não baixa este arquivo.
+
+  No computador, no meio da tela, com o lado preto do "10%". No celular, sobe
+  de baixo, com o "10%" numa faixa em cima.
+*/
+
+.pc-escuro {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgb(0 0 0 / 0.58);
+}
+
+.pc-popup {
+  position: relative;
+  width: min(580px, 100%);
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1fr);
+  background: var(--color-papel);
+  color: var(--color-tinta);
+  border: 3px solid var(--color-tinta);
+  box-shadow: 8px 8px 0 0 var(--color-amarelo);
+  animation: pc-entra 0.22s var(--ease-suave);
+}
+
+.pc-alca {
+  display: none;
+}
+
+.pc-lado {
+  background: #000;
+  color: #fff;
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  gap: 6px;
+  padding: 22px 18px;
+}
+
+.pc-grande {
+  font-weight: 900;
+  font-style: italic;
+  font-size: 76px;
+  line-height: 0.85;
+  letter-spacing: -0.04em;
+  color: var(--color-amarelo);
+}
+
+.pc-grande small {
+  font-size: 34px;
+}
+
+.pc-pequeno {
+  font-weight: 800;
+  font-style: italic;
+  font-size: 15px;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.pc-corpo {
+  padding: 22px 22px 16px;
+  display: grid;
+  align-content: start;
+}
+
+.pc-pedir,
+.pc-feito {
+  display: grid;
+  gap: 12px;
+}
+
+.pc-titulo {
+  margin: 0;
+  padding-right: 40px;
+  font-weight: 800;
+  font-style: italic;
+  font-size: 23px;
+  line-height: 1.05;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+}
+
+.pc-texto {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.pc-campo {
+  width: 100%;
+  font: inherit;
+  font-size: 16px;
+  padding: 11px 12px;
+  border: 2px solid var(--color-tinta);
+  background: #fff;
+  color: var(--color-tinta);
+  border-radius: 0;
+}
+
+.pc-campo:focus {
+  outline: 3px solid var(--color-amarelo);
+  outline-offset: 0;
+}
+
+.pc-campo[aria-invalid="true"] {
+  border-color: var(--color-erro);
+}
+
+.pc-erro {
+  margin: -4px 0 0;
+  font-size: 13px;
+  color: var(--color-erro);
+}
+
+.pc-botao {
+  width: 100%;
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 1;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 14px;
+  background: var(--color-amarelo);
+  color: var(--color-tinta);
+  border: 2px solid var(--color-tinta);
+  box-shadow: var(--shadow-dura-sm);
+  cursor: pointer;
+}
+
+.pc-botao:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 0 var(--color-tinta);
+}
+
+.pc-botao[disabled] {
+  cursor: progress;
+  opacity: 0.75;
+}
+
+.pc-agora-nao {
+  justify-self: center;
+  padding: 2px;
+  border: 0;
+  background: none;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--color-tinta-suave);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.pc-fechar {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 1;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  background: #fff;
+  color: var(--color-tinta);
+  border: 2px solid var(--color-tinta);
+  box-shadow: 2px 2px 0 0 var(--color-tinta);
+  cursor: pointer;
+}
+
+.pc-fechar:hover {
+  background: var(--color-amarelo);
+}
+
+.pc-fechar:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 0 var(--color-tinta);
+}
+
+.pc-fechar:focus-visible,
+.pc-botao:focus-visible,
+.pc-agora-nao:focus-visible,
+.pc-copiar:focus-visible {
+  outline: 3px solid var(--color-amarelo);
+  outline-offset: 2px;
+}
+
+.pc-fechar svg {
+  width: 14px;
+  height: 14px;
+}
+
+.pc-selo {
+  justify-self: start;
+  padding: 5px 8px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: var(--color-menta-clara);
+  color: var(--color-menta-escura);
+}
+
+.pc-codigo {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.pc-codigo code {
+  flex: 1;
+  padding: 12px;
+  font-family: inherit;
+  font-weight: 800;
+  font-size: 17px;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  text-align: center;
+  border: 2px dashed var(--color-tinta);
+  background: var(--color-amarelo-claro);
+}
+
+.pc-copiar {
+  padding: 0 12px;
+  font-weight: 800;
+  font-size: 12px;
+  text-transform: uppercase;
+  border: 2px solid var(--color-tinta);
+  background: #fff;
+  color: var(--color-tinta);
+  cursor: pointer;
+}
+
+@keyframes pc-entra {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* No celular: sobe de baixo, e o "10%" vira uma faixa em cima. */
+@media (max-width: 640px) {
+  .pc-escuro {
+    place-items: end stretch;
+    padding: 0;
+    background: rgb(0 0 0 / 0.45);
+  }
+
+  .pc-popup {
+    width: 100%;
+    grid-template-columns: 1fr;
+    border-width: 3px 0 0;
+    box-shadow: none;
+    max-height: 92dvh;
+    overflow-y: auto;
+    animation-name: pc-sobe;
+    animation-duration: 0.28s;
+  }
+
+  .pc-alca {
+    display: block;
+    position: absolute;
+    top: 6px;
+    left: 50%;
+    width: 38px;
+    height: 4px;
+    margin-left: -19px;
+    background: #555;
+  }
+
+  .pc-lado {
+    grid-auto-flow: column;
+    justify-content: start;
+    align-items: end;
+    gap: 10px;
+    padding: 16px 16px 12px;
+  }
+
+  .pc-grande {
+    font-size: 48px;
+  }
+
+  .pc-grande small {
+    font-size: 22px;
+  }
+
+  .pc-corpo {
+    padding: 14px 16px calc(14px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .pc-titulo {
+    font-size: 19px;
+    padding-right: 0;
+  }
+
+  .pc-texto {
+    font-size: 13.5px;
+  }
+
+  @keyframes pc-sobe {
+    from {
+      transform: translateY(100%);
+    }
+    to {
+      transform: none;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pc-popup {
+    animation: none;
+  }
+}

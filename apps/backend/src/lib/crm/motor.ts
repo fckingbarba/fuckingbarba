@@ -26,6 +26,7 @@ import {
   fluxosLigados,
   guardarConfigDosFluxos,
   IDS_DOS_FLUXOS,
+  ehToqueDeCompra,
   lerConfigDosFluxos,
   type Entrada,
   type IdDoFluxo,
@@ -451,7 +452,9 @@ export async function rodarOsFluxos(
       continue
     }
     const detalhe = detalhes.get(entrada.chave)
-    if (!detalhe) continue
+    const toqueDaVez = decisao.toque.id
+    // O motor só manda os de compra: o cupom das boas-vindas sai na rota do pop-up.
+    if (!detalhe || !ehToqueDeCompra(toqueDaVez)) continue
     // Os toques do Pix depois de vencido só saem com o pedido cancelado: o texto diz isso.
     if (entrada.fluxo === "pix" && decisao.toque.id !== "pix-vence" && !detalhe.pixVencido) continue
 
@@ -472,7 +475,7 @@ export async function rodarOsFluxos(
         : cupomQueAindaVale(lidos, entrada.chave, agora, config.c.desconto)
       if (cupom && "id" in cupom) cupomCriado = cupom.id as string
       const compra: CompraDoFluxo = {
-        toque: decisao.toque.id,
+        toque: toqueDaVez,
         para: email,
         nome: detalhe.nome,
         itens: detalhe.itens,
@@ -571,8 +574,8 @@ async function quemVoltouPraLista(
   return voltou
 }
 
-/** O que o pé do e-mail mostra da loja: o endereço, o WhatsApp e a empresa. */
-async function dadosDaLoja(
+/** O que o pé do e-mail mostra da loja: o endereço, o WhatsApp e a empresa (e o do pop-up). */
+export async function dadosDaLoja(
   container: MedusaContainer,
   url: string
 ): Promise<CompraDoFluxo["loja"]> {

@@ -18,7 +18,11 @@ import {
  * não diz se um código existe.
  */
 export async function GET(req: NextRequest, { params }: { params: Promise<{ codigo: string }> }) {
-  const home = NextResponse.redirect(new URL("/", req.url), 302)
+  // A campanha do link (o utm_ do e-mail) vai junto pra home: é ela que diz de onde a visita veio.
+  const destino = new URL("/", req.url)
+  for (const [k, v] of req.nextUrl.searchParams)
+    if (k.startsWith("utm_")) destino.searchParams.set(k, v)
+  const home = NextResponse.redirect(destino, 302)
   const codigo = codigoDoCupom((await params).codigo)
   if (!codigo) return home
 

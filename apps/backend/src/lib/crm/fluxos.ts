@@ -20,6 +20,9 @@ import { createHash } from "node:crypto"
  *     a conta, a newsletter, uma compra de antes). Em 1 hora, 12 horas (o que
  *     os clientes acharam), 24 horas (o desconto, que vale 3 dias), 3 dias (o
  *     desconto vence amanhã) e 5 dias (a última). As horas são as do dono.
+ *   - BOAS-VINDAS (entrega 0177): quem se cadastra no pop-up da 1ª compra (o
+ *     nome e o e-mail, em troca do cupom). O cupom sai na hora do cadastro,
+ *     pela rota do pop-up (`lib/crm/primeira-compra.ts`), e não pelo motor.
  *
  * Os dois primeiros vão pra QUEM DIGITOU O E-MAIL, e o do carrinho pra quem a
  * loja já conhece (escolhas do dono, 27/09): é sobre a compra que a pessoa
@@ -45,9 +48,10 @@ const MINUTO = 60 * 1000
 const HORA = 60 * MINUTO
 const DIA = 24 * HORA
 
-export type IdDoFluxo = "pix" | "checkout" | "carrinho"
+export type IdDoFluxo = "pix" | "checkout" | "carrinho" | "boas-vindas"
 
-export type IdDoToque =
+/** Os toques dos fluxos de compra — os que o motor manda (`lib/emails/fluxos.ts`). */
+export type IdDoToqueDeCompra =
   | "pix-vence"
   | "pix-24h"
   | "pix-48h"
@@ -60,6 +64,16 @@ export type IdDoToque =
   | "carrinho-24h"
   | "carrinho-3d"
   | "carrinho-5d"
+
+/**
+ * O toque das boas-vindas: o cupom da 1ª compra, que sai na hora do cadastro
+ * no pop-up (`lib/crm/primeira-compra.ts`), e não pelo motor.
+ */
+export type IdDoToque = IdDoToqueDeCompra | "boas-vindas-agora"
+
+/** Se o toque é de um fluxo de compra (o que o motor manda). */
+export const ehToqueDeCompra = (id: IdDoToque): id is IdDoToqueDeCompra =>
+  id !== "boas-vindas-agora"
 
 export type ToqueDoFluxo = {
   id: IdDoToque
@@ -171,9 +185,26 @@ export const FLUXOS: Record<IdDoFluxo, Fluxo> = {
       { id: "carrinho-5d", nome: "O último lembrete", quando: "5 dias depois", depois: 5 * DIA },
     ],
   },
+  "boas-vindas": {
+    id: "boas-vindas",
+    nome: "Boas-vindas",
+    prioridade: 4,
+    // O cupom da 1ª compra vale 3 dias, como o do carrinho.
+    validadeDoCupom: 3 * DIA,
+    toques: [
+      {
+        id: "boas-vindas-agora",
+        nome: "O cupom da 1ª compra",
+        quando: "na hora do cadastro",
+        depois: 0,
+        cupom: true,
+        urgente: true,
+      },
+    ],
+  },
 }
 
-export const IDS_DOS_FLUXOS: readonly IdDoFluxo[] = ["pix", "checkout", "carrinho"]
+export const IDS_DOS_FLUXOS: readonly IdDoFluxo[] = ["pix", "checkout", "carrinho", "boas-vindas"]
 
 /** Os toques depois deste tempo sem sair são largados: o e-mail não faz mais sentido. */
 export const VALIDADE_DO_TOQUE = 12 * HORA
@@ -380,6 +411,16 @@ export const LIMITES_DO_DESCONTO: readonly [number, number] = [5, 30]
 
 /** O começo do código dos cupons dos fluxos (`VOLTA-7KQ2MX`): não é cupom do painel. */
 export const PREFIXO_DO_CUPOM = "VOLTA-"
+
+/** O começo do cupom da 1ª compra, o do pop-up (`BEMVINDO-7KQ2MX`): também não é do painel. */
+export const PREFIXO_DO_CUPOM_DE_BOAS_VINDAS = "BEMVINDO-"
+
+/** Se o código é de um cupom do CRM — os que a aba Fluxos conta, e a lista de Cupons não mostra. */
+export const ehCupomDoCrm = (codigo: string | null | undefined) =>
+  Boolean(
+    codigo &&
+    (codigo.startsWith(PREFIXO_DO_CUPOM) || codigo.startsWith(PREFIXO_DO_CUPOM_DE_BOAS_VINDAS))
+  )
 
 /** Quanto tempo o cupom vale depois do e-mail que o dá (o padrão; o fluxo pode ter o seu). */
 export const VALIDADE_DO_CUPOM = 2 * DIA

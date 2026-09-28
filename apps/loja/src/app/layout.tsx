@@ -9,6 +9,7 @@ import { SemZoomNoCampo } from "@/components/layout/sem-zoom-no-campo"
 import { ProvedorDaParcela, ProvedorDoFrete } from "@/components/configuracoes/contexto"
 import { ProvedorDaSacola } from "@/components/sacola/contexto"
 import { Gaveta } from "@/components/sacola/gaveta"
+import { VigiaDaPrimeiraCompra } from "@/components/primeira-compra/vigia"
 import { Telemetria } from "@/components/telemetria/telemetria"
 import { configuracoes, modeloDeRecomendacao, vitrineDaSacola } from "@/lib/medusa"
 import { emProducao, site } from "@/lib/site"
@@ -138,6 +139,8 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         />
         {/* A velocidade da visita, a página que não existe e o erro, pro painel. */}
         <Telemetria />
+        {/* O pop-up da 1ª compra: o vigia é pequeno, e o pop-up só vem quando aparece. */}
+        <VigiaDaPrimeiraCompra />
       </body>
     </html>
   )

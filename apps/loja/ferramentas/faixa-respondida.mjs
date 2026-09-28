@@ -22,12 +22,22 @@ if (!VERSAO) throw new Error("faixa-respondida: não achei a VERSAO_DO_CONSENTIM
 /** O cookie de quem clicou em "Só o necessário", na versão de agora. */
 export const JA_RESPONDEU = { name: "fb_consentimento", value: `nao.${VERSAO}.` }
 
+/**
+ * E o pop-up da 1ª compra (entrega 0177) já respondido: depois de 20 segundos
+ * ou da rolagem, ele cobriria o botão do conferidor, como a faixa cobria.
+ * Quem confere o pop-up é o `conferir-primeira-compra`.
+ */
+export const SEM_POPUP = { name: "fb_popup", value: "cadastrado" }
+
 /** Todo contexto (e toda página solta) deste navegador já nasce com a faixa respondida. */
 export function comAFaixaRespondida(navegador, loja) {
   const criarContexto = navegador.newContext.bind(navegador)
   navegador.newContext = async (opcoes) => {
     const contexto = await criarContexto(opcoes)
-    await contexto.addCookies([{ ...JA_RESPONDEU, url: loja }])
+    await contexto.addCookies([
+      { ...JA_RESPONDEU, url: loja },
+      { ...SEM_POPUP, url: loja },
+    ])
     return contexto
   }
   navegador.newPage = async (opcoes) => {

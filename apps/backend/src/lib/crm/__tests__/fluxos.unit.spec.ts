@@ -241,6 +241,7 @@ describe("a configuração dos fluxos", () => {
         pix: { ligado: true, desde: null },
         checkout: { ligado: true, desde: null },
         carrinho: { ligado: true, desde: null },
+        "boas-vindas": { ligado: true, desde: null },
       },
       desconto: 10,
     })
@@ -254,6 +255,7 @@ describe("a configuração dos fluxos", () => {
         pix: { ligado: false, desde: LIGOU },
         checkout: { ligado: true, desde: LIGOU },
         carrinho: { ligado: false, desde: null },
+        "boas-vindas": { ligado: true, desde: null },
       },
       desconto: 15,
     }
@@ -267,6 +269,7 @@ describe("a configuração dos fluxos", () => {
         pix: { ligado: true, desde: null },
         checkout: { ligado: true, desde: null },
         carrinho: { ligado: true, desde: null },
+        "boas-vindas": { ligado: true, desde: null },
       },
       desconto: 10,
     })
