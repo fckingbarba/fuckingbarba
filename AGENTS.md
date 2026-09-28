@@ -1354,15 +1354,16 @@ export GA4_CREDENCIAIS=$(node -e 'const{generateKeyPairSync:g}=require("node:cry
 
 **Marketing** (a área do protótipo, em partes; parte 1, entrega 0108: o Resumo e a meta do mês).
 No `ACESSO_PADRAO`, `marketing` é do dono e do marketing, e `metaDoMes` (mudar a meta) só do dono.
-`src/lib/painel/marketing.ts` é puro, com testes: o período (`hoje`, `7d`, `30d`, `90d`; o resto
-vira 30d) e o de antes, do mesmo tamanho e terminando na mesma hora (`janelasDo`); venda é pedido
+`src/lib/painel/marketing.ts` é puro, com testes: o período (desde a 0191, o da barra do Início —
+ver "O Marketing no período"; sem nada, 30 dias) e o de antes; venda é pedido
 pago e não cancelado, no instante da captura, com o frete (a regra do Início, `vendasDos`); os
 números com a variação (`null` sem nada antes); o gráfico (por hora, por dia, ou por semana nos 90
 dias); os mais vendidos em reais (`items.total`); e a meta (`fb_metas` no metadata da loja, um valor
 por mês — `{ "2026-09": 12000 }` —, gravada pelo `mudarMetadataDaLoja`). `GET /dashboard/marketing
 ?periodo=` devolve o Resumo (e `mudaAMeta`); `GET /dashboard/marketing/visitas`, as visitas e as
 compras da loja do período e do de antes numa chamada só ao GA4 (`visitasDoMarketing`, em `ga4.ts`,
-guardada como as do dia: `date`+`hour` de `2n−1daysAgo` a `today`, até 4.320 linhas cada — as
+guardada como as do dia: `date`+`hour` do começo do de antes ao fim do período, com as datas
+escritas (`datasComOAntes`; até a 0191, "NdaysAgo"), até 10.000 linhas cada — as
 compras com o `SO_AS_COMPRAS_DA_LOJA`) e a conversão, compras ÷ visitas NO MESMO CORTE de hora
 (`visitasDoPeriodo` — o Google soma hoje com atraso). **A conversão compara gente igual** (entrega
 0135): o GA4 não vê quem recusa os cookies (até a 0166, não via ninguém que não aceitasse), então o
@@ -1475,7 +1476,7 @@ as frases de todas as abas.
   Google, `semGoogle` diz por que faltam as do funil, dos canais e dos produtos (e sem frase
   nenhuma não se diz "nada fora do comum").
 - No painel, `OQueOsDadosDizem` (`components/marketing.tsx`), num `<Suspense>` entre a meta e o
-  gráfico; cada frase ganha o atalho pra aba dela, no mesmo período (`Achados` com `periodo`).
+  gráfico; cada frase ganha o atalho pra aba dela, no mesmo período (`Achados` com o `p`).
 
 **O Início no período** (entrega 0186; o desenho aprovado pelo dono:
 <https://claude.ai/artifact/T18JBKKpWgHgyt3Zr4Cav6>). A barra de cima escolhe o período, e o Início
@@ -1526,6 +1527,36 @@ inteiro (menos a fila, que é do agora) segue ele.
   comparar, o checkout, os pedidos e a marca do checkout), `conferir-visitas` (o Google falso
   responde `inicio.eventos` e `inicio.categorias`) e o `conferir-checkout` da loja (a marca no
   carrinho quando o checkout abre).
+
+**O Marketing no período** (entrega 0191; o pedido do dono: "marketing vai"). As sete abas do
+Marketing usam a barra do Início no lugar dos quatro botões de antes, com os 90 dias que o
+Marketing já tinha e 30 dias de padrão. Pedidos e Carrinhos seguem sem ela.
+- `lib/painel/periodo.ts` ganhou os 90 dias (`ATALHOS`), o `padrao` da tela no `lerPeriodo` (o
+  aviso das datas que não valem diz "mostrando os últimos 30 dias"), o `lerAtalho`, o
+  `periodoNaTela` (antes no `inicio-periodo.ts`), o `periodoEmFrase` (o fim do título do gráfico:
+  "nos últimos 30 dias", "em agosto", "de 14/09 a 20/09"), o `chaveDoPeriodo` (a chave do cache
+  do Google: os dias do período e o começo do de antes) e as datas escritas pro Google
+  (`datasNoGoogle`, `datasComOAntes`). O `somarDias`, o `meiaNoite` e a `Janela` moram nele; o
+  `marketing.ts` reexporta.
+- Todas as rotas do Marketing (`/dashboard/marketing` e as de baixo) leem `?periodo=`,
+  `?de=&ate=` e `?comparar=nenhum` e devolvem `periodo` como `PeriodoNaTela` (era a string do
+  botão). Sem comparar, o `antes` de cada número vem nulo e o Google nem é perguntado sobre o de
+  antes. Um período que já acabou vai inteiro; o que chega até agora corta o último dia dos dois
+  lados na hora que o Google já somou (`visitasDoPeriodo`, `ate` só nele). O `janelasDo(atalho)`
+  ficou só pro CRM, com os três botões dele.
+- `GET /dashboard/periodo?…&padrao=` (todo papel: é a área `inicio`): o `PeriodoNaTela` do que o
+  endereço pediu. As abas desenham a barra com ele na hora, sem esperar os dados da aba. Sem ele
+  (o backend de antes, nos minutos do deploy), o painel monta o que o backend de antes vai mostrar
+  (`periodoDoBackendDeAntes` em `lib/ler-periodo.ts`: hoje, 7, 30 ou 90 dias; o resto vira 30).
+- No painel: `consultaDoPeriodo(busca, padrao)` e `enderecoDoPeriodo(caminho, …)` em
+  `lib/periodo.ts` (`ATALHOS_DO_INICIO` sem os 90 dias); `BarraDoPeriodo` com `caminho` e
+  `atalhos` (as datas voltam pra mesma aba) e `LegendaDoPeriodo` com `graficos={false}` ("comparado
+  com …": o gráfico do Marketing não desenha o de antes), os dois no `PeriodoDoMarketing`. Cada
+  leitor de `lib/marketing.ts` recebe a `consulta`; as frases do de antes saem do `p` (`oDeAntes`:
+  "os 7 dias antes", "ontem a esta hora", "o dia 26/09", "julho"), e sem comparar o número não diz
+  nada embaixo. O "Um dia só é pouco pra concluir" vale pra qualquer período de um dia.
+- Conferidor: `conferir-marketing` (o período na API, no Google e na tela; as abas levando o
+  período e o "não comparar"; as datas sem sair da aba; o aviso; o Início sem os 90 dias).
 
 **Produtos** (fase 3, parte 1). `GET /dashboard/produtos` (a lista, com as fitas) e
 `GET /dashboard/produtos/:id` (o que vem do Bling, só pra ler; as seções com o texto e o fundo de
