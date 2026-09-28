@@ -51,5 +51,20 @@ describe("o link de voltar", () => {
   it("só carrinho e pedido do Medusa", () => {
     expect(() => linkDeVoltar("cus_01K6ABCDEFGHJKMNPQRSTVWXYZ", AGORA)).toThrow()
     expect(() => linkDeVoltar("cart_curto", AGORA)).toThrow()
+    expect(() => linkDeVoltar("repor-cart_01K6ABCDEFGHJKMNPQRSTVWXYZ", AGORA)).toThrow()
+  })
+
+  it("o repor da reposição (0185): o pedido pago da loja nova, ou o da Nuvemshop", () => {
+    const daNuvemshop = "nso_01K6ABCDEFGHJKMNPQRSTVWXYZ"
+    const t = linkDeVoltar(`repor-${PEDIDO}`, AGORA)
+    expect(t.length).toBeLessThanOrEqual(80)
+    expect(voltaDoLink(t, AGORA)).toEqual({ tipo: "repor", id: PEDIDO })
+    expect(voltaDoLink(linkDeVoltar(`repor-${daNuvemshop}`, AGORA), AGORA)).toEqual({
+      tipo: "repor",
+      id: daNuvemshop,
+    })
+    // O repor não vira o refazer do Pix, nem o contrário: a assinatura é do id com o prefixo.
+    const [, vence, assinatura] = t.split(".")
+    expect(voltaDoLink(`${PEDIDO}.${vence}.${assinatura}`, AGORA)).toBeNull()
   })
 })
