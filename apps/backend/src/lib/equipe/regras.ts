@@ -48,7 +48,10 @@ export function ehPapel(valor: unknown): valor is Papel {
  * newsletter. As `avaliacoes` são as notas que chegam pela página
  * `/avaliar`, pra aprovar ou recusar: dos três — o marketing cuida do que
  * vai pro site, a operação lê a reclamação de quem recebeu (o número do
- * pedido, na tela, só pra quem abre os pedidos). O `marketing` é a área dos
+ * pedido, na tela, só pra quem abre os pedidos). Os `criadores` são as
+ * inscrições da página escondida `/criadores`, de quem quer gravar vídeo pra
+ * loja: do marketing e do dono, que fecham com eles — a operação não vê
+ * WhatsApp e e-mail de quem não é cliente. O `marketing` é a área dos
  * números de venda (o Resumo, a meta); mudar a `metaDoMes`, no padrão, é só
  * do dono.
  */
@@ -64,6 +67,7 @@ export const ACESSO_PADRAO = {
   newsletter: ["dono", "marketing"],
   crm: ["dono", "marketing"],
   avaliacoes: ["dono", "operacao", "marketing"],
+  criadores: ["dono", "marketing"],
   home: ["dono", "marketing"],
   marketing: ["dono", "marketing"],
   metaDoMes: ["dono"],
@@ -94,6 +98,7 @@ export const NOME_DA_AREA: Record<Area, string> = {
   newsletter: "Newsletter",
   crm: "CRM",
   avaliacoes: "Avaliações",
+  criadores: "Criadores",
   home: "Layout da home",
   marketing: "Marketing",
   metaDoMes: "Meta do mês",
