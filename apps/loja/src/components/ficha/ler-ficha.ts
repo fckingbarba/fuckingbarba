@@ -1,4 +1,5 @@
-import { fichaValida, type FichaDoSite } from "@/lib/ficha"
+import type { FichaDoSite } from "@/lib/ficha"
+import { fichaValida } from "@/lib/ficha-valida"
 
 /**
  * QUEM PERGUNTA A FICHA (`/api/ficha`) — só baixa pra quem tem o `fb_conta`

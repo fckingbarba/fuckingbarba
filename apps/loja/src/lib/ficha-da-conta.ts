@@ -1,6 +1,7 @@
 import "server-only"
 import { lerSessao, medusa } from "./conta"
-import { fichaValida, type FichaDoSite } from "./ficha"
+import type { FichaDoSite } from "./ficha"
+import { fichaValida } from "./ficha-valida"
 import { sessaoParece } from "./sessao"
 
 /**
