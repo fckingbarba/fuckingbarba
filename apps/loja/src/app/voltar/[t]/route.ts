@@ -6,10 +6,11 @@ import { codigoDoCupom, guardarCupomPendente } from "@/lib/cupom-pendente"
 
 /**
  * /voltar/<t> — O BOTÃO DOS E-MAILS DOS FLUXOS do CRM (checkout abandonado,
- * Pix pendente) e do "Refazer o pedido" do Pix que venceu.
+ * Pix pendente), do "Refazer o pedido" do Pix que venceu e do da reposição
+ * (entrega 0185: a última compra, da loja nova ou da Nuvemshop).
  *
  * O Medusa confere o link (`POST /store/crm/voltar`) e devolve o carrinho:
- * o que ficou pelo caminho, ou um novo com os produtos do Pix. A loja põe o
+ * o que ficou pelo caminho, ou um novo com os produtos do pedido. A loja põe o
  * carrinho no cookie — no lugar do que o navegador tinha — e manda pro
  * checkout, que retoma do passo onde a pessoa parou. Com `?cupom=`, o
  * desconto fica guardado e o checkout aplica sozinho (`lib/cupom-pendente.ts`).
@@ -20,7 +21,7 @@ import { codigoDoCupom, guardarCupomPendente } from "@/lib/cupom-pendente"
  */
 
 /** O formato do link — quem diz se ele vale é o Medusa. */
-const LINK = /^(cart|order)_[0-9A-Z]{26}\.[0-9a-z]{1,10}\.[A-Za-z0-9_-]{22}$/
+const LINK = /^(cart|order|repor-order|repor-nso)_[0-9A-Z]{26}\.[0-9a-z]{1,10}\.[A-Za-z0-9_-]{22}$/
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ t: string }> }) {
   const destino = (caminho: string) => {
