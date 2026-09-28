@@ -101,6 +101,9 @@ export const TAGS = {
   /* O modelo do motor de recomendação. Ninguém derruba: vale uma hora, e a
      próxima leitura já traz o que os pedidos novos ensinaram. */
   recomendacoes: "recomendacoes",
+  /* A ordem dos mais vendidos, da home. Ninguém derruba, como a de cima:
+     vale uma hora, e a próxima leitura já conta as vendas novas. */
+  maisVendidos: "mais-vendidos",
   /* O texto e a ordem da home, do painel. Derrubada pelo "Publicar" (junto
      com `layout:home`, a da ordem — ver `lib/secoes/layout.ts`). */
   home: "home",
@@ -807,6 +810,39 @@ export async function modeloDeRecomendacao(): Promise<ModeloDeRecomendacao | nul
     console.warn(e instanceof Error ? e.message : String(e))
     cacheLife("minutes")
     return null
+  }
+}
+
+/**
+ * A ORDEM DOS MAIS VENDIDOS (`GET /store/mais-vendidos`): os endereços, do
+ * que mais vendeu nos últimos 90 dias pro que menos, na loja nova e na
+ * Nuvemshop — é a ordem do carrossel e da vitrine da home
+ * (`maisVendidosPrimeiro`, em `lib/catalogo.ts`). Produto que não vendeu
+ * não vem. A conta é do backend (`lib/mais-vendidos.ts`), só pra loja.
+ *
+ * É ORDEM, NÃO CATÁLOGO: sem ela a home continua inteira, na ordem de
+ * sempre. Por isso a falha vira lista vazia, como no modelo de
+ * recomendação logo acima — e, como lá, guardada por minutos, não pela
+ * hora: Medusa fora do ar é coisa de segundos.
+ */
+export async function maisVendidos(): Promise<string[]> {
+  "use cache"
+  cacheTag(TAGS.maisVendidos)
+  if (!sdk || !process.env.REVALIDAR_SEGREDO) {
+    cacheLife("hours")
+    return []
+  }
+  try {
+    const { handles } = await lerDoMedusa<{ handles?: unknown }>(
+      "mais vendidos",
+      "/store/mais-vendidos"
+    )
+    cacheLife("hours")
+    return Array.isArray(handles) ? handles.filter((h): h is string => typeof h === "string") : []
+  } catch (e) {
+    console.warn(e instanceof Error ? e.message : String(e))
+    cacheLife("minutes")
+    return []
   }
 }
 

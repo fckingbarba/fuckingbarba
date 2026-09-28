@@ -1,5 +1,5 @@
 import type { HttpTypes } from "@medusajs/types"
-import { buscarCategoria, listarProdutos, precosDe } from "@/lib/medusa"
+import { buscarCategoria, esgotado, listarProdutos, precosDe } from "@/lib/medusa"
 import { site } from "@/lib/site"
 
 /**
@@ -73,6 +73,36 @@ export function ordenar(
     if (pb === null) return -1
     return (pa - pb) * sinal
   })
+}
+
+/* ── OS MAIS VENDIDOS PRIMEIRO (a home) ───────────────────────────────── */
+
+/**
+ * A lista na ordem dos mais vendidos (`ordem`, de `maisVendidos` em
+ * `lib/medusa.ts`): primeiro os que venderam nos últimos 90 dias, do que
+ * mais vendeu pro que menos; depois os que não venderam, na ordem de sempre;
+ * e o ESGOTADO no fim de tudo — o mais vendido esgotado no primeiro card da
+ * home seria um "Avise-me" no lugar de uma compra (a régua do carrossel da
+ * PDP). Sem a ordem (Medusa fora, loja sem venda), fica a ordem de sempre,
+ * com o esgotado no fim.
+ *
+ * Quem corta (os 8 da vitrine, os 12 do carrossel) corta DEPOIS: cortar
+ * antes deixaria de fora justo o mais vendido que o Medusa devolvesse no fim
+ * da lista.
+ */
+export function maisVendidosPrimeiro(
+  produtos: HttpTypes.StoreProduct[],
+  ordem: readonly string[]
+): HttpTypes.StoreProduct[] {
+  const posicao = new Map<string, number>()
+  ordem.forEach((handle, i) => {
+    if (!posicao.has(handle)) posicao.set(handle, i)
+  })
+  const lugar = (p: HttpTypes.StoreProduct) => posicao.get(p.handle ?? "") ?? ordem.length
+  // `sort` é estável: no empate (os que não venderam), fica a ordem de antes.
+  return produtos
+    .slice()
+    .sort((a, b) => Number(esgotado(a)) - Number(esgotado(b)) || lugar(a) - lugar(b))
 }
 
 /* ── O CATÁLOGO POR CATEGORIA ─────────────────────────────────────────── */
