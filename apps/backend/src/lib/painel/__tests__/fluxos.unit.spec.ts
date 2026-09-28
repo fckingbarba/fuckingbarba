@@ -16,6 +16,7 @@ const config: ConfigDosFluxos = {
     checkout: { ligado: false, desde: antes(20) },
     carrinho: { ligado: true, desde: antes(20) },
     "boas-vindas": { ligado: true, desde: antes(20) },
+    estreia: { ligado: false, desde: null },
   },
 }
 const reg = (extra: Partial<RegistroDaTela>): RegistroDaTela => ({
@@ -53,7 +54,13 @@ describe("a tela dos fluxos", () => {
       ],
       cuponsUsados: new Set(["VOLTA-AAAAAA"]),
     })
-    expect(tela.fluxos.map((f) => f.id)).toEqual(["pix", "checkout", "carrinho", "boas-vindas"])
+    expect(tela.fluxos.map((f) => f.id)).toEqual([
+      "pix",
+      "checkout",
+      "carrinho",
+      "boas-vindas",
+      "estreia",
+    ])
     const checkout = tela.fluxos.find((f) => f.id === "checkout")!
     expect(checkout.ligado).toBe(false)
     expect(checkout.numeros).toEqual({

@@ -10,6 +10,7 @@ import {
   ehCupomDoCrm,
   type ConfigDosFluxos,
 } from "../../../../lib/crm/fluxos"
+import { publicoDaEstreia } from "../../../../lib/crm/estreia"
 import { exigirArea, type PedidoDaEquipe } from "../../../../lib/equipe/acesso"
 import { mudarMetadataDaLoja } from "../../../../lib/metadata-da-loja"
 import { anotar } from "../../../../lib/painel/anotar"
@@ -17,6 +18,7 @@ import {
   DIAS_DA_TELA,
   montarTelaDosFluxos,
   mudarConfigDosFluxos,
+  publicoNaTela,
   type PedidoDaTela,
 } from "../../../../lib/painel/fluxos"
 
@@ -36,7 +38,7 @@ const DIA = 24 * 60 * 60 * 1000
 async function tela(container: MedusaContainer, config: ConfigDosFluxos, agora: Date) {
   const desde = new Date(agora.getTime() - DIAS_DA_TELA * DIA)
   const query = container.resolve(ContainerRegistrationKeys.QUERY)
-  const [registros, pedidos] = await Promise.all([
+  const [registros, pedidos, estreia] = await Promise.all([
     container.resolve<CrmService>(CRM).registrosDosFluxos(desde),
     query
       .graph({
@@ -46,6 +48,8 @@ async function tela(container: MedusaContainer, config: ConfigDosFluxos, agora: 
         pagination: { take: 5000 },
       })
       .then((r) => r.data as unknown as PedidoDaTela[]),
+    // Quem entra na estreia: a base da Nuvemshop, agora.
+    publicoDaEstreia(container, agora),
   ])
   const codigos = registros.flatMap((r) => (r.cupom && ehCupomDoCrm(r.cupom) ? [r.cupom] : []))
   const usados = codigos.length
@@ -62,6 +66,7 @@ async function tela(container: MedusaContainer, config: ConfigDosFluxos, agora: 
         .filter((p) => p.code && Number(p.used) > 0)
         .map((p) => p.code as string)
     ),
+    publico: publicoNaTela(estreia),
   })
 }
 

@@ -5,16 +5,21 @@ import { lerConfiguracoes } from "../configuracoes"
 import { emailDaPrimeiraCompra, emailDaTrilha } from "../emails/boas-vindas"
 import { emailDoFluxo, type CompraDoFluxo } from "../emails/fluxos"
 import type { EmailDoCrm } from "../emails/crm"
+import { emailDaEstreia } from "../emails/estreia"
 import { urlDaLoja } from "../emails/moldura"
+import { CURTO_DO_COMPONENTE, SEGMENTOS_COM_CUPOM, type SegmentoDaEstreia } from "./estreia"
 import { produtosDosExemplos } from "./exemplos-dos-emails"
 import {
   FLUXOS,
   IDS_DOS_FLUXOS,
   lerConfigDosFluxos,
-  ehToqueDeCompra,
+  ehToqueDaEstreia,
+  ehToqueDasBoasVindas,
+  PREFIXO_DO_CUPOM,
   PREFIXO_DO_CUPOM_DE_BOAS_VINDAS,
   validadeDoCupom,
   type IdDoToque,
+  type IdDoToqueDaEstreia,
 } from "./fluxos"
 import { conteudosDasTrilhas } from "./boas-vindas"
 import { produtosDoEmail, TITULO_DA_TRILHA } from "./primeira-compra"
@@ -29,17 +34,84 @@ import { linkDeVoltar } from "./voltar"
  * o Pix, o número do pedido e a avaliação são de mentira, e o link de voltar
  * abre um carrinho que não existe (vai pra home). O das boas-vindas é o
  * e-mail do cupom da 1ª compra (`lib/emails/boas-vindas.ts`), com os mais
- * pedidos e o cupom `BEMVINDO-EXEMPLO`, que não existe.
+ * pedidos e o cupom `BEMVINDO-EXEMPLO`, que não existe. Os da estreia vêm
+ * nos 4 jeitos (quem está na hora de repor, no tratamento, quem sumiu, quem
+ * nunca comprou), com o Fator como a última compra.
  */
 
 export const TOQUES_DOS_FLUXOS: readonly IdDoToque[] = IDS_DOS_FLUXOS.flatMap((id) =>
   FLUXOS[id].toques.map((t) => t.id)
 )
 
-export async function exemploDoToque(
+/** Os e-mails do "Mandar pra mim" deste toque: um, ou os jeitos da estreia. Vazio sem a loja. */
+export async function exemplosDoToque(
   container: MedusaContainer,
   membro: { email: string; nome: string },
   toque: IdDoToque,
+  agora = new Date()
+): Promise<EmailDoCrm[]> {
+  if (ehToqueDaEstreia(toque)) return exemplosDaEstreia(container, membro, toque, agora)
+  const exemplo = await exemploDoToque(container, membro, toque, agora)
+  return exemplo ? [exemplo] : []
+}
+
+async function exemplosDaEstreia(
+  container: MedusaContainer,
+  membro: { email: string; nome: string },
+  toque: IdDoToqueDaEstreia,
+  agora: Date
+): Promise<EmailDoCrm[]> {
+  const loja = urlDaLoja()
+  if (!loja) return []
+  const [produtos, whatsapp, lojas] = await Promise.all([
+    produtosDosExemplos(container),
+    whatsappDaLoja(container),
+    container.resolve(Modules.STORE).listStores({}, { select: ["metadata"], take: 1 }),
+  ])
+  const metadata = lojas[0]?.metadata
+  const { empresa, atendimento, frete } = lerConfiguracoes(metadata)
+  const { desconto } = lerConfigDosFluxos(metadata)
+  const fator = produtos.get("fator-de-crescimento-para-barba") ?? null
+  // O de 2 dias lembra o cupom: só de quem sumiu e de quem nunca comprou.
+  const jeitos: readonly SegmentoDaEstreia[] =
+    toque === "estreia-2d" ? SEGMENTOS_COM_CUPOM : ["repor", "cliente", "sumido", "lead"]
+  return jeitos.flatMap((segmento) => {
+    const lead = segmento === "lead"
+    const e = emailDaEstreia({
+      toque,
+      segmento,
+      para: membro.email,
+      nome: membro.nome,
+      cupom: SEGMENTOS_COM_CUPOM.includes(segmento)
+        ? {
+            codigo: `${lead ? PREFIXO_DO_CUPOM_DE_BOAS_VINDAS : PREFIXO_DO_CUPOM}EXEMPLO`,
+            porcento: desconto,
+            ate: new Date(agora.getTime() + (toque === "estreia-2d" ? 1 : 3) * 24 * 60 * 60 * 1000),
+          }
+        : null,
+      produtos: lead ? [...produtos.values()] : fator ? [fator] : [],
+      acabando: segmento === "repor" ? { ...CURTO_DO_COMPONENTE.fator, produto: fator } : null,
+      daLoja: {
+        prazoDePostagem: atendimento.prazoDePostagem,
+        freteGratisAcima: frete.modo === "gratis" ? frete.piso : null,
+      },
+      sair: linksDeSair(loja, membro.email),
+      loja: {
+        url: loja,
+        whatsapp,
+        empresa: empresa.razaoSocial,
+        cnpj: empresa.cnpj,
+        atendimento: atendimento.email,
+      },
+    })
+    return e ? [e] : []
+  })
+}
+
+export async function exemploDoToque(
+  container: MedusaContainer,
+  membro: { email: string; nome: string },
+  toque: Exclude<IdDoToque, IdDoToqueDaEstreia>,
   agora = new Date()
 ): Promise<EmailDoCrm | null> {
   const loja = urlDaLoja()
@@ -74,7 +146,7 @@ export async function exemploDoToque(
       loja: infoDaLoja,
     })
   // A sequência das boas-vindas: o exemplo é a trilha de quem quer a barba crescendo.
-  if (!ehToqueDeCompra(toque)) {
+  if (ehToqueDasBoasVindas(toque)) {
     const { conteudos, depoimentos } = await conteudosDasTrilhas(container, [])
     return emailDaTrilha({
       toque,

@@ -1,6 +1,6 @@
 import type { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
-import { exemploDoToque, TOQUES_DOS_FLUXOS } from "../../../../../lib/crm/exemplos-dos-fluxos"
+import { exemplosDoToque, TOQUES_DOS_FLUXOS } from "../../../../../lib/crm/exemplos-dos-fluxos"
 import type { IdDoToque } from "../../../../../lib/crm/fluxos"
 import { comQuemManda } from "../../../../../lib/crm/envio"
 import { enviarEmail } from "../../../../../lib/email"
@@ -10,10 +10,11 @@ import { criarLimite } from "../../../../../lib/limite"
 /**
  * POST /dashboard/crm/fluxos/teste — `{ toque }`: manda um toque dos fluxos
  * (`lib/crm/exemplos-dos-fluxos.ts`) pro e-mail de quem pediu, com [Teste]
- * no assunto e a etiqueta `crm-teste` (fica fora das contas do CRM).
+ * no assunto e a etiqueta `crm-teste` (fica fora das contas do CRM). Os da
+ * estreia vão nos jeitos dela, um e-mail por jeito (um pedido só no limite).
  *
- * Quem abre o CRM; 10 por hora por pessoa. RESPOSTAS: 200 `{ ok, para }`;
- * 400 `toque`; 409 `sem_loja`; 429 `limite`; 502 `nao_saiu`.
+ * Quem abre o CRM; 10 por hora por pessoa. RESPOSTAS: 200 `{ ok, para,
+ * quantos }`; 400 `toque`; 409 `sem_loja`; 429 `limite`; 502 `nao_saiu`.
  */
 
 const LIMITE = { limite: 10, ms: 60 * 60 * 1000 }
@@ -27,8 +28,8 @@ export async function POST(req: AuthenticatedMedusaRequest, res: MedusaResponse)
     res.status(400).json({ message: "toque" })
     return
   }
-  const exemplo = await exemploDoToque(req.scope, pedido.membro, toque as IdDoToque)
-  if (!exemplo) {
+  const exemplos = await exemplosDoToque(req.scope, pedido.membro, toque as IdDoToque)
+  if (!exemplos.length) {
     res.status(409).json({ message: "sem_loja" })
     return
   }
@@ -37,16 +38,17 @@ export async function POST(req: AuthenticatedMedusaRequest, res: MedusaResponse)
     return
   }
   limite.contar(pedido.membro.id, LIMITE)
-  // Sai como o de verdade: o mesmo remetente e a mesma resposta do estilo dele.
-  const email = comQuemManda(exemplo)
-  const r = await enviarEmail(
-    { ...email, assunto: `[Teste] ${email.assunto}` },
-    req.scope.resolve(ContainerRegistrationKeys.LOGGER),
-    { tipo: "crm-teste" }
-  )
-  if (!r.ok) {
-    res.status(502).json({ message: "nao_saiu" })
-    return
+  // Saem como os de verdade: o mesmo remetente e a mesma resposta do estilo de cada um.
+  const logger = req.scope.resolve(ContainerRegistrationKeys.LOGGER)
+  for (const exemplo of exemplos) {
+    const email = comQuemManda(exemplo)
+    const r = await enviarEmail({ ...email, assunto: `[Teste] ${email.assunto}` }, logger, {
+      tipo: "crm-teste",
+    })
+    if (!r.ok) {
+      res.status(502).json({ message: "nao_saiu" })
+      return
+    }
   }
-  res.json({ ok: true, para: pedido.membro.email })
+  res.json({ ok: true, para: pedido.membro.email, quantos: exemplos.length })
 }

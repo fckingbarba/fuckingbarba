@@ -5,6 +5,7 @@ import {
   type ConfigDosFluxos,
   type IdDoFluxo,
 } from "../crm/fluxos"
+import { LOTES, type PublicoDaEstreia } from "../crm/estreia"
 import { dia, hora } from "./formato"
 
 /**
@@ -51,6 +52,26 @@ export type ToqueDaTela = {
   enviados: number
 }
 
+/** Quem entra na estreia, de que jeito, e quantos saem em cada dia (`lib/crm/estreia.ts`). */
+export type PublicoDaEstreiaNaTela = {
+  pessoas: number
+  repor: number
+  cliente: number
+  sumido: number
+  lead: number
+  /** Quantos em cada lote: o 1º dia, o 2º, o 3º e o 4º. */
+  lotes: number[]
+  /** Quem aceita ofertas e fica de fora por já ter comprado na loja nova. */
+  jaCompraram: number
+}
+
+/** O público da estreia do jeito da tela: só números. */
+export function publicoNaTela(p: PublicoDaEstreia): PublicoDaEstreiaNaTela {
+  const lotes = Array.from({ length: LOTES.length + 1 }, () => 0)
+  for (const pessoa of p.fila) lotes[pessoa.lote]++
+  return { pessoas: p.fila.length, ...p.segmentos, lotes, jaCompraram: p.jaCompraram }
+}
+
 export type FluxoDaTela = {
   id: IdDoFluxo
   nome: string
@@ -67,6 +88,8 @@ export type FluxoDaTela = {
     vendido: number
     controle: { pessoas: number; compraram: number }
   }
+  /** Só na estreia: quem entra. */
+  publico?: PublicoDaEstreiaNaTela
 }
 
 export type TelaDosFluxos = {
@@ -119,11 +142,14 @@ export function montarTelaDosFluxos({
   registros,
   pedidos,
   cuponsUsados,
+  publico = null,
 }: {
   config: ConfigDosFluxos
   registros: RegistroDaTela[]
   pedidos: PedidoDaTela[]
   cuponsUsados: ReadonlySet<string>
+  /** O público da estreia, pro bloco dela. */
+  publico?: PublicoDaEstreiaNaTela | null
 }): TelaDosFluxos {
   return {
     desconto: config.desconto,
@@ -159,6 +185,7 @@ export function montarTelaDosFluxos({
           vendido: vendas.vendido,
           controle: { pessoas: doControle.size, compraram: compras(doControle, pedidos).pessoas },
         },
+        ...(id === "estreia" && publico ? { publico } : {}),
       }
     }),
   }

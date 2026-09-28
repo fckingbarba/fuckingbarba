@@ -10,6 +10,8 @@ import type EquipeService from "../../modules/equipe/service"
 import { lerConfiguracoes } from "../configuracoes"
 import { enviarEmail } from "../email"
 import { emailDaTrilha, type ConteudoDoProduto } from "../emails/boas-vindas"
+import type { ProdutoDoCrm } from "../emails/crm"
+import { emailDaEstreia, type EstreiaDoEmail } from "../emails/estreia"
 import { emailDoFluxo, type CompraDoFluxo, type ItemDoFluxo } from "../emails/fluxos"
 import { urlDaLoja } from "../emails/moldura"
 import { mudarMetadataDaLoja } from "../metadata-da-loja"
@@ -20,6 +22,16 @@ import { comQuemManda, dadosDaLoja } from "./envio"
 import { criarCupomDoFluxo } from "./cupom"
 import { linksDeEscolha } from "./escolha"
 import {
+  comecoDoLote,
+  CURTO_DO_COMPONENTE,
+  fimDaEstreia,
+  produtosPorSku,
+  publicoDaEstreia,
+  SEGMENTOS_COM_CUPOM,
+  type PessoaDaEstreia,
+} from "./estreia"
+import { produtosDosExemplos } from "./exemplos-dos-emails"
+import {
   CHAVE_DOS_FLUXOS,
   comecoDoPix,
   decidir,
@@ -28,14 +40,20 @@ import {
   fluxosLigados,
   guardarConfigDosFluxos,
   IDS_DOS_FLUXOS,
+  ehToqueDaEstreia,
+  ehToqueDasBoasVindas,
   ehToqueDeCompra,
   lerConfigDosFluxos,
+  PREFIXO_DO_CUPOM,
+  PREFIXO_DO_CUPOM_DE_BOAS_VINDAS,
   registrosDoMotor,
   TOQUE_DA_ESCOLHA,
   type Entrada,
   type IdDoFluxo,
+  type Registro,
   validadeDoCupom,
 } from "./fluxos"
+import { juntar } from "./nuvemshop"
 import { produtosDoEmail, trilhaDaPagina } from "./primeira-compra"
 import { linksDeSair } from "./sair"
 import { linkDeVoltar } from "./voltar"
@@ -223,12 +241,19 @@ export async function rodarOsFluxos(
   }
   // Os carrinhos com e-mail servem ao checkout e ao carrinho (quem abriu o checkout depois, parou).
   const inicioComEmail = maisCedo(inicioDo.checkout, inicioDo.carrinho)
-  const inicioDosPedidos = maisCedo(
-    inicioDo.pix,
-    inicioDo.checkout,
-    inicioDo.carrinho,
-    inicioDo["boas-vindas"]
-  ) as Date
+  // A estreia não tem janela: cada pessoa tem o dia do lote dela, até o último lote passar.
+  const desdeDaEstreia =
+    ligados.estreia && agora.getTime() < fimDaEstreia(ligados.estreia).getTime()
+      ? ligados.estreia
+      : null
+  const inicioDosPedidos =
+    maisCedo(
+      inicioDo.pix,
+      inicioDo.checkout,
+      inicioDo.carrinho,
+      inicioDo["boas-vindas"],
+      desdeDaEstreia
+    ) ?? agora
   const query = container.resolve(ContainerRegistrationKeys.QUERY)
   const campoDoItem = [
     "items.product_id",
@@ -410,6 +435,18 @@ export async function rodarOsFluxos(
         comprou: comprouDepois(email, comeco),
       })
     }
+  // A estreia: quem aceitou ofertas na loja antiga (menos quem já comprou na nova), no dia do lote.
+  const daEstreia = desdeDaEstreia ? await publicoDaEstreia(container, agora) : null
+  const pessoasDaEstreia = new Map((daEstreia?.fila ?? []).map((p) => [p.email, p]))
+  if (desdeDaEstreia)
+    for (const p of pessoasDaEstreia.values())
+      entradas.push({
+        fluxo: "estreia",
+        chave: p.email,
+        email: p.email,
+        comeco: comecoDoLote(desdeDaEstreia, p.lote),
+        comprou: comprouDepois(p.email, desdeDaEstreia),
+      })
   if (so) {
     const quem = minusculo(so)
     entradas.splice(0, entradas.length, ...entradas.filter((e) => e.email === quem))
@@ -429,9 +466,10 @@ export async function rodarOsFluxos(
   const fora = (email: string) =>
     equipe.has(email) || semEntrega.has(email) || (saidas.has(email) && !voltouPraLista.has(email))
 
-  const registros = registrosDoMotor(lidos)
+  const registrosDe = new Map<string, Registro[]>()
+  for (const r of registrosDoMotor(lidos)) juntar(registrosDe, r.email, r)
   const porPessoa = new Map<string, Entrada[]>()
-  for (const e of entradas) porPessoa.set(e.email, [...(porPessoa.get(e.email) ?? []), e])
+  for (const e of entradas) juntar(porPessoa, e.email, e)
 
   /* 4 e 5. a decisão de cada pessoa, e o que ela manda fazer */
   const infoDaLoja = await dadosDaLoja(container, loja)
@@ -442,6 +480,9 @@ export async function rodarOsFluxos(
       container,
       entradas.filter((e) => e.fluxo === "boas-vindas").map((e) => e.email)
     ))
+  // O que os e-mails da estreia mostram: só se alguém dela for receber agora.
+  let dasEstreia: Promise<DadosDaEstreia> | null = null
+  const estreia = () => (dasEstreia ??= lerDadosDaEstreia(container, daEstreia?.fila ?? []))
   for (const [email, dela] of porPessoa) {
     if (relatorio.enviados >= limite) break
     relatorio.pessoas++
@@ -451,7 +492,7 @@ export async function rodarOsFluxos(
     }
     const r = decidir({
       entradas: dela,
-      registros: registros.filter((x) => x.email === email),
+      registros: registrosDe.get(email) ?? [],
       ligados,
       agora,
     })
@@ -470,9 +511,104 @@ export async function rodarOsFluxos(
         relatorio.controle++
       continue
     }
+    if (entrada.fluxo === "estreia") {
+      const pessoa = pessoasDaEstreia.get(email)
+      const toque = decisao.toque.id
+      if (!pessoa || !ehToqueDaEstreia(toque)) continue
+      const dados = await estreia()
+      const lead = pessoa.segmento === "lead"
+      // O cupom sai no e-mail da loja nova, só pra quem sumiu e quem nunca comprou; o de 2 dias lembra dele.
+      const daCupom =
+        toque === "estreia-agora" &&
+        decisao.darCupom &&
+        SEGMENTOS_COM_CUPOM.includes(pessoa.segmento)
+      const lembrado =
+        toque === "estreia-2d"
+          ? cupomQueAindaVale(lidos, email, agora, config.c.desconto, "estreia")
+          : null
+      const handles = new Set<string>()
+      const produtos = (
+        lead
+          ? [...dados.maisPedidos.values()]
+          : pessoa.skus.flatMap((s) => dados.porSku.get(s) ?? [])
+      ).filter((p) => !handles.has(p.handle) && Boolean(handles.add(p.handle)))
+      const montar = (cupom: EstreiaDoEmail["cupom"]) =>
+        emailDaEstreia({
+          toque,
+          segmento: pessoa.segmento,
+          para: email,
+          nome: pessoa.nome,
+          cupom,
+          produtos,
+          acabando: pessoa.acabando
+            ? {
+                ...CURTO_DO_COMPONENTE[pessoa.acabando.componente],
+                produto: (pessoa.acabando.sku && dados.porSku.get(pessoa.acabando.sku)) || null,
+              }
+            : null,
+          daLoja: dados.daLoja,
+          sair: linksDeSair(loja, email),
+          loja: infoDaLoja,
+        })
+      // O dia sem e-mail (o "vence amanhã" de quem não ganhou cupom): fica como pulado.
+      if (!daCupom && !montar(lembrado)) {
+        if (await crm.anotarNoFluxo({ ...base, toque, como: "pulado" })) relatorio.pulados++
+        continue
+      }
+      const reserva = await crm.reservarToque({ ...base, toque })
+      if (!reserva) continue
+      let falha: string | null = null
+      let cupomCriado: { id: string; codigo: string; ate: Date } | null = null
+      try {
+        if (daCupom)
+          cupomCriado = await criarCupomDoFluxo(container, {
+            porcento: config.c.desconto,
+            agora,
+            validade: validadeDoCupom("estreia"),
+            prefixo: lead ? PREFIXO_DO_CUPOM_DE_BOAS_VINDAS : PREFIXO_DO_CUPOM,
+            primeiraCompra: lead,
+            campanha: "CRM (estreia)",
+          })
+        const email1 = montar(
+          cupomCriado
+            ? { codigo: cupomCriado.codigo, ate: cupomCriado.ate, porcento: config.c.desconto }
+            : lembrado
+        )
+        const enviado = email1
+          ? await enviarEmail(comQuemManda(email1), logger, {
+              idempotencia: `crm-estreia/${email}/${toque}`,
+              tipo: "crm-estreia",
+            })
+          : { ok: false as const, motivo: "o e-mail não montou" }
+        if (enviado.ok) {
+          await crm.confirmarToque(reserva, {
+            resendId: enviado.id ?? null,
+            cupom: cupomCriado?.codigo ?? null,
+            cupomAte: cupomCriado?.ate ?? null,
+          })
+          relatorio.enviados++
+          if (cupomCriado) relatorio.cupons++
+          await new Promise((ok) => setTimeout(ok, PAUSA_MS))
+        } else falha = enviado.motivo
+      } catch (e) {
+        falha = e instanceof Error ? e.message : String(e)
+      }
+      if (falha !== null) {
+        relatorio.falhas++
+        await crm.desfazerToque(reserva)
+        // O cupom de um e-mail que não saiu não fica solto: a próxima rodada cria outro.
+        if (cupomCriado)
+          await container
+            .resolve(Modules.PROMOTION)
+            .deletePromotions([cupomCriado.id])
+            .catch(() => undefined)
+        logger.warn(`[crm] fluxos: o toque ${toque} da estreia não saiu — ${falha}`)
+      }
+      continue
+    }
     if (entrada.fluxo === "boas-vindas") {
       const toque = decisao.toque.id
-      if (toque === "boas-vindas-agora" || ehToqueDeCompra(toque)) continue
+      if (toque === "boas-vindas-agora" || !ehToqueDasBoasVindas(toque)) continue
       const dados = await boasVindas()
       const cadastro = dados.cadastros.get(email)
       const escolha =
@@ -611,14 +747,21 @@ export async function rodarOsFluxos(
   return relatorio
 }
 
-/** O cupom que o toque de 24 horas deu pra esta entrada, se ainda vale — o de 48 horas lembra dele. */
+/**
+ * O cupom que o toque de 24 horas deu pra esta entrada, se ainda vale — o de
+ * 48 horas lembra dele. Com o `fluxo`, só o daquele fluxo: a chave da estreia
+ * é o e-mail, como a das boas-vindas.
+ */
 function cupomQueAindaVale(
   lidos: readonly RegistroLido[],
   chave: string,
   agora: Date,
-  porcento: number
+  porcento: number,
+  fluxo?: IdDoFluxo
 ): CompraDoFluxo["cupom"] {
-  const r = lidos.find((x) => x.chave === chave && x.cupom && x.cupom_ate)
+  const r = lidos.find(
+    (x) => (!fluxo || x.fluxo === fluxo) && x.chave === chave && x.cupom && x.cupom_ate
+  )
   if (!r?.cupom || !r.cupom_ate || new Date(r.cupom_ate).getTime() <= agora.getTime()) return null
   return { codigo: r.cupom, ate: new Date(r.cupom_ate), porcento }
 }
@@ -685,16 +828,40 @@ async function lerDadosDasBoasVindas(
     return produto ? [produto] : []
   })
   const { conteudos, depoimentos } = await conteudosDasTrilhas(container, vistos)
-  const { frete, atendimento } = lerConfiguracoes(lojas[0]?.metadata)
+  return { conteudos, depoimentos, cadastros, daLoja: oQueALojaDiz(lojas[0]?.metadata) }
+}
+
+/** O prazo de postagem e o frete grátis das Configurações, pros e-mails que falam da loja. */
+function oQueALojaDiz(metadata: unknown): DadosDasBoasVindas["daLoja"] {
+  const { frete, atendimento } = lerConfiguracoes(metadata as Record<string, unknown> | null)
   return {
-    conteudos,
-    depoimentos,
-    cadastros,
-    daLoja: {
-      prazoDePostagem: atendimento.prazoDePostagem,
-      freteGratisAcima: frete.modo === "gratis" ? frete.piso : null,
-    },
+    prazoDePostagem: atendimento.prazoDePostagem,
+    freteGratisAcima: frete.modo === "gratis" ? frete.piso : null,
   }
+}
+
+type DadosDaEstreia = {
+  /** Os produtos da loja nova pelo SKU (o código do Bling, o mesmo da Nuvemshop). */
+  porSku: Map<string, ProdutoDoCrm>
+  /** Os mais pedidos: os produtos do e-mail de quem nunca comprou. */
+  maisPedidos: Map<string, ProdutoDoCrm>
+  daLoja: DadosDasBoasVindas["daLoja"]
+}
+
+/** Os produtos das últimas compras de quem está na fila, os mais pedidos e o que a loja diz de si. */
+async function lerDadosDaEstreia(
+  container: MedusaContainer,
+  fila: readonly PessoaDaEstreia[]
+): Promise<DadosDaEstreia> {
+  const skus = new Set(
+    fila.flatMap((p) => [...p.skus, ...(p.acabando?.sku ? [p.acabando.sku] : [])])
+  )
+  const [porSku, maisPedidos, lojas] = await Promise.all([
+    produtosPorSku(container, [...skus]),
+    produtosDosExemplos(container),
+    container.resolve(Modules.STORE).listStores({}, { select: ["metadata"], take: 1 }),
+  ])
+  return { porSku, maisPedidos, daLoja: oQueALojaDiz(lojas[0]?.metadata) }
 }
 
 /**
