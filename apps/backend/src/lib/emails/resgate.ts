@@ -8,19 +8,21 @@ import type { BlocoDoCrm, EmailDoCrm, ProdutoDoCrm } from "./crm"
  *
  *   - no dia: "Tá tudo bem com a barba?", com os 4 botões do plano (escolha
  *     do dono, 28/09): "Tá caro", "Esqueci de repor", "Não vi resultado" e
- *     "Comprei em outro lugar". Sem desconto e sem palavra de propaganda;
+ *     "Comprei em outro lugar". É um LEMBRETE: sem desconto, assinado, e sem
+ *     palavra de propaganda;
  *   - 7 dias: 15% pra voltar — só pra quem não respondeu (OFERTA: o cupom é
  *     o lugar de Promoções), com o "Refazer o pedido" já com o desconto;
  *   - 9 dias: o cupom vence amanhã;
- *   - 45 dias, sem sinal nenhum: "Quer continuar recebendo?" (o sunset), com
- *     o "Sim, quero continuar".
+ *   - 45 dias, sem sinal nenhum: "Posso continuar te escrevendo?" (o sunset,
+ *     o toque "Quer continuar recebendo?"), com o "Sim, quero continuar".
+ *     Outro lembrete.
  *
- * OS DOIS SEM CUPOM SÃO TEXTO SIMPLES (o estilo "pessoal", entrega 0195): no
- * teste do dono, os quatro caíram em Promoções — na cara da loja, os 4
- * botões grandes com emoji e o "continuar recebendo" pesam como propaganda.
- * Em texto, os botões viram links, sem emoji, e o e-mail sai como um e-mail
- * dele, com a resposta indo pro atendimento. Os dois do cupom continuam
- * oferta: Promoções é o lugar do desconto.
+ * OS DOIS SEM CUPOM FICAM NA CARA DA LOJA (entrega 0197). No teste do dono,
+ * os quatro caíram em Promoções. A 0195 passou os dois pra texto simples, e
+ * ele não quis: todo e-mail no padrão da loja. Saiu o que tinha cara de
+ * campanha: os emojis dos 4 botões e, no de 45 dias, o "continuar
+ * recebendo nossos e-mails". Os dois do cupom continuam oferta: Promoções é
+ * o lugar do desconto.
  *
  * O dia sem o que mostrar (sem os links, sem cupom) não tem e-mail: o motor
  * anota como pulado. Código puro, com testes.
@@ -71,7 +73,7 @@ export function emailDoResgate(r: ResgateDoEmail): EmailDoCrm | null {
       if (!r.botoes) return null
       return {
         ...base,
-        estilo: "pessoal",
+        estilo: "lembrete",
         assunto: "Tá tudo bem com a barba?",
         previa: "Conta pra gente o que aconteceu: é só escolher.",
         titulo: "Tá tudo bem?",
@@ -142,14 +144,14 @@ export function emailDoResgate(r: ResgateDoEmail): EmailDoCrm | null {
       if (!r.sim) return null
       return {
         ...base,
-        estilo: "pessoal",
-        assunto: "Quer continuar recebendo nossos e-mails?",
-        previa: "Se não, a gente para por aqui.",
-        titulo: "Quer continuar?",
+        estilo: "lembrete",
+        assunto: "Posso continuar te escrevendo?",
+        previa: "Se não, eu paro por aqui.",
+        titulo: "Posso continuar?",
         texto:
-          "Faz tempo que a gente não se fala. Pra não encher a sua caixa, vamos parar de mandar " +
-          "e-mails pra você — a não ser que você queira continuar. Os e-mails dos seus pedidos " +
-          "continuam chegando.",
+          "Faz tempo que a gente não se fala. Pra não encher a sua caixa, vou parar de te " +
+          "escrever — a não ser que você queira continuar. Os avisos dos seus pedidos seguem " +
+          "chegando.",
         blocos: [{ tipo: "escolhas", itens: [{ texto: "Sim, quero continuar", href: r.sim }] }],
       }
   }

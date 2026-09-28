@@ -3784,14 +3784,20 @@ do dia de comprar de novo (uns 20 dias depois de o produto acabar, a tolerância
 - [ ] **Depois do deploy (você):** CRM → Fluxos → Resgate e sunset → "Mandar pra mim" (os botões do
       teste só levam pra loja) e depois a chave. Vale pra quem ficar em risco depois de ligar.
 
-**O resgate: os 2 e-mails sem cupom em texto simples — pronto em 28/09 (entrega 0195).** No seu
-teste, os 4 caíram em Promoções. A pergunta ("Tá tudo bem com a barba?") e o "Quer continuar
-recebendo?" agora saem como um e-mail seu: texto puro, sem foto, os botões viram links, sem emoji,
-e a resposta vai pro atendimento. Os 2 do cupom continuam na cara da loja, em Promoções.
+**O resgate: os 2 e-mails sem cupom em texto simples — 28/09 (entrega 0195), DESFEITO na 0197.** No
+seu teste, os 4 caíram em Promoções, e a 0195 passou os 2 sem cupom pra texto simples. Você não quis:
+todo e-mail segue o padrão da loja.
+
+**O resgate: os 2 e-mails sem cupom de volta à cara da loja, sem emoji — pronto em 28/09 (entrega
+0197).** Eles voltam pra cara da loja, sem o que parece campanha:
+- os 4 botões do "Tá tudo bem com a barba?" saíram sem emoji, e os 2 do "Como tá indo?" da jornada
+  também;
+- o de 45 dias virou "Posso continuar te escrevendo?", sem o "continuar recebendo nossos e-mails".
+
+Os 2 do cupom continuam em Promoções: é o lugar do desconto.
 
 - [ ] **Depois do deploy (você):** CRM → Fluxos → Resgate e sunset → "Mandar pra mim" de novo, e ver
-      onde caem os 2 sem cupom. Se ainda cair em Promoções, o próximo passo é um endereço só pros
-      lembretes (um subdomínio, como o news).
+      onde caem os 2 sem cupom. Quem decide a aba é o Gmail.
 
 **A parcela mínima do cartão, editável — pronta em 27/09 (entrega 0157).** O pedido dele: "quero
 poder editar a parcela mínima no cartão, ali diz 5 reais". Em **Configurações → Pagamento**, o

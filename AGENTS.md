@@ -2880,8 +2880,9 @@ marca, com os textos da 0174, no estilo novo `"lembrete"` (`EmailDoCrm.estilo`):
 - o de 4 horas diz onde tirar a dúvida (`ondeTirarDuvida`, em `emailDoFluxo`): a resposta do
   e-mail, o WhatsApp do pé ou a página de contato.
 
-O `"pessoal"` (`emailPessoal`) continua no código. Se o lembrete cair em Promoções, voltar é trocar
-o estilo em `emailDoFluxo`.
+O `"pessoal"` (`emailPessoal`) continua no código, mas não é saída pra Promoções: o dono quer TODO
+e-mail na cara da loja (recusou o texto simples na 0176 e de novo na 0195). Se um lembrete cair em
+Promoções, mexer nas palavras e tirar emoji, nunca na cara.
 
 O `conferir-crm.mjs` confere a cara do lembrete no de 30 minutos. E conserta duas contas de hora do
 carrinho, que falhavam rodando entre 21h e 22h:
@@ -3264,18 +3265,19 @@ que começa DESLIGADO (`FLUXOS.resgate`), com prioridade 8: o último da fila.
   na loja nova (o sim por padrão) ou aceitou ofertas na antiga. A chave é o e-mail e o dia em que
   a pessoa ficou em risco (`chaveDoResgate`): outra queda, outro resgate.
 - **Os toques**, contados desse dia (`emailDoResgate`, em `lib/emails/resgate.ts`):
-  - no dia: "Tá tudo bem com a barba?", com os 4 botões do plano (escolha do dono);
+  - no dia: "Tá tudo bem com a barba?", lembrete, com os 4 botões do plano (escolha do dono), sem
+    emoji;
   - 7 dias: 15% (`DESCONTO_DO_RESGATE`, um cupom que vale 3 dias), só pra quem não respondeu,
     com o "Refazer o pedido" já com o desconto (`/voltar/<t>?cupom=`);
   - 9 dias: o cupom vence amanhã;
-  - 45 dias: "Quer continuar recebendo?", só pra quem não deu sinal nenhum: nem resposta a este
-    resgate, nem clique, abertura ou visita depois do começo dele.
-  - OS DOIS SEM CUPOM SÃO TEXTO SIMPLES (o estilo "pessoal", entrega 0195): no teste do dono, os
-    quatro caíram em Promoções — na cara da loja, os 4 botões grandes com emoji e o "continuar
-    recebendo" pesam como propaganda. Em texto, os botões viram links, sem emoji. Os dois do cupom
-    continuam oferta (Promoções é o lugar do desconto). O próximo passo, se ainda cair em
-    Promoções: um endereço só pros lembretes, separado do das ofertas (hoje os dois saem do
-    `EMAIL_REMETENTE_CRM`, só com outro nome).
+  - 45 dias: "Posso continuar te escrevendo?" (o toque "Quer continuar recebendo?"), lembrete, só
+    pra quem não deu sinal nenhum: nem resposta a este resgate, nem clique, abertura ou visita
+    depois do começo dele.
+  - OS DOIS SEM CUPOM FICAM NA CARA DA LOJA (entrega 0197). No teste do dono, os quatro caíram em
+    Promoções. A 0195 passou os dois pra texto simples, e ele não quis: todo e-mail no padrão da
+    loja. Saiu o que tinha cara de campanha: os emojis dos 4 botões (e dos 2 do check-in da
+    jornada) e, no de 45 dias, o "continuar recebendo nossos e-mails". Os dois do cupom continuam
+    oferta (Promoções é o lugar do desconto).
 - **Os botões** passam pelo Medusa (`GET /crm/resgate?t=…`). O `t` é a resposta, o pedido, o que
   acabou e a chave, cifrados como o check-in. A resposta mora no registro (o toque
   `resgate-resposta`, a última vale, `crm.anotarRespostaDoResgate`). Ela não conta no teto, mas o
