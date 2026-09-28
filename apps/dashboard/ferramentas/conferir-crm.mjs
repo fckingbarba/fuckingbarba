@@ -2380,12 +2380,17 @@ try {
         await mudarFluxos({ fluxo: "reposicao", ligado: false })
       }
 
-      titulo("A reposição no site: na conta e na home (0188)")
-      // O Fator da loja antiga pago há 32 dias: entregue no 7º, dura 30 — acaba daqui a 5 dias
-      // (no calendário de Brasília: a data sem hora da Nuvemshop vale o meio-dia). O fluxo segue
-      // DESLIGADO: o aviso do site não é e-mail, e não depende dele.
+      titulo("A ficha no site: na conta, na home e na página do produto (0188 e 0190)")
+      // O Fator da loja antiga pago há 32 dias: entregue no 7º, dura 30 — acaba daqui a 5 dias, e
+      // hoje é o dia 26 do tratamento (no calendário de Brasília: a data sem hora da Nuvemshop
+      // vale o meio-dia). O fluxo segue DESLIGADO: a ficha do site não é e-mail, e não depende dele.
       const NO_SITE = foraDoControle("repoe.site", "reposicao")
-      const TITULO = "Seu Fator de Crescimento acaba em 5 dias"
+      const vendaEm = Date.now() - 32 * DIA_MS
+      /** O dia em Brasília (UTC−3, sem horário de verão), pra contar como a loja conta. */
+      const diaBR = (ms) => Math.floor((ms - 3 * HORA) / DIA_MS)
+      const comprouHa = diaBR(Date.now()) - diaBR(vendaEm)
+      const TITULO = `Seu Fator de Crescimento acaba em ${diaBR(vendaEm) + 37 - diaBR(Date.now())} dias`
+      const DIA_DO_TRATAMENTO = comprouHa - 7 + 1
       const subiu = await medusa("/dashboard/crm/base", {
         token: tokenDoDono,
         corpo: doArquivo(
@@ -2394,25 +2399,25 @@ try {
             venda(
               `R${RODADA}-S`,
               NO_SITE,
-              Date.now() - 32 * DIA_MS,
+              vendaEm,
               "FBFCB01",
               "Fator de Crescimento para Barba 30ml"
             ),
           ])
         ),
       })
-      const semToken = await fetch(`${MEDUSA}/store/crm/reposicao`, { headers: DA_LOJA })
+      const semToken = await fetch(`${MEDUSA}/store/crm/ficha`, { headers: DA_LOJA })
       ok(
         subiu.status === 200 && semToken.status === 401,
-        "o aviso é só de quem está na conta: sem o token do cliente, o Medusa responde 401",
+        "a ficha é só de quem está na conta: sem o token do cliente, o Medusa responde 401",
         `${subiu.status} · ${semToken.status}`
       )
-      const forjado = await fetch(`${LOJA}/api/reposicao`, {
+      const forjado = await fetch(`${LOJA}/api/ficha`, {
         headers: { cookie: "fb_conta=0123456789abcdef" },
       })
       ok(
         forjado.status === 200 &&
-          (await forjado.json()).reposicao === null &&
+          (await forjado.json()).ficha === null &&
           /(^|, )fb_conta=;/.test(forjado.headers.get("set-cookie") ?? ""),
         "o fb_conta sem sessão (inventado, ou de quem a sessão venceu): nada, e a loja apaga ele",
         forjado.headers.get("set-cookie") ?? "sem set-cookie"
@@ -2422,10 +2427,16 @@ try {
       try {
         await responderAFaixa(pagina, "Só o necessário")
         await esperar(2500)
+        const semAvisoNaHome = (await pagina.locator("[data-aviso-reposicao]").count()) === 0
+        await pagina.goto(`${LOJA}/produtos/fator-de-crescimento-para-barba`, {
+          waitUntil: "domcontentloaded",
+        })
+        await esperar(2500)
         ok(
-          !pedidos.some((p) => p.includes("/api/reposicao")) &&
-            (await pagina.locator("[data-aviso-reposicao]").count()) === 0,
-          "sem a conta aberta, a home não pergunta nada e não mostra aviso",
+          !pedidos.some((p) => p.includes("/api/ficha")) &&
+            semAvisoNaHome &&
+            (await pagina.locator("[data-ficha-na-foto]").count()) === 0,
+          "sem a conta aberta, a home e a página do produto não perguntam nada nem mostram nada",
           pedidos.filter((p) => p.includes("/api/")).join(" · ")
         )
 
@@ -2455,8 +2466,26 @@ try {
           "na conta: “Pra repor” — o Fator da loja antiga acaba em 5 dias, com o Refazer o pedido",
           textoDaConta.slice(0, 200) ||
             `${pagina.url()} · a loja diz: ${await pagina
-              .evaluate(async () => JSON.stringify(await (await fetch("/api/reposicao")).json()))
+              .evaluate(async () => JSON.stringify(await (await fetch("/api/ficha")).json()))
               .catch((e) => e.message)}`
+        )
+        const doTratamento = pagina.locator("[data-bloco-tratamento]").filter({ visible: true })
+        await doTratamento.waitFor({ timeout: 20000 }).catch(() => null)
+        const textoDoTratamento = (
+          (await doTratamento.textContent().catch(() => "")) ?? ""
+        ).replace(/\s+/g, " ")
+        const linhaDoTempo = await doTratamento
+          .locator("a")
+          .getAttribute("href")
+          .catch(() => null)
+        ok(
+          textoDoTratamento.includes(`Dia ${DIA_DO_TRATAMENTO} do seu tratamento`) &&
+            textoDoTratamento.includes(`${DIA_DO_TRATAMENTO} de 90 dias`) &&
+            /^\/produtos\/fator-de-crescimento-para-barba(#tempo-titulo)?$/.test(
+              linhaDoTempo ?? ""
+            ),
+          `na conta: “Seu tratamento” — dia ${DIA_DO_TRATAMENTO} de 90, com o link da linha do tempo do Fator`,
+          `${textoDoTratamento.slice(0, 200)} · ${linhaDoTempo}`
         )
         const refeito = hrefDaConta
           ? await refazer({ html: `href="${LOJA}${hrefDaConta}"` })
@@ -2484,7 +2513,7 @@ try {
           textoDaHome.includes(TITULO) &&
             /^\/voltar\/repor-nso_/.test(hrefDaHome) &&
             fixo === "fixed" &&
-            pedidos.filter((p) => p.includes("/api/reposicao")).length === 1,
+            pedidos.filter((p) => p.includes("/api/ficha")).length === 1,
           "na home: o aviso sobe num canto (fixo, não empurra a página), com o Refazer o pedido",
           `${textoDaHome} · ${fixo}`
         )
@@ -2494,9 +2523,9 @@ try {
         await naHome.waitFor({ timeout: 20000 }).catch(() => null)
         ok(
           (await naHome.count()) === 1 &&
-            pedidos.filter((p) => p.includes("/api/reposicao")).length === 1,
+            pedidos.filter((p) => p.includes("/api/ficha")).length === 1,
           "a resposta fica na aba: voltando à home, o aviso vem sem perguntar de novo",
-          String(pedidos.filter((p) => p.includes("/api/reposicao")).length)
+          String(pedidos.filter((p) => p.includes("/api/ficha")).length)
         )
 
         await hidratado(pagina, "[data-aviso-reposicao] .rp-fechar")
@@ -2510,6 +2539,34 @@ try {
           "o X fecha o aviso, e ele não volta na próxima visita (até a próxima reposição)"
         )
 
+        // Na página de cada produto, em cima da foto: o que ela comprou, e o que combina com isso.
+        const naFoto = pagina.locator("[data-ficha-na-foto]").filter({ visible: true })
+        const daFoto = async (handle) => {
+          await pagina.goto(`${LOJA}/produtos/${handle}`, { waitUntil: "domcontentloaded" })
+          await naFoto.waitFor({ timeout: 20000 }).catch(() => null)
+          return {
+            texto: ((await naFoto.textContent().catch(() => "")) ?? "").trim(),
+            tipo: await naFoto.getAttribute("data-ficha-na-foto").catch(() => null),
+            posicao: await naFoto.evaluate((el) => getComputedStyle(el).position).catch(() => ""),
+          }
+        }
+        const noFator = await daFoto("fator-de-crescimento-para-barba")
+        ok(
+          noFator.texto === `Você comprou há ${comprouHa} dias` &&
+            noFator.tipo === "comprou" &&
+            noFator.posicao === "absolute",
+          `na página do Fator: “Você comprou há ${comprouHa} dias”, em cima da foto (não empurra nada)`,
+          JSON.stringify(noFator)
+        )
+        const noOleo = await daFoto("oleo-para-barba")
+        ok(
+          noOleo.texto === "Combina com o Fator que você já tem" &&
+            noOleo.tipo === "combina" &&
+            pedidos.filter((p) => p.includes("/api/ficha")).length === 1,
+          "na página do óleo: “Combina com o Fator que você já tem” — e sem perguntar de novo",
+          `${JSON.stringify(noOleo)} · ${pedidos.filter((p) => p.includes("/api/ficha")).length}`
+        )
+
         // Quem entrou antes do fb_conta existir ganha ele na primeira visita à conta.
         await contexto.clearCookies({ name: "fb_conta" })
         await pagina.goto(`${LOJA}/conta`, { waitUntil: "domcontentloaded" })
@@ -2521,14 +2578,20 @@ try {
         await hidratado(pagina, "button")
         await pagina.locator("button", { hasText: "Sair" }).filter({ visible: true }).click()
         await pagina.waitForURL("**/conta/entrar?saiu=1", { timeout: 15000 })
-        const antesDeSair = pedidos.filter((p) => p.includes("/api/reposicao")).length
+        const antesDeSair = pedidos.filter((p) => p.includes("/api/ficha")).length
         await pagina.goto(`${LOJA}/`, { waitUntil: "domcontentloaded" })
         await esperar(3000)
+        const semAvisoDepois = (await pagina.locator("[data-aviso-reposicao]").count()) === 0
+        await pagina.goto(`${LOJA}/produtos/fator-de-crescimento-para-barba`, {
+          waitUntil: "domcontentloaded",
+        })
+        await esperar(2500)
         ok(
           !(await cookieDe(contexto, "fb_conta")) &&
-            pedidos.filter((p) => p.includes("/api/reposicao")).length === antesDeSair &&
-            (await pagina.locator("[data-aviso-reposicao]").count()) === 0,
-          "saiu da conta: o fb_conta vai junto, e a home não pergunta nem mostra mais nada"
+            pedidos.filter((p) => p.includes("/api/ficha")).length === antesDeSair &&
+            semAvisoDepois &&
+            (await pagina.locator("[data-ficha-na-foto]").count()) === 0,
+          "saiu da conta: o fb_conta vai junto, e a home e a página do produto não mostram mais nada"
         )
       } finally {
         await contexto.close()

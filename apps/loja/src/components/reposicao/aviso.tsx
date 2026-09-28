@@ -2,8 +2,9 @@
 
 import Image from "next/image"
 import { useId } from "react"
+import { esquecerFicha } from "@/components/ficha/ler-ficha"
 import "@/estilos/reposicao.css"
-import type { AvisoDaReposicao } from "@/lib/reposicao"
+import type { AvisoDaReposicao } from "@/lib/ficha"
 
 /**
  * O CARTÃO DO AVISO DA REPOSIÇÃO NA HOME (entrega 0188) — quem abre é
@@ -28,11 +29,9 @@ const X = (
 export function AvisoDaReposicaoNaHome({
   aviso,
   aoFechar,
-  aoRefazer,
 }: {
   aviso: AvisoDaReposicao
   aoFechar: () => void
-  aoRefazer: () => void
 }) {
   const titulo = useId()
   return (
@@ -47,8 +46,11 @@ export function AvisoDaReposicaoNaHome({
         <p className="rp-titulo" id={titulo}>
           {aviso.titulo}
         </p>
-        {/* <a>, e não <Link>: o /voltar monta a sacola, e o Link o pediria antes do clique. */}
-        <a className="rp-botao" href={aviso.voltar} onClick={aoRefazer}>
+        {/*
+          <a>, e não <Link>: o /voltar monta a sacola, e o Link o pediria antes do clique.
+          Depois dele (e talvez de uma compra), a próxima página pergunta a ficha de novo.
+        */}
+        <a className="rp-botao" href={aviso.voltar} onClick={esquecerFicha}>
           Refazer o pedido
         </a>
       </div>

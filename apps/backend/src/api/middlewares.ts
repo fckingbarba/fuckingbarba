@@ -414,11 +414,12 @@ export default defineMiddlewares({
       middlewares: [authenticate("customer", ["bearer"])],
     },
     /*
-      O aviso da reposição na conta e na home (entrega 0188): o mesmo — só
-      com token de cliente, e a rota lê os pedidos do e-mail da conta.
+      A ficha do site — a reposição, o tratamento, as compras (entregas 0188
+      e 0190): o mesmo — só com token de cliente, e a rota lê os pedidos do
+      e-mail da conta.
     */
     {
-      matcher: "/store/crm/reposicao",
+      matcher: "/store/crm/ficha",
       method: ["GET"],
       middlewares: [authenticate("customer", ["bearer"])],
     },

@@ -19,7 +19,7 @@ import {
   type EstadoEntrar,
   type Reenvio,
 } from "@/lib/conta-visivel"
-import { COOKIE_CONTA_ABERTA, OPCOES_DA_CONTA_ABERTA, sorteioDaConta } from "@/lib/reposicao"
+import { COOKIE_CONTA_ABERTA, OPCOES_DA_CONTA_ABERTA, sorteioDaConta } from "@/lib/ficha"
 import { COOKIE_ENTRANDO, COOKIE_SESSAO, destinoSeguro, lerToken } from "@/lib/sessao"
 
 /**

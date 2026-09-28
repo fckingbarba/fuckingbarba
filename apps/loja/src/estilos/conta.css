@@ -540,6 +540,63 @@ html:not([data-hidratado]) body:has(.conta) {
   }
 }
 
+/* O tratamento (entrega 0190): o dia, a barra até o alvo da linha do tempo e
+   o próximo marco dela, com o texto da página do Fator. */
+.tratamento {
+  display: grid;
+  gap: 8px;
+}
+.tratamento__dia {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--color-tinta);
+}
+.tratamento__dia b {
+  font-size: 1.35rem;
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+}
+.tratamento__barra {
+  height: 12px;
+  background: var(--color-cinza);
+  border: 2px solid var(--color-tinta);
+}
+.tratamento__barra span {
+  display: block;
+  height: 100%;
+  background: var(--color-amarelo);
+}
+.tratamento__conta {
+  margin: 0;
+  font-size: 0.76rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-tinta-suave);
+}
+.tratamento__marco {
+  margin: 4px 0 0;
+  font-size: 0.86rem;
+  color: var(--color-tinta-suave);
+}
+.tratamento__marco b {
+  color: var(--color-tinta);
+}
+.tratamento__rotulo {
+  display: inline-block;
+  margin-right: 2px;
+  padding: 2px 6px;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: var(--color-amarelo);
+  color: var(--color-tinta);
+}
+.tratamento > .link {
+  justify-self: start;
+}
+
 .resumo-curto {
   margin: 0;
   font-size: 0.86rem;

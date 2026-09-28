@@ -30,9 +30,10 @@ import { juntar } from "./nuvemshop"
  *
  * O SITE TAMBÉM AVISA (entrega 0188): quem está com a conta aberta vê "Seu
  * Fator de Crescimento acaba em 5 dias", com o "Refazer o pedido", na visão
- * geral da conta e na home (`avisoDaReposicao`, `GET /store/crm/reposicao`).
- * A mesma conta e a mesma janela dos e-mails, só com os pedidos da pessoa. O
- * aviso não é e-mail: não depende do fluxo ligado nem da lista.
+ * geral da conta e na home (`avisoDaReposicao`, pela ficha do site:
+ * `lib/crm/ficha-do-site.ts`). A mesma conta e a mesma janela dos e-mails, só
+ * com os pedidos da pessoa. O aviso não é e-mail: não depende do fluxo ligado
+ * nem da lista.
  *
  * As partes puras (a conta de cada tipo, a janela, o aviso) têm testes.
  */
@@ -136,31 +137,6 @@ export async function publicoDaReposicao(
   )
 }
 
-/**
- * AS REPOSIÇÕES DE UMA PESSOA, agora (o aviso do site, 0188): a conta do
- * `publicoDaReposicao`, só com os pedidos dela — os da loja nova feitos com o
- * e-mail e os da base da Nuvemshop — e os dias dos Ajustes.
- */
-export async function reposicoesDoEmail(
-  container: MedusaContainer,
-  email: string,
-  agora: Date = new Date()
-): Promise<Reposicao[]> {
-  const [daLoja, daBase, lojas] = await Promise.all([
-    pedidosParaAsEtiquetas(container, { email }),
-    container.resolve<CrmService>(CRM).pedidosDaBase(email),
-    container.resolve(Modules.STORE).listStores({}, { select: ["metadata"], take: 1 }),
-  ])
-  const { dias } = lerAjustesGuardados(lojas[0]?.metadata)
-  const pedidos: PedidoDaReposicao[] = [
-    ...daLoja
-      .filter((o) => normalizarEmail(o.email) === email)
-      .map((o) => ({ ...pedidoDaPessoa(o), ref: o.id })),
-    ...daBase.flatMap((p) => (p.id ? [{ ...pedidoDaBase(p), ref: p.id }] : [])),
-  ]
-  return reposicoesDaPessoa(email, pedidos, dias).filter((r) => naJanelaDaReposicao(r, agora))
-}
-
 /** O produto da foto do aviso: um do "de sempre" que a loja ainda vende. */
 export type ProdutoDoAviso = { nome: string; handle: string; imagem: string | null }
 
@@ -191,10 +167,13 @@ const DIA_DE_BRASILIA = new Intl.DateTimeFormat("en-CA", {
 /** "2026-10-03": o dia no fuso da loja. */
 const diaDe = (d: Date) => DIA_DE_BRASILIA.format(d)
 
-/** Quantos dias de Brasília de `agora` até `acaba`: 0 é hoje, 1 amanhã, −1 ontem. */
-export function diasAteAcabar(acaba: Date, agora: Date): number {
-  return Math.round((Date.parse(diaDe(acaba)) - Date.parse(diaDe(agora))) / DIA)
+/** Quantos dias de Brasília de `de` até `ate`: 0 no mesmo dia, 1 no dia seguinte. */
+export function diasNoCalendario(de: Date, ate: Date): number {
+  return Math.round((Date.parse(diaDe(ate)) - Date.parse(diaDe(de))) / DIA)
 }
+
+/** Quantos dias de Brasília de `agora` até `acaba`: 0 é hoje, 1 amanhã, −1 ontem. */
+export const diasAteAcabar = (acaba: Date, agora: Date) => diasNoCalendario(agora, acaba)
 
 /** O que o aviso escreve, pelo tipo e pelos dias. Sem palavra de propaganda, como os e-mails. */
 export function textoDoAviso(
