@@ -144,9 +144,19 @@ function Inscricao({ i }: { i: Inscrito }) {
   )
 }
 
+/**
+ * A célula do CSV. A que começa com `=`, `+`, `-` ou `@` (ou tab, ou quebra)
+ * o Excel e o Planilhas leem como fórmula: vai com um `'` na frente, que a
+ * planilha mostra como texto. O e-mail novo nem entra assim
+ * (`normalizarEmail`); isto é pro que já estava na lista.
+ */
+function celula(v: string) {
+  const texto = /^[=+\-@\t\r]/.test(v) ? `'${v}` : v
+  return /[",\n\r;]/.test(texto) ? `"${texto.replace(/"/g, '""')}"` : texto
+}
+
 /** O CSV da lista: e-mail, desde quando (ISO) e de onde. Com BOM, pro Excel abrir os acentos. */
 function baixarCsv(inscritos: Inscrito[]) {
-  const celula = (v: string) => (/[",\n;]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v)
   const linhas = [
     ["email", "desde", "origem"],
     ...inscritos.map((i) => [i.email, i.desdeEm, i.origem]),

