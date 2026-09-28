@@ -8,6 +8,7 @@ import { after } from "next/server"
 import { codigoDoBump, ehCodigoDeBump } from "@/lib/bump"
 import { buscarCep, limparCep } from "@/lib/cep"
 import {
+  idDoCarrinho,
   lerCarrinho,
   pedidoDoCarrinho,
   pedidoDoCarrinhoFechado,
@@ -187,6 +188,26 @@ function documentoGravado(e: HttpTypes.StoreCartAddress | null | undefined): Doc
     return doc as Documento
   }
   return undefined
+}
+
+/* ── o checkout abriu ─────────────────────────────────────────────────────── */
+
+/**
+ * O checkout apareceu na tela: a marca no carrinho (`POST
+ * /store/checkout/aberto`), que é o "começaram o checkout" do Início do
+ * painel (entrega 0186) — de todo mundo, sem cookie de rastreio: a marca é do
+ * carrinho. O Medusa grava uma vez só; falhar aqui só custa essa conta, e a
+ * tela nem espera.
+ */
+export async function abriuOCheckout(): Promise<void> {
+  const sdk = cliente()
+  const carrinho = await idDoCarrinho()
+  if (!sdk || !carrinho) return
+  try {
+    await sdk.client.fetch("/store/checkout/aberto", { method: "POST", body: { carrinho } })
+  } catch {
+    // Só a conta do painel.
+  }
 }
 
 /* ── 1. contato ───────────────────────────────────────────────────────────── */
