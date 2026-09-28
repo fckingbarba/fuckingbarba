@@ -51,7 +51,11 @@
  * │   de parceiro), que vai duas vezes, que vai sem o que a etiqueta       │
  * │   precisa, ou que vai sem o token; o pago antes de o registro ligar    │
  * │   indo também; a postagem que não volta como "enviado"; o cancelado   │
- * │   que fica no painel; e a recusa ou a queda da Frenet tratadas igual.  │
+ * │   que fica no painel; e a recusa ou a queda da Frenet tratadas igual;  │
+ * │ • o cancelado que a Frenet não deixa tirar sem e-mail pra equipe, ou   │
+ * │   com um e-mail a cada tentativa;                                      │
+ * │ • o endereço assinado de um pedido mexendo no envio de outro (pelo     │
+ * │   código ou pelo id do envio no corpo).                                │
  * └─────────────────────────────────────────────────────────────────────────┘
  */
 
@@ -821,6 +825,32 @@ titulo("O pedido pago vai sozinho pro painel da Frenet (o token de parceiro)")
       "o id do envio que a loja guardou acha o pedido, mesmo com outro número no aviso",
       JSON.stringify(r.corpo)
     )
+    // O endereço assinado do R não mexe no envio do S — nem pelo código, nem pelo id.
+    const eventosDoS = async () =>
+      ((await fabrica.noAdmin(S.id)).fulfillments ?? []).map((f) => f.delivered_at ?? null)
+    const antesDoS = JSON.stringify(await eventosDoS())
+    const entregueNoS = [evento(9, 5, "Objeto entregue ao destinatário")]
+    const peloCodigo = await naUrlDoAviso({
+      ...postagemDeR,
+      TrackingNumber: COD_S,
+      ShipmentId: novoShipmentId(),
+      TrackingEvents: entregueNoS,
+    })
+    const peloId = await naUrlDoAviso({
+      ...postagemDeR,
+      TrackingNumber: novoCodigo("QZ"),
+      ShipmentId: doS?.envio,
+      TrackingEvents: entregueNoS,
+    })
+    ok(
+      peloCodigo.status === 200 &&
+        /não é dele/.test(peloCodigo.corpo.envios?.[0]?.ignorado ?? "") &&
+        peloId.status === 200 &&
+        /não é dele/.test(peloId.corpo.envios?.[0]?.ignorado ?? "") &&
+        JSON.stringify(await eventosDoS()) === antesDoS,
+      "o endereço assinado de um pedido não mexe no envio de outro — nem pelo código, nem pelo id do envio",
+      JSON.stringify({ peloCodigo, peloId })
+    )
     const X = await fabrica.pedidoPix(novoEmail(), [["balm-para-barba", 1]])
     await fabrica.pagar(X)
     await esperarNoPainel(X.numero)
@@ -852,6 +882,38 @@ titulo("O pedido pago vai sozinho pro painel da Frenet (o token de parceiro)")
         frenet.retirados.some((x) => x.id === String(doT?.envio) && x.como === "cancelar"),
       "cancelado, sai do painel (o envio é cancelado na Frenet)",
       JSON.stringify({ saiu, retirados: frenet.retirados })
+    )
+
+    /* 4b. a Frenet não deixa tirar (a etiqueta já gerada): a equipe fica sabendo, uma vez */
+    const K = await fabrica.pedidoPix(novoEmail(), [["oleo-para-barba", 1]])
+    await fabrica.pagar(K)
+    await esperarNoPainel(K.numero)
+    await registroQuando(K, (x) => x.entrou)
+    frenet.roteiroDaRetirada = "recusa"
+    await fabrica.cancelar(K)
+    const ficou = await registroQuando(K, (x) => Boolean(x.avisou_ao_tirar_em))
+    const doCancelado = `O pedido #${K.numero} foi cancelado e continua na Frenet`
+    const avisosDoK = () => resend.emails.filter((e) => e.subject === doCancelado)
+    ok(
+      !ficou?.tirado_em &&
+        /etiqueta gerada/.test(ficou?.erro_ao_tirar ?? "") &&
+        ficou?.tentativas_ao_tirar === 1 &&
+        Boolean(ficou?.avisou_ao_tirar_em) &&
+        avisosDoK().length > 0 &&
+        avisosDoK().every((e) => /Não gere a etiqueta do FB-/.test(e.text ?? "")),
+      "a Frenet não deixa tirar o cancelado: fica registrado, e a equipe recebe o e-mail (não gere a etiqueta)",
+      JSON.stringify({ ficou, avisos: avisosDoK().map((e) => e.to) })
+    )
+    const quantosAvisos = avisosDoK().length
+    const k = await varrer()
+    const depois = (await fabrica.noAdmin(K.id)).metadata?.fb_parceiro
+    frenet.roteiroDaRetirada = "normal"
+    ok(
+      depois?.tentativas_ao_tirar === 1 &&
+        !(k.relatorio?.ficaram ?? []).some((x) => x.startsWith(`#${K.numero}`)) &&
+        avisosDoK().length === quantosAvisos,
+      "e a varredura espera antes de tentar de novo (10 minutos, depois 20, 40…) — sem outro e-mail",
+      JSON.stringify({ depois, relatorio: k.relatorio })
     )
 
     /* 5. a Frenet recusa: não insiste */

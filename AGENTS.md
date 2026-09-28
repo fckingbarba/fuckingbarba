@@ -665,6 +665,39 @@ painel nunca erraram. Foi o que pôs "0×" nos e-mails do caminho da encomenda (
 entrega 0116). Pedido lido pra mostrar item: `items.*`, como a confirmação, o cancelamento e o
 `lerPedido` de `lib/envios/medusa.ts`. O `conferir-envio` confere a quantidade nos três e-mails.
 
+**O QUE PASSA DO PRAZO VIRA AVISO** (entrega 0175, auditoria de 27/09) — nada fica parado calado:
+
+- **A nota que passa dos três dias** (`notaAtrasada` e o passo 4 do `acompanharNotas`, em
+  `lib/erp/notas.ts`): o pedido pago depois do `notas_desde`, não cancelado, com TODOS os
+  pagamentos fora da janela da varredura e sem nota que ande (nem linha, ou "a emitir" com a loja
+  tentando) vira "não sai sozinha" — `definitivo`, com o `MOTIVO_DA_NOTA_ATRASADA` e o último erro
+  entre parênteses —, com um e-mail pra operação e o dono (o jeito `atrasada`: conferir no ERP se
+  a nota já foi feita à mão; um só, em `avisos.atrasada`, mesmo que outro aviso tenha saído antes).
+  A loja NÃO emite sozinha depois dos três dias: nota em dobro é problema com a Receita. O "Tentar
+  de novo" (painel e admin) emite. Olha 30 dias pra trás, 50 por rodada; o painel reconhece pelo
+  motivo (`notaPassouDosTresDias`, a etiqueta "3 dias sem nota").
+- **A Frenet que passa dos três dias** (`registroAtrasado`, em `lib/envios/registro.ts`): o
+  registro que não entrou e não foi recusado de vez fica `definitivo` com `desistiu_em` — o painel
+  mostra "O pedido não entrou na Frenet", com o "Mandar de novo", e não "tentando entrar" pra sempre.
+- **O cancelado que ficou no painel da Frenet**: o `tirarDoParceiro` grava `tentativas_ao_tirar` e
+  `tentou_tirar_em`; a varredura do registro (`tirarCanceladosQueFicaram`, dentro do
+  `registrarPendentes`) tenta de novo por `DIAS_TIRANDO` (7) dias depois do cancelamento, com a
+  espera do registro — e o cancelado cujo evento se perdeu sai na primeira rodada. A primeira
+  falha manda "O pedido #N foi cancelado e continua na Frenet" pra operação e o dono
+  (`lib/emails/cancelado-na-frenet.ts`, um só: `avisou_ao_tirar_em`), e o painel mostra o problema
+  (`canceladoNaFrenet`) até ele sair.
+- **O aviso assinado por pedido** (`soDoPedido`, na `LeituraDoAviso`): a rota acha o pedido da
+  assinatura, e o núcleo só mexe em envio dele — o código ou o `ShipmentId` do corpo que achar o
+  envio de outro pedido (ou a etiqueta de outro, no admin) é "ignorado".
+- **O CSV da newsletter** (o do painel e o do admin): a célula que começa com `=`, `+`, `-`, `@`,
+  tab ou quebra vai com um `'` na frente — a planilha mostra como texto. E o `normalizarEmail`
+  recusa o e-mail que começa com `=`, `+` ou `-` e o que tem `"(),:;<>[]\` ou caractere de
+  controle (o `+tag` no meio, o `'` e o acento passam).
+- **O link da avaliação só por e-mail** (`POST /store/avaliacoes/encontrar`): a resposta é sempre
+  `{ mandado: true }`, e sai antes de procurar; o link vai pro e-mail da compra
+  (`mandarLinkDaAvaliacao`, em `lib/avaliacoes/encontrar.ts`: um por pedido a cada 10 minutos, 3
+  por dia, só pro pedido que aceita avaliação e tem produto sem nota), nunca na resposta.
+
 **A etiqueta feita à mão no painel da Frenet não manda aviso** (resposta deles, 23/09: o aviso só
 vale pros pedidos que entram pela API de pedidos, que exige o token de parceiro). Pra ela, a loja
 PERGUNTA: o `consultar` do contrato (`parceiro.ts`), que na Frenet é `POST /tracking/trackinginfo`
@@ -683,20 +716,22 @@ de parceiro existir (`FRENET_PARCEIRO_TOKEN`). O contrato ganhou `registraPedido
 (`modules/frenet/pedidos.ts`). Quem decide é
 `lib/envios/registro.ts`: `registrarNoParceiro` no `payment.captured`, logo depois da confirmação;
 a varredura `registrarPendentes` (job `registrar-pedidos`, de 10 em 10 minutos, e
-`POST /admin/envios/registrar`); `tirarDoParceiro` no `order.canceled`. Vão os pagos, não
+`POST /admin/envios/registrar`); `tirarDoParceiro` no `order.canceled` (e a varredura tenta de
+novo o que não saiu — ver **O QUE PASSA DO PRAZO VIRA AVISO**). Vão os pagos, não
 cancelados, sem envio criado no admin e pagos DEPOIS de o registro ligar — o "desde" fica no
 metadata da loja (`fb_parceiros`), gravado na primeira rodada ligada, pra não duplicar no painel o
 pedido que já teve etiqueta à mão. Uma vez só: trava por pedido e o registro em
 `metadata.fb_parceiro`, gravado pela porta do metadata do pedido (ver **O metadata do pedido**,
 abaixo) — registro perdido aqui é o mesmo pedido entrando duas vezes no painel.
 Recusa da Frenet (400, erro no item) é definitiva e o log pede a etiqueta à mão; queda, tempo e
-token recusado voltam na varredura, com espera crescente (10 min até 6 h), por três dias. No
+token recusado voltam na varredura, com espera crescente (10 min até 6 h), por três dias — e
+depois a loja para e diz (`desistiu_em`). No
 painel o pedido se chama **FB-<número>** (`referenciaDoPedido`) — a Nuvemshop segue na mesma conta,
 com a numeração dela —, e o núcleo aceita esse nome de volta. Registrado o pedido, nasce um envio
 "aguardando", SEM código, com o `ShipmentId` — o aviso acha o pedido por ele; sem código, ninguém
 mostra nem pergunta por ele. Cada pedido leva o `TrackingNotificationUrl` dele, montado com o
 `MEDUSA_BACKEND_URL`: `?pedido=FB-N&assinatura=HMAC(FRENET_WEBHOOK_TOKEN)`, que só vale pra aviso
-daquele pedido (`lerAviso`). A chave da porta nunca vai em URL. No conferidor de envio, a seção 7c
+daquele pedido (`lerAviso`) e só mexe em envio dele (`soDoPedido`). A chave da porta nunca vai em URL. No conferidor de envio, a seção 7c
 roda das duas formas (ver o cabeçalho dele).
 
 O formato é o da documentação deles ("Inserir pedidos na Frenet", `docs.frenet.com.br/reference/
@@ -1039,8 +1074,9 @@ topo do próprio arquivo.
   (`lib/avaliacoes/link.ts`); não vence. A página lê o pedido em `GET /store/avaliacoes/pedido`
   (número, nome sugerido — o primeiro nome e a inicial, `nomeSugerido` —, os produtos e se já têm
   nota) e manda em `POST /store/avaliacoes` (o link vem do cookie, nunca do formulário). Sem o link,
-  `POST /store/avaliacoes/encontrar` acha pelo número do pedido e o e-mail da compra (os dois, e o
-  404 não diz qual errou) e devolve o mesmo link. Uma avaliação por produto de cada pedido (índice
+  `POST /store/avaliacoes/encontrar` recebe o número do pedido e o e-mail da compra e MANDA o link
+  pra esse e-mail ("O link pra avaliar o pedido #N", `emailDoLinkDaAvaliacao`, desde a 0175) — a
+  resposta é sempre a mesma e nunca traz o link. Uma avaliação por produto de cada pedido (índice
   único; 409 `ja_avaliou`), só de pedido pago e não cancelado — a entrega não entra na conta: quem
   recebeu sem o rastreio dizer ainda avalia pela página. Os limites são na memória, por IP assinado
   (os da newsletter). O texto vai como a pessoa escreveu (`limparTexto` só tira espaço nas pontas,
@@ -2019,8 +2055,9 @@ dono). A regra mora em `src/lib/painel/configuracoes.ts`, puro, com testes:
   o que tem prazo na SEFAZ, depois o que precisa de alguém; da mesma queda, 4 ou mais viram uma
   linha, e a lista para em `MAX_PENDENCIAS`); os e-mails, com o remetente do `remetenteDosEmails`
   (`lib/email.ts`, o mesmo do `enviarEmail`).
-- **Pra quem vai o aviso da equipe:** `AVISOS_DA_EQUIPE` diz o papel de cada um (a nota: operação e
-  dono; a venda nova, o Bling caído e o estorno: dono), e `destinatarios` escolhe os e-mails — quem
+- **Pra quem vai o aviso da equipe:** `AVISOS_DA_EQUIPE` diz o papel de cada um (a nota e o
+  cancelado que ficou na Frenet: operação e dono; a venda nova, o Bling caído e o estorno: dono), e
+  `destinatarios` escolhe os e-mails — quem
   está ativo no papel; sem ninguém, o dono; sem ninguém no painel, os usuários do admin, como antes.
   O `avisarAEquipe` do ERP, o dos estornos e o `avisarVenda` chamam o `emailsPraAvisar`
   (`lib/equipe/avisados.ts`).

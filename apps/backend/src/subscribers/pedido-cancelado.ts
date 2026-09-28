@@ -42,7 +42,9 @@ import { desfazerNotaDoPedido } from "../lib/erp/notas"
  * POR ÚLTIMO, O PAINEL DO PARCEIRO E A NOTA: o pedido que já tinha entrado
  * no painel da Frenet (`lib/envios/registro.ts`) sai, pra ninguém gerar
  * etiqueta de pedido cancelado. Se não sair — o pacote já foi postado, a
- * Frenet fora do ar —, o log diz qual, pra alguém olhar no painel. E a nota
+ * Frenet fora do ar —, a equipe recebe um e-mail ("não gere a etiqueta"), o
+ * painel da loja mostra o problema, e a varredura do registro tenta de novo
+ * por 7 dias (`tirarCanceladosQueFicaram`). E a nota
  * no ERP (`lib/erp/notas.ts`): a que não foi autorizada é desfeita lá; a
  * autorizada vira e-mail pra equipe cancelar no ERP, em até 24 horas.
  */
@@ -89,13 +91,13 @@ export default async function pedidoCancelado({
     } else if (r.resultado === "falhou") {
       logger.warn(
         `[envio] #${r.numero} cancelado, e continua no painel do parceiro (${r.motivo}) — ` +
-          "confira lá antes de gerar a etiqueta"
+          "confira lá antes de gerar a etiqueta; a varredura tenta tirar de novo"
       )
     }
   } catch (e) {
     logger.warn(
       `[envio] o pedido cancelado ${data.id} pode ter ficado no painel do parceiro ` +
-        `(${e instanceof Error ? e.message : String(e)}) — confira lá`
+        `(${e instanceof Error ? e.message : String(e)}) — a varredura tenta tirar de novo`
     )
   }
 

@@ -16,28 +16,38 @@ const procurar = (anterior: EstadoDoEncontrar, fd: FormData) =>
       texto: SEM_CONEXAO,
       numero: String(fd.get("numero") ?? ""),
       email: String(fd.get("email") ?? ""),
-      rodada: (anterior.tipo === "erro" ? anterior.rodada : 0) + 1,
+      rodada: (anterior.tipo === "inicio" ? 0 : anterior.rodada) + 1,
     })
   )
 
 /**
  * A PÁGINA SEM O LINK — o número do pedido e o e-mail da compra.
  *
- * Os dois têm que bater (o número sozinho é sequencial). Achou, a ação
- * guarda o link e a página abre o pedido, com os produtos pra avaliar.
+ * Os dois têm que bater (o número sozinho é sequencial), e o link vai PRO
+ * E-MAIL DA COMPRA: quem sabe o número e o e-mail de alguém não avalia no
+ * nome dele sem a caixa de entrada. A tela diz sempre o mesmo — ela não sabe
+ * (nem deve dizer) se o pedido existe.
  */
 export function Encontrar({ recado }: { recado?: string }) {
   const [estado, acao, procurando] = useActionState(procurar, ENCONTRAR_INICIO)
   const erro = estado.tipo === "erro" ? estado : null
+  const mandado = estado.tipo === "mandado" ? estado : null
 
   return (
     <section className="bloco avaliar__bloco" aria-labelledby="t-avaliar">
       <h1 id="t-avaliar">Avaliar o pedido</h1>
       <p className="avaliar__txt">
         O jeito mais rápido é o botão <b>Avaliar</b> do e-mail que a gente mandou depois da entrega
-        — ele já abre com tudo preenchido. Sem o e-mail, procure o pedido aqui:
+        — ele já abre com tudo preenchido. Sem o e-mail, escreva o número do pedido e o e-mail da
+        compra: a gente manda o link de novo pra lá.
       </p>
-      {recado && !erro ? (
+      {mandado ? (
+        <p className="avaliar__recado" role="status" data-link-mandado>
+          Pronto: se o número e o e-mail forem de um pedido que ainda pode ser avaliado, o link
+          chega em instantes em <b>{mandado.email}</b>. Abra o e-mail e toque em <b>Avaliar</b> —
+          não chegou? Olhe o spam.
+        </p>
+      ) : recado && !erro ? (
         <p className="avaliar__recado" role="status">
           {recado}
         </p>
@@ -48,7 +58,7 @@ export function Encontrar({ recado }: { recado?: string }) {
         noValidate
         data-encontrar
       >
-        <div className="campos avaliar__campos" key={erro?.rodada ?? 0}>
+        <div className="campos avaliar__campos" key={erro?.rodada ?? mandado?.rodada ?? 0}>
           <Campo
             rotulo="Número do pedido"
             nome="numero"
@@ -85,11 +95,11 @@ export function Encontrar({ recado }: { recado?: string }) {
         >
           {procurando ? (
             <>
-              <span className="giro" aria-hidden="true" /> Procurando…
+              <span className="giro" aria-hidden="true" /> Mandando…
             </>
           ) : (
             <>
-              Encontrar meu pedido <Raio className="btn__bolt" />
+              Mandar o link pro meu e-mail <Raio className="btn__bolt" />
             </>
           )}
         </button>

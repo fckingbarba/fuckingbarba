@@ -204,6 +204,78 @@ describe("os problemas que moram nos pedidos", () => {
     )
     expect(achados.every((a) => a.sozinho && !a.soDono)).toBe(true)
   })
+
+  it("a nota que passou dos 3 dias, a Frenet que a loja parou e o cancelado que ficou na Frenet", () => {
+    const frenet = (r: Record<string, unknown>) => ({
+      fb_parceiro: {
+        parceiro: "frenet",
+        referencia: "FB-1",
+        em: "2026-09-22T12:00:00Z",
+        tentativas: 20,
+        ...r,
+      },
+    })
+    const achados = problemasDosPedidos(
+      [
+        {
+          o: pedido(),
+          nota: {
+            situacao: "a-emitir",
+            referencia: "#17",
+            definitivo: true,
+            erro: "passaram 3 dias do pagamento sem a nota sair",
+          },
+          envios: [],
+        },
+        {
+          o: pedido({
+            id: "order_2",
+            display_id: 18,
+            metadata: frenet({
+              entrou: false,
+              definitivo: true,
+              desistiu_em: "2026-09-25T12:00:00Z",
+              erro: "a Frenet não respondeu (502)",
+            }),
+          }),
+          nota: null,
+          envios: [],
+        },
+        {
+          o: pedido({
+            id: "order_3",
+            display_id: 19,
+            status: "canceled",
+            metadata: frenet({
+              entrou: true,
+              id: "7",
+              erro_ao_tirar: "cancelar: 400; apagar: 404",
+              tentativas_ao_tirar: 2,
+              tentou_tirar_em: "2026-09-25T23:00:00Z",
+            }),
+          }),
+          nota: null,
+          envios: [],
+        },
+      ],
+      AGORA
+    )
+    expect(achados.find((a) => a.chave === "nota/order_1/a-emitir")?.texto).toBe(
+      "Passaram 3 dias do pagamento sem a nota sair. Confira no Bling se a nota já foi feita à mão; se não, tente de novo, no pedido."
+    )
+    expect(achados.find((a) => a.chave === "frenet-recusou/order_2")).toMatchObject({
+      titulo: "O #18 não entrou na Frenet",
+      texto:
+        "A loja tentou por 3 dias e parou. Mande de novo, no pedido — ou faça a etiqueta à mão no painel da Frenet.",
+    })
+    expect(achados.find((a) => a.chave === "frenet-cancelado/order_3")).toMatchObject({
+      titulo: "O #19 foi cancelado e continua na Frenet",
+      texto:
+        "Não gere a etiqueta do FB-1 — se já gerou, cancele lá. A loja segue tentando tirar sozinha.",
+      detalhe: "[envio] #19 cancelado, ainda no painel: cancelar: 400; apagar: 404",
+      sozinho: true,
+    })
+  })
 })
 
 describe("o ERP, as rotinas e os sinais", () => {

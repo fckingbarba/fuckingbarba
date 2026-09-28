@@ -1,6 +1,6 @@
 import type { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
-import { linkDoPedido } from "../../../../lib/avaliacoes/link"
-import { encontrarPedido, lerPedidoParaAvaliar } from "../../../../lib/avaliacoes/pedido"
+import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
+import { mandarLinkDaAvaliacao } from "../../../../lib/avaliacoes/encontrar"
 import { numeroDoPedido } from "../../../../lib/avaliacoes/regras"
 import { criarLimite } from "../../../../lib/limite"
 import { quemPede } from "../../../../lib/quem-pede"
@@ -10,19 +10,20 @@ import { normalizarEmail } from "../../../../modules/codigo/regras"
  * POST /store/avaliacoes/encontrar — `{ numero, email }`: a página
  * `/avaliar` aberta SEM o link do e-mail (a pessoa apagou o e-mail, ou a
  * loja mandou a página por outro caminho). O número do pedido ("#1234",
- * "1234") e o e-mail da compra têm que bater; aí sai o mesmo link que o
- * e-mail levaria, e a loja guarda num cookie.
+ * "1234") e o e-mail da compra têm que bater; aí o link vai PRO E-MAIL DA
+ * COMPRA (`lib/avaliacoes/encontrar.ts`) — nunca na resposta: quem sabe o
+ * número e o e-mail de alguém não avalia no nome dele sem a caixa de entrada.
  *
- * A RESPOSTA NÃO DIZ O QUE ERROU: número que não existe e e-mail que não é o
- * do pedido são o mesmo 404 — senão a página diria quais números existem.
+ * A RESPOSTA É SEMPRE A MESMA, e sai antes de a loja procurar: nem ela nem o
+ * tempo dela dizem se o número existe, se o e-mail é o do pedido, ou se o
+ * pedido aceita avaliação.
  *
- * OS LIMITES contam TODA tentativa, a que acha e a que não acha: por quem
- * pede, 10 por hora com a assinatura da loja e 30 sem; da loja toda, 300
- * por hora. Sem teto, dava pra testar e-mails contra números em sequência.
+ * OS LIMITES contam TODA tentativa: por quem pede, 10 por hora com a
+ * assinatura da loja e 30 sem; da loja toda, 300 por hora. E o e-mail, no
+ * máximo um por pedido a cada 10 minutos (3 por dia).
  *
- * RESPOSTAS: 200 `{ p }`; 400 `campo_invalido` com o `campo` (`numero` ou
- * `email`); 404 `nao_achei`; 409 `nao_aceita` (cancelado, sem pagamento —
- * aqui pode dizer: quem pergunta provou que é dono); 429 `limite`.
+ * RESPOSTAS: 200 `{ mandado: true }`; 400 `campo_invalido` com o `campo`
+ * (`numero` ou `email`); 429 `limite`.
  */
 
 const HORA = 60 * 60 * 1000
@@ -53,15 +54,13 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
   limite.contar(quem.chave, porIp)
   limite.contar("loja", DA_LOJA)
 
-  const pedidoId = await encontrarPedido(req.scope, numero, email)
-  if (!pedidoId) {
-    res.status(404).json({ message: "nao_achei" })
-    return
-  }
-  const leitura = await lerPedidoParaAvaliar(req.scope, pedidoId)
-  if (!leitura.ok) {
-    res.status(409).json({ message: "nao_aceita" })
-    return
-  }
-  res.json({ p: linkDoPedido(pedidoId) })
+  res.json({ mandado: true })
+
+  // Depois da resposta: o que a loja acha (ou não) fica no log, não no tempo dela.
+  const logger = req.scope.resolve(ContainerRegistrationKeys.LOGGER)
+  void mandarLinkDaAvaliacao(req.scope, numero, email).catch((e: unknown) =>
+    logger.warn(
+      `[avaliacoes] o link pedido na página não saiu: ${e instanceof Error ? e.message : String(e)}`
+    )
+  )
 }

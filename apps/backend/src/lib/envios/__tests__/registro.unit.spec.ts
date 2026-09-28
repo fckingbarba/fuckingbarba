@@ -4,6 +4,8 @@ import {
   esperaDepoisDe,
   lerRegistroNoPedido,
   montarPedido,
+  paraTirarDeNovo,
+  registroAtrasado,
   type PedidoLido,
   type RegistroNoPedido,
 } from "../registro"
@@ -164,6 +166,85 @@ describe("quais pedidos vão pro painel", () => {
     expect(lerRegistroNoPedido({ [CHAVE_NO_PEDIDO]: { parceiro: "frenet" } })).toBeNull()
     expect(lerRegistroNoPedido(null)).toBeNull()
     expect(decidir({ metadata: { [CHAVE_NO_PEDIDO]: "lixo" } })).toEqual({ registrar: true })
+  })
+})
+
+describe("o pedido que passou dos três dias tentando", () => {
+  const DIA = 24 * 60 * MINUTO
+  // Pago em 23/09 às 13:01 (o PEDIDO): três dias e quase duas horas depois.
+  const DEPOIS = new Date(AGORA.getTime() + 3 * DIA)
+  const tentando = registro({ erro: "a Frenet não respondeu (502)" })
+  const atrasado = (o: Partial<PedidoLido>, agora = DEPOIS) =>
+    registroAtrasado({ ...PEDIDO, metadata: tentando, ...o }, agora)
+
+  it("não entrou e a loja ainda tentava: passou dos três dias, para", () => {
+    expect(atrasado({})).toBe(true)
+  })
+
+  it("dentro dos três dias, a varredura segue tentando", () => {
+    expect(atrasado({}, new Date(AGORA.getTime() + 2 * DIA))).toBe(false)
+  })
+
+  it("um pagamento ainda nos três dias segura o pedido", () => {
+    expect(
+      atrasado({
+        payment_collections: [
+          { payments: [{ captured_at: "2026-09-23T13:01:00.000Z" }] },
+          { payments: [{ captured_at: "2026-09-25T13:01:00.000Z" }] },
+        ],
+      })
+    ).toBe(false)
+  })
+
+  it("o que entrou, o recusado de vez, o sem registro, o cancelado e o com envio no admin, não", () => {
+    expect(atrasado({ metadata: registro({ entrou: true, id: "7" }) })).toBe(false)
+    expect(atrasado({ metadata: registro({ definitivo: true, erro: "CEP" }) })).toBe(false)
+    expect(atrasado({ metadata: {} })).toBe(false)
+    expect(atrasado({ status: "canceled" })).toBe(false)
+    expect(atrasado({ fulfillments: [{ canceled_at: null }] })).toBe(false)
+  })
+
+  it("o que a loja parou é recusado pra varredura — só o 'Mandar de novo' passa", () => {
+    const parou = {
+      ...PEDIDO,
+      metadata: registro({
+        erro: "a Frenet não respondeu (502)",
+        definitivo: true,
+        desistiu_em: DEPOIS.toISOString(),
+      }),
+    }
+    expect(registroAtrasado(parou, DEPOIS)).toBe(false)
+    expect(decidirRegistro(parou, { desde: DESDE, agora: DEPOIS })).toMatchObject({
+      motivo: "recusado",
+    })
+    expect(decidirRegistro(parou, { desde: DESDE, agora: DEPOIS, deNovo: true })).toEqual({
+      registrar: true,
+    })
+  })
+})
+
+describe("o cancelado que ficou no painel", () => {
+  it("entrou e não saiu: tenta tirar — o do evento perdido, na primeira rodada", () => {
+    expect(paraTirarDeNovo(registro({ entrou: true, id: "7" }), AGORA)).toBe(true)
+  })
+
+  it("depois de uma falha, a mesma espera do registro", () => {
+    const falhou = registro({
+      entrou: true,
+      id: "7",
+      erro_ao_tirar: "cancelar: 500; apagar: 500",
+      tentativas_ao_tirar: 2,
+      tentou_tirar_em: new Date(AGORA.getTime() - 15 * MINUTO).toISOString(),
+    })
+    expect(paraTirarDeNovo(falhou, AGORA)).toBe(false)
+    expect(paraTirarDeNovo(falhou, new Date(AGORA.getTime() + 5 * MINUTO))).toBe(true)
+  })
+
+  it("o que saiu, o que nem entrou e o sem id, não", () => {
+    expect(paraTirarDeNovo(registro({ entrou: true, id: "7", tirado_em: "x" }), AGORA)).toBe(false)
+    expect(paraTirarDeNovo(registro({ entrou: false }), AGORA)).toBe(false)
+    expect(paraTirarDeNovo(registro({ entrou: true, id: null }), AGORA)).toBe(false)
+    expect(paraTirarDeNovo({}, AGORA)).toBe(false)
   })
 })
 

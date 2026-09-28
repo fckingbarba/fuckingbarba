@@ -1,4 +1,9 @@
-import { emailDePedirAvaliacao, linkDaAvaliacao, type ProdutoParaAvaliar } from "../avaliacao"
+import {
+  emailDePedirAvaliacao,
+  emailDoLinkDaAvaliacao,
+  linkDaAvaliacao,
+  type ProdutoParaAvaliar,
+} from "../avaliacao"
 
 const LOJA = "https://fuckingbarba-loja.vercel.app"
 const LINK = "order_01M3GF52GC3EB02F1NY7T95Y08.SuIXg0tRqxUpCugtO4KN32"
@@ -78,5 +83,40 @@ describe("o e-mail que pede a avaliação", () => {
     const e = email()
     expect(e.html).not.toContain("/avaliar/")
     expect(e.texto).not.toContain("Avaliar:")
+  })
+})
+
+describe("o link que a pessoa pediu na página", () => {
+  const pedido = (extra: Partial<Parameters<typeof emailDoLinkDaAvaliacao>[0]> = {}) =>
+    emailDoLinkDaAvaliacao({
+      para: "rafael@exemplo.com",
+      numero: 592,
+      primeiroNome: "Rafael",
+      link: LINK,
+      produtos,
+      ...extra,
+    })
+
+  it("diz que foi pedido na página, e o que fazer se não foi a pessoa", () => {
+    const e = pedido()
+    expect(e.para).toBe("rafael@exemplo.com")
+    expect(e.assunto).toBe("O link pra avaliar o pedido #592")
+    expect(e.texto).toContain("Oi, Rafael! Você pediu o link pra avaliar o pedido #592")
+    expect(e.texto).toContain("Não foi você? É só ignorar")
+    // Sem o "chegou faz um dia" do outro: a pessoa pode ter pedido antes.
+    expect(e.texto).not.toContain("faz um dia")
+  })
+
+  it("os mesmos botões do outro e-mail: um por produto, com o link do pedido", () => {
+    const e = pedido()
+    for (const p of produtos) {
+      const link = linkDaAvaliacao(LOJA, LINK, p.id)
+      expect(e.html).toContain(link.replace(/&/g, "&amp;"))
+      expect(e.texto).toContain(link)
+    }
+  })
+
+  it("sem o nome no pedido, sem o 'Oi'", () => {
+    expect(pedido({ primeiroNome: "" }).texto).toContain("\nVocê pediu o link")
   })
 })

@@ -1,4 +1,5 @@
 import type { Email } from "../email"
+import { urlDoPainel } from "./convite"
 import { botao, cartao, divisor, esc, espaco, moldura, paragrafo, titulo } from "./moldura"
 
 /**
@@ -148,9 +149,12 @@ export function emailDoPedidoParaDesfazer(
  *                novo pelo admin);
  *   "acompanha"  a nota está no ERP: corrigir e reenviar lá, e a loja acompanha;
  *   "reconectar" falta permissão no app do ERP: marcar o escopo e conectar de
- *                novo — a loja segue tentando sozinha.
+ *                novo — a loja segue tentando sozinha;
+ *   "atrasada"   passaram três dias sem a nota sair, e a loja parou: conferir no
+ *                ERP se ela já foi feita à mão, e só então tentar de novo pelo
+ *                painel (ou emitir à mão).
  */
-export type JeitoDoAviso = "a-mao" | "acompanha" | "reconectar"
+export type JeitoDoAviso = "a-mao" | "acompanha" | "reconectar" | "atrasada"
 
 export type NotaComProblema = {
   erp: string
@@ -189,9 +193,32 @@ export function emailDaNotaComProblema(para: string, a: NotaComProblema): Email 
       forte: `Marque o escopo no app do ${a.erp} e conecte de novo no admin.`,
       ondeLink: "erp",
     },
+    atrasada: {
+      bloco:
+        `A loja parou de tentar sozinha: emitir agora podia fazer a segunda nota do pedido, se ` +
+        `alguém já tiver feito à mão (nota em dobro é problema com a Receita). Confira no ` +
+        `${a.erp} se a nota do pedido #${a.numero} já existe. Se não existe, abra o pedido no ` +
+        `painel e clique em "Tentar de novo" — ou emita a nota à mão no ${a.erp}. Até lá, o ` +
+        "pedido fica sem nota.",
+      forte: `Confira no ${a.erp} se a nota do pedido #${a.numero} já existe; se não, tente de novo pelo painel.`,
+      ondeLink: "erp",
+    },
   }
   const j = porJeito[a.jeito]
-  const href = linkDoAdmin(j.ondeLink)
+  const admin = linkDoAdmin(j.ondeLink)
+  // A atrasada abre o pedido no painel, onde fica o "Tentar de novo" dela.
+  const painel = a.jeito === "atrasada" ? urlDoPainel() : null
+  const link = painel
+    ? {
+        texto: "Abrir o pedido no painel",
+        href: `${painel}/pedidos/${encodeURIComponent(a.pedidoId)}`,
+      }
+    : admin
+      ? {
+          texto: j.ondeLink === "erp" ? "Abrir a tela do ERP" : "Abrir o pedido no admin",
+          href: admin,
+        }
+      : null
   return montar({
     para,
     assunto,
@@ -199,12 +226,7 @@ export function emailDaNotaComProblema(para: string, a: NotaComProblema): Email 
     cabeca: "A nota não saiu",
     blocos: [causa, j.bloco],
     forte: j.forte,
-    link: href
-      ? {
-          texto: j.ondeLink === "erp" ? "Abrir a tela do ERP" : "Abrir o pedido no admin",
-          href,
-        }
-      : null,
+    link,
   })
 }
 

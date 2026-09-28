@@ -25,6 +25,16 @@ function quando(iso: string) {
 }
 
 /**
+ * A célula entre aspas. A que começa com `=`, `+`, `-` ou `@` (ou tab, ou
+ * quebra) a planilha lê como fórmula: vai com um `'` na frente, que ela
+ * mostra como texto.
+ */
+function celula(c: unknown) {
+  const texto = String(c)
+  return `"${(/^[=+\-@\t\r]/.test(texto) ? `'${texto}` : texto).replace(/"/g, '""')}"`
+}
+
+/**
  * O CSV com a marca de UTF-8 na frente: sem ela, o Excel abre "joão" como
  * "joÃ£o" — e é no Excel que a lista vai ser aberta primeiro.
  */
@@ -33,9 +43,7 @@ function emCsv(inscricoes: Inscricao[]) {
     ["email", "inscrito_em", "origem"],
     ...inscricoes.map((i) => [i.email, i.consentido_em, i.origem ?? ""]),
   ]
-  const texto = linhas
-    .map((l) => l.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
-    .join("\n")
+  const texto = linhas.map((l) => l.map(celula).join(",")).join("\n")
   return "\uFEFF" + texto
 }
 

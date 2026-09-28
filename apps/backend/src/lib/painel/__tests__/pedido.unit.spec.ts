@@ -671,6 +671,30 @@ describe("os botões do pedido", () => {
     })
   })
 
+  it("a nota que passou dos 3 dias: a faixa manda conferir no Bling antes de tentar de novo", () => {
+    const d = detalheDo(
+      pedido({}, true),
+      nota({
+        definitivo: true,
+        erro: "passaram 3 dias do pagamento sem a nota sair (o último erro: o Bling não respondeu (502))",
+      }),
+      [],
+      COM_ERP,
+      OPERACAO
+    )
+    expect(d.acoes.nota).toBe("de-novo")
+    expect(d.problema).toBe("nota")
+    expect(d.faixas[0]).toEqual({
+      nivel: "grave",
+      titulo: "A nota não sai sozinha",
+      etiquetas: ["3 dias sem nota"],
+      texto:
+        "Passaram 3 dias do pagamento sem a nota sair (o último erro: o Bling não respondeu (502)). " +
+        "A loja parou de tentar sozinha: confira no Bling se a nota já foi feita à mão. Se não foi, tente de novo — ou emita à mão no Bling.",
+      botao: "nota",
+    })
+  })
+
   it("o pedido estornado mostra o total que foi cobrado, não o que sobrou (zero)", () => {
     // O estorno vira crédito no Medusa: o `total` cai pra zero, e o `credit_line_total` é o que voltou.
     const d = detalheDo(
@@ -781,6 +805,91 @@ describe("as etiquetas das faixas: o que fica à vista (a frase inteira vai no �
     const f = detalheDo(recusado, null, [], SEM_ERP, SEM).faixas
     expect(f.find((x) => x.titulo === "A Frenet recusou o pedido")?.etiquetas).toEqual([])
   })
+
+  it("o cancelado que a Frenet não deixou tirar: problema, faixa e o caminho dizem", () => {
+    const ficou = pedido(
+      {
+        status: "canceled",
+        metadata: {
+          fb_parceiro: {
+            parceiro: "frenet",
+            referencia: "FB-1042",
+            entrou: true,
+            id: "7",
+            em: antes(120),
+            tentativas: 1,
+            erro_ao_tirar: "cancelar: 400 (etiqueta já gerada); apagar: 404.",
+            tentativas_ao_tirar: 1,
+            tentou_tirar_em: antes(5),
+          },
+        },
+      },
+      true
+    )
+    const d = detalheDo(ficou, null, [], SEM_ERP, SEM)
+    expect(d.problema).toBe("frenet")
+    expect(d.faixas.find((f) => f.titulo === "O pedido cancelado continua na Frenet")).toEqual({
+      nivel: "grave",
+      titulo: "O pedido cancelado continua na Frenet",
+      etiquetas: ["FB-1042"],
+      texto:
+        "A loja não conseguiu tirar o FB-1042 do painel da Frenet: cancelar: 400 (etiqueta já gerada); apagar: 404. " +
+        "Não gere a etiqueta dele — se já gerou, cancele a etiqueta lá. A loja segue tentando tirar sozinha por 7 dias depois do cancelamento.",
+    })
+    expect(d.caminho.find((p) => p.nome === "Na Frenet")).toMatchObject({
+      estado: "erro",
+      texto: "cancelado, e ainda lá",
+    })
+    // Tirado depois: o problema some.
+    const tirado = pedido(
+      {
+        status: "canceled",
+        metadata: {
+          fb_parceiro: {
+            ...(ficou.metadata as { fb_parceiro: Record<string, unknown> }).fb_parceiro,
+            tirado_em: antes(1),
+          },
+        },
+      },
+      true
+    )
+    expect(detalheDo(tirado, null, [], SEM_ERP, SEM).problema).toBeNull()
+  })
+
+  it("a Frenet que a loja parou de tentar: não é recusa, e tem o “Mandar de novo”", () => {
+    const parou = pedido(
+      {
+        metadata: {
+          fb_parceiro: {
+            parceiro: "frenet",
+            referencia: "FB-1042",
+            entrou: false,
+            em: antes(60),
+            definitivo: true,
+            desistiu_em: antes(5),
+            erro: "a Frenet não respondeu (502)",
+            tentativas: 20,
+          },
+        },
+      },
+      true
+    )
+    const d = detalheDo(parou, null, [], SEM_ERP, { verCpf: false, frenet: true })
+    expect(d.problema).toBe("frenet")
+    expect(d.faixas[0]).toEqual({
+      nivel: "grave",
+      titulo: "O pedido não entrou na Frenet",
+      etiquetas: ["3 dias tentando"],
+      texto:
+        "A loja tentou por 3 dias e parou. O último erro: A Frenet não respondeu (502). " +
+        "Mande de novo; ou faça a etiqueta à mão no painel da Frenet — e aí não mande de novo, senão o pedido aparece duas vezes lá.",
+      botao: "frenet",
+    })
+    expect(d.caminho.find((p) => p.nome === "Na Frenet")).toMatchObject({
+      estado: "erro",
+      texto: "parou de tentar",
+    })
+  })
 })
 
 describe("o Início", () => {
@@ -848,6 +957,79 @@ describe("o Início", () => {
         "O pedido não tem CPF/CNPJ, e a nota precisa. Corrija o que falta e tente de novo, no pedido.",
       href: "/pedidos/order_A",
       pedidos: [{ numero: 1042, href: "/pedidos/order_A" }],
+    })
+  })
+
+  it("a Frenet que a loja parou de tentar tem o item dela, separado da recusa", () => {
+    const d = dados()
+    d.pedidos[0] = venda("order_A", 10, 100, {
+      metadata: {
+        fb_parceiro: {
+          parceiro: "frenet",
+          referencia: "FB-1042",
+          entrou: false,
+          em: antes(60),
+          definitivo: true,
+          desistiu_em: antes(5),
+          erro: "a Frenet não respondeu (502)",
+          tentativas: 20,
+        },
+      },
+    })
+    const fila = montarInicio(quem("operacao"), d, SEM_ERP).fila
+    expect(fila.find((f) => f.chave === "frenet")).toBeUndefined()
+    expect(fila.find((f) => f.chave === "frenet-parou")).toMatchObject({
+      nivel: "grave",
+      titulo: "Não entrou na Frenet",
+      etiquetas: ["3 dias tentando"],
+      quantos: 1,
+      texto:
+        "O último erro: a Frenet não respondeu (502). A loja tentou por 3 dias e parou: mande de novo, no pedido — ou faça a etiqueta à mão no painel da Frenet.",
+    })
+  })
+
+  it("o cancelado que ficou na Frenet entra na fila: não gerar a etiqueta", () => {
+    const d = dados()
+    d.pedidos[2] = venda("order_C", 20, 70, {
+      status: "canceled",
+      metadata: {
+        fb_parceiro: {
+          parceiro: "frenet",
+          referencia: "FB-1043",
+          entrou: true,
+          id: "8",
+          em: antes(60),
+          tentativas: 1,
+          erro_ao_tirar: "cancelar: 500; apagar: 500",
+          tentativas_ao_tirar: 1,
+          tentou_tirar_em: antes(5),
+        },
+      },
+    })
+    expect(
+      montarInicio(quem("operacao"), d, SEM_ERP).fila.find((f) => f.chave === "frenet-cancelado")
+    ).toMatchObject({
+      nivel: "grave",
+      titulo: "Cancelado, e ainda na Frenet",
+      quantos: 1,
+      texto:
+        "A Frenet não deixou tirar o FB-1043. Não gere a etiqueta — se já gerou, cancele lá. A loja segue tentando tirar sozinha.",
+    })
+  })
+
+  it("as notas que passaram dos 3 dias viram um item só, que manda conferir no Bling", () => {
+    const d = dados()
+    d.notas.set(
+      "order_A",
+      nota({ definitivo: true, erro: "passaram 3 dias do pagamento sem a nota sair" })
+    )
+    const item = montarInicio(quem("operacao"), d, COM_ERP).fila.find((f) => f.icone === "nota")
+    expect(item).toMatchObject({
+      nivel: "grave",
+      titulo: "A nota não sai sozinha",
+      etiquetas: ["3 dias sem nota"],
+      texto:
+        "Passaram 3 dias do pagamento sem a nota sair. Confira no Bling se a nota já foi feita à mão; se não, tente de novo, no pedido.",
     })
   })
 

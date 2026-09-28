@@ -191,3 +191,87 @@ export function emailDePedirAvaliacao({
 
   return { para, assunto, html, texto }
 }
+
+/**
+ * O LINK QUE A PESSOA PEDIU NA PÁGINA — a `/avaliar` sem o link pede o número
+ * do pedido e o e-mail da compra, e o link vem pra cá, nunca na resposta
+ * (`lib/avaliacoes/encontrar.ts`): quem sabe o número e o e-mail de alguém
+ * não avalia no nome dele sem a caixa de entrada.
+ *
+ * Os mesmos botões do "o que você achou?", sem o "chegou faz um dia" — a
+ * pessoa pode ter pedido antes ou depois disso.
+ */
+export function emailDoLinkDaAvaliacao({
+  para,
+  numero,
+  primeiroNome,
+  link,
+  produtos,
+}: {
+  para: string
+  numero: number
+  /** "Rafael" — ou vazio, sem nome no pedido. */
+  primeiroNome: string
+  /** O `p` do pedido (`linkDoPedido`). */
+  link: string
+  /** Os que ainda não têm nota. */
+  produtos: ProdutoParaAvaliar[]
+}): Email {
+  const n = `#${numero}`
+  const assunto = `O link pra avaliar o pedido ${n}`
+  const previa = "Você pediu na página da loja: é só tocar em Avaliar."
+  const loja = urlDaLoja()
+  const oi = primeiroNome ? `Oi, ${primeiroNome}! ` : ""
+  const abertura =
+    `${oi}Você pediu o link pra avaliar o pedido ${n} na página da loja. ` +
+    (produtos.length === 1 ? "É só tocar em Avaliar." : "É só tocar em Avaliar, um por um.")
+  const naoFoiVoce =
+    "Não foi você? É só ignorar este e-mail: sem o botão dele, ninguém avalia o seu pedido."
+
+  const topo = cartao(
+    titulo("O link da sua avaliação") +
+      espaco(10) +
+      paragrafo(esc(abertura), { suave: true, tamanho: 14 }),
+    { respiro: "30px 28px 26px" }
+  )
+  const linhas = produtos
+    .map((p) => linhaDoProduto(p, loja ? linkDaAvaliacao(loja, link, p.id) : null))
+    .join(espaco(16) + divisor() + espaco(16))
+  const meio = cartao(
+    rotulo(produtos.length === 1 ? "Avalie o que chegou" : "Avalie o que chegou, um por um") +
+      espaco(14) +
+      linhas +
+      espaco(22) +
+      paragrafo(esc(naoFoiVoce), { suave: true, tamanho: 13 })
+  )
+
+  const html = moldura({
+    assunto,
+    previa,
+    conteudo: topo + meio,
+    rodape:
+      `Você recebeu porque o número ${esc(n)} e este e-mail foram escritos na página de ` +
+      `avaliação da FuckingBarba.`,
+    links: [
+      ...(loja ? [{ texto: "Loja", href: loja }] : []),
+      { texto: "Instagram", href: INSTAGRAM },
+      { texto: "TikTok", href: TIKTOK },
+    ],
+  })
+
+  const texto = [
+    `FuckingBarba — o link pra avaliar o pedido ${n}`,
+    "",
+    abertura,
+    "",
+    ...produtos.flatMap((p) => [
+      `- ${p.nome}`,
+      ...(loja ? [`  Avaliar: ${linkDaAvaliacao(loja, link, p.id)}`] : []),
+    ]),
+    "",
+    naoFoiVoce,
+    `Instagram: ${INSTAGRAM} · TikTok: ${TIKTOK}`,
+  ].join("\n")
+
+  return { para, assunto, html, texto }
+}

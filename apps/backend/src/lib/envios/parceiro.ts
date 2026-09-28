@@ -69,7 +69,15 @@ export type Chegada = {
 }
 
 export type LeituraDoAviso =
-  | { ok: true; novidades: Novidade[] }
+  | {
+      ok: true
+      novidades: Novidade[]
+      /**
+       * O aviso veio assinado por UM pedido (a referência dele, "FB-1042"):
+       * a rota acha o pedido, e o núcleo só mexe em envio dele.
+       */
+      soDoPedido?: string | null
+    }
   | {
       ok: false
       /**

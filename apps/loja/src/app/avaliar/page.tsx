@@ -16,7 +16,8 @@ import "@/estilos/telas/avaliar.css"
  * já sabe o número, o nome e os produtos. Falta só a nota e o texto.
  *
  * Sem o link (a pessoa apagou o e-mail, ou recebeu a página por outro
- * caminho), a página pede o número do pedido e o e-mail da compra.
+ * caminho), a página pede o número do pedido e o e-mail da compra — e o link
+ * vai de novo pra esse e-mail, nunca pra tela.
  *
  * ESCONDIDA: fora do menu, do sitemap e do Google (o `Disallow` do robots e
  * o `noindex` daqui). O que vale é o link — o endereço sozinho não abre

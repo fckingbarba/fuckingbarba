@@ -22,7 +22,8 @@
  * │   o e-mail → um por pedido, com um botão por produto;                  │
  * │   a loja   → o botão guarda o link num cookie e abre /avaliar limpa,   │
  * │              o formulário, o "valeu", a página sem o link (número e    │
- * │              e-mail), e a aprovada na página do produto.               │
+ * │              e-mail: o link vai pro e-mail da compra, nunca pra tela), │
+ * │              e a aprovada na página do produto.                        │
  * │                                                                         │
  * │ A tela é comparada com o que o Medusa guardou (`GET /admin/avaliacoes`)│
  * │ e os e-mails, lidos do Resend falso.                                   │
@@ -402,26 +403,72 @@ try {
     `HTTP ${adulterado.status}`
   )
 
-  titulo("5. A página sem o link: o número e o e-mail da compra")
+  titulo("5. A página sem o link: o link vai pro e-mail da compra, nunca pra tela")
+  // Um pedido pago com produto sem nota (o primeiro já foi avaliado inteiro, e esse não recebe link).
+  const EMAIL_2 = `avaliar2.${RODADA}@teste.fuckingbarba.dev`
+  const segundo = await fabrica.pedidoPix(EMAIL_2, [[OLEO, 1]])
+  await fabrica.pagar(segundo)
+  const dosLinks = () =>
+    resend.emails.filter((e) => /^O link pra avaliar o pedido #/.test(e.subject ?? ""))
   const semLink = (await novaAba({ width: 390, height: 844 })).pagina
   await semLink.goto(`${LOJA}/avaliar`, { waitUntil: "load" })
   await semLink.waitForSelector("[data-encontrar]")
   await hidratado(semLink, "[data-encontrar] button[type=submit]")
-  await semLink.fill('input[name="numero"]', `#${pedido.numero}`)
+  await semLink.fill('input[name="numero"]', `#${segundo.numero}`)
   await semLink.fill('input[name="email"]', "outra.pessoa@teste.fuckingbarba.dev")
   await semLink.click("[data-encontrar] button[type=submit]")
-  await semLink.waitForSelector(".avaliar__recado[role=alert]")
+  await semLink.waitForSelector("[data-link-mandado]")
+  const fraseDoErrado = await texto(semLink, "[data-link-mandado]")
+  await esperar(1500)
   ok(
-    /Não achei/.test(await texto(semLink, ".avaliar__recado[role=alert]")),
-    "com o e-mail de outra pessoa, não acha (e não diz qual dos dois errou)",
-    await texto(semLink, ".avaliar__recado[role=alert]")
+    /o link chega em instantes/.test(fraseDoErrado) && dosLinks().length === 0,
+    "com o e-mail de outra pessoa, a tela diz o mesmo que diria pro dono — e nenhum e-mail sai",
+    `${fraseDoErrado} · ${dosLinks().length} e-mail(s)`
   )
-  await semLink.fill('input[name="numero"]', `#${pedido.numero}`)
-  await semLink.fill('input[name="email"]', EMAIL.toUpperCase())
+  await semLink.fill('input[name="numero"]', `#${segundo.numero}`)
+  await semLink.fill('input[name="email"]', EMAIL_2.toUpperCase())
   await semLink.click("[data-encontrar] button[type=submit]")
-  await semLink.waitForSelector("#t-avaliar:has-text('Pedido avaliado')")
-  ok(true, "com o número e o e-mail certos, abre o pedido (já avaliado inteiro)")
-  ok(!/order_/.test(semLink.url()), "e o link também não vai pro endereço", semLink.url())
+  await semLink.waitForFunction(
+    (e) => document.querySelector("[data-link-mandado]")?.textContent?.includes(e),
+    EMAIL_2.toUpperCase()
+  )
+  let doSegundo = null
+  for (let i = 0; i < 20 && !doSegundo; i++) {
+    doSegundo = dosLinks().find((e) => e.to?.includes(EMAIL_2))
+    if (!doSegundo) await esperar(500)
+  }
+  ok(
+    doSegundo?.subject === `O link pra avaliar o pedido #${segundo.numero}` &&
+      !/order_/.test(semLink.url()) &&
+      !(await semLink.locator("[data-avaliar]").count()),
+    "com o número e o e-mail certos, o link vai pro e-mail da compra — a tela não abre o pedido",
+    `${doSegundo?.subject ?? "sem e-mail"} · ${semLink.url()}`
+  )
+  const direto = await loja("/store/avaliacoes/encontrar", {
+    metodo: "POST",
+    corpo: { numero: segundo.numero, email: EMAIL_2 },
+  })
+  await esperar(1500)
+  ok(
+    direto.status === 200 &&
+      direto.corpo.mandado === true &&
+      !("p" in direto.corpo) &&
+      dosLinks().filter((e) => e.to?.includes(EMAIL_2)).length === 1,
+    "a API responde igual, sem o link — e pedir de novo em seguida não manda outro e-mail",
+    `${JSON.stringify(direto.corpo)} · ${dosLinks().filter((e) => e.to?.includes(EMAIL_2)).length} e-mail(s)`
+  )
+  const botaoDoEmail = [...(doSegundo?.html ?? "").matchAll(/href="([^"]*\/avaliar\/[^"]*)"/g)].map(
+    (m) => m[1].replace(/&amp;/g, "&")
+  )[0]
+  if (botaoDoEmail) {
+    await semLink.goto(botaoDoEmail, { waitUntil: "load" })
+    await semLink.waitForSelector("[data-avaliar]")
+  }
+  ok(
+    Boolean(botaoDoEmail) && !/order_/.test(semLink.url()),
+    "o botão do e-mail abre o pedido pra avaliar — e o link não vai pro endereço",
+    semLink.url()
+  )
 
   titulo("6. Aprovada no painel, a avaliação vai pro site")
   const handleDoBotao = produtoDoBotao === (await produtoPorHandle(OLEO)) ? OLEO : BALM

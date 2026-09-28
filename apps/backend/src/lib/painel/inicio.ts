@@ -12,9 +12,11 @@ import {
   reais,
 } from "./formato"
 import {
+  canceladoNaFrenet,
   linhaDaLista,
   motivoCurto,
   nomeCurto,
+  notaPassouDosTresDias,
   notaTravada,
   pagamentoDo,
   situacaoDo,
@@ -370,6 +372,8 @@ function filaDosPedidos(
         const erro = emFrase(nota.erro ?? "O Bling recusou o pedido")
         const curto = motivoCurto(nota.erro)
         const chave = `nota-a-emitir:${curto ?? erro}`
+        // A do "3 dias sem nota" tem a chave dela: o grupo inteiro é de atrasadas.
+        const atrasada = notaPassouDosTresDias(nota)
         juntar(chave, () => ({
           item: {
             chave,
@@ -379,7 +383,10 @@ function filaDosPedidos(
             varios: "/pedidos?filtro=problemas",
             ...(curto ? { etiquetas: [curto] } : {}),
           },
-          texto: (ls, ns) => `${porPedido(ls, ns)} Corrija o que falta e tente de novo, no pedido.`,
+          texto: (ls, ns) =>
+            atrasada
+              ? `${porPedido(ls, ns)} Confira no Bling se a nota já foi feita à mão; se não, tente de novo, no pedido.`
+              : `${porPedido(ls, ns)} Corrija o que falta e tente de novo, no pedido.`,
         })).pedidos.push(pedido(l, erro))
       } else {
         juntar("nota-sefaz", () => ({
@@ -398,7 +405,33 @@ function filaDosPedidos(
       }
     }
     const parceiro = lerRegistroNoPedido(o.metadata)
-    if (o.status !== "canceled" && parceiro && !parceiro.entrou && parceiro.definitivo) {
+    if (parceiro && canceladoNaFrenet(o)) {
+      juntar("frenet-cancelado", () => ({
+        item: {
+          chave: "frenet-cancelado",
+          nivel: "grave",
+          icone: "caminhao",
+          titulo: "Cancelado, e ainda na Frenet",
+          varios: "/pedidos?filtro=problemas",
+        },
+        texto: (ls, ns) =>
+          `${porPedido(ls, ns)} Não gere a etiqueta — se já gerou, cancele lá. A loja segue tentando tirar sozinha.`,
+      })).pedidos.push(pedido(l, `A Frenet não deixou tirar o ${parceiro.referencia}.`))
+    }
+    if (o.status !== "canceled" && parceiro && !parceiro.entrou && parceiro.desistiu_em) {
+      juntar("frenet-parou", () => ({
+        item: {
+          chave: "frenet-parou",
+          nivel: "grave",
+          icone: "caminhao",
+          titulo: "Não entrou na Frenet",
+          varios: "/pedidos?filtro=problemas",
+          etiquetas: ["3 dias tentando"],
+        },
+        texto: (ls, ns) =>
+          `${porPedido(ls, ns)} A loja tentou por 3 dias e parou: mande de novo, no pedido — ou faça a etiqueta à mão no painel da Frenet.`,
+      })).pedidos.push(pedido(l, emFrase(`o último erro: ${parceiro.erro ?? "sem detalhe"}`)))
+    } else if (o.status !== "canceled" && parceiro && !parceiro.entrou && parceiro.definitivo) {
       juntar("frenet", () => ({
         item: {
           chave: "frenet",

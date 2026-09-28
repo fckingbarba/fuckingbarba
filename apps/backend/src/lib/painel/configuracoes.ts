@@ -421,7 +421,7 @@ export const AVISOS_DA_EQUIPE = [
   },
   {
     nome: "A nota do pedido não saiu",
-    texto: "Rejeitada, denegada, ou o Bling recusou o pedido.",
+    texto: "Rejeitada, denegada, o Bling recusou o pedido — ou passaram 3 dias sem ela sair.",
     papeis: ["operacao", "dono"],
   },
   {
@@ -453,6 +453,11 @@ export const AVISOS_DA_EQUIPE = [
     nome: "Um parceiro de pagamento caiu",
     texto: "O Pagar.me ou o Mercado Pago parou de responder — e quando volta.",
     papeis: ["dono"],
+  },
+  {
+    nome: "O pedido cancelado continua na Frenet",
+    texto: "A Frenet não deixou tirar o pedido do painel dela: não gere a etiqueta.",
+    papeis: ["operacao", "dono"],
   },
 ] as const satisfies readonly { nome: string; texto: string; papeis: readonly Papel[] }[]
 

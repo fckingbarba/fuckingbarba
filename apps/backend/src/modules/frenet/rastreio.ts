@@ -239,7 +239,9 @@ export const frenet: ParceiroDeEntrega = {
         detalhe: `a assinatura é do ${soDoPedido}, e o aviso é de outro pedido`,
       }
     }
-    if (novidades.length) return { ok: true, novidades }
+    // A referência vai junto: o OrderId do corpo é o que a Frenet diz, e o
+    // código e o ShipmentId ainda podem apontar pro envio de outro pedido.
+    if (novidades.length) return { ok: true, novidades, soDoPedido }
 
     const primeiro = corpos[0] as Record<string, unknown> | undefined
     if (primeiro && typeof primeiro === "object" && "ShipmentStatus" in primeiro) {
