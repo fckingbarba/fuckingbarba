@@ -1,7 +1,8 @@
 import { totalDoPedido } from "../avisar-cancelamento"
 import { documentoDoPedido, lerEndereco, telefone, type EnderecoDoMedusa } from "../dados-do-pedido"
 import { lerRegistro as lerConfirmacao } from "../confirmar-pedido"
-import { lerRegistroNoPedido } from "../envios/registro"
+import { DIAS_TIRANDO, lerRegistroNoPedido } from "../envios/registro"
+import { MOTIVO_DA_NOTA_ATRASADA } from "../erp/notas"
 import { lerRegistros as lerEstornos } from "../estornos"
 import type { Estado } from "../pagamento/estado"
 import { ehParceiro, estadoDaSessao, parceiroDe, sessaoDoParceiro } from "../pagamento/parceiros"
@@ -265,6 +266,25 @@ export function notaTravada(n: NotaCrua | null | undefined): boolean {
   )
 }
 
+/**
+ * A nota que passou dos três dias sem sair (`notaAtrasada`, em `lib/erp/notas.ts`):
+ * a loja parou de tentar porque alguém pode ter feito a nota à mão nesse meio-tempo.
+ */
+export function notaPassouDosTresDias(n: NotaCrua | null | undefined): boolean {
+  return Boolean(
+    n && !n.cancelar && n.situacao === "a-emitir" && n.erro?.startsWith(MOTIVO_DA_NOTA_ATRASADA)
+  )
+}
+
+/**
+ * O pedido cancelado que entrou no painel da Frenet e a loja não conseguiu
+ * tirar (`tirarDoParceiro`): alguém ainda pode gerar a etiqueta dele lá.
+ */
+export function canceladoNaFrenet(o: Pick<PedidoCru, "status" | "metadata">): boolean {
+  const r = lerRegistroNoPedido(o.metadata)
+  return o.status === "canceled" && Boolean(r?.entrou && !r.tirado_em && r.erro_ao_tirar)
+}
+
 const ALERTAS_DE_ENTREGA = new Set(["nao_entregue"])
 const FINS_RUINS = new Set(["devolvido", "extraviado"])
 
@@ -280,6 +300,7 @@ export function problemaDo(
   const parceiro = lerRegistroNoPedido(o.metadata)
   if (o.status !== "canceled" && parceiro && !parceiro.entrou && parceiro.definitivo)
     return "frenet"
+  if (canceladoNaFrenet(o)) return "frenet"
   if (
     envios.some((e) => ALERTAS_DE_ENTREGA.has(e.alerta ?? "") || FINS_RUINS.has(e.situacao ?? ""))
   )
@@ -696,12 +717,19 @@ function caminhoDo(
   // Frenet
   const parceiro = lerRegistroNoPedido(o.metadata)
   const saiu = envios.some((e) => e.postado_em) || enviosAtivos(o).some((f) => f.shipped_at)
-  if (parceiro?.entrou) {
+  if (parceiro?.entrou && canceladoNaFrenet(o)) {
+    frenet.estado = "erro"
+    frenet.texto = "cancelado, e ainda lá"
+  } else if (parceiro?.entrou) {
     frenet.estado = "feito"
     frenet.texto = `${parceiro.referencia} · ${hora(parceiro.em)}`
   } else if (parceiro && !parceiro.entrou) {
     frenet.estado = parceiro.definitivo ? "erro" : "agora"
-    frenet.texto = parceiro.definitivo ? "a Frenet recusou" : "tentando entrar"
+    frenet.texto = parceiro.desistiu_em
+      ? "parou de tentar"
+      : parceiro.definitivo
+        ? "a Frenet recusou"
+        : "tentando entrar"
   } else if (saiu) {
     frenet.texto = "etiqueta feita fora do painel"
   } else if (p.pagoEm && situacao === "separacao") {
@@ -827,6 +855,16 @@ function historicoDo(
 
   const parceiro = lerRegistroNoPedido(o.metadata)
   if (parceiro?.entrou) add(parceiro.em, `Pedido ${parceiro.referencia} entrou no painel da Frenet`)
+  if (parceiro?.tirado_em)
+    add(parceiro.tirado_em, `Pedido ${parceiro.referencia} saiu do painel da Frenet`)
+  else if (canceladoNaFrenet(o) && parceiro?.tentou_tirar_em)
+    add(
+      parceiro.tentou_tirar_em,
+      "A Frenet não deixou tirar o pedido cancelado",
+      parceiro.erro_ao_tirar ?? ""
+    )
+  else if (parceiro?.desistiu_em)
+    add(parceiro.desistiu_em, "A loja parou de tentar a Frenet", parceiro.erro ?? "")
   else if (parceiro?.definitivo) add(parceiro.em, "A Frenet recusou o pedido", parceiro.erro ?? "")
 
   for (const e of envios) {
@@ -879,6 +917,8 @@ function historicoDo(
  * etiqueta, e a frase inteira vai no "?".
  */
 const MOTIVOS_CURTOS: [RegExp, string][] = [
+  // Antes dos outros: o último erro da atrasada vem junto, entre parênteses.
+  [new RegExp(`^${MOTIVO_DA_NOTA_ATRASADA}`), "3 dias sem nota"],
   [/CPF|CNPJ/, "sem CPF/CNPJ"],
   [/sem endereço|endereço incompleto/, "endereço incompleto"],
   [/SKU/, "produto sem SKU"],
@@ -949,6 +989,7 @@ function faixasDo(
   }
   if (nota && notaTravada(nota)) {
     const desistiu = !nota.cancelar && nota.situacao === "a-emitir"
+    const atrasada = notaPassouDosTresDias(nota)
     const curto = motivoCurto(
       nota.cancelar ? null : desistiu ? nota.erro : (nota.detalhe ?? nota.erro)
     )
@@ -962,22 +1003,39 @@ function faixasDo(
       etiquetas: nota.cancelar ? ["até 24 h da emissão"] : curto ? [curto] : [],
       texto: nota.cancelar
         ? `O pedido foi cancelado depois da nota${nota.numero ? ` ${nota.numero}` : ""} sair. Cancele no Bling em até 24 horas da emissão.`
-        : desistiu
-          ? `A loja desistiu de emitir: ${emFrase(nota.erro ?? "o Bling recusou o pedido")} ` +
-            "Corrija o que falta e tente de novo — ou emita à mão no Bling."
-          : `${emFrase(nota.detalhe ?? nota.erro ?? "Sem detalhe do Bling")} Corrija no Bling e reenvie por lá: a loja percebe sozinha e o pedido segue pra Frenet.`,
+        : atrasada
+          ? `${emFrase(nota.erro ?? MOTIVO_DA_NOTA_ATRASADA)} A loja parou de tentar sozinha: ` +
+            "confira no Bling se a nota já foi feita à mão. Se não foi, tente de novo — ou emita à mão no Bling."
+          : desistiu
+            ? `A loja desistiu de emitir: ${emFrase(nota.erro ?? "o Bling recusou o pedido")} ` +
+              "Corrija o que falta e tente de novo — ou emita à mão no Bling."
+            : `${emFrase(nota.detalhe ?? nota.erro ?? "Sem detalhe do Bling")} Corrija no Bling e reenvie por lá: a loja percebe sozinha e o pedido segue pra Frenet.`,
       ...(desistiu && acaoNota === "de-novo" && permissoes.nota ? { botao: "nota" as const } : {}),
     })
   }
   const parceiro = lerRegistroNoPedido(o.metadata)
+  if (parceiro && canceladoNaFrenet(o)) {
+    faixas.push({
+      nivel: "grave",
+      titulo: "O pedido cancelado continua na Frenet",
+      etiquetas: [parceiro.referencia],
+      texto:
+        `A loja não conseguiu tirar o ${parceiro.referencia} do painel da Frenet: ` +
+        `${(parceiro.erro_ao_tirar ?? "sem detalhe").trim().replace(/[.\s]+$/, "")}. ` +
+        "Não gere a etiqueta dele — se já gerou, cancele a etiqueta lá. " +
+        `A loja segue tentando tirar sozinha por ${DIAS_TIRANDO} dias depois do cancelamento.`,
+    })
+  }
   if (o.status !== "canceled" && parceiro && !parceiro.entrou && parceiro.definitivo) {
     faixas.push({
       nivel: "grave",
-      titulo: "A Frenet recusou o pedido",
-      etiquetas: [],
-      texto:
-        `${emFrase(motivoDaFrenet(parceiro.erro ?? "Sem detalhe"))} Corrigido o que ela apontou, mande de novo; ` +
-        "ou faça a etiqueta à mão no painel da Frenet — e aí não mande de novo, senão o pedido aparece duas vezes lá.",
+      titulo: parceiro.desistiu_em ? "O pedido não entrou na Frenet" : "A Frenet recusou o pedido",
+      etiquetas: parceiro.desistiu_em ? ["3 dias tentando"] : [],
+      texto: parceiro.desistiu_em
+        ? `A loja tentou por 3 dias e parou. O último erro: ${emFrase(motivoDaFrenet(parceiro.erro ?? "sem detalhe"))} ` +
+          "Mande de novo; ou faça a etiqueta à mão no painel da Frenet — e aí não mande de novo, senão o pedido aparece duas vezes lá."
+        : `${emFrase(motivoDaFrenet(parceiro.erro ?? "Sem detalhe"))} Corrigido o que ela apontou, mande de novo; ` +
+          "ou faça a etiqueta à mão no painel da Frenet — e aí não mande de novo, senão o pedido aparece duas vezes lá.",
       ...(permissoes.frenet ? { botao: "frenet" as const } : {}),
     })
   }

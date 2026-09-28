@@ -4,7 +4,14 @@ import type { Papel } from "../equipe/regras"
 import { lerRegistroNoPedido } from "../envios/registro"
 import { lerRegistros as lerEstornos } from "../estornos"
 import { chaveDoDia, emFrase, hora, quando, reais } from "./formato"
-import { notaTravada, type EnvioCru, type NotaCrua, type PedidoCru } from "./pedido"
+import {
+  canceladoNaFrenet,
+  notaPassouDosTresDias,
+  notaTravada,
+  type EnvioCru,
+  type NotaCrua,
+  type PedidoCru,
+} from "./pedido"
 
 /**
  * A OBSERVABILIDADE — a saúde da loja em frase: o que quebrou e o que fazer,
@@ -347,9 +354,11 @@ export function problemasDosPedidos(pedidos: PedidoDoVigia[], agora: Date): Prob
             : `A nota do #${numero} foi rejeitada`,
         texto: nota.cancelar
           ? "O pedido foi cancelado depois da nota sair: a SEFAZ aceita o cancelamento até 24 horas depois da emissão."
-          : nota.situacao === "a-emitir"
-            ? `${emFrase(nota.erro ?? "O Bling recusou o pedido")} Corrija o que falta e tente de novo, no pedido.`
-            : `${emFrase(nota.detalhe ?? nota.erro ?? "O Bling não emitiu a nota")} Corrija no Bling e reenvie por lá — a loja percebe sozinha.`,
+          : notaPassouDosTresDias(nota)
+            ? `${emFrase(nota.erro ?? "")} Confira no Bling se a nota já foi feita à mão; se não, tente de novo, no pedido.`
+            : nota.situacao === "a-emitir"
+              ? `${emFrase(nota.erro ?? "O Bling recusou o pedido")} Corrija o que falta e tente de novo, no pedido.`
+              : `${emFrase(nota.detalhe ?? nota.erro ?? "O Bling não emitiu a nota")} Corrija no Bling e reenvie por lá — a loja percebe sozinha.`,
         detalhe:
           `[erp] ${nota.referencia}: ${nota.cancelar ? "cancelar" : nota.situacao}` +
           [nota.erro, nota.detalhe]
@@ -361,16 +370,32 @@ export function problemasDosPedidos(pedidos: PedidoDoVigia[], agora: Date): Prob
     }
 
     const parceiro = lerRegistroNoPedido(o.metadata)
+    if (parceiro && canceladoNaFrenet(o)) {
+      achados.push({
+        ...comum,
+        chave: `frenet-cancelado/${o.id}`,
+        nivel: "grave",
+        area: "Frete",
+        titulo: `O #${numero} foi cancelado e continua na Frenet`,
+        texto: `Não gere a etiqueta do ${parceiro.referencia} — se já gerou, cancele lá. A loja segue tentando tirar sozinha.`,
+        detalhe: `[envio] #${numero} cancelado, ainda no painel: ${parceiro.erro_ao_tirar ?? "sem detalhe"}`,
+        ocorreu: new Date(parceiro.tentou_tirar_em ?? parceiro.em),
+      })
+    }
     if (o.status !== "canceled" && parceiro && !parceiro.entrou && parceiro.definitivo) {
       achados.push({
         ...comum,
         chave: `frenet-recusou/${o.id}`,
         nivel: "grave",
         area: "Frete",
-        titulo: `A Frenet recusou o #${numero}`,
-        texto: `${emFrase(parceiro.erro ?? "Sem detalhe")} Faça a etiqueta à mão no painel da Frenet.`,
+        titulo: parceiro.desistiu_em
+          ? `O #${numero} não entrou na Frenet`
+          : `A Frenet recusou o #${numero}`,
+        texto: parceiro.desistiu_em
+          ? `A loja tentou por 3 dias e parou. Mande de novo, no pedido — ou faça a etiqueta à mão no painel da Frenet.`
+          : `${emFrase(parceiro.erro ?? "Sem detalhe")} Faça a etiqueta à mão no painel da Frenet.`,
         detalhe: `[envio] #${numero}: ${parceiro.erro ?? "recusado"} (${parceiro.tentativas} tentativas)`,
-        ocorreu: new Date(parceiro.em),
+        ocorreu: new Date(parceiro.desistiu_em ?? parceiro.em),
       })
     }
 
