@@ -3009,6 +3009,58 @@ O `conferir-crm.mjs` liga a jornada antes de entregar um pedido do Fator e anda 
 - confere os 5 e-mails;
 - clica nos dois botões do check-in: um vai pro avaliar, o outro pro WhatsApp ou pro contato;
 - confere que a rotina completa traz o óleo.
+
+**O CRM, parte 14: o aviso da reposição no site** (entrega 0188, a etapa 3 do plano: "o site usando
+a ficha"). Quem está com a conta aberta vê "Seu Fator de Crescimento acaba em 5 dias", com o
+"Refazer o pedido", na visão geral da conta e na home. Não é e-mail: não depende do fluxo ligado
+nem da lista.
+
+- **A conta é a dos e-mails** (`lib/crm/reposicao.ts`): `reposicoesDoEmail` faz o
+  `publicoDaReposicao` só com os pedidos de uma pessoa (os da loja nova pelo e-mail do pedido,
+  `pedidosParaAsEtiquetas(container, { email })`, e os da base da Nuvemshop), com os dias dos
+  Ajustes e a mesma janela (`naJanelaDaReposicao`).
+- **O aviso** é `avisoDaReposicao`, puro, com testes:
+  - de vários tipos, o que acaba primeiro (o que já acabou vem antes);
+  - só se a loja ainda vende algum produto da última compra desse tipo (a foto, e o que o
+    "Refazer" monta);
+  - os dias contam no calendário de Brasília (`diasAteAcabar`): "acaba em 5 dias", "amanhã",
+    "hoje"; depois, "Acabou o óleo?" (`textoDoAviso`, sem palavra de propaganda);
+  - o botão é o link de voltar dos e-mails (`repor-order_…` ou `repor-nso_…`);
+  - a `chave` (o tipo e o dia de acabar) é o que o "fechar" da home guarda.
+- **A rota** é `GET /store/crm/reposicao`, só com token de cliente (`authenticate` nos
+  middlewares). O e-mail sai da conta do token (`contaDoToken`), 60 por hora por conta, e
+  qualquer tropeço vira `{ reposicao: null }`.
+- **Na loja:**
+  - `lib/reposicao.ts` (sem diretiva) tem o tipo, o `avisoValido` e o cookie `fb_conta`;
+  - `lib/reposicao-da-conta.ts` pergunta ao Medusa com a sessão;
+  - na conta, o bloco **Pra repor** (`PraRepor`, em `components/conta/pedidos.tsx`) vem antes
+    do "Comprar de novo", que some quando é o mesmo pedido. Pra quem só comprou na loja antiga,
+    ele vem antes do "Nenhum pedido ainda".
+- **Na home** a página é a mesma pra todo mundo (vem do cache), e o cookie da sessão é só do
+  servidor. Por isso existe o **`fb_conta`**: um cookie que o navegador lê, com um sorteio
+  (`sorteioDaConta`) e nada de quem é.
+  - Ele é gravado no código de entrar (`confirmarCodigo`) e apagado no `sair` e no `/conta/sair`.
+  - O proxy (trabalho 6) grava um novo na primeira visita à conta de quem tem sessão e não tem
+    o `fb_conta` (quem entrou antes da 0188).
+  - Só com ele, `components/reposicao/na-home.tsx` pergunta (`/api/reposicao`), depois de 1,5 s,
+    com a faixa de cookies respondida e a sacola fechada. A resposta fica na aba por meia hora,
+    presa ao sorteio. O cartão (`./aviso.tsx` + `estilos/reposicao.css`) só baixa quando há
+    aviso: é fixo num canto e não empurra a página.
+  - O X guarda a `chave` no `localStorage`, e o aviso só volta na próxima reposição.
+  - `/api/reposicao` sem sessão apaga o `fb_conta`.
+  - A pergunta sai no relógio, e não direto no efeito: no `next dev` o React monta duas vezes
+    (StrictMode), e o primeiro relógio morre antes de perguntar.
+- **A política de privacidade** conta o aviso e o cookie novo.
+
+O `conferir-crm.mjs` (logo depois da reposição por e-mail, com o fluxo desligado) sobe o Fator da
+loja antiga pago há 32 dias, que acaba em 5, e entra na loja com esse e-mail:
+- confere o 401 sem token, e o `fb_conta` inventado apagado;
+- sem conta, a home não pergunta nada;
+- confere o "Pra repor" na conta e o "Refazer" até o checkout;
+- na home: o aviso fixo, a resposta guardada na aba, e o X que não volta;
+- confere o `fb_conta` que o proxy grava e o sair que leva ele.
+A página da conta ainda chegando tem o bloco duas vezes (a parte escondida do streaming): o
+conferidor lê o visível (`filter({ visible: true })`).
 **O preço e o promocional no painel** (entregas 0098 e 0102): os dois campos de cada produto na
 lista de Produtos, como na Nuvemshop (a 0098 tinha só o promocional, atrás de um botão). A regra é
 `lib/painel/promocao.ts`, pura: `lerMudancaDePreco` (o corpo `{ preco?, promocional? }` contra o

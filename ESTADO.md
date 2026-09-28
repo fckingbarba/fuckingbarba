@@ -3734,6 +3734,21 @@ depois que o pedido chega, contados do dia da entrega (pelo aviso da Frenet).
 
 - [ ] **Depois do deploy (você):** CRM → Fluxos → Jornada → "Mandar pra mim" nos dias (é a jornada
       do Fator) e depois a chave. Vale pros pedidos que chegarem depois de ligar.
+
+**CRM, parte 14: o aviso da reposição no site — pronto em 28/09 (entrega 0188).** Quem entra na
+conta vê quando o produto dele está acabando, pela mesma conta dos e-mails da reposição.
+
+- **Na conta, em "Visão geral":** o bloco **Pra repor**, com a foto, "Seu Fator de Crescimento
+  acaba em 5 dias" e o botão **Refazer o pedido** (monta a sacola igual à da última compra e abre
+  o checkout).
+- **Na página inicial:** o mesmo aviso sobe num canto, pequeno, com o X pra fechar. Fechado, só
+  volta na próxima vez que o produto for acabar.
+- **Só pra quem está com a conta aberta.** Vale pra quem comprou aqui e na loja antiga.
+- **Aparece de uns 8 dias antes a uns 10 dias depois** do dia de acabar. Depois do dia: "Acabou o
+  Fator de Crescimento?".
+- **Não é e-mail:** vale já, com a Reposição desligada, e pra quem saiu da lista.
+- **A política de privacidade** conta.
+- Nada a fazer depois do deploy.
 **A parcela mínima do cartão, editável — pronta em 27/09 (entrega 0157).** O pedido dele: "quero
 poder editar a parcela mínima no cartão, ali diz 5 reais". Em **Configurações → Pagamento**, o
 bloco **Parcelas no cartão** tem o campo **Parcela mínima**.
