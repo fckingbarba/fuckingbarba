@@ -1,3 +1,4 @@
+import { lerPeriodo } from "../periodo"
 import { janelasDo, type Venda } from "../marketing"
 import {
   catalogoDos,
@@ -54,8 +55,10 @@ const ga = (linhas: [string, number, number][]): RelatorioGa4 => ({
 
 describe("a pergunta e o catálogo", () => {
   it("as vezes vista e posta na sacola, só das variantes da loja nova", () => {
-    expect(perguntaDosProdutos("7d")).toEqual({
-      dateRanges: [{ startDate: "6daysAgo", endDate: "today" }],
+    expect(
+      perguntaDosProdutos(lerPeriodo({ periodo: "7d" }, new Date("2026-09-24T15:00:00.000Z")))
+    ).toEqual({
+      dateRanges: [{ startDate: "2026-09-18", endDate: "2026-09-24" }],
       dimensions: [{ name: "itemId" }],
       metrics: [{ name: "itemsViewed" }, { name: "itemsAddedToCart" }],
       dimensionFilter: {

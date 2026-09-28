@@ -2,12 +2,18 @@ import {
   baldeDoDia,
   baldeDoInstante,
   baldesDo,
+  chaveDoPeriodo,
+  datasComOAntes,
+  datasNoGoogle,
   diasEntre,
   janelasNoCorte,
+  lerAtalho,
   lerDesde,
   lerPeriodo,
   MAXIMO_DE_DIAS,
   pediuPeriodo,
+  periodoEmFrase,
+  periodoNaTela,
 } from "../periodo"
 
 /**
@@ -101,8 +107,30 @@ describe("o período dos botões", () => {
     expect(p.nomeDoAntes).toBeNull()
   })
 
-  it("botão que não existe vira hoje (sem aviso: é endereço velho, não erro de quem escolheu)", () => {
-    expect(lerPeriodo({ periodo: "90d" }, AGORA)).toMatchObject({ atalho: "hoje", aviso: null })
+  it("botão que não existe vira o padrão da tela (sem aviso: é endereço velho, não erro de quem escolheu)", () => {
+    expect(lerPeriodo({ periodo: "1ano" }, AGORA)).toMatchObject({ atalho: "hoje", aviso: null })
+    expect(lerPeriodo({ periodo: "1ano" }, AGORA, "30d")).toMatchObject({
+      atalho: "30d",
+      aviso: null,
+    })
+    expect(lerPeriodo({}, AGORA, "30d")).toMatchObject({ atalho: "30d", nome: "Últimos 30 dias" })
+  })
+
+  it("90 dias (o do Marketing, 0191): semana a semana, contra os 90 de antes", () => {
+    const p = lerPeriodo({ periodo: "90d" }, AGORA, "30d")
+    expect(p).toMatchObject({ atalho: "90d", passo: "semana", nome: "Últimos 90 dias" })
+    expect([p.de, p.ate, p.antes?.de, p.antes?.ate]).toEqual([
+      "2026-07-01",
+      "2026-09-28",
+      "2026-04-02",
+      "2026-06-30",
+    ])
+  })
+
+  it("o aviso diz o padrão da tela", () => {
+    expect(lerPeriodo({ de: "2026-02-31", ate: "2026-03-01" }, AGORA, "30d").aviso).toBe(
+      "As datas não valem — mostrando os últimos 30 dias."
+    )
   })
 
   it("só com algum parâmetro o período entra na resposta (o painel de antes não manda nenhum)", () => {
@@ -248,5 +276,59 @@ describe("o corte do Google e a leitura", () => {
     expect(lerDesde(lerPeriodo({ periodo: "7d", comparar: "nenhum" }, AGORA))).toEqual(
       meiaNoite("2026-09-19")
     )
+  })
+})
+
+describe("o período na tela, no título e no Google (0191)", () => {
+  it("o que a barra recebe: os dias, os nomes e o de antes; sem comparar, nada do de antes", () => {
+    expect(periodoNaTela(lerPeriodo({ periodo: "7d" }, AGORA))).toEqual({
+      atalho: "7d",
+      de: "2026-09-22",
+      ate: "2026-09-28",
+      ateAgora: true,
+      passo: "dia",
+      nome: "Últimos 7 dias",
+      datas: "22/09 a 28/09",
+      nomeDoAntes: "15/09 a 21/09",
+      aviso: null,
+      comparar: true,
+      antesDe: "2026-09-15",
+      antesAte: "2026-09-21",
+    })
+    expect(periodoNaTela(lerPeriodo({ periodo: "7d", comparar: "nenhum" }, AGORA))).toMatchObject({
+      comparar: false,
+      nomeDoAntes: null,
+      antesDe: null,
+      antesAte: null,
+    })
+  })
+
+  it("o período numa frase, pro fim do título do gráfico", () => {
+    const frase = (busca: Parameters<typeof lerPeriodo>[0]) =>
+      periodoEmFrase(lerPeriodo(busca, AGORA))
+    expect(frase({})).toBe("hoje")
+    expect(frase({ periodo: "ontem" })).toBe("ontem")
+    expect(frase({ periodo: "90d" })).toBe("nos últimos 90 dias")
+    expect(frase({ periodo: "mes" })).toBe("neste mês")
+    expect(frase({ periodo: "mes-passado" })).toBe("em agosto")
+    expect(frase({ de: "2026-09-14", ate: "2026-09-20" })).toBe("de 14/09 a 20/09")
+    expect(frase({ de: "2026-09-14", ate: "2026-09-14" })).toBe("em 14/09")
+  })
+
+  it("o Google recebe as datas escritas; o de antes só quando compara, e a chave do cache muda junto", () => {
+    const p = lerPeriodo({ periodo: "7d" }, AGORA)
+    const sem = lerPeriodo({ periodo: "7d", comparar: "nenhum" }, AGORA)
+    expect(datasNoGoogle(p)).toEqual([{ startDate: "2026-09-22", endDate: "2026-09-28" }])
+    expect(datasComOAntes(p)).toEqual([{ startDate: "2026-09-15", endDate: "2026-09-28" }])
+    expect(datasComOAntes(sem)).toEqual([{ startDate: "2026-09-22", endDate: "2026-09-28" }])
+    expect(chaveDoPeriodo(p)).toBe("2026-09-22:2026-09-28:2026-09-15")
+    expect(chaveDoPeriodo(sem)).toBe("2026-09-22:2026-09-28:-")
+  })
+
+  it("só um botão que existe é botão", () => {
+    expect(lerAtalho(" 90d ")).toBe("90d")
+    expect(lerAtalho("mes-passado")).toBe("mes-passado")
+    expect(lerAtalho("1ano")).toBeNull()
+    expect(lerAtalho(undefined)).toBeNull()
   })
 })

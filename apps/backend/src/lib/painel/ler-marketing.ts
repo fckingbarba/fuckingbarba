@@ -13,15 +13,7 @@ import {
   produtosPublicados,
 } from "./ler"
 import { estoquesDos, lerProdutos, metadataDos } from "./ler-produtos"
-import {
-  enderecoDaLoja,
-  hostsDaLoja,
-  janelasDo,
-  lerPedidosDesde,
-  somaNa,
-  vendasDos,
-  type Periodo,
-} from "./marketing"
+import { enderecoDaLoja, hostsDaLoja, lerPedidosDesde, somaNa, vendasDos } from "./marketing"
 import { juntarAchados, type AchadosDoResumo, type SemGoogleNoResumo } from "./marketing-achados"
 import { montarCanais, perguntasDosCanais } from "./marketing-canais"
 import { montarClientes } from "./marketing-clientes"
@@ -38,6 +30,7 @@ import {
 import { caixasDos, montarOfertas } from "./marketing-ofertas"
 import { montarPagamento } from "./marketing-pagamento"
 import { catalogoDos, montarProdutos, perguntaDosProdutos } from "./marketing-produtos"
+import { chaveDoPeriodo, periodoNaTela, type Periodo, type PeriodoNaTela } from "./periodo"
 import type { RelatorioGa4 } from "./visitas"
 
 /**
@@ -59,7 +52,7 @@ export async function lerFunilDoMarketing(
   periodo: Periodo,
   agora: Date
 ) {
-  const { atual } = janelasDo(periodo, agora)
+  const { atual } = periodo
   const [carrinhos, pedidos] = await Promise.all([
     carrinhosDesde(container, atual.de),
     pedidosDesde(container, atual.de, { comMetadata: true }),
@@ -82,7 +75,7 @@ export async function lerFunilDoMarketing(
       const hosts = hostsDaLoja(process.env.LOJA_URL)
       const r = await relatoriosDoMarketing(
         cfg,
-        `funil:${periodo}:${hosts.join(",")}`,
+        `funil:${chaveDoPeriodo(periodo)}:${hosts.join(",")}`,
         perguntasDoFunil(periodo, hosts),
         agora
       )
@@ -103,7 +96,7 @@ export async function lerFunilDoMarketing(
     }
 
   return {
-    periodo,
+    periodo: periodoNaTela(periodo),
     checkout,
     ...google,
     achados: google.estado === "ok" ? achadosDoFunil(google.site, google.aparelhos) : [],
@@ -124,9 +117,9 @@ export async function lerCanaisDoMarketing(
     pedidosDesde(container, lerPedidosDesde(periodo, agora)),
     produtosPublicados(container),
   ])
-  const pagos = somaNa(vendasDos(pedidos), janelasDo(periodo, agora).atual)
+  const pagos = somaNa(vendasDos(pedidos), periodo.atual)
   const base = {
-    periodo,
+    periodo: periodoNaTela(periodo),
     pagos,
     loja: enderecoDaLoja(process.env.LOJA_URL),
     paginas: [
@@ -142,7 +135,7 @@ export async function lerCanaisDoMarketing(
     const hosts = hostsDaLoja(process.env.LOJA_URL)
     const r = await relatoriosDoMarketing(
       cfg,
-      `canais:${periodo}:${hosts.join(",")}`,
+      `canais:${chaveDoPeriodo(periodo)}:${hosts.join(",")}`,
       perguntasDosCanais(periodo, hosts),
       agora
     )
@@ -171,7 +164,7 @@ export async function lerProdutosDoMarketing(
   ])
   const catalogo = catalogoDos(produtos, await estoquesDos(container, produtos))
   const vendas = vendasDos(pedidos)
-  const { atual } = janelasDo(periodo, agora)
+  const { atual } = periodo
 
   let ga: RelatorioGa4 | null = null
   let estado: EstadoDoGoogle = "ok"
@@ -181,7 +174,7 @@ export async function lerProdutosDoMarketing(
     try {
       ;[ga] = await relatoriosDoMarketing(
         cfg,
-        `produtos:${periodo}`,
+        `produtos:${chaveDoPeriodo(periodo)}`,
         [perguntaDosProdutos(periodo)],
         agora
       )
@@ -195,7 +188,7 @@ export async function lerProdutosDoMarketing(
       )
     }
 
-  return { periodo, estado, ...montarProdutos(catalogo, vendas, atual, ga) }
+  return { periodo: periodoNaTela(periodo), estado, ...montarProdutos(catalogo, vendas, atual, ga) }
 }
 
 /** As ofertas: a caixa de compra de cada produto, a oferta do checkout e os cupons. Tudo da loja. */
@@ -213,12 +206,8 @@ export async function lerOfertasDoMarketing(
     produtos.filter((p) => p.status === "published").map((p) => p.id)
   )
   return {
-    periodo,
-    ...montarOfertas(
-      caixasDos(produtos, metadata),
-      vendasDos(pedidos),
-      janelasDo(periodo, agora).atual
-    ),
+    periodo: periodoNaTela(periodo),
+    ...montarOfertas(caixasDos(produtos, metadata), vendasDos(pedidos), periodo.atual),
   }
 }
 
@@ -233,9 +222,9 @@ export async function lerClientesDoMarketing(
     numerosDaNewsletter(container, agora),
   ])
   return {
-    periodo,
+    periodo: periodoNaTela(periodo),
     newsletter,
-    ...montarClientes(pedidos, janelasDo(periodo, agora).atual),
+    ...montarClientes(pedidos, periodo.atual),
   }
 }
 
@@ -249,7 +238,7 @@ export async function lerPagamentoDoMarketing(
   periodo: Periodo,
   agora: Date
 ) {
-  const { atual } = janelasDo(periodo, agora)
+  const { atual } = periodo
   const [pedidos, carrinhos, lojas, anotadas] = await Promise.all([
     // Os pedidos com a folga do Resumo: o feito antes e pago dentro conta como pago no período.
     pedidosComPagamento(container, lerPedidosDesde(periodo, agora)),
@@ -262,7 +251,10 @@ export async function lerPagamentoDoMarketing(
       .catch(() => []),
   ])
   const politica = lerConfiguracoes(lojas[0]?.metadata).frete
-  return { periodo, ...montarPagamento(pedidos, carrinhos, politica, atual, agora, anotadas) }
+  return {
+    periodo: periodoNaTela(periodo),
+    ...montarPagamento(pedidos, carrinhos, politica, atual, agora, anotadas),
+  }
 }
 
 /**
@@ -275,7 +267,7 @@ export async function lerAchadosDoMarketing(
   container: MedusaContainer,
   periodo: Periodo,
   agora: Date
-): Promise<{ periodo: Periodo } & AchadosDoResumo> {
+): Promise<{ periodo: PeriodoNaTela } & AchadosDoResumo> {
   const [funil, canais, produtos, ofertas, clientes, pagamento] = await Promise.all([
     lerFunilDoMarketing(container, periodo, agora),
     lerCanaisDoMarketing(container, periodo, agora),
@@ -290,7 +282,7 @@ export async function lerAchadosDoMarketing(
       (e): e is SemGoogleNoResumo => e !== "ok"
     ) ?? null
   return {
-    periodo,
+    periodo: periodoNaTela(periodo),
     ...juntarAchados(
       {
         funil: funil.achados,

@@ -3,7 +3,6 @@ import {
   janelasDo,
   lerMetas,
   lerPedidosDesde,
-  lerPeriodo,
   lerValorDaMeta,
   maisVendidosNo,
   meiaNoite,
@@ -18,6 +17,7 @@ import {
   visitasDoPeriodo,
 } from "../marketing"
 import type { PedidoCru } from "../pedido"
+import { lerPeriodo, type Atalho } from "../periodo"
 import type { RelatorioGa4 } from "../visitas"
 
 /**
@@ -29,6 +29,10 @@ import type { RelatorioGa4 } from "../visitas"
  */
 
 const AGORA = new Date("2026-09-24T15:00:00.000Z")
+
+/** O período de um botão, como a rota lê (o padrão do Marketing: 30 dias). */
+const periodo = (atalho: Atalho, comparar = true) =>
+  lerPeriodo({ periodo: atalho, ...(comparar ? {} : { comparar: "nenhum" }) }, AGORA, "30d")
 
 /** Um instante em Brasília: "2026-09-24 10:30". */
 const em = (quando: string) => new Date(`${quando.replace(" ", "T")}:00-03:00`).toISOString()
@@ -93,17 +97,17 @@ describe("as janelas", () => {
     expect(j.antes.ate.toISOString()).toBe("2026-09-23T15:00:00.000Z")
   })
 
-  it("o período que não existe vira o padrão (30 dias)", () => {
-    expect(lerPeriodo("7d")).toBe("7d")
-    expect(lerPeriodo("1a")).toBe("30d")
-    expect(lerPeriodo(undefined)).toBe("30d")
+  it("o período que não existe vira o padrão do Marketing (30 dias)", () => {
+    expect(lerPeriodo({ periodo: "7d" }, AGORA, "30d").atalho).toBe("7d")
+    expect(lerPeriodo({ periodo: "1a" }, AGORA, "30d").atalho).toBe("30d")
+    expect(lerPeriodo({}, AGORA, "30d").atalho).toBe("30d")
   })
 
   it("lê os pedidos desde o de antes ou o começo do mês, o que vier primeiro, com folga", () => {
     // 7 dias: o de antes começa em 11/09, depois do dia 1º — vale o mês.
-    expect(lerPedidosDesde("7d", AGORA).toISOString()).toBe("2026-08-29T03:00:00.000Z")
+    expect(lerPedidosDesde(periodo("7d"), AGORA).toISOString()).toBe("2026-08-29T03:00:00.000Z")
     // 90 dias: o período começa em 27/06, e o de antes, em 29/03.
-    expect(lerPedidosDesde("90d", AGORA).toISOString()).toBe("2026-03-26T03:00:00.000Z")
+    expect(lerPedidosDesde(periodo("90d"), AGORA).toISOString()).toBe("2026-03-26T03:00:00.000Z")
   })
 })
 
@@ -128,7 +132,7 @@ describe("as vendas", () => {
       // Depois do corte do de antes (17/09 12h): não conta em nenhum dos dois.
       pedido({ id: "d", pagoEm: em("2026-09-17 12:01"), total: 999 }),
     ])
-    const n = numerosDo(vendas, janelasDo("7d", AGORA))
+    const n = numerosDo(vendas, periodo("7d"))
     expect(n.receita).toEqual({ valor: 300, antes: 150, variacao: 100 })
     expect(n.pedidos).toEqual({ valor: 2, antes: 1, variacao: 100 })
     expect(n.ticket).toEqual({ valor: 150, antes: 150, variacao: 0 })
@@ -137,9 +141,18 @@ describe("as vendas", () => {
   it("sem nada antes, não há comparação (nem 0%, nem infinito)", () => {
     const n = numerosDo(
       vendasDos([pedido({ id: "a", pagoEm: em("2026-09-24 10:00"), total: 100 })]),
-      janelasDo("hoje", AGORA)
+      periodo("hoje")
     )
     expect(n.receita).toEqual({ valor: 100, antes: 0, variacao: null })
+  })
+
+  it("sem comparar, o de antes nem vem (0191)", () => {
+    const n = numerosDo(
+      vendasDos([pedido({ id: "a", pagoEm: em("2026-09-24 10:00"), total: 100 })]),
+      periodo("7d", false)
+    )
+    expect(n.receita).toEqual({ valor: 100, antes: null, variacao: null })
+    expect(n.ticket).toEqual({ valor: 100, antes: null, variacao: null })
   })
 })
 
@@ -151,7 +164,7 @@ describe("o gráfico", () => {
   ])
 
   it("hoje: por hora, até a de agora", () => {
-    const s = serieDo("hoje", vendas, janelasDo("hoje", AGORA), AGORA)
+    const s = serieDo(periodo("hoje"), vendas, AGORA)
     expect(s.titulo).toBe("Receita por hora, hoje")
     expect(s.barras).toHaveLength(13)
     expect(s.barras[10]).toMatchObject({ valor: 150, pedidos: 2, nome: "10h", rotulo: "" })
@@ -160,7 +173,7 @@ describe("o gráfico", () => {
   })
 
   it("7 dias: por dia, com o dia da semana, e o hoje", () => {
-    const s = serieDo("7d", vendas, janelasDo("7d", AGORA), AGORA)
+    const s = serieDo(periodo("7d"), vendas, AGORA)
     expect(s.barras.map((b) => b.rotulo)).toEqual([
       "sex 18",
       "sáb 19",
@@ -175,7 +188,7 @@ describe("o gráfico", () => {
   })
 
   it("30 dias: 30 barras, com o dia de 7 em 7 embaixo", () => {
-    const s = serieDo("30d", vendas, janelasDo("30d", AGORA), AGORA)
+    const s = serieDo(periodo("30d"), vendas, AGORA)
     expect(s.barras).toHaveLength(30)
     expect(s.barras.filter((b) => b.rotulo).map((b) => b.rotulo)).toEqual([
       "26/08",
@@ -187,7 +200,7 @@ describe("o gráfico", () => {
   })
 
   it("90 dias: por semana, de hoje pra trás — a mais velha com o que sobrou", () => {
-    const s = serieDo("90d", vendas, janelasDo("90d", AGORA), AGORA)
+    const s = serieDo(periodo("90d"), vendas, AGORA)
     expect(s.titulo).toBe("Receita por semana, nos últimos 90 dias")
     expect(s.barras).toHaveLength(13)
     expect(s.barras[0].nome).toBe("27/06 a 02/07")
@@ -289,18 +302,22 @@ describe("as visitas e a conversão", () => {
   })
 
   it("a pergunta: o período e o de antes, hora a hora, filtrada pelo endereço", () => {
-    expect(perguntaDasVisitas("7d", ["a.com"])).toMatchObject({
-      dateRanges: [{ startDate: "13daysAgo", endDate: "today" }],
+    expect(perguntaDasVisitas(periodo("7d"), ["a.com"])).toMatchObject({
+      dateRanges: [{ startDate: "2026-09-11", endDate: "2026-09-24" }],
       dimensions: [{ name: "date" }, { name: "hour" }],
       dimensionFilter: { filter: { fieldName: "hostName", inListFilter: { values: ["a.com"] } } },
     })
-    expect(perguntaDasVisitas("hoje", [])).not.toHaveProperty("dimensionFilter")
-    expect(perguntaDasVisitas("hoje", []).dateRanges[0].startDate).toBe("1daysAgo")
+    expect(perguntaDasVisitas(periodo("hoje"), [])).not.toHaveProperty("dimensionFilter")
+    expect(perguntaDasVisitas(periodo("hoje"), []).dateRanges[0].startDate).toBe("2026-09-23")
+    // Sem comparar, só as datas do período (0191).
+    expect(perguntaDasVisitas(periodo("7d", false), []).dateRanges).toEqual([
+      { startDate: "2026-09-18", endDate: "2026-09-24" },
+    ])
   })
 
   it("a pergunta das compras: as mesmas datas, hora a hora, só as da loja pelo id do pedido", () => {
-    expect(perguntaDasCompras("7d")).toEqual({
-      dateRanges: [{ startDate: "13daysAgo", endDate: "today" }],
+    expect(perguntaDasCompras(periodo("7d"))).toEqual({
+      dateRanges: [{ startDate: "2026-09-11", endDate: "2026-09-24" }],
       dimensions: [{ name: "date" }, { name: "hour" }],
       metrics: [{ name: "ecommercePurchases" }],
       dimensionFilter: {
@@ -312,8 +329,8 @@ describe("as visitas e a conversão", () => {
       limit: "10000",
     })
     // A compra vai pelo servidor, sem página: o filtro do endereço a deixaria de fora.
-    expect(JSON.stringify(perguntaDasCompras("hoje"))).not.toContain("hostName")
-    expect(perguntaDasCompras("hoje").dateRanges[0].startDate).toBe("1daysAgo")
+    expect(JSON.stringify(perguntaDasCompras(periodo("hoje")))).not.toContain("hostName")
+    expect(perguntaDasCompras(periodo("hoje")).dateRanges[0].startDate).toBe("2026-09-23")
   })
 
   /** Um relatório por dia e hora: `{ "20260924": { 9: 10 } }`. */
@@ -339,7 +356,7 @@ describe("as visitas e a conversão", () => {
       // Hoje ao meio-dia: a hora ainda pela metade, fora. Ontem às 15h: fora do de antes.
       { "20260924": { 10: 1, 11: 1, 12: 1 }, "20260923": { 10: 1, 15: 1 } }
     )
-    const v = visitasDoPeriodo(r, "hoje", AGORA)
+    const v = visitasDoPeriodo(r, periodo("hoje"), AGORA)
     expect(v.ate).toBe(12)
     expect(v.visitas).toEqual({ valor: 50, antes: 50, variacao: 0 })
     expect(v.pedidos).toEqual({ valor: 2, antes: 1, variacao: 100 })
@@ -352,7 +369,7 @@ describe("as visitas e a conversão", () => {
       // Depois das 8h: o Google ainda não somou as visitas dessas horas.
       { "20260924": { 7: 1, 10: 1 }, "20260923": { 7: 1, 9: 1 } }
     )
-    const v = visitasDoPeriodo(r, "hoje", AGORA)
+    const v = visitasDoPeriodo(r, periodo("hoje"), AGORA)
     // A última hora com visita (8h) pode estar pela metade: conta até antes dela.
     expect(v.ate).toBe(8)
     expect(v.visitas).toEqual({ valor: 20, antes: 40, variacao: -50 })
@@ -362,7 +379,7 @@ describe("as visitas e a conversão", () => {
 
   it("só as compras que o Google viu: sem nenhuma, a conversão é zero, não o pedido de quem recusou", () => {
     // Quem recusou os cookies pode ter pago no período: não vira visita, nem compra aqui.
-    const v = visitasDoPeriodo(doGoogle({ "20260924": { 9: 20, 11: 30 } }), "hoje", AGORA)
+    const v = visitasDoPeriodo(doGoogle({ "20260924": { 9: 20, 11: 30 } }), periodo("hoje"), AGORA)
     expect(v.visitas.valor).toBe(50)
     expect(v.pedidos).toEqual({ valor: 0, antes: 0, variacao: null })
     expect(v.conversao).toEqual({ valor: 0, antes: null, variacao: null })
@@ -373,7 +390,7 @@ describe("as visitas e a conversão", () => {
       { "20260923": { 6: 5, 9: 40 }, "20260924": { 6: 8 } },
       { "20260924": { 6: 1 } }
     )
-    const v = visitasDoPeriodo(r, "hoje", AGORA)
+    const v = visitasDoPeriodo(r, periodo("hoje"), AGORA)
     expect(v.ate).toBe(6)
     // Ontem, só antes das 6h: nada.
     expect(v.visitas).toEqual({ valor: 0, antes: 0, variacao: null })
@@ -397,15 +414,34 @@ describe("as visitas e a conversão", () => {
         "20260924": { 11: 1, 12: 1 },
       }
     )
-    const v = visitasDoPeriodo(r, "7d", AGORA)
+    const v = visitasDoPeriodo(r, periodo("7d"), AGORA)
     expect(v.ate).toBe(12)
     expect(v.visitas).toEqual({ valor: 13, antes: 10, variacao: 30 })
     expect(v.pedidos).toEqual({ valor: 2, antes: 1, variacao: 100 })
     expect(v.conversao).toEqual({ valor: 15.38, antes: 10, variacao: 54 })
   })
 
+  it("um período que já acabou vai inteiro, sem corte; sem comparar, o de antes é nulo (0191)", () => {
+    const r = doGoogle(
+      { "20260922": { 9: 10, 22: 5 }, "20260921": { 20: 7 }, "20260924": { 9: 99 } },
+      { "20260922": { 22: 1 } }
+    )
+    const ontem = lerPeriodo({ de: "2026-09-22", ate: "2026-09-22" }, AGORA, "30d")
+    const v = visitasDoPeriodo(r, ontem, AGORA)
+    expect(v.ate).toBeNull()
+    expect(v.visitas).toEqual({ valor: 15, antes: 7, variacao: 114 })
+    expect(v.pedidos).toEqual({ valor: 1, antes: 0, variacao: null })
+    const sem = visitasDoPeriodo(
+      r,
+      lerPeriodo({ de: "2026-09-22", ate: "2026-09-22", comparar: "nenhum" }, AGORA, "30d"),
+      AGORA
+    )
+    expect(sem.visitas).toEqual({ valor: 15, antes: null, variacao: null })
+    expect(sem.conversao).toEqual({ valor: 6.67, antes: null, variacao: null })
+  })
+
   it("nada de hoje ainda: `ate` nulo, e os dias inteiros contam", () => {
-    const v = visitasDoPeriodo(doGoogle({ "20260923": { 9: 40 } }), "7d", AGORA)
+    const v = visitasDoPeriodo(doGoogle({ "20260923": { 9: 40 } }), periodo("7d"), AGORA)
     expect(v.ate).toBeNull()
     expect(v.visitas.valor).toBe(40)
   })
@@ -414,12 +450,12 @@ describe("as visitas e a conversão", () => {
 describe("o resumo inteiro", () => {
   it("junta os números, o gráfico, os produtos e a meta do período", () => {
     const r = montarResumo(
-      "7d",
+      periodo("7d"),
       [pedido({ id: "a", pagoEm: em("2026-09-24 10:00"), total: 100 })],
       { "2026-09": 1000 },
       AGORA
     )
-    expect(r.periodo).toBe("7d")
+    expect(r.periodo).toMatchObject({ atalho: "7d", nome: "Últimos 7 dias", comparar: true })
     expect(r.numeros.receita.valor).toBe(100)
     expect(r.serie.barras).toHaveLength(7)
     expect(r.meta).toMatchObject({ valor: 1000, feito: 100 })

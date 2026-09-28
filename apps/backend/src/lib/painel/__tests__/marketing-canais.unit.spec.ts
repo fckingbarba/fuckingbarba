@@ -1,3 +1,4 @@
+import { lerPeriodo } from "../periodo"
 import { canalDe, montarCanais, perguntasDosCanais } from "../marketing-canais"
 import type { RelatorioGa4 } from "../visitas"
 
@@ -32,8 +33,11 @@ describe("o nome do canal", () => {
 
 describe("as perguntas ao GA4", () => {
   it("as visitas só do endereço da loja; as compras só as da loja, pelo id do pedido", () => {
-    const [visitas, compras] = perguntasDosCanais("7d", ["loja.com"])
-    expect(visitas.dateRanges).toEqual([{ startDate: "6daysAgo", endDate: "today" }])
+    const [visitas, compras] = perguntasDosCanais(
+      lerPeriodo({ periodo: "7d" }, new Date("2026-09-24T15:00:00.000Z")),
+      ["loja.com"]
+    )
+    expect(visitas.dateRanges).toEqual([{ startDate: "2026-09-18", endDate: "2026-09-24" }])
     expect(visitas.dimensions.map((d) => d.name)).toEqual([
       "sessionSource",
       "sessionMedium",
@@ -51,7 +55,9 @@ describe("as perguntas ao GA4", () => {
         stringFilter: { matchType: "BEGINS_WITH", value: "order_" },
       },
     })
-    expect(perguntasDosCanais("hoje", [])[0]).not.toHaveProperty("dimensionFilter")
+    expect(
+      perguntasDosCanais(lerPeriodo({}, new Date("2026-09-24T15:00:00.000Z")), [])[0]
+    ).not.toHaveProperty("dimensionFilter")
   })
 })
 
