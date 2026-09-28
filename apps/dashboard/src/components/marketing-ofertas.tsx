@@ -3,7 +3,7 @@ import Link from "next/link"
 import { Icone } from "@/components/icones"
 import { Achados } from "@/components/marketing"
 import { CabecaDoBloco } from "@/components/visual"
-import { lerOfertas, type OfertaDoProduto, type Periodo } from "@/lib/marketing"
+import { lerOfertas, type OfertaDoProduto } from "@/lib/marketing"
 import { reais } from "@/lib/pedidos"
 
 /**
@@ -51,8 +51,8 @@ function Caixa({ o }: { o: OfertaDoProduto }) {
   )
 }
 
-export async function TelaDasOfertas({ periodo }: { periodo: Periodo }) {
-  const o = await lerOfertas(periodo)
+export async function TelaDasOfertas({ consulta }: { consulta: string }) {
+  const o = await lerOfertas(consulta)
   if (!o)
     return (
       <p className="sem-dados">Não consegui falar com a loja agora. Recarregue daqui a pouco.</p>

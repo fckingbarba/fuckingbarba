@@ -3,12 +3,7 @@ import Link from "next/link"
 import { Icone } from "@/components/icones"
 import { Achados, SEM_VISITAS } from "@/components/marketing"
 import { CabecaDoBloco } from "@/components/visual"
-import {
-  lerProdutosDoMarketing,
-  type Periodo,
-  type ProdutoNoMarketing,
-  type Sinal,
-} from "@/lib/marketing"
+import { lerProdutosDoMarketing, type ProdutoNoMarketing, type Sinal } from "@/lib/marketing"
 import { reais } from "@/lib/pedidos"
 
 /**
@@ -62,8 +57,8 @@ function classeDaSacola(p: ProdutoNoMarketing, media: number | null) {
   return undefined
 }
 
-export async function TelaDosProdutos({ periodo }: { periodo: Periodo }) {
-  const r = await lerProdutosDoMarketing(periodo)
+export async function TelaDosProdutos({ consulta }: { consulta: string }) {
+  const r = await lerProdutosDoMarketing(consulta)
   if (!r)
     return (
       <p className="sem-dados">Não consegui falar com a loja agora. Recarregue daqui a pouco.</p>

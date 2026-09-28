@@ -11,7 +11,16 @@ import {
 } from "./marketing"
 import { passosDo, type Passo } from "./marketing-funil"
 import { nomeCurto, type LinhaDaLista, type PedidoCru } from "./pedido"
-import { baldeDoInstante, baldesDo, type Comparado, type Periodo } from "./periodo"
+import {
+  baldeDoInstante,
+  baldesDo,
+  periodoNaTela,
+  type Comparado,
+  type Periodo,
+  type PeriodoNaTela,
+} from "./periodo"
+
+export type { PeriodoNaTela }
 
 /**
  * O INÍCIO NO PERÍODO (entrega 0186) — a parte do Início que muda com a
@@ -49,17 +58,6 @@ export type BarraDoPeriodo = {
   antes: { pedidos: number; receita: number } | null
 }
 
-/** O que o painel precisa saber do período pra desenhar a barra e as frases. */
-export type PeriodoNaTela = Pick<
-  Periodo,
-  "atalho" | "de" | "ate" | "ateAgora" | "passo" | "nome" | "datas" | "nomeDoAntes" | "aviso"
-> & {
-  comparar: boolean
-  /** Os dias do de antes; `null` sem comparar. */
-  antesDe: string | null
-  antesAte: string | null
-}
-
 export type VendidoNoPeriodo = { nome: string; imagem: string | null; unidades: number }
 
 export type InicioNoPeriodo = {
@@ -85,21 +83,6 @@ const numero = (v: unknown) => {
   return Number.isFinite(n) ? n : 0
 }
 const texto = (v: unknown) => (typeof v === "string" ? v.trim() : "")
-
-export const periodoNaTela = (p: Periodo): PeriodoNaTela => ({
-  atalho: p.atalho,
-  de: p.de,
-  ate: p.ate,
-  ateAgora: p.ateAgora,
-  passo: p.passo,
-  nome: p.nome,
-  datas: p.datas,
-  nomeDoAntes: p.nomeDoAntes,
-  aviso: p.aviso,
-  comparar: p.antes !== null,
-  antesDe: p.antes?.de ?? null,
-  antesAte: p.antes?.ate ?? null,
-})
 
 /* ── as vendas da Nuvemshop ───────────────────────────────────────────────── */
 

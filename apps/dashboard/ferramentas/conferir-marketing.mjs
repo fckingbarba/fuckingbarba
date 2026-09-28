@@ -39,6 +39,10 @@
  * │   "quem gera mais" sem volume (0154);                                  │
  * │ • o "O que os dados dizem" diferente das abas, fora de ordem, ou       │
  * │   perdendo frase; o atalho que não abre a aba;                         │
+ * │ • o período da barra de cima (o do Início, 0191) diferente entre a     │
+ * │   barra, a API e o Google; a aba que perde o período, as datas que     │
+ * │   saem da aba, o "não comparar" que ainda compara; os 90 dias no       │
+ * │   Início;                                                              │
  * │ • o Google fora quebrando a tela; dado de cliente na resposta;         │
  * │ • rolagem de lado no celular; erro no console.                         │
  * └────────────────────────────────────────────────────────────────────────┘
@@ -118,6 +122,10 @@ const HORA = new Intl.DateTimeFormat("en-GB", {
   hourCycle: "h23",
 })
 const diaDoGa4 = (atras) => DIA.format(Date.now() - atras * DIA_MS).replace(/-/g, "")
+/** O dia de `atras` dias atrás como o painel escreve no endereço e o backend pergunta ao Google. */
+const diaIso = (atras) => DIA.format(Date.now() - atras * DIA_MS)
+/** "27/09". */
+const diaEMes = (atras) => `${diaIso(atras).slice(8, 10)}/${diaIso(atras).slice(5, 7)}`
 const HORA_AGORA = Number(HORA.format(Date.now()))
 /** Quantas visitas por hora o dia de `atras` dias atrás tem (hoje: 5). */
 const porHora = (atras) => (atras === 0 ? 5 : 10 + atras)
@@ -233,12 +241,12 @@ try {
   const t = r30.corpo
   metaDeAntes = t.meta?.valor ?? null
   ok(
-    r30.status === 200 && t.periodo === "30d" && t.mudaAMeta === true,
+    r30.status === 200 && t.periodo?.atalho === "30d" && t.mudaAMeta === true,
     "o dono recebe o Resumo, e pode mudar a meta",
     JSON.stringify(t).slice(0, 200)
   )
-  ok((await ler()).corpo.periodo === "30d", "sem período, 30 dias (o protótipo)")
-  ok((await ler("1ano")).corpo.periodo === "30d", "período que não existe, 30 dias")
+  ok((await ler()).corpo.periodo?.atalho === "30d", "sem período, 30 dias (o protótipo)")
+  ok((await ler("1ano")).corpo.periodo?.atalho === "30d", "período que não existe, 30 dias")
   const barras = t.serie?.barras ?? []
   ok(
     barras.length === 30 && barras.at(-1)?.rotulo === "hoje",
@@ -325,11 +333,11 @@ try {
       ?.corpo?.requests
     const [pergunta, compras] = lote ?? []
     ok(
-      pergunta?.dateRanges?.[0]?.startDate === "13daysAgo" &&
-        pergunta?.dateRanges?.[0]?.endDate === "today" &&
+      pergunta?.dateRanges?.[0]?.startDate === diaIso(13) &&
+        pergunta?.dateRanges?.[0]?.endDate === diaIso(0) &&
         pergunta?.dimensionFilter?.filter?.fieldName === "hostName" &&
         (pergunta?.dimensionFilter?.filter?.inListFilter?.values ?? []).length > 0,
-      "a pergunta: os 14 dias numa chamada, só do endereço da loja",
+      "a pergunta: os 14 dias numa chamada (as datas escritas), só do endereço da loja",
       JSON.stringify(pergunta).slice(0, 220)
     )
     ok(
@@ -381,10 +389,11 @@ try {
       await textoDe(pagina, '[data-kpi="receita"]')
     )
     ok(
-      (await pagina.locator('.filtro[aria-current="page"]').getAttribute("data-periodo")) === "30d",
+      (await pagina.locator('.periodo__botao[aria-current="page"]').getAttribute("data-atalho")) ===
+        "30d",
       "abre nos 30 dias"
     )
-    await pagina.locator('.filtro[data-periodo="7d"]').click()
+    await pagina.locator('.periodo__botao[data-atalho="7d"]').click()
     await pagina.waitForURL(/periodo=7d/)
     await pagina.waitForSelector('.barras-v[data-barras="7"]')
     await pagina.waitForFunction(
@@ -575,14 +584,14 @@ try {
       "celular e computador: o tablet é celular, e a conversão é pedidos ÷ visitas",
       JSON.stringify(f.aparelhos)
     )
-    // O do Marketing, com as datas "NdaysAgo": o Início (0186) também manda um lote de quatro, com as
-    // datas escritas, e ele chega antes (a entrada no painel abre o Início).
+    // O do Marketing, pelas datas dos 30 dias: o Início (0186) também manda um lote de quatro, com
+    // as de hoje e ontem, e ele chega antes (a entrada no painel abre o Início).
     const lote = google.perguntas
       .filter((p) => p.tipo === "batchRunReports")
       .map((p) => p.corpo.requests)
-      .find((rs) => rs?.length === 4 && /daysAgo$/.test(rs[0]?.dateRanges?.[0]?.startDate ?? ""))
+      .find((rs) => rs?.length === 4 && rs[0]?.dateRanges?.[0]?.startDate === diaIso(29))
     ok(
-      lote?.[0]?.dateRanges?.[0]?.startDate === "29daysAgo" &&
+      lote?.[0]?.dateRanges?.[0]?.endDate === diaIso(0) &&
         lote?.[1]?.dimensionFilter?.andGroup?.expressions?.length === 2 &&
         lote?.[2]?.dimensionFilter?.filter?.fieldName === "transactionId",
       "as quatro perguntas numa chamada: os eventos só do endereço da loja, as compras pelo id do pedido",
@@ -610,7 +619,7 @@ try {
         (await pagina.locator('.abas a[aria-current="page"]').getAttribute("data-aba")) === "funil",
       "o celular com 75% das visitas, e a aba do funil acesa"
     )
-    await pagina.locator('.filtro[data-periodo="7d"]').click()
+    await pagina.locator('.periodo__botao[data-atalho="7d"]').click()
     await pagina.waitForURL(/\/marketing\/funil\?periodo=7d/)
     await pagina.locator('.abas a[data-aba="canais"]').click()
     await pagina.waitForURL(/\/marketing\/canais\?periodo=7d/)
@@ -894,7 +903,7 @@ try {
     const pedidos = resumo30.numeros.pedidos.valor
     ok(
       r.status === 200 &&
-        c.periodo === "30d" &&
+        c.periodo?.atalho === "30d" &&
         c.primeira.pedidos + c.voltaram.pedidos === pedidos &&
         (pedidos
           ? c.primeira.parte + c.voltaram.parte === 100
@@ -993,7 +1002,7 @@ try {
     const pedidos = resumo30.numeros.pedidos.valor
     ok(
       r.status === 200 &&
-        p.periodo === "30d" &&
+        p.periodo?.atalho === "30d" &&
         p.comoPagaram.pix + p.comoPagaram.cartao === pedidos &&
         p.frete.pedidos === pedidos,
       "como pagaram: os pedidos pagos do Resumo, cada um no Pix ou no cartão",
@@ -1171,7 +1180,7 @@ try {
       .filter((x) => x.tipo !== "info")
     ok(
       r.status === 200 &&
-        a.periodo === "30d" &&
+        a.periodo?.atalho === "30d" &&
         a.semGoogle === null &&
         a.achados.length > 0 &&
         a.achados.length <= 6,
@@ -1262,6 +1271,227 @@ try {
         (await semRolagemDeLado(celular)),
       "no celular (o marketing): as mesmas frases, sem rolar de lado"
     )
+  }
+
+  titulo("O período da barra de cima (0191)")
+  {
+    const api = async (rota, token = tokenDoDono) =>
+      (await medusa(rota, { metodo: "GET", token })).corpo
+    const somar = (de, ate, f) => {
+      let t = 0
+      for (let a = de; a <= ate; a++) t += f(a)
+      return t
+    }
+
+    const p = await api("/dashboard/periodo?periodo=ontem&padrao=30d")
+    ok(
+      p.atalho === "ontem" &&
+        p.de === diaIso(1) &&
+        p.ate === diaIso(1) &&
+        p.passo === "hora" &&
+        p.ateAgora === false &&
+        p.nomeDoAntes === diaEMes(2) &&
+        p.comparar === true,
+      "a barra pergunta o período ao backend: ontem, hora a hora, contra anteontem",
+      JSON.stringify(p)
+    )
+    const daOperacao = await medusa("/dashboard/periodo?padrao=30d", {
+      metodo: "GET",
+      token: cookieOp.value,
+    })
+    ok(
+      daOperacao.status === 200 && daOperacao.corpo.atalho === "30d",
+      "todo papel lê o período (sem nada, o padrão da tela)",
+      JSON.stringify(daOperacao.corpo).slice(0, 120)
+    )
+    const ruim = await api("/dashboard/periodo?de=2026-02-30&ate=2026-03-01&padrao=30d")
+    ok(
+      ruim.atalho === "30d" && ruim.aviso === "As datas não valem — mostrando os últimos 30 dias.",
+      "datas que não valem: os 30 dias, e o porquê",
+      JSON.stringify(ruim).slice(0, 160)
+    )
+
+    const ontem = await api("/dashboard/marketing?periodo=ontem")
+    const barrasDeOntem = ontem.serie?.barras ?? []
+    ok(
+      ontem.periodo?.atalho === "ontem" &&
+        barrasDeOntem.length === 24 &&
+        barrasDeOntem.every((b) => !b.agora) &&
+        perto(
+          barrasDeOntem.reduce((s, b) => s + b.valor, 0),
+          ontem.numeros.receita.valor
+        ),
+      "ontem: 24 horas (nenhuma é a de agora), e o gráfico soma o número de cima",
+      `${barrasDeOntem.length} · ${ontem.numeros?.receita?.valor}`
+    )
+    const semComparar = await api("/dashboard/marketing?periodo=30d&comparar=nenhum")
+    ok(
+      semComparar.periodo?.comparar === false &&
+        semComparar.periodo?.nomeDoAntes === null &&
+        Object.values(semComparar.numeros ?? {}).every(
+          (c) => c.antes === null && c.variacao === null
+        ) &&
+        semComparar.numeros?.receita?.valor === t.numeros.receita.valor,
+      "sem comparar: os mesmos números, sem o de antes",
+      JSON.stringify(semComparar.numeros)
+    )
+
+    const vOntem = await api("/dashboard/marketing/visitas?periodo=ontem")
+    ok(
+      vOntem.estado === "ok" &&
+        vOntem.visitas.valor === porHora(1) * 24 &&
+        vOntem.visitas.antes === porHora(2) * 24 &&
+        vOntem.pedidos.valor === comprasDe(1) &&
+        vOntem.pedidos.antes === comprasDe(2) &&
+        vOntem.ate === null,
+      "as visitas de ontem: o dia inteiro, contra anteontem inteiro (sem corte de hora)",
+      JSON.stringify(vOntem).slice(0, 220)
+    )
+    const vDatas = await api(`/dashboard/marketing/visitas?de=${diaIso(7)}&ate=${diaIso(1)}`)
+    const pergunta = google.perguntas.filter((x) => x.tipo === "batchRunReports").at(-1)?.corpo
+      ?.requests?.[0]
+    ok(
+      vDatas.estado === "ok" &&
+        vDatas.visitas.valor === somar(1, 7, (a) => porHora(a) * 24) &&
+        vDatas.visitas.antes === somar(8, 13, (a) => porHora(a) * 24) &&
+        vDatas.pedidos.valor === somar(1, 7, comprasDe) &&
+        pergunta?.dateRanges?.[0]?.startDate === diaIso(14) &&
+        pergunta?.dateRanges?.[0]?.endDate === diaIso(1),
+      "as datas escolhidas: os 7 dias até ontem, contra os 7 de antes — e o Google perguntado nessas datas",
+      JSON.stringify([vDatas.visitas, pergunta?.dateRanges])
+    )
+    const vSem = await api("/dashboard/marketing/visitas?periodo=7d&comparar=nenhum")
+    const perguntaSem = google.perguntas.filter((x) => x.tipo === "batchRunReports").at(-1)?.corpo
+      ?.requests?.[0]
+    ok(
+      vSem.estado === "ok" &&
+        vSem.visitas.valor === SETE_DIAS &&
+        vSem.visitas.antes === null &&
+        vSem.visitas.variacao === null &&
+        vSem.conversao.antes === null &&
+        perguntaSem?.dateRanges?.[0]?.startDate === diaIso(6),
+      "sem comparar, o Google nem é perguntado sobre o de antes",
+      JSON.stringify([vSem.visitas, perguntaSem?.dateRanges])
+    )
+    const rotas = ["", "/funil", "/canais", "/produtos", "/ofertas", "/clientes", "/pagamento"]
+    const nasDatas = await Promise.all(
+      [...rotas, "/achados"].map((r) =>
+        api(`/dashboard/marketing${r}?de=${diaIso(7)}&ate=${diaIso(1)}`)
+      )
+    )
+    ok(
+      nasDatas.every((x) => x.periodo?.de === diaIso(7) && x.periodo?.ate === diaIso(1)),
+      "todas as abas atendem as datas escolhidas (e dizem o período que valeu)",
+      JSON.stringify(nasDatas.map((x) => x.periodo?.nome ?? x.periodo))
+    )
+
+    const { pagina } = dono
+    await pagina.goto(`${PAINEL}/marketing`)
+    await pagina.waitForSelector(".periodo__botao")
+    ok(
+      JSON.stringify(
+        await pagina.$$eval(".periodo__atalhos a.periodo__botao", (l) =>
+          l.map((e) => e.getAttribute("data-atalho"))
+        )
+      ) === JSON.stringify(["hoje", "ontem", "7d", "30d", "90d", "mes", "mes-passado"]),
+      "a barra do Marketing: a do Início, com os 90 dias"
+    )
+    await pagina.locator('.periodo__botao[data-atalho="ontem"]').click()
+    await pagina.waitForURL((u) => u.pathname === "/marketing" && u.search === "?periodo=ontem")
+    await pagina.waitForSelector('.barras-v[data-barras="24"]', { timeout: 20000 })
+    await pagina.waitForFunction(
+      () => document.querySelector('[data-kpi="visitas"] .kpi__valor')?.textContent !== "…",
+      null,
+      { timeout: 15000 }
+    )
+    ok(
+      semEspaco(await textoDe(pagina, "[data-comparando]")) === `comparado com ${diaEMes(2)}` &&
+        semEspaco(await textoDe(pagina, "[data-datas]")).endsWith(diaEMes(1)) &&
+        semEspaco(await textoDe(pagina, '[data-kpi="visitas"] .kpi__sub')).endsWith(
+          `que o dia ${diaEMes(2)}`
+        ),
+      "ontem na tela: o dia, o gráfico hora a hora, e cada número contra anteontem",
+      `${await textoDe(pagina, "[data-comparando]")} · ${await textoDe(pagina, '[data-kpi="visitas"] .kpi__sub')}`
+    )
+    ok(
+      (await pagina.locator('.abas a[data-aba="funil"]').getAttribute("href")) ===
+        "/marketing/funil?periodo=ontem",
+      "as abas levam o período junto"
+    )
+    await pagina.locator('.abas a[data-aba="funil"]').click()
+    await pagina.waitForURL((u) => u.pathname === "/marketing/funil")
+    await pagina.waitForSelector("[data-um-dia]", { timeout: 20000 })
+    ok(
+      (await pagina.locator('.periodo__botao[aria-current="page"]').getAttribute("data-atalho")) ===
+        "ontem",
+      "no funil, ontem continua aceso, e o aviso de que um dia é pouco aparece"
+    )
+    await pagina.locator("[data-comparar] summary").click()
+    await pagina.locator('[data-comparar-com="nenhum"]').click()
+    await pagina.waitForURL((u) => u.searchParams.get("comparar") === "nenhum")
+    ok(
+      caminho(pagina) === "/marketing/funil" &&
+        new URL(pagina.url()).searchParams.get("periodo") === "ontem",
+      "o “não comparar” fica na aba e no período",
+      pagina.url()
+    )
+    await pagina.locator('.abas a[data-aba="resumo"]').click()
+    await pagina.waitForURL((u) => u.pathname === "/marketing")
+    await pagina.waitForSelector('[data-kpi="receita"]', { timeout: 20000 })
+    await pagina.waitForFunction(
+      () => document.querySelector('[data-kpi="visitas"] .kpi__valor')?.textContent !== "…",
+      null,
+      { timeout: 15000 }
+    )
+    ok(
+      new URL(pagina.url()).searchParams.get("comparar") === "nenhum" &&
+        (await pagina.locator("[data-comparando]").count()) === 0 &&
+        semEspaco(await textoDe(pagina, '[data-kpi="receita"] .kpi__sub')) === "" &&
+        semEspaco(await textoDe(pagina, '[data-kpi="visitas"] .kpi__sub')) === "",
+      "sem comparar, nenhum número diz o de antes (e a aba levou o “não comparar”)",
+      await textoDe(pagina, ".kpis")
+    )
+
+    await pagina.goto(`${PAINEL}/marketing/canais?periodo=30d`)
+    await pagina.locator("[data-escolher] summary").click()
+    await pagina.locator('[data-escolher] input[name="de"]').fill(diaIso(7))
+    await pagina.locator('[data-escolher] input[name="ate"]').fill(diaIso(1))
+    await pagina.locator('[data-escolher] button[type="submit"]').click()
+    await pagina.waitForURL((u) => u.searchParams.get("de") === diaIso(7))
+    await pagina.waitForSelector('[data-bloco="canais"]', { timeout: 20000 })
+    ok(
+      caminho(pagina) === "/marketing/canais" &&
+        new URL(pagina.url()).searchParams.get("ate") === diaIso(1) &&
+        (await pagina.locator('[data-escolher] summary[aria-current="page"]').count()) === 1 &&
+        semEspaco(await textoDe(pagina, "[data-escolher] summary")) ===
+          `${diaEMes(7)} a ${diaEMes(1)}`,
+      "escolher as datas não sai da aba: os canais nas datas, e o botão diz quais",
+      pagina.url()
+    )
+
+    await pagina.goto(`${PAINEL}/marketing/produtos?de=2026-02-30&ate=2026-03-01`)
+    await pagina.waitForSelector("[data-aviso-do-periodo]", { timeout: 20000 })
+    ok(
+      semEspaco(await textoDe(pagina, "[data-aviso-do-periodo]")) ===
+        "As datas não valem — mostrando os últimos 30 dias." &&
+        (await pagina
+          .locator('.periodo__botao[aria-current="page"]')
+          .getAttribute("data-atalho")) === "30d",
+      "as datas que não valem: o aviso, e os 30 dias acesos"
+    )
+
+    await pagina.goto(`${PAINEL}/`)
+    await pagina.waitForSelector(".periodo__botao", { timeout: 20000 })
+    ok(
+      (await pagina.locator(".periodo__atalhos a.periodo__botao").count()) === 6 &&
+        (await pagina.locator('.periodo__botao[data-atalho="90d"]').count()) === 0,
+      "o Início segue com os seis botões (os 90 dias são só do Marketing)"
+    )
+
+    const { pagina: celular } = mkt
+    await celular.goto(`${PAINEL}/marketing/clientes?periodo=ontem`)
+    await celular.waitForSelector("[data-um-dia]", { timeout: 20000 })
+    ok(await semRolagemDeLado(celular), "no celular: a barra do período sem rolar de lado")
   }
 
   titulo("O Google fora")

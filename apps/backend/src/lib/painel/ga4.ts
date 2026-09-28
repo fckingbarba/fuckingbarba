@@ -2,7 +2,8 @@ import { createSign } from "node:crypto"
 import type { MedusaContainer } from "@medusajs/framework/types"
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import { chaveDoDia } from "./formato"
-import { perguntaDasCompras, perguntaDasVisitas, type Periodo } from "./marketing"
+import { perguntaDasCompras, perguntaDasVisitas } from "./marketing"
+import { chaveDoPeriodo, type Periodo } from "./periodo"
 import {
   noSiteAgora,
   PERGUNTA_DO_AGORA,
@@ -315,7 +316,7 @@ export const visitasDoMarketing = (
 ): Promise<{ visitas: RelatorioGa4; compras: RelatorioGa4 }> =>
   relatoriosDoMarketing(
     cfg,
-    `resumo:${periodo}:${hosts.join(",")}`,
+    `resumo:${chaveDoPeriodo(periodo)}:${hosts.join(",")}`,
     [perguntaDasVisitas(periodo, hosts), perguntaDasCompras(periodo)],
     agora
   ).then(([visitas = {}, compras = {}]) => ({ visitas, compras }))

@@ -2,7 +2,13 @@ import type { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/frame
 import { Modules } from "@medusajs/framework/utils"
 import { abre, exigirArea, type PedidoDaEquipe } from "../../../lib/equipe/acesso"
 import { pedidosDesde } from "../../../lib/painel/ler"
-import { lerMetas, lerPedidosDesde, lerPeriodo, montarResumo } from "../../../lib/painel/marketing"
+import {
+  lerMetas,
+  lerPedidosDesde,
+  montarResumo,
+  PERIODO_PADRAO,
+} from "../../../lib/painel/marketing"
+import { lerPeriodo, type BuscaDoPeriodo } from "../../../lib/painel/periodo"
 
 /**
  * GET /dashboard/marketing?periodo=30d — o Resumo do Marketing
@@ -15,14 +21,16 @@ import { lerMetas, lerPedidosDesde, lerPeriodo, montarResumo } from "../../../li
  * As visitas e a conversão vêm à parte (`/dashboard/marketing/visitas`): o
  * Google pode demorar, e o resto não espera por ele — como no Início.
  *
- * `periodo`: hoje, 7d, 30d ou 90d; o resto vira 30d.
+ * O período é o da barra de cima (`lib/painel/periodo.ts`, 0191): `?periodo=`
+ * (hoje, ontem, 7d, 30d, 90d, mes, mes-passado) ou `?de=&ate=`, e
+ * `?comparar=nenhum`; sem nada (ou o que não se lê), os últimos 30 dias.
  */
 export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) {
   const pedido = req as PedidoDaEquipe
   if (!exigirArea(pedido, res, "marketing")) return
 
-  const periodo = lerPeriodo(req.query.periodo)
   const agora = new Date()
+  const periodo = lerPeriodo(req.query as BuscaDoPeriodo, agora, PERIODO_PADRAO)
   const [pedidos, lojas] = await Promise.all([
     pedidosDesde(req.scope, lerPedidosDesde(periodo, agora)),
     req.scope.resolve(Modules.STORE).listStores({}, { select: ["metadata"], take: 1 }),

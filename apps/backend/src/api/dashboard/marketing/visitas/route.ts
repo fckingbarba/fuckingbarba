@@ -6,7 +6,8 @@ import {
   ErroDoGa4,
   visitasDoMarketing,
 } from "../../../../lib/painel/ga4"
-import { hostsDaLoja, lerPeriodo, visitasDoPeriodo } from "../../../../lib/painel/marketing"
+import { hostsDaLoja, PERIODO_PADRAO, visitasDoPeriodo } from "../../../../lib/painel/marketing"
+import { lerPeriodo, type BuscaDoPeriodo } from "../../../../lib/painel/periodo"
 
 /** O motivo de verdade vai pro log, no máximo uma linha por hora por motivo. */
 const avisar = (req: AuthenticatedMedusaRequest, tipo: string, mensagem: string) =>
@@ -28,7 +29,8 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
   const pedido = req as PedidoDaEquipe
   if (!exigirArea(pedido, res, "marketing")) return
 
-  const periodo = lerPeriodo(req.query.periodo)
+  const agora = new Date()
+  const periodo = lerPeriodo(req.query as BuscaDoPeriodo, agora, PERIODO_PADRAO)
   const cfg = configuracaoDoGa4()
   if (cfg === "desligado") {
     res.json({ estado: "desligado" })
@@ -40,7 +42,6 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
     return
   }
   try {
-    const agora = new Date()
     const relatorios = await visitasDoMarketing(
       cfg,
       periodo,

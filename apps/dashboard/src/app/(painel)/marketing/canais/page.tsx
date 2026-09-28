@@ -1,14 +1,16 @@
 import type { Metadata } from "next"
 import { Suspense } from "react"
 import { SoPara } from "@/components/area"
-import { AbasDoMarketing, Periodos, UmDiaEPouco } from "@/components/marketing"
+import { AbasDoMarketing, PeriodoDoMarketing, UmDiaEPouco } from "@/components/marketing"
 import { TelaDosCanais } from "@/components/marketing-canais"
 import { Cabeca } from "@/components/telas"
-import { lerCanais, lerPeriodo } from "@/lib/marketing"
+import { lerPeriodoNaTela } from "@/lib/ler-periodo"
+import { lerCanais, PADRAO_DO_MARKETING } from "@/lib/marketing"
+import { consultaDoPeriodo, type BuscaDoPeriodo } from "@/lib/periodo"
 
 export const metadata: Metadata = { title: "Canais · Marketing" }
 
-type Busca = Promise<{ periodo?: string }>
+type Busca = Promise<BuscaDoPeriodo>
 
 /**
  * MARKETING → CANAIS — de onde vêm as visitas e as vendas, as campanhas e o
@@ -16,23 +18,25 @@ type Busca = Promise<{ periodo?: string }>
  * o Google num `<Suspense>`; a cabeça e as abas aparecem na hora.
  */
 export default async function Pagina({ searchParams }: { searchParams: Busca }) {
-  // A aba sai junto com a pergunta de quem é (a resposta fica no `cache`).
-  void lerCanais(lerPeriodo((await searchParams).periodo))
+  const consulta = consultaDoPeriodo(await searchParams, PADRAO_DO_MARKETING)
+  // O período e a aba saem junto com a pergunta de quem é (as respostas ficam no `cache`).
+  void lerPeriodoNaTela(consulta, PADRAO_DO_MARKETING)
+  void lerCanais(consulta)
   return (
     <SoPara area="marketing">
-      <Canais searchParams={searchParams} />
+      <Canais consulta={consulta} />
     </SoPara>
   )
 }
 
-async function Canais({ searchParams }: { searchParams: Busca }) {
-  const periodo = lerPeriodo((await searchParams).periodo)
+async function Canais({ consulta }: { consulta: string }) {
+  const p = await lerPeriodoNaTela(consulta, PADRAO_DO_MARKETING)
   return (
     <div data-tela>
       <Cabeca titulo="Marketing" ajuda="De onde vêm as visitas e as vendas." />
-      <AbasDoMarketing atual="canais" periodo={periodo} />
-      <Periodos atual={periodo} caminho="/marketing/canais" />
-      {periodo === "hoje" ? <UmDiaEPouco /> : null}
+      <AbasDoMarketing atual="canais" p={p} />
+      <PeriodoDoMarketing p={p} caminho="/marketing/canais" />
+      {p.passo === "hora" ? <UmDiaEPouco /> : null}
       <Suspense
         fallback={
           <p className="sem-dados" data-carregando>
@@ -40,7 +44,7 @@ async function Canais({ searchParams }: { searchParams: Busca }) {
           </p>
         }
       >
-        <TelaDosCanais periodo={periodo} />
+        <TelaDosCanais consulta={consulta} />
       </Suspense>
       <p className="fonte-dados">
         <b>De onde vêm os números:</b> visitas, pedidos e receita por canal — Google Analytics, de

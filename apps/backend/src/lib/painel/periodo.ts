@@ -1,11 +1,12 @@
 import { chaveDoDia, dia, diaDaSemana } from "./formato"
-import { meiaNoite, somarDias, type Janela } from "./marketing"
 import { horaNoFuso } from "./visitas"
 
 /**
- * O PERÍODO DO INÍCIO (entrega 0186) — o que a barra de cima escolhe: hoje,
- * ontem, os últimos 7 ou 30 dias, este mês, o mês passado ou as datas que a
- * pessoa quiser; e se compara com o período de antes.
+ * O PERÍODO DO PAINEL (entrega 0186, o Início; 0191, o Marketing) — o que a
+ * barra de cima escolhe: hoje, ontem, os últimos 7, 30 ou 90 dias, este mês,
+ * o mês passado ou as datas que a pessoa quiser; e se compara com o período
+ * de antes. Cada tela tem o seu padrão (`lerPeriodo`): o Início abre em
+ * hoje; o Marketing, nos últimos 30 dias (um dia só é pouco pra concluir).
  *
  * Código puro, com testes (`__tests__/periodo.unit.spec.ts`). Os dias são os
  * de Brasília (`chaveDoDia`); o período vai do começo do primeiro dia até o
@@ -33,8 +34,44 @@ import { horaNoFuso } from "./visitas"
 const FUSO = "America/Sao_Paulo"
 const DIA_MS = 24 * 60 * 60 * 1000
 
-export const ATALHOS = ["hoje", "ontem", "7d", "30d", "mes", "mes-passado"] as const
+/* ── os dias, no fuso da loja (até a 0191, no `marketing.ts`, que reexporta) ─ */
+
+/** "2026-09-24" mais `n` dias: "2026-09-25", "2026-09-23"… */
+export const somarDias = (chave: string, n: number) =>
+  new Date(Date.parse(`${chave}T12:00:00Z`) + n * DIA_MS).toISOString().slice(0, 10)
+
+/** A meia-noite de um dia ("2026-09-24") no fuso dado, como instante. */
+export function meiaNoite(chave: string, fuso = FUSO): Date {
+  const utc = Date.parse(`${chave}T00:00:00Z`)
+  const nome =
+    new Intl.DateTimeFormat("en-US", { timeZone: fuso, timeZoneName: "longOffset" })
+      .formatToParts(utc)
+      .find((p) => p.type === "timeZoneName")?.value ?? ""
+  // "GMT-03:00" em Brasília ("GMT" sozinho é o UTC). Se o horário de verão voltar, o Intl sabe.
+  const m = /^GMT([+-])(\d{2}):(\d{2})$/.exec(nome)
+  const minutos = m ? (m[1] === "-" ? -1 : 1) * (Number(m[2]) * 60 + Number(m[3])) : 0
+  return new Date(utc - minutos * 60_000)
+}
+
+export type Janela = { de: Date; ate: Date }
+
+export const dentro = (d: Date, j: Janela) => d >= j.de && d < j.ate
+
+/* ── os botões ────────────────────────────────────────────────────────────── */
+
+export const ATALHOS = ["hoje", "ontem", "7d", "30d", "90d", "mes", "mes-passado"] as const
 export type Atalho = (typeof ATALHOS)[number]
+
+/** Cada botão numa frase, pro aviso de quando o período pedido não vale ("mostrando hoje"). */
+const O_ATALHO: Record<Atalho, string> = {
+  hoje: "hoje",
+  ontem: "ontem",
+  "7d": "os últimos 7 dias",
+  "30d": "os últimos 30 dias",
+  "90d": "os últimos 90 dias",
+  mes: "este mês",
+  "mes-passado": "o mês passado",
+}
 
 /** Até quantos dias as datas escolhidas cobrem de uma vez (o de antes, outro tanto). */
 export const MAXIMO_DE_DIAS = 186
@@ -226,6 +263,8 @@ function doAtalho(atalho: Atalho, agora: Date, comparar: boolean, aviso: string 
       return montar(ultimos(7, "Últimos 7 dias"), agora, aviso)
     case "30d":
       return montar(ultimos(30, "Últimos 30 dias"), agora, aviso)
+    case "90d":
+      return montar(ultimos(90, "Últimos 90 dias"), agora, aviso)
     case "mes": {
       const primeiro = `${hoje.slice(0, 7)}-01`
       const doMesPassado = somarDias(primeiro, -1).slice(0, 7)
@@ -266,34 +305,41 @@ function doAtalho(atalho: Atalho, agora: Date, comparar: boolean, aviso: string 
   }
 }
 
-/** As datas que a pessoa escolheu, conferidas — ou o porquê de não valerem. */
+/** As datas que a pessoa escolheu, conferidas — ou o porquê de não valerem ("mostrando <padrão>"). */
 function datasEscolhidas(
   de: string,
   ate: string,
-  hoje: string
+  hoje: string,
+  padrao: Atalho
 ): { de: string; ate: string } | string {
-  if (!ehDia(de) || !ehDia(ate)) return "As datas não valem — mostrando hoje."
+  const mostrando = `mostrando ${O_ATALHO[padrao]}.`
+  if (!ehDia(de) || !ehDia(ate)) return `As datas não valem — ${mostrando}`
   let [primeiro, ultimo] = de <= ate ? [de, ate] : [ate, de]
-  if (primeiro > hoje) return "O período começa depois de hoje — mostrando hoje."
-  if (primeiro < PRIMEIRO_DIA) return "A data é antiga demais — mostrando hoje."
+  if (primeiro > hoje) return `O período começa depois de hoje — ${mostrando}`
+  if (primeiro < PRIMEIRO_DIA) return `A data é antiga demais — ${mostrando}`
   if (ultimo > hoje) ultimo = hoje
   if (diasEntre(primeiro, ultimo).length > MAXIMO_DE_DIAS)
-    return "Escolha até 6 meses de cada vez — mostrando hoje."
+    return `Escolha até 6 meses de cada vez — ${mostrando}`
   return { de: primeiro, ate: ultimo }
 }
 
+/** Um botão que exista, ou nada. */
+export const lerAtalho = (v: unknown): Atalho | null =>
+  (ATALHOS as readonly unknown[]).includes(texto(v)) ? (texto(v) as Atalho) : null
+
 /**
  * O período do endereço (`?periodo=`, ou `?de=` e `?ate=`, e `?comparar=`).
- * Sem nada, hoje contra ontem até a mesma hora.
+ * Sem nada, o `padrao` da tela (o Início: hoje, contra ontem até a mesma
+ * hora; o Marketing: os últimos 30 dias).
  */
-export function lerPeriodo(busca: BuscaDoPeriodo, agora: Date): Periodo {
+export function lerPeriodo(busca: BuscaDoPeriodo, agora: Date, padrao: Atalho = "hoje"): Periodo {
   const hoje = chaveDoDia(agora)
   const comparar = texto(busca.comparar) !== "nenhum"
   const de = texto(busca.de)
   const ate = texto(busca.ate)
   if (de || ate) {
-    const datas = datasEscolhidas(de || ate, ate || de, hoje)
-    if (typeof datas === "string") return doAtalho("hoje", agora, comparar, datas)
+    const datas = datasEscolhidas(de || ate, ate || de, hoje, padrao)
+    if (typeof datas === "string") return doAtalho(padrao, agora, comparar, datas)
     const n = diasEntre(datas.de, datas.ate).length
     return montar(
       {
@@ -307,10 +353,66 @@ export function lerPeriodo(busca: BuscaDoPeriodo, agora: Date): Periodo {
       agora
     )
   }
-  const pedido = texto(busca.periodo)
-  const atalho = (ATALHOS as readonly string[]).includes(pedido) ? (pedido as Atalho) : "hoje"
-  return doAtalho(atalho, agora, comparar, null)
+  return doAtalho(lerAtalho(busca.periodo) ?? padrao, agora, comparar, null)
 }
+
+/** O que o painel precisa saber do período pra desenhar a barra e as frases. */
+export type PeriodoNaTela = Pick<
+  Periodo,
+  "atalho" | "de" | "ate" | "ateAgora" | "passo" | "nome" | "datas" | "nomeDoAntes" | "aviso"
+> & {
+  comparar: boolean
+  /** Os dias do de antes; `null` sem comparar. */
+  antesDe: string | null
+  antesAte: string | null
+}
+
+export const periodoNaTela = (p: Periodo): PeriodoNaTela => ({
+  atalho: p.atalho,
+  de: p.de,
+  ate: p.ate,
+  ateAgora: p.ateAgora,
+  passo: p.passo,
+  nome: p.nome,
+  datas: p.datas,
+  nomeDoAntes: p.nomeDoAntes,
+  aviso: p.aviso,
+  comparar: p.antes !== null,
+  antesDe: p.antes?.de ?? null,
+  antesAte: p.antes?.ate ?? null,
+})
+
+/**
+ * O período numa frase, pro fim de um título ("Receita por dia, nos últimos
+ * 30 dias"): "hoje", "ontem", "nos últimos 7 dias", "neste mês", "em
+ * agosto", "em 14/09", "de 14/09 a 20/09".
+ */
+export function periodoEmFrase(p: Periodo): string {
+  switch (p.atalho) {
+    case "hoje":
+    case "ontem":
+      return p.atalho
+    case "7d":
+    case "30d":
+    case "90d":
+      return `nos últimos ${p.dias.length} dias`
+    case "mes":
+      return "neste mês"
+    case "mes-passado":
+      return `em ${p.nome.toLowerCase()}`
+    default:
+      return p.de === p.ate ? `em ${p.nome}` : `de ${p.nome}`
+  }
+}
+
+/** O período numa chave de cache: os dias dele e os do de antes ("2026-09-22:2026-09-28:2026-09-15"). */
+export const chaveDoPeriodo = (p: Periodo) => `${p.de}:${p.ate}:${p.antes?.de ?? "-"}`
+
+/** As datas do período, pro Google (as dele, escritas: "2026-09-24"). */
+export const datasNoGoogle = (p: Periodo) => [{ startDate: p.de, endDate: p.ate }]
+
+/** Do começo do de antes (ou do período, sem comparar) ao fim do período. */
+export const datasComOAntes = (p: Periodo) => [{ startDate: p.antes?.de ?? p.de, endDate: p.ate }]
 
 /** Algum parâmetro do período veio? (o painel de antes da 0186 não manda nenhum). */
 export const pediuPeriodo = (busca: BuscaDoPeriodo) =>

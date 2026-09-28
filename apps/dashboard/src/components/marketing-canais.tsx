@@ -1,13 +1,7 @@
 import { Achados, SEM_VISITAS } from "@/components/marketing"
 import { MontarLink } from "@/components/montar-link"
 import { CabecaDoBloco } from "@/components/visual"
-import {
-  lerCanais,
-  type Campanha,
-  type Canais,
-  type LinhaDoCanal,
-  type Periodo,
-} from "@/lib/marketing"
+import { lerCanais, type Campanha, type Canais, type LinhaDoCanal } from "@/lib/marketing"
 import { reais } from "@/lib/pedidos"
 
 /**
@@ -173,8 +167,8 @@ function TabelaDeCampanhas({ campanhas }: { campanhas: Campanha[] }) {
   )
 }
 
-export async function TelaDosCanais({ periodo }: { periodo: Periodo }) {
-  const c = await lerCanais(periodo)
+export async function TelaDosCanais({ consulta }: { consulta: string }) {
+  const c = await lerCanais(consulta)
   if (!c)
     return (
       <p className="sem-dados">Não consegui falar com a loja agora. Recarregue daqui a pouco.</p>

@@ -4207,8 +4207,33 @@ apps, o `medusa build` e o prettier.
 Depois do deploy — **nada a configurar.** Se o painel subir antes do Railway (uns 5 minutos), o
 Início fica o de antes até o backend novo entrar.
 
-- [ ] **Pergunta em aberto (você):** o mesmo seletor de período em quais outras telas — Pedidos,
-      Marketing (no lugar dos 4 botões de hoje), Carrinhos?
+- [x] **Respondida (28/09):** "marketing vai" — o Marketing ganhou a barra (entrega 0191, logo
+      abaixo). Pedidos e Carrinhos seguem sem ela.
+
+**O Marketing com a barra de período do Início — pronto em 28/09 (entrega 0191).** Pedido dele,
+depois do Início: "marketing vai".
+
+- **As sete abas do Marketing** (Resumo, Funil, Canais, Produtos, Ofertas, Clientes, Pagamento e
+  frete) têm a barra do Início no lugar dos quatro botões: Hoje, Ontem, 7 dias, 30 dias, 90 dias,
+  Este mês, Mês passado, "Escolher datas" e o "Comparar com". Abre nos 30 dias, como antes. Os 90
+  dias, que o Marketing já tinha, ficam só nele.
+- **Trocar de aba leva o período junto** (e o "não comparar"), e escolher as datas não sai da aba.
+- **Cada número diz com o que se compara** ("que os 7 dias antes", "que o dia 26/09", "que
+  julho"); sem comparar, não diz nada. Embaixo da barra, os dias e com o que compara.
+- **Um período que já acabou** (ontem, o mês passado, as datas escolhidas) conta os dias
+  inteiros, dos dois lados; o que chega até agora corta as visitas na hora que o Google já somou,
+  como antes.
+- "Um dia só é pouco pra concluir" aparece em qualquer período de um dia (antes, só no hoje).
+
+Conferido no Medusa local, com o Google falso: `conferir-marketing` 139/139 (19 novos: o período
+na API, no Google e na tela, as abas, as datas, o "não comparar", o aviso, o celular),
+`conferir-pedidos` 113/113, `conferir-visitas` 51/51, `conferir-entrar` 90/90 e `conferir-crm`
+194/194 (o CRM usa a conta de período do Marketing). E os unitários (1.537, 8 novos), o typecheck e
+o lint, o `medusa build` e o prettier.
+
+Depois do deploy — **nada a configurar.** Se o painel subir antes do Railway (uns 5 minutos), o
+Marketing só entende hoje, 7, 30 e 90 dias até o backend novo entrar (os outros botões mostram 30
+dias nesses minutos).
 
 ## Como seguir no Claude Code
 

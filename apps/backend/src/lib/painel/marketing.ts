@@ -1,7 +1,27 @@
 import { numeroBrasileiro } from "../cupons"
-import { chaveDoDia, dia, diaDaSemana } from "./formato"
+import { chaveDoDia } from "./formato"
 import { nomeCurto, pagamentoDo, totalDo, type PedidoCru } from "./pedido"
+import {
+  baldeDoInstante,
+  baldesDo,
+  datasComOAntes,
+  datasNoGoogle,
+  dentro,
+  lerPeriodo,
+  meiaNoite,
+  periodoEmFrase,
+  periodoNaTela,
+  somarDias,
+  type Atalho,
+  type Comparado,
+  type Janela,
+  type Periodo,
+  type PeriodoNaTela,
+} from "./periodo"
 import { diaNoFuso, fusoDa, horaNoFuso, type RelatorioGa4 } from "./visitas"
+
+// As datas moraram aqui até a 0191; quem importa daqui segue importando.
+export { dentro, meiaNoite, somarDias, type Comparado, type Janela, type Periodo }
 
 /**
  * O MARKETING DO PAINEL — os números que decidem a venda, por período, contra
@@ -17,12 +37,12 @@ import { diaNoFuso, fusoDa, horaNoFuso, type RelatorioGa4 } from "./visitas"
  * análise ficam de fora, e pedido pago depois cancelado também. Conta no
  * dia em que o dinheiro entrou, com o frete.
  *
- * ┌─ O PERÍODO E O DE ANTES ───────────────────────────────────────────────┐
- * │ "7 dias" são os 6 dias inteiros de antes e o hoje até agora. O de antes│
- * │ é o mesmo tanto de tempo, terminando na mesma hora de 7 dias atrás: o  │
- * │ hoje pela metade não compete com um dia inteiro. "Hoje" é contra ontem │
- * │ até a mesma hora.                                                      │
- * └────────────────────────────────────────────────────────────────────────┘
+ * O PERÍODO É O DA BARRA DE CIMA (`periodo.ts`, 0191 — o mesmo do Início):
+ * hoje, ontem, 7, 30 ou 90 dias, este mês, o mês passado ou as datas
+ * escolhidas; o de antes, do mesmo tamanho, terminando na mesma hora quando
+ * o período chega até agora (o hoje pela metade não compete com um dia
+ * inteiro). Sem nada no endereço, os últimos 30 dias (`PERIODO_PADRAO`).
+ * Sem comparar, os números vêm com o `antes` nulo.
  *
  * AS VISITAS SÃO DO GOOGLE, com o atraso dele (horas — ver `visitas.ts`):
  * as de hoje contam até a hora que ele já somou, e o período de antes, até
@@ -44,61 +64,23 @@ const FUSO = "America/Sao_Paulo"
 const HORA_MS = 60 * 60 * 1000
 const DIA_MS = 24 * HORA_MS
 
-export const PERIODOS = ["hoje", "7d", "30d", "90d"] as const
-export type Periodo = (typeof PERIODOS)[number]
-/** O que a tela abre sem escolha (o protótipo): um dia só é pouco pra concluir. */
-export const PERIODO_PADRAO: Periodo = "30d"
+/** O que o Marketing abre sem escolha (o protótipo): um dia só é pouco pra concluir. */
+export const PERIODO_PADRAO = "30d" as const
 
-const DIAS: Record<Periodo, number> = { hoje: 1, "7d": 7, "30d": 30, "90d": 90 }
-/** Quantos dias o período tem (o hoje conta como um). */
-export const diasDo = (p: Periodo) => DIAS[p]
-
-export const lerPeriodo = (v: unknown): Periodo =>
-  (PERIODOS as readonly unknown[]).includes(v) ? (v as Periodo) : PERIODO_PADRAO
+/**
+ * As janelas de um botão ("hoje", "7d", "30d"…), com o de antes: o que o CRM
+ * usa — os períodos dele seguem os três botões de antes da 0191.
+ */
+export function janelasDo(atalho: Atalho, agora: Date) {
+  const p = lerPeriodo({ periodo: atalho }, agora)
+  return { dias: p.dias, atual: p.atual, antes: p.antes!.janela }
+}
 
 const numero = (v: unknown) => {
   const n = Number(v ?? 0)
   return Number.isFinite(n) ? n : 0
 }
 const centavos = (v: number) => Math.round(v * 100) / 100
-
-/* ── os dias, no fuso da loja ─────────────────────────────────────────────── */
-
-/** "2026-09-24" mais `n` dias: "2026-09-25", "2026-09-23"… */
-export const somarDias = (chave: string, n: number) =>
-  new Date(Date.parse(`${chave}T12:00:00Z`) + n * DIA_MS).toISOString().slice(0, 10)
-
-/** A meia-noite de um dia ("2026-09-24") no fuso dado, como instante. */
-export function meiaNoite(chave: string, fuso = FUSO): Date {
-  const utc = Date.parse(`${chave}T00:00:00Z`)
-  const nome =
-    new Intl.DateTimeFormat("en-US", { timeZone: fuso, timeZoneName: "longOffset" })
-      .formatToParts(utc)
-      .find((p) => p.type === "timeZoneName")?.value ?? ""
-  // "GMT-03:00" em Brasília ("GMT" sozinho é o UTC). Se o horário de verão voltar, o Intl sabe.
-  const m = /^GMT([+-])(\d{2}):(\d{2})$/.exec(nome)
-  const minutos = m ? (m[1] === "-" ? -1 : 1) * (Number(m[2]) * 60 + Number(m[3])) : 0
-  return new Date(utc - minutos * 60_000)
-}
-
-export type Janela = { de: Date; ate: Date }
-
-export const dentro = (d: Date, j: Janela) => d >= j.de && d < j.ate
-
-/** O período (do começo do primeiro dia até agora), os dias dele e o de antes, do mesmo tamanho. */
-export function janelasDo(periodo: Periodo, agora: Date) {
-  const n = DIAS[periodo]
-  const hoje = chaveDoDia(agora)
-  const dias = Array.from({ length: n }, (_, i) => somarDias(hoje, i - n + 1))
-  return {
-    dias,
-    atual: { de: meiaNoite(dias[0]), ate: agora } as Janela,
-    antes: {
-      de: meiaNoite(somarDias(dias[0], -n)),
-      ate: new Date(agora.getTime() - n * DIA_MS),
-    } as Janela,
-  }
-}
 
 export const mesDe = (agora: Date) => chaveDoDia(agora).slice(0, 7)
 
@@ -107,10 +89,10 @@ export const mesDe = (agora: Date) => chaveDoDia(agora).slice(0, 7)
  * meta), o que vier primeiro — com três dias de folga, pro pedido feito antes
  * e pago dentro (o cartão que ficou em análise).
  */
-export function lerPedidosDesde(periodo: Periodo, agora: Date): Date {
-  const { antes } = janelasDo(periodo, agora)
+export function lerPedidosDesde(p: Periodo, agora: Date): Date {
+  const comeco = p.antes?.janela.de ?? p.atual.de
   const mes = meiaNoite(`${mesDe(agora)}-01`)
-  return new Date(Math.min(antes.de.getTime(), mes.getTime()) - 3 * DIA_MS)
+  return new Date(Math.min(comeco.getTime(), mes.getTime()) - 3 * DIA_MS)
 }
 
 /* ── as vendas ────────────────────────────────────────────────────────────── */
@@ -151,16 +133,13 @@ export function vendasDos(pedidos: PedidoCru[]): Venda[] {
   })
 }
 
-/** Um número do período e o do de antes; `variacao` em %, `null` sem nada antes pra comparar. */
-export type Comparado = { valor: number; antes: number; variacao: number | null }
-
 export const variacao = (agora: number, antes: number): number | null =>
   antes > 0 ? Math.round(((agora - antes) / antes) * 100) : null
 
-const comparar = (valor: number, antes: number): Comparado => ({
+const comparar = (valor: number, antes: number | null): Comparado => ({
   valor,
   antes,
-  variacao: variacao(valor, antes),
+  variacao: antes === null ? null : variacao(valor, antes),
 })
 
 /** A receita e os pedidos pagos numa janela. */
@@ -171,18 +150,15 @@ export function somaNa(vendas: Venda[], j: Janela) {
 
 export type NumerosDoPeriodo = { receita: Comparado; pedidos: Comparado; ticket: Comparado }
 
-export function numerosDo(
-  vendas: Venda[],
-  janelas: { atual: Janela; antes: Janela }
-): NumerosDoPeriodo {
-  const agora = somaNa(vendas, janelas.atual)
-  const antes = somaNa(vendas, janelas.antes)
+export function numerosDo(vendas: Venda[], p: Periodo): NumerosDoPeriodo {
+  const agora = somaNa(vendas, p.atual)
+  const antes = p.antes ? somaNa(vendas, p.antes.janela) : null
   const ticket = (s: { receita: number; pedidos: number }) =>
     s.pedidos ? centavos(s.receita / s.pedidos) : 0
   return {
-    receita: comparar(agora.receita, antes.receita),
-    pedidos: comparar(agora.pedidos, antes.pedidos),
-    ticket: comparar(ticket(agora), ticket(antes)),
+    receita: comparar(agora.receita, antes?.receita ?? null),
+    pedidos: comparar(agora.pedidos, antes?.pedidos ?? null),
+    ticket: comparar(ticket(agora), antes ? ticket(antes) : null),
   }
 }
 
@@ -195,77 +171,23 @@ export function numerosDo(
 export type Barra = { rotulo: string; nome: string; valor: number; pedidos: number; agora: boolean }
 export type Serie = { titulo: string; barras: Barra[] }
 
-export function serieDo(
-  periodo: Periodo,
-  vendas: Venda[],
-  janelas: { dias: string[]; atual: Janela },
-  agora: Date
-): Serie {
-  const nela = vendas.filter((v) => dentro(v.pagoEm, janelas.atual))
-  const somar = (b: Barra, v: Venda) => {
+export function serieDo(p: Periodo, vendas: Venda[], agora: Date): Serie {
+  const baldes = baldesDo(p, agora)
+  // Hoje, hora a hora: até a de agora (a barra do futuro não tem o que mostrar).
+  const quantas =
+    p.passo === "hora" && p.ateAgora ? baldes.findIndex((b) => b.agora) + 1 : baldes.length
+  const barras: Barra[] = baldes
+    .slice(0, quantas)
+    .map((b) => ({ rotulo: b.rotulo, nome: b.nome, valor: 0, pedidos: 0, agora: b.agora }))
+  for (const v of vendas) {
+    if (!dentro(v.pagoEm, p.atual)) continue
+    const b = barras[baldeDoInstante(p, v.pagoEm)]
+    if (!b) continue
     b.valor = centavos(b.valor + v.total)
     b.pedidos++
   }
-
-  if (periodo === "hoje") {
-    const h = horaNoFuso(agora, FUSO)
-    const barras = Array.from({ length: h + 1 }, (_, i) => ({
-      rotulo: i === h ? "agora" : i % 6 === 0 ? `${i}h` : "",
-      nome: `${i}h`,
-      valor: 0,
-      pedidos: 0,
-      agora: i === h,
-    }))
-    for (const v of nela) {
-      const b = barras[horaNoFuso(v.pagoEm, FUSO)]
-      if (b) somar(b, v)
-    }
-    return { titulo: "Receita por hora, hoje", barras }
-  }
-
-  const { dias } = janelas
-  const porDia = new Map<string, Barra>(
-    dias.map((chave, i) => {
-      const d = meiaNoite(chave)
-      const ultimo = i === dias.length - 1
-      const rotulo = ultimo
-        ? "hoje"
-        : periodo === "7d"
-          ? `${diaDaSemana(d)} ${dia(d).slice(0, 2)}`
-          : i % 7 === 0 && i < dias.length - 3
-            ? dia(d)
-            : ""
-      return [chave, { rotulo, nome: dia(d), valor: 0, pedidos: 0, agora: ultimo }]
-    })
-  )
-  for (const v of nela) {
-    const b = porDia.get(chaveDoDia(v.pagoEm))
-    if (b) somar(b, v)
-  }
-  if (periodo !== "90d")
-    return {
-      titulo: `Receita por dia, nos últimos ${dias.length} dias`,
-      barras: [...porDia.values()],
-    }
-
-  // 90 dias: por semana, de 7 em 7 contando de hoje pra trás (a mais velha fica com o que sobrar).
-  const semanas: Barra[] = []
-  for (let fim = dias.length; fim > 0; fim -= 7) {
-    const doGrupo = dias.slice(Math.max(0, fim - 7), fim)
-    const primeiro = porDia.get(doGrupo[0])!
-    const ultimo = porDia.get(doGrupo[doGrupo.length - 1])!
-    semanas.unshift({
-      rotulo: "",
-      nome: `${primeiro.nome} a ${ultimo.nome}`,
-      valor: centavos(doGrupo.reduce((s, c) => s + porDia.get(c)!.valor, 0)),
-      pedidos: doGrupo.reduce((s, c) => s + porDia.get(c)!.pedidos, 0),
-      agora: fim === dias.length,
-    })
-  }
-  semanas.forEach((s, i) => {
-    s.rotulo = s.agora ? "esta" : i % 3 === 0 && i < semanas.length - 2 ? s.nome.slice(0, 5) : ""
-  })
-  return { titulo: "Receita por semana, nos últimos 90 dias", barras: semanas }
+  const por = p.passo === "hora" ? "hora" : p.passo === "dia" ? "dia" : "semana"
+  return { titulo: `Receita por ${por}, ${periodoEmFrase(p)}`, barras }
 }
 
 /* ── os produtos ──────────────────────────────────────────────────────────── */
@@ -378,26 +300,20 @@ export function metaDoMes(metas: Metas, vendas: Venda[], agora: Date): MetaDoMes
 /* ── o resumo ─────────────────────────────────────────────────────────────── */
 
 export type Resumo = {
-  periodo: Periodo
+  periodo: PeriodoNaTela
   numeros: NumerosDoPeriodo
   serie: Serie
   maisVendidos: ProdutoVendido[]
   meta: MetaDoMes
 }
 
-export function montarResumo(
-  periodo: Periodo,
-  pedidos: PedidoCru[],
-  metas: Metas,
-  agora: Date
-): Resumo {
+export function montarResumo(p: Periodo, pedidos: PedidoCru[], metas: Metas, agora: Date): Resumo {
   const vendas = vendasDos(pedidos)
-  const janelas = janelasDo(periodo, agora)
   return {
-    periodo,
-    numeros: numerosDo(vendas, janelas),
-    serie: serieDo(periodo, vendas, janelas, agora),
-    maisVendidos: maisVendidosNo(vendas, janelas.atual),
+    periodo: periodoNaTela(p),
+    numeros: numerosDo(vendas, p),
+    serie: serieDo(p, vendas, agora),
+    maisVendidos: maisVendidosNo(vendas, p.atual),
     meta: metaDoMes(metas, vendas, agora),
   }
 }
@@ -437,21 +353,18 @@ export const SO_AS_COMPRAS_DA_LOJA = {
   },
 }
 
-/** O período inteiro, pro GA4: do primeiro dia até hoje, no fuso da propriedade. */
-export const datasDo = (periodo: Periodo) => [
-  { startDate: `${DIAS[periodo] - 1}daysAgo`, endDate: "today" },
-]
+/** O período inteiro, pro GA4: do primeiro dia ao último (as datas escritas — 0191). */
+export const datasDo = (p: Periodo) => datasNoGoogle(p)
 
 /** A pergunta ao GA4: as visitas por dia e hora, do período e do de antes. */
-export function perguntaDasVisitas(periodo: Periodo, hosts: string[]) {
-  const n = DIAS[periodo]
+export function perguntaDasVisitas(p: Periodo, hosts: string[]) {
   const endereco = soDoEndereco(hosts)
   return {
-    dateRanges: [{ startDate: `${2 * n - 1}daysAgo`, endDate: "today" }],
+    dateRanges: datasComOAntes(p),
     dimensions: [{ name: "date" }, { name: "hour" }],
     metrics: [{ name: "sessions" }],
     ...(endereco ? { dimensionFilter: endereco } : {}),
-    // 90 dias e os 90 de antes, hora a hora: 4.320 linhas.
+    // Seis meses e os seis de antes, hora a hora: ~8.900 linhas.
     limit: "10000",
   }
 }
@@ -461,10 +374,9 @@ export function perguntaDasVisitas(periodo: Periodo, hosts: string[]) {
  * servidor (`SO_AS_COMPRAS_DA_LOJA`, só com o sim dos cookies), por dia e
  * hora, nas mesmas datas das visitas — o corte de hora vale pras duas.
  */
-export function perguntaDasCompras(periodo: Periodo) {
-  const n = DIAS[periodo]
+export function perguntaDasCompras(p: Periodo) {
   return {
-    dateRanges: [{ startDate: `${2 * n - 1}daysAgo`, endDate: "today" }],
+    dateRanges: datasComOAntes(p),
     dimensions: [{ name: "date" }, { name: "hour" }],
     metrics: [{ name: "ecommercePurchases" }],
     dimensionFilter: SO_AS_COMPRAS_DA_LOJA,
@@ -510,10 +422,9 @@ function porDiaEHora(r: RelatorioGa4): Map<string, number[]> {
  */
 export function visitasDoPeriodo(
   r: { visitas: RelatorioGa4; compras: RelatorioGa4 },
-  periodo: Periodo,
+  p: Periodo,
   agora: Date
 ): VisitasDoPeriodo {
-  const n = DIAS[periodo]
   const fuso = fusoDa(r.visitas)
   const hoje = diaNoFuso(agora, fuso)
   const horaAgora = horaNoFuso(agora, fuso)
@@ -521,27 +432,27 @@ export function visitasDoPeriodo(
   const compras = porDiaEHora(r.compras)
 
   // Até que hora o Google já somou hoje — a regra do Início (`comparacaoComOntem`): em dia, até
-  // a hora de agora (sem ela, pela metade); atrasado, até a última hora com visita.
+  // a hora de agora (sem ela, pela metade); atrasado, até a última hora com visita. Só quando o
+  // período chega até agora; um período que já acabou vai inteiro.
   const deHoje = sessoes.get(hoje) ?? []
   let ultima = -1
   for (let h = 0; h <= horaAgora; h++) if ((deHoje[h] ?? 0) > 0) ultima = h
   const ate = Math.max(0, ultima >= horaAgora - 1 ? horaAgora : ultima)
 
-  // O período termina em `ultimoDia`: os dias inteiros de antes e esse dia até a hora `ate`. As
+  // Os dias de um lado; o último, quando o período chega até agora, só até a hora `ate`. As
   // compras cortam na mesma hora: senão, as da última hora entrariam sem as visitas dela.
-  const contar = (porDia: Map<string, number[]>, ultimoDia: string) => {
-    const doDia = (chave: string, horas = 24) =>
-      (porDia.get(chave) ?? []).slice(0, horas).reduce((s, v) => s + v, 0)
-    let soma = doDia(ultimoDia, ate)
-    for (let i = 1; i < n; i++) soma += doDia(somarDias(ultimoDia, -i))
-    return soma
-  }
-  const visitas = comparar(contar(sessoes, hoje), contar(sessoes, somarDias(hoje, -n)))
-  const pedidos = comparar(contar(compras, hoje), contar(compras, somarDias(hoje, -n)))
+  const contar = (porDia: Map<string, number[]>, dias: string[]) =>
+    dias.reduce((soma, chave, i) => {
+      const horas = p.ateAgora && i === dias.length - 1 ? ate : 24
+      return soma + (porDia.get(chave) ?? []).slice(0, horas).reduce((s, v) => s + v, 0)
+    }, 0)
+  const visitas = comparar(contar(sessoes, p.dias), p.antes ? contar(sessoes, p.antes.dias) : null)
+  const pedidos = comparar(contar(compras, p.dias), p.antes ? contar(compras, p.antes.dias) : null)
 
-  const taxa = (p: number, v: number) => (v > 0 ? Math.round((p / v) * 10_000) / 100 : null)
+  const taxa = (c: number, v: number) => (v > 0 ? Math.round((c / v) * 10_000) / 100 : null)
   const valor = taxa(pedidos.valor, visitas.valor)
-  const antes = taxa(pedidos.antes, visitas.antes)
+  const antes =
+    visitas.antes === null || pedidos.antes === null ? null : taxa(pedidos.antes, visitas.antes)
   return {
     visitas,
     pedidos,
@@ -550,7 +461,7 @@ export function visitasDoPeriodo(
       antes,
       variacao: valor !== null && antes !== null ? variacao(valor, antes) : null,
     },
-    ate: ultima < 0 ? null : ate,
+    ate: p.ateAgora && ultima >= 0 ? ate : null,
   }
 }
 

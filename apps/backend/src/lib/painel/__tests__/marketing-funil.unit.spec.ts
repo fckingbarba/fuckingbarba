@@ -1,3 +1,4 @@
+import { lerPeriodo } from "../periodo"
 import { janelasDo } from "../marketing"
 import {
   achadosDoFunil,
@@ -34,8 +35,11 @@ const relatorio = (linhas: [string, number][] | number): RelatorioGa4 => ({
 
 describe("as perguntas ao GA4", () => {
   it("as sessões, as sessões com cada evento (do endereço da loja), as compras da loja e os aparelhos", () => {
-    const [total, eventos, compras, aparelhos] = perguntasDoFunil("30d", ["loja.com"])
-    expect(total.dateRanges).toEqual([{ startDate: "29daysAgo", endDate: "today" }])
+    const [total, eventos, compras, aparelhos] = perguntasDoFunil(
+      lerPeriodo({ periodo: "30d" }, new Date("2026-09-24T15:00:00.000Z"), "30d"),
+      ["loja.com"]
+    )
+    expect(total.dateRanges).toEqual([{ startDate: "2026-08-26", endDate: "2026-09-24" }])
     expect(eventos.dimensionFilter).toEqual({
       andGroup: {
         expressions: [
@@ -63,7 +67,10 @@ describe("as perguntas ao GA4", () => {
     })
     expect(aparelhos.dimensions).toEqual([{ name: "deviceCategory" }])
     // Sem endereço, o filtro dos eventos fica sozinho.
-    expect(perguntasDoFunil("7d", [])[1].dimensionFilter).toMatchObject({
+    expect(
+      perguntasDoFunil(lerPeriodo({ periodo: "7d" }, new Date("2026-09-24T15:00:00.000Z")), [])[1]
+        .dimensionFilter
+    ).toMatchObject({
       filter: { fieldName: "eventName" },
     })
   })

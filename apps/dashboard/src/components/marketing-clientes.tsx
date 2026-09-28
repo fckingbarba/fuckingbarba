@@ -1,7 +1,7 @@
 import Link from "next/link"
 import { Achados } from "@/components/marketing"
 import { CabecaDoBloco } from "@/components/visual"
-import { lerClientesDoMarketing, type LinhaDoEstado, type Periodo } from "@/lib/marketing"
+import { lerClientesDoMarketing, type LinhaDoEstado } from "@/lib/marketing"
 import { reais } from "@/lib/pedidos"
 
 /**
@@ -16,8 +16,8 @@ const INTEIRO = new Intl.NumberFormat("pt-BR")
 /** Acima disso de frete médio, o estado fica em vermelho (o do achado). */
 const FRETE_QUE_PESA = 30
 
-export async function TelaDosClientes({ periodo }: { periodo: Periodo }) {
-  const c = await lerClientesDoMarketing(periodo)
+export async function TelaDosClientes({ consulta }: { consulta: string }) {
+  const c = await lerClientesDoMarketing(consulta)
   if (!c)
     return (
       <p className="sem-dados">Não consegui falar com a loja agora. Recarregue daqui a pouco.</p>
