@@ -235,13 +235,14 @@ describe("o aviso do Pix", () => {
 })
 
 describe("a configuração dos fluxos", () => {
-  it("sem nada guardado: ligados, sem o desde, 10% de desconto", () => {
+  it("sem nada guardado: ligados (a estreia não), sem o desde, 10% de desconto", () => {
     expect(lerConfigDosFluxos({})).toEqual({
       fluxos: {
         pix: { ligado: true, desde: null },
         checkout: { ligado: true, desde: null },
         carrinho: { ligado: true, desde: null },
         "boas-vindas": { ligado: true, desde: null },
+        estreia: { ligado: false, desde: null },
       },
       desconto: 10,
     })
@@ -256,20 +257,24 @@ describe("a configuração dos fluxos", () => {
         checkout: { ligado: true, desde: LIGOU },
         carrinho: { ligado: false, desde: null },
         "boas-vindas": { ligado: true, desde: null },
+        estreia: { ligado: true, desde: LIGOU },
       },
       desconto: 15,
     }
     const guardado = { [CHAVE_DOS_FLUXOS]: guardarConfigDosFluxos(c) }
     expect(lerConfigDosFluxos(guardado)).toEqual(c)
-    expect(fluxosLigados(c)).toEqual({ checkout: LIGOU })
+    expect(fluxosLigados(c)).toEqual({ checkout: LIGOU, estreia: LIGOU })
     expect(
-      lerConfigDosFluxos({ [CHAVE_DOS_FLUXOS]: { desconto: 90, pix: { desde: "ontem" } } })
+      lerConfigDosFluxos({
+        [CHAVE_DOS_FLUXOS]: { desconto: 90, pix: { desde: "ontem" }, estreia: { ligado: "sim" } },
+      })
     ).toEqual({
       fluxos: {
         pix: { ligado: true, desde: null },
         checkout: { ligado: true, desde: null },
         carrinho: { ligado: true, desde: null },
         "boas-vindas": { ligado: true, desde: null },
+        estreia: { ligado: false, desde: null },
       },
       desconto: 10,
     })
