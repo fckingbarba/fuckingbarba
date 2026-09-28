@@ -107,8 +107,9 @@ export type EmailDoCrm = {
    *     Atualizações);
    *   - "pessoal": texto simples, sem foto, com um link só, assinado pelo
    *     dono e com a resposta indo pro atendimento. Foi o dos lembretes sem
-   *     desconto até a 0176, e fica pra voltar, se o "lembrete" cair em
-   *     Promoções;
+   *     desconto até a 0176. NÃO é saída pra Promoções: o dono quer todo
+   *     e-mail na cara da loja (recusou o texto simples na 0176 e na 0195) —
+   *     se um lembrete cair lá, mudam as palavras e sai o emoji, nunca a cara;
    *   - "lembrete": o modelo da marca, com o sair da lista no pé, mas sem o
    *     cabeçalho do "cancelar inscrição" e saindo com o nome de quem assina
    *     — os lembretes sem desconto, desde a 0176 (o teste da cara padrão com
