@@ -76,6 +76,17 @@ const CAMPOS_DA_LISTA = [
   "fulfillments.canceled_at",
 ]
 
+/**
+ * O que o VIGIA lê de cada pedido (`problemasDosPedidos`): o número, a
+ * situação e o metadata — é no metadata que moram o estorno e o registro na
+ * Frenet. Nada de total, itens, endereço ou pagamento: o vigia roda de 5 em 5
+ * minutos, e o total (ver `CAMPOS_SEM_TOTAL`: o Medusa calcula, lendo itens,
+ * impostos, ajustes e frete de cada pedido) é o que mais pesa numa leitura de
+ * 500 pedidos. Medido na 0199: ~1,8 KB por pedido com os da lista, ~0,35 KB
+ * com estes — e ~20 vezes mais rápido.
+ */
+export const CAMPOS_DO_VIGIA = ["id", "display_id", "created_at", "status", "metadata"] as const
+
 /** O pedido inteiro: o da lista, e o que só o detalhe mostra. */
 const CAMPOS_DO_DETALHE = [
   ...CAMPOS_DA_LISTA,
@@ -126,7 +137,12 @@ const query = (container: MedusaContainer) => container.resolve(ContainerRegistr
  * pagamento, a entrega, os cupons) — as contas da aba da base da Nuvemshop.
  * Com `email`, só os feitos com ele (o aviso da reposição no site, 0188; o
  * checkout grava o e-mail em minúsculas).
- * `items.*`: o `items.quantity` sozinho vem zerado no Medusa 2.21 (0116).
+ *
+ * Os itens, só com o que `pedidoDaPessoa` usa (o endereço, o SKU, o nome e a
+ * quantidade). A quantidade mora no `detail` no Medusa 2.21: o
+ * `items.quantity` sozinho vem vazio (0116), e com o `items.detail.quantity`
+ * vem certa. Até a 0199 era o `items.*` — que traz a descrição inteira do
+ * produto em cada item, e o CRM lê todos os pedidos a cada 5 minutos.
  */
 export async function pedidosParaAsEtiquetas(
   container: MedusaContainer,
@@ -141,7 +157,13 @@ export async function pedidosParaAsEtiquetas(
       "status",
       "created_at",
       "canceled_at",
-      "items.*",
+      "items.id",
+      "items.title",
+      "items.product_title",
+      "items.product_handle",
+      "items.variant_sku",
+      "items.quantity",
+      "items.detail.quantity",
       "items.adjustments.code",
       "payment_collections.payments.captured_at",
       "fulfillments.delivered_at",
@@ -356,6 +378,7 @@ const CAMPOS_SEM_TOTAL = CAMPOS_DA_LISTA.filter((c) => c !== "total" && c !== "c
 /**
  * Os pedidos mais novos primeiro: os `limite` últimos, ou os dos últimos `dias`.
  * `semTotal`: sem o `total` e o `credit_line_total` (ver `CAMPOS_SEM_TOTAL`).
+ * `campos`: só estes, no lugar dos da lista (o vigia: `CAMPOS_DO_VIGIA`).
  */
 export async function pedidosRecentes(
   container: MedusaContainer,
@@ -364,11 +387,18 @@ export async function pedidosRecentes(
     dias,
     agora = new Date(),
     semTotal = false,
-  }: { limite: number; dias?: number; agora?: Date; semTotal?: boolean }
+    campos,
+  }: {
+    limite: number
+    dias?: number
+    agora?: Date
+    semTotal?: boolean
+    campos?: readonly string[]
+  }
 ): Promise<PedidoCru[]> {
   const { data } = await query(container).graph({
     entity: "order",
-    fields: semTotal ? CAMPOS_SEM_TOTAL : CAMPOS_DA_LISTA,
+    fields: campos ? [...campos] : semTotal ? CAMPOS_SEM_TOTAL : CAMPOS_DA_LISTA,
     filters: {
       is_draft_order: false,
       ...(dias ? { created_at: { $gte: new Date(agora.getTime() - dias * DIA_MS) } } : {}),
