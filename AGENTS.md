@@ -2452,7 +2452,7 @@ Barba"). Só de quem disse sim à faixa de cookies, e ligado ao e-mail da pessoa
   de hora em hora) tira o que passou de 13 meses (`DIAS_DO_CRM` = 400).
 - **O painel:** a área `crm` (dono e marketing), no menu em Pessoas. `GET /dashboard/crm?periodo=`
   (hoje, 7d — o padrão — ou 30d) monta a tela em `lib/painel/crm.ts` (puro): os números
-  (visitantes, com e-mail, pessoas, anotações), o caminho em etapas com os 11 tipos e as 30
+  (visitantes, com e-mail, pessoas, anotações), o caminho em etapas com os 13 tipos e as 30
   últimas em frase, com o e-mail mascarado (`emailNoLog`).
 - **Mudar de ideia:** a política de privacidade tem o botão "Mudar minha resposta sobre os
   cookies" (`components/analytics/mudar-resposta.tsx`): apaga a resposta e recarrega, a faixa
@@ -3308,6 +3308,54 @@ resgate e a reposição e anda no tempo:
   adormeceu (o `adormecidos` da rodada).
 No arquivo da Nuvemshop, a linha com a data é o pedido, e a sem data é mais um item dele: o
 conferidor escreve assim o pedido de dois produtos.
+
+**O CRM, parte 17: a navegação abandonada** (entrega 0198, a etapa 4 do plano). O último dos 4 de
+abandono do plano: quem a loja conhece (aceitou os cookies e já disse quem é) e mostrou interesse
+num produto, sem pôr nada na sacola. É um fluxo do motor que começa DESLIGADO
+(`FLUXOS.navegacao`), com prioridade 4, logo depois do carrinho: a reposição, a jornada, as
+boas-vindas, a estreia e o resgate desceram uma casa.
+
+- **O interesse** (`interessesDaPessoa`, em `lib/crm/navegacao.ts`, puro): a 2ª visita à página
+  do produto (com pelo menos 1 minuto e até 7 dias entre as duas: recarregar não conta), 1 minuto
+  na página (`produto_lido`) ou o vídeo do "Vê na prática" (`video_assistido`). O começo é a hora
+  dele; a chave é o e-mail, o produto e o dia em Brasília (`chaveDaNavegacao`).
+- **Os dois tipos novos da loja** são só do CRM, com o mesmo "Aceitar" (`SoDaLoja`, em
+  `lib/rastrear.ts`):
+  - o `produto_lido` sai de `depoisDeUmMinutoNaFrente` (`apps/loja/src/lib/um-minuto.ts`, só na
+    página do produto): é a soma do tempo com a aba na frente, e trocar de aba pausa;
+  - o `video_assistido` sai do `abrir` do `VeNaPratica` (o `item` vem da `dobra.tsx`);
+  - os dois levam o item no formato do Google, uma vez por sessão (`umaVez`). No backend, entram
+    em `TIPOS` e `DO_NAVEGADOR` (`lib/crm/eventos.ts`) com o item do `produto_visto`; no painel,
+    na etapa "Olhou" ("ficou 1 minuto vendo …", "viu o vídeo de …").
+- **Quem lê:** `crm.navegacoesDesde` (as anotações de quem tem e-mail: as visitas, o minuto, o
+  vídeo, a sacola e o checkout) e `publicoDaNavegacao` (o produto pela variante, só os
+  publicados). As visitas contam desde 7 dias antes da janela; o interesse é que precisa ser dela.
+- **Sai** quem, depois do interesse, pôs qualquer coisa na sacola, começou o checkout (pelas
+  anotações ou pelo carrinho com e-mail) ou comprou.
+- **Uma a cada 7 dias por pessoa** (`navegacaoDaVez`, aplicada antes do `decidir` por
+  `comANavegacaoDaVez`): a que já tem toque no registro vai até o fim; outra, só 7 dias depois da
+  última; entre as novas, a mais nova.
+- **Os toques** (`emailDaNavegacao`, em `lib/emails/navegacao.ts`), sem cupom e como lembrete, na
+  cara da loja e sem emoji:
+  - 3 horas: "Ficou de olho no …?" — o produto, até 3 avaliações aprovadas (4 e 5 estrelas) e até
+    3 dúvidas da página. Sem avaliação nem dúvida, pulado;
+  - 24 horas: "Quem levou o … também levou…" — o produto e a rotina completa
+    (`sugestoesDaNavegacao`: a matriz da jornada, com o produto olhado como se fosse da pessoa, e
+    o que ela já tem nas compras das duas lojas, `oQueAPessoaTem`). Sem o que sugerir (a pasta, o
+    spray), pulado.
+- **O adormecido do sunset** recebe (é um fluxo de quem age), e a visita já o acorda.
+- **No painel**, a aba Fluxos ganha o card; o "Mandar pra mim" usa o Fator (`exemplosDaNavegacao`).
+- **A política de privacidade** conta os dois e-mails e o que a loja anota.
+
+O `conferir-crm.mjs` confere a navegação assim:
+- no navegador, 1 minuto na página do óleo, com o relógio de mentira do Playwright (`clock.install`
+  e `fastForward`, numa aba à parte);
+- no motor, com o tempo andando: duas visitas ao Fator (os e-mails de 3 horas e de 1 dia), 1
+  minuto na página, quem pôs na sacola depois (nada) e a regra dos 7 dias (o óleo, olhado logo
+  depois, fica sem e-mail);
+- a tela com os nove fluxos e o "Mandar pra mim".
+O banco de teste não tem vídeo no "Vê na prática": o vídeo fica com o teste do backend.
+
 **O preço e o promocional no painel** (entregas 0098 e 0102): os dois campos de cada produto na
 lista de Produtos, como na Nuvemshop (a 0098 tinha só o promocional, atrás de um botão). A regra é
 `lib/painel/promocao.ts`, pura: `lerMudancaDePreco` (o corpo `{ preco?, promocional? }` contra o
