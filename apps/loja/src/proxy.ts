@@ -6,7 +6,7 @@ import {
   ehSorteioDaConta,
   OPCOES_DA_CONTA_ABERTA,
   sorteioDaConta,
-} from "@/lib/reposicao"
+} from "@/lib/ficha"
 import { COOKIE_SESSAO, destinoSeguro, lerToken, sessaoParece } from "@/lib/sessao"
 import { emProducao, site } from "@/lib/site"
 
