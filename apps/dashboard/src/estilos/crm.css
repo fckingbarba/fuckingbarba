@@ -154,10 +154,18 @@
 .fluxo__cupom svg { width: 12px; height: 12px; fill: currentColor; }
 .fluxo__enviados { font-size: 1rem; font-weight: 800; text-align: right; font-variant-numeric: tabular-nums; }
 .fluxo__desconto { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin-top: 12px; }
+/* A estreia: os 4 jeitos do e-mail, e quantos saem em cada dia. */
+.estreia { display: grid; gap: 10px; }
+.estreia__jeitos { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.estreia__jeito { display: grid; gap: 2px; padding: 8px 10px; background: var(--cinza); }
+.estreia__jeito b { font-size: 1.1rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.estreia__jeito > span { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; font-size: 0.74rem; color: var(--tinta-suave); }
+.estreia__lotes { margin: 0; font-size: 0.8rem; color: var(--tinta-suave); }
 .fluxo__campo { grid-column: auto; width: 9em; }
 @media (max-width: 1180px) { .numeros--fluxo { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 640px) {
   .numeros--fluxo { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .estreia__jeitos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .fluxo__toque { grid-template-columns: minmax(0, 1fr) auto; }
   .fluxo__quando { grid-column: 1 / -1; }
   .fluxo__toque .btn { grid-column: 1 / -1; justify-self: start; }

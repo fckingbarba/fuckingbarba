@@ -18,6 +18,8 @@ const QUEM_ENTRA: Record<IdDoFluxo, string> = {
   carrinho: "Pôs na sacola e não foi pro checkout — e a loja sabe quem é.",
   "boas-vindas":
     "Se cadastrou no pop-up da 1ª compra. Depois do cupom, os e-mails da trilha do que a pessoa via: crescer a barba, cuidar da barba, cabelo — ou, sem produto, “Barba ou cabelo?”. Desligado, o pop-up some da loja.",
+  estreia:
+    "Aceitou ofertas na loja antiga (a base da Nuvemshop) e ainda não comprou na nova. Um e-mail da loja nova pra cada um, e o “vence amanhã” pra quem ganhou cupom. Começa desligado: ligue depois de pôr a Nuvemshop em manutenção.",
 }
 
 const inteiro = new Intl.NumberFormat("pt-BR")
@@ -75,6 +77,7 @@ export function FluxosDoCrm({ tela }: { tela: TelaDosFluxos }) {
             </div>
           </div>
           <NumerosDoFluxo f={f} dias={tela.dias} />
+          {f.publico ? <PublicoDaEstreia p={f.publico} /> : null}
           <ol className="fluxo__toques">
             {f.toques.map((t) => (
               <Toque key={t.id} toque={t} />
@@ -144,6 +147,46 @@ function NumerosDoFluxo({ f, dias }: { f: Fluxo; dias: number }) {
   )
 }
 
+/** QUEM ENTRA NA ESTREIA — os 4 jeitos do e-mail e quantos saem em cada dia. */
+function PublicoDaEstreia({ p }: { p: NonNullable<Fluxo["publico"]> }) {
+  const jeitos = [
+    { nome: "Na hora de repor", n: p.repor, cupom: false },
+    { nome: "No tratamento", n: p.cliente, cupom: false },
+    { nome: "Sumiram", n: p.sumido, cupom: true },
+    { nome: "Nunca compraram", n: p.lead, cupom: true },
+  ]
+  const dias = p.lotes.filter((n) => n > 0)
+  return (
+    <div className="estreia" data-publico-da-estreia>
+      <div className="estreia__jeitos">
+        {jeitos.map((j) => (
+          <div className="estreia__jeito" key={j.nome} data-jeito={j.nome}>
+            <b className="num">{inteiro.format(j.n)}</b>
+            <span>
+              {j.nome}
+              {j.cupom ? (
+                <span className="fluxo__cupom" title="Ganham cupom">
+                  <Icone nome="cupons" /> cupom
+                </span>
+              ) : null}
+            </span>
+          </div>
+        ))}
+      </div>
+      <p className="estreia__lotes" data-lotes>
+        {inteiro.format(p.pessoas)} {p.pessoas === 1 ? "pessoa" : "pessoas"}
+        {dias.length > 1
+          ? ` em ${dias.length} dias: ${dias.map((n) => inteiro.format(n)).join(" · ")}`
+          : ""}
+        . O 1º dia sai quando você liga; os outros, às 10h.
+        {p.jaCompraram
+          ? ` ${inteiro.format(p.jaCompraram)} já ${p.jaCompraram === 1 ? "comprou" : "compraram"} na loja nova e ${p.jaCompraram === 1 ? "fica" : "ficam"} de fora.`
+          : ""}
+      </p>
+    </div>
+  )
+}
+
 function Toque({ toque }: { toque: Fluxo["toques"][number] }) {
   const avisar = useAvisar()
   const [mandando, setMandando] = useState(false)
@@ -202,10 +245,10 @@ export function DescontoDosFluxos({
         O desconto do cupom
       </h2>
       <p className="bloco__sub">
-        Vai no e-mail de 1 dia depois e no cupom da 1ª compra, o do pop-up: um cupom só da pessoa,
-        de uso único, que vence em 2 dias (3 no carrinho abandonado e na 1ª compra). No máximo um a
-        cada 60 dias pro mesmo e-mail (o da 1ª compra, um por e-mail), e ele soma com o preço
-        promocional.
+        Vai no e-mail de 1 dia depois, no cupom da 1ª compra (o do pop-up) e na estreia (pra quem
+        sumiu e quem nunca comprou): um cupom só da pessoa, de uso único, que vence em 2 dias (3 no
+        carrinho abandonado, na 1ª compra e na estreia). No máximo um a cada 60 dias pro mesmo
+        e-mail (o da 1ª compra, um por e-mail), e ele soma com o preço promocional.
       </p>
       <form
         className="fluxo__desconto"

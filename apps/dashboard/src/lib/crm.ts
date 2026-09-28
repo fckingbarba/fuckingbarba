@@ -141,7 +141,7 @@ export type FormularioDosAjustes = {
 
 export const CAMINHO_DOS_FLUXOS = "/dashboard/crm/fluxos"
 
-export type IdDoFluxo = "pix" | "checkout" | "carrinho" | "boas-vindas"
+export type IdDoFluxo = "pix" | "checkout" | "carrinho" | "boas-vindas" | "estreia"
 
 /** A aba Fluxos (`GET /dashboard/crm/fluxos`, `lib/painel/fluxos.ts` no backend). */
 export type TelaDosFluxos = {
@@ -163,6 +163,16 @@ export type TelaDosFluxos = {
       compraram: number
       vendido: number
       controle: { pessoas: number; compraram: number }
+    }
+    /** Só na estreia: quem entra, de que jeito, e quantos saem em cada dia. */
+    publico?: {
+      pessoas: number
+      repor: number
+      cliente: number
+      sumido: number
+      lead: number
+      lotes: number[]
+      jaCompraram: number
     }
   }[]
 }
