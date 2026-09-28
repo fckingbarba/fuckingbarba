@@ -1339,17 +1339,19 @@ try {
         ).status === 403,
       "a operação não abre, não liga, não roda e não manda teste"
     )
-    // O banco local é de todos os conferidores: os três ligados, e a primeira rodada guarda a hora.
-    for (const id of ["pix", "checkout", "carrinho"]) await mudarFluxos({ fluxo: id, ligado: true })
+    // O banco local é de todos os conferidores: os quatro ligados, e a primeira rodada guarda a hora.
+    for (const id of ["pix", "checkout", "carrinho", "boas-vindas"])
+      await mudarFluxos({ fluxo: id, ligado: true })
     await rodar()
     const tela0 = (await fluxos(tokenDoDono)).corpo
     ok(
-      tela0.fluxos?.map((f) => f.id).join() === "pix,checkout,carrinho" &&
+      tela0.fluxos?.map((f) => f.id).join() === "pix,checkout,carrinho,boas-vindas" &&
         tela0.fluxos.every((f) => f.ligado && f.desde) &&
         tela0.fluxos.find((f) => f.id === "checkout")?.toques.length === 4 &&
         tela0.fluxos.find((f) => f.id === "pix")?.toques.length === 3 &&
-        tela0.fluxos.find((f) => f.id === "carrinho")?.toques.length === 5,
-      "os três fluxos, ligados, com os toques de cada um",
+        tela0.fluxos.find((f) => f.id === "carrinho")?.toques.length === 5 &&
+        tela0.fluxos.find((f) => f.id === "boas-vindas")?.toques.length === 1,
+      "os quatro fluxos, ligados, com os toques de cada um",
       JSON.stringify(tela0.fluxos?.map((f) => [f.id, f.ligado, f.desde, f.toques?.length]))
     )
     const errados = await Promise.all([
@@ -1915,11 +1917,13 @@ try {
     await dono.pagina.goto(`${PAINEL}/crm/fluxos`)
     await dono.pagina.locator("[data-fluxos-crm]").waitFor({ timeout: 20000 })
     ok(
-      (await dono.pagina.locator("[data-fluxo]").count()) === 3 &&
+      (await dono.pagina.locator("[data-fluxo]").count()) === 4 &&
         (await dono.pagina.locator('.abas [data-aba="fluxos"][aria-current="page"]').count()) ===
           1 &&
-        (await dono.pagina.locator('[data-ligar][aria-checked="true"]').count()) === 3,
-      "a aba: os três fluxos, ligados"
+        (await dono.pagina.locator('[data-ligar][aria-checked="true"]').count()) === 4 &&
+        // As boas-vindas não têm controle: o cupom foi a pessoa que pediu.
+        (await dono.pagina.locator('[data-fluxo="boas-vindas"] .numero--controle').count()) === 0,
+      "a aba: os quatro fluxos, ligados (as boas-vindas sem o controle)"
     )
     const telaAgora = (await fluxos(tokenDoDono)).corpo
     const doCheckout = telaAgora.fluxos.find((f) => f.id === "checkout")
@@ -1958,6 +1962,39 @@ try {
         testeDoFluxo?.html.includes("VOLTA-EXEMPLO"),
       "“Mandar pra mim” do toque de 1 dia: o e-mail com o cupom de exemplo",
       testeDoFluxo?.subject ?? "não chegou"
+    )
+    // O das boas-vindas: o e-mail do cupom da 1ª compra, com o cupom de exemplo.
+    const antesDoTesteDaPrimeira = caixa.quantos(DONO, (e) => e.subject?.startsWith("[Teste] "))
+    await hidratado(dono.pagina, '[data-toque="boas-vindas-agora"] [data-mandar-pra-mim]')
+    await dono.pagina.locator('[data-toque="boas-vindas-agora"] [data-mandar-pra-mim]').click()
+    const testeDaPrimeira = await caixa.esperarEmail(
+      DONO,
+      (e) => e.subject?.startsWith("[Teste] "),
+      antesDoTesteDaPrimeira,
+      20000
+    )
+    ok(
+      /^\[Teste\] Seu cupom de \d+% chegou$/.test(testeDaPrimeira?.subject ?? "") &&
+        testeDaPrimeira?.html.includes("BEMVINDO-EXEMPLO") &&
+        testeDaPrimeira?.html.includes("/discount/BEMVINDO-EXEMPLO?") &&
+        Boolean(testeDaPrimeira?.headers?.["List-Unsubscribe"]),
+      "“Mandar pra mim” das boas-vindas: o cupom da 1ª compra, com o link que já aplica, como oferta",
+      testeDaPrimeira?.subject ?? "não chegou"
+    )
+    // A chave das boas-vindas é a do pop-up da loja: desligada, a loja fica sabendo.
+    const popupDaLoja = async () =>
+      (await medusa("/store/crm/primeira-compra", { metodo: "GET", extras: DA_LOJA })).corpo
+    await mudarFluxos({ fluxo: "boas-vindas", ligado: false })
+    const popupDesligado = await popupDaLoja()
+    await mudarFluxos({ fluxo: "boas-vindas", ligado: true })
+    const popupLigado = await popupDaLoja()
+    ok(
+      popupDesligado.ligado === false &&
+        popupLigado.ligado === true &&
+        popupLigado.porcento === 10 &&
+        popupLigado.dias === 3,
+      "a chave das boas-vindas liga e desliga o pop-up da loja (10%, 3 dias)",
+      JSON.stringify({ popupDesligado, popupLigado })
     )
     await dono.pagina.goto(`${PAINEL}/crm/fluxos`)
     await hidratado(dono.pagina, "[data-desconto]")
@@ -2111,6 +2148,7 @@ try {
       { fluxo: "pix", ligado: true },
       { fluxo: "checkout", ligado: true },
       { fluxo: "carrinho", ligado: true },
+      { fluxo: "boas-vindas", ligado: true },
       { desconto: 10 },
     ])
       await medusa("/dashboard/crm/fluxos", { token: tokenDoDono, corpo }).catch(() => null)

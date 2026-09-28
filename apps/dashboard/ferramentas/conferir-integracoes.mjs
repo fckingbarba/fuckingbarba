@@ -199,7 +199,10 @@ async function visitaNaLoja(cookies = [], tela = {}) {
       return rota.fulfill({ status: 200, contentType: "text/javascript", body: terceiro[1] })
     return rota.abort()
   })
-  if (cookies.length) await contexto.addCookies(cookies.map((c) => ({ ...c, url: LOJA })))
+  // O pop-up da 1ª compra já respondido: ele cobriria a página que o conferidor olha.
+  await contexto.addCookies(
+    [...cookies, { name: "fb_popup", value: "cadastrado" }].map((c) => ({ ...c, url: LOJA }))
+  )
   const pagina = await contexto.newPage()
   pagina.on("pageerror", (e) => errosDeConsole.push(`${pagina.url()}: ${e.message}`))
   return { contexto, pagina, pedidos }

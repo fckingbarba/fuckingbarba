@@ -118,6 +118,9 @@ export async function abrirNavegador() {
   const errosDeConsole = []
   async function novaAba(viewport = { width: 1280, height: 900 }) {
     const contexto = await navegador.newContext({ viewport, extraHTTPHeaders: { "x-real-ip": IP } })
+    // O pop-up da 1ª compra da loja já respondido: ele cobriria o clique do conferidor.
+    if (process.env.LOJA)
+      await contexto.addCookies([{ name: "fb_popup", value: "cadastrado", url: process.env.LOJA }])
     const relogioDoDev = vigiarRelogioDoDev(contexto, descontadosDoDev)
     const pagina = await contexto.newPage()
     pagina.on(
