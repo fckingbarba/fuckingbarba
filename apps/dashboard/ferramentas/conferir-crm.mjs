@@ -2021,6 +2021,7 @@ try {
         e.tags?.some((t) => t.name === "tipo" && t.value === "crm-estreia") && deFluxo(e)
       // Um de cada jeito, fora do grupo de controle da estreia (ela tem controle).
       const REPOR = foraDoControle("repor.es", "estreia")
+      const KIT = foraDoControle("kit.es", "estreia")
       const TRATA = foraDoControle("trata.es", "estreia")
       const SUMIU = foraDoControle("sumiu.es", "estreia")
       const NUNCA = foraDoControle("nunca.es", "estreia")
@@ -2037,6 +2038,7 @@ try {
             latin1([
               "Nome completo;CPF/CNPJ;E-mail;Telefone de Contato;Endereço;Cidade;Data;Cadastrado;Inscrição para newsletter;Marketing;Marketing (atualização)",
               pessoa("REPOR TESTE", REPOR, true),
+              pessoa("KIT TESTE", KIT, true),
               pessoa("TRATA TESTE", TRATA, true),
               pessoa("SUMIU TESTE", SUMIU, true),
               pessoa("NUNCA TESTE", NUNCA, true),
@@ -2056,6 +2058,14 @@ try {
                 agora - 30 * DIA_MS,
                 "FBFCB01",
                 "Fator de Crescimento para Barba 30ml"
+              ),
+              // O Kit Completo pago há 40 dias: o shampoo (45 dias no padrão) acaba em 12.
+              venda(
+                `E${RODADA}-5`,
+                KIT,
+                agora - 40 * DIA_MS,
+                "FBKIT01",
+                "Kit Completo FuckingBarba"
               ),
               // O óleo pago há 5 dias: no meio do tratamento.
               venda(`E${RODADA}-2`, TRATA, agora - 5 * DIA_MS, "FBOL01", "Óleo para Barba 30ml"),
@@ -2082,8 +2092,9 @@ try {
         importou.every((r) => r.status === 200) &&
           depois?.ligado === false &&
           depois.toques.map((t) => t.id).join() === "estreia-agora,estreia-2d" &&
-          ["repor", "cliente", "sumido", "lead"].every((k) => cresceu(k) === 1) &&
-          cresceu("pessoas") === 4 &&
+          cresceu("repor") === 2 &&
+          ["cliente", "sumido", "lead"].every((k) => cresceu(k) === 1) &&
+          cresceu("pessoas") === 5 &&
           depois.publico.jaCompraram >= 1 &&
           rDesligada.corpo.enviados === 0 &&
           caixa.quantos(REPOR, daEstreia) === 0,
@@ -2115,7 +2126,7 @@ try {
         }
         const lotes = {}
         const primeiro = {}
-        for (const email of [REPOR, TRATA, SUMIU, NUNCA, NAO_ACEITA]) {
+        for (const email of [REPOR, KIT, TRATA, SUMIU, NUNCA, NAO_ACEITA]) {
           lotes[email] = await noLote(email, daEstreia)
           primeiro[email] = resend.emails.find((e) => e.to?.includes(email) && daEstreia(e))
         }
@@ -2130,6 +2141,14 @@ try {
             !primeiro[REPOR].html.includes("Frete grátis"),
           "na hora de repor: o Fator está acabando, como lembrete, sem cupom, e o botão leva pra ele",
           `${primeiro[REPOR]?.subject ?? "não chegou"} · ${primeiro[REPOR]?.from ?? ""}`
+        )
+        ok(
+          primeiro[KIT]?.subject === "Seu shampoo deve estar acabando" &&
+            primeiro[KIT].html.includes("/produtos/shampoo-para-barba?") &&
+            primeiro[KIT].html.includes("Ver o shampoo") &&
+            primeiro[KIT].html.includes("Kit Completo"),
+          "quem comprou o Kit Completo: o que acaba primeiro no assunto, o botão no avulso dele e o kit na lista",
+          primeiro[KIT]?.subject ?? "não chegou"
         )
         ok(
           primeiro[TRATA]?.subject === "A FuckingBarba tem loja nova" &&

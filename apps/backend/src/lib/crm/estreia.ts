@@ -12,6 +12,7 @@ import {
   componentesDoItem,
   etiquetasDaPessoa,
   quandoAcaba,
+  skuAvulso,
   type Componente,
   type Etiquetas,
   type PedidoDaPessoa,
@@ -170,14 +171,28 @@ export type PublicoDaEstreia = {
 
 const pago = (p: PedidoDaPessoa) => Boolean(p.pagoEm) && !p.cancelado
 
-/** O que acaba primeiro no pedido, e o SKU do item que traz (o botão "Repor" leva pra ele). */
-function oQueAcaba(p: PedidoDaPessoa, dias: Record<Componente, number>) {
+/**
+ * O que acaba primeiro no pedido, e o SKU do produto pro botão do e-mail. O
+ * botão diz o que acaba ("Ver o óleo"): se veio avulso, é o próprio item (a
+ * pasta brilho continua brilho); se veio num kit ou em mais de uma unidade, é
+ * o avulso daquele tipo — o kit continua em "O que você levou da última vez".
+ */
+export function oQueAcaba(
+  p: PedidoDaPessoa,
+  dias: Record<Componente, number>
+): { componente: Componente; sku: string | null } | null {
   const acaba = quandoAcaba(p, p.pagoEm ?? new Date(0), dias)
   if (!acaba) return null
   const item = p.itens.find((i) =>
     componentesDoItem(i).some((c) => c.componente === acaba.componente)
   )
-  return { componente: acaba.componente, sku: item?.sku?.trim().toUpperCase() || null }
+  const partes = item ? componentesDoItem(item) : []
+  const avulso = partes.length === 1 && partes[0].unidades === 1
+  const doItem = item?.sku?.trim().toUpperCase() || null
+  return {
+    componente: acaba.componente,
+    sku: avulso && doItem ? doItem : (skuAvulso(acaba.componente) ?? doItem),
+  }
 }
 
 /**

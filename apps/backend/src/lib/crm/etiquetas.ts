@@ -103,6 +103,16 @@ const SKUS: Record<string, readonly (readonly [Componente, number])[]> = {
   ],
 }
 
+/**
+ * O SKU do produto avulso de cada tipo: uma unidade, sozinho (o primeiro da
+ * tabela — a pasta matte, das duas pastas). É o "repor" de quem comprou kit.
+ */
+export function skuAvulso(componente: Componente): string | null {
+  for (const [sku, partes] of Object.entries(SKUS))
+    if (partes.length === 1 && partes[0][0] === componente && partes[0][1] === 1) return sku
+  return null
+}
+
 const PALAVRAS: [RegExp, Componente][] = [
   [/fator-de-crescimento/, "fator"],
   [/(^|-)oleo(-|$)/, "oleo"],

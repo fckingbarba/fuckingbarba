@@ -3656,8 +3656,18 @@ do cupom do pop-up, chegam os e-mails da trilha de quem se cadastrou, como no pr
     Crescimento".
 - **Os outros 3** seguem como oferta, em Promoções: são campanha, e dois têm cupom.
 
-- [ ] **Depois do deploy (você):** "Mandar pra mim" da Estreia de novo e ver a aba do de repor.
-      Quem decide a aba é o Gmail.
+- [x] **Depois do deploy (você):** "Mandar pra mim" da Estreia de novo e ver a aba do de repor.
+      Quem decide a aba é o Gmail. (Caiu em Principal, no seu teste de 28/09.)
+
+**A estreia: o botão do de repor pra quem comprou kit — pronto em 28/09 (entrega 0183).**
+
+- **O problema:** quem comprou o Kit Completo recebia "Seu óleo deve estar acabando" (ou o
+  shampoo), com o botão "Ver o óleo", mas o botão abria a página do kit.
+- **Agora:** o botão abre o óleo avulso, e o kit continua na lista "O que você levou da última
+  vez". O mesmo vale pros pacotes de Fator (2, 3 e 6) e pro kit Fator com Shampoo.
+- **O 1º lote** (200 pessoas) saiu antes do conserto: quem comprou kit ali recebeu o botão antigo.
+- **O assunto é o de cada um:** o produto é o da última compra da pessoa ("Seu óleo…", "Sua pasta
+  modeladora…"). O Fator do "Mandar pra mim" é só o exemplo.
 
 **A parcela mínima do cartão, editável — pronta em 27/09 (entrega 0157).** O pedido dele: "quero
 poder editar a parcela mínima no cartão, ali diz 5 reais". Em **Configurações → Pagamento**, o
