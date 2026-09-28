@@ -3636,13 +3636,28 @@ do cupom do pop-up, chegam os e-mails da trilha de quem se cadastrou, como no pr
   - O remetente news é novo: mandar tudo de uma vez podia jogar no spam.
 - **Começa DESLIGADA.** Você liga em CRM → Fluxos → Estreia. Ali aparece quantos recebem cada
   jeito, e quantos saem por dia.
-- **Cai onde:** é campanha pra base toda, e Promoções é o lugar dela.
+- **Cai onde:** é campanha pra base toda, e Promoções é o lugar dela. A exceção é o de repor,
+  que sai como lembrete (entrega 0182, logo abaixo).
 
 - [ ] **Antes de ligar (você):** conferir no Resend que o plano é o Pro, ou maior. No grátis, o
       limite é 100 e-mails por dia, e a estreia manda uns 2.500 em 4 dias. Os de pedido também contam.
 - [ ] **Antes de ligar (você):** pôr a Nuvemshop em manutenção (eu guio).
 - [ ] **Ligar a estreia (você):** CRM → Fluxos → Estreia → "Mandar pra mim" (chegam os 4 jeitos) e
       depois a chave.
+
+**A estreia: o e-mail de repor como lembrete — pronto em 28/09 (entrega 0182).** No seu teste, os
+4 jeitos caíram em Promoções. Sua escolha: só o de repor tenta o Principal.
+
+- **O de repor** ("Seu Fator de Crescimento deve estar acabando") ganhou a cara dos lembretes do
+  checkout, que caíram em Principal no seu teste:
+  - assinado "Matheus, da FuckingBarba";
+  - sem o "cancelar inscrição" do Gmail no alto, mas com o "Sair da lista" no pé;
+  - sem palavra de propaganda: saiu o frete grátis da lista, e o botão virou "Ver o Fator de
+    Crescimento".
+- **Os outros 3** seguem como oferta, em Promoções: são campanha, e dois têm cupom.
+
+- [ ] **Depois do deploy (você):** "Mandar pra mim" da Estreia de novo e ver a aba do de repor.
+      Quem decide a aba é o Gmail.
 
 **A parcela mínima do cartão, editável — pronta em 27/09 (entrega 0157).** O pedido dele: "quero
 poder editar a parcela mínima no cartão, ali diz 5 reais". Em **Configurações → Pagamento**, o
