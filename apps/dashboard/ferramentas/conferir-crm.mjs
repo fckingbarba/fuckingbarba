@@ -2123,9 +2123,13 @@ try {
         ok(
           primeiro[REPOR]?.subject === "Seu Fator de Crescimento deve estar acabando" &&
             primeiro[REPOR].html.includes("/produtos/fator-de-crescimento-para-barba?") &&
-            !codigo(primeiro[REPOR]),
-          "na hora de repor: o Fator está acabando, sem cupom, e o botão leva pra ele",
-          primeiro[REPOR]?.subject ?? "não chegou"
+            !codigo(primeiro[REPOR]) &&
+            // Sem desconto: a cara do lembrete, assinado, sem o "cancelar inscrição" do cabeçalho.
+            /^Matheus, da FuckingBarba </.test(primeiro[REPOR].from ?? "") &&
+            !primeiro[REPOR].headers?.["List-Unsubscribe"] &&
+            !primeiro[REPOR].html.includes("Frete grátis"),
+          "na hora de repor: o Fator está acabando, como lembrete, sem cupom, e o botão leva pra ele",
+          `${primeiro[REPOR]?.subject ?? "não chegou"} · ${primeiro[REPOR]?.from ?? ""}`
         )
         ok(
           primeiro[TRATA]?.subject === "A FuckingBarba tem loja nova" &&
