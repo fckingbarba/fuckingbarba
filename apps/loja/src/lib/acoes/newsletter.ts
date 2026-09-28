@@ -1,8 +1,10 @@
 "use server"
 
+import { cookies } from "next/headers"
 import { cabecalhosDeQuemPede, medusa } from "@/lib/conta"
 import { anotarNoServidor } from "@/lib/crm"
 import type { EstadoDaNewsletter } from "@/lib/newsletter-visivel"
+import { COOKIE_DO_POPUP, OPCOES_DOS_COOKIES } from "@/lib/primeira-compra"
 
 /**
  * A inscrição do rodapé — manda pro Medusa (`POST /store/newsletter`), que
@@ -12,7 +14,8 @@ import type { EstadoDaNewsletter } from "@/lib/newsletter-visivel"
  * contar por pessoa e não pela Vercel inteira — o mesmo do código da conta.
  *
  * Com o sim dos cookies, o CRM da loja anota a inscrição, e o que este
- * navegador fez passa a ser deste e-mail (`anotarNoServidor`).
+ * navegador fez passa a ser deste e-mail (`anotarNoServidor`). E o pop-up
+ * da 1ª compra não aparece mais neste navegador (`fb_popup`).
  */
 
 const ehEmail = (v: string) => v.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v)
@@ -32,6 +35,8 @@ export async function inscreverNaNewsletter(
   })
 
   if (r.status === 200) {
+    // Já está na lista: o pop-up da 1ª compra não aparece mais pra ele.
+    ;(await cookies()).set(COOKIE_DO_POPUP, "cadastrado", OPCOES_DOS_COOKIES)
     await anotarNoServidor({ nome: "newsletter", email })
     return { tipo: "ok" }
   }
