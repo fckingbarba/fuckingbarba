@@ -4292,8 +4292,8 @@ Depois do deploy — **nada a configurar.** O Railway cria a tabela no deploy (a
 novo). O link pra mandar aos criadores está no painel, em Criadores → "Copiar o link da página"
 (<https://www.fuckingbarba.com.br/criadores>).
 
-- [ ] **Com você:** o contrato de uso de imagem (12 meses) e o da comissão — passar pelo advogado
-      antes do primeiro "sim".
+- [ ] **Com você:** o contrato de uso de imagem e o da comissão — passar pelo advogado antes do
+      primeiro "sim".
 
 **A avaliação direto na página, sem o link por e-mail — pronto em 28/09 (entrega 0193).** Pedido
 dele: um cliente da loja antiga reclamou que, pra avaliar, ainda tinha que pedir o link pro e-mail;
@@ -4336,6 +4336,25 @@ formulário novo responde "Não encontrei..." até o backend novo entrar.
 
 - [ ] **Com você, depois do deploy:** mandar o link pro cliente que reclamou (e pros outros que você
       quiser, pelo WhatsApp).
+
+**Criadores: a comissão sem prazo — pronto em 28/09 (entrega 0196).** Pedido dele, com a página no
+ar: "não tem essa de 12 meses ali, tá? Vamos rodar os criativos deles e aí o que vender vamos
+pagar". A comissão agora é 3% de cada venda feita com o vídeo, enquanto ele vender — sem data pra
+acabar.
+
+- **A página diz isso em todo lugar**: no topo, no cartão da comissão (o selo virou "Sem prazo"),
+  na escolha do modelo na inscrição, nas dúvidas e na prévia do link.
+- **A calculadora mudou a pergunta**: sem prazo, não dá pra somar "em 12 meses". Ela mostra a
+  comissão de cada mês e em que mês a soma passa do fixo (30 vendas por mês: R$ 112,50 por mês, e
+  passa do fixo no 9º mês) — numa barra que é o fixo inteiro, com um bloco por mês de comissão.
+- **O uso de imagem** também saiu do "até 12 meses": a regra diz só que os vídeos rodam como
+  anúncio da loja, e o prazo fica pro contrato.
+
+Conferido no Medusa local: o `conferir-criadores` da loja (a oferta e a calculadora contra a
+`OFERTA` do código, agora mês a mês; nada de "12 meses" na página), o typecheck, o lint e o
+prettier da loja, e o `next build` contra o `medusa-falso.mjs`.
+
+Depois do deploy — **nada a configurar.**
 
 ## Como seguir no Claude Code
 
