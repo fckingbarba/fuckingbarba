@@ -188,25 +188,25 @@
   aspect-ratio: 9 / 16;
   max-width: 100%;
   overflow: hidden;
-  background: #ffffff;
+  background: var(--color-tinta);
 }
+/* Uma foto por momento, uma em cima da outra: a do momento aparece (a tela marca `data-fase`). */
 .criadores__foto {
-  position: absolute;
-  top: 6%;
-  left: 0;
-  right: 0;
-  height: 72%;
-}
-.criadores__foto img {
   object-fit: cover;
-  mix-blend-mode: multiply;
+  opacity: 0;
+  transition: opacity 0.35s var(--ease-suave);
+}
+.criadores__tela[data-fase="gancho"] .criadores__foto[data-fase="gancho"],
+.criadores__tela[data-fase="corpo"] .criadores__foto[data-fase="corpo"],
+.criadores__tela[data-fase="fim"] .criadores__foto[data-fase="fim"] {
+  opacity: 1;
 }
 .criadores__grade {
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(rgba(18, 24, 31, 0.1) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(18, 24, 31, 0.1) 1px, transparent 1px);
+    linear-gradient(rgba(255, 255, 255, 0.16) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.16) 1px, transparent 1px);
   background-size: 33.34% 33.34%;
   background-position: -1px -1px;
 }
@@ -249,9 +249,10 @@
   border: 1.5px solid var(--color-tinta);
   background: #ffffff;
 }
+/* A frase fica embaixo, logo acima da barra do tempo: em cima, ela cobriria a barba. */
 .criadores__legenda {
   position: absolute;
-  top: 55%;
+  bottom: 16%;
   left: 12px;
   right: 12px;
   margin: 0;
@@ -532,43 +533,51 @@
   line-height: 1;
   color: var(--color-amarelo);
 }
-.criadores__barras {
+/* A barra é o fixo inteiro; cada bloco, um mês de comissão, na mesma escala. */
+.criadores__fixo {
   display: grid;
-  gap: 16px;
+  gap: 6px;
 }
-.criadores__barra {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 6px 12px;
-  align-items: baseline;
-}
-.criadores__barra-nome {
+.criadores__fixo-rotulos {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
   font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--criadores-no-escuro);
 }
-.criadores__barra-valor {
-  font-weight: 800;
+.criadores__fixo-rotulos .num {
+  color: #ffffff;
 }
-.criadores__barra-trilho {
-  position: relative;
-  grid-column: 1 / -1;
-  height: 22px;
+.criadores__blocos {
+  display: flex;
+  gap: 2px;
+  height: 30px;
+  overflow: hidden;
   border: 2px solid rgba(255, 255, 255, 0.3);
   background: rgba(255, 255, 255, 0.07);
 }
-.criadores__barra-cheia {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  background: var(--color-menta);
-  transition: width 0.35s var(--ease-suave);
-}
-.criadores__barra-cheia[data-tipo="comissao"] {
+.criadores__bloco {
+  flex: none;
+  display: grid;
+  place-items: center;
+  height: 100%;
   background: var(--color-amarelo);
+  color: var(--color-tinta);
+  font: 700 0.7rem var(--criadores-mono);
+}
+.criadores__bloco:nth-child(even) {
+  background: #f2c200;
+}
+.criadores__bloco[data-passou] {
+  background: var(--color-menta);
+}
+.criadores__fixo-legenda {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--criadores-no-escuro);
 }
 .criadores__veredito {
   margin: 20px 0 4px;
@@ -648,9 +657,9 @@
 }
 .criadores__matriz {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) repeat(4, 46px);
+  grid-template-columns: minmax(0, 1fr) repeat(5, 46px);
   gap: 8px;
-  max-width: 460px;
+  max-width: 500px;
 }
 .criadores__matriz-cab {
   align-self: end;
@@ -726,6 +735,9 @@
       var(--corpo) calc(24% + 2px) 100%
     ),
     repeating-linear-gradient(-45deg, var(--color-tinta) 0 3px, #ffffff 3px 6px);
+}
+.criadores__quadro[data-g="4"] {
+  --gancho: var(--color-menta-escura);
 }
 .criadores__quadro[data-ativo] {
   --corpo: var(--color-tinta);
@@ -1291,7 +1303,7 @@
     grid-template-columns: 1fr;
   }
   .criadores__matriz {
-    grid-template-columns: minmax(0, 1fr) repeat(4, 40px);
+    grid-template-columns: minmax(0, 1fr) repeat(5, 36px);
     gap: 6px;
   }
   .criadores__matriz-ideia {

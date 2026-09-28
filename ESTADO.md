@@ -4302,8 +4302,8 @@ Depois do deploy — **nada a configurar.** O Railway cria a tabela no deploy (a
 novo). O link pra mandar aos criadores está no painel, em Criadores → "Copiar o link da página"
 (<https://www.fuckingbarba.com.br/criadores>).
 
-- [ ] **Com você:** o contrato de uso de imagem (12 meses) e o da comissão — passar pelo advogado
-      antes do primeiro "sim".
+- [ ] **Com você:** o contrato de uso de imagem e o da comissão — passar pelo advogado antes do
+      primeiro "sim".
 
 **A avaliação direto na página, sem o link por e-mail — pronto em 28/09 (entrega 0193).** Pedido
 dele: um cliente da loja antiga reclamou que, pra avaliar, ainda tinha que pedir o link pro e-mail;
@@ -4346,6 +4346,35 @@ formulário novo responde "Não encontrei..." até o backend novo entrar.
 
 - [ ] **Com você, depois do deploy:** mandar o link pro cliente que reclamou (e pros outros que você
       quiser, pelo WhatsApp).
+
+**Criadores: 25 criativos e a comissão sem prazo — pronto em 28/09 (entrega 0196).** Pedidos dele,
+com a página no ar: "não tem essa de 12 meses ali, tá? Vamos rodar os criativos deles e aí o que
+vender vamos pagar" e "quero 25 vídeos por 1000 e não 20". A comissão agora é 3% de cada venda feita
+com o vídeo, enquanto ele vender — sem data pra acabar —, e o fixo, R$ 1.000 por 25 criativos.
+
+- **25 criativos, R$ 40 cada**: a conta da página virou 5 ideias × 5 ganchos (entrou o gancho
+  "Chamada direta" em cada ideia: "Se sua barba arrepia, para tudo e olha isso."). O fixo sai em
+  duas metades de R$ 500: com 13 aprovados e com os 25.
+
+- **A página diz isso em todo lugar**: no topo, no cartão da comissão (o selo virou "Sem prazo"),
+  na escolha do modelo na inscrição, nas dúvidas e na prévia do link.
+- **A calculadora mudou a pergunta**: sem prazo, não dá pra somar "em 12 meses". Ela mostra a
+  comissão de cada mês e em que mês a soma passa do fixo (30 vendas por mês: R$ 112,50 por mês, e
+  passa do fixo no 9º mês) — numa barra que é o fixo inteiro, com um bloco por mês de comissão.
+- **O uso de imagem** também saiu do "até 12 meses": a regra diz só que os vídeos rodam como
+  anúncio da loja, e o prazo fica pro contrato.
+- **O celular do topo com fotos de verdade** (as dele: autorizadas, com contrato): a barba
+  coçando no gancho ("Sua barba coça? Assiste isso."), o shampoo no corpo ("Shampoo feito pra
+  barba", "Limpa e refresca" — o que a embalagem diz) e a barba arrumada no fecho. A frase desceu
+  pra perto da barra do tempo, pra não cobrir a barba. O canto com o botão do reprodutor de vídeo
+  foi cortado das fotos.
+
+Conferido no Medusa local: o `conferir-criadores` da loja 34/34 em três rodadas (a oferta e a
+calculadora contra a `OFERTA` do código, agora mês a mês; os 25 criativos no cartão e na matriz;
+nada de "12 meses" na página; as três fotos do celular carregadas), o typecheck, o lint e o prettier da loja, e o `next build` contra o
+`medusa-falso.mjs`.
+
+Depois do deploy — **nada a configurar.**
 
 ## Como seguir no Claude Code
 
