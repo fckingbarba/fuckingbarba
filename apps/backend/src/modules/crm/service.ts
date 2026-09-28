@@ -709,6 +709,46 @@ export default class CrmService extends Tabelas {
     return linhas[0]?.id ?? null
   }
 
+  /**
+   * QUEM SE CADASTROU NO POP-UP DA 1ª COMPRA desde uma hora: o toque
+   * `boas-vindas-agora` que saiu, com o cupom. É a entrada da sequência das
+   * boas-vindas no motor (entrega 0178).
+   */
+  @InjectManager()
+  async cadastrosDasBoasVindas(
+    desde: Date,
+    @MedusaContext() ctx: Contexto = {}
+  ): Promise<{ email: string; em: Date; cupom: string | null; cupom_ate: Date | null }[]> {
+    return (await ctx.manager!.execute(
+      `select email, em, cupom, cupom_ate from crm_envio
+        where deleted_at is null and fluxo = 'boas-vindas' and toque = 'boas-vindas-agora'
+          and como = 'enviado' and em >= ?
+        order by em desc limit 5000`,
+      [desde]
+    )) as { email: string; em: Date; cupom: string | null; cupom_ate: Date | null }[]
+  }
+
+  /**
+   * A ESCOLHA DO "BARBA OU CABELO?" (entrega 0178): a trilha que a pessoa
+   * clicou no e-mail de 1 dia das boas-vindas. Fica no registro dos fluxos,
+   * como o toque `boas-vindas-escolha` (a trilha no `como`), e a última vale.
+   * Não conta como e-mail: o teto e a tela só contam o que saiu.
+   */
+  @InjectManager()
+  async anotarEscolha(
+    email: string,
+    trilha: string,
+    @MedusaContext() ctx: Contexto = {}
+  ): Promise<void> {
+    await ctx.manager!.execute(
+      `insert into crm_envio (id, email, fluxo, chave, toque, como, em, created_at, updated_at)
+       values (?, ?, 'boas-vindas', ?, 'boas-vindas-escolha', ?, now(), now(), now())
+       on conflict (fluxo, chave, toque) where deleted_at is null
+       do update set como = excluded.como, em = now(), updated_at = now()`,
+      [generateEntityId(undefined, "env"), email, email, trilha]
+    )
+  }
+
   /** O e-mail saiu: a reserva vira envio, com o id do Resend e o cupom, se teve. */
   @InjectManager()
   async confirmarToque(

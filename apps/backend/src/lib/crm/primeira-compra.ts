@@ -12,7 +12,7 @@ import { criarCupomDoFluxo } from "./cupom"
 import { componentesDoProduto, type Componente } from "./etiquetas"
 import { produtosPorEndereco } from "./exemplos-dos-emails"
 import { lerConfigDosFluxos, PREFIXO_DO_CUPOM_DE_BOAS_VINDAS, validadeDoCupom } from "./fluxos"
-import { comQuemManda, dadosDaLoja } from "./motor"
+import { comQuemManda, dadosDaLoja } from "./envio"
 import { linksDeSair } from "./sair"
 
 /**

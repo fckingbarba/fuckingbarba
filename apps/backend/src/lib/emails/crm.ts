@@ -58,6 +58,15 @@ export type BlocoDoCrm =
   | { tipo: "selo"; texto: string }
   /** O Pix do pedido: o copia e cola, o QR (só se for um endereço https) e até quando vale. */
   | { tipo: "pix"; codigo: string; imagem: string | null; vence: string }
+  /** Uma lista na vertical, numerada — o modo de uso da página do produto (0178). */
+  | { tipo: "lista"; titulo?: string; itens: string[] }
+  /** Perguntas e respostas — as dúvidas da página do produto (0178). */
+  | { tipo: "perguntas"; titulo?: string; perguntas: { pergunta: string; resposta: string }[] }
+  /**
+   * Botões de escolha: cada um leva a um endereço já pronto (o link de escolha
+   * do "Barba ou cabelo?", que passa pelo Medusa e cai na loja com a campanha).
+   */
+  | { tipo: "escolhas"; titulo?: string; itens: { texto: string; href: string }[] }
 
 export type EmailDoCrm = {
   para: string
@@ -294,6 +303,58 @@ function bloco(b: BlocoDoCrm, e: EmailDoCrm): string {
         `</td></tr></table>` +
         espaco(22)
       )
+    case "lista": {
+      const itens = b.itens.slice(0, 6)
+      if (!itens.length) return ""
+      return cartao(
+        (b.titulo ? rotulo(b.titulo) + espaco(14) : "") +
+          itens
+            .map(
+              (item, i) =>
+                `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>` +
+                `<td width="30" valign="top" style="width:30px;padding:0 12px 0 0;">` +
+                `<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>` +
+                `<td width="30" height="30" align="center" bgcolor="${COR.tinta}" style="width:30px;` +
+                `height:30px;background:${COR.tinta};color:${COR.amarelo};font-family:${FONTE};` +
+                `font-size:15px;line-height:30px;font-weight:800;mso-line-height-rule:exactly;">` +
+                `${i + 1}</td></tr></table></td>` +
+                `<td valign="middle">${paragrafo(esc(item), { tamanho: 15 })}</td>` +
+                `</tr></table>`
+            )
+            .join(espaco(10)),
+        { respiro: "22px 28px" }
+      )
+    }
+    case "perguntas": {
+      const perguntas = b.perguntas.slice(0, 5)
+      if (!perguntas.length) return ""
+      return cartao(
+        (b.titulo ? rotulo(b.titulo) + espaco(14) : "") +
+          perguntas
+            .map(
+              (p) =>
+                paragrafo(esc(p.pergunta), { tamanho: 15, peso: 800 }) +
+                espaco(4) +
+                paragrafo(esc(p.resposta), { tamanho: 14 })
+            )
+            .join(espaco(16)),
+        { respiro: "22px 28px" }
+      )
+    }
+    case "escolhas": {
+      if (!b.itens.length) return ""
+      return cartao(
+        (b.titulo ? rotulo(b.titulo) + espaco(14) : "") +
+          b.itens
+            .map(
+              (item) =>
+                `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>` +
+                `<td align="left">${botao({ texto: item.texto, href: item.href })}</td></tr></table>`
+            )
+            .join(espaco(12)),
+        { respiro: "22px 28px" }
+      )
+    }
   }
 }
 
@@ -329,6 +390,21 @@ function blocoEmTexto(b: BlocoDoCrm, e: EmailDoCrm): string[] {
       return [b.texto]
     case "pix":
       return [`Pix copia e cola (vale até ${b.vence}):`, b.codigo]
+    case "lista":
+      return [
+        ...(b.titulo ? [b.titulo.toUpperCase()] : []),
+        ...b.itens.slice(0, 6).map((item, i) => `${i + 1}. ${item}`),
+      ]
+    case "perguntas":
+      return [
+        ...(b.titulo ? [b.titulo.toUpperCase()] : []),
+        ...b.perguntas.slice(0, 5).flatMap((p) => [p.pergunta, p.resposta, ""]),
+      ]
+    case "escolhas":
+      return [
+        ...(b.titulo ? [b.titulo.toUpperCase()] : []),
+        ...b.itens.map((item) => `${item.texto}: ${item.href}`),
+      ]
   }
 }
 
@@ -452,6 +528,30 @@ function blocoPessoal(b: BlocoDoCrm): string {
       return linha(esc(`${b.oque}: ${b.codigo} (${b.validade})`))
     case "pix":
       return linha(esc(`Pix copia e cola (vale até ${b.vence}): ${b.codigo}`))
+    case "lista":
+      return b.itens.length
+        ? linha(
+            (b.titulo ? `${esc(b.titulo)}:<br>` : "") +
+              b.itens
+                .slice(0, 6)
+                .map((item, i) => `${i + 1}. ${esc(item)}`)
+                .join("<br>")
+          )
+        : ""
+    case "perguntas":
+      return b.perguntas
+        .slice(0, 5)
+        .map((p) => linha(`<b>${esc(p.pergunta)}</b><br>${esc(p.resposta)}`))
+        .join("")
+    case "escolhas":
+      return linha(
+        b.itens
+          .map(
+            (item) =>
+              `<a href="${esc(item.href)}" style="color:#0b7f62;font-weight:700;">${esc(item.texto)}</a>`
+          )
+          .join("<br>")
+      )
   }
 }
 

@@ -91,9 +91,10 @@ export default async function Privacidade() {
         <P>
           <b>Se você se cadastrar no pop-up da primeira compra</b>: o nome, o e-mail e a página em
           que você estava. Em troca vem um cupom de desconto só seu, que vale na primeira compra, e
-          você entra na lista das ofertas, como na newsletter. O nome é pro &ldquo;Oi&rdquo; dos
-          e-mails, e a página, pra gente falar do que te interessa. Dá pra sair em qualquer
-          mensagem.
+          você entra na lista das ofertas, como na newsletter. Nos dez dias seguintes chegam até
+          cinco e-mails de boas-vindas, sobre o que você estava vendo, e param quando você compra. O
+          nome é pro &ldquo;Oi&rdquo; dos e-mails, e a página, pra gente falar do que te interessa.
+          Dá pra sair em qualquer mensagem.
         </P>
         <P>
           <b>Se você pedir aviso de um produto esgotado</b> (o &ldquo;avise-me quando chegar&rdquo;,

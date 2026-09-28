@@ -23,6 +23,8 @@ import { createHash } from "node:crypto"
  *   - BOAS-VINDAS (entrega 0177): quem se cadastra no pop-up da 1ª compra (o
  *     nome e o e-mail, em troca do cupom). O cupom sai na hora do cadastro,
  *     pela rota do pop-up (`lib/crm/primeira-compra.ts`), e não pelo motor.
+ *     Depois, a sequência da TRILHA do que a pessoa estava vendo (entrega
+ *     0178): 1, 2, 5, 7 e 10 dias, essa pelo motor (`lib/crm/boas-vindas.ts`).
  *
  * Os dois primeiros vão pra QUEM DIGITOU O E-MAIL, e o do carrinho pra quem a
  * loja já conhece (escolhas do dono, 27/09): é sobre a compra que a pessoa
@@ -37,7 +39,8 @@ import { createHash } from "node:crypto"
  *      o mais novo sai (o outro fica como pulado).
  *   5. Teto por pessoa: 3 e-mails do CRM em 24 horas, 6 em 7 dias.
  *   6. Grupo de controle: 5% de cada fluxo não recebe nada — é como se sabe
- *      quanto o fluxo vende a mais de verdade.
+ *      quanto o fluxo vende a mais de verdade. Menos nas boas-vindas: foi a
+ *      pessoa que pediu (`semControle`).
  *   7. O desconto: um cupom só da pessoa, de uso único, e no máximo um a cada
  *      60 dias pro mesmo e-mail. Sem cupom, o e-mail sai sem o desconto.
  *   8. De madrugada, só o urgente: o aviso do Pix e o de 30 minutos saem na
@@ -66,14 +69,24 @@ export type IdDoToqueDeCompra =
   | "carrinho-5d"
 
 /**
- * O toque das boas-vindas: o cupom da 1ª compra, que sai na hora do cadastro
- * no pop-up (`lib/crm/primeira-compra.ts`), e não pelo motor.
+ * Os toques das boas-vindas: o cupom da 1ª compra, que sai na hora do
+ * cadastro no pop-up (`lib/crm/primeira-compra.ts`, e não pelo motor), e a
+ * sequência da trilha de quem se cadastrou (`lib/emails/boas-vindas.ts`, pelo
+ * motor — entrega 0178).
  */
-export type IdDoToque = IdDoToqueDeCompra | "boas-vindas-agora"
+export type IdDoToqueDasBoasVindas =
+  | "boas-vindas-agora"
+  | "boas-vindas-1d"
+  | "boas-vindas-2d"
+  | "boas-vindas-5d"
+  | "boas-vindas-7d"
+  | "boas-vindas-10d"
 
-/** Se o toque é de um fluxo de compra (o que o motor manda). */
+export type IdDoToque = IdDoToqueDeCompra | IdDoToqueDasBoasVindas
+
+/** Se o toque é de um fluxo de compra (os de `lib/emails/fluxos.ts`). */
 export const ehToqueDeCompra = (id: IdDoToque): id is IdDoToqueDeCompra =>
-  id !== "boas-vindas-agora"
+  !id.startsWith("boas-vindas")
 
 export type ToqueDoFluxo = {
   id: IdDoToque
@@ -99,6 +112,8 @@ export type Fluxo = {
   toques: readonly ToqueDoFluxo[]
   /** Quanto o cupom do fluxo vale depois do e-mail que o dá (sem isto, `VALIDADE_DO_CUPOM`). */
   validadeDoCupom?: number
+  /** Sem grupo de controle: foi a pessoa que pediu (as boas-vindas do pop-up). */
+  semControle?: true
 }
 
 export const FLUXOS: Record<IdDoFluxo, Fluxo> = {
@@ -191,6 +206,8 @@ export const FLUXOS: Record<IdDoFluxo, Fluxo> = {
     prioridade: 4,
     // O cupom da 1ª compra vale 3 dias, como o do carrinho.
     validadeDoCupom: 3 * DIA,
+    semControle: true,
+    // Depois do cupom, a trilha do que a pessoa estava vendo (`lib/emails/boas-vindas.ts`).
     toques: [
       {
         id: "boas-vindas-agora",
@@ -200,6 +217,21 @@ export const FLUXOS: Record<IdDoFluxo, Fluxo> = {
         cupom: true,
         urgente: true,
       },
+      { id: "boas-vindas-1d", nome: "O começo da trilha", quando: "1 dia depois", depois: DIA },
+      {
+        id: "boas-vindas-2d",
+        nome: "O cupom vence amanhã",
+        quando: "2 dias depois",
+        depois: 2 * DIA,
+      },
+      { id: "boas-vindas-5d", nome: "Como usar", quando: "5 dias depois", depois: 5 * DIA },
+      {
+        id: "boas-vindas-7d",
+        nome: "As perguntas que todo mundo faz",
+        quando: "7 dias depois",
+        depois: 7 * DIA,
+      },
+      { id: "boas-vindas-10d", nome: "O melhor preço", quando: "10 dias depois", depois: 10 * DIA },
     ],
   },
 }
@@ -279,6 +311,42 @@ export type Decisao =
   | { tipo: "controle"; toque: ToqueDoFluxo; pulados: IdDoToque[] }
   | { tipo: "teto"; toque: ToqueDoFluxo }
   | { tipo: "mandar"; toque: ToqueDoFluxo; pulados: IdDoToque[]; darCupom: boolean }
+
+/**
+ * O toque que guarda, no registro, a escolha do "Barba ou cabelo?" (a trilha
+ * no `como`; `lib/crm/escolha.ts`). Não é e-mail.
+ */
+export const TOQUE_DA_ESCOLHA = "boas-vindas-escolha"
+
+/**
+ * As linhas do registro (`crm_envio`) como o motor conta. A reserva que não
+ * foi confirmada conta como envio: melhor perder um e-mail que mandar dois. A
+ * escolha do "Barba ou cabelo?" mora no registro, mas não é e-mail: fica de
+ * fora, e não conta no teto.
+ */
+export function registrosDoMotor(
+  lidos: readonly {
+    email: string
+    fluxo: string
+    chave: string
+    toque: string
+    como: string
+    em: Date | string
+    cupom?: string | null
+  }[]
+): Registro[] {
+  return lidos
+    .filter((r) => r.toque !== TOQUE_DA_ESCOLHA)
+    .map((r) => ({
+      email: r.email,
+      fluxo: r.fluxo as IdDoFluxo,
+      chave: r.chave,
+      toque: r.toque as IdDoToque,
+      em: new Date(r.em),
+      como: r.como === "pulado" || r.como === "controle" ? r.como : "enviado",
+      cupom: r.cupom ?? null,
+    }))
+}
 
 /** A pessoa cai no grupo de controle deste fluxo? Sempre a mesma resposta pro mesmo e-mail. */
 export function noControle(email: string, fluxo: IdDoFluxo, porCento = CONTROLE): boolean {
@@ -379,7 +447,7 @@ export function decidir({
   const vez = toqueDaVez(entrada, registros, agora)
   if (!vez) return { entrada, decisao: { tipo: "nada" } }
   if (!vez.toque.urgente && deMadrugada(agora)) return { entrada, decisao: { tipo: "nada" } }
-  if (noControle(entrada.email, entrada.fluxo))
+  if (!FLUXOS[entrada.fluxo].semControle && noControle(entrada.email, entrada.fluxo))
     return { entrada, decisao: { tipo: "controle", ...vez } }
   const dia = enviadosNos(registros, entrada.email, agora, DIA)
   const semana = enviadosNos(registros, entrada.email, agora, 7 * DIA)
