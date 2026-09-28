@@ -123,9 +123,14 @@ const query = (container: MedusaContainer) => container.resolve(ContainerRegistr
 /**
  * Todos os pedidos da loja nova com o que as etiquetas do CRM usam (o SKU, o
  * pagamento, a entrega, os cupons) — as contas da aba da base da Nuvemshop.
+ * Com `email`, só os feitos com ele (o aviso da reposição no site, 0188; o
+ * checkout grava o e-mail em minúsculas).
  * `items.*`: o `items.quantity` sozinho vem zerado no Medusa 2.21 (0116).
  */
-export async function pedidosParaAsEtiquetas(container: MedusaContainer): Promise<PedidoCru[]> {
+export async function pedidosParaAsEtiquetas(
+  container: MedusaContainer,
+  { email }: { email?: string } = {}
+): Promise<PedidoCru[]> {
   const { data } = await query(container).graph({
     entity: "order",
     fields: [
@@ -141,7 +146,7 @@ export async function pedidosParaAsEtiquetas(container: MedusaContainer): Promis
       "fulfillments.delivered_at",
       "fulfillments.canceled_at",
     ],
-    filters: { is_draft_order: false },
+    filters: { is_draft_order: false, ...(email ? { email } : {}) },
     pagination: { take: 5000, order: { created_at: "DESC" } },
   })
   return data as unknown as PedidoCru[]

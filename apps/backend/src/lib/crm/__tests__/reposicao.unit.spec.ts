@@ -1,6 +1,14 @@
 import { DIAS_PADRAO, type PedidoDaPessoa } from "../etiquetas"
 import { decidir, FLUXOS, lerConfigDosFluxos } from "../fluxos"
-import { naJanelaDaReposicao, reposicoesDaPessoa, type PedidoDaReposicao } from "../reposicao"
+import {
+  avisoDaReposicao,
+  diasAteAcabar,
+  naJanelaDaReposicao,
+  reposicoesDaPessoa,
+  textoDoAviso,
+  type PedidoDaReposicao,
+  type Reposicao,
+} from "../reposicao"
 
 /**
  * A reposição (0185): pra cada tipo de produto, a última compra paga que o
@@ -119,5 +127,84 @@ describe("a reposição no motor", () => {
         agora: AGORA,
       })
     ).toBeNull()
+  })
+})
+
+describe("o aviso no site (0188)", () => {
+  // AGORA é 28/09, meio-dia em Brasília.
+  it("os dias contam no calendário de Brasília: hoje, amanhã, ontem", () => {
+    const em = (iso: string) => diasAteAcabar(new Date(iso), AGORA)
+    expect(em("2026-09-29T02:00:00Z")).toBe(0) // 28/09, 23h em Brasília
+    expect(em("2026-09-29T03:30:00Z")).toBe(1) // 29/09, 0h30
+    expect(em("2026-10-03T20:00:00Z")).toBe(5)
+    expect(em("2026-09-28T02:00:00Z")).toBe(-1) // 27/09, 23h
+  })
+
+  it("o texto: acaba em N dias, amanhã, hoje; depois, acabou?", () => {
+    expect(textoDoAviso("fator", 5).titulo).toBe("Seu Fator de Crescimento acaba em 5 dias")
+    expect(textoDoAviso("pasta", 1).titulo).toBe("Sua pasta modeladora acaba amanhã")
+    expect(textoDoAviso("oleo", 0).titulo).toBe("Seu óleo acaba hoje")
+    expect(textoDoAviso("oleo", -1)).toEqual({
+      titulo: "Acabou o óleo?",
+      texto: "Pelas nossas contas, acabou ontem. Se ainda não repôs, o botão monta o mesmo pedido.",
+    })
+    expect(textoDoAviso("pasta", -3).texto).toContain("acabou há 3 dias")
+    // Sem palavra de propaganda, como os e-mails da reposição.
+    for (const d of [7, 1, 0, -1, -10]) {
+      const { titulo, texto } = textoDoAviso("fator", d)
+      expect(`${titulo} ${texto}`).not.toMatch(/grátis|desconto|oferta|promo|imperd|cupom/i)
+    }
+  })
+
+  const rep = (
+    componente: Reposicao["componente"],
+    dias: number,
+    skus: string[],
+    pedido = `order_${componente}`
+  ): Reposicao => ({
+    email: EMAIL,
+    componente,
+    pedido,
+    skus,
+    acaba: new Date(AGORA.getTime() + dias * DIA),
+  })
+  const produto = (handle: string) => ({ nome: handle, handle, imagem: null })
+  const LOJA = new Map([
+    ["FBFCB01", produto("fator-de-crescimento")],
+    ["FBOL01", produto("oleo-para-barba")],
+    ["FBKIT01", produto("kit-completo")],
+  ])
+  const voltar = (pedido: string) => `/voltar/t-${pedido}`
+
+  it("de vários, o que acaba primeiro — o que já acabou vem antes; só dentro da janela", () => {
+    const aviso = avisoDaReposicao(
+      [rep("fator", 5, ["FBFCB01"]), rep("oleo", -2, ["FBKIT01"]), rep("balm", -30, ["FBKIT01"])],
+      LOJA,
+      voltar,
+      AGORA
+    )
+    expect(aviso).toMatchObject({
+      componente: "oleo",
+      pedido: "order_oleo",
+      titulo: "Acabou o óleo?",
+      dias: -2,
+      produto: { handle: "kit-completo" },
+      voltar: "/voltar/t-order_oleo",
+      chave: "oleo.2026-09-26",
+    })
+    // Fora da janela (acaba em 20 dias), nada.
+    expect(avisoDaReposicao([rep("fator", 20, ["FBFCB01"])], LOJA, voltar, AGORA)).toBeNull()
+    expect(avisoDaReposicao([], LOJA, voltar, AGORA)).toBeNull()
+  })
+
+  it("sem produto da última compra à venda, pula pro próximo; no empate, o Fator primeiro", () => {
+    const aviso = avisoDaReposicao(
+      [rep("shampoo", 1, ["FBSH-VELHO"]), rep("oleo", 3, ["FBOL01"]), rep("fator", 3, ["FBFCB01"])],
+      LOJA,
+      voltar,
+      AGORA
+    )
+    expect(aviso).toMatchObject({ componente: "fator", dias: 3 })
+    expect(avisoDaReposicao([rep("shampoo", 1, ["FBSH-VELHO"])], LOJA, voltar, AGORA)).toBeNull()
   })
 })

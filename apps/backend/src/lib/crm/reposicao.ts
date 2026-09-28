@@ -6,6 +6,7 @@ import type CrmService from "../../modules/crm/service"
 import { pedidoDaBase, pedidoDaPessoa } from "../painel/crm"
 import { pedidosParaAsEtiquetas } from "../painel/ler"
 import { lerAjustesGuardados } from "./ajustes"
+import { CURTO_DO_COMPONENTE } from "./estreia"
 import {
   componentesDoItem,
   ENTREGA_ESTIMADA_DIAS,
@@ -27,7 +28,13 @@ import { juntar } from "./nuvemshop"
  * recomeça do dia dela. Pra todo cliente (escolha do dono, 28/09), com o
  * sair da lista; sem cupom e sem frete grátis (o plano e a escolha dele).
  *
- * As partes puras (a conta de cada tipo, a janela) têm testes.
+ * O SITE TAMBÉM AVISA (entrega 0188): quem está com a conta aberta vê "Seu
+ * Fator de Crescimento acaba em 5 dias", com o "Refazer o pedido", na visão
+ * geral da conta e na home (`avisoDaReposicao`, `GET /store/crm/reposicao`).
+ * A mesma conta e a mesma janela dos e-mails, só com os pedidos da pessoa. O
+ * aviso não é e-mail: não depende do fluxo ligado nem da lista.
+ *
+ * As partes puras (a conta de cada tipo, a janela, o aviso) têm testes.
  */
 
 const DIA = 24 * 60 * 60 * 1000
@@ -127,4 +134,123 @@ export async function publicoDaReposicao(
   return [...porEmail].flatMap(([email, pedidos]) =>
     reposicoesDaPessoa(email, pedidos, dias).filter((r) => naJanelaDaReposicao(r, agora))
   )
+}
+
+/**
+ * AS REPOSIÇÕES DE UMA PESSOA, agora (o aviso do site, 0188): a conta do
+ * `publicoDaReposicao`, só com os pedidos dela — os da loja nova feitos com o
+ * e-mail e os da base da Nuvemshop — e os dias dos Ajustes.
+ */
+export async function reposicoesDoEmail(
+  container: MedusaContainer,
+  email: string,
+  agora: Date = new Date()
+): Promise<Reposicao[]> {
+  const [daLoja, daBase, lojas] = await Promise.all([
+    pedidosParaAsEtiquetas(container, { email }),
+    container.resolve<CrmService>(CRM).pedidosDaBase(email),
+    container.resolve(Modules.STORE).listStores({}, { select: ["metadata"], take: 1 }),
+  ])
+  const { dias } = lerAjustesGuardados(lojas[0]?.metadata)
+  const pedidos: PedidoDaReposicao[] = [
+    ...daLoja
+      .filter((o) => normalizarEmail(o.email) === email)
+      .map((o) => ({ ...pedidoDaPessoa(o), ref: o.id })),
+    ...daBase.flatMap((p) => (p.id ? [{ ...pedidoDaBase(p), ref: p.id }] : [])),
+  ]
+  return reposicoesDaPessoa(email, pedidos, dias).filter((r) => naJanelaDaReposicao(r, agora))
+}
+
+/** O produto da foto do aviso: um do "de sempre" que a loja ainda vende. */
+export type ProdutoDoAviso = { nome: string; handle: string; imagem: string | null }
+
+/** O AVISO DA REPOSIÇÃO NO SITE (0188): o que a conta e a home mostram. */
+export type AvisoDaReposicao = {
+  componente: Componente
+  /** O pedido da última compra que trouxe esse tipo: `order_…` ou `nso_…`. */
+  pedido: string
+  /** "Seu Fator de Crescimento acaba em 5 dias", "Acabou o óleo?". */
+  titulo: string
+  /** A conta por trás do aviso e o que o botão faz, em duas frases. */
+  texto: string
+  /** Quantos dias (de Brasília) até acabar: 0 é hoje; negativo, há quantos acabou. */
+  dias: number
+  produto: ProdutoDoAviso
+  /** O "Refazer o pedido": `/voltar/<t>`, o mesmo link dos e-mails. */
+  voltar: string
+  /** Pro "fechar" da home valer só pra este aviso: o tipo e o dia de acabar. */
+  chave: string
+}
+
+const DIA_DE_BRASILIA = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "America/Sao_Paulo",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+})
+/** "2026-10-03": o dia no fuso da loja. */
+const diaDe = (d: Date) => DIA_DE_BRASILIA.format(d)
+
+/** Quantos dias de Brasília de `agora` até `acaba`: 0 é hoje, 1 amanhã, −1 ontem. */
+export function diasAteAcabar(acaba: Date, agora: Date): number {
+  return Math.round((Date.parse(diaDe(acaba)) - Date.parse(diaDe(agora))) / DIA)
+}
+
+/** O que o aviso escreve, pelo tipo e pelos dias. Sem palavra de propaganda, como os e-mails. */
+export function textoDoAviso(
+  componente: Componente,
+  dias: number
+): { titulo: string; texto: string } {
+  const { curto, artigo } = CURTO_DO_COMPONENTE[componente]
+  if (dias < 0)
+    return {
+      titulo: `Acabou ${artigo} ${curto}?`,
+      texto:
+        `Pelas nossas contas, acabou ${dias === -1 ? "ontem" : `há ${-dias} dias`}. Se ainda ` +
+        "não repôs, o botão monta o mesmo pedido.",
+    }
+  const quando = dias === 0 ? "hoje" : dias === 1 ? "amanhã" : `em ${dias} dias`
+  return {
+    titulo: `${artigo === "a" ? "Sua" : "Seu"} ${curto} acaba ${quando}`,
+    texto:
+      "Pelas nossas contas, a partir da sua última compra. Pra não parar no meio, o botão " +
+      "monta o mesmo pedido.",
+  }
+}
+
+const ORDEM_DOS_TIPOS = Object.keys(CURTO_DO_COMPONENTE)
+
+/**
+ * O AVISO, das reposições da pessoa: a do tipo que acaba primeiro (o que já
+ * acabou vem antes), dentro da janela dos e-mails — e só se a loja ainda
+ * vende algum produto da última compra desse tipo (`porSku`, só os
+ * publicados): sem ele, nem foto, nem o que o "Refazer" montar.
+ */
+export function avisoDaReposicao(
+  reposicoes: readonly Reposicao[],
+  porSku: ReadonlyMap<string, ProdutoDoAviso>,
+  voltar: (pedido: string) => string,
+  agora: Date
+): AvisoDaReposicao | null {
+  const emOrdem = [...reposicoes].sort(
+    (a, b) =>
+      a.acaba.getTime() - b.acaba.getTime() ||
+      ORDEM_DOS_TIPOS.indexOf(a.componente) - ORDEM_DOS_TIPOS.indexOf(b.componente)
+  )
+  for (const r of emOrdem) {
+    if (!naJanelaDaReposicao(r, agora)) continue
+    const produto = r.skus.map((s) => porSku.get(s)).find((p) => p !== undefined)
+    if (!produto) continue
+    const dias = diasAteAcabar(r.acaba, agora)
+    return {
+      componente: r.componente,
+      pedido: r.pedido,
+      ...textoDoAviso(r.componente, dias),
+      dias,
+      produto: { nome: produto.nome, handle: produto.handle, imagem: produto.imagem },
+      voltar: voltar(r.pedido),
+      chave: `${r.componente}.${diaDe(r.acaba)}`,
+    }
+  }
+  return null
 }
