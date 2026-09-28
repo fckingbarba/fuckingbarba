@@ -15,6 +15,7 @@ import {
 } from "@/lib/conta-visivel"
 import { dia, diaEHora, emReais, quando } from "@/lib/formato"
 import type { EventoDoRastreio, PedidoDaConta, Rastreio } from "@/lib/pedidos-da-conta"
+import type { AvisoDaReposicao } from "@/lib/reposicao"
 
 /**
  * AS PEÇAS DAS TELAS DE PEDIDO — o desenho é o de
@@ -197,6 +198,41 @@ export function RepetirPedido({ p }: { p: PedidoDaConta }) {
       </p>
       <div className="de-novo__acao">
         <ComprarDeNovo pedidoId={p.id} rotulo="Pôr na sacola" />
+      </div>
+    </div>
+  )
+}
+
+/**
+ * "Pra repor" da visão geral (entrega 0188): o que está acabando, pela conta
+ * dos e-mails da reposição (`lib/reposicao.ts`) — da loja nova ou da antiga.
+ * O botão é o mesmo "Refazer o pedido" dos e-mails: monta a sacola igual à
+ * da última compra e abre o checkout.
+ */
+export function PraRepor({ aviso }: { aviso: AvisoDaReposicao }) {
+  return (
+    <div className="de-novo" data-reposicao={aviso.chave}>
+      <ul className="de-novo__fotos">
+        <li>
+          <span className={`item__foto${aviso.produto.imagem ? "" : " item__foto--vazia"}`}>
+            {aviso.produto.imagem ? (
+              <Image src={aviso.produto.imagem} alt="" width={64} height={64} sizes="64px" />
+            ) : (
+              <Sacola aria-hidden="true" />
+            )}
+          </span>
+        </li>
+      </ul>
+      <p className="de-novo__txt">
+        <b>{aviso.titulo}</b>
+        <br />
+        {aviso.texto}
+      </p>
+      <div className="de-novo__acao">
+        {/* <a>, e não <Link>: o /voltar monta a sacola, e o Link o pediria antes do clique. */}
+        <a className="btn btn--menor" href={aviso.voltar}>
+          Refazer o pedido <Raio className="btn__bolt" />
+        </a>
       </div>
     </div>
   )
