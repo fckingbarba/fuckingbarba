@@ -1165,7 +1165,8 @@ um pedido da loja antiga — o arquivo de vendas da rodada entra pela base do CR
 tirar, apagar, o Início e o marketing sem o número do pedido).
 
 **Os criadores** (entrega 0189): a página escondida da proposta pra quem grava vídeo pros
-anúncios — 20 criativos pelo fixo ou pela comissão — e a inscrição dela. Três pontas:
+anúncios — os criativos (25 desde a 0196) pelo fixo ou pela comissão — e a inscrição dela. Três
+pontas:
 
 - **A página `/criadores`** (loja; `app/criadores/page.tsx`, `components/criadores/`,
   `estilos/telas/criadores.css`): fora do menu, do sitemap e do Google (o `Disallow` do robots e o
@@ -1175,7 +1176,9 @@ anúncios — 20 criativos pelo fixo ou pela comissão — e a inscrição dela.
   pedido médio da calculadora, os prazos de gravar e de responder — moram num lugar só, a `OFERTA` de
   `lib/criadores-visivel.ts`: o texto, a calculadora, as dúvidas e o conferidor leem de lá. A
   COMISSÃO NÃO TEM PRAZO (0196, decisão dele: "o que vender, vamos pagar"): a calculadora não soma
-  "em N meses" — mostra em que mês a comissão passa do fixo (`mesesPraPassarDoFixo`). O kit
+  "em N meses" — mostra em que mês a comissão passa do fixo (`mesesPraPassarDoFixo`). Os criativos
+  são `ideias × ganchosPorIdeia` (5 × 5 = 25): a matriz (`components/criadores/matriz.tsx`) tem
+  os ganchos escritos de cada ideia — mudou a conta, muda a matriz junto (o conferidor confere). O kit
   são quatro produtos do Medusa pelo handle (`listarProdutos`), e a prévia do link (`og:image`) é a
   foto do kit completo. A inscrição usa os campos do checkout (`.campo`) e manda pela ação
   `inscreverCriador` (`lib/acoes/criadores.ts`), que confere antes com a mesma régua do Medusa e
