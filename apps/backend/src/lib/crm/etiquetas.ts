@@ -231,7 +231,7 @@ export const REGRAS_PADRAO: RegrasDasEtiquetas = {
 
 const DIA_MS = 24 * 60 * 60 * 1000
 /** Sem o aviso de entrega, conta como entregue 7 dias depois de pago… */
-const ENTREGA_ESTIMADA_DIAS = 7
+export const ENTREGA_ESTIMADA_DIAS = 7
 /** …a partir de 10 dias pago (antes, está "a caminho"). */
 const SEM_AVISO_DE_ENTREGA_DIAS = 10
 

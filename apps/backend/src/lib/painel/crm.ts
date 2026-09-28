@@ -587,6 +587,8 @@ export type PessoaLidaDaBase = { email: string; aceitaOfertas: boolean; newslett
 
 /** Um pedido da base como o banco devolve: o total em centavos, os itens pelo SKU. */
 export type PedidoLidoDaBase = {
+  /** O id da linha (`nso_…`): o "Refazer o pedido" da reposição (0185). */
+  id?: string
   numero: string
   email: string
   feitoEm: Date | string

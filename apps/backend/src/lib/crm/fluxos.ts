@@ -28,6 +28,10 @@ import { createHash } from "node:crypto"
  *   - ESTREIA (entrega 0181): a campanha da loja nova pra base da Nuvemshop,
  *     pra quem aceitou ofertas lá (`lib/crm/estreia.ts`). Começa DESLIGADA:
  *     sai quando o dono liga, em 4 lotes, um por dia.
+ *   - REPOSIÇÃO (entrega 0185): o produto que a pessoa comprou está pra
+ *     acabar — 7 e 2 dias antes, 3 e 10 dias depois do dia em que ele acaba
+ *     (`lib/crm/reposicao.ts`), com o "Refazer o pedido". Pra todo cliente
+ *     (escolha do dono), sem cupom. Começa DESLIGADA.
  *
  * Os dois primeiros vão pra QUEM DIGITOU O E-MAIL, e o do carrinho pra quem a
  * loja já conhece (escolhas do dono, 27/09): é sobre a compra que a pessoa
@@ -54,7 +58,7 @@ const MINUTO = 60 * 1000
 const HORA = 60 * MINUTO
 const DIA = 24 * HORA
 
-export type IdDoFluxo = "pix" | "checkout" | "carrinho" | "boas-vindas" | "estreia"
+export type IdDoFluxo = "pix" | "checkout" | "carrinho" | "reposicao" | "boas-vindas" | "estreia"
 
 /** Os toques dos fluxos de compra — os que o motor manda (`lib/emails/fluxos.ts`). */
 export type IdDoToqueDeCompra =
@@ -91,7 +95,15 @@ export type IdDoToqueDasBoasVindas =
  */
 export type IdDoToqueDaEstreia = "estreia-agora" | "estreia-2d"
 
-export type IdDoToque = IdDoToqueDeCompra | IdDoToqueDasBoasVindas | IdDoToqueDaEstreia
+/**
+ * Os toques da reposição (entrega 0185), contados do dia em que o produto
+ * acaba: 7 e 2 dias antes, 3 e 10 dias depois (`lib/emails/reposicao.ts`).
+ */
+export type IdDoToqueDaReposicao =
+  "reposicao-antes-7d" | "reposicao-antes-2d" | "reposicao-depois-3d" | "reposicao-depois-10d"
+
+export type IdDoToque =
+  IdDoToqueDeCompra | IdDoToqueDasBoasVindas | IdDoToqueDaEstreia | IdDoToqueDaReposicao
 
 /** Se o toque é de um fluxo de compra (os de `lib/emails/fluxos.ts`). */
 export const ehToqueDeCompra = (id: IdDoToque): id is IdDoToqueDeCompra =>
@@ -104,6 +116,10 @@ export const ehToqueDasBoasVindas = (id: IdDoToque): id is IdDoToqueDasBoasVinda
 /** Se o toque é da estreia (`lib/emails/estreia.ts`). */
 export const ehToqueDaEstreia = (id: IdDoToque): id is IdDoToqueDaEstreia =>
   id.startsWith("estreia-")
+
+/** Se o toque é da reposição (`lib/emails/reposicao.ts`). */
+export const ehToqueDaReposicao = (id: IdDoToque): id is IdDoToqueDaReposicao =>
+  id.startsWith("reposicao-")
 
 export type ToqueDoFluxo = {
   id: IdDoToque
@@ -219,10 +235,39 @@ export const FLUXOS: Record<IdDoFluxo, Fluxo> = {
       { id: "carrinho-5d", nome: "O último lembrete", quando: "5 dias depois", depois: 5 * DIA },
     ],
   },
+  reposicao: {
+    id: "reposicao",
+    nome: "Reposição",
+    // Na ordem do plano: depois dos de compra, antes das boas-vindas e das campanhas.
+    prioridade: 4,
+    comecaDesligado: true,
+    // O começo de cada entrada é o dia em que o produto acaba (`lib/crm/reposicao.ts`).
+    toques: [
+      {
+        id: "reposicao-antes-7d",
+        nome: "Acaba em uma semana",
+        quando: "7 dias antes de acabar",
+        depois: -7 * DIA,
+      },
+      {
+        id: "reposicao-antes-2d",
+        nome: "Não deixa acabar",
+        quando: "2 dias antes",
+        depois: -2 * DIA,
+      },
+      { id: "reposicao-depois-3d", nome: "Acabou?", quando: "3 dias depois", depois: 3 * DIA },
+      {
+        id: "reposicao-depois-10d",
+        nome: "O último lembrete",
+        quando: "10 dias depois",
+        depois: 10 * DIA,
+      },
+    ],
+  },
   "boas-vindas": {
     id: "boas-vindas",
     nome: "Boas-vindas",
-    prioridade: 4,
+    prioridade: 5,
     // O cupom da 1ª compra vale 3 dias, como o do carrinho.
     validadeDoCupom: 3 * DIA,
     semControle: true,
@@ -256,7 +301,7 @@ export const FLUXOS: Record<IdDoFluxo, Fluxo> = {
   estreia: {
     id: "estreia",
     nome: "Estreia da loja nova",
-    prioridade: 5,
+    prioridade: 6,
     // O cupom de quem nunca comprou e de quem sumiu vale 3 dias, como o do pop-up.
     validadeDoCupom: 3 * DIA,
     comecaDesligado: true,
@@ -283,6 +328,7 @@ export const IDS_DOS_FLUXOS: readonly IdDoFluxo[] = [
   "pix",
   "checkout",
   "carrinho",
+  "reposicao",
   "boas-vindas",
   "estreia",
 ]
