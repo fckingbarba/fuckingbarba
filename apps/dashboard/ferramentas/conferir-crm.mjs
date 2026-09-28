@@ -1369,12 +1369,14 @@ try {
     await mudarFluxos({ fluxo: "estreia", ligado: false })
     await mudarFluxos({ fluxo: "reposicao", ligado: false })
     await mudarFluxos({ fluxo: "jornada", ligado: false })
+    await mudarFluxos({ fluxo: "resgate", ligado: false })
     await rodar()
     const tela0 = (await fluxos(tokenDoDono)).corpo
-    const esperaODono = (id) => id === "estreia" || id === "reposicao" || id === "jornada"
+    const esperaODono = (id) => ["estreia", "reposicao", "jornada", "resgate"].includes(id)
     ok(
       tela0.fluxos?.map((f) => f.id).join() ===
-        "pix,checkout,carrinho,reposicao,jornada,boas-vindas,estreia" &&
+        "pix,checkout,carrinho,reposicao,jornada,boas-vindas,estreia,resgate" &&
+        tela0.fluxos.find((f) => f.id === "resgate")?.toques.length === 4 &&
         tela0.fluxos.find((f) => f.id === "jornada")?.toques.length === 5 &&
         tela0.fluxos.every((f) => (esperaODono(f.id) ? !f.ligado : f.ligado && f.desde)) &&
         tela0.fluxos.find((f) => f.id === "estreia")?.toques.length === 2 &&
@@ -1383,7 +1385,7 @@ try {
         tela0.fluxos.find((f) => f.id === "pix")?.toques.length === 3 &&
         tela0.fluxos.find((f) => f.id === "carrinho")?.toques.length === 5 &&
         tela0.fluxos.find((f) => f.id === "boas-vindas")?.toques.length === 6,
-      "os sete fluxos, com os toques de cada um: quatro ligados, e a estreia, a reposição e a jornada esperando o dono",
+      "os oito fluxos, com os toques de cada um: quatro ligados, e a estreia, a reposição, a jornada e o resgate esperando o dono",
       JSON.stringify(tela0.fluxos?.map((f) => [f.id, f.ligado, f.desde, f.toques?.length]))
     )
     const errados = await Promise.all([
@@ -2674,6 +2676,184 @@ try {
       }
     }
 
+    {
+      titulo("O resgate e o sunset: quem passou do dia de comprar de novo (0192)")
+      const doResgate = (e) =>
+        e.tags?.some((t) => t.name === "tipo" && t.value === "crm-resgate") && deFluxo(e)
+      const daReposicao = (e) =>
+        e.tags?.some((t) => t.name === "tipo" && t.value === "crm-reposicao") && deFluxo(e)
+      /** Fora do controle dos dois fluxos: o resgate e a reposição (o balm do fim). */
+      const foraDosDois = (nome) => {
+        for (let i = 0; ; i++) {
+          const e = `${nome}${i}@${DOMINIO}`
+          if (!controle(e, "resgate") && !controle(e, "reposicao")) return e
+        }
+      }
+      const RESPONDE = foraDosDois("resgate.responde")
+      const SOME = foraDosDois("resgate.some")
+      // A última compra, na loja antiga, há 56 dias: o Fator (entregue no 7º, dura 30) acabou há
+      // 19, e a tolerância de 20 dias dos Ajustes põe a pessoa em risco amanhã, ao meio-dia de
+      // Brasília (a data sem hora da Nuvemshop). Junto, 3 balms (180 dias): a reposição dele, lá
+      // na frente, é o e-mail que o sunset tem que calar.
+      const vendaEm = Date.now() - 56 * DIA_MS
+      const b = new Date(vendaEm - 3 * HORA)
+      const pagoNaNuvem = Date.UTC(b.getUTCFullYear(), b.getUTCMonth(), b.getUTCDate()) + 15 * HORA
+      const emRisco = pagoNaNuvem + 57 * DIA_MS
+      const aos = (ms) => new Date(diurno(ms + 5 * MIN)).toISOString()
+      // Como no arquivo da Nuvemshop: a linha com a data é o pedido; a sem data, mais um item dele.
+      const soOItem = (linha) =>
+        linha
+          .split(";")
+          .map((c, i) => (i === 2 ? "" : c))
+          .join(";")
+      const compra = (numero, email) => [
+        venda(numero, email, vendaEm, "FBFCB01", "Fator de Crescimento para Barba 30ml"),
+        soOItem(
+          venda(numero, email, vendaEm, "FBBM01", "Balm para Barba").replace(
+            ";79.90;1;FBBM01;",
+            ";79.90;3;FBBM01;"
+          )
+        ),
+      ]
+      const [pessoas, vendas] = await Promise.all([
+        medusa("/dashboard/crm/base", {
+          token: tokenDoDono,
+          corpo: doArquivo(
+            latin1([
+              "Nome completo;CPF/CNPJ;E-mail;Telefone de Contato;Endereço;Cidade;Data;Cadastrado;Inscrição para newsletter;Marketing;Marketing (atualização)",
+              `RESGATE RESPONDE;${CPF_FALSO};${RESPONDE};+55${TELEFONE_FALSO};Rua da Rodada, 99;Blumenau;${cadastro};NÃO;NÃO;Aceita;${cadastro}`,
+              `RESGATE SOME;${CPF_FALSO};${SOME};+55${TELEFONE_FALSO};Rua da Rodada, 99;Blumenau;${cadastro};NÃO;NÃO;Aceita;${cadastro}`,
+            ])
+          ),
+        }),
+        medusa("/dashboard/crm/base", {
+          token: tokenDoDono,
+          corpo: doArquivo(
+            latin1([
+              cabecalhoDasVendas,
+              ...compra(`R${RODADA}-RR`, RESPONDE),
+              ...compra(`R${RODADA}-RS`, SOME),
+            ])
+          ),
+        }),
+      ])
+      const deQuem = (email, filtro) =>
+        resend.emails.filter((e) => e.to?.includes(email) && filtro(e))
+      const botoes = (e) =>
+        [...(e?.html ?? "").matchAll(/href="([^"]*\/crm\/resgate\?t=[^"]+)"/g)].map((m) =>
+          m[1].replaceAll("&amp;", "&")
+        )
+      const clicar = async (link) => {
+        const r = await fetch(link, { redirect: "manual" })
+        return { status: r.status, para: r.headers.get("location") ?? "" }
+      }
+      await mudarFluxos({ fluxo: "resgate", ligado: true })
+      await mudarFluxos({ fluxo: "reposicao", ligado: true })
+      try {
+        const antes = await rodar({ agora: aos(emRisco - 2 * DIA_MS), email: RESPONDE })
+        await rodar({ agora: aos(emRisco), email: RESPONDE })
+        const pergunta = deQuem(RESPONDE, doResgate)[0]
+        const links = botoes(pergunta)
+        ok(
+          pessoas.status === 200 &&
+            vendas.status === 200 &&
+            antes.corpo.enviados === 0 &&
+            pergunta?.subject === "Tá tudo bem com a barba?" &&
+            /^Matheus, da FuckingBarba </.test(pergunta.from ?? "") &&
+            !pergunta.headers?.["List-Unsubscribe"] &&
+            pergunta.html.includes("o Fator de Crescimento da sua última compra acabou") &&
+            ["Tá caro", "Esqueci de repor", "Não vi resultado", "Comprei em outro lugar"].every(
+              (t) => pergunta.html.includes(t)
+            ) &&
+            links.length === 4,
+          "no dia em que fica em risco: “Tá tudo bem com a barba?”, como lembrete, com os 4 botões",
+          pergunta?.subject ?? "não chegou"
+        )
+
+        const caro = await clicar(links[0])
+        const caroDeNovo = await clicar(links[0])
+        const codigo = caro.para.match(/\/discount\/(VOLTA-[0-9A-Z]{6})\?/)?.[1]
+        const esqueci = await clicar(links[1])
+        const resultado = await clicar(links[2])
+        const outro = await clicar(links[3])
+        ok(
+          caro.status === 303 &&
+            Boolean(codigo) &&
+            caroDeNovo.para === caro.para &&
+            esqueci.status === 303 &&
+            new URL(esqueci.para).pathname.startsWith("/voltar/repor-nso_") &&
+            resultado.status === 303 &&
+            (resultado.para.startsWith("https://wa.me/") ||
+              resultado.para.startsWith(`${LOJA}/contato`)) &&
+            outro.status === 303 &&
+            outro.para === `${LOJA}/?utm_source=loja&utm_medium=email&utm_campaign=crm-resgate`,
+          "os botões: “Tá caro” dá o cupom na hora (e o mesmo no 2º clique), “Esqueci” refaz o pedido, “Não vi resultado” abre o WhatsApp (ou o contato), e “Comprei em outro lugar” vai pra loja",
+          JSON.stringify({ caro, caroDeNovo, esqueci, resultado, outro })
+        )
+        const naSemana = await rodar({ agora: aos(emRisco + 7 * DIA_MS), email: RESPONDE })
+        ok(
+          naSemana.corpo.enviados === 0 && deQuem(RESPONDE, doResgate).length === 1,
+          "quem respondeu não recebe o cupom de 7 dias",
+          JSON.stringify(naSemana.corpo)
+        )
+
+        for (const d of [0, 7, 9]) await rodar({ agora: aos(emRisco + d * DIA_MS), email: SOME })
+        const [, sete, nove] = deQuem(SOME, doResgate)
+        const codigoDoSete = sete?.html.match(/VOLTA-[0-9A-Z]{6}/)?.[0]
+        ok(
+          sete?.subject === "15% pra voltar pra rotina" &&
+            Boolean(sete?.headers?.["List-Unsubscribe"]) &&
+            Boolean(codigoDoSete) &&
+            sete.html.includes(`?cupom=${codigoDoSete}`) &&
+            sete.html.includes("/voltar/repor-nso_") &&
+            nove?.subject === "Seu cupom de 15% vence amanhã" &&
+            nove.html.includes(codigoDoSete),
+          "quem não respondeu: 15% em 7 dias, como oferta, com o pedido de sempre já com o desconto — e o “vence amanhã” em 9",
+          JSON.stringify(deQuem(SOME, doResgate).map((e) => e.subject))
+        )
+        await rodar({ agora: aos(emRisco + 45 * DIA_MS), email: SOME })
+        await rodar({ agora: aos(emRisco + 45 * DIA_MS), email: RESPONDE })
+        const sunset = deQuem(SOME, doResgate)[3]
+        ok(
+          sunset?.subject === "Quer continuar recebendo nossos e-mails?" &&
+            /^Matheus, da FuckingBarba </.test(sunset.from ?? "") &&
+            sunset.html.includes("Sim, quero continuar") &&
+            botoes(sunset).length === 1 &&
+            deQuem(RESPONDE, doResgate).length === 1,
+          "45 dias sem sinal nenhum: “Quer continuar recebendo?”, com o Sim — quem respondeu não recebe",
+          JSON.stringify(deQuem(SOME, doResgate).map((e) => e.subject))
+        )
+
+        // Lá na frente, os 3 balms estão pra acabar: quem respondeu recebe a reposição; quem
+        // recebeu o sunset e não voltou, não recebe nada — está adormecido.
+        const noBalm = aos(pagoNaNuvem + 180 * DIA_MS)
+        await rodar({ agora: noBalm, email: RESPONDE })
+        const calado = await rodar({ agora: noBalm, email: SOME })
+        ok(
+          deQuem(RESPONDE, daReposicao).length === 1 &&
+            calado.corpo.adormecidos === 1 &&
+            calado.corpo.enviados === 0 &&
+            deQuem(SOME, daReposicao).length === 0,
+          "o sunset: sem o Sim, a pessoa fica adormecida — a reposição do balm sai pra quem respondeu, e não pra ela",
+          JSON.stringify({
+            responde: deQuem(RESPONDE, daReposicao).map((e) => e.subject),
+            some: calado.corpo,
+          })
+        )
+        const sim = await clicar(botoes(sunset)[0])
+        ok(
+          sim.status === 303 &&
+            sim.para === `${LOJA}/?utm_source=loja&utm_medium=email&utm_campaign=crm-resgate`,
+          "o Sim, quero continuar: anota e vai pra loja",
+          JSON.stringify(sim)
+        )
+      } finally {
+        // O banco local é de todos: o resgate e a reposição voltam a desligados.
+        await mudarFluxos({ fluxo: "resgate", ligado: false })
+        await mudarFluxos({ fluxo: "reposicao", ligado: false })
+      }
+    }
+
     titulo("A aba Fluxos")
     await semIpNasFontes(dono.contexto)
     await dono.pagina.goto(`${PAINEL}/crm/fluxos`)
@@ -2682,7 +2862,7 @@ try {
       .locator('[data-fluxo="estreia"] [data-publico-da-estreia] [data-jeito]')
       .allTextContents()
     ok(
-      (await dono.pagina.locator("[data-fluxo]").count()) === 7 &&
+      (await dono.pagina.locator("[data-fluxo]").count()) === 8 &&
         (await dono.pagina.locator('.abas [data-aba="fluxos"][aria-current="page"]').count()) ===
           1 &&
         (await dono.pagina.locator('[data-ligar][aria-checked="true"]').count()) === 4 &&
@@ -2690,12 +2870,13 @@ try {
         (await dono.pagina.locator('[data-ligar="reposicao"][aria-checked="false"]').count()) ===
           1 &&
         (await dono.pagina.locator('[data-ligar="jornada"][aria-checked="false"]').count()) === 1 &&
+        (await dono.pagina.locator('[data-ligar="resgate"][aria-checked="false"]').count()) === 1 &&
         // As boas-vindas não têm controle: o cupom foi a pessoa que pediu. A estreia tem.
         (await dono.pagina.locator('[data-fluxo="boas-vindas"] .numero--controle').count()) === 0 &&
         (await dono.pagina.locator('[data-fluxo="estreia"] .numero--controle').count()) === 1 &&
         jeitosNaTela.length === 4 &&
         jeitosNaTela.filter((t) => t.includes("cupom")).length === 2,
-      "a aba: os sete fluxos, quatro ligados; a estreia, a reposição e a jornada desligadas, a estreia com o controle e os 4 jeitos (2 com cupom)",
+      "a aba: os oito fluxos, quatro ligados; a estreia, a reposição, a jornada e o resgate desligados, a estreia com o controle e os 4 jeitos (2 com cupom)",
       JSON.stringify(jeitosNaTela.map(semEspaco))
     )
     const telaAgora = (await fluxos(tokenDoDono)).corpo
@@ -2805,6 +2986,26 @@ try {
         testeDaReposicao?.html.includes("/voltar/repor-order_"),
       "“Mandar pra mim” da reposição: o Fator acabando, como lembrete, com o Refazer o pedido",
       testeDaReposicao?.subject ?? "não chegou"
+    )
+    // O do resgate: a pergunta com os 4 botões — de mentira, vão pra loja sem anotar nada.
+    const antesDoTesteDoResgate = caixa.quantos(DONO, (e) => e.subject?.startsWith("[Teste] "))
+    await hidratado(dono.pagina, '[data-toque="resgate-agora"] [data-mandar-pra-mim]')
+    await dono.pagina.locator('[data-toque="resgate-agora"] [data-mandar-pra-mim]').click()
+    const testeDoResgate = await caixa.esperarEmail(
+      DONO,
+      (e) => e.subject?.startsWith("[Teste] "),
+      antesDoTesteDoResgate,
+      20000
+    )
+    ok(
+      testeDoResgate?.subject === "[Teste] Tá tudo bem com a barba?" &&
+        /^Matheus, da FuckingBarba </.test(testeDoResgate?.from ?? "") &&
+        ["Tá caro", "Esqueci de repor", "Não vi resultado", "Comprei em outro lugar"].every((t) =>
+          testeDoResgate?.html.includes(t)
+        ) &&
+        !testeDoResgate?.html.includes("/crm/resgate?t="),
+      "“Mandar pra mim” do resgate: a pergunta com os 4 botões, como lembrete — e os botões de mentira não anotam nada",
+      testeDoResgate?.subject ?? "não chegou"
     )
     // A chave das boas-vindas é a do pop-up da loja: desligada, a loja fica sabendo.
     const popupDaLoja = async () =>

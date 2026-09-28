@@ -194,7 +194,11 @@ export const NOME_DA_ETAPA: Record<Etapa, string> = {
 export type Engajamento = "quente" | "morno" | "frio"
 
 export type Etiquetas = {
-  etapa: { valor: Etapa; porque: string }
+  /**
+   * `desde`, em risco e no sunset: o dia em que a pessoa passou do dia de
+   * comprar de novo (mais a tolerância) — o começo do resgate (0192).
+   */
+  etapa: { valor: Etapa; porque: string; desde?: Date }
   engajamento: { valor: Engajamento; porque: string }
   /** Os dias desde a entrega do primeiro Fator (nulo: não comprou, ou está a caminho). */
   tratamento: { dia: number | null; porque: string }
@@ -336,8 +340,9 @@ export function etiquetasDaPessoa(entrada: {
       ? {
           valor: "sunset",
           porque: `em risco há mais de ${regras.sunset} dias, sem clicar nem visitar a loja`,
+          desde: risco.desde,
         }
-      : { valor: "em-risco", porque: risco.porque }
+      : { valor: "em-risco", porque: risco.porque, desde: risco.desde }
   } else if (pagos.length >= 2) {
     etapa = { valor: "recorrente", porque: `${pagos.length} pedidos pagos` }
   } else {

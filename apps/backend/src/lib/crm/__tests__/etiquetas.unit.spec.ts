@@ -174,7 +174,12 @@ describe("a etapa", () => {
       itens: [{ handle: "camiseta", nome: "Camiseta", quantidade: 1 }],
     })
     const e = etiquetasDaPessoa({ pedidos: [outro], sinais: SEM_SINAIS, agora: AGORA })
-    expect(e.etapa).toEqual({ valor: "em-risco", porque: "60 dias sem pedido" })
+    // O `desde` é o começo do resgate (0192): o dia em que fez 60 dias sem pedido.
+    expect(e.etapa).toEqual({
+      valor: "em-risco",
+      porque: "60 dias sem pedido",
+      desde: diasAtras(1),
+    })
     expect(e.proximaCompra.em).toBeNull()
   })
 })
@@ -299,6 +304,7 @@ describe("as regras dos Ajustes", () => {
     ).toEqual({
       valor: "sunset",
       porque: "em risco há mais de 5 dias, sem clicar nem visitar a loja",
+      desde: expect.any(Date),
     })
   })
 
