@@ -1,0 +1,146 @@
+/*
+  O AVISO DA REPOSIÇÃO NA HOME (entrega 0188) — `components/reposicao/aviso.tsx`.
+  A cara do pop-up da 1ª compra (sem canto redondo, borda preta, sombra dura
+  amarela), mas pequeno e num canto: não cobre a página e, fixo, não empurra
+  nada (sem pulo de layout). Some com a sacola aberta. Só vem junto do aviso:
+  quem não tem o que repor não baixa este arquivo.
+*/
+
+.rp-aviso {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  z-index: 55;
+  width: min(400px, calc(100% - 32px));
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  padding: 12px 48px 12px 12px;
+  background: var(--color-papel);
+  color: var(--color-tinta);
+  border: 3px solid var(--color-tinta);
+  box-shadow: 6px 6px 0 0 var(--color-amarelo);
+  animation: rp-entra 0.22s var(--ease-suave);
+}
+
+.carrinho-aberto .rp-aviso {
+  display: none;
+}
+
+.rp-foto {
+  width: 56px;
+  height: 56px;
+  overflow: hidden;
+  background: #fff;
+  border: 2px solid var(--color-tinta);
+}
+
+.rp-foto img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.rp-corpo {
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+  min-width: 0;
+}
+
+.rp-antes {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-tinta-suave);
+}
+
+.rp-titulo {
+  margin: 0;
+  font-weight: 800;
+  font-style: italic;
+  font-size: 16px;
+  line-height: 1.1;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+}
+
+.rp-botao {
+  margin-top: 6px;
+  padding: 10px 12px;
+  font-weight: 800;
+  font-size: 13px;
+  line-height: 1;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  text-decoration: none;
+  background: var(--color-amarelo);
+  color: var(--color-tinta);
+  border: 2px solid var(--color-tinta);
+  box-shadow: var(--shadow-dura-sm);
+}
+
+.rp-botao:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 0 var(--color-tinta);
+}
+
+.rp-fechar {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  background: #fff;
+  color: var(--color-tinta);
+  border: 2px solid var(--color-tinta);
+  cursor: pointer;
+}
+
+.rp-fechar:hover {
+  background: var(--color-amarelo);
+}
+
+.rp-fechar svg {
+  width: 14px;
+  height: 14px;
+}
+
+.rp-fechar:focus-visible,
+.rp-botao:focus-visible {
+  outline: 3px solid var(--color-amarelo);
+  outline-offset: 2px;
+}
+
+@keyframes rp-entra {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .rp-aviso {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    width: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rp-aviso {
+    animation: none;
+  }
+}
