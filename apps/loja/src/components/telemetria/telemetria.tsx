@@ -1,18 +1,25 @@
 "use client"
 
-import { useReportWebVitals } from "next/web-vitals"
-import { useEffect } from "react"
+import dynamic from "next/dynamic"
+import { useEffect, useState } from "react"
 import { aparelho, guardarMedida, mandar, paginaAgora } from "@/lib/telemetria"
 
 /**
  * A MEDIDA DE CADA VISITA — mora no layout raiz, uma vez por aba (ver
  * `lib/telemetria.ts`). Não desenha nada.
  *
- * As medidas vêm do próprio Next (`useReportWebVitals`): o tempo até
- * aparecer o principal da tela (LCP), a demora pra reagir ao toque (INP) e o
- * quanto a tela pulou (CLS). O erro é o que estourou nos scripts da loja —
- * o de extensão do navegador e o de script de fora ("Script error.") não
- * são nossos e ficam de fora.
+ * As medidas vêm do próprio Next (`useReportWebVitals`, em `./vitais`): o
+ * tempo até aparecer o principal da tela (LCP), a demora pra reagir ao toque
+ * (INP) e o quanto a tela pulou (CLS). O erro é o que estourou nos scripts da
+ * loja — o de extensão do navegador e o de script de fora ("Script error.")
+ * não são nossos e ficam de fora.
+ *
+ * O MEDIDOR SÓ BAIXA DEPOIS DA CARGA DA PÁGINA (entrega 0194). O `web-vitals`
+ * do Next pesa uns 3 KB comprimidos, e no JavaScript da primeira tela ele
+ * entrava na conta do LCP de toda página no Lighthouse do CI (ver o
+ * AGENTS.md). Chegar depois não perde medida: o navegador guarda o LCP, o CLS
+ * e o primeiro toque desde o começo, e o medidor lê o que já passou. O
+ * ouvinte do erro continua aqui, na hidratação, como sempre esteve.
  */
 
 const MEDIDAS = new Set(["LCP", "INP", "CLS"])
@@ -35,8 +42,24 @@ function avisarErro(mensagem: string) {
   mandar({ tipo: "erro", pagina: paginaAgora(), mensagem: mensagem.slice(0, 300) })
 }
 
+const Vitais = dynamic(() => import("./vitais").then((m) => m.Vitais), { ssr: false })
+
 export function Telemetria() {
-  useReportWebVitals(medir)
+  const [medindo, setMedindo] = useState(false)
+
+  // Depois do `load`, e de o navegador acabar o que estava fazendo nele.
+  useEffect(() => {
+    let relogio: ReturnType<typeof setTimeout> | undefined
+    const comecar = () => {
+      relogio = setTimeout(() => setMedindo(true), 0)
+    }
+    if (document.readyState === "complete") comecar()
+    else window.addEventListener("load", comecar, { once: true })
+    return () => {
+      window.removeEventListener("load", comecar)
+      clearTimeout(relogio)
+    }
+  }, [])
 
   useEffect(() => {
     /*
@@ -71,7 +94,7 @@ export function Telemetria() {
     }
   }, [])
 
-  return null
+  return medindo ? <Vitais aoMedir={medir} /> : null
 }
 
 /** A tela de erro (`app/error.tsx`, `app/global-error.tsx`) conta o que caiu. */
