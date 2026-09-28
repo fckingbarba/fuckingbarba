@@ -1174,7 +1174,8 @@ de 2026, pedido criado pela API conta no volume do plano do Bling** — vale olh
         levando pra `/conta`. Endereços: o formulário do passo 2 do checkout (CEP primeiro), com
         principal, editar e excluir perguntando antes; o principal é o que o checkout abre.
         Meus dados: nome, celular, CPF ou CNPJ e as ofertas por e-mail e WhatsApp, que nascem
-        desmarcadas e guardam a data do "sim". A visão geral ganhou os dois atalhos do pé.
+        desmarcadas e guardam a data do "sim" (desde a 0184, a do e-mail vem marcada). A visão
+        geral ganhou os dois atalhos do pé.
   - [x] **O checkout conhece a conta** (22/09). Com a conta aberta, o carrinho passa pro nome dela
         e o que estiver vazio vem preenchido — o passo 1 de "Meus dados", o endereço principal —, então
         quem tem os dois cai direto na entrega. O pedido nasce na conta, e a compra deixa nela o
@@ -2608,14 +2609,17 @@ novos) e pelo `next build` da loja (a rota sai pronta no build).
 Depois do deploy — **nada a configurar agora.** O arquivo só serve DEPOIS da virada: os links dele
 apontam pro endereço da loja, e o Google confere o preço nessa página.
 
-- [ ] **Na virada — você, no Google Merchant Center:** Produtos → Fontes de dados → Adicionar →
+- [x] **Na virada — você, no Google Merchant Center:** Produtos → Fontes de dados → Adicionar →
       arquivo com busca programada, diária, no `https://www.fuckingbarba.com.br/catalogo.xml`. Se
       a Nuvemshop manda os produtos pra lá hoje (o app Google Shopping), desligar a fonte dela no
       mesmo dia, senão fica tudo em dobro. Em Envio: frete grátis a partir do piso da loja.
+      (28/09: a fonte do arquivo leu os 15 produtos. A da Nuvemshop, a "Content API", é pra
+      apagar pelos 3 pontinhos, se ainda não foi.)
 - [ ] **Na virada — você, na Meta:** Gerenciador de Comércio → o catálogo → Fontes de dados →
       Adicionar itens → Feed de dados → URL programada (a cada hora), no mesmo endereço; e em
       Eventos, ligar o pixel 1284769389617301 a este catálogo. O catálogo que a Nuvemshop alimenta
-      usa outros códigos: desligar a integração dela.
+      usa outros códigos: desligar a integração dela. (28/09: a equipe de marketing faz; o recado
+      com o link e os passos foi mandado.)
 - [ ] Um dia depois das duas: olhar o Diagnóstico do Merchant Center e o da Meta — o Claude Code
       lê os avisos e acerta o que for do arquivo.
 
@@ -3639,11 +3643,12 @@ do cupom do pop-up, chegam os e-mails da trilha de quem se cadastrou, como no pr
 - **Cai onde:** é campanha pra base toda, e Promoções é o lugar dela. A exceção é o de repor,
   que sai como lembrete (entrega 0182, logo abaixo).
 
-- [ ] **Antes de ligar (você):** conferir no Resend que o plano é o Pro, ou maior. No grátis, o
+- [x] **Antes de ligar (você):** conferir no Resend que o plano é o Pro, ou maior. No grátis, o
       limite é 100 e-mails por dia, e a estreia manda uns 2.500 em 4 dias. Os de pedido também contam.
-- [ ] **Antes de ligar (você):** pôr a Nuvemshop em manutenção (eu guio).
-- [ ] **Ligar a estreia (você):** CRM → Fluxos → Estreia → "Mandar pra mim" (chegam os 4 jeitos) e
-      depois a chave.
+      (É o Pro: confirmado em 28/09.)
+- [x] **Antes de ligar (você):** pôr a Nuvemshop em manutenção (eu guio). (Feito em 28/09.)
+- [x] **Ligar a estreia (você):** CRM → Fluxos → Estreia → "Mandar pra mim" (chegam os 4 jeitos) e
+      depois a chave. (Ligada em 28/09, perto das 11h15.)
 
 **A estreia: o e-mail de repor como lembrete — pronto em 28/09 (entrega 0182).** No seu teste, os
 4 jeitos caíram em Promoções. Sua escolha: só o de repor tenta o Principal.
@@ -3669,6 +3674,22 @@ do cupom do pop-up, chegam os e-mails da trilha de quem se cadastrou, como no pr
 - **O assunto é o de cada um:** o produto é o da última compra da pessoa ("Seu óleo…", "Sua pasta
   modeladora…"). O Fator do "Mandar pra mim" é só o exemplo.
 
+**As ofertas por e-mail ligadas por padrão — pronto em 28/09 (entrega 0184).** É o que o seu
+advogado pediu: o "aceitar ofertas" vem ligado, e a pessoa desliga quando quiser.
+
+- **Quem compra ou cria conta** já entra recebendo as novidades e ofertas por e-mail. Os clientes
+  de antes também, menos quem já tinha saído da lista. Quem só digitou o e-mail no checkout e não
+  comprou fica de fora.
+- **Na conta, em "Meus dados",** a caixa do e-mail vem marcada.
+  - Desmarcar é sair da lista de verdade: a pessoa sai da newsletter e para de receber os e-mails
+    do CRM. Os do pedido continuam.
+  - Marcar de novo volta a receber.
+- **A do WhatsApp** continua desmarcada: essa, só por escolha.
+- **No painel,** o cliente aparece com as ofertas "por padrão, no cadastro", e o marketing vê todo
+  mundo que não saiu.
+- **A política de privacidade** conta isso.
+- **A base da Nuvemshop** não muda: quem disse não lá continua não, e a estreia só vai pra quem
+  aceitou.
 **A parcela mínima do cartão, editável — pronta em 27/09 (entrega 0157).** O pedido dele: "quero
 poder editar a parcela mínima no cartão, ali diz 5 reais". Em **Configurações → Pagamento**, o
 bloco **Parcelas no cartão** tem o campo **Parcela mínima**.
@@ -3722,12 +3743,12 @@ Depois do deploy — **nada a configurar.** Até alguém mudar, vale R$ 5,00, co
       dela (`fuckingbarba.lojavirtualnuvem.com.br`) e tirar o `www.fuckingbarba.com.br`. Assim os
       e-mails que ela ainda mandar pros pedidos antigos (rastreio, entrega) abrem lá, onde eles
       existem.
-- [ ] **Amanhã — você, no Search Console:** o sitemap novo
-      (`https://www.fuckingbarba.com.br/sitemap.xml`).
-- [ ] **Amanhã — você, no Merchant Center e na Meta:** o catálogo da loja nova, pelos passos da
-      0134 (mais acima, "Na virada").
-- [ ] **Amanhã — você, na Nuvemshop:** fechar a loja pra vendas (modo manutenção), sem cancelar o
-      plano. Os pedidos antigos seguem lá: rastreio e trocas.
+- [x] **Amanhã — você, no Search Console:** o sitemap novo
+      (`https://www.fuckingbarba.com.br/sitemap.xml`). (28/09: "Processado", 25 páginas.)
+- [x] **Amanhã — você, no Merchant Center e na Meta:** o catálogo da loja nova, pelos passos da
+      0134 (mais acima, "Na virada"). (28/09: o Merchant Center com os 15; a Meta, com o marketing.)
+- [x] **Amanhã — você, na Nuvemshop:** fechar a loja pra vendas (modo manutenção), sem cancelar o
+      plano. Os pedidos antigos seguem lá: rastreio e trocas. (28/09: "Página em Construção".)
 - [ ] **Uns 30 dias depois:** exportar tudo da Nuvemshop de novo e cancelar o plano, depois de o
       último pedido antigo chegar e passar o prazo de troca.
 - [ ] **A primeira venda no cartão** no domínio novo: conferir que o antifraude aprovou (o Pix já

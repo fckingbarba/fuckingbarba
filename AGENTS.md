@@ -2903,6 +2903,36 @@ O `conferir-crm.mjs`:
 - desliga no fim, porque o banco local é de todos os conferidores;
 - na aba, confere os 5 fluxos e o "Mandar pra mim" com os 4 jeitos.
 
+**As ofertas por e-mail ligadas por padrão** (entrega 0184). É o parecer do advogado do dono
+(28/09): o "aceitar ofertas" vem ligado, e a pessoa desliga quando quiser.
+
+- **Quem compra ou cria conta** ganha o sim, com a regra pura `ofertasPorPadrao` (em
+  `lib/ofertas-por-padrao.ts`): `metadata.ofertas.email` recebe a data do cadastro, com
+  `origem: "padrao"`. Quem faz é `subscribers/ofertas-por-padrao.ts`, em dois momentos:
+  - `customer.created`, só pra cliente com conta (o primeiro código);
+  - `order.placed`, pro cliente do pedido. Pode ser o convidado: o Medusa cria esse cliente dentro
+    do carrinho sem emitir o `customer.created`, e é na compra que ele vira cliente de fato.
+  Quem só digitou o e-mail no checkout e não comprou não ganha nada.
+  - Quem já tem o sim fica com o dele. Quem saiu da lista (`crm_saiu`) não volta sozinho. O
+    WhatsApp não muda.
+- **Os clientes de antes** com conta ou pedido ganharam o mesmo pela migração
+  `migration-scripts/ofertas-por-padrao.ts`, que roda uma vez no deploy.
+- **Desmarcar na conta é sair da lista.** Quando o e-mail passa de marcado a desmarcado, a ação de
+  "Meus dados" (`lib/acoes/dados.ts`, na loja) chama `POST /store/crm/sair-das-ofertas`. A rota
+  usa só o token de cliente e roda o `tirarDasOfertas`: tira da newsletter e da base da
+  Nuvemshop e anota em `crm_saiu`, então os fluxos param. Marcar de novo é um sim novo, com a data
+  de agora, e o `quemVoltouPraLista` do motor vê.
+- **No painel,** o sim por padrão aparece como "por padrão, no cadastro" (`consentimentosDa`). O
+  marketing passa a ver todo cliente que não saiu.
+- **A política de privacidade** conta: quem compra ou cria conta recebe as ofertas por e-mail, e
+  desliga no "Sair da lista" ou na conta.
+- **A base da Nuvemshop** não muda: o "Não aceita" de lá continua não.
+
+Os conferidores:
+- `conferir-conta.mjs` (loja): a caixa do e-mail vem marcada, com a origem padrão. Desmarcar tira o
+  sim, e ele não volta sozinho.
+- `conferir-clientes.mjs` (painel): a Ana ganha o sim no cadastro, e a loja tira quando ela pede
+  (ela é quem "não aceita" dali pra baixo).
 **O preço e o promocional no painel** (entregas 0098 e 0102): os dois campos de cada produto na
 lista de Produtos, como na Nuvemshop (a 0098 tinha só o promocional, atrás de um botão). A regra é
 `lib/painel/promocao.ts`, pura: `lerMudancaDePreco` (o corpo `{ preco?, promocional? }` contra o
