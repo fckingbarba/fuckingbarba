@@ -85,6 +85,12 @@ export default async function Privacidade() {
           lista&rdquo;, e no WhatsApp é só responder que não quer: a gente não manda mais.
         </P>
         <P>
+          <b>As novidades e as ofertas por e-mail</b>: quem compra ou cria conta passa a receber, e
+          desliga quando quiser — no &ldquo;Sair da lista&rdquo; de qualquer e-mail, ou desmarcando
+          a caixa em &ldquo;Meus dados&rdquo;, na conta. Os e-mails do seu pedido continuam
+          chegando.
+        </P>
+        <P>
           <b>Se você assinar a newsletter</b>: só o e-mail. Dá pra sair em qualquer mensagem que a
           gente mandar.
         </P>
@@ -126,7 +132,7 @@ export default async function Privacidade() {
           checkout — ligado a um código aleatório deste navegador, guardado num cookie da loja.
           Quando você entra na conta, deixa o e-mail no checkout ou assina a newsletter, o que foi
           anotado passa a ficar ligado ao seu e-mail. É o que deixa a loja lembrar o que interessa
-          pra você. E-mail de oferta continua dependendo do seu sim a ele, separado deste.
+          pra você. E-mail de oferta é outra coisa, e não depende deste sim.
         </P>
         <P>
           <b>Se você já comprou na loja antiga</b> (a FuckingBarba na Nuvemshop): vieram com você o

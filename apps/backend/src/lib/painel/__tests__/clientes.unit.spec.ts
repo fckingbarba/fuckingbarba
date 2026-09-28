@@ -197,6 +197,22 @@ describe("as ofertas: a conta e a newsletter juntas", () => {
     )
     expect(ofertasEmFrase(consentimentosDa(p!), AGORA)).toBe("e-mail e WhatsApp · desde hoje")
   })
+
+  it("o sim por padrão (0184) diz de onde veio: do cadastro, e não da caixa", () => {
+    const [p] = juntarPessoas(
+      [
+        cliente("cus_a", "ana@exemplo.com", {
+          metadata: { ofertas: { email: "2026-09-24T09:00:00-03:00", origem: "padrao" } },
+        }),
+      ],
+      [],
+      []
+    )
+    expect(consentimentosDa(p!).map((c) => [c.canal, c.origem, c.onde])).toEqual([
+      ["email", "conta", "por padrão, no cadastro"],
+    ])
+    expect(ofertasEmFrase(consentimentosDa(p!), AGORA)).toBe("e-mail · desde hoje")
+  })
 })
 
 describe("a ficha", () => {
