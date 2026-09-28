@@ -3951,6 +3951,34 @@ aparecer num pedido de teste de antes da virada, me avise e a gente decide junto
 dinheiro). Se a nota foi feita à mão, o aviso fica no pedido (como o da nota sem CPF feita à mão) —
 um botão "a nota foi feita à mão" pra tirar o aviso fica pra depois, se você quiser.
 
+**A Vercel só monta o que mudou — pronto em 28/09 (entrega 0179).** Ele perguntou por que a Vercel
+estava gastando tanto. Desde o Pro (26/09), cada build é cobrado, e quase todo o gasto era build —
+as visitas da loja custam centavos. Em 26 e 27/09 foram 374 builds em 2 dias:
+
+- todo push montava os dois projetos, a loja e o painel, até quando só o backend mudava;
+- 6 em cada 10 eram previews das PRs, que ninguém abria (o CI do GitHub já monta a loja e o painel
+  em toda PR);
+- mais da metade montou um projeto que nem tinha mudado: a Vercel conta o ESTADO e o AGENTS, que
+  toda entrega mexe, como mudança em tudo.
+
+Agora:
+
+- **As branches de entrega não geram preview na Vercel.**
+- **Na main, a loja só monta quando o código da loja muda, e o painel, quando o do painel muda.**
+  Nos outros merges, o deploy daquele projeto aparece cancelado na Vercel ("Ignored Build Step") —
+  é o esperado: o que está no ar continua, e já é a versão certa.
+- **Trocou uma variável e deu Redeploy?** Monta normal.
+
+Refeito com os builds de verdade do período pago (26/09 ~18h até 28/09): seriam 73 no lugar de 258,
+uns 72% a menos. Conferido numa cópia rasa do repositório, como a Vercel baixa (10 commits), com o
+comando rodando na pasta de cada app: 10 casos × loja e painel × `sh` e `bash`, 40 de 40 — branch
+nova, redeploy, só ESTADO/AGENTS, só backend, só loja, o acumulado desde o último deploy, o
+`package-lock.json` e o deploy anterior fora da cópia (este monta, por garantia).
+
+- [ ] **Depois do deploy (você):** Vercel → Settings → Billing → Spend Management. Se o "Pause
+      Production Deployments" estiver ligado, a loja sai do ar quando o gasto bater o limite.
+      Deixe desligado, só com o aviso por e-mail.
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa
