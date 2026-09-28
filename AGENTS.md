@@ -363,7 +363,11 @@ chega pelo webhook (Pagar.me → Edge Function `webhook-pagamento` →
 `/hooks/payment/pagarme_pagarme`, que exige o `x-webhook-segredo` e relê o pedido na API antes de
 acreditar); o que o webhook não resolve — Pix vencido, aviso perdido, cobrança que sumiu no
 caminho — a conciliação resolve a cada 5 minutos no worker (`src/lib/conciliar-pagamentos.ts`, e
-`POST /admin/pagamentos/conciliar` pra rodar na hora).
+`POST /admin/pagamentos/conciliar` pra rodar na hora). O que é caso raro — os órfãos (a listagem de
+48 horas lá no parceiro) e a conferência dos estornos de 7 dias — anda só na rodada COMPLETA: de 30
+em 30 minutos no job (`rodadaCompleta`, minutos 0 e 30; entrega 0199), sempre na rota do admin e
+nos conferidores. O pendente, o incerto, o pedido preso e o dinheiro num pedido cancelado seguem de
+5 em 5.
 Duas armadilhas já pagas: o Medusa MISTURA (em profundidade) o `data` da sessão com o que chegou
 da API pública, então o provedor grava o estado inteiro, com `null` explícito, e acha o pedido do
 Pagar.me pelo CÓDIGO (o id da sessão), nunca pelo `data`; e o cartão aprovado no fechamento não
@@ -722,6 +726,12 @@ carrega o item inteiro pra fazer a conta —, e é por isso que a nota, a Frenet
 painel nunca erraram. Foi o que pôs "0×" nos e-mails do caminho da encomenda (o #19, em 25/09;
 entrega 0116). Pedido lido pra mostrar item: `items.*`, como a confirmação, o cancelamento e o
 `lerPedido` de `lib/envios/medusa.ts`. O `conferir-envio` confere a quantidade nos três e-mails.
+**O jeito leve** (entrega 0199): pedir junto o `items.detail.quantity` — a quantidade vem certa
+campo a campo, sem o item inteiro. O `items.*` traz TUDO da linha, inclusive a descrição do produto
+(medido na 0199: um item com a descrição de 2 mil caracteres, 3,9 KB com `items.*` e 250 bytes com os
+campos e o `detail`). Leitura que se repete (o CRM, de 5 em 5 minutos, em todos os pedidos) vai
+campo a campo com o `detail`: `pedidosParaAsEtiquetas` e os pedidos do Pix no motor. Leitura de um
+pedido só pode seguir com o `items.*`.
 
 **O QUE PASSA DO PRAZO VIRA AVISO** (entrega 0175, auditoria de 27/09) — nada fica parado calado:
 
@@ -828,7 +838,9 @@ falha vira "Confira a nota" pra equipe, não silêncio); pedido de venda com
 nota no Bling). As tabelas são do módulo `src/modules/erp` (`erp_conexao` e `erp_nota`, com os
 passos dados no ERP gravados um a um). O estoque espelha o saldo que dá pra vender no ERP MAIS o que
 o Medusa reservou pros pedidos que já estão lá (senão o pedido pago desconta duas vezes). O pedido
-vai pro ERP no `payment.captured`, pela varredura `acompanhar-notas` (5 em 5 minutos) e pelo aviso
+vai pro ERP no `payment.captured`, pela varredura `acompanhar-notas` (5 em 5 minutos; a nota PARADA —
+rejeitada ou denegada, esperando alguém corrigir no ERP — de 30 em 30, nos minutos 4 e 34:
+`horaDasParadas`, entrega 0199; a rota do admin olha tudo) e pelo aviso
 do ERP (`/hooks/erp/:erp`, assinado com HMAC do client secret sobre o corpo cru); só pros pedidos
 pagos depois da primeira conexão (`notas_desde`). A **JANELA DE CANCELAMENTO**
 (`erp_conexao.janela_da_nota`, em minutos; `null` = 5 minutos, 0 = na hora; `POST
@@ -1468,6 +1480,13 @@ export GA4_CREDENCIAIS=$(node -e 'const{generateKeyPairSync:g}=require("node:cry
 ```
 
 **Marketing** (a área do protótipo, em partes; parte 1, entrega 0108: o Resumo e a meta do mês).
+**A memória curta** (entrega 0199, `src/lib/painel/memoria.ts`): as leituras de pedidos e carrinhos
+do Marketing (`pedidosDoMarketing` e as vizinhas, em `ler-marketing.ts`, e o Resumo) passam pelo
+`lembrar`: a mesma chave (o que se lê e desde quando — o período começa à meia-noite) sai UMA vez
+pra quem chega junto (o "O que os dados dizem" roda as seis abas; abrir o Marketing dispara quatro
+rotas) e fica guardada `MARKETING_MEMORIA_SEGUNDOS` (90, sem a variável; 0 desliga). A que falhou
+não fica. Quem recebe não mexe na lista (as contas montam objetos novos — conferido na 0199). As
+telas do dia a dia (Início, Pedidos) NÃO passam por ela: lá, o que mudou aparece na hora.
 No `ACESSO_PADRAO`, `marketing` é do dono e do marketing, e `metaDoMes` (mudar a meta) só do dono.
 `src/lib/painel/marketing.ts` é puro, com testes: o período (desde a 0191, o da barra do Início —
 ver "O Marketing no período"; sem nada, 30 dias) e o de antes; venda é pedido
@@ -2222,8 +2241,14 @@ O resto é assim:
   o código de seis dígitos coberto. A soma do dia é do banco (`insert … on conflict`, no serviço).
 - **O vigia** (`lib/observabilidade/vigia.ts`). Roda no job `vigiar-a-loja` (minutos 1, 6, 11…) e
   na tela, no máximo a cada 30 segundos, um de cada vez. Lê os pedidos dos últimos 45 dias (até 500)
-  com as notas e os envios, a conexão do ERP, as rotinas e os sinais de hoje e de ontem. Apaga os
-  sinais de mais de 60 dias e os problemas resolvidos há mais de 90.
+  com as notas e os envios, a conexão do ERP, as rotinas e os sinais de hoje e de ontem. Dos pedidos,
+  só o que a conta usa: `CAMPOS_DO_VIGIA` (id, número, data, situação e metadata — o estorno e a
+  Frenet moram nele; entrega 0199). Com os campos da lista vinha o total, que o Medusa CALCULA lendo
+  itens, impostos, ajustes e frete de cada pedido: medido na 0199, ~1,8 KB por pedido contra ~0,35
+  KB, e ~20 vezes mais lento. Conta nova que precise de outro campo do pedido: ponha nos
+  `CAMPOS_DO_VIGIA`, nunca volte pra lista inteira. Apaga os sinais de mais de 60 dias e os problemas
+  resolvidos há mais de 90 — uma vez por hora, na rodada dos primeiros minutos (`horaDeLimpar`,
+  0199): os prazos são de semanas.
 - **Os dois tipos.** O problema de estado (`sozinho`) não se marca: a rota responde 409
   `sai_sozinho`. O de evento se marca pelo `resolverProblemaWorkflow`, e volta se acontecer de novo
   depois. As rotinas todas paradas (o vigia também) viram um problema na hora da leitura, sem
@@ -2782,6 +2807,18 @@ o e-mail (escolha do dono: é sobre a compra que a pessoa começou), e nasceram 
     - o cupom só no toque de 1 dia, e um a cada 60 dias por e-mail.
 - **O motor** é `lib/crm/motor.ts` (`rodarOsFluxos`), e a rotina é `fluxos-do-crm` (a cada 5
   minutos, minuto 3, na trava).
+  - **Uma leitura por rodada** (entrega 0199, `lib/crm/leitura.ts`): os fluxos medidos em dias
+    (estreia, reposição, jornada e resgate) dividem os pedidos da loja nova, a base da Nuvemshop,
+    as pessoas que aceitam ofertas, os sinais e o metadata da loja (`leituraDaRodada`, o 3º
+    argumento dos `publicoDa…`; quem chama sem ela ganha uma nova). Antes, cada fluxo ligado relia
+    tudo sozinho. **A base da Nuvemshop fica na memória** entre as rodadas: cada rodada pergunta só
+    a `versaoDaBase` (a contagem e o último `updated_at` de `crm_base_pedido`, que a importação grava
+    em toda linha) e relê quando ela muda — vale com dois processos, sem aviso entre eles. Quem lê a
+    lista não mexe nela (os `pedidoDa…` montam objetos novos). Fluxo novo medido em dias: leia pela
+    leitura, não pelo banco.
+  - **Os pedidos da janela vêm leves** (id, e-mail, situação e data: o "comprou"), porque a janela é
+    a do fluxo mais longo (o resgate, semanas). Os do Pix vêm completos (os itens do e-mail e o
+    código do Pix), só na janela do Pix.
   - As entradas dos últimos 3 dias: os carrinhos com e-mail que não fecharam, e os pedidos com Pix
     que não foi pago. O "comprou" é um pedido não cancelado depois do começo, sem maiúsculas no
     e-mail.
