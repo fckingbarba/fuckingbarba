@@ -16,6 +16,8 @@ const QUEM_ENTRA: Record<IdDoFluxo, string> = {
   pix: "Gerou o Pix e não pagou.",
   checkout: "Digitou o e-mail no checkout e não pagou.",
   carrinho: "Pôs na sacola e não foi pro checkout — e a loja sabe quem é.",
+  navegacao:
+    "Olhou um produto e não pôs nada na sacola — e a loja sabe quem é: voltou à página dele, ficou 1 minuto nela ou viu o vídeo do “Vê na prática”. Em 3 horas, “Ficou de olho?”, com o que os clientes acharam e as dúvidas da página; em 1 dia, a rotina completa. Sem cupom, no máximo uma vez por semana. Começa desligado.",
   reposicao:
     "Comprou, e o produto está pra acabar, pela conta dos dias dos Ajustes: 7 e 2 dias antes, 3 e 10 dias depois, com o “Refazer o pedido”. Todo cliente, da loja nova e da antiga, sem cupom. Começa desligado: ligue depois da estreia, em 3/10.",
   jornada:
