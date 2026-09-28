@@ -17,7 +17,7 @@ const QUEM_ENTRA: Record<IdDoFluxo, string> = {
   checkout: "Digitou o e-mail no checkout e não pagou.",
   carrinho: "Pôs na sacola e não foi pro checkout — e a loja sabe quem é.",
   "boas-vindas":
-    "Se cadastrou no pop-up da 1ª compra, com o nome e o e-mail. Desligado, o pop-up some da loja.",
+    "Se cadastrou no pop-up da 1ª compra. Depois do cupom, os e-mails da trilha do que a pessoa via: crescer a barba, cuidar da barba, cabelo — ou, sem produto, “Barba ou cabelo?”. Desligado, o pop-up some da loja.",
 }
 
 const inteiro = new Intl.NumberFormat("pt-BR")
