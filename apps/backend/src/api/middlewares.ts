@@ -405,6 +405,15 @@ export default defineMiddlewares({
       middlewares: [authenticate("customer", ["bearer"])],
     },
     /*
+      A caixa de ofertas desmarcada na conta (entrega 0184): só com token de
+      cliente de verdade — a rota tira o e-mail da conta do token.
+    */
+    {
+      matcher: "/store/crm/sair-das-ofertas",
+      method: ["POST"],
+      middlewares: [authenticate("customer", ["bearer"])],
+    },
+    /*
       O que a loja anota pro CRM: o token do cliente é opcional. Com ele, o
       navegador fica sendo da conta; sem ele (ou vencido), o recado entra do
       mesmo jeito, anônimo — por isso `allowUnauthenticated`.
