@@ -4,11 +4,14 @@
  * Abre /barba, /cabelo, /kits e /produtos num navegador de verdade, contra um
  * Medusa de verdade, e compara CADA número da tela com o que a API responde —
  * nunca com outra conta feita aqui dentro. Conta que confere com ela mesma
- * passa mesmo quando as duas estão erradas.
+ * passa mesmo quando as duas estão erradas. Na home, a ordem dos mais
+ * vendidos do carrossel e da vitrine (seção 14).
  *
  *   node ferramentas/conferir-catalogo.mjs [url-da-loja]
  *
- * Variáveis: MEDUSA_BACKEND_URL, NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY, CHROMIUM.
+ * Variáveis: MEDUSA_BACKEND_URL, NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY, CHROMIUM,
+ * REVALIDAR_SEGREDO (o do backend e da loja: a ordem dos mais vendidos só sai
+ * pra quem assina; sem ele, a seção 14 fica sem conferir).
  *
  * Precisa da loja em http://localhost:3000 e do Medusa em :9000.
  * Use localhost, não 127.0.0.1: o `next dev` recusa POST de server action
@@ -25,6 +28,7 @@ const LOJA = process.argv[2] ?? process.env.LOJA ?? "http://localhost:3000"
 const MEDUSA = process.env.MEDUSA_BACKEND_URL ?? "http://127.0.0.1:9000"
 const CHAVE = process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY ?? ""
 const CROMO = process.env.CHROMIUM || undefined
+const SEGREDO = process.env.REVALIDAR_SEGREDO ?? ""
 
 let passou = 0
 let falhou = 0
@@ -53,13 +57,21 @@ async function daApi() {
 
   const r = await fetch(
     `${MEDUSA}/store/products?limit=100&region_id=${regiao.id}` +
-      `&fields=handle,title,metadata,*categories,*variants.calculated_price`,
+      `&fields=handle,title,metadata,*categories,*variants,*variants.calculated_price,` +
+      `+variants.inventory_quantity,+variants.manage_inventory`,
     { headers: cabecalho }
   )
   if (!r.ok) throw new Error(`Medusa respondeu ${r.status} nos produtos`)
   const { products } = await r.json()
   return products.filter((p) => p.metadata?.tipo !== "kit-quantidade")
 }
+
+/** Nenhuma variação vende agora — a régua do `esgotado` da loja (`src/lib/medusa.ts`). */
+const vende = (v) =>
+  !v.manage_inventory ||
+  v.allow_backorder ||
+  (typeof v.inventory_quantity === "number" ? v.inventory_quantity >= 1 : true)
+const esgotado = (p) => (p.variants ?? []).length > 0 && p.variants.every((v) => !vende(v))
 
 const navegador = await chromium.launch(CROMO ? { executablePath: CROMO } : {})
 comAFaixaRespondida(navegador, LOJA)
@@ -191,7 +203,62 @@ try {
   const verTodos = await pagina.getAttribute(".vitrine__rodape a", "href")
   confere('"Ver todos os produtos" aponta pra /produtos', verTodos, "/produtos")
 
-  /* ── 14. a trilha da página de cada produto leva a categoria PRINCIPAL ──
+  /* ── 14. a home começa pelos mais vendidos, e a vitrine mostra só 8 ──────
+     A ordem vem da API (`/store/mais-vendidos`, que só responde à loja: o
+     conferidor assina com o REVALIDAR_SEGREDO). Na vitrine (até 8) e no
+     carrossel (até 12): primeiro os que venderam, na ordem da API; depois os
+     que não venderam — entre eles vale a ordem de sempre do Medusa, que aqui
+     não se cobra —; e o esgotado no fim de tudo.
+
+     A loja guarda a ordem por uma hora, e os conferidores que compram (o de
+     pagamento, o de checkout) mudam a conta e o estoque: o aviso pra loja
+     refazer a ordem e os produtos vem antes de olhar a home. */
+  if (!SEGREDO) {
+    console.log("  ·    sem REVALIDAR_SEGREDO — a ordem dos mais vendidos da home fica sem conferir")
+  } else {
+    const semAssinatura = await fetch(`${MEDUSA}/store/mais-vendidos`, { headers: cabecalho })
+    confere("sem a assinatura da loja, a API não dá os mais vendidos", semAssinatura.status, 401)
+
+    const aviso = await fetch(`${LOJA}/api/revalidar`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-revalidar-segredo": SEGREDO },
+      body: JSON.stringify({ tags: ["mais-vendidos", "produtos"], perfil: "agora" }),
+    })
+    confere("a loja aceita o aviso pra refazer a ordem", aviso.status, 200)
+    const r = await fetch(`${MEDUSA}/store/mais-vendidos`, {
+      headers: { ...cabecalho, "x-loja-segredo": SEGREDO },
+    })
+    confere("com a assinatura, a API dá os mais vendidos", r.status, 200)
+    const { handles: ordem = [] } = r.ok ? await r.json() : {}
+    const agora = await daApi()
+    const esgotados = new Set(agora.filter(esgotado).map((p) => p.handle))
+    const vendidos = ordem.filter((h) => agora.some((p) => p.handle === h) && !esgotados.has(h))
+    console.log(`
+  (mais vendidos na API: ${ordem.join(", ") || "nenhum"}; esgotados: ${[...esgotados].join(", ") || "nenhum"})`)
+
+    // Cada card vira o que se espera dele: o endereço, se vendeu; senão, o grupo.
+    const grupo = (h) => (vendidos.includes(h) ? h : esgotados.has(h) ? "(esgotado)" : "(sem venda)")
+    const esperado = (limite) =>
+      [
+        ...vendidos,
+        ...Array(agora.length - vendidos.length - esgotados.size).fill("(sem venda)"),
+        ...Array(esgotados.size).fill("(esgotado)"),
+      ].slice(0, limite)
+
+    await pagina.goto(LOJA, { waitUntil: "networkidle" })
+    for (const [nome, secao, limite] of [["a vitrine", ".vitrine", 8], ["o carrossel", ".colecao", 12]]) {
+      const naTela = await pagina.$$eval(`${secao} .produto__nome a`, (n) =>
+        n.map((a) => a.getAttribute("href").replace(/^\/produtos\//, ""))
+      )
+      confere(
+        `${nome} da home: os mais vendidos primeiro, até ${limite}, e o esgotado no fim`,
+        naTela.map(grupo),
+        esperado(limite)
+      )
+    }
+  }
+
+  /* ── 15. a trilha da página de cada produto leva a categoria PRINCIPAL ──
      O produto em mais de uma categoria (entrega 0151: o kit em Kits e em Barba)
      aparece na vitrine de todas, mas a trilha tem uma só: a marcada no painel
      (`fb_categoria`), se ele está nela; senão a primeira dele na ordem do menu. */
@@ -220,7 +287,7 @@ try {
     trilhas.map(([h, , esperado]) => `${h} ${esperado}`)
   )
 
-  /* ── 15. nenhum erro de JavaScript em nenhuma das telas ── */
+  /* ── 16. nenhum erro de JavaScript em nenhuma das telas ── */
   confere("nenhum erro de JavaScript", erros, [])
 } finally {
   await navegador.close()
