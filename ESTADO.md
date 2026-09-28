@@ -3690,6 +3690,30 @@ advogado pediu: o "aceitar ofertas" vem ligado, e a pessoa desliga quando quiser
 - **A política de privacidade** conta isso.
 - **A base da Nuvemshop** não muda: quem disse não lá continua não, e a estreia só vai pra quem
   aceitou.
+
+**CRM, parte 12: a reposição — pronto em 28/09 (entrega 0185).** É a etapa 3 do plano: o aviso
+de quando o produto que a pessoa comprou está acabando.
+
+- **A conta:** pra cada produto, a última compra que o trouxe (na loja nova ou na Nuvemshop) diz
+  o dia em que ele acaba: a entrega, mais os dias que ele dura nos Ajustes do CRM. Comprou de novo,
+  a conta recomeça.
+- **Os 4 e-mails**, sem cupom:
+  - **7 dias antes:** "Seu Fator de Crescimento acaba em uma semana", com o de sempre e o que dura
+    mais (3 Fatores, ou o Kit Completo);
+  - **2 dias antes:** "Não deixa o Fator de Crescimento acabar";
+  - **3 dias depois:** "Acabou o Fator de Crescimento?";
+  - **10 dias depois:** "O último lembrete do Fator de Crescimento".
+  - O produto do assunto é o de cada pessoa ("Seu óleo…", "Sua pasta modeladora…").
+- **O botão "Refazer o pedido"** monta a sacola igual à da última compra e cai no checkout. Pra
+  quem comprou na loja nova, já vem com o endereço.
+- **Pra todo cliente**, da loja nova e da antiga, com o "Sair da lista" em todo e-mail (sua
+  escolha). Saem com a cara dos lembretes, que caem em Principal.
+- **A política de privacidade** conta.
+- **Começa DESLIGADA.**
+
+- [ ] **Depois da estreia (você, dia 3/10):** CRM → Fluxos → Reposição → "Mandar pra mim" e depois
+      a chave. Só vale pra quem o produto acabar depois de ligar: quem já passou do dia fica pro
+      resgate (a próxima etapa).
 **A parcela mínima do cartão, editável — pronta em 27/09 (entrega 0157).** O pedido dele: "quero
 poder editar a parcela mínima no cartão, ali diz 5 reais". Em **Configurações → Pagamento**, o
 bloco **Parcelas no cartão** tem o campo **Parcela mínima**.

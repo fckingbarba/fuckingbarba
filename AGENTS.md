@@ -2931,8 +2931,46 @@ O `conferir-crm.mjs`:
 Os conferidores:
 - `conferir-conta.mjs` (loja): a caixa do e-mail vem marcada, com a origem padrão. Desmarcar tira o
   sim, e ele não volta sozinho.
-- `conferir-clientes.mjs` (painel): a Ana ganha o sim no cadastro, e a loja tira quando ela pede
+- `conferir-clientes.mjs` (painel): a Ana ganha o sim quando compra, e a loja tira quando ela pede
   (ela é quem "não aceita" dali pra baixo).
+
+**O CRM, parte 12: a reposição** (entrega 0185, a etapa 3 do plano, "o laço do LTV"). O produto
+que a pessoa comprou está pra acabar. É um fluxo do motor que começa DESLIGADO
+(`FLUXOS.reposicao`), com prioridade 4: depois dos de compra, antes das boas-vindas e da estreia.
+
+- **Quando cada tipo acaba** (`reposicoesDaPessoa`, em `lib/crm/reposicao.ts`, pura):
+  - pra cada tipo (`Componente`), vale a ÚLTIMA compra paga que o trouxe, na loja nova ou na
+    Nuvemshop, juntas pelo e-mail;
+  - acaba na entrega, ou na estimada (`ENTREGA_ESTIMADA_DIAS` depois de pago), mais as unidades ×
+    os dias do tipo (os Ajustes). O kit dá um de cada tipo.
+  - Comprou o mesmo tipo de novo, a compra nova vira a última, e a entrada (chave
+    `<pedido>|<tipo>`) é outra: a conta recomeça.
+- **Quem entra:** todo cliente, por escolha do dono (28/09), com o sair da lista. A janela é de 8
+  dias antes a 11 depois do dia de acabar (`naJanelaDaReposicao`). O começo da entrada é o dia de
+  acabar, que também é o `inicio`: ligar não dispara pro que acabou antes.
+- **Os toques:** 7 e 2 dias antes, 3 e 10 dias depois (o `depois` é negativo antes do dia). Sem
+  cupom e sem frete grátis. Quem não repôs fica pro resgate (a etapa 4).
+- **Os e-mails** (`emailDaReposicao`, em `lib/emails/reposicao.ts`) são todos "lembrete", sem
+  palavra de propaganda (o teste recusa). Todos mostram "O de sempre", os produtos da última
+  compra pelo SKU, e o de 7 dias mostra também "Pra durar mais" (`SUBIR_PARA`: 3 Fatores, o Kit
+  Completo), se a pessoa já não levou.
+- **O "Refazer o pedido"** é o link de voltar com o tipo `repor` (`lib/crm/voltar.ts`):
+  - `repor-order_…`: a compra da loja nova num carrinho novo, com os endereços e a conta.
+    Clicar de novo devolve o mesmo carrinho (`fb_crm_reposto`, no pedido).
+  - `repor-nso_…`: a compra da Nuvemshop, pelos SKUs (`crm.pedidoDaBasePorId`), só com o e-mail,
+    na região BRL e no canal padrão.
+  - Os dois passam por `voltarAoCheckout` (`lib/crm/voltar-ao-checkout.ts`): o `carrinhoNovo`
+    e o `refazerPedido` são os do Pix vencido. O Pix continua só refazendo pedido cancelado.
+  - A página `/voltar/<t>` da loja aceita os prefixos novos.
+- **O nome** vem da conta (o `first_name`) ou da loja antiga (`crm.nomesDaBase`).
+- **No painel:** o bloco Reposição, na aba Fluxos. O "Mandar pra mim" traz o Fator acabando.
+
+O `conferir-crm.mjs` faz duas pessoas de ponta a ponta:
+- uma da loja antiga que NÃO aceitou ofertas lá: recebe os 4 e-mails, e o "Refazer o pedido"
+  monta a sacola com o Fator, pelo SKU;
+- uma da loja nova: o shampoo acaba, e a sacola vem com o endereço da última compra.
+A data de pagamento da Nuvemshop vem sem hora, e vale o meio-dia de Brasília (`dataDeBrasilia`):
+é daí que o conferidor conta o dia de acabar.
 **O preço e o promocional no painel** (entregas 0098 e 0102): os dois campos de cada produto na
 lista de Produtos, como na Nuvemshop (a 0098 tinha só o promocional, atrás de um botão). A regra é
 `lib/painel/promocao.ts`, pura: `lerMudancaDePreco` (o corpo `{ preco?, promocional? }` contra o
