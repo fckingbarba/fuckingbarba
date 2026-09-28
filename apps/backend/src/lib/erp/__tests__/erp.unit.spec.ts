@@ -5,6 +5,7 @@ import {
   decidirNota,
   diaEmBrasilia,
   esperaDaNota,
+  horaDasParadas,
   montarPedidoParaNota,
   notaAtrasada,
   quandoSaiANota,
@@ -340,5 +341,19 @@ describe("o pedido no formato da nota", () => {
   it("o dia em Brasília", () => {
     expect(diaEmBrasilia(new Date("2026-09-24T02:59:00.000Z"))).toBe("2026-09-23")
     expect(diaEmBrasilia(new Date("2026-09-24T03:00:00.000Z"))).toBe("2026-09-24")
+  })
+})
+
+/**
+ * A nota parada (rejeitada ou denegada, esperando alguém corrigir no ERP) é
+ * olhada de 30 em 30 minutos no job (0199): nas rodadas dos minutos 4 e 34.
+ */
+describe("a nota parada, de 30 em 30 minutos", () => {
+  const as = (hhmm: string) => new Date(`2026-09-28T${hhmm}:00-03:00`)
+  it("o job roda nos minutos 4, 9, 14…: só a dos minutos 4 e 34 olha as paradas", () => {
+    expect(horaDasParadas(as("13:04"))).toBe(true)
+    expect(horaDasParadas(as("13:34"))).toBe(true)
+    for (const m of ["09", "14", "19", "24", "29", "39", "44", "49", "54", "59"])
+      expect(horaDasParadas(as(`13:${m}`))).toBe(false)
   })
 })

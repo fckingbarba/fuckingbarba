@@ -1136,9 +1136,21 @@ async function desistirDasAtrasadas(
   return atrasadas
 }
 
+/**
+ * Se a rodada do job olha também as notas PARADAS — a rejeitada e a denegada,
+ * que esperam alguém corrigir no ERP: a dos minutos 4 e 34 (o job roda nos
+ * minutos 4, 9, 14…). A que está na SEFAZ (`processando`) é olhada em toda
+ * rodada; a parada, de 30 em 30 minutos (entrega 0199) — antes, eram duas
+ * perguntas ao ERP por nota parada a cada 5 minutos, por 7 dias.
+ */
+export function horaDasParadas(agora: Date): boolean {
+  return agora.getMinutes() % 30 < 5
+}
+
 export async function acompanharNotas(
   container: MedusaContainer,
-  agora = new Date()
+  agora = new Date(),
+  { paradas = true }: { paradas?: boolean } = {}
 ): Promise<RelatorioDasNotas> {
   const relatorio: RelatorioDasNotas = {
     acompanhadas: 0,
@@ -1163,11 +1175,11 @@ export async function acompanharNotas(
   const logger = container.resolve(ContainerRegistrationKeys.LOGGER)
   const semana = new Date(agora.getTime() - 7 * 24 * HORA)
 
-  /* 1. as que estão na SEFAZ, ou esperando alguém corrigir no ERP */
+  /* 1. as que estão na SEFAZ, ou (com `paradas`) esperando alguém corrigir no ERP */
   const abertas = (await servico(container).listNotas(
     {
       erp: erp.id,
-      situacao: ["processando", "rejeitada", "denegada"],
+      situacao: paradas ? ["processando", "rejeitada", "denegada"] : ["processando"],
       created_at: { $gte: semana },
     },
     { take: 100, order: { updated_at: "ASC" } }
