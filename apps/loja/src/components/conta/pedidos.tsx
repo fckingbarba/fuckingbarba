@@ -15,7 +15,7 @@ import {
 } from "@/lib/conta-visivel"
 import { dia, diaEHora, emReais, quando } from "@/lib/formato"
 import type { EventoDoRastreio, PedidoDaConta, Rastreio } from "@/lib/pedidos-da-conta"
-import type { AvisoDaReposicao } from "@/lib/reposicao"
+import type { AvisoDaReposicao, TratamentoDoSite } from "@/lib/ficha"
 
 /**
  * AS PEÇAS DAS TELAS DE PEDIDO — o desenho é o de
@@ -234,6 +234,43 @@ export function PraRepor({ aviso }: { aviso: AvisoDaReposicao }) {
           Refazer o pedido <Raio className="btn__bolt" />
         </a>
       </div>
+    </div>
+  )
+}
+
+/**
+ * "Seu tratamento" da visão geral (entrega 0190): o dia do tratamento com o
+ * Fator, pela ficha do site (`lib/ficha.ts`), a barra até o alvo da linha do
+ * tempo (o dia 90) e o próximo marco dela — o texto é o da página do Fator.
+ */
+export function SeuTratamento({ t }: { t: TratamentoDoSite }) {
+  const feito = Math.min(100, Math.round((t.dia / t.alvo) * 100))
+  return (
+    <div className="tratamento" data-tratamento={t.dia}>
+      <p className="tratamento__dia">
+        <b>Dia {t.dia}</b> do seu tratamento
+      </p>
+      <div className="tratamento__barra" aria-hidden="true">
+        <span style={{ width: `${feito}%` }} />
+      </div>
+      <p className="tratamento__conta">
+        {t.dia < t.alvo ? `${t.dia} de ${t.alvo} dias` : `Passou do dia ${t.alvo}`}
+      </p>
+      {t.marco ? (
+        <p className="tratamento__marco">
+          <span className="tratamento__rotulo">A seguir</span>{" "}
+          <b>
+            {t.marco.quando} · {t.marco.titulo}.
+          </b>{" "}
+          {t.marco.texto}
+        </p>
+      ) : null}
+      <Link
+        className="link"
+        href={t.linhaDoTempo ? `/produtos/${t.handle}#tempo-titulo` : `/produtos/${t.handle}`}
+      >
+        {t.linhaDoTempo ? "Ver a linha do tempo" : "Ver a página do Fator"}
+      </Link>
     </div>
   )
 }

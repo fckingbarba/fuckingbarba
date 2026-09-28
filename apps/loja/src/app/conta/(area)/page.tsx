@@ -7,6 +7,7 @@ import {
   NenhumPedido,
   PraRepor,
   RepetirPedido,
+  SeuTratamento,
   seSessaoAcabou,
 } from "@/components/conta/pedidos"
 import {
@@ -18,8 +19,8 @@ import {
 import { lerCliente } from "@/lib/conta"
 import { documentoEscondido } from "@/lib/documento"
 import { lerRastreios, listarPedidos, type LeituraDosPedidos } from "@/lib/pedidos-da-conta"
-import type { AvisoDaReposicao } from "@/lib/reposicao"
-import { lerReposicaoDaConta } from "@/lib/reposicao-da-conta"
+import type { FichaDoSite } from "@/lib/ficha"
+import { lerFichaDaConta } from "@/lib/ficha-da-conta"
 import { mascararTelefone } from "@/lib/telefone"
 
 /**
@@ -27,8 +28,9 @@ import { mascararTelefone } from "@/lib/telefone"
  *
  * O que a pessoa veio fazer, na ordem em que ela vem fazer: pagar o Pix que
  * ficou pendente, ver onde está a encomenda, e repor o que acabou — o que
- * está acabando pela conta da reposição (0188), e o último pedido. Endereço
- * e dados ficam por último, pequenos — são atalhos pras telas deles.
+ * está acabando pela conta da reposição (0188), e o último pedido. Com o
+ * Fator em uso, o dia do tratamento (0190). Endereço e dados ficam por
+ * último, pequenos — são atalhos pras telas deles.
  */
 export const metadata: Metadata = {
   title: "Minha conta",
@@ -48,17 +50,17 @@ export default function Pagina() {
 }
 
 async function Painel() {
-  const [leitura, conta, reposicao] = await Promise.all([
+  const [leitura, conta, daFicha] = await Promise.all([
     listarPedidos(),
     lerCliente(),
-    lerReposicaoDaConta(),
+    lerFichaDaConta(),
   ])
   seSessaoAcabou(leitura.estado)
   seSessaoAcabou(conta.estado)
 
   return (
     <div className="painel-grade">
-      <Pedidos leitura={leitura} aviso={reposicao.estado === "ok" ? reposicao.aviso : null} />
+      <Pedidos leitura={leitura} ficha={daFicha.estado === "ok" ? daFicha.ficha : null} />
       {conta.estado === "ok" ? (
         <>
           <EnderecoPrincipal cliente={conta.cliente} />
@@ -73,26 +75,38 @@ async function Painel() {
 
 async function Pedidos({
   leitura,
-  aviso,
+  ficha,
 }: {
   leitura: LeituraDosPedidos
-  aviso: AvisoDaReposicao | null
+  ficha: FichaDoSite | null
 }) {
   if (leitura.estado !== "ok") return <ForaDoAr largo />
 
-  // O que está acabando: da loja nova ou da antiga — por isso vem antes do "nenhum pedido".
-  const praRepor = aviso ? (
-    <div className="bloco bloco--largo" data-bloco-reposicao>
-      <p className="rotulo">Pra repor</p>
-      <PraRepor aviso={aviso} />
-    </div>
-  ) : null
+  // O que está acabando e o tratamento: das compras da loja nova e da antiga —
+  // por isso vêm antes do "nenhum pedido".
+  const aviso = ficha?.reposicao ?? null
+  const daFicha = (
+    <>
+      {aviso ? (
+        <div className="bloco bloco--largo" data-bloco-reposicao>
+          <p className="rotulo">Pra repor</p>
+          <PraRepor aviso={aviso} />
+        </div>
+      ) : null}
+      {ficha?.tratamento ? (
+        <div className="bloco bloco--largo" data-bloco-tratamento>
+          <p className="rotulo">Seu tratamento</p>
+          <SeuTratamento t={ficha.tratamento} />
+        </div>
+      ) : null}
+    </>
+  )
 
   const { pedidos } = leitura
   if (!pedidos.length) {
     return (
       <>
-        {praRepor}
+        {daFicha}
         <NenhumPedido largo>
           Quando você comprar, ele aparece aqui — com rastreio e tudo.
         </NenhumPedido>
@@ -130,7 +144,7 @@ async function Pedidos({
         </div>
       ) : null}
 
-      {praRepor}
+      {daFicha}
 
       {repetir ? (
         <div className="bloco bloco--largo" data-bloco-de-novo>
@@ -139,7 +153,7 @@ async function Pedidos({
         </div>
       ) : null}
 
-      {!abertos.length && !repetir && !aviso ? (
+      {!abertos.length && !repetir && !aviso && !ficha?.tratamento ? (
         <div className="bloco bloco--largo">
           <p className="rotulo">Em andamento</p>
           <p className="resumo-curto">Nenhum pedido em andamento agora.</p>
