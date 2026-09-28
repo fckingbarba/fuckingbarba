@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
+import { FichaNaFoto } from "@/components/ficha/na-foto"
 import { Compra } from "@/components/produto/compra"
 import { Galeria, type Foto, type ItemDaGaleria } from "@/components/produto/galeria"
 import { Migalhas, type Migalha } from "@/components/produto/migalhas"
@@ -173,6 +174,7 @@ export async function Dobra({ handle }: { handle: string }) {
             alvo={legenda(produto.title, produto.subtitle)}
             desconto={desconto}
             esgotado={esgotado}
+            noPe={<FichaNaFoto handle={produto.handle} />}
           />
 
           <div className="compra">

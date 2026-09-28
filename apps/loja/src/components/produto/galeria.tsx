@@ -3,6 +3,7 @@
 import Image, { getImageProps } from "next/image"
 import {
   type KeyboardEvent,
+  type ReactNode,
   type TouchEvent,
   useCallback,
   useEffect,
@@ -68,6 +69,7 @@ export function Galeria({
   alvo,
   desconto,
   esgotado = false,
+  noPe = null,
 }: {
   itens: readonly ItemDaGaleria[]
   /** Texto alternativo de reserva, quando a foto não tem o seu. */
@@ -79,6 +81,11 @@ export function Galeria({
    * antes do preço, e é a primeira coisa que a pessoa vê.
    */
   esgotado?: boolean
+  /**
+   * O que vai no pé da foto, por cima dela: a ficha de quem está com a conta
+   * aberta ("Você comprou há 25 dias", `components/ficha/na-foto.tsx`).
+   */
+  noPe?: ReactNode
 }) {
   /** A foto à vista no palco (posição em `itens`). Quem manda nela é a rolagem do trilho. */
   const [atual, setAtual] = useState(0)
@@ -289,6 +296,7 @@ export function Galeria({
             ) : null}
           </ul>
         ) : null}
+        {noPe}
 
         <span className="galeria__lupa" aria-hidden="true">
           <Lupa />
