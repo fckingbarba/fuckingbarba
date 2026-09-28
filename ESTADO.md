@@ -3467,8 +3467,8 @@ aba **Fluxos**: quem pôs na sacola e não foi pro checkout.
 - **A política de privacidade** conta esses e-mails.
 
 - [ ] **Depois do deploy (você):** CRM → Fluxos → "Mandar pra mim" nos 5 do carrinho.
-- [ ] **A próxima parte** (uma entrega, perguntar antes): o pop-up da 1ª compra e as boas-vindas.
-      Depois, a campanha de estreia pra base da Nuvemshop.
+- [x] **A próxima parte** (uma entrega, perguntar antes): o pop-up da 1ª compra e as boas-vindas.
+      Depois, a campanha de estreia pra base da Nuvemshop. (Feitas: 0177, 0178 e 0181.)
 
 **Os e-mails dos fluxos fora de Promoções — pronto em 27/09 (entrega 0170).** No seu teste, os
 e-mails caíam na aba de ofertas do Gmail. Entraram os ajustes que você escolheu:
@@ -3605,6 +3605,44 @@ do cupom do pop-up, chegam os e-mails da trilha de quem se cadastrou, como no pr
 
 - [ ] **Depois do deploy (você):** CRM → Fluxos → Boas-vindas → "Mandar pra mim" nos dias novos
       (o exemplo é a trilha de quem quer a barba crescendo).
+
+**CRM, parte 11: a estreia da loja nova pra base da Nuvemshop — pronta em 28/09 (entrega
+0181).** Um e-mail pra cada pessoa que aceitou ofertas na loja antiga.
+
+- **Quem recebe:**
+  - quem aceitou ofertas na Nuvemshop (2.631 no arquivo de 27/09);
+  - menos quem já comprou na loja nova;
+  - quem não aceitou (1.157) não recebe;
+  - 5% ficam no grupo de controle, pra medir quanto a campanha vendeu a mais.
+- **Os 4 jeitos do e-mail:**
+  - quem está na hora de repor recebe "Seu Fator de Crescimento deve estar acabando", com o botão
+    "Repor agora";
+  - quem está no meio do tratamento recebe "A FuckingBarba tem loja nova";
+  - quem sumiu (passou do dia de repor mais que a tolerância dos Ajustes, hoje 20 dias) recebe a
+    loja nova e um cupom pra voltar (`VOLTA-`);
+  - quem nunca comprou recebe a loja nova e o cupom da 1ª compra (`BEMVINDO-`).
+- **O cupom:**
+  - usa o % dos fluxos e vale 3 dias;
+  - no máximo um a cada 60 dias pro mesmo e-mail;
+  - 2 dias depois, chega "o cupom vence amanhã".
+- **O que tem na loja nova** aparece em todos os e-mails:
+  - o mesmo endereço e a conta sem senha;
+  - o frete grátis e o prazo das Configurações;
+  - o rastreio na conta.
+- **O ritmo:** 4 dias.
+  - Os 200 primeiros saem quando você liga.
+  - Depois, 400 no dia seguinte, 800 no outro, e o resto no 4º dia, sempre às 10h.
+  - Primeiro vai quem está na hora de repor e quem comprou há pouco; por último, quem nunca comprou.
+  - O remetente news é novo: mandar tudo de uma vez podia jogar no spam.
+- **Começa DESLIGADA.** Você liga em CRM → Fluxos → Estreia. Ali aparece quantos recebem cada
+  jeito, e quantos saem por dia.
+- **Cai onde:** é campanha pra base toda, e Promoções é o lugar dela.
+
+- [ ] **Antes de ligar (você):** conferir no Resend que o plano é o Pro, ou maior. No grátis, o
+      limite é 100 e-mails por dia, e a estreia manda uns 2.500 em 4 dias. Os de pedido também contam.
+- [ ] **Antes de ligar (você):** pôr a Nuvemshop em manutenção (eu guio).
+- [ ] **Ligar a estreia (você):** CRM → Fluxos → Estreia → "Mandar pra mim" (chegam os 4 jeitos) e
+      depois a chave.
 
 **A parcela mínima do cartão, editável — pronta em 27/09 (entrega 0157).** O pedido dele: "quero
 poder editar a parcela mínima no cartão, ali diz 5 reais". Em **Configurações → Pagamento**, o

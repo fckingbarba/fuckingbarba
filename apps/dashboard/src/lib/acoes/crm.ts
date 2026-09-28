@@ -96,9 +96,11 @@ export async function mandarTesteDoFluxo(
     return { ok: false, texto: "Falta o endereço da loja no Medusa (LOJA_URL)." }
   if (r.status !== 200)
     return { ok: false, texto: "O e-mail não saiu agora. Tenta de novo em instantes." }
+  // Os da estreia vão nos jeitos dela, um e-mail por jeito.
+  const quantos = Number(r.corpo.quantos) || 1
   return {
     ok: true,
-    texto: `Mandei “${nome}” pra ${String(r.corpo.para)}. Confira a caixa de entrada (e o spam, na primeira vez).`,
+    texto: `Mandei ${quantos > 1 ? `os ${quantos} jeitos de ` : ""}“${nome}” pra ${String(r.corpo.para)}. Confira a caixa de entrada (e o spam, na primeira vez).`,
   }
 }
 

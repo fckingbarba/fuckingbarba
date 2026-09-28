@@ -633,6 +633,20 @@ export default class CrmService extends Tabelas {
   }
 
   /**
+   * QUEM PODE RECEBER A ESTREIA (entrega 0181): as pessoas da base que
+   * aceitam ofertas, com o primeiro nome e desde quando são clientes.
+   */
+  @InjectManager()
+  async pessoasDaEstreia(
+    @MedusaContext() ctx: Contexto = {}
+  ): Promise<{ email: string; nome: string | null; desde: Date | null }[]> {
+    return (await ctx.manager!.execute(
+      `select email, nome, desde from crm_base_pessoa
+        where deleted_at is null and aceita_ofertas`
+    )) as { email: string; nome: string | null; desde: Date | null }[]
+  }
+
+  /**
    * Os sinais de todo mundo, pelo e-mail — o último clique num e-mail da
    * loja e a última anotação do site. As contas da aba da base.
    */

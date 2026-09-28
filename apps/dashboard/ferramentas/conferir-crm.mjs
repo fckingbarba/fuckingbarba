@@ -1339,19 +1339,22 @@ try {
         ).status === 403,
       "a operação não abre, não liga, não roda e não manda teste"
     )
-    // O banco local é de todos os conferidores: os quatro ligados, e a primeira rodada guarda a hora.
+    // O banco local é de todos os conferidores: os quatro ligados, a estreia desligada (ela só
+    // liga pelo dono), e a primeira rodada guarda a hora.
     for (const id of ["pix", "checkout", "carrinho", "boas-vindas"])
       await mudarFluxos({ fluxo: id, ligado: true })
+    await mudarFluxos({ fluxo: "estreia", ligado: false })
     await rodar()
     const tela0 = (await fluxos(tokenDoDono)).corpo
     ok(
-      tela0.fluxos?.map((f) => f.id).join() === "pix,checkout,carrinho,boas-vindas" &&
-        tela0.fluxos.every((f) => f.ligado && f.desde) &&
+      tela0.fluxos?.map((f) => f.id).join() === "pix,checkout,carrinho,boas-vindas,estreia" &&
+        tela0.fluxos.every((f) => (f.id === "estreia" ? !f.ligado : f.ligado && f.desde)) &&
+        tela0.fluxos.find((f) => f.id === "estreia")?.toques.length === 2 &&
         tela0.fluxos.find((f) => f.id === "checkout")?.toques.length === 4 &&
         tela0.fluxos.find((f) => f.id === "pix")?.toques.length === 3 &&
         tela0.fluxos.find((f) => f.id === "carrinho")?.toques.length === 5 &&
         tela0.fluxos.find((f) => f.id === "boas-vindas")?.toques.length === 6,
-      "os quatro fluxos, ligados, com os toques de cada um",
+      "os cinco fluxos, com os toques de cada um: quatro ligados, e a estreia esperando o dono",
       JSON.stringify(tela0.fluxos?.map((f) => [f.id, f.ligado, f.desde, f.toques?.length]))
     )
     const errados = await Promise.all([
@@ -2012,18 +2015,212 @@ try {
       )
     }
 
+    {
+      titulo("A estreia: a loja nova pra base da Nuvemshop")
+      const daEstreia = (e) =>
+        e.tags?.some((t) => t.name === "tipo" && t.value === "crm-estreia") && deFluxo(e)
+      // Um de cada jeito, fora do grupo de controle da estreia (ela tem controle).
+      const REPOR = foraDoControle("repor.es", "estreia")
+      const TRATA = foraDoControle("trata.es", "estreia")
+      const SUMIU = foraDoControle("sumiu.es", "estreia")
+      const NUNCA = foraDoControle("nunca.es", "estreia")
+      const NAO_ACEITA = `naoaceita.es@${DOMINIO}`
+      const publico = async () =>
+        (await fluxos(tokenDoDono)).corpo.fluxos?.find((f) => f.id === "estreia")
+      const antes = await publico()
+      const pessoa = (nome, email, aceita) =>
+        `${nome};${CPF_FALSO};${email};+55${TELEFONE_FALSO};Rua da Rodada, 99;Blumenau;${cadastro};NÃO;NÃO;${aceita ? "Aceita" : "Não aceita"};${cadastro}`
+      const importou = await Promise.all([
+        medusa("/dashboard/crm/base", {
+          token: tokenDoDono,
+          corpo: doArquivo(
+            latin1([
+              "Nome completo;CPF/CNPJ;E-mail;Telefone de Contato;Endereço;Cidade;Data;Cadastrado;Inscrição para newsletter;Marketing;Marketing (atualização)",
+              pessoa("REPOR TESTE", REPOR, true),
+              pessoa("TRATA TESTE", TRATA, true),
+              pessoa("SUMIU TESTE", SUMIU, true),
+              pessoa("NUNCA TESTE", NUNCA, true),
+              pessoa("NAO TESTE", NAO_ACEITA, false),
+            ])
+          ),
+        }),
+        medusa("/dashboard/crm/base", {
+          token: tokenDoDono,
+          corpo: doArquivo(
+            latin1([
+              cabecalhoDasVendas,
+              // O Fator pago há 30 dias: entregue no 7º, acaba daqui a uma semana.
+              venda(
+                `E${RODADA}-1`,
+                REPOR,
+                agora - 30 * DIA_MS,
+                "FBFCB01",
+                "Fator de Crescimento para Barba 30ml"
+              ),
+              // O óleo pago há 5 dias: no meio do tratamento.
+              venda(`E${RODADA}-2`, TRATA, agora - 5 * DIA_MS, "FBOL01", "Óleo para Barba 30ml"),
+              // O balm pago há 200 dias: sumiu.
+              venda(`E${RODADA}-3`, SUMIU, agora - 200 * DIA_MS, "FBBM01", "Balm para Barba"),
+              venda(
+                `E${RODADA}-4`,
+                NAO_ACEITA,
+                agora - 30 * DIA_MS,
+                "FBFCB01",
+                "Fator de Crescimento para Barba 30ml"
+              ),
+            ])
+          ),
+        }),
+      ])
+      const depois = await publico()
+      const rDesligada = await rodar({
+        agora: new Date(Date.now() + MIN).toISOString(),
+        email: REPOR,
+      })
+      const cresceu = (k) => depois?.publico?.[k] - antes?.publico?.[k]
+      ok(
+        importou.every((r) => r.status === 200) &&
+          depois?.ligado === false &&
+          depois.toques.map((t) => t.id).join() === "estreia-agora,estreia-2d" &&
+          ["repor", "cliente", "sumido", "lead"].every((k) => cresceu(k) === 1) &&
+          cresceu("pessoas") === 4 &&
+          depois.publico.jaCompraram >= 1 &&
+          rDesligada.corpo.enviados === 0 &&
+          caixa.quantos(REPOR, daEstreia) === 0,
+        "a estreia começa desligada: um a mais em cada jeito (quem não aceita e quem já comprou na loja nova, fora), e nada sai",
+        JSON.stringify({ antes: antes?.publico, depois: depois?.publico, r: rDesligada.corpo })
+      )
+
+      await mudarFluxos({ fluxo: "estreia", ligado: true })
+      const ligou = Date.now()
+      try {
+        /** O começo do lote, como `comecoDoLote` do backend: o 1º na hora, os outros às 10h de Brasília. */
+        const comecoDoLote = (lote) => {
+          if (lote <= 0) return ligou
+          const b = new Date(ligou - 3 * HORA)
+          const primeiroDia = b.getUTCHours() >= 22 ? 1 : 0
+          return (
+            Date.UTC(b.getUTCFullYear(), b.getUTCMonth(), b.getUTCDate() + primeiroDia + lote, 10) +
+            3 * HORA
+          )
+        }
+        /** Roda o motor nos 4 lotes até o e-mail chegar: a pessoa só recebe no lote dela. */
+        const noLote = async (email, filtro, depoisDoLote = 0) => {
+          for (let lote = 0; lote < 4; lote++) {
+            const quando = diurno(comecoDoLote(lote) + depoisDoLote + 2 * MIN)
+            await rodar({ agora: new Date(quando).toISOString(), email })
+            if (caixa.quantos(email, filtro) > 0) return lote
+          }
+          return null
+        }
+        const lotes = {}
+        const primeiro = {}
+        for (const email of [REPOR, TRATA, SUMIU, NUNCA, NAO_ACEITA]) {
+          lotes[email] = await noLote(email, daEstreia)
+          primeiro[email] = resend.emails.find((e) => e.to?.includes(email) && daEstreia(e))
+        }
+        const codigo = (e) => e?.html.match(/(VOLTA|BEMVINDO)-[2-9A-HJ-NP-Z]{6}/)?.[0] ?? null
+        ok(
+          primeiro[REPOR]?.subject === "Seu Fator de Crescimento deve estar acabando" &&
+            primeiro[REPOR].html.includes("/produtos/fator-de-crescimento-para-barba?") &&
+            !codigo(primeiro[REPOR]),
+          "na hora de repor: o Fator está acabando, sem cupom, e o botão leva pra ele",
+          primeiro[REPOR]?.subject ?? "não chegou"
+        )
+        ok(
+          primeiro[TRATA]?.subject === "A FuckingBarba tem loja nova" &&
+            primeiro[TRATA].html.includes("O que tem na loja nova") &&
+            !codigo(primeiro[TRATA]),
+          "no meio do tratamento: a loja nova, sem cupom",
+          primeiro[TRATA]?.subject ?? "não chegou"
+        )
+        ok(
+          primeiro[SUMIU]?.subject === "Loja nova, e 10% pra você voltar" &&
+            /^VOLTA-/.test(codigo(primeiro[SUMIU]) ?? "") &&
+            Boolean(primeiro[SUMIU].headers?.["List-Unsubscribe"]),
+          "quem sumiu: a loja nova e um cupom VOLTA- de 10%, como oferta",
+          primeiro[SUMIU]?.subject ?? "não chegou"
+        )
+        ok(
+          primeiro[NUNCA]?.subject === "Loja nova, e 10% na sua primeira compra" &&
+            /^BEMVINDO-/.test(codigo(primeiro[NUNCA]) ?? "") &&
+            primeiro[NUNCA].html.includes("Os mais pedidos"),
+          "quem nunca comprou: o cupom da 1ª compra e os mais pedidos",
+          primeiro[NUNCA]?.subject ?? "não chegou"
+        )
+        ok(
+          lotes[NAO_ACEITA] === null &&
+            caixa.quantos(NAO_ACEITA, daEstreia) === 0 &&
+            lotes[REPOR] <= lotes[TRATA] &&
+            lotes[TRATA] <= lotes[SUMIU] &&
+            lotes[SUMIU] <= lotes[NUNCA],
+          "quem não aceitou ofertas não recebe; e a fila põe quem vai repor antes de quem nunca comprou",
+          JSON.stringify(lotes)
+        )
+        // Os cupons valem de verdade: cada um entra numa sacola nova. A sacola é de OUTRO e-mail:
+        // com o da pessoa, ela viraria checkout abandonado, e esse fluxo passa na frente da estreia.
+        const aplica = async (cupom) => {
+          if (!cupom) return false
+          const sacola = await criarCarrinho(`sacola.es@${DOMINIO}`)
+          const r = await fetch(`${MEDUSA}/store/carts/${sacola.id}/promotions`, {
+            method: "POST",
+            headers: { "content-type": "application/json", ...DA_LOJA },
+            body: JSON.stringify({ promo_codes: [cupom] }),
+          })
+          return ((await r.json()).cart?.promotions ?? []).some((p) => p.code === cupom)
+        }
+        const aplicou = [
+          await aplica(codigo(primeiro[SUMIU])),
+          await aplica(codigo(primeiro[NUNCA])),
+        ]
+        ok(aplicou.every(Boolean), "os dois cupons entram na sacola", JSON.stringify(aplicou))
+
+        // 2 dias depois do lote de cada um: o "vence amanhã", só de quem ganhou cupom.
+        const venceAmanha = (e) => daEstreia(e) && /vence amanhã$/.test(e.subject ?? "")
+        for (const email of [REPOR, TRATA, SUMIU, NUNCA])
+          await noLote(email, venceAmanha, 2 * DIA_MS)
+        const doSumiu = resend.emails.find((e) => e.to?.includes(SUMIU) && venceAmanha(e))
+        ok(
+          Boolean(doSumiu?.html.includes(codigo(primeiro[SUMIU]))) &&
+            caixa.quantos(NUNCA, venceAmanha) === 1 &&
+            caixa.quantos(REPOR, venceAmanha) === 0 &&
+            caixa.quantos(TRATA, venceAmanha) === 0 &&
+            [REPOR, TRATA, SUMIU, NUNCA].every(
+              (e) => caixa.quantos(e, daEstreia) === (e === REPOR || e === TRATA ? 1 : 2)
+            ),
+          "2 dias depois: o cupom vence amanhã, pra quem sumiu e quem nunca comprou — e nada mais",
+          JSON.stringify(
+            [REPOR, TRATA, SUMIU, NUNCA].map((e) =>
+              resend.emails.filter((x) => x.to?.includes(e) && daEstreia(x)).map((x) => x.subject)
+            )
+          )
+        )
+      } finally {
+        // O banco local é de todos: a estreia volta a desligada, mesmo se algo acima caiu.
+        await mudarFluxos({ fluxo: "estreia", ligado: false })
+      }
+    }
+
     titulo("A aba Fluxos")
     await semIpNasFontes(dono.contexto)
     await dono.pagina.goto(`${PAINEL}/crm/fluxos`)
     await dono.pagina.locator("[data-fluxos-crm]").waitFor({ timeout: 20000 })
+    const jeitosNaTela = await dono.pagina
+      .locator('[data-fluxo="estreia"] [data-publico-da-estreia] [data-jeito]')
+      .allTextContents()
     ok(
-      (await dono.pagina.locator("[data-fluxo]").count()) === 4 &&
+      (await dono.pagina.locator("[data-fluxo]").count()) === 5 &&
         (await dono.pagina.locator('.abas [data-aba="fluxos"][aria-current="page"]').count()) ===
           1 &&
         (await dono.pagina.locator('[data-ligar][aria-checked="true"]').count()) === 4 &&
-        // As boas-vindas não têm controle: o cupom foi a pessoa que pediu.
-        (await dono.pagina.locator('[data-fluxo="boas-vindas"] .numero--controle').count()) === 0,
-      "a aba: os quatro fluxos, ligados (as boas-vindas sem o controle)"
+        (await dono.pagina.locator('[data-ligar="estreia"][aria-checked="false"]').count()) === 1 &&
+        // As boas-vindas não têm controle: o cupom foi a pessoa que pediu. A estreia tem.
+        (await dono.pagina.locator('[data-fluxo="boas-vindas"] .numero--controle').count()) === 0 &&
+        (await dono.pagina.locator('[data-fluxo="estreia"] .numero--controle').count()) === 1 &&
+        jeitosNaTela.length === 4 &&
+        jeitosNaTela.filter((t) => t.includes("cupom")).length === 2,
+      "a aba: os cinco fluxos, quatro ligados; a estreia desligada, com o controle e os 4 jeitos (2 com cupom)",
+      JSON.stringify(jeitosNaTela.map(semEspaco))
     )
     const telaAgora = (await fluxos(tokenDoDono)).corpo
     const doCheckout = telaAgora.fluxos.find((f) => f.id === "checkout")
@@ -2080,6 +2277,41 @@ try {
         Boolean(testeDaPrimeira?.headers?.["List-Unsubscribe"]),
       "“Mandar pra mim” das boas-vindas: o cupom da 1ª compra, com o link que já aplica, como oferta",
       testeDaPrimeira?.subject ?? "não chegou"
+    )
+    // O da estreia: os 4 jeitos do e-mail da loja nova, um e-mail por jeito.
+    const antesDoTesteDaEstreia = caixa.quantos(DONO, (e) => e.subject?.startsWith("[Teste] "))
+    await hidratado(dono.pagina, '[data-toque="estreia-agora"] [data-mandar-pra-mim]')
+    const vezDaEstreia = await dono.pagina.locator(".aviso").getAttribute("data-vez")
+    await dono.pagina.locator('[data-toque="estreia-agora"] [data-mandar-pra-mim]').click()
+    await dono.pagina.waitForFunction(
+      (v) => document.querySelector(".aviso")?.getAttribute("data-vez") !== v,
+      vezDaEstreia,
+      { timeout: 30000 }
+    )
+    // A rota manda os 4 antes de responder: com o aviso na tela, eles já estão na caixa.
+    await caixa.esperarEmail(
+      DONO,
+      (e) => e.subject?.startsWith("[Teste] "),
+      antesDoTesteDaEstreia + 3,
+      20000
+    )
+    const testesDaEstreia = resend.emails
+      .filter((e) => e.to?.includes(DONO) && e.subject?.startsWith("[Teste] "))
+      .slice(antesDoTesteDaEstreia)
+      .map((e) => e.subject)
+    ok(
+      JSON.stringify(testesDaEstreia) ===
+        JSON.stringify([
+          "[Teste] Seu Fator de Crescimento deve estar acabando",
+          "[Teste] A FuckingBarba tem loja nova",
+          "[Teste] Loja nova, e 10% pra você voltar",
+          "[Teste] Loja nova, e 10% na sua primeira compra",
+        ]) &&
+        semEspaco(await dono.pagina.locator(".aviso").textContent()).startsWith(
+          "Mandei os 4 jeitos de “A loja nova chegou”"
+        ),
+      "“Mandar pra mim” da estreia: os 4 jeitos do e-mail da loja nova, e o aviso conta",
+      JSON.stringify(testesDaEstreia)
     )
     // A chave das boas-vindas é a do pop-up da loja: desligada, a loja fica sabendo.
     const popupDaLoja = async () =>

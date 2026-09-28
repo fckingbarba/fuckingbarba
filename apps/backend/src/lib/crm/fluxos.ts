@@ -25,6 +25,9 @@ import { createHash } from "node:crypto"
  *     pela rota do pop-up (`lib/crm/primeira-compra.ts`), e não pelo motor.
  *     Depois, a sequência da TRILHA do que a pessoa estava vendo (entrega
  *     0178): 1, 2, 5, 7 e 10 dias, essa pelo motor (`lib/crm/boas-vindas.ts`).
+ *   - ESTREIA (entrega 0181): a campanha da loja nova pra base da Nuvemshop,
+ *     pra quem aceitou ofertas lá (`lib/crm/estreia.ts`). Começa DESLIGADA:
+ *     sai quando o dono liga, em 4 lotes, um por dia.
  *
  * Os dois primeiros vão pra QUEM DIGITOU O E-MAIL, e o do carrinho pra quem a
  * loja já conhece (escolhas do dono, 27/09): é sobre a compra que a pessoa
@@ -51,7 +54,7 @@ const MINUTO = 60 * 1000
 const HORA = 60 * MINUTO
 const DIA = 24 * HORA
 
-export type IdDoFluxo = "pix" | "checkout" | "carrinho" | "boas-vindas"
+export type IdDoFluxo = "pix" | "checkout" | "carrinho" | "boas-vindas" | "estreia"
 
 /** Os toques dos fluxos de compra — os que o motor manda (`lib/emails/fluxos.ts`). */
 export type IdDoToqueDeCompra =
@@ -82,11 +85,25 @@ export type IdDoToqueDasBoasVindas =
   | "boas-vindas-7d"
   | "boas-vindas-10d"
 
-export type IdDoToque = IdDoToqueDeCompra | IdDoToqueDasBoasVindas
+/**
+ * Os toques da estreia (entrega 0181): o e-mail da loja nova, no dia do lote
+ * da pessoa, e o "vence amanhã" de quem ganhou cupom (`lib/emails/estreia.ts`).
+ */
+export type IdDoToqueDaEstreia = "estreia-agora" | "estreia-2d"
+
+export type IdDoToque = IdDoToqueDeCompra | IdDoToqueDasBoasVindas | IdDoToqueDaEstreia
 
 /** Se o toque é de um fluxo de compra (os de `lib/emails/fluxos.ts`). */
 export const ehToqueDeCompra = (id: IdDoToque): id is IdDoToqueDeCompra =>
-  !id.startsWith("boas-vindas")
+  /^(pix|checkout|carrinho)-/.test(id)
+
+/** Se o toque é das boas-vindas (`lib/emails/boas-vindas.ts`). */
+export const ehToqueDasBoasVindas = (id: IdDoToque): id is IdDoToqueDasBoasVindas =>
+  id.startsWith("boas-vindas-")
+
+/** Se o toque é da estreia (`lib/emails/estreia.ts`). */
+export const ehToqueDaEstreia = (id: IdDoToque): id is IdDoToqueDaEstreia =>
+  id.startsWith("estreia-")
 
 export type ToqueDoFluxo = {
   id: IdDoToque
@@ -114,6 +131,8 @@ export type Fluxo = {
   validadeDoCupom?: number
   /** Sem grupo de controle: foi a pessoa que pediu (as boas-vindas do pop-up). */
   semControle?: true
+  /** Começa desligado: só sai quando o dono liga no painel (a estreia tem dia pra começar). */
+  comecaDesligado?: true
 }
 
 export const FLUXOS: Record<IdDoFluxo, Fluxo> = {
@@ -234,9 +253,39 @@ export const FLUXOS: Record<IdDoFluxo, Fluxo> = {
       { id: "boas-vindas-10d", nome: "O melhor preço", quando: "10 dias depois", depois: 10 * DIA },
     ],
   },
+  estreia: {
+    id: "estreia",
+    nome: "Estreia da loja nova",
+    prioridade: 5,
+    // O cupom de quem nunca comprou e de quem sumiu vale 3 dias, como o do pop-up.
+    validadeDoCupom: 3 * DIA,
+    comecaDesligado: true,
+    // O começo de cada pessoa é o dia do lote dela (`comecoDoLote`, em `lib/crm/estreia.ts`).
+    toques: [
+      {
+        id: "estreia-agora",
+        nome: "A loja nova chegou",
+        quando: "no dia do lote",
+        depois: 0,
+        cupom: true,
+      },
+      {
+        id: "estreia-2d",
+        nome: "O cupom vence amanhã",
+        quando: "2 dias depois",
+        depois: 2 * DIA,
+      },
+    ],
+  },
 }
 
-export const IDS_DOS_FLUXOS: readonly IdDoFluxo[] = ["pix", "checkout", "carrinho", "boas-vindas"]
+export const IDS_DOS_FLUXOS: readonly IdDoFluxo[] = [
+  "pix",
+  "checkout",
+  "carrinho",
+  "boas-vindas",
+  "estreia",
+]
 
 /** Os toques depois deste tempo sem sair são largados: o e-mail não faz mais sentido. */
 export const VALIDADE_DO_TOQUE = 12 * HORA
@@ -469,7 +518,7 @@ export function decidir({
  * Onde mora, no metadata da loja: `{ pix: { ligado, desde }, checkout: {…},
  * desconto }`. Sem nada guardado, os fluxos estão LIGADOS (escolha do dono,
  * 27/09) e o `desde` é a primeira rodada do motor — ligar não dispara pro que
- * aconteceu antes.
+ * aconteceu antes. A estreia é a exceção: começa desligada (`comecaDesligado`).
  */
 export const CHAVE_DOS_FLUXOS = "fb_crm_fluxos"
 
@@ -517,7 +566,8 @@ export function lerConfigDosFluxos(metadata: unknown): ConfigDosFluxos {
   const fluxos = Object.fromEntries(
     IDS_DOS_FLUXOS.map((id) => {
       const f = (g[id] && typeof g[id] === "object" ? g[id] : {}) as Record<string, unknown>
-      return [id, { ligado: f.ligado !== false, desde: data(f.desde) }]
+      const ligado = FLUXOS[id].comecaDesligado ? f.ligado === true : f.ligado !== false
+      return [id, { ligado, desde: data(f.desde) }]
     })
   ) as Record<IdDoFluxo, EstadoDoFluxo>
   const [min, max] = LIMITES_DO_DESCONTO

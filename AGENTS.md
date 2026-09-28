@@ -2843,6 +2843,59 @@ O `conferir-crm.mjs` faz as duas pessoas de ponta a ponta, com o tempo andando:
 - quem não viu produto recebe o "Barba ou cabelo?", clica em "Cuidar da barba" e passa a receber
   os do cuidado.
 
+**O CRM, parte 11: a estreia da loja nova** (entrega 0181). A campanha pra base da Nuvemshop é um
+fluxo do motor que começa DESLIGADO (`FLUXOS.estreia`, com `comecaDesligado`): quem liga é o dono,
+no painel.
+
+- **Quem entra** (`publicoDaEstreia`, em `lib/crm/estreia.ts`):
+  - a base que aceita ofertas (`crm.pessoasDaEstreia`);
+  - menos quem tem pedido pago na loja nova, de qualquer data;
+  - o motor ainda tira a equipe, quem saiu da lista e o e-mail que voltou, e 5% vão pro controle.
+  A chave de cada entrada é o e-mail.
+- **O jeito do e-mail** (`segmentoDaEstreia`) sai das etiquetas do CRM com os Ajustes, a mesma
+  conta da aba da base:
+  - `repor`: o dia de comprar de novo cai em até 14 dias, ou já passou sem estar em risco;
+  - `cliente`: está no meio do tratamento;
+  - `sumido`: está em risco ou em sunset;
+  - `lead`: nunca teve compra paga.
+- **O cupom** sai no toque `estreia-agora`:
+  - só pra `sumido` (`VOLTA-`) e `lead` (`BEMVINDO-`, com a regra de primeira compra);
+  - com o % dos fluxos, valendo 3 dias, e com a regra dos 60 dias (`darCupom`).
+  O `estreia-2d` lembra do cupom. Quem não tem cupom fica como pulado. O `cupomQueAindaVale`
+  ganhou o fluxo, porque a chave da estreia é o e-mail, como a das boas-vindas.
+- **Os lotes** (`filaDaEstreia`, `loteDaPosicao`, `comecoDoLote`):
+  - a fila vai de repor pra cliente, sumido e lead, com o mais recente antes;
+  - são 200, 400, 800 e o resto;
+  - o começo de cada entrada é o do lote dela. O 1º lote sai quando o dono liga, e os outros às
+    10h de Brasília dos dias seguintes. Ligado de madrugada, os dias contam a partir do dia em que
+    o 1º lote sai;
+  - depois de `fimDaEstreia` (o último lote mais 4 dias), o motor nem lê a base.
+- **Os produtos do e-mail:**
+  - quem já comprou vê os da última compra, pelo SKU (`produtosPorSku`: o código do Bling é o
+    mesmo na Nuvemshop e no Medusa);
+  - quem nunca comprou vê os mais pedidos;
+  - o "Repor agora" leva pro produto do item que acaba primeiro, com o nome curto de
+    `CURTO_DO_COMPONENTE`.
+- **Os e-mails** (`emailDaEstreia`, em `lib/emails/estreia.ts`) são todos "oferta". A lista "O
+  que tem na loja nova" junta o que as Configurações dizem (frete grátis, prazo) e o que a loja
+  faz de verdade (a conta por código, o rastreio na conta).
+- **No painel,** o bloco Estreia mostra o público (`publicoNaTela`: os 4 jeitos e os lotes). O
+  "Mandar pra mim" do `estreia-agora` manda os 4 jeitos (`exemplosDoToque`): a rota de teste
+  manda um e-mail por jeito e responde `quantos`.
+- **O motor** agrupa os registros por e-mail (`registrosDe`), porque a estreia põe milhares de
+  pessoas numa rodada. E o começo dos pedidos cai pra agora quando nenhum fluxo tem janela.
+- **Os tipos dos toques:** `ehToqueDeCompra` olha o começo do toque (pix, checkout, carrinho); os
+  outros são `ehToqueDasBoasVindas` e `ehToqueDaEstreia`.
+
+O `conferir-crm.mjs`:
+- importa uma base pequena: um de cada jeito, e mais quem não aceita ofertas;
+- confere que a estreia começa desligada, com o público na tela;
+- liga e roda o motor lote a lote, até o e-mail chegar. Cada pessoa recebe o seu jeito, e os dois
+  cupons entram na sacola;
+- confere que o "vence amanhã" só chega pra quem ganhou cupom;
+- desliga no fim, porque o banco local é de todos os conferidores;
+- na aba, confere os 5 fluxos e o "Mandar pra mim" com os 4 jeitos.
+
 **O preço e o promocional no painel** (entregas 0098 e 0102): os dois campos de cada produto na
 lista de Produtos, como na Nuvemshop (a 0098 tinha só o promocional, atrás de um botão). A regra é
 `lib/painel/promocao.ts`, pura: `lerMudancaDePreco` (o corpo `{ preco?, promocional? }` contra o
