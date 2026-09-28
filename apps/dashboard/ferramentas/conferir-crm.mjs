@@ -1350,7 +1350,7 @@ try {
         tela0.fluxos.find((f) => f.id === "checkout")?.toques.length === 4 &&
         tela0.fluxos.find((f) => f.id === "pix")?.toques.length === 3 &&
         tela0.fluxos.find((f) => f.id === "carrinho")?.toques.length === 5 &&
-        tela0.fluxos.find((f) => f.id === "boas-vindas")?.toques.length === 1,
+        tela0.fluxos.find((f) => f.id === "boas-vindas")?.toques.length === 6,
       "os quatro fluxos, ligados, com os toques de cada um",
       JSON.stringify(tela0.fluxos?.map((f) => [f.id, f.ligado, f.desde, f.toques?.length]))
     )
@@ -1909,6 +1909,106 @@ try {
           caixa.quantos(PAROU, (e) => e.subject === "Faltou só o pagamento") === 1,
         "abriu o checkout depois: a sacola para, e quem cuida é o fluxo do checkout",
         JSON.stringify(rParou.corpo)
+      )
+    }
+
+    {
+      titulo("As boas-vindas do pop-up: a trilha de cada um")
+      // Sem controle nas boas-vindas: qualquer e-mail da rodada serve.
+      const doPopup = (e) =>
+        e.tags?.some((t) => t.name === "tipo" && t.value === "crm-boas-vindas") &&
+        !/^\[Teste\]/.test(e.subject ?? "")
+      const cadastrar = (email, pagina) =>
+        medusa("/store/crm/primeira-compra", {
+          corpo: { nome: "Rafael Teste", email, ...(pagina ? { pagina } : {}) },
+          extras: DA_LOJA,
+        })
+      const CUIDA = `cuida.bv@${DOMINIO}`
+      const GERAL = `geral.bv@${DOMINIO}`
+      const cad1 = await cadastrar(CUIDA, "/produtos/oleo-para-barba")
+      const cad2 = await cadastrar(GERAL, null)
+      const comecoBv = Date.now()
+      const naBv = (ms) => new Date(diurno(comecoBv + ms)).toISOString()
+      const cupomDoPopup = cad1.corpo.codigo
+      // O "antes" na hora de verdade: empurrado pra manhã, ele passaria de 1 dia (a lição da 0176).
+      const antes1 = await rodar({
+        agora: new Date(comecoBv + 23 * HORA).toISOString(),
+        email: CUIDA,
+      })
+      const r1 = await rodar({ agora: naBv(DIA_MS + MIN), email: CUIDA })
+      const e1 = await caixa.esperarEmail(
+        CUIDA,
+        (e) => doPopup(e) && e.subject === "A rotina da barba em 3 passos",
+        0
+      )
+      ok(
+        cad1.corpo.tipo === "ok" &&
+          cad2.corpo.tipo === "ok" &&
+          antes1.corpo.enviados === 0 &&
+          r1.corpo.enviados === 1 &&
+          Boolean(e1) &&
+          /^Matheus, da FuckingBarba </.test(e1.from ?? "") &&
+          !e1.headers?.["List-Unsubscribe"],
+        "1 dia: quem se cadastrou no óleo recebe a rotina da barba, como lembrete",
+        JSON.stringify({ cad1: cad1.corpo.tipo, antes: antes1.corpo, r: r1.corpo })
+      )
+      await rodar({ agora: naBv(2 * DIA_MS + MIN), email: CUIDA })
+      const e2 = await caixa.esperarEmail(
+        CUIDA,
+        (e) => doPopup(e) && /vence amanhã$/.test(e.subject ?? ""),
+        0
+      )
+      ok(
+        Boolean(e2?.html.includes(cupomDoPopup)) && Boolean(e2?.headers?.["List-Unsubscribe"]),
+        "2 dias: o cupom do pop-up vence amanhã, como oferta",
+        e2?.subject ?? "não chegou"
+      )
+      await rodar({ agora: naBv(5 * DIA_MS + MIN), email: CUIDA })
+      await rodar({ agora: naBv(7 * DIA_MS + MIN), email: CUIDA })
+      await rodar({ agora: naBv(10 * DIA_MS + MIN), email: CUIDA })
+      await caixa.esperarEmail(
+        CUIDA,
+        (e) => doPopup(e) && e.subject === "A rotina completa num kit só",
+        0
+      )
+      const assuntos = resend.emails
+        .filter((e) => e.to?.includes(CUIDA) && doPopup(e))
+        .map((e) => e.subject)
+      ok(
+        assuntos.some((a) => /^(Óleo ou balm|Como usar o óleo)/.test(a)) &&
+          assuntos.includes("As perguntas que todo mundo faz sobre o óleo") &&
+          assuntos.includes("A rotina completa num kit só") &&
+          caixa.quantos(CUIDA, doPopup) === 6,
+        "5, 7 e 10 dias: o óleo ou o balm, as dúvidas do óleo e o kit — 6 e-mails com o do cupom",
+        JSON.stringify(assuntos)
+      )
+
+      // Quem não viu produto: o "Barba ou cabelo?", e a escolha muda a trilha.
+      await rodar({ agora: naBv(DIA_MS + MIN), email: GERAL })
+      const eg = await caixa.esperarEmail(
+        GERAL,
+        (e) => doPopup(e) && e.subject === "Barba ou cabelo?",
+        0
+      )
+      const links = [...(eg?.html ?? "").matchAll(/href="([^"]+\/crm\/escolha\?t=[^"]+)"/g)].map(
+        (m) => m[1].replaceAll("&amp;", "&")
+      )
+      const clique = links[1]
+        ? await fetch(links[1], { redirect: "manual" }).catch(() => null)
+        : null
+      await rodar({ agora: naBv(5 * DIA_MS + MIN), email: GERAL })
+      const eg5 = await caixa.esperarEmail(
+        GERAL,
+        (e) => doPopup(e) && /^(Óleo ou balm|Como usar)/.test(e.subject ?? ""),
+        0
+      )
+      ok(
+        links.length === 3 &&
+          clique?.status === 303 &&
+          (clique.headers.get("location") ?? "").includes("/para-barba?utm_source=loja") &&
+          Boolean(eg5),
+        "sem produto: “Barba ou cabelo?” com 3 botões; “Cuidar da barba” leva pra loja e a trilha vira a do cuidado",
+        JSON.stringify({ links: links.length, clique: clique?.status, cinco: eg5?.subject })
       )
     }
 
