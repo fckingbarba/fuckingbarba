@@ -2650,12 +2650,13 @@ try {
         ok(
           botoes.length === 2 &&
             !/não gostei/i.test(e7?.html ?? "") &&
+            !/\p{Extended_Pictographic}/u.test(e7?.html ?? "") &&
             bem?.status === 303 &&
             paraOnde(bem).includes("/avaliar/") &&
             duvida?.status === 303 &&
             (paraOnde(duvida).startsWith("https://wa.me/") ||
               paraOnde(duvida).includes("/contato")),
-          "7 dias: “Como tá indo?” com dois botões — “Tá indo bem” leva pra avaliar, “Tenho uma dúvida” pro WhatsApp da loja",
+          "7 dias: “Como tá indo?” com dois botões sem emoji — “Tá indo bem” leva pra avaliar, “Tenho uma dúvida” pro WhatsApp da loja",
           JSON.stringify({ botoes: botoes.length, bem: paraOnde(bem), duvida: paraOnde(duvida) })
         )
         await rodar({ agora: aos(21), email: COMPROU_O_FATOR })
@@ -2761,13 +2762,13 @@ try {
             pergunta?.subject === "Tá tudo bem com a barba?" &&
             /^Matheus, da FuckingBarba </.test(pergunta.from ?? "") &&
             !pergunta.headers?.["List-Unsubscribe"] &&
-            !pergunta.html.includes("<img") &&
+            !/\p{Extended_Pictographic}/u.test(pergunta.html) &&
             pergunta.html.includes("o Fator de Crescimento da sua última compra acabou") &&
             ["Tá caro", "Esqueci de repor", "Não vi resultado", "Comprei em outro lugar"].every(
               (t) => pergunta.html.includes(t)
             ) &&
             links.length === 4,
-          "no dia em que fica em risco: “Tá tudo bem com a barba?”, em texto simples, com os 4 botões",
+          "no dia em que fica em risco: “Tá tudo bem com a barba?”, como lembrete, com os 4 botões sem emoji",
           pergunta?.subject ?? "não chegou"
         )
 
@@ -2816,13 +2817,13 @@ try {
         await rodar({ agora: aos(emRisco + 45 * DIA_MS), email: RESPONDE })
         const sunset = deQuem(SOME, doResgate)[3]
         ok(
-          sunset?.subject === "Quer continuar recebendo nossos e-mails?" &&
+          sunset?.subject === "Posso continuar te escrevendo?" &&
             /^Matheus, da FuckingBarba </.test(sunset.from ?? "") &&
-            !sunset.html.includes("<img") &&
+            !sunset.headers?.["List-Unsubscribe"] &&
             sunset.html.includes("Sim, quero continuar") &&
             botoes(sunset).length === 1 &&
             deQuem(RESPONDE, doResgate).length === 1,
-          "45 dias sem sinal nenhum: “Quer continuar recebendo?”, em texto simples, com o Sim — quem respondeu não recebe",
+          "45 dias sem sinal nenhum: “Posso continuar te escrevendo?”, como lembrete, com o Sim — quem respondeu não recebe",
           JSON.stringify(deQuem(SOME, doResgate).map((e) => e.subject))
         )
 
@@ -3005,9 +3006,8 @@ try {
         ["Tá caro", "Esqueci de repor", "Não vi resultado", "Comprei em outro lugar"].every((t) =>
           testeDoResgate?.html.includes(t)
         ) &&
-        !testeDoResgate?.html.includes("/crm/resgate?t=") &&
-        !testeDoResgate?.html.includes("<img"),
-      "“Mandar pra mim” do resgate: a pergunta com os 4 botões, em texto simples — e os botões de mentira não anotam nada",
+        !testeDoResgate?.html.includes("/crm/resgate?t="),
+      "“Mandar pra mim” do resgate: a pergunta com os 4 botões, como lembrete — e os botões de mentira não anotam nada",
       testeDoResgate?.subject ?? "não chegou"
     )
     // A chave das boas-vindas é a do pop-up da loja: desligada, a loja fica sabendo.
