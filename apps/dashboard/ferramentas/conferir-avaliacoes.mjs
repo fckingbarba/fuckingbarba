@@ -8,9 +8,9 @@
  *
  * Variáveis: as de `pecas.mjs`, e mais NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY,
  * ADMIN_EMAIL, ADMIN_SENHA, PORTA_FALSA e PORTA_PAGARME_FALSO. As avaliações
- * nascem como na loja: um pedido pago (a fábrica, com os falsos), o link
- * achado pelo número e o e-mail (`/store/avaliacoes/encontrar`) e o envio
- * (`POST /store/avaliacoes`).
+ * nascem como na loja: um pedido pago (a fábrica, com os falsos), o link que
+ * o `/store/avaliacoes/encontrar` manda pro e-mail da compra (lido no Resend
+ * falso — a resposta nunca traz o link) e o envio (`POST /store/avaliacoes`).
  *
  * ┌─ O QUE ESTE ARQUIVO EXISTE PRA TRAVAR ─────────────────────────────────┐
  * │ • a avaliação que não aparece nas novas, ou aparece sem o texto        │
@@ -130,14 +130,22 @@ try {
     metodo: "POST",
     corpo: { numero: `#${pedido.numero}`, email: EMAIL },
   })
+  // O link não vem na resposta: vai pro e-mail da compra (desde a 0175).
+  const doLink = await caixa.esperarEmail(
+    EMAIL,
+    (e) => /^O link pra avaliar o pedido #/.test(e.subject ?? ""),
+    0,
+    15000
+  )
+  const P = decodeURIComponent(((doLink?.html ?? "").match(/\/avaliar\/([^"?&]+)/) ?? [])[1] ?? "")
   ok(
-    achado.status === 200 && achado.corpo.p,
-    "o número e o e-mail acham o pedido",
-    `${achado.status}`
+    achado.status === 200 &&
+      !("p" in achado.corpo) &&
+      /^order_[0-9A-Z]{26}\.[A-Za-z0-9_-]{22}$/.test(P),
+    "o número e o e-mail acham o pedido — e o link vai pro e-mail da compra",
+    `${achado.status} ${JSON.stringify(achado.corpo)} · ${doLink?.subject ?? "sem e-mail"}`
   )
-  const { corpo: doPedido } = await loja(
-    `/store/avaliacoes/pedido?p=${encodeURIComponent(achado.corpo.p)}`
-  )
+  const { corpo: doPedido } = await loja(`/store/avaliacoes/pedido?p=${encodeURIComponent(P)}`)
   const [p1, p2] = doPedido.pedido?.produtos ?? []
   const TEXTO_BOM = `Teste ${RODADA}: segurou o dia todo.`
   const TEXTO_RUIM = `Teste ${RODADA}: chegou vazando.\n\nO frasco veio aberto.`
@@ -147,7 +155,7 @@ try {
   ]) {
     const r = await loja("/store/avaliacoes", {
       metodo: "POST",
-      corpo: { p: achado.corpo.p, produto: produto.id, nome: "Rafael T.", nota, texto },
+      corpo: { p: P, produto: produto.id, nome: "Rafael T.", nota, texto },
     })
     ok(r.status === 200, `a de ${nota} estrela(s) entrou`, `${r.status} ${JSON.stringify(r.corpo)}`)
   }

@@ -252,7 +252,7 @@ try {
     `${janelaErrada.status} ${janela.status} ${tela.nota?.janela}`
   )
   ok(
-    tela.emails?.equipe?.length === 8 &&
+    tela.emails?.equipe?.length === 9 &&
       tela.emails.equipe.every((e) => /\(dono\)|\(operação\)/.test(e.quem)) &&
       tela.emails.equipe[0].nome === "Venda nova" &&
       !tela.emails.equipe[0].quem.includes("(operação)") &&
@@ -261,8 +261,10 @@ try {
       tela.emails.equipe[6].nome === "Robô testando cartão" &&
       !tela.emails.equipe[6].quem.includes("(operação)") &&
       tela.emails.equipe[7].nome === "Um parceiro de pagamento caiu" &&
-      !tela.emails.equipe[7].quem.includes("(operação)"),
-    "os avisos da equipe: a venda nova, o estorno, o robô no cartão e o parceiro que caiu só pro dono; a nota pra operação e o dono",
+      !tela.emails.equipe[7].quem.includes("(operação)") &&
+      tela.emails.equipe[8].nome === "O pedido cancelado continua na Frenet" &&
+      tela.emails.equipe[8].quem.includes("(operação)"),
+    "os avisos da equipe: a venda nova, o estorno, o robô no cartão e o parceiro que caiu só pro dono; a nota e o cancelado na Frenet pra operação e o dono",
     JSON.stringify(tela.emails?.equipe?.map((e) => `${e.nome}: ${e.quem}`))
   )
 
@@ -376,11 +378,11 @@ try {
     (await pagina.locator("[data-aviso-da-equipe]").first().textContent()) ?? ""
   )
   ok(
-    (await pagina.locator("[data-aviso-da-equipe]").count()) === 8 &&
+    (await pagina.locator("[data-aviso-da-equipe]").count()) === 9 &&
       (await pagina.locator("[data-emails-cliente] .linha").count()) === 6 &&
       /^Venda nova/.test(primeiroAviso) &&
       /vai pra: dono$/.test(primeiroAviso),
-    "as abas de conferir: pagamento, entrega e os e-mails (8 avisos da equipe, a venda nova primeiro e só pro dono; 6 do cliente)",
+    "as abas de conferir: pagamento, entrega e os e-mails (9 avisos da equipe, a venda nova primeiro e só pro dono; 6 do cliente)",
     primeiroAviso
   )
 
