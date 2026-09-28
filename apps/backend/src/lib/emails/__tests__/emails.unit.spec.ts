@@ -3,6 +3,7 @@ import { areasDo, matrizCom, MATRIZ_PADRAO } from "../../equipe/regras"
 import { emailDoConvite } from "../convite"
 import { emailDoEnvio, type EnvioDoAviso, type PedidoDoAviso } from "../envio"
 import { emReais, esc, urlDaLoja } from "../moldura"
+import { emailDoCanceladoNaFrenet } from "../cancelado-na-frenet"
 import { emailDaNotaComProblema, emailDaNotaParaConferir, emailDoPedidoParaDesfazer } from "../erp"
 import {
   emailDePagamentoDevolvido,
@@ -718,7 +719,7 @@ describe("a nota que não saiu (pra equipe)", () => {
     if (antes === undefined) delete process.env.MEDUSA_BACKEND_URL
     else process.env.MEDUSA_BACKEND_URL = antes
   })
-  const aviso = (jeito: "a-mao" | "acompanha" | "reconectar") =>
+  const aviso = (jeito: "a-mao" | "acompanha" | "reconectar" | "atrasada") =>
     emailDaNotaComProblema("equipe@exemplo.com", {
       erp: "Bling",
       pedidoId: "order_01ABC",
@@ -747,6 +748,51 @@ describe("a nota que não saiu (pra equipe)", () => {
     expect(aviso("acompanha").html).toContain(
       'href="https://api.exemplo.com/app/orders/order_01ABC"'
     )
+  })
+
+  it("passaram 3 dias: conferir no ERP antes de tentar de novo, com o pedido no painel", () => {
+    const painel = process.env.DASHBOARD_URL
+    process.env.DASHBOARD_URL = "https://painel.exemplo.com/"
+    try {
+      const e = aviso("atrasada")
+      expect(e.assunto).toBe("A nota do pedido #14 não saiu")
+      expect(e.html).toContain("Confira no Bling se a nota do pedido #14 já existe")
+      expect(e.html).toContain("segunda nota do pedido")
+      expect(e.html).toContain("Tentar de novo")
+      expect(e.html).toContain('href="https://painel.exemplo.com/pedidos/order_01ABC"')
+      // Sem o endereço do painel, a tela do ERP no admin.
+      delete process.env.DASHBOARD_URL
+      expect(aviso("atrasada").html).toContain('href="https://api.exemplo.com/app/erp"')
+    } finally {
+      if (painel === undefined) delete process.env.DASHBOARD_URL
+      else process.env.DASHBOARD_URL = painel
+    }
+  })
+})
+
+describe("o cancelado que continua na Frenet (pra equipe)", () => {
+  it("diz pra não gerar a etiqueta, e abre o pedido no painel", () => {
+    const antes = process.env.DASHBOARD_URL
+    process.env.DASHBOARD_URL = "https://painel.exemplo.com"
+    try {
+      const e = emailDoCanceladoNaFrenet("equipe@exemplo.com", {
+        pedidoId: "order_01ABC",
+        numero: 3310,
+        referencia: "FB-3310",
+        motivo: "cancelar: 400 (etiqueta já gerada); apagar: 404.",
+        dias: 7,
+      })
+      expect(e.assunto).toBe("O pedido #3310 foi cancelado e continua na Frenet")
+      expect(e.texto).toContain(
+        "a loja não conseguiu tirar o FB-3310 do painel da Frenet: cancelar: 400 (etiqueta já gerada); apagar: 404."
+      )
+      expect(e.texto).toContain("Não gere a etiqueta do FB-3310")
+      expect(e.texto).toContain("por 7 dias")
+      expect(e.html).toContain('href="https://painel.exemplo.com/pedidos/order_01ABC"')
+    } finally {
+      if (antes === undefined) delete process.env.DASHBOARD_URL
+      else process.env.DASHBOARD_URL = antes
+    }
   })
 })
 

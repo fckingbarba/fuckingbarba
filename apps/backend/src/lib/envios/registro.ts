@@ -12,6 +12,9 @@ import {
   telefone,
   type EnderecoDoMedusa,
 } from "../dados-do-pedido"
+import { emailNoLog, enviarEmail } from "../email"
+import { emailDoCanceladoNaFrenet } from "../emails/cancelado-na-frenet"
+import { emailsPraAvisar } from "../equipe/avisados"
 import { notaParaAEtiqueta, type NotaParaAEtiqueta } from "../erp/notas"
 import { gravarNoMetadataDoPedido } from "../metadata-do-pedido"
 import { referenciaDoPedido, type ParceiroDeEntrega, type PedidoParaOParceiro } from "./parceiro"
@@ -53,7 +56,10 @@ import { parceiroDeEntrega, parceiroQueRegistra } from "./parceiros"
  * aceita, por exemplo) é definitivo — fica no registro, e o log diz qual,
  * pra alguém fazer a etiqueta à mão. Fora do ar, tempo esgotado, token
  * recusado: a varredura tenta de novo, cada vez mais espaçado (10 min, 20,
- * 40… até 6 horas), enquanto o pedido estiver nos três dias.
+ * 40… até 6 horas), enquanto o pedido estiver nos três dias. Passou disso sem
+ * entrar, a loja para (`registroAtrasado`): o registro fica definitivo, com
+ * `desistiu_em`, e o painel mostra "Não entrou na Frenet" com o "Mandar de
+ * novo" — em vez de "tentando entrar" num pedido que ninguém mais tentava.
  *
  * O ENVIO NASCE JUNTO: registrado o pedido, o núcleo ganha um envio
  * "aguardando", sem código, com o id que o parceiro deu. O aviso de rastreio
@@ -61,9 +67,12 @@ import { parceiroDeEntrega, parceiroQueRegistra } from "./parceiros"
  * depender do número. Sem código, ele não aparece pra ninguém: a conta, os
  * e-mails e os jobs só olham envio com código.
  *
- * E O CANCELADO SAI DO PAINEL (`tirarDoParceiro`, no `order.canceled`). O
- * que entrou e não foi postado em cinco dias aparece no log uma vez por dia
- * (`noPainelSemPostagem`, no job `acompanhar-envios`).
+ * E O CANCELADO SAI DO PAINEL (`tirarDoParceiro`, no `order.canceled`). Se
+ * a Frenet não deixar, a equipe recebe um e-mail (um só: "não gere a
+ * etiqueta"), o painel da loja mostra o problema, e a varredura tenta de
+ * novo por 7 dias (`tirarCanceladosQueFicaram`) — também o cancelado cujo
+ * evento se perdeu. O que entrou e não foi postado em cinco dias aparece no
+ * log uma vez por dia (`noPainelSemPostagem`, no job `acompanhar-envios`).
  */
 
 export const CHAVE_NO_PEDIDO = "fb_parceiro"
@@ -74,6 +83,10 @@ const MINUTO = 60 * 1000
 const JANELA_MS = 3 * 24 * 60 * MINUTO
 /** Quantos pedidos cada rodada tenta. */
 const POR_RODADA = 20
+/** Até onde o "passou dos três dias tentando" olha pra trás, pela hora da captura. */
+const ATRASADOS_ATE_MS = 30 * 24 * 60 * MINUTO
+/** Por quantos dias, depois do cancelamento, a loja tenta tirar o pedido do painel. */
+export const DIAS_TIRANDO = 7
 /**
  * O "desde" nasce dez minutos antes da primeira rodada ligada: o pagamento
  * que chegou enquanto o servidor reiniciava com o token novo entra também.
@@ -96,10 +109,23 @@ export type RegistroNoPedido = {
   erro?: string
   /** O parceiro recusou o pedido: tentar de novo não resolve. */
   definitivo?: boolean
+  /**
+   * A loja parou de tentar: passaram três dias sem o pedido entrar
+   * (`registroAtrasado`). Vem junto com `definitivo`, e o `erro` é o último.
+   */
+  desistiu_em?: string
   /** Saiu do painel porque o pedido foi cancelado. */
   tirado_em?: string
   /** Por que não saiu. */
   erro_ao_tirar?: string
+  /**
+   * As tentativas de tirar (o `order.canceled` e a varredura, com a mesma
+   * espera do registro) e a última — ver `tirarCanceladosQueFicaram`.
+   */
+  tentativas_ao_tirar?: number
+  tentou_tirar_em?: string
+  /** O e-mail pra equipe de que o cancelado ficou no painel — um só. */
+  avisou_ao_tirar_em?: string
 }
 
 export function lerRegistroNoPedido(metadata: unknown): RegistroNoPedido | null {
@@ -206,6 +232,23 @@ export function esperaDepoisDe(tentativas: number): number {
 
 const emEspera = (r: RegistroNoPedido, agora: Date) =>
   agora.getTime() - new Date(r.em).getTime() < esperaDepoisDe(r.tentativas)
+
+/**
+ * Passou dos três dias tentando? O pedido pago, não cancelado, sem envio no
+ * admin, com todos os pagamentos fora da janela da varredura — e o registro
+ * diz que ele não entrou, sem a recusa de vez: a loja ainda achava que ia.
+ */
+export function registroAtrasado(
+  o: Pick<PedidoLido, "status" | "metadata" | "payment_collections" | "fulfillments">,
+  agora: Date
+): boolean {
+  if (o.status === "canceled") return false
+  if ((o.fulfillments ?? []).some((f) => f && !f.canceled_at)) return false
+  const r = lerRegistroNoPedido(o.metadata)
+  if (!r || r.entrou || r.definitivo) return false
+  const capturas = capturasDo(o)
+  return capturas.length > 0 && capturas.every((d) => d.getTime() < agora.getTime() - JANELA_MS)
+}
 
 export type DecisaoDoRegistro =
   | { registrar: true }
@@ -549,11 +592,112 @@ export async function tirarDoParceiro(
         await gravar(container, pedidoId, tirado)
         return { resultado: "tirou", numero }
       }
-      await gravar(container, pedidoId, { ...r, erro_ao_tirar: t.motivo })
+      const ficou: RegistroNoPedido = {
+        ...r,
+        erro_ao_tirar: t.motivo,
+        tentativas_ao_tirar: (r.tentativas_ao_tirar ?? 0) + 1,
+        tentou_tirar_em: agora.toISOString(),
+      }
+      await gravar(container, pedidoId, ficou)
+      if (!r.avisou_ao_tirar_em) {
+        const saiu = await avisarQueFicou(container, {
+          pedidoId,
+          numero,
+          referencia: r.referencia,
+          motivo: t.motivo,
+          dias: DIAS_TIRANDO,
+        }).catch(() => false)
+        if (saiu)
+          await gravar(container, pedidoId, { ...ficou, avisou_ao_tirar_em: agora.toISOString() })
+      }
       return { resultado: "falhou", numero, motivo: t.motivo }
     },
     { timeout: 30 }
   )
+}
+
+/** O e-mail do cancelado que ficou no painel: pra quem despacha e pro dono. */
+async function avisarQueFicou(
+  container: MedusaContainer,
+  a: Parameters<typeof emailDoCanceladoNaFrenet>[1]
+): Promise<boolean> {
+  const logger = container.resolve(ContainerRegistrationKeys.LOGGER)
+  const emails = await emailsPraAvisar(container, ["operacao", "dono"])
+  if (!emails.length) {
+    logger.warn(`[envio] #${a.numero}: ninguém na equipe nem no admin pra avisar por e-mail`)
+    return false
+  }
+  let saiu = false
+  for (const para of emails) {
+    const r = await enviarEmail(emailDoCanceladoNaFrenet(para, a), logger, {
+      idempotencia: `frenet-cancelado/${a.pedidoId}/${para}`.slice(0, 256),
+    })
+    if (r.ok) {
+      saiu = true
+      logger.info(`[envio] #${a.numero} cancelado e ainda na Frenet: avisei ${emailNoLog(para)}`)
+    }
+  }
+  return saiu
+}
+
+/** A mesma espera do registro (10 min, 20, 40… até 6 horas) entre as tentativas de tirar. */
+const esperandoPraTirar = (r: RegistroNoPedido, agora: Date) =>
+  Boolean(r.tentou_tirar_em) &&
+  agora.getTime() - new Date(r.tentou_tirar_em!).getTime() <
+    esperaDepoisDe(r.tentativas_ao_tirar ?? 1)
+
+/** O cancelado que entrou no painel e ainda não saiu — e já é hora de tentar de novo. */
+export function paraTirarDeNovo(metadata: unknown, agora: Date): boolean {
+  const r = lerRegistroNoPedido(metadata)
+  return Boolean(r?.entrou && r.id && !r.tirado_em && !esperandoPraTirar(r, agora))
+}
+
+export type RelatorioDosCancelados = { tirados: string[]; ficaram: string[] }
+
+/**
+ * A rede embaixo do `order.canceled`: o pedido cancelado nos últimos 7 dias
+ * que entrou no painel do parceiro e não saiu — a Frenet fora do ar na hora
+ * (a espera cresce a cada tentativa, como a do registro), ou o evento que se
+ * perdeu (esse sai na primeira rodada).
+ */
+export async function tirarCanceladosQueFicaram(
+  container: MedusaContainer,
+  agora = new Date()
+): Promise<RelatorioDosCancelados> {
+  const relatorio: RelatorioDosCancelados = { tirados: [], ficaram: [] }
+  const { data } = await container.resolve(ContainerRegistrationKeys.QUERY).graph({
+    entity: "order",
+    fields: ["id", "metadata"],
+    filters: {
+      status: "canceled",
+      canceled_at: {
+        $gte: new Date(agora.getTime() - DIAS_TIRANDO * 24 * 60 * MINUTO).toISOString(),
+      },
+    },
+  })
+  const pendentes = (data as { id?: string; metadata?: unknown }[])
+    .filter((o) => o.id && paraTirarDeNovo(o.metadata, agora))
+    .map((o) => o.id as string)
+  for (const id of pendentes.slice(0, POR_RODADA)) {
+    const r = await tirarDoParceiro(container, id, agora).catch((e) => ({
+      resultado: "falhou" as const,
+      numero: 0,
+      motivo: e instanceof Error ? e.message : String(e),
+    }))
+    if (r.resultado === "tirou") relatorio.tirados.push(`#${r.numero}`)
+    else if (r.resultado === "falhou")
+      relatorio.ficaram.push(`${r.numero ? `#${r.numero}` : id} (${r.motivo})`)
+  }
+  if (relatorio.tirados.length || relatorio.ficaram.length) {
+    container
+      .resolve(ContainerRegistrationKeys.LOGGER)
+      .warn(
+        `[envio] cancelados no painel: ${relatorio.tirados.length} saíram, ` +
+          `${relatorio.ficaram.length} ainda lá` +
+          (relatorio.ficaram.length ? ` — ${relatorio.ficaram.slice(0, 3).join("; ")}` : "")
+      )
+  }
+  return relatorio
 }
 
 /* ── o que ficou no painel ────────────────────────────────────────────────── */
@@ -612,6 +756,86 @@ export type RelatorioDeRegistros = {
   falharam: string[]
   /** Os que o parceiro recusou — etiqueta à mão. */
   recusados: string[]
+  /** Os que passaram dos três dias tentando: a loja parou. */
+  desistidos: string[]
+  /** Os cancelados que ficaram no painel e saíram agora, e os que ainda estão lá. */
+  tirados: string[]
+  ficaram: string[]
+}
+
+/**
+ * O pedido que passou dos três dias tentando entrar (`registroAtrasado`):
+ * o registro fica definitivo, com `desistiu_em`, e o painel da loja mostra o
+ * problema com o "Mandar de novo".
+ */
+async function desistirDosAtrasados(
+  container: MedusaContainer,
+  parceiro: ParceiroDeEntrega,
+  desde: Date,
+  agora: Date
+): Promise<string[]> {
+  const inicio = Math.max(desde.getTime(), agora.getTime() - ATRASADOS_ATE_MS)
+  const fim = agora.getTime() - JANELA_MS
+  if (inicio >= fim) return []
+  // Do mais novo pro mais velho: o que acabou de sair da janela vem primeiro.
+  const pagos = await container
+    .resolve(Modules.PAYMENT)
+    .listPayments(
+      { captured_at: { $gte: new Date(inicio).toISOString(), $lt: new Date(fim).toISOString() } },
+      { select: ["payment_collection_id"], order: { captured_at: "DESC" }, take: 1000 }
+    )
+  const colecoes = [...new Set(pagos.map((p) => p.payment_collection_id).filter(Boolean))]
+  if (!colecoes.length) return []
+  const { data } = await container.resolve(ContainerRegistrationKeys.QUERY).graph({
+    entity: "order_payment_collection",
+    fields: ["order.id", "order.status", "order.metadata"],
+    filters: { payment_collection_id: colecoes },
+  })
+  const candidatos = [
+    ...new Set(
+      (data as { order?: { id?: string; status?: string; metadata?: unknown } | null }[])
+        .filter((l) => {
+          if (!l.order?.id || l.order.status === "canceled") return false
+          const r = lerRegistroNoPedido(l.order.metadata)
+          return Boolean(r && !r.entrou && !r.definitivo)
+        })
+        .map((l) => l.order!.id!)
+    ),
+  ]
+
+  const logger = container.resolve(ContainerRegistrationKeys.LOGGER)
+  const desistidos: string[] = []
+  for (const id of candidatos.slice(0, 50)) {
+    const numero = await container
+      .resolve(Modules.LOCKING)
+      .execute(
+        `registro-no-parceiro:${id}`,
+        async (): Promise<number | null> => {
+          // Relido na trava: o "Mandar de novo" pode ter chegado antes.
+          const pedido = await lerPedido(container, id)
+          const r = pedido ? lerRegistroNoPedido(pedido.metadata) : null
+          if (!pedido || !r || !registroAtrasado(pedido, agora)) return null
+          await gravar(container, id, { ...r, definitivo: true, desistiu_em: agora.toISOString() })
+          const n = Number(pedido.display_id ?? 0)
+          logger.warn(
+            `[envio] o #${n} passou dos 3 dias sem entrar no painel da ${parceiro.nome} ` +
+              `(o último erro: ${r.erro ?? "sem detalhe"}) — a loja parou de tentar; o pedido ` +
+              'tem o "Mandar de novo" no painel da loja'
+          )
+          return n
+        },
+        { timeout: 30 }
+      )
+      .catch((e) => {
+        logger.warn(
+          `[envio] não deu pra marcar o pedido ${id} que passou dos 3 dias: ` +
+            `${e instanceof Error ? e.message : String(e)} — a próxima rodada tenta de novo`
+        )
+        return null
+      })
+    if (numero !== null) desistidos.push(`#${numero}`)
+  }
+  return desistidos
 }
 
 export async function registrarPendentes(
@@ -623,11 +847,17 @@ export async function registrarPendentes(
     entraram: [],
     falharam: [],
     recusados: [],
+    desistidos: [],
+    tirados: [],
+    ficaram: [],
   }
   const parceiro = parceiroQueRegistra()
   if (!parceiro) return relatorio
 
   const desde = await registroLigadoDesde(container, parceiro, agora)
+  // Antes dos pagos: o cancelado que ficou no painel, e o que passou dos três dias.
+  Object.assign(relatorio, await tirarCanceladosQueFicaram(container, agora))
+  relatorio.desistidos = await desistirDosAtrasados(container, parceiro, desde, agora)
   const inicio = new Date(Math.max(desde.getTime(), agora.getTime() - JANELA_MS))
   const pagos = await container.resolve(Modules.PAYMENT).listPayments(
     { captured_at: { $gte: inicio.toISOString() } },
