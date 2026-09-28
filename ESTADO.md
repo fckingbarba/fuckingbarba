@@ -4197,6 +4197,45 @@ Início fica o de antes até o backend novo entrar.
 - [ ] **Pergunta em aberto (você):** o mesmo seletor de período em quais outras telas — Pedidos,
       Marketing (no lugar dos 4 botões de hoje), Carrinhos?
 
+**A página escondida dos criadores — pronto em 28/09 (entrega 0189).** Pedido dele: "preciso de
+uma página para fechar com influenciadores, pegar os dados dele, precisamos de criativos" (1.000
+reais em 20 criativos de 25 a 40 segundos, ou comissão nas vendas), e depois do desenho: "vamos
+criar essa página, ela precisa ser escondida". A comissão, decidida por ele: 3% de cada venda, por
+12 meses. O desenho aprovado: <https://claude.ai/artifact/8rVxxqJkWMn8GGHuyfzq6a>.
+
+- **A página `/criadores`**, na cara da loja: a proposta ("Sua barba vale R$ 1.000. Ou mais."), o
+  celular gravando (o gancho em 3 segundos, o vídeo entre 25 e 40), os dois modelos (o fixo em duas
+  metades de R$ 500; a comissão de 3% por 12 meses) com a calculadora, o kit que chega em casa (os
+  produtos do Medusa), os 20 criativos como 5 ideias × 4 ganchos (com os ganchos escritos e a
+  preferência por vídeo narrado), o formato, como funciona, as regras (nada de gravar sem camiseta,
+  roupa lisa, rosto à mostra, nada de pose sensual ou dancinha, fundo arrumado, só produto da loja,
+  nada de prometer resultado, 18 anos, 12 meses de uso de imagem), a inscrição e as dúvidas.
+- **Escondida**: fora do menu, do sitemap e do Google; só abre com o link. O pop-up da 1ª compra
+  não aparece nela.
+- **A inscrição** (nome, WhatsApp, e-mail, cidade, Instagram ou TikTok, seguidores, barba,
+  experiência, um vídeo, parceria, o modelo e a autorização com os 18 anos) vai pro banco. CPF,
+  endereço e Pix ficam pro contrato. Quem manda de novo com o mesmo e-mail atualiza a sua.
+- **No painel, Pessoas → Criadores** (o dono e o marketing; a operação não vê): as novas, as
+  aprovadas e as recusadas, com o botão do WhatsApp (a mensagem pronta), os perfis, o vídeo e o
+  modelo; quantas querem o fixo e quantas a comissão; e o "Copiar o link da página", pra mandar.
+  Aprovar, recusar e, a recusada, apagar de vez (quando a pessoa pede pra sair).
+- **A Política de Privacidade** diz o que a inscrição guarda, a base (consentimento) e por quanto
+  tempo (até a pessoa pedir pra apagar).
+
+Conferido no Medusa local: os dois conferidores novos — `conferir-criadores` da loja 30/30 (três
+rodadas: o `noindex` e o sitemap, a oferta e a calculadora contra a `OFERTA` do código, o kit contra
+a API, cada campo recusado no lugar certo, o que chega no banco, o pop-up que não aparece, o
+celular) e o do painel 29/29 (três rodadas) —, e mais o `conferir-links` 26/26, o
+`conferir-primeira-compra` 21/21 e o `conferir-entrar` do painel 90/90. E os unitários (1.544, 19
+novos), o typecheck e o lint dos três apps, o `medusa lint` e o prettier.
+
+Depois do deploy — **nada a configurar.** O Railway cria a tabela no deploy (a migração do módulo
+novo). O link pra mandar aos criadores está no painel, em Criadores → "Copiar o link da página"
+(<https://www.fuckingbarba.com.br/criadores>).
+
+- [ ] **Com você:** o contrato de uso de imagem (12 meses) e o da comissão — passar pelo advogado
+      antes do primeiro "sim".
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa
