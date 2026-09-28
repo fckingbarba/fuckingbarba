@@ -4,6 +4,7 @@ import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import { chaveDoDia } from "./formato"
 import { perguntaDasCompras, perguntaDasVisitas, type Periodo } from "./marketing"
 import {
+  noSiteAgora,
   PERGUNTA_DO_AGORA,
   perguntasDoDia,
   type RelatorioGa4,
@@ -139,9 +140,25 @@ async function postar(url: string, init: RequestInit, onde: string): Promise<unk
 }
 
 let token: { valor: string; vale: number; email: string } | null = null
+/**
+ * O token que está sendo pedido agora: quem chega junto espera o mesmo (o
+ * Início pergunta os relatórios e o tempo real ao mesmo tempo — sem isto, a
+ * primeira carga pedia dois tokens).
+ */
+let pedindoToken: { email: string; promessa: Promise<string> } | null = null
 
-async function tokenDoGoogle(c: Credenciais, agora = Date.now()): Promise<string> {
-  if (token && token.email === c.email && token.vale - agora > 5 * 60_000) return token.valor
+function tokenDoGoogle(c: Credenciais, agora = Date.now()): Promise<string> {
+  if (token && token.email === c.email && token.vale - agora > 5 * 60_000)
+    return Promise.resolve(token.valor)
+  if (pedindoToken?.email === c.email) return pedindoToken.promessa
+  const promessa = pedirToken(c, agora).finally(() => {
+    if (pedindoToken?.promessa === promessa) pedindoToken = null
+  })
+  pedindoToken = { email: c.email, promessa }
+  return promessa
+}
+
+async function pedirToken(c: Credenciais, agora: number): Promise<string> {
   const corpo = (await postar(
     c.tokenUri,
     {
@@ -302,6 +319,44 @@ export const visitasDoMarketing = (
     [perguntaDasVisitas(periodo, hosts), perguntaDasCompras(periodo)],
     agora
   ).then(([visitas = {}, compras = {}]) => ({ visitas, compras }))
+
+let noSiteGuardado: { propriedade: string; em: number; n: number } | null = null
+
+/**
+ * Quem está no site agora (o tempo real, os últimos 30 minutos) — o do
+ * Início no período, que pergunta os relatórios à parte
+ * (`relatoriosDoMarketing`). Guardado como os outros.
+ */
+export async function agoraNoSite(cfg: ConfiguracaoDoGa4): Promise<number> {
+  if (
+    noSiteGuardado?.propriedade === cfg.propriedade &&
+    Date.now() - noSiteGuardado.em < segundosGuardado() * 1000
+  )
+    return noSiteGuardado.n
+  const pedir = async () => {
+    const acesso = await tokenDoGoogle(cfg.credenciais)
+    const api = (process.env.GA4_API_URL || API).replace(/\/+$/, "")
+    return (await postar(
+      `${api}/properties/${cfg.propriedade}:runRealtimeReport`,
+      {
+        headers: { authorization: `Bearer ${acesso}`, "content-type": "application/json" },
+        body: JSON.stringify(PERGUNTA_DO_AGORA),
+      },
+      "tempo real"
+    )) as RelatorioGa4
+  }
+  const r = await pedir().catch((e: unknown) => {
+    // Token recusado no meio: pede outro e pergunta de novo, uma vez.
+    if (e instanceof ErroDoGa4 && e.status === 401) {
+      token = null
+      return pedir()
+    }
+    throw e
+  })
+  const n = noSiteAgora(r)
+  noSiteGuardado = { propriedade: cfg.propriedade, em: Date.now(), n }
+  return n
+}
 
 const ultimoAviso = new Map<string, number>()
 

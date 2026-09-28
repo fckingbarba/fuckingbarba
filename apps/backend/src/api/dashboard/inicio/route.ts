@@ -1,17 +1,37 @@
 import type { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/framework/http"
+import type { MedusaContainer } from "@medusajs/framework/types"
 import { abre, exigirArea, type PedidoDaEquipe } from "../../../lib/equipe/acesso"
 import { JANELA_DO_TOTAL_MS, montarInicio, precisamDoTotal } from "../../../lib/painel/inicio"
+import {
+  montarInicioNoPeriodo,
+  type DadosDoPeriodo,
+  type InicioNoPeriodo,
+} from "../../../lib/painel/inicio-periodo"
 import { quantasAvaliacoesNovas } from "../../../lib/painel/ler-avaliacoes"
 import {
+  carrinhosDoCheckout,
   enviosDos,
   lerContexto,
   notasDos,
   numerosDaNewsletter,
+  pedidosDesde,
+  pedidosFeitosEntre,
   pedidosRecentes,
+  produtosComSku,
   quantosRascunhos,
   totaisDesde,
   totaisDos,
 } from "../../../lib/painel/ler"
+import { linhaDaLista, type Contexto } from "../../../lib/painel/pedido"
+import {
+  lerDesde,
+  lerPeriodo,
+  pediuPeriodo,
+  type BuscaDoPeriodo,
+  type Periodo,
+} from "../../../lib/painel/periodo"
+import { CRM } from "../../../modules/crm"
+import type CrmService from "../../../modules/crm/service"
 
 /**
  * GET /dashboard/inicio — a primeira tela do painel: o que precisa de você,
@@ -26,6 +46,12 @@ import {
  * (`precisamDoTotal`): os da semana, lidos junto com a janela (`totaisDesde`), e
  * o que ainda faltar (um pago agora de pedido velho) logo depois. O que não
  * depende um do outro sai junto.
+ *
+ * O PERÍODO (0186): com `?periodo=` (ou `?de=` e `?ate=`, e `?comparar=`), a
+ * resposta traz também `periodo` — os números, o gráfico, os mais vendidos, o
+ * checkout e os pedidos do período escolhido na barra de cima
+ * (`lib/painel/inicio-periodo.ts`), com as vendas da Nuvemshop antes da
+ * virada. Sem nenhum deles (o painel de antes), só o de sempre.
  */
 export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) {
   const pedido = req as PedidoDaEquipe
@@ -35,6 +61,8 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
   const agora = new Date()
   // A fila do marketing: cada item só pra quem abre a área dele (sai junto com o resto).
   const marketing = papel === "marketing"
+  const busca = req.query as BuscaDoPeriodo
+  const periodo = pediuPeriodo(busca) ? lerPeriodo(busca, agora) : null
   const [ctx, pedidos, daSemana, newsletter, rascunhos, avaliacoes] = await Promise.all([
     lerContexto(req.scope, agora),
     pedidosRecentes(req.scope, { limite: 500, dias: 45, agora, semTotal: true }),
@@ -44,6 +72,10 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
     // As avaliações esperando: pra todo papel que abre a área delas.
     abre(pedido, "avaliacoes") ? quantasAvaliacoesNovas(req.scope) : null,
   ])
+  // O período (0186) sai junto com o resto da leitura: não depende dela. O `catch` vazio só
+  // marca a promessa como ouvida (quem trata o erro é o `await` lá embaixo).
+  const noPeriodo = periodo ? inicioNoPeriodo(req.scope, pedido, periodo, ctx) : null
+  noPeriodo?.catch(() => undefined)
   const ids = pedidos.map((o) => o.id)
   const faltam = precisamDoTotal(pedidos, agora).filter((id) => !daSemana.has(id))
   const [notas, envios, outros] = await Promise.all([
@@ -61,7 +93,54 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
     ...(avaliacoes !== null ? { avaliacoes } : {}),
   }
 
-  res.json(
-    montarInicio({ papel, areas: pedido.areas }, { pedidos, notas, envios, ...doMarketing }, ctx)
+  const inicio = montarInicio(
+    { papel, areas: pedido.areas },
+    { pedidos, notas, envios, ...doMarketing },
+    ctx
+  )
+  res.json(noPeriodo ? { ...inicio, periodo: await noPeriodo } : inicio)
+}
+
+/** Quantos pedidos do período a lista do Início mostra (o resto, em Pedidos). */
+const PEDIDOS_NA_LISTA = 6
+
+/**
+ * O Início no período escolhido: as vendas das duas lojas (a nova e a
+ * Nuvemshop, do CRM), os produtos (o item da Nuvemshop vira o de hoje pelo
+ * SKU), os carrinhos (só pra quem abre o Marketing) e os pedidos feitos no
+ * período (só pra quem abre os Pedidos, com o nome do cliente).
+ */
+async function inicioNoPeriodo(
+  container: MedusaContainer,
+  pedido: PedidoDaEquipe,
+  p: Periodo,
+  ctx: Contexto
+): Promise<InicioNoPeriodo> {
+  const crm = container.resolve<CrmService>(CRM)
+  const inicio = p.antes?.janela.de ?? p.atual.de
+  const [vendidos, daNuvemshop, produtos, carrinhos, feitos] = await Promise.all([
+    pedidosDesde(container, lerDesde(p)),
+    crm.vendasDaBase(inicio, p.atual.ate),
+    produtosComSku(container),
+    abre(pedido, "marketing")
+      ? carrinhosDoCheckout(container, { de: inicio, ate: p.atual.ate })
+      : null,
+    abre(pedido, "pedidos") ? pedidosFeitosEntre(container, p.atual, PEDIDOS_NA_LISTA) : null,
+  ])
+  let lista: DadosDoPeriodo["feitos"] = null
+  if (feitos) {
+    const ids = feitos.pedidos.map((o) => o.id)
+    const [notas, envios] = await Promise.all([notasDos(container, ids), enviosDos(container, ids)])
+    lista = {
+      lista: feitos.pedidos.map((o) =>
+        linhaDaLista(o, notas.get(o.id) ?? null, envios.get(o.id) ?? [], ctx)
+      ),
+      total: feitos.total,
+    }
+  }
+  return montarInicioNoPeriodo(
+    p,
+    { pedidos: vendidos, daNuvemshop, produtos, carrinhos, feitos: lista },
+    ctx.agora
   )
 }

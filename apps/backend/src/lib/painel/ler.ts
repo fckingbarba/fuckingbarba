@@ -20,6 +20,7 @@ import {
 } from "./clientes"
 import { ACOES_NA_HOME, ALVO_DA_HOME } from "./home"
 import { ACOES_NO_PRODUTO, type FeitoNoProduto } from "./produtos"
+import type { CarrinhoDoCheckout, ProdutoComSku } from "./inicio-periodo"
 import type { CarrinhoDoFunil } from "./marketing-funil"
 import type { CarrinhoDoPagamento, PedidoDoPagamento } from "./marketing-pagamento"
 import { nomeCurto, type Contexto, type EnvioCru, type NotaCrua, type PedidoCru } from "./pedido"
@@ -192,6 +193,21 @@ export async function pedidosDesde(
 }
 
 /**
+ * Os pedidos feitos desde `desde` só com o que diz se e quando foram pagos —
+ * o Início conta as vendas no mesmo corte de hora das visitas do Google
+ * (`visitas-do-periodo.ts`). Leve: sem o total e sem os itens.
+ */
+export async function pagosDesde(container: MedusaContainer, desde: Date): Promise<PedidoCru[]> {
+  const { data } = await query(container).graph({
+    entity: "order",
+    fields: ["id", "created_at", "status", "payment_collections.payments.captured_at"],
+    filters: { is_draft_order: false, created_at: { $gte: desde } },
+    pagination: { take: 10_000, order: { created_at: "DESC" } },
+  })
+  return data as unknown as PedidoCru[]
+}
+
+/**
  * Os carrinhos criados desde `desde`, com o que o funil do Marketing usa: o
  * e-mail, o CEP, o frete escolhido, se fechou e o pedido que virou
  * (`funilDoCheckout`). Nada de nome, endereço ou telefone.
@@ -216,6 +232,39 @@ export async function carrinhosDesde(
     pagination: { take: 20_000, order: { created_at: "DESC" } },
   })
   return data as unknown as CarrinhoDoFunil[]
+}
+
+/**
+ * Os carrinhos criados na janela, com o que o checkout do Início usa pra
+ * saber até onde cada um foi (`ateOndeFoi`): a marca de quando o checkout
+ * abriu, o e-mail e o documento (o contato), o endereço e o frete (a
+ * entrega), se fechou e o pedido que virou. Nada disso sai da rota: a
+ * resposta é só a contagem de cada passo.
+ */
+export async function carrinhosDoCheckout(
+  container: MedusaContainer,
+  janela: { de: Date; ate: Date }
+): Promise<CarrinhoDoCheckout[]> {
+  const { data } = await query(container).graph({
+    entity: "cart",
+    fields: [
+      "id",
+      "created_at",
+      "email",
+      "completed_at",
+      "metadata",
+      "items.id",
+      "billing_address.metadata",
+      "shipping_address.postal_code",
+      "shipping_address.address_1",
+      "shipping_address.metadata",
+      "shipping_methods.id",
+      "order.id",
+    ],
+    filters: { created_at: { $gte: janela.de, $lt: janela.ate } },
+    pagination: { take: 20_000, order: { created_at: "DESC" } },
+  })
+  return data as unknown as CarrinhoDoCheckout[]
 }
 
 /**
@@ -322,6 +371,25 @@ export async function pedidosRecentes(
     pagination: { take: limite, order: { created_at: "DESC" } },
   })
   return data as unknown as PedidoCru[]
+}
+
+/**
+ * Os pedidos FEITOS na janela (os mais novos primeiro, até `limite`, com o
+ * total) e quantos são ao todo — os "Pedidos do período" do Início.
+ */
+export async function pedidosFeitosEntre(
+  container: MedusaContainer,
+  janela: { de: Date; ate: Date },
+  limite: number
+): Promise<{ pedidos: PedidoCru[]; total: number }> {
+  const { data, metadata } = await query(container).graph({
+    entity: "order",
+    fields: CAMPOS_DA_LISTA,
+    filters: { is_draft_order: false, created_at: { $gte: janela.de, $lt: janela.ate } },
+    // Com o `skip`: sem ele, o `query.graph` não devolve a contagem (o `metadata` vem vazio).
+    pagination: { skip: 0, take: limite, order: { created_at: "DESC" } },
+  })
+  return { pedidos: data as unknown as PedidoCru[], total: Number(metadata?.count ?? data.length) }
 }
 
 /**
@@ -525,6 +593,41 @@ export async function nomesDosProdutos(
 }
 
 /**
+ * Os produtos com o SKU de cada variação — um item vendido na Nuvemshop vira
+ * o produto de hoje pelo SKU (os mais vendidos do Início).
+ */
+export async function produtosComSku(container: MedusaContainer): Promise<ProdutoComSku[]> {
+  const { data } = await query(container).graph({
+    entity: "product",
+    fields: ["id", "title", "thumbnail", "variants.sku"],
+    pagination: { take: 500 },
+  })
+  return (
+    data as {
+      id: string
+      title?: string | null
+      thumbnail?: string | null
+      variants?: ({ sku?: string | null } | null)[] | null
+    }[]
+  ).map((p) => ({
+    id: p.id,
+    titulo: p.title ?? "Produto",
+    imagem: p.thumbnail ?? null,
+    skus: (p.variants ?? []).map((v) => v?.sku),
+  }))
+}
+
+/** O endereço de cada categoria ("barba" → a página /barba): as páginas de categoria das visitas. */
+export async function enderecosDasCategorias(container: MedusaContainer): Promise<string[]> {
+  const { data } = await query(container).graph({
+    entity: "product_category",
+    fields: ["handle"],
+    pagination: { take: 100 },
+  })
+  return (data as { handle?: string | null }[]).flatMap((c) => (c.handle ? [c.handle] : []))
+}
+
+/**
  * Marketing: quem recebe ofertas por e-mail — os novos da semana e o total.
  * A mesma conta da aba Newsletter de Clientes (`newsletterDa`): o rodapé e a
  * caixa da conta juntos, sem repetir o e-mail.
@@ -547,7 +650,9 @@ export async function quantosRascunhos(container: MedusaContainer): Promise<numb
     entity: "product",
     fields: ["id"],
     filters: { status: "draft" },
-    pagination: { take: 1 },
+    // Com o `skip` (0186): sem ele, o `query.graph` não devolve a contagem, e o item do marketing
+    // ("Produtos em rascunho") nunca aparecia.
+    pagination: { skip: 0, take: 1 },
   })
   return Number(metadata?.count ?? 0)
 }
