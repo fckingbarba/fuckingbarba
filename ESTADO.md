@@ -3783,6 +3783,16 @@ do dia de comprar de novo (uns 20 dias depois de o produto acabar, a tolerância
 
 - [ ] **Depois do deploy (você):** CRM → Fluxos → Resgate e sunset → "Mandar pra mim" (os botões do
       teste só levam pra loja) e depois a chave. Vale pra quem ficar em risco depois de ligar.
+
+**O resgate: os 2 e-mails sem cupom em texto simples — pronto em 28/09 (entrega 0195).** No seu
+teste, os 4 caíram em Promoções. A pergunta ("Tá tudo bem com a barba?") e o "Quer continuar
+recebendo?" agora saem como um e-mail seu: texto puro, sem foto, os botões viram links, sem emoji,
+e a resposta vai pro atendimento. Os 2 do cupom continuam na cara da loja, em Promoções.
+
+- [ ] **Depois do deploy (você):** CRM → Fluxos → Resgate e sunset → "Mandar pra mim" de novo, e ver
+      onde caem os 2 sem cupom. Se ainda cair em Promoções, o próximo passo é um endereço só pros
+      lembretes (um subdomínio, como o news).
+
 **A parcela mínima do cartão, editável — pronta em 27/09 (entrega 0157).** O pedido dele: "quero
 poder editar a parcela mínima no cartão, ali diz 5 reais". Em **Configurações → Pagamento**, o
 bloco **Parcelas no cartão** tem o campo **Parcela mínima**.

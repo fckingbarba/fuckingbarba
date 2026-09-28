@@ -8,13 +8,19 @@ import type { BlocoDoCrm, EmailDoCrm, ProdutoDoCrm } from "./crm"
  *
  *   - no dia: "Tá tudo bem com a barba?", com os 4 botões do plano (escolha
  *     do dono, 28/09): "Tá caro", "Esqueci de repor", "Não vi resultado" e
- *     "Comprei em outro lugar". É um LEMBRETE: sem desconto, assinado, e sem
- *     palavra de propaganda;
+ *     "Comprei em outro lugar". Sem desconto e sem palavra de propaganda;
  *   - 7 dias: 15% pra voltar — só pra quem não respondeu (OFERTA: o cupom é
  *     o lugar de Promoções), com o "Refazer o pedido" já com o desconto;
  *   - 9 dias: o cupom vence amanhã;
  *   - 45 dias, sem sinal nenhum: "Quer continuar recebendo?" (o sunset), com
- *     o "Sim, quero continuar". Outro lembrete.
+ *     o "Sim, quero continuar".
+ *
+ * OS DOIS SEM CUPOM SÃO TEXTO SIMPLES (o estilo "pessoal", entrega 0195): no
+ * teste do dono, os quatro caíram em Promoções — na cara da loja, os 4
+ * botões grandes com emoji e o "continuar recebendo" pesam como propaganda.
+ * Em texto, os botões viram links, sem emoji, e o e-mail sai como um e-mail
+ * dele, com a resposta indo pro atendimento. Os dois do cupom continuam
+ * oferta: Promoções é o lugar do desconto.
  *
  * O dia sem o que mostrar (sem os links, sem cupom) não tem e-mail: o motor
  * anota como pulado. Código puro, com testes.
@@ -65,7 +71,7 @@ export function emailDoResgate(r: ResgateDoEmail): EmailDoCrm | null {
       if (!r.botoes) return null
       return {
         ...base,
-        estilo: "lembrete",
+        estilo: "pessoal",
         assunto: "Tá tudo bem com a barba?",
         previa: "Conta pra gente o que aconteceu: é só escolher.",
         titulo: "Tá tudo bem?",
@@ -78,10 +84,10 @@ export function emailDoResgate(r: ResgateDoEmail): EmailDoCrm | null {
           {
             tipo: "escolhas",
             itens: [
-              { texto: "💸 Tá caro", href: r.botoes.caro },
-              { texto: "🤦 Esqueci de repor", href: r.botoes.esqueci },
-              { texto: "🤔 Não vi resultado", href: r.botoes.resultado },
-              { texto: "🛒 Comprei em outro lugar", href: r.botoes.outro },
+              { texto: "Tá caro", href: r.botoes.caro },
+              { texto: "Esqueci de repor", href: r.botoes.esqueci },
+              { texto: "Não vi resultado", href: r.botoes.resultado },
+              { texto: "Comprei em outro lugar", href: r.botoes.outro },
             ],
           },
         ],
@@ -136,7 +142,7 @@ export function emailDoResgate(r: ResgateDoEmail): EmailDoCrm | null {
       if (!r.sim) return null
       return {
         ...base,
-        estilo: "lembrete",
+        estilo: "pessoal",
         assunto: "Quer continuar recebendo nossos e-mails?",
         previa: "Se não, a gente para por aqui.",
         titulo: "Quer continuar?",

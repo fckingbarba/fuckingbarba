@@ -3,8 +3,9 @@ import { emailDoResgate, type ResgateDoEmail } from "../resgate"
 
 /**
  * Os e-mails do resgate e do sunset (0192): a pergunta de 1 clique e o
- * "Quer continuar?" são lembrete, sem palavra de propaganda; o cupom de 15%
- * e o "vence amanhã" são oferta, com o "Refazer o pedido" já com o desconto.
+ * "Quer continuar?" são texto simples (0195), sem palavra de propaganda; o
+ * cupom de 15% e o "vence amanhã" são oferta, com o "Refazer o pedido" já
+ * com o desconto.
  */
 
 const LOJA = "https://www.fuckingbarba.com.br"
@@ -43,11 +44,15 @@ const PROPAGANDA =
   /esqueceu|última chamada|ainda dá tempo|em 1 clique|tá aqui|grátis|desconto|oferta|cupom/i
 
 describe("os e-mails do resgate", () => {
-  it("no dia: “Tá tudo bem com a barba?”, com os 4 botões, como lembrete", () => {
+  it("no dia: “Tá tudo bem com a barba?”, com os 4 botões, em texto simples", () => {
     const { bruto, pronto } = montar({})!
     expect(bruto.assunto).toBe("Tá tudo bem com a barba?")
-    expect(bruto.estilo).toBe("lembrete")
+    expect(bruto.estilo).toBe("pessoal")
     expect(pronto.cabecalhos).toEqual({})
+    // Texto simples: sem foto e sem emoji (os botões viram links).
+    expect(pronto.html).not.toContain("<img")
+    expect(pronto.html).not.toMatch(/\p{Extended_Pictographic}/u)
+    expect(pronto.html).toContain("Sair da lista")
     expect(bruto.texto).toContain("o Fator de Crescimento da sua última compra acabou")
     for (const [texto, t] of [
       ["Tá caro", "caro"],
@@ -92,10 +97,12 @@ describe("os e-mails do resgate", () => {
     expect(montar({ toque: "resgate-9d", cupom: null })).toBeNull()
   })
 
-  it("45 dias: “Quer continuar recebendo?”, com o Sim, como lembrete", () => {
+  it("45 dias: “Quer continuar recebendo?”, com o Sim, em texto simples", () => {
     const { bruto, pronto } = montar({ toque: "resgate-45d" })!
     expect(bruto.assunto).toBe("Quer continuar recebendo nossos e-mails?")
-    expect(bruto.estilo).toBe("lembrete")
+    expect(bruto.estilo).toBe("pessoal")
+    expect(pronto.cabecalhos).toEqual({})
+    expect(pronto.html).not.toContain("<img")
     expect(pronto.html).toContain("Sim, quero continuar")
     expect(pronto.html).toContain("https://api.exemplo/crm/resgate?t=sim")
     expect(bruto.texto).toContain("Os e-mails dos seus pedidos continuam chegando")
