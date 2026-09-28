@@ -1345,12 +1345,14 @@ try {
       await mudarFluxos({ fluxo: id, ligado: true })
     await mudarFluxos({ fluxo: "estreia", ligado: false })
     await mudarFluxos({ fluxo: "reposicao", ligado: false })
+    await mudarFluxos({ fluxo: "jornada", ligado: false })
     await rodar()
     const tela0 = (await fluxos(tokenDoDono)).corpo
-    const esperaODono = (id) => id === "estreia" || id === "reposicao"
+    const esperaODono = (id) => id === "estreia" || id === "reposicao" || id === "jornada"
     ok(
       tela0.fluxos?.map((f) => f.id).join() ===
-        "pix,checkout,carrinho,reposicao,boas-vindas,estreia" &&
+        "pix,checkout,carrinho,reposicao,jornada,boas-vindas,estreia" &&
+        tela0.fluxos.find((f) => f.id === "jornada")?.toques.length === 5 &&
         tela0.fluxos.every((f) => (esperaODono(f.id) ? !f.ligado : f.ligado && f.desde)) &&
         tela0.fluxos.find((f) => f.id === "estreia")?.toques.length === 2 &&
         tela0.fluxos.find((f) => f.id === "reposicao")?.toques.length === 4 &&
@@ -1358,7 +1360,7 @@ try {
         tela0.fluxos.find((f) => f.id === "pix")?.toques.length === 3 &&
         tela0.fluxos.find((f) => f.id === "carrinho")?.toques.length === 5 &&
         tela0.fluxos.find((f) => f.id === "boas-vindas")?.toques.length === 6,
-      "os seis fluxos, com os toques de cada um: quatro ligados, e a estreia e a reposição esperando o dono",
+      "os sete fluxos, com os toques de cada um: quatro ligados, e a estreia, a reposição e a jornada esperando o dono",
       JSON.stringify(tela0.fluxos?.map((f) => [f.id, f.ligado, f.desde, f.toques?.length]))
     )
     const errados = await Promise.all([
@@ -2356,6 +2358,82 @@ try {
       }
     }
 
+    {
+      titulo("A jornada do resultado: depois que o pedido chega")
+      const daJornada = (e) =>
+        e.tags?.some((t) => t.name === "tipo" && t.value === "crm-jornada") && deFluxo(e)
+      const COMPROU_O_FATOR = foraDoControle("jornada.fator", "jornada")
+      // Ligada ANTES da entrega: a jornada só vale pro que chega depois de ligar.
+      await mudarFluxos({ fluxo: "jornada", ligado: true })
+      try {
+        const doPedido = await fabrica.pedidoPix(COMPROU_O_FATOR, [
+          ["fator-de-crescimento-para-barba", 1],
+        ])
+        await fabrica.pagar(doPedido)
+        await fabrica.entregar(
+          doPedido,
+          await fabrica.enviar(doPedido, { codigo: `QJ${Date.now() % 1e9}BR`, avisar: false })
+        )
+        const chegou = Date.now()
+        const aos = (dias) => new Date(diurno(chegou + dias * DIA_MS + 5 * MIN)).toISOString()
+        const assuntos = () =>
+          resend.emails
+            .filter((e) => e.to?.includes(COMPROU_O_FATOR) && daJornada(e))
+            .map((e) => e.subject)
+        await rodar({ agora: aos(0), email: COMPROU_O_FATOR })
+        await rodar({ agora: aos(3), email: COMPROU_O_FATOR })
+        const primeiro = resend.emails.find((e) => e.to?.includes(COMPROU_O_FATOR) && daJornada(e))
+        ok(
+          JSON.stringify(assuntos()) ===
+            JSON.stringify([
+              "Chegou! Veja como usar o Fator de Crescimento",
+              "O segredo é não pular dia",
+            ]) &&
+            /^Matheus, da FuckingBarba </.test(primeiro?.from ?? "") &&
+            !primeiro?.headers?.["List-Unsubscribe"],
+          "quando chega, o modo de uso; em 3 dias, não pular dia — como lembrete",
+          JSON.stringify(assuntos())
+        )
+        await rodar({ agora: aos(7), email: COMPROU_O_FATOR })
+        const e7 = resend.emails.find(
+          (e) => e.to?.includes(COMPROU_O_FATOR) && e.subject === "Uma semana. Como tá indo?"
+        )
+        const botoes = [...(e7?.html ?? "").matchAll(/href="([^"]+\/crm\/checkin\?t=[^"]+)"/g)].map(
+          (m) => m[1].replaceAll("&amp;", "&")
+        )
+        const [bem, duvida] = await Promise.all(
+          botoes.slice(0, 2).map((b) => fetch(b, { redirect: "manual" }).catch(() => null))
+        )
+        const paraOnde = (r) => r?.headers.get("location") ?? ""
+        ok(
+          botoes.length === 2 &&
+            !/não gostei/i.test(e7?.html ?? "") &&
+            bem?.status === 303 &&
+            paraOnde(bem).includes("/avaliar/") &&
+            duvida?.status === 303 &&
+            (paraOnde(duvida).startsWith("https://wa.me/") ||
+              paraOnde(duvida).includes("/contato")),
+          "7 dias: “Como tá indo?” com dois botões — “Tá indo bem” leva pra avaliar, “Tenho uma dúvida” pro WhatsApp da loja",
+          JSON.stringify({ botoes: botoes.length, bem: paraOnde(bem), duvida: paraOnde(duvida) })
+        )
+        await rodar({ agora: aos(21), email: COMPROU_O_FATOR })
+        await rodar({ agora: aos(60), email: COMPROU_O_FATOR })
+        const rotina = resend.emails.find(
+          (e) => e.to?.includes(COMPROU_O_FATOR) && e.subject === "Agora completa a rotina"
+        )
+        ok(
+          assuntos().length === 5 &&
+            assuntos().at(-1) === "Dia 60: é aqui que muita gente desiste" &&
+            Boolean(rotina?.html.includes("/produtos/oleo-para-barba?")),
+          "21 dias: a rotina completa (quem tem o Fator ganha o óleo); 60 dias: o dia 60 do Fator",
+          JSON.stringify(assuntos())
+        )
+      } finally {
+        // O banco local é de todos: a jornada volta a desligada, mesmo se algo acima caiu.
+        await mudarFluxos({ fluxo: "jornada", ligado: false })
+      }
+    }
+
     titulo("A aba Fluxos")
     await semIpNasFontes(dono.contexto)
     await dono.pagina.goto(`${PAINEL}/crm/fluxos`)
@@ -2364,19 +2442,20 @@ try {
       .locator('[data-fluxo="estreia"] [data-publico-da-estreia] [data-jeito]')
       .allTextContents()
     ok(
-      (await dono.pagina.locator("[data-fluxo]").count()) === 6 &&
+      (await dono.pagina.locator("[data-fluxo]").count()) === 7 &&
         (await dono.pagina.locator('.abas [data-aba="fluxos"][aria-current="page"]').count()) ===
           1 &&
         (await dono.pagina.locator('[data-ligar][aria-checked="true"]').count()) === 4 &&
         (await dono.pagina.locator('[data-ligar="estreia"][aria-checked="false"]').count()) === 1 &&
         (await dono.pagina.locator('[data-ligar="reposicao"][aria-checked="false"]').count()) ===
           1 &&
+        (await dono.pagina.locator('[data-ligar="jornada"][aria-checked="false"]').count()) === 1 &&
         // As boas-vindas não têm controle: o cupom foi a pessoa que pediu. A estreia tem.
         (await dono.pagina.locator('[data-fluxo="boas-vindas"] .numero--controle').count()) === 0 &&
         (await dono.pagina.locator('[data-fluxo="estreia"] .numero--controle').count()) === 1 &&
         jeitosNaTela.length === 4 &&
         jeitosNaTela.filter((t) => t.includes("cupom")).length === 2,
-      "a aba: os seis fluxos, quatro ligados; a estreia e a reposição desligadas, a estreia com o controle e os 4 jeitos (2 com cupom)",
+      "a aba: os sete fluxos, quatro ligados; a estreia, a reposição e a jornada desligadas, a estreia com o controle e os 4 jeitos (2 com cupom)",
       JSON.stringify(jeitosNaTela.map(semEspaco))
     )
     const telaAgora = (await fluxos(tokenDoDono)).corpo

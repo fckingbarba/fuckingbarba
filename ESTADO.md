@@ -3714,6 +3714,26 @@ de quando o produto que a pessoa comprou está acabando.
 - [ ] **Depois da estreia (você, dia 3/10):** CRM → Fluxos → Reposição → "Mandar pra mim" e depois
       a chave. Só vale pra quem o produto acabar depois de ligar: quem já passou do dia fica pro
       resgate (a próxima etapa).
+
+**CRM, parte 13: a jornada do resultado — pronto em 28/09 (entrega 0187).** São os e-mails de
+depois que o pedido chega, contados do dia da entrega (pelo aviso da Frenet).
+
+- **Quando chega:** "Chegou! Veja como usar o Fator de Crescimento", com o modo de uso da página
+  do produto.
+- **3 dias depois**, pra quem levou o Fator: "O segredo é não pular dia", com a linha do tempo.
+- **7 dias depois:** "Uma semana. Como tá indo?", com dois botões:
+  - **😀 Tá indo bem**, que leva pra avaliar o produto;
+  - **🤔 Tenho uma dúvida**, que abre o WhatsApp da loja com a mensagem pronta sobre o pedido.
+  - Não tem "não gostei" (sua escolha).
+- **21 dias depois:** "Agora completa a rotina", com o que falta. Quem tem o Fator ganha a
+  sugestão do óleo; com os dois, a do shampoo; quem levou 1 Fator só vê os 3.
+- **60 dias depois**, pra quem levou o Fator: "Dia 60: é aqui que muita gente desiste".
+- **Sem desconto,** com a cara dos lembretes. O texto é o das páginas dos produtos.
+- **A política de privacidade** conta.
+- **Começa DESLIGADA.**
+
+- [ ] **Depois do deploy (você):** CRM → Fluxos → Jornada → "Mandar pra mim" nos dias (é a jornada
+      do Fator) e depois a chave. Vale pros pedidos que chegarem depois de ligar.
 **A parcela mínima do cartão, editável — pronta em 27/09 (entrega 0157).** O pedido dele: "quero
 poder editar a parcela mínima no cartão, ali diz 5 reais". Em **Configurações → Pagamento**, o
 bloco **Parcelas no cartão** tem o campo **Parcela mínima**.

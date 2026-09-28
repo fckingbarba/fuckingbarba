@@ -85,6 +85,12 @@ export default async function Privacidade() {
           lista&rdquo;, e no WhatsApp é só responder que não quer: a gente não manda mais.
         </P>
         <P>
+          <b>Depois que o seu pedido chega</b>: até cinco e-mails nos dois meses seguintes, sobre a
+          compra — como usar, se está tudo certo com uma semana (com o botão que abre o nosso
+          WhatsApp), o que completa a rotina e, pra quem levou o Fator, o acompanhamento do
+          tratamento. Dá pra sair em qualquer um.
+        </P>
+        <P>
           <b>Quando o que você comprou estiver acabando</b>: a gente avisa por e-mail. São até
           quatro, de uma semana antes a uns dias depois do dia em que ele deve acabar, pela conta de
           quanto cada produto dura, e com o botão que monta o pedido de novo. Vale pra quem comprou

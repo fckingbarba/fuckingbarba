@@ -18,6 +18,8 @@ const QUEM_ENTRA: Record<IdDoFluxo, string> = {
   carrinho: "Pôs na sacola e não foi pro checkout — e a loja sabe quem é.",
   reposicao:
     "Comprou, e o produto está pra acabar, pela conta dos dias dos Ajustes: 7 e 2 dias antes, 3 e 10 dias depois, com o “Refazer o pedido”. Todo cliente, da loja nova e da antiga, sem cupom. Começa desligado: ligue depois da estreia, em 3/10.",
+  jornada:
+    "O pedido chegou (pelo aviso da Frenet, ou 10 dias depois de pago). O modo de uso quando chega, o “Como tá indo?” em 7 dias (só “Tá indo bem” e “Tenho uma dúvida”), a rotina completa em 21, e o Fator em 3 e 60 dias. Começa desligado.",
   "boas-vindas":
     "Se cadastrou no pop-up da 1ª compra. Depois do cupom, os e-mails da trilha do que a pessoa via: crescer a barba, cuidar da barba, cabelo — ou, sem produto, “Barba ou cabelo?”. Desligado, o pop-up some da loja.",
   estreia:

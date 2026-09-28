@@ -2971,6 +2971,44 @@ O `conferir-crm.mjs` faz duas pessoas de ponta a ponta:
 - uma da loja nova: o shampoo acaba, e a sacola vem com o endereço da última compra.
 A data de pagamento da Nuvemshop vem sem hora, e vale o meio-dia de Brasília (`dataDeBrasilia`):
 é daí que o conferidor conta o dia de acabar.
+
+**O CRM, parte 13: a jornada do resultado** (entrega 0187, a etapa 3 do plano). São os e-mails de
+depois que o pedido chega. É um fluxo do motor que começa DESLIGADO (`FLUXOS.jornada`), com
+prioridade 5: depois da reposição, antes das boas-vindas.
+
+- **Um pedido, uma jornada** (`lib/crm/jornada.ts`):
+  - a chave é o pedido da loja nova, e os da Nuvemshop já chegaram há tempo;
+  - o começo (e o `inicio`) é a chegada: o aviso de entrega da Frenet, ou `CHEGA_SEM_AVISO_DIAS`
+    (10) depois de pago (`chegadaDo`). Ligar não dispara pro que chegou antes;
+  - pedido novo começa outra jornada, e o motor fica com a mais nova (um fluxo por vez).
+- **Os toques**, contados da chegada (`emailDaJornada`, em `lib/emails/jornada.ts`):
+  - quando chega: o modo de uso da página do produto;
+  - 3 dias: não pular dia, com a linha do tempo do Fator (só com ele);
+  - 7 dias: o check-in, "Como tá indo?";
+  - 21 dias: a rotina completa (`sugestoesDaRotina`, a matriz do plano, pelo que a pessoa tem em
+    todas as compras, até dois produtos);
+  - 60 dias: o dia 60 do Fator (só com ele).
+  O texto é o da página de cada produto (`conteudosDasTrilhas`): sem a seção, o dia fica como
+  pulado. Todos são "lembrete", sem palavra de propaganda (o teste recusa).
+- **O check-in** tem só dois botões: "Tá indo bem" e "Tenho uma dúvida". Nada de "não gostei":
+  foi escolha do dono.
+  - O link é `lib/crm/checkin.ts`: o pedido e a resposta cifrados, como o da escolha.
+  - `GET /crm/checkin` anota a resposta no registro dos fluxos (`crm.anotarCheckin`, o toque
+    `jornada-checkin`, e a última vale) e redireciona:
+    - "bem" vai pra página de avaliar o pedido (`linkDaAvaliacao`);
+    - "duvida" vai pro WhatsApp da loja com a mensagem pronta (`whatsappDaDuvida`). Sem o número
+      nas Configurações, vai pra `/contato`.
+  - A resposta não é e-mail: o `registrosDoMotor` deixa o `TOQUE_DO_CHECKIN` de fora do teto,
+    como a escolha.
+- **O nome** das pessoas (a conta ou a loja antiga) é o `nomesDasPessoas` do motor, o mesmo da
+  reposição.
+- **No painel,** o bloco Jornada fica na aba Fluxos. O "Mandar pra mim" traz a jornada do Fator,
+  com um pedido de mentira (o clique do check-in cai na home).
+
+O `conferir-crm.mjs` liga a jornada antes de entregar um pedido do Fator e anda até os 60 dias:
+- confere os 5 e-mails;
+- clica nos dois botões do check-in: um vai pro avaliar, o outro pro WhatsApp ou pro contato;
+- confere que a rotina completa traz o óleo.
 **O preço e o promocional no painel** (entregas 0098 e 0102): os dois campos de cada produto na
 lista de Produtos, como na Nuvemshop (a 0098 tinha só o promocional, atrás de um botão). A regra é
 `lib/painel/promocao.ts`, pura: `lerMudancaDePreco` (o corpo `{ preco?, promocional? }` contra o
