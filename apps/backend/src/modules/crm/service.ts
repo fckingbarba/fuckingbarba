@@ -814,6 +814,27 @@ export default class CrmService extends Tabelas {
     )
   }
 
+  /**
+   * A RESPOSTA DO CHECK-IN DE 7 DIAS DA JORNADA (entrega 0187): "bem" ou
+   * "duvida", no registro dos fluxos, como o toque `jornada-checkin` do
+   * pedido (a resposta no `como`), e a última vale. Não conta como e-mail.
+   */
+  @InjectManager()
+  async anotarCheckin(
+    email: string,
+    pedido: string,
+    resposta: string,
+    @MedusaContext() ctx: Contexto = {}
+  ): Promise<void> {
+    await ctx.manager!.execute(
+      `insert into crm_envio (id, email, fluxo, chave, toque, como, em, created_at, updated_at)
+       values (?, ?, 'jornada', ?, 'jornada-checkin', ?, now(), now(), now())
+       on conflict (fluxo, chave, toque) where deleted_at is null
+       do update set como = excluded.como, em = now(), updated_at = now()`,
+      [generateEntityId(undefined, "env"), email, pedido, resposta]
+    )
+  }
+
   /** O e-mail saiu: a reserva vira envio, com o id do Resend e o cupom, se teve. */
   @InjectManager()
   async confirmarToque(
