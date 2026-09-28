@@ -2,10 +2,11 @@ import type { MedusaContainer } from "@medusajs/framework/types"
 import { Modules } from "@medusajs/framework/utils"
 import { whatsappDaLoja } from "../atendimento"
 import { lerConfiguracoes } from "../configuracoes"
-import { emailDaPrimeiraCompra, emailDaTrilha } from "../emails/boas-vindas"
+import { emailDaPrimeiraCompra, emailDaTrilha, PRODUTOS_DAS_TRILHAS } from "../emails/boas-vindas"
 import { emailDoFluxo, type CompraDoFluxo } from "../emails/fluxos"
 import type { EmailDoCrm } from "../emails/crm"
 import { emailDaEstreia } from "../emails/estreia"
+import { emailDaJornada } from "../emails/jornada"
 import { emailDaReposicao } from "../emails/reposicao"
 import { urlDaLoja } from "../emails/moldura"
 import {
@@ -20,6 +21,7 @@ import {
   IDS_DOS_FLUXOS,
   lerConfigDosFluxos,
   ehToqueDaEstreia,
+  ehToqueDaJornada,
   ehToqueDaReposicao,
   ehToqueDasBoasVindas,
   PREFIXO_DO_CUPOM,
@@ -27,8 +29,11 @@ import {
   validadeDoCupom,
   type IdDoToque,
   type IdDoToqueDaEstreia,
+  type IdDoToqueDaJornada,
   type IdDoToqueDaReposicao,
 } from "./fluxos"
+import { linksDoCheckin } from "./checkin"
+import { SKU_DA_ROTINA } from "./jornada"
 import { SUBIR_PARA } from "./reposicao"
 import { conteudosDasTrilhas } from "./boas-vindas"
 import { produtosDoEmail, TITULO_DA_TRILHA } from "./primeira-compra"
@@ -63,8 +68,46 @@ export async function exemplosDoToque(
 ): Promise<EmailDoCrm[]> {
   if (ehToqueDaEstreia(toque)) return exemplosDaEstreia(container, membro, toque, agora)
   if (ehToqueDaReposicao(toque)) return exemplosDaReposicao(container, membro, toque, agora)
+  if (ehToqueDaJornada(toque)) return exemplosDaJornada(container, membro, toque)
   const exemplo = await exemploDoToque(container, membro, toque, agora)
   return exemplo ? [exemplo] : []
+}
+
+async function exemplosDaJornada(
+  container: MedusaContainer,
+  membro: { email: string; nome: string },
+  toque: IdDoToqueDaJornada
+): Promise<EmailDoCrm[]> {
+  const loja = urlDaLoja()
+  if (!loja) return []
+  const [{ conteudos }, porSku, whatsapp, lojas] = await Promise.all([
+    conteudosDasTrilhas(container, []),
+    produtosPorSku(container, [SKU_DA_ROTINA.oleo, SKU_DA_ROTINA.tresFatores]),
+    whatsappDaLoja(container),
+    container.resolve(Modules.STORE).listStores({}, { select: ["metadata"], take: 1 }),
+  ])
+  const { empresa, atendimento } = lerConfiguracoes(lojas[0]?.metadata)
+  const fator = conteudos.get(PRODUTOS_DAS_TRILHAS.fator) ?? null
+  const email = emailDaJornada({
+    toque,
+    para: membro.email,
+    nome: membro.nome,
+    numero: 3312,
+    principal: fator,
+    fator,
+    sugestoes: [SKU_DA_ROTINA.oleo, SKU_DA_ROTINA.tresFatores].flatMap((s) => porSku.get(s) ?? []),
+    // Um pedido que não existe: o clique anota nada e cai na home.
+    checkin: toque === "jornada-7d" ? linksDoCheckin(`order_${"0".repeat(26)}`) : null,
+    sair: linksDeSair(loja, membro.email),
+    loja: {
+      url: loja,
+      whatsapp,
+      empresa: empresa.razaoSocial,
+      cnpj: empresa.cnpj,
+      atendimento: atendimento.email,
+    },
+  })
+  return email ? [email] : []
 }
 
 async function exemplosDaReposicao(
@@ -160,7 +203,7 @@ async function exemplosDaEstreia(
 export async function exemploDoToque(
   container: MedusaContainer,
   membro: { email: string; nome: string },
-  toque: Exclude<IdDoToque, IdDoToqueDaEstreia | IdDoToqueDaReposicao>,
+  toque: Exclude<IdDoToque, IdDoToqueDaEstreia | IdDoToqueDaReposicao | IdDoToqueDaJornada>,
   agora = new Date()
 ): Promise<EmailDoCrm | null> {
   const loja = urlDaLoja()

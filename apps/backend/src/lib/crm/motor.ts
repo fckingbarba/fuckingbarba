@@ -9,9 +9,10 @@ import { EQUIPE } from "../../modules/equipe"
 import type EquipeService from "../../modules/equipe/service"
 import { lerConfiguracoes } from "../configuracoes"
 import { enviarEmail } from "../email"
-import { emailDaTrilha, type ConteudoDoProduto } from "../emails/boas-vindas"
+import { emailDaTrilha, PRODUTOS_DAS_TRILHAS, type ConteudoDoProduto } from "../emails/boas-vindas"
 import type { ProdutoDoCrm } from "../emails/crm"
 import { emailDaEstreia, type EstreiaDoEmail } from "../emails/estreia"
+import { emailDaJornada } from "../emails/jornada"
 import { emailDaReposicao } from "../emails/reposicao"
 import { emailDoFluxo, type CompraDoFluxo, type ItemDoFluxo } from "../emails/fluxos"
 import { urlDaLoja } from "../emails/moldura"
@@ -19,6 +20,7 @@ import { mudarMetadataDaLoja } from "../metadata-da-loja"
 import { estadoDaSessao, sessaoDoParceiro } from "../pagamento/parceiros"
 import { inscricoesDaNewsletter, lerClientes } from "../painel/ler"
 import { cadastrosDaNewsletter, conteudosDasTrilhas, trilhaDaPessoa } from "./boas-vindas"
+import { linksDoCheckin } from "./checkin"
 import { comQuemManda, dadosDaLoja } from "./envio"
 import { criarCupomDoFluxo } from "./cupom"
 import { linksDeEscolha } from "./escolha"
@@ -32,6 +34,7 @@ import {
   type PessoaDaEstreia,
 } from "./estreia"
 import { produtosDosExemplos } from "./exemplos-dos-emails"
+import { publicoDaJornada, type JornadaDoPedido } from "./jornada"
 import { publicoDaReposicao, SUBIR_PARA, type Reposicao } from "./reposicao"
 import {
   CHAVE_DOS_FLUXOS,
@@ -43,6 +46,7 @@ import {
   guardarConfigDosFluxos,
   IDS_DOS_FLUXOS,
   ehToqueDaEstreia,
+  ehToqueDaJornada,
   ehToqueDaReposicao,
   ehToqueDasBoasVindas,
   ehToqueDeCompra,
@@ -466,6 +470,21 @@ export async function rodarOsFluxos(
       comprou: false,
     })
   }
+  // A jornada do resultado: cada pedido da loja nova, a partir do dia em que chegou.
+  const daJornada = ligados.jornada ? await publicoDaJornada(container, agora) : []
+  const jornadas = new Map<string, JornadaDoPedido>()
+  for (const j of daJornada) {
+    jornadas.set(j.pedido, j)
+    // O começo é a chegada: ligar a jornada não dispara pro que chegou antes.
+    entradas.push({
+      fluxo: "jornada",
+      chave: j.pedido,
+      email: j.email,
+      comeco: j.chegou,
+      inicio: j.chegou,
+      comprou: false,
+    })
+  }
   if (so) {
     const quem = minusculo(so)
     entradas.splice(0, entradas.length, ...entradas.filter((e) => e.email === quem))
@@ -499,6 +518,9 @@ export async function rodarOsFluxos(
       container,
       entradas.filter((e) => e.fluxo === "boas-vindas").map((e) => e.email)
     ))
+  // O que os e-mails da jornada mostram: só se alguém dela for receber agora.
+  let daJornadaLida: Promise<DadosDaJornada> | null = null
+  const jornada = () => (daJornadaLida ??= lerDadosDaJornada(container, [...jornadas.values()]))
   // O que os e-mails da reposição mostram: só se alguém dela for receber agora.
   let daReposicaoLida: Promise<DadosDaReposicao> | null = null
   const reposicao = () =>
@@ -532,6 +554,57 @@ export async function rodarOsFluxos(
     if (decisao.tipo === "controle") {
       if (await crm.anotarNoFluxo({ ...base, toque: decisao.toque.id, como: "controle" }))
         relatorio.controle++
+      continue
+    }
+    if (entrada.fluxo === "jornada") {
+      const j = jornadas.get(entrada.chave)
+      const toque = decisao.toque.id
+      if (!j || !ehToqueDaJornada(toque)) continue
+      const dados = await jornada()
+      const doPedido = j.handles.flatMap((h) => dados.conteudos.get(h) ?? [])
+      const email1 = emailDaJornada({
+        toque,
+        para: email,
+        nome: dados.nomes.get(email) ?? null,
+        numero: j.numero,
+        principal:
+          doPedido.find((c) => c.uso?.passos.length || c.duvidas?.perguntas.length) ?? null,
+        fator: j.temFator ? (dados.conteudos.get(PRODUTOS_DAS_TRILHAS.fator) ?? null) : null,
+        sugestoes: j.sugestoes.flatMap((s) => dados.porSku.get(s) ?? []),
+        checkin: toque === "jornada-7d" ? linksDoCheckin(j.pedido) : null,
+        sair: linksDeSair(loja, email),
+        loja: infoDaLoja,
+      })
+      // O dia que o pedido não tem (sem o Fator, sem a seção na página, sem o que sugerir): pulado.
+      if (!email1) {
+        if (await crm.anotarNoFluxo({ ...base, toque, como: "pulado" })) relatorio.pulados++
+        continue
+      }
+      const reserva = await crm.reservarToque({ ...base, toque })
+      if (!reserva) continue
+      let falha: string | null = null
+      try {
+        const enviado = await enviarEmail(comQuemManda(email1), logger, {
+          idempotencia: `crm-jornada/${entrada.chave}/${toque}`,
+          tipo: "crm-jornada",
+        })
+        if (enviado.ok) {
+          await crm.confirmarToque(reserva, {
+            resendId: enviado.id ?? null,
+            cupom: null,
+            cupomAte: null,
+          })
+          relatorio.enviados++
+          await new Promise((ok) => setTimeout(ok, PAUSA_MS))
+        } else falha = enviado.motivo
+      } catch (e) {
+        falha = e instanceof Error ? e.message : String(e)
+      }
+      if (falha !== null) {
+        relatorio.falhas++
+        await crm.desfazerToque(reserva)
+        logger.warn(`[crm] fluxos: o toque ${toque} da jornada não saiu — ${falha}`)
+      }
       continue
     }
     if (entrada.fluxo === "reposicao") {
@@ -926,27 +999,60 @@ async function lerDadosDaReposicao(
 ): Promise<DadosDaReposicao> {
   const skus = new Set(reposicoes.flatMap((r) => r.skus))
   for (const sku of Object.values(SUBIR_PARA)) if (sku) skus.add(sku)
-  const emails = [...new Set(reposicoes.map((r) => r.email))]
-  const [porSku, daBase, clientes] = await Promise.all([
+  const [porSku, nomes] = await Promise.all([
     produtosPorSku(container, [...skus]),
+    nomesDasPessoas(
+      container,
+      reposicoes.map((r) => r.email)
+    ),
+  ])
+  return { porSku, nomes }
+}
+
+/** O primeiro nome de cada pessoa: o da conta (ou do pedido), ou o da loja antiga. */
+async function nomesDasPessoas(
+  container: MedusaContainer,
+  lista: readonly string[]
+): Promise<Map<string, string>> {
+  const emails = [...new Set(lista)]
+  if (!emails.length) return new Map()
+  const [daBase, clientes] = await Promise.all([
     container.resolve<CrmService>(CRM).nomesDaBase(emails),
-    emails.length
-      ? container
-          .resolve(ContainerRegistrationKeys.QUERY)
-          .graph({
-            entity: "customer",
-            fields: ["email", "first_name"],
-            filters: { email: emails },
-          })
-          .then((r) => r.data as { email?: string | null; first_name?: string | null }[])
-      : Promise.resolve([]),
+    container
+      .resolve(ContainerRegistrationKeys.QUERY)
+      .graph({ entity: "customer", fields: ["email", "first_name"], filters: { email: emails } })
+      .then((r) => r.data as { email?: string | null; first_name?: string | null }[]),
   ])
   const nomes = new Map(daBase)
   for (const c of clientes) {
     const email = minusculo(c.email)
     if (email && c.first_name?.trim()) nomes.set(email, c.first_name.trim())
   }
-  return { porSku, nomes }
+  return nomes
+}
+
+type DadosDaJornada = {
+  /** O texto da página de cada produto (o uso, a linha do tempo, as dúvidas), pelo endereço. */
+  conteudos: Map<string, ConteudoDoProduto>
+  /** O que completa a rotina, pelo SKU. */
+  porSku: Map<string, ProdutoDoCrm>
+  nomes: Map<string, string>
+}
+
+/** O texto das páginas dos produtos dos pedidos, o que completa a rotina, e o nome de cada um. */
+async function lerDadosDaJornada(
+  container: MedusaContainer,
+  jornadas: readonly JornadaDoPedido[]
+): Promise<DadosDaJornada> {
+  const [{ conteudos }, porSku, nomes] = await Promise.all([
+    conteudosDasTrilhas(container, [...new Set(jornadas.flatMap((j) => j.handles))]),
+    produtosPorSku(container, [...new Set(jornadas.flatMap((j) => j.sugestoes))]),
+    nomesDasPessoas(
+      container,
+      jornadas.map((j) => j.email)
+    ),
+  ])
+  return { conteudos, porSku, nomes }
 }
 
 type DadosDaEstreia = {
