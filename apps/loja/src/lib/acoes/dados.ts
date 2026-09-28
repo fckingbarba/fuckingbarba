@@ -61,7 +61,10 @@ export async function salvarDados(anterior: EstadoDaEtapa, fd: FormData): Promis
     O CONSENTIMENTO GUARDA A DATA DO "SIM" — e só do primeiro: salvar os
     dados de novo com a caixa ainda marcada não finge um consentimento
     novo. Desmarcou, vira `null`; marcar outra vez é um "sim" novo, com a
-    data de agora.
+    data de agora. As ofertas por e-mail vêm LIGADAS por padrão (entrega
+    0184, o parecer do advogado do dono): o cadastro já entra com o sim, e
+    desmarcar é sair da lista de verdade — o Medusa tira a pessoa da
+    newsletter e dos fluxos do CRM (`/store/crm/sair-das-ofertas`).
   */
   const agora = new Date().toISOString()
   const antes = leitura.cliente.ofertas
@@ -83,6 +86,13 @@ export async function salvarDados(anterior: EstadoDaEtapa, fd: FormData): Promis
   if (r.status !== 200) {
     console.warn(`[conta] salvar dados: ${r.status} ${String(r.corpo.message ?? "")}`)
     return naoSalvou(anterior, {}, GENERICO, fd)
+  }
+  if (antes.email && !ofertas.email) {
+    const saiu = await medusa("/store/crm/sair-das-ofertas", { corpo: {}, token })
+    if (saiu.status !== 200) {
+      console.warn(`[conta] sair das ofertas: ${saiu.status} ${String(saiu.corpo.message ?? "")}`)
+      return naoSalvou(anterior, {}, GENERICO, fd)
+    }
   }
 
   refresh()
