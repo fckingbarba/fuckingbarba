@@ -5,6 +5,7 @@ import {
   dentroDoHorario,
   JANELA_EM_DIAS,
   lerAvaliacao,
+  lerAvaliacaoDireta,
   lerRegistroDoPedido,
   LIMITES,
   limparNome,
@@ -12,8 +13,10 @@ import {
   nomeSugerido,
   numeroDoPedido,
   produtosDoPedido,
+  produtosQueOPedidoAvalia,
   type EnvioDaRodada,
   type PedidoDaRodada,
+  type ProdutoDoCatalogo,
 } from "../regras"
 
 const PRODUTO = "prod_01M3EJPC2SBR23EKZVK6HVGCP3"
@@ -96,6 +99,122 @@ describe("o pedido: os produtos e se aceita avaliação", () => {
     expect(aceitaAvaliacao({ status: "completed", pago: true })).toBe(true)
     expect(aceitaAvaliacao({ status: "canceled", pago: true })).toBe(false)
     expect(aceitaAvaliacao({ status: "pending", pago: false })).toBe(false)
+  })
+})
+
+describe("a página sem o link: o número, o e-mail e a avaliação num envio só", () => {
+  const certo = {
+    numero: "#3.301",
+    email: "  Rafael@Exemplo.COM ",
+    produto: PRODUTO,
+    nota: 5,
+    nome: "Rafael S.",
+    texto: "Segurou o dia todo.",
+  }
+
+  it("o número do jeito que a pessoa digita, e o e-mail como a loja guarda", () => {
+    expect(lerAvaliacaoDireta(certo)).toEqual({
+      ok: true,
+      avaliacao: {
+        numero: 3301,
+        email: "rafael@exemplo.com",
+        produtoId: PRODUTO,
+        nome: "Rafael S.",
+        nota: 5,
+        texto: "Segurou o dia todo.",
+      },
+    })
+  })
+
+  it("diz o primeiro campo que não serve — o número e o e-mail antes da avaliação", () => {
+    expect(lerAvaliacaoDireta({ ...certo, numero: "" })).toEqual({ ok: false, campo: "numero" })
+    expect(lerAvaliacaoDireta({ ...certo, numero: "abc" })).toEqual({ ok: false, campo: "numero" })
+    expect(lerAvaliacaoDireta({ ...certo, email: "rafael" })).toEqual({ ok: false, campo: "email" })
+    expect(lerAvaliacaoDireta({ ...certo, email: "=cmd@x.com" })).toEqual({
+      ok: false,
+      campo: "email",
+    })
+    expect(lerAvaliacaoDireta({ ...certo, produto: "" })).toEqual({ ok: false, campo: "produto" })
+    expect(lerAvaliacaoDireta({ ...certo, nota: 6 })).toEqual({ ok: false, campo: "nota" })
+    expect(lerAvaliacaoDireta({ ...certo, nome: "1" })).toEqual({ ok: false, campo: "nome" })
+    expect(lerAvaliacaoDireta({ ...certo, texto: " " })).toEqual({ ok: false, campo: "texto" })
+    expect(lerAvaliacaoDireta(undefined)).toEqual({ ok: false, campo: "numero" })
+  })
+})
+
+describe("os produtos que o pedido deixa avaliar", () => {
+  const CATALOGO: ProdutoDoCatalogo[] = [
+    { id: "prod_FATOR", nome: "Fator de Crescimento", skus: ["FBFCB01"] },
+    { id: "prod_OLEO", nome: "Óleo para Barba", skus: ["FBOL01"] },
+    { id: "prod_BALM", nome: "Balm para Barba", skus: ["FBBM01"] },
+    { id: "prod_SHAMPOO", nome: "Shampoo para Barba", skus: ["fbsh01"] },
+    { id: "prod_COMPLETO", nome: "Kit Completo", skus: ["FBKIT01"] },
+    { id: "prod_FATOR_SHAMPOO", nome: "Kit Fator + Shampoo", skus: ["FBKIT08"] },
+    { id: "prod_MATTE", nome: "Pasta Matte", skus: ["FBPMT01"] },
+    { id: "prod_BRILHO", nome: "Pasta Brilho", skus: ["FBPBR01"] },
+  ]
+  const ids = (m: Map<string, string>) => [...m.keys()].sort()
+
+  it("o pedido da Nuvemshop: o produto de hoje pelo SKU (maiúscula ou não)", () => {
+    const m = produtosQueOPedidoAvalia([{ sku: " fbol01 ", nome: "Óleo 30ml" }], CATALOGO)
+    expect([...m]).toEqual([["prod_OLEO", "Óleo para Barba"]])
+    expect(ids(produtosQueOPedidoAvalia([{ sku: "FBSH01" }], CATALOGO))).toEqual(["prod_SHAMPOO"])
+  })
+
+  it("o kit abre o kit e cada avulso do que vem nele", () => {
+    expect(ids(produtosQueOPedidoAvalia([{ sku: "FBKIT01" }], CATALOGO))).toEqual([
+      "prod_BALM",
+      "prod_COMPLETO",
+      "prod_OLEO",
+      "prod_SHAMPOO",
+    ])
+    expect(ids(produtosQueOPedidoAvalia([{ sku: "FBKIT08" }], CATALOGO))).toEqual([
+      "prod_FATOR",
+      "prod_FATOR_SHAMPOO",
+      "prod_SHAMPOO",
+    ])
+  })
+
+  it("o kit de quantidade que saiu da loja ainda abre o avulso (3 Fatores → o Fator)", () => {
+    expect([...produtosQueOPedidoAvalia([{ sku: "FBKIT06" }], CATALOGO)]).toEqual([
+      ["prod_FATOR", "Fator de Crescimento"],
+    ])
+  })
+
+  it("produto de uma unidade só não abre outro do mesmo tipo (uma pasta não vale pela outra)", () => {
+    expect(ids(produtosQueOPedidoAvalia([{ sku: "FBPBR01" }], CATALOGO))).toEqual(["prod_BRILHO"])
+  })
+
+  it("o pedido da loja nova: o produto pelo id, com o nome do catálogo — ou o do item, se saiu", () => {
+    const m = produtosQueOPedidoAvalia(
+      [
+        {
+          produtoId: "prod_OLEO",
+          nome: "Óleo (nome velho)",
+          sku: "FBOL01",
+          handle: "oleo-para-barba",
+        },
+        { produtoId: "prod_RASCUNHO", nome: " Kit 2 Fatores ", sku: "FBKIT05" },
+      ],
+      CATALOGO
+    )
+    expect([...m]).toEqual([
+      ["prod_OLEO", "Óleo para Barba"],
+      ["prod_RASCUNHO", "Kit 2 Fatores"],
+      ["prod_FATOR", "Fator de Crescimento"],
+    ])
+  })
+
+  it("o kit da loja nova sem SKU na tabela abre pelo endereço", () => {
+    const m = produtosQueOPedidoAvalia(
+      [{ produtoId: "prod_KIT", nome: "Kit", handle: "kit-fator-de-crescimento-e-shampoo" }],
+      CATALOGO
+    )
+    expect(ids(m)).toEqual(["prod_FATOR", "prod_KIT", "prod_SHAMPOO"])
+  })
+
+  it("SKU que a loja não tem mais não abre nada", () => {
+    expect(produtosQueOPedidoAvalia([{ sku: "FBXX99" }, { sku: null }], CATALOGO).size).toBe(0)
   })
 })
 
