@@ -1,6 +1,7 @@
 /**
  * CONFERIDOR DAS AVALIAÇÕES — o e-mail um dia depois da entrega, a página
- * escondida /avaliar e a avaliação aprovada no site.
+ * escondida /avaliar (pelo botão do e-mail e sem ele) e a avaliação aprovada
+ * no site.
  *
  *   node ferramentas/conferir-avaliacoes.mjs [url-da-loja]
  *
@@ -10,7 +11,9 @@
  *            PORTA_FALSA (a Frenet falsa, a do `FRENET_URL`, padrão 4310),
  *            PORTA_PAGARME_FALSO (a do `PAGARME_URL`, padrão 4320),
  *            FRENET_WEBHOOK_TOKEN e MEDUSA_WEBHOOK_SEGREDO (os do backend;
- *            padrão, os de teste do AGENTS.md), REVALIDAR_SEGREDO, CHROMIUM.
+ *            padrão, os de teste do AGENTS.md), REVALIDAR_SEGREDO (o do
+ *            backend: as chamadas à API vão assinadas com o IP da rodada, e
+ *            sem ele o limite dos chutes errados não é conferido), CHROMIUM.
  *
  * ┌─ A PERGUNTA QUE ESTE ARQUIVO RESPONDE ─────────────────────────────────┐
  * │ Quem recebeu o pedido consegue avaliar sem conta, e a avaliação chega  │
@@ -21,9 +24,10 @@
  * │              assinado e a avaliação guardada (`/store/avaliacoes`);    │
  * │   o e-mail → um por pedido, com um botão por produto;                  │
  * │   a loja   → o botão guarda o link num cookie e abre /avaliar limpa,   │
- * │              o formulário, o "valeu", a página sem o link (número e    │
- * │              e-mail: o link vai pro e-mail da compra, nunca pra tela), │
- * │              e a aprovada na página do produto.                        │
+ * │              o formulário, o "valeu", a página sem o link (o número,  │
+ * │              o e-mail e a avaliação num envio só, com a lista da loja │
+ * │              inteira; o kit abre o que vem nele) e a aprovada na      │
+ * │              página do produto.                                        │
  * │                                                                         │
  * │ A tela é comparada com o que o Medusa guardou (`GET /admin/avaliacoes`)│
  * │ e os e-mails, lidos do Resend falso.                                   │
@@ -52,6 +56,7 @@ const CROMO = process.env.CHROMIUM || undefined
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL
 const ADMIN_SENHA = process.env.ADMIN_SENHA
 const TOKEN_DA_FRENET = process.env.FRENET_WEBHOOK_TOKEN ?? "token-de-teste"
+const SEGREDO = process.env.REVALIDAR_SEGREDO ?? ""
 
 if (!ADMIN_EMAIL || !ADMIN_SENHA || !CHAVE) {
   console.log("  ⚠  faltam ADMIN_EMAIL, ADMIN_SENHA ou a chave publicável — nada a conferir")
@@ -75,13 +80,24 @@ const EMAIL = `avaliar.${RODADA}@teste.fuckingbarba.dev`
 const IP = `10.${(Date.now() >>> 16) % 250}.${(Date.now() >>> 8) % 250}.${Date.now() % 250}`
 const OLEO = "oleo-para-barba"
 const BALM = "balm-para-barba"
+const KIT = "kit-completo-para-barba"
+const FATOR = "fator-de-crescimento-para-barba"
 
 /* ── o Medusa ─────────────────────────────────────────────────────────────── */
 
-async function loja(caminho, { metodo = "GET", corpo } = {}) {
+/**
+ * A API da loja, como o servidor da loja chama: assinada com o IP da rodada
+ * (`x-loja-segredo` + `x-cliente-ip`), pra os limites por IP de uma rodada
+ * não pesarem na seguinte. Sem o segredo, vai sem assinatura.
+ */
+async function loja(caminho, { metodo = "GET", corpo, ip = IP } = {}) {
   const r = await fetch(`${MEDUSA}${caminho}`, {
     method: metodo,
-    headers: { "content-type": "application/json", "x-publishable-api-key": CHAVE },
+    headers: {
+      "content-type": "application/json",
+      "x-publishable-api-key": CHAVE,
+      ...(SEGREDO ? { "x-loja-segredo": SEGREDO, "x-cliente-ip": ip } : {}),
+    },
     body: corpo === undefined ? undefined : JSON.stringify(corpo),
   })
   return { status: r.status, corpo: await r.json().catch(() => ({})) }
@@ -191,6 +207,16 @@ async function novaAba(viewport = { width: 1280, height: 900 }) {
   return { contexto, pagina }
 }
 
+/**
+ * Espera a página assentar com UM formulário só. No `next dev`, o bloco que
+ * chega em streaming fica um instante em dobro — a cópia escondida do HTML
+ * ainda na página quando a de verdade já apareceu (a main também) —, e um
+ * seletor estrito (`inputValue`, `getAttribute`) pega os dois.
+ */
+async function umSo(pagina, seletor) {
+  await pagina.waitForFunction((s) => document.querySelectorAll(s).length === 1, seletor)
+}
+
 /** Espera o React assumir o elemento (o clique antes da hidratação se perde). */
 async function hidratado(pagina, seletor) {
   await pagina.waitForFunction(
@@ -298,6 +324,7 @@ try {
   const produtoDoBotao = primeiro?.searchParams.get("produto")
   await pagina.goto(links[0], { waitUntil: "load" })
   await pagina.waitForSelector("[data-avaliar]")
+  await umSo(pagina, "[data-avaliar]")
   const url = new URL(pagina.url())
   ok(url.pathname === "/avaliar", "o botão guarda o link e abre a /avaliar", url.pathname)
   ok(!/order_/.test(pagina.url()), "o link não fica no endereço", pagina.url())
@@ -342,6 +369,7 @@ try {
   const idDoOutro = await outro.first().getAttribute("data-avaliar-outro")
   await outro.first().click()
   await pagina.waitForSelector("[data-avaliar]")
+  await umSo(pagina, "[data-avaliar]")
   await pagina.waitForFunction(
     (id) => document.querySelector(`input[name="produto"][value="${id}"]`)?.checked,
     idDoOutro
@@ -403,72 +431,227 @@ try {
     `HTTP ${adulterado.status}`
   )
 
-  titulo("5. A página sem o link: o link vai pro e-mail da compra, nunca pra tela")
-  // Um pedido pago com produto sem nota (o primeiro já foi avaliado inteiro, e esse não recebe link).
-  const EMAIL_2 = `avaliar2.${RODADA}@teste.fuckingbarba.dev`
-  const segundo = await fabrica.pedidoPix(EMAIL_2, [[OLEO, 1]])
-  await fabrica.pagar(segundo)
-  const dosLinks = () =>
-    resend.emails.filter((e) => /^O link pra avaliar o pedido #/.test(e.subject ?? ""))
-  const semLink = (await novaAba({ width: 390, height: 844 })).pagina
-  await semLink.goto(`${LOJA}/avaliar`, { waitUntil: "load" })
-  await semLink.waitForSelector("[data-encontrar]")
-  await hidratado(semLink, "[data-encontrar] button[type=submit]")
-  await semLink.fill('input[name="numero"]', `#${segundo.numero}`)
-  await semLink.fill('input[name="email"]', "outra.pessoa@teste.fuckingbarba.dev")
-  await semLink.click("[data-encontrar] button[type=submit]")
-  await semLink.waitForSelector("[data-link-mandado]")
-  const fraseDoErrado = await texto(semLink, "[data-link-mandado]")
-  await esperar(1500)
-  ok(
-    /o link chega em instantes/.test(fraseDoErrado) && dosLinks().length === 0,
-    "com o e-mail de outra pessoa, a tela diz o mesmo que diria pro dono — e nenhum e-mail sai",
-    `${fraseDoErrado} · ${dosLinks().length} e-mail(s)`
-  )
-  await semLink.fill('input[name="numero"]', `#${segundo.numero}`)
-  await semLink.fill('input[name="email"]', EMAIL_2.toUpperCase())
-  await semLink.click("[data-encontrar] button[type=submit]")
-  await semLink.waitForFunction(
-    (e) => document.querySelector("[data-link-mandado]")?.textContent?.includes(e),
-    EMAIL_2.toUpperCase()
-  )
-  let doSegundo = null
-  for (let i = 0; i < 20 && !doSegundo; i++) {
-    doSegundo = dosLinks().find((e) => e.to?.includes(EMAIL_2))
-    if (!doSegundo) await esperar(500)
-  }
-  ok(
-    doSegundo?.subject === `O link pra avaliar o pedido #${segundo.numero}` &&
-      !/order_/.test(semLink.url()) &&
-      !(await semLink.locator("[data-avaliar]").count()),
-    "com o número e o e-mail certos, o link vai pro e-mail da compra — a tela não abre o pedido",
-    `${doSegundo?.subject ?? "sem e-mail"} · ${semLink.url()}`
-  )
-  const direto = await loja("/store/avaliacoes/encontrar", {
+  titulo("5. A página sem o link: o pedido, o e-mail e a avaliação num formulário só")
+  const velho = await loja("/store/avaliacoes/encontrar", {
     metodo: "POST",
-    corpo: { numero: segundo.numero, email: EMAIL_2 },
+    corpo: { numero: pedido.numero, email: EMAIL },
   })
-  await esperar(1500)
   ok(
-    direto.status === 200 &&
-      direto.corpo.mandado === true &&
-      !("p" in direto.corpo) &&
-      dosLinks().filter((e) => e.to?.includes(EMAIL_2)).length === 1,
-    "a API responde igual, sem o link — e pedir de novo em seguida não manda outro e-mail",
-    `${JSON.stringify(direto.corpo)} · ${dosLinks().filter((e) => e.to?.includes(EMAIL_2)).length} e-mail(s)`
+    velho.status === 404,
+    "o pedido do link por e-mail saiu (a página não manda mais e-mail)",
+    `HTTP ${velho.status}`
   )
-  const botaoDoEmail = [...(doSegundo?.html ?? "").matchAll(/href="([^"]*\/avaliar\/[^"]*)"/g)].map(
-    (m) => m[1].replace(/&amp;/g, "&")
-  )[0]
-  if (botaoDoEmail) {
-    await semLink.goto(botaoDoEmail, { waitUntil: "load" })
-    await semLink.waitForSelector("[data-avaliar]")
+  // Um pedido pago com o Kit Completo: o kit abre o óleo, o balm e o shampoo — o Fator, não.
+  const EMAIL_2 = `avaliar2.${RODADA}@teste.fuckingbarba.dev`
+  const segundo = await fabrica.pedidoPix(EMAIL_2, [[KIT, 1]])
+  await fabrica.pagar(segundo)
+  const [oleo, kit, fator] = await Promise.all([OLEO, KIT, FATOR].map(produtoDaLoja))
+  const daLoja = await produtosDaLoja()
+  const semLink = (await novaAba({ width: 390, height: 844 })).pagina
+  await semLink.goto(`${LOJA}/avaliar?produto=${OLEO}`, { waitUntil: "load" })
+  await semLink.waitForSelector("[data-avaliar-direto]")
+  await umSo(semLink, "[data-avaliar-direto]")
+  const opcoes = await semLink
+    .locator('select[name="produto"] option')
+    .evaluateAll((os) => os.map((o) => o.value).filter(Boolean))
+  ok(
+    opcoes.length === daLoja.length && daLoja.every((id) => opcoes.includes(id)),
+    "a lista é a da loja inteira — a página não sabe o que veio no pedido",
+    `${opcoes.length} opções · ${daLoja.length} produtos na loja`
+  )
+  ok(
+    (await semLink.inputValue('select[name="produto"]')) === oleo?.id &&
+      (await semLink.locator(".avaliar__escolha img").count()) === 1,
+    "o ?produto= do endereço abre com ele marcado, e a foto do lado"
+  )
+  ok(
+    (await semLink.locator('[data-avaliar-direto] input[name="numero"]').count()) === 1 &&
+      (await semLink.locator('[data-avaliar-direto] input[name="email"]').count()) === 1 &&
+      (await semLink.locator('[data-avaliar-direto] input[name="nome"]').count()) === 1,
+    "o número do pedido, o e-mail e o nome na mesma tela"
+  )
+  ok(
+    await semLink.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    "no celular, sem rolagem de lado (o nome comprido do produto cabe no select)"
+  )
+  await hidratado(semLink, "[data-avaliar-direto] button[type=submit]")
+  await semLink.click("[data-avaliar-direto] button[type=submit]")
+  await semLink.waitForSelector(".campo__erro:not(:empty)")
+  ok(
+    /número do pedido/.test(await texto(semLink, ".campo__erro:not(:empty)")),
+    "vazio, o erro aponta o primeiro campo: o número do pedido",
+    await texto(semLink, ".campo__erro:not(:empty)")
+  )
+
+  const TEXTO_2 = `Teste ${RODADA}: o óleo do kit deixou a barba macia.`
+  const TEXTO_KIT = `Teste ${RODADA}: o kit tem tudo o que precisa.`
+  /** Preenche tudo e manda; `espera` é o que a tela mostra quando a resposta chega. */
+  async function mandar({ numero, email, produto, estrela, texto: t = TEXTO_2 }, espera) {
+    await hidratado(semLink, "[data-avaliar-direto] button[type=submit]")
+    await semLink.fill('input[name="numero"]', numero)
+    await semLink.fill('input[name="email"]', email)
+    await semLink.fill('input[name="nome"]', "João Teste")
+    await semLink.selectOption('select[name="produto"]', produto)
+    await semLink.click(`.avaliar__estrela:nth-child(${estrela})`)
+    await semLink.fill('textarea[name="texto"]', t)
+    await semLink.click("[data-avaliar-direto] button[type=submit]")
+    await semLink.waitForFunction(espera)
   }
-  ok(
-    Boolean(botaoDoEmail) && !/order_/.test(semLink.url()),
-    "o botão do e-mail abre o pedido pra avaliar — e o link não vai pro endereço",
-    semLink.url()
+  const alerta = () => document.querySelector("[data-avaliar-direto] [role=alert]")?.textContent
+  await mandar(
+    {
+      numero: `#${segundo.numero}`,
+      email: "outra.pessoa@teste.fuckingbarba.dev",
+      produto: oleo?.id,
+      estrela: 5,
+    },
+    () =>
+      /Não encontrei/.test(
+        document.querySelector("[data-avaliar-direto] [role=alert]")?.textContent ?? ""
+      )
   )
+  ok(
+    /Não encontrei um pedido com esse número e esse e-mail/.test(
+      (await semLink.evaluate(alerta)) ?? ""
+    ),
+    "com o e-mail de outra pessoa, não acha o pedido",
+    await semLink.evaluate(alerta)
+  )
+  ok(
+    (await semLink.inputValue('input[name="numero"]')) === `#${segundo.numero}` &&
+      (await semLink.inputValue('textarea[name="texto"]')) === TEXTO_2 &&
+      (await semLink.inputValue('select[name="produto"]')) === oleo?.id &&
+      (await semLink.locator('input[name="nota"]:checked').getAttribute("value")) === "5",
+    "o formulário volta com o que estava escrito — o produto e a nota também"
+  )
+  await mandar(
+    {
+      numero: String(segundo.numero),
+      email: EMAIL_2.toUpperCase(),
+      produto: fator?.id,
+      estrela: 5,
+    },
+    () =>
+      [...document.querySelectorAll(".campo__erro")].some((e) =>
+        /não veio nesse pedido/.test(e.textContent ?? "")
+      )
+  )
+  ok(true, "o Fator não veio no kit: o erro aponta o produto")
+  await mandar(
+    { numero: String(segundo.numero), email: EMAIL_2.toUpperCase(), produto: oleo?.id, estrela: 5 },
+    () => Boolean(document.querySelector("[data-avaliacao-enviada]"))
+  )
+  const valeu = await texto(semLink, "[data-avaliacao-enviada]")
+  ok(
+    /^Valeu, João!/.test(await texto(semLink, "[data-avaliacao-enviada] h1")) &&
+      valeu.includes(oleo?.title ?? "?"),
+    "o óleo, que veio no kit, entra — o valeu diz o primeiro nome e o produto",
+    valeu
+  )
+  await semLink.click("[data-avaliar-outro-produto]")
+  await semLink.waitForSelector("[data-avaliar-direto]")
+  await umSo(semLink, "[data-avaliar-direto]")
+  ok(
+    (await semLink.inputValue('input[name="numero"]')) === String(segundo.numero) &&
+      (await semLink.inputValue('input[name="email"]')) === EMAIL_2.toUpperCase() &&
+      (await semLink.inputValue('input[name="nome"]')) === "João Teste" &&
+      (await semLink.inputValue('select[name="produto"]')) === "" &&
+      (await semLink.inputValue('textarea[name="texto"]')) === "" &&
+      (await semLink.locator('input[name="nota"]:checked').count()) === 0,
+    "avaliar outro produto volta com o pedido, o e-mail e o nome — o resto em branco"
+  )
+  await mandar(
+    { numero: String(segundo.numero), email: EMAIL_2, produto: oleo?.id, estrela: 3 },
+    () =>
+      [...document.querySelectorAll(".campo__erro")].some((e) =>
+        /já foi avaliado/.test(e.textContent ?? "")
+      )
+  )
+  ok(true, "o mesmo produto do mesmo pedido não vale duas notas")
+  await mandar(
+    {
+      numero: String(segundo.numero),
+      email: EMAIL_2,
+      produto: kit?.id,
+      estrela: 4,
+      texto: TEXTO_KIT,
+    },
+    () => Boolean(document.querySelector("[data-avaliacao-enviada]"))
+  )
+  ok(true, "o kit, também")
+
+  const doSegundo = (await admin(`/admin/avaliacoes?pedido=${segundo.id}`)).corpo.avaliacoes ?? []
+  criadas.push(...doSegundo.map((a) => a.id))
+  const doOleo = doSegundo.find((a) => a.produto_id === oleo?.id)
+  ok(
+    doSegundo.length === 2 &&
+      doOleo?.numero === segundo.numero &&
+      doOleo?.nota === 5 &&
+      doOleo?.nome === "João Teste" &&
+      doOleo?.texto === TEXTO_2 &&
+      doOleo?.situacao === "nova" &&
+      !JSON.stringify(doSegundo).toLowerCase().includes(EMAIL_2),
+    "as duas, ligadas ao pedido e esperando o painel — sem o e-mail guardado",
+    JSON.stringify(doSegundo)
+  )
+
+  const outraVez = await loja("/store/avaliacoes", {
+    metodo: "POST",
+    corpo: {
+      numero: segundo.numero,
+      email: EMAIL_2,
+      produto: kit?.id,
+      nome: "João",
+      nota: 5,
+      texto: "De novo",
+    },
+  })
+  ok(
+    outraVez.status === 409 &&
+      outraVez.corpo.message === "ja_avaliou" &&
+      !("faltam" in outraVez.corpo),
+    "pela API, a mesma régua — e a resposta não diz o que mais veio no pedido",
+    `HTTP ${outraVez.status} ${JSON.stringify(outraVez.corpo)}`
+  )
+  const EMAIL_3 = `avaliar3.${RODADA}@teste.fuckingbarba.dev`
+  const naoPago = await fabrica.pedidoPix(EMAIL_3, [[OLEO, 1]])
+  const doNaoPago = await loja("/store/avaliacoes", {
+    metodo: "POST",
+    corpo: {
+      numero: naoPago.numero,
+      email: EMAIL_3,
+      produto: oleo?.id,
+      nome: "Ana",
+      nota: 5,
+      texto: "Nem chegou",
+    },
+  })
+  ok(
+    doNaoPago.status === 409 && doNaoPago.corpo.message === "nao_aceita",
+    "o Pix que não foi pago não aceita avaliação",
+    `HTTP ${doNaoPago.status} ${doNaoPago.corpo.message}`
+  )
+  if (SEGREDO) {
+    // Outro IP, só pra isto: quem erra o número ou o e-mail 10 vezes numa hora para.
+    const chute = `10.251.${(Date.now() >>> 8) % 250}.${Date.now() % 250}`
+    const tentar = (numero, email) =>
+      loja("/store/avaliacoes", {
+        metodo: "POST",
+        ip: chute,
+        corpo: { numero, email, produto: oleo?.id, nome: "Chute", nota: 5, texto: "Chute" },
+      })
+    const erros = []
+    for (let i = 1; i <= 10; i++)
+      erros.push(
+        (await tentar(segundo.numero, `chute${i}.${RODADA}@teste.fuckingbarba.dev`)).status
+      )
+    const depois = await tentar(segundo.numero, EMAIL_2)
+    ok(
+      erros.every((s) => s === 404) && depois.status === 429,
+      "dez chutes errados na hora e o IP para (até o certo) — 429",
+      `${erros.join(",")} → ${depois.status}`
+    )
+  }
 
   titulo("6. Aprovada no painel, a avaliação vai pro site")
   const handleDoBotao = produtoDoBotao === (await produtoPorHandle(OLEO)) ? OLEO : BALM
@@ -574,6 +757,20 @@ try {
 async function produtoPorHandle(handle) {
   const { corpo } = await loja(`/store/products?handle=${handle}&fields=id`)
   return corpo.products?.[0]?.id
+}
+
+/** O id e o nome do produto pelo handle. */
+async function produtoDaLoja(handle) {
+  const { corpo } = await loja(`/store/products?handle=${handle}&fields=id,title`)
+  return corpo.products?.[0]
+}
+
+/** Os ids dos produtos que a loja lista: os publicados, menos os kits de quantidade aposentados. */
+async function produtosDaLoja() {
+  const { corpo } = await loja("/store/products?limit=100&fields=id,metadata")
+  return (corpo.products ?? [])
+    .filter((p) => p.metadata?.tipo !== "kit-quantidade")
+    .map((p) => p.id)
 }
 
 console.log(`\n${passou} ok · ${falhou} falha(s)`)
