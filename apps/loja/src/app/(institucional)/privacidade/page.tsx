@@ -97,6 +97,15 @@ export default async function Privacidade() {
           aqui e na loja antiga, e para quando você compra de novo. Dá pra sair em qualquer um.
         </P>
         <P>
+          <b>Se você parar de comprar</b>: passado o dia de repor, um e-mail pergunta o que
+          aconteceu, com botões de um clique — o &ldquo;Tá caro&rdquo; dá um cupom, e o &ldquo;Não
+          vi resultado&rdquo; abre o nosso WhatsApp. A gente anota o botão que você escolher, pra
+          não perguntar de novo. Quem não responde recebe um cupom uma semana depois. E se você
+          passar muito tempo sem abrir nem clicar nos nossos e-mails, a gente pergunta se quer
+          continuar recebendo: sem resposta, paramos de mandar até você voltar à loja. Os e-mails
+          dos seus pedidos continuam chegando.
+        </P>
+        <P>
           <b>Com a sua conta aberta</b>, o site usa as suas compras, só pra você e sem e-mail
           nenhum: o mesmo lembrete de quando o produto está acabando, na conta e na página inicial;
           o dia do seu tratamento com o Fator, na conta; e, na página de cada produto, quando você
