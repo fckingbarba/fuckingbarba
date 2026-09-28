@@ -3762,6 +3762,27 @@ As avaliações com foto saíram do plano (sua escolha: só texto — e as de ho
 - **Só pra quem está com a conta aberta.** Vale pra compra daqui e da loja antiga.
 - **A política de privacidade** conta.
 - Nada a fazer depois do deploy.
+
+**CRM, etapa 4, parte 1: o resgate e o sunset — pronto em 28/09 (entrega 0192).** É pra quem passou
+do dia de comprar de novo (uns 20 dias depois de o produto acabar, a tolerância dos Ajustes).
+
+- **No dia:** "Tá tudo bem com a barba?", com 4 botões (sua escolha):
+  - **Tá caro:** ganha 15% na hora;
+  - **Esqueci de repor:** monta o pedido de sempre;
+  - **Não vi resultado:** abre o WhatsApp da loja, com a mensagem pronta;
+  - **Comprei em outro lugar:** o resgate para.
+- **7 dias depois**, pra quem não respondeu: 15% pra voltar, que vale 3 dias. O "vence amanhã" sai
+  em 9.
+- **45 dias depois**, sem abrir, clicar nem visitar: "Quer continuar recebendo nossos e-mails?".
+  Sem o "Sim" em 7 dias, os e-mails do CRM param pra pessoa até ela voltar a clicar, visitar ou
+  comprar. Os do pedido continuam.
+- **Sem frete grátis nem brinde** (sua regra). É pra quem comprou aqui e pra quem aceitou ofertas
+  na loja antiga.
+- **A política de privacidade** conta.
+- **Começa DESLIGADO.**
+
+- [ ] **Depois do deploy (você):** CRM → Fluxos → Resgate e sunset → "Mandar pra mim" (os botões do
+      teste só levam pra loja) e depois a chave. Vale pra quem ficar em risco depois de ligar.
 **A parcela mínima do cartão, editável — pronta em 27/09 (entrega 0157).** O pedido dele: "quero
 poder editar a parcela mínima no cartão, ali diz 5 reais". Em **Configurações → Pagamento**, o
 bloco **Parcelas no cartão** tem o campo **Parcela mínima**.

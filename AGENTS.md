@@ -3225,6 +3225,52 @@ entra na loja com esse e-mail:
 - confere o `fb_conta` que o proxy grava e o sair que leva ele.
 A página da conta ainda chegando tem o bloco duas vezes (a parte escondida do streaming): o
 conferidor lê o visível (`filter({ visible: true })`).
+
+**O CRM, parte 16: o resgate e o sunset** (entrega 0192, a etapa 4 do plano). É um fluxo do motor
+que começa DESLIGADO (`FLUXOS.resgate`), com prioridade 8: o último da fila.
+
+- **Quem entra** (`lib/crm/resgate.ts`, `publicoDoResgate`): a etapa "em risco" das etiquetas. As
+  etiquetas agora dizem desde quando (`etapa.desde`): o dia de acabar mais a
+  `toleranciaDaReposicao` dos Ajustes, ou 60 dias sem pedido. É oferta, então só entra quem comprou
+  na loja nova (o sim por padrão) ou aceitou ofertas na antiga. A chave é o e-mail e o dia em que
+  a pessoa ficou em risco (`chaveDoResgate`): outra queda, outro resgate.
+- **Os toques**, contados desse dia (`emailDoResgate`, em `lib/emails/resgate.ts`):
+  - no dia: "Tá tudo bem com a barba?", lembrete, com os 4 botões do plano (escolha do dono);
+  - 7 dias: 15% (`DESCONTO_DO_RESGATE`, um cupom que vale 3 dias), só pra quem não respondeu,
+    com o "Refazer o pedido" já com o desconto (`/voltar/<t>?cupom=`);
+  - 9 dias: o cupom vence amanhã;
+  - 45 dias: "Quer continuar recebendo?", só pra quem não deu sinal nenhum: nem resposta a este
+    resgate, nem clique, abertura ou visita depois do começo dele.
+- **Os botões** passam pelo Medusa (`GET /crm/resgate?t=…`). O `t` é a resposta, o pedido, o que
+  acabou e a chave, cifrados como o check-in. A resposta mora no registro (o toque
+  `resgate-resposta`, a última vale, `crm.anotarRespostaDoResgate`). Ela não conta no teto, mas o
+  cupom dela conta nos 60 dias (o `registrosDoMotor` devolve ela como "pulado").
+  - "Tá caro": o cupom de 15% na hora, pro `/discount/<código>` da loja. O clique repetido leva o
+    mesmo, e quem já tem cupom do CRM valendo leva esse;
+  - "Esqueci de repor": o link de voltar (repor);
+  - "Não vi resultado": o WhatsApp com a mensagem pronta (sem o número, `/contato`);
+  - "Comprei em outro lugar" e o "Sim": a loja.
+- **O sunset:** quem recebeu o "Quer continuar recebendo?" e, em 7 dias (`PRAZO_DO_SIM`), não
+  teve nem o "Sim" nem clique, visita ou compra depois dele, fica ADORMECIDO (`adormecido`,
+  `quemAdormeceu` no motor). Abrir não conta: abrir e não clicar no "Sim" é a resposta.
+  - Adormecido só recebe os fluxos que ele mesmo começa (`FLUXOS_DE_QUEM_AGE`: Pix, checkout,
+    carrinho, boas-vindas). O relatório da rodada conta `adormecidos`.
+  - Os sinais vêm sem limite de data (`crm.sunsetDosEmails`, e as compras da loja nova), então o
+    sunset vale até a pessoa voltar.
+- **No painel**, o resgate aparece na aba Fluxos. O "Mandar pra mim" manda os botões e o cupom de
+  mentira: os botões vão pra loja, porque um "Tá caro" de mentira criaria um cupom de verdade.
+- **A política de privacidade** conta.
+
+O `conferir-crm.mjs` ("O resgate e o sunset") sobe duas pessoas da loja antiga. Cada uma tem o Fator
+e 3 balms, pagos há 56 dias: o Fator acabou e a pessoa fica em risco amanhã. O conferidor liga o
+resgate e a reposição e anda no tempo:
+- uma responde: confere cada botão (o cupom na hora e o mesmo no 2º clique, o refazer, o WhatsApp
+  ou o contato, a loja), e ela não recebe o cupom de 7 dias nem o sunset;
+- a outra some: recebe os 15% em 7 dias, o "vence amanhã" em 9 e o sunset em 45;
+- lá na frente, os 3 balms acabando: a reposição sai pra quem respondeu e não sai pra quem
+  adormeceu (o `adormecidos` da rodada).
+No arquivo da Nuvemshop, a linha com a data é o pedido, e a sem data é mais um item dele: o
+conferidor escreve assim o pedido de dois produtos.
 **O preço e o promocional no painel** (entregas 0098 e 0102): os dois campos de cada produto na
 lista de Produtos, como na Nuvemshop (a 0098 tinha só o promocional, atrás de um botão). A regra é
 `lib/painel/promocao.ts`, pura: `lerMudancaDePreco` (o corpo `{ preco?, promocional? }` contra o
