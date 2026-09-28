@@ -3884,7 +3884,7 @@ novos no de envio, nos de avaliações e nos de clientes e configurações:
 - loja: envio 87, avaliações 45, erp 119, pagamento 219, conta 209, checkout 182, mercadopago 77,
   avise-me 32;
 - painel: pedidos 100, ações 34, frenet 9, observabilidade 36, avaliações 27, clientes 52,
-  configurações 20, entrar 90, crm CRM;
+  configurações 20, entrar 90, crm 159 (com a main juntada);
 - os unitários (1.406), o typecheck do backend e da loja, o `medusa lint` e o prettier.
 
 Depois do deploy — **nada a configurar.** Pode acontecer: na primeira rodada, a varredura olha os
