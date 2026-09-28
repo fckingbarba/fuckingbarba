@@ -52,6 +52,10 @@ import { erpDaLoja, erpPorId } from "./erps"
  * │ nota em dobro é problema com a Receita. A varredura olha três dias pra │
  * │ trás — é também o tempo que a conexão pode ficar caída sem que pedido  │
  * │ nenhum fique sem nota.                                                 │
+ * │ Passou disso (a conexão ficou caída mais tempo, o ERP recusou por      │
+ * │ três dias), a loja NÃO emite sozinha — alguém pode ter feito a nota à  │
+ * │ mão nesse meio-tempo. A nota vira "não sai sozinha", com e-mail pra    │
+ * │ equipe (`notaAtrasada`): quem conferiu no ERP aperta "Tentar de novo". │
  * └────────────────────────────────────────────────────────────────────────┘
  *
  * UMA NOTA SÓ: a trava por pedido, o registro (`erp_nota`) lido dentro
@@ -91,6 +95,13 @@ const HORA = 60 * MINUTO
 const JANELA_MS = 3 * 24 * HORA
 /** Quantos pedidos cada rodada emite — cada um são várias chamadas ao ERP. */
 const POR_RODADA = 10
+/** Até onde o "passou dos três dias" olha pra trás, pela hora da captura. */
+const ATRASADAS_ATE_MS = 30 * 24 * HORA
+/**
+ * O motivo gravado na nota que passou dos três dias sem sair — o painel
+ * reconhece a nota por ele (`lib/painel/pedido.ts`).
+ */
+export const MOTIVO_DA_NOTA_ATRASADA = "passaram 3 dias do pagamento sem a nota sair"
 /** O prazo da SEFAZ de Santa Catarina pra cancelar a nota autorizada. */
 const PRAZO_DE_CANCELAMENTO_MS = 24 * HORA
 
@@ -234,6 +245,23 @@ export function decidirNota(
   // A janela de cancelamento: o pedido vai pro ERP; a nota, quando ela fechar.
   if (janela > 0 && quandoSaiANota(o, janela).getTime() > agora.getTime()) return "so-o-pedido"
   return "emitir"
+}
+
+/**
+ * Passou dos três dias sem a nota sair? O pedido pago depois de ligar o ERP,
+ * não cancelado, com todos os pagamentos fora da janela da varredura — e a
+ * nota nem existe, ou está "a emitir" com a loja ainda tentando.
+ */
+export function notaAtrasada(
+  o: Pick<PedidoLido, "status" | "payment_collections">,
+  nota: Pick<LinhaDaNota, "situacao" | "definitivo" | "cancelar"> | null,
+  { desde, agora }: { desde: Date; agora: Date }
+): boolean {
+  if (o.status === "canceled") return false
+  if (nota && (nota.situacao !== "a-emitir" || nota.definitivo || nota.cancelar)) return false
+  const capturas = capturasDo(o)
+  if (!capturas.some((d) => d >= desde)) return false
+  return capturas.every((d) => d.getTime() < agora.getTime() - JANELA_MS)
 }
 
 /* ── o pedido no formato do contrato ──────────────────────────────────────── */
@@ -398,7 +426,7 @@ async function aplicarEstado(
 async function avisarUmaVez(
   container: MedusaContainer,
   linha: LinhaDaNota,
-  qual: "problema" | "cancelar" | "conferir" | "desfazer",
+  qual: "problema" | "atrasada" | "cancelar" | "conferir" | "desfazer",
   montar: (para: string) => import("../email").Email,
   agora: Date
 ) {
@@ -432,7 +460,8 @@ async function avisarProblema(
   await avisarUmaVez(
     container,
     linha,
-    "problema",
+    // A atrasada tem o e-mail dela, mesmo que outro problema já tenha avisado antes.
+    jeito === "atrasada" ? "atrasada" : "problema",
     (para) =>
       emailDaNotaComProblema(para, {
         erp: erp.nome,
@@ -1007,6 +1036,104 @@ export type RelatorioDasNotas = {
   esperando: string[]
   falharam: string[]
   desfeitas: number
+  /** Passaram dos três dias sem a nota: a loja parou de tentar e avisou a equipe. */
+  atrasadas: string[]
+}
+
+/**
+ * O pedido que saiu da janela da varredura sem nota (`notaAtrasada`): a
+ * nota vira "não sai sozinha" — a mesma do CPF que faltava —, com o motivo
+ * e um e-mail pra equipe. Emitir agora poderia ser a segunda nota do pedido:
+ * quem confere no ERP é que aperta "Tentar de novo" (ou emite à mão).
+ */
+async function desistirDasAtrasadas(
+  container: MedusaContainer,
+  erp: ErpDaLoja,
+  desde: Date,
+  agora: Date
+): Promise<string[]> {
+  const inicio = Math.max(desde.getTime(), agora.getTime() - ATRASADAS_ATE_MS)
+  const fim = agora.getTime() - JANELA_MS
+  if (inicio >= fim) return []
+  // Do mais novo pro mais velho: o que acabou de sair da janela vem primeiro.
+  const pagos = await container
+    .resolve(Modules.PAYMENT)
+    .listPayments(
+      { captured_at: { $gte: new Date(inicio).toISOString(), $lt: new Date(fim).toISOString() } },
+      { select: ["payment_collection_id"], order: { captured_at: "DESC" }, take: 1000 }
+    )
+  const colecoes = [...new Set(pagos.map((p) => p.payment_collection_id).filter(Boolean))]
+  if (!colecoes.length) return []
+  const { data } = await container.resolve(ContainerRegistrationKeys.QUERY).graph({
+    entity: "order_payment_collection",
+    fields: ["order.id", "order.status"],
+    filters: { payment_collection_id: colecoes },
+  })
+  const pedidos = [
+    ...new Set(
+      (data as { order?: { id?: string; status?: string } | null }[])
+        .filter((l) => l.order?.id && l.order.status !== "canceled")
+        .map((l) => l.order!.id!)
+    ),
+  ]
+  if (!pedidos.length) return []
+  const notas = new Map(
+    (
+      (await servico(container).listNotas(
+        { pedido_id: pedidos },
+        { select: ["pedido_id", "situacao", "definitivo", "cancelar"], take: 5000 }
+      )) as LinhaDaNota[]
+    ).map((n) => [n.pedido_id, n])
+  )
+  const candidatos = pedidos.filter((id) => {
+    const n = notas.get(id)
+    return !n || (n.situacao === "a-emitir" && !n.definitivo && !n.cancelar)
+  })
+
+  const logger = container.resolve(ContainerRegistrationKeys.LOGGER)
+  const atrasadas: string[] = []
+  for (const id of candidatos.slice(0, 50)) {
+    const referencia = await container
+      .resolve(Modules.LOCKING)
+      .execute(
+        `erp-nota:${id}`,
+        async (): Promise<string | null> => {
+          const pedido = await lerPedido(container, id)
+          const antes = await notaDoPedido(container, id)
+          // Relido na trava: o "Tentar de novo" ou o evento podem ter chegado antes.
+          if (!pedido || !notaAtrasada(pedido, antes, { desde, agora })) return null
+          const ultimo = antes?.erro?.trim().replace(/[.\s]+$/, "")
+          const erro = ultimo
+            ? `${MOTIVO_DA_NOTA_ATRASADA} (o último erro: ${ultimo})`
+            : MOTIVO_DA_NOTA_ATRASADA
+          const linha =
+            antes ??
+            ((await servico(container).createNotas({
+              pedido_id: id,
+              erp: erp.id,
+              referencia: referenciaDoPedido(Number(pedido.display_id ?? 0)),
+              situacao: "a-emitir",
+            })) as LinhaDaNota)
+          await atualizarNota(container, linha.id, { erro, definitivo: true, proxima_em: null })
+          logger.warn(
+            `[erp] a nota do ${linha.referencia} passou dos 3 dias sem sair — a loja parou de ` +
+              "tentar e avisou a equipe"
+          )
+          await avisarProblema(container, erp, linha, erro, "atrasada", agora)
+          return linha.referencia
+        },
+        { timeout: 120 }
+      )
+      .catch((e) => {
+        logger.warn(
+          `[erp] não deu pra marcar a nota atrasada do pedido ${id}: ` +
+            `${e instanceof Error ? e.message : String(e)} — a próxima rodada tenta de novo`
+        )
+        return null
+      })
+    if (referencia) atrasadas.push(referencia)
+  }
+  return atrasadas
 }
 
 export async function acompanharNotas(
@@ -1021,6 +1148,7 @@ export async function acompanharNotas(
     esperando: [],
     falharam: [],
     desfeitas: 0,
+    atrasadas: [],
   }
   const erp = erpDaLoja()
   if (!erp) return relatorio
@@ -1186,6 +1314,14 @@ export async function acompanharNotas(
       else if (r.resultado === "falhou") relatorio.falharam.push(`${r.referencia} (${r.motivo})`)
     }
   }
+
+  /* 4. os pagos que passaram dos três dias sem nota */
+  relatorio.atrasadas = await desistirDasAtrasadas(
+    container,
+    erp,
+    new Date(conexao.notas_desde),
+    agora
+  )
 
   if (relatorio.falharam.length) {
     logger.warn(

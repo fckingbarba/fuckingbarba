@@ -6,6 +6,7 @@ import {
   diaEmBrasilia,
   esperaDaNota,
   montarPedidoParaNota,
+  notaAtrasada,
   quandoSaiANota,
   type PedidoLido,
 } from "../notas"
@@ -109,6 +110,52 @@ describe("quais pedidos ganham nota", () => {
     expect(esperaDaNota(1)).toBe(10 * 60 * 1000)
     expect(esperaDaNota(3)).toBe(40 * 60 * 1000)
     expect(esperaDaNota(30)).toBe(6 * 60 * 60 * 1000)
+  })
+})
+
+describe("a nota que passou dos três dias", () => {
+  const DIA = 24 * 60 * 60 * 1000
+  // Pago em 23/09 às 13:00 (o `pago()`): três dias e duas horas depois.
+  const DEPOIS = new Date(AGORA.getTime() + 3 * DIA)
+  const atrasada = (
+    o: Parameters<typeof notaAtrasada>[0],
+    n: Partial<{ situacao: string; definitivo: boolean; cancelar: boolean }> | null = null,
+    agora = DEPOIS
+  ) => notaAtrasada(o, n && { cancelar: false, ...nota(n) }, { desde: DESDE, agora })
+
+  it("sem nota, ou com a loja ainda tentando: atrasada", () => {
+    expect(atrasada(pago())).toBe(true)
+    expect(atrasada(pago(), {})).toBe(true)
+  })
+
+  it("dentro dos três dias, a varredura segue tentando", () => {
+    expect(atrasada(pago(), null, new Date(AGORA.getTime() + 2 * DIA))).toBe(false)
+    expect(atrasada(pago(), {}, new Date(AGORA.getTime() + 2 * DIA))).toBe(false)
+  })
+
+  it("um pagamento ainda nos três dias segura o pedido inteiro", () => {
+    const dois = {
+      status: "pending",
+      payment_collections: [
+        { payments: [{ captured_at: "2026-09-23T13:00:00.000Z" }] },
+        { payments: [{ captured_at: "2026-09-25T13:00:00.000Z" }] },
+      ],
+    }
+    expect(atrasada(dois)).toBe(false)
+  })
+
+  it("o pago antes de ligar o ERP, o cancelado e o não pago, não", () => {
+    expect(atrasada(pago("2026-09-23T11:00:00.000Z"))).toBe(false)
+    expect(atrasada({ ...pago(), status: "canceled" })).toBe(false)
+    expect(atrasada({ status: "pending", payment_collections: [] })).toBe(false)
+  })
+
+  it("a nota que já tem destino, não: autorizada, na SEFAZ, desistida ou a desfazer", () => {
+    expect(atrasada(pago(), { situacao: "autorizada" })).toBe(false)
+    expect(atrasada(pago(), { situacao: "processando" })).toBe(false)
+    expect(atrasada(pago(), { situacao: "rejeitada" })).toBe(false)
+    expect(atrasada(pago(), { definitivo: true })).toBe(false)
+    expect(atrasada(pago(), { cancelar: true })).toBe(false)
   })
 })
 

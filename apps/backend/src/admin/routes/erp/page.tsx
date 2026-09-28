@@ -254,6 +254,7 @@ const ErpPage = () => {
           esperando: string[]
           falharam: string[]
           pendentes: number
+          atrasadas: string[]
         }
       }>("/admin/erp/notas", "POST")
       toast.success(
@@ -261,6 +262,9 @@ const ErpPage = () => {
           `${relatorio.autorizadas.length} autorizada(s)` +
           (relatorio.esperando.length
             ? `, ${relatorio.esperando.length} pedido(s) no ${s?.erp.nome ?? "ERP"} esperando a janela`
+            : "") +
+          (relatorio.atrasadas?.length
+            ? `, ${relatorio.atrasadas.length} passaram de 3 dias sem nota (e-mail pra equipe)`
             : "") +
           (relatorio.falharam.length ? `, ${relatorio.falharam.length} com problema.` : ".")
       )
