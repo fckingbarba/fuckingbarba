@@ -20,6 +20,11 @@ import { createHash } from "node:crypto"
  *     a conta, a newsletter, uma compra de antes). Em 1 hora, 12 horas (o que
  *     os clientes acharam), 24 horas (o desconto, que vale 3 dias), 3 dias (o
  *     desconto vence amanhã) e 5 dias (a última). As horas são as do dono.
+ *   - NAVEGAÇÃO ABANDONADA (entrega 0198): quem a loja conhece e mostrou
+ *     interesse num produto — viu a página dele 2 vezes, ficou 1 minuto nela
+ *     ou assistiu o "Vê na prática" — sem pôr nada na sacola. Em 3 horas,
+ *     "Ficou de olho no …?"; em 24, a rotina completa. Sem cupom, uma a cada
+ *     7 dias por pessoa (`lib/crm/navegacao.ts`). Começa DESLIGADA.
  *   - BOAS-VINDAS (entrega 0177): quem se cadastra no pop-up da 1ª compra (o
  *     nome e o e-mail, em troca do cupom). O cupom sai na hora do cadastro,
  *     pela rota do pop-up (`lib/crm/primeira-compra.ts`), e não pelo motor.
@@ -70,7 +75,15 @@ const HORA = 60 * MINUTO
 const DIA = 24 * HORA
 
 export type IdDoFluxo =
-  "pix" | "checkout" | "carrinho" | "reposicao" | "jornada" | "boas-vindas" | "estreia" | "resgate"
+  | "pix"
+  | "checkout"
+  | "carrinho"
+  | "navegacao"
+  | "reposicao"
+  | "jornada"
+  | "boas-vindas"
+  | "estreia"
+  | "resgate"
 
 /** Os toques dos fluxos de compra — os que o motor manda (`lib/emails/fluxos.ts`). */
 export type IdDoToqueDeCompra =
@@ -86,6 +99,12 @@ export type IdDoToqueDeCompra =
   | "carrinho-24h"
   | "carrinho-3d"
   | "carrinho-5d"
+
+/**
+ * Os toques da navegação abandonada (entrega 0198), contados da hora em que
+ * a pessoa mostrou interesse no produto (`lib/emails/navegacao.ts`).
+ */
+export type IdDoToqueDaNavegacao = "navegacao-3h" | "navegacao-24h"
 
 /**
  * Os toques das boas-vindas: o cupom da 1ª compra, que sai na hora do
@@ -129,6 +148,7 @@ export type IdDoToqueDoResgate = "resgate-agora" | "resgate-7d" | "resgate-9d" |
 
 export type IdDoToque =
   | IdDoToqueDeCompra
+  | IdDoToqueDaNavegacao
   | IdDoToqueDasBoasVindas
   | IdDoToqueDaEstreia
   | IdDoToqueDaReposicao
@@ -138,6 +158,10 @@ export type IdDoToque =
 /** Se o toque é de um fluxo de compra (os de `lib/emails/fluxos.ts`). */
 export const ehToqueDeCompra = (id: IdDoToque): id is IdDoToqueDeCompra =>
   /^(pix|checkout|carrinho)-/.test(id)
+
+/** Se o toque é da navegação abandonada (`lib/emails/navegacao.ts`). */
+export const ehToqueDaNavegacao = (id: IdDoToque): id is IdDoToqueDaNavegacao =>
+  id.startsWith("navegacao-")
 
 /** Se o toque é das boas-vindas (`lib/emails/boas-vindas.ts`). */
 export const ehToqueDasBoasVindas = (id: IdDoToque): id is IdDoToqueDasBoasVindas =>
@@ -273,11 +297,28 @@ export const FLUXOS: Record<IdDoFluxo, Fluxo> = {
       { id: "carrinho-5d", nome: "O último lembrete", quando: "5 dias depois", depois: 5 * DIA },
     ],
   },
+  navegacao: {
+    id: "navegacao",
+    nome: "Navegação abandonada",
+    // O último dos 4 de abandono do plano: quem só olhou está mais longe de pagar que a sacola.
+    prioridade: 4,
+    comecaDesligado: true,
+    // O começo é a hora do interesse: a 2ª visita, o minuto na página ou o vídeo.
+    toques: [
+      { id: "navegacao-3h", nome: "Ficou de olho?", quando: "3 h depois", depois: 3 * HORA },
+      {
+        id: "navegacao-24h",
+        nome: "Quem levou também levou",
+        quando: "1 dia depois",
+        depois: DIA,
+      },
+    ],
+  },
   reposicao: {
     id: "reposicao",
     nome: "Reposição",
-    // Na ordem do plano: depois dos de compra, antes das boas-vindas e das campanhas.
-    prioridade: 4,
+    // Na ordem do plano: depois dos de compra e da navegação, antes das boas-vindas e das campanhas.
+    prioridade: 5,
     comecaDesligado: true,
     // O começo de cada entrada é o dia em que o produto acaba (`lib/crm/reposicao.ts`).
     toques: [
@@ -306,7 +347,7 @@ export const FLUXOS: Record<IdDoFluxo, Fluxo> = {
     id: "jornada",
     nome: "Jornada do resultado",
     // Na ordem do plano: depois da reposição, antes das boas-vindas e das campanhas.
-    prioridade: 5,
+    prioridade: 6,
     comecaDesligado: true,
     // O começo é o dia em que o pedido chegou (`lib/crm/jornada.ts`).
     toques: [
@@ -325,7 +366,7 @@ export const FLUXOS: Record<IdDoFluxo, Fluxo> = {
   "boas-vindas": {
     id: "boas-vindas",
     nome: "Boas-vindas",
-    prioridade: 6,
+    prioridade: 7,
     // O cupom da 1ª compra vale 3 dias, como o do carrinho.
     validadeDoCupom: 3 * DIA,
     semControle: true,
@@ -359,7 +400,7 @@ export const FLUXOS: Record<IdDoFluxo, Fluxo> = {
   estreia: {
     id: "estreia",
     nome: "Estreia da loja nova",
-    prioridade: 7,
+    prioridade: 8,
     // O cupom de quem nunca comprou e de quem sumiu vale 3 dias, como o do pop-up.
     validadeDoCupom: 3 * DIA,
     comecaDesligado: true,
@@ -384,7 +425,7 @@ export const FLUXOS: Record<IdDoFluxo, Fluxo> = {
     id: "resgate",
     nome: "Resgate e sunset",
     // Depois de todos: é de quem está mais longe de comprar.
-    prioridade: 8,
+    prioridade: 9,
     // O cupom de 15% sai em 7 dias e o e-mail de 9 diz que ele vence amanhã: vale 3 dias.
     validadeDoCupom: 3 * DIA,
     comecaDesligado: true,
@@ -418,6 +459,7 @@ export const IDS_DOS_FLUXOS: readonly IdDoFluxo[] = [
   "pix",
   "checkout",
   "carrinho",
+  "navegacao",
   "reposicao",
   "jornada",
   "boas-vindas",

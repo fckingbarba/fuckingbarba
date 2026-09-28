@@ -13,6 +13,7 @@ import { emailDaTrilha, PRODUTOS_DAS_TRILHAS, type ConteudoDoProduto } from "../
 import type { ProdutoDoCrm } from "../emails/crm"
 import { emailDaEstreia, type EstreiaDoEmail } from "../emails/estreia"
 import { emailDaJornada } from "../emails/jornada"
+import { emailDaNavegacao } from "../emails/navegacao"
 import { emailDaReposicao } from "../emails/reposicao"
 import { emailDoResgate } from "../emails/resgate"
 import { emailDoFluxo, type CompraDoFluxo, type ItemDoFluxo } from "../emails/fluxos"
@@ -35,7 +36,16 @@ import {
   type PessoaDaEstreia,
 } from "./estreia"
 import { produtosDosExemplos } from "./exemplos-dos-emails"
-import { publicoDaJornada, type JornadaDoPedido } from "./jornada"
+import { publicoDaJornada, SKU_DA_ROTINA, type JornadaDoPedido } from "./jornada"
+import {
+  chaveDaNavegacao,
+  comANavegacaoDaVez,
+  JANELA_DAS_VISITAS,
+  oQueAPessoaTem,
+  publicoDaNavegacao,
+  sugestoesDaNavegacao,
+  type NavegacaoDaPessoa,
+} from "./navegacao"
 import { publicoDaReposicao, SUBIR_PARA, type Reposicao } from "./reposicao"
 import {
   adormecido,
@@ -56,6 +66,7 @@ import {
   IDS_DOS_FLUXOS,
   ehToqueDaEstreia,
   ehToqueDaJornada,
+  ehToqueDaNavegacao,
   ehToqueDaReposicao,
   ehToqueDasBoasVindas,
   ehToqueDeCompra,
@@ -107,6 +118,7 @@ const FLUXOS_DE_QUEM_AGE: ReadonlySet<IdDoFluxo> = new Set([
   "pix",
   "checkout",
   "carrinho",
+  "navegacao",
   "boas-vindas",
 ])
 
@@ -262,6 +274,7 @@ export async function rodarOsFluxos(
     pix: janela("pix"),
     checkout: janela("checkout"),
     carrinho: janela("carrinho"),
+    navegacao: janela("navegacao"),
     "boas-vindas": janela("boas-vindas"),
     resgate: janela("resgate"),
   }
@@ -281,6 +294,7 @@ export async function rodarOsFluxos(
       inicioDo.pix,
       inicioDo.checkout,
       inicioDo.carrinho,
+      inicioDo.navegacao,
       inicioDo["boas-vindas"],
       inicioDo.resgate,
       desdeDaEstreia
@@ -452,6 +466,26 @@ export async function rodarOsFluxos(
         pixVencido: p.status === "canceled" && vence.getTime() < agora.getTime(),
       })
     }
+  // A navegação: quem a loja conhece e mostrou interesse num produto (2 visitas, 1 minuto, o vídeo).
+  const navegacoes = new Map<string, NavegacaoDaPessoa>()
+  if (inicioDo.navegacao) {
+    const desde = inicioDo.navegacao
+    // As visitas de antes da janela contam pro "viu 2 vezes"; o interesse é que precisa ser dela.
+    const visitasDesde = new Date(desde.getTime() - JANELA_DAS_VISITAS)
+    for (const n of await publicoDaNavegacao(container, visitasDesde)) {
+      if (n.em < desde) continue
+      const chave = chaveDaNavegacao(n.email, n.produto, n.em)
+      navegacoes.set(chave, n)
+      entradas.push({
+        fluxo: "navegacao",
+        chave,
+        email: n.email,
+        comeco: n.em,
+        // Pôs na sacola, abriu o checkout ou comprou depois: aí quem cuida é o fluxo daquilo.
+        comprou: n.agiu || comprouDepois(n.email, n.em) || abriuCheckoutDepois(n.email, n.em),
+      })
+    }
+  }
   // As boas-vindas: quem se cadastrou no pop-up da 1ª compra (o cupom saiu na hora, pela rota).
   if (inicioDo["boas-vindas"])
     for (const c of await crm.cadastrosDasBoasVindas(inicioDo["boas-vindas"])) {
@@ -565,6 +599,10 @@ export async function rodarOsFluxos(
       container,
       entradas.filter((e) => e.fluxo === "boas-vindas").map((e) => e.email)
     ))
+  // O que os e-mails da navegação mostram: só se alguém dela for receber agora.
+  let daNavegacaoLida: Promise<DadosDaNavegacao> | null = null
+  const navegacao = () =>
+    (daNavegacaoLida ??= lerDadosDaNavegacao(container, [...navegacoes.values()]))
   // O que os e-mails da jornada mostram: só se alguém dela for receber agora.
   let daJornadaLida: Promise<DadosDaJornada> | null = null
   const jornada = () => (daJornadaLida ??= lerDadosDaJornada(container, [...jornadas.values()]))
@@ -591,9 +629,11 @@ export async function rodarOsFluxos(
       : dela
     if (dasEntradas.length < dela.length) relatorio.adormecidos++
     if (!dasEntradas.length) continue
+    const registrosDela = registrosDe.get(email) ?? []
     const r = decidir({
-      entradas: dasEntradas,
-      registros: registrosDe.get(email) ?? [],
+      // Uma navegação por vez, e outra só 7 dias depois da última.
+      entradas: comANavegacaoDaVez(dasEntradas, registrosDela, agora),
+      registros: registrosDela,
       ligados,
       agora,
     })
@@ -610,6 +650,58 @@ export async function rodarOsFluxos(
     if (decisao.tipo === "controle") {
       if (await crm.anotarNoFluxo({ ...base, toque: decisao.toque.id, como: "controle" }))
         relatorio.controle++
+      continue
+    }
+    if (entrada.fluxo === "navegacao") {
+      const n = navegacoes.get(entrada.chave)
+      const toque = decisao.toque.id
+      if (!n || !ehToqueDaNavegacao(toque)) continue
+      const dados = await navegacao()
+      const email1 = emailDaNavegacao({
+        toque,
+        para: email,
+        nome: dados.nomes.get(email) ?? null,
+        produto: dados.conteudos.get(n.produto) ?? null,
+        depoimentos: dados.depoimentos.get(n.produto) ?? [],
+        sugestoes:
+          toque === "navegacao-24h"
+            ? sugestoesDaNavegacao(n.produto, await dados.tem(email)).flatMap(
+                (sku) => dados.porSku.get(sku) ?? []
+              )
+            : [],
+        sair: linksDeSair(loja, email),
+        loja: infoDaLoja,
+      })
+      // Sem o que mostrar (sem avaliação nem dúvida na página, sem o que sugerir): pulado.
+      if (!email1) {
+        if (await crm.anotarNoFluxo({ ...base, toque, como: "pulado" })) relatorio.pulados++
+        continue
+      }
+      const reserva = await crm.reservarToque({ ...base, toque })
+      if (!reserva) continue
+      let falha: string | null = null
+      try {
+        const enviado = await enviarEmail(comQuemManda(email1), logger, {
+          idempotencia: `crm-navegacao/${entrada.chave}/${toque}`,
+          tipo: "crm-navegacao",
+        })
+        if (enviado.ok) {
+          await crm.confirmarToque(reserva, {
+            resendId: enviado.id ?? null,
+            cupom: null,
+            cupomAte: null,
+          })
+          relatorio.enviados++
+          await new Promise((ok) => setTimeout(ok, PAUSA_MS))
+        } else falha = enviado.motivo
+      } catch (e) {
+        falha = e instanceof Error ? e.message : String(e)
+      }
+      if (falha !== null) {
+        relatorio.falhas++
+        await crm.desfazerToque(reserva)
+        logger.warn(`[crm] fluxos: o toque ${toque} da navegação não saiu — ${falha}`)
+      }
       continue
     }
     if (entrada.fluxo === "jornada") {
@@ -1229,6 +1321,73 @@ async function nomesDasPessoas(
     if (email && c.first_name?.trim()) nomes.set(email, c.first_name.trim())
   }
   return nomes
+}
+
+type DadosDaNavegacao = {
+  /** O texto da página de cada produto olhado (as dúvidas), pelo endereço. */
+  conteudos: Map<string, ConteudoDoProduto>
+  /** O que os clientes acharam de cada um (aprovadas, 4 e 5 estrelas, as 3 mais novas). */
+  depoimentos: Map<string, { texto: string; quem: string; estrelas: number }[]>
+  /** O que completa a rotina, pelo SKU. */
+  porSku: Map<string, ProdutoDoCrm>
+  nomes: Map<string, string>
+  /** O que a pessoa já tem (lido na hora, só de quem vai receber o de 24 horas). */
+  tem: (email: string) => ReturnType<typeof oQueAPessoaTem>
+}
+
+/** O texto e as avaliações dos produtos olhados, o que completa a rotina, e o nome de cada um. */
+async function lerDadosDaNavegacao(
+  container: MedusaContainer,
+  lista: readonly NavegacaoDaPessoa[]
+): Promise<DadosDaNavegacao> {
+  const handles = [...new Set(lista.map((n) => n.produto))]
+  const skus = [...new Set(Object.values(SKU_DA_ROTINA))]
+  const [{ conteudos }, porSku, nomes, produtos] = await Promise.all([
+    conteudosDasTrilhas(container, handles),
+    produtosPorSku(container, skus),
+    nomesDasPessoas(
+      container,
+      lista.map((n) => n.email)
+    ),
+    container
+      .resolve(ContainerRegistrationKeys.QUERY)
+      .graph({ entity: "product", fields: ["id", "handle"], filters: { handle: handles } })
+      .then((r) => r.data as { id: string; handle: string }[]),
+  ])
+  const handleDo = new Map(produtos.map((p) => [p.id, p.handle]))
+  const avaliacoes = handleDo.size
+    ? ((await container
+        .resolve<AvaliacoesService>(AVALIACOES)
+        .listAvaliacoes(
+          { produto_id: [...handleDo.keys()], situacao: "aprovada" },
+          {
+            select: ["produto_id", "nome", "nota", "texto"],
+            order: { created_at: "DESC" },
+            take: 500,
+          }
+        )
+        .catch(() => [])) as { produto_id: string; nome: string; nota: number; texto: string }[])
+    : []
+  const depoimentos = new Map<string, { texto: string; quem: string; estrelas: number }[]>()
+  for (const a of avaliacoes) {
+    const handle = handleDo.get(a.produto_id)
+    if (!handle || a.nota < 4 || !a.texto.trim()) continue
+    const dele = depoimentos.get(handle) ?? []
+    if (dele.length < 3) dele.push({ texto: a.texto.trim(), quem: a.nome, estrelas: a.nota })
+    depoimentos.set(handle, dele)
+  }
+  const tens = new Map<string, ReturnType<typeof oQueAPessoaTem>>()
+  return {
+    conteudos,
+    depoimentos,
+    porSku,
+    nomes,
+    tem: (email) => {
+      let dela = tens.get(email)
+      if (!dela) tens.set(email, (dela = oQueAPessoaTem(container, email)))
+      return dela
+    },
+  }
 }
 
 type DadosDaJornada = {
