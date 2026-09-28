@@ -1,4 +1,26 @@
-@import "tailwindcss";
+@import "tailwindcss" source("..");
+@source not inline("ring drop-shadow transform visible resize contents");
+
+/*
+  ┌─ O QUE O TAILWIND LÊ PRA GERAR AS CLASSES (entrega 0194) ────────────────┐
+  │ Ele gera uma classe pra cada palavra que PARECE classe em qualquer       │
+  │ arquivo que ele varre — comentário, texto, nome de evento. Sem o         │
+  │ `source("..")` ele varria o apps/loja inteiro: os protótipos do          │
+  │ porte, os conferidores, o AGENTS.md. Daí saíam `container` (com cinco    │
+  │ quebras de tela), `border`, `transition`, `outline`, `filter`, `blur`... │
+  │ que nenhuma tela usa. Agora ele lê só o `src/`.                          │
+  │                                                                          │
+  │ E dentro do `src/`, estas seis são palavra, não classe: "ring light" (os │
+  │ criadores), `drop-shadow` num comentário, `transform` e `visible` no     │
+  │ JavaScript, o evento `resize`, o `contents` do rastreio. Cada uma puxava │
+  │ a classe e as variáveis dela (`@property --tw-…`). SE UMA DELAS VIRAR    │
+  │ CLASSE DE VERDADE, tire daqui — senão ela não existe no CSS.             │
+  │                                                                          │
+  │ É a home que mais sente: tudo o que este arquivo gera entra no CSS que   │
+  │ toda página baixa antes de pintar, e o da home tem que caber com o HTML  │
+  │ dela em 43,8 KB (ver "O QUE NÃO MORA AQUI", abaixo).                     │
+  └──────────────────────────────────────────────────────────────────────────┘
+*/
 
 /*
   O desenho das seções vem do protótipo HTML, em CSS por componente
