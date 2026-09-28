@@ -97,10 +97,15 @@ export type EmailDoCrm = {
    *     cabeçalho — o aviso do Pix, que é sobre um pedido (Principal ou
    *     Atualizações);
    *   - "pessoal": texto simples, sem foto, com um link só, assinado pelo
-   *     dono e com a resposta indo pro atendimento — os lembretes sem
-   *     desconto, pra terem chance de cair em Principal.
+   *     dono e com a resposta indo pro atendimento. Foi o dos lembretes sem
+   *     desconto até a 0176, e fica pra voltar, se o "lembrete" cair em
+   *     Promoções;
+   *   - "lembrete": o modelo da marca, com o sair da lista no pé, mas sem o
+   *     cabeçalho do "cancelar inscrição" e saindo com o nome de quem assina
+   *     — os lembretes sem desconto, desde a 0176 (o teste da cara padrão com
+   *     os textos que caíram em Principal).
    */
-  estilo?: "oferta" | "pedido" | "pessoal"
+  estilo?: "oferta" | "pedido" | "pessoal" | "lembrete"
 }
 
 /** Quem assina o e-mail pessoal (escolha do dono, 27/09) — e o nome do remetente dele. */
@@ -391,14 +396,16 @@ export function emailDoCrm(e: EmailDoCrm): Email & { cabecalhos: Record<string, 
     ...(empresa ? [empresa] : []),
     `Instagram: ${INSTAGRAM} · TikTok: ${TIKTOK}${whatsapp ? ` · WhatsApp: ${whatsapp}` : ""}`,
   ].join("\n")
-  const cabecalhos: Record<string, string> = pedido
-    ? {}
-    : e.sair.umClique
-      ? {
-          "List-Unsubscribe": `<${e.sair.umClique}>`,
-          "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
-        }
-      : { "List-Unsubscribe": `<${e.sair.pagina}>` }
+  // O "cancelar inscrição" do Gmail é marca de e-mail em massa: só a oferta leva.
+  const cabecalhos: Record<string, string> =
+    pedido || e.estilo === "lembrete"
+      ? {}
+      : e.sair.umClique
+        ? {
+            "List-Unsubscribe": `<${e.sair.umClique}>`,
+            "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+          }
+        : { "List-Unsubscribe": `<${e.sair.pagina}>` }
   return { para: e.para, assunto: e.assunto, html, texto, cabecalhos }
 }
 

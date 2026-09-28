@@ -3531,8 +3531,23 @@ falam de compra, como o de 30 minutos (escolha sua: reescrever e testar).
 - **Saíram:** "Esqueceu isso aqui?", "Última chamada", "Ainda dá tempo" e "em 1 clique".
 - **Os com desconto** não mudam.
 
-- [ ] **Depois do deploy (você):** CRM → Fluxos → "Mandar pra mim" em "Sua compra ficou pela
-      metade" e no último lembrete do carrinho. Me dizer a aba de cada um.
+- [x] **Depois do deploy (você):** CRM → Fluxos → "Mandar pra mim" em "Sua compra ficou pela
+      metade" e no último lembrete do carrinho. Me dizer a aba de cada um. Caíram em Principal.
+
+**Os lembretes com a cara da loja — pronto em 27/09 (entrega 0176).** Você achou o texto simples
+cru, diferente dos outros e-mails. Os seus testes mostraram que o que levava pra Promoções eram as
+palavras, e não a foto: o aviso do Pix, com a logo e a foto do produto, caiu em Principal. Então os
+lembretes voltaram pra cara padrão, com os textos novos (escolha sua: voltar e testar).
+
+- **A cara da marca,** com as fotos e o "sair da lista" no pé.
+- **O resto fica igual:** o remetente "Matheus, da FuckingBarba" e nada do cabeçalho de oferta.
+  Assim o teste diz se a cara pesa.
+- **O "Ficou alguma dúvida?"** diz onde tirar a dúvida: é só responder o e-mail.
+
+- [ ] **Depois do deploy (você):** CRM → Fluxos → "Mandar pra mim" em "Faltou só o pagamento" e em
+      "Sua compra ficou pela metade".
+  - Se cair em Principal, fica assim.
+  - Se cair em Promoções, os lembretes voltam pro texto simples. É uma troca pequena.
 
 **A parcela mínima do cartão, editável — pronta em 27/09 (entrega 0157).** O pedido dele: "quero
 poder editar a parcela mínima no cartão, ali diz 5 reais". Em **Configurações → Pagamento**, o

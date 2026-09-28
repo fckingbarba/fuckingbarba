@@ -58,8 +58,10 @@ function oQue(itens: ItemDoFluxo[]): string {
 /**
  * O e-mail de um toque, já com o estilo que decide a aba do Gmail
  * (`EmailDoCrm.estilo`): o aviso do Pix tem a cara de e-mail de pedido; o que
- * dá desconto é oferta (Promoções é o lugar dele); o resto é pessoal — texto
- * simples, assinado, pra ter chance de cair em Principal.
+ * dá desconto é oferta (Promoções é o lugar dele); o resto é lembrete — a cara
+ * da marca, sem o cabeçalho de oferta e com o nome de quem assina (0176: o
+ * teste da cara padrão; se cair em Promoções, volta pro "pessoal", o texto
+ * simples).
  */
 export function emailDoFluxo(c: CompraDoFluxo): EmailDoCrm {
   const e = montar(c)
@@ -71,7 +73,21 @@ export function emailDoFluxo(c: CompraDoFluxo): EmailDoCrm {
         ? `Você recebeu porque fez o pedido #${c.numero} na FuckingBarba.`
         : "Você recebeu porque fez um pedido na FuckingBarba.",
     }
-  return { ...e, estilo: e.blocos.some((b) => b.tipo === "cupom") ? "oferta" : "pessoal" }
+  if (e.blocos.some((b) => b.tipo === "cupom")) return { ...e, estilo: "oferta" }
+  // O de 4 horas pergunta se ficou dúvida: na cara da marca, ele diz onde tirar.
+  const blocos =
+    c.toque === "checkout-4h"
+      ? [...e.blocos, { tipo: "texto" as const, texto: ondeTirarDuvida(c.loja) }]
+      : e.blocos
+  return { ...e, blocos, estilo: "lembrete" }
+}
+
+/** Onde a pessoa tira a dúvida: a resposta do e-mail (vai pro atendimento), o WhatsApp do pé ou a página de contato. */
+function ondeTirarDuvida(loja: CompraDoFluxo["loja"]): string {
+  const pergunta = "Dúvida de uso, de prazo ou de pagamento?"
+  if (loja.atendimento) return `${pergunta} É só responder este e-mail.`
+  if (loja.whatsapp) return `${pergunta} O nosso WhatsApp está no pé deste e-mail.`
+  return `${pergunta} A página de contato da loja responde rápido.`
 }
 
 function montar(c: CompraDoFluxo): EmailDoCrm {

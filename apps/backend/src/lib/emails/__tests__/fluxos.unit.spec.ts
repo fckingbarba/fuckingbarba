@@ -46,24 +46,34 @@ describe("o checkout abandonado", () => {
     expect(e.html).not.toContain("aceitou receber ofertas")
   })
 
-  it("4 horas: as dúvidas — a resposta vai pro atendimento; sem ele, o WhatsApp", () => {
+  it("4 horas: as dúvidas — a resposta vai pro atendimento; sem ele, o WhatsApp do pé", () => {
     const comAtendimento = montar({
       toque: "checkout-4h",
       loja: { ...compra().loja, atendimento: "contato@exemplo.com" },
     })
     expect(comAtendimento.assunto).toBe("Ficou alguma dúvida?")
-    expect(comAtendimento.html).toContain("Qualquer dúvida, é só responder este e-mail.")
+    expect(comAtendimento.html).toContain(
+      "Dúvida de uso, de prazo ou de pagamento? É só responder este e-mail."
+    )
     const soWhats = montar({ toque: "checkout-4h" })
-    expect(soWhats.html).toContain("chama a gente no WhatsApp")
+    expect(soWhats.html).toContain("O nosso WhatsApp está no pé deste e-mail.")
     expect(soWhats.html).toContain("https://wa.me/5547999990000")
     const nenhum = montar({ toque: "checkout-4h", loja: { ...compra().loja, whatsapp: null } })
-    expect(nenhum.html).not.toContain("Qualquer dúvida")
+    expect(nenhum.html).toContain("A página de contato da loja responde rápido.")
   })
 
-  it("o estilo decide a aba do Gmail: pessoal sem desconto, oferta com ele", () => {
-    const pessoal = emailDoFluxo(compra())
-    expect(pessoal.estilo).toBe("pessoal")
-    const e = emailDoCrm(pessoal)
+  it("o estilo decide a aba do Gmail: lembrete sem desconto, oferta com ele", () => {
+    // O lembrete é a cara da marca, com foto e o sair da lista no pé, mas sem o cabeçalho de oferta.
+    const lembrete = emailDoFluxo(compra())
+    expect(lembrete.estilo).toBe("lembrete")
+    const l = emailDoCrm(lembrete)
+    expect(l.html).toContain("Ousamos, criamos, cuidamos.")
+    expect(l.html).toContain('src="https://cdn.exemplo/fator.jpg"')
+    expect(l.html).toContain("Sair da lista em 1 clique")
+    expect(l.texto).toContain("Sair da lista:")
+    expect(l.cabecalhos).toEqual({})
+    // O pessoal (o texto simples) fica pra voltar, se o lembrete cair em Promoções.
+    const e = emailDoCrm({ ...lembrete, estilo: "pessoal" })
     expect(e.html).not.toContain("<img")
     expect(e.html).toContain("Matheus<br>FuckingBarba")
     expect(e.html).toContain("Sair da lista")
@@ -171,7 +181,7 @@ describe("os lembretes sem desconto", () => {
     ] as const
     for (const toque of toques) {
       const e = emailDoFluxo(compra({ toque, numero: 3312 }))
-      expect(e.estilo).toBe("pessoal")
+      expect(e.estilo).toBe("lembrete")
       const tudo = [e.assunto, e.previa, e.texto, e.botao?.texto ?? ""].join(" ")
       expect(tudo).not.toMatch(/esqueceu|última chamada|ainda dá tempo|em 1 clique|tá aqui/i)
     }
