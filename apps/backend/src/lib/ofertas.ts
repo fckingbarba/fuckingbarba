@@ -24,8 +24,9 @@ import { inscricoesDaNewsletter, lerClientes } from "./painel/ler"
  *     pra parar.
  *
  * Se a pessoa quiser de novo depois, é um "sim" novo, com data nova. Quem
- * chama: o painel ("Tirar", na newsletter) e o link de sair da lista dos
- * e-mails do CRM (`POST /crm/sair`).
+ * chama: o painel ("Tirar", na newsletter), o link de sair da lista dos
+ * e-mails do CRM (`POST /crm/sair`) e a caixa desmarcada da conta
+ * (`POST /store/crm/sair-das-ofertas`, entrega 0184).
  */
 export async function tirarDasOfertas(
   container: MedusaContainer,
