@@ -2650,6 +2650,28 @@ Os lembretes sem desconto trocaram as frases de propaganda por frases de compra:
 
 Um teste de unidade passa por todos os lembretes sem desconto e recusa essas frases.
 
+**Os lembretes na cara da marca** (entrega 0176). O dono achou o texto simples "cru, diferente dos
+outros". Os testes dele mostraram que o que pesou foram as palavras, e não a foto: o aviso do Pix,
+com a logo e a foto do produto, caiu em Principal. Os lembretes sem desconto voltaram pra cara da
+marca, com os textos da 0174, no estilo novo `"lembrete"` (`EmailDoCrm.estilo`):
+- o modelo da marca, com as fotos e o sair da lista no pé;
+- sem o cabeçalho `List-Unsubscribe`, que é marca de e-mail em massa;
+- sai com o nome de quem assina, "Matheus, da FuckingBarba" (`remetenteDoEstilo`), e a resposta vai
+  pro atendimento. É o mesmo do texto simples, pra que o teste mude só a cara;
+- o de 4 horas diz onde tirar a dúvida (`ondeTirarDuvida`, em `emailDoFluxo`): a resposta do
+  e-mail, o WhatsApp do pé ou a página de contato.
+
+O `"pessoal"` (`emailPessoal`) continua no código. Se o lembrete cair em Promoções, voltar é trocar
+o estilo em `emailDoFluxo`.
+
+O `conferir-crm.mjs` confere a cara do lembrete no de 30 minutos. E conserta duas contas de hora do
+carrinho, que falhavam rodando entre 21h e 22h:
+- o "antes de 1 hora" vai na hora de verdade, sem o `diurno`. Empurrado pra manhã, ele passava da 1
+  hora, e o motor mandava o de 1 hora antes da conta;
+- o `diurno` leva direto pras 8h05, o fim da madrugada do motor, e não mais em degraus de 15 minutos
+  até as 9h. O degrau passava das 12 horas da sacola, e o motor pulava o de 1 hora (`toqueDaVez`
+  manda o último vencido).
+
 **O preço e o promocional no painel** (entregas 0098 e 0102): os dois campos de cada produto na
 lista de Produtos, como na Nuvemshop (a 0098 tinha só o promocional, atrás de um botão). A regra é
 `lib/painel/promocao.ts`, pura: `lerMudancaDePreco` (o corpo `{ preco?, promocional? }` contra o
