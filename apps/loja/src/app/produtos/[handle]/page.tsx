@@ -3,6 +3,7 @@ import { Secoes } from "@/components/secoes"
 import { descricaoDoGoogle } from "@/lib/formato"
 import { buscarProdutoPorHandle, listarProdutos } from "@/lib/medusa"
 import { lerPdp } from "@/lib/pdp"
+import { SECOES_DO_PRODUTO } from "@/lib/secoes/registro-do-produto"
 // Só aqui, e não no globals.css: ver "O QUE NÃO MORA AQUI" lá.
 import "@/estilos/telas/produto.css"
 
@@ -11,9 +12,10 @@ import "@/estilos/telas/produto.css"
  * o handle; quem monta o caminho é esta rota.
  *
  * A PÁGINA NÃO SABE QUAIS SEÇÕES EXISTEM, e isso é o ponto: ela pede
- * `<Secoes escopo="produto">` e o registro (`lib/secoes/registro.ts`) decide
- * o quê e em que ordem. Ligar, desligar e reordenar seção vira dado — que é
- * o que o painel vai mexer, sem tocar em JSX.
+ * `<Secoes escopo="produto">` e o registro do produto
+ * (`lib/secoes/registro-do-produto.ts`) decide o quê e em que ordem. Ligar,
+ * desligar e reordenar seção vira dado — que é o que o painel vai mexer, sem
+ * tocar em JSX.
  *
  * Os produtos do catálogo saem prontos do build (`generateStaticParams`,
  * abaixo). Handle fora da lista é montado no servidor na hora do pedido,
@@ -76,7 +78,7 @@ export default async function PaginaProduto({ params }: Props) {
   const { handle } = await params
   return (
     <main id="conteudo" className="flex-1">
-      <Secoes escopo="produto" handle={handle} />
+      <Secoes escopo="produto" secoes={SECOES_DO_PRODUTO} handle={handle} />
     </main>
   )
 }

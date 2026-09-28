@@ -3,15 +3,17 @@ import type { CSSProperties, ReactNode } from "react"
 import { home } from "@/lib/medusa"
 import { lerFundos, type FundoDaSecao } from "@/lib/pdp"
 import { lerAjuste, resolver } from "@/lib/secoes/layout"
-import type { Escopo } from "@/lib/secoes/registro"
+import type { Secao, SecaoDaHome, SecaoDoProduto } from "@/lib/secoes/registro"
 
 /**
  * Monta as seções de uma página a partir do registro.
  *
  * É o único lugar do app que decide o que entra na página. As rotas viram
- * uma linha (`<Secoes escopo="home" />`) e param de saber quais seções
- * existem — que é o ponto: ligar, desligar e reordenar passa a ser dado, não
- * edição de JSX.
+ * uma linha (`<Secoes escopo="home" secoes={SECOES_DA_HOME} />`) e param de
+ * saber quais seções existem — que é o ponto: ligar, desligar e reordenar
+ * passa a ser dado, não edição de JSX. A lista vem da rota, e não daqui:
+ * quem importa as duas manda o JavaScript das duas pra toda página (ver o
+ * quadro em `lib/secoes/registro.ts`).
  *
  * Não leva `"use cache"` de propósito. Marcar aqui cacharia o HTML de TODAS
  * as seções como um bloco só, e cada uma tem o próprio tempo de vida (o
@@ -19,7 +21,11 @@ import type { Escopo } from "@/lib/secoes/registro"
  * função espera (o ajuste e os fundos) sai de leituras cacheadas — `home()`
  * e o produto —, ela continua pré-renderizável.
  */
-export async function Secoes({ escopo, handle }: { escopo: Escopo; handle?: string }) {
+type Props =
+  | { escopo: "home"; secoes: readonly SecaoDaHome[]; handle?: undefined }
+  | { escopo: "produto"; secoes: readonly SecaoDoProduto[]; handle: string }
+
+export async function Secoes({ escopo, secoes, handle }: Props) {
   const ajuste = await lerAjuste(escopo, handle)
 
   // As fotos de fundo: as do produto (o `fb_pdp` dele) ou as da home publicada.
@@ -30,7 +36,7 @@ export async function Secoes({ escopo, handle }: { escopo: Escopo; handle?: stri
         ? (await home()).fundos
         : {}
 
-  return resolver(escopo, ajuste).map((secao) => {
+  return resolver<Secao>(secoes, ajuste).map((secao) => {
     // A união de `Secao` é o que garante, em tempo de compilação, que seção
     // de produto recebe o handle e seção de home não recebe nada.
     if (secao.escopo === "produto") {
