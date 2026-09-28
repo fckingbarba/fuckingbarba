@@ -1,0 +1,30 @@
+/*
+  OS CRIADORES: as inscrições da página escondida /criadores, pra aprovar ou
+  recusar. As peças são as do painel (o bloco, a linha, os números, as
+  fitas); aqui, a linha com os contatos, os perfis e o modelo.
+*/
+
+.criadores__pagina { margin: -4px 0 16px; font-size: 0.84rem; color: var(--tinta-suave); }
+.criadores__pagina a { color: var(--tinta); font-weight: 700; overflow-wrap: anywhere; }
+
+.criador { grid-template-columns: minmax(0, 1fr) auto; align-items: start; padding: 14px 16px; }
+.criador__corpo { min-width: 0; }
+.criador__topo { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 0; font-size: 0.9rem; }
+.criador__modelo { padding: 2px 8px; border: 2px solid var(--tinta); background: var(--papel); font-size: 0.68rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; }
+.criador__modelo[data-modelo="fixo"] { background: var(--menta); }
+.criador__modelo[data-modelo="comissao"] { background: var(--amarelo); }
+.criador__parceria { font-size: 0.74rem; font-weight: 700; color: var(--menta-escura); }
+.criador__dados { margin: 4px 0 0; font-size: 0.82rem; overflow-wrap: anywhere; }
+.criador__dados a { color: var(--tinta); font-weight: 700; }
+.criador__redes { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 4px 0 0; font-size: 0.82rem; }
+.criador__redes a { color: var(--tinta); font-weight: 700; overflow-wrap: anywhere; }
+.criador__redes span { color: var(--tinta-suave); }
+.criador .linha__txt { margin-top: 6px; }
+.criador__acoes { display: flex; flex-direction: column; gap: 8px; align-items: stretch; }
+.criador__acoes .btn { justify-content: center; }
+.criador__acoes .btn svg { width: 14px; height: 14px; }
+@media (max-width: 640px) {
+  .criador { grid-template-columns: minmax(0, 1fr); }
+  .criador__acoes { flex-direction: row; flex-wrap: wrap; }
+  .criador__acoes .btn { flex: 1; }
+}
