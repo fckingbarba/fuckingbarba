@@ -95,9 +95,14 @@ jobs:
       - name: Log do HTTPS local
         if: failure()
         run: cat /tmp/https-local.log || true
+      # As nove medições (três por página), pra comparar a de cada rodada — o
+      # relatório público do log é só a do meio. A pasta começa com ponto, e
+      # o upload-artifact v4 pula arquivo escondido: sem o include-hidden-files
+      # ele avisava "No files were found" e não guardava nada.
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: lighthouse
           path: apps/loja/.lighthouseci
+          include-hidden-files: true
           retention-days: 14
