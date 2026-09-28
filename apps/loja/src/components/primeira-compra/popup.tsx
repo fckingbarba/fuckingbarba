@@ -218,8 +218,8 @@ export function PopupDaPrimeiraCompra({
                     Tá no seu e-mail{comNome}
                   </p>
                   <p className="pc-texto">
-                    Mandamos pra <b>{email}</b>. E o desconto já fica guardado na sua sacola: entra
-                    sozinho no pagamento.
+                    Mandamos pra <b>{email}</b>. Se não achar, olha na aba Promoções. E o desconto
+                    já fica guardado na sua sacola: entra sozinho no pagamento.
                   </p>
                   <div className="pc-codigo">
                     <code data-codigo>{codigo}</code>
