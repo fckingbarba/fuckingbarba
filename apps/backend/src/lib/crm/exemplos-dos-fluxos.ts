@@ -6,21 +6,30 @@ import { emailDaPrimeiraCompra, emailDaTrilha } from "../emails/boas-vindas"
 import { emailDoFluxo, type CompraDoFluxo } from "../emails/fluxos"
 import type { EmailDoCrm } from "../emails/crm"
 import { emailDaEstreia } from "../emails/estreia"
+import { emailDaReposicao } from "../emails/reposicao"
 import { urlDaLoja } from "../emails/moldura"
-import { CURTO_DO_COMPONENTE, SEGMENTOS_COM_CUPOM, type SegmentoDaEstreia } from "./estreia"
+import {
+  CURTO_DO_COMPONENTE,
+  produtosPorSku,
+  SEGMENTOS_COM_CUPOM,
+  type SegmentoDaEstreia,
+} from "./estreia"
 import { produtosDosExemplos } from "./exemplos-dos-emails"
 import {
   FLUXOS,
   IDS_DOS_FLUXOS,
   lerConfigDosFluxos,
   ehToqueDaEstreia,
+  ehToqueDaReposicao,
   ehToqueDasBoasVindas,
   PREFIXO_DO_CUPOM,
   PREFIXO_DO_CUPOM_DE_BOAS_VINDAS,
   validadeDoCupom,
   type IdDoToque,
   type IdDoToqueDaEstreia,
+  type IdDoToqueDaReposicao,
 } from "./fluxos"
+import { SUBIR_PARA } from "./reposicao"
 import { conteudosDasTrilhas } from "./boas-vindas"
 import { produtosDoEmail, TITULO_DA_TRILHA } from "./primeira-compra"
 import { linksDeSair } from "./sair"
@@ -36,7 +45,9 @@ import { linkDeVoltar } from "./voltar"
  * e-mail do cupom da 1ª compra (`lib/emails/boas-vindas.ts`), com os mais
  * pedidos e o cupom `BEMVINDO-EXEMPLO`, que não existe. Os da estreia vêm
  * nos 4 jeitos (quem está na hora de repor, no tratamento, quem sumiu, quem
- * nunca comprou), com o Fator como a última compra.
+ * nunca comprou), com o Fator como a última compra. Os da reposição, com o
+ * Fator acabando; o "Refazer o pedido" abre um pedido que não existe (vai
+ * pra home).
  */
 
 export const TOQUES_DOS_FLUXOS: readonly IdDoToque[] = IDS_DOS_FLUXOS.flatMap((id) =>
@@ -51,8 +62,46 @@ export async function exemplosDoToque(
   agora = new Date()
 ): Promise<EmailDoCrm[]> {
   if (ehToqueDaEstreia(toque)) return exemplosDaEstreia(container, membro, toque, agora)
+  if (ehToqueDaReposicao(toque)) return exemplosDaReposicao(container, membro, toque, agora)
   const exemplo = await exemploDoToque(container, membro, toque, agora)
   return exemplo ? [exemplo] : []
+}
+
+async function exemplosDaReposicao(
+  container: MedusaContainer,
+  membro: { email: string; nome: string },
+  toque: IdDoToqueDaReposicao,
+  agora: Date
+): Promise<EmailDoCrm[]> {
+  const loja = urlDaLoja()
+  if (!loja) return []
+  const [produtos, subir, whatsapp, lojas] = await Promise.all([
+    produtosDosExemplos(container),
+    produtosPorSku(container, [SUBIR_PARA.fator ?? ""]),
+    whatsappDaLoja(container),
+    container.resolve(Modules.STORE).listStores({}, { select: ["metadata"], take: 1 }),
+  ])
+  const { empresa, atendimento } = lerConfiguracoes(lojas[0]?.metadata)
+  const fator = produtos.get("fator-de-crescimento-para-barba") ?? null
+  return [
+    emailDaReposicao({
+      toque,
+      para: membro.email,
+      nome: membro.nome,
+      acabando: CURTO_DO_COMPONENTE.fator,
+      produtos: fator ? [fator] : [],
+      subirPara: subir.get(SUBIR_PARA.fator ?? "") ?? null,
+      voltar: `/voltar/${linkDeVoltar(`repor-order_${"0".repeat(26)}`, agora)}`,
+      sair: linksDeSair(loja, membro.email),
+      loja: {
+        url: loja,
+        whatsapp,
+        empresa: empresa.razaoSocial,
+        cnpj: empresa.cnpj,
+        atendimento: atendimento.email,
+      },
+    }),
+  ]
 }
 
 async function exemplosDaEstreia(
@@ -111,7 +160,7 @@ async function exemplosDaEstreia(
 export async function exemploDoToque(
   container: MedusaContainer,
   membro: { email: string; nome: string },
-  toque: Exclude<IdDoToque, IdDoToqueDaEstreia>,
+  toque: Exclude<IdDoToque, IdDoToqueDaEstreia | IdDoToqueDaReposicao>,
   agora = new Date()
 ): Promise<EmailDoCrm | null> {
   const loja = urlDaLoja()
