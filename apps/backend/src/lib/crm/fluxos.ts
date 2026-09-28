@@ -32,6 +32,11 @@ import { createHash } from "node:crypto"
  *     acabar — 7 e 2 dias antes, 3 e 10 dias depois do dia em que ele acaba
  *     (`lib/crm/reposicao.ts`), com o "Refazer o pedido". Pra todo cliente
  *     (escolha do dono), sem cupom. Começa DESLIGADA.
+ *   - JORNADA DO RESULTADO (entrega 0187): depois que o pedido chega — o
+ *     modo de uso, o check-in de 7 dias (só "tá indo bem" e "tenho uma
+ *     dúvida": nada de "não gostei", escolha do dono), a rotina completa em
+ *     21 dias, e os do Fator (3 e 60 dias) — `lib/crm/jornada.ts`. Começa
+ *     DESLIGADA.
  *
  * Os dois primeiros vão pra QUEM DIGITOU O E-MAIL, e o do carrinho pra quem a
  * loja já conhece (escolhas do dono, 27/09): é sobre a compra que a pessoa
@@ -58,7 +63,8 @@ const MINUTO = 60 * 1000
 const HORA = 60 * MINUTO
 const DIA = 24 * HORA
 
-export type IdDoFluxo = "pix" | "checkout" | "carrinho" | "reposicao" | "boas-vindas" | "estreia"
+export type IdDoFluxo =
+  "pix" | "checkout" | "carrinho" | "reposicao" | "jornada" | "boas-vindas" | "estreia"
 
 /** Os toques dos fluxos de compra — os que o motor manda (`lib/emails/fluxos.ts`). */
 export type IdDoToqueDeCompra =
@@ -102,8 +108,19 @@ export type IdDoToqueDaEstreia = "estreia-agora" | "estreia-2d"
 export type IdDoToqueDaReposicao =
   "reposicao-antes-7d" | "reposicao-antes-2d" | "reposicao-depois-3d" | "reposicao-depois-10d"
 
+/**
+ * Os toques da jornada do resultado (entrega 0187), contados do dia em que o
+ * pedido chegou (`lib/emails/jornada.ts`).
+ */
+export type IdDoToqueDaJornada =
+  "jornada-chegou" | "jornada-3d" | "jornada-7d" | "jornada-21d" | "jornada-60d"
+
 export type IdDoToque =
-  IdDoToqueDeCompra | IdDoToqueDasBoasVindas | IdDoToqueDaEstreia | IdDoToqueDaReposicao
+  | IdDoToqueDeCompra
+  | IdDoToqueDasBoasVindas
+  | IdDoToqueDaEstreia
+  | IdDoToqueDaReposicao
+  | IdDoToqueDaJornada
 
 /** Se o toque é de um fluxo de compra (os de `lib/emails/fluxos.ts`). */
 export const ehToqueDeCompra = (id: IdDoToque): id is IdDoToqueDeCompra =>
@@ -120,6 +137,10 @@ export const ehToqueDaEstreia = (id: IdDoToque): id is IdDoToqueDaEstreia =>
 /** Se o toque é da reposição (`lib/emails/reposicao.ts`). */
 export const ehToqueDaReposicao = (id: IdDoToque): id is IdDoToqueDaReposicao =>
   id.startsWith("reposicao-")
+
+/** Se o toque é da jornada do resultado (`lib/emails/jornada.ts`). */
+export const ehToqueDaJornada = (id: IdDoToque): id is IdDoToqueDaJornada =>
+  id.startsWith("jornada-")
 
 export type ToqueDoFluxo = {
   id: IdDoToque
@@ -264,10 +285,30 @@ export const FLUXOS: Record<IdDoFluxo, Fluxo> = {
       },
     ],
   },
+  jornada: {
+    id: "jornada",
+    nome: "Jornada do resultado",
+    // Na ordem do plano: depois da reposição, antes das boas-vindas e das campanhas.
+    prioridade: 5,
+    comecaDesligado: true,
+    // O começo é o dia em que o pedido chegou (`lib/crm/jornada.ts`).
+    toques: [
+      { id: "jornada-chegou", nome: "Chegou! Como usar", quando: "quando chega", depois: 0 },
+      { id: "jornada-3d", nome: "Não pular dia (Fator)", quando: "3 dias depois", depois: 3 * DIA },
+      { id: "jornada-7d", nome: "Como tá indo?", quando: "7 dias depois", depois: 7 * DIA },
+      {
+        id: "jornada-21d",
+        nome: "A rotina completa",
+        quando: "21 dias depois",
+        depois: 21 * DIA,
+      },
+      { id: "jornada-60d", nome: "O dia 60 (Fator)", quando: "60 dias depois", depois: 60 * DIA },
+    ],
+  },
   "boas-vindas": {
     id: "boas-vindas",
     nome: "Boas-vindas",
-    prioridade: 5,
+    prioridade: 6,
     // O cupom da 1ª compra vale 3 dias, como o do carrinho.
     validadeDoCupom: 3 * DIA,
     semControle: true,
@@ -301,7 +342,7 @@ export const FLUXOS: Record<IdDoFluxo, Fluxo> = {
   estreia: {
     id: "estreia",
     nome: "Estreia da loja nova",
-    prioridade: 6,
+    prioridade: 7,
     // O cupom de quem nunca comprou e de quem sumiu vale 3 dias, como o do pop-up.
     validadeDoCupom: 3 * DIA,
     comecaDesligado: true,
@@ -329,6 +370,7 @@ export const IDS_DOS_FLUXOS: readonly IdDoFluxo[] = [
   "checkout",
   "carrinho",
   "reposicao",
+  "jornada",
   "boas-vindas",
   "estreia",
 ]
@@ -414,10 +456,16 @@ export type Decisao =
 export const TOQUE_DA_ESCOLHA = "boas-vindas-escolha"
 
 /**
+ * O toque que guarda, no registro, a resposta do check-in de 7 dias da
+ * jornada (a resposta no `como`; `lib/crm/checkin.ts`). Também não é e-mail.
+ */
+export const TOQUE_DO_CHECKIN = "jornada-checkin"
+
+/**
  * As linhas do registro (`crm_envio`) como o motor conta. A reserva que não
  * foi confirmada conta como envio: melhor perder um e-mail que mandar dois. A
- * escolha do "Barba ou cabelo?" mora no registro, mas não é e-mail: fica de
- * fora, e não conta no teto.
+ * escolha do "Barba ou cabelo?" e a resposta do check-in da jornada moram no
+ * registro, mas não são e-mail: ficam de fora, e não contam no teto.
  */
 export function registrosDoMotor(
   lidos: readonly {
@@ -431,7 +479,7 @@ export function registrosDoMotor(
   }[]
 ): Registro[] {
   return lidos
-    .filter((r) => r.toque !== TOQUE_DA_ESCOLHA)
+    .filter((r) => r.toque !== TOQUE_DA_ESCOLHA && r.toque !== TOQUE_DO_CHECKIN)
     .map((r) => ({
       email: r.email,
       fluxo: r.fluxo as IdDoFluxo,
