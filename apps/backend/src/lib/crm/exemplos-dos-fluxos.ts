@@ -8,6 +8,7 @@ import type { EmailDoCrm } from "../emails/crm"
 import { emailDaEstreia } from "../emails/estreia"
 import { emailDaJornada } from "../emails/jornada"
 import { emailDaReposicao } from "../emails/reposicao"
+import { emailDoResgate } from "../emails/resgate"
 import { urlDaLoja } from "../emails/moldura"
 import {
   CURTO_DO_COMPONENTE,
@@ -23,7 +24,9 @@ import {
   ehToqueDaEstreia,
   ehToqueDaJornada,
   ehToqueDaReposicao,
+  ehToqueDoResgate,
   ehToqueDasBoasVindas,
+  DESCONTO_DO_RESGATE,
   PREFIXO_DO_CUPOM,
   PREFIXO_DO_CUPOM_DE_BOAS_VINDAS,
   validadeDoCupom,
@@ -31,6 +34,7 @@ import {
   type IdDoToqueDaEstreia,
   type IdDoToqueDaJornada,
   type IdDoToqueDaReposicao,
+  type IdDoToqueDoResgate,
 } from "./fluxos"
 import { linksDoCheckin } from "./checkin"
 import { SKU_DA_ROTINA } from "./jornada"
@@ -69,6 +73,7 @@ export async function exemplosDoToque(
   if (ehToqueDaEstreia(toque)) return exemplosDaEstreia(container, membro, toque, agora)
   if (ehToqueDaReposicao(toque)) return exemplosDaReposicao(container, membro, toque, agora)
   if (ehToqueDaJornada(toque)) return exemplosDaJornada(container, membro, toque)
+  if (ehToqueDoResgate(toque)) return exemplosDoResgate(container, membro, toque, agora)
   const exemplo = await exemploDoToque(container, membro, toque, agora)
   return exemplo ? [exemplo] : []
 }
@@ -98,6 +103,53 @@ async function exemplosDaJornada(
     sugestoes: [SKU_DA_ROTINA.oleo, SKU_DA_ROTINA.tresFatores].flatMap((s) => porSku.get(s) ?? []),
     // Um pedido que não existe: o clique anota nada e cai na home.
     checkin: toque === "jornada-7d" ? linksDoCheckin(`order_${"0".repeat(26)}`) : null,
+    sair: linksDeSair(loja, membro.email),
+    loja: {
+      url: loja,
+      whatsapp,
+      empresa: empresa.razaoSocial,
+      cnpj: empresa.cnpj,
+      atendimento: atendimento.email,
+    },
+  })
+  return email ? [email] : []
+}
+
+/**
+ * O resgate com o Fator como a última compra. Os botões (a pergunta e o
+ * "Sim") vão pra loja, sem anotar nada — um "Tá caro" de mentira criaria um
+ * cupom de verdade —, e o cupom `VOLTA-EXEMPLO` não existe.
+ */
+async function exemplosDoResgate(
+  container: MedusaContainer,
+  membro: { email: string; nome: string },
+  toque: IdDoToqueDoResgate,
+  agora: Date
+): Promise<EmailDoCrm[]> {
+  const loja = urlDaLoja()
+  if (!loja) return []
+  const [produtos, whatsapp, lojas] = await Promise.all([
+    produtosDosExemplos(container),
+    whatsappDaLoja(container),
+    container.resolve(Modules.STORE).listStores({}, { select: ["metadata"], take: 1 }),
+  ])
+  const { empresa, atendimento } = lerConfiguracoes(lojas[0]?.metadata)
+  const fator = produtos.get("fator-de-crescimento-para-barba") ?? null
+  const naLoja = `${loja}/`
+  const email = emailDoResgate({
+    toque,
+    para: membro.email,
+    nome: membro.nome,
+    acabou: CURTO_DO_COMPONENTE.fator,
+    produtos: fator ? [fator] : [],
+    botoes: { caro: naLoja, esqueci: naLoja, resultado: naLoja, outro: naLoja },
+    sim: naLoja,
+    cupom: {
+      codigo: `${PREFIXO_DO_CUPOM}EXEMPLO`,
+      porcento: DESCONTO_DO_RESGATE,
+      ate: new Date(agora.getTime() + (toque === "resgate-9d" ? 1 : 3) * 24 * 60 * 60 * 1000),
+    },
+    voltar: `/voltar/${linkDeVoltar(`repor-order_${"0".repeat(26)}`, agora)}`,
     sair: linksDeSair(loja, membro.email),
     loja: {
       url: loja,
@@ -203,7 +255,10 @@ async function exemplosDaEstreia(
 export async function exemploDoToque(
   container: MedusaContainer,
   membro: { email: string; nome: string },
-  toque: Exclude<IdDoToque, IdDoToqueDaEstreia | IdDoToqueDaReposicao | IdDoToqueDaJornada>,
+  toque: Exclude<
+    IdDoToque,
+    IdDoToqueDaEstreia | IdDoToqueDaReposicao | IdDoToqueDaJornada | IdDoToqueDoResgate
+  >,
   agora = new Date()
 ): Promise<EmailDoCrm | null> {
   const loja = urlDaLoja()

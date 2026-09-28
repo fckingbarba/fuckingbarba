@@ -37,6 +37,12 @@ import { createHash } from "node:crypto"
  *     dúvida": nada de "não gostei", escolha do dono), a rotina completa em
  *     21 dias, e os do Fator (3 e 60 dias) — `lib/crm/jornada.ts`. Começa
  *     DESLIGADA.
+ *   - RESGATE E SUNSET (entrega 0192): quem passou do dia de comprar de novo
+ *     (a etapa "em risco" das etiquetas) — no dia, a pergunta de 1 clique
+ *     ("Tá tudo bem com a barba?", com os 4 botões do plano); em 7 dias, 15%
+ *     pra quem não respondeu, e o "vence amanhã" em 9; em 45, sem sinal
+ *     nenhum, o "Quer continuar recebendo?" do sunset (`lib/crm/resgate.ts`).
+ *     Começa DESLIGADO.
  *
  * Os dois primeiros vão pra QUEM DIGITOU O E-MAIL, e o do carrinho pra quem a
  * loja já conhece (escolhas do dono, 27/09): é sobre a compra que a pessoa
@@ -64,7 +70,7 @@ const HORA = 60 * MINUTO
 const DIA = 24 * HORA
 
 export type IdDoFluxo =
-  "pix" | "checkout" | "carrinho" | "reposicao" | "jornada" | "boas-vindas" | "estreia"
+  "pix" | "checkout" | "carrinho" | "reposicao" | "jornada" | "boas-vindas" | "estreia" | "resgate"
 
 /** Os toques dos fluxos de compra — os que o motor manda (`lib/emails/fluxos.ts`). */
 export type IdDoToqueDeCompra =
@@ -115,12 +121,19 @@ export type IdDoToqueDaReposicao =
 export type IdDoToqueDaJornada =
   "jornada-chegou" | "jornada-3d" | "jornada-7d" | "jornada-21d" | "jornada-60d"
 
+/**
+ * Os toques do resgate e do sunset (entrega 0192), contados do dia em que a
+ * pessoa ficou "em risco" (`lib/emails/resgate.ts`).
+ */
+export type IdDoToqueDoResgate = "resgate-agora" | "resgate-7d" | "resgate-9d" | "resgate-45d"
+
 export type IdDoToque =
   | IdDoToqueDeCompra
   | IdDoToqueDasBoasVindas
   | IdDoToqueDaEstreia
   | IdDoToqueDaReposicao
   | IdDoToqueDaJornada
+  | IdDoToqueDoResgate
 
 /** Se o toque é de um fluxo de compra (os de `lib/emails/fluxos.ts`). */
 export const ehToqueDeCompra = (id: IdDoToque): id is IdDoToqueDeCompra =>
@@ -141,6 +154,10 @@ export const ehToqueDaReposicao = (id: IdDoToque): id is IdDoToqueDaReposicao =>
 /** Se o toque é da jornada do resultado (`lib/emails/jornada.ts`). */
 export const ehToqueDaJornada = (id: IdDoToque): id is IdDoToqueDaJornada =>
   id.startsWith("jornada-")
+
+/** Se o toque é do resgate e do sunset (`lib/emails/resgate.ts`). */
+export const ehToqueDoResgate = (id: IdDoToque): id is IdDoToqueDoResgate =>
+  id.startsWith("resgate-")
 
 export type ToqueDoFluxo = {
   id: IdDoToque
@@ -363,6 +380,38 @@ export const FLUXOS: Record<IdDoFluxo, Fluxo> = {
       },
     ],
   },
+  resgate: {
+    id: "resgate",
+    nome: "Resgate e sunset",
+    // Depois de todos: é de quem está mais longe de comprar.
+    prioridade: 8,
+    // O cupom de 15% sai em 7 dias e o e-mail de 9 diz que ele vence amanhã: vale 3 dias.
+    validadeDoCupom: 3 * DIA,
+    comecaDesligado: true,
+    // O começo é o dia em que a pessoa ficou "em risco" (`lib/crm/resgate.ts`).
+    toques: [
+      {
+        id: "resgate-agora",
+        nome: "Tá tudo bem com a barba?",
+        quando: "no dia em que fica em risco",
+        depois: 0,
+      },
+      {
+        id: "resgate-7d",
+        nome: "15% pra voltar",
+        quando: "7 dias depois",
+        depois: 7 * DIA,
+        cupom: true,
+      },
+      { id: "resgate-9d", nome: "O cupom vence amanhã", quando: "9 dias depois", depois: 9 * DIA },
+      {
+        id: "resgate-45d",
+        nome: "Quer continuar recebendo?",
+        quando: "45 dias depois, sem sinal",
+        depois: 45 * DIA,
+      },
+    ],
+  },
 }
 
 export const IDS_DOS_FLUXOS: readonly IdDoFluxo[] = [
@@ -373,6 +422,7 @@ export const IDS_DOS_FLUXOS: readonly IdDoFluxo[] = [
   "jornada",
   "boas-vindas",
   "estreia",
+  "resgate",
 ]
 
 /** Os toques depois deste tempo sem sair são largados: o e-mail não faz mais sentido. */
@@ -462,10 +512,19 @@ export const TOQUE_DA_ESCOLHA = "boas-vindas-escolha"
 export const TOQUE_DO_CHECKIN = "jornada-checkin"
 
 /**
+ * O toque que guarda a resposta do resgate (a pergunta do dia, ou o "Sim" do
+ * sunset; `lib/crm/resgate.ts`) — e o cupom, se a resposta foi "Tá caro".
+ * Não é e-mail: não conta no teto, mas o cupom conta nos 60 dias.
+ */
+export const TOQUE_DA_RESPOSTA_DO_RESGATE = "resgate-resposta"
+
+/**
  * As linhas do registro (`crm_envio`) como o motor conta. A reserva que não
  * foi confirmada conta como envio: melhor perder um e-mail que mandar dois. A
  * escolha do "Barba ou cabelo?" e a resposta do check-in da jornada moram no
- * registro, mas não são e-mail: ficam de fora, e não contam no teto.
+ * registro, mas não são e-mail: ficam de fora, e não contam no teto. A
+ * resposta do resgate também não conta no teto, mas fica (como "pulado"):
+ * o cupom do "Tá caro" conta na regra de um cupom a cada 60 dias.
  */
 export function registrosDoMotor(
   lidos: readonly {
@@ -486,7 +545,12 @@ export function registrosDoMotor(
       chave: r.chave,
       toque: r.toque as IdDoToque,
       em: new Date(r.em),
-      como: r.como === "pulado" || r.como === "controle" ? r.como : "enviado",
+      como:
+        r.toque === TOQUE_DA_RESPOSTA_DO_RESGATE || r.como === "pulado"
+          ? "pulado"
+          : r.como === "controle"
+            ? "controle"
+            : "enviado",
       cupom: r.cupom ?? null,
     }))
 }
@@ -619,6 +683,9 @@ export const CHAVE_DOS_FLUXOS = "fb_crm_fluxos"
 /** O desconto do cupom dos fluxos, em %: o padrão e os limites do painel. */
 export const DESCONTO_PADRAO = 10
 export const LIMITES_DO_DESCONTO: readonly [number, number] = [5, 30]
+
+/** O desconto do resgate, em % (escolha do dono, 28/09: o do plano, um pouco acima dos 10% do carrinho). */
+export const DESCONTO_DO_RESGATE = 15
 
 /** O começo do código dos cupons dos fluxos (`VOLTA-7KQ2MX`): não é cupom do painel. */
 export const PREFIXO_DO_CUPOM = "VOLTA-"

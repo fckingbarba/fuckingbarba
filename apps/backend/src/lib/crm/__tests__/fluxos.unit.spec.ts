@@ -235,7 +235,7 @@ describe("o aviso do Pix", () => {
 })
 
 describe("a configuração dos fluxos", () => {
-  it("sem nada guardado: ligados (a estreia não), sem o desde, 10% de desconto", () => {
+  it("sem nada guardado: ligados (a estreia, a reposição, a jornada e o resgate não), sem o desde, 10% de desconto", () => {
     expect(lerConfigDosFluxos({})).toEqual({
       fluxos: {
         pix: { ligado: true, desde: null },
@@ -245,6 +245,7 @@ describe("a configuração dos fluxos", () => {
         jornada: { ligado: false, desde: null },
         "boas-vindas": { ligado: true, desde: null },
         estreia: { ligado: false, desde: null },
+        resgate: { ligado: false, desde: null },
       },
       desconto: 10,
     })
@@ -262,6 +263,7 @@ describe("a configuração dos fluxos", () => {
         jornada: { ligado: false, desde: null },
         "boas-vindas": { ligado: true, desde: null },
         estreia: { ligado: true, desde: LIGOU },
+        resgate: { ligado: false, desde: null },
       },
       desconto: 15,
     }
@@ -281,6 +283,7 @@ describe("a configuração dos fluxos", () => {
         jornada: { ligado: false, desde: null },
         "boas-vindas": { ligado: true, desde: null },
         estreia: { ligado: false, desde: null },
+        resgate: { ligado: false, desde: null },
       },
       desconto: 10,
     })

@@ -19,6 +19,7 @@ const config: ConfigDosFluxos = {
     jornada: { ligado: false, desde: null },
     "boas-vindas": { ligado: true, desde: antes(20) },
     estreia: { ligado: false, desde: null },
+    resgate: { ligado: false, desde: null },
   },
 }
 const reg = (extra: Partial<RegistroDaTela>): RegistroDaTela => ({
@@ -64,6 +65,7 @@ describe("a tela dos fluxos", () => {
       "jornada",
       "boas-vindas",
       "estreia",
+      "resgate",
     ])
     const checkout = tela.fluxos.find((f) => f.id === "checkout")!
     expect(checkout.ligado).toBe(false)
