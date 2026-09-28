@@ -1,30 +1,34 @@
 "use client"
 
 import { useId, useState } from "react"
-import { comissaoPorVenda, OFERTA, reais, vendasPraPassarDoFixo } from "@/lib/criadores-visivel"
+import { comissaoPorVenda, mesesPraPassarDoFixo, OFERTA, reais } from "@/lib/criadores-visivel"
+
+/** Mais que isso, a régua fica em pedacinhos e a conta vira "mais de 3 anos". */
+const MESES_NA_REGUA = 36
 
 /**
- * QUANTO DÁ A COMISSÃO — a régua das vendas por mês, e as duas barras (o fixo
- * e a comissão no prazo inteiro), na mesma escala. Os números saem da
- * `OFERTA`: mudou a proposta, a conta muda junto.
+ * QUANTO DÁ A COMISSÃO — a régua das vendas por mês, a comissão de cada mês e EM QUE MÊS ela passa
+ * do fixo. A comissão não tem prazo (paga enquanto o vídeo vender), então a comparação com o fixo
+ * não é "em N meses": é quantos meses de comissão cabem no fixo. A barra é o fixo inteiro, e cada
+ * bloco é um mês de comissão, na mesma escala. Os números saem da `OFERTA`.
  *
- * NÃO É PROMESSA, e a tela diz: a conta usa o pedido médio da loja e supõe o
- * vídeo rodando o prazo inteiro — anúncio costuma cansar antes.
+ * NÃO É PROMESSA, e a tela diz: a conta usa o pedido médio da loja.
  */
 export function Calculadora() {
   const id = useId()
   const [vendas, setVendas] = useState(30)
   const porMes = vendas * comissaoPorVenda()
-  const total = porMes * OFERTA.meses
-  const topo = Math.max(OFERTA.fixo, total)
+  const meses = mesesPraPassarDoFixo(vendas)
+  const blocos = meses ? Math.min(meses, MESES_NA_REGUA) : 0
+  const largura = (porMes / OFERTA.fixo) * 100
   const veredito =
-    vendas === 0
+    meses === null
       ? `Sem venda, a comissão não paga nada. O fixo paga ${reais(OFERTA.fixo)} do mesmo jeito.`
-      : total > OFERTA.fixo
-        ? `Com ${vendas} vendas por mês, a comissão rende ${reais(total - OFERTA.fixo)} a mais que o fixo.`
-        : total < OFERTA.fixo
-          ? `Com ${vendas === 1 ? "1 venda" : `${vendas} vendas`} por mês, o fixo rende ${reais(OFERTA.fixo - total)} a mais.`
-          : `Com ${vendas} vendas por mês, dá empate.`
+      : meses === 1
+        ? `Com ${vendas} vendas por mês, a comissão passa do fixo já no 1º mês — e continua pagando enquanto o vídeo vender.`
+        : meses > MESES_NA_REGUA
+          ? `Com ${vendas === 1 ? "1 venda" : `${vendas} vendas`} por mês, a comissão levaria mais de 3 anos pra passar do fixo: aí o fixo compensa.`
+          : `Com ${vendas} vendas por mês, a comissão passa do fixo no ${meses}º mês — e continua pagando enquanto o vídeo vender.`
 
   return (
     <div className="criadores__calc" data-calculadora>
@@ -48,9 +52,8 @@ export function Calculadora() {
           </output>
         </div>
         <p className="criadores__calc-nota">
-          Simulação com o pedido médio da loja, {reais(OFERTA.pedidoMedio)}, e o vídeo rodando os{" "}
-          {OFERTA.meses} meses. Não é promessa: o valor depende de quanto os anúncios com os seus
-          vídeos venderem.
+          Simulação com o pedido médio da loja, {reais(OFERTA.pedidoMedio)}. Não é promessa: o valor
+          depende de quanto os anúncios com os seus vídeos venderem.
         </p>
       </div>
       <div aria-live="polite">
@@ -58,39 +61,31 @@ export function Calculadora() {
           <strong className="num" data-por-mes>
             {reais(porMes)}
           </strong>{" "}
-          por mês de comissão
+          por mês de comissão, enquanto o vídeo vender
         </p>
-        <div className="criadores__barras">
-          <div className="criadores__barra">
-            <span className="criadores__barra-nome">Fixo</span>
-            <span className="criadores__barra-valor num">{reais(OFERTA.fixo)}</span>
-            <span className="criadores__barra-trilho">
-              <span
-                className="criadores__barra-cheia"
-                data-tipo="fixo"
-                style={{ width: `${(OFERTA.fixo / topo) * 100}%` }}
-              />
-            </span>
+        <div className="criadores__fixo">
+          <div className="criadores__fixo-rotulos">
+            <span>Os meses de comissão</span>
+            <span className="num">Fixo: {reais(OFERTA.fixo)}</span>
           </div>
-          <div className="criadores__barra">
-            <span className="criadores__barra-nome">Comissão em {OFERTA.meses} meses</span>
-            <span className="criadores__barra-valor num" data-total>
-              {reais(total)}
-            </span>
-            <span className="criadores__barra-trilho">
+          <div className="criadores__blocos" aria-hidden="true">
+            {Array.from({ length: blocos }, (_, i) => (
               <span
-                className="criadores__barra-cheia"
-                data-tipo="comissao"
-                style={{ width: `${(total / topo) * 100}%` }}
-              />
-            </span>
+                key={i}
+                className="criadores__bloco"
+                style={{ width: `${largura}%` }}
+                data-passou={i + 1 === meses || undefined}
+              >
+                {largura >= 7 ? i + 1 : ""}
+              </span>
+            ))}
           </div>
+          <p className="criadores__fixo-legenda">
+            A barra é o fixo inteiro; cada bloco, um mês de comissão.
+          </p>
         </div>
-        <p className="criadores__veredito" data-veredito>
+        <p className="criadores__veredito" data-veredito data-meses={meses ?? ""}>
           {veredito}
-        </p>
-        <p className="criadores__calc-nota">
-          A comissão passa do fixo a partir de {vendasPraPassarDoFixo()} vendas por mês.
         </p>
       </div>
     </div>

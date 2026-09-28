@@ -18,26 +18,33 @@ export const OFERTA = {
   criativos: 20,
   /** A duração de cada criativo, em segundos. */
   segundos: { min: 25, max: 40 },
-  /** A comissão: a porcentagem de cada venda e por quantos meses. */
+  /**
+   * A comissão: a porcentagem de cada venda feita com o vídeo, SEM PRAZO — enquanto o anúncio
+   * com ele vender, paga (decisão do dono, 28/09: "o que vender, vamos pagar").
+   */
   porcento: 3,
-  meses: 12,
   /** O pedido médio da loja, em reais — a conta da calculadora. */
   pedidoMedio: 125,
   /** Dias pra gravar, depois que o kit chega. */
   prazoDias: 15,
   respostaDiasUteis: 3,
   ajustesPorVideo: 2,
-  /** Por quanto tempo os vídeos rodam como anúncio (o contrato de uso de imagem). */
-  usoMeses: 12,
 } as const
 
 /** A comissão de uma venda, em reais: 3% de R$ 125 = R$ 3,75. */
 export const comissaoPorVenda = (pedido: number = OFERTA.pedidoMedio) =>
   Math.round(pedido * OFERTA.porcento) / 100
 
-/** Quantas vendas por mês a comissão precisa pra passar do fixo (em R$ 1.000 e 3% por 12 meses, 23). */
-export const vendasPraPassarDoFixo = () =>
-  Math.floor(OFERTA.fixo / (comissaoPorVenda() * OFERTA.meses)) + 1
+/**
+ * Em que mês a comissão somada passa do fixo, com tantas vendas por mês: 30 vendas (R$ 112,50 por
+ * mês) passam de R$ 1.000 no 9º. `null` sem venda. A conta é em centavos, sem erro de
+ * arredondamento.
+ */
+export function mesesPraPassarDoFixo(vendasPorMes: number): number | null {
+  const porMes = vendasPorMes * Math.round(OFERTA.pedidoMedio * OFERTA.porcento)
+  if (porMes <= 0) return null
+  return Math.floor((OFERTA.fixo * 100) / porMes) + 1
+}
 
 /** 1000 → "R$ 1.000"; 112.5 → "R$ 112,50". O espaço é o fixo (U+00A0), do Intl. */
 export function reais(valor: number): string {
@@ -94,7 +101,7 @@ export const MODELOS: { id: Modelo; rotulo: string; valor: string; detalhe: stri
     id: "comissao",
     rotulo: "Comissão",
     valor: `${OFERTA.porcento}%`,
-    detalhe: `de cada venda, por ${OFERTA.meses} meses`,
+    detalhe: "de cada venda, enquanto vender",
   },
   {
     id: "conversar",
@@ -106,7 +113,7 @@ export const MODELOS: { id: Modelo; rotulo: string; valor: string; detalhe: stri
 
 export const NOME_DO_MODELO: Record<Modelo, string> = {
   fixo: `Fixo, ${reais(OFERTA.fixo)}`,
-  comissao: `Comissão, ${OFERTA.porcento}% por ${OFERTA.meses} meses`,
+  comissao: `Comissão, ${OFERTA.porcento}% de cada venda`,
   conversar: "Ainda não sei, quero conversar",
 }
 

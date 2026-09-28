@@ -66,7 +66,6 @@ const numero = (nome) => Number(FONTE.match(new RegExp(`\\b${nome}: (\\d+)`))?.[
 const OFERTA = {
   fixo: numero("fixo"),
   porcento: numero("porcento"),
-  meses: numero("meses"),
   pedidoMedio: numero("pedidoMedio"),
 }
 if (Object.values(OFERTA).some((v) => !Number.isFinite(v) || v <= 0)) {
@@ -75,7 +74,9 @@ if (Object.values(OFERTA).some((v) => !Number.isFinite(v) || v <= 0)) {
 }
 /** Em centavos, sem erro de arredondamento: 3% de R$ 125 = 375. */
 const porVenda = (OFERTA.pedidoMedio * 100 * OFERTA.porcento) / 100
-const EMPATE = Math.floor((OFERTA.fixo * 100) / (porVenda * OFERTA.meses)) + 1
+/** O mês em que a comissão somada passa do fixo — a comissão não tem prazo. */
+const mesQuePassa = (vendas) =>
+  vendas ? Math.floor((OFERTA.fixo * 100) / (vendas * porVenda)) + 1 : null
 /** Como a tela escreve (o espaço fixo do Intl vira espaço comum, como no `semEspaco`). */
 const reais = (centavos) =>
   semEspaco(
@@ -209,27 +210,41 @@ try {
   )
   const regua = pagina.locator("[data-calculadora] input[type=range]")
   await hidratado(pagina, "[data-calculadora] input[type=range]")
-  for (const vendas of [EMPATE - 1, EMPATE, 30]) {
+  ok(
+    semEspaco(
+      await pagina
+        .locator('.criadores__oferta[data-modelo="comissao"] .criadores__oferta-sub')
+        .textContent()
+    ) === "Sem prazo" &&
+      !semEspaco(await pagina.locator("main").textContent()).includes("12 meses"),
+    "a comissão é sem prazo (nada de 12 meses na página)"
+  )
+  for (const vendas of [0, 8, 30, 120]) {
     await mover(regua, vendas)
     const mes = semEspaco(await pagina.locator("[data-por-mes]").textContent())
-    const total = semEspaco(await pagina.locator("[data-total]").textContent())
     const veredito = semEspaco(await pagina.locator("[data-veredito]").textContent())
-    const esperadoMes = reais(vendas * porVenda)
-    const esperadoTotal = reais(vendas * porVenda * OFERTA.meses)
-    const ganha = vendas * porVenda * OFERTA.meses > OFERTA.fixo * 100 ? "comissão" : "fixo"
+    const meses = await pagina.locator("[data-veredito]").getAttribute("data-meses")
+    const blocos = await pagina.locator(".criadores__bloco").count()
+    const esperado = mesQuePassa(vendas)
+    const frase =
+      esperado === null
+        ? "não paga nada"
+        : esperado === 1
+          ? "já no 1º mês"
+          : esperado > 36
+            ? "mais de 3 anos"
+            : `no ${esperado}º mês`
     ok(
-      mes === esperadoMes &&
-        total === esperadoTotal &&
-        veredito.includes(ganha === "comissão" ? "a comissão rende" : "o fixo rende"),
-      `com ${vendas} vendas por mês: ${esperadoMes} por mês, ${esperadoTotal} no prazo, ganha o ${ganha}`,
-      `${mes} · ${total} · ${veredito}`
+      mes === reais(vendas * porVenda) &&
+        meses === String(esperado ?? "") &&
+        veredito.includes(frase) &&
+        blocos === Math.min(esperado ?? 0, 36),
+      `com ${vendas} vendas por mês: ${reais(vendas * porVenda)} por mês, ${
+        esperado ? `passa do fixo no mês ${esperado}` : "nada"
+      } (${Math.min(esperado ?? 0, 36)} blocos na régua do fixo)`,
+      `${mes} · meses=${meses} · ${blocos} blocos · ${veredito}`
     )
   }
-  const empate = semEspaco(await pagina.locator("[data-calculadora]").textContent())
-  ok(
-    empate.includes(`a partir de ${EMPATE} vendas por mês`),
-    `o empate dito na tela é o da conta (${EMPATE})`
-  )
 
   titulo("O kit é o do Medusa")
   const handles = [

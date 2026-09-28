@@ -7,7 +7,7 @@ import { Calculadora } from "@/components/criadores/calculadora"
 import { Camera } from "@/components/criadores/camera"
 import { Inscricao } from "@/components/criadores/inscricao"
 import { Matriz } from "@/components/criadores/matriz"
-import { OFERTA, reais, vendasPraPassarDoFixo } from "@/lib/criadores-visivel"
+import { mesesPraPassarDoFixo, OFERTA, reais } from "@/lib/criadores-visivel"
 import { listarProdutos, porHandle } from "@/lib/medusa"
 import "@/estilos/telas/criadores.css"
 
@@ -36,7 +36,7 @@ const DO_KIT = [
 ]
 
 const TITULO = `Sua barba vale ${reais(OFERTA.fixo)}. Ou mais.`
-const RESUMO = `Grave ${OFERTA.criativos} vídeos curtos com FuckingBarba e escolha como ganhar: ${reais(OFERTA.fixo)} no Pix ou ${OFERTA.porcento}% de cada venda por ${OFERTA.meses} meses.`
+const RESUMO = `Grave ${OFERTA.criativos} vídeos curtos com FuckingBarba e escolha como ganhar: ${reais(OFERTA.fixo)} no Pix ou ${OFERTA.porcento}% de cada venda, enquanto o vídeo vender.`
 
 export async function generateMetadata(): Promise<Metadata> {
   const kit = porHandle(await listarProdutos()).get("kit-completo-para-barba")
@@ -149,10 +149,7 @@ function Heroi({ foto }: { foto: string | null }) {
             Grave {OFERTA.criativos} vídeos curtos usando FuckingBarba. Eles viram anúncio no
             Instagram e no TikTok, e você escolhe como ganhar:{" "}
             <strong>{reais(OFERTA.fixo)} no Pix</strong> ou{" "}
-            <strong>
-              {OFERTA.porcento}% de cada venda por {OFERTA.meses} meses
-            </strong>
-            .
+            <strong>{OFERTA.porcento}% de cada venda, enquanto o vídeo vender</strong>.
           </p>
           <div className="criadores__acoes">
             <a className="btn btn--preto" href="#inscricao">
@@ -234,14 +231,14 @@ function Propostas() {
             <span className="criadores__adesivo">Pra quem confia no próprio vídeo</span>
             <div className="criadores__oferta-topo">
               <span className="criadores__oferta-tag">Comissão</span>
-              <span className="criadores__oferta-sub">Sem teto</span>
+              <span className="criadores__oferta-sub">Sem prazo</span>
             </div>
             <p className="criadores__oferta-valor num">{OFERTA.porcento}%</p>
             <p className="criadores__oferta-por">de cada venda feita com o seu vídeo.</p>
             <ul className="criadores__oferta-lista">
               <li>
                 <Estrela />
-                Por {OFERTA.meses} meses, contando do primeiro dia do anúncio no ar
+                Sem prazo: enquanto o anúncio com o seu vídeo vender, você recebe
               </li>
               <li>
                 <Estrela />
@@ -397,7 +394,7 @@ const REGRAS = [
     titulo: "No combinado",
     itens: [
       "Só pra maiores de 18 anos.",
-      `Os vídeos rodam como anúncio da FuckingBarba por até ${OFERTA.usoMeses} meses. Isso fica escrito no contrato de uso de imagem.`,
+      "Os vídeos rodam como anúncio da FuckingBarba. O uso de imagem fica escrito no contrato.",
     ],
   },
 ]
@@ -455,7 +452,7 @@ function Duvidas() {
     },
     {
       pergunta: "Fixo ou comissão: qual compensa?",
-      resposta: `O fixo é certo: ${reais(OFERTA.fixo)}, vendendo ou não. A comissão paga mais se os seus vídeos venderem bem por bastante tempo: com ${OFERTA.porcento}% por ${OFERTA.meses} meses, ela passa do fixo a partir de ${vendasPraPassarDoFixo()} vendas por mês. Faz a conta na calculadora lá em cima.`,
+      resposta: `O fixo é certo: ${reais(OFERTA.fixo)}, vendendo ou não. A comissão não tem prazo: são ${OFERTA.porcento}% de cada venda enquanto o vídeo vender. Com 30 vendas por mês, ela passa do fixo no ${mesesPraPassarDoFixo(30)}º mês, e depois continua pagando. Faz a conta na calculadora lá em cima.`,
     },
     {
       pergunta: "Como vocês contam as vendas da comissão?",
