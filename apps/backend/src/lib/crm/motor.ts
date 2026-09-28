@@ -593,8 +593,8 @@ async function dadosDaLoja(
 /**
  * O e-mail pronto pro envio, com quem manda e pra onde vai a resposta — do
  * estilo dele (`EmailDoCrm.estilo`): o de pedido sai como os pedidos, sem
- * resposta; o pessoal sai com o nome de quem assina; os dois do CRM mandam a
- * resposta pro atendimento. Também é o do "Mandar pra mim" dos fluxos.
+ * resposta; o lembrete (e o pessoal) sai com o nome de quem assina; os do CRM
+ * mandam a resposta pro atendimento. Também é o do "Mandar pra mim" dos fluxos.
  */
 export function comQuemManda(e: EmailDoCrm) {
   return {

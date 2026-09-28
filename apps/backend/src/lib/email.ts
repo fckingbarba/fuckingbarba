@@ -78,16 +78,17 @@ const enderecoDo = (remetente: string) => remetente.match(/<([^>]+)>/)?.[1] ?? r
 
 /**
  * Quem manda cada estilo de e-mail do CRM (`lib/emails/crm.ts`): o de pedido
- * (o aviso do Pix) sai do remetente dos pedidos; o pessoal, do endereço do
- * CRM com o nome de quem assina ("Matheus, da FuckingBarba"); a oferta, do
- * remetente do CRM.
+ * (o aviso do Pix) sai do remetente dos pedidos; o pessoal e o lembrete, do
+ * endereço do CRM com o nome de quem assina ("Matheus, da FuckingBarba"); a
+ * oferta, do remetente do CRM.
  */
 export function remetenteDoEstilo(
-  estilo: "oferta" | "pedido" | "pessoal" | undefined,
+  estilo: "oferta" | "pedido" | "pessoal" | "lembrete" | undefined,
   nomePessoal: string
 ): string {
   if (estilo === "pedido") return remetenteDosEmails()
-  if (estilo === "pessoal") return `${nomePessoal} <${enderecoDo(remetenteDoCrm())}>`
+  if (estilo === "pessoal" || estilo === "lembrete")
+    return `${nomePessoal} <${enderecoDo(remetenteDoCrm())}>`
   return remetenteDoCrm()
 }
 
