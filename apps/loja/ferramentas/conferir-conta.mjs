@@ -1591,9 +1591,14 @@ if (tokenDono) {
     (await form().locator('input[type="email"]').count()) === 0,
     "(não tem como editar ali: trocar é o botão do lado, com código — seção 15b)"
   )
+  const doCadastro = (await doCliente(tokenDono)).metadata?.ofertas
   ok(
-    !(await campo("ofertas-email").isChecked()) && !(await campo("ofertas-whatsapp").isChecked()),
-    "as ofertas nascem desmarcadas — consentimento não vem marcado"
+    (await campo("ofertas-email").isChecked()) &&
+      !(await campo("ofertas-whatsapp").isChecked()) &&
+      typeof doCadastro?.email === "string" &&
+      doCadastro?.origem === "padrao",
+    "as ofertas por e-mail vêm marcadas, o padrão desde o cadastro (0184); as do WhatsApp, não",
+    JSON.stringify(doCadastro)
   )
 
   await campo("nome").fill("Rafael")
@@ -1682,6 +1687,26 @@ if (tokenDono) {
       (await campo("telefone").inputValue()) === "(11) 98765-4321" &&
       (await campo("ofertas-email").isChecked()),
     "recarregado, o formulário mostra o que está gravado"
+  )
+
+  // Desmarcar o e-mail é sair da lista (0184): o sim some, e o padrão não volta sozinho.
+  await campo("ofertas-email").uncheck()
+  await form().locator("button[type=submit]").click()
+  for (let i = 0; i < 30; i++) {
+    c = await doCliente(tokenDono)
+    if (c.metadata?.ofertas?.email === null) break
+    await esperar(300)
+  }
+  ok(
+    c.metadata?.ofertas?.email === null && typeof c.metadata?.ofertas?.whatsapp === "string",
+    "desmarcar o e-mail tira o sim dele (o do WhatsApp fica)",
+    JSON.stringify(c.metadata?.ofertas)
+  )
+  await pagina.reload()
+  await hidratado(pagina, "form[data-form-dados] [name=nome]")
+  ok(
+    !(await campo("ofertas-email").isChecked()),
+    "recarregado, o e-mail continua desmarcado: o padrão não volta sozinho"
   )
   await contexto.close()
 }

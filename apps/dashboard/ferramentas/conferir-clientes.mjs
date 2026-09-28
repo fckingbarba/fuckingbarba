@@ -217,6 +217,27 @@ try {
   const tokenOp = cookieOp.value
   const tokenMkt = cookieMkt.value
 
+  // As ofertas por e-mail vêm ligadas por padrão (0184): a Ana ganhou o sim quando comprou (o
+  // convidado do checkout), e pediu pra sair — a loja tira pelo painel. É ela a que "não aceita
+  // ofertas" daqui pra baixo.
+  let anaAntes = null
+  for (let i = 0; i < 20; i++) {
+    anaAntes = await clienteDoEmail(ANA)
+    if (anaAntes?.metadata?.ofertas?.origem === "padrao") break
+    await new Promise((ok) => setTimeout(ok, 300))
+  }
+  const tirouAna = await medusa("/dashboard/newsletter/tirar", {
+    token: tokenDoDono,
+    corpo: { email: ANA },
+  })
+  ok(
+    typeof anaAntes?.metadata?.ofertas?.email === "string" &&
+      anaAntes.metadata.ofertas.origem === "padrao" &&
+      tirouAna.status === 200,
+    "a Ana ganhou as ofertas por e-mail quando comprou, o padrão (0184), e a loja tirou quando ela pediu",
+    JSON.stringify({ ofertas: anaAntes?.metadata?.ofertas, tirou: tirouAna.status })
+  )
+
   /* ── a lista, pela API ─────────────────────────────────────────────────── */
 
   titulo("A lista (API)")
@@ -302,10 +323,14 @@ try {
     "o marketing: a ficha de quem aceitou, sem celular, endereço e pedidos — só o resumo",
     doMktTexto.slice(0, 300)
   )
+  // Ele comprou (o sim por padrão, 0184) e assinou a newsletter: os dois aparecem.
   ok(
     JSON.stringify(fMktBruno.corpo.cliente?.ofertas) ===
-      JSON.stringify([{ canal: "E-mail", onde: "no rodapé", desde: "hoje" }]),
-    "a ficha diz onde e desde quando ele aceitou",
+      JSON.stringify([
+        { canal: "E-mail", onde: "por padrão, no cadastro", desde: "hoje" },
+        { canal: "E-mail", onde: "no rodapé", desde: "hoje" },
+      ]),
+    "a ficha diz onde e desde quando ele aceitou: o padrão da compra e o rodapé",
     JSON.stringify(fMktBruno.corpo.cliente?.ofertas)
   )
 
@@ -379,14 +404,14 @@ try {
   const inscrito = (quem) => news.inscritos?.find((i) => i.email === quem)
   const caioNaLista = linha(doDono, CAIO)
   ok(
-    inscrito(BRUNO)?.origem === "rodapé" &&
+    inscrito(BRUNO)?.origem === "rodapé e conta" &&
       inscrito(BRUNO)?.clienteId === bruno.id &&
       inscrito(CAIO)?.origem === "conta" &&
       inscrito(CAIO)?.clienteId === caioNaLista?.id &&
       inscrito(LEO)?.origem === "rodapé" &&
       inscrito(LEO)?.clienteId === null &&
       !inscrito(ANA),
-    "uma lista só: o rodapé e a conta, cada cliente com o link pra ficha",
+    "uma lista só: o rodapé e a conta (o Bruno nos dois: o padrão da compra), cada cliente com o link pra ficha",
     JSON.stringify(news.inscritos?.filter((i) => i.email.includes(RODADA)))
   )
   const tirouCaio = await medusa("/dashboard/newsletter/tirar", {
