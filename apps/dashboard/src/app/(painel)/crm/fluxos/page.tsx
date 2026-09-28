@@ -58,6 +58,10 @@ async function Fluxos() {
           <li>De madrugada (22h às 8h), só o aviso do Pix e o de 30 minutos do checkout.</li>
           <li>5% não recebem nada: é o grupo de controle, pra saber o que o fluxo vende a mais.</li>
           <li>Quem saiu da lista, ou marcou como spam, não recebe mais.</li>
+          <li>
+            O cupom da 1ª compra sai na hora do cadastro, até de madrugada, e sem grupo de controle:
+            foi a pessoa que pediu.
+          </li>
         </ul>
       </section>
     </div>
