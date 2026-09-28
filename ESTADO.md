@@ -3799,6 +3799,19 @@ Os 2 do cupom continuam em Promoções: é o lugar do desconto.
 - [ ] **Depois do deploy (você):** CRM → Fluxos → Resgate e sunset → "Mandar pra mim" de novo, e ver
       onde caem os 2 sem cupom. Quem decide a aba é o Gmail.
 
+**A navegação abandonada — pronta em 28/09 (entrega 0198).** O e-mail pra quem olhou um produto e
+não pôs nada na sacola, e a loja sabe quem é: aceitou os cookies e já entrou na conta, assinou a
+newsletter ou comprou antes. Conta como "olhou": voltar à página do produto, ficar 1 minuto nela ou
+ver o vídeo do "Vê na prática".
+- Em 3 horas: "Ficou de olho no Fator de Crescimento?", com o que os clientes acharam e as dúvidas
+  da página.
+- Em 1 dia: "Quem levou o Fator de Crescimento também levou…", com a rotina completa.
+- Sem cupom, como no plano. No máximo uma por semana pra cada pessoa. Quem pôs na sacola depois vai
+  pro carrinho abandonado.
+
+- [ ] **Depois do deploy (você):** CRM → Fluxos → Navegação abandonada → "Mandar pra mim" nos dois
+      e-mails, e depois a chave. Vale pra quem olhar um produto depois de ligar.
+
 **A parcela mínima do cartão, editável — pronta em 27/09 (entrega 0157).** O pedido dele: "quero
 poder editar a parcela mínima no cartão, ali diz 5 reais". Em **Configurações → Pagamento**, o
 bloco **Parcelas no cartão** tem o campo **Parcela mínima**.

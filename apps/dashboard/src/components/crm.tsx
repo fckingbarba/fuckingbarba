@@ -26,6 +26,8 @@ import {
 const ICONE: Record<TipoDoCrm, NomeDoIcone> = {
   visita: "inicio",
   produto_visto: "olho",
+  produto_lido: "relogio",
+  video_assistido: "play",
   sacola_entrou: "carrinho",
   sacola_saiu: "fechar",
   checkout_comecou: "seta",
@@ -40,7 +42,7 @@ const ICONE: Record<TipoDoCrm, NomeDoIcone> = {
 /** As etapas do caminho da pessoa na loja, com os tipos de cada uma. */
 const ETAPAS: { nome: string; tipos: TipoDoCrm[] }[] = [
   { nome: "Chegou", tipos: ["visita"] },
-  { nome: "Olhou", tipos: ["produto_visto"] },
+  { nome: "Olhou", tipos: ["produto_visto", "produto_lido", "video_assistido"] },
   { nome: "Sacola", tipos: ["sacola_entrou", "sacola_saiu"] },
   {
     nome: "Checkout",

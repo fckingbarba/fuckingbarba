@@ -33,6 +33,8 @@ import { dominioDe, normalizarPagina } from "../observabilidade/telemetria"
 export const TIPOS = [
   "visita",
   "produto_visto",
+  "produto_lido",
+  "video_assistido",
   "sacola_entrou",
   "sacola_saiu",
   "checkout_comecou",
@@ -50,11 +52,16 @@ export type Tipo = (typeof TIPOS)[number]
  * manda pro Google (o formato de e-commerce do GA4): a loja tem uma porta de
  * saída só, e o que o CRM anota é o mesmo que o Analytics conta. `visita` e
  * `contato_informado` são só da loja (o Google conta a visita sozinho, e o
- * e-mail no checkout não é evento dele).
+ * e-mail no checkout não é evento dele), e também os dois da navegação
+ * abandonada (entrega 0198): `produto_lido` (1 minuto na página do produto,
+ * com a aba na frente) e `video_assistido` (abriu um vídeo do "Vê na
+ * prática"), com o item no formato do Google.
  */
 const DO_NAVEGADOR = new Map<string, Tipo>([
   ["visita", "visita"],
   ["view_item", "produto_visto"],
+  ["produto_lido", "produto_lido"],
+  ["video_assistido", "video_assistido"],
   ["add_to_cart", "sacola_entrou"],
   ["remove_from_cart", "sacola_saiu"],
   ["begin_checkout", "checkout_comecou"],
@@ -205,6 +212,8 @@ function lerDados(tipo: Tipo, bruto: unknown, loja: string | null): Dados | null
       return origem ? { origem } : {}
     }
     case "produto_visto":
+    case "produto_lido":
+    case "video_assistido":
     case "sacola_entrou":
     case "sacola_saiu":
     case "checkout_comecou": {

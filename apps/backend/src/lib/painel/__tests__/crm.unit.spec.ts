@@ -73,6 +73,12 @@ describe("cada anotação em frase", () => {
 
   it("os produtos, a sacola e o checkout", () => {
     expect(emFraseDoCrm("produto_visto", { itens: [OLEO] })).toBe("viu Óleo para barba")
+    expect(emFraseDoCrm("produto_lido", { itens: [OLEO] })).toBe(
+      "ficou 1 minuto vendo Óleo para barba"
+    )
+    expect(emFraseDoCrm("video_assistido", { itens: [OLEO] })).toBe(
+      "viu o vídeo de Óleo para barba"
+    )
     expect(emFraseDoCrm("sacola_entrou", { itens: [FATOR, OLEO] })).toBe(
       "pôs 2× Fator de crescimento e mais 1 na sacola"
     )
@@ -118,6 +124,8 @@ describe("a tela", () => {
     expect(tela.tipos.map((t) => t.tipo)).toEqual([
       "visita",
       "produto_visto",
+      "produto_lido",
+      "video_assistido",
       "sacola_entrou",
       "sacola_saiu",
       "checkout_comecou",

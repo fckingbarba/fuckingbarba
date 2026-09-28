@@ -80,9 +80,12 @@ export default async function Privacidade() {
           checkout, ou um Pix que não foi pago), a gente manda até quatro e-mails lembrando dela nos
           dois dias seguintes — um deles com um desconto só seu. Se for a sacola, e a loja já souber
           quem você é (você aceitou os cookies e já entrou na conta, assinou a newsletter ou comprou
-          antes), são até cinco, nos cinco dias seguintes. E uma pessoa da loja pode te chamar no
-          WhatsApp pra ver se ficou alguma dúvida. Todo e-mail tem o link &ldquo;Sair da
-          lista&rdquo;, e no WhatsApp é só responder que não quer: a gente não manda mais.
+          antes), são até cinco, nos cinco dias seguintes. Se você só olhou um produto — voltou a
+          ele, ficou um minuto na página ou viu o vídeo — e não pôs nada na sacola, são até dois
+          e-mails sobre ele, três horas depois e no dia seguinte, no máximo uma vez por semana, e
+          também só se a loja já souber quem você é. E uma pessoa da loja pode te chamar no WhatsApp
+          pra ver se ficou alguma dúvida. Todo e-mail tem o link &ldquo;Sair da lista&rdquo;, e no
+          WhatsApp é só responder que não quer: a gente não manda mais.
         </P>
         <P>
           <b>Depois que o seu pedido chega</b>: até cinco e-mails nos dois meses seguintes, sobre a
@@ -163,11 +166,12 @@ export default async function Privacidade() {
         </P>
         <P>
           <b>O que a própria loja anota, também só se você aceitar</b>: de onde você chegou (o site
-          ou a campanha do link), os produtos que viu, o que entrou e saiu da sacola e os passos do
-          checkout — ligado a um código aleatório deste navegador, guardado num cookie da loja.
-          Quando você entra na conta, deixa o e-mail no checkout ou assina a newsletter, o que foi
-          anotado passa a ficar ligado ao seu e-mail. É o que deixa a loja lembrar o que interessa
-          pra você. E-mail de oferta é outra coisa, e não depende deste sim.
+          ou a campanha do link), os produtos que viu (e se ficou um minuto na página ou viu o vídeo
+          de algum), o que entrou e saiu da sacola e os passos do checkout — ligado a um código
+          aleatório deste navegador, guardado num cookie da loja. Quando você entra na conta, deixa
+          o e-mail no checkout ou assina a newsletter, o que foi anotado passa a ficar ligado ao seu
+          e-mail. É o que deixa a loja lembrar o que interessa pra você. E-mail de oferta é outra
+          coisa, e não depende deste sim.
         </P>
         <P>
           <b>Se você já comprou na loja antiga</b> (a FuckingBarba na Nuvemshop): vieram com você o

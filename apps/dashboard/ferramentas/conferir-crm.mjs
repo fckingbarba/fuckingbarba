@@ -376,6 +376,22 @@ try {
       "o produto visto, anônimo",
       JSON.stringify(linhas(viu).slice(0, 3))
     )
+    // O minuto na página (a navegação abandonada, 0198): numa aba à parte, com o relógio de
+    // mentira do Playwright — sem esperar 1 minuto de verdade, e sem mexer no resto do caminho.
+    const lidosAntes = vezes(viu, "produto_lido")
+    const outraAba = await contexto.newPage()
+    await outraAba.clock.install()
+    await outraAba.goto(`${LOJA}/produtos/oleo-para-barba`, { waitUntil: "domcontentloaded" })
+    await hidratado(outraAba, ".compra__comprar")
+    await outraAba.clock.fastForward("01:05")
+    const leu = await esperarTela((t) => vezes(t, "produto_lido") > lidosAntes)
+    ok(
+      vezes(leu, "produto_lido") > lidosAntes &&
+        linhas(leu).some((l) => l.tipo === "produto_lido" && /^ficou 1 minuto vendo /.test(l.oque)),
+      "1 minuto na página do produto, com a aba na frente: “ficou 1 minuto vendo …”",
+      JSON.stringify(linhas(leu).slice(0, 3))
+    )
+    await outraAba.close()
     const sacolaAntes = vezes(viu, "sacola_entrou")
     await comprar.click()
     const naSacola = await esperarTela((t) => vezes(t, "sacola_entrou") > sacolaAntes)
@@ -1366,16 +1382,19 @@ try {
     // liga pelo dono), e a primeira rodada guarda a hora.
     for (const id of ["pix", "checkout", "carrinho", "boas-vindas"])
       await mudarFluxos({ fluxo: id, ligado: true })
+    await mudarFluxos({ fluxo: "navegacao", ligado: false })
     await mudarFluxos({ fluxo: "estreia", ligado: false })
     await mudarFluxos({ fluxo: "reposicao", ligado: false })
     await mudarFluxos({ fluxo: "jornada", ligado: false })
     await mudarFluxos({ fluxo: "resgate", ligado: false })
     await rodar()
     const tela0 = (await fluxos(tokenDoDono)).corpo
-    const esperaODono = (id) => ["estreia", "reposicao", "jornada", "resgate"].includes(id)
+    const esperaODono = (id) =>
+      ["navegacao", "estreia", "reposicao", "jornada", "resgate"].includes(id)
     ok(
       tela0.fluxos?.map((f) => f.id).join() ===
-        "pix,checkout,carrinho,reposicao,jornada,boas-vindas,estreia,resgate" &&
+        "pix,checkout,carrinho,navegacao,reposicao,jornada,boas-vindas,estreia,resgate" &&
+        tela0.fluxos.find((f) => f.id === "navegacao")?.toques.length === 2 &&
         tela0.fluxos.find((f) => f.id === "resgate")?.toques.length === 4 &&
         tela0.fluxos.find((f) => f.id === "jornada")?.toques.length === 5 &&
         tela0.fluxos.every((f) => (esperaODono(f.id) ? !f.ligado : f.ligado && f.desde)) &&
@@ -1385,7 +1404,7 @@ try {
         tela0.fluxos.find((f) => f.id === "pix")?.toques.length === 3 &&
         tela0.fluxos.find((f) => f.id === "carrinho")?.toques.length === 5 &&
         tela0.fluxos.find((f) => f.id === "boas-vindas")?.toques.length === 6,
-      "os oito fluxos, com os toques de cada um: quatro ligados, e a estreia, a reposição, a jornada e o resgate esperando o dono",
+      "os nove fluxos, com os toques de cada um: quatro ligados, e a navegação, a estreia, a reposição, a jornada e o resgate esperando o dono",
       JSON.stringify(tela0.fluxos?.map((f) => [f.id, f.ligado, f.desde, f.toques?.length]))
     )
     const errados = await Promise.all([
@@ -2857,6 +2876,134 @@ try {
       }
     }
 
+    titulo("A navegação abandonada: quem olhou um produto e não pôs na sacola (0198)")
+    {
+      // Começa desligada (quem liga é o dono): ligada só aqui, e desligada no fim.
+      await mudarFluxos({ fluxo: "navegacao", ligado: true })
+      try {
+        const { products: doFator } = await (
+          await fetch(
+            `${MEDUSA}/store/products?handle=fator-de-crescimento-para-barba&region_id=${regiao.id}&fields=*variants`,
+            { headers: DA_LOJA }
+          )
+        ).json()
+        const item = {
+          item_id: doFator[0].variants[0].id,
+          item_name: "Fator de Crescimento para Barba",
+          price: 79.9,
+          quantity: 1,
+        }
+        const noFator = (nome, ha) => ({
+          nome,
+          pagina: "/produtos/fator-de-crescimento-para-barba",
+          dados: { items: [item], value: 79.9 },
+          ha,
+        })
+        /** O que a loja anota de quem ela já conhece (a newsletter diz quem é). */
+        const olhou = (email, eventos) =>
+          medusa("/store/crm/eventos", {
+            extras: DA_LOJA,
+            corpo: {
+              visitante: randomUUID(),
+              identificacao: { como: "newsletter", email },
+              eventos,
+            },
+          })
+        const VOLTOU = foraDoControle("voltou", "navegacao")
+        const LEU = foraDoControle("leu", "navegacao")
+        const POS_NA_SACOLA = foraDoControle("pos-na-sacola", "navegacao")
+        const anotados = await Promise.all([
+          // Duas visitas ao Fator, 5 minutos uma da outra.
+          olhou(VOLTOU, [noFator("view_item", 5 * MIN), noFator("view_item", 0)]),
+          // Um minuto na página.
+          olhou(LEU, [noFator("produto_lido", 0)]),
+          // Duas visitas, e depois a sacola (no recado seguinte): quem cuida é o carrinho.
+          olhou(POS_NA_SACOLA, [noFator("view_item", 5 * MIN), noFator("view_item", 0)]),
+        ])
+        // O interesse é a 2ª visita, a hora do recado: a sacola vem 1 segundo depois dela.
+        await new Promise((ok) => setTimeout(ok, 1100))
+        anotados.push(await olhou(POS_NA_SACOLA, [noFator("add_to_cart", 0)]))
+        ok(
+          anotados.every((a) => a.status === 204),
+          "as visitas de quem a loja conhece, anotadas",
+          anotados.map((a) => a.status).join(",")
+        )
+        const comeco = Date.now()
+        const na = (ms) => new Date(diurno(comeco + ms)).toISOString()
+        const daNavegacao = (e) =>
+          e.tags?.some((t) => t.name === "tipo" && t.value === "crm-navegacao")
+        // O "antes" vai na hora de verdade: de madrugada o motor também não manda nada.
+        const antes = await rodar({
+          agora: new Date(comeco + 2 * HORA).toISOString(),
+          email: VOLTOU,
+        })
+        const r3h = await rodar({ agora: na(3 * HORA + 5 * MIN), email: VOLTOU })
+        const e3h = await caixa.esperarEmail(VOLTOU, daNavegacao, 0)
+        ok(
+          antes.corpo.enviados === 0 &&
+            r3h.corpo.enviados === 1 &&
+            e3h?.subject === "Ficou de olho no Fator de Crescimento?" &&
+            /^Matheus, da FuckingBarba </.test(e3h.from ?? "") &&
+            !e3h.headers?.["List-Unsubscribe"] &&
+            !/\p{Extended_Pictographic}/u.test(e3h.html) &&
+            e3h.html.includes(`${LOJA}/produtos/fator-de-crescimento-para-barba?`) &&
+            e3h.html.includes("utm_campaign=crm-navegacao"),
+          "2 visitas ao Fator: em 3 horas, “Ficou de olho no Fator de Crescimento?”, como lembrete e sem emoji",
+          JSON.stringify({ antes: antes.corpo, r: r3h.corpo, assunto: e3h?.subject })
+        )
+        const r24 = await rodar({ agora: na(DIA_MS + 5 * MIN), email: VOLTOU })
+        const e24 = await caixa.esperarEmail(
+          VOLTOU,
+          (e) => daNavegacao(e) && e.subject?.startsWith("Quem levou"),
+          0
+        )
+        ok(
+          r24.corpo.enviados === 1 &&
+            e24?.subject === "Quem levou o Fator de Crescimento também levou…" &&
+            e24.html.includes(`${LOJA}/produtos/oleo-para-barba?`),
+          "em 1 dia, “Quem levou o Fator de Crescimento também levou…”, com o óleo",
+          JSON.stringify({ r: r24.corpo, assunto: e24?.subject })
+        )
+        const rLeu = await rodar({ agora: na(3 * HORA + 5 * MIN), email: LEU })
+        const eLeu = await caixa.esperarEmail(LEU, daNavegacao, 0)
+        ok(
+          rLeu.corpo.enviados === 1 && eLeu?.subject === "Ficou de olho no Fator de Crescimento?",
+          "1 minuto na página também conta",
+          JSON.stringify({ r: rLeu.corpo, assunto: eLeu?.subject })
+        )
+        const rSacola = await rodar({ agora: na(3 * HORA + 5 * MIN), email: POS_NA_SACOLA })
+        ok(
+          rSacola.corpo.enviados === 0 && caixa.quantos(POS_NA_SACOLA, daNavegacao) === 0,
+          "quem pôs na sacola depois não recebe a navegação",
+          JSON.stringify(rSacola.corpo)
+        )
+        // Uma navegação a cada 7 dias: quem acabou de receber, e olha o óleo 2 vezes, fica sem.
+        const { products: doOleo } = await (
+          await fetch(
+            `${MEDUSA}/store/products?handle=oleo-para-barba&region_id=${regiao.id}&fields=*variants`,
+            { headers: DA_LOJA }
+          )
+        ).json()
+        const noOleo = (ha) => ({
+          nome: "view_item",
+          pagina: "/produtos/oleo-para-barba",
+          dados: {
+            items: [{ ...item, item_id: doOleo[0].variants[0].id, item_name: "Óleo para Barba" }],
+          },
+          ha,
+        })
+        await olhou(VOLTOU, [noOleo(5 * MIN), noOleo(0)])
+        const rDeNovo = await rodar({ agora: na(DIA_MS + 4 * HORA), email: VOLTOU })
+        ok(
+          rDeNovo.corpo.enviados === 0 && caixa.quantos(VOLTOU, daNavegacao) === 2,
+          "uma navegação a cada 7 dias: o óleo, olhado logo depois, fica sem e-mail",
+          JSON.stringify(rDeNovo.corpo)
+        )
+      } finally {
+        await mudarFluxos({ fluxo: "navegacao", ligado: false })
+      }
+    }
+
     titulo("A aba Fluxos")
     await semIpNasFontes(dono.contexto)
     await dono.pagina.goto(`${PAINEL}/crm/fluxos`)
@@ -2865,10 +3012,12 @@ try {
       .locator('[data-fluxo="estreia"] [data-publico-da-estreia] [data-jeito]')
       .allTextContents()
     ok(
-      (await dono.pagina.locator("[data-fluxo]").count()) === 8 &&
+      (await dono.pagina.locator("[data-fluxo]").count()) === 9 &&
         (await dono.pagina.locator('.abas [data-aba="fluxos"][aria-current="page"]').count()) ===
           1 &&
         (await dono.pagina.locator('[data-ligar][aria-checked="true"]').count()) === 4 &&
+        (await dono.pagina.locator('[data-ligar="navegacao"][aria-checked="false"]').count()) ===
+          1 &&
         (await dono.pagina.locator('[data-ligar="estreia"][aria-checked="false"]').count()) === 1 &&
         (await dono.pagina.locator('[data-ligar="reposicao"][aria-checked="false"]').count()) ===
           1 &&
@@ -2879,7 +3028,7 @@ try {
         (await dono.pagina.locator('[data-fluxo="estreia"] .numero--controle').count()) === 1 &&
         jeitosNaTela.length === 4 &&
         jeitosNaTela.filter((t) => t.includes("cupom")).length === 2,
-      "a aba: os oito fluxos, quatro ligados; a estreia, a reposição, a jornada e o resgate desligados, a estreia com o controle e os 4 jeitos (2 com cupom)",
+      "a aba: os nove fluxos, quatro ligados; a navegação, a estreia, a reposição, a jornada e o resgate desligados, a estreia com o controle e os 4 jeitos (2 com cupom)",
       JSON.stringify(jeitosNaTela.map(semEspaco))
     )
     const telaAgora = (await fluxos(tokenDoDono)).corpo
@@ -3010,6 +3159,23 @@ try {
       "“Mandar pra mim” do resgate: a pergunta com os 4 botões, como lembrete — e os botões de mentira não anotam nada",
       testeDoResgate?.subject ?? "não chegou"
     )
+    // O da navegação: quem olhou o Fator, como lembrete, com o botão que volta pra ele.
+    const antesDoTesteDaNavegacao = caixa.quantos(DONO, (e) => e.subject?.startsWith("[Teste] "))
+    await hidratado(dono.pagina, '[data-toque="navegacao-3h"] [data-mandar-pra-mim]')
+    await dono.pagina.locator('[data-toque="navegacao-3h"] [data-mandar-pra-mim]').click()
+    const testeDaNavegacao = await caixa.esperarEmail(
+      DONO,
+      (e) => e.subject?.startsWith("[Teste] "),
+      antesDoTesteDaNavegacao,
+      20000
+    )
+    ok(
+      testeDaNavegacao?.subject === "[Teste] Ficou de olho no Fator de Crescimento?" &&
+        /^Matheus, da FuckingBarba </.test(testeDaNavegacao?.from ?? "") &&
+        testeDaNavegacao?.html.includes(`${LOJA}/produtos/fator-de-crescimento-para-barba?`),
+      "“Mandar pra mim” da navegação: quem olhou o Fator, como lembrete",
+      testeDaNavegacao?.subject ?? "não chegou"
+    )
     // A chave das boas-vindas é a do pop-up da loja: desligada, a loja fica sabendo.
     const popupDaLoja = async () =>
       (await medusa("/store/crm/primeira-compra", { metodo: "GET", extras: DA_LOJA })).corpo
@@ -3078,8 +3244,8 @@ try {
     String(api.numeros.pessoas)
   )
   ok(
-    (await dono.pagina.locator(".trilha__item").count()) === 11,
-    "o caminho mostra os 11 tipos de anotação"
+    (await dono.pagina.locator(".trilha__item").count()) === 13,
+    "o caminho mostra os 13 tipos de anotação (com o minuto na página e o vídeo, 0198)"
   )
   ok(
     (await dono.pagina.locator('[data-periodo="hoje"][aria-current="page"]').count()) === 1,

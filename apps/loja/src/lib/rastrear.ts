@@ -145,8 +145,12 @@ export function rastrear<E extends EventoRastreado>(nome: E["nome"], dados: E["d
   sim.quando(() => mandar(nome, dados, onde))
 }
 
-/** Os que são só do CRM da loja: a chegada da visita e o e-mail no checkout. */
-export type SoDaLoja = "visita" | "contato_informado"
+/**
+ * Os que são só do CRM da loja: a chegada da visita, o e-mail no checkout, e
+ * os dois da navegação abandonada (entrega 0198) — o minuto na página do
+ * produto e o vídeo do "Vê na prática", com o item no formato do Google.
+ */
+export type SoDaLoja = "visita" | "contato_informado" | "produto_lido" | "video_assistido"
 
 /**
  * Pro CRM da loja, e só pra ele — com o mesmo "Aceitar" que as tags esperam.

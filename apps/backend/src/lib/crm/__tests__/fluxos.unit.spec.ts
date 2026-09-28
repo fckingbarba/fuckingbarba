@@ -235,12 +235,13 @@ describe("o aviso do Pix", () => {
 })
 
 describe("a configuração dos fluxos", () => {
-  it("sem nada guardado: ligados (a estreia, a reposição, a jornada e o resgate não), sem o desde, 10% de desconto", () => {
+  it("sem nada guardado: ligados (a navegação, a estreia, a reposição, a jornada e o resgate não), sem o desde, 10% de desconto", () => {
     expect(lerConfigDosFluxos({})).toEqual({
       fluxos: {
         pix: { ligado: true, desde: null },
         checkout: { ligado: true, desde: null },
         carrinho: { ligado: true, desde: null },
+        navegacao: { ligado: false, desde: null },
         reposicao: { ligado: false, desde: null },
         jornada: { ligado: false, desde: null },
         "boas-vindas": { ligado: true, desde: null },
@@ -259,6 +260,7 @@ describe("a configuração dos fluxos", () => {
         pix: { ligado: false, desde: LIGOU },
         checkout: { ligado: true, desde: LIGOU },
         carrinho: { ligado: false, desde: null },
+        navegacao: { ligado: false, desde: null },
         reposicao: { ligado: false, desde: null },
         jornada: { ligado: false, desde: null },
         "boas-vindas": { ligado: true, desde: null },
@@ -279,6 +281,7 @@ describe("a configuração dos fluxos", () => {
         pix: { ligado: true, desde: null },
         checkout: { ligado: true, desde: null },
         carrinho: { ligado: true, desde: null },
+        navegacao: { ligado: false, desde: null },
         reposicao: { ligado: false, desde: null },
         jornada: { ligado: false, desde: null },
         "boas-vindas": { ligado: true, desde: null },

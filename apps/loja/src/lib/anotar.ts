@@ -34,6 +34,8 @@ const MAX_POR_ABA = 200
 const DO_CRM = new Set([
   "visita",
   "view_item",
+  "produto_lido",
+  "video_assistido",
   "add_to_cart",
   "remove_from_cart",
   "begin_checkout",

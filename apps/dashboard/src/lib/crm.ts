@@ -23,6 +23,8 @@ export const lerPeriodoDoCrm = (v: unknown): PeriodoDoCrm =>
 export type TipoDoCrm =
   | "visita"
   | "produto_visto"
+  | "produto_lido"
+  | "video_assistido"
   | "sacola_entrou"
   | "sacola_saiu"
   | "checkout_comecou"
@@ -142,7 +144,15 @@ export type FormularioDosAjustes = {
 export const CAMINHO_DOS_FLUXOS = "/dashboard/crm/fluxos"
 
 export type IdDoFluxo =
-  "pix" | "checkout" | "carrinho" | "reposicao" | "jornada" | "boas-vindas" | "estreia" | "resgate"
+  | "pix"
+  | "checkout"
+  | "carrinho"
+  | "navegacao"
+  | "reposicao"
+  | "jornada"
+  | "boas-vindas"
+  | "estreia"
+  | "resgate"
 
 /** A aba Fluxos (`GET /dashboard/crm/fluxos`, `lib/painel/fluxos.ts` no backend). */
 export type TelaDosFluxos = {

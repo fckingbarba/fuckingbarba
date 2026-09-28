@@ -54,6 +54,8 @@ export const lerPeriodoDoCrm = (v: unknown): PeriodoDoCrm =>
 export const NOME_DO_TIPO: Record<Tipo, string> = {
   visita: "Visitas",
   produto_visto: "Produtos vistos",
+  produto_lido: "1 minuto no produto",
+  video_assistido: "Vídeos assistidos",
   sacola_entrou: "Entraram na sacola",
   sacola_saiu: "Saíram da sacola",
   checkout_comecou: "Checkouts começados",
@@ -175,6 +177,10 @@ export function emFraseDoCrm(tipo: Tipo, dados: Dados | null): string {
       return aChegada(d)
     case "produto_visto":
       return `viu ${osItens(d.itens, false)}`
+    case "produto_lido":
+      return `ficou 1 minuto vendo ${osItens(d.itens, false)}`
+    case "video_assistido":
+      return `viu o vídeo de ${osItens(d.itens, false)}`
     case "sacola_entrou":
       return `pôs ${osItens(d.itens, true)} na sacola`
     case "sacola_saiu":

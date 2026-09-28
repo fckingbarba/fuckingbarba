@@ -7,6 +7,7 @@ import { emailDoFluxo, type CompraDoFluxo } from "../emails/fluxos"
 import type { EmailDoCrm } from "../emails/crm"
 import { emailDaEstreia } from "../emails/estreia"
 import { emailDaJornada } from "../emails/jornada"
+import { emailDaNavegacao } from "../emails/navegacao"
 import { emailDaReposicao } from "../emails/reposicao"
 import { emailDoResgate } from "../emails/resgate"
 import { urlDaLoja } from "../emails/moldura"
@@ -23,6 +24,7 @@ import {
   lerConfigDosFluxos,
   ehToqueDaEstreia,
   ehToqueDaJornada,
+  ehToqueDaNavegacao,
   ehToqueDaReposicao,
   ehToqueDoResgate,
   ehToqueDasBoasVindas,
@@ -33,11 +35,13 @@ import {
   type IdDoToque,
   type IdDoToqueDaEstreia,
   type IdDoToqueDaJornada,
+  type IdDoToqueDaNavegacao,
   type IdDoToqueDaReposicao,
   type IdDoToqueDoResgate,
 } from "./fluxos"
 import { linksDoCheckin } from "./checkin"
 import { SKU_DA_ROTINA } from "./jornada"
+import { sugestoesDaNavegacao } from "./navegacao"
 import { SUBIR_PARA } from "./reposicao"
 import { conteudosDasTrilhas } from "./boas-vindas"
 import { produtosDoEmail, TITULO_DA_TRILHA } from "./primeira-compra"
@@ -56,7 +60,7 @@ import { linkDeVoltar } from "./voltar"
  * nos 4 jeitos (quem está na hora de repor, no tratamento, quem sumiu, quem
  * nunca comprou), com o Fator como a última compra. Os da reposição, com o
  * Fator acabando; o "Refazer o pedido" abre um pedido que não existe (vai
- * pra home).
+ * pra home). Os da navegação abandonada, de quem olhou o Fator.
  */
 
 export const TOQUES_DOS_FLUXOS: readonly IdDoToque[] = IDS_DOS_FLUXOS.flatMap((id) =>
@@ -73,9 +77,57 @@ export async function exemplosDoToque(
   if (ehToqueDaEstreia(toque)) return exemplosDaEstreia(container, membro, toque, agora)
   if (ehToqueDaReposicao(toque)) return exemplosDaReposicao(container, membro, toque, agora)
   if (ehToqueDaJornada(toque)) return exemplosDaJornada(container, membro, toque)
+  if (ehToqueDaNavegacao(toque)) return exemplosDaNavegacao(container, membro, toque)
   if (ehToqueDoResgate(toque)) return exemplosDoResgate(container, membro, toque, agora)
   const exemplo = await exemploDoToque(container, membro, toque, agora)
   return exemplo ? [exemplo] : []
+}
+
+/**
+ * A navegação de quem olhou o Fator: as avaliações aprovadas dele (sem
+ * nenhuma, uma de exemplo, como no carrinho) e as dúvidas da página; no de 24
+ * horas, a rotina de quem ainda não tem nada.
+ */
+async function exemplosDaNavegacao(
+  container: MedusaContainer,
+  membro: { email: string; nome: string },
+  toque: IdDoToqueDaNavegacao
+): Promise<EmailDoCrm[]> {
+  const loja = urlDaLoja()
+  if (!loja) return []
+  const sugestoes = sugestoesDaNavegacao(PRODUTOS_DAS_TRILHAS.fator, new Set())
+  const [{ conteudos, depoimentos }, porSku, whatsapp, lojas] = await Promise.all([
+    conteudosDasTrilhas(container, []),
+    produtosPorSku(container, sugestoes),
+    whatsappDaLoja(container),
+    container.resolve(Modules.STORE).listStores({}, { select: ["metadata"], take: 1 }),
+  ])
+  const { empresa, atendimento } = lerConfiguracoes(lojas[0]?.metadata)
+  const email = emailDaNavegacao({
+    toque,
+    para: membro.email,
+    nome: membro.nome,
+    produto: conteudos.get(PRODUTOS_DAS_TRILHAS.fator) ?? null,
+    depoimentos: depoimentos.length
+      ? depoimentos
+      : [
+          {
+            texto: "Exemplo de avaliação: no e-mail de verdade entram as aprovadas no painel.",
+            quem: "Cliente de exemplo",
+            estrelas: 5,
+          },
+        ],
+    sugestoes: sugestoes.flatMap((s) => porSku.get(s) ?? []),
+    sair: linksDeSair(loja, membro.email),
+    loja: {
+      url: loja,
+      whatsapp,
+      empresa: empresa.razaoSocial,
+      cnpj: empresa.cnpj,
+      atendimento: atendimento.email,
+    },
+  })
+  return email ? [email] : []
 }
 
 async function exemplosDaJornada(
@@ -257,7 +309,11 @@ export async function exemploDoToque(
   membro: { email: string; nome: string },
   toque: Exclude<
     IdDoToque,
-    IdDoToqueDaEstreia | IdDoToqueDaReposicao | IdDoToqueDaJornada | IdDoToqueDoResgate
+    | IdDoToqueDaEstreia
+    | IdDoToqueDaReposicao
+    | IdDoToqueDaJornada
+    | IdDoToqueDoResgate
+    | IdDoToqueDaNavegacao
   >,
   agora = new Date()
 ): Promise<EmailDoCrm | null> {

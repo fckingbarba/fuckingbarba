@@ -1037,6 +1037,35 @@ export default class CrmService extends Tabelas {
     return new Map(linhas.map((l) => [l.carrinho_id, l.email]))
   }
 
+  /**
+   * O que a navegação abandonada lê (entrega 0198, `lib/crm/navegacao.ts`):
+   * das pessoas que a loja conhece, desde tal hora, as visitas aos produtos,
+   * o minuto na página e o vídeo — e o que diz que a pessoa agiu (a sacola,
+   * o checkout). A variante é a do primeiro item.
+   */
+  @InjectManager()
+  async navegacoesDesde(
+    desde: Date,
+    @MedusaContext() ctx: Contexto = {}
+  ): Promise<{ email: string; tipo: string; variante: string | null; em: Date }[]> {
+    const linhas = (await ctx.manager!.execute(
+      `select lower(email) as email, tipo, dados->'itens'->0->>'variante' as variante, em
+         from crm_evento
+        where deleted_at is null and email is not null and em >= ?
+          and tipo in ('produto_visto', 'produto_lido', 'video_assistido',
+                       'sacola_entrou', 'checkout_comecou', 'contato_informado')
+        order by em
+        limit 100000`,
+      [desde]
+    )) as { email: string; tipo: string; variante: string | null; em: string | Date }[]
+    return linhas.map((l) => ({
+      email: l.email,
+      tipo: l.tipo,
+      variante: l.variante ?? null,
+      em: new Date(l.em),
+    }))
+  }
+
   /** Anota quem saiu da lista (o "Sair da lista" de qualquer e-mail do CRM), com a hora. */
   @InjectManager()
   async saiuDaLista(email: string, @MedusaContext() ctx: Contexto = {}): Promise<void> {
