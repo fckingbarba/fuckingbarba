@@ -80,8 +80,9 @@ describe("os e-mails da jornada", () => {
     }
   })
 
-  it("o check-in: os dois botões, e nada de “não gostei”", () => {
+  it("o check-in: os dois botões, sem emoji, e nada de “não gostei”", () => {
     const { pronto } = montar({ toque: "jornada-7d" })!
+    expect(pronto.html).not.toMatch(/\p{Extended_Pictographic}/u)
     expect(pronto.html).toContain("https://api.exemplo/crm/checkin?t=a")
     expect(pronto.html).toContain("https://api.exemplo/crm/checkin?t=b")
     expect(pronto.html).toContain("Tá indo bem")

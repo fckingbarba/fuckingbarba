@@ -10,7 +10,8 @@ import type { EmailDoCrm, ProdutoDoCrm } from "./crm"
  * Sem desconto, e sobre a compra da pessoa: todos são LEMBRETE (a cara da
  * marca, assinado, sem o cabeçalho de oferta), e sem palavra de propaganda.
  * O check-in de 7 dias tem só dois botões — "Tá indo bem" e "Tenho uma
- * dúvida"; nada de "não gostei" (escolha do dono).
+ * dúvida"; nada de "não gostei" (escolha do dono). Sem emoji nos botões
+ * (0197): emoji em botão tem cara de campanha.
  *
  * Código puro, com testes.
  */
@@ -93,8 +94,8 @@ export function emailDaJornada(j: JornadaDoEmail): EmailDoCrm | null {
           {
             tipo: "escolhas",
             itens: [
-              { texto: "😀 Tá indo bem", href: j.checkin.bem },
-              { texto: "🤔 Tenho uma dúvida", href: j.checkin.duvida },
+              { texto: "Tá indo bem", href: j.checkin.bem },
+              { texto: "Tenho uma dúvida", href: j.checkin.duvida },
             ],
           },
           ...(p?.duvidas?.perguntas.length
