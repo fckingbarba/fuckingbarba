@@ -27,8 +27,12 @@ export type LinhaDaAvaliacao = {
   produto: { nome: string; handle: string | null; foto: string | null }
   /** "hoje, 14:32" — quando a pessoa mandou. */
   quando: string
-  /** Só pra quem abre os pedidos. */
-  pedido: { id: string; numero: number } | null
+  /**
+   * Só pra quem abre os pedidos. `nuvemshop`: o pedido é da loja antiga (a
+   * base que o CRM guardou) — não tem página no painel. Backend antigo não
+   * manda o campo: aí é da loja nova.
+   */
+  pedido: { id: string; numero: number; nuvemshop?: boolean } | null
   /** "Aprovada por Ana · ontem, 10:02". */
   moderacao: string | null
 }

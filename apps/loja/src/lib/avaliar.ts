@@ -1,7 +1,9 @@
 import "server-only"
 import { cookies } from "next/headers"
-import type { PedidoParaAvaliar } from "./avaliar-visivel"
+import type { PedidoParaAvaliar, ProdutoDaLoja } from "./avaliar-visivel"
+import { maisVendidosPrimeiro } from "./catalogo"
 import { medusa } from "./conta"
+import { listarProdutos, maisVendidos } from "./medusa"
 
 /**
  * O LINK DA AVALIAÇÃO — `<pedido>.<assinatura>`, feito pelo Medusa
@@ -81,4 +83,18 @@ export async function lerPedidoDaAvaliacao(link: string): Promise<LeituraDoPedid
   if (r.status === 404) return { tipo: "invalido" }
   if (r.status === 409) return { tipo: "nao-aceita" }
   return { tipo: "fora" }
+}
+
+/**
+ * A LISTA DA PÁGINA SEM O LINK — os produtos da loja, na ordem da home (os
+ * mais vendidos primeiro: o que a pessoa comprou tende a estar no topo). É o
+ * catálogo público, do cache da loja: a página não sabe o que veio no pedido
+ * (quem confere é o Medusa, no envio). Kit também aparece — quem comprou o kit
+ * avalia o kit, ou cada produto que veio nele.
+ */
+export async function produtosParaAvaliar(): Promise<ProdutoDaLoja[]> {
+  const [produtos, ordem] = await Promise.all([listarProdutos(), maisVendidos()])
+  return maisVendidosPrimeiro(produtos, ordem).flatMap((p) =>
+    p.handle ? [{ id: p.id, nome: p.title, handle: p.handle, imagem: p.thumbnail ?? null }] : []
+  )
 }

@@ -1,13 +1,17 @@
 import type { MedusaContainer } from "@medusajs/framework/types"
-import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
+import { ContainerRegistrationKeys, ProductStatus } from "@medusajs/framework/utils"
 import { AVALIACOES } from "../../modules/avaliacoes"
 import type AvaliacoesService from "../../modules/avaliacoes/service"
 import { normalizarEmail } from "../../modules/codigo/regras"
+import { CRM } from "../../modules/crm"
+import type CrmService from "../../modules/crm/service"
 import {
   aceitaAvaliacao,
   nomeSugerido,
   produtosDoPedido,
+  produtosQueOPedidoAvalia,
   type ItemDoPedido,
+  type ProdutoDoCatalogo,
   type ProdutoDoPedido,
 } from "./regras"
 
@@ -19,6 +23,11 @@ import {
  * Nada além disso sai daqui: nem o e-mail, nem o endereço, nem o sobrenome
  * inteiro. Quem tem o link é quem recebeu o e-mail — ou alguém a quem ele
  * encaminhou —, e pra dar nota a um produto ninguém precisa de mais.
+ *
+ * SEM O LINK (`acharPedidoDireto`, no fim), o pedido vem do número e do
+ * e-mail da compra, na loja nova ou na base da Nuvemshop — e nada dele volta
+ * pra página: a lista de produtos é a da loja inteira, e a rota só diz se a
+ * avaliação entrou.
  */
 
 type PedidoLido = {
@@ -26,7 +35,7 @@ type PedidoLido = {
   display_id?: number | null
   email?: string | null
   status?: string | null
-  items?: (ItemDoPedido | null)[] | null
+  items?: ((ItemDoPedido & { variant_sku?: string | null }) | null)[] | null
   shipping_address?: { first_name?: string | null; last_name?: string | null } | null
   payment_collections?: ({ payments?: ({ captured_at?: unknown } | null)[] | null } | null)[] | null
 }
@@ -105,10 +114,10 @@ export async function lerPedidoParaAvaliar(
 }
 
 /**
- * O pedido de quem abriu a página SEM o link: o número (como está no e-mail
- * de confirmação, "#1234") e o e-mail da compra. Os dois têm que bater — o
- * número sozinho é sequencial, e daria pra avaliar pelo pedido de qualquer
- * um. `null` pra qualquer diferença, sem dizer qual.
+ * O pedido da loja nova pelo número (como está no e-mail de confirmação,
+ * "#1234") e o e-mail da compra. Os dois têm que bater — o número sozinho é
+ * sequencial, e daria pra avaliar pelo pedido de qualquer um. `null` pra
+ * qualquer diferença, sem dizer qual.
  */
 export async function encontrarPedido(
   container: MedusaContainer,
@@ -127,4 +136,118 @@ export async function encontrarPedido(
   const o = data[0] as unknown as { id: string; email?: string | null } | undefined
   if (!o?.email || normalizarEmail(o.email) !== procurado) return null
   return o.id
+}
+
+/* ── o pedido pelo número e o e-mail (a página sem o link) ────────────────── */
+
+export type PedidoDireto = {
+  /** `order_…` (a loja nova) ou `nso_…` (a linha da base da Nuvemshop). */
+  id: string
+  numero: number
+  origem: "loja" | "nuvemshop"
+  /** Os produtos que o pedido deixa avaliar, com o nome (`produtosQueOPedidoAvalia`). */
+  produtos: Map<string, string>
+}
+
+export type LeituraDireta =
+  | { ok: true; pedido: PedidoDireto }
+  /**
+   * `sem_pedido`: nenhum pedido com esse número E esse e-mail, nas duas
+   * lojas. `nao_aceita`: achou, mas cancelado ou sem pagamento.
+   */
+  | { ok: false; motivo: "sem_pedido" | "nao_aceita" }
+
+/** Os produtos publicados, com os SKUs: a ponte do SKU da Nuvemshop pro produto de hoje. */
+async function catalogoPublicado(container: MedusaContainer): Promise<ProdutoDoCatalogo[]> {
+  const { data } = await container.resolve(ContainerRegistrationKeys.QUERY).graph({
+    entity: "product",
+    fields: ["id", "title", "variants.sku"],
+    filters: { status: ProductStatus.PUBLISHED },
+  })
+  return (
+    data as {
+      id: string
+      title?: string | null
+      variants?: ({ sku?: string | null } | null)[] | null
+    }[]
+  ).map((p) => ({
+    id: p.id,
+    nome: p.title?.trim() || "Produto",
+    skus: (p.variants ?? []).map((v) => v?.sku),
+  }))
+}
+
+/**
+ * O PEDIDO DE QUEM ABRIU A PÁGINA SEM O LINK — pelo número e o e-mail da
+ * compra, que têm que bater. Procura na loja nova (o Medusa) e, sem achar lá,
+ * na base da Nuvemshop que o CRM guardou (`crm_base_pedido`, o arquivo de
+ * vendas importado em CRM → Base da Nuvemshop): quem comprou na loja antiga
+ * também avalia. A numeração da loja nova começa depois da última de lá, então
+ * um número é de uma loja só.
+ *
+ * Aceita avaliação o pedido pago e não cancelado — na Nuvemshop, o
+ * "confirmado" (o recusado nunca foi pago, o estornado voltou).
+ */
+export async function acharPedidoDireto(
+  container: MedusaContainer,
+  numero: number,
+  email: string
+): Promise<LeituraDireta> {
+  const [daLoja, catalogo] = await Promise.all([
+    encontrarPedido(container, numero, email),
+    catalogoPublicado(container),
+  ])
+
+  if (daLoja) {
+    const { data } = await container.resolve(ContainerRegistrationKeys.QUERY).graph({
+      entity: "order",
+      fields: CAMPOS,
+      filters: { id: daLoja },
+    })
+    const o = data[0] as unknown as PedidoLido | undefined
+    if (!o) return { ok: false, motivo: "sem_pedido" }
+    if (!aceitaAvaliacao({ status: o.status, pago: pago(o) }))
+      return { ok: false, motivo: "nao_aceita" }
+    const itens = (o.items ?? []).flatMap((i) =>
+      i
+        ? [
+            {
+              produtoId: i.product_id,
+              nome: i.product_title ?? i.title,
+              sku: i.variant_sku,
+              handle: i.product_handle,
+            },
+          ]
+        : []
+    )
+    return {
+      ok: true,
+      pedido: {
+        id: o.id,
+        numero: Number(o.display_id ?? numero),
+        origem: "loja",
+        produtos: produtosQueOPedidoAvalia(itens, catalogo),
+      },
+    }
+  }
+
+  const procurado = normalizarEmail(email)
+  if (!procurado) return { ok: false, motivo: "sem_pedido" }
+  const daBase = (await container.resolve<CrmService>(CRM).pedidosDaBase(procurado)).find(
+    (p) => String(p.numero).trim() === String(numero)
+  )
+  if (!daBase?.id) return { ok: false, motivo: "sem_pedido" }
+  if (daBase.pagamento !== "confirmado") return { ok: false, motivo: "nao_aceita" }
+  return {
+    ok: true,
+    pedido: {
+      id: daBase.id,
+      numero,
+      origem: "nuvemshop",
+      produtos: produtosQueOPedidoAvalia(
+        (daBase.itens ?? []).map((i) => ({ sku: i.sku, nome: i.nome })),
+        catalogo
+      ),
+    },
+  }
 }

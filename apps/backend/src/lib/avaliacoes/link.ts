@@ -16,10 +16,10 @@ import { createHmac, timingSafeEqual } from "node:crypto"
  * nota a cada um uma vez só. Quem decide se o pedido ainda aceita avaliação
  * (pago, não cancelado) é a leitura do pedido, a cada vez.
  *
- * O link sai de dois e-mails, e só deles: o "o que você achou?" (`pedir.ts`)
- * e o que a página sem o link manda pro e-mail da compra, quando a pessoa
- * escreve o número do pedido e esse e-mail (`encontrar.ts`). Nunca numa
- * resposta da API — quem tem o link é quem tem a caixa de entrada.
+ * O link sai de um e-mail só, o "o que você achou?" (`pedir.ts`), e nunca
+ * numa resposta da API — quem tem o link é quem tem a caixa de entrada. Sem
+ * ele, a página pede o número do pedido e o e-mail da compra junto com a
+ * avaliação (`acharPedidoDireto`, em `pedido.ts`), e não abre pedido nenhum.
  */
 
 /** 22 caracteres de base64url = 132 bits: longe de qualquer tentativa às cegas. */

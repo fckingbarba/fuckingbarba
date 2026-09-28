@@ -62,11 +62,21 @@ describe("a tela das avaliações", () => {
 describe("uma linha da tela", () => {
   it("o pedido só pra quem abre os pedidos", () => {
     const comPedido = emLinha(crua(), { verPedido: true, agora: AGORA })
-    expect(comPedido.pedido).toEqual({ id: "order_1", numero: 591 })
+    expect(comPedido.pedido).toEqual({ id: "order_1", numero: 591, nuvemshop: false })
     const semPedido = emLinha(crua(), { verPedido: false, agora: AGORA })
     expect(semPedido.pedido).toBeNull()
     expect(JSON.stringify(semPedido)).not.toContain("591")
     expect(JSON.stringify(semPedido)).not.toContain("order_1")
+  })
+
+  it("o pedido da loja antiga (a base da Nuvemshop) vem marcado — não tem página no painel", () => {
+    const antigo = crua({ pedido_id: "nso_01K6ABCDEF", numero: 2871 })
+    expect(emLinha(antigo, { verPedido: true, agora: AGORA }).pedido).toEqual({
+      id: "nso_01K6ABCDEF",
+      numero: 2871,
+      nuvemshop: true,
+    })
+    expect(emLinha(antigo, { verPedido: false, agora: AGORA }).pedido).toBeNull()
   })
 
   it("quem aprovou e quando; a nova não diz nada", () => {

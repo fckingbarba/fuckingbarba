@@ -1,9 +1,14 @@
+import { normalizarEmail } from "../../modules/codigo/regras"
+import { componentesDoItem, skuAvulso } from "../crm/etiquetas"
+
 /**
  * AS REGRAS DAS AVALIAÇÕES — puras, com teste: o que a página aceita, como o
- * nome aparece, quem recebe o e-mail pedindo e quando.
+ * nome aparece, que produtos cada pedido deixa avaliar, quem recebe o e-mail
+ * pedindo e quando.
  *
- * Quem lê e grava é o resto da pasta: `pedido.ts` (o pedido do link),
- * `pedir.ts` (a rodada do e-mail) e as rotas. Aqui só se decide.
+ * Quem lê e grava é o resto da pasta: `pedido.ts` (o pedido do link, ou o do
+ * número e e-mail), `pedir.ts` (a rodada do e-mail) e as rotas. Aqui só se
+ * decide.
  */
 
 /* ── o que a página manda ─────────────────────────────────────────────────── */
@@ -94,6 +99,101 @@ export function numeroDoPedido(v: unknown): number | null {
   if (!digitos || digitos.length > 9) return null
   const n = Number(digitos)
   return n > 0 ? n : null
+}
+
+/* ── a página sem o link: o número do pedido e o e-mail da compra ────────── */
+
+export type CampoDireto = "numero" | "email" | CampoDaAvaliacao
+
+export type AvaliacaoDireta = AvaliacaoLida & { numero: number; email: string }
+
+/**
+ * O corpo do `POST /store/avaliacoes` SEM o link — a página `/avaliar`
+ * aberta direto (o endereço que a loja manda pelo WhatsApp, por exemplo): o
+ * número do pedido e o e-mail da compra, junto dos campos da avaliação. O
+ * primeiro que não serve volta com o nome dele. Se o pedido existe, e se o
+ * produto é dele, quem confere é a rota, com o pedido lido.
+ */
+export function lerAvaliacaoDireta(
+  corpo: unknown
+): { ok: true; avaliacao: AvaliacaoDireta } | { ok: false; campo: CampoDireto } {
+  const c = (corpo && typeof corpo === "object" ? corpo : {}) as Record<string, unknown>
+  const numero = numeroDoPedido(c.numero)
+  if (!numero) return { ok: false, campo: "numero" }
+  const email = normalizarEmail(c.email)
+  if (!email) return { ok: false, campo: "email" }
+  const lida = lerAvaliacao(c)
+  if (!lida.ok) return lida
+  return { ok: true, avaliacao: { ...lida.avaliacao, numero, email } }
+}
+
+/** Um produto da loja: o id, o nome e o SKU de cada variação. */
+export type ProdutoDoCatalogo = {
+  id: string
+  nome: string
+  skus: readonly (string | null | undefined)[]
+}
+
+/**
+ * Um item do pedido como as duas lojas guardam: o do Medusa tem o produto (e
+ * o SKU e o endereço dele); o da Nuvemshop, só o SKU e o nome.
+ */
+export type ItemParaAvaliar = {
+  produtoId?: string | null
+  nome?: string | null
+  sku?: string | null
+  handle?: string | null
+}
+
+const chaveDoSku = (sku: string | null | undefined) =>
+  typeof sku === "string" ? sku.trim().toUpperCase() : ""
+
+/**
+ * OS PRODUTOS QUE O PEDIDO DEIXA AVALIAR — o id e o nome de cada um. É a
+ * régua do formulário sem o link, em que a pessoa escolhe o produto na lista
+ * da loja inteira:
+ *
+ * - o produto de cada item: o do Medusa pelo id; o da Nuvemshop pelo SKU (o
+ *   código do Bling, o mesmo nas duas lojas — a regra dos mais vendidos);
+ * - e, de cada KIT, os produtos avulsos do que vem nele: o Kit Completo deixa
+ *   avaliar o shampoo, o balm e o óleo; o Kit 3 Fatores, o Fator. Quem
+ *   comprou o kit usou cada um. O que vem em cada SKU é a tabela do CRM
+ *   (`componentesDoItem`); produto de uma unidade só não abre nada — as duas
+ *   pastas são do mesmo tipo, e uma não vale pela outra.
+ *
+ * Produto que não está no catálogo (saiu da loja) não entra pelo SKU; pelo id
+ * do Medusa entra, com o nome do item.
+ */
+export function produtosQueOPedidoAvalia(
+  itens: readonly ItemParaAvaliar[],
+  catalogo: readonly ProdutoDoCatalogo[]
+): Map<string, string> {
+  const doId = new Map(catalogo.map((p) => [p.id, p]))
+  const doSku = new Map<string, ProdutoDoCatalogo>()
+  for (const p of catalogo)
+    for (const sku of p.skus) {
+      const chave = chaveDoSku(sku)
+      if (chave && !doSku.has(chave)) doSku.set(chave, p)
+    }
+
+  const avaliaveis = new Map<string, string>()
+  const entra = (id: string, nome: string) => {
+    if (!avaliaveis.has(id)) avaliaveis.set(id, nome)
+  }
+  for (const item of itens) {
+    const doItem = item.produtoId
+      ? { id: item.produtoId, nome: doId.get(item.produtoId)?.nome ?? item.nome?.trim() }
+      : doSku.get(chaveDoSku(item.sku))
+    if (doItem) entra(doItem.id, doItem.nome || "Produto")
+
+    const partes = componentesDoItem({ sku: item.sku, handle: item.handle })
+    if (partes.length < 2 && !partes.some((p) => p.unidades > 1)) continue
+    for (const { componente } of partes) {
+      const avulso = doSku.get(chaveDoSku(skuAvulso(componente)))
+      if (avulso) entra(avulso.id, avulso.nome)
+    }
+  }
+  return avaliaveis
 }
 
 /* ── o nome sugerido ──────────────────────────────────────────────────────── */

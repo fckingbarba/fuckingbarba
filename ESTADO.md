@@ -4295,6 +4295,48 @@ novo). O link pra mandar aos criadores está no painel, em Criadores → "Copiar
 - [ ] **Com você:** o contrato de uso de imagem (12 meses) e o da comissão — passar pelo advogado
       antes do primeiro "sim".
 
+**A avaliação direto na página, sem o link por e-mail — pronto em 28/09 (entrega 0193).** Pedido
+dele: um cliente da loja antiga reclamou que, pra avaliar, ainda tinha que pedir o link pro e-mail;
+ele queria deixar o número do pedido, o e-mail, o nome, o produto, a nota e a descrição direto na
+página — e assim mandar o link pelo WhatsApp.
+
+- **A página `/avaliar`, aberta sem o link, é um formulário só:** o número do pedido, o e-mail da
+  compra, o nome (como aparece no site), o produto (a lista da loja inteira, os mais vendidos
+  primeiro, com a foto do escolhido), as estrelas e o texto. Enviar e pronto — não sai e-mail.
+- **Vale pra quem comprou na loja nova e na antiga** (os pedidos da base da Nuvemshop, a que você
+  mandou em CRM → Base da Nuvemshop; o pedido tem que estar "confirmado" lá).
+- **O número e o e-mail têm que bater.** Se não batem: "Não encontrei um pedido com esse número e
+  esse e-mail". Quem erra dez vezes numa hora (alguém chutando pedido dos outros) para por uma hora.
+- **O produto tem que ter vindo no pedido — ou num kit dele:** quem comprou o Kit Completo avalia o
+  kit, o shampoo, o balm ou o óleo; o Kit 3 Fatores, o Fator. Uma nota por produto de cada pedido.
+- **Depois de mandar**, "Avaliar outro produto" volta com o pedido, o e-mail e o nome preenchidos.
+- **O link pra mandar:** <https://www.fuckingbarba.com.br/avaliar>. Com `?produto=` e o endereço do
+  produto, ele já abre marcado: <https://www.fuckingbarba.com.br/avaliar?produto=oleo-para-barba>.
+- **O e-mail de um dia depois da entrega continua igual:** o botão dele abre a página já com o
+  pedido e os produtos.
+- **Saiu:** o "Mandar o link pro meu e-mail" da página (a 0175). A troca, escolha sua: antes, só
+  quem tinha a caixa de entrada abria o pedido; agora basta o número e o e-mail da compra. A página
+  não mostra nada do pedido (a lista é a da loja inteira), e toda avaliação continua passando pelo
+  painel antes de ir pro site.
+- **No painel, Pessoas → Avaliações:** a de um pedido da loja antiga diz "Pedido #N da Nuvemshop"
+  (sem link — esse pedido não tem página no painel).
+- **A Política de Privacidade** diz que o número e o e-mail só conferem a compra (o e-mail não fica
+  guardado com a avaliação) e que a base da loja antiga também serve pra avaliar.
+
+Conferido no Medusa local: `conferir-avaliacoes` da loja 58/58 (três rodadas; a seção da página
+sem o link refeita: o kit que abre o óleo e não o Fator, o e-mail errado, o formulário que volta com
+o produto e a nota, o "avaliar outro produto", o Pix não pago, os dez chutes que dão 429, o
+celular) e o do painel 33/33 (três rodadas; as avaliações pelo número e o e-mail e uma de um pedido
+da loja antiga, com o arquivo de vendas da rodada entrando pela base do CRM), e o `conferir-links`
+26/26. E os unitários (1.583, 10 novos; os 3 do e-mail do link saíram), o typecheck e o lint dos
+três apps, o `medusa lint`, o `medusa build` e o prettier.
+
+Depois do deploy — **nada a configurar.** Se a loja subir antes do Railway (uns 5 minutos), o
+formulário novo responde "Não encontrei..." até o backend novo entrar.
+
+- [ ] **Com você, depois do deploy:** mandar o link pro cliente que reclamou (e pros outros que você
+      quiser, pelo WhatsApp).
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa

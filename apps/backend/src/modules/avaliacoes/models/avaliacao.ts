@@ -2,8 +2,12 @@ import { model } from "@medusajs/framework/utils"
 
 /**
  * UMA AVALIAÇÃO — a nota e o texto que quem comprou deu a um produto do
- * pedido, na página escondida `/avaliar` da loja (o link chega no e-mail
- * "o que você achou?", um dia depois da entrega — `lib/avaliacoes/`).
+ * pedido, na página escondida `/avaliar` da loja (pelo link do e-mail "o que
+ * você achou?", um dia depois da entrega, ou com o número do pedido e o
+ * e-mail da compra — `lib/avaliacoes/`).
+ *
+ * O PEDIDO É DE UMA DAS DUAS LOJAS: `order_…` (a nova, no Medusa) ou `nso_…`
+ * (a linha da base da Nuvemshop que o CRM guardou), com o número de lá.
  *
  * UMA POR PRODUTO DE CADA PEDIDO (o índice único): quem comprou o Fator duas
  * vezes avalia duas vezes, uma por compra; o mesmo pedido não vale duas

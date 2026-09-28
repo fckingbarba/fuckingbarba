@@ -182,6 +182,25 @@ html:not([data-hidratado]) body:has(.avaliar) {
 .avaliar__campos {
   margin-bottom: 16px;
 }
+
+/* ---------- a página sem o link: o produto da lista da loja ---------- */
+/* A foto do escolhido do lado do select: o nome sozinho engana (o kit e o
+   avulso têm nome parecido), a foto confirma. */
+.avaliar__escolha {
+  margin-bottom: 16px;
+}
+.avaliar__escolha-linha {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.avaliar__escolha-linha select {
+  flex: 1;
+  min-width: 0;
+}
+.campo select[aria-invalid="true"] {
+  border-color: var(--color-erro);
+}
 .campo textarea {
   width: 100%;
   min-height: 132px;

@@ -85,8 +85,11 @@ export type LinhaDaAvaliacao = {
   produto: ProdutoDaLinha
   /** "hoje, 14:32" — quando a pessoa mandou. */
   quando: string
-  /** Só pra quem abre os pedidos. */
-  pedido: { id: string; numero: number } | null
+  /**
+   * Só pra quem abre os pedidos. `nuvemshop`: o pedido é da loja antiga (a
+   * base que o CRM guardou) — não tem página no painel.
+   */
+  pedido: { id: string; numero: number; nuvemshop: boolean } | null
   /** "Aprovada por Ana · ontem, 10:02" — nada enquanto é nova. */
   moderacao: string | null
 }
@@ -125,7 +128,9 @@ export function emLinha(
       foto: produto?.foto ?? null,
     },
     quando: quando(a.created_at, agora),
-    pedido: verPedido ? { id: a.pedido_id, numero: Number(a.numero) } : null,
+    pedido: verPedido
+      ? { id: a.pedido_id, numero: Number(a.numero), nuvemshop: a.pedido_id.startsWith("nso_") }
+      : null,
     moderacao: feito,
   }
 }

@@ -69,7 +69,10 @@ function Linha({ a, fazer }: { a: LinhaDaAvaliacao; fazer: (acao: AcaoDaAvaliaca
         <p className="aval__texto">{a.texto}</p>
         <p className="linha__txt">
           {a.quando}
-          {a.pedido ? (
+          {a.pedido?.nuvemshop ? (
+            // O pedido da loja antiga não tem página aqui: só o número.
+            <span data-pedido-nuvemshop>{` · Pedido #${a.pedido.numero} da Nuvemshop`}</span>
+          ) : a.pedido ? (
             <>
               {" · "}
               <Link href={`/pedidos/${a.pedido.id}` as Route}>Pedido #{a.pedido.numero}</Link>
