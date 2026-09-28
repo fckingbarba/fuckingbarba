@@ -310,6 +310,10 @@ Como funciona, em uma linha cada:
   equipe, e a pendência na tela ERP. Nota corrigida e reenviada no Bling, a loja percebe sozinha.
   A nota de que a loja desistiu (o CPF faltava) tem o botão **"Tentar de novo"** na tela ERP, pra
   depois de alguém corrigir o pedido.
+- **Passou de 3 dias sem a nota sair** (o Bling fora do ar ou desconectado esse tempo todo): a loja
+  para de tentar sozinha — alguém pode ter feito a nota à mão nesse meio-tempo — e avisa: o pedido
+  fica com "A nota não sai sozinha · 3 dias sem nota" no painel, e a equipe recebe um e-mail.
+  Confira no Bling se a nota já existe; se não, "Tentar de novo" (desde a 0175).
 - **Cliente que o Bling já tinha:** a nota usa o cadastro do Bling (pelo CPF), e a loja atualiza
   esse cadastro com quem comprou agora: nome, endereço, e-mail — inclusive o "e-mail pra nota
   fiscal" — e telefone. Na primeira compra de teste (23/09) a nota saiu com o e-mail e o telefone
@@ -3272,9 +3276,10 @@ e-mail", com o número do pedido, o nome, o produto, as estrelas e a descrição
 - **A página /avaliar** — fora do menu, do mapa do site e do Google. Pelo botão do e-mail, ela abre
   com o número do pedido, o nome sugerido ("Rafael S.": a pessoa muda como quiser, é o que aparece
   no site) e o produto marcado; falta dar as estrelas e escrever. Depois do "valeu", ela oferece os
-  outros produtos do pedido. Sem o e-mail, a página pede o número do pedido e o e-mail da compra. Sem
-  conta e sem senha, mas só quem comprou avalia: o link do e-mail é assinado, e trocar o número não
-  abre o pedido de outra pessoa. Uma nota por produto de cada pedido.
+  outros produtos do pedido. Sem o e-mail, a página pede o número do pedido e o e-mail da compra, e
+  manda o link de novo pra esse e-mail (desde a 0175 — antes, abria na hora). Sem conta e sem
+  senha, mas só quem comprou avalia: o link do e-mail é assinado, e trocar o número não abre o
+  pedido de outra pessoa. Uma nota por produto de cada pedido.
 - **Painel → Avaliações** (novo, em Pessoas): as novas esperam você. "Aprovar" põe no site na hora;
   "Recusar" não põe (e "Tirar do site" tira a que já estava); a recusada pode ser apagada de vez —
   é pra quando a pessoa pede (a LGPD). O número do pedido aparece pra quem abre os Pedidos. O Início
@@ -3831,10 +3836,48 @@ sem nenhum 401 no caminho):
 
 Depois do deploy — **uma coisa pra ligar, com calma:**
 
-- [ ] **Railway → o serviço do backend → Variables:** um dia depois do deploy, criar
-      `STORE_SO_DA_LOJA` com o valor `true` (o Railway sobe de novo sozinho). Antes, conferir no log
-      do Railway (Deployments → View logs, buscar `sem a assinatura da loja`) que só aparece chamada
-      que não é da loja. Pra desfazer: apagar a variável.
+- [x] **Railway → o serviço do backend → Variables:** `STORE_SO_DA_LOJA` = `true` — ligado por você
+      em 27/09, com o deploy no ar; conferido no mesmo dia: a loja abre, e a chamada sem a
+      assinatura da loja ouve 401. Pra desfazer: apagar a variável.
+
+**A auditoria do backend, parte 3: nada parado calado — pronto em 27/09 (entrega 0175).** Pedido
+dele: "vamos fazer todos menos o 6" (a LGPD da base da Nuvemshop fica de fora). Cinco pontos:
+
+- **A nota que passa de 3 dias.** A loja tenta emitir a nota por 3 dias; depois disso, o pedido
+  saía da conta calado. Agora ele vira "A nota não sai sozinha · 3 dias sem nota" no painel, e a
+  equipe recebe um e-mail pra conferir no Bling se a nota já foi feita à mão — e só então "Tentar de
+  novo" (a loja não emite sozinha: nota em dobro é problema com a Receita).
+- **O mesmo na Frenet.** O pedido que passa de 3 dias sem entrar no painel da Frenet deixava de ser
+  tentado e continuava "tentando entrar". Agora a loja para e diz: "O pedido não entrou na Frenet",
+  com o "Mandar de novo".
+- **O pedido cancelado que a Frenet não deixa tirar** (a etiqueta já gerada, a Frenet fora do ar):
+  antes, só uma linha no log. Agora a equipe recebe "O pedido #N foi cancelado e continua na Frenet"
+  (um e-mail só: não gere a etiqueta), o painel mostra o problema, e a loja tenta tirar de novo por
+  7 dias.
+- **O aviso de rastreio da Frenet**: o endereço de aviso de cada pedido só mexe no envio daquele
+  pedido.
+- **A lista da newsletter em planilha**: o que começa como fórmula vai como texto no CSV, e o e-mail
+  com cara de fórmula nem entra na lista.
+- **O link da avaliação**: a página /avaliar sem o link manda o link pro e-mail da compra, em vez
+  de abrir o pedido na hora.
+
+Conferido por uma prova direta no Medusa local, com o relógio dos pagamentos voltado no banco (19
+checagens: a nota e a Frenet dos 3 dias, o cancelado que fica e sai, o e-mail uma vez só, o "Tentar
+de novo") — contra o código de antes, as 9 do conserto falham. E pelos conferidores, com os casos
+novos no de envio, nos de avaliações e nos de clientes e configurações:
+
+- loja: envio 87, avaliações 45, erp 119, pagamento 219, conta 209, checkout 182, mercadopago 77,
+  avise-me 32;
+- painel: pedidos 100, ações 34, frenet 9, observabilidade 36, avaliações 27, clientes 52,
+  configurações 20, entrar 90, crm CRM;
+- os unitários (1.406), o typecheck do backend e da loja, o `medusa lint` e o prettier.
+
+Depois do deploy — **nada a configurar.** Pode acontecer: na primeira rodada, a varredura olha os
+pedidos pagos dos últimos 30 dias (desde a conexão do Bling, 23/09). Pedido pago sem nota há mais de
+3 dias aparece de uma vez como "A nota não sai sozinha · 3 dias sem nota", com um e-mail cada. Se
+aparecer num pedido de teste de antes da virada, me avise e a gente decide junto (cancelar devolve o
+dinheiro). Se a nota foi feita à mão, o aviso fica no pedido (como o da nota sem CPF feita à mão) —
+um botão "a nota foi feita à mão" pra tirar o aviso fica pra depois, se você quiser.
 
 ## Como seguir no Claude Code
 
