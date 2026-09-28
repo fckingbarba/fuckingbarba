@@ -669,6 +669,22 @@ export default class CrmService extends Tabelas {
   }
 
   /**
+   * A VERSÃO DA BASE (entrega 0199): quantos pedidos e a última mudança, numa
+   * linha. O motor do CRM guarda a base inteira na memória entre as rodadas e
+   * só relê quando isto muda (`lib/crm/leitura.ts`) — mandar os arquivos de
+   * novo grava `updated_at` em toda linha.
+   */
+  @InjectManager()
+  async versaoDaBase(@MedusaContext() ctx: Contexto = {}): Promise<string> {
+    const [r] = (await ctx.manager!.execute(
+      `select count(*)::int as pedidos, max(updated_at) as em
+         from crm_base_pedido
+        where deleted_at is null`
+    )) as { pedidos: number; em: Date | string | null }[]
+    return `${r?.pedidos ?? 0}:${r?.em ? new Date(r.em).toISOString() : "-"}`
+  }
+
+  /**
    * UM PEDIDO DA BASE, pelo id (`nso_…`) — o "Refazer o pedido" da reposição
    * (entrega 0185) monta a sacola com os itens dele, pelo SKU.
    */

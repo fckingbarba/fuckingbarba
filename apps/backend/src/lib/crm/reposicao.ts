@@ -1,10 +1,6 @@
 import type { MedusaContainer } from "@medusajs/framework/types"
-import { Modules } from "@medusajs/framework/utils"
 import { normalizarEmail } from "../../modules/codigo/regras"
-import { CRM } from "../../modules/crm"
-import type CrmService from "../../modules/crm/service"
 import { pedidoDaBase, pedidoDaPessoa } from "../painel/crm"
-import { pedidosParaAsEtiquetas } from "../painel/ler"
 import { lerAjustesGuardados } from "./ajustes"
 import { CURTO_DO_COMPONENTE } from "./estreia"
 import {
@@ -13,6 +9,7 @@ import {
   type Componente,
   type PedidoDaPessoa,
 } from "./etiquetas"
+import { leituraDaRodada, type LeituraDaRodada } from "./leitura"
 import { juntar } from "./nuvemshop"
 
 /**
@@ -118,14 +115,15 @@ export function naJanelaDaReposicao(r: Reposicao, agora: Date): boolean {
  */
 export async function publicoDaReposicao(
   container: MedusaContainer,
-  agora: Date = new Date()
+  agora: Date = new Date(),
+  leitura: LeituraDaRodada = leituraDaRodada(container)
 ): Promise<Reposicao[]> {
-  const [daLoja, daBase, lojas] = await Promise.all([
-    pedidosParaAsEtiquetas(container),
-    container.resolve<CrmService>(CRM).pedidosDaBase(),
-    container.resolve(Modules.STORE).listStores({}, { select: ["metadata"], take: 1 }),
+  const [daLoja, daBase, metadata] = await Promise.all([
+    leitura.pedidosDaLoja(),
+    leitura.pedidosDaBase(),
+    leitura.metadataDaLoja(),
   ])
-  const { dias } = lerAjustesGuardados(lojas[0]?.metadata)
+  const { dias } = lerAjustesGuardados(metadata)
   const porEmail = new Map<string, PedidoDaReposicao[]>()
   for (const o of daLoja) {
     const email = normalizarEmail(o.email)
