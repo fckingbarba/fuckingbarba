@@ -24,6 +24,8 @@ const QUEM_ENTRA: Record<IdDoFluxo, string> = {
     "Se cadastrou no pop-up da 1ª compra. Depois do cupom, os e-mails da trilha do que a pessoa via: crescer a barba, cuidar da barba, cabelo — ou, sem produto, “Barba ou cabelo?”. Desligado, o pop-up some da loja.",
   estreia:
     "Aceitou ofertas na loja antiga (a base da Nuvemshop) e ainda não comprou na nova. Um e-mail da loja nova pra cada um, e o “vence amanhã” pra quem ganhou cupom. Começa desligado: ligue depois de pôr a Nuvemshop em manutenção.",
+  resgate:
+    "Passou do dia de comprar de novo (a tolerância dos Ajustes). No dia, “Tá tudo bem com a barba?”, com 4 botões: “Tá caro” (15% na hora), “Esqueci de repor” (o pedido de sempre), “Não vi resultado” (o WhatsApp) e “Comprei em outro lugar”. Quem não respondeu ganha 15% em 7 dias. Em 45 dias sem abrir, clicar nem visitar, o “Quer continuar recebendo?”: sem o “Sim” em 7 dias, o CRM para pra pessoa até ela voltar. Começa desligado.",
 }
 
 const inteiro = new Intl.NumberFormat("pt-BR")
