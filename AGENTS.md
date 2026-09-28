@@ -16,6 +16,18 @@ supabase/        migrations do schema `loja` (nunca `public`) e Edge Functions (
 
 Os três apps são workspaces npm da raiz (`apps/*`). O lockfile é o da raiz. Não crie outro.
 
+**A Vercel só monta o que mudou** (o `vercel.json` da loja e o do painel, entrega 0179). Push em
+`entrega/*` não gera preview: quem confere o build na PR é o CI do GitHub — nada de commit vazio
+"pra rodar a Vercel de novo". Na `main`, cada projeto só monta se a pasta dele, ou o `package.json`,
+o `package-lock.json` e o `turbo.json` da raiz, mudou desde o último deploy dele que deu certo
+(`ignoreCommand`, com o `VERCEL_GIT_PREVIOUS_SHA`); senão o deploy daquele projeto sai cancelado
+pelo Ignored Build Step, e é o esperado. Depois do merge, só espere a Vercel do app que a PR mexeu.
+O redeploy do mesmo commit pelo painel (variável nova) monta sempre. O motivo: no Pro cada build é
+cobrado, e o "Skip deployment" automático da Vercel conta arquivo da raiz fora dos workspaces (este
+AGENTS, o ESTADO) como mudança em tudo — em 26 e 27/09 foram 374 builds em 2 dias, 6 em cada 10 de
+preview, e mais da metade de um app que nem tinha mudado. Precisa de um preview? Push numa branch
+com outro nome.
+
 ## Comandos
 
 ```bash
