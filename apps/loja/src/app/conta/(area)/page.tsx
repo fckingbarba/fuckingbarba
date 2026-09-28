@@ -5,6 +5,7 @@ import {
   ForaDoAr,
   LinhaDoAndamento,
   NenhumPedido,
+  PraRepor,
   RepetirPedido,
   seSessaoAcabou,
 } from "@/components/conta/pedidos"
@@ -17,13 +18,16 @@ import {
 import { lerCliente } from "@/lib/conta"
 import { documentoEscondido } from "@/lib/documento"
 import { lerRastreios, listarPedidos, type LeituraDosPedidos } from "@/lib/pedidos-da-conta"
+import type { AvisoDaReposicao } from "@/lib/reposicao"
+import { lerReposicaoDaConta } from "@/lib/reposicao-da-conta"
 import { mascararTelefone } from "@/lib/telefone"
 
 /**
  * /conta — a visão geral.
  *
  * O que a pessoa veio fazer, na ordem em que ela vem fazer: pagar o Pix que
- * ficou pendente, ver onde está a encomenda, e repor o que acabou. Endereço
+ * ficou pendente, ver onde está a encomenda, e repor o que acabou — o que
+ * está acabando pela conta da reposição (0188), e o último pedido. Endereço
  * e dados ficam por último, pequenos — são atalhos pras telas deles.
  */
 export const metadata: Metadata = {
@@ -44,13 +48,17 @@ export default function Pagina() {
 }
 
 async function Painel() {
-  const [leitura, conta] = await Promise.all([listarPedidos(), lerCliente()])
+  const [leitura, conta, reposicao] = await Promise.all([
+    listarPedidos(),
+    lerCliente(),
+    lerReposicaoDaConta(),
+  ])
   seSessaoAcabou(leitura.estado)
   seSessaoAcabou(conta.estado)
 
   return (
     <div className="painel-grade">
-      <Pedidos leitura={leitura} />
+      <Pedidos leitura={leitura} aviso={reposicao.estado === "ok" ? reposicao.aviso : null} />
       {conta.estado === "ok" ? (
         <>
           <EnderecoPrincipal cliente={conta.cliente} />
@@ -63,15 +71,32 @@ async function Painel() {
 
 /* ── os pedidos ───────────────────────────────────────────────────────────── */
 
-async function Pedidos({ leitura }: { leitura: LeituraDosPedidos }) {
+async function Pedidos({
+  leitura,
+  aviso,
+}: {
+  leitura: LeituraDosPedidos
+  aviso: AvisoDaReposicao | null
+}) {
   if (leitura.estado !== "ok") return <ForaDoAr largo />
+
+  // O que está acabando: da loja nova ou da antiga — por isso vem antes do "nenhum pedido".
+  const praRepor = aviso ? (
+    <div className="bloco bloco--largo" data-bloco-reposicao>
+      <p className="rotulo">Pra repor</p>
+      <PraRepor aviso={aviso} />
+    </div>
+  ) : null
 
   const { pedidos } = leitura
   if (!pedidos.length) {
     return (
-      <NenhumPedido largo>
-        Quando você comprar, ele aparece aqui — com rastreio e tudo.
-      </NenhumPedido>
+      <>
+        {praRepor}
+        <NenhumPedido largo>
+          Quando você comprar, ele aparece aqui — com rastreio e tudo.
+        </NenhumPedido>
+      </>
     )
   }
 
@@ -87,8 +112,10 @@ async function Pedidos({ leitura }: { leitura: LeituraDosPedidos }) {
       .map(async (p) => [p.id, (await lerRastreios(p.id))[0] ?? null] as const)
   )
   const rastreioDe = new Map(naRua)
-  // Comprar de novo: o último que chegou (ou está chegando) — é o que acaba.
-  const repetir = pedidos.find((p) => p.situacao === "entregue" || p.situacao === "enviado")
+  // Comprar de novo: o último que chegou (ou está chegando) — é o que acaba. Se é o
+  // mesmo pedido do "Pra repor", o botão de lá já faz isso.
+  const ultimo = pedidos.find((p) => p.situacao === "entregue" || p.situacao === "enviado")
+  const repetir = ultimo && ultimo.id !== aviso?.pedido ? ultimo : undefined
 
   return (
     <>
@@ -103,6 +130,8 @@ async function Pedidos({ leitura }: { leitura: LeituraDosPedidos }) {
         </div>
       ) : null}
 
+      {praRepor}
+
       {repetir ? (
         <div className="bloco bloco--largo" data-bloco-de-novo>
           <p className="rotulo">Comprar de novo</p>
@@ -110,7 +139,7 @@ async function Pedidos({ leitura }: { leitura: LeituraDosPedidos }) {
         </div>
       ) : null}
 
-      {!abertos.length && !repetir ? (
+      {!abertos.length && !repetir && !aviso ? (
         <div className="bloco bloco--largo">
           <p className="rotulo">Em andamento</p>
           <p className="resumo-curto">Nenhum pedido em andamento agora.</p>

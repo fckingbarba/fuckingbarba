@@ -1,11 +1,17 @@
 import { NextResponse, type NextRequest } from "next/server"
 import redirects from "./redirects.json"
 import { ORDENS_COM_PAGINA } from "@/lib/ordens"
-import { COOKIE_SESSAO, destinoSeguro, sessaoParece } from "@/lib/sessao"
+import {
+  COOKIE_CONTA_ABERTA,
+  ehSorteioDaConta,
+  OPCOES_DA_CONTA_ABERTA,
+  sorteioDaConta,
+} from "@/lib/reposicao"
+import { COOKIE_SESSAO, destinoSeguro, lerToken, sessaoParece } from "@/lib/sessao"
 import { emProducao, site } from "@/lib/site"
 
 /**
- * Roda antes de qualquer rota, no Node.js da Vercel. Cinco trabalhos:
+ * Roda antes de qualquer rota, no Node.js da Vercel. Seis trabalhos:
  *
  * 1. Redirects 301 da Nuvemshop (redirects.json). É a tarefa mais importante
  *    da virada: cada URL antiga que o Google conhece precisa apontar pra nova.
@@ -32,6 +38,10 @@ import { emProducao, site } from "@/lib/site"
  *    página estática `/barba/ordem/barato` — sem mudar o endereço na barra.
  *    Ler o `?ordem=` na própria categoria a tornava dinâmica (esqueleto,
  *    streaming, rodapé pulando); o porquê está em `components/catalogo/tela.tsx`.
+ *
+ * 6. O `fb_conta` (o aviso da reposição na home, `lib/reposicao.ts`): quem
+ *    entrou antes de ele existir (0188), ou perdeu o cookie, ganha outro na
+ *    primeira visita à conta com sessão — e ele vence junto com ela.
  *
  * O Next já trata barra final (/x/ → /x); maiúscula vira 301 pra minúscula.
  */
@@ -176,7 +186,20 @@ export function proxy(req: NextRequest) {
 
   const resposta = NextResponse.next()
   if (!emProducao) resposta.headers.set("X-Robots-Tag", "noindex, nofollow")
+  // O /conta/sair apaga o `fb_conta`: gravar aqui brigaria com ele.
+  if (segmentos[0] === "conta" && caminho !== "/conta/sair") contaAberta(req, resposta)
   return resposta
+}
+
+/** O trabalho 6: o `fb_conta` de quem está com a sessão e não tem ele. */
+function contaAberta(req: NextRequest, resposta: NextResponse) {
+  const sessao = req.cookies.get(COOKIE_SESSAO)?.value
+  if (!sessaoParece(sessao) || ehSorteioDaConta(req.cookies.get(COOKIE_CONTA_ABERTA)?.value)) return
+  const vence = Number(lerToken(sessao)?.exp)
+  resposta.cookies.set(COOKIE_CONTA_ABERTA, sorteioDaConta(), {
+    ...OPCOES_DA_CONTA_ABERTA,
+    maxAge: Math.max(60, Math.floor(vence - Date.now() / 1000)),
+  })
 }
 
 /**

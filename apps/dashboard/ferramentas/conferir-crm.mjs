@@ -179,6 +179,29 @@ async function responderAFaixa(pagina, botao) {
 }
 const cookieDe = async (contexto, nome) =>
   (await contexto.cookies(LOJA)).find((c) => c.name === nome) ?? null
+/** Entra na conta da loja pela tela, com o código que chega no Resend falso. Devolve se entrou. */
+async function entrarNaLoja(pagina, email) {
+  await pagina.goto(`${LOJA}/conta/entrar`, { waitUntil: "domcontentloaded" })
+  const bloco = (s) => pagina.locator(`.entrar ${s}`).filter({ visible: true })
+  await hidratado(pagina, ".entrar input[name=email]")
+  const antes = resend.emails.length
+  await bloco("input[name=email]").fill(email)
+  await bloco("form button[type=submit]").click()
+  await pagina.waitForURL("**/conta/entrar/codigo", { timeout: 20000 })
+  let codigo = ""
+  for (let i = 0; i < 60 && !codigo; i++) {
+    const e = resend.emails
+      .slice(antes)
+      .find((x) => x.to?.includes(email) && /^\d{6} é o seu código/.test(x.subject ?? ""))
+    codigo = e?.subject?.match(/^(\d{6})/)?.[1] ?? ""
+    if (!codigo) await esperar(200)
+  }
+  if (!codigo) return false
+  await hidratado(pagina, ".entrar input[name=codigo]")
+  await bloco("input[name=codigo]").pressSequentially(codigo, { delay: 30 })
+  await pagina.waitForURL((u) => !u.pathname.startsWith("/conta/entrar"), { timeout: 20000 })
+  return true
+}
 
 try {
   /* ── quem entra no painel ───────────────────────────────────────────────── */
@@ -2355,6 +2378,160 @@ try {
       } finally {
         // O banco local é de todos: a reposição volta a desligada, mesmo se algo acima caiu.
         await mudarFluxos({ fluxo: "reposicao", ligado: false })
+      }
+
+      titulo("A reposição no site: na conta e na home (0188)")
+      // O Fator da loja antiga pago há 32 dias: entregue no 7º, dura 30 — acaba daqui a 5 dias
+      // (no calendário de Brasília: a data sem hora da Nuvemshop vale o meio-dia). O fluxo segue
+      // DESLIGADO: o aviso do site não é e-mail, e não depende dele.
+      const NO_SITE = foraDoControle("repoe.site", "reposicao")
+      const TITULO = "Seu Fator de Crescimento acaba em 5 dias"
+      const subiu = await medusa("/dashboard/crm/base", {
+        token: tokenDoDono,
+        corpo: doArquivo(
+          latin1([
+            cabecalhoDasVendas,
+            venda(
+              `R${RODADA}-S`,
+              NO_SITE,
+              Date.now() - 32 * DIA_MS,
+              "FBFCB01",
+              "Fator de Crescimento para Barba 30ml"
+            ),
+          ])
+        ),
+      })
+      const semToken = await fetch(`${MEDUSA}/store/crm/reposicao`, { headers: DA_LOJA })
+      ok(
+        subiu.status === 200 && semToken.status === 401,
+        "o aviso é só de quem está na conta: sem o token do cliente, o Medusa responde 401",
+        `${subiu.status} · ${semToken.status}`
+      )
+      const forjado = await fetch(`${LOJA}/api/reposicao`, {
+        headers: { cookie: "fb_conta=0123456789abcdef" },
+      })
+      ok(
+        forjado.status === 200 &&
+          (await forjado.json()).reposicao === null &&
+          /(^|, )fb_conta=;/.test(forjado.headers.get("set-cookie") ?? ""),
+        "o fb_conta sem sessão (inventado, ou de quem a sessão venceu): nada, e a loja apaga ele",
+        forjado.headers.get("set-cookie") ?? "sem set-cookie"
+      )
+
+      const { contexto, pagina, pedidos } = await naLoja("/")
+      try {
+        await responderAFaixa(pagina, "Só o necessário")
+        await esperar(2500)
+        ok(
+          !pedidos.some((p) => p.includes("/api/reposicao")) &&
+            (await pagina.locator("[data-aviso-reposicao]").count()) === 0,
+          "sem a conta aberta, a home não pergunta nada e não mostra aviso",
+          pedidos.filter((p) => p.includes("/api/")).join(" · ")
+        )
+
+        const entrou = await entrarNaLoja(pagina, NO_SITE)
+        const marca = await cookieDe(contexto, "fb_conta")
+        ok(
+          entrou && /^[0-9a-f]{16}$/.test(marca?.value ?? "") && marca?.httpOnly === false,
+          "entrou na conta: o fb_conta, que o navegador lê, só com um sorteio (nada de quem é)",
+          JSON.stringify(marca)
+        )
+
+        await pagina.goto(`${LOJA}/conta`, { waitUntil: "domcontentloaded" })
+        // A página ainda chegando tem o bloco duas vezes (a parte escondida do streaming): a visível.
+        const naConta = pagina.locator("[data-bloco-reposicao]").filter({ visible: true })
+        await naConta.waitFor({ timeout: 20000 }).catch(() => null)
+        const textoDaConta = (await naConta.textContent().catch(() => "")) ?? ""
+        const hrefDaConta =
+          (await naConta
+            .locator("a", { hasText: "Refazer o pedido" })
+            .getAttribute("href")
+            .catch(() => null)) ?? ""
+        ok(
+          textoDaConta.includes("Pra repor") &&
+            textoDaConta.includes(TITULO) &&
+            textoDaConta.includes("Pelas nossas contas") &&
+            /^\/voltar\/repor-nso_/.test(hrefDaConta),
+          "na conta: “Pra repor” — o Fator da loja antiga acaba em 5 dias, com o Refazer o pedido",
+          textoDaConta.slice(0, 200) ||
+            `${pagina.url()} · a loja diz: ${await pagina
+              .evaluate(async () => JSON.stringify(await (await fetch("/api/reposicao")).json()))
+              .catch((e) => e.message)}`
+        )
+        const refeito = hrefDaConta
+          ? await refazer({ html: `href="${LOJA}${hrefDaConta}"` })
+          : { status: 0, para: "", sacola: null }
+        ok(
+          refeito.status === 302 &&
+            refeito.para === "/checkout" &&
+            refeito.sacola?.email === NO_SITE &&
+            refeito.sacola.items?.some((i) => i.variant_sku === "FBFCB01"),
+          "o Refazer o pedido do site é o dos e-mails: a sacola com o Fator, no checkout",
+          JSON.stringify({ ...refeito, sacola: refeito.sacola?.items?.map((i) => i.variant_sku) })
+        )
+
+        await pagina.goto(`${LOJA}/`, { waitUntil: "domcontentloaded" })
+        const naHome = pagina.locator("[data-aviso-reposicao]").filter({ visible: true })
+        await naHome.waitFor({ timeout: 20000 }).catch(() => null)
+        const textoDaHome = (await naHome.textContent().catch(() => "")) ?? ""
+        const hrefDaHome =
+          (await naHome
+            .locator("a", { hasText: "Refazer o pedido" })
+            .getAttribute("href")
+            .catch(() => null)) ?? ""
+        const fixo = await naHome.evaluate((el) => getComputedStyle(el).position).catch(() => "")
+        ok(
+          textoDaHome.includes(TITULO) &&
+            /^\/voltar\/repor-nso_/.test(hrefDaHome) &&
+            fixo === "fixed" &&
+            pedidos.filter((p) => p.includes("/api/reposicao")).length === 1,
+          "na home: o aviso sobe num canto (fixo, não empurra a página), com o Refazer o pedido",
+          `${textoDaHome} · ${fixo}`
+        )
+
+        // A resposta fica na aba: voltar à home não pergunta de novo.
+        await pagina.reload({ waitUntil: "domcontentloaded" })
+        await naHome.waitFor({ timeout: 20000 }).catch(() => null)
+        ok(
+          (await naHome.count()) === 1 &&
+            pedidos.filter((p) => p.includes("/api/reposicao")).length === 1,
+          "a resposta fica na aba: voltando à home, o aviso vem sem perguntar de novo",
+          String(pedidos.filter((p) => p.includes("/api/reposicao")).length)
+        )
+
+        await hidratado(pagina, "[data-aviso-reposicao] .rp-fechar")
+        await naHome.locator(".rp-fechar").click()
+        await naHome.waitFor({ state: "detached", timeout: 5000 }).catch(() => null)
+        const fechou = (await naHome.count()) === 0
+        await pagina.reload({ waitUntil: "domcontentloaded" })
+        await esperar(3000)
+        ok(
+          fechou && (await naHome.count()) === 0,
+          "o X fecha o aviso, e ele não volta na próxima visita (até a próxima reposição)"
+        )
+
+        // Quem entrou antes do fb_conta existir ganha ele na primeira visita à conta.
+        await contexto.clearCookies({ name: "fb_conta" })
+        await pagina.goto(`${LOJA}/conta`, { waitUntil: "domcontentloaded" })
+        ok(
+          /^[0-9a-f]{16}$/.test((await cookieDe(contexto, "fb_conta"))?.value ?? ""),
+          "sessão sem o fb_conta (de antes dele): a conta grava um novo na primeira visita"
+        )
+
+        await hidratado(pagina, "button")
+        await pagina.locator("button", { hasText: "Sair" }).filter({ visible: true }).click()
+        await pagina.waitForURL("**/conta/entrar?saiu=1", { timeout: 15000 })
+        const antesDeSair = pedidos.filter((p) => p.includes("/api/reposicao")).length
+        await pagina.goto(`${LOJA}/`, { waitUntil: "domcontentloaded" })
+        await esperar(3000)
+        ok(
+          !(await cookieDe(contexto, "fb_conta")) &&
+            pedidos.filter((p) => p.includes("/api/reposicao")).length === antesDeSair &&
+            (await pagina.locator("[data-aviso-reposicao]").count()) === 0,
+          "saiu da conta: o fb_conta vai junto, e a home não pergunta nem mostra mais nada"
+        )
+      } finally {
+        await contexto.close()
       }
     }
 

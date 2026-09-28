@@ -41,7 +41,7 @@ export const metadata: Metadata = {
  * pergunta de novo antes de valer, como a última seção promete.
  */
 
-const ATUALIZADO = "27 de setembro de 2026"
+const ATUALIZADO = "28 de setembro de 2026"
 
 export default async function Privacidade() {
   const { empresa, atendimento } = await configuracoes()
@@ -94,7 +94,9 @@ export default async function Privacidade() {
           <b>Quando o que você comprou estiver acabando</b>: a gente avisa por e-mail. São até
           quatro, de uma semana antes a uns dias depois do dia em que ele deve acabar, pela conta de
           quanto cada produto dura, e com o botão que monta o pedido de novo. Vale pra quem comprou
-          aqui e na loja antiga, e para quando você compra de novo. Dá pra sair em qualquer um.
+          aqui e na loja antiga, e para quando você compra de novo. Dá pra sair em qualquer um. Com
+          a sua conta aberta, o mesmo lembrete aparece na conta e na página inicial — esse, só pra
+          você, e sem e-mail nenhum.
         </P>
         <P>
           <b>As novidades e as ofertas por e-mail</b>: quem compra ou cria conta passa a receber, e
@@ -200,10 +202,12 @@ export default async function Privacidade() {
           guarda sua sacola entre uma página e outra, um lembra que aquele pedido foi feito neste
           navegador (é o que impede um link encaminhado de mostrar o endereço de outra pessoa), um
           guarda a sua resposta sobre os cookies — pra não perguntar de novo toda visita — e, se
-          você entrar na sua conta, um lembra que é você. Os links dos nossos e-mails também usam
-          um, só no que eles abrem: o cupom que espera o checkout, a avaliação do pedido e o sair da
-          lista. E dois lembram só a sua escolha sobre o pop-up da primeira compra: se você fechou
-          ou já se cadastrou, e se já comprou neste navegador — pra ele não aparecer de novo.
+          você entrar na sua conta, um lembra que é você e outro só conta à página que a conta está
+          aberta, sem dizer de quem (é o que mostra o lembrete de quando o seu produto está
+          acabando). Os links dos nossos e-mails também usam um, só no que eles abrem: o cupom que
+          espera o checkout, a avaliação do pedido e o sair da lista. E dois lembram só a sua
+          escolha sobre o pop-up da primeira compra: se você fechou ou já se cadastrou, e se já
+          comprou neste navegador — pra ele não aparecer de novo.
         </P>
         <P>
           Os do Google Analytics e da Microsoft Clarity medem as visitas desde a primeira página,

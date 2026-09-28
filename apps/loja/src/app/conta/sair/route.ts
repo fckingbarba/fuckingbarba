@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { COOKIE_CARRINHO } from "@/lib/carrinho"
 import { carrinhoEhDaConta } from "@/lib/conta"
+import { COOKIE_CONTA_ABERTA, OPCOES_DA_CONTA_ABERTA } from "@/lib/reposicao"
 import { COOKIE_SESSAO } from "@/lib/sessao"
 
 /**
@@ -29,6 +30,7 @@ export async function GET(req: NextRequest) {
     path: "/",
     maxAge: 0,
   })
+  resposta.cookies.set(COOKIE_CONTA_ABERTA, "", { ...OPCOES_DA_CONTA_ABERTA, maxAge: 0 })
 
   const token = req.cookies.get(COOKIE_SESSAO)?.value
   const carrinho = req.cookies.get(COOKIE_CARRINHO)?.value

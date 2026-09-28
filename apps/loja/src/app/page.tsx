@@ -1,3 +1,4 @@
+import { ReposicaoNaHome } from "@/components/reposicao/na-home"
 import { Secoes } from "@/components/secoes"
 
 /**
@@ -21,11 +22,16 @@ import { Secoes } from "@/components/secoes"
  *
  * O `<h1>` da página está no bloco escuro de marca, que por isso é `fixo` no
  * registro: sem ele a home começaria em `<h2>`.
+ *
+ * Quem está com a conta aberta vê, num canto, o aviso da reposição ("Seu
+ * Fator de Crescimento acaba em 5 dias"): ele pergunta do navegador, depois
+ * de a página chegar — a home continua a mesma pra todo mundo (0188).
  */
 export default function Inicio() {
   return (
     <main id="conteudo" className="flex-1">
       <Secoes escopo="home" />
+      <ReposicaoNaHome />
     </main>
   )
 }

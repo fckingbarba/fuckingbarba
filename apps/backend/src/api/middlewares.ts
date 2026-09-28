@@ -414,6 +414,15 @@ export default defineMiddlewares({
       middlewares: [authenticate("customer", ["bearer"])],
     },
     /*
+      O aviso da reposição na conta e na home (entrega 0188): o mesmo — só
+      com token de cliente, e a rota lê os pedidos do e-mail da conta.
+    */
+    {
+      matcher: "/store/crm/reposicao",
+      method: ["GET"],
+      middlewares: [authenticate("customer", ["bearer"])],
+    },
+    /*
       O que a loja anota pro CRM: o token do cliente é opcional. Com ele, o
       navegador fica sendo da conta; sem ele (ou vencido), o recado entra do
       mesmo jeito, anônimo — por isso `allowUnauthenticated`.
