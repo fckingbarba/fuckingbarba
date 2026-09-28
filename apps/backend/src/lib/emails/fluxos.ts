@@ -1,4 +1,4 @@
-import type { IdDoToque } from "../crm/fluxos"
+import type { IdDoToqueDeCompra } from "../crm/fluxos"
 import { dia, hora } from "../painel/formato"
 import type { BlocoDoCrm, EmailDoCrm, ProdutoDoCrm } from "./crm"
 
@@ -21,7 +21,7 @@ import type { BlocoDoCrm, EmailDoCrm, ProdutoDoCrm } from "./crm"
 export type ItemDoFluxo = ProdutoDoCrm & { quantidade: number }
 
 export type CompraDoFluxo = {
-  toque: IdDoToque
+  toque: IdDoToqueDeCompra
   para: string
   nome: string | null
   itens: ItemDoFluxo[]

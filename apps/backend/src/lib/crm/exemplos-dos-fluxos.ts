@@ -2,11 +2,20 @@ import type { MedusaContainer } from "@medusajs/framework/types"
 import { Modules } from "@medusajs/framework/utils"
 import { whatsappDaLoja } from "../atendimento"
 import { lerConfiguracoes } from "../configuracoes"
+import { emailDaPrimeiraCompra } from "../emails/boas-vindas"
 import { emailDoFluxo, type CompraDoFluxo } from "../emails/fluxos"
 import type { EmailDoCrm } from "../emails/crm"
 import { urlDaLoja } from "../emails/moldura"
 import { produtosDosExemplos } from "./exemplos-dos-emails"
-import { FLUXOS, IDS_DOS_FLUXOS, lerConfigDosFluxos, type IdDoToque } from "./fluxos"
+import {
+  FLUXOS,
+  IDS_DOS_FLUXOS,
+  lerConfigDosFluxos,
+  PREFIXO_DO_CUPOM_DE_BOAS_VINDAS,
+  validadeDoCupom,
+  type IdDoToque,
+} from "./fluxos"
+import { TITULO_DA_TRILHA } from "./primeira-compra"
 import { linksDeSair } from "./sair"
 import { linkDeVoltar } from "./voltar"
 
@@ -16,7 +25,9 @@ import { linkDeVoltar } from "./voltar"
  * (`lib/emails/fluxos.ts`), com um produto de verdade da loja, o desconto que
  * está nos ajustes e o sair da lista de quem pediu. O cupom (`VOLTA-EXEMPLO`),
  * o Pix, o número do pedido e a avaliação são de mentira, e o link de voltar
- * abre um carrinho que não existe (vai pra home).
+ * abre um carrinho que não existe (vai pra home). O das boas-vindas é o
+ * e-mail do cupom da 1ª compra (`lib/emails/boas-vindas.ts`), com os mais
+ * pedidos e o cupom `BEMVINDO-EXEMPLO`, que não existe.
  */
 
 export const TOQUES_DOS_FLUXOS: readonly IdDoToque[] = IDS_DOS_FLUXOS.flatMap((id) =>
@@ -39,6 +50,27 @@ export async function exemploDoToque(
   const metadata = lojas[0]?.metadata
   const { empresa, atendimento } = lerConfiguracoes(metadata)
   const { desconto } = lerConfigDosFluxos(metadata)
+  const infoDaLoja = {
+    url: loja,
+    whatsapp,
+    empresa: empresa.razaoSocial,
+    cnpj: empresa.cnpj,
+    atendimento: atendimento.email,
+  }
+  if (toque === "boas-vindas-agora")
+    return emailDaPrimeiraCompra({
+      para: membro.email,
+      nome: membro.nome,
+      cupom: {
+        codigo: `${PREFIXO_DO_CUPOM_DE_BOAS_VINDAS}EXEMPLO`,
+        porcento: desconto,
+        ate: new Date(agora.getTime() + validadeDoCupom("boas-vindas")),
+      },
+      tituloDosProdutos: TITULO_DA_TRILHA.geral,
+      produtos: [...produtos.values()],
+      sair: linksDeSair(loja, membro.email),
+      loja: infoDaLoja,
+    })
   const fator = produtos.get("fator-de-crescimento-para-barba") ?? [...produtos.values()][0]
   const compra: CompraDoFluxo = {
     toque,
@@ -80,13 +112,7 @@ export async function exemploDoToque(
         : null,
     voltar: linkDeVoltar(`cart_${"0".repeat(26)}`, agora),
     sair: linksDeSair(loja, membro.email),
-    loja: {
-      url: loja,
-      whatsapp,
-      empresa: empresa.razaoSocial,
-      cnpj: empresa.cnpj,
-      atendimento: atendimento.email,
-    },
+    loja: infoDaLoja,
   }
   return emailDoFluxo(compra)
 }

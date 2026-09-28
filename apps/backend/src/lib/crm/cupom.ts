@@ -15,13 +15,20 @@ import { PREFIXO_DO_CUPOM, VALIDADE_DO_CUPOM } from "./fluxos"
  * SOMA com o preço promocional: quase todo produto da loja tem o "de/por", e
  * o cupom que não somasse daria desconto em nada. Fica fora da lista de
  * cupons do painel — quem mostra é a aba Fluxos do CRM.
+ *
+ * O cupom da 1ª compra (o do pop-up, entrega 0177) é o mesmo, com outro
+ * começo (`BEMVINDO-`) e a regra de só valer pra quem nunca comprou — a
+ * mesma "primeira compra" dos cupons do painel.
  */
 
 /** Sem 0/O, 1/I/L: o código também é lido e digitado por gente. */
 const LETRAS = "23456789ABCDEFGHJKMNPQRSTUVWXYZ"
 
-export function codigoDoCupom(sorteio: (max: number) => number = randomInt): string {
-  let codigo = PREFIXO_DO_CUPOM
+export function codigoDoCupom(
+  sorteio: (max: number) => number = randomInt,
+  prefixo = PREFIXO_DO_CUPOM
+): string {
+  let codigo = prefixo
   for (let i = 0; i < 6; i++) codigo += LETRAS[sorteio(LETRAS.length)]
   return codigo
 }
@@ -42,7 +49,12 @@ export function emBrasilia(d: Date): string {
 }
 
 /** O cupom como o painel o descreveria: % na loja toda, uma vez, até `ate`. */
-export function cupomDoFluxo(codigo: string, porcento: number, ate: Date): CupomNovo {
+export function cupomDoFluxo(
+  codigo: string,
+  porcento: number,
+  ate: Date,
+  { primeiraCompra = false }: { primeiraCompra?: boolean } = {}
+): CupomNovo {
   return {
     codigo,
     tipo: "porcento",
@@ -53,7 +65,7 @@ export function cupomDoFluxo(codigo: string, porcento: number, ate: Date): Cupom
     combina: true,
     limite: 1,
     porCliente: null,
-    primeiraCompra: false,
+    primeiraCompra,
     de: null,
     ate: emBrasilia(ate),
     minimo: null,
@@ -67,17 +79,31 @@ export async function criarCupomDoFluxo(
     porcento,
     agora,
     validade = VALIDADE_DO_CUPOM,
-  }: { porcento: number; agora: Date; validade?: number }
+    prefixo = PREFIXO_DO_CUPOM,
+    primeiraCompra = false,
+    campanha = "CRM (fluxos)",
+  }: {
+    porcento: number
+    agora: Date
+    validade?: number
+    prefixo?: string
+    primeiraCompra?: boolean
+    campanha?: string
+  }
 ): Promise<{ codigo: string; ate: Date; id: string }> {
   const ate = new Date(agora.getTime() + validade)
   let erro: unknown = null
   for (let tentativa = 0; tentativa < 3; tentativa++) {
-    const codigo = codigoDoCupom()
+    const codigo = codigoDoCupom(randomInt, prefixo)
     try {
       const { result } = await createPromotionsWorkflow(container).run({
         input: {
           promotionsData: [
-            promocaoDoCupom(cupomDoFluxo(codigo, porcento, ate), "CRM (fluxos)", agora),
+            promocaoDoCupom(
+              cupomDoFluxo(codigo, porcento, ate, { primeiraCompra }),
+              campanha,
+              agora
+            ),
           ] as never,
         },
       })

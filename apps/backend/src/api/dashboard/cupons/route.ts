@@ -2,7 +2,7 @@ import type { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/frame
 import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
 import { createPromotionsWorkflow } from "@medusajs/medusa/core-flows"
 import { PREFIXO_DO_BUMP } from "../../../lib/bumps"
-import { PREFIXO_DO_CUPOM } from "../../../lib/crm/fluxos"
+import { ehCupomDoCrm } from "../../../lib/crm/fluxos"
 import { lerConfiguracoes } from "../../../lib/configuracoes"
 import {
   cupomNaLista,
@@ -147,13 +147,8 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
   const procurado = busca.toUpperCase()
   const cupons = (todas as PromocaoCrua[])
     .filter(ehCupomDeCampanha)
-    // Os cupons dos fluxos do CRM (um por pessoa, que vence em 2 dias) ficam na aba Fluxos do CRM.
-    .filter(
-      (p) =>
-        !String(p.code ?? "")
-          .toUpperCase()
-          .startsWith(PREFIXO_DO_CUPOM)
-    )
+    // Os cupons do CRM (um por pessoa: os dos fluxos e o da 1ª compra) ficam na aba Fluxos do CRM.
+    .filter((p) => !ehCupomDoCrm(String(p.code ?? "").toUpperCase()))
     .filter(
       (p) =>
         !procurado ||
