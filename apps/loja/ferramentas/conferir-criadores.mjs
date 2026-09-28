@@ -200,6 +200,28 @@ try {
   ok(semEspaco(og).includes(reais(OFERTA.fixo * 100)), "a prévia do link traz a oferta", og)
   const sitemap = await (await fetch(`${LOJA}/sitemap.xml`)).text()
   ok(!sitemap.includes("/criadores"), "fora do sitemap")
+  // O celular do topo: uma foto por momento (gancho, corpo, fecho), carregadas, e o gancho primeiro.
+  await pagina
+    .waitForFunction(
+      () =>
+        [...document.querySelectorAll(".criadores__tela img")].every(
+          (i) => i.complete && i.naturalWidth > 0
+        ),
+      null,
+      { timeout: 20000 }
+    )
+    .catch(() => {})
+  const fotos = await pagina.evaluate(() => ({
+    fases: [...document.querySelectorAll(".criadores__tela img")].map((i) => i.dataset.fase),
+    carregadas: [...document.querySelectorAll(".criadores__tela img")].every(
+      (i) => i.complete && i.naturalWidth > 0
+    ),
+  }))
+  ok(
+    JSON.stringify(fotos.fases) === JSON.stringify(["gancho", "corpo", "fim"]) && fotos.carregadas,
+    "o celular tem as três fotos (gancho, corpo e fecho), carregadas",
+    JSON.stringify(fotos)
+  )
 
   titulo("A oferta e a calculadora batem com a OFERTA do código")
   const h1 = semEspaco(await pagina.locator("h1").first().textContent())

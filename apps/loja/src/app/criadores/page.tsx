@@ -64,11 +64,10 @@ export default async function Pagina() {
     const p = produtos.get(h)
     return p ? [p] : []
   })
-  const foto = produtos.get("oleo-para-barba")?.thumbnail ?? null
 
   return (
     <main className="criadores" id="conteudo">
-      <Heroi foto={foto} />
+      <Heroi />
       <Propostas />
       <section className="criadores__secao criadores__kit criadores--faixa">
         <div className="criadores__wrap criadores__kit-grade">
@@ -138,7 +137,7 @@ function Estrela() {
   )
 }
 
-function Heroi({ foto }: { foto: string | null }) {
+function Heroi() {
   return (
     <section className="criadores__heroi criadores--faixa" aria-labelledby="criadores-titulo">
       <div className="criadores__wrap criadores__heroi-grade">
@@ -179,7 +178,7 @@ function Heroi({ foto }: { foto: string | null }) {
             </li>
           </ul>
         </div>
-        <Camera foto={foto} />
+        <Camera />
       </div>
     </section>
   )

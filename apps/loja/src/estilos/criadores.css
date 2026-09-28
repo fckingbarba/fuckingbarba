@@ -188,25 +188,25 @@
   aspect-ratio: 9 / 16;
   max-width: 100%;
   overflow: hidden;
-  background: #ffffff;
+  background: var(--color-tinta);
 }
+/* Uma foto por momento, uma em cima da outra: a do momento aparece (a tela marca `data-fase`). */
 .criadores__foto {
-  position: absolute;
-  top: 6%;
-  left: 0;
-  right: 0;
-  height: 72%;
-}
-.criadores__foto img {
   object-fit: cover;
-  mix-blend-mode: multiply;
+  opacity: 0;
+  transition: opacity 0.35s var(--ease-suave);
+}
+.criadores__tela[data-fase="gancho"] .criadores__foto[data-fase="gancho"],
+.criadores__tela[data-fase="corpo"] .criadores__foto[data-fase="corpo"],
+.criadores__tela[data-fase="fim"] .criadores__foto[data-fase="fim"] {
+  opacity: 1;
 }
 .criadores__grade {
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(rgba(18, 24, 31, 0.1) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(18, 24, 31, 0.1) 1px, transparent 1px);
+    linear-gradient(rgba(255, 255, 255, 0.16) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.16) 1px, transparent 1px);
   background-size: 33.34% 33.34%;
   background-position: -1px -1px;
 }
@@ -249,9 +249,10 @@
   border: 1.5px solid var(--color-tinta);
   background: #ffffff;
 }
+/* A frase fica embaixo, logo acima da barra do tempo: em cima, ela cobriria a barba. */
 .criadores__legenda {
   position: absolute;
-  top: 55%;
+  bottom: 16%;
   left: 12px;
   right: 12px;
   margin: 0;

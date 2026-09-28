@@ -1,8 +1,11 @@
 "use client"
 
-import Image from "next/image"
+import Image, { type StaticImageData } from "next/image"
 import { useEffect, useRef } from "react"
 import { OFERTA } from "@/lib/criadores-visivel"
+import fotoDoCorpo from "./fotos/corpo.jpg"
+import fotoDoFecho from "./fotos/fecho.jpg"
+import fotoDoGancho from "./fotos/gancho.jpg"
 
 /**
  * O CELULAR GRAVANDO — o topo da página dos criadores mostra o que ela pede:
@@ -13,15 +16,24 @@ import { OFERTA } from "@/lib/criadores-visivel"
  * tempo de ler; o resto corre. Quem pede menos movimento vê o quadro parado
  * no gancho, e a animação para quando o celular sai da tela.
  *
+ * UMA FOTO PRA CADA MOMENTO, de um criador de verdade (com autorização e contrato):
+ * o gancho é a barba coçando, o corpo mostra o shampoo, o fecho é a barba arrumada.
+ * A frase fica embaixo, em cima da barra do tempo, pra não cobrir a barba. As fotos
+ * moram em `fotos/` (em pé, 9:16; o canto com o botão do reprodutor foi cortado).
+ *
  * A tela é mexida pelos `ref`s, não pelo estado: são 60 quadros por segundo,
  * e cada um refazendo o React seria bateria à toa.
  */
 
-const GANCHOS = [
-  "Sua barba coça? Assiste isso.",
-  "Para de lavar a barba com shampoo de cabelo.",
-  "Essa é a mesma barba de 2 minutos atrás.",
-  "POV: sua barba finalmente alinhou.",
+/** Os ganchos que combinam com a foto do gancho (a barba coçando) e a do corpo (o shampoo). */
+const GANCHOS = ["Sua barba coça? Assiste isso.", "Para de lavar a barba com shampoo de cabelo."]
+
+type Tipo = "gancho" | "corpo" | "fim"
+
+const FOTOS: { tipo: Tipo; foto: StaticImageData }[] = [
+  { tipo: "gancho", foto: fotoDoGancho },
+  { tipo: "corpo", foto: fotoDoCorpo },
+  { tipo: "fim", foto: fotoDoFecho },
 ]
 
 /** [milissegundos de verdade, segundo do vídeo] — o gancho devagar, o resto rápido. */
@@ -45,14 +57,15 @@ function segundoNo(ms: number): number {
   return QUADROS[QUADROS.length - 1][1]
 }
 
-type Fase = { texto: string; tipo: "gancho" | "corpo" | "fim"; nome: string; dica: string }
+type Fase = { texto: string; tipo: Tipo; nome: string; dica: string }
 
 function faseNo(s: number, volta: number): Fase {
   if (s < GANCHO)
     return { texto: GANCHOS[volta], tipo: "gancho", nome: "Gancho", dica: `0 a ${GANCHO} s` }
   if (s < OFERTA.segundos.min)
     return {
-      texto: s < 14 ? "Espalha na barba" : "Penteia e pronto",
+      // O que a embalagem do shampoo diz — a frase não promete nada que o produto não diga.
+      texto: s < 14 ? "Shampoo feito pra barba" : "Limpa e refresca",
       tipo: "corpo",
       nome: "Corpo",
       dica: "mostra o produto",
@@ -65,8 +78,9 @@ function faseNo(s: number, volta: number): Fase {
   }
 }
 
-export function Camera({ foto }: { foto: string | null }) {
+export function Camera() {
   const figura = useRef<HTMLElement>(null)
+  const tela = useRef<HTMLDivElement>(null)
   const tc = useRef<HTMLSpanElement>(null)
   const cabeca = useRef<HTMLSpanElement>(null)
   const legenda = useRef<HTMLParagraphElement>(null)
@@ -87,6 +101,7 @@ export function Camera({ foto }: { foto: string | null }) {
       if (f.texto === ultimo || !legenda.current) return
       ultimo = f.texto
       legenda.current.dataset.tipo = f.tipo
+      if (tela.current) tela.current.dataset.fase = f.tipo
       legenda.current.firstElementChild!.textContent = f.texto
       if (fase.current) fase.current.textContent = f.nome
       if (dica.current) dica.current.textContent = f.dica
@@ -120,21 +135,22 @@ export function Camera({ foto }: { foto: string | null }) {
   return (
     <figure className="criadores__camera" ref={figura}>
       <div className="criadores__celular">
-        <div className="criadores__tela" aria-hidden="true">
-          {foto ? (
-            <span className="criadores__foto">
-              <Image
-                src={foto}
-                alt=""
-                fill
-                sizes="(max-width: 860px) 70vw, 280px"
-                // `eager` + `fetchPriority`, e não `priority` (descontinuado no Next 16):
-                // o celular é o que aparece primeiro, do lado do título.
-                loading="eager"
-                fetchPriority="high"
-              />
-            </span>
-          ) : null}
+        <div className="criadores__tela" aria-hidden="true" data-fase="gancho" ref={tela}>
+          {FOTOS.map(({ tipo, foto }) => (
+            <Image
+              key={tipo}
+              className="criadores__foto"
+              data-fase={tipo}
+              src={foto}
+              alt=""
+              fill
+              sizes="(max-width: 860px) 78vw, 280px"
+              // `eager` + `fetchPriority`, e não `priority` (descontinuado no Next 16): a do
+              // gancho é o que aparece primeiro, do lado do título; as outras entram em segundos.
+              loading="eager"
+              fetchPriority={tipo === "gancho" ? "high" : "auto"}
+            />
+          ))}
           <div className="criadores__grade" />
           <div className="criadores__hud">
             <span className="criadores__pilula criadores__rec">
