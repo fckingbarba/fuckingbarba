@@ -3,16 +3,26 @@
 import Image from "next/image"
 import Link from "next/link"
 import { useEffect, useRef, type MouseEvent } from "react"
-import { Fechar, Lixeira, Mais, Raio, Sacola as IconeSacola } from "@/components/icones"
+import {
+  Bandeira,
+  Caminhao,
+  Certo,
+  Fechar,
+  Lixeira,
+  Mais,
+  Raio,
+  Sacola as IconeSacola,
+} from "@/components/icones"
 import { useSacola } from "@/components/sacola/contexto"
+import { CupomDaSacola } from "@/components/sacola/cupom"
 import { FreteEPrazo } from "@/components/sacola/entrega"
-import { LevaJunto } from "@/components/sacola/leva-junto"
+import { LevaJunto, useLevaJunto, useLevar } from "@/components/sacola/leva-junto"
 import { useFrete, useParcelaMinima } from "@/components/configuracoes/contexto"
 import type { SugestaoDaSacola } from "@/lib/carrinho-visivel"
 import { faltaPraPromocao, frasesDoFrete, progressoDaPromocao } from "@/lib/configuracoes"
 import { emReais } from "@/lib/formato"
 import type { PromocaoDaLinha } from "@/lib/promocoes"
-import type { ModeloDeRecomendacao } from "@/lib/recomendacao"
+import type { ModeloDeRecomendacao, SugestaoEscolhida } from "@/lib/recomendacao"
 import { DESTINO_DO_CHECKOUT, EM_BREVE, PARCELAS_SEM_JUROS } from "@/lib/site"
 
 /**
@@ -44,6 +54,9 @@ export function Gaveta({
   const fechaRef = useRef<HTMLButtonElement>(null)
 
   const aberta = sacola?.aberta ?? false
+  // Uma escolha do motor pra gaveta inteira: o que fecha o frete grátis vai
+  // pro medidor, o resto pro "Leva junto" (0207).
+  const { completa, lista } = useLevaJunto(vitrine, modelo)
 
   // Ao abrir, o foco vai pro botão de fechar: é a saída, e é o lugar de onde
   // o Tab percorre a gaveta na ordem em que ela é lida.
@@ -145,7 +158,7 @@ export function Gaveta({
           </button>
         </div>
 
-        <MedidorDeFrete subtotal={carrinho.subtotal} />
+        <MedidorDeFrete subtotal={carrinho.subtotal} completa={completa} aoNavegar={aoNavegar} />
 
         {/*
           "Vazia" só quando o servidor disse que está. Antes da primeira
@@ -282,7 +295,7 @@ export function Gaveta({
           */}
           {/* O "leva junto" entre a lista e o frete, como no protótipo: primeiro
               o que mais cabe na sacola, depois quanto custa mandar. */}
-          {vazia ? null : <LevaJunto vitrine={vitrine} modelo={modelo} aoNavegar={aoNavegar} />}
+          {vazia ? null : <LevaJunto escolhidos={lista} aoNavegar={aoNavegar} />}
           {vazia ? null : <FreteEPrazo />}
         </div>
 
@@ -292,27 +305,50 @@ export function Gaveta({
             pessoa deu. A região existe sempre, mesmo vazia — região viva que
             nasce junto com o texto costuma não ser anunciada.
           */}
+          <CupomDaSacola />
+
           <p className="sacolinha__aviso" role="status" aria-live="polite">
             {erro ?? ""}
           </p>
 
           {/*
             SUBTOTAL E FRETE NUMA LINHA, como no protótipo — só quando o
-            carrinho TEM frete. Os três números são do Medusa: o subtotal é o
-            dos produtos já com desconto, e com ele subtotal + frete fecha
-            com o total de baixo. Sem frete escolhido, a linha some e o
-            rótulo diz "Subtotal", que é o que o número é.
+            carrinho TEM frete ou desconto. Os números são do Medusa: o
+            subtotal é o dos produtos já com desconto, e com ele subtotal +
+            frete fecha com o total de baixo. Sem frete escolhido, a linha
+            some e o rótulo diz "Subtotal", que é o que o número é.
+
+            COM DESCONTO (o cupom da sacola, o "Leve X, pague Y"), a linha
+            mostra os produtos ANTES dele e o desconto do lado (0207):
+            produtos − desconto + frete dá o total de baixo, e quem aplicou o
+            cupom vê quanto ele tirou.
           */}
-          <p className="sacolinha__detalhe" hidden={carrinho.frete === null}>
-            <span>
-              Subtotal <b>{emReais(carrinho.totalDosItens)}</b>
-            </span>
-            <span>
-              Frete{" "}
-              <b data-gratis={carrinho.frete === 0 ? "" : undefined}>
-                {carrinho.frete === 0 ? "Grátis" : emReais(carrinho.frete ?? 0)}
-              </b>
-            </span>
+          <p
+            className="sacolinha__detalhe"
+            hidden={carrinho.frete === null && !(carrinho.desconto > 0)}
+          >
+            {carrinho.desconto > 0 ? (
+              <>
+                <span>
+                  Produtos <b>{emReais(carrinho.subtotal)}</b>
+                </span>
+                <span>
+                  Desconto <b data-desconto="">− {emReais(carrinho.desconto)}</b>
+                </span>
+              </>
+            ) : (
+              <span>
+                Subtotal <b>{emReais(carrinho.totalDosItens)}</b>
+              </span>
+            )}
+            {carrinho.frete === null ? null : (
+              <span>
+                Frete{" "}
+                <b data-gratis={carrinho.frete === 0 ? "" : undefined}>
+                  {carrinho.frete === 0 ? "Grátis" : emReais(carrinho.frete)}
+                </b>
+              </span>
+            )}
           </p>
 
           <p className="sacolinha__soma">
@@ -354,13 +390,30 @@ export function Gaveta({
  * O número que ele persegue é o mesmo do resto do site (`site.ts`), e o
  * progresso é medido contra o SUBTOTAL — o valor das mercadorias —, não
  * contra o total. Medir contra o total contaria o próprio frete como
- * progresso rumo ao frete grátis, que é uma cobra mordendo o rabo.
+ * progresso rumo ao frete grátis, que é uma cobra mordendo o rabo. E é o
+ * subtotal ANTES do cupom, que é o que o Medusa compara com o piso
+ * (`somaDosProdutos`, no backend): o cupom não tira ninguém do frete grátis.
+ *
+ * O DESENHO DA 0207: a frase grande ("Faltam R$ 41,10 pro frete grátis"),
+ * o caminhão andando na barra até a bandeira da meta, e — faltando valor — o
+ * produto que SOZINHO fecha a conta, com "+ Adicionar": é o primeiro que o
+ * motor de recomendação escolheu entre os que fecham (`useLevaJunto`). Um
+ * toque, e o frete sai grátis. Chegou, o bloco fica verde.
  *
  * `aria-valuenow` existe porque leitor de tela lê a porcentagem, não a
  * barra: sem ele a barra é um retângulo mudo.
  */
-function MedidorDeFrete({ subtotal }: { subtotal: number }) {
+function MedidorDeFrete({
+  subtotal,
+  completa,
+  aoNavegar,
+}: {
+  subtotal: number
+  completa: SugestaoEscolhida | null
+  aoNavegar: (ev: MouseEvent<HTMLAnchorElement>) => void
+}) {
   const politica = useFrete()
+  const levar = useLevar()
   const frases = frasesDoFrete(politica)
   const falta = faltaPraPromocao(politica, subtotal)
   const porcento = progressoDaPromocao(politica, subtotal)
@@ -371,25 +424,28 @@ function MedidorDeFrete({ subtotal }: { subtotal: number }) {
     barra de progresso que já nasce completa não informa nada e ocupa o topo
     da sacola, que é onde a pessoa olha o total.
   */
-  if (!frases || falta === null || porcento === null) return null
+  if (politica.modo === "nenhuma" || !frases || falta === null || porcento === null) return null
 
   const chegou = falta <= 0
+  const alvo = politica.modo === "gratis" ? "frete grátis" : `frete de ${emReais(politica.preco)}`
 
   return (
-    <div className="sacolinha__frete">
-      <div className="sacolinha__frete-topo">
-        <p className="sacolinha__frete-rotulo">
-          <Raio />
-          {frases.selo}
-        </p>
-        <p className="sacolinha__frete-texto">
-          {chegou
-            ? politica.modo === "gratis"
-              ? "Conseguiu — é por nossa conta"
-              : "Conseguiu"
-            : `Faltam ${emReais(falta)}`}
-        </p>
-      </div>
+    <div className="sacolinha__frete" data-completo={chegou ? "" : undefined}>
+      <p className="sacolinha__frete-frase">
+        {chegou ? (
+          <>
+            <Certo className="sacolinha__frete-certo" />
+            {politica.modo === "gratis"
+              ? "Frete grátis liberado!"
+              : `Frete de ${emReais(politica.preco)} liberado!`}
+          </>
+        ) : (
+          // Um bloco só: dentro do flex, cada pedaço da frase virava uma coluna.
+          <span>
+            {falta === 1 ? "Falta" : "Faltam"} <mark>{emReais(falta)}</mark> pro <b>{alvo}</b>
+          </span>
+        )}
+      </p>
 
       <span
         className="sacolinha__frete-trilho"
@@ -400,8 +456,58 @@ function MedidorDeFrete({ subtotal }: { subtotal: number }) {
         aria-label={`Progresso para ${frases.selo.toLowerCase()}`}
       >
         <span className="sacolinha__frete-barra" style={{ width: `${porcento}%` }} />
-        <Raio className="sacolinha__frete-raio" style={{ left: `${porcento}%` }} />
+        {chegou ? null : (
+          <span className="sacolinha__frete-caminhao" style={{ left: `${porcento}%` }}>
+            <Caminhao />
+          </span>
+        )}
       </span>
+
+      <p className="sacolinha__frete-pe">
+        <span>
+          {chegou
+            ? politica.modo === "gratis"
+              ? "O frete é por nossa conta"
+              : (frases.nota ?? frases.completa)
+            : `${emReais(subtotal)} na sacola`}
+        </span>
+        {politica.piso > 0 ? (
+          <span className="sacolinha__frete-meta">
+            <Bandeira />
+            {emReais(politica.piso)}
+          </span>
+        ) : null}
+      </p>
+
+      {!chegou && completa ? (
+        <div className="sacolinha__completa" data-completa={completa.varianteId}>
+          <Link
+            className="sacolinha__completa-foto"
+            href={`/produtos/${completa.handle}`}
+            onClick={aoNavegar}
+            tabIndex={-1}
+            aria-hidden="true"
+          >
+            {completa.imagem ? (
+              <Image src={completa.imagem} alt="" width={88} height={88} sizes="44px" />
+            ) : null}
+          </Link>
+          <span className="sacolinha__completa-corpo">
+            <span className="sacolinha__completa-selo">Completa o {alvo}</span>
+            <span className="sacolinha__completa-nome">{completa.nome}</span>
+            <span className="sacolinha__completa-preco">{emReais(completa.preco)}</span>
+          </span>
+          <button
+            type="button"
+            className="sacolinha__completa-add"
+            onClick={() => levar(completa)}
+            aria-label={`Adicionar ${completa.nome} à sacola, completa o ${alvo}`}
+          >
+            <Mais />
+            Adicionar
+          </button>
+        </div>
+      ) : null}
     </div>
   )
 }

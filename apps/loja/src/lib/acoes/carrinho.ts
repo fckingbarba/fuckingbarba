@@ -13,6 +13,8 @@ import {
   situacaoDoCarrinho,
   type CarrinhoVisivel,
 } from "@/lib/carrinho"
+import { fraseDoGuardado } from "@/lib/checkout-visivel"
+import { porCupom, tirarCupom } from "@/lib/cupom"
 import { cliente } from "@/lib/medusa"
 
 /**
@@ -208,6 +210,48 @@ export async function remover(linhaId: string): Promise<Resultado> {
     return depois ? { ok: true, carrinho: depois } : { ok: false, erro: GENERICO, carrinho: null }
   } catch (e) {
     return falha(e, `remover ${linhaId}`)
+  }
+}
+
+/* ── o cupom da sacola (entrega 0207) ─────────────────────────────────────── */
+
+/**
+ * O resultado do cupom: o carrinho de depois e, quando o cupom ficou
+ * guardado (o de frete grátis, esperando a entrega), a frase que diz isso —
+ * o carrinho ainda não tem o cupom, e a tela precisa contar por quê.
+ */
+export type ResultadoDoCupom = Resultado & { recado?: string }
+
+/**
+ * O campo do cupom da sacola. A regra é a do checkout (`lib/cupom.ts`): o
+ * Medusa valida, um cupom por pedido, o de frete grátis espera a entrega.
+ * Aplicado aqui, ele segue no carrinho até o checkout.
+ */
+export async function aplicarCupomNaSacola(digitado: string): Promise<ResultadoDoCupom> {
+  const codigo = String(digitado ?? "").trim()
+  if (!codigo) return { ok: false, erro: "Escreve o código.", carrinho: null }
+  try {
+    const r = await porCupom(codigo)
+    if (r.situacao === "sem-carrinho") return { ok: false, erro: GENERICO, carrinho: await agora() }
+    const carrinho = await agora()
+    if (r.situacao === "recusado")
+      return { ok: false, erro: "Esse cupom não vale pra este pedido.", carrinho }
+    if (!carrinho) return { ok: false, erro: GENERICO, carrinho: null }
+    return r.situacao === "guardado"
+      ? { ok: true, carrinho, recado: `${r.guardado.codigo} ${fraseDoGuardado(r.guardado)}` }
+      : { ok: true, carrinho }
+  } catch (e) {
+    return falha(e, `cupom ${codigo}`)
+  }
+}
+
+export async function tirarCupomDaSacola(codigo: string): Promise<Resultado> {
+  try {
+    await tirarCupom(String(codigo ?? ""))
+    const carrinho = await agora()
+    return carrinho ? { ok: true, carrinho } : { ok: false, erro: GENERICO, carrinho: null }
+  } catch (e) {
+    return falha(e, `tirar o cupom ${codigo}`)
   }
 }
 

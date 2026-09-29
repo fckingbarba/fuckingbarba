@@ -3174,6 +3174,185 @@ if (EMAIL_ADMIN && SENHA_ADMIN) {
   console.log("    (sem ADMIN_EMAIL/ADMIN_SENHA: pulei o preço de agora)")
 }
 
+titulo("O cupom e o frete grátis na sacola, no celular (0207)")
+/*
+  O CUPOM NA SACOLA (29/09, entrega 0207): no celular o campo do checkout
+  mora no resumo fechado, e os clientes não achavam. Agora ele fica no pé da
+  gaveta, à vista sem rolar; a regra é a do checkout (`lib/cupom.ts`), e o
+  cupom aplicado chega pronto no checkout. E O MEDIDOR NOVO: a frase grande,
+  o caminhão, e o produto que sozinho fecha o frete grátis — o primeiro que o
+  motor escolheu, que por isso some do "Leva junto" (sem o mesmo produto duas
+  vezes). Dois cupons criados pelo admin pra isto, apagados no fim.
+*/
+if (EMAIL_ADMIN && SENHA_ADMIN) {
+  const sufixo = Date.now().toString(36).slice(-5).toUpperCase()
+  const [CS, CF] = [`SACOLA${sufixo}`, `FRSAC${sufixo}`]
+  const promos = []
+  for (const [code, metodo] of [
+    [CS, { type: "percentage", target_type: "items", allocation: "across", value: 5 }],
+    [CF, { type: "percentage", target_type: "shipping_methods", allocation: "across", value: 100 }],
+  ])
+    promos.push(
+      (
+        await adm("/admin/promotions", {
+          method: "POST",
+          body: JSON.stringify({
+            code,
+            type: "standard",
+            status: "active",
+            is_automatic: false,
+            application_method: { ...metodo, target_rules: [] },
+          }),
+        })
+      ).promotion
+    )
+  const { ctx, pag } = await abaVigiada()
+  try {
+    await pag.setViewportSize(CELULAR)
+    await naPdp(pag, "oleo-para-barba")
+    await pag.getByRole("button", { name: "Adicionar à sacola" }).first().click()
+    const gaveta = pag.locator("#carrinho-gaveta")
+    const livre = () =>
+      pag.waitForFunction(() => !document.querySelector(".sacolinha[data-ocupada]"), null, {
+        timeout: 30000,
+      })
+    await gaveta
+      .locator(".sacolinha__item:not([data-chegando])")
+      .first()
+      .waitFor({ timeout: 25000 })
+    await livre()
+    const idDaSacola = async () =>
+      (await ctx.cookies()).find((c) => c.name === "carrinho")?.value ?? ""
+    const cupons = async () =>
+      (
+        (await medusa(`/store/carts/${await idDaSacola()}?fields=*promotions`))?.cart?.promotions ??
+        []
+      ).map((p) => p.code)
+
+    /* O medidor: a frase, o caminhão, o produto que completa. */
+    const frase = await gaveta.locator(".sacolinha__frete-frase").innerText()
+    ok(
+      /Faltam R\$/.test(frase) && /frete grátis/i.test(frase),
+      "o medidor diz quanto falta, em letra grande",
+      frase
+    )
+    ok(await gaveta.locator(".sacolinha__frete-caminhao").isVisible(), "e o caminhão anda na barra")
+    const completa = gaveta.locator(".sacolinha__completa")
+    const idCompleta = await completa
+      .getAttribute("data-completa", { timeout: 5000 })
+      .catch(() => null)
+    const naLista = await gaveta
+      .locator("[data-leva-junto]")
+      .evaluateAll((bs) => bs.map((b) => b.getAttribute("data-leva-junto")))
+    ok(
+      Boolean(idCompleta) && !naLista.includes(idCompleta),
+      "o produto que completa o frete aparece no medidor, e não repete no Leva junto",
+      `${idCompleta} · ${naLista.join(", ")}`
+    )
+
+    /* O cupom à vista, no pé, sem rolar. */
+    const abre = gaveta.locator(".sacolinha__cupom-abre")
+    const caixa = await abre.boundingBox()
+    ok(
+      Boolean(caixa) && caixa.y >= 0 && caixa.y + caixa.height <= CELULAR.height,
+      "no celular, o 'Tem cupom de desconto?' está na tela sem rolar",
+      JSON.stringify(caixa)
+    )
+
+    await abre.click()
+    const campo = gaveta.locator("#sacola-cupom")
+    ok(
+      await campo.evaluate((c) => c === document.activeElement),
+      "o toque abre o campo, com o foco nele"
+    )
+    await campo.fill("NAO-EXISTE-ISSO")
+    await campo.press("Enter")
+    await gaveta
+      .locator(".sacolinha__cupom-msg[data-tipo=erro]:not([hidden])")
+      .waitFor({ timeout: 20000 })
+    ok(
+      !(await cupons()).includes("NAO-EXISTE-ISSO"),
+      "código inventado é recusado, e não fica no carrinho"
+    )
+
+    // Em minúsculas, como a pessoa digita: a regra do checkout (24/09).
+    await campo.fill(CS.toLowerCase())
+    await campo.press("Enter")
+    await gaveta.locator(".sacolinha__cupom-ok").waitFor({ timeout: 20000 })
+    await livre()
+    ok(
+      (await cupons()).includes(CS),
+      "o cupom certo entra no carrinho",
+      (await cupons()).join(", ")
+    )
+    const noMedusa = (
+      await medusa(`/store/carts/${await idDaSacola()}?fields=total,discount_total`)
+    )?.cart
+    const naTela = numero(await gaveta.locator(".sacolinha__soma-valor").innerText())
+    ok(
+      Math.abs(naTela - Number(noMedusa?.total)) < 0.01,
+      "e o total do pé é o do Medusa, com o desconto",
+      `${naTela} · ${noMedusa?.total}`
+    )
+    ok(
+      await gaveta.locator(".sacolinha__detalhe b[data-desconto]").isVisible(),
+      "o pé mostra a linha do desconto"
+    )
+
+    // No checkout, o mesmo cupom — é o mesmo carrinho.
+    await pag.goto(`${LOJA}/checkout`, { waitUntil: "domcontentloaded" })
+    const noCheckout = await pag
+      .locator(".cupom__msg[data-tipo=ok]", { hasText: CS })
+      .first()
+      .waitFor({ state: "attached", timeout: 25000 })
+      .then(() => 1)
+      .catch(() => 0)
+    ok(noCheckout > 0, "o cupom aplicado na sacola chega aplicado no checkout")
+
+    // Tirar pela sacola.
+    await naPdp(pag, "oleo-para-barba")
+    await pag.locator('button[aria-controls="carrinho-gaveta"]').first().click()
+    await gaveta.locator(".sacolinha__cupom-tira").click()
+    await gaveta.locator(".sacolinha__cupom-abre").waitFor({ timeout: 20000 })
+    ok(!(await cupons()).includes(CS), "o Tirar da sacola tira do carrinho")
+
+    // O de frete grátis, sem entrega: fica guardado, e a sacola conta por quê.
+    await gaveta.locator(".sacolinha__cupom-abre").click()
+    await campo.fill(CF)
+    await campo.press("Enter")
+    const espera = gaveta.locator(".sacolinha__cupom-msg[data-tipo=espera]:not([hidden])")
+    await espera.waitFor({ timeout: 20000 }).catch(() => null)
+    ok(
+      /guardado/i.test(await espera.innerText().catch(() => "")) && !(await cupons()).includes(CF),
+      "o cupom de frete sem entrega fica guardado, com a frase do checkout"
+    )
+
+    // O produto que completa: um toque, e o medidor fica verde.
+    if (idCompleta) {
+      await livre()
+      await gaveta.locator(".sacolinha__completa-add").click()
+      await gaveta
+        .locator(".sacolinha__frete[data-completo]")
+        .waitFor({ timeout: 25000 })
+        .catch(() => null)
+      await livre()
+      const itens =
+        (await medusa(`/store/carts/${await idDaSacola()}?fields=*items`))?.cart?.items ?? []
+      ok(
+        itens.some((i) => i.variant_id === idCompleta) &&
+          /liberado/i.test(await gaveta.locator(".sacolinha__frete-frase").innerText()),
+        "o + Adicionar põe o produto na sacola, e o medidor diz que o frete foi liberado"
+      )
+    }
+  } finally {
+    await ctx.close()
+    for (const p of promos)
+      await adm(`/admin/promotions/${p.id}`, { method: "DELETE" }).catch(() => null)
+  }
+} else {
+  console.log("    (sem ADMIN_EMAIL/ADMIN_SENHA: pulei o cupom na sacola)")
+}
+
 /* ── 8. higiene ───────────────────────────────────────────────────────────── */
 
 titulo("Higiene")

@@ -9,6 +9,7 @@ import { aplicarCupom, esquecerCupomGuardado, removerCupom } from "@/lib/acoes/c
 import {
   ESTADO_INICIAL,
   estadoSemResposta,
+  fraseDoGuardado,
   type CheckoutVisivel,
   type EstadoDaEtapa,
 } from "@/lib/checkout-visivel"
@@ -299,12 +300,7 @@ function Cupom({ checkout }: { checkout: CheckoutVisivel }) {
           data-tipo="espera"
           data-cupom-guardado={checkout.cupomGuardado.codigo}
         >
-          {checkout.cupomGuardado.codigo}{" "}
-          {checkout.cupomGuardado.soMaisBarato
-            ? "guardado: frete grátis na entrega econômica — entra quando ela for escolhida."
-            : checkout.cupomGuardado.frete
-              ? "guardado: frete grátis — entra quando você escolher a entrega."
-              : "guardado: entra sozinho quando o pedido estiver nas regras dele."}{" "}
+          {checkout.cupomGuardado.codigo} {fraseDoGuardado(checkout.cupomGuardado)}{" "}
           <button
             type="button"
             className="cupom__abre"

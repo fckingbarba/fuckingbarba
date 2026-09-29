@@ -1,7 +1,7 @@
 import "server-only"
 import { cookies } from "next/headers"
 import { ehCodigoDeBump } from "./bump"
-import { lerCarrinho } from "./carrinho"
+import { cuponsDoCarrinho, lerCarrinho } from "./carrinho"
 import { cabecalhosDeQuemPede } from "./conta"
 import { cliente } from "./medusa"
 import { ehCodigoDePromocao } from "./promocoes"
@@ -101,13 +101,8 @@ export async function ehCupomDeFrete(
   }
 }
 
-/** Os códigos de cupom de um carrinho — não os da oferta do checkout, nem os das promoções automáticas. */
-export const cuponsDoCarrinho = (
-  promocoes: ({ code?: string | null } | null)[] | null | undefined
-) =>
-  (promocoes ?? [])
-    .map((p) => p?.code ?? "")
-    .filter((c) => c && !ehCodigoDeBump(c) && !ehCodigoDePromocao(c))
+// Mora em `carrinho.ts` desde a 0207 (a sacola mostra o cupom); daqui segue valendo.
+export { cuponsDoCarrinho } from "./carrinho"
 
 /**
  * Põe o cupom guardado no carrinho, se der: `"entrou"` (entrou agora, ou já

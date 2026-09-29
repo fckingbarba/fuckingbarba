@@ -167,6 +167,37 @@ export function Caminhao(props: Props) {
   )
 }
 
+/** A etiqueta do cupom (entrega 0207), com o furo e o canto chanfrado da marca. */
+export function Etiqueta(props: Props) {
+  return (
+    <Icone {...props}>
+      <path
+        fillRule="evenodd"
+        d="M2 3.5 3.5 2H12l10 10-10 10L2 12zM7.5 5.5a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"
+      />
+    </Icone>
+  )
+}
+
+/** O certo do cupom aplicado e do frete liberado (0207). */
+export function Certo(props: Props) {
+  return (
+    <Icone {...props}>
+      <path d="m9.4 15.6-4.7-4.7L2.6 13l6.8 6.8L21.4 7.8l-2.1-2.1z" />
+    </Icone>
+  )
+}
+
+/** A bandeira da meta do frete grátis, na ponta da barra (0207). */
+export function Bandeira(props: Props) {
+  return (
+    <Icone {...props}>
+      <path d="M4 2h2v20H4z" />
+      <path d="M7 3h13l-3.5 5L20 13H7z" />
+    </Icone>
+  )
+}
+
 export function Cartao(props: Props) {
   return (
     <Icone {...props}>

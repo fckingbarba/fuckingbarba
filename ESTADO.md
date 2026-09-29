@@ -4559,6 +4559,33 @@ unitários, o typecheck e o lint do backend.
 Depois do deploy — **nada a configurar.** Na aba Clientes, os "Sem nome" passam a mostrar o ícone
 do e-mail aceso.
 
+**O cupom na sacola e o medidor do frete grátis novo — pronto em 29/09 (entrega 0207).** Clientes
+diziam que não achavam onde pôr o cupom no celular: no checkout ele fica no "Resumo do pedido", que
+no celular nasce fechado, e ainda atrás do "Tem cupom de desconto?". O desenho foi aprovado por você
+no canvas "Cupom na sacola" (o A e a barra 2 + 3).
+
+- **O cupom no pé da sacola**, que nunca sai da tela: "Tem cupom de desconto? Adicionar"; o toque
+  abre o campo ali mesmo. Aplicado, fica "BARBA10 aplicado · Tirar", e a linha de cima mostra os
+  produtos e o desconto. A regra é a mesma do checkout (o Medusa valida, um cupom por pedido, o de
+  frete grátis guardado até a entrega) — as duas telas usam o mesmo código agora (`lib/cupom.ts`).
+  O cupom aplicado na sacola chega aplicado no checkout. O campo do checkout continua onde estava.
+- **O medidor do frete grátis:** "Faltam R$ 95,00 pro frete grátis" em letra grande, o caminhão
+  andando na barra até a bandeira da meta, e o produto que SOZINHO fecha o frete com "+ Adicionar"
+  — o primeiro que o motor de recomendação escolhe entre os que fecham (o mesmo do "Leva junto",
+  que por isso não repete ele). Chegou: verde, "Frete grátis liberado!".
+- **Cantos retos**, como o resto da sacola (o desenho tinha a barra redonda).
+- **O cupom não tira ninguém do frete grátis:** o Medusa compara o piso com os produtos ANTES do
+  cupom, e o medidor também.
+
+Conferido na loja local (banco do zero): o checkout 211/211 duas vezes (13 novas, no celular: o
+medidor, o produto que completa sem repetir no "Leva junto", o cupom à vista sem rolar, o código
+recusado, o certo em minúsculas, o total do pé igual ao do Medusa, o cupom chegando no checkout, o
+Tirar, o de frete guardado, o "+ Adicionar" liberando o frete), a recomendação 39/39, o frete 70/70,
+o pagamento 224/224; o typecheck, o lint e o prettier. O conferir-pdp tem 2 falhas que a main também
+tem neste banco (as frases do Spray e um 404 no console) — não são da sacola.
+
+Depois do deploy — **nada a configurar.** Pra ver no celular: um produto na sacola.
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa

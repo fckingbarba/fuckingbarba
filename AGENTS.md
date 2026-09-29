@@ -384,7 +384,9 @@ endereço já gravado, pagava o preço de quando o produto entrou. O e-mail do p
 do Medusa (a `email` do zod 4, a mesma do `POST /store/carts/:id`): com uma mais frouxa, o e-mail
 que ele recusa travava a pessoa no passo 1 com "Não consegui falar com a loja". O cupom vai como foi digitado,
 depois em maiúsculas e em minúsculas: o Medusa procura o código exatamente como foi cadastrado.
-Quando o `complete` recusa por falta de estoque ("Not enough stock available…"), o `finalizar`
+A regra do cupom digitado mora em `apps/loja/src/lib/cupom.ts` (`porCupom`, `tirarCupom`), e o
+checkout e a sacola chamam a mesma (0207: o campo no pé da gaveta, `components/sacola/cupom.tsx`) —
+não copie a regra pra uma tela nova. Quando o `complete` recusa por falta de estoque ("Not enough stock available…"), o `finalizar`
 desce o pedido até o que tem (`ajustarAoEstoque`, em `apps/loja/src/lib/checkout.ts`: cada linha
 até o estoque de agora, e o que acabou sai — com o código da oferta dele) e a frase diz o que
 mudou e o total novo. Nada foi cobrado: o Medusa reserva o estoque antes de autorizar. Antes era
