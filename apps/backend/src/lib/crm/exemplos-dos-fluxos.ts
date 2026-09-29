@@ -2,7 +2,12 @@ import type { MedusaContainer } from "@medusajs/framework/types"
 import { Modules } from "@medusajs/framework/utils"
 import { whatsappDaLoja } from "../atendimento"
 import { lerConfiguracoes } from "../configuracoes"
-import { emailDaPrimeiraCompra, emailDaTrilha, PRODUTOS_DAS_TRILHAS } from "../emails/boas-vindas"
+import {
+  emailDaPrimeiraCompra,
+  emailDaTrilha,
+  PRODUTOS_DAS_TRILHAS,
+  type TrilhaDoEmail,
+} from "../emails/boas-vindas"
 import { emailDoFluxo, type CompraDoFluxo } from "../emails/fluxos"
 import type { EmailDoCrm } from "../emails/crm"
 import { emailDaEstreia } from "../emails/estreia"
@@ -147,31 +152,51 @@ async function exemplosDaJornada(
   ])
   const { empresa, atendimento } = lerConfiguracoes(lojas[0]?.metadata)
   const fator = conteudos.get(PRODUTOS_DAS_TRILHAS.fator) ?? null
-  const email = emailDaJornada({
-    toque,
-    para: membro.email,
-    nome: membro.nome,
-    numero: 3312,
-    principal: fator,
-    fator,
-    sugestoes: [SKU_DA_ROTINA.oleo, SKU_DA_ROTINA.tresFatores].flatMap((s) => porSku.get(s) ?? []),
-    // Um pedido que não existe: o clique anota nada e cai na home.
-    checkin: toque === "jornada-7d" ? linksDoCheckin(`order_${"0".repeat(26)}`) : null,
-    // O link de mentira: o cupom `BROTHER-EXEMPLO` não existe, e o link cai na home sem nada.
-    indique:
-      toque === "jornada-indique" || toque === "jornada-indique-30d"
-        ? indiqueDoCodigo(loja, `${PREFIXO_DO_CUPOM_DO_BROTHER}EXEMPLO`)
-        : null,
-    sair: linksDeSair(loja, membro.email),
-    loja: {
-      url: loja,
-      whatsapp,
-      empresa: empresa.razaoSocial,
-      cnpj: empresa.cnpj,
-      atendimento: atendimento.email,
-    },
+  const nomeDe = (handle: string) => {
+    const c = conteudos.get(handle)
+    return c ? `${c.artigo} ${c.curto}` : null
+  }
+  // O convite do indique vai em três jeitos, um por linha do pedido (0217): o Fator, o óleo
+  // (a barba) e a pasta (o cabelo). Os outros dias, um e-mail só.
+  const linhas: { trilha?: TrilhaDoEmail; produto?: string | null }[] =
+    toque === "jornada-indique"
+      ? [
+          { trilha: "crescimento", produto: nomeDe(PRODUTOS_DAS_TRILHAS.fator) },
+          { trilha: "cuidado", produto: nomeDe(PRODUTOS_DAS_TRILHAS.oleo) },
+          { trilha: "cabelo", produto: nomeDe(PRODUTOS_DAS_TRILHAS.matte) },
+        ]
+      : [{}]
+  return linhas.flatMap(({ trilha, produto }) => {
+    const email = emailDaJornada({
+      toque,
+      trilha,
+      produtoDoIndique: produto ?? null,
+      para: membro.email,
+      nome: membro.nome,
+      numero: 3312,
+      principal: fator,
+      fator,
+      sugestoes: [SKU_DA_ROTINA.oleo, SKU_DA_ROTINA.tresFatores].flatMap(
+        (s) => porSku.get(s) ?? []
+      ),
+      // Um pedido que não existe: o clique anota nada e cai na home.
+      checkin: toque === "jornada-7d" ? linksDoCheckin(`order_${"0".repeat(26)}`) : null,
+      // O link de mentira: o cupom `BROTHER-EXEMPLO` não existe, e o link cai na home sem nada.
+      indique:
+        toque === "jornada-indique" || toque === "jornada-indique-30d"
+          ? indiqueDoCodigo(loja, `${PREFIXO_DO_CUPOM_DO_BROTHER}EXEMPLO`)
+          : null,
+      sair: linksDeSair(loja, membro.email),
+      loja: {
+        url: loja,
+        whatsapp,
+        empresa: empresa.razaoSocial,
+        cnpj: empresa.cnpj,
+        atendimento: atendimento.email,
+      },
+    })
+    return email ? [email] : []
   })
-  return email ? [email] : []
 }
 
 /**

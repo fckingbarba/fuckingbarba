@@ -3903,6 +3903,16 @@ pros amigos. Suas escolhas:
       Fluxos): ela precisa estar ligada. No card dela, "Mandar pra mim" em "Indique um brother"
       mostra o e-mail. O bloco de Minha conta já aparece.
 
+**O convite do Indique um brother com o assunto de quem comprou — pronto em 29/09 (entrega 0217).**
+Seu pedido. O assunto muda com o que a pessoa comprou:
+- **Fator:** "Conhece alguém com a barba falhada?", com "Tá curtindo o Fator de Crescimento?".
+- **Barba** (óleo, balm, shampoo, kit): "Conhece alguém que precisa cuidar da barba?".
+- **Cabelo** (pasta, spray): "Conhece alguém que precisa dar um jeito no cabelo?".
+- No pedido com mais de uma linha, o Fator vem primeiro, depois a barba, depois o cabelo.
+
+- [ ] **Depois do deploy (você):** CRM → Fluxos → Jornada do resultado → "Mandar pra mim" em
+      "Indique um brother": chegam os 3 jeitos.
+
 **A parcela mínima do cartão, editável — pronta em 27/09 (entrega 0157).** O pedido dele: "quero
 poder editar a parcela mínima no cartão, ali diz 5 reais". Em **Configurações → Pagamento**, o
 bloco **Parcelas no cartão** tem o campo **Parcela mínima**.

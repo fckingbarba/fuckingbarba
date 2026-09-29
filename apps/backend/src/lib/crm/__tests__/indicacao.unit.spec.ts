@@ -104,6 +104,34 @@ describe("os e-mails", () => {
     expect(PROPAGANDA.test(`${e.assunto} ${e.previa} ${e.texto}`)).toBe(false)
   })
 
+  it("o assunto do convite pela linha do pedido (0217): o Fator, a barba, o cabelo — e o geral", () => {
+    const convite = (
+      trilha: "crescimento" | "cuidado" | "cabelo" | "geral",
+      produto: string | null
+    ) => emailDoIndique({ ...base, toque: "jornada-indique", trilha, produto })
+    const fator = convite("crescimento", "o Fator de Crescimento")
+    expect(fator.assunto).toBe("Conhece alguém com a barba falhada?")
+    expect(fator.texto).toBe(
+      "Tá curtindo o Fator de Crescimento? Manda o seu link pra um brother que quer a barba " +
+        "cheia: ele ganha 15% na primeira compra, e quando ele comprar, você ganha 15% na próxima."
+    )
+    expect(convite("cuidado", "o óleo").assunto).toBe("Conhece alguém que precisa cuidar da barba?")
+    expect(convite("cuidado", "o óleo").texto).toMatch(
+      /^Tá curtindo o óleo\? Manda o seu link pra um brother que precisa cuidar da barba:/
+    )
+    expect(convite("cabelo", "a pasta matte").assunto).toBe(
+      "Conhece alguém que precisa dar um jeito no cabelo?"
+    )
+    // Sem o produto da linha, a loja; e o geral, o assunto de sempre.
+    expect(convite("cabelo", null).texto).toMatch(/^Tá curtindo a FuckingBarba\?/)
+    expect(convite("geral", null).assunto).toBe("Indique um brother: 15% pra ele, 15% pra você")
+    for (const t of ["crescimento", "cuidado", "cabelo", "geral"] as const) {
+      const e = convite(t, null)
+      expect(PROPAGANDA.test(`${e.assunto} ${e.previa} ${e.texto}`)).toBe(false)
+      expect(EMOJI.test(`${e.assunto} ${e.previa} ${e.texto}`)).toBe(false)
+    }
+  })
+
   it("o lembrete: o mesmo link, outro assunto", () => {
     const e = emailDoIndique({ ...base, toque: "jornada-indique-30d" })
     expect(e.assunto).toBe("Seu link continua valendo 15% pra você")

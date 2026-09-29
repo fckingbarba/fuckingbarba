@@ -4,6 +4,7 @@ import { pedidoDaBase, pedidoDaPessoa } from "../painel/crm"
 import { componentesDoItem, type Componente, type PedidoDaPessoa } from "./etiquetas"
 import { leituraDaRodada, type LeituraDaRodada } from "./leitura"
 import { juntar } from "./nuvemshop"
+import { trilhaDosComponentes, type Trilha } from "./primeira-compra"
 
 /**
  * A JORNADA DO RESULTADO (entrega 0187, a etapa 3 do "Ciclo da Barba") — os
@@ -81,6 +82,12 @@ export type JornadaDoPedido = {
    * 2ª compra é sinal de quem está gostando (o indique um brother, 0215).
    */
   recorrente: boolean
+  /**
+   * De que é o pedido — a trilha do pop-up: o Fator manda (crescer a barba);
+   * depois o óleo, o balm e o shampoo (cuidar); depois a pasta e o spray
+   * (cabelo). É o assunto do convite do indique (0217).
+   */
+  trilha: Trilha
 }
 
 /** As jornadas de uma pessoa: cada pedido pago da loja nova, com o que ela tem em todas as compras. */
@@ -99,9 +106,12 @@ export function jornadasDaPessoa(
     if (!chegou) return []
     const pagoEm = p.pagoEm!.getTime()
     let fatores = 0
+    const doPedido: Componente[] = []
     for (const item of p.itens)
-      for (const c of componentesDoItem(item))
+      for (const c of componentesDoItem(item)) {
+        doPedido.push(c.componente)
         if (c.componente === "fator") fatores += c.unidades * Math.max(1, item.quantidade)
+      }
     return [
       {
         email,
@@ -112,6 +122,7 @@ export function jornadasDaPessoa(
         temFator: fatores > 0,
         sugestoes: sugestoesDaRotina(tem, fatores),
         recorrente: pagos.some((o) => o.id !== p.id && o.pagoEm!.getTime() < pagoEm),
+        trilha: trilhaDosComponentes(doPedido),
       },
     ]
   })

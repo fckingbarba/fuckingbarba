@@ -1,4 +1,4 @@
-import { primeiroNome, type ConteudoDoProduto } from "./boas-vindas"
+import { primeiroNome, type ConteudoDoProduto, type TrilhaDoEmail } from "./boas-vindas"
 import type { EmailDoCrm, ProdutoDoCrm } from "./crm"
 import { emailDoIndique, type IndiqueDoEmail } from "./indicacao"
 
@@ -48,6 +48,10 @@ export type JornadaDoEmail = {
    * gostando e o motor decidiu que é a vez dela; sem ele, o dia fica sem e-mail.
    */
   indique?: IndiqueDoEmail | null
+  /** De que é o pedido (0217): o assunto do convite do indique. */
+  trilha?: TrilhaDoEmail
+  /** O produto do pedido, da mesma linha, na frase do convite ("o Fator de Crescimento"). */
+  produtoDoIndique?: string | null
   sair: EmailDoCrm["sair"]
   loja: EmailDoCrm["loja"]
 }
@@ -131,6 +135,8 @@ export function emailDaJornada(j: JornadaDoEmail): EmailDoCrm | null {
         para: j.para,
         nome: j.nome,
         indique: j.indique,
+        trilha: j.trilha,
+        produto: j.produtoDoIndique ?? null,
         sair: j.sair,
         loja: j.loja,
       })
