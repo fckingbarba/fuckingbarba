@@ -1,7 +1,9 @@
 import "server-only"
 import type { HttpTypes } from "@medusajs/types"
 import { cookies } from "next/headers"
+import { ehCodigoDeBump } from "./bump"
 import { CARRINHO_VAZIO, type CarrinhoVisivel, type ItemDoCarrinho } from "./carrinho-visivel"
+import { descontoDosProdutos } from "./desconto"
 import {
   cliente,
   escadaDeQuantidade,
@@ -73,11 +75,15 @@ export const OPCOES_COOKIE = {
  * (entrega 0133): é o ajuste da promoção que diz quantas daquela linha
  * saíram de graça — com produtos diferentes na mesma promoção, só o Medusa
  * sabe qual linha foi (`paraVisivel`).
+ *
+ * O `shipping_discount_total` e o código das promoções entram pelo cupom da
+ * sacola (entrega 0207): o pé mostra o desconto e o cupom aplicado.
  */
 const CAMPOS_CARRINHO =
-  "id,region_id,currency_code,email,subtotal,discount_total,shipping_total,tax_total,total," +
+  "id,region_id,currency_code,email,subtotal,discount_total,shipping_discount_total," +
+  "shipping_total,tax_total,total," +
   "item_subtotal,item_total,*items,items.adjustments.code,items.adjustments.amount," +
-  "*shipping_methods,shipping_address.postal_code"
+  "*shipping_methods,shipping_address.postal_code,promotions.code"
 
 function aviso(erro: unknown, contexto: string) {
   const msg = erro instanceof Error ? erro.message : String(erro)
@@ -93,6 +99,14 @@ export type Carrinho = HttpTypes.StoreCart
  * funcionando — e pra ficar claro que é o mesmo contrato.
  */
 export { CARRINHO_VAZIO, type CarrinhoVisivel, type ItemDoCarrinho } from "./carrinho-visivel"
+
+/** Os códigos de cupom de um carrinho — não os da oferta do checkout, nem os das promoções automáticas. */
+export const cuponsDoCarrinho = (
+  promocoes: ({ code?: string | null } | null)[] | null | undefined
+) =>
+  (promocoes ?? [])
+    .map((p) => p?.code ?? "")
+    .filter((c) => c && !ehCodigoDeBump(c) && !ehCodigoDePromocao(c))
 
 /**
  * Quantas unidades da linha saíram de graça por uma promoção do painel: o
@@ -182,6 +196,8 @@ export function paraVisivel(
     frete: metodo ? Number(carrinho.shipping_total ?? 0) : null,
     freteEscolhido: metodo?.shipping_option_id ?? null,
     cep: (carrinho.shipping_address?.postal_code ?? "").replace(/\D+/g, ""),
+    desconto: descontoDosProdutos(carrinho),
+    cupom: cuponsDoCarrinho(carrinho.promotions)[0] ?? null,
     total: Number(carrinho.total ?? 0),
   }
 }

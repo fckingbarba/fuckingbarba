@@ -87,6 +87,19 @@ export type CarrinhoVisivel = {
   freteEscolhido: string | null
   /** O CEP de entrega gravado no carrinho, só dígitos. Vazio se não há. */
   cep: string
+  /**
+   * O desconto dos PRODUTOS — cupom e "Leve X, pague Y" —, o mesmo número da
+   * linha "Desconto" do checkout (`descontoDosProdutos`). O do frete não
+   * entra: ele já vem descontado em `frete`. `subtotal − desconto` é o
+   * `totalDosItens`.
+   */
+  desconto: number
+  /**
+   * O cupom que a pessoa digitou e está no carrinho, como o Medusa guardou —
+   * ou `null`. Um por pedido (0128). O da oferta do checkout e o das promoções
+   * automáticas não contam: ninguém digitou.
+   */
+  cupom: string | null
   total: number
 }
 
@@ -99,6 +112,8 @@ export const CARRINHO_VAZIO: CarrinhoVisivel = {
   frete: null,
   freteEscolhido: null,
   cep: "",
+  desconto: 0,
+  cupom: null,
   total: 0,
 }
 

@@ -34,15 +34,8 @@ import {
   type EstadoDaEtapa,
 } from "@/lib/checkout-visivel"
 import { cabecalhosDeQuemPede, guardarDaCompra, lerCliente, lerSessao } from "@/lib/conta"
-import {
-  codigoDoCupom,
-  cuponsDoCarrinho,
-  ehCupomDeFrete,
-  esquecerCupomPendente,
-  guardarCupomPendente,
-  lerCupomPendente,
-  tentarCupomPendente,
-} from "@/lib/cupom-pendente"
+import { porCupom, tirarCupom } from "@/lib/cupom"
+import { esquecerCupomPendente, tentarCupomPendente } from "@/lib/cupom-pendente"
 import type { Documento } from "@/lib/documento"
 import { emReais } from "@/lib/formato"
 import { cepDeOutraCidade, comCepNovo, lerEndereco, montarEndereco } from "@/lib/endereco"
@@ -50,7 +43,6 @@ import { cliente, configuracoes } from "@/lib/medusa"
 import { depoisDaRecusa, entradaDoCarrinho, recusaDaPorta } from "@/lib/pagamento"
 import { conferirContato, conferirEndereco, dicaDoEmail } from "@/lib/passos-do-checkout"
 import { COOKIE_CLIENTE, OPCOES_DOS_COOKIES } from "@/lib/primeira-compra"
-import { ehCodigoDePromocao } from "@/lib/promocoes"
 import { rastroDaCompra, registrarRastro } from "@/lib/rastro"
 import { lerToken } from "@/lib/sessao"
 import { CHECKOUT_ABERTO } from "@/lib/site"
@@ -934,113 +926,24 @@ export async function consultarCep(cep: string): Promise<CepDoCheckout> {
 /* ── cupom ────────────────────────────────────────────────────────────────── */
 
 /**
- * Manda o código pro Medusa e conta o que ele respondeu.
- *
- * QUEM VALIDA É O MEDUSA. Não existe lista de cupom neste código, e não pode
- * existir: cupom escrito no navegador é desconto que qualquer um lê no
- * código-fonte e aplica sozinho. A tela só pergunta e mostra a resposta.
- *
- * O Medusa responde 400 pra código que não existe, e também aceita 200 sem
- * aplicar nada quando o código existe mas não vale pra este carrinho. Os dois
- * casos dão no mesmo pra quem está comprando — então a checagem que vale é
- * RELER o carrinho e ver se o código entrou na lista.
- *
- * MAIÚSCULA E MINÚSCULA NÃO IMPORTAM PRA QUEM DIGITA, e importam pro Medusa:
- * ele procura o código exatamente como foi cadastrado. A loja punha tudo em
- * maiúsculas, e um cupom cadastrado como "bemvindo10" nunca valia (24/09).
- * Agora vai como foi digitado, depois em maiúsculas, depois em minúsculas —
- * a primeira que entrar vale, e a conferência não liga pra caixa.
- *
- * UM CUPOM POR PEDIDO, como na Nuvemshop (0128): o novo troca o de antes. O
- * de antes sai primeiro — o Medusa recusa um segundo cupom no carrinho — e
- * volta se o novo não entrar.
- *
- * FRETE GRÁTIS ANTES DA ENTREGA: o Medusa só desconta o frete de uma entrega
- * escolhida, e sem ela recusa o cupom como se não existisse. Quando o código
- * é de frete (o Medusa diz, `ehCupomDeFrete`), ele fica guardado e entra
- * sozinho quando a entrega for escolhida (`lib/cupom-pendente.ts`).
+ * Manda o código pro Medusa e conta o que ele respondeu. A regra inteira —
+ * quem valida, maiúscula e minúscula, um cupom por pedido, o de frete grátis
+ * guardado — mora em `lib/cupom.ts`, a mesma da sacola (0207).
  */
 export async function aplicarCupom(anterior: EstadoDaEtapa, fd: FormData): Promise<EstadoDaEtapa> {
   const digitado = texto(fd, "cupom")
   if (!digitado) return erro(anterior, { cupom: "Escreve o código." }, "", fd)
-  // O código da oferta do checkout (BUMP-) e o das promoções automáticas
-  // (PROMO-) não são cupom: entram sozinhos, pela caixinha e pelo Medusa.
-  const maiusculo = digitado.toUpperCase()
-  if (ehCodigoDeBump(maiusculo) || ehCodigoDePromocao(maiusculo))
+
+  const r = await porCupom(digitado)
+  if (r.situacao === "sem-carrinho") return erro(anterior, {}, EXPIROU, fd)
+  if (r.situacao === "recusado")
     return erro(anterior, { cupom: "Esse cupom não vale pra este pedido." }, "", fd)
-
-  const atual = await carrinhoAtual()
-  if (!atual) return erro(anterior, {}, EXPIROU, fd)
-
-  const mesmoCodigo = (c: string | null | undefined) =>
-    (c ?? "").toLowerCase() === digitado.toLowerCase()
-  const antes = cuponsDoCarrinho(atual.carrinho.promotions)
-  if (antes.some(mesmoCodigo)) {
-    refresh()
-    return certo(anterior)
-  }
-  if (antes.length) {
-    try {
-      await atual.sdk.store.cart.removePromotions(atual.carrinho.id, { promo_codes: antes })
-    } catch (e) {
-      registrar(e, `tirar o cupom de antes (${antes.join(", ")})`)
-    }
-  }
-
-  let entrou = false
-  for (const codigo of new Set([digitado, digitado.toUpperCase(), digitado.toLowerCase()])) {
-    try {
-      await atual.sdk.store.cart.addPromotions(atual.carrinho.id, { promo_codes: [codigo] })
-    } catch {
-      // 400 é a resposta pra código inexistente. Não é exceção nossa.
-    }
-    const depois = await lerCarrinho(CAMPOS_CHECKOUT)
-    entrou = (depois?.promotions ?? []).some((p) => mesmoCodigo(p?.code))
-    if (entrou) break
-  }
-
-  if (entrou) {
-    // O que a pessoa digitou manda: um cupom guardado de antes (o do link) sai.
-    await esquecerCupomPendente()
-    refresh()
-    return certo(anterior)
-  }
-
-  const codigo = codigoDoCupom(digitado)
-  const semEntrega = !atual.carrinho.shipping_methods?.length
-  if (codigo) {
-    const tipo = await ehCupomDeFrete(codigo)
-    // Sem entrega, qualquer cupom de frete espera; com ela, o "só na mais
-    // barata" espera a pessoa escolher a econômica. O de antes NÃO volta: a
-    // pessoa trocou por este, e com dois o guardado nunca entraria.
-    if (tipo.frete && (semEntrega || tipo.soMaisBarato)) {
-      await guardarCupomPendente({ codigo, ...tipo })
-      refresh()
-      return certo(anterior)
-    }
-  }
-
-  if (antes.length) {
-    try {
-      await atual.sdk.store.cart.addPromotions(atual.carrinho.id, { promo_codes: antes })
-    } catch (e) {
-      registrar(e, `devolver o cupom de antes (${antes.join(", ")})`)
-    }
-  }
-  return erro(anterior, { cupom: "Esse cupom não vale pra este pedido." }, "", fd)
+  refresh()
+  return certo(anterior)
 }
 
 export async function removerCupom(codigo: string): Promise<void> {
-  const atual = await carrinhoAtual()
-  if (!atual || !codigo) return
-
-  try {
-    await atual.sdk.store.cart.removePromotions(atual.carrinho.id, { promo_codes: [codigo] })
-  } catch (e) {
-    registrar(e, `remover cupom ${codigo}`)
-  }
-  // Tirado o cupom, o guardado (o mesmo, vindo do link) não volta sozinho.
-  if ((await lerCupomPendente())?.codigo === codigoDoCupom(codigo)) await esquecerCupomPendente()
+  await tirarCupom(codigo)
   refresh()
 }
 

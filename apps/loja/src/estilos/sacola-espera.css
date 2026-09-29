@@ -29,7 +29,7 @@
 
 .sacolinha[data-ocupada] .sacolinha__soma-valor,
 .sacolinha[data-ocupada] .sacolinha__parcela,
-.sacolinha[data-ocupada] .sacolinha__frete-texto,
+.sacolinha[data-ocupada] .sacolinha__frete-frase mark,
 .sacolinha[data-ocupada] .sacolinha__frete-trilho,
 .sacolinha[data-ocupada] .sacolinha__detalhe b,
 .sacolinha[data-ocupada] .sacolinha__opcao-preco,
@@ -97,7 +97,7 @@
 @media (prefers-reduced-motion: reduce) {
   .sacolinha[data-ocupada] .sacolinha__soma-valor,
   .sacolinha[data-ocupada] .sacolinha__parcela,
-  .sacolinha[data-ocupada] .sacolinha__frete-texto,
+  .sacolinha[data-ocupada] .sacolinha__frete-frase mark,
   .sacolinha[data-ocupada] .sacolinha__frete-trilho,
   .sacolinha[data-ocupada] .sacolinha__detalhe b,
   .sacolinha[data-ocupada] .sacolinha__opcao-preco,

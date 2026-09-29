@@ -231,6 +231,15 @@ export type CupomAplicado = { codigo: string }
  */
 export type CupomGuardado = { codigo: string; frete: boolean; soMaisBarato: boolean }
 
+/** A frase do cupom guardado, depois do código — a mesma no checkout e na sacola. */
+export function fraseDoGuardado(g: Pick<CupomGuardado, "frete" | "soMaisBarato">): string {
+  return g.soMaisBarato
+    ? "guardado: frete grátis na entrega econômica — entra quando ela for escolhida."
+    : g.frete
+      ? "guardado: frete grátis — entra quando você escolher a entrega."
+      : "guardado: entra sozinho quando o pedido estiver nas regras dele."
+}
+
 export type CheckoutVisivel = {
   id: string
   regiaoId: string

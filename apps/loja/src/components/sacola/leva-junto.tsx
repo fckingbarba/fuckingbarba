@@ -10,7 +10,12 @@ import { adicionar } from "@/lib/acoes/carrinho"
 import type { SugestaoDaSacola } from "@/lib/carrinho-visivel"
 import { faltaPraPromocao } from "@/lib/configuracoes"
 import { emReais } from "@/lib/formato"
-import { escolherLevaJunto, sacolaDe, type ModeloDeRecomendacao } from "@/lib/recomendacao"
+import {
+  escolherLevaJunto,
+  sacolaDe,
+  type ModeloDeRecomendacao,
+  type SugestaoEscolhida,
+} from "@/lib/recomendacao"
 
 /**
  * O "LEVA JUNTO" DA GAVETA — o cross-sell do protótipo da loja
@@ -20,8 +25,9 @@ import { escolherLevaJunto, sacolaDe, type ModeloDeRecomendacao } from "@/lib/re
  * QUEM ESCOLHE É O MOTOR DE RECOMENDAÇÃO (`escolherLevaJunto`, em
  * `lib/recomendacao.ts`): o que combina com o que já está na sacola — pelos
  * pedidos da loja e pela rotina da PDP —, com peso a mais pra quem sozinho
- * fecha o frete grátis (e a etiqueta no primeiro deles). Nada fixo, e nada
- * pra escolher no admin.
+ * fecha o frete grátis — e o primeiro deles sobe pro medidor lá de cima
+ * (`useLevaJunto`, logo abaixo; entrega 0207). Nada fixo, e nada pra
+ * escolher no admin.
  *
  * A LISTA E O MODELO VÊM PRONTOS DO SERVIDOR (`vitrineDaSacola` e
  * `modeloDeRecomendacao`, no layout raiz): a gaveta só decide, na hora, com
@@ -36,45 +42,16 @@ import { escolherLevaJunto, sacolaDe, type ModeloDeRecomendacao } from "@/lib/re
  * Sacola vazia não tem leva junto: ali quem fala é o "Ver produtos".
  */
 export function LevaJunto({
-  vitrine,
-  modelo,
+  escolhidos,
   aoNavegar,
 }: {
-  vitrine: readonly SugestaoDaSacola[]
-  modelo: ModeloDeRecomendacao | null
+  /** O que o motor escolheu, sem o produto que já está no medidor do frete. */
+  escolhidos: readonly SugestaoEscolhida[]
   /** O mesmo da gaveta: link de dentro dela fecha a gaveta. */
   aoNavegar: (ev: MouseEvent<HTMLAnchorElement>) => void
 }) {
-  const sacola = useSacola()
-  const politica = useFrete()
-
-  const carrinho = sacola?.carrinho
-  const escolhidos = useMemo(() => {
-    if (!carrinho) return []
-    return escolherLevaJunto(
-      vitrine,
-      sacolaDe(carrinho.itens),
-      faltaPraPromocao(politica, carrinho.subtotal),
-      modelo
-    )
-  }, [vitrine, modelo, carrinho, politica])
-
-  if (!sacola || !carrinho || !carrinho.itens.length || !escolhidos.length) return null
-  function levar(s: SugestaoDaSacola) {
-    void sacola?.adicionar(
-      [
-        {
-          varianteId: s.varianteId,
-          nome: s.nome,
-          handle: s.handle,
-          imagem: s.imagem,
-          quantidade: 1,
-          precoUnitario: s.preco,
-        },
-      ],
-      () => adicionar(s.varianteId, 1)
-    )
-  }
+  const levar = useLevar()
+  if (!escolhidos.length) return null
 
   return (
     <section className="sacolinha__leve" aria-labelledby="sugestoes-titulo">
@@ -85,12 +62,6 @@ export function LevaJunto({
       <ul className="sacolinha__leve-lista">
         {escolhidos.map((s) => (
           <li className="sacolinha__leve-item" key={s.varianteId}>
-            {s.libera ? (
-              <span className="sacolinha__leve-selo">
-                <Raio />
-                Libera o frete grátis
-              </span>
-            ) : null}
             {/* A foto leva pro produto, como o nome na lista de cima; fora do
                 Tab e do leitor de tela, porque o botão já diz quem é. */}
             <Link
@@ -111,7 +82,7 @@ export function LevaJunto({
                 type="button"
                 className="sacolinha__leve-add"
                 onClick={() => levar(s)}
-                aria-label={`Adicionar ${s.nome} à sacola${s.libera ? ", libera o frete grátis" : ""}`}
+                aria-label={`Adicionar ${s.nome} à sacola`}
                 data-leva-junto={s.varianteId}
               >
                 <Mais />
@@ -123,4 +94,58 @@ export function LevaJunto({
       </ul>
     </section>
   )
+}
+
+/**
+ * A ESCOLHA DO MOTOR, UMA VEZ SÓ POR GAVETA (entrega 0207). Quem fecha o
+ * frete grátis sozinho sobe pro medidor lá de cima ("Completa o frete
+ * grátis"), e o "Leva junto" fica com os outros — por isso o motor escolhe
+ * QUATRO: saindo um pro medidor, a lista continua com três.
+ *
+ * `completa` é o primeiro que fecha a conta (o da etiqueta, `libera`), e só
+ * existe faltando valor pro frete grátis.
+ */
+export function useLevaJunto(
+  vitrine: readonly SugestaoDaSacola[],
+  modelo: ModeloDeRecomendacao | null
+): { completa: SugestaoEscolhida | null; lista: SugestaoEscolhida[] } {
+  const sacola = useSacola()
+  const politica = useFrete()
+  const carrinho = sacola?.carrinho
+
+  return useMemo(() => {
+    if (!carrinho?.itens.length) return { completa: null, lista: [] }
+    const todos = escolherLevaJunto(
+      vitrine,
+      sacolaDe(carrinho.itens),
+      faltaPraPromocao(politica, carrinho.subtotal),
+      modelo,
+      4
+    )
+    const completa = todos.find((s) => s.libera) ?? null
+    return { completa, lista: todos.filter((s) => s !== completa).slice(0, 3) }
+  }, [vitrine, modelo, carrinho, politica])
+}
+
+/**
+ * "Adicionar" entra na MESMA fila das quantidades (o `adicionar` do
+ * contexto): a linha aparece na sacola no clique, o total esmaece até o
+ * Medusa responder, e o que volta substitui o da tela inteiro.
+ */
+export function useLevar(): (s: SugestaoDaSacola) => void {
+  const sacola = useSacola()
+  return (s) =>
+    void sacola?.adicionar(
+      [
+        {
+          varianteId: s.varianteId,
+          nome: s.nome,
+          handle: s.handle,
+          imagem: s.imagem,
+          quantidade: 1,
+          precoUnitario: s.preco,
+        },
+      ],
+      () => adicionar(s.varianteId, 1)
+    )
 }

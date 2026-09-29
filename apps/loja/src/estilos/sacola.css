@@ -110,92 +110,64 @@
   outline: 2px solid var(--color-amarelo);
   outline-offset: 2px;
 }
+/* O medidor do frete grátis (0207): a frase grande, o caminhão andando até a
+   bandeira da meta, o produto que completa; verde quando chegou. */
 .sacolinha__frete {
-  padding: 13px 18px 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 18px 13px;
   background: #fff3c4;
   border-bottom: 2px solid var(--color-tinta);
 }
-.sacolinha__frete-topo {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 8px;
+.sacolinha__frete[data-completo] {
+  background: #dff8ef;
 }
-.sacolinha__frete-rotulo {
+.sacolinha__frete-frase {
   margin: 0;
   display: flex;
   align-items: center;
-  gap: 5px;
-  font-size: 0.64rem;
-  font-weight: 800;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--color-tinta-suave);
-}
-.sacolinha__frete-rotulo svg {
-  width: 11px;
-  height: 11px;
-  fill: var(--color-amarelo-escuro);
-  flex-shrink: 0;
-}
-.sacolinha__frete-texto {
-  margin: 0;
-  font-size: 0.78rem;
+  gap: 7px;
+  font-size: 0.92rem;
+  font-weight: 600;
   line-height: 1.3;
-  text-align: right;
 }
-.sacolinha__frete-texto b {
-  font-weight: 800;
+.sacolinha__frete-frase mark {
+  padding: 0 4px;
+  background: var(--color-amarelo);
+  color: inherit;
+  font-weight: 900;
   font-variant-numeric: tabular-nums;
+}
+.sacolinha__frete-frase b,
+.sacolinha__frete[data-completo] .sacolinha__frete-frase {
+  font-weight: 900;
+}
+.sacolinha__frete[data-completo] .sacolinha__frete-frase {
+  color: #0b7f62;
+}
+.sacolinha__frete-certo {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  padding: 5px;
+  background: #0b7f62;
+  color: #ffffff;
 }
 .sacolinha__frete-trilho {
   position: relative;
   display: block;
-  height: 16px;
+  height: 14px;
+  margin: 8px 0 4px;
   background: #ffffff;
   border: 2px solid var(--color-tinta);
-  clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px);
 }
 .sacolinha__frete-barra {
   display: block;
   height: 100%;
   width: 0;
   background: var(--color-tinta);
-  transition:
-    width 0.5s var(--ease-suave),
-    background 0.3s ease;
-}
-.sacolinha__frete-trilho::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: repeating-linear-gradient(
-    90deg,
-    transparent 0 calc(8.3333% - 2px),
-    #fff3c4 calc(8.3333% - 2px) 8.3333%
-  );
-}
-.sacolinha__frete-raio {
-  position: absolute;
-  top: 50%;
-  left: 0;
-  z-index: 2;
-  width: 15px;
-  height: 15px;
-  margin-left: -7px;
-  transform: translateY(-50%) scale(0.9);
-  fill: var(--color-amarelo);
-  filter: drop-shadow(0 0 3px rgba(0, 0, 0, 0.55));
-  opacity: 0;
-  transition:
-    left 0.5s var(--ease-suave),
-    opacity 0.25s ease;
-  pointer-events: none;
-}
-.sacolinha__frete[data-andando] .sacolinha__frete-raio {
-  opacity: 1;
+  transition: width 0.5s var(--ease-suave);
 }
 .sacolinha__frete[data-completo] .sacolinha__frete-barra {
   background: repeating-linear-gradient(
@@ -204,26 +176,114 @@
     var(--color-amarelo) 9px 18px
   );
 }
-.sacolinha__frete[data-completo] .sacolinha__frete-rotulo {
+.sacolinha__frete-caminhao {
+  position: absolute;
+  top: 50%;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin-left: -16px;
+  background: var(--color-amarelo);
+  border: 2px solid var(--color-tinta);
+  transform: translateY(-50%);
+  transition: left 0.5s var(--ease-suave);
+}
+.sacolinha__frete-caminhao svg {
+  width: 18px;
+  height: 18px;
+}
+.sacolinha__frete-pe {
+  margin: 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--color-tinta-suave);
+}
+.sacolinha__frete-meta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-tinta);
+}
+.sacolinha__frete-meta svg {
+  width: 12px;
+  height: 12px;
+}
+.sacolinha__completa {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  background: #ffffff;
+  border: 2px solid var(--color-tinta);
+}
+.sacolinha__completa-foto {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  background: #f2f3f4;
+  border: 2px solid var(--color-tinta);
+}
+.sacolinha__completa-foto img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.sacolinha__completa-corpo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font-size: 0.72rem;
+  color: var(--color-tinta-suave);
+}
+.sacolinha__completa-selo {
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: #0b7f62;
 }
-.sacolinha__frete[data-completo] .sacolinha__frete-rotulo svg {
-  fill: #0b7f62;
+.sacolinha__completa-nome {
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1.2;
+  color: var(--color-tinta);
 }
-.sacolinha__frete.e-liberou .sacolinha__frete-trilho {
-  animation: frete-estufa 0.6s var(--ease-suave);
+.sacolinha__completa-add,
+.sacolinha__cupom-aplica {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 44px;
+  padding: 0 12px;
+  background: var(--color-tinta);
+  color: #ffffff;
+  border: 2px solid var(--color-tinta);
+  font-family: inherit;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
 }
-.sacolinha__frete.e-liberou .sacolinha__frete-texto {
-  animation: frete-sobe 0.5s var(--ease-suave);
+.sacolinha__completa-add svg {
+  width: 12px;
+  height: 12px;
+}
+.sacolinha__completa-add:hover {
+  background: var(--color-amarelo);
+  color: var(--color-tinta);
 }
 @media (prefers-reduced-motion: reduce) {
   .sacolinha__frete-barra,
-  .sacolinha__frete-raio {
+  .sacolinha__frete-caminhao {
     transition: none;
-  }
-  .sacolinha__frete.e-liberou .sacolinha__frete-trilho,
-  .sacolinha__frete.e-liberou .sacolinha__frete-texto {
-    animation: none;
   }
 }
 .sacolinha__corpo {
@@ -376,6 +436,114 @@
   background: var(--color-tinta);
   color: #ffffff;
 }
+/* O cupom no pé da gaveta (0207): fechado é uma linha só, tracejada. */
+.sacolinha__cupom {
+  margin-bottom: 9px;
+}
+.sacolinha__cupom-abre {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  background: rgba(255, 216, 77, 0.1);
+  border: 1.5px dashed var(--color-amarelo);
+  color: var(--color-amarelo);
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+.sacolinha__cupom-pergunta,
+.sacolinha__cupom-rotulo,
+.sacolinha__cupom-codigo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sacolinha__cupom svg {
+  flex-shrink: 0;
+  width: 15px;
+  height: 15px;
+}
+.sacolinha__cupom-acao,
+.sacolinha__cupom-tira {
+  font-size: 0.74rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.sacolinha__cupom-rotulo {
+  margin-bottom: 6px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-amarelo);
+}
+.sacolinha__cupom-linha {
+  display: flex;
+}
+.sacolinha__cupom-linha input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 11px;
+  border: 2px solid var(--color-amarelo);
+  border-right: none;
+  background: #ffffff;
+  color: var(--color-tinta);
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.sacolinha__cupom-linha input:focus-visible {
+  outline: 2px solid var(--color-amarelo-escuro);
+  outline-offset: -2px;
+}
+.sacolinha__cupom-linha input[aria-invalid="true"] {
+  border-color: #ff8a80;
+}
+.sacolinha__cupom-aplica {
+  background: var(--color-amarelo);
+  border-color: var(--color-amarelo);
+  color: var(--color-tinta);
+}
+.sacolinha__cupom-ok {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 44px;
+  padding: 0 12px;
+  background: rgba(79, 224, 185, 0.12);
+  border: 1.5px solid #4fe0b9;
+  color: #4fe0b9;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+.sacolinha__cupom-tira {
+  min-height: 44px;
+  padding: 0 2px;
+  background: none;
+  border: none;
+  color: #98a1ab;
+  font-family: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.sacolinha__cupom-msg {
+  margin: 6px 0 0;
+  font-size: 0.72rem;
+  color: #ffd2cd;
+}
+.sacolinha__cupom-msg[data-tipo="espera"] {
+  color: #98a1ab;
+}
+.sacolinha__cupom-msg[hidden] {
+  display: none;
+}
 .sacolinha__detalhe {
   margin: 0 0 4px;
   display: flex;
@@ -389,7 +557,8 @@
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
-.sacolinha__detalhe b[data-gratis] {
+.sacolinha__detalhe b[data-gratis],
+.sacolinha__detalhe b[data-desconto] {
   color: #4fe0b9;
 }
 .sacolinha__detalhe[hidden] {
@@ -531,32 +700,6 @@
   height: 100%;
   object-fit: cover;
   display: block;
-}
-.sacolinha__leve-selo {
-  position: absolute;
-  top: 8px;
-  left: 0;
-  z-index: 1;
-  padding: 3px 8px 3px 6px;
-  background: var(--color-amarelo);
-  color: var(--color-tinta);
-  font-size: 0.56rem;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  line-height: 1.2;
-  clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 50%, calc(100% - 6px) 100%, 0 100%);
-  /* Raio e texto lado a lado. Em linha, o navegador quebrava logo depois do
-     raio e ele ficava sozinho, em cima da frase. */
-  display: flex;
-  align-items: center;
-  gap: 2px;
-}
-.sacolinha__leve-selo svg {
-  flex-shrink: 0;
-  width: 8px;
-  height: 8px;
-  fill: currentColor;
 }
 .sacolinha__leve-corpo {
   display: flex;
