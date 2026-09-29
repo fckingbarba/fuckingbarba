@@ -3913,6 +3913,23 @@ Seu pedido. O assunto muda com o que a pessoa comprou:
 - [ ] **Depois do deploy (você):** CRM → Fluxos → Jornada do resultado → "Mandar pra mim" em
       "Indique um brother": chegam os 3 jeitos.
 
+**A previsão por cliente — pronta em 29/09 (entrega 0220).** A etapa 5 do plano, começando pelo
+que você escolheu. Pra cada cliente que comprou, na loja nova ou na Nuvemshop:
+- **Próxima compra:** com 3 compras ou mais, pelo ritmo dele ("compra a cada 45 dias"); com menos,
+  pelo dia em que o produto acaba.
+- **Chance de sair:** baixa, média ou alta, pelo quanto ele passou do dia de comprar — e quem
+  visitou a loja há pouco desce um nível.
+- **LTV:** o que já gastou, e o previsto pros próximos 12 meses.
+- Cada número vem com o porquê. É conta, não adivinhação: melhora com o tempo.
+
+Onde ver:
+- **Na ficha do cliente** (Clientes → o cliente), embaixo das etiquetas do CRM.
+- **Em CRM → Previsão:** quantos devem comprar em 7 e em 30 dias, a chance de sair da base, o LTV
+  médio, a lista de quem deve comprar esta semana, a dos que mais gastaram e estão pra sair, e a
+  busca por e-mail.
+
+Depois do deploy — **nada a configurar.**
+
 **A parcela mínima do cartão, editável — pronta em 27/09 (entrega 0157).** O pedido dele: "quero
 poder editar a parcela mínima no cartão, ali diz 5 reais". Em **Configurações → Pagamento**, o
 bloco **Parcelas no cartão** tem o campo **Parcela mínima**.
