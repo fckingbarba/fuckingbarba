@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next"
 import { Inter } from "next/font/google"
+import { Suspense } from "react"
 import { Tags } from "@/components/analytics/tags"
 import { SimboloEstrela } from "@/components/estrelas"
 import { Anuncio } from "@/components/layout/anuncio"
@@ -10,7 +11,9 @@ import { ProvedorDaParcela, ProvedorDoFrete } from "@/components/configuracoes/c
 import { ProvedorDaSacola } from "@/components/sacola/contexto"
 import { Gaveta } from "@/components/sacola/gaveta"
 import { VigiaDaPrimeiraCompra } from "@/components/primeira-compra/vigia"
+import { VigiaDoPedido } from "@/components/pedido-recente/vigia"
 import { Telemetria } from "@/components/telemetria/telemetria"
+import { linkDoWhatsapp } from "@/lib/configuracoes"
 import { configuracoes, modeloDeRecomendacao, vitrineDaSacola } from "@/lib/medusa"
 import { emProducao, site } from "@/lib/site"
 import "./globals.css"
@@ -91,7 +94,7 @@ export const viewport: Viewport = {
  * └────────────────────────────────────────────────────────────────────────┘
  */
 export default async function RootLayout({ children }: LayoutProps<"/">) {
-  const { frete, integracoes, pagamento } = await configuracoes()
+  const { atendimento, frete, integracoes, pagamento } = await configuracoes()
   // O "leva junto" da sacola: os produtos, cacheados como a vitrine (ver
   // `vitrineDaSacola`), e o modelo que escolhe entre eles (`lib/recomendacao.ts`).
   const vitrine = await vitrineDaSacola()
@@ -127,6 +130,11 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
               {children}
               <Rodape />
               <Gaveta vitrine={vitrine} modelo={modelo} />
+              {/* O balão de quem acabou de comprar (0203): dentro da sacola, pro
+                  "Refazer" abrir a gaveta; no Suspense, pelo `usePathname`. */}
+              <Suspense fallback={null}>
+                <VigiaDoPedido whatsapp={linkDoWhatsapp(atendimento.whatsapp)} />
+              </Suspense>
             </ProvedorDaSacola>
           </ProvedorDaParcela>
         </ProvedorDoFrete>

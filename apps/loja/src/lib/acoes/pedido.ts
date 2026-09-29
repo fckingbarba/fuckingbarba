@@ -1,10 +1,12 @@
 "use server"
 
 import { adicionar } from "@/lib/acoes/carrinho"
-import type { CarrinhoVisivel } from "@/lib/carrinho-visivel"
+import type { CarrinhoVisivel, ItemDoCarrinho } from "@/lib/carrinho-visivel"
 import type { DeNovo } from "@/lib/conta-visivel"
-import { ehDeQuemComprou, situacaoDoPedido } from "@/lib/pedido"
+import { ehDeQuemComprou, lerPedido, situacaoDoPedido } from "@/lib/pedido"
 import { ehDaConta, lerPedidoDaConta } from "@/lib/pedidos-da-conta"
+
+const GENERICO = "Não consegui falar com a loja agora. Tenta de novo em instantes."
 
 /**
  * "E aí, o Pix caiu?" — a pergunta que a tela de obrigado (e a do pedido, na
@@ -39,16 +41,33 @@ export async function perguntarPagamento(
  * pela conta, e de outra pessoa ele simplesmente não vem.
  */
 export async function comprarDeNovo(pedidoId: string): Promise<DeNovo> {
-  const GENERICO = "Não consegui falar com a loja agora. Tenta de novo em instantes."
   if (typeof pedidoId !== "string") return { ok: false, texto: GENERICO, carrinho: null }
 
   const leitura = await lerPedidoDaConta(pedidoId)
   if (leitura.estado !== "ok") return { ok: false, texto: GENERICO, carrinho: null }
+  return devolverASacola(leitura.pedido.itens)
+}
 
+/**
+ * REFAZER O PEDIDO — o "Refazer" do balão do pedido (`lib/pedido-recente.ts`),
+ * quando o Pix venceu. É o "comprar de novo" de quem não tem conta: o direito
+ * vem do crachá deste navegador, e o Medusa confere (`meu`).
+ */
+export async function refazerPedido(pedidoId: string): Promise<DeNovo> {
+  if (typeof pedidoId !== "string" || !/^order_[A-Za-z0-9]+$/.test(pedidoId)) {
+    return { ok: false, texto: GENERICO, carrinho: null }
+  }
+  if (!(await ehDeQuemComprou(pedidoId))) return { ok: false, texto: GENERICO, carrinho: null }
+  const leitura = await lerPedido(pedidoId)
+  if (!leitura?.meu) return { ok: false, texto: GENERICO, carrinho: null }
+  return devolverASacola(leitura.pedido.itens)
+}
+
+async function devolverASacola(itens: ItemDoCarrinho[]): Promise<DeNovo> {
   let carrinho: CarrinhoVisivel | null = null
   let unidades = 0
   const ficaram: string[] = []
-  for (const item of leitura.pedido.itens) {
+  for (const item of itens) {
     if (!item.varianteId || item.quantidade <= 0) {
       ficaram.push(item.nome)
       continue
