@@ -12,6 +12,7 @@
  * `lib/formulario.ts`, que a home usa também.
  */
 
+import type { AlvoDoFrete } from "@/lib/configuracoes"
 import type { Campo } from "@/lib/formulario"
 
 export type Situacao = "publicado" | "rascunho" | "esgotado"
@@ -177,6 +178,11 @@ export type PaginaDoProduto = {
    * o Medusa é de antes do avise-me.
    */
   avisos?: AvisosDoProduto
+  /**
+   * A política de frete da loja, pra prévia da caixa de compra. Sem a chave,
+   * o Medusa é de antes dela: a prévia não fala de frete (`SEM_FRETE`).
+   */
+  frete?: PoliticaDeFrete
 }
 
 export type AvisosDoProduto = { esperando: number; avisados: number }
@@ -314,12 +320,54 @@ export const reais = (v: number) => REAIS.format(v)
 
 /** A linha embaixo de "1 unidade", no cartão: duas linhas, no máximo (a mesma do backend). */
 export const LIMITE_DA_NOTA = 48
+
+/* ── o frete da prévia ─────────────────────────────────────────────────── */
+
 /**
- * O piso do frete grátis de hoje — pra prévia da caixa de compra mostrar onde
- * a tarja aparece. A loja lê o dela da política de frete (`frasesDoFrete`, em
- * `apps/loja/src/lib/configuracoes.ts`); mudou lá, a prévia daqui erra a tarja.
+ * A POLÍTICA DE FRETE DA LOJA, como o Medusa grava (a mesma do
+ * `/store/configuracoes`, que vem junto no `GET /dashboard/produtos/:id`):
+ * a prévia da caixa de compra põe a tarja e o "faltam R$ X" onde a página
+ * põe. Antes era um piso fixo aqui (149,90), e a loja já anunciava outro.
+ *
+ * As contas são as da loja (`apps/loja/src/lib/configuracoes.ts`:
+ * `frasesDoFrete`, `pisoVale`, `alcancaOPiso` e `fraseDoQueFalta`) — mudou
+ * lá, muda aqui.
  */
-export const PISO_DO_FRETE_GRATIS = 149.9
+export type PoliticaDeFrete =
+  | { modo: "nenhuma" }
+  | { modo: "gratis"; piso: number; alvo: AlvoDoFrete; tetoDeCusto: number | null }
+  | { modo: "fixo"; piso: number; preco: number; alvo: AlvoDoFrete; tetoDeCusto: number | null }
+
+/** Sem política (ou um Medusa de antes dela): a prévia não fala de frete, como a loja. */
+export const SEM_FRETE: PoliticaDeFrete = { modo: "nenhuma" }
+
+/** "Frete grátis" · "Frete R$ 9,90": o selo curto, o mesmo da loja. */
+function seloDoFrete(p: Exclude<PoliticaDeFrete, { modo: "nenhuma" }>): string {
+  return p.modo === "gratis" ? "Frete grátis" : `Frete ${reais(p.preco)}`
+}
+
+/**
+ * A tarja de um cartão de quantidade: o selo quando o total ALCANÇA o piso
+ * (`>=`, como o Medusa). Com piso zero não há tarja — o frete é de todo
+ * mundo, e quem anuncia na loja é a garantia; sem política, nada.
+ */
+export function tarjaDoFrete(p: PoliticaDeFrete, total: number): string | null {
+  if (p.modo === "nenhuma" || p.piso <= 0 || total < p.piso) return null
+  return seloDoFrete(p)
+}
+
+/**
+ * O frete do rodapé do "Leve junto": "Faltam R$ 25,00 pro frete grátis" (ou
+ * "…pro frete de R$ 9,90"), e o selo quando o total alcança. `null` — fica
+ * só o total — sem política ou com piso zero, como na loja.
+ */
+export function freteDoRodape(p: PoliticaDeFrete, total: number): string | null {
+  if (p.modo === "nenhuma" || p.piso <= 0) return null
+  const falta = Math.round((p.piso - total) * 100) / 100
+  if (falta <= 0) return seloDoFrete(p)
+  const alvo = p.modo === "gratis" ? "o frete grátis" : `o frete de ${reais(p.preco)}`
+  return `${falta === 1 ? "Falta" : "Faltam"} ${reais(falta)} pr${alvo}`
+}
 
 /* ── o editor de seção ─────────────────────────────────────────────────── */
 

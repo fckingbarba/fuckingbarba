@@ -7,12 +7,14 @@ import { FotoDoProduto } from "@/components/produtos"
 import { Ajuda } from "@/components/visual"
 import { salvarCaixa } from "@/lib/acoes/produtos"
 import {
+  freteDoRodape,
   LIMITE_DA_NOTA,
-  PISO_DO_FRETE_GRATIS,
   reais,
+  tarjaDoFrete,
   type Caixa,
   type DetalheDoProduto,
   type NoCatalogo,
+  type PoliticaDeFrete,
 } from "@/lib/produtos"
 
 const MODOS = [
@@ -34,14 +36,17 @@ const MODOS = [
  * A CAIXA DE COMPRA — o que aparece logo abaixo do preço, na página deste
  * produto: os cartões "Quantas unidades" OU o "Leve junto", no mesmo lugar.
  * Mexer é rascunho; vale depois do "Salvar". A prévia imita a página, com a
- * conta da loja (os totais vêm do backend, a mesma `totalDaFaixa`).
+ * conta da loja (os totais vêm do backend, a mesma `totalDaFaixa`) e o frete
+ * da política gravada (`frete`, a mesma que a loja lê).
  */
 export function CaixaDeCompra({
   produto,
   catalogo,
+  frete,
 }: {
   produto: DetalheDoProduto
   catalogo: NoCatalogo[]
+  frete: PoliticaDeFrete
 }) {
   const avisar = useAvisar()
   const [salvando, comecar] = useTransition()
@@ -159,9 +164,15 @@ export function CaixaDeCompra({
       <div className="pdp-previa">
         <p className="previa-compra__rot">Prévia · como fica na página</p>
         {caixa.modo === "junto" ? (
-          <PreviaJunto preco={produto.preco} junto={caixa.junto} catalogo={catalogo} />
+          <PreviaJunto
+            // O total de 1 unidade: o preço de hoje, com a promoção — o que a loja soma.
+            preco={produto.degraus[0]?.total ?? produto.preco}
+            junto={caixa.junto}
+            catalogo={catalogo}
+            frete={frete}
+          />
         ) : (
-          <PreviaUnidades produto={produto} nota={caixa.nota} />
+          <PreviaUnidades produto={produto} nota={caixa.nota} frete={frete} />
         )}
       </div>
 
@@ -193,8 +204,16 @@ const comoGrava = (c: Caixa): Caixa => ({
   junto: c.modo === "junto" ? c.junto : [],
 })
 
-/** Os cartões de quantidade, com a tarja de frete grátis — como na página. */
-function PreviaUnidades({ produto, nota }: { produto: DetalheDoProduto; nota: string }) {
+/** Os cartões de quantidade, com a tarja do frete onde o total alcança o piso — como na página. */
+function PreviaUnidades({
+  produto,
+  nota,
+  frete,
+}: {
+  produto: DetalheDoProduto
+  nota: string
+  frete: PoliticaDeFrete
+}) {
   const degraus = produto.degraus
   if (!degraus.length || !produto.preco)
     return <p className="oferta__vazia">Sem preço no Bling: a página não mostra os cartões.</p>
@@ -209,6 +228,7 @@ function PreviaUnidades({ produto, nota }: { produto: DetalheDoProduto; nota: st
         {degraus.map(({ unidades: n, total }, i) => {
           const melhor = degraus.length > 1 && i === degraus.length - 1
           const economia = Math.round((preco * n - total) * 100) / 100
+          const tarja = tarjaDoFrete(frete, total)
           return (
             <div
               className="unid-cartao"
@@ -231,10 +251,10 @@ function PreviaUnidades({ produto, nota }: { produto: DetalheDoProduto; nota: st
               </span>
               <b className="unid-cartao__preco">{reais(total)}</b>
               <span className="unid-cartao__cada">{reais(total / n)} cada</span>
-              {total >= PISO_DO_FRETE_GRATIS ? (
+              {tarja ? (
                 <span className="unid-cartao__frete">
                   <Icone nome="raio" />
-                  Frete grátis
+                  {tarja}
                 </span>
               ) : null}
             </div>
@@ -249,21 +269,24 @@ function PreviaUnidades({ produto, nota }: { produto: DetalheDoProduto; nota: st
  * O leve junto, no lugar dos cartões — como a loja desenha desde a 0221: uma
  * caixa só, uma linha por produto com o "+ Levar", e o rodapé com o total e o
  * frete (a prévia mostra nada marcado). Produto esgotado some da página sozinho.
+ * Sem política de frete, ou com piso zero, o rodapé fica só com o total.
  */
 function PreviaJunto({
   preco,
   junto,
   catalogo,
+  frete,
 }: {
   preco: number | null
   junto: string[]
   catalogo: NoCatalogo[]
+  frete: PoliticaDeFrete
 }) {
   const itens = junto
     .map((h) => catalogo.find((p) => p.handle === h))
     .filter((p): p is NoCatalogo => Boolean(p))
   if (!itens.length) return <p className="oferta__vazia">Escolha pelo menos um produto.</p>
-  const falta = Math.round((PISO_DO_FRETE_GRATIS - (preco ?? 0)) * 100) / 100
+  const doFrete = preco ? freteDoRodape(frete, preco) : null
   return (
     <div className="junto-previa">
       <p className="unid-previa__titulo">
@@ -297,8 +320,8 @@ function PreviaJunto({
         ))}
         {preco ? (
           <p className="junto-previa__rodape">
-            <span>{falta > 0 ? `Faltam ${reais(falta)} pro frete grátis` : "Frete grátis"}</span>
-            <span>
+            {doFrete ? <span data-frete-do-junto>{doFrete}</span> : null}
+            <span className="junto-previa__total">
               Total <b className="num">{reais(preco)}</b>
             </span>
           </p>
