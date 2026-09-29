@@ -222,3 +222,18 @@
 /* O indique um brother na aba Fluxos (0215): os links, os brothers, o vendido e os cupons. */
 .numeros--indique { grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 12px 0 0; }
 @media (max-width: 1180px) { .numeros--indique { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* A previsão (0220): na ficha, embaixo das etiquetas; e a aba Previsão, com os números e as listas. */
+.previsao-ficha { margin: 16px 0 0; }
+.previsao-ficha .rotulo { margin: 0; }
+.etiquetas--previsao { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 1180px) { .etiquetas--previsao { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .etiquetas--previsao { grid-template-columns: minmax(0, 1fr); } }
+.numeros--previsao { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 16px; }
+@media (max-width: 640px) { .numeros--previsao { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.previsao-chances { display: flex; gap: 10px; }
+.previsao-chances [data-chance="baixa"] { color: var(--menta-escura); }
+.previsao-chances [data-chance="alta"] { color: var(--erro); }
+.chance { display: inline-block; padding: 2px 8px; background: var(--cinza); font-size: 0.66rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; }
+.chance[data-chance="baixa"] { background: var(--menta-clara); color: var(--menta-escura); }
+.chance[data-chance="alta"] { background: var(--erro-claro); color: var(--erro); }
+[data-busca-da-previsao] .busca { margin: 8px 0 12px; }
