@@ -212,6 +212,8 @@ export function nomeDaOrigem(fonte: string, meio: string): string {
     .replace(/^www\./, "")
   const m = meio.trim().toLowerCase()
   if (!f || f === "(not set)") return "Sem origem"
+  // A visita recente que o Google ainda não ligou a uma origem (some em algumas horas).
+  if (f === "(data not available)") return "Google ainda processando"
   if (f === "(direct)") return "Direto"
   if (m === "email" || m === "e-mail" || /newsletter|(^|\.)mail\./.test(f)) return "E-mail"
   for (const [padrao, nome] of ORIGENS) if (padrao.test(f)) return nome

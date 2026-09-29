@@ -4,6 +4,7 @@ import {
   caminhosDeCategoria,
   corteDoGoogle,
   montarVisitasNoPeriodo,
+  perguntasDoAgora,
   perguntasDoPeriodo,
 } from "../visitas-do-periodo"
 
@@ -88,20 +89,24 @@ describe("as perguntas ao Google", () => {
     })
   })
 
-  it("hoje contra ontem: a 5ª pergunta, as sacolas de ontem por hora (0212)", () => {
+  it("até agora: as visitas por dia e, pra quem abre, as sacolas de ontem por hora (0216)", () => {
     const p = lerPeriodo({}, AGORA)
-    const perguntas = perguntasDoPeriodo(p, [], [], true) as Record<string, unknown>[]
-    expect(perguntas).toHaveLength(5)
-    expect(perguntas[4]).toMatchObject({
+    expect(perguntasDoPeriodo(p, [], [], true)).toHaveLength(4)
+    const [porDia, sacolas, ...resto] = perguntasDoAgora(p, [], true) as Record<string, unknown>[]
+    expect(resto).toEqual([])
+    expect(porDia).toMatchObject({
+      dateRanges: [{ startDate: "2026-09-28", endDate: "2026-09-28" }],
+      dimensions: [{ name: "date" }],
+    })
+    expect(sacolas).toMatchObject({
       dateRanges: [{ startDate: "2026-09-27", endDate: "2026-09-27" }],
       dimensions: [{ name: "date" }, { name: "hour" }],
       dimensionFilter: {
         filter: { fieldName: "eventName", stringFilter: { value: "add_to_cart" } },
       },
     })
-    expect(perguntasDoPeriodo(lerPeriodo({ periodo: "ontem" }, AGORA), [], [], true)).toHaveLength(
-      4
-    )
+    expect(perguntasDoAgora(p, [], false)).toHaveLength(1)
+    expect(perguntasDoAgora(lerPeriodo({ periodo: "ontem" }, AGORA), [], true)).toEqual([])
   })
 
   it("as páginas de categoria: as vitrines das duas lojas, nunca a página de um produto", () => {
@@ -226,35 +231,26 @@ describe("as visitas do período", () => {
     expect(v.agora).toBe(5)
   })
 
-  it("hoje: a sacola de ontem para na hora do corte, e a taxa diz as vendas do dia inteiro (0212)", () => {
+  it("sem o total do dia: o corte do Google, e a taxa diz as vendas do dia inteiro (0212)", () => {
     const p = lerPeriodo({}, AGORA)
     const v = montarVisitasNoPeriodo(
       [
         porHora([
           ["20260928", 9, 100],
-          ["20260928", 14, 80], // em dia (15:40): o corte fica em 15h
+          ["20260928", 14, 80],
           ["20260927", 9, 200],
           ["20260927", 14, 87],
-          ["20260927", 20, 150], // depois do corte: não entra na conta de ontem
-        ]),
-        porDia([
-          ["20260928", "add_to_cart", 8],
-          ["20260927", "add_to_cart", 10],
+          ["20260927", 20, 150],
         ]),
         porDia([]),
+        porDia([]),
         {},
-        porHora([
-          ["20260927", 9, 4],
-          ["20260927", 14, 2],
-          ["20260927", 20, 4],
-        ]),
       ],
       p,
       AGORA,
       { completo: true, vendas: { atual: 2, antes: 4, noPeriodo: 4 } }
     )
     expect(v.ate).toBe(15)
-    expect(v.taxas?.sacola).toEqual({ valor: 4.44, antes: 2.09, variacao: 112, de: 8, em: 180 })
     expect(v.taxas?.compraram).toEqual({
       valor: 1.11,
       antes: 1.39,
@@ -263,6 +259,60 @@ describe("as visitas do período", () => {
       em: 180,
       noPeriodo: 4,
     })
+  })
+
+  it("com o total do dia (0216): todas as visitas e todas as vendas até agora; ontem até a mesma hora", () => {
+    const p = lerPeriodo({}, AGORA) // 15:40
+    const v = montarVisitasNoPeriodo(
+      [
+        // Por hora, o Google só somou até as 12h de hoje.
+        porHora([
+          ["20260928", 9, 100],
+          ["20260928", 12, 102],
+          ["20260927", 9, 200],
+          ["20260927", 14, 100],
+          ["20260927", 15, 30], // a hora de agora, ontem: fica de fora
+          ["20260927", 20, 150],
+        ]),
+        porDia([
+          ["20260928", "add_to_cart", 8],
+          ["20260927", "add_to_cart", 12],
+        ]),
+        porDia([]),
+        {},
+      ],
+      p,
+      AGORA,
+      {
+        completo: true,
+        vendas: { atual: 2, antes: 4, noPeriodo: 4, antesAteAgora: 5 },
+      },
+      [
+        porDia([["20260928", null, 275]]),
+        porHora([
+          ["20260927", 9, 4],
+          ["20260927", 14, 2],
+          ["20260927", 20, 6],
+        ]),
+      ]
+    )
+    expect(v.ate).toBeNull()
+    expect(v.visitas).toEqual({ valor: 275, antes: 300, variacao: -8 })
+    expect(v.comportamento?.visitas).toBe(275)
+    expect(v.taxas?.compraram).toEqual({ valor: 1.45, antes: 1.67, variacao: -13, de: 4, em: 275 })
+    expect(v.taxas?.sacola).toEqual({ valor: 2.91, antes: 2, variacao: 46, de: 8, em: 275 })
+  })
+
+  it("o total do dia nunca fica abaixo do que as horas já somaram", () => {
+    const p = lerPeriodo({}, AGORA)
+    const v = montarVisitasNoPeriodo(
+      [porHora([["20260928", 14, 90]])],
+      p,
+      AGORA,
+      { completo: false },
+      [porDia([["20260928", null, 60]])]
+    )
+    expect(v.visitas.valor).toBe(90)
   })
 
   it("sem comparar e sem visitas, as taxas ficam vazias em vez de dividir por zero", () => {

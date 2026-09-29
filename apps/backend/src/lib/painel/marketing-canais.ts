@@ -213,7 +213,10 @@ export function achadoDosCanais(c: Omit<Canais, "achado">): Achado | null {
     }
   const comVolume = c.canais.filter(
     (l) =>
-      l.visitas >= MINIMO_PRA_CONCLUIR.doCanal && l.conversao !== null && l.nome !== "Sem origem"
+      l.visitas >= MINIMO_PRA_CONCLUIR.doCanal &&
+      l.conversao !== null &&
+      l.nome !== "Sem origem" &&
+      l.nome !== "Google ainda processando"
   )
   if (!comVolume.length) return null
   const melhor = [...comVolume].sort((a, b) => b.conversao! - a.conversao!)[0]

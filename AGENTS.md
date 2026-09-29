@@ -1713,6 +1713,19 @@ inteiro (menos a fila, que é do agora) segue ele.
   de antes para na hora do corte, dividida pelas visitas no corte. A sacola e o bloco "O que as
   visitas fizeram" dizem "até as Nh" (o checkout, dos carrinhos, vai até agora). O `google-falso`
   responde a 5ª (`inicio.sacolasPorHora`).
+- **As visitas até agora (entrega 0216; o dono: "as conversões tão erradas, mostra apenas 2
+  compras").** Em 29/09 às 16h o Google tinha 202 visitas POR HORA (até as 12h) e 275 no total
+  por origem: o atraso é do relatório por hora, o total do dia vem quase em dia. Quando o período
+  chega até agora, vai uma segunda chamada (`perguntasDoAgora`, chave `…:agora`): as visitas por
+  dia (só o período) e, pra quem abre o Marketing, as sacolas do último dia do de antes por hora
+  (a 5ª da 0212 mudou pra cá — o `batchRunReports` aceita 5). Com o total: o card, o bloco e as
+  duas taxas usam o mesmo número (o maior entre o total e o que as horas somaram); a "visitas que
+  compraram" é todas as vendas até agora ÷ todas as visitas; o de antes (visitas, vendas e
+  sacolas) vai até a hora de agora; `ate` = `null` (some o "até as Nh"). Sem o total (a chamada
+  falhou ou veio vazia), o corte do Google, como na 0212. "(data not available)" nas origens =
+  "Google ainda processando" (fora das conclusões do Canais). O `google-falso` responde as visitas
+  por dia com `inicio.totalDoDia` (sem ele, vazio: o jeito de antes); o `conferir-marketing` acha
+  a chamada do Canais pelo `transactionId` (o Início também manda uma de duas).
 - Sem parâmetro nenhum (o painel de antes), as duas rotas respondem como sempre; o painel novo com
   o backend de antes (a janela do deploy) mostra o Início de antes (`InicioDeAntes`).
 - No painel: `lib/periodo.ts` (o endereço e os tipos), `components/periodo.tsx` (a barra: cada
