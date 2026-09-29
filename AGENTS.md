@@ -3705,7 +3705,13 @@ um cupom de 15% quando o brother paga.
     cada 2 meses: o que o motor lê do registro. Sem isso, o dia é pulado;
   - o lembrete, só se o convite desta jornada saiu e nenhum brother comprou desde então;
   - os dois são oferta (`lib/emails/indicacao.ts`, a etiqueta `crm-indicacao`): o código, o
-    WhatsApp, o "Ver na minha conta" e o link por extenso. Com a jornada desligada, nada sai.
+    WhatsApp, o "Ver na minha conta" e o link por extenso. Com a jornada desligada, nada sai;
+  - o assunto do convite é pela LINHA DO PEDIDO (entrega 0217, pedido do dono): a `trilha` da
+    jornada (a do pop-up, `trilhaDosComponentes`: o Fator manda, depois a barba, depois o cabelo).
+    O Fator, "Conhece alguém com a barba falhada?"; a barba, "…que precisa cuidar da barba?"; o
+    cabelo, "…que precisa dar um jeito no cabelo?"; o geral, o de antes. A frase diz o produto da
+    mesma linha (`produtoDaLinha`, no motor: num pedido do óleo com a pasta, o óleo). O "Mandar
+    pra mim" manda os três jeitos.
 - **O prêmio** (`lib/crm/premio-da-indicacao.ts`; o subscriber `premio-da-indicacao.ts`, no
   `payment.captured`): o pedido com um código de brother foi PAGO (o Pix pago, o cartão aprovado):
   - quem indicou ganha um cupom de 15%, só dele, que vale 60 dias (`VALEU-7KQ2MX`,
