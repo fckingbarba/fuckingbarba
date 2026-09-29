@@ -1191,7 +1191,8 @@ navegador troca pelos da visita logo depois da hidratação. O cartão é o mesm
 (`components/depoimento.tsx`). `ferramentas/conferir-esteira.mjs` confere os sorteios e a lista de
 trechos, sem servidor.
 
-**Trecho de entrevista não é avaliação** (`TRECHOS`, em `conteudo/depoimentos.ts`): aparece como
+**Trecho de entrevista não é avaliação** (`TRECHOS`, em `conteudo/depoimentos.ts`; VAZIA desde a
+0213, pedido do dono: com as avaliações de quem comprou chegando, os 160 trechos saíram): aparece como
 "Entrevista com cliente", sem nome, sem estrela e sem selo, e fica fora da nota média e do
 `AggregateRating` — na esteira e na seção "O que diz quem usou" (três por visita) da página do
 produto de que ele fala (uma vez só; os do Fator não se repetem nos kits). Avaliação de verdade,
