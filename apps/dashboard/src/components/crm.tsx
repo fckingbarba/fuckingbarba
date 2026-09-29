@@ -64,12 +64,19 @@ const navegadores = (n: number) => `${inteiro.format(n)} ${n === 1 ? "navegador"
 export function AbasDoCrm({
   atual,
 }: {
-  atual: "resumo" | "fluxos" | "campanhas" | "ajustes" | "emails" | "base"
+  atual: "resumo" | "previsao" | "fluxos" | "campanhas" | "ajustes" | "emails" | "base"
 }) {
   return (
     <nav className="abas" aria-label="CRM">
       <Link href="/crm" aria-current={atual === "resumo" ? "page" : undefined} data-aba="resumo">
         Resumo
+      </Link>
+      <Link
+        href={"/crm/previsao" as Route}
+        aria-current={atual === "previsao" ? "page" : undefined}
+        data-aba="previsao"
+      >
+        Previsão
       </Link>
       <Link
         href={"/crm/fluxos" as Route}
@@ -444,7 +451,55 @@ export function EtiquetasDoCrm({ crm }: { crm: FichaDoCrm }) {
           </div>
         ))}
       </div>
+      {crm.previsao ? <PrevisaoNaFicha p={crm.previsao} /> : null}
     </section>
+  )
+}
+
+/**
+ * A PREVISÃO DA PESSOA (0220), embaixo das etiquetas: a próxima compra (pelo
+ * ritmo, com 3 compras ou mais; senão, quando o produto acaba), a chance de
+ * sair e o LTV — o que já gastou e o previsto em 12 meses.
+ */
+function PrevisaoNaFicha({ p }: { p: NonNullable<FichaDoCrm["previsao"]> }) {
+  return (
+    <div className="previsao-ficha" data-previsao-crm>
+      <h3 className="rotulo">Previsão</h3>
+      <div className="etiquetas etiquetas--previsao">
+        <div className="etiqueta" data-previsao="proxima">
+          <span className="fila__ico">
+            <Icone nome="calendario" />
+          </span>
+          <div>
+            <p className="etiqueta__rot">Próxima compra</p>
+            <p className="etiqueta__valor">{p.proximaCompra.valor}</p>
+            <p className="etiqueta__porque">{p.proximaCompra.porque}</p>
+          </div>
+        </div>
+        <div className="etiqueta" data-previsao="chance" data-tom={p.chance.tom ?? undefined}>
+          <span className="fila__ico">
+            <Icone nome="alerta" />
+          </span>
+          <div>
+            <p className="etiqueta__rot">Chance de sair</p>
+            <p className="etiqueta__valor">{p.chance.valor}</p>
+            <p className="etiqueta__porque">{p.chance.porque}</p>
+          </div>
+        </div>
+        <div className="etiqueta" data-previsao="ltv">
+          <span className="fila__ico">
+            <Icone nome="grafico" />
+          </span>
+          <div>
+            <p className="etiqueta__rot">LTV</p>
+            <p className="etiqueta__valor">{p.ltv.ate}</p>
+            <p className="etiqueta__porque">
+              já gastou; {p.ltv.previsto} previstos nos próximos 12 meses ({p.ltv.porque})
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }
 

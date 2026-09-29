@@ -77,9 +77,22 @@ export type EtiquetaDaFicha = {
   tom: "bom" | "ruim" | null
 }
 
-/** A parte do CRM na ficha do cliente: as etiquetas, de onde chegou e o caminho. */
+/**
+ * A previsão da pessoa na ficha (0220, `lib/crm/previsao.ts` no backend): a
+ * próxima compra, a chance de sair e o LTV, com o porquê. Nula sem compra.
+ */
+export type PrevisaoNaFicha = {
+  proximaCompra: { valor: string; porque: string }
+  chance: { valor: string; porque: string; tom: "bom" | "ruim" | null }
+  ltv: { ate: string; previsto: string; porque: string }
+  /** "compra a cada 38 dias" — com 3 compras ou mais. */
+  ritmo: string | null
+}
+
+/** A parte do CRM na ficha do cliente: as etiquetas, a previsão, de onde chegou e o caminho. */
 export type FichaDoCrm = {
   etiquetas: EtiquetaDaFicha[]
+  previsao: PrevisaoNaFicha | null
   /** "Instagram (black) · primeira visita em 12/09". */
   origem: string | null
   caminho: {
@@ -303,3 +316,41 @@ export type TelaDasCampanhas = {
 
 /** Os erros do formulário, por campo (o 422 do Medusa). */
 export type ErrosDaCampanha = Partial<Record<keyof TextoDaCampanha | "agenda", string>>
+
+/* ── a previsão (entrega 0220) ───────────────────────────────────────────── */
+
+export const CAMINHO_DA_PREVISAO = "/dashboard/crm/previsao"
+
+export type ChanceDeSair = "baixa" | "media" | "alta"
+
+/** Uma pessoa numa lista da previsão (`lib/painel/previsao.ts`, no backend). */
+export type LinhaDaPrevisao = {
+  /** "Rafael · r•••@exemplo.com" (inteiro só na busca). */
+  quem: string
+  /** O cliente da loja nova, pro link da ficha; nulo pra quem só comprou na Nuvemshop. */
+  clienteId: string | null
+  proximaCompra: string
+  chance: ChanceDeSair
+  nomeDaChance: string
+  porque: string
+  ticket: number
+  ate: number
+  previsto: number
+  ritmo: number | null
+}
+
+/** A aba Previsão do CRM (`GET /dashboard/crm/previsao`). */
+export type TelaDaPrevisao = {
+  numeros: {
+    clientes: number
+    semana: { pessoas: number; valor: number }
+    mes: { pessoas: number; valor: number }
+    chance: Record<ChanceDeSair, number>
+    emJogo: number
+    ltvMedio: number
+    previsto: number
+  }
+  semana: LinhaDaPrevisao[]
+  emRisco: LinhaDaPrevisao[]
+  busca: { email: string; linha: LinhaDaPrevisao | null } | null
+}
