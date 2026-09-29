@@ -4665,6 +4665,16 @@ o typecheck, o lint, o prettier e o `next build` da loja.
 
 Depois do deploy — **nada a configurar.** Pra ver: a página de um produto abaixo de R$ 149,90 e o CEP.
 
+**O cartão "completa o frete grátis" numa linha só — pronto em 29/09 (entrega 0209).** No ar, o
+cartão da 0207 tinha três linhas e tomava muito da sacola no celular (sua foto). Agora é uma linha:
+foto pequena, o nome curto (`nomeCurto`: sem "FuckingBarba" e sem o "30ml") com o preço, e "+ Levar".
+O "completa o frete grátis" já está na frase de cima. Escolha sua no canvas (a versão 1). E, pedido
+seu, **saiu o "Continuar comprando"** do pé da sacola: quem quer voltar fecha no X ou toca fora dela;
+o "Finalizar compra" ganhou um respiro embaixo (e o da barrinha do iPhone). Conferido: checkout
+211/211 três vezes, frete 70/70, recomendação 39/39, typecheck, lint e prettier.
+
+Depois do deploy — **nada a configurar.**
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa

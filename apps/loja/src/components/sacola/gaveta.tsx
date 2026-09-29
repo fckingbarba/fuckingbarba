@@ -22,7 +22,7 @@ import type { SugestaoDaSacola } from "@/lib/carrinho-visivel"
 import { faltaPraPromocao, frasesDoFrete, progressoDaPromocao } from "@/lib/configuracoes"
 import { emReais } from "@/lib/formato"
 import type { PromocaoDaLinha } from "@/lib/promocoes"
-import type { ModeloDeRecomendacao, SugestaoEscolhida } from "@/lib/recomendacao"
+import { nomeCurto, type ModeloDeRecomendacao, type SugestaoEscolhida } from "@/lib/recomendacao"
 import { DESTINO_DO_CHECKOUT, EM_BREVE, PARCELAS_SEM_JUROS } from "@/lib/site"
 
 /**
@@ -374,10 +374,8 @@ export function Gaveta({
             Finalizar compra
             <Raio className="btn__bolt" />
           </Link>
-
-          <button type="button" className="sacolinha__continuar" onClick={fechar}>
-            Continuar comprando
-          </button>
+          {/* Sem "Continuar comprando" (0209, pedido do dono): quem quer
+              voltar pra loja fecha no X do topo ou toca fora da sacola. */}
         </div>
       </div>
     </>
@@ -489,13 +487,14 @@ function MedidorDeFrete({
             aria-hidden="true"
           >
             {completa.imagem ? (
-              <Image src={completa.imagem} alt="" width={88} height={88} sizes="44px" />
+              <Image src={completa.imagem} alt="" width={68} height={68} sizes="34px" />
             ) : null}
           </Link>
-          <span className="sacolinha__completa-corpo">
-            <span className="sacolinha__completa-selo">Completa o {alvo}</span>
-            <span className="sacolinha__completa-nome">{completa.nome}</span>
-            <span className="sacolinha__completa-preco">{emReais(completa.preco)}</span>
+          {/* Uma linha só (0209): o cartão de três linhas tomava metade da
+              sacola no celular. O "completa o frete" já está dito na frase
+              de cima; aqui fica o nome curto e o preço. */}
+          <span className="sacolinha__completa-texto">
+            <b>{nomeCurto(completa.nome)}</b> <span>{emReais(completa.preco)}</span>
           </span>
           <button
             type="button"
@@ -504,7 +503,7 @@ function MedidorDeFrete({
             aria-label={`Adicionar ${completa.nome} à sacola, completa o ${alvo}`}
           >
             <Mais />
-            Adicionar
+            Levar
           </button>
         </div>
       ) : null}
