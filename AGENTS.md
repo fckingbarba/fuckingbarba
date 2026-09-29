@@ -347,6 +347,19 @@ do Medusa, que devolve só o preço: ele pergunta à rota da calculadora (`POST 
 mesmo serviço, a rota responde uma entrega só, e o prazo dela vale pras duas. Sem resposta da rota,
 a linha volta pra descrição do tipo ("A mais barata para o seu CEP").
 
+**A CALCULADORA DA PÁGINA DE PRODUTO** (0208, desenho aprovado pelo dono no canvas "Frete na página
+do produto", opção D): `components/produto/calculadora.tsx` + `estilos/pdp-frete.css`. Depois de cotar,
+o campo vira a linha "Cidade · UF · CEP · Trocar" (o `lugar` que o `cotarFrete` busca no ViaCEP em
+paralelo, cacheado; sem ele, só o CEP); as entregas viram DOIS CARTÕES IGUAIS, com a etiqueta amarela
+"Mais barata"/"Mais rápida" (uma entrega só: sem etiqueta) — nenhum com sombra ou borda grossa, que
+parecia botão (correção dele); com o piso alcançado entra a faixa menta "Frete grátis garantido" (só o
+raio, sem caixinha de marcar — outra correção dele); faltando, a frase com o valor em destaque e a
+barra; e o cartão do produto que COMPLETA: o mais barato que sozinho fecha o que falta, entre os do
+"leve junto" e a vitrine da sacola na ordem do motor (`completam`, montado no `dobra.tsx`, sem o
+próprio produto nem kit/peça dele — `foraDaSugestao`). "Adicionar" marca no MESMO `juntos` do "leve
+junto" (vai no Comprar e recota); o posto fica na caixa com "Tirar". Conferidor:
+`apps/loja/ferramentas/conferir-frete-na-pdp.mjs` (23), com a Frenet falsa.
+
 **Pagamento** é um provider próprio (`src/modules/pagarme/`, id `pp_pagarme_pagarme`): Pix e cartão
 em até 3x pelo Pagar.me, ligado na região por `npm run backend:pagamento` (que tira o provisório
 `pp_system_default` — o que aprova sem cobrar — e confere o que a loja enxerga; `-- voltar` desfaz).
