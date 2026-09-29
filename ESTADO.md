@@ -4675,6 +4675,14 @@ o "Finalizar compra" ganhou um respiro embaixo (e o da barrinha do iPhone). Conf
 
 Depois do deploy — **nada a configurar.**
 
+**O frete na página do produto, mais enxuto — pronto em 29/09 (entrega 0211).** Pedido dele depois da
+0208: tirar a linha de baixo da caixa ("Prazo contado em dias úteis depois da postagem. Não sei meu
+CEP"). A caixa termina no último bloco (a sugestão, ou os cartões). Na sacola e no checkout a linha
+continua. Conferido na loja local: o `conferir-frete-na-pdp` 23/23 duas vezes e o da página de produto
+68/70 (as 2 de sempre); o typecheck, o lint e o prettier da loja.
+
+Depois do deploy — **nada a configurar.**
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa

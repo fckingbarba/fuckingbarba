@@ -87,7 +87,9 @@
 */
 .cep {
   margin: 14px 0 0;
-  padding: 12px 14px 10px;
+  /* Sem o pé ("Prazo contado…", que saiu na 0211 a pedido do dono), o fim
+     da caixa é o último bloco da resposta: o respiro de baixo igual ao de cima. */
+  padding: 12px 14px 14px;
   background: var(--color-papel);
   border: 3px solid var(--color-tinta);
   clip-path: polygon(
@@ -440,21 +442,6 @@
   font-weight: 600;
   line-height: 1.35;
   color: var(--color-tinta-suave);
-}
-
-.cep__pe {
-  margin: 10px 0 0;
-  font-size: 0.72rem;
-  font-weight: 600;
-  line-height: 1.35;
-  color: var(--color-tinta-suave);
-}
-.cep__pe a {
-  color: var(--color-tinta);
-  font-weight: 700;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  white-space: nowrap;
 }
 
 /* No celular o botão desce pra linha de baixo em vez de espremer o campo
