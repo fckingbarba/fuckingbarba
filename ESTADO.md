@@ -4769,6 +4769,26 @@ Conferido: os unitários do backend (1.688), o typecheck do backend e do painel,
 Depois do deploy — **no painel, Configurações → E-mails → "Vai pra": fckingbarba@gmail.com →
 Salvar.** Até salvar, segue indo pros donos.
 
+**O "Leve junto" da página de produto, mais bonito — pronto em 29/09 (entrega 0221).** Pedido dele,
+com print do Kit Completo: o "Leve junto" podia ficar melhor. Das quatro opções desenhadas no canvas
+"Leve junto", escolheu a D.
+
+- **Uma caixa só**, sem o canto cortado que fazia o cartão parecer quebrado: uma linha por produto,
+  com a foto, o nome, "30 ml · + R$ 89,90" e o botão "+ Levar" — marcado, vira "✓ Vai junto" em
+  preto e a linha fica amarela.
+- **Embaixo, o total e o frete**: "Faltam R$ 25,00 pro frete grátis · Total R$ 114,90"; marcando,
+  "Total dos 2 R$ 164,80" e a faixa vira menta com "Frete grátis". Saiu o "FRETE GRÁTIS" de cada
+  item, que parecia dizer que o produto tinha frete grátis.
+- **O botão diz quantos vão**: com algo marcado, "Adicionar os 2" / "Adicionar os 3".
+- **A prévia do painel** (Produtos → a caixa de compra) imita o desenho novo.
+
+Conferido na loja local: o da página de produto 77/79 três vezes (as 2 de sempre: o spray e um 404
+de produto que não existe no banco local), com as checagens novas do rodapé; o frete na página do
+produto 23/23 duas vezes, o checkout 211/211, o avise-me 32/32 e o de produtos do painel 119/119; o
+typecheck da loja e do painel, o lint e o prettier.
+
+Depois do deploy — **nada a configurar.** Pra ver: a página do Kit Completo ou do Kit Essencial.
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa
