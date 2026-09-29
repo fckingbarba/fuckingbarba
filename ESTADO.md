@@ -4535,6 +4535,25 @@ Depois do deploy — **nada a configurar.** Pra ver no celular: um produto na sa
 "Continuar" abre a entrega sem "Salvando…". A tela nova do Pix aparece depois de um pedido no Pix (o
 que não é pago vence em 30 minutos e se cancela sozinho).
 
+**As ofertas por e-mail pra quem deixou o e-mail no checkout — pronto em 29/09 (entrega 0205).**
+Era o "Sem nome" com 0 pedidos na aba Clientes: a pessoa digitou o e-mail no checkout e não
+comprou. Agora ela também recebe as novidades e ofertas por e-mail (sua escolha).
+
+- **Na hora:** quando a pessoa digita o e-mail no checkout, já entra com o sim. No painel aparece
+  "por padrão, no cadastro", como quem comprou.
+- **Os de antes:** quem já tinha deixado o e-mail ganha o sim no deploy, uma vez só.
+- **Quem saiu da lista** continua fora. O WhatsApp não muda: esse, só por escolha.
+- **Pra sair:** o "Sair da lista" de qualquer e-mail, ou criar a conta e desmarcar em "Meus
+  dados", ou falar com a loja.
+- **A política de privacidade** conta.
+
+Conferido na loja local (banco do zero): o carrinho com e-mail dá o sim, quem saiu não ganha, a
+migração liga só quem faltava; clientes 53/53, CRM 213/213, conta 211/211, checkout 198/198; os
+unitários, o typecheck e o lint do backend.
+
+Depois do deploy — **nada a configurar.** Na aba Clientes, os "Sem nome" passam a mostrar o ícone
+do e-mail aceso.
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa

@@ -3197,11 +3197,16 @@ O `conferir-crm.mjs`:
   - `customer.created`, só pra cliente com conta (o primeiro código);
   - `order.placed`, pro cliente do pedido. Pode ser o convidado: o Medusa cria esse cliente dentro
     do carrinho sem emitir o `customer.created`, e é na compra que ele vira cliente de fato.
-  Quem só digitou o e-mail no checkout e não comprou não ganha nada.
+  - `cart.created` e `cart.updated` (entrega 0205), pro cliente do carrinho: é o convidado que
+    nasce quando a pessoa digita o e-mail no checkout. Quem digitou e não comprou também ganha o
+    sim (escolha do dono, 29/09). O carrinho avisa a cada mudança: quem já tem o sim para antes
+    de ler a `crm_saiu`.
   - Quem já tem o sim fica com o dele. Quem saiu da lista (`crm_saiu`) não volta sozinho. O
     WhatsApp não muda.
 - **Os clientes de antes** com conta ou pedido ganharam o mesmo pela migração
   `migration-scripts/ofertas-por-padrao.ts`, que roda uma vez no deploy.
+  Os convidados de antes, que só deixaram o e-mail, ganharam pela
+  `migration-scripts/ofertas-no-checkout.ts` (0205), que roda uma vez no deploy.
 - **Desmarcar na conta é sair da lista.** Quando o e-mail passa de marcado a desmarcado, a ação de
   "Meus dados" (`lib/acoes/dados.ts`, na loja) chama `POST /store/crm/sair-das-ofertas`. A rota
   usa só o token de cliente e roda o `tirarDasOfertas`: tira da newsletter e da base da
@@ -3209,8 +3214,8 @@ O `conferir-crm.mjs`:
   de agora, e o `quemVoltouPraLista` do motor vê.
 - **No painel,** o sim por padrão aparece como "por padrão, no cadastro" (`consentimentosDa`). O
   marketing passa a ver todo cliente que não saiu.
-- **A política de privacidade** conta: quem compra ou cria conta recebe as ofertas por e-mail, e
-  desliga no "Sair da lista" ou na conta.
+- **A política de privacidade** conta: quem compra, cria conta ou deixa o e-mail no checkout
+  recebe as ofertas por e-mail, e desliga no "Sair da lista" ou na conta.
 - **A base da Nuvemshop** não muda: o "Não aceita" de lá continua não.
 
 Os conferidores:
