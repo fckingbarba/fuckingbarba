@@ -34,6 +34,7 @@ import { documentoGuardado } from "./documento"
 import { lerEndereco, montarEndereco } from "./endereco"
 import { semEntregaEmpatada } from "./frete"
 import { cliente, modeloDeRecomendacao, temEstoque } from "./medusa"
+import { COOKIE_BALAO, VIDA_DO_COOKIE_S } from "./pedido-recente"
 import { ehCodigoDePromocao } from "./promocoes"
 import {
   escolherBump,
@@ -920,5 +921,14 @@ export async function abrirPedido(pedidoId: string): Promise<never> {
   // O crachá de quem comprou — a tela de obrigado só mostra endereço,
   // documento e o QR do Pix pra quem tem ele.
   jar.set(COOKIE_PEDIDO, carrinhoId ? `${pedidoId}.${carrinhoId}` : pedidoId, OPCOES_COOKIE_PEDIDO)
+  // O aviso pro balão do pedido (`lib/pedido-recente.ts`): legível, e curto.
+  // Só o id — os detalhes continuam atrás do crachá.
+  jar.set(COOKIE_BALAO, pedidoId, {
+    httpOnly: false,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: VIDA_DO_COOKIE_S,
+  })
   redirect(`/checkout/obrigado/${pedidoId}`)
 }

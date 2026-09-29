@@ -3845,9 +3845,14 @@ pessoa digitava tudo de novo. Agora a loja guarda, de cada pedido da Nuvemshop, 
 CPF e o endereço de entrega (sua escolha), cifrados, e o carrinho já vem com eles: é só escolher o
 frete e pagar. A política de privacidade conta isso.
 
-- [ ] **Depois do deploy (você), antes de ligar a reposição em 3/10:** CRM → Base da Nuvemshop →
+- [x] **Depois do deploy (você), antes de ligar a reposição em 3/10:** CRM → Base da Nuvemshop →
       mande de novo o arquivo de vendas (o `vendas.csv` de 27/09). O aviso vai dizer quantos pedidos
       vieram "com o endereço de entrega". Os de clientes e de carrinhos não precisam ir de novo.
+      (Mandado em 29/09: 2.878 dos 2.879 pedidos com o endereço.)
+
+**O texto da tela da Base da Nuvemshop, certo — 29/09 (entrega 0204).** Embaixo do botão, a tela
+ainda dizia que o CPF, o telefone e o endereço eram jogados fora. Agora diz que, das vendas, eles
+ficam guardados cifrados, pro "Refazer o pedido".
 
 **As campanhas — prontas em 29/09 (entrega 0206).** Os e-mails de data: a Black Friday, o Natal,
 um lançamento. Em **CRM → Campanhas**, você escreve o e-mail, escolhe pra quem e a hora, e a loja
@@ -4553,6 +4558,50 @@ pagamento e no Mercado Pago; o typecheck, o lint, o prettier e o `next build` da
 Depois do deploy — **nada a configurar.** Pra ver no celular: um produto na sacola e o checkout — o
 "Continuar" abre a entrega sem "Salvando…". A tela nova do Pix aparece depois de um pedido no Pix (o
 que não é pago vence em 30 minutos e se cancela sozinho).
+
+**As ofertas por e-mail pra quem deixou o e-mail no checkout — pronto em 29/09 (entrega 0205).**
+Era o "Sem nome" com 0 pedidos na aba Clientes: a pessoa digitou o e-mail no checkout e não
+comprou. Agora ela também recebe as novidades e ofertas por e-mail (sua escolha).
+
+- **Na hora:** quando a pessoa digita o e-mail no checkout, já entra com o sim. No painel aparece
+  "por padrão, no cadastro", como quem comprou.
+- **Os de antes:** quem já tinha deixado o e-mail ganha o sim no deploy, uma vez só.
+- **Quem saiu da lista** continua fora. O WhatsApp não muda: esse, só por escolha.
+- **Pra sair:** o "Sair da lista" de qualquer e-mail, ou criar a conta e desmarcar em "Meus
+  dados", ou falar com a loja.
+- **A política de privacidade** conta.
+
+Conferido na loja local (banco do zero): o carrinho com e-mail dá o sim, quem saiu não ganha, a
+migração liga só quem faltava; clientes 53/53, CRM 213/213, conta 211/211, checkout 198/198; os
+unitários, o typecheck e o lint do backend.
+
+Depois do deploy — **nada a configurar.** Na aba Clientes, os "Sem nome" passam a mostrar o ícone
+do e-mail aceso.
+
+**O balão do pedido — pronto em 29/09 (entrega 0203).** Pedido dele: quem pagou ou gerou o Pix e
+clicava na home "ficava perdido". Desenho aprovado no canvas "Balão do pedido" (com o "Ver pedido
+completo" no padrão dos botões da loja, a correção dele).
+
+- **Depois do pedido, um balão no canto de baixo da loja**, em toda página menos o checkout: o número
+  do pedido e em que pé está — "Falta pagar o Pix" (com os minutos que o Pix ainda vale e uma faixa
+  que encolhe), "Pagamento em análise", "Pedido confirmado" ou "O Pix venceu".
+- **Muda sozinho**: se o Pix cai com a pessoa navegando, o balão fica verde.
+- **Tocar abre o resumo**: os passos (pedido feito, pagamento, separação, envio), o "Copiar código
+  Pix", os itens, "Ver pedido completo" e o WhatsApp da loja.
+- **Pix vencido**: o "Refazer" põe os mesmos produtos na sacola e abre a sacola.
+- **Meia hora** depois do pedido ele some (com o Pix ainda valendo, fica até 10 minutos depois do
+  vencimento, pra dizer que venceu). O X esconde de vez.
+- Na página de produto, sobe por cima da barra do "Comprar"; no computador, fica no canto esquerdo.
+- **Só pra quem comprou neste navegador**: quem não comprou não carrega nada a mais. A política de
+  privacidade ganhou uma frase sobre o cookie do balão.
+
+Conferido na loja local: o conferidor novo `conferir-balao` 34/34 três vezes (quem não comprou, o Pix
+na volta pra loja, o copiar, a página de produto, o checkout sem balão, o Pix caindo, o X, o cookie
+sem o crachá, o Pix vencido e o Refazer, os 30 minutos); o checkout 198/198, o pagamento 224/224, a
+conta 211/211 e a 1ª compra 21/21; o typecheck, o lint, o prettier e o `next build` da loja (a home
+segue estática).
+
+Depois do deploy — **nada a configurar.** Pra ver: um pedido no Pix e voltar pra home.
 
 ## Como seguir no Claude Code
 

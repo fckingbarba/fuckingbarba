@@ -420,6 +420,22 @@ conta) o "Copiar código Pix" vem logo depois do QR; abaixo de 560 px (`checkout
 o botão fica largo. A frase de cima tem as duas versões (`.feito__no-computador`/`.feito__no-celular`;
 `fraseNoCelular` no obrigado). O `conferir-pagamento` confere as posições nas duas larguras.
 
+**O BALÃO DO PEDIDO** (0203): quem acabou de comprar e volta pra loja vê, no canto de baixo, o pedido
+(o Pix a pagar, em análise, pago, vencido); tocar abre o resumo com o Pix pra copiar. As regras moram
+em `apps/loja/src/lib/pedido-recente.ts`: o `abrirPedido` grava, junto do crachá, o cookie LEGÍVEL
+`pedido_recente` (só o id, 1 hora); o vigia (`components/pedido-recente/vigia.tsx`, no layout, dentro
+da sacola e de um `<Suspense>` por causa do `usePathname`) só baixa o balão (`./balao.tsx`, com
+`estilos/balao-do-pedido.css`) e só pergunta a `/api/pedido-recente` com esse cookie — quem não
+comprou não faz requisição. A rota exige o crachá do MESMO pedido e o `meu` do Medusa. Fica 30 min
+depois do pedido (esticado até 10 min depois do vencimento do Pix enquanto ele não é pago), pergunta
+de 20 em 20 s enquanto o pagamento não entra, não aparece em `/checkout*`, e sai de vez (o
+`localStorage` `balao-escondido:<id>`, e a memória da aba) pelo X, pelo prazo, pelo "Refazer" ou
+quando a rota recusa. O "Refazer" do Pix vencido é o `refazerPedido` (o `comprarDeNovo` pelo crachá,
+em `lib/acoes/pedido.ts`). Camadas: 58, embaixo da barra de compra (60), da sacola (70) e do pop-up
+(80); com a barra de compra na tela, sobe por cima dela. Conferidor:
+`apps/loja/ferramentas/conferir-balao.mjs` (34), na pilha do `conferir-pagamento`; ele esconde o "N"
+do `next dev`, que mora no mesmo canto e come o clique.
+
 **Os parceiros de pagamento** (desde a 0132) estão numa lista só: `src/lib/pagamento/parceiros.ts`
 no backend e `PARCEIROS` em `apps/loja/src/lib/checkout-visivel.ts` na loja — parceiro novo entra
 nas duas, e o `parceiros.unit.spec.ts` confere. Cada parceiro é um provedor do Medusa que grava na
@@ -3197,11 +3213,16 @@ O `conferir-crm.mjs`:
   - `customer.created`, só pra cliente com conta (o primeiro código);
   - `order.placed`, pro cliente do pedido. Pode ser o convidado: o Medusa cria esse cliente dentro
     do carrinho sem emitir o `customer.created`, e é na compra que ele vira cliente de fato.
-  Quem só digitou o e-mail no checkout e não comprou não ganha nada.
+  - `cart.created` e `cart.updated` (entrega 0205), pro cliente do carrinho: é o convidado que
+    nasce quando a pessoa digita o e-mail no checkout. Quem digitou e não comprou também ganha o
+    sim (escolha do dono, 29/09). O carrinho avisa a cada mudança: quem já tem o sim para antes
+    de ler a `crm_saiu`.
   - Quem já tem o sim fica com o dele. Quem saiu da lista (`crm_saiu`) não volta sozinho. O
     WhatsApp não muda.
 - **Os clientes de antes** com conta ou pedido ganharam o mesmo pela migração
   `migration-scripts/ofertas-por-padrao.ts`, que roda uma vez no deploy.
+  Os convidados de antes, que só deixaram o e-mail, ganharam pela
+  `migration-scripts/ofertas-no-checkout.ts` (0205), que roda uma vez no deploy.
 - **Desmarcar na conta é sair da lista.** Quando o e-mail passa de marcado a desmarcado, a ação de
   "Meus dados" (`lib/acoes/dados.ts`, na loja) chama `POST /store/crm/sair-das-ofertas`. A rota
   usa só o token de cliente e roda o `tirarDasOfertas`: tira da newsletter e da base da
@@ -3209,8 +3230,8 @@ O `conferir-crm.mjs`:
   de agora, e o `quemVoltouPraLista` do motor vê.
 - **No painel,** o sim por padrão aparece como "por padrão, no cadastro" (`consentimentosDa`). O
   marketing passa a ver todo cliente que não saiu.
-- **A política de privacidade** conta: quem compra ou cria conta recebe as ofertas por e-mail, e
-  desliga no "Sair da lista" ou na conta.
+- **A política de privacidade** conta: quem compra, cria conta ou deixa o e-mail no checkout
+  recebe as ofertas por e-mail, e desliga no "Sair da lista" ou na conta.
 - **A base da Nuvemshop** não muda: o "Não aceita" de lá continua não.
 
 Os conferidores:
@@ -3514,6 +3535,8 @@ pedido do arquivo de vendas, e o carrinho novo já vem com ela: a pessoa cai na 
   muda aqui.
 - **No painel**, a entrega nunca volta: depois de mandar as vendas, o aviso diz só quantos pedidos
   vieram com o endereço ("N com o endereço de entrega", o `comEntrega` da rota).
+  O texto embaixo do botão da tela (`components/base-da-nuvemshop.tsx`) diz o que fica e o que é
+  jogado fora — mudou o que fica, muda ali também (a 0202 esqueceu, e a 0204 consertou).
 - **A política de privacidade** conta que a entrega veio, cifrada, e pra quê.
 
 O `conferir-crm.mjs` manda o pedido da loja antiga da reposição com as colunas da entrega, como a

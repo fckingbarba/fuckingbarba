@@ -115,10 +115,10 @@ export default async function Privacidade() {
           comprou ou o que combina com o que você já tem.
         </P>
         <P>
-          <b>As novidades e as ofertas por e-mail</b>: quem compra ou cria conta passa a receber, e
-          desliga quando quiser — no &ldquo;Sair da lista&rdquo; de qualquer e-mail, ou desmarcando
-          a caixa em &ldquo;Meus dados&rdquo;, na conta. Os e-mails do seu pedido continuam
-          chegando.
+          <b>As novidades e as ofertas por e-mail</b>: quem compra, cria conta ou deixa o e-mail no
+          checkout passa a receber, e desliga quando quiser — no &ldquo;Sair da lista&rdquo; de
+          qualquer e-mail, ou desmarcando a caixa em &ldquo;Meus dados&rdquo;, na conta. Os e-mails
+          do seu pedido continuam chegando.
         </P>
         <P>
           <b>Se você assinar a newsletter</b>: só o e-mail. Dá pra sair em qualquer mensagem que a
@@ -234,7 +234,9 @@ export default async function Privacidade() {
           links dos nossos e-mails também usam um, só no que eles abrem: o cupom que espera o
           checkout, a avaliação do pedido e o sair da lista. E dois lembram só a sua escolha sobre o
           pop-up da primeira compra: se você fechou ou já se cadastrou, e se já comprou neste
-          navegador — pra ele não aparecer de novo.
+          navegador — pra ele não aparecer de novo. Depois de um pedido, um último diz, por uma
+          hora, qual pedido o balão do canto da tela acompanha; se você fechar o balão, o navegador
+          guarda isso, pra ele não voltar.
         </P>
         <P>
           Os do Google Analytics e da Microsoft Clarity medem as visitas desde a primeira página,
