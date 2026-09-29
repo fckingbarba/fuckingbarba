@@ -8,18 +8,21 @@ import { CRM } from "../modules/crm"
 import type CrmService from "../modules/crm/service"
 
 /**
- * QUEM COMPRA OU CRIA CONTA JÁ ENTRA COM AS OFERTAS POR E-MAIL (entrega
- * 0184) — o padrão que o advogado do dono pediu (`ofertasPorPadrao`, em
- * `lib/ofertas-por-padrao.ts`). Dois momentos:
+ * QUEM COMPRA, CRIA CONTA OU DEIXA O E-MAIL NO CHECKOUT JÁ ENTRA COM AS
+ * OFERTAS POR E-MAIL (entregas 0184 e 0205) — o padrão que o advogado do
+ * dono pediu (`ofertasPorPadrao`, em `lib/ofertas-por-padrao.ts`). Três
+ * momentos:
  *
  *   - `customer.created` da CONTA (o primeiro código): o cliente com conta;
- *   - `order.placed`: o cliente do pedido, que pode ser o convidado que o
- *     checkout criou — esse nasce sem avisar "cliente criado" (o Medusa o
- *     cria dentro do carrinho), e é na compra que ele vira cliente de fato.
+ *   - `cart.created` e `cart.updated`: o cliente do carrinho. É o convidado
+ *     que o checkout cria quando a pessoa digita o e-mail — esse nasce sem
+ *     avisar "cliente criado" (o Medusa o cria dentro do carrinho). Quem
+ *     digitou e não comprou também recebe (escolha do dono, 29/09): quer
+ *     sair, sai no "Sair da lista" ou na conta;
+ *   - `order.placed`: o cliente do pedido — a rede, se o carrinho falhou.
  *
- * Quem só digitou o e-mail no checkout e não comprou não ganha nada. Quem já
- * saiu da lista antes não volta sozinho. Se não der, o cliente fica como
- * veio (sem o sim), e o log diz quem.
+ * Quem já saiu da lista antes não volta sozinho. Se não der, o cliente fica
+ * como veio (sem o sim), e o log diz quem.
  */
 export default async function ofertasNoCadastro({
   event: { name, data },
@@ -32,6 +35,11 @@ export default async function ofertasNoCadastro({
         .resolve(Modules.ORDER)
         .retrieveOrder(data.id, { select: ["id", "customer_id"] })
       if (pedido.customer_id) await ligarAsOfertas(container, pedido.customer_id, false)
+    } else if (name === "cart.created" || name === "cart.updated") {
+      const carrinho = await container
+        .resolve(Modules.CART)
+        .retrieveCart(data.id, { select: ["id", "customer_id"] })
+      if (carrinho.customer_id) await ligarAsOfertas(container, carrinho.customer_id, false)
     } else await ligarAsOfertas(container, data.id, true)
   } catch (e) {
     logger.warn(
@@ -46,8 +54,12 @@ async function ligarAsOfertas(container: MedusaContainer, id: string, soComConta
     .retrieveCustomer(id, { select: ["id", "email", "metadata", "created_at", "has_account"] })
   const email = normalizarEmail(cliente.email)
   if (!email || (soComConta && !cliente.has_account)) return
+  // Quem já tem o sim para aqui, sem ir à lista de quem saiu: o carrinho
+  // avisa a cada mudança, e quase sempre é de quem já tem.
+  const desde = new Date(cliente.created_at)
+  if (!ofertasPorPadrao(cliente.metadata, desde, false)) return
   const saiu = (await container.resolve<CrmService>(CRM).quemSaiu([email])).has(email)
-  const ofertas = ofertasPorPadrao(cliente.metadata, new Date(cliente.created_at), saiu)
+  const ofertas = ofertasPorPadrao(cliente.metadata, desde, saiu)
   if (!ofertas) return
   // O Medusa junta o metadata no primeiro nível: só as `ofertas` mudam.
   await updateCustomersWorkflow(container).run({
@@ -56,5 +68,5 @@ async function ligarAsOfertas(container: MedusaContainer, id: string, soComConta
 }
 
 export const config: SubscriberConfig = {
-  event: ["customer.created", "order.placed"],
+  event: ["customer.created", "cart.created", "cart.updated", "order.placed"],
 }
