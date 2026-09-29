@@ -2,9 +2,12 @@ import {
   dataDeBrasilia,
   decodificar,
   dinheiro,
+  documentoDaNuvemshop,
   lerArquivoDaNuvemshop,
   lerCsv,
   recomprasPorTipo,
+  telefoneDaLoja,
+  ufDoEstado,
 } from "../nuvemshop"
 
 /**
@@ -35,6 +38,16 @@ const CARRINHOS = [
   "555;29/08/2026 12:32:26;Tentou pagar mas falhou;R$1.093,18;Rafael;rafael@exemplo.com;+55;111;Rua;Kit 3x Fator de Crescimento;FBKIT06;1;199.90",
   ";;;;;rafael@exemplo.com;;;;Óleo para Barba;FBOL01;2;59.90",
   "555;;;;;rafael@exemplo.com;;;;Óleo para Barba;FBOL01;2;59.90",
+].join("\n")
+
+// Como a Nuvemshop exporta hoje: as colunas da entrega depois das do comprador (entrega 0202).
+const VENDAS_COM_ENTREGA = [
+  "Número do Pedido;E-mail;Data;Status do Pagamento;Status do Envio;Total;Nome do comprador;CPF / CNPJ;Telefone;Nome para a entrega;Telefone para a entrega;Endereço;Número;Complemento;Bairro;Cidade;Código postal;Estado;País;Nome do Produto;Valor do Produto;Quantidade Comprada;SKU",
+  "2001;rafael@exemplo.com;10/01/2026 09:30:00;Confirmado;Entregue;94.90;Rafael da Silva;11144477735;+5511988887777;Rafael  da   Silva;+5511988887777;Rua Um;1;Apto 2;Centro;Blumenau;89010000;Santa Catarina;Brasil;Fator de Crescimento para Barba 30ml;79.90;1;FBFCB01",
+  "2002;ana@exemplo.com;11/01/2026 09:30:00;Confirmado;Entregue;94.90;Ana;12345678900;;;(95) 3224-1111;Av. Dois;S/N;;Centro;Boa Vista;69301-000;Rorâima;Brasil;Óleo para Barba;59.90;1;FBOL01",
+  "2003;bia@exemplo.com;12/01/2026 09:30:00;Confirmado;Entregue;94.90;Bia Souza;11144477735;+5511988887777;Bia Souza;+5511988887777;Rua Três;3;;;Blumenau;89010000;Santa Catarina;Brasil;Óleo para Barba;59.90;1;FBOL01",
+  "2004;loja@exemplo.com;13/01/2026 09:30:00;Confirmado;Entregue;94.90;Loja Ltda;11222333000181;+551133334444;Loja Ltda;+551133334444;Rua Quatro;4;;Centro;São Paulo;01001000;SP;Brasil;Óleo para Barba;59.90;1;FBOL01",
+  "2005;lu@exemplo.com;14/01/2026 09:30:00;Confirmado;Entregue;94.90;Lu Lima;11144477735;+5511988887777;Lu Lima;+5511988887777;Rua Cinco;5;;Centro;Lisboa;11000000;SP;Portugal;Óleo para Barba;59.90;1;FBOL01",
 ].join("\n")
 
 describe("a letra, o CSV e os valores", () => {
@@ -113,6 +126,59 @@ describe("os três arquivos", () => {
     expect(r.pedidos[0].enviadoEm).toEqual(new Date("2026-01-12T15:00:00Z"))
     expect(r.pedidos[2].pagoEm).toBeNull()
     expect(JSON.stringify(r)).not.toMatch(/11144477735|988887777|Rua Um|portaria|1234/)
+  })
+
+  it("vendas com a entrega: o nome, o celular, o CPF e o endereço — só com o endereço inteiro, no Brasil", () => {
+    const r = lerArquivoDaNuvemshop(emLatin1(VENDAS_COM_ENTREGA))
+    if (!("tipo" in r) || r.tipo !== "vendas") throw new Error("não leu as vendas")
+    const [rafael, ana, bia, loja, lu] = r.pedidos.map((p) => p.entrega)
+    expect(rafael).toEqual({
+      nome: "Rafael",
+      sobrenome: "da Silva",
+      telefone: "+5511988887777",
+      documento: { tipo: "cpf", valor: "11144477735" },
+      cep: "89010000",
+      rua: "Rua Um",
+      numero: "1",
+      complemento: "Apto 2",
+      bairro: "Centro",
+      cidade: "Blumenau",
+      uf: "SC",
+    })
+    // Sem o nome da entrega, o do comprador; o CPF que não confere fica de fora; o "Rorâima" é RR.
+    expect(ana).toMatchObject({
+      nome: "Ana",
+      sobrenome: "",
+      telefone: "+559532241111",
+      documento: null,
+      cep: "69301000",
+      numero: "S/N",
+      complemento: "",
+      uf: "RR",
+    })
+    // Sem o bairro, não tem entrega (o checkout pergunta); o CNPJ vale; fora do Brasil, não.
+    expect(bia).toBeNull()
+    expect(loja?.documento).toEqual({ tipo: "cnpj", valor: "11222333000181" })
+    expect(loja?.uf).toBe("SP")
+    expect(lu).toBeNull()
+  })
+
+  it("o estado, o telefone e o documento, sozinhos", () => {
+    expect(
+      ["São Paulo", "sao paulo", "SP", "Distrito  Federal", "Paraná", "Pará", "Narnia", ""].map(
+        ufDoEstado
+      )
+    ).toEqual(["SP", "SP", "SP", "DF", "PR", "PA", null, null])
+    expect(
+      ["+5511988887777", "(11) 98888-7777", "011988887777", "5533", ""].map(telefoneDaLoja)
+    ).toEqual(["+5511988887777", "+5511988887777", "+5511988887777", null, null])
+    expect(documentoDaNuvemshop("111.444.777-35")).toEqual({ tipo: "cpf", valor: "11144477735" })
+    expect(documentoDaNuvemshop("11111111111")).toBeNull()
+    expect(documentoDaNuvemshop("11.222.333/0001-81")).toEqual({
+      tipo: "cnpj",
+      valor: "11222333000181",
+    })
+    expect(documentoDaNuvemshop("11222333000182")).toBeNull()
   })
 
   it("carrinhos: o total com vírgula, o tipo do abandono, e o item sem carrinho fora", () => {
