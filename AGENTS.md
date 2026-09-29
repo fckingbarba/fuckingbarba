@@ -2905,7 +2905,7 @@ confere:
   desconto de 1 dia e o link que monta o carrinho novo (e o mesmo no segundo clique);
 - a aba: a chave, o "Mandar pra mim", o desconto e o celular.
 Os e-mails de teste saem fora do grupo de controle (o sorteio é o mesmo do motor). A
-`conferir-observabilidade` conta 13 rotinas.
+`conferir-observabilidade` contava 13 rotinas (14 desde as campanhas, "O CRM, parte 19").
 
 **O CRM, parte 8: o carrinho abandonado** (entrega 0169). O terceiro fluxo de compra: pôs na
 sacola, não foi pro checkout, e a loja sabe quem é. As horas são as do dono: 1 hora, 12 horas (o
@@ -3519,6 +3519,84 @@ pedido do arquivo de vendas, e o carrinho novo já vem com ela: a pessoa cai na 
 O `conferir-crm.mjs` manda o pedido da loja antiga da reposição com as colunas da entrega, como a
 Nuvemshop exporta, e confere que o "Refazer o pedido" monta a sacola com o nome, o celular, o
 endereço e o CPF daquele pedido.
+
+**O CRM, parte 19: as campanhas** (entrega 0206, a etapa 4 do plano: o calendário de campanhas).
+Os e-mails de data — a Black Friday, o Natal, um lançamento: quem cuida do CRM escreve, escolhe o
+público e a hora, e a rotina `campanhas-do-crm` manda aos poucos. CRM → Campanhas
+(`/crm/campanhas`, a aba entre Fluxos e Ajustes). As escolhas do dono (29/09): o teste do assunto,
+sem cupom, e o que vendeu mais em 7 dias só apontado na tela.
+
+- **As regras** (`lib/crm/campanhas.ts`, puro, com testes):
+  - `lerCampanha` confere o formulário campo a campo: o nome, o assunto, o assunto B (opcional,
+    diferente do A), a prévia, o título, o texto em parágrafos, o botão (a página inicial, a lista
+    ou um produto publicado, `caminhoQueVale`), até 3 produtos publicados e o público. Pra agendar,
+    a hora entre 5 minutos e 120 dias daqui. O 422 volta com o erro de cada campo;
+  - os públicos (`PUBLICOS`): todos que aceitam ofertas, quem já comprou, quem nunca comprou e quem
+    está em risco (o sunset conta como em risco), pela etapa das etiquetas (`cabeNoPublico`);
+  - o sorteio é o sha256 do e-mail com a campanha: o assunto, metade de cada (`varianteDa`); o
+    controle, 5%, outro a cada campanha (`noControleDaCampanha`);
+  - o e-mail (`emailDaCampanha`) é oferta — a cara da loja, o cancelar inscrição no cabeçalho —,
+    sem cupom, com a marca `crm-campanha-<nome>` no link (`marcaDaCampanha`);
+  - o resultado (`resultadoDaCampanha`): por assunto, quem recebeu, quem comprou em até 7 dias e o
+    1º pedido de cada um (`primeiraVez` e `compras`, as contas da aba Fluxos), e o controle contado
+    igual. O `vendeuMais` só aponta: abertura e clique estão desligados no Resend. Ele fecha 7 dias
+    depois do fim do envio (`resultadoFechou`) e fica guardado na campanha (`resultadoGuardado`):
+    a tela não relê o registro das antigas.
+- **O banco:** `crm_campanha` (o modelo `Campanha` do módulo crm; a migration
+  `Migration20260929160000`, escrita à mão). A situação: rascunho → agendada → enviando
+  (`comecou_em`) → enviada (`acabou_em`), ou parada. Só o rascunho e a agendada se mudam, só a que
+  está saindo para, só o rascunho se apaga (`lib/crm/mudar-campanha.ts`, fora da rota pelo lint do
+  Medusa). Quem recebeu mora no `crm_envio`: o fluxo `campanha`, a chave `<campanha>|<e-mail>` e o
+  toque `a`, `b` ou `controle`. O `crm.registrosDaCampanha` lê pelo `split_part`: o `_` do LIKE
+  casaria qualquer letra.
+- **O envio** (`rodarAsCampanhas`, em `lib/crm/enviar-campanhas.ts`; a rotina, a cada 5 minutos,
+  na trava do mesmo nome):
+  - antes de tudo, guarda o resultado de uma que fechou (`fecharUmResultado`);
+  - a agendada que chegou na hora vira "enviando";
+  - uma por vez, a que começou antes. 24 horas depois do começo, ela acaba;
+  - de madrugada (22h às 8h), espera;
+  - o público de agora (`publicoDaCampanha`): a newsletter e a caixa da conta, com o sim por padrão
+    (`newsletterDa`), e quem aceitou na Nuvemshop; menos a equipe, quem saiu sem voltar, o e-mail
+    que voltou ou reclamou e quem adormeceu no sunset. Tira quem já está no registro;
+  - o controle só é anotado. Quem passou do teto (`passouDoTeto`: 3 no dia e 6 na semana, contando
+    os e-mails dos fluxos) fica pra depois. O resto é reservado, sai e é confirmado, como os toques
+    (idempotência `crm-campanha/<id>/<e-mail>`, etiqueta `crm-campanha`). Até 100 por rodada, um por
+    segundo, em lotes de 200: muita gente no teto no começo da lista não trava a campanha. 5 falhas
+    numa rodada (o Resend fora do ar) param a rodada, e a próxima tenta de novo;
+  - uma rodada com o relógio antes do começo não manda: só o conferidor anda no tempo, e a rotina de
+    verdade mandaria a campanha dele pra todo mundo.
+- **As rotas** (`/dashboard/crm/campanhas`, quem abre o CRM):
+  - GET, a tela (`montarTelaDasCampanhas`, em `lib/painel/campanhas.ts`): a ordem (a que está
+    saindo, as agendadas pela hora, os rascunhos e as que saíram), os públicos com quantas pessoas
+    cada um tem agora, os produtos publicados e o resultado;
+  - POST `{ acao, id?, campanha?, agenda? }`, no registro da equipe (salvou, agendou, desmarcou,
+    parou ou apagou a campanha);
+  - `/previa` (o "Ver como fica", os dois assuntos) e `/teste` (o "Mandar pra mim": "[Teste] " no
+    assunto, a etiqueta `crm-teste`, 10 por hora);
+  - `/rodar`: a rotina agora; `{ agora, email }` só fora de produção.
+- **No painel:**
+  - a lista (`components/campanhas-do-crm.tsx`), a nova (`/crm/campanhas/nova`) e a de cada uma
+    (`/crm/campanhas/[id]`), todas da mesma leitura;
+  - o rascunho e a agendada abrem no formulário (`components/formulario-da-campanha.tsx`): a hora de
+    Brasília no campo (sai como `${v}:00-03:00`), quanto tempo o envio leva pro público escolhido,
+    a prévia num quadro sem script (o `sandbox` do modelo dos e-mails), "Mandar pra mim", Salvar,
+    Agendar, Desmarcar e Apagar (com o segundo clique). O teste ligado com o assunto B vazio é
+    barrado na tela: o Medusa leria "sem teste", calado;
+  - a que saiu mostra o resultado e o "Ver como chegou"; a que está saindo, o "Parar o envio" (com o
+    segundo clique). Com menos de 400 pessoas no teste, a tela avisa que a diferença pode ser sorte.
+- **A observabilidade** ganha a 14ª rotina (`ROTINAS`): a `conferir-observabilidade` conta 14.
+
+O `conferir-crm.mjs` confere as campanhas assim:
+- a operação sem acesso (403), e o formulário conferido pela API e pela tela;
+- pela tela: escrever com o assunto B, "Ver como fica", "Mandar pra mim" (os dois assuntos), salvar
+  e agendar (a hora de Brasília na lista);
+- o envio, com o tempo andando: antes da hora, nada; A recebe o assunto A e B o B (as pessoas saem
+  do mesmo sorteio do Medusa); C, no controle, não recebe; ninguém recebe duas vezes; de madrugada,
+  espera; 24 horas depois, acaba;
+- a tela com os números de cada assunto e do controle; 7 dias depois do fim, o resultado guardado
+  (o mesmo);
+- parar pela tela (e a parada não se muda mais), desmarcar e apagar; o celular.
+No fim, nenhuma campanha fica agendada nem saindo: a rotina de verdade mandaria pra todo mundo.
 
 **O preço e o promocional no painel** (entregas 0098 e 0102): os dois campos de cada produto na
 lista de Produtos, como na Nuvemshop (a 0098 tinha só o promocional, atrás de um botão). A regra é
