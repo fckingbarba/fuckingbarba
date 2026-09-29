@@ -3514,6 +3514,8 @@ pedido do arquivo de vendas, e o carrinho novo já vem com ela: a pessoa cai na 
   muda aqui.
 - **No painel**, a entrega nunca volta: depois de mandar as vendas, o aviso diz só quantos pedidos
   vieram com o endereço ("N com o endereço de entrega", o `comEntrega` da rota).
+  O texto embaixo do botão da tela (`components/base-da-nuvemshop.tsx`) diz o que fica e o que é
+  jogado fora — mudou o que fica, muda ali também (a 0202 esqueceu, e a 0204 consertou).
 - **A política de privacidade** conta que a entrega veio, cifrada, e pra quê.
 
 O `conferir-crm.mjs` manda o pedido da loja antiga da reposição com as colunas da entrega, como a

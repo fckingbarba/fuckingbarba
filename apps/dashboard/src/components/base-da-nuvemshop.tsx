@@ -118,7 +118,10 @@ export function EnviarBase({ vazia }: { vazia: boolean }) {
       ) : null}
       <p className="pequeno suave base-privacidade">
         Fica só o que o CRM usa: o e-mail, o primeiro nome, o “sim” pras ofertas, os pedidos e os
-        carrinhos. CPF, telefone, endereço e dados do cartão são jogados fora na chegada.
+        carrinhos. Das vendas, também o nome, o celular, o CPF e o endereço de entrega de cada
+        pedido, guardados cifrados: é o que preenche o checkout do “Refazer o pedido”. Os dados do
+        cartão, e o CPF, o telefone e o endereço de clientes e de carrinhos, são jogados fora na
+        chegada.
       </p>
     </section>
   )
