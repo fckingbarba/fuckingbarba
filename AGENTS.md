@@ -1704,6 +1704,14 @@ inteiro (menos a fila, que é do agora) segue ele.
   da loja (`hostsDaLoja`: o domínio é o mesmo desde a Nuvemshop, então antes da virada as visitas
   são as dela). O `tokenDoGoogle` divide o token que está sendo pedido: as duas perguntas do
   Início saem juntas, e a primeira carga pedia dois.
+- **As taxas no mesmo corte (entrega 0212; o dono viu "2 vendas em 180 visitas" com o card Vendas
+  dizendo 4).** A taxa "visitas que compraram" para na hora do Google, e o painel agora diz as do
+  período inteiro: "2 vendas em 180 visitas, até as 12h (4 no dia)" (`Taxa.noPeriodo`, só nela).
+  A sacola de ontem era o dia inteiro contra a manhã de hoje: com o período até agora e o de antes,
+  vai uma 5ª pergunta (as sessões com `add_to_cart` do último dia do de antes, por hora) e a taxa
+  de antes para na hora do corte, dividida pelas visitas no corte. A sacola e o bloco "O que as
+  visitas fizeram" dizem "até as Nh" (o checkout, dos carrinhos, vai até agora). O `google-falso`
+  responde a 5ª (`inicio.sacolasPorHora`).
 - Sem parâmetro nenhum (o painel de antes), as duas rotas respondem como sempre; o painel novo com
   o backend de antes (a janela do deploy) mostra o Início de antes (`InicioDeAntes`).
 - No painel: `lib/periodo.ts` (o endereço e os tipos), `components/periodo.tsx` (a barra: cada

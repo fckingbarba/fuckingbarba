@@ -4683,6 +4683,17 @@ continua. Conferido na loja local: o `conferir-frete-na-pdp` 23/23 duas vezes e 
 
 Depois do deploy — **nada a configurar.**
 
+**As taxas do Início batendo com os números — pronto em 29/09 (entrega 0212).** Ele viu "2 vendas
+em 180 visitas" com o card Vendas dizendo 4. As contas estavam certas, mas em horários diferentes:
+o Google entrega as visitas com atraso (até as 12h), e a taxa só contava as vendas até essa hora.
+Agora a tela diz: "2 vendas em 180 visitas, até as 12h (4 no dia)". A taxa da sacola de ontem era
+do dia inteiro, contra a manhã de hoje: agora para na mesma hora. A sacola e o bloco "O que as
+visitas fizeram" dizem "até as 12h" (o checkout vai até agora). Conferido no painel local: o
+`conferir-visitas` 51/51 duas vezes, os unitários do backend (1.668), o typecheck, o lint e o
+prettier.
+
+Depois do deploy — **nada a configurar.**
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa
