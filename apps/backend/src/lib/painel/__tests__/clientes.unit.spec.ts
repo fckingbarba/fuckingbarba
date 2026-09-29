@@ -12,6 +12,7 @@ import {
   type PedidoDoCliente,
   vendidosDaPagina,
 } from "../clientes"
+import { quando } from "../formato"
 import type { Contexto } from "../pedido"
 
 /**
@@ -116,7 +117,8 @@ describe("a lista", () => {
       id: "cus_a",
       nome: "Ana Lima",
       cidade: "São Paulo/SP",
-      pedidos: 3,
+      // o1 pago; o2 sem pagamento e o3 cancelado não contam.
+      pedidos: 1,
       gastou: 128.5,
       ultimo: "hoje, 20:52",
       conta: false,
@@ -133,6 +135,27 @@ describe("a lista", () => {
     })
     expect(l.total).toBe(3)
     expect(l.comOfertas).toBe(2)
+  })
+
+  it('pedido sem pagamento não conta: nem no número, nem no "último", nem na ordem', () => {
+    const soSemPagar = juntarPessoas(
+      [
+        cliente("cus_x", "x@exemplo.com", { created_at: "2026-09-01T10:00:00-03:00" }),
+        cliente("cus_y", "y@exemplo.com", { created_at: "2026-09-02T10:00:00-03:00" }),
+      ],
+      [
+        pedido("ox1", "cus_x", "2026-09-24T11:08:00-03:00", { pago: false }),
+        pedido("ox2", "cus_x", "2026-09-24T11:00:00-03:00", { pago: false }),
+        pedido("oy1", "cus_y", "2026-09-10T10:00:00-03:00", { total: 90 }),
+      ],
+      []
+    )
+    const l = listaDeClientes(soSemPagar, "dono", AGORA)
+    expect(l.clientes.map((c) => [c.email, c.pedidos, c.gastou])).toEqual([
+      ["y@exemplo.com", 1, 90],
+      ["x@exemplo.com", 0, 0],
+    ])
+    expect(l.clientes[1]!.ultimo).toBe(quando("2026-09-01T10:00:00-03:00", AGORA))
   })
 
   it("o gasto é o que foi cobrado, com o cupom descontado — não a conta de antes dele", () => {

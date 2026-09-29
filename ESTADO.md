@@ -4749,6 +4749,16 @@ local: `conferir-visitas` 54/54 duas vezes, `conferir-marketing` 139/139, `confe
 
 Depois do deploy — **nada a configurar.**
 
+**Clientes só com pedidos pagos — pronto em 29/09 (entrega 0218).** Na lista de Clientes, ele viu
+"13 pedidos" pra quem não gastou nada: o número contava o Pix que venceu. Agora o número de
+pedidos, o "hoje, 11:08" embaixo dele e a ordem da lista contam só os pedidos pagos e não
+cancelados — como o "Gastou" já fazia. Quem só tem pedido sem pagar aparece com 0 e a data do
+cadastro. A ficha do cliente segue listando todos os pedidos (a operação precisa ver o Pix
+esperando), mas o resumo dela conta só os pagos. Conferido: os unitários do backend (1.684), o
+typecheck, o lint e o prettier.
+
+Depois do deploy — **nada a configurar.**
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa

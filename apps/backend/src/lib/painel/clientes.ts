@@ -216,14 +216,18 @@ const comEndereco = (p: Pessoa) => p.pedidos.find((o) => texto(o.shipping_addres
 function resumoDa(p: Pessoa) {
   const vendidos = p.pedidos.filter(vendido)
   return {
-    pedidos: p.pedidos.length,
+    pedidos: vendidos.length,
     gastou: centavos(vendidos.reduce((s, o) => s + totalDo(o), 0)),
   }
 }
 
-/** O que a pessoa fez por último: o pedido mais novo; sem pedido, o cadastro mais novo. */
+/**
+ * O que a pessoa fez por último: o pedido pago mais novo; sem pedido pago, o
+ * cadastro mais novo. Pedido sem pagamento (o Pix que venceu) não conta: nem
+ * no número de pedidos, nem aqui.
+ */
 const ultimaVez = (p: Pessoa): Data =>
-  p.pedidos[0]?.created_at ?? Math.max(...p.clientes.map((c) => tempo(c.created_at)))
+  p.pedidos.find(vendido)?.created_at ?? Math.max(...p.clientes.map((c) => tempo(c.created_at)))
 
 /* ── a lista ──────────────────────────────────────────────────────────────── */
 
@@ -234,9 +238,10 @@ export type LinhaDoCliente = {
   email: string
   /** "São Paulo/SP" — `null` pro marketing (e sem endereço nenhum). */
   cidade: string | null
+  /** Só os pagos e não cancelados. */
   pedidos: number
   gastou: number
-  /** "hoje, 20:52": o último pedido (ou, sem pedido, quando a conta nasceu). */
+  /** "hoje, 20:52": o último pedido pago (ou, sem pedido pago, quando a conta nasceu). */
   ultimo: string
   conta: boolean
   /** "e-mail · desde 22/09" — `null` quando não aceitou. */
