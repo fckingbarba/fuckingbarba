@@ -2703,13 +2703,15 @@ try {
         const codigo = convite?.html.match(/BROTHER-[2-9A-HJ-NP-Z]{6}/)?.[0] ?? ""
         ok(
           r10.corpo.enviados === 1 &&
-            convite?.subject === "Indique um brother: 15% pra ele, 15% pra você" &&
+            // O pedido é do Fator: o assunto da linha dele (0217).
+            convite?.subject === "Conhece alguém com a barba falhada?" &&
+            convite.html.includes("curtindo o Fator de Crescimento?") &&
             Boolean(convite.headers?.["List-Unsubscribe"]) &&
             !/\p{Extended_Pictographic}/u.test(convite.html) &&
             Boolean(codigo) &&
             convite.html.includes(`${LOJA}/discount/${codigo}`) &&
             convite.html.includes("https://wa.me/?text="),
-          "10 dias, pra quem respondeu “Tá indo bem”: o convite do indique um brother, como oferta, com o link (BROTHER-…) e o WhatsApp",
+          "10 dias, pra quem respondeu “Tá indo bem”: o convite do indique um brother — o assunto do Fator —, como oferta, com o link (BROTHER-…) e o WhatsApp",
           JSON.stringify({ r: r10.corpo, assunto: convite?.subject, codigo })
         )
         // O brother: nunca comprou, paga o Pix com o código do link — quem indicou ganha o cupom.
@@ -3306,6 +3308,30 @@ try {
         testeDaNavegacao?.html.includes(`${LOJA}/produtos/fator-de-crescimento-para-barba?`),
       "“Mandar pra mim” da navegação: quem olhou o Fator, como lembrete",
       testeDaNavegacao?.subject ?? "não chegou"
+    )
+    // O do indique um brother (0217): os três jeitos do convite, um por linha do pedido.
+    const antesDoTesteDoIndique = caixa.quantos(DONO, (e) => e.subject?.startsWith("[Teste] "))
+    await hidratado(dono.pagina, '[data-toque="jornada-indique"] [data-mandar-pra-mim]')
+    await dono.pagina.locator('[data-toque="jornada-indique"] [data-mandar-pra-mim]').click()
+    await caixa.esperarEmail(
+      DONO,
+      (e) => e.subject?.startsWith("[Teste] "),
+      antesDoTesteDoIndique + 2,
+      20000
+    )
+    const testesDoIndique = resend.emails
+      .filter((e) => e.to?.includes(DONO) && e.subject?.startsWith("[Teste] "))
+      .slice(antesDoTesteDoIndique)
+      .map((e) => e.subject)
+    ok(
+      JSON.stringify(testesDoIndique) ===
+        JSON.stringify([
+          "[Teste] Conhece alguém com a barba falhada?",
+          "[Teste] Conhece alguém que precisa cuidar da barba?",
+          "[Teste] Conhece alguém que precisa dar um jeito no cabelo?",
+        ]),
+      "“Mandar pra mim” do indique: os três jeitos do convite — o Fator, a barba e o cabelo",
+      JSON.stringify(testesDoIndique)
     )
     // A chave das boas-vindas é a do pop-up da loja: desligada, a loja fica sabendo.
     const popupDaLoja = async () =>
