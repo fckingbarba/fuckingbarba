@@ -57,6 +57,7 @@ describe("o formulário", () => {
       botao: { texto: "Ver a loja", caminho: "/" },
       produtos: ["fator-de-crescimento-para-barba"],
       publico: "todos",
+      jeito: "oferta",
     })
     expect(r.ok && r.agenda).toBeNull()
   })
@@ -80,6 +81,34 @@ describe("o formulário", () => {
     const b = ler({ assuntoB: "COMEÇOU A BLACK" })
     expect(!b.ok && b.erros.assuntoB).toBe("O assunto B tem que ser diferente do A.")
     expect(ler({ produtos: ["a", "b", "c", "d"] }).ok).toBe(false)
+  })
+
+  it("o jeito: sem ele, oferta; o recado vale; outro, não", () => {
+    const recado = ler({ jeito: "recado" })
+    expect(recado.ok && recado.campanha.jeito).toBe("recado")
+    const torto = ler({ jeito: "sms" })
+    expect(!torto.ok && torto.erros.jeito).toBe("Escolha como o e-mail chega.")
+  })
+
+  it("no recado, nenhum campo escrito com emoji; na oferta, pode", () => {
+    const r = ler({
+      jeito: "recado",
+      assunto: "Chegou 🔥",
+      assuntoB: "Tá na loja ⚡",
+      previa: "Corre 🏃",
+      titulo: "Novidade ✨",
+      texto: "O óleo novo chegou. 👊",
+      botao: { texto: "Ver 👀", caminho: "/" },
+    })
+    expect(r.ok).toBe(false)
+    expect(!r.ok && Object.keys(r.erros).sort()).toEqual(
+      ["assunto", "assuntoB", "botao", "previa", "texto", "titulo"].sort()
+    )
+    expect(!r.ok && r.erros.assunto).toBe("No recado, sem emoji: ele leva o e-mail pra Promoções.")
+    expect(ler({ jeito: "oferta", assunto: "Chegou 🔥" }).ok).toBe(true)
+    // O erro de antes fica: o assunto curto é "Escreva o assunto", com ou sem emoji.
+    const curto = ler({ jeito: "recado", assunto: "🔥" })
+    expect(!curto.ok && curto.erros.assunto).toBe("Escreva o assunto.")
   })
 
   it("o botão: a página inicial, a lista, ou um produto publicado", () => {
@@ -155,6 +184,7 @@ describe("o e-mail", () => {
     botao: { texto: "Ver a loja", caminho: "/" },
     produtos: [],
     publico: "todos",
+    jeito: "oferta",
     ...extra,
   })
   const p = {
@@ -192,6 +222,15 @@ describe("o e-mail", () => {
     expect(emailDaCampanha(texto({ assuntoB: null }), "b", p).assunto).toBe("Começou a Black")
   })
 
+  it("o recado: o estilo lembrete — sem o cabeçalho de cancelar, e o sair da lista no pé", () => {
+    const r = emailDaCampanha(texto({ jeito: "recado" }), "a", p)
+    expect(r.estilo).toBe("lembrete")
+    const pronto = emailDoCrm(r)
+    expect(pronto.cabecalhos["List-Unsubscribe"]).toBeUndefined()
+    expect(pronto.html).toContain("https://loja/sair/x")
+    expect(pronto.html).toContain("utm_campaign=crm-campanha-black-friday")
+  })
+
   it("o banco e de volta: igual", () => {
     const t = texto()
     const linha = {
@@ -204,6 +243,11 @@ describe("o e-mail", () => {
       ...bancoDoTexto(t),
     }
     expect(textoDoBanco(linha)).toEqual(t)
+    expect(textoDoBanco({ ...linha, ...bancoDoTexto(texto({ jeito: "recado" })) }).jeito).toBe(
+      "recado"
+    )
+    // A linha de antes da 0210, sem o jeito, é oferta.
+    expect(textoDoBanco({ ...linha, jeito: null }).jeito).toBe("oferta")
   })
 })
 
