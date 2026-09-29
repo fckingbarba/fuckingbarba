@@ -71,7 +71,7 @@ export const SECOES_DA_HOME: readonly SecaoDaHome[] = [
     escopo: "home",
     nome: "Esteira de avaliações",
     descricao:
-      "Avaliações e trechos de entrevistas com clientes passando de lado — até quatro de cada produto por visita.",
+      "Avaliações de quem comprou passando de lado — até quatro de cada produto por visita.",
     componente: Amam,
   },
   {

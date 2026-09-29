@@ -9,10 +9,10 @@
  * que se confere é a conta, não o conteúdo. As sementes são fixas, então o
  * resultado é o mesmo a cada rodada.
  *
- * A parte dos TRECHOS DE ENTREVISTA lê a lista de verdade
- * (`conteudo/depoimentos.ts`): que nenhum trecho carrega nome, nota ou selo,
- * que cada um entra uma vez, no produto dele, e que a home desenha dezenas de
- * cartões com eles, e não mil.
+ * A parte dos TRECHOS DE ENTREVISTA confere que a lista de verdade
+ * (`conteudo/depoimentos.ts`) está vazia — os trechos saíram da loja na 0213 —
+ * e, com 160 trechos de mentira, que nenhum carrega nome, nota ou selo e que a
+ * home desenha dezenas de cartões com eles, e não mil.
  *
  * E as AVALIAÇÕES DE QUEM COMPROU (as da página `/avaliar`, aprovadas no
  * painel): a conversão do que o Medusa manda (`avaliacoesDoMedusa`) e a regra
@@ -229,7 +229,11 @@ ok(
 
 titulo("Os trechos de entrevista")
 const semEspaco = (t) => t.replace(/\s+/g, " ").trim().toLowerCase()
-ok(TRECHOS.length > 0, "a lista de trechos tem trecho", String(TRECHOS.length))
+ok(
+  TRECHOS.length === 0,
+  "a lista de trechos está vazia — saíram da loja na 0213",
+  String(TRECHOS.length)
+)
 const camposForaDoLugar = TRECHOS.filter(
   (t) => Object.keys(t).some((k) => k !== "texto" && k !== "produtoHandle") || !t.produtoHandle
 )
@@ -237,22 +241,6 @@ ok(
   camposForaDoLugar.length === 0,
   "nenhum trecho tem nome, nota ou selo — só o texto e o produto",
   JSON.stringify(camposForaDoLugar[0] ?? "")
-)
-ok(
-  new Set(TRECHOS.map((t) => semEspaco(t.texto))).size === TRECHOS.length,
-  "cada trecho entra uma vez",
-  `${TRECHOS.length - new Set(TRECHOS.map((t) => semEspaco(t.texto))).size} repetido(s)`
-)
-const kitsDoFator = [
-  "kit-2-fator-de-crescimento-para-barba",
-  "kit-3-fator-de-crescimento-para-barba",
-  "kit-6-fator-de-crescimento-para-barba",
-  "kit-fator-de-crescimento-para-barba-e-shampoo",
-]
-ok(
-  !TRECHOS.some((t) => kitsDoFator.includes(t.produtoHandle)) &&
-    TRECHOS.some((t) => t.produtoHandle === "fator-de-crescimento-para-barba"),
-  "os do Fator ficam no Fator — nenhuma cópia nos kits dele"
 )
 const EXEMPLO = "Usei por 1 mês e não vi muita coisa"
 ok(
@@ -267,20 +255,30 @@ ok(
   ]).length === 1,
   "trecho com o mesmo texto conta uma vez"
 )
+// 160 trechos de mentira, 20 de cada um de oito produtos: o tamanho da lista
+// que a loja teve até a 0213.
+const muitos = Array.from({ length: 160 }, (_, i) => ({
+  texto: `trecho de teste ${i}`,
+  produtoHandle: `produto-${i % 8}`,
+}))
+ok(
+  new Set(muitos.map((t) => semEspaco(t.texto))).size === muitos.length,
+  "os trechos de mentira não se repetem"
+)
 const aleatorioDaHome = sequencia(1)
-const naHome = sortearDaEsteira(TRECHOS, POR_PRODUTO_NA_ESTEIRA, aleatorioDaHome)
-const produtosComTrecho = new Set(TRECHOS.map((t) => t.produtoHandle)).size
+const naHome = sortearDaEsteira(muitos, POR_PRODUTO_NA_ESTEIRA, aleatorioDaHome)
+const produtosComTrecho = new Set(muitos.map((t) => t.produtoHandle)).size
 const contaNaHome = porProduto(naHome)
 ok(
   [...contaNaHome.values()].every((n) => n <= POR_PRODUTO_NA_ESTEIRA) &&
-    naHome.length === Math.min(TRECHOS.length, POR_PRODUTO_NA_ESTEIRA * produtosComTrecho),
+    naHome.length === Math.min(muitos.length, POR_PRODUTO_NA_ESTEIRA * produtosComTrecho),
   "a esteira mostra até quatro trechos de cada produto",
   JSON.stringify([...contaNaHome])
 )
 const fileirasDaHome = emDuasFileiras(naHome, aleatorioDaHome)
 ok(
   fileirasDaHome.every((f) => f.length >= MINIMO_NA_FILA),
-  "com os trechos de hoje, cada fileira cobre a tela sem repetir cartão",
+  "com 160 trechos, cada fileira cobre a tela sem repetir cartão",
   fileirasDaHome.map((f) => f.length).join(" e ")
 )
 const cartoes = fileirasDaHome.reduce((n, f) => n + 2 * encherAFila(f, MINIMO_NA_FILA).length, 0)
@@ -289,12 +287,12 @@ ok(
   "a home desenha dezenas de cartões (as duas fileiras e as cópias), e não mil",
   `${cartoes} cartões`
 )
-const doFator = TRECHOS.filter((t) => t.produtoHandle === "fator-de-crescimento-para-barba")
-const naPagina = sortear(doFator, NA_PAGINA_DO_PRODUTO, sequencia(1))
+const doPrimeiro = muitos.filter((t) => t.produtoHandle === "produto-0")
+const naPagina = sortear(doPrimeiro, NA_PAGINA_DO_PRODUTO, sequencia(1))
 ok(
-  naPagina.length === 3 && naPagina.every((t) => doFator.includes(t)),
-  "a página do Fator mostra três trechos, e só do Fator",
-  `${naPagina.length} de ${doFator.length}`
+  naPagina.length === 3 && naPagina.every((t) => doPrimeiro.includes(t)),
+  "a página do produto mostra três trechos, e só dele",
+  `${naPagina.length} de ${doPrimeiro.length}`
 )
 
 titulo("Os três da página do produto")

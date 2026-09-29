@@ -4683,6 +4683,15 @@ continua. Conferido na loja local: o `conferir-frete-na-pdp` 23/23 duas vezes e 
 
 Depois do deploy — **nada a configurar.**
 
+**Sem as "Entrevista com cliente" — pronto em 29/09 (entrega 0213).** Seu pedido: com as avaliações
+de clientes reais chegando, tirar os trechos das entrevistas. Os 160 saíram da esteira da home e da
+seção "O que diz quem usou" de cada produto; ficam só as avaliações de quem comprou (37 publicadas
+hoje, em 7 produtos). O Óleo e o Shampoo ainda não têm avaliação: a seção some da página deles até a
+primeira ser aprovada no painel. Conferido: `conferir-esteira` 51/51, typecheck, lint e prettier da
+loja.
+
+Depois do deploy — **nada a configurar.**
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa

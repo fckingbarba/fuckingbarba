@@ -95,8 +95,7 @@ export const SECOES_DO_PRODUTO: readonly SecaoDoProduto[] = [
     id: "produto.avaliacoes",
     escopo: "produto",
     nome: "Avaliações",
-    descricao:
-      "Avaliações e trechos de entrevistas com clientes do produto. Só aparece quando existe um dos dois.",
+    descricao: "Avaliações de quem comprou o produto. Só aparece quando existe alguma.",
     componente: Avaliacoes,
   },
   {
