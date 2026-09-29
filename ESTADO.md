@@ -4806,6 +4806,26 @@ typecheck da loja e do painel, o lint e o prettier.
 
 Depois do deploy — **nada a configurar.** Pra ver: a página do Kit Completo ou do Kit Essencial.
 
+**A prévia da caixa de compra com o frete de verdade — pronto em 29/09 (entrega 0222).** No painel,
+a prévia da caixa de compra (Produtos → um produto) contava o frete grátis a partir de R$ 149,90,
+um número escrito no código do painel — e a loja anuncia a partir de R$ 139,90. A tarja "Frete
+grátis" dos cartões e o "Faltam R$ X pro frete grátis" do "Leve junto" apareciam onde a página não
+punha.
+
+- **A prévia usa a política de frete gravada** (a mesma de Configurações → Frete, que a loja lê):
+  mudou o piso lá, a prévia muda junto.
+- **Frete fixo** aparece como "Frete R$ 9,90", nunca "grátis"; **sem promoção de frete**, ou com
+  frete grátis pra todos, a prévia não fala de frete — como a loja.
+- **O total do "Leve junto"** conta o preço de hoje, com a promoção, como a página.
+
+Conferido na pilha local: o de produtos do painel 137/137 três vezes, com a seção nova (os quatro
+modos de frete, a prévia contra a política e as tarjas contra as da página do balm na loja); com o
+painel de antes, a seção nova falha (14 ✗). Os unitários do backend (1.699), o typecheck do backend
+e do painel, o `medusa lint`, o eslint e o prettier.
+
+Depois do deploy — **nada a configurar.** Pra ver: Produtos → um produto → a caixa de compra: a
+tarja "Frete grátis" só nos cartões de R$ 139,90 pra cima. Vem depois da 0221 (PR #205).
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa
