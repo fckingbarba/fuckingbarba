@@ -4559,6 +4559,31 @@ unitários, o typecheck e o lint do backend.
 Depois do deploy — **nada a configurar.** Na aba Clientes, os "Sem nome" passam a mostrar o ícone
 do e-mail aceso.
 
+**O balão do pedido — pronto em 29/09 (entrega 0203).** Pedido dele: quem pagou ou gerou o Pix e
+clicava na home "ficava perdido". Desenho aprovado no canvas "Balão do pedido" (com o "Ver pedido
+completo" no padrão dos botões da loja, a correção dele).
+
+- **Depois do pedido, um balão no canto de baixo da loja**, em toda página menos o checkout: o número
+  do pedido e em que pé está — "Falta pagar o Pix" (com os minutos que o Pix ainda vale e uma faixa
+  que encolhe), "Pagamento em análise", "Pedido confirmado" ou "O Pix venceu".
+- **Muda sozinho**: se o Pix cai com a pessoa navegando, o balão fica verde.
+- **Tocar abre o resumo**: os passos (pedido feito, pagamento, separação, envio), o "Copiar código
+  Pix", os itens, "Ver pedido completo" e o WhatsApp da loja.
+- **Pix vencido**: o "Refazer" põe os mesmos produtos na sacola e abre a sacola.
+- **Meia hora** depois do pedido ele some (com o Pix ainda valendo, fica até 10 minutos depois do
+  vencimento, pra dizer que venceu). O X esconde de vez.
+- Na página de produto, sobe por cima da barra do "Comprar"; no computador, fica no canto esquerdo.
+- **Só pra quem comprou neste navegador**: quem não comprou não carrega nada a mais. A política de
+  privacidade ganhou uma frase sobre o cookie do balão.
+
+Conferido na loja local: o conferidor novo `conferir-balao` 34/34 três vezes (quem não comprou, o Pix
+na volta pra loja, o copiar, a página de produto, o checkout sem balão, o Pix caindo, o X, o cookie
+sem o crachá, o Pix vencido e o Refazer, os 30 minutos); o checkout 198/198, o pagamento 224/224, a
+conta 211/211 e a 1ª compra 21/21; o typecheck, o lint, o prettier e o `next build` da loja (a home
+segue estática).
+
+Depois do deploy — **nada a configurar.** Pra ver: um pedido no Pix e voltar pra home.
+
 **O cupom na sacola e o medidor do frete grátis novo — pronto em 29/09 (entrega 0207).** Clientes
 diziam que não achavam onde pôr o cupom no celular: no checkout ele fica no "Resumo do pedido", que
 no celular nasce fechado, e ainda atrás do "Tem cupom de desconto?". O desenho foi aprovado por você
