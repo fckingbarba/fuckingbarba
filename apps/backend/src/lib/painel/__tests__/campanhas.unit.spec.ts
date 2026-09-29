@@ -34,7 +34,7 @@ describe("a tela das campanhas", () => {
         }),
         linha("g2", "agendada", { agenda: "2026-11-27T11:00:00Z" }),
         linha("s1", "enviando", { comecou_em: "2026-09-29T12:00:00Z" }),
-        linha("g1", "agendada", { agenda: "2026-10-12T11:00:00Z" }),
+        linha("g1", "agendada", { agenda: "2026-10-12T11:00:00Z", jeito: "recado" }),
       ],
       registros: new Map([
         ["e1", [{ email: "a@x.com", toque: "a", como: "enviado", em: "2026-09-20T12:00:00Z" }]],
@@ -52,6 +52,9 @@ describe("a tela das campanhas", () => {
       vendido: 120,
     })
     expect(tela.campanhas.find((c) => c.id === "r1")?.resultado).toBeNull()
+    // O jeito (0210): a linha de antes, sem ele, é oferta.
+    expect(tela.campanhas.find((c) => c.id === "r1")?.nomeDoJeito).toBe("Oferta")
+    expect(tela.campanhas.find((c) => c.id === "g1")?.nomeDoJeito).toBe("Recado do Matheus")
     expect(tela.publicos).toEqual([
       { id: "todos", nome: "Todos que aceitam ofertas", pessoas: 3000 },
       { id: "clientes", nome: "Quem já comprou", pessoas: 1800 },

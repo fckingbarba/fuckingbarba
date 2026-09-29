@@ -239,6 +239,8 @@ export type TelaDaBase = {
 export const CAMINHO_DAS_CAMPANHAS = "/dashboard/crm/campanhas"
 
 export type PublicoDaCampanha = "todos" | "clientes" | "leads" | "em-risco"
+/** Como o e-mail chega (0210): a oferta (Promoções) ou o recado do Matheus. */
+export type JeitoDaCampanha = "oferta" | "recado"
 export type SituacaoDaCampanha = "rascunho" | "agendada" | "enviando" | "enviada" | "parada"
 
 /** O que se escreve no formulário (`lib/crm/campanhas.ts` no backend). */
@@ -252,6 +254,7 @@ export type TextoDaCampanha = {
   botao: { texto: string; caminho: string } | null
   produtos: string[]
   publico: PublicoDaCampanha
+  jeito: JeitoDaCampanha
 }
 
 export type ResultadoDaCampanha = {
@@ -271,6 +274,7 @@ export type CampanhaNaTela = {
   situacao: SituacaoDaCampanha
   texto: TextoDaCampanha
   nomeDoPublico: string
+  nomeDoJeito: string
   agenda: string | null
   comecouEm: string | null
   acabouEm: string | null

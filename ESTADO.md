@@ -3874,6 +3874,18 @@ manda aos poucos (uns 100 a cada 5 minutos).
 - [ ] **Depois do deploy (você):** CRM → Campanhas → Nova campanha → escreva uma de teste, "Mandar
       pra mim", e apague o rascunho. Nada a configurar.
 
+**O "Recado do Matheus" nas campanhas — pronto em 29/09 (entrega 0210).** Seu pedido: a campanha de
+teste caiu em Promoções. Agora cada campanha escolhe **Como chega**:
+- **Oferta** (como antes): cai em Promoções, com o "cancelar inscrição" do Gmail. Pra desconto e
+  preço, como a Black.
+- **Recado do Matheus:** a mesma cara da loja, assinado "Matheus, da FuckingBarba", sem emoji e com o
+  sair da lista no pé. Tenta o Principal, mas quem decide é o Gmail.
+- **O risco do recado:** sem o botão de cancelar do Gmail, quem não quer mais receber pode marcar
+  spam, e isso pesa em todos os e-mails da loja. Use em campanha sem preço (lançamento, novidade).
+
+- [ ] **Depois do deploy (você):** CRM → Campanhas → Nova campanha → em "Como chega", escolha
+      "Recado do Matheus" → "Mandar pra mim", e veja em que aba cai.
+
 **A parcela mínima do cartão, editável — pronta em 27/09 (entrega 0157).** O pedido dele: "quero
 poder editar a parcela mínima no cartão, ali diz 5 reais". Em **Configurações → Pagamento**, o
 bloco **Parcelas no cartão** tem o campo **Parcela mínima**.

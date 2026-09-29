@@ -1,4 +1,5 @@
 import {
+  NOME_DO_JEITO,
   NOME_DO_PUBLICO,
   PUBLICOS,
   resultadoDaCampanha,
@@ -25,6 +26,8 @@ export type CampanhaNaTela = {
   situacao: SituacaoDaCampanha
   texto: TextoDaCampanha
   nomeDoPublico: string
+  /** "Oferta" ou "Recado do Matheus" (0210). */
+  nomeDoJeito: string
   agenda: string | null
   comecouEm: string | null
   acabouEm: string | null
@@ -81,6 +84,7 @@ export function montarTelaDasCampanhas({
       situacao,
       texto,
       nomeDoPublico: NOME_DO_PUBLICO[texto.publico],
+      nomeDoJeito: NOME_DO_JEITO[texto.jeito],
       agenda: iso(c.agenda),
       comecouEm: iso(c.comecou_em),
       acabouEm: iso(c.acabou_em),

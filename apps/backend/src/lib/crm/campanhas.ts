@@ -26,6 +26,16 @@ import { CONTROLE } from "./fluxos"
  *   - o teto dos fluxos vale (3 e-mails do CRM em 24 horas, 6 em 7 dias: quem
  *     passou espera), e de madrugada nada sai.
  *
+ * O JEITO (entrega 0210, pedido do dono: a oferta caiu em Promoções) — cada
+ * campanha escolhe como chega:
+ *   - "oferta": o estilo oferta (a cara da loja, o remetente da loja e o
+ *     "cancelar inscrição" do Gmail no cabeçalho). Promoções é o lugar dela;
+ *   - "recado": o estilo lembrete (a mesma cara da loja, assinado "Matheus,
+ *     da FuckingBarba", sem o cabeçalho; o sair da lista fica no pé), e sem
+ *     emoji em nada do que se escreve (`temEmoji`). Tenta o Principal — quem
+ *     decide é o Gmail. O risco: sem o botão de cancelar do Gmail, quem não
+ *     quer mais pode marcar spam; é pra campanha sem preço.
+ *
  * As partes puras (o formulário, o sorteio, o e-mail, o resultado) têm testes.
  */
 
@@ -45,6 +55,19 @@ export const NOME_DO_PUBLICO: Record<PublicoDaCampanha, string> = {
 
 export type SituacaoDaCampanha = "rascunho" | "agendada" | "enviando" | "enviada" | "parada"
 
+/** Como o e-mail chega (0210): a oferta, ou o recado do Matheus. */
+export const JEITOS = ["oferta", "recado"] as const
+export type JeitoDaCampanha = (typeof JEITOS)[number]
+
+/** O nome de cada jeito, na tela. */
+export const NOME_DO_JEITO: Record<JeitoDaCampanha, string> = {
+  oferta: "Oferta",
+  recado: "Recado do Matheus",
+}
+
+/** Se o texto tem emoji (o recado não leva: ele empurra pra Promoções). */
+export const temEmoji = (texto: string) => /\p{Extended_Pictographic}/u.test(texto)
+
 /** O que se escreve no formulário: o e-mail e o público. */
 export type TextoDaCampanha = {
   nome: string
@@ -60,6 +83,8 @@ export type TextoDaCampanha = {
   /** Até 3 produtos, pelo endereço. */
   produtos: string[]
   publico: PublicoDaCampanha
+  /** Como chega: a oferta (Promoções) ou o recado do Matheus (0210). */
+  jeito: JeitoDaCampanha
 }
 
 /** A data mais longe que se agenda. */
@@ -100,7 +125,9 @@ export type ErrosDaCampanha = Partial<Record<keyof TextoDaCampanha | "agenda", s
 /**
  * O FORMULÁRIO, conferido: o texto da campanha, com o que errou em cada
  * campo. `agendar`: a agenda é obrigatória, entre 5 minutos e 120 dias
- * daqui. O que vem do navegador é suspeito: fica só o que a tela manda.
+ * daqui. Sem o jeito, é oferta (o de antes da 0210); no recado, nenhum
+ * campo escrito leva emoji. O que vem do navegador é suspeito: fica só o
+ * que a tela manda.
  */
 export function lerCampanha(
   corpo: unknown,
@@ -157,6 +184,15 @@ export function lerCampanha(
   const publico = PUBLICOS.find((p) => p === c.publico)
   if (!publico) erros.publico = "Escolha o público."
 
+  const jeito = c.jeito === undefined ? "oferta" : JEITOS.find((j) => j === c.jeito)
+  if (!jeito) erros.jeito = "Escolha como o e-mail chega."
+  if (jeito === "recado") {
+    const semEmoji = "No recado, sem emoji: ele leva o e-mail pra Promoções."
+    const escritos = { assunto, assuntoB: assuntoB ?? "", previa, titulo, texto, botao: botaoTexto }
+    for (const [campo, valor] of Object.entries(escritos) as [keyof ErrosDaCampanha, string][])
+      if (!erros[campo] && temEmoji(valor)) erros[campo] = semEmoji
+  }
+
   let agenda: Date | null = null
   if (agendar) {
     const d = typeof c.agenda === "string" ? new Date(c.agenda) : null
@@ -181,6 +217,7 @@ export function lerCampanha(
       botao,
       produtos,
       publico: publico!,
+      jeito: jeito!,
     },
     agenda,
   }
@@ -214,6 +251,8 @@ export type CampanhaDoBanco = {
   por: string | null
   /** O resultado guardado (`resultadoFechou`), ou nulo. */
   resultado?: unknown
+  /** "oferta" ou "recado" (0210); a de antes é oferta. */
+  jeito?: string | null
 }
 
 /** O texto da campanha, da linha do banco. */
@@ -231,6 +270,7 @@ export function textoDoBanco(c: CampanhaDoBanco): TextoDaCampanha {
       ? c.produtos.filter((h): h is string => typeof h === "string")
       : [],
     publico: PUBLICOS.find((p) => p === c.publico) ?? "todos",
+    jeito: JEITOS.find((j) => j === c.jeito) ?? "oferta",
   }
 }
 
@@ -246,6 +286,7 @@ export const bancoDoTexto = (t: TextoDaCampanha) => ({
   botao_caminho: t.botao?.caminho ?? null,
   produtos: t.produtos,
   publico: t.publico,
+  jeito: t.jeito,
 })
 
 /* ── o sorteio ────────────────────────────────────────────────────────────── */
@@ -281,9 +322,11 @@ export function marcaDaCampanha(nome: string): string {
 /* ── o e-mail ─────────────────────────────────────────────────────────────── */
 
 /**
- * O E-MAIL DA CAMPANHA: é oferta (o modelo da marca, o "cancelar inscrição"
- * no cabeçalho — Promoções é o lugar dela), com o assunto da variante, o
- * texto em parágrafos, o botão e os produtos.
+ * O E-MAIL DA CAMPANHA: o assunto da variante, o texto em parágrafos, o
+ * botão e os produtos, no modelo da marca. A oferta vai no estilo oferta (o
+ * "cancelar inscrição" no cabeçalho — Promoções é o lugar dela); o recado,
+ * no estilo lembrete (assinado pelo Matheus, sem o cabeçalho, o sair da
+ * lista no pé).
  */
 export function emailDaCampanha(
   c: TextoDaCampanha,
@@ -313,7 +356,7 @@ export function emailDaCampanha(
     blocos,
     sair: p.sair,
     loja: p.loja,
-    estilo: "oferta",
+    estilo: c.jeito === "recado" ? "lembrete" : "oferta",
   }
 }
 

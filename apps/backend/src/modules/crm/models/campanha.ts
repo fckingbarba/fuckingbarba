@@ -36,5 +36,7 @@ export const Campanha = model
      * `resultadoFechou`): daí em diante a tela não relê o registro dela.
      */
     resultado: model.json().nullable(),
+    /** Como chega (0210): "oferta" (Promoções) ou "recado" (assinado pelo Matheus). */
+    jeito: model.text().default("oferta"),
   })
   .indexes([{ on: ["situacao"] }])

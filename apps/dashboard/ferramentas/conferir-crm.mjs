@@ -3316,7 +3316,7 @@ try {
     ok(
       (await f.locator('.abas [data-aba="campanhas"][aria-current="page"]').count()) === 1 &&
         (await f.locator("[data-nova-campanha]").getAttribute("href")) === "/crm/campanhas/nova" &&
-        (await f.locator("[data-regras-das-campanhas] li").count()) === 8,
+        (await f.locator("[data-regras-das-campanhas] li").count()) === 9,
       "a aba Campanhas acesa, com o “Nova campanha” e as regras"
     )
     await f.locator("[data-nova-campanha]").click()
@@ -3634,6 +3634,76 @@ try {
       "a agendada não se apaga (409); desmarcada, volta a rascunho, e o rascunho se apaga",
       [cedo.status, desmarcada.status, apagada.status, sumiu].join(",")
     )
+    titulo("As campanhas: o recado do Matheus (0210)")
+    const comEmoji = await mudar({
+      acao: "salvar",
+      campanha: { ...EXEMPLO, jeito: "recado", assunto: "A semana do óleo 🔥", assuntoB: null },
+    })
+    ok(
+      comEmoji.status === 422 &&
+        comEmoji.corpo.erros?.assunto ===
+          "No recado, sem emoji: ele leva o e-mail pra Promoções." &&
+        (await mudar({ acao: "salvar", campanha: { ...EXEMPLO, jeito: "sms" } })).status === 422,
+      "no recado, emoji não passa; e o jeito que não existe, também não",
+      JSON.stringify(comEmoji.corpo)
+    )
+    const RECADO = {
+      ...EXEMPLO,
+      nome: `Recado ${RODADA}`,
+      assunto: "Chegou o óleo novo",
+      assuntoB: null,
+      jeito: "recado",
+    }
+    await f.goto(`${PAINEL}/crm/campanhas/nova`)
+    await f.locator("[data-formulario-da-campanha]").waitFor({ timeout: 20000 })
+    await hidratado(f, '[data-jeito="recado"] input')
+    await f.locator('[data-campo="nome"]').fill(RECADO.nome)
+    await f.locator('[data-campo="assunto"]').fill(RECADO.assunto)
+    await f.locator('[data-campo="titulo"]').fill(RECADO.titulo)
+    await f.locator('[data-campo="texto"]').fill(RECADO.texto)
+    await f.locator('[data-jeito="recado"] input').check()
+    const antesDoRecado = caixa.quantos(DONO, ehTeste)
+    const avisoDoRecado = await avisoDoClique(f, () => f.locator("[data-mandar-pra-mim]").click())
+    const testeDoRecado = await caixa.esperarEmail(DONO, ehTeste, antesDoRecado, 20000)
+    ok(
+      avisoDoRecado.startsWith(`Mandei a campanha pra ${DONO}.`) &&
+        testeDoRecado?.subject === `[Teste] ${RECADO.assunto}` &&
+        /^Matheus, da FuckingBarba </.test(testeDoRecado.from ?? "") &&
+        !testeDoRecado.headers?.["List-Unsubscribe"] &&
+        /href="[^"]+\/sair\/[\w-]+"/.test(testeDoRecado.html),
+      "o recado pela tela: o teste chega assinado pelo Matheus, sem o cabeçalho de cancelar, e com o sair da lista no pé",
+      JSON.stringify({ avisoDoRecado, de: testeDoRecado?.from, assunto: testeDoRecado?.subject })
+    )
+    const recado = await mudar({ acao: "agendar", campanha: RECADO, agenda: iso(agenda) })
+    const idDoRecado = recado.corpo.id
+    const E = achar("campanha-e", (e) => sorteio(`${e}|${idDoRecado}|controle`) % 100 >= 5)
+    await inscrever(E)
+    const rRecado = await rodar({ agora: iso(t1 + 12 * DIA_MS), email: E })
+    const eRecado = await caixa.esperarEmail(E, daCampanha, 0)
+    const doRecado = (await campanhas()).corpo.campanhas.find((c) => c.id === idDoRecado)
+    ok(
+      rRecado.corpo.campanha === idDoRecado &&
+        rRecado.corpo.enviados === 1 &&
+        eRecado?.subject === RECADO.assunto &&
+        /^Matheus, da FuckingBarba </.test(eRecado.from ?? "") &&
+        !eRecado.headers?.["List-Unsubscribe"] &&
+        eRecado.html.includes("utm_campaign=crm-campanha-recado-") &&
+        doRecado?.texto.jeito === "recado" &&
+        doRecado.nomeDoJeito === "Recado do Matheus",
+      "o recado sai assinado pelo Matheus, sem o cabeçalho de cancelar, com a marca da campanha no link",
+      JSON.stringify({ r: rRecado.corpo, de: eRecado?.from, jeito: doRecado?.texto.jeito })
+    )
+    // Acaba com as 24 horas: o banco local é de todos os conferidores.
+    await rodar({ agora: iso(t1 + 13 * DIA_MS + MIN), email: E })
+    await f.goto(`${PAINEL}/crm/campanhas`)
+    await f.locator(`[data-campanha="${idDoRecado}"]`).waitFor({ timeout: 20000 })
+    ok(
+      semEspaco(
+        await f.locator(`[data-campanha="${idDoRecado}"] .campanha__publico`).textContent()
+      ) === "Todos que aceitam ofertas · Recado do Matheus",
+      "na lista, o recado diz que é recado"
+    )
+
     for (const caminho of ["/crm/campanhas", "/crm/campanhas/nova", `/crm/campanhas/${id}`]) {
       await mkt.pagina.goto(`${PAINEL}${caminho}`)
       await mkt.pagina.locator("[data-tela]").first().waitFor({ timeout: 20000 })
