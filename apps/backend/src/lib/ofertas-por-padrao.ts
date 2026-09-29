@@ -2,11 +2,13 @@
 export const ORIGEM_POR_PADRAO = "padrao"
 
 /**
- * AS OFERTAS POR E-MAIL LIGADAS POR PADRÃO (entrega 0184) — o parecer do
- * advogado do dono (28/09): quem compra ou cria conta recebe as ofertas por
- * e-mail, e desliga quando quiser (a caixa da conta, o "Sair da lista" de
- * todo e-mail). Quem chama: o cadastro de cliente novo
- * (`subscribers/ofertas-por-padrao.ts`) e a migração dos de antes.
+ * AS OFERTAS POR E-MAIL LIGADAS POR PADRÃO (entregas 0184 e 0205) — o
+ * parecer do advogado do dono (28/09): quem compra ou cria conta recebe as
+ * ofertas por e-mail, e desliga quando quiser (a caixa da conta, o "Sair da
+ * lista" de todo e-mail). Desde a 0205, também quem só deixou o e-mail no
+ * checkout (escolha do dono, 29/09). Quem chama: o cadastro de cliente novo
+ * e o carrinho (`subscribers/ofertas-por-padrao.ts`) e as migrações dos de
+ * antes.
  *
  * Devolve o `ofertas` novo do cliente — o sim, com a data do cadastro e a
  * origem "padrao" —, ou `null` quando não há o que mudar: ele já tem o sim

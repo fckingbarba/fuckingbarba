@@ -115,10 +115,10 @@ export default async function Privacidade() {
           comprou ou o que combina com o que você já tem.
         </P>
         <P>
-          <b>As novidades e as ofertas por e-mail</b>: quem compra ou cria conta passa a receber, e
-          desliga quando quiser — no &ldquo;Sair da lista&rdquo; de qualquer e-mail, ou desmarcando
-          a caixa em &ldquo;Meus dados&rdquo;, na conta. Os e-mails do seu pedido continuam
-          chegando.
+          <b>As novidades e as ofertas por e-mail</b>: quem compra, cria conta ou deixa o e-mail no
+          checkout passa a receber, e desliga quando quiser — no &ldquo;Sair da lista&rdquo; de
+          qualquer e-mail, ou desmarcando a caixa em &ldquo;Meus dados&rdquo;, na conta. Os e-mails
+          do seu pedido continuam chegando.
         </P>
         <P>
           <b>Se você assinar a newsletter</b>: só o e-mail. Dá pra sair em qualquer mensagem que a
