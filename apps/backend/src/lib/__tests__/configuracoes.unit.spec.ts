@@ -190,3 +190,20 @@ describe("a parcela mínima do cartão (0157)", () => {
     expect(soOPublico(com({ parcelaMinima: 30 })).pagamento).toEqual({ parcelaMinima: 30 })
   })
 })
+
+describe("o e-mail da venda nova (0219)", () => {
+  const com = (avisos: unknown) => lerConfiguracoes({ [CHAVE_NO_METADATA]: { avisos } })
+
+  it("sem nada: vai pros donos (null); com e-mail: ele, em minúsculas", () => {
+    expect(lerConfiguracoes({}).avisos).toEqual({ vendaPara: null })
+    expect(com({ vendaPara: "FckingBarba@gmail.com" }).avisos).toEqual({
+      vendaPara: "fckingbarba@gmail.com",
+    })
+  })
+
+  it("o que não é e-mail volta pros donos — e nunca sai pro público", () => {
+    for (const v of ["", "fckingbarba", 42, null, "a b@c.com"])
+      expect(com({ vendaPara: v }).avisos).toEqual({ vendaPara: null })
+    expect(soOPublico(com({ vendaPara: "fckingbarba@gmail.com" }))).not.toHaveProperty("avisos")
+  })
+})

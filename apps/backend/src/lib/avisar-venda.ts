@@ -7,6 +7,7 @@ import {
   paraPedidoDoEmail,
   type PedidoLido,
 } from "./confirmar-pedido"
+import { lerConfiguracoes } from "./configuracoes"
 import { emailNoLog, enviarEmail } from "./email"
 import { emailDeVendaNova, type VendaDoAviso } from "./emails/venda-nova"
 import { emailsPraAvisar } from "./equipe/avisados"
@@ -29,10 +30,11 @@ import { ehParceiro } from "./pagamento/parceiros"
  * evento nenhum, e o e-mail que o Resend recusou por um instante. O aviso que
  * sai atrasado diz a hora do pagamento.
  *
- * PRA QUEM: o papel dono (`emailsPraAvisar`; a linha "Venda nova" de
- * `AVISOS_DA_EQUIPE`, na aba E-mails das Configurações do painel) — um e-mail
- * pra cada dono ativo no painel; sem ninguém no painel, pra cada usuário do
- * admin do Medusa.
+ * PRA QUEM (`emailsDaVenda`): o endereço da venda nova, quando a aba E-mails
+ * das Configurações tem um (0219) — só ele, nenhum dono. Sem endereço, o
+ * papel dono (`emailsPraAvisar`; a linha "Venda nova" de `AVISOS_DA_EQUIPE`)
+ * — um e-mail pra cada dono ativo no painel; sem ninguém no painel, pra cada
+ * usuário do admin do Medusa.
  *
  * UMA VEZ POR PEDIDO, com as três travas da confirmação:
  *   1. a trava do Medusa por pedido (`venda-nova:<id>`) — o aviso do Pix e a
@@ -178,6 +180,19 @@ async function lerPedido(container: MedusaContainer, id: string): Promise<Pedido
 }
 
 /**
+ * O endereço da venda nova, das Configurações (0219); sem ele — ou sem
+ * conseguir ler a loja —, os donos. Na dúvida o aviso sai, não some.
+ */
+async function emailsDaVenda(container: MedusaContainer): Promise<string[]> {
+  const lojas = await container
+    .resolve(Modules.STORE)
+    .listStores({}, { select: ["metadata"], take: 1 })
+    .catch(() => [])
+  const para = lerConfiguracoes(lojas[0]?.metadata).avisos.vendaPara
+  return para ? [para] : emailsPraAvisar(container, ["dono"])
+}
+
+/**
  * Avisa o dono da venda deste pedido, se for a hora e se ainda não avisou.
  *
  * `quieto` é pra varredura, como na confirmação: o porquê de cada falha volta
@@ -210,7 +225,7 @@ export async function avisarVenda(
         return { resultado: "nada", motivo: decisao.motivo }
       }
 
-      const emails = await emailsPraAvisar(container, ["dono"])
+      const emails = await emailsDaVenda(container)
       if (!emails.length) {
         // Sem ninguém no painel nem no admin: a varredura não tem o que tentar
         // a cada 5 minutos. O log diz qual venda ficou sem aviso.

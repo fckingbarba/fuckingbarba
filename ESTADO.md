@@ -4776,6 +4776,16 @@ typecheck, o lint e o prettier.
 
 Depois do deploy — **nada a configurar.**
 
+**O e-mail de venda nova num endereço só — pronto em 29/09 (entrega 0219).** O aviso de cada
+pedido pago ia pra todo dono do painel; ele quer receber só em fckingbarba@gmail.com. Agora
+Configurações → E-mails tem o campo "E-mail de venda nova — Vai pra": preenchido, o aviso vai só
+pra ele e nenhum dono recebe; em branco, volta pros donos. Fica no `fb_configuracoes` (`avisos`),
+fora do recorte público. Os outros avisos da equipe (nota, Bling, estorno) seguem pro papel.
+Conferido: os unitários do backend (1.688), o typecheck do backend e do painel, o lint e o prettier.
+
+Depois do deploy — **no painel, Configurações → E-mails → "Vai pra": fckingbarba@gmail.com →
+Salvar.** Até salvar, segue indo pros donos.
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa
