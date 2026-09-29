@@ -49,7 +49,17 @@ import "@/estilos/telas/checkout-e-conta.css"
  * └────────────────────────────────────────────────────────────────────────┘
  */
 
-type Cabeca = { Icone: typeof EscudoCerto; titulo: string; frase: string }
+type Cabeca = {
+  Icone: typeof EscudoCerto
+  titulo: string
+  frase: string
+  /**
+   * A frase no celular, quando lá é outra: o Pix esperando não tem QR na tela
+   * do celular (ver `checkout-loja.css`), e "pague com o QR code" mandaria a
+   * pessoa procurar o que não está lá.
+   */
+  fraseNoCelular?: string
+}
 
 function cabecaDo(p: PagamentoVisivel): Cabeca {
   switch (p.estado) {
@@ -59,6 +69,8 @@ function cabecaDo(p: PagamentoVisivel): Cabeca {
         titulo: "Falta só o Pix",
         frase:
           "Pague com o QR code ou o código abaixo. Assim que cair, o pedido entra na fila de envio.",
+        fraseNoCelular:
+          "Copie o código abaixo e cole no app do seu banco. Assim que cair, o pedido entra na fila de envio.",
       }
     case "analise":
       return {
@@ -207,7 +219,7 @@ async function Conteudo({ params }: { params: Props["params"] }) {
       : null
   const zap = linkDoWhatsapp(atendimento.whatsapp)
   const { pagamento } = pedido
-  const { Icone, titulo, frase } = cabecaDo(pagamento)
+  const { Icone, titulo, frase, fraseNoCelular } = cabecaDo(pagamento)
   const esperando = pagamento.estado === "aguardando" || pagamento.estado === "analise"
   const sobreOEmail = SOBRE_O_EMAIL[pagamento.estado]
 
@@ -232,7 +244,18 @@ async function Conteudo({ params }: { params: Props["params"] }) {
               </>
             ) : null}
           </p>
-          {meu && frase ? <p className="feito__frase">{frase}</p> : null}
+          {meu && frase ? (
+            <p className="feito__frase">
+              {fraseNoCelular ? (
+                <>
+                  <span className="feito__no-computador">{frase}</span>
+                  <span className="feito__no-celular">{fraseNoCelular}</span>
+                </>
+              ) : (
+                frase
+              )}
+            </p>
+          ) : null}
           {/* O QR só pra quem comprou, como o resto dos detalhes: pagar o Pix
               de outra pessoa não prejudica ninguém, mas o link encaminhado
               não precisa mostrar o valor nem o nome da loja no código. */}

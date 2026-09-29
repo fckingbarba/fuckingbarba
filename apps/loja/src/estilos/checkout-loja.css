@@ -357,7 +357,7 @@ img.feito__qr {
 
 /* O que o protótipo escrevia com `style=` no próprio HTML. */
 .feito .feito__pix-rotulo {
-  margin: 0;
+  margin: 14px 0 0;
   font-size: 0.74rem;
   font-weight: 800;
   text-transform: uppercase;
@@ -401,6 +401,33 @@ img.feito__qr {
   max-width: 46ch;
   margin-inline: auto;
   line-height: 1.5;
+}
+
+/*
+  NO CELULAR, O PIX SE PAGA NO PRÓPRIO APARELHO (entrega 0201): ninguém
+  escaneia a própria tela. O QR sai, e o "Copiar código Pix" vira o botão da
+  tela — largo, do tamanho dos outros botões da loja. A frase de cima troca
+  junto (`fraseNoCelular`, na tela de obrigado): "pague com o QR code" num
+  celular sem QR mandava a pessoa procurar o que não está lá. 560 px é o
+  corte de celular do checkout (`checkout.css`).
+*/
+.feito__no-celular {
+  display: none;
+}
+@media (max-width: 560px) {
+  img.feito__qr,
+  .feito__no-computador {
+    display: none;
+  }
+  .feito__no-celular {
+    display: inline;
+  }
+  .feito__copiar {
+    width: 100%;
+    justify-content: center;
+    padding: 14px 20px;
+    font-size: 0.92rem;
+  }
 }
 
 /* Quando o chip não pega, ou o bump não entra. O protótipo não tinha

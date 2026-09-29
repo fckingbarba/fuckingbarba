@@ -16,6 +16,14 @@ import { rastrear } from "@/lib/rastrear"
  * `referrerPolicy="no-referrer"` porque o endereço desta página tem o id do
  * pedido, e ele não precisa ir parar no log de ninguém.
  *
+ * NO CELULAR, O BOTÃO VEM PRIMEIRO E O QR SAI (entrega 0201). Ninguém
+ * escaneia a própria tela: no celular o Pix se paga copiando o código e
+ * colando no app do banco. Antes vinham o QR, um código de umas 150 letras e
+ * só no fim um "Copiar código" pequeno — o que paga ficava por último. Agora
+ * o botão vem logo depois do QR (que o CSS esconde no celular, em
+ * `checkout-loja.css`) e fica largo lá; no computador o QR continua em
+ * cima, que é por onde se paga com o celular na mão.
+ *
  * O TEMPO QUE FALTA é contado no navegador, em minutos, e só depois de
  * montar: a hora do servidor e a do celular de quem compra nunca batem, e um
  * relógio renderizado no servidor chegaria na tela já errado.
@@ -74,11 +82,11 @@ export function Pix({
           referrerPolicy="no-referrer"
         />
       ) : null}
+      <button type="button" className="btn feito__copiar" onClick={copiar} disabled={vencido}>
+        {copiado === "sim" ? "Copiado!" : "Copiar código Pix"}
+      </button>
       <p className="feito__pix-rotulo">Copia e cola</p>
       <code>{copiaECola}</code>
-      <button type="button" className="btn feito__copiar" onClick={copiar} disabled={vencido}>
-        {copiado === "sim" ? "Copiado!" : "Copiar código"}
-      </button>
       <p className="feito__validade" aria-live="polite">
         {copiado === "falhou"
           ? "Não consegui copiar sozinho — seleciona o código acima e copia."

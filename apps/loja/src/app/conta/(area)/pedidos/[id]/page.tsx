@@ -98,9 +98,16 @@ async function Detalhe({ params }: { params: PageProps<"/conta/pedidos/[id]">["p
                 <h2 className="bloco__titulo" id="t-pix">
                   Falta só o Pix
                 </h2>
+                {/* No celular não há QR na tela (`checkout-loja.css`): a frase troca junto. */}
                 <p className="pix-pendente__frase">
-                  Pague com o QR code ou o código abaixo. Assim que cair, o pedido entra na fila de
-                  envio — e esta página muda sozinha.
+                  <span className="feito__no-computador">
+                    Pague com o QR code ou o código abaixo. Assim que cair, o pedido entra na fila
+                    de envio — e esta página muda sozinha.
+                  </span>
+                  <span className="feito__no-celular">
+                    Copie o código abaixo e cole no app do seu banco. Assim que cair, o pedido entra
+                    na fila de envio — e esta página muda sozinha.
+                  </span>
                 </p>
                 <Pix
                   copiaECola={pix.copiaECola}
