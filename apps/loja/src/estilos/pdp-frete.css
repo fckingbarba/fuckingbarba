@@ -57,24 +57,6 @@
   margin-top: 5px;
 }
 
-/*
-  No item que combina, o nome e a tarja empilham na mesma coluna. Sem o
-  `min-width: 0` o nome longo ("Shampoo para Barba FuckingBarba 120ml")
-  empurra o preço pra fora do cartão em vez de quebrar linha — o padrão de
-  item flex é não encolher abaixo do conteúdo.
-*/
-.junto__texto {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
-}
-.junto__texto .junto__nome {
-  flex: none;
-}
-
 /* ── a calculadora de CEP ─────────────────────────────────────────────── */
 
 /*

@@ -245,7 +245,11 @@ function PreviaUnidades({ produto, nota }: { produto: DetalheDoProduto; nota: st
   )
 }
 
-/** O leve junto, no lugar dos cartões. Produto esgotado some da página sozinho. */
+/**
+ * O leve junto, no lugar dos cartões — como a loja desenha desde a 0221: uma
+ * caixa só, uma linha por produto com o "+ Levar", e o rodapé com o total e o
+ * frete (a prévia mostra nada marcado). Produto esgotado some da página sozinho.
+ */
 function PreviaJunto({
   preco,
   junto,
@@ -259,21 +263,20 @@ function PreviaJunto({
     .map((h) => catalogo.find((p) => p.handle === h))
     .filter((p): p is NoCatalogo => Boolean(p))
   if (!itens.length) return <p className="oferta__vazia">Escolha pelo menos um produto.</p>
-  const fecha = (p: NoCatalogo) => (preco ?? 0) + (p.preco ?? 0) >= PISO_DO_FRETE_GRATIS
+  const falta = Math.round((PISO_DO_FRETE_GRATIS - (preco ?? 0)) * 100) / 100
   return (
-    <>
-      <div className="junto-previa">
-        <p className="unid-previa__titulo">
-          <Icone nome="raio" />
-          Leve junto
-        </p>
+    <div className="junto-previa">
+      <p className="unid-previa__titulo">
+        <Icone nome="raio" />
+        Leve junto
+      </p>
+      <div className="junto-previa__caixa">
         {itens.map((p) => (
           <div
             className="junto-previa__item"
             key={p.handle}
             data-esgotado={p.esgotado ? "" : undefined}
           >
-            <span className="caixinha" aria-hidden="true" />
             <FotoDoProduto foto={p.foto} />
             <span className="junto-previa__nome">
               {p.nome}
@@ -282,23 +285,25 @@ function PreviaJunto({
                   <Icone nome="alerta" />
                   Esgotado: não aparece na página até voltar o estoque.
                 </span>
-              ) : fecha(p) ? (
-                <span className="tarja-frete">
-                  <Icone nome="caminhao" />
-                  Frete grátis
-                </span>
-              ) : null}
+              ) : (
+                <b className="num">{p.preco ? `+ ${reais(p.preco)}` : "—"}</b>
+              )}
             </span>
-            <b className="num">{p.preco ? reais(p.preco) : "—"}</b>
+            <span className="junto-previa__levar" aria-hidden="true">
+              <Icone nome="mais" />
+              Levar
+            </span>
           </div>
         ))}
+        {preco ? (
+          <p className="junto-previa__rodape">
+            <span>{falta > 0 ? `Faltam ${reais(falta)} pro frete grátis` : "Frete grátis"}</span>
+            <span>
+              Total <b className="num">{reais(preco)}</b>
+            </span>
+          </p>
+        ) : null}
       </div>
-      {itens.some(fecha) ? null : (
-        <p className="pequeno" style={{ margin: "8px 0 0" }}>
-          Dica: um item que, somado a este, passe de {reais(PISO_DO_FRETE_GRATIS)} ganha a tarja
-          “Frete grátis”.
-        </p>
-      )}
-    </>
+    </div>
   )
 }
