@@ -170,3 +170,44 @@
   .fluxo__quando { grid-column: 1 / -1; }
   .fluxo__toque .btn { grid-column: 1 / -1; justify-self: start; }
 }
+
+/* A aba Campanhas (0206): a lista, o formulário, a prévia e o resultado por assunto. */
+.campanhas { list-style: none; margin: 0 0 14px; padding: 0; display: grid; gap: 10px; }
+.campanha { display: grid; gap: 4px; padding: 14px 16px; background: var(--papel); border: 2px solid var(--linha); }
+.campanha[data-situacao="enviando"] { border-color: var(--menta-escura); }
+.campanha[data-situacao="agendada"] { border-color: var(--amarelo-borda); }
+.campanha__topo { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; }
+.campanha__situacao { display: inline-flex; align-items: center; padding: 2px 8px; background: var(--cinza); font-size: 0.66rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+[data-situacao="agendada"] > .campanha__topo .campanha__situacao, .campanha__situacao[data-situacao="agendada"] { background: var(--amarelo-claro); color: var(--aviso-txt); }
+[data-situacao="enviando"] > .campanha__topo .campanha__situacao, .campanha__situacao[data-situacao="enviando"] { background: var(--menta-clara); color: var(--menta-escura); }
+[data-situacao="parada"] > .campanha__topo .campanha__situacao, .campanha__situacao[data-situacao="parada"] { background: var(--erro-claro); color: var(--erro); }
+.campanha__publico { font-size: 0.74rem; color: var(--tinta-suave); }
+.campanha__nome { margin: 0; font-size: 1rem; font-weight: 800; }
+.campanha__nome a { color: inherit; text-decoration: none; }
+.campanha__nome a:hover, .campanha__nome a:focus-visible { text-decoration: underline; }
+.campanha__assunto { margin: 0; font-size: 0.84rem; color: var(--tinta-suave); overflow-wrap: anywhere; }
+.campanha__numeros { margin: 4px 0 0; font-size: 0.84rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.campanhas-vazio .bloco__sub { max-width: 60ch; }
+.campanha-form { display: grid; gap: 14px; margin-bottom: 14px; }
+.campanha-form .bloco { margin: 0; }
+.campo--marcar { justify-content: flex-end; padding-bottom: 12px; }
+.campanha-produtos { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px 14px; }
+.campanha-acoes { margin-top: 0; }
+.campanha-acoes__grupo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.previa-da-campanha { display: grid; gap: 10px; }
+.previa-da-campanha__abas { display: flex; gap: 8px; }
+.previa-da-campanha__abas .btn[aria-pressed="true"] { background: var(--tinta); color: var(--papel); }
+.previa-da-campanha__assunto { margin: 0; font-size: 0.9rem; font-weight: 800; overflow-wrap: anywhere; }
+.previa-da-campanha__assunto span { font-size: 0.7rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--tinta-suave); }
+.previa-da-campanha__quadro { display: block; width: 100%; height: 720px; border: 1px solid rgba(18, 24, 31, 0.16); background: var(--cinza); }
+.campanha-variante { display: grid; gap: 8px; margin-bottom: 12px; }
+.campanha-variante__nome { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 0; font-size: 0.88rem; font-weight: 800; overflow-wrap: anywhere; }
+.campanha-variante__venceu { padding: 2px 8px; background: var(--menta-clara); color: var(--menta-escura); font-size: 0.66rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; }
+.numeros--campanha { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 0; }
+.numeros--campanha:has(> .numero--controle:only-child) { grid-template-columns: minmax(0, 1fr); max-width: 320px; }
+@media (max-width: 640px) {
+  .campanha-acoes__grupo { width: 100%; }
+  .campanha-acoes__grupo .btn { flex: 1 1 auto; }
+  .previa-da-campanha__quadro { height: 560px; }
+  .numeros--campanha { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
