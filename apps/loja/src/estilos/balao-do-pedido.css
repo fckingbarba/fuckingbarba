@@ -1,0 +1,428 @@
+/*
+  O BALÃO DO PEDIDO (entrega 0203) — `components/pedido-recente/balao.tsx`.
+  Com a cara da loja: sem canto redondo, borda preta e sombra dura. Só vem
+  junto do balão: quem não comprou agora há pouco não baixa este arquivo.
+
+  Camadas: o balão (58) fica embaixo da barra de compra da página de produto
+  (60), da gaveta da sacola (70) e do pop-up da 1ª compra (80). Aberto, a
+  folha (75) cobre a barra de compra, mas não a gaveta que o "Refazer" abre.
+*/
+
+.bp-balao {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(14px + env(safe-area-inset-bottom));
+  z-index: 58;
+  max-width: 400px;
+  height: 80px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  background: var(--color-papel);
+  color: var(--color-tinta);
+  border: 2px solid var(--color-tinta);
+  box-shadow: 4px 4px 0 0 var(--color-tinta);
+  animation: bp-sobe 0.26s var(--ease-suave);
+  transition: bottom 0.26s var(--ease-suave);
+}
+
+/* A barra de compra da página de produto apareceu: o balão sobe por cima dela. */
+body:has(.barra-compra.e-visivel) .bp-balao {
+  bottom: calc(92px + env(safe-area-inset-bottom));
+}
+
+@media (min-width: 768px) {
+  .bp-balao {
+    left: 24px;
+    right: auto;
+    bottom: 24px;
+    width: 380px;
+  }
+}
+
+@keyframes bp-sobe {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bp-balao,
+  .bp-folha {
+    animation: none;
+    transition: none;
+  }
+}
+
+.bp-balao__abrir {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 6px 0 10px;
+  background: none;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.bp-balao__icone {
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  background: var(--color-amarelo);
+}
+.bp-balao__icone svg {
+  width: 22px;
+  height: 22px;
+}
+.bp[data-estado="analise"] .bp-balao__icone,
+.bp[data-estado="combinar"] .bp-balao__icone {
+  background: var(--color-amarelo-claro);
+}
+.bp[data-estado="pago"] .bp-balao__icone {
+  background: var(--color-menta);
+}
+.bp[data-estado="venceu"] .bp-balao__icone {
+  background: var(--color-cinza);
+}
+
+.bp-balao__textos {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.bp-balao__numero {
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-tinta-suave);
+}
+.bp-balao__titulo {
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.15;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bp-balao__sub {
+  font-size: 12.5px;
+  color: var(--color-tinta-suave);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+
+.bp-balao__botao {
+  flex-shrink: 0;
+  min-width: 70px;
+  height: 44px;
+  margin-right: 8px;
+  padding: 0 12px;
+  background: var(--color-tinta);
+  color: #fff;
+  border: 2px solid var(--color-tinta);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.bp[data-estado="pix"] .bp-balao__botao,
+.bp[data-estado="venceu"] .bp-balao__botao {
+  background: var(--color-amarelo);
+  color: var(--color-tinta);
+}
+
+.bp-balao__x {
+  flex-shrink: 0;
+  width: 44px;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  background: var(--color-cinza);
+  border: 0;
+  border-left: 2px solid var(--color-tinta);
+  color: var(--color-tinta);
+  cursor: pointer;
+}
+.bp-balao__x svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* O tempo que o Pix ainda vale, encolhendo. */
+.bp-balao__faixa {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 4px;
+  background: var(--color-amarelo-escuro);
+  transition: width 1s linear;
+}
+
+.bp-balao button:focus-visible,
+.bp-folha :is(a, button):focus-visible {
+  outline: 3px solid var(--color-menta-escura);
+  outline-offset: -3px;
+}
+
+/* ── aberto ─────────────────────────────────────────────────────────────── */
+
+.bp-veu {
+  position: fixed;
+  inset: 0;
+  z-index: 75;
+  background: rgb(18 24 31 / 0.62);
+  border: 0;
+  cursor: pointer;
+}
+
+.bp-folha {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 75;
+  max-height: 88dvh;
+  overflow-y: auto;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 10px 16px calc(22px + env(safe-area-inset-bottom));
+  background: var(--color-papel);
+  color: var(--color-tinta);
+  border-top: 3px solid var(--color-tinta);
+  animation: bp-sobe 0.22s var(--ease-suave);
+}
+
+@media (min-width: 768px) {
+  .bp-folha {
+    left: 24px;
+    right: auto;
+    bottom: 24px;
+    width: 420px;
+    max-height: calc(100dvh - 48px);
+    padding: 20px 20px 24px;
+    border: 3px solid var(--color-tinta);
+    box-shadow: 8px 8px 0 0 var(--color-amarelo);
+  }
+  .bp-alca {
+    display: none;
+  }
+}
+
+.bp-alca {
+  align-self: center;
+  width: 44px;
+  height: 5px;
+  background: var(--color-linha);
+}
+
+.bp-folha__topo {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.bp-folha__quando {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-tinta-suave);
+}
+.bp-folha__titulo {
+  margin: 4px 0 0;
+  font-size: 24px;
+  line-height: 1;
+  font-weight: 900;
+  font-style: italic;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+}
+.bp-folha__frase {
+  margin: 6px 0 0;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--color-tinta-suave);
+}
+
+.bp-x {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  background: var(--color-cinza);
+  border: 0;
+  color: var(--color-tinta);
+  cursor: pointer;
+}
+.bp-x svg {
+  width: 18px;
+  height: 18px;
+}
+
+.bp-passos {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+}
+.bp-passos li {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--color-tinta-suave);
+}
+.bp-passos li::before {
+  content: "";
+  height: 6px;
+  background: #e3e6ea;
+}
+.bp-passos li[data-feito],
+.bp-passos li[data-atual] {
+  font-weight: 800;
+  color: var(--color-tinta);
+}
+.bp-passos li[data-feito]::before {
+  background: var(--color-tinta);
+}
+.bp-passos li[data-atual]::before {
+  background: var(--color-amarelo);
+}
+.bp[data-estado="pago"] .bp-passos li[data-atual]::before {
+  background: var(--color-menta);
+}
+
+.bp-pix {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  background: var(--color-amarelo-claro);
+  border: 2px solid var(--color-tinta);
+}
+.bp-pix__total {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 13px;
+  font-weight: 700;
+}
+.bp-pix__total b {
+  font-size: 22px;
+  font-weight: 900;
+  font-style: italic;
+}
+.bp-pix__copiar,
+.bp-refazer {
+  height: 50px;
+  background: var(--color-amarelo);
+  border: 2px solid var(--color-tinta);
+  box-shadow: 4px 4px 0 0 var(--color-tinta);
+  color: var(--color-tinta);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.bp-pix__vale {
+  margin: 0;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+.bp-aviso {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-erro);
+}
+
+.bp-itens {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.bp-itens li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13.5px;
+}
+.bp-itens__foto {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border: 1px solid var(--color-linha);
+  overflow: hidden;
+}
+.bp-itens__foto img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.bp-itens__nome {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-weight: 600;
+}
+.bp-itens__preco {
+  flex-shrink: 0;
+  font-weight: 700;
+}
+
+.bp-acoes {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-bottom: 6px;
+}
+.bp-acoes__ver.btn {
+  flex: 1 1 auto;
+  justify-content: center;
+  padding: 12px 16px;
+  font-size: 0.82rem;
+}
+.bp-acoes__zap {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--color-tinta);
+  color: var(--color-tinta);
+}
+.bp-acoes__zap svg {
+  width: 20px;
+  height: 20px;
+}

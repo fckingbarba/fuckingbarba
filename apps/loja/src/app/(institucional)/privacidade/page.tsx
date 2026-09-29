@@ -234,7 +234,9 @@ export default async function Privacidade() {
           links dos nossos e-mails também usam um, só no que eles abrem: o cupom que espera o
           checkout, a avaliação do pedido e o sair da lista. E dois lembram só a sua escolha sobre o
           pop-up da primeira compra: se você fechou ou já se cadastrou, e se já comprou neste
-          navegador — pra ele não aparecer de novo.
+          navegador — pra ele não aparecer de novo. Depois de um pedido, um último diz, por uma
+          hora, qual pedido o balão do canto da tela acompanha; se você fechar o balão, o navegador
+          guarda isso, pra ele não voltar.
         </P>
         <P>
           Os do Google Analytics e da Microsoft Clarity medem as visitas desde a primeira página,

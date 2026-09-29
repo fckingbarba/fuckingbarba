@@ -420,6 +420,22 @@ conta) o "Copiar código Pix" vem logo depois do QR; abaixo de 560 px (`checkout
 o botão fica largo. A frase de cima tem as duas versões (`.feito__no-computador`/`.feito__no-celular`;
 `fraseNoCelular` no obrigado). O `conferir-pagamento` confere as posições nas duas larguras.
 
+**O BALÃO DO PEDIDO** (0203): quem acabou de comprar e volta pra loja vê, no canto de baixo, o pedido
+(o Pix a pagar, em análise, pago, vencido); tocar abre o resumo com o Pix pra copiar. As regras moram
+em `apps/loja/src/lib/pedido-recente.ts`: o `abrirPedido` grava, junto do crachá, o cookie LEGÍVEL
+`pedido_recente` (só o id, 1 hora); o vigia (`components/pedido-recente/vigia.tsx`, no layout, dentro
+da sacola e de um `<Suspense>` por causa do `usePathname`) só baixa o balão (`./balao.tsx`, com
+`estilos/balao-do-pedido.css`) e só pergunta a `/api/pedido-recente` com esse cookie — quem não
+comprou não faz requisição. A rota exige o crachá do MESMO pedido e o `meu` do Medusa. Fica 30 min
+depois do pedido (esticado até 10 min depois do vencimento do Pix enquanto ele não é pago), pergunta
+de 20 em 20 s enquanto o pagamento não entra, não aparece em `/checkout*`, e sai de vez (o
+`localStorage` `balao-escondido:<id>`, e a memória da aba) pelo X, pelo prazo, pelo "Refazer" ou
+quando a rota recusa. O "Refazer" do Pix vencido é o `refazerPedido` (o `comprarDeNovo` pelo crachá,
+em `lib/acoes/pedido.ts`). Camadas: 58, embaixo da barra de compra (60), da sacola (70) e do pop-up
+(80); com a barra de compra na tela, sobe por cima dela. Conferidor:
+`apps/loja/ferramentas/conferir-balao.mjs` (34), na pilha do `conferir-pagamento`; ele esconde o "N"
+do `next dev`, que mora no mesmo canto e come o clique.
+
 **Os parceiros de pagamento** (desde a 0132) estão numa lista só: `src/lib/pagamento/parceiros.ts`
 no backend e `PARCEIROS` em `apps/loja/src/lib/checkout-visivel.ts` na loja — parceiro novo entra
 nas duas, e o `parceiros.unit.spec.ts` confere. Cada parceiro é um provedor do Medusa que grava na
