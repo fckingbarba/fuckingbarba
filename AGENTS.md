@@ -394,6 +394,32 @@ acha pelo crachá (o `carrinho_visto` do formulário contra o carrinho do cookie
 duas pagaram juntas, pela sessão recusada com o carrinho já fechado. E-mail com mais de 64
 caracteres (o limite do Pagar.me) é recusado no passo 1, com o motivo.
 
+**O PASSO SEGUINTE ABRE NO CLIQUE** (entrega 0201). As regras dos passos 1 e 2 (o e-mail do zod 4,
+os 64 caracteres, nome, celular, CPF/CNPJ, o endereço) moram em `apps/loja/src/lib/passos-do-checkout.ts`,
+sem nada de servidor: a tela confere o formulário (`conferirContato`, `conferirEndereco`) e a ação
+confere de novo (`salvarContato`, `salvarEntrega`). O erro da tela volta na forma do `erro` das ações
+(`estadoComErros`), sem ida à loja. O envio que confere entra num carrinho ADIANTADO
+(`comOAdiantado`, em `etapas.tsx`, pelo `adiantar` do `onSubmit`, que é atualização urgente — dentro
+da ação seria de transição e só apareceria com a resposta): é dele que saem o passo aberto e a linha
+do passo feito, e a ação grava por trás. O adiantado sai quando o carrinho de verdade chega com ele
+(`jaChegou`, no render — "ajustar o estado quando a prop muda"), NÃO na resposta da ação: o Next
+entrega a resposta antes da página refeita (`server-action-reducer.js`), e soltar ali (ou usar
+`useOptimistic`, que solta no fim da ação) mostraria o passo de antes por um instante. A ação que recusa chama `aoVoltar` (o passo reabre, com o recado e os
+`valores`). O pagar espera enquanto um passo de antes grava (`gravando`, pelo `SALVANDO` que os
+passos avisam em `ocupados`; o da entrega esmaece o dinheiro, `mudandoOTotal`) e confere `pronto` no
+`onSubmit` (a barra do celular não passa pelo botão). Envio que não confere num passo recém-aberto
+(`recemAberto`, 600 ms) é o segundo toque na barra: ignorado, sem vermelho. Sem internet logo depois
+do "Ir pro pagamento", a ação chega a gravar e o pagar fica travado até a página refeita chegar — o
+Next busca de novo quando a internet volta (medido: solta ~3 s depois). CONFERIDOR que lê o Medusa
+logo depois de o passo seguinte aparecer espera a gravação (`quandoGravar`; `entregaGravada` = o
+botão de pagar solto); a seção "O passo seguinte abre no clique" do `conferir-checkout` segura a ação
+2,5 s (`route`) pra provar que o passo abre antes.
+
+**O PIX NO CELULAR** (0201): no `<Pix>` (`components/checkout/pix.tsx`, no obrigado e no pedido da
+conta) o "Copiar código Pix" vem logo depois do QR; abaixo de 560 px (`checkout-loja.css`) o QR some e
+o botão fica largo. A frase de cima tem as duas versões (`.feito__no-computador`/`.feito__no-celular`;
+`fraseNoCelular` no obrigado). O `conferir-pagamento` confere as posições nas duas larguras.
+
 **Os parceiros de pagamento** (desde a 0132) estão numa lista só: `src/lib/pagamento/parceiros.ts`
 no backend e `PARCEIROS` em `apps/loja/src/lib/checkout-visivel.ts` na loja — parceiro novo entra
 nas duas, e o `parceiros.unit.spec.ts` confere. Cada parceiro é um provedor do Medusa que grava na

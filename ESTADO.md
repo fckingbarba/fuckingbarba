@@ -4491,6 +4491,40 @@ rodada completa — a leve é só do job, com teste de unidade da regra do reló
 Depois do deploy — **nada a configurar.** Se um dia o Marketing precisar mostrar um pedido no mesmo
 segundo, `MARKETING_MEMORIA_SEGUNDOS=0` no Railway desliga a memória dele.
 
+**O checkout sem espera entre os passos, e o Pix do celular com o botão em cima — pronto em 29/09
+(entrega 0201).** Pergunta dele (28/09): "hoje acredita que nosso checkout é possível ser mais
+rápido?" — e, na correção, "eu to falando da experiência". Das seis ideias, escolheu duas.
+
+- **O passo seguinte abre no clique.** O "Continuar" e o "Ir pro pagamento" mostravam "Salvando…"
+  até a loja gravar e a página voltar — uma ida e volta aos EUA, mais o Medusa, em cada passo. Agora
+  a tela confere o que foi digitado ali mesmo, com as mesmas regras de antes (e-mail, CPF, celular,
+  endereço), e abre o próximo passo na hora; a loja grava por trás. Na loja local, com a resposta
+  segurada 2,5 segundos de propósito, a entrega abriu em 0,17 s e o pagamento em 0,04 s.
+- **O erro de digitação aparece na hora**, embaixo do campo, sem ir até a loja.
+- **Se a loja recusar depois** (a sacola expirou, o CEP é de outra cidade, a internet caiu), o passo
+  volta aberto, com o recado e com o que a pessoa digitou.
+- **O botão de pagar espera o passo 2 gravar** (menos de um segundo), com o total piscando, como na
+  troca de frete: pagar antes cobraria um total que a pessoa ainda não viu. Sem internet nesse
+  instante, o pagar fica travado e solta sozinho quando a internet volta.
+- **Dois toques em "Continuar"** na barra do celular: o segundo não vira envio nem pinta de vermelho o
+  passo 2 que acabou de abrir.
+- **O Pix no celular:** o "Copiar código Pix" vem em cima, largo, do tamanho dos outros botões; o QR
+  sai do celular (ninguém escaneia a própria tela) e fica só no computador. A frase de cima troca
+  junto: "Copie o código abaixo e cole no app do seu banco". O mesmo no pedido da Minha conta.
+- **Os textos que prometiam o QR:** o passo 3 dizia "QR code na próxima tela" — agora "Código Pix na
+  próxima tela"; e a resposta das Dúvidas sobre o Pix diz que no computador aparece também o QR code.
+
+Conferido na loja local (banco refeito do zero em 29/09, com a main da 0199): o checkout 198/198
+(15 novas: o passo que abre antes de a loja gravar, com a resposta segurada 2,5 s; o passo que não
+volta quando a resposta chega; o pagar esperando a entrega; a volta com o recado; os erros sem ida à
+loja; os dois toques na barra), o pagamento 224/224 (5 novas: a tela do Pix no computador e no
+celular), o Mercado Pago 77/77, a conta 211/211 e o frete 70/70 — duas rodadas no checkout, no
+pagamento e no Mercado Pago; o typecheck, o lint, o prettier e o `next build` da loja.
+
+Depois do deploy — **nada a configurar.** Pra ver no celular: um produto na sacola e o checkout — o
+"Continuar" abre a entrega sem "Salvando…". A tela nova do Pix aparece depois de um pedido no Pix (o
+que não é pago vence em 30 minutos e se cancela sozinho).
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa
