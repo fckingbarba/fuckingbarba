@@ -32,7 +32,10 @@ import {
  * │ `visitasDoPeriodo`), e o de antes para na mesma hora — e as vendas da  │
  * │ taxa "visitas que compraram" também (`janelasNoCorte`, em              │
  * │ `periodo.ts`). O que é só do Google (o que as visitas fizeram, a taxa  │
- * │ da sacola) não precisa de corte: as duas contas atrasam juntas.        │
+ * │ da sacola) não precisa de corte do lado de agora: as duas contas       │
+ * │ atrasam juntas. O de antes já está somado, e a taxa da sacola dele     │
+ * │ para na mesma hora (a 5ª pergunta, 0212) — antes, "ontem" era o dia    │
+ * │ inteiro contra a manhã de hoje.                                        │
  * └────────────────────────────────────────────────────────────────────────┘
  *
  * A TAXA "VISITAS QUE COMPRARAM" DIVIDE TODAS AS VENDAS PELAS VISITAS DO
@@ -81,7 +84,9 @@ function filtrados(...filtros: (Filtro | null)[]): { dimensionFilter?: Filtro } 
  * 1. as visitas por dia e hora, do começo do de antes ao fim do período;
  * 2. as visitas com cada evento (`EVENTOS_DO_INICIO`), por dia, nas mesmas datas;
  * 3. as visitas que viram uma página de categoria, por dia, só no período;
- * 4. de onde vieram, só no período.
+ * 4. de onde vieram, só no período;
+ * 5. quando o período chega até agora e tem o de antes: as sacolas do último
+ *    dia do de antes, por hora (pra parar na hora do corte, como as visitas).
  * `completo` falso (quem não abre o Marketing): só a primeira.
  */
 export function perguntasDoPeriodo(
@@ -142,6 +147,22 @@ export function perguntasDoPeriodo(
       orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
       limit: "50",
     },
+    ...(p.ateAgora && p.antes
+      ? [
+          {
+            dateRanges: [{ startDate: p.antes.ate, endDate: p.antes.ate }],
+            dimensions: [{ name: "date" }, { name: "hour" }],
+            metrics: [{ name: "sessions" }],
+            ...filtrados(endereco, {
+              filter: {
+                fieldName: "eventName",
+                stringFilter: { matchType: "EXACT", value: "add_to_cart" },
+              },
+            }),
+            limit: "100",
+          },
+        ]
+      : []),
   ]
 }
 
@@ -186,6 +207,8 @@ export type Taxa = {
   variacao: number | null
   de: number
   em: number
+  /** Só na "visitas que compraram": as vendas do período inteiro, sem o corte (o card Vendas). */
+  noPeriodo?: number
 }
 
 export type VisitasNoPeriodo = {
@@ -234,12 +257,12 @@ export function montarVisitasNoPeriodo(
     noSite = null,
     completo,
   }: {
-    vendas?: { atual: number; antes: number | null } | null
+    vendas?: { atual: number; antes: number | null; noPeriodo?: number } | null
     noSite?: number | null
     completo: boolean
   }
 ): VisitasNoPeriodo {
-  const [porHora = {}, porEvento = {}, categorias = {}, origens = {}] = relatorios
+  const [porHora = {}, porEvento = {}, categorias = {}, origens = {}, sacolasDeAntes] = relatorios
   const ate = corteDoGoogle(porHora, p, agora)
   const dias = new Set(p.dias)
   const diasDeAntes = new Set(p.antes?.dias ?? [])
@@ -293,6 +316,21 @@ export function montarVisitasNoPeriodo(
   }
   const sacola = eventos.atual.get("add_to_cart") ?? 0
 
+  // As sacolas do de antes: no último dia, só até a hora do corte (a 5ª pergunta).
+  let sacolaAntes = eventos.antes.get("add_to_cart") ?? 0
+  let visitasDaSacolaAntes = inteiras.antes
+  if (p.antes && ate !== null && sacolasDeAntes) {
+    const ultimo = p.antes.ate
+    const doUltimo = (porEvento.rows ?? [])
+      .filter((l) => diaDaLinha(dimensao(l, 0)) === ultimo && dimensao(l, 1) === "add_to_cart")
+      .reduce((s, l) => s + metrica(l), 0)
+    const noCorteDoUltimo = (sacolasDeAntes.rows ?? [])
+      .filter((l) => diaDaLinha(dimensao(l, 0)) === ultimo && Number(dimensao(l, 1)) < ate)
+      .reduce((s, l) => s + metrica(l), 0)
+    sacolaAntes = sacolaAntes - doUltimo + noCorteDoUltimo
+    visitasDaSacolaAntes = noCorte.antes
+  }
+
   return {
     visitas,
     barras,
@@ -304,13 +342,18 @@ export function montarVisitasNoPeriodo(
       sacola,
     },
     taxas: {
-      compraram: taxaComparada(
-        { de: vendas?.atual ?? 0, em: noCorte.atual },
-        p.antes && vendas && vendas.antes !== null ? { de: vendas.antes, em: noCorte.antes } : null
-      ),
+      compraram: {
+        ...taxaComparada(
+          { de: vendas?.atual ?? 0, em: noCorte.atual },
+          p.antes && vendas && vendas.antes !== null
+            ? { de: vendas.antes, em: noCorte.antes }
+            : null
+        ),
+        ...(vendas?.noPeriodo !== undefined ? { noPeriodo: vendas.noPeriodo } : {}),
+      },
       sacola: taxaComparada(
         { de: sacola, em: inteiras.atual },
-        p.antes ? { de: eventos.antes.get("add_to_cart") ?? 0, em: inteiras.antes } : null
+        p.antes ? { de: sacolaAntes, em: visitasDaSacolaAntes } : null
       ),
     },
     origens: origensDe(origens),

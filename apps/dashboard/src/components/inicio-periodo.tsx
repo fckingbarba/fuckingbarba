@@ -381,12 +381,14 @@ const AJUDA_DO_GOOGLE =
 export async function OQueAsVisitasFizeram({ consulta }: { consulta: string }) {
   const r = await lerVisitasNoPeriodo(consulta)
   const c = r.estado === "ok" ? r.periodo.comportamento : undefined
+  // Hoje o Google soma com atraso: o bloco diz até que hora (o checkout, dos carrinhos, vai até agora).
+  const ate = r.estado === "ok" && r.periodo.ate ? ` · até as ${r.periodo.ate}h` : ""
   return (
     <section className="bloco" data-bloco="visitas-fizeram">
       <CabecaDoBloco
         titulo="O que as visitas fizeram"
         ajuda={AJUDA_DO_GOOGLE}
-        lado={<span className="pilula pilula--suave">Google Analytics</span>}
+        lado={<span className="pilula pilula--suave">Google Analytics{ate}</span>}
       />
       {c ? (
         <ol className="degraus">
@@ -524,6 +526,12 @@ export async function TaxasDoGoogle({ consulta, p }: { consulta: string; p: Peri
   const semGoogle = r.estado === "ok" ? "sem visitas no período" : SEM_GOOGLE[r.estado]
   // As vendas da taxa param na hora que o Google já somou hoje, como as visitas.
   const ate = r.estado === "ok" && r.periodo.ate ? `, até as ${r.periodo.ate}h` : ""
+  // As que entraram depois do corte (as do card Vendas): "(4 no dia)".
+  const noPeriodo = t?.compraram.noPeriodo
+  const todas =
+    ate && t && noPeriodo !== undefined && noPeriodo > t.compraram.de
+      ? ` (${INTEIRO.format(noPeriodo)} ${p.passo === "hora" ? "no dia" : "no período"})`
+      : ""
   return (
     <>
       <CartaoDaTaxa
@@ -533,7 +541,7 @@ export async function TaxasDoGoogle({ consulta, p }: { consulta: string; p: Peri
         taxa={t?.compraram ?? null}
         conta={
           t
-            ? `${vezes(t.compraram.de, "venda", "vendas")} em ${vezes(t.compraram.em, "visita", "visitas")}${ate}`
+            ? `${vezes(t.compraram.de, "venda", "vendas")} em ${vezes(t.compraram.em, "visita", "visitas")}${ate}${todas}`
             : semGoogle
         }
         p={p}
@@ -541,11 +549,11 @@ export async function TaxasDoGoogle({ consulta, p }: { consulta: string; p: Peri
       <CartaoDaTaxa
         dado="sacola"
         titulo="Visitas que puseram na sacola"
-        ajuda="Das visitas do período, quantas puseram algum produto na sacola — as duas contas do Google Analytics."
+        ajuda="Das visitas do período, quantas puseram algum produto na sacola — as duas contas do Google Analytics. O de antes para na mesma hora."
         taxa={t?.sacola ?? null}
         conta={
           t
-            ? `${vezes(t.sacola.de, "sacola", "sacolas")} em ${vezes(t.sacola.em, "visita", "visitas")}`
+            ? `${vezes(t.sacola.de, "sacola", "sacolas")} em ${vezes(t.sacola.em, "visita", "visitas")}${ate}`
             : semGoogle
         }
         p={p}

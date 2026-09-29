@@ -138,6 +138,12 @@ export async function subirGoogleFalso({
     return doEvento?.filter?.inListFilter?.values ?? null
   }
 
+  /** O evento de um filtro de valor exato (`stringFilter`), sozinho ou no `andGroup`. */
+  const eventoExato = (filtro) =>
+    [filtro, ...(filtro?.andGroup?.expressions ?? [])].find(
+      (f) => f?.filter?.fieldName === "eventName"
+    )?.filter?.stringFilter?.value ?? null
+
   /** "today", "yesterday", "13daysAgo" ou "2026-09-24" → "20260924", no fuso da propriedade. */
   const dataDaPergunta = (valor) => {
     const dia = (ms) =>
@@ -202,6 +208,11 @@ export async function subirGoogleFalso({
       rows = (painel.dia.compras ?? [])
         .filter((c) => c.dia >= de && c.dia <= ate)
         .map((c) => linha([c.dia, c.hora], c.compras))
+    else if (dims === "date,hour" && eventoExato(pedido.dimensionFilter) === "add_to_cart")
+      // As sacolas do último dia do de antes, por hora (0212): o corte da taxa da sacola.
+      rows = (painel.inicio?.sacolasPorHora ?? [])
+        .filter((s) => s.dia >= de && s.dia <= ate)
+        .map((s) => linha([s.dia, s.hora], s.sessoes))
     else if (dims === "date,hour")
       rows = painel.dia.horas
         .filter((h) => h.dia >= de && h.dia <= ate)

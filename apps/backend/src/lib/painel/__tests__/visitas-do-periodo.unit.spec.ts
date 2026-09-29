@@ -88,6 +88,22 @@ describe("as perguntas ao Google", () => {
     })
   })
 
+  it("hoje contra ontem: a 5ª pergunta, as sacolas de ontem por hora (0212)", () => {
+    const p = lerPeriodo({}, AGORA)
+    const perguntas = perguntasDoPeriodo(p, [], [], true) as Record<string, unknown>[]
+    expect(perguntas).toHaveLength(5)
+    expect(perguntas[4]).toMatchObject({
+      dateRanges: [{ startDate: "2026-09-27", endDate: "2026-09-27" }],
+      dimensions: [{ name: "date" }, { name: "hour" }],
+      dimensionFilter: {
+        filter: { fieldName: "eventName", stringFilter: { value: "add_to_cart" } },
+      },
+    })
+    expect(perguntasDoPeriodo(lerPeriodo({ periodo: "ontem" }, AGORA), [], [], true)).toHaveLength(
+      4
+    )
+  })
+
   it("as páginas de categoria: as vitrines das duas lojas, nunca a página de um produto", () => {
     const re = new RegExp(caminhosDeCategoria(["barba", "cabelo", "kits", "produtos", "TORTA!"]))
     for (const sim of [
@@ -208,6 +224,45 @@ describe("as visitas do período", () => {
       { nome: "Direto", visitas: 84 },
     ])
     expect(v.agora).toBe(5)
+  })
+
+  it("hoje: a sacola de ontem para na hora do corte, e a taxa diz as vendas do dia inteiro (0212)", () => {
+    const p = lerPeriodo({}, AGORA)
+    const v = montarVisitasNoPeriodo(
+      [
+        porHora([
+          ["20260928", 9, 100],
+          ["20260928", 14, 80], // em dia (15:40): o corte fica em 15h
+          ["20260927", 9, 200],
+          ["20260927", 14, 87],
+          ["20260927", 20, 150], // depois do corte: não entra na conta de ontem
+        ]),
+        porDia([
+          ["20260928", "add_to_cart", 8],
+          ["20260927", "add_to_cart", 10],
+        ]),
+        porDia([]),
+        {},
+        porHora([
+          ["20260927", 9, 4],
+          ["20260927", 14, 2],
+          ["20260927", 20, 4],
+        ]),
+      ],
+      p,
+      AGORA,
+      { completo: true, vendas: { atual: 2, antes: 4, noPeriodo: 4 } }
+    )
+    expect(v.ate).toBe(15)
+    expect(v.taxas?.sacola).toEqual({ valor: 4.44, antes: 2.09, variacao: 112, de: 8, em: 180 })
+    expect(v.taxas?.compraram).toEqual({
+      valor: 1.11,
+      antes: 1.39,
+      variacao: -20,
+      de: 2,
+      em: 180,
+      noPeriodo: 4,
+    })
   })
 
   it("sem comparar e sem visitas, as taxas ficam vazias em vez de dividir por zero", () => {
