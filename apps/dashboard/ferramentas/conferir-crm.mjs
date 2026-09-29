@@ -2287,9 +2287,12 @@ try {
         const sacola = id
           ? (
               await (
-                await fetch(`${MEDUSA}/store/carts/${id}?fields=email,*items,*shipping_address`, {
-                  headers: DA_LOJA,
-                })
+                await fetch(
+                  `${MEDUSA}/store/carts/${id}?fields=email,*items,*shipping_address,*billing_address`,
+                  {
+                    headers: DA_LOJA,
+                  }
+                )
               ).json()
             ).cart
           : null
@@ -2316,15 +2319,11 @@ try {
           token: tokenDoDono,
           corpo: doArquivo(
             latin1([
-              cabecalhoDasVendas,
+              // Com as colunas da entrega, como a Nuvemshop exporta: o "Refazer o pedido" abre
+              // preenchido (entrega 0202).
+              "Número do Pedido;E-mail;Data;Status do Pedido;Status do Pagamento;Status do Envio;Total;Nome do comprador;CPF / CNPJ;Telefone;Nome para a entrega;Telefone para a entrega;Endereço;Número;Complemento;Bairro;Cidade;Código postal;Estado;País;Data de pagamento;Nome do Produto;Valor do Produto;Quantidade Comprada;SKU;Meio de pagamento",
               // O Fator pago há 20 dias: entregue no 7º, dura 30 — acaba daqui a 17.
-              venda(
-                `R${RODADA}-1`,
-                DA_NUVEM,
-                agora - 20 * DIA_MS,
-                "FBFCB01",
-                "Fator de Crescimento para Barba 30ml"
-              ),
+              `R${RODADA}-1;${DA_NUVEM};${dataBR(agora - 20 * DIA_MS)};Aberto;Confirmado;Entregue;94.90;Repõe Teste;${CPF_FALSO};+55${TELEFONE_FALSO};Repõe da Silva Teste;+55${TELEFONE_FALSO};Rua da Rodada;99;Apto 12;Centro;Blumenau;89010000;Santa Catarina;Brasil;${dataBR(agora - 20 * DIA_MS, false)};Fator de Crescimento para Barba 30ml;79.90;1;FBFCB01;Pix`,
             ])
           ),
         }),
@@ -2347,6 +2346,7 @@ try {
         const e7 = resend.emails.find((e) => e.to?.includes(DA_NUVEM) && daReposicao(e))
         ok(
           importou.every((r) => r.status === 200) &&
+            importou[1].corpo.comEntrega === 1 &&
             antes.corpo.enviados === 0 &&
             e7?.subject === "Seu Fator de Crescimento acaba em uma semana" &&
             /^Matheus, da FuckingBarba </.test(e7.from ?? "") &&
@@ -2356,13 +2356,26 @@ try {
           e7?.subject ?? "não chegou"
         )
         const nuvem = await refazer(e7)
+        const entrega = nuvem.sacola?.shipping_address
         ok(
           nuvem.status === 302 &&
             nuvem.para === "/checkout" &&
             nuvem.sacola?.email === DA_NUVEM &&
-            nuvem.sacola.items?.some((i) => i.variant_sku === "FBFCB01"),
-          "o Refazer o pedido da loja antiga monta a sacola com o Fator, pelo SKU, e cai no checkout",
-          JSON.stringify({ ...nuvem, sacola: nuvem.sacola?.items?.map((i) => i.variant_sku) })
+            nuvem.sacola.items?.some((i) => i.variant_sku === "FBFCB01") &&
+            entrega?.first_name === "Repõe" &&
+            entrega?.last_name === "da Silva Teste" &&
+            entrega?.phone === `+55${TELEFONE_FALSO}` &&
+            entrega?.address_1 === "Rua da Rodada, 99" &&
+            entrega?.address_2 === "Apto 12 — Centro" &&
+            entrega?.postal_code === "89010000" &&
+            entrega?.province === "SC" &&
+            nuvem.sacola.billing_address?.metadata?.documento?.valor === CPF_FALSO,
+          "o Refazer o pedido da loja antiga monta a sacola com o Fator, pelo SKU, com o nome, o celular, o CPF e o endereço daquele pedido (0202)",
+          JSON.stringify({
+            ...nuvem,
+            sacola: nuvem.sacola?.items?.map((i) => i.variant_sku),
+            entrega: entrega ? Object.keys(entrega) : null,
+          })
         )
         for (const d of [-2, 3, 10])
           await rodar({ agora: aos(acaba + d * DIA_MS + 2 * MIN), email: DA_NUVEM })
