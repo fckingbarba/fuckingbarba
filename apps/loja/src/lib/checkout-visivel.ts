@@ -337,3 +337,17 @@ export function estadoSemResposta(
   }
   return { ok: false, erros: {}, mensagem, rodada: anterior.rodada + 1, valores }
 }
+
+/**
+ * O estado de quando A PRÓPRIA TELA achou o erro, pelas regras de
+ * `lib/passos-do-checkout.ts` — a ação nem foi chamada. A mesma forma do
+ * `erro` das ações: o erro embaixo do campo, e o que a pessoa digitou volta
+ * (o reset do formulário).
+ */
+export function estadoComErros(
+  anterior: EstadoDaEtapa,
+  erros: ErrosDoFormulario,
+  fd: FormData
+): EstadoDaEtapa {
+  return { ...estadoSemResposta(anterior, fd, ""), erros }
+}
