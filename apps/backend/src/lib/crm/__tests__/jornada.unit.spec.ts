@@ -75,6 +75,35 @@ describe("a jornada de cada pedido", () => {
     })
   })
 
+  it("a 2ª compra (0215): quem já tinha comprado antes, numa das duas lojas", () => {
+    const [primeira] = jornadasDaPessoa(
+      EMAIL,
+      [pedido("order_1", 5, [["FBOL01", "oleo-para-barba"]])],
+      []
+    )
+    expect(primeira.recorrente).toBe(false)
+    // Na Nuvemshop, há 90 dias: a de agora é a 2ª compra.
+    const [daBase] = jornadasDaPessoa(
+      EMAIL,
+      [pedido("order_1", 5, [["FBOL01", "oleo-para-barba"]])],
+      [pedido("nuvemshop:1", 90, [["FBOL01", null]])]
+    )
+    expect(daBase.recorrente).toBe(true)
+    // Duas na loja nova: a primeira não é, a segunda é. A cancelada não conta.
+    const duas = jornadasDaPessoa(
+      EMAIL,
+      [
+        pedido("order_1", 40, [["FBOL01", "oleo-para-barba"]]),
+        pedido("order_2", 5, [["FBOL01", "oleo-para-barba"]]),
+      ],
+      [pedido("nuvemshop:2", 90, [["FBOL01", null]], { cancelado: true })]
+    )
+    expect(duas.map((j) => [j.pedido, j.recorrente])).toEqual([
+      ["order_1", false],
+      ["order_2", true],
+    ])
+  })
+
   it("a janela: dos que ainda vão chegar até 61 dias depois da chegada", () => {
     const [j] = jornadasDaPessoa(EMAIL, [pedido("order_1", 5, [["FBOL01", "oleo-para-barba"]])], [])
     // Pago há 5 dias, sem aviso: chega daqui a 5.
@@ -85,9 +114,9 @@ describe("a jornada de cada pedido", () => {
 })
 
 describe("a jornada no motor", () => {
-  it("começa desligada; os toques na chegada, em 3, 7, 21 e 60 dias; depois da reposição", () => {
+  it("começa desligada; os toques na chegada, em 3, 7, 10 (o indique), 21, 40 e 60 dias; depois da reposição", () => {
     expect(lerConfigDosFluxos({}).fluxos.jornada).toEqual({ ligado: false, desde: null })
-    expect(FLUXOS.jornada.toques.map((t) => t.depois / DIA)).toEqual([0, 3, 7, 21, 60])
+    expect(FLUXOS.jornada.toques.map((t) => t.depois / DIA)).toEqual([0, 3, 7, 10, 21, 40, 60])
     expect(FLUXOS.jornada.toques.some((t) => t.cupom)).toBe(false)
     expect(FLUXOS.reposicao.prioridade).toBeLessThan(FLUXOS.jornada.prioridade)
     expect(FLUXOS.jornada.prioridade).toBeLessThan(FLUXOS["boas-vindas"].prioridade)

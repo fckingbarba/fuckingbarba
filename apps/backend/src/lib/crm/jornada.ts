@@ -13,7 +13,10 @@ import { juntar } from "./nuvemshop"
  *   - quando chega: o modo de uso do produto (a página dele);
  *   - 3 dias: não pular dia (só com o Fator);
  *   - 7 dias: o check-in, "Como tá indo?" (`lib/crm/checkin.ts`);
+ *   - 10 dias: o indique um brother, pra quem está gostando (0215,
+ *     `lib/crm/indicacao.ts`);
  *   - 21 dias: a rotina completa — o que falta pra ela (`sugestoesDaRotina`);
+ *   - 40 dias: o lembrete do indique, se nenhum brother comprou;
  *   - 60 dias: o dia 60 do Fator (só com ele).
  *
  * Um pedido, uma jornada (a chave é o pedido). Pedido novo começa outra, e o
@@ -73,6 +76,11 @@ export type JornadaDoPedido = {
   temFator: boolean
   /** O que completa a rotina, pelo SKU (o e-mail de 21 dias). */
   sugestoes: string[]
+  /**
+   * Se a pessoa já tinha comprado antes deste pedido, numa das duas lojas: a
+   * 2ª compra é sinal de quem está gostando (o indique um brother, 0215).
+   */
+  recorrente: boolean
 }
 
 /** As jornadas de uma pessoa: cada pedido pago da loja nova, com o que ela tem em todas as compras. */
@@ -85,9 +93,11 @@ export function jornadasDaPessoa(
   for (const p of [...daLoja, ...daBase])
     if (p.pagoEm && !p.cancelado)
       for (const item of p.itens) for (const c of componentesDoItem(item)) tem.add(c.componente)
+  const pagos = [...daLoja, ...daBase].filter((p) => p.pagoEm && !p.cancelado)
   return daLoja.flatMap((p) => {
     const chegou = chegadaDo(p)
     if (!chegou) return []
+    const pagoEm = p.pagoEm!.getTime()
     let fatores = 0
     for (const item of p.itens)
       for (const c of componentesDoItem(item))
@@ -101,6 +111,7 @@ export function jornadasDaPessoa(
         handles: [...new Set(p.itens.flatMap((i) => (i.handle ? [i.handle] : [])))],
         temFator: fatores > 0,
         sugestoes: sugestoesDaRotina(tem, fatores),
+        recorrente: pagos.some((o) => o.id !== p.id && o.pagoEm!.getTime() < pagoEm),
       },
     ]
   })

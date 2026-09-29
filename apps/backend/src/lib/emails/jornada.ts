@@ -1,5 +1,6 @@
 import { primeiroNome, type ConteudoDoProduto } from "./boas-vindas"
 import type { EmailDoCrm, ProdutoDoCrm } from "./crm"
+import { emailDoIndique, type IndiqueDoEmail } from "./indicacao"
 
 /**
  * OS E-MAILS DA JORNADA DO RESULTADO (entrega 0187) — depois que o pedido
@@ -9,6 +10,8 @@ import type { EmailDoCrm, ProdutoDoCrm } from "./crm"
  *
  * Sem desconto, e sobre a compra da pessoa: todos são LEMBRETE (a cara da
  * marca, assinado, sem o cabeçalho de oferta), e sem palavra de propaganda.
+ * Menos os dois do indique um brother (0215, `lib/emails/indicacao.ts`), que
+ * falam de desconto e são oferta.
  * O check-in de 7 dias tem só dois botões — "Tá indo bem" e "Tenho uma
  * dúvida"; nada de "não gostei" (escolha do dono). Sem emoji nos botões
  * (0197): emoji em botão tem cara de campanha.
@@ -17,7 +20,13 @@ import type { EmailDoCrm, ProdutoDoCrm } from "./crm"
  */
 
 export type ToqueDaJornada =
-  "jornada-chegou" | "jornada-3d" | "jornada-7d" | "jornada-21d" | "jornada-60d"
+  | "jornada-chegou"
+  | "jornada-3d"
+  | "jornada-7d"
+  | "jornada-indique"
+  | "jornada-21d"
+  | "jornada-indique-30d"
+  | "jornada-60d"
 
 export type JornadaDoEmail = {
   toque: ToqueDaJornada
@@ -34,6 +43,11 @@ export type JornadaDoEmail = {
   sugestoes: ProdutoDoCrm[]
   /** Os dois botões do check-in (o de 7 dias). */
   checkin: { bem: string; duvida: string } | null
+  /**
+   * O link de quem indica (os de 10 e 40 dias) — só quando a pessoa está
+   * gostando e o motor decidiu que é a vez dela; sem ele, o dia fica sem e-mail.
+   */
+  indique?: IndiqueDoEmail | null
   sair: EmailDoCrm["sair"]
   loja: EmailDoCrm["loja"]
 }
@@ -109,6 +123,17 @@ export function emailDaJornada(j: JornadaDoEmail): EmailDoCrm | null {
             : []),
         ],
       }
+    case "jornada-indique":
+    case "jornada-indique-30d":
+      if (!j.indique) return null
+      return emailDoIndique({
+        toque: j.toque,
+        para: j.para,
+        nome: j.nome,
+        indique: j.indique,
+        sair: j.sair,
+        loja: j.loja,
+      })
     case "jornada-21d":
       if (!j.sugestoes.length) return null
       return {

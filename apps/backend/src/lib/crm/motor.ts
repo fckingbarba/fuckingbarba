@@ -12,6 +12,7 @@ import { enviarEmail } from "../email"
 import { emailDaTrilha, PRODUTOS_DAS_TRILHAS, type ConteudoDoProduto } from "../emails/boas-vindas"
 import type { ProdutoDoCrm } from "../emails/crm"
 import { emailDaEstreia, type EstreiaDoEmail } from "../emails/estreia"
+import type { IndiqueDoEmail } from "../emails/indicacao"
 import { emailDaJornada } from "../emails/jornada"
 import { emailDaNavegacao } from "../emails/navegacao"
 import { emailDaReposicao } from "../emails/reposicao"
@@ -36,6 +37,7 @@ import {
   type PessoaDaEstreia,
 } from "./estreia"
 import { produtosDosExemplos } from "./exemplos-dos-emails"
+import { garantirIndicador, indicadorDoEmail, indiqueDoCodigo } from "./indicacao"
 import { publicoDaJornada, SKU_DA_ROTINA, type JornadaDoPedido } from "./jornada"
 import { leituraDaRodada } from "./leitura"
 import {
@@ -78,6 +80,8 @@ import {
   registrosDoMotor,
   TOQUE_DA_ESCOLHA,
   TOQUE_DA_RESPOSTA_DO_RESGATE,
+  TOQUE_DO_CHECKIN,
+  TOQUE_DO_PREMIO,
   type Entrada,
   type IdDoFluxo,
   type Registro,
@@ -729,6 +733,54 @@ export async function rodarOsFluxos(
       if (!j || !ehToqueDaJornada(toque)) continue
       const dados = await jornada()
       const doPedido = j.handles.flatMap((h) => dados.conteudos.get(h) ?? [])
+      // O indique um brother (0215): o convite só pra quem está gostando, e um a cada 2 meses
+      // (o que o motor lê do registro); o lembrete, se o convite desta jornada saiu e nenhum
+      // brother comprou desde então.
+      const doIndique = toque === "jornada-indique" || toque === "jornada-indique-30d"
+      const mandou = (x: (typeof lidos)[number]) => x.como !== "pulado" && x.como !== "controle"
+      const linkDoIndique = async (): Promise<IndiqueDoEmail | null> => {
+        if (toque === "jornada-indique") {
+          const gostando =
+            j.recorrente ||
+            (dados.notas.get(j.pedido) ?? 0) >= 4 ||
+            lidos.some(
+              (x) =>
+                x.fluxo === "jornada" &&
+                x.chave === j.pedido &&
+                x.toque === TOQUE_DO_CHECKIN &&
+                x.como === "bem"
+            )
+          const convidadaHaPouco = lidos.some(
+            (x) => x.email === email && x.toque === "jornada-indique" && mandou(x)
+          )
+          if (!gostando || convidadaHaPouco) return null
+          return indiqueDoCodigo(loja, (await garantirIndicador(container, email, agora)).codigo)
+        }
+        if (toque === "jornada-indique-30d") {
+          const convidada = lidos.some(
+            (x) => x.chave === entrada.chave && x.toque === "jornada-indique" && mandou(x)
+          )
+          const brotherComprou = lidos.some(
+            (x) => x.email === email && x.fluxo === "indicacao" && x.toque === TOQUE_DO_PREMIO
+          )
+          const dela =
+            convidada && !brotherComprou ? await indicadorDoEmail(container, email) : null
+          return dela ? indiqueDoCodigo(loja, dela.codigo) : null
+        }
+        return null
+      }
+      let indique: IndiqueDoEmail | null = null
+      // Sem o link (o Medusa não criou o cupom), a pessoa fica pra próxima rodada: pular
+      // perderia o convite.
+      try {
+        indique = await linkDoIndique()
+      } catch (e) {
+        relatorio.falhas++
+        logger.warn(
+          `[crm] fluxos: o link do indique de ${entrada.chave} não saiu — ${e instanceof Error ? e.message : String(e)}`
+        )
+        continue
+      }
       const email1 = emailDaJornada({
         toque,
         para: email,
@@ -739,10 +791,12 @@ export async function rodarOsFluxos(
         fator: j.temFator ? (dados.conteudos.get(PRODUTOS_DAS_TRILHAS.fator) ?? null) : null,
         sugestoes: j.sugestoes.flatMap((s) => dados.porSku.get(s) ?? []),
         checkin: toque === "jornada-7d" ? linksDoCheckin(j.pedido) : null,
+        indique,
         sair: linksDeSair(loja, email),
         loja: infoDaLoja,
       })
-      // O dia que o pedido não tem (sem o Fator, sem a seção na página, sem o que sugerir): pulado.
+      // O dia que o pedido não tem (sem o Fator, sem a seção na página, sem o que sugerir, o
+      // indique de quem não está gostando): pulado.
       if (!email1) {
         if (await crm.anotarNoFluxo({ ...base, toque, como: "pulado" })) relatorio.pulados++
         continue
@@ -753,7 +807,7 @@ export async function rodarOsFluxos(
       try {
         const enviado = await enviarEmail(comQuemManda(email1), logger, {
           idempotencia: `crm-jornada/${entrada.chave}/${toque}`,
-          tipo: "crm-jornada",
+          tipo: doIndique ? "crm-indicacao" : "crm-jornada",
         })
         if (enviado.ok) {
           await crm.confirmarToque(reserva, {
@@ -1415,22 +1469,40 @@ type DadosDaJornada = {
   /** O que completa a rotina, pelo SKU. */
   porSku: Map<string, ProdutoDoCrm>
   nomes: Map<string, string>
+  /** A maior nota que a pessoa deu pra cada pedido (o indique um brother, 0215). */
+  notas: Map<string, number>
 }
 
-/** O texto das páginas dos produtos dos pedidos, o que completa a rotina, e o nome de cada um. */
+/**
+ * O texto das páginas dos produtos dos pedidos, o que completa a rotina, o
+ * nome de cada um, e as notas que cada pedido ganhou (a recusada não conta).
+ */
 async function lerDadosDaJornada(
   container: MedusaContainer,
   jornadas: readonly JornadaDoPedido[]
 ): Promise<DadosDaJornada> {
-  const [{ conteudos }, porSku, nomes] = await Promise.all([
+  const pedidos = [...new Set(jornadas.map((j) => j.pedido))]
+  const [{ conteudos }, porSku, nomes, avaliacoes] = await Promise.all([
     conteudosDasTrilhas(container, [...new Set(jornadas.flatMap((j) => j.handles))]),
     produtosPorSku(container, [...new Set(jornadas.flatMap((j) => j.sugestoes))]),
     nomesDasPessoas(
       container,
       jornadas.map((j) => j.email)
     ),
+    pedidos.length
+      ? (container
+          .resolve<AvaliacoesService>(AVALIACOES)
+          .listAvaliacoes(
+            { pedido_id: pedidos, situacao: ["nova", "aprovada"] },
+            { select: ["pedido_id", "nota"], take: 5000 }
+          )
+          .catch(() => []) as Promise<{ pedido_id: string; nota: number }[]>)
+      : Promise.resolve([] as { pedido_id: string; nota: number }[]),
   ])
-  return { conteudos, porSku, nomes }
+  const notas = new Map<string, number>()
+  for (const a of avaliacoes)
+    notas.set(a.pedido_id, Math.max(notas.get(a.pedido_id) ?? 0, Number(a.nota) || 0))
+  return { conteudos, porSku, nomes, notas }
 }
 
 type DadosDaEstreia = {

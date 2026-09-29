@@ -18,6 +18,7 @@ import {
   type SegmentoDaEstreia,
 } from "./estreia"
 import { produtosDosExemplos } from "./exemplos-dos-emails"
+import { indiqueDoCodigo } from "./indicacao"
 import {
   FLUXOS,
   IDS_DOS_FLUXOS,
@@ -31,6 +32,7 @@ import {
   DESCONTO_DO_RESGATE,
   PREFIXO_DO_CUPOM,
   PREFIXO_DO_CUPOM_DE_BOAS_VINDAS,
+  PREFIXO_DO_CUPOM_DO_BROTHER,
   validadeDoCupom,
   type IdDoToque,
   type IdDoToqueDaEstreia,
@@ -155,6 +157,11 @@ async function exemplosDaJornada(
     sugestoes: [SKU_DA_ROTINA.oleo, SKU_DA_ROTINA.tresFatores].flatMap((s) => porSku.get(s) ?? []),
     // Um pedido que não existe: o clique anota nada e cai na home.
     checkin: toque === "jornada-7d" ? linksDoCheckin(`order_${"0".repeat(26)}`) : null,
+    // O link de mentira: o cupom `BROTHER-EXEMPLO` não existe, e o link cai na home sem nada.
+    indique:
+      toque === "jornada-indique" || toque === "jornada-indique-30d"
+        ? indiqueDoCodigo(loja, `${PREFIXO_DO_CUPOM_DO_BROTHER}EXEMPLO`)
+        : null,
     sair: linksDeSair(loja, membro.email),
     loja: {
       url: loja,
