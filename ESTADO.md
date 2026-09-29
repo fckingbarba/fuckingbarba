@@ -4711,6 +4711,17 @@ loja.
 
 Depois do deploy — **nada a configurar.**
 
+**As conversões do Início com todas as vendas — pronto em 29/09 (entrega 0216).** Depois da 0212
+ele viu "2 vendas em 189 visitas (4 no dia)" e disse que as conversões estavam erradas. O Google
+atrasa só a conta hora a hora; o total do dia já vem em dia. Agora o Início pergunta o total: o
+card Visitas, o bloco "O que as visitas fizeram" e as duas taxas usam o mesmo número, e a taxa das
+compras conta todas as vendas até agora ("4 vendas em 275 visitas"). Ontem vai até a mesma hora. O
+"(data not available)" em "De onde vieram" virou "Google ainda processando". Conferido no painel
+local: `conferir-visitas` 54/54 duas vezes, `conferir-marketing` 139/139, `conferir-pedidos` 113/113, os unitários do backend
+(1.670), o typecheck, o lint e o prettier.
+
+Depois do deploy — **nada a configurar.**
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa
