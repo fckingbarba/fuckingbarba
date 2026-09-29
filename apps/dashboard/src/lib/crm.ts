@@ -186,6 +186,18 @@ export type TelaDosFluxos = {
       jaCompraram: number
     }
   }[]
+  /** O indique um brother (0215), nos dias da tela. */
+  indicacao: {
+    /** Quantas pessoas já têm o link (desde sempre). */
+    links: number
+    /** Os brothers que pagaram a 1ª compra com um link. */
+    amigos: number
+    /** O que eles compraram (o pedido com o link). */
+    vendido: number
+    /** Os cupons de 15% que quem indicou ganhou, e quantos já foram usados. */
+    cupons: number
+    cuponsUsados: number
+  }
 }
 
 /* ── o modelo dos e-mails ────────────────────────────────────────────────── */

@@ -424,6 +424,15 @@ export default defineMiddlewares({
       middlewares: [authenticate("customer", ["bearer"])],
     },
     /*
+      O indique um brother em Minha conta (entrega 0215): o link, e o "Pegar
+      meu link" — o mesmo, só com token de cliente.
+    */
+    {
+      matcher: "/store/crm/indicacao",
+      method: ["GET", "POST"],
+      middlewares: [authenticate("customer", ["bearer"])],
+    },
+    /*
       O que a loja anota pro CRM: o token do cliente é opcional. Com ele, o
       navegador fica sendo da conta; sem ele (ou vencido), o recado entra do
       mesmo jeito, anônimo — por isso `allowUnauthenticated`.

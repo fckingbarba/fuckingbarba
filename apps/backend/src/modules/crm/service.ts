@@ -27,6 +27,7 @@ import { Campanha } from "./models/campanha"
 import { EmailDoCrm } from "./models/email"
 import { Evento } from "./models/evento"
 import { EnvioDoFluxo, SaiuDaLista } from "./models/fluxos"
+import { Indicador } from "./models/indicador"
 import { Visitante } from "./models/visitante"
 
 type Contexto = Context<EntityManager>
@@ -58,6 +59,7 @@ const Tabelas = MedusaService({
   EnviosDosFluxos: EnvioDoFluxo,
   Saidas: SaiuDaLista,
   Campanhas: Campanha,
+  Indicadores: Indicador,
 })
 
 /** Uma decisão do motor dos fluxos, como o banco devolve (`lib/crm/fluxos.ts` usa o `Registro`). */

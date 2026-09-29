@@ -2,6 +2,7 @@ import {
   FLUXOS,
   IDS_DOS_FLUXOS,
   LIMITES_DO_DESCONTO,
+  TOQUE_DO_PREMIO,
   type ConfigDosFluxos,
   type IdDoFluxo,
 } from "../crm/fluxos"
@@ -31,6 +32,8 @@ const DIA_MS = 24 * 60 * 60 * 1000
 export type RegistroDaTela = {
   email: string
   fluxo: string
+  /** A chave (no prêmio do indique, `premio|<pedido do brother>`). */
+  chave?: string
   toque: string
   como: string
   em: Date | string
@@ -38,6 +41,8 @@ export type RegistroDaTela = {
 }
 
 export type PedidoDaTela = {
+  /** O id (o pedido do brother, no indique). */
+  id?: string
   email: string | null
   created_at: Date | string
   total: number
@@ -92,11 +97,25 @@ export type FluxoDaTela = {
   publico?: PublicoDaEstreiaNaTela
 }
 
+/** O indique um brother (0215, `lib/crm/indicacao.ts`), nos dias da tela. */
+export type IndicacaoNaTela = {
+  /** Quantas pessoas já têm o link (desde sempre). */
+  links: number
+  /** Os brothers que pagaram a 1ª compra com um link. */
+  amigos: number
+  /** O que eles compraram (o pedido com o link). */
+  vendido: number
+  /** Os cupons de 15% que quem indicou ganhou, e quantos já foram usados. */
+  cupons: number
+  cuponsUsados: number
+}
+
 export type TelaDosFluxos = {
   desconto: number
   limites: readonly [number, number]
   dias: number
   fluxos: FluxoDaTela[]
+  indicacao: IndicacaoNaTela
 }
 
 const ms = (d: Date | string) => new Date(d).getTime()
@@ -150,6 +169,7 @@ export function montarTelaDosFluxos({
   pedidos,
   cuponsUsados,
   publico = null,
+  links = 0,
 }: {
   config: ConfigDosFluxos
   registros: RegistroDaTela[]
@@ -157,7 +177,13 @@ export function montarTelaDosFluxos({
   cuponsUsados: ReadonlySet<string>
   /** O público da estreia, pro bloco dela. */
   publico?: PublicoDaEstreiaNaTela | null
+  /** Quantas pessoas têm o link do indique. */
+  links?: number
 }): TelaDosFluxos {
+  // O indique: cada prêmio é um brother que pagou (o pulado também — o teto do ano, a equipe).
+  const premios = registros.filter((r) => r.fluxo === "indicacao" && r.toque === TOQUE_DO_PREMIO)
+  const doBrother = new Set(premios.map((r) => (r.chave ?? "").replace(/^premio\|/, "")))
+  const cuponsDoIndique = premios.flatMap((r) => (r.cupom ? [r.cupom] : []))
   return {
     desconto: config.desconto,
     limites: LIMITES_DO_DESCONTO,
@@ -195,6 +221,18 @@ export function montarTelaDosFluxos({
         ...(id === "estreia" && publico ? { publico } : {}),
       }
     }),
+    indicacao: {
+      links,
+      amigos: premios.length,
+      vendido:
+        Math.round(
+          pedidos
+            .filter((p) => p.id && doBrother.has(p.id) && p.status !== "canceled")
+            .reduce((soma, p) => soma + (Number(p.total) || 0), 0) * 100
+        ) / 100,
+      cupons: cuponsDoIndique.length,
+      cuponsUsados: cuponsDoIndique.filter((c) => cuponsUsados.has(c)).length,
+    },
   }
 }
 

@@ -3886,6 +3886,23 @@ teste caiu em Promoções. Agora cada campanha escolhe **Como chega**:
 - [ ] **Depois do deploy (você):** CRM → Campanhas → Nova campanha → em "Como chega", escolha
       "Recado do Matheus" → "Mandar pra mim", e veja em que aba cai.
 
+**O Indique um brother — pronto em 29/09 (entrega 0215).** Cada cliente ganha um link pra mandar
+pros amigos. Suas escolhas:
+- **O brother** ganha 15% na primeira compra com o link (só quem nunca comprou na loja nova).
+- **Quem indicou** ganha um cupom de 15% na próxima compra quando o brother paga (o Pix pago ou o
+  cartão aprovado). Vale 60 dias, até 10 por ano. O e-mail avisa, sem dizer quem comprou.
+- **O convite** vai por e-mail pra quem está gostando: 10 dias depois que o pedido chega, pra quem
+  respondeu "Tá indo bem", deu 4 ou 5 estrelas ou está na 2ª compra. Um lembrete 30 dias depois,
+  se nenhum brother comprou.
+- **Minha conta**, na loja, mostra o link pra todo cliente, com "Copiar" e "Mandar no WhatsApp",
+  quantos brothers compraram e os cupons ganhos.
+- **CRM → Fluxos** mostra os números: quem tem o link, os brothers que compraram, o que eles
+  compraram e os cupons.
+
+- [ ] **Depois do deploy (você):** o convite anda junto com a **Jornada do resultado** (CRM →
+      Fluxos): ela precisa estar ligada. No card dela, "Mandar pra mim" em "Indique um brother"
+      mostra o e-mail. O bloco de Minha conta já aparece.
+
 **A parcela mínima do cartão, editável — pronta em 27/09 (entrega 0157).** O pedido dele: "quero
 poder editar a parcela mínima no cartão, ali diz 5 reais". Em **Configurações → Pagamento**, o
 bloco **Parcelas no cartão** tem o campo **Parcela mínima**.

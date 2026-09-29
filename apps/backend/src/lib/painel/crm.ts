@@ -219,6 +219,7 @@ const NOME_DO_EMAIL: Record<string, string> = {
   "crm-checkout": "Checkout abandonado",
   "crm-pix": "Pix pendente",
   "crm-campanha": "Campanha",
+  "crm-indicacao": "Indique um brother",
 }
 
 /** "Pedido confirmado"; sem etiqueta (os de antes da 0138), "Outro". */

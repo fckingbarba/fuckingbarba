@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { Fragment, Suspense } from "react"
+import { IndiqueUmBrother } from "@/components/conta/indique"
 import {
   ForaDoAr,
   LinhaDoAndamento,
@@ -21,6 +22,7 @@ import { documentoEscondido } from "@/lib/documento"
 import { lerRastreios, listarPedidos, type LeituraDosPedidos } from "@/lib/pedidos-da-conta"
 import type { FichaDoSite } from "@/lib/ficha"
 import { lerFichaDaConta } from "@/lib/ficha-da-conta"
+import { lerIndicacaoDaConta } from "@/lib/indicacao-da-conta"
 import { mascararTelefone } from "@/lib/telefone"
 
 /**
@@ -29,8 +31,9 @@ import { mascararTelefone } from "@/lib/telefone"
  * O que a pessoa veio fazer, na ordem em que ela vem fazer: pagar o Pix que
  * ficou pendente, ver onde está a encomenda, e repor o que acabou — o que
  * está acabando pela conta da reposição (0188), e o último pedido. Com o
- * Fator em uso, o dia do tratamento (0190). Endereço e dados ficam por
- * último, pequenos — são atalhos pras telas deles.
+ * Fator em uso, o dia do tratamento (0190). Depois dos pedidos, o indique
+ * um brother (0215): o link da pessoa. Endereço e dados ficam por último,
+ * pequenos — são atalhos pras telas deles.
  */
 export const metadata: Metadata = {
   title: "Minha conta",
@@ -50,10 +53,11 @@ export default function Pagina() {
 }
 
 async function Painel() {
-  const [leitura, conta, daFicha] = await Promise.all([
+  const [leitura, conta, daFicha, indique] = await Promise.all([
     listarPedidos(),
     lerCliente(),
     lerFichaDaConta(),
+    lerIndicacaoDaConta(),
   ])
   seSessaoAcabou(leitura.estado)
   seSessaoAcabou(conta.estado)
@@ -61,6 +65,12 @@ async function Painel() {
   return (
     <div className="painel-grade">
       <Pedidos leitura={leitura} ficha={daFicha.estado === "ok" ? daFicha.ficha : null} />
+      {indique.estado === "ok" && indique.indicacao ? (
+        <div className="bloco bloco--largo" data-bloco-indique>
+          <p className="rotulo">Indique um brother</p>
+          <IndiqueUmBrother inicial={indique.indicacao} />
+        </div>
+      ) : null}
       {conta.estado === "ok" ? (
         <>
           <EnderecoPrincipal cliente={conta.cliente} />

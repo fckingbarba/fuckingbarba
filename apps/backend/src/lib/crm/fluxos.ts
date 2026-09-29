@@ -41,7 +41,10 @@ import { createHash } from "node:crypto"
  *     modo de uso, o check-in de 7 dias (só "tá indo bem" e "tenho uma
  *     dúvida": nada de "não gostei", escolha do dono), a rotina completa em
  *     21 dias, e os do Fator (3 e 60 dias) — `lib/crm/jornada.ts`. Começa
- *     DESLIGADA.
+ *     DESLIGADA. Nela, o INDIQUE UM BROTHER (entrega 0215): em 10 dias, o
+ *     convite pra quem está gostando (o "Tá indo bem", 4 ou 5 estrelas no
+ *     pedido, ou a 2ª compra), e em 40 o lembrete, se nenhum brother
+ *     comprou com o link (`lib/crm/indicacao.ts`).
  *   - RESGATE E SUNSET (entrega 0192): quem passou do dia de comprar de novo
  *     (a etapa "em risco" das etiquetas) — no dia, a pergunta de 1 clique
  *     ("Tá tudo bem com a barba?", com os 4 botões do plano); em 7 dias, 15%
@@ -138,7 +141,13 @@ export type IdDoToqueDaReposicao =
  * pedido chegou (`lib/emails/jornada.ts`).
  */
 export type IdDoToqueDaJornada =
-  "jornada-chegou" | "jornada-3d" | "jornada-7d" | "jornada-21d" | "jornada-60d"
+  | "jornada-chegou"
+  | "jornada-3d"
+  | "jornada-7d"
+  | "jornada-indique"
+  | "jornada-21d"
+  | "jornada-indique-30d"
+  | "jornada-60d"
 
 /**
  * Os toques do resgate e do sunset (entrega 0192), contados do dia em que a
@@ -354,11 +363,24 @@ export const FLUXOS: Record<IdDoFluxo, Fluxo> = {
       { id: "jornada-chegou", nome: "Chegou! Como usar", quando: "quando chega", depois: 0 },
       { id: "jornada-3d", nome: "Não pular dia (Fator)", quando: "3 dias depois", depois: 3 * DIA },
       { id: "jornada-7d", nome: "Como tá indo?", quando: "7 dias depois", depois: 7 * DIA },
+      // O indique um brother (0215): o convite 3 dias depois do check-in, só pra quem está gostando.
+      {
+        id: "jornada-indique",
+        nome: "Indique um brother",
+        quando: "10 dias depois",
+        depois: 10 * DIA,
+      },
       {
         id: "jornada-21d",
         nome: "A rotina completa",
         quando: "21 dias depois",
         depois: 21 * DIA,
+      },
+      {
+        id: "jornada-indique-30d",
+        nome: "O lembrete do indique",
+        quando: "40 dias depois",
+        depois: 40 * DIA,
       },
       { id: "jornada-60d", nome: "O dia 60 (Fator)", quando: "60 dias depois", depois: 60 * DIA },
     ],
@@ -525,8 +547,11 @@ export type Entrada = {
 /** Um e-mail que o motor já decidiu (mandou, pulou ou guardou pro controle). */
 export type Registro = {
   email: string
-  /** O fluxo — ou "campanha" (entrega 0206): as campanhas contam no teto de cada pessoa. */
-  fluxo: IdDoFluxo | "campanha"
+  /**
+   * O fluxo — ou "campanha" (entrega 0206) ou "indicacao" (o prêmio de quem
+   * indicou, 0215): também contam no teto de cada pessoa.
+   */
+  fluxo: IdDoFluxo | "campanha" | "indicacao"
   chave: string
   toque: IdDoToque
   em: Date
@@ -560,6 +585,14 @@ export const TOQUE_DO_CHECKIN = "jornada-checkin"
  * Não é e-mail: não conta no teto, mas o cupom conta nos 60 dias.
  */
 export const TOQUE_DA_RESPOSTA_DO_RESGATE = "resgate-resposta"
+
+/**
+ * O toque do prêmio do indique um brother (0215, `lib/crm/premio-da-indicacao.ts`):
+ * o fluxo "indicacao", a chave `premio|<pedido do brother>`, e o cupom de
+ * quem indicou. Pulado quando o prêmio não sai (ele mesmo, o teto do ano, a
+ * equipe) — a compra do brother conta do mesmo jeito na tela.
+ */
+export const TOQUE_DO_PREMIO = "indicacao-premio"
 
 /**
  * As linhas do registro (`crm_envio`) como o motor conta. A reserva que não
@@ -747,12 +780,22 @@ export const PREFIXO_DO_CUPOM = "VOLTA-"
 /** O começo do cupom da 1ª compra, o do pop-up (`BEMVINDO-7KQ2MX`): também não é do painel. */
 export const PREFIXO_DO_CUPOM_DE_BOAS_VINDAS = "BEMVINDO-"
 
+/** O começo do link de quem indica (`BROTHER-7KQ2MX`, 0215): o cupom do brother. */
+export const PREFIXO_DO_CUPOM_DO_BROTHER = "BROTHER-"
+
+/** O começo do cupom que quem indicou ganha quando o brother paga (`VALEU-7KQ2MX`, 0215). */
+export const PREFIXO_DO_PREMIO = "VALEU-"
+
+const PREFIXOS_DO_CRM = [
+  PREFIXO_DO_CUPOM,
+  PREFIXO_DO_CUPOM_DE_BOAS_VINDAS,
+  PREFIXO_DO_CUPOM_DO_BROTHER,
+  PREFIXO_DO_PREMIO,
+]
+
 /** Se o código é de um cupom do CRM — os que a aba Fluxos conta, e a lista de Cupons não mostra. */
 export const ehCupomDoCrm = (codigo: string | null | undefined) =>
-  Boolean(
-    codigo &&
-    (codigo.startsWith(PREFIXO_DO_CUPOM) || codigo.startsWith(PREFIXO_DO_CUPOM_DE_BOAS_VINDAS))
-  )
+  Boolean(codigo && PREFIXOS_DO_CRM.some((p) => codigo.startsWith(p)))
 
 /** Quanto tempo o cupom vale depois do e-mail que o dá (o padrão; o fluxo pode ter o seu). */
 export const VALIDADE_DO_CUPOM = 2 * DIA

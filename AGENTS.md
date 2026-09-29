@@ -3684,6 +3684,63 @@ O `conferir-crm.mjs` confere:
   sair da lista no pé;
 - o envio do recado, com o tempo andando, e a lista dizendo que é recado.
 
+**O CRM, parte 21: o indique um brother** (entrega 0215, a etapa 4 do plano; escolhas do dono,
+29/09). Cada cliente ganha um link: quem faz a 1ª compra com ele ganha 15%, e quem indicou ganha
+um cupom de 15% quando o brother paga.
+
+- **O link** (`lib/crm/indicacao.ts`) é um cupom do Medusa, `BROTHER-7KQ2MX` (`cupomDoAmigo`):
+  - 15% na loja toda, só na 1ª compra (a regra dos cupons do painel e do pop-up: nenhum pedido na
+    loja nova com o e-mail), uma vez por pessoa, sem data e sem limite de usos;
+  - mora na tabela `crm_indicador` (e-mail e código únicos; a migration `Migration20260929210000`,
+    à mão) e nasce uma vez por e-mail (`garantirIndicador`, na trava `indicador:<e-mail>`): no
+    primeiro convite, ou no "Pegar meu link" da conta;
+  - o link é o `/discount/<código>` da loja (guarda o cupom e põe na sacola), e o "Mandar no
+    WhatsApp" é o `wa.me/?text=` com a mensagem pronta (`mensagemDoWhatsApp`).
+- **O convite vai NA JORNADA DO RESULTADO**: dois toques novos em `FLUXOS.jornada` —
+  `jornada-indique` em 10 dias e `jornada-indique-30d` em 40. Um fluxo à parte ficaria atrás da
+  jornada (um fluxo por vez) e perderia a hora. O motor decide:
+  - o convite só pra quem está gostando: o "Tá indo bem" do check-in deste pedido, 4 ou 5 estrelas
+    nele (a avaliação nova ou aprovada; `notas`, em `lerDadosDaJornada`), ou a 2ª compra
+    (`recorrente`, em `jornadasDaPessoa`: outro pedido pago antes, numa das duas lojas). E um a
+    cada 2 meses: o que o motor lê do registro. Sem isso, o dia é pulado;
+  - o lembrete, só se o convite desta jornada saiu e nenhum brother comprou desde então;
+  - os dois são oferta (`lib/emails/indicacao.ts`, a etiqueta `crm-indicacao`): o código, o
+    WhatsApp, o "Ver na minha conta" e o link por extenso. Com a jornada desligada, nada sai.
+- **O prêmio** (`lib/crm/premio-da-indicacao.ts`; o subscriber `premio-da-indicacao.ts`, no
+  `payment.captured`): o pedido com um código de brother foi PAGO (o Pix pago, o cartão aprovado):
+  - quem indicou ganha um cupom de 15%, só dele, que vale 60 dias (`VALEU-7KQ2MX`,
+    `criarCupomDoFluxo`), até 10 por ano (`PREMIOS_POR_ANO`);
+  - o brother que é a própria pessoa não conta. A equipe e quem passou dos 10 ficam no registro
+    como pulados;
+  - o prêmio é reservado no `crm_envio` (o fluxo `indicacao`, a chave `premio|<pedido>`, o toque
+    `indicacao-premio`): o aviso do pagamento repetido não dá dois;
+  - o e-mail sai na hora, sem controle e sem a madrugada (é o prêmio combinado), menos pra quem
+    saiu da lista e pro e-mail que voltou: o cupom vale do mesmo jeito. O brother nunca aparece;
+  - o prêmio conta no teto e na regra de um cupom a cada 60 dias, como os outros.
+- **Minha conta** (`GET` e `POST /store/crm/indicacao`, só com token de cliente, 60 por hora;
+  `indicacaoDaConta`): o link com o "Copiar", o "Mandar no WhatsApp", quantos brothers compraram e
+  os cupons ganhos. Sem link, o "Pegar meu link" cria na hora. Na loja: `lib/indicacao.ts` (os
+  tipos e a conferência), `lib/indicacao-da-conta.ts`, `lib/acoes/indicacao.ts` e
+  `components/conta/indique.tsx`, no bloco `[data-bloco-indique]` da visão geral.
+- **Os cupons do indique são do CRM** (`ehCupomDoCrm` conta `BROTHER-` e `VALEU-`): ficam fora da
+  lista de Cupons do painel.
+- **No painel**, a aba Fluxos mostra os dois toques novos na jornada (com o "Mandar pra mim" do
+  link de mentira, `BROTHER-EXEMPLO`) e o bloco "Indique um brother" (`IndiqueNosFluxos`): quem
+  tem o link, os brothers que pagaram nos 30 dias, o que compraram e os cupons de quem indicou
+  (`indicacao`, em `montarTelaDosFluxos`).
+- **A política de privacidade** conta o que a loja anota (a compra veio do link), e que o aviso não
+  diz quem comprou.
+- **O limite conhecido:** a "primeira compra" olha só a loja nova, como no pop-up. Quem comprou só
+  na Nuvemshop também ganha os 15% do link.
+
+O `conferir-crm.mjs` confere, na jornada do Fator:
+- o convite em 10 dias pra quem respondeu "Tá indo bem" (oferta, o código e o WhatsApp);
+- o brother que paga o Pix com o código: o cupom `VALEU-` de quem indicou, sem o e-mail do brother,
+  e um só;
+- Minha conta: o mesmo link, "1 brother comprou" e o cupom; e o brother pegando o link dele;
+- em 40 dias, o lembrete pulado (o brother já comprou);
+- a aba Fluxos com os números do indique.
+
 **O preço e o promocional no painel** (entregas 0098 e 0102): os dois campos de cada produto na
 lista de Produtos, como na Nuvemshop (a 0098 tinha só o promocional, atrás de um botão). A regra é
 `lib/painel/promocao.ts`, pura: `lerMudancaDePreco` (o corpo `{ preco?, promocional? }` contra o

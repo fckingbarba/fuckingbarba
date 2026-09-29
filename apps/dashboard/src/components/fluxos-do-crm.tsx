@@ -21,7 +21,7 @@ const QUEM_ENTRA: Record<IdDoFluxo, string> = {
   reposicao:
     "Comprou, e o produto está pra acabar, pela conta dos dias dos Ajustes: 7 e 2 dias antes, 3 e 10 dias depois, com o “Refazer o pedido”. Todo cliente, da loja nova e da antiga, sem cupom. Começa desligado: ligue depois da estreia, em 3/10.",
   jornada:
-    "O pedido chegou (pelo aviso da Frenet, ou 10 dias depois de pago). O modo de uso quando chega, o “Como tá indo?” em 7 dias (só “Tá indo bem” e “Tenho uma dúvida”), a rotina completa em 21, e o Fator em 3 e 60 dias. Começa desligado.",
+    "O pedido chegou (pelo aviso da Frenet, ou 10 dias depois de pago). O modo de uso quando chega, o “Como tá indo?” em 7 dias (só “Tá indo bem” e “Tenho uma dúvida”), a rotina completa em 21, e o Fator em 3 e 60 dias. Em 10 dias, o “Indique um brother” pra quem está gostando (respondeu “Tá indo bem”, deu 4 ou 5 estrelas ou é a 2ª compra), e o lembrete em 40, se nenhum brother comprou. Começa desligado.",
   "boas-vindas":
     "Se cadastrou no pop-up da 1ª compra. Depois do cupom, os e-mails da trilha do que a pessoa via: crescer a barba, cuidar da barba, cabelo — ou, sem produto, “Barba ou cabelo?”. Desligado, o pop-up some da loja.",
   estreia:
@@ -152,6 +152,56 @@ function NumerosDoFluxo({ f, dias }: { f: Fluxo; dias: number }) {
         </div>
       )}
     </div>
+  )
+}
+
+/**
+ * O INDIQUE UM BROTHER (0215) — quantos têm o link, os brothers que pagaram a
+ * 1ª compra com ele, o que compraram, e os cupons de quem indicou.
+ */
+export function IndiqueNosFluxos({ i, dias }: { i: TelaDosFluxos["indicacao"]; dias: number }) {
+  return (
+    <section className="bloco" aria-labelledby="fluxos-indique" data-indique-nos-fluxos>
+      <h2 className="bloco__titulo" id="fluxos-indique">
+        Indique um brother
+      </h2>
+      <p className="fluxo__quem">
+        O brother ganha 15% na 1ª compra com o link de quem indicou; quem indicou ganha um cupom de
+        15% quando ele paga (até 10 por ano). O convite sai na jornada do resultado, e o link fica
+        em Minha conta.
+      </p>
+      <div className="numeros numeros--indique">
+        <div className="numero">
+          <p className="numero__rot">Com o link</p>
+          <p className="numero__valor num" data-numero="links">
+            {inteiro.format(i.links)}
+          </p>
+          <p className="numero__sub">pessoas, desde o começo</p>
+        </div>
+        <div className="numero numero--destaque">
+          <p className="numero__rot">Brothers que compraram</p>
+          <p className="numero__valor num" data-numero="amigos">
+            {inteiro.format(i.amigos)}
+          </p>
+          <p className="numero__sub">em {dias} dias</p>
+        </div>
+        <div className="numero">
+          <p className="numero__rot">Vendido</p>
+          <p className="numero__valor num" data-numero="vendido-indique">
+            {reais.format(i.vendido)}
+          </p>
+          <p className="numero__sub">o pedido de cada brother</p>
+        </div>
+        <div className="numero">
+          <p className="numero__rot">Cupons de quem indicou</p>
+          <p className="numero__valor num" data-numero="cupons-indique">
+            {inteiro.format(i.cuponsUsados)}
+            <small> de {inteiro.format(i.cupons)}</small>
+          </p>
+          <p className="numero__sub">usados</p>
+        </div>
+      </div>
+    </section>
   )
 }
 

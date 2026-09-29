@@ -597,6 +597,78 @@ html:not([data-hidratado]) body:has(.conta) {
   justify-self: start;
 }
 
+/* O indique um brother (entrega 0215): o link com o "Copiar", o WhatsApp, e
+   quantos brothers compraram — e os cupons que a pessoa ganhou. */
+.indique {
+  display: grid;
+  gap: 10px;
+}
+.indique__txt {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--color-tinta-suave);
+}
+.indique__txt b {
+  color: var(--color-tinta);
+}
+.indique__link {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--color-cinza);
+  border: 2px dashed var(--color-tinta);
+}
+.indique__link input {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--color-tinta);
+}
+.indique__link input:focus-visible {
+  outline: 2px solid var(--color-amarelo-escuro);
+  outline-offset: 4px;
+}
+.indique__acao {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.indique__numeros {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--color-tinta-suave);
+}
+.indique__cupons {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.84rem;
+}
+.indique__cupons li[data-usado] {
+  color: var(--color-tinta-suave);
+}
+.indique__erro {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--color-erro);
+}
+@media (max-width: 700px) {
+  .indique__acao .btn {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+}
+
 .resumo-curto {
   margin: 0;
   font-size: 0.86rem;

@@ -25,7 +25,8 @@ import {
 /**
  * GET /dashboard/crm/fluxos — a aba Fluxos do CRM (`lib/painel/fluxos.ts`):
  * cada fluxo, se está ligado, os toques e o que vendeu nos últimos 30 dias,
- * contra o grupo de controle.
+ * contra o grupo de controle; e o indique um brother (0215): quantos têm o
+ * link, os brothers que compraram e os cupons de quem indicou.
  *
  * POST /dashboard/crm/fluxos — `{ fluxo, ligado }` ou `{ desconto }`: liga,
  * desliga, ou muda o desconto do cupom. Fica no registro da equipe.
@@ -38,18 +39,22 @@ const DIA = 24 * 60 * 60 * 1000
 async function tela(container: MedusaContainer, config: ConfigDosFluxos, agora: Date) {
   const desde = new Date(agora.getTime() - DIAS_DA_TELA * DIA)
   const query = container.resolve(ContainerRegistrationKeys.QUERY)
-  const [registros, pedidos, estreia] = await Promise.all([
-    container.resolve<CrmService>(CRM).registrosDosFluxos(desde),
+  const crm = container.resolve<CrmService>(CRM)
+  const [registros, pedidos, estreia, [, links]] = await Promise.all([
+    crm.registrosDosFluxos(desde),
     query
       .graph({
         entity: "order",
-        fields: ["email", "created_at", "total", "status"],
+        // O id: o pedido do brother, no indique (0215).
+        fields: ["id", "email", "created_at", "total", "status"],
         filters: { created_at: { $gte: desde } },
         pagination: { take: 5000 },
       })
       .then((r) => r.data as unknown as PedidoDaTela[]),
     // Quem entra na estreia: a base da Nuvemshop, agora.
     publicoDaEstreia(container, agora),
+    // Quantas pessoas têm o link do indique um brother.
+    crm.listAndCountIndicadores({}, { select: ["id"], take: 1 }),
   ])
   const codigos = registros.flatMap((r) => (r.cupom && ehCupomDoCrm(r.cupom) ? [r.cupom] : []))
   const usados = codigos.length
@@ -67,6 +72,7 @@ async function tela(container: MedusaContainer, config: ConfigDosFluxos, agora: 
         .map((p) => p.code as string)
     ),
     publico: publicoNaTela(estreia),
+    links,
   })
 }
 

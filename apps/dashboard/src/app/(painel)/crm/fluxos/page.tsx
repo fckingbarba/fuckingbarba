@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import { redirect } from "next/navigation"
 import { SoPara } from "@/components/area"
 import { AbasDoCrm } from "@/components/crm"
-import { DescontoDosFluxos, FluxosDoCrm } from "@/components/fluxos-do-crm"
+import { DescontoDosFluxos, FluxosDoCrm, IndiqueNosFluxos } from "@/components/fluxos-do-crm"
 import { Cabeca, ForaDoAr, SemAcesso } from "@/components/telas"
 import { CAMINHO_DOS_FLUXOS, type TelaDosFluxos } from "@/lib/crm"
 import { ler } from "@/lib/medusa"
@@ -41,6 +41,7 @@ async function Fluxos() {
       />
       <AbasDoCrm atual="fluxos" />
       <FluxosDoCrm tela={tela} />
+      <IndiqueNosFluxos i={tela.indicacao} dias={tela.dias} />
       <DescontoDosFluxos desconto={tela.desconto} limites={tela.limites} />
       <section className="bloco" aria-labelledby="fluxos-regras" data-regras-dos-fluxos>
         <h2 className="bloco__titulo" id="fluxos-regras">
@@ -61,6 +62,10 @@ async function Fluxos() {
           <li>
             O cupom da 1ª compra sai na hora do cadastro, até de madrugada, e sem grupo de controle:
             foi a pessoa que pediu.
+          </li>
+          <li>
+            O cupom de quem indicou um brother sai quando o brother paga, na hora, e sem grupo de
+            controle: é o prêmio combinado.
           </li>
         </ul>
       </section>

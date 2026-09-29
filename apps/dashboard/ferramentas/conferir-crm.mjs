@@ -1397,7 +1397,7 @@ try {
         "pix,checkout,carrinho,navegacao,reposicao,jornada,boas-vindas,estreia,resgate" &&
         tela0.fluxos.find((f) => f.id === "navegacao")?.toques.length === 2 &&
         tela0.fluxos.find((f) => f.id === "resgate")?.toques.length === 4 &&
-        tela0.fluxos.find((f) => f.id === "jornada")?.toques.length === 5 &&
+        tela0.fluxos.find((f) => f.id === "jornada")?.toques.length === 7 &&
         tela0.fluxos.every((f) => (esperaODono(f.id) ? !f.ligado : f.ligado && f.desde)) &&
         tela0.fluxos.find((f) => f.id === "estreia")?.toques.length === 2 &&
         tela0.fluxos.find((f) => f.id === "reposicao")?.toques.length === 4 &&
@@ -2692,8 +2692,110 @@ try {
           "7 dias: “Como tá indo?” com dois botões sem emoji — “Tá indo bem” leva pra avaliar, “Tenho uma dúvida” pro WhatsApp da loja",
           JSON.stringify({ botoes: botoes.length, bem: paraOnde(bem), duvida: paraOnde(duvida) })
         )
+        // O indique um brother (0215): em 10 dias, pra quem respondeu "Tá indo bem" no check-in. Os
+        // dois botões foram abertos juntos, e a última resposta vale: o "Tá indo bem" de novo, por
+        // último.
+        await fetch(botoes[0], { redirect: "manual" }).catch(() => null)
+        const doIndique = (e) =>
+          e.tags?.some((t) => t.name === "tipo" && t.value === "crm-indicacao") && deFluxo(e)
+        const r10 = await rodar({ agora: aos(10), email: COMPROU_O_FATOR })
+        const convite = await caixa.esperarEmail(COMPROU_O_FATOR, doIndique, 0)
+        const codigo = convite?.html.match(/BROTHER-[2-9A-HJ-NP-Z]{6}/)?.[0] ?? ""
+        ok(
+          r10.corpo.enviados === 1 &&
+            convite?.subject === "Indique um brother: 15% pra ele, 15% pra você" &&
+            Boolean(convite.headers?.["List-Unsubscribe"]) &&
+            !/\p{Extended_Pictographic}/u.test(convite.html) &&
+            Boolean(codigo) &&
+            convite.html.includes(`${LOJA}/discount/${codigo}`) &&
+            convite.html.includes("https://wa.me/?text="),
+          "10 dias, pra quem respondeu “Tá indo bem”: o convite do indique um brother, como oferta, com o link (BROTHER-…) e o WhatsApp",
+          JSON.stringify({ r: r10.corpo, assunto: convite?.subject, codigo })
+        )
+        // O brother: nunca comprou, paga o Pix com o código do link — quem indicou ganha o cupom.
+        const BROTHER = `brother.${RODADA}@${DOMINIO}`
+        const doBrother = await fabrica.pedidoPix(BROTHER, [["oleo-para-barba", 1]], {
+          cupom: codigo,
+        })
+        await fabrica.pagar(doBrother)
+        const doPremio = (e) => doIndique(e) && e.subject?.startsWith("Seu brother comprou")
+        const premio = await caixa.esperarEmail(COMPROU_O_FATOR, doPremio, 0, 30000)
+        const valeu = premio?.html.match(/VALEU-[2-9A-HJ-NP-Z]{6}/)?.[0] ?? ""
+        ok(
+          premio?.subject === "Seu brother comprou. Seus 15% chegaram" &&
+            Boolean(valeu) &&
+            premio.html.includes(`/discount/${valeu}`) &&
+            !premio.html.includes(BROTHER),
+          "o brother pagou com o link: quem indicou ganha o cupom de 15% (VALEU-…), sem saber quem comprou",
+          JSON.stringify({ assunto: premio?.subject, valeu })
+        )
+        // O aviso do pagamento que chega de novo (o do Pagar.me e o da captura) não dá outro cupom.
+        await esperar(1500)
+        ok(
+          caixa.quantos(COMPROU_O_FATOR, doPremio) === 1,
+          "um cupom por compra do brother",
+          String(caixa.quantos(COMPROU_O_FATOR, doPremio))
+        )
+        // Minha conta: o mesmo link, o brother que comprou e o cupom ganho.
+        {
+          const { contexto, pagina } = await novaAba()
+          try {
+            const entrou = await entrarNaLoja(pagina, COMPROU_O_FATOR)
+            await pagina.goto(`${LOJA}/conta`, { waitUntil: "domcontentloaded" })
+            const bloco = pagina.locator("[data-bloco-indique]").filter({ visible: true })
+            await bloco.waitFor({ timeout: 20000 }).catch(() => null)
+            const link = await bloco
+              .locator("[data-link-do-indique]")
+              .inputValue()
+              .catch(() => "")
+            const texto = ((await bloco.textContent().catch(() => "")) ?? "").replace(/\s+/g, " ")
+            ok(
+              entrou &&
+                link === `${LOJA}/discount/${codigo}` &&
+                texto.includes("1 brother comprou com o seu link.") &&
+                texto.includes(valeu),
+              "Minha conta: o mesmo link, “1 brother comprou” e o cupom ganho",
+              `${link} · ${texto.slice(0, 200)}`
+            )
+          } finally {
+            await contexto.close()
+          }
+        }
+        // O brother, na conta dele: ainda sem link — o "Pegar meu link" cria na hora.
+        {
+          const { contexto, pagina } = await novaAba()
+          try {
+            await entrarNaLoja(pagina, BROTHER)
+            await pagina.goto(`${LOJA}/conta`, { waitUntil: "domcontentloaded" })
+            const bloco = pagina.locator("[data-bloco-indique]").filter({ visible: true })
+            await bloco.waitFor({ timeout: 20000 }).catch(() => null)
+            await hidratado(pagina, "[data-pegar-meu-link]")
+            await bloco.locator("[data-pegar-meu-link]").click()
+            const campo = bloco.locator("[data-link-do-indique]")
+            await campo.waitFor({ timeout: 20000 }).catch(() => null)
+            const dele = await campo.inputValue().catch(() => "")
+            ok(
+              /\/discount\/BROTHER-[2-9A-HJ-NP-Z]{6}$/.test(dele) &&
+                !dele.endsWith(codigo) &&
+                (
+                  await bloco.locator("[data-whatsapp-do-indique]").getAttribute("href")
+                )?.startsWith("https://wa.me/?text="),
+              "o brother pega o link dele na conta: outro código, com o WhatsApp",
+              dele
+            )
+          } finally {
+            await contexto.close()
+          }
+        }
         await rodar({ agora: aos(21), email: COMPROU_O_FATOR })
+        // Em 40 dias, o lembrete do indique — pulado: um brother já comprou com o link.
+        await rodar({ agora: aos(40), email: COMPROU_O_FATOR })
         await rodar({ agora: aos(60), email: COMPROU_O_FATOR })
+        ok(
+          caixa.quantos(COMPROU_O_FATOR, (e) => e.subject?.startsWith("Seu link continua")) === 0,
+          "40 dias: sem o lembrete do indique — um brother já comprou com o link",
+          String(caixa.quantos(COMPROU_O_FATOR, (e) => e.subject?.startsWith("Seu link continua")))
+        )
         const rotina = resend.emails.find(
           (e) => e.to?.includes(COMPROU_O_FATOR) && e.subject === "Agora completa a rotina"
         )
@@ -3046,6 +3148,21 @@ try {
       JSON.stringify(jeitosNaTela.map(semEspaco))
     )
     const telaAgora = (await fluxos(tokenDoDono)).corpo
+    // O indique um brother (0215): o brother da jornada pagou, e quem indicou ganhou o cupom.
+    const indiqueNaTela = semEspaco(
+      await dono.pagina.locator("[data-indique-nos-fluxos]").textContent()
+    )
+    ok(
+      telaAgora.indicacao?.links >= 2 &&
+        telaAgora.indicacao.amigos >= 1 &&
+        telaAgora.indicacao.cupons >= 1 &&
+        telaAgora.indicacao.vendido > 0 &&
+        semEspaco(await dono.pagina.locator('[data-numero="amigos"]').textContent()) ===
+          String(telaAgora.indicacao.amigos) &&
+        indiqueNaTela.includes("Indique um brother"),
+      "a aba: o indique um brother, com quem tem o link, os brothers que compraram, o vendido e os cupons",
+      JSON.stringify(telaAgora.indicacao)
+    )
     const doCheckout = telaAgora.fluxos.find((f) => f.id === "checkout")
     ok(
       doCheckout.toques.every((t) => t.enviados >= 1) && doCheckout.numeros.cupons >= 1,
