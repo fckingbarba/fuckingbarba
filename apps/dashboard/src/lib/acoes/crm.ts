@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
-import type { FormularioDosAjustes } from "@/lib/crm"
+import type { ErrosDaCampanha, FormularioDosAjustes, TextoDaCampanha } from "@/lib/crm"
 import { semAcessoA } from "@/lib/equipe"
 import { medusa } from "@/lib/medusa"
 
@@ -165,4 +165,107 @@ export async function importarArquivoDaBase(f: {
   if (c.tipo === "vendas" && c.comEntrega)
     partes.push(`${inteiro.format(c.comEntrega)} com o endereço de entrega`)
   return { ok: true, texto: `${partes.join(" · ")}.` }
+}
+
+/* ── as campanhas (entrega 0206) ─────────────────────────────────────────── */
+
+export type ResultadoDaCampanhaNoPainel =
+  { ok: true; texto: string; id: string } | { ok: false; texto: string; erros?: ErrosDaCampanha }
+
+const TEXTO_DA_ACAO = {
+  salvar: "Campanha salva.",
+  agendar: "Campanha agendada.",
+  desmarcar: "Envio desmarcado: a campanha voltou a rascunho.",
+  parar: "Envio parado: quem ainda não recebeu, não recebe mais.",
+  apagar: "Rascunho apagado.",
+} as const
+
+/**
+ * UMA CAMPANHA — salvar, agendar, desmarcar, parar ou apagar. Quem confere
+ * campo a campo e grava é o Medusa (`POST /dashboard/crm/campanhas`); o erro
+ * volta embaixo do campo.
+ */
+export async function mudarACampanha(p: {
+  acao: keyof typeof TEXTO_DA_ACAO
+  id?: string | null
+  campanha?: TextoDaCampanha
+  agenda?: string | null
+}): Promise<ResultadoDaCampanhaNoPainel> {
+  const r = await medusa("/dashboard/crm/campanhas", { token: "sessao", corpo: p })
+  if (r.status === 401)
+    redirect(`/sair?motivo=${r.corpo.message === "fora_da_equipe" ? "fora" : "expirou"}`)
+  if (r.status === 403) return { ok: false, texto: semAcessoA("crm") }
+  if (r.status === 422)
+    return {
+      ok: false,
+      texto: "Confira os campos em vermelho.",
+      erros: (r.corpo.erros ?? {}) as ErrosDaCampanha,
+    }
+  if (r.status === 409)
+    return {
+      ok: false,
+      texto: "A campanha já mudou de situação (começou a sair, ou já saiu). Recarregue a tela.",
+    }
+  if (r.status === 404) return { ok: false, texto: "Essa campanha não existe mais." }
+  if (r.status !== 200)
+    return { ok: false, texto: "Não consegui falar com a loja agora. Tenta de novo em instantes." }
+  revalidatePath("/crm", "layout")
+  return { ok: true, texto: TEXTO_DA_ACAO[p.acao], id: String(r.corpo.id) }
+}
+
+/** O "VER COMO FICA" da campanha: o e-mail pronto, sem salvar (`POST …/campanhas/previa`). */
+export async function verACampanha(
+  campanha: TextoDaCampanha
+): Promise<
+  | { ok: true; emails: { assunto: string; html: string }[] }
+  | { ok: false; texto: string; erros?: ErrosDaCampanha }
+> {
+  const r = await medusa("/dashboard/crm/campanhas/previa", {
+    token: "sessao",
+    corpo: { campanha },
+  })
+  if (r.status === 401)
+    redirect(`/sair?motivo=${r.corpo.message === "fora_da_equipe" ? "fora" : "expirou"}`)
+  if (r.status === 403) return { ok: false, texto: semAcessoA("crm") }
+  if (r.status === 422)
+    return {
+      ok: false,
+      texto: "Confira os campos em vermelho.",
+      erros: (r.corpo.erros ?? {}) as ErrosDaCampanha,
+    }
+  if (r.status === 409)
+    return { ok: false, texto: "Falta o endereço da loja no Medusa (LOJA_URL)." }
+  if (r.status !== 200)
+    return { ok: false, texto: "Não consegui falar com a loja agora. Tenta de novo em instantes." }
+  return { ok: true, emails: (r.corpo.emails ?? []) as { assunto: string; html: string }[] }
+}
+
+/** "MANDAR PRA MIM" da campanha, sem salvar (`POST …/campanhas/teste`): o assunto A e, com o teste, o B. */
+export async function mandarTesteDaCampanha(
+  campanha: TextoDaCampanha
+): Promise<{ ok: boolean; texto: string; erros?: ErrosDaCampanha }> {
+  const r = await medusa("/dashboard/crm/campanhas/teste", {
+    token: "sessao",
+    corpo: { campanha },
+  })
+  if (r.status === 401)
+    redirect(`/sair?motivo=${r.corpo.message === "fora_da_equipe" ? "fora" : "expirou"}`)
+  if (r.status === 403) return { ok: false, texto: semAcessoA("crm") }
+  if (r.status === 422)
+    return {
+      ok: false,
+      texto: "Confira os campos em vermelho.",
+      erros: (r.corpo.erros ?? {}) as ErrosDaCampanha,
+    }
+  if (r.status === 429)
+    return { ok: false, texto: "Já foram 10 testes nesta hora. Tenta de novo mais tarde." }
+  if (r.status === 409)
+    return { ok: false, texto: "Falta o endereço da loja no Medusa (LOJA_URL)." }
+  if (r.status !== 200)
+    return { ok: false, texto: "O e-mail não saiu agora. Tenta de novo em instantes." }
+  const quantos = Number(r.corpo.quantos) || 1
+  return {
+    ok: true,
+    texto: `Mandei ${quantos > 1 ? "os dois assuntos" : "a campanha"} pra ${String(r.corpo.para)}. Confira a caixa de entrada (e Promoções).`,
+  }
 }

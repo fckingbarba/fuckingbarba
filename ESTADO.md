@@ -3854,6 +3854,26 @@ frete e pagar. A política de privacidade conta isso.
 ainda dizia que o CPF, o telefone e o endereço eram jogados fora. Agora diz que, das vendas, eles
 ficam guardados cifrados, pro "Refazer o pedido".
 
+**As campanhas — prontas em 29/09 (entrega 0206).** Os e-mails de data: a Black Friday, o Natal,
+um lançamento. Em **CRM → Campanhas**, você escreve o e-mail, escolhe pra quem e a hora, e a loja
+manda aos poucos (uns 100 a cada 5 minutos).
+- **Pra quem:** todos que aceitam ofertas, quem já comprou, quem nunca comprou ou quem está em
+  risco. O formulário mostra quantas pessoas cada um tem agora.
+- **O teste do assunto (sua escolha):** com "Testar outro assunto", metade recebe cada um. Depois,
+  a tela mostra qual vendeu mais em 7 dias. Quem escolhe o da próxima é você.
+- **Sem cupom (sua escolha):** o preço da loja faz o papel. Na Black Friday, o modo Black.
+- **O resultado:** quem recebeu, quem comprou em até 7 dias e quanto, contra os 5% que não
+  receberam (o grupo de controle).
+- Só vai pra quem aceita ofertas (a newsletter, quem aceitou na Nuvemshop, e quem comprou, criou
+  conta ou deixou o e-mail no checkout — esses já vêm com o sim), e nunca pra quem saiu da lista.
+  Na cara da loja; como é oferta, o lugar dela é Promoções. No máximo 3 e-mails da loja por dia e 6 por semana pra cada pessoa. De
+  madrugada, espera as 8h.
+- **Antes de agendar:** "Ver como fica" e "Mandar pra mim". Agendada, dá pra mudar ou desmarcar até
+  a hora. Saindo, dá pra parar.
+
+- [ ] **Depois do deploy (você):** CRM → Campanhas → Nova campanha → escreva uma de teste, "Mandar
+      pra mim", e apague o rascunho. Nada a configurar.
+
 **A parcela mínima do cartão, editável — pronta em 27/09 (entrega 0157).** O pedido dele: "quero
 poder editar a parcela mínima no cartão, ali diz 5 reais". Em **Configurações → Pagamento**, o
 bloco **Parcelas no cartão** tem o campo **Parcela mínima**.

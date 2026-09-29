@@ -739,6 +739,23 @@ export async function lerClientes(
   return data as unknown as ClienteCru[]
 }
 
+/**
+ * TODOS os clientes, em páginas de 5000 — o público das campanhas do CRM
+ * (entrega 0206) não pode parar nos 5000 mais novos, como a lista da tela.
+ */
+export async function lerTodosOsClientes(container: MedusaContainer): Promise<ClienteCru[]> {
+  const todos: ClienteCru[] = []
+  for (let skip = 0; ; skip += 5000) {
+    const { data } = await query(container).graph({
+      entity: "customer",
+      fields: CAMPOS_DO_CLIENTE,
+      pagination: { skip, take: 5000, order: { created_at: "DESC" } },
+    })
+    todos.push(...(data as unknown as ClienteCru[]))
+    if (data.length < 5000) return todos
+  }
+}
+
 /** Os últimos 2000 pedidos, só com o que a lista de clientes soma. */
 export async function pedidosDosClientes(
   container: MedusaContainer,

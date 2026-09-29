@@ -1168,7 +1168,7 @@ function cupomQueAindaVale(
 }
 
 /** Os e-mails da equipe do painel e do admin do Medusa: e-mail de oferta não é pra eles. */
-async function daEquipe(container: MedusaContainer): Promise<Set<string>> {
+export async function daEquipe(container: MedusaContainer): Promise<Set<string>> {
   const [membros, usuarios] = await Promise.all([
     container
       .resolve<EquipeService>(EQUIPE)
@@ -1186,7 +1186,7 @@ async function daEquipe(container: MedusaContainer): Promise<Set<string>> {
  * De quem saiu da lista, quem disse "sim" de novo DEPOIS (a newsletter do
  * rodapé, a caixa de ofertas da conta): esses voltaram por conta própria.
  */
-async function quemVoltouPraLista(
+export async function quemVoltouPraLista(
   container: MedusaContainer,
   saidas: Map<string, Date>
 ): Promise<Set<string>> {
@@ -1286,7 +1286,7 @@ async function lerDadosDoResgate(
  * compra. A compra vem dos pedidos da loja nova, sem janela: o sunset vale
  * até a pessoa voltar.
  */
-async function quemAdormeceu(
+export async function quemAdormeceu(
   container: MedusaContainer,
   sunsets: ReadonlyMap<string, SunsetLido>,
   agora: Date
@@ -1321,7 +1321,7 @@ async function quemAdormeceu(
 }
 
 /** O primeiro nome de cada pessoa: o da conta (ou do pedido), ou o da loja antiga. */
-async function nomesDasPessoas(
+export async function nomesDasPessoas(
   container: MedusaContainer,
   lista: readonly string[]
 ): Promise<Map<string, string>> {

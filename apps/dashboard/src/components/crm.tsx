@@ -64,7 +64,7 @@ const navegadores = (n: number) => `${inteiro.format(n)} ${n === 1 ? "navegador"
 export function AbasDoCrm({
   atual,
 }: {
-  atual: "resumo" | "fluxos" | "ajustes" | "emails" | "base"
+  atual: "resumo" | "fluxos" | "campanhas" | "ajustes" | "emails" | "base"
 }) {
   return (
     <nav className="abas" aria-label="CRM">
@@ -77,6 +77,13 @@ export function AbasDoCrm({
         data-aba="fluxos"
       >
         Fluxos
+      </Link>
+      <Link
+        href={"/crm/campanhas" as Route}
+        aria-current={atual === "campanhas" ? "page" : undefined}
+        data-aba="campanhas"
+      >
+        Campanhas
       </Link>
       <Link
         href={"/crm/ajustes" as Route}

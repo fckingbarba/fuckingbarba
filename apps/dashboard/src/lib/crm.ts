@@ -233,3 +233,57 @@ export type TelaDaBase = {
     aceitam: number
   }[]
 }
+
+/* ── as campanhas (entrega 0206) ─────────────────────────────────────────── */
+
+export const CAMINHO_DAS_CAMPANHAS = "/dashboard/crm/campanhas"
+
+export type PublicoDaCampanha = "todos" | "clientes" | "leads" | "em-risco"
+export type SituacaoDaCampanha = "rascunho" | "agendada" | "enviando" | "enviada" | "parada"
+
+/** O que se escreve no formulário (`lib/crm/campanhas.ts` no backend). */
+export type TextoDaCampanha = {
+  nome: string
+  assunto: string
+  assuntoB: string | null
+  previa: string
+  titulo: string
+  texto: string
+  botao: { texto: string; caminho: string } | null
+  produtos: string[]
+  publico: PublicoDaCampanha
+}
+
+export type ResultadoDaCampanha = {
+  variantes: {
+    variante: "a" | "b"
+    assunto: string
+    pessoas: number
+    compraram: number
+    vendido: number
+  }[]
+  controle: { pessoas: number; compraram: number }
+  vendeuMais: "a" | "b" | null
+}
+
+export type CampanhaNaTela = {
+  id: string
+  situacao: SituacaoDaCampanha
+  texto: TextoDaCampanha
+  nomeDoPublico: string
+  agenda: string | null
+  comecouEm: string | null
+  acabouEm: string | null
+  por: string | null
+  resultado: ResultadoDaCampanha | null
+}
+
+/** A aba Campanhas (`GET /dashboard/crm/campanhas`, `lib/painel/campanhas.ts` no backend). */
+export type TelaDasCampanhas = {
+  publicos: { id: PublicoDaCampanha; nome: string; pessoas: number }[]
+  produtos: { handle: string; nome: string }[]
+  campanhas: CampanhaNaTela[]
+}
+
+/** Os erros do formulário, por campo (o 422 do Medusa). */
+export type ErrosDaCampanha = Partial<Record<keyof TextoDaCampanha | "agenda", string>>
