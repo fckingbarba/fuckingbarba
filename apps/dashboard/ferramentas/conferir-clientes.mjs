@@ -258,16 +258,17 @@ try {
   const linha = (l, quem) => l.clientes?.find((c) => c.email === quem)
   const ana = linha(doDono, ANA)
   ok(
-    doDono.clientes?.map((c) => c.email).join(",") === [CAIO, BRUNO, ANA].join(","),
-    "a lista do dono: os três clientes, do que comprou por último pro mais antigo",
+    doDono.clientes?.map((c) => c.email).join(",") === [CAIO, BRUNO, ANA].join(",") &&
+      linha(doDono, CAIO)?.pedidos === 0,
+    "a lista do dono: os três clientes, do que comprou por último pro mais antigo; o Caio, só com o Pix sem pagar, com 0 pedidos",
     JSON.stringify(doDono.clientes?.map((c) => c.email))
   )
   ok(
-    ana?.pedidos === 2 &&
+    ana?.pedidos === 1 &&
       Math.abs(ana.gastou - gastoDaAna) < 0.01 &&
       ana.cidade === "Blumenau/SC" &&
       ana.ofertas === null,
-    "a Ana: dois pedidos, o gasto só do pago (o cobrado, com a oferta descontada), a cidade, e não aceita ofertas",
+    "a Ana: um pedido (o Pix sem pagar não conta), o gasto só do pago (o cobrado, com a oferta descontada), a cidade, e não aceita ofertas",
     JSON.stringify(ana)
   )
   ok(
