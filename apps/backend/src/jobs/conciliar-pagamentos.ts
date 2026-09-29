@@ -1,5 +1,5 @@
 import type { MedusaContainer } from "@medusajs/framework/types"
-import { conciliarPagamentos } from "../lib/conciliar-pagamentos"
+import { conciliarPagamentos, rodadaCompleta } from "../lib/conciliar-pagamentos"
 import { comRodada } from "../lib/observabilidade/rodada"
 
 /**
@@ -12,9 +12,14 @@ import { comRodada } from "../lib/observabilidade/rodada"
  * Cinco minutos porque o cliente olhando a tela de obrigado já tem o webhook
  * (segundos); isto aqui é a rede embaixo dele. Mais frequente só gastaria o
  * limite de leitura da API sem mudar nada que alguém veja.
+ *
+ * Os casos raros (os órfãos e a conferência dos estornos) vão só na rodada
+ * completa, de 30 em 30 minutos (`rodadaCompleta`, entrega 0199): eram ~900
+ * chamadas por dia ao Pagar.me e ao Mercado Pago sem nada mudar.
  */
 async function conciliar(container: MedusaContainer) {
-  await conciliarPagamentos(container)
+  const agora = new Date()
+  await conciliarPagamentos(container, { agora, completa: rodadaCompleta(agora) })
 }
 
 export const config = {

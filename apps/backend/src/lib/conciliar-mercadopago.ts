@@ -106,10 +106,16 @@ const nomeDe = (sessao: Sessao) => {
   return pedido?.display_id ? `#${pedido.display_id}` : sessao.id
 }
 
+/**
+ * `completa`: os órfãos e os estornos entram só na rodada completa (de 30 em
+ * 30 minutos no job; sempre na rota do admin) — ver "A RODADA COMPLETA E A
+ * LEVE" no `conciliar-pagamentos.ts`.
+ */
 export async function conciliarMercadoPago(
   container: MedusaContainer,
   agora: Date,
-  relatorio: Relatorio
+  relatorio: Relatorio,
+  { completa = true }: { completa?: boolean } = {}
 ) {
   const cliente = clienteDaConciliacao()
   if (!cliente) return
@@ -177,6 +183,7 @@ export async function conciliarMercadoPago(
     }
   }
 
+  if (!completa) return
   try {
     await conciliarOrfaos(container, cliente, agora, relatorio)
   } catch (e) {

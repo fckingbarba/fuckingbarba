@@ -1,7 +1,7 @@
 import type { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { Modules } from "@medusajs/framework/utils"
 import { abre, exigirArea, type PedidoDaEquipe } from "../../../lib/equipe/acesso"
-import { pedidosDesde } from "../../../lib/painel/ler"
+import { pedidosDoMarketing } from "../../../lib/painel/ler-marketing"
 import {
   lerMetas,
   lerPedidosDesde,
@@ -32,7 +32,7 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
   const agora = new Date()
   const periodo = lerPeriodo(req.query as BuscaDoPeriodo, agora, PERIODO_PADRAO)
   const [pedidos, lojas] = await Promise.all([
-    pedidosDesde(req.scope, lerPedidosDesde(periodo, agora)),
+    pedidosDoMarketing(req.scope, lerPedidosDesde(periodo, agora)),
     req.scope.resolve(Modules.STORE).listStores({}, { select: ["metadata"], take: 1 }),
   ])
   res.json({

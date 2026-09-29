@@ -1,10 +1,8 @@
 import type { MedusaContainer } from "@medusajs/framework/types"
 import { normalizarEmail } from "../../modules/codigo/regras"
-import { CRM } from "../../modules/crm"
-import type CrmService from "../../modules/crm/service"
 import { pedidoDaBase, pedidoDaPessoa } from "../painel/crm"
-import { pedidosParaAsEtiquetas } from "../painel/ler"
 import { componentesDoItem, type Componente, type PedidoDaPessoa } from "./etiquetas"
+import { leituraDaRodada, type LeituraDaRodada } from "./leitura"
 import { juntar } from "./nuvemshop"
 
 /**
@@ -117,12 +115,10 @@ export function naJanelaDaJornada(j: JornadaDoPedido, agora: Date): boolean {
 /** QUEM ESTÁ NA JORNADA, agora: os pedidos pagos da loja nova, com as compras da base junto. */
 export async function publicoDaJornada(
   container: MedusaContainer,
-  agora: Date = new Date()
+  agora: Date = new Date(),
+  leitura: LeituraDaRodada = leituraDaRodada(container)
 ): Promise<JornadaDoPedido[]> {
-  const [daLoja, daBase] = await Promise.all([
-    pedidosParaAsEtiquetas(container),
-    container.resolve<CrmService>(CRM).pedidosDaBase(),
-  ])
+  const [daLoja, daBase] = await Promise.all([leitura.pedidosDaLoja(), leitura.pedidosDaBase()])
   const loja = new Map<string, PedidoDaPessoa[]>()
   for (const o of daLoja) {
     const email = normalizarEmail(o.email)

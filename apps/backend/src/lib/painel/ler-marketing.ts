@@ -13,6 +13,7 @@ import {
   produtosPublicados,
 } from "./ler"
 import { estoquesDos, lerProdutos, metadataDos } from "./ler-produtos"
+import { lembrar } from "./memoria"
 import { enderecoDaLoja, hostsDaLoja, lerPedidosDesde, somaNa, vendasDos } from "./marketing"
 import { juntarAchados, type AchadosDoResumo, type SemGoogleNoResumo } from "./marketing-achados"
 import { montarCanais, perguntasDosCanais } from "./marketing-canais"
@@ -46,6 +47,35 @@ import type { RelatorioGa4 } from "./visitas"
 
 type EstadoDoGoogle = "ok" | "desligado" | "invalida" | "recusado" | "fora"
 
+/*
+  AS LEITURAS DO BANCO, DIVIDIDAS ENTRE AS ABAS (entrega 0199, `memoria.ts`):
+  o "O que os dados dizem" roda as seis contas juntas, e abrir o Marketing
+  dispara o Resumo e os canais ao mesmo tempo — cada uma lia os pedidos do
+  período sozinha. A chave é o que se lê e desde quando (o período começa à
+  meia-noite, então a chave vale o dia inteiro).
+*/
+const desde = (d: Date | null) => (d ? d.toISOString() : "tudo")
+
+/** Os pedidos desde `de`, com o que as contas usam — uma leitura por chave, dividida. */
+export function pedidosDoMarketing(
+  container: MedusaContainer,
+  de: Date,
+  { comMetadata = false }: { comMetadata?: boolean } = {}
+) {
+  return lembrar(`pedidos:${desde(de)}:${comMetadata ? "metadata" : "-"}`, () =>
+    pedidosDesde(container, de, { comMetadata })
+  )
+}
+
+const carrinhosDoMarketing = (container: MedusaContainer, de: Date) =>
+  lembrar(`carrinhos:${desde(de)}`, () => carrinhosDesde(container, de))
+
+const pagamentosDoMarketing = (container: MedusaContainer, de: Date | null) =>
+  lembrar(`pagamentos:${desde(de)}`, () => pedidosComPagamento(container, de))
+
+const carrinhosDoPagamento = (container: MedusaContainer, de: Date) =>
+  lembrar(`carrinhos-do-pagamento:${desde(de)}`, () => carrinhosComPagamento(container, de))
+
 /** O funil: do site até o pagamento (o Google), da sacola ao pagamento (os carrinhos) e o celular. */
 export async function lerFunilDoMarketing(
   container: MedusaContainer,
@@ -54,8 +84,8 @@ export async function lerFunilDoMarketing(
 ) {
   const { atual } = periodo
   const [carrinhos, pedidos] = await Promise.all([
-    carrinhosDesde(container, atual.de),
-    pedidosDesde(container, atual.de, { comMetadata: true }),
+    carrinhosDoMarketing(container, atual.de),
+    pedidosDoMarketing(container, atual.de, { comMetadata: true }),
   ])
   const vendas = vendasDos(pedidos)
   const checkout = funilDoCheckout(carrinhos, new Set(vendas.map((v) => v.id)), atual)
@@ -114,7 +144,7 @@ export async function lerCanaisDoMarketing(
   agora: Date
 ) {
   const [pedidos, produtos] = await Promise.all([
-    pedidosDesde(container, lerPedidosDesde(periodo, agora)),
+    pedidosDoMarketing(container, lerPedidosDesde(periodo, agora)),
     produtosPublicados(container),
   ])
   const pagos = somaNa(vendasDos(pedidos), periodo.atual)
@@ -160,7 +190,7 @@ export async function lerProdutosDoMarketing(
 ) {
   const [produtos, pedidos] = await Promise.all([
     lerProdutos(container),
-    pedidosDesde(container, lerPedidosDesde(periodo, agora)),
+    pedidosDoMarketing(container, lerPedidosDesde(periodo, agora)),
   ])
   const catalogo = catalogoDos(produtos, await estoquesDos(container, produtos))
   const vendas = vendasDos(pedidos)
@@ -199,7 +229,7 @@ export async function lerOfertasDoMarketing(
 ) {
   const [produtos, pedidos] = await Promise.all([
     lerProdutos(container),
-    pedidosDesde(container, lerPedidosDesde(periodo, agora)),
+    pedidosDoMarketing(container, lerPedidosDesde(periodo, agora)),
   ])
   const metadata = await metadataDos(
     container,
@@ -218,7 +248,7 @@ export async function lerClientesDoMarketing(
   agora: Date
 ) {
   const [pedidos, newsletter] = await Promise.all([
-    pedidosComPagamento(container, null),
+    pagamentosDoMarketing(container, null),
     numerosDaNewsletter(container, agora),
   ])
   return {
@@ -241,8 +271,8 @@ export async function lerPagamentoDoMarketing(
   const { atual } = periodo
   const [pedidos, carrinhos, lojas, anotadas] = await Promise.all([
     // Os pedidos com a folga do Resumo: o feito antes e pago dentro conta como pago no período.
-    pedidosComPagamento(container, lerPedidosDesde(periodo, agora)),
-    carrinhosComPagamento(container, atual.de),
+    pagamentosDoMarketing(container, lerPedidosDesde(periodo, agora)),
+    carrinhosDoPagamento(container, atual.de),
     container.resolve(Modules.STORE).listStores({}, { select: ["metadata"], take: 1 }),
     // Sem a tabela (a migração ainda não rodou), o ranking fica só com os pedidos.
     container

@@ -4452,6 +4452,45 @@ páginas comparado com o da main (o conteúdo é o mesmo); e o typecheck, o lint
 
 Depois do deploy — **nada a configurar.**
 
+**O backend lê menos — pronto em 28/09 (entrega 0199).** Pergunta dele: "hoje temos muita
+redundância ou desperdício de dados ou requisições?" — e, depois da resposta, "vamos atuar só nos de
+backend". Nada muda na loja nem no painel pra quem usa: muda quanto o servidor lê do banco e quantas
+vezes ele pergunta aos parceiros.
+
+- **O vigia da Observabilidade** (de 5 em 5 minutos) lia 500 pedidos inteiros — com o total, que o
+  Medusa calcula item por item — e usava 4 dados de cada. Agora lê só esses: medido no banco local,
+  de ~1,8 KB pra ~0,35 KB por pedido, e ~20 vezes mais rápido. A limpeza das tabelas dele (o que
+  passou do prazo) roda uma vez por hora, não a cada 5 minutos.
+- **O CRM lê uma vez só por rodada.** Estreia, reposição, jornada e resgate reliam, cada um, todos
+  os pedidos da loja nova e a base inteira da Nuvemshop, a cada 5 minutos. Agora dividem uma
+  leitura, e a base da Nuvemshop fica guardada na memória — só é relida quando você manda os
+  arquivos de novo. E cada pedido vem sem a descrição do produto, que vinha junto sem uso: de
+  ~3,7 KB pra ~0,6 KB por pedido. A conta: com os quatro ligados e uns 1.300 pedidos na loja nova,
+  eram perto de 200 GB por mês lidos do banco — quase o limite do Supabase Pro (250 GB); agora,
+  perto de 7 GB. Hoje, só com a estreia, eram uns 10 GB por mês.
+- **O Marketing do painel** lia os mesmos pedidos até cinco vezes a cada abertura (as abas e o "O que
+  os dados dizem"). Agora lê uma vez e guarda por 90 segundos — os números do Marketing são de dias.
+  O Início e os Pedidos seguem mostrando na hora.
+- **Pagar.me e Mercado Pago:** o Pix e o cartão pendentes seguem conferidos de 5 em 5 minutos. O
+  que é caso raro — a cobrança que ficou sem pedido (órfã) e a conferência dos estornos dos últimos
+  7 dias — passou pra 30 em 30 minutos. Eram umas 900 perguntas por dia sem nada mudar.
+- **A nota fiscal parada** (rejeitada pela SEFAZ, esperando alguém corrigir no Bling) é olhada de
+  30 em 30 minutos, não de 5 em 5. A nota que está na SEFAZ segue de 5 em 5.
+- **Ficou como estava, de propósito:** o estoque do Bling (de 5 em 5 minutos: é a rede do estoque, e
+  o Bling também vende no Mercado Livre) e o rastreio da Frenet (de hora em hora: é a rede quando o
+  aviso da Frenet não chega). Custam pouco e protegem a venda e o cliente.
+- **Na loja** (o pré-carregamento de páginas, a home refeita a cada minuto, o Pix que pergunta a
+  cada 4 segundos, o vídeo de 8 MB da home): ficou de fora, por escolha dele — só o backend.
+
+Conferido no Medusa local: os unitários (1.639 com a main de agora, 14 novos), o typecheck, o lint, o prettier e o
+`medusa build`; os conferidores da Observabilidade (36/36), do CRM (213/213), do Marketing
+(139/139, com a memória ligada como em produção), do pagamento (219/219) e do Mercado Pago
+(77/77). O `conferir-erp` e os do pagamento chamam as rotas do admin, que seguem fazendo a
+rodada completa — a leve é só do job, com teste de unidade da regra do relógio.
+
+Depois do deploy — **nada a configurar.** Se um dia o Marketing precisar mostrar um pedido no mesmo
+segundo, `MARKETING_MEMORIA_SEGUNDOS=0` no Railway desliga a memória dele.
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa

@@ -136,6 +136,16 @@ export type { Relatorio, SessaoEncerrada }
  *
  * A chave é a mesma do provedor, lida do mesmo lugar. Sem ela, não há o que
  * conciliar, e a função diz isso em vez de fingir que conferiu.
+ *
+ * ┌─ A RODADA COMPLETA E A LEVE (entrega 0199) ────────────────────────────┐
+ * │ O que tem gente esperando anda de 5 em 5 minutos: o Pix e o cartão     │
+ * │ pendentes, o "incerto", o pedido preso e o dinheiro que entrou num     │
+ * │ pedido já cancelado. O que é caso raro, e que já espera 15 minutos     │
+ * │ pra decidir, anda na rodada COMPLETA: os órfãos (a listagem de 48      │
+ * │ horas lá no parceiro) e a conferência dos estornos de 7 dias. O job    │
+ * │ faz a completa de 30 em 30 minutos (`rodadaCompleta`); a rota do admin │
+ * │ e os conferidores, sempre (`completa` vem ligado sem dizer nada).      │
+ * └────────────────────────────────────────────────────────────────────────┘
  */
 
 /** Esta conciliação é a do Pagar.me: parceiro novo traz a dele (`lib/pagamento/parceiros.ts`). */
@@ -173,9 +183,17 @@ const PAGINAS_DE_ORFAOS = 20
 
 const CODIGO_DE_SESSAO = /^payses_[A-Za-z0-9]+$/
 
+/**
+ * Se a rodada do job é a completa: a dos minutos 0 e 30 (o job roda de 5 em
+ * 5, nos minutos 0, 5, 10…). Ver "A RODADA COMPLETA E A LEVE", acima.
+ */
+export function rodadaCompleta(agora: Date): boolean {
+  return agora.getMinutes() % 30 < 5
+}
+
 export async function conciliarPagamentos(
   container: MedusaContainer,
-  { agora = new Date() }: { agora?: Date } = {}
+  { agora = new Date(), completa = true }: { agora?: Date; completa?: boolean } = {}
 ): Promise<Relatorio> {
   const logger = container.resolve<Logger>(ContainerRegistrationKeys.LOGGER)
   const relatorio = relatorioVazio()
@@ -189,13 +207,13 @@ export async function conciliarPagamentos(
   const chave = process.env.PAGARME_SECRET_KEY
   const cliente = chave ? clienteDoPagarme(chave, process.env.PAGARME_URL || ENDERECO_PADRAO) : null
   if (cliente) {
-    await conciliarPagarme(container, cliente, agora, relatorio)
+    await conciliarPagarme(container, cliente, agora, relatorio, completa)
   } else {
     relatorio.avisos.push("PAGARME_SECRET_KEY ausente: o Pagar.me não foi conferido")
   }
 
   try {
-    await conciliarMercadoPago(container, agora, relatorio)
+    await conciliarMercadoPago(container, agora, relatorio, { completa })
   } catch (e) {
     relatorio.avisos.push(`Mercado Pago: ${mensagemDe(e)}`)
   }
@@ -207,8 +225,9 @@ export async function conciliarPagamentos(
   }
 
   // Cada estorno que falha, é pedido de novo ou volta tem a sua linha
-  // `[estorno]` no log; o resumo abaixo só leva os avisos.
-  if (cliente) {
+  // `[estorno]` no log; o resumo abaixo só leva os avisos. Só na completa: o
+  // que falhou é pedido de novo de 6 em 6 horas, e o aviso sai na mesma hora.
+  if (cliente && completa) {
     try {
       const { avisos, ...estornos } = await conferirEstornos(container, cliente, agora)
       relatorio.estornos = estornos
@@ -230,12 +249,13 @@ export async function conciliarPagamentos(
   return relatorio
 }
 
-/** A rodada do Pagar.me: pendentes, incertas, pedidos presos e órfãos. */
+/** A rodada do Pagar.me: pendentes, incertas, pedidos presos e — na completa — órfãos. */
 async function conciliarPagarme(
   container: MedusaContainer,
   cliente: ClienteDoPagarme,
   agora: Date,
-  relatorio: Relatorio
+  relatorio: Relatorio,
+  completa: boolean
 ) {
   const query = container.resolve(ContainerRegistrationKeys.QUERY)
   const campos = [
@@ -317,6 +337,7 @@ async function conciliarPagarme(
     }
   }
 
+  if (!completa) return
   try {
     await conciliarOrfaos(container, cliente, agora, relatorio)
   } catch (e) {

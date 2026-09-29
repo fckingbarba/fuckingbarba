@@ -1,5 +1,5 @@
 import type { MedusaContainer } from "@medusajs/framework/types"
-import { acompanharNotas } from "../lib/erp/notas"
+import { acompanharNotas, horaDasParadas } from "../lib/erp/notas"
 import { comRodada } from "../lib/observabilidade/rodada"
 
 /**
@@ -10,9 +10,14 @@ import { comRodada } from "../lib/observabilidade/rodada"
  * conexão caída, o e-mail do dia pra equipe.
  *
  * Sem ERP conectado, volta na primeira linha. Nos minutos 4, 9, 14…
+ *
+ * A nota parada (rejeitada ou denegada, esperando alguém corrigir no ERP) é
+ * olhada de 30 em 30 minutos, nos minutos 4 e 34 (`horaDasParadas`, 0199); a
+ * rota do admin olha tudo, sempre.
  */
 async function acompanharNotasDoErp(container: MedusaContainer) {
-  await acompanharNotas(container)
+  const agora = new Date()
+  await acompanharNotas(container, agora, { paradas: horaDasParadas(agora) })
 }
 
 export const config = {

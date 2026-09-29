@@ -1,12 +1,9 @@
 import type { MedusaContainer } from "@medusajs/framework/types"
-import { MedusaError, Modules } from "@medusajs/framework/utils"
+import { MedusaError } from "@medusajs/framework/utils"
 import { createCipheriv, createDecipheriv, createHmac, randomBytes } from "node:crypto"
 import { normalizarEmail } from "../../modules/codigo/regras"
-import { CRM } from "../../modules/crm"
-import type CrmService from "../../modules/crm/service"
 import type { BotoesDoResgate } from "../emails/resgate"
 import { pedidoDaBase, pedidoDaPessoa } from "../painel/crm"
-import { pedidosParaAsEtiquetas } from "../painel/ler"
 import { lerAjustesGuardados } from "./ajustes"
 import {
   COMPONENTES,
@@ -16,6 +13,7 @@ import {
   type Componente,
 } from "./etiquetas"
 import { diasDoFluxo } from "./fluxos"
+import { leituraDaRodada, type LeituraDaRodada } from "./leitura"
 import { juntar } from "./nuvemshop"
 import type { PedidoDaReposicao } from "./reposicao"
 
@@ -218,16 +216,16 @@ export type ResgateDaPessoa = {
  */
 export async function publicoDoResgate(
   container: MedusaContainer,
-  agora: Date = new Date()
+  agora: Date = new Date(),
+  leitura: LeituraDaRodada = leituraDaRodada(container)
 ): Promise<ResgateDaPessoa[]> {
-  const crm = container.resolve<CrmService>(CRM)
-  const [daLoja, daBase, lojas, aceitam] = await Promise.all([
-    pedidosParaAsEtiquetas(container),
-    crm.pedidosDaBase(),
-    container.resolve(Modules.STORE).listStores({}, { select: ["metadata"], take: 1 }),
-    crm.pessoasDaEstreia(),
+  const [daLoja, daBase, metadata, aceitam] = await Promise.all([
+    leitura.pedidosDaLoja(),
+    leitura.pedidosDaBase(),
+    leitura.metadataDaLoja(),
+    leitura.pessoasDaEstreia(),
   ])
-  const { dias, regras } = lerAjustesGuardados(lojas[0]?.metadata)
+  const { dias, regras } = lerAjustesGuardados(metadata)
   const porEmail = new Map<string, PedidoDaReposicao[]>()
   const compraramNaNova = new Set<string>()
   for (const o of daLoja) {

@@ -37,6 +37,7 @@ import {
 } from "./estreia"
 import { produtosDosExemplos } from "./exemplos-dos-emails"
 import { publicoDaJornada, SKU_DA_ROTINA, type JornadaDoPedido } from "./jornada"
+import { leituraDaRodada } from "./leitura"
 import {
   chaveDaNavegacao,
   comANavegacaoDaVez,
@@ -340,7 +341,7 @@ export async function rodarOsFluxos(
     }
     return lidos
   }
-  const [comEmail, semEmail, pedidos] = await Promise.all([
+  const [comEmail, semEmail, pedidos, doPix] = await Promise.all([
     inicioComEmail
       ? query
           .graph({
@@ -356,28 +357,43 @@ export async function rodarOsFluxos(
           .then((r) => r.data as unknown as CarrinhoCru[])
       : Promise.resolve([] as CarrinhoCru[]),
     lerSacolas(),
-    // Os pedidos da janela: os do Pix e os que dizem "comprou". Como na tela dos
-    // carrinhos, o e-mail é comparado sem maiúsculas aqui, e não no banco.
+    // Os pedidos da janela, só com o que diz "comprou" (quem, quando e se valeu).
+    // Como na tela dos carrinhos, o e-mail é comparado sem maiúsculas aqui, e
+    // não no banco. A janela é a do fluxo mais longo (o resgate, semanas):
+    // aqui não vêm os itens nem os dados do Pix — esses são da leitura de baixo.
     query
       .graph({
         entity: "order",
-        fields: [
-          "id",
-          "display_id",
-          "email",
-          "status",
-          "created_at",
-          "shipping_address.first_name",
-          // `items.*`: a quantidade do item do pedido é calculada no Medusa 2.21 (ver a 0116).
-          "items.*",
-          "payment_collections.payment_sessions.provider_id",
-          "payment_collections.payment_sessions.status",
-          "payment_collections.payment_sessions.data",
-        ],
+        fields: ["id", "email", "status", "created_at"],
         filters: { created_at: { $gte: new Date(inicioDosPedidos.getTime() - DIA) } },
         pagination: { take: 5000, order: { created_at: "DESC" } },
       })
       .then((r) => r.data as unknown as PedidoCru[]),
+    // Os pedidos do Pix, completos (os itens do e-mail e o código do Pix), só na janela dele.
+    inicioDo.pix
+      ? query
+          .graph({
+            entity: "order",
+            fields: [
+              "id",
+              "display_id",
+              "email",
+              "status",
+              "created_at",
+              "shipping_address.first_name",
+              ...campoDoItem,
+              // A quantidade do item do pedido mora no `detail` no Medusa 2.21: sem
+              // ele, o `items.quantity` vem vazio (ver a 0116; era o `items.*`).
+              "items.detail.quantity",
+              "payment_collections.payment_sessions.provider_id",
+              "payment_collections.payment_sessions.status",
+              "payment_collections.payment_sessions.data",
+            ],
+            filters: { created_at: { $gte: new Date(inicioDo.pix.getTime() - DIA) } },
+            pagination: { take: 5000, order: { created_at: "DESC" } },
+          })
+          .then((r) => r.data as unknown as PedidoCru[])
+      : Promise.resolve([] as PedidoCru[]),
   ])
 
   const valendo = pedidos.filter((p) => p.status !== "canceled")
@@ -439,7 +455,7 @@ export async function rodarOsFluxos(
     }
   }
   if (inicioDo.pix)
-    for (const p of pedidos) {
+    for (const p of doPix) {
       const email = minusculo(p.email)
       const sessoes = (p.payment_collections ?? []).flatMap((c) => c.payment_sessions ?? [])
       const estado = estadoDaSessao(sessaoDoParceiro(sessoes))
@@ -500,8 +516,11 @@ export async function rodarOsFluxos(
         comprou: comprouDepois(email, comeco),
       })
     }
+  // Os fluxos medidos em dias (estreia, reposição, jornada, resgate) dividem uma
+  // leitura só: os pedidos da loja nova e a base da Nuvemshop (`leitura.ts`, 0199).
+  const leitura = leituraDaRodada(container)
   // A estreia: quem aceitou ofertas na loja antiga (menos quem já comprou na nova), no dia do lote.
-  const daEstreia = desdeDaEstreia ? await publicoDaEstreia(container, agora) : null
+  const daEstreia = desdeDaEstreia ? await publicoDaEstreia(container, agora, leitura) : null
   const pessoasDaEstreia = new Map((daEstreia?.fila ?? []).map((p) => [p.email, p]))
   if (desdeDaEstreia)
     for (const p of pessoasDaEstreia.values())
@@ -513,7 +532,7 @@ export async function rodarOsFluxos(
         comprou: comprouDepois(p.email, desdeDaEstreia),
       })
   // A reposição: cada tipo de produto que a pessoa comprou, no dia em que ele acaba.
-  const daReposicao = ligados.reposicao ? await publicoDaReposicao(container, agora) : []
+  const daReposicao = ligados.reposicao ? await publicoDaReposicao(container, agora, leitura) : []
   const reposicoes = new Map<string, Reposicao>()
   for (const r of daReposicao) {
     const chave = `${r.pedido}|${r.componente}`
@@ -529,7 +548,7 @@ export async function rodarOsFluxos(
     })
   }
   // A jornada do resultado: cada pedido da loja nova, a partir do dia em que chegou.
-  const daJornada = ligados.jornada ? await publicoDaJornada(container, agora) : []
+  const daJornada = ligados.jornada ? await publicoDaJornada(container, agora, leitura) : []
   const jornadas = new Map<string, JornadaDoPedido>()
   for (const j of daJornada) {
     jornadas.set(j.pedido, j)
@@ -544,7 +563,7 @@ export async function rodarOsFluxos(
     })
   }
   // O resgate: quem passou do dia de comprar de novo, a partir do dia em que ficou em risco.
-  const daResgate = ligados.resgate ? await publicoDoResgate(container, agora) : []
+  const daResgate = ligados.resgate ? await publicoDoResgate(container, agora, leitura) : []
   const resgates = new Map<string, ResgateDaPessoa>()
   for (const r of daResgate) {
     resgates.set(r.chave, r)

@@ -4,7 +4,7 @@ import { lerConfiguracoes } from "../configuracoes"
 import { lerConexao } from "../erp/conexao"
 import { erpDaLoja } from "../erp/erps"
 import { chaveDoDia } from "../painel/formato"
-import { enviosDos, notasDos, pedidosRecentes } from "../painel/ler"
+import { CAMPOS_DO_VIGIA, enviosDos, notasDos, pedidosRecentes } from "../painel/ler"
 import {
   conciliarProblemas,
   problemaDoErp,
@@ -31,11 +31,17 @@ import { semDadoPessoal } from "./sinal"
  * cria o novo, atualiza o aberto, reabre o que voltou, e dá como resolvido
  * sozinho o de estado que sumiu.
  *
- * Lê o mesmo que o Início: os pedidos dos últimos 45 dias (até 500), com as
- * notas e os envios. E a conexão do ERP, as rotinas, os sinais e o que o
- * navegador mandou (a página que não existe, o erro) de hoje e de ontem — a
- * falha das 23:58 não fica pra trás na virada do dia. E as tentativas de
- * cartão: o freio contra o robô, e as que chegaram sem passar pela loja.
+ * Lê os pedidos dos últimos 45 dias (até 500) — só o número, a situação e o
+ * metadata (`CAMPOS_DO_VIGIA`), sem o total, os itens e o pagamento que a
+ * lista do Início carrega —, com as notas e os envios. E a conexão do ERP, as
+ * rotinas, os sinais e o que o navegador mandou (a página que não existe, o
+ * erro) de hoje e de ontem — a falha das 23:58 não fica pra trás na virada do
+ * dia. E as tentativas de cartão: o freio contra o robô, e as que chegaram sem
+ * passar pela loja.
+ *
+ * A LIMPEZA (`obs.limpar`: o que passou do prazo em cada tabela) roda uma vez
+ * por hora, na rodada dos primeiros minutos (`horaDeLimpar`): os prazos são de
+ * semanas, e a cada 5 minutos eram 5 DELETEs à toa.
  */
 
 const DIA = 24 * 60 * 60 * 1000
@@ -50,7 +56,12 @@ async function vigiarAgora(container: MedusaContainer, agora: Date): Promise<voi
   const obs = container.resolve<ObservabilidadeService>(OBSERVABILIDADE)
   const erp = erpDaLoja()
 
-  const pedidos = await pedidosRecentes(container, { limite: 500, dias: 45, agora })
+  const pedidos = await pedidosRecentes(container, {
+    limite: 500,
+    dias: 45,
+    agora,
+    campos: CAMPOS_DO_VIGIA,
+  })
   const ids = pedidos.map((o) => o.id)
   const dias = [chaveDoDia(agora), chaveDoDia(agora.getTime() - DIA)]
   const [notas, envios, conexao, rotinas, sinais, lojas, ocorrencias, cartao] = await Promise.all([
@@ -154,7 +165,15 @@ async function vigiarAgora(container: MedusaContainer, agora: Date): Promise<voi
     )
   }
 
-  await obs.limpar(agora)
+  if (horaDeLimpar(agora)) await obs.limpar(agora)
+}
+
+/**
+ * Se esta rodada limpa: a dos 5 primeiros minutos de cada hora. O job roda
+ * nos minutos 1, 6, 11… (`vigiar-a-loja`): uma rodada por hora cai aqui.
+ */
+export function horaDeLimpar(agora: Date): boolean {
+  return agora.getMinutes() < 5
 }
 
 /**

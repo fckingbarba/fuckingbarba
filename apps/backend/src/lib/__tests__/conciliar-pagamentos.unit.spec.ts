@@ -8,6 +8,7 @@ import { traduzir, type Estado } from "../../modules/pagarme/situacao"
 import {
   fecharCobranca,
   pedidoPreso,
+  rodadaCompleta,
   venceuOPix,
   type SessaoEncerrada,
 } from "../conciliar-pagamentos"
@@ -310,5 +311,19 @@ describe("o pedido preso num pagamento que já acabou", () => {
     expect(pedidoPreso(encerrada({ status: PaymentSessionStatus.PENDING_AUTHORIZATION }))).toBe(
       false
     )
+  })
+})
+
+/**
+ * A RODADA COMPLETA (0199): os órfãos e a conferência dos estornos vão só nas
+ * rodadas dos minutos 0 e 30; o pendente, o incerto e o preso, em todas.
+ */
+describe("a rodada completa da conciliação", () => {
+  const as = (hhmm: string) => new Date(`2026-09-28T${hhmm}:00-03:00`)
+  it("o job roda de 5 em 5: completa só nos minutos 0 e 30", () => {
+    expect(rodadaCompleta(as("13:00"))).toBe(true)
+    expect(rodadaCompleta(as("13:30"))).toBe(true)
+    for (const m of ["05", "10", "15", "20", "25", "35", "40", "45", "50", "55"])
+      expect(rodadaCompleta(as(`13:${m}`))).toBe(false)
   })
 })
