@@ -163,7 +163,8 @@ export const FORMAS: FormaDePagamento[] = [
   {
     id: "pix",
     nome: "Pix",
-    descricao: "QR code na próxima tela. Confirmação em segundos.",
+    // "Código", e não "QR code": no celular a próxima tela não tem QR (entrega 0201).
+    descricao: "Código Pix na próxima tela. Confirmação em segundos.",
   },
   {
     id: "cartao",

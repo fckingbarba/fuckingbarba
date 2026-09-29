@@ -143,19 +143,9 @@ const pagar = (anterior: EstadoDaEtapa, fd: FormData) =>
     () => estadoSemResposta(anterior, fd, SEM_CONEXAO_NO_PAGAMENTO)
   )
 
-// `aoSalvar` é desestruturado e não usado de propósito: este passo não fecha
-// quando dá certo — a ação redireciona pra tela de obrigado e esta página
-// deixa de existir. Tirar da prop quebraria a assinatura comum das etapas.
-export function Pagamento({
-  checkout,
-  provedores,
-  rota,
-  bump,
-  atendimento,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  aoSalvar,
-  ...casca
-}: Props) {
+// Este passo não adianta nada (`adiantar`, em `etapas.tsx`): quando dá certo,
+// a ação redireciona pra tela de obrigado e esta página deixa de existir.
+export function Pagamento({ checkout, provedores, rota, bump, atendimento, ...casca }: Props) {
   const [estado, acao, enviando] = useActionState(pagar, ESTADO_INICIAL)
   const parcelaMinima = useParcelaMinima()
   const [forma, setForma] = useState<FormaDePagamento["id"]>("pix")
@@ -185,8 +175,9 @@ export function Pagamento({
   const pronto = Boolean(checkout.email && checkout.entrega.cep && checkout.freteEscolhido)
   const ocupado = enviando || tokenizando
   const { recalcular, recalculando } = casca
-  // Pagando, ou com o total mudando por baixo (bump, frete): nada de pedido
-  // novo. Pagar no meio de uma troca cobraria um total que ninguém viu.
+  // Pagando, ou com o total mudando por baixo (bump, frete, o passo 2 ainda
+  // gravando): nada de pedido novo. Pagar no meio de uma troca cobraria um
+  // total que ninguém viu.
   const travado = ocupado || recalculando
 
   /*
@@ -225,7 +216,9 @@ export function Pagamento({
    * outro `finalizar` atrás do primeiro.
    */
   function aoEnviar(e: FormEvent<HTMLFormElement>) {
-    if (travado) {
+    // `pronto` também: o passo abre antes de a entrega chegar no carrinho
+    // (entrega 0201), e a barra do celular pede o envio sem passar pelo botão.
+    if (travado || !pronto) {
       e.preventDefault()
       return
     }

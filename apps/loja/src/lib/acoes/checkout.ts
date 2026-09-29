@@ -43,17 +43,17 @@ import {
   lerCupomPendente,
   tentarCupomPendente,
 } from "@/lib/cupom-pendente"
-import { conferirDocumento, type Documento } from "@/lib/documento"
+import type { Documento } from "@/lib/documento"
 import { emReais } from "@/lib/formato"
-import { cepDeOutraCidade, comCepNovo, ehUf, lerEndereco, montarEndereco } from "@/lib/endereco"
+import { cepDeOutraCidade, comCepNovo, lerEndereco, montarEndereco } from "@/lib/endereco"
 import { cliente, configuracoes } from "@/lib/medusa"
 import { depoisDaRecusa, entradaDoCarrinho, recusaDaPorta } from "@/lib/pagamento"
+import { conferirContato, conferirEndereco, dicaDoEmail } from "@/lib/passos-do-checkout"
 import { COOKIE_CLIENTE, OPCOES_DOS_COOKIES } from "@/lib/primeira-compra"
 import { ehCodigoDePromocao } from "@/lib/promocoes"
 import { rastroDaCompra, registrarRastro } from "@/lib/rastro"
 import { lerToken } from "@/lib/sessao"
 import { CHECKOUT_ABERTO } from "@/lib/site"
-import { conferirTelefone } from "@/lib/telefone"
 
 /**
  * AS AÇÕES DO CHECKOUT
@@ -130,41 +130,11 @@ const texto = (fd: FormData, campo: string) => String(fd.get(campo) ?? "").trim(
 /** Dinheiro se compara em centavos: 145.255 e 145.26 são o mesmo total na tela. */
 const emCentavos = (valor: number) => Math.round(valor * 100)
 
-/**
- * E-mail: A MESMA REGRA DO MEDUSA, nem mais nem menos — a do zod 4 que o
- * `POST /store/carts/:id` usa (`z.string().email()`, em
- * `@medusajs/medusa/dist/api/store/carts/validators.js`; a regex é a
- * `email` de `zod/v4/core/regexes`). Mais rígida que ela, recusaria e-mail
- * que o pedido aceita: venda perdida. Mais frouxa — como era, só "algo@algo.xx"
- * —, "joão@gmail.com", "jose..silva@gmail.com" e "maria@gmail.com." passavam
- * aqui, o Medusa recusava com 400, e a tela dizia "Não consegui falar com a
- * loja agora" pra sempre: a pessoa não saía do passo 1 (entrega 0136). Se o
- * Medusa mudar a regra num upgrade, o 400 dele ainda cai embaixo do campo
- * (`salvarContato`), e não na frase genérica.
+/*
+ * O e-mail, o telefone, o documento e o endereço seguem as regras de
+ * `lib/passos-do-checkout.ts` — as MESMAS da tela, que confere antes de abrir
+ * o passo seguinte (entrega 0201). O porquê de cada uma está lá.
  */
-const EMAIL_DO_MEDUSA =
-  /^(?!\.)(?!.*\.\.)([A-Za-z0-9_'+\-\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\-]*\.)+[A-Za-z]{2,}$/
-const ehEmail = (v: string) => EMAIL_DO_MEDUSA.test(v)
-
-/** O que mais escapa na digitação do e-mail — a frase aponta o conserto. */
-function dicaDoEmail(v: string): string {
-  if (/[^ -~]/.test(v)) return "E-mail não leva acento nem cedilha. Confere as letras."
-  if (v.includes(",")) return "Tem uma vírgula no e-mail. No lugar dela vai um ponto."
-  if (/\s/.test(v)) return "E-mail não tem espaço. Confere o que foi digitado."
-  if (v.includes("..")) return "Tem dois pontos seguidos no e-mail. Deixa um só."
-  if (v.includes(".@")) return "Tem um ponto logo antes do @. Tira ele."
-  if (v.endsWith(".")) return "O e-mail terminou num ponto. Tira ele."
-  return "Escreve um e-mail que você abre — é por ele que as novidades do pedido chegam."
-}
-
-/**
- * O maior e-mail que o Pagar.me aceita. Acima disso ele recusa o pedido
- * inteiro — e a loja só descobria no "pagar", com "não consegui iniciar o
- * pagamento" e nenhuma pista do porquê (24/09). Recusado aqui, no passo 1, a
- * pessoa lê o motivo embaixo do campo. (O backend confere de novo, em
- * `modules/pagarme/pedido.ts`.)
- */
-const EMAIL_MAXIMO = 64
 
 /* ── o carrinho, sempre do cookie ─────────────────────────────────────────── */
 
@@ -224,28 +194,9 @@ export async function abriuOCheckout(): Promise<void> {
  * (`apps/backend/ferramentas/conferir-pedido.mjs`, de antes da Frenet, é o que mediu.)
  */
 export async function salvarContato(anterior: EstadoDaEtapa, fd: FormData): Promise<EstadoDaEtapa> {
-  const email = texto(fd, "email").toLowerCase()
-  const nome = texto(fd, "nome")
-  const sobrenome = texto(fd, "sobrenome")
-  const telefoneCru = texto(fd, "telefone")
-  const documentoCru = texto(fd, "documento")
-
-  const erros: ErrosDoFormulario = {}
-  if (!ehEmail(email)) {
-    erros.email = dicaDoEmail(email)
-  } else if (email.length > EMAIL_MAXIMO) {
-    erros.email = `Esse e-mail passa de ${EMAIL_MAXIMO} caracteres, o limite do pagamento. Usa outro, por favor.`
-  }
-  if (!nome) erros.nome = "Falta o nome."
-  if (!sobrenome) erros.sobrenome = "Falta o sobrenome."
-
-  const telefone = conferirTelefone(telefoneCru)
-  if (!telefone) erros.telefone = "Telefone com DDD, 10 ou 11 dígitos."
-
-  const doc = conferirDocumento(documentoCru)
-  if (!doc.ok) erros.documento = doc.erro
-
-  if (!telefone || !doc.ok || Object.keys(erros).length) return erro(anterior, erros, "", fd)
+  const conferido = conferirContato(fd)
+  if (!conferido.ok) return erro(anterior, conferido.erros, "", fd)
+  const { email, nome, sobrenome, telefone, documento } = conferido.dados
 
   const atual = await carrinhoAtual()
   if (!atual) return erro(anterior, {}, EXPIROU, fd)
@@ -264,7 +215,7 @@ export async function salvarContato(anterior: EstadoDaEtapa, fd: FormData): Prom
       {
         email,
         shipping_address: montarEndereco(entrega),
-        billing_address: montarEndereco(entrega, doc.documento),
+        billing_address: montarEndereco(entrega, documento),
       },
       { fields: CAMPOS_CHECKOUT }
     )
@@ -286,23 +237,9 @@ export async function salvarContato(anterior: EstadoDaEtapa, fd: FormData): Prom
 /* ── 2. entrega ───────────────────────────────────────────────────────────── */
 
 export async function salvarEntrega(anterior: EstadoDaEtapa, fd: FormData): Promise<EstadoDaEtapa> {
-  const cep = limparCep(texto(fd, "cep"))
-  const rua = texto(fd, "rua")
-  const numero = texto(fd, "numero")
-  const complemento = texto(fd, "complemento")
-  const bairro = texto(fd, "bairro")
-  const cidade = texto(fd, "cidade")
-  const uf = texto(fd, "uf").toUpperCase()
-
-  const erros: ErrosDoFormulario = {}
-  if (!cep) erros.cep = "CEP tem 8 dígitos."
-  if (!rua) erros.rua = "Falta a rua."
-  if (!numero) erros.numero = "Falta o número. Se não tem, escreve S/N."
-  if (!bairro) erros.bairro = "Falta o bairro."
-  if (!cidade) erros.cidade = "Falta a cidade."
-  if (!ehUf(uf)) erros.uf = "Estado em duas letras (SP, RJ, MG…)."
-
-  if (Object.keys(erros).length) return erro(anterior, erros, "", fd)
+  const conferido = conferirEndereco(fd)
+  if (!conferido.ok) return erro(anterior, conferido.erros, "", fd)
+  const { cep, rua, numero, complemento, bairro, cidade, uf, frete: opcao } = conferido.dados
 
   /*
     O CEP É DESTA CIDADE? Trocar o CEP e confirmar antes de a busca voltar
@@ -362,7 +299,6 @@ export async function salvarEntrega(anterior: EstadoDaEtapa, fd: FormData): Prom
    * checkout olha pro carrinho pra saber onde está e lá não havia frete
    * nenhum. O bug some porque o rádio mora dentro deste mesmo formulário.
    */
-  const opcao = texto(fd, "opcao")
   if (opcao) {
     try {
       await atual.sdk.store.cart.addShippingMethod(atual.carrinho.id, { option_id: opcao })

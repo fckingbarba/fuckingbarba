@@ -124,7 +124,7 @@ export function duvidasDaLoja({ frete, atendimento, pagamento }: Configuracoes):
         {
           pergunta: "Como funciona o pagamento no Pix?",
           resposta: [
-            "Ao fechar o pedido, aparecem o QR code e o código copia e cola — é só pagar no app do seu banco. O Pix tem validade, e o tempo que falta aparece embaixo do QR code.",
+            "Ao fechar o pedido, aparece o código copia e cola (no computador, também o QR code) — é só pagar no app do seu banco. O Pix tem validade, e o tempo que falta aparece embaixo do código.",
             "Assim que o banco confirma, a tela do pedido muda sozinha e o e-mail de confirmação sai.",
           ],
         },

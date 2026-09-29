@@ -56,7 +56,11 @@
  *   pessoa presa no passo 1 com "Não consegui falar com a loja" (0136);
  * - no empate de preço, a expressa gravada: o cupom de frete da mais barata
  *   nunca entrava, e o carrinho que mudava perdia o frete grátis (0136);
- * - a sacola velha pagar o preço de quando o produto entrou (0136).
+ * - a sacola velha pagar o preço de quando o produto entrou (0136);
+ * - "Salvando…" em cada passo, esperando o Medusa e a página refeita — o
+ *   passo seguinte abre no clique, e a loja grava por trás (0201); e o passo
+ *   de antes voltar (piscar) quando a resposta chega, ou o segundo toque na
+ *   barra pintar de vermelho o passo que acabou de abrir.
  *
  * Variáveis: MEDUSA_BACKEND_URL, NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY, CHROMIUM;
  * ADMIN_EMAIL e ADMIN_SENHA, opcionais, pro bump com a promoção desligada, pra
@@ -139,6 +143,28 @@ const numero = (txt) =>
       .replace(",", ".")
   )
 const perto = (a, b) => Math.abs(a - b) < 0.02
+
+/**
+ * O PASSO ABRE NO CLIQUE, E A LOJA GRAVA POR TRÁS (0201). O que se lê do
+ * Medusa logo depois de o passo seguinte aparecer pode ainda não ter chegado:
+ * `quandoGravar` pergunta de novo até chegar (ou desistir, e o `ok` de quem
+ * chamou diz o que faltou). `entregaGravada` é o sinal da tela: o botão de
+ * pagar só solta com o passo 2 gravado.
+ */
+async function quandoGravar(ler, chegou, tempo = 20000) {
+  let lido = await ler()
+  for (const fim = Date.now() + tempo; !chegou(lido) && Date.now() < fim;) {
+    await new Promise((r) => setTimeout(r, 250))
+    lido = await ler()
+  }
+  return lido
+}
+const entregaGravada = (pag, tempo = 25000) =>
+  pag
+    .locator("#form-pagamento button[type=submit]:not([disabled])")
+    // `attached`: no celular o botão de dentro do passo fica escondido (quem manda é a barra).
+    .waitFor({ state: "attached", timeout: tempo })
+    .catch(() => null)
 
 async function medusa(caminho, cabecalhos = {}) {
   const r = await fetch(`${MEDUSA}${caminho}`, {
@@ -640,6 +666,7 @@ const preencheContato = async (documento) => {
   await pagina.locator("#form-contato button[type=submit]").click()
 }
 
+const acoesAntesDosErros = acoesDoCheckout.length
 await preencheContato(CPF_TORTO)
 await pagina
   .locator("#form-contato .campo__erro", { hasText: /confere/i })
@@ -691,6 +718,11 @@ ok(
   !(await medusa(`/store/carts/${carrinhoId}?fields=id,email`))?.cart?.email,
   "e nenhum desses e-mails foi pro Medusa"
 )
+ok(
+  acoesDoCheckout.length === acoesAntesDosErros,
+  "e nenhum desses erros foi até a loja: a tela confere com as regras da ação (0201)",
+  `${acoesDoCheckout.length - acoesAntesDosErros} envio(s)`
+)
 await preencher("email", EMAIL)
 
 // A máscara aceita letra por causa do CNPJ alfanumérico (julho/2026).
@@ -729,7 +761,11 @@ ok(
   "e o stepper marca o passo 1 como feito"
 )
 
-const comContato = await medusa(`/store/carts/${carrinhoId}?fields=id,email,*billing_address`)
+// O passo 2 abriu no clique; o Medusa recebe logo depois (0201).
+const comContato = await quandoGravar(
+  () => medusa(`/store/carts/${carrinhoId}?fields=id,email,*billing_address`),
+  (c) => c?.cart?.email === EMAIL && Boolean(c?.cart?.billing_address?.metadata?.documento)
+)
 ok(comContato?.cart?.email === EMAIL, "o e-mail chegou no Medusa")
 ok(
   comContato?.cart?.billing_address?.metadata?.documento?.valor === "11144477735",
@@ -969,6 +1005,7 @@ await preencher("numero", "1578")
 await preencher("complemento", "Apto 42")
 await pagina.locator("#form-entrega button[type=submit]").click()
 await pagina.locator("#form-pagamento").waitFor({ timeout: 25000 })
+await entregaGravada(pagina)
 ok(true, "endereço e frete salvos de uma vez, e o passo 3 abre")
 
 /* ── 4. passo 3: as formas, o bump e o pedido ─────────────────────────────── */
@@ -1646,9 +1683,11 @@ await noCelular.locator(".resumo summary").click()
 ok(abriu && !(await resumoAberto()), "e o cabeçalho do resumo abre e fecha")
 
 /*
-  A BARRA ESPERA JUNTO. Ela não sabia que o passo estava enviando: o toque
-  não mudava nada na tela, e o segundo toque mandava de novo. Aqui, dois
-  toques em "Continuar" — o segundo com `force`, por cima da trava.
+  DOIS TOQUES, UM ENVIO. A barra não sabia que o passo estava enviando: o
+  toque não mudava nada na tela, e o segundo toque mandava de novo. Agora o
+  toque em "Continuar" abre a entrega na hora (0201), e o segundo — com
+  `force`, por cima de tudo — cai no passo 2 que acabou de abrir, vazio: não
+  pode virar envio, nem pintar de vermelho os campos que a pessoa nem viu.
 */
 const acoesDoCelular = []
 contaAcoes(noCelular, acoesDoCelular)
@@ -1659,14 +1698,196 @@ await noCampo("sobrenome", "da Silva Teste")
 await noCampo("telefone", "(11) 99999-9999")
 await noCampo("documento", CPF)
 const barra = noCelular.locator(".barra__btn")
-const naBarra = await vigiar(noCelular, [".barra__btn[aria-busy]"], async () => {
-  await barra.click()
-  await barra.click({ force: true, timeout: 2000 }).catch(() => null)
-  await noCelular.locator(".painel[data-ativo] #form-entrega").waitFor({ timeout: 20000 })
-})
-ok(naBarra[".barra__btn[aria-busy]"], "tocar na barra mostra que está salvando, e trava")
+await barra.click()
+await barra.click({ force: true, timeout: 2000 }).catch(() => null)
+await noCelular.locator(".painel[data-ativo] #form-entrega").waitFor({ timeout: 20000 })
+ok(
+  /ir pro pagamento/i.test(await barra.innerText()),
+  "tocar na barra abre a entrega na hora, e a barra já é a do passo 2",
+  await barra.innerText()
+)
+await quandoGravar(
+  () => medusa(`/store/carts/${noCarrinhoDoCelular}?fields=id,email`),
+  (c) => c?.cart?.email === EMAIL
+)
 ok(acoesDoCelular.length === 1, "dois toques, um envio", `${acoesDoCelular.length} envios`)
+const vermelhos = await noCelular.locator("#form-entrega .campo__erro:not(:empty)").count()
+ok(
+  vermelhos === 0,
+  "e o segundo toque não pinta de vermelho o passo 2, que acabou de abrir",
+  `${vermelhos} erro(s)`
+)
 await celular.close()
+
+/* ── 5b. o passo seguinte abre no clique (0201) ──────────────────────────── */
+
+titulo("O passo seguinte abre no clique")
+/*
+  ERA "SALVANDO…" EM CADA PASSO: o botão esperava o Medusa gravar e a página
+  voltar refeita — uma ida e volta aos EUA por passo, no ar. Agora a tela
+  confere o formulário ali mesmo (as regras da ação, `lib/passos-do-checkout.ts`)
+  e abre o passo seguinte; a loja grava por trás. Pra provar que abre ANTES da
+  gravação, a ação dos passos fica presa `ATRASO` ms no caminho (`route`).
+*/
+{
+  const ATRASO = 2500
+  const acaoDoPasso = (r) =>
+    r.method() === "POST" &&
+    Boolean(r.headers()["next-action"]) &&
+    Boolean(r.headers()["content-type"]?.startsWith("multipart/form-data"))
+  const preencherContato = async (pag, email) => {
+    const c = (n) => pag.locator(`.fluxo [name="${n}"]`)
+    await pag.goto(`${LOJA}/checkout`, { waitUntil: "domcontentloaded" })
+    await semStreaming(pag)
+    await pag.locator("#form-contato").waitFor({ timeout: 25000 })
+    await c("email").fill(email)
+    await c("nome").fill("Matheus")
+    await c("sobrenome").fill("da Silva Teste")
+    await c("telefone").fill("(11) 99999-9999")
+    await c("documento").fill(CPF)
+  }
+
+  const ctx = await navegador.newContext({ viewport: MESA })
+  const pag = await ctx.newPage()
+  try {
+    const id = await carrinhoNovo(ctx, [["shampoo-para-barba", 1]])
+    await pag.route(`${LOJA}/checkout`, async (rota) => {
+      if (acaoDoPasso(rota.request())) await new Promise((ok) => setTimeout(ok, ATRASO))
+      await rota.continue().catch(() => null)
+    })
+    const email = "na.hora@fuckingbarba.invalid"
+    await preencherContato(pag, email)
+
+    const t0 = Date.now()
+    await pag.locator("#form-contato button[type=submit]").click()
+    await pag.locator(".painel[data-ativo] #form-entrega").waitFor({ timeout: 10000 })
+    const abriu2 = Date.now() - t0
+    const aindaSem = !(await medusa(`/store/carts/${id}?fields=id,email`))?.cart?.email
+    ok(
+      abriu2 < ATRASO / 2 && aindaSem,
+      `"Continuar" abre a entrega na hora (${abriu2} ms), antes de a loja gravar`,
+      `gravado antes? ${!aindaSem}`
+    )
+    ok(
+      (await pag.locator(".feito-passo__txt").first().innerText()).includes(email),
+      "e a linha do passo 1 já mostra o que foi digitado"
+    )
+    ok(
+      /ir pro pagamento/i.test(
+        await pag.locator(".painel[data-ativo] button[type=submit]").innerText()
+      ),
+      "sem 'Salvando…': o botão na tela já é o do passo 2"
+    )
+    const volta1 = await vigiar(pag, [".painel[data-ativo] #form-contato"], async () => {
+      await quandoGravar(
+        () => medusa(`/store/carts/${id}?fields=id,email`),
+        (c) => c?.cart?.email === email
+      )
+      // A página refeita chega depois da resposta da ação (`server-action-reducer.js`).
+      await pag.waitForTimeout(1000)
+    })
+    ok(
+      !volta1[".painel[data-ativo] #form-contato"],
+      "e quando a loja responde, o passo 1 não volta — nem por um instante"
+    )
+
+    const c = (n) => pag.locator(`.fluxo [name="${n}"]`)
+    await c("cep").fill(CEP)
+    await pag.waitForFunction(
+      () => document.querySelector('.fluxo [name="rua"]')?.value?.length > 0,
+      null,
+      { timeout: 25000 }
+    )
+    await pag.locator("#form-entrega .opcao").first().waitFor({ timeout: 25000 })
+    await c("numero").fill("1578")
+    const t1 = Date.now()
+    await pag.locator("#form-entrega button[type=submit]").click()
+    await pag.locator(".painel[data-ativo] #form-pagamento").waitFor({ timeout: 10000 })
+    const abriu3 = Date.now() - t1
+    const semEntrega = !(await medusa(`/store/carts/${id}?fields=*shipping_methods`))?.cart
+      ?.shipping_methods?.length
+    ok(
+      abriu3 < ATRASO / 2 && semEntrega,
+      `"Ir pro pagamento" abre o pagamento na hora (${abriu3} ms), antes de a loja gravar a entrega`,
+      `gravada antes? ${!semEntrega}`
+    )
+    const pagar = pag.locator("#form-pagamento button[type=submit]")
+    ok(await pagar.isDisabled(), "e o botão de pagar espera a entrega chegar no carrinho")
+    ok(
+      (await pag.locator(".resumo[data-recalculando]").count()) === 1,
+      "com o dinheiro do resumo esmaecido, como na troca de frete"
+    )
+    const volta2 = await vigiar(pag, [".painel[data-ativo] #form-entrega"], async () => {
+      await entregaGravada(pag)
+      await pag.waitForTimeout(500)
+    })
+    const gravado = (
+      await medusa(`/store/carts/${id}?fields=total,*shipping_methods,*shipping_address`)
+    )?.cart
+    ok(
+      gravado?.shipping_methods?.length === 1 &&
+        gravado?.shipping_address?.metadata?.numero === "1578" &&
+        !(await pagar.isDisabled()),
+      "a entrega chega no Medusa, e o pagar solta"
+    )
+    const totalNaTela = numero(await pag.locator(".totais__total dd").textContent())
+    ok(
+      perto(totalNaTela, Number(gravado?.total)),
+      "e o total da tela é o do carrinho, com o frete",
+      `tela ${reais(totalNaTela)} · Medusa ${reais(gravado?.total)}`
+    )
+    ok(!volta2[".painel[data-ativo] #form-entrega"], "e o passo 2 não volta — nem por um instante")
+  } finally {
+    await ctx.close()
+  }
+
+  /*
+    A LOJA RECUSA DEPOIS DE O PASSO TER ABERTO: a sacola expirou, o CEP é de
+    outra cidade, a internet caiu no meio. O passo volta aberto, com o recado
+    e com o que foi digitado — e nada foi gravado.
+  */
+  const ctx2 = await navegador.newContext({ viewport: MESA })
+  const pag2 = await ctx2.newPage()
+  try {
+    const id = await carrinhoNovo(ctx2, [["shampoo-para-barba", 1]])
+    await pag2.route(`${LOJA}/checkout`, async (rota) => {
+      if (!acaoDoPasso(rota.request())) return rota.continue().catch(() => null)
+      await new Promise((ok) => setTimeout(ok, 1500))
+      await rota.abort("failed").catch(() => null)
+    })
+    const email = "volta.pro.passo@fuckingbarba.invalid"
+    await preencherContato(pag2, email)
+    await pag2.locator("#form-contato button[type=submit]").click()
+    const abriu = await pag2
+      .locator(".painel[data-ativo] #form-entrega")
+      .waitFor({ timeout: 5000 })
+      .then(() => true)
+      .catch(() => false)
+    const recado = pag2.locator(".painel[data-ativo] #form-contato .erros-envio", {
+      hasText: "conexão caiu",
+    })
+    const voltou = await recado
+      .waitFor({ timeout: 15000 })
+      .then(() => true)
+      .catch(() => false)
+    ok(
+      abriu && voltou,
+      "a entrega abre, e a ação que não volta traz o passo 1 de volta, com o recado",
+      `abriu ${abriu} · voltou ${voltou}`
+    )
+    ok(
+      (await pag2.locator('.fluxo [name="email"]').inputValue()) === email &&
+        (await pag2.locator('.fluxo [name="documento"]').inputValue()) === CPF,
+      "com o que foi digitado de volta nos campos"
+    )
+    ok(
+      !(await medusa(`/store/carts/${id}?fields=id,email`))?.cart?.email,
+      "e nada foi gravado no Medusa"
+    )
+  } finally {
+    await ctx2.close()
+  }
+}
 
 /* ── 6. os consertos de 24/09: o CEP, a mesma entrega e a promoção que acaba ── */
 
@@ -1721,6 +1942,7 @@ async function contatoEEntrega(
   if (complemento) await c("complemento").fill(complemento)
   await pag.locator("#form-entrega button[type=submit]").click()
   await pag.locator("#form-pagamento").waitFor({ timeout: espera })
+  await entregaGravada(pag, espera)
 }
 const passoAberto = (pag) =>
   pag.evaluate(
@@ -1964,6 +2186,7 @@ if (EMAIL_ADMIN && SENHA_ADMIN) {
     await pag.locator('.fluxo [name="numero"]').fill("1578")
     await pag.locator("#form-entrega button[type=submit]").click()
     await pag.locator("#form-pagamento").waitFor({ timeout: 60000 })
+    await entregaGravada(pag, 60000)
     const gravada = await faixaGravada(id)
     ok(
       linhas.length === 1 && /econ[ôo]mica/i.test(linhas[0] ?? "") && gravada.faixa === "economica",
@@ -2269,6 +2492,7 @@ titulo("Sem internet por um instante")
     await c("numero").fill("1578")
     await pag.locator("#form-entrega button[type=submit]").click()
     await pag.locator("#form-pagamento").waitFor({ timeout: 25000 })
+    await entregaGravada(pag)
     const antes = pagarme.pedidos.size
     await ctx.setOffline(true)
     await pag.locator("#form-pagamento button[type=submit]").click()

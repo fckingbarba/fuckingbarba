@@ -513,6 +513,12 @@ async function ateOPagamento(pagina, email) {
   await campo("numero").fill("1578")
   await pagina.locator("#form-entrega button[type=submit]").click()
   await pagina.locator("#form-pagamento").waitFor({ timeout: 25000 })
+  // O passo 3 abre no clique e a loja grava a entrega por trás (0201): o
+  // botão de pagar só solta com ela no carrinho.
+  await pagina
+    .locator("#form-pagamento button[type=submit]:not([disabled])")
+    .waitFor({ state: "attached", timeout: 25000 })
+    .catch(() => null)
 }
 
 async function preencherCartao(pagina, numero, { parcelas = "1", cvv = CVV } = {}) {
@@ -740,6 +746,51 @@ try {
       (await pagina.evaluate(() => navigator.clipboard.readText())) === codigo,
       "copiar põe o código inteiro na área de transferência"
     )
+
+    /*
+      NO CELULAR, O BOTÃO VEM PRIMEIRO E O QR SAI (0201): ninguém escaneia a
+      própria tela. No computador o QR fica em cima, que é por onde se paga
+      com o celular na mão; o botão de copiar vem logo depois dele, antes do
+      código de 150 letras.
+    */
+    const retangulo = async (seletor) => pagina.locator(seletor).first().boundingBox()
+    {
+      const [qr, botao, cod] = [
+        await retangulo("img.feito__qr"),
+        await retangulo(".feito__copiar"),
+        await retangulo(".feito__pix code"),
+      ]
+      ok(
+        Boolean(qr && botao && cod) && qr.y < botao.y && botao.y < cod.y,
+        "no computador: o QR em cima, e o botão de copiar antes do código",
+        JSON.stringify({ qr: qr?.y, botao: botao?.y, codigo: cod?.y })
+      )
+    }
+    await pagina.setViewportSize({ width: 390, height: 844 })
+    {
+      const [botao, cod, box] = [
+        await retangulo(".feito__copiar"),
+        await retangulo(".feito__pix code"),
+        await retangulo(".feito__pix"),
+      ]
+      ok(
+        !(await pagina.locator("img.feito__qr").isVisible()),
+        "no celular o QR sai da tela: ninguém escaneia a própria tela"
+      )
+      ok(
+        Boolean(botao && cod && box) && botao.y < cod.y && botao.width >= box.width * 0.8,
+        "e o botão de copiar vem primeiro, largo",
+        JSON.stringify({ botao, codigo: cod?.y, caixa: box?.width })
+      )
+      const frase = await pagina.locator(".feito__frase").innerText()
+      ok(
+        /cole no app do seu banco/.test(frase) && !/QR code/.test(frase),
+        "e a frase de cima fala do código, e não do QR",
+        frase
+      )
+    }
+    await pagina.setViewportSize({ width: 1280, height: 1000 })
+    ok(await pagina.locator("img.feito__qr").isVisible(), "de volta ao computador, o QR volta")
 
     titulo("O Pix cai")
     await pagarme.pagar(registro.pedido.id)

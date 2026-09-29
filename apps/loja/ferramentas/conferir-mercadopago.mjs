@@ -387,6 +387,12 @@ async function ateOPagamento(pagina, email) {
   await campo("numero").fill("1578")
   await pagina.locator("#form-entrega button[type=submit]").click()
   await pagina.locator("#form-pagamento").waitFor({ timeout: 25000 })
+  // O passo 3 abre no clique e a loja grava a entrega por trás (0201): o
+  // botão de pagar só solta com ela no carrinho.
+  await pagina
+    .locator("#form-pagamento button[type=submit]:not([disabled])")
+    .waitFor({ state: "attached", timeout: 25000 })
+    .catch(() => null)
 }
 
 const idDaUrl = (pagina) => pagina.url().split("/").pop()

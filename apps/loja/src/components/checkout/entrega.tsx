@@ -17,6 +17,7 @@ import { limparCep, mascararCep } from "@/lib/cep-formato"
 import {
   ENDERECO_VAZIO,
   ESTADO_INICIAL,
+  estadoComErros,
   estadoSemResposta,
   type CheckoutVisivel,
   type EstadoDaEtapa,
@@ -25,6 +26,7 @@ import {
 } from "@/lib/checkout-visivel"
 import { comCepNovo, UFS } from "@/lib/endereco"
 import { emReais } from "@/lib/formato"
+import { conferirEndereco } from "@/lib/passos-do-checkout"
 import { SEM_CONEXAO, semQueda } from "@/lib/rede"
 import { site } from "@/lib/site"
 import { Campo } from "./campo"
@@ -32,18 +34,11 @@ import {
   Giro,
   Painel,
   Recado,
+  SALVANDO,
   useAvisaOcupado,
-  useFechaQuandoSalva,
   useFocaNoErro,
   type PropsDaEtapa,
 } from "./etapas"
-
-/** Sem internet, a ação nem volta: o recado fica no passo, e nada do que foi digitado se perde. */
-const salvar = (anterior: EstadoDaEtapa, fd: FormData) =>
-  semQueda(
-    () => salvarEntrega(anterior, fd),
-    () => estadoSemResposta(anterior, fd, SEM_CONEXAO)
-  )
 
 /**
  * PASSO 2 — o endereço e o frete.
@@ -61,6 +56,12 @@ const salvar = (anterior: EstadoDaEtapa, fd: FormData) =>
  * O FRETE MORA AQUI, e não num passo só dele: ele depende do CEP que acabou
  * de ser digitado, e mandar a pessoa pra outra tela pra escolher entre duas
  * linhas é uma parede a mais no meio de uma decisão que ela já tomou.
+ *
+ * O "IR PRO PAGAMENTO" ABRE O PAGAMENTO NA HORA (entrega 0201), como o
+ * "Continuar" do passo 1: o envio que confere (`conferirEndereco`) adianta o
+ * carrinho, e a ação grava por trás; o botão de pagar espera ela voltar (o
+ * frete escolhido entra no total nessa volta). O CEP de outra cidade, que só
+ * o servidor sabe (ViaCEP), traz o passo de volta com o recado.
  */
 
 type Props = PropsDaEtapa & {
@@ -71,11 +72,24 @@ type Props = PropsDaEtapa & {
   piso: number
 }
 
-export function Entrega({ checkout, fretes, sugestoes, falta, piso, aoSalvar, ...casca }: Props) {
-  const [estado, acao, enviando] = useActionState(salvar, ESTADO_INICIAL)
+export function Entrega({ checkout, fretes, sugestoes, falta, piso, ...casca }: Props) {
+  const { adiantar, aoVoltar, recemAberto } = casca
+  const [estado, acao, enviando] = useActionState(
+    async (anterior: EstadoDaEtapa, fd: FormData): Promise<EstadoDaEtapa> => {
+      const conferido = conferirEndereco(fd)
+      if (!conferido.ok) return estadoComErros(anterior, conferido.erros, fd)
+      // Sem internet, a ação nem volta: o recado fica no passo, e nada do que foi digitado se perde.
+      const r = await semQueda(
+        () => salvarEntrega(anterior, fd),
+        () => estadoSemResposta(anterior, fd, SEM_CONEXAO)
+      )
+      if (!r.ok) aoVoltar("entrega")
+      return r
+    },
+    ESTADO_INICIAL
+  )
   const [buscando, buscar] = useTransition()
-  useFechaQuandoSalva(estado, aoSalvar)
-  useAvisaOcupado(casca, enviando ? "Salvando…" : buscando ? "Procurando o endereço…" : null)
+  useAvisaOcupado(casca, enviando ? SALVANDO : buscando ? "Procurando o endereço…" : null)
   const formulario = useFocaNoErro(estado)
   const { recalcular, recalculando } = casca
 
@@ -89,7 +103,20 @@ export function Entrega({ checkout, fretes, sugestoes, falta, piso, aoSalvar, ..
   // São Paulo" com um CEP do Rio (24/09). O servidor recusa de novo
   // (`cepDeOutraCidade`), mas quem digita e aperta Enter nem chega lá.
   function aoEnviar(ev: FormEvent<HTMLFormElement>) {
-    if (enviando || recalculando || buscando) ev.preventDefault()
+    if (enviando || recalculando || buscando) {
+      ev.preventDefault()
+      return
+    }
+    const conferido = conferirEndereco(new FormData(ev.currentTarget))
+    // O passo acabou de abrir e o envio não confere: é o segundo toque de
+    // quem tocou duas vezes em "Continuar" — sem vermelho nos campos que a
+    // pessoa ainda nem viu (`recemAberto`, em `etapas.tsx`).
+    if (!conferido.ok && recemAberto()) {
+      ev.preventDefault()
+      return
+    }
+    // Conferiu: o pagamento abre agora, e não quando a ação voltar.
+    if (conferido.ok) adiantar({ etapa: "entrega", dados: conferido.dados })
   }
 
   const inicial = checkout.entrega
@@ -369,7 +396,7 @@ export function Entrega({ checkout, fretes, sugestoes, falta, piso, aoSalvar, ..
             aria-busy={enviando || undefined}
           >
             {enviando ? <Giro /> : null}
-            {enviando ? "Salvando…" : "Ir pro pagamento"}
+            {enviando ? SALVANDO : "Ir pro pagamento"}
             {enviando ? null : <Raio className="btn__bolt" />}
           </button>
         </div>
