@@ -26,6 +26,8 @@ export type FormularioDoFrete = {
   alvo: AlvoDoFrete
 }
 export type FormularioDaEmergencia = { preco: string; prazo: string }
+/** Pra onde vai o e-mail da venda nova (0219): "" = os donos. */
+export type FormularioDoAvisoDaVenda = { vendaPara: string }
 /** A menor parcela do cartão, como o campo mostra: "5,00" (0157). */
 export type FormularioDoParcelamento = { parcelaMinima: string }
 
@@ -71,6 +73,8 @@ export type TelaDasConfiguracoes = {
     remetente: string
     cliente: { nome: string; texto: string; saindo: boolean }[]
     equipe: { nome: string; texto: string; papeis: Papel[]; quem: string }[]
+    /** O endereço só da venda nova (0219): "" quando vai pros donos. */
+    vendaPara: string
   }
   integracoes: {
     formulario: FormularioDasIntegracoes

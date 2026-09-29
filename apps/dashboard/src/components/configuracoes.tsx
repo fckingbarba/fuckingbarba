@@ -12,6 +12,7 @@ import {
   salvarEmpresa,
   salvarFrete,
   salvarIntegracoes,
+  salvarAvisoDaVenda,
   salvarParcelamento,
   type ResultadoDoFormulario,
 } from "@/lib/acoes/configuracoes"
@@ -22,6 +23,7 @@ import {
   type FormularioDaEmpresa as DadosDaEmpresa,
   type FormularioDasIntegracoes as DadosDasIntegracoes,
   type FormularioDoFrete as DadosDoFrete,
+  type FormularioDoAvisoDaVenda as DadosDoAvisoDaVenda,
   type FormularioDoParcelamento as DadosDoParcelamento,
 } from "@/lib/configuracoes"
 import type { Area } from "@/lib/equipe"
@@ -363,6 +365,45 @@ export function FormularioDoParcelamento({
           </div>
         </div>
         <Acoes salvando={salvando} nota="A loja atualiza em alguns segundos." />
+      </Bloco>
+    </form>
+  )
+}
+
+/**
+ * O E-MAIL DA VENDA NOVA (0219) — preenchido, o aviso de cada pedido pago vai
+ * só pra ele, e nenhum dono recebe; em branco, vai pros donos do painel.
+ */
+export function FormularioDoAvisoDaVenda({ inicial }: { inicial: DadosDoAvisoDaVenda }) {
+  const { f, mudar, erros, salvando, salvar } = useFormulario(inicial, salvarAvisoDaVenda)
+  return (
+    <form className="bloco" onSubmit={salvar} noValidate data-form="aviso-da-venda">
+      <Bloco
+        titulo="E-mail de venda nova"
+        sub="Um por pedido, logo que o pagamento entra (Pix pago, cartão aprovado)."
+      >
+        <div className="campos">
+          <Campo
+            rotulo="Vai pra"
+            nome="vendaPara"
+            data-campo="venda-para"
+            type="email"
+            inputMode="email"
+            autoComplete="off"
+            placeholder="loja@gmail.com"
+            value={f.vendaPara}
+            erro={erros.vendaPara}
+            onChange={(e) => mudar("vendaPara", e.target.value)}
+            largura="campo--6"
+          />
+          <div className="campo">
+            <p className="campo__ajuda">
+              Preenchido, o e-mail vai <b>só pra este endereço</b> — nenhum dono recebe. Em branco,
+              vai pros donos do painel.
+            </p>
+          </div>
+        </div>
+        <Acoes salvando={salvando} nota="Vale na próxima venda." />
       </Bloco>
     </form>
   )

@@ -7,6 +7,7 @@ import {
   ehJanela,
   formularioDaEmpresa,
   freteEmFrase,
+  lerAvisoDaVenda,
   lerEmergencia,
   lerEmpresa,
   lerFrete,
@@ -186,6 +187,22 @@ describe("a parcela mínima do cartão (0157)", () => {
       const r = lerParcelamento({ parcelaMinima: v })
       expect(r.ok).toBe(false)
       if (!r.ok) expect(semEspaco(r.erros.parcelaMinima)).toMatch(/de R\$ 5,00 .* a R\$ 1\.000,00/)
+    }
+  })
+})
+
+describe("o e-mail da venda nova (0219)", () => {
+  it("preenchido: só com cara de e-mail, em minúsculas; em branco: volta pros donos", () => {
+    expect(lerAvisoDaVenda({ vendaPara: " FckingBarba@Gmail.com " })).toEqual({
+      ok: true,
+      valor: { vendaPara: "fckingbarba@gmail.com" },
+    })
+    expect(lerAvisoDaVenda({ vendaPara: "" })).toEqual({ ok: true, valor: { vendaPara: null } })
+    expect(lerAvisoDaVenda({})).toEqual({ ok: true, valor: { vendaPara: null } })
+    for (const v of ["fckingbarba", "a@b", "a b@c.com", `${"a".repeat(250)}@b.com`]) {
+      const r = lerAvisoDaVenda({ vendaPara: v })
+      expect(r.ok).toBe(false)
+      if (!r.ok) expect(r.erros.vendaPara).toMatch(/e-mail/)
     }
   })
 })
@@ -375,6 +392,22 @@ describe("a tela", () => {
     expect(t.emails.equipe[0]).toMatchObject({ nome: "Venda nova", quem: "Ana (dono)" })
     expect(t.emails.equipe[1].quem).toBe("Ana (dono)")
     expect(t.emails.equipe[5].quem).toBe("Ana (dono)")
+  })
+
+  it("na tela: a linha da venda nova diz o endereço, e o resto segue pro papel", () => {
+    const base = dados()
+    const t = telaDasConfiguracoes(
+      dados({
+        configuracoes: { ...base.configuracoes, avisos: { vendaPara: "fckingbarba@gmail.com" } },
+      })
+    )
+    expect(t.emails.vendaPara).toBe("fckingbarba@gmail.com")
+    expect(t.emails.equipe[0]).toMatchObject({
+      nome: "Venda nova",
+      quem: "só fckingbarba@gmail.com",
+    })
+    expect(t.emails.equipe[1].quem).toBe("Ana (dono)")
+    expect(telaDasConfiguracoes(base).emails.vendaPara).toBe("")
   })
 })
 

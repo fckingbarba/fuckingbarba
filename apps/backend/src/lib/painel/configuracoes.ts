@@ -1,8 +1,10 @@
 import {
   FORMATO_DAS_INTEGRACOES,
   PARCELA_MINIMA_TETO,
+  FORMATO_DO_EMAIL,
   type AlvoDoFrete,
   type Atendimento,
+  type Avisos,
   type Configuracoes,
   type Cotacao,
   type Empresa,
@@ -254,6 +256,19 @@ export function lerParcelamento(v: unknown): Leitura<Pagamento> {
       },
     }
   return { ok: true, valor: { parcelaMinima: Math.round(minima * 100) / 100 } }
+}
+
+/**
+ * O E-MAIL DA VENDA NOVA (0219) — `{ vendaPara: "loja@exemplo.com" }`. Em
+ * branco volta pros donos do painel; preenchido, só com cara de e-mail.
+ */
+export function lerAvisoDaVenda(v: unknown): Leitura<Avisos> {
+  const o = (v ?? {}) as Record<string, unknown>
+  const para = texto(o.vendaPara).toLowerCase()
+  if (!para) return { ok: true, valor: { vendaPara: null } }
+  if (para.length > 254 || !FORMATO_DO_EMAIL.test(para))
+    return { ok: false, erros: { vendaPara: "Um e-mail, como loja@gmail.com." } }
+  return { ok: true, valor: { vendaPara: para } }
 }
 
 /** "Frete grátis a partir de R$ 149,90 em produtos, na opção mais barata." */
@@ -560,6 +575,8 @@ export type TelaDasConfiguracoes = {
     remetente: string
     cliente: { nome: string; texto: string; saindo: boolean }[]
     equipe: { nome: string; texto: string; papeis: Papel[]; quem: string }[]
+    /** O endereço só da venda nova (0219): "" quando vai pros donos. */
+    vendaPara: string
   }
   integracoes: {
     formulario: FormularioDasIntegracoes
@@ -704,8 +721,12 @@ export function telaDasConfiguracoes(d: DadosDasConfiguracoes): TelaDasConfigura
         nome: a.nome,
         texto: a.texto,
         papeis: [...a.papeis],
-        quem: destinatarios(a.papeis, d.membros, d.usuariosDoAdmin).quem,
+        quem:
+          a.nome === "Venda nova" && c.avisos.vendaPara
+            ? `só ${c.avisos.vendaPara}`
+            : destinatarios(a.papeis, d.membros, d.usuariosDoAdmin).quem,
       })),
+      vendaPara: c.avisos.vendaPara ?? "",
     },
     integracoes: {
       formulario: formularioDasIntegracoes(c),
