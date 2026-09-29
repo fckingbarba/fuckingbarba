@@ -41,7 +41,7 @@ export const metadata: Metadata = {
  * pergunta de novo antes de valer, como a última seção promete.
  */
 
-const ATUALIZADO = "28 de setembro de 2026"
+const ATUALIZADO = "29 de setembro de 2026"
 
 export default async function Privacidade() {
   const { empresa, atendimento } = await configuracoes()
@@ -177,9 +177,11 @@ export default async function Privacidade() {
           <b>Se você já comprou na loja antiga</b> (a FuckingBarba na Nuvemshop): vieram com você o
           seu e-mail, o primeiro nome, os pedidos e os carrinhos que ficaram no meio (datas,
           produtos e valores) e a sua escolha sobre receber ofertas. É o que deixa a loja saber
-          quando o seu produto está acabando, e o que deixa você avaliar o que comprou lá. CPF,
-          telefone, endereço e dados do cartão da loja antiga não vieram, e e-mail de oferta só vai
-          pra quem tinha aceitado lá — o aviso de que o produto está acabando vai pra todo cliente.
+          quando o seu produto está acabando, e o que deixa você avaliar o que comprou lá. De cada
+          pedido, vieram também o nome, o celular, o CPF e o endereço de entrega, guardados
+          cifrados: servem só pra que o botão &ldquo;Refazer o pedido&rdquo; abra o checkout já
+          preenchido. Dados do cartão da loja antiga não vieram, e e-mail de oferta só vai pra quem
+          tinha aceitado lá — o aviso de que o produto está acabando vai pra todo cliente.
         </P>
         <P>
           <b>Quando você tenta pagar com cartão</b>: pra barrar robô testando cartão roubado, a loja
