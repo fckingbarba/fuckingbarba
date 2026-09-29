@@ -163,8 +163,9 @@ export function RegrasDasCampanhas() {
       </h2>
       <ul className="modelo-emails__regras">
         <li>
-          Só vai pra quem aceita ofertas: quem assinou a newsletter, quem deixou marcada a caixa da
-          conta (quem compra já vem com ela marcada) e quem aceitou na Nuvemshop.
+          Só vai pra quem aceita ofertas: quem assinou a newsletter, quem aceitou na Nuvemshop, e
+          quem comprou, criou conta ou deixou o e-mail no checkout (esses já vêm com o sim, e saem
+          quando quiserem).
         </li>
         <li>
           Não vai pra quem saiu da lista, pra quem marcou como spam, pro e-mail que voltou, pra

@@ -3578,9 +3578,10 @@ sem cupom, e o que vendeu mais em 7 dias só apontado na tela.
   - a agendada que chegou na hora vira "enviando";
   - uma por vez, a que começou antes. 24 horas depois do começo, ela acaba;
   - de madrugada (22h às 8h), espera;
-  - o público de agora (`publicoDaCampanha`): a newsletter e a caixa da conta, com o sim por padrão
-    (`newsletterDa`), e quem aceitou na Nuvemshop; menos a equipe, quem saiu sem voltar, o e-mail
-    que voltou ou reclamou e quem adormeceu no sunset. Tira quem já está no registro;
+  - o público de agora (`publicoDaCampanha`): a newsletter e o sim da conta (`newsletterDa`; quem
+    compra, cria conta ou deixa o e-mail no checkout ganha o sim por padrão, 0184 e 0205), e quem
+    aceitou na Nuvemshop; menos a equipe, quem saiu sem voltar, o e-mail que voltou ou reclamou e
+    quem adormeceu no sunset. Tira quem já está no registro;
   - o controle só é anotado. Quem passou do teto (`passouDoTeto`: 3 no dia e 6 na semana, contando
     os e-mails dos fluxos) fica pra depois. O resto é reservado, sai e é confirmado, como os toques
     (idempotência `crm-campanha/<id>/<e-mail>`, etiqueta `crm-campanha`). Até 100 por rodada, um por
