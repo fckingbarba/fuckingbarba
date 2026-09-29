@@ -678,7 +678,8 @@ try {
     const lote = google.perguntas
       .filter((p) => p.tipo === "batchRunReports")
       .map((p) => p.corpo.requests)
-      .find((rs) => rs?.length === 2)
+      // A do Canais (0216: o Início também manda uma chamada de duas, as de até agora).
+      .find((rs) => rs?.length === 2 && JSON.stringify(rs[1] ?? {}).includes("transactionId"))
     ok(
       lote?.[0]?.dimensionFilter?.filter?.fieldName === "hostName" &&
         lote?.[1]?.dimensionFilter?.filter?.fieldName === "transactionId",

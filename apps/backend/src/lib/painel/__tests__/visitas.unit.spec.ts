@@ -105,6 +105,9 @@ describe("de onde vieram", () => {
     expect(nomeDaOrigem("resend", "email")).toBe("E-mail")
     expect(nomeDaOrigem("chatgpt.com", "referral")).toBe("Assistentes de IA")
     expect(nomeDaOrigem("(not set)", "(not set)")).toBe("Sem origem")
+    expect(nomeDaOrigem("(data not available)", "(data not available)")).toBe(
+      "Google ainda processando"
+    )
     expect(nomeDaOrigem("www.barbeariadojoao.com.br", "referral")).toBe("barbeariadojoao.com.br")
   })
 
