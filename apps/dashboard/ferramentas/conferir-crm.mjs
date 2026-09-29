@@ -67,6 +67,7 @@ import { subirPagarmeFalso } from "../../loja/ferramentas/pagarme-falso.mjs"
 import { fabricaDePedidos } from "../../loja/ferramentas/pedido-de-teste.mjs"
 import {
   abrirNavegador,
+  avisoDoClique,
   caixaDoResend,
   DONO,
   entrar as entrarPelaTela,
@@ -3227,6 +3228,419 @@ try {
     ok(await semRolagemDeLado(mkt.pagina), "a aba Fluxos no celular, sem rolar de lado")
   }
 
+  /* ── as campanhas (0206) ─────────────────────────────────────────────────── */
+  {
+    titulo("As campanhas: a tela, o formulário e o que a operação não faz (0206)")
+    const MIN = 60 * 1000
+    const HORA = 60 * MIN
+    const DIA_MS = 24 * HORA
+    const iso = (ms) => new Date(ms).toISOString()
+    const campanhas = async (token = tokenDoDono) =>
+      medusa("/dashboard/crm/campanhas", { metodo: "GET", token })
+    const mudar = (corpo, token = tokenDoDono) =>
+      medusa("/dashboard/crm/campanhas", { token, corpo })
+    const rodar = (corpo) => medusa("/dashboard/crm/campanhas/rodar", { token: tokenDoDono, corpo })
+    const daCampanha = (e) => e.tags?.some((t) => t.name === "tipo" && t.value === "crm-campanha")
+    // O banco local é de todos os conferidores: nada saindo nem agendado de rodadas antigas.
+    for (const c of (await campanhas()).corpo.campanhas ?? []) {
+      if (c.situacao === "enviando") await mudar({ acao: "parar", id: c.id })
+      if (c.situacao === "agendada") await mudar({ acao: "desmarcar", id: c.id })
+    }
+    const EXEMPLO = {
+      nome: `Semana do óleo ${RODADA}`,
+      assunto: "A semana do óleo",
+      assuntoB: "Seu óleo, com preço de semana boa",
+      previa: "Só até domingo.",
+      titulo: "A semana do óleo",
+      texto: "O óleo que amacia a barba, com o preço da semana.\n\nVale até domingo.",
+      botao: { texto: "Ver o óleo", caminho: "/produtos/oleo-para-barba" },
+      produtos: ["oleo-para-barba"],
+      publico: "todos",
+    }
+    const daOperacao = await Promise.all([
+      campanhas(cookieOp.value),
+      mudar({ acao: "salvar", campanha: EXEMPLO }, cookieOp.value),
+      medusa("/dashboard/crm/campanhas/previa", {
+        token: cookieOp.value,
+        corpo: { campanha: EXEMPLO },
+      }),
+      medusa("/dashboard/crm/campanhas/teste", {
+        token: cookieOp.value,
+        corpo: { campanha: EXEMPLO },
+      }),
+      medusa("/dashboard/crm/campanhas/rodar", { token: cookieOp.value, corpo: {} }),
+    ])
+    ok(
+      daOperacao.every((r) => r.status === 403),
+      "a operação não abre, não salva, não vê, não testa e não roda as campanhas",
+      daOperacao.map((r) => r.status).join(",")
+    )
+    const errados = await Promise.all([
+      mudar({ acao: "salvar", campanha: {} }),
+      mudar({
+        acao: "salvar",
+        campanha: {
+          ...EXEMPLO,
+          assuntoB: EXEMPLO.assunto,
+          produtos: ["nao-existe"],
+          botao: { texto: "Ir", caminho: "https://outro.site" },
+        },
+      }),
+      mudar({ acao: "agendar", campanha: EXEMPLO, agenda: iso(Date.now() + MIN) }),
+      mudar({ acao: "agendar", campanha: EXEMPLO, agenda: iso(Date.now() + 200 * DIA_MS) }),
+      mudar({ acao: "sumir" }),
+      mudar({ acao: "apagar", id: "cmp_nao_existe" }),
+    ])
+    const chaves = (r) =>
+      Object.keys(r.corpo.erros ?? {})
+        .sort()
+        .join()
+    ok(
+      errados[0].status === 422 &&
+        chaves(errados[0]) === "assunto,nome,publico,texto,titulo" &&
+        errados[1].status === 422 &&
+        chaves(errados[1]) === "assuntoB,botao,produtos" &&
+        errados[2].status === 422 &&
+        chaves(errados[2]) === "agenda" &&
+        errados[3].status === 422 &&
+        chaves(errados[3]) === "agenda" &&
+        errados[4].status === 400 &&
+        errados[5].status === 404,
+      "o formulário conferido campo a campo (o vazio, o assunto B igual, o produto que não existe, o botão pra fora, a hora em cima e a de 200 dias); a ação torta (400) e a campanha que não existe (404)",
+      JSON.stringify(errados.map((e) => [e.status, chaves(e)]))
+    )
+
+    const f = dono.pagina
+    await f.goto(`${PAINEL}/crm/campanhas`)
+    await f.locator("[data-campanhas-crm]").waitFor({ timeout: 20000 })
+    ok(
+      (await f.locator('.abas [data-aba="campanhas"][aria-current="page"]').count()) === 1 &&
+        (await f.locator("[data-nova-campanha]").getAttribute("href")) === "/crm/campanhas/nova" &&
+        (await f.locator("[data-regras-das-campanhas] li").count()) === 8,
+      "a aba Campanhas acesa, com o “Nova campanha” e as regras"
+    )
+    await f.locator("[data-nova-campanha]").click()
+    await f.locator("[data-formulario-da-campanha]").waitFor({ timeout: 20000 })
+    await hidratado(f, "[data-salvar]")
+    const avisoDoVazio = await avisoDoClique(f, () => f.locator("[data-salvar]").click())
+    ok(
+      avisoDoVazio === "Confira os campos em vermelho." &&
+        semEspaco(await f.locator('[data-erro="nome"]').textContent()) ===
+          "Dê um nome pra campanha (só a equipe vê)." &&
+        semEspaco(await f.locator('[data-erro="texto"]').textContent()) === "Escreva o texto.",
+      "salvar vazio pela tela: o aviso, e o erro embaixo de cada campo",
+      avisoDoVazio
+    )
+    await f.locator('[data-campo="nome"]').fill(EXEMPLO.nome)
+    await f.locator('[data-campo="publico"]').selectOption("todos")
+    await f.locator('[data-campo="assunto"]').fill(EXEMPLO.assunto)
+    await f.locator('[data-campo="comTeste"]').check()
+    const avisoDoB = await avisoDoClique(f, () => f.locator("[data-ver-como-fica]").click())
+    ok(
+      avisoDoB === "Confira os campos em vermelho." &&
+        semEspaco(await f.locator('[data-erro="assuntoB"]').textContent()) ===
+          "Escreva o assunto B, ou tire o teste.",
+      "o teste ligado com o assunto B vazio: a tela pede o B (e não salva “sem teste” calada)",
+      avisoDoB
+    )
+    await f.locator('[data-campo="assuntoB"]').fill(EXEMPLO.assuntoB)
+    await f.locator('[data-campo="previa"]').fill(EXEMPLO.previa)
+    await f.locator('[data-campo="titulo"]').fill(EXEMPLO.titulo)
+    await f.locator('[data-campo="texto"]').fill(EXEMPLO.texto)
+    await f.locator('[data-campo="botaoTexto"]').fill(EXEMPLO.botao.texto)
+    await f.locator('[data-campo="botaoCaminho"]').selectOption(EXEMPLO.botao.caminho)
+    await f.locator('[data-produto="oleo-para-barba"]').check()
+    await f.locator("[data-ver-como-fica]").click()
+    const quadro = f.locator("[data-previa-da-campanha] iframe")
+    await quadro.waitFor({ timeout: 20000 })
+    const html = (await quadro.getAttribute("srcdoc")) ?? ""
+    const sandbox = await quadro.getAttribute("sandbox")
+    ok(
+      sandbox !== null &&
+        !sandbox.includes("allow-scripts") &&
+        html.includes('<base target="_blank">') &&
+        html.includes("Vale at") &&
+        html.includes(`${LOJA}/produtos/oleo-para-barba?`) &&
+        html.includes("utm_campaign=crm-campanha-semana-do-oleo-") &&
+        (await f.locator(".previa-da-campanha__abas button").count()) === 2,
+      "“Ver como fica”: o e-mail num quadro sem script, uma aba pra cada assunto, e o link com a marca da campanha",
+      html.slice(0, 120)
+    )
+    const ehTeste = (e) => e.subject?.startsWith("[Teste] ")
+    const antesDosTestes = caixa.quantos(DONO, ehTeste)
+    const avisoDoTeste = await avisoDoClique(f, () => f.locator("[data-mandar-pra-mim]").click())
+    await caixa.esperarEmail(DONO, ehTeste, antesDosTestes + 1, 20000)
+    const testes = resend.emails
+      .filter((e) => e.to?.includes(DONO) && ehTeste(e))
+      .slice(antesDosTestes)
+    ok(
+      testes
+        .map((e) => e.subject)
+        .sort()
+        .join(" | ") ===
+        [`[Teste] ${EXEMPLO.assunto}`, `[Teste] ${EXEMPLO.assuntoB}`].sort().join(" | ") &&
+        testes.every(
+          (e) =>
+            e.tags?.some((t) => t.name === "tipo" && t.value === "crm-teste") &&
+            Boolean(e.headers?.["List-Unsubscribe"])
+        ) &&
+        avisoDoTeste.startsWith(`Mandei os dois assuntos pra ${DONO}.`),
+      "“Mandar pra mim”: os dois assuntos, como oferta (com o cancelar inscrição), e o aviso diz pra quem",
+      JSON.stringify({ avisoDoTeste, assuntos: testes.map((e) => e.subject) })
+    )
+    await f.locator("[data-salvar]").click()
+    await f.waitForURL(/\/crm\/campanhas\/cmp_/, { timeout: 20000 })
+    const id = new URL(f.url()).pathname.split("/").pop()
+    await f.locator(`[data-campanha="${id}"][data-situacao="rascunho"]`).waitFor({ timeout: 20000 })
+    ok(
+      (await f.locator('[data-campo="nome"]').inputValue()) === EXEMPLO.nome &&
+        (await f.locator('[data-campo="comTeste"]').isChecked()) &&
+        (await f.locator('[data-campo="assuntoB"]').inputValue()) === EXEMPLO.assuntoB,
+      "salvar: a campanha abre como rascunho, com o que foi escrito",
+      id
+    )
+    // A hora: daqui a 1 hora (em 5 minutos redondos), escrita como no campo (Brasília).
+    const agenda = Math.ceil((Date.now() + HORA) / (5 * MIN)) * 5 * MIN
+    const partes = Object.fromEntries(
+      new Intl.DateTimeFormat("en-CA", {
+        timeZone: "America/Sao_Paulo",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hourCycle: "h23",
+      })
+        .formatToParts(new Date(agenda))
+        .map((p) => [p.type, p.value])
+    )
+    await hidratado(f, "[data-agendar]")
+    await f
+      .locator('[data-campo="agenda"]')
+      .fill(`${partes.year}-${partes.month}-${partes.day}T${partes.hour}:${partes.minute}`)
+    await f.locator("[data-agendar]").click()
+    await f.waitForURL(`${PAINEL}/crm/campanhas`, { timeout: 20000 })
+    await f.locator(`[data-campanha="${id}"][data-situacao="agendada"]`).waitFor({ timeout: 20000 })
+    const BRASILIA = new Intl.DateTimeFormat("pt-BR", {
+      timeZone: "America/Sao_Paulo",
+      day: "2-digit",
+      month: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+    const naLista = semEspaco(
+      await f.locator(`[data-campanha="${id}"] [data-situacao-da-campanha]`).textContent()
+    )
+    const gravada = (await campanhas()).corpo.campanhas.find((c) => c.id === id)
+    ok(
+      naLista === `Agendada pra ${BRASILIA.format(new Date(agenda))}` &&
+        gravada?.agenda === iso(agenda) &&
+        gravada.texto.assuntoB === EXEMPLO.assuntoB &&
+        gravada.texto.produtos.join() === "oleo-para-barba",
+      "agendar pela tela: na lista, “Agendada pra” a hora de Brasília, e gravada com o assunto B e o óleo",
+      JSON.stringify({ naLista, agenda: gravada?.agenda })
+    )
+
+    titulo("As campanhas: o envio, o teste do assunto e o controle")
+    // As pessoas, pelo sorteio desta campanha (o mesmo do Medusa): A e B fora do controle, cada
+    // uma num assunto; C no controle; D pra madrugada.
+    const sorteio = (t) => createHash("sha256").update(t).digest().readUInt32BE(0)
+    const noControle = (e) => sorteio(`${e}|${id}|controle`) % 100 < 5
+    const assuntoDe = (e) => (sorteio(`${e}|${id}|ab`) % 2 === 0 ? "a" : "b")
+    const achar = (nome, cond) => {
+      for (let i = 0; ; i++) {
+        const e = `${nome}${i}@${DOMINIO}`
+        if (cond(e)) return e
+      }
+    }
+    const A = achar("campanha-a", (e) => !noControle(e) && assuntoDe(e) === "a")
+    const B = achar("campanha-b", (e) => !noControle(e) && assuntoDe(e) === "b")
+    const C = achar("campanha-c", noControle)
+    const D = achar("campanha-d", (e) => !noControle(e))
+    const inscritos = []
+    for (const e of [A, B, C, D]) inscritos.push(await inscrever(e))
+    const publico = (await campanhas()).corpo.publicos?.find((p) => p.id === "todos")
+    ok(
+      inscritos.every((s) => s === 200) && publico?.pessoas >= 4,
+      "4 pessoas na newsletter: o público “todos” conta elas",
+      JSON.stringify({ inscritos, publico })
+    )
+    // O envio vai de dia (8h às 22h em Brasília, UTC−3): a hora da agenda, ou as 8h05 seguintes.
+    const HORA_BR = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/Sao_Paulo",
+      hour: "numeric",
+      hourCycle: "h23",
+    })
+    const deDia = (ms) => {
+      const h = Number(HORA_BR.format(new Date(ms)))
+      if (h >= 8 && h < 22) return ms
+      const b = new Date(ms - 3 * HORA)
+      const dia = Date.UTC(b.getUTCFullYear(), b.getUTCMonth(), b.getUTCDate() + (h >= 22 ? 1 : 0))
+      return dia + 3 * HORA + 8 * HORA + 5 * MIN
+    }
+    const t1 = deDia(agenda + MIN)
+    const r0 = await rodar({ agora: iso(agenda - MIN), email: A })
+    ok(
+      r0.corpo.enviados === 0 &&
+        (await campanhas()).corpo.campanhas.find((c) => c.id === id)?.situacao === "agendada",
+      "antes da hora, a agendada espera",
+      JSON.stringify(r0.corpo)
+    )
+    const rA = await rodar({ agora: iso(t1), email: A })
+    const eA = await caixa.esperarEmail(A, daCampanha, 0)
+    ok(
+      rA.corpo.campanha === id &&
+        rA.corpo.enviados === 1 &&
+        eA?.subject === EXEMPLO.assunto &&
+        Boolean(eA.headers?.["List-Unsubscribe"]) &&
+        !/^Matheus, da FuckingBarba </.test(eA.from ?? "") &&
+        eA.html.includes(`${LOJA}/produtos/oleo-para-barba?`) &&
+        eA.html.includes("utm_campaign=crm-campanha-semana-do-oleo-") &&
+        !eA.html.includes("undefined"),
+      "na hora: A recebe o assunto A, como oferta (o cancelar inscrição, Promoções), com o óleo e a marca da campanha no link",
+      JSON.stringify({ r: rA.corpo, assunto: eA?.subject, de: eA?.from })
+    )
+    const rB = await rodar({ agora: iso(t1 + MIN), email: B })
+    const eB = await caixa.esperarEmail(B, daCampanha, 0)
+    ok(
+      rB.corpo.enviados === 1 && eB?.subject === EXEMPLO.assuntoB,
+      "B recebe o assunto B: metade de cada, pelo sorteio",
+      JSON.stringify({ r: rB.corpo, assunto: eB?.subject })
+    )
+    const rC = await rodar({ agora: iso(t1 + 2 * MIN), email: C })
+    const rA2 = await rodar({ agora: iso(t1 + 3 * MIN), email: A })
+    await esperar(500)
+    ok(
+      rC.corpo.controle === 1 &&
+        rC.corpo.enviados === 0 &&
+        caixa.quantos(C, daCampanha) === 0 &&
+        rA2.corpo.enviados === 0 &&
+        caixa.quantos(A, daCampanha) === 1,
+      "C, no grupo de controle, não recebe; e A não recebe de novo",
+      JSON.stringify({ c: rC.corpo, a: rA2.corpo })
+    )
+    // As 23h de Brasília depois do começo: ainda nas 24 horas do envio.
+    const b1 = new Date(t1 - 3 * HORA)
+    const as23 = Date.UTC(b1.getUTCFullYear(), b1.getUTCMonth(), b1.getUTCDate(), 23) + 3 * HORA
+    const rD = await rodar({ agora: iso(as23), email: D })
+    ok(
+      rD.corpo.campanha === id && rD.corpo.enviados === 0 && caixa.quantos(D, daCampanha) === 0,
+      "de madrugada, espera",
+      JSON.stringify(rD.corpo)
+    )
+    await f.goto(`${PAINEL}/crm/campanhas/${id}`)
+    await f.locator("[data-resultado-da-campanha]").waitFor({ timeout: 20000 })
+    ok(
+      semEspaco(await f.locator(".campanha__situacao").first().textContent()) === "Saindo agora" &&
+        (await f.locator("[data-parar]").count()) === 1 &&
+        semEspaco(await f.locator('[data-variante="a"] [data-numero="pessoas"]').textContent()) ===
+          "1" &&
+        semEspaco(await f.locator('[data-variante="b"] [data-numero="pessoas"]').textContent()) ===
+          "1" &&
+        semEspaco(await f.locator('[data-numero="controle"]').textContent()) === "0%" &&
+        (await f.locator("[data-pouca-gente]").count()) === 1,
+      "saindo: a tela conta quem recebeu cada assunto e o controle, e tem o “Parar o envio”"
+    )
+    const rFim = await rodar({ agora: iso(t1 + DIA_MS + MIN), email: D })
+    const depoisDoFim = await rodar({ agora: iso(deDia(t1 + DIA_MS + 2 * MIN)), email: D })
+    const saiu = (await campanhas()).corpo.campanhas.find((c) => c.id === id)
+    ok(
+      rFim.corpo.acabou === true &&
+        saiu?.situacao === "enviada" &&
+        depoisDoFim.corpo.enviados === 0 &&
+        caixa.quantos(D, daCampanha) === 0,
+      "24 horas depois do começo, a campanha acaba: quem ficou pra depois não recebe mais",
+      JSON.stringify({ fim: rFim.corpo, depois: depoisDoFim.corpo, situacao: saiu?.situacao })
+    )
+    // 7 dias depois do fim, o resultado fica guardado (uma campanha por rodada: as antigas antes).
+    const fechar = iso(t1 + DIA_MS + MIN + 7 * DIA_MS + 5 * MIN)
+    let fechou = null
+    for (let i = 0; i < 40 && fechou !== id; i++) {
+      const r = await rodar({ agora: fechar, email: D })
+      if (!r.corpo.fechou) break
+      fechou = r.corpo.fechou
+    }
+    const guardada = (await campanhas()).corpo.campanhas.find((c) => c.id === id)
+    // O banco (jsonb) guarda as chaves em outra ordem: compara com elas em ordem.
+    const emOrdem = (v) =>
+      Array.isArray(v)
+        ? v.map(emOrdem)
+        : v && typeof v === "object"
+          ? Object.fromEntries(
+              Object.keys(v)
+                .sort()
+                .map((k) => [k, emOrdem(v[k])])
+            )
+          : v
+    ok(
+      fechou === id &&
+        JSON.stringify(emOrdem(guardada?.resultado)) === JSON.stringify(emOrdem(saiu?.resultado)) &&
+        guardada.resultado.variantes.map((v) => `${v.variante}${v.pessoas}`).join() === "a1,b1" &&
+        guardada.resultado.controle.pessoas === 1,
+      "7 dias depois do fim, o resultado fica guardado — o mesmo da tela",
+      JSON.stringify({ fechou, resultado: guardada?.resultado })
+    )
+    await f.goto(`${PAINEL}/crm/campanhas/${id}`)
+    await f.locator("[data-resultado-da-campanha]").waitFor({ timeout: 20000 })
+    await hidratado(f, "[data-ver-o-email]")
+    await f.locator("[data-ver-o-email]").click()
+    await f.locator("[data-o-email-da-campanha] iframe").waitFor({ timeout: 20000 })
+    ok(
+      semEspaco(await f.locator(".campanha__situacao").first().textContent()).startsWith(
+        "Saiu em "
+      ) &&
+        (await f.locator("[data-parar]").count()) === 0 &&
+        (await f.locator("[data-formulario-da-campanha]").count()) === 0 &&
+        (await f.locator("[data-o-email-da-campanha] .previa-da-campanha__abas button").count()) ===
+          2,
+      "a que saiu: o resultado e o e-mail como chegou, sem formulário e sem o parar"
+    )
+
+    titulo("As campanhas: parar, desmarcar e apagar")
+    const outra = await mudar({
+      acao: "agendar",
+      campanha: { ...EXEMPLO, nome: `Parar ${RODADA}`, assuntoB: null },
+      agenda: iso(agenda),
+    })
+    await rodar({ agora: iso(t1 + 10 * DIA_MS), email: `ninguem@${DOMINIO}` })
+    await f.goto(`${PAINEL}/crm/campanhas/${outra.corpo.id}`)
+    await hidratado(f, "[data-parar]")
+    await f.locator("[data-parar]").click()
+    ok(
+      semEspaco(await f.locator("[data-parar]").textContent()) === "Clique de novo pra parar",
+      "o “Parar o envio” pede o segundo clique"
+    )
+    const avisoDoParar = await avisoDoClique(f, () => f.locator("[data-parar]").click())
+    const parada = (await campanhas()).corpo.campanhas.find((c) => c.id === outra.corpo.id)
+    const mudarAParada = await mudar({ acao: "salvar", id: outra.corpo.id, campanha: EXEMPLO })
+    ok(
+      avisoDoParar === "Envio parado: quem ainda não recebeu, não recebe mais." &&
+        parada?.situacao === "parada" &&
+        mudarAParada.status === 409,
+      "parar pela tela: a campanha para, e a parada não se muda mais (409)",
+      JSON.stringify({ avisoDoParar, situacao: parada?.situacao, status: mudarAParada.status })
+    )
+    const terceira = await mudar({
+      acao: "agendar",
+      campanha: { ...EXEMPLO, nome: `Desmarcar ${RODADA}` },
+      agenda: iso(agenda),
+    })
+    const cedo = await mudar({ acao: "apagar", id: terceira.corpo.id })
+    const desmarcada = await mudar({ acao: "desmarcar", id: terceira.corpo.id })
+    const apagada = await mudar({ acao: "apagar", id: terceira.corpo.id })
+    const sumiu = !(await campanhas()).corpo.campanhas.some((c) => c.id === terceira.corpo.id)
+    ok(
+      cedo.status === 409 && desmarcada.status === 200 && apagada.status === 200 && sumiu,
+      "a agendada não se apaga (409); desmarcada, volta a rascunho, e o rascunho se apaga",
+      [cedo.status, desmarcada.status, apagada.status, sumiu].join(",")
+    )
+    for (const caminho of ["/crm/campanhas", "/crm/campanhas/nova", `/crm/campanhas/${id}`]) {
+      await mkt.pagina.goto(`${PAINEL}${caminho}`)
+      await mkt.pagina.locator("[data-tela]").first().waitFor({ timeout: 20000 })
+      ok(await semRolagemDeLado(mkt.pagina), `${caminho} no celular, sem rolar de lado`)
+    }
+  }
+
   /* ── o painel ───────────────────────────────────────────────────────────── */
 
   titulo("A tela do CRM")
@@ -3360,6 +3774,18 @@ try {
       { desconto: 10 },
     ])
       await medusa("/dashboard/crm/fluxos", { token: tokenDoDono, corpo }).catch(() => null)
+  // Nenhuma campanha fica agendada nem saindo: a rotina de verdade mandaria pra todo mundo.
+  if (tokenDoDono)
+    for (const c of (
+      await medusa("/dashboard/crm/campanhas", { metodo: "GET", token: tokenDoDono }).catch(
+        () => null
+      )
+    )?.corpo?.campanhas ?? [])
+      if (c.situacao === "agendada" || c.situacao === "enviando")
+        await medusa("/dashboard/crm/campanhas", {
+          token: tokenDoDono,
+          corpo: { acao: c.situacao === "agendada" ? "desmarcar" : "parar", id: c.id },
+        }).catch(() => null)
   // Os Ajustes voltam ao padrão: o banco local é de todos os conferidores.
   if (tokenDoDono && padraoDosAjustes)
     await medusa("/dashboard/crm/ajustes", {
