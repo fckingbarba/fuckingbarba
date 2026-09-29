@@ -58,6 +58,12 @@ export type Cotacao =
        */
       faltaPraGratis: number | null
       opcoes: OpcaoCotada[]
+      /**
+       * Onde fica o CEP ("São Paulo", "SP"), pra PDP mostrar pra onde cotou
+       * no lugar do campo (0208). `null` quando o ViaCEP não respondeu — a
+       * tela mostra só o CEP.
+       */
+      lugar: { cidade: string; uf: string } | null
     }
   | { ok: false; mensagem: string }
 
@@ -85,6 +91,9 @@ export async function cotarFrete(
 
   const sdk = cliente()
   if (!sdk) return { ok: false, mensagem: NAO_DEU }
+
+  // O lugar em paralelo com a cotação, e cacheado por CEP (`lib/cep.ts`): não atrasa nada.
+  const lugar = buscarCep(limpo).catch(() => null)
 
   try {
     const { frete } = await sdk.client.fetch<{
@@ -121,6 +130,7 @@ export async function cotarFrete(
         não risca nada; com `undefined` solto, riscaria "R$ NaN".
       */
       opcoes: frete.opcoes.map((o) => ({ ...o, precoCheio: o.precoCheio ?? null })),
+      lugar: await lugar.then((e) => (e?.cidade && e.uf ? { cidade: e.cidade, uf: e.uf } : null)),
     }
   } catch {
     /*
