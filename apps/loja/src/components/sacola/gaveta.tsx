@@ -374,10 +374,8 @@ export function Gaveta({
             Finalizar compra
             <Raio className="btn__bolt" />
           </Link>
-
-          <button type="button" className="sacolinha__continuar" onClick={fechar}>
-            Continuar comprando
-          </button>
+          {/* Sem "Continuar comprando" (0209, pedido do dono): quem quer
+              voltar pra loja fecha no X do topo ou toca fora da sacola. */}
         </div>
       </div>
     </>

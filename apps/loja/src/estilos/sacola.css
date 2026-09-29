@@ -427,7 +427,9 @@
   line-height: 1.45;
 }
 .sacolinha__pe {
-  padding: 10px 18px 11px;
+  /* Sem o "Continuar comprando" (0209), o Finalizar é o último: o respiro de
+     baixo segura a sombra dele e a barrinha do iPhone. */
+  padding: 10px 18px calc(16px + env(safe-area-inset-bottom, 0px));
   background: var(--color-tinta);
   color: #ffffff;
 }
@@ -594,30 +596,6 @@
 }
 .sacolinha__parcela:empty {
   display: none;
-}
-.sacolinha__continuar {
-  display: block;
-  width: 100%;
-  margin-top: 7px;
-  padding: 3px;
-  background: none;
-  border: none;
-  color: #98a1ab;
-  font-family: inherit;
-  font-size: 0.74rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  cursor: pointer;
-}
-.sacolinha__continuar:hover {
-  color: #ffffff;
-}
-.sacolinha__continuar:focus-visible {
-  outline: 2px solid var(--color-amarelo);
-  outline-offset: 2px;
 }
 @media (max-width: 380px) {
   .sacolinha__item {
