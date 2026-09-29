@@ -219,3 +219,6 @@
 .campanha-jeito__nome { font-size: 0.9rem; font-weight: 800; }
 .campanha-jeito__sub { font-size: 0.78rem; line-height: 1.4; color: var(--tinta-suave); }
 @media (max-width: 640px) { .campanha-jeitos { grid-template-columns: minmax(0, 1fr); } }
+/* O indique um brother na aba Fluxos (0215): os links, os brothers, o vendido e os cupons. */
+.numeros--indique { grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 12px 0 0; }
+@media (max-width: 1180px) { .numeros--indique { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
