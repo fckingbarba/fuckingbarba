@@ -25,6 +25,11 @@ import { ProvasCarrossel } from "./provas-carrossel"
  * depois o segundo de cada um. Os primeiros cartões mostram produtos
  * diferentes, e um produto com três casos não toma o carrossel inteiro.
  *
+ * UM CASO APARECE UMA VEZ SÓ. O mesmo antes e depois costuma estar em mais de
+ * um produto (o do Fator vai também nos kits de Fator), e cada kit trazia a
+ * mesma pessoa de novo. Vale a primeira vez que as duas fotos aparecem, com o
+ * produto dela; as repetidas saem e o carrossel segue com os outros casos.
+ *
  * Cada caso fecha com o produto que a pessoa usou, levando pra página dele.
  * Prova social que não leva ao produto é prova desperdiçada. E a ressalva de
  * "resultado varia" vem junto, como na página do produto.
@@ -45,7 +50,9 @@ export async function Provas() {
         ? casosDoProduto(produto.handle, lerPdp(produto.metadata).conteudo)
         : [],
     }))
-  ).slice(0, CASOS_NA_HOME)
+  )
+    .filter(semRepetir())
+    .slice(0, CASOS_NA_HOME)
   if (!casos.length) return null
 
   return (
@@ -81,6 +88,17 @@ function alternados<P>(
     }
   }
   return saida
+}
+
+/** Deixa passar só a primeira vez de cada par de fotos (o antes e o depois). */
+function semRepetir() {
+  const vistos = new Set<string>()
+  return ({ caso }: { caso: CasoAntesDepois }) => {
+    const chave = `${caso.antes}\n${caso.depois}`
+    if (vistos.has(chave)) return false
+    vistos.add(chave)
+    return true
+  }
 }
 
 function Caso({ caso, produto }: { caso: CasoAntesDepois; produto: HttpTypes.StoreProduct }) {

@@ -4683,6 +4683,14 @@ continua. Conferido na loja local: o `conferir-frete-na-pdp` 23/23 duas vezes e 
 
 Depois do deploy — **nada a configurar.**
 
+**"Resultados reais" da home sem caso repetido — pronto em 29/09 (entrega 0214).** Pedido dele: o
+antes e depois do Fator também está nos kits de Fator, e a home mostrava a mesma pessoa uma vez por
+kit (o Abmael aparecia 5 vezes nos 8 cartões). Agora cada par de fotos entra uma vez só, com o
+primeiro produto em que aparece; os outros cartões seguem com casos diferentes. A página de cada
+produto não muda.
+
+Depois do deploy — **nada a configurar.**
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa
