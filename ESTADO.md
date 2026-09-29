@@ -4694,6 +4694,14 @@ prettier.
 
 Depois do deploy — **nada a configurar.**
 
+**"Resultados reais" da home sem caso repetido — pronto em 29/09 (entrega 0214).** Pedido dele: o
+antes e depois do Fator também está nos kits de Fator, e a home mostrava a mesma pessoa uma vez por
+kit (o Abmael aparecia 5 vezes nos 8 cartões). Agora cada par de fotos entra uma vez só, com o
+primeiro produto em que aparece; os outros cartões seguem com casos diferentes. A página de cada
+produto não muda.
+
+Depois do deploy — **nada a configurar.**
+
 **Sem as "Entrevista com cliente" — pronto em 29/09 (entrega 0213).** Seu pedido: com as avaliações
 de clientes reais chegando, tirar os trechos das entrevistas. Os 160 saíram da esteira da home e da
 seção "O que diz quem usou" de cada produto; ficam só as avaliações de quem comprou (37 publicadas
