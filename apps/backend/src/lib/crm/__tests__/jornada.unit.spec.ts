@@ -72,7 +72,27 @@ describe("a jornada de cada pedido", () => {
       handles: ["fator-de-crescimento-para-barba"],
       temFator: true,
       sugestoes: [SKU.shampoo, SKU.kitCompleto],
+      trilha: "crescimento",
     })
+  })
+
+  it("a linha do pedido (0217): o Fator manda; depois a barba; depois o cabelo", () => {
+    const linha = (itens: [string, string][]) =>
+      jornadasDaPessoa(EMAIL, [pedido("order_1", 5, itens)], [])[0].trilha
+    expect(linha([["FBOL01", "oleo-para-barba"]])).toBe("cuidado")
+    expect(linha([["FBPMM01", "pasta-modeladora-matte-80g-fucking-barba"]])).toBe("cabelo")
+    expect(
+      linha([
+        ["FBPMM01", "pasta-modeladora-matte-80g-fucking-barba"],
+        ["FBOL01", "oleo-para-barba"],
+      ])
+    ).toBe("cuidado")
+    expect(
+      linha([
+        ["FBOL01", "oleo-para-barba"],
+        ["FBFCB01", "fator-de-crescimento-para-barba"],
+      ])
+    ).toBe("crescimento")
   })
 
   it("a 2ª compra (0215): quem já tinha comprado antes, numa das duas lojas", () => {

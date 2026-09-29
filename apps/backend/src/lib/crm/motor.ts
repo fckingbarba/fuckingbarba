@@ -88,7 +88,7 @@ import {
   validadeDoCupom,
 } from "./fluxos"
 import { juntar } from "./nuvemshop"
-import { produtosDoEmail, trilhaDaPagina } from "./primeira-compra"
+import { PRODUTOS_DA_TRILHA, produtosDoEmail, trilhaDaPagina } from "./primeira-compra"
 import { linksDeSair } from "./sair"
 import { linkDeVoltar } from "./voltar"
 
@@ -792,6 +792,8 @@ export async function rodarOsFluxos(
         sugestoes: j.sugestoes.flatMap((s) => dados.porSku.get(s) ?? []),
         checkin: toque === "jornada-7d" ? linksDoCheckin(j.pedido) : null,
         indique,
+        trilha: j.trilha,
+        produtoDoIndique: indique ? produtoDaLinha(j, dados.conteudos) : null,
         sair: linksDeSair(loja, email),
         loja: infoDaLoja,
       })
@@ -1461,6 +1463,25 @@ async function lerDadosDaNavegacao(
       return dela
     },
   }
+}
+
+/**
+ * O produto do pedido na frase do convite do indique (0217): o da mesma linha
+ * do assunto — o Fator no crescer; nas outras, o primeiro do pedido que é da
+ * trilha. Sem nenhum, nulo (a frase fica com "a FuckingBarba").
+ */
+function produtoDaLinha(
+  j: JornadaDoPedido,
+  conteudos: ReadonlyMap<string, ConteudoDoProduto>
+): string | null {
+  const daLinha: readonly string[] = PRODUTOS_DA_TRILHA[j.trilha]
+  const c =
+    j.trilha === "crescimento"
+      ? conteudos.get(PRODUTOS_DAS_TRILHAS.fator)
+      : j.trilha === "geral"
+        ? undefined
+        : j.handles.filter((h) => daLinha.includes(h)).flatMap((h) => conteudos.get(h) ?? [])[0]
+  return c ? `${c.artigo} ${c.curto}` : null
 }
 
 type DadosDaJornada = {

@@ -1,5 +1,5 @@
 import { dia, hora } from "../painel/formato"
-import { primeiroNome } from "./boas-vindas"
+import { primeiroNome, type TrilhaDoEmail } from "./boas-vindas"
 import type { EmailDoCrm } from "./crm"
 
 /**
@@ -8,7 +8,9 @@ import type { EmailDoCrm } from "./crm"
  *
  *   - o CONVITE, na jornada do resultado (10 dias depois que o pedido chega),
  *     pra quem está gostando: o link, o "Mandar no WhatsApp" e o que cada um
- *     ganha;
+ *     ganha. O assunto é pelo que a pessoa comprou (0217, pedido do dono):
+ *     o Fator ("Conhece alguém com a barba falhada?"), a barba, o cabelo — ou
+ *     o geral;
  *   - o LEMBRETE, 30 dias depois do convite, se nenhum brother comprou;
  *   - o PRÊMIO, quando um brother paga a 1ª compra com o link: o cupom de
  *     quem indicou. O brother não aparece: nem o nome, nem o e-mail.
@@ -35,12 +37,32 @@ export type IndiqueDoEmail = {
 
 export type ToqueDoIndique = "jornada-indique" | "jornada-indique-30d"
 
+/** O assunto do convite e pra quem mandar, pela linha do pedido (0217). */
+const DO_CONVITE: Record<Exclude<TrilhaDoEmail, "geral">, { assunto: string; pra: string }> = {
+  crescimento: {
+    assunto: "Conhece alguém com a barba falhada?",
+    pra: "um brother que quer a barba cheia",
+  },
+  cuidado: {
+    assunto: "Conhece alguém que precisa cuidar da barba?",
+    pra: "um brother que precisa cuidar da barba",
+  },
+  cabelo: {
+    assunto: "Conhece alguém que precisa dar um jeito no cabelo?",
+    pra: "um brother que precisa dar um jeito no cabelo",
+  },
+}
+
 export function emailDoIndique(i: {
   toque: ToqueDoIndique
   para: string
   /** O nome como veio (a conta, o pedido). O e-mail usa o primeiro. */
   nome: string | null
   indique: IndiqueDoEmail
+  /** De que é o pedido (a trilha): o assunto do convite. Sem ela, o geral. */
+  trilha?: TrilhaDoEmail
+  /** O produto do pedido na frase ("o Fator de Crescimento"). Sem ele, "a FuckingBarba". */
+  produto?: string | null
   sair: EmailDoCrm["sair"]
   loja: EmailDoCrm["loja"]
 }): EmailDoCrm {
@@ -69,16 +91,19 @@ export function emailDoIndique(i: {
       { tipo: "texto" as const, texto: `Ou copie o seu link: ${link}` },
     ],
   }
-  if (i.toque === "jornada-indique")
+  if (i.toque === "jornada-indique") {
+    const linha = i.trilha && i.trilha !== "geral" ? DO_CONVITE[i.trilha] : null
     return {
       ...base,
-      assunto: `Indique um brother: ${amigo}% pra ele, ${premio}% pra você`,
-      previa: "Ele ganha na primeira compra; você, quando ele comprar.",
+      assunto: linha?.assunto ?? `Indique um brother: ${amigo}% pra ele, ${premio}% pra você`,
+      previa: `Seu link dá ${amigo}% pra ele na primeira compra, e ${premio}% pra você.`,
       titulo: "Indique um brother",
       texto:
-        `Tá curtindo a FuckingBarba? Manda o seu link pra um brother: ele ganha ${amigo}% na ` +
-        `primeira compra, e quando ele comprar, você ganha ${premio}% na próxima.`,
+        `Tá curtindo ${i.produto || "a FuckingBarba"}? Manda o seu link pra ` +
+        `${linha?.pra ?? "um brother"}: ele ganha ${amigo}% na primeira compra, e quando ele ` +
+        `comprar, você ganha ${premio}% na próxima.`,
     }
+  }
   return {
     ...base,
     assunto: `Seu link continua valendo ${premio}% pra você`,
