@@ -384,22 +384,33 @@ try {
       "de onde vieram e quem está no site agora",
       JSON.stringify({ origens: p.origens, agora: p.agora })
     )
-    const lote = google.perguntas.slice(antesDasPerguntas).find((x) => x.tipo === "batchRunReports")
-      ?.corpo.requests
+    // Duas chamadas ao mesmo tempo (0216): as quatro de sempre e as "até agora".
+    const lotes = google.perguntas
+      .slice(antesDasPerguntas)
+      .filter((x) => x.tipo === "batchRunReports")
+      .map((x) => x.corpo.requests ?? [])
+    const lote = lotes.find((l) => l.length === 4)
+    const loteDoAgora = lotes.find((l) => l.length === 2)
     const ontemComTraco = `${ONTEM.slice(0, 4)}-${ONTEM.slice(4, 6)}-${ONTEM.slice(6)}`
     const hojeComTraco = `${HOJE.slice(0, 4)}-${HOJE.slice(4, 6)}-${HOJE.slice(6)}`
     const temOEndereco = (q) =>
       JSON.stringify(q?.dimensionFilter ?? {}).includes('"fieldName":"hostName"')
     ok(
-      lote?.length === 5 &&
+      lote &&
         lote[0].dateRanges?.[0]?.startDate === ontemComTraco &&
         lote[0].dateRanges?.[0]?.endDate === hojeComTraco &&
         lote[2].dateRanges?.[0]?.startDate === hojeComTraco &&
-        lote[4].dateRanges?.[0]?.startDate === ontemComTraco &&
-        lote[4].dateRanges?.[0]?.endDate === ontemComTraco &&
-        lote.every(temOEndereco),
-      "cinco perguntas numa chamada (a 5ª: as sacolas de ontem por hora), com as datas do período e só o endereço da loja",
-      JSON.stringify(lote?.map((q) => [q.dateRanges, (q.dimensions ?? []).map((d) => d.name)]))
+        lote.every(temOEndereco) &&
+        loteDoAgora &&
+        loteDoAgora[0].dateRanges?.[0]?.startDate === hojeComTraco &&
+        JSON.stringify(loteDoAgora[0].dimensions) === JSON.stringify([{ name: "date" }]) &&
+        loteDoAgora[1].dateRanges?.[0]?.startDate === ontemComTraco &&
+        loteDoAgora[1].dateRanges?.[0]?.endDate === ontemComTraco &&
+        loteDoAgora.every(temOEndereco),
+      "quatro perguntas numa chamada e, noutra, as de até agora (as visitas por dia e as sacolas de ontem por hora), só do endereço da loja",
+      JSON.stringify(
+        lotes.map((l) => l.map((q) => [q.dateRanges, (q.dimensions ?? []).map((d) => d.name)]))
+      )
     )
 
     const ontem = (await doPeriodo("periodo=ontem")).corpo.periodo ?? {}
@@ -624,6 +635,50 @@ try {
       `${horaDela} (em Manaus: ${antes})`
     )
     google.fuso = "America/Sao_Paulo"
+  }
+
+  titulo("O total do dia (0216): todas as visitas e todas as vendas até agora")
+  {
+    // Como em 29/09: por hora o Google só somou até 3 horas atrás, mas o total do dia já está em dia.
+    const ultima = Math.max(0, HORA_AGORA - 3)
+    google.dia.horas = [...linhasDeHoje(ultima), ...linhasDeOntem, ...linhasDeAnteontem]
+    google.inicio.totalDoDia = { [HOJE]: HOJE_TOTAL }
+    const p = (await doPeriodo("periodo=hoje")).corpo.periodo ?? {}
+    // O de antes vai até a hora de agora (a do backend; a virada da hora no meio vale as duas).
+    const bate = (h) =>
+      p.visitas?.antes === somar(ONTEM_POR_HORA, h) &&
+      p.taxas?.sacola?.antes ===
+        (somar(ONTEM_POR_HORA, h)
+          ? Math.round((somar(SACOLAS_DE_ONTEM, h) / somar(ONTEM_POR_HORA, h)) * 10_000) / 100
+          : null)
+    ok(
+      p.ate === null &&
+        p.visitas?.valor === HOJE_TOTAL &&
+        (bate(HORA_AGORA) || bate(HORA_AGORA + 1)),
+      "hoje: o total do dia (não o das horas atrasadas); ontem até a hora de agora",
+      JSON.stringify({ ate: p.ate, visitas: p.visitas, sacola: p.taxas?.sacola })
+    )
+    const c = p.taxas?.compraram ?? {}
+    ok(
+      p.comportamento?.visitas === HOJE_TOTAL &&
+        c.em === HOJE_TOTAL &&
+        Number.isInteger(c.de) &&
+        c.noPeriodo === undefined &&
+        p.taxas?.sacola?.em === HOJE_TOTAL,
+      "o bloco e as duas taxas com o mesmo número de visitas; a das compras com todas as vendas",
+      JSON.stringify({ comportamento: p.comportamento, compraram: c })
+    )
+    const { pagina } = dono
+    await pagina.goto(`${PAINEL}/`)
+    await pagina.waitForSelector('[data-taxa="compraram"]:not([data-carregando])')
+    const tela = semEspaco(await pagina.locator("main").innerText())
+    ok(
+      !/até as \d+h/.test(tela) && tela.includes(INTEIRO.format(HOJE_TOTAL)),
+      'a tela sem o "até as Nh", com o total do dia',
+      tela.slice(0, 200)
+    )
+    delete google.inicio.totalDoDia
+    google.dia.horas = [...linhasDeHoje(HORA_AGORA), ...linhasDeOntem, ...linhasDeAnteontem]
   }
 
   titulo("Quando o Google falha, o Início não")

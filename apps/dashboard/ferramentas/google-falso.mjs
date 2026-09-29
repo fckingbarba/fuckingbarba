@@ -199,11 +199,17 @@ export async function subirGoogleFalso({
       } catch {
         valida = false
       }
-      rows = valida
-        ? (painel.inicio.categorias ?? [])
-            .filter((c) => c.dia >= de && c.dia <= ate)
-            .map((c) => linha([c.dia], c.sessoes))
-        : []
+      // Sem o filtro do caminho: as visitas por dia (0216), o total que o Google já contou.
+      if (!caminho)
+        rows = Object.entries(painel.inicio?.totalDoDia ?? {})
+          .filter(([dia]) => dia >= de && dia <= ate)
+          .map(([dia, n]) => linha([dia], n))
+      else
+        rows = valida
+          ? (painel.inicio.categorias ?? [])
+              .filter((c) => c.dia >= de && c.dia <= ate)
+              .map((c) => linha([c.dia], c.sessoes))
+          : []
     } else if (dims === "date,hour" && metricas === "ecommercePurchases")
       rows = (painel.dia.compras ?? [])
         .filter((c) => c.dia >= de && c.dia <= ate)
