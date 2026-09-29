@@ -162,7 +162,8 @@ async function quandoGravar(ler, chegou, tempo = 20000) {
 const entregaGravada = (pag, tempo = 25000) =>
   pag
     .locator("#form-pagamento button[type=submit]:not([disabled])")
-    .waitFor({ timeout: tempo })
+    // `attached`: no celular o botão de dentro do passo fica escondido (quem manda é a barra).
+    .waitFor({ state: "attached", timeout: tempo })
     .catch(() => null)
 
 async function medusa(caminho, cabecalhos = {}) {
@@ -1701,7 +1702,7 @@ await barra.click()
 await barra.click({ force: true, timeout: 2000 }).catch(() => null)
 await noCelular.locator(".painel[data-ativo] #form-entrega").waitFor({ timeout: 20000 })
 ok(
-  (await barra.innerText()).includes("Ir pro pagamento"),
+  /ir pro pagamento/i.test(await barra.innerText()),
   "tocar na barra abre a entrega na hora, e a barra já é a do passo 2",
   await barra.innerText()
 )
@@ -1772,8 +1773,8 @@ titulo("O passo seguinte abre no clique")
       "e a linha do passo 1 já mostra o que foi digitado"
     )
     ok(
-      (await pag.locator(".painel[data-ativo] button[type=submit]").innerText()).includes(
-        "Ir pro pagamento"
+      /ir pro pagamento/i.test(
+        await pag.locator(".painel[data-ativo] button[type=submit]").innerText()
       ),
       "sem 'Salvando…': o botão na tela já é o do passo 2"
     )
