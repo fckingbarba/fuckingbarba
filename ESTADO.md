@@ -4754,7 +4754,7 @@ Depois do deploy — **nada a configurar.**
 pedidos, o "hoje, 11:08" embaixo dele e a ordem da lista contam só os pedidos pagos e não
 cancelados — como o "Gastou" já fazia. Quem só tem pedido sem pagar aparece com 0 e a data do
 cadastro. A ficha do cliente segue listando todos os pedidos (a operação precisa ver o Pix
-esperando), mas o resumo dela conta só os pagos. Conferido: os unitários do backend (1.685), o
+esperando), mas o resumo dela conta só os pagos. Conferido: os unitários do backend (1.684), o
 typecheck, o lint e o prettier.
 
 Depois do deploy — **nada a configurar.**
