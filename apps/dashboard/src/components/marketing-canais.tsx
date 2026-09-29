@@ -19,6 +19,7 @@ const porcento = (v: number, casas = 0) => `${v.toFixed(casas).replace(".", ",")
 const AJUDA: Record<string, string> = {
   Direto: "digitou o endereço ou salvou nos favoritos",
   "Sem origem": "o Google não disse de onde veio",
+  "Google ainda processando": "visitas das últimas horas; o Google diz a origem mais tarde",
 }
 
 /** Acima ou abaixo da média da loja: bom e ruim, só com visita que chegue pra dizer. */
