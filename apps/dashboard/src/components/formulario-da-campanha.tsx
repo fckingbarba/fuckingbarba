@@ -13,6 +13,7 @@ import {
 import type {
   CampanhaNaTela,
   ErrosDaCampanha,
+  JeitoDaCampanha,
   PublicoDaCampanha,
   TelaDasCampanhas,
   TextoDaCampanha,
@@ -61,6 +62,20 @@ function quantoTempo(pessoas: number): string {
   return `umas ${Math.floor(meias / 2)}h${meias % 2 ? "30" : ""}`
 }
 
+/** Os dois jeitos de chegar (0210), com o que cada um quer dizer. */
+const JEITOS: { id: JeitoDaCampanha; nome: string; sub: string }[] = [
+  {
+    id: "oferta",
+    nome: "Oferta",
+    sub: "Cai em Promoções, com o “cancelar inscrição” do Gmail. Pra desconto e preço, como a Black.",
+  },
+  {
+    id: "recado",
+    nome: "Recado do Matheus",
+    sub: "Tenta o Principal — quem decide é o Gmail. Assinado “Matheus, da FuckingBarba”, sem emoji, com o sair da lista no pé. Pra lançamento e novidade, sem preço.",
+  },
+]
+
 const VAZIO: TextoDaCampanha = {
   nome: "",
   assunto: "",
@@ -71,6 +86,7 @@ const VAZIO: TextoDaCampanha = {
   botao: { texto: "Ver na loja", caminho: "/" },
   produtos: [],
   publico: "todos",
+  jeito: "oferta",
 }
 
 export function FormularioDaCampanha({
@@ -247,6 +263,25 @@ export function FormularioDaCampanha({
           O e-mail
         </h2>
         <div className="campos">
+          <fieldset className="campo" aria-invalid={Boolean(erros.jeito)} data-campo="jeito">
+            <legend className="campo__rot">Como chega</legend>
+            <div className="campanha-jeitos">
+              {JEITOS.map((j) => (
+                <label key={j.id} className="campanha-jeito" data-jeito={j.id}>
+                  <input
+                    type="radio"
+                    name="campanha-jeito"
+                    value={j.id}
+                    checked={texto.jeito === j.id}
+                    onChange={() => mudar("jeito", j.id)}
+                  />
+                  <span className="campanha-jeito__nome">{j.nome}</span>
+                  <span className="campanha-jeito__sub">{j.sub}</span>
+                </label>
+              ))}
+            </div>
+            {erro("jeito")}
+          </fieldset>
           <div className="campo campo--4">
             <label htmlFor="campanha-assunto">Assunto</label>
             <input

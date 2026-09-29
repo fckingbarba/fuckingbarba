@@ -54,7 +54,10 @@ export function ListaDasCampanhas({ tela }: { tela: TelaDasCampanhas }) {
               <span className="campanha__situacao" data-situacao-da-campanha>
                 {situacaoEmTexto(c)}
               </span>
-              <span className="campanha__publico">{c.nomeDoPublico}</span>
+              <span className="campanha__publico">
+                {c.nomeDoPublico}
+                {c.texto.jeito === "recado" ? ` · ${c.nomeDoJeito}` : ""}
+              </span>
             </div>
             <p className="campanha__nome">
               <Link href={`/crm/campanhas/${c.id}` as Route}>{c.texto.nome}</Link>
@@ -182,6 +185,12 @@ export function RegrasDasCampanhas() {
           tarde, se der tempo.
         </li>
         <li>5% não recebem: é o grupo de controle, pra saber o que a campanha vende a mais.</li>
+        <li>
+          Oferta ou recado: a oferta vai com o “cancelar inscrição” do Gmail, e o lugar dela é
+          Promoções. O recado vai assinado por você, sem emoji, e tenta o Principal — quem decide é
+          o Gmail. Sem o botão de cancelar, quem não quer mais pode marcar spam: recado é pra
+          campanha sem preço.
+        </li>
         <li>
           Com outro assunto, metade recebe cada um, por sorteio. A tela mostra qual vendeu mais em 7
           dias; quem escolhe o da próxima é você.

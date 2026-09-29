@@ -79,7 +79,7 @@ async function Campanha({ params }: Props) {
       <Cabeca
         titulo={c.texto.nome}
         selo={selo}
-        sub={c.nomeDoPublico}
+        sub={`${c.nomeDoPublico} · ${c.nomeDoJeito}`}
         voltar={voltar}
         acoes={c.situacao === "enviando" ? <PararACampanha id={c.id} /> : null}
       />
