@@ -25,6 +25,7 @@ import {
 import type { Configuracoes } from "@/lib/configuracoes"
 import { emReais } from "@/lib/formato"
 import { abriuOCheckout } from "@/lib/acoes/checkout"
+import { comOAdiantado, jaChegou, type Adiantado } from "@/lib/passos-do-checkout"
 import { anotarNaLoja, comASacola, rastrear } from "@/lib/rastrear"
 import { usePeDaTela } from "@/lib/use-pe-da-tela"
 import { Contato } from "./contato"
@@ -34,7 +35,21 @@ import { Giro } from "./resposta"
 import { Resumo } from "./resumo"
 
 // Moram em `resposta.tsx` (a conta usa os mesmos); o checkout segue importando daqui.
-export { Giro, Recado, trazerPraVista, useFechaQuandoSalva, useFocaNoErro } from "./resposta"
+export { Giro, Recado, trazerPraVista, useFocaNoErro } from "./resposta"
+
+/**
+ * Quanto tempo o passo que acabou de abrir fica surdo a um envio VAZIO — o
+ * segundo toque de quem tocou duas vezes em "Continuar" (ver `recemAberto`).
+ */
+const TOQUE_REPETIDO_MS = 600
+
+/** O que o botão de um passo diz enquanto a ação dele grava — e como os outros sabem disso. */
+export const SALVANDO = "Salvando…"
+
+/** Os passos que abrem o seguinte no clique — o pagamento termina na tela de obrigado. */
+const ETAPAS_ADIANTAVEIS = ["contato", "entrega"] as const
+type EtapaAdiantavel = (typeof ETAPAS_ADIANTAVEIS)[number]
+type Adiantados = Partial<Record<EtapaAdiantavel, Adiantado>>
 
 /**
  * O CHECKOUT EM TRÊS PASSOS
@@ -52,8 +67,29 @@ export { Giro, Recado, trazerPraVista, useFechaQuandoSalva, useFocaNoErro } from
  * │ lugar que pode discordar dele.                                        │
  * │                                                                        │
  * │ O único estado de tela aqui é `editando`: quando a pessoa clica em     │
- * │ "editar" num passo já vencido. Ele se apaga sozinho quando aquele      │
- * │ passo é salvo de novo.                                                │
+ * │ "editar" num passo já vencido. Ele se apaga quando aquele passo é      │
+ * │ enviado de novo.                                                       │
+ * └────────────────────────────────────────────────────────────────────────┘
+ *
+ * ┌─ O PASSO SEGUINTE ABRE NO CLIQUE (entrega 0201) ───────────────────────┐
+ * │ Era "Salvando…" no botão até o Medusa gravar e a página voltar refeita │
+ * │ — uma ida e volta aos EUA, mais o Medusa, em cada passo. Agora a tela  │
+ * │ confere o formulário ali mesmo, com as regras da ação                  │
+ * │ (`lib/passos-do-checkout.ts`), e o que foi enviado entra num carrinho  │
+ * │ ADIANTADO (`comOAdiantado`): é dele que sai o passo aberto e a linha   │
+ * │ do passo feito, enquanto a ação grava por trás.                        │
+ * │                                                                        │
+ * │ O ADIANTADO SAI QUANDO O CARRINHO DE VERDADE CHEGA COM ELE             │
+ * │ (`jaChegou`), e não quando a ação responde: o Next entrega a resposta  │
+ * │ da ação ANTES da página refeita (`server-action-reducer.js`), e soltar │
+ * │ o adiantado na resposta mostrava o passo de antes por um instante — o  │
+ * │ passo piscava. Se a ação recusa (a sacola expirou, o CEP é de outra    │
+ * │ cidade, a rede caiu), o adiantado sai na hora e o passo volta aberto,  │
+ * │ com o recado (`aoVoltar`).                                             │
+ * │                                                                        │
+ * │ E O PAGAR ESPERA. Com um passo de antes ainda gravando (`gravando`), o │
+ * │ total pode mudar — o frete entra junto com o endereço —, e o botão de  │
+ * │ pagar espera como espera a troca de frete: o dinheiro esmaece e pulsa. │
  * └────────────────────────────────────────────────────────────────────────┘
  */
 
@@ -82,9 +118,69 @@ export function Etapas({
   piso,
   atendimento,
 }: Props) {
-  const sugerida = etapaDoCarrinho(checkout)
   const [editando, setEditando] = useState<Etapa | null>(null)
+  const [adiantados, setAdiantados] = useState<Adiantados>({})
+
+  /*
+    A PÁGINA REFEITA CHEGOU com o que foi enviado: o adiantado já não diz
+    nada, e sai. No render, e não num efeito — é o "ajustar o estado quando a
+    prop muda" do React: com efeito, a tela pintaria uma vez o carrinho novo
+    ainda por baixo do adiantado. E sai de verdade, não só é ignorado: um
+    adiantado velho que voltasse a valer (o CEP trocado depois) reescreveria
+    o endereço na tela.
+  */
+  const [carrinhoVisto, setCarrinhoVisto] = useState(checkout)
+  if (checkout !== carrinhoVisto) {
+    setCarrinhoVisto(checkout)
+    const ficam: Adiantados = {}
+    for (const e of ETAPAS_ADIANTAVEIS) {
+      const a = adiantados[e]
+      if (a && !jaChegou(checkout, a)) ficam[e] = a
+    }
+    if (Object.keys(ficam).length !== Object.keys(adiantados).length) setAdiantados(ficam)
+  }
+
+  // O carrinho como vai ficar — com o que os passos enviaram e ainda não voltou.
+  const vista = [adiantados.contato, adiantados.entrega].reduce<CheckoutVisivel>(
+    (c, a) => (a ? comOAdiantado(c, a) : c),
+    checkout
+  )
+  const sugerida = etapaDoCarrinho(vista)
   const aberta = editando ?? sugerida
+
+  /*
+   * O PASSO QUE ACABOU DE ABRIR. Com o passo seguinte abrindo no clique, o
+   * segundo toque de quem tocou duas vezes em "Continuar" (a barra do
+   * celular fica no mesmo lugar) cai no passo novo, ainda vazio — e enchia
+   * de vermelho os campos que a pessoa nem viu. O passo pergunta aqui antes
+   * de conferir um envio vazio.
+   */
+  const abertaEm = useRef(Number.NEGATIVE_INFINITY)
+  const abertaAntes = useRef(aberta)
+  useEffect(() => {
+    if (abertaAntes.current === aberta) return
+    abertaAntes.current = aberta
+    abertaEm.current = performance.now()
+  }, [aberta])
+  const recemAberto = useCallback(
+    () => performance.now() - abertaEm.current < TOQUE_REPETIDO_MS,
+    []
+  )
+
+  // O passo enviou algo que confere: o carrinho adianta, e o passo seguinte abre.
+  const adiantar = useCallback((a: Adiantado) => {
+    setAdiantados((atual) => ({ ...atual, [a.etapa]: a }))
+    setEditando(null)
+  }, [])
+  // A ação recusou: o adiantado sai, e o passo volta aberto, com o recado.
+  const aoVoltar = useCallback((etapa: EtapaAdiantavel) => {
+    setAdiantados((atual) => {
+      const ficam = { ...atual }
+      delete ficam[etapa]
+      return ficam
+    })
+    setEditando(etapa)
+  }, [])
 
   // O começo do checkout (a InitiateCheckout da Meta e do TikTok), uma vez por carrinho — e a
   // marca no carrinho, o "começaram o checkout" do painel (0186), de todo mundo.
@@ -136,11 +232,19 @@ export function Etapas({
     setOcupados((o) => ((o[etapa] ?? null) === texto ? o : { ...o, [etapa]: texto ?? undefined }))
   }, [])
 
+  // Um passo de antes ainda indo e voltando do Medusa, por trás da tela. O
+  // da entrega mexe no total (o frete entra junto com o endereço); a busca
+  // do CEP, não — ela acontece com o passo 2 aberto.
+  const mudandoOTotal = recalculando || ocupados.entrega === SALVANDO
+  const gravando = mudandoOTotal || ocupados.contato === SALVANDO
+
   const comum = {
     aberta,
     sugerida,
     aoAbrir: setEditando,
-    aoSalvar: () => setEditando(null),
+    adiantar,
+    aoVoltar,
+    recemAberto,
     recalcular,
     recalculando,
     aoOcupar,
@@ -164,7 +268,7 @@ export function Etapas({
             <FeitoPasso
               key={e}
               etapa={e}
-              texto={resumoDoPasso(e, checkout, fretes)}
+              texto={resumoDoPasso(e, vista, fretes)}
               aoEditar={() => setEditando(e)}
             />
           )
@@ -188,6 +292,7 @@ export function Etapas({
           bump={bump}
           atendimento={atendimento}
           {...comum}
+          recalculando={gravando}
         />
       </div>
 
@@ -195,10 +300,11 @@ export function Etapas({
         checkout={checkout}
         aberta={aberta}
         ocupado={ocupados[aberta] ?? null}
-        recalculando={recalculando}
+        recalculando={aberta === "pagamento" ? gravando : recalculando}
+        mudandoOTotal={mudandoOTotal}
       />
 
-      <Resumo checkout={checkout} recalculando={recalculando} atendimento={atendimento} />
+      <Resumo checkout={checkout} recalculando={mudandoOTotal} atendimento={atendimento} />
     </>
   )
 }
@@ -306,11 +412,15 @@ function Barra({
   aberta,
   ocupado,
   recalculando,
+  mudandoOTotal,
 }: {
   checkout: CheckoutVisivel
   aberta: Etapa
   ocupado: string | null
+  /** O botão espera: uma troca no total, ou (no pagamento) um passo de antes gravando. */
   recalculando: boolean
+  /** O total da barra vai mudar — esmaece, como o do resumo. */
+  mudandoOTotal: boolean
 }) {
   const textos: Record<Etapa, string> = {
     contato: "Continuar",
@@ -324,7 +434,7 @@ function Barra({
 
   return (
     <div ref={barra} className="barra">
-      <span className="barra__total" data-recalculando={recalculando ? "" : undefined}>
+      <span className="barra__total" data-recalculando={mudandoOTotal ? "" : undefined}>
         <small>Total</small>
         <b>{emReais(checkout.total)}</b>
       </span>
@@ -363,7 +473,12 @@ export type PropsDaEtapa = {
   aberta: Etapa
   sugerida: Etapa
   aoAbrir: (e: Etapa) => void
-  aoSalvar: () => void
+  /** O envio conferiu: o passo seguinte abre, e a ação grava por trás. */
+  adiantar: (a: Adiantado) => void
+  /** A ação recusou o que foi adiantado: o passo volta aberto, com o recado. */
+  aoVoltar: (etapa: EtapaAdiantavel) => void
+  /** O passo acabou de abrir — um envio vazio agora é o toque repetido. */
+  recemAberto: () => boolean
   /** Pra troca que mexe no total sem sair do passo: frete, bump, chip. */
   recalcular: TransitionStartFunction
   /** Alguma dessas trocas ainda está indo e voltando do Medusa. */

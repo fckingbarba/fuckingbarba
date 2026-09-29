@@ -5,11 +5,13 @@ import { Raio } from "@/components/icones"
 import { salvarContato } from "@/lib/acoes/checkout"
 import {
   ESTADO_INICIAL,
+  estadoComErros,
   estadoSemResposta,
   type CheckoutVisivel,
   type EstadoDaEtapa,
 } from "@/lib/checkout-visivel"
 import { mascararDocumento } from "@/lib/documento"
+import { conferirContato } from "@/lib/passos-do-checkout"
 import { SEM_CONEXAO, semQueda } from "@/lib/rede"
 import { mascararTelefone } from "@/lib/telefone"
 import { Campo } from "./campo"
@@ -17,18 +19,11 @@ import {
   Giro,
   Painel,
   Recado,
+  SALVANDO,
   useAvisaOcupado,
-  useFechaQuandoSalva,
   useFocaNoErro,
   type PropsDaEtapa,
 } from "./etapas"
-
-/** Sem internet, a ação nem volta: o recado fica no passo, e nada do que foi digitado se perde. */
-const salvar = (anterior: EstadoDaEtapa, fd: FormData) =>
-  semQueda(
-    () => salvarContato(anterior, fd),
-    () => estadoSemResposta(anterior, fd, SEM_CONEXAO)
-  )
 
 /**
  * PASSO 1 — e-mail, nome, celular e documento.
@@ -41,15 +36,30 @@ const salvar = (anterior: EstadoDaEtapa, fd: FormData) =>
  * clique a mais pra todo mundo por causa da minoria que compra como empresa —
  * e o tamanho do número já diz qual é. A máscara se reorganiza sozinha no 12º
  * caractere, que é onde o CNPJ se revela.
+ *
+ * O "CONTINUAR" ABRE A ENTREGA NA HORA (entrega 0201): o envio que confere
+ * (`conferirContato`, as regras da ação) adianta o carrinho — `adiantar`, em
+ * `etapas.tsx` —, e a ação grava por trás. O que não confere fica aqui, com o
+ * erro embaixo do campo, sem ida à loja. A ação que recusa (a sacola que
+ * expirou, o e-mail que o Medusa não aceita, a rede) traz o passo de volta.
  */
-export function Contato({
-  checkout,
-  aoSalvar,
-  ...casca
-}: PropsDaEtapa & { checkout: CheckoutVisivel }) {
-  const [estado, acao, enviando] = useActionState(salvar, ESTADO_INICIAL)
-  useFechaQuandoSalva(estado, aoSalvar)
-  useAvisaOcupado(casca, enviando ? "Salvando…" : null)
+export function Contato({ checkout, ...casca }: PropsDaEtapa & { checkout: CheckoutVisivel }) {
+  const { adiantar, aoVoltar } = casca
+  const [estado, acao, enviando] = useActionState(
+    async (anterior: EstadoDaEtapa, fd: FormData): Promise<EstadoDaEtapa> => {
+      const conferido = conferirContato(fd)
+      if (!conferido.ok) return estadoComErros(anterior, conferido.erros, fd)
+      // Sem internet, a ação nem volta: o recado fica no passo, e nada do que foi digitado se perde.
+      const r = await semQueda(
+        () => salvarContato(anterior, fd),
+        () => estadoSemResposta(anterior, fd, SEM_CONEXAO)
+      )
+      if (!r.ok) aoVoltar("contato")
+      return r
+    },
+    ESTADO_INICIAL
+  )
+  useAvisaOcupado(casca, enviando ? SALVANDO : null)
   const formulario = useFocaNoErro(estado)
 
   // Documento e celular são controlados só por causa da máscara; o resto é
@@ -69,9 +79,17 @@ export function Contato({
         id="form-contato"
         ref={formulario}
         action={acao}
-        // Um envio por vez: o Enter num campo e o toque na barra do celular
-        // não passam pelo botão travado.
-        onSubmit={(ev) => enviando && ev.preventDefault()}
+        onSubmit={(ev) => {
+          // Um envio por vez: o Enter num campo e o toque na barra do celular
+          // não passam pelo botão travado.
+          if (enviando) {
+            ev.preventDefault()
+            return
+          }
+          // Conferiu: a entrega abre agora, e não quando a ação voltar.
+          const conferido = conferirContato(new FormData(ev.currentTarget))
+          if (conferido.ok) adiantar({ etapa: "contato", dados: conferido.dados })
+        }}
         noValidate
       >
         <div className="campos">
@@ -158,7 +176,7 @@ export function Contato({
             aria-busy={enviando || undefined}
           >
             {enviando ? <Giro /> : null}
-            {enviando ? "Salvando…" : "Continuar"}
+            {enviando ? SALVANDO : "Continuar"}
             {enviando ? null : <Raio className="btn__bolt" />}
           </button>
         </div>
