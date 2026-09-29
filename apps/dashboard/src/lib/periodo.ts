@@ -136,6 +136,8 @@ export type Taxa = {
   variacao: number | null
   de: number
   em: number
+  /** Só na "visitas que compraram": as vendas do período inteiro, sem o corte. */
+  noPeriodo?: number
 }
 
 export type VisitasNoPeriodo = {

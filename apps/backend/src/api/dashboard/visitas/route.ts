@@ -152,6 +152,8 @@ async function visitasNoPeriodo(
     vendas: {
       atual: contar(noCorte.atual),
       antes: noCorte.antes ? contar(noCorte.antes) : null,
+      // As do período inteiro (até agora), as do card Vendas: "(4 no dia)".
+      noPeriodo: contar(p.atual),
     },
   })
 }

@@ -205,6 +205,7 @@ const linhasDeAnteontem = ANTEONTEM_POR_HORA.map((v, h) => ({
   visitas: v,
 }))
 google.dia.horas = [...linhasDeHoje(HORA_AGORA), ...linhasDeOntem, ...linhasDeAnteontem]
+const SACOLAS_DE_ONTEM = Array.from({ length: 24 }, (_, h) => (h >= 8 && h <= 22 ? 2 : 0))
 // O Início no período (0186): as visitas com cada evento e as que viram uma categoria, por dia.
 google.inicio = {
   eventos: [
@@ -217,6 +218,10 @@ google.inicio = {
     { dia: HOJE, sessoes: 120 },
     { dia: ONTEM, sessoes: 90 },
   ],
+  // As 30 sacolas de ontem por hora (0212): 2 em cada hora das 8h às 22h.
+  sacolasPorHora: SACOLAS_DE_ONTEM.flatMap((n, h) =>
+    n ? [{ dia: ONTEM, hora: hora(h), sessoes: n }] : []
+  ),
 }
 
 let tokenDoDono = ""
@@ -353,10 +358,13 @@ try {
     const sacola = p.taxas?.sacola ?? {}
     ok(
       sacola.valor === Math.round((40 / HOJE_TOTAL) * 10_000) / 100 &&
-        sacola.antes === Math.round((30 / ONTEM_TOTAL) * 10_000) / 100 &&
+        sacola.antes ===
+          (somar(ONTEM_POR_HORA, ate)
+            ? Math.round((somar(SACOLAS_DE_ONTEM, ate) / somar(ONTEM_POR_HORA, ate)) * 10_000) / 100
+            : null) &&
         sacola.de === 40 &&
         sacola.em === HOJE_TOTAL,
-      "a taxa da sacola: as duas contas do Google, de hoje e de ontem",
+      "a taxa da sacola: as duas contas do Google, e a de ontem só até a mesma hora (0212)",
       JSON.stringify(sacola)
     )
     const compraram = p.taxas?.compraram ?? {}
@@ -364,7 +372,9 @@ try {
       Number.isInteger(compraram.de) &&
         compraram.em === p.visitas?.valor &&
         compraram.valor ===
-          (compraram.em ? Math.round((compraram.de / compraram.em) * 10_000) / 100 : null),
+          (compraram.em ? Math.round((compraram.de / compraram.em) * 10_000) / 100 : null) &&
+        Number.isInteger(compraram.noPeriodo) &&
+        compraram.noPeriodo >= compraram.de,
       "a taxa das compras divide as vendas pelas visitas, no mesmo corte",
       JSON.stringify(compraram)
     )
@@ -381,12 +391,14 @@ try {
     const temOEndereco = (q) =>
       JSON.stringify(q?.dimensionFilter ?? {}).includes('"fieldName":"hostName"')
     ok(
-      lote?.length === 4 &&
+      lote?.length === 5 &&
         lote[0].dateRanges?.[0]?.startDate === ontemComTraco &&
         lote[0].dateRanges?.[0]?.endDate === hojeComTraco &&
         lote[2].dateRanges?.[0]?.startDate === hojeComTraco &&
+        lote[4].dateRanges?.[0]?.startDate === ontemComTraco &&
+        lote[4].dateRanges?.[0]?.endDate === ontemComTraco &&
         lote.every(temOEndereco),
-      "quatro perguntas numa chamada, com as datas do período e só o endereço da loja",
+      "cinco perguntas numa chamada (a 5ª: as sacolas de ontem por hora), com as datas do período e só o endereço da loja",
       JSON.stringify(lote?.map((q) => [q.dateRanges, (q.dimensions ?? []).map((d) => d.name)]))
     )
 
