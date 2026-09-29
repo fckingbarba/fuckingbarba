@@ -23,6 +23,7 @@ import type {
   ResumoDaBase,
 } from "../../lib/painel/crm"
 import { CarrinhoDaBase, PedidoDaBase, PessoaDaBase } from "./models/base-da-nuvemshop"
+import { Campanha } from "./models/campanha"
 import { EmailDoCrm } from "./models/email"
 import { Evento } from "./models/evento"
 import { EnvioDoFluxo, SaiuDaLista } from "./models/fluxos"
@@ -56,6 +57,7 @@ const Tabelas = MedusaService({
   CarrinhosDaBase: CarrinhoDaBase,
   EnviosDosFluxos: EnvioDoFluxo,
   Saidas: SaiuDaLista,
+  Campanhas: Campanha,
 })
 
 /** Uma decisão do motor dos fluxos, como o banco devolve (`lib/crm/fluxos.ts` usa o `Registro`). */
@@ -1094,6 +1096,23 @@ export default class CrmService extends Tabelas {
       variante: l.variante ?? null,
       em: new Date(l.em),
     }))
+  }
+
+  /**
+   * O que uma campanha já decidiu (entrega 0206): quem recebeu, qual assunto
+   * (o toque "a" ou "b"), quem ficou no controle — a chave é `<campanha>|<e-mail>`.
+   */
+  @InjectManager()
+  async registrosDaCampanha(
+    campanha: string,
+    @MedusaContext() ctx: Contexto = {}
+  ): Promise<{ email: string; toque: string; como: string; em: Date }[]> {
+    const linhas = (await ctx.manager!.execute(
+      `select email, toque, como, em from crm_envio
+        where deleted_at is null and fluxo = 'campanha' and split_part(chave, '|', 1) = ?`,
+      [campanha]
+    )) as { email: string; toque: string; como: string; em: string | Date }[]
+    return linhas.map((l) => ({ email: l.email, toque: l.toque, como: l.como, em: new Date(l.em) }))
   }
 
   /** Anota quem saiu da lista (o "Sair da lista" de qualquer e-mail do CRM), com a hora. */

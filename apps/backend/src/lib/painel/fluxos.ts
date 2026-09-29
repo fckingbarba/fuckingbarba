@@ -102,8 +102,10 @@ export type TelaDosFluxos = {
 const ms = (d: Date | string) => new Date(d).getTime()
 const minusculo = (e: string | null) => (e ?? "").trim().toLowerCase()
 
-/** A primeira vez de cada pessoa, nos registros dados. */
-function primeiraVez(registros: RegistroDaTela[]): Map<string, number> {
+/** A primeira vez de cada pessoa, nos registros dados (as campanhas também usam, entrega 0206). */
+export function primeiraVez(
+  registros: readonly Pick<RegistroDaTela, "email" | "em">[]
+): Map<string, number> {
   const primeira = new Map<string, number>()
   for (const r of registros) {
     const t = ms(r.em)
@@ -113,22 +115,27 @@ function primeiraVez(registros: RegistroDaTela[]): Map<string, number> {
   return primeira
 }
 
-/** Quem comprou até 7 dias depois da primeira vez, e o valor do primeiro pedido de cada um. */
-function compras(
+/**
+ * Quem comprou até 7 dias depois da primeira vez, e o valor do primeiro pedido de cada um. Os
+ * pedidos vão por e-mail antes: a campanha passa por milhares de pessoas (entrega 0206).
+ */
+export function compras(
   primeira: Map<string, number>,
-  pedidos: PedidoDaTela[]
+  pedidos: readonly PedidoDaTela[]
 ): { pessoas: number; vendido: number } {
+  const porEmail = new Map<string, PedidoDaTela[]>()
+  for (const p of pedidos) {
+    if (p.status === "canceled") continue
+    const email = minusculo(p.email)
+    const dele = porEmail.get(email)
+    if (dele) dele.push(p)
+    else porEmail.set(email, [p])
+  }
   let pessoas = 0
   let vendido = 0
   for (const [email, t] of primeira) {
-    const pedido = pedidos
-      .filter(
-        (p) =>
-          p.status !== "canceled" &&
-          minusculo(p.email) === email &&
-          ms(p.created_at) > t &&
-          ms(p.created_at) <= t + DIAS_PRA_COMPRAR * DIA_MS
-      )
+    const pedido = (porEmail.get(email) ?? [])
+      .filter((p) => ms(p.created_at) > t && ms(p.created_at) <= t + DIAS_PRA_COMPRAR * DIA_MS)
       .sort((a, b) => ms(a.created_at) - ms(b.created_at))[0]
     if (!pedido) continue
     pessoas++

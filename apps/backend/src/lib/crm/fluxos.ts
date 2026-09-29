@@ -525,7 +525,8 @@ export type Entrada = {
 /** Um e-mail que o motor já decidiu (mandou, pulou ou guardou pro controle). */
 export type Registro = {
   email: string
-  fluxo: IdDoFluxo
+  /** O fluxo — ou "campanha" (entrega 0206): as campanhas contam no teto de cada pessoa. */
+  fluxo: IdDoFluxo | "campanha"
   chave: string
   toque: IdDoToque
   em: Date
@@ -631,6 +632,17 @@ function enviadosNos(registros: readonly Registro[], email: string, agora: Date,
   return registros.filter(
     (r) => r.email === email && r.como === "enviado" && agora.getTime() - r.em.getTime() < ms
   ).length
+}
+
+/**
+ * Se a pessoa passou do teto (3 e-mails do CRM em 24 horas, 6 em 7 dias) — as
+ * campanhas (entrega 0206) esperam, como os fluxos.
+ */
+export function passouDoTeto(registros: readonly Registro[], email: string, agora: Date): boolean {
+  return (
+    enviadosNos(registros, email, agora, DIA) >= TETO.dia ||
+    enviadosNos(registros, email, agora, 7 * DIA) >= TETO.semana
+  )
 }
 
 /** Se o e-mail já ganhou um cupom do CRM nos últimos 60 dias. */
