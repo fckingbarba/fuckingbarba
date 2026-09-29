@@ -10,6 +10,7 @@ import {
 } from "../crm/etiquetas"
 import { TIPOS, type Dados, type Item, type Origem, type Tipo } from "../crm/eventos"
 import { juntar, recomprasPorTipo } from "../crm/nuvemshop"
+import { NOME_DA_CHANCE, previsaoDaPessoa, type PrevisaoDaPessoa } from "../crm/previsao"
 import { PREFIXO_DA_PROMOCAO } from "../cupons"
 import { emailNoLog } from "../email"
 import { dia, quando, reais } from "./formato"
@@ -364,11 +365,43 @@ export type PassoDoCaminho = {
   nivel: "bom" | "ruim" | null
 }
 
+/**
+ * A PREVISÃO NA FICHA (entrega 0220, `lib/crm/previsao.ts`): a próxima
+ * compra, a chance de sair e o LTV, cada um com o porquê. Nula pra quem ainda
+ * não comprou.
+ */
+export type PrevisaoNaFicha = {
+  proximaCompra: { valor: string; porque: string }
+  chance: { valor: string; porque: string; tom: "bom" | "ruim" | null }
+  ltv: { ate: string; previsto: string; porque: string }
+  /** "compra a cada 38 dias" — com 3 compras ou mais. */
+  ritmo: string | null
+}
+
 export type FichaDoCrm = {
   etiquetas: EtiquetaDaFicha[]
   /** "Instagram (black) · primeira visita em 12/09", se a loja já viu a pessoa no site. */
   origem: string | null
   caminho: PassoDoCaminho[]
+  previsao: PrevisaoNaFicha | null
+}
+
+/** A previsão em frases, pra ficha. */
+export function previsaoNaFicha(p: PrevisaoDaPessoa | null): PrevisaoNaFicha | null {
+  if (!p) return null
+  return {
+    proximaCompra: {
+      valor: p.proximaCompra.em ? dia(p.proximaCompra.em) : "—",
+      porque: p.proximaCompra.porque,
+    },
+    chance: {
+      valor: NOME_DA_CHANCE[p.chance.valor],
+      porque: p.chance.porque,
+      tom: p.chance.valor === "alta" ? "ruim" : p.chance.valor === "baixa" ? "bom" : null,
+    },
+    ltv: { ate: reais(p.ltv.ate), previsto: reais(p.ltv.previsto), porque: p.ltv.porque },
+    ritmo: p.ritmo ? `compra a cada ${p.ritmo} dias` : null,
+  }
 }
 
 const emData = (v: Date | string | number | null | undefined): Date | null => {
@@ -429,6 +462,8 @@ export function montarFichaDoCrm(
       /** Da loja antiga (a base da Nuvemshop). */
       daNuvemshop?: boolean
     }[]
+    /** A previsão da pessoa (0220), já calculada. */
+    previsao?: PrevisaoDaPessoa | null
   },
   agora: Date = new Date()
 ): FichaDoCrm {
@@ -516,6 +551,7 @@ export function montarFichaDoCrm(
   const chegada = entrada.origem ? nomeDaChegada(entrada.origem) : primeira ? "Direto" : null
   return {
     etiquetas,
+    previsao: previsaoNaFicha(entrada.previsao ?? null),
     origem: chegada && primeira ? `${chegada} · primeira visita em ${dia(primeira)}` : chegada,
     caminho: passos
       .sort((a, b) => b.em.getTime() - a.em.getTime())
@@ -553,19 +589,21 @@ export function fichaDoCrmDoCliente(
     }),
     ...(entrada.pedidosDaNuvemshop ?? []).map(pedidoDaBase),
   ].map((p) => ({ ...p, numero: entrada.comNumero ? p.numero : null }))
+  const etiquetas = etiquetasDaPessoa({
+    pedidos,
+    sinais: {
+      ultimoClique: emData(crm.ultimoClique),
+      ultimaVisita: emData(crm.ultimaVisita),
+      newsletterDesde: entrada.newsletterDesde,
+    },
+    agora,
+    dias,
+    regras,
+  })
   return montarFichaDoCrm(
     {
-      etiquetas: etiquetasDaPessoa({
-        pedidos,
-        sinais: {
-          ultimoClique: emData(crm.ultimoClique),
-          ultimaVisita: emData(crm.ultimaVisita),
-          newsletterDesde: entrada.newsletterDesde,
-        },
-        agora,
-        dias,
-        regras,
-      }),
+      etiquetas,
+      previsao: previsaoDaPessoa({ pedidos, etiquetas, agora, regras }),
       origem: crm.origem,
       primeiraVisita: crm.primeiraVisita,
       eventos: crm.eventos,

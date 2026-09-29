@@ -3760,6 +3760,42 @@ O `conferir-crm.mjs` confere, na jornada do Fator:
 - em 40 dias, o lembrete pulado (o brother já comprou);
 - a aba Fluxos com os números do indique.
 
+**O CRM, parte 22: a previsão por cliente** (entrega 0220, a etapa 5 do plano, "a máquina" — a
+escolha do dono: a previsão primeiro; a melhor hora e o A/B automático depois). Pra cada pessoa
+que comprou, nas duas lojas (`lib/crm/previsao.ts`, puro):
+
+- **A próxima compra:** com 3 compras ou mais, pelo RITMO dela (a mediana dos intervalos; compras a
+  menos de 7 dias uma da outra contam como uma, `datasDasCompras`). Com menos, a da etiqueta: o
+  dia em que o produto da última compra acaba (os dias dos Ajustes). A etiqueta não muda: a
+  reposição e o resgate continuam pelo produto.
+- **A chance de sair:** baixa antes do dia de comprar; média até a tolerância dos Ajustes (20 dias)
+  depois dele; alta depois disso. O engajamento "quente" (visitou ou clicou há pouco) desce um
+  nível; o sunset é sempre alta. Sem saber o dia, pelos dias sem comprar: a regra "sem previsão"
+  dos Ajustes (60) e o dobro.
+- **O LTV:** o que já gastou, e o previsto nos próximos 12 meses — o ticket médio por compra vezes
+  as compras que cabem no ano (pelo ritmo, pelo tempo do produto ou, sem nenhum, uma a cada 4
+  meses), vezes a chance de continuar (`CONTINUA`: 0,9 / 0,6 / 0,25).
+- Tudo com o porquê em frase: é conta, não modelo. Com pouco histórico na loja nova, melhora com o
+  tempo.
+- **Na ficha do cliente** (`previsaoNaFicha`, `PrevisaoNaFicha` em `components/crm.tsx`): os três,
+  embaixo das etiquetas; o `fichaDoCrmDoCliente` calcula com os pedidos das duas lojas.
+- **A aba CRM → Previsão** (`/crm/previsao`; `GET /dashboard/crm/previsao`, quem abre o CRM):
+  - `previsoesDeTodos` (`lib/crm/previsoes.ts`) lê o mesmo que a rodada dos fluxos (os pedidos das
+    duas lojas, os sinais, os Ajustes), o total de cada pedido da loja nova e os clientes, sem a
+    equipe;
+  - `montarTelaDaPrevisao` (`lib/painel/previsao.ts`, puro) monta os números — quem compra em 7 e
+    em 30 dias (com o ticket somado), a chance de sair, o que os de chance alta já gastaram, o LTV
+    médio e o previsto — e as duas listas (a semana pelo ticket, os de chance alta pelo que já
+    gastaram, 20 cada), com o e-mail mascarado e o link da ficha de quem tem cadastro na loja nova;
+  - `?email=` busca uma pessoa, e aí o e-mail volta inteiro (foi quem busca que digitou).
+
+O `conferir-crm.mjs` confere:
+- a operação sem acesso;
+- o velho da base (12 Fatores, um a cada 45 dias): ritmo 45, a próxima compra e o LTV, pela API e
+  pela busca na tela;
+- o e-mail só mascarado nas listas;
+- a previsão na ficha do cliente do Fator, e a aba no celular.
+
 **O preço e o promocional no painel** (entregas 0098 e 0102): os dois campos de cada produto na
 lista de Produtos, como na Nuvemshop (a 0098 tinha só o promocional, atrás de um botão). A regra é
 `lib/painel/promocao.ts`, pura: `lerMudancaDePreco` (o corpo `{ preco?, promocional? }` contra o
