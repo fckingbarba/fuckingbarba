@@ -176,6 +176,9 @@
 .cep__resposta:not(:empty) {
   margin-top: 12px;
 }
+.cep__resposta:empty {
+  display: none;
+}
 
 .cep__erro {
   margin: 0;
@@ -184,58 +187,251 @@
   color: var(--color-erro);
 }
 
-/* Uma linha fina entre as opções, e outra antes do rodapé: é o que separa
-   sem transformar a caixa numa tabela. */
-.cep__opcao {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
+/* ── depois de cotar (0208) ─────────────────────────────────────────────
+   O campo vira a linha de onde se cotou, com "Trocar"; as entregas viram
+   cartões lado a lado, IGUAIS entre si (nenhum parece botão: não se escolhe
+   entrega aqui, só se vê); e o frete grátis ganha a barra e o produto que
+   completa. Amarelo = a etiqueta de comparação; menta = o benefício. */
+
+.cep__onde {
   margin: 0;
-  padding: 9px 0;
-  border-top: 2px solid var(--color-cinza);
-}
-.cep__opcao:first-child {
-  border-top: 0;
-  padding-top: 0;
-}
-.cep__opcao-nome {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-  font-size: 0.88rem;
-  font-weight: 800;
-  line-height: 1.2;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 2px 4px 2px 12px;
+  background: var(--color-cinza);
+  font-size: 0.86rem;
 }
-.cep__opcao-nome small {
-  font-size: 0.76rem;
-  font-weight: 600;
+.cep__onde-cep {
   color: var(--color-tinta-suave);
+  font-weight: 600;
 }
-.cep__quem {
-  font-size: 0.7rem !important;
+.cep__trocar {
+  min-height: 44px;
+  padding: 0 8px;
+  border: 0;
+  background: none;
+  color: var(--color-tinta);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.cep__resposta {
+  display: grid;
+  /* Uma coluna que encolhe: sem o \`minmax(0, …)\`, os cartões lado a lado
+     empurram a caixa pra fora da tela no celular. */
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  transition: opacity 0.15s ease;
+}
+/* Recotando (trocou a quantidade, marcou um junto): o número velho esmaece. */
+.cep__resposta[data-calculando] {
+  opacity: 0.55;
+}
+
+.cep__garantido {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 12px;
+  background: var(--color-menta);
+  color: #06120d;
+  font-size: 0.86rem;
+  font-weight: 900;
+  font-style: italic;
   letter-spacing: 0.02em;
   text-transform: uppercase;
 }
-.cep__opcao-preco {
+.cep__garantido svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
   flex-shrink: 0;
-  font-size: 0.95rem;
-  font-weight: 800;
-  letter-spacing: -0.01em;
+}
+
+.cep__opcoes {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.cep__opcoes[data-uma] {
+  grid-template-columns: minmax(0, 1fr);
+}
+.cep__opcao {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 12px 10px 11px;
+  border: 2px solid var(--color-linha);
+  background: var(--color-papel);
+  min-width: 0;
+}
+.cep__opcoes:not([data-uma]) .cep__opcao {
+  padding-top: 24px;
+}
+.cep__etiqueta {
+  position: absolute;
+  left: -2px;
+  top: -2px;
+  padding: 3px 7px;
+  background: var(--color-amarelo);
+  color: var(--color-tinta);
+  font-size: 0.62rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.cep__opcao-preco {
+  font-size: 1.3rem;
+  font-weight: 900;
+  font-style: italic;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
   white-space: nowrap;
 }
-/* Grátis é a única coisa desta caixa que merece cor: é o que a pessoa
-   estava torcendo pra ver. */
+/* Grátis é o que a pessoa estava torcendo pra ver. */
 .cep__opcao-preco[data-gratis] {
   color: var(--color-menta-escura);
 }
+.cep__opcao-prazo {
+  font-size: 0.84rem;
+  font-weight: 800;
+  line-height: 1.25;
+}
+.cep__quem {
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-tinta-suave);
+  overflow-wrap: anywhere;
+}
 
 .cep__falta {
+  display: grid;
+  gap: 7px;
+}
+.cep__falta-frase {
   margin: 0;
-  padding: 9px 0 0;
-  border-top: 2px solid var(--color-cinza);
-  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 0.86rem;
   font-weight: 800;
+}
+.cep__falta-frase svg {
+  width: 13px;
+  height: 13px;
+  fill: var(--color-menta-escura);
+  flex-shrink: 0;
+}
+.cep__falta-frase mark {
+  padding: 0 5px;
+  background: var(--color-menta);
+  color: #06120d;
+}
+.cep__barra {
+  display: flex;
+  height: 10px;
+  background: var(--color-cinza);
+  border: 2px solid var(--color-tinta);
+}
+.cep__barra span {
+  background: var(--color-menta);
+  border-right: 2px solid var(--color-tinta);
+  transition: width 0.3s var(--ease-suave);
+}
+
+.cep__completa {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  background: var(--color-menta-clara);
+  border: 2px solid var(--color-tinta);
+}
+.cep__completa[data-posto] {
+  background: var(--color-papel);
+}
+.cep__completa-foto {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  display: flex;
+  background: var(--color-papel);
+  border: 1px solid var(--color-linha);
+  overflow: hidden;
+}
+.cep__completa-foto img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.cep__completa-texto {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+/* O nome encurta com reticências; o preço fica sempre à vista. */
+.cep__completa-nome {
+  display: flex;
+  gap: 5px;
+  min-width: 0;
+  font-size: 0.84rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.cep__completa-produto {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cep__completa-preco {
+  flex-shrink: 0;
+  font-weight: 600;
+}
+.cep__completa-ganho {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--color-menta-escura);
+}
+.cep__completa-botao,
+.cep__completa-tirar {
+  flex-shrink: 0;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 2px solid var(--color-tinta);
+  font: inherit;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-tinta);
+  cursor: pointer;
+}
+.cep__completa-botao {
+  background: var(--color-menta);
+  box-shadow: 3px 3px 0 0 var(--color-tinta);
+}
+.cep__completa-botao:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 0 var(--color-tinta);
+}
+.cep__completa-tirar {
+  background: var(--color-papel);
 }
 
 .cep__aviso {

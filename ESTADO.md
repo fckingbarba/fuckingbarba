@@ -4631,6 +4631,28 @@ tem neste banco (as frases do Spray e um 404 no console) — não são da sacola
 
 Depois do deploy — **nada a configurar.** Pra ver no celular: um produto na sacola.
 
+**O frete na página do produto, mais bonito e vendendo — pronto em 29/09 (entrega 0208).** Pedido dele,
+com print: o "Entrega · Chega em 1 dia útil · R$ 12,68 / Faltam R$ 25,00" podia ficar mais legal. Das
+quatro opções desenhadas, escolheu a D (com três ajustes dele: os dois cartões iguais, o "Frete grátis
+garantido" sem caixinha e sem texto embaixo, e o cartão da sugestão enxuto).
+
+- **Depois de calcular**, o campo vira "São Paulo · SP 01310-100 · Trocar".
+- **As entregas em dois cartões iguais**, lado a lado: "Mais barata" e "Mais rápida", com o preço
+  grande, o prazo e quem entrega.
+- **Faltando pro frete grátis**: "Faltam R$ 40,00 pro frete grátis" com o valor em destaque e uma barra
+  que mostra o caminho andado.
+- **O produto que completa**: "+ Shampoo R$ 79,90 · e o frete sai grátis · Adicionar" — o mais barato
+  que sozinho fecha a conta, entre os do "Leve junto" e os outros produtos da loja (nunca o próprio
+  produto, nem o kit que já o contém). Adicionar põe no mesmo Comprar; o frete é recalculado na hora,
+  aparece "Frete grátis garantido" e o produto fica à vista com "Tirar".
+
+Conferido na loja local: o conferidor novo `conferir-frete-na-pdp` 23/23 três vezes; o frete 70/70, o checkout 211/211, o
+avise-me 32/32 e o da página de produto 68/70 (as 2 de sempre: o spray e os produtos que não existem no
+banco local);
+o typecheck, o lint, o prettier e o `next build` da loja.
+
+Depois do deploy — **nada a configurar.** Pra ver: a página de um produto abaixo de R$ 149,90 e o CEP.
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa

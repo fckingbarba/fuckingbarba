@@ -72,6 +72,7 @@ export function Compra({
   foto,
   degraus,
   combinam,
+  completam = [],
   precoCheio,
   estoque,
   mostrarDegraus,
@@ -83,6 +84,11 @@ export function Compra({
   degraus: readonly DegrauDeQuantidade[]
   /** Os produtos escolhidos no admin pra "leve junto". Vazio = não aparece. */
   combinam: readonly ProdutoQueCombina[]
+  /**
+   * Os que podem completar o frete grátis, em ordem (0208): os do "leve
+   * junto" e depois a vitrine, pelo motor. A calculadora oferece um só.
+   */
+  completam?: readonly ProdutoQueCombina[]
   /** O riscado, quando existe promoção valendo no degrau de 1 unidade. */
   precoCheio: number | null
   /** Unidades restantes do avulso, quando o Medusa controla estoque. */
@@ -194,7 +200,15 @@ export function Compra({
     │ inteiro — e chega como surpresa boa, não como promessa desfeita.           │
     └─────────────────────────────────────────────────────────────────────────────┘
   */
-  const marcados = combinam.filter((c) => juntos.has(c.varianteId))
+  /*
+    O que vai junto é o marcado no "leve junto" OU o que a calculadora
+    ofereceu pra completar o frete grátis (0208): os dois moram no mesmo
+    `juntos`, e os dois vão no mesmo clique do Comprar.
+  */
+  const doLeveJunto = new Set(combinam.map((c) => c.varianteId))
+  const marcados = [...combinam, ...completam.filter((c) => !doLeveJunto.has(c.varianteId))].filter(
+    (c) => juntos.has(c.varianteId)
+  )
   const pedido = total + marcados.reduce((s, c) => s + c.preco, 0)
 
   /** A tarja de um degrau: levar ESTAS unidades alcança o piso? */
@@ -208,6 +222,14 @@ export function Compra({
    * depois de marcado — ele é quem está segurando o benefício, e vê-la sumir
    * no clique pareceria que o benefício sumiu junto.
    */
+  const alternar = (id: string) =>
+    setJuntos((s) => {
+      const novo = new Set(s)
+      if (novo.has(id)) novo.delete(id)
+      else novo.add(id)
+      return novo
+    })
+
   const tarjaDoJunto = (item: ProdutoQueCombina) => {
     if (!frases || !pisoVale(politica)) return null
     const semEste = pedido - (juntos.has(item.varianteId) ? item.preco : 0)
@@ -385,6 +407,7 @@ export function Compra({
           { varianteId: base.varianteId, quantidade: unidades },
           ...marcados.map((c) => ({ varianteId: c.varianteId, quantidade: 1 })),
         ]}
+        completar={{ candidatos: completam, escolhidos: juntos, alternar }}
       />
 
       {mostrarDegraus && degraus.length > 1 ? (
@@ -406,19 +429,7 @@ export function Compra({
         pessoa com a escolha feita e o botão à vista.
       */}
       {combinam.length ? (
-        <LeveJunto
-          itens={combinam}
-          marcados={juntos}
-          tarja={tarjaDoJunto}
-          aoAlternar={(id) =>
-            setJuntos((s) => {
-              const novo = new Set(s)
-              if (novo.has(id)) novo.delete(id)
-              else novo.add(id)
-              return novo
-            })
-          }
-        />
+        <LeveJunto itens={combinam} marcados={juntos} tarja={tarjaDoJunto} aoAlternar={alternar} />
       ) : null}
 
       <div className="compra__acao">

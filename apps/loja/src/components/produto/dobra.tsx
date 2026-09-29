@@ -11,10 +11,19 @@ import {
   avaliacoesPublicadas,
   buscarProdutoPorHandle,
   escadaDeQuantidade,
+  modeloDeRecomendacao,
   precosDe,
   temEstoque,
+  vitrineDaSacola,
 } from "@/lib/medusa"
-import { modoDaCaixa, pdpDoProduto, produtosQueCombinam, videosDaFaixa } from "@/lib/pdp"
+import {
+  modoDaCaixa,
+  pdpDoProduto,
+  produtosQueCombinam,
+  videosDaFaixa,
+  type ProdutoQueCombina,
+} from "@/lib/pdp"
+import { foraDaSugestao, ordenarParaAPagina } from "@/lib/recomendacao"
 import { site } from "@/lib/site"
 
 /**
@@ -86,6 +95,30 @@ export async function Dobra({ handle }: { handle: string }) {
     modo === "junto"
       ? await produtosQueCombinam((combinada.produtos ?? []).slice(0, 2), handle)
       : []
+  /*
+    OS QUE COMPLETAM O FRETE GRÁTIS (0208), na ordem em que a calculadora
+    oferece: primeiro os do "Leve junto" (a loja escolheu), depois a vitrine
+    da sacola na ordem do motor pra ESTE produto. Fora: o próprio, e peça de
+    kit ou kit de peça (`foraDaSugestao`). Quem escolhe um só — o primeiro
+    que sozinho fecha o que falta — é a calculadora, que sabe quanto falta.
+    As duas leituras são as mesmas do layout, e cacheadas.
+  */
+  const [vitrine, modelo] = await Promise.all([vitrineDaSacola(), modeloDeRecomendacao()])
+  const fora = foraDaSugestao(modelo, [handle])
+  const daVitrine: ProdutoQueCombina[] = (
+    modelo ? ordenarParaAPagina(vitrine, handle, modelo) : vitrine
+  )
+    .filter((v) => !fora.has(v.handle))
+    .map((v) => ({
+      handle: v.handle,
+      nome: v.nome,
+      foto: v.imagem,
+      varianteId: v.varianteId,
+      preco: v.preco,
+    }))
+  const jaTem = new Set(combinam.map((c) => c.varianteId))
+  const completam = [...combinam, ...daVitrine.filter((v) => !jaTem.has(v.varianteId))]
+
   const precos = precosDe(produto)
   const variante = produto.variants?.[0]
 
@@ -183,6 +216,7 @@ export async function Dobra({ handle }: { handle: string }) {
               foto={produto.thumbnail ?? fotos[0]?.url ?? null}
               degraus={degraus}
               combinam={combinam}
+              completam={completam}
               precoCheio={precos?.cheio ?? null}
               estoque={estoque}
               mostrarDegraus={mostrarDegraus}
