@@ -215,43 +215,34 @@
 .sacolinha__completa {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px;
+  gap: 8px;
+  padding: 4px;
   background: #ffffff;
   border: 2px solid var(--color-tinta);
 }
 .sacolinha__completa-foto {
   flex-shrink: 0;
-  width: 44px;
-  height: 44px;
+  width: 34px;
+  height: 34px;
   background: #f2f3f4;
-  border: 2px solid var(--color-tinta);
 }
 .sacolinha__completa-foto img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
-.sacolinha__completa-corpo {
+.sacolinha__completa-texto {
   flex: 1;
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  font-size: 0.72rem;
+  font-size: 0.78rem;
+  line-height: 1.2;
   color: var(--color-tinta-suave);
 }
-.sacolinha__completa-selo {
-  font-size: 0.6rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #0b7f62;
+.sacolinha__completa-texto span {
+  white-space: nowrap;
 }
-.sacolinha__completa-nome {
-  font-size: 0.78rem;
+.sacolinha__completa-texto b {
   font-weight: 800;
-  line-height: 1.2;
   color: var(--color-tinta);
 }
 .sacolinha__completa-add,
@@ -271,6 +262,10 @@
   letter-spacing: 0.06em;
   text-transform: uppercase;
   cursor: pointer;
+}
+.sacolinha__completa-add {
+  min-height: 40px;
+  padding: 0 10px;
 }
 .sacolinha__completa-add svg {
   width: 12px;
@@ -432,7 +427,9 @@
   line-height: 1.45;
 }
 .sacolinha__pe {
-  padding: 10px 18px 11px;
+  /* Sem o "Continuar comprando" (0209), o Finalizar é o último: o respiro de
+     baixo segura a sombra dele e a barrinha do iPhone. */
+  padding: 10px 18px calc(16px + env(safe-area-inset-bottom, 0px));
   background: var(--color-tinta);
   color: #ffffff;
 }
@@ -599,30 +596,6 @@
 }
 .sacolinha__parcela:empty {
   display: none;
-}
-.sacolinha__continuar {
-  display: block;
-  width: 100%;
-  margin-top: 7px;
-  padding: 3px;
-  background: none;
-  border: none;
-  color: #98a1ab;
-  font-family: inherit;
-  font-size: 0.74rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  cursor: pointer;
-}
-.sacolinha__continuar:hover {
-  color: #ffffff;
-}
-.sacolinha__continuar:focus-visible {
-  outline: 2px solid var(--color-amarelo);
-  outline-offset: 2px;
 }
 @media (max-width: 380px) {
   .sacolinha__item {
