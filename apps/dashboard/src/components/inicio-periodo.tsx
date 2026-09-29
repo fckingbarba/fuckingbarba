@@ -376,7 +376,7 @@ function Linha({
 }
 
 const AJUDA_DO_GOOGLE =
-  "Do Google Analytics, de todo mundo menos quem recusa os cookies: cada visita conta uma vez em cada passo. Hoje entra tudo o que o Google já somou (o número de cima para na última hora inteira, pra comparar com o de antes). Antes da virada (27/09), as visitas eram as do site da Nuvemshop."
+  "Do Google Analytics, de todo mundo menos quem recusa os cookies: cada visita conta uma vez em cada passo. Hoje entra tudo o que o Google já contou; o de antes vai até a mesma hora. Antes da virada (27/09), as visitas eram as do site da Nuvemshop."
 
 export async function OQueAsVisitasFizeram({ consulta }: { consulta: string }) {
   const r = await lerVisitasNoPeriodo(consulta)
@@ -537,7 +537,7 @@ export async function TaxasDoGoogle({ consulta, p }: { consulta: string; p: Peri
       <CartaoDaTaxa
         dado="compraram"
         titulo="Visitas que compraram"
-        ajuda="As vendas pagas (das duas lojas) divididas pelas visitas do Google, no mesmo corte de hora. Quem recusa os cookies compra sem virar visita: o número real é um pouco menor — o do Marketing conta só as compras que o Google viu."
+        ajuda="Todas as vendas pagas (das duas lojas) divididas por todas as visitas do Google, até agora; o de antes, até a mesma hora. Quem recusa os cookies compra sem virar visita: o número real é um pouco menor — o do Marketing conta só as compras que o Google viu."
         taxa={t?.compraram ?? null}
         conta={
           t
@@ -549,7 +549,7 @@ export async function TaxasDoGoogle({ consulta, p }: { consulta: string; p: Peri
       <CartaoDaTaxa
         dado="sacola"
         titulo="Visitas que puseram na sacola"
-        ajuda="Das visitas do período, quantas puseram algum produto na sacola — as duas contas do Google Analytics. O de antes para na mesma hora."
+        ajuda="Das visitas do período, quantas puseram algum produto na sacola — as duas contas do Google Analytics. O de antes vai até a mesma hora."
         taxa={t?.sacola ?? null}
         conta={
           t
