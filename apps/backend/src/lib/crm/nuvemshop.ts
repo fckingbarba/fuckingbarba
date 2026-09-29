@@ -21,8 +21,15 @@ export function juntar<K, V>(mapa: Map<K, V[]>, chave: K, item: V) {
  * pras ofertas (a coluna Marketing), a newsletter, se tinha conta e desde
  * quando é cliente. Do pedido: o número, as datas, o pagamento, o envio,
  * os valores, o cupom e os itens (pelo SKU). Do carrinho: a data, o total e
- * os itens. CPF, telefone, endereço, rastreio e dados do cartão são lidos e
- * jogados fora aqui mesmo — não chegam no banco.
+ * os itens. Rastreio e dados do cartão são lidos e jogados fora aqui mesmo,
+ * e o CPF, o telefone e o endereço do arquivo de clientes e do de carrinhos
+ * também — não chegam no banco.
+ *
+ * A EXCEÇÃO É A ENTREGA DO PEDIDO (entrega 0202, escolha do dono): o nome,
+ * o celular, o CPF e o endereço de entrega de cada pedido do arquivo de
+ * vendas (`EntregaDaNuvemshop`). É o que o "Refazer o pedido" da reposição
+ * usa pra abrir o checkout preenchido. No banco, ela fica cifrada
+ * (`lib/crm/entrega-da-base.ts`).
  *
  * O ARQUIVO se reconhece pelo cabeçalho (a ordem das colunas pode mudar), e
  * a letra também: o que a Nuvemshop exporta é Latin-1; se vier em UTF-8
@@ -63,6 +70,32 @@ export type PagamentoDaNuvemshop = "confirmado" | "recusado" | "estornado" | "ou
 export type EnvioDaNuvemshop = "entregue" | "enviado" | "nao-enviado" | "outro"
 export type MeioDaNuvemshop = "pix" | "cartao" | "boleto" | "combinar"
 
+/** O documento do pedido: o CPF ou o CNPJ, só os dígitos (como o checkout da loja grava). */
+export type DocumentoDaNuvemshop = { tipo: "cpf" | "cnpj"; valor: string }
+
+/**
+ * PRA ONDE O PEDIDO FOI (entrega 0202): o que o "Refazer o pedido" precisa
+ * pra abrir o checkout preenchido. Só com o endereço inteiro; o documento,
+ * só com os dígitos que conferem; o celular, só com DDD.
+ */
+export type EntregaDaNuvemshop = {
+  nome: string
+  /** Pode vir vazio (nome de uma palavra só): o checkout pergunta. */
+  sobrenome: string
+  /** "+55" + DDD + número, como a loja grava. */
+  telefone: string | null
+  documento: DocumentoDaNuvemshop | null
+  /** Os 8 dígitos. */
+  cep: string
+  rua: string
+  numero: string
+  complemento: string
+  bairro: string
+  cidade: string
+  /** A sigla ("SP"). */
+  uf: string
+}
+
 export type PedidoDaNuvemshop = {
   numero: string
   email: string
@@ -78,6 +111,8 @@ export type PedidoDaNuvemshop = {
   cupom: string | null
   meio: MeioDaNuvemshop | null
   itens: ItemDaNuvemshop[]
+  /** Pra onde foi (o nome, o celular, o CPF e o endereço), ou nulo sem o endereço inteiro. */
+  entrega: EntregaDaNuvemshop | null
 }
 
 export type CarrinhoDaNuvemshop = {
@@ -226,6 +261,126 @@ const MEIO: Record<string, MeioDaNuvemshop> = {
   "a combinar": "combinar",
 }
 
+/* ── a entrega do pedido ──────────────────────────────────────────────────── */
+
+/** O estado por extenso, como a Nuvemshop exporta ("São Paulo", até o "Rorâima"), → a sigla. */
+const UF_DO_ESTADO: Record<string, string> = {
+  acre: "AC",
+  alagoas: "AL",
+  amapa: "AP",
+  amazonas: "AM",
+  bahia: "BA",
+  ceara: "CE",
+  "distrito federal": "DF",
+  "espirito santo": "ES",
+  goias: "GO",
+  maranhao: "MA",
+  "mato grosso": "MT",
+  "mato grosso do sul": "MS",
+  "minas gerais": "MG",
+  para: "PA",
+  paraiba: "PB",
+  parana: "PR",
+  pernambuco: "PE",
+  piaui: "PI",
+  "rio de janeiro": "RJ",
+  "rio grande do norte": "RN",
+  "rio grande do sul": "RS",
+  rondonia: "RO",
+  roraima: "RR",
+  "santa catarina": "SC",
+  "sao paulo": "SP",
+  sergipe: "SE",
+  tocantins: "TO",
+}
+const SIGLAS = new Set(Object.values(UF_DO_ESTADO))
+
+/** "São Paulo", "sao paulo" ou "SP" → "SP". Nulo pro que não é estado. */
+export function ufDoEstado(v: string | undefined): string | null {
+  const t = semAcento(v ?? "").replace(/\s+/g, " ")
+  if (!t) return null
+  const sigla = UF_DO_ESTADO[t] ?? t.toUpperCase()
+  return SIGLAS.has(sigla) ? sigla : null
+}
+
+/**
+ * O telefone como a loja grava (`conferirTelefone`, na loja): "+55" + DDD +
+ * número, 10 ou 11 dígitos. Nulo pro que não é telefone com DDD.
+ */
+export function telefoneDaLoja(v: string | undefined): string | null {
+  let so = (v ?? "").replace(/\D+/g, "").replace(/^0+/, "")
+  if (so.length > 11 && so.startsWith("55")) so = so.slice(2)
+  if (so.length < 10 || so.length > 11 || !/^[1-9]{2}/.test(so)) return null
+  return `+55${so}`
+}
+
+function cpfConfere(d: string): boolean {
+  if (!/^\d{11}$/.test(d) || /^(\d)\1{10}$/.test(d)) return false
+  const digito = (n: number) => {
+    let soma = 0
+    for (let i = 0; i < n; i++) soma += Number(d[i]) * (n + 1 - i)
+    const resto = (soma * 10) % 11
+    return resto === 10 ? 0 : resto
+  }
+  return digito(9) === Number(d[9]) && digito(10) === Number(d[10])
+}
+
+function cnpjConfere(d: string): boolean {
+  if (!/^\d{14}$/.test(d) || /^(\d)\1{13}$/.test(d)) return false
+  const digito = (n: 12 | 13) => {
+    const pesos =
+      n === 12 ? [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2] : [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
+    const resto = pesos.reduce((soma, p, i) => soma + Number(d[i]) * p, 0) % 11
+    return resto < 2 ? 0 : 11 - resto
+  }
+  return digito(12) === Number(d[12]) && digito(13) === Number(d[13])
+}
+
+/** O CPF ou o CNPJ, se os dígitos verificadores conferem. Nulo pro resto. */
+export function documentoDaNuvemshop(v: string | undefined): DocumentoDaNuvemshop | null {
+  const d = (v ?? "").replace(/\D+/g, "")
+  if (cpfConfere(d)) return { tipo: "cpf", valor: d }
+  if (cnpjConfere(d)) return { tipo: "cnpj", valor: d }
+  return null
+}
+
+/** Os espaços de sobra fora, e um teto: é campo de formulário. */
+const campo = (v: string | undefined, max: number) =>
+  (v ?? "").replace(/\s+/g, " ").trim().slice(0, max)
+
+/**
+ * A entrega da linha do pedido: o nome e o celular de quem recebe (sem eles,
+ * os do comprador), o documento e o endereço. Nula se faltar um pedaço do
+ * endereço (CEP, rua, número, bairro, cidade, estado) ou o nome, ou se não
+ * for no Brasil — aí o checkout pergunta, como antes.
+ */
+function entregaDoPedido(l: Linha): EntregaDaNuvemshop | null {
+  const [nome = "", ...resto] = campo(l("Nome para a entrega") || l("Nome do comprador"), 120)
+    .split(" ")
+    .filter(Boolean)
+  const cep = (l("Código postal") ?? "").replace(/\D+/g, "")
+  const uf = ufDoEstado(l("Estado"))
+  const pais = semAcento(l("País") ?? "")
+  const e = {
+    rua: campo(l("Endereço"), 120),
+    numero: campo(l("Número"), 20),
+    complemento: campo(l("Complemento"), 80),
+    bairro: campo(l("Bairro"), 80),
+    cidade: campo(l("Cidade"), 80),
+  }
+  if (!nome || cep.length !== 8 || !uf || (pais && pais !== "brasil")) return null
+  if (!e.rua || !e.numero || !e.bairro || !e.cidade) return null
+  return {
+    nome,
+    sobrenome: resto.join(" "),
+    telefone: telefoneDaLoja(l("Telefone para a entrega")) ?? telefoneDaLoja(l("Telefone")),
+    documento: documentoDaNuvemshop(l("CPF / CNPJ")),
+    cep,
+    ...e,
+    uf,
+  }
+}
+
 /* ── os três arquivos ─────────────────────────────────────────────────────── */
 
 type Linha = (coluna: string) => string | undefined
@@ -314,6 +469,7 @@ function lerVendas(t: ReturnType<typeof porNome>): ArquivoDaNuvemshop {
         cupom: texto(l("Cupom de Desconto"), 60)?.toUpperCase() ?? null,
         meio: MEIO[semAcento(l("Meio de pagamento") ?? "")] ?? null,
         itens: [...(itensSoltos.get(numero) ?? []), ...(oItem ? [oItem] : [])],
+        entrega: entregaDoPedido(l),
       })
       itensSoltos.delete(numero)
     } else if (oItem) {

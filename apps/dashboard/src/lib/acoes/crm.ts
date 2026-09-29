@@ -140,6 +140,8 @@ export async function importarArquivoDaBase(f: {
     novos: number
     atualizados: number
     ignoradas: number
+    /** Os pedidos das vendas que vieram com o endereço inteiro (entrega 0202). */
+    comEntrega?: number
   }
   const [um, varios] =
     c.tipo === "clientes"
@@ -159,5 +161,8 @@ export async function importarArquivoDaBase(f: {
     partes.push(
       `${vezes(c.ignoradas, "linha", "linhas")} sem e-mail ${c.ignoradas === 1 ? "ficou" : "ficaram"} de fora`
     )
+  // O "Refazer o pedido" da reposição abre com o endereço destes (entrega 0202).
+  if (c.tipo === "vendas" && c.comEntrega)
+    partes.push(`${inteiro.format(c.comEntrega)} com o endereço de entrega`)
   return { ok: true, texto: `${partes.join(" · ")}.` }
 }

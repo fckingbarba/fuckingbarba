@@ -2,9 +2,12 @@ import { model } from "@medusajs/framework/utils"
 
 /**
  * A BASE DA NUVEMSHOP — o que o CRM guarda dos três arquivos que a loja
- * antiga exporta (`lib/crm/nuvemshop.ts`). Só o que o CRM usa: nada de CPF,
- * telefone, endereço, rastreio ou cartão. Mandar o arquivo de novo atualiza
- * (pelo e-mail, pelo número do pedido, pelo id do carrinho), e ninguém sai.
+ * antiga exporta (`lib/crm/nuvemshop.ts`). Só o que o CRM usa: nada de
+ * rastreio ou cartão. O CPF, o telefone e o endereço só na `entrega` do
+ * pedido, cifrada (entrega 0202, `lib/crm/entrega-da-base.ts`): é o que o
+ * "Refazer o pedido" da reposição preenche. Mandar o arquivo de novo
+ * atualiza (pelo e-mail, pelo número do pedido, pelo id do carrinho), e
+ * ninguém sai.
  */
 
 /** Uma pessoa da loja antiga — pelo e-mail. */
@@ -44,6 +47,8 @@ export const PedidoDaBase = model
     meio: model.text().nullable(),
     /** `[{ sku, nome, quantidade, valor }]`, o valor em reais. */
     itens: model.json(),
+    /** O nome, o celular, o CPF e o endereço de entrega, cifrados (`fecharEntrega`). */
+    entrega: model.text().nullable(),
   })
   .indexes([{ on: ["numero"], unique: true }, { on: ["email"] }])
 
