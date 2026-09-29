@@ -3854,6 +3854,87 @@ try {
     }
   }
 
+  /* ── a previsão (0220) ──────────────────────────────────────────────────── */
+  {
+    titulo("A previsão por cliente: a próxima compra, a chance de sair e o LTV (0220)")
+    const previsao = (token, email = null) =>
+      medusa(`/dashboard/crm/previsao${email ? `?email=${encodeURIComponent(email)}` : ""}`, {
+        metodo: "GET",
+        token,
+      })
+    ok((await previsao(cookieOp.value)).status === 403, "a operação não abre a previsão")
+    // O velho da base: 12 Fatores, um a cada 45 dias — o ritmo dele.
+    const doVelho = (await previsao(tokenDoDono, VELHO)).corpo
+    const DIA_E_MES = new Intl.DateTimeFormat("pt-BR", {
+      timeZone: "America/Sao_Paulo",
+      day: "2-digit",
+      month: "2-digit",
+    })
+    // A última compra dele foi há 45 dias (a data, sem a hora): a próxima é hoje.
+    const ultimaDoVelho = new Date(
+      `${dataBR(agora - 45 * DIA_MS, false)
+        .split("/")
+        .reverse()
+        .join("-")}T00:00:00-03:00`
+    )
+    const proximaDoVelho = DIA_E_MES.format(new Date(ultimaDoVelho.getTime() + 45 * DIA_MS))
+    ok(
+      doVelho.busca?.email === VELHO &&
+        doVelho.busca.linha?.ritmo === 45 &&
+        doVelho.busca.linha.ate === 1138.8 &&
+        doVelho.busca.linha.proximaCompra === proximaDoVelho &&
+        doVelho.busca.linha.quem.endsWith(VELHO) &&
+        ["baixa", "media"].includes(doVelho.busca.linha.chance),
+      "pela busca: o velho da base compra a cada 45 dias — a próxima pelo ritmo, e o LTV (12 × R$ 94,90)",
+      JSON.stringify(doVelho.busca)
+    )
+    const tela = (await previsao(tokenDoDono)).corpo
+    ok(
+      tela.numeros?.clientes >= 2 &&
+        tela.busca === null &&
+        [...tela.semana, ...tela.emRisco].every(
+          (l) => !l.quem.includes(`@${DOMINIO}`) || l.quem.includes("•••@")
+        ),
+      "a aba: os números da base, e nas listas o e-mail só mascarado",
+      JSON.stringify(tela.numeros)
+    )
+    await dono.pagina.goto(`${PAINEL}/crm/previsao?email=${encodeURIComponent(VELHO)}`)
+    await dono.pagina.locator("[data-previsao-crm-tela]").waitFor({ timeout: 20000 })
+    const naBusca = semEspaco(
+      await dono.pagina.locator("[data-busca-da-previsao] [data-pessoa-da-previsao]").textContent()
+    )
+    ok(
+      (await dono.pagina.locator('.abas [data-aba="previsao"][aria-current="page"]').count()) ===
+        1 &&
+        naBusca.includes("compra a cada 45 dias") &&
+        naBusca.includes(proximaDoVelho) &&
+        semEspaco(await dono.pagina.locator('[data-numero="semana"]').textContent()) ===
+          String(tela.numeros.semana.pessoas),
+      "na tela: a aba Previsão acesa, os números e o velho pela busca",
+      naBusca
+    )
+    // Na ficha do cliente: o do Fator comprou nas duas lojas (2 compras: sem ritmo ainda).
+    await dono.pagina.goto(`${PAINEL}/clientes/${clienteDoFator?.id}`)
+    const naFicha = dono.pagina.locator("[data-previsao-crm]")
+    await naFicha.waitFor({ timeout: 20000 })
+    const chanceNaFicha = semEspaco(
+      await naFicha.locator('[data-previsao="chance"] .etiqueta__valor').textContent()
+    )
+    const ltvNaFicha = semEspaco(
+      await naFicha.locator('[data-previsao="ltv"] .etiqueta__valor').textContent()
+    )
+    ok(
+      (await naFicha.locator(".etiqueta").count()) === 3 &&
+        ["Baixa", "Média", "Alta"].includes(chanceNaFicha) &&
+        /^R\$\s?[\d.]+,\d{2}$/.test(ltvNaFicha),
+      "na ficha do cliente: a previsão embaixo das etiquetas — a próxima compra, a chance de sair e o LTV",
+      `${chanceNaFicha} · ${ltvNaFicha}`
+    )
+    await mkt.pagina.goto(`${PAINEL}/crm/previsao`)
+    await mkt.pagina.locator("[data-previsao-crm-tela]").waitFor({ timeout: 20000 })
+    ok(await semRolagemDeLado(mkt.pagina), "a aba Previsão no celular, sem rolar de lado")
+  }
+
   /* ── o painel ───────────────────────────────────────────────────────────── */
 
   titulo("A tela do CRM")
