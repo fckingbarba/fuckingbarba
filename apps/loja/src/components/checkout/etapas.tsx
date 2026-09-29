@@ -82,8 +82,8 @@ type Adiantados = Partial<Record<EtapaAdiantavel, Adiantado>>
  * │ O ADIANTADO SAI QUANDO O CARRINHO DE VERDADE CHEGA COM ELE             │
  * │ (`jaChegou`), e não quando a ação responde: o Next entrega a resposta  │
  * │ da ação ANTES da página refeita (`server-action-reducer.js`), e soltar │
- * │ o adiantado na resposta mostrava o passo de antes por um instante — o  │
- * │ passo piscava. Se a ação recusa (a sacola expirou, o CEP é de outra    │
+ * │ o adiantado na resposta mostraria o passo de antes por um instante — o │
+ * │ passo piscaria. Se a ação recusa (a sacola expirou, o CEP é de outra   │
  * │ cidade, a rede caiu), o adiantado sai na hora e o passo volta aberto,  │
  * │ com o recado (`aoVoltar`).                                             │
  * │                                                                        │
