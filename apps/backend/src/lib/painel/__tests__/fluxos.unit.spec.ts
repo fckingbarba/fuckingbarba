@@ -34,6 +34,51 @@ const reg = (extra: Partial<RegistroDaTela>): RegistroDaTela => ({
 })
 
 describe("a tela dos fluxos", () => {
+  it("o indique um brother (0215): os links, os brothers que pagaram, o que compraram e os cupons", () => {
+    const premio = (pedido: string, cupom: string | null, como = "enviado") =>
+      reg({
+        email: "rafa@exemplo.com",
+        fluxo: "indicacao",
+        chave: `premio|${pedido}`,
+        toque: "indicacao-premio",
+        como,
+        em: antes(3),
+        cupom,
+      })
+    const tela = montarTelaDosFluxos({
+      config,
+      registros: [
+        premio("order_1", "VALEU-AAAAAA"),
+        premio("order_2", "VALEU-BBBBBB"),
+        // O teto do ano: o brother comprou, sem cupom pra quem indicou.
+        premio("order_3", null, "pulado"),
+      ],
+      pedidos: [
+        {
+          id: "order_1",
+          email: "b1@x.com",
+          created_at: antes(3),
+          total: 79.9,
+          status: "completed",
+        },
+        { id: "order_2", email: "b2@x.com", created_at: antes(3), total: 120, status: "completed" },
+        { id: "order_3", email: "b3@x.com", created_at: antes(3), total: 50, status: "canceled" },
+        { id: "order_9", email: "x@x.com", created_at: antes(3), total: 999, status: "completed" },
+      ],
+      cuponsUsados: new Set(["VALEU-AAAAAA"]),
+      links: 12,
+    })
+    expect(tela.indicacao).toEqual({
+      links: 12,
+      amigos: 3,
+      vendido: 199.9,
+      cupons: 2,
+      cuponsUsados: 1,
+    })
+    // Nenhum fluxo conta o prêmio: ele é do indique.
+    expect(tela.fluxos.every((f) => f.numeros.enviados === 0)).toBe(true)
+  })
+
   it("conta quem recebeu, quem comprou em 7 dias e quanto, e o controle", () => {
     const tela = montarTelaDosFluxos({
       config,
