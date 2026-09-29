@@ -40,7 +40,10 @@
  * │   página; a mudança sem linha no histórico; erro no console;           │
  * │ • o produto em mais de uma categoria que não aparece na vitrine da     │
  * │   outra, a trilha da página que não segue a principal, e o painel de   │
- * │   antes apagando as outras categorias.                                 │
+ * │   antes apagando as outras categorias;                                 │
+ * │ • a prévia da caixa de compra falando de um frete que a loja não       │
+ * │   anuncia (um piso só do painel, "grátis" com frete fixo, tarja sem    │
+ * │   política).                                                           │
  * └────────────────────────────────────────────────────────────────────────┘
  */
 
@@ -83,6 +86,10 @@ const semEspaco = (s) =>
   String(s ?? "")
     .replace(/\s+/g, " ")
     .trim()
+
+const REAIS = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
+/** "R$ 9,90", com espaço comum (o do `Intl` é o duro, que o `semEspaco` também troca). */
+const reais = (v) => semEspaco(REAIS.format(v))
 
 async function esperarQue(condicao, ms = 20000) {
   for (const fim = Date.now() + ms; Date.now() < fim; await esperar(400)) {
@@ -1130,6 +1137,133 @@ try {
       "cada mudança numa linha, com o nome de quem fez",
       linhas.slice(0, 6).join(" | ")
     )
+  }
+
+  /* ── o frete da prévia ────────────────────────────────────────────────── */
+
+  /*
+    A PRÉVIA FALA DO FRETE QUE A LOJA ANUNCIA (0222). Antes o painel tinha um
+    piso fixo (149,90), e a loja já anunciava outro (139,90): a tarja dos
+    cartões e o "faltam R$ X" do "Leve junto" saíam onde a página não punha.
+    Agora vêm da política gravada, que a rota do produto manda junto
+    (`frete`). Cada modo é gravado pelo admin (só o frete: o resto das
+    configurações fica), e a prévia é comparada com a política e os totais
+    que a ROTA devolveu — e as tarjas, com as dos cartões do balm na loja. O
+    "Leve junto" só é escolhido, sem salvar: nada muda no balm, nem no
+    histórico. A política volta no fim, mesmo se falhar.
+  */
+  titulo("O frete da prévia (no balm)")
+  {
+    const politicaAntes = (await adm("/admin/configuracoes")).corpo.configuracoes?.frete
+    if (!politicaAntes) throw new Error("não li a política de frete do admin local")
+    const { degraus } = (await detalhe(tokenMkt, balm.id)).produto
+    if (degraus.length < 3) throw new Error("o balm está sem as faixas de 2 e 3 (a semente?)")
+    const [um, dois] = degraus.map((d) => d.total)
+
+    const gravarFrete = async (frete) => {
+      const r = await adm("/admin/configuracoes", { metodo: "POST", corpo: { frete } })
+      if (r.status !== 200) throw new Error(`gravar a política falhou: ${r.status}`)
+    }
+    const tarjasNoPainel = () =>
+      pagina.$$eval(".unid-cartao", (ns) =>
+        ns.map((n) => n.querySelector(".unid-cartao__frete")?.textContent ?? null)
+      )
+    /** A tarja de cada cartão da página do balm na loja (`null` onde não tem). */
+    const tarjasNaLoja = (html) => {
+      const kits = html.match(/<fieldset class="compra__kits"[\s\S]*?<\/fieldset>/)?.[0]
+      if (!kits) return null
+      return kits
+        .split("<label ")
+        .slice(1)
+        .map((l) => {
+          const m = l.match(/class="tarja-frete">[\s\S]*?<\/svg>([\s\S]*?)<\/span>/)
+          return m ? semEspaco(m[1].replace(/<!-- -->/g, "")) : null
+        })
+    }
+    const rodape = () =>
+      pagina.$eval(".junto-previa__rodape", (e) => ({
+        frete: e.querySelector("[data-frete-do-junto]")?.textContent ?? null,
+        total: e.querySelector(".junto-previa__total b")?.textContent ?? "",
+      }))
+
+    /**
+     * Grava a política, abre o balm e confere: a política que a rota manda,
+     * a tarja de cada cartão (no painel e na loja) e, com o "Leve junto"
+     * escolhido sem salvar, o rodapé — o total é o de 1 unidade, a de hoje.
+     */
+    const conferirModo = async (nome, frete, { tarjas, doRodape }) => {
+      await gravarFrete(frete)
+      const daRota = (await detalhe(tokenMkt, balm.id)).frete
+      ok(
+        JSON.stringify(daRota) ===
+          JSON.stringify((await adm("/admin/configuracoes")).corpo.configuracoes.frete),
+        `${nome}: a rota do produto manda a política gravada`,
+        JSON.stringify(daRota)
+      )
+      await abrirProduto(balm.id)
+      const noPainel = (await tarjasNoPainel()).map((t) => (t === null ? null : semEspaco(t)))
+      ok(
+        JSON.stringify(noPainel) === JSON.stringify(tarjas),
+        `${nome}: a tarja de cada cartão da prévia`,
+        JSON.stringify(noPainel)
+      )
+      const html = await paginaDaLoja(
+        balm.handle,
+        (h) => JSON.stringify(tarjasNaLoja(h)) === JSON.stringify(tarjas)
+      )
+      ok(
+        JSON.stringify(tarjasNaLoja(html)) === JSON.stringify(noPainel),
+        `${nome}: as mesmas tarjas dos cartões da página na loja`,
+        JSON.stringify(tarjasNaLoja(html))
+      )
+      await pagina.locator('.escolha input[value="junto"]').check()
+      await pagina.selectOption('[data-caixa-junto="0"]', "oleo-para-barba")
+      const r = await rodape()
+      ok(
+        (r.frete === null ? null : semEspaco(r.frete)) === doRodape &&
+          semEspaco(r.total) === reais(um),
+        doRodape
+          ? `${nome}: o rodapé do leve junto diz "${doRodape}"`
+          : `${nome}: o rodapé do leve junto fica só com o total`,
+        JSON.stringify(r)
+      )
+      if (!doRodape)
+        ok(
+          !/frete/i.test(await pagina.locator(".pdp-previa").textContent()),
+          `${nome}: a prévia não fala de frete em lugar nenhum`
+        )
+    }
+
+    try {
+      // Piso = o total de 2: "alcança" é >=, como no Medusa — o de 2 já ganha a tarja.
+      await conferirModo(
+        "frete grátis",
+        { modo: "gratis", piso: dois, alvo: "mais-barata", tetoDeCusto: null },
+        {
+          tarjas: degraus.map((d) => (d.total >= dois ? "Frete grátis" : null)),
+          doRodape: `Faltam ${reais(Math.round((dois - um) * 100) / 100)} pro frete grátis`,
+        }
+      )
+      // Frete fixo, com piso que 1 unidade já alcança: o selo diz o preço, nunca "grátis".
+      await conferirModo(
+        "frete fixo",
+        { modo: "fixo", piso: um, preco: 9.9, alvo: "todas", tetoDeCusto: null },
+        { tarjas: degraus.map(() => "Frete R$ 9,90"), doRodape: "Frete R$ 9,90" }
+      )
+      // Piso zero: o frete é de todo mundo, e a loja não põe tarja em nada.
+      await conferirModo(
+        "frete grátis pra todos",
+        { modo: "gratis", piso: 0, alvo: "todas", tetoDeCusto: null },
+        { tarjas: degraus.map(() => null), doRodape: null }
+      )
+      await conferirModo(
+        "sem política",
+        { modo: "nenhuma" },
+        { tarjas: degraus.map(() => null), doRodape: null }
+      )
+    } finally {
+      await gravarFrete(politicaAntes)
+    }
   }
 
   // Depois do histórico: as gravações daqui empurrariam as de cima pra fora dos 20 dele.
