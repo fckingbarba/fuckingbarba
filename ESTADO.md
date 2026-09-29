@@ -3845,9 +3845,14 @@ pessoa digitava tudo de novo. Agora a loja guarda, de cada pedido da Nuvemshop, 
 CPF e o endereço de entrega (sua escolha), cifrados, e o carrinho já vem com eles: é só escolher o
 frete e pagar. A política de privacidade conta isso.
 
-- [ ] **Depois do deploy (você), antes de ligar a reposição em 3/10:** CRM → Base da Nuvemshop →
+- [x] **Depois do deploy (você), antes de ligar a reposição em 3/10:** CRM → Base da Nuvemshop →
       mande de novo o arquivo de vendas (o `vendas.csv` de 27/09). O aviso vai dizer quantos pedidos
       vieram "com o endereço de entrega". Os de clientes e de carrinhos não precisam ir de novo.
+      (Mandado em 29/09: 2.878 dos 2.879 pedidos com o endereço.)
+
+**O texto da tela da Base da Nuvemshop, certo — 29/09 (entrega 0204).** Embaixo do botão, a tela
+ainda dizia que o CPF, o telefone e o endereço eram jogados fora. Agora diz que, das vendas, eles
+ficam guardados cifrados, pro "Refazer o pedido".
 
 **A parcela mínima do cartão, editável — pronta em 27/09 (entrega 0157).** O pedido dele: "quero
 poder editar a parcela mínima no cartão, ali diz 5 reais". Em **Configurações → Pagamento**, o
