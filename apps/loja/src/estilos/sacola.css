@@ -215,43 +215,34 @@
 .sacolinha__completa {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px;
+  gap: 8px;
+  padding: 4px;
   background: #ffffff;
   border: 2px solid var(--color-tinta);
 }
 .sacolinha__completa-foto {
   flex-shrink: 0;
-  width: 44px;
-  height: 44px;
+  width: 34px;
+  height: 34px;
   background: #f2f3f4;
-  border: 2px solid var(--color-tinta);
 }
 .sacolinha__completa-foto img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
-.sacolinha__completa-corpo {
+.sacolinha__completa-texto {
   flex: 1;
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  font-size: 0.72rem;
+  font-size: 0.78rem;
+  line-height: 1.2;
   color: var(--color-tinta-suave);
 }
-.sacolinha__completa-selo {
-  font-size: 0.6rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #0b7f62;
+.sacolinha__completa-texto span {
+  white-space: nowrap;
 }
-.sacolinha__completa-nome {
-  font-size: 0.78rem;
+.sacolinha__completa-texto b {
   font-weight: 800;
-  line-height: 1.2;
   color: var(--color-tinta);
 }
 .sacolinha__completa-add,
@@ -271,6 +262,10 @@
   letter-spacing: 0.06em;
   text-transform: uppercase;
   cursor: pointer;
+}
+.sacolinha__completa-add {
+  min-height: 40px;
+  padding: 0 10px;
 }
 .sacolinha__completa-add svg {
   width: 12px;
