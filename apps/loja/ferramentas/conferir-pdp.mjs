@@ -483,51 +483,87 @@ try {
         )
 
         /*
-          Com os preços de hoje, NENHUM dos dois fecha a conta sozinho
-          (79,90 + 39,90 e 79,90 + 49,90 ficam abaixo de 139,90) — e marcar
-          um faz o outro alcançar. É o caso que prova que a tarja depende do
-          que está marcado, e não de uma conta fixa por produto.
+          O "LEVE JUNTO" É UMA CAIXA SÓ desde a 0221: a tarja saiu de cada
+          item — ela se lia como "este produto tem frete grátis", e não como
+          "levando este, o frete sai grátis" — e o frete foi pro RODAPÉ, dito
+          uma vez, junto do total do clique. O que se confere é a conta dele:
+          o total é o preço da caixa mais os marcados, e a frase diz quanto
+          falta até o PISO gravado acima — ou vira o selo quando alcança. Os
+          preços vêm da tela, não de uma conta fixa por produto: com os de
+          hoje (79,90 + 39,90 + 49,90), um marcado ainda falta e os dois
+          passam do piso.
         */
         await caixa("junto")
         await abrir(COM_CONTEUDO)
         confere(
-          "nenhum item que combina fecha a conta sozinho",
-          (await pagina.$$(".junto__item .tarja-frete")).length === 0
+          "nenhuma tarja de frete dentro do leve junto",
+          (await pagina.$$(".junto .tarja-frete")).length === 0
         )
+        /* O `emReais` põe espaço duro entre o "R$" e o número: aqui vira espaço comum. */
+        const rodape = () =>
+          pagina.$eval(".junto__rodape", (e) => ({
+            frete:
+              e.querySelector(".junto__frete")?.textContent?.replace(/\s+/g, " ").trim() ?? null,
+            total: e.querySelector(".junto__total b")?.textContent?.trim() ?? "",
+            rotulo: e.querySelector(".junto__total")?.firstChild?.textContent?.trim() ?? "",
+            alcancou: e.hasAttribute("data-alcancou"),
+          }))
+        const botao = async () => (await pagina.textContent(".compra__comprar"))?.trim() ?? ""
+        const base = emDigitos(await pagina.textContent(".compra__por"))
+        const extras = (
+          await pagina.$$eval(".junto__preco", (n) => n.map((e) => e.textContent))
+        ).map(emDigitos)
+        const conferirRodape = async (soma, quantos, quando) => {
+          const r = await rodape()
+          const falta = Math.round((PISO - soma) * 100) / 100
+          confere(
+            `${quando}: o total é o do clique (${quantos > 1 ? `"Total dos ${quantos}"` : '"Total"'})`,
+            Math.abs(emDigitos(r.total) - soma) < 0.005 &&
+              r.rotulo === (quantos > 1 ? `Total dos ${quantos}` : "Total"),
+            JSON.stringify(r)
+          )
+          confere(
+            falta > 0
+              ? `${quando}: o rodapé diz quanto falta pro frete grátis`
+              : `${quando}: o rodapé vira o selo do frete, em menta`,
+            falta > 0
+              ? !r.alcancou &&
+                  /^Faltam? /.test(r.frete ?? "") &&
+                  (r.frete ?? "").includes(falta.toFixed(2).replace(".", ","))
+              : r.alcancou && /grátis/i.test(r.frete ?? ""),
+            JSON.stringify(r)
+          )
+        }
+        await conferirRodape(base, 1, "nada marcado")
+        confere("nada marcado: o botão é o de sempre", /^Adicionar à sacola$/i.test(await botao()))
 
         await pagina.check(".junto__lista li:first-child input")
         await pagina.waitForTimeout(350)
-        const acesas = await pagina.$$eval(".junto__item", (n) =>
-          n.map((e) => e.querySelector(".tarja-frete") !== null)
-        )
+        await conferirRodape(base + extras[0], 2, "um marcado")
         confere(
-          "marcar um acende a tarja do outro",
-          acesas[0] === false && acesas[1] === true,
-          JSON.stringify(acesas)
+          'um marcado: a linha vira "Vai junto" e o botão diz quantos vão',
+          /vai junto/i.test(
+            await pagina.textContent(".junto__lista li:first-child .junto__botao")
+          ) && /^Adicionar os 2$/i.test(await botao()),
+          await botao()
         )
 
         await pagina.check(".junto__lista li:nth-child(2) input")
         await pagina.waitForTimeout(450)
-        /*
-          Com os dois marcados o pedido passa do piso. Quem responde isso
-          agora são as TARJAS: as duas continuam acesas, porque tirar
-          qualquer um dos dois derruba o frete grátis — ou seja, os dois são
-          responsáveis por ele. Antes quem respondia era o medidor virando
-          "conseguiu"; o medidor saiu e a pergunta continua valendo.
-        */
-        const aindaAcesas = await pagina.$$eval(".junto__item", (n) =>
-          n.map((e) => e.querySelector(".tarja-frete") !== null)
-        )
-        confere(
-          "com os dois marcados, as duas tarjas continuam de pé",
-          aindaAcesas.length === 2 && aindaAcesas.every(Boolean),
-          JSON.stringify(aindaAcesas)
-        )
+        await conferirRodape(base + extras[0] + extras[1], 3, "os dois marcados")
+        confere('os dois marcados: "Adicionar os 3"', /^Adicionar os 3$/i.test(await botao()))
 
         /* 2. FRETE FIXO — a tarja diz o preço, não "grátis". */
         await gravarFrete(
           { modo: "fixo", piso: PISO, preco: 9.9, alvo: "todas", tetoDeCusto: null },
           config
+        )
+        await abrir(COM_CONTEUDO)
+        const fixoNoJunto = (await rodape()).frete ?? ""
+        confere(
+          "com frete fixo, o rodapé do leve junto fala do frete de R$ 9,90, e nunca 'grátis'",
+          fixoNoJunto.includes("frete de R$ 9,90") && !/grátis/i.test(fixoNoJunto),
+          fixoNoJunto
         )
         await caixa("unidades")
         await abrir(COM_CONTEUDO)
@@ -547,6 +583,14 @@ try {
           "sem política, some a tarja, o medidor e o selo das garantias",
           (await pagina.$$(".tarja-frete")).length === 0 &&
             (await pagina.$(".medidor")) === null &&
+            !(await textoDaPagina()).includes("Frete grátis")
+        )
+        await caixa("junto")
+        await abrir(COM_CONTEUDO)
+        confere(
+          "sem política, o rodapé do leve junto fica só com o total",
+          (await pagina.$(".junto__frete")) === null &&
+            (await pagina.$(".junto__total")) !== null &&
             !(await textoDaPagina()).includes("Frete grátis")
         )
       } finally {

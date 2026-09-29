@@ -5,8 +5,10 @@ import { useEffect, useId, useRef, useState, useTransition } from "react"
 import {
   Caminhao,
   Cartao,
+  Certo,
   Envelope,
   EscudoCerto,
+  Mais,
   Raio,
   Sacola,
   Triangulo,
@@ -18,11 +20,18 @@ import type { CarrinhoVisivel } from "@/lib/carrinho-visivel"
 import { emReais } from "@/lib/formato"
 import type { DegrauDeQuantidade } from "@/lib/medusa"
 import { useFrete, useParcelaMinima } from "@/components/configuracoes/contexto"
-import { alcancaOPiso, fechaOPiso, frasesDoFrete, pisoVale } from "@/lib/configuracoes"
+import {
+  alcancaOPiso,
+  faltaPraPromocao,
+  fraseDoQueFalta,
+  frasesDoFrete,
+  pisoVale,
+} from "@/lib/configuracoes"
 import { SEM_CONEXAO, semQueda } from "@/lib/rede"
 import { CalculadoraDeFrete } from "@/components/produto/calculadora"
 import type { ProdutoQueCombina } from "@/lib/pdp"
 import { gratisEm, unitarioEm, type PromocaoDoProduto } from "@/lib/promocoes"
+import { nomeCurto } from "@/lib/recomendacao"
 import { PARCELAS_SEM_JUROS } from "@/lib/site"
 import { anotarNaLoja, rastrear } from "@/lib/rastrear"
 import { depoisDeUmMinutoNaFrente } from "@/lib/um-minuto"
@@ -215,13 +224,6 @@ export function Compra({
   const tarjaDoDegrau = (preco: number) =>
     frases && pisoVale(politica) && alcancaOPiso(politica, preco) ? frases.selo : null
 
-  /**
-   * A tarja de um item que combina: marcar ESTE é o que fecha a conta?
-   *
-   * Descontando o próprio item antes de perguntar, a tarja continua no item
-   * depois de marcado — ele é quem está segurando o benefício, e vê-la sumir
-   * no clique pareceria que o benefício sumiu junto.
-   */
   const alternar = (id: string) =>
     setJuntos((s) => {
       const novo = new Set(s)
@@ -230,11 +232,20 @@ export function Compra({
       return novo
     })
 
-  const tarjaDoJunto = (item: ProdutoQueCombina) => {
-    if (!frases || !pisoVale(politica)) return null
-    const semEste = pedido - (juntos.has(item.varianteId) ? item.preco : 0)
-    return fechaOPiso(politica, semEste, item.preco) ? frases.selo : null
-  }
+  /** Quantos vão no clique: as unidades deste, mais um de cada marcado. */
+  const noClique = unidades + marcados.length
+
+  /*
+    O RODAPÉ DO "LEVE JUNTO" (0221): o total do clique e o frete dele —
+    "Faltam R$ 25,00 pro frete grátis", ou o selo quando alcança. A conta é
+    o mesmo `pedido` da barra fixa: só o que esta caixa adiciona, nunca a
+    sacola (o quadro acima). Com piso zero, ou sem política, fica só o
+    total: aí o frete é de todo mundo, e quem anuncia é a garantia.
+  */
+  const falta = pisoVale(politica) ? faltaPraPromocao(politica, pedido) : null
+  const aindaFalta = falta ? fraseDoQueFalta(politica, emCentavos(falta)) : null
+  const freteDoJunto =
+    frases && falta !== null ? { alcancou: !aindaFalta, texto: aindaFalta ?? frases.selo } : null
 
   /*
    * O RISCADO é o preço da MESMA unidade, vezes quantas estão na conta — o
@@ -429,7 +440,14 @@ export function Compra({
         pessoa com a escolha feita e o botão à vista.
       */}
       {combinam.length ? (
-        <LeveJunto itens={combinam} marcados={juntos} tarja={tarjaDoJunto} aoAlternar={alternar} />
+        <LeveJunto
+          itens={combinam}
+          marcados={juntos}
+          aoAlternar={alternar}
+          rotulo={marcados.length ? `Total dos ${noClique}` : "Total"}
+          total={emCentavos(pedido)}
+          frete={freteDoJunto}
+        />
       ) : null}
 
       <div className="compra__acao">
@@ -466,7 +484,7 @@ export function Compra({
           onClick={comprar}
           disabled={enviando || !disponivel}
         >
-          {textoDoBotao(enviando, disponivel)}
+          {textoDoBotao(enviando, disponivel, marcados.length ? noClique : null)}
           <Sacola className="btn__icone" />
         </button>
       </div>
@@ -683,9 +701,17 @@ function irParaOAviso(caixa: React.RefObject<HTMLDivElement | null>) {
   el.querySelector<HTMLInputElement>('input[type="email"]')?.focus({ preventScroll: true })
 }
 
-function textoDoBotao(enviando: boolean, disponivel: boolean) {
+/**
+ * `quantos`: com algo marcado no "leve junto", quantos vão no clique — o
+ * botão diz "Adicionar os 3" (0221), e a pessoa sabe que os marcados vão
+ * junto sem descer até a gaveta pra conferir. Sem o "à sacola": ao lado da
+ * quantidade ele quebrava o botão em duas linhas, no celular e no
+ * computador, e o ícone da sacola do lado já diz pra onde vai.
+ */
+function textoDoBotao(enviando: boolean, disponivel: boolean, quantos: number | null) {
   if (!disponivel) return "Esgotado"
-  return enviando ? "Adicionando…" : "Adicionar à sacola"
+  if (enviando) return "Adicionando…"
+  return quantos ? `Adicionar os ${quantos}` : "Adicionar à sacola"
 }
 
 /**
@@ -714,18 +740,36 @@ function textoDoBotao(enviando: boolean, disponivel: boolean) {
  *
  * Preço à vista, do jeito que o Medusa devolve: quem escolhe aqui está
  * somando ao total que já está na tela, e um preço "a partir de" obrigaria
- * a refazer a conta de cabeça.
+ * a refazer a conta de cabeça. Por isso ele vem com o "+" na frente.
+ *
+ * UMA CAIXA SÓ, com o total embaixo (0221, a opção D do canvas "Leve
+ * junto", escolhida pelo dono). Antes eram cartões soltos de canto chanfrado
+ * — o chanfro cortava a borda e o cartão parecia quebrado — e cada item
+ * ganhava a tarja "FRETE GRÁTIS", que se lia como atributo do produto e não
+ * como "levando este, o frete sai grátis". Agora o frete mora no rodapé,
+ * dito uma vez só, junto do total do clique.
+ *
+ * Continua sendo um `<input type="checkbox">` de verdade (teclado, leitor de
+ * tela e o `check()` dos conferidores): ele cobre a linha inteira, invisível,
+ * e o que se vê é o botão "Levar" / "Vai junto", desenhado pelo `:checked`.
  */
 function LeveJunto({
   itens,
   marcados,
-  tarja,
   aoAlternar,
+  rotulo,
+  total,
+  frete,
 }: {
   itens: readonly ProdutoQueCombina[]
   marcados: Set<string>
-  tarja: (item: ProdutoQueCombina) => string | null
   aoAlternar: (varianteId: string) => void
+  /** "Total" · "Total dos 3" */
+  rotulo: string
+  /** O que vai no clique: este produto nas unidades escolhidas, mais os marcados. */
+  total: number
+  /** O frete desse total, com o texto do `frasesDoFrete`; `null` = não se fala de frete. */
+  frete: { alcancou: boolean; texto: string } | null
 }) {
   return (
     <fieldset className="junto">
@@ -734,34 +778,69 @@ function LeveJunto({
         Leve junto
       </legend>
 
-      <ul className="junto__lista">
-        {itens.map((item) => {
-          const selo = tarja(item)
-          return (
-            <li key={item.varianteId}>
-              <label className="junto__item">
-                <input
-                  type="checkbox"
-                  checked={marcados.has(item.varianteId)}
-                  onChange={() => aoAlternar(item.varianteId)}
-                />
-                {item.foto ? (
-                  <Image src={item.foto} alt="" width={44} height={44} sizes="44px" />
-                ) : (
-                  <span className="junto__sem-foto" aria-hidden="true" />
-                )}
-                <span className="junto__texto">
-                  <span className="junto__nome">{item.nome}</span>
-                  {selo ? <TarjaDeFrete texto={selo} /> : null}
-                </span>
-                <span className="junto__preco">{emReais(item.preco)}</span>
-              </label>
-            </li>
-          )
-        })}
-      </ul>
+      <div className="junto__caixa">
+        <ul className="junto__lista">
+          {itens.map((item) => {
+            const marcado = marcados.has(item.varianteId)
+            const medida = medidaDoNome(item.nome)
+            return (
+              <li key={item.varianteId}>
+                <label className="junto__item">
+                  <input
+                    type="checkbox"
+                    checked={marcado}
+                    onChange={() => aoAlternar(item.varianteId)}
+                    aria-label={`Levar junto: ${item.nome}, mais ${emReais(item.preco)}`}
+                  />
+                  {item.foto ? (
+                    <Image src={item.foto} alt="" width={40} height={40} sizes="40px" />
+                  ) : (
+                    <span className="junto__sem-foto" aria-hidden="true" />
+                  )}
+                  <span className="junto__texto">
+                    <span className="junto__nome">{nomeCurto(item.nome)}</span>
+                    <span className="junto__detalhe">
+                      {medida ? `${medida} · ` : null}
+                      <b className="junto__preco">+ {emReais(item.preco)}</b>
+                    </span>
+                  </span>
+                  <span className="junto__botao" aria-hidden="true">
+                    {marcado ? <Certo /> : <Mais />}
+                    {marcado ? "Vai junto" : "Levar"}
+                  </span>
+                </label>
+              </li>
+            )
+          })}
+        </ul>
+
+        <p
+          className="junto__rodape"
+          data-alcancou={frete?.alcancou ? "" : undefined}
+          aria-live="polite"
+        >
+          {frete ? (
+            <span className="junto__frete">
+              {frete.alcancou ? <Raio /> : null}
+              {frete.texto}
+            </span>
+          ) : null}
+          <span className="junto__total">
+            {rotulo} <b>{emReais(total)}</b>
+          </span>
+        </p>
+      </div>
     </fieldset>
   )
+}
+
+/**
+ * "Fator de Crescimento para Barba 30ml" → "30 ml": a medida vai pra linha
+ * de baixo, do lado do preço, e o nome de cima fica curto (`nomeCurto`).
+ */
+function medidaDoNome(nome: string): string | null {
+  const m = nome.match(/\b(\d+(?:[.,]\d+)?)\s?(ml|g|kg|l)\b/i)
+  return m ? `${m[1]} ${m[2]!.toLowerCase()}` : null
 }
 
 /**

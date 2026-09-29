@@ -229,23 +229,6 @@ export function produtoSozinhoQualifica(p: PoliticaDeFrete, preco: number): bool
   return alcancaOPiso(p, preco)
 }
 
-/**
- * ESTE ITEM É O QUE FECHA A CONTA?
- *
- * Responde a pergunta do cross-sell: somando este item ao que já está
- * escolhido, o pedido passa a ter frete grátis — e sem ele, não tinha.
- *
- * As DUAS condições importam, e a segunda é a que mantém a tarja honesta.
- * Sem `escolhido < piso`, todo item ganharia a tarja assim que o pedido já
- * estivesse acima do piso por outro motivo: a pessoa marcaria o óleo
- * "pra ganhar o frete" que ela já tinha ganho no kit de 3. É verdade de
- * rótulo e mentira de significado, que é o tipo que só se descobre depois.
- */
-export function fechaOPiso(p: PoliticaDeFrete, escolhido: number, item: number): boolean {
-  if (p.modo === "nenhuma") return false
-  return escolhido < p.piso && escolhido + item >= p.piso
-}
-
 /* ── contato ─────────────────────────────────────────────────────────────
  *
  * O número é guardado só com dígitos e DDI ("5511988887777") porque é isso

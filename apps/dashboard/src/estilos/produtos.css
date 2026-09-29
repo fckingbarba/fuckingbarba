@@ -129,16 +129,18 @@ fieldset.campo > legend { padding: 0; margin: 0 0 6px; }
   .unid-cartao__frete { padding: 2px 4px; font-size: 0.5rem; }
   .unid-cartao__frete svg { display: none; }
 }
-.junto-previa { padding: 10px 12px; background: var(--papel); border: 2px solid var(--tinta); }
+/* O leve junto como a loja desenha desde a 0221: caixa única, "+ Levar" e o rodapé com o total. */
 .junto-previa .unid-previa__titulo { margin-bottom: 6px; }
-.junto-previa__item { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 7px 0; border-top: 1px solid rgba(18, 24, 31, 0.1); font-size: 0.82rem; }
+.junto-previa__caixa { background: var(--papel); border: 2px solid var(--tinta); }
+.junto-previa__item { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 8px 10px; font-size: 0.82rem; }
+.junto-previa__item + .junto-previa__item { border-top: 1px solid rgba(18, 24, 31, 0.1); }
 .junto-previa__item[data-esgotado] { opacity: 0.75; }
 .junto-previa__item .foto { width: 40px; height: 40px; }
 .junto-previa__nome { display: flex; flex-direction: column; gap: 3px; min-width: 0; font-weight: 700; }
 .junto-previa__nome .slot__aviso { margin: 0; font-weight: 600; }
-.caixinha { flex-shrink: 0; width: 18px; height: 18px; background: var(--papel); border: 2px solid var(--tinta); }
-.tarja-frete { display: inline-flex; align-items: center; gap: 4px; width: fit-content; padding: 1px 6px; background: var(--menta-clara); color: var(--menta-escura); font-size: 0.62rem; font-weight: 800; text-transform: uppercase; }
-.tarja-frete svg { width: 11px; height: 11px; fill: currentColor; }
+.junto-previa__levar { display: inline-flex; align-items: center; gap: 4px; padding: 5px 9px; border: 2px solid var(--tinta); font-size: 0.66rem; font-weight: 900; letter-spacing: 0.05em; text-transform: uppercase; }
+.junto-previa__levar svg { width: 11px; height: 11px; fill: currentColor; }
+.junto-previa__rodape { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 10px; margin: 0; padding: 8px 10px; border-top: 1px solid var(--tinta); background: var(--cinza); font-size: 0.74rem; font-weight: 700; }
 
 /* ── o que o protótipo não tinha ── */
 

@@ -362,6 +362,19 @@ dias úteis depois da postagem / Não sei meu CEP" desde a 0211 (pedido do dono,
 enxuta) — a sacola e o checkout continuam com o deles. Conferidor:
 `apps/loja/ferramentas/conferir-frete-na-pdp.mjs` (23), com a Frenet falsa.
 
+**O LEVE JUNTO DA PÁGINA DE PRODUTO** (0221, desenho aprovado pelo dono no canvas "Leve junto",
+opção D): `function LeveJunto` em `components/produto/compra.tsx` + `estilos/pdp-junto.css`. UMA
+CAIXA SÓ, sem chanfro (o `clip-path` cortava a borda e o cartão parecia quebrado): uma linha por
+produto — foto, `nomeCurto`, "30 ml · + R$ 79,90" e o botão "+ Levar" / "✓ Vai junto" — e o RODAPÉ
+com o total do clique ("Total" · "Total dos 3", o mesmo `pedido` da barra fixa) e o frete dele:
+"Faltam R$ X pro frete grátis" (`fraseDoQueFalta`) em cinza, ou o `frases.selo` em menta quando
+alcança; sem política ou com piso zero, só o total. A tarja por item saiu (lia-se "este produto tem
+frete grátis") e com ela o `fechaOPiso`. O `<input type="checkbox">` continua de verdade: cobre a
+linha, invisível, com `aria-label`; o botão é desenhado pelo `:checked`. Com algo marcado, o
+Comprar diz "Adicionar os 3" (sem "à sacola": quebrava em duas linhas). A prévia do painel
+(`PreviaJunto` em `caixa-de-compra.tsx`) imita. Conferido no `conferir-pdp` (o rodapé nos três
+modos de frete e o botão).
+
 **Pagamento** é um provider próprio (`src/modules/pagarme/`, id `pp_pagarme_pagarme`): Pix e cartão
 em até 3x pelo Pagar.me, ligado na região por `npm run backend:pagamento` (que tira o provisório
 `pp_system_default` — o que aprova sem cobrar — e confere o que a loja enxerga; `-- voltar` desfaz).
