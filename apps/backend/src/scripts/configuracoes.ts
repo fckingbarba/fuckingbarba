@@ -50,6 +50,8 @@ const SEMENTE: Configuracoes = {
   integracoes: PADRAO.integracoes,
   // A parcela mínima do banco; a loja pede mais pelo painel (Configurações → Pagamento).
   pagamento: PADRAO.pagamento,
+  // A venda nova vai pros donos; outro endereço entra pelo painel (Configurações → E-mails).
+  avisos: PADRAO.avisos,
 }
 
 /**

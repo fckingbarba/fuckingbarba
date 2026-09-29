@@ -1,4 +1,5 @@
 import type { Metadata } from "next"
+import { FormularioDoAvisoDaVenda } from "@/components/configuracoes"
 import { ForaDoAr, SemAcesso } from "@/components/telas"
 import { Ajuda, Pilula } from "@/components/visual"
 import { NOME_DO_PAPEL } from "@/lib/equipe"
@@ -43,6 +44,7 @@ export default async function Pagina() {
           ))}
         </div>
       </section>
+      <FormularioDoAvisoDaVenda inicial={{ vendaPara: t.emails.vendaPara }} />
       <section className="bloco" data-emails-equipe>
         <div className="bloco__cabeca">
           <div className="bloco__titulos">
@@ -62,7 +64,12 @@ export default async function Pagina() {
                   {e.texto} Hoje recebe: {e.quem}.
                 </p>
               </div>
-              <span className="selo">vai pra: {papeis(e.papeis)}</span>
+              <span className="selo">
+                vai pra:{" "}
+                {e.nome === "Venda nova" && t.emails.vendaPara
+                  ? t.emails.vendaPara
+                  : papeis(e.papeis)}
+              </span>
             </div>
           ))}
         </div>

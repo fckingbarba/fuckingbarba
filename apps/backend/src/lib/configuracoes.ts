@@ -144,6 +144,18 @@ export type Home = { video: VideoDaMarca | null }
  */
 export type Pagamento = { parcelaMinima: number }
 
+/**
+ * OS AVISOS PRA EQUIPE QUE TÊM ENDEREÇO PRÓPRIO — o e-mail da venda nova
+ * (0219). Com `vendaPara`, o aviso vai SÓ pra ele, e nenhum dono recebe;
+ * sem, vai pros donos do painel, como antes (`lib/avisar-venda.ts`).
+ *
+ * INTERNO: não entra no recorte público (`soOPublico`).
+ */
+export type Avisos = { vendaPara: string | null }
+
+/** Um e-mail que dá pra mandar: "x@y.z", sem espaço, até 254 letras. */
+export const FORMATO_DO_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
 /** O teto da parcela mínima: acima disso, é o zero a mais digitado sem querer. */
 export const PARCELA_MINIMA_TETO = 1000
 
@@ -193,6 +205,7 @@ export type Configuracoes = {
   home: Home
   integracoes: Integracoes
   pagamento: Pagamento
+  avisos: Avisos
 }
 
 /**
@@ -254,6 +267,8 @@ export const PADRAO: Configuracoes = {
   },
   // O piso do banco — a regra de antes da 0157, quando era constante no código.
   pagamento: { parcelaMinima: PARCELA_MINIMA_CENTAVOS / 100 },
+  // Sem endereço: a venda nova vai pros donos do painel.
+  avisos: { vendaPara: null },
 }
 
 /** Chave única dentro do `metadata` da loja, pra não brigar com mais nada. */
@@ -343,6 +358,13 @@ function lerPagamento(v: unknown): Pagamento {
     : PADRAO.pagamento
 }
 
+/** O endereço da venda nova só vale com cara de e-mail; o resto volta pros donos. */
+function lerAvisos(v: unknown): Avisos {
+  const o = (v && typeof v === "object" ? v : {}) as Record<string, unknown>
+  const para = ehTexto(o.vendaPara) ? o.vendaPara.trim().toLowerCase() : ""
+  return { vendaPara: para.length <= 254 && FORMATO_DO_EMAIL.test(para) ? para : null }
+}
+
 /** Cada código só no formato da plataforma: o resto vira `null` (ver `Integracoes`). */
 function lerIntegracoes(v: unknown): Integracoes {
   const o = (v && typeof v === "object" ? v : {}) as Record<string, unknown>
@@ -402,6 +424,7 @@ export function lerConfiguracoes(metadata: unknown): Configuracoes {
     home: { video: lerVideo(home.video) },
     integracoes: lerIntegracoes(o.integracoes),
     pagamento: lerPagamento(o.pagamento),
+    avisos: lerAvisos(o.avisos),
   }
 }
 

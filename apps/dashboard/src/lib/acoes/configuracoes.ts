@@ -5,6 +5,7 @@ import { redirect } from "next/navigation"
 import type {
   FormularioDaEmergencia,
   FormularioDaEmpresa,
+  FormularioDoAvisoDaVenda,
   FormularioDoFrete,
   FormularioDoParcelamento,
   FormularioDasIntegracoes,
@@ -83,6 +84,14 @@ export async function salvarEmergencia(f: FormularioDaEmergencia) {
     f.preco.trim()
       ? "Salvo: se a Frenet cair, a loja segue vendendo por esse preço e esse prazo."
       : "Salvo: se a Frenet cair, a loja para de vender até a cotação voltar."
+  )
+}
+
+export async function salvarAvisoDaVenda(f: FormularioDoAvisoDaVenda) {
+  return salvar("avisos", f, (r) =>
+    typeof r.corpo.vendaPara === "string" && r.corpo.vendaPara
+      ? `Salvo: o e-mail de venda nova vai só pra ${r.corpo.vendaPara}.`
+      : "Salvo: o e-mail de venda nova volta a ir pros donos do painel."
   )
 }
 
