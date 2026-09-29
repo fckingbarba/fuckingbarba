@@ -24,6 +24,7 @@ import {
 import {
   corteDoGoogle,
   montarVisitasNoPeriodo,
+  perguntasDoAgora,
   perguntasDoPeriodo,
   type VisitasNoPeriodo,
 } from "../../../lib/painel/visitas-do-periodo"
@@ -127,14 +128,20 @@ async function visitasNoPeriodo(
     `inicio:${p.de}:${p.ate}:${p.antes?.de ?? "-"}:${completo ? "tudo" : "numero"}:` +
     hosts.join(",")
   const inicio = p.antes?.janela.de ?? p.atual.de
-  const [relatorios, noSite, pedidos, daNuvemshop] = await Promise.all([
+  const doAgora = perguntasDoAgora(p, hosts, completo)
+  const [relatorios, relatoriosDoAgora, noSite, pedidos, daNuvemshop] = await Promise.all([
     relatoriosDoMarketing(cfg, chave, perguntasDoPeriodo(p, hosts, categorias, completo), agora),
+    // O total do dia (0216): sem ele, o Início segue no corte do Google, como antes.
+    doAgora.length
+      ? relatoriosDoMarketing(cfg, `${chave}:agora`, doAgora, agora).catch(() => [])
+      : [],
     // O tempo real é enfeite: sem ele, o resto vem igual.
     completo ? agoraNoSite(cfg).catch(() => null) : null,
     completo ? pagosDesde(container, lerDesde(p)) : [],
     completo ? container.resolve<CrmService>(CRM).vendasDaBase(inicio, p.atual.ate) : [],
   ])
-  if (!completo) return montarVisitasNoPeriodo(relatorios, p, agora, { completo })
+  if (!completo)
+    return montarVisitasNoPeriodo(relatorios, p, agora, { completo }, relatoriosDoAgora)
 
   // As vendas das duas lojas no corte do Google: o instante do pagamento de cada uma.
   const pagas = [
@@ -146,14 +153,21 @@ async function visitasNoPeriodo(
   ]
   const noCorte = janelasNoCorte(p, corteDoGoogle(relatorios[0] ?? {}, p, agora))
   const contar = (j: Janela) => pagas.filter((d) => dentro(d, j)).length
-  return montarVisitasNoPeriodo(relatorios, p, agora, {
-    completo,
-    noSite,
-    vendas: {
-      atual: contar(noCorte.atual),
-      antes: noCorte.antes ? contar(noCorte.antes) : null,
-      // As do período inteiro (até agora), as do card Vendas: "(4 no dia)".
-      noPeriodo: contar(p.atual),
+  return montarVisitasNoPeriodo(
+    relatorios,
+    p,
+    agora,
+    {
+      completo,
+      noSite,
+      vendas: {
+        atual: contar(noCorte.atual),
+        antes: noCorte.antes ? contar(noCorte.antes) : null,
+        // As do período inteiro (até agora), as do card Vendas: "(4 no dia)".
+        noPeriodo: contar(p.atual),
+        antesAteAgora: p.antes ? contar(p.antes.janela) : null,
+      },
     },
-  })
+    relatoriosDoAgora
+  )
 }

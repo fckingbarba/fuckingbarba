@@ -84,10 +84,9 @@ function filtrados(...filtros: (Filtro | null)[]): { dimensionFilter?: Filtro } 
  * 1. as visitas por dia e hora, do começo do de antes ao fim do período;
  * 2. as visitas com cada evento (`EVENTOS_DO_INICIO`), por dia, nas mesmas datas;
  * 3. as visitas que viram uma página de categoria, por dia, só no período;
- * 4. de onde vieram, só no período;
- * 5. quando o período chega até agora e tem o de antes: as sacolas do último
- *    dia do de antes, por hora (pra parar na hora do corte, como as visitas).
+ * 4. de onde vieram, só no período.
  * `completo` falso (quem não abre o Marketing): só a primeira.
+ * Quando o período chega até agora, vão mais perguntas à parte (`perguntasDoAgora`).
  */
 export function perguntasDoPeriodo(
   p: Periodo,
@@ -147,22 +146,46 @@ export function perguntasDoPeriodo(
       orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
       limit: "50",
     },
-    ...(p.ateAgora && p.antes
-      ? [
-          {
-            dateRanges: [{ startDate: p.antes.ate, endDate: p.antes.ate }],
-            dimensions: [{ name: "date" }, { name: "hour" }],
-            metrics: [{ name: "sessions" }],
-            ...filtrados(endereco, {
-              filter: {
-                fieldName: "eventName",
-                stringFilter: { matchType: "EXACT", value: "add_to_cart" },
-              },
-            }),
-            limit: "100",
-          },
-        ]
-      : []),
+  ]
+}
+
+/**
+ * AS VISITAS ATÉ AGORA (entrega 0216). O Google entrega as visitas POR HORA
+ * com horas de atraso, mas o total do dia já vem quase em dia (em 29/09, às
+ * 16h: 202 visitas por hora, até as 12h; 275 no total por origem). Quando o
+ * período chega até agora, uma segunda chamada (`relatoriosDoMarketing`,
+ * chave à parte) pergunta:
+ * 1. as visitas por dia, só no período — o número do card, o do bloco e o
+ *    das taxas (todas as vendas até agora ÷ todas as visitas até agora);
+ * 2. quem abre o Marketing e tem o de antes: as sacolas do último dia do de
+ *    antes, por hora — o de antes para na hora de agora, como as vendas.
+ * O de antes (já somado) sai das visitas por hora, até a hora de agora.
+ */
+export function perguntasDoAgora(p: Periodo, hosts: string[], completo: boolean): unknown[] {
+  if (!p.ateAgora) return []
+  const endereco = soDoEndereco(hosts)
+  const porDia = {
+    dateRanges: [{ startDate: p.de, endDate: p.ate }],
+    dimensions: [{ name: "date" }],
+    metrics: [{ name: "sessions" }],
+    ...filtrados(endereco),
+    limit: "1000",
+  }
+  if (!completo || !p.antes) return [porDia]
+  return [
+    porDia,
+    {
+      dateRanges: [{ startDate: p.antes.ate, endDate: p.antes.ate }],
+      dimensions: [{ name: "date" }, { name: "hour" }],
+      metrics: [{ name: "sessions" }],
+      ...filtrados(endereco, {
+        filter: {
+          fieldName: "eventName",
+          stringFilter: { matchType: "EXACT", value: "add_to_cart" },
+        },
+      }),
+      limit: "100",
+    },
   ]
 }
 
@@ -257,13 +280,26 @@ export function montarVisitasNoPeriodo(
     noSite = null,
     completo,
   }: {
-    vendas?: { atual: number; antes: number | null; noPeriodo?: number } | null
+    vendas?: {
+      atual: number
+      antes: number | null
+      noPeriodo?: number
+      /** As do de antes até a mesma hora de agora (sem o corte do Google). */
+      antesAteAgora?: number | null
+    } | null
     noSite?: number | null
     completo: boolean
-  }
+  },
+  /** As respostas de `perguntasDoAgora` (vazio: o jeito de antes, no corte do Google). */
+  doAgora: RelatorioGa4[] = []
 ): VisitasNoPeriodo {
-  const [porHora = {}, porEvento = {}, categorias = {}, origens = {}, sacolasDeAntes] = relatorios
-  const ate = corteDoGoogle(porHora, p, agora)
+  const [porHora = {}, porEvento = {}, categorias = {}, origens = {}] = relatorios
+  const [totalPorDia, sacolasDeAntes] = doAgora
+  // Com o total do dia (`perguntasDoAgora`): hoje é tudo o que o Google contou, e o de antes para
+  // na hora de agora — sem o "até as 12h". Sem ele, o corte do Google, como antes.
+  const emDia = Boolean(p.ateAgora && totalPorDia?.rows?.length)
+  const ate = emDia ? null : corteDoGoogle(porHora, p, agora)
+  const corteDoAntes = emDia ? horaNoFuso(agora, fusoDa(porHora)) : ate
   const dias = new Set(p.dias)
   const diasDeAntes = new Set(p.antes?.dias ?? [])
 
@@ -279,18 +315,29 @@ export function montarVisitasNoPeriodo(
     const v = metrica(l)
     if (!dia || !v || !Number.isInteger(hora)) continue
     // No último dia de cada lado, quando o período chega até agora, só até a hora do corte.
-    const cortada = (ultimo: string) => ate !== null && dia === ultimo && hora >= ate
+    const cortada = (ultimo: string, corte: number | null) =>
+      corte !== null && dia === ultimo && hora >= corte
     if (dias.has(dia)) {
       inteiras.atual += v
-      if (!cortada(p.ate)) noCorte.atual += v
+      if (!cortada(p.ate, ate)) noCorte.atual += v
       const b = barras[baldeDoDia(p, dia, hora)]
       if (b) b.visitas += v
     } else if (p.antes && diasDeAntes.has(dia)) {
       inteiras.antes += v
-      if (!cortada(p.antes.ate)) noCorte.antes += v
+      if (!cortada(p.antes.ate, corteDoAntes)) noCorte.antes += v
       const b = barras[baldeDoDia(p, dia, hora, true)]
       if (b && b.antes !== null) b.antes += v
     }
+  }
+
+  if (emDia) {
+    // O total do dia, nunca menor que o que as horas já somaram.
+    let doDia = 0
+    for (const l of totalPorDia?.rows ?? []) {
+      const dia = diaDaLinha(dimensao(l, 0))
+      if (dia && dias.has(dia)) doDia += metrica(l)
+    }
+    noCorte.atual = inteiras.atual = Math.max(doDia, inteiras.atual)
   }
 
   const visitas: Comparado = {
@@ -319,13 +366,13 @@ export function montarVisitasNoPeriodo(
   // As sacolas do de antes: no último dia, só até a hora do corte (a 5ª pergunta).
   let sacolaAntes = eventos.antes.get("add_to_cart") ?? 0
   let visitasDaSacolaAntes = inteiras.antes
-  if (p.antes && ate !== null && sacolasDeAntes) {
+  if (p.antes && corteDoAntes !== null && sacolasDeAntes) {
     const ultimo = p.antes.ate
     const doUltimo = (porEvento.rows ?? [])
       .filter((l) => diaDaLinha(dimensao(l, 0)) === ultimo && dimensao(l, 1) === "add_to_cart")
       .reduce((s, l) => s + metrica(l), 0)
     const noCorteDoUltimo = (sacolasDeAntes.rows ?? [])
-      .filter((l) => diaDaLinha(dimensao(l, 0)) === ultimo && Number(dimensao(l, 1)) < ate)
+      .filter((l) => diaDaLinha(dimensao(l, 0)) === ultimo && Number(dimensao(l, 1)) < corteDoAntes)
       .reduce((s, l) => s + metrica(l), 0)
     sacolaAntes = sacolaAntes - doUltimo + noCorteDoUltimo
     visitasDaSacolaAntes = noCorte.antes
@@ -342,15 +389,23 @@ export function montarVisitasNoPeriodo(
       sacola,
     },
     taxas: {
-      compraram: {
-        ...taxaComparada(
-          { de: vendas?.atual ?? 0, em: noCorte.atual },
-          p.antes && vendas && vendas.antes !== null
-            ? { de: vendas.antes, em: noCorte.antes }
-            : null
-        ),
-        ...(vendas?.noPeriodo !== undefined ? { noPeriodo: vendas.noPeriodo } : {}),
-      },
+      compraram: emDia
+        ? // Todas as vendas até agora ÷ todas as visitas até agora; o de antes até a mesma hora.
+          taxaComparada(
+            { de: vendas?.noPeriodo ?? vendas?.atual ?? 0, em: noCorte.atual },
+            p.antes && vendas && vendas.antesAteAgora != null
+              ? { de: vendas.antesAteAgora, em: noCorte.antes }
+              : null
+          )
+        : {
+            ...taxaComparada(
+              { de: vendas?.atual ?? 0, em: noCorte.atual },
+              p.antes && vendas && vendas.antes !== null
+                ? { de: vendas.antes, em: noCorte.antes }
+                : null
+            ),
+            ...(vendas?.noPeriodo !== undefined ? { noPeriodo: vendas.noPeriodo } : {}),
+          },
       sacola: taxaComparada(
         { de: sacola, em: inteiras.atual },
         p.antes ? { de: sacolaAntes, em: visitasDaSacolaAntes } : null
