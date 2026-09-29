@@ -27,7 +27,8 @@ import type CrmService from "../../../../modules/crm/service"
  * Quem abre o CRM (no padrão, o dono e o marketing).
  *
  * RESPOSTAS: GET 200 a tela; POST 200 `{ tipo, lidas, novos, atualizados,
- * ignoradas }`, 422 `{ erro: "arquivo_invalido" | "vazio" | "desconhecido" }`,
+ * ignoradas, comEntrega }` (o `comEntrega`: os pedidos das vendas que vieram
+ * com o endereço inteiro, entrega 0202), 422 `{ erro: "arquivo_invalido" | "vazio" | "desconhecido" }`,
  * 413 `{ erro: "grande" }`.
  */
 export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) {
@@ -99,5 +100,15 @@ export async function POST(req: AuthenticatedMedusaRequest, res: MedusaResponse)
     atualizados,
     ignoradas: arquivo.ignoradas,
   })
-  res.json({ tipo: arquivo.tipo, lidas, novos, atualizados, ignoradas: arquivo.ignoradas })
+  // Quantos pedidos vieram com a entrega (o endereço inteiro): o dono vê que o "Refazer o pedido" vai
+  // abrir preenchido. Só o número — o que veio dentro não volta pro painel.
+  const comEntrega = arquivo.tipo === "vendas" ? arquivo.pedidos.filter((p) => p.entrega).length : 0
+  res.json({
+    tipo: arquivo.tipo,
+    lidas,
+    novos,
+    atualizados,
+    ignoradas: arquivo.ignoradas,
+    comEntrega,
+  })
 }

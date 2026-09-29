@@ -4,6 +4,7 @@ import { addToCartWorkflow, createCartWorkflow } from "@medusajs/medusa/core-flo
 import { CRM } from "../../modules/crm"
 import type CrmService from "../../modules/crm/service"
 import { gravarNoMetadataDoPedido } from "../metadata-do-pedido"
+import { abrirEntrega, enderecosDaEntrega } from "./entrega-da-base"
 import type { Volta } from "./voltar"
 
 /**
@@ -18,7 +19,9 @@ import type { Volta } from "./voltar"
  *   - o "REFAZER O PEDIDO" da reposição (entrega 0185): a última compra,
  *     paga, num carrinho novo — a da loja nova do mesmo jeito do Pix (com os
  *     endereços e a conta; `fb_crm_reposto`, no pedido), e a da Nuvemshop
- *     pelos SKUs, só com o e-mail.
+ *     pelos SKUs, com o e-mail e, desde a 0202, a entrega daquele pedido (o
+ *     nome, o celular, o CPF e o endereço, guardados cifrados na base): a
+ *     pessoa cai na escolha do frete, sem digitar nada.
  *
  * Produto que esgotou fica de fora; se nenhum couber, "acabou" — a loja
  * manda pra home. No Pix, pedido que não foi cancelado (pago, ou com o Pix
@@ -172,8 +175,10 @@ async function refazerPedido(
 
 /**
  * O pedido da Nuvemshop (a base do CRM) num carrinho novo: os produtos pelo
- * SKU (o código do Bling, o mesmo nas duas lojas), só os publicados, e o
- * e-mail. Os endereços não vieram da loja antiga: o checkout pergunta.
+ * SKU (o código do Bling, o mesmo nas duas lojas), só os publicados, o
+ * e-mail e a entrega do pedido (entrega 0202). Sem a entrega (o arquivo de
+ * vendas de antes da 0202, ou o endereço que veio pela metade), o checkout
+ * pergunta, como antes.
  */
 async function refazerDaNuvemshop(container: MedusaContainer, id: string): Promise<Destino> {
   const pedido = await container.resolve<CrmService>(CRM).pedidoDaBasePorId(id)
@@ -207,12 +212,14 @@ async function refazerDaNuvemshop(container: MedusaContainer, id: string): Promi
     (r) => r.currency_code === "brl"
   )
   const canal = lojas[0]?.default_sales_channel_id
+  const entrega = abrirEntrega(pedido.entrega)
   const carrinho = await carrinhoNovo(
     container,
     {
       ...(regiao ? { region_id: regiao.id } : {}),
       ...(canal ? { sales_channel_id: canal } : {}),
       email: pedido.email,
+      ...(entrega ? enderecosDaEntrega(entrega) : {}),
     },
     [...quantos].map(([variant_id, quantity]) => ({ variant_id, quantity }))
   )

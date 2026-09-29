@@ -6,6 +6,7 @@ import {
   MedusaService,
 } from "@medusajs/framework/utils"
 import type { EntityManager } from "@medusajs/framework/mikro-orm/knex"
+import { fecharEntrega } from "../../lib/crm/entrega-da-base"
 import { chaveDoVisitante, momentoDo, origemDoLote, type Lote } from "../../lib/crm/eventos"
 import type { ArquivoDaNuvemshop } from "../../lib/crm/nuvemshop"
 import type { AvisoDoEmail } from "../../lib/crm/resend"
@@ -512,14 +513,15 @@ export default class CrmService extends Tabelas {
         await gravar(
           `insert into crm_base_pedido
              (id, numero, email, feito_em, pago_em, enviado_em, pagamento, envio, total, desconto,
-              frete, cupom, meio, itens, created_at, updated_at)
-           values ${lote.map(() => "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now(), now())").join(", ")}
+              frete, cupom, meio, itens, entrega, created_at, updated_at)
+           values ${lote.map(() => "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now(), now())").join(", ")}
            on conflict (numero) where deleted_at is null do update set
              email = excluded.email, feito_em = excluded.feito_em, pago_em = excluded.pago_em,
              enviado_em = excluded.enviado_em, pagamento = excluded.pagamento,
              envio = excluded.envio, total = excluded.total, desconto = excluded.desconto,
              frete = excluded.frete, cupom = excluded.cupom, meio = excluded.meio,
-             itens = excluded.itens, updated_at = now()
+             itens = excluded.itens,
+             entrega = coalesce(excluded.entrega, crm_base_pedido.entrega), updated_at = now()
            returning (xmax = 0) as novo`,
           lote.flatMap((p) => [
             generateEntityId(undefined, "nso"),
@@ -536,6 +538,8 @@ export default class CrmService extends Tabelas {
             p.cupom,
             p.meio,
             JSON.stringify(p.itens),
+            // Cifrada: o CPF e o endereço não ficam legíveis no banco (`lib/crm/entrega-da-base.ts`).
+            p.entrega ? fecharEntrega(p.entrega) : null,
           ])
         )
     else
@@ -686,18 +690,28 @@ export default class CrmService extends Tabelas {
 
   /**
    * UM PEDIDO DA BASE, pelo id (`nso_…`) — o "Refazer o pedido" da reposição
-   * (entrega 0185) monta a sacola com os itens dele, pelo SKU.
+   * (entrega 0185) monta a sacola com os itens dele, pelo SKU — e, desde a 0202, com a
+   * entrega dele (o nome, o celular, o CPF e o endereço), que vem cifrada.
    */
   @InjectManager()
   async pedidoDaBasePorId(
     id: string,
     @MedusaContext() ctx: Contexto = {}
-  ): Promise<{ email: string; itens: { sku: string | null; quantidade: number }[] } | null> {
+  ): Promise<{
+    email: string
+    itens: { sku: string | null; quantidade: number }[]
+    /** A entrega cifrada (`abrirEntrega`), ou nula. */
+    entrega: string | null
+  } | null> {
     const [r] = (await ctx.manager!.execute(
-      `select email, itens from crm_base_pedido where id = ? and deleted_at is null`,
+      `select email, itens, entrega from crm_base_pedido where id = ? and deleted_at is null`,
       [id]
-    )) as { email: string; itens: { sku: string | null; quantidade: number }[] | null }[]
-    return r ? { email: r.email, itens: r.itens ?? [] } : null
+    )) as {
+      email: string
+      itens: { sku: string | null; quantidade: number }[] | null
+      entrega: string | null
+    }[]
+    return r ? { email: r.email, itens: r.itens ?? [], entrega: r.entrega ?? null } : null
   }
 
   /** O primeiro nome de cada pessoa da base, pelo e-mail — o "Oi, Rafael" da reposição (0185). */
