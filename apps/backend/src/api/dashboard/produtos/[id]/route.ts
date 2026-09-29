@@ -1,5 +1,7 @@
 import type { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/framework/http"
+import { Modules } from "@medusajs/framework/utils"
 import { avisosDoProduto } from "../../../../lib/avise-me"
+import { lerConfiguracoes } from "../../../../lib/configuracoes"
 import { abre, exigirArea, type PedidoDaEquipe } from "../../../../lib/equipe/acesso"
 import { urlDaLoja } from "../../../../lib/emails/moldura"
 import { MARCA_DO_PRECO } from "../../../../lib/erp/marcas"
@@ -25,10 +27,13 @@ import { lerPdp } from "../../../../lib/pdp"
  * `noSite`: o endereço da página na loja (`LOJA_URL`), pro "Ver no site";
  * `historico`: o que a equipe mudou por aqui, o mais novo primeiro;
  * `avisos`: quantos pediram o "avise-me" na página esgotada e esperam, e
- * quantos já foram avisados (`lib/avise-me.ts`).
+ * quantos já foram avisados (`lib/avise-me.ts`);
+ * `frete`: a política de frete da loja (a mesma do `/store/configuracoes`),
+ * pra prévia da caixa de compra pôr a tarja e o "faltam R$ X" onde a página
+ * põe — o painel não tem a chave publicável pra perguntar à rota da loja.
  *
- * RESPOSTAS: 200 `{ produto, catalogo, categorias, noSite, historico, avisos }`;
- * 404 `nao_encontrado`.
+ * RESPOSTAS: 200 `{ produto, catalogo, categorias, noSite, historico, avisos,
+ * frete }`; 404 `nao_encontrado`.
  */
 export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) {
   const pedido = req as PedidoDaEquipe
@@ -40,11 +45,12 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
     res.status(404).json({ message: "nao_encontrado" })
     return
   }
-  const [todos, categorias, feitos, avisos] = await Promise.all([
+  const [todos, categorias, feitos, avisos, [loja]] = await Promise.all([
     lerProdutos(req.scope),
     lerCategorias(req.scope),
     feitosNoProduto(req.scope, p.id),
     avisosDoProduto(req.scope, p.id),
+    req.scope.resolve(Modules.STORE).listStores({}, { select: ["id", "metadata"], take: 1 }),
   ])
   const [estoques, precos] = await Promise.all([
     estoquesDos(req.scope, [...todos, p]),
@@ -70,5 +76,6 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
     noSite: urlDaLoja() && p.handle ? `${urlDaLoja()}/produtos/${p.handle}` : null,
     historico: feitos.map((f) => linhaDoHistorico(f, Date.now())),
     avisos,
+    frete: lerConfiguracoes(loja?.metadata).frete,
   })
 }

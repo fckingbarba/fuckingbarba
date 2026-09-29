@@ -1828,7 +1828,16 @@ do admin (`src/admin/widgets/pdp.tsx`) agora só aponta pro painel; `GET/POST
 fundo do armazenamento). Conferidor: `apps/dashboard/ferramentas/conferir-produtos.mjs` — precisa
 da loja no ar (`LOJA`), com o backend avisando ela (`LOJA_URL`), do admin local e da chave
 publicável; cria um produto em rascunho por rodada (e apaga no fim) e confere a caixa de compra no
-balm, devolvendo a página dele como estava.
+balm, devolvendo a página dele como estava. **O frete da prévia** (0222): a tarja dos cartões e o
+rodapé do "Leve junto" seguem a política de frete GRAVADA, não um piso do painel (era 149,90 fixo,
+com a loja anunciando 139,90). O `GET /dashboard/produtos/:id` manda o `frete` (o mesmo do
+`/store/configuracoes` — o painel não tem a chave publicável pra perguntar à loja), a página passa
+pra `CaixaDeCompra`, e `tarjaDoFrete`/`freteDoRodape` (`apps/dashboard/src/lib/produtos.ts`) repetem
+as contas da loja (`frasesDoFrete`, `pisoVale`, `alcancaOPiso`, `fraseDoQueFalta`): mudou lá, muda
+aqui. Sem política, ou com piso zero, a prévia não fala de frete; com frete fixo, "Frete R$ 9,90".
+O rodapé soma o preço de hoje (o `degraus[0]`, com a promoção), como a loja. O conferidor grava os
+quatro modos pelo admin (só o `frete`) e compara a prévia com a rota, e as tarjas com as da página
+do balm na loja; a política volta no fim.
 
 **As categorias do produto** (entrega 0151). Um produto pode estar em mais de uma categoria — o
 kit de barba em Kits e em Barba —, e a vitrine de cada uma mostra ele (a loja já pedia ao Medusa por

@@ -18,6 +18,7 @@ import {
   fraseDoHistorico,
   fraseDosAvisos,
   reais,
+  SEM_FRETE,
   type PaginaDoProduto,
 } from "@/lib/produtos"
 
@@ -68,6 +69,7 @@ async function Produto({ params }: Props) {
     noSite,
     historico,
     avisos,
+    frete,
   } = r.corpo as unknown as PaginaDoProduto
   const frasesDosAvisos = fraseDosAvisos(avisos)
 
@@ -134,7 +136,12 @@ async function Produto({ params }: Props) {
       <div className="duas">
         <div>
           {/* A chave remonta a caixa quando o que está gravado muda (depois do "Salvar"). */}
-          <CaixaDeCompra key={JSON.stringify(p.caixa)} produto={p} catalogo={catalogo} />
+          <CaixaDeCompra
+            key={JSON.stringify(p.caixa)}
+            produto={p}
+            catalogo={catalogo}
+            frete={frete ?? SEM_FRETE}
+          />
           <TextosDoProduto
             key={`${p.subtitulo}|${p.categoriaId ?? ""}|${(p.tambemEmIds ?? []).join(",")}`}
             produto={p}

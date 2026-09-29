@@ -141,6 +141,8 @@ fieldset.campo > legend { padding: 0; margin: 0 0 6px; }
 .junto-previa__levar { display: inline-flex; align-items: center; gap: 4px; padding: 5px 9px; border: 2px solid var(--tinta); font-size: 0.66rem; font-weight: 900; letter-spacing: 0.05em; text-transform: uppercase; }
 .junto-previa__levar svg { width: 11px; height: 11px; fill: currentColor; }
 .junto-previa__rodape { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 10px; margin: 0; padding: 8px 10px; border-top: 1px solid var(--tinta); background: var(--cinza); font-size: 0.74rem; font-weight: 700; }
+/* Sem frete pra dizer, o total fica sozinho à direita — como na loja. */
+.junto-previa__total { margin-left: auto; }
 
 /* ── o que o protótipo não tinha ── */
 
