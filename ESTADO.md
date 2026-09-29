@@ -3836,8 +3836,18 @@ ver o vídeo do "Vê na prática".
 - Sem cupom, como no plano. No máximo uma por semana pra cada pessoa. Quem pôs na sacola depois vai
   pro carrinho abandonado.
 
-- [ ] **Depois do deploy (você):** CRM → Fluxos → Navegação abandonada → "Mandar pra mim" nos dois
-      e-mails, e depois a chave. Vale pra quem olhar um produto depois de ligar.
+- [x] **Depois do deploy (você):** CRM → Fluxos → Navegação abandonada → "Mandar pra mim" nos dois
+      e-mails, e depois a chave. Vale pra quem olhar um produto depois de ligar. (Ligada em 29/09.)
+
+**O "Refazer o pedido" de quem veio da Nuvemshop, preenchido — pronto em 29/09 (entrega 0202).** O
+botão dos e-mails da reposição abria o checkout de quem comprou na loja antiga só com o e-mail: a
+pessoa digitava tudo de novo. Agora a loja guarda, de cada pedido da Nuvemshop, o nome, o celular, o
+CPF e o endereço de entrega (sua escolha), cifrados, e o carrinho já vem com eles: é só escolher o
+frete e pagar. A política de privacidade conta isso.
+
+- [ ] **Depois do deploy (você), antes de ligar a reposição em 3/10:** CRM → Base da Nuvemshop →
+      mande de novo o arquivo de vendas (o `vendas.csv` de 27/09). O aviso vai dizer quantos pedidos
+      vieram "com o endereço de entrega". Os de clientes e de carrinhos não precisam ir de novo.
 
 **A parcela mínima do cartão, editável — pronta em 27/09 (entrega 0157).** O pedido dele: "quero
 poder editar a parcela mínima no cartão, ali diz 5 reais". Em **Configurações → Pagamento**, o

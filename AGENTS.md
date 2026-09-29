@@ -2684,7 +2684,8 @@ o CRM passa a conhecer a loja antiga inteira.
   - **fica só o que o CRM usa**: da pessoa, o e-mail, o primeiro nome, o "Aceita" da coluna
     Marketing (e a data), a newsletter, a conta e o "desde"; do pedido, o número, as datas, o
     pagamento, o envio, os valores, o cupom e os itens pelo SKU; do carrinho, a data, o tipo, o
-    total e os itens. CPF, telefone, endereço, rastreio e cartão são jogados fora ali mesmo.
+    total e os itens. CPF, telefone, endereço, rastreio e cartão são jogados fora ali mesmo —
+    menos a entrega de cada pedido das vendas, desde a 0202 (ver "O CRM, parte 18").
 - **As tabelas** (módulo `crm`): `crm_base_pessoa` (única pelo e-mail), `crm_base_pedido` (pelo
   número; os valores em centavos) e `crm_base_carrinho` (pelo id). `importarDaNuvemshop` grava em
   lotes de 200, com `on conflict … do update`: mandar de novo atualiza, nada duplica, ninguém sai.
@@ -3215,8 +3216,8 @@ que a pessoa comprou está pra acabar. É um fluxo do motor que começa DESLIGAD
 - **O "Refazer o pedido"** é o link de voltar com o tipo `repor` (`lib/crm/voltar.ts`):
   - `repor-order_…`: a compra da loja nova num carrinho novo, com os endereços e a conta.
     Clicar de novo devolve o mesmo carrinho (`fb_crm_reposto`, no pedido).
-  - `repor-nso_…`: a compra da Nuvemshop, pelos SKUs (`crm.pedidoDaBasePorId`), só com o e-mail,
-    na região BRL e no canal padrão.
+  - `repor-nso_…`: a compra da Nuvemshop, pelos SKUs (`crm.pedidoDaBasePorId`), com o e-mail e,
+    desde a 0202, a entrega daquele pedido ("O CRM, parte 18"), na região BRL e no canal padrão.
   - Os dois passam por `voltarAoCheckout` (`lib/crm/voltar-ao-checkout.ts`): o `carrinhoNovo`
     e o `refazerPedido` são os do Pix vencido. O Pix continua só refazendo pedido cancelado.
   - A página `/voltar/<t>` da loja aceita os prefixos novos.
@@ -3461,6 +3462,37 @@ O `conferir-crm.mjs` confere a navegação assim:
   depois, fica sem e-mail);
 - a tela com os nove fluxos e o "Mandar pra mim".
 O banco de teste não tem vídeo no "Vê na prática": o vídeo fica com o teste do backend.
+
+**O CRM, parte 18: a entrega dos pedidos da Nuvemshop** (entrega 0202, escolha do dono). O
+"Refazer o pedido" da reposição abria o checkout de quem veio da loja antiga só com o e-mail: a
+pessoa digitava nome, celular, CPF e endereço de novo. Agora a base guarda a entrega de cada
+pedido do arquivo de vendas, e o carrinho novo já vem com ela: a pessoa cai na escolha do frete.
+
+- **O que se lê** (`entregaDoPedido`, em `lib/crm/nuvemshop.ts`, puro): o nome e o celular de quem
+  recebe ("Nome para a entrega", "Telefone para a entrega"; sem eles, os do comprador), o CPF ou
+  CNPJ ("CPF / CNPJ", só com os dígitos verificadores certos, `documentoDaNuvemshop`), e o
+  endereço: rua, número, complemento, bairro, cidade, CEP e o estado por extenso, que vira a sigla
+  (`ufDoEstado`; a Nuvemshop escreve até "Rorâima"). O celular fica como a loja grava:
+  "+55" + DDD + número (`telefoneDaLoja`). Sem o endereço inteiro, ou fora do Brasil, a entrega é
+  nula e o checkout pergunta, como antes.
+- **O resto continua de fora:** o CPF, o telefone e o endereço dos arquivos de clientes e de
+  carrinhos, o rastreio e o cartão.
+- **No banco, cifrada** (`crm_base_pedido.entrega`, `lib/crm/entrega-da-base.ts`): AES-256-GCM, com
+  a chave que sai do `JWT_SECRET` com o rótulo `fb-crm-base-entrega`, como as dos links do CRM.
+  Trocou o segredo: `abrirEntrega` devolve nulo, e o "Refazer o pedido" volta a abrir só com o
+  e-mail até o arquivo de vendas ir de novo. Mandar o arquivo de novo sem as colunas da entrega
+  não apaga a que já estava (`coalesce`).
+- **O carrinho** (`enderecosDaEntrega`): o mesmo formato do `montarEndereco` da loja
+  (`apps/loja/src/lib/endereco.ts`) — rua e número em `address_1`, complemento e bairro em
+  `address_2`, os quatro também no `metadata`, e o documento só no endereço de cobrança. Mudou lá,
+  muda aqui.
+- **No painel**, a entrega nunca volta: depois de mandar as vendas, o aviso diz só quantos pedidos
+  vieram com o endereço ("N com o endereço de entrega", o `comEntrega` da rota).
+- **A política de privacidade** conta que a entrega veio, cifrada, e pra quê.
+
+O `conferir-crm.mjs` manda o pedido da loja antiga da reposição com as colunas da entrega, como a
+Nuvemshop exporta, e confere que o "Refazer o pedido" monta a sacola com o nome, o celular, o
+endereço e o CPF daquele pedido.
 
 **O preço e o promocional no painel** (entregas 0098 e 0102): os dois campos de cada produto na
 lista de Produtos, como na Nuvemshop (a 0098 tinha só o promocional, atrás de um botão). A regra é
