@@ -3637,6 +3637,29 @@ O `conferir-crm.mjs` confere as campanhas assim:
 - parar pela tela (e a parada não se muda mais), desmarcar e apagar; o celular.
 No fim, nenhuma campanha fica agendada nem saindo: a rotina de verdade mandaria pra todo mundo.
 
+**O CRM, parte 20: o recado do Matheus nas campanhas** (entrega 0210, pedido do dono: a campanha
+de teste caiu em Promoções). Cada campanha escolhe como chega (`jeito`, `JEITOS` em
+`lib/crm/campanhas.ts`):
+
+- **Oferta** (o padrão, e o de antes): o estilo oferta, com o remetente da loja e o "cancelar
+  inscrição" do Gmail no cabeçalho. Promoções é o lugar dela.
+- **Recado** (`emailDaCampanha` com o estilo lembrete): a mesma cara da loja, assinado "Matheus, da
+  FuckingBarba", sem o cabeçalho, com o sair da lista no pé. Tenta o Principal, mas quem decide é
+  o Gmail. Nenhum campo escrito leva emoji: o `lerCampanha` recusa com `temEmoji`, e o erro fica no
+  campo. O risco, dito na tela: sem o botão de cancelar do Gmail, quem não quer mais pode marcar
+  spam. É pra campanha sem preço.
+- **O banco:** `crm_campanha.jeito` (texto, padrão "oferta"; a migration `Migration20260929190000`,
+  à mão). A linha sem ele é oferta (`textoDoBanco`).
+- **No painel:** o "Como chega" no formulário (dois cartões, `JEITOS` em
+  `components/formulario-da-campanha.tsx`); o jeito na lista (só o recado aparece) e no alto da
+  campanha (`nomeDoJeito`); a 9ª regra.
+
+O `conferir-crm.mjs` confere:
+- o emoji recusado no recado, e o jeito que não existe;
+- pela tela, o recado escolhido e o "Mandar pra mim" assinado pelo Matheus, sem o cabeçalho e com o
+  sair da lista no pé;
+- o envio do recado, com o tempo andando, e a lista dizendo que é recado.
+
 **O preço e o promocional no painel** (entregas 0098 e 0102): os dois campos de cada produto na
 lista de Produtos, como na Nuvemshop (a 0098 tinha só o promocional, atrás de um botão). A regra é
 `lib/painel/promocao.ts`, pura: `lerMudancaDePreco` (o corpo `{ preco?, promocional? }` contra o
