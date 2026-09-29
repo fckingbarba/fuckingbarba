@@ -133,6 +133,13 @@ export default async function Privacidade() {
           Dá pra sair em qualquer mensagem.
         </P>
         <P>
+          <b>Se você indicar a loja pra um amigo</b> (o &ldquo;Indique um brother&rdquo;): o seu
+          link é um cupom só seu. Quando alguém faz a primeira compra com ele, a loja anota no
+          pedido que a compra veio do seu link, pra te dar o cupom combinado — e te avisa por
+          e-mail, sem dizer quem comprou. Pra quem recebeu o link, nada muda: a compra é como
+          qualquer outra.
+        </P>
+        <P>
           <b>Se você pedir aviso de um produto esgotado</b> (o &ldquo;avise-me quando chegar&rdquo;,
           na página dele): o e-mail e o produto. Sai um e-mail só, quando ele voltar pro estoque — e
           aí o seu endereço sai da lista de espera. Não é a newsletter: não vem mais nada depois.
