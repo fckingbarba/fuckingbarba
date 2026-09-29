@@ -395,23 +395,6 @@ export function CalculadoraDeFrete({
           </p>
         ) : null}
       </div>
-
-      <p className="cep__pe">
-        {/*
-          ISTO NÃO É LETRA MIÚDA DE ENFEITE. O prazo da transportadora começa
-          a contar quando o pacote é POSTADO, não quando o pagamento cai —
-          são dias úteis de diferença, e é a reclamação número um de quem
-          vende pela internet no Brasil.
-        */}
-        Prazo contado em dias úteis depois da postagem.{" "}
-        <a
-          href="https://buscacepinter.correios.com.br/app/endereco/"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Não sei meu CEP
-        </a>
-      </p>
     </form>
   )
 }

@@ -357,7 +357,9 @@ raio, sem caixinha de marcar — outra correção dele); faltando, a frase com o
 barra; e o cartão do produto que COMPLETA: o mais barato que sozinho fecha o que falta, entre os do
 "leve junto" e a vitrine da sacola na ordem do motor (`completam`, montado no `dobra.tsx`, sem o
 próprio produto nem kit/peça dele — `foraDaSugestao`). "Adicionar" marca no MESMO `juntos` do "leve
-junto" (vai no Comprar e recota); o posto fica na caixa com "Tirar". Conferidor:
+junto" (vai no Comprar e recota); o posto fica na caixa com "Tirar". Sem o pé "Prazo contado em
+dias úteis depois da postagem / Não sei meu CEP" desde a 0211 (pedido do dono, pra caixa ficar
+enxuta) — a sacola e o checkout continuam com o deles. Conferidor:
 `apps/loja/ferramentas/conferir-frete-na-pdp.mjs` (23), com a Frenet falsa.
 
 **Pagamento** é um provider próprio (`src/modules/pagarme/`, id `pp_pagarme_pagarme`): Pix e cartão
