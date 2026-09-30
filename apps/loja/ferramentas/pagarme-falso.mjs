@@ -95,6 +95,37 @@ function bandeira(numero) {
  *                   (depois de o backend desistir de procurar) — é o
  *                   "incerto" de verdade, que só a conciliação resolve.
  */
+
+/** A taxa do cartão da tabela pública do Pagar.me, pelo número de parcelas. */
+export const TAXA_DO_CARTAO = { 1: 0.0419, 2: 0.0726, 3: 0.094 }
+
+/**
+ * Os recebíveis de uma cobrança paga: um por parcela, a taxa repartida (o
+ * resto dos centavos na primeira), o `amount` já sem a taxa. O Pix, um só e
+ * sem taxa.
+ */
+export function recebiveisDa(c) {
+  const pix = c.payment_method === "pix"
+  const parcelas = pix ? 1 : Number(c.last_transaction?.installments ?? 1) || 1
+  const taxa = pix ? 0 : Math.round(c.amount * (TAXA_DO_CARTAO[parcelas] ?? 0.1))
+  return Array.from({ length: parcelas }, (_, i) => {
+    const fee = Math.floor(taxa / parcelas) + (i === 0 ? taxa % parcelas : 0)
+    const bruto = Math.floor(c.amount / parcelas) + (i === 0 ? c.amount % parcelas : 0)
+    return {
+      id: `${c.id}-${i + 1}`,
+      type: "credit",
+      status: "waiting_funds",
+      amount: bruto - fee,
+      fee,
+      anticipation_fee: 0,
+      fraud_coverage_fee: 0,
+      installment: i + 1,
+      charge_id: c.id,
+      payment_method: pix ? "pix" : "credit_card",
+    }
+  })
+}
+
 export async function subirPagarmeFalso({ porta = PORTA_PADRAO, webhook = null } = {}) {
   const painel = {
     roteiro: "normal",
@@ -581,6 +612,24 @@ export async function subirPagarmeFalso({ porta = PORTA_PADRAO, webhook = null }
         const registro = painel.pedidos.get(lendo[1])
         if (!registro) json(404, { message: "Order not found" })
         else json(200, registro.pedido)
+        return
+      }
+
+      /*
+        OS RECEBÍVEIS — de onde o DRE tira a taxa do cartão (entrega 0226).
+        Como lá: filtro por `charge_id`, um recebível por parcela, só da
+        cobrança paga, a taxa (`fee`) em centavos e o `forward_cursor` da
+        paginação. A taxa é a da tabela pública (`TAXA_DO_CARTAO`); o Pix vem
+        sem taxa (lá, ele é cobrado no mês seguinte, fora da API).
+      */
+      if (req.method === "GET" && caminho === "/core/v5/payables") {
+        const id = url.searchParams.get("charge_id")
+        const registro = [...painel.pedidos.values()].find((r) => cobrancaDo(r.pedido).id === id)
+        const c = registro ? cobrancaDo(registro.pedido) : null
+        json(200, {
+          data: c && c.status === "paid" ? recebiveisDa(c) : [],
+          paging: { forward_cursor: null },
+        })
         return
       }
 

@@ -34,7 +34,7 @@
 import { readFile } from "node:fs/promises"
 import { fabricaDePedidos } from "../../loja/ferramentas/pedido-de-teste.mjs"
 import { subirFrenetFalsa } from "../../loja/ferramentas/frenet-falsa.mjs"
-import { subirPagarmeFalso } from "../../loja/ferramentas/pagarme-falso.mjs"
+import { CHAVE_SECRETA, subirPagarmeFalso } from "../../loja/ferramentas/pagarme-falso.mjs"
 import {
   abrirNavegador,
   avisoDoClique,
@@ -158,10 +158,32 @@ const daRodada = (t) =>
 const acharNa = async (mes, descricao) =>
   daRodada(await despesas(mes)).find((d) => d.descricao === descricao)
 
+/** A rodada do job `custos-dos-pedidos` agora (a taxa e o frete de cada pedido). */
+const rodarCustos = () =>
+  medusa("/admin/financeiro/custos-dos-pedidos", { token: tokenAdmin, assinado: false })
+
+/** A cobrança do Pagar.me que o pedido guardou na sessão. */
+const cobrancaDo = (o) =>
+  (o.payment_collections ?? [])
+    .flatMap((c) => c.payment_sessions ?? [])
+    .map((s) => s.data?.pagarme?.cobranca)
+    .find(Boolean)
+
+/** Espera o cartão aprovado virar pagamento capturado no Medusa. */
+async function capturado(id) {
+  for (let i = 0; i < 40; i++) {
+    const o = await noAdmin(id)
+    if ((o.payment_collections ?? []).some((c) => (c.payments ?? []).some((p) => p.captured_at)))
+      return
+    await new Promise((r) => setTimeout(r, 500))
+  }
+  throw new Error(`o cartão do pedido ${id} não foi capturado`)
+}
+
 /** Lê um pedido pelo admin, com o que o DRE usa. */
 async function noAdmin(id) {
   const r = await fetch(
-    `${MEDUSA}/admin/orders/${id}?fields=id,status,total,credit_line_total,*items,*shipping_methods,*payment_collections.payments.refunds`,
+    `${MEDUSA}/admin/orders/${id}?fields=id,status,total,credit_line_total,*items,*shipping_methods,*payment_collections.payments,*payment_collections.payments.refunds,*payment_collections.payment_sessions`,
     { headers: { authorization: `Bearer ${tokenAdmin}` } }
   )
   return (await r.json()).order
@@ -181,7 +203,7 @@ function contaDo(o) {
 }
 
 let antesDosCustos = null
-const salvos = { custo: null, embalagem: null, simples: null }
+const salvos = { custo: null, embalagem: null, simples: null, pix: null }
 let mes = ""
 
 try {
@@ -268,7 +290,7 @@ try {
     "o % de cada linha é de cada R$ 100 da receita bruta"
   )
 
-  titulo("Os pedidos da rodada entram no DRE")
+  titulo("Os pedidos da rodada entram no DRE — com a taxa e o frete de cada um")
   const { products } = await (
     await fetch(`${MEDUSA}/store/products?fields=handle,id`, {
       headers: { "x-publishable-api-key": CHAVE },
@@ -276,6 +298,18 @@ try {
   ).json()
   const [a, b] = products
   const oferta = await fabrica.codigoDaOferta(a.handle)
+  // A % do Pix no Pagar.me da rodada, desde o dia 1 (no fim, volta a que era).
+  antesDosCustos = await custos()
+  const diaUm = `${mes}-01`
+  const pctDoPix = antesDosCustos.taxaDoPix?.valor === 0.99 ? 1.19 : 0.99
+  salvos.pix = { desde: diaUm }
+  await medusa("/dashboard/financeiro/custos", {
+    token,
+    corpo: { taxaDoPix: { valor: String(pctDoPix).replace(".", ","), desde: diaUm } },
+  })
+  // O job em dia antes: o que mudar depois é só dos pedidos da rodada.
+  const rodada0 = await rodarCustos()
+  ok(rodada0.status === 200, "a rodada do job responde pelo admin", `${rodada0.status}`)
   const antes = await dre()
   const pago = await fabrica.pedidoPix(
     `fin.${RODADA}.pago@teste.fuckingbarba.dev`,
@@ -290,31 +324,90 @@ try {
   )
   await fabrica.pagar(canc)
   await fabrica.cancelar(canc)
-  const cp = contaDo(await noAdmin(pago.id))
-  const cc = contaDo(await noAdmin(canc.id))
+  const cartao = await fabrica.pedidoCartao(
+    `fin.${RODADA}.cartao@teste.fuckingbarba.dev`,
+    [[b.handle, 1]],
+    { cartao: "4000000000000010", parcelas: 3 }
+  )
+  await capturado(cartao.id)
+  const oPago = await noAdmin(pago.id)
+  const oCanc = await noAdmin(canc.id)
+  const oCartao = await noAdmin(cartao.id)
+  const cp = contaDo(oPago)
+  const cc = contaDo(oCanc)
+  const ck = contaDo(oCartao)
+  const rodada1 = await rodarCustos()
   const depois = await dre()
   const delta = (id) => arred(linha(depois, id).valor - linha(antes, id).valor)
   ok(
-    perto(delta("vendas"), cp.produtos + cc.produtos),
-    "as vendas crescem os produtos dos dois (o cancelado entra)",
-    `${delta("vendas")} × ${cp.produtos + cc.produtos}`
+    perto(delta("vendas"), cp.produtos + cc.produtos + ck.produtos),
+    "as vendas crescem os produtos dos três (o cancelado entra)",
+    `${delta("vendas")} × ${cp.produtos + cc.produtos + ck.produtos}`
   )
   ok(
-    perto(delta("freteCobrado"), cp.frete + cc.frete),
-    "o frete cobrado dos dois",
-    `${delta("freteCobrado")} × ${cp.frete + cc.frete}`
+    perto(delta("freteCobrado"), cp.frete + cc.frete + ck.frete),
+    "o frete cobrado dos três",
+    `${delta("freteCobrado")} × ${cp.frete + cc.frete + ck.frete}`
   )
   ok(
-    cp.descontos > 0 && perto(delta("descontos"), -(cp.descontos + cc.descontos)),
+    cp.descontos > 0 && perto(delta("descontos"), -(cp.descontos + cc.descontos + ck.descontos)),
     "os descontos são os da oferta: produtos + frete − cobrado",
-    `${delta("descontos")} × ${-(cp.descontos + cc.descontos)}`
+    `${delta("descontos")} × ${-(cp.descontos + cc.descontos + ck.descontos)}`
   )
   ok(
-    cc.estornos > 0 && perto(delta("cancelamentos"), -(cp.estornos + cc.estornos)),
+    cc.estornos > 0 && perto(delta("cancelamentos"), -(cp.estornos + cc.estornos + ck.estornos)),
     "o estorno do cancelado sai em Cancelamentos e estornos",
-    `${delta("cancelamentos")} × ${-(cp.estornos + cc.estornos)} (estornado ${cc.estornos})`
+    `${delta("cancelamentos")} × ${-(cp.estornos + cc.estornos + ck.estornos)} (estornado ${cc.estornos})`
   )
-  ok(depois.pedidos.atual - antes.pedidos.atual === 1, "só o pago conta nos pedidos pagos")
+  ok(depois.pedidos.atual - antes.pedidos.atual === 2, "o cancelado não conta nos pedidos pagos")
+  // A taxa: o Pix pela % (e ela não volta no estorno); o cartão, a dos recebíveis do Pagar.me.
+  const recebiveis = await (
+    await fetch(
+      `http://127.0.0.1:${pagarme.porta}/core/v5/payables?charge_id=${cobrancaDo(oCartao)}`,
+      { headers: { authorization: `Basic ${Buffer.from(`${CHAVE_SECRETA}:`).toString("base64")}` } }
+    )
+  ).json()
+  const taxaDoCartao = recebiveis.data.reduce((s, r) => s + r.fee, 0) / 100
+  const taxaEsperada = arred(
+    arred((cp.cobrado * pctDoPix) / 100) + arred((cc.cobrado * pctDoPix) / 100) + taxaDoCartao
+  )
+  ok(
+    rodada1.corpo.relatorio?.taxas >= 1 && taxaDoCartao > 0,
+    "o job leu a taxa do cartão nos recebíveis",
+    JSON.stringify(rodada1.corpo.relatorio)
+  )
+  ok(
+    perto(delta("taxas"), -taxaEsperada),
+    "Taxas de pagamento: a % do Pix nos dois Pix (o cancelado também) e a do cartão",
+    `${delta("taxas")} × ${-taxaEsperada}`
+  )
+  const cotacao = (o) =>
+    (o.shipping_methods ?? []).reduce((s, m) => s + Number(m.data?.servico?.preco ?? NaN), 0)
+  const freteEsperado = arred(cotacao(oPago) + cotacao(oCartao))
+  ok(
+    Number.isFinite(freteEsperado) && freteEsperado > 0,
+    "o pedido guarda a cotação da Frenet do checkout",
+    `${freteEsperado}`
+  )
+  ok(
+    perto(delta("fretePago"), -freteEsperado),
+    "Frete pago pela loja: a cotação dos que saíram (o cancelado fora)",
+    `${delta("fretePago")} × ${-freteEsperado}`
+  )
+  ok(
+    ["taxa-da-loja", "frete-da-loja", "taxa-do-pix"].every(
+      (id) => !depois.pendencias.some((p) => p.id === id)
+    ),
+    "depois do job, nenhum pedido da loja nova sem taxa ou frete",
+    depois.pendencias.map((p) => p.id).join(", ")
+  )
+  const detalheDasTaxas = linha(depois, "taxas").detalhe.map((d) => d.nome)
+  ok(
+    detalheDasTaxas.some((n) => n.startsWith("Pagar.me, cartão (")) &&
+      detalheDasTaxas.some((n) => n.startsWith("Pagar.me, Pix (")),
+    "o detalhe separa o cartão e o Pix",
+    detalheDasTaxas.join(" | ")
+  )
   ok(
     quebras(valores(depois)).length === 0,
     "e o DRE segue fechando",
@@ -324,7 +417,6 @@ try {
   ok(Boolean(daOferta && daOferta.valor < 0), "o detalhe diz de onde veio o desconto (a oferta)")
 
   titulo("Custos e imposto, pela tela")
-  antesDosCustos = await custos()
   const prodA = antesDosCustos.produtos.find((p) => p.id === a.id)
   // Valores diferentes dos que já estão no banco: sem mudança, o "vale desde" nem aparece
   // (e o Simples responde "Nada mudou"). Valendo desde o dia 1: o mês inteiro com eles.
@@ -333,7 +425,6 @@ try {
   const antesDoSimples = antesDosCustos.simples.find((s) => s.mes === mes)?.valor ?? null
   const aliquotaNova = antesDoSimples === 6.54 ? 6.55 : 6.54
   const noCampo = (v) => v.toFixed(2).replace(".", ",")
-  const diaUm = `${mes}-01`
   await dono.pagina.goto(`${PAINEL}/financeiro/custos`)
   const campoA = `tr[data-produto="${a.id}"] input[inputmode=decimal]`
   const diaA = `tr[data-produto="${a.id}"] input[type=date]`
@@ -348,6 +439,9 @@ try {
   await dono.pagina.fill(diaA, diaUm)
   await dono.pagina.fill("#fin-embalagem", noCampo(embNova))
   await dono.pagina.fill("[data-embalagem] input[type=date]", diaUm)
+  const pctNaTela = pctDoPix === 1.19 ? 1.29 : 1.19
+  await dono.pagina.fill("#fin-taxa-do-pix", noCampo(pctNaTela))
+  await dono.pagina.fill("[data-taxa-do-pix] input[type=date]", diaUm)
   salvos.custo = { produto: a.id, desde: diaUm }
   salvos.embalagem = { desde: diaUm }
   const avisoCustos = await avisoDoClique(dono.pagina, () =>
@@ -364,6 +458,11 @@ try {
   ok(
     a1?.preco === null || perto(a1.sobra, a1.preco - custoNovo),
     "a sobra por unidade é o preço menos o custo"
+  )
+  ok(
+    c1.taxaDoPix?.valor === pctNaTela && c1.taxaDoPix?.desde === diaUm,
+    "a % do Pix no Pagar.me salva junto, desde o dia escolhido",
+    JSON.stringify(c1.taxaDoPix)
   )
   await dono.pagina.reload()
   const campoSimples = `label[data-mes="${mes}"] input`
@@ -708,6 +807,18 @@ try {
           embalagem: {
             valor: emb?.desde === salvos.embalagem?.desde ? emReais(emb.valor) : "",
             desde: salvos.embalagem?.desde ?? antesDosCustos.hoje,
+          },
+        },
+      })
+    }
+    if (antesDosCustos && salvos.pix) {
+      const pix = antesDosCustos.taxaDoPix
+      await medusa("/dashboard/financeiro/custos", {
+        token,
+        corpo: {
+          taxaDoPix: {
+            valor: pix?.desde === salvos.pix.desde ? emReais(pix.valor) : "",
+            desde: salvos.pix.desde,
           },
         },
       })
