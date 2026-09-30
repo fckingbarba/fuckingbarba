@@ -4905,6 +4905,31 @@ Depois do deploy — **o que você faz**, em Financeiro:
    setembro, o total de taxas do Nuvem Pago e de frete da Nuvemshop.
 3. O "Pra fechar certinho" do DRE diz o que ainda falta.
 
+**Financeiro, parte 2: a taxa e o frete de cada pedido — pronto em 30/09 (entrega 0226).** Na parte 1
+(0225), a taxa do pagamento e o frete dos pedidos da loja nova ficavam de fora do DRE. Agora:
+
+- **Frete pago pela loja**: a cotação da Frenet que o pedido guarda no checkout (o que a etiqueta
+  custa, mesmo quando o cliente não paga frete). Os pedidos de antes, sem ela, são cotados de novo
+  sozinhos.
+- **Taxas de pagamento**: a do cartão, lida no Pagar.me pedido a pedido (com as parcelas); a do Pix
+  do Mercado Pago, lida lá. **A do Pix no Pagar.me a API não traz** (o Pagar.me cobra no mês
+  seguinte): vem da % do seu contrato, num campo novo em Custos e imposto. No estorno, a taxa do
+  cartão e a do Mercado Pago voltam na proporção; a do Pix do Pagar.me, não.
+- Uma rotina nova (a cada 30 minutos) busca as taxas e cota o frete que faltou. O DRE avisa quantos
+  pedidos ainda estão sem.
+- As tarifas mensais do Pagar.me (gateway e antifraude, no extrato) continuam lançadas em Despesas.
+
+Banco: tabela nova `fin_pedido` (a migração `Migration20260930161824` roda sozinha no deploy).
+
+Conferido na pilha local: o conferidor do Financeiro 71/71 três vezes (com um pedido no cartão em 3x
+e dois no Pix: a taxa pela % e pelos recebíveis, o frete pela cotação guardada, os pedidos antigos
+cotados de novo); os unitários do backend (1.782), o typecheck, o `medusa build`, o `medusa lint`, o
+eslint, o `next build` do painel e o prettier.
+
+Depois do deploy — **o que você faz**: Financeiro → Custos e imposto → "Taxa do Pix no Pagar.me (%)":
+a do seu contrato (a tabela pública é 0,99%), valendo desde 27/09/2026. E, todo mês, lance em
+Despesas → "Taxas de pagamento" as tarifas do extrato do Pagar.me (gateway e antifraude), se tiver.
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa
