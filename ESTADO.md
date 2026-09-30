@@ -4826,6 +4826,38 @@ e do painel, o `medusa lint`, o eslint e o prettier.
 Depois do deploy — **nada a configurar.** Pra ver: Produtos → um produto → a caixa de compra: a
 tarja "Frete grátis" só nos cartões de R$ 139,90 pra cima. Vem depois da 0221 (PR #205).
 
+**Papel sob medida em Equipe e acessos — pronto em 30/09 (entrega 0223).** Pedido dele: "em equipes
+e acessos quero um papel customizado onde eu posso definir certinho". Até aqui, só dava pra ajustar
+a Operação e o Marketing.
+
+- **"Criar papel"**, no alto da tabela "O que cada papel abre": você dá o nome (Atendimento,
+  Financeiro, um freela…) e escolhe se ele começa só com o Início, igual à Operação ou igual ao
+  Marketing. Ele vira uma coluna a mais na tabela, com caixinha em cada linha — marque e "Salvar
+  acessos", como nos outros.
+- **O telefone dos clientes, no papel criado, é escolha sua**: a linha nova "Telefone e endereço
+  dos clientes" — marcada, a pessoa vê como a Operação (telefone, endereço, a lista inteira e o
+  botão do WhatsApp nos Carrinhos); sem ela, como o Marketing (só quem aceitou ofertas). Na
+  Operação e no Marketing isso não muda: segue o papel. O CPF inteiro continua só do dono, e nos
+  Pedidos quem abre vê o endereço de entrega, como sempre.
+- **O convite e o "Mudar" de cada pessoa** oferecem os papéis criados, e o convite diz o nome do
+  papel e o que ele abre. A pessoa vê o nome do papel embaixo do nome dela.
+- **Renomear e apagar**: clique no nome do papel, no alto da coluna. Só apaga papel sem ninguém
+  (nem convidado) — a tela explica. Até 10 papéis; nome repetido não passa.
+- A Equipe e acessos continua só do dono; o papel criado nunca ganha essa linha. Vale no servidor,
+  no próximo clique de cada pessoa, como antes.
+
+Banco: tabela nova `equipe_papel` e o `papel` do membro e do acesso virou texto (a migração
+`Migration20260930125925` roda sozinha no deploy).
+
+Conferido na pilha local: o conferidor da equipe 132/132 três vezes, com a seção nova (41 checagens:
+criar pela tela, marcar, convidar, entrar com o papel, o telefone ligando e desligando o WhatsApp
+dos carrinhos, renomear, apagar com e sem gente, começar igual à Operação, as abas do celular); o
+de carrinhos 14/14; o de clientes 51/53 (as 2 falhas são antigas: a previsão da 0220 pôs mais
+etiquetas na ficha e o conferidor conta 5). Os unitários do backend (1.717), o typecheck do backend
+e do painel, o `medusa lint`, o eslint e o prettier.
+
+Depois do deploy — **nada a configurar.** Pra ver: Configurações → Equipe e acessos → "Criar papel".
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa
