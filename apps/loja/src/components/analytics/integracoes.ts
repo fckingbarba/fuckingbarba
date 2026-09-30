@@ -1,6 +1,12 @@
 import { devolverACampanha } from "@/lib/chegada"
 import type { Integracoes } from "@/lib/configuracoes"
-import { integracoesLigadas } from "@/lib/rastrear"
+import {
+  ligarPeloServidor,
+  passoPeloServidor,
+  pixelBloqueado,
+  type Destino,
+} from "@/lib/pelo-servidor"
+import { integracoesLigadas, registrarPeloServidor } from "@/lib/rastrear"
 
 /**
  * AS TAGS DE CADA PARCEIRO — `tags.tsx` chama, e baixa este arquivo só
@@ -19,6 +25,12 @@ import { integracoesLigadas } from "@/lib/rastrear"
  * O trecho de cada um é o oficial da plataforma, com o código de dentro
  * conferido de novo aqui (`FORMATO`, o mesmo do backend): o código vai
  * dentro de um <script>, e o que não tem a cara do código não entra.
+ *
+ * A META E O TIKTOK TAMBÉM PELO SERVIDOR (entrega 0231, `lib/pelo-servidor.ts`):
+ * os eventos padrão vão pros dois caminhos, com o mesmo id, e a visita à
+ * página só pelo servidor quando o pixel não carrega — o script que dá erro
+ * (o bloqueador recusou) ou, na Meta, o que carregou sem funcionar (o
+ * bloqueador trocou por um vazio: o `fbq.callMethod` de verdade não aparece).
  *
  * AS TROCAS DE PÁGINA cada um conta sozinho: o GA4 (medição aprimorada), o
  * pixel da Meta e o do TikTok escutam o histórico do navegador, e a Clarity
@@ -108,6 +120,38 @@ var e=ttq._i[t]||[],n=0;n<ttq.methods.length;n++)ttq.setAndDefer(e,ttq.methods[n
   ttq.page();
 }(window, document, 'ttq');`)
 
+  // Antes da porta abrir: a fila que espera nela já sai com o envio pelo servidor.
+  const peloServidor: Destino[] = []
+  if (meta) peloServidor.push("meta")
+  if (tiktok) peloServidor.push("tiktok")
+  ligarPeloServidor(peloServidor)
+  registrarPeloServidor(passoPeloServidor)
+  if (meta)
+    vigiarOScript(
+      "connect.facebook.net",
+      "meta",
+      () => typeof window.fbq?.callMethod === "function"
+    )
+  if (tiktok) vigiarOScript("analytics.tiktok.com", "tiktok")
+
   // As funções de cada um já existem (os trechos guardam a chamada até o script chegar).
   integracoesLigadas()
+}
+
+/**
+ * O script do pixel que o trecho acabou de pôr na página: erro é o
+ * bloqueador; carregado, e sem funcionar 2 segundos depois, também. O erro
+ * chega depois (a rede é assíncrona): dá tempo de escutar.
+ */
+function vigiarOScript(host: string, d: Destino, funcionando?: () => boolean) {
+  const s = document.querySelector<HTMLScriptElement>(`script[src*="${host}"]`)
+  if (!s) {
+    pixelBloqueado(d)
+    return
+  }
+  s.addEventListener("error", () => pixelBloqueado(d), { once: true })
+  if (funcionando)
+    s.addEventListener("load", () => setTimeout(() => funcionando() || pixelBloqueado(d), 2000), {
+      once: true,
+    })
 }

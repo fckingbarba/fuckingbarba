@@ -167,7 +167,9 @@ export default async function Privacidade() {
           recebem a visita — as páginas e os produtos que você vê, o que entra e sai da sacola e o
           caminho do checkout —, ligada aos códigos aleatórios dos cookies deles. Na compra, vão pra
           eles o valor, os produtos e esses códigos — e, pra Meta e pro TikTok, o IP e o navegador.
-          É o que diz pra cada um que a compra veio de um anúncio dele. A loja guarda no pedido o
+          É o que diz pra cada um que a compra veio de um anúncio dele. Pra Meta e pro TikTok, o que
+          você vê e põe na sacola vai também pelo servidor da loja, com o IP e o navegador — assim
+          conta mesmo quando o navegador bloqueia o script deles. A loja guarda no pedido o
           navegador da compra, pra saber se ela veio do celular ou do computador. E a Microsoft
           Clarity grava como a página é usada (mais embaixo, em Cookies), pra gente ver onde a loja
           atrapalha.
@@ -248,8 +250,10 @@ export default async function Privacidade() {
         <P>
           Os de medição e de anúncio — Google Analytics, Google Ads, Meta (Facebook e Instagram),
           TikTok e Microsoft Clarity — ligam desde a primeira página, como avisa a faixa, cada um
-          com um código aleatório. O da própria loja, com o código deste navegador, só é criado
-          depois que você clica em &ldquo;Entendi&rdquo;.
+          com um código aleatório. Quando o navegador bloqueia o script da Meta, a loja cria ela
+          mesma os cookies da Meta, do jeito que o script criaria: o código deste navegador e, se
+          você chegou por um anúncio dela, o do clique. O da própria loja, com o código deste
+          navegador, só é criado depois que você clica em &ldquo;Entendi&rdquo;.
         </P>
         <P>
           Se você recusar aqui embaixo, os cookies dos parceiros são apagados e nenhum script deles
@@ -320,8 +324,9 @@ export default async function Privacidade() {
           <li>
             <b>Google Ads</b>, <b>Meta</b> (Facebook e Instagram) e <b>TikTok</b> — o que você vê e
             põe na sacola e, na compra, o valor, os produtos e os códigos dos cookies. A Meta e o
-            TikTok recebem também o seu e-mail e o telefone, embaralhados (em hash): eles só
-            conseguem comparar com os que já têm, não ler.
+            TikTok recebem isso também pelo servidor da loja, com o IP e o navegador, e, na compra,
+            o seu e-mail e o telefone, embaralhados (em hash): eles só conseguem comparar com os que
+            já têm, não ler.
           </li>
         </Lista>
         <P>

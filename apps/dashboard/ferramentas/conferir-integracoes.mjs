@@ -176,9 +176,17 @@ const rastroComSim = {
 const deMentira = (nome) =>
   `window.__carregou = (window.__carregou || []).concat('${nome}');` +
   ` (window.__endereco = window.__endereco || {})['${nome}'] = location.href`
+/**
+ * O da Meta faz também o que o fbevents.js de verdade faz ao chegar: o
+ * `fbq.callMethod`. Sem ele, a loja acha que um bloqueador trocou o script
+ * por um vazio, e a visita passa a ir pelo servidor (0231).
+ */
+const daMetaDeMentira =
+  deMentira("meta") +
+  "; if (window.fbq) window.fbq.callMethod = function () { window.fbq.queue.push(arguments) }"
 const TERCEIROS = [
   ["googletagmanager.com", deMentira("google")],
-  ["connect.facebook.net", deMentira("meta")],
+  ["connect.facebook.net", daMetaDeMentira],
   ["analytics.tiktok.com", deMentira("tiktok")],
   ["clarity.ms", deMentira("clarity")],
 ]
@@ -186,8 +194,11 @@ const TERCEIROS = [
 const RASTREADORES =
   /(googletagmanager\.com|google-analytics\.com|doubleclick\.net|facebook\.(net|com)|tiktok\.com|clarity\.ms|bing\.com)$/
 
-/** Uma visita à loja: os scripts de fora trocados por um de mentira, e anotados. */
-async function visitaNaLoja(cookies = [], tela = {}) {
+/**
+ * Uma visita à loja: os scripts de fora trocados por um de mentira, e anotados.
+ * `bloquear`: os hosts que o navegador recusa, como um bloqueador de anúncio.
+ */
+async function visitaNaLoja(cookies = [], tela = {}, { bloquear = [] } = {}) {
   const contexto = await navegador.newContext({ viewport: { width: 1280, height: 900 }, ...tela })
   const pedidos = []
   await contexto.route(/^https?:\/\/(?!localhost|127\.0\.0\.1)/, (rota) => {
@@ -196,6 +207,7 @@ async function visitaNaLoja(cookies = [], tela = {}) {
     const terceiro = TERCEIROS.find(([h]) => host.endsWith(h))
     // Só o que é de medição e anúncio conta; o resto de fora (uma foto) só não sai.
     if (RASTREADORES.test(host)) pedidos.push(url)
+    if (bloquear.some((h) => host.endsWith(h))) return rota.abort("blockedbyclient")
     if (terceiro)
       return rota.fulfill({ status: 200, contentType: "text/javascript", body: terceiro[1] })
     return rota.abort()
@@ -225,6 +237,29 @@ const filas = (pagina) =>
         .filter((s) => !s.startsWith(location.origin)),
     }
   })
+
+/** Os passos da visita que chegaram pelo servidor (0231), do índice `desde` em diante. */
+const passosDesde = (desde) =>
+  anuncios.recebidos
+    .slice(desde)
+    .flatMap((r) =>
+      (r.corpo?.data ?? []).map((d) => ({
+        plataforma: r.plataforma,
+        nome: d.event_name ?? d.event,
+        id: d.event_id,
+        pagina: d.event_source_url ?? d.page?.url ?? null,
+        usuario: d.user_data ?? d.user ?? {},
+      }))
+    )
+    .filter((p) => p.nome !== "Purchase")
+async function esperarPassos(desde, condicao, ms = 20000) {
+  const fim = Date.now() + ms
+  while (Date.now() < fim) {
+    if (condicao(passosDesde(desde))) break
+    await esperar(300)
+  }
+  return passosDesde(desde)
+}
 
 const temChamada = (fila, ...partes) =>
   fila.some((c) => partes.every((p, i) => JSON.stringify(c[i]) === JSON.stringify(p)))
@@ -400,6 +435,7 @@ try {
   )
 
   titulo("O produto e a sacola, de quem nunca respondeu")
+  const passosAntesDoProduto = anuncios.recebidos.length
   await semResposta.pagina.goto(`${LOJA}/produtos/shampoo-para-barba`)
   await hidratado(semResposta.pagina, ".compra__comprar")
   await semResposta.pagina.waitForFunction(
@@ -427,6 +463,43 @@ try {
       temChamada(noProduto.clarity, "event", "add_to_cart"),
     "o produto e a sacola chegam em cada um (ViewContent e AddToCart, com a variante), sem o “Entendi”",
     JSON.stringify({ viu, pos })
+  )
+
+  titulo("Pelo servidor também, com o mesmo id do pixel")
+  const idNoPixel = (fila, nome) => fila.find((c) => c[1] === nome)?.[3]?.eventID ?? null
+  const idNoTiktok = (fila, nome) =>
+    fila.find((c) => c[0] === "track" && c[1] === nome)?.[3]?.event_id ?? null
+  const ids = {
+    ViewContent: idNoPixel(noProduto.meta, "ViewContent"),
+    AddToCart: idNoPixel(noProduto.meta, "AddToCart"),
+  }
+  const peloServidor = await esperarPassos(
+    passosAntesDoProduto,
+    (l) =>
+      ["meta", "tiktok"].every((p) =>
+        Object.values(ids).every((id) => l.some((x) => x.plataforma === p && x.id === id))
+      ),
+    20000
+  )
+  const doServidor = (p, nome) => peloServidor.find((x) => x.plataforma === p && x.nome === nome)
+  ok(
+    Boolean(ids.ViewContent && ids.AddToCart) &&
+      ids.ViewContent === idNoTiktok(noProduto.tiktok, "ViewContent") &&
+      ids.AddToCart === idNoTiktok(noProduto.tiktok, "AddToCart") &&
+      ["meta", "tiktok"].every(
+        (p) =>
+          doServidor(p, "ViewContent")?.id === ids.ViewContent &&
+          doServidor(p, "AddToCart")?.id === ids.AddToCart
+      ) &&
+      doServidor("meta", "AddToCart")?.usuario?.client_user_agent?.length > 0 &&
+      doServidor("meta", "AddToCart")?.pagina === `${LOJA}/produtos/shampoo-para-barba`,
+    "o ViewContent e o AddToCart vão também pelo servidor pra Meta e pro TikTok, com o MESMO id que foi pro pixel (a plataforma junta os dois)",
+    JSON.stringify({ ids, peloServidor })
+  )
+  ok(
+    !peloServidor.some((x) => x.nome === "PageView" || x.nome === "Pageview"),
+    "com o pixel funcionando, a visita à página não vai pelo servidor (o pixel já conta)",
+    JSON.stringify(peloServidor.map((x) => [x.plataforma, x.nome]))
   )
 
   titulo("A recusa, na política de privacidade")
@@ -534,6 +607,97 @@ try {
     JSON.stringify((await filas(entendi.pagina)).carregou)
   )
   await entendi.contexto.close()
+
+  titulo("Quem tem o pixel bloqueado: tudo pelo servidor")
+  const FBCLID = `IwAR0conferidor_${RODADA}`
+  const TTCLID = `E.C.P.conferidor-${RODADA}`
+  const antesDoBloqueio = anuncios.recebidos.length
+  const bloqueado = await visitaNaLoja(
+    [],
+    {},
+    { bloquear: ["connect.facebook.net", "analytics.tiktok.com"] }
+  )
+  await bloqueado.pagina.goto(`${LOJA}/?fbclid=${FBCLID}&ttclid=${TTCLID}`)
+  const naHome = await esperarPassos(
+    antesDoBloqueio,
+    (l) =>
+      l.some((x) => x.plataforma === "meta" && x.nome === "PageView") &&
+      l.some((x) => x.plataforma === "tiktok" && x.nome === "Pageview")
+  )
+  const pvMeta = naHome.find((x) => x.plataforma === "meta" && x.nome === "PageView")
+  const pvTiktok = naHome.find((x) => x.plataforma === "tiktok" && x.nome === "Pageview")
+  const fbpNoNavegador = (await bloqueado.contexto.cookies(LOJA)).find((c) => c.name === "_fbp")
+  ok(
+    pvMeta?.pagina === `${LOJA}/` &&
+      /^fb\.1\.\d+\.\d+$/.test(pvMeta?.usuario?.fbp ?? "") &&
+      pvMeta?.usuario?.fbp === fbpNoNavegador?.value &&
+      pvMeta?.usuario?.fbc?.endsWith(`.${FBCLID}`) &&
+      pvTiktok?.pagina === `${LOJA}/` &&
+      pvTiktok?.usuario?.ttclid === TTCLID,
+    "pixel bloqueado: a visita à home vai pelo servidor pra Meta (com o _fbp que a loja criou e o _fbc do clique) e pro TikTok (com o ttclid)",
+    JSON.stringify({ naHome, fbp: fbpNoNavegador?.value })
+  )
+  const linkDoProdutoBloqueado = 'main a[href^="/produtos/"]'
+  await hidratado(bloqueado.pagina, linkDoProdutoBloqueado)
+  await bloqueado.pagina
+    .locator(linkDoProdutoBloqueado)
+    .first()
+    .evaluate((a) => a.click())
+  await bloqueado.pagina.waitForURL(/\/produtos\//, { timeout: 15000 })
+  const caminhoDoProduto = new URL(bloqueado.pagina.url()).pathname
+  await hidratado(bloqueado.pagina, ".compra__comprar")
+  await bloqueado.pagina.locator(".compra__comprar").click()
+  const noProdutoBloqueado = await esperarPassos(antesDoBloqueio, (l) =>
+    ["meta", "tiktok"].every((p) => l.some((x) => x.plataforma === p && x.nome === "AddToCart"))
+  )
+  const pvDoProduto = noProdutoBloqueado.filter(
+    (x) => /^Page[vV]iew$/.test(x.nome) && x.pagina === `${LOJA}${caminhoDoProduto}`
+  )
+  const sacolaMeta = noProdutoBloqueado.find(
+    (x) => x.plataforma === "meta" && x.nome === "AddToCart"
+  )
+  ok(
+    pvDoProduto.length === 2 &&
+      ["meta", "tiktok"].every((p) =>
+        noProdutoBloqueado.some((x) => x.plataforma === p && x.nome === "ViewContent")
+      ) &&
+      sacolaMeta?.usuario?.fbc?.endsWith(`.${FBCLID}`) &&
+      sacolaMeta?.usuario?.fbp === pvMeta?.usuario?.fbp,
+    "e na troca de página pro produto: a visita, o ViewContent e o AddToCart, pra Meta e pro TikTok, com os mesmos cookies",
+    JSON.stringify(noProdutoBloqueado.map((x) => [x.plataforma, x.nome, x.pagina]))
+  )
+  await bloqueado.contexto.close()
+
+  // Quem recusou na política: a rota da loja não repassa nada, nem pedida na mão.
+  const recusou = await visitaNaLoja([{ name: "fb_consentimento", value: "nao.3.gmtc" }])
+  await recusou.pagina.goto(`${LOJA}/`)
+  const antesDoNaoPeloServidor = anuncios.recebidos.length
+  await recusou.pagina.evaluate(
+    (agora) =>
+      fetch("/api/passos", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          passos: [
+            {
+              nome: "PageView",
+              id: "recusou-1234",
+              pagina: location.href,
+              em: agora,
+              para: ["meta"],
+            },
+          ],
+        }),
+      }),
+    Math.floor(Date.now() / 1000)
+  )
+  await esperar(4000)
+  ok(
+    anuncios.recebidos.length === antesDoNaoPeloServidor,
+    "quem recusou os cookies: nada vai pelo servidor, nem o que for pedido na mão",
+    JSON.stringify(passosDesde(antesDoNaoPeloServidor))
+  )
+  await recusou.contexto.close()
 
   titulo("A campanha do link")
   // Cada parceiro lê a campanha no endereço da página em que liga: desde a 0230,
