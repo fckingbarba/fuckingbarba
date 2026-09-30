@@ -69,7 +69,8 @@ no fim, mesmo quando falham.
 A faixa de cookies aparece pra todo mundo desde a 0130 (a própria loja pergunta, pro CRM), por cima
 do pé da tela — e o clique no botão de baixo caía nela. Os conferidores que não são dela chamam
 `comAFaixaRespondida(navegador, LOJA)` (`ferramentas/faixa-respondida.mjs`) logo depois do
-`chromium.launch`: todo contexto nasce com o "Só o necessário", a loja de antes. Conferidor novo que
+`chromium.launch`: todo contexto nasce como quem recusou os cookies (o "não" da política de
+privacidade): sem tag, sem CRM e sem faixa. Conferidor novo que
 abre páginas da loja no navegador: faça o mesmo (o `conferir-feed` não precisa — o navegador dele só
 lê o XML numa página em branco). Quem confere a faixa são o `conferir-integracoes` e o
 `conferir-crm` do painel.
@@ -293,10 +294,11 @@ precisa sair da janela dela — ver `longeDaConciliacaoAutomatica` no conferidor
   estourado no Lighthouse — ver `apps/loja/src/components/catalogo/tela.tsx`. A `/busca` é a
   exceção, porque o `?q=` não tem como ser gerado no build.
 - **Sem GTM, sem widget de terceiro no `<head>`.** Tags entram por `components/analytics/tags.tsx`:
-  o GA4 e a Clarity desde a primeira página, só medindo (quem clica em "Só o necessário" sai —
-  entregas 0166 e 0171: o dono quis as visitas contadas como na Nuvemshop, e a jornada de quem não
-  responde a faixa na Clarity); as outras, depois do "Aceitar". Orçamento de terceiros: 150 KB
-  (Lighthouse CI quebra acima).
+  todas desde a primeira página, antes de qualquer clique, com o consentimento do Google todo
+  liberado — como na Nuvemshop (entrega 0230, pedido do dono com aval jurídico). A faixa tem um botão
+  só ("Entendi"), que libera o CRM da loja; quem não quer recusa na política de privacidade
+  (`mudar-resposta.tsx`) e fica sem tag nenhuma, e sem a compra pelo servidor. Orçamento de
+  terceiros: 150 KB (Lighthouse CI quebra acima).
 - **Segredo nunca com `NEXT_PUBLIC_`.** Chaves de servidor ficam no Railway e na Vercel, nunca em código.
 - **Chave nunca passa pela conversa.** Token, senha e segredo vão direto no painel do Railway ou da
   Vercel, por quem tem acesso a ele. Se um aparecer colado num chat, num log ou num commit, conta como
