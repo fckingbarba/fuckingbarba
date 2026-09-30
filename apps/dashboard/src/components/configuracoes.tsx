@@ -503,7 +503,7 @@ export function FormularioDasIntegracoes({
         </div>
         <Acoes
           salvando={salvando}
-          nota="O GA4 e a Clarity carregam pra todo mundo (quem recusa os cookies sai); os outros, depois do “Aceitar”."
+          nota="Todas carregam pra todo mundo desde a primeira página, como na Nuvemshop (quem recusa os cookies na política de privacidade sai)."
         />
       </Bloco>
     </form>

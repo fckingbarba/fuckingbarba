@@ -10,9 +10,9 @@
  * ┌─ O NÚMERO É UM POUCO MENOR QUE O DE VERDADE, E A TELA DIZ ─────────────┐
  * │ O GA4 da loja liga na primeira página, antes da resposta da faixa de   │
  * │ cookies (`apps/loja/src/components/analytics/tags.tsx`, 0166 — como a  │
- * │ Nuvemshop fazia): só quem clica em "Só o necessário" fica de fora da   │
- * │ conta, e quem usa bloqueador. Até a 0166 ficava de fora todo mundo que │
- * │ não aceitava — e as visitas ficavam bem abaixo das da Nuvemshop.       │
+ * │ Nuvemshop fazia): só quem recusa os cookies na política de privacidade │
+ * │ fica de fora da conta, e quem usa bloqueador. Até a 0166 ficava de     │
+ * │ fora todo mundo que não aceitava — e as visitas ficavam bem abaixo.    │
  * └────────────────────────────────────────────────────────────────────────┘
  *
  * VISITA É SESSÃO (`sessions`): quem entra de manhã e volta de noite conta

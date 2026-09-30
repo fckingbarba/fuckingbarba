@@ -1,11 +1,10 @@
 /**
  * CONFERIDOR DAS INTEGRAÇÕES — o dono põe o código do GA4, do Google Ads, da
  * Meta, da Clarity e do TikTok no painel (Configurações → Integrações); a
- * loja liga o GA4 e a Clarity na primeira página, só pra medir (0166 e 0171,
- * como a Nuvemshop), e as outras tags só depois do "Aceitar" da faixa de
- * cookies; e a compra
- * sai do servidor quando o pagamento entra — pra Meta e o TikTok de quem
- * aceitou, pro GA4 de quem não recusou.
+ * loja liga todas na primeira página, antes da resposta da faixa de cookies,
+ * como a Nuvemshop (0230) — a faixa tem um botão só, "Entendi", e quem não
+ * quer recusa na política de privacidade —; e a compra sai do servidor
+ * quando o pagamento entra, pra todas, de quem não recusou.
  *
  *   (Medusa local apontando pros falsos; painel e loja no ar)
  *   node apps/dashboard/ferramentas/conferir-integracoes.mjs
@@ -28,21 +27,23 @@
  * ┌─ O QUE ESTE ARQUIVO EXISTE PRA TRAVAR ─────────────────────────────────┐
  * │ • código fora do formato gravado (e dentro de uma tag); o trecho       │
  * │   colado que não vira o código; a tela do admin apagando os códigos;   │
- * │ • script de terceiro, fora o GA4 e a Clarity, carregando ANTES do      │
- * │   "Aceitar" (a política promete que não); os dois antes do sim sem o   │
- * │   anúncio negado; o "Só o necessário" deixando o GA4, a Clarity ou os  │
- * │   cookies deles na página;                                             │
+ * │ • uma tag que não liga na primeira página, antes da resposta, ou liga  │
+ * │   sem o consentimento do Google todo liberado (o da Nuvemshop); a      │
+ * │   faixa com mais de um botão, ou o "Entendi" carregando tudo de novo;  │
+ * │ • a recusa da política de privacidade deixando script ou cookie de     │
+ * │   parceiro na página, ou deixando de valer na página seguinte;         │
  * │ • a resposta de antes (a v1, ou sem um parceiro novo) valendo sem a    │
- * │   faixa perguntar de novo;                                             │
- * │ • a faixa embaixo da barra de compra da PDP (25/09: o "Aceitar" sumia  │
+ * │   faixa aparecer de novo;                                              │
+ * │ • a faixa embaixo da barra de compra da PDP (25/09: o botão sumia      │
  * │   atrás dela no celular), ou cobrindo o botão da barra do checkout; a  │
  * │   faixa grande no celular;                                             │
- * │ • o produto, a sacola e a compra que não chegam em cada plataforma;    │
- * │ • a campanha do link (UTMs, gclid, fbclid) perdida por quem aceita     │
- * │   depois de trocar de página (27/09: a Clarity só via o site);         │
+ * │ • o produto, a sacola e a compra que não chegam em cada plataforma —   │
+ * │   inclusive de quem nunca clicou no "Entendi";                         │
+ * │ • a campanha do link (UTMs, gclid, fbclid) que os parceiros não leem   │
+ * │   na chegada, ou que volta repetida;                                   │
  * │ • a compra de quem recusou saindo pelo servidor; a de quem não         │
- * │   respondeu indo pra Meta ou o TikTok, ou não indo pro GA4; a recusa   │
- * │   da plataforma sem virar problema na Observabilidade;                 │
+ * │   respondeu sem ir pra todas; a recusa da plataforma sem virar         │
+ * │   problema na Observabilidade;                                         │
  * │ • o rastro aceito sem a assinatura da loja.                            │
  * └────────────────────────────────────────────────────────────────────────┘
  */
@@ -228,19 +229,33 @@ const filas = (pagina) =>
 const temChamada = (fila, ...partes) =>
   fila.some((c) => partes.every((p, i) => JSON.stringify(c[i]) === JSON.stringify(p)))
 
-/** O GA4 e a Clarity já no ar (o de mentira anota quando carrega). */
-const aMedicaoLigou = (pagina) =>
+/** As quatro tags no ar (o de mentira anota quando carrega). */
+const tagsNoAr = (pagina) =>
   pagina.waitForFunction(
-    () => ["google", "clarity"].every((p) => (window.__carregou ?? []).includes(p)),
+    () =>
+      ["google", "meta", "tiktok", "clarity"].every((p) => (window.__carregou ?? []).includes(p)),
     null,
     { timeout: 20000 }
   )
 
-/** Só o GA4 e a Clarity carregaram, e só eles pediram coisa pra fora — sem resposta, é o que vale (0166 e 0171). */
-const soAMedicao = (visita, fila) =>
-  [...fila.carregou].sort().join() === "clarity,google" &&
-  visita.pedidos.length > 0 &&
-  visita.pedidos.every((u) => /(googletagmanager\.com|clarity\.ms)$/.test(new URL(u).hostname))
+/** Cada uma das quatro carregou uma vez só. */
+const umaVezCada = (fila) => [...fila.carregou].sort().join() === "clarity,google,meta,tiktok"
+
+/** A primeira página, sem resposta ou com o sim: todas ligam, como na Nuvemshop (0230). */
+const todasLigadas = (fila) =>
+  umaVezCada(fila) &&
+  temChamada(fila.google, "consent", "default", {
+    ad_storage: "granted",
+    ad_user_data: "granted",
+    ad_personalization: "granted",
+    analytics_storage: "granted",
+  }) &&
+  temChamada(fila.google, "config", CODIGOS.ga4) &&
+  temChamada(fila.google, "config", CODIGOS.googleAds) &&
+  temChamada(fila.meta, "init", CODIGOS.metaPixel) &&
+  temChamada(fila.meta, "track", "PageView") &&
+  fila.tiktokPixels.includes(CODIGOS.tiktok) &&
+  temChamada(fila.clarity, "consentv2", { ad_Storage: "granted", analytics_Storage: "granted" })
 
 const valorDoCookie = async (contexto) =>
   (await contexto.cookies(LOJA)).find((c) => c.name === "fb_consentimento")?.value ?? null
@@ -346,121 +361,59 @@ try {
 
   /* ── a loja ───────────────────────────────────────────────────────────── */
 
-  titulo("A loja: antes da resposta, só o GA4 e a Clarity")
-  // Os cookies que o GA4 e a Clarity de verdade gravam (os de mentira não gravam nada): o "não" apaga.
-  const recusa = await visitaNaLoja([
+  titulo("A loja: todas as tags na primeira página, antes da resposta")
+  // Os cookies que as tags de verdade gravam (as de mentira não gravam nada): a recusa apaga.
+  const DOS_PARCEIROS = [
     { name: "_ga", value: "GA1.1.111111111.1790000000" },
     { name: `_ga_${CODIGOS.ga4.slice(2)}`, value: "GS2.1.s1790000000$o1$g0$t1790000000" },
+    { name: "_gcl_au", value: "1.1.111111111.1790000000" },
+    { name: "_fbp", value: "fb.1.1790000000000.111111111" },
+    { name: "_ttp", value: "ttp-de-mentira.1" },
     { name: "_clck", value: "abc123%7C2%7Cfq0%7C0%7C1" },
     { name: "_clsk", value: "xyz789%7C1790000000000%7C1%7C1%7Cd.clarity.ms%2Fcollect" },
-  ])
-  await recusa.pagina.goto(`${LOJA}/`)
-  const faixa = recusa.pagina.locator("[data-faixa-de-cookies]")
+  ]
+  const semResposta = await visitaNaLoja(DOS_PARCEIROS)
+  await semResposta.pagina.goto(`${LOJA}/`)
+  const faixa = semResposta.pagina.locator("[data-faixa-de-cookies]")
   await faixa.waitFor({ timeout: 20000 })
+  const botoesDaFaixa = await faixa.getByRole("button").allTextContents()
   ok(
     semEspaco(await faixa.textContent()).startsWith(
       "Ao navegar por este site você aceita o uso de cookies para agilizar a sua experiência de compra."
-    ),
-    "a faixa com o texto da Nuvemshop (0172)",
-    semEspaco(await faixa.textContent())
+    ) &&
+      botoesDaFaixa.length === 1 &&
+      semEspaco(botoesDaFaixa[0]) === "Entendi",
+    "a faixa da Nuvemshop: o texto de lá (0172) e um botão só, “Entendi” (0230)",
+    `${semEspaco(await faixa.textContent())} · botões: ${botoesDaFaixa.join(" | ")}`
   )
-  await aMedicaoLigou(recusa.pagina)
+  await tagsNoAr(semResposta.pagina)
   await esperar(1000)
-  const antesDoAceite = await filas(recusa.pagina)
-  const padrao = antesDoAceite.google.find((c) => c[0] === "consent" && c[1] === "default")?.[2]
+  const naChegadaSemResposta = await filas(semResposta.pagina)
   ok(
-    soAMedicao(recusa, antesDoAceite) &&
-      temChamada(antesDoAceite.google, "config", CODIGOS.ga4) &&
-      !temChamada(antesDoAceite.google, "config", CODIGOS.googleAds) &&
-      padrao?.analytics_storage === "granted" &&
-      ["ad_storage", "ad_user_data", "ad_personalization"].every((k) => padrao?.[k] === "denied") &&
-      temChamada(antesDoAceite.clarity, "consentv2", {
-        ad_Storage: "denied",
-        analytics_Storage: "granted",
-      }),
-    "antes de responder: só o GA4 e a Clarity, medindo com o anúncio negado — nenhum outro script, nenhum outro pedido pra fora",
-    JSON.stringify({ carregou: antesDoAceite.carregou, pedidos: recusa.pedidos, padrao })
-  )
-  // A marca some com a recarga: com o GA4 na página, o "não" recarrega pra tirá-lo.
-  await recusa.pagina.evaluate(() => (window.__antesDoNao = true))
-  const pedidosAntesDoNao = recusa.pedidos.length
-  await Promise.all([
-    recusa.pagina.waitForEvent("load", { timeout: 20000 }),
-    faixa.getByRole("button", { name: "Só o necessário" }).click(),
-  ])
-  await esperar(1500)
-  const depoisDoNao = await filas(recusa.pagina)
-  const cookiesDoGa = (await recusa.contexto.cookies(LOJA))
-    .map((c) => c.name)
-    .filter((n) => /^_(ga|cl)/.test(n))
-  ok(
-    (await valorDoCookie(recusa.contexto)) === "nao.3.gmtc" &&
-      !(await recusa.pagina.evaluate(() => window.__antesDoNao === true)) &&
-      !depoisDoNao.carregou.length &&
-      !depoisDoNao.tags.length &&
-      recusa.pedidos.length === pedidosAntesDoNao &&
-      !cookiesDoGa.length &&
-      (await faixa.count()) === 0,
-    "“Só o necessário”: a resposta fica (versão 3), a página recarrega sem o GA4 e a Clarity, os cookies deles saem e nada carrega",
+    todasLigadas(naChegadaSemResposta),
+    "sem responder: o GA4, o Google Ads, a Meta (com o PageView), o TikTok e a Clarity ligam na hora, com o consentimento do Google todo liberado",
     JSON.stringify({
-      cookie: await valorDoCookie(recusa.contexto),
-      carregou: depoisDoNao.carregou,
-      cookiesDoGa,
-      pedidos: recusa.pedidos.slice(pedidosAntesDoNao),
+      carregou: naChegadaSemResposta.carregou,
+      padrao: naChegadaSemResposta.google.find((c) => c[0] === "consent"),
+      tiktok: naChegadaSemResposta.tiktokPixels,
     })
   )
-  await recusa.contexto.close()
 
-  titulo("A loja: com o aceite")
-  const sim = await visitaNaLoja()
-  await sim.pagina.goto(`${LOJA}/`)
-  await sim.pagina.locator("[data-faixa-de-cookies]").waitFor({ timeout: 20000 })
-  // O sim chega com o GA4 e a Clarity já no ar (o caso de quase todo mundo): acrescenta o resto.
-  await aMedicaoLigou(sim.pagina)
-  await sim.pagina.getByRole("button", { name: "Aceitar" }).click()
-  await sim.pagina.waitForFunction(() => (window.__carregou ?? []).length >= 4, null, {
-    timeout: 15000,
-  })
-  const ligadas = await filas(sim.pagina)
-  const anuncioLiberado = {
-    ad_storage: "granted",
-    ad_user_data: "granted",
-    ad_personalization: "granted",
-  }
-  ok(
-    (await valorDoCookie(sim.contexto)) === "sim.3.gmtc" &&
-      ligadas.carregou.filter((p) => p === "google").length === 1 &&
-      ligadas.carregou.filter((p) => p === "clarity").length === 1 &&
-      temChamada(ligadas.clarity, "consentv2", {
-        ad_Storage: "granted",
-        analytics_Storage: "granted",
-      }) &&
-      temChamada(ligadas.google, "config", CODIGOS.ga4) &&
-      temChamada(ligadas.google, "consent", "update", anuncioLiberado) &&
-      temChamada(ligadas.google, "config", CODIGOS.googleAds) &&
-      temChamada(ligadas.meta, "init", CODIGOS.metaPixel) &&
-      temChamada(ligadas.meta, "track", "PageView") &&
-      ligadas.tiktokPixels.includes(CODIGOS.tiktok) &&
-      temChamada(ligadas.clarity, "consentv2"),
-    "“Aceitar”: o anúncio do Google e o da Microsoft passam a valer (o GA4 e a Clarity não carregam de novo), e a Meta e o TikTok ligam na hora, cada um com o seu código",
-    JSON.stringify({ carregou: ligadas.carregou, tiktok: ligadas.tiktokPixels })
-  )
-
-  await sim.pagina.goto(`${LOJA}/produtos/shampoo-para-barba`)
-  const botao = sim.pagina.locator(".compra__comprar")
-  await hidratado(sim.pagina, ".compra__comprar")
-  await sim.pagina.waitForFunction(
+  titulo("O produto e a sacola, de quem nunca respondeu")
+  await semResposta.pagina.goto(`${LOJA}/produtos/shampoo-para-barba`)
+  await hidratado(semResposta.pagina, ".compra__comprar")
+  await semResposta.pagina.waitForFunction(
     () => Array.from(window.fbq?.queue ?? []).some((c) => c[1] === "ViewContent"),
     null,
     { timeout: 15000 }
   )
-  await botao.click()
-  await sim.pagina.waitForFunction(
+  await semResposta.pagina.locator(".compra__comprar").click()
+  await semResposta.pagina.waitForFunction(
     () => Array.from(window.fbq?.queue ?? []).some((c) => c[1] === "AddToCart"),
     null,
     { timeout: 15000 }
   )
-  const noProduto = await filas(sim.pagina)
+  const noProduto = await filas(semResposta.pagina)
   const viu = noProduto.meta.find((c) => c[1] === "ViewContent")?.[2]
   const pos = noProduto.meta.find((c) => c[1] === "AddToCart")?.[2]
   ok(
@@ -472,15 +425,119 @@ try {
       noProduto.tiktok.some((c) => c[0] === "track" && c[1] === "ViewContent") &&
       noProduto.tiktok.some((c) => c[0] === "track" && c[1] === "AddToCart") &&
       temChamada(noProduto.clarity, "event", "add_to_cart"),
-    "o produto e a sacola chegam em cada um (ViewContent e AddToCart, com a variante)",
+    "o produto e a sacola chegam em cada um (ViewContent e AddToCart, com a variante), sem o “Entendi”",
     JSON.stringify({ viu, pos })
   )
-  await sim.contexto.close()
 
-  titulo("A campanha do link, pra quem aceita depois")
-  // Cada parceiro lê a campanha no endereço da página em que liga. Quem chega
-  // pelo anúncio e aceita noutra página já não tem nada na barra: a loja
-  // devolve a da chegada antes das tags (`devolverACampanha`, lib/chegada.ts).
+  titulo("A recusa, na política de privacidade")
+  // A marca some com a recarga: com as tags na página, a recusa recarrega pra tirá-las.
+  await semResposta.pagina.goto(`${LOJA}/privacidade`)
+  await hidratado(semResposta.pagina, '[data-resposta-dos-cookies="aceita"] [data-mudar-resposta]')
+  await tagsNoAr(semResposta.pagina)
+  await semResposta.pagina.evaluate(() => (window.__antesDoNao = true))
+  const pedidosAntesDoNao = semResposta.pedidos.length
+  await Promise.all([
+    semResposta.pagina.waitForEvent("load", { timeout: 20000 }),
+    semResposta.pagina
+      .getByRole("button", { name: "Recusar os cookies de medição e anúncio" })
+      .click(),
+  ])
+  await semResposta.pagina.locator('[data-resposta-dos-cookies="nao"]').waitFor({ timeout: 15000 })
+  await esperar(1500)
+  const depoisDoNao = await filas(semResposta.pagina)
+  const cookiesDosParceiros = (await semResposta.contexto.cookies(LOJA))
+    .map((c) => c.name)
+    .filter((n) => DOS_PARCEIROS.some((d) => d.name === n))
+  ok(
+    (await valorDoCookie(semResposta.contexto)) === "nao.3.gmtc" &&
+      !(await semResposta.pagina.evaluate(() => window.__antesDoNao === true)) &&
+      !depoisDoNao.carregou.length &&
+      !depoisDoNao.tags.length &&
+      semResposta.pedidos.length === pedidosAntesDoNao &&
+      !cookiesDosParceiros.length &&
+      (await semResposta.pagina.locator("[data-faixa-de-cookies]").count()) === 0,
+    "“Recusar”: a resposta fica (versão 3), a página recarrega sem nenhuma tag, os cookies dos parceiros saem e a faixa some",
+    JSON.stringify({
+      cookie: await valorDoCookie(semResposta.contexto),
+      carregou: depoisDoNao.carregou,
+      cookiesDosParceiros,
+      pedidos: semResposta.pedidos.slice(pedidosAntesDoNao),
+    })
+  )
+  await semResposta.pagina.goto(`${LOJA}/`)
+  await hidratado(semResposta.pagina, 'main a[href^="/produtos/"]')
+  await esperar(2500)
+  const naHomeDepoisDoNao = await filas(semResposta.pagina)
+  ok(
+    !naHomeDepoisDoNao.carregou.length &&
+      !naHomeDepoisDoNao.tags.length &&
+      semResposta.pedidos.length === pedidosAntesDoNao &&
+      (await semResposta.pagina.locator("[data-faixa-de-cookies]").count()) === 0,
+    "e na página seguinte: nada liga, nada sai pra fora, e a faixa não volta",
+    JSON.stringify({
+      carregou: naHomeDepoisDoNao.carregou,
+      pedidos: semResposta.pedidos.slice(pedidosAntesDoNao),
+    })
+  )
+  await semResposta.pagina.goto(`${LOJA}/privacidade`)
+  await hidratado(semResposta.pagina, '[data-resposta-dos-cookies="nao"] [data-mudar-resposta]')
+  await Promise.all([
+    semResposta.pagina.waitForEvent("load", { timeout: 20000 }),
+    semResposta.pagina.getByRole("button", { name: "Voltar a aceitar os cookies" }).click(),
+  ])
+  await tagsNoAr(semResposta.pagina)
+  // No `next dev`, o pedaço que chega por streaming pode deixar uma cópia escondida: vale a visível.
+  const aceitaDeNovo = semResposta.pagina
+    .locator('[data-resposta-dos-cookies="aceita"]')
+    .filter({ visible: true })
+  await aceitaDeNovo.first().waitFor({ timeout: 10000 })
+  const depoisDoVoltar = {
+    cookie: await valorDoCookie(semResposta.contexto),
+    aceita: await aceitaDeNovo.count(),
+    faixa: await semResposta.pagina.locator("[data-faixa-de-cookies]").count(),
+  }
+  ok(
+    depoisDoVoltar.cookie === null && depoisDoVoltar.aceita === 1 && depoisDoVoltar.faixa === 1,
+    "“Voltar a aceitar”: a resposta sai, e as tags e a faixa voltam, como na primeira visita",
+    JSON.stringify(depoisDoVoltar)
+  )
+  await semResposta.contexto.close()
+
+  titulo("O “Entendi”")
+  const entendi = await visitaNaLoja()
+  await entendi.pagina.goto(`${LOJA}/`)
+  await entendi.pagina.locator("[data-faixa-de-cookies]").waitFor({ timeout: 20000 })
+  await hidratado(entendi.pagina, "[data-faixa-de-cookies] button")
+  await tagsNoAr(entendi.pagina)
+  await entendi.pagina.getByRole("button", { name: "Entendi" }).click()
+  await entendi.pagina
+    .locator("[data-faixa-de-cookies]")
+    .waitFor({ state: "detached", timeout: 10000 })
+  await esperar(1500)
+  const depoisDoEntendi = await filas(entendi.pagina)
+  ok(
+    (await valorDoCookie(entendi.contexto)) === "sim.3.gmtc" && umaVezCada(depoisDoEntendi),
+    "“Entendi”: a resposta fica (versão 3), a faixa some e nenhuma tag carrega de novo",
+    JSON.stringify({
+      cookie: await valorDoCookie(entendi.contexto),
+      carregou: depoisDoEntendi.carregou,
+    })
+  )
+  // Com o sim gravado, a página seguinte liga tudo de novo, sem a faixa.
+  await entendi.pagina.goto(`${LOJA}/barba`)
+  await tagsNoAr(entendi.pagina)
+  await esperar(1000)
+  ok(
+    todasLigadas(await filas(entendi.pagina)) &&
+      (await entendi.pagina.locator("[data-faixa-de-cookies]").count()) === 0,
+    "com o “Entendi” gravado: todas ligam em cada página, e a faixa não aparece",
+    JSON.stringify((await filas(entendi.pagina)).carregou)
+  )
+  await entendi.contexto.close()
+
+  titulo("A campanha do link")
+  // Cada parceiro lê a campanha no endereço da página em que liga: desde a 0230,
+  // todos ligam na chegada, e leem ali.
   const CAMPANHA = {
     utm_source: "instagram",
     utm_medium: "cpc",
@@ -497,40 +554,19 @@ try {
     pagina.evaluate(() => ({
       aqui: location.href,
       endereco: window.__endereco ?? {},
-      mesmaPagina: window.__mesmaPagina === true,
     }))
-  const tagsNoAr = (pagina) =>
-    pagina.waitForFunction(() => (window.__carregou ?? []).length >= 4, null, { timeout: 15000 })
+  const parceiros = ["google", "meta", "tiktok", "clarity"]
 
   const anuncio = await visitaNaLoja()
   await anuncio.pagina.goto(`${LOJA}/?${new URLSearchParams(CAMPANHA)}`)
-  await anuncio.pagina.locator("[data-faixa-de-cookies]").waitFor({ timeout: 20000 })
-  const linkDoProduto = 'main a[href^="/produtos/"]'
-  await hidratado(anuncio.pagina, linkDoProduto)
-  // A marca some se a página recarregar: a troca tem que ser do próprio Next, como a do cliente.
-  await anuncio.pagina.evaluate(() => (window.__mesmaPagina = true))
-  await anuncio.pagina
-    .locator(linkDoProduto)
-    .first()
-    .evaluate((a) => a.click())
-  await anuncio.pagina.waitForURL(/\/produtos\//, { timeout: 15000 })
-  const noProdutoAntes = await soOEndereco(anuncio.pagina)
-  ok(
-    noProdutoAntes.mesmaPagina && new URL(noProdutoAntes.aqui).search === "",
-    "chegou pelo anúncio e foi pro produto sem responder a faixa: a campanha saiu da barra",
-    noProdutoAntes.aqui
-  )
-  await anuncio.pagina.getByRole("button", { name: "Aceitar" }).click()
   await tagsNoAr(anuncio.pagina)
-  const aceitou = await soOEndereco(anuncio.pagina)
-  const parceiros = ["google", "meta", "tiktok", "clarity"]
+  const naChegada = await soOEndereco(anuncio.pagina)
   ok(
-    aceitou.mesmaPagina &&
-      new URL(aceitou.aqui).pathname === new URL(noProdutoAntes.aqui).pathname &&
-      comACampanha(aceitou.aqui) &&
-      parceiros.every((p) => aceitou.endereco[p] && comACampanha(aceitou.endereco[p])),
-    "aceitou no produto: a campanha volta pro endereço antes das tags do sim, e as quatro a leem quando ligam (o GA4 e a Clarity, na chegada)",
-    JSON.stringify(aceitou)
+    comACampanha(naChegada.aqui) &&
+      new URL(naChegada.aqui).searchParams.size === Object.keys(CAMPANHA).length &&
+      parceiros.every((p) => naChegada.endereco[p] && comACampanha(naChegada.endereco[p])),
+    "chegou pelo anúncio: as quatro leem a campanha na chegada, e o endereço fica como veio, sem nada repetido",
+    JSON.stringify(naChegada)
   )
   // Recarregar (ou abrir outra página da mesma aba) não traz a campanha de novo: os parceiros já têm.
   await anuncio.pagina.goto(`${LOJA}/barba`)
@@ -544,74 +580,46 @@ try {
   )
   await anuncio.contexto.close()
 
-  // Quem aceita na página em que chegou: o endereço fica como veio, nada repetido.
-  const naChegada = await visitaNaLoja()
-  const DA_NEWSLETTER = { utm_source: "newsletter", utm_campaign: `chegada-${RODADA}` }
-  await naChegada.pagina.goto(`${LOJA}/barba?${new URLSearchParams(DA_NEWSLETTER)}`)
-  await naChegada.pagina.locator("[data-faixa-de-cookies]").waitFor({ timeout: 20000 })
-  await naChegada.pagina.getByRole("button", { name: "Aceitar" }).click()
-  await tagsNoAr(naChegada.pagina)
-  const semRepetir = await soOEndereco(naChegada.pagina)
-  ok(
-    comACampanha(semRepetir.aqui, DA_NEWSLETTER) &&
-      new URL(semRepetir.aqui).searchParams.size === 2 &&
-      comACampanha(semRepetir.endereco.clarity ?? LOJA, DA_NEWSLETTER),
-    "aceitou na página em que chegou: o endereço fica como veio, sem nada repetido",
-    semRepetir.aqui
-  )
-  await naChegada.contexto.close()
-
   // Sem campanha no link, o endereço não ganha nada.
   const direto = await visitaNaLoja()
-  await direto.pagina.goto(`${LOJA}/`)
-  await direto.pagina.locator("[data-faixa-de-cookies]").waitFor({ timeout: 20000 })
-  await hidratado(direto.pagina, linkDoProduto)
-  await direto.pagina
-    .locator(linkDoProduto)
-    .first()
-    .evaluate((a) => a.click())
-  await direto.pagina.waitForURL(/\/produtos\//, { timeout: 15000 })
-  await direto.pagina.getByRole("button", { name: "Aceitar" }).click()
+  await direto.pagina.goto(`${LOJA}/barba`)
   await tagsNoAr(direto.pagina)
   const semCampanha = await soOEndereco(direto.pagina)
   ok(
     new URL(semCampanha.aqui).search === "" &&
-      new URL(semCampanha.endereco.clarity ?? LOJA).search === "",
-    "sem campanha no link: o endereço não ganha nada no “Aceitar”",
+      parceiros.every((p) => new URL(semCampanha.endereco[p] ?? LOJA).search === ""),
+    "sem campanha no link: o endereço não ganha nada",
     semCampanha.aqui
   )
   await direto.contexto.close()
 
-  titulo("A faixa pergunta de novo")
-  /** A resposta de antes não vale: a faixa pergunta, e só o GA4 e a Clarity ligam (como sem resposta). */
-  async function perguntaDeNovo(valor, frase) {
+  titulo("A faixa aparece de novo")
+  /** A resposta de antes não vale: a faixa aparece, e todas ligam (como sem resposta). */
+  async function apareceDeNovo(valor, frase) {
     const visita = await visitaNaLoja([{ name: "fb_consentimento", value: valor }])
     await visita.pagina.goto(`${LOJA}/`)
     await visita.pagina.locator("[data-faixa-de-cookies]").waitFor({ timeout: 20000 })
-    await aMedicaoLigou(visita.pagina)
+    await tagsNoAr(visita.pagina)
     await esperar(1000)
-    ok(soAMedicao(visita, await filas(visita.pagina)), frase, visita.pedidos.join(" "))
+    ok(todasLigadas(await filas(visita.pagina)), frase, visita.pedidos.join(" "))
     await visita.contexto.close()
   }
-  await perguntaDeNovo(
+  await apareceDeNovo(
     "sim",
-    "o sim da versão 1 (só o Google Analytics) não vale: a faixa pergunta, e só o GA4 e a Clarity ligam"
+    "o sim da versão 1 (só o Google Analytics) não vale: a faixa aparece, e todas ligam"
   )
-  await perguntaDeNovo(
+  await apareceDeNovo(
     "sim.2.gmtc",
-    "o sim da versão 2 (de antes do CRM da própria loja) não vale: a faixa pergunta de novo, só o GA4 e a Clarity ligam"
+    "o sim da versão 2 (de antes do CRM da própria loja) não vale: a faixa aparece, e todas ligam"
   )
-  await perguntaDeNovo(
+  await apareceDeNovo(
     "sim.3.g",
-    "o sim só pro Google, com a Meta e o TikTok ligados depois: a faixa pergunta de novo, só o GA4 e a Clarity ligam"
+    "o sim só com o Google, com a Meta e o TikTok ligados depois: a faixa aparece de novo, e todas ligam"
   )
 
   titulo("A faixa e as barras do pé da tela")
   const CELULAR = { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true }
-  const BOTOES_DA_FAIXA = [
-    "[data-faixa-de-cookies] button:nth-of-type(1)",
-    "[data-faixa-de-cookies] button:nth-of-type(2)",
-  ]
+  const BOTOES_DA_FAIXA = ["[data-faixa-de-cookies] button"]
   /** Os que NÃO estão livres: no meio do botão, o navegador acha outra coisa. */
   const presos = (pagina, seletores) =>
     pagina.evaluate((lista) => {
@@ -657,7 +665,7 @@ try {
   const compacta = await medidaDaFaixa(cel.pagina)
   ok(
     compacta.altura <= 150 && compacta.letra === "12px" && compacta.botoes.every((a) => a <= 40),
-    "no celular a faixa é pequena: letra de 12 px, cada botão numa linha, até 150 px",
+    "no celular a faixa é pequena: letra de 12 px, o botão ao lado do texto, até 150 px",
     JSON.stringify(compacta)
   )
   await cel.pagina
@@ -792,35 +800,31 @@ try {
   ok(
     !anuncios.doPedido(semSim.id).length &&
       ["meta", "ga4", "tiktok"].every((p) => dispensado?.[p]?.motivo === "sem-consentimento"),
-    "quem clicou em “Só o necessário”: a compra não sai pra ninguém",
+    "quem recusou na política de privacidade: a compra não sai pra ninguém",
     JSON.stringify(dispensado)
   )
 
-  // Quem não respondeu a faixa: o GA4 contou a visita, e conta a compra — os outros, não.
-  const semResposta = await fabrica.pedidoPix(`sem-resposta.${RODADA}@fuckingbarba.invalid`)
-  await rastro(semResposta.id, {
-    em: new Date().toISOString(),
-    consentimento: null,
-    ga: rastroComSim.ga,
-    navegador: "Conferidor/1.0",
-  })
-  await fabrica.pagar(semResposta)
+  // Quem nunca clicou no "Entendi": as tags ligaram na chegada, e a compra vai pra todas (0230).
+  const pedidoSemResposta = await fabrica.pedidoPix(`sem-resposta.${RODADA}@fuckingbarba.invalid`)
+  await rastro(pedidoSemResposta.id, { ...rastroComSim, consentimento: null, parceiros: [] })
+  await fabrica.pagar(pedidoSemResposta)
   let semRespostaNoPedido = null
   for (let i = 0; i < 30 && Object.keys(semRespostaNoPedido ?? {}).length < 3; i++) {
     await esperar(500)
-    semRespostaNoPedido = (await adm(`/admin/orders/${semResposta.id}?fields=metadata`)).corpo.order
-      ?.metadata?.fb_anuncios?.compra
+    semRespostaNoPedido = (await adm(`/admin/orders/${pedidoSemResposta.id}?fields=metadata`)).corpo
+      .order?.metadata?.fb_anuncios?.compra
   }
-  const foiSemResposta = anuncios.doPedido(semResposta.id)
-  const ga4SemResposta = foiSemResposta.find((r) => r.plataforma === "ga4")?.corpo
+  const foiSemResposta = Object.fromEntries(
+    anuncios.doPedido(pedidoSemResposta.id).map((r) => [r.plataforma, r.corpo])
+  )
   ok(
-    foiSemResposta.length === 1 &&
-      ga4SemResposta?.client_id === "123456789.1790000000" &&
-      ga4SemResposta?.consent?.ad_user_data === "DENIED" &&
-      semRespostaNoPedido?.ga4?.como === "enviada" &&
-      ["meta", "tiktok"].every((p) => semRespostaNoPedido?.[p]?.motivo === "sem-consentimento"),
-    "quem não respondeu a faixa: a compra vai só pro GA4 (com o anúncio negado), como a visita; a Meta e o TikTok, não",
-    JSON.stringify({ semRespostaNoPedido, ga4: ga4SemResposta })
+    ["meta", "ga4", "tiktok"].every((p) => semRespostaNoPedido?.[p]?.como === "enviada") &&
+      foiSemResposta.meta?.data?.[0]?.user_data?.fbp === rastroComSim.meta.fbp &&
+      foiSemResposta.tiktok?.data?.[0]?.user?.ttp === rastroComSim.tiktok.ttp &&
+      foiSemResposta.ga4?.client_id === "123456789.1790000000" &&
+      foiSemResposta.ga4?.consent?.ad_user_data === "GRANTED",
+    "quem nunca clicou no “Entendi”: a compra vai pra Meta, pro TikTok e pro GA4 (com o anúncio liberado), como as tags",
+    JSON.stringify({ semRespostaNoPedido, ga4: foiSemResposta.ga4?.consent })
   )
 
   anuncios.roteiro.meta = "recusar"
@@ -852,10 +856,8 @@ try {
   )
 
   titulo("A conversão do Google Ads, na tela de obrigado")
-  const ads = await visitaNaLoja([
-    { name: "fb_consentimento", value: "sim.3.gmtc" },
-    { name: "pedido", value: `${pedido.id}.${pedido.carrinho}` },
-  ])
+  // Sem resposta: a conversão também vale pra quem nunca clicou no "Entendi".
+  const ads = await visitaNaLoja([{ name: "pedido", value: `${pedido.id}.${pedido.carrinho}` }])
   await ads.pagina.goto(`${LOJA}/checkout/obrigado/${pedido.id}`)
   await ads.pagina.waitForFunction(
     () => Array.from(window.dataLayer ?? []).some((c) => c[0] === "event" && c[1] === "conversion"),

@@ -39,8 +39,8 @@ import {
  * └────────────────────────────────────────────────────────────────────────┘
  *
  * A TAXA "VISITAS QUE COMPRARAM" DIVIDE TODAS AS VENDAS PELAS VISITAS DO
- * GOOGLE, como a Nuvemshop mostrava ("8 vendas em 420 visitas"). Quem clica
- * em "Só o necessário" compra sem virar visita, e a taxa sai um pouco acima
+ * GOOGLE, como a Nuvemshop mostrava ("8 vendas em 420 visitas"). Quem recusa
+ * os cookies compra sem virar visita, e a taxa sai um pouco acima
  * da do Marketing, que só conta as compras que o Google viu (0135) — mas
  * aquela não tem como contar a Nuvemshop (as compras de lá não são
  * "order_…"), e esta segue pelas duas lojas.

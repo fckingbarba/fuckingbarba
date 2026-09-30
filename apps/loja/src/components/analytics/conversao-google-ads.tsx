@@ -6,7 +6,7 @@ import { converterCompraNoGoogleAds } from "@/lib/rastrear"
 /**
  * A CONVERSÃO DE COMPRA DO GOOGLE ADS, na tela de obrigado — quando o
  * pagamento entrou (o cartão aprovado; o Pix pago com a tela aberta, que se
- * refaz sozinha). Só vale com o "Aceitar": sem ele o `gtag` nem existe, e a
+ * refaz sozinha). De quem recusou os cookies o `gtag` nem existe, e a
  * chamada não faz nada (`converterCompraNoGoogleAds`).
  */
 export function ConversaoDoGoogleAds({

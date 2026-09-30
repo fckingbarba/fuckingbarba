@@ -9,14 +9,14 @@
  * TikTok pelos eventos padrão deles (ViewContent, AddToCart,
  * InitiateCheckout, AddPaymentInfo) e a Clarity como marca na gravação.
  *
- * DUAS PORTAS, como as tags (`components/analytics/integracoes.ts`): a da
- * medição abre quando o GA4 ou a Clarity ligam — desde a primeira página,
- * antes da resposta da faixa (0166 e 0171) —, e a dos outros parceiros e do
- * CRM, só com o "Aceitar". Até a porta abrir, o evento espera na memória da página (com
- * teto) — a visita ao produto acontece no mesmo instante em que as tags
- * ligam, e o efeito do produto roda antes do das tags. Porta que não abre
- * (o "Só o necessário") leva a fila junto com a página, sem ter saído do
- * navegador.
+ * DUAS PORTAS: a dos parceiros abre quando as tags ligam — todas na
+ * primeira página, antes da resposta da faixa, como na Nuvemshop (0230;
+ * `components/analytics/integracoes.ts`) —, e a do CRM da loja, só com o
+ * clique no "Entendi" da faixa. Até a porta abrir, o evento espera na
+ * memória da página (com teto) — a visita ao produto acontece no mesmo
+ * instante em que as tags ligam, e o efeito do produto roda antes do das
+ * tags. Porta que não abre (quem recusou na política de privacidade) leva a
+ * fila junto com a página, sem ter saído do navegador.
  *
  * O `purchase` NÃO é disparado daqui: sai do servidor quando o pagamento
  * entra (`apps/backend/src/lib/anuncios/`), pra contar o Pix pago depois e
@@ -26,16 +26,16 @@
  * O `item_id` é o id da variante no Medusa — o mesmo que o servidor manda na
  * compra, pra plataforma casar a visita, a sacola e a compra.
  *
- * A PRÓPRIA LOJA TAMBÉM ANOTA, com o mesmo sim: o que vai pros parceiros vai
- * pro CRM dela (`lib/anotar.ts`), que liga o que a pessoa fez ao e-mail
- * dela. O que é só do CRM (a chegada, o e-mail no checkout) sai por
- * `anotarNaLoja`, que espera o mesmo "Aceitar".
+ * A PRÓPRIA LOJA TAMBÉM ANOTA, com o sim do "Entendi": o que vai pros
+ * parceiros vai pro CRM dela (`lib/anotar.ts`), que liga o que a pessoa fez
+ * ao e-mail dela. O que é só do CRM (a chegada, o e-mail no checkout) sai
+ * por `anotarNaLoja`, que espera o mesmo clique.
  */
 
 import { ondeAgora, type Onde } from "./chegada"
 
 /**
- * O CRM da loja (`lib/anotar.ts`) só baixa depois do "Aceitar": sem o sim, não
+ * O CRM da loja (`lib/anotar.ts`) só baixa depois do "Entendi": sem o sim, não
  * pesa na página — a inicial tem orçamento curto no Lighthouse do CI.
  */
 const crm = () => import("./anotar")
@@ -120,17 +120,17 @@ function porta() {
   }
 }
 
-/** O gtag e a Clarity: o GA4 e a gravação (sem resposta ou com o sim), e o Google Ads (com o sim). */
-const medicao = porta()
-/** A Meta, o TikTok e o CRM da loja: só com o "Aceitar". */
-const sim = porta()
+/** As tags dos parceiros: o GA4, o Google Ads, a Meta, o TikTok e a Clarity. */
+const parceiros = porta()
+/** O CRM da loja: só com o "Entendi". */
+const loja = porta()
 
-/** O GA4 ou a Clarity acabaram de ligar: sai o que eles estavam esperando. */
-export const medicaoLigada = medicao.abrir
-/** As tags do sim acabaram de ligar (depois do "Aceitar"): sai o que estava esperando. */
-export const integracoesLigadas = sim.abrir
-/** Tem script de parceiro nesta página? (O "não" recarrega a página pra tirá-lo.) */
-export const tagsNaPagina = () => medicao.aberta() || sim.aberta()
+/** As tags acabaram de ligar (na primeira página, de quem não recusou): sai o que estava esperando. */
+export const integracoesLigadas = parceiros.abrir
+/** A pessoa clicou em "Entendi" (agora ou antes): o CRM da loja passa a anotar. */
+export const crmLiberado = loja.abrir
+/** Tem script de parceiro nesta página? (A recusa recarrega a página pra tirá-lo.) */
+export const tagsNaPagina = parceiros.aberta
 
 export function rastrear<E extends EventoRastreado>(nome: E["nome"], dados: E["dados"]): void {
   if (typeof window === "undefined") return
@@ -138,11 +138,13 @@ export function rastrear<E extends EventoRastreado>(nome: E["nome"], dados: E["d
     console.debug("[rastrear]", nome, dados)
   }
   const onde = ondeAgora()
-  medicao.quando(() => {
-    window.gtag?.("event", nome, dados)
-    if (NA_CLARITY.has(nome)) window.clarity?.("event", nome)
+  parceiros.quando(() => mandar(nome, dados))
+  loja.quando(() => {
+    crm().then(
+      (m) => m.anotar(nome, dados, onde),
+      () => undefined
+    )
   })
-  sim.quando(() => mandar(nome, dados, onde))
 }
 
 /**
@@ -153,7 +155,7 @@ export function rastrear<E extends EventoRastreado>(nome: E["nome"], dados: E["d
 export type SoDaLoja = "visita" | "contato_informado" | "produto_lido" | "video_assistido"
 
 /**
- * Pro CRM da loja, e só pra ele — com o mesmo "Aceitar" que as tags esperam.
+ * Pro CRM da loja, e só pra ele — com o "Entendi" da faixa.
  * `onde`: guardado antes (a chegada, da primeira página). `umaVez`: a chave
  * que só anota uma vez na sessão — conferida quando sai, depois do sim.
  */
@@ -167,7 +169,7 @@ export function anotarNaLoja(
     console.debug("[rastrear] só na loja:", nome, dados)
   }
   const quando = onde ?? ondeAgora()
-  sim.quando(() => {
+  loja.quando(() => {
     crm().then(
       (m) => {
         if (!umaVez || m.primeiraVezNaSessao(umaVez)) m.anotar(nome, dados, quando)
@@ -177,12 +179,10 @@ export function anotarNaLoja(
   })
 }
 
-function mandar(nome: EventoRastreado["nome"], dados: EventoRastreado["dados"], onde: Onde) {
+function mandar(nome: EventoRastreado["nome"], dados: EventoRastreado["dados"]) {
   const w = window
-  crm().then(
-    (m) => m.anotar(nome, dados, onde),
-    () => undefined
-  )
+  w.gtag?.("event", nome, dados)
+  if (NA_CLARITY.has(nome)) w.clarity?.("event", nome)
 
   const padrao = PADRAO_DAS_REDES[nome]
   if (padrao && comItens(dados)) {
@@ -281,15 +281,15 @@ export function rastrearMudancaDaSacola(antes: LinhaDaSacola[], depois: LinhaDaS
  * pagamento entrou. O Google Ads não recebe compra do servidor sem a API
  * dele (conta de desenvolvedor, OAuth); o `transaction_id` faz o Google
  * descartar a repetida, e a marca na sessão evita mandar de novo a cada
- * recarga. O Pix pago com a tela fechada não conta aqui. Só com o sim: o
- * gtag já existe antes dele (o GA4), mas anúncio espera o "Aceitar".
+ * recarga. O Pix pago com a tela fechada não conta aqui. Vale pra quem não
+ * recusou os cookies, como as tags (0230).
  */
 export function converterCompraNoGoogleAds(
   envio: string,
   pedido: { id: string; total: number }
 ): void {
   if (typeof window === "undefined") return
-  sim.quando(() => {
+  parceiros.quando(() => {
     if (!window.gtag) return
     const marca = `fb_conversao_ads:${pedido.id}`
     try {

@@ -304,7 +304,7 @@ try {
   await pc.pagina.locator("h1").first().waitFor({ timeout: 60000 })
   await passar(pc.pagina, 21000)
   const comFaixa = await naoTem(pc.pagina)
-  await pc.pagina.getByRole("button", { name: "Só o necessário" }).click()
+  await pc.pagina.getByRole("button", { name: "Entendi" }).click()
   await passar(pc.pagina, 5000)
   ok(
     comFaixa && (await apareceu(pc.pagina)),

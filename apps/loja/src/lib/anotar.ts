@@ -4,9 +4,8 @@
  * visitante (o cookie dela) e repassa ao Medusa, onde a regra do que fica
  * mora (`apps/backend/src/lib/crm/eventos.ts`).
  *
- * QUEM CHAMA É `lib/rastrear.ts`, e só depois do "Aceitar" — a mesma fila
- * das tags: o evento é o mesmo que vai pro Google (a loja tem uma porta de
- * saída só), mais os dois que são só daqui (a chegada e o e-mail no
+ * QUEM CHAMA É `lib/rastrear.ts`, e só depois do "Entendi" da faixa: o
+ * evento é o mesmo que vai pro Google (a loja tem uma porta de saída só), mais os dois que são só daqui (a chegada e o e-mail no
  * checkout). Sem o sim, nada chega aqui — e este arquivo nem baixa: o
  * `rastrear` o importa na hora (`import()`), e a página inicial, que o
  * Lighthouse do CI mede com orçamento curto, não carrega um byte do CRM.

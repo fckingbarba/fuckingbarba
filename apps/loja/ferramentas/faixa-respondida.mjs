@@ -4,9 +4,10 @@
  * Desde a entrega 0130 a faixa aparece pra todo mundo (a própria loja
  * pergunta, pro CRM), no pé da tela, por cima do que estiver lá — e o clique
  * do conferidor no botão de baixo caía nela. Aqui, todo contexto novo do
- * navegador nasce como quem já respondeu "Só o necessário": nada de medição
- * nem de CRM, a loja do jeito que era antes da faixa aparecer sempre. Quem
- * confere a faixa são o `conferir-integracoes` e o `conferir-crm` do painel.
+ * navegador nasce como quem já recusou os cookies (desde a 0230, na política
+ * de privacidade; antes, o "Só o necessário" da faixa): nada de tag nem de
+ * CRM, e a faixa não aparece. Quem confere a faixa são o
+ * `conferir-integracoes` e o `conferir-crm` do painel.
  *
  * A versão da resposta é lida do código da loja (`VERSAO_DO_CONSENTIMENTO`):
  * a versão que sobe não deixa a faixa voltar pra cima dos botões.
@@ -19,7 +20,7 @@ const VERSAO = readFileSync(new URL("../src/lib/consentimento.ts", import.meta.u
 )?.[1]
 if (!VERSAO) throw new Error("faixa-respondida: não achei a VERSAO_DO_CONSENTIMENTO da loja")
 
-/** O cookie de quem clicou em "Só o necessário", na versão de agora. */
+/** O cookie de quem recusou os cookies, na versão de agora. */
 export const JA_RESPONDEU = { name: "fb_consentimento", value: `nao.${VERSAO}.` }
 
 /**

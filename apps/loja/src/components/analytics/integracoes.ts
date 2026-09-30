@@ -1,23 +1,20 @@
 import { devolverACampanha } from "@/lib/chegada"
 import type { Integracoes } from "@/lib/configuracoes"
-import { integracoesLigadas, medicaoLigada } from "@/lib/rastrear"
+import { integracoesLigadas } from "@/lib/rastrear"
 
 /**
- * AS TAGS DE CADA PARCEIRO, em dois tempos (`tags.tsx` chama, e baixa este
- * arquivo só quando alguma liga):
+ * AS TAGS DE CADA PARCEIRO — `tags.tsx` chama, e baixa este arquivo só
+ * quando alguma liga.
  *
- * 1. O GA4 E A CLARITY LIGAM NA PRIMEIRA PÁGINA, antes da resposta da faixa
- *    — como na Nuvemshop, que contava e gravava todo mundo (0166: o dono quer
- *    as visitas contadas do mesmo jeito; 0171: e a jornada de quem não
- *    responde, na Clarity). Ligam com a medição permitida e o anúncio negado
- *    (o modo do consentimento do Google e o `consentv2` da Clarity): contam e
- *    gravam a visita, e não guardam nada pra anúncio. Quem clica em "Só o
- *    necessário" sai: os dois nem ligam, e se já estavam na página, ela
- *    recarrega sem eles (`consentimento.tsx`).
- * 2. O RESTO SÓ DEPOIS DO "ACEITAR": o anúncio do Google (o `consent update`
- *    e o Google Ads) e o da Microsoft (o `consentv2`), a Meta e o TikTok.
- *    Antes dele não existe script deles na página — é o que a política de
- *    privacidade promete.
+ * TODAS LIGAM NA PRIMEIRA PÁGINA, antes da resposta da faixa, COMO NA
+ * NUVEMSHOP (0230, pedido do dono, com o aval dos advogados: os gestores de
+ * tráfego recebiam bem menos eventos): o GA4 e o Google Ads com o
+ * consentimento do Google todo liberado — o mesmo `consent default` que a
+ * Nuvemshop mandava —, o pixel da Meta com o PageView, o do TikTok e a
+ * Clarity. Antes, só o GA4 e a Clarity ligavam sem resposta (0166 e 0171), e
+ * o resto esperava o "Aceitar". Só quem recusa na política de privacidade
+ * fica de fora: nada disto liga, e se já estava na página, ela recarrega sem
+ * (`mudar-resposta.tsx`).
  *
  * O trecho de cada um é o oficial da plataforma, com o código de dentro
  * conferido de novo aqui (`FORMATO`, o mesmo do backend): o código vai
@@ -49,64 +46,43 @@ function trecho(js: string) {
   document.head.appendChild(s)
 }
 
-let medindo = false
-let gravando = false
 let ligadas = false
 
-/**
- * Liga o que a resposta permite, uma vez por página (a troca de página não
- * recarrega o layout): sem resposta, o GA4 e a Clarity; com o sim, tudo. O
- * sim que chega com eles já no ar só acrescenta.
- */
-export function ligarIntegracoes(i: Integracoes, sim: boolean) {
+/** Liga todas, uma vez por página (a troca de página não recarrega o layout). */
+export function ligarIntegracoes(i: Integracoes) {
   if (typeof window === "undefined" || ligadas) return
-  // Antes de qualquer script do sim: cada um lê a campanha no endereço quando liga
-  // (`lib/chegada.ts`). O GA4 e a Clarity já leram na chegada, se ligaram lá — e veem
-  // a campanha voltar como uma página a mais, só de quem aceita depois de trocar de página.
-  if (sim) devolverACampanha()
+  ligadas = true
+  // Antes de qualquer script: cada um lê a campanha no endereço quando liga (`lib/chegada.ts`).
+  // Na página da chegada ela já está lá, e nada muda.
+  devolverACampanha()
 
   const ga4 = codigo(i, "ga4")
-  const ads = sim ? codigo(i, "googleAds") : null
-  const anuncio = sim ? "granted" : "denied"
-  if (!medindo && (ga4 || ads)) {
-    medindo = true
+  const ads = codigo(i, "googleAds")
+  if (ga4 || ads) {
     // O `gtag` empurra o `arguments` — um array (a flecha) o gtag.js ignora.
     trecho(`
 window.dataLayer = window.dataLayer || [];
 function gtag(){dataLayer.push(arguments);}
 window.gtag = gtag;
-gtag('consent', 'default', {analytics_storage:'granted', ad_storage:'${anuncio}', ad_user_data:'${anuncio}', ad_personalization:'${anuncio}'});
+gtag('consent', 'default', {ad_storage:'granted', ad_user_data:'granted', ad_personalization:'granted', analytics_storage:'granted'});
 gtag('js', new Date());
-${ga4 ? `gtag('config', '${ga4}');` : ""}`)
+${ga4 ? `gtag('config', '${ga4}');` : ""}
+${ads ? `gtag('config', '${ads}');` : ""}`)
     const s = document.createElement("script")
     s.async = true
     s.src = `https://www.googletagmanager.com/gtag/js?id=${ga4 ?? ads}`
     document.head.appendChild(s)
   }
 
-  // A gravação da Clarity: a jornada de quem aceita e de quem não responde (0171).
   const clarity = codigo(i, "clarity")
-  if (!gravando && clarity) {
-    gravando = true
+  if (clarity)
     trecho(`
 (function(c,l,a,r,i,t,y){
 c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
 t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
 y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
 })(window, document, "clarity", "script", "${clarity}");
-window.clarity('consentv2', {ad_Storage: '${anuncio}', analytics_Storage: 'granted'});`)
-  }
-  if (medindo || gravando) medicaoLigada()
-  if (!sim) return
-  ligadas = true
-  // O GA4 e a Clarity no ar desde antes da resposta: o anúncio de cada um passa a valer.
-  window.gtag?.("consent", "update", {
-    ad_storage: "granted",
-    ad_user_data: "granted",
-    ad_personalization: "granted",
-  })
-  window.clarity?.("consentv2", { ad_Storage: "granted", analytics_Storage: "granted" })
-  if (ads) window.gtag?.("config", ads)
+window.clarity('consentv2', {ad_Storage: 'granted', analytics_Storage: 'granted'});`)
 
   const meta = codigo(i, "metaPixel")
   if (meta)

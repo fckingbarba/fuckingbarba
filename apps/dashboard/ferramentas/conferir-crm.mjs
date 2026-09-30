@@ -20,7 +20,7 @@
  * tela, e o que o painel mostra.
  *
  * ┌─ O QUE ESTE ARQUIVO EXISTE PRA TRAVAR ─────────────────────────────────┐
- * │ • anotar sem o "Aceitar" (ou o cookie do visitante nascer sem ele);    │
+ * │ • anotar sem o "Entendi" (ou o cookie do visitante nascer sem ele);    │
  * │ • o navegador falando direto com o Medusa, ou lendo o visitante        │
  * │   (o cookie tem que ser `httpOnly`);                                   │
  * │ • a rota aceitando recado sem a assinatura da loja, ou o navegador     │
@@ -163,9 +163,16 @@ const linhas = (t) => t?.ultimos ?? []
 const vezes = (t, tipo) => t?.tipos?.find((x) => x.tipo === tipo)?.vezes ?? 0
 const daCampanha = (t) => linhas(t).find((l) => l.oque.includes(CAMPANHA))
 
-/** Uma visita à loja. Devolve a aba e os pedidos que ela fez (`metodo url`). */
-async function naLoja(caminho, { viewport } = {}) {
+/** O cookie de quem recusou os cookies na política de privacidade (sem parceiro ligado). */
+const RECUSOU = { name: "fb_consentimento", value: "nao.3." }
+
+/**
+ * Uma visita à loja. Devolve a aba e os pedidos que ela fez (`metodo url`).
+ * `recusou`: o navegador nasce como quem já recusou — sem faixa, sem CRM.
+ */
+async function naLoja(caminho, { viewport, recusou } = {}) {
   const aba = await novaAba(viewport)
+  if (recusou) await aba.contexto.addCookies([{ ...RECUSOU, url: LOJA }])
   const pedidos = []
   aba.pagina.on("request", (r) => pedidos.push(`${r.method()} ${r.url()}`))
   await aba.pagina.goto(`${LOJA}${caminho}`, { waitUntil: "domcontentloaded" })
@@ -177,6 +184,16 @@ async function responderAFaixa(pagina, botao) {
   await hidratado(pagina, "[data-faixa-de-cookies] button")
   await faixa.getByRole("button", { name: botao }).click()
   await faixa.waitFor({ state: "detached", timeout: 10000 })
+}
+/** A recusa, na política de privacidade (0230: a faixa só tem o "Entendi"). A página recarrega. */
+async function recusarNaPolitica(pagina) {
+  await pagina.goto(`${LOJA}/privacidade`, { waitUntil: "domcontentloaded" })
+  await hidratado(pagina, '[data-resposta-dos-cookies="aceita"] [data-mudar-resposta]')
+  await Promise.all([
+    pagina.waitForEvent("load", { timeout: 20000 }),
+    pagina.locator("[data-mudar-resposta]").click(),
+  ])
+  await pagina.locator('[data-resposta-dos-cookies="nao"]').waitFor({ timeout: 15000 })
 }
 const cookieDe = async (contexto, nome) =>
   (await contexto.cookies(LOJA)).find((c) => c.name === nome) ?? null
@@ -293,19 +310,22 @@ try {
 
   /* ── a loja, sem o sim ──────────────────────────────────────────────────── */
 
-  titulo("A loja, com “Só o necessário”")
+  titulo("A loja, com a recusa na política de privacidade")
   {
     const antesDoNao = await tela()
     const { contexto, pagina, pedidos } = await naLoja(
       `/?utm_source=instagram&utm_campaign=nao-${RODADA}`
     )
     const faixa = semEspaco(await pagina.locator("[data-faixa-de-cookies] p").textContent())
+    const botoes = await pagina.locator("[data-faixa-de-cookies] button").allTextContents()
     ok(
-      faixa.startsWith("Ao navegar por este site você aceita o uso de cookies"),
-      "a faixa aparece mesmo sem parceiro ligado, com o texto da Nuvemshop (0172)",
-      faixa
+      faixa.startsWith("Ao navegar por este site você aceita o uso de cookies") &&
+        botoes.length === 1 &&
+        semEspaco(botoes[0]) === "Entendi",
+      "a faixa aparece mesmo sem parceiro ligado, a da Nuvemshop: o texto (0172) e o “Entendi” (0230)",
+      `${faixa} · ${botoes.join(" | ")}`
     )
-    await responderAFaixa(pagina, "Só o necessário")
+    await recusarNaPolitica(pagina)
     ok(
       (await cookieDe(contexto, "fb_consentimento"))?.value === "nao.3.",
       "a resposta fica, na versão 3",
@@ -336,11 +356,11 @@ try {
 
   /* ── a loja, com o sim: do anônimo ao e-mail do checkout ────────────────── */
 
-  titulo("A loja, com “Aceitar”: a visita, o produto, a sacola e o checkout")
+  titulo("A loja, com o “Entendi”: a visita, o produto, a sacola e o checkout")
   const comSim = await naLoja(`/?utm_source=instagram&utm_medium=bio&utm_campaign=${CAMPANHA}`)
   {
     const { contexto, pagina, pedidos } = comSim
-    await responderAFaixa(pagina, "Aceitar")
+    await responderAFaixa(pagina, "Entendi")
     ok(
       (await cookieDe(contexto, "fb_consentimento"))?.value === "sim.3.",
       "o sim fica, na versão 3",
@@ -455,7 +475,7 @@ try {
   titulo("A newsletter e a conta, com o sim")
   {
     const { contexto, pagina } = await naLoja("/")
-    await responderAFaixa(pagina, "Aceitar")
+    await responderAFaixa(pagina, "Entendi")
     const campo = pagina.locator("#news-email")
     await campo.scrollIntoViewIfNeeded()
     await hidratado(pagina, "#news-email")
@@ -478,7 +498,7 @@ try {
   }
   {
     const { contexto, pagina } = await naLoja("/conta")
-    await responderAFaixa(pagina, "Aceitar")
+    await responderAFaixa(pagina, "Entendi")
     await pagina.waitForURL("**/conta/entrar", { timeout: 15000 })
     const bloco = (s) => pagina.locator(`.entrar ${s}`).filter({ visible: true })
     await hidratado(pagina, ".entrar input[name=email]")
@@ -1263,8 +1283,9 @@ try {
   )
 
   const pessoa = await novaAba({ width: 375, height: 812 })
+  // Sem a faixa na frente do botão: o navegador nasce como quem já recusou os cookies.
+  await pessoa.contexto.addCookies([{ ...RECUSOU, url: LOJA }])
   await pessoa.pagina.goto(linkDeSair?.[1] ?? `${LOJA}/sair`, { waitUntil: "domcontentloaded" })
-  await responderAFaixa(pessoa.pagina, "Só o necessário").catch(() => null)
   // `main [data-sair]`: no `next dev`, o pedaço que chega por streaming pode ficar com uma cópia
   // escondida no fim do <body>, e o botão que a pessoa vê é o de dentro do <main>.
   const botaoDeSair = pessoa.pagina.locator("main [data-sair]")
@@ -2458,9 +2479,8 @@ try {
         forjado.headers.get("set-cookie") ?? "sem set-cookie"
       )
 
-      const { contexto, pagina, pedidos } = await naLoja("/")
+      const { contexto, pagina, pedidos } = await naLoja("/", { recusou: true })
       try {
-        await responderAFaixa(pagina, "Só o necessário")
         await esperar(2500)
         const semAvisoNaHome = (await pagina.locator("[data-aviso-reposicao]").count()) === 0
         await pagina.goto(`${LOJA}/produtos/fator-de-crescimento-para-barba`, {
@@ -4028,11 +4048,7 @@ try {
     const { contexto, pagina } = comSim
     // Pelas contas, e não pela lista: as 30 últimas já nem mostram a chegada lá do começo.
     const { numeros: antesDoNao } = await tela()
-    await pagina.goto(`${LOJA}/privacidade`, { waitUntil: "domcontentloaded" })
-    await hidratado(pagina, "[data-mudar-resposta]")
-    await pagina.locator("[data-mudar-resposta]").click()
-    await responderAFaixa(pagina, "Só o necessário").catch(() => null)
-    await pagina.waitForLoadState("domcontentloaded")
+    await recusarNaPolitica(pagina)
     const sumiu = await esperarTela((t) => t.numeros.pessoas === antesDoNao.pessoas - 1)
     ok(
       sumiu.numeros.pessoas === antesDoNao.pessoas - 1 &&

@@ -746,7 +746,7 @@ export async function finalizar(anterior: EstadoDaEtapa, fd: FormData): Promise<
 
   /*
     E OS ANÚNCIOS FICAM SABENDO, pelo servidor, quando o pagamento entrar — a
-    Meta e o TikTok só de quem aceitou os cookies, o GA4 de quem não recusou.
+    Meta, o TikTok e o GA4 de quem não recusou os cookies (0230).
     O rastro vai depois da resposta, como a oferta.
   */
   after(() => registrarRastro(pedido, rastro))
