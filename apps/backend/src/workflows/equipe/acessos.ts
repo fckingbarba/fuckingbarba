@@ -43,7 +43,7 @@ const gravarAcessosStep = createStep(
     const equipe = container.resolve<EquipeService>(EQUIPE)
     const antes = (await equipe.listAcessos(
       {},
-      { select: ["id", "papel", "area", "abre"], take: 500 }
+      { select: ["id", "papel", "area", "abre"], take: 1000 }
     )) as Linha[]
     const querido = new Map(ajustes.map((a) => [chave(a), a]))
     const achado = new Map(antes.map((a) => [chave(a), a]))

@@ -1,5 +1,5 @@
 import type { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/framework/http"
-import { exigirArea, type PedidoDaEquipe } from "../../../lib/equipe/acesso"
+import { exigirArea, papelDosDados, type PedidoDaEquipe } from "../../../lib/equipe/acesso"
 import {
   comGastos,
   juntarPessoas,
@@ -18,8 +18,9 @@ import { lerPagina, paginar } from "../../../lib/painel/paginas"
  * GET /dashboard/clientes?busca= — a lista de clientes do painel: quem já
  * comprou ou tem conta, quantos pedidos, quanto gastou e se aceita ofertas.
  * Os três papéis abrem; o marketing vê só quem aceitou ofertas, e sem a
- * cidade (`listaDeClientes`, em `lib/painel/clientes.ts`). A busca procura
- * nome e e-mail.
+ * cidade (`listaDeClientes`, em `lib/painel/clientes.ts`) — e o papel criado
+ * pelo dono, como o marketing se não abre os `contatos` (`papelDosDados`). A
+ * busca procura nome e e-mail.
  *
  * Em páginas de 30 (`?pagina=`): `total` e `comOfertas` contam todos, e
  * `paginacao.itens`, os que a busca achou.
@@ -38,7 +39,7 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
     inscricoesDaNewsletter(req.scope),
   ])
   const pessoas = juntarPessoas(clientes, pedidos, inscricoes)
-  const lista = listaDeClientes(pessoas, pedido.membro.papel, new Date(), busca)
+  const lista = listaDeClientes(pessoas, papelDosDados(pedido), new Date(), busca)
   const { itens, paginacao } = paginar(lista.clientes, lerPagina(q.pagina))
   // O "gastou" só de quem está na página: o total dos pedidos vendidos dessas pessoas.
   const totais = await totaisDos(req.scope, vendidosDaPagina(itens, pessoas))

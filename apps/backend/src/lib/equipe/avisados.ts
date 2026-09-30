@@ -3,7 +3,7 @@ import { Modules } from "@medusajs/framework/utils"
 import { EQUIPE } from "../../modules/equipe"
 import type EquipeService from "../../modules/equipe/service"
 import { destinatarios, type MembroParaAviso } from "../painel/configuracoes"
-import type { Papel } from "./regras"
+import type { PapelFixo } from "./regras"
 
 /**
  * PRA QUEM VAI O AVISO DA EQUIPE — o e-mail da venda nova, da nota que não
@@ -16,7 +16,7 @@ import type { Papel } from "./regras"
  * indo pra lá enquanto o painel não tiver ninguém — e, sem ninguém do papel,
  * vai pro dono (`destinatarios`).
  */
-export async function emailsPraAvisar(container: MedusaContainer, papeis: readonly Papel[]) {
+export async function emailsPraAvisar(container: MedusaContainer, papeis: readonly PapelFixo[]) {
   const [membros, usuarios] = await Promise.all([
     container
       .resolve<EquipeService>(EQUIPE)

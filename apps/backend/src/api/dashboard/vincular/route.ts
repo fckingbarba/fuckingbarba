@@ -1,6 +1,12 @@
 import type { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { Modules } from "@medusajs/framework/utils"
-import { matrizAtual, TRAVA_DA_EQUIPE } from "../../../lib/equipe/acesso"
+import {
+  matrizAtual,
+  type MembroDaEquipe,
+  nomesDos,
+  papeisCriados,
+  TRAVA_DA_EQUIPE,
+} from "../../../lib/equipe/acesso"
 import { areasDo, membroPublico, podeEntrar } from "../../../lib/equipe/regras"
 import { EQUIPE } from "../../../modules/equipe"
 import type EquipeService from "../../../modules/equipe/service"
@@ -51,7 +57,7 @@ export async function POST(req: AuthenticatedMedusaRequest, res: MedusaResponse)
       const { result } = await vincularMembroWorkflow(req.scope).run({
         input: { authIdentityId: identidade.id, membroId: atual.id, primeira: !ligado },
       })
-      return result
+      return result as MembroDaEquipe
     },
     { timeout: 5 }
   )
@@ -60,8 +66,9 @@ export async function POST(req: AuthenticatedMedusaRequest, res: MedusaResponse)
     res.status(401).json({ message: "fora_da_equipe" })
     return
   }
+  const papeis = await papeisCriados(req.scope)
   res.json({
-    membro: membroPublico(membro),
-    areas: areasDo(await matrizAtual(req.scope), membro.papel),
+    membro: membroPublico(membro, nomesDos(papeis)),
+    areas: areasDo(await matrizAtual(req.scope, papeis), membro.papel),
   })
 }

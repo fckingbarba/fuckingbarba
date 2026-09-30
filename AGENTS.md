@@ -1378,9 +1378,23 @@ nasce trancada; a área nova entra no `ACESSO_PADRAO` antes da rota, com os pap�
 padrão (vale o padrão até o dono mudar, sem migração), e a rota começa com
 `exigirArea(pedido, res, "<área>")`. O que mora dentro de uma tela que a rota já abriu (um botão, um
 bloco, um item do Início) pergunta `abre(pedido, "<área>")` — nunca `papel === "dono"`: o dono pode
-ter dado a área pra outro papel. O papel segue decidindo só o que é dado pessoal (o CPF inteiro, só
-o dono; o marketing sem telefone nem endereço de cliente nos carrinhos e nos clientes), pra quem vai
-cada aviso por e-mail (`emailsPraAvisar`) e as abas de baixo do celular. Toda escrita na equipe
+ter dado a área pra outro papel. **Os papéis que o dono cria** (entrega 0223): tabela
+`equipe_papel` (só o nome; `listPapeisCriados`…, porque a chave "Papeis" vira "Papeises" no tipo
+do Medusa), e o id (`papel_01K…`) vai no `papel` do membro e da `equipe_acesso` — os dois viraram
+texto. O papel criado nasce abrindo só o Início (`abreNoPadrao`) ou copiando a coluna da operação
+ou do marketing (`areasDoPapelNovo`); cada caixinha marcada é uma linha na `equipe_acesso`.
+`matrizCom(ajustes, personalizados)` só dá coluna aos papéis da lista (`papeisCriados`, ou só o de
+quem pede, no `membroAtivo`), e `lerAcessos` exige a coluna de cada papel criado, nem mais nem
+menos (`papeis_mudaram`, 409). Criar, renomear e apagar: `POST /dashboard/papeis` e
+`/dashboard/papeis/:id` (`workflows/equipe/papeis.ts`, na trava da equipe, com registro); só
+apaga papel sem ninguém ativo ou convidado. O dado pessoal é a linha `contatos` (telefone,
+endereço, cidade, pedidos na ficha e a lista inteira de clientes): nos três de sempre ela segue o
+papel (`AREAS_DO_PAPEL`: a operação abre, o marketing não, e a tabela não muda isso); no papel
+criado, é caixinha. As rotas perguntam `abre(pedido, "contatos")` ou `papelDosDados(pedido)` (o
+papel fixo cujas regras de dado pessoal valem), nunca `papel === "marketing"`; o CPF inteiro segue
+só do dono. O papel segue decidindo pra quem vai cada aviso por e-mail (`emailsPraAvisar`, só os
+três de sempre — o papel criado não recebe aviso) e as abas de baixo do celular (no papel criado,
+as quatro primeiras do menu que ele abre). Toda escrita na equipe
 passa pela trava `equipe` (uma só: dois donos se removendo juntos não deixam a loja sem dono) e
 deixa uma linha no registro. **Pedidos e Início** moram em `src/lib/painel/`: `pedido.ts` (puro,
 com testes) decide onde o pedido está, o que travou, o caminho de seis passos e o histórico, a

@@ -14,7 +14,7 @@ import {
 } from "../configuracoes"
 import { numeroBrasileiro } from "../cupons"
 import { PARCELA_MINIMA_CENTAVOS } from "../pagamento/entrada"
-import { NOME_DO_PAPEL, type Papel } from "../equipe/regras"
+import { nomeDoPapel, type Papel, type PapelFixo } from "../equipe/regras"
 import type { NotaEsperando, Pendencia } from "../erp/notas"
 import { emFrase, hora, quando } from "./formato"
 
@@ -474,7 +474,7 @@ export const AVISOS_DA_EQUIPE = [
     texto: "A Frenet não deixou tirar o pedido do painel dela: não gere a etiqueta.",
     papeis: ["operacao", "dono"],
   },
-] as const satisfies readonly { nome: string; texto: string; papeis: readonly Papel[] }[]
+] as const satisfies readonly { nome: string; texto: string; papeis: readonly PapelFixo[] }[]
 
 /** Os e-mails que o cliente recebe, e se já saem. */
 export const EMAILS_DO_CLIENTE = [
@@ -515,17 +515,17 @@ export type MembroParaAviso = { nome: string; email: string; papel: Papel; situa
  * Medusa, como era antes do painel.
  */
 export function destinatarios(
-  papeis: readonly Papel[],
+  papeis: readonly PapelFixo[],
   membros: MembroParaAviso[],
   usuariosDoAdmin: string[]
 ): { emails: string[]; quem: string } {
   const ativos = membros.filter((m) => m.situacao === "ativo")
   const unicos = (l: string[]) => [...new Set(l.map((e) => e.trim().toLowerCase()).filter(Boolean))]
-  const doPapel = ativos.filter((m) => papeis.includes(m.papel))
+  const doPapel = ativos.filter((m) => (papeis as readonly Papel[]).includes(m.papel))
   if (doPapel.length)
     return {
       emails: unicos(doPapel.map((m) => m.email)),
-      quem: doPapel.map((m) => `${m.nome} (${NOME_DO_PAPEL[m.papel].toLowerCase()})`).join(", "),
+      quem: doPapel.map((m) => `${m.nome} (${nomeDoPapel(m.papel).toLowerCase()})`).join(", "),
     }
   const donos = ativos.filter((m) => m.papel === "dono")
   if (donos.length)
