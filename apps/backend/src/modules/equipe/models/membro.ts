@@ -10,12 +10,15 @@ import { model } from "@medusajs/framework/utils"
  *
  * `convidado` é quem ainda não entrou; vira `ativo` no primeiro código
  * confirmado. O convite vale 7 dias (`lib/equipe/regras.ts`).
+ *
+ * O `papel` é `dono`, `operacao`, `marketing` ou o id de um papel criado
+ * pelo dono (`equipe_papel`, `papel_01K…`) — texto, e não enum, por isso.
  */
 export const Membro = model.define("equipe_membro", {
   id: model.id({ prefix: "eqp" }).primaryKey(),
   email: model.text().unique(),
   nome: model.text(),
-  papel: model.enum(["dono", "operacao", "marketing"]),
+  papel: model.text(),
   situacao: model.enum(["convidado", "ativo", "removido"]).default("convidado"),
   convidado_em: model.dateTime().nullable(),
   /** O id do membro que convidou — `null` pro dono que veio do `DASHBOARD_DONO_EMAIL`. */

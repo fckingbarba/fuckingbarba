@@ -2,22 +2,28 @@ import {
   ACESSO_PADRAO,
   ajustesDa,
   AREAS,
+  AREAS_DO_PAPEL,
   AREAS_FIXAS,
   areasDo,
+  areasDoPapelNovo,
   conviteVenceEm,
   DENTRO_DE,
   DIAS_DO_CONVITE,
   donoDoRailway,
+  ehPapel,
   emOrdem,
   lerAcessos,
   lerConvite,
   lerMudanca,
+  lerMudancaDoPapel,
+  lerPapelNovo,
   MATRIZ_PADRAO,
   matrizCom,
   membroPublico,
   mudancasEntre,
   NOME_DA_AREA,
   nomeDoEmail,
+  nomeRepetido,
   PAPEIS,
   podeAbrir,
   podeEntrar,
@@ -252,6 +258,7 @@ describe("membroPublico", () => {
       membroPublico({ ...base, situacao: "convidado", convidado_em: "2026-09-24T12:00:00.000Z" })
     ).toEqual({
       ...base,
+      papel_nome: "Marketing",
       situacao: "convidado",
       convite_vence_em: "2026-10-01T12:00:00.000Z",
       ultimo_acesso: null,
@@ -541,5 +548,203 @@ describe("ajustesDa e mudancasEntre — o que o banco guarda e o que o registro 
 
   it("todo papel da matriz é um papel de verdade", () => {
     for (const area of AREAS) for (const p of MATRIZ_PADRAO[area]) expect(PAPEIS).toContain(p)
+  })
+})
+
+/* ── os papéis que o dono cria ────────────────────────────────────────────── */
+
+const ATENDIMENTO = "papel_01K6ATENDIMENTO000000000" as const
+const DESIGNER = "papel_01K6DESIGNER00000000000" as const
+
+describe("o papel criado pelo dono — na matriz", () => {
+  it("nasce abrindo só o Início", () => {
+    const m = matrizCom([], [ATENDIMENTO])
+    expect(areasDo(m, ATENDIMENTO)).toEqual(["inicio"])
+    // Os três de sempre seguem iguais.
+    for (const papel of PAPEIS) expect(areasDo(m, papel)).toEqual(areasDo(MATRIZ_PADRAO, papel))
+  })
+
+  it("abre o que o dono marcou, e fecha o que mora dentro de área fechada", () => {
+    const m = matrizCom(
+      [
+        { papel: ATENDIMENTO, area: "pedidos", abre: true },
+        { papel: ATENDIMENTO, area: "contatos", abre: true },
+        { papel: ATENDIMENTO, area: "newsletter", abre: true },
+        { papel: ATENDIMENTO, area: "equipe", abre: true },
+      ],
+      [ATENDIMENTO]
+    )
+    expect(areasDo(m, ATENDIMENTO)).toEqual(["inicio", "pedidos", "contatos"])
+  })
+
+  it("papel que não veio na lista (apagado, ou de outra pessoa) não entra na matriz", () => {
+    const ajustes = [{ papel: ATENDIMENTO, area: "pedidos", abre: true }]
+    expect(matrizCom(ajustes)).toEqual(MATRIZ_PADRAO)
+    expect(matrizCom(ajustes, [DESIGNER]).pedidos).toEqual(["dono", "operacao"])
+    expect(matrizCom(ajustes, ["admin", "papel_"])).toEqual(MATRIZ_PADRAO)
+  })
+
+  it("os contatos seguem o papel nos três de sempre — o banco não muda isso", () => {
+    expect([...AREAS_DO_PAPEL]).toEqual(["contatos"])
+    expect(MATRIZ_PADRAO.contatos).toEqual(["dono", "operacao"])
+    const m = matrizCom([
+      { papel: "marketing", area: "contatos", abre: true },
+      { papel: "operacao", area: "contatos", abre: false },
+    ])
+    expect(m.contatos).toEqual(["dono", "operacao"])
+  })
+})
+
+describe("lerAcessos — com os papéis criados", () => {
+  const padrao = corpoDa(MATRIZ_PADRAO)
+  const comAtendimento = (coluna: string[]) => ({
+    acesso: { ...padrao.acesso, [ATENDIMENTO]: coluna },
+  })
+
+  it("a coluna do papel criado entra na matriz, e as outras não mudam", () => {
+    const r = lerAcessos(comAtendimento(["inicio", "pedidos", "contatos", "carrinhos"]), [
+      ATENDIMENTO,
+    ])
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(areasDo(r.matriz, ATENDIMENTO)).toEqual(["inicio", "pedidos", "carrinhos", "contatos"])
+    for (const papel of PAPEIS)
+      expect(areasDo(r.matriz, papel)).toEqual(areasDo(MATRIZ_PADRAO, papel))
+  })
+
+  it("papel criado ou apagado depois que a tela abriu: papeis_mudaram", () => {
+    // Criado: a tela não mandou a coluna dele.
+    expect(lerAcessos(padrao, [ATENDIMENTO])).toEqual({ ok: false, motivo: "papeis_mudaram" })
+    // Apagado: a tela mandou a coluna de quem não existe mais.
+    expect(lerAcessos(comAtendimento(["inicio"]), [])).toEqual({
+      ok: false,
+      motivo: "papeis_mudaram",
+    })
+    expect(lerAcessos(comAtendimento(["inicio"]), [DESIGNER])).toEqual({
+      ok: false,
+      motivo: "papeis_mudaram",
+    })
+  })
+
+  it("no papel criado, o Início abre e a Equipe não — como nos outros", () => {
+    expect(lerAcessos(comAtendimento([]), [ATENDIMENTO])).toEqual({
+      ok: false,
+      motivo: "linha_fixa",
+    })
+    expect(lerAcessos(comAtendimento(["inicio", "equipe"]), [ATENDIMENTO])).toEqual({
+      ok: false,
+      motivo: "linha_fixa",
+    })
+  })
+
+  it("os contatos: caixinha no papel criado, fixos na operação e no marketing", () => {
+    expect(lerAcessos(comAtendimento(["inicio", "contatos"]), [ATENDIMENTO]).ok).toBe(true)
+    expect(
+      lerAcessos({
+        acesso: { ...padrao.acesso, marketing: com(padrao.acesso.marketing, "contatos") },
+      })
+    ).toEqual({ ok: false, motivo: "linha_fixa" })
+    expect(
+      lerAcessos({
+        acesso: { ...padrao.acesso, operacao: sem(padrao.acesso.operacao, "contatos") },
+      })
+    ).toEqual({ ok: false, motivo: "linha_fixa" })
+  })
+
+  it("o que mora dentro de uma área só com ela, no papel criado também", () => {
+    expect(lerAcessos(comAtendimento(["inicio", "estornos"]), [ATENDIMENTO])).toEqual({
+      ok: false,
+      motivo: "sem_a_area_de_fora",
+    })
+  })
+
+  it("coluna torta do papel criado é acessos_invalidos", () => {
+    for (const coluna of ["inicio", [7], ["inicio", "financeiro"]])
+      expect(
+        lerAcessos({ acesso: { ...padrao.acesso, [ATENDIMENTO]: coluna } }, [ATENDIMENTO])
+      ).toEqual({ ok: false, motivo: "acessos_invalidos" })
+  })
+
+  it("guarda só as caixinhas marcadas do papel criado, e a matriz volta igual", () => {
+    const r = lerAcessos(comAtendimento(["inicio", "clientes", "contatos"]), [ATENDIMENTO])
+    if (!r.ok) throw new Error(r.motivo)
+    const ajustes = ajustesDa(r.matriz, [ATENDIMENTO])
+    expect(ajustes).toEqual([
+      { papel: ATENDIMENTO, area: "clientes", abre: true },
+      { papel: ATENDIMENTO, area: "contatos", abre: true },
+    ])
+    expect(matrizCom(ajustes, [ATENDIMENTO])).toEqual(r.matriz)
+    expect(mudancasEntre(matrizCom([], [ATENDIMENTO]), r.matriz, [ATENDIMENTO])).toEqual(ajustes)
+  })
+})
+
+describe("criar, renomear e apagar papel", () => {
+  it("começa igual à operação ou ao marketing de agora — ou só com o Início", () => {
+    const m = matrizCom([{ papel: "operacao", area: "cupons", abre: true }])
+    const igualOperacao = areasDoPapelNovo(m, "operacao")
+    expect(igualOperacao).toEqual(areasDo(m, "operacao").filter((a) => a !== "inicio"))
+    expect(igualOperacao).toContain("cupons")
+    expect(igualOperacao).toContain("contatos")
+    expect(areasDoPapelNovo(MATRIZ_PADRAO, "marketing")).not.toContain("contatos")
+    expect(areasDoPapelNovo(MATRIZ_PADRAO, null)).toEqual([])
+  })
+
+  it("lê o nome e o começo, e recusa o resto", () => {
+    expect(lerPapelNovo({ nome: "  Atendimento   ao cliente " })).toEqual({
+      ok: true,
+      papel: { nome: "Atendimento ao cliente", igualA: null },
+    })
+    expect(lerPapelNovo({ nome: "Financeiro", igualA: "operacao" })).toEqual({
+      ok: true,
+      papel: { nome: "Financeiro", igualA: "operacao" },
+    })
+    expect(lerPapelNovo({ nome: "A" })).toEqual({ ok: false, motivo: "nome_invalido" })
+    expect(lerPapelNovo({ nome: "x".repeat(31) })).toEqual({ ok: false, motivo: "nome_invalido" })
+    expect(lerPapelNovo({ nome: "Financeiro", igualA: "dono" })).toEqual({
+      ok: false,
+      motivo: "igual_a_invalido",
+    })
+    expect(lerPapelNovo(undefined)).toEqual({ ok: false, motivo: "nome_invalido" })
+  })
+
+  it("nome repetido não passa — nem com acento ou maiúscula diferente", () => {
+    expect(nomeRepetido("operacao", [])).toBe(true)
+    expect(nomeRepetido("DONO", [])).toBe(true)
+    expect(nomeRepetido("atendimento", ["Atendimento"])).toBe(true)
+    expect(nomeRepetido("Financeiro", ["Atendimento"])).toBe(false)
+  })
+
+  it("renomear e apagar", () => {
+    expect(lerMudancaDoPapel({ nome: " Suporte " })).toEqual({ tipo: "renomear", nome: "Suporte" })
+    expect(lerMudancaDoPapel({ acao: "apagar" })).toEqual({ tipo: "apagar" })
+    expect(lerMudancaDoPapel({ acao: "apagar", nome: "Suporte" })).toBeNull()
+    expect(lerMudancaDoPapel({ acao: "remover" })).toBeNull()
+    expect(lerMudancaDoPapel({ nome: "S" })).toBeNull()
+    expect(lerMudancaDoPapel(undefined)).toBeNull()
+  })
+})
+
+describe("o papel criado na equipe", () => {
+  it("é um papel pro convite e pra troca — o id com a cara certa, e só", () => {
+    expect(ehPapel(ATENDIMENTO)).toBe(true)
+    expect(ehPapel("papel_")).toBe(false)
+    expect(ehPapel("papel_../../x")).toBe(false)
+    expect(lerConvite({ nome: "Bia", email: "bia@loja.com", papel: ATENDIMENTO })).toEqual({
+      ok: true,
+      convite: { nome: "Bia", email: "bia@loja.com", papel: ATENDIMENTO },
+    })
+    expect(lerMudanca({ papel: ATENDIMENTO })).toEqual({ tipo: "papel", papel: ATENDIMENTO })
+  })
+
+  it("aparece depois dos três de sempre, e com o nome que o dono deu", () => {
+    const lista = emOrdem([
+      { nome: "Ana", papel: ATENDIMENTO, situacao: "ativo" as const },
+      { nome: "Bia", papel: "marketing" as const, situacao: "ativo" as const },
+    ])
+    expect(lista.map((m) => m.nome)).toEqual(["Bia", "Ana"])
+    const base = { id: "eqp_1", nome: "Ana", email: "ana@loja.com", situacao: "ativo" as const }
+    const nomes = new Map([[ATENDIMENTO, "Atendimento"]])
+    expect(membroPublico({ ...base, papel: ATENDIMENTO }, nomes).papel_nome).toBe("Atendimento")
+    expect(membroPublico({ ...base, papel: ATENDIMENTO }).papel_nome).toBe("Papel apagado")
   })
 })

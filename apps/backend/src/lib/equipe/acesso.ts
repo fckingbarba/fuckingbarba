@@ -10,7 +10,17 @@ import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import { EQUIPE } from "../../modules/equipe"
 import type EquipeService from "../../modules/equipe/service"
 import { daLoja } from "../quem-pede"
-import { areasDo, matrizCom, type Area, type Matriz, type Papel, type Situacao } from "./regras"
+import {
+  areasDo,
+  ehPersonalizado,
+  matrizCom,
+  type Area,
+  type Matriz,
+  type Papel,
+  type PapelFixo,
+  type PapelPersonalizado,
+  type Situacao,
+} from "./regras"
 
 /**
  * UMA MUDANÇA NA EQUIPE POR VEZ — convite, papel, remoção, entrada, o
@@ -42,17 +52,46 @@ export type PedidoDaEquipe = AuthenticatedMedusaRequest & {
   areas: Area[]
 }
 
+/** O que o dono mudou nos acessos (a tabela `equipe_acesso`), como o banco guarda. */
+function lerAjustes(container: MedusaContainer) {
+  return container
+    .resolve<EquipeService>(EQUIPE)
+    .listAcessos({}, { select: ["papel", "area", "abre"], take: 1000 })
+}
+
+export type PapelCriado = { id: PapelPersonalizado; nome: string }
+
+/** Os papéis que o dono criou (`equipe_papel`), na ordem em que nasceram. */
+export async function papeisCriados(container: MedusaContainer): Promise<PapelCriado[]> {
+  const linhas = await container
+    .resolve<EquipeService>(EQUIPE)
+    .listPapeisCriados({}, { select: ["id", "nome"], order: { created_at: "ASC" }, take: 100 })
+  return linhas.filter((p) => ehPersonalizado(p.id)) as PapelCriado[]
+}
+
+/** O nome de cada papel criado pelo dono, pelo id — pro `membroPublico` e pro convite. */
+export const nomesDos = (papeis: readonly PapelCriado[]) =>
+  new Map<string, string>(papeis.map((p) => [p.id, p.nome]))
+
 /**
  * A MATRIZ DE AGORA — o padrão do código (`ACESSO_PADRAO`) com o que o dono
- * mudou pela tela da equipe (a tabela `equipe_acesso`), lida do banco na
- * hora. Toda rota do painel pergunta a ela, pelo `membroAtivo`: o dono
- * salvou, vale no próximo clique de cada pessoa.
+ * mudou pela tela da equipe (a tabela `equipe_acesso`), com uma coluna pra
+ * cada papel que ele criou, lida do banco na hora. Toda rota do painel
+ * pergunta a ela, pelo `membroAtivo`: o dono salvou, vale no próximo clique
+ * de cada pessoa. Quem já leu os papéis criados passa eles (`papeis`).
  */
-export async function matrizAtual(container: MedusaContainer): Promise<Matriz> {
-  const ajustes = await container
-    .resolve<EquipeService>(EQUIPE)
-    .listAcessos({}, { select: ["papel", "area", "abre"], take: 500 })
-  return matrizCom(ajustes)
+export async function matrizAtual(
+  container: MedusaContainer,
+  papeis?: readonly PapelCriado[]
+): Promise<Matriz> {
+  const [ajustes, criados] = await Promise.all([
+    lerAjustes(container),
+    papeis ?? papeisCriados(container),
+  ])
+  return matrizCom(
+    ajustes,
+    criados.map((p) => p.id)
+  )
 }
 
 /**
@@ -76,12 +115,12 @@ async function membroAtivo(
 ) {
   const id = req.auth_context?.actor_id
   let membro: MembroDaEquipe | undefined
-  let matriz: Matriz
+  let ajustes: Awaited<ReturnType<typeof lerAjustes>>
   try {
     const equipe = req.scope.resolve<EquipeService>(EQUIPE)
-    ;[membro, matriz] = await Promise.all([
+    ;[membro, ajustes] = await Promise.all([
       id ? equipe.listMembros({ id }).then((l) => l[0] as MembroDaEquipe | undefined) : undefined,
-      matrizAtual(req.scope),
+      lerAjustes(req.scope),
     ])
   } catch (e) {
     next(e)
@@ -91,6 +130,9 @@ async function membroAtivo(
     res.status(401).json({ message: "fora_da_equipe" })
     return
   }
+  // Só a coluna de quem pede: o papel criado pelo dono não precisa da lista de todos. Se ele foi
+  // apagado (só se apaga papel sem ninguém nele), as linhas dele saíram junto: abre só o Início.
+  const matriz = matrizCom(ajustes, ehPersonalizado(membro.papel) ? [membro.papel] : [])
   ;(req as PedidoDaEquipe).membro = membro
   ;(req as PedidoDaEquipe).areas = areasDo(matriz, membro.papel)
   next()
@@ -161,4 +203,17 @@ export function exigirArea(req: PedidoDaEquipe, res: MedusaResponse, area: Area)
  */
 export function abre(req: PedidoDaEquipe, area: Area): boolean {
   return req.areas.includes(area)
+}
+
+/**
+ * DADO PESSOAL DE CLIENTE — de qual dos três papéis de sempre são as regras
+ * que valem pra quem pede: o CPF inteiro, só o dono; o telefone, o endereço,
+ * a cidade, os pedidos na ficha e a lista inteira de clientes, só quem abre
+ * os `contatos` (a operação; o marketing, nunca). No papel criado pelo dono,
+ * é a caixinha dele que decide: com os contatos, vê como a operação; sem,
+ * como o marketing.
+ */
+export function papelDosDados(req: PedidoDaEquipe): PapelFixo {
+  if (req.membro.papel === "dono") return "dono"
+  return abre(req, "contatos") ? "operacao" : "marketing"
 }

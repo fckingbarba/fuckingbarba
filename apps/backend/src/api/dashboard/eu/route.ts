@@ -1,6 +1,6 @@
 import type { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/framework/http"
-import { abre, type PedidoDaEquipe } from "../../../lib/equipe/acesso"
-import { membroPublico } from "../../../lib/equipe/regras"
+import { abre, nomesDos, papeisCriados, type PedidoDaEquipe } from "../../../lib/equipe/acesso"
+import { ehPersonalizado, membroPublico } from "../../../lib/equipe/regras"
 import { gravesAbertos } from "../../../lib/observabilidade/tela"
 import { tocarAcessoWorkflow } from "../../../workflows/equipe/tocar-acesso"
 
@@ -16,6 +16,7 @@ const HORA = 60 * 60 * 1000
  * visita pra anotar a hora do último acesso, no máximo uma vez por hora.
  *
  * O membro já vem lido do banco pelo `membroAtivo` — removido não chega aqui.
+ * No papel criado pelo dono, o nome dele (`papel_nome`) sai de `equipe_papel`.
  *
  * `avisos`: o número vermelho de uma área no menu — por enquanto, os
  * problemas graves abertos da Observabilidade, pra quem abre ela.
@@ -30,8 +31,13 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
     membro.ultimo_acesso = new Date()
   }
 
-  const avisos = abre(pedido, "observabilidade")
-    ? { observabilidade: await gravesAbertos(req.scope, membro.papel).catch(() => 0) }
-    : {}
-  res.json({ membro: membroPublico(membro), areas: pedido.areas, avisos })
+  const [avisos, nomes] = await Promise.all([
+    abre(pedido, "observabilidade")
+      ? gravesAbertos(req.scope, membro.papel)
+          .catch(() => 0)
+          .then((n) => ({ observabilidade: n }))
+      : {},
+    ehPersonalizado(membro.papel) ? papeisCriados(req.scope).then(nomesDos) : undefined,
+  ])
+  res.json({ membro: membroPublico(membro, nomes), areas: pedido.areas, avisos })
 }

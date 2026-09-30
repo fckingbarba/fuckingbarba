@@ -1,7 +1,7 @@
 import type { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { Modules } from "@medusajs/framework/utils"
 import { lerAjustesGuardados } from "../../../../lib/crm/ajustes"
-import { abre, exigirArea, type PedidoDaEquipe } from "../../../../lib/equipe/acesso"
+import { abre, exigirArea, papelDosDados, type PedidoDaEquipe } from "../../../../lib/equipe/acesso"
 import { fichaDoCliente, juntarPessoas } from "../../../../lib/painel/clientes"
 import { fichaDoCrmDoCliente } from "../../../../lib/painel/crm"
 import {
@@ -24,7 +24,9 @@ import type CrmService from "../../../../modules/crm/service"
  *
  * O papel decide o que sai (`fichaDoCliente`): o CPF inteiro só pro dono; o
  * marketing, sem celular, CPF, endereço e pedidos — e só de quem aceitou
- * ofertas: os outros, pra ele, não existem (404).
+ * ofertas: os outros, pra ele, não existem (404). O papel criado pelo dono
+ * vê como a operação se abre os `contatos`, e como o marketing se não
+ * (`papelDosDados`).
  *
  * Quem abre o CRM vê também a parte do CRM (`cliente.crm`,
  * `fichaDoCrmDoCliente`): as cinco etiquetas, de onde a pessoa chegou e o
@@ -58,7 +60,7 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
   const ids = pedidos.map((o) => o.id)
   const [notas, envios] = await Promise.all([notasDos(req.scope, ids), enviosDos(req.scope, ids)])
   const [pessoa] = juntarPessoas(todos, pedidos, inscricoes)
-  const ficha = pessoa ? fichaDoCliente(pessoa, pedido.membro.papel, ctx, notas, envios) : null
+  const ficha = pessoa ? fichaDoCliente(pessoa, papelDosDados(pedido), ctx, notas, envios) : null
   if (!ficha) {
     res.status(404).json({ message: "nao_encontrado" })
     return

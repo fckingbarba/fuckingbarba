@@ -1,5 +1,5 @@
 import { documentoDoPedido, lerEndereco, telefone } from "../dados-do-pedido"
-import type { Papel } from "../equipe/regras"
+import type { PapelFixo } from "../equipe/regras"
 import { chaveDoDia, dia, quando, type Data } from "./formato"
 import {
   celularLegivel,
@@ -267,7 +267,7 @@ const semAcento = (s: string) =>
 
 export function listaDeClientes(
   pessoas: Pessoa[],
-  papel: Papel,
+  papel: PapelFixo,
   agora: Date,
   busca = ""
 ): ListaDeClientes {
@@ -394,7 +394,7 @@ function enderecoDa(p: Pessoa): string | null {
  */
 export function fichaDoCliente(
   p: Pessoa,
-  papel: Papel,
+  papel: PapelFixo,
   ctx: Contexto,
   notas: Map<string, NotaCrua>,
   envios: Map<string, EnvioCru[]>

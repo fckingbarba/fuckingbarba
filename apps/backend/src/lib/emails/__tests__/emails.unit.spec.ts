@@ -133,7 +133,7 @@ describe("e-mail do convite pro painel", () => {
     const e = emailDoConvite({
       para: "carla@loja.com",
       nome: "Carla Mendes",
-      papel: "operacao",
+      papelNome: "Operação",
       areas: areasDo(MATRIZ_PADRAO, "operacao"),
       quem: "Matheus",
     })
@@ -157,7 +157,7 @@ describe("e-mail do convite pro painel", () => {
     const e = emailDoConvite({
       para: "carla@loja.com",
       nome: "Carla",
-      papel: "operacao",
+      papelNome: "Operação",
       areas: areasDo(comCupons, "operacao"),
       quem: "Matheus",
     })
@@ -165,12 +165,34 @@ describe("e-mail do convite pro painel", () => {
     expect(e.texto).not.toContain("Pedidos")
   })
 
+  it("no papel criado pelo dono, diz o nome que ele deu e o que o papel abre", () => {
+    const papel = "papel_01K6ATENDIMENTO000000000" as const
+    const m = matrizCom(
+      [
+        { papel, area: "pedidos", abre: true },
+        { papel, area: "contatos", abre: true },
+      ],
+      [papel]
+    )
+    const e = emailDoConvite({
+      para: "bia@loja.com",
+      nome: "Bia",
+      papelNome: "Atendimento",
+      areas: areasDo(m, papel),
+      quem: "Matheus",
+    })
+    expect(e.texto).toContain("com o papel Atendimento.")
+    expect(e.texto).toContain(
+      "Com esse papel, você abre: Início, Pedidos e Telefone e endereço dos clientes."
+    )
+  })
+
   it("o link é só o endereço — sem e-mail, sem token", () => {
     process.env.DASHBOARD_URL = "https://dashboard.fuckingbarba.com.br"
     const e = emailDoConvite({
       para: "carla@loja.com",
       nome: "Carla",
-      papel: "marketing",
+      papelNome: "Marketing",
       areas: areasDo(MATRIZ_PADRAO, "marketing"),
       quem: "Matheus",
     })
@@ -186,7 +208,7 @@ describe("e-mail do convite pro painel", () => {
     const e = emailDoConvite({
       para: "carla@loja.com",
       nome: "Carla",
-      papel: "marketing",
+      papelNome: "Marketing",
       areas: areasDo(MATRIZ_PADRAO, "marketing"),
       quem: "Matheus",
     })
@@ -198,7 +220,7 @@ describe("e-mail do convite pro painel", () => {
     const e = emailDoConvite({
       para: "c@loja.com",
       nome: "<b>Carla</b>",
-      papel: "dono",
+      papelNome: "Dono",
       areas: areasDo(MATRIZ_PADRAO, "dono"),
       quem: "<i>M</i>",
     })
