@@ -56,6 +56,12 @@ export type PagamentoMP = {
     } | null
   } | null
   refunds?: EstornoMP[] | null
+  /**
+   * O que o Mercado Pago cobrou (em REAIS), um por tipo ("mercadopago_fee",
+   * "financing_fee"…). `fee_payer` "collector" é a loja; "payer", quem comprou.
+   * É a taxa do DRE (`lib/financeiro/custos-dos-pedidos.ts`).
+   */
+  fee_details?: { type?: string; amount?: number; fee_payer?: string }[] | null
 }
 
 export type EstornoMP = {

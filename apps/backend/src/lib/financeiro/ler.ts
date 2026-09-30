@@ -15,7 +15,14 @@ import {
   type PedidoDoDre,
   type VendaDoDre,
 } from "./dre"
-import { CHAVE_DA_EMBALAGEM, CHAVE_DO_SIMPLES, janelaDoMes, mesesEntre, porChave } from "./regras"
+import {
+  CHAVE_DA_EMBALAGEM,
+  CHAVE_DA_TAXA_DO_PIX,
+  CHAVE_DO_SIMPLES,
+  janelaDoMes,
+  mesesEntre,
+  porChave,
+} from "./regras"
 
 /**
  * O QUE O FINANCEIRO LÊ DO BANCO — os pedidos da loja nova, os da Nuvemshop
@@ -50,6 +57,10 @@ const CAMPOS_DO_DRE = [
   "shipping_methods.amount",
   "shipping_methods.adjustments.code",
   "shipping_methods.adjustments.amount",
+  "shipping_methods.data",
+  "payment_collections.payment_sessions.provider_id",
+  "payment_collections.payment_sessions.status",
+  "payment_collections.payment_sessions.data",
   "payment_collections.payments.captured_at",
   "payment_collections.payments.refunds.amount",
   "payment_collections.payments.refunds.created_at",
@@ -73,9 +84,10 @@ export async function pedidosDoFinanceiro(
 /** As despesas e os valores do módulo, como o DRE usa. */
 export async function doFinanceiro(container: MedusaContainer) {
   const fin = container.resolve<FinanceiroService>(FINANCEIRO)
-  const [despesas, valores] = await Promise.all([
+  const [despesas, valores, custos] = await Promise.all([
     fin.listDespesas({}, { take: 10_000, order: { mes: "ASC", created_at: "ASC" } }),
     fin.listValores({}, { take: 10_000, order: { desde: "ASC" } }),
+    fin.listCustosDosPedidos({}, { take: 50_000, select: ["pedido_id", "taxa", "frete"] }),
   ])
   return {
     despesas: despesas.map((d): DespesaGravada => ({
@@ -89,6 +101,16 @@ export async function doFinanceiro(container: MedusaContainer) {
     })),
     valores: porChave(
       valores.map((v) => ({ chave: v.chave, desde: v.desde, valor: Number(v.valor) }))
+    ),
+    /** O que o job guardou de cada pedido: a taxa e o frete cotado depois (centavos). */
+    custos: new Map(
+      custos.map((c) => [
+        c.pedido_id,
+        {
+          taxa: c.taxa === null || c.taxa === undefined ? null : Number(c.taxa),
+          frete: c.frete === null || c.frete === undefined ? null : Number(c.frete),
+        },
+      ])
     ),
   }
 }
@@ -114,7 +136,7 @@ export async function dadosDoDre(
   ])
   const doSku = mapaDosSkus(produtos)
   const vendas: VendaDoDre[] = [
-    ...pedidos.flatMap((o) => vendaDaLoja(o) ?? []),
+    ...pedidos.flatMap((o) => vendaDaLoja(o, fin.custos.get(o.id)) ?? []),
     ...daBase.flatMap((o) => vendaDaNuvemshop(o, doSku) ?? []),
   ]
   const custos = new Map<string, { desde: string; valor: number }[]>()
@@ -126,5 +148,6 @@ export async function dadosDoDre(
     custos,
     embalagem: fin.valores.get(CHAVE_DA_EMBALAGEM) ?? [],
     simples: fin.valores.get(CHAVE_DO_SIMPLES) ?? [],
+    taxaDoPix: fin.valores.get(CHAVE_DA_TAXA_DO_PIX) ?? [],
   }
 }

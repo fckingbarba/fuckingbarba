@@ -113,6 +113,12 @@ export const ROTINAS: readonly DefinicaoDaRotina[] = [
     cada: "a cada 10 min",
   },
   {
+    nome: "custos-dos-pedidos",
+    frase: "Busca a taxa de cada pagamento e cota o frete que faltou, pro Financeiro",
+    agenda: "14-59/30 * * * *",
+    cada: "a cada 30 min",
+  },
+  {
     nome: "acompanhar-envios",
     frase: "Consulta o rastreio dos pacotes",
     agenda: "23 * * * *",

@@ -284,6 +284,12 @@ export function vigente(valores: readonly Vigencia[], dia: string): Vigencia | n
 /** A chave do custo de um produto em `fin_valor`. */
 export const chaveDoCusto = (produto: string) => `custo:${produto}`
 export const CHAVE_DA_EMBALAGEM = "embalagem"
+/**
+ * A % do Pix no Pagar.me (centésimos de ponto, como o Simples): a API não traz
+ * essa taxa — o Pagar.me fatura o Pix no mês seguinte —, então ela vem do
+ * contrato, digitada em Custos e imposto.
+ */
+export const CHAVE_DA_TAXA_DO_PIX = "taxa-pix-pagarme"
 export const CHAVE_DO_SIMPLES = "simples"
 
 /** As linhas de `fin_valor` agrupadas pela chave. */
