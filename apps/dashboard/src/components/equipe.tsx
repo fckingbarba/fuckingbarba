@@ -8,11 +8,13 @@ import { convidar, mudarPapel, reenviarConvite, tirarDaEquipe } from "@/lib/acoe
 import {
   iniciais,
   NOME_DO_PAPEL,
+  nomeDoPapel,
   PAPEIS,
   resumoDoPapel,
   type Matriz,
   type Membro,
   type Papel,
+  type PapelCriado,
 } from "@/lib/equipe"
 import { CONVITE_INICIAL, type ResultadoDaMudanca } from "@/lib/equipe-visivel"
 
@@ -24,16 +26,20 @@ export type PessoaDaLista = Membro & { estado: string; conviteVencido: boolean }
  * cada um: mudar o papel, tirar da equipe, reenviar o convite. Tudo passa
  * pelo Medusa, que confere de novo (ninguém mexe em si mesmo; a loja nunca
  * fica sem dono) — o que a tela esconde é só conforto. O que cada papel
- * abre sai da tabela de agora (`acesso`, a que o dono ajusta embaixo).
+ * abre sai da tabela de agora (`acesso`, a que o dono ajusta embaixo), e os
+ * papéis que o dono criou (`papeis`) entram no convite e no "Mudar" depois
+ * dos três de sempre.
  */
 export function Equipe({
   membros,
   eu,
   acesso,
+  papeis,
 }: {
   membros: PessoaDaLista[]
   eu: string
   acesso: Matriz
+  papeis: PapelCriado[]
 }) {
   const [convidando, setConvidando] = useState(false)
   const [aberto, setAberto] = useState<string | null>(null)
@@ -64,6 +70,7 @@ export function Equipe({
               key={m.id}
               membro={m}
               acesso={acesso}
+              papeis={papeis}
               souEu={m.id === eu}
               aberta={aberto === m.id}
               abrir={() => setAberto(aberto === m.id ? null : m.id)}
@@ -80,6 +87,7 @@ export function Equipe({
         <Gaveta titulo="Convidar pessoa" fechar={fecharConvite}>
           <FormConvite
             acesso={acesso}
+            papeis={papeis}
             fechar={fecharConvite}
             aoConvidar={(texto) => {
               setConvidando(false)
@@ -95,6 +103,7 @@ export function Equipe({
 function Pessoa({
   membro,
   acesso,
+  papeis,
   souEu,
   aberta,
   abrir,
@@ -102,6 +111,7 @@ function Pessoa({
 }: {
   membro: PessoaDaLista
   acesso: Matriz
+  papeis: PapelCriado[]
   souEu: boolean
   aberta: boolean
   abrir: () => void
@@ -130,7 +140,7 @@ function Pessoa({
           </span>
         ) : null}
         <span className="status" data-s={membro.papel === "dono" ? "enviado" : "ativo"}>
-          {NOME_DO_PAPEL[membro.papel]}
+          {membro.papel_nome ?? nomeDoPapel(membro.papel, papeis)}
         </span>
         {souEu ? null : (
           <button
@@ -144,23 +154,26 @@ function Pessoa({
           </button>
         )}
       </div>
-      {aberta ? <Mudar membro={membro} acesso={acesso} avisar={avisar} /> : null}
+      {aberta ? <Mudar membro={membro} acesso={acesso} papeis={papeis} avisar={avisar} /> : null}
     </div>
   )
 }
 
 /**
  * O QUE O DONO MUDA NUMA PESSOA — o papel (a escolha em linha, como o
- * protótipo), o convite de novo (pra quem ainda não entrou) e tirar da
- * equipe, com a confirmação que diz o que acontece.
+ * protótipo: os três de sempre, e embaixo os que o dono criou), o convite de
+ * novo (pra quem ainda não entrou) e tirar da equipe, com a confirmação que
+ * diz o que acontece.
  */
 function Mudar({
   membro,
   acesso,
+  papeis,
   avisar,
 }: {
   membro: PessoaDaLista
   acesso: Matriz
+  papeis: PapelCriado[]
   avisar: (texto: string) => void
 }) {
   const [papel, setPapel] = useState<Papel>(membro.papel)
@@ -178,26 +191,30 @@ function Mudar({
   }
 
   const nomeDoGrupo = `papel-${membro.id}`
+  const opcao = (p: Papel, nome: string) => (
+    <label key={p}>
+      <input
+        type="radio"
+        name={nomeDoGrupo}
+        value={p}
+        checked={papel === p}
+        onChange={() => setPapel(p)}
+      />
+      <span>{nome}</span>
+    </label>
+  )
   return (
     <div className="pessoa__mudar">
       <fieldset className="campo">
         <legend className="campo__rot">Papel</legend>
-        <div className="segmento">
-          {PAPEIS.map((p) => (
-            <label key={p}>
-              <input
-                type="radio"
-                name={nomeDoGrupo}
-                value={p}
-                checked={papel === p}
-                onChange={() => setPapel(p)}
-              />
-              <span>{NOME_DO_PAPEL[p]}</span>
-            </label>
-          ))}
-        </div>
+        <div className="segmento">{PAPEIS.map((p) => opcao(p, NOME_DO_PAPEL[p]))}</div>
+        {papeis.length ? (
+          <div className="segmento pessoa__criados" aria-label="Papéis que você criou">
+            {papeis.map((p) => opcao(p.id, p.nome))}
+          </div>
+        ) : null}
         <p className="campo__ajuda">
-          {NOME_DO_PAPEL[papel]}: {resumoDoPapel(acesso, papel)}.
+          {nomeDoPapel(papel, papeis)}: {resumoDoPapel(acesso, papel)}.
         </p>
       </fieldset>
 
@@ -276,10 +293,12 @@ function Mudar({
 
 function FormConvite({
   acesso,
+  papeis,
   fechar,
   aoConvidar,
 }: {
   acesso: Matriz
+  papeis: PapelCriado[]
   fechar: () => void
   aoConvidar: (texto: string) => void
 }) {
@@ -342,11 +361,20 @@ function FormConvite({
             aria-invalid={erros.papel ? true : undefined}
             aria-describedby="c-papel-ajuda"
           >
-            {(["operacao", "marketing", "dono"] as Papel[]).map((p) => (
+            {(["operacao", "marketing", "dono"] as const).map((p) => (
               <option key={p} value={p}>
                 {NOME_DO_PAPEL[p]} — {resumoDoPapel(acesso, p)}
               </option>
             ))}
+            {papeis.length ? (
+              <optgroup label="Papéis que você criou">
+                {papeis.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.nome} — {resumoDoPapel(acesso, p.id)}
+                  </option>
+                ))}
+              </optgroup>
+            ) : null}
           </select>
           <p className="campo__ajuda" id="c-papel-ajuda">
             {erros.papel ?? "Dá pra mudar depois. O convite vale 7 dias."}

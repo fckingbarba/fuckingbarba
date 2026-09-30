@@ -7,12 +7,12 @@ import { Icone, Logo } from "@/components/icones"
 import { sair } from "@/lib/acoes/sair"
 import type { Avisos } from "@/lib/eu"
 import {
-  ABAS_DO_CELULAR,
+  abasDoCelular,
   areaDoCaminho,
   iniciais,
   itemDa,
   MENU,
-  NOME_DO_PAPEL,
+  nomeDoPapel,
   TITULO_CURTO,
   type Area,
   type Membro,
@@ -83,7 +83,7 @@ export function Casca({
         </main>
 
         <nav className="abas-cel" aria-label="Atalhos">
-          {ABAS_DO_CELULAR[membro.papel].filter(pode).map((area) => {
+          {abasDoCelular(membro.papel, pode).map((area) => {
             const item = itemDa(area)
             if (!item) return null
             return (
@@ -171,7 +171,7 @@ function Quem({ membro }: { membro: Membro }) {
       </span>
       <span style={{ minWidth: 0 }}>
         <p className="quem__nome">{membro.nome}</p>
-        <p className="quem__papel">{NOME_DO_PAPEL[membro.papel]}</p>
+        <p className="quem__papel">{membro.papel_nome ?? nomeDoPapel(membro.papel)}</p>
       </span>
       <form action={sair}>
         <button

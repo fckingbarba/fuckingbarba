@@ -3,17 +3,18 @@ import { redirect } from "next/navigation"
 import { TabelaDeAcessos } from "@/components/acessos"
 import { Equipe, type PessoaDaLista } from "@/components/equipe"
 import { ForaDoAr, SemAcesso } from "@/components/telas"
-import { Ajuda } from "@/components/visual"
-import type { Area, Matriz, Membro } from "@/lib/equipe"
+import type { Area, Matriz, Membro, PapelCriado } from "@/lib/equipe"
 import { medusa } from "@/lib/medusa"
 
 export const metadata: Metadata = { title: "Equipe e acessos" }
 
 /**
  * EQUIPE E ACESSOS — quem entra, com que papel, e a tabela do que cada papel
- * abre, que o dono muda (as caixinhas da operação e do marketing). A lista,
- * a tabela e as regras dela vêm do Medusa (`GET /dashboard/equipe`), que só
- * responde ao dono; salvar é `POST /dashboard/acessos`.
+ * abre, que o dono muda (as caixinhas da operação, do marketing e dos papéis
+ * que ele cria). A lista, a tabela, os papéis criados e as regras vêm do
+ * Medusa (`GET /dashboard/equipe`), que só responde ao dono; salvar é
+ * `POST /dashboard/acessos`, e criar, renomear e apagar papel,
+ * `POST /dashboard/papeis`.
  */
 export default async function Pagina() {
   const r = await medusa("/dashboard/equipe", { metodo: "GET", token: "sessao" })
@@ -25,26 +26,21 @@ export default async function Pagina() {
   const membros = paraALista((r.corpo.membros ?? []) as Membro[])
   const acesso = (r.corpo.acesso ?? {}) as Matriz
   const padrao = (r.corpo.padrao ?? acesso) as Matriz
+  const papeis = (r.corpo.papeis ?? []) as PapelCriado[]
 
   return (
     <>
-      <Equipe membros={membros} eu={String(r.corpo.eu ?? "")} acesso={acesso} />
+      <Equipe membros={membros} eu={String(r.corpo.eu ?? "")} acesso={acesso} papeis={papeis} />
       <section className="bloco bloco--sem-pad acessos">
-        <div className="bloco__cabeca">
-          <div className="bloco__titulos">
-            <h2 className="bloco__titulo">O que cada papel abre</h2>
-            <Ajuda>
-              Marque o que a operação e o marketing abrem — o dono abre tudo. Vale no servidor, não
-              só na tela, a partir do próximo clique de cada pessoa.
-            </Ajuda>
-          </div>
-        </div>
         <TabelaDeAcessos
           key={JSON.stringify(acesso)}
           acesso={acesso}
           padrao={padrao}
           fixas={(r.corpo.fixas ?? []) as Area[]}
+          doPapel={(r.corpo.doPapel ?? []) as Area[]}
           dentroDe={(r.corpo.dentroDe ?? {}) as Partial<Record<Area, Area>>}
+          papeis={papeis}
+          noMaximo={Number(r.corpo.papeisNoMaximo ?? 10)}
         />
       </section>
     </>

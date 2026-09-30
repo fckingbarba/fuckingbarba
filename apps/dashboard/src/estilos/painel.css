@@ -90,6 +90,29 @@
 .acessos__acoes { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px 12px; }
 .acessos__pendentes { margin-right: auto; font-size: 0.8rem; font-weight: 700; color: var(--aviso-txt); }
 .acessos__notas { display: grid; gap: 6px; margin: 0; padding-left: 18px; font-size: 0.76rem; color: var(--tinta-suave); }
+/*
+  O papel que o dono criou: o nome no alto da coluna é o botão que abre a
+  gaveta de renomear e apagar (o lápis diz que mexe). Na gaveta, o apagar
+  fica embaixo, separado do nome por uma linha.
+*/
+.matriz__papel {
+  display: inline-flex; align-items: center; gap: 5px; max-width: 16ch; padding: 0; margin: 0;
+  background: none; border: 0; border-bottom: 1px dashed rgba(255, 255, 255, 0.6);
+  color: inherit; font: inherit; letter-spacing: inherit; text-transform: inherit; text-align: left; cursor: pointer;
+}
+.matriz__papel span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.matriz__papel svg { flex-shrink: 0; width: 12px; height: 12px; fill: var(--amarelo); }
+.matriz__papel:hover, .matriz__papel:focus-visible { color: var(--amarelo); border-bottom-color: var(--amarelo); }
+.matriz__papel:focus-visible { outline: 2px solid var(--amarelo); outline-offset: 3px; }
+.acessos__cuidado { color: var(--aviso-txt); font-weight: 700; }
+.papel__apagar { margin-top: 22px; padding-top: 18px; border-top: 1px solid rgba(18, 24, 31, 0.12); }
+.pessoa__criados { margin-top: 8px; }
+/* No celular, as três escolhas do "Começa abrindo" dividem a largura, como no cupom. */
+@media (max-width: 640px) {
+  [data-papel-novo] .segmento { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); width: 100%; }
+  [data-papel-novo] .segmento label { display: flex; }
+  [data-papel-novo] .segmento span { flex: 1; display: flex; align-items: center; justify-content: center; padding: 9px 6px; text-align: center; letter-spacing: 0.02em; }
+}
 @media (max-width: 640px) {
   .matriz--acessos tr[data-dentro] th { padding-left: 22px; }
   .acessos__acoes { justify-content: flex-start; }

@@ -29,7 +29,8 @@ const endereco = (busca: string, pagina: number) => {
  * CLIENTES — quem já comprou ou tem conta na loja: quantos pedidos, quanto
  * gastou e se aceita ofertas. A busca vai no endereço (`?busca=rafael`).
  * Os três papéis abrem; o marketing vê só quem aceitou ofertas, e sem a
- * cidade — o backend (`GET /dashboard/clientes`) já manda assim. De 30 em
+ * cidade — o backend (`GET /dashboard/clientes`) já manda assim. É quem não
+ * abre os `contatos`: o papel criado pelo dono sem essa caixinha vê igual. De 30 em
  * 30 (`?pagina=`), e a leitura sai junto com a pergunta de quem é (`ler`).
  */
 export default async function Pagina({ searchParams }: { searchParams: Busca }) {
@@ -54,15 +55,17 @@ async function Lista({ caminho }: { caminho: string }) {
   if (r.status === 403) return <SemAcesso area="clientes" />
   if (r.status !== 200 || leitura.estado !== "ok") return <ForaDoAr />
   const lista = r.corpo as unknown as ListaDeClientes
-  const marketing = leitura.membro.papel === "marketing"
+  // Sem os contatos (o marketing, e o papel criado pelo dono sem essa caixinha): só quem aceitou ofertas.
+  const semContatos = !leitura.areas.includes("contatos")
+  const quem = leitura.membro.papel === "marketing" ? "O marketing" : "Seu papel"
 
   return (
     <div data-tela>
       <Cabeca
         titulo="Clientes"
         ajuda={
-          marketing
-            ? "O marketing vê só quem aceitou receber ofertas — e sem CPF, telefone ou endereço (LGPD). Os outros não aparecem aqui."
+          semContatos
+            ? `${quem} vê só quem aceitou receber ofertas — e sem CPF, telefone ou endereço (LGPD). Os outros não aparecem aqui.`
             : "Quem já comprou ou tem conta na loja. O ícone aceso diz por onde a pessoa aceitou receber ofertas: e-mail ou WhatsApp."
         }
       />
@@ -90,15 +93,16 @@ async function Lista({ caminho }: { caminho: string }) {
           ) : null}
         </div>
       </div>
-      {marketing ? (
+      {semContatos ? (
         <p className="faixa faixa--curta" data-nivel="info" data-visao-marketing>
           <Icone nome="cadeado" />
-          Visão do marketing: só quem aceitou ofertas.
+          {leitura.membro.papel === "marketing" ? "Visão do marketing" : "Visão do seu papel"}: só
+          quem aceitou ofertas.
         </p>
       ) : null}
       <BuscaDeClientes busca={lista.busca} />
       <section className="bloco bloco--sem-pad">
-        <ListaDosClientes clientes={lista.clientes} comCidade={!marketing} />
+        <ListaDosClientes clientes={lista.clientes} comCidade={!semContatos} />
       </section>
       {lista.paginacao ? (
         <Paginas
