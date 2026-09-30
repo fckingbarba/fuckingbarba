@@ -6,5 +6,5 @@
       "entrega/*": false
     }
   },
-  "ignoreCommand": "[ -n \"$VERCEL_GIT_PREVIOUS_SHA\" ] && [ \"$VERCEL_GIT_PREVIOUS_SHA\" != \"$VERCEL_GIT_COMMIT_SHA\" ] && git diff --quiet \"$VERCEL_GIT_PREVIOUS_SHA\" HEAD -- . ':(exclude)ferramentas' ':(exclude,glob)**/*.md' ':(exclude)budgets.json' ':(exclude)lighthouserc.json' ../../package.json ../../package-lock.json ../../turbo.json"
+  "ignoreCommand": "P=$VERCEL_GIT_PREVIOUS_SHA; [ -n \"$P\" ] && [ \"$P\" != \"$VERCEL_GIT_COMMIT_SHA\" ] && git diff --quiet \"$P\" HEAD -- . ':!ferramentas' ':!*.md' ':!budgets.json' ':!lighthouserc.json' ../../package.json ../../package-lock.json ../../turbo.json"
 }
