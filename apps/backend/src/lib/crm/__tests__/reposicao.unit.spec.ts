@@ -5,6 +5,7 @@ import {
   diasAteAcabar,
   naJanelaDaReposicao,
   reposicoesDaPessoa,
+  soEleDa,
   textoDoAviso,
   type PedidoDaReposicao,
   type Reposicao,
@@ -72,7 +73,28 @@ describe("quando cada tipo acaba", () => {
     expect(r.map((x) => x.componente).sort()).toEqual(["balm", "fator", "oleo", "shampoo"])
     expect(de("fator")?.pedido).toBe("nso_novo")
     expect(de("oleo")).toMatchObject({ pedido: "order_velho", skus: ["FBKIT01"] })
-    expect(dia(de("balm")!.acaba)).toBe(-60 + 7 + 60)
+    expect(dia(de("balm")!.acaba)).toBe(-60 + 7 + DIAS_PADRAO.balm)
+  })
+
+  it("os dias do padrão vêm das vendas (0229): shampoo 65, óleo 70, balm 80; o Fator, 30", () => {
+    expect(DIAS_PADRAO).toMatchObject({ fator: 30, shampoo: 65, oleo: 70, balm: 80 })
+    // O Kit Completo: o shampoo acaba primeiro — é o que a pessoa repõe.
+    const kit = reposicoesDaPessoa(EMAIL, [pedido("order_1", 0, [["FBKIT01"]])], DIAS_PADRAO)
+    const primeiro = [...kit].sort((a, b) => a.acaba.getTime() - b.acaba.getTime())[0]
+    expect(primeiro.componente).toBe("shampoo")
+  })
+
+  it("o produto sozinho: só quando o de sempre é um kit (0229)", () => {
+    // Do Kit Completo: o shampoo avulso e o duplo; o óleo e o balm avulsos.
+    expect(soEleDa({ componente: "shampoo", skus: ["FBKIT01"] })).toEqual(["FBSH01", "FBKIT03"])
+    expect(soEleDa({ componente: "oleo", skus: ["FBKIT01"] })).toEqual(["FBOL01"])
+    expect(soEleDa({ componente: "balm", skus: ["FBKIT01"] })).toEqual(["FBBM01"])
+    // Quem já leva o shampoo sozinho (avulso ou duplo), não: o de sempre já é ele.
+    expect(soEleDa({ componente: "shampoo", skus: ["FBSH01"] })).toEqual([])
+    expect(soEleDa({ componente: "shampoo", skus: ["FBKIT03"] })).toEqual([])
+    // O Fator e o cabelo ficam como estão (o de 7 dias já mostra os 3 Fatores).
+    expect(soEleDa({ componente: "fator", skus: ["FBKIT08"] })).toEqual([])
+    expect(soEleDa({ componente: "pasta", skus: ["FBPMT01"] })).toEqual([])
   })
 
   it("a janela: de 8 dias antes a 11 depois do dia de acabar", () => {

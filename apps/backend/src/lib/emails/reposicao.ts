@@ -10,7 +10,8 @@ import type { BlocoDoCrm, EmailDoCrm, ProdutoDoCrm } from "./crm"
  * Sem desconto, e útil pra pessoa: todos são LEMBRETE (a cara da marca,
  * assinado, sem o cabeçalho de oferta), e sem palavra de propaganda — a
  * lição da 0174. O de 7 dias mostra também o que dura mais (3 Fatores, o
- * Kit Completo), sem prometer resultado.
+ * Kit Completo), sem prometer resultado. Quando o de sempre é um kit, todos
+ * mostram também o produto sozinho ("Só o shampoo", 0229).
  *
  * Código puro, com testes.
  */
@@ -29,6 +30,11 @@ export type ReposicaoDoEmail = {
   produtos: ProdutoDoCrm[]
   /** O que dura mais, no e-mail de 7 dias: 3 Fatores, o Kit Completo. */
   subirPara: ProdutoDoCrm | null
+  /**
+   * O produto sozinho, quando o de sempre é um kit (0229): "Só o shampoo" pra
+   * quem levou o Kit Completo — o que acaba primeiro. Em todos os toques.
+   */
+  soEle?: ProdutoDoCrm[]
   /** O caminho do "Refazer o pedido" na loja (`/voltar/<t>`). */
   voltar: string
   sair: EmailDoCrm["sair"]
@@ -50,9 +56,14 @@ export function emailDaReposicao(r: ReposicaoDoEmail): EmailDoCrm {
     loja: r.loja,
     estilo: "lembrete" as const,
   }
-  const deSempre: BlocoDoCrm[] = r.produtos.length
-    ? [{ tipo: "produtos", titulo: "O de sempre", produtos: r.produtos.slice(0, 3) }]
-    : []
+  const deSempre: BlocoDoCrm[] = [
+    ...(r.produtos.length
+      ? [{ tipo: "produtos" as const, titulo: "O de sempre", produtos: r.produtos.slice(0, 3) }]
+      : []),
+    ...(r.soEle?.length
+      ? [{ tipo: "produtos" as const, titulo: `Só ${o}`, produtos: r.soEle.slice(0, 2) }]
+      : []),
+  ]
 
   switch (r.toque) {
     case "reposicao-antes-7d":

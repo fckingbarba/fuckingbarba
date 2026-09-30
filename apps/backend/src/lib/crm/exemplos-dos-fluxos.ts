@@ -49,7 +49,7 @@ import {
 import { linksDoCheckin } from "./checkin"
 import { SKU_DA_ROTINA } from "./jornada"
 import { sugestoesDaNavegacao } from "./navegacao"
-import { SUBIR_PARA } from "./reposicao"
+import { soEleDa, SUBIR_PARA } from "./reposicao"
 import { conteudosDasTrilhas } from "./boas-vindas"
 import { produtosDoEmail, TITULO_DA_TRILHA } from "./primeira-compra"
 import { linksDeSair } from "./sair"
@@ -144,9 +144,9 @@ async function exemplosDaJornada(
 ): Promise<EmailDoCrm[]> {
   const loja = urlDaLoja()
   if (!loja) return []
-  const [{ conteudos }, porSku, whatsapp, lojas] = await Promise.all([
+  const [{ conteudos, depoimentos }, porSku, whatsapp, lojas] = await Promise.all([
     conteudosDasTrilhas(container, []),
-    produtosPorSku(container, [SKU_DA_ROTINA.oleo, SKU_DA_ROTINA.tresFatores]),
+    produtosPorSku(container, [SKU_DA_ROTINA.oleo, SKU_DA_ROTINA.tresFatores, SKU_DA_ROTINA.fator]),
     whatsappDaLoja(container),
     container.resolve(Modules.STORE).listStores({}, { select: ["metadata"], take: 1 }),
   ])
@@ -157,16 +157,19 @@ async function exemplosDaJornada(
     return c ? `${c.artigo} ${c.curto}` : null
   }
   // O convite do indique vai em três jeitos, um por linha do pedido (0217): o Fator, o óleo
-  // (a barba) e a pasta (o cabelo). Os outros dias, um e-mail só.
-  const linhas: { trilha?: TrilhaDoEmail; produto?: string | null }[] =
+  // (a barba) e a pasta (o cabelo). A rotina de 21 dias, em dois: a de quem tem o Fator e a de
+  // quem tem o Kit Completo sem ele (0229). Os outros dias, um e-mail só.
+  const linhas: { trilha?: TrilhaDoEmail; produto?: string | null; doKit?: boolean }[] =
     toque === "jornada-indique"
       ? [
           { trilha: "crescimento", produto: nomeDe(PRODUTOS_DAS_TRILHAS.fator) },
           { trilha: "cuidado", produto: nomeDe(PRODUTOS_DAS_TRILHAS.oleo) },
           { trilha: "cabelo", produto: nomeDe(PRODUTOS_DAS_TRILHAS.matte) },
         ]
-      : [{}]
-  return linhas.flatMap(({ trilha, produto }) => {
+      : toque === "jornada-21d"
+        ? [{}, { doKit: true }]
+        : [{}]
+  return linhas.flatMap(({ trilha, produto, doKit }) => {
     const email = emailDaJornada({
       toque,
       trilha,
@@ -176,9 +179,11 @@ async function exemplosDaJornada(
       numero: 3312,
       principal: fator,
       fator,
-      sugestoes: [SKU_DA_ROTINA.oleo, SKU_DA_ROTINA.tresFatores].flatMap(
-        (s) => porSku.get(s) ?? []
-      ),
+      sugestoes: (doKit
+        ? [SKU_DA_ROTINA.fator]
+        : [SKU_DA_ROTINA.oleo, SKU_DA_ROTINA.tresFatores]
+      ).flatMap((s) => porSku.get(s) ?? []),
+      fatorSugerido: doKit && fator ? { conteudo: fator, depoimentos } : null,
       // Um pedido que não existe: o clique anota nada e cai na home.
       checkin: toque === "jornada-7d" ? linksDoCheckin(`order_${"0".repeat(26)}`) : null,
       // O link de mentira: o cupom `BROTHER-EXEMPLO` não existe, e o link cai na home sem nada.
@@ -254,31 +259,43 @@ async function exemplosDaReposicao(
 ): Promise<EmailDoCrm[]> {
   const loja = urlDaLoja()
   if (!loja) return []
-  const [produtos, subir, whatsapp, lojas] = await Promise.all([
+  const doKit = { componente: "shampoo" as const, skus: [SKU_DA_ROTINA.kitCompleto] }
+  const [produtos, porSku, whatsapp, lojas] = await Promise.all([
     produtosDosExemplos(container),
-    produtosPorSku(container, [SUBIR_PARA.fator ?? ""]),
+    produtosPorSku(container, [SUBIR_PARA.fator ?? "", ...doKit.skus, ...soEleDa(doKit)]),
     whatsappDaLoja(container),
     container.resolve(Modules.STORE).listStores({}, { select: ["metadata"], take: 1 }),
   ])
   const { empresa, atendimento } = lerConfiguracoes(lojas[0]?.metadata)
   const fator = produtos.get("fator-de-crescimento-para-barba") ?? null
+  const comum = {
+    toque,
+    para: membro.email,
+    nome: membro.nome,
+    voltar: `/voltar/${linkDeVoltar(`repor-order_${"0".repeat(26)}`, agora)}`,
+    sair: linksDeSair(loja, membro.email),
+    loja: {
+      url: loja,
+      whatsapp,
+      empresa: empresa.razaoSocial,
+      cnpj: empresa.cnpj,
+      atendimento: atendimento.email,
+    },
+  }
+  // Dois jeitos: o Fator, e o shampoo de quem levou o Kit Completo, com o shampoo sozinho (0229).
   return [
     emailDaReposicao({
-      toque,
-      para: membro.email,
-      nome: membro.nome,
+      ...comum,
       acabando: CURTO_DO_COMPONENTE.fator,
       produtos: fator ? [fator] : [],
-      subirPara: subir.get(SUBIR_PARA.fator ?? "") ?? null,
-      voltar: `/voltar/${linkDeVoltar(`repor-order_${"0".repeat(26)}`, agora)}`,
-      sair: linksDeSair(loja, membro.email),
-      loja: {
-        url: loja,
-        whatsapp,
-        empresa: empresa.razaoSocial,
-        cnpj: empresa.cnpj,
-        atendimento: atendimento.email,
-      },
+      subirPara: porSku.get(SUBIR_PARA.fator ?? "") ?? null,
+    }),
+    emailDaReposicao({
+      ...comum,
+      acabando: CURTO_DO_COMPONENTE.shampoo,
+      produtos: doKit.skus.flatMap((s) => porSku.get(s) ?? []),
+      subirPara: null,
+      soEle: soEleDa(doKit).flatMap((s) => porSku.get(s) ?? []),
     }),
   ]
 }
