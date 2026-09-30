@@ -2550,6 +2550,24 @@ cookies e a compra pelo servidor:
   (`rastrearMudancaDaSacola` — pega a página do produto, o leva junto, a oferta e o "+"),
   `begin_checkout` e `add_shipping_info` nas etapas, `add_payment_info` no pagar. O `item_id` é o
   id da variante, o mesmo da compra do servidor.
+- **Os passos pelo servidor** (entrega 0231, pros gestores de tráfego não perderem quem usa
+  bloqueador): o ViewContent, o AddToCart, o InitiateCheckout e o AddPaymentInfo saem com um id
+  (`novoId`, no `rastrear`) — o mesmo no `fbq(…, { eventID })`, no `ttq.track(…, { event_id })` e no
+  envio pelo servidor —, e a Meta e o TikTok juntam os dois. A visita à página (PageView/"Pageview")
+  só vai pelo servidor de quem teve o pixel bloqueado: `vigiarOScript` (`integracoes.ts`) marca o
+  bloqueio pelo erro do script, ou, na Meta, pelo `fbq.callMethod` que não aparece 2 s depois do
+  load (o bloqueador que troca o script por um vazio); daí em diante, uma visita por troca de página
+  (o `history.pushState` embrulhado e o `popstate`, contando só o caminho). O caminho:
+  `lib/pelo-servidor.ts` (baixa com as tags e se registra no `rastrear`; junta 1,5 s, até 20, e o
+  resto sai no `pagehide` pelo `sendBeacon`) → `app/api/passos` (confere que não é "não", que é da
+  própria loja pelo `sec-fetch-site`, lê `_fbp`/`_fbc`/`_ttp`, o IP e o navegador; com a Meta
+  bloqueada, cria o `_fbp` e o `_fbc` do `fbclid` no formato da Meta) → `POST /store/anuncios/passos`
+  (só a loja; 60 lotes por minuto por IP, 3.000 pra loja) → `mandarPassos` (`enviar.ts`, sem trava
+  nem registro; as integrações com um minuto de memória, esquecida quando o dono salva) com o
+  formato em `lib/anuncios/passos.ts` (puro, com testes: a página só com a origem e o caminho, da
+  loja; o horário até uma hora atrás). O GA4 fica de fora: não junta navegador e servidor, e o
+  Measurement Protocol não cria visita — o Início e o Marketing contariam dobrado. No conferidor, o
+  fbevents.js de mentira define o `callMethod`; sem ele a loja acharia que está bloqueado.
 - **O rastro da compra** (`apps/loja/src/lib/rastro.ts`): a ação de finalizar lê a resposta sobre
   os cookies e, de quem não disse não (0230), `_ga`/`_ga_<código>`, `_fbp`/`_fbc`, `_ttp`, o IP,
   o navegador (o aparelho da compra no Funil) e a página; e

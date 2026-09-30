@@ -5047,6 +5047,36 @@ Depois do deploy — **nada a configurar.** Pra ver: numa aba anônima, a faixa 
 Gerenciador de Eventos da Meta, o PageView, o ViewContent, o AddToCart e a Purchase subindo a partir
 do deploy.
 
+**Os eventos de quem usa bloqueador, pelo servidor — pronto em 30/09 (entrega 0231).** Depois da
+0230 ele perguntou se ainda se perdia evento; o que sobrava era quem usa bloqueador de anúncio (a
+extensão no computador, o Brave): o navegador nem carrega o pixel. Pedido dele: "esse pessoal do
+bloqueador também tem que ser enviado".
+
+- **O produto, a sacola, o checkout e o pagamento** (ViewContent, AddToCart, InitiateCheckout e
+  AddPaymentInfo) vão também pelo servidor da loja pra Meta e pro TikTok, de todo mundo que não
+  recusou os cookies, com o MESMO id que vai pelo pixel: a plataforma junta os dois, e de quem tem o
+  pixel bloqueado fica o do servidor.
+- **A visita à página** (PageView) vai pelo servidor só de quem teve o pixel bloqueado — a da
+  chegada e a de cada troca de página. De quem não tem bloqueador, o pixel já conta.
+- **O clique do anúncio:** com a Meta bloqueada, a loja cria os cookies da Meta do jeito que o pixel
+  criaria (o do navegador e o do clique, `fbclid`); pro TikTok vai o `ttclid` da chegada. É o que liga
+  a visita ao anúncio.
+- **O GA4 fica de fora:** ele não junta o do navegador com o do servidor, e o Início e o Marketing do
+  painel contariam dobrado. A compra já vai pra ele pelo servidor, como antes.
+- **A política de privacidade** diz que a Meta e o TikTok recebem isso também pelo servidor, com o
+  IP e o navegador, e que a loja cria os cookies da Meta quando o script dela é bloqueado.
+
+Conferido pelo `conferir-integracoes.mjs` (42; 5 novas: o ViewContent e o AddToCart pelo servidor com
+o mesmo id do pixel, nenhuma visita pelo servidor com o pixel funcionando, e com a Meta e o TikTok
+bloqueados — a visita da home com o `_fbp` criado, o `_fbc` e o `ttclid`, a troca de página, o produto e
+a sacola —, e nada de quem recusou), pelo `conferir-crm.mjs` (258) e pelos testes de unidade
+(1798, 9 novos em `passos.unit.spec.ts`); typecheck, lint e prettier.
+
+Depois do deploy — **vale só com a chave da Meta e do TikTok no Railway** (`META_CAPI_TOKEN` e
+`TIKTOK_EVENTS_TOKEN`, as mesmas da compra pelo servidor; o painel mostra em Configurações →
+Integrações, na compra de cada plataforma). Pra ver: no Gerenciador de Eventos da Meta, cada evento
+mostra "Navegador" e "Servidor" (com a desduplicação), e a qualidade da correspondência sobe.
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa
