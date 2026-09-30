@@ -108,6 +108,23 @@ describe("o formulário de custos", () => {
     )
   })
 
+  it("a % do Pix no Pagar.me vira centésimos de ponto, desde o dia", () => {
+    expect(lerCustos({ taxaDoPix: { valor: "0,99", desde: "2026-02-01" } }, ids, AGORA)).toEqual({
+      ok: true,
+      valores: [{ chave: "taxa-pix-pagarme", desde: "2026-02-01", valor: 99 }],
+    })
+    expect(
+      lerCustos({ taxaDoPix: { valor: "50", desde: "2026-02-01" } }, ids, AGORA)
+    ).toMatchObject({ ok: false, campo: "aliquota" })
+    const t = telaDosCustos(
+      PRODUTOS,
+      porChave([{ chave: "taxa-pix-pagarme", desde: "2026-02-01", valor: 99 }]),
+      AGORA
+    )
+    expect(t.taxaDoPix).toEqual({ valor: 0.99, desde: "2026-02-01" })
+    expect(telaDosCustos(PRODUTOS, VALORES, AGORA).taxaDoPix).toBeNull()
+  })
+
   it("sem nada, não grava nada", () => {
     expect(lerCustos({}, ids, AGORA)).toEqual({ ok: true, valores: [] })
   })

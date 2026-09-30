@@ -114,7 +114,8 @@ export default class FrenetFulfillmentService extends AbstractFulfillmentProvide
 
   /**
    * O SERVIÇO DA FRENET QUE ATENDE A FAIXA ESCOLHIDA, guardado no método de
-   * entrega do carrinho — e, dali, no do pedido (`data.servico`).
+   * entrega do carrinho — e, dali, no do pedido (`data.servico`), com o preço
+   * cotado (o custo da etiqueta, desde a entrega 0226).
    *
    * A consulta de rastreio da Frenet pede o código do serviço junto com o
    * de rastreio (`consultar`, em `rastreio.ts`), e a etiqueta feita à mão no
@@ -145,6 +146,13 @@ export default class FrenetFulfillmentService extends AbstractFulfillmentProvide
             codigo: escolhido.codigo,
             transportadora: escolhido.transportadora,
             nome: escolhido.servico,
+            /*
+              O que a Frenet cobra pela etiqueta, em reais, ANTES da política
+              de frete (o grátis e o fixo mudam o que o cliente paga, não o
+              que a loja paga). É o "Frete pago pela loja" do DRE
+              (`lib/financeiro/dre.ts`).
+            */
+            preco: escolhido.preco,
           },
         }
       }

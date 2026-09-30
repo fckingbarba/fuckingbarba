@@ -98,6 +98,27 @@ export type CobrancaPagarme = {
   order?: { id: string; code?: string; status?: string }
 }
 
+/**
+ * Um RECEBÍVEL — o que o Pagar.me vai repassar de uma cobrança, parcela por
+ * parcela, já com a taxa descontada. É dele que sai a taxa do DRE
+ * (`lib/financeiro/custos-dos-pedidos.ts`). Centavos, como o resto da API.
+ */
+export type RecebivelPagarme = {
+  id?: number | string
+  /** "credit" (a venda), "refund", "chargeback", "chargeback_refund"… */
+  type?: string
+  status?: string
+  /** O que vai ser repassado (já sem a taxa). */
+  amount?: number
+  /** A taxa (MDR) da parcela. */
+  fee?: number
+  anticipation_fee?: number
+  fraud_coverage_fee?: number
+  installment?: number
+  charge_id?: string
+  payment_date?: string
+}
+
 /** Centavos que a cobrança diz que já voltaram pra quem pagou. */
 export function devolvidoNaCobranca(c: Partial<CobrancaPagarme> | null | undefined): number {
   return Math.max(Number(c?.refunded_amount ?? 0) || 0, Number(c?.canceled_amount ?? 0) || 0)
@@ -320,6 +341,22 @@ export function clienteDoPagarme(chaveSecreta: string, url = ENDERECO_PADRAO) {
     /** A cobrança, com o que já foi devolvido e se há estorno andando — ver `lib/estornos.ts`. */
     lerCobranca: (id: string) =>
       chamar<CobrancaPagarme>("GET", `/charges/${encodeURIComponent(id)}`, undefined, PRA_LER),
+
+    /**
+     * Os recebíveis de uma cobrança (a venda, e o estorno e o chargeback se
+     * houver) — a taxa que o Pagar.me cobrou mora neles. Vazio enquanto a
+     * cobrança não foi paga.
+     */
+    async lerRecebiveis(cobranca: string): Promise<RecebivelPagarme[]> {
+      const lista = await chamar<{ data?: RecebivelPagarme[] }>(
+        "GET",
+        `/payables?charge_id=${encodeURIComponent(cobranca)}&size=100`,
+        undefined,
+        PRA_LER
+      )
+      // O filtro é deles; a conferência da cobrança é nossa.
+      return (lista?.data ?? []).filter((r) => !r.charge_id || r.charge_id === cobranca)
+    },
 
     /**
      * O pedido criado com este `code`, ou null.

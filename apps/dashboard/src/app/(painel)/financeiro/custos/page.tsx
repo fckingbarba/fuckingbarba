@@ -59,12 +59,13 @@ async function Custos() {
             <h2 className="bloco__titulo">O que vem sozinho</h2>
             <p className="fin-nota">
               <span className="fin-selo fin-selo--auto">Automático</span> As vendas, os cupons, os
-              estornos e o custo × as unidades vendidas.
+              estornos e o custo × as unidades vendidas; a taxa de cada pagamento no cartão
+              (Pagar.me) e no Pix do Mercado Pago; e o frete de cada pedido (a cotação da Frenet).
             </p>
             <p className="fin-nota">
-              A taxa de cada pagamento (Pagar.me e Mercado Pago) e o frete de cada pedido da loja
-              nova passam a entrar sozinhos na próxima entrega. Antes da loja nova, lance os totais
-              da Nuvemshop em Despesas.
+              Não vêm: a % do Pix no Pagar.me (preencha ao lado), as tarifas de gateway e antifraude
+              que o Pagar.me cobra no extrato do mês, e as taxas e o frete de antes da loja nova —
+              esses, lance em Despesas.
             </p>
           </section>
         </div>

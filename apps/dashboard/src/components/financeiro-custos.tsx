@@ -7,7 +7,8 @@ import { diaEmTexto, emCampo, reais, type TelaDosCustos } from "@/lib/financeiro
 
 /**
  * CUSTOS E IMPOSTO — o custo de cada produto (e desde quando vale), a
- * embalagem por pedido e a alíquota do Simples de cada mês. Só vai pro
+ * embalagem por pedido, a % do Pix no Pagar.me e a alíquota do Simples de
+ * cada mês. Só vai pro
  * Medusa o que mudou. O custo novo vale a partir do dia escolhido: as vendas
  * de antes seguem com o custo de antes. O primeiro custo de um produto vale
  * desde o começo do DRE; mudar um custo que já existe, a partir de hoje.
@@ -30,6 +31,10 @@ export function FormularioDosCustos({ tela }: { tela: TelaDosCustos }) {
     valor: emCampo(tela.embalagem?.valor ?? null),
     desde: tela.embalagem ? tela.hoje : tela.comeco,
   })
+  const [pix, setPix] = useState<Linha>({
+    valor: emCampo(tela.taxaDoPix?.valor ?? null),
+    desde: tela.taxaDoPix ? tela.hoje : tela.comeco,
+  })
   const [erro, setErro] = useState<string | null>(null)
   const mudar = (id: string, campos: Partial<Linha>) =>
     setLinhas((a) => ({ ...a, [id]: { ...a[id], ...campos } }))
@@ -47,8 +52,9 @@ export function FormularioDosCustos({ tela }: { tela: TelaDosCustos }) {
           .filter((p) => mudou(linhas[p.id].valor, p.custo))
           .map((p) => ({ produto: p.id, ...linhas[p.id] }))
         const emb = mudou(embalagem.valor, tela.embalagem?.valor ?? null) ? embalagem : null
+        const taxaDoPix = mudou(pix.valor, tela.taxaDoPix?.valor ?? null) ? pix : null
         comecar(async () => {
-          const r = await salvarCustos({ custos, embalagem: emb })
+          const r = await salvarCustos({ custos, embalagem: emb, taxaDoPix })
           setErro(r.ok ? null : r.texto)
           avisar(r)
         })
@@ -178,6 +184,39 @@ export function FormularioDosCustos({ tela }: { tela: TelaDosCustos }) {
         ) : (
           <span className="tabela__sub">
             {tela.embalagem ? `desde ${diaEmTexto(tela.embalagem.desde)}` : ""}
+          </span>
+        )}
+      </div>
+      <div className="fin-embalagem" data-taxa-do-pix>
+        <label className="fin-embalagem__rot" htmlFor="fin-taxa-do-pix">
+          <b>Taxa do Pix no Pagar.me (%)</b>
+          <small>
+            A do seu contrato: a API do Pagar.me não traz (ele cobra o Pix no mês seguinte). A do
+            cartão e a do Mercado Pago vêm sozinhas.
+          </small>
+        </label>
+        <input
+          id="fin-taxa-do-pix"
+          className="fin-custos__campo"
+          inputMode="decimal"
+          autoComplete="off"
+          placeholder="falta"
+          value={pix.valor}
+          data-vazio={!pix.valor || undefined}
+          onChange={(e) => setPix((a) => ({ ...a, valor: e.target.value }))}
+        />
+        {mudou(pix.valor, tela.taxaDoPix?.valor ?? null) ? (
+          <input
+            type="date"
+            className="fin-custos__campo fin-custos__campo--dia"
+            aria-label="A taxa do Pix vale desde"
+            value={pix.desde}
+            min="2020-01-01"
+            onChange={(e) => setPix((a) => ({ ...a, desde: e.target.value }))}
+          />
+        ) : (
+          <span className="tabela__sub">
+            {tela.taxaDoPix ? `desde ${diaEmTexto(tela.taxaDoPix.desde)}` : ""}
           </span>
         )}
       </div>

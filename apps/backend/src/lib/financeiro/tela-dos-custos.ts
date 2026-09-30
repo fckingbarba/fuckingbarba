@@ -1,9 +1,11 @@
 import {
   aliquotaDoMes,
   CHAVE_DA_EMBALAGEM,
+  CHAVE_DA_TAXA_DO_PIX,
   chaveDoCusto,
   COMECO_DO_DRE,
   ehDia,
+  lerAliquota,
   lerCentavos,
   mesDeAgora,
   mesEAno,
@@ -46,6 +48,8 @@ export type TelaDosCustos = {
   produtos: ProdutoNosCustos[]
   semCusto: number
   embalagem: { valor: number; desde: string } | null
+  /** A % do Pix no Pagar.me que vale hoje (6,54 → 6.54), e desde quando. */
+  taxaDoPix: { valor: number; desde: string } | null
   /** Do mês de agora pro começo do DRE: a alíquota digitada (em %), ou a que o DRE usa no lugar. */
   simples: { mes: string; nome: string; valor: number | null; usa: string | null }[]
 }
@@ -88,6 +92,7 @@ export function telaDosCustos(
     a.publicado === b.publicado ? a.nome.localeCompare(b.nome, "pt-BR") : a.publicado ? -1 : 1
   )
   const embalagem = vigente(valores.get(CHAVE_DA_EMBALAGEM) ?? [], hoje)
+  const taxaDoPix = vigente(valores.get(CHAVE_DA_TAXA_DO_PIX) ?? [], hoje)
   const simples = valores.get("simples") ?? []
   return {
     hoje,
@@ -95,6 +100,7 @@ export function telaDosCustos(
     produtos: linhas,
     semCusto: linhas.filter((l) => l.publicado && l.custo === null).length,
     embalagem: embalagem ? { valor: arred(embalagem.valor / 100), desde: embalagem.desde } : null,
+    taxaDoPix: taxaDoPix ? { valor: taxaDoPix.valor / 100, desde: taxaDoPix.desde } : null,
     simples: mesesEntre(COMECO_DO_DRE, mesDeAgora(agora))
       .reverse()
       .map((mes) => {
@@ -116,8 +122,9 @@ export type ValorPraGravar = { chave: string; desde: string; valor: number | nul
 
 /**
  * O que o formulário de custos manda: `{ custos: [{ produto, valor, desde }],
- * embalagem: { valor, desde } }`. Cada produto tem que existir; o valor em
- * reais (vazio tira o daquele dia); o dia de 2020 até um ano depois de hoje.
+ * embalagem: { valor, desde }, taxaDoPix: { valor, desde } }`. Cada produto
+ * tem que existir; o valor em reais (a taxa do Pix, em %; vazio tira o
+ * daquele dia); o dia de 2020 até um ano depois de hoje.
  */
 export function lerCustos(
   corpo: unknown,
@@ -125,21 +132,23 @@ export function lerCustos(
   agora: Date
 ):
   | { ok: true; valores: ValorPraGravar[] }
-  | { ok: false; campo: "produto" | "valor" | "desde"; produto: string | null } {
+  | { ok: false; campo: "produto" | "valor" | "aliquota" | "desde"; produto: string | null } {
   const c = (corpo && typeof corpo === "object" ? corpo : {}) as Record<string, unknown>
   const ultimo = chaveDoDia(new Date(agora.getTime() + 365 * 24 * 60 * 60 * 1000))
   const lerUm = (
     item: unknown,
-    chave: (id: string) => string | null
+    chave: (id: string) => string | null,
+    ler: (v: unknown) => number | null | "invalido" = lerCentavos
   ):
     | { ok: true; valor: ValorPraGravar }
-    | { ok: false; campo: "produto" | "valor" | "desde"; produto: string | null } => {
+    | { ok: false; campo: "produto" | "valor" | "aliquota" | "desde"; produto: string | null } => {
     const i = (item && typeof item === "object" ? item : {}) as Record<string, unknown>
     const id = typeof i.produto === "string" ? i.produto : null
     const k = chave(id ?? "")
     if (!k) return { ok: false, campo: "produto", produto: id }
-    const valor = lerCentavos(i.valor)
-    if (valor === "invalido") return { ok: false, campo: "valor", produto: id }
+    const valor = ler(i.valor)
+    if (valor === "invalido")
+      return { ok: false, campo: ler === lerAliquota ? "aliquota" : "valor", produto: id }
     if (!ehDia(i.desde) || i.desde < "2020-01-01" || i.desde > ultimo)
       return { ok: false, campo: "desde", produto: id }
     return { ok: true, valor: { chave: k, desde: i.desde, valor } }
@@ -153,6 +162,11 @@ export function lerCustos(
   }
   if (c.embalagem !== undefined && c.embalagem !== null) {
     const r = lerUm(c.embalagem, () => CHAVE_DA_EMBALAGEM)
+    if (!r.ok) return r
+    valores.push(r.valor)
+  }
+  if (c.taxaDoPix !== undefined && c.taxaDoPix !== null) {
+    const r = lerUm(c.taxaDoPix, () => CHAVE_DA_TAXA_DO_PIX, lerAliquota)
     if (!r.ok) return r
     valores.push(r.valor)
   }

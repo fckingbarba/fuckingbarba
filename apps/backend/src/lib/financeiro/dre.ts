@@ -3,11 +3,11 @@ import { ehCupomDoCrm } from "../crm/fluxos"
 import { PREFIXO_DA_PROMOCAO } from "../cupons"
 import { chaveDoDia, reais } from "../painel/formato"
 import { dentro } from "../painel/periodo"
+import { PAGARME } from "../pagamento/parceiros"
 import { pagamentoDo, totalDo, type PedidoCru } from "../painel/pedido"
 import type { DespesaNoMes } from "./despesas"
 import {
   aliquotaDoMes,
-  DIA_DA_LOJA_NOVA,
   emPorcento,
   janelaDoMes,
   MES_DA_LOJA_NOVA,
@@ -119,17 +119,38 @@ export type VendaDoDre = {
   cancelada: boolean
   itens: { produto: string | null; nome: string; unidades: number }[]
   estornos: { valor: number; em: Date }[]
+  /** Quem cobrou ("Pagar.me", "Mercado Pago") e como — só na loja nova. */
+  pagamento: { parceiro: string | null; forma: "pix" | "cartao" | null }
+  /**
+   * A taxa que o parceiro cobrou, em reais — o job `custos-dos-pedidos` vai
+   * buscar; `null` enquanto não chegou. Na Nuvemshop, sempre `null`: lá a taxa
+   * entra lançada, mês a mês.
+   */
+  taxa: number | null
+  /** O que a loja paga pela etiqueta (a cotação da Frenet), em reais; `null` sem ela. */
+  fretePago: number | null
+  /** De onde veio o frete pago: a cotação do checkout, ou a que o job fez depois. */
+  freteDe: "checkout" | "depois" | null
 }
 
 /** O pedido da loja nova com o que o DRE lê (`pedidosDoFinanceiro`, na rota). */
 export type PedidoDoDre = Omit<PedidoCru, "shipping_methods"> & {
   shipping_methods?:
-    { amount?: unknown; adjustments?: { code?: string | null; amount?: unknown }[] | null }[] | null
+    | {
+        amount?: unknown
+        adjustments?: { code?: string | null; amount?: unknown }[] | null
+        /** O serviço da Frenet, com o preço cotado (`validateFulfillmentData`, desde a 0226). */
+        data?: { servico?: { codigo?: unknown; nome?: unknown; preco?: unknown } | null } | null
+      }[]
+    | null
 }
 
+/** O que o job guardou do pedido (`fin_pedido`), em centavos. */
+export type CustoGuardado = { taxa?: number | null; frete?: number | null }
+
 /** A venda de um pedido da loja nova — `null` se o dinheiro não entrou. */
-export function vendaDaLoja(o: PedidoDoDre): VendaDoDre | null {
-  const { pagoEm } = pagamentoDo(o as PedidoCru)
+export function vendaDaLoja(o: PedidoDoDre, guardado: CustoGuardado = {}): VendaDoDre | null {
+  const { pagoEm, parceiro, forma } = pagamentoDo(o as PedidoCru)
   if (!pagoEm) return null
   const itens = o.items ?? []
   const metodos = o.shipping_methods ?? []
@@ -148,9 +169,19 @@ export function vendaDaLoja(o: PedidoDoDre): VendaDoDre | null {
   const centavos = arred(produtos + frete - cobrado - doAjuste)
   if (centavos !== 0) porTipo.set("centavos", centavos)
   const pagamentos = (o.payment_collections ?? []).flatMap((c) => c.payments ?? [])
+  // A cotação do checkout, em todo método de entrega; sem ela em algum, a que o job fez depois.
+  const cotados = metodos.map((m) => m.data?.servico?.preco)
+  const doCheckout = cotados.every((c) => typeof c === "number" && Number.isFinite(c))
+    ? soma(cotados.map(Number))
+    : null
+  const depois = typeof guardado.frete === "number" ? arred(guardado.frete / 100) : null
   return {
     id: o.id,
     origem: "loja",
+    pagamento: { parceiro, forma },
+    taxa: typeof guardado.taxa === "number" ? arred(guardado.taxa / 100) : null,
+    fretePago: doCheckout ?? depois,
+    freteDe: doCheckout !== null ? "checkout" : depois !== null ? "depois" : null,
     pagoEm,
     produtos,
     frete,
@@ -238,6 +269,10 @@ export function vendaDaNuvemshop(
   return {
     id: `nuvemshop:${o.numero}`,
     origem: "nuvemshop",
+    pagamento: { parceiro: null, forma: null },
+    taxa: null,
+    fretePago: null,
+    freteDe: null,
     pagoEm,
     produtos: arred(cobrado + desconto - frete),
     frete,
@@ -291,8 +326,8 @@ export type Linha = {
   tipo: TipoDaLinha
   /** Em reais: o que tira do resultado vem negativo. */
   valor: number
-  /** "auto": o sistema calcula; "lancado": sai das Despesas. */
-  fonte: "auto" | "lancado" | null
+  /** "auto": o sistema calcula; "lancado": sai das Despesas; "misto": os dois. */
+  fonte: "auto" | "lancado" | "misto" | null
   /** A etiqueta amarela quando o número está incompleto ("2 sem custo"). */
   falta: string | null
   detalhe: Detalhe[]
@@ -373,8 +408,12 @@ export type Faltas = {
   /** Mês da Nuvemshop com venda e sem a taxa (ou o frete) lançada. */
   taxasDaNuvemshop: string[]
   freteDaNuvemshop: string[]
-  /** Pedidos da loja nova: a taxa e o frete deles ainda não entram sozinhos. */
-  daLojaNova: number
+  /** Pedidos da loja nova ainda sem a taxa lida no parceiro. */
+  semTaxa: number
+  /** Pedidos no Pix do Pagar.me sem a % do contrato. */
+  semPctDoPix: number
+  /** Pedidos da loja nova (os que saíram) sem a cotação do frete. */
+  semFrete: number
 }
 
 const semFaltas = (): Faltas => ({
@@ -383,7 +422,9 @@ const semFaltas = (): Faltas => ({
   simples: null,
   taxasDaNuvemshop: [],
   freteDaNuvemshop: [],
-  daLojaNova: 0,
+  semTaxa: 0,
+  semPctDoPix: 0,
+  semFrete: 0,
 })
 
 /* ── o DRE de um mês ──────────────────────────────────────────────────────── */
@@ -397,6 +438,8 @@ export type DadosDoDre = {
   embalagem: readonly Vigencia[]
   /** Em centésimos de ponto (6,54% = 654), desde o dia 1 de cada mês. */
   simples: readonly Vigencia[]
+  /** A % do Pix no Pagar.me (centésimos de ponto), cada uma desde um dia. */
+  taxaDoPix?: readonly Vigencia[]
 }
 
 export type DreDoMes = {
@@ -411,23 +454,49 @@ const linha = (
   id: IdDaLinha,
   valor: number,
   detalhe: Detalhe[] = [],
-  falta: string | null = null
+  falta: string | null = null,
+  fonte: Linha["fonte"] = MOLDE[id].fonte
 ): Linha => ({
   id,
   ...MOLDE[id],
+  fonte,
   valor: arred(valor),
   falta,
   detalhe,
 })
 
 /** Soma por nome, na ordem em que apareceu, e tira o que deu zero. */
+/**
+ * Soma por nome, na ordem em que apareceu, e tira o que deu zero. O nome que
+ * conta ("Óleo · 5 unidades", "Pagar.me, cartão (2 pedidos)", "452 pedidos ×
+ * R$ 3,20") junta com o de outro mês pelo que vem em volta do número, e o
+ * número soma: somando meses, "3 unidades" e "2 unidades" viram "5 unidades".
+ */
+const CONTADO = /^(.*?)(\d+) (pedidos?|unidades?)(.*)$/
 function porNome(itens: readonly Detalhe[]): Detalhe[] {
-  const mapa = new Map<string, number | null>()
+  const mapa = new Map<
+    string,
+    { nome: string; valor: number | null; n: number; partes: RegExpExecArray | null }
+  >()
   for (const d of itens) {
-    const antes = mapa.get(d.nome)
-    mapa.set(d.nome, d.valor === null ? (antes ?? null) : arred((antes ?? 0) + d.valor))
+    const m = CONTADO.exec(d.nome)
+    const chave = m ? `${m[1]}#${m[3].replace(/s$/, "")}#${m[4]}` : d.nome
+    const antes = mapa.get(chave)
+    mapa.set(chave, {
+      nome: d.nome,
+      valor: d.valor === null ? (antes?.valor ?? null) : arred((antes?.valor ?? 0) + d.valor),
+      n: (antes?.n ?? 0) + (m ? Number(m[2]) : 0),
+      partes: m,
+    })
   }
-  return [...mapa].map(([nome, valor]) => ({ nome, valor })).filter((d) => d.valor !== 0)
+  return [...mapa.values()]
+    .map(({ nome, valor, n, partes }) => {
+      if (!partes) return { nome, valor }
+      const [, antes, , palavra, depois] = partes
+      const um = palavra.replace(/s$/, "")
+      return { nome: `${antes}${n} ${n === 1 ? um : `${um}s`}${depois}`, valor }
+    })
+    .filter((d) => d.valor !== 0)
 }
 
 const ORIGEM: Record<Origem, string> = { loja: "Loja nova", nuvemshop: "Nuvemshop" }
@@ -514,15 +583,96 @@ export function dreDoMes(mes: string, dados: DadosDoDre): DreDoMes {
     }
   }
 
-  // O que falta nas taxas e no frete: a Nuvemshop só lançada; a loja nova, na próxima entrega.
+  /*
+    A TAXA E O FRETE: os da Nuvemshop, só lançados; os da loja nova, pedido a
+    pedido — a taxa de toda venda paga (`taxaDe`, logo abaixo), o frete das
+    que saíram. O que ainda não chegou é falta.
+  */
   const daNuvemshop = vendas.some((v) => v.origem === "nuvemshop") && mes <= MES_DA_LOJA_NOVA
-  faltas.daLojaNova = vendas.filter((v) => v.origem === "loja").length
-  const taxas = lancado("taxas")
-  const fretePago = lancado("fretePago")
+  const daLoja = vendas.filter((v) => v.origem === "loja")
+  const saemDaLoja = saem.filter((v) => v.origem === "loja")
+  /*
+    A taxa de cada venda: a do cartão e a do Mercado Pago, a que o job leu,
+    voltando na proporção do que foi estornado (a taxa do cartão e a do
+    Mercado Pago voltam com o estorno); a do Pix do Pagar.me, a % do
+    contrato sobre o cobrado — e ela não volta.
+  */
+  const taxaDe = (v: VendaDoDre): number | null => {
+    if (v.pagamento.parceiro === PAGARME.nome && v.pagamento.forma === "pix") {
+      const pct = vigente(dados.taxaDoPix ?? [], chaveDoDia(v.pagoEm))
+      return pct ? arred((v.cobrado * pct.valor) / 10_000) : null
+    }
+    if (v.taxa === null) return null
+    const estornado = v.estornos.reduce((s, e) => s + e.valor, 0)
+    const fica = v.cobrado > 0 ? Math.max(0, v.cobrado - estornado) / v.cobrado : 1
+    return arred(v.taxa * fica)
+  }
+  const ehPixDoPagarme = (v: VendaDoDre) =>
+    v.pagamento.parceiro === PAGARME.nome && v.pagamento.forma === "pix"
+  faltas.semPctDoPix = daLoja.filter((v) => ehPixDoPagarme(v) && taxaDe(v) === null).length
+  faltas.semTaxa = daLoja.filter((v) => !ehPixDoPagarme(v) && taxaDe(v) === null).length
+  faltas.semFrete = saemDaLoja.filter((v) => v.fretePago === null).length
+  const automatico = (
+    grupos: Map<string, { n: number; valor: number }>,
+    lancadoAqui: ReturnType<typeof lancado>
+  ) => {
+    const auto = soma([...grupos.values()].map((g) => g.valor))
+    const temAuto = [...grupos.values()].some((g) => g.n > 0)
+    return {
+      valor: arred(lancadoAqui.valor - auto),
+      detalhe: [
+        ...[...grupos].map(([nome, g]) => ({
+          nome: `${nome} (${plural(g.n, "pedido", "pedidos")})`,
+          valor: -arred(g.valor),
+        })),
+        ...lancadoAqui.detalhe,
+      ],
+      tem: lancadoAqui.tem,
+      fonte: (temAuto && lancadoAqui.tem
+        ? "misto"
+        : temAuto
+          ? "auto"
+          : "lancado") as Linha["fonte"],
+    }
+  }
+  const agrupar = (
+    lista: VendaDoDre[],
+    valor: (v: VendaDoDre) => number | null,
+    nome: (v: VendaDoDre) => string
+  ) => {
+    const grupos = new Map<string, { n: number; valor: number }>()
+    for (const v of lista) {
+      const x = valor(v)
+      if (x === null) continue
+      const g = grupos.get(nome(v)) ?? { n: 0, valor: 0 }
+      grupos.set(nome(v), { n: g.n + 1, valor: g.valor + x })
+    }
+    return grupos
+  }
+  const NOME_DA_FORMA = { pix: "Pix", cartao: "cartão" } as const
+  const taxas = automatico(
+    agrupar(daLoja, taxaDe, (v) =>
+      [
+        v.pagamento.parceiro ?? "Pagamento",
+        v.pagamento.forma ? NOME_DA_FORMA[v.pagamento.forma] : null,
+      ]
+        .filter(Boolean)
+        .join(", ")
+    ),
+    lancado("taxas")
+  )
+  const fretePago = automatico(
+    agrupar(
+      saemDaLoja,
+      (v) => v.fretePago,
+      (v) => (v.freteDe === "depois" ? "Frenet, cotado depois" : "Frenet, cotação do checkout")
+    ),
+    lancado("fretePago")
+  )
   if (daNuvemshop && !taxas.tem) faltas.taxasDaNuvemshop.push(mes)
   if (daNuvemshop && !fretePago.tem) faltas.freteDaNuvemshop.push(mes)
-  const faltaNa = (lancou: boolean) =>
-    daNuvemshop && !lancou ? "falta lançar" : faltas.daLojaNova ? "loja nova: ainda não" : null
+  const faltaNa = (lancou: boolean, semNaLoja: number, texto: string) =>
+    daNuvemshop && !lancou ? "falta lançar" : semNaLoja ? `${semNaLoja} ${texto}` : null
 
   const comissoes = lancado("comissoes")
   const fixas = (["marketing", "plataforma", "pessoal", "contador", "outras"] as const).map(
@@ -566,11 +716,11 @@ export function dreDoMes(mes: string, dados: DadosDoDre): DreDoMes {
       -totalEstornos,
       [
         {
-          nome: `Pedidos cancelados ou estornados inteiros (${inteiros.length})`,
+          nome: `Cancelados ou estornados inteiros (${plural(inteiros.length, "pedido", "pedidos")})`,
           valor: -soma(inteiros.map((e) => e.valor)),
         },
         {
-          nome: `Estornos de parte do pedido (${parciais.length})`,
+          nome: `Estornos de parte do pedido (${plural(parciais.length, "pedido", "pedidos")})`,
           valor: -soma(parciais.map((e) => e.valor)),
         },
       ].filter((d) => d.valor !== 0)
@@ -614,8 +764,20 @@ export function dreDoMes(mes: string, dados: DadosDoDre): DreDoMes {
     ),
     linha("lucroBruto", lucroBruto),
     linha("variaveis", variaveis),
-    linha("taxas", taxas.valor, taxas.detalhe, faltaNa(taxas.tem)),
-    linha("fretePago", fretePago.valor, fretePago.detalhe, faltaNa(fretePago.tem)),
+    linha(
+      "taxas",
+      taxas.valor,
+      taxas.detalhe,
+      faltaNa(taxas.tem, faltas.semTaxa + faltas.semPctDoPix, "sem a taxa"),
+      taxas.fonte
+    ),
+    linha(
+      "fretePago",
+      fretePago.valor,
+      fretePago.detalhe,
+      faltaNa(fretePago.tem, faltas.semFrete, "sem a cotação"),
+      fretePago.fonte
+    ),
     linha("comissoes", comissoes.valor, comissoes.detalhe),
     linha("margem", margem),
     linha("fixas", totalFixas),
@@ -630,7 +792,15 @@ export function dreDoMes(mes: string, dados: DadosDoDre): DreDoMes {
 /* ── o DRE de vários meses ────────────────────────────────────────────────── */
 
 export type Pendencia = {
-  id: "custo" | "embalagem" | "simples" | "taxas" | "frete" | "loja-nova"
+  id:
+    | "custo"
+    | "embalagem"
+    | "simples"
+    | "taxas"
+    | "frete"
+    | "taxa-do-pix"
+    | "taxa-da-loja"
+    | "frete-da-loja"
   texto: string
   /** A aba onde se resolve. */
   onde: "custos" | "despesas" | null
@@ -651,8 +821,18 @@ export function dreDoPeriodo(dres: readonly DreDoMes[]): DreDoPeriodo {
   const linhas = IDS_DAS_LINHAS.map((id) => {
     const doId = dres.map((d) => d.linhas.find((l) => l.id === id)!)
     const detalhe = porNome(doId.flatMap((l) => l.detalhe))
+    // A fonte de quem soma meses: a dos meses com valor; "misto" quando divergem.
+    const fontes = new Set(doId.filter((l) => l.valor !== 0).map((l) => l.fonte))
+    const fonte: Linha["fonte"] =
+      fontes.has("misto") || (fontes.has("auto") && fontes.has("lancado"))
+        ? "misto"
+        : fontes.has("auto")
+          ? "auto"
+          : fontes.has("lancado")
+            ? "lancado"
+            : MOLDE[id].fonte
     return {
-      ...linha(id, soma(doId.map((l) => l.valor)), detalhe),
+      ...linha(id, soma(doId.map((l) => l.valor)), detalhe, null, fonte),
       falta: dres.length === 1 ? doId[0].falta : primeiraFalta(doId),
     }
   })
@@ -713,11 +893,25 @@ export function dreDoPeriodo(dres: readonly DreDoMes[]): DreDoPeriodo {
       texto: `O frete pago na Nuvemshop em ${juntar(frete.map(nomeDoMes))} não foi lançado.`,
       onde: "despesas",
     })
-  const daLojaNova = dres.reduce((s, d) => s + d.faltas.daLojaNova, 0)
-  if (daLojaNova)
+  const semPctDoPix = dres.reduce((s, d) => s + d.faltas.semPctDoPix, 0)
+  if (semPctDoPix)
     pendencias.push({
-      id: "loja-nova",
-      texto: `A taxa e o frete de ${plural(daLojaNova, "pedido", "pedidos")} da loja nova (desde ${DIA_DA_LOJA_NOVA.split("-").reverse().slice(0, 2).join("/")}) ainda não entram sozinhos — vêm na próxima entrega.`,
+      id: "taxa-do-pix",
+      texto: `Sem a % do Pix no Pagar.me (a do contrato: a API não traz): ${plural(semPctDoPix, "pedido", "pedidos")} no Pix sem a taxa.`,
+      onde: "custos",
+    })
+  const semTaxa = dres.reduce((s, d) => s + d.faltas.semTaxa, 0)
+  if (semTaxa)
+    pendencias.push({
+      id: "taxa-da-loja",
+      texto: `A taxa de ${plural(semTaxa, "pedido", "pedidos")} da loja nova ainda não chegou do Pagar.me ou do Mercado Pago — a leitura roda sozinha a cada 30 minutos.`,
+      onde: null,
+    })
+  const semFrete = dres.reduce((s, d) => s + d.faltas.semFrete, 0)
+  if (semFrete)
+    pendencias.push({
+      id: "frete-da-loja",
+      texto: `${plural(semFrete, "pedido", "pedidos")} da loja nova sem a cotação do frete — a cotação roda sozinha a cada 30 minutos.`,
       onde: null,
     })
 

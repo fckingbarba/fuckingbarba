@@ -91,6 +91,7 @@ export async function apagarDespesa(id: string, visto: string): Promise<Resultad
 export type CustosNoFormulario = {
   custos: { produto: string; valor: string; desde: string }[]
   embalagem: { valor: string; desde: string } | null
+  taxaDoPix: { valor: string; desde: string } | null
 }
 
 export async function salvarCustos(c: CustosNoFormulario): Promise<ResultadoDoFinanceiro> {

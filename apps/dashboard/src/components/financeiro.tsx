@@ -328,8 +328,8 @@ export function PraFechar({ t }: { t: TelaDoFinanceiro }) {
       )}
       <ul className="fin-selos">
         <li>
-          <span className="fin-selo fin-selo--auto">Automático</span> sai das vendas, dos cupons e
-          dos custos
+          <span className="fin-selo fin-selo--auto">Automático</span> sai das vendas, dos cupons,
+          dos custos, da taxa de cada pagamento e da cotação do frete
         </li>
         <li>
           <span className="fin-selo fin-selo--lancado">Lançado</span> vem das Despesas
@@ -345,8 +345,12 @@ export function PraFechar({ t }: { t: TelaDoFinanceiro }) {
 function Selos({ l }: { l: LinhaDoDre }) {
   return (
     <>
-      {l.fonte === "auto" ? <span className="fin-selo fin-selo--auto">Automático</span> : null}
-      {l.fonte === "lancado" ? <span className="fin-selo fin-selo--lancado">Lançado</span> : null}
+      {l.fonte === "auto" || l.fonte === "misto" ? (
+        <span className="fin-selo fin-selo--auto">Automático</span>
+      ) : null}
+      {l.fonte === "lancado" || l.fonte === "misto" ? (
+        <span className="fin-selo fin-selo--lancado">Lançado</span>
+      ) : null}
       {l.falta ? (
         <span className="fin-selo fin-selo--falta" data-falta={l.falta}>
           {l.falta}

@@ -43,7 +43,9 @@ type Item = {
 function pedido(o: {
   id: string
   itens: Item[]
-  frete?: { valor: number; ajustes?: [string, number][] }
+  frete?: { valor: number; ajustes?: [string, number][]; cotado?: number }
+  /** O pagamento: no Pagar.me, no cartão (o padrão) ou no Pix. */
+  forma?: "pix" | "cartao"
   total: number
   credito?: number
   pagoEm?: string | null
@@ -69,11 +71,22 @@ function pedido(o: {
           {
             amount: o.frete.valor,
             adjustments: (o.frete.ajustes ?? []).map(([code, amount]) => ({ code, amount })),
+            data:
+              o.frete.cotado === undefined
+                ? {}
+                : { servico: { codigo: "04510", nome: "PAC", preco: o.frete.cotado } },
           },
         ]
       : [],
     payment_collections: [
       {
+        payment_sessions: [
+          {
+            provider_id: "pp_pagarme_pagarme",
+            status: o.pagoEm ? "captured" : "pending",
+            data: { pagarme: { forma: o.forma ?? "cartao", situacao: "paga", valor: 0 } },
+          },
+        ],
         payments: [
           {
             captured_at: o.pagoEm ? em(o.pagoEm) : null,
@@ -100,7 +113,7 @@ const P1 = pedido({
       ajustes: [["BUMP-BALM-3F9A", 5.39]],
     },
   ],
-  frete: { valor: 18.5, ajustes: [["FRETEGRATIS", 18.5]] },
+  frete: { valor: 18.5, ajustes: [["FRETEGRATIS", 18.5]], cotado: 21.3 },
   total: 158.31,
   pagoEm: "2026-09-28 10:00",
 })
@@ -177,7 +190,8 @@ const despesa = (
 
 const DADOS: DadosDoDre = {
   vendas: [
-    vendaDaLoja(P1)!,
+    // A taxa do P1 já chegou (R$ 6,12); a do P2, ainda não.
+    vendaDaLoja(P1, { taxa: 612 })!,
     vendaDaLoja(P2)!,
     vendaDaNuvemshop(N1, doSku)!,
     vendaDaNuvemshop(N2, doSku)!,
@@ -327,24 +341,107 @@ describe("o DRE de um mês", () => {
   })
 
   it("as despesas lançadas caem cada uma na sua linha, até o lucro", () => {
-    expect(v("taxas")).toBe(-2118.4)
-    expect(v("variaveis")).toBe(-2118.4)
-    expect(v("margem")).toBe(-1885.34)
+    // Nuvem Pago lançado (2.118,40) + a taxa do P1 (6,12); o frete: a cotação do P1 (21,30).
+    expect(v("taxas")).toBe(-2124.52)
+    expect(v("fretePago")).toBe(-21.3)
+    expect(v("variaveis")).toBe(-2145.82)
+    expect(v("margem")).toBe(-1912.76)
     expect(v("marketing")).toBe(-9800)
     expect(v("plataforma")).toBe(-168)
     expect(v("fixas")).toBe(-9968)
-    expect(v("operacional")).toBe(-11853.34)
+    expect(v("operacional")).toBe(-11880.76)
     expect(v("financeiro")).toBe(-185.6)
-    expect(v("lucro")).toBe(-12038.94)
+    expect(v("lucro")).toBe(-12066.36)
     expect(set.pedidos).toBe(2)
   })
 
-  it("a taxa e o frete da loja nova ainda não entram sozinhos; o frete da Nuvemshop, sem lançar", () => {
-    expect(linhaDe(set, "taxas").falta).toBe("loja nova: ainda não")
-    expect(linhaDe(set, "fretePago").falta).toBe("falta lançar")
-    expect(set.faltas.daLojaNova).toBe(2)
+  it("a taxa e o frete da loja nova entram pedido a pedido, junto do que foi lançado", () => {
+    const taxas = linhaDe(set, "taxas")
+    expect(taxas.fonte).toBe("misto")
+    expect(taxas.detalhe).toEqual([
+      { nome: "Pagar.me, cartão (1 pedido)", valor: -6.12 },
+      { nome: "Nuvem Pago, 1 a 26/09", valor: -2118.4 },
+    ])
+    // A do P2 (cancelado) ainda não chegou — e a cancelada também paga taxa.
+    expect(taxas.falta).toBe("1 sem a taxa")
+    expect(set.faltas.semTaxa).toBe(1)
+    const frete = linhaDe(set, "fretePago")
+    expect(frete.fonte).toBe("auto")
+    expect(frete.detalhe).toEqual([
+      { nome: "Frenet, cotação do checkout (1 pedido)", valor: -21.3 },
+    ])
+    // O frete da Nuvemshop de setembro não foi lançado; o do P2 cancelado não conta.
+    expect(frete.falta).toBe("falta lançar")
+    expect(set.faltas.semFrete).toBe(0)
     expect(set.faltas.freteDaNuvemshop).toEqual(["2026-09"])
     expect(set.faltas.taxasDaNuvemshop).toEqual([])
+  })
+
+  it("sem a cotação do checkout, o frete cotado depois; sem nenhum, falta", () => {
+    const semCotacao = pedido({
+      id: "order_p3",
+      itens: [{ produto: "prod_oleo", titulo: "Óleo", unit: 54.9, qtd: 1 }],
+      frete: { valor: 15 },
+      total: 69.9,
+      pagoEm: "2026-10-02 10:00",
+    })
+    const depois = vendaDaLoja(semCotacao, { taxa: 300, frete: 1850 })!
+    expect(depois).toMatchObject({
+      taxa: 3,
+      fretePago: 18.5,
+      freteDe: "depois",
+      pagamento: { parceiro: "Pagar.me", forma: "cartao" },
+    })
+    const out = dreDoMes("2026-10", { ...DADOS, vendas: [depois, vendaDaLoja(semCotacao)!] })
+    expect(linhaDe(out, "fretePago").detalhe).toEqual([
+      { nome: "Frenet, cotado depois (1 pedido)", valor: -18.5 },
+    ])
+    expect(linhaDe(out, "fretePago").falta).toBe("1 sem a cotação")
+    expect(linhaDe(out, "taxas").detalhe).toEqual([
+      { nome: "Pagar.me, cartão (1 pedido)", valor: -3 },
+    ])
+    expect(linhaDe(out, "taxas").fonte).toBe("auto")
+  })
+
+  it("o Pix do Pagar.me paga a % do contrato — e ela não volta no estorno", () => {
+    const pix = pedido({
+      id: "order_pix",
+      itens: [{ produto: "prod_oleo", titulo: "Óleo", unit: 54.9, qtd: 2 }],
+      frete: { valor: 0, cotado: 17 },
+      forma: "pix",
+      total: 109.8,
+      pagoEm: "2026-10-03 10:00",
+      estornos: [[54.9, "2026-10-04 10:00"]],
+    })
+    const semPct = dreDoMes("2026-10", { ...DADOS, vendas: [vendaDaLoja(pix)!] })
+    expect(linhaDe(semPct, "taxas").falta).toBe("1 sem a taxa")
+    expect(dreDoPeriodo([semPct]).pendencias.find((p) => p.id === "taxa-do-pix")).toMatchObject({
+      onde: "custos",
+      texto: expect.stringContaining("1 pedido no Pix sem a taxa"),
+    })
+    const comPct = dreDoMes("2026-10", {
+      ...DADOS,
+      vendas: [vendaDaLoja(pix)!],
+      taxaDoPix: [{ desde: "2026-02-01", valor: 99 }],
+    })
+    // 109,80 × 0,99% = 1,09 — o estorno de metade não devolve a taxa do Pix.
+    expect(linhaDe(comPct, "taxas").detalhe).toEqual([
+      { nome: "Pagar.me, Pix (1 pedido)", valor: -1.09 },
+    ])
+    expect(linhaDe(comPct, "taxas").falta).toBeNull()
+  })
+
+  it("a taxa do cartão volta na proporção do estorno", () => {
+    // O P2 foi estornado inteiro: a taxa de R$ 3,00 volta toda.
+    const out = dreDoMes("2026-09", {
+      ...DADOS,
+      vendas: [vendaDaLoja(P1, { taxa: 612 })!, vendaDaLoja(P2, { taxa: 300 })!],
+    })
+    expect(linhaDe(out, "taxas").detalhe[0]).toEqual({
+      nome: "Pagar.me, cartão (2 pedidos)",
+      valor: -6.12,
+    })
+    expect(out.faltas.semTaxa).toBe(0)
   })
 
   it("o custo novo do shampoo só vale dali em diante", () => {
@@ -370,7 +467,7 @@ describe("vários meses e a tela", () => {
 
   it("somam linha a linha, e os detalhes pelo nome", () => {
     expect(valorDe(periodo.linhas, "bruta")).toBe(670.8)
-    expect(valorDe(periodo.linhas, "lucro")).toBe(-11968.28)
+    expect(valorDe(periodo.linhas, "lucro")).toBe(-11995.7)
     expect(linhaDe(periodo, "custo").detalhe).toEqual([
       { nome: "Shampoo · 2 unidades", valor: -19.6 },
       { nome: "Óleo · 5 unidades", valor: -57 },
@@ -380,9 +477,39 @@ describe("vários meses e a tela", () => {
     expect(periodo.pedidos).toBe(3)
   })
 
+  it("somando meses, os nomes que contam somam o número, e a fonte mista fica mista", () => {
+    const outubro = dreDoMes("2026-10", {
+      ...DADOS,
+      vendas: [
+        vendaDaLoja(
+          pedido({
+            id: "order_out",
+            itens: [{ produto: "prod_oleo", titulo: "Óleo", unit: 54.9, qtd: 3 }],
+            frete: { valor: 0, cotado: 18 },
+            total: 164.7,
+            pagoEm: "2026-10-05 10:00",
+          }),
+          { taxa: 500 }
+        )!,
+      ],
+    })
+    const junto = dreDoPeriodo([set, outubro])
+    expect(linhaDe(junto, "custo").detalhe[0]).toEqual({ nome: "Óleo · 8 unidades", valor: -91.2 })
+    expect(linhaDe(junto, "taxas").detalhe[0]).toEqual({
+      nome: "Pagar.me, cartão (2 pedidos)",
+      valor: -11.12,
+    })
+    // Setembro tem taxa lançada e automática; outubro, só automática.
+    expect(linhaDe(junto, "taxas").fonte).toBe("misto")
+    expect(linhaDe(dreDoPeriodo([outubro]), "taxas").fonte).toBe("auto")
+    // (o "R$ 3,20" vem do Intl, com o espaço fixo)
+    const [emb] = linhaDe(junto, "embalagem").detalhe
+    expect([emb.nome.replace(/\s/g, " "), emb.valor]).toEqual(["3 pedidos × R$ 3,20", -9.6])
+  })
+
   it("o que falta vira frase, com a aba onde se resolve", () => {
     const so = dreDoPeriodo([set]).pendencias
-    expect(so.map((p) => p.id)).toEqual(["custo", "simples", "frete", "loja-nova"])
+    expect(so.map((p) => p.id)).toEqual(["custo", "simples", "frete", "taxa-da-loja"])
     expect(so[0]).toEqual({
       id: "custo",
       texto:
@@ -390,7 +517,7 @@ describe("vários meses e a tela", () => {
       onde: "custos",
     })
     expect(so[1].texto).toBe("A alíquota do Simples de setembro não veio: usei a de agosto.")
-    expect(so[3].texto).toContain("2 pedidos da loja nova (desde 27/09)")
+    expect(so[3].texto).toContain("A taxa de 1 pedido da loja nova ainda não chegou")
     // Agosto não tem nada lançado: a taxa e o frete da Nuvemshop.
     const juntos = periodo.pendencias.map((p) => p.id)
     expect(juntos).toContain("taxas")

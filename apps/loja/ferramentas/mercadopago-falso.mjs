@@ -86,7 +86,11 @@ export async function subirMercadoPagoFalso({ porta = PORTA_PADRAO, aviso = null
     const erros = []
     if (corpo?.payment_method_id !== "pix") erros.push("payment_method_id must be pix")
     const valor = corpo?.transaction_amount
-    if (typeof valor !== "number" || !(valor > 0) || Math.abs(Math.round(valor * 100) - valor * 100) > 1e-6)
+    if (
+      typeof valor !== "number" ||
+      !(valor > 0) ||
+      Math.abs(Math.round(valor * 100) - valor * 100) > 1e-6
+    )
       erros.push("transaction_amount invalid")
     if (!corpo?.payer?.email) erros.push("payer.email is required")
     const doc = corpo?.payer?.identification
@@ -189,6 +193,14 @@ export async function subirMercadoPagoFalso({ porta = PORTA_PADRAO, aviso = null
           p.status = "approved"
           p.status_detail = "accredited"
           p.date_approved = dataDeLa()
+          // A taxa, como lá: 0,99% do Pix, cobrada da loja (o DRE lê daqui, entrega 0226).
+          p.fee_details = [
+            {
+              type: "mercadopago_fee",
+              amount: Math.round(p.transaction_amount * 0.99) / 100,
+              fee_payer: "collector",
+            },
+          ]
           if (!corpo?.semAviso) setTimeout(() => void avisar(p.id), 100)
         } else if (acao === "vencer") {
           p.status = "cancelled"

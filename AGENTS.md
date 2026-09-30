@@ -3902,11 +3902,28 @@ janeiro teria dois dias de venda contra um mês de despesas).
   último mês que tem e AVISA. O kit é um produto como outro (o catálogo não guarda a composição): o
   dono digita o custo dele.
 - **Todo número incompleto diz que é**: a etiqueta amarela da linha (`falta`: "2 sem custo", "% de
-  agosto", "falta lançar", "loja nova: ainda não") e o "Pra fechar certinho" (`pendencias`, com a
-  aba onde se resolve). No mês a mês, a linha com falta e os totais depois dela vêm marcados
-  (`incompletas`). A taxa e o frete dos pedidos da loja nova ainda não entram sozinhos — é a
-  próxima entrega (a taxa de cada pagamento no Pagar.me e no Mercado Pago, a cotação da Frenet de
-  cada pedido); até lá, a pendência "loja-nova" diz quantos pedidos ficam de fora.
+  agosto", "falta lançar", "3 sem a taxa", "1 sem a cotação") e o "Pra fechar certinho"
+  (`pendencias`, com a aba onde se resolve). No mês a mês, a linha com falta e os totais depois
+  dela vêm marcados (`incompletas`). Somando meses, o detalhe que conta ("Óleo · 5 unidades",
+  "Pagar.me, cartão (2 pedidos)") soma o número (`porNome`), e a fonte vira "misto" quando um mês
+  é automático e outro lançado.
+- **A taxa e o frete de cada pedido da loja nova** (entrega 0226, a parte 2). O FRETE é a cotação
+  da Frenet do checkout: o `validateFulfillmentData` do provedor guarda o `preco` no
+  `data.servico` do método de entrega (o custo da etiqueta, ANTES da política de frete grátis ou
+  fixo). A TAXA do cartão vem dos recebíveis do Pagar.me (`GET /payables?charge_id=`, um por
+  parcela: `fee` + `anticipation_fee` + `fraud_coverage_fee`, `lerRecebiveis`), e a do Pix do
+  Mercado Pago, do `fee_details` (o que não é `fee_payer: "payer"`). O PIX DO PAGAR.ME NÃO TEM A
+  TAXA NA API (o Pagar.me fatura no mês seguinte): ela vem da % do contrato, digitada em Custos e
+  imposto (`fin_valor` "taxa-pix-pagarme", centésimos de ponto, com "vale desde"). Na conta
+  (`taxaDe`, no `dre.ts`): a taxa do cartão e a do Mercado Pago voltam na proporção do estorno; a do
+  Pix do Pagar.me não volta. As tarifas de gateway e de antifraude do Pagar.me vêm no extrato do mês
+  e entram LANÇADAS. Quem busca é o job `custos-dos-pedidos` (de 30 em 30 min,
+  `lib/financeiro/custos-dos-pedidos.ts`): pedido pago da loja nova dos últimos 90 dias, até 40 por
+  rodada, grava em `fin_pedido` (a taxa, e o frete COTADO DE NOVO no pedido sem a cotação do
+  checkout — os de antes da 0226 e o que caiu no preço de emergência —, pelo mesmo código de
+  serviço), tenta até 48 vezes. `POST /admin/financeiro/custos-dos-pedidos` roda a rodada na hora
+  (o conferidor usa). O Pagar.me falso responde os recebíveis (`recebiveisDa`, a tabela pública do
+  cartão; o Pix sem taxa) e o Mercado Pago falso põe o `fee_details` (0,99%) no Pix pago.
 - **As rotas** (todas `exigirArea(…, "financeiro")`): `GET /dashboard/financeiro?periodo=mes|
   mes-passado|ano` (ou `?de=2026-06&ate=2026-09`, e `?comparar=nenhum`) — as linhas somadas com o
   % e a variação, o "de cada R$ 100", as pendências e cada mês numa coluna; `GET|POST
@@ -3923,9 +3940,11 @@ janeiro teria dois dias de venda contra um mês de despesas).
   `financeiro-despesas.tsx`, `financeiro-custos.tsx` e `financeiro-planilha.tsx` (o "Baixar pro
   contador": CSV com ";" e vírgula no decimal, com centavos, montado no navegador); `lib/financeiro.ts`
   (tipos e endereços), `lib/acoes/financeiro.ts`, `estilos/financeiro.css`.
-- **O conferidor** é o `apps/dashboard/ferramentas/conferir-financeiro.mjs` (63): o DRE fecha (cada
-  total, cada mês, o período = a soma dos meses), dois pedidos da rodada (um pago com a oferta, um
-  cancelado depois de pago) mexem na receita, nos descontos e nos estornos pelo que o admin diz, o
+- **O conferidor** é o `apps/dashboard/ferramentas/conferir-financeiro.mjs` (71): o DRE fecha (cada
+  total, cada mês, o período = a soma dos meses), três pedidos da rodada (um Pix pago com a oferta,
+  um Pix cancelado depois de pago, um cartão em 3x) mexem na receita, nos descontos e nos estornos
+  pelo que o admin diz — e, depois da rodada do job, na taxa (a % do Pix e os recebíveis do cartão)
+  e no frete pago (a cotação guardada) —, o
   custo, a embalagem e o Simples salvos pela tela entram na conta, a despesa lançada pela tela cai
   na linha dela, a que repete muda só dali em diante, a tela e a planilha são a API, a operação não
   abre, o celular e o console. Faz login do dono três vezes por rodada: no banco local, o limite de 5

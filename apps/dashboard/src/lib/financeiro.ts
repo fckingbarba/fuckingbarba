@@ -57,7 +57,7 @@ export type LinhaDoDre = {
   nome: string
   tipo: "grupo" | "item" | "total" | "final"
   valor: number
-  fonte: "auto" | "lancado" | null
+  fonte: "auto" | "lancado" | "misto" | null
   falta: string | null
   detalhe: { nome: string; valor: number | null }[]
   pct: number | null
@@ -137,6 +137,8 @@ export type TelaDosCustos = {
   produtos: ProdutoNosCustos[]
   semCusto: number
   embalagem: { valor: number; desde: string } | null
+  /** A % do Pix no Pagar.me que vale hoje (0.99), e desde quando. */
+  taxaDoPix: { valor: number; desde: string } | null
   simples: { mes: string; nome: string; valor: number | null; usa: string | null }[]
 }
 
