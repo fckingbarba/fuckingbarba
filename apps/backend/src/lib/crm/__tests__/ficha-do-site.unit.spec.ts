@@ -191,4 +191,13 @@ describe("as compras e o que combina", () => {
     // Quem ainda não comprou nada não vê sugestão.
     expect(ficha([]).combina).toEqual([])
   })
+
+  it("quem tem o Kit Completo e não tem o Fator vê o Fator (0229)", () => {
+    expect(ficha([pedido("nso_1", 30, [["FBKIT01", null]])]).combina).toEqual([
+      {
+        handle: "fator-de-crescimento-para-barba",
+        porque: "O próximo passo da rotina que você já usa",
+      },
+    ])
+  })
 })

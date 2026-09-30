@@ -2506,8 +2506,10 @@ cookies e a compra pelo servidor:
   seções que o corpo traz: a tela do admin não conhece as integrações, e o "Salvar" dela zerava.
 - **A faixa** (`apps/loja/src/lib/consentimento.ts`): o cookie `fb_consentimento` guarda a resposta,
   a versão e os parceiros — `sim.3.gmtc`. Resposta de outra versão (`VERSAO_DO_CONSENTIMENTO`) ou
-  um sim sem um parceiro que entrou depois volta a ser "perguntar" (`respostaQueVale`); o "não"
-  vale pra qualquer lista. A versão sobe com parceiro ou finalidade nova — a política promete
+  um sim sem um parceiro que entrou depois volta a ser "sem resposta" (`respostaQueVale`; a faixa
+  aparece de novo, e as tags ligam igual); o "não" vale pra qualquer lista. Desde a 0230 o "sim" é o
+  "Entendi" da faixa (um botão só, o da Nuvemshop) e o "não" vem da recusa na política de
+  privacidade (`mudar-resposta.tsx`). A versão sobe com parceiro ou finalidade nova — a política promete
   avisar antes de valer. A 3 (entrega 0130) é a do CRM: a própria loja está em todo sim, e por
   isso a faixa aparece SEMPRE, com ou sem parceiro ligado no painel.
 - **O pé da tela** (entrega 0097): a faixa (`components/analytics/consentimento.tsx`) mora no pé
@@ -2517,25 +2519,22 @@ cookies e a compra pelo servidor:
   Next guarda telas visitadas escondidas, e a cópia que se esconde não pode apagar a medida da
   que está na tela). Barra nova presa embaixo: use o `usePeDaTela`. Até 25/09 a barra da PDP
   (z-index 60) cobria os botões da faixa, e a faixa (z-50, depois no DOM) cobria o botão do
-  checkout. No celular a faixa é menor: letra de 12 px e cada botão numa linha.
+  checkout. No celular a faixa é menor: letra de 12 px, com o "Entendi" ao lado do texto.
 - **As tags** (`components/analytics/`): `tags.tsx` (no layout raiz, com o GA4 da Vercel de
-  reserva) chama `ligarIntegracoes(i, sim)` (`integracoes.ts`, baixado por `import()` só quando
-  alguma tag liga) em dois tempos (entregas 0166 e 0171): SEM RESPOSTA, o GA4 (com
-  `analytics_storage` permitido e os três de anúncio negados) e a Clarity (`consentv2` com
-  `ad_Storage` negado) — contam e gravam a visita como a Nuvemshop, sem nada pra anúncio; COM O
-  SIM, o `consent update` do Google e o `consentv2` liberado da Clarity, o Google Ads, a Meta e o
-  TikTok. Com o "não", os dois nem ligam; se já estavam na página, `responder`
-  (`consentimento.tsx`) liga o `ga-disable-<código>`, nega o `consentv2`, apaga os cookies dos parceiros
+  reserva) chama `ligarIntegracoes(i)` (`integracoes.ts`, baixado por `import()` só quando
+  alguma tag liga) sem resposta ou com o sim — TODAS de uma vez, como a Nuvemshop (entrega 0230):
+  o GA4 e o Google Ads com o `consent default` todo `granted`, a Meta com o PageView, o TikTok e a
+  Clarity com o `consentv2` liberado. Com o "não", nenhuma liga; se já estavam na página, `recusar`
+  (`mudar-resposta.tsx`) liga o `ga-disable-<código>`, nega o `consentv2`, apaga os cookies dos parceiros
   (`_ga`, `_ga_*`, `_gcl_*`, `_fbp`, `_fbc`, `_ttp`, `_clck`, `_clsk`, em cada domínio de cima) e
   recarrega. A resposta que muda antes do `import()` chegar cancela o que ele ia montar. Os
   trechos são os oficiais, com o código conferido de novo. As trocas de página cada plataforma
   conta sozinha (GA4, Meta, TikTok e Clarity escutam o histórico): não mande `page_view` à mão.
 - **A campanha do link** (entrega 0162): cada plataforma lê a campanha no ENDEREÇO da página em
   que liga — as UTMs e o clique do anúncio (`gclid`, `gbraid`, `wbraid`, `gad_*`, `dclid`,
-  `srsltid`, `fbclid`, `ttclid`, `msclkid`) —, e as tags do sim só ligam no "Aceitar" (o GA4 e a
-  Clarity ligam na chegada e leem a campanha ali; quando ela volta, veem uma página a mais). Quem
-  aceitava depois de trocar de página chegava sem campanha em todas (27/09: a Clarity só via o
-  site). O
+  `srsltid`, `fbclid`, `ttclid`, `msclkid`) —; desde a 0230 todas ligam na chegada e leem ali.
+  Até então as do sim esperavam o "Aceitar", e quem aceitava depois de trocar de página chegava
+  sem campanha em todas (27/09: a Clarity só via o site). O
   `guardarACampanha` (`lib/chegada.ts`, no efeito do `tags.tsx`) guarda a da página de chegada na
   aba (`fb_campanha`; outro link na mesma aba troca), e o `devolverACampanha`, no começo do
   `ligarIntegracoes`, a devolve ao endereço antes dos scripts quando ele não tem campanha nenhuma —
@@ -2544,26 +2543,25 @@ cookies e a compra pelo servidor:
   `DA_CAMPANHA`.
 - **Os eventos** saem só por `lib/rastrear.ts`: `gtag('event', …)` pro GA4 e o Ads (o
   `dataLayer.push` de objeto, sem GTM, o gtag.js ignora), os padrões da Meta e do TikTok, e marcas
-  na Clarity. São duas portas, cada uma com a sua fila na página: a da medição abre quando o GA4
-  ou a Clarity ligam (sem resposta ou com o sim) e leva o `gtag('event', …)` e as marcas da
-  Clarity; a dos outros e do CRM, só com o sim (o efeito do produto roda antes do das tags); porta
-  que não abre leva a fila junto com a página. Onde nascem: `view_item` na caixa de compra,
+  na Clarity. São duas portas, cada uma com a sua fila na página: a dos parceiros abre quando as
+  tags ligam (sem resposta ou com o sim) e leva os eventos de todos; a do CRM, só com o "Entendi"
+  (o efeito do produto roda antes do das tags); porta que não abre leva a fila junto com a página. Onde nascem: `view_item` na caixa de compra,
   `add_to_cart`/`remove_from_cart` pela diferença da sacola no provedor
   (`rastrearMudancaDaSacola` — pega a página do produto, o leva junto, a oferta e o "+"),
   `begin_checkout` e `add_shipping_info` nas etapas, `add_payment_info` no pagar. O `item_id` é o
   id da variante, o mesmo da compra do servidor.
 - **O rastro da compra** (`apps/loja/src/lib/rastro.ts`): a ação de finalizar lê a resposta sobre
-  os cookies; de quem não disse não, `_ga`/`_ga_<código>` e o navegador (o aparelho da compra no
-  Funil, pra mesma gente das visitas); e, só com o sim, `_fbp`/`_fbc`, `_ttp`, o IP e a página; e
+  os cookies e, de quem não disse não (0230), `_ga`/`_ga_<código>`, `_fbp`/`_fbc`, `_ttp`, o IP,
+  o navegador (o aparelho da compra no Funil) e a página; e
   manda DEPOIS da resposta (`after()`) pra `POST /store/pedidos/rastro` (só a loja, `daLoja`;
   `registrarRastroWorkflow` grava `fb_rastro` uma vez). NÃO vai no metadata do carrinho — que o
   2.21 copia pro pedido (conferido em 25/09) —, porque qualquer update do carrinho roda o
   `refreshCartItemsWorkflow`: cota o frete de novo e refaz a coleção de pagamento, na hora de
   pagar.
 - **A compra pelo servidor** (`apps/backend/src/lib/anuncios/`): `compra.ts` é puro — `decidir`
-  (código no painel, chave no Railway; o "não" dispensa todas; o GA4 vai de quem não disse não, com
-  `ad_user_data`/`ad_personalization` só `GRANTED` com o sim ao Google; a Meta e o TikTok, só com o
-  sim pra eles; sem rastro, espera 30 minutos) e
+  (código no painel, chave no Railway; o "não" dispensa todas; de quem não disse não, vai pras
+  três, com `ad_user_data`/`ad_personalization` `GRANTED` — 0230, como as tags; o GA4 sem o
+  `client_id` dispensa; sem rastro, espera 30 minutos) e
   o formato de cada um (a Meta na Graph `v26.0`, o GA4 no Measurement Protocol, o TikTok na Events
   API; o id do pedido é o `event_id`/`transaction_id` de todos). `enviar.ts` manda, dentro da trava
   `anuncios-compra:<pedido>`, e grava `fb_anuncios.compra.<plataforma>` (enviada, dispensada ou
@@ -2649,7 +2647,7 @@ Barba"). Só de quem disse sim à faixa de cookies, e ligado ao e-mail da pessoa
   `tags.tsx`) e o
   `contato_informado` (o e-mail no passo 1 do checkout, nas etapas; uma vez por carrinho na
   sessão, `umaVez`). Tudo espera o mesmo
-  "Aceitar" das tags. Junta 2 segundos num envio (até 20), manda pelo `sendBeacon` ao sair da
+  "Entendi" da faixa. Junta 2 segundos num envio (até 20), manda pelo `sendBeacon` ao sair da
   página, e o mesmo produto visto duas vezes em 2 segundos conta uma (o efeito dobrado do React no
   desenvolvimento). O `anotar.ts` só baixa depois do sim (`import()` no `rastrear`); o que precisa
   existir antes (guardar a chegada e o "onde") é o `chegada.ts`, pequeno. No `next dev` recém-subido
@@ -2686,7 +2684,7 @@ Barba"). Só de quem disse sim à faixa de cookies, e ligado ao e-mail da pessoa
   das páginas institucionais no meio do carregamento.
 
 O conferidor é o `apps/dashboard/ferramentas/conferir-crm.mjs` (97 com as partes 2 a 5): a rota (assinatura, lote,
-esquecer), a loja com "Só o necessário" (nada sai, nenhum cookie) e com "Aceitar" (a chegada com a
+esquecer), a loja com a recusa da política (nada sai, nenhum cookie) e com o "Entendi" (a chegada com a
 campanha, o produto, a sacola e o e-mail do checkout chegando nas anotações de antes), a
 newsletter, a conta (o código pelo Resend falso), a tela do dono, do marketing no celular e da
 operação (sem acesso), e o "não" depois do sim apagando tudo. Precisa do Medusa mandando o código
@@ -2742,8 +2740,9 @@ dos pedidos. A operação abre a ficha sem essa parte.
     a promoção automática, `PROMO-`, não contam).
 - **Quanto dura cada frasco:** pelo endereço do produto (`componentesDoProduto`: "kit-3-…" são 3,
   "…-duplo" são 2, o kit de dois produtos é um de cada, o `kit-completo-para-barba` está em
-  `KITS`), vezes a quantidade, vezes os dias de `DIAS_PADRAO` (Fator 30; óleo, shampoo e spray 45;
-  balm e pasta 60) — até os Ajustes do CRM deixarem o dono mudar. Produto novo com nome fora do
+  `KITS`), vezes a quantidade, vezes os dias de `DIAS_PADRAO` (Fator 30; shampoo 65, óleo 70 e
+  balm 80 desde a 0229, pelas vendas da Nuvemshop de fev–set/2026; spray 45; pasta 60) — os
+  Ajustes do CRM mudam cada um. Produto novo com nome fora do
   padrão: ponha em `KITS`. Sem o aviso de entrega, o pedido conta como entregue 7 dias depois de
   pago, a partir de 10 dias pago (o porquê diz "estimada").
 - **A entrega** é o "entregue" mais tarde entre o envio do Medusa (`delivered_at`) e o aviso da
@@ -2991,8 +2990,10 @@ o e-mail (escolha do dono: é sobre a compra que a pessoa começou), e nasceram 
   - Cada fluxo tem a chave de ligar (desligar guarda o `desde`; ligar de novo começa agora), os
     números de 30 dias e os toques. Os números: quem recebeu, quem comprou em até 7 dias do
     primeiro e-mail e quanto (o 1º pedido), os cupons usados, e o mesmo pro controle.
-  - Cada toque tem o "Mandar pra mim" (`POST /dashboard/crm/fluxos/teste`). O desconto do cupom
-    vai de 5% a 30% (padrão 10%).
+  - Cada toque tem o "Mandar pra mim" (`POST /dashboard/crm/fluxos/teste`, 10 por hora por
+    pessoa, na memória). O desconto do cupom vai de 5% a 30% (padrão 10%). O `conferir-crm` clica
+    8 deles por rodada (0229): a 2ª rodada na mesma hora cai nos "Mandar pra mim" sem bug nenhum —
+    reinicie o Medusa entre as rodadas.
   - A configuração mora no metadata da loja (`fb_crm_fluxos`). A regra da tela e do mudar é
     `lib/painel/fluxos.ts`.
   - `POST /dashboard/crm/fluxos/rodar` roda agora; fora de produção aceita `{ agora, email }`, que
@@ -3347,7 +3348,9 @@ que a pessoa comprou está pra acabar. É um fluxo do motor que começa DESLIGAD
 - **Os e-mails** (`emailDaReposicao`, em `lib/emails/reposicao.ts`) são todos "lembrete", sem
   palavra de propaganda (o teste recusa). Todos mostram "O de sempre", os produtos da última
   compra pelo SKU, e o de 7 dias mostra também "Pra durar mais" (`SUBIR_PARA`: 3 Fatores, o Kit
-  Completo), se a pessoa já não levou.
+  Completo), se a pessoa já não levou. Quando o de sempre é um kit, todos mostram também o
+  produto sozinho, "Só o shampoo" (`SO_ELE`/`soEleDa`: o shampoo avulso e o duplo, o óleo, o
+  balm — 0229): de quem voltou depois do Kit Completo, o shampoo sozinho saiu mais que o kit.
 - **O "Refazer o pedido"** é o link de voltar com o tipo `repor` (`lib/crm/voltar.ts`):
   - `repor-order_…`: a compra da loja nova num carrinho novo, com os endereços e a conta.
     Clicar de novo devolve o mesmo carrinho (`fb_crm_reposto`, no pedido).
@@ -3357,7 +3360,8 @@ que a pessoa comprou está pra acabar. É um fluxo do motor que começa DESLIGAD
     e o `refazerPedido` são os do Pix vencido. O Pix continua só refazendo pedido cancelado.
   - A página `/voltar/<t>` da loja aceita os prefixos novos.
 - **O nome** vem da conta (o `first_name`) ou da loja antiga (`crm.nomesDaBase`).
-- **No painel:** o bloco Reposição, na aba Fluxos. O "Mandar pra mim" traz o Fator acabando.
+- **No painel:** o bloco Reposição, na aba Fluxos. O "Mandar pra mim" traz o Fator acabando e,
+  desde a 0229, o shampoo de quem levou o Kit Completo (com o "Só o shampoo").
 
 O `conferir-crm.mjs` faz duas pessoas de ponta a ponta:
 - uma da loja antiga que NÃO aceitou ofertas lá: recebe os 4 e-mails, e o "Refazer o pedido"
@@ -3380,7 +3384,10 @@ prioridade 5: depois da reposição, antes das boas-vindas.
   - 3 dias: não pular dia, com a linha do tempo do Fator (só com ele);
   - 7 dias: o check-in, "Como tá indo?";
   - 21 dias: a rotina completa (`sugestoesDaRotina`, a matriz do plano, pelo que a pessoa tem em
-    todas as compras, até dois produtos);
+    todas as compras, até dois produtos). Quem tem o shampoo, o óleo e o balm (o Kit Completo) e
+    não tem o Fator ganha o Fator, e o e-mail vira o dele: "O próximo passo da sua barba", com a
+    linha do tempo e duas avaliações de 4 e 5 estrelas (`fatorSugerido`, 0229). A mesma regra
+    muda o "combina" do site e o de 24 horas da navegação de quem olhou o Kit Completo;
   - 60 dias: o dia 60 do Fator (só com ele).
   O texto é o da página de cada produto (`conteudosDasTrilhas`): sem a seção, o dia fica como
   pulado. Todos são "lembrete", sem palavra de propaganda (o teste recusa).
@@ -3402,7 +3409,8 @@ prioridade 5: depois da reposição, antes das boas-vindas.
 O `conferir-crm.mjs` liga a jornada antes de entregar um pedido do Fator e anda até os 60 dias:
 - confere os 5 e-mails;
 - clica nos dois botões do check-in: um vai pro avaliar, o outro pro WhatsApp ou pro contato;
-- confere que a rotina completa traz o óleo.
+- confere que a rotina completa traz o óleo;
+- e, com um pedido do Kit Completo, que o de 21 dias é o do Fator (0229).
 
 **O CRM, parte 14: o aviso da reposição no site** (entrega 0188, a etapa 3 do plano: "o site usando
 a ficha"). Quem está com a conta aberta vê "Seu Fator de Crescimento acaba em 5 dias", com o
@@ -3561,7 +3569,7 @@ boas-vindas, a estreia e o resgate desceram uma casa.
   do produto (com pelo menos 1 minuto e até 7 dias entre as duas: recarregar não conta), 1 minuto
   na página (`produto_lido`) ou o vídeo do "Vê na prática" (`video_assistido`). O começo é a hora
   dele; a chave é o e-mail, o produto e o dia em Brasília (`chaveDaNavegacao`).
-- **Os dois tipos novos da loja** são só do CRM, com o mesmo "Aceitar" (`SoDaLoja`, em
+- **Os dois tipos novos da loja** são só do CRM, com o mesmo "Entendi" (`SoDaLoja`, em
   `lib/rastrear.ts`):
   - o `produto_lido` sai de `depoisDeUmMinutoNaFrente` (`apps/loja/src/lib/um-minuto.ts`, só na
     página do produto): é a soma do tempo com a aba na frente, e trocar de aba pausa;

@@ -17,6 +17,7 @@ import { trilhaDosComponentes, type Trilha } from "./primeira-compra"
  *   - 10 dias: o indique um brother, pra quem está gostando (0215,
  *     `lib/crm/indicacao.ts`);
  *   - 21 dias: a rotina completa — o que falta pra ela (`sugestoesDaRotina`);
+ *     de quem tem o Kit Completo sem o Fator, o do Fator (0229);
  *   - 40 dias: o lembrete do indique, se nenhum brother comprou;
  *   - 60 dias: o dia 60 do Fator (só com ele).
  *
@@ -41,13 +42,16 @@ export const SKU_DA_ROTINA = {
   shampoo: "FBSH01",
   kitCompleto: "FBKIT01",
   tresFatores: "FBKIT06",
+  fator: "FBFCB01",
 } as const
 
 /**
  * O QUE COMPLETA A ROTINA (a matriz do plano): pelo que a pessoa já tem, em
  * qualquer compra, até dois produtos. Quem tem o Fator e não tem o óleo, o
  * óleo; com os dois, o shampoo; quem cuida da barba sem ter os três, o Kit
- * Completo; e quem levou 1 Fator só, os 3 Fatores (90 dias).
+ * Completo; quem tem os três (o Kit Completo) e não tem o Fator, o Fator — é
+ * o que mais levou quem voltou depois do kit (0229, pelas vendas da Nuvemshop);
+ * e quem levou 1 Fator só, os 3 Fatores (90 dias).
  */
 export function sugestoesDaRotina(tem: ReadonlySet<Componente>, fatoresNoPedido: number): string[] {
   const sugestoes: string[] = []
@@ -55,6 +59,7 @@ export function sugestoesDaRotina(tem: ReadonlySet<Componente>, fatoresNoPedido:
   else if (tem.has("fator") && !tem.has("shampoo")) sugestoes.push(SKU_DA_ROTINA.shampoo)
   const cuidado = (["oleo", "shampoo", "balm"] as const).filter((c) => tem.has(c))
   if (cuidado.length && cuidado.length < 3) sugestoes.push(SKU_DA_ROTINA.kitCompleto)
+  else if (cuidado.length === 3 && !tem.has("fator")) sugestoes.push(SKU_DA_ROTINA.fator)
   if (fatoresNoPedido === 1) sugestoes.push(SKU_DA_ROTINA.tresFatores)
   return sugestoes.slice(0, 2)
 }

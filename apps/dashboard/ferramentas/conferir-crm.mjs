@@ -57,6 +57,9 @@
  * │ • (parte 8) o carrinho: a sacola de quem a loja conhece sem os cinco   │
  * │   toques, o cupom que não vale 3 dias, ou o carrinho que continua      │
  * │   depois de a pessoa abrir o checkout.                                 │
+ * │ • (0229) quem tem o Kit Completo sem o Fator ficando sem o e-mail de   │
+ * │   21 dias (é o do Fator); a reposição de quem levou o kit sem o        │
+ * │   shampoo sozinho; os dias do padrão (shampoo 65, óleo 70, balm 80).   │
  * └────────────────────────────────────────────────────────────────────────┘
  */
 
@@ -2131,11 +2134,11 @@ try {
                 "FBFCB01",
                 "Fator de Crescimento para Barba 30ml"
               ),
-              // O Kit Completo pago há 40 dias: o shampoo (45 dias no padrão) acaba em 12.
+              // O Kit Completo pago há 60 dias: o shampoo (65 dias no padrão, 0229) acaba em 12.
               venda(
                 `E${RODADA}-5`,
                 KIT,
-                agora - 40 * DIA_MS,
+                agora - 60 * DIA_MS,
                 "FBKIT01",
                 "Kit Completo FuckingBarba"
               ),
@@ -2350,7 +2353,7 @@ try {
           ),
         }),
       ])
-      // Da loja nova: um shampoo pago agora (entregue no 7º, dura 45 — acaba em 52 dias).
+      // Da loja nova: um shampoo pago agora (entregue no 7º, dura 65 — acaba em 72 dias).
       const daLojaNova = await fabrica.pedidoPix(DA_LOJA_NOVA, [["shampoo-para-barba", 1]])
       await fabrica.pagar(daLojaNova)
       const pagouEm = Date.now()
@@ -2415,7 +2418,7 @@ try {
           "2 dias antes, 3 e 10 dias depois: os 4 lembretes, e nada mais",
           JSON.stringify(assuntos)
         )
-        await rodar({ agora: aos(pagouEm + 45 * DIA_MS + 30 * MIN), email: DA_LOJA_NOVA })
+        await rodar({ agora: aos(pagouEm + 65 * DIA_MS + 30 * MIN), email: DA_LOJA_NOVA })
         const eLoja = resend.emails.find((e) => e.to?.includes(DA_LOJA_NOVA) && daReposicao(e))
         const loja = await refazer(eLoja)
         ok(
@@ -2828,6 +2831,33 @@ try {
           "21 dias: a rotina completa (quem tem o Fator ganha o óleo); 60 dias: o dia 60 do Fator",
           JSON.stringify(assuntos())
         )
+        // Quem comprou o Kit Completo e não tem o Fator: o de 21 dias é o do Fator (0229).
+        const COMPROU_O_KIT = foraDoControle("jornada.kit", "jornada")
+        const doKit = await fabrica.pedidoPix(COMPROU_O_KIT, [["kit-completo-para-barba", 1]])
+        await fabrica.pagar(doKit)
+        await fabrica.entregar(
+          doKit,
+          await fabrica.enviar(doKit, { codigo: `QK${Date.now() % 1e9}BR`, avisar: false })
+        )
+        const chegouOKit = Date.now()
+        await rodar({
+          agora: new Date(diurno(chegouOKit + 21 * DIA_MS + 5 * MIN)).toISOString(),
+          email: COMPROU_O_KIT,
+        })
+        const doKitNaJornada = resend.emails.filter(
+          (e) => e.to?.includes(COMPROU_O_KIT) && daJornada(e)
+        )
+        const proximoPasso = doKitNaJornada.find(
+          (e) => e.subject === "O próximo passo da sua barba"
+        )
+        ok(
+          Boolean(proximoPasso?.html.includes("/produtos/fator-de-crescimento-para-barba?")) &&
+            /^Matheus, da FuckingBarba </.test(proximoPasso?.from ?? "") &&
+            !proximoPasso?.headers?.["List-Unsubscribe"] &&
+            !doKitNaJornada.some((e) => e.subject === "Agora completa a rotina"),
+          "21 dias de quem comprou o Kit Completo sem o Fator: o Fator, como lembrete (0229)",
+          JSON.stringify(doKitNaJornada.map((e) => e.subject))
+        )
       } finally {
         // O banco local é de todos: a jornada volta a desligada, mesmo se algo acima caiu.
         await mudarFluxos({ fluxo: "jornada", ligado: false })
@@ -2851,7 +2881,7 @@ try {
       const SOME = foraDosDois("resgate.some")
       // A última compra, na loja antiga, há 56 dias: o Fator (entregue no 7º, dura 30) acabou há
       // 19, e a tolerância de 20 dias dos Ajustes põe a pessoa em risco amanhã, ao meio-dia de
-      // Brasília (a data sem hora da Nuvemshop). Junto, 3 balms (180 dias): a reposição dele, lá
+      // Brasília (a data sem hora da Nuvemshop). Junto, 3 balms (240 dias): a reposição dele, lá
       // na frente, é o e-mail que o sunset tem que calar.
       const vendaEm = Date.now() - 56 * DIA_MS
       const b = new Date(vendaEm - 3 * HORA)
@@ -2986,7 +3016,7 @@ try {
 
         // Lá na frente, os 3 balms estão pra acabar: quem respondeu recebe a reposição; quem
         // recebeu o sunset e não voltou, não recebe nada — está adormecido.
-        const noBalm = aos(pagoNaNuvem + 180 * DIA_MS)
+        const noBalm = aos(pagoNaNuvem + 240 * DIA_MS)
         await rodar({ agora: noBalm, email: RESPONDE })
         const calado = await rodar({ agora: noBalm, email: SOME })
         ok(
@@ -3275,22 +3305,35 @@ try {
       "“Mandar pra mim” da estreia: os 4 jeitos do e-mail da loja nova, e o aviso conta",
       JSON.stringify(testesDaEstreia)
     )
-    // O da reposição: o Fator acabando, como lembrete, com o Refazer o pedido.
+    // O da reposição, em dois jeitos: o Fator acabando, e o shampoo de quem levou o Kit
+    // Completo, com o shampoo sozinho (0229) — como lembrete, com o Refazer o pedido.
     const antesDoTesteDaReposicao = caixa.quantos(DONO, (e) => e.subject?.startsWith("[Teste] "))
     await hidratado(dono.pagina, '[data-toque="reposicao-antes-7d"] [data-mandar-pra-mim]')
     await dono.pagina.locator('[data-toque="reposicao-antes-7d"] [data-mandar-pra-mim]').click()
-    const testeDaReposicao = await caixa.esperarEmail(
+    await caixa.esperarEmail(
       DONO,
       (e) => e.subject?.startsWith("[Teste] "),
-      antesDoTesteDaReposicao,
+      antesDoTesteDaReposicao + 1,
       20000
     )
+    const testesDaReposicao = resend.emails
+      .filter((e) => e.to?.includes(DONO) && e.subject?.startsWith("[Teste] "))
+      .slice(antesDoTesteDaReposicao)
     ok(
-      testeDaReposicao?.subject === "[Teste] Seu Fator de Crescimento acaba em uma semana" &&
-        /^Matheus, da FuckingBarba </.test(testeDaReposicao?.from ?? "") &&
-        testeDaReposicao?.html.includes("/voltar/repor-order_"),
-      "“Mandar pra mim” da reposição: o Fator acabando, como lembrete, com o Refazer o pedido",
-      testeDaReposicao?.subject ?? "não chegou"
+      JSON.stringify(testesDaReposicao.map((e) => e.subject)) ===
+        JSON.stringify([
+          "[Teste] Seu Fator de Crescimento acaba em uma semana",
+          "[Teste] Seu shampoo acaba em uma semana",
+        ]) &&
+        testesDaReposicao.every(
+          (e) =>
+            /^Matheus, da FuckingBarba </.test(e.from ?? "") &&
+            e.html.includes("/voltar/repor-order_")
+        ) &&
+        testesDaReposicao[1].html.includes("Só o shampoo") &&
+        testesDaReposicao[1].html.includes("/produtos/shampoo-para-barba?"),
+      "“Mandar pra mim” da reposição: o Fator acabando e o shampoo do Kit Completo (com o shampoo sozinho), como lembrete, com o Refazer o pedido",
+      JSON.stringify(testesDaReposicao.map((e) => e.subject))
     )
     // O do resgate: a pergunta com os 4 botões — de mentira, vão pra loja sem anotar nada.
     const antesDoTesteDoResgate = caixa.quantos(DONO, (e) => e.subject?.startsWith("[Teste] "))
@@ -3352,6 +3395,32 @@ try {
         ]),
       "“Mandar pra mim” do indique: os três jeitos do convite — o Fator, a barba e o cabelo",
       JSON.stringify(testesDoIndique)
+    )
+    // O da rotina de 21 dias (0229): os dois jeitos — quem tem o Fator, e quem tem o Kit
+    // Completo sem ele (o Fator).
+    const antesDoTesteDaRotina = caixa.quantos(DONO, (e) => e.subject?.startsWith("[Teste] "))
+    await hidratado(dono.pagina, '[data-toque="jornada-21d"] [data-mandar-pra-mim]')
+    await dono.pagina.locator('[data-toque="jornada-21d"] [data-mandar-pra-mim]').click()
+    await caixa.esperarEmail(
+      DONO,
+      (e) => e.subject?.startsWith("[Teste] "),
+      antesDoTesteDaRotina + 1,
+      20000
+    )
+    const testesDaRotina = resend.emails
+      .filter((e) => e.to?.includes(DONO) && e.subject?.startsWith("[Teste] "))
+      .slice(antesDoTesteDaRotina)
+    ok(
+      JSON.stringify(testesDaRotina.map((e) => e.subject)) ===
+        JSON.stringify([
+          "[Teste] Agora completa a rotina",
+          "[Teste] O próximo passo da sua barba",
+        ]) &&
+        Boolean(
+          testesDaRotina[1]?.html.includes(`${LOJA}/produtos/fator-de-crescimento-para-barba?`)
+        ),
+      "“Mandar pra mim” da rotina de 21 dias: a de quem tem o Fator e a de quem tem o Kit Completo sem ele",
+      JSON.stringify(testesDaRotina.map((e) => e.subject))
     )
     // A chave das boas-vindas é a do pop-up da loja: desligada, a loja fica sabendo.
     const popupDaLoja = async () =>

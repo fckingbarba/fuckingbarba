@@ -4976,6 +4976,43 @@ os mesmos 22 casos com `sh` e `bash`, 44/44.
 Depois do deploy — **nada a configurar.** O merge desta monta a loja e o painel uma vez (a regra
 mudou): confira na Vercel que os dois ficaram verdes.
 
+**O Kit Completo leva pro Fator e pro shampoo, e os dias da reposição pelas vendas — pronto em 30/09
+(entrega 0229).** Ele perguntou se a marca já está validada, e a gente olhou as vendas da Nuvemshop.
+Quem começa pelo Fator volta mais que quem começa pelo Kit Completo, e a maioria dos clientes novos
+chega pelo kit. De quem voltou depois do kit, o Fator e o shampoo foram o que mais levaram. O CRM
+não mostrava nenhum dos dois pra quem comprou o kit.
+
+- **O e-mail de 21 dias da jornada** (a rotina completa) não saía pra quem levou o Kit Completo: não
+  tinha o que sugerir. Agora, pra quem tem o shampoo, o óleo e o balm e não tem o Fator, ele é o do
+  Fator: "O próximo passo da sua barba", com o Fator, a linha do tempo da página dele e duas
+  avaliações de 4 ou 5 estrelas. Sem desconto, com a cara dos lembretes.
+- **A mesma regra vale no site e na navegação abandonada.** Na página do Fator, quem tem o kit vê
+  "O próximo passo da rotina que você já usa". Quem olhou o Kit Completo e não comprou recebe o
+  Fator no e-mail de 24 horas.
+- **A reposição de quem levou o kit** mostrava só o kit inteiro de novo. Agora mostra também "Só o
+  shampoo" (o avulso e o duplo), e o óleo e o balm sozinhos nos lembretes deles.
+- **Os dias de cada produto** vêm das vendas: shampoo 65 (era 45), óleo 70 (era 45), balm 80 (era
+  60). Quem recomprou o mesmo item voltou em uns 95 dias (a mediana); o lembrete fica um pouco antes,
+  porque quem voltou tarde pode ter acabado antes. O Fator fica em 30: bate com as vendas. Se algum
+  desses já tinha sido mudado em CRM → Ajustes, o número mudado continua valendo. O "Na Nuvemshop"
+  dos Ajustes conta de um pedido ao seguinte; o campo conta da entrega (uns 7 dias depois) até
+  acabar — por isso o do campo é menor.
+- **Os mesmos dias mexem no resgate e na previsão.** Pra quem levou o kit, o "em risco" (e o cupom
+  de 15% do resgate) chega uns 20 dias mais tarde: antes ele ia no dia ~72, quando muita gente
+  ainda ia voltar sozinha. A próxima compra da ficha anda junto.
+- **"Mandar pra mim"** da rotina de 21 dias e da reposição mandam os dois jeitos.
+- **Antes e depois ficou fora do e-mail.** As fotos dos casos têm autorização pra página do produto;
+  e-mail é outro uso. Se quiser, confirme com o advogado e entra depois.
+
+Conferido: o conferir-crm 258/258 três vezes (duas checagens novas: o de 21 dias de quem comprou o
+Kit Completo e o "Mandar pra mim" da rotina; a do "Mandar pra mim" da reposição pede os dois
+jeitos), 1.789 testes de unidade, e o typecheck, o lint e o build do servidor.
+
+- [ ] **Depois do deploy (você):** CRM → Fluxos → Jornada → "Mandar pra mim" no de 21 dias (chegam
+      2) e Reposição → "Mandar pra mim" no de 7 dias (chegam 2). A reposição continua pra ligar em
+      3/10.
+- [ ] **Depois do deploy (você):** CRM → Ajustes: confira shampoo 65, óleo 70, balm 80 e Fator 30.
+
 **Os pixels e o Google desde a primeira página, como na Nuvemshop — pronto em 30/09 (entrega 0230).**
 Os gestores de tráfego reclamaram que passaram a receber bem menos eventos: desde a 0094, a Meta, o
 TikTok e o Google Ads esperavam o "Aceitar" da faixa. Com o aval jurídico, o pedido dele foi "tem que

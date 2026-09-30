@@ -78,4 +78,27 @@ describe("os e-mails da reposição", () => {
     expect(montar({ toque: "reposicao-antes-2d" }).pronto.html).not.toContain("Pra durar mais")
     expect(montar({ subirPara: null }).pronto.html).not.toContain("Pra durar mais")
   })
+
+  it("o de sempre é o Kit Completo: todos mostram também o shampoo sozinho (0229)", () => {
+    const KIT = { ...FATOR, nome: "Kit Completo FuckingBarba", handle: "kit-completo-para-barba" }
+    const SHAMPOO = { ...FATOR, nome: "Shampoo para Barba 120ml", handle: "shampoo-para-barba" }
+    const DUPLO = { ...FATOR, nome: "Kit Shampoo para barba Duplo", handle: "kit-shampoo-duplo" }
+    for (const toque of TOQUES) {
+      const { pronto } = montar({
+        toque,
+        acabando: { curto: "shampoo", artigo: "o" },
+        produtos: [KIT],
+        subirPara: null,
+        soEle: [SHAMPOO, DUPLO],
+      })
+      expect(pronto.html).toContain("O de sempre")
+      expect(pronto.html).toContain("Kit Completo FuckingBarba")
+      expect(pronto.html).toContain("Só o shampoo")
+      expect(pronto.html).toContain("Shampoo para Barba 120ml")
+      expect(pronto.html).toContain("Kit Shampoo para barba Duplo")
+    }
+    // Sem o produto sozinho (o de sempre já é ele), o bloco não aparece.
+    expect(montar({ soEle: [] }).pronto.html).not.toContain("Só o")
+    expect(montar({}).pronto.html).not.toContain("Só o")
+  })
 })

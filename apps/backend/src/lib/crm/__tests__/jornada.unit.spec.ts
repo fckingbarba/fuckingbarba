@@ -44,9 +44,16 @@ describe("o que completa a rotina", () => {
 
   it("quem cuida da barba sem ter os três: o Kit Completo; no máximo dois", () => {
     expect(sugestoesDaRotina(new Set(["oleo"]), 0)).toEqual([SKU.kitCompleto])
-    expect(sugestoesDaRotina(new Set(["oleo", "shampoo", "balm"]), 0)).toEqual([])
     expect(sugestoesDaRotina(new Set(["fator", "balm"]), 1)).toHaveLength(2)
     expect(sugestoesDaRotina(new Set(["pasta"]), 0)).toEqual([])
+  })
+
+  it("quem tem os três cuidados (o Kit Completo) e não tem o Fator: o Fator (0229)", () => {
+    expect(SKU.fator).toBe("FBFCB01")
+    expect(sugestoesDaRotina(new Set(["oleo", "shampoo", "balm"]), 0)).toEqual([SKU.fator])
+    // Com o Fator também, a rotina está completa; com dois cuidados, o Kit Completo continua.
+    expect(sugestoesDaRotina(new Set(["oleo", "shampoo", "balm", "fator"]), 0)).toEqual([])
+    expect(sugestoesDaRotina(new Set(["shampoo", "balm"]), 0)).toEqual([SKU.kitCompleto])
   })
 })
 
