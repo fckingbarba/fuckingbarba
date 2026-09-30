@@ -4865,6 +4865,46 @@ checagens da previsão: pela API (o LTV da Ana e do Bruno é o que foi cobrado; 
 esperando fica sem previsão) e na tela (os 3 valores iguais aos da API). 55/55 três vezes na pilha
 local. Só o conferidor mudou: nada sobe pra loja nem pro painel.
 
+**Financeiro com o DRE — pronto em 30/09 (entrega 0225).** Pedido dele: "no dashboard quero criar
+uma seção de financeiro, preciso ter um DRE ali certinho". Desenho aprovado em 30/09
+(https://claude.ai/artifact/5SL83dZ9v74zEUxbBrqi5z). Escolhas dele: Simples Nacional; o custo de
+cada produto digitado no painel; desde o começo do ano, somando a Nuvemshop (o DRE começa em
+fevereiro: as vendas da Nuvemshop que temos começam em 30/01).
+
+- **Análise → Financeiro**, só o dono (dá pra liberar em Equipe e acessos). Três abas:
+  - **DRE**: da receita bruta ao lucro líquido — descontos e cupons, cancelamentos e estornos, o
+    Simples, o custo dos produtos e a embalagem, as taxas e o frete, as despesas. Este mês, o mês
+    passado, o ano ou os meses que você escolher; comparado com os meses de antes; ou mês a mês.
+    Cada linha abre e mostra de onde vem o número. Em cima, o lucro, a receita, a margem de
+    contribuição e as despesas fixas, e "de cada R$ 100 vendidos" pra onde foi cada parte.
+  - **Despesas**: você lança o que o sistema não sabe (anúncios, sistemas, pró-labore, contador,
+    comissões, tarifas); a que "repete todo mês" entra sozinha até você tirar. Antes da loja nova,
+    lance aqui o total de taxas (Nuvem Pago) e de frete de cada mês — um quadro mostra quais faltam.
+  - **Custos e imposto**: o custo de cada produto (vale a partir do dia que você escolher: os meses
+    de antes não mudam), a embalagem por pedido e a alíquota do Simples de cada mês (a do extrato
+    do PGDAS-D que o contador manda).
+- **Todo número incompleto avisa**: etiqueta amarela na linha e a lista "Pra fechar certinho", com
+  o link pra aba onde se resolve.
+- **Baixar pro contador**: a planilha do DRE do período, mês a mês, com centavos.
+- **A taxa de cada pagamento e o frete de cada pedido da loja nova ainda não entram sozinhos** — é a
+  parte 2 (próxima entrega). Até lá, o DRE avisa quantos pedidos ficam de fora.
+
+Banco: tabelas novas `fin_despesa` e `fin_valor` (a migração `Migration20260930135118` roda sozinha
+no deploy).
+
+Conferido na pilha local (com pedidos inventados da Nuvemshop no banco local): o conferidor novo do
+Financeiro 63/63 três vezes (o DRE fechando, dois pedidos da rodada entrando pelo que o admin diz,
+custo, embalagem, Simples e despesas pela tela, a tela e a planilha contra a API, a operação sem
+acesso, o celular); o da equipe 132/132. Os unitários do backend (1.767), o typecheck do backend e
+do painel, o `medusa build`, o `medusa lint`, o eslint e o prettier.
+
+Depois do deploy — **o que você faz**, em Financeiro:
+1. Custos e imposto → o custo de cada produto (e o dos kits) e a embalagem por pedido; a alíquota
+   do Simples de cada mês desde fevereiro.
+2. Despesas → as fixas de todo mês (com "Repete todo mês", a partir de fevereiro) e, mês a mês até
+   setembro, o total de taxas do Nuvem Pago e de frete da Nuvemshop.
+3. O "Pra fechar certinho" do DRE diz o que ainda falta.
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa

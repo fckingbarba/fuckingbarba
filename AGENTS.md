@@ -3872,6 +3872,65 @@ O CSS do painel segue o do protótipo, uma regra por linha, escrito à mão: o p
 (`components/gaveta.tsx`) mora no `<body>`, por portal: aberta de dentro de um `.bloco`, ela
 herdava o recorte do chanfro dele.
 
+**O Financeiro — o DRE da loja** (entrega 0225; o desenho aprovado pelo dono:
+<https://claude.ai/artifact/5SL83dZ9v74zEUxbBrqi5z>). Análise → Financeiro, a área `financeiro` do
+`ACESSO_PADRAO` (só o dono no padrão; no papel criado, fechada). Três abas: DRE, Despesas e Custos
+e imposto. Escolhas do dono (30/09): Simples Nacional; o custo de cada produto digitado no painel;
+o DRE desde o começo do vendas.csv, somando a Nuvemshop — e começa em FEVEREIRO (`COMECO_DO_DRE`:
+janeiro teria dois dias de venda contra um mês de despesas).
+
+- **A conta** mora em `apps/backend/src/lib/financeiro/` (pura, com testes): `dre.ts` (cada venda,
+  o mês, a soma de meses, o que a tela recebe), `regras.ts` (os meses, o período, as categorias, os
+  campos, o valor que vale num dia), `despesas.ts` (em que mês cada uma entra; mudar e apagar a que
+  repete), `tela.ts`, `tela-das-despesas.ts`, `tela-dos-custos.ts`. `ler.ts` e `gravar.ts` falam
+  com o banco. As regras da conta estão no quadro do `dre.ts`: a venda conta no mês do pagamento
+  (a primeira captura, como no Início); o estorno, no mês em que saiu; o cancelado depois de pago
+  ENTRA na receita e sai inteiro nos estornos (sem custo e sem embalagem); os descontos fecham com
+  o cobrado (produtos + frete − `totalDo`), os ajustes dizem de onde veio cada um pelo prefixo
+  (PROMO-, BUMP-, os do CRM) e o centavo do Pagar.me vira "Centavos do arredondamento"; o % de cada
+  linha é de cada R$ 100 da RECEITA BRUTA (a mesma base do "de cada R$ 100" e da margem da tela).
+- **A Nuvemshop** vem do `crm_base_pedido` (`pedidosDaBaseDoFinanceiro`, no `CrmService`): os
+  confirmados e os estornados (o estornado entra e sai no mesmo mês), os produtos antes dos cupons =
+  total + desconto − frete, o item pelo SKU de hoje (`mapaDosSkus`). A taxa e o frete de antes da
+  loja nova (`DIA_DA_LOJA_NOVA`, 27/09) só entram LANÇADOS, mês a mês, nas categorias `taxas` e
+  `frete`; a tela de Despesas mostra quais meses faltam (`mesesComVendaNaBase`).
+- **O banco** (`src/modules/financeiro`): `fin_despesa` (a despesa do mês da competência; a que
+  repete vai de `mes` até `ate`, ou até parar) e `fin_valor` (um valor que vale a partir de um dia:
+  `custo:<produto>`, `embalagem`, `simples` — este desde o dia 1 do mês, em centésimos de ponto).
+  Dinheiro em CENTAVOS no banco; o DRE soma em reais. Mudar o custo cria uma linha nova com o dia:
+  as vendas de antes seguem com o custo de antes (`vigente`). Sem a alíquota do mês, o DRE usa a do
+  último mês que tem e AVISA. O kit é um produto como outro (o catálogo não guarda a composição): o
+  dono digita o custo dele.
+- **Todo número incompleto diz que é**: a etiqueta amarela da linha (`falta`: "2 sem custo", "% de
+  agosto", "falta lançar", "loja nova: ainda não") e o "Pra fechar certinho" (`pendencias`, com a
+  aba onde se resolve). No mês a mês, a linha com falta e os totais depois dela vêm marcados
+  (`incompletas`). A taxa e o frete dos pedidos da loja nova ainda não entram sozinhos — é a
+  próxima entrega (a taxa de cada pagamento no Pagar.me e no Mercado Pago, a cotação da Frenet de
+  cada pedido); até lá, a pendência "loja-nova" diz quantos pedidos ficam de fora.
+- **As rotas** (todas `exigirArea(…, "financeiro")`): `GET /dashboard/financeiro?periodo=mes|
+  mes-passado|ano` (ou `?de=2026-06&ate=2026-09`, e `?comparar=nenhum`) — as linhas somadas com o
+  % e a variação, o "de cada R$ 100", as pendências e cada mês numa coluna; `GET|POST
+  /dashboard/financeiro/despesas` (`?mes=`; o POST `{ descricao, categoria, valor, mes, repete }`),
+  `POST …/despesas/:id` (`{ visto, … }`: a que repete, mudada num mês depois do primeiro, fecha no
+  mês de antes e continua com o valor novo — `planoDaMudanca`) e `POST …/despesas/:id/apagar`
+  (`{ visto }`: na que repete, tira dali em diante); `GET|POST /dashboard/financeiro/custos` e
+  `POST /dashboard/financeiro/simples` (`{ mes, aliquota }`; vazio tira). 422 `{ erro: "campo",
+  campo }`. Registro da equipe: lancou-despesa, mudou-despesa, apagou-despesa, mudou-custos,
+  mudou-simples.
+- **No painel**: `app/(painel)/financeiro/` (o DRE, `despesas/` e `custos/`, um `loading.tsx`),
+  `components/financeiro.tsx` (a barra dos meses — as peças da `.periodo`, com duas listas de mês —,
+  os números, o "de cada R$ 100", o "Pra fechar", o DRE com cada linha num `<details>`, o mês a mês),
+  `financeiro-despesas.tsx`, `financeiro-custos.tsx` e `financeiro-planilha.tsx` (o "Baixar pro
+  contador": CSV com ";" e vírgula no decimal, com centavos, montado no navegador); `lib/financeiro.ts`
+  (tipos e endereços), `lib/acoes/financeiro.ts`, `estilos/financeiro.css`.
+- **O conferidor** é o `apps/dashboard/ferramentas/conferir-financeiro.mjs` (63): o DRE fecha (cada
+  total, cada mês, o período = a soma dos meses), dois pedidos da rodada (um pago com a oferta, um
+  cancelado depois de pago) mexem na receita, nos descontos e nos estornos pelo que o admin diz, o
+  custo, a embalagem e o Simples salvos pela tela entram na conta, a despesa lançada pela tela cai
+  na linha dela, a que repete muda só dali em diante, a tela e a planilha são a API, a operação não
+  abre, o celular e o console. Faz login do dono três vezes por rodada: no banco local, o limite de 5
+  códigos/hora por e-mail pede o `zerar-envios-dono` entre rodadas.
+
 ## Fora dos limites
 
 - `apps/backend/.medusa/`, `apps/loja/.next/`, `apps/dashboard/.next/`, `node_modules/` — gerados.
