@@ -32,6 +32,18 @@ import { Visitante } from "./models/visitante"
 
 type Contexto = Context<EntityManager>
 
+/** Um pedido da loja antiga como o DRE lê (os valores em centavos; ver `pedidosDaBaseDoFinanceiro`). */
+export type PedidoDaBaseDoFinanceiro = {
+  numero: string
+  pagoEm: Date | null
+  feitoEm: Date
+  pagamento: string
+  total: number
+  desconto: number
+  frete: number
+  itens: unknown
+}
+
 export type Como = "conta" | "checkout" | "newsletter"
 
 /** O visitante como a rota precisa: pra saber se ainda falta dizer de quem ele é. */
@@ -632,6 +644,42 @@ export default class CrmService extends Tabelas {
           and coalesce(pago_em, feito_em) >= ? and coalesce(pago_em, feito_em) < ?`,
       [de, ate]
     )) as { numero: string; pagoEm: Date | null; feitoEm: Date; total: number; itens: unknown }[]
+  }
+
+  /**
+   * Os pedidos pagos da loja antiga entre `de` e `ate` pro DRE do Financeiro
+   * (`lib/financeiro/dre.ts`): os confirmados e os estornados, com o total,
+   * o desconto e o frete (em centavos) e os itens. Nada de e-mail, cliente
+   * ou endereço.
+   */
+  @InjectManager()
+  async pedidosDaBaseDoFinanceiro(
+    de: Date,
+    ate: Date,
+    @MedusaContext() ctx: Contexto = {}
+  ): Promise<PedidoDaBaseDoFinanceiro[]> {
+    return (await ctx.manager!.execute(
+      `select numero, pago_em as "pagoEm", feito_em as "feitoEm", pagamento, total, desconto,
+              frete, itens
+         from crm_base_pedido
+        where deleted_at is null and pagamento in ('confirmado', 'estornado')
+          and coalesce(pago_em, feito_em) >= ? and coalesce(pago_em, feito_em) < ?`,
+      [de, ate]
+    )) as PedidoDaBaseDoFinanceiro[]
+  }
+
+  /**
+   * Os meses (em Brasília, "2026-07") em que a loja antiga vendeu — a tela de
+   * Despesas do Financeiro marca quais pedem a taxa e o frete lançados.
+   */
+  @InjectManager()
+  async mesesComVendaNaBase(@MedusaContext() ctx: Contexto = {}): Promise<string[]> {
+    const linhas = (await ctx.manager!.execute(
+      `select distinct to_char(coalesce(pago_em, feito_em) at time zone 'America/Sao_Paulo', 'YYYY-MM') as mes
+         from crm_base_pedido
+        where deleted_at is null and pagamento in ('confirmado', 'estornado')`
+    )) as { mes: string }[]
+    return linhas.map((l) => l.mes).sort()
   }
 
   /** As pessoas da base: o e-mail, o sim das ofertas e a newsletter. */

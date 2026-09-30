@@ -491,7 +491,7 @@ describe("lerAcessos — o que a tela manda salvar", () => {
       { acesso: { ...padrao.acesso, admin: ["inicio"] } },
       {
         acesso: {
-          operacao: com(padrao.acesso.operacao, "financeiro"),
+          operacao: com(padrao.acesso.operacao, "viagens"),
           marketing: padrao.acesso.marketing,
         },
       },
@@ -659,7 +659,7 @@ describe("lerAcessos — com os papéis criados", () => {
   })
 
   it("coluna torta do papel criado é acessos_invalidos", () => {
-    for (const coluna of ["inicio", [7], ["inicio", "financeiro"]])
+    for (const coluna of ["inicio", [7], ["inicio", "viagens"]])
       expect(
         lerAcessos({ acesso: { ...padrao.acesso, [ATENDIMENTO]: coluna } }, [ATENDIMENTO])
       ).toEqual({ ok: false, motivo: "acessos_invalidos" })

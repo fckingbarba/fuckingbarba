@@ -23,6 +23,7 @@
 @import "../estilos/avaliacoes.css";
 @import "../estilos/criadores.css";
 @import "../estilos/inicio-periodo.css";
+@import "../estilos/financeiro.css";
 
 /*
   Os tokens da marca pro Tailwind (bg-menta, text-tinta…) — os mesmos da

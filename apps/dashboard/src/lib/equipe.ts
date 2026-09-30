@@ -34,6 +34,7 @@ export type Area =
   | "home"
   | "marketing"
   | "metaDoMes"
+  | "financeiro"
   | "observabilidade"
   | "configuracoes"
   | "equipe"
@@ -109,6 +110,7 @@ export const NOME_DA_LINHA: Record<Area, string> = {
   home: "Layout da home",
   marketing: "Marketing",
   metaDoMes: "Marketing: mudar a meta do mês",
+  financeiro: "Financeiro",
   observabilidade: "Observabilidade",
   configuracoes: "Configurações",
   equipe: "Equipe e acessos",
@@ -172,6 +174,7 @@ export const MENU: { grupo: string | null; itens: Item[] }[] = [
     grupo: "Análise",
     itens: [
       { area: "marketing", nome: "Marketing", href: "/marketing", icone: "grafico" },
+      { area: "financeiro", nome: "Financeiro", href: "/financeiro", icone: "dinheiro" },
       { area: "observabilidade", nome: "Observabilidade", href: "/observabilidade", icone: "olho" },
     ],
   },
@@ -226,6 +229,7 @@ export const TITULO_CURTO: Record<Area, string> = {
   home: "Layout da home",
   marketing: "Marketing",
   metaDoMes: "Marketing",
+  financeiro: "Financeiro",
   observabilidade: "Observabilidade",
   configuracoes: "Configurações",
   equipe: "Equipe",
