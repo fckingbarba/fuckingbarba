@@ -41,6 +41,16 @@ export type JornadaDoEmail = {
   fator: ConteudoDoProduto | null
   /** O que completa a rotina (o de 21 dias). */
   sugestoes: ProdutoDoCrm[]
+  /**
+   * O Fator como o que completa a rotina (0229): de quem já tem o shampoo, o
+   * óleo e o balm (o Kit Completo) e não tem o Fator. O de 21 dias vira o
+   * dele, com a linha do tempo da página e as avaliações de 4 e 5 estrelas.
+   * Sem o texto da página do Fator, fica o de 21 dias de sempre.
+   */
+  fatorSugerido?: {
+    conteudo: ConteudoDoProduto
+    depoimentos: { texto: string; quem: string; estrelas: number }[]
+  } | null
   /** Os dois botões do check-in (o de 7 dias). */
   checkin: { bem: string; duvida: string } | null
   /**
@@ -140,7 +150,32 @@ export function emailDaJornada(j: JornadaDoEmail): EmailDoCrm | null {
         sair: j.sair,
         loja: j.loja,
       })
-    case "jornada-21d":
+    case "jornada-21d": {
+      const f = j.fatorSugerido
+      if (f)
+        return {
+          ...base,
+          assunto: "O próximo passo da sua barba",
+          previa: "Shampoo, óleo e balm cuidam. O Fator é pra ela crescer.",
+          titulo: "O próximo passo",
+          texto:
+            "O shampoo, o óleo e o balm cuidam da barba que você já tem. Pra ela crescer mais " +
+            `cheia, o próximo passo é ${oProduto(f.conteudo)}:`,
+          botao: { texto: "Ver a página do Fator", caminho: paginaDo(f.conteudo) },
+          blocos: [
+            { tipo: "produtos", produtos: [f.conteudo.produto] },
+            ...(f.conteudo.tempo?.passos.length
+              ? [
+                  {
+                    tipo: "lista" as const,
+                    titulo: f.conteudo.tempo.titulo,
+                    itens: f.conteudo.tempo.passos,
+                  },
+                ]
+              : []),
+            ...f.depoimentos.slice(0, 2).map((d) => ({ tipo: "depoimento" as const, ...d })),
+          ],
+        }
       if (!j.sugestoes.length) return null
       return {
         ...base,
@@ -154,6 +189,7 @@ export function emailDaJornada(j: JornadaDoEmail): EmailDoCrm | null {
         },
         blocos: [{ tipo: "produtos", produtos: j.sugestoes.slice(0, 2) }],
       }
+    }
     case "jornada-60d":
       if (!fator?.tempo?.passos.length) return null
       return {

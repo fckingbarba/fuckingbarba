@@ -48,6 +48,25 @@ export const SUBIR_PARA: Partial<Record<Componente, string>> = {
   balm: "FBKIT01",
 }
 
+/**
+ * O PRODUTO SOZINHO, pra quem levou o tipo dentro de um kit (0229). O "de
+ * sempre" de quem comprou o Kit Completo é o kit inteiro, mas o que acaba
+ * primeiro é o shampoo: de quem voltou depois do kit, o shampoo sozinho (o
+ * avulso ou o duplo) saiu o dobro do kit de novo (0229, pelas vendas da
+ * Nuvemshop).
+ */
+export const SO_ELE: Partial<Record<Componente, readonly string[]>> = {
+  shampoo: ["FBSH01", "FBKIT03"],
+  oleo: ["FBOL01"],
+  balm: ["FBBM01"],
+}
+
+/** O produto sozinho do tipo, se o de sempre não é ele (o tipo veio num kit). */
+export function soEleDa(r: Pick<Reposicao, "componente" | "skus">): string[] {
+  const avulsos = SO_ELE[r.componente] ?? []
+  return avulsos.some((s) => r.skus.includes(s)) ? [] : [...avulsos]
+}
+
 /** Até quantos dias antes e depois do dia de acabar a reposição olha: os toques e a validade. */
 export const JANELA_DA_REPOSICAO = { antes: 8, depois: 11 } as const
 

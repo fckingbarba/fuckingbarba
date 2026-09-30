@@ -43,12 +43,18 @@ export const NOME_DO_TIPO: Record<Componente, string> = {
   pasta: "Pasta",
 }
 
-/** Quantos dias dura cada frasco (o padrão do protótipo). */
+/**
+ * Quantos dias dura cada frasco. O Fator é o do protótipo e bate com as vendas
+ * da Nuvemshop (quem leva 1 volta em ~38 dias, contando a entrega). O shampoo,
+ * o óleo e o balm vêm das vendas (0229, fev–set/2026): quem recomprou o mesmo
+ * item voltou em ~95, ~92 e ~96 dias (a mediana), e o primeiro quarto em ~70,
+ * ~58 e ~79. O lembrete fica no meio: quem voltou tarde pode ter acabado antes.
+ */
 export const DIAS_PADRAO: Record<Componente, number> = {
   fator: 30,
-  oleo: 45,
-  shampoo: 45,
-  balm: 60,
+  oleo: 70,
+  shampoo: 65,
+  balm: 80,
   spray: 45,
   pasta: 60,
 }

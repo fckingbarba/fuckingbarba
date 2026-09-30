@@ -90,8 +90,8 @@ describe("o que vem em cada item: o SKU antes do endereço", () => {
       sinais: SEM_SINAIS,
       agora: AGORA,
     })
-    // Shampoo e óleo, 45 dias cada: acaba o primeiro que aparece.
-    expect(e.proximaCompra.em).toEqual(new Date("2026-11-04T12:00:00Z"))
+    // Shampoo (65 dias) e óleo (70): a próxima compra é a do que acaba primeiro, o shampoo.
+    expect(e.proximaCompra.em).toEqual(new Date("2026-11-24T12:00:00Z"))
     expect(e.tratamento.dia).toBeNull()
   })
 })

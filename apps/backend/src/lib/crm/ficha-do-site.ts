@@ -49,6 +49,7 @@ export const PORQUE_DA_ROTINA: Record<string, string> = {
   [SKU_DA_ROTINA.shampoo]: "Fecha a rotina do Fator e do óleo que você usa",
   [SKU_DA_ROTINA.kitCompleto]: "Completa a rotina da barba que você começou",
   [SKU_DA_ROTINA.tresFatores]: "Os 90 dias do tratamento, de uma vez",
+  [SKU_DA_ROTINA.fator]: "O próximo passo da rotina que você já usa",
 }
 
 export type TratamentoDoSite = {

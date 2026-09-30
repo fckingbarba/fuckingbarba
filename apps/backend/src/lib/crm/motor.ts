@@ -49,7 +49,7 @@ import {
   sugestoesDaNavegacao,
   type NavegacaoDaPessoa,
 } from "./navegacao"
-import { publicoDaReposicao, SUBIR_PARA, type Reposicao } from "./reposicao"
+import { publicoDaReposicao, SO_ELE, soEleDa, SUBIR_PARA, type Reposicao } from "./reposicao"
 import {
   adormecido,
   deuSinalDepois,
@@ -781,6 +781,10 @@ export async function rodarOsFluxos(
         )
         continue
       }
+      // Quem tem o Kit Completo e não tem o Fator: o de 21 dias é o do Fator (0229).
+      const fatorDaRotina = j.sugestoes.includes(SKU_DA_ROTINA.fator)
+        ? dados.conteudos.get(PRODUTOS_DAS_TRILHAS.fator)
+        : undefined
       const email1 = emailDaJornada({
         toque,
         para: email,
@@ -790,6 +794,9 @@ export async function rodarOsFluxos(
           doPedido.find((c) => c.uso?.passos.length || c.duvidas?.perguntas.length) ?? null,
         fator: j.temFator ? (dados.conteudos.get(PRODUTOS_DAS_TRILHAS.fator) ?? null) : null,
         sugestoes: j.sugestoes.flatMap((s) => dados.porSku.get(s) ?? []),
+        fatorSugerido: fatorDaRotina
+          ? { conteudo: fatorDaRotina, depoimentos: dados.depoimentos }
+          : null,
         checkin: toque === "jornada-7d" ? linksDoCheckin(j.pedido) : null,
         indique,
         trilha: j.trilha,
@@ -941,6 +948,8 @@ export async function rodarOsFluxos(
           produtos,
           // O que dura mais, se a pessoa já não levou isso da última vez.
           subirPara: subir && !r.skus.includes(subir) ? (dados.porSku.get(subir) ?? null) : null,
+          // O produto sozinho, se o de sempre é um kit (0229).
+          soEle: soEleDa(r).flatMap((s) => dados.porSku.get(s) ?? []),
           voltar: `/voltar/${linkDeVoltar(`repor-${r.pedido}`, agora)}`,
           sair: linksDeSair(loja, email),
           loja: infoDaLoja,
@@ -1298,7 +1307,7 @@ function oQueALojaDiz(metadata: unknown): DadosDasBoasVindas["daLoja"] {
 }
 
 type DadosDaReposicao = {
-  /** Os produtos da loja nova pelo SKU: o de sempre e o que dura mais. */
+  /** Os produtos da loja nova pelo SKU: o de sempre, o que dura mais e o produto sozinho. */
   porSku: Map<string, ProdutoDoCrm>
   /** O primeiro nome de cada um: o da conta, ou o da loja antiga. */
   nomes: Map<string, string>
@@ -1311,6 +1320,7 @@ async function lerDadosDaReposicao(
 ): Promise<DadosDaReposicao> {
   const skus = new Set(reposicoes.flatMap((r) => r.skus))
   for (const sku of Object.values(SUBIR_PARA)) if (sku) skus.add(sku)
+  for (const doTipo of Object.values(SO_ELE)) for (const sku of doTipo ?? []) skus.add(sku)
   const [porSku, nomes] = await Promise.all([
     produtosPorSku(container, [...skus]),
     nomesDasPessoas(
@@ -1487,6 +1497,8 @@ function produtoDaLinha(
 type DadosDaJornada = {
   /** O texto da página de cada produto (o uso, a linha do tempo, as dúvidas), pelo endereço. */
   conteudos: Map<string, ConteudoDoProduto>
+  /** As avaliações aprovadas do Fator, de 4 e 5 estrelas (o de 21 dias de quem não tem o Fator). */
+  depoimentos: { texto: string; quem: string; estrelas: number }[]
   /** O que completa a rotina, pelo SKU. */
   porSku: Map<string, ProdutoDoCrm>
   nomes: Map<string, string>
@@ -1503,7 +1515,7 @@ async function lerDadosDaJornada(
   jornadas: readonly JornadaDoPedido[]
 ): Promise<DadosDaJornada> {
   const pedidos = [...new Set(jornadas.map((j) => j.pedido))]
-  const [{ conteudos }, porSku, nomes, avaliacoes] = await Promise.all([
+  const [{ conteudos, depoimentos }, porSku, nomes, avaliacoes] = await Promise.all([
     conteudosDasTrilhas(container, [...new Set(jornadas.flatMap((j) => j.handles))]),
     produtosPorSku(container, [...new Set(jornadas.flatMap((j) => j.sugestoes))]),
     nomesDasPessoas(
@@ -1523,7 +1535,7 @@ async function lerDadosDaJornada(
   const notas = new Map<string, number>()
   for (const a of avaliacoes)
     notas.set(a.pedido_id, Math.max(notas.get(a.pedido_id) ?? 0, Number(a.nota) || 0))
-  return { conteudos, porSku, nomes, notas }
+  return { conteudos, depoimentos, porSku, nomes, notas }
 }
 
 type DadosDaEstreia = {

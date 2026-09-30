@@ -100,4 +100,48 @@ describe("os e-mails da jornada", () => {
     expect(montar({ toque: "jornada-chegou", principal: { ...FATOR, uso: null } })).toBeNull()
     expect(montar({ toque: "jornada-21d", sugestoes: [] })).toBeNull()
   })
+
+  it("o de 21 dias de quem tem o Kit Completo e não tem o Fator: o Fator (0229)", () => {
+    const fatorSugerido = {
+      conteudo: FATOR,
+      depoimentos: [
+        { texto: "Em 2 meses fechou a falha.", quem: "Bruno", estrelas: 5 },
+        { texto: "Encheu dos lados.", quem: "Caio", estrelas: 4 },
+        { texto: "O terceiro não entra.", quem: "Davi", estrelas: 5 },
+      ],
+    }
+    const { bruto, pronto } = montar({
+      toque: "jornada-21d",
+      fator: null,
+      sugestoes: [FATOR.produto],
+      fatorSugerido,
+    })!
+    expect(bruto.assunto).toBe("O próximo passo da sua barba")
+    expect(bruto.estilo).toBe("lembrete")
+    expect(bruto.texto).toContain("o próximo passo é o Fator de Crescimento")
+    expect(bruto.botao?.caminho).toBe("/produtos/fator-de-crescimento-para-barba")
+    // O Fator, a linha do tempo da página e duas avaliações.
+    expect(pronto.html).toContain("Fator de Crescimento para Barba 30ml")
+    expect(pronto.html).toContain("Quando o resultado aparece")
+    expect(pronto.html).toContain("Dia 30 · Começa a encher")
+    expect(pronto.html).toContain("Em 2 meses fechou a falha.")
+    expect(pronto.html).toContain("Encheu dos lados.")
+    expect(pronto.html).not.toContain("O terceiro não entra.")
+    const tudo = [bruto.assunto, bruto.previa, bruto.texto, bruto.botao?.texto ?? ""].join(" ")
+    expect(tudo).not.toMatch(
+      /esqueceu|última chamada|ainda dá tempo|em 1 clique|tá aqui|grátis|desconto|oferta|cupom/i
+    )
+    expect(pronto.html).not.toMatch(/\p{Extended_Pictographic}/u)
+    // Sem a linha do tempo nem avaliações, o Fator sozinho ainda vai.
+    const simples = montar({
+      toque: "jornada-21d",
+      fatorSugerido: { conteudo: { ...FATOR, tempo: null }, depoimentos: [] },
+    })!
+    expect(simples.bruto.assunto).toBe("O próximo passo da sua barba")
+    expect(simples.bruto.blocos).toHaveLength(1)
+    // Sem ele, o de 21 dias de sempre.
+    expect(montar({ toque: "jornada-21d", fatorSugerido: null })!.bruto.assunto).toBe(
+      "Agora completa a rotina"
+    )
+  })
 })

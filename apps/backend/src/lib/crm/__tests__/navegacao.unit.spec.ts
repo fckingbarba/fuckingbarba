@@ -164,4 +164,11 @@ describe("a rotina do e-mail de 24 horas", () => {
     expect(sugestoesDaNavegacao(OLEO, new Set())).toEqual([SKU_DA_ROTINA.kitCompleto])
     expect(sugestoesDaNavegacao("pasta-modeladora-matte-80g-fucking-barba", new Set())).toEqual([])
   })
+
+  it("quem olhou o Kit Completo: o Fator, se ainda não tem (0229)", () => {
+    expect(sugestoesDaNavegacao("kit-completo-para-barba", new Set())).toEqual([
+      SKU_DA_ROTINA.fator,
+    ])
+    expect(sugestoesDaNavegacao("kit-completo-para-barba", new Set(["fator"]))).toEqual([])
+  })
 })

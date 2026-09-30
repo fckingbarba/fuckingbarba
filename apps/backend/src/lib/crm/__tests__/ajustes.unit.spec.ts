@@ -14,7 +14,7 @@ import {
  */
 
 const FORMULARIO = {
-  dias: { fator: "40", oleo: "45", shampoo: "45", balm: "60", spray: "45", pasta: "60" },
+  dias: { fator: "40", oleo: "70", shampoo: "65", balm: "80", spray: "45", pasta: "60" },
   regras: {
     toleranciaDaReposicao: "10",
     semPrevisao: "60",
