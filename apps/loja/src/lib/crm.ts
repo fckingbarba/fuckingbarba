@@ -61,10 +61,12 @@ export const crmLigado = () =>
 
 /**
  * O recado assinado pro Medusa. Nunca lança. `token`: o do cliente logado
- * (o Medusa confere e liga o navegador à conta).
+ * (o Medusa confere e liga o navegador à conta). Serve também aos passos da
+ * visita pros anúncios (`app/api/passos`), que não são do CRM mas vão pelo
+ * mesmo caminho assinado.
  */
 export async function mandarAoCrm(
-  caminho: "/store/crm/eventos" | "/store/crm/esquecer",
+  caminho: "/store/crm/eventos" | "/store/crm/esquecer" | "/store/anuncios/passos",
   corpo: object,
   { token, ip }: { token?: string | null; ip: string | null }
 ): Promise<void> {

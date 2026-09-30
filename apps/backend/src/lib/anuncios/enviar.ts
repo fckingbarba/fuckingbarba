@@ -15,6 +15,7 @@ import {
   type Plataforma,
   type RegistroDaCompra,
 } from "./compra"
+import { passosPraMeta, passosPraTiktok, type Passo, type Quem } from "./passos"
 import { CHAVE_DO_RASTRO, lerRastro, type Rastro } from "./rastro"
 
 /**
@@ -374,4 +375,85 @@ export async function mandarComprasPendentes(
     }
   }
   return relatorio
+}
+
+/*
+  AS INTEGRAÇÕES DA LOJA, com um minuto de memória: os passos da visita
+  chegam a cada clique, e o código dos pixels quase nunca muda (salvar as
+  integrações no painel esquece a memória na hora).
+*/
+let integracoesGuardadas: { em: number; valor: Integracoes } | null = null
+const UM_MINUTO = 60_000
+
+/** O dono salvou as integrações: a próxima leitura vai no banco. */
+export function esquecerAsIntegracoesGuardadas() {
+  integracoesGuardadas = null
+}
+
+async function integracoesDaLoja(container: MedusaContainer, agora: number): Promise<Integracoes> {
+  if (integracoesGuardadas && agora - integracoesGuardadas.em < UM_MINUTO)
+    return integracoesGuardadas.valor
+  const [loja] = await container
+    .resolve(Modules.STORE)
+    .listStores({}, { select: ["metadata"], take: 1 })
+  const valor = lerConfiguracoes(loja?.metadata).integracoes
+  integracoesGuardadas = { em: agora, valor }
+  return valor
+}
+
+export type ResultadoDosPassos = Partial<Record<"meta" | "tiktok", Desfecho["como"]>>
+
+/**
+ * OS PASSOS DA VISITA (`passos.ts`) — um lote pra Meta e um pro TikTok, na
+ * hora, pra cada uma com o código no painel e a chave no Railway. Sem
+ * trava nem registro: é um aviso por clique, e o que cair se perde (a
+ * compra, que importa mais, tem a varredura). Também não vira problema na
+ * Observabilidade — a chave errada já aparece pela compra.
+ */
+export async function mandarPassos(
+  container: MedusaContainer,
+  passos: Passo[],
+  quem: Quem,
+  agora = Date.now()
+): Promise<ResultadoDosPassos> {
+  const chaves = chavesDosAnuncios()
+  if (!passos.length || (!chaves.meta && !chaves.tiktok)) return {}
+  const i = await integracoesDaLoja(container, agora)
+  const resultado: ResultadoDosPassos = {}
+  const envios: Promise<void>[] = []
+
+  const praMeta =
+    chaves.meta && i.metaPixel
+      ? passosPraMeta(passos, quem, process.env.META_TEST_EVENT_CODE)
+      : null
+  if (praMeta) {
+    const base = (process.env.META_GRAPH_URL || "https://graph.facebook.com").replace(/\/+$/, "")
+    const token = encodeURIComponent(process.env.META_CAPI_TOKEN ?? "")
+    envios.push(
+      postar(`${base}/${VERSAO_DA_META}/${i.metaPixel}/events?access_token=${token}`, praMeta)
+        .then((r) => void (resultado.meta = desfechoDaMeta(r).como))
+        .catch(() => void (resultado.meta = "tentar"))
+    )
+  }
+
+  const praTiktok =
+    chaves.tiktok && i.tiktok
+      ? passosPraTiktok(passos, quem, i.tiktok, process.env.TIKTOK_TEST_EVENT_CODE)
+      : null
+  if (praTiktok) {
+    const base = (process.env.TIKTOK_EVENTS_URL || "https://business-api.tiktok.com").replace(
+      /\/+$/,
+      ""
+    )
+    envios.push(
+      postar(`${base}/open_api/v1.3/event/track/`, praTiktok, {
+        "Access-Token": process.env.TIKTOK_EVENTS_TOKEN ?? "",
+      })
+        .then((r) => void (resultado.tiktok = desfechoDoTiktok(r).como))
+        .catch(() => void (resultado.tiktok = "tentar"))
+    )
+  }
+
+  await Promise.all(envios)
+  return resultado
 }

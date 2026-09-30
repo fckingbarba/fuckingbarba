@@ -18,6 +18,11 @@
  * tags. Porta que não abre (quem recusou na política de privacidade) leva a
  * fila junto com a página, sem ter saído do navegador.
  *
+ * OS EVENTOS PADRÃO DA META E DO TIKTOK VÃO TAMBÉM PELO SERVIDOR (entrega
+ * 0231): cada um sai com um id, o mesmo no pixel e no envio pelo servidor
+ * (`lib/pelo-servidor.ts`, registrado pelas tags) — a plataforma junta os
+ * dois, e de quem usa bloqueador fica o do servidor.
+ *
  * O `purchase` NÃO é disparado daqui: sai do servidor quando o pagamento
  * entra (`apps/backend/src/lib/anuncios/`), pra contar o Pix pago depois e
  * quem usa bloqueador. A exceção é a conversão do Google Ads, que não tem
@@ -75,7 +80,7 @@ declare global {
   interface Window {
     dataLayer?: unknown[]
     gtag?: Chamada
-    fbq?: Chamada
+    fbq?: Chamada & { callMethod?: Chamada }
     ttq?: { track: Chamada }
     clarity?: Chamada
   }
@@ -100,6 +105,17 @@ const NA_CLARITY = new Set<EventoRastreado["nome"]>([
 ])
 
 const comItens = (d: object): d is ComItens => "items" in d && "value" in d
+
+type PeloServidor = (padrao: string, id: string, dados: ComItens) => void
+let peloServidor: PeloServidor | null = null
+/** O envio pelo servidor (`lib/pelo-servidor.ts`), que só baixa com as tags: elas registram. */
+export const registrarPeloServidor = (f: PeloServidor) => {
+  peloServidor = f
+}
+
+/** O id do evento, o mesmo no pixel e no servidor. */
+const novoId = () =>
+  crypto.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`
 
 const FILA_MAXIMA = 30
 
@@ -186,32 +202,43 @@ function mandar(nome: EventoRastreado["nome"], dados: EventoRastreado["dados"]) 
 
   const padrao = PADRAO_DAS_REDES[nome]
   if (padrao && comItens(dados)) {
+    const id = novoId()
     const quantidade = (i: ItemRastreado) => i.quantity ?? 1
-    w.fbq?.("track", padrao, {
-      content_ids: dados.items.map((i) => i.item_id),
-      contents: dados.items.map((i) => ({
-        id: i.item_id,
-        quantity: quantidade(i),
-        item_price: i.price,
-      })),
-      content_type: "product",
-      value: dados.value,
-      currency: dados.currency,
-      ...(nome === "begin_checkout"
-        ? { num_items: dados.items.reduce((s, i) => s + quantidade(i), 0) }
-        : {}),
-    })
-    w.ttq?.track(padrao, {
-      contents: dados.items.map((i) => ({
-        content_id: i.item_id,
-        content_name: i.item_name,
-        quantity: quantidade(i),
-        price: i.price,
-      })),
-      content_type: "product",
-      value: dados.value,
-      currency: dados.currency,
-    })
+    w.fbq?.(
+      "track",
+      padrao,
+      {
+        content_ids: dados.items.map((i) => i.item_id),
+        contents: dados.items.map((i) => ({
+          id: i.item_id,
+          quantity: quantidade(i),
+          item_price: i.price,
+        })),
+        content_type: "product",
+        value: dados.value,
+        currency: dados.currency,
+        ...(nome === "begin_checkout"
+          ? { num_items: dados.items.reduce((s, i) => s + quantidade(i), 0) }
+          : {}),
+      },
+      { eventID: id }
+    )
+    w.ttq?.track(
+      padrao,
+      {
+        contents: dados.items.map((i) => ({
+          content_id: i.item_id,
+          content_name: i.item_name,
+          quantity: quantidade(i),
+          price: i.price,
+        })),
+        content_type: "product",
+        value: dados.value,
+        currency: dados.currency,
+      },
+      { event_id: id }
+    )
+    peloServidor?.(padrao, id, dados)
   }
 }
 

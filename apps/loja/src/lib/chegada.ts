@@ -84,7 +84,7 @@ export function chegadaDaVisita(): Chegada | null {
   na aba e volta pro endereço logo antes das tags ligarem, uma vez por
   campanha — hoje é a rede de segurança de quando as tags ligam noutra página.
 */
-const CAMPANHA = "fb_campanha"
+export const CAMPANHA = "fb_campanha"
 const CAMPANHA_DEVOLVIDA = "fb_campanha_devolvida"
 
 /** O que os parceiros leem no endereço: as UTMs e o clique de cada anúncio. */

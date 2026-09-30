@@ -1,4 +1,5 @@
 import type { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/framework/http"
+import { esquecerAsIntegracoesGuardadas } from "../../../../lib/anuncios/enviar"
 import { exigirArea, type PedidoDaEquipe } from "../../../../lib/equipe/acesso"
 import { anotar } from "../../../../lib/painel/anotar"
 import { lerIntegracoes } from "../../../../lib/painel/configuracoes"
@@ -27,6 +28,7 @@ export async function POST(req: AuthenticatedMedusaRequest, res: MedusaResponse)
     res.status(404).json({ message: "sem_loja" })
     return
   }
+  esquecerAsIntegracoesGuardadas()
   await anotar(pedido, "mudou-integracoes", "configuracoes", {
     ligadas: Object.entries(lido.valor)
       .filter(([, codigo]) => codigo)
