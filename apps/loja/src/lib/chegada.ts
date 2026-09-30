@@ -1,6 +1,6 @@
 /**
  * A CHEGADA DA VISITA E O "ONDE" DE CADA EVENTO — a parte do CRM da loja que
- * precisa existir desde a primeira página, antes do "Aceitar": guardar de
+ * precisa existir desde a primeira página, antes do "Entendi": guardar de
  * onde a pessoa chegou (a campanha some da barra na primeira troca de
  * página) e a página e a hora de cada evento. E a campanha do link, que volta
  * pro endereço quando as tags ligam (`devolverACampanha`). Nada daqui sai do
@@ -10,7 +10,7 @@
  * do sim (`lib/rastrear.ts`): sem ele, o CRM não pesa na página.
  */
 
-/** Onde e quando aconteceu — guardado na hora, e não quando a fila do "Aceitar" sai. */
+/** Onde e quando aconteceu — guardado na hora, e não quando a fila do "Entendi" sai. */
 export type Onde = { pagina: string; t: number }
 
 export const ondeAgora = (): Onde => ({ pagina: window.location.pathname, t: Date.now() })
@@ -76,14 +76,13 @@ export function chegadaDaVisita(): Chegada | null {
 /*
   A CAMPANHA DO LINK, PROS PARCEIROS. A Clarity, o GA4, o Google Ads, a Meta e
   o TikTok leem a campanha no ENDEREÇO da página em que ligam — o `?utm_…` e o
-  clique do anúncio (`gclid`, `fbclid`…) —, e aqui eles só ligam no "Aceitar"
-  (menos o GA4, que desde a 0166 liga na chegada e lê a campanha ali).
-  Quem aceita depois de trocar de página já não tem nada disso na barra, e
-  cada parceiro via só o site (27/09: a Clarity parou de mostrar as UTMs que
-  mostrava na Nuvemshop, onde carregava sem perguntar). Então a campanha da
-  página de chegada fica guardada na aba e volta pro endereço logo antes das
-  tags ligarem, uma vez por campanha: pros parceiros, é como se a pessoa
-  tivesse aceitado na página em que chegou.
+  clique do anúncio (`gclid`, `fbclid`…). Desde a 0230 todos ligam na página
+  da chegada, como na Nuvemshop, e leem a campanha ali. Antes, a Meta, o
+  TikTok e o Google Ads esperavam o "Aceitar", e quem aceitava depois de
+  trocar de página já não tinha nada disso na barra (27/09: a Clarity parou
+  de mostrar as UTMs). Por isso a campanha da página de chegada fica guardada
+  na aba e volta pro endereço logo antes das tags ligarem, uma vez por
+  campanha — hoje é a rede de segurança de quando as tags ligam noutra página.
 */
 const CAMPANHA = "fb_campanha"
 const CAMPANHA_DEVOLVIDA = "fb_campanha_devolvida"

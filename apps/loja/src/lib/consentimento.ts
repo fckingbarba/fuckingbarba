@@ -1,29 +1,33 @@
 import type { Integracoes } from "@/lib/configuracoes"
 
 /**
- * A RESPOSTA SOBRE OS COOKIES — o que a faixa grava e quem lê: o navegador
- * (`components/analytics/`, que liga o GA4 sem resposta e o resto só com
- * "sim") e o checkout (a ação de finalizar, que grava a resposta no pedido
- * pra compra sair pelo servidor pros parceiros de quem aceitou — e pro GA4 de
- * quem não recusou). Sem diretiva: os dois lados importam.
+ * A RESPOSTA SOBRE OS COOKIES — o que a faixa e a política de privacidade
+ * gravam e quem lê: o navegador (`components/analytics/`) e o checkout (a
+ * ação de finalizar, que grava a resposta no pedido pra compra sair pelo
+ * servidor pros parceiros). Sem diretiva: os dois lados importam.
  *
- * O cookie diz a resposta, a VERSÃO da pergunta e A QUEM ela disse sim:
- * "sim.2.gm" = sim, na versão 2, pro Google e pra Meta.
+ * DESDE A 0230 SÓ O "NÃO" TRAVA: as tags de todos os parceiros ligam na
+ * primeira página, como na Nuvemshop, e a compra vai pra todos de quem não
+ * recusou. O "sim" é o "Entendi" da faixa (um botão só, o da Nuvemshop), e
+ * libera o CRM da própria loja (`lib/anotar.ts`); o "não" vem da recusa na
+ * política de privacidade.
  *
- * - A VERSÃO sobe quando muda a finalidade ou a política (a última seção dela
- *   promete avisar antes de valer): a resposta de antes deixa de valer, e a
- *   faixa pergunta de novo. A 1 era só o Google Analytics, gravada como
- *   "sim"/"nao"; a 2 (25/09) entra com os anúncios; a 3 (26/09) com o que a
- *   própria loja anota pro CRM (`lib/anotar.ts`) — que está em todo "sim",
- *   com ou sem parceiro ligado no painel.
- * - OS PARCEIROS: o "sim" vale pros parceiros que estavam na faixa quando a
- *   pessoa clicou. Entrou um parceiro novo no painel, a faixa pergunta de
- *   novo — ela não aceitou o TikTok se o TikTok não estava lá. O "não" vale
- *   pra qualquer lista: nada carrega, nem o GA4, que é o lado seguro.
- * - A versão NÃO subiu na 0166 (o GA4 passou a medir antes da resposta): quem
- *   já tinha dito sim tinha aceitado mais do que isso, e quem disse não segue
- *   fora — subir a versão faria o "não" de antes voltar a ser "sem resposta",
- *   e o GA4 contaria quem já tinha recusado.
+ * O cookie diz a resposta, a VERSÃO da pergunta e OS PARCEIROS da faixa
+ * quando a pessoa respondeu: "sim.3.gm" = sim, na versão 3, com o Google e a
+ * Meta.
+ *
+ * - A VERSÃO sobe quando muda a finalidade ou a política: a resposta de antes
+ *   deixa de valer, e a faixa aparece de novo. A 1 era só o Google
+ *   Analytics, gravada como "sim"/"nao"; a 2 (25/09) entra com os anúncios;
+ *   a 3 (26/09) com o que a própria loja anota pro CRM.
+ * - OS PARCEIROS: entrou um parceiro novo no painel, o "sim" de antes volta a
+ *   ser "sem resposta" e a faixa aparece de novo. O "não" vale pra qualquer
+ *   lista: nada carrega, que é o lado seguro.
+ * - A versão NÃO subiu na 0166 (o GA4 passou a medir antes da resposta) nem
+ *   na 0230 (todas as tags antes da resposta): quem já tinha dito sim tinha
+ *   aceitado mais do que isso, e quem disse não segue fora — subir a versão
+ *   faria o "não" de antes voltar a ser "sem resposta", e as tags ligariam
+ *   pra quem já tinha recusado.
  */
 
 export const COOKIE_CONSENTIMENTO = "fb_consentimento"
@@ -49,7 +53,7 @@ export function parceirosDe(i: Integracoes): Parceiro[] {
   )
 }
 
-/** "sim.2.gm" → { sim, [google, meta] }. Outra versão, ou lixo, é nulo: perguntar. */
+/** "sim.3.gm" → { sim, [google, meta] }. Outra versão, ou lixo, é nulo: sem resposta. */
 export function lerConsentimento(valor: string | null | undefined): Consentimento | null {
   const m = /^(sim|nao)\.(\d+)\.([gmtc]*)$/.exec(valor ?? "")
   if (!m || Number(m[2]) !== VERSAO_DO_CONSENTIMENTO) return null
@@ -66,7 +70,7 @@ export function valorDoConsentimento(resposta: Resposta, parceiros: Parceiro[]):
   return `${resposta}.${VERSAO_DO_CONSENTIMENTO}.${letras}`
 }
 
-/** A resposta que vale pra estes parceiros: nulo = a faixa pergunta. */
+/** A resposta que vale pra estes parceiros: nulo = sem resposta (a faixa aparece). */
 export function respostaQueVale(c: Consentimento | null, parceiros: Parceiro[]): Resposta | null {
   if (!c) return null
   if (c.resposta === "nao") return "nao"

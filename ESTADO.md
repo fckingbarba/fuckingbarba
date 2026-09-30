@@ -5013,6 +5013,40 @@ jeitos), 1.789 testes de unidade, e o typecheck, o lint e o build do servidor.
       3/10.
 - [ ] **Depois do deploy (você):** CRM → Ajustes: confira shampoo 65, óleo 70, balm 80 e Fator 30.
 
+**Os pixels e o Google desde a primeira página, como na Nuvemshop — pronto em 30/09 (entrega 0230).**
+Os gestores de tráfego reclamaram que passaram a receber bem menos eventos: desde a 0094, a Meta, o
+TikTok e o Google Ads esperavam o "Aceitar" da faixa. Com o aval jurídico, o pedido dele foi "tem que
+ficar exatamente igual da Nuvemshop, tanto pro pixel quanto pros dados do Google", e a faixa com um
+botão só, como lá.
+
+- **As tags:** o GA4, o Google Ads, o pixel da Meta (com o PageView), o do TikTok e a Clarity ligam
+  na primeira página, antes de qualquer clique, com o consentimento do Google todo liberado — o mesmo
+  `consent default` que a Nuvemshop mandava (conferido no HTML dela em 27/09). Antes, só o GA4 e a
+  Clarity ligavam sem resposta, com o anúncio negado (0166 e 0171).
+- **A faixa:** o texto da Nuvemshop (0172) e um botão só, "Entendi". Ele grava a resposta (a faixa
+  some) e libera o CRM da própria loja, que segue esperando o clique.
+- **Quem não quer:** recusa na política de privacidade, em Cookies ("Recusar os cookies de medição e
+  anúncio"): as tags saem na hora, os cookies dos parceiros são apagados, a loja apaga o que anotou do
+  navegador, e a compra não é avisada a ninguém. Ali mesmo dá pra voltar a aceitar.
+- **A compra pelo servidor:** vai pra Meta, pro TikTok e pro GA4 (com o anúncio liberado) de todo
+  mundo que não recusou — antes, a Meta e o TikTok só com o "Aceitar". A conversão do Google Ads da
+  tela de obrigado também.
+- **A política de privacidade:** reescrita nas partes de cookies, de base legal e de com quem a loja
+  compartilha. A versão da faixa não sobe: quem tinha aceitado aceitou mais do que isso, e quem
+  recusou segue fora (subir a versão faria a recusa de antes virar "sem resposta").
+- **O painel:** a nota e o aviso das Integrações dizem que todas carregam desde a primeira página.
+
+Conferido pelo `conferir-integracoes.mjs` (37, reescrito: todas as tags antes da resposta, a faixa com
+um botão, o produto e a sacola de quem nunca respondeu chegando em cada plataforma, a recusa e o
+voltar a aceitar na política, o "Entendi" sem carregar nada de novo, a campanha lida na chegada, a
+compra de quem não respondeu indo pras três), pelo `conferir-crm.mjs` (256: a recusa agora pela
+política) e pelo `conferir-primeira-compra.mjs` (21: o pop-up depois do "Entendi"); 1782 testes de
+unidade do backend, typecheck, lint e prettier.
+
+Depois do deploy — **nada a configurar.** Pra ver: numa aba anônima, a faixa com o "Entendi"; e no
+Gerenciador de Eventos da Meta, o PageView, o ViewContent, o AddToCart e a Purchase subindo a partir
+do deploy.
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa

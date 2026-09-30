@@ -7,11 +7,11 @@ import { site } from "@/lib/site"
 /**
  * O RASTRO DA COMPRA — o que o Medusa precisa pra avisar a Meta, o GA4 e o
  * TikTok da compra, pelo servidor, quando o pagamento entrar
- * (`apps/backend/src/lib/anuncios/`): a resposta sobre os cookies; de quem
- * não disse não, os do GA4 e o navegador (o GA4 conta todo mundo desde a
- * primeira página, como as visitas — 0166 —, e o navegador diz o aparelho da
- * compra no Funil do painel, pra mesma gente); e, só com o sim, os da Meta e
- * do TikTok, o IP e a página.
+ * (`apps/backend/src/lib/anuncios/`): a resposta sobre os cookies e, de
+ * quem não disse não, os cookies do GA4, da Meta e do TikTok, o navegador,
+ * o IP e a página. Desde a 0230 todas as tags ligam na primeira página, como
+ * na Nuvemshop, e a compra vai pra todos de quem não recusou; o navegador
+ * também diz o aparelho da compra no Funil do painel.
  *
  * É lido AGORA, na ação de finalizar (os cookies e o cabeçalho só existem no
  * pedido de quem comprou), e mandado DEPOIS da resposta (`registrarRastro`,
@@ -36,18 +36,14 @@ export async function rastroDaCompra(
   if (c?.resposta === "nao") return base
   const h = await headers()
   const valor = (nome: string) => jar.get(nome)?.value?.slice(0, 600) ?? null
-  const medicao = {
-    ...base,
-    ga: ga4 ? { cookie: valor("_ga"), sessao: valor(`_ga_${ga4.slice(2)}`) } : null,
-    navegador: h.get("user-agent")?.slice(0, 500) ?? null,
-  }
-  if (c?.resposta !== "sim") return medicao
   return {
-    ...medicao,
-    parceiros: c.parceiros,
+    ...base,
+    parceiros: c?.parceiros ?? [],
+    ga: ga4 ? { cookie: valor("_ga"), sessao: valor(`_ga_${ga4.slice(2)}`) } : null,
     meta: { fbp: valor("_fbp"), fbc: valor("_fbc") },
     tiktok: { ttp: valor("_ttp") },
     ip,
+    navegador: h.get("user-agent")?.slice(0, 500) ?? null,
     pagina: `${site.url}/checkout`,
   }
 }

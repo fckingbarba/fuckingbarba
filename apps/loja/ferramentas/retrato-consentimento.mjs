@@ -12,7 +12,7 @@
  * Fotografa a faixa, sem resposta, nos lugares em que a tela tem outra coisa
  * presa embaixo: a PDP no celular (a barra de compra aparece de cara), a PDP
  * no computador rolada até a barra aparecer, e o checkout no celular (a barra
- * do total). Em cada foto diz se os botões da faixa e o da barra estão LIVRES:
+ * do total). Em cada foto diz se o botão da faixa e o da barra estão LIVRES:
  * o que o navegador acha no meio de cada botão é o próprio botão — é o que um
  * dedo encontraria ali.
  */
@@ -63,10 +63,7 @@ async function livres(pagina, seletores) {
   }, seletores)
 }
 
-const FAIXA = [
-  "[data-faixa-de-cookies] button:nth-of-type(1)",
-  "[data-faixa-de-cookies] button:nth-of-type(2)",
-]
+const FAIXA = ["[data-faixa-de-cookies] button"]
 
 async function foto(nome, opcoes, trabalho, seletores) {
   const contexto = await navegador.newContext(opcoes)

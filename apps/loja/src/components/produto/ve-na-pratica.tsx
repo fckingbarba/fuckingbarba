@@ -25,8 +25,8 @@ import { anotarNaLoja } from "@/lib/rastrear"
  * Sem vídeo, a seção não aparece: faixa de "em breve" não vende nada.
  *
  * Abrir um vídeo anota o `video_assistido` pro CRM da loja (a navegação
- * abandonada, entrega 0198), uma vez por sessão — com o mesmo "Aceitar" das
- * tags, como tudo o que a loja anota.
+ * abandonada, entrega 0198), uma vez por sessão — depois do "Entendi" da
+ * faixa, como tudo o que a loja anota.
  */
 export function VeNaPratica({
   videos,

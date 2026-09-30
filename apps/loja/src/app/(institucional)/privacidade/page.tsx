@@ -27,11 +27,12 @@ export const metadata: Metadata = {
  * `components/checkout/contato.tsx` e `entrega.tsx`, os cookies de
  * `lib/carrinho.ts`, `lib/checkout.ts` e `components/analytics/`, e os
  * terceiros de quem a loja realmente chama (ViaCEP, Vercel, Railway,
- * Supabase, Pagar.me, Mercado Pago, Resend, Frenet, Bling, o Google Analytics e a
- * Microsoft Clarity (de quem não recusa os cookies, desde a 0166 e a 0171) e, só com o
- * aceite, Google Ads, Meta e TikTok — `components/analytics/tags.tsx` e
- * `apps/backend/src/lib/anuncios/`). O que a própria loja anota pro CRM, só
- * com o aceite, é `lib/anotar.ts` e `apps/backend/src/lib/crm/eventos.ts`
+ * Supabase, Pagar.me, Mercado Pago, Resend, Frenet, Bling, e o Google Analytics,
+ * o Google Ads, a Meta, o TikTok e a Microsoft Clarity de quem não recusa os
+ * cookies — desde a 0230 todos ligam na primeira página, como na Nuvemshop:
+ * `components/analytics/tags.tsx` e `apps/backend/src/lib/anuncios/`). O que a
+ * própria loja anota pro CRM, só depois do "Entendi" da faixa, é `lib/anotar.ts` e
+ * `apps/backend/src/lib/crm/eventos.ts`
  * (o prazo de 13 meses é o job `limpar-o-crm`). Política genérica é pior que nenhuma:
  * ela promete coisas que o sistema não faz e esconde as que ele faz.
  *
@@ -41,10 +42,10 @@ export const metadata: Metadata = {
  * pergunta de novo antes de valer, como a última seção promete.
  */
 
-const ATUALIZADO = "29 de setembro de 2026"
+const ATUALIZADO = "30 de setembro de 2026"
 
 export default async function Privacidade() {
-  const { empresa, atendimento } = await configuracoes()
+  const { empresa, atendimento, integracoes } = await configuracoes()
   const email = atendimento.email
 
   return (
@@ -54,8 +55,10 @@ export default async function Privacidade() {
       <Abertura>
         A gente coleta o mínimo pra conseguir entregar seu pedido e falar com você sobre ele. Não
         vendemos seus dados e não guardamos o número do seu cartão — ele não passa nem pelo nosso
-        servidor. O Google Analytics e a Microsoft Clarity medem as visitas de quem não recusar os
-        cookies; o anúncio e o que a loja anota do que você faz nela, só se você aceitar.
+        servidor. Os cookies de medição e de anúncio (Google, Meta, TikTok e Microsoft Clarity)
+        ligam quando você entra no site, como avisa a faixa, e você pode recusar aqui mesmo, em
+        Cookies. O que a loja anota do que você faz nela, só depois do &ldquo;Entendi&rdquo; da
+        faixa.
       </Abertura>
 
       <Secao titulo="Quem é o responsável">
@@ -79,13 +82,14 @@ export default async function Privacidade() {
           confirmação e o código de rastreio. Se você deixar uma compra no meio do caminho (o
           checkout, ou um Pix que não foi pago), a gente manda até quatro e-mails lembrando dela nos
           dois dias seguintes — um deles com um desconto só seu. Se for a sacola, e a loja já souber
-          quem você é (você aceitou os cookies e já entrou na conta, assinou a newsletter ou comprou
-          antes), são até cinco, nos cinco dias seguintes. Se você só olhou um produto — voltou a
-          ele, ficou um minuto na página ou viu o vídeo — e não pôs nada na sacola, são até dois
-          e-mails sobre ele, três horas depois e no dia seguinte, no máximo uma vez por semana, e
-          também só se a loja já souber quem você é. E uma pessoa da loja pode te chamar no WhatsApp
-          pra ver se ficou alguma dúvida. Todo e-mail tem o link &ldquo;Sair da lista&rdquo;, e no
-          WhatsApp é só responder que não quer: a gente não manda mais.
+          quem você é (você clicou em &ldquo;Entendi&rdquo; na faixa de cookies e já entrou na
+          conta, assinou a newsletter ou comprou antes), são até cinco, nos cinco dias seguintes. Se
+          você só olhou um produto — voltou a ele, ficou um minuto na página ou viu o vídeo — e não
+          pôs nada na sacola, são até dois e-mails sobre ele, três horas depois e no dia seguinte,
+          no máximo uma vez por semana, e também só se a loja já souber quem você é. E uma pessoa da
+          loja pode te chamar no WhatsApp pra ver se ficou alguma dúvida. Todo e-mail tem o link
+          &ldquo;Sair da lista&rdquo;, e no WhatsApp é só responder que não quer: a gente não manda
+          mais.
         </P>
         <P>
           <b>Depois que o seu pedido chega</b>: até cinco e-mails nos dois meses seguintes, sobre a
@@ -159,26 +163,23 @@ export default async function Privacidade() {
           só entram depois, no contrato, se a gente fechar.
         </P>
         <P>
-          <b>Se você não recusar os cookies</b>: o Google Analytics conta a visita — as páginas e os
-          produtos que você vê, o que entra e sai da sacola e o caminho do checkout —, ligada a um
-          código aleatório do cookie dele, sem o seu nome, e-mail ou telefone. Na compra, vão pra
-          ele o valor, os produtos e esse código; e a loja guarda no pedido o navegador da compra,
-          pra saber se ela veio do celular ou do computador. E a Microsoft Clarity grava como a
-          página é usada (mais embaixo, em Cookies), pra gente ver onde a loja atrapalha.
+          <b>Se você não recusar os cookies</b>: o Google Analytics, o Google Ads, a Meta e o TikTok
+          recebem a visita — as páginas e os produtos que você vê, o que entra e sai da sacola e o
+          caminho do checkout —, ligada aos códigos aleatórios dos cookies deles. Na compra, vão pra
+          eles o valor, os produtos e esses códigos — e, pra Meta e pro TikTok, o IP e o navegador.
+          É o que diz pra cada um que a compra veio de um anúncio dele. A loja guarda no pedido o
+          navegador da compra, pra saber se ela veio do celular ou do computador. E a Microsoft
+          Clarity grava como a página é usada (mais embaixo, em Cookies), pra gente ver onde a loja
+          atrapalha.
         </P>
         <P>
-          <b>Se você aceitar os cookies</b>: o mesmo vai também pro Google Ads, pra Meta e pro
-          TikTok, com os códigos dos cookies deles — e, pra Meta e pro TikTok, o IP e o navegador. É
-          o que diz pra cada um que a compra veio de um anúncio dele.
-        </P>
-        <P>
-          <b>O que a própria loja anota, também só se você aceitar</b>: de onde você chegou (o site
-          ou a campanha do link), os produtos que viu (e se ficou um minuto na página ou viu o vídeo
-          de algum), o que entrou e saiu da sacola e os passos do checkout — ligado a um código
-          aleatório deste navegador, guardado num cookie da loja. Quando você entra na conta, deixa
-          o e-mail no checkout ou assina a newsletter, o que foi anotado passa a ficar ligado ao seu
-          e-mail. É o que deixa a loja lembrar o que interessa pra você. E-mail de oferta é outra
-          coisa, e não depende deste sim.
+          <b>O que a própria loja anota, só depois do &ldquo;Entendi&rdquo; da faixa</b>: de onde
+          você chegou (o site ou a campanha do link), os produtos que viu (e se ficou um minuto na
+          página ou viu o vídeo de algum), o que entrou e saiu da sacola e os passos do checkout —
+          ligado a um código aleatório deste navegador, guardado num cookie da loja. Quando você
+          entra na conta, deixa o e-mail no checkout ou assina a newsletter, o que foi anotado passa
+          a ficar ligado ao seu e-mail. É o que deixa a loja lembrar o que interessa pra você.
+          E-mail de oferta é outra coisa, e não depende deste sim.
         </P>
         <P>
           <b>Se você já comprou na loja antiga</b> (a FuckingBarba na Nuvemshop): vieram com você o
@@ -213,13 +214,12 @@ export default async function Privacidade() {
             guardar.
           </li>
           <li>
-            <b>Consentimento</b> — os cookies de anúncio, o que a loja anota do que você faz nela, o
-            aviso da compra pras plataformas de anúncio, a newsletter, o aviso de produto esgotado,
-            a avaliação que você manda pro site e a inscrição pra gravar vídeos pra loja. Você
-            escolhe, e pode voltar atrás a qualquer momento sem perder nada do resto. A medição das
-            visitas — a contagem do Google Analytics e a gravação da Microsoft Clarity — é por
-            legítimo interesse: saber quantas pessoas a loja recebe e onde ela atrapalha, sem o seu
-            nome, e-mail ou telefone. Ela para quando você recusa os cookies.
+            <b>Consentimento</b> — os cookies de medição e de anúncio e o aviso da compra pras
+            plataformas de anúncio (ao navegar pelo site, como avisa a faixa), o que a loja anota do
+            que você faz nela (o &ldquo;Entendi&rdquo; da faixa), a newsletter, o aviso de produto
+            esgotado, a avaliação que você manda pro site e a inscrição pra gravar vídeos pra loja.
+            Você pode voltar atrás a qualquer momento sem perder nada do resto — os cookies, aqui
+            mesmo, em Cookies.
           </li>
           <li>
             <b>Legítimo interesse</b> — segurança da loja e prevenção a fraude, os e-mails e a
@@ -235,10 +235,10 @@ export default async function Privacidade() {
           Os necessários não dependem de você aceitar, porque sem eles a loja não funciona: um
           guarda sua sacola entre uma página e outra, um lembra que aquele pedido foi feito neste
           navegador (é o que impede um link encaminhado de mostrar o endereço de outra pessoa), um
-          guarda a sua resposta sobre os cookies — pra não perguntar de novo toda visita — e, se
-          você entrar na sua conta, um lembra que é você e outro só conta à página que a conta está
-          aberta, sem dizer de quem (é o que mostra, nas páginas, o que vem das suas compras). Os
-          links dos nossos e-mails também usam um, só no que eles abrem: o cupom que espera o
+          guarda o seu &ldquo;Entendi&rdquo; da faixa de cookies — pra ela não voltar toda visita —
+          e, se você entrar na sua conta, um lembra que é você e outro só conta à página que a conta
+          está aberta, sem dizer de quem (é o que mostra, nas páginas, o que vem das suas compras).
+          Os links dos nossos e-mails também usam um, só no que eles abrem: o cupom que espera o
           checkout, a avaliação do pedido e o sair da lista. E dois lembram só a sua escolha sobre o
           pop-up da primeira compra: se você fechou ou já se cadastrou, e se já comprou neste
           navegador — pra ele não aparecer de novo. Depois de um pedido, um último diz, por uma
@@ -246,19 +246,23 @@ export default async function Privacidade() {
           guarda isso, pra ele não voltar.
         </P>
         <P>
-          Os do Google Analytics e da Microsoft Clarity medem as visitas desde a primeira página,
-          com um código aleatório e sem nada de anúncio. Os de anúncio — Google Ads, Meta (Facebook
-          e Instagram) e TikTok — e o da própria loja, com o código deste navegador, só são criados
-          se você clicar em aceitar na faixa. Se clicar em “Só o necessário”, o Google Analytics e a
-          Clarity param e os cookies deles são apagados, nenhum dos outros scripts é carregado — não
-          é um script que roda em silêncio —, a loja não anota nada, e a sua compra também não é
-          avisada a ninguém.
+          Os de medição e de anúncio — Google Analytics, Google Ads, Meta (Facebook e Instagram),
+          TikTok e Microsoft Clarity — ligam desde a primeira página, como avisa a faixa, cada um
+          com um código aleatório. O da própria loja, com o código deste navegador, só é criado
+          depois que você clica em &ldquo;Entendi&rdquo;.
         </P>
         <P>
-          Pra mudar de ideia depois, é só a faixa perguntar de novo. Se agora você disser não, o
-          Google Analytics e a Clarity param e a loja apaga o que anotou deste navegador.
+          Se você recusar aqui embaixo, os cookies dos parceiros são apagados e nenhum script deles
+          é carregado de novo neste navegador — não é um script que roda em silêncio —, a loja apaga
+          o que anotou dele e não anota mais nada, e a sua compra também não é avisada a ninguém.
+          Pra mudar de ideia depois, é só voltar aqui.
         </P>
-        <MudarResposta />
+        <MudarResposta
+          integracoes={{
+            ...integracoes,
+            ga4: integracoes.ga4 ?? process.env.NEXT_PUBLIC_GA4_ID ?? null,
+          }}
+        />
         <P>
           A Microsoft Clarity grava como a página é usada — cliques, rolagem, o movimento na tela —
           pra gente ver onde a loja atrapalha. O que você digita e os seus dados no checkout e na
@@ -303,7 +307,7 @@ export default async function Privacidade() {
             <b>Bling</b> — emite a nota fiscal: nome, CPF ou CNPJ, endereço e o que você comprou.
           </li>
         </Lista>
-        <P>Pra contar as visitas, se você não recusar os cookies:</P>
+        <P>Pra medir as visitas e os anúncios, se você não recusar os cookies:</P>
         <Lista>
           <li>
             <b>Google Analytics</b> — o que você vê e põe na sacola e, na compra, o valor, os
@@ -313,9 +317,6 @@ export default async function Privacidade() {
             <b>Microsoft Clarity</b> — a gravação de como a página é usada, com os seus dados
             cobertos.
           </li>
-        </Lista>
-        <P>Só se você aceitar os cookies, pra anúncio:</P>
-        <Lista>
           <li>
             <b>Google Ads</b>, <b>Meta</b> (Facebook e Instagram) e <b>TikTok</b> — o que você vê e
             põe na sacola e, na compra, o valor, os produtos e os códigos dos cookies. A Meta e o
@@ -324,9 +325,9 @@ export default async function Privacidade() {
           </li>
         </Lista>
         <P>
-          A gente não vende seus dados. Com o seu aceite, o Google, a Meta, o TikTok e a Microsoft
-          podem usar o que você viu e comprou pra medir os anúncios e mostrar anúncios da loja pra
-          você. Sem o aceite, não.
+          A gente não vende seus dados. Se você não recusar os cookies, o Google, a Meta, o TikTok e
+          a Microsoft podem usar o que você viu e comprou pra medir os anúncios e mostrar anúncios
+          da loja pra você. Se recusar, não.
         </P>
       </Secao>
 
@@ -339,9 +340,9 @@ export default async function Privacidade() {
           inscrição pra gravar vídeos, ficam até você pedir pra apagar. O registro das tentativas de
           pagar com cartão fica 30 dias. O que a loja anota do que você faz nela, e o que ela sabe
           dos e-mails que mandou (se chegaram, se foram abertos), fica <b>13 meses</b> e depois é
-          apagado. Cookies de medição duram no máximo dois anos, e o código deste navegador, um ano;
-          os necessários somem quando a sessão acaba, menos o da sacola, o da sua resposta sobre
-          cookies e os do pop-up da primeira compra (um ano).
+          apagado. Cookies de medição e de anúncio duram no máximo dois anos, e o código deste
+          navegador, um ano; os necessários somem quando a sessão acaba, menos o da sacola, o da sua
+          resposta sobre cookies e os do pop-up da primeira compra (um ano).
         </P>
       </Secao>
 

@@ -7,9 +7,9 @@ import { gravarConfiguracoes } from "../../../../lib/painel/ler-configuracoes"
 /**
  * POST /dashboard/configuracoes/integracoes — o código de cada integração
  * (GA4, Google Ads e o rótulo da compra, Pixel da Meta, Clarity, Pixel do
- * TikTok). Em branco desliga. A loja monta as tags com isto em segundos: o
- * GA4 e a Clarity desde a primeira página (quem recusa os cookies sai), e os
- * outros só depois do "Aceitar" da faixa.
+ * TikTok). Em branco desliga. A loja monta as tags com isto em segundos:
+ * todas desde a primeira página, como na Nuvemshop (0230; quem recusa os
+ * cookies na política de privacidade sai).
  *
  * RESPOSTAS: 200 `{ ok, lojaAvisada }`; 422 `{ erros }`, campo a campo;
  * 404 sem loja no Medusa.

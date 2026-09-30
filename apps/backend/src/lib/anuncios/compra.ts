@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto"
-import { idsDoGa, type Parceiro, type Rastro } from "./rastro"
+import { idsDoGa, type Rastro } from "./rastro"
 
 /**
  * A COMPRA PRA CADA PLATAFORMA — o que vai pra Meta (API de Conversões), pro
@@ -19,9 +19,6 @@ import { idsDoGa, type Parceiro, type Rastro } from "./rastro"
 
 export type Plataforma = "meta" | "ga4" | "tiktok"
 export const PLATAFORMAS: Plataforma[] = ["meta", "ga4", "tiktok"]
-
-/** Quem, na faixa de cookies, precisa ter ouvido o sim. */
-const PARCEIRO: Record<Plataforma, Parceiro> = { meta: "meta", ga4: "google", tiktok: "tiktok" }
 
 export const NOME_DA_PLATAFORMA: Record<Plataforma, string> = {
   meta: "Meta",
@@ -62,11 +59,10 @@ export type Decisao = "mandar" | "esperar" | "nada" | { dispensar: string }
  *   ainda pega);
  * - sem o rastro da loja: espera meia hora (ela manda logo depois de fechar
  *   o pedido); passou disso, dispensa;
- * - com o "não": dispensa, pra todas;
- * - o GA4 conta quem não disse não, com ou sem resposta — a loja liga ele
- *   antes da resposta da faixa, como as visitas (0166) —, e só dispensa sem
- *   o `client_id` do cookie dele (não há a quem somar);
- * - a Meta e o TikTok: sem o sim, ou sem o sim PRA ESTA plataforma, dispensa.
+ * - com o "não" (a recusa na política de privacidade): dispensa, pra todas;
+ * - sem resposta vale o mesmo que o sim — a loja liga todas as tags antes da
+ *   resposta da faixa, como a Nuvemshop (0230): a compra vai pra todas;
+ * - o GA4 só dispensa sem o `client_id` do cookie dele (não há a quem somar).
  */
 export function decidir(
   plataforma: Plataforma,
@@ -89,14 +85,11 @@ export function decidir(
   if (rastro.consentimento === "nao") return { dispensar: "sem-consentimento" }
   if (plataforma === "ga4")
     return idsDoGa(rastro.ga).clientId ? "mandar" : { dispensar: "sem-client-id" }
-  if (rastro.consentimento !== "sim") return { dispensar: "sem-consentimento" }
-  if (!rastro.parceiros.includes(PARCEIRO[plataforma])) return { dispensar: "parceiro-sem-sim" }
   return "mandar"
 }
 
-/** O sim pro anúncio do Google (o GA4 mede sem ele; o anúncio, só com ele). */
-const anuncioDoGoogle = (r: Rastro) =>
-  r.consentimento === "sim" && r.parceiros.includes(PARCEIRO.ga4) ? "GRANTED" : "DENIED"
+/** O anúncio do Google: liberado pra quem não recusou, como o `consent default` da loja (0230). */
+const anuncioDoGoogle = (r: Rastro) => (r.consentimento === "nao" ? "DENIED" : "GRANTED")
 
 export const sha256 = (s: string) => createHash("sha256").update(s).digest("hex")
 

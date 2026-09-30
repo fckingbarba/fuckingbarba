@@ -7,8 +7,8 @@ import { registrarRastroWorkflow } from "../../../../workflows/anuncios/registra
 
 /**
  * POST /store/pedidos/rastro — `{ pedido, rastro }`: a resposta sobre os
- * cookies, os do GA4 de quem não recusou e, com o sim, os dos outros
- * parceiros, o IP e o navegador de quem comprou (`lib/anuncios/rastro.ts`).
+ * cookies e, de quem não recusou, os cookies dos parceiros, o IP e o
+ * navegador de quem comprou (`lib/anuncios/rastro.ts`).
  *
  * Quem chama é a loja, logo depois de fechar o pedido (`after()` na ação de
  * finalizar). SÓ A LOJA (`x-loja-segredo`): de fora, qualquer um poderia

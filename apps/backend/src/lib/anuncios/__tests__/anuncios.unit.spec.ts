@@ -79,18 +79,18 @@ describe("o rastro da compra", () => {
     })
   })
 
-  it("sem resposta: os cookies do GA4 e o navegador, de quem não recusou (0166)", () => {
+  it("sem resposta: tudo passa, como com o sim — as tags ligam antes da faixa (0230)", () => {
     const r = lerRastro({ ...rastroBruto, consentimento: null })
     expect(r).toEqual({
       em: rastroBruto.em,
       consentimento: null,
       parceiros: [],
       ga: rastroBruto.ga,
-      meta: null,
-      tiktok: null,
-      ip: null,
+      meta: rastroBruto.meta,
+      tiktok: rastroBruto.tiktok,
+      ip: rastroBruto.ip,
       navegador: rastroBruto.navegador,
-      pagina: null,
+      pagina: rastroBruto.pagina,
     })
   })
 
@@ -140,22 +140,15 @@ describe("mandar ou não, por plataforma", () => {
       expect(decidir(p, { ...base, rastro: nao })).toEqual({ dispensar: "sem-consentimento" })
   })
 
-  it("sem resposta: o GA4 manda (conta quem não recusou); a Meta e o TikTok dispensam", () => {
+  it("sem resposta: manda pra todas, como com o sim (0230)", () => {
     const semResposta = lerRastro({ ...rastroBruto, consentimento: null })
-    expect(decidir("ga4", { ...base, rastro: semResposta })).toBe("mandar")
-    expect(decidir("meta", { ...base, rastro: semResposta })).toEqual({
-      dispensar: "sem-consentimento",
-    })
-    expect(decidir("tiktok", { ...base, rastro: semResposta })).toEqual({
-      dispensar: "sem-consentimento",
-    })
+    for (const p of ["meta", "ga4", "tiktok"] as const)
+      expect(decidir(p, { ...base, rastro: semResposta })).toBe("mandar")
   })
 
-  it("sem o sim pra esta plataforma, ou o GA4 sem o client_id: dispensa", () => {
+  it("o sim de antes de um parceiro novo também manda; o GA4 sem o client_id dispensa", () => {
     const soGoogle = lerRastro({ ...rastroBruto, parceiros: ["google"] })
-    expect(decidir("meta", { ...base, rastro: soGoogle })).toEqual({
-      dispensar: "parceiro-sem-sim",
-    })
+    expect(decidir("meta", { ...base, rastro: soGoogle })).toBe("mandar")
     expect(decidir("ga4", { ...base, rastro: soGoogle })).toBe("mandar")
     const semGa = lerRastro({ ...rastroBruto, ga: { cookie: null, sessao: null } })
     expect(decidir("ga4", { ...base, rastro: semGa })).toEqual({ dispensar: "sem-client-id" })
@@ -221,16 +214,16 @@ describe("a compra no formato de cada plataforma", () => {
     expect(JSON.stringify(corpo)).not.toMatch(/rafael|98888/i)
   })
 
-  it("GA4 sem o sim ao Google: a compra vai, com o anúncio negado", () => {
+  it("GA4 sem resposta: o anúncio liberado, como o consent default da loja (0230)", () => {
     const semResposta = lerRastro({ ...rastroBruto, consentimento: null })!
     expect(compraProGa4(pedido, semResposta, agora)?.consent).toEqual({
-      ad_user_data: "DENIED",
-      ad_personalization: "DENIED",
+      ad_user_data: "GRANTED",
+      ad_personalization: "GRANTED",
     })
     const simSemGoogle = lerRastro({ ...rastroBruto, parceiros: ["meta"] })!
     expect(compraProGa4(pedido, simSemGoogle, agora)?.consent).toEqual({
-      ad_user_data: "DENIED",
-      ad_personalization: "DENIED",
+      ad_user_data: "GRANTED",
+      ad_personalization: "GRANTED",
     })
   })
 
