@@ -4930,6 +4930,34 @@ Depois do deploy — **o que você faz**: Financeiro → Custos e imposto → "T
 a do seu contrato (a tabela pública é 0,99%), valendo desde 27/09/2026. E, todo mês, lance em
 Despesas → "Taxas de pagamento" as tarifas do extrato do Pagar.me (gateway e antifraude), se tiver.
 
+**A Vercel não monta mais por causa dos testes — pronto em 30/09 (entrega 0227).** Pergunta dele: "o
+dashboard também está nessa parte de redução de custos? deu uma subida nos custos de build". Está: desde
+28/09 (entrega 0179) o painel e a loja só montam quando o código deles muda. De 28/09 às 13h46 de 30/09
+foram 48 entregas: o painel montou 35 vezes e pulou 13; a loja montou 27 e pulou 18; nenhuma prévia. A
+subida é o ritmo das entregas (22 por dia em 28 e 29/09).
+
+- **O que mudou:** a regra passou a ignorar o que não vai pro ar — os conferidores (a pasta
+  `ferramentas/` de cada app), os textos (`.md`) e os arquivos do Lighthouse do CI (`budgets.json`,
+  `lighthouserc.json`). Com ela, 10 dos 35 builds do painel e 1 dos 27 da loja desde 28/09 não teriam
+  acontecido.
+- **Continua montando:** qualquer mudança de código, do `public`, das dependências
+  (`package-lock.json`) ou da própria regra; o redeploy pelo painel da Vercel; e, por garantia, quando o
+  último deploy não está na cópia do repositório que a Vercel baixa.
+
+- [ ] **Você, 2 minutos (é o que mais pesa na conta):** Vercel → Settings → Build and Deployment, no
+      time e em cada projeto (`dashboard` e `fuckingbarba-loja`): Build Machine **Standard** e
+      **On-Demand Concurrent Builds** desligado. Pela regra da Vercel, o build que roda sozinho deixa de
+      ser cobrado; quando saem várias entregas juntas, uma espera a outra na fila.
+
+Conferido: o comando, numa cópia rasa do repositório como a Vercel baixa (10 commits), na pasta de cada
+app, com `sh` e com `bash` — 22 casos, 44/44 (só conferidor, só texto, só do CI, a raiz e o backend:
+pula; código, `public`, `package-lock.json`, `turbo.json`, a própria regra, sem deploy anterior,
+redeploy e deploy anterior fora da cópia: monta). E as 48 entregas de verdade de 28 a 30/09, refeitas
+com a regra velha e com a nova.
+
+Depois do deploy — **nada a configurar.** O merge desta entrega monta os dois (a regra mudou); a
+partir da próxima, vale a nova.
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa

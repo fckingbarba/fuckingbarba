@@ -21,7 +21,11 @@ Os três apps são workspaces npm da raiz (`apps/*`). O lockfile é o da raiz. N
 "pra rodar a Vercel de novo". Na `main`, cada projeto só monta se a pasta dele, ou o `package.json`,
 o `package-lock.json` e o `turbo.json` da raiz, mudou desde o último deploy dele que deu certo
 (`ignoreCommand`, com o `VERCEL_GIT_PREVIOUS_SHA`); senão o deploy daquele projeto sai cancelado
-pelo Ignored Build Step, e é o esperado. Depois do merge, só espere a Vercel do app que a PR mexeu.
+pelo Ignored Build Step, e é o esperado. Da pasta do app, NÃO contam o que não vai pro ar (entrega
+0227): os conferidores e falsos (`ferramentas/`), os textos (`*.md`) e o Lighthouse do CI
+(`budgets.json`, `lighthouserc.json`) — de 28 a 30/09, 10 dos 35 builds do painel foram só de
+conferidor. Por isso nada em `src` importa de `ferramentas/` (lá só se cita, em comentário), e arquivo
+novo na pasta do app que não vai pro ar entra no `:(exclude)` dos DOIS `vercel.json`. Depois do merge, só espere a Vercel do app que a PR mexeu.
 O redeploy do mesmo commit pelo painel (variável nova) monta sempre. O motivo: no Pro cada build é
 cobrado, e o "Skip deployment" automático da Vercel conta arquivo da raiz fora dos workspaces (este
 AGENTS, o ESTADO) como mudança em tudo — em 26 e 27/09 foram 374 builds em 2 dias, 6 em cada 10 de
