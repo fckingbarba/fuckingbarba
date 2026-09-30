@@ -32,7 +32,9 @@
  * │ • rolagem de lado no celular; erro no console;                         │
  * │ • (CRM, parte 3) a ficha sem as cinco etiquetas, ou com elas pra       │
  * │   operação; o número do pedido chegando pro marketing; a oferta do     │
- * │   checkout contando como cupom; o Pix esperando contando como compra.  │
+ * │   checkout contando como cupom; o Pix esperando contando como compra;  │
+ * │ • (a previsão, 0220) a ficha sem ela, ou com ela diferente da API; o   │
+ * │   LTV fora do cobrado; previsão pra quem só tem o Pix esperando.       │
  * └────────────────────────────────────────────────────────────────────────┘
  */
 
@@ -374,6 +376,15 @@ try {
     "o Caio, só com o Pix esperando: lead",
     JSON.stringify(fDonoCaio.corpo.cliente?.crm?.etiquetas?.slice(0, 1))
   )
+  // A previsão (0220) só com compra paga: o LTV "já gastou" é o cobrado; o Pix esperando não conta.
+  const previsao = (f) => f.corpo.cliente?.crm?.previsao
+  ok(
+    semEspaco(previsao(fDonoBruno)?.ltv?.ate) === reais(gastoDoBruno) &&
+      semEspaco(previsao(fDono)?.ltv?.ate) === reais(gastoDaAna) &&
+      previsao(fDonoCaio) === null,
+    "a previsão: o LTV da Ana e do Bruno é o cobrado; o Caio, só com o Pix esperando, sem previsão",
+    JSON.stringify([previsao(fDonoBruno), previsao(fDono), previsao(fDonoCaio)])
+  )
   ok(
     fOp.status === 200 && !("crm" in (fOp.corpo.cliente ?? {})),
     "a operação abre a ficha sem a parte do CRM"
@@ -524,8 +535,9 @@ try {
         /Não aceita receber ofertas/.test(await pagina.locator("[data-ofertas]").textContent()),
       "os dois pedidos, e as ofertas: não aceita"
     )
+    // Só as do CRM (`data-etiqueta`): as da previsão, no mesmo bloco, são `data-previsao`.
     ok(
-      (await pagina.locator("[data-etiquetas-crm] .etiqueta").count()) === 5 &&
+      (await pagina.locator("[data-etiquetas-crm] [data-etiqueta]").count()) === 5 &&
         semEspaco(
           await pagina.locator('[data-etiqueta="etapa"] .etiqueta__valor').textContent()
         ) === "1ª compra" &&
@@ -535,6 +547,18 @@ try {
           await pagina.locator("[data-caminho-crm] .anotacao").first().textContent()
         ).startsWith(`Pagou o pedido #${anaPaga.numero}`),
       "a parte do CRM: as cinco etiquetas e o caminho, como na API"
+    )
+    const daApi = previsao(fDono)
+    const valorDaPrevisao = async (p) =>
+      semEspaco(await pagina.locator(`[data-previsao="${p}"] .etiqueta__valor`).textContent())
+    ok(
+      (await pagina.locator("[data-etiquetas-crm] [data-previsao-crm] [data-previsao]").count()) ===
+        3 &&
+        (await valorDaPrevisao("proxima")) === semEspaco(daApi?.proximaCompra.valor) &&
+        (await valorDaPrevisao("chance")) === semEspaco(daApi?.chance.valor) &&
+        (await valorDaPrevisao("ltv")) === semEspaco(daApi?.ltv.ate),
+      "a previsão embaixo das etiquetas: a próxima compra, a chance de sair e o LTV, como na API",
+      JSON.stringify(daApi)
     )
   }
 
@@ -590,7 +614,7 @@ try {
     await pagina.goto(`${PAINEL}/clientes/${bruno.id}`)
     await pagina.waitForSelector(`[data-ficha="${bruno.id}"]`)
     ok(
-      (await pagina.locator("[data-etiquetas-crm] .etiqueta").count()) === 5 &&
+      (await pagina.locator("[data-etiquetas-crm] [data-etiqueta]").count()) === 5 &&
         !(await pagina.locator("[data-tela]").textContent()).includes(`#${brunoPago.numero}`),
       "a ficha do Bruno: as etiquetas, sem o número do pedido"
     )
