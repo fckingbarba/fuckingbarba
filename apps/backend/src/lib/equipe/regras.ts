@@ -83,7 +83,9 @@ export function nomeDoPapel(papel: Papel, nomes: ReadonlyMap<string, string> = n
  * loja: do marketing e do dono, que fecham com eles — a operação não vê
  * WhatsApp e e-mail de quem não é cliente. O `marketing` é a área dos
  * números de venda (o Resumo, a meta); mudar a `metaDoMes`, no padrão, é só
- * do dono. Os `contatos` também não são tela: são o telefone, o endereço e a
+ * do dono. O `financeiro` é o DRE da loja, as despesas e o custo de cada
+ * produto (o lucro, o pró-labore, o que se paga a cada um): só do dono no
+ * padrão — ele libera pra quem cuidar das contas. Os `contatos` também não são tela: são o telefone, o endereço e a
  * cidade dos clientes (em Clientes e nos Carrinhos, com o botão do
  * WhatsApp), os pedidos na ficha de cada um e a lista inteira de clientes,
  * e não só quem aceitou ofertas — nos três de sempre, seguem o papel
@@ -106,6 +108,7 @@ export const ACESSO_PADRAO = {
   home: ["dono", "marketing"],
   marketing: ["dono", "marketing"],
   metaDoMes: ["dono"],
+  financeiro: ["dono"],
   observabilidade: ["dono", "operacao"],
   configuracoes: ["dono"],
   equipe: ["dono"],
@@ -138,6 +141,7 @@ export const NOME_DA_AREA: Record<Area, string> = {
   home: "Layout da home",
   marketing: "Marketing",
   metaDoMes: "Meta do mês",
+  financeiro: "Financeiro",
   observabilidade: "Observabilidade",
   configuracoes: "Configurações",
   equipe: "Equipe e acessos",

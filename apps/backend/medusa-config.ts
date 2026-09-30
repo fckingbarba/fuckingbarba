@@ -254,6 +254,13 @@ const avaliacoesModule = [{ resolve: "./src/modules/avaliacoes" }]
 const criadoresModule = [{ resolve: "./src/modules/criadores" }]
 
 /**
+ * O Financeiro (`src/modules/financeiro`): as despesas que o dono lança e o
+ * custo de cada produto, a embalagem e o Simples — o que o DRE do painel não
+ * sabe sozinho. Ver o AGENTS.md, "O Financeiro".
+ */
+const financeiroModule = [{ resolve: "./src/modules/financeiro" }]
+
+/**
  * O ERP — a conexão (tokens cifrados) e a nota fiscal de cada pedido. Quem
  * fala com o ERP é o tradutor dele (`src/modules/bling/`); quem decide é
  * `src/lib/erp/`. Ver o AGENTS.md, "ERP".
@@ -332,6 +339,7 @@ module.exports = defineConfig({
     ...aviseMeModule,
     ...avaliacoesModule,
     ...criadoresModule,
+    ...financeiroModule,
     ...erpModule,
     ...equipeModule,
     ...observabilidadeModule,
