@@ -2740,8 +2740,9 @@ dos pedidos. A operação abre a ficha sem essa parte.
     a promoção automática, `PROMO-`, não contam).
 - **Quanto dura cada frasco:** pelo endereço do produto (`componentesDoProduto`: "kit-3-…" são 3,
   "…-duplo" são 2, o kit de dois produtos é um de cada, o `kit-completo-para-barba` está em
-  `KITS`), vezes a quantidade, vezes os dias de `DIAS_PADRAO` (Fator 30; óleo, shampoo e spray 45;
-  balm e pasta 60) — até os Ajustes do CRM deixarem o dono mudar. Produto novo com nome fora do
+  `KITS`), vezes a quantidade, vezes os dias de `DIAS_PADRAO` (Fator 30; shampoo 65, óleo 70 e
+  balm 80 desde a 0229, pelas vendas da Nuvemshop de fev–set/2026; spray 45; pasta 60) — os
+  Ajustes do CRM mudam cada um. Produto novo com nome fora do
   padrão: ponha em `KITS`. Sem o aviso de entrega, o pedido conta como entregue 7 dias depois de
   pago, a partir de 10 dias pago (o porquê diz "estimada").
 - **A entrega** é o "entregue" mais tarde entre o envio do Medusa (`delivered_at`) e o aviso da
@@ -2989,8 +2990,10 @@ o e-mail (escolha do dono: é sobre a compra que a pessoa começou), e nasceram 
   - Cada fluxo tem a chave de ligar (desligar guarda o `desde`; ligar de novo começa agora), os
     números de 30 dias e os toques. Os números: quem recebeu, quem comprou em até 7 dias do
     primeiro e-mail e quanto (o 1º pedido), os cupons usados, e o mesmo pro controle.
-  - Cada toque tem o "Mandar pra mim" (`POST /dashboard/crm/fluxos/teste`). O desconto do cupom
-    vai de 5% a 30% (padrão 10%).
+  - Cada toque tem o "Mandar pra mim" (`POST /dashboard/crm/fluxos/teste`, 10 por hora por
+    pessoa, na memória). O desconto do cupom vai de 5% a 30% (padrão 10%). O `conferir-crm` clica
+    8 deles por rodada (0229): a 2ª rodada na mesma hora cai nos "Mandar pra mim" sem bug nenhum —
+    reinicie o Medusa entre as rodadas.
   - A configuração mora no metadata da loja (`fb_crm_fluxos`). A regra da tela e do mudar é
     `lib/painel/fluxos.ts`.
   - `POST /dashboard/crm/fluxos/rodar` roda agora; fora de produção aceita `{ agora, email }`, que
@@ -3345,7 +3348,9 @@ que a pessoa comprou está pra acabar. É um fluxo do motor que começa DESLIGAD
 - **Os e-mails** (`emailDaReposicao`, em `lib/emails/reposicao.ts`) são todos "lembrete", sem
   palavra de propaganda (o teste recusa). Todos mostram "O de sempre", os produtos da última
   compra pelo SKU, e o de 7 dias mostra também "Pra durar mais" (`SUBIR_PARA`: 3 Fatores, o Kit
-  Completo), se a pessoa já não levou.
+  Completo), se a pessoa já não levou. Quando o de sempre é um kit, todos mostram também o
+  produto sozinho, "Só o shampoo" (`SO_ELE`/`soEleDa`: o shampoo avulso e o duplo, o óleo, o
+  balm — 0229): de quem voltou depois do Kit Completo, o shampoo sozinho saiu mais que o kit.
 - **O "Refazer o pedido"** é o link de voltar com o tipo `repor` (`lib/crm/voltar.ts`):
   - `repor-order_…`: a compra da loja nova num carrinho novo, com os endereços e a conta.
     Clicar de novo devolve o mesmo carrinho (`fb_crm_reposto`, no pedido).
@@ -3355,7 +3360,8 @@ que a pessoa comprou está pra acabar. É um fluxo do motor que começa DESLIGAD
     e o `refazerPedido` são os do Pix vencido. O Pix continua só refazendo pedido cancelado.
   - A página `/voltar/<t>` da loja aceita os prefixos novos.
 - **O nome** vem da conta (o `first_name`) ou da loja antiga (`crm.nomesDaBase`).
-- **No painel:** o bloco Reposição, na aba Fluxos. O "Mandar pra mim" traz o Fator acabando.
+- **No painel:** o bloco Reposição, na aba Fluxos. O "Mandar pra mim" traz o Fator acabando e,
+  desde a 0229, o shampoo de quem levou o Kit Completo (com o "Só o shampoo").
 
 O `conferir-crm.mjs` faz duas pessoas de ponta a ponta:
 - uma da loja antiga que NÃO aceitou ofertas lá: recebe os 4 e-mails, e o "Refazer o pedido"
@@ -3378,7 +3384,10 @@ prioridade 5: depois da reposição, antes das boas-vindas.
   - 3 dias: não pular dia, com a linha do tempo do Fator (só com ele);
   - 7 dias: o check-in, "Como tá indo?";
   - 21 dias: a rotina completa (`sugestoesDaRotina`, a matriz do plano, pelo que a pessoa tem em
-    todas as compras, até dois produtos);
+    todas as compras, até dois produtos). Quem tem o shampoo, o óleo e o balm (o Kit Completo) e
+    não tem o Fator ganha o Fator, e o e-mail vira o dele: "O próximo passo da sua barba", com a
+    linha do tempo e duas avaliações de 4 e 5 estrelas (`fatorSugerido`, 0229). A mesma regra
+    muda o "combina" do site e o de 24 horas da navegação de quem olhou o Kit Completo;
   - 60 dias: o dia 60 do Fator (só com ele).
   O texto é o da página de cada produto (`conteudosDasTrilhas`): sem a seção, o dia fica como
   pulado. Todos são "lembrete", sem palavra de propaganda (o teste recusa).
@@ -3400,7 +3409,8 @@ prioridade 5: depois da reposição, antes das boas-vindas.
 O `conferir-crm.mjs` liga a jornada antes de entregar um pedido do Fator e anda até os 60 dias:
 - confere os 5 e-mails;
 - clica nos dois botões do check-in: um vai pro avaliar, o outro pro WhatsApp ou pro contato;
-- confere que a rotina completa traz o óleo.
+- confere que a rotina completa traz o óleo;
+- e, com um pedido do Kit Completo, que o de 21 dias é o do Fator (0229).
 
 **O CRM, parte 14: o aviso da reposição no site** (entrega 0188, a etapa 3 do plano: "o site usando
 a ficha"). Quem está com a conta aberta vê "Seu Fator de Crescimento acaba em 5 dias", com o
