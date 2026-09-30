@@ -1,0 +1,170 @@
+/* --------------------------------------------------------------------------
+   O FINANCEIRO (entrega 0225) — o DRE, as despesas e os custos. O desenho
+   aprovado pelo dono: https://claude.ai/artifact/5SL83dZ9v74zEUxbBrqi5z
+
+   A barra dos meses usa as peças da barra do período (`.periodo*`, em
+   `inicio-periodo.css`); os números de cima, os `.numero` de sempre.
+   -------------------------------------------------------------------------- */
+
+/* A barra: os botões à esquerda; o comparar e a vista à direita. */
+.fin-barra__lado { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.periodo__campo select { height: 44px; padding: 0 10px; border: 2px solid var(--tinta); background: var(--papel); color: var(--tinta); font: inherit; font-size: 0.9rem; font-weight: 700; letter-spacing: 0; text-transform: none; }
+.fin-barra .periodo__janela { grid-template-columns: repeat(2, minmax(0, 150px)) auto; align-items: end; }
+.fin-vista { display: flex; border: 2px solid var(--tinta); }
+.fin-vista a { display: inline-flex; align-items: center; min-height: 40px; padding: 0 12px; color: var(--tinta); text-decoration: none; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; }
+.fin-vista a:hover { background: var(--cinza); }
+.fin-vista a[aria-current="page"] { background: var(--tinta); color: var(--amarelo); }
+.fin-legenda { margin: 0 0 16px; font-size: 0.8rem; color: var(--tinta-suave); }
+
+/* Os números de cima: o lucro ocupa duas colunas. */
+.fin-numeros { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.fin-numeros__lucro { grid-column: span 2; }
+.fin-numeros__lucro .numero__valor { font-size: clamp(1.8rem, 3.6vw, 2.6rem); }
+.fin-var[data-bom] { color: var(--menta-escura); }
+.fin-var[data-ruim] { color: var(--erro); }
+.numero--destaque .fin-var[data-bom] { color: var(--menta); }
+.numero--destaque .fin-var[data-ruim] { color: #ff9b94; }
+
+/* O "de cada R$ 100" e o "pra fechar", lado a lado. */
+.fin-dois { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 0 16px; align-items: start; }
+.fin-cem { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.fin-cem__item { display: grid; grid-template-columns: minmax(0, 190px) minmax(0, 1fr) 84px; align-items: center; gap: 12px; font-size: 0.84rem; }
+.fin-cem__trilho { height: 16px; background: var(--cinza); }
+.fin-cem__trilho span { display: block; height: 100%; background: var(--tinta-suave); }
+.fin-cem__item[data-sobra] { font-weight: 800; }
+.fin-cem__item[data-sobra] .fin-cem__trilho span { background: var(--menta-escura); }
+.fin-cem__item[data-sobra][data-negativo] .fin-cem__trilho span { background: var(--erro); }
+.fin-cem__valor { text-align: right; }
+
+.fin-falta { display: grid; gap: 10px; margin: 0 0 14px; padding: 0; list-style: none; }
+.fin-falta__item { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 10px; align-items: start; padding: 12px; background: var(--amarelo-palido); border: 2px solid var(--amarelo-borda); font-size: 0.84rem; }
+.fin-falta__sinal { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; background: var(--amarelo); font-weight: 800; }
+.fin-falta__ir { font-weight: 800; white-space: nowrap; }
+.fin-nota { margin: 0; font-size: 0.8rem; color: var(--tinta-suave); }
+.fin-nota--pe { padding: 14px clamp(16px, 2.2vw, 22px) 18px; }
+.fin-selos { display: grid; gap: 6px; margin: 0; padding: 12px 0 0; list-style: none; border-top: 1px solid var(--cinza-2); font-size: 0.78rem; color: var(--tinta-suave); }
+.fin-selo { display: inline-flex; align-items: center; height: 20px; padding: 0 7px; font-size: 0.58rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; vertical-align: middle; }
+.fin-selo--auto { background: var(--menta-clara); color: #0a6e55; }
+.fin-selo--lancado { background: var(--cinza-2); color: #3f4857; }
+.fin-selo--falta { background: var(--amarelo-claro); color: var(--aviso-txt); box-shadow: inset 0 0 0 1px var(--amarelo-borda); }
+
+/* O DRE: uma grade por linha; o item é um <details> que abre o detalhe. */
+.dre { font-size: 0.86rem; }
+.dre__linha { display: grid; grid-template-columns: minmax(0, 1fr) 124px 60px; align-items: center; column-gap: 12px; min-height: 40px; padding: 0 clamp(16px, 2.2vw, 22px); border-bottom: 1px solid rgba(18, 24, 31, 0.1); }
+.dre[data-comparar] .dre__linha { grid-template-columns: minmax(0, 1fr) 124px 60px 124px 60px 80px; }
+.dre__v, .dre__p { text-align: right; }
+.dre__p { font-size: 0.78rem; color: var(--tinta-suave); }
+.dre__linha--cabeca { min-height: 36px; background: var(--cinza); border-top: 2px solid var(--tinta); border-bottom: 2px solid var(--tinta); font-size: 0.6rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--tinta-suave); }
+.dre__linha--cabeca .dre__p { font-size: 0.6rem; }
+.dre__linha--grupo { background: var(--cinza); font-weight: 800; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.03em; }
+.dre__linha--total { background: var(--amarelo-palido); font-weight: 800; min-height: 46px; border-top: 2px solid var(--tinta); border-bottom: 2px solid var(--tinta); }
+.dre__linha--final { background: var(--tinta); color: #fff; font-weight: 800; font-size: 1rem; min-height: 56px; border-bottom: 0; }
+.dre__linha--final .dre__p { color: var(--amarelo); }
+.dre__item > summary { list-style: none; cursor: pointer; }
+.dre__item > summary::-webkit-details-marker { display: none; }
+.dre__item > summary:hover { background: var(--amarelo-palido); }
+.dre__nome { min-width: 0; }
+.dre__nome--item { display: grid; grid-template-columns: 12px minmax(0, 1fr); align-items: center; gap: 8px; }
+.dre__texto .fin-selo { margin-left: 6px; }
+.dre__abre { width: 12px; height: 12px; fill: currentColor; flex-shrink: 0; transition: transform 0.15s var(--suave); }
+.dre__item[open] .dre__abre { transform: rotate(90deg); }
+.dre__linha--item .dre__nome { padding: 6px 0 6px 4px; }
+.dre__linha--detalhe { min-height: 34px; background: #fafbfb; font-size: 0.8rem; color: #3f4857; }
+.dre__linha--detalhe > span:first-child { padding-left: 34px; }
+
+/* O mês a mês: o lucro em barras e a tabela. */
+.fin-meses { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 12px; height: 200px; padding: 0 4px; border-bottom: 2px solid var(--tinta); }
+.fin-meses__col { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 6px; min-width: 0; padding-bottom: 22px; }
+.fin-meses__barra { width: min(44px, 100%); max-height: calc(100% - 44px); min-height: 2px; background: var(--tinta); }
+.fin-meses__rot { font-size: 0.78rem; font-weight: 800; }
+.fin-meses__mes { position: absolute; bottom: -22px; font-size: 0.62rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--tinta-suave); }
+.fin-meses__col[data-negativo] .fin-meses__barra { background: var(--erro); }
+.fin-meses__col[data-negativo] .fin-meses__rot { color: var(--erro); }
+.fin-meses__col[data-incompleto] .fin-meses__barra { background: var(--amarelo-claro); border: 2px dashed var(--amarelo-borda); }
+.fin-meses__col[data-incompleto] .fin-meses__rot { color: var(--aviso-txt); }
+[data-lucro-por-mes] { padding-bottom: 36px; }
+.fin-mes-a-mes th small { display: block; font-size: 0.5rem; font-weight: 700; letter-spacing: 0.04em; }
+.fin-mes-a-mes tbody th { font-size: 0.84rem; font-weight: 700; letter-spacing: 0; text-transform: none; color: inherit; white-space: nowrap; position: sticky; left: 0; background: var(--papel); border-bottom: 1px solid rgba(18, 24, 31, 0.1); }
+.fin-mes-a-mes td { white-space: nowrap; }
+.fin-mes-a-mes tr[data-tipo="grupo"] > * { background: var(--cinza); font-weight: 800; }
+.fin-mes-a-mes tr[data-tipo="total"] > * { background: var(--amarelo-palido); font-weight: 800; }
+.fin-mes-a-mes tr[data-tipo="final"] > * { background: var(--tinta); color: #fff; font-weight: 800; }
+.fin-mes-a-mes td[data-incompleta] { background: var(--amarelo-claro) !important; color: var(--aviso-txt) !important; box-shadow: inset 0 0 0 1px var(--amarelo-borda); }
+
+/* As despesas: a lista do mês à esquerda, o formulário à direita. */
+.fin-duas-colunas { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.fin-lado { display: grid; gap: 0; min-width: 0; }
+.fin-mes { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px; padding: 14px 16px 12px clamp(16px, 2.2vw, 22px); }
+.fin-mes__ir { display: flex; align-items: center; gap: 4px; }
+.fin-mes__total { margin: 0; font-size: 0.8rem; color: var(--tinta-suave); }
+.fin-mes__total b { font-size: 1.05rem; color: var(--tinta); }
+.fin-icone { width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center; border: 0; background: none; color: var(--tinta-suave); cursor: pointer; }
+.fin-icone svg { width: 16px; height: 16px; fill: currentColor; }
+.fin-icone:hover { background: var(--cinza); color: var(--tinta); }
+.fin-grupo__cabeca { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 10px clamp(16px, 2.2vw, 22px) 8px; background: var(--cinza); border-top: 2px solid var(--tinta); border-bottom: 1px solid rgba(18, 24, 31, 0.15); font-size: 0.78rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.03em; }
+.fin-grupo__cabeca small { font-size: 0.72rem; font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--tinta-suave); }
+.fin-despesa { display: grid; grid-template-columns: minmax(0, 1fr) 120px 84px 40px; align-items: center; gap: 12px; min-height: 46px; padding: 0 12px 0 clamp(16px, 2.2vw, 22px); border-bottom: 1px solid rgba(18, 24, 31, 0.1); font-size: 0.86rem; }
+.fin-despesa__valor { text-align: right; }
+.fin-despesa > span:nth-child(3) { justify-self: end; }
+.fin-despesa--aberta { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; padding: 14px clamp(16px, 2.2vw, 22px); background: var(--amarelo-palido); }
+.fin-despesa__botoes { display: flex; flex-wrap: wrap; gap: 10px; }
+.fin-form { display: grid; gap: 12px; }
+.fin-form .campo, .fin-despesa--aberta .campo { grid-column: auto; }
+.fin-form .campo, .fin-despesa--aberta .campo { gap: 5px; }
+.fin-form .campo label, .fin-despesa--aberta .campo label { display: grid; gap: 5px; }
+.fin-form input, .fin-form select, .fin-despesa--aberta input:not([type="checkbox"]), .fin-despesa--aberta select { height: 46px; padding: 0 12px; border: 2px solid var(--tinta); background: var(--papel); color: var(--tinta); font: inherit; font-size: 0.92rem; font-weight: 600; text-transform: none; letter-spacing: 0; width: 100%; }
+.fin-form input[aria-invalid], .fin-form select[aria-invalid], .fin-despesa--aberta input[aria-invalid] { border-color: var(--erro); }
+.fin-form__par { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.fin-form__marcar { display: flex; align-items: flex-start; gap: 10px; font-size: 0.86rem; cursor: pointer; }
+.fin-form__marcar input { width: 20px; height: 20px; margin: 1px 0 0; accent-color: var(--tinta); flex-shrink: 0; }
+.fin-form__marcar small { display: block; font-size: 0.78rem; color: var(--tinta-suave); }
+.fin-grade { display: grid; gap: 4px; }
+.fin-grade__linha { display: grid; grid-template-columns: 56px repeat(8, minmax(0, 1fr)); gap: 4px; align-items: center; font-size: 0.74rem; }
+.fin-grade__mes { text-align: center; font-size: 0.6rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--tinta-suave); }
+.fin-grade__rot { font-weight: 800; }
+.fin-grade__cel { height: 26px; display: flex; align-items: center; justify-content: center; font-weight: 800; }
+.fin-grade__cel[data-estado="ok"] { background: var(--menta-clara); color: #0a6e55; }
+.fin-grade__cel[data-estado="falta"] { background: var(--amarelo-claro); color: var(--aviso-txt); box-shadow: inset 0 0 0 1px var(--amarelo-borda); }
+.fin-grade__cel[data-estado="sem-venda"] { background: var(--cinza); color: var(--tinta-suave); }
+[data-antes-da-loja-nova] .fin-nota { margin-top: 12px; }
+
+/* Os custos. */
+.fin-aviso { margin: 0 0 16px; padding: 10px 14px; background: var(--amarelo-palido); border: 2px solid var(--amarelo-borda); font-size: 0.84rem; font-weight: 600; }
+.fin-custos__cabeca { padding: 16px clamp(16px, 2.2vw, 22px) 12px; margin: 0; }
+.fin-custos__produto { display: flex; align-items: center; gap: 10px; font-weight: 700; }
+.fin-custos__produto img, .fin-custos__produto i { width: 36px; height: 36px; object-fit: cover; background: var(--cinza); flex-shrink: 0; }
+.fin-custos__campo { height: 42px; width: 110px; padding: 0 10px; border: 2px solid var(--tinta); background: var(--papel); color: var(--tinta); font: inherit; font-size: 0.9rem; font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
+.fin-custos__campo--dia { width: 150px; text-align: left; }
+.fin-custos__campo[data-vazio] { border-color: var(--amarelo-borda); background: var(--amarelo-palido); }
+.fin-custos td { vertical-align: middle; }
+.fin-custos tbody th { font-size: 0.86rem; font-weight: 700; letter-spacing: 0; text-transform: none; color: inherit; background: none; border-bottom: 1px solid rgba(18, 24, 31, 0.1); white-space: normal; }
+.fin-embalagem { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 12px; padding: 14px clamp(16px, 2.2vw, 22px); border-top: 2px solid var(--tinta); }
+.fin-embalagem__rot small { display: block; font-size: 0.78rem; color: var(--tinta-suave); font-weight: 500; }
+.fin-rodape { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 14px clamp(16px, 2.2vw, 22px) 18px; border-top: 1px solid var(--cinza-2); }
+.fin-simples { display: grid; gap: 0; margin: 12px 0 14px; }
+.fin-simples__linha { display: grid; grid-template-columns: minmax(0, 1fr) 140px; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid rgba(18, 24, 31, 0.1); font-size: 0.86rem; font-weight: 700; }
+.fin-simples__campo { display: flex; align-items: center; gap: 6px; }
+.fin-simples__campo input { height: 40px; width: 100%; padding: 0 10px; border: 2px solid var(--tinta); background: var(--papel); color: var(--tinta); font: inherit; font-size: 0.9rem; font-weight: 700; text-align: right; }
+.fin-simples__campo input[data-vazio] { border-color: var(--amarelo-borda); background: var(--amarelo-palido); }
+.fin-simples__campo input::placeholder { font-size: 0.72rem; font-weight: 600; color: var(--aviso-txt); }
+
+@media (max-width: 1100px) {
+  .fin-numeros { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .fin-numeros__lucro { grid-column: span 2; }
+  .fin-dois, .fin-duas-colunas { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 640px) {
+  .fin-barra__lado { width: 100%; }
+  .dre[data-comparar] .dre__linha, .dre__linha { grid-template-columns: minmax(0, 1fr) 104px 48px; }
+  .dre[data-comparar] .dre__linha > :nth-child(n + 4) { display: none; }
+  .dre__linha--detalhe > span:first-child { padding-left: 20px; }
+  .dre .fin-selo--auto, .dre .fin-selo--lancado { display: none; }
+  .fin-cem__item { grid-template-columns: minmax(0, 1fr) 76px; }
+  .fin-cem__trilho { grid-column: 1 / -1; grid-row: 2; }
+  .fin-despesa { grid-template-columns: minmax(0, 1fr) auto 40px; }
+  .fin-despesa > span:nth-child(3) { display: none; }
+  .fin-form__par { grid-template-columns: minmax(0, 1fr); }
+  .fin-embalagem { grid-template-columns: minmax(0, 1fr); }
+  .fin-grade__linha { grid-template-columns: 44px repeat(8, minmax(0, 1fr)); }
+}
