@@ -4958,6 +4958,24 @@ com a regra velha e com a nova.
 Depois do deploy — **nada a configurar.** O merge desta entrega monta os dois (a regra mudou); a
 partir da próxima, vale a nova.
 
+**O conserto da 0227: a regra da Vercel dentro do limite — pronto em 30/09 (entrega 0228).** Ele recebeu
+da Vercel o e-mail de 2 deploys com erro: eram os do merge da 0227 (#211), a loja e o painel. A regra
+nova tinha 316 caracteres, e a Vercel aceita no máximo 256 nesse campo: ela recusou a configuração e
+não montou nenhum dos dois. O site e o painel seguiram no ar na versão anterior (deploy com erro não
+substitui o que está no ar), mas toda entrega da loja ou do painel falharia até este conserto.
+
+- **O que mudou:** a mesma regra, escrita mais curta (238 caracteres). Pula e monta nos mesmos casos
+  da 0227.
+- **Pra não repetir:** o AGENTS diz o limite, e que o comando se valida contra o schema da Vercel antes
+  da PR.
+
+Conferido: os `vercel.json` validados contra o schema oficial da Vercel — o da 0227 falha em "no
+máximo 256 caracteres", o de antes e o desta passam; e o comando, na cópia rasa como a Vercel baixa,
+os mesmos 22 casos com `sh` e `bash`, 44/44.
+
+Depois do deploy — **nada a configurar.** O merge desta monta a loja e o painel uma vez (a regra
+mudou): confira na Vercel que os dois ficaram verdes.
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa

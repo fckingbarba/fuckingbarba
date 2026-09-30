@@ -25,7 +25,11 @@ pelo Ignored Build Step, e é o esperado. Da pasta do app, NÃO contam o que nã
 0227): os conferidores e falsos (`ferramentas/`), os textos (`*.md`) e o Lighthouse do CI
 (`budgets.json`, `lighthouserc.json`) — de 28 a 30/09, 10 dos 35 builds do painel foram só de
 conferidor. Por isso nada em `src` importa de `ferramentas/` (lá só se cita, em comentário), e arquivo
-novo na pasta do app que não vai pro ar entra no `:(exclude)` dos DOIS `vercel.json`. Depois do merge, só espere a Vercel do app que a PR mexeu.
+novo na pasta do app que não vai pro ar entra no `:!` (exclude) dos DOIS `vercel.json`. **O
+`ignoreCommand` tem no máximo 256 caracteres** (o schema da Vercel, `maxLength`): passou disso, a
+Vercel recusa o `vercel.json` e TODO deploy da loja e do painel falha, até o próximo merge que conserte
+— foi o que a 0227 fez (316 caracteres; consertado na 0228 com o `P=` e o `:!` curto, 238). Mexeu no
+comando: conte os caracteres e valide contra https://openapi.vercel.sh/vercel.json antes da PR. Depois do merge, só espere a Vercel do app que a PR mexeu.
 O redeploy do mesmo commit pelo painel (variável nova) monta sempre. O motivo: no Pro cada build é
 cobrado, e o "Skip deployment" automático da Vercel conta arquivo da raiz fora dos workspaces (este
 AGENTS, o ESTADO) como mudança em tudo — em 26 e 27/09 foram 374 builds em 2 dias, 6 em cada 10 de
