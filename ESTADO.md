@@ -4858,6 +4858,13 @@ e do painel, o `medusa lint`, o eslint e o prettier.
 
 Depois do deploy — **nada a configurar.** Pra ver: Configurações → Equipe e acessos → "Criar papel".
 
+**O conferidor de clientes de volta ao verde — 30/09 (entrega 0224).** Desde a previsão da 0220, o
+`conferir-clientes` falhava em 2 checagens: contava 5 etiquetas na ficha, e a previsão mora no
+mesmo bloco (mais 3). A tela estava certa; o conferidor agora conta só as do CRM. E ganhou 2
+checagens da previsão: pela API (o LTV da Ana e do Bruno é o que foi cobrado; quem só tem Pix
+esperando fica sem previsão) e na tela (os 3 valores iguais aos da API). 55/55 três vezes na pilha
+local. Só o conferidor mudou: nada sobe pra loja nem pro painel.
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa

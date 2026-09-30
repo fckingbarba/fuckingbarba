@@ -2123,8 +2123,11 @@ mascarado (`emailMascarado`). A lista lê até 5000 clientes e os últimos 2000 
 campos que ela soma. A ficha lê os pedidos inteiros de todos os cadastros da pessoa, até 200. O
 `numerosDaNewsletter` do Início usa a mesma conta da aba. Desde a 0145, a ficha traz também a
 parte do CRM (as 5 etiquetas e o caminho da pessoa) pra quem abre o CRM — ver "O CRM, parte 3". O
-conferidor é o `apps/dashboard/ferramentas/conferir-clientes.mjs` (47, com as etiquetas), com os
-mesmos falsos e variáveis do `conferir-pedidos`.
+conferidor é o `apps/dashboard/ferramentas/conferir-clientes.mjs` (55, com as etiquetas e a
+previsão da 0220), com os mesmos falsos e variáveis do `conferir-pedidos`. As etiquetas do CRM se
+contam por `[data-etiquetas-crm] [data-etiqueta]`: a previsão fica no mesmo bloco, com a mesma
+classe `.etiqueta` (as dela são `[data-previsao]`) — contar `.etiqueta` dá 8 pra quem comprou
+(0224).
 
 **Cupons e descontos** (fase 6, entrega 0085; do jeito da Nuvemshop desde a 0128). Cupom é
 promoção do Medusa com código: quem aplica e recusa é o Medusa, no carrinho. `src/lib/cupons.ts` é
@@ -3818,6 +3821,10 @@ O `conferir-crm.mjs` confere:
   pela busca na tela;
 - o e-mail só mascarado nas listas;
 - a previsão na ficha do cliente do Fator, e a aba no celular.
+
+O `conferir-clientes.mjs` (0224) confere a previsão na ficha com pedidos de verdade: o LTV "já
+gastou" da Ana e do Bruno é o cobrado, o Caio (só o Pix esperando) vem sem previsão, e na tela os
+três valores são os da API.
 
 **O preço e o promocional no painel** (entregas 0098 e 0102): os dois campos de cada produto na
 lista de Produtos, como na Nuvemshop (a 0098 tinha só o promocional, atrás de um botão). A regra é
