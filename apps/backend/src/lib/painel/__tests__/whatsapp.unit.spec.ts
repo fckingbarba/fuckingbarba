@@ -1,5 +1,6 @@
 import { ACESSO_PADRAO, NOME_DA_AREA } from "../../equipe/regras"
 import { custoEmDolar, PRECO_POR_MILHAO } from "../../whatsapp/atendente"
+import { termosDaBusca } from "../../whatsapp/regras"
 import { lerFalas, testarOAtendente } from "../../whatsapp/testar"
 import {
   emDolar,
@@ -84,6 +85,16 @@ describe("a lista", () => {
     )
     expect(l.motivo).toBeNull()
     expect(l.ultima).toMatch(/áudio/)
+  })
+
+  it("a busca: com letra é nome (os algarismos do nome não viram telefone); sem letra, número", () => {
+    expect(termosDaBusca("Rafael Teste mg8x3k")).toEqual({
+      nome: "%Rafael Teste mg8x3k%",
+      numero: null,
+    })
+    expect(termosDaBusca("(47) 9981")).toEqual({ nome: "%(47) 9981%", numero: "%479981%" })
+    expect(termosDaBusca("50%_off")).toEqual({ nome: "%50off%", numero: null })
+    expect(termosDaBusca("José")).toEqual({ nome: "%José%", numero: null })
   })
 
   it("a mais antiga esperando: agora, em minutos, em horas", () => {

@@ -9,6 +9,7 @@ import type { EntityManager } from "@medusajs/framework/mikro-orm/knex"
 import type { MensagemQueChegou, SituacaoQueChegou } from "../../lib/whatsapp/meta"
 import {
   ehRespostaAutomatica,
+  termosDaBusca,
   type ConversaLida,
   type MensagemLida,
 } from "../../lib/whatsapp/regras"
@@ -384,8 +385,9 @@ export default class WhatsappService extends Tabelas {
     if (p.filtro === "equipe") onde.push("c.situacao = 'equipe'")
     if (p.filtro === "atendente") onde.push("c.situacao = 'bot'")
     if (p.busca) {
-      onde.push("(c.nome ilike ? or c.telefone like ?)")
-      valores.push(`%${p.busca.replace(/[%_\\]/g, "")}%`, `%${p.busca.replace(/\D/g, "") || "-"}%`)
+      const { nome, numero } = termosDaBusca(p.busca)
+      onde.push(numero ? "(c.nome ilike ? or c.telefone like ?)" : "c.nome ilike ?")
+      valores.push(nome, ...(numero ? [numero] : []))
     }
     const linhas = (await ctx.manager!.execute(
       `select c.id, c.telefone, c.nome, c.situacao, c.equipe_desde, c.equipe_motivo,

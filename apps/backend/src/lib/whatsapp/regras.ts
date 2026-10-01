@@ -198,3 +198,15 @@ export function chaveDoTelefone(v: string | null | undefined): string | null {
   if (d.length !== 10 && d.length !== 11) return null
   return `${d.slice(0, 2)}${d.slice(-8)}`
 }
+
+/**
+ * A BUSCA DA TELA DE CONVERSAS: com letra, é um nome (`ilike`, sem os
+ * curingas de quem digitou); só com algarismo (e espaço, parêntese, traço,
+ * +), é um número — e aí casa o nome ou o telefone. Os algarismos de dentro
+ * de um nome ("Rafael 2") não viram busca de telefone.
+ */
+export function termosDaBusca(busca: string): { nome: string; numero: string | null } {
+  const nome = `%${busca.replace(/[%_\\]/g, "")}%`
+  const digitos = /\p{L}/u.test(busca) ? "" : busca.replace(/\D/g, "")
+  return { nome, numero: digitos ? `%${digitos}%` : null }
+}
