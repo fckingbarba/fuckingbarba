@@ -3,6 +3,7 @@
 import { useState, useTransition, type ReactNode } from "react"
 import { EVENTO_SACOLA, useSacola } from "@/components/sacola/contexto"
 import { adicionar, type Resultado } from "@/lib/acoes/carrinho"
+import { adicionarDaOferta } from "@/lib/acoes/oferta"
 import { SEM_CONEXAO, semQueda } from "@/lib/rede"
 
 /**
@@ -19,6 +20,9 @@ import { SEM_CONEXAO, semQueda } from "@/lib/rede"
  * Quem decide se o produto vai direto é o servidor (`varianteDoCard`, em
  * `lib/medusa.ts`). Com mais de uma variação, ou sem estoque, quem chama
  * mostra o link pra página do produto no lugar deste botão.
+ *
+ * Na página de uma OFERTA OCULTA (`oferta`: o endereço dela), o clique marca
+ * a sacola com a oferta antes de pôr o produto (`adicionarDaOferta`).
  */
 export function BotaoComprar({
   varianteId,
@@ -27,6 +31,7 @@ export function BotaoComprar({
   className,
   rotulo = "Comprar",
   icone,
+  oferta,
 }: {
   varianteId: string
   /** Pro leitor de tela: "Comprar" doze vezes na grade não diz o quê. */
@@ -36,6 +41,8 @@ export function BotaoComprar({
   className: string
   rotulo?: string
   icone: ReactNode
+  /** O endereço da oferta oculta desta página, se for uma. */
+  oferta?: string
 }) {
   const [indo, comecar] = useTransition()
   const [erro, setErro] = useState("")
@@ -43,7 +50,8 @@ export function BotaoComprar({
 
   function comprar() {
     setErro("")
-    const chamar = () => adicionar(varianteId, 1)
+    const chamar = () =>
+      oferta ? adicionarDaOferta(oferta, varianteId, 1) : adicionar(varianteId, 1)
     // No clique, fora da transição: dentro dela a gaveta só abriria com a
     // resposta (ver a dobra, `compra.tsx`). A transição só espera.
     const feito =

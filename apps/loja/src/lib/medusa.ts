@@ -15,6 +15,7 @@ import {
   type PromocaoNaLoja,
 } from "./promocoes"
 import type { ModeloDeRecomendacao } from "./recomendacao"
+import { ehEnderecoDeOferta, type OfertaDaPagina } from "./ofertas"
 
 /**
  * Único ponto de contato com o Medusa. Regras:
@@ -110,6 +111,9 @@ export const TAGS = {
   /* As avaliações aprovadas no painel. Derrubada pelo painel ao aprovar ou
      tirar uma do site (`lib/avaliacoes/moderar.ts`, no backend). */
   avaliacoes: "avaliacoes",
+  /* As ofertas ocultas (`/oferta/<endereço>`). Derrubada pelo painel ao
+     criar, pausar, ligar e encerrar uma — "agora": oferta vincula. */
+  ofertas: "ofertas",
 } as const
 
 /** Campos que a vitrine precisa; o resto fica no servidor. */
@@ -414,6 +418,31 @@ export async function promocoesDaLoja(): Promise<PromocaoNaLoja[]> {
   } catch (e) {
     const status = ((e as Error).cause as { status?: unknown } | undefined)?.status
     if (status === 404) return []
+    throw e
+  }
+}
+
+/**
+ * UMA OFERTA OCULTA, pelo endereço (`/oferta/<endereço>` — `lib/ofertas.ts`),
+ * ou `null` se ela não existe. Pausada ou encerrada, vem sem os produtos. O
+ * que muda pelo relógio (começar, acabar) a página decide na hora, no
+ * navegador; o que muda pelo painel derruba a etiqueta. O 404 é o "não
+ * existe" (e o Medusa de antes da rota: a Vercel sobe antes do Railway).
+ */
+export async function buscarOferta(endereco: string): Promise<OfertaDaPagina | null> {
+  "use cache"
+  cacheTag(TAGS.ofertas)
+  cacheLife("hours")
+  if (!sdk || !ehEnderecoDeOferta(endereco)) return null
+  try {
+    const { oferta } = await lerDoMedusa<{ oferta?: OfertaDaPagina }>(
+      `oferta ${endereco}`,
+      `/store/oferta/${endereco}`
+    )
+    return oferta ?? null
+  } catch (e) {
+    const status = ((e as Error).cause as { status?: unknown } | undefined)?.status
+    if (status === 404) return null
     throw e
   }
 }

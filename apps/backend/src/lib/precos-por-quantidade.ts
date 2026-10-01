@@ -6,6 +6,7 @@ import {
   ProductStatus,
 } from "@medusajs/framework/utils"
 import { batchPriceListPricesWorkflow, createPriceListsWorkflow } from "@medusajs/medusa/core-flows"
+import { ehListaDeOferta } from "./ofertas/regras"
 import { promocoesNaLoja, type ProdutoDaPromocao } from "./promocoes"
 import { esquecerPromocoes, promocoesDoPainel } from "./promocoes-ativas"
 import { avisarALoja } from "./revalidar"
@@ -191,8 +192,9 @@ function fotoDosPrecos(
   const precos = atuais.map(
     (a) => `${a.id}:${emNumero(a.calculated_amount)}:${emNumero(a.original_amount)}`
   )
+  // As das ofertas ocultas não contam: o preço delas não aparece na loja.
   const datas = listas
-    .filter((l) => l.title !== TITULO_DA_LISTA)
+    .filter((l) => l.title !== TITULO_DA_LISTA && !ehListaDeOferta(l.title))
     .map((l) => `${l.id}:${l.status}:${String(l.starts_at ?? "")}:${String(l.ends_at ?? "")}`)
   return [...precos.sort(), "|", ...datas.sort()].join(",")
 }

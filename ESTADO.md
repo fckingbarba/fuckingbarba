@@ -5274,6 +5274,39 @@ loja, e o sistema antigo (o Loopfy) foi desligado.
 Falta, pra depois (CRM): as mensagens que a loja manda primeiro pelo WhatsApp (pedido, carrinho,
 reposição), feitas pela loja nova e só pra quem aceitar receber.
 
+**As ofertas ocultas — pronto em 01/10 (entrega 0238).** Pedido dele: "ofertas ocultas pro site,
+só através de um link que não aparece no site". As escolhas dele: produtos da loja com desconto,
+livre até o prazo (sem limite por cliente) e uma página própria da oferta.
+
+- **No painel, Cupons e descontos → Ofertas ocultas → "Nova oferta":** o nome (só o painel vê), o
+  título e uma frase da página, os produtos com o preço de cada um na oferta (tem que ser menos que
+  o de hoje na loja), quando começa (agora ou numa data) e quando termina (obrigatório, até 90
+  dias), e o fim do link — sai do nome, com 4 letras sorteadas pra ninguém adivinhar.
+- **O link** (`/oferta/<fim do link>`) abre uma página na cara da loja: a caixa preta com o
+  contador até o fim, os produtos com o preço riscado e o da oferta, e o "Comprar". Fora do menu,
+  da busca e do Google; sem o pop-up do cupom da 1ª compra.
+- **Só quem tem o link paga o preço da oferta:** o "Comprar" da página marca a sacola, e é a sacola
+  marcada que o Medusa cobra pelo preço da oferta — inclusive o produto da oferta que já estava nela.
+  Na vitrine, na página do produto e pra quem não passou pelo link, o preço de sempre.
+- **Nunca mais caro que a vitrine:** se a loja puser um promocional abaixo do preço da oferta, ou
+  levando 2 ou 3 o desconto por quantidade sair melhor, vale o menor (não soma). Cupom que não
+  combina com outras promoções não desconta os produtos da oferta, como no preço promocional.
+- **Pausar, ligar e encerrar** na própria lista. Pausada ou encerrada, o link diz que a oferta
+  acabou; quem ficou com o produto na sacola volta pro preço de sempre ao abrir o checkout (com um
+  aviso). Quem já estava no checkout na hora do fim também não leva: no "Pagar" a loja refaz a
+  conta, o total muda e nada é cobrado. Encerrada não liga mais: pra vender de novo, outra oferta,
+  com outro link.
+- **A lista mostra** cada oferta com o link pra copiar, os produtos (o preço de hoje → o da oferta)
+  e os pedidos que vieram por ela.
+
+Conferido: o conferidor novo das ofertas (53/53), o das promoções (47/47), o do preço promocional
+(17/17), o dos cupons (49/49), o do checkout da loja (209/210 — a que falta, "o produto que
+completa o frete", falha igual na loja sem esta entrega: é o catálogo do banco local), os testes de
+unidade do backend (1.892), typecheck, lint e prettier.
+
+Depois do deploy — **nada pra configurar.** Pra usar: painel → Cupons e descontos → Ofertas ocultas
+→ Nova oferta; depois é "Copiar" o link e mandar.
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa

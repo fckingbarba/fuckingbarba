@@ -263,3 +263,18 @@
   .cupom-secao .segmento span { flex: 1; display: flex; align-items: center; justify-content: center; padding: 9px 6px; text-align: center; letter-spacing: 0.02em; }
 }
 .cupom-escolhas { display: grid; gap: 8px; max-height: 240px; overflow-y: auto; padding: 10px 12px; background: var(--cinza); border: 2px solid var(--linha); }
+/* As ofertas ocultas (0238): o link embaixo da linha e, na gaveta, cada produto com o "por" ao lado. */
+.oferta__corpo { min-width: 0; }
+.oferta__link { margin-top: 10px; }
+/* O nome do produto e os dois preços numa ficha: no celular ela quebra a linha, em vez de empurrar a tela. */
+.oferta .fichas-da-frase span { white-space: normal; overflow-wrap: anywhere; }
+.oferta-produtos { display: grid; gap: 10px; padding: 10px 12px; background: var(--cinza); border: 2px solid var(--linha); }
+.oferta-produto { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; align-items: center; min-height: 46px; }
+.oferta-produto .marcar span { display: grid; gap: 1px; }
+.oferta-produto__hoje { font-size: 0.74rem; color: var(--tinta-suave); }
+.oferta-produto__por { display: flex; align-items: center; gap: 8px; }
+.oferta-produto__por input { width: 104px; min-height: 42px; padding: 8px 10px; border: 2px solid var(--linha); background: var(--papel); color: var(--tinta); font-family: inherit; font-size: 1rem; font-weight: 600; -webkit-appearance: none; appearance: none; }
+.oferta-produto__por input:focus-visible { outline: none; border-color: var(--tinta); box-shadow: 0 0 0 3px rgba(255, 216, 77, 0.55); }
+.oferta-produto__por input[aria-invalid="true"] { border-color: var(--erro); }
+.oferta-produto__desconto { min-width: 3.2em; font-size: 0.78rem; font-weight: 800; }
+.oferta-produto__erro { grid-column: 1 / -1; margin: 0; }

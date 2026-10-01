@@ -139,12 +139,14 @@ export function fabricaDePedidos({ medusa, chave, tokenAdmin, pagarme }) {
    * `documento` põe o CPF no endereço de cobrança, como o checkout da loja
    * grava (`montarEndereco`) — é de lá que a nota fiscal tira o CPF.
    */
-  async function carrinhoPronto(email, itens, documento, cupom = null) {
+  async function carrinhoPronto(email, itens, documento, cupom = null, aoCriar = null) {
     await variante(itens[0][0]) // a região vem junto
     const { cart } = await loja("/store/carts", {
       method: "POST",
       body: JSON.stringify({ region_id: regiao.id }),
     })
+    // O que a loja faz no carrinho vazio, antes do produto — a marca da oferta oculta (0238).
+    if (aoCriar) await aoCriar(cart.id)
     for (const [handle, quantidade] of itens) {
       await loja(`/store/carts/${cart.id}/line-items`, {
         method: "POST",
@@ -214,13 +216,16 @@ export function fabricaDePedidos({ medusa, chave, tokenAdmin, pagarme }) {
    * é tempo de sobra pro teste. A validade fica valendo até o `complete`:
    * é nele (no `authorizePayment`) que o pedido nasce no Pagar.me, e não na
    * sessão.
+   *
+   * `aoCriar(idDoCarrinho)` roda no carrinho recém-criado, antes dos itens
+   * (o conferidor das ofertas ocultas marca o carrinho com a oferta ali).
    */
   async function pedidoPix(
     email,
     itens = [["shampoo-para-barba", 1]],
-    { validadeSegundos = null, documento = null, cupom = null } = {}
+    { validadeSegundos = null, documento = null, cupom = null, aoCriar = null } = {}
   ) {
-    const { cart, colecao } = await carrinhoPronto(email, itens, documento, cupom)
+    const { cart, colecao } = await carrinhoPronto(email, itens, documento, cupom, aoCriar)
     pagarme.validadeDoPix = validadeSegundos
     try {
       return await fechar(cart, colecao, entradaDoPix(email))

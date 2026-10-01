@@ -60,6 +60,7 @@ const SEM_POPUP = [
   "/sair",
   "/avaliar",
   "/criadores",
+  "/oferta",
   "/privacidade",
   "/termos",
   "/trocas",

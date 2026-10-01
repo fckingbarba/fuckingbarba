@@ -26,6 +26,17 @@
   width: 100%;
 }
 
+/* A oferta oculta que acabou com a sacola cheia (entrega 0238): o recado
+   atravessa as duas colunas, em cima do passo e do resumo. */
+.aviso-oferta {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 12px 14px;
+  background: var(--color-cinza);
+  border-left: 3px solid var(--color-amarelo);
+  font-size: 0.86rem;
+}
+
 /* O esqueleto do <Suspense>. O protótipo não tinha servidor, então não tinha
    espera pra desenhar — e placeholder baixinho que cresce quando o conteúdo
    chega empurra o botão pra longe do dedo que já ia clicar nele. */

@@ -2351,6 +2351,67 @@ celular, e na loja o card (os dois selos, um embaixo do outro), a PDP (o cartão
 sacola (o empurrão com preço; com as ações seguradas 1,5 s, pra ver o total previsto) e o selo
 saindo depois da pausa. Pausa e apaga as promoções da rodada no fim.
 
+**As ofertas ocultas** (entrega 0238): um preço só pra quem abre o link `/oferta/<endereço>` da
+loja, até a data de fim — produtos da loja com desconto, sem limite por cliente (escolhas do dono).
+O módulo `src/modules/ofertas` (tabela `oferta_oculta`: endereço único, nome, título, frase, começo,
+fim, pausada, `produtos` = `[{ produto, por }]`, a lista de preço) guarda o que o painel escolheu; a
+regra é `src/lib/ofertas/regras.ts` (puro, com testes: o formulário `lerOfertaNova` — o "por" abaixo
+do preço de HOJE e no máximo `DESCONTO_MAXIMO`, o fim obrigatório e em até 90 dias, até 12 produtos —,
+a `situacaoDaOferta`, que põe o fim antes da pausa, e o `precosDaLista`).
+
+O PREÇO MORA NUMA LISTA DE PREÇO "sale" POR OFERTA, com a regra `fb_oferta` = o id da oferta, as
+datas dela e, pausada, em rascunho (`lib/ofertas/lista.ts`, título com `PREFIXO_DA_LISTA`). O Medusa
+só usa preço de lista com regra quando o contexto do cálculo traz o valor — e só o CARRINHO MARCADO
+traz: `metadata.fb_oferta`, escrito pela rota da loja `POST /store/oferta/:endereco/carrinho`
+(assinada; recusa oferta fora do ar e carrinho fechado; refaz as linhas com `force_refresh`) e lido
+pelo gancho `setPricingContext` do `addToCart`, do `updateLineItemInCart` e do `refreshCartItems`
+(`workflows/hooks/contexto-da-oferta.ts` — uma leitura do `metadata` por escrita no carrinho; sem
+ela, o preço da vitrine). A vitrine, a PDP, o feed e o Google calculam sem a marca. O `metadata` do
+carrinho passa pro pedido: é por ele que a lista do painel conta as vendas.
+
+A LISTA GUARDA O MENOR, NÃO SÓ O "POR": com a marca, o Medusa pega primeiro o preço da lista com
+regra (ordena por número de regras) e compara só com o da variação — o promocional do painel e as
+faixas de quantidade ficariam de fora. `acertarPrecosDasOfertas` grava, por variação, o menor entre o
+"por" e o preço de hoje, e cada faixa abaixo dele; roda na criação, ao ligar, depois de
+`gravarPreco` e na rodada de minuto em minuto do `precos-por-quantidade` (só lê sem oferta aberta).
+As outras rotinas deixam essas listas em paz (`ehListaDeOferta`): o promocional do painel e a
+importação do Bling (que tiram o preço do produto das outras listas), a foto do job e o contador da
+home (`/store/promocao`).
+
+QUANDO ACABA: a linha guarda o preço de quando entrou, e o Medusa não refaz sozinho. O checkout lê a
+marca junto com o carrinho (`metadata` no `CAMPOS_CHECKOUT` → `ofertaOculta`) e, com ela, pergunta
+`POST /store/ofertas/conferir` (assinada): oferta fora do ar tira a marca e volta as linhas pro
+preço da vitrine, e a tela avisa (`.aviso-oferta`). Quem abriu o checkout antes do fim e clica em
+"Pagar" depois também não leva: o "Pagar" refaz a conta antes de cobrar (`region_id` igual →
+`force_refresh`, entrega 0136), o gancho lê a marca, e a lista que acabou não acha preço — o total
+muda, nada é cobrado, e a tela mostra o de agora.
+
+AS ROTAS: `GET /dashboard/ofertas` (as ofertas com o preço de hoje de cada produto e as vendas, os
+produtos do formulário e o sorteio do endereço), `POST /dashboard/ofertas` (422 com os erros por
+campo; o endereço repetido também) e `POST /dashboard/ofertas/:id` `{ acao: "pausar" | "ligar" |
+"encerrar" }` (409 na encerrada), na área `cupons`, com o registro da equipe e a loja avisada com
+`"agora"` (etiqueta `ofertas`). A loja lê `GET /store/oferta/:endereco` (404 sem ela; pausada ou
+encerrada vem sem os produtos). No painel, o bloco "Ofertas ocultas" da tela de Cupons e descontos
+(`components/ofertas.tsx`, `lib/ofertas.ts`, `lib/acoes/ofertas.ts`): o link pra copiar, a chave,
+o "Encerrar" com confirmação e a gaveta "Nova oferta" (o endereço sai do nome com 4 letras
+sorteadas, e cada produto com o "por" ao lado).
+
+NA LOJA: `app/oferta/[endereco]/page.tsx` (`noindex`, `Disallow: /oferta/` no `robots.ts`, sem o
+pop-up da 1ª compra; a oferta chega por streaming atrás de uma caixa do tamanho da de verdade), a
+caixa preta e o contador das ofertas relâmpago (`.offers`) na `JanelaDaOferta` (o relógio do
+navegador decide o começo e o fim; a página guardada não sabe que a hora passou) e os cards da
+vitrine com `oferta` (`CartaoProduto`: o menor entre o "por" e o de hoje, o selo "Oferta", sem link
+pra PDP, e o "Comprar" chamando `adicionarDaOferta`, que marca a sacola antes de pôr o produto).
+
+O conferidor é o `apps/dashboard/ferramentas/conferir-ofertas.mjs` (com os falsos, o admin local e,
+com `LOJA`, a loja): o formulário pela API e pela gaveta, a vitrine sem o preço, a marca (sem
+assinatura, de novo, na pausada e na agendada), o carrinho de verdade (o produto que já estava, a
+faixa de 3 abaixo do "por", o de fora), uma promoção de vitrine abaixo do "por" (espera a rodada do
+minuto), a pausa com o checkout devolvendo o preço, a encerrada, um pedido Pix com a marca e a
+lista contando, o celular, e na loja a página (título, `noindex`, contador, cards), o "Comprar", a
+PDP com o preço de sempre, o 404, a pausada dizendo que acabou e o aviso do checkout. Encerra as
+ofertas da rodada no fim.
+
 **Observabilidade** (fase 7, entrega 0087). O módulo `src/modules/observabilidade/` guarda três
 tabelas: `obs_rotina` (a última rodada de cada job), `obs_problema` e `obs_sinal` (o dia de cada
 integração). A regra mora em `src/lib/painel/observabilidade.ts`, puro, com testes:

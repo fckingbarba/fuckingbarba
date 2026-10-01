@@ -18,6 +18,7 @@ import {
 } from "@/lib/checkout"
 import { carrinhoFechado } from "@/lib/carrinho"
 import { tentarCupomPendente } from "@/lib/cupom-pendente"
+import { conferirOferta } from "@/lib/oferta-do-carrinho"
 import { faltaPraGratis } from "@/lib/checkout-visivel"
 import { site } from "@/lib/site"
 import { configuracoes } from "@/lib/medusa"
@@ -100,7 +101,11 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/checkout">, "searchPa
   // o carrinho — ver `lib/cupom-pendente.ts`. A página não apaga o cookie;
   // o cupom que já está no carrinho não é posto de novo.
   await tentarCupomPendente()
-  const checkout = await lerCheckout()
+  let checkout = await lerCheckout()
+  // O carrinho de uma oferta oculta que acabou volta pro preço da vitrine, e
+  // é lido de novo — ver `lib/oferta-do-carrinho.ts`. Só o que tem a marca.
+  const ofertaAcabou = checkout?.ofertaOculta ? await conferirOferta(checkout.id) : null
+  if (ofertaAcabou) checkout = await lerCheckout()
 
   // Carrinho que já virou pedido, com a confirmação perdida no caminho: vai
   // buscar o pedido em vez de dizer "sacola vazia" — senão a pessoa compra
@@ -152,17 +157,25 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/checkout">, "searchPa
   const sugestoes = await listarSugestoes(checkout, falta)
 
   return (
-    <Etapas
-      checkout={checkout}
-      fretes={fretes}
-      provedores={provedores}
-      rota={rota}
-      bump={bump}
-      sugestoes={sugestoes}
-      falta={falta}
-      piso={piso}
-      atendimento={atendimento}
-    />
+    <>
+      {ofertaAcabou ? (
+        <p className="aviso-oferta" role="status" data-oferta-acabou>
+          A oferta &ldquo;{ofertaAcabou}&rdquo; acabou: os produtos dela voltaram pro preço de
+          sempre.
+        </p>
+      ) : null}
+      <Etapas
+        checkout={checkout}
+        fretes={fretes}
+        provedores={provedores}
+        rota={rota}
+        bump={bump}
+        sugestoes={sugestoes}
+        falta={falta}
+        piso={piso}
+        atendimento={atendimento}
+      />
+    </>
   )
 }
 

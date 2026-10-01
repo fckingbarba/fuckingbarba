@@ -11,6 +11,8 @@ import {
 } from "@medusajs/medusa/core-flows"
 import { sincronizarBumps } from "../bumps"
 import { gerarHandle } from "../handle"
+import { acertarPrecosDasOfertas } from "../ofertas/lista"
+import { ehListaDeOferta } from "../ofertas/regras"
 import { sincronizarPrecosPorQuantidade, TITULO_DA_LISTA } from "../precos-por-quantidade"
 import { avisarALoja } from "../revalidar"
 import { acessoAoErp } from "./conexao"
@@ -907,7 +909,10 @@ async function tirarDoSite(
   return "rascunho"
 }
 
-/** As listas de preço (fora a do desconto por quantidade) com preço destes conjuntos. */
+/**
+ * As listas de preço (fora a do desconto por quantidade e as das ofertas
+ * ocultas, que só valem pra quem tem o link) com preço destes conjuntos.
+ */
 async function listasComPrecoDe(
   container: MedusaContainer,
   conjuntos: string[]
@@ -917,7 +922,7 @@ async function listasComPrecoDe(
   const listas = await pricing.listPriceLists({}, { select: ["id", "title"], take: 500 })
   const tocadas: { id: string; titulo: string }[] = []
   for (const l of listas) {
-    if (l.title === TITULO_DA_LISTA) continue
+    if (l.title === TITULO_DA_LISTA || ehListaDeOferta(l.title)) continue
     const precos = await pricing.listPrices(
       { price_list_id: [l.id], price_set_id: conjuntos },
       { select: ["id"], take: 1 }
@@ -1259,6 +1264,14 @@ async function importar(
   } catch (e) {
     relatorio.avisos.push(
       `o desconto por quantidade não se refez agora (o job refaz em 15 minutos): ${mensagem(e)}`
+    )
+  }
+  // As ofertas ocultas acompanham o preço novo (o menor entre o "por" e o de hoje — `lib/ofertas`).
+  try {
+    await acertarPrecosDasOfertas(container)
+  } catch (e) {
+    relatorio.avisos.push(
+      `o preço das ofertas ocultas não se refez agora (o job refaz em 1 minuto): ${mensagem(e)}`
     )
   }
   try {

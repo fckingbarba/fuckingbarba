@@ -1,4 +1,6 @@
 import type { MedusaContainer } from "@medusajs/framework/types"
+import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
+import { acertarPrecosDasOfertas } from "../lib/ofertas/lista"
 import { sincronizarPrecosPorQuantidade } from "../lib/precos-por-quantidade"
 import { comRodada } from "../lib/observabilidade/rodada"
 
@@ -14,9 +16,18 @@ import { comRodada } from "../lib/observabilidade/rodada"
  * Era de 15 em 15 minutos, e cada promoção encerrada deixava até 15 minutos
  * de 2 e 3 unidades vendidas pelo preço da promoção — ver "POR QUE DE MINUTO
  * EM MINUTO" em `lib/precos-por-quantidade.ts`.
+ *
+ * LOGO DEPOIS, AS OFERTAS OCULTAS: a lista de cada uma guarda o menor entre
+ * o "por" e o preço de hoje (e as faixas abaixo dele) — ver
+ * `lib/ofertas/regras.ts`. Sem oferta aberta, nem lê.
  */
 async function precosPorQuantidade(container: MedusaContainer) {
   await sincronizarPrecosPorQuantidade(container)
+  await acertarPrecosDasOfertas(container).catch((e) =>
+    container
+      .resolve(ContainerRegistrationKeys.LOGGER)
+      .warn(`[ofertas] os preços das ofertas ficam pra próxima rodada: ${e}`)
+  )
 }
 
 export const config = {

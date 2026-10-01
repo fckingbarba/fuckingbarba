@@ -1,0 +1,131 @@
+/*
+  O CSS DA PÁGINA DA OFERTA OCULTA (/oferta/<endereço>) — importado só por
+  app/oferta/[endereco]/page.tsx.
+
+  A caixa preta com o contador é a das ofertas relâmpago da home (.offers,
+  global): quem chega pelo link reconhece a loja. Os cards são os da vitrine
+  (.produto, global). Aqui só a grade, o título dentro da caixa e o recado de
+  quando a oferta não está no ar.
+*/
+.oferta {
+  flex: 1;
+  background: #ffffff;
+  color: var(--color-tinta);
+  font-family: var(--font-sans);
+  line-height: normal;
+}
+.oferta * {
+  border-radius: 0;
+  box-sizing: border-box;
+}
+
+/* A caixa vazia da espera (o streaming), na altura da de verdade com o contador. */
+.oferta__esperando {
+  min-height: clamp(250px, 30vw, 300px);
+}
+.oferta__topo .offers__box {
+  display: grid;
+  justify-items: center;
+  gap: clamp(16px, 2.4vw, 24px);
+  padding-top: clamp(30px, 4vw, 40px);
+  text-align: center;
+}
+.oferta__cabeca {
+  position: relative;
+  max-width: 760px;
+}
+.oferta__titulo {
+  margin: 0;
+  color: #ffffff;
+  font-size: clamp(1.6rem, 4.2vw, 2.6rem);
+  font-weight: 800;
+  font-style: italic;
+  line-height: 1.05;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+.oferta__chamada {
+  margin: 10px 0 0;
+  color: #c9cfd5;
+  font-size: clamp(0.95rem, 1.6vw, 1.1rem);
+  line-height: 1.4;
+}
+.oferta__prazo {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+}
+.oferta__rotulo,
+.oferta__ate {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.oferta__rotulo {
+  color: #4fe0b9;
+}
+.oferta__ate {
+  color: #8d959e;
+}
+.oferta__prazo .offers__timer {
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.oferta__produtos,
+.oferta__recado {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: clamp(26px, 3.2vw, 40px) clamp(16px, 3vw, 30px) clamp(34px, 4vw, 52px);
+}
+/* Até 4 por linha, no centro: oferta costuma ter poucos produtos, e encostados à esquerda sobrava
+   meia tela vazia. */
+.oferta__grade {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 300px));
+  justify-content: center;
+  gap: 14px;
+}
+.oferta__grade .produto {
+  flex: initial;
+  width: auto;
+}
+/* Sem link pra página do produto (o preço lá é o de sempre): o nome é só texto. */
+.oferta__grade .produto__nome {
+  color: inherit;
+}
+.oferta__nota {
+  max-width: 640px;
+  margin: 22px auto 0;
+  color: #5b636c;
+  font-size: 0.84rem;
+  line-height: 1.5;
+  text-align: center;
+}
+.oferta__recado {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  text-align: center;
+}
+.oferta__recado-titulo {
+  margin: 0;
+  font-size: clamp(1.3rem, 3vw, 1.8rem);
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+}
+.oferta__recado p {
+  margin: 0;
+  color: #5b636c;
+}
+
+@media (max-width: 760px) {
+  .oferta__grade {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px;
+  }
+}
