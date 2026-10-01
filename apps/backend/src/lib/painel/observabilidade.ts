@@ -148,6 +148,12 @@ export const ROTINAS: readonly DefinicaoDaRotina[] = [
     agenda: "41 * * * *",
     cada: "de hora em hora",
   },
+  {
+    nome: "limpar-o-whatsapp",
+    frase: "Apaga as mensagens do WhatsApp de mais de 12 meses",
+    agenda: "53 * * * *",
+    cada: "de hora em hora",
+  },
 ]
 
 export const VIGIA = "vigiar-a-loja"

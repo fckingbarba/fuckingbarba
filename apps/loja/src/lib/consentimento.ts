@@ -28,6 +28,9 @@ import type { Integracoes } from "@/lib/configuracoes"
  *   aceitado mais do que isso, e quem disse não segue fora — subir a versão
  *   faria o "não" de antes voltar a ser "sem resposta", e as tags ligariam
  *   pra quem já tinha recusado.
+ * - Nem na 0236 (o atendimento pelo WhatsApp, com a Meta e a IA da
+ *   Anthropic): não é cookie, e é a pessoa que escolhe escrever. A política
+ *   de privacidade mudou antes de o atendente valer, e é ela que conta.
  */
 
 export const COOKIE_CONSENTIMENTO = "fb_consentimento"
