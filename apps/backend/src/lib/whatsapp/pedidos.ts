@@ -256,6 +256,18 @@ const FRASES: Record<SituacaoNoWhatsapp, string> = {
   processando: "recebido, esperando a confirmação do pagamento",
 }
 
+/** A situação em duas palavras, pro painel (a conversa, "Último pedido"). */
+export const SITUACAO_CURTA: Record<SituacaoNoWhatsapp, string> = {
+  pix: "esperando o Pix",
+  vencido: "Pix vencido",
+  analise: "cartão em análise",
+  pago: "pago",
+  enviado: "enviado",
+  entregue: "entregue",
+  cancelado: "cancelado",
+  processando: "recebido",
+}
+
 const SITUACOES_DO_ENVIO: Record<string, string> = {
   aguardando: "etiqueta criada, esperando a postagem",
   postado: "postado",

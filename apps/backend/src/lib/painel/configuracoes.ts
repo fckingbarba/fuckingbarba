@@ -474,6 +474,12 @@ export const AVISOS_DA_EQUIPE = [
     texto: "A Frenet não deixou tirar o pedido do painel dela: não gere a etiqueta.",
     papeis: ["operacao", "dono"],
   },
+  {
+    nome: "O WhatsApp chamou a equipe",
+    texto:
+      "O atendente passou uma conversa pra uma pessoa (troca, reclamação, pedido de falar com alguém).",
+    papeis: ["operacao", "dono"],
+  },
 ] as const satisfies readonly { nome: string; texto: string; papeis: readonly PapelFixo[] }[]
 
 /** Os e-mails que o cliente recebe, e se já saem. */

@@ -2,6 +2,8 @@ import type { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/frame
 import { abre, nomesDos, papeisCriados, type PedidoDaEquipe } from "../../../lib/equipe/acesso"
 import { ehPersonalizado, membroPublico } from "../../../lib/equipe/regras"
 import { gravesAbertos } from "../../../lib/observabilidade/tela"
+import { WHATSAPP } from "../../../modules/whatsapp"
+import type WhatsappService from "../../../modules/whatsapp/service"
 import { tocarAcessoWorkflow } from "../../../workflows/equipe/tocar-acesso"
 
 const HORA = 60 * 60 * 1000
@@ -18,8 +20,9 @@ const HORA = 60 * 60 * 1000
  * O membro já vem lido do banco pelo `membroAtivo` — removido não chega aqui.
  * No papel criado pelo dono, o nome dele (`papel_nome`) sai de `equipe_papel`.
  *
- * `avisos`: o número vermelho de uma área no menu — por enquanto, os
- * problemas graves abertos da Observabilidade, pra quem abre ela.
+ * `avisos`: o número de uma área no menu — os problemas graves abertos da
+ * Observabilidade (vermelho), e as conversas do WhatsApp esperando a equipe
+ * (amarelo), pra quem abre cada uma.
  */
 export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) {
   const pedido = req as PedidoDaEquipe
@@ -31,13 +34,21 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
     membro.ultimo_acesso = new Date()
   }
 
-  const [avisos, nomes] = await Promise.all([
+  const [graves, whatsapp, nomes] = await Promise.all([
     abre(pedido, "observabilidade")
       ? gravesAbertos(req.scope, membro.papel)
           .catch(() => 0)
           .then((n) => ({ observabilidade: n }))
       : {},
+    abre(pedido, "whatsapp")
+      ? req.scope
+          .resolve<WhatsappService>(WHATSAPP)
+          .contagensDoPainel()
+          .then((c) => ({ whatsapp: c.esperando }))
+          .catch(() => ({}))
+      : {},
     ehPersonalizado(membro.papel) ? papeisCriados(req.scope).then(nomesDos) : undefined,
   ])
+  const avisos = { ...graves, ...whatsapp }
   res.json({ membro: membroPublico(membro, nomes), areas: pedido.areas, avisos })
 }

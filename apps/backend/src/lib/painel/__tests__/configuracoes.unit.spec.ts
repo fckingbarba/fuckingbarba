@@ -292,7 +292,7 @@ describe("pra quem vai o aviso da equipe", () => {
     })
   })
 
-  it("a nota e o cancelado na Frenet vão pra operação e o dono; a venda nova, o Bling, o estorno, o robô no cartão e o parceiro que caiu, pro dono", () => {
+  it("a nota, o cancelado na Frenet e o WhatsApp vão pra operação e o dono; a venda nova, o Bling, o estorno, o robô no cartão e o parceiro que caiu, pro dono", () => {
     expect(AVISOS_DA_EQUIPE.map((a) => [a.nome, a.papeis.join("+")])).toEqual([
       ["Venda nova", "dono"],
       ["A nota do pedido não saiu", "operacao+dono"],
@@ -303,6 +303,7 @@ describe("pra quem vai o aviso da equipe", () => {
       ["Robô testando cartão", "dono"],
       ["Um parceiro de pagamento caiu", "dono"],
       ["O pedido cancelado continua na Frenet", "operacao+dono"],
+      ["O WhatsApp chamou a equipe", "operacao+dono"],
     ])
   })
 })

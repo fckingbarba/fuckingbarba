@@ -5,6 +5,7 @@ import type WhatsappService from "../../modules/whatsapp/service"
 import type { ConversaDaFila } from "../../modules/whatsapp/service"
 import { urlDaLoja } from "../emails/moldura"
 import { ajustesDoWhatsapp } from "./ajustes"
+import { avisarAEquipe } from "./aviso"
 import {
   clienteDaIa,
   contextoDaConversa,
@@ -27,6 +28,7 @@ import {
 import {
   conversaPraIa,
   decidir,
+  textoDoCliente,
   DIAS_LIDOS,
   MENSAGENS_LIDAS,
   RESPOSTA_DE_SOCORRO,
@@ -120,11 +122,7 @@ export async function rodadaDoWhatsapp(
     ia,
     agora,
     relatorio,
-    instrucoes: () =>
-      (instrucoes ??= Promise.all([catalogoDoAtendente(container, loja), duvidasDaLoja(loja)]).then(
-        ([catalogo, duvidas]) =>
-          instrucoesDoAtendente({ loja, catalogo, duvidas, regras: ajustes.regras })
-      )),
+    instrucoes: () => (instrucoes ??= instrucoesDaLoja(container, loja, ajustes.regras)),
   }
   const logger = container.resolve(ContainerRegistrationKeys.LOGGER)
 
@@ -143,6 +141,23 @@ export async function rodadaDoWhatsapp(
     })
   )
   return relatorio
+}
+
+/**
+ * As instruções do atendente com o catálogo e as dúvidas de agora — as mesmas
+ * da rodada e do "Testar o atendente" do painel (que passa as regras ainda
+ * não salvas).
+ */
+export async function instrucoesDaLoja(
+  container: MedusaContainer,
+  loja: string,
+  regras: string | null
+): Promise<string> {
+  const [catalogo, duvidas] = await Promise.all([
+    catalogoDoAtendente(container, loja),
+    duvidasDaLoja(loja),
+  ])
+  return instrucoesDoAtendente({ loja, catalogo, duvidas, regras })
 }
 
 async function cuidar(r: Rodada, c: ConversaDaFila) {
@@ -183,6 +198,7 @@ async function cuidar(r: Rodada, c: ConversaDaFila) {
   // chegar enquanto a IA pensa fica pra próxima rodada (`respondida`).
   const lidaAte = doCliente[0].chegou
   const leu = { leuAte: lidaAte.toISOString() }
+  const ultima = textoDoCliente(doCliente[0])
   if (doCliente[0].wamid) await mostrarDigitando(r.cred, doCliente[0].wamid)
 
   // Quem escreve: o cliente dono do telefone (os pedidos, a ficha). Sem ele, a conversa segue.
@@ -211,13 +227,13 @@ async function cuidar(r: Rodada, c: ConversaDaFila) {
     })
   } catch (e) {
     if (!(e instanceof ErroDaIa)) throw e
-    await naoSaiu(r, c, lidaAte, "a IA não respondeu", leu)
+    await naoSaiu(r, c, lidaAte, "a IA não respondeu", leu, ultima)
     return
   }
 
   if (resposta.tipo === "recusou") {
     await mandar(r, c, RESPOSTA_DE_SOCORRO, { ...leu, uso: resposta.uso, recusou: true })
-    await praEquipe(r, c, "a IA não quis responder esta mensagem")
+    await praEquipe(r, c, "a IA não quis responder esta mensagem", ultima)
     await r.whatsapp.respondida(c.id, lidaAte)
     return
   }
@@ -234,12 +250,12 @@ async function cuidar(r: Rodada, c: ConversaDaFila) {
     return
   }
   if (saiu === "nao") {
-    await naoSaiu(r, c, lidaAte, "a Meta não aceitou a resposta", leu)
+    await naoSaiu(r, c, lidaAte, "a Meta não aceitou a resposta", leu, ultima)
     return
   }
   // O que vai sozinho, numa mensagem só dele, depois da resposta (o copia e cola do Pix).
   for (const extra of ferramentas.depois) await mandar(r, c, extra, { ...leu, separada: true })
-  if (resposta.equipe) await praEquipe(r, c, resposta.equipe)
+  if (resposta.equipe) await praEquipe(r, c, resposta.equipe, ultima)
   await r.whatsapp.respondida(c.id, lidaAte)
   r.relatorio.respondidas++
 }
@@ -285,17 +301,33 @@ async function naoSaiu(
   c: ConversaDaFila,
   lidaAte: Date,
   porque: string,
-  leu: { leuAte: string }
+  leu: { leuAte: string },
+  ultima: string
 ) {
   r.relatorio.falhas++
   const tentativas = await r.whatsapp.falhou(c.id)
   if (tentativas < TENTATIVAS_ANTES_DO_SOCORRO) return
   await mandar(r, c, RESPOSTA_DE_SOCORRO, { ...leu, socorro: porque })
-  await praEquipe(r, c, porque)
+  await praEquipe(r, c, porque, ultima)
   await r.whatsapp.respondida(c.id, lidaAte)
 }
 
-async function praEquipe(r: Rodada, c: ConversaDaFila, motivo: string) {
-  await r.whatsapp.passar(c.id, { situacao: "equipe", motivo, em: new Date() })
+/** A conversa passa pra equipe, e ela fica sabendo por e-mail (`aviso.ts`). */
+async function praEquipe(
+  r: Rodada,
+  c: ConversaDaFila,
+  motivo: string,
+  ultima: string | null = null
+) {
+  const em = new Date()
+  await r.whatsapp.passar(c.id, { situacao: "equipe", motivo, em })
   r.relatorio.praEquipe++
+  await avisarAEquipe(r.container, {
+    conversa: c.id,
+    nome: c.nome,
+    telefone: c.telefone,
+    motivo,
+    ultima,
+    em,
+  })
 }

@@ -209,6 +209,27 @@ export type RespostaDoAtendente =
   /** A IA recusou (mesmo com o modelo de reserva): a equipe responde. */
   | { tipo: "recusou"; uso: UsoDaIa }
 
+/**
+ * O PREÇO DO MODELO, em dólar por milhão de tokens (a tabela da Anthropic do
+ * Claude Opus 5.5). A escrita no cache conta como a de 1 hora (o dobro da
+ * entrada) — a de 5 minutos, mais barata, também cai aqui: a conta fica por
+ * cima. É estimativa pro painel; a fatura é a do console da Anthropic.
+ */
+export const PRECO_POR_MILHAO = { entrada: 4, saida: 20, cacheLido: 0.2, cacheCriado: 8 }
+
+/** Quanto custou (estimado), em dólar. */
+export function custoEmDolar(uso: Partial<UsoDaIa> | null | undefined): number {
+  if (!uso) return 0
+  const n = (v: unknown) => (Number.isFinite(Number(v)) ? Number(v) : 0)
+  return (
+    (n(uso.entrada) * PRECO_POR_MILHAO.entrada +
+      n(uso.saida) * PRECO_POR_MILHAO.saida +
+      n(uso.cacheLido) * PRECO_POR_MILHAO.cacheLido +
+      n(uso.cacheCriado) * PRECO_POR_MILHAO.cacheCriado) /
+    1_000_000
+  )
+}
+
 /** A IA não respondeu (fora, chave errada, sem texto): a rodada tenta de novo depois. */
 export class ErroDaIa extends Error {}
 

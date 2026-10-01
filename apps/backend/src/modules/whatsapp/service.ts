@@ -37,6 +37,69 @@ export type MensagemQueSai = {
   em: Date
 }
 
+/** Uma conversa como a tela do painel lê. */
+export type ConversaDoPainel = ConversaLida & {
+  id: string
+  telefone: string
+  nome: string | null
+  equipe_motivo: string | null
+  ultima: {
+    texto: string | null
+    autor: "cliente" | "bot" | "equipe"
+    tipo: string
+    em: Date
+  } | null
+}
+
+export type ContagensDoPainel = {
+  todas: number
+  equipe: number
+  atendente: number
+  /** Com a equipe, e a última mensagem não é dela. */
+  esperando: number
+  esperandoDesde: Date | null
+}
+
+export type NumerosDoDia = {
+  conversas: number
+  respostas: number
+  uso: { entrada: number; saida: number; cacheLido: number; cacheCriado: number }
+}
+
+export type MensagemDoPainel = {
+  id: string
+  autor: "cliente" | "bot" | "equipe"
+  tipo: string
+  texto: string | null
+  situacao: string | null
+  erro: string | null
+  dados: Record<string, unknown> | null
+  em: Date
+}
+
+function conversaDoPainel(l: Record<string, unknown>): ConversaDoPainel {
+  const autor = l.ultima_autor
+  return {
+    id: String(l.id),
+    telefone: String(l.telefone),
+    nome: (l.nome as string | null) ?? null,
+    situacao: l.situacao === "equipe" ? "equipe" : "bot",
+    equipe_desde: data(l.equipe_desde),
+    equipe_motivo: (l.equipe_motivo as string | null) ?? null,
+    ultima_entrada_em: data(l.ultima_entrada_em),
+    pendente_desde: data(l.pendente_desde),
+    ultima:
+      autor === "cliente" || autor === "bot" || autor === "equipe"
+        ? {
+            texto: (l.ultima_texto as string | null) ?? null,
+            autor,
+            tipo: String(l.ultima_tipo ?? "texto"),
+            em: data(l.ultima_em) ?? new Date(0),
+          }
+        : null,
+  }
+}
+
 /** A ordem das situações: "entregue" que chega depois de "lida" não desfaz a leitura. */
 const ORDEM = `case situacao when 'enviada' then 1 when 'entregue' then 2 when 'lida' then 3 else 0 end`
 const ORDEM_NOVA = `case ? when 'enviada' then 1 when 'entregue' then 2 when 'lida' then 3 else 0 end`
@@ -297,6 +360,208 @@ export default class WhatsappService extends Tabelas {
          updated_at = now() where id = ?`,
       [para.em, para.motivo.slice(0, 300), conversaId]
     )
+  }
+
+  /* ── o painel (`lib/painel/ler-whatsapp.ts`) ──────────────────────────── */
+
+  /**
+   * As conversas da tela, da mais recente pra mais antiga, com a última
+   * mensagem de cada uma. `esperando`: com a equipe, e a última mensagem não é
+   * da equipe — alguém precisa responder.
+   */
+  @InjectManager()
+  async conversasDoPainel(
+    p: {
+      filtro: "todas" | "equipe" | "atendente"
+      busca: string | null
+      limite: number
+      pular: number
+    },
+    @MedusaContext() ctx: Contexto = {}
+  ): Promise<ConversaDoPainel[]> {
+    const onde: string[] = ["c.deleted_at is null"]
+    const valores: unknown[] = []
+    if (p.filtro === "equipe") onde.push("c.situacao = 'equipe'")
+    if (p.filtro === "atendente") onde.push("c.situacao = 'bot'")
+    if (p.busca) {
+      onde.push("(c.nome ilike ? or c.telefone like ?)")
+      valores.push(`%${p.busca.replace(/[%_\\]/g, "")}%`, `%${p.busca.replace(/\D/g, "") || "-"}%`)
+    }
+    const linhas = (await ctx.manager!.execute(
+      `select c.id, c.telefone, c.nome, c.situacao, c.equipe_desde, c.equipe_motivo,
+              c.ultima_entrada_em, c.pendente_desde,
+              u.texto as ultima_texto, u.autor as ultima_autor, u.tipo as ultima_tipo, u.em as ultima_em
+         from whatsapp_conversa c
+         join lateral (
+           select texto, autor, tipo, em from whatsapp_mensagem m
+            where m.conversa_id = c.id and m.deleted_at is null
+              and not (m.direcao = 'saida' and m.situacao = 'falhou')
+            order by m.created_at desc limit 1
+         ) u on true
+        where ${onde.join(" and ")}
+        order by u.em desc
+        limit ? offset ?`,
+      [...valores, p.limite, p.pular]
+    )) as Record<string, unknown>[]
+    return linhas.map(conversaDoPainel)
+  }
+
+  /** As contas da tela: quantas em cada fita, quantas esperam a equipe e desde quando. */
+  @InjectManager()
+  async contagensDoPainel(@MedusaContext() ctx: Contexto = {}): Promise<ContagensDoPainel> {
+    const [l] = (await ctx.manager!.execute(
+      `select count(*)::int as todas,
+              count(*) filter (where c.situacao = 'equipe')::int as equipe,
+              count(*) filter (where c.situacao = 'bot')::int as atendente,
+              count(*) filter (where c.situacao = 'equipe' and u.autor <> 'equipe')::int as esperando,
+              min(c.equipe_desde) filter (where c.situacao = 'equipe' and u.autor <> 'equipe') as desde
+         from whatsapp_conversa c
+         join lateral (
+           select autor from whatsapp_mensagem m
+            where m.conversa_id = c.id and m.deleted_at is null
+              and not (m.direcao = 'saida' and m.situacao = 'falhou')
+            order by m.created_at desc limit 1
+         ) u on true
+        where c.deleted_at is null`
+    )) as Record<string, unknown>[]
+    return {
+      todas: Number(l?.todas) || 0,
+      equipe: Number(l?.equipe) || 0,
+      atendente: Number(l?.atendente) || 0,
+      esperando: Number(l?.esperando) || 0,
+      esperandoDesde: data(l?.desde),
+    }
+  }
+
+  /** O dia: as conversas com mensagem do cliente, as respostas do atendente e o uso da IA. */
+  @InjectManager()
+  async doDia(desde: Date, @MedusaContext() ctx: Contexto = {}): Promise<NumerosDoDia> {
+    const [l] = (await ctx.manager!.execute(
+      `select count(distinct conversa_id) filter (where autor = 'cliente')::int as conversas,
+              count(*) filter (where autor = 'bot' and situacao is distinct from 'falhou')::int as respostas,
+              coalesce(sum((dados->'uso'->>'entrada')::int) filter (where autor = 'bot'), 0)::int as entrada,
+              coalesce(sum((dados->'uso'->>'saida')::int) filter (where autor = 'bot'), 0)::int as saida,
+              coalesce(sum((dados->'uso'->>'cacheLido')::int) filter (where autor = 'bot'), 0)::int as cache_lido,
+              coalesce(sum((dados->'uso'->>'cacheCriado')::int) filter (where autor = 'bot'), 0)::int as cache_criado
+         from whatsapp_mensagem
+        where deleted_at is null and em >= ?`,
+      [desde]
+    )) as Record<string, unknown>[]
+    return {
+      conversas: Number(l?.conversas) || 0,
+      respostas: Number(l?.respostas) || 0,
+      uso: {
+        entrada: Number(l?.entrada) || 0,
+        saida: Number(l?.saida) || 0,
+        cacheLido: Number(l?.cache_lido) || 0,
+        cacheCriado: Number(l?.cache_criado) || 0,
+      },
+    }
+  }
+
+  /** Uma conversa, pelo id. */
+  @InjectManager()
+  async conversaDoPainel(
+    id: string,
+    @MedusaContext() ctx: Contexto = {}
+  ): Promise<ConversaDoPainel | null> {
+    const [l] = (await ctx.manager!.execute(
+      `select c.id, c.telefone, c.nome, c.situacao, c.equipe_desde, c.equipe_motivo,
+              c.ultima_entrada_em, c.pendente_desde,
+              null as ultima_texto, null as ultima_autor, null as ultima_tipo, null as ultima_em
+         from whatsapp_conversa c where c.id = ? and c.deleted_at is null`,
+      [id]
+    )) as Record<string, unknown>[]
+    return l ? conversaDoPainel(l) : null
+  }
+
+  /** As mensagens de uma conversa, das mais antigas pras mais novas (as `limite` últimas). */
+  @InjectManager()
+  async mensagensDoPainel(
+    conversaId: string,
+    limite: number,
+    @MedusaContext() ctx: Contexto = {}
+  ): Promise<MensagemDoPainel[]> {
+    const linhas = (await ctx.manager!.execute(
+      `select id, autor, tipo, texto, situacao, erro, dados, em from (
+         select * from whatsapp_mensagem where conversa_id = ? and deleted_at is null
+          order by created_at desc limit ?
+       ) m order by m.created_at asc`,
+      [conversaId, limite]
+    )) as Record<string, unknown>[]
+    return linhas.map((l) => ({
+      id: String(l.id),
+      autor: l.autor === "bot" || l.autor === "equipe" ? l.autor : "cliente",
+      tipo: String(l.tipo),
+      texto: (l.texto as string | null) ?? null,
+      situacao: (l.situacao as string | null) ?? null,
+      erro: (l.erro as string | null) ?? null,
+      dados: (l.dados as Record<string, unknown> | null) ?? null,
+      em: data(l.em) ?? new Date(0),
+    }))
+  }
+
+  /**
+   * A EQUIPE RESPONDEU: a conversa fica com ela (o atendente quieto até
+   * `VOLTA_PRO_BOT_EM_H` depois da última mensagem da equipe), e sai da fila.
+   */
+  @InjectManager()
+  async equipeAssumiu(
+    conversaId: string,
+    em: Date,
+    @MedusaContext() ctx: Contexto = {}
+  ): Promise<void> {
+    await ctx.manager!.execute(
+      `update whatsapp_conversa set situacao = 'equipe',
+         equipe_desde = coalesce(equipe_desde, ?),
+         equipe_motivo = coalesce(equipe_motivo, 'a equipe assumiu a conversa'),
+         pendente_desde = null, tentativas = 0, updated_at = now()
+       where id = ?`,
+      [em, conversaId]
+    )
+  }
+
+  /**
+   * DEVOLVER PRO ATENDENTE: a conversa volta pro bot; se a última mensagem é
+   * do cliente (ninguém respondeu), ela entra na fila — o atendente responde
+   * na próxima rodada.
+   */
+  @InjectManager()
+  async devolver(conversaId: string, @MedusaContext() ctx: Contexto = {}): Promise<void> {
+    await ctx.manager!.execute(
+      `update whatsapp_conversa c set situacao = 'bot', equipe_desde = null, equipe_motivo = null,
+         tentativas = 0,
+         pendente_desde = (
+           select case when u.autor = 'cliente' then u.em else null end from (
+             select autor, em from whatsapp_mensagem m
+              where m.conversa_id = c.id and m.deleted_at is null
+                and coalesce((m.dados->>'automatica')::boolean, false) = false
+                and not (m.direcao = 'saida' and m.situacao = 'falhou')
+              order by m.created_at desc limit 1
+           ) u
+         ),
+         updated_at = now()
+       where c.id = ?`,
+      [conversaId]
+    )
+  }
+
+  /** Cada mensagem desde `desde`, com o telefone da conversa — as vendas pelo WhatsApp. */
+  @InjectManager()
+  async momentosDesde(
+    desde: Date,
+    @MedusaContext() ctx: Contexto = {}
+  ): Promise<{ telefone: string; em: Date }[]> {
+    const linhas = (await ctx.manager!.execute(
+      `select c.telefone, m.em from whatsapp_mensagem m
+         join whatsapp_conversa c on c.id = m.conversa_id and c.deleted_at is null
+        where m.deleted_at is null and m.em >= ?`,
+      [desde]
+    )) as Record<string, unknown>[]
+    return linhas.flatMap((l) => {
+      const em = data(l.em)
+      return em ? [{ telefone: String(l.telefone), em }] : []
+    })
   }
 }
 
