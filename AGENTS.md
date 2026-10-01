@@ -3993,7 +3993,7 @@ janeiro teria dois dias de venda contra um mês de despesas).
   abre, o celular e o console. Faz login do dono três vezes por rodada: no banco local, o limite de 5
   códigos/hora por e-mail pede o `zerar-envios-dono` entre rodadas.
 
-**O WhatsApp da loja e o atendente** (entregas 0232, 0233 e 0234; partes 1 a 3 de 4 — ver o ESTADO). Quem escreve pro
+**O WhatsApp da loja e o atendente** (entregas 0232 a 0236; as quatro partes e o modelo — ver o ESTADO). Quem escreve pro
 número da loja recebe a resposta de uma IA que vende e tira dúvida, só com o que o sistema diz.
 
 - **A Meta:** o mesmo app e o mesmo número de antes (a Cloud API oficial). `src/lib/whatsapp/meta.ts`
@@ -4121,6 +4121,17 @@ número da loja recebe a resposta de uma IA que vende e tira dúvida, só com o 
   responder, devolver, a janela fechada, o marketing sem a área, os ajustes, o teste (as regras do
   campo no pedido à IA, nada pela Meta) e o celular. Precisa do `DATABASE_URL`. Não rode junto com o
   da loja: os dois sobem a 4380.
+- **Parte 4 (entrega 0236): a privacidade e o prazo.** A política de privacidade
+  (`apps/loja/src/app/(institucional)/privacidade/page.tsx`) diz o que o WhatsApp guarda (o número,
+  o nome do perfil e as mensagens; de mídia, só o tipo e a legenda — o arquivo nunca é baixado), o
+  que vai pra IA (a conversa, o nome do perfil e, de quem já comprou, o que comprou e a situação dos
+  pedidos; nunca o endereço, o CPF ou o e-mail das compras), a Meta e a Anthropic em "Quem mais vê"
+  (a Anthropic não treina com o que recebe: termos comerciais) e o prazo de 12 meses. Mudou o que
+  vai pra IA (uma ferramenta nova, um campo novo no `resumoDoCliente`): mude a política junto. A
+  `VERSAO_DO_CONSENTIMENTO` NÃO subiu: o WhatsApp não é cookie, e subir faria o "não" de quem
+  recusou os cookies voltar a ser "sem resposta" (`lib/consentimento.ts`). O prazo é o job
+  `limpar-o-whatsapp` (de hora em hora, no minuto 53): o `limpar` do serviço apaga de verdade as
+  mensagens com mais de `DIAS_DO_WHATSAPP` (365) e a conversa que ficou sem mensagem.
 
 ## Fora dos limites
 

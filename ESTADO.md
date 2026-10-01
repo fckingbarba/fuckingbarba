@@ -5119,8 +5119,7 @@ Depois do deploy — **nada muda no ar.** Os próximos passos, na ordem:
       senha inventada) e `ANTHROPIC_API_KEY`. O passo a passo de cada uma está no `.env.example`.
 - [x] **Parte 2:** feita na 0233 (abaixo).
 - [x] **Parte 3:** feita na 0234 (abaixo).
-- [ ] **Parte 4:** a política de privacidade com a Meta (WhatsApp) e a Anthropic, e a limpeza das
-      conversas antigas.
+- [x] **Parte 4:** feita na 0236 (abaixo).
 - [ ] **A troca (você, com o passo a passo):** developers.facebook.com → o app → WhatsApp →
       Configuração → Webhook → `https://<backend>/hooks/whatsapp` com a senha da
       `WHATSAPP_VERIFICACAO`. Volta atrás em 1 minuto, pondo o endereço antigo. Depois, desligar o
@@ -5225,6 +5224,36 @@ Conferido pelos testes de unidade do backend, typecheck, lint e o `conferir-what
 
 Depois do deploy — **as conversas não mudam no ar** (o atendente só responde depois da troca do
 webhook). O "Testar o atendente" do painel já responde com o Sonnet, e o custo que ele mostra cai.
+
+**O WhatsApp da loja, parte 4: a política de privacidade e o prazo das conversas — pronto em 01/10
+(entrega 0236).** Com isso o atendente fica pronto pra troca do webhook.
+
+- **A política de privacidade** (/privacidade) ganhou o atendimento pelo WhatsApp:
+  - **o que a loja guarda:** o número, o nome do perfil e as mensagens; de foto, áudio ou documento,
+    só que chegou e a legenda, nunca o arquivo;
+  - **quem responde:** um atendente virtual, uma IA (o Claude, da Anthropic), em nome da loja, e uma
+    pessoa do time quando precisa;
+  - **o que vai pra IA:** a conversa, o nome do perfil e, de quem já comprou, o que comprou e a
+    situação dos pedidos; nunca o endereço, o CPF ou o e-mail das compras;
+  - **em "Quem mais vê seus dados":** a Meta (o WhatsApp) e a Anthropic. Pelo contrato, a Anthropic
+    não usa nada disso pra treinar a IA dela;
+  - **o prazo:** as mensagens ficam 12 meses;
+  - a data da política virou 1º de outubro, e a abertura avisa do atendente virtual.
+- **A faixa de cookies não pergunta de novo:** o WhatsApp não é cookie (é a pessoa que escolhe
+  escrever). Fazer a faixa perguntar de novo faria quem recusou os cookies voltar a ter as tags
+  ligadas. A política mudou antes de o atendente valer, que é o que ela mesma promete.
+- **A limpeza:** de hora em hora, a loja apaga de verdade as mensagens do WhatsApp com mais de 12
+  meses; a conversa (com o telefone e o nome) sai junto com a última. Aparece na Observabilidade
+  como "Apaga as mensagens do WhatsApp de mais de 12 meses".
+
+Conferido: a limpeza no banco de teste (a conversa só com mensagem de 13 meses saiu inteira; a com
+uma antiga e uma nova perdeu só a antiga; a nova ficou), a página da política aberta na loja local
+com os trechos novos, os testes de unidade do backend, typecheck, lint e prettier.
+
+Depois do deploy — **nada pra você fazer.** A página no ar é a revisão que vale: a própria política
+diz que não é texto de advogado. Se quiser que o seu advogado leia, o trecho novo está em "O que a
+gente coleta" (o parágrafo do WhatsApp) e em "Quem mais vê seus dados". O próximo passo é a troca do
+webhook, com o passo a passo.
 
 ## Como seguir no Claude Code
 
