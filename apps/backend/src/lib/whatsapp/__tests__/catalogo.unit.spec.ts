@@ -54,8 +54,9 @@ const oleo: ProdutoDoAtendente = {
 describe("o catálogo em texto", () => {
   const texto = catalogoEmTexto([oleo, fator], LOJA)
 
-  it("na ordem do nome, com o link marcado de onde veio", () => {
+  it("na ordem do nome, com o código pras ferramentas e o link marcado de onde veio", () => {
     expect(texto.indexOf("## Fator")).toBeLessThan(texto.indexOf("## Óleo"))
+    expect(texto).toContain("Código (pras ferramentas): fator-de-crescimento-para-barba")
     expect(texto).toContain(
       `Link: ${LOJA}/produtos/fator-de-crescimento-para-barba?utm_source=whatsapp&utm_medium=atendimento&utm_campaign=atendente`
     )

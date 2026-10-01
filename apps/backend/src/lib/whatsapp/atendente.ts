@@ -38,7 +38,7 @@ export const BETAS = ["server-side-fallback-2026-07-01"]
 /** O teto de saída por chamada — a resposta é curta; o resto é o raciocínio. */
 export const MAX_TOKENS = 8000
 /** Quantas vezes a IA pode usar ferramenta numa resposta, antes de responder. */
-export const MAX_RODADAS = 4
+export const MAX_RODADAS = 5
 
 export type ClienteDaIa = {
   beta: {
@@ -63,13 +63,14 @@ export function clienteDaIa(env = process.env): ClienteDaIa | null {
 
 /* ── as instruções ────────────────────────────────────────────────────────── */
 
+/** A ferramenta que o atendente tem sempre; as da loja (`ferramentas.ts`) vêm de quem chama. */
 export const FERRAMENTAS: Anthropic.Beta.BetaTool[] = [
   {
     name: "chamar_a_equipe",
     description:
       "Passa a conversa para uma pessoa do time da loja, que continua pelo mesmo WhatsApp. " +
-      "Use quando a pessoa pede para falar com alguém, reclama, está brava, fala de um pedido já feito " +
-      "(onde está, troca, devolução, cancelamento, pagamento), pergunta de saúde, atacado ou revenda, " +
+      "Use quando a pessoa pede para falar com alguém, reclama, está brava, tem problema com um pedido " +
+      "(atraso, extravio, troca, devolução, cancelamento, reembolso), pergunta de saúde, atacado ou revenda, " +
       "parceria, imprensa, fornecedor, escreve em outro idioma, ou quando a resposta não está nas " +
       "informações que você tem. Depois de chamar, você não responde mais nesta conversa.",
     strict: true,
@@ -114,20 +115,30 @@ COMO AJUDAR A COMPRAR
 - Entenda o objetivo antes de indicar: crescer ou preencher a barba, cuidar da barba (hidratar, amaciar, coceira, caspa, cheiro), ou o cabelo. Uma pergunta curta resolve.
 - Indique UM produto (ou um kit) por vez: o porquê em uma frase, o preço e o link.
 - Pergunta de preço: sempre o nome, o preço e o link. Com preço riscado ("de"), mostre os dois.
-- Quem já decidiu ("quero", "vou levar", "manda o link"): mande o link na hora, sem enrolar.
+- Quem já decidiu ("quero", "vou levar", "manda o link"): monte a sacola (montar_sacola) e mande o link dela na hora, sem enrolar.
 - Levar mais unidades do mesmo produto sai mais barato (está em "Levando mais do mesmo"), e a promoção que vale agora também conta: mencione quando ajudar a decidir. Esses descontos entram sozinhos na sacola, sem cupom.
-- O link do produto vai exatamente como está na lista de produtos (com tudo o que vem depois do "?").
+- Os links vão exatamente como estão na lista de produtos ou como a ferramenta devolveu (com tudo o que vem depois do "?").
 - Respeite o "não": não insista no mesmo produto.
 
 O QUE VOCÊ NUNCA FAZ
 - Nunca invente: preço, desconto, cupom, frete, prazo, ingrediente, resultado ou regra que não esteja escrito abaixo. Não está escrito? Chame a equipe.
 - Você não tem cupom pra dar. Só fale de cupom se estiver escrito nas regras da loja.
-- O frete e o prazo de entrega dependem do CEP: a pessoa vê digitando o CEP na página do produto, na sacola ou no checkout. Fale do frete grátis só como está nas dúvidas da loja.
+- Frete e prazo de entrega: só pelo cotar_frete, com o CEP da pessoa. Sem CEP, peça o CEP. Nunca chute data de chegada.
 - Saúde (alergia, irritação, ferida, remédio, gravidez, doença de pele, menor de idade): não dê conselho. Diga o que a página do produto diz (em "Pra quem NÃO é" e nas dúvidas dele) e chame a equipe.
 - Não peça nem repita dados pessoais (CPF, endereço, cartão, e-mail). A loja nunca pede senha nem código por aqui.
-- Você ainda não enxerga os pedidos. Pedido já feito (onde está, rastreio, troca, devolução, cancelamento, pagamento): chame a equipe.
 - Reclamação, pessoa brava, pedido pra falar com alguém, atacado ou revenda, parceria, imprensa, fornecedor, mensagem em outro idioma: chame a equipe.
 - Não fale mal de outras marcas.
+
+PEDIDOS, FRETE E SACOLA (as ferramentas)
+- "Cadê meu pedido", rastreio, Pix, nota: use ver_meus_pedidos (os pedidos do telefone deste WhatsApp). Diga a situação, o código de rastreio e o link de acompanhar, como a ferramenta devolveu.
+- Não achou pedido deste telefone: peça o número do pedido e o e-mail usado na compra, e use ver_pedido. Pra esse caso, diga só a situação e o rastreio.
+- Pedido da loja antiga (número menor que 3301, de antes de 27/09): você não vê a situação dele; chame a equipe.
+- Pix esperando pagamento: mandar_codigo_do_pix. O código vai sozinho na mensagem seguinte; você só avisa pra copiar e colar no app do banco. Nunca escreva o código.
+- Pix vencido, "quero repetir", "manda de novo", reposição: refazer_pedido (número 0 = a última compra).
+- Atraso, extravio, devolvido, não entregue, troca, devolução, cancelamento, reembolso: diga o que você vê no pedido, se ajudar, e chame a equipe.
+- Frete: cotar_frete com o CEP e os produtos da conversa (1 unidade do produto, se a pessoa não disse). Diga as opções como vieram.
+- Comprar: quando a pessoa decidir o que leva, montar_sacola com os produtos e as quantidades (o código está na lista de produtos), e mande o link da sacola. Pra só mostrar um produto, o link do produto.
+- Endereço, CPF, e-mail e cartão nunca vão na resposta, mesmo que a pessoa peça.
 
 CHAMAR A EQUIPE
 Use a ferramenta chamar_a_equipe e, na mesma resposta, avise com naturalidade que alguém do time vai continuar a conversa por aqui (sem prometer tempo). Depois disso você não responde mais nesta conversa.
@@ -158,12 +169,20 @@ const DIA = new Intl.DateTimeFormat("pt-BR", {
  * O QUE MUDA A CADA CONVERSA: a hora (cheia — o mesmo texto a hora inteira)
  * e o nome que a pessoa usa no WhatsApp.
  */
-export function contextoDaConversa(p: { agora: Date; nome: string | null }): string {
+export function contextoDaConversa(p: {
+  agora: Date
+  nome: string | null
+  /** O que a loja sabe de quem escreve (`resumoDoCliente`), quando o telefone é de um cliente. */
+  cliente?: string | null
+}): string {
   return [
     `Agora: ${DIA.format(p.agora)}h, no horário de Brasília.`,
     p.nome
       ? `Nome da pessoa no WhatsApp: ${p.nome} (pode ser apelido; use o primeiro nome com naturalidade, sem repetir toda hora).`
       : "A pessoa não tem nome no WhatsApp.",
+    p.cliente
+      ? `Esta pessoa já é cliente (pelo telefone das compras):\n${p.cliente}`
+      : "O telefone deste WhatsApp não tem compra na loja nova.",
   ].join("\n")
 }
 
@@ -212,6 +231,9 @@ export async function responderComIa(p: {
   instrucoes: string
   contexto: string
   conversa: Anthropic.Beta.BetaMessageParam[]
+  /** As ferramentas da loja (`ferramentas.ts`), além de `chamar_a_equipe` — sempre na mesma ordem (cache). */
+  ferramentas?: Anthropic.Beta.BetaTool[]
+  executar?: (nome: string, input: unknown) => Promise<{ conteudo: string; erro?: boolean } | null>
 }): Promise<RespostaDoAtendente> {
   const uso: UsoDaIa = {
     chamadas: 0,
@@ -222,8 +244,10 @@ export async function responderComIa(p: {
     modelo: null,
   }
   const mensagens: Anthropic.Beta.BetaMessageParam[] = [...p.conversa]
-  const textos: string[] = []
+  /** O texto de cada volta da IA; a resposta é o da última (o de antes das ferramentas é rascunho). */
+  const textos: string[][] = []
   const ferramentas: string[] = []
+  const todas = [...FERRAMENTAS, ...(p.ferramentas ?? [])]
   let equipe: string | null = null
 
   for (let rodada = 0; rodada <= MAX_RODADAS; rodada++) {
@@ -241,7 +265,7 @@ export async function responderComIa(p: {
           { type: "text", text: p.instrucoes, cache_control: { type: "ephemeral", ttl: "1h" } },
           { type: "text", text: p.contexto },
         ],
-        tools: FERRAMENTAS,
+        tools: todas,
         messages: mensagens,
       })
     } catch (e) {
@@ -258,37 +282,54 @@ export async function responderComIa(p: {
 
     if (r.stop_reason === "refusal") return { tipo: "recusou", uso }
 
-    for (const b of r.content) if (b.type === "text" && b.text.trim()) textos.push(b.text.trim())
+    textos.push(
+      r.content.flatMap((b) => (b.type === "text" && b.text.trim() ? [b.text.trim()] : []))
+    )
     const pedidos = r.content.filter(
       (b): b is Anthropic.Beta.BetaToolUseBlock => b.type === "tool_use"
     )
     if (r.stop_reason !== "tool_use" || !pedidos.length || rodada === MAX_RODADAS) break
 
     mensagens.push({ role: "assistant", content: r.content })
-    const resultados: Anthropic.Beta.BetaToolResultBlockParam[] = pedidos.map((b) => {
-      ferramentas.push(b.name)
-      if (b.name === "chamar_a_equipe") {
-        const motivo = (b.input as { motivo?: unknown })?.motivo
-        equipe = typeof motivo === "string" && motivo.trim() ? motivo.trim() : "sem motivo"
+    // Todas as ferramentas pedidas nesta volta, juntas, e os resultados numa mensagem só.
+    const resultados: Anthropic.Beta.BetaToolResultBlockParam[] = await Promise.all(
+      pedidos.map(async (b): Promise<Anthropic.Beta.BetaToolResultBlockParam> => {
+        ferramentas.push(b.name)
+        if (b.name === "chamar_a_equipe") {
+          const motivo = (b.input as { motivo?: unknown })?.motivo
+          equipe = typeof motivo === "string" && motivo.trim() ? motivo.trim() : "sem motivo"
+          return {
+            type: "tool_result",
+            tool_use_id: b.id,
+            content:
+              "A equipe foi avisada e vai continuar a conversa. Agora escreva a mensagem final pra pessoa, avisando que alguém do time continua por aqui.",
+          }
+        }
+        let r: { conteudo: string; erro?: boolean } | null = null
+        try {
+          r = (await p.executar?.(b.name, b.input)) ?? null
+        } catch (e) {
+          r = {
+            conteudo: `A ferramenta falhou agora (${e instanceof Error ? e.message : e}). Não tente de novo: diga que não conseguiu ver isso agora, ou chame a equipe.`,
+            erro: true,
+          }
+        }
         return {
           type: "tool_result",
           tool_use_id: b.id,
-          content:
-            "A equipe foi avisada e vai continuar a conversa. Se você ainda não avisou a pessoa nesta resposta, escreva agora a mensagem pra ela; se já avisou, não escreva mais nada.",
+          content: r?.conteudo ?? `A ferramenta ${b.name} não existe.`,
+          ...(r === null || r.erro ? { is_error: true } : {}),
         }
-      }
-      return {
-        type: "tool_result",
-        tool_use_id: b.id,
-        content: `A ferramenta ${b.name} não existe.`,
-        is_error: true,
-      }
-    })
+      })
+    )
     mensagens.push({ role: "user", content: resultados })
   }
 
   // Chamou a equipe sem escrever nada pra pessoa: o aviso padrão vai no lugar.
-  const texto = textos.join("\n\n").trim() || (equipe ? RESPOSTA_DE_SOCORRO : "")
+  const ultima = textos[textos.length - 1] ?? []
+  const texto =
+    (ultima.length ? ultima : textos.flat()).join("\n\n").trim() ||
+    (equipe ? RESPOSTA_DE_SOCORRO : "")
   if (!texto) {
     sinal({
       integracao: "anthropic",
