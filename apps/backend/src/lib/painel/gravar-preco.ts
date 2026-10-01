@@ -7,6 +7,8 @@ import {
   updateProductVariantsWorkflow,
 } from "@medusajs/medusa/core-flows"
 import { MARCA_DO_PRECO } from "../erp/marcas"
+import { acertarPrecosDasOfertas } from "../ofertas/lista"
+import { ehListaDeOferta } from "../ofertas/regras"
 import { sincronizarPrecosPorQuantidade, TITULO_DA_LISTA } from "../precos-por-quantidade"
 import { avisarALoja } from "../revalidar"
 import { tagsDoProduto } from "./gravar-produto"
@@ -24,7 +26,9 @@ import { TITULO_DA_PROMOCAO, type MudancaDePreco } from "./promocao"
  *
  * DEPOIS DE GRAVAR, na hora: a loja é avisada (a página e a vitrine mudam em
  * segundos) e o desconto por quantidade é refeito — sem esperar o job do
- * minuto, pra "2 unidades" já sair do preço novo.
+ * minuto, pra "2 unidades" já sair do preço novo —, e as listas das ofertas
+ * ocultas também (`lib/ofertas`): quem tem o link nunca paga mais que a
+ * vitrine.
  */
 
 const MOEDA = "brl"
@@ -103,6 +107,12 @@ export async function gravarPreco(
       `[preço] o desconto por quantidade fica pro job do minuto: ${e instanceof Error ? e.message : e}`
     )
   )
+  // E as ofertas ocultas: o promocional novo abaixo do "por" de uma vale na hora pra quem tem o link.
+  await acertarPrecosDasOfertas(container).catch((e) =>
+    logger.warn(
+      `[preço] os preços das ofertas ficam pro job do minuto: ${e instanceof Error ? e.message : e}`
+    )
+  )
   return { ok: true, lojaAvisada: aviso.avisou }
 }
 
@@ -122,9 +132,12 @@ async function gravarPromocional(
   let nossa = listas.find((l) => l.title === TITULO_DA_PROMOCAO) ?? null
 
   // O painel manda no "de/por": o preço deste produto sai das outras listas.
-  // A do desconto por quantidade fica — é o job que escreve nela.
+  // A do desconto por quantidade fica — é o job que escreve nela —, e as das
+  // ofertas ocultas também: o preço delas só vale pra quem tem o link, e a
+  // rodada do minuto acerta o "por" com o promocional novo (`lib/ofertas`).
   for (const outra of listas) {
-    if (outra.title === TITULO_DA_LISTA || outra.id === nossa?.id) continue
+    if (outra.title === TITULO_DA_LISTA || ehListaDeOferta(outra.title) || outra.id === nossa?.id)
+      continue
     const precos = await pricing.listPrices(
       { price_list_id: [outra.id], price_set_id: conjuntos },
       { select: ["id"], take: 500 }

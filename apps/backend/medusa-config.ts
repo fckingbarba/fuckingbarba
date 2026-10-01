@@ -254,6 +254,13 @@ const avaliacoesModule = [{ resolve: "./src/modules/avaliacoes" }]
 const criadoresModule = [{ resolve: "./src/modules/criadores" }]
 
 /**
+ * As ofertas ocultas (`src/modules/ofertas`): produtos com um preço só pra
+ * quem abre o link `/oferta/<endereço>` da loja, até a data de fim. O preço
+ * mora numa lista de preço com regra; ver o AGENTS.md, "As ofertas ocultas".
+ */
+const ofertasModule = [{ resolve: "./src/modules/ofertas" }]
+
+/**
  * O Financeiro (`src/modules/financeiro`): as despesas que o dono lança e o
  * custo de cada produto, a embalagem e o Simples — o que o DRE do painel não
  * sabe sozinho. Ver o AGENTS.md, "O Financeiro".
@@ -346,6 +353,7 @@ module.exports = defineConfig({
     ...aviseMeModule,
     ...avaliacoesModule,
     ...criadoresModule,
+    ...ofertasModule,
     ...financeiroModule,
     ...erpModule,
     ...equipeModule,

@@ -1,5 +1,6 @@
 import type { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { Modules } from "@medusajs/framework/utils"
+import { ehListaDeOferta } from "../../../lib/ofertas/regras"
 
 /**
  * GET /store/promocao — quando a promoção que está valendo termina.
@@ -29,7 +30,8 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
 
   const agora = Date.now()
   const comPrazo = listas
-    .filter((l) => l.type === "sale" && l.ends_at)
+    // A oferta oculta tem prazo, mas só pra quem tem o link: não vira o contador da home.
+    .filter((l) => l.type === "sale" && l.ends_at && !ehListaDeOferta(l.title))
     .map((l) => ({ ...l, fim: new Date(l.ends_at as string).getTime() }))
     .filter((l) => l.fim > agora)
     // Se houver mais de uma valendo, manda a que acaba primeiro: é a que

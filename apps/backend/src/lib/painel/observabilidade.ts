@@ -54,7 +54,7 @@ export type DefinicaoDaRotina = {
 export const ROTINAS: readonly DefinicaoDaRotina[] = [
   {
     nome: "precos-por-quantidade",
-    frase: "Recalcula o desconto por quantidade",
+    frase: "Recalcula o desconto por quantidade e o preço das ofertas ocultas",
     agenda: "* * * * *",
     cada: "a cada minuto",
   },
