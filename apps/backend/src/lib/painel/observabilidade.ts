@@ -59,6 +59,12 @@ export const ROTINAS: readonly DefinicaoDaRotina[] = [
     cada: "a cada minuto",
   },
   {
+    nome: "responder-no-whatsapp",
+    frase: "Responde quem escreveu no WhatsApp da loja",
+    agenda: "* * * * *",
+    cada: "a cada minuto",
+  },
+  {
     nome: "conciliar-pagamentos",
     frase: "Confere os pagamentos com o Pagar.me",
     agenda: "*/5 * * * *",
@@ -287,7 +293,15 @@ export function rotinaNaTela(
 export type Nivel = "grave" | "atencao" | "info"
 
 export type AreaDoProblema =
-  "Pagamento" | "Nota fiscal" | "Frete" | "Entrega" | "E-mail" | "Rotinas" | "Site" | "Anúncios"
+  | "Pagamento"
+  | "Nota fiscal"
+  | "Frete"
+  | "Entrega"
+  | "E-mail"
+  | "Rotinas"
+  | "Site"
+  | "Anúncios"
+  | "WhatsApp"
 
 export type Acao = { texto: string; href: string; externo?: boolean }
 
@@ -525,6 +539,10 @@ export type Integracao =
   | "anuncios"
   /** O "estou viva" pro vigia de fora (`lib/observabilidade/vigia-de-fora.ts`). */
   | "vigia-de-fora"
+  /** A resposta do atendente indo pro WhatsApp, pela Cloud API da Meta (`lib/whatsapp/meta.ts`). */
+  | "whatsapp"
+  /** A IA do atendente do WhatsApp (`lib/whatsapp/atendente.ts`). */
+  | "anthropic"
 
 /** Uma linha da tabela `obs_sinal`: o dia de uma integração. */
 export type LinhaDoSinal = {
@@ -661,6 +679,31 @@ export function problemasDosSinais(
           (s.ultima_falha_resumo ? ` — a última foi ${s.ultima_falha_resumo}` : "") +
           ". Se ela estava fora do ar, a loja tenta de novo sozinha; se recusou, confira a chave no Railway (Configurações → Integrações diz qual).",
         acao: { texto: "Abrir as integrações", href: "/configuracoes/integracoes", externo: false },
+      })
+    } else if (s.integracao === "whatsapp") {
+      achados.push({
+        ...comum,
+        chave: `whatsapp/${s.dia}`,
+        nivel: "atencao",
+        area: "WhatsApp",
+        titulo:
+          s.falhas === 1
+            ? "Uma resposta do WhatsApp não saiu"
+            : `${s.falhas} respostas do WhatsApp não saíram`,
+        texto:
+          `A Meta não aceitou ${faixa}` +
+          ". O atendente tenta de novo no minuto seguinte e, depois de três vezes, passa a conversa pra equipe. Se não para, confira o WHATSAPP_TOKEN no Railway e o pagamento da conta no WhatsApp Manager.",
+        acao: null,
+      })
+    } else if (s.integracao === "anthropic") {
+      achados.push({
+        ...comum,
+        chave: `anthropic/${s.dia}`,
+        nivel: "atencao",
+        area: "WhatsApp",
+        titulo: `A IA do WhatsApp não respondeu ${vezes(s.falhas)}`,
+        texto: `${emFrase(faixa)} O atendente tenta de novo no minuto seguinte e, depois de três vezes, passa a conversa pra equipe. Se não para, confira a ANTHROPIC_API_KEY no Railway e o saldo da conta na Anthropic.`,
+        acao: null,
       })
     } else if (s.integracao === "bling") {
       achados.push({

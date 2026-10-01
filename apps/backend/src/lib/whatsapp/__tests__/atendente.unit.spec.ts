@@ -1,0 +1,219 @@
+import type Anthropic from "@anthropic-ai/sdk"
+import {
+  BETAS,
+  contextoDaConversa,
+  ErroDaIa,
+  ESFORCO,
+  instrucoesDoAtendente,
+  MAX_RODADAS,
+  MODELO,
+  responderComIa,
+  type ClienteDaIa,
+} from "../atendente"
+import { RESPOSTA_DE_SOCORRO } from "../regras"
+
+/**
+ * O atendente: o que vai pra IA (o modelo, o cache do pedaço fixo, a reserva
+ * quando ela recusa) e o que volta (o texto, a equipe chamada, a recusa).
+ */
+
+type Corpo = Anthropic.Beta.Messages.MessageCreateParamsNonStreaming
+
+const uso = {
+  input_tokens: 100,
+  output_tokens: 20,
+  cache_read_input_tokens: 5000,
+  cache_creation_input_tokens: 0,
+}
+
+function resposta(
+  content: unknown[],
+  stop_reason: Anthropic.Beta.BetaMessage["stop_reason"] = "end_turn"
+): Anthropic.Beta.BetaMessage {
+  return {
+    id: "msg_1",
+    type: "message",
+    role: "assistant",
+    model: MODELO,
+    content,
+    stop_reason,
+    usage: uso,
+  } as unknown as Anthropic.Beta.BetaMessage
+}
+
+/** Uma IA de mentira: devolve as respostas em ordem e guarda o que recebeu. */
+function iaFalsa(respostas: (Anthropic.Beta.BetaMessage | Error)[]) {
+  const pedidos: Corpo[] = []
+  const cliente: ClienteDaIa = {
+    beta: {
+      messages: {
+        async create(corpo) {
+          pedidos.push(JSON.parse(JSON.stringify(corpo)))
+          const r = respostas.shift()
+          if (!r) throw new Error("a IA falsa ficou sem resposta")
+          if (r instanceof Error) throw r
+          return r
+        },
+      },
+    },
+  }
+  return { cliente, pedidos }
+}
+
+const base = {
+  instrucoes: "INSTRUÇÕES",
+  contexto: "CONTEXTO",
+  conversa: [{ role: "user" as const, content: "quanto tá o fator?" }],
+}
+
+describe("o pedido à IA", () => {
+  it("o modelo, o esforço, a reserva e o pedaço fixo no cache de uma hora", async () => {
+    const { cliente, pedidos } = iaFalsa([
+      resposta([{ type: "text", text: "R$ 129,90: https://loja/produtos/fator" }]),
+    ])
+    const r = await responderComIa({ cliente, ...base })
+    expect(r).toMatchObject({ tipo: "resposta", texto: "R$ 129,90: https://loja/produtos/fator" })
+    const p = pedidos[0]
+    expect(p.model).toBe(MODELO)
+    expect(p.betas).toEqual(BETAS)
+    expect(p.fallbacks).toBe("default")
+    expect(p.output_config).toEqual({ effort: ESFORCO })
+    expect(p.system).toEqual([
+      { type: "text", text: "INSTRUÇÕES", cache_control: { type: "ephemeral", ttl: "1h" } },
+      { type: "text", text: "CONTEXTO" },
+    ])
+    expect(p.cache_control).toEqual({ type: "ephemeral" })
+    expect(p.messages).toEqual(base.conversa)
+    expect(p.tools?.map((t) => (t as { name: string }).name)).toEqual(["chamar_a_equipe"])
+    // Nunca forçar ferramenta: o Opus 5.5 recusa `tool_choice` any/tool.
+    expect(p.tool_choice).toBeUndefined()
+  })
+
+  it("soma o uso de cada chamada", async () => {
+    const { cliente } = iaFalsa([resposta([{ type: "text", text: "Opa!" }])])
+    const r = await responderComIa({ cliente, ...base })
+    expect(r.uso).toEqual({
+      chamadas: 1,
+      entrada: 100,
+      saida: 20,
+      cacheLido: 5000,
+      cacheCriado: 0,
+      modelo: MODELO,
+    })
+  })
+})
+
+describe("chamar a equipe", () => {
+  it("a IA avisa e chama: o texto dela vai, e o motivo volta", async () => {
+    const { cliente, pedidos } = iaFalsa([
+      resposta(
+        [
+          { type: "thinking", thinking: "", signature: "sig" },
+          { type: "text", text: "Entendi! Vou chamar alguém do time pra te ajudar com a troca." },
+          {
+            type: "tool_use",
+            id: "toolu_1",
+            name: "chamar_a_equipe",
+            input: { motivo: "quer trocar o produto" },
+          },
+        ],
+        "tool_use"
+      ),
+      resposta([]),
+    ])
+    const r = await responderComIa({ cliente, ...base })
+    expect(r).toMatchObject({
+      tipo: "resposta",
+      texto: "Entendi! Vou chamar alguém do time pra te ajudar com a troca.",
+      equipe: "quer trocar o produto",
+      ferramentas: ["chamar_a_equipe"],
+    })
+    // A segunda chamada leva a resposta da IA inteira (com o raciocínio) e o resultado.
+    const segunda = pedidos[1].messages
+    expect(segunda).toHaveLength(3)
+    expect((segunda[1].content as { type: string }[]).map((b) => b.type)).toEqual([
+      "thinking",
+      "text",
+      "tool_use",
+    ])
+    expect(segunda[2]).toMatchObject({
+      role: "user",
+      content: [{ type: "tool_result", tool_use_id: "toolu_1" }],
+    })
+  })
+
+  it("chamou sem escrever nada: vai o aviso padrão", async () => {
+    const { cliente } = iaFalsa([
+      resposta(
+        [{ type: "tool_use", id: "t", name: "chamar_a_equipe", input: { motivo: "atacado" } }],
+        "tool_use"
+      ),
+      resposta([]),
+    ])
+    const r = await responderComIa({ cliente, ...base })
+    expect(r).toMatchObject({ tipo: "resposta", texto: RESPOSTA_DE_SOCORRO, equipe: "atacado" })
+  })
+
+  it("não fica em volta pra sempre: para em MAX_RODADAS", async () => {
+    const pedindo = () =>
+      resposta(
+        [
+          { type: "text", text: "Um instante." },
+          { type: "tool_use", id: "t", name: "inexistente", input: {} },
+        ],
+        "tool_use"
+      )
+    const { cliente, pedidos } = iaFalsa(Array.from({ length: MAX_RODADAS + 3 }, pedindo))
+    await responderComIa({ cliente, ...base })
+    expect(pedidos).toHaveLength(MAX_RODADAS + 1)
+  })
+})
+
+describe("quando a IA não responde", () => {
+  it("recusou (mesmo com a reserva): a recusa volta, pra equipe responder", async () => {
+    const { cliente } = iaFalsa([resposta([], "refusal")])
+    expect(await responderComIa({ cliente, ...base })).toMatchObject({ tipo: "recusou" })
+  })
+
+  it("fora do ar, ou sem texto: ErroDaIa, e a rodada tenta de novo", async () => {
+    await expect(
+      responderComIa({ cliente: iaFalsa([new Error("529 overloaded")]).cliente, ...base })
+    ).rejects.toBeInstanceOf(ErroDaIa)
+    await expect(
+      responderComIa({ cliente: iaFalsa([resposta([])]).cliente, ...base })
+    ).rejects.toBeInstanceOf(ErroDaIa)
+  })
+})
+
+describe("as instruções", () => {
+  const p = {
+    loja: "https://www.fuckingbarba.com.br",
+    catalogo: "## Fator",
+    duvidas: "- P: Tem frete grátis? R: Sim.",
+    regras: "Trate por irmão.",
+  }
+
+  it("levam as regras do dono, as dúvidas e o catálogo, sempre iguais", () => {
+    const t = instrucoesDoAtendente(p)
+    expect(t).toContain("Trate por irmão.")
+    expect(t).toContain("- P: Tem frete grátis? R: Sim.")
+    expect(t.endsWith("## Fator")).toBe(true)
+    expect(instrucoesDoAtendente(p)).toBe(t)
+    expect(t).not.toMatch(/\d{2}:\d{2}/)
+  })
+
+  it("sem dúvidas carregadas, manda o link da página; sem regras, diz que não tem", () => {
+    const t = instrucoesDoAtendente({ ...p, duvidas: null, regras: null })
+    expect(t).toContain("mande o link https://www.fuckingbarba.com.br/duvidas")
+    expect(t).toContain("(nenhuma)")
+  })
+
+  it("o contexto: a hora cheia de Brasília e o nome do WhatsApp", () => {
+    const c = contextoDaConversa({ agora: new Date("2026-10-01T17:42:00Z"), nome: "Rafael" })
+    expect(c).toContain("quinta-feira, 01/10, 14h")
+    expect(c).toContain("Rafael")
+    expect(contextoDaConversa({ agora: new Date("2026-10-01T17:42:00Z"), nome: null })).toContain(
+      "não tem nome"
+    )
+  })
+})

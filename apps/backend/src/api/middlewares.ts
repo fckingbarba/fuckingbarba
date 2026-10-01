@@ -464,6 +464,12 @@ export default defineMiddlewares({
       method: ["POST"],
       bodyParser: { preserveRawBody: true },
     },
+    /* Os avisos do WhatsApp (a Meta): a assinatura é sobre o corpo cru. */
+    {
+      matcher: "/hooks/whatsapp",
+      method: ["POST"],
+      bodyParser: { preserveRawBody: true },
+    },
     /*
       O PAINEL DA LOJA (dashboard.fuckingbarba.com.br) — as rotas de
       `api/dashboard/`. Uma porta só pra todas (`lib/equipe/acesso.ts`): a

@@ -287,6 +287,13 @@ const observabilidadeModule = [{ resolve: "./src/modules/observabilidade" }]
  */
 const crmModule = [{ resolve: "./src/modules/crm" }]
 
+/**
+ * O WHATSAPP DA LOJA — as conversas de quem escreve pro número da loja e o
+ * que o atendente (a IA) respondeu (`src/modules/whatsapp/`). Ver o AGENTS.md,
+ * "O WhatsApp da loja".
+ */
+const whatsappModule = [{ resolve: "./src/modules/whatsapp" }]
+
 module.exports = defineConfig({
   projectConfig: {
     databaseUrl: process.env.DATABASE_URL,
@@ -344,5 +351,6 @@ module.exports = defineConfig({
     ...equipeModule,
     ...observabilidadeModule,
     ...crmModule,
+    ...whatsappModule,
   ],
 })
