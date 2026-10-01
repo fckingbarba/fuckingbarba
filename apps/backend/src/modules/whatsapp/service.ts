@@ -147,23 +147,33 @@ export default class WhatsappService extends Tabelas {
     conversaId: string,
     p: { limite: number; desde: Date },
     @MedusaContext() ctx: Contexto = {}
-  ): Promise<(MensagemLida & { wamid: string | null })[]> {
+  ): Promise<(MensagemLida & { wamid: string | null; chegou: Date })[]> {
     const linhas = (await ctx.manager!.execute(
-      `select autor, tipo, texto, em, wamid from whatsapp_mensagem
+      `select autor, tipo, texto, em, wamid, created_at, dados->>'leuAte' as leu_ate
+         from whatsapp_mensagem
         where conversa_id = ? and deleted_at is null and em >= ?
           and coalesce((dados->>'automatica')::boolean, false) = false
           and not (direcao = 'saida' and situacao = 'falhou')
-        order by em desc
+        order by created_at desc
         limit ?`,
       [conversaId, p.desde, p.limite]
     )) as Record<string, unknown>[]
-    return linhas.map((l) => ({
-      autor: l.autor === "bot" || l.autor === "equipe" ? l.autor : "cliente",
-      tipo: String(l.tipo),
-      texto: (l.texto as string | null) ?? null,
-      em: data(l.em) ?? new Date(0),
-      wamid: (l.wamid as string | null) ?? null,
-    }))
+    return linhas.map((l) => {
+      const autor = l.autor === "bot" || l.autor === "equipe" ? l.autor : "cliente"
+      const chegou = data(l.created_at) ?? data(l.em) ?? new Date(0)
+      const leuAte = autor === "bot" ? data(l.leu_ate) : null
+      return {
+        autor,
+        tipo: String(l.tipo),
+        texto: (l.texto as string | null) ?? null,
+        em: data(l.em) ?? new Date(0),
+        // A resposta do atendente vem logo depois do que ele leu — e a mensagem que chegou
+        // enquanto ele respondia fica DEPOIS dela, esperando (ver `respondida`).
+        ordem: leuAte ? new Date(leuAte.getTime() + 1) : chegou,
+        wamid: (l.wamid as string | null) ?? null,
+        chegou,
+      }
+    })
   }
 
   /** Quantas respostas o atendente deu nesta conversa desde `desde`. */
@@ -219,8 +229,12 @@ export default class WhatsappService extends Tabelas {
 
   /**
    * RESPONDIDA: a fila sai — mas só se nada chegou depois da última mensagem
-   * que o atendente leu (`lidaAte`). A que chegou no meio da resposta fica
-   * esperando a próxima rodada, que lê tudo de novo.
+   * que o atendente leu (`lidaAte`, a hora em que ela CHEGOU na loja, com
+   * milissegundo: a hora da Meta é em segundos, e duas no mesmo segundo
+   * pareciam a mesma). A que chegou no meio da resposta fica esperando a
+   * próxima rodada, que lê tudo de novo. O banco guarda microssegundo e o
+   * `Date` só milissegundo: a comparação é no milissegundo, senão a própria
+   * mensagem lida parecia mais nova que ela mesma.
    */
   @InjectManager()
   async respondida(
@@ -230,17 +244,15 @@ export default class WhatsappService extends Tabelas {
   ): Promise<void> {
     await ctx.manager!.execute(
       `update whatsapp_conversa set
-         pendente_desde = case
-           when ultima_entrada_em is not null and ultima_entrada_em > ? then
-             (select min(em) from whatsapp_mensagem
-               where conversa_id = whatsapp_conversa.id and deleted_at is null
-                 and autor = 'cliente' and em > ?
-                 and coalesce((dados->>'automatica')::boolean, false) = false)
-           else null end,
+         pendente_desde =
+           (select min(em) from whatsapp_mensagem
+             where conversa_id = whatsapp_conversa.id and deleted_at is null
+               and autor = 'cliente' and date_trunc('milliseconds', created_at) > ?
+               and coalesce((dados->>'automatica')::boolean, false) = false),
          tentativas = 0,
          updated_at = now()
        where id = ?`,
-      [lidaAte, lidaAte, conversaId]
+      [lidaAte, conversaId]
     )
   }
 

@@ -5116,8 +5116,7 @@ Depois do deploy — **nada muda no ar.** Os próximos passos, na ordem:
       `WHATSAPP_TOKEN` (token novo do usuário do sistema, no Meta Business), `WHATSAPP_NUMERO_ID`,
       `WHATSAPP_WABA_ID`, `WHATSAPP_APP_SEGREDO` (a chave secreta do app), `WHATSAPP_VERIFICACAO` (uma
       senha inventada) e `ANTHROPIC_API_KEY`. O passo a passo de cada uma está no `.env.example`.
-- [ ] **Parte 2:** o atendente enxergando o pedido (situação, rastreio, o Pix de novo), o frete pelo
-      CEP e o link que abre o checkout com a sacola montada.
+- [x] **Parte 2:** feita na 0233 (abaixo).
 - [ ] **Parte 3:** a tela de Conversas no painel — ler, responder como equipe, devolver pro
       atendente, o campo de regras, o liga/desliga e um "testar o atendente" antes da troca.
 - [ ] **Parte 4:** a política de privacidade com a Meta (WhatsApp) e a Anthropic, e a limpeza das
@@ -5128,6 +5127,44 @@ Depois do deploy — **nada muda no ar.** Os próximos passos, na ordem:
       sistema antigo inteiro.
 - [ ] **Depois (CRM):** as mensagens que a loja manda primeiro pelo WhatsApp (pedido, carrinho,
       reposição), só com o "sim" do WhatsApp.
+
+**O WhatsApp da loja, parte 2: o pedido, o Pix, o frete e a sacola — pronto em 01/10 (entrega
+0233).** O atendente passa a cuidar da compra de quem escreve, sempre dentro da janela de 24 horas
+(ele só responde; não puxa conversa). Continua sem responder ninguém até a troca do webhook.
+
+- **Quem escreve:** o número do WhatsApp casa com o telefone que a pessoa digitou no checkout (ou o
+  da conta) — com ou sem o 55, a máscara e o nono dígito. O atendente sabe o primeiro nome, o que ela
+  já comprou (da loja nova e da Nuvemshop), o dia do tratamento do Fator e o que está acabando — a
+  mesma ficha da Minha conta. Endereço, CPF e e-mail nunca vão pra IA.
+- **"Cadê meu pedido?":** a situação de verdade (Pix esperando, cartão em análise, pago, enviado,
+  entregue, cancelado — a mesma da Minha conta), o código de rastreio, o link e o último movimento.
+  Atraso, extravio e devolução: ele diz o que vê e chama a equipe.
+- **Quem comprou com outro telefone:** o número do pedido + o e-mail da compra mostram só a
+  situação e o rastreio (o e-mail errado responde igual ao pedido que não existe; 5 tentativas por
+  hora). Pedido da loja antiga (antes do #3301): a situação vai pra equipe.
+- **O Pix:** o código copia e cola vai numa mensagem SÓ COM ELE, logo depois da resposta (no
+  WhatsApp a pessoa copia a mensagem inteira). Vencido: o "Refazer o pedido".
+- **O frete pelo CEP:** a mesma conta da página do produto e do checkout. A rota da calculadora
+  (`POST /store/frete`) ficou só com a porta, e a conta foi pra `lib/cotar-frete.ts` — conferido
+  antes e depois, nove casos da rota (com a Frenet fora e sem transportadora) e o da sacola: a
+  resposta é a mesma, byte a byte.
+- **Um defeito da parte 1, consertado:** a mensagem que o cliente mandava enquanto o atendente
+  respondia (no mesmo segundo) ficava na conversa antes da resposta, e era largada sem resposta. O
+  conferidor pegou numa das rodadas; agora a resposta entra logo depois do que o atendente leu, e a
+  mensagem nova espera a próxima rodada.
+- **A sacola montada:** quando a pessoa decide, o link abre o checkout com os produtos e as
+  quantidades (desconto por quantidade e promoção já valendo). Pra quem já comprou com o número, o
+  checkout abre com o e-mail e o endereço da última compra. **Repetir a compra:** o mesmo
+  "Refazer o pedido" da reposição, da loja nova ou da Nuvemshop.
+
+Conferido pelo `conferir-whatsapp.mjs` (61, três rodadas; 16 novas: dois pedidos de teste do mesmo
+telefone, a lista com o Pix e o rastreio, o código em mensagem separada e igual ao do pedido, o
+frete, a sacola aberta pela loja com 2 óleos e o endereço da última compra, o refazer da compra paga,
+e o pedido visto de outro número sem os produtos), pelos testes de unidade do backend (1864; 18
+novos), typecheck, lint e prettier.
+
+Depois do deploy — **nada muda no ar** (o atendente ainda não recebe mensagens). Os próximos passos
+continuam na lista da parte 1, acima.
 
 ## Como seguir no Claude Code
 

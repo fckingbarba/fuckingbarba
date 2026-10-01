@@ -38,7 +38,7 @@ const REPOSTO = "fb_crm_reposto"
 type Endereco = Record<string, unknown> | null | undefined
 
 /** O endereço como o carrinho novo recebe: os campos, sem o id nem as datas do antigo. */
-function copiaDo(e: Endereco) {
+export function copiaDo(e: Endereco) {
   if (!e) return undefined
   const campos = [
     "first_name",
@@ -66,7 +66,7 @@ async function carrinhoAberto(container: MedusaContainer, id: string): Promise<b
   return Boolean(c && !c.completed_at && c.items?.length)
 }
 
-type PedidoCru = {
+export type PedidoCru = {
   id: string
   status: string
   email?: string | null
@@ -79,7 +79,10 @@ type PedidoCru = {
   billing_address?: Endereco
 }
 
-async function lerPedido(container: MedusaContainer, id: string): Promise<PedidoCru | undefined> {
+export async function lerPedido(
+  container: MedusaContainer,
+  id: string
+): Promise<PedidoCru | undefined> {
   const { data } = await container.resolve(ContainerRegistrationKeys.QUERY).graph({
     entity: "order",
     fields: [
@@ -104,7 +107,7 @@ async function lerPedido(container: MedusaContainer, id: string): Promise<Pedido
 type Item = { variant_id: string; quantity: number }
 
 /** Um carrinho novo com estes itens; o que esgotou fica de fora. Nulo se nenhum couber. */
-async function carrinhoNovo(
+export async function carrinhoNovo(
   container: MedusaContainer,
   novo: Record<string, unknown>,
   itens: Item[]

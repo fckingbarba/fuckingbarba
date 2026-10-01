@@ -22,6 +22,15 @@ import { createServer } from "node:http"
  *   "humano"  → avisa e chama a equipe (`chamar_a_equipe`), como a IA de verdade;
  *   "RECUSA"  → `stop_reason: "refusal"` (a recusa, mesmo com a reserva);
  *   "IAFORA"  → 529, a Anthropic sobrecarregada;
+ *   as ferramentas da loja (a parte 2), uma por comando no começo da mensagem:
+ *     "PEDIDOS"                 → ver_meus_pedidos
+ *     "PIX <número>"            → mandar_codigo_do_pix
+ *     "FRETE <cep> <código>"    → cotar_frete, 1 unidade
+ *     "SACOLA <código> <qtd>"   → montar_sacola
+ *     "REFAZER [número]"        → refazer_pedido (0 = a última compra)
+ *     "OUTRO <número> <e-mail>" → ver_pedido
+ *   e, na volta, "Resultado: <o que a ferramenta devolveu>" — o conferidor
+ *   lê a ferramenta de verdade pela resposta;
  *   o resto   → "Recebi: <as mensagens>" e o primeiro link de produto do
  *               catálogo que veio nas instruções (prova que o catálogo foi).
  * `roteiro.recusarPara` (números): a Meta responde 131047, a janela fechada.
@@ -69,6 +78,34 @@ function ultimaDoCliente(mensagens) {
   return ""
 }
 
+/** O comando do conferidor no começo da mensagem → a ferramenta da loja que a IA pediria. */
+function comandoDaLoja(texto) {
+  const [comando, ...resto] = texto.trim().split(/\s+/)
+  const numero = (v) => Number(v) || 0
+  switch (comando) {
+    case "PEDIDOS":
+      return { name: "ver_meus_pedidos", input: {} }
+    case "PIX":
+      return { name: "mandar_codigo_do_pix", input: { numero: numero(resto[0]) } }
+    case "FRETE":
+      return {
+        name: "cotar_frete",
+        input: { cep: resto[0], itens: [{ produto: resto[1], quantidade: 1 }] },
+      }
+    case "SACOLA":
+      return {
+        name: "montar_sacola",
+        input: { itens: [{ produto: resto[0], quantidade: numero(resto[1]) || 1 }] },
+      }
+    case "REFAZER":
+      return { name: "refazer_pedido", input: { numero: numero(resto[0]) } }
+    case "OUTRO":
+      return { name: "ver_pedido", input: { numero: numero(resto[0]), email: resto[1] ?? "" } }
+    default:
+      return null
+  }
+}
+
 function respostaDaIa(corpo, n) {
   const base = {
     id: `msg_falsa_${n}`,
@@ -86,7 +123,20 @@ function respostaDaIa(corpo, n) {
   const ultima = corpo.messages[corpo.messages.length - 1]
   const voltouDaFerramenta =
     Array.isArray(ultima.content) && ultima.content.some((b) => b.type === "tool_result")
-  if (voltouDaFerramenta) return { ...base, content: [], stop_reason: "end_turn" }
+  if (voltouDaFerramenta) {
+    const pediu = corpo.messages[corpo.messages.length - 2]?.content ?? []
+    const daEquipe = pediu.some((b) => b.type === "tool_use" && b.name === "chamar_a_equipe")
+    if (daEquipe) return { ...base, content: [], stop_reason: "end_turn" }
+    const resultado = ultima.content
+      .filter((b) => b.type === "tool_result")
+      .map((b) => (typeof b.content === "string" ? b.content : JSON.stringify(b.content)))
+      .join("\n")
+    return {
+      ...base,
+      content: [{ type: "text", text: `Resultado: ${resultado}` }],
+      stop_reason: "end_turn",
+    }
+  }
 
   const doCliente = ultimaDoCliente(corpo.messages)
   if (doCliente.includes("RECUSA"))
@@ -111,6 +161,16 @@ function respostaDaIa(corpo, n) {
           name: "chamar_a_equipe",
           input: { motivo: "pediu pra falar com uma pessoa" },
         },
+      ],
+      stop_reason: "tool_use",
+    }
+  const ferramenta = comandoDaLoja(doCliente)
+  if (ferramenta)
+    return {
+      ...base,
+      content: [
+        { type: "thinking", thinking: "", signature: "assinatura-falsa" },
+        { type: "tool_use", id: `toolu_falso_${n}`, ...ferramenta },
       ],
       stop_reason: "tool_use",
     }

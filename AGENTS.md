@@ -3992,7 +3992,7 @@ janeiro teria dois dias de venda contra um mês de despesas).
   abre, o celular e o console. Faz login do dono três vezes por rodada: no banco local, o limite de 5
   códigos/hora por e-mail pede o `zerar-envios-dono` entre rodadas.
 
-**O WhatsApp da loja e o atendente** (entrega 0232; parte 1 de 4 — ver o ESTADO). Quem escreve pro
+**O WhatsApp da loja e o atendente** (entregas 0232 e 0233; partes 1 e 2 de 4 — ver o ESTADO). Quem escreve pro
 número da loja recebe a resposta de uma IA que vende e tira dúvida, só com o que o sistema diz.
 
 - **A Meta:** o mesmo app e o mesmo número de antes (a Cloud API oficial). `src/lib/whatsapp/meta.ts`
@@ -4037,11 +4037,45 @@ número da loja recebe a resposta de uma IA que vende e tira dúvida, só com o 
   Links com `utm_source=whatsapp&utm_medium=atendimento`.
 - **Observabilidade:** a rotina nova no `ROTINAS`; as integrações `whatsapp` (a Meta) e `anthropic`
   (a IA), com o cartão na área "WhatsApp".
-- **O conferidor** é o `apps/loja/ferramentas/conferir-whatsapp.mjs` (45, sem navegador, ~5 min): sobe
-  o `whatsapp-falso.mjs` (a Meta, a IA com roteiro pela mensagem — "humano", "RECUSA", "IAFORA" — e a
-  página /duvidas, tudo na 4380) e lê as conversas direto do banco (`DATABASE_URL`). O backend sobe
-  com `WHATSAPP_URL`, `ANTHROPIC_URL` e `LOJA_URL` apontando pra 4380 e as variáveis de teste do
-  cabeçalho do conferidor. As conversas da rodada saem do banco no fim.
+- **Parte 2 (entrega 0233): o pedido, o Pix, o frete e a sacola.** Quem escreve é reconhecido pelo
+  telefone (`cliente.ts`, `clientePeloTelefone`): o número do WhatsApp casa com o telefone do endereço
+  de entrega ou de cobrança dos pedidos, ou com o da conta, pela `chaveDoTelefone` (o DDD e os 8
+  últimos dígitos — o WhatsApp de quem tem número antigo vem sem o nono dígito). O dono do número é o
+  dono do pedido: a Meta só entrega a mensagem do chip. O contexto da conversa leva o resumo dele
+  (`resumoDoCliente`: a ficha do site — `lerFichaDoSite` —, sem endereço, CPF nem e-mail). As
+  ferramentas (`ferramentas.ts`, `FERRAMENTAS_DA_LOJA`, sempre na mesma ordem — entram no cache):
+  `ver_meus_pedidos` (os 5 mais novos do telefone, `lerPedidosDoWhatsapp` em `pedidos.ts`: a
+  situação da Minha conta — `situacaoDoPedido`, o Pix pelo relógio do servidor —, os produtos, o total
+  e o rastreio, do envio do núcleo ou da etiqueta do admin); `ver_pedido` (número + e-mail, pra quem
+  comprou com outro telefone: só a situação e o rastreio; o e-mail errado e o pedido que não existe
+  respondem igual; 5 tentativas por hora); `mandar_codigo_do_pix` (o copia e cola vai em
+  `ContextoDasFerramentas.depois` e sai numa mensagem SÓ COM ELE, depois da resposta — o WhatsApp
+  copia a mensagem inteira, e o banco não aceita o código com texto; só pro dono); `cotar_frete`
+  (`lib/cotar-frete.ts`, a mesma conta da `POST /store/frete`, que ficou só com a porta e o limite;
+  10 por hora); `montar_sacola` (um carrinho — do dono, com o e-mail, a conta e os endereços da
+  última compra (`carrinhoNovo`/`copiaDo`/`lerPedido`, de `lib/crm/voltar-ao-checkout.ts`) — e o
+  link `/voltar/<t>` dos e-mails, com a UTM do atendente; 6 por hora); `refazer_pedido` (o
+  `repor-order_…`/`repor-nso_…` da reposição: a compra paga mais nova, ou o Pix vencido, ou a da
+  Nuvemshop pelo e-mail; só pro dono). Pedido da loja antiga (número abaixo do
+  `PRIMEIRO_PEDIDO_DA_LOJA_NOVA`, 3301): a situação vai pra equipe. A resposta é o texto da ÚLTIMA
+  volta da IA (o de antes das ferramentas é rascunho); a ferramenta que quebra volta pra IA como
+  erro, sem derrubar a resposta; até 5 voltas.
+- **A ordem da conversa** (0233): a hora da Meta é em segundos, e a mensagem que o cliente manda
+  enquanto a IA pensa ficava ANTES da resposta (gravada depois, com milissegundo) — a conversa
+  terminava no atendente, e a mensagem era largada sem resposta. Agora a resposta leva `leuAte` (a
+  hora em que a última mensagem lida CHEGOU, o `created_at`) nos `dados`, e o `historico` põe a
+  resposta logo depois dela (`ordem`); o resto vai pela chegada. O `respondida` também compara pela
+  chegada: duas mensagens no mesmo segundo da Meta não são a mesma.
+- **O conferidor** é o `apps/loja/ferramentas/conferir-whatsapp.mjs` (61, sem navegador, ~5 min): sobe
+  o `whatsapp-falso.mjs` (a Meta, a IA com roteiro pela mensagem — "humano", "RECUSA", "IAFORA" e os
+  comandos das ferramentas, "PEDIDOS", "PIX", "FRETE", "SACOLA", "REFAZER", "OUTRO" — e a página
+  /duvidas, tudo na 4380) e lê as conversas direto do banco (`DATABASE_URL`). A parte 2 faz dois
+  pedidos de teste (`pedido-de-teste.mjs`, com a Frenet e o Pagar.me falsos que ele mesmo sobe —
+  `PORTA_FALSA` e `PORTA_PAGARME_FALSO` iguais às do backend —, `ADMIN_EMAIL`/`ADMIN_SENHA` e o
+  `REVALIDAR_SEGREDO` do backend, senão a trava de 3 Pix em 40 minutos barra a rodada seguinte) e
+  abre os links pela `POST /store/crm/voltar`. O backend sobe com `WHATSAPP_URL`, `ANTHROPIC_URL` e
+  `LOJA_URL` apontando pra 4380 e as variáveis de teste do cabeçalho do conferidor. As conversas da
+  rodada saem do banco no fim.
 
 ## Fora dos limites
 

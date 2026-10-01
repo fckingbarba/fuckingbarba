@@ -238,7 +238,11 @@ export function catalogoEmTexto(produtos: readonly ProdutoDoAtendente[], loja: s
   const blocos = [...produtos]
     .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"))
     .map((p) => {
-      const linhas = [`## ${p.nome}`, `Link: ${linkDoProduto(loja, p.handle)}`]
+      const linhas = [
+        `## ${p.nome}`,
+        `Código (pras ferramentas): ${p.handle}`,
+        `Link: ${linkDoProduto(loja, p.handle)}`,
+      ]
       if (p.categorias.length) linhas.push(`Categorias: ${p.categorias.join(", ")}`)
       if (p.resumo) linhas.push(`Resumo: ${p.resumo.replace(/\s*\n\s*/g, " ")}`)
       const aVenda = p.variantes.filter((v) => v.vende)

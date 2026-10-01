@@ -169,6 +169,90 @@ describe("chamar a equipe", () => {
   })
 })
 
+describe("as ferramentas da loja", () => {
+  const verPedidos: Anthropic.Beta.BetaTool = {
+    name: "ver_meus_pedidos",
+    description: "teste",
+    input_schema: { type: "object", properties: {} },
+  }
+
+  it("vão depois do chamar_a_equipe, sempre na mesma ordem", async () => {
+    const { cliente, pedidos } = iaFalsa([resposta([{ type: "text", text: "Opa!" }])])
+    await responderComIa({ cliente, ...base, ferramentas: [verPedidos] })
+    expect(pedidos[0].tools?.map((t) => (t as { name: string }).name)).toEqual([
+      "chamar_a_equipe",
+      "ver_meus_pedidos",
+    ])
+  })
+
+  it("o resultado volta pra IA, e a resposta é o texto da última volta", async () => {
+    const chamadas: [string, unknown][] = []
+    const { cliente, pedidos } = iaFalsa([
+      resposta(
+        [
+          { type: "text", text: "Deixa eu ver aqui." },
+          { type: "tool_use", id: "t1", name: "ver_meus_pedidos", input: {} },
+          { type: "tool_use", id: "t2", name: "nao_existe", input: {} },
+        ],
+        "tool_use"
+      ),
+      resposta([{ type: "text", text: "Seu pedido #3305 foi postado: AB123BR." }]),
+    ])
+    const r = await responderComIa({
+      cliente,
+      ...base,
+      ferramentas: [verPedidos],
+      executar: async (nome, input) => {
+        chamadas.push([nome, input])
+        return nome === "ver_meus_pedidos" ? { conteudo: "Pedido #3305: enviado, AB123BR" } : null
+      },
+    })
+    expect(chamadas).toEqual([
+      ["ver_meus_pedidos", {}],
+      ["nao_existe", {}],
+    ])
+    expect(r).toMatchObject({
+      tipo: "resposta",
+      texto: "Seu pedido #3305 foi postado: AB123BR.",
+      ferramentas: ["ver_meus_pedidos", "nao_existe"],
+    })
+    // Os dois resultados numa mensagem só; o que não existe, como erro.
+    expect(pedidos[1].messages[2]).toEqual({
+      role: "user",
+      content: [
+        { type: "tool_result", tool_use_id: "t1", content: "Pedido #3305: enviado, AB123BR" },
+        {
+          type: "tool_result",
+          tool_use_id: "t2",
+          content: "A ferramenta nao_existe não existe.",
+          is_error: true,
+        },
+      ],
+    })
+  })
+
+  it("a ferramenta que quebra vira erro pra IA, sem derrubar a resposta", async () => {
+    const { cliente, pedidos } = iaFalsa([
+      resposta([{ type: "tool_use", id: "t1", name: "ver_meus_pedidos", input: {} }], "tool_use"),
+      resposta([{ type: "text", text: "Não consegui ver agora." }]),
+    ])
+    const r = await responderComIa({
+      cliente,
+      ...base,
+      ferramentas: [verPedidos],
+      executar: async () => {
+        throw new Error("banco fora")
+      },
+    })
+    expect(r).toMatchObject({ texto: "Não consegui ver agora." })
+    const resultado = (
+      pedidos[1].messages[2].content as { content: string; is_error: boolean }[]
+    )[0]
+    expect(resultado.is_error).toBe(true)
+    expect(resultado.content).toMatch(/falhou agora \(banco fora\)/)
+  })
+})
+
 describe("quando a IA não responde", () => {
   it("recusou (mesmo com a reserva): a recusa volta, pra equipe responder", async () => {
     const { cliente } = iaFalsa([resposta([], "refusal")])
@@ -215,5 +299,9 @@ describe("as instruções", () => {
     expect(contextoDaConversa({ agora: new Date("2026-10-01T17:42:00Z"), nome: null })).toContain(
       "não tem nome"
     )
+    expect(c).toContain("não tem compra na loja nova")
+    expect(
+      contextoDaConversa({ agora: new Date(), nome: "Rafa", cliente: "- Já comprou: Fator" })
+    ).toContain("Esta pessoa já é cliente (pelo telefone das compras):\n- Já comprou: Fator")
   })
 })

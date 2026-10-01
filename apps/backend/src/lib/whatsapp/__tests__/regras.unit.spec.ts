@@ -76,6 +76,41 @@ describe("a conversa pra IA", () => {
     ])
   })
 
+  it("a mensagem que chegou enquanto o atendente respondia fica DEPOIS da resposta", () => {
+    // A hora da Meta é em segundos: o "e o frete?" (12:00:05) é anterior à resposta gravada às
+    // 12:00:05.700, mas chegou depois do que o atendente leu — e tem que ficar esperando.
+    const leu = new Date("2026-10-01T12:00:04.200Z")
+    expect(
+      conversaPraIa([
+        {
+          autor: "cliente",
+          tipo: "texto",
+          texto: "oi",
+          em: new Date("2026-10-01T12:00:04Z"),
+          ordem: leu,
+        },
+        {
+          autor: "bot",
+          tipo: "texto",
+          texto: "Opa!",
+          em: new Date("2026-10-01T12:00:05.700Z"),
+          ordem: new Date(leu.getTime() + 1),
+        },
+        {
+          autor: "cliente",
+          tipo: "texto",
+          texto: "e o frete?",
+          em: new Date("2026-10-01T12:00:05Z"),
+          ordem: new Date("2026-10-01T12:00:05.300Z"),
+        },
+      ])
+    ).toEqual([
+      { role: "user", content: "oi" },
+      { role: "assistant", content: "Opa!" },
+      { role: "user", content: "e o frete?" },
+    ])
+  })
+
   it("sem mensagem nova do cliente no fim, não há o que responder", () => {
     expect(conversaPraIa([m("cliente", "oi", 300), m("bot", "Opa!", 200)])).toBeNull()
     expect(conversaPraIa([])).toBeNull()

@@ -14,7 +14,9 @@ import {
   type ClienteDaIa,
 } from "./atendente"
 import { catalogoDoAtendente } from "./catalogo"
+import { clientePeloTelefone, resumoDoCliente } from "./cliente"
 import { duvidasDaLoja } from "./duvidas"
+import { FERRAMENTAS_DA_LOJA, usarFerramenta, type ContextoDasFerramentas } from "./ferramentas"
 import {
   credenciaisDoWhatsapp,
   enviarTexto,
@@ -73,6 +75,8 @@ const vazio = (): RelatorioDoWhatsapp => ({
 })
 
 type Rodada = {
+  container: MedusaContainer
+  loja: string
   whatsapp: WhatsappService
   cred: Credenciais
   ia: ClienteDaIa
@@ -109,6 +113,8 @@ export async function rodadaDoWhatsapp(
 
   let instrucoes: Promise<string> | null = null
   const rodada: Rodada = {
+    container,
+    loja,
     whatsapp,
     cred,
     ia,
@@ -167,37 +173,57 @@ async function cuidar(r: Rodada, c: ConversaDaFila) {
   const conversa = conversaPraIa(historico)
   const doCliente = historico
     .filter((m) => m.autor === "cliente")
-    .sort((a, b) => b.em.getTime() - a.em.getTime())
+    .sort((a, b) => b.chegou.getTime() - a.chegou.getTime())
   if (!conversa || !doCliente.length) {
     await r.whatsapp.largar(c.id)
     r.relatorio.largadas++
     return
   }
-  const lidaAte = doCliente[0].em
+  // A hora em que a última mensagem lida CHEGOU: a resposta é posta logo depois dela, e a que
+  // chegar enquanto a IA pensa fica pra próxima rodada (`respondida`).
+  const lidaAte = doCliente[0].chegou
+  const leu = { leuAte: lidaAte.toISOString() }
   if (doCliente[0].wamid) await mostrarDigitando(r.cred, doCliente[0].wamid)
+
+  // Quem escreve: o cliente dono do telefone (os pedidos, a ficha). Sem ele, a conversa segue.
+  const cliente = await clientePeloTelefone(r.container, c.telefone).catch(() => null)
+  const resumo = cliente
+    ? await resumoDoCliente(r.container, cliente, r.agora).catch(() => null)
+    : null
+  const ferramentas: ContextoDasFerramentas = {
+    container: r.container,
+    telefone: c.telefone,
+    cliente,
+    loja: r.loja,
+    agora: r.agora,
+    depois: [],
+  }
 
   let resposta: Awaited<ReturnType<typeof responderComIa>>
   try {
     resposta = await responderComIa({
       cliente: r.ia,
       instrucoes: await r.instrucoes(),
-      contexto: contextoDaConversa({ agora: r.agora, nome: c.nome }),
+      contexto: contextoDaConversa({ agora: r.agora, nome: c.nome, cliente: resumo }),
       conversa,
+      ferramentas: FERRAMENTAS_DA_LOJA,
+      executar: (nome, input) => usarFerramenta(nome, input, ferramentas),
     })
   } catch (e) {
     if (!(e instanceof ErroDaIa)) throw e
-    await naoSaiu(r, c, lidaAte, "a IA não respondeu")
+    await naoSaiu(r, c, lidaAte, "a IA não respondeu", leu)
     return
   }
 
   if (resposta.tipo === "recusou") {
-    await mandar(r, c, RESPOSTA_DE_SOCORRO, { uso: resposta.uso, recusou: true })
+    await mandar(r, c, RESPOSTA_DE_SOCORRO, { ...leu, uso: resposta.uso, recusou: true })
     await praEquipe(r, c, "a IA não quis responder esta mensagem")
     await r.whatsapp.respondida(c.id, lidaAte)
     return
   }
 
   const saiu = await mandar(r, c, textoPraEnviar(resposta.texto), {
+    ...leu,
     uso: resposta.uso,
     ferramentas: resposta.ferramentas,
     ...(resposta.equipe ? { equipe: resposta.equipe } : {}),
@@ -208,9 +234,11 @@ async function cuidar(r: Rodada, c: ConversaDaFila) {
     return
   }
   if (saiu === "nao") {
-    await naoSaiu(r, c, lidaAte, "a Meta não aceitou a resposta")
+    await naoSaiu(r, c, lidaAte, "a Meta não aceitou a resposta", leu)
     return
   }
+  // O que vai sozinho, numa mensagem só dele, depois da resposta (o copia e cola do Pix).
+  for (const extra of ferramentas.depois) await mandar(r, c, extra, { ...leu, separada: true })
   if (resposta.equipe) await praEquipe(r, c, resposta.equipe)
   await r.whatsapp.respondida(c.id, lidaAte)
   r.relatorio.respondidas++
@@ -252,11 +280,17 @@ async function mandar(
 }
 
 /** Não saiu nesta rodada; na terceira seguida, o aviso e a equipe. */
-async function naoSaiu(r: Rodada, c: ConversaDaFila, lidaAte: Date, porque: string) {
+async function naoSaiu(
+  r: Rodada,
+  c: ConversaDaFila,
+  lidaAte: Date,
+  porque: string,
+  leu: { leuAte: string }
+) {
   r.relatorio.falhas++
   const tentativas = await r.whatsapp.falhou(c.id)
   if (tentativas < TENTATIVAS_ANTES_DO_SOCORRO) return
-  await mandar(r, c, RESPOSTA_DE_SOCORRO, { socorro: porque })
+  await mandar(r, c, RESPOSTA_DE_SOCORRO, { ...leu, socorro: porque })
   await praEquipe(r, c, porque)
   await r.whatsapp.respondida(c.id, lidaAte)
 }

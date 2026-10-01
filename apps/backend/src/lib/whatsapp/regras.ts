@@ -59,6 +59,11 @@ export type MensagemLida = {
   tipo: string
   texto: string | null
   em: Date
+  /**
+   * A ordem na conversa, quando não é a do `em`: a resposta do atendente vai
+   * logo depois da última mensagem que ele leu (`historico`, no serviço).
+   */
+  ordem?: Date
 }
 
 const SEM_TEXTO: Record<TipoDaMensagem, string> = {
@@ -97,7 +102,8 @@ export function conversaPraIa(
   mensagens: readonly MensagemLida[]
 ): Anthropic.Beta.BetaMessageParam[] | null {
   const turnos: { role: "user" | "assistant"; partes: string[] }[] = []
-  for (const m of [...mensagens].sort((a, b) => a.em.getTime() - b.em.getTime())) {
+  const quando = (m: MensagemLida) => (m.ordem ?? m.em).getTime()
+  for (const m of [...mensagens].sort((a, b) => quando(a) - quando(b))) {
     const role = m.autor === "cliente" ? "user" : "assistant"
     if (!turnos.length && role === "assistant") continue
     const parte =
@@ -173,4 +179,22 @@ export function decidir(c: ConversaLida, agora: Date, ultimaDaEquipe: Date | nul
   }
   if (agora.getTime() - c.ultima_entrada_em.getTime() < ESPERA_S * 1000) return { fazer: "esperar" }
   return { fazer: "responder" }
+}
+
+/* ── o telefone ──────────────────────────────────────────────────────────── */
+
+/**
+ * A CHAVE DE UM TELEFONE DO BRASIL: o DDD e os 8 últimos dígitos. É o que
+ * casa o número do WhatsApp com o telefone que a pessoa digitou no checkout,
+ * do jeito que for: "+55 (11) 98888-7777", "11988887777", "5511988887777".
+ *
+ * Os 8 últimos, e não os 9: o WhatsApp de muita gente cadastrada antes do
+ * nono dígito vem SEM ele (`5511 8888-7777`), e o checkout grava com. O DDD
+ * junto impede o mesmo final de outra cidade de casar.
+ */
+export function chaveDoTelefone(v: string | null | undefined): string | null {
+  let d = (v ?? "").replace(/\D/g, "")
+  if (d.startsWith("55") && (d.length === 12 || d.length === 13)) d = d.slice(2)
+  if (d.length !== 10 && d.length !== 11) return null
+  return `${d.slice(0, 2)}${d.slice(-8)}`
 }
