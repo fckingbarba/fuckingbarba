@@ -6,7 +6,12 @@
  *
  * Variáveis: MEDUSA_BACKEND_URL, DATABASE_URL (o banco do backend local: o
  *            conferidor lê as conversas direto dele), WHATSAPP_APP_SEGREDO e
- *            WHATSAPP_VERIFICACAO (os mesmos do backend; padrão: os de teste).
+ *            WHATSAPP_VERIFICACAO (os mesmos do backend; padrão: os de teste),
+ *            ADMIN_EMAIL e ADMIN_SENHA (o admin local: a parte 2 faz pedidos
+ *            de teste, com a Frenet e o Pagar.me falsos — PORTA_FALSA e
+ *            PORTA_PAGARME_FALSO, as mesmas do FRENET_URL e do PAGARME_URL —,
+ *            e REVALIDAR_SEGREDO, o do backend: sem a assinatura da loja, a
+ *            trava de 3 Pix em 40 minutos barra a segunda rodada).
  *
  * O backend sobe apontando pro WhatsApp e pra IA falsos (`whatsapp-falso.mjs`,
  * na 4380 — este conferidor sobe os dois):
@@ -24,6 +29,11 @@
  * │ respondida; e a IA fora do ar termina no "vou chamar alguém do time".  │
  * └─────────────────────────────────────────────────────────────────────────┘
  *
+ * A PARTE 2 (os pedidos do telefone, o Pix em mensagem separada, o frete, a
+ * sacola montada, o refazer e o pedido de outra pessoa) faz dois pedidos de
+ * teste com o telefone dos pedidos de teste (`pedido-de-teste.mjs`) e conversa
+ * por esse número — roda junto com a parte 1.
+ *
  * DEMORA uns 5 minutos: o atendente responde de minuto em minuto (o job
  * `responder-no-whatsapp`), e a IA fora precisa de três rodadas seguidas
  * antes de chamar a equipe. As conversas da rodada saem do banco no fim.
@@ -31,6 +41,9 @@
 
 import { createHmac } from "node:crypto"
 import pg from "pg"
+import { subirFrenetFalsa } from "./frenet-falsa.mjs"
+import { subirPagarmeFalso } from "./pagarme-falso.mjs"
+import { fabricaDePedidos } from "./pedido-de-teste.mjs"
 import { subirWhatsappFalso } from "./whatsapp-falso.mjs"
 
 const MEDUSA = process.env.MEDUSA_BACKEND_URL ?? "http://127.0.0.1:9000"
@@ -149,9 +162,219 @@ const mensagens = async (telefone) =>
   ).rows
 
 const falso = await subirWhatsappFalso()
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL
+const ADMIN_SENHA = process.env.ADMIN_SENHA
+/** O telefone dos pedidos de teste (`pedido-de-teste.mjs`), como o WhatsApp manda. */
+const DONO = "5511988887777"
 const enviadasPara = (tel) => falso.enviadas.filter((m) => m.para === tel)
 const pedidosCom = (marca) =>
   falso.pedidosAIa.filter((p) => JSON.stringify(p.corpo.messages).includes(marca))
+
+async function apagarConversa(telefone) {
+  await banco.query(
+    `delete from whatsapp_mensagem where conversa_id in
+       (select id from whatsapp_conversa where telefone = $1)`,
+    [telefone]
+  )
+  await banco.query("delete from whatsapp_conversa where telefone = $1", [telefone])
+}
+
+let frenet = null
+let pagarme = null
+
+/**
+ * A PARTE 2: devolve as checagens ([condição, frase, detalhe]) pra serem
+ * impressas no fim — ela roda enquanto a parte 1 espera as respostas.
+ */
+async function rodarParte2() {
+  const res = []
+  const ver = (cond, texto, detalhe = "") => res.push([Boolean(cond), texto, detalhe])
+  if (!ADMIN_EMAIL || !ADMIN_SENHA) {
+    ver(false, "a parte 2 precisa de ADMIN_EMAIL e ADMIN_SENHA (o admin LOCAL)")
+    return res
+  }
+  const chave = (
+    await banco.query(
+      "select token from api_key where type = 'publishable' and revoked_at is null limit 1"
+    )
+  ).rows[0]?.token
+  frenet = await subirFrenetFalsa()
+  pagarme = await subirPagarmeFalso({
+    webhook: {
+      url: `${MEDUSA}/hooks/payment/pagarme_pagarme`,
+      segredo: process.env.MEDUSA_WEBHOOK_SEGREDO ?? "segredo-de-teste",
+    },
+  })
+  const entrou = await fetch(`${MEDUSA}/auth/user/emailpass`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email: ADMIN_EMAIL, password: ADMIN_SENHA }),
+  })
+  const tokenAdmin = (await entrou.json()).token
+  const fabrica = fabricaDePedidos({ medusa: MEDUSA, chave, tokenAdmin, pagarme })
+  const loja = (caminho, init = {}) =>
+    fetch(`${MEDUSA}${caminho}`, {
+      ...init,
+      headers: { "content-type": "application/json", "x-publishable-api-key": chave },
+    }).then((r) => r.json())
+
+  // Dois pedidos do telefone de teste: um Pix esperando e um pago e postado.
+  const EMAIL = `whatsapp.${RODADA}@teste.fuckingbarba.dev`
+  const pix = await fabrica.pedidoPix(EMAIL, [["shampoo-para-barba", 1]])
+  const enviado = await fabrica.pedidoPix(EMAIL, [["oleo-para-barba", 2]])
+  await fabrica.pagar(enviado)
+  const CODIGO = `WA${RODADA}123BR`.slice(0, 13).padEnd(13, "0")
+  await fabrica.enviar(enviado, { codigo: CODIGO, url: `https://rastreio.exemplo/${CODIGO}` })
+  await apagarConversa(DONO)
+
+  /** Manda a mensagem e espera a(s) resposta(s) que chegarem depois dela. */
+  const conversar = async (de, texto, quantas = 1) => {
+    const antes = enviadasPara(de).length
+    await postar(
+      aviso({ telefone: de, nome: "Rafael Teste", mensagens: [{ ...textoDe(de, texto) }] })
+    )
+    const chegou = await esperar(
+      () => enviadasPara(de).slice(antes),
+      (l) => l.length >= quantas,
+      100
+    )
+    if (quantas > 1) await dormir(3000)
+    return enviadasPara(de).slice(antes)
+  }
+  const voltar = async (resposta) => {
+    const t = resposta.match(/\/voltar\/([^?\s]+)\?utm_source=whatsapp/)?.[1]
+    if (!t) return null
+    const r = await loja("/store/crm/voltar", { method: "POST", body: JSON.stringify({ t }) })
+    if (!r?.carrinho) return { t, carrinho: null }
+    const { cart } = await loja(`/store/carts/${r.carrinho}?fields=email,*items,*shipping_address`)
+    return { t, carrinho: cart }
+  }
+
+  // De outro número: o pedido pelo número e o e-mail (em paralelo com o dono).
+  const outro = numero(21)
+  const deOutro = (async () => {
+    const [certo] = await conversar(outro, `OUTRO ${enviado.numero} ${EMAIL.toUpperCase()}`)
+    const [errado] = await conversar(outro, `OUTRO ${enviado.numero} errado@teste.dev`)
+    return { certo: certo?.texto ?? "", errado: errado?.texto ?? "" }
+  })()
+  const doFrete = conversar(numero(20), "FRETE 89036-370 shampoo-para-barba")
+
+  const [pedidos] = await conversar(DONO, "PEDIDOS")
+  const tp = pedidos?.texto ?? ""
+  ver(
+    tp.includes(`Pedido #${pix.numero}`) && tp.includes("esperando o pagamento do Pix"),
+    "ver_meus_pedidos: o Pix esperando, do telefone",
+    tp
+  )
+  ver(
+    tp.includes(`Pedido #${enviado.numero}`) &&
+      tp.includes("Produtos: 2x") &&
+      tp.includes(`Rastreio: ${CODIGO}`),
+    "e o pedido postado, com os produtos e o rastreio",
+    tp
+  )
+  ver(
+    !tp.includes("Rafael Teste,") && !/89036|Zimmermann|111\.?444/.test(tp),
+    "sem endereço nem CPF",
+    tp
+  )
+  const pedidoAIa = falso.pedidosAIa.find(
+    (p) => JSON.stringify(p.corpo.messages).includes("PEDIDOS") && p.corpo.messages.length === 1
+  )
+  ver(
+    String(pedidoAIa?.corpo.system?.[1]?.text).includes("Esta pessoa já é cliente"),
+    "a IA sabe que o telefone é de cliente",
+    String(pedidoAIa?.corpo.system?.[1]?.text)
+  )
+
+  const doPix = await conversar(DONO, `PIX ${pix.numero}`, 2)
+  const { order } = await (
+    await fetch(
+      `${MEDUSA}/admin/orders/${pix.id}?fields=payment_collections.payment_sessions.data`,
+      {
+        headers: { authorization: `Bearer ${tokenAdmin}` },
+      }
+    )
+  ).json()
+  const copiaECola = (order.payment_collections ?? [])
+    .flatMap((c) => c.payment_sessions ?? [])
+    .map((s) => s.data?.pagarme?.pix?.copiaECola)
+    .find(Boolean)
+  ver(doPix.length === 2, "o Pix: a resposta e mais uma mensagem", `${doPix.length} mensagem(ns)`)
+  ver(
+    Boolean(copiaECola) && doPix[1]?.texto === copiaECola,
+    "a segunda é SÓ o copia e cola do pedido",
+    doPix[1]?.texto
+  )
+  ver(!String(doPix[0]?.texto).includes(String(copiaECola)), "e a resposta não repete o código")
+
+  const [sacola] = await conversar(DONO, "SACOLA oleo-para-barba 2")
+  const aberta = await voltar(sacola?.texto ?? "")
+  ver(
+    Boolean(aberta?.carrinho),
+    "montar_sacola: o link abre um carrinho na loja (/voltar)",
+    sacola?.texto
+  )
+  const linha = aberta?.carrinho?.items?.[0]
+  ver(
+    aberta?.carrinho?.items?.length === 1 &&
+      linha?.quantity === 2 &&
+      /óleo|oleo/i.test(linha?.product_title ?? ""),
+    "com 2 óleos",
+    JSON.stringify(aberta?.carrinho?.items?.map((i) => [i.product_title, i.quantity]))
+  )
+  ver(
+    aberta?.carrinho?.email === EMAIL &&
+      aberta?.carrinho?.shipping_address?.postal_code === "89036370",
+    "e o e-mail e o endereço da última compra do telefone",
+    `${aberta?.carrinho?.email} / ${aberta?.carrinho?.shipping_address?.postal_code}`
+  )
+
+  const [refazer] = await conversar(DONO, "REFAZER 0")
+  const refeito = await voltar(refazer?.texto ?? "")
+  ver(
+    String(refeito?.t).startsWith("repor-order_"),
+    "refazer_pedido: o link do 'Refazer o pedido'",
+    refazer?.texto
+  )
+  ver(
+    refeito?.carrinho?.items?.some(
+      (i) => i.quantity === 2 && /óleo|oleo/i.test(i.product_title ?? "")
+    ),
+    "abre com os produtos da última compra paga (2 óleos)"
+  )
+
+  const frete = (await doFrete)[0]?.texto ?? ""
+  ver(
+    frete.includes("Frete pro CEP 89036-370") && /Econômico|Entrega/.test(frete),
+    "cotar_frete: as opções pro CEP, pela conta do site",
+    frete
+  )
+
+  const { certo, errado } = await deOutro
+  ver(
+    certo.includes(`Pedido #${enviado.numero}`) && certo.includes(`Rastreio: ${CODIGO}`),
+    "ver_pedido: com o número e o e-mail certos, a situação e o rastreio",
+    certo
+  )
+  ver(
+    !certo.includes("Produtos") && !certo.includes("Total"),
+    "sem os produtos nem o total (não é o telefone da compra)",
+    certo
+  )
+  ver(
+    errado.includes("Não achei um pedido com esse número e esse e-mail"),
+    "com o e-mail errado, nada",
+    errado
+  )
+
+  await apagarConversa(outro)
+  await apagarConversa(numero(20))
+  return res
+}
+
+/** Uma mensagem de texto do número `de`. */
+const textoDe = (de, corpo) => texto(de, corpo)
 
 try {
   /* ── 1. a porta ──────────────────────────────────────────────────────── */
@@ -182,6 +405,9 @@ try {
     "o aviso de outro número do app é aceito (200)…"
   )
   ok((await conversa(outro)) === null, "…e ignorado: não vira conversa da loja")
+
+  // A parte 2 roda junto (o job responde todas as conversas de minuto em minuto).
+  const parte2 = rodarParte2().catch((e) => [[false, "a parte 2 quebrou", String(e?.stack ?? e)]])
 
   /* ── 2. os cenários, todos de uma vez (o job responde de minuto em minuto) ── */
   const normal = numero(1)
@@ -266,7 +492,8 @@ try {
     )
     const instrucoes = c.system?.[0]?.text ?? ""
     ok(
-      instrucoes.includes("PRODUTOS (o preço de agora)") && /## .+\nLink: /.test(instrucoes),
+      instrucoes.includes("PRODUTOS (o preço de agora)") &&
+        /## .+\nCódigo \(pras ferramentas\): [a-z0-9-]+\nLink: /.test(instrucoes),
       "o catálogo foi junto"
     )
     ok(
@@ -390,6 +617,10 @@ try {
   ok(enviadasPara(humano).length === 1, "a conversa com a equipe (o 'alô?' ficou sem robô)")
   ok((await conversa(humano))?.pendente_desde === null, "e saiu da fila")
   ok(pedidosCom(`janela-${RODADA}`).length === 1, "a da janela fechada foi tentada uma vez só")
+
+  /* ── 8. a parte 2 ─────────────────────────────────────────────────────── */
+  titulo("7. Parte 2: os pedidos, o Pix, o frete, a sacola, o refazer e o pedido de outra pessoa")
+  for (const [cond, texto, detalhe] of await parte2) ok(cond, texto, detalhe)
 } finally {
   // As conversas da rodada saem do banco: o próximo teste começa limpo.
   await banco.query(
@@ -398,8 +629,11 @@ try {
     [`55999${RODADA}%`]
   )
   await banco.query("delete from whatsapp_conversa where telefone like $1", [`55999${RODADA}%`])
+  await apagarConversa(DONO)
   await banco.end()
   await falso.fechar()
+  await frenet?.fechar?.()
+  await pagarme?.fechar?.()
 }
 
 console.log(`\n${passou} ok, ${falhou} falha(s)`)
