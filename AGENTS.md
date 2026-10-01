@@ -2468,7 +2468,8 @@ dono). A regra mora em `src/lib/painel/configuracoes.ts`, puro, com testes:
   linha, e a lista para em `MAX_PENDENCIAS`); os e-mails, com o remetente do `remetenteDosEmails`
   (`lib/email.ts`, o mesmo do `enviarEmail`).
 - **Pra quem vai o aviso da equipe:** `AVISOS_DA_EQUIPE` diz o papel de cada um (a nota e o
-  cancelado que ficou na Frenet: operação e dono; a venda nova, o Bling caído e o estorno: dono), e
+  cancelado que ficou na Frenet e o WhatsApp que chamou a equipe: operação e dono; a venda nova, o
+  Bling caído e o estorno: dono), e
   `destinatarios` escolhe os e-mails — quem
   está ativo no papel; sem ninguém, o dono; sem ninguém no painel, os usuários do admin, como antes.
   O `avisarAEquipe` do ERP, o dos estornos e o `avisarVenda` chamam o `emailsPraAvisar`
@@ -3992,7 +3993,7 @@ janeiro teria dois dias de venda contra um mês de despesas).
   abre, o celular e o console. Faz login do dono três vezes por rodada: no banco local, o limite de 5
   códigos/hora por e-mail pede o `zerar-envios-dono` entre rodadas.
 
-**O WhatsApp da loja e o atendente** (entregas 0232 e 0233; partes 1 e 2 de 4 — ver o ESTADO). Quem escreve pro
+**O WhatsApp da loja e o atendente** (entregas 0232, 0233 e 0234; partes 1 a 3 de 4 — ver o ESTADO). Quem escreve pro
 número da loja recebe a resposta de uma IA que vende e tira dúvida, só com o que o sistema diz.
 
 - **A Meta:** o mesmo app e o mesmo número de antes (a Cloud API oficial). `src/lib/whatsapp/meta.ts`
@@ -4076,6 +4077,45 @@ número da loja recebe a resposta de uma IA que vende e tira dúvida, só com o 
   abre os links pela `POST /store/crm/voltar`. O backend sobe com `WHATSAPP_URL`, `ANTHROPIC_URL` e
   `LOJA_URL` apontando pra 4380 e as variáveis de teste do cabeçalho do conferidor. As conversas da
   rodada saem do banco no fim.
+- **Parte 3 (entrega 0234): o painel.** A área `whatsapp` (dono e operação no `ACESSO_PADRAO`: tem
+  telefone e pedido de cliente), no menu em Pessoas, depois de Clientes. As rotas:
+  `GET /dashboard/whatsapp` (`lerTelaDoWhatsapp`, em `lib/painel/ler-whatsapp.ts`: a fita — todas,
+  com a equipe, atendente —, a busca por nome ou número, a página, as contagens e os números de cima:
+  esperando a equipe, conversas e respostas de hoje, as vendas pelo WhatsApp em 7 dias — os pedidos
+  pagos de quem conversou nas 48 h antes, `vendasPeloWhatsapp` — e o custo da IA de hoje, estimado
+  pela tabela `PRECO_POR_MILHAO`/`custoEmDolar` do `atendente.ts`; mudou o modelo, mude a tabela);
+  `GET /dashboard/whatsapp/conversas/:id` (as últimas 150 mensagens — `mensagemNaTela`: o que o
+  atendente fez vira frase por `FERRAMENTAS_NA_TELA`; ferramenta nova entra lá — e quem escreve: os
+  pedidos, o tratamento, o último pedido, com os links da ficha e do pedido); o `POST` da mesma rota,
+  `{ acao: "responder", texto }` (`lib/whatsapp/equipe.ts`, `responderComoEquipe`: sai pela Meta,
+  fica como `autor: "equipe"` com o membro e o primeiro nome nos `dados`, e o `equipeAssumiu` põe a
+  conversa com a equipe e fora da fila; fora da janela de 24 h, 409 `janela` sem chamar a Meta) ou
+  `{ acao: "devolver" }` (`devolver`: volta pro atendente; se a última mensagem é do cliente, entra
+  na fila de novo); `GET`/`POST /dashboard/whatsapp/ajustes` (o liga/desliga e as regras do dono no
+  `fb_whatsapp`, até `LIMITE_DAS_REGRAS`, e o `falta`: o que falta no Railway, `faltaPraResponder`);
+  `POST /dashboard/whatsapp/testar` (`lib/whatsapp/testar.ts`: as mesmas instruções —
+  `instrucoesDaLoja`, exportada do `responder.ts` —, ferramentas e IA, com as regras do campo mesmo
+  sem salvar; nada sai pela Meta e nada fica nas conversas; 30 por hora por membro). Toda ação deixa
+  a linha no registro da equipe (`respondeu-no-whatsapp`, `devolveu-o-whatsapp`,
+  `mudou-o-whatsapp`). O telefone inteiro só pra quem abre os `contatos` (`telefoneNaTela`).
+- **A equipe avisada:** quando o atendente passa a conversa pra equipe (`praEquipe`, no
+  `responder.ts`), o `lib/whatsapp/aviso.ts` manda o e-mail (`emails/whatsapp-equipe.ts`: o primeiro
+  nome, o motivo, a última mensagem e o link da conversa) pra operação e pro dono — a linha "O
+  WhatsApp chamou a equipe" do `AVISOS_DA_EQUIPE` —, um por passagem (a chave leva a hora dela), e
+  nunca derruba a resposta. O `GET /dashboard/eu` devolve `avisos.whatsapp` (as conversas com a
+  equipe cuja última mensagem não é da equipe) pra quem abre a área: o número AMARELO do menu
+  (`data-grave` só nos outros — é fila, não problema).
+- **A tela** (`app/(painel)/whatsapp/`, `components/whatsapp*.tsx`, `estilos/whatsapp.css`, as ações
+  em `lib/acoes/whatsapp.ts`): a lista, a conversa e quem escreve, em três colunas (duas abaixo de
+  1180 px; no celular, uma — com a conversa aberta, só ela, sem os números de cima). A fita, a busca
+  e a página moram no endereço. A tela se refaz de 15 em 15 s com a aba à vista
+  (`AtualizarSozinho`). Fora da janela, o campo de responder dá lugar ao porquê.
+- **O conferidor do painel** é o `apps/dashboard/ferramentas/conferir-whatsapp.mjs` (54, ~2 min):
+  sobe a Meta e a IA falsas da loja (4380) e o Resend falso (`PORTA_RESEND` igual ao `RESEND_URL` do
+  backend), cria as conversas pelo webhook assinado e confere a lista, o e-mail, o número do menu,
+  responder, devolver, a janela fechada, o marketing sem a área, os ajustes, o teste (as regras do
+  campo no pedido à IA, nada pela Meta) e o celular. Precisa do `DATABASE_URL`. Não rode junto com o
+  da loja: os dois sobem a 4380.
 
 ## Fora dos limites
 
