@@ -478,7 +478,7 @@ try {
   ok(Boolean(pedido), "a IA recebeu o pedido")
   if (pedido) {
     const c = pedido.corpo
-    ok(c.model === "claude-opus-5-5", "o modelo: Claude Opus 5.5", c.model)
+    ok(c.model === "claude-sonnet-5-5", "o modelo: Claude Sonnet 5.5", c.model)
     ok(c.fallbacks === "default", "a reserva da Anthropic ligada (fallbacks: default)")
     ok(
       String(pedido.cabecalhos["anthropic-beta"] ?? "").includes("server-side-fallback-2026-07-01"),

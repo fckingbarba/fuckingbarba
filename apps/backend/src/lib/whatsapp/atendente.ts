@@ -15,13 +15,17 @@ import { RESPOSTA_DE_SOCORRO } from "./regras"
  * └────────────────────────────────────────────────────────────────────────┘
  *
  * ┌─ O PEDIDO À IA ────────────────────────────────────────────────────────┐
- * │ O Claude Opus 5.5 (o mais capaz; a conversa é curta, então a conta é   │
- * │ de centavos), com esforço baixo: conversa de WhatsApp não pede         │
- * │ raciocínio longo. O pedaço grande e fixo — as instruções, o catálogo e │
- * │ as dúvidas — vai primeiro e fica no cache da IA por uma hora           │
- * │ (`cache_control` com `ttl: "1h"`): só muda quando um preço ou um texto │
- * │ do painel muda. O que muda a cada conversa (a hora, o nome) vem        │
- * │ depois, fora desse pedaço.                                             │
+ * │ O Claude Sonnet 5.5, com esforço baixo: conversa de WhatsApp não pede  │
+ * │ raciocínio longo. Escolhido numa simulação (01/10, entrega 0235): as   │
+ * │ mesmas 24 conversas no Opus 5.5, no Sonnet 5.5 e no Haiku 4.5. O       │
+ * │ Sonnet empatou com o Opus (nenhum erro grave) e custa uns 30% menos; o │
+ * │ Haiku errou o que mais pesa (não chamou a equipe pro cliente bravo nem │
+ * │ pra outro idioma, inventou regra, esqueceu o link nas vendas).         │
+ * │                                                                        │
+ * │ O pedaço grande e fixo — as instruções, o catálogo e as dúvidas — vai  │
+ * │ primeiro e fica no cache da IA por uma hora (`cache_control` com `ttl: │
+ * │ "1h"`): só muda quando um preço ou um texto do painel muda. O que muda │
+ * │ a cada conversa (a hora, o nome) vem depois, fora desse pedaço.        │
  * │                                                                        │
  * │ `fallbacks: "default"`: se a IA recusar uma mensagem por segurança (o  │
  * │ falso positivo existe), a própria Anthropic refaz com o modelo que ela │
@@ -32,7 +36,7 @@ import { RESPOSTA_DE_SOCORRO } from "./regras"
  * aponta pra IA falsa. Sem a chave, o atendente não responde.
  */
 
-export const MODELO = "claude-opus-5-5"
+export const MODELO = "claude-sonnet-5-5"
 export const ESFORCO = "low" as const
 export const BETAS = ["server-side-fallback-2026-07-01"]
 /** O teto de saída por chamada — a resposta é curta; o resto é o raciocínio. */
@@ -211,11 +215,11 @@ export type RespostaDoAtendente =
 
 /**
  * O PREÇO DO MODELO, em dólar por milhão de tokens (a tabela da Anthropic do
- * Claude Opus 5.5). A escrita no cache conta como a de 1 hora (o dobro da
+ * Claude Sonnet 5.5). A escrita no cache conta como a de 1 hora (o dobro da
  * entrada) — a de 5 minutos, mais barata, também cai aqui: a conta fica por
  * cima. É estimativa pro painel; a fatura é a do console da Anthropic.
  */
-export const PRECO_POR_MILHAO = { entrada: 4, saida: 20, cacheLido: 0.2, cacheCriado: 8 }
+export const PRECO_POR_MILHAO = { entrada: 2, saida: 10, cacheLido: 0.2, cacheCriado: 4 }
 
 /** Quanto custou (estimado), em dólar. */
 export function custoEmDolar(uso: Partial<UsoDaIa> | null | undefined): number {
