@@ -5117,8 +5117,7 @@ Depois do deploy — **nada muda no ar.** Os próximos passos, na ordem:
       `WHATSAPP_WABA_ID`, `WHATSAPP_APP_SEGREDO` (a chave secreta do app), `WHATSAPP_VERIFICACAO` (uma
       senha inventada) e `ANTHROPIC_API_KEY`. O passo a passo de cada uma está no `.env.example`.
 - [x] **Parte 2:** feita na 0233 (abaixo).
-- [ ] **Parte 3:** a tela de Conversas no painel — ler, responder como equipe, devolver pro
-      atendente, o campo de regras, o liga/desliga e um "testar o atendente" antes da troca.
+- [x] **Parte 3:** feita na 0234 (abaixo).
 - [ ] **Parte 4:** a política de privacidade com a Meta (WhatsApp) e a Anthropic, e a limpeza das
       conversas antigas.
 - [ ] **A troca (você, com o passo a passo):** developers.facebook.com → o app → WhatsApp →
@@ -5165,6 +5164,43 @@ novos), typecheck, lint e prettier.
 
 Depois do deploy — **nada muda no ar** (o atendente ainda não recebe mensagens). Os próximos passos
 continuam na lista da parte 1, acima.
+
+**O WhatsApp da loja, parte 3: as conversas no painel — pronto em 01/10 (entrega 0234).** O painel
+ganha a área WhatsApp (menu → Pessoas → WhatsApp), do dono e da operação (o marketing não abre: tem
+telefone e pedido de cliente; dá pra mudar em Configurações → Equipe e acessos). As conversas de
+verdade só aparecem depois da troca do webhook; o teste do atendente já funciona antes, com a chave
+da Anthropic no Railway.
+
+- **As conversas:** quem escreveu, com a última mensagem, a hora e o selo — "Atendente" ou "Equipe ·
+  o motivo". Busca por nome ou número, e as fitas Todas, Com a equipe e Atendente. Em cima: quantas
+  esperam a equipe (e desde quando a mais antiga), as conversas e respostas de hoje, as vendas pelo
+  WhatsApp em 7 dias (pedido pago de quem conversou até 48 horas antes) e o custo da IA hoje
+  (estimado, em dólar). A tela se atualiza sozinha.
+- **A conversa:** as mensagens, com o que o atendente fez em cada resposta ("Viu os pedidos",
+  "Mandou o Pix", "Chamou a equipe"…), e ao lado quem escreve: os pedidos, o tratamento, o último
+  pedido, com os links pra ficha e pro pedido.
+- **Responder como equipe:** sai pelo WhatsApp da loja, fica na conversa com o primeiro nome de quem
+  mandou, e o atendente fica quieto nessa conversa (volta sozinho depois de 24 horas sem a equipe
+  falar). "Devolver pro atendente" devolve na hora. Só dentro das 24 horas da última mensagem do
+  cliente (regra do WhatsApp): fora disso, a tela explica.
+- **Quando o atendente chama a equipe:** o número amarelo no menu (quantas conversas esperam) e um
+  e-mail pra operação e pro dono, com a última mensagem e o botão que abre a conversa. Quem recebe
+  muda em Configurações → E-mails ("O WhatsApp chamou a equipe").
+- **Ajustes e teste:** ligar e desligar o atendente; as regras da loja (o jeito de falar, o que
+  oferecer, o que passar pra equipe — preço, frete e prazo continuam vindo do sistema); e o "Testar
+  o atendente": você escreve como se fosse um cliente (dá pra pôr o número de um cliente de
+  verdade, e ele responde como pra esse cliente) e vê a resposta, o que ele fez, quanto custou e
+  quanto demorou. Nada sai pelo WhatsApp, e o teste usa as regras do campo mesmo sem salvar.
+
+Conferido pelo `conferir-whatsapp.mjs` do painel (54, novo: a lista, o e-mail pra operação e pro
+dono, o número do menu, responder pela Meta, devolver, a janela fechada, o marketing sem a área, o
+liga/desliga, as regras, o teste sem nada sair pelo WhatsApp e o celular), pelo da loja (61, o
+mesmo), pelos testes de unidade do backend (1878; 14 novos), typecheck, lint e prettier.
+
+Depois do deploy — **as conversas não mudam no ar** (a Meta ainda manda pro sistema antigo). Pra
+usar o teste: as variáveis da parte 1 no Railway (no mínimo a `ANTHROPIC_API_KEY`); a faixa amarela
+no topo da área diz o que falta. Testar à vontade antes da troca: cada teste custa uns centavos de
+dólar (aparece embaixo da resposta), com teto de 30 por hora por pessoa.
 
 ## Como seguir no Claude Code
 

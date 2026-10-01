@@ -145,9 +145,10 @@ function Nav({
                     {avisos[i.area] ? (
                       <span
                         className="nav__num"
-                        data-grave
+                        // O WhatsApp (as conversas esperando a equipe) é amarelo: não é problema, é fila.
+                        data-grave={i.area === "whatsapp" ? undefined : true}
                         data-aviso={i.area}
-                        aria-label={`${avisos[i.area]} ${avisos[i.area] === 1 ? "problema grave" : "problemas graves"}`}
+                        aria-label={rotuloDoAviso(i.area, avisos[i.area]!)}
                       >
                         {avisos[i.area]}
                       </span>
@@ -161,6 +162,13 @@ function Nav({
       })}
     </nav>
   )
+}
+
+/** O que o número do menu quer dizer, pra quem lê com leitor de tela. */
+function rotuloDoAviso(area: Area, n: number): string {
+  if (area === "whatsapp")
+    return `${n} ${n === 1 ? "conversa esperando" : "conversas esperando"} a equipe`
+  return `${n} ${n === 1 ? "problema grave" : "problemas graves"}`
 }
 
 function Quem({ membro }: { membro: Membro }) {

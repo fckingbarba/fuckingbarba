@@ -81,7 +81,10 @@ export function nomeDoPapel(papel: Papel, nomes: ReadonlyMap<string, string> = n
  * pedido, na tela, só pra quem abre os pedidos). Os `criadores` são as
  * inscrições da página escondida `/criadores`, de quem quer gravar vídeo pra
  * loja: do marketing e do dono, que fecham com eles — a operação não vê
- * WhatsApp e e-mail de quem não é cliente. O `marketing` é a área dos
+ * WhatsApp e e-mail de quem não é cliente. O `whatsapp` são as conversas de
+ * quem escreve pro número da loja, com o atendente (a IA) e a equipe: do dono
+ * e da operação, que resolvem troca, atraso e reclamação — têm telefone e
+ * pedido de cliente, como os contatos. O `marketing` é a área dos
  * números de venda (o Resumo, a meta); mudar a `metaDoMes`, no padrão, é só
  * do dono. O `financeiro` é o DRE da loja, as despesas e o custo de cada
  * produto (o lucro, o pró-labore, o que se paga a cada um): só do dono no
@@ -105,6 +108,7 @@ export const ACESSO_PADRAO = {
   crm: ["dono", "marketing"],
   avaliacoes: ["dono", "operacao", "marketing"],
   criadores: ["dono", "marketing"],
+  whatsapp: ["dono", "operacao"],
   home: ["dono", "marketing"],
   marketing: ["dono", "marketing"],
   metaDoMes: ["dono"],
@@ -138,6 +142,7 @@ export const NOME_DA_AREA: Record<Area, string> = {
   crm: "CRM",
   avaliacoes: "Avaliações",
   criadores: "Criadores",
+  whatsapp: "WhatsApp",
   home: "Layout da home",
   marketing: "Marketing",
   metaDoMes: "Meta do mês",

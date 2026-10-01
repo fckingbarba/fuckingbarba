@@ -31,6 +31,7 @@ export type Area =
   | "crm"
   | "avaliacoes"
   | "criadores"
+  | "whatsapp"
   | "home"
   | "marketing"
   | "metaDoMes"
@@ -107,6 +108,7 @@ export const NOME_DA_LINHA: Record<Area, string> = {
   crm: "CRM",
   avaliacoes: "Avaliações",
   criadores: "Criadores",
+  whatsapp: "WhatsApp",
   home: "Layout da home",
   marketing: "Marketing",
   metaDoMes: "Marketing: mudar a meta do mês",
@@ -161,6 +163,7 @@ export const MENU: { grupo: string | null; itens: Item[] }[] = [
     grupo: "Pessoas",
     itens: [
       { area: "clientes", nome: "Clientes", href: "/clientes", icone: "clientes" },
+      { area: "whatsapp", nome: "WhatsApp", href: "/whatsapp", icone: "whatsapp" },
       { area: "crm", nome: "CRM", href: "/crm", icone: "email" },
       { area: "avaliacoes", nome: "Avaliações", href: "/avaliacoes", icone: "estrela" },
       { area: "criadores", nome: "Criadores", href: "/criadores", icone: "play" },
@@ -226,6 +229,7 @@ export const TITULO_CURTO: Record<Area, string> = {
   crm: "CRM",
   avaliacoes: "Avaliações",
   criadores: "Criadores",
+  whatsapp: "WhatsApp",
   home: "Layout da home",
   marketing: "Marketing",
   metaDoMes: "Marketing",
