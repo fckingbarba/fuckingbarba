@@ -33,16 +33,23 @@ export const metadata: Metadata = {
  * `components/analytics/tags.tsx` e `apps/backend/src/lib/anuncios/`). O que a
  * própria loja anota pro CRM, só depois do "Entendi" da faixa, é `lib/anotar.ts` e
  * `apps/backend/src/lib/crm/eventos.ts`
- * (o prazo de 13 meses é o job `limpar-o-crm`). Política genérica é pior que nenhuma:
+ * (o prazo de 13 meses é o job `limpar-o-crm`). O atendimento pelo WhatsApp — a
+ * Meta e a IA da Anthropic — é `apps/backend/src/lib/whatsapp/` (o que vai pra IA
+ * está em `cliente.ts`, `pedidos.ts` e `ferramentas.ts`; o prazo de 12 meses é o
+ * job `limpar-o-whatsapp`). Política genérica é pior que nenhuma:
  * ela promete coisas que o sistema não faz e esconde as que ele faz.
  *
  * DUAS COISAS QUE ESTA PÁGINA NÃO É: revisão de advogado, e definitiva. O que
  * ela é: verdadeira sobre o estado de hoje. Terceiro novo muda este texto
- * junto — e a versão da faixa de cookies (`VERSAO_DO_CONSENTIMENTO`), que
- * pergunta de novo antes de valer, como a última seção promete.
+ * junto, antes de valer, como a última seção promete. Se ele for de cookie (um
+ * parceiro novo de medição ou de anúncio), a faixa pergunta de novo pelos
+ * parceiros dela (`lib/consentimento.ts`). Se não for — o WhatsApp e a IA do
+ * atendente, na 0236 —, muda só o texto: subir a `VERSAO_DO_CONSENTIMENTO`
+ * faria o "não" de quem recusou os cookies voltar a ser "sem resposta", e as
+ * tags ligariam pra essa pessoa.
  */
 
-const ATUALIZADO = "30 de setembro de 2026"
+const ATUALIZADO = "1º de outubro de 2026"
 
 export default async function Privacidade() {
   const { empresa, atendimento, integracoes } = await configuracoes()
@@ -58,7 +65,8 @@ export default async function Privacidade() {
         servidor. Os cookies de medição e de anúncio (Google, Meta, TikTok e Microsoft Clarity)
         ligam quando você entra no site, como avisa a faixa, e você pode recusar aqui mesmo, em
         Cookies. O que a loja anota do que você faz nela, só depois do &ldquo;Entendi&rdquo; da
-        faixa.
+        faixa. No nosso WhatsApp, quem responde primeiro é um atendente virtual, uma IA, e uma
+        pessoa da loja entra quando precisa.
       </Abertura>
 
       <Secao titulo="Quem é o responsável">
@@ -163,6 +171,20 @@ export default async function Privacidade() {
           só entram depois, no contrato, se a gente fechar.
         </P>
         <P>
+          <b>Se você escrever pro nosso WhatsApp</b>: o seu número, o nome do seu perfil e as
+          mensagens da conversa. De foto, vídeo, áudio, documento ou figurinha, a loja guarda só que
+          chegou (e a legenda, se tiver): o arquivo não é baixado. Quem responde primeiro é um
+          atendente virtual, uma IA (o Claude, da Anthropic), em nome da loja: ele tira dúvida,
+          ajuda a escolher, calcula o frete pelo CEP que você mandar, monta a sacola e, pelos
+          pedidos feitos com o mesmo número de telefone, diz a situação e o rastreio e manda de novo
+          o código do Pix. Pra isso, a IA lê a conversa e o nome do seu perfil e, se o número já
+          comprou na loja, o que você comprou e a situação dos pedidos (produtos, valor e rastreio).
+          O endereço, o CPF e o e-mail das suas compras não vão pra ela, só o que você mesmo
+          escrever na conversa. O link da sacola abre o checkout com o endereço da sua última
+          compra, se o número já comprou. Quando precisa (uma troca, uma reclamação, ou se você
+          pedir), uma pessoa do time continua a conversa pelo painel da loja.
+        </P>
+        <P>
           <b>Se você não recusar os cookies</b>: o Google Analytics, o Google Ads, a Meta e o TikTok
           recebem a visita — as páginas e os produtos que você vê, o que entra e sai da sacola e o
           caminho do checkout —, ligada aos códigos aleatórios dos cookies deles. Na compra, vão pra
@@ -209,7 +231,8 @@ export default async function Privacidade() {
         <Lista>
           <li>
             <b>Execução de contrato</b> — nome, endereço, telefone e e-mail: sem eles não há como
-            entregar o que você comprou.
+            entregar o que você comprou. E a conversa que você começa no nosso WhatsApp, pra tirar
+            dúvida, comprar ou saber de um pedido.
           </li>
           <li>
             <b>Obrigação legal</b> — CPF ou CNPJ e os dados da venda, que a legislação fiscal manda
@@ -310,6 +333,16 @@ export default async function Privacidade() {
           <li>
             <b>Bling</b> — emite a nota fiscal: nome, CPF ou CNPJ, endereço e o que você comprou.
           </li>
+          <li>
+            <b>Meta (WhatsApp)</b> — quando você escreve pro nosso WhatsApp: o seu número, o nome do
+            perfil e as mensagens passam pela plataforma do WhatsApp para empresas.
+          </li>
+          <li>
+            <b>Anthropic</b> — a IA do atendente do WhatsApp: recebe a conversa, o nome do seu
+            perfil e, se você já comprou, o que comprou e a situação dos pedidos, pra escrever a
+            resposta. O endereço, o CPF e o e-mail das suas compras não vão pra ela. Pelo contrato,
+            ela não usa nada disso pra treinar a IA dela.
+          </li>
         </Lista>
         <P>Pra medir as visitas e os anúncios, se você não recusar os cookies:</P>
         <Lista>
@@ -343,11 +376,12 @@ export default async function Privacidade() {
           vieram do pop-up) fica até você pedir pra sair. O do aviso de produto esgotado fica até o
           aviso sair — ou seis meses, se o produto não voltar. A avaliação que você mandou, e a
           inscrição pra gravar vídeos, ficam até você pedir pra apagar. O registro das tentativas de
-          pagar com cartão fica 30 dias. O que a loja anota do que você faz nela, e o que ela sabe
-          dos e-mails que mandou (se chegaram, se foram abertos), fica <b>13 meses</b> e depois é
-          apagado. Cookies de medição e de anúncio duram no máximo dois anos, e o código deste
-          navegador, um ano; os necessários somem quando a sessão acaba, menos o da sacola, o da sua
-          resposta sobre cookies e os do pop-up da primeira compra (um ano).
+          pagar com cartão fica 30 dias. As mensagens do WhatsApp ficam <b>12 meses</b> e depois são
+          apagadas; a conversa some junto com a última. O que a loja anota do que você faz nela, e o
+          que ela sabe dos e-mails que mandou (se chegaram, se foram abertos), fica <b>13 meses</b>{" "}
+          e depois é apagado. Cookies de medição e de anúncio duram no máximo dois anos, e o código
+          deste navegador, um ano; os necessários somem quando a sessão acaba, menos o da sacola, o
+          da sua resposta sobre cookies e os do pop-up da primeira compra (um ano).
         </P>
       </Secao>
 
