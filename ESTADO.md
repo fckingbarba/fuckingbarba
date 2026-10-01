@@ -5195,7 +5195,7 @@ da Anthropic no Railway.
 Conferido pelo `conferir-whatsapp.mjs` do painel (54, novo: a lista, o e-mail pra operação e pro
 dono, o número do menu, responder pela Meta, devolver, a janela fechada, o marketing sem a área, o
 liga/desliga, as regras, o teste sem nada sair pelo WhatsApp e o celular), pelo da loja (61, o
-mesmo), pelos testes de unidade do backend (1877; 13 novos), typecheck, lint e prettier.
+mesmo), pelos testes de unidade do backend (1878; 14 novos), typecheck, lint e prettier.
 
 Depois do deploy — **as conversas não mudam no ar** (a Meta ainda manda pro sistema antigo). Pra
 usar o teste: as variáveis da parte 1 no Railway (no mínimo a `ANTHROPIC_API_KEY`); a faixa amarela

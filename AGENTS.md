@@ -4080,7 +4080,8 @@ número da loja recebe a resposta de uma IA que vende e tira dúvida, só com o 
 - **Parte 3 (entrega 0234): o painel.** A área `whatsapp` (dono e operação no `ACESSO_PADRAO`: tem
   telefone e pedido de cliente), no menu em Pessoas, depois de Clientes. As rotas:
   `GET /dashboard/whatsapp` (`lerTelaDoWhatsapp`, em `lib/painel/ler-whatsapp.ts`: a fita — todas,
-  com a equipe, atendente —, a busca por nome ou número, a página, as contagens e os números de cima:
+  com a equipe, atendente —, a busca — com letra é nome, só algarismo é número: `termosDaBusca`, em
+  `regras.ts`; os algarismos de dentro de um nome não viram busca de telefone —, a página, as contagens e os números de cima:
   esperando a equipe, conversas e respostas de hoje, as vendas pelo WhatsApp em 7 dias — os pedidos
   pagos de quem conversou nas 48 h antes, `vendasPeloWhatsapp` — e o custo da IA de hoje, estimado
   pela tabela `PRECO_POR_MILHAO`/`custoEmDolar` do `atendente.ts`; mudou o modelo, mude a tabela);
