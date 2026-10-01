@@ -565,6 +565,35 @@ export default class WhatsappService extends Tabelas {
       return em ? [{ telefone: String(l.telefone), em }] : []
     })
   }
+
+  /**
+   * O PRAZO (`jobs/limpar-o-whatsapp.ts`): apaga DE VERDADE as mensagens de
+   * antes de `antes` e, depois, a conversa que ficou sem mensagem nenhuma — o
+   * telefone e o nome do perfil saem junto com a última.
+   */
+  @InjectManager()
+  async limpar(
+    antes: Date,
+    @MedusaContext() ctx: Contexto = {}
+  ): Promise<{ mensagens: number; conversas: number }> {
+    const [mensagens] = (await ctx.manager!.execute(
+      `with apagadas as (delete from whatsapp_mensagem where em < ? returning 1)
+       select count(*)::int as n from apagadas`,
+      [antes]
+    )) as { n: number }[]
+    const [conversas] = (await ctx.manager!.execute(
+      `with apagadas as (
+         delete from whatsapp_conversa c
+          where coalesce(c.ultima_entrada_em, c.created_at) < ?
+            and c.pendente_desde is null
+            and not exists (select 1 from whatsapp_mensagem m where m.conversa_id = c.id)
+         returning 1
+       )
+       select count(*)::int as n from apagadas`,
+      [antes]
+    )) as { n: number }[]
+    return { mensagens: mensagens?.n ?? 0, conversas: conversas?.n ?? 0 }
+  }
 }
 
 function data(v: unknown): Date | null {
