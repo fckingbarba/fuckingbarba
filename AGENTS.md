@@ -4020,14 +4020,18 @@ número da loja recebe a resposta de uma IA que vende e tira dúvida, só com o 
   próxima rodada. Sem `WHATSAPP_TOKEN`/`WHATSAPP_NUMERO_ID`, `ANTHROPIC_API_KEY` ou `LOJA_URL`, a fila
   espera e o log diz o que falta. `fb_whatsapp.ligado = false` no metadata da loja (`ajustes.ts`):
   ninguém responde sozinho, e a fila esvazia (a equipe responde).
-- **A IA** (`atendente.ts`): `claude-opus-5-5`, esforço `low`, `fallbacks: "default"` (cabeçalho
+- **A IA** (`atendente.ts`): `claude-sonnet-5-5` desde a 0235 (era o Opus 5.5: numa simulação com
+  as mesmas 24 conversas, o Sonnet empatou com ele, sem erro grave, por uns 30% menos; o Haiku 4.5
+  não chamou a equipe quando devia, inventou regra e esqueceu os links — ver o ESTADO). Trocar de
+  modelo: `MODELO` e `PRECO_POR_MILHAO` juntos, e o modelo no `conferir-whatsapp.mjs` da loja.
+  Esforço `low`, `fallbacks: "default"` (cabeçalho
   `server-side-fallback-2026-07-01`) — a recusa que sobra vira equipe. Pelo SDK oficial
   (`@anthropic-ai/sdk`; `ANTHROPIC_URL` só nos testes). O `system` tem dois pedaços: as
   instruções + regras do dono + dúvidas + catálogo (`instrucoesDoAtendente`, determinístico e SEM
   HORA — fica no cache de 1 h: `cache_control` com `ttl: "1h"`) e o contexto da conversa (a hora
   cheia e o nome do WhatsApp). A conversa vira `user`/`assistant` em `conversaPraIa` (o cliente é
   `user`; a loja, `assistant`; a da equipe vai marcada; termina sempre no cliente). Ferramenta:
-  `chamar_a_equipe` (strict). Nunca `tool_choice` forçado (o Opus 5.5 recusa com 400). A resposta é
+  `chamar_a_equipe` (strict). Nunca `tool_choice` forçado (o Sonnet 5.5 recusa com 400). A resposta é
   limpa pro WhatsApp em `textoPraEnviar` (negrito de um asterisco, sem link markdown, até 4000).
 - **O que ele sabe** (`catalogo.ts`, memória de 2 min): os produtos publicados com o preço de
   `precosDasVariantes`, as faixas de `FAIXAS`/`totalDaFaixa` (sem a que chega no X de um "Leve X,

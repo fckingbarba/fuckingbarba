@@ -85,7 +85,7 @@ describe("o pedido à IA", () => {
     expect(p.cache_control).toEqual({ type: "ephemeral" })
     expect(p.messages).toEqual(base.conversa)
     expect(p.tools?.map((t) => (t as { name: string }).name)).toEqual(["chamar_a_equipe"])
-    // Nunca forçar ferramenta: o Opus 5.5 recusa `tool_choice` any/tool.
+    // Nunca forçar ferramenta: o Sonnet 5.5 recusa `tool_choice` any/tool.
     expect(p.tool_choice).toBeUndefined()
   })
 
