@@ -264,6 +264,12 @@ export type CheckoutVisivel = {
    * de marcada: é por ela que se desmarca.
    */
   bumpAplicado: string | null
+  /**
+   * A oferta oculta que marcou este carrinho (o id dela), ou nada. Com ela,
+   * o checkout confere se a oferta ainda vale antes de mostrar o preço
+   * (`conferirOferta`, em `lib/oferta-do-carrinho.ts`).
+   */
+  ofertaOculta?: string | null
 }
 
 /**

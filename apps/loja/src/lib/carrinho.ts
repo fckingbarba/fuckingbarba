@@ -443,7 +443,8 @@ export function carrinhoAcabou(erro: unknown): boolean {
  * quem chama traduzir a frase.
  */
 export async function criarCarrinhoCom(
-  item: { variant_id: string; quantity: number },
+  /** `null`: o carrinho nasce vazio — o da oferta oculta, que é marcado antes do produto entrar. */
+  item: { variant_id: string; quantity: number } | null,
   campos = CAMPOS_CARRINHO
 ): Promise<Carrinho | null> {
   const sdk = cliente()
@@ -463,7 +464,7 @@ export async function criarCarrinhoCom(
   }
 
   const { cart } = await sdk.store.cart.create(
-    { region_id: regiao.id, items: [item] },
+    { region_id: regiao.id, items: item ? [item] : [] },
     { fields: campos }
   )
   ;(await cookies()).set(COOKIE_CARRINHO, cart.id, OPCOES_COOKIE)

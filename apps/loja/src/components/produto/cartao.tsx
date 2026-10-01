@@ -1,12 +1,14 @@
 import type { HttpTypes } from "@medusajs/types"
 import Image from "next/image"
 import Link from "next/link"
+import type { ReactNode } from "react"
 import { Carrinho, Envelope } from "@/components/icones"
 import { BotaoComprar } from "@/components/produto/comprar"
 import { emReais } from "@/lib/formato"
 import { frasesDoFrete, produtoSozinhoQualifica } from "@/lib/configuracoes"
 import { PARCELAS_SEM_JUROS } from "@/lib/site"
 import { configuracoes, esgotado, precosDe, promocoesOuNenhuma, varianteDoCard } from "@/lib/medusa"
+import { precoNaOferta } from "@/lib/ofertas"
 import { promocaoDoProduto } from "@/lib/promocoes"
 
 /**
@@ -36,6 +38,12 @@ import { promocaoDoProduto } from "@/lib/promocoes"
  *   comprar era um clique pra descobrir isso. Sem CSS novo: o selo e o botão
  *   são os de sempre — este card mora na home, que não tem folga de CSS.
  *
+ * - **na página de uma oferta oculta** (`oferta`), o preço é o da oferta (o
+ *   menor entre ele e o da vitrine, que é o que o carrinho cobra), o riscado
+ *   é o de sempre, o selo diz "Oferta" e o "Comprar" marca a sacola com ela.
+ *   Sem link pra página do produto: lá o preço é o de todo mundo, e quem
+ *   está na oferta não precisa sair dela pra comprar.
+ *
  * O que NÃO tem aqui, e no protótipo tinha: a nota em estrelas. Aquilo era
  * 4,8 com 128 avaliações escritos no HTML, de exemplo. Avaliação inventada
  * não é enfeite — é prova social falsa, e em dado estruturado o Google trata
@@ -45,12 +53,15 @@ export async function CartaoProduto({
   produto,
   prioridade = false,
   destaque = false,
+  oferta,
 }: {
   produto: HttpTypes.StoreProduct
   /** Fotos acima da dobra não devem esperar: elas costumam ser o LCP. */
   prioridade?: boolean
   /** A primeira da grade: é a que vira o LCP, e ganha prioridade alta. */
   destaque?: boolean
+  /** Na página de uma oferta oculta: o endereço dela e o "por" deste produto. */
+  oferta?: { endereco: string; por: number }
 }) {
   /*
     `"use cache"` lá dentro: numa grade de doze cards isto é UMA leitura, não
@@ -63,7 +74,8 @@ export async function CartaoProduto({
   const frases = frasesDoFrete(frete)
   const promocao = promocaoDoProduto(promocoes, produto.id)
 
-  const precos = precosDe(produto)
+  const daVitrine = precosDe(produto)
+  const precos = oferta ? precoNaOferta(oferta.por, daVitrine) : daVitrine
   const caminho = `/produtos/${produto.handle}` as const
 
   const desconto =
@@ -82,7 +94,7 @@ export async function CartaoProduto({
         {/* aria-hidden e tabindex -1: o nome logo abaixo já é um link pro
             mesmo lugar, e dois links seguidos pro mesmo destino só fazem o
             leitor de tela repetir. Pro mouse, a foto continua clicável. */}
-        <Link className="produto__foto" href={caminho} tabIndex={-1} aria-hidden="true">
+        <FotoOuLink oferta={Boolean(oferta)} caminho={caminho}>
           {produto.thumbnail ? (
             <Image
               src={produto.thumbnail}
@@ -98,10 +110,21 @@ export async function CartaoProduto({
               sizes="(max-width: 640px) 70vw, 280px"
             />
           ) : null}
-        </Link>
+        </FotoOuLink>
 
         {semEstoque ? (
           <span className="produto__selo">Esgotado</span>
+        ) : oferta ? (
+          <span className="produto__selos">
+            <span className="produto__selo" data-promocao>
+              Oferta
+            </span>
+            {desconto ? (
+              <span className="produto__selo" data-desconto>
+                -{desconto}%
+              </span>
+            ) : null}
+          </span>
         ) : promocao ? (
           <span className="produto__selos">
             <span className="produto__selo" data-promocao>
@@ -129,7 +152,7 @@ export async function CartaoProduto({
 
       <div className="produto__corpo">
         <h3 className="produto__nome">
-          <Link href={caminho}>{produto.title}</Link>
+          {oferta ? produto.title : <Link href={caminho}>{produto.title}</Link>}
         </h3>
 
         {precos ? (
@@ -161,6 +184,7 @@ export async function CartaoProduto({
           }
           className="btn produto__comprar"
           icone={<Carrinho className="btn__icone" />}
+          oferta={oferta?.endereco}
         />
       ) : semEstoque ? (
         <Link href={caminho} className="btn produto__comprar">
@@ -174,5 +198,23 @@ export async function CartaoProduto({
         </Link>
       )}
     </article>
+  )
+}
+
+/** A foto leva pra página do produto — menos na oferta oculta (ver lá em cima). */
+function FotoOuLink({
+  oferta,
+  caminho,
+  children,
+}: {
+  oferta: boolean
+  caminho: `/produtos/${string}`
+  children: ReactNode
+}) {
+  if (oferta) return <span className="produto__foto">{children}</span>
+  return (
+    <Link className="produto__foto" href={caminho} tabIndex={-1} aria-hidden="true">
+      {children}
+    </Link>
   )
 }

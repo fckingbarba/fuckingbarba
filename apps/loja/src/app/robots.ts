@@ -14,7 +14,9 @@ import { emProducao, site } from "@/lib/site"
  * link vem no e-mail): fora do Google, com o `noindex` dela de segunda tranca.
  * A `/sair` (o sair da lista dos e-mails de oferta) e a `/voltar` (o botão
  * dos e-mails dos fluxos) vão do mesmo jeito, e a `/criadores` (a proposta pra
- * quem grava vídeo pra loja, que vai por mensagem) também.
+ * quem grava vídeo pra loja, que vai por mensagem) também. As ofertas ocultas
+ * (`/oferta/<endereço>`, um preço só pra quem tem o link) idem, com a barra:
+ * é a pasta.
  */
 export default function robots(): MetadataRoute.Robots {
   if (!emProducao) {
@@ -35,6 +37,7 @@ export default function robots(): MetadataRoute.Robots {
         "/sair",
         "/voltar",
         "/criadores",
+        "/oferta/",
       ],
     },
     sitemap: `${site.url}/sitemap.xml`,

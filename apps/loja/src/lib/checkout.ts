@@ -70,7 +70,7 @@ export const CAMPOS_CHECKOUT =
   "id,region_id,currency_code,email,subtotal,discount_total,shipping_discount_total," +
   "shipping_total,tax_total,total," +
   "item_subtotal,item_total,*items,*items.variant,*items.product,*items.thumbnail," +
-  "*shipping_address,*billing_address,*shipping_methods,*promotions,customer.id"
+  "*shipping_address,*billing_address,*shipping_methods,*promotions,customer.id,metadata"
 
 function aviso(erro: unknown, contexto: string) {
   const msg = erro instanceof Error ? erro.message : String(erro)
@@ -159,7 +159,14 @@ export async function lerCheckout(): Promise<CheckoutVisivel | null> {
     cupomGuardado:
       guardado && !cupons.some((c) => c.codigo.toUpperCase() === guardado.codigo) ? guardado : null,
     bumpAplicado: bumpDoCarrinho(carrinho),
+    ofertaOculta: ofertaDoCarrinho(carrinho),
   }
+}
+
+/** A marca da oferta oculta no carrinho (`fb_oferta`, só o backend escreve), ou `null`. */
+function ofertaDoCarrinho(carrinho: Carrinho): string | null {
+  const marca = (carrinho.metadata as Record<string, unknown> | null | undefined)?.fb_oferta
+  return typeof marca === "string" && marca ? marca : null
 }
 
 /** O produto da oferta marcada, pelo código dela no carrinho — ou `null`. */
