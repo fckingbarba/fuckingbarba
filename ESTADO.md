@@ -5077,6 +5077,58 @@ Depois do deploy — **vale só com a chave da Meta e do TikTok no Railway** (`M
 Integrações, na compra de cada plataforma). Pra ver: no Gerenciador de Eventos da Meta, cada evento
 mostra "Navegador" e "Servidor" (com a desduplicação), e a qualidade da correspondência sobe.
 
+**O WhatsApp da loja, parte 1: o atendente que responde — pronto em 01/10 (entrega 0232).** Pedido
+dele: trazer pro site novo o chat que responde no WhatsApp (o motor de mensagens que a loja manda
+primeiro fica pra depois, dentro do CRM), e que ele seja máquina de venda, não só robô de dúvida. O
+número e o app da Meta são os mesmos de hoje; nada novo na Meta. **Nada disto responde ninguém até a
+troca do webhook** (abaixo): até lá a Meta continua mandando as mensagens pro sistema antigo.
+
+- **A porta:** `GET` e `POST /hooks/whatsapp`. O `GET` é o "Verificar e salvar" da tela do webhook; o
+  `POST` só aceita aviso com a assinatura da Meta, guarda a mensagem (uma vez só, mesmo que a Meta
+  mande de novo) e o "entregue/lida/falhou" das que a loja mandou. Tabelas novas: `whatsapp_conversa`
+  e `whatsapp_mensagem` (módulo `whatsapp`).
+- **O atendente:** o job `responder-no-whatsapp`, de minuto em minuto, responde quem está esperando —
+  espera 15 s depois da última mensagem (quem escreve em três mensagens recebe uma resposta só, entre
+  15 e ~75 s depois), mostra o "digitando…" e manda. A IA é o Claude Opus 5.5 (esforço baixo, as
+  instruções e o catálogo no cache de 1 hora; a reserva da Anthropic ligada pro caso de recusa).
+- **O que ele sabe:** só o que o sistema diz — o catálogo de agora (preço, preço riscado, desconto
+  por quantidade, "Leve X, pague Y" valendo, esgotado) e o texto da página de cada produto (o que
+  entrega, como usar, linha do tempo, pra quem é e não é, a rotina, as dúvidas), as dúvidas da loja
+  lidas da própria página /duvidas, e as regras que o dono escrever (o campo vem no painel). Os links
+  saem marcados (`utm_source=whatsapp`): o Marketing conta como WhatsApp.
+- **O que ele não faz:** inventar preço, cupom, frete ou prazo; conselho de saúde; pedir dado
+  pessoal. Pedido já feito, troca, reclamação, "quero falar com alguém", atacado: chama a equipe —
+  a conversa fica com a equipe e o atendente fica quieto (volta sozinho depois de 24 h sem a equipe
+  responder). Áudio: pede pra escrever. A resposta automática do outro lado ("estou ausente") não é
+  respondida.
+- **Quando dá errado:** a IA ou a Meta fora — tenta no minuto seguinte; na terceira, a pessoa recebe
+  "vou chamar alguém do time" e a conversa vai pra equipe. Teto de 12 respostas por hora numa
+  conversa. As falhas aparecem na Observabilidade (WhatsApp).
+
+Conferido pelo `conferir-whatsapp.mjs` (45, três rodadas, sem navegador: o webhook, a assinatura, a
+resposta única pras duas mensagens com o link do catálogo, o pedido à IA, o entregue/lida, a equipe,
+o áudio, a janela fechada, a recusa e a IA fora, contra a Meta e a IA falsas na 4380), pelos testes
+de unidade do backend (1846; 48 novos em `lib/whatsapp/`), typecheck, lint e prettier.
+
+Depois do deploy — **nada muda no ar.** Os próximos passos, na ordem:
+
+- [ ] **Você, quando quiser (não muda nada até a troca):** no Railway, serviço do backend → Variables:
+      `WHATSAPP_TOKEN` (token novo do usuário do sistema, no Meta Business), `WHATSAPP_NUMERO_ID`,
+      `WHATSAPP_WABA_ID`, `WHATSAPP_APP_SEGREDO` (a chave secreta do app), `WHATSAPP_VERIFICACAO` (uma
+      senha inventada) e `ANTHROPIC_API_KEY`. O passo a passo de cada uma está no `.env.example`.
+- [ ] **Parte 2:** o atendente enxergando o pedido (situação, rastreio, o Pix de novo), o frete pelo
+      CEP e o link que abre o checkout com a sacola montada.
+- [ ] **Parte 3:** a tela de Conversas no painel — ler, responder como equipe, devolver pro
+      atendente, o campo de regras, o liga/desliga e um "testar o atendente" antes da troca.
+- [ ] **Parte 4:** a política de privacidade com a Meta (WhatsApp) e a Anthropic, e a limpeza das
+      conversas antigas.
+- [ ] **A troca (você, com o passo a passo):** developers.facebook.com → o app → WhatsApp →
+      Configuração → Webhook → `https://<backend>/hooks/whatsapp` com a senha da
+      `WHATSAPP_VERIFICACAO`. Volta atrás em 1 minuto, pondo o endereço antigo. Depois, desligar o
+      sistema antigo inteiro.
+- [ ] **Depois (CRM):** as mensagens que a loja manda primeiro pelo WhatsApp (pedido, carrinho,
+      reposição), só com o "sim" do WhatsApp.
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa

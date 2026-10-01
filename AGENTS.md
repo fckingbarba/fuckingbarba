@@ -61,8 +61,9 @@ verdade.
 tela com o que a API do Medusa responde — nunca com outra conta feita no próprio teste. Entre
 eles: frete, pdp, checkout, pagamento, catálogo, links, configurações, documento, conta, envio,
 erp (este sem navegador: o Bling falso e o admin), avise-me, mercadopago (o Pix reserva),
-avaliacoes (o e-mail um dia depois da entrega e a página /avaliar) e criadores (a página
-escondida /criadores e a inscrição). Rode os que
+avaliacoes (o e-mail um dia depois da entrega e a página /avaliar), criadores (a página
+escondida /criadores e a inscrição) e whatsapp (este também sem navegador: o webhook e o
+atendente, com a Meta e a IA falsas). Rode os que
 tocam no que você mexeu, e todos antes de entregar. Os que escrevem no admin desfazem o que mudaram
 no fim, mesmo quando falham.
 
@@ -97,6 +98,11 @@ RESEND_URL=http://127.0.0.1:4330 RESEND_API_KEY=re_teste_falsa npm run backend:d
 # META_GRAPH_URL=http://127.0.0.1:4370 GA4_MP_URL=http://127.0.0.1:4370
 # TIKTOK_EVENTS_URL=http://127.0.0.1:4370 META_CAPI_TOKEN=token-de-teste
 # GA4_API_SECRET=segredo-de-teste TIKTOK_EVENTS_TOKEN=token-de-teste
+# pro conferir-whatsapp (a Meta e a IA falsas na 4380, que o próprio conferidor sobe), acrescente:
+# WHATSAPP_URL=http://127.0.0.1:4380 ANTHROPIC_URL=http://127.0.0.1:4380 LOJA_URL=http://127.0.0.1:4380
+# WHATSAPP_TOKEN=token-de-teste WHATSAPP_NUMERO_ID=100000000000001
+# WHATSAPP_APP_SEGREDO=segredo-de-teste WHATSAPP_VERIFICACAO=verificacao-de-teste
+# ANTHROPIC_API_KEY=sk-ant-teste — e rode com o DATABASE_URL do backend no ambiente
 # NUVEMSHOP_LOJA_URL=http://127.0.0.1:4350 (a Nuvemshop falsa) — e rode o conferir-envio
 # SEM elas: com o ERP conectado, a etiqueta espera a nota, e ali não há Bling pra emitir
 # e a loja tokeniza no falso: no .env.development.local,
@@ -3985,6 +3991,57 @@ janeiro teria dois dias de venda contra um mês de despesas).
   na linha dela, a que repete muda só dali em diante, a tela e a planilha são a API, a operação não
   abre, o celular e o console. Faz login do dono três vezes por rodada: no banco local, o limite de 5
   códigos/hora por e-mail pede o `zerar-envios-dono` entre rodadas.
+
+**O WhatsApp da loja e o atendente** (entrega 0232; parte 1 de 4 — ver o ESTADO). Quem escreve pro
+número da loja recebe a resposta de uma IA que vende e tira dúvida, só com o que o sistema diz.
+
+- **A Meta:** o mesmo app e o mesmo número de antes (a Cloud API oficial). `src/lib/whatsapp/meta.ts`
+  lê o aviso (`lerAvisoDaMeta`: só do `WHATSAPP_NUMERO_ID` — o app tem o número de teste da Meta —; a
+  reação e o aviso do sistema não viram mensagem), confere a assinatura (`x-hub-signature-256`, HMAC
+  do corpo CRU com o `WHATSAPP_APP_SEGREDO` — `preserveRawBody` no `middlewares.ts`), devolve o
+  desafio do "Verificar e salvar" (`WHATSAPP_VERIFICACAO`), manda texto (com a prévia do link) e o
+  "digitando…". A Graph é a `v26.0`, a mesma da compra pelo servidor. Texto livre só dentro de 24 h
+  da última mensagem da pessoa: fora disso a Meta responde 131047, e a conversa sai da fila.
+- **A porta:** `api/hooks/whatsapp/route.ts` — o `GET` da verificação e o `POST` que SÓ GUARDA
+  (`receber`: a conversa por telefone e a mensagem por `wamid`, os dois com `insert … on conflict`;
+  o `anotarSituacao` nunca desce de "lida" pra "entregue"). Banco fora: 503, e a Meta manda de novo.
+- **O módulo** `src/modules/whatsapp/`: `whatsapp_conversa` (uma por telefone; `situacao` bot ou
+  equipe; `pendente_desde` é a fila; `tentativas`) e `whatsapp_mensagem` (`autor` cliente, bot ou
+  equipe; `tipo`; `dados` com o uso da IA, e `automatica` na resposta automática do outro lado, que
+  nunca entra na fila — `ehRespostaAutomatica`, a lista que veio do sistema antigo).
+- **A rodada** (`lib/whatsapp/responder.ts`, job `responder-no-whatsapp`, de minuto em minuto, com a
+  trava): até 20 conversas da fila, 4 ao mesmo tempo. `decidir` (`regras.ts`): espera `ESPERA_S`
+  (15 s) depois da última mensagem; larga a da equipe até `VOLTA_PRO_BOT_EM_H` (24 h) depois da
+  última dela; larga a janela fechada. Teto de `TETO_POR_HORA` (12) respostas por conversa: passou,
+  vai pra equipe calada. A IA ou a Meta fora: `tentativas`+1 e a próxima rodada tenta; na
+  `TENTATIVAS_ANTES_DO_SOCORRO` (3ª), sai a `RESPOSTA_DE_SOCORRO` e a conversa vai pra equipe.
+  `respondida` só tira da fila o que a IA leu: a mensagem que chegou no meio da resposta espera a
+  próxima rodada. Sem `WHATSAPP_TOKEN`/`WHATSAPP_NUMERO_ID`, `ANTHROPIC_API_KEY` ou `LOJA_URL`, a fila
+  espera e o log diz o que falta. `fb_whatsapp.ligado = false` no metadata da loja (`ajustes.ts`):
+  ninguém responde sozinho, e a fila esvazia (a equipe responde).
+- **A IA** (`atendente.ts`): `claude-opus-5-5`, esforço `low`, `fallbacks: "default"` (cabeçalho
+  `server-side-fallback-2026-07-01`) — a recusa que sobra vira equipe. Pelo SDK oficial
+  (`@anthropic-ai/sdk`; `ANTHROPIC_URL` só nos testes). O `system` tem dois pedaços: as
+  instruções + regras do dono + dúvidas + catálogo (`instrucoesDoAtendente`, determinístico e SEM
+  HORA — fica no cache de 1 h: `cache_control` com `ttl: "1h"`) e o contexto da conversa (a hora
+  cheia e o nome do WhatsApp). A conversa vira `user`/`assistant` em `conversaPraIa` (o cliente é
+  `user`; a loja, `assistant`; a da equipe vai marcada; termina sempre no cliente). Ferramenta:
+  `chamar_a_equipe` (strict). Nunca `tool_choice` forçado (o Opus 5.5 recusa com 400). A resposta é
+  limpa pro WhatsApp em `textoPraEnviar` (negrito de um asterisco, sem link markdown, até 4000).
+- **O que ele sabe** (`catalogo.ts`, memória de 2 min): os produtos publicados com o preço de
+  `precosDasVariantes`, as faixas de `FAIXAS`/`totalDaFaixa` (sem a que chega no X de um "Leve X,
+  pague Y" valendo — `faixasComPromocao`), as promoções de `promocoesParaALoja`, o esgotado de
+  `lerSituacoes`, e o `fb_pdp` (sem as seções escondidas na página). As dúvidas da loja vêm do JSON-LD
+  `FAQPage` da página `/duvidas` (`duvidas.ts`, de hora em hora; a loja fora, fica a última boa): as
+  respostas são função das configurações, e escrevê-las de novo aqui seria anunciar dois fretes.
+  Links com `utm_source=whatsapp&utm_medium=atendimento`.
+- **Observabilidade:** a rotina nova no `ROTINAS`; as integrações `whatsapp` (a Meta) e `anthropic`
+  (a IA), com o cartão na área "WhatsApp".
+- **O conferidor** é o `apps/loja/ferramentas/conferir-whatsapp.mjs` (45, sem navegador, ~5 min): sobe
+  o `whatsapp-falso.mjs` (a Meta, a IA com roteiro pela mensagem — "humano", "RECUSA", "IAFORA" — e a
+  página /duvidas, tudo na 4380) e lê as conversas direto do banco (`DATABASE_URL`). O backend sobe
+  com `WHATSAPP_URL`, `ANTHROPIC_URL` e `LOJA_URL` apontando pra 4380 e as variáveis de teste do
+  cabeçalho do conferidor. As conversas da rodada saem do banco no fim.
 
 ## Fora dos limites
 

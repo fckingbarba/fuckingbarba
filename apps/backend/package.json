@@ -26,6 +26,7 @@
     "pagamento": "medusa exec ./src/scripts/pagamento.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "0.131.0",
     "@medusajs/admin-sdk": "2.21.0",
     "@medusajs/admin-shared": "2.21.0",
     "@medusajs/caching": "2.21.0",
