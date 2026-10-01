@@ -1,0 +1,642 @@
+/* --------------------------------------------------------------------------
+   O WHATSAPP NO PAINEL (0234) — as conversas, a conversa aberta, quem
+   escreve, os ajustes e o teste do atendente. O desenho aprovado está no
+   canvas "WhatsApp no painel".
+   -------------------------------------------------------------------------- */
+
+.wa-ligado {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border: 2px solid var(--menta-escura);
+  background: var(--menta-clara);
+  color: var(--menta-escura);
+}
+.wa-ligado::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.wa-ligado[data-desligado] {
+  border-color: var(--linha);
+  background: var(--cinza-2);
+  color: var(--tinta-suave);
+}
+
+.wa {
+  display: grid;
+  grid-template-columns: 330px minmax(0, 1fr) 250px;
+  gap: 14px;
+  align-items: start;
+}
+.wa--sem-conversa {
+  grid-template-columns: 330px minmax(0, 1fr);
+}
+
+/* a lista */
+.wa__lista {
+  background: var(--papel);
+  border: 2px solid var(--tinta);
+  min-width: 0;
+}
+.wa__topo-lista {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border-bottom: 1px solid var(--linha);
+}
+.wa__busca {
+  display: flex;
+  gap: 6px;
+}
+.wa__busca input {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 11px;
+  border: 2px solid var(--tinta);
+  font: inherit;
+  font-size: 0.82rem;
+}
+.wa__busca button {
+  padding: 0 12px;
+  border: 2px solid var(--tinta);
+  background: var(--tinta);
+  color: #fff;
+  font: inherit;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.wa__filtros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.wa__filtros a {
+  padding: 5px 9px;
+  border: 2px solid var(--linha);
+  text-decoration: none;
+  color: var(--tinta);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.wa__filtros a[aria-current="page"] {
+  background: var(--tinta);
+  border-color: var(--tinta);
+  color: #fff;
+}
+.wa__filtros a[data-filtro="equipe"]:not([aria-current]) {
+  border-color: var(--amarelo-borda);
+  background: var(--amarelo-claro);
+  color: var(--aviso-txt);
+}
+.wa__lista .vazio {
+  padding: 20px 14px;
+}
+.wa__lista .paginas {
+  padding: 10px 12px;
+}
+
+.wa-linha {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 11px 12px;
+  text-decoration: none;
+  color: var(--tinta);
+  border-bottom: 1px solid var(--cinza-2);
+}
+.wa-linha:hover {
+  background: var(--amarelo-palido);
+}
+.wa-linha[aria-current="page"] {
+  background: var(--amarelo-palido);
+  box-shadow: inset 4px 0 0 var(--amarelo);
+}
+.wa-linha__miolo {
+  min-width: 0;
+  flex: 1;
+}
+.wa-linha__topo {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.wa-linha__nome {
+  font-size: 0.84rem;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.wa-linha[data-esperando] .wa-linha__nome::after {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: var(--amarelo-borda);
+  vertical-align: middle;
+}
+.wa-linha__hora {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  color: var(--tinta-suave);
+}
+.wa-linha__ultima {
+  margin: 1px 0 0;
+  font-size: 0.76rem;
+  color: var(--tinta-suave);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.wa-linha__selos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 5px;
+}
+.wa-selo {
+  padding: 1px 6px;
+  border: 1px solid;
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.wa-selo[data-tipo="equipe"] {
+  background: var(--amarelo-claro);
+  color: var(--aviso-txt);
+  border-color: var(--amarelo-borda);
+}
+.wa-selo[data-tipo="atendente"] {
+  background: var(--menta-clara);
+  color: var(--menta-escura);
+  border-color: var(--menta-escura);
+}
+.wa-selo[data-tipo="comprou"] {
+  background: var(--tinta);
+  color: var(--amarelo);
+  border-color: var(--tinta);
+}
+
+/* a conversa */
+.wa__conversa {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 640px;
+  background: var(--papel);
+  border: 2px solid var(--tinta);
+}
+.wa__cabeca {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 2px solid var(--tinta);
+}
+.wa__cabeca-miolo {
+  flex: 1;
+  min-width: 0;
+}
+.wa__nome {
+  margin: 0;
+  font-weight: 800;
+}
+.wa__tel {
+  margin: 0;
+  font-size: 0.76rem;
+  color: var(--tinta-suave);
+}
+.wa__voltar {
+  display: none;
+}
+.wa__equipe {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 11px 16px;
+  background: var(--amarelo-claro);
+  border-bottom: 1px solid var(--amarelo-borda);
+  font-size: 0.8rem;
+  color: var(--aviso-txt);
+}
+.wa__equipe svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.wa__equipe p {
+  margin: 0;
+}
+.wa__mensagens {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 68vh;
+  overflow-y: auto;
+  padding: 16px;
+  background: var(--cinza);
+}
+.wa__dia {
+  align-self: center;
+  margin: 4px 0;
+  padding: 3px 10px;
+  background: var(--cinza-2);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--tinta-suave);
+}
+.wa-msg {
+  max-width: 74%;
+  padding: 8px 12px 6px;
+  background: var(--papel);
+  border: 1px solid var(--linha);
+}
+.wa-msg[data-autor="cliente"] {
+  align-self: flex-start;
+}
+.wa-msg[data-autor="bot"] {
+  align-self: flex-end;
+  background: var(--menta-clara);
+  border-color: var(--menta-escura);
+}
+.wa-msg[data-autor="equipe"] {
+  align-self: flex-end;
+  background: var(--amarelo-claro);
+  border-color: var(--amarelo-borda);
+}
+.wa-msg[data-falhou] {
+  border-color: var(--erro);
+}
+.wa-msg[data-separada] {
+  border-style: dashed;
+}
+.wa-msg[data-separada] .wa-msg__texto {
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 0.74rem;
+  word-break: break-all;
+}
+.wa-msg__de {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin: 0 0 4px;
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--menta-escura);
+}
+.wa-msg[data-autor="equipe"] .wa-msg__de {
+  color: var(--aviso-txt);
+}
+.wa-msg__ferramenta {
+  padding: 0 5px;
+  background: var(--menta-escura);
+  color: #fff;
+}
+.wa-msg__texto {
+  margin: 0;
+  font-size: 0.86rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.wa-msg__pe {
+  margin: 3px 0 0;
+  text-align: right;
+  font-size: 0.64rem;
+  color: var(--tinta-suave);
+}
+.wa-msg__erro {
+  margin: 4px 0 0;
+  font-size: 0.7rem;
+  color: var(--erro);
+}
+.wa__compor {
+  padding: 12px 16px 14px;
+  background: var(--papel);
+  border-top: 2px solid var(--tinta);
+}
+.wa__compor label {
+  display: block;
+  margin: 0 0 6px;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--tinta-suave);
+}
+.wa__compor-linha {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+}
+.wa__compor textarea {
+  flex: 1;
+  min-width: 0;
+  resize: vertical;
+  padding: 10px 12px;
+  border: 2px solid var(--tinta);
+  font: inherit;
+  font-size: 0.86rem;
+}
+.wa__nota {
+  margin: 8px 0 0;
+  font-size: 0.72rem;
+  color: var(--tinta-suave);
+}
+.wa__vazia {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 420px;
+  padding: 24px;
+  background: var(--papel);
+  border: 2px dashed var(--linha);
+  color: var(--tinta-suave);
+  font-size: 0.86rem;
+  text-align: center;
+}
+
+/* quem escreve */
+.wa__quem {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+.wa__quem .bloco {
+  margin: 0;
+}
+.wa-dados {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  font-size: 0.8rem;
+}
+.wa-dados dt {
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--tinta-suave);
+}
+.wa-dados dd {
+  margin: 0;
+  font-weight: 700;
+}
+.wa__link {
+  display: inline-block;
+  margin-top: 12px;
+  font-size: 0.74rem;
+  font-weight: 800;
+  color: var(--menta-escura);
+}
+
+/* ajustes e teste */
+.wa-ajustes {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.wa-ajustes__coluna {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.wa-ajustes .bloco {
+  margin: 0;
+}
+.wa-ajustes__linha {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.wa-ajustes__sub {
+  margin: 4px 0 0;
+  font-size: 0.82rem;
+  color: var(--tinta-suave);
+}
+.wa-chave {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  padding: 4px;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--tinta);
+}
+.wa-chave__trilho {
+  position: relative;
+  width: 52px;
+  height: 28px;
+  background: var(--linha);
+}
+.wa-chave__bola {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 20px;
+  height: 20px;
+  background: #fff;
+  transition: left 0.15s var(--suave);
+}
+.wa-chave[aria-pressed="true"] .wa-chave__trilho {
+  background: var(--menta-escura);
+}
+.wa-chave[aria-pressed="true"] .wa-chave__bola {
+  left: 28px;
+}
+.wa-regras textarea {
+  width: 100%;
+  min-height: 200px;
+  resize: vertical;
+  padding: 12px;
+  border: 2px solid var(--tinta);
+  font: inherit;
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+.wa-regras__pe {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  font-size: 0.72rem;
+  color: var(--tinta-suave);
+}
+.wa-sabe {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.wa-sabe li {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  background: var(--cinza);
+  border-top: 4px solid var(--menta-escura);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.wa-sabe li svg {
+  width: 16px;
+  height: 16px;
+  fill: var(--menta-escura);
+  flex-shrink: 0;
+}
+.wa-sabe small {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 400;
+  color: var(--tinta-suave);
+}
+.wa-teste {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+.wa-teste__topo {
+  padding: 18px 20px 12px;
+  border-bottom: 2px solid var(--tinta);
+}
+.wa-teste__tel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  font-size: 0.78rem;
+}
+.wa-teste__tel span {
+  font-weight: 800;
+  white-space: nowrap;
+}
+.wa-teste__tel input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 2px solid var(--tinta);
+  font: inherit;
+  font-size: 0.82rem;
+}
+.wa-teste .wa__mensagens {
+  min-height: 360px;
+  max-height: 520px;
+}
+.wa-teste__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-self: flex-start;
+  font-size: 0.68rem;
+  color: var(--tinta-suave);
+}
+.wa-teste__meta span {
+  padding: 3px 8px;
+  background: var(--papel);
+  border: 1px solid var(--linha);
+}
+.wa-teste__compor {
+  display: flex;
+  gap: 10px;
+  padding: 12px 20px 16px;
+  border-top: 2px solid var(--tinta);
+}
+.wa-teste__compor input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 2px solid var(--tinta);
+  font: inherit;
+  font-size: 0.86rem;
+}
+
+@media (max-width: 1180px) {
+  .wa {
+    grid-template-columns: 300px minmax(0, 1fr);
+  }
+  .wa__quem {
+    display: none;
+  }
+}
+@media (max-width: 860px) {
+  .wa,
+  .wa--sem-conversa,
+  .wa-ajustes {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .wa--aberta .wa__lista {
+    display: none;
+  }
+  .wa--sem-conversa .wa__vazia {
+    display: none;
+  }
+  .wa__voltar {
+    display: inline-flex;
+    align-items: center;
+    width: 44px;
+    height: 44px;
+    justify-content: center;
+    color: var(--tinta);
+  }
+  .wa__voltar svg {
+    width: 18px;
+    height: 18px;
+    fill: currentColor;
+  }
+  .wa-msg {
+    max-width: 88%;
+  }
+  .wa-sabe {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .wa__conversa {
+    min-height: 0;
+  }
+  /* O botão de devolver desce pra uma linha só dele: o nome e o telefone ficam inteiros. */
+  .wa__cabeca {
+    flex-wrap: wrap;
+  }
+  .wa__cabeca [data-devolver] {
+    flex-basis: 100%;
+    justify-content: center;
+  }
+  /* Com uma conversa aberta no celular, os números de cima saem: a conversa vem primeiro. */
+  [data-tela]:has(.wa--aberta) [data-numeros-whatsapp] {
+    display: none;
+  }
+}
