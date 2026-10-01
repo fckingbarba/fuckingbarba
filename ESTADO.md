@@ -5120,10 +5120,7 @@ Depois do deploy — **nada muda no ar.** Os próximos passos, na ordem:
 - [x] **Parte 2:** feita na 0233 (abaixo).
 - [x] **Parte 3:** feita na 0234 (abaixo).
 - [x] **Parte 4:** feita na 0236 (abaixo).
-- [ ] **A troca (você, com o passo a passo):** developers.facebook.com → o app → WhatsApp →
-      Configuração → Webhook → `https://<backend>/hooks/whatsapp` com a senha da
-      `WHATSAPP_VERIFICACAO`. Volta atrás em 1 minuto, pondo o endereço antigo. Depois, desligar o
-      sistema antigo inteiro.
+- [x] **A troca:** feita em 01/10 (abaixo), e o sistema antigo desligado no mesmo dia.
 - [ ] **Depois (CRM):** as mensagens que a loja manda primeiro pelo WhatsApp (pedido, carrinho,
       reposição), só com o "sim" do WhatsApp.
 
@@ -5254,6 +5251,28 @@ Depois do deploy — **nada pra você fazer.** A página no ar é a revisão que
 diz que não é texto de advogado. Se quiser que o seu advogado leia, o trecho novo está em "O que a
 gente coleta" (o parágrafo do WhatsApp) e em "Quem mais vê seus dados". O próximo passo é a troca do
 webhook, com o passo a passo.
+
+**O WhatsApp da loja no ar — 01/10, à noite.** O atendente novo passou a responder o WhatsApp da
+loja, e o sistema antigo (o Loopfy) foi desligado.
+
+- **As variáveis:** as cinco do WhatsApp vieram do Railway do sistema antigo, com o nome novo no
+  backend da loja (`WA_ACCESS_TOKEN` → `WHATSAPP_TOKEN`, `WA_PHONE_NUMBER_ID` → `WHATSAPP_NUMERO_ID`,
+  `WA_BUSINESS_ACCOUNT_ID` → `WHATSAPP_WABA_ID`, `WA_WEBHOOK_VERIFY_TOKEN` → `WHATSAPP_VERIFICACAO`,
+  `META_APP_SECRET` → `WHATSAPP_APP_SEGREDO`), mais a `ANTHROPIC_API_KEY`. A faixa amarela do painel
+  (WhatsApp) sumiu: estava tudo lá.
+- **A troca:** no app da Meta (o mesmo de antes), o webhook do WhatsApp passou a apontar pro backend
+  da loja (`/hooks/whatsapp`), com a mesma senha de verificação de antes. Testado do celular: a
+  resposta do atendente, o "quero falar com uma pessoa" e a resposta pelo painel.
+- **O sistema antigo:** o deploy dele foi tirado do ar no Railway ("Remove"), sem apagar o projeto,
+  as variáveis nem o banco: fica de reserva. Pararam junto as mensagens automáticas dele no WhatsApp
+  (carrinho, reposição, reconquista, com links da loja antiga), os e-mails dele e a sincronização
+  com a Nuvemshop.
+- **Pra voltar atrás**, se um dia precisar: o "Redeploy" do sistema antigo no Railway e, no app da
+  Meta, o webhook de volta pro endereço do sistema antigo (o domínio dele no Railway +
+  `/whatsapp/webhook`), com a mesma senha.
+
+Falta, pra depois (CRM): as mensagens que a loja manda primeiro pelo WhatsApp (pedido, carrinho,
+reposição), feitas pela loja nova e só pra quem aceitar receber.
 
 ## Como seguir no Claude Code
 
