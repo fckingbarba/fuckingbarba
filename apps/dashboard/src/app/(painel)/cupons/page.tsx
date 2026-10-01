@@ -4,12 +4,14 @@ import { redirect } from "next/navigation"
 import { SoPara } from "@/components/area"
 import { ListaDeCupons, NovoCupom } from "@/components/cupons"
 import { Icone } from "@/components/icones"
+import { ListaDeOfertas, NovaOferta } from "@/components/ofertas"
 import { Paginas } from "@/components/paginas"
 import { ListaDePromocoes, NovaPromocao } from "@/components/promocoes"
 import { Cabeca, ForaDoAr, SemAcesso } from "@/components/telas"
 import { Ajuda } from "@/components/visual"
 import type { PaginaDeCupons } from "@/lib/cupons"
 import { ler } from "@/lib/medusa"
+import type { PaginaDeOfertas } from "@/lib/ofertas"
 import { paginaDoEndereco } from "@/lib/paginas"
 
 type Busca = Promise<{ busca?: string; pagina?: string }>
@@ -31,9 +33,11 @@ const ICONE_DO_AUTOMATICO = { quantidade: "produtos", oferta: "raio", frete: "ca
 /**
  * CUPONS E DESCONTOS — os cupons que alguém digita no checkout (criar,
  * pausar e acompanhar), as promoções que a loja aplica sozinha e que o
- * painel cria (o "Leve X, pague Y", entrega 0133) e os descontos automáticos
- * de sempre. Vem pronto do backend (`GET /dashboard/cupons`). Marketing e
- * dono. Os cupons vêm de 20 em 20, com a busca pelo código (`?busca=`).
+ * painel cria (o "Leve X, pague Y", entrega 0133), as ofertas ocultas (um
+ * preço só pra quem abre o link, entrega 0238) e os descontos automáticos
+ * de sempre. Vem pronto do backend (`GET /dashboard/cupons` e `GET
+ * /dashboard/ofertas`). Marketing e dono. Os cupons vêm de 20 em 20, com a
+ * busca pelo código (`?busca=`).
  */
 export default async function Pagina({ searchParams }: { searchParams: Busca }) {
   const { busca, pagina } = await searchParams
@@ -43,6 +47,7 @@ export default async function Pagina({ searchParams }: { searchParams: Busca }) 
   if (p && p > 1) q.set("pagina", String(p))
   const caminho = `/dashboard/cupons?${q}`
   void ler(caminho)
+  void ler("/dashboard/ofertas")
   return (
     <SoPara area="cupons">
       <Cupons caminho={caminho} />
@@ -51,7 +56,7 @@ export default async function Pagina({ searchParams }: { searchParams: Busca }) 
 }
 
 async function Cupons({ caminho }: { caminho: string }) {
-  const r = await ler(caminho)
+  const [r, rOfertas] = await Promise.all([ler(caminho), ler("/dashboard/ofertas")])
   if (r.status === 401)
     redirect(`/sair?motivo=${r.corpo.message === "fora_da_equipe" ? "fora" : "expirou"}`)
   if (r.status === 403) return <SemAcesso area="cupons" />
@@ -65,6 +70,8 @@ async function Cupons({ caminho }: { caminho: string }) {
     catalogo,
     loja = null,
   } = r.corpo as unknown as PaginaDeCupons
+  // As ofertas vêm de outra rota: sem ela (backend de antes da 0238), o bloco diz que não veio.
+  const ofertas = rOfertas.status === 200 ? (rOfertas.corpo as unknown as PaginaDeOfertas) : null
   // A busca só aparece quando a lista passa de uma página (ou já buscou).
   const comBusca = Boolean(busca) || (paginacao?.paginas ?? 1) > 1
 
@@ -124,6 +131,26 @@ async function Cupons({ caminho }: { caminho: string }) {
           <NovaPromocao catalogo={catalogo} />
         </div>
         <ListaDePromocoes promocoes={promocoes} />
+      </section>
+      <section className="bloco" data-ofertas>
+        <div className="bloco__cabeca">
+          <div className="bloco__titulos">
+            <h2 className="bloco__titulo">Ofertas ocultas</h2>
+            <Ajuda>
+              Um preço só pra quem abre o link — nada no menu, na busca ou no Google. Quem entra
+              pela loja paga o de sempre. Vale até a data de fim; copie o link e mande pra quem
+              quiser.
+            </Ajuda>
+          </div>
+          {ofertas ? (
+            <NovaOferta produtos={ofertas.produtos} sorteio={ofertas.sorteio} loja={loja} />
+          ) : null}
+        </div>
+        {ofertas ? (
+          <ListaDeOfertas ofertas={ofertas.ofertas} />
+        ) : (
+          <p className="vazio vazio--curto">As ofertas não vieram agora. Recarregue a página.</p>
+        )}
       </section>
       <section className="bloco" data-automaticos>
         <div className="bloco__cabeca">
