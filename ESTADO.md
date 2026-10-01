@@ -5089,8 +5089,9 @@ troca do webhook** (abaixo): até lá a Meta continua mandando as mensagens pro 
   e `whatsapp_mensagem` (módulo `whatsapp`).
 - **O atendente:** o job `responder-no-whatsapp`, de minuto em minuto, responde quem está esperando —
   espera 15 s depois da última mensagem (quem escreve em três mensagens recebe uma resposta só, entre
-  15 e ~75 s depois), mostra o "digitando…" e manda. A IA é o Claude Opus 5.5 (esforço baixo, as
-  instruções e o catálogo no cache de 1 hora; a reserva da Anthropic ligada pro caso de recusa).
+  15 e ~75 s depois), mostra o "digitando…" e manda. A IA é o Claude Sonnet 5.5 desde a 0235 (era o Opus
+  5.5): esforço baixo, as instruções e o catálogo no cache de 1 hora, e a reserva da Anthropic
+  ligada pro caso de recusa.
 - **O que ele sabe:** só o que o sistema diz — o catálogo de agora (preço, preço riscado, desconto
   por quantidade, "Leve X, pague Y" valendo, esgotado) e o texto da página de cada produto (o que
   entrega, como usar, linha do tempo, pra quem é e não é, a rotina, as dúvidas), as dúvidas da loja
@@ -5201,6 +5202,29 @@ Depois do deploy — **as conversas não mudam no ar** (a Meta ainda manda pro s
 usar o teste: as variáveis da parte 1 no Railway (no mínimo a `ANTHROPIC_API_KEY`); a faixa amarela
 no topo da área diz o que falta. Testar à vontade antes da troca: cada teste custa uns centavos de
 dólar (aparece embaixo da resposta), com teto de 30 por hora por pessoa.
+
+**O atendente do WhatsApp passa a ser o Claude Sonnet 5.5 — pronto em 01/10 (entrega 0235).** Veio
+da simulação que você pediu ("o Haiku daria conta?"): as mesmas 24 conversas de WhatsApp (preço,
+indicação, frete, sacola, cadê o pedido, Pix, repetir a compra, saúde, troca, cliente bravo, revenda,
+cupom, mensagem em inglês, tentativa de golpe), com as mesmas instruções, os 15 produtos do site e as
+ferramentas, nos três modelos, duas vezes cada. Notas dadas às cegas, de 1 a 5: Opus 4,9 e Sonnet 4,8,
+sem nenhum erro grave; Haiku 3,2, com 5 erros graves (não chamou a equipe pro cliente bravo nem pra
+mensagem em inglês, inventou que a loja não entrega fora do Brasil, confundiu os pedidos de um
+cliente) e sem o link do produto em 7 de 10 respostas de venda. O motor de dois modelos (o Haiku com
+o Sonnet de reserva) não compensou: a conferência automática não pega erro de julgamento, e com
+triagem o custo fica igual ao do Sonnet sozinho.
+
+- **O que muda:** só o modelo, e a tabela de preço do custo que o painel estima. O jeito de falar, as
+  regras, as ferramentas e a reserva da Anthropic continuam iguais.
+- **O custo:** uns 30% a menos que o Opus. Não é a metade porque cada resposta lê o catálogo inteiro
+  (uns 30 mil tokens), e essa leitura custa o mesmo nos dois. Com 100 respostas por dia: perto de
+  R$ 270 por mês, contra uns R$ 390 com o Opus.
+
+Conferido pelos testes de unidade do backend, typecheck, lint e o `conferir-whatsapp.mjs` da loja
+(61, com o modelo novo no pedido à IA).
+
+Depois do deploy — **as conversas não mudam no ar** (o atendente só responde depois da troca do
+webhook). O "Testar o atendente" do painel já responde com o Sonnet, e o custo que ele mostra cai.
 
 ## Como seguir no Claude Code
 
