@@ -2282,8 +2282,13 @@ if (EMAIL_ADMIN && SENHA_ADMIN) {
   const { price_lists: listas = [] } = await adm(
     "/admin/price-lists?fields=id,title,status,type&limit=100"
   )
+  // As ofertas ocultas (0238) também são "sale", mas só valem pra quem tem o link: fora.
   const promocao = listas.find(
-    (l) => l.status === "active" && l.type === "sale" && l.title !== "Desconto por quantidade"
+    (l) =>
+      l.status === "active" &&
+      l.type === "sale" &&
+      l.title !== "Desconto por quantidade" &&
+      !String(l.title ?? "").startsWith("Oferta oculta · ")
   )
   const { regions = [] } = (await medusa("/store/regions")) ?? {}
   const regiao = regions.find((r) => r.currency_code === "brl")
@@ -3124,8 +3129,13 @@ if (EMAIL_ADMIN && SENHA_ADMIN) {
   const { price_lists: listas = [] } = await adm(
     "/admin/price-lists?fields=id,title,status,type&limit=100"
   )
+  // As ofertas ocultas (0238) também são "sale", mas só valem pra quem tem o link: fora.
   const promocao = listas.find(
-    (l) => l.status === "active" && l.type === "sale" && l.title !== "Desconto por quantidade"
+    (l) =>
+      l.status === "active" &&
+      l.type === "sale" &&
+      l.title !== "Desconto por quantidade" &&
+      !String(l.title ?? "").startsWith("Oferta oculta · ")
   )
   if (!promocao) {
     console.log("    (sem promoção ativa: pulei o preço de agora)")
