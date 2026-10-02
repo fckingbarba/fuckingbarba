@@ -1,8 +1,11 @@
 import {
+  contarOsCarrinhos,
   contatoDo,
+  linhasDosCarrinhos,
   linkDoWhatsapp,
   mensagemDoWhatsapp,
   ondeParou,
+  resumoDo,
   telaDosCarrinhos,
   telefoneDoWhatsapp,
   type CarrinhoCru,
@@ -210,5 +213,57 @@ describe("a lista", () => {
 
   it("mais de 30 dias parado sai da lista", () => {
     expect(tela([carrinho({ updated_at: ha(31 * 24 * 60) })]).carrinhos).toHaveLength(0)
+  })
+})
+
+describe("a conta com os resumos, e só a página inteira (0249)", () => {
+  it("o resumo: quem é, quando e quanto — e o telefone da conta, sem e-mail, vira a pessoa", () => {
+    const c = carrinho({
+      id: "cart_FONE00000001",
+      email: null,
+      shipping_address: null,
+      customer: { email: null, phone: "11 97777-6666" },
+    })
+    expect(resumoDo(c)).toMatchObject({
+      id: "cart_FONE00000001",
+      email: null,
+      telefone_da_conta: "11 97777-6666",
+      itens: 2,
+    })
+    expect(resumoDo(c).valor).toBeCloseTo(209.7)
+    const conta = contarOsCarrinhos({
+      resumos: [resumoDo(c)],
+      pedidos: [],
+      agora: AGORA,
+      filtro: "parados",
+    })
+    expect(conta.doFiltro).toEqual([
+      { id: "cart_FONE00000001", situacao: "parados", valor: 209.7, pedido: null },
+    ])
+    expect(conta.numeros.semContato).toEqual({ quantos: 0, valor: 0 })
+  })
+
+  it("os números contam todos; as linhas são só as dos carrinhos lidos inteiros", () => {
+    const carrinhos = [
+      carrinho({ id: "cart_UM000000001", email: "um@x.com", updated_at: ha(60) }),
+      carrinho({ id: "cart_DOIS0000001", email: "dois@x.com", updated_at: ha(90) }),
+      carrinho({ id: "cart_SEMITEM0001", email: "tres@x.com", items: [] }),
+    ]
+    const { doFiltro, ...conta } = contarOsCarrinhos({
+      resumos: carrinhos.map(resumoDo),
+      pedidos: [],
+      agora: AGORA,
+      filtro: "parados",
+    })
+    expect(conta.numeros.parados).toEqual({ quantos: 2, valor: 419.4 })
+    expect(doFiltro.map((e) => e.id)).toEqual(["cart_UM000000001", "cart_DOIS0000001"])
+    // O segundo fechou entre a conta e a leitura inteira: fica de fora.
+    const linhas = linhasDosCarrinhos(doFiltro, [carrinhos[0]], {
+      chamados: new Map(),
+      agora: AGORA,
+      verContato: true,
+    })
+    expect(linhas.map((l) => l.id)).toEqual(["cart_UM000000001"])
+    expect(linhas[0]).toMatchObject({ valor: 209.7, situacao: "parados", etapa: "pagamento" })
   })
 })

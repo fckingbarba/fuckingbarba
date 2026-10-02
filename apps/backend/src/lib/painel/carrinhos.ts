@@ -135,6 +135,14 @@ export function telefoneNaTela(digitos: string): string {
     : `(${n.slice(0, 2)}) ${n.slice(2, 6)}-${n.slice(6)}`
 }
 
+/** O e-mail da pessoa: o do carrinho; sem ele, o da conta. Em minúsculas. */
+const emailDe = (doCarrinho: unknown, daConta: unknown) =>
+  (texto(doCarrinho) || texto(daConta)).toLowerCase() || null
+
+/** O telefone do WhatsApp: o do endereço; sem ele, o da conta. */
+const telefoneDe = (doEndereco: unknown, daConta: unknown) =>
+  telefoneDoWhatsapp(doEndereco) ?? telefoneDoWhatsapp(daConta)
+
 export function contatoDo(c: CarrinhoCru): {
   nome: string | null
   email: string | null
@@ -144,11 +152,10 @@ export function contatoDo(c: CarrinhoCru): {
   const nome =
     [e?.first_name, e?.last_name].map(texto).filter(Boolean).join(" ") ||
     [c.customer?.first_name, c.customer?.last_name].map(texto).filter(Boolean).join(" ")
-  const email = (texto(c.email) || texto(c.customer?.email)).toLowerCase()
   return {
     nome: nome || null,
-    email: email || null,
-    telefone: telefoneDoWhatsapp(e?.phone) ?? telefoneDoWhatsapp(c.customer?.phone),
+    email: emailDe(c.email, c.customer?.email),
+    telefone: telefoneDe(e?.phone, c.customer?.phone),
   }
 }
 
@@ -219,39 +226,91 @@ export type TelaDosCarrinhos = {
 const resumoDosItens = (itens: ItemDoCarrinho[]) =>
   itens.map((i) => (i.quantidade > 1 ? `${i.quantidade}× ${i.nome}` : i.nome)).join(" · ")
 
-export function telaDosCarrinhos({
-  carrinhos,
+/**
+ * O QUE A CONTA DA LISTA PRECISA DE CADA CARRINHO — de quem é, quando mexeu
+ * e quanto tem na sacola. Sai numa ida só ao banco, pra todos os carrinhos
+ * do mês (`ler-carrinhos.ts`); o carrinho inteiro (os itens, o endereço, o
+ * pagamento) só se lê pros 30 da página mostrada (0249).
+ */
+export type ResumoDoCarrinho = {
+  id: string
+  updated_at: Data
+  email?: string | null
+  /** O e-mail e o telefone da conta, de quem entrou. */
+  email_da_conta?: string | null
+  telefone_da_conta?: string | null
+  /** O telefone do endereço de entrega. */
+  telefone_do_endereco?: string | null
+  /** Quantos itens a sacola tem: sem nenhum, não é carrinho abandonado. */
+  itens: number
+  /** Preço × quantidade, somados. */
+  valor: number
+}
+
+/** O resumo de um carrinho inteiro — a mesma conta da leitura do banco. */
+export function resumoDo(c: CarrinhoCru): ResumoDoCarrinho {
+  const itens = itensDo(c)
+  return {
+    id: c.id,
+    updated_at: c.updated_at,
+    email: c.email,
+    email_da_conta: c.customer?.email,
+    telefone_da_conta: c.customer?.phone,
+    telefone_do_endereco: c.shipping_address?.phone,
+    itens: itens.length,
+    valor: itens.reduce((s, i) => s + i.preco * i.quantidade, 0),
+  }
+}
+
+/** O carrinho que vira linha: o mais recente da pessoa, e a situação dele. */
+export type Escolhido = {
+  id: string
+  situacao: Filtro
+  /** O valor da sacola, pros números de cima. */
+  valor: number
+  /** O pedido que a pessoa fez depois (voltou). */
+  pedido: PedidoDaPessoa | null
+}
+
+export type ContaDosCarrinhos = Pick<TelaDosCarrinhos, "filtro" | "contagem" | "numeros"> & {
+  /** Os do filtro, do mais recente pro mais antigo: a página sai daqui. */
+  doFiltro: Escolhido[]
+}
+
+/**
+ * A CONTA DA LISTA, só com os resumos: uma linha por pessoa, quem voltou e
+ * comprou, as fitas e os números de cima. As linhas em si (o passo, as
+ * fotos, o WhatsApp) são `linhasDosCarrinhos`, só pros da página.
+ */
+export function contarOsCarrinhos({
+  resumos,
   pedidos,
-  chamados,
   agora,
   filtro,
-  verContato,
 }: {
-  carrinhos: CarrinhoCru[]
+  resumos: ResumoDoCarrinho[]
   pedidos: PedidoDaPessoa[]
-  chamados: Map<string, Chamado>
   agora: Date
   filtro: Filtro
-  verContato: boolean
-}): TelaDosCarrinhos {
+}): ContaDosCarrinhos {
   const desde = agora.getTime() - DIAS * 24 * 3600 * 1000
   const paradoAntesDe = agora.getTime() - PARADO_MIN * 60 * 1000
 
   // Uma linha por pessoa: o carrinho mais recente dela.
-  const porPessoa = new Map<string, { c: CarrinhoCru; contato: ReturnType<typeof contatoDo> }>()
+  const porPessoa = new Map<string, { r: ResumoDoCarrinho; email: string | null }>()
   const semContato = { quantos: 0, valor: 0 }
-  const ordenados = [...carrinhos]
-    .filter((c) => itensDo(c).length && data(c.updated_at).getTime() >= desde)
+  const ordenados = [...resumos]
+    .filter((r) => r.itens > 0 && data(r.updated_at).getTime() >= desde)
     .sort((a, b) => data(b.updated_at).getTime() - data(a.updated_at).getTime())
-  for (const c of ordenados) {
-    const contato = contatoDo(c)
-    const chave = contato.email ?? contato.telefone
+  for (const r of ordenados) {
+    const email = emailDe(r.email, r.email_da_conta)
+    const chave = email ?? telefoneDe(r.telefone_do_endereco, r.telefone_da_conta)
     if (!chave) {
       semContato.quantos++
-      semContato.valor += itensDo(c).reduce((s, i) => s + i.preco * i.quantidade, 0)
+      semContato.valor += r.valor
       continue
     }
-    if (!porPessoa.has(chave)) porPessoa.set(chave, { c, contato })
+    if (!porPessoa.has(chave)) porPessoa.set(chave, { r, email })
   }
 
   const comprasPorEmail = new Map<string, PedidoDaPessoa[]>()
@@ -261,12 +320,57 @@ export function telaDosCarrinhos({
     comprasPorEmail.set(email, [...(comprasPorEmail.get(email) ?? []), p])
   }
 
-  const todas: LinhaDoCarrinho[] = [...porPessoa.values()].map(({ c, contato }) => {
+  const todos: Escolhido[] = [...porPessoa.values()].map(({ r, email }) => {
+    const parado = data(r.updated_at).getTime()
+    const voltou = (email ? (comprasPorEmail.get(email) ?? []) : [])
+      .filter((p) => data(p.created_at).getTime() > parado)
+      .sort((a, b) => data(a.created_at).getTime() - data(b.created_at).getTime())[0]
+    return {
+      id: r.id,
+      situacao: voltou ? "voltaram" : parado <= paradoAntesDe ? "parados" : "agora",
+      valor: centavos(r.valor),
+      pedido: voltou ?? null,
+    }
+  })
+
+  const soma = (l: Escolhido[]) => centavos(l.reduce((s, x) => s + x.valor, 0))
+  const de = (f: Filtro) => todos.filter((l) => l.situacao === f)
+  return {
+    filtro,
+    contagem: {
+      parados: de("parados").length,
+      agora: de("agora").length,
+      voltaram: de("voltaram").length,
+    },
+    numeros: {
+      parados: { quantos: de("parados").length, valor: soma(de("parados")) },
+      voltaram: { quantos: de("voltaram").length, valor: soma(de("voltaram")) },
+      semContato: { quantos: semContato.quantos, valor: centavos(semContato.valor) },
+    },
+    doFiltro: de(filtro),
+  }
+}
+
+/**
+ * As linhas dos escolhidos, com o carrinho inteiro de cada um. O que fechou
+ * entre a conta e esta leitura não vem mais — e fica de fora.
+ */
+export function linhasDosCarrinhos(
+  escolhidos: Escolhido[],
+  carrinhos: CarrinhoCru[],
+  {
+    chamados,
+    agora,
+    verContato,
+  }: { chamados: Map<string, Chamado>; agora: Date; verContato: boolean }
+): LinhaDoCarrinho[] {
+  const porId = new Map(carrinhos.map((c) => [c.id, c]))
+  return escolhidos.flatMap((e) => {
+    const c = porId.get(e.id)
+    if (!c) return []
+    const contato = contatoDo(c)
     const itens = itensDo(c)
     const parado = data(c.updated_at)
-    const voltou = (contato.email ? (comprasPorEmail.get(contato.email) ?? []) : [])
-      .filter((p) => data(p.created_at).getTime() > parado.getTime())
-      .sort((a, b) => data(a.created_at).getTime() - data(b.created_at).getTime())[0]
     const onde = ondeParou(c)
     const chamado = chamados.get(c.id)
     return {
@@ -285,8 +389,8 @@ export function telaDosCarrinhos({
       etapaTexto: onde.texto,
       falhou: Boolean(onde.falhou),
       ...fotosDos((c.items ?? []).filter((i): i is NonNullable<typeof i> => Boolean(i))),
-      situacao: voltou ? "voltaram" : parado.getTime() <= paradoAntesDe ? "parados" : "agora",
-      pedido: voltou ? { id: voltou.id, numero: Number(voltou.display_id ?? 0) } : null,
+      situacao: e.situacao,
+      pedido: e.pedido ? { id: e.pedido.id, numero: Number(e.pedido.display_id ?? 0) } : null,
       whatsapp:
         verContato && contato.telefone
           ? linkDoWhatsapp(contato.telefone, mensagemDoWhatsapp(contato.nome, itens))
@@ -294,22 +398,33 @@ export function telaDosCarrinhos({
       chamado: chamado ? { quem: chamado.quem, quando: quando(chamado.em, agora) } : null,
     }
   })
+}
 
-  const soma = (l: LinhaDoCarrinho[]) => centavos(l.reduce((s, x) => s + x.valor, 0))
-  const de = (f: Filtro) => todas.filter((l) => l.situacao === f)
-  return {
+/** A tela inteira, dos carrinhos inteiros: a conta e as linhas juntas (os testes). */
+export function telaDosCarrinhos({
+  carrinhos,
+  pedidos,
+  chamados,
+  agora,
+  filtro,
+  verContato,
+}: {
+  carrinhos: CarrinhoCru[]
+  pedidos: PedidoDaPessoa[]
+  chamados: Map<string, Chamado>
+  agora: Date
+  filtro: Filtro
+  verContato: boolean
+}): TelaDosCarrinhos {
+  const { doFiltro, ...conta } = contarOsCarrinhos({
+    resumos: carrinhos.map(resumoDo),
+    pedidos,
+    agora,
     filtro,
-    contagem: {
-      parados: de("parados").length,
-      agora: de("agora").length,
-      voltaram: de("voltaram").length,
-    },
-    numeros: {
-      parados: { quantos: de("parados").length, valor: soma(de("parados")) },
-      voltaram: { quantos: de("voltaram").length, valor: soma(de("voltaram")) },
-      semContato: { quantos: semContato.quantos, valor: centavos(semContato.valor) },
-    },
+  })
+  return {
+    ...conta,
     verContato,
-    carrinhos: de(filtro),
+    carrinhos: linhasDosCarrinhos(doFiltro, carrinhos, { chamados, agora, verContato }),
   }
 }

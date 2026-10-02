@@ -5540,6 +5540,23 @@ com 20 checagens novas), typecheck, lint e prettier.
 Depois do deploy — **nada pra configurar.** Pra ver: Pedidos → "Esperando pagamento" → um pedido
 "Aguardando Pix".
 
+**Carrinhos abandonados abrindo mais rápido — pronto em 02/10 (entrega 0249).** Ele achou que o
+carregando da tela Carrinhos demorava demais.
+
+- **A tela lia uns 3 mil carrinhos inteiros a cada clique pra mostrar 30** (itens, endereço,
+  frete e pagamento de cada um), e de novo a cada filtro ou página. Agora a conta de cima sai de
+  uma leitura só, leve, e só os 30 da página são lidos inteiros.
+- **No teste, com 3.500 carrinhos: de ~0,28 s pra ~0,02 s** no servidor (com 20 mil, ~0,05 s). A
+  lista, os filtros, os números e o WhatsApp ficam iguais — conferido lado a lado, filtro por
+  filtro e página por página.
+- **Os números de cima param de travar em 2.000** quando o mês passar de 2.000 carrinhos sem
+  contato (ou 1.000 com e-mail): antes a conta cortava ali.
+
+Conferido: os unitários (1.909), o conferidor dos carrinhos (14/14 em duas rodadas seguidas), a
+comparação da tela velha com a nova (20 de 20 iguais), typecheck, lint e prettier.
+
+Depois do deploy — **nada pra configurar.** Pra ver: Carrinhos, e trocar de filtro e de página.
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa
