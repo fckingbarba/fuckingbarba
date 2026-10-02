@@ -132,6 +132,13 @@ export async function subirPagarmeFalso({ porta = PORTA_PADRAO, webhook = null }
     webhook,
     /** token → { numero, cvv, nome, criado, usado } */
     tokens: new Map(),
+    /**
+     * O CARTÃO NA TELA: "normal" devolve o token; "recusa" é o 422 do
+     * Pagar.me pro cartão que ele não aceita (ou o domínio fora do cadastro);
+     * "queda", um 500. Nos dois, nada chega no Medusa — é o que a loja marca
+     * no carrinho (0244, `cartaoNaoPassou`).
+     */
+    tokenizar: "normal",
     /** id do pedido → { corpo, pedido } */
     pedidos: new Map(),
     /** Toda chamada que chegou, pra conferir quem falou o quê. */
@@ -458,6 +465,18 @@ export async function subirPagarmeFalso({ porta = PORTA_PADRAO, webhook = null }
         }
         if (!String(url.searchParams.get("appId") ?? "").startsWith("pk_")) {
           json(401, { message: "appId inválido" }, cors)
+          return
+        }
+        if (painel.tokenizar === "queda") {
+          json(500, { message: "Internal server error" }, cors)
+          return
+        }
+        if (painel.tokenizar === "recusa") {
+          json(
+            422,
+            { message: "The request is invalid.", errors: { "request.card.number": ["inválido"] } },
+            cors
+          )
           return
         }
         const c = corpo?.card ?? {}
