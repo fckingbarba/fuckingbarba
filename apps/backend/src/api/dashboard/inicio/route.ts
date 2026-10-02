@@ -1,9 +1,11 @@
 import type { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import type { MedusaContainer } from "@medusajs/framework/types"
+import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import { abre, exigirArea, type PedidoDaEquipe } from "../../../lib/equipe/acesso"
 import { JANELA_DO_TOTAL_MS, montarInicio, precisamDoTotal } from "../../../lib/painel/inicio"
 import {
   montarInicioNoPeriodo,
+  saidosNoPagamento,
   type DadosDoPeriodo,
   type InicioNoPeriodo,
 } from "../../../lib/painel/inicio-periodo"
@@ -19,6 +21,7 @@ import {
   pedidosRecentes,
   produtosComSku,
   quantosRascunhos,
+  tentativasDosCarrinhos,
   totaisDesde,
   totaisDos,
 } from "../../../lib/painel/ler"
@@ -109,6 +112,9 @@ const PEDIDOS_NA_LISTA = 6
  * Nuvemshop, do CRM), os produtos (o item da Nuvemshop vira o de hoje pelo
  * SKU), os carrinhos (só pra quem abre o Marketing) e os pedidos feitos no
  * período (só pra quem abre os Pedidos, com o nome do cliente).
+ *
+ * Dos carrinhos que saíram no pagamento, as tentativas de pagar (0244): o
+ * porquê de cada um. Se essa leitura falhar, o checkout aparece sem ele.
  */
 async function inicioNoPeriodo(
   container: MedusaContainer,
@@ -123,7 +129,20 @@ async function inicioNoPeriodo(
     crm.vendasDaBase(inicio, p.atual.ate),
     produtosComSku(container),
     abre(pedido, "marketing")
-      ? carrinhosDoCheckout(container, { de: inicio, ate: p.atual.ate })
+      ? carrinhosDoCheckout(container, { de: inicio, ate: p.atual.ate }).then(async (lidos) => ({
+          lidos,
+          tentativas: await tentativasDosCarrinhos(
+            container,
+            saidosNoPagamento(lidos, p.atual).map((c) => c.id)
+          ).catch((e: unknown) => {
+            container
+              .resolve(ContainerRegistrationKeys.LOGGER)
+              .warn(
+                `[início] as tentativas dos carrinhos não vieram: ${e instanceof Error ? e.message : String(e)}`
+              )
+            return null
+          }),
+        }))
       : null,
     abre(pedido, "pedidos") ? pedidosFeitosEntre(container, p.atual, PEDIDOS_NA_LISTA) : null,
   ])
@@ -140,7 +159,14 @@ async function inicioNoPeriodo(
   }
   return montarInicioNoPeriodo(
     p,
-    { pedidos: vendidos, daNuvemshop, produtos, carrinhos, feitos: lista },
+    {
+      pedidos: vendidos,
+      daNuvemshop,
+      produtos,
+      carrinhos: carrinhos?.lidos ?? null,
+      tentativas: carrinhos?.tentativas ?? null,
+      feitos: lista,
+    },
     ctx.agora
   )
 }

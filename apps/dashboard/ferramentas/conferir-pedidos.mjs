@@ -35,6 +35,8 @@
  * │ • o Início com número que a API não deu; o período (0186) contando    │
  * │   diferente do Início de sempre, os botões e as datas sem trocar os    │
  * │   números, a marca do checkout contando duas vezes;                    │
+ * │ • o porquê de quem saiu no pagamento (0244) diferente da API, ou a     │
+ * │   marca do cartão que não passou da tela aceita sem ser da loja;       │
  * │ • rolagem de lado no celular; erro no console.                         │
  * └────────────────────────────────────────────────────────────────────────┘
  */
@@ -814,6 +816,126 @@ try {
       semAssinatura.status === 401 && torto.status === 400 && sumido.status === 404,
       "a marca é só da loja: sem a assinatura, 401; carrinho torto, 400; que não existe, 404",
       `${semAssinatura.status} · ${torto.status} · ${sumido.status}`
+    )
+
+    titulo("Por que saíram no pagamento (0244)")
+    // O mesmo carrinho, levado até o pagamento pela API da loja: sem tentativa nenhuma.
+    const loja = async (rota, corpo) => {
+      const r = await fetch(`${MEDUSA}${rota}`, {
+        method: corpo === undefined ? "GET" : "POST",
+        headers: cabecalhos,
+        body: corpo === undefined ? undefined : JSON.stringify(corpo),
+      })
+      const j = await r.json().catch(() => ({}))
+      if (!r.ok) throw new Error(`${rota} → ${r.status} ${JSON.stringify(j)}`)
+      return j
+    }
+    const endereco = {
+      first_name: "Rafael",
+      last_name: `Saída ${RODADA}`,
+      phone: "+5511988887777",
+      address_1: "Rua Doutor Pedro Zimmermann, 99",
+      city: "Blumenau",
+      province: "SC",
+      postal_code: "89036370",
+      country_code: "br",
+      metadata: { rua: "Rua Doutor Pedro Zimmermann", numero: "99", bairro: "Itoupava Central" },
+    }
+    const saidasAntes = (await doPeriodo("periodo=hoje")).periodo
+    await loja(`/store/carts/${cart.id}`, {
+      email: `saida.${RODADA}@fuckingbarba.invalid`,
+      shipping_address: endereco,
+      billing_address: {
+        ...endereco,
+        metadata: { ...endereco.metadata, documento: { tipo: "cpf", valor: "11144477735" } },
+      },
+    })
+    const { shipping_options } = await loja(`/store/shipping-options?cart_id=${cart.id}`)
+    await loja(`/store/carts/${cart.id}/shipping-methods`, { option_id: shipping_options[0].id })
+    const noPagamento = (await doPeriodo("periodo=hoje")).periodo
+    const saiu = (x) => x.checkout[2].n - x.checkout[3].n
+    ok(
+      noPagamento.saidas?.total === (saidasAntes.saidas?.total ?? 0) + 1 &&
+        noPagamento.saidas.semTentar === (saidasAntes.saidas?.semTentar ?? 0) + 1 &&
+        noPagamento.saidas.total === saiu(noPagamento),
+      "o carrinho parado no pagamento, sem tentar: +1 em “sem tentar”, e o total é o “saíram” do passo",
+      JSON.stringify({
+        antes: saidasAntes.saidas,
+        depois: noPagamento.saidas,
+        saiu: saiu(noPagamento),
+      })
+    )
+
+    const naTela = (carrinho, porque, assinado = true) =>
+      medusa("/store/checkout/cartao-na-tela", {
+        corpo: { carrinho, porque },
+        assinado,
+        extras: { "x-publishable-api-key": CHAVE },
+      })
+    const marcou = await naTela(cart.id, "dados")
+    const comTela = (await doPeriodo("periodo=hoje")).periodo
+    ok(
+      marcou.status === 200 &&
+        marcou.corpo.marcado === true &&
+        comTela.saidas?.total === noPagamento.saidas.total &&
+        comTela.saidas.naTela === noPagamento.saidas.naTela + 1 &&
+        comTela.saidas.semTentar === noPagamento.saidas.semTentar - 1,
+      "o cartão que não passou da tela (a marca da loja) sai de “sem tentar” e entra em “não passou da tela”",
+      JSON.stringify({ marcou: marcou.corpo, antes: noPagamento.saidas, depois: comTela.saidas })
+    )
+    const [semAssinar, porqueTorto, naoExiste] = await Promise.all([
+      naTela(cart.id, "dados", false),
+      naTela(cart.id, "outro"),
+      naTela("cart_NAOEXISTE0000000000000000", "conexao"),
+    ])
+    ok(
+      semAssinar.status === 401 && porqueTorto.status === 400 && naoExiste.status === 404,
+      "a marca do cartão também é só da loja: 401 sem assinatura, 400 com porquê torto, 404 sem carrinho",
+      `${semAssinar.status} · ${porqueTorto.status} · ${naoExiste.status}`
+    )
+
+    await pagina.goto(`${PAINEL}/`)
+    await pagina.waitForSelector('[data-bloco="checkout"] [data-saidas]')
+    const naTelaDoPainel = Object.fromEntries(
+      await pagina
+        .locator('[data-barras="saidas"] li')
+        .evaluateAll((lis) =>
+          lis.map((li) => [
+            li.getAttribute("data-saida"),
+            Number(li.querySelector(".barras-h__num")?.firstChild?.textContent?.trim()),
+          ])
+        )
+    )
+    const s = comTela.saidas
+    const daApi = Object.fromEntries(
+      [
+        ["banco", s.recusado.banco],
+        ["antifraude", s.recusado.antifraude],
+        ["dados", s.recusado.dados],
+        ["na-tela", s.naTela],
+        ["barrado", s.barrado],
+        ["erro", s.erro],
+        ["sem-tentar", s.semTentar],
+        ["sem-registro", s.semRegistro],
+      ].filter(([, n]) => n > 0)
+    )
+    const rotulo = semEspaco(await textoDe(pagina, ".saidas__rotulo"))
+    ok(
+      JSON.stringify(naTelaDoPainel) === JSON.stringify(daApi) &&
+        rotulo.toLowerCase() ===
+          `por que ${s.total} ${s.total === 1 ? "saiu" : "saíram"} no pagamento` &&
+        Number(await pagina.getAttribute("[data-saidas]", "data-saidas")) === s.total,
+      "na tela, os porquês e quantos são os da API (só os que aconteceram)",
+      JSON.stringify({ naTela: naTelaDoPainel, daApi, rotulo })
+    )
+    const nota = await pagina.locator("[data-maior-perda]").count()
+    ok(
+      nota === 0 ||
+        /a maior taxa de saída do período\.$/.test(
+          semEspaco(await textoDe(pagina, "[data-maior-perda]"))
+        ),
+      "o aviso amarelo diz o que mede: a maior taxa de saída",
+      nota ? await textoDe(pagina, "[data-maior-perda]") : "sem aviso"
     )
   }
 

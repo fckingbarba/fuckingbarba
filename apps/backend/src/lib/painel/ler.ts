@@ -8,6 +8,8 @@ import { ERP } from "../../modules/erp"
 import type ErpService from "../../modules/erp/service"
 import { NEWSLETTER } from "../../modules/newsletter"
 import type NewsletterService from "../../modules/newsletter/service"
+import { OBSERVABILIDADE } from "../../modules/observabilidade"
+import type ObservabilidadeService from "../../modules/observabilidade/service"
 import { lerConexao, minutosDaJanela } from "../erp/conexao"
 import { erpDaLoja } from "../erp/erps"
 import { ACOES_NO_PEDIDO, type FeitoNoPedido } from "./acoes"
@@ -20,7 +22,7 @@ import {
 } from "./clientes"
 import { ACOES_NA_HOME, ALVO_DA_HOME } from "./home"
 import { ACOES_NO_PRODUTO, type FeitoNoProduto } from "./produtos"
-import type { CarrinhoDoCheckout, ProdutoComSku } from "./inicio-periodo"
+import type { CarrinhoDoCheckout, ProdutoComSku, TentativaDoCarrinho } from "./inicio-periodo"
 import type { CarrinhoDoFunil } from "./marketing-funil"
 import type { CarrinhoDoPagamento, PedidoDoPagamento } from "./marketing-pagamento"
 import { nomeCurto, type Contexto, type EnvioCru, type NotaCrua, type PedidoCru } from "./pedido"
@@ -292,6 +294,24 @@ export async function carrinhosDoCheckout(
     pagination: { take: 20_000, order: { created_at: "DESC" } },
   })
   return data as unknown as CarrinhoDoCheckout[]
+}
+
+/**
+ * As tentativas de pagar destes carrinhos (`obs_tentativa`, anotadas pela
+ * porta do `complete`), pro "por que saíram no pagamento" do Início (0244).
+ */
+export async function tentativasDosCarrinhos(
+  container: MedusaContainer,
+  ids: string[]
+): Promise<TentativaDoCarrinho[]> {
+  if (!ids.length) return []
+  const linhas = await container
+    .resolve<ObservabilidadeService>(OBSERVABILIDADE)
+    .listTentativas(
+      { carrinho: ids },
+      { select: ["carrinho", "resultado", "motivo", "created_at"], take: 5_000 }
+    )
+  return linhas as unknown as TentativaDoCarrinho[]
 }
 
 /**

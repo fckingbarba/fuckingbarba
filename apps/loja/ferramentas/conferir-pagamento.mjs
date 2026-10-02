@@ -1050,6 +1050,67 @@ try {
     await contexto.close()
   }
 
+  titulo("O cartão que não passa da tela: a loja marca o carrinho (0244)")
+  {
+    /*
+      O Pagar.me que não devolve o token: nada chega no Medusa, nem na porta
+      do cartão. Sem a marca, o Início do painel contaria essa pessoa como
+      "saiu sem tentar pagar".
+    */
+    const { contexto, pagina } = await novaAba()
+    const carrinhoId = await sacolaPronta(contexto)
+    await ateOPagamento(pagina, "tela@fuckingbarba.invalid")
+    await preencherCartao(pagina, "4000 0000 0000 0010")
+    const marca = async () =>
+      (await loja(`/store/carts/${carrinhoId}?fields=id,completed_at,metadata`)).json?.cart
+    const esperarMarca = async (porque) => {
+      for (const fim = Date.now() + 15000; Date.now() < fim; await esperar(250)) {
+        const c = await marca()
+        if (c?.metadata?.fb_cartao_na_tela?.porque === porque) return c
+      }
+      return marca()
+    }
+    const pedidosAntes = pagarme.pedidos.size
+    const consoleAntes = errosDeConsole.length
+    try {
+      pagarme.tokenizar = "recusa"
+      await pagar(pagina)
+      const recado = pagina.locator("#form-pagamento .erros-envio")
+      await recado.waitFor({ timeout: 25000 })
+      const recusado = await esperarMarca("dados")
+      ok(
+        /validar o cartão/i.test(await recado.innerText()) &&
+          recusado?.metadata?.fb_cartao_na_tela?.porque === "dados",
+        "o Pagar.me recusou o cartão na tela: o recado, e a marca “dados” no carrinho",
+        JSON.stringify(recusado?.metadata?.fb_cartao_na_tela)
+      )
+      ok(
+        pagarme.pedidos.size === pedidosAntes && !recusado?.completed_at,
+        "nada foi pro Pagar.me cobrar, e o carrinho continua aberto"
+      )
+      pagarme.tokenizar = "queda"
+      await pagar(pagina)
+      const fora = await esperarMarca("conexao")
+      const [antes, depois] = [recusado, fora].map((c) =>
+        Date.parse(c?.metadata?.fb_cartao_na_tela?.em ?? "")
+      )
+      ok(
+        fora?.metadata?.fb_cartao_na_tela?.porque === "conexao" && depois >= antes,
+        "o Pagar.me fora (500): a marca vira “conexao”, com a hora da última vez",
+        JSON.stringify(fora?.metadata?.fb_cartao_na_tela)
+      )
+    } finally {
+      pagarme.tokenizar = "normal"
+      // O 422 e o 500 que esta seção pediu ao falso: o navegador registra a resposta da chamada.
+      await esperar(500)
+      const daSecao = errosDeConsole.splice(consoleAntes)
+      errosDeConsole.push(
+        ...daSecao.filter((e) => !/^Failed to load resource: .* status of (422|500)\b/.test(e))
+      )
+    }
+    await contexto.close()
+  }
+
   /* ── 3b. o cartão só é cobrado depois da análise de fraude ────────────── */
 
   /*

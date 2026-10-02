@@ -40,6 +40,7 @@ import type { Documento } from "@/lib/documento"
 import { emReais } from "@/lib/formato"
 import { cepDeOutraCidade, comCepNovo, lerEndereco, montarEndereco } from "@/lib/endereco"
 import { cliente, configuracoes } from "@/lib/medusa"
+import type { PorqueNaTela } from "@/lib/pagarme"
 import { depoisDaRecusa, entradaDoCarrinho, recusaDaPorta } from "@/lib/pagamento"
 import { conferirContato, conferirEndereco, dicaDoEmail } from "@/lib/passos-do-checkout"
 import { COOKIE_CLIENTE, OPCOES_DOS_COOKIES } from "@/lib/primeira-compra"
@@ -167,6 +168,29 @@ export async function abriuOCheckout(): Promise<void> {
   if (!sdk || !carrinho) return
   try {
     await sdk.client.fetch("/store/checkout/aberto", { method: "POST", body: { carrinho } })
+  } catch {
+    // Só a conta do painel.
+  }
+}
+
+/**
+ * O CARTÃO NÃO PASSOU DA TELA: o Pagar.me não devolveu o token, e nada vai
+ * pro Medusa. A marca no carrinho (`POST /store/checkout/cartao-na-tela`) é
+ * o que separa, no Início do painel, quem saiu no pagamento depois de
+ * digitar o cartão de quem saiu sem tentar (entrega 0244). Como a de cima:
+ * falhar só custa essa conta, e a tela nem espera.
+ */
+export async function cartaoNaoPassou(porque: PorqueNaTela): Promise<void> {
+  // Ação de servidor é endereço público: só os três porquês da loja passam.
+  if (!["dados", "conexao", "indisponivel"].includes(porque)) return
+  const sdk = cliente()
+  const carrinho = await idDoCarrinho()
+  if (!sdk || !carrinho) return
+  try {
+    await sdk.client.fetch("/store/checkout/cartao-na-tela", {
+      method: "POST",
+      body: { carrinho, porque },
+    })
   } catch {
     // Só a conta do painel.
   }

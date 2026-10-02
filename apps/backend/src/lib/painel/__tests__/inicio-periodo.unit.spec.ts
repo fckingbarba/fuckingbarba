@@ -1,12 +1,16 @@
 import {
   ateOndeFoi,
   checkoutDoPeriodo,
+  MARCA_DO_CARTAO_NA_TELA,
   MARCA_DO_CHECKOUT,
   montarInicioNoPeriodo,
+  saidasDoPagamento,
+  saidosNoPagamento,
   vendasDaNuvemshop,
   type CarrinhoDoCheckout,
   type DadosDoPeriodo,
   type ProdutoComSku,
+  type TentativaDoCarrinho,
 } from "../inicio-periodo"
 import type { PedidoCru } from "../pedido"
 import { lerPeriodo } from "../periodo"
@@ -62,6 +66,7 @@ const semNada: DadosDoPeriodo = {
   daNuvemshop: [],
   produtos: [OLEO, BALM],
   carrinhos: null,
+  tentativas: null,
   feitos: null,
 }
 
@@ -329,6 +334,138 @@ describe("o checkout passo a passo", () => {
     )
     expect(i.checkout?.map((x) => x.n)).toEqual([1, 1, 1, 1, 1])
     expect(i.checkoutAntes?.map((x) => x.n)).toEqual([1, 0, 0, 0, 0])
+    // Sem as tentativas (a leitura falhou), o checkout vem sem o porquê.
+    expect(i.saidas).toBeNull()
     expect(montarInicioNoPeriodo(p, semNada, AGORA).checkout).toBeNull()
+    expect(montarInicioNoPeriodo(p, semNada, AGORA).saidas).toBeNull()
+  })
+
+  describe("por que saíram no pagamento (0244)", () => {
+    const tentativa = (
+      carrinho: string,
+      quando: string,
+      resultado: string,
+      motivo: string | null = null
+    ): TentativaDoCarrinho => ({ carrinho, resultado, motivo, created_at: em(quando) })
+    const naTela = (quando: string, porque = "dados") => ({
+      metadata: { [MARCA_DO_CARTAO_NA_TELA]: { porque, em: em(quando) } },
+    })
+    const parou = (id: string, extra: Partial<CarrinhoDoCheckout> = {}) =>
+      carrinho({ id, ...entrega, ...extra })
+
+    it("só os que chegaram no pagamento e não viraram pedido, do período e com produto", () => {
+      const p = lerPeriodo({}, AGORA)
+      const carrinhos = [
+        parou("p"),
+        carrinho({ id: "entrega", ...contato }),
+        carrinho({ id: "pedido", ...entrega, completed_at: em("2026-09-28 11:00") }),
+        parou("ontem", { created_at: em("2026-09-27 10:00") }),
+        parou("sem-produto", { items: [] }),
+      ]
+      expect(saidosNoPagamento(carrinhos, p.atual).map((c) => c.id)).toEqual(["p"])
+    })
+
+    it("cada um pelo que aconteceu por último: a recusa, a trava, o erro, a tela ou nada", () => {
+      const p = lerPeriodo({}, AGORA)
+      const carrinhos = [
+        parou("banco"),
+        parou("antifraude"),
+        parou("dados"),
+        parou("barrada"),
+        parou("pix-fora"),
+        parou("estoque"),
+        parou("andando"),
+        parou("tela", naTela("2026-09-28 10:30")),
+        parou("nada"),
+        // Recusado no banco e, depois, o outro cartão travou na tela: a tela.
+        parou("recusa-e-tela", naTela("2026-09-28 10:40")),
+        // O cartão travou na tela e, depois, o banco recusou o outro: o banco.
+        parou("tela-e-recusa", naTela("2026-09-28 10:20")),
+        // A tela sem a hora (marca torta): conta da criação do carrinho — a tentativa é mais nova.
+        parou("tela-sem-hora", { metadata: { [MARCA_DO_CARTAO_NA_TELA]: { porque: "dados" } } }),
+        // Só a marca, sem a hora: a tela.
+        parou("so-tela-sem-hora", { metadata: { [MARCA_DO_CARTAO_NA_TELA]: "dados" } }),
+        // Recusado e, depois, o Pix que não nasceu: o erro (o último).
+        parou("recusa-e-erro"),
+      ]
+      const tentativas = [
+        tentativa("banco", "2026-09-28 10:10", "recusada", "banco"),
+        tentativa("antifraude", "2026-09-28 10:10", "recusada", "antifraude"),
+        tentativa("dados", "2026-09-28 10:10", "recusada", "dados"),
+        tentativa("barrada", "2026-09-28 10:10", "barrada", "carrinho"),
+        tentativa("pix-fora", "2026-09-28 10:10", "erro", "fora"),
+        tentativa("estoque", "2026-09-28 10:10", "parou"),
+        tentativa("andando", "2026-09-28 10:10", "andando"),
+        tentativa("recusa-e-tela", "2026-09-28 10:30", "recusada", "banco"),
+        tentativa("tela-e-recusa", "2026-09-28 10:30", "recusada", "banco"),
+        tentativa("tela-sem-hora", "2026-09-28 10:30", "recusada", "antifraude"),
+        tentativa("recusa-e-erro", "2026-09-28 10:30", "erro", "incerto"),
+        tentativa("recusa-e-erro", "2026-09-28 10:10", "recusada", "banco"),
+        // A marca de soltura (o carrinho é "-") não é de ninguém; a de outro carrinho, também não.
+        tentativa("-", "2026-09-28 10:50", "solta"),
+        tentativa("nada", "2026-09-28 10:50", "solta"),
+        tentativa("outro", "2026-09-28 10:10", "recusada", "banco"),
+      ]
+      expect(saidasDoPagamento(carrinhos, tentativas, p.atual, AGORA)).toEqual({
+        total: 14,
+        recusado: { banco: 2, antifraude: 2, dados: 1 },
+        naTela: 3,
+        barrado: 1,
+        erro: 4,
+        semTentar: 1,
+        semRegistro: 0,
+      })
+    })
+
+    it("o carrinho de antes do registro, ou de mais de 30 dias, fica sem registro", () => {
+      const sete = lerPeriodo({ periodo: "7d" }, AGORA)
+      // 26/09: antes de o Pix ser anotado (a 0150 subiu em 27/09, 14:14 UTC).
+      const antes = [parou("26", { created_at: em("2026-09-26 15:00") }), parou("28")]
+      expect(saidasDoPagamento(antes, [], sete.atual, AGORA)).toMatchObject({
+        total: 2,
+        semRegistro: 1,
+        semTentar: 1,
+      })
+      // Em novembro, o vigia já apagou as tentativas de mais de 30 dias.
+      const depois = new Date("2026-11-10T15:00:00.000Z")
+      const noventa = lerPeriodo({ periodo: "90d" }, depois)
+      const velhos = [
+        parou("outubro", {
+          created_at: em("2026-10-05 10:00"),
+          ...naTela("2026-10-05 10:05"),
+        }),
+        parou("novembro", { created_at: em("2026-11-01 10:00") }),
+      ]
+      const tentativas = [tentativa("novembro", "2026-11-01 10:05", "recusada", "dados")]
+      expect(saidasDoPagamento(velhos, tentativas, noventa.atual, depois)).toEqual({
+        total: 2,
+        recusado: { banco: 0, antifraude: 0, dados: 1 },
+        naTela: 0,
+        barrado: 0,
+        erro: 0,
+        semTentar: 0,
+        semRegistro: 1,
+      })
+    })
+
+    it("no Início, o porquê junto com o checkout; o total é o 'saíram' do 'Fizeram o pedido'", () => {
+      const p = lerPeriodo({}, AGORA)
+      const i = montarInicioNoPeriodo(
+        p,
+        {
+          ...semNada,
+          carrinhos: [
+            parou("a"),
+            parou("b", naTela("2026-09-28 10:30", "conexao")),
+            carrinho({ id: "c", ...entrega, completed_at: em("2026-09-28 11:00") }),
+          ],
+          tentativas: [tentativa("a", "2026-09-28 10:10", "recusada", "banco")],
+        },
+        AGORA
+      )
+      const [, , noPagamento, fizeram] = i.checkout!.map((x) => x.n)
+      expect(i.saidas).toMatchObject({ total: 2, recusado: { banco: 1 }, naTela: 1 })
+      expect(i.saidas!.total).toBe(noPagamento - fizeram)
+    })
   })
 })

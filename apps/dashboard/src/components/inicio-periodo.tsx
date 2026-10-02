@@ -10,6 +10,7 @@ import type {
   InicioNoPeriodo,
   PassoDoCheckout,
   PeriodoNaTela,
+  SaidasDoPagamento,
   Taxa,
   VisitasNoPeriodo,
 } from "@/lib/periodo"
@@ -428,14 +429,88 @@ const ONDE_SAEM = [
   "sem pagar (o Pix que venceu, o cartão recusado)",
 ]
 
-export function NoCheckout({ passos }: { passos: PassoDoCheckout[] }) {
+type Motivo = { chave: string; nome: string; n: number; cor?: "erro" }
+
+/**
+ * POR QUE SAÍRAM NO PAGAMENTO (0244) — o que aconteceu por último em cada
+ * carrinho que chegou no pagamento e não virou pedido. Os nomes do cartão são
+ * os do bloco Cartão do Marketing (Pagamento e frete). Só o que aconteceu.
+ */
+function motivosDaSaida(s: SaidasDoPagamento): Motivo[] {
+  const motivos: Motivo[] = [
+    {
+      chave: "banco",
+      nome: "Cartão recusado pelo banco (saldo, limite)",
+      n: s.recusado.banco,
+      cor: "erro",
+    },
+    {
+      chave: "antifraude",
+      nome: "Cartão barrado pela análise de fraude",
+      n: s.recusado.antifraude,
+      cor: "erro",
+    },
+    { chave: "dados", nome: "Dados do cartão errados", n: s.recusado.dados, cor: "erro" },
+    {
+      chave: "na-tela",
+      nome: "O cartão não passou da tela (o Pagar.me não validou)",
+      n: s.naTela,
+      cor: "erro",
+    },
+    { chave: "barrado", nome: "Barrados pela trava da loja (robô, limite do Pix)", n: s.barrado },
+    {
+      chave: "erro",
+      nome: "Deu erro (o parceiro fora, o Pix que não gerou)",
+      n: s.erro,
+      cor: "erro",
+    },
+    { chave: "sem-tentar", nome: "Saíram sem tentar pagar", n: s.semTentar },
+    {
+      chave: "sem-registro",
+      nome: "Sem registro (antes de 27/09 ou há mais de 30 dias)",
+      n: s.semRegistro,
+    },
+  ]
+  return motivos.filter((m) => m.n > 0)
+}
+
+function PorQueSairam({ s }: { s: SaidasDoPagamento }) {
+  return (
+    <div className="saidas" data-saidas={s.total}>
+      <h3 className="rotulo saidas__rotulo">
+        Por que {vezes(s.total, "saiu", "saíram")} no pagamento
+      </h3>
+      <ul className="barras-h" data-barras="saidas">
+        {motivosDaSaida(s).map((m) => (
+          <li key={m.chave} data-saida={m.chave}>
+            <span className="barras-h__nome">{m.nome}</span>
+            <span className="barras-h__num">
+              {INTEIRO.format(m.n)} <small>· {porcentoCurto((m.n / s.total) * 100)}</small>
+            </span>
+            <span className="barras-h__trilho">
+              <i style={{ width: `${((m.n / s.total) * 100).toFixed(1)}%` }} data-cor={m.cor} />
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+export function NoCheckout({
+  passos,
+  saidas,
+}: {
+  passos: PassoDoCheckout[]
+  saidas: SaidasDoPagamento | null
+}) {
   const comeco = passos[0]?.n ?? 0
   const pior = passos.findIndex((p) => p.pior)
   return (
     <section className="bloco" data-bloco="checkout">
       <CabecaDoBloco
         titulo="No checkout"
-        ajuda="Os carrinhos da loja criados no período — de todo mundo, com cookie ou sem. Cada passo conta quem chegou nele. O carrinho de antes de a loja marcar a abertura do checkout (fim de setembro de 2026) começa a contar do e-mail."
+        ajuda="Os carrinhos da loja criados no período — de todo mundo, com cookie ou sem. Cada passo conta quem chegou nele; o aviso amarelo é o passo com a maior taxa de saída. O carrinho de antes de a loja marcar a abertura do checkout (fim de setembro de 2026) começa a contar do e-mail. Por que saíram no pagamento: a última coisa que aconteceu em cada carrinho que chegou lá e não virou pedido — a recusa do cartão, o erro, ou nenhuma tentativa."
         lado={<span className="pilula pilula--suave">carrinhos da loja</span>}
       />
       {comeco ? (
@@ -464,9 +539,10 @@ export function NoCheckout({ passos }: { passos: PassoDoCheckout[] }) {
                 {INTEIRO.format(passos[pior - 1].n - passos[pior].n)} de{" "}
                 {INTEIRO.format(passos[pior - 1].n)} saíram {ONDE_SAEM[pior]}
               </b>{" "}
-              — é onde o checkout mais perde gente no período.
+              — a maior taxa de saída do período.
             </p>
           ) : null}
+          {saidas && saidas.total > 0 ? <PorQueSairam s={saidas} /> : null}
         </>
       ) : (
         <p className="sem-dados">Nenhum checkout no período.</p>
