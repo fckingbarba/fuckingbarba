@@ -26,7 +26,9 @@ import { daLojaAntiga, lerPedidosDoWhatsapp, pedidoEmTexto, type PedidoNoWhatsap
  *   mandar_codigo_do_pix   o copia e cola do Pix que ainda vale, numa
  *                          mensagem SÓ COM ELE, logo depois da resposta — no
  *                          WhatsApp a pessoa copia a mensagem inteira, e o app
- *                          do banco não aceita o código com texto junto;
+ *                          do banco não aceita o código com texto junto. Só
+ *                          quando a pessoa pede ou quer pagar (0246: no "cadê
+ *                          meu pedido?" ele mandava o Pix e esquecia o enviado);
  *   cotar_frete            o frete pra um CEP, pela mesma conta da página do
  *                          produto e do checkout (`lib/cotar-frete.ts`);
  *   montar_sacola          um carrinho com os produtos e o link que abre o
@@ -142,7 +144,8 @@ export const FERRAMENTAS_DA_LOJA: Anthropic.Beta.BetaTool[] = [
     name: "mandar_codigo_do_pix",
     description:
       "Manda o código Pix copia e cola de um pedido deste telefone que está esperando o pagamento, numa " +
-      "mensagem separada logo depois da sua resposta (só o código, pra pessoa copiar). Nunca escreva o código você.",
+      "mensagem separada logo depois da sua resposta (só o código, pra pessoa copiar). Use quando a pessoa " +
+      "pedir o código ou disser que quer pagar. Nunca escreva o código você.",
     strict: true,
     input_schema: {
       type: "object",
@@ -275,7 +278,10 @@ async function verMeusPedidos(ctx: ContextoDasFerramentas): Promise<ResultadoDaF
     }
   const blocos = pedidos.map((p) => {
     const extra: string[] = []
-    if (p.pix) extra.push("Dá pra mandar o código do Pix: mandar_codigo_do_pix.")
+    if (p.pix)
+      extra.push(
+        "Se a pessoa pedir o código ou quiser pagar: mandar_codigo_do_pix. Se não, ofereça."
+      )
     if (p.situacao === "vencido" || (p.situacao === "cancelado" && !p.foiPago))
       extra.push("Dá pra refazer este pedido com o link de refazer_pedido.")
     return [pedidoEmTexto(p, { dono: true }), ...extra].join("\n")

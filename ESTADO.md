@@ -5317,7 +5317,7 @@ de antes e no novo, com o Sonnet de verdade; US$ 1,24 no total):
   conversas (as 24 de antes e 3 de detalhe de produto), a conferência automática, a revisão às
   cegas e o "antes x depois". Serve pra medir antes de mudar o modelo, as instruções ou o catálogo.
   Cada rodada precisa de uma chave de teste da Anthropic e custa uns US$ 0,25.
-- **Achados pra depois** (já existiam: apareceram nas duas versões, uma vez em cada):
+- **Achados** (já existiam: apareceram nas duas versões, uma vez em cada; corrigidos na 0246, abaixo):
   - no "cadê meu pedido?" de quem tem um pedido enviado e outro esperando o Pix, o atendente às
     vezes manda o código do Pix e não fala do pedido enviado;
   - num presente de R$ 114,90, ele disse que já vinha com frete grátis (o grátis começa em
@@ -5330,6 +5330,33 @@ prettier.
 Depois do deploy — **nada pra configurar.** A primeira resposta depois do deploy grava a memória
 nova, e daí em diante vale o custo menor. No cartão do custo, as respostas de hoje de antes do
 deploy contam a gravação inteira, como antes.
+
+**Os 2 deslizes do atendente do WhatsApp — pronto em 02/10 (entrega 0246).** Pedido dele: "corrige"
+(os achados da simulação da 0243).
+
+- **"Cadê meu pedido?":** quem tinha um pedido enviado e outro esperando o Pix às vezes recebia só o
+  código do Pix, sem uma palavra do pedido enviado. Agora o atendente diz a situação de cada pedido,
+  com o rastreio, e oferece o código. O Pix só sai quando a pessoa pede o código ou diz que quer
+  pagar.
+- **Frete grátis:** num presente de R$ 114,90, ele disse "já com frete grátis" (o grátis começa em
+  R$ 139,90). Agora, abaixo do mínimo, ele não diz que sai com frete grátis: diz a partir de quanto
+  é e, se sugerir o que completa, soma antes ("levando 3 balms, dá R$ 168,90 e passa do mínimo"). O
+  valor continua vindo da página de dúvidas: mudou nas Configurações, muda aqui.
+- **De quebra:** pedindo o CEP, ele inventava verbos ("eu cotifico o frete"). Agora diz "me passa
+  seu CEP que eu calculo o frete".
+
+Testado na simulação com o Sonnet de verdade (US$ 0,24):
+- "cadê meu pedido?": 5 de 5 com os dois pedidos, o rastreio e o Pix oferecido (na 0243, 2 de 4
+  mandavam o Pix e esqueciam o pedido enviado);
+- o presente até R$ 120: 5 de 5 sem prometer frete grátis;
+- uma conversa nova, "só o balm sai com frete grátis?": 4 de 4 certas na versão final;
+- as vizinhas, todas certas: o Pix de novo (sai, porque a pessoa pediu), o cliente bravo, repetir a
+  compra, a sacola, o cupom e o frete pelo CEP.
+
+Conferido também: o conferidor do atendente (64/64), os testes de unidade do backend (1.903),
+typecheck, lint e prettier.
+
+Depois do deploy — **nada pra configurar.**
 
 **As ofertas ocultas — pronto em 01/10 (entrega 0238).** Pedido dele: "ofertas ocultas pro site,
 só através de um link que não aparece no site". As escolhas dele: produtos da loja com desconto,

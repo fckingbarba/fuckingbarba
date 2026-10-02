@@ -100,6 +100,8 @@ export function conferir(
     else if (r.extras.some((x) => texto.includes(x.slice(0, 30))))
       falhas.push("escreveu o código do Pix no texto")
   }
+  if (e.extras === false && r.extras.length)
+    falhas.push("mandou o código do Pix sem a pessoa pedir")
   if (e.semOi && /^\s*(oi|ol[áa]|opa|e a[íi]|fala|salve)\b/i.test(texto))
     avisos.push("cumprimentou de novo no meio da conversa")
 

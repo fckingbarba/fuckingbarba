@@ -21,7 +21,7 @@ export type Espera = {
   links?: string[]
   /** Expressões que não podem aparecer. */
   proibido?: string[]
-  /** O código do Pix tem que sair em mensagem separada. */
+  /** true: o código do Pix tem que sair em mensagem separada; false: não pode sair (ninguém pediu). */
   extras?: boolean
   /** Conversa em andamento: sem "oi" de novo. */
   semOi?: boolean
@@ -37,6 +37,19 @@ export type Cenario = {
   espera: Espera
   bom: string
 }
+
+/**
+ * "Já vem com frete grátis" de quem não chega no mínimo (0246: um presente de
+ * R$ 114,90 "já com frete grátis", com o grátis a partir de R$ 139,90). Não
+ * vale o "não sai com frete grátis", nem a frase com a condição ("a partir
+ * de", "quando passa"…).
+ */
+const COM_CONDICAO = "(?![^.]*(a partir|acima|quando|se |passa|chega| só))"
+const FRETE_GRATIS_FALSO = [
+  `(?<!não )(?<!nao )(j[áa]|vem|sai|fica|est[áa]) (\\w+ )?com (o )?frete gr[áa]tis${COM_CONDICAO}`,
+  `(?<!não )(?<!nao )\\btem frete gr[áa]tis${COM_CONDICAO}`,
+  `[Ff]rete (é|sai|fica) gr[áa]tis${COM_CONDICAO}`,
+]
 
 export const CENARIOS: Cenario[] = [
   {
@@ -118,8 +131,13 @@ export const CENARIOS: Cenario[] = [
     cliente: true,
     nome: "Lucas Andrade",
     falas: [{ de: "cliente", texto: "fala, cadê meu pedido?" }],
-    espera: { equipe: false, ferramentas: ["ver_meus_pedidos"], contem: ["{rastreio}"] },
-    bom: "Vê os pedidos: o #{enviado} foi enviado (o rastreio e o link) e o #{pix} espera o Pix. Oferece o código do Pix.",
+    espera: {
+      equipe: false,
+      ferramentas: ["ver_meus_pedidos"],
+      contem: ["{rastreio}"],
+      extras: false,
+    },
+    bom: "Vê os pedidos: o #{enviado} foi enviado (o rastreio e o link) e o #{pix} espera o Pix. Oferece o código do Pix (não manda sem ele pedir).",
   },
   {
     id: "pix-de-novo",
@@ -319,8 +337,21 @@ export const CENARIOS: Cenario[] = [
           "quero dar de presente pro meu pai que tem a barba grande, o q vcs recomendam ate uns 120 reais?",
       },
     ],
-    espera: { equipe: false },
-    bom: "Um kit dentro do valor (Kit Completo R$ 114,90 é o que mais combina com barba grande; Kit Hidratação ou Essencial também cabem), com o porquê, preço e link.",
+    espera: { equipe: false, proibido: FRETE_GRATIS_FALSO },
+    bom: "Um kit dentro do valor (Kit Completo R$ 114,90 é o que mais combina com barba grande; Kit Hidratação ou Essencial também cabem), com o porquê, preço e link. Sem dizer que já vem com frete grátis (o grátis é a partir de R$ 139,90).",
+  },
+  {
+    id: "frete-gratis-so-o-balm",
+    titulo: "Só o balm sai com frete grátis?",
+    nome: "Otávio",
+    falas: [{ de: "cliente", texto: "se eu pegar so o balm o frete sai gratis?" }],
+    // "eu cotei/cotizo/cotifico o frete": o verbo que ele inventava pedindo o CEP (0246).
+    espera: {
+      equipe: false,
+      contem: ["139,90"],
+      proibido: [...FRETE_GRATIS_FALSO, "\\beu cot(?!e\\b)"],
+    },
+    bom: "Não: o frete é grátis a partir de R$ 139,90, e o balm sozinho (R$ 59,90) paga frete. Pode pedir o CEP pra cotar ou lembrar o que completa, sem empurrar.",
   },
   // ── os de detalhe: o catálogo enxuto não tem; a resposta certa passa pela ver_produto ──
   {
