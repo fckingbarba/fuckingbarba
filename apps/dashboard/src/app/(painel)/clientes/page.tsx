@@ -26,8 +26,9 @@ const endereco = (busca: string, pagina: number) => {
 }
 
 /**
- * CLIENTES — quem já comprou ou tem conta na loja: quantos pedidos, quanto
- * gastou e se aceita ofertas. A busca vai no endereço (`?busca=rafael`).
+ * CLIENTES — quem pagou pelo menos um pedido: quantos pedidos, quanto
+ * gastou e se aceita ofertas. O carrinho largado e o checkout sem pagamento
+ * não entram (0242), mas seguem no CRM e na newsletter. A busca vai no endereço (`?busca=rafael`).
  * Os três papéis abrem; o marketing vê só quem aceitou ofertas, e sem a
  * cidade — o backend (`GET /dashboard/clientes`) já manda assim. É quem não
  * abre os `contatos`: o papel criado pelo dono sem essa caixinha vê igual. De 30 em
@@ -65,8 +66,8 @@ async function Lista({ caminho }: { caminho: string }) {
         titulo="Clientes"
         ajuda={
           semContatos
-            ? `${quem} vê só quem aceitou receber ofertas — e sem CPF, telefone ou endereço (LGPD). Os outros não aparecem aqui.`
-            : "Quem já comprou ou tem conta na loja. O ícone aceso diz por onde a pessoa aceitou receber ofertas: e-mail ou WhatsApp."
+            ? `${quem} vê só os clientes que aceitaram receber ofertas — e sem CPF, telefone ou endereço (LGPD). Os outros não aparecem aqui.`
+            : "Quem pagou pelo menos um pedido. Carrinho abandonado e checkout sem pagamento não aparecem aqui — continuam no CRM. O ícone aceso diz por onde a pessoa aceitou receber ofertas: e-mail ou WhatsApp."
         }
       />
       <AbasDeClientes atual="lista" comNewsletter={leitura.areas.includes("newsletter")} />
