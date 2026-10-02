@@ -2941,7 +2941,10 @@ dos pedidos. A operação abre a ficha sem essa parte.
   na etiqueta nem no caminho.
 
 O `conferir-crm.mjs` confere a ficha da conta da rodada (lead, quente pelo clique, "Direto", o
-caminho com o e-mail clicado e o site, a tela, e a operação sem a parte do CRM); o
+caminho com o e-mail clicado e o site, a tela, e a operação sem a parte do CRM). A conta não
+comprou: desde a 0242 ela fica fora da lista de Clientes, e o conferidor confere isso e abre a ficha
+pelo id que pega no admin local (até a 0250 ele procurava a conta na lista, e a seção parava no
+meio); o
 `conferir-clientes.mjs`, as etiquetas com pedidos de verdade (1ª compra, a oferta do checkout fora
 do cupom, o Pix esperando fora da compra, o marketing sem o número do pedido).
 

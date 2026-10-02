@@ -5557,6 +5557,21 @@ comparação da tela velha com a nova (20 de 20 iguais), typecheck, lint e prett
 
 Depois do deploy — **nada pra configurar.** Pra ver: Carrinhos, e trocar de filtro e de página.
 
+**O teste do CRM roda inteiro de novo — pronto em 02/10 (entrega 0250).** Desde a 0242 (Clientes
+= quem pagou), o teste automático do CRM (`conferir-crm`) parava no meio: ele procurava na lista
+de Clientes uma pessoa de teste que entrou na conta e nunca comprou — e ela, de propósito, não
+está mais lá. Tudo o que vinha depois (Ajustes, base da Nuvemshop, fluxos, carrinho, reposição…)
+deixava de ser conferido.
+
+- **Agora o teste confere as duas coisas:** que quem não comprou fica fora da lista (a regra da
+  0242) e que a ficha dessa pessoa continua abrindo pelo link, com o CRM (ela segue "Lead").
+- **Nada muda na loja nem no painel:** só o teste.
+
+Conferido: o conferidor do CRM inteiro, 259/259 em três rodadas seguidas; o de antes, na mesma
+máquina, para na ficha (44/50, "parou no meio"); lint e prettier.
+
+Depois do deploy — **nada pra configurar.** É só o teste.
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa
