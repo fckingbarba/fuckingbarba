@@ -9,9 +9,11 @@
  * Variáveis: as de `pecas.mjs`, a NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY, o
  * Medusa mandando os códigos pro Resend falso (`RESEND_URL`) e o segredo dos
  * avisos do Resend (`RESEND_WEBHOOK_SEGREDO`, o mesmo do Medusa: o
- * conferidor assina os avisos como o Resend). Pros Ajustes (parte 4), o
- * pedido de Fator entregue nasce como no `conferir-clientes`: ADMIN_EMAIL e
- * ADMIN_SENHA (o admin LOCAL), MEDUSA_WEBHOOK_SEGREDO, PORTA_FALSA (a Frenet
+ * conferidor assina os avisos como o Resend). Pra ficha (parte 3), o
+ * ADMIN_EMAIL e o ADMIN_SENHA (o admin LOCAL): a conta da rodada não
+ * comprou, então não está na lista de Clientes (0242), e o id dela sai do
+ * admin. Pros Ajustes (parte 4), o pedido de Fator entregue nasce como no
+ * `conferir-clientes`: o mesmo admin, MEDUSA_WEBHOOK_SEGREDO, PORTA_FALSA (a Frenet
  * falsa) e PORTA_PAGARME_FALSO. Pro sair da lista (parte 6), o JWT_SECRET
  * do Medusa: o conferidor faz o link de uma pessoa da base como o e-mail
  * faria. A regra de
@@ -35,7 +37,8 @@
  * │   contas do CRM;                                                       │
  * │ • (parte 3) a ficha do cliente sem as etiquetas, sem de onde ele       │
  * │   chegou, ou com um caminho que não junta o site e os e-mails; a       │
- * │   operação recebendo a parte do CRM. (Os pedidos na ficha: o           │
+ * │   operação recebendo a parte do CRM; a conta sem compra (o lead) na    │
+ * │   lista de Clientes, ou sem a ficha (0242). (Os pedidos na ficha: o    │
  * │   conferir-clientes.)                                                  │
  * │ • (parte 4) os Ajustes que não valem na ficha (o Fator com outros      │
  * │   dias e a próxima compra parada); número errado gravando; a operação  │
@@ -688,17 +691,49 @@ try {
   /* ── a ficha da pessoa (parte 3) ────────────────────────────────────────── */
 
   titulo("A ficha do cliente, com o CRM")
+  // O admin LOCAL: acha a conta da rodada (aqui) e faz o pedido de Fator dos Ajustes (parte 4).
+  const tokenAdmin = (
+    await (
+      await fetch(`${MEDUSA}/auth/user/emailpass`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          email: process.env.ADMIN_EMAIL,
+          password: process.env.ADMIN_SENHA,
+        }),
+      })
+    ).json()
+  ).token
+  // A conta da rodada não comprou: desde a 0242 ela não é cliente na lista, e a
+  // ficha abre pelo link — o id do Medusa, que o conferidor pega no admin.
+  const naLista = await medusa(`/dashboard/clientes?busca=${encodeURIComponent(DA_CONTA)}`, {
+    metodo: "GET",
+    token: tokenDoDono,
+  })
+  ok(
+    naLista.status === 200 &&
+      Array.isArray(naLista.corpo.clientes) &&
+      !naLista.corpo.clientes.some((c) => c.email === DA_CONTA),
+    "a conta da rodada, sem compra, fica fora da lista de Clientes (0242)",
+    JSON.stringify(naLista.corpo.clientes?.map((c) => c.email))
+  )
   const clienteDaConta = (
-    await medusa(`/dashboard/clientes?busca=${encodeURIComponent(DA_CONTA)}`, {
-      metodo: "GET",
-      token: tokenDoDono,
-    })
-  ).corpo.clientes?.find((c) => c.email === DA_CONTA)
-  ok(Boolean(clienteDaConta?.id), "a conta da rodada está nos clientes")
+    await (
+      await fetch(
+        `${MEDUSA}/admin/customers?email=${encodeURIComponent(DA_CONTA)}&fields=id,email`,
+        { headers: { authorization: `Bearer ${tokenAdmin}` } }
+      )
+    ).json()
+  ).customers?.[0]
   const fichaDaConta = await medusa(`/dashboard/clientes/${clienteDaConta?.id}`, {
     metodo: "GET",
     token: tokenDoDono,
   })
+  ok(
+    fichaDaConta.status === 200 && fichaDaConta.corpo.cliente?.email === DA_CONTA,
+    "mas a ficha dela abre pelo link",
+    `${clienteDaConta?.id ?? "o admin não achou a conta"} · ${fichaDaConta.status}`
+  )
   const crmDaConta = fichaDaConta.corpo.cliente?.crm
   const etiquetaDaConta = (chave) => crmDaConta?.etiquetas?.find((e) => e.chave === chave)
   ok(
@@ -793,23 +828,7 @@ try {
 
   // Um pedido de Fator, entregue hoje: a próxima compra é a entrega + o que o Fator dura.
   const DO_FATOR = `fator@${DOMINIO}`
-  const fabrica = fabricaDePedidos({
-    medusa: MEDUSA,
-    chave: CHAVE,
-    tokenAdmin: (
-      await (
-        await fetch(`${MEDUSA}/auth/user/emailpass`, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            email: process.env.ADMIN_EMAIL,
-            password: process.env.ADMIN_SENHA,
-          }),
-        })
-      ).json()
-    ).token,
-    pagarme,
-  })
+  const fabrica = fabricaDePedidos({ medusa: MEDUSA, chave: CHAVE, tokenAdmin, pagarme })
   const doFator = await fabrica.pedidoPix(DO_FATOR, [["fator-de-crescimento-para-barba", 1]])
   await fabrica.pagar(doFator)
   await fabrica.entregar(
