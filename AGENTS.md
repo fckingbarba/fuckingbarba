@@ -2125,6 +2125,9 @@ testes, e faz o seguinte:
 - junta os consentimentos (`consentimentosDa`): a caixa de "Meus dados" (o `metadata.ofertas` do
   cliente, `{ email, whatsapp }`, cada um com a data do primeiro "sim") e a `newsletter_inscricao`
   do rodapé;
+- na lista (`listaDeClientes`), cliente é quem pagou (0242): pelo menos um pedido pago e não
+  cancelado. O carrinho largado, o checkout sem pagamento e a conta sem compra ficam fora SÓ da
+  lista — a ficha abre pelo link, e a newsletter e o CRM leem as mesmas pessoas, inteiras;
 - corta a lista e a ficha por papel (`listaDeClientes`, `fichaDoCliente`): o marketing só vê quem
   aceitou ofertas, sem cidade, celular, CPF, endereço e pedidos, e a ficha de quem não aceitou dá
   404 pra ele. O CPF inteiro só sai pro dono;
@@ -2138,8 +2141,9 @@ As rotas são estas:
 
 O "tirar" apaga a inscrição (`removerDaNewsletterWorkflow`) e desmarca só o e-mail no
 `metadata.ofertas` da conta, deixando o WhatsApp. Ele anota no registro da equipe com o e-mail
-mascarado (`emailMascarado`). A lista lê até 5000 clientes e os últimos 2000 pedidos, só com os
-campos que ela soma. A ficha lê os pedidos inteiros de todos os cadastros da pessoa, até 200. O
+mascarado (`emailMascarado`). A lista lê TODOS os clientes e pedidos, em páginas de 5000 e 2000
+(`lerTodosOsClientes`, `pedidosDosClientes`; antes da 0242, só os mais novos), só com os campos
+que ela soma. A ficha lê os pedidos inteiros de todos os cadastros da pessoa, até 200. O
 `numerosDaNewsletter` do Início usa a mesma conta da aba. Desde a 0145, a ficha traz também a
 parte do CRM (as 5 etiquetas e o caminho da pessoa) pra quem abre o CRM — ver "O CRM, parte 3". O
 conferidor é o `apps/dashboard/ferramentas/conferir-clientes.mjs` (55, com as etiquetas e a

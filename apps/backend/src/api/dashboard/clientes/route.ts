@@ -8,22 +8,25 @@ import {
 } from "../../../lib/painel/clientes"
 import {
   inscricoesDaNewsletter,
-  lerClientes,
+  lerTodosOsClientes,
   pedidosDosClientes,
   totaisDos,
 } from "../../../lib/painel/ler"
 import { lerPagina, paginar } from "../../../lib/painel/paginas"
 
 /**
- * GET /dashboard/clientes?busca= — a lista de clientes do painel: quem já
- * comprou ou tem conta, quantos pedidos, quanto gastou e se aceita ofertas.
+ * GET /dashboard/clientes?busca= — a lista de clientes do painel: quem
+ * pagou pelo menos um pedido (0242), quantos pedidos, quanto gastou e se
+ * aceita ofertas.
  * Os três papéis abrem; o marketing vê só quem aceitou ofertas, e sem a
  * cidade (`listaDeClientes`, em `lib/painel/clientes.ts`) — e o papel criado
  * pelo dono, como o marketing se não abre os `contatos` (`papelDosDados`). A
  * busca procura nome e e-mail.
  *
  * Em páginas de 30 (`?pagina=`): `total` e `comOfertas` contam todos, e
- * `paginacao.itens`, os que a busca achou.
+ * `paginacao.itens`, os que a busca achou. Lê TODOS os cadastros e pedidos
+ * (em páginas, 0242): com a lista só de quem pagou, um corte nos mais novos
+ * tiraria dela quem comprou antes.
  *
  * RESPOSTAS: 200 `{ clientes, total, comOfertas, busca, paginacao }`.
  */
@@ -34,7 +37,7 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
   const q = req.query as { busca?: unknown; pagina?: unknown }
   const busca = typeof q.busca === "string" ? q.busca.slice(0, 80) : ""
   const [clientes, pedidos, inscricoes] = await Promise.all([
-    lerClientes(req.scope),
+    lerTodosOsClientes(req.scope),
     pedidosDosClientes(req.scope, { semTotal: true }),
     inscricoesDaNewsletter(req.scope),
   ])

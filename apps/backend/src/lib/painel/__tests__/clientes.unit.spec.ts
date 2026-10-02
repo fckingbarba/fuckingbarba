@@ -95,17 +95,28 @@ describe("a lista", () => {
         metadata: { ofertas: { email: "2026-09-22T10:00:00-03:00", whatsapp: null } },
       }),
       cliente("cus_c", "joao@exemplo.com", { first_name: "João", last_name: "Nunes" }),
+      // Quem não pagou: a conta que só tem o Pix que venceu, e o cadastro do checkout largado.
+      cliente("cus_d", "carla@exemplo.com", {
+        has_account: true,
+        metadata: { ofertas: { email: null, whatsapp: "2026-09-22T10:00:00-03:00" } },
+      }),
+      cliente("cus_e", "edu@exemplo.com", { created_at: "2026-09-24T19:00:00-03:00" }),
     ],
     [
       pedido("o1", "cus_a", "2026-09-24T20:52:00-03:00", { total: 128.5 }),
       pedido("o2", "cus_a", "2026-09-21T10:00:00-03:00", { total: 79.9, pago: false }),
       pedido("o3", "cus_a", "2026-09-20T10:00:00-03:00", { total: 50, cancelado: true }),
       pedido("o4", "cus_b", "2026-09-23T10:00:00-03:00", { cidade: "Belo Horizonte" }),
+      pedido("o5", "cus_c", "2026-09-15T10:00:00-03:00", { total: 60, cidade: "" }),
+      pedido("o6", "cus_d", "2026-09-24T21:00:00-03:00", { pago: false }),
     ],
-    [inscricao("joao@exemplo.com", "2026-09-02T09:00:00-03:00")]
+    [
+      inscricao("joao@exemplo.com", "2026-09-02T09:00:00-03:00"),
+      inscricao("edu@exemplo.com", "2026-09-24T19:00:00-03:00"),
+    ]
   )
 
-  it("dono: todos, do que comprou por último pro mais antigo; gastou só o pago e não cancelado", () => {
+  it("dono: quem pagou, do que comprou por último pro mais antigo; gastou só o pago e não cancelado", () => {
     const l = listaDeClientes(pessoas, "dono", AGORA)
     expect(l.clientes.map((c) => c.email)).toEqual([
       "ana@exemplo.com",
@@ -127,14 +138,31 @@ describe("a lista", () => {
     })
     expect(l.clientes[1]!.nome).toBe("Rafael Souza")
     expect(l.clientes[2]).toMatchObject({
-      pedidos: 0,
-      gastou: 0,
+      pedidos: 1,
+      gastou: 60,
       cidade: null,
       ofertas: "e-mail · desde 02/09",
       canais: { email: true, whatsapp: false },
     })
     expect(l.total).toBe(3)
     expect(l.comOfertas).toBe(2)
+  })
+
+  it("quem não pagou não é cliente: fica fora da lista, dos números e da busca — e a ficha segue abrindo", () => {
+    for (const papel of ["dono", "operacao", "marketing"] as const) {
+      const l = listaDeClientes(pessoas, papel, AGORA)
+      expect(l.clientes.map((c) => c.id)).not.toContain("cus_d")
+      expect(l.clientes.map((c) => c.id)).not.toContain("cus_e")
+      expect(l.total).toBe(3)
+      expect(l.comOfertas).toBe(2)
+    }
+    expect(listaDeClientes(pessoas, "dono", AGORA, "carla").clientes).toEqual([])
+    // A ficha (o link do pedido sem pagamento, a newsletter) não depende da lista.
+    const carla = pessoas.find((p) => p.email === "carla@exemplo.com")!
+    expect(fichaDoCliente(carla, "dono", ctx, new Map(), new Map())).toMatchObject({
+      id: "cus_d",
+      resumo: { pedidos: 0, gastou: 0 },
+    })
   })
 
   it('pedido sem pagamento não conta: nem no número, nem no "último", nem na ordem', () => {
@@ -151,11 +179,11 @@ describe("a lista", () => {
       []
     )
     const l = listaDeClientes(soSemPagar, "dono", AGORA)
+    // Os dois Pix de x, mais novos que a compra de y, não fazem dele cliente.
     expect(l.clientes.map((c) => [c.email, c.pedidos, c.gastou])).toEqual([
       ["y@exemplo.com", 1, 90],
-      ["x@exemplo.com", 0, 0],
     ])
-    expect(l.clientes[1]!.ultimo).toBe(quando("2026-09-01T10:00:00-03:00", AGORA))
+    expect(l.clientes[0]!.ultimo).toBe(quando("2026-09-10T10:00:00-03:00", AGORA))
   })
 
   it("o gasto é o que foi cobrado, com o cupom descontado — não a conta de antes dele", () => {
@@ -172,6 +200,7 @@ describe("a lista", () => {
 
   it("marketing: só quem aceitou ofertas, e sem a cidade", () => {
     const l = listaDeClientes(pessoas, "marketing", AGORA)
+    // A Carla aceitou o WhatsApp, mas não pagou: não é cliente.
     expect(l.clientes.map((c) => c.email)).toEqual(["bruno@exemplo.com", "joao@exemplo.com"])
     expect(l.clientes.every((c) => c.cidade === null)).toBe(true)
     expect(l.total).toBe(3)
