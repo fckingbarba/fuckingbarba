@@ -3,6 +3,7 @@ import {
   ehListaDeOferta,
   enderecoDoNome,
   lerOfertaNova,
+  lerRelogio,
   normalizarEndereco,
   PREFIXO_DA_LISTA,
   precosDaLista,
@@ -46,7 +47,15 @@ describe("lerOfertaNova", () => {
         { produto: "prod_FATOR", por: 69.9 },
         { produto: "prod_OLEO", por: 49.9 },
       ],
+      relogio: null,
     })
+  })
+
+  it("o relógio da página: minutos, de 5 a 72 horas; vazio conta até o fim", () => {
+    const com = lerOfertaNova({ ...valida, relogio: 200 }, agora, loja)
+    expect(com.ok && com.oferta.relogio).toBe(200)
+    const fora = lerOfertaNova({ ...valida, relogio: "3" }, agora, loja)
+    expect(!fora.ok && fora.erros.relogio).toBe("O relógio: de 5 minutos a 72 horas.")
   })
 
   it("começo no futuro fica; no passado vira agora", () => {
@@ -190,5 +199,20 @@ describe("ehListaDeOferta", () => {
     expect(ehListaDeOferta(`${PREFIXO_DA_LISTA}vip-outubro-k7m2`)).toBe(true)
     expect(ehListaDeOferta("Promoção do painel")).toBe(false)
     expect(ehListaDeOferta(null)).toBe(false)
+  })
+})
+
+describe("lerRelogio", () => {
+  it("vazio é nulo; número inteiro dentro da faixa vale; o resto é erro", () => {
+    expect(lerRelogio("")).toBeNull()
+    expect(lerRelogio(null)).toBeNull()
+    expect(lerRelogio(0)).toBeNull()
+    expect(lerRelogio("200")).toBe(200)
+    expect(lerRelogio(5)).toBe(5)
+    expect(lerRelogio(4320)).toBe(4320)
+    expect(lerRelogio(4)).toBeUndefined()
+    expect(lerRelogio(4321)).toBeUndefined()
+    expect(lerRelogio("3h")).toBeUndefined()
+    expect(lerRelogio(12.5)).toBeUndefined()
   })
 })

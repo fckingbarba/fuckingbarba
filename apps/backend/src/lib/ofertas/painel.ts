@@ -43,6 +43,8 @@ export type OfertaNaLista = {
   comecaEm: string
   terminaEm: string
   situacao: Situacao
+  /** O tempo do relógio da página, em minutos (recomeça); `null`, até o fim. */
+  relogioMinutos: number | null
   produtos: ProdutoNaLista[]
   vendas: { pedidos: number; vendeu: number }
 }
@@ -140,6 +142,7 @@ export async function ofertasNaLista(
       comecaEm: new Date(o.comeca_em).toISOString(),
       terminaEm: new Date(o.termina_em).toISOString(),
       situacao: situacaoDaOferta(o, agora),
+      relogioMinutos: o.relogio_minutos ?? null,
       produtos: o.produtos.map((p) => ({
         id: p.produto,
         nome: produtos.get(p.produto)?.nome ?? "Produto que saiu da loja",

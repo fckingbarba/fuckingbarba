@@ -52,6 +52,8 @@ export type OfertaGuardada = {
   comeca_em: Date | string
   termina_em: Date | string
   pausada: boolean
+  /** O tempo do relógio da página, em minutos (recomeça); `null`, até o fim. */
+  relogio_minutos?: number | null
   produtos: ProdutoDaOferta[]
   lista_id: string | null
   criada_por?: string | null
