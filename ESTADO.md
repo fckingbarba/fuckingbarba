@@ -5387,6 +5387,21 @@ rodou: depois que o Mac reiniciou, não havia Medusa local.
 
 Depois do deploy — **nada a configurar.** Abra Clientes: só quem pagou.
 
+**A faixa do contador da oferta, mais bonita — pronto em 02/10 (entrega 0245).** Pedido dele: "o
+contador ali da oferta podemos melhorar"; do desenho, quis a faixa do mesmo tamanho ("os outros
+ocupam muito espaço"), escolheu a F2 e pediu um ícone de relógio.
+
+- A faixa do alto da página do produto (só pra quem veio pelo link) virou uma **fita amarela**: o raio
+  num quadrado preto, "PREÇO DO SEU LINK · acaba em", e o relógio num bloco preto com o ícone de
+  cronômetro e os números em amarelo — 02d 14h 33m 08s, os segundos em verde, andando ao vivo.
+- Mesmo tamanho de antes. Em celular bem estreito, o nome quebra em duas linhas e o relógio encolhe um
+  pouco, sem passar um por cima do outro.
+
+Conferido: o conferidor das ofertas (67/67), a faixa em 320, 360 e 390 px e no computador, typecheck,
+lint e prettier.
+
+Depois do deploy — **nada pra configurar.**
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa

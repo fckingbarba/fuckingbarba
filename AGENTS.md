@@ -2416,8 +2416,10 @@ no navegador — o cookie `fb_oferta` (o endereço, legível pelo JavaScript, at
 `cookieDaOferta`, na `JanelaDaOferta`). Na PDP, o `ProvedorDaOfertaNaPdp` (em volta da `Dobra`,
 `components/oferta/na-pdp.tsx`) lê a marca e, só com ela, pergunta `/api/oferta/<endereço>` (a
 mesma `buscarOferta` guardada); com o produto na oferta e ela no ar, `useOfertaNaPdp` dá o "por" e o
-"-X%" da foto. Mudam só pra esse navegador: a `FaixaDaOferta` no alto ("Oferta do seu link · acaba
-em 2d 14:33:08"), o selo da `Galeria`, a `Compra` (a unidade pelo menor entre o "por" e o preço dela
+"-X%" da foto. Mudam só pra esse navegador: a `FaixaDaOferta` no alto (desde a 0245, a fita amarela:
+o raio num quadrado preto, "Preço do seu link · acaba em" e o relógio num bloco preto com o ícone
+`Cronometro` e 02d 14h 33m 08s — os segundos em menta; abaixo de 360 px o nome quebra a linha e o
+relógio encolhe), o selo da `Galeria`, a `Compra` (a unidade pelo menor entre o "por" e o preço dela
 na quantidade; a linha "Na loja: R$ X · no seu link: R$ Y" no lugar do "Economiza"; os cartões pelo
 `degrausDaOferta`, sem a fita de melhor preço; o "Leve X, pague Y" fora da conta da tela; o botão por
 `adicionarDaOferta`/`adicionarVariosDaOferta`) e a barra fixa (o `PrazoDaOferta`). O HTML que sai do
