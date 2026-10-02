@@ -4,7 +4,7 @@ import { WHATSAPP } from "../../modules/whatsapp"
 import type WhatsappService from "../../modules/whatsapp/service"
 import { lerFichaDoSite } from "../crm/ficha-do-site"
 import { ajustesDoWhatsapp } from "../whatsapp/ajustes"
-import { custoEmDolar } from "../whatsapp/atendente"
+import { custoDaGravacao, custoEmDolar } from "../whatsapp/atendente"
 import { clientePeloTelefone } from "../whatsapp/cliente"
 import { credenciaisDoWhatsapp } from "../whatsapp/meta"
 import { lerPedidosDoWhatsapp, SITUACAO_CURTA } from "../whatsapp/pedidos"
@@ -143,6 +143,7 @@ export async function lerTelaDoWhatsapp(
     pular: (pagina - 1) * POR_PAGINA,
   })
   const custo = custoEmDolar(doDia.uso)
+  const gravando = custoDaGravacao(doDia.uso)
   return {
     filtro: p.filtro,
     busca,
@@ -157,6 +158,9 @@ export async function lerTelaDoWhatsapp(
       vendas: { total: reais(vendas.total), pedidos: vendas.pedidos },
       custoHoje: emDolar(custo),
       custoPorResposta: doDia.respostas ? emDolar(custo / doDia.respostas) : null,
+      custoGravando: emDolar(gravando),
+      gravacoes: doDia.gravacoes,
+      custoRespondendo: emDolar(Math.max(0, custo - gravando)),
     },
     ligado: ajustes.ligado,
     falta: faltaPraResponder(),

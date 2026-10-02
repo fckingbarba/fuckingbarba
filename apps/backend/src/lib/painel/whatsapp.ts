@@ -48,6 +48,10 @@ export type NumerosDoWhatsapp = {
   vendas: { total: string; pedidos: number }
   custoHoje: string
   custoPorResposta: string | null
+  /** Do custo de hoje: o que foi gravar o catálogo (e quantas vezes) e o que foi responder. */
+  custoGravando: string
+  gravacoes: number
+  custoRespondendo: string
 }
 
 export type TelaDoWhatsapp = {
@@ -113,6 +117,7 @@ export type ConversaNaTela = {
 
 /** As ferramentas do atendente, como a equipe lê. */
 export const FERRAMENTAS_NA_TELA: Record<string, string> = {
+  ver_produto: "Viu a página do produto",
   ver_meus_pedidos: "Viu os pedidos",
   ver_pedido: "Viu um pedido",
   mandar_codigo_do_pix: "Mandou o Pix",
