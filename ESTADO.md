@@ -5596,8 +5596,10 @@ celular, o valor da sacola piscando depois de "Adicionar à sacola" (1 a 2 segun
   mostrava duas vezes o preço de uma até a resposta.
 - A demora em si (~1,3 s por clique no ar) segue: é a outra metade, a medição da entrega 0251.
 
-Conferido: o conferidor do checkout (com as checagens novas: o total na hora igual ao do Medusa, e
-com cupom esperando), typecheck, lint e prettier.
+Conferido: o conferidor do checkout (214/214 duas vezes e 244/244 com a main nova junta, com 3
+checagens novas: o total na hora igual ao do Medusa no "Adicionar" e nos "+", e com cupom
+esperando), o da página do produto igual à main (as 7 falhas de texto das seções são do banco
+local, iguais sem a mudança), typecheck, lint e prettier.
 
 Depois do deploy — **nada pra configurar.** Pra ver: no celular, "Adicionar à sacola" num produto.
 
