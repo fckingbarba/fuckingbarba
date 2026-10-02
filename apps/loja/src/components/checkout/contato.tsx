@@ -1,6 +1,6 @@
 "use client"
 
-import { useActionState, useState } from "react"
+import { useActionState, useEffect, useRef, useState, type MouseEvent } from "react"
 import { Raio } from "@/components/icones"
 import { salvarContato } from "@/lib/acoes/checkout"
 import {
@@ -13,6 +13,7 @@ import {
 import { mascararDocumento } from "@/lib/documento"
 import { conferirContato } from "@/lib/passos-do-checkout"
 import { SEM_CONEXAO, semQueda } from "@/lib/rede"
+import { sugestaoDoEmail } from "@/lib/sugestao-do-email"
 import { mascararTelefone } from "@/lib/telefone"
 import { Campo } from "./campo"
 import {
@@ -20,6 +21,8 @@ import {
   Painel,
   Recado,
   SALVANDO,
+  TOQUE_REPETIDO_MS,
+  trazerPraVista,
   useAvisaOcupado,
   useFocaNoErro,
   type PropsDaEtapa,
@@ -42,6 +45,14 @@ import {
  * `etapas.tsx` —, e a ação grava por trás. O que não confere fica aqui, com o
  * erro embaixo do campo, sem ida à loja. A ação que recusa (a sacola que
  * expirou, o e-mail que o Medusa não aceita, a rede) traz o passo de volta.
+ *
+ * "VOCÊ QUIS DIZER …?" (entrega 0248): o domínio com erro de digitação
+ * ("hotmail.con", "gmial.com") ganha a sugestão embaixo do campo quando a
+ * pessoa sai dele, e o PRIMEIRO "Continuar" com ele para ali — o e-mail do
+ * pedido, o do Pix e os da entrega voltariam todos. Tocar na sugestão
+ * conserta e segue; o segundo "Continuar" com o mesmo e-mail passa, que
+ * pode ser o domínio de verdade de alguém (`lib/sugestao-do-email.ts`) —
+ * menos o toque repetido de quem tocou duas vezes na barra do celular.
  */
 export function Contato({ checkout, ...casca }: PropsDaEtapa & { checkout: CheckoutVisivel }) {
   const { adiantar, aoVoltar } = casca
@@ -68,6 +79,27 @@ export function Contato({ checkout, ...casca }: PropsDaEtapa & { checkout: Check
   const [documento, setDocumento] = useState(mascararDocumento(checkout.documento))
   const [telefone, setTelefone] = useState(mascararTelefone(checkout.entrega.telefone))
 
+  const campoEmail = useRef<HTMLInputElement>(null)
+  const botaoDaSugestao = useRef<HTMLButtonElement>(null)
+  // `segurou`: veio do "Continuar", e não da saída do campo — aí ela vem pra vista.
+  const [sugestao, setSugestao] = useState<{ email: string; segurou: boolean } | null>(null)
+  // O e-mail que já parou um "Continuar", e quando: o segundo passa — é o que a pessoa quer.
+  const jaParou = useRef<{ email: string; em: number } | null>(null)
+  useEffect(() => {
+    // No celular o "Continuar" é o da barra presa embaixo: a sugestão nasce fora da tela.
+    if (!sugestao?.segurou || !botaoDaSugestao.current) return
+    trazerPraVista(botaoDaSugestao.current)
+    botaoDaSugestao.current.focus({ preventScroll: true })
+  }, [sugestao])
+  const aceitar = (ev: MouseEvent<HTMLButtonElement>) => {
+    if (!campoEmail.current || !sugestao) return
+    campoEmail.current.value = sugestao.email
+    setSugestao(null)
+    // Parou no "Continuar": consertado, segue sozinho, sem um toque a mais.
+    if (sugestao.segurou) ev.currentTarget.form?.requestSubmit()
+  }
+  const arroba = sugestao ? sugestao.email.lastIndexOf("@") : -1
+
   const e = estado.erros
   // O que voltou da ação vem antes do que está gravado: é o que a pessoa
   // acabou de digitar, e o React já deu reset no formulário.
@@ -86,8 +118,27 @@ export function Contato({ checkout, ...casca }: PropsDaEtapa & { checkout: Check
             ev.preventDefault()
             return
           }
+          const fd = new FormData(ev.currentTarget)
+          const conferido = conferirContato(fd)
+          const email = String(fd.get("email") ?? "")
+            .trim()
+            .toLowerCase()
+          // O formato errado ("gmail.com.", "joão@") tem a dica dele embaixo do campo, e
+          // ela vem antes: a sugestão é pro e-mail bem escrito que não existe.
+          const formatoOk = conferido.ok || !conferido.erros.email
+          const sugerido = formatoOk ? sugestaoDoEmail(email) : null
+          const parou = jaParou.current
+          if (
+            sugerido &&
+            (parou?.email !== email || performance.now() - parou.em < TOQUE_REPETIDO_MS)
+          ) {
+            ev.preventDefault()
+            // O toque repetido não conta como "é esse mesmo", e nem empurra a espera.
+            if (parou?.email !== email) jaParou.current = { email, em: performance.now() }
+            setSugestao({ email: sugerido, segurou: true })
+            return
+          }
           // Conferiu: a entrega abre agora, e não quando a ação voltar.
-          const conferido = conferirContato(new FormData(ev.currentTarget))
           if (conferido.ok) adiantar({ etapa: "contato", dados: conferido.dados })
         }}
         noValidate
@@ -103,6 +154,32 @@ export function Contato({ checkout, ...casca }: PropsDaEtapa & { checkout: Check
             defaultValue={v("email", checkout.email)}
             erro={e.email}
             required
+            ref={campoEmail}
+            onBlur={(ev) => {
+              const sugerido = sugestaoDoEmail(ev.currentTarget.value)
+              setSugestao(sugerido ? { email: sugerido, segurou: false } : null)
+            }}
+            onChange={() => {
+              if (sugestao) setSugestao(null)
+            }}
+            depois={
+              // Sempre na página, mesmo vazia: a região viva que nasce com o texto não é lida.
+              <p className="campo__sugestao" aria-live="polite">
+                {sugestao ? (
+                  <>
+                    Você quis dizer{" "}
+                    <button type="button" ref={botaoDaSugestao} onClick={aceitar}>
+                      {sugestao.email.slice(0, arroba + 1)}
+                      <b>{sugestao.email.slice(arroba + 1)}</b>
+                    </button>
+                    ?
+                    {sugestao.segurou ? (
+                      <small>Se o seu é esse mesmo, é só continuar.</small>
+                    ) : null}
+                  </>
+                ) : null}
+              </p>
+            }
           />
           <Campo
             rotulo="Nome"

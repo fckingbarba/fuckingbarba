@@ -22,6 +22,7 @@ import type {
   PessoaNoCrm,
   ResumoDaBase,
 } from "../../lib/painel/crm"
+import type { EmailsDoPedido } from "../../lib/painel/pedido"
 import { CarrinhoDaBase, PedidoDaBase, PessoaDaBase } from "./models/base-da-nuvemshop"
 import { Campanha } from "./models/campanha"
 import { EmailDoCrm } from "./models/email"
@@ -470,6 +471,44 @@ export default class CrmService extends Tabelas {
       eventos,
       emails,
     }
+  }
+
+  /**
+   * OS E-MAILS DE UM PEDIDO, pro histórico dele (entrega 0248): os toques
+   * dos fluxos com a chave do pedido (o Pix pendente e a jornada), e o que os
+   * avisos do Resend contaram de cada e-mail — os dos toques e os do pedido
+   * (`ids`: o confirmado, o cancelado e o da devolução, que guardam o id do
+   * envio no metadata). As duas leituras saem juntas: os ids dos toques vêm
+   * de dentro da segunda.
+   */
+  @InjectManager()
+  async emailsDoPedido(
+    pedidoId: string,
+    ids: string[],
+    @MedusaContext() ctx: Contexto = {}
+  ): Promise<EmailsDoPedido> {
+    const doPedido = ids.length ? ` or resend_id in (${lugares(ids)})` : ""
+    const [toques, avisos] = await Promise.all([
+      ctx.manager!.execute(
+        `select fluxo, toque, como, em, resend_id from crm_envio
+          where chave = ? and deleted_at is null
+          order by em asc
+          limit 50`,
+        [pedidoId]
+      ) as Promise<EmailsDoPedido["toques"]>,
+      ctx.manager!.execute(
+        `select resend_id, id, tipo, para, enviado_em, entregue_em, atrasado_em, aberto_em,
+                ultima_abertura_em, clicado_em, ultimo_clique_em, ultimo_link, devolvido_em,
+                devolucao, reclamou_em, falhou_em, suprimido_em
+           from crm_email
+          where deleted_at is null
+            and (resend_id in (select resend_id from crm_envio
+                                where chave = ? and resend_id is not null and deleted_at is null)
+                 ${doPedido})`,
+        [pedidoId, ...ids]
+      ) as Promise<EmailsDoPedido["avisos"]>,
+    ])
+    return { toques, avisos }
   }
 
   /**
