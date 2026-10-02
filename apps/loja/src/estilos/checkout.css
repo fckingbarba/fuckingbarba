@@ -374,6 +374,41 @@
 .campo__erro:not(:empty) {
   display: block;
 }
+/* "Você quis dizer …?" embaixo do e-mail (entrega 0248), na cara do "Completa com". */
+.campo__sugestao {
+  margin: 2px 0 0;
+  padding: 8px 10px 9px;
+  background: var(--color-cinza);
+  border-left: 3px solid var(--color-amarelo);
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--color-tinta-suave);
+}
+.campo__sugestao:empty {
+  display: none;
+}
+.campo__sugestao button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-tinta);
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-color: var(--color-amarelo-escuro);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.campo__sugestao button b {
+  font-weight: 800;
+}
+.campo__sugestao small {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.72rem;
+}
 .campo__com-icone {
   position: relative;
 }

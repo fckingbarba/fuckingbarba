@@ -1,6 +1,7 @@
 import type { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { abre, exigirArea, type PedidoDaEquipe } from "../../../../lib/equipe/acesso"
 import {
+  emailsDoPedido,
   enviosDos,
   feitosNoPedido,
   lerContexto,
@@ -11,7 +12,8 @@ import { detalheDo } from "../../../../lib/painel/pedido"
 
 /**
  * GET /dashboard/pedidos/:id — o pedido inteiro: onde está, o caminho, o
- * histórico (com o que a equipe fez pelo painel, e quem), os itens, o
+ * histórico (com o que a equipe fez pelo painel, e quem, e os e-mails do
+ * pedido com o que o Resend contou deles — entrega 0248), os itens, o
  * pagamento, a nota, a entrega, o cliente e os botões que o papel pode
  * apertar. De quem abre os Pedidos (no padrão, o dono e a operação); o CPF
  * inteiro só vai pro dono (`lib/painel/pedido.ts`), o "Tentar o estorno de
@@ -42,6 +44,8 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
     res.status(404).json({ message: "nao_encontrado" })
     return
   }
+  // Os e-mails precisam do pedido lido (os ids moram no metadata): uma ida a mais, ao CRM.
+  const emails = await emailsDoPedido(req.scope, o)
 
   const papel = pedido.membro.papel
   res.json({
@@ -57,7 +61,8 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
         frenet: abre(pedido, "pedidos"),
         whatsapp: abre(pedido, "contatos"),
       },
-      feitos
+      feitos,
+      emails
     ),
   })
 }

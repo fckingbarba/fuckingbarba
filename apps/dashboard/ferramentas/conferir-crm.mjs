@@ -60,6 +60,8 @@
  * │ • (0229) quem tem o Kit Completo sem o Fator ficando sem o e-mail de   │
  * │   21 dias (é o do Fator); a reposição de quem levou o kit sem o        │
  * │   shampoo sozinho; os dias do padrão (shampoo 65, óleo 70, balm 80).   │
+ * │ • (0248) o aviso do Pix fora do histórico do pedido, ou o e-mail que   │
+ * │   o Resend devolveu dizendo só "enviado", sem o vermelho.              │
  * └────────────────────────────────────────────────────────────────────────┘
  */
 
@@ -1732,6 +1734,53 @@ try {
       email: NO_PIX,
     })
     ok(rDepoisDeVencer.corpo.enviados === 0, "vencido, o aviso não sai mais")
+
+    // O aviso entra no histórico do pedido, com o que o Resend disse dele (0248): o
+    // "hotmail.con" voltava e o histórico não dizia nada.
+    {
+      const historico = async () =>
+        (
+          await medusa(`/dashboard/pedidos/${pedidoDoPix.id}`, {
+            metodo: "GET",
+            token: tokenDoDono,
+          })
+        ).corpo.pedido?.historico ?? []
+      const AVISO = 'E-mail "Pix pendente · Vence em 15 minutos" enviado'
+      ok(
+        (await historico()).filter((e) => e.titulo === AVISO).length === 1,
+        "o aviso do Pix entra no histórico do pedido, uma vez (0248)",
+        JSON.stringify((await historico()).map((e) => e.titulo))
+      )
+      ok(
+        (await avisar(
+          doEmail("email.bounced", ePix?.id, NO_PIX, "crm-pix", {
+            bounce: {
+              type: "Transient",
+              subType: "General",
+              message: `450 4.1.2 <${NO_PIX}>: Recipient domain not found`,
+            },
+          })
+        )) === 200,
+        "o Resend avisa que o aviso do Pix voltou: 200"
+      )
+      const linha = (await historico()).find((e) => e.titulo === AVISO)
+      ok(
+        linha?.detalhe === "não chegou · a caixa recusou por agora" && linha?.alerta === true,
+        "e a linha do histórico diz que não chegou, marcada como problema",
+        JSON.stringify(linha)
+      )
+      await dono.pagina.goto(`${PAINEL}/pedidos/${pedidoDoPix.id}`)
+      const naTela = dono.pagina.locator(".historico li[data-erro]", {
+        hasText: "Vence em 15 minutos",
+      })
+      await naTela.waitFor({ timeout: 20000 }).catch(() => null)
+      ok(
+        (await naTela.count()) === 1 &&
+          semEspaco(await naTela.locator("small").textContent()) === linha?.detalhe,
+        "na tela também: a linha em vermelho, com o porquê",
+        (await naTela.count()) ? await naTela.innerText() : "não achei a linha em vermelho"
+      )
+    }
 
     const VENCIDO = foraDoControle("vencido", "pix")
     const pedidoVencido = await fabrica.pedidoPix(VENCIDO, [["shampoo-para-barba", 2]], {

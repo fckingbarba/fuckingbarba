@@ -1,10 +1,12 @@
 import { emCentavos } from "../../../modules/pagarme/client"
 import { areasDo, matrizCom, MATRIZ_PADRAO, type Matriz, type Papel } from "../../equipe/regras"
+import type { EmailLidoDoBanco } from "../crm"
 import { duracao, quando, reais } from "../formato"
 import { montarInicio, motivoCurto, precisamDoTotal } from "../inicio"
 import {
   comPontuacao,
   detalheDo,
+  idsDosEmailsDoPedido,
   linhaDaLista,
   mascarar,
   mensagemDoPedido,
@@ -797,6 +799,174 @@ describe("os botões do pedido", () => {
       }),
       expect.objectContaining({ titulo: "Ana chamou no WhatsApp", detalhe: "" }),
     ])
+  })
+})
+
+describe("os e-mails do pedido no histórico, e se chegaram (0248)", () => {
+  const SEM = { verCpf: false }
+  /** Um aviso do Resend (`crm_email`), sem nada: cada teste diz o que aconteceu. */
+  const aviso = (resend_id: string, extra: Partial<EmailLidoDoBanco> = {}) => ({
+    resend_id,
+    id: `eml_${resend_id}`,
+    tipo: null,
+    para: "rafael@exemplo.com",
+    enviado_em: antes(20),
+    entregue_em: null,
+    atrasado_em: null,
+    aberto_em: null,
+    ultima_abertura_em: null,
+    clicado_em: null,
+    ultimo_clique_em: null,
+    ultimo_link: null,
+    devolvido_em: null,
+    devolucao: null,
+    reclamou_em: null,
+    falhou_em: null,
+    suprimido_em: null,
+    ...extra,
+  })
+  const toque = (t: string, como: string, em: string, resend_id: string | null = null) => ({
+    fluxo: t.split("-")[0],
+    toque: t,
+    como,
+    em,
+    resend_id,
+  })
+  const comEmails = (metadata: Record<string, unknown>) => pedido({ metadata }, true)
+
+  it("o confirmado que voltou (o hotmail.con do #3355) diz que não chegou, em vermelho", () => {
+    const o = comEmails({ emails: { confirmado: { em: antes(20), como: "email", id: "re_1" } } })
+    const emails = {
+      toques: [],
+      avisos: [aviso("re_1", { devolvido_em: antes(19), devolucao: "Transient · General: 450" })],
+    }
+    const linha = detalheDo(o, null, [], SEM_ERP, SEM, [], emails).historico.find((e) =>
+      e.titulo.startsWith('E-mail "Pedido #1042 confirmado"')
+    )
+    expect(linha).toMatchObject({
+      titulo: 'E-mail "Pedido #1042 confirmado" enviado',
+      detalhe: "não chegou · a caixa recusou por agora",
+      alerta: true,
+    })
+  })
+
+  it("o que chegou diz que chegou, sem vermelho; sem aviso do Resend, só o enviado", () => {
+    const o = comEmails({
+      emails: {
+        confirmado: { em: antes(20), como: "email", id: "re_1" },
+        cancelado: { em: antes(5), como: "email", id: "re_2" },
+      },
+    })
+    const emails = { toques: [], avisos: [aviso("re_1", { entregue_em: antes(19) })] }
+    const h = detalheDo(o, null, [], SEM_ERP, SEM, [], emails).historico
+    const confirmado = h.find((e) => e.titulo.includes("confirmado"))
+    expect(confirmado).toMatchObject({ detalhe: "chegou na caixa do cliente" })
+    expect(confirmado).not.toHaveProperty("alerta")
+    expect(h.find((e) => e.titulo.includes("cancelado"))).toEqual(
+      expect.objectContaining({ titulo: 'E-mail "Pedido #1042 cancelado" enviado', detalhe: "" })
+    )
+  })
+
+  it("os lembretes do Pix entram com o nome do toque e o que o Resend disse", () => {
+    const emails = {
+      toques: [toque("pix-vence", "enviado", antes(10), "re_3")],
+      avisos: [aviso("re_3", { devolvido_em: antes(9), devolucao: "Permanent · General: 550" })],
+    }
+    const h = detalheDo(pedido(), null, [], SEM_ERP, SEM, [], emails).historico
+    expect(h[h.length - 1]).toEqual({
+      quando: "hoje, 11:50",
+      em: antes(10),
+      titulo: 'E-mail "Pix pendente · Vence em 15 minutos" enviado',
+      detalhe: "não chegou · o endereço não aceita e-mail",
+      alerta: true,
+    })
+  })
+
+  it("o grupo de controle vira uma linha só; o pulado, o que está saindo e o fluxo que não existe, nenhuma", () => {
+    const emails = {
+      toques: [
+        toque("pix-vence", "controle", antes(10)),
+        toque("pix-24h", "controle", antes(5)),
+        toque("pix-48h", "pulado", antes(4)),
+        toque("jornada-chegou", "enviando", antes(3)),
+        { fluxo: "nao-existe", toque: "x", como: "enviado", em: antes(2), resend_id: null },
+      ],
+      avisos: [],
+    }
+    const antesDele = detalheDo(pedido(), null, [], SEM_ERP, SEM).historico.length
+    const h = detalheDo(pedido(), null, [], SEM_ERP, SEM, [], emails).historico
+    expect(h).toHaveLength(antesDele + 1)
+    expect(h[h.length - 1]).toMatchObject({
+      titulo: 'Sem os e-mails do "Pix pendente"',
+      detalhe: expect.stringContaining("grupo de controle"),
+    })
+  })
+
+  it("a jornada entra também; o spam e o atraso dizem o que foi", () => {
+    const emails = {
+      toques: [
+        toque("jornada-chegou", "enviado", antes(10), "re_4"),
+        toque("jornada-7d", "enviado", antes(5), "re_5"),
+      ],
+      avisos: [
+        aviso("re_4", { entregue_em: antes(9), reclamou_em: antes(8) }),
+        aviso("re_5", { atrasado_em: antes(4) }),
+      ],
+    }
+    const h = detalheDo(pedido({}, true), null, [], SEM_ERP, SEM, [], emails).historico.slice(-2)
+    expect(h).toEqual([
+      expect.objectContaining({
+        titulo: 'E-mail "Jornada do resultado · Chegou! Como usar" enviado',
+        detalhe: "chegou, e o cliente marcou como spam",
+        alerta: true,
+      }),
+      expect.objectContaining({
+        titulo: 'E-mail "Jornada do resultado · Como tá indo?" enviado',
+        detalhe: "está atrasando",
+      }),
+    ])
+  })
+
+  it("o cancelamento e a devolução que o Resend recusou não saíram, em vermelho", () => {
+    const o = comEmails({
+      emails: {
+        cancelado: { em: antes(6), como: "recusado", motivo: "endereço inválido" },
+        devolvido: { em: antes(4), como: "recusado", motivo: "endereço inválido" },
+      },
+    })
+    const h = detalheDo(o, null, [], SEM_ERP, SEM).historico
+    expect(h.filter((e) => e.alerta)).toEqual([
+      expect.objectContaining({
+        titulo: "O e-mail de cancelamento não saiu",
+        detalhe: "endereço inválido",
+      }),
+      expect.objectContaining({ titulo: "O e-mail da devolução não saiu" }),
+    ])
+  })
+
+  it("o e-mail da devolução que saiu entra com o que o Resend disse", () => {
+    const o = comEmails({ emails: { devolvido: { em: antes(4), como: "email", id: "re_6" } } })
+    const emails = { toques: [], avisos: [aviso("re_6", { entregue_em: antes(3) })] }
+    expect(detalheDo(o, null, [], SEM_ERP, SEM, [], emails).historico).toContainEqual(
+      expect.objectContaining({
+        titulo: 'E-mail "Pagamento devolvido" enviado',
+        detalhe: "chegou na caixa do cliente",
+      })
+    )
+  })
+
+  it("os ids que o pedido guarda: o confirmado, o cancelado e o da devolução", () => {
+    expect(
+      idsDosEmailsDoPedido({
+        emails: {
+          confirmado: { em: antes(20), como: "email", id: "re_1" },
+          cancelado: { em: antes(5), como: "recusado", motivo: "x" },
+          devolvido: { em: antes(4), como: "email", id: "re_3" },
+        },
+      })
+    ).toEqual(["re_1", "re_3"])
+    expect(idsDosEmailsDoPedido(null)).toEqual([])
+    expect(idsDosEmailsDoPedido({ emails: { confirmado: { em: "x", como: "email" } } })).toEqual([])
   })
 })
 
