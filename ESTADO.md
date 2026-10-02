@@ -5583,6 +5583,26 @@ typecheck, lint e prettier.
 Depois do deploy — **nada pra configurar.** Pra ver: abrir um pedido com Pix (o histórico) e, no
 checkout, digitar um e-mail com ".con".
 
+**Sacola: medir por que o valor demora — pronto em 02/10 (entrega 0251).** Ele viu, no celular, o
+valor da sacola piscando depois de "Adicionar à sacola" e escolheu os dois caminhos: o total na hora
+(outra entrega) e o servidor mais rápido — este, que começa medindo.
+
+- **Medido na loja no ar:** cada "+" ou "−" leva ~1,3 s; o 1º "Adicionar" (que cria a sacola), ~1,9
+  s. No celular, um pouco mais. Abrir a sacola é rápido (~0,3 s).
+- **Por quê:** cada clique faz umas 76 consultas ao banco, uma atrás da outra. No computador de
+  teste, o clique inteiro leva ~0,1 s; no ar, ~1,3 s — então cada ida ao banco custa muito mais lá.
+- **O script `medir-banco`** mede isso dentro do servidor: uma ida vazia ao banco, uma ao Redis, ler
+  a sacola e mudar a quantidade num carrinho de teste (sem e-mail, apagado no fim).
+
+Depois do deploy — **com você, uma vez:** no shell do Railway (o mesmo do Mercado Pago, 27/09):
+
+```bash
+cd apps/backend/.medusa/server && npx medusa exec ./src/scripts/medir-banco.js
+```
+
+e cole na conversa as linhas depois de "resumo pra colar na conversa". Com o número dá pra decidir o
+conserto (a conexão com o banco ou o tamanho do servidor).
+
 **Sacola: o valor certo na hora, sem piscar — pronto em 02/10 (entrega 0252).** Ele viu, no
 celular, o valor da sacola piscando depois de "Adicionar à sacola" (1 a 2 segundos).
 

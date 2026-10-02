@@ -2826,6 +2826,15 @@ servem pro Merchant Center e pra Meta DEPOIS da virada, no domínio verificado. 
 `apps/loja/ferramentas/conferir-feed.mjs` (só lê: o XML num `DOMParser` de verdade, cada linha
 contra a API, e os links e as fotos abrindo).
 
+**Quanto cada clique da sacola espera o banco** (entrega 0251). Cada escrita no carrinho
+("Adicionar", "+", "−") é um workflow do Medusa com ~76 consultas, quase todas em fila (contado no
+banco local com `log_statement=all`: 72 pra criar com 1 item, 76–78 pra mudar a quantidade; só 2
+delas são nossas, a marca da oferta em `workflows/hooks/contexto-da-oferta.ts`). Local, ~0,1 s; no ar,
+medido pelo navegador em 02/10, ~1,3 s por "+" e ~1,9 s pro 1º "Adicionar". O
+`src/scripts/medir-banco.ts` mede, dentro do Railway, uma ida vazia ao banco, uma ao Redis (a trava),
+a leitura da sacola e a escrita de verdade, num carrinho de teste sem e-mail que sai apagado — é ele
+que diz se o gargalo é a conexão com o banco (o pooler da Supabase) ou o processador.
+
 **Os carrinhos abandonados** (entrega 0096 — só a lista; os e-mails vêm depois).
 `GET /dashboard/carrinhos?filtro=parados|agora|voltaram` (área `carrinhos`) monta a tela em
 `apps/backend/src/lib/painel/carrinhos.ts`, puro e com testes; a leitura é `ler-carrinhos.ts`:
