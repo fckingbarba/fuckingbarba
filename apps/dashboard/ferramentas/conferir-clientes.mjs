@@ -12,7 +12,8 @@
  * Monta quatro pessoas com e-mails que nunca se repetem: a Ana (dois
  * pedidos, um pago com a oferta do checkout — um desconto —, com CPF; não
  * aceita ofertas), o Bruno (um pedido pago e a newsletter do rodapé), o Caio
- * (um Pix esperando e a caixa de ofertas da conta, por e-mail e WhatsApp) e
+ * (um Pix esperando e a caixa de ofertas da conta, por e-mail e WhatsApp — não
+ * pagou, então não é cliente: fora da lista, com a ficha pelo link, 0242) e
  * o Leo (só a newsletter, sem pedido). Os pedidos ficam no banco local; os
  * membros da rodada saem da equipe e os e-mails da rodada saem da newsletter
  * no fim.
@@ -20,6 +21,8 @@
  * ┌─ O QUE ESTE ARQUIVO EXISTE PRA TRAVAR ─────────────────────────────────┐
  * │ • o gasto contando pedido não pago, ou a conta de antes do desconto    │
  * │   (o cobrado é o que vale); a lista na ordem errada;                   │
+ * │ • quem não pagou (o Pix esperando) na lista de clientes, na API ou na  │
+ * │   tela — ou sem a ficha e a newsletter por causa disso;                │
  * │ • o CPF inteiro chegando pra operação (na tela OU na resposta);        │
  * │ • o marketing vendo quem não aceitou ofertas, a cidade, o celular, o   │
  * │   CPF, o endereço ou os pedidos — ou abrindo a ficha pelo endereço;    │
@@ -260,9 +263,9 @@ try {
   const linha = (l, quem) => l.clientes?.find((c) => c.email === quem)
   const ana = linha(doDono, ANA)
   ok(
-    doDono.clientes?.map((c) => c.email).join(",") === [CAIO, BRUNO, ANA].join(",") &&
-      linha(doDono, CAIO)?.pedidos === 0,
-    "a lista do dono: os três clientes, do que comprou por último pro mais antigo; o Caio, só com o Pix sem pagar, com 0 pedidos",
+    doDono.clientes?.map((c) => c.email).join(",") === [BRUNO, ANA].join(",") &&
+      !linha(doDono, CAIO),
+    "a lista do dono: quem pagou, do que comprou por último pro mais antigo; o Caio, só com o Pix sem pagar, não é cliente",
     JSON.stringify(doDono.clientes?.map((c) => c.email))
   )
   ok(
@@ -274,17 +277,15 @@ try {
     JSON.stringify(ana)
   )
   ok(
-    linha(doDono, BRUNO)?.ofertas === "e-mail · desde hoje" &&
-      linha(doDono, CAIO)?.ofertas === "e-mail e WhatsApp · desde hoje" &&
-      linha(doDono, CAIO)?.gastou === 0,
-    "as ofertas: a newsletter do Bruno e a caixa da conta do Caio; o Pix esperando não conta no gasto",
-    JSON.stringify([linha(doDono, BRUNO), linha(doDono, CAIO)])
+    linha(doDono, BRUNO)?.ofertas === "e-mail · desde hoje",
+    "as ofertas: a newsletter do Bruno",
+    JSON.stringify(linha(doDono, BRUNO))
   )
   const doMkt = await lista(tokenMkt)
   ok(
-    doMkt.clientes?.map((c) => c.email).join(",") === [CAIO, BRUNO].join(",") &&
+    doMkt.clientes?.map((c) => c.email).join(",") === BRUNO &&
       doMkt.clientes.every((c) => c.cidade === null),
-    "o marketing: só quem aceitou ofertas, e sem a cidade",
+    "o marketing: só quem aceitou ofertas (o Caio aceitou, mas não pagou), e sem a cidade",
     JSON.stringify(doMkt.clientes)
   )
 
@@ -370,10 +371,13 @@ try {
     "a Ana: o Pix esperando não é compra, e a oferta do checkout não é cupom",
     JSON.stringify(fDono.corpo.cliente?.crm)
   )
-  const fDonoCaio = await ficha(tokenDoDono, linha(doDono, CAIO).id)
+  // Fora da lista, a ficha dele segue abrindo pelo link (o do pedido, o da newsletter).
+  const fDonoCaio = await ficha(tokenDoDono, caio.id)
   ok(
-    etiqueta(fDonoCaio, "etapa")?.valor === "Lead" && etiqueta(fDonoCaio, "cupom")?.valor === "—",
-    "o Caio, só com o Pix esperando: lead",
+    fDonoCaio.status === 200 &&
+      etiqueta(fDonoCaio, "etapa")?.valor === "Lead" &&
+      etiqueta(fDonoCaio, "cupom")?.valor === "—",
+    "o Caio, só com o Pix esperando: a ficha abre, e ele é lead",
     JSON.stringify(fDonoCaio.corpo.cliente?.crm?.etiquetas?.slice(0, 1))
   )
   // A previsão (0220) só com compra paga: o LTV "já gastou" é o cobrado; o Pix esperando não conta.
@@ -414,12 +418,11 @@ try {
     JSON.stringify({ paginacao: news.paginacao, linhas: news.inscritos?.length })
   )
   const inscrito = (quem) => news.inscritos?.find((i) => i.email === quem)
-  const caioNaLista = linha(doDono, CAIO)
   ok(
     inscrito(BRUNO)?.origem === "rodapé e conta" &&
       inscrito(BRUNO)?.clienteId === bruno.id &&
       inscrito(CAIO)?.origem === "conta" &&
-      inscrito(CAIO)?.clienteId === caioNaLista?.id &&
+      inscrito(CAIO)?.clienteId === caio?.id &&
       inscrito(LEO)?.origem === "rodapé" &&
       inscrito(LEO)?.clienteId === null &&
       !inscrito(ANA),
@@ -438,9 +441,11 @@ try {
     "tirar o Caio: a caixa de e-mail da conta desmarca, e o WhatsApp fica",
     JSON.stringify(caioDepois?.metadata?.ofertas)
   )
+  const fCaioDepois = await ficha(tokenDoDono, caio.id)
   ok(
-    linha(await lista(tokenDoDono), CAIO)?.ofertas === "WhatsApp · desde hoje",
-    "e na lista ele segue com o WhatsApp"
+    fCaioDepois.corpo.cliente?.ofertas?.map((o) => o.canal).join(",") === "WhatsApp",
+    "e na ficha ele segue com o WhatsApp",
+    JSON.stringify(fCaioDepois.corpo.cliente?.ofertas)
   )
   const deNovo = await medusa("/dashboard/newsletter/tirar", {
     token: tokenMkt,
@@ -467,8 +472,8 @@ try {
       .locator(".tabela tbody tr")
       .evaluateAll((trs) => trs.map((tr) => tr.getAttribute("data-cliente")))
     ok(
-      naTela.join(",") === doDono.clientes.map((c) => c.id).join(","),
-      "a tabela é a da API, na mesma ordem"
+      naTela.join(",") === doDono.clientes.map((c) => c.id).join(",") && !naTela.includes(caio.id),
+      "a tabela é a da API, na mesma ordem — sem o Caio, que não pagou"
     )
     ok(
       (await pagina.locator("nav.abas a").allTextContents()).map(semEspaco).join("|") ===
@@ -486,7 +491,7 @@ try {
       linhaDaAna
     )
     // As ofertas em desenho (0148): o ícone do e-mail e o do WhatsApp acesos pra quem aceitou —
-    // os da API de AGORA (a parte da API tirou o e-mail do Caio da lista: ficou só o WhatsApp).
+    // os da API de AGORA. (O WhatsApp aceso era o do Caio, que saiu da lista na 0242.)
     const acesos = async (id) =>
       pagina
         .locator(`.tabela tr[data-cliente="${id}"] .canal[data-sim]`)
@@ -497,14 +502,12 @@ try {
       return [c.email ? "email" : "", c.whatsapp ? "whatsapp" : ""].filter(Boolean).join(",")
     }
     const acesosNaTela = {}
-    for (const email of [ANA, BRUNO, CAIO])
-      acesosNaTela[email] = await acesos(linha(agora, email)?.id)
+    for (const email of [ANA, BRUNO]) acesosNaTela[email] = await acesos(linha(agora, email)?.id)
     ok(
       acesosNaTela[ANA] === "" &&
         acesosNaTela[BRUNO] === "email" &&
-        acesosNaTela[CAIO] === "whatsapp" &&
-        [ANA, BRUNO, CAIO].every((e) => acesosNaTela[e] === canaisDe(e)),
-      "as ofertas pelos ícones, as da API: a Ana nenhum, o Bruno o e-mail, o Caio o WhatsApp",
+        [ANA, BRUNO].every((e) => acesosNaTela[e] === canaisDe(e)),
+      "as ofertas pelos ícones, as da API: a Ana nenhum, o Bruno o e-mail",
       JSON.stringify(acesosNaTela)
     )
     await pagina.locator(`.tabela tr[data-cliente="${ana.id}"] a`).click()
