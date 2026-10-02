@@ -9,6 +9,7 @@ import { carrinhoNovo, copiaDo, lerPedido } from "../crm/voltar-ao-checkout"
 import { linkDeVoltar } from "../crm/voltar"
 import { emReais } from "../emails/moldura"
 import { criarLimite } from "../limite"
+import { detalheDoProduto, produtosDoAtendente } from "./catalogo"
 import type { ClienteDoWhatsapp } from "./cliente"
 import { daLojaAntiga, lerPedidosDoWhatsapp, pedidoEmTexto, type PedidoNoWhatsapp } from "./pedidos"
 
@@ -16,6 +17,9 @@ import { daLojaAntiga, lerPedidosDoWhatsapp, pedidoEmTexto, type PedidoNoWhatsap
  * AS FERRAMENTAS DO ATENDENTE — o que ele consulta e faz no sistema da loja
  * no meio da conversa (a parte 2 do WhatsApp, entrega 0233):
  *
+ *   ver_produto            a página de um produto (como usar, a linha do tempo,
+ *                          pra quem é, as dúvidas dele): fora do catálogo de
+ *                          toda resposta desde a 0243, que era o que pesava;
  *   ver_meus_pedidos       os pedidos do número que está escrevendo;
  *   ver_pedido             um pedido pelo número E o e-mail da compra (quem
  *                          escreve de outro número): só a situação e o rastreio;
@@ -94,6 +98,22 @@ const ITENS = {
 } as const
 
 export const FERRAMENTAS_DA_LOJA: Anthropic.Beta.BetaTool[] = [
+  {
+    name: "ver_produto",
+    description:
+      "A página de um produto: o que entrega, como funciona, como usar, a linha do tempo do resultado, " +
+      "pra quem é e pra quem não é, a rotina com outros produtos, a comparação e as dúvidas dele. Use antes " +
+      "de responder qualquer detalhe de um produto que não esteja na lista de produtos.",
+    strict: true,
+    input_schema: {
+      type: "object",
+      properties: {
+        produto: { type: "string", description: "O código do produto (ex.: oleo-para-barba)." },
+      },
+      required: ["produto"],
+      additionalProperties: false,
+    },
+  },
   {
     name: "ver_meus_pedidos",
     description:
@@ -516,12 +536,32 @@ async function refazerPedido(
 }
 
 /** Roda a ferramenta da loja pedida; `null` se o nome não é de nenhuma daqui. */
+/** A página do produto pelo código; o código que não existe volta como erro, pra IA corrigir. */
+async function verProduto(
+  input: unknown,
+  ctx: ContextoDasFerramentas
+): Promise<ResultadoDaFerramenta> {
+  const handle = String((input as { produto?: unknown } | null)?.produto ?? "")
+    .trim()
+    .toLowerCase()
+  const produtos = await produtosDoAtendente(ctx.container, ctx.agora.getTime())
+  const p = produtos.find((x) => x.handle === handle)
+  if (!p)
+    return {
+      conteudo: `Não existe produto com o código "${handle}": use o código da lista de produtos.`,
+      erro: true,
+    }
+  return { conteudo: detalheDoProduto(p, produtos) }
+}
+
 export async function usarFerramenta(
   nome: string,
   input: unknown,
   ctx: ContextoDasFerramentas
 ): Promise<ResultadoDaFerramenta | null> {
   switch (nome) {
+    case "ver_produto":
+      return verProduto(input, ctx)
     case "ver_meus_pedidos":
       return verMeusPedidos(ctx)
     case "ver_pedido":

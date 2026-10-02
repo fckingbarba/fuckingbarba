@@ -1,4 +1,10 @@
-import { catalogoEmTexto, linkDoProduto, semHtml, type ProdutoDoAtendente } from "../catalogo"
+import {
+  catalogoEmTexto,
+  detalheDoProduto,
+  linkDoProduto,
+  semHtml,
+  type ProdutoDoAtendente,
+} from "../catalogo"
 import { duvidasDaLoja, duvidasDoHtml, duvidasEmTexto, esquecerDuvidas } from "../duvidas"
 import { lerAjustesDoWhatsapp, LIMITE_DAS_REGRAS } from "../ajustes"
 
@@ -76,15 +82,12 @@ describe("o catálogo em texto", () => {
     expect(bloco).not.toContain("Levando mais")
   })
 
-  it("o texto da página: como usar, pra quem não é, as dúvidas e o leve junto", () => {
-    expect(texto).toContain("Como usar: 1) Lave a barba 2) Aplique 5 gotas")
-    expect(texto).toContain("Dica de uso: Use à noite")
-    expect(texto).toContain("Pra quem NÃO é: menor de 18 anos")
-    expect(texto).toContain("- P: Em quanto tempo? R: 60 a 90 dias de uso diário.")
-    expect(texto).toContain("Combina com: Shampoo para Barba")
-    // A rotina diz o nome do produto, não o endereço dele.
-    expect(texto).toContain("Rotina recomendada: Passo 3 (Óleo para Barba): hidrata")
+  it("só o essencial: o resumo e o leve junto; a página do produto fica fora (0243)", () => {
     expect(texto).toContain("Resumo: Ativa os fios e preenche falhas.")
+    expect(texto).toContain("Combina com: Shampoo para Barba")
+    expect(texto).not.toContain("Como usar")
+    expect(texto).not.toContain("Pra quem NÃO é")
+    expect(texto).not.toContain("Em quanto tempo?")
   })
 
   it("com 'Leve 3, pague 2' valendo, a faixa de 3 sai e a promoção entra", () => {
@@ -117,6 +120,27 @@ describe("o catálogo em texto", () => {
       LOJA
     )
     expect(t).toMatch(/- 30 ml: R\$\s79,90\n- 60 ml: R\$\s129,90 \(esgotada\)/)
+  })
+})
+
+describe("a página do produto (a ver_produto)", () => {
+  const pagina = detalheDoProduto(fator, [fator, oleo])
+
+  it("como usar, a dica, pra quem não é, as dúvidas e a rotina com o nome do produto", () => {
+    expect(
+      pagina.startsWith("## Fator de Crescimento\nResumo: Ativa os fios e preenche falhas.")
+    ).toBe(true)
+    expect(pagina).toContain("Como usar: 1) Lave a barba 2) Aplique 5 gotas")
+    expect(pagina).toContain("Dica de uso: Use à noite")
+    expect(pagina).toContain("Pra quem NÃO é: menor de 18 anos")
+    expect(pagina).toContain("- P: Em quanto tempo? R: 60 a 90 dias de uso diário.")
+    expect(pagina).toContain("Rotina recomendada: Passo 3 (Óleo para Barba): hidrata")
+  })
+
+  it("sem nada na página, diz que não tem mais detalhe (a IA não inventa)", () => {
+    expect(detalheDoProduto(oleo, [fator, oleo])).toBe(
+      "## Óleo para Barba\nA página deste produto não tem mais detalhe além do resumo e do preço da lista."
+    )
   })
 })
 

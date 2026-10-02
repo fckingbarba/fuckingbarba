@@ -8,10 +8,11 @@ import { RESPOSTA_DE_SOCORRO } from "./regras"
  *
  * ┌─ O QUE ELE SABE ───────────────────────────────────────────────────────┐
  * │ Só o que o sistema diz: o catálogo de agora (`catalogo.ts` — preço,    │
- * │ promoção, esgotado e o texto da página de cada produto), as dúvidas    │
- * │ da loja (`duvidas.ts`, as da página /duvidas) e as regras que o dono   │
- * │ escreve no painel (`ajustes.ts`). O que não está ali ele não inventa:  │
- * │ chama a equipe (`chamar_a_equipe`).                                    │
+ * │ promoção, esgotado e o resumo de cada produto; a página inteira vem    │
+ * │ pela `ver_produto`, quando a conversa pede), as dúvidas da loja        │
+ * │ (`duvidas.ts`, as da página /duvidas) e as regras que o dono escreve   │
+ * │ no painel (`ajustes.ts`). O que não está ali ele não inventa: chama a  │
+ * │ equipe (`chamar_a_equipe`).                                            │
  * └────────────────────────────────────────────────────────────────────────┘
  *
  * ┌─ O PEDIDO À IA ────────────────────────────────────────────────────────┐
@@ -118,6 +119,7 @@ COMO VOCÊ FALA
 COMO AJUDAR A COMPRAR
 - Entenda o objetivo antes de indicar: crescer ou preencher a barba, cuidar da barba (hidratar, amaciar, coceira, caspa, cheiro), ou o cabelo. Uma pergunta curta resolve.
 - Indique UM produto (ou um kit) por vez: o porquê em uma frase, o preço e o link.
+- A lista de produtos lá embaixo tem o essencial: o resumo, o preço, o link e o desconto por quantidade. Detalhe de um produto (como usar, em quanto tempo funciona, quanto dura, pra quem é ou não é, a rotina, ingredientes, cheiro, as dúvidas dele): use ver_produto antes de responder, mesmo que você ache que sabe.
 - Pergunta de preço: sempre o nome, o preço e o link. Com preço riscado ("de"), mostre os dois.
 - Quem já decidiu ("quero", "vou levar", "manda o link"): monte a sacola (montar_sacola) e mande o link dela na hora, sem enrolar.
 - Levar mais unidades do mesmo produto sai mais barato (está em "Levando mais do mesmo"), e a promoção que vale agora também conta: mencione quando ajudar a decidir. Esses descontos entram sozinhos na sacola, sem cupom.
@@ -125,10 +127,10 @@ COMO AJUDAR A COMPRAR
 - Respeite o "não": não insista no mesmo produto.
 
 O QUE VOCÊ NUNCA FAZ
-- Nunca invente: preço, desconto, cupom, frete, prazo, ingrediente, resultado ou regra que não esteja escrito abaixo. Não está escrito? Chame a equipe.
+- Nunca invente: preço, desconto, cupom, frete, prazo, ingrediente, resultado ou regra que não esteja escrito abaixo ou na página do produto (ver_produto). Não está escrito? Chame a equipe.
 - Você não tem cupom pra dar. Só fale de cupom se estiver escrito nas regras da loja.
 - Frete e prazo de entrega: só pelo cotar_frete, com o CEP da pessoa. Sem CEP, peça o CEP. Nunca chute data de chegada.
-- Saúde (alergia, irritação, ferida, remédio, gravidez, doença de pele, menor de idade): não dê conselho. Diga o que a página do produto diz (em "Pra quem NÃO é" e nas dúvidas dele) e chame a equipe.
+- Saúde (alergia, irritação, ferida, remédio, gravidez, doença de pele, menor de idade): não dê conselho. Diga o que a página do produto diz (ver_produto: "Pra quem NÃO é" e as dúvidas dele) e chame a equipe.
 - Não peça nem repita dados pessoais (CPF, endereço, cartão, e-mail). A loja nunca pede senha nem código por aqui.
 - Reclamação, pessoa brava, pedido pra falar com alguém, atacado ou revenda, parceria, imprensa, fornecedor, mensagem em outro idioma: chame a equipe.
 - Não fale mal de outras marcas.
@@ -157,7 +159,7 @@ ${p.regras ?? "(nenhuma)"}
 DÚVIDAS DA LOJA (as respostas da página ${p.loja}/duvidas — use como estão)
 ${p.duvidas ?? `(não carregaram agora: para pagamento, entrega e troca, mande o link ${p.loja}/duvidas)`}
 
-PRODUTOS (o preço de agora)
+PRODUTOS (o preço de agora; a página de cada um, pela ver_produto)
 ${p.catalogo}`
 }
 
@@ -197,7 +199,10 @@ export type UsoDaIa = {
   entrada: number
   saida: number
   cacheLido: number
+  /** Tudo o que foi gravado no cache: o catálogo (1 hora) e o fim da conversa (5 minutos). */
   cacheCriado: number
+  /** Só a gravação de 1 hora — a do catálogo e das instruções, a que pesa (0243). */
+  cacheCriado1h: number
   modelo: string | null
 }
 
@@ -215,23 +220,44 @@ export type RespostaDoAtendente =
 
 /**
  * O PREÇO DO MODELO, em dólar por milhão de tokens (a tabela da Anthropic do
- * Claude Sonnet 5.5). A escrita no cache conta como a de 1 hora (o dobro da
- * entrada) — a de 5 minutos, mais barata, também cai aqui: a conta fica por
- * cima. É estimativa pro painel; a fatura é a do console da Anthropic.
+ * Claude Sonnet 5.5). A gravação no cache custa 1,25x a entrada quando dura 5
+ * minutos (o fim da conversa) e o dobro quando dura 1 hora (o catálogo e as
+ * instruções). É estimativa pro painel; a fatura é a do console da Anthropic.
  */
-export const PRECO_POR_MILHAO = { entrada: 2, saida: 10, cacheLido: 0.2, cacheCriado: 4 }
+export const PRECO_POR_MILHAO = {
+  entrada: 2,
+  saida: 10,
+  cacheLido: 0.2,
+  cacheCriado: 2.5,
+  cacheCriado1h: 4,
+}
+
+const numero = (v: unknown) => (Number.isFinite(Number(v)) ? Number(v) : 0)
+
+/**
+ * Os tokens gravados por 1 hora. A resposta de antes da 0243 não separava:
+ * o que ela gravou conta todo como 1 hora (era quase só o catálogo).
+ */
+const gravado1h = (uso: Partial<UsoDaIa>) =>
+  uso.cacheCriado1h === undefined ? numero(uso.cacheCriado) : numero(uso.cacheCriado1h)
 
 /** Quanto custou (estimado), em dólar. */
 export function custoEmDolar(uso: Partial<UsoDaIa> | null | undefined): number {
   if (!uso) return 0
-  const n = (v: unknown) => (Number.isFinite(Number(v)) ? Number(v) : 0)
+  const umaHora = gravado1h(uso)
   return (
-    (n(uso.entrada) * PRECO_POR_MILHAO.entrada +
-      n(uso.saida) * PRECO_POR_MILHAO.saida +
-      n(uso.cacheLido) * PRECO_POR_MILHAO.cacheLido +
-      n(uso.cacheCriado) * PRECO_POR_MILHAO.cacheCriado) /
+    (numero(uso.entrada) * PRECO_POR_MILHAO.entrada +
+      numero(uso.saida) * PRECO_POR_MILHAO.saida +
+      numero(uso.cacheLido) * PRECO_POR_MILHAO.cacheLido +
+      Math.max(0, numero(uso.cacheCriado) - umaHora) * PRECO_POR_MILHAO.cacheCriado +
+      umaHora * PRECO_POR_MILHAO.cacheCriado1h) /
     1_000_000
   )
+}
+
+/** Desse custo, quanto foi gravar o catálogo (a gravação de 1 hora), em dólar. */
+export function custoDaGravacao(uso: Partial<UsoDaIa> | null | undefined): number {
+  return uso ? (gravado1h(uso) * PRECO_POR_MILHAO.cacheCriado1h) / 1_000_000 : 0
 }
 
 /** A IA não respondeu (fora, chave errada, sem texto): a rodada tenta de novo depois. */
@@ -243,6 +269,7 @@ function somar(uso: UsoDaIa, r: Anthropic.Beta.BetaMessage) {
   uso.saida += r.usage.output_tokens ?? 0
   uso.cacheLido += r.usage.cache_read_input_tokens ?? 0
   uso.cacheCriado += r.usage.cache_creation_input_tokens ?? 0
+  uso.cacheCriado1h += r.usage.cache_creation?.ephemeral_1h_input_tokens ?? 0
   uso.modelo = r.model
 }
 
@@ -266,6 +293,7 @@ export async function responderComIa(p: {
     saida: 0,
     cacheLido: 0,
     cacheCriado: 0,
+    cacheCriado1h: 0,
     modelo: null,
   }
   const mensagens: Anthropic.Beta.BetaMessageParam[] = [...p.conversa]

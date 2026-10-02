@@ -9,8 +9,18 @@ import { promocoesParaALoja } from "../promocoes-ativas"
 /**
  * O CATÁLOGO QUE O ATENDENTE DO WHATSAPP SABE DE COR — os produtos
  * publicados, com o preço de agora, o desconto por quantidade, a promoção
- * que vale, o esgotado e o conteúdo da página de cada um (o que é, como usar,
- * pra quem é, a linha do tempo, as dúvidas).
+ * que vale, o esgotado e o resumo de cada um (`catalogoEmTexto`). O resto da
+ * página (o que entrega, como usar, pra quem é, a linha do tempo, as
+ * dúvidas) ele busca quando a conversa pede, pela ferramenta `ver_produto`
+ * (`detalheDoProduto`).
+ *
+ * ┌─ POR QUE A PÁGINA FICA FORA (0243) ────────────────────────────────────┐
+ * │ O catálogo vai em TODA chamada à IA. Com a página inteira dos 15       │
+ * │ produtos, eram ~30 mil tokens, 85% deles de página — e, com pouco      │
+ * │ movimento, quase toda conversa pagava a gravação no cache (US$ 0,12 a  │
+ * │ cada uma). Só a pergunta de detalhe precisa da página, e ela custa uma │
+ * │ volta a mais da ferramenta.                                            │
+ * └────────────────────────────────────────────────────────────────────────┘
  *
  * ┌─ A MESMA FONTE DA LOJA ────────────────────────────────────────────────┐
  * │ Nada aqui é escrito à mão: o preço é o do Medusa (`precosDasVariantes`,│
@@ -232,9 +242,12 @@ function conteudoEmTexto(c: ConteudoDaPdp, linhas: string[], nomes: ReadonlyMap<
   }
 }
 
-/** O catálogo em texto, na ordem do nome. Puro: o mesmo catálogo dá o mesmo texto. */
+/**
+ * O catálogo em texto, na ordem do nome: o essencial pra indicar e vender —
+ * o código, o link, o resumo, o preço, as faixas, a promoção e o "combina
+ * com". Puro: o mesmo catálogo dá o mesmo texto (é o que fica no cache).
+ */
 export function catalogoEmTexto(produtos: readonly ProdutoDoAtendente[], loja: string): string {
-  const nomes = new Map(produtos.map((p) => [p.handle, p.nome]))
   const blocos = [...produtos]
     .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"))
     .map((p) => {
@@ -263,22 +276,48 @@ export function catalogoEmTexto(produtos: readonly ProdutoDoAtendente[], loja: s
           `PROMOÇÃO valendo agora: ${pr.etiqueta}${pr.ate ? ` (até ${DATA.format(pr.ate)})` : ""} — o desconto entra sozinho na sacola`
         )
       if (p.levaJunto.length) linhas.push(`Combina com: ${p.levaJunto.join(", ")}`)
-      conteudoEmTexto(p.conteudo, linhas, nomes)
       return linhas.join("\n")
     })
   return blocos.join("\n\n")
 }
 
-let guardado: { texto: string; ate: number; loja: string } | null = null
+/**
+ * A PÁGINA DE UM PRODUTO em texto — o que a `ver_produto` devolve: o resumo
+ * e as seções visíveis (o que entrega, como funciona, como usar, a linha do
+ * tempo, pra quem é e não é, a rotina, a comparação e as dúvidas dele).
+ */
+export function detalheDoProduto(
+  p: ProdutoDoAtendente,
+  produtos: readonly ProdutoDoAtendente[]
+): string {
+  const nomes = new Map(produtos.map((x) => [x.handle, x.nome]))
+  const linhas = [`## ${p.nome}`]
+  if (p.resumo) linhas.push(`Resumo: ${p.resumo.replace(/\s*\n\s*/g, " ")}`)
+  const antes = linhas.length
+  conteudoEmTexto(p.conteudo, linhas, nomes)
+  if (linhas.length === antes)
+    linhas.push("A página deste produto não tem mais detalhe além do resumo e do preço da lista.")
+  return linhas.join("\n")
+}
 
-/** O catálogo em texto, lido de novo a cada `MEMORIA_MS`. */
+let guardado: { produtos: ProdutoDoAtendente[]; ate: number } | null = null
+
+/** Os produtos do atendente, lidos de novo a cada `MEMORIA_MS` (o catálogo e a `ver_produto`). */
+export async function produtosDoAtendente(
+  container: MedusaContainer,
+  agora = Date.now()
+): Promise<ProdutoDoAtendente[]> {
+  if (guardado && guardado.ate > agora) return guardado.produtos
+  const produtos = await lerCatalogo(container)
+  guardado = { produtos, ate: agora + MEMORIA_MS }
+  return produtos
+}
+
+/** O catálogo em texto, dos produtos lidos (`produtosDoAtendente`). */
 export async function catalogoDoAtendente(
   container: MedusaContainer,
   loja: string,
   agora = Date.now()
 ): Promise<string> {
-  if (guardado && guardado.ate > agora && guardado.loja === loja) return guardado.texto
-  const texto = catalogoEmTexto(await lerCatalogo(container), loja)
-  guardado = { texto, ate: agora + MEMORIA_MS, loja }
-  return texto
+  return catalogoEmTexto(await produtosDoAtendente(container, agora), loja)
 }
