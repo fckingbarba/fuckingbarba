@@ -745,12 +745,17 @@ try {
     )
     ok(
       temFaixa &&
-        /Oferta do seu link/.test(semEspaco(await faixa.textContent())) &&
+        /Preço do seu link/i.test(semEspaco(await faixa.textContent())) &&
         /acaba em\s*\d/.test(semEspaco(await faixa.textContent())) &&
         semEspaco(await p.locator(".compra__por").first().textContent()) === reais(porA) &&
         naLoja === `Na loja: ${reais(A.hoje)} · no seu link: ${reais(porA)}`,
       "na página do produto, quem veio pelo link: a faixa com o prazo, o por e a linha da loja",
       `${semEspaco(await faixa.textContent().catch(() => ""))} | ${naLoja}`
+    )
+    ok(
+      (await faixa.locator(".faixa-oferta__relogio svg").count()) === 1 &&
+        (await faixa.locator(".faixa-oferta__parte").count()) >= 3,
+      "a faixa é a fita amarela com o relógio: o ícone e os blocos do tempo (0245)"
     )
     const seloEsperado = `-${Math.round((1 - porA / (A.cheio > A.hoje ? A.cheio : A.hoje)) * 100)}%`
     ok(
