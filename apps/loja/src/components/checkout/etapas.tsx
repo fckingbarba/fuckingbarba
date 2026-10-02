@@ -41,7 +41,7 @@ export { Giro, Recado, trazerPraVista, useFocaNoErro } from "./resposta"
  * Quanto tempo o passo que acabou de abrir fica surdo a um envio VAZIO — o
  * segundo toque de quem tocou duas vezes em "Continuar" (ver `recemAberto`).
  */
-const TOQUE_REPETIDO_MS = 600
+export const TOQUE_REPETIDO_MS = 600
 
 /** O que o botão de um passo diz enquanto a ação dele grava — e como os outros sabem disso. */
 export const SALVANDO = "Salvando…"
