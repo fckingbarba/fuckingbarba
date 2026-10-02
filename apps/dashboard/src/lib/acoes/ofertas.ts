@@ -66,3 +66,34 @@ export async function mudarOferta(
   if (r.status !== 200) return { ok: false, texto: GENERICO }
   return { ok: true, texto: FEITO[acao] }
 }
+
+/**
+ * O relógio da página de uma oferta (entrega 0245): o tempo que cada pessoa
+ * vê, recomeçando quando zera; `""` volta a contar até o fim. O preço não
+ * muda — só a página.
+ */
+export async function mudarRelogioDaOferta(
+  id: string,
+  minutos: number | ""
+): Promise<ResultadoDaOferta> {
+  if (!/^ofe_[0-9A-Z]{10,40}$/.test(id)) return { ok: false, texto: GENERICO }
+  const r = await medusa(`/dashboard/ofertas/${id}`, {
+    token: "sessao",
+    corpo: { acao: "relogio", minutos },
+  })
+  sair(r)
+  if (r.status === 403) return { ok: false, texto: SEM_PAPEL }
+  if (r.status === 422 && r.corpo.erros && typeof r.corpo.erros === "object")
+    return {
+      ok: false,
+      texto: String((r.corpo.erros as Record<string, string>).relogio ?? "Confira o relógio."),
+      erros: r.corpo.erros as Record<string, string>,
+    }
+  revalidatePath("/cupons")
+  if (r.status === 409) return { ok: false, texto: "Essa oferta já acabou." }
+  if (r.status !== 200) return { ok: false, texto: GENERICO }
+  return {
+    ok: true,
+    texto: minutos === "" ? "O relógio volta a contar até o fim." : "Relógio mudado na página.",
+  }
+}

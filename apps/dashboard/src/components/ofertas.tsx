@@ -12,16 +12,18 @@ import { useAvisar } from "@/components/avisos"
 import { Gaveta } from "@/components/gaveta"
 import { Icone } from "@/components/icones"
 import { Fichas } from "@/components/visual"
-import { criarOferta, mudarOferta } from "@/lib/acoes/ofertas"
+import { criarOferta, mudarOferta, mudarRelogioDaOferta } from "@/lib/acoes/ofertas"
 import {
   COR_DA_SITUACAO,
   descontoDe,
   enderecoSugerido,
+  minutosDoRelogio,
   NOME_DA_SITUACAO,
   numero,
   ofertaVazia,
   prazoEmFrase,
   quando,
+  relogioEmTexto,
   type FormularioDaOferta,
   type OfertaNaLista,
   type ProdutoDoFormulario,
@@ -108,6 +110,93 @@ function LinkPronto({ rotulo, link, chave }: { rotulo: string; link: string; cha
   )
 }
 
+/**
+ * O RELÓGIO DA PÁGINA, na linha da oferta (entrega 0245): o tempo que cada
+ * pessoa vê (recomeça quando zera; o preço vale até o fim), e o "Mudar" pra
+ * trocar ali mesmo. Vazio, o relógio conta até o fim.
+ */
+function RelogioDaOferta({ oferta: o }: { oferta: OfertaNaLista }) {
+  const avisar = useAvisar()
+  const [editando, setEditando] = useState(false)
+  const [horas, setHoras] = useState("")
+  const [minutos, setMinutos] = useState("")
+  const [erro, setErro] = useState("")
+  const [salvando, comecar] = useTransition()
+
+  function abrir() {
+    const m = o.relogioMinutos ?? 0
+    setHoras(m ? String(Math.floor(m / 60)) : "")
+    setMinutos(m ? String(m % 60) : "")
+    setErro("")
+    setEditando(true)
+  }
+
+  function salvar(ev: FormEvent) {
+    ev.preventDefault()
+    comecar(async () => {
+      const r = await mudarRelogioDaOferta(o.id, minutosDoRelogio(horas, minutos))
+      if (!r.ok) {
+        setErro(r.texto)
+        return
+      }
+      avisar(r)
+      setEditando(false)
+    })
+  }
+
+  if (!editando)
+    return (
+      <p className="linha__txt oferta__relogio" data-relogio-oferta={o.endereco}>
+        <Icone nome="relogio" />
+        {o.relogioMinutos
+          ? `Relógio na página: ${relogioEmTexto(o.relogioMinutos)}, recomeça quando zera`
+          : "Relógio na página: até o fim da oferta"}
+        <button
+          type="button"
+          className="btn btn--fantasma oferta__mudar"
+          data-mudar-relogio={o.endereco}
+          onClick={abrir}
+        >
+          Mudar
+        </button>
+      </p>
+    )
+  return (
+    <form className="oferta__relogio-form" onSubmit={salvar} data-form-relogio={o.endereco}>
+      <label>
+        Horas
+        <input
+          inputMode="numeric"
+          value={horas}
+          data-relogio-horas
+          onChange={(e) => setHoras(e.target.value)}
+        />
+      </label>
+      <label>
+        Minutos
+        <input
+          inputMode="numeric"
+          value={minutos}
+          data-relogio-minutos
+          onChange={(e) => setMinutos(e.target.value)}
+        />
+      </label>
+      <button type="submit" className="btn btn--menor" disabled={salvando}>
+        {salvando ? "Salvando…" : "Salvar"}
+      </button>
+      <button type="button" className="btn btn--fantasma" onClick={() => setEditando(false)}>
+        Cancelar
+      </button>
+      <p className="campo__ajuda">Os dois vazios: o relógio conta até o fim da oferta.</p>
+      {erro ? (
+        <p className="campo__erro" role="alert">
+          {erro}
+        </p>
+      ) : null}
+    </form>
+  )
+}
+
 export function ListaDeOfertas({ ofertas: gravadas }: { ofertas: OfertaNaLista[] }) {
   const avisar = useAvisar()
   const [indo, comecar] = useTransition()
@@ -150,6 +239,7 @@ export function ListaDeOfertas({ ofertas: gravadas }: { ofertas: OfertaNaLista[]
             <p className="linha__txt">
               Na página: &ldquo;{o.titulo}&rdquo; · {prazoEmFrase(o)}
             </p>
+            {o.situacao !== "encerrada" ? <RelogioDaOferta oferta={o} /> : null}
             <Fichas frase={produtosEmFrase(o)} data-produtos-oferta={o.endereco} />
             <p className="cupom__numeros">
               {o.vendas.pedidos ? (
@@ -491,6 +581,39 @@ function GavetaDaOferta({
               largura: "campo--3",
               ajuda: "Depois disso, o link diz que a oferta acabou.",
             })}
+            <fieldset className="campo" data-relogio-da-oferta-nova>
+              <legend className="campo__rot">Relógio na página (opcional)</legend>
+              <div className="oferta__relogio-form oferta__relogio-form--nova">
+                <label>
+                  Horas
+                  <input
+                    inputMode="numeric"
+                    placeholder="03"
+                    value={f.relogioHoras}
+                    data-campo-oferta="relogioHoras"
+                    aria-invalid={erros.relogio ? true : undefined}
+                    onChange={(e) => mudar("relogioHoras", e.target.value)}
+                  />
+                </label>
+                <label>
+                  Minutos
+                  <input
+                    inputMode="numeric"
+                    placeholder="20"
+                    value={f.relogioMinutos}
+                    data-campo-oferta="relogioMinutos"
+                    aria-invalid={erros.relogio ? true : undefined}
+                    onChange={(e) => mudar("relogioMinutos", e.target.value)}
+                  />
+                </label>
+              </div>
+              <p className="campo__ajuda">
+                O tempo que o relógio mostra pra cada pessoa, a partir de quando ela abre o link.
+                Quando zera, recomeça — o preço vale até o fim da oferta. Vazio: o relógio conta até
+                o fim.
+              </p>
+              {erroDe("relogio")}
+            </fieldset>
           </div>
         </Secao>
 
