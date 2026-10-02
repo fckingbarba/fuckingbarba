@@ -266,6 +266,8 @@
 /* As ofertas ocultas (0238): o link embaixo da linha e, na gaveta, cada produto com o "por" ao lado. */
 .oferta__corpo { min-width: 0; }
 .oferta__link { margin-top: 10px; }
+.oferta__link-rotulo { margin: 0; font-size: 0.7rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--tinta-suave); }
+.oferta__link .link-pronto { margin-top: 4px; }
 /* O nome do produto e os dois preços numa ficha: no celular ela quebra a linha, em vez de empurrar a tela. */
 .oferta .fichas-da-frase span { white-space: normal; overflow-wrap: anywhere; }
 .oferta-produtos { display: grid; gap: 10px; padding: 10px 12px; background: var(--cinza); border: 2px solid var(--linha); }

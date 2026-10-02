@@ -2420,6 +2420,15 @@ na quantidade; a linha "Na loja: R$ X · no seu link: R$ Y" no lugar do "Economi
 servidor é o de todo mundo — e o do Google, com o preço de sempre no microdata. No fim da oferta, com
 a página aberta, tudo volta sozinho. CSS em `estilos/pdp-oferta.css` (escrito à mão).
 
+O LINK LEVA DIRETO PRA PDP (entrega 0241, pedido da loja): `/oferta/<endereço>` e
+`/oferta/<endereço>/<produto>` são rotas (`route.ts`), não páginas — `lib/oferta-do-link.ts` lê a
+oferta (`buscarOferta`) e o catálogo (`listarProdutos`) e, com ela no ar, grava a marca (`fb_oferta`,
+o mesmo cookie, até o fim) e manda pra PDP com 307, levando a busca do link (`?utm_…`). O geral vai
+direto quando a oferta tem um produto só; com vários, vai pra página com todos, que mudou pra
+`/oferta/<endereço>/vitrine` (a pasta estática `vitrine` ganha da `[produto]`). Fora do ar, sem
+oferta, ou produto de fora: a vitrine, que diz o que houve (ou dá o 404). O painel dá um link por
+produto (`linkDoProduto`, `produtos[].link` na lista) e, com vários, o geral como "Página com todos".
+
 O conferidor é o `apps/dashboard/ferramentas/conferir-ofertas.mjs` (com os falsos, o admin local e,
 com `LOJA`, a loja): o formulário pela API e pela gaveta, a vitrine sem o preço, a marca (sem
 assinatura, de novo, na pausada e na agendada), o carrinho de verdade (o produto que já estava, a
@@ -2429,7 +2438,9 @@ lista contando, o celular, e na loja a página (título, `noindex`, contador, ca
 PDP, a marca no navegador), o "Comprar", a PDP de quem veio pelo link (a faixa, o "por", a linha da
 loja, o selo, os cartões, o "Adicionar" pelo preço da oferta), a PDP de produto fora da oferta e a de
 quem não tem a marca (as de sempre), o 404, a pausada dizendo que acabou (e a PDP voltando) e o aviso
-do checkout. A promoção de vitrine abaixo do "por" vem por último: ela deixa a loja com páginas
+do checkout, e os links (0241: o de um produto, num navegador sem marca, chega na PDP com a faixa e o
+`utm_source`; o geral de uma oferta de um produto só vai direto; o de produto de fora cai na
+vitrine). A promoção de vitrine abaixo do "por" vem por último: ela deixa a loja com páginas
 guardadas de um minuto atrás, e as checagens da loja leriam preço velho. Encerra as ofertas da rodada
 no fim.
 

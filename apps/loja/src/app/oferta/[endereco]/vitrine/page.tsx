@@ -9,10 +9,16 @@ import { quandoAcaba } from "@/lib/ofertas"
 import "@/estilos/telas/oferta.css"
 
 /**
- * /oferta/<endereço> — A OFERTA OCULTA (`lib/ofertas.ts`): os produtos com o
- * preço de quem tem o link, o contador até o fim e o "Comprar" que marca a
- * sacola com a oferta. Criada no painel (Cupons e descontos → Ofertas
- * ocultas), que dá o link.
+ * /oferta/<endereço>/vitrine — A PÁGINA DA OFERTA OCULTA (`lib/ofertas.ts`):
+ * os produtos com o preço de quem tem o link, o contador até o fim e o
+ * "Comprar" que marca a sacola com a oferta. Criada no painel (Cupons e
+ * descontos → Ofertas ocultas), que dá os links.
+ *
+ * DESDE A 0241, O LINK LEVA DIRETO PRA PÁGINA DO PRODUTO (pedido da loja):
+ * `/oferta/<endereço>` (com um produto só) e `/oferta/<endereço>/<produto>`
+ * deixam a marca e redirecionam pra PDP (`lib/oferta-do-link.ts`). Esta
+ * página fica pro que não é a PDP: a oferta de vários produtos aberta pelo
+ * link geral, a que ainda não começou e a que acabou.
  *
  * ESCONDIDA: fora do menu, do sitemap e do Google (aqui o `noindex`, e o
  * `robots.ts`); o pop-up da 1ª compra não abre (`semPopupNesta`). Não
@@ -23,7 +29,7 @@ import "@/estilos/telas/oferta.css"
  * ordem do painel; o rascunho e o que saiu da loja ficam de fora.
  */
 
-type Props = PageProps<"/oferta/[endereco]">
+type Props = PageProps<"/oferta/[endereco]/vitrine">
 
 /**
  * Nenhuma oferta nasce no build (elas são criadas depois, pelo painel): a
