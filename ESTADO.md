@@ -5326,6 +5326,30 @@ prefixos.
 
 Depois do deploy, na Observabilidade, clique em **"Marcar como resolvido"** nos dois avisos.
 
+**A oferta oculta na página do produto — pronto em 02/10 (entrega 0240).** Pedido dele: o card da
+página da oferta tem que levar pra página do produto, e lá mostrar que é oferta, com contador. Do
+desenho com 3 jeitos, ele escolheu o A (a faixa no topo), e confirmou: a página do produto fica igual,
+só muda o que é da oferta.
+
+- **Na página da oferta**, a foto, o nome e o "Ver detalhes →" de cada card levam pra página do
+  produto. O "Comprar" do card continua.
+- **Na página do produto, só pra quem abriu o link** (e até o fim da oferta, no mesmo celular ou
+  computador): a faixa preta no alto, "Oferta do seu link · acaba em 2d 14:33:08"; o preço da oferta
+  no preço grande, com "Na loja: R$ 79,90 · no seu link: R$ 59,90" embaixo; o selo de % da foto com
+  o desconto da oferta; os cartões de 1, 2 e 3 unidades e a barra fixa de baixo pelo preço da oferta
+  (a barra com "Oferta acaba em…"); e o "Adicionar à sacola" põe pelo preço da oferta.
+- **Fica tudo igual:** fotos, textos, vídeos, avaliações e seções. Quem chega na página do produto
+  por outro caminho, e o Google, veem a página de sempre. O produto que não está na oferta também.
+- Pausou, encerrou ou acabou o prazo: a página do produto volta a ser a de sempre (na hora, se
+  estiver aberta).
+
+Conferido: o conferidor das ofertas (62/62, duas rodadas seguidas), o das promoções (47/47), o do
+catálogo (40/40), o da página do produto (77 de 79 — as 2 que faltam são de produtos que não existem
+no banco de teste), typecheck, lint e prettier.
+
+Depois do deploy — **nada pra configurar.** Pra ver: abra o link de uma oferta, clique em "Ver
+detalhes" num produto.
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa

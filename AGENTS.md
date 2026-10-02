@@ -2403,17 +2403,35 @@ NA LOJA: `app/oferta/[endereco]/page.tsx` (`noindex`, `Disallow: /oferta/` no `r
 pop-up da 1ª compra; a oferta chega por streaming atrás de uma caixa do tamanho da de verdade), a
 caixa preta e o contador das ofertas relâmpago (`.offers`) na `JanelaDaOferta` (o relógio do
 navegador decide o começo e o fim; a página guardada não sabe que a hora passou) e os cards da
-vitrine com `oferta` (`CartaoProduto`: o menor entre o "por" e o de hoje, o selo "Oferta", sem link
-pra PDP, e o "Comprar" chamando `adicionarDaOferta`, que marca a sacola antes de pôr o produto).
+vitrine com `oferta` (`CartaoProduto`: o menor entre o "por" e o de hoje, o selo "Oferta", a foto,
+o nome e o "Ver detalhes →" levando pra PDP, e o "Comprar" chamando `adicionarDaOferta`, que marca a
+sacola antes de pôr o produto).
+
+NA PÁGINA DO PRODUTO (entrega 0240, a opção A do desenho): a página da oferta, no ar, deixa a marca
+no navegador — o cookie `fb_oferta` (o endereço, legível pelo JavaScript, até o fim da oferta:
+`cookieDaOferta`, na `JanelaDaOferta`). Na PDP, o `ProvedorDaOfertaNaPdp` (em volta da `Dobra`,
+`components/oferta/na-pdp.tsx`) lê a marca e, só com ela, pergunta `/api/oferta/<endereço>` (a
+mesma `buscarOferta` guardada); com o produto na oferta e ela no ar, `useOfertaNaPdp` dá o "por" e o
+"-X%" da foto. Mudam só pra esse navegador: a `FaixaDaOferta` no alto ("Oferta do seu link · acaba
+em 2d 14:33:08"), o selo da `Galeria`, a `Compra` (a unidade pelo menor entre o "por" e o preço dela
+na quantidade; a linha "Na loja: R$ X · no seu link: R$ Y" no lugar do "Economiza"; os cartões pelo
+`degrausDaOferta`, sem a fita de melhor preço; o "Leve X, pague Y" fora da conta da tela; o botão por
+`adicionarDaOferta`/`adicionarVariosDaOferta`) e a barra fixa (o `PrazoDaOferta`). O HTML que sai do
+servidor é o de todo mundo — e o do Google, com o preço de sempre no microdata. No fim da oferta, com
+a página aberta, tudo volta sozinho. CSS em `estilos/pdp-oferta.css` (escrito à mão).
 
 O conferidor é o `apps/dashboard/ferramentas/conferir-ofertas.mjs` (com os falsos, o admin local e,
 com `LOJA`, a loja): o formulário pela API e pela gaveta, a vitrine sem o preço, a marca (sem
 assinatura, de novo, na pausada e na agendada), o carrinho de verdade (o produto que já estava, a
 faixa de 3 abaixo do "por", o de fora), uma promoção de vitrine abaixo do "por" (espera a rodada do
 minuto), a pausa com o checkout devolvendo o preço, a encerrada, um pedido Pix com a marca e a
-lista contando, o celular, e na loja a página (título, `noindex`, contador, cards), o "Comprar", a
-PDP com o preço de sempre, o 404, a pausada dizendo que acabou e o aviso do checkout. Encerra as
-ofertas da rodada no fim.
+lista contando, o celular, e na loja a página (título, `noindex`, contador, cards com os links pra
+PDP, a marca no navegador), o "Comprar", a PDP de quem veio pelo link (a faixa, o "por", a linha da
+loja, o selo, os cartões, o "Adicionar" pelo preço da oferta), a PDP de produto fora da oferta e a de
+quem não tem a marca (as de sempre), o 404, a pausada dizendo que acabou (e a PDP voltando) e o aviso
+do checkout. A promoção de vitrine abaixo do "por" vem por último: ela deixa a loja com páginas
+guardadas de um minuto atrás, e as checagens da loja leriam preço velho. Encerra as ofertas da rodada
+no fim.
 
 **Observabilidade** (fase 7, entrega 0087). O módulo `src/modules/observabilidade/` guarda três
 tabelas: `obs_rotina` (a última rodada de cada job), `obs_problema` e `obs_sinal` (o dia de cada
