@@ -128,12 +128,6 @@ export function restanteAte(fim: number, agora: number): Restante {
   }
 }
 
-/** "2d 14:33:08" · "14:33:08" — o relógio da faixa. */
-export function prazoNoRelogio(r: Restante): string {
-  const hms = [r.horas, r.minutos, r.segundos].map(dois).join(":")
-  return r.dias > 0 ? `${r.dias}d ${hms}` : hms
-}
-
 /** "2d 14h" · "14h 33min" · "33min" — o prazo curto da barra fixa. */
 export function prazoCurto(r: Restante): string {
   if (r.dias > 0) return `${r.dias}d ${r.horas}h`

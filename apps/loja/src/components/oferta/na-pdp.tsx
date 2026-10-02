@@ -1,11 +1,10 @@
 "use client"
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
-import { Raio } from "@/components/icones"
+import { Cronometro, Raio } from "@/components/icones"
 import {
   enderecoDoCookie,
   prazoCurto,
-  prazoNoRelogio,
   restanteAte,
   situacaoAgora,
   type OfertaDaPagina,
@@ -124,24 +123,54 @@ function useAgora(ligado: boolean): number | null {
   return agora
 }
 
-/** A faixa preta do alto da página: "Oferta do seu link · acaba em 2d 14:33:08". */
+const dois = (n: number) => String(n).padStart(2, "0")
+
+/**
+ * A FAIXA DO ALTO DA PÁGINA — a fita amarela (entrega 0245, a "F2" do
+ * desenho, com o relógio que a loja pediu): "Preço do seu link · acaba em",
+ * e o relógio num bloco preto, 02d 14h 33m 08s, os segundos em menta. Sem
+ * dias, o bloco começa nas horas. O mesmo tamanho da faixa de antes: a loja
+ * não quis nada que ocupe mais tela.
+ */
 export function FaixaDaOferta() {
   const oferta = useOfertaNaPdp()
   const agora = useAgora(Boolean(oferta))
   if (!oferta) return null
   const restante = agora === null ? null : restanteAte(new Date(oferta.terminaEm).getTime(), agora)
+  const partes: [string, string][] = restante
+    ? [
+        ...(restante.dias > 0 ? [[dois(restante.dias), "d"] as [string, string]] : []),
+        [dois(restante.horas), "h"],
+        [dois(restante.minutos), "m"],
+        [dois(restante.segundos), "s"],
+      ]
+    : [
+        ["--", "h"],
+        ["--", "m"],
+        ["--", "s"],
+      ]
   return (
     <div className="faixa-oferta" role="note" data-faixa-oferta>
       <p className="faixa-oferta__nome">
-        <Raio />
-        Oferta do seu link
+        <span className="faixa-oferta__raio">
+          <Raio />
+        </span>
+        <span className="faixa-oferta__textos">
+          <b>Preço do seu link</b>
+          <span>acaba em</span>
+        </span>
       </p>
-      <p className="faixa-oferta__prazo">
-        <span>acaba em</span>
-        {/* aria-hidden: o número que troca a cada segundo é ruído pra quem ouve. */}
-        <b aria-hidden="true">{restante ? prazoNoRelogio(restante) : "--:--:--"}</b>
-        <span className="sr-only">{restante ? prazoCurto(restante) : ""}</span>
+      {/* aria-hidden: o número que troca a cada segundo é ruído pra quem ouve. */}
+      <p className="faixa-oferta__relogio" aria-hidden="true">
+        <Cronometro />
+        {partes.map(([numero, unidade]) => (
+          <span key={unidade} className="faixa-oferta__parte" data-unidade={unidade}>
+            <b>{numero}</b>
+            {unidade}
+          </span>
+        ))}
       </p>
+      <span className="sr-only">{restante ? `Acaba em ${prazoCurto(restante)}` : ""}</span>
     </div>
   )
 }
