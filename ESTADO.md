@@ -5575,10 +5575,9 @@ Conferido: os unitários (1.915), o conferidor do checkout (241/241, com 30 chec
 dos pedidos (144/144) e o do CRM (as 4 checagens novas certas; elas falham com o backend da main),
 typecheck, lint e prettier.
 
-- [ ] **O `conferir-crm` para na ficha do cliente desde a 0242** ("Clientes = só quem pagou"): a
-  conta da rodada não comprou e não aparece mais na lista. Pra rodar o resto, pular a seção da
-  ficha numa cópia. E 3 checagens das boas-vindas do pop-up falham igual na main (a trilha sai
-  como "pulado").
+- [x] **O `conferir-crm` para na ficha do cliente desde a 0242** ("Clientes = só quem pagou"): a
+  conta da rodada não comprou e não aparece mais na lista. Consertado na 0250 (abaixo). E 3
+  checagens das boas-vindas do pop-up falham igual na main (a trilha sai como "pulado").
 
 Depois do deploy — **nada pra configurar.** Pra ver: abrir um pedido com Pix (o histórico) e, no
 checkout, digitar um e-mail com ".con".
@@ -5602,6 +5601,22 @@ cd apps/backend/.medusa/server && npx medusa exec ./src/scripts/medir-banco.js
 
 e cole na conversa as linhas depois de "resumo pra colar na conversa". Com o número dá pra decidir o
 conserto (a conexão com o banco ou o tamanho do servidor).
+
+**O teste do CRM roda inteiro de novo — pronto em 02/10 (entrega 0250).** Desde a 0242 (Clientes
+= quem pagou), o teste automático do CRM (`conferir-crm`) parava no meio: ele procurava na lista
+de Clientes uma pessoa de teste que entrou na conta e nunca comprou — e ela, de propósito, não
+está mais lá. Tudo o que vinha depois (Ajustes, base da Nuvemshop, fluxos, carrinho, reposição…)
+deixava de ser conferido.
+
+- **Agora o teste confere as duas coisas:** que quem não comprou fica fora da lista (a regra da
+  0242) e que a ficha dessa pessoa continua abrindo pelo link, com o CRM (ela segue "Lead").
+- **Nada muda na loja nem no painel:** só o teste.
+
+Conferido: o conferidor do CRM inteiro, 259/259 em três rodadas seguidas, e 263/263 depois de
+juntar a 0248 (com as 4 checagens dela; as boas-vindas do pop-up passaram em todas, num banco do
+zero); o de antes, na mesma máquina, para na ficha (44/50, "parou no meio"); lint e prettier.
+
+Depois do deploy — **nada pra configurar.** É só o teste.
 
 **Sacola: o valor certo na hora, sem piscar — pronto em 02/10 (entrega 0252).** Ele viu, no
 celular, o valor da sacola piscando depois de "Adicionar à sacola" (1 a 2 segundos).
