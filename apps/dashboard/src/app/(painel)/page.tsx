@@ -119,7 +119,7 @@ export default async function PaginaInicio({ searchParams }: { searchParams: Bus
             >
               <OQueAsVisitasFizeram consulta={consulta} />
             </Suspense>
-            <NoCheckout passos={n.checkout} />
+            <NoCheckout passos={n.checkout} saidas={n.saidas} />
           </div>
           <div className="taxas">
             <Suspense fallback={<TaxaDasTaxasCarregando />}>

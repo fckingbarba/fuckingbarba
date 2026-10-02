@@ -112,6 +112,17 @@ export type BarraDoPeriodo = {
 
 export type PassoDoCheckout = { nome: string; n: number; taxa: number | null; pior: boolean }
 
+/** Por que saíram no pagamento (0244): o `saidasDoPagamento` do backend. */
+export type SaidasDoPagamento = {
+  total: number
+  recusado: { banco: number; antifraude: number; dados: number }
+  naTela: number
+  barrado: number
+  erro: number
+  semTentar: number
+  semRegistro: number
+}
+
 export type InicioNoPeriodo = {
   periodo: PeriodoNaTela
   vendas: Comparado
@@ -125,6 +136,8 @@ export type InicioNoPeriodo = {
   checkout: PassoDoCheckout[] | null
   /** O mesmo checkout no período de antes; `null` sem comparar. */
   checkoutAntes: PassoDoCheckout[] | null
+  /** Por que saíram no pagamento; `null` sem o checkout (ou sem as tentativas). */
+  saidas: SaidasDoPagamento | null
   /** Só pra quem abre os Pedidos. */
   pedidos: { lista: LinhaDaLista[]; total: number } | null
 }

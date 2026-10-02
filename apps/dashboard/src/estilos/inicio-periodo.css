@@ -140,6 +140,10 @@
   margin: 14px 0 0; padding: 10px 12px; font-size: 0.82rem;
   background: var(--amarelo-palido); border-left: 4px solid var(--amarelo-borda);
 }
+/* Por que saíram no pagamento (0244): as barras do Marketing, embaixo do aviso. */
+.saidas { margin-top: 18px; }
+.saidas__rotulo { margin-bottom: 10px; }
+.saidas .barras-h__nome { white-space: normal; }
 @media (max-width: 640px) {
   .degrau { grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; }
   .degrau__trilho { grid-column: 1 / -1; grid-row: 2; height: 16px; }

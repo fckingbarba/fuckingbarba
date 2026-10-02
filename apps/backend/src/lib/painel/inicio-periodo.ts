@@ -73,6 +73,8 @@ export type InicioNoPeriodo = {
   checkout: Passo[] | null
   /** O mesmo checkout no período de antes (a taxa "checkouts que viraram venda" compara); `null` sem comparar. */
   checkoutAntes: Passo[] | null
+  /** Por que saíram no pagamento (0244) — junto com o checkout; `null` sem ele, ou sem as tentativas. */
+  saidas: SaidasDoPagamento | null
   /** Os pedidos feitos no período (os mais novos) e quantos são — só pra quem abre os Pedidos. */
   pedidos: { lista: LinhaDaLista[]; total: number } | null
 }
@@ -281,9 +283,7 @@ export function checkoutDoPeriodo(
   pagos: ReadonlySet<string>,
   j: Janela
 ): Passo[] {
-  const ate = carrinhos
-    .filter((c) => dentro(new Date(c.created_at), j) && (c.items ?? []).some(Boolean))
-    .map((c) => ateOndeFoi(c, pagos))
+  const ate = doPeriodo(carrinhos, j).map((c) => ateOndeFoi(c, pagos))
   const chegaram = (n: number) => ate.filter((k) => k >= n).length
   return passosDo([
     { nome: "Começaram o checkout", n: chegaram(1) },
@@ -292,6 +292,132 @@ export function checkoutDoPeriodo(
     { nome: "Fizeram o pedido", n: chegaram(4) },
     { nome: "Pagaram", n: chegaram(5) },
   ])
+}
+
+/** Os carrinhos criados no período, com produto — os que o checkout conta. */
+function doPeriodo(carrinhos: readonly CarrinhoDoCheckout[], j: Janela) {
+  return carrinhos.filter((c) => dentro(new Date(c.created_at), j) && (c.items ?? []).some(Boolean))
+}
+
+/* ── por que saíram no pagamento ──────────────────────────────────────────── */
+
+/**
+ * A marca que a loja põe no carrinho quando o CARTÃO NÃO PASSA DA TELA: o
+ * Pagar.me não devolveu o token (número, validade ou CVV que ele não aceita,
+ * ou ele fora do ar) — e aí nada chega no Medusa, nem na porta do cartão.
+ * `POST /store/checkout/cartao-na-tela`: `{ porque, em }`, da última vez.
+ */
+export const MARCA_DO_CARTAO_NA_TELA = "fb_cartao_na_tela"
+
+/**
+ * DESDE QUANDO AS TENTATIVAS CONTAM A HISTÓRIA INTEIRA: o Pix é anotado
+ * desde a 0150 (no Railway em 27/09/2026, 14:14 UTC — o cartão, desde a
+ * 0129), e o vigia apaga as de mais de 30 dias (`limpar`, no serviço da
+ * Observabilidade: é o prazo da política de privacidade). Carrinho de antes
+ * disso fica "sem registro": sem as tentativas dele, "saiu sem tentar" seria
+ * chute.
+ */
+export const TENTATIVAS_DESDE = new Date("2026-09-27T14:30:00.000Z")
+export const DIAS_DAS_TENTATIVAS = 30
+
+/** Uma tentativa de pagar de um carrinho (`obs_tentativa`, anotada pela porta do `complete`). */
+export type TentativaDoCarrinho = {
+  carrinho: string
+  resultado: string
+  motivo: string | null
+  created_at: Data
+}
+
+/** Os que chegaram no pagamento e não fizeram o pedido, pelo porquê. */
+export type SaidasDoPagamento = {
+  /** Quantos saíram no pagamento: o "N saíram" do "Fizeram o pedido". */
+  total: number
+  /** O cartão que o banco, a análise de fraude ou o Pagar.me (o dado do cartão) recusou. */
+  recusado: { banco: number; antifraude: number; dados: number }
+  /** O cartão que não passou da tela: o Pagar.me não devolveu o token. */
+  naTela: number
+  /** As travas da loja seguraram: a do robô testando cartão, as do Pix. */
+  barrado: number
+  /** O parceiro não atendeu, o Pix não nasceu, o estoque acabou no meio. */
+  erro: number
+  /** Nenhuma tentativa: saíram sem clicar em pagar. */
+  semTentar: number
+  /** Carrinho de antes do registro, ou de mais de 30 dias: não dá pra saber. */
+  semRegistro: number
+}
+
+/** Os carrinhos do período que chegaram no pagamento e não viraram pedido. */
+export function saidosNoPagamento(
+  carrinhos: readonly CarrinhoDoCheckout[],
+  j: Janela
+): CarrinhoDoCheckout[] {
+  // Sem os pagos: o 3 é carrinho aberto, e o "pago" (5) é só de pedido.
+  return doPeriodo(carrinhos, j).filter((c) => ateOndeFoi(c, new Set()) === 3)
+}
+
+/**
+ * POR QUE SAÍRAM NO PAGAMENTO — o que aconteceu por ÚLTIMO em cada carrinho
+ * que chegou no pagamento e não virou pedido: a última tentativa anotada
+ * pela porta (`lib/cartao/porta.ts`) ou a marca do cartão que não passou da
+ * tela, a mais nova das duas. É o que a pessoa viu antes de ir embora.
+ *
+ * Recusa é a do banco, da análise de fraude ou do dado do cartão; a trava
+ * (`barrada`) é a da loja; o resto (o parceiro que não atendeu, o Pix que
+ * não nasceu, o estoque que acabou no meio — e o que nasceu e mesmo assim
+ * não virou pedido) é erro, pra olhar na Observabilidade. Sem nada: saiu
+ * sem clicar em pagar.
+ */
+export function saidasDoPagamento(
+  carrinhos: readonly CarrinhoDoCheckout[],
+  tentativas: readonly TentativaDoCarrinho[],
+  j: Janela,
+  agora: Date
+): SaidasDoPagamento {
+  const desde = Math.max(
+    TENTATIVAS_DESDE.getTime(),
+    agora.getTime() - DIAS_DAS_TENTATIVAS * 24 * 60 * 60 * 1000
+  )
+  const ultima = new Map<string, TentativaDoCarrinho>()
+  for (const t of tentativas) {
+    if (t.resultado === "solta") continue
+    const antes = ultima.get(t.carrinho)
+    if (!antes || instante(t.created_at) >= instante(antes.created_at)) ultima.set(t.carrinho, t)
+  }
+
+  const s: SaidasDoPagamento = {
+    total: 0,
+    recusado: { banco: 0, antifraude: 0, dados: 0 },
+    naTela: 0,
+    barrado: 0,
+    erro: 0,
+    semTentar: 0,
+    semRegistro: 0,
+  }
+  for (const c of saidosNoPagamento(carrinhos, j)) {
+    s.total++
+    if (instante(c.created_at) < desde) {
+      s.semRegistro++
+      continue
+    }
+    const t = ultima.get(c.id)
+    const tela = c.metadata?.[MARCA_DO_CARTAO_NA_TELA] as { em?: unknown } | undefined
+    const telaEm = tela ? instante(texto(tela.em)) || instante(c.created_at) : null
+    if (telaEm !== null && (!t || telaEm >= instante(t.created_at))) s.naTela++
+    else if (!t) s.semTentar++
+    else if (t.resultado === "recusada") {
+      // A porta só grava estes três (`resultadoDaSessao`); um outro, o banco.
+      if (t.motivo === "antifraude") s.recusado.antifraude++
+      else if (t.motivo === "dados") s.recusado.dados++
+      else s.recusado.banco++
+    } else if (t.resultado === "barrada") s.barrado++
+    else s.erro++
+  }
+  return s
+}
+
+const instante = (d: Data) => {
+  const n = new Date(d).getTime()
+  return Number.isFinite(n) ? n : 0
 }
 
 /* ── o Início no período ──────────────────────────────────────────────────── */
@@ -304,6 +430,11 @@ export type DadosDoPeriodo = {
   produtos: ProdutoComSku[]
   /** Os carrinhos do período e do de antes — `null` pra quem não abre o Marketing. */
   carrinhos: CarrinhoDoCheckout[] | null
+  /**
+   * As tentativas de pagar dos que saíram no pagamento (`saidosNoPagamento`) —
+   * `null` sem os carrinhos, ou se a leitura falhou (o checkout aparece sem o porquê).
+   */
+  tentativas: TentativaDoCarrinho[] | null
   /** Os pedidos feitos no período, já prontos pra lista — `null` pra quem não abre os Pedidos. */
   feitos: { lista: LinhaDaLista[]; total: number } | null
 }
@@ -330,6 +461,10 @@ export function montarInicioNoPeriodo(
     checkout: dados.carrinhos ? checkoutDoPeriodo(dados.carrinhos, pagos, p.atual) : null,
     checkoutAntes:
       dados.carrinhos && p.antes ? checkoutDoPeriodo(dados.carrinhos, pagos, p.antes.janela) : null,
+    saidas:
+      dados.carrinhos && dados.tentativas
+        ? saidasDoPagamento(dados.carrinhos, dados.tentativas, p.atual, agora)
+        : null,
     pedidos: dados.feitos,
   }
 }
