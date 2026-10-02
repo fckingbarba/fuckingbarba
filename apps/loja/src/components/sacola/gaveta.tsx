@@ -136,9 +136,12 @@ export function Gaveta({
           `data-ocupada` é o que esmaece o dinheiro enquanto o Medusa
           recalcula, e `aria-busy` conta a mesma coisa pra quem não vê a
           tela. Quantidade já mudou; o que está "carregando" aqui é só o
-          valor.
+          valor. Com `data-previsto` (entrega 0252), a conta de baixo já é a
+          certa — a sacola fez no clique (`contaNaHora`) — e o dinheiro fica
+          firme: a escrita segue em voo, mas não há o que esperar na tela.
         */
         data-ocupada={ocupada ? "" : undefined}
+        data-previsto={carrinho.previsto ? "" : undefined}
         aria-busy={ocupada || undefined}
       >
         <div className="sacolinha__topo">

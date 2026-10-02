@@ -15,6 +15,7 @@ import {
   ehCodigoDePromocao,
   precoDoEmpurrao,
   promocoesDasLinhas,
+  unitarioEm,
   type PromocaoDaLinha,
   type PromocaoNaLoja,
 } from "./promocoes"
@@ -131,6 +132,12 @@ function gratisDaLinha(item: HttpTypes.StoreCartLineItem): number {
  * variante (o preço de uma unidade por quantidade), o "+" prevê o total
  * certo (`totalPrevisto`). Sem elas, a sacola é a de sempre: o desconto é o
  * Medusa que dá, e o total já vem com ele.
+ *
+ * Os `unitarios` vão também em TODA linha cujo preço bate com eles (entrega
+ * 0252): o desconto por quantidade vale em todo produto, e sem eles o "+"
+ * mostrava o preço de uma unidade vezes dois até o Medusa responder. Não
+ * batendo (a oferta oculta cobra outro preço), a linha vai sem, e a gaveta
+ * espera o Medusa, como antes.
  */
 export function paraVisivel(
   carrinho: Carrinho | null,
@@ -168,6 +175,16 @@ export function paraVisivel(
     return { promocao: { ...promocao, custam } }
   }
 
+  /** Os preços por quantidade da linha, se batem com o que o Medusa cobrou nela agora. */
+  const daLinha = (item: HttpTypes.StoreCartLineItem): { unitarios?: number[] } => {
+    const daVariante = unitarios.get(item.variant_id ?? "")
+    const cobrado = Number(item.unit_price ?? NaN)
+    return daVariante?.length &&
+      Math.abs(unitarioEm(daVariante, item.quantity ?? 1, NaN) - cobrado) < 0.005
+      ? { unitarios: daVariante }
+      : {}
+  }
+
   const itens: ItemDoCarrinho[] = linhas.map((item, k) => ({
     id: item.id,
     varianteId: item.variant_id ?? "",
@@ -180,6 +197,7 @@ export function paraVisivel(
     quantidade: item.quantity ?? 0,
     precoUnitario: Number(item.unit_price ?? 0),
     total: Number(item.total ?? 0),
+    ...daLinha(item),
     ...comRecado(item, k),
   }))
 
@@ -204,34 +222,33 @@ export function paraVisivel(
 
 /**
  * O carrinho no formato da gaveta, já com o recado das promoções (ver
- * `paraVisivel`) — e, nas linhas em promoção, o preço de uma unidade por
- * quantidade, da escada da página do produto (guardada: não é uma ida a
- * mais ao Medusa por linha). Sem a escada, a linha prevê pelo preço da
- * unidade de agora, e quem acerta é a resposta.
+ * `paraVisivel`) — e, em toda linha (nas em promoção desde a 0142; nas
+ * outras desde a 0252), o preço de uma unidade por quantidade, da escada da
+ * página do produto (guardada: não é uma ida a mais ao Medusa por linha).
+ * Sem a escada, a linha prevê pelo preço da unidade de agora, e quem acerta
+ * é a resposta.
  */
 export async function paraAGaveta(carrinho: Carrinho | null): Promise<CarrinhoVisivel> {
   const linhas = carrinho?.items ?? []
   if (!linhas.length) return paraVisivel(carrinho)
-  const promocoes = await promocoesOuNenhuma()
-  const emPromocao = linhas.filter(
-    (i) =>
-      i.product_handle &&
-      i.variant_id &&
-      promocoes.some((p) => p.produtos.includes(i.product_id ?? ""))
-  )
   const unitarios = new Map<string, number[]>()
-  await Promise.all(
-    emPromocao.map(async (i) => {
-      try {
-        const escada = await escadaDeQuantidade(i.product_handle!)
-        // A escada é a da primeira variação do produto: de outra, não vale.
-        if (escada.degraus[0]?.varianteId === i.variant_id)
-          unitarios.set(i.variant_id!, escada.unitarios)
-      } catch (e) {
-        aviso(e, "a escada da linha em promoção")
-      }
-    })
+  // As escadas e as promoções saem juntas: nenhuma depende da outra.
+  const escadas = Promise.all(
+    linhas
+      .filter((i) => i.product_handle && i.variant_id)
+      .map(async (i) => {
+        try {
+          const escada = await escadaDeQuantidade(i.product_handle!)
+          // A escada é a da primeira variação do produto: de outra, não vale.
+          if (escada.degraus[0]?.varianteId === i.variant_id)
+            unitarios.set(i.variant_id!, escada.unitarios)
+        } catch (e) {
+          aviso(e, "a escada da linha")
+        }
+      })
   )
+  const promocoes = await promocoesOuNenhuma()
+  await escadas
   return paraVisivel(carrinho, promocoes, unitarios)
 }
 

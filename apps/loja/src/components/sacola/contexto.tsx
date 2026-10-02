@@ -62,12 +62,20 @@ import { SEM_CONEXAO, semQueda } from "@/lib/rede"
  *   Não acompanhar seria pior que esperar: mostraria R$ 149,90 ao lado de
  *   uma quantidade 2, um número visivelmente errado só que esmaecido.
  *
- *   O TOTAL DO CARRINHO ESPERA. Ele não é multiplicação: é onde entram
- *   promoção, piso de frete grátis e cupom. Dava pra somar as linhas e
- *   acertar quase sempre — e "quase sempre" quebra exatamente onde tem
+ *   O TOTAL DO CARRINHO ESPERA — quando pode mudar por conta de fora das
+ *   linhas: promoção, piso de frete grátis e cupom. Somar as linhas aí
+ *   acertaria quase sempre, e "quase sempre" quebra exatamente onde tem
  *   desconto, que é onde o cliente mais olha. Um número que pula duas vezes
- *   é pior que um número que demora 300 ms, e a loja inteira foi escrita em
- *   cima da regra de que quem faz conta de dinheiro é o Medusa.
+ *   é pior que um número que demora, e a loja inteira foi escrita em cima da
+ *   regra de que quem faz conta de dinheiro é o Medusa.
+ *
+ *   SEM NADA DISSO NA SACOLA, ELE SAI NA HORA (entrega 0252, pedido do dono:
+ *   no celular, o valor piscava um a dois segundos depois de cada
+ *   "Adicionar"). Sem cupom, sem desconto, sem promoção em linha nenhuma e
+ *   sem frete, o total do Medusa É a soma das linhas — e cada linha a gaveta
+ *   já acerta: o preço que a página mostrava, ou os preços por quantidade da
+ *   própria linha (`unitarios`). Aí o valor aparece firme, sem piscar
+ *   (`previsto`), e a resposta só confirma. Ver `contaNaHora`.
  *
  *   A LINHA NOVA DE UM "ADICIONAR" também entra na hora (entrega 0104): a
  *   gaveta abre no clique, com a foto, o nome e o preço que a página já
@@ -88,7 +96,19 @@ type Mudanca =
   | { tipo: "remover"; linhaId: string }
   | { tipo: "adicionar"; itens: Adicionado[] }
 
-function prever(carrinho: CarrinhoVisivel, m: Mudanca): CarrinhoVisivel {
+/**
+ * `contar`: a sacola na tela é a da pessoa (a primeira leitura voltou). Antes
+ * disso, o vazio de partida não é a sacola dela — a soma das linhas da tela
+ * deixaria de fora o que já estava lá no Medusa.
+ */
+type Previsao = Mudanca & { contar: boolean }
+
+/** A linha cujo total o "+" e o "−" acertam: fora de promoção, com os preços por quantidade. */
+const linhaExata = (i: ItemDoCarrinho) => !i.promocao && Boolean(i.unitarios?.length)
+
+const centavos = (v: number) => Math.round(v * 100) / 100
+
+function prever(carrinho: CarrinhoVisivel, m: Previsao): CarrinhoVisivel {
   const itens =
     m.tipo === "adicionar"
       ? chegar(carrinho.itens, m.itens)
@@ -101,19 +121,51 @@ function prever(carrinho: CarrinhoVisivel, m: Mudanca): CarrinhoVisivel {
                 // unitário está escrito logo acima ("R$ 149,90 cada"). Deixar
                 // ele parado mostraria 149,90 ao lado de uma quantidade 2 —
                 // um número visivelmente errado, só que esmaecido.
-                { ...i, quantidade: m.quantidade, total: totalPrevisto(i, m.quantidade) }
+                {
+                  ...i,
+                  quantidade: m.quantidade,
+                  total: totalPrevisto(i, m.quantidade),
+                  ...(linhaExata(i) ? {} : { estimado: true as const }),
+                }
               : i
           )
 
-  return {
-    ...carrinho,
-    itens,
-    unidades: itens.reduce((soma, i) => soma + i.quantidade, 0),
-    // O SUBTOTAL E O TOTAL DO CARRINHO ficam como estavam: são do servidor,
-    // e a gaveta os mostra esmaecidos enquanto `ocupada` for true. A conta
-    // deles não é multiplicação — é onde entram promoção, piso de frete
-    // grátis e cupom, e é justamente onde um palpite erraria.
-  }
+  return contaNaHora(
+    { ...carrinho, itens, unidades: itens.reduce((soma, i) => soma + i.quantidade, 0) },
+    m.contar
+  )
+}
+
+/**
+ * A CONTA DE BAIXO NA HORA (entrega 0252) — o subtotal, o total, a parcela e
+ * o medidor do frete grátis, no clique, quando a soma das linhas É o total
+ * do Medusa:
+ *
+ *   • sem cupom e sem desconto nenhum (nem "Leve X", nem a oferta do
+ *     checkout), e sem promoção em linha nenhuma — o desconto pode nascer
+ *     com o clique;
+ *   • sem frete escolhido e sem CEP — o frete grátis pode virar no meio, e a
+ *     cotação muda com o peso;
+ *   • a sacola de antes fechando (total = produtos): nada escondido;
+ *   • toda linha acertada (sem `estimado`).
+ *
+ * Faltando qualquer um, o dinheiro fica como estava e esmaece até a
+ * resposta, como sempre foi. Dando, ele aparece firme (`previsto`), e a
+ * resposta do Medusa, que vem logo atrás, é que fica.
+ */
+function contaNaHora(c: CarrinhoVisivel, contar: boolean): CarrinhoVisivel {
+  const daPraContar =
+    contar &&
+    !c.cupom &&
+    !(c.desconto > 0) &&
+    c.frete === null &&
+    !c.cep &&
+    Math.abs(c.total - c.totalDosItens) < 0.005 &&
+    Math.abs(c.subtotal - c.totalDosItens) < 0.005 &&
+    c.itens.every((i) => !i.promocao && !i.estimado)
+  if (!daPraContar) return { ...c, previsto: undefined }
+  const soma = centavos(c.itens.reduce((s, i) => s + i.total, 0))
+  return { ...c, subtotal: soma, totalDosItens: soma, total: soma, previsto: true }
 }
 
 /**
@@ -149,15 +201,23 @@ function chegar(itens: ItemDoCarrinho[], novos: Adicionado[]): ItemDoCarrinho[] 
           imagem: n.imagem,
           quantidade: n.quantidade,
           precoUnitario: n.precoUnitario,
-          total: n.total ?? n.precoUnitario * n.quantidade,
+          total: centavos(n.total ?? n.precoUnitario * n.quantidade),
           chegando: true,
+          // Uma unidade nunca completa um "leve X"; mais, só a página sabe.
+          ...(n.quantidade === 1 || n.exato ? {} : { estimado: true as const }),
         },
       ]
     } else if (linha.quantidade === n.antes) {
       const quantidade = n.antes + n.quantidade
       lista = lista.map((i) =>
         i === linha
-          ? { ...i, quantidade, total: totalPrevisto(i, quantidade), chegando: true as const }
+          ? {
+              ...i,
+              quantidade,
+              total: totalPrevisto(i, quantidade),
+              chegando: true as const,
+              ...(linhaExata(i) ? {} : { estimado: true as const }),
+            }
           : i
       )
     }
@@ -427,7 +487,8 @@ export function ProvedorDaSacola({ children }: { children: ReactNode }) {
     emVoo.current++
     return new Promise((resolver) => {
       comecar(async () => {
-        prevendo(mudanca)
+        // A conta de baixo só sai na hora com a sacola da pessoa na tela (`contaNaHora`).
+        prevendo({ ...mudanca, contar: leitura === "feita" })
         const r = await semQueda(chamar, (): Resultado => ({
           ok: false,
           erro: SEM_CONEXAO,
