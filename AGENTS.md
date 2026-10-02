@@ -4177,7 +4177,8 @@ número da loja recebe a resposta de uma IA que vende e tira dúvida, só com o 
   `produtosDoAtendente` guarda a leitura (o catálogo e a `ver_produto` leem dela). As
   instruções mandam usar a `ver_produto` antes de responder qualquer detalhe. As dúvidas da loja vêm do JSON-LD
   `FAQPage` da página `/duvidas` (`duvidas.ts`, de hora em hora; a loja fora, fica a última boa): as
-  respostas são função das configurações, e escrevê-las de novo aqui seria anunciar dois fretes.
+  respostas são função das configurações, e escrevê-las de novo aqui seria anunciar dois fretes
+  (por isso a regra do frete grátis das instruções, 0246, aponta pro mínimo das dúvidas, sem o valor).
   Links com `utm_source=whatsapp&utm_medium=atendimento`.
 - **Observabilidade:** a rotina nova no `ROTINAS`; as integrações `whatsapp` (a Meta) e `anthropic`
   (a IA), com o cartão na área "WhatsApp".
@@ -4194,7 +4195,9 @@ número da loja recebe a resposta de uma IA que vende e tira dúvida, só com o 
   comprou com outro telefone: só a situação e o rastreio; o e-mail errado e o pedido que não existe
   respondem igual; 5 tentativas por hora); `mandar_codigo_do_pix` (o copia e cola vai em
   `ContextoDasFerramentas.depois` e sai numa mensagem SÓ COM ELE, depois da resposta — o WhatsApp
-  copia a mensagem inteira, e o banco não aceita o código com texto; só pro dono); `cotar_frete`
+  copia a mensagem inteira, e o banco não aceita o código com texto; só pro dono, e só quando a
+  pessoa pede o código ou quer pagar — no "cadê meu pedido?" ele oferece: sem isso, mandava o Pix e
+  esquecia o pedido enviado, 0246); `cotar_frete`
   (`lib/cotar-frete.ts`, a mesma conta da `POST /store/frete`, que ficou só com a porta e o limite;
   10 por hora); `montar_sacola` (um carrinho — do dono, com o e-mail, a conta e os endereços da
   última compra (`carrinhoNovo`/`copiaDo`/`lerPedido`, de `lib/crm/voltar-ao-checkout.ts`) — e o
@@ -4258,7 +4261,7 @@ número da loja recebe a resposta de uma IA que vende e tira dúvida, só com o 
   e a página moram no endereço. A tela se refaz de 15 em 15 s com a aba à vista
   (`AtualizarSozinho`). Fora da janela, o campo de responder dá lugar ao porquê.
 - **A simulação do atendente** (entrega 0243): `apps/backend/ferramentas/simular-atendente/`. Roda as
-  conversas de `cenarios.ts` (27: preço, indicação, frete, sacola, pedido, Pix, saúde, troca, cliente
+  conversas de `cenarios.ts` (28: preço, indicação, frete, frete grátis, sacola, pedido, Pix, saúde, troca, cliente
   bravo, revenda, cupom, outro idioma, tentativa de golpe, detalhe de produto) no MESMO atendente
   (`responderComIa`, `instrucoesDoAtendente`, `catalogoEmTexto`, `FERRAMENTAS_DA_LOJA`), com o
   catálogo lido das páginas públicas da loja (`paginas.ts`) e as dúvidas da /duvidas — sem banco: as
@@ -4266,7 +4269,7 @@ número da loja recebe a resposta de uma IA que vende e tira dúvida, só com o 
   uma frase numa ferramenta de verdade, mude lá também). `cd apps/backend && SIM_CHAVE=<arquivo com
   uma chave de TESTE da Anthropic> npx ts-node ferramentas/simular-atendente/rodar.ts` (`SIM_MODELOS`,
   `SIM_REPETICOES`, `SIM_SO`, `SIM_REGRAS`; `SIM_FALSA=1` usa a IA de mentira na 4380, de graça). Cada
-  rodada custa dinheiro de verdade (uns US$ 0,25 as 27 conversas no Sonnet): só com o "sim" do dono.
+  rodada custa dinheiro de verdade (uns US$ 0,25 as 28 conversas no Sonnet): só com o "sim" do dono.
   Grava `respostas.jsonl`, `resumo.json` (conferência, custo e tempo por modelo) e `revisao.md` (as
   respostas embaralhadas, pra dar nota às cegas; o gabarito em `chaves.json`). Antes x depois de uma
   mudança: a versão de antes numa cópia do backend do main (o passo a passo no `rodar.ts`) e o
