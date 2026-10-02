@@ -5307,6 +5307,25 @@ unidade do backend (1.892), typecheck, lint e prettier.
 Depois do deploy — **nada pra configurar.** Pra usar: painel → Cupons e descontos → Ofertas ocultas
 → Nova oferta; depois é "Copiar" o link e mandar.
 
+**Os 2 avisos da Observabilidade de 02/10 (entrega 0239).** Os dois apareceram em "Pra olhar → Site".
+
+- **"2 visitas caíram em páginas que não existem" (`/checkout/v3/success/…`):** é a página de
+  "pedido feito" do checkout da Nuvemshop. Quem abre esse endereço hoje é uma aba antiga que o
+  celular recarregou, ou o link de um e-mail da loja antiga. Por isso o painel achou que o link era
+  da própria loja: a aba veio do checkout antigo, no mesmo domínio. Agora todo endereço que começa
+  com `/checkout/v3/` vai pra home, sem a página de erro.
+- **"2 erros no navegador" (`window.webkit.messageHandlers`, no Kit Completo):** não é da loja. É o
+  navegador de dentro do Instagram ou do Facebook no iPhone: o app põe um script dele na página, e
+  esse script quebra. A página funcionou normalmente pra essas pessoas. A loja para de contar esse
+  erro.
+
+Conferido: o proxy, com os endereços do checkout antigo (com e sem a barra no fim, com maiúsculas,
+com `?utm_`) e os da loja nova (`/checkout`, `/checkout/obrigado/…`, `/checkout/retomar`), que
+seguem como estavam; typecheck, lint e prettier. O conferidor dos endereços antigos ganhou os
+prefixos.
+
+Depois do deploy, na Observabilidade, clique em **"Marcar como resolvido"** nos dois avisos.
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa

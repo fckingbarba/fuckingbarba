@@ -288,7 +288,10 @@ precisa sair da janela dela — ver `longeDaConciliacaoAutomatica` no conferidor
   26/09, mais a busca, o carrinho e a conta): cada um abre, o redirect é permanente, a query e a
   âncora vão junto, e nenhuma linha leva pra outra. Os produtos têm o mesmo endereço nas duas
   lojas, e dependem do catálogo: no local (onde faltam produtos) rode com `SEM_PRODUTOS=1`; contra
-  a loja no ar, sem — e de novo logo depois da troca de domínio.
+  a loja no ar, sem — e de novo logo depois da troca de domínio. Os `prefixos` do mapa valem pelo
+  COMEÇO do caminho, e o resto some (0239): `/checkout/v3/` (o checkout da Nuvemshop,
+  `/checkout/v3/success/<id>/<token>`) vai pra home num salto só — o proxy olha os prefixos antes
+  do minúsculo, porque o token tem maiúsculas. Prefixo novo pede endereço de exemplo no conferidor.
 - **O robots.txt vale pelo COMEÇO do endereço** (`apps/loja/src/app/robots.ts`): `Disallow: /conta`
   pegava também o `/contato`, que está no sitemap (entrega 0136). Pasta bloqueia com a barra
   (`/conta/`) e o endereço exato com `$` (`/conta$`). Até a virada a loja responde `Disallow: /`;
@@ -2466,7 +2469,9 @@ falsos: o Resend recusa, a Frenet cai, e o Pagar.me não estorna.
 - **Na loja:** `components/telemetria/telemetria.tsx` mora no layout raiz. Ele guarda o LCP, o INP
   e o CLS do `useReportWebVitals` (uma de cada por envio, pelo nome: no desenvolvimento, o React
   liga o medidor duas vezes) e o erro dos scripts da própria loja (`error` e
-  `unhandledrejection`). O medidor (`vitais.tsx`) só baixa depois do `load` (0194): o `web-vitals`
+  `unhandledrejection`). O `IGNORAR` dele tira o barulho conhecido: o `ResizeObserver loop`, o
+  `Script error.` e o `window.webkit.messageHandlers` do navegador de dentro de app no iPhone
+  (Instagram, Facebook), que injeta script na página e passa pelo filtro do `filename` (0239). O medidor (`vitais.tsx`) só baixa depois do `load` (0194): o `web-vitals`
   do Next pesa ~3 KB comprimidos e entrava no LCP de toda página no Lighthouse do CI. O navegador
   guarda o LCP, o CLS e o primeiro toque desde o começo, e o medidor lê o que já passou — só a
   visita que esconde a aba no instante da carga fica sem o LCP (a de antes também quase nunca o
