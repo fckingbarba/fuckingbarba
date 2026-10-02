@@ -168,6 +168,9 @@ a.filtro { text-decoration: none; }
 
 /* As ações do pedido: a dica embaixo do botão, o botão esperando a loja (quem não aperta lê a pílula da faixa). */
 .acoes-lado__dica { margin: 0; }
+/* O código do Pix quando o navegador não deixa copiar: um clique seleciona tudo. */
+.link-pronto--pix { grid-template-columns: minmax(0, 1fr); margin-top: 0; }
+.link-pronto--pix code { user-select: all; }
 .btn[disabled][aria-busy] { opacity: 0.7; cursor: progress; }
 .aviso[data-erro] { box-shadow: 5px 5px 0 0 var(--erro); }
 .aviso[data-erro] svg { fill: var(--amarelo); }

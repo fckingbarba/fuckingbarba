@@ -115,8 +115,16 @@ export type DetalheDoPedido = {
     /** "18:00": quando a nota sai sozinha (desde a 0155). */
     saiAs?: string | null
   }
-  /** `tipo` é o do ícone (desde a 0155). */
-  pagamento: { forma: string; tipo?: "pix" | "cartao" | null; detalhe: string }
+  /**
+   * `tipo` é o do ícone (desde a 0155). `pix` é o copia e cola pra mandar pro
+   * cliente, só enquanto o Pix espera e vale (desde a 0247).
+   */
+  pagamento: {
+    forma: string
+    tipo?: "pix" | "cartao" | null
+    detalhe: string
+    pix?: { codigo: string; valeAte: string } | null
+  }
   nota: string | null
   entrega: {
     nome: string
@@ -134,6 +142,8 @@ export type DetalheDoPedido = {
     celular: string | null
     documento: { tipo: "cpf" | "cnpj"; mascarado: string; inteiro: string | null } | null
     conta: boolean
+    /** O WhatsApp com a mensagem pronta — só pra quem abre os contatos (desde a 0247). */
+    whatsapp?: string | null
   }
 }
 
