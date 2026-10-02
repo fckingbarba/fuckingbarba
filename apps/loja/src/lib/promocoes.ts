@@ -158,15 +158,24 @@ export function promocoesDasLinhas(
  * e, desde que a faixa de 2 ficou (entrega 0142), o "+" de 2 pra 3 levaria o
  * desconto dela junto. É a conta de um produto só; com vários na mesma
  * promoção, quem acerta é a resposta.
+ *
+ * Fora de promoção, com os preços por quantidade da linha (`unitarios`,
+ * entrega 0252), o "+" de 1 pra 2 já sai com o desconto da faixa de 2 — antes
+ * mostrava duas vezes o preço de uma até a resposta.
  */
 export function totalPrevisto(
   linha: {
     precoUnitario: number
     promocao?: Pick<PromocaoDaLinha, "comprando" | "pague" | "unitarios">
+    unitarios?: readonly number[]
   },
   quantidade: number
 ): number {
-  if (!linha.promocao) return Math.round(linha.precoUnitario * quantidade * 100) / 100
+  if (!linha.promocao)
+    return (
+      Math.round(unitarioEm(linha.unitarios, quantidade, linha.precoUnitario) * quantidade * 100) /
+      100
+    )
   const { comprando, pague, unitarios } = linha.promocao
   const unitario = unitarioEm(unitarios, quantidade, linha.precoUnitario)
   const gratis = gratisEm(quantidade, comprando, pague)

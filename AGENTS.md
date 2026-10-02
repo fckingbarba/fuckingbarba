@@ -1141,6 +1141,24 @@ found"); remover pergunta antes, curto (`situacaoDoCarrinho`), porque a remoçã
 2.21 não confere isso. O `CAMPOS_CARRINHO` não pede mais `*items.product` nem `*items.variant` (a
 linha já guarda nome, handle, variante e foto). O conferidor é o `conferir-checkout` ("A sacola
 responde no clique", com cada ação segurada 1,5 s no navegador pra ver a tela antes da resposta).
+A CONTA DE BAIXO NA HORA (entrega 0252, pedido do dono: no celular, o valor piscava 1 a 2 s depois
+de cada "Adicionar"; medido no ar em 02/10, ~1,3 s por "+" e ~1,9 s no 1º "Adicionar"). Sem cupom,
+sem desconto, sem promoção em linha nenhuma, sem frete escolhido e sem CEP — e com a sacola de antes
+fechando (total = produtos) —, o total do Medusa é a soma das linhas, e o `prever` do contexto faz a
+conta no clique (`contaNaHora`): subtotal, total, parcela e medidor do frete grátis já certos, com
+`previsto` no carrinho da tela e `data-previsto` na gaveta, que tira o esmaecido do dinheiro (o
+`data-ocupada` continua: a escrita segue em voo, e os conferidores esperam por ele). Faltando
+qualquer condição, é como antes: o dinheiro esmaece até a resposta. Cada linha precisa estar
+acertada: (1) o servidor manda os `unitarios` (o preço de 1, 2 e 3+ unidades, da escada guardada da
+PDP) em TODA linha cujo preço bate com eles (`paraVisivel`; a oferta oculta cobra outro e vai sem),
+e o `totalPrevisto` usa esses preços fora de promoção — o "+" de 1 pra 2 já sai com o desconto da
+faixa de 2 (antes mostrava duas vezes o preço de uma até a resposta); (2) linha nova de 1 unidade é
+exata (uma só nunca completa um "leve X"); de mais, só com `exato` no `ItemChegando` (a PDP põe
+quando o produto não tem "Leve X, pague Y"); o resto entra com `estimado` e trava a conta. A conta só
+sai com a primeira leitura feita (`contar`): antes dela a sacola da tela não é a da pessoa. Soma ~0,26
+KB de JavaScript (gzip) em toda página. O conferidor é o mesmo `conferir-checkout`: na "A sacola
+responde no clique", o total do 1º "Adicionar" e o dos três "+" já iguais ao do Medusa antes da
+resposta; no "O cupom e o frete grátis na sacola", com cupom o "+" esmaece e espera.
 
 O **motor de recomendação** (o "leva junto" da gaveta, os chips do frete grátis e a oferta do
 checkout, e o carrossel "Quem leva este, leva junto" da PDP; nada se escolhe no admin) tem duas

@@ -2714,6 +2714,8 @@ titulo("A sacola responde no clique")
         .innerText()
         .catch(() => ""),
       esmaecido: await pag.locator(".sacolinha[data-ocupada]").count(),
+      previsto: await pag.locator(".sacolinha[data-previsto]").count(),
+      total: (await naTela()).total,
       travado: await gaveta
         .locator('.sacolinha__item[data-chegando] button[aria-label^="Aumentar"]')
         .isDisabled()
@@ -2727,7 +2729,7 @@ titulo("A sacola responde no clique")
     )
     ok(
       antes.esmaecido === 1 && antes.travado,
-      "com o dinheiro esmaecido, e os botões da linha nova esperando o id de verdade",
+      "a escrita segue em voo, e os botões da linha nova esperam o id de verdade",
       JSON.stringify(antes)
     )
     await livre()
@@ -2743,6 +2745,18 @@ titulo("A sacola responde no clique")
       "a resposta troca a linha pela do Medusa, com o total dele",
       `${t1.total} × ${reais(c1?.total ?? 0)} · ${idas} ida(s)`
     )
+    /*
+      O TOTAL NA HORA (02/10, entrega 0252): no celular, o valor piscava um a
+      dois segundos depois de cada "Adicionar". Sem cupom, promoção nem frete,
+      a soma das linhas é o total do Medusa — a sacola faz a conta no clique,
+      e o valor aparece firme (`data-previsto`), já igual ao que o Medusa
+      devolve.
+    */
+    ok(
+      antes.previsto === 1 && antes.total === reais(c1?.total ?? -1),
+      "sem cupom nem frete, o total já sai certo no clique, sem esmaecer (0252)",
+      `na hora ${antes.total} · Medusa ${reais(c1?.total ?? 0)} · previsto ${antes.previsto}`
+    )
 
     idas = 0
     const mais = gaveta.locator('button[aria-label^="Aumentar a quantidade"]').first()
@@ -2754,6 +2768,7 @@ titulo("A sacola responde no clique")
     await mais.click({ timeout: 1000 }).catch(() => null)
     const cliques = Date.now() - t0
     const logo = await naTela()
+    const logoPrevisto = await pag.locator(".sacolinha[data-previsto]").count()
     ok(
       logo.qtd === "4" && cliques < 1500,
       'três "+" seguidos: os botões não travam, e a tela diz 4 na hora, sem esperar a loja',
@@ -2769,6 +2784,11 @@ titulo("A sacola responde no clique")
         idas === 2,
       "e a fila junta os cliques: duas idas à loja, não três, e a tela fecha com o Medusa",
       `${idas} idas · Medusa ${c2?.items?.[0]?.quantity} · ${t2.total} × ${reais(c2?.total ?? 0)}`
+    )
+    ok(
+      logoPrevisto === 1 && logo.total === reais(c2?.total ?? -1),
+      "e o total dos 4 já estava certo antes da resposta, com o desconto por quantidade (0252)",
+      `na hora ${logo.total} · Medusa ${reais(c2?.total ?? 0)} · previsto ${logoPrevisto}`
     )
 
     idas = 0
@@ -3498,6 +3518,30 @@ if (EMAIL_ADMIN && SENHA_ADMIN) {
       await gaveta.locator(".sacolinha__detalhe b[data-desconto]").isVisible(),
       "o pé mostra a linha do desconto"
     )
+
+    /*
+      Com cupom, a conta de baixo ESPERA o Medusa (0252): o desconto muda com
+      a quantidade, e um palpite erraria justo onde o cliente mais olha. O
+      "+" esmaece o total até a resposta; o "−" depois devolve a sacola como
+      estava, pro resto da seção.
+    */
+    await gaveta.locator('button[aria-label^="Aumentar a quantidade"]').first().click()
+    const comCupom = await gaveta.evaluate((g) => ({
+      ocupada: g.hasAttribute("data-ocupada"),
+      previsto: g.hasAttribute("data-previsto"),
+    }))
+    await livre()
+    const depoisDoMais = (await medusa(`/store/carts/${await idDaSacola()}?fields=total`))?.cart
+    const naTelaDepois = numero(await gaveta.locator(".sacolinha__soma-valor").innerText())
+    ok(
+      comCupom.ocupada &&
+        !comCupom.previsto &&
+        Math.abs(naTelaDepois - Number(depoisDoMais?.total)) < 0.01,
+      "com cupom, o '+' esmaece o total até o Medusa responder, e fecha com ele (0252)",
+      `${JSON.stringify(comCupom)} · ${naTelaDepois} · ${depoisDoMais?.total}`
+    )
+    await gaveta.locator('button[aria-label^="Diminuir a quantidade"]').first().click()
+    await livre()
 
     // No checkout, o mesmo cupom — é o mesmo carrinho.
     await pag.goto(`${LOJA}/checkout`, { waitUntil: "domcontentloaded" })

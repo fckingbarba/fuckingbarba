@@ -27,11 +27,16 @@
 
 /* --- o dinheiro que está sendo recalculado ------------------------------ */
 
-.sacolinha[data-ocupada] .sacolinha__soma-valor,
-.sacolinha[data-ocupada] .sacolinha__parcela,
-.sacolinha[data-ocupada] .sacolinha__frete-frase mark,
-.sacolinha[data-ocupada] .sacolinha__frete-trilho,
-.sacolinha[data-ocupada] .sacolinha__detalhe b,
+/*
+  Com `data-previsto` (entrega 0252), a sacola já fez a conta certa no
+  clique — sem cupom, promoção nem frete, a soma das linhas é o total — e o
+  dinheiro não esmaece: não há o que esperar. Ver `contaNaHora`.
+*/
+.sacolinha[data-ocupada]:not([data-previsto]) .sacolinha__soma-valor,
+.sacolinha[data-ocupada]:not([data-previsto]) .sacolinha__parcela,
+.sacolinha[data-ocupada]:not([data-previsto]) .sacolinha__frete-frase mark,
+.sacolinha[data-ocupada]:not([data-previsto]) .sacolinha__frete-trilho,
+.sacolinha[data-ocupada]:not([data-previsto]) .sacolinha__detalhe b,
 .sacolinha[data-ocupada] .sacolinha__opcao-preco,
 .sacolinha__opcoes[aria-busy="true"] .sacolinha__opcao-preco {
   opacity: 0.45;

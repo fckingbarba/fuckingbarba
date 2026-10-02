@@ -5618,6 +5618,26 @@ zero); o de antes, na mesma máquina, para na ficha (44/50, "parou no meio"); li
 
 Depois do deploy — **nada pra configurar.** É só o teste.
 
+**Sacola: o valor certo na hora, sem piscar — pronto em 02/10 (entrega 0252).** Ele viu, no
+celular, o valor da sacola piscando depois de "Adicionar à sacola" (1 a 2 segundos).
+
+- **Agora o valor já aparece certo no clique**, no "Adicionar", no "+", no "−" e no "Remover": o
+  subtotal, a parcela e o "Faltam R$ X pro frete grátis". A loja confirma por trás, e o número não
+  muda.
+- **Com cupom, promoção "Leve X, pague Y" ou frete já calculado na sacola, continua como antes**: o
+  valor esmaece até a loja responder. É onde a conta pode mudar, e um número que pula é pior que um
+  que espera.
+- **O "+" também acerta o desconto por quantidade na hora** (2 e 3 unidades). Antes, a linha
+  mostrava duas vezes o preço de uma até a resposta.
+- A demora em si (~1,3 s por clique no ar) segue: é a outra metade, a medição da entrega 0251.
+
+Conferido: o conferidor do checkout (214/214 duas vezes e 244/244 com a main nova junta, com 3
+checagens novas: o total na hora igual ao do Medusa no "Adicionar" e nos "+", e com cupom
+esperando), o da página do produto igual à main (as 7 falhas de texto das seções são do banco
+local, iguais sem a mudança), typecheck, lint e prettier.
+
+Depois do deploy — **nada pra configurar.** Pra ver: no celular, "Adicionar à sacola" num produto.
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa

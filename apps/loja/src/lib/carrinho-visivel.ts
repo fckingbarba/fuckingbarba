@@ -39,11 +39,26 @@ export type ItemDoCarrinho = {
    */
   promocao?: PromocaoDaLinha
   /**
+   * O preço de UMA unidade que o carrinho cobra levando 1, 2 e 3 ou mais
+   * (`escadaDeQuantidade`) — o desconto por quantidade vale em todo produto.
+   * Só vem quando bate com o que o Medusa cobrou nesta linha agora (uma
+   * oferta oculta, por exemplo, cobra outro preço): com ele, o "+" e o "−"
+   * acertam o total da linha no clique (`totalPrevisto`, entrega 0252).
+   */
+  unitarios?: number[]
+  /**
    * Só na tela: a linha que um "Adicionar" acabou de pôr, antes de o Medusa
    * confirmar (ver `contexto.tsx`). Nova, ela ainda nem tem id de verdade —
    * por isso os botões dela esperam a resposta. O servidor nunca manda isto.
    */
   chegando?: true
+  /**
+   * Só na tela: o total desta linha é um palpite que pode errar (sem os
+   * preços por quantidade, ou o degrau da página com promoção) — e aí a
+   * sacola não faz a conta de baixo na hora (ver `contaNaHora`, no
+   * `contexto.tsx`). O servidor nunca manda isto.
+   */
+  estimado?: true
 }
 
 /**
@@ -62,6 +77,13 @@ export type ItemChegando = {
   precoUnitario: number
   /** O total que a página mostrava pra essa quantidade; sem ele, unitário × quantidade. */
   total?: number
+  /**
+   * O `total` é o que o carrinho vai cobrar, sem desconto de promoção por
+   * cima — a PDP de produto sem "Leve X, pague Y". Com uma unidade não
+   * precisa: uma só nunca completa um "leve X". Sem isto, a linha nova de
+   * mais de uma unidade entra como palpite (`estimado`).
+   */
+  exato?: true
 }
 
 export type CarrinhoVisivel = {
@@ -101,6 +123,13 @@ export type CarrinhoVisivel = {
    */
   cupom: string | null
   total: number
+  /**
+   * Só na tela: o dinheiro (subtotal, total, o medidor do frete grátis) é a
+   * conta que a sacola fez no clique, e o Medusa ainda vai confirmar — sem
+   * cupom, promoção nem frete, ela não erra (`contaNaHora`, entrega 0252).
+   * O valor aparece firme, sem piscar. O servidor nunca manda isto.
+   */
+  previsto?: true
 }
 
 export const CARRINHO_VAZIO: CarrinhoVisivel = {

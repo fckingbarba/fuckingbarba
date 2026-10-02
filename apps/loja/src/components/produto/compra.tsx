@@ -326,6 +326,9 @@ export function Compra({
               quantidade: unidades,
               precoUnitario: unitario,
               total,
+              // Sem "Leve X, pague Y" no produto, o total do degrau é o que o
+              // carrinho cobra: a sacola faz a conta de baixo na hora (0252).
+              ...(promocao ? {} : { exato: true as const }),
             },
             ...marcados.map((c) => ({
               varianteId: c.varianteId,
