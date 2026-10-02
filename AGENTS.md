@@ -4135,7 +4135,15 @@ número da loja recebe a resposta de uma IA que vende e tira dúvida, só com o 
 - **O que ele sabe** (`catalogo.ts`, memória de 2 min): os produtos publicados com o preço de
   `precosDasVariantes`, as faixas de `FAIXAS`/`totalDaFaixa` (sem a que chega no X de um "Leve X,
   pague Y" valendo — `faixasComPromocao`), as promoções de `promocoesParaALoja`, o esgotado de
-  `lerSituacoes`, e o `fb_pdp` (sem as seções escondidas na página). As dúvidas da loja vêm do JSON-LD
+  `lerSituacoes`, e o `fb_pdp` (sem as seções escondidas na página). **Desde a 0243 o catálogo de
+  toda resposta é ENXUTO** (`catalogoEmTexto`: o código, o link, o resumo, o preço, as faixas, a
+  promoção e o "combina com"); a página de cada produto (o que entrega, como usar, a linha do tempo,
+  pra quem é, a rotina, a comparação e as dúvidas) vem pela ferramenta `ver_produto`
+  (`detalheDoProduto`), quando a conversa pede — com a página inteira dos 15 produtos, o que fica
+  no cache (as ferramentas, as instruções e o catálogo) tinha 30,2 mil tokens; enxuto, 11,1 mil
+  (medido na simulação), e com pouco movimento quase toda conversa paga essa gravação.
+  `produtosDoAtendente` guarda a leitura (o catálogo e a `ver_produto` leem dela). As
+  instruções mandam usar a `ver_produto` antes de responder qualquer detalhe. As dúvidas da loja vêm do JSON-LD
   `FAQPage` da página `/duvidas` (`duvidas.ts`, de hora em hora; a loja fora, fica a última boa): as
   respostas são função das configurações, e escrevê-las de novo aqui seria anunciar dois fretes.
   Links com `utm_source=whatsapp&utm_medium=atendimento`.
@@ -4187,7 +4195,10 @@ número da loja recebe a resposta de uma IA que vende e tira dúvida, só com o 
   `regras.ts`; os algarismos de dentro de um nome não viram busca de telefone —, a página, as contagens e os números de cima:
   esperando a equipe, conversas e respostas de hoje, as vendas pelo WhatsApp em 7 dias — os pedidos
   pagos de quem conversou nas 48 h antes, `vendasPeloWhatsapp` — e o custo da IA de hoje, estimado
-  pela tabela `PRECO_POR_MILHAO`/`custoEmDolar` do `atendente.ts`; mudou o modelo, mude a tabela);
+  pela tabela `PRECO_POR_MILHAO`/`custoEmDolar` do `atendente.ts`; mudou o modelo, mude a tabela —
+  desde a 0243 com a gravação de 1 hora, a do catálogo, à parte: `cacheCriado1h` no uso de cada
+  resposta, `custoDaGravacao`, e o cartão diz "US$ X gravando o catálogo (N×) · US$ Y nas
+  respostas"; resposta de antes da 0243, sem a separação, conta como gravação de 1 hora);
   `GET /dashboard/whatsapp/conversas/:id` (as últimas 150 mensagens — `mensagemNaTela`: o que o
   atendente fez vira frase por `FERRAMENTAS_NA_TELA`; ferramenta nova entra lá — e quem escreve: os
   pedidos, o tratamento, o último pedido, com os links da ficha e do pedido); o `POST` da mesma rota,
@@ -4214,6 +4225,23 @@ número da loja recebe a resposta de uma IA que vende e tira dúvida, só com o 
   1180 px; no celular, uma — com a conversa aberta, só ela, sem os números de cima). A fita, a busca
   e a página moram no endereço. A tela se refaz de 15 em 15 s com a aba à vista
   (`AtualizarSozinho`). Fora da janela, o campo de responder dá lugar ao porquê.
+- **A simulação do atendente** (entrega 0243): `apps/backend/ferramentas/simular-atendente/`. Roda as
+  conversas de `cenarios.ts` (27: preço, indicação, frete, sacola, pedido, Pix, saúde, troca, cliente
+  bravo, revenda, cupom, outro idioma, tentativa de golpe, detalhe de produto) no MESMO atendente
+  (`responderComIa`, `instrucoesDoAtendente`, `catalogoEmTexto`, `FERRAMENTAS_DA_LOJA`), com o
+  catálogo lido das páginas públicas da loja (`paginas.ts`) e as dúvidas da /duvidas — sem banco: as
+  ferramentas de pedido devolvem o texto delas pro cliente de teste (`ferramentas-de-teste.ts`; mudou
+  uma frase numa ferramenta de verdade, mude lá também). `cd apps/backend && SIM_CHAVE=<arquivo com
+  uma chave de TESTE da Anthropic> npx ts-node ferramentas/simular-atendente/rodar.ts` (`SIM_MODELOS`,
+  `SIM_REPETICOES`, `SIM_SO`, `SIM_REGRAS`; `SIM_FALSA=1` usa a IA de mentira na 4380, de graça). Cada
+  rodada custa dinheiro de verdade (uns US$ 0,25 as 27 conversas no Sonnet): só com o "sim" do dono.
+  Grava `respostas.jsonl`, `resumo.json` (conferência, custo e tempo por modelo) e `revisao.md` (as
+  respostas embaralhadas, pra dar nota às cegas; o gabarito em `chaves.json`). Antes x depois de uma
+  mudança: a versão de antes numa cópia do backend do main (o passo a passo no `rodar.ts`) e o
+  `juntar.ts`, que embaralha as duas rodadas numa revisão às cegas só — sem as ferramentas, que
+  entregariam a versão — e, com as notas, dá a média de cada uma. Foi com ela que o Sonnet 5.5
+  substituiu o Opus 5.5 (0235) e que o catálogo ficou enxuto (0243: nota às cegas 4,91 antes e 4,85
+  depois, a mesma conferência automática, e a `ver_produto` em toda resposta com detalhe).
 - **O conferidor do painel** é o `apps/dashboard/ferramentas/conferir-whatsapp.mjs` (54, ~2 min):
   sobe a Meta e a IA falsas da loja (4380) e o Resend falso (`PORTA_RESEND` igual ao `RESEND_URL` do
   backend), cria as conversas pelo webhook assinado e confere a lista, o e-mail, o número do menu,
