@@ -275,6 +275,18 @@ try {
     "o por igual ao preço de hoje é recusado, no campo do produto",
     JSON.stringify(caro.corpo)
   )
+  const relogioRuim = await criarOferta({
+    nome: `Relógio ${RODADA}`,
+    titulo: "x",
+    ate: daqui(3),
+    relogio: 3,
+    produtos: [{ produto: A.id, por: virgula(porA) }],
+  })
+  ok(
+    relogioRuim.status === 422 && /de 5 minutos a 72 horas/.test(relogioRuim.corpo.erros?.relogio),
+    "o relógio da página fora de 5 min–72 h é recusado (0245)",
+    JSON.stringify(relogioRuim.corpo)
+  )
   const endereco = `vip-${RODADA}`
   const criada = await criarOferta({
     nome: `VIP ${RODADA}`,
@@ -505,6 +517,34 @@ try {
       "a lista: um link por produto (direto pra página dele) e o da página com todos",
       semEspaco(await doA.textContent().catch(() => ""))
     )
+    // O relógio pela lista (0245): "Mudar", 1 h 30, salvar.
+    await linhaDe(endereco).locator(`[data-mudar-relogio="${endereco}"]`).click()
+    const formRelogio = linhaDe(endereco).locator(`[data-form-relogio="${endereco}"]`)
+    await formRelogio.locator("[data-relogio-horas]").fill("1")
+    await formRelogio.locator("[data-relogio-minutos]").fill("30")
+    const avisoRelogio = await avisoDoClique(p, () =>
+      formRelogio.locator('button[type="submit"]').click()
+    )
+    const comRelogio = (
+      (await medusa("/dashboard/ofertas", { metodo: "GET", token: tokenMkt })).corpo.ofertas ?? []
+    ).find((o) => o.id === O.id)
+    await p
+      .waitForFunction(
+        (e) =>
+          /01h 30m/.test(document.querySelector(`[data-relogio-oferta="${e}"]`)?.textContent ?? ""),
+        endereco,
+        { timeout: 15000 }
+      )
+      .catch(() => null)
+    ok(
+      /Relógio mudado/.test(avisoRelogio) &&
+        comRelogio?.relogioMinutos === 90 &&
+        /01h 30m, recomeça/.test(
+          semEspaco(await p.locator(`[data-relogio-oferta="${endereco}"]`).textContent())
+        ),
+      "o relógio muda pela lista: 01h 30m, recomeça quando zera",
+      avisoRelogio
+    )
     await p.locator("[data-nova-oferta]").click()
     const form = p.locator("[data-form-oferta]")
     await form.waitFor()
@@ -675,6 +715,7 @@ try {
         titulo: "Só esse",
         endereco: enderecoUm,
         ate: daqui(2),
+        relogio: 200,
         produtos: [{ produto: C.id, por: virgula(centavos(C.hoje - 10)) }],
       })
       const soUm = await novaAba()
@@ -692,6 +733,22 @@ try {
             reais(centavos(C.hoje - 10)),
         "com um produto só, o link geral leva direto pra página dele, com o preço da oferta",
         soUm.pagina.url()
+      )
+      // O relógio do painel (0245): 03h 20m, mesmo com a oferta indo até depois de amanhã.
+      await soUm.pagina
+        .waitForFunction(
+          () => /\d/.test(document.querySelector(".faixa-oferta__parte b")?.textContent ?? ""),
+          undefined,
+          { timeout: 15000 }
+        )
+        .catch(() => null)
+      const partes = await soUm.pagina.locator(".faixa-oferta__parte").allTextContents()
+      ok(
+        um.corpo.oferta?.relogioMinutos === 200 &&
+          !partes.some((t) => /d$/.test(semEspaco(t))) &&
+          /^0[23]h$/.test(semEspaco(partes[0] ?? "")),
+        "com o relógio de 03h 20m, a faixa conta 03h 20m (não os dias até o fim)",
+        partes.map(semEspaco).join(" ")
       )
       // O produto que não é da oferta, pelo link: a página da oferta.
       const fora = await novaAba()
@@ -745,7 +802,7 @@ try {
     )
     ok(
       temFaixa &&
-        /Preço do seu link/i.test(semEspaco(await faixa.textContent())) &&
+        /Oferta só para você/i.test(semEspaco(await faixa.textContent())) &&
         /acaba em\s*\d/.test(semEspaco(await faixa.textContent())) &&
         semEspaco(await p.locator(".compra__por").first().textContent()) === reais(porA) &&
         naLoja === `Na loja: ${reais(A.hoje)} · no seu link: ${reais(porA)}`,
@@ -757,6 +814,15 @@ try {
         (await faixa.locator(".faixa-oferta__parte").count()) >= 3,
       "a faixa é a fita amarela com o relógio: o ícone e os blocos do tempo (0245)"
     )
+    await p.evaluate(() => window.scrollTo(0, 1600))
+    await esperar(500)
+    const posicao = await faixa.boundingBox()
+    ok(
+      posicao !== null && posicao.y >= 0 && posicao.y < 220,
+      "a faixa fica presa no topo quando a pessoa rola a página (0245)",
+      JSON.stringify(posicao)
+    )
+    await p.evaluate(() => window.scrollTo(0, 0))
     const seloEsperado = `-${Math.round((1 - porA / (A.cheio > A.hoje ? A.cheio : A.hoje)) * 100)}%`
     ok(
       semEspaco(await p.locator(".galeria__selo--desconto").first().textContent()) === seloEsperado,
