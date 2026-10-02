@@ -104,6 +104,7 @@
 .historico li:last-child { border-bottom: 0; }
 .historico time { font-weight: 800; font-variant-numeric: tabular-nums; }
 .historico small { display: block; color: var(--tinta-suave); }
+.historico li[data-erro] small { color: var(--erro); font-weight: 700; }
 
 /* ── o que o protótipo não tinha ── */
 

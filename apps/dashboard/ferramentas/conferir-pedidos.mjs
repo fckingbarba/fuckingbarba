@@ -37,6 +37,8 @@
  * │   números, a marca do checkout contando duas vezes;                    │
  * │ • o porquê de quem saiu no pagamento (0244) diferente da API, ou a     │
  * │   marca do cartão que não passou da tela aceita sem ser da loja;       │
+ * │ • o histórico da tela diferente do da API, ou o e-mail que não chegou  │
+ * │   sem o vermelho (0248);                                               │
  * │ • rolagem de lado no celular; erro no console.                         │
  * └────────────────────────────────────────────────────────────────────────┘
  */
@@ -479,6 +481,17 @@ try {
       forma === (d.pagamento.tipo ?? null),
       `#${d.numero}: o ícone do pagamento (${d.pagamento.forma})`,
       String(forma)
+    )
+    // O histórico da tela é o da API, linha a linha, e o vermelho só no que é problema (0248).
+    const historicoNaTela = await pagina.locator(".historico li").evaluateAll((lis) =>
+      lis.map((li) => [li.querySelector("span")?.textContent ?? "", li.hasAttribute("data-erro")])
+    )
+    const emLinhas = (ls) => JSON.stringify(ls.map(([texto, erro]) => [semEspaco(texto), erro]))
+    ok(
+      emLinhas(historicoNaTela) ===
+        emLinhas(d.historico.map((e) => [`${e.titulo}${e.detalhe}`, Boolean(e.alerta)])),
+      `#${d.numero}: o histórico da tela é o da API, e o vermelho só no que é problema`,
+      emLinhas(historicoNaTela)
     )
   }
   {

@@ -5557,6 +5557,31 @@ comparação da tela velha com a nova (20 de 20 iguais), typecheck, lint e prett
 
 Depois do deploy — **nada pra configurar.** Pra ver: Carrinhos, e trocar de filtro e de página.
 
+**O e-mail com erro de digitação e os e-mails no histórico do pedido — pronto em 02/10 (entrega
+0248).** Um cliente comprou com ".con" no lugar de ".com": o e-mail do pedido, o do cancelamento e o
+aviso do Pix voltaram, e o histórico do pedido dizia "enviado" (e nem mostrava o aviso do Pix). Ele
+pediu as duas coisas.
+
+- **No checkout, "Você quis dizer …?"** embaixo do e-mail, quando o domínio tem cara de erro de
+  digitação ("hotmail.con", "gmial.com", "gmail.com.br", "outlok.com"). O primeiro "Continuar" com
+  ele para ali; tocar na sugestão conserta e segue. Se o e-mail está certo (um domínio de empresa
+  parecido), é só tocar em "Continuar" de novo — nada é recusado.
+- **No histórico do pedido**, os e-mails do CRM daquele pedido (os lembretes do Pix, a jornada) e o
+  da devolução do pagamento; e, em cada e-mail, se **chegou** ou **não chegou** (e por quê), pelos
+  avisos do Resend. O que não chegou fica em vermelho. Quem caiu no grupo de controle (5% sem os
+  lembretes) também aparece.
+
+Conferido: os unitários (1.915), o conferidor do checkout (241/241, com 30 checagens novas), o
+dos pedidos (144/144) e o do CRM (as 4 checagens novas certas; elas falham com o backend da main),
+typecheck, lint e prettier.
+
+- [x] **O `conferir-crm` para na ficha do cliente desde a 0242** ("Clientes = só quem pagou"): a
+  conta da rodada não comprou e não aparece mais na lista. Consertado na 0250 (abaixo). E 3
+  checagens das boas-vindas do pop-up falham igual na main (a trilha sai como "pulado").
+
+Depois do deploy — **nada pra configurar.** Pra ver: abrir um pedido com Pix (o histórico) e, no
+checkout, digitar um e-mail com ".con".
+
 **O teste do CRM roda inteiro de novo — pronto em 02/10 (entrega 0250).** Desde a 0242 (Clientes
 = quem pagou), o teste automático do CRM (`conferir-crm`) parava no meio: ele procurava na lista
 de Clientes uma pessoa de teste que entrou na conta e nunca comprou — e ela, de propósito, não
@@ -5567,8 +5592,9 @@ deixava de ser conferido.
   0242) e que a ficha dessa pessoa continua abrindo pelo link, com o CRM (ela segue "Lead").
 - **Nada muda na loja nem no painel:** só o teste.
 
-Conferido: o conferidor do CRM inteiro, 259/259 em três rodadas seguidas; o de antes, na mesma
-máquina, para na ficha (44/50, "parou no meio"); lint e prettier.
+Conferido: o conferidor do CRM inteiro, 259/259 em três rodadas seguidas, e 263/263 depois de
+juntar a 0248 (com as 4 checagens dela; as boas-vindas do pop-up passaram em todas, num banco do
+zero); o de antes, na mesma máquina, para na ficha (44/50, "parou no meio"); lint e prettier.
 
 Depois do deploy — **nada pra configurar.** É só o teste.
 

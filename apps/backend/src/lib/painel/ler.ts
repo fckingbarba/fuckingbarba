@@ -1,5 +1,7 @@
 import type { MedusaContainer } from "@medusajs/framework/types"
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
+import { CRM } from "../../modules/crm"
+import type CrmService from "../../modules/crm/service"
 import { ENVIOS } from "../../modules/envios"
 import { EQUIPE } from "../../modules/equipe"
 import type EquipeService from "../../modules/equipe/service"
@@ -25,7 +27,16 @@ import { ACOES_NO_PRODUTO, type FeitoNoProduto } from "./produtos"
 import type { CarrinhoDoCheckout, ProdutoComSku, TentativaDoCarrinho } from "./inicio-periodo"
 import type { CarrinhoDoFunil } from "./marketing-funil"
 import type { CarrinhoDoPagamento, PedidoDoPagamento } from "./marketing-pagamento"
-import { nomeCurto, type Contexto, type EnvioCru, type NotaCrua, type PedidoCru } from "./pedido"
+import {
+  idsDosEmailsDoPedido,
+  nomeCurto,
+  SEM_EMAILS,
+  type Contexto,
+  type EmailsDoPedido,
+  type EnvioCru,
+  type NotaCrua,
+  type PedidoCru,
+} from "./pedido"
 
 /**
  * O QUE O PAINEL LÊ DO BANCO pros pedidos — e só lê: nada aqui escreve.
@@ -546,6 +557,28 @@ export async function enviosDos(
     porPedido.set(e.pedido_id, [...(porPedido.get(e.pedido_id) ?? []), e])
   }
   return porPedido
+}
+
+/**
+ * Os e-mails do pedido que o CRM sabe, pro histórico (entrega 0248): os
+ * lembretes do Pix e a jornada, e se cada e-mail chegou. Depende do pedido
+ * lido (os ids do confirmado e do cancelado moram no metadata dele), então
+ * vem depois dele. O CRM que falha não derruba a tela do pedido: o
+ * histórico sai sem as linhas dele, como era antes.
+ */
+export async function emailsDoPedido(
+  container: MedusaContainer,
+  o: PedidoCru
+): Promise<EmailsDoPedido> {
+  try {
+    const crm = container.resolve<CrmService>(CRM)
+    return await crm.emailsDoPedido(o.id, idsDosEmailsDoPedido(o.metadata))
+  } catch (e) {
+    container
+      .resolve(ContainerRegistrationKeys.LOGGER)
+      .warn(`[painel] os e-mails do pedido ${o.id} não vieram do CRM: ${(e as Error).message}`)
+    return SEM_EMAILS
+  }
 }
 
 /**

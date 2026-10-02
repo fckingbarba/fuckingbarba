@@ -182,7 +182,7 @@ async function Pedido({ params }: Props) {
             </div>
             <ul className="historico">
               {p.historico.map((e, n) => (
-                <li key={`${e.em}-${n}`}>
+                <li key={`${e.em}-${n}`} data-erro={e.alerta || undefined}>
                   <time dateTime={e.em}>{e.quando}</time>
                   <span>
                     {e.titulo}
