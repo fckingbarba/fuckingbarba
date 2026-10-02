@@ -488,6 +488,23 @@ try {
       "a lista: no ar com o link pra copiar e o pedido; a encerrada, sem chave",
       texto
     )
+    // 0241: com vários produtos, um link por produto (direto pra página dele) e o geral.
+    const doA = linhaDe(endereco).locator(`[data-link-oferta="${endereco}/${A.id}"]`)
+    ok(
+      semEspaco(
+        await doA
+          .locator("code")
+          .textContent()
+          .catch(() => "")
+      ).endsWith(`/oferta/${endereco}/${A.handle}`) &&
+        /Página com todos/.test(
+          semEspaco(
+            await linhaDe(endereco).locator(`[data-link-oferta="${endereco}"]`).textContent()
+          )
+        ),
+      "a lista: um link por produto (direto pra página dele) e o da página com todos",
+      semEspaco(await doA.textContent().catch(() => ""))
+    )
     await p.locator("[data-nova-oferta]").click()
     const form = p.locator("[data-form-oferta]")
     await form.waitFor()
@@ -629,6 +646,63 @@ try {
       (await contexto.cookies()).find((k) => k.name === "fb_oferta")?.value === endereco,
       "a página da oferta deixa a marca no navegador (o cookie fb_oferta)"
     )
+
+    /* ── 0241: o link leva direto pra página do produto ── */
+    {
+      // O link de um produto, num navegador sem marca nenhuma, com a campanha de quem mandou.
+      const novo = await novaAba()
+      await novo.pagina.goto(`${LOJA}/oferta/${endereco}/${A.handle}?utm_source=conferidor`, {
+        waitUntil: "load",
+      })
+      const chegou = new URL(novo.pagina.url())
+      const faixaNova = await novo.pagina
+        .locator("[data-faixa-oferta]")
+        .waitFor({ timeout: 20000 })
+        .then(() => true)
+        .catch(() => false)
+      ok(
+        chegou.pathname === `/produtos/${A.handle}` &&
+          chegou.searchParams.get("utm_source") === "conferidor" &&
+          faixaNova &&
+          (await novo.contexto.cookies()).find((k) => k.name === "fb_oferta")?.value === endereco,
+        "o link de um produto leva direto pra página dele, com a marca, a faixa e a campanha",
+        novo.pagina.url()
+      )
+      // O link geral de uma oferta de um produto só, também direto.
+      const enderecoUm = `um-${RODADA}`
+      const um = await criarOferta({
+        nome: `Um ${RODADA}`,
+        titulo: "Só esse",
+        endereco: enderecoUm,
+        ate: daqui(2),
+        produtos: [{ produto: C.id, por: virgula(centavos(C.hoje - 10)) }],
+      })
+      const soUm = await novaAba()
+      await soUm.pagina.goto(`${LOJA}/oferta/${enderecoUm}`, { waitUntil: "load" })
+      const faixaUm = await soUm.pagina
+        .locator("[data-faixa-oferta]")
+        .waitFor({ timeout: 20000 })
+        .then(() => true)
+        .catch(() => false)
+      ok(
+        um.status === 200 &&
+          new URL(soUm.pagina.url()).pathname === `/produtos/${C.handle}` &&
+          faixaUm &&
+          semEspaco(await soUm.pagina.locator(".compra__por").first().textContent()) ===
+            reais(centavos(C.hoje - 10)),
+        "com um produto só, o link geral leva direto pra página dele, com o preço da oferta",
+        soUm.pagina.url()
+      )
+      // O produto que não é da oferta, pelo link: a página da oferta.
+      const fora = await novaAba()
+      await fora.pagina.goto(`${LOJA}/oferta/${endereco}/${C.handle}`, { waitUntil: "load" })
+      ok(
+        new URL(fora.pagina.url()).pathname === `/oferta/${endereco}/vitrine`,
+        "o link de um produto que não é da oferta cai na página da oferta",
+        fora.pagina.url()
+      )
+      await mudar(um.corpo.oferta?.id, "encerrar")
+    }
     await hidratado(p, "article.produto .produto__comprar")
     await cardA.locator(".produto__comprar").click()
     const gaveta = p.locator("#carrinho-gaveta")
