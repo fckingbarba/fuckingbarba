@@ -5396,11 +5396,18 @@ ocupam muito espaço"), escolheu a F2 e pediu um ícone de relógio.
   cronômetro e os números em amarelo — 02d 14h 33m 08s, os segundos em verde, andando ao vivo.
 - Mesmo tamanho de antes. Em celular bem estreito, o nome quebra em duas linhas e o relógio encolhe um
   pouco, sem passar um por cima do outro.
+- Pedido dele em seguida, na mesma entrega: o texto virou **"OFERTA SÓ PARA VOCÊ"**, e a faixa **fica
+  presa no topo** quando a pessoa rola a página (logo abaixo do cabeçalho).
+- **O relógio da página, por oferta** (painel → a oferta → "Relógio na página", horas e minutos; ou
+  "Mudar" na lista): ex. a campanha vai até domingo, mas o relógio mostra 03h 20m. Cada pessoa vê esse
+  tempo a partir de quando abre o link; **quando zera, recomeça**, e o preço vale até o fim da
+  campanha (escolha dele, avisado do risco de mostrar urgência que não existe — o mesmo do contador da
+  home). Na reta final, o relógio nunca mostra mais do que falta de verdade. Vazio, conta até o fim.
 
-Conferido: o conferidor das ofertas (67/67), a faixa em 320, 360 e 390 px e no computador, typecheck,
-lint e prettier.
+Conferido: o conferidor das ofertas (71/71, duas rodadas seguidas), os testes de unidade do backend
+(1.895), a faixa em 320, 360 e 390 px e no computador, typecheck, lint e prettier.
 
-Depois do deploy — **nada pra configurar.**
+Depois do deploy — **nada pra configurar** (a migração cria a coluna do relógio sozinha).
 
 ## Como seguir no Claude Code
 

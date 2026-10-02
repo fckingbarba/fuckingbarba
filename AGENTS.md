@@ -2417,14 +2417,23 @@ no navegador — o cookie `fb_oferta` (o endereço, legível pelo JavaScript, at
 `components/oferta/na-pdp.tsx`) lê a marca e, só com ela, pergunta `/api/oferta/<endereço>` (a
 mesma `buscarOferta` guardada); com o produto na oferta e ela no ar, `useOfertaNaPdp` dá o "por" e o
 "-X%" da foto. Mudam só pra esse navegador: a `FaixaDaOferta` no alto (desde a 0245, a fita amarela:
-o raio num quadrado preto, "Preço do seu link · acaba em" e o relógio num bloco preto com o ícone
+o raio num quadrado preto, "Oferta só para você · acaba em" e o relógio num bloco preto com o ícone
 `Cronometro` e 02d 14h 33m 08s — os segundos em menta; abaixo de 360 px o nome quebra a linha e o
-relógio encolhe), o selo da `Galeria`, a `Compra` (a unidade pelo menor entre o "por" e o preço dela
+relógio encolhe; presa logo abaixo do cabeçalho ao rolar, com o `top` medido do `.cabecalho` por
+`ResizeObserver`), o selo da `Galeria`, a `Compra` (a unidade pelo menor entre o "por" e o preço dela
 na quantidade; a linha "Na loja: R$ X · no seu link: R$ Y" no lugar do "Economiza"; os cartões pelo
 `degrausDaOferta`, sem a fita de melhor preço; o "Leve X, pague Y" fora da conta da tela; o botão por
 `adicionarDaOferta`/`adicionarVariosDaOferta`) e a barra fixa (o `PrazoDaOferta`). O HTML que sai do
 servidor é o de todo mundo — e o do Google, com o preço de sempre no microdata. No fim da oferta, com
 a página aberta, tudo volta sozinho. CSS em `estilos/pdp-oferta.css` (escrito à mão).
+
+O RELÓGIO DA PÁGINA (entrega 0245, escolha da loja avisada do risco — urgência que não existe, CDC
+art. 37 —, o mesmo padrão do contador da home): `relogio_minutos` na oferta (5 min–72 h, `lerRelogio`;
+nulo = conta até o fim), no formulário ("Relógio na página") e mudado pela lista (`{ acao: "relogio",
+minutos }` no `POST /dashboard/ofertas/:id`). Na loja, `restanteNoRelogio`: cada pessoa vê esse tempo a
+partir de quando abriu a oferta (`desdeDoRelogio`, no `localStorage`), recomeçando quando zera, e nunca
+mais que o que falta de verdade. O preço não muda: vale até o `termina_em`. A faixa, a barra fixa e a
+vitrine usam o mesmo relógio; com ele, a vitrine esconde o "Até <data>".
 
 O LINK LEVA DIRETO PRA PDP (entrega 0241, pedido da loja): `/oferta/<endereço>` e
 `/oferta/<endereço>/<produto>` são rotas (`route.ts`), não páginas — `lib/oferta-do-link.ts` lê a
