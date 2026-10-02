@@ -1,6 +1,8 @@
-import { totalDoPedido } from "../avisar-cancelamento"
+import { lerRegistro as lerCancelamento, totalDoPedido } from "../avisar-cancelamento"
+import { lerRegistroDaDevolucao } from "../avisar-devolucao"
 import { documentoDoPedido, lerEndereco, telefone, type EnderecoDoMedusa } from "../dados-do-pedido"
 import { lerRegistro as lerConfirmacao } from "../confirmar-pedido"
+import { FLUXOS, type IdDoFluxo } from "../crm/fluxos"
 import { DIAS_TIRANDO, lerRegistroNoPedido } from "../envios/registro"
 import { MOTIVO_DA_NOTA_ATRASADA } from "../erp/notas"
 import { lerRegistros as lerEstornos } from "../estornos"
@@ -15,6 +17,8 @@ import {
   type AcaoDaNota,
   type FeitoNoPedido,
 } from "./acoes"
+import { comoChegou } from "./chegou"
+import type { EmailLidoDoBanco } from "./crm"
 import { dia, emFrase, hora, minutosEntre, duracao, quando, reais, type Data } from "./formato"
 
 /**
@@ -495,7 +499,38 @@ export type Faixa = {
   rodape?: string
 }
 
-export type Evento = { quando: string; em: string; titulo: string; detalhe: string }
+export type Evento = {
+  quando: string
+  em: string
+  titulo: string
+  detalhe: string
+  /** O detalhe é problema (o e-mail que não chegou): a tela pinta de vermelho. */
+  alerta?: true
+}
+
+/**
+ * OS E-MAILS DO PEDIDO QUE O CRM SABE (entrega 0248), pro histórico — o
+ * Thauan digitou "hotmail.con", e o histórico dizia "enviado" pra e-mail que
+ * nunca chegou, e nada dos lembretes do Pix.
+ */
+export type EmailsDoPedido = {
+  /** As linhas do registro dos fluxos (`crm_envio`) com a chave do pedido: o Pix pendente e a jornada. */
+  toques: { fluxo: string; toque: string; como: string; em: Data; resend_id: string | null }[]
+  /** O que os avisos do Resend contaram (`crm_email`) dos e-mails do pedido e dos toques. */
+  avisos: (EmailLidoDoBanco & { resend_id: string })[]
+}
+
+export const SEM_EMAILS: EmailsDoPedido = { toques: [], avisos: [] }
+
+/** Os ids do Resend que o pedido guarda no metadata: o confirmado, o cancelado e o da devolução. */
+export function idsDosEmailsDoPedido(metadata: unknown): string[] {
+  const registros = [
+    lerConfirmacao(metadata),
+    lerCancelamento(metadata),
+    lerRegistroDaDevolucao(metadata),
+  ]
+  return registros.flatMap((r) => (typeof r?.id === "string" && r.id ? [r.id] : []))
+}
 
 export type Detalhe = {
   id: string
@@ -828,20 +863,37 @@ function historicoDo(
   nota: NotaCrua | null,
   envios: EnvioCru[],
   ctx: Contexto,
-  feitos: FeitoNoPedido[]
+  feitos: FeitoNoPedido[],
+  emails: EmailsDoPedido
 ): Evento[] {
-  const eventos: { em: Date; ordem: number; titulo: string; detalhe: string }[] = []
+  const eventos: {
+    em: Date
+    ordem: number
+    titulo: string
+    detalhe: string
+    alerta: boolean
+  }[] = []
   const feito = emData(o.created_at)
   /*
     O Pix nasce um instante ANTES do pedido (a sessão de pagamento é do
     carrinho; o pedido nasce no fim). Na linha do tempo, nada vem antes do
     "Pedido feito": o que é de antes fica na hora dele, na ordem anotada.
   */
-  const add = (em: Quando, titulo: string, detalhe = "") => {
+  const add = (em: Quando, titulo: string, detalhe = "", alerta = false) => {
     const d = emData(em)
     if (!d) return
     const hora = feito && d.getTime() < feito.getTime() ? feito : d
-    eventos.push({ em: hora, ordem: eventos.length, titulo, detalhe })
+    eventos.push({ em: hora, ordem: eventos.length, titulo, detalhe, alerta })
+  }
+  /*
+    O e-mail que saiu, com o que o Resend contou dele (entrega 0248):
+    "enviado" é só que o Resend aceitou — o endereço errado ("hotmail.con")
+    volta depois, e é isso que a linha precisa dizer.
+  */
+  const avisos = new Map(emails.avisos.map((a) => [a.resend_id, a]))
+  const addEmail = (em: Quando, titulo: string, id: string | null | undefined) => {
+    const chegou = comoChegou(id ? avisos.get(id) : undefined)
+    add(em, titulo, chegou?.texto ?? "", chegou?.ruim ?? false)
   }
   const n = o.display_id ?? 0
 
@@ -860,14 +912,34 @@ function historicoDo(
   if (p.pagoEm) add(p.pagoEm, p.forma === "cartao" ? "Cartão cobrado" : "Pix pago", "")
 
   const confirmacao = lerConfirmacao(o.metadata)
-  if (confirmacao)
+  if (confirmacao?.como === "email")
+    addEmail(confirmacao.em, `E-mail "Pedido #${n} confirmado" enviado`, confirmacao.id)
+  else if (confirmacao)
     add(
       confirmacao.em,
-      confirmacao.como === "email"
-        ? `E-mail "Pedido #${n} confirmado" enviado`
-        : "O e-mail de confirmação não saiu",
-      confirmacao.como === "email" ? "" : (confirmacao.motivo ?? "")
+      "O e-mail de confirmação não saiu",
+      confirmacao.motivo ?? "",
+      confirmacao.como === "recusado"
     )
+
+  // Os toques dos fluxos do CRM com a chave do pedido: os lembretes do Pix e a jornada.
+  const doControle = new Set<string>()
+  for (const t of emails.toques) {
+    const fluxo = FLUXOS[t.fluxo as IdDoFluxo] as (typeof FLUXOS)[IdDoFluxo] | undefined
+    if (!fluxo) continue
+    if (t.como === "enviado") {
+      const toque = fluxo.toques.find((x) => x.id === t.toque)
+      addEmail(t.em, `E-mail "${fluxo.nome} · ${toque?.nome ?? t.toque}" enviado`, t.resend_id)
+    } else if (t.como === "controle" && !doControle.has(t.fluxo)) {
+      // Uma linha por fluxo: o controle se anota a cada toque que vence.
+      doControle.add(t.fluxo)
+      add(
+        t.em,
+        `Sem os e-mails do "${fluxo.nome}"`,
+        "grupo de controle: 5% não recebem, e é assim que se mede quanto eles vendem a mais"
+      )
+    }
+  }
 
   if (nota) {
     add(nota.created_at, `Pedido ${nota.referencia} na fila da nota`, "no Bling")
@@ -915,11 +987,11 @@ function historicoDo(
   }
 
   if (o.status === "canceled") add(o.canceled_at, "Pedido cancelado")
-  const cancelamento = (
-    o.metadata?.emails as { cancelado?: { em?: string; como?: string } } | undefined
-  )?.cancelado
-  if (cancelamento?.em && cancelamento.como === "email")
-    add(cancelamento.em, `E-mail "Pedido #${n} cancelado" enviado`)
+  const cancelamento = lerCancelamento(o.metadata)
+  if (cancelamento?.como === "email")
+    addEmail(cancelamento.em, `E-mail "Pedido #${n} cancelado" enviado`, cancelamento.id)
+  else if (cancelamento?.como === "recusado")
+    add(cancelamento.em, "O e-mail de cancelamento não saiu", cancelamento.motivo ?? "", true)
   if (p.estornado > 0)
     add(p.estornadoEm, `Estorno pedido ao ${p.parceiro ?? "parceiro"}`, reais(p.estornado))
   for (const e of Object.values(lerEstornos(o.metadata))) {
@@ -927,6 +999,11 @@ function historicoDo(
     if (e.confirmado)
       add(e.confirmado, "Estorno confirmado pelo Pagar.me", reais(e.devolvido / 100))
   }
+  const devolucao = lerRegistroDaDevolucao(o.metadata)
+  if (devolucao?.como === "email")
+    addEmail(devolucao.em, `E-mail "Pagamento devolvido" enviado`, devolucao.id)
+  else if (devolucao?.como === "recusado")
+    add(devolucao.em, "O e-mail da devolução não saiu", devolucao.motivo ?? "", true)
 
   // O que alguém da equipe fez pelo painel, com o nome (o registro da equipe).
   for (const f of feitos) {
@@ -941,6 +1018,7 @@ function historicoDo(
       em: e.em.toISOString(),
       titulo: e.titulo,
       detalhe: e.detalhe,
+      ...(e.alerta ? { alerta: true as const } : {}),
     }))
 }
 
@@ -1139,7 +1217,8 @@ export function detalheDo(
   envios: EnvioCru[],
   ctx: Contexto,
   permissoes: Permissoes,
-  feitos: FeitoNoPedido[] = []
+  feitos: FeitoNoPedido[] = [],
+  emails: EmailsDoPedido = SEM_EMAILS
 ): Detalhe {
   const { verCpf } = permissoes
   const p = pagamentoDo(o)
@@ -1231,7 +1310,7 @@ export function detalheDo(
       formaDeEntrega: texto(o.shipping_methods?.[0]?.name) || "Entrega",
       total: totalDo(o),
     },
-    historico: historicoDo(o, p, nota, envios, ctx, feitos),
+    historico: historicoDo(o, p, nota, envios, ctx, feitos, emails),
     acoes: {
       nota: acaoNota,
       estorno: Boolean(permissoes.estorno) && estornoPraTentar(o.metadata),

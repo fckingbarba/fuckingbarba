@@ -13,6 +13,7 @@ import { juntar, recomprasPorTipo } from "../crm/nuvemshop"
 import { NOME_DA_CHANCE, previsaoDaPessoa, type PrevisaoDaPessoa } from "../crm/previsao"
 import { PREFIXO_DA_PROMOCAO } from "../cupons"
 import { emailNoLog } from "../email"
+import { porQueNaoChegou } from "./chegou"
 import { dia, quando, reais } from "./formato"
 import { pagamentoDo, totalDo, type EnvioCru, type PedidoCru } from "./pedido"
 import { nomeDaOrigem } from "./visitas"
@@ -225,15 +226,6 @@ const NOME_DO_EMAIL: Record<string, string> = {
 
 /** "Pedido confirmado"; sem etiqueta (os de antes da 0138), "Outro". */
 export const nomeDoEmail = (tipo: string | null) => (tipo ? (NOME_DO_EMAIL[tipo] ?? tipo) : "Outro")
-
-/** Por que não chegou, do jeito que o dono entende. */
-function porQueNaoChegou(e: EmailLidoDoBanco): string {
-  if (e.suprimido_em || /suppress/i.test(e.devolucao ?? ""))
-    return "o endereço está bloqueado no Resend (já voltou ou reclamou antes)"
-  if (e.falhou_em && !e.devolvido_em) return "o Resend não conseguiu mandar"
-  if (/^transient/i.test(e.devolucao ?? "")) return "a caixa recusou por agora"
-  return "o endereço não aceita e-mail"
-}
 
 /**
  * O que aconteceu com o e-mail, em frase — o mais importante primeiro: a
