@@ -16,6 +16,8 @@ export type ProdutoDaOfertaNaLista = {
   por: number
   /** O preço da vitrine hoje, ou `null`. */
   hoje: number | null
+  /** O link deste produto: direto pra página dele, com o preço da oferta (0241). */
+  link: string | null
 }
 
 export type OfertaNaLista = {

@@ -62,6 +62,52 @@ function CopiarLink({ link, endereco }: { link: string; endereco: string }) {
   )
 }
 
+/**
+ * OS LINKS (entrega 0241: "tem que mandar direto para a PDP"). Com um
+ * produto, o link da oferta já leva direto pra página dele. Com vários, um
+ * link por produto (cada um pra página do seu), e o geral, pra página com
+ * todos.
+ */
+function LinksDaOferta({ oferta: o }: { oferta: OfertaNaLista }) {
+  if (o.produtos.length === 1)
+    return o.link ? (
+      <LinkPronto
+        rotulo="Link · vai direto pra página do produto"
+        link={o.link}
+        chave={o.endereco}
+      />
+    ) : null
+  return (
+    <>
+      {o.produtos.map((p) =>
+        p.link ? (
+          <LinkPronto
+            key={p.id}
+            rotulo={`Link de ${p.nome}`}
+            link={p.link}
+            chave={`${o.endereco}/${p.id}`}
+          />
+        ) : null
+      )}
+      {o.link ? (
+        <LinkPronto rotulo="Página com todos os produtos" link={o.link} chave={o.endereco} />
+      ) : null}
+    </>
+  )
+}
+
+function LinkPronto({ rotulo, link, chave }: { rotulo: string; link: string; chave: string }) {
+  return (
+    <div className="oferta__link" data-link-oferta={chave}>
+      <p className="oferta__link-rotulo">{rotulo}</p>
+      <div className="link-pronto">
+        <code>{link}</code>
+        <CopiarLink link={link} endereco={chave} />
+      </div>
+    </div>
+  )
+}
+
 export function ListaDeOfertas({ ofertas: gravadas }: { ofertas: OfertaNaLista[] }) {
   const avisar = useAvisar()
   const [indo, comecar] = useTransition()
@@ -119,12 +165,7 @@ export function ListaDeOfertas({ ofertas: gravadas }: { ofertas: OfertaNaLista[]
                 <span>nenhum pedido ainda</span>
               )}
             </p>
-            {o.link && o.situacao !== "encerrada" ? (
-              <div className="link-pronto oferta__link" data-link-oferta={o.endereco}>
-                <code>{o.link}</code>
-                <CopiarLink link={o.link} endereco={o.endereco} />
-              </div>
-            ) : null}
+            {o.situacao !== "encerrada" ? <LinksDaOferta oferta={o} /> : null}
             {confirmando === o.id ? (
               <div className="confirma" data-confirma-oferta={o.endereco}>
                 <p>
@@ -457,7 +498,7 @@ function GavetaDaOferta({
           <div className="campos">
             {campo("endereco", "Fim do link", {
               ajuda:
-                "Letras sem acento, números e hífen. As 4 letras do fim deixam o link difícil de adivinhar.",
+                "Letras sem acento, números e hífen. As 4 letras do fim deixam o link difícil de adivinhar. Com um produto, o link leva direto pra página dele; com mais de um, cada produto ganha o seu link (aparece na lista depois de criar).",
               mudou: (v) => {
                 setEnderecoMexido(true)
                 mudar("endereco", v)

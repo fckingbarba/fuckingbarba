@@ -24,6 +24,12 @@ export type ProdutoNaLista = {
   por: number
   /** O preço da vitrine hoje (com o promocional), ou `null`. */
   hoje: number | null
+  /**
+   * O link deste produto na oferta (`/oferta/<endereço>/<produto>`): leva
+   * direto pra página dele, com o preço da oferta (entrega 0241). `null`
+   * sem o `LOJA_URL`, ou com o produto fora da loja.
+   */
+  link: string | null
 }
 
 export type OfertaNaLista = {
@@ -51,9 +57,19 @@ export type ProdutoDoFormulario = {
   cheio: number | null
 }
 
+/**
+ * O link geral da oferta: com um produto só, ele leva direto pra página do
+ * produto; com vários, pra página com todos (a loja decide, entrega 0241).
+ */
 export const linkDaOferta = (endereco: string) => {
   const loja = urlDaLoja()
   return loja ? `${loja}/oferta/${endereco}` : null
+}
+
+/** O link de um produto da oferta: direto pra página dele, com o preço da oferta. */
+export const linkDoProduto = (endereco: string, handle: string | null | undefined) => {
+  const loja = urlDaLoja()
+  return loja && handle ? `${loja}/oferta/${endereco}/${handle}` : null
 }
 
 type PedidoCru = {
@@ -129,6 +145,7 @@ export async function ofertasNaLista(
         nome: produtos.get(p.produto)?.nome ?? "Produto que saiu da loja",
         por: p.por,
         hoje: produtos.get(p.produto)?.preco ?? null,
+        link: linkDoProduto(o.slug, produtos.get(p.produto)?.handle),
       })),
       vendas: vendas.get(o.id) ?? { pedidos: 0, vendeu: 0 },
     }))
