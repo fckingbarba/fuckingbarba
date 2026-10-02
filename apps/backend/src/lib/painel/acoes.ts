@@ -31,7 +31,16 @@ export type AcaoDaNota = "agora" | "de-novo"
 export const EMITIU_NOTA = "emitiu-nota"
 export const PEDIU_ESTORNO = "pediu-estorno"
 export const MANDOU_PRA_FRENET = "mandou-pra-frenet"
-export const ACOES_NO_PEDIDO = [EMITIU_NOTA, PEDIU_ESTORNO, MANDOU_PRA_FRENET]
+/** O botão do WhatsApp do pedido — o mesmo código dos Carrinhos; o alvo é que muda. */
+export const CHAMOU_NO_WHATSAPP = "chamou-no-whatsapp"
+export const COPIOU_O_PIX = "copiou-o-pix"
+export const ACOES_NO_PEDIDO = [
+  EMITIU_NOTA,
+  PEDIU_ESTORNO,
+  MANDOU_PRA_FRENET,
+  CHAMOU_NO_WHATSAPP,
+  COPIOU_O_PIX,
+]
 
 /** Quando a nota sai sozinha: o pagamento, mais a janela de cancelamento. */
 export const notaSaiEm = (pagoEm: Date, ctx: Pick<Contexto, "janelaDaNota">) =>
@@ -256,5 +265,8 @@ export function eventoDoFeito(f: FeitoNoPedido): { titulo: string; detalhe: stri
     }
     return { titulo: `${f.quem} mandou o pedido pra Frenet de novo`, detalhe: deu[resultado] ?? "" }
   }
+  if (f.acao === CHAMOU_NO_WHATSAPP) return { titulo: `${f.quem} chamou no WhatsApp`, detalhe: "" }
+  if (f.acao === COPIOU_O_PIX)
+    return { titulo: `${f.quem} copiou o código do Pix`, detalhe: "pra mandar pro cliente" }
   return null
 }

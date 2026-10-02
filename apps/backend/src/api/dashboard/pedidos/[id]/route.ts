@@ -14,8 +14,9 @@ import { detalheDo } from "../../../../lib/painel/pedido"
  * histórico (com o que a equipe fez pelo painel, e quem), os itens, o
  * pagamento, a nota, a entrega, o cliente e os botões que o papel pode
  * apertar. De quem abre os Pedidos (no padrão, o dono e a operação); o CPF
- * inteiro só vai pro dono (`lib/painel/pedido.ts`), e o "Tentar o estorno de
- * novo" pra quem abre os Estornos (no padrão, só o dono).
+ * inteiro só vai pro dono (`lib/painel/pedido.ts`), o "Tentar o estorno de
+ * novo" pra quem abre os Estornos (no padrão, só o dono), e o botão do
+ * WhatsApp pra quem abre os contatos (como nos Carrinhos).
  *
  * RESPOSTAS: 200 `{ pedido }`; 404 `nao_encontrado`.
  */
@@ -54,6 +55,7 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
         nota: abre(pedido, "pedidos"),
         estorno: abre(pedido, "estornos"),
         frenet: abre(pedido, "pedidos"),
+        whatsapp: abre(pedido, "contatos"),
       },
       feitos
     ),
