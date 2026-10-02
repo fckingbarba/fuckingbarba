@@ -1714,7 +1714,7 @@ backend novo):
 **Fase 6, parte 1: Clientes — pronto em 24/09 (entrega 0082).** A fase 6 começa pelos clientes, a
 pedido.
 
-- **A lista:** quem já comprou ou tem conta na loja, com quantos pedidos, quanto gastou (só o que
+- **A lista:** quem pagou pelo menos um pedido (desde a 0242; antes, quem comprou ou tinha conta), com quantos pedidos, quanto gastou (só o que
   foi pago), a cidade e se aceita ofertas. A busca é por nome ou e-mail. Quando a mesma pessoa tem
   dois cadastros no Medusa (o de uma compra sem conta e o da conta), ela aparece numa linha só.
 - **A ficha:** e-mail, celular, CPF (inteiro só pro dono, no clique), endereço, as ofertas que a
@@ -5349,6 +5349,27 @@ no banco de teste), typecheck, lint e prettier.
 
 Depois do deploy — **nada pra configurar.** Pra ver: abra o link de uma oferta, clique em "Ver
 detalhes" num produto.
+
+**Clientes = quem pagou — pronto em 02/10 (entrega 0242).** Pedido dele: na aba Clientes do painel
+apareciam pessoas que só largaram o carrinho ou começaram o checkout. Agora a lista mostra só quem
+tem pelo menos um pedido pago e não cancelado. O resto (carrinho abandonado, Pix que venceu, conta
+sem compra) sai **só da lista**:
+
+- o CRM segue falando com eles, como antes (ele pediu assim);
+- a ficha deles segue abrindo pelo link (de um pedido, da newsletter);
+- a aba Newsletter segue igual.
+
+Os números de cima ("Clientes" e "Aceitam ofertas") contam só os clientes. A lista passou a ler
+todos os cadastros e pedidos da loja, e não só os mais novos: senão, em uns três meses, quem
+comprou no começo sumiria dela.
+
+Conferido: os unitários do backend (com o caso novo: a conta só com o Pix vencido e o cadastro do
+checkout largado ficam fora da lista, dos números e da busca, e a ficha deles abre), o typecheck do
+backend e do painel, o lint e o prettier. O conferidor do painel (`conferir-clientes`) foi ajustado
+(o Caio, só com o Pix esperando, não aparece na lista nem na tela, e a ficha dele abre), mas não
+rodou: depois que o Mac reiniciou, não havia Medusa local.
+
+Depois do deploy — **nada a configurar.** Abra Clientes: só quem pagou.
 
 ## Como seguir no Claude Code
 
