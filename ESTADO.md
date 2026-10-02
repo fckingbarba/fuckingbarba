@@ -5466,6 +5466,29 @@ Conferido: o conferidor das ofertas (71/71, duas rodadas seguidas), os testes de
 
 Depois do deploy — **nada pra configurar** (a migração cria a coluna do relógio sozinha).
 
+**Por que saíram no pagamento, no Início — pronto em 02/10 (entrega 0244).** Ele viu o aviso
+"N de M saíram no pagamento — é onde o checkout mais perde gente" e perguntou o porquê.
+
+- **O aviso diz o que mede:** ele marca o passo com a maior **taxa** de saída. A frase agora é "a
+  maior taxa de saída do período" (em número de pessoas, outro passo podia perder mais).
+- **Embaixo do aviso, "Por que N saíram no pagamento"**, em barras: cartão recusado pelo banco,
+  barrado pela análise de fraude, dados do cartão errados, o cartão que não passou da tela (o
+  Pagar.me não validou), barrados pela trava da loja, deu erro (o parceiro fora, o Pix que não
+  gerou) e saíram sem tentar pagar. Vermelho é o que deu errado; preto, quem desistiu. Só aparece
+  o que aconteceu. Conta o que aconteceu por último em cada carrinho.
+- **O cartão que não passa da tela** (o Pagar.me não devolve o token) nunca chegava na loja: agora
+  a loja anota no carrinho. Conta a partir deste deploy — antes dele, esse caso aparece como "sem
+  tentar".
+- Carrinho de antes de 27/09 ou de mais de 30 dias aparece como "sem registro" (as tentativas
+  ficam guardadas 30 dias, como diz a política de privacidade).
+
+Conferido: os unitários (1.903), o conferidor dos pedidos e do Início (114/114 em três rodadas;
+118/118 depois de juntar a 0242), o conferidor do pagamento da loja (227/227, com as três checagens
+novas do cartão na tela), typecheck, lint e prettier.
+
+Depois do deploy — **nada pra configurar.** Pra ver: Início, bloco "No checkout" (o período de 7
+ou 30 dias mostra mais casos).
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa

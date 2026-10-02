@@ -1788,6 +1788,27 @@ inteiro (menos a fila, que é do agora) segue ele.
   comparar, o checkout, os pedidos e a marca do checkout), `conferir-visitas` (o Google falso
   responde `inicio.eventos` e `inicio.categorias`) e o `conferir-checkout` da loja (a marca no
   carrinho quando o checkout abre).
+- **Por que saíram no pagamento (entrega 0244; o dono viu "N de M saíram no pagamento" e
+  perguntou o porquê).** O aviso amarelo marca o passo com a maior TAXA de saída (`passosDo`) e
+  agora diz isso ("a maior taxa de saída do período" — antes dizia "mais perde gente", e em gente
+  outro passo podia perder mais). Embaixo, `periodo.saidas` (`saidasDoPagamento`, puro, com
+  testes): os carrinhos do período parados no 3 (`saidosNoPagamento`) pelo que aconteceu POR
+  ÚLTIMO — a última `obs_tentativa` do carrinho (a porta do `complete` anota cartão e Pix:
+  recusada por banco/antifraude/dados, barrada, e o resto é erro) ou a marca `fb_cartao_na_tela`
+  (`{ porque, em }`), a mais nova das duas; sem nada, "sem tentar". A rota lê as tentativas só
+  desses carrinhos (`tentativasDosCarrinhos`, `listTentativas` com `carrinho: ids`); se a leitura
+  falhar, `saidas` = `null` e o checkout aparece sem o porquê. Carrinho de antes de
+  `TENTATIVAS_DESDE` (27/09 14:30 UTC, a 0150 no ar: o Pix anotado) ou de mais de
+  `DIAS_DAS_TENTATIVAS` (30: o vigia apaga as tentativas, e é o prazo da política de privacidade)
+  é "sem registro". A MARCA DA TELA: o cartão que o Pagar.me não transforma em token nunca chega no
+  Medusa, então a loja avisa (`cartaoNaoPassou` → `POST /store/checkout/cartao-na-tela`, só a
+  loja, como o `aberto`, direto no módulo do carrinho); `tokenizar` devolve o `porque` ("dados" no
+  4xx, "conexao" no 5xx ou sem resposta, "indisponivel" sem a chave pública). No painel,
+  `PorQueSairam` usa as `.barras-h` do Marketing (vermelho = deu errado; preto = desistiu).
+  Conferidores: `conferir-pedidos` (o carrinho levado ao pagamento conta em "sem tentar", a marca
+  muda pra "não passou da tela", a rota nova 401/400/404, a tela igual à API, o texto do aviso) e
+  o `conferir-pagamento` da loja (o Pagar.me falso com `tokenizar: "recusa"`/`"queda"`: o recado, a
+  marca "dados" e depois "conexao", nada no Pagar.me).
 
 **O Marketing no período** (entrega 0191; o pedido do dono: "marketing vai"). As sete abas do
 Marketing usam a barra do Início no lugar dos quatro botões de antes, com os 90 dias que o
