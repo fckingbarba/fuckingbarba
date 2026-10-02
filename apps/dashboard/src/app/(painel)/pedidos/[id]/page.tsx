@@ -3,6 +3,7 @@ import Link from "next/link"
 import { redirect } from "next/navigation"
 import { BotaoDoPedido } from "@/components/acoes-do-pedido"
 import { SoPara } from "@/components/area"
+import { CopiarPix, WhatsappDoPedido } from "@/components/contato-do-pedido"
 import { Cpf } from "@/components/cpf"
 import { Icone } from "@/components/icones"
 import { Status } from "@/components/pedidos"
@@ -33,6 +34,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  *
  * MAIS VISUAL (0155) — a faixa mostra o título e as etiquetas curtas; a
  * explicação inteira vai no "?". O pagamento tem o ícone, e o cliente a sigla.
+ *
+ * O PIX ESPERANDO (0247) — o "O que fazer" traz o código do Pix pra copiar e
+ * o WhatsApp do cliente com a mensagem pronta; o WhatsApp também fica no
+ * bloco do cliente, em todo pedido com celular (pra quem abre os contatos).
  */
 export default async function Pagina({ params }: Props) {
   const { id } = await params
@@ -208,6 +213,22 @@ async function Pedido({ params }: Props) {
             </section>
           ) : null}
 
+          {p.pagamento.pix ? (
+            <section className="bloco" data-acoes data-pix-esperando>
+              <h2 className="rotulo">O que fazer</h2>
+              <div className="acoes-lado">
+                <CopiarPix id={p.id} codigo={p.pagamento.pix.codigo} />
+                {p.cliente.whatsapp ? (
+                  <WhatsappDoPedido id={p.id} link={p.cliente.whatsapp} estilo="btn--bloco" />
+                ) : null}
+                <p className="pequeno suave acoes-lado__dica" data-dica-pix>
+                  Mande o código numa mensagem só dele: o cliente segura em cima, copia e cola no
+                  Pix do banco.
+                </p>
+              </div>
+            </section>
+          ) : null}
+
           <section className="bloco">
             <h2 className="rotulo">Pagamento</h2>
             <div className="info com-icone">
@@ -319,6 +340,11 @@ async function Pedido({ params }: Props) {
                 </div>
               ) : null}
             </dl>
+            {p.cliente.whatsapp ? (
+              <p style={{ margin: "12px 0 0" }}>
+                <WhatsappDoPedido id={p.id} link={p.cliente.whatsapp} />
+              </p>
+            ) : null}
             {escondido ? (
               <p style={{ margin: "12px 0 0" }}>
                 <Pilula icone="cadeado" suave>

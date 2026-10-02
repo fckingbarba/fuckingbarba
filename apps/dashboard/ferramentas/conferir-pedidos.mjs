@@ -505,6 +505,122 @@ try {
     )
   }
 
+  titulo("O Pix esperando: copiar o código e chamar no WhatsApp (0247)")
+  {
+    const { pagina, contexto } = dono
+    const detalhe = async (quem, token = tokenDoDono) =>
+      (await medusa(`/dashboard/pedidos/${pedidos[quem].id}`, { metodo: "GET", token })).corpo
+        .pedido
+    const d = await detalhe("pix")
+    ok(
+      Boolean(d.pagamento.pix?.codigo) && /^\d{2}:\d{2}$/.test(d.pagamento.pix?.valeAte ?? ""),
+      "a API manda o código do Pix e até quando vale",
+      JSON.stringify(d.pagamento.pix)
+    )
+    const texto = decodeURIComponent(String(d.cliente.whatsapp).split("?text=")[1] ?? "")
+    ok(
+      String(d.cliente.whatsapp).startsWith("https://wa.me/5511988887777?text=") &&
+        texto.includes(
+          `#${d.numero} está esperando o Pix, que vale até ${d.pagamento.pix?.valeAte}`
+        ),
+      "e o WhatsApp do cliente, com a mensagem do Pix pronta",
+      texto
+    )
+    for (const quem of ["vencido", "pago"]) {
+      const outro = await detalhe(quem)
+      ok(outro.pagamento.pix === null, `${quem}: sem código do Pix na API`)
+    }
+    ok(
+      String((await detalhe("pago")).cliente.whatsapp).startsWith("https://wa.me/55"),
+      "o pago também tem o WhatsApp do cliente"
+    )
+
+    // O wa.me não sai da máquina: a aba nova recebe uma página vazia.
+    await contexto.route("https://wa.me/**", (r) =>
+      r.fulfill({ status: 200, contentType: "text/html", body: "<p>wa</p>" })
+    )
+    await contexto.grantPermissions(["clipboard-read", "clipboard-write"], { origin: PAINEL })
+    await pagina.goto(`${PAINEL}/pedidos/${pedidos.pix.id}`)
+    await hidratado(pagina, "[data-copiar-pix]")
+    const bloco = pagina.locator("[data-pix-esperando]")
+    ok(
+      (await bloco.count()) === 1 && (await bloco.locator("[data-dica-pix]").count()) === 1,
+      "o “O que fazer” do Pix, com a dica de mandar o código sozinho"
+    )
+    const links = await pagina
+      .locator(`[data-whatsapp-pedido="${d.id}"]`)
+      .evaluateAll((as) => as.map((a) => a.getAttribute("href")))
+    ok(
+      links.length === 2 && links.every((l) => l === d.cliente.whatsapp),
+      "o WhatsApp no “O que fazer” e no bloco do cliente é o da API",
+      JSON.stringify(links)
+    )
+    await pagina.click("[data-copiar-pix]")
+    await pagina.waitForSelector(".aviso", { timeout: 10000 })
+    const copiado = await pagina.evaluate(() => navigator.clipboard.readText())
+    ok(copiado === d.pagamento.pix?.codigo, "“Copiar o código do Pix” copia o código da API")
+    await pagina.waitForSelector('.historico li:has-text("copiou o código do Pix")', {
+      timeout: 15000,
+    })
+    ok(true, "e o histórico diz quem copiou")
+
+    const [aba] = await Promise.all([
+      pagina.waitForEvent("popup"),
+      pagina.locator("[data-pix-esperando] [data-whatsapp-pedido]").click(),
+    ])
+    ok(aba.url() === d.cliente.whatsapp, "“Chamar no WhatsApp” abre o wa.me numa aba nova")
+    await aba.close()
+    await pagina.waitForSelector('.historico li:has-text("chamou no WhatsApp")', {
+      timeout: 15000,
+    })
+    ok(true, "e o histórico diz quem chamou")
+
+    // Clicar de novo não enche o histórico (o histórico lê só as 50 primeiras ações).
+    for (const como of ["pix", "whatsapp"]) {
+      const r = await medusa(`/dashboard/pedidos/${d.id}/contato`, {
+        token: tokenDoDono,
+        corpo: { como },
+      })
+      ok(r.status === 200, `de novo (${como}): 200`, String(r.status))
+    }
+    const linhas = (await detalhe("pix")).historico.map((e) => e.titulo)
+    ok(
+      linhas.filter((t) => t.endsWith("copiou o código do Pix")).length === 1 &&
+        linhas.filter((t) => t.endsWith("chamou no WhatsApp")).length === 1,
+      "o mesmo clique da mesma pessoa em 30 min vira uma linha só",
+      JSON.stringify(linhas)
+    )
+    const ruim = await medusa(`/dashboard/pedidos/${d.id}/contato`, {
+      token: tokenDoDono,
+      corpo: { como: "sms" },
+    })
+    ok(ruim.status === 400, "outro “como” é recusado", String(ruim.status))
+    const doMkt = await medusa(`/dashboard/pedidos/${d.id}/contato`, {
+      token: cookieMkt.value,
+      corpo: { como: "pix" },
+    })
+    ok(doMkt.status === 403, "o marketing não anota no pedido", String(doMkt.status))
+    const daOp = await detalhe("pix", cookieOp.value)
+    ok(
+      daOp.cliente.whatsapp === d.cliente.whatsapp &&
+        daOp.pagamento.pix?.codigo === d.pagamento.pix?.codigo,
+      "a operação (abre os contatos) tem o código e o WhatsApp"
+    )
+
+    for (const quem of ["vencido", "pago"]) {
+      await pagina.goto(`${PAINEL}/pedidos/${pedidos[quem].id}`)
+      await pagina.waitForSelector(".caminho li")
+      ok(
+        (await pagina.locator("[data-copiar-pix]").count()) === 0,
+        `${quem}: sem o botão de copiar o Pix`
+      )
+    }
+    ok(
+      (await pagina.locator("[data-whatsapp-pedido]").count()) === 1,
+      "o pago tem só o WhatsApp do bloco do cliente"
+    )
+  }
+
   titulo("A operação: os pedidos, sem o CPF inteiro")
   {
     const { pagina } = op

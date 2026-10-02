@@ -7,6 +7,7 @@ import {
   detalheDo,
   linhaDaLista,
   mascarar,
+  mensagemDoPedido,
   nomeCurto,
   notaTravada,
   pagamentoDo,
@@ -383,6 +384,58 @@ describe("o pedido inteiro", () => {
     expect(d.faixas[0].etiquetas).toEqual(["vale até 12:20"])
   })
 
+  it("o Pix esperando traz o código pra copiar; vencido ou pago, não", () => {
+    const d = detalheDo(pedido(), null, [], SEM_ERP, { verCpf: false })
+    expect(d.pagamento.pix).toEqual({ codigo: "x", valeAte: "12:20" })
+    const vencido = pedido({
+      payment_collections: [
+        {
+          payment_sessions: [
+            sessao("aguardando", { pix: { copiaECola: "x", expiraEm: antes(1) } }),
+          ],
+        },
+      ],
+    })
+    expect(detalheDo(vencido, null, [], SEM_ERP, { verCpf: false }).pagamento.pix).toBeNull()
+    expect(
+      detalheDo(pedido({}, true), null, [], SEM_ERP, { verCpf: false }).pagamento.pix
+    ).toBeNull()
+    const cartao = pedido({
+      payment_collections: [
+        { payment_sessions: [sessao("analise", { forma: "cartao", pix: null })] },
+      ],
+    })
+    expect(detalheDo(cartao, null, [], SEM_ERP, { verCpf: false }).pagamento.pix).toBeNull()
+  })
+
+  it("o WhatsApp do cliente: só pra quem abre os contatos, com celular e a mensagem pronta", () => {
+    const link = detalheDo(pedido(), null, [], SEM_ERP, { verCpf: false, whatsapp: true }).cliente
+      .whatsapp
+    expect(link).toMatch(/^https:\/\/wa\.me\/5511988887777\?text=/)
+    expect(decodeURIComponent(link!.split("?text=")[1])).toBe(
+      "Oi, Rafael! Aqui é da FuckingBarba. O seu pedido #1042 está esperando o Pix, que vale até 12:20. " +
+        "Vou te mandar o código aqui embaixo: é só copiar e colar no app do banco."
+    )
+    expect(detalheDo(pedido(), null, [], SEM_ERP, { verCpf: false }).cliente.whatsapp).toBeNull()
+    const semCelular = pedido({
+      shipping_address: { ...pedido().shipping_address!, phone: "" },
+    })
+    expect(
+      detalheDo(semCelular, null, [], SEM_ERP, { verCpf: false, whatsapp: true }).cliente.whatsapp
+    ).toBeNull()
+    // Pedido pago também tem o botão: a mensagem só fala do pedido.
+    const pago = detalheDo(pedido({}, true), null, [], SEM_ERP, { verCpf: false, whatsapp: true })
+    expect(decodeURIComponent(pago.cliente.whatsapp!.split("?text=")[1])).toBe(
+      "Oi, Rafael! Aqui é da FuckingBarba. É sobre o seu pedido #1042."
+    )
+  })
+
+  it("a mensagem do Pix vencido, e sem o primeiro nome", () => {
+    expect(mensagemDoPedido({ display_id: 7, shipping_address: null }, "vencido", null)).toBe(
+      "Oi! Aqui é da FuckingBarba. O Pix do seu pedido #7 venceu antes do pagamento. Ficou alguma dúvida? Posso te ajudar por aqui."
+    )
+  })
+
   it("o caminho do pago esperando a nota, com a hora que ela sai", () => {
     const o = pedido(
       {
@@ -730,6 +783,20 @@ describe("os botões do pedido", () => {
       titulo: "Matheus Santana pediu o estorno de novo",
       detalhe: "o Pagar.me aceitou — confirma em minutos",
     })
+  })
+
+  it("quem copiou o Pix e chamou no WhatsApp entra no histórico", () => {
+    const d = detalheDo(pedido(), null, [], SEM_ERP, DONO, [
+      { em: antes(2), acao: "copiou-o-pix", quem: "Matheus Santana", detalhe: {} },
+      { em: antes(1), acao: "chamou-no-whatsapp", quem: "Ana", detalhe: {} },
+    ])
+    expect(d.historico.slice(-2)).toEqual([
+      expect.objectContaining({
+        titulo: "Matheus Santana copiou o código do Pix",
+        detalhe: "pra mandar pro cliente",
+      }),
+      expect.objectContaining({ titulo: "Ana chamou no WhatsApp", detalhe: "" }),
+    ])
   })
 })
 

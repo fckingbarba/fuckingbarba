@@ -1585,6 +1585,24 @@ export GA4_CREDENCIAIS=$(node -e 'const{generateKeyPairSync:g}=require("node:cry
 # as mesmas no backend (antes do backend:dev) e no conferidor
 ```
 
+**O Pix esperando: copiar o código e chamar no WhatsApp** (entrega 0247, pedido do dono). O
+detalhe do pedido traz `pagamento.pix` (`{ codigo, valeAte }`, o copia e cola de
+`estado.pix.copiaECola`) só na situação `pix` — vencido o parceiro recusa, pago não precisa — e
+`cliente.whatsapp`, o `wa.me/55<celular>` com a mensagem pronta (`mensagemDoPedido`: no Pix
+esperando, avisa que o código vem na mensagem seguinte; no vencido, oferece ajuda; nos outros, só o
+número do pedido), só com a permissão `whatsapp` = quem abre os `contatos` (como nos Carrinhos) e
+com celular. Na tela, o Pix esperando ganha um "O que fazer" (`[data-pix-esperando]`, primeiro no
+celular) com "Copiar o código do Pix" e "Chamar no WhatsApp" (`components/contato-do-pedido.tsx`);
+o WhatsApp também fica no bloco do cliente em todo pedido. Se o navegador não deixa copiar, o código
+aparece numa caixa (`.link-pronto--pix`, um clique seleciona tudo). Cada clique anota no histórico
+(`POST /dashboard/pedidos/:id/contato` com `{ como: "whatsapp" | "pix" }` → `chamou-no-whatsapp`,
+o mesmo código dos Carrinhos com o pedido de alvo, e `copiou-o-pix`, no `ACOES_NO_PEDIDO`); o
+mesmo clique da mesma pessoa em 30 min não anota de novo — o `feitosNoPedido` lê só as 50
+primeiras ações do pedido. O WhatsApp na rota exige os `contatos` (403); o marketing nem abre os
+pedidos. Conferidor: `conferir-pedidos` (seção "O Pix esperando", 20 checagens: o código copiado é
+o da API, o `wa.me` abre numa aba nova — interceptado, nada sai da máquina —, as duas linhas do
+histórico, o clique repetido, 400/403, vencido e pago sem o botão).
+
 **Marketing** (a área do protótipo, em partes; parte 1, entrega 0108: o Resumo e a meta do mês).
 **A memória curta** (entrega 0199, `src/lib/painel/memoria.ts`): as leituras de pedidos e carrinhos
 do Marketing (`pedidosDoMarketing` e as vizinhas, em `ler-marketing.ts`, e o Resumo) passam pelo

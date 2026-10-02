@@ -65,3 +65,14 @@ export async function tentarEstorno(id: string): Promise<Frase> {
 export async function mandarPraFrenet(id: string): Promise<Frase> {
   return fazer(id, "frenet")
 }
+
+/**
+ * Anota no histórico do pedido que alguém chamou o cliente no WhatsApp ou
+ * copiou o código do Pix (`POST /dashboard/pedidos/:id/contato`). A conversa
+ * é no WhatsApp: se a anotação não grava, ninguém precisa saber.
+ */
+export async function anotarContato(id: string, como: "whatsapp" | "pix"): Promise<void> {
+  if (!ehIdDePedido(id)) return
+  const r = await medusa(`/dashboard/pedidos/${id}/contato`, { token: "sessao", corpo: { como } })
+  if (r.status === 200) revalidatePath(`/pedidos/${id}`)
+}

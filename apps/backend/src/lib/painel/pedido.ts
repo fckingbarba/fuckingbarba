@@ -539,8 +539,16 @@ export type Detalhe = {
     /** "18:00": quando a nota sai sozinha (o "agora"), pra etiqueta do relógio. */
     saiAs: string | null
   }
-  /** `tipo` é o do ícone (Pix ou cartão); `forma` é o nome. */
-  pagamento: { forma: string; tipo: "pix" | "cartao" | null; detalhe: string }
+  /**
+   * `tipo` é o do ícone (Pix ou cartão); `forma` é o nome. `pix` é o copia e
+   * cola pra mandar pro cliente — só enquanto o Pix espera e ainda vale.
+   */
+  pagamento: {
+    forma: string
+    tipo: "pix" | "cartao" | null
+    detalhe: string
+    pix: { codigo: string; valeAte: string } | null
+  }
   nota: string | null
   entrega: {
     nome: string
@@ -558,7 +566,33 @@ export type Detalhe = {
     celular: string | null
     documento: { tipo: "cpf" | "cnpj"; mascarado: string; inteiro: string | null } | null
     conta: boolean
+    /** O link do WhatsApp com a mensagem pronta — só pra quem abre os contatos, e com celular. */
+    whatsapp: string | null
   }
+}
+
+/**
+ * O TEXTO QUE ABRE NO WHATSAPP do pedido — a pessoa da equipe muda o que
+ * quiser antes de mandar. No Pix esperando, avisa que o código vem na
+ * mensagem seguinte: sozinho numa mensagem, o cliente segura em cima, copia
+ * e cola no app do banco (o mesmo jeito do atendente, `mandar_codigo_do_pix`).
+ */
+export function mensagemDoPedido(
+  o: Pick<PedidoCru, "display_id" | "shipping_address">,
+  situacao: Situacao,
+  valeAte: string | null
+): string {
+  const primeiro = texto(o.shipping_address?.first_name).split(" ")[0]
+  const oi = `Oi${primeiro ? `, ${primeiro}` : ""}! Aqui é da FuckingBarba.`
+  const n = o.display_id ?? 0
+  if (situacao === "pix" && valeAte)
+    return (
+      `${oi} O seu pedido #${n} está esperando o Pix, que vale até ${valeAte}. ` +
+      "Vou te mandar o código aqui embaixo: é só copiar e colar no app do banco."
+    )
+  if (situacao === "vencido")
+    return `${oi} O Pix do seu pedido #${n} venceu antes do pagamento. Ficou alguma dúvida? Posso te ajudar por aqui.`
+  return `${oi} É sobre o seu pedido #${n}.`
 }
 
 const cep = (v: string) => (v.length === 8 ? `${v.slice(0, 5)}-${v.slice(5)}` : v)
@@ -1095,6 +1129,8 @@ export type Permissoes = {
   estorno?: boolean
   /** "Mandar pra Frenet de novo" (quem abre os pedidos). */
   frenet?: boolean
+  /** O botão do WhatsApp do cliente (quem abre os contatos, como nos Carrinhos). */
+  whatsapp?: boolean
 }
 
 export function detalheDo(
@@ -1164,6 +1200,11 @@ export function detalheDo(
 
   const doc = documentoDoPedido(o.billing_address, o.shipping_address)
   const canceladoEm = emData(o.canceled_at)
+  const celular = telefone(endereco?.phone)
+  // O código só enquanto vale: o vencido o parceiro recusa (e o pago não precisa).
+  const qr = situacao === "pix" ? p.estado?.pix : null
+  const pix =
+    qr?.copiaECola && qr.expiraEm ? { codigo: qr.copiaECola, valeAte: hora(qr.expiraEm) } : null
 
   return {
     id: o.id,
@@ -1205,6 +1246,7 @@ export function detalheDo(
       forma: p.forma === "pix" ? "Pix" : p.forma === "cartao" ? "Cartão de crédito" : "A combinar",
       tipo: p.forma,
       detalhe: textoDoPagamento(p, situacao),
+      pix,
     },
     nota: textoDaNota(nota, p.pagoEm, ctx),
     entrega:
@@ -1227,11 +1269,15 @@ export function detalheDo(
     cliente: {
       nome: nomeDoCliente(o),
       email: texto(o.email),
-      celular: celularLegivel(telefone(endereco?.phone)),
+      celular: celularLegivel(celular),
       documento: doc
         ? { tipo: doc.tipo, mascarado: mascarar(doc), inteiro: verCpf ? comPontuacao(doc) : null }
         : null,
       conta: Boolean(o.customer?.has_account),
+      whatsapp:
+        permissoes.whatsapp && celular
+          ? `https://wa.me/55${celular}?text=${encodeURIComponent(mensagemDoPedido(o, situacao, pix?.valeAte ?? null))}`
+          : null,
     },
   }
 }
