@@ -2788,6 +2788,17 @@ contra a API, e os links e as fotos abrindo).
   e sem e-mail — os sem e-mail são a maioria e, na mesma leitura, empurrariam pra fora do limite os
   que dá pra chamar; os pedidos do mês inteiro (o banco compara e-mail letra por letra, e a
   comparação sem maiúsculas é a do código); e o registro da equipe com a ação `chamou-no-whatsapp`.
+- **Em dois tempos, desde a 0249:** a conta (uma linha por pessoa, as fitas, os números) sai dos
+  RESUMOS — id, `updated_at`, e-mail e telefone do carrinho e da conta, quantos itens e o valor —,
+  numa consulta SQL só de leitura nas tabelas do Medusa (`resumosDoBanco`, como
+  `lib/whatsapp/cliente.ts`), com tetos de 5.000 e 20.000; `contarOsCarrinhos` é puro. O carrinho
+  inteiro (`query.graph` com itens, endereços, frete e pagamento) e o registro do WhatsApp só se
+  leem pros 30 da página (`linhasDosCarrinhos`), e a página sai do `lerTelaDosCarrinhos`, não da
+  rota. Antes eram uns 3 mil carrinhos inteiros por clique pra mostrar 30: no banco local, com
+  3.500 carrinhos, a tela foi de ~280 ms pra ~20 ms (20 mil: ~50 ms), e os números de cima deixaram
+  de sair cortados nos tetos antigos (1.000 e 2.000). `telaDosCarrinhos` ficou como a conta e as
+  linhas juntas, pros testes. Se o Medusa mudar as tabelas `cart`, `cart_line_item`,
+  `cart_address` ou `customer`, a consulta muda junto.
 - **O passo** (`ondeParou`) é a régua do checkout (`etapaDoCarrinho`, em
   `apps/loja/src/lib/checkout-visivel.ts`): sem e-mail, sacola; sem o documento no
   `billing_address.metadata`, contato; sem CEP, rua, número ou frete, entrega; o resto, pagamento
