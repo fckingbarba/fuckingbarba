@@ -180,7 +180,11 @@ export function usarFerramentaDeTeste(
           .map((p) =>
             [
               pedidoEmTexto(p, { dono: true }),
-              ...(p.pix ? ["Dá pra mandar o código do Pix: mandar_codigo_do_pix."] : []),
+              ...(p.pix
+                ? [
+                    "Se a pessoa pedir o código ou quiser pagar: mandar_codigo_do_pix. Se não, ofereça.",
+                  ]
+                : []),
             ].join("\n")
           )
           .join("\n\n"),
