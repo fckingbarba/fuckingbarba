@@ -88,8 +88,10 @@ export function NumerosDoWhatsapp({ n }: { n: TelaDoWhatsapp["numeros"] }) {
       <div className="numero">
         <p className="numero__rot">Custo da IA · hoje</p>
         <p className="numero__valor num">{n.custoHoje}</p>
-        <p className="numero__sub">
-          {n.custoPorResposta ? `${n.custoPorResposta} por resposta (estimado)` : "estimado"}
+        <p className="numero__sub" data-custo-partes>
+          {n.respostasHoje
+            ? `${n.custoGravando} gravando o catálogo (${n.gravacoes}×) · ${n.custoRespondendo} nas respostas`
+            : "estimado"}
         </p>
       </div>
     </div>

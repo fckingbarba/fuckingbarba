@@ -1,5 +1,5 @@
 import { ACESSO_PADRAO, NOME_DA_AREA } from "../../equipe/regras"
-import { custoEmDolar, PRECO_POR_MILHAO } from "../../whatsapp/atendente"
+import { custoDaGravacao, custoEmDolar, PRECO_POR_MILHAO } from "../../whatsapp/atendente"
 import { termosDaBusca } from "../../whatsapp/regras"
 import { lerFalas, testarOAtendente } from "../../whatsapp/testar"
 import {
@@ -155,6 +155,24 @@ describe("o custo e o que falta", () => {
     )
     expect(custoEmDolar(null)).toBe(0)
     expect(emDolar(1.1)).toBe("US$ 1,10")
+  })
+
+  it("a gravação do catálogo (1 hora, o dobro) separada da do fim da conversa (5 minutos)", () => {
+    const uso = {
+      entrada: 0,
+      saida: 0,
+      cacheLido: 0,
+      cacheCriado: 1_300_000,
+      cacheCriado1h: 1_000_000,
+    }
+    expect(custoDaGravacao(uso)).toBeCloseTo(PRECO_POR_MILHAO.cacheCriado1h)
+    expect(custoEmDolar(uso)).toBeCloseTo(
+      PRECO_POR_MILHAO.cacheCriado1h + PRECO_POR_MILHAO.cacheCriado * 0.3
+    )
+    // A resposta de antes da 0243 não separava: o que ela gravou conta como 1 hora.
+    const antiga = { entrada: 0, saida: 0, cacheLido: 0, cacheCriado: 1_000_000 }
+    expect(custoDaGravacao(antiga)).toBeCloseTo(PRECO_POR_MILHAO.cacheCriado1h)
+    expect(custoEmDolar(antiga)).toBeCloseTo(PRECO_POR_MILHAO.cacheCriado1h)
   })
 
   it("o que falta no Railway pro atendente responder", () => {

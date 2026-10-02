@@ -23,6 +23,7 @@ import { createServer } from "node:http"
  *   "RECUSA"  → `stop_reason: "refusal"` (a recusa, mesmo com a reserva);
  *   "IAFORA"  → 529, a Anthropic sobrecarregada;
  *   as ferramentas da loja (a parte 2), uma por comando no começo da mensagem:
+ *     "PRODUTO <código>"        → ver_produto (a página do produto, desde a 0243)
  *     "PEDIDOS"                 → ver_meus_pedidos
  *     "PIX <número>"            → mandar_codigo_do_pix
  *     "FRETE <cep> <código>"    → cotar_frete, 1 unidade
@@ -83,6 +84,8 @@ function comandoDaLoja(texto) {
   const [comando, ...resto] = texto.trim().split(/\s+/)
   const numero = (v) => Number(v) || 0
   switch (comando) {
+    case "PRODUTO":
+      return { name: "ver_produto", input: { produto: resto[0] ?? "" } }
     case "PEDIDOS":
       return { name: "ver_meus_pedidos", input: {} }
     case "PIX":
@@ -118,6 +121,8 @@ function respostaDaIa(corpo, n) {
       output_tokens: 20,
       cache_read_input_tokens: n > 1 ? 4000 : 0,
       cache_creation_input_tokens: n > 1 ? 0 : 4000,
+      // Como a de verdade: a gravação de 1 hora (o catálogo) separada da de 5 minutos.
+      cache_creation: { ephemeral_1h_input_tokens: n > 1 ? 0 : 4000, ephemeral_5m_input_tokens: 0 },
     },
   }
   const ultima = corpo.messages[corpo.messages.length - 1]

@@ -254,6 +254,13 @@ try {
     JSON.stringify({ numeros: t0.numeros, contagem: t0.contagem })
   )
   ok(/^US\$ /.test(t0.numeros?.custoHoje ?? ""), "o custo de hoje, em dólar", t0.numeros?.custoHoje)
+  ok(
+    t0.numeros?.gravacoes >= 1 &&
+      /^US\$ /.test(t0.numeros?.custoGravando ?? "") &&
+      /^US\$ /.test(t0.numeros?.custoRespondendo ?? ""),
+    "e as duas partes dele: gravar o catálogo (e quantas vezes) e responder (0243)",
+    JSON.stringify(t0.numeros)
+  )
   const soEquipe = await tela(tokenDoDono, "?filtro=equipe")
   ok(
     Boolean(linhaDe(soEquipe, cB?.id)) && !linhaDe(soEquipe, cR?.id),
@@ -301,6 +308,12 @@ try {
   await pagina.waitForSelector("[data-tela] h1")
   const doMenu = await menu(pagina)
   ok(doMenu.includes("WhatsApp"), "o menu tem WhatsApp", doMenu.join(", "))
+  const partes = semEspaco(await pagina.locator("[data-custo-partes]").textContent())
+  ok(
+    /^US\$ \S+ gravando o catálogo \(\d+×\) · US\$ \S+ nas respostas$/.test(partes),
+    "o cartão do custo separa a gravação do catálogo das respostas",
+    partes
+  )
   const num = pagina.locator('.lateral .nav a[href="/whatsapp"] .nav__num')
   ok(
     Number(await num.textContent().catch(() => 0)) >= 1 &&

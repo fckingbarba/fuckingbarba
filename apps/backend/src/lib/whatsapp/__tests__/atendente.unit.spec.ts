@@ -98,8 +98,24 @@ describe("o pedido à IA", () => {
       saida: 20,
       cacheLido: 5000,
       cacheCriado: 0,
+      cacheCriado1h: 0,
       modelo: MODELO,
     })
+  })
+
+  it("separa a gravação de 1 hora (o catálogo) da de 5 minutos (o fim da conversa)", async () => {
+    const gravou = {
+      ...resposta([{ type: "text", text: "Opa!" }]),
+      usage: {
+        ...uso,
+        cache_read_input_tokens: 0,
+        cache_creation_input_tokens: 7300,
+        cache_creation: { ephemeral_1h_input_tokens: 7000, ephemeral_5m_input_tokens: 300 },
+      },
+    } as unknown as Anthropic.Beta.BetaMessage
+    const { cliente } = iaFalsa([gravou])
+    const r = await responderComIa({ cliente, ...base })
+    expect(r.uso).toMatchObject({ cacheCriado: 7300, cacheCriado1h: 7000 })
   })
 })
 

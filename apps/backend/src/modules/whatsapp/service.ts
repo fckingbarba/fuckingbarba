@@ -64,7 +64,15 @@ export type ContagensDoPainel = {
 export type NumerosDoDia = {
   conversas: number
   respostas: number
-  uso: { entrada: number; saida: number; cacheLido: number; cacheCriado: number }
+  /** As respostas que gravaram o catálogo no cache (a primeira depois de uma hora parada). */
+  gravacoes: number
+  uso: {
+    entrada: number
+    saida: number
+    cacheLido: number
+    cacheCriado: number
+    cacheCriado1h: number
+  }
 }
 
 export type MensagemDoPainel = {
@@ -444,7 +452,12 @@ export default class WhatsappService extends Tabelas {
               coalesce(sum((dados->'uso'->>'entrada')::int) filter (where autor = 'bot'), 0)::int as entrada,
               coalesce(sum((dados->'uso'->>'saida')::int) filter (where autor = 'bot'), 0)::int as saida,
               coalesce(sum((dados->'uso'->>'cacheLido')::int) filter (where autor = 'bot'), 0)::int as cache_lido,
-              coalesce(sum((dados->'uso'->>'cacheCriado')::int) filter (where autor = 'bot'), 0)::int as cache_criado
+              coalesce(sum((dados->'uso'->>'cacheCriado')::int) filter (where autor = 'bot'), 0)::int as cache_criado,
+              -- A resposta de antes da 0243 não separava a gravação de 1 hora: conta tudo como dela.
+              coalesce(sum(coalesce((dados->'uso'->>'cacheCriado1h')::int, (dados->'uso'->>'cacheCriado')::int))
+                filter (where autor = 'bot'), 0)::int as cache_criado_1h,
+              count(*) filter (where autor = 'bot' and coalesce((dados->'uso'->>'cacheCriado1h')::int,
+                case when (dados->'uso'->>'cacheCriado')::int > 2000 then 1 else 0 end) > 0)::int as gravacoes
          from whatsapp_mensagem
         where deleted_at is null and em >= ?`,
       [desde]
@@ -452,11 +465,13 @@ export default class WhatsappService extends Tabelas {
     return {
       conversas: Number(l?.conversas) || 0,
       respostas: Number(l?.respostas) || 0,
+      gravacoes: Number(l?.gravacoes) || 0,
       uso: {
         entrada: Number(l?.entrada) || 0,
         saida: Number(l?.saida) || 0,
         cacheLido: Number(l?.cache_lido) || 0,
         cacheCriado: Number(l?.cache_criado) || 0,
+        cacheCriado1h: Number(l?.cache_criado_1h) || 0,
       },
     }
   }

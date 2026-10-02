@@ -5274,6 +5274,63 @@ loja, e o sistema antigo (o Loopfy) foi desligado.
 Falta, pra depois (CRM): as mensagens que a loja manda primeiro pelo WhatsApp (pedido, carrinho,
 reposição), feitas pela loja nova e só pra quem aceitar receber.
 
+**O custo do atendente do WhatsApp cai — pronto em 02/10 (entrega 0243).** Pedido dele, vendo no
+painel US$ 0,13 numa conversa de uma mensagem só: "acho que está muito alto, precisamos de um plano
+de ação para diminuir esses custos".
+
+- **Por que custava US$ 0,13:** toda resposta lia uns 30 mil tokens: as regras do atendente, as
+  dúvidas da loja, a descrição das ferramentas e o catálogo com a página inteira dos 15 produtos. A
+  IA guarda essa leitura numa memória (o cache) por 1 hora, e gravar nela custa o dobro do preço
+  normal. Com pouco movimento, quase toda conversa começa com a memória vazia e paga a gravação:
+  US$ 0,12 dos US$ 0,13.
+- **O catálogo de toda resposta ficou enxuto:** de cada produto, o nome, o preço, o link, o
+  desconto por quantidade, a promoção, o "combina com" e o resumo de uma linha. A página do produto
+  (como usar, em quanto tempo funciona, quanto dura, pra quem é e pra quem não é, a rotina, a
+  comparação e as dúvidas) o atendente consulta só quando a conversa pede, por uma ferramenta nova
+  — no painel, "Viu a página do produto". A repetição dos kits do Fator saiu junto.
+
+O resultado, medido na simulação (as mesmas 27 conversas de WhatsApp, duas vezes cada, no atendente
+de antes e no novo, com o Sonnet de verdade; US$ 1,24 no total):
+
+|                                            | Antes           | Depois          |
+| ------------------------------------------ | --------------- | --------------- |
+| O que a IA guarda na memória               | 30,2 mil tokens | 11,1 mil tokens |
+| 1ª resposta com a memória vazia            | US$ 0,123       | US$ 0,046       |
+| Resposta com a memória cheia (média)       | US$ 0,012       | US$ 0,008       |
+| Resposta que consulta a página do produto  | —               | US$ 0,010       |
+
+- **A qualidade ficou igual:** nota às cegas 4,91 antes e 4,85 depois (as 108 respostas
+  misturadas, sem saber qual versão escreveu), e a conferência automática passou 53 de 54 nas duas.
+  A diferença é uma resposta. Em toda resposta com detalhe de produto (como usar, prazo, quanto
+  dura, saúde, minoxidil), o atendente novo consultou a página antes; sem consultar, só usou o que
+  está no catálogo enxuto.
+- **No mês,** com 10 conversas por dia começando com a memória vazia e 30 respostas no total: de
+  ~R$ 250 pra ~R$ 105. Menos do que a estimativa do plano (~R$ 70): as regras, as dúvidas da loja e
+  a descrição das ferramentas pesam mais do que eu tinha contado. O número real depende do
+  movimento.
+- **O painel mostra as duas partes do custo:** no cartão "Custo da IA · hoje" (WhatsApp), embaixo
+  do total: "US$ X gravando o catálogo (N×) · US$ Y nas respostas". "Gravando" é a gravação da
+  memória de 1 hora, que acontece de novo depois de cada hora parada. Com esses números de verdade,
+  dá pra decidir depois se a memória deve durar 1 hora ou 5 minutos (gravar a de 5 minutos custa
+  menos, mas ela esvazia mais vezes).
+- **A simulação ficou guardada no projeto** (`apps/backend/ferramentas/simular-atendente`): as 27
+  conversas (as 24 de antes e 3 de detalhe de produto), a conferência automática, a revisão às
+  cegas e o "antes x depois". Serve pra medir antes de mudar o modelo, as instruções ou o catálogo.
+  Cada rodada precisa de uma chave de teste da Anthropic e custa uns US$ 0,25.
+- **Achados pra depois** (já existiam: apareceram nas duas versões, uma vez em cada):
+  - no "cadê meu pedido?" de quem tem um pedido enviado e outro esperando o Pix, o atendente às
+    vezes manda o código do Pix e não fala do pedido enviado;
+  - num presente de R$ 114,90, ele disse que já vinha com frete grátis (o grátis começa em
+    R$ 139,90).
+
+Conferido: a simulação (acima), o conferidor do atendente (64/64, com a ferramenta nova), o do
+painel (56/56, com o cartão novo), os testes de unidade do backend (1.897), typecheck, lint e
+prettier.
+
+Depois do deploy — **nada pra configurar.** A primeira resposta depois do deploy grava a memória
+nova, e daí em diante vale o custo menor. No cartão do custo, as respostas de hoje de antes do
+deploy contam a gravação inteira, como antes.
+
 **As ofertas ocultas — pronto em 01/10 (entrega 0238).** Pedido dele: "ofertas ocultas pro site,
 só através de um link que não aparece no site". As escolhas dele: produtos da loja com desconto,
 livre até o prazo (sem limite por cliente) e uma página própria da oferta.

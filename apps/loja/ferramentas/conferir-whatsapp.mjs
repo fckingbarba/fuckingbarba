@@ -258,6 +258,11 @@ async function rodarParte2() {
     return { certo: certo?.texto ?? "", errado: errado?.texto ?? "" }
   })()
   const doFrete = conversar(numero(20), "FRETE 89036-370 shampoo-para-barba")
+  const doProduto = (async () => {
+    const [certo] = await conversar(numero(22), "PRODUTO fator-de-crescimento-para-barba")
+    const [errado] = await conversar(numero(22), "PRODUTO nao-existe")
+    return { certo: certo?.texto ?? "", errado: errado?.texto ?? "" }
+  })()
 
   const [pedidos] = await conversar(DONO, "PEDIDOS")
   const tp = pedidos?.texto ?? ""
@@ -351,6 +356,18 @@ async function rodarParte2() {
     frete
   )
 
+  const produto = await doProduto
+  ver(
+    produto.certo.includes("## Fator de Crescimento") && produto.certo.includes("Como usar:"),
+    "ver_produto: a página do produto (o como usar, as dúvidas)",
+    produto.certo
+  )
+  ver(
+    produto.errado.includes('Não existe produto com o código "nao-existe"'),
+    "e o código que não existe volta como erro, pra IA corrigir",
+    produto.errado
+  )
+
   const { certo, errado } = await deOutro
   ver(
     certo.includes(`Pedido #${enviado.numero}`) && certo.includes(`Rastreio: ${CODIGO}`),
@@ -370,6 +387,7 @@ async function rodarParte2() {
 
   await apagarConversa(outro)
   await apagarConversa(numero(20))
+  await apagarConversa(numero(22))
   return res
 }
 
@@ -492,9 +510,13 @@ try {
     )
     const instrucoes = c.system?.[0]?.text ?? ""
     ok(
-      instrucoes.includes("PRODUTOS (o preço de agora)") &&
+      instrucoes.includes("PRODUTOS (o preço de agora") &&
         /## .+\nCódigo \(pras ferramentas\): [a-z0-9-]+\nLink: /.test(instrucoes),
       "o catálogo foi junto"
+    )
+    ok(
+      !instrucoes.includes("Como usar:") && (c.tools ?? []).some((t) => t.name === "ver_produto"),
+      "o catálogo vai enxuto: a página dos produtos vem pela ver_produto (0243)"
     )
     ok(
       instrucoes.includes("Frete grátis nas compras a partir de R$ 149,90 (de teste)"),
