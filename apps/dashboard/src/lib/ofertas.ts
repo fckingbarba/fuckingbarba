@@ -30,6 +30,8 @@ export type OfertaNaLista = {
   comecaEm: string
   terminaEm: string
   situacao: SituacaoDaOferta
+  /** O tempo do relógio da página, em minutos (recomeça quando zera); `null`, até o fim. */
+  relogioMinutos: number | null
   produtos: ProdutoDaOfertaNaLista[]
   vendas: { pedidos: number; vendeu: number }
 }
@@ -74,6 +76,9 @@ export type FormularioDaOferta = {
   ate: string
   /** produto → o "por" digitado ("59,90"). Só os marcados. */
   precos: Record<string, string>
+  /** O relógio da página (0245): horas e minutos digitados; os dois vazios, até o fim. */
+  relogioHoras: string
+  relogioMinutos: string
 }
 
 export const TITULO_PADRAO = "Oferta só pra quem tem o link"
@@ -96,7 +101,29 @@ export function ofertaVazia(agora = new Date()): FormularioDaOferta {
     de: "",
     ate: diaAs2359(7, agora),
     precos: {},
+    relogioHoras: "",
+    relogioMinutos: "",
   }
+}
+
+/**
+ * Os minutos do relógio a partir das horas e minutos digitados: os dois
+ * vazios, "" (o relógio conta até o fim); lixo vira NaN e o backend recusa.
+ */
+export function minutosDoRelogio(horas: string, minutos: string): number | "" {
+  if (!horas.trim() && !minutos.trim()) return ""
+  const h = horas.trim() ? Number(horas.trim()) : 0
+  const m = minutos.trim() ? Number(minutos.trim()) : 0
+  return h * 60 + m
+}
+
+/** "03h 20m" · "45m" · "72h" — o relógio da lista. */
+export function relogioEmTexto(minutos: number): string {
+  const h = Math.floor(minutos / 60)
+  const m = minutos % 60
+  const dois = (n: number) => String(n).padStart(2, "0")
+  if (!h) return `${dois(m)}m`
+  return m ? `${dois(h)}h ${dois(m)}m` : `${dois(h)}h`
 }
 
 /** "Lista VIP — Outubro!" → "lista-vip-outubro" (a mesma conta do backend). */
@@ -141,6 +168,7 @@ export function corpoDaOferta(f: FormularioDaOferta) {
     de: f.comeco === "data" ? f.de : "",
     ate: f.ate,
     produtos: Object.entries(f.precos).map(([produto, por]) => ({ produto, por })),
+    relogio: minutosDoRelogio(f.relogioHoras, f.relogioMinutos),
   }
 }
 

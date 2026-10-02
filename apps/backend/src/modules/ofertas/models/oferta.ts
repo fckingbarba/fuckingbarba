@@ -16,6 +16,9 @@ import { model } from "@medusajs/framework/utils"
  * `lista_id` (o Medusa, regra `fb_oferta` = este id), refeita a cada minuto
  * a partir daqui (`lib/ofertas/precos.ts`).
  *
+ * O RELÓGIO (`relogio_minutos`, opcional): o tempo que a página mostra pra
+ * cada pessoa, recomeçando quando zera; o preço vale até o fim de verdade.
+ *
  * PAUSADA, a lista fica em rascunho e o link mostra "Essa oferta acabou".
  * ENCERRAR é trazer o `termina_em` pra agora.
  */
@@ -33,6 +36,13 @@ export const Oferta = model
     comeca_em: model.dateTime(),
     termina_em: model.dateTime(),
     pausada: model.boolean().default(false),
+    /**
+     * O tempo que o relógio da página mostra, em minutos (entrega 0245): cada
+     * pessoa vê esse tempo a partir de quando abre a oferta, e quando zera ele
+     * recomeça — o preço vale até o `termina_em` (escolha da loja). Nunca
+     * mostra mais que o que falta de verdade. `null`: o relógio conta até o fim.
+     */
+    relogio_minutos: model.number().nullable(),
     /** `[{ produto: "prod_…", por: 69.9 }]`. */
     produtos: model.json(),
     /** A lista de preço do Medusa desta oferta. */

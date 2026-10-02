@@ -87,6 +87,7 @@ export async function POST(req: AuthenticatedMedusaRequest, res: MedusaResponse)
     comeca_em: new Date(o.comeca),
     termina_em: new Date(o.termina),
     pausada: false,
+    relogio_minutos: o.relogio,
     // O `json` do modelo é tipado como objeto; a lista vai como está.
     produtos: o.produtos as unknown as Record<string, unknown>,
     criada_por: pedido.membro.id,

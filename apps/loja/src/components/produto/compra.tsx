@@ -1169,7 +1169,7 @@ function BarraFixa({
         <span className="barra-compra__preco">
           {emReais(preco)} {riscado ? <s>{emReais(riscado)}</s> : null}
         </span>
-        {oferta ? <PrazoDaOferta terminaEm={oferta.terminaEm} /> : null}
+        {oferta ? <PrazoDaOferta oferta={oferta} /> : null}
       </span>
 
       {aviso ? (

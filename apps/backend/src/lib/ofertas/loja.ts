@@ -22,6 +22,8 @@ export type OfertaDaPagina = {
   comecaEm: string
   terminaEm: string
   situacao: Situacao
+  /** O tempo do relógio da página, em minutos (recomeça); `null`, até o fim. */
+  relogioMinutos: number | null
   produtos: { id: string; por: number }[]
 }
 
@@ -47,6 +49,7 @@ export function ofertaDaPagina(o: OfertaGuardada, agora = Date.now()): OfertaDaP
     comecaEm: new Date(o.comeca_em).toISOString(),
     terminaEm: new Date(o.termina_em).toISOString(),
     situacao,
+    relogioMinutos: o.relogio_minutos ?? null,
     produtos: vale ? o.produtos.map((p) => ({ id: p.produto, por: p.por })) : [],
   }
 }

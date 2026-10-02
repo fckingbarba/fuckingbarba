@@ -53,6 +53,16 @@ export const MAX_PRODUTOS = 12
 /** Oferta "oculta" de três meses é preço novo, não oferta. */
 export const DIAS_NO_MAXIMO = 90
 
+/**
+ * O relógio da página (entrega 0245): de 5 minutos a 72 horas. É o tempo que
+ * cada pessoa vê a partir de quando abre a oferta; zerou, recomeça — o preço
+ * vale até o fim de verdade, que o relógio nunca passa (escolha da loja,
+ * avisada do risco: é urgência que não existe — CDC art. 37 —, o mesmo que
+ * ela aceitou no contador da home em 24/09).
+ */
+export const RELOGIO_MINIMO = 5
+export const RELOGIO_MAXIMO = 72 * 60
+
 const NOME_MAX = 60
 const TITULO_MAX = 80
 const CHAMADA_MAX = 160
@@ -78,6 +88,8 @@ export type OfertaNova = {
   comeca: number
   termina: number
   produtos: ProdutoDaOferta[]
+  /** O tempo do relógio da página, em minutos; `null`, até o fim. */
+  relogio: number | null
 }
 
 /** O que a regra precisa saber de cada produto da loja: o nome e o preço de hoje (uma unidade). */
@@ -194,6 +206,10 @@ export function lerOfertaNova(
       erros.ate = `No máximo ${DIAS_NO_MAXIMO} dias de oferta.`
   }
 
+  const relogio = lerRelogio(o.relogio)
+  if (relogio === undefined)
+    erros.relogio = `O relógio: de ${RELOGIO_MINIMO} minutos a ${RELOGIO_MAXIMO / 60} horas.`
+
   const lidos = Array.isArray(o.produtos) ? o.produtos : []
   const vistos = new Set<string>()
   const produtos: ProdutoDaOferta[] = []
@@ -221,7 +237,31 @@ export function lerOfertaNova(
   else if (vistos.size > MAX_PRODUTOS) erros.produtos = `No máximo ${MAX_PRODUTOS} produtos.`
 
   if (Object.keys(erros).length) return { ok: false, erros }
-  return { ok: true, oferta: { nome, titulo, chamada, endereco, comeca, termina, produtos } }
+  return {
+    ok: true,
+    oferta: {
+      nome,
+      titulo,
+      chamada,
+      endereco,
+      comeca,
+      termina,
+      produtos,
+      relogio: relogio ?? null,
+    },
+  }
+}
+
+/**
+ * Os minutos do relógio que chegaram do painel: vazio é `null` (o relógio
+ * conta até o fim); fora de 5 min–72 h, ou que não é número inteiro,
+ * `undefined` (erro).
+ */
+export function lerRelogio(v: unknown): number | null | undefined {
+  if (v === null || v === undefined || v === "" || v === 0 || v === "0") return null
+  const n = typeof v === "number" ? v : typeof v === "string" ? Number(v.trim()) : NaN
+  if (!Number.isInteger(n) || n < RELOGIO_MINIMO || n > RELOGIO_MAXIMO) return undefined
+  return n
 }
 
 /* ── os preços da lista ───────────────────────────────────────────────── */

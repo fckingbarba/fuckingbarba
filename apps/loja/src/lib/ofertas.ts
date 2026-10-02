@@ -24,6 +24,11 @@ export type OfertaDaPagina = {
   comecaEm: string
   terminaEm: string
   situacao: SituacaoDaOferta
+  /**
+   * O tempo do relógio da página, em minutos (entrega 0245), ou `null`
+   * (conta até o fim). O backend de antes da 0245 não manda: `undefined`.
+   */
+  relogioMinutos?: number | null
   /** Pausada ou encerrada, vazio. */
   produtos: { id: string; por: number }[]
 }
@@ -128,15 +133,46 @@ export function restanteAte(fim: number, agora: number): Restante {
   }
 }
 
-/** "2d 14:33:08" · "14:33:08" — o relógio da faixa. */
-export function prazoNoRelogio(r: Restante): string {
-  const hms = [r.horas, r.minutos, r.segundos].map(dois).join(":")
-  return r.dias > 0 ? `${r.dias}d ${hms}` : hms
-}
-
 /** "2d 14h" · "14h 33min" · "33min" — o prazo curto da barra fixa. */
 export function prazoCurto(r: Restante): string {
   if (r.dias > 0) return `${r.dias}d ${r.horas}h`
   if (r.horas > 0) return `${r.horas}h ${r.minutos}min`
   return `${Math.max(1, r.minutos)}min`
+}
+
+/**
+ * O QUE O RELÓGIO MOSTRA (entrega 0245). Sem o tempo do relógio, o que falta
+ * até o fim de verdade. Com ele (escolha da loja, pra dar urgência), cada
+ * pessoa vê esse tempo a partir de quando abriu a oferta (`desde`), e quando
+ * zera ele recomeça — o preço vale até o fim da campanha. Nunca mais que o que
+ * falta de verdade: na reta final, o relógio é o fim.
+ */
+export function restanteNoRelogio(
+  terminaEm: string,
+  relogioMinutos: number | null | undefined,
+  desde: number,
+  agora: number
+): Restante {
+  const fim = new Date(terminaEm).getTime()
+  if (!relogioMinutos || relogioMinutos <= 0) return restanteAte(fim, agora)
+  const ciclo = relogioMinutos * 60_000
+  const doCiclo = ciclo - (Math.max(0, agora - desde) % ciclo)
+  return restanteAte(agora + Math.min(doCiclo, Math.max(0, fim - agora)), agora)
+}
+
+/**
+ * Quando esta pessoa abriu a oferta pela primeira vez (o começo do relógio),
+ * guardado no navegador. Sem o armazenamento (aba anônima bloqueada), o
+ * agora — o relógio começa de novo a cada página, o que não muda o preço.
+ */
+export function desdeDoRelogio(endereco: string, agora: number): number {
+  const chave = `fb_oferta_relogio:${endereco}`
+  try {
+    const guardado = Number(localStorage.getItem(chave))
+    if (Number.isFinite(guardado) && guardado > 0 && guardado <= agora) return guardado
+    localStorage.setItem(chave, String(agora))
+  } catch {
+    // Sem armazenamento: o agora.
+  }
+  return agora
 }

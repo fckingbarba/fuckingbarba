@@ -1,21 +1,29 @@
 /*
-  A OFERTA OCULTA NA PÁGINA DO PRODUTO (entrega 0240) — escrito à mão. A
-  faixa preta do alto ("Oferta do seu link · acaba em 2d 14:33:08") e o
-  prazo curto embaixo do preço da barra fixa. Só aparecem pra quem veio
-  pelo link (`components/oferta/na-pdp.tsx`); o resto da página é o de
-  sempre. As cores são as da caixa das ofertas relâmpago (.offers): a
-  oferta tem uma cara só na loja inteira.
+  A OFERTA OCULTA NA PÁGINA DO PRODUTO — escrito à mão. A faixa do alto e o
+  prazo curto embaixo do preço da barra fixa. Só aparecem pra quem veio pelo
+  link (`components/oferta/na-pdp.tsx`); o resto da página é o de sempre.
+
+  A FAIXA É A FITA AMARELA (entrega 0245, a "F2" do desenho, com o relógio):
+  amarela logo abaixo do cabeçalho preto, o raio num quadrado preto, "Oferta
+  só para você · acaba em", e o relógio num bloco preto de números amarelos
+  (os segundos em menta), presa embaixo do cabeçalho quando a pessoa rola. Os cantos chanfrados são os da marca (sem
+  border-radius). Do mesmo tamanho da faixa de antes (0240).
 */
 .faixa-oferta {
+  /* Presa logo abaixo do cabeçalho (também preso) quando a pessoa rola: o
+     `top` certo vem medido do cabeçalho (`useAlturaDoCabecalho`); o 0 é o
+     de antes da medida. Embaixo do cabeçalho (z-index 50) e da gaveta. */
+  position: sticky;
+  top: 0;
+  z-index: 40;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 6px 12px;
-  padding: 10px max(14px, calc((100% - 1320px) / 2));
-  background: var(--color-tinta);
-  border-bottom: 3px solid var(--color-amarelo);
-  color: #ffffff;
+  gap: 8px 12px;
+  padding: 8px max(12px, calc((100% - 1320px) / 2));
+  background: var(--color-amarelo);
+  border-bottom: 3px solid var(--color-tinta);
+  color: var(--color-tinta);
   font-family: var(--font-sans);
   line-height: normal;
 }
@@ -23,32 +31,85 @@
   margin: 0;
   display: flex;
   align-items: center;
-  gap: 8px;
 }
 .faixa-oferta__nome {
-  font-size: 0.75rem;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  gap: 8px;
+  min-width: 0;
 }
-.faixa-oferta__nome svg {
+.faixa-oferta__raio {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  background: var(--color-tinta);
+  clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px);
+}
+.faixa-oferta__raio svg {
   width: 13px;
   height: 13px;
   fill: var(--color-amarelo);
-  flex-shrink: 0;
 }
-.faixa-oferta__prazo > span:first-child {
-  color: #c9cfd5;
-  font-size: 0.72rem;
-  font-weight: 600;
+.faixa-oferta__textos {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
 }
-.faixa-oferta__prazo b {
-  padding: 4px 7px;
-  background: #4fe0b9;
-  color: #08110d;
-  font-size: 0.9rem;
+.faixa-oferta__textos b {
+  font-size: 0.78rem;
   font-weight: 800;
+  font-style: italic;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.faixa-oferta__textos span {
+  color: #3c4653;
+  font-size: 0.66rem;
+  font-weight: 700;
+}
+.faixa-oferta__relogio {
+  flex-shrink: 0;
+  gap: 5px;
+  padding: 6px 10px 6px 8px;
+  background: var(--color-tinta);
+  color: #ffffff;
+  font-size: 0.64rem;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+}
+.faixa-oferta__relogio svg {
+  width: 16px;
+  height: 16px;
+  margin-right: 1px;
+  fill: var(--color-amarelo);
+}
+.faixa-oferta__parte b {
+  margin-right: 1px;
+  color: var(--color-amarelo);
+  font-size: 1.06rem;
+  font-weight: 800;
+}
+.faixa-oferta__parte[data-unidade="s"] b {
+  color: #4fe0b9;
+}
+/* Celular estreito (320–360 px): o relógio encolhe um pouco e o nome quebra a linha, sem passar por baixo do relógio. */
+@media (max-width: 360px) {
+  .faixa-oferta {
+    gap: 6px;
+  }
+  .faixa-oferta__relogio {
+    gap: 3px;
+    padding: 5px 7px 5px 6px;
+  }
+  .faixa-oferta__relogio svg {
+    width: 14px;
+    height: 14px;
+  }
+  .faixa-oferta__parte b {
+    font-size: 0.94rem;
+  }
 }
 /* "Oferta acaba em 2d 14h", embaixo do preço da barra fixa. */
 .barra-compra__oferta {

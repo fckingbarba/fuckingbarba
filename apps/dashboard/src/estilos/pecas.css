@@ -268,6 +268,16 @@
 .oferta__link { margin-top: 10px; }
 .oferta__link-rotulo { margin: 0; font-size: 0.7rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--tinta-suave); }
 .oferta__link .link-pronto { margin-top: 4px; }
+/* O relógio da página (0245): a frase com o "Mudar", e o formulário curto de horas e minutos. */
+.oferta__relogio { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
+.oferta__relogio svg { width: 14px; height: 14px; fill: currentColor; flex-shrink: 0; }
+.oferta__mudar { padding: 2px 6px; font-size: 0.74rem; }
+.oferta__relogio-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; margin-top: 8px; }
+.oferta__relogio-form label { display: grid; gap: 3px; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; }
+.oferta__relogio-form input { width: 72px; min-height: 40px; padding: 6px 8px; border: 2px solid var(--linha); background: var(--papel); color: var(--tinta); font-family: inherit; font-size: 1rem; font-weight: 600; -webkit-appearance: none; appearance: none; }
+.oferta__relogio-form input[aria-invalid="true"] { border-color: var(--erro); }
+.oferta__relogio-form .campo__ajuda, .oferta__relogio-form .campo__erro { flex-basis: 100%; margin: 0; }
+.oferta__relogio-form--nova { margin-top: 0; }
 /* O nome do produto e os dois preços numa ficha: no celular ela quebra a linha, em vez de empurrar a tela. */
 .oferta .fichas-da-frase span { white-space: normal; overflow-wrap: anywhere; }
 .oferta-produtos { display: grid; gap: 10px; padding: 10px 12px; background: var(--cinza); border: 2px solid var(--linha); }

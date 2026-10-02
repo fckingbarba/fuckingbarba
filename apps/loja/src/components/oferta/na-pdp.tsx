@@ -1,12 +1,12 @@
 "use client"
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
-import { Raio } from "@/components/icones"
+import { Cronometro, Raio } from "@/components/icones"
 import {
+  desdeDoRelogio,
   enderecoDoCookie,
   prazoCurto,
-  prazoNoRelogio,
-  restanteAte,
+  restanteNoRelogio,
   situacaoAgora,
   type OfertaDaPagina,
 } from "@/lib/ofertas"
@@ -38,6 +38,9 @@ export type OfertaNaPdp = {
   por: number
   /** O "-X%" da foto, contra o cheio (ou o preço de hoje, sem ele). */
   desconto: number | null
+  /** O tempo do relógio (minutos, recomeça) e quando esta pessoa abriu a oferta — `restanteNoRelogio`. */
+  relogioMinutos: number | null
+  desde: number
 }
 
 const Contexto = createContext<OfertaNaPdp | null>(null)
@@ -75,6 +78,8 @@ export function ProvedorDaOfertaNaPdp({
           endereco: o.endereco,
           titulo: o.titulo,
           terminaEm: o.terminaEm,
+          relogioMinutos: o.relogioMinutos ?? null,
+          desde: desdeDoRelogio(o.endereco, Date.now()),
           por: item.por,
           desconto:
             referencia && referencia > paga ? Math.round((1 - paga / referencia) * 100) : null,
@@ -124,35 +129,98 @@ function useAgora(ligado: boolean): number | null {
   return agora
 }
 
-/** A faixa preta do alto da página: "Oferta do seu link · acaba em 2d 14:33:08". */
+const dois = (n: number) => String(n).padStart(2, "0")
+
+/**
+ * A FAIXA DO ALTO DA PÁGINA — a fita amarela (entrega 0245, a "F2" do
+ * desenho, com o relógio que a loja pediu): "Oferta só para você · acaba
+ * em", e o relógio num bloco preto, 02d 14h 33m 08s, os segundos em menta.
+ * Sem dias, o bloco começa nas horas. O mesmo tamanho da faixa de antes: a
+ * loja não quis nada que ocupe mais tela.
+ *
+ * PRESA EMBAIXO DO CABEÇALHO quando a pessoa rola (pedido da loja): o
+ * cabeçalho também é preso (`.cabecalho`, sticky), e a altura dele muda com
+ * a tela — a faixa mede e gruda logo abaixo.
+ *
+ * O RELÓGIO é o `restanteNoRelogio`: com o tempo do painel, recomeça quando
+ * zera (o preço vale até o fim).
+ */
 export function FaixaDaOferta() {
   const oferta = useOfertaNaPdp()
   const agora = useAgora(Boolean(oferta))
+  const topo = useAlturaDoCabecalho(Boolean(oferta))
   if (!oferta) return null
-  const restante = agora === null ? null : restanteAte(new Date(oferta.terminaEm).getTime(), agora)
+  const restante =
+    agora === null
+      ? null
+      : restanteNoRelogio(oferta.terminaEm, oferta.relogioMinutos, oferta.desde, agora)
+  const partes: [string, string][] = restante
+    ? [
+        ...(restante.dias > 0 ? [[dois(restante.dias), "d"] as [string, string]] : []),
+        [dois(restante.horas), "h"],
+        [dois(restante.minutos), "m"],
+        [dois(restante.segundos), "s"],
+      ]
+    : [
+        ["--", "h"],
+        ["--", "m"],
+        ["--", "s"],
+      ]
   return (
-    <div className="faixa-oferta" role="note" data-faixa-oferta>
+    <div
+      className="faixa-oferta"
+      role="note"
+      data-faixa-oferta
+      style={topo === null ? undefined : { top: topo }}
+    >
       <p className="faixa-oferta__nome">
-        <Raio />
-        Oferta do seu link
+        <span className="faixa-oferta__raio">
+          <Raio />
+        </span>
+        <span className="faixa-oferta__textos">
+          <b>Oferta só para você</b>
+          <span>acaba em</span>
+        </span>
       </p>
-      <p className="faixa-oferta__prazo">
-        <span>acaba em</span>
-        {/* aria-hidden: o número que troca a cada segundo é ruído pra quem ouve. */}
-        <b aria-hidden="true">{restante ? prazoNoRelogio(restante) : "--:--:--"}</b>
-        <span className="sr-only">{restante ? prazoCurto(restante) : ""}</span>
+      {/* aria-hidden: o número que troca a cada segundo é ruído pra quem ouve. */}
+      <p className="faixa-oferta__relogio" aria-hidden="true">
+        <Cronometro />
+        {partes.map(([numero, unidade]) => (
+          <span key={unidade} className="faixa-oferta__parte" data-unidade={unidade}>
+            <b>{numero}</b>
+            {unidade}
+          </span>
+        ))}
       </p>
+      <span className="sr-only">{restante ? `Acaba em ${prazoCurto(restante)}` : ""}</span>
     </div>
   )
 }
 
-/** "Oferta acaba em 2d 14h" — embaixo do preço da barra fixa. */
-export function PrazoDaOferta({ terminaEm }: { terminaEm: string }) {
+/** A altura do cabeçalho preso, pra faixa grudar logo abaixo dele (muda com a tela). */
+function useAlturaDoCabecalho(ligado: boolean): number | null {
+  const [altura, setAltura] = useState<number | null>(null)
+  useEffect(() => {
+    if (!ligado) return
+    const cabecalho = document.querySelector<HTMLElement>("header.cabecalho")
+    if (!cabecalho) return
+    const medir = () => setAltura(Math.round(cabecalho.getBoundingClientRect().height))
+    medir()
+    const observador = new ResizeObserver(medir)
+    observador.observe(cabecalho)
+    return () => observador.disconnect()
+  }, [ligado])
+  return altura
+}
+
+/** "Oferta acaba em 2d 14h" — embaixo do preço da barra fixa, o mesmo relógio da faixa. */
+export function PrazoDaOferta({ oferta }: { oferta: OfertaNaPdp }) {
   const agora = useAgora(true)
   if (agora === null) return null
   return (
     <span className="barra-compra__oferta">
-      Oferta acaba em {prazoCurto(restanteAte(new Date(terminaEm).getTime(), agora))}
+      Oferta acaba em{" "}
+      {prazoCurto(restanteNoRelogio(oferta.terminaEm, oferta.relogioMinutos, oferta.desde, agora))}
     </span>
   )
 }
