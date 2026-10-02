@@ -5516,6 +5516,30 @@ novas do cartão na tela), typecheck, lint e prettier.
 Depois do deploy — **nada pra configurar.** Pra ver: Início, bloco "No checkout" (o período de 7
 ou 30 dias mostra mais casos).
 
+**Pix esperando: copiar o código e chamar no WhatsApp, no pedido do painel — pronto em 02/10
+(entrega 0247).** Ele pediu pra copiar o código do Pix de quem não pagou e um botão pra chamar o
+cliente no WhatsApp.
+
+- **No pedido "Aguardando Pix"**, o bloco "O que fazer" (o primeiro no celular) tem **"Copiar o
+  código do Pix"** e **"Chamar no WhatsApp"**. O WhatsApp abre numa aba nova com a mensagem
+  pronta ("Oi, Rafael! Aqui é da FuckingBarba. O seu pedido #1042 está esperando o Pix, que vale
+  até 12:20. Vou te mandar o código aqui embaixo…") — dá pra mudar antes de mandar. Depois é colar
+  o código numa mensagem só dele: o cliente segura em cima, copia e cola no banco.
+- **O código só aparece enquanto o Pix vale.** Vencido ou pago, não tem o botão.
+- **"Chamar no WhatsApp" também no bloco do cliente**, em todo pedido com celular (a mensagem fala
+  só do pedido; no Pix vencido, oferece ajuda). Só pra quem vê os contatos (dono e operação, como
+  nos Carrinhos).
+- **No histórico do pedido fica quem copiou o Pix e quem chamou no WhatsApp**, pra ninguém chamar
+  a mesma pessoa duas vezes (o mesmo clique da mesma pessoa em 30 min conta uma vez).
+- O WhatsApp abre no WhatsApp de quem clicou (no computador, o WhatsApp Web) — como o botão dos
+  Carrinhos.
+
+Conferido: os unitários (1.907), o conferidor dos pedidos e do Início (138/138 em três rodadas seguidas,
+com 20 checagens novas), typecheck, lint e prettier.
+
+Depois do deploy — **nada pra configurar.** Pra ver: Pedidos → "Esperando pagamento" → um pedido
+"Aguardando Pix".
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa
