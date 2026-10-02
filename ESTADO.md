@@ -5350,6 +5350,22 @@ no banco de teste), typecheck, lint e prettier.
 Depois do deploy — **nada pra configurar.** Pra ver: abra o link de uma oferta, clique em "Ver
 detalhes" num produto.
 
+**O link da oferta direto pra página do produto — pronto em 02/10 (entrega 0241).** Pedido dele,
+vendo o link no ar: "ele não tem que mandar pra essa página, tem que mandar direto pra PDP". Pra
+oferta com mais de um produto, a escolha dele: um link por produto.
+
+- **Oferta de um produto só:** o link da oferta abre direto a página do produto, já com a faixa e o
+  preço da oferta. Vale também pro link que já foi enviado.
+- **Oferta de vários produtos:** no painel, cada produto ganha o seu link ("Copiar" ao lado), que
+  abre direto a página dele. O link geral continua, como "Página com todos os produtos".
+- O `?utm_…` do link vai junto pra página do produto (a campanha de quem mandou não se perde).
+- Oferta que ainda não começou, pausada ou que acabou: o link mostra a página que diz isso, como
+  antes.
+
+Conferido: o conferidor das ofertas (66/66, duas rodadas seguidas), typecheck, lint e prettier.
+
+Depois do deploy — **nada pra configurar.** Os links novos aparecem sozinhos na lista do painel.
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa
