@@ -18,8 +18,8 @@ import {
 import { ORIGEM_POR_PADRAO } from "../ofertas-por-padrao"
 
 /**
- * OS CLIENTES DO JEITO DO PAINEL — quem comprou ou tem conta, quanto e
- * quando; e quem aceitou receber ofertas.
+ * OS CLIENTES DO JEITO DO PAINEL — quem pagou, quanto e quando; e quem
+ * aceitou receber ofertas.
  *
  * Código puro: recebe os clientes do Medusa, os pedidos e a newsletter, e
  * devolve o que a tela mostra. Quem lê do banco é `ler.ts`; os testes moram
@@ -222,9 +222,9 @@ function resumoDa(p: Pessoa) {
 }
 
 /**
- * O que a pessoa fez por último: o pedido pago mais novo; sem pedido pago, o
- * cadastro mais novo. Pedido sem pagamento (o Pix que venceu) não conta: nem
- * no número de pedidos, nem aqui.
+ * O que a pessoa fez por último: o pedido pago mais novo (na lista, todo
+ * mundo tem um); sem pedido pago, o cadastro mais novo. Pedido sem pagamento
+ * (o Pix que venceu) não conta: nem no número de pedidos, nem aqui.
  */
 const ultimaVez = (p: Pessoa): Data =>
   p.pedidos.find(vendido)?.created_at ?? Math.max(...p.clientes.map((c) => tempo(c.created_at)))
@@ -241,7 +241,7 @@ export type LinhaDoCliente = {
   /** Só os pagos e não cancelados. */
   pedidos: number
   gastou: number
-  /** "hoje, 20:52": o último pedido pago (ou, sem pedido pago, quando a conta nasceu). */
+  /** "hoje, 20:52": o último pedido pago. */
   ultimo: string
   conta: boolean
   /** "e-mail · desde 22/09" — `null` quando não aceitou. */
@@ -252,9 +252,9 @@ export type LinhaDoCliente = {
 
 export type ListaDeClientes = {
   clientes: LinhaDoCliente[]
-  /** Quantas pessoas a loja tem (o marketing vê só as que aceitaram ofertas). */
+  /** Quantos clientes (quem pagou) a loja tem — o marketing vê só os que aceitaram ofertas. */
   total: number
-  /** Quantas aceitaram ofertas, por e-mail ou WhatsApp. */
+  /** Quantos desses aceitaram ofertas, por e-mail ou WhatsApp. */
   comOfertas: number
   busca: string
 }
@@ -273,6 +273,13 @@ export function listaDeClientes(
 ): ListaDeClientes {
   const termo = semAcento(busca.trim())
   const linhas = pessoas
+    /*
+      CLIENTE É QUEM PAGOU (pedido dele, 02/10): pelo menos um pedido pago e
+      não cancelado. O carrinho largado, o checkout sem pagamento (o Pix que
+      venceu) e a conta sem compra ficam fora — só da lista: a ficha, a
+      newsletter e o CRM leem as mesmas pessoas, inteiras.
+    */
+    .filter((p) => p.pedidos.some(vendido))
     .map((p) => {
       const consentimentos = consentimentosDa(p)
       const ofertas = ofertasEmFrase(consentimentos, agora)

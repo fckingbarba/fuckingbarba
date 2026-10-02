@@ -756,22 +756,30 @@ export async function lerTodosOsClientes(container: MedusaContainer): Promise<Cl
   }
 }
 
-/** Os últimos 2000 pedidos, só com o que a lista de clientes soma. */
+/**
+ * TODOS os pedidos, em páginas de 2000, só com o que a lista de clientes
+ * soma. Antes eram os últimos 2000; desde que cliente é quem pagou (0242),
+ * quem comprou antes deles sumiria da lista.
+ */
 export async function pedidosDosClientes(
   container: MedusaContainer,
   { semTotal = false }: { semTotal?: boolean } = {}
 ): Promise<PedidoDoCliente[]> {
-  const { data } = await query(container).graph({
-    entity: "order",
-    // Sem o total, a lista de clientes pede o de cada pedido vendido de quem
-    // está na página (`vendidosDaPagina`, em `clientes.ts`) — ver `CAMPOS_SEM_TOTAL`.
-    fields: semTotal
-      ? CAMPOS_DO_PEDIDO_NA_LISTA.filter((c) => c !== "total" && c !== "credit_line_total")
-      : CAMPOS_DO_PEDIDO_NA_LISTA,
-    filters: { is_draft_order: false },
-    pagination: { take: 2000, order: { created_at: "DESC" } },
-  })
-  return data as unknown as PedidoDoCliente[]
+  const todos: PedidoDoCliente[] = []
+  for (let skip = 0; ; skip += 2000) {
+    const { data } = await query(container).graph({
+      entity: "order",
+      // Sem o total, a lista de clientes pede o de cada pedido vendido de quem
+      // está na página (`vendidosDaPagina`, em `clientes.ts`) — ver `CAMPOS_SEM_TOTAL`.
+      fields: semTotal
+        ? CAMPOS_DO_PEDIDO_NA_LISTA.filter((c) => c !== "total" && c !== "credit_line_total")
+        : CAMPOS_DO_PEDIDO_NA_LISTA,
+      filters: { is_draft_order: false },
+      pagination: { skip, take: 2000, order: { created_at: "DESC" } },
+    })
+    todos.push(...(data as unknown as PedidoDoCliente[]))
+    if (data.length < 2000) return todos
+  }
 }
 
 /** Os pedidos inteiros de uns clientes (a ficha): os da lista de pedidos, e o endereço com o documento. */
