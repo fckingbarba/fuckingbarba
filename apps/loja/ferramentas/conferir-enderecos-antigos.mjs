@@ -172,8 +172,9 @@ confere(
 /*
   ── 2b. os prefixos: o checkout da Nuvemshop, com id e token no fim ────────
   Como chega da aba antiga recarregada (02/10, 2 visitas no 404): o token com
-  maiúsculas e a barra no fim. Um salto só (o minúsculo viria antes, e seriam
-  dois), permanente, com a query.
+  maiúsculas e a barra no fim. O 301 do prefixo direto pro destino — o
+  minúsculo não vem antes (seria um salto a mais) — com a query. Antes dele,
+  no máximo o 308 da barra final, que o Next faz antes do proxy.
 */
 
 console.log("\nOs prefixos (src/redirects.json)\n")
@@ -190,10 +191,12 @@ for (const [de, para] of Object.entries(PREFIXOS)) {
   confere(`${de} tem endereço de exemplo neste conferidor`, exemplos.length > 0)
   for (const caminho of exemplos) {
     const r = await seguir(`${caminho}?utm_source=conferidor`)
-    const [salto] = r.saltos
+    const barra = caminho.endsWith("/") ? r.saltos[0] : null
+    const salto = r.saltos[barra ? 1 : 0]
     confere(
       `${caminho} → ${para}`,
-      r.saltos.length === 1 &&
+      r.saltos.length === (barra ? 2 : 1) &&
+        (!barra || barra.status === 308) &&
         salto.status === 301 &&
         salto.para.pathname === destino.pathname &&
         salto.para.hash === destino.hash &&
