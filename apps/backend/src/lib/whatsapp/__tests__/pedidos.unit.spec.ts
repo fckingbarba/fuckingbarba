@@ -221,7 +221,9 @@ describe("as ferramentas do atendente", () => {
     const r = await usarFerramenta("ver_meus_pedidos", {}, contexto([pedidoDoPix, deOutraPessoa]))
     expect(r?.conteudo).toContain("Pedido #3310")
     expect(r?.conteudo).toContain("esperando o pagamento do Pix")
-    expect(r?.conteudo).toContain("mandar_codigo_do_pix")
+    expect(r?.conteudo).toContain(
+      "Se a pessoa pedir o código ou quiser pagar: mandar_codigo_do_pix. Se não, ofereça."
+    )
     expect(r?.conteudo).not.toContain("#3320")
     // O código mesmo não vai pra IA: ele sai sozinho, pela outra ferramenta.
     expect(r?.conteudo).not.toContain("00020126PIXDETESTE")

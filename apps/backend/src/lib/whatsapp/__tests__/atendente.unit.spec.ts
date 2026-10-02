@@ -297,6 +297,11 @@ describe("as instruções", () => {
     const t = instrucoesDoAtendente(p)
     expect(t).toContain("Trate por irmão.")
     expect(t).toContain("- P: Tem frete grátis? R: Sim.")
+    // 0246: os dois deslizes da simulação.
+    expect(t).toContain("Frete grátis só quando a sacola chega no mínimo das dúvidas da loja")
+    expect(t).toContain(
+      'Se ela perguntou de outra coisa (como "cadê meu pedido"), responda isso e ofereça o código.'
+    )
     expect(t.endsWith("## Fator")).toBe(true)
     expect(instrucoesDoAtendente(p)).toBe(t)
     expect(t).not.toMatch(/\d{2}:\d{2}/)
