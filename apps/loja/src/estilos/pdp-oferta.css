@@ -1,0 +1,60 @@
+/*
+  A OFERTA OCULTA NA PÁGINA DO PRODUTO (entrega 0240) — escrito à mão. A
+  faixa preta do alto ("Oferta do seu link · acaba em 2d 14:33:08") e o
+  prazo curto embaixo do preço da barra fixa. Só aparecem pra quem veio
+  pelo link (`components/oferta/na-pdp.tsx`); o resto da página é o de
+  sempre. As cores são as da caixa das ofertas relâmpago (.offers): a
+  oferta tem uma cara só na loja inteira.
+*/
+.faixa-oferta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  padding: 10px max(14px, calc((100% - 1320px) / 2));
+  background: var(--color-tinta);
+  border-bottom: 3px solid var(--color-amarelo);
+  color: #ffffff;
+  font-family: var(--font-sans);
+  line-height: normal;
+}
+.faixa-oferta p {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.faixa-oferta__nome {
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.faixa-oferta__nome svg {
+  width: 13px;
+  height: 13px;
+  fill: var(--color-amarelo);
+  flex-shrink: 0;
+}
+.faixa-oferta__prazo > span:first-child {
+  color: #c9cfd5;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+.faixa-oferta__prazo b {
+  padding: 4px 7px;
+  background: #4fe0b9;
+  color: #08110d;
+  font-size: 0.9rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+/* "Oferta acaba em 2d 14h", embaixo do preço da barra fixa. */
+.barra-compra__oferta {
+  display: block;
+  margin-top: 1px;
+  color: var(--color-menta-escura);
+  font-size: 0.7rem;
+  font-weight: 700;
+}

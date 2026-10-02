@@ -1,7 +1,6 @@
 import type { HttpTypes } from "@medusajs/types"
 import Image from "next/image"
 import Link from "next/link"
-import type { ReactNode } from "react"
 import { Carrinho, Envelope } from "@/components/icones"
 import { BotaoComprar } from "@/components/produto/comprar"
 import { emReais } from "@/lib/formato"
@@ -41,8 +40,8 @@ import { promocaoDoProduto } from "@/lib/promocoes"
  * - **na página de uma oferta oculta** (`oferta`), o preço é o da oferta (o
  *   menor entre ele e o da vitrine, que é o que o carrinho cobra), o riscado
  *   é o de sempre, o selo diz "Oferta" e o "Comprar" marca a sacola com ela.
- *   Sem link pra página do produto: lá o preço é o de todo mundo, e quem
- *   está na oferta não precisa sair dela pra comprar.
+ *   A foto, o nome e o "Ver detalhes" levam pra página do produto (entrega
+ *   0240), que mostra o preço da oferta a quem veio pelo link.
  *
  * O que NÃO tem aqui, e no protótipo tinha: a nota em estrelas. Aquilo era
  * 4,8 com 128 avaliações escritos no HTML, de exemplo. Avaliação inventada
@@ -94,7 +93,7 @@ export async function CartaoProduto({
         {/* aria-hidden e tabindex -1: o nome logo abaixo já é um link pro
             mesmo lugar, e dois links seguidos pro mesmo destino só fazem o
             leitor de tela repetir. Pro mouse, a foto continua clicável. */}
-        <FotoOuLink oferta={Boolean(oferta)} caminho={caminho}>
+        <Link className="produto__foto" href={caminho} tabIndex={-1} aria-hidden="true">
           {produto.thumbnail ? (
             <Image
               src={produto.thumbnail}
@@ -110,7 +109,7 @@ export async function CartaoProduto({
               sizes="(max-width: 640px) 70vw, 280px"
             />
           ) : null}
-        </FotoOuLink>
+        </Link>
 
         {semEstoque ? (
           <span className="produto__selo">Esgotado</span>
@@ -152,7 +151,7 @@ export async function CartaoProduto({
 
       <div className="produto__corpo">
         <h3 className="produto__nome">
-          {oferta ? produto.title : <Link href={caminho}>{produto.title}</Link>}
+          <Link href={caminho}>{produto.title}</Link>
         </h3>
 
         {precos ? (
@@ -168,6 +167,12 @@ export async function CartaoProduto({
           <p className="produto__parcela">
             ou {PARCELAS_SEM_JUROS}x de {emReais(parcela)} sem juros
           </p>
+        ) : null}
+
+        {oferta ? (
+          <Link href={caminho} className="produto__detalhes">
+            Ver detalhes →
+          </Link>
         ) : null}
       </div>
 
@@ -198,23 +203,5 @@ export async function CartaoProduto({
         </Link>
       )}
     </article>
-  )
-}
-
-/** A foto leva pra página do produto — menos na oferta oculta (ver lá em cima). */
-function FotoOuLink({
-  oferta,
-  caminho,
-  children,
-}: {
-  oferta: boolean
-  caminho: `/produtos/${string}`
-  children: ReactNode
-}) {
-  if (oferta) return <span className="produto__foto">{children}</span>
-  return (
-    <Link className="produto__foto" href={caminho} tabIndex={-1} aria-hidden="true">
-      {children}
-    </Link>
   )
 }
