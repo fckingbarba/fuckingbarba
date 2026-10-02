@@ -60,7 +60,9 @@
  * - "Salvando…" em cada passo, esperando o Medusa e a página refeita — o
  *   passo seguinte abre no clique, e a loja grava por trás (0201); e o passo
  *   de antes voltar (piscar) quando a resposta chega, ou o segundo toque na
- *   barra pintar de vermelho o passo que acabou de abrir.
+ *   barra pintar de vermelho o passo que acabou de abrir;
+ * - o e-mail com ".con" no lugar de ".com" passar calado, e nenhum e-mail do
+ *   pedido chegar (0248).
  *
  * Variáveis: MEDUSA_BACKEND_URL, NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY, CHROMIUM;
  * ADMIN_EMAIL e ADMIN_SENHA, opcionais, pro bump com a promoção desligada, pra
@@ -74,6 +76,7 @@ import { comAFaixaRespondida } from "./faixa-respondida.mjs"
 import { SERVICOS, subirFrenetFalsa } from "./frenet-falsa.mjs"
 import { subirPagarmeFalso } from "./pagarme-falso.mjs"
 import { vigiarRecargaDoDev } from "./recarga-do-dev.mjs"
+import { sugestaoDoEmail } from "../src/lib/sugestao-do-email.ts"
 
 /**
  * `localhost`, e NÃO `127.0.0.1`: o `next dev` recusa POST de origem que não
@@ -2965,6 +2968,193 @@ titulo("O e-mail comprido")
         .isVisible()
         .catch(() => false)),
       "e o checkout não passa pro passo 2 com ele"
+    )
+  } finally {
+    await ctx.close()
+  }
+}
+
+titulo("O e-mail com erro de digitação: “Você quis dizer…?” (0248)")
+/*
+  O "HOTMAIL.CON" (02/10): um cliente comprou com ".con" no lugar de ".com",
+  e o e-mail do pedido, o do cancelamento e o aviso do Pix voltaram todos. A
+  regra de formato não pega — o e-mail está bem escrito, só não existe. A
+  tela sugere o conserto (`lib/sugestao-do-email.ts`, lido aqui direto) e o
+  primeiro "Continuar" com ele para no passo 1; o segundo passa, que pode
+  ser o domínio de verdade de alguém.
+*/
+for (const [digitado, esperado] of [
+  ["thauan@hotmail.con", "thauan@hotmail.com"],
+  ["a@gmial.com", "a@gmail.com"],
+  ["a@gamil.com", "a@gmail.com"],
+  ["a@gmail.co", "a@gmail.com"],
+  ["a@gmail.com.br", "a@gmail.com"],
+  ["a@hotmial.con", "a@hotmail.com"],
+  ["a@outlok.com.br", "a@outlook.com.br"],
+  ["a@yahoo.com.bt", "a@yahoo.com.br"],
+  ["a@uol.combr", "a@uol.com.br"],
+  ["a@gmailcom", "a@gmail.com"],
+  ["a@empresa.con", "a@empresa.com"],
+  ["a@gmail.com", null],
+  ["a@hotmail.com.br", null],
+  ["a@hotmart.com", null],
+  ["a@ymail.com", null],
+  ["a@terra.com", null],
+  ["a@ul.com.br", null],
+  ["a@empresa.co", null],
+  [EMAIL, null],
+])
+  ok(
+    sugestaoDoEmail(digitado) === esperado,
+    `"${digitado}" → ${esperado ?? "nada a sugerir"}`,
+    String(sugestaoDoEmail(digitado))
+  )
+{
+  const { ctx, pag } = await abaVigiada()
+  try {
+    const id = await carrinhoNovo(ctx, [["shampoo-para-barba", 1]])
+    const c = (n) => pag.locator(`.fluxo [name="${n}"]`)
+    const sugestao = pag.locator("#form-contato .campo__sugestao")
+    let envios = 0
+    pag.on("request", (r) => {
+      if (r.method() === "POST" && r.headers()["next-action"]) envios++
+    })
+    await pag.goto(`${LOJA}/checkout`, { waitUntil: "domcontentloaded" })
+    await semStreaming(pag)
+    await pag.locator("#form-contato").waitFor({ timeout: 25000 })
+
+    await c("email").fill("conferir@gmial.com")
+    await c("nome").click()
+    const apareceu = await sugestao
+      .locator("button")
+      .waitFor({ timeout: 10000 })
+      .then(() => true)
+      .catch(() => false)
+    ok(
+      apareceu && (await sugestao.innerText()).includes("conferir@gmail.com"),
+      "saindo do campo, a sugestão aparece embaixo do e-mail",
+      apareceu ? await sugestao.innerText() : "não apareceu"
+    )
+    await c("email").fill("conferir@gmial.co")
+    ok((await sugestao.locator("button").count()) === 0, "e some quando a pessoa volta a digitar")
+    await c("nome").click()
+    await sugestao.locator("button").click({ timeout: 10000 })
+    ok(
+      (await c("email").inputValue()) === "conferir@gmail.com",
+      "tocar na sugestão conserta o e-mail (“gmial.co” vira “gmail.com”)",
+      await c("email").inputValue()
+    )
+    ok((await sugestao.locator("button").count()) === 0, "e ela some")
+
+    await c("email").fill("conferir@hotmail.con")
+    await c("nome").fill("Matheus")
+    await c("sobrenome").fill("da Silva Teste")
+    await c("telefone").fill("(11) 99999-9999")
+    await c("documento").fill(CPF)
+    const antes = envios
+    await pag.locator("#form-contato button[type=submit]").click()
+    const parou = await sugestao
+      .locator("small")
+      .waitFor({ timeout: 10000 })
+      .then(() => true)
+      .catch(() => false)
+    ok(
+      parou && /conferir@hotmail\.com\?/.test(await sugestao.innerText()),
+      "o “Continuar” com “hotmail.con” para no passo 1, com a sugestão e o “é só continuar”",
+      parou ? await sugestao.innerText() : "não parou"
+    )
+    ok(
+      !(await pag
+        .locator("#form-entrega")
+        .isVisible()
+        .catch(() => false)) && envios === antes,
+      "e o passo 2 não abre, nem nada vai pra loja",
+      `${envios - antes} envio(s)`
+    )
+    ok(
+      await pag.evaluate(() => Boolean(document.activeElement?.closest(".campo__sugestao"))),
+      "o foco vai pra sugestão (quem usa teclado ou leitor de tela cai nela)"
+    )
+    await sugestao.locator("button").click()
+    await pag.locator("#form-entrega").waitFor({ timeout: 20000 })
+    const gravado = await quandoGravar(
+      () => medusa(`/store/carts/${id}?fields=id,email`),
+      (x) => x?.cart?.email === "conferir@hotmail.com"
+    )
+    ok(
+      gravado?.cart?.email === "conferir@hotmail.com",
+      "tocar nela conserta e já segue: o passo 2 abre, e o Medusa grava o e-mail certo",
+      String(gravado?.cart?.email)
+    )
+  } finally {
+    await ctx.close()
+  }
+}
+{
+  // O segundo "Continuar" com o mesmo e-mail passa: pode ser o domínio de alguém.
+  const { ctx, pag } = await abaVigiada()
+  try {
+    const id = await carrinhoNovo(ctx, [["shampoo-para-barba", 1]])
+    const c = (n) => pag.locator(`.fluxo [name="${n}"]`)
+    await pag.goto(`${LOJA}/checkout`, { waitUntil: "domcontentloaded" })
+    await semStreaming(pag)
+    await pag.locator("#form-contato").waitFor({ timeout: 25000 })
+    await c("email").fill("conferir@empresa.con")
+    await c("nome").fill("Matheus")
+    await c("sobrenome").fill("da Silva Teste")
+    await c("telefone").fill("(11) 99999-9999")
+    await c("documento").fill(CPF)
+    await pag.locator("#form-contato button[type=submit]").click()
+    await pag.locator("#form-contato .campo__sugestao small").waitFor({ timeout: 10000 })
+    await pag.waitForTimeout(700) // depois do toque repetido
+    await pag.locator("#form-contato button[type=submit]").click()
+    await pag.locator("#form-entrega").waitFor({ timeout: 20000 })
+    const gravado = await quandoGravar(
+      () => medusa(`/store/carts/${id}?fields=id,email`),
+      (x) => x?.cart?.email === "conferir@empresa.con"
+    )
+    ok(
+      gravado?.cart?.email === "conferir@empresa.con",
+      "o segundo “Continuar” com o mesmo e-mail passa, do jeito que a pessoa escreveu",
+      String(gravado?.cart?.email)
+    )
+  } finally {
+    await ctx.close()
+  }
+}
+{
+  // No celular: dois toques rápidos na barra não passam, e a sugestão vem pra vista.
+  const ctx = await navegador.newContext({ viewport: CELULAR })
+  const pag = await ctx.newPage()
+  try {
+    await carrinhoNovo(ctx, [["shampoo-para-barba", 1]])
+    const c = (n) => pag.locator(`.fluxo [name="${n}"]`)
+    await pag.goto(`${LOJA}/checkout`, { waitUntil: "domcontentloaded" })
+    await semStreaming(pag)
+    await pag.locator("#form-contato").waitFor({ timeout: 25000 })
+    await c("email").fill("conferir@hotmail.con")
+    await c("nome").fill("Matheus")
+    await c("sobrenome").fill("da Silva Teste")
+    await c("telefone").fill("(11) 99999-9999")
+    await c("documento").fill(CPF)
+    const barra = pag.locator(".barra__btn")
+    await barra.click()
+    await barra.click({ force: true, timeout: 2000 }).catch(() => null)
+    const botao = pag.locator("#form-contato .campo__sugestao button")
+    await botao.waitFor({ timeout: 10000 })
+    await pag.waitForTimeout(800) // a rolagem suave
+    const naTela = await botao.evaluate((b) => {
+      const r = b.getBoundingClientRect()
+      const barra = document.querySelector(".barra")?.getBoundingClientRect().top ?? innerHeight
+      return r.top >= 0 && r.bottom <= barra
+    })
+    ok(naTela, "no celular, o toque na barra traz a sugestão pra vista (acima da barra)")
+    ok(
+      !(await pag
+        .locator("#form-entrega")
+        .isVisible()
+        .catch(() => false)),
+      "e o segundo toque rápido na barra não conta como “é esse mesmo”"
     )
   } finally {
     await ctx.close()

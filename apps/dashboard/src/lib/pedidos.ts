@@ -106,7 +106,8 @@ export type DetalheDoPedido = {
     formaDeEntrega: string
     total: number
   }
-  historico: { quando: string; em: string; titulo: string; detalhe: string }[]
+  /** `alerta`: o detalhe é problema (o e-mail que não chegou, entrega 0248) — vermelho. */
+  historico: { quando: string; em: string; titulo: string; detalhe: string; alerta?: true }[]
   /** Os botões, já conferidos no backend contra o papel e o estado do pedido. */
   acoes: {
     nota: "agora" | "de-novo" | null

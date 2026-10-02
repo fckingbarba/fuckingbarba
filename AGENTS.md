@@ -443,6 +443,18 @@ acha pelo crachá (o `carrinho_visto` do formulário contra o carrinho do cookie
 duas pagaram juntas, pela sessão recusada com o carrinho já fechado. E-mail com mais de 64
 caracteres (o limite do Pagar.me) é recusado no passo 1, com o motivo.
 
+**"VOCÊ QUIS DIZER …?"** (entrega 0248). O domínio com erro de digitação ("hotmail.con",
+"gmial.com", "gmail.com.br") ganha a sugestão embaixo do e-mail no passo 1
+(`.campo__sugestao`, pelo `depois` do `Campo`): ao sair do campo, e no PRIMEIRO "Continuar" com
+ele, que para ali sem ir à loja — o foco vai pra sugestão, e no celular ela vem pra vista. Tocar
+nela conserta o campo e, se veio do "Continuar", segue (`requestSubmit`). O segundo "Continuar" com
+o mesmo e-mail passa (o domínio pode ser de alguém), menos o toque repetido em
+`TOQUE_REPETIDO_MS`. O formato errado tem a dica dele e vem antes: a sugestão só segura o e-mail
+que passa no `conferirContato`. A regra é `apps/loja/src/lib/sugestao-do-email.ts`, sem `import`
+(o `conferir-checkout` lê o arquivo direto no Node): os domínios mais comuns, os ".com" que não
+existem ("con", "cmo"…, em qualquer domínio), uma letra no nome (nunca nos nomes curtos — "uol",
+"bol", "ig", "live") e uma no final. É só sugestão: a ação não recusa nada.
+
 **O PASSO SEGUINTE ABRE NO CLIQUE** (entrega 0201). As regras dos passos 1 e 2 (o e-mail do zod 4,
 os 64 caracteres, nome, celular, CPF/CNPJ, o endereço) moram em `apps/loja/src/lib/passos-do-checkout.ts`,
 sem nada de servidor: a tela confere o formulário (`conferirContato`, `conferirEndereco`) e a ação
@@ -1620,6 +1632,22 @@ primeiras ações do pedido. O WhatsApp na rota exige os `contatos` (403); o mar
 pedidos. Conferidor: `conferir-pedidos` (seção "O Pix esperando", 20 checagens: o código copiado é
 o da API, o `wa.me` abre numa aba nova — interceptado, nada sai da máquina —, as duas linhas do
 histórico, o clique repetido, 400/403, vencido e pago sem o botão).
+
+**Os e-mails do pedido no histórico, e se chegaram** (entrega 0248). O histórico do detalhe traz os
+toques dos fluxos do CRM com a chave do pedido (`crm_envio`: os lembretes do Pix e a jornada) —
+`E-mail "Pix pendente · Vence em 15 minutos" enviado`, com os nomes de `FLUXOS`; o grupo de
+controle vira uma linha só por fluxo; o pulado e o que está saindo não entram —, e o e-mail da
+devolução, que não entrava. Cada e-mail com id do Resend (os toques, e o `id` de
+`metadata.emails.confirmado`, `.cancelado` e `.devolvido`) ganha no detalhe o que os avisos do
+Resend contaram (`crm_email`): "chegou na caixa do cliente", "não chegou · <por quê>", "está
+atrasando" ou o spam (`comoChegou`, em `lib/painel/chegou.ts`, junto com o `porQueNaoChegou` do
+CRM — o `crm.ts` importa o `pedido.ts`, e o contrário seria um ciclo). O que é problema (não
+chegou, spam, o Resend recusou) vai com `alerta: true`, e a tela pinta o detalhe de vermelho
+(`.historico li[data-erro]`). A leitura é `crm.emailsDoPedido` (duas consultas juntas; os avisos
+pelos ids dos toques e os do metadata), DEPOIS do pedido lido, pelo `emailsDoPedido` do `ler.ts`:
+o CRM que falha não derruba a tela — o histórico sai como era. Conferidores: `conferir-crm` (o
+aviso do Pix no histórico, o Resend dizendo que voltou, a linha em vermelho na tela) e
+`conferir-pedidos` (o histórico da tela é o da API, linha a linha, com o vermelho).
 
 **Marketing** (a área do protótipo, em partes; parte 1, entrega 0108: o Resumo e a meta do mês).
 **A memória curta** (entrega 0199, `src/lib/painel/memoria.ts`): as leituras de pedidos e carrinhos
