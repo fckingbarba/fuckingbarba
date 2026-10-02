@@ -17,6 +17,7 @@ import { emProducao, site } from "@/lib/site"
  *    da virada: cada URL antiga que o Google conhece precisa apontar pra nova.
  *    A query (?utm_*) é preservada — a atribuição sobrevive ao redirect. O
  *    destino pode levar âncora (`/duvidas#entrega`): cai direto no trecho.
+ *    Os `prefixos` do mapa valem pro começo do caminho (o checkout dela).
  *    Quem confere o mapa inteiro, contra a lista da Nuvemshop, é o
  *    `ferramentas/conferir-enderecos-antigos.mjs`.
  *
@@ -49,6 +50,24 @@ import { emProducao, site } from "@/lib/site"
 const rotasAntigas = new Map<string, string>(
   Object.entries(redirects.rotas).map(([de, para]) => [normaliza(de), para])
 )
+
+/**
+ * O endereço antigo que carrega id e token no fim — o checkout da Nuvemshop
+ * (`/checkout/v3/success/<id>/<token>`): conta o começo, e o resto some.
+ * Quem abre um desses depois da virada é a aba antiga recarregada (o celular
+ * recarrega a aba esquecida dias depois) ou o link de um e-mail dela.
+ */
+const prefixosAntigos = Object.entries(redirects.prefixos)
+
+/** 301 pro destino do mapa, com a query (?utm_*) — e a âncora, se ele tiver. */
+function redirecionar(req: NextRequest, destino: string) {
+  const url = req.nextUrl.clone()
+  // A âncora vai no `hash`: no `pathname`, o "#" viraria "%23" e a página daria 404.
+  const [pagina, ancora] = destino.split("#")
+  url.pathname = pagina
+  url.hash = ancora ? `#${ancora}` : ""
+  return NextResponse.redirect(url, 301)
+}
 
 /**
  * Páginas de primeiro nível que existem em `app/` e não são categoria.
@@ -129,6 +148,11 @@ const CAMINHOS_COM_ID = [
 
 export function proxy(req: NextRequest) {
   const bruto = semBarraFinal(req.nextUrl.pathname)
+
+  // Antes do minúsculo: o token tem maiúsculas, e seriam dois saltos.
+  const antigo = prefixosAntigos.find(([de]) => `${bruto.toLowerCase()}/`.startsWith(de))
+  if (antigo) return redirecionar(req, antigo[1])
+
   const temId = CAMINHOS_COM_ID.some((prefixo) => bruto.toLowerCase().startsWith(prefixo))
   const caminho = temId ? bruto : normaliza(bruto)
 
@@ -140,14 +164,7 @@ export function proxy(req: NextRequest) {
   }
 
   const destino = rotasAntigas.get(caminho)
-  if (destino) {
-    const url = req.nextUrl.clone()
-    // A âncora vai no `hash`: no `pathname`, o "#" viraria "%23" e a página daria 404.
-    const [pagina, ancora] = destino.split("#")
-    url.pathname = pagina
-    url.hash = ancora ? `#${ancora}` : ""
-    return NextResponse.redirect(url, 301)
-  }
+  if (destino) return redirecionar(req, destino)
 
   const segmentos = caminho.split("/").filter(Boolean)
   if (segmentos.length === 1 && !CATEGORIAS.has(segmentos[0]) && !PAGINAS_RAIZ.has(segmentos[0])) {

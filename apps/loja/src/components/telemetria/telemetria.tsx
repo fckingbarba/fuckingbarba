@@ -23,8 +23,13 @@ import { aparelho, guardarMedida, mandar, paginaAgora } from "@/lib/telemetria"
  */
 
 const MEDIDAS = new Set(["LCP", "INP", "CLS"])
-/** Barulho conhecido, sem efeito pra quem compra. */
-const IGNORAR = /ResizeObserver loop|^Script error\.?$/
+/**
+ * Barulho conhecido, sem efeito pra quem compra. O `window.webkit.messageHandlers`
+ * é do navegador de dentro de app no iPhone (o do Instagram, o do Facebook):
+ * o app injeta o script dele na página, ele quebra lá dentro, e o erro passa
+ * pelo filtro do `filename` como se fosse da loja. A loja não usa isso (02/10).
+ */
+const IGNORAR = /ResizeObserver loop|^Script error\.?$|webkit\.messageHandlers/
 
 function medir(m: { name: string; value: number }) {
   if (!MEDIDAS.has(m.name)) return
