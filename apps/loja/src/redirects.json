@@ -1,5 +1,5 @@
 {
-  "_comentario": "Mapa Nuvemshop → loja nova, servido como 301 pelo proxy.ts. Caminho antigo em minúsculas, sem barra final; o destino pode levar âncora (#entrega). Os produtos não entram: o endereço é o mesmo nas duas (/produtos/<handle>). Tirado do mapa do site da Nuvemshop (sitemap.xml) em 26/09, mais os endereços do sistema dela (busca, carrinho, conta). A lista inteira de lá, e a conferência de cada um, estão no ferramentas/conferir-enderecos-antigos.mjs. Endereço sem equivalente vai pra página mais próxima, nunca pra 404.",
+  "_comentario": "Mapa Nuvemshop → loja nova, servido como 301 pelo proxy.ts. Caminho antigo em minúsculas, sem barra final; o destino pode levar âncora (#entrega). Os produtos não entram: o endereço é o mesmo nas duas (/produtos/<handle>). Tirado do mapa do site da Nuvemshop (sitemap.xml) em 26/09, mais os endereços do sistema dela (busca, carrinho, conta). A lista inteira de lá, e a conferência de cada um, estão no ferramentas/conferir-enderecos-antigos.mjs. Endereço sem equivalente vai pra página mais próxima, nunca pra 404. Em prefixos, o começo do caminho: o resto (o id do pedido, o token) some no destino — é o checkout da Nuvemshop (/checkout/v3/start, next e success, /<id>/<token>), que só valia lá; quem abre um desses hoje é a aba antiga recarregada ou o link de um e-mail dela (02/10).",
   "rotas": {
     "/produtos-para-a-barba": "/barba",
     "/produtos-para-a-barba/balm": "/produtos/balm-para-barba",
@@ -19,5 +19,8 @@
     "/account/login": "/conta/entrar",
     "/account/register": "/conta/entrar",
     "/account/reset": "/conta/entrar"
+  },
+  "prefixos": {
+    "/checkout/v3/": "/"
   }
 }

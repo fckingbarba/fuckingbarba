@@ -31,9 +31,9 @@ import { readFileSync } from "node:fs"
 
 const LOJA = process.argv[2] ?? process.env.LOJA ?? "http://localhost:3000"
 const SEM_PRODUTOS = process.env.SEM_PRODUTOS === "1"
-const MAPA = JSON.parse(
+const { rotas: MAPA, prefixos: PREFIXOS } = JSON.parse(
   readFileSync(new URL("../src/redirects.json", import.meta.url), "utf8")
-).rotas
+)
 
 let passou = 0
 let falhou = 0
@@ -167,6 +167,50 @@ confere(
     const p = new URL(c, LOJA).pathname.replace(/\/+$/, "") || "/"
     return p in MAPA || ["/", "/contato", "/produtos"].includes(p)
   })
+)
+
+/*
+  ── 2b. os prefixos: o checkout da Nuvemshop, com id e token no fim ────────
+  Como chega da aba antiga recarregada (02/10, 2 visitas no 404): o token com
+  maiúsculas e a barra no fim. O 301 do prefixo direto pro destino — o
+  minúsculo não vem antes (seria um salto a mais) — com a query. Antes dele,
+  no máximo o 308 da barra final, que o Next faz antes do proxy.
+*/
+
+console.log("\nOs prefixos (src/redirects.json)\n")
+const DO_CHECKOUT_DA_NUVEMSHOP = {
+  "/checkout/v3/": [
+    "/checkout/v3/success/123456789/AbCdEf0123456789",
+    "/checkout/v3/next/123456789/AbCdEf0123456789/",
+    "/checkout/v3/start/123456789/AbCdEf0123456789",
+  ],
+}
+for (const [de, para] of Object.entries(PREFIXOS)) {
+  const destino = new URL(para, LOJA)
+  const exemplos = DO_CHECKOUT_DA_NUVEMSHOP[de] ?? []
+  confere(`${de} tem endereço de exemplo neste conferidor`, exemplos.length > 0)
+  for (const caminho of exemplos) {
+    const r = await seguir(`${caminho}?utm_source=conferidor`)
+    const barra = caminho.endsWith("/") ? r.saltos[0] : null
+    const salto = r.saltos[barra ? 1 : 0]
+    confere(
+      `${caminho} → ${para}`,
+      r.saltos.length === (barra ? 2 : 1) &&
+        (!barra || barra.status === 308) &&
+        salto.status === 301 &&
+        salto.para.pathname === destino.pathname &&
+        salto.para.hash === destino.hash &&
+        salto.para.searchParams.get("utm_source") === "conferidor" &&
+        r.status === 200,
+      emFrase(r)
+    )
+  }
+}
+confere(
+  "o checkout da loja nova não cai nos prefixos",
+  Object.keys(PREFIXOS).every(
+    (de) => !"/checkout/".startsWith(de) && !"/checkout/obrigado/".startsWith(de)
+  )
 )
 
 /* ── 3. os produtos: o mesmo endereço, com a barra no fim ───────────────── */
