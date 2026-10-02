@@ -29,7 +29,7 @@ import {
   garantiasDoPagamento,
   type FormaDePagamento,
 } from "@/conteudo/checkout"
-import { alternarBump, finalizar } from "@/lib/acoes/checkout"
+import { alternarBump, cartaoNaoPassou, finalizar } from "@/lib/acoes/checkout"
 import { comASacola, rastrear } from "@/lib/rastrear"
 import { bandeiraDe, cvvOk, luhn, mascararCartao, mascararValidade, validadeOk } from "@/lib/cartao"
 import {
@@ -252,6 +252,8 @@ export function Pagamento({ checkout, provedores, rota, bump, atendimento, ...ca
       setTokenizando(false)
       if (!r.ok) {
         setErroDoCartao(r.mensagem)
+        // Pro Início do painel: saiu no pagamento depois de digitar o cartão.
+        cartaoNaoPassou(r.porque).catch(() => undefined)
         return
       }
       // O CVV já foi usado: se o banco recusar, é ele que se digita de novo.

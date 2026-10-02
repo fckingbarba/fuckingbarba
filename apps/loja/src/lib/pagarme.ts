@@ -38,8 +38,17 @@ export type CartaoDigitado = {
   cvv: string
 }
 
+/**
+ * Por que o cartão não virou token: "dados" é o Pagar.me recusando o número,
+ * a validade ou o CVV (ou o domínio fora do cadastro dele); "conexao", ele
+ * que não respondeu; "indisponivel", a loja sem a chave pública. Vai pro
+ * Início do painel (`cartaoNaoPassou`, em `lib/acoes/checkout.ts`).
+ */
+export type PorqueNaTela = "dados" | "conexao" | "indisponivel"
+
 export type Tokenizado =
-  { ok: true; token: string; bandeira: string; final: string } | { ok: false; mensagem: string }
+  | { ok: true; token: string; bandeira: string; final: string }
+  | { ok: false; mensagem: string; porque: PorqueNaTela }
 
 /**
  * O nome como a bandeira aceita: maiúsculo, sem acento, só letras e espaço.
@@ -60,6 +69,7 @@ export async function tokenizar(cartao: CartaoDigitado): Promise<Tokenizado> {
     return {
       ok: false,
       mensagem: "O pagamento com cartão não está disponível agora. Paga no Pix, ou chama a gente.",
+      porque: "indisponivel",
     }
   }
 
@@ -92,6 +102,8 @@ export async function tokenizar(cartao: CartaoDigitado): Promise<Tokenizado> {
       return {
         ok: false,
         mensagem: "Não consegui validar o cartão. Confere número, validade e CVV e tenta de novo.",
+        // 4xx é o cartão (ou o domínio); 5xx, o Pagar.me que caiu no meio.
+        porque: resposta.status >= 500 ? "conexao" : "dados",
       }
     }
     return {
@@ -105,6 +117,7 @@ export async function tokenizar(cartao: CartaoDigitado): Promise<Tokenizado> {
       ok: false,
       mensagem:
         "Não consegui falar com o Pagar.me agora. Tenta de novo em instantes, ou paga no Pix.",
+      porque: "conexao",
     }
   }
 }
