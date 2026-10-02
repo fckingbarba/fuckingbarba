@@ -6,7 +6,8 @@ import { Raio } from "@/components/icones"
 import {
   cookieDaOferta,
   quandoAcaba,
-  restanteAte,
+  desdeDoRelogio,
+  restanteNoRelogio,
   situacaoAgora,
   type OfertaDaPagina,
 } from "@/lib/ofertas"
@@ -42,7 +43,7 @@ export function JanelaDaOferta({
 }: {
   oferta: Pick<
     OfertaDaPagina,
-    "endereco" | "titulo" | "chamada" | "comecaEm" | "terminaEm" | "situacao"
+    "endereco" | "titulo" | "chamada" | "comecaEm" | "terminaEm" | "situacao" | "relogioMinutos"
   >
   children: ReactNode
 }) {
@@ -70,8 +71,13 @@ export function JanelaDaOferta({
   }, [])
 
   const situacao = agora === null ? oferta.situacao : situacaoAgora(oferta, agora)
-  const fim = new Date(oferta.terminaEm).getTime()
-  const restante = agora === null ? null : restanteAte(fim, agora)
+  // O relógio do painel (0245), se houver: recomeça quando zera — `restanteNoRelogio`.
+  // No servidor não há relógio (o `agora` é nulo): o começo só importa no navegador.
+  const [desde] = useState(() =>
+    typeof window === "undefined" ? 0 : desdeDoRelogio(oferta.endereco, Date.now())
+  )
+  const restante =
+    agora === null ? null : restanteNoRelogio(oferta.terminaEm, oferta.relogioMinutos, desde, agora)
 
   // A marca no navegador, uma vez, com a oferta no ar (ver lá em cima).
   const noAr = situacao === "no-ar"
@@ -130,9 +136,12 @@ export function JanelaDaOferta({
                   <span className="offers__unit-label">Seg</span>
                 </div>
               </div>
-              <p className="oferta__ate" data-ate-oferta>
-                Até {quandoAcaba(oferta.terminaEm)}
-              </p>
+              {/* Com o relógio do painel, a data do fim contradiria o relógio: fica só ele. */}
+              {oferta.relogioMinutos ? null : (
+                <p className="oferta__ate" data-ate-oferta>
+                  Até {quandoAcaba(oferta.terminaEm)}
+                </p>
+              )}
             </div>
           ) : null}
         </div>

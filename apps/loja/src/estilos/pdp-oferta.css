@@ -4,12 +4,18 @@
   link (`components/oferta/na-pdp.tsx`); o resto da página é o de sempre.
 
   A FAIXA É A FITA AMARELA (entrega 0245, a "F2" do desenho, com o relógio):
-  amarela logo abaixo do cabeçalho preto, o raio num quadrado preto, "Preço
-  do seu link · acaba em", e o relógio num bloco preto de números amarelos
-  (os segundos em menta). Os cantos chanfrados são os da marca (sem
+  amarela logo abaixo do cabeçalho preto, o raio num quadrado preto, "Oferta
+  só para você · acaba em", e o relógio num bloco preto de números amarelos
+  (os segundos em menta), presa embaixo do cabeçalho quando a pessoa rola. Os cantos chanfrados são os da marca (sem
   border-radius). Do mesmo tamanho da faixa de antes (0240).
 */
 .faixa-oferta {
+  /* Presa logo abaixo do cabeçalho (também preso) quando a pessoa rola: o
+     `top` certo vem medido do cabeçalho (`useAlturaDoCabecalho`); o 0 é o
+     de antes da medida. Embaixo do cabeçalho (z-index 50) e da gaveta. */
+  position: sticky;
+  top: 0;
+  z-index: 40;
   display: flex;
   align-items: center;
   justify-content: space-between;
