@@ -44,6 +44,9 @@ export type TelaDoWhatsapp = {
     vendas: { total: string; pedidos: number }
     custoHoje: string
     custoPorResposta: string | null
+    custoGravando: string
+    gravacoes: number
+    custoRespondendo: string
   }
   ligado: boolean
   falta: string[]
